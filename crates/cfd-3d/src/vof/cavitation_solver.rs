@@ -33,12 +33,10 @@
 
 use crate::vof::config::VofConfig;
 use crate::vof::solver::VofSolver;
-use cfd_core::physics::cavitation::{
-    damage::CavitationDamage,
-    models::CavitationModel,
-    rayleigh_plesset::RayleighPlesset,
-};
 use cfd_core::error::Result;
+use cfd_core::physics::cavitation::{
+    damage::CavitationDamage, models::CavitationModel, rayleigh_plesset::RayleighPlesset,
+};
 use nalgebra::{DMatrix, Vector3};
 use std::collections::HashMap;
 
@@ -164,9 +162,10 @@ impl BubbleDynamicsSolver {
         dt: f64,
     ) -> Result<f64> {
         let key = (i, j, k);
-        let config = self.configs.get(&key).ok_or_else(|| {
-            cfd_core::error::Error::Solver("Bubble config not found".to_string())
-        })?;
+        let config = self
+            .configs
+            .get(&key)
+            .ok_or_else(|| cfd_core::error::Error::Solver("Bubble config not found".to_string()))?;
         let radius = *self.radii.get(&key).unwrap_or(&config.initial_radius);
         let velocity = *self.velocities.get(&key).unwrap_or(&0.0);
 
@@ -258,7 +257,8 @@ impl CavitationVofSolver {
         self.update_bubble_dynamics(dt, velocity_field, pressure_field, density_field)?;
 
         // 2. Calculate cavitation mass transfer rates
-        let cavitation_source = self.calculate_cavitation_source(dt, pressure_field, density_field);
+        let cavitation_source =
+            self.calculate_cavitation_source(dt, velocity_field, pressure_field, density_field);
 
         // 3. Update VOF with cavitation source term
         for idx in 0..self.vof_solver.alpha.len() {
@@ -267,7 +267,8 @@ impl CavitationVofSolver {
         }
 
         // 4. Update VOF velocity and advance
-        self.vof_solver.set_velocity_field(velocity_field.to_vec())?;
+        self.vof_solver
+            .set_velocity_field(velocity_field.to_vec())?;
         self.vof_solver.advance(dt)?;
 
         // 5. Calculate cavitation damage if damage model is enabled
@@ -287,6 +288,25 @@ impl CavitationVofSolver {
         let ny = self.vof_solver.ny;
         let nz = self.vof_solver.nz;
 
+        if pressure_field.nrows() != nx || pressure_field.ncols() != ny * nz {
+            return Err(cfd_core::error::Error::DimensionMismatch {
+                expected: nx * ny * nz,
+                actual: pressure_field.len(),
+            });
+        }
+        if density_field.nrows() != nx || density_field.ncols() != ny * nz {
+            return Err(cfd_core::error::Error::DimensionMismatch {
+                expected: nx * ny * nz,
+                actual: density_field.len(),
+            });
+        }
+        if velocity_field.len() != nx * ny * nz {
+            return Err(cfd_core::error::Error::DimensionMismatch {
+                expected: nx * ny * nz,
+                actual: velocity_field.len(),
+            });
+        }
+
         if let (Some(bubble_solver), Some(radius_field)) =
             (&mut self.bubble_solver, &mut self.bubble_radius_field)
         {
@@ -294,12 +314,14 @@ impl CavitationVofSolver {
                 for j in 0..ny {
                     for k in 0..nz {
                         let idx = self.vof_solver.index(i, j, k);
-                        let pressure = pressure_field[idx];
+                        let col = j + k * ny;
+                        let pressure = pressure_field[(i, col)];
                         let velocity = velocity_field[idx];
-                        let density = density_field[idx];
+                        let density = density_field[(i, col)];
 
-                        let radius = bubble_solver.update_bubble(i, j, k, pressure, velocity, density, dt)?;
-                        radius_field[idx] = radius;
+                        let radius = bubble_solver
+                            .update_bubble(i, j, k, pressure, velocity, density, dt)?;
+                        radius_field[(i, col)] = radius;
                     }
                 }
             }
@@ -310,6 +332,7 @@ impl CavitationVofSolver {
     fn calculate_cavitation_source(
         &mut self,
         dt: f64,
+        velocity_field: &[Vector3<f64>],
         pressure_field: &DMatrix<f64>,
         density_field: &DMatrix<f64>,
     ) -> DMatrix<f64> {
@@ -323,19 +346,28 @@ impl CavitationVofSolver {
             for j in 0..ny {
                 for k in 0..nz {
                     let idx = self.vof_solver.index(i, j, k);
-                    let pressure = pressure_field[idx];
+                    let col = j + k * ny;
+                    let pressure = pressure_field[(i, col)];
                     let void_fraction = self.vof_solver.alpha[idx].clamp(0.0, 1.0);
-                    let density_liquid = density_field[idx];
+                    let density_liquid = density_field[(i, col)];
                     let density_vapor = self.config.vapor_density;
                     let vapor_pressure = self.config.vapor_pressure;
 
                     // Calculate cavitation number (relative to vapor pressure)
-                    let ref_vel = 1.0; // Reference velocity
-                    let cavitation_number =
-                        (pressure - vapor_pressure) / (0.5 * density_liquid * ref_vel * ref_vel);
+                    let ref_vel = velocity_field[idx].norm();
+                    let ref_vel_eff = ref_vel.max(1.0e-9);
+                    let denom = 0.5 * density_liquid * ref_vel_eff * ref_vel_eff;
+                    let cavitation_number = if denom > 0.0 {
+                        (pressure - vapor_pressure) / denom
+                    } else {
+                        f64::INFINITY
+                    };
 
-                    if cavitation_number < self.config.inception_threshold {
-                        self.inception_field[idx] = 1.0;
+                    if pressure < vapor_pressure
+                        || (cavitation_number.is_finite()
+                            && cavitation_number < self.config.inception_threshold)
+                    {
+                        self.inception_field[(i, col)] = 1.0;
                     }
 
                     let mass_transfer = self.cavitation_model.mass_transfer_rate(
@@ -349,19 +381,19 @@ impl CavitationVofSolver {
                     let alpha_source = mass_transfer / density_vapor;
                     let relaxed_rate = alpha_source * dt / (dt + self.config.relaxation_time);
 
-                    cavitation_source[idx] = relaxed_rate;
+                    cavitation_source[(i, col)] = relaxed_rate;
 
                     // Limit void fraction increment
                     let max_allowed = self.config.max_void_fraction;
-                    if cavitation_source[idx] > 0.0 {
+                    if cavitation_source[(i, col)] > 0.0 {
                         let room = (max_allowed - void_fraction).max(0.0);
-                        if cavitation_source[idx] > room {
-                            cavitation_source[idx] = room;
+                        if cavitation_source[(i, col)] > room {
+                            cavitation_source[(i, col)] = room;
                         }
-                    } else if cavitation_source[idx] < 0.0 {
+                    } else if cavitation_source[(i, col)] < 0.0 {
                         let available = void_fraction.max(0.0);
-                        if cavitation_source[idx].abs() > available {
-                            cavitation_source[idx] = -available;
+                        if cavitation_source[(i, col)].abs() > available {
+                            cavitation_source[(i, col)] = -available;
                         }
                     }
                 }
@@ -370,10 +402,19 @@ impl CavitationVofSolver {
         cavitation_source
     }
 
-    fn update_damage(&mut self, dt: f64, _pressure_field: &DMatrix<f64>, density_field: &DMatrix<f64>) {
+    fn update_damage(
+        &mut self,
+        dt: f64,
+        _pressure_field: &DMatrix<f64>,
+        density_field: &DMatrix<f64>,
+    ) {
         let nx = self.vof_solver.nx;
         let ny = self.vof_solver.ny;
         let nz = self.vof_solver.nz;
+
+        if density_field.nrows() != nx || density_field.ncols() != ny * nz {
+            return;
+        }
 
         if let (Some(damage_model), Some(damage_field)) =
             (&self.damage_model, &mut self.damage_field)
@@ -382,6 +423,7 @@ impl CavitationVofSolver {
                 for j in 0..ny {
                     for k in 0..nz {
                         let idx = self.vof_solver.index(i, j, k);
+                        let col = j + k * ny;
                         let void_fraction = self.vof_solver.alpha[idx];
 
                         if void_fraction > 0.01 {
@@ -390,19 +432,21 @@ impl CavitationVofSolver {
                                     i,
                                     j,
                                     k,
-                                    density_field[idx],
+                                    density_field[(i, col)],
                                     self.config.sound_speed,
                                 )
                             } else {
-                                let bubble_radius =
-                                    self.bubble_radius_field.as_ref().map_or(1e-6, |f| f[idx]);
+                                let bubble_radius = self
+                                    .bubble_radius_field
+                                    .as_ref()
+                                    .map_or(1e-6, |f| f[(i, col)]);
                                 let initial_radius = self
                                     .config
                                     .bubble_dynamics
                                     .as_ref()
                                     .map_or(1e-6, |c| c.initial_radius);
                                 if bubble_radius > 0.0 {
-                                    density_field[idx]
+                                    density_field[(i, col)]
                                         * self.config.sound_speed.powi(2)
                                         * (initial_radius / bubble_radius)
                                 } else {
@@ -418,7 +462,7 @@ impl CavitationVofSolver {
                             );
 
                             // Accumulate damage
-                            damage_field[idx] += erosion_rate;
+                            damage_field[(i, col)] += erosion_rate;
                         }
                     }
                 }
@@ -449,7 +493,9 @@ impl CavitationVofSolver {
             });
         }
 
-        self.vof_solver.alpha.copy_from_slice(volume_fraction.as_slice());
+        self.vof_solver
+            .alpha
+            .copy_from_slice(volume_fraction.as_slice());
         Ok(())
     }
 
@@ -466,6 +512,66 @@ impl CavitationVofSolver {
     /// Get bubble radius field
     pub fn bubble_radius_field(&self) -> Option<&DMatrix<f64>> {
         self.bubble_radius_field.as_ref()
+    }
+
+    #[allow(missing_docs)]
+    pub fn sonoluminescence_energy_field(
+        &self,
+        pressure_field: &DMatrix<f64>,
+        ambient_temperature: f64,
+        flash_duration: f64,
+        emissivity: f64,
+    ) -> Result<DMatrix<f64>> {
+        let nx = self.vof_solver.nx;
+        let ny = self.vof_solver.ny;
+        let nz = self.vof_solver.nz;
+
+        if pressure_field.nrows() != nx || pressure_field.ncols() != ny * nz {
+            return Err(cfd_core::error::Error::DimensionMismatch {
+                expected: nx * ny * nz,
+                actual: pressure_field.len(),
+            });
+        }
+        let Some(radius_field) = &self.bubble_radius_field else {
+            return Err(cfd_core::error::Error::InvalidConfiguration(
+                "Bubble radius field not available; enable bubble dynamics".to_string(),
+            ));
+        };
+        let Some(bubble_cfg) = &self.config.bubble_dynamics else {
+            return Err(cfd_core::error::Error::InvalidConfiguration(
+                "Bubble dynamics config not available".to_string(),
+            ));
+        };
+
+        let mut energy = DMatrix::zeros(nx, ny * nz);
+
+        let rp = RayleighPlesset::<f64> {
+            initial_radius: bubble_cfg.initial_radius,
+            liquid_density: self.config.liquid_density,
+            liquid_viscosity: 1.002e-3,
+            surface_tension: bubble_cfg.surface_tension,
+            vapor_pressure: self.config.vapor_pressure,
+            polytropic_index: bubble_cfg.polytropic_exponent,
+        };
+
+        for i in 0..nx {
+            for j in 0..ny {
+                for k in 0..nz {
+                    let col = j + k * ny;
+                    let r_collapse = radius_field[(i, col)];
+                    let estimate = rp.estimate_sonoluminescence(
+                        pressure_field[(i, col)],
+                        ambient_temperature,
+                        r_collapse,
+                        emissivity,
+                        flash_duration,
+                    )?;
+                    energy[(i, col)] = estimate.radiated_energy;
+                }
+            }
+        }
+
+        Ok(energy)
     }
 
     /// Calculate cavitation statistics

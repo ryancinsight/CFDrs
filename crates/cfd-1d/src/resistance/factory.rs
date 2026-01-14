@@ -35,7 +35,7 @@ impl ResistanceModelFactory {
         length: T,
         roughness: T,
     ) -> DarcyWeisbachModel<T> {
-           DarcyWeisbachModel::circular(hydraulic_diameter, length, roughness)
+        DarcyWeisbachModel::circular(hydraulic_diameter, length, roughness)
     }
 
     /// Create Darcy-Weisbach model for turbulent flow in a circular channel

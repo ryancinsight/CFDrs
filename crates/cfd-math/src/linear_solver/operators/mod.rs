@@ -1,17 +1,17 @@
 //! Matrix-free linear operators for CFD applications.
 
-/// Poisson operators for pressure and potential fields
-pub mod poisson;
-/// Momentum and energy operators for fluid flow
-pub mod momentum;
 #[cfg(feature = "gpu")]
 /// GPU-accelerated operators
 pub mod gpu;
+/// Momentum and energy operators for fluid flow
+pub mod momentum;
+/// Poisson operators for pressure and potential fields
+pub mod poisson;
 
-pub use poisson::{LaplacianOperator2D, PoissonOperator3D};
-pub use momentum::{MomentumOperator1D, MomentumOperator2D, EnergyOperator2D};
 #[cfg(feature = "gpu")]
 pub use gpu::{BoundaryType, GpuLaplacianOperator2D};
+pub use momentum::{EnergyOperator2D, MomentumOperator1D, MomentumOperator2D};
+pub use poisson::{LaplacianOperator2D, PoissonOperator3D};
 
 use crate::linear_solver::traits::LinearOperator;
 use cfd_core::error::Result;

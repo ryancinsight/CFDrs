@@ -37,8 +37,8 @@ impl PerformanceProfiler {
         let profiles = self.benchmarks.benchmark_cfd_algorithms()?;
 
         // Generate comprehensive report
-        let summary = self.generate_summary(&profiles);
-        let recommendations = self.generate_system_recommendations(&profiles);
+        let summary = Self::generate_summary(&profiles);
+        let recommendations = Self::generate_system_recommendations(&profiles);
         let report = PerformanceReport {
             timestamp: chrono::Utc::now(),
             profiles,
@@ -47,13 +47,13 @@ impl PerformanceProfiler {
         };
 
         // Display results
-        self.display_report(&report);
+        Self::display_report(&report);
 
         Ok(report)
     }
 
     /// Generate performance summary
-    fn generate_summary(&self, profiles: &[PerformanceProfile]) -> PerformanceSummary {
+    fn generate_summary(profiles: &[PerformanceProfile]) -> PerformanceSummary {
         let total_gflops = profiles.iter().map(|p| p.gflops).sum::<f64>();
         let avg_memory_bandwidth =
             profiles.iter().map(|p| p.memory_bandwidth).sum::<f64>() / profiles.len() as f64;
@@ -70,16 +70,17 @@ impl PerformanceProfiler {
 
         let best_algorithm = profiles
             .iter()
-            .max_by(|a, b| a.gflops.partial_cmp(&b.gflops).unwrap()).map_or_else(|| "None".to_string(), |p| p.complexity.name.clone());
+            .max_by(|a, b| a.gflops.total_cmp(&b.gflops))
+            .map_or_else(|| "None".to_string(), |p| p.complexity.name.clone());
 
         let worst_algorithm = profiles
             .iter()
             .min_by(|a, b| {
                 a.complexity
                     .cache_efficiency
-                    .partial_cmp(&b.complexity.cache_efficiency)
-                    .unwrap()
-            }).map_or_else(|| "None".to_string(), |p| p.complexity.name.clone());
+                    .total_cmp(&b.complexity.cache_efficiency)
+            })
+            .map_or_else(|| "None".to_string(), |p| p.complexity.name.clone());
 
         PerformanceSummary {
             total_profiles: profiles.len(),
@@ -94,7 +95,6 @@ impl PerformanceProfiler {
 
     /// Generate system-wide performance recommendations
     fn generate_system_recommendations(
-        &self,
         profiles: &[PerformanceProfile],
     ) -> Vec<PerformanceRecommendation> {
         let mut recommendations = Vec::new();
@@ -175,7 +175,7 @@ impl PerformanceProfiler {
     }
 
     /// Display comprehensive performance report
-    fn display_report(&self, report: &PerformanceReport) {
+    fn display_report(report: &PerformanceReport) {
         println!("\n📊 Performance Profiling Summary");
         println!("===============================");
         println!(
@@ -287,6 +287,7 @@ impl Default for PerformanceProfiler {
 
 #[cfg(test)]
 mod tests {
+    use super::super::performance::{AlgorithmComplexity, TimingResult};
     use super::*;
 
     #[test]
@@ -298,10 +299,20 @@ mod tests {
 
     #[test]
     fn test_performance_report_structure() {
-        let _profiler = PerformanceProfiler::new();
+        let timing = TimingResult::new("Synthetic".to_string(), vec![1.0, 1.0, 1.0]);
+        let complexity = AlgorithmComplexity::new("Synthetic")
+            .with_cache_efficiency(0.25)
+            .with_scalability(0.8);
 
-        // This test would run actual profiling in a real scenario
-        // For now, just test that the profiler can be created
-        assert!(true); // Placeholder - would need actual test data
+        let mut profile = PerformanceProfile::new(timing, complexity);
+        profile.gflops = 10.0;
+        profile.memory_bandwidth = 20.0;
+
+        let summary = PerformanceProfiler::generate_summary(std::slice::from_ref(&profile));
+        assert_eq!(summary.total_profiles, 1);
+        assert_eq!(summary.total_gflops, 10.0);
+        assert_eq!(summary.avg_memory_bandwidth, 20.0);
+        assert_eq!(summary.best_algorithm, "Synthetic".to_string());
+        assert_eq!(summary.worst_algorithm, "Synthetic".to_string());
     }
 }

@@ -18,7 +18,13 @@ impl<T: nalgebra::RealField + Copy> GaussSeidelSmoother<T> {
 }
 
 impl<T: nalgebra::RealField + Copy> MultigridSmoother<T> for GaussSeidelSmoother<T> {
-    fn apply(&self, matrix: &SparseMatrix<T>, x: &mut DVector<T>, b: &DVector<T>, iterations: usize) {
+    fn apply(
+        &self,
+        matrix: &SparseMatrix<T>,
+        x: &mut DVector<T>,
+        b: &DVector<T>,
+        iterations: usize,
+    ) {
         let offsets = matrix.row_offsets();
         let indices = matrix.col_indices();
         let values = matrix.values();
@@ -65,7 +71,13 @@ impl<T: nalgebra::RealField + Copy> SymmetricGaussSeidelSmoother<T> {
 }
 
 impl<T: nalgebra::RealField + Copy> MultigridSmoother<T> for SymmetricGaussSeidelSmoother<T> {
-    fn apply(&self, matrix: &SparseMatrix<T>, x: &mut DVector<T>, b: &DVector<T>, iterations: usize) {
+    fn apply(
+        &self,
+        matrix: &SparseMatrix<T>,
+        x: &mut DVector<T>,
+        b: &DVector<T>,
+        iterations: usize,
+    ) {
         let offsets = matrix.row_offsets();
         let indices = matrix.col_indices();
         let values = matrix.values();
@@ -117,7 +129,13 @@ impl<T: nalgebra::RealField + Copy> JacobiSmoother<T> {
 }
 
 impl<T: nalgebra::RealField + Copy> MultigridSmoother<T> for JacobiSmoother<T> {
-    fn apply(&self, matrix: &SparseMatrix<T>, x: &mut DVector<T>, b: &DVector<T>, iterations: usize) {
+    fn apply(
+        &self,
+        matrix: &SparseMatrix<T>,
+        x: &mut DVector<T>,
+        b: &DVector<T>,
+        iterations: usize,
+    ) {
         let offsets = matrix.row_offsets();
         let indices = matrix.col_indices();
         let values = matrix.values();
@@ -166,7 +184,13 @@ impl<T: nalgebra::RealField + Copy> SORSmoother<T> {
 }
 
 impl<T: nalgebra::RealField + Copy> MultigridSmoother<T> for SORSmoother<T> {
-    fn apply(&self, matrix: &SparseMatrix<T>, x: &mut DVector<T>, b: &DVector<T>, iterations: usize) {
+    fn apply(
+        &self,
+        matrix: &SparseMatrix<T>,
+        x: &mut DVector<T>,
+        b: &DVector<T>,
+        iterations: usize,
+    ) {
         let offsets = matrix.row_offsets();
         let indices = matrix.col_indices();
         let values = matrix.values();
@@ -226,7 +250,8 @@ impl<T: nalgebra::RealField + Copy> ChebyshevSmoother<T> {
         let indices = matrix.col_indices();
         let values = matrix.values();
 
-        for i in 0..matrix.nrows().min(100) { // Check more rows for better estimate
+        for i in 0..matrix.nrows().min(100) {
+            // Check more rows for better estimate
             let mut row_sum = T::zero();
             let mut diag = T::zero();
 
@@ -239,9 +264,13 @@ impl<T: nalgebra::RealField + Copy> ChebyshevSmoother<T> {
                     row_sum += val;
                 }
             }
-            
+
             // Gershgorin discs: [diag - sum, diag + sum]
-            let lower = if diag > row_sum { diag - row_sum } else { T::from_f64(0.1).unwrap() };
+            let lower = if diag > row_sum {
+                diag - row_sum
+            } else {
+                T::from_f64(0.1).unwrap()
+            };
             let upper = diag + row_sum;
 
             min_eigen = min_eigen.min(lower);
@@ -256,7 +285,13 @@ impl<T: nalgebra::RealField + Copy> ChebyshevSmoother<T> {
 }
 
 impl<T: nalgebra::RealField + Copy> MultigridSmoother<T> for ChebyshevSmoother<T> {
-    fn apply(&self, matrix: &SparseMatrix<T>, x: &mut DVector<T>, b: &DVector<T>, iterations: usize) {
+    fn apply(
+        &self,
+        matrix: &SparseMatrix<T>,
+        x: &mut DVector<T>,
+        b: &DVector<T>,
+        iterations: usize,
+    ) {
         let theta = (self.eigenvalues_max + self.eigenvalues_min) / (T::from_f64(2.0).unwrap());
         let delta = (self.eigenvalues_max - self.eigenvalues_min) / (T::from_f64(2.0).unwrap());
         let sigma = if delta.abs() < T::from_f64(1e-10).unwrap() {
@@ -266,19 +301,19 @@ impl<T: nalgebra::RealField + Copy> MultigridSmoother<T> for ChebyshevSmoother<T
         };
 
         let rho_old = if sigma == T::zero() {
-             T::zero()
+            T::zero()
         } else {
-             T::from_f64(1.0).unwrap() / sigma
+            T::from_f64(1.0).unwrap() / sigma
         };
 
         // Compute initial residual
         let mut r = b - matrix * &*x;
 
         let alpha = if sigma == T::zero() {
-             T::from_f64(1.0).unwrap() / self.eigenvalues_max
+            T::from_f64(1.0).unwrap() / self.eigenvalues_max
         } else {
-             let rho_new = T::from_f64(1.0).unwrap() / (T::from_f64(2.0).unwrap() * sigma - rho_old);
-             rho_new / rho_old
+            let rho_new = T::from_f64(1.0).unwrap() / (T::from_f64(2.0).unwrap() * sigma - rho_old);
+            rho_new / rho_old
         };
 
         let offsets = matrix.row_offsets();

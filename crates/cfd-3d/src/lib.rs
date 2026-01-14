@@ -291,20 +291,24 @@ mod tests {
     /// Test FEM element type configuration
     #[test]
     fn test_fem_element_types() {
-        use cfd_core::domain::ElementType;
-
-        let mut config: FemConfig<f64> = FemConfig::default();
+        use cfd_core::geometry::ElementType;
 
         // Test different element types
-        config.element_type = ElementType::Tetrahedron;
-        assert_eq!(config.element_type, ElementType::Tetrahedron);
+        let config_tet: FemConfig<f64> = FemConfig {
+            element_type: ElementType::Tetrahedron,
+            ..Default::default()
+        };
+        assert_eq!(config_tet.element_type, ElementType::Tetrahedron);
 
-        config.element_type = ElementType::Hexahedron;
-        assert_eq!(config.element_type, ElementType::Hexahedron);
+        let config_hex: FemConfig<f64> = FemConfig {
+            element_type: ElementType::Hexahedron,
+            ..Default::default()
+        };
+        assert_eq!(config_hex.element_type, ElementType::Hexahedron);
 
         // Verify stabilization parameters
-        assert!(config.tau > 0.0);
-        assert!(config.quadrature_order >= 1);
+        assert!(config_hex.tau > 0.0);
+        assert!(config_hex.quadrature_order >= 1);
     }
 
     /// Test collocation point properties - literature validation  

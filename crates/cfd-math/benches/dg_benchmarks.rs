@@ -31,10 +31,11 @@ fn dg_advection_benchmark(c: &mut Criterion) {
                     solver.initialize(u0).unwrap();
 
                     b.iter(|| {
-                        let f = |_: f64, u: &DMatrix<f64>| -> Result<DMatrix<f64>> {
-                            Ok(-u.clone())
-                        };
-                        solver.step(&f, None::<&fn(f64, &DMatrix<f64>) -> Result<DMatrix<f64>>>).unwrap();
+                        let f =
+                            |_: f64, u: &DMatrix<f64>| -> Result<DMatrix<f64>> { Ok(-u.clone()) };
+                        solver
+                            .step(&f, None::<&fn(f64, &DMatrix<f64>) -> Result<DMatrix<f64>>>)
+                            .unwrap();
                     });
                 },
             );

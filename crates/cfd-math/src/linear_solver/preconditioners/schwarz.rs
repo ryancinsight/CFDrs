@@ -3,13 +3,13 @@
 //! Schwarz methods decompose the domain into subdomains, solve local problems,
 //! and combine the solutions. Overlapping subdomains improve convergence.
 
-use std::collections::HashMap;
+use super::IncompleteLU;
+use crate::linear_solver::Preconditioner;
+use cfd_core::error::{Error, Result};
 use nalgebra::{DVector, RealField};
 use nalgebra_sparse::CsrMatrix;
 use num_traits::FromPrimitive;
-use crate::linear_solver::Preconditioner;
-use super::IncompleteLU;
-use cfd_core::error::{Error, Result};
+use std::collections::HashMap;
 
 /// Serial Overlapping Schwarz preconditioner
 pub struct SerialSchwarzPreconditioner<T: RealField + Copy> {

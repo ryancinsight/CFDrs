@@ -1,5 +1,5 @@
 #[cfg(test)]
-mod tests {
+mod differentiation_tests {
     use super::super::*;
     use approx::assert_relative_eq;
     use nalgebra::Vector3;

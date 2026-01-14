@@ -3,11 +3,11 @@
 //! These are exact solutions to the Navier-Stokes equations
 //! used to validate numerical implementations.
 
+use cfd_core::conversion::SafeFromF64;
 use cfd_core::physics::constants::mathematical::{
     numeric::{ONE_HALF, TWO, TWO_THIRDS},
     TWO_PI,
 };
-use cfd_core::conversion::SafeFromF64;
 use nalgebra::{RealField, Vector3};
 use num_traits::FromPrimitive;
 

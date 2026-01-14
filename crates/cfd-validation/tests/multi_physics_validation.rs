@@ -338,7 +338,7 @@ fn test_coupled_physics_interaction() {
     );
 
     assert!(
-        concentration >= 0.0 && concentration <= 1.0,
+        (0.0..=1.0).contains(&concentration),
         "Species concentration out of bounds: {}",
         concentration
     );
@@ -443,4 +443,3 @@ mod property_tests {
         }
     }
 }
-

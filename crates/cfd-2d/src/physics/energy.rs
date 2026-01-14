@@ -4,8 +4,8 @@
 //! ∂T/∂t + (u·∇)T = α∇²T + Q/(ρCp)
 //! where α = k/(ρCp) is thermal diffusivity
 
-use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_core::error::Result;
+use cfd_core::physics::boundary::BoundaryCondition;
 use nalgebra::RealField;
 use std::collections::HashMap;
 
@@ -490,8 +490,10 @@ mod tests {
 
     #[test]
     fn test_constants_validity() {
-        assert!(constants::DEFAULT_PRANDTL > 0.0);
-        assert!(constants::STEFAN_BOLTZMANN > 0.0);
+        const _: () = {
+            assert!(constants::DEFAULT_PRANDTL > 0.0);
+            assert!(constants::STEFAN_BOLTZMANN > 0.0);
+        };
         assert_relative_eq!(constants::CENTRAL_DIFF_COEFF, 2.0, epsilon = 1e-10);
     }
 
@@ -747,7 +749,7 @@ mod tests {
             .unwrap();
 
         // Should be reasonably accurate (relaxed tolerance for numerical stability)
-        assert!(max_error < 0.1, "Max error too high: {}", max_error);
+        assert!(max_error < 0.1, "Max error too high: {max_error}");
     }
 
     /// Edge case: Extreme heat source magnitudes
@@ -1004,7 +1006,7 @@ mod tests {
                     pt_count += 1;
                 }
             }
-            l2_error = (l2_error / pt_count as f64).sqrt();
+            l2_error = (l2_error / f64::from(pt_count)).sqrt();
             errors.push(l2_error);
         }
 
@@ -1013,8 +1015,7 @@ mod tests {
             let convergence_ratio = errors[0] / errors[1];
             assert!(
                 convergence_ratio > 1.2,
-                "No convergence observed: ratio = {}",
-                convergence_ratio
+                "No convergence observed: ratio = {convergence_ratio}"
             ); // More realistic for small grids
         }
     }
@@ -1193,10 +1194,6 @@ mod tests {
             .sum();
 
         // Use more realistic tolerance for explicit diffusion solver with updated BC handling
-        assert!(
-            total_change < 1.0,
-            "Total change too large: {}",
-            total_change
-        );
+        assert!(total_change < 1.0, "Total change too large: {total_change}");
     }
 }

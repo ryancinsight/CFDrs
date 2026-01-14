@@ -18,6 +18,7 @@ use cfd_core::physics::cavitation::{
     damage::CavitationDamage,
     models::{CavitationModel, ZgbParams},
     number::CavitationNumber,
+    rayleigh_plesset::RayleighPlesset,
     venturi::VenturiCavitation,
 };
 use cfd_validation::benchmarking::visualization::{
@@ -39,6 +40,9 @@ struct CavitationAnalysisResult {
     cavity_volume: f64,
     pressure_recovery_coefficient: f64,
     loss_coefficient: f64,
+    sonoluminescence_peak_temperature: f64,
+    sonoluminescence_peak_pressure: f64,
+    sonoluminescence_radiated_energy: f64,
 }
 
 /// Complete venturi cavitation analysis
@@ -82,6 +86,19 @@ fn analyze_venturi_cavitation() -> Result<Vec<CavitationAnalysisResult>, Box<dyn
     println!("Inlet pressure: {:.0} Pa", inlet_pressure);
     println!();
 
+    let ambient_temperature = 293.15;
+    let flash_duration = 50e-12;
+    let emissivity = 1.0;
+    let initial_bubble_radius = 10e-6;
+    let bubble = RayleighPlesset::<f64> {
+        initial_radius: initial_bubble_radius,
+        liquid_density: density,
+        liquid_viscosity: 1.002e-3,
+        surface_tension: SURFACE_TENSION_WATER,
+        vapor_pressure,
+        polytropic_index: 1.4,
+    };
+
     for &inlet_velocity in &inlet_velocities {
         let venturi = VenturiCavitation {
             inlet_diameter,
@@ -123,6 +140,34 @@ fn analyze_venturi_cavitation() -> Result<Vec<CavitationAnalysisResult>, Box<dyn
         let outlet_pressure = venturi.outlet_pressure(pressure_recovery_coefficient);
         let loss_coefficient = venturi.loss_coefficient(outlet_pressure);
 
+        let (
+            sonoluminescence_peak_temperature,
+            sonoluminescence_peak_pressure,
+            sonoluminescence_radiated_energy,
+        ) = if is_cavitating {
+            let collapse_ratio = if cavitation_number.is_finite() && cavitation_number > 0.0 {
+                (SIGMA_INCIPIENT / cavitation_number).clamp(1.0, 20.0)
+            } else {
+                20.0
+            };
+            let collapse_radius = initial_bubble_radius / collapse_ratio;
+            let ambient_pressure = throat_pressure.max(vapor_pressure).max(1.0);
+            let estimate = bubble.estimate_sonoluminescence(
+                ambient_pressure,
+                ambient_temperature,
+                collapse_radius,
+                emissivity,
+                flash_duration,
+            )?;
+            (
+                estimate.peak_temperature,
+                estimate.peak_pressure,
+                estimate.radiated_energy,
+            )
+        } else {
+            (0.0, 0.0, 0.0)
+        };
+
         let result = CavitationAnalysisResult {
             inlet_velocity,
             inlet_pressure,
@@ -135,6 +180,9 @@ fn analyze_venturi_cavitation() -> Result<Vec<CavitationAnalysisResult>, Box<dyn
             cavity_volume,
             pressure_recovery_coefficient,
             loss_coefficient,
+            sonoluminescence_peak_temperature,
+            sonoluminescence_peak_pressure,
+            sonoluminescence_radiated_energy,
         };
 
         results.push(result);
@@ -161,6 +209,12 @@ fn analyze_venturi_cavitation() -> Result<Vec<CavitationAnalysisResult>, Box<dyn
                     cavity_closure_position * 1000.0,
                     cavity_volume
                 );
+                println!(
+                    "  Sonoluminescence estimate: T_peak = {:.0} K, P_peak = {:.2e} Pa, E = {:.2e} J/bubble",
+                    sonoluminescence_peak_temperature,
+                    sonoluminescence_peak_pressure,
+                    sonoluminescence_radiated_energy
+                );
             }
             println!(
                 "  Pressure recovery: C_p = {:.3}, Loss coeff = {:.3}",
@@ -185,6 +239,10 @@ fn generate_cavitation_plots(
     let cavitation_numbers: Vec<f64> = results.iter().map(|r| r.cavitation_number).collect();
     let cavity_lengths: Vec<f64> = results.iter().map(|r| r.cavity_length * 1000.0).collect(); // mm
     let loss_coefficients: Vec<f64> = results.iter().map(|r| r.loss_coefficient).collect();
+    let sonoluminescence_energy_pj: Vec<f64> = results
+        .iter()
+        .map(|r| r.sonoluminescence_radiated_energy * 1e12)
+        .collect();
 
     // Cavitation inception threshold
     let sigma_threshold = SIGMA_INCIPIENT;
@@ -231,7 +289,11 @@ fn generate_cavitation_plots(
             .collect(),
         datasets: vec![Dataset {
             label: "Cavity Length (mm)".to_string(),
-            data: cavity_lengths.clone().into_iter().filter(|&l| l > 0.0).collect(),
+            data: cavity_lengths
+                .clone()
+                .into_iter()
+                .filter(|&l| l > 0.0)
+                .collect(),
             color: "#d62728".to_string(),
         }],
     };
@@ -311,6 +373,11 @@ fn generate_cavitation_plots(
         <canvas id="cavityChart" width="1000" height="400"></canvas>
     </div>
 
+    <h2>Sonoluminescence (Estimate)</h2>
+    <div class="chart-container">
+        <canvas id="sonoChart" width="1000" height="400"></canvas>
+    </div>
+
     <h2>Flow Losses</h2>
     <div class="chart-container">
         <canvas id="lossChart" width="1000" height="400"></canvas>
@@ -324,6 +391,7 @@ fn generate_cavitation_plots(
             <th>Cavitation Number</th>
             <th>Status</th>
             <th>Cavity Length (mm)</th>
+            <th>Sonoluminescence (pJ/bubble)</th>
             <th>Loss Coefficient</th>
         </tr>
 "#,
@@ -373,6 +441,7 @@ fn generate_cavitation_plots(
             <td>{:.3}</td>
             <td>{}</td>
             <td>{:.3}</td>
+            <td>{:.3e}</td>
             <td>{:.3}</td>
         </tr>
 "#,
@@ -382,6 +451,7 @@ fn generate_cavitation_plots(
             result.cavitation_number,
             status,
             result.cavity_length * 1000.0,
+            result.sonoluminescence_radiated_energy * 1e12,
             result.loss_coefficient
         ));
     }
@@ -523,14 +593,80 @@ fn generate_cavitation_plots(
                 }}
             }}
         }});
-
-        // Cavity Chart (only for cavitating cases)
-        const cavityCtx = document.getElementById('cavityChart').getContext('2d');
-        const cavityLabels = ["#,
+        "#,
         sigma_threshold,
         inlet_velocities.len(),
         sigma_threshold
     ));
+
+    html.push_str(
+        r#"
+
+        // Sonoluminescence Energy Chart
+        const sonoCtx = document.getElementById('sonoChart').getContext('2d');
+        new Chart(sonoCtx, {
+            type: 'line',
+            data: {
+                labels: ["#,
+    );
+
+    for (i, &vel) in inlet_velocities.iter().enumerate() {
+        if i > 0 {
+            html.push_str(",");
+        }
+        html.push_str(&format!("\"{:.1}\"", vel));
+    }
+
+    html.push_str(
+        r#"],
+                datasets: [{
+                    label: 'Radiated Energy (pJ per bubble)',
+                    data: ["#,
+    );
+
+    for (i, &e) in sonoluminescence_energy_pj.iter().enumerate() {
+        if i > 0 {
+            html.push_str(",");
+        }
+        html.push_str(&format!("{:.6}", e));
+    }
+
+    html.push_str(
+        r#"],
+                    borderColor: '#9467bd',
+                    backgroundColor: 'rgba(148, 103, 189, 0.1)',
+                    tension: 0.1
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Sonoluminescence Energy Estimate'
+                    }
+                },
+                scales: {
+                    y: {
+                        title: {
+                            display: true,
+                            text: 'Energy (pJ per bubble)'
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Inlet Velocity (m/s)'
+                        }
+                    }
+                }
+            }
+        });
+
+        // Cavity Chart (only for cavitating cases)
+        const cavityCtx = document.getElementById('cavityChart').getContext('2d');
+        const cavityLabels = ["#,
+    );
 
     // Add cavity labels (only cavitating cases)
     let cavitating_cases: Vec<_> = results

@@ -216,10 +216,25 @@ fn test_taylor_green_evaluation() {
             let omega = tg.vorticity(x, y, 0.0);
 
             // Verify values are finite
-            assert!(vel.x.is_finite(), "Velocity u is not finite at ({}, {})", x, y);
-            assert!(vel.y.is_finite(), "Velocity v is not finite at ({}, {})", x, y);
+            assert!(
+                vel.x.is_finite(),
+                "Velocity u is not finite at ({}, {})",
+                x,
+                y
+            );
+            assert!(
+                vel.y.is_finite(),
+                "Velocity v is not finite at ({}, {})",
+                x,
+                y
+            );
             assert!(p.is_finite(), "Pressure is not finite at ({}, {})", x, y);
-            assert!(omega.is_finite(), "Vorticity is not finite at ({}, {})", x, y);
+            assert!(
+                omega.is_finite(),
+                "Vorticity is not finite at ({}, {})",
+                x,
+                y
+            );
         }
     }
 
@@ -251,7 +266,12 @@ fn test_manufactured_diffusion_evaluation() {
 
             // Verify values are finite
             assert!(u.is_finite(), "Solution is not finite at ({}, {})", x, y);
-            assert!(source.is_finite(), "Source term is not finite at ({}, {})", x, y);
+            assert!(
+                source.is_finite(),
+                "Source term is not finite at ({}, {})",
+                x,
+                y
+            );
         }
     }
 

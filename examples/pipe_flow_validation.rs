@@ -238,17 +238,11 @@ fn validate_pipe_flow(
         let r = (vertex.position.x.powi(2) + vertex.position.y.powi(2)).sqrt();
 
         // Check if point is near centerline (r ≈ 0)
-        if r < radius * 0.1 {
-            if i < solution.velocity.len() {
-                let v_z = if i * 3 + 2 < solution.velocity.len() {
-                    solution.velocity[i * 3 + 2] // z-component of velocity
-                } else {
-                    0.0_f64
-                };
-                centerline_velocities.push((vertex.position.z, v_z));
-                if v_z.abs() > max_velocity_numerical {
-                    max_velocity_numerical = v_z.abs();
-                }
+        if r < radius * 0.1 && i * 3 + 2 < solution.velocity.len() {
+            let v_z = solution.velocity[i * 3 + 2]; // z-component of velocity
+            centerline_velocities.push((vertex.position.z, v_z));
+            if v_z.abs() > max_velocity_numerical {
+                max_velocity_numerical = v_z.abs();
             }
         }
     }
@@ -289,11 +283,9 @@ fn validate_pipe_flow(
     for (vertex_id, vertex) in mesh.vertices().iter().enumerate() {
         if (vertex.position.z - mid_z).abs() < length / (2.0 * n_axial as f64) {
             let r = (vertex.position.x.powi(2) + vertex.position.y.powi(2)).sqrt();
-            if r <= radius {
-                if vertex_id * 3 + 2 < solution.velocity.len() {
-                    let v_z = solution.velocity[vertex_id * 3 + 2];
-                    flow_rate_numerical += v_z * r * dr * dtheta; // Cylindrical integration
-                }
+            if r <= radius && vertex_id * 3 + 2 < solution.velocity.len() {
+                let v_z = solution.velocity[vertex_id * 3 + 2];
+                flow_rate_numerical += v_z * r * dr * dtheta; // Cylindrical integration
             }
         }
     }
@@ -315,12 +307,10 @@ fn validate_pipe_flow(
     for (vertex_id, vertex) in mesh.vertices().iter().enumerate() {
         if (vertex.position.z - mid_z).abs() < length / (2.0 * n_axial as f64) {
             let r = (vertex.position.x.powi(2) + vertex.position.y.powi(2)).sqrt();
-            if r <= radius {
-                if vertex_id * 3 + 2 < solution.velocity.len() {
-                    let v_z = solution.velocity[vertex_id * 3 + 2];
-                    let v_analytical = max_velocity_analytical * (1.0 - (r / radius).powi(2));
-                    profile_points.push((r / radius, v_z, v_analytical));
-                }
+            if r <= radius && vertex_id * 3 + 2 < solution.velocity.len() {
+                let v_z = solution.velocity[vertex_id * 3 + 2];
+                let v_analytical = max_velocity_analytical * (1.0 - (r / radius).powi(2));
+                profile_points.push((r / radius, v_z, v_analytical));
             }
         }
     }

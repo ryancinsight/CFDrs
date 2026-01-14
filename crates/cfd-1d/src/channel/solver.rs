@@ -3,10 +3,12 @@
 use super::cross_section::CrossSection;
 use super::flow::{Channel, FlowRegime, FlowState, NumericalParameters};
 use super::geometry::ChannelGeometry;
-use cfd_core::physics::constants::physics::dimensionless::reynolds::{PIPE_LAMINAR_MAX, PIPE_TURBULENT_MIN};
-use cfd_core::physics::constants::mathematical::{numeric, PI};
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::Result;
+use cfd_core::physics::constants::mathematical::{numeric, PI};
+use cfd_core::physics::constants::physics::dimensionless::reynolds::{
+    PIPE_LAMINAR_MAX, PIPE_TURBULENT_MIN,
+};
 use cfd_core::physics::fluid::{ConstantFluid, Fluid};
 use nalgebra::RealField;
 use num_traits::{cast::FromPrimitive, Float};
@@ -287,7 +289,9 @@ impl<T: RealField + Copy + FromPrimitive + Float> Channel<T> {
     /// Returns an error if resistance calculation fails
     fn calculate_transitional_resistance(&self, fluid: &Fluid<T>) -> Result<T> {
         let re = self.flow_state.reynolds_number.ok_or_else(|| {
-            cfd_core::error::Error::InvalidConfiguration("Reynolds number required for transitional resistance".to_string())
+            cfd_core::error::Error::InvalidConfiguration(
+                "Reynolds number required for transitional resistance".to_string(),
+            )
         })?;
 
         // Linear interpolation between laminar and turbulent at transition bounds
@@ -307,7 +311,9 @@ impl<T: RealField + Copy + FromPrimitive + Float> Channel<T> {
     /// Returns an error if resistance calculation fails
     fn calculate_turbulent_resistance(&self, fluid: &Fluid<T>) -> Result<T> {
         let re = self.flow_state.reynolds_number.ok_or_else(|| {
-            cfd_core::error::Error::InvalidConfiguration("Reynolds number required for turbulent resistance".to_string())
+            cfd_core::error::Error::InvalidConfiguration(
+                "Reynolds number required for turbulent resistance".to_string(),
+            )
         })?;
 
         let area = self.geometry.area();
@@ -360,9 +366,7 @@ impl<T: RealField + Copy + FromPrimitive + Float> Channel<T> {
         }
 
         // Haaland approximation for Darcy friction factor
-        let factor = -1.8 * f64::log10(
-            f64::powf(roughness_ratio / 3.7, 1.11) + 6.9 / re_val
-        );
+        let factor = -1.8 * f64::log10(f64::powf(roughness_ratio / 3.7, 1.11) + 6.9 / re_val);
         let f = 1.0 / (factor * factor);
         T::from_f64(f).unwrap_or_else(|| T::one())
     }

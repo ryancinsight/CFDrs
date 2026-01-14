@@ -10,7 +10,7 @@
 //! - Menter (1994). Two-equation eddy-viscosity turbulence models for engineering applications. AIAA Journal.
 
 #[cfg(test)]
-mod literature_validation_tests {
+mod tests {
     use crate::physics::turbulence::k_omega_sst::KOmegaSSTModel;
     use crate::physics::turbulence::spalart_allmaras::SpalartAllmaras;
     use approx::assert_relative_eq;

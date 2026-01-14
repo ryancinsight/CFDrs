@@ -2,8 +2,8 @@
 
 use super::{Edge, EdgeType, NetworkGraph, Node, NodeType};
 use cfd_core::error::Result;
-use petgraph::visit::EdgeRef;
 use nalgebra::RealField;
+use petgraph::visit::EdgeRef;
 
 /// Builder for constructing network graphs
 pub struct NetworkBuilder<T: RealField + Copy> {
@@ -106,22 +106,24 @@ impl<T: RealField + Copy> NetworkBuilder<T> {
             let r = w.resistance;
             let k = w.quad_coeff;
             if r < T::zero() {
-                return Err(cfd_core::error::Error::InvalidConfiguration(
-                    format!("Edge {} has negative resistance: {}", idx.index(), r),
-                ));
+                return Err(cfd_core::error::Error::InvalidConfiguration(format!(
+                    "Edge {} has negative resistance: {}",
+                    idx.index(),
+                    r
+                )));
             }
             if k < T::zero() {
-                return Err(cfd_core::error::Error::InvalidConfiguration(
-                    format!("Edge {} has negative quadratic coefficient: {}", idx.index(), k),
-                ));
+                return Err(cfd_core::error::Error::InvalidConfiguration(format!(
+                    "Edge {} has negative quadratic coefficient: {}",
+                    idx.index(),
+                    k
+                )));
             }
             if r.abs() < eps && k.abs() < eps {
-                return Err(cfd_core::error::Error::InvalidConfiguration(
-                    format!(
-                        "Edge {} has zero resistance and zero quadratic coefficient",
-                        idx.index()
-                    ),
-                ));
+                return Err(cfd_core::error::Error::InvalidConfiguration(format!(
+                    "Edge {} has zero resistance and zero quadratic coefficient",
+                    idx.index()
+                )));
             }
         }
 

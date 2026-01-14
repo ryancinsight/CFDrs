@@ -63,13 +63,16 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceCalculator<T> {
             };
 
             let re = match geometry {
-                ChannelGeometry::Circular { diameter, .. } => density * velocity * *diameter / viscosity,
+                ChannelGeometry::Circular { diameter, .. } => {
+                    density * velocity * *diameter / viscosity
+                }
                 ChannelGeometry::Rectangular { width, height, .. } => {
                     // Dh = 2wh / (w + h)
                     let denom = *width + *height;
                     if denom <= T::zero() {
                         return Err(Error::InvalidConfiguration(
-                            "Channel width + height must be positive to compute hydraulic diameter".to_string(),
+                            "Channel width + height must be positive to compute hydraulic diameter"
+                                .to_string(),
                         ));
                     }
                     let dh = T::from_f64(2.0).unwrap_or_else(T::zero) * (*width * *height) / denom;
@@ -164,13 +167,16 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceCalculator<T> {
             };
 
             let re = match geometry {
-                ChannelGeometry::Circular { diameter, .. } => density * velocity * *diameter / viscosity,
+                ChannelGeometry::Circular { diameter, .. } => {
+                    density * velocity * *diameter / viscosity
+                }
                 ChannelGeometry::Rectangular { width, height, .. } => {
                     // Dh = 2wh / (w + h)
                     let denom = *width + *height;
                     if denom <= T::zero() {
                         return Err(Error::InvalidConfiguration(
-                            "Channel width + height must be positive to compute hydraulic diameter".to_string(),
+                            "Channel width + height must be positive to compute hydraulic diameter"
+                                .to_string(),
                         ));
                     }
                     let dh = T::from_f64(2.0).unwrap_or_else(T::zero) * (*width * *height) / denom;
@@ -412,7 +418,9 @@ mod tests {
         let mut conditions = FlowConditions::new(velocity);
         conditions.reynolds_number = Some(re);
 
-        assert!(re > cfd_core::physics::constants::physics::dimensionless::reynolds::PIPE_TURBULENT_MIN);
+        assert!(
+            re > cfd_core::physics::constants::physics::dimensionless::reynolds::PIPE_TURBULENT_MIN
+        );
 
         let resistance = model.calculate_resistance(&fluid, &conditions)?;
         assert!(resistance > 0.0);

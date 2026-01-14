@@ -1,7 +1,7 @@
 //! Problem definition for FEM
 
-use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_core::error::{Error, Result};
+use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
 use cfd_mesh::mesh::Mesh;
 use nalgebra::{RealField, Vector3};

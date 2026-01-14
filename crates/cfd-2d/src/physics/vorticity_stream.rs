@@ -39,8 +39,10 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Default for VorticityStreamConf
 
         Self {
             base,
-            time_step: T::from_f64(cfd_core::physics::constants::numerical::time::DEFAULT_TIME_STEP)
-                .unwrap_or_else(|| T::zero()), // Default time step
+            time_step: T::from_f64(
+                cfd_core::physics::constants::numerical::time::DEFAULT_TIME_STEP,
+            )
+            .unwrap_or_else(|| T::zero()), // Default time step
             stream_tolerance: T::from_f64(DEFAULT_TOLERANCE).unwrap_or_else(|| T::zero()),
             vorticity_tolerance: T::from_f64(DEFAULT_TOLERANCE).unwrap_or_else(|| T::zero()),
             sor_omega: T::from_f64(SOR_OPTIMAL_FACTOR).unwrap_or_else(|| T::zero()),

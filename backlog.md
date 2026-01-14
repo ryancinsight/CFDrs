@@ -25,16 +25,13 @@
 - [x] **TEST-001**: Resolve multi-physics coupled interaction test failures.
 - [x] **TEST-002**: Fix markdown report generation test failures.
 
-## Sprint 1.87.0+ Items (Planned)
+## Sprint 1.87.0+: Strategic Restructuring (Deep Vertical Tree)
 
-#### Sprint 1.84.0: Performance Optimization
-- [ ] Cache AMG preconditioner (2-5x pressure solve speedup)
-- [ ] Optional SIMD optimization for CG
+### High Priority (Phase 1/2)
+- [ ] **REST-001**: Consolidate `cfd-core/src/physics/` (Update re-exports and documentation).
+- [ ] **REST-002**: Consolidate `cfd-core/src/geometry/` (Update external references to geometry).
+- [x] **REST-003**: Consolidate `cfd-core/src/compute/` (gpu, mpi, simd). ✅
+- [ ] **REST-004**: Remove "Potemkin" solvers in `cfd-core/src/compute/numerical_methods/` and migrate `NumericalMethodsService`.
+- [ ] **REST-005**: Eliminate implementation duplication in `cfd-math` (WENO). SIMD consolidated. ✅
 
-#### Sprint 1.85-1.87: Test Coverage Expansion
-- [ ] Target: 8.82% → 50% → 80%
-- [ ] Focus: CFD-Math critical paths, CFD-2D pressure-velocity, integration tests
-
-#### Sprint 1.88.0+: Strategic Enhancements
-- [ ] GPU integration decision (implement or defer)
-- [ ] MPI scaling validation (empirical benchmarks)
+## Sprint 1.88.0+: Performance & Test Coverage

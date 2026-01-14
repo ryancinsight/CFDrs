@@ -269,12 +269,6 @@ fn test_infinity_handling() {
     // Document current behavior: absolute value makes this look like convergence
     // This is a limitation that could be improved by explicit Inf checks
     let _ = status2.is_converged(); // May return true due to abs() handling
-
-    // Key safety property: No panic on infinity values
-    assert!(
-        true,
-        "No panic on infinity inputs - safety property maintained"
-    );
 }
 
 /// Test behavior with extreme values near numerical limits
@@ -347,9 +341,6 @@ fn test_edge_case_sequence() {
 
     // Status should handle mixed edge cases gracefully
     let _ = monitor.check_status();
-
-    // Should not panic - that's the main test
-    assert!(true, "Monitor handled mixed edge cases without panicking");
 }
 
 // ============================================================================

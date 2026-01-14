@@ -9,6 +9,7 @@
 //! of key CFD algorithms, enabling informed algorithm selection and optimization.
 
 use std::collections::HashMap;
+use std::fmt::Write as _;
 
 /// Algorithm complexity information
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -66,13 +67,13 @@ impl AlgorithmComplexityInfo {
 
     /// Set cache efficiency (0.0 = poor, 1.0 = excellent)
     pub fn cache_efficiency(mut self, efficiency: f64) -> Self {
-        self.cache_efficiency = efficiency.max(0.0).min(1.0);
+        self.cache_efficiency = efficiency.clamp(0.0, 1.0);
         self
     }
 
     /// Set parallel scalability (0.0 = no speedup, 1.0 = perfect scaling)
     pub fn scalability(mut self, scalability: f64) -> Self {
-        self.scalability = scalability.max(0.0).min(1.0);
+        self.scalability = scalability.clamp(0.0, 1.0);
         self
     }
 
@@ -399,10 +400,11 @@ impl AlgorithmComplexityRegistry {
         report.push_str("# CFD Algorithm Complexity Analysis Report\n\n");
 
         report.push_str("## Summary\n\n");
-        report.push_str(&format!(
-            "Registry contains {} algorithms\n\n",
+        let _ = writeln!(
+            &mut report,
+            "Registry contains {} algorithms\n",
             self.algorithms.len()
-        ));
+        );
 
         report.push_str("## Algorithms by Time Complexity\n\n");
 
@@ -424,9 +426,9 @@ impl AlgorithmComplexityRegistry {
                 .collect();
 
             if !algorithms.is_empty() {
-                report.push_str(&format!("### {complexity}\n\n"));
+                let _ = writeln!(&mut report, "### {complexity}\n");
                 for algo in algorithms {
-                    report.push_str(&format!("- **{}**: {}\n", algo.name, algo.memory_pattern));
+                    let _ = writeln!(&mut report, "- **{}**: {}", algo.name, algo.memory_pattern);
                 }
                 report.push('\n');
             }
@@ -436,17 +438,17 @@ impl AlgorithmComplexityRegistry {
 
         report.push_str("### For Small Problems (N < 10⁴)\n");
         for (algo, reason) in self.recommend_for_size(1000) {
-            report.push_str(&format!("- {}: {}\n", algo.name, reason));
+            let _ = writeln!(&mut report, "- {}: {}", algo.name, reason);
         }
 
         report.push_str("\n### For Medium Problems (10⁴ ≤ N < 10⁷)\n");
         for (algo, reason) in self.recommend_for_size(100_000) {
-            report.push_str(&format!("- {}: {}\n", algo.name, reason));
+            let _ = writeln!(&mut report, "- {}: {}", algo.name, reason);
         }
 
         report.push_str("\n### For Large Problems (N ≥ 10⁷)\n");
         for (algo, reason) in self.recommend_for_size(100_000_000) {
-            report.push_str(&format!("- {}: {}\n", algo.name, reason));
+            let _ = writeln!(&mut report, "- {}: {}", algo.name, reason);
         }
 
         report

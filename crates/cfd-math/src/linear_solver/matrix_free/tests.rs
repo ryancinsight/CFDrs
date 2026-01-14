@@ -2,10 +2,10 @@
 
 use crate::linear_solver::operators::{IdentityOperator, ScaledOperator};
 use crate::linear_solver::preconditioners::IdentityPreconditioner;
-use crate::linear_solver::{ConjugateGradient, GMRES, IterativeSolverConfig};
 use crate::linear_solver::traits::IterativeLinearSolver;
-use nalgebra::DVector;
+use crate::linear_solver::{ConjugateGradient, IterativeSolverConfig, GMRES};
 use approx::assert_relative_eq;
+use nalgebra::DVector;
 
 #[test]
 fn test_matrix_free_cg_identity() {
@@ -16,7 +16,9 @@ fn test_matrix_free_cg_identity() {
     let b = DVector::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0]);
     let mut x = DVector::zeros(5);
 
-    solver.solve(&operator, &b, &mut x, None::<&IdentityPreconditioner>).unwrap();
+    solver
+        .solve(&operator, &b, &mut x, None::<&IdentityPreconditioner>)
+        .unwrap();
 
     for i in 0..5 {
         assert_relative_eq!(x[i], b[i], epsilon = 1e-8);
@@ -32,7 +34,9 @@ fn test_matrix_free_gmres_identity() {
     let b = DVector::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0]);
     let mut x = DVector::zeros(5);
 
-    solver.solve(&operator, &b, &mut x, None::<&IdentityPreconditioner>).unwrap();
+    solver
+        .solve(&operator, &b, &mut x, None::<&IdentityPreconditioner>)
+        .unwrap();
 
     for i in 0..5 {
         assert_relative_eq!(x[i], b[i], epsilon = 1e-8);
@@ -50,7 +54,9 @@ fn test_scaled_operator_integration() {
     let b = DVector::from_vec(vec![2.0, 4.0, 6.0]); // Should give solution [1, 2, 3]
     let mut x = DVector::zeros(3);
 
-    solver.solve(&scaled_op, &b, &mut x, None::<&IdentityPreconditioner>).unwrap();
+    solver
+        .solve(&scaled_op, &b, &mut x, None::<&IdentityPreconditioner>)
+        .unwrap();
 
     assert_relative_eq!(x[0], 1.0, epsilon = 1e-8);
     assert_relative_eq!(x[1], 2.0, epsilon = 1e-8);
@@ -69,5 +75,7 @@ fn test_operator_size_mismatch() {
     let b = DVector::from_vec(vec![1.0, 2.0]); // Wrong size (expected 4)
     let mut x = DVector::zeros(4);
 
-    assert!(solver.solve(&operator, &b, &mut x, None::<&IdentityPreconditioner>).is_err());
+    assert!(solver
+        .solve(&operator, &b, &mut x, None::<&IdentityPreconditioner>)
+        .is_err());
 }

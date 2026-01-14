@@ -9,7 +9,7 @@
 //! - Canuto, C., et al. (2006). "Spectral Methods: Fundamentals in Single Domains". Springer.
 
 #[cfg(test)]
-mod chebyshev_tests {
+mod tests {
     use super::super::ChebyshevPolynomial;
     use approx::assert_relative_eq;
     use std::f64::consts::PI;
@@ -48,9 +48,9 @@ mod chebyshev_tests {
         let cheb = ChebyshevPolynomial::<f64>::new(n).unwrap();
         let points = cheb.collocation_points();
 
-        for j in 0..n {
+        for (j, &point) in points.iter().enumerate() {
             let expected = (PI * (j as f64) / ((n - 1) as f64)).cos();
-            assert_relative_eq!(points[j], expected, epsilon = 1e-14);
+            assert_relative_eq!(point, expected, epsilon = 1e-14);
         }
     }
 
@@ -270,7 +270,7 @@ mod chebyshev_tests {
     /// Test that Gauss-Lobatto points provide accurate quadrature
     /// Reference: Boyd (2001), Chapter 3
     #[test]
-    #[ignore] // Simplified weights not accurate enough
+    #[ignore = "Simplified weights not accurate enough"]
     fn test_gauss_lobatto_quadrature() {
         let n = 16;
         let cheb = ChebyshevPolynomial::<f64>::new(n).unwrap();
@@ -279,8 +279,7 @@ mod chebyshev_tests {
         // Integrate a polynomial of degree < 2n-1 (should be exact)
         // ∫₋₁¹ x² dx = 2/3
         let mut integral = 0.0_f64;
-        for i in 0..n {
-            let x = points[i];
+        for (i, &x) in points.iter().enumerate() {
             let f_val = x * x;
 
             // Clenshaw-Curtis weights (simplified)

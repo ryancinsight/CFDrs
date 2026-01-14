@@ -3,6 +3,7 @@
 use cfd_io::checkpoint::{Checkpoint, CheckpointManager, CheckpointMetadata, CompressionStrategy};
 use nalgebra::{dmatrix, DMatrix};
 use proptest::prelude::*;
+use std::f64::consts::E;
 use tempfile::tempdir;
 
 #[test]
@@ -39,7 +40,7 @@ fn checkpoint_roundtrip_zstd() {
 
     let ny = 5;
     let nx = 5;
-    let metadata = CheckpointMetadata::new(2.718, 200, (ny, nx), (2.0, 2.0));
+    let metadata = CheckpointMetadata::new(E, 200, (ny, nx), (2.0, 2.0));
 
     let u = dmatrix![1.0,2.0; 3.0,4.0; 5.0,6.0; 7.0,8.0; 9.0,10.0];
     let v = dmatrix![10.0,9.0; 8.0,7.0; 6.0,5.0; 4.0,3.0; 2.0,1.0];
@@ -51,7 +52,7 @@ fn checkpoint_roundtrip_zstd() {
     let loaded = manager.load(&path).unwrap();
 
     assert_eq!(loaded.metadata.iteration, 200);
-    assert_eq!(loaded.metadata.time.to_bits(), 2.718f64.to_bits());
+    assert_eq!(loaded.metadata.time.to_bits(), E.to_bits());
     assert_eq!(loaded.u_velocity, u);
     assert_eq!(loaded.v_velocity, v);
     assert_eq!(loaded.pressure, p);

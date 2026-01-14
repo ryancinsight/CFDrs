@@ -39,62 +39,31 @@ A deep audit of the 1D CFD implementation has identified and resolved several ma
 
 ---
 
-## Sprint 1.83.0: CRITICAL AMG FIX (IMMEDIATE - 8-12 hours)
+## Sprint 1.87.0: ARCHITECTURAL PURITY (IMMEDIATE)
+**Status**: 🚧 IN PROGRESS - Restructuring into Deep Vertical Tree
 
-**Status**: ✅ COMPLETE - All critical AMG issues resolved
-
-### Comprehensive Audit Completed (November 18, 2025)
-
-A deep algorithm audit following the Elite Mathematically-Verified Code Auditor framework has identified:
-
-- ✅ **Excellent**: GMRES, BiCGSTAB, CG, SIMPLE, PISO implementations (literature-correct)
-- ❌ **CRITICAL-009**: Ruge-Stüben AMG coarsening has incorrect fine-to-coarse mapping
-- ⚠️ **Gap**: Test coverage 8.82% vs >80% target (71.18% below requirement)
-- ⚠️ **Dead Code**: GPU/SIMD placeholders not integrated
-
-### CRITICAL-009: AMG Coarsening Bug
-
-**File**: `crates/cfd-math/src/linear_solver/multigrid/coarsening.rs:38-50`
-
-**Issue**: Fine points assigned mapping VALUE instead of coarse point INDEX
-- Causes incorrect interpolation operator
-- Violates AMG convergence theory (Ruge-Stüben 1987)
-- Working but mathematically incorrect
-
-**Impact**: Block AMG use in production until fixed (other solvers safe)
-
-### Sprint 1.83.0 Tasks
-
-- [x] **Priority 1**: Fix CRITICAL-009 Ruge-Stüben Mapping (2-5 hours) ✅ **COMPLETED**
-  - [x] Update fine-to-coarse mapping to use indices (lines 78-84 in coarsening.rs)
-  - [x] Add coarse point self-mapping (line 48 ensures coarse points map correctly)
-  - [x] Verify interpolation operator dimensions
-  - [x] Test mapping correctness added (lines 784-799 in coarsening.rs)
-
-- [x] **Priority 2**: Add AMG Coarsening Tests (1 additional hour) ✅ **COMPLETED**
-  - [x] Test mapping correctness (all indices valid) ✅
-  - [x] Test coarse point self-mapping ✅
-  - [x] Test convergence improvement (factor < 0.1/V-cycle) ✅
-  - [x] Test interpolation operator shape ✅
-  - [x] Test coarsening ratio bounds ✅
-
-- [x] **Priority 3**: Clean Up Dead Code (1 hour) ✅ **COMPLETED**
-  - [x] Removed AlignedVector struct from conjugate_gradient.rs (MAJOR-010)
-  - [x] Added experimental status documentation to gpu_compute.rs (MAJOR-011)
-  - GPU code already properly feature-gated with `#[cfg(feature = "gpu")]`
-
-- [x] **Priority 4**: Update Documentation (1 hour) ✅ **MOSTLY COMPLETE**
-  - [x] Update gap_audit.md with CRITICAL-009 ✅
-  - [x] Add changelog to AMG module docs (mod.rs) ✅
-  - [x] Document experimental GPU status ✅
-  - [ ] Update README Sprint status to 1.83.0 - PENDING
-
-### Expected Outcomes
-
-- ✅ AMG mathematically correct per Ruge-Stüben (1987)
-- ✅ Expected 2-5x AMG convergence improvement
-- ✅ All AMG tests passing
-- ✅ Production-ready AMG preconditioner
+### Strategic Restructuring Tasks
+- [ ] **Phase 1: Audit & Cleanup**
+    - [x] Delete `reynolds_stress.rs.backup` and `backend_example.rs` ✅
+    - [x] Consolidate `cfd-math/src/vectorization/` into `cfd-math/src/simd/vectorization.rs` ✅
+    - [x] Remove obsolete `vectorization` module from `cfd-math/src/lib.rs` ✅
+    - [ ] Audit `cfd-core` for remaining "Potemkin" stubs
+    - [ ] Verify `cfd-math` duplication (WENO)
+- [ ] **Phase 2: Physics Consolidation (REST-001)**
+    - [x] Verify `fluid`, `material`, `boundary`, `constants` are in `cfd-core/src/physics/` ✅
+    - [ ] Update re-exports and documentation
+- [ ] **Phase 3: Geometry Consolidation (REST-002)**
+    - [x] Rename `domain` to `geometry` in `cfd-core` ✅
+    - [x] Move `rhie_chow.rs` to `physics/fluid_dynamics` and remove `interpolation` ✅
+    - [ ] Update all external references to `cfd_core::domain` to `cfd_core::geometry`
+- [ ] **Phase 4: Compute Consolidation (REST-003)**
+    - [x] Move `gpu`, `mpi`, `simd` into `cfd-core/src/compute/` ✅
+- [ ] **Phase 5: Solver Decoupling (REST-004)**
+    - [ ] Remove simplified solvers from `cfd-core`
+    - [ ] Migrate `NumericalMethodsService` to appropriate abstraction level
+- [ ] **Phase 6: Duplicate Elimination (REST-005)**
+    - [x] Eliminate SIMD duplication in `cfd-math` ✅
+    - [ ] Eliminate WENO duplication in `cfd-math` (src/high_order/weno.rs vs src/spatial/weno.rs)
 
 ---
 

@@ -224,8 +224,8 @@ use super::constants::{
     SA_CW3, SA_KAPPA_SQ, SA_SIGMA,
 };
 use cfd_core::{
-    physics::constants::mathematical::numeric::{ONE, ONE_HALF, TWO},
     error::Result,
+    physics::constants::mathematical::numeric::{ONE, ONE_HALF, TWO},
 };
 use nalgebra::{RealField, Vector2};
 use num_traits::FromPrimitive;

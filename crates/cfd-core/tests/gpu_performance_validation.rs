@@ -6,7 +6,7 @@
 #[cfg(feature = "gpu")]
 mod gpu_performance_tests {
     use cfd_core::compute::gpu::{GpuBuffer, GpuTurbulenceCompute};
-    
+
     use std::time::Instant;
 
     /// Benchmark Smagorinsky LES SGS computation on GPU vs CPU
@@ -60,20 +60,23 @@ mod gpu_performance_tests {
 
         let gpu_start = Instant::now();
         let iterations = 100;
-        
+
         for _ in 0..iterations {
-            gpu_compute.smagorinsky_kernel_mut().compute_sgs_viscosity(
-                &context.device,
-                &context.queue,
-                u_buffer.buffer(),
-                v_buffer.buffer(),
-                out_buffer.buffer(),
-                nx as u32,
-                ny as u32,
-                0.1,
-                0.1,
-                0.1,
-            ).unwrap();
+            gpu_compute
+                .smagorinsky_kernel_mut()
+                .compute_sgs_viscosity(
+                    &context.device,
+                    &context.queue,
+                    u_buffer.buffer(),
+                    v_buffer.buffer(),
+                    out_buffer.buffer(),
+                    nx as u32,
+                    ny as u32,
+                    0.1,
+                    0.1,
+                    0.1,
+                )
+                .unwrap();
         }
 
         let gpu_time = gpu_start.elapsed() / iterations;
@@ -105,10 +108,12 @@ mod gpu_performance_tests {
                     let idx = j * nx + i;
 
                     // Simplified strain rate calculation (same as GPU shader)
-                    let du_dx = (velocity_u_f32[idx + 1] - velocity_u_f32[idx - 1]) / (2.0f32 * 0.1f32);
+                    let du_dx =
+                        (velocity_u_f32[idx + 1] - velocity_u_f32[idx - 1]) / (2.0f32 * 0.1f32);
                     let du_dy =
                         (velocity_u_f32[idx + nx] - velocity_u_f32[idx - nx]) / (2.0f32 * 0.1f32);
-                    let dv_dx = (velocity_v_f32[idx + 1] - velocity_v_f32[idx - 1]) / (2.0f32 * 0.1f32);
+                    let dv_dx =
+                        (velocity_v_f32[idx + 1] - velocity_v_f32[idx - 1]) / (2.0f32 * 0.1f32);
                     let dv_dy =
                         (velocity_v_f32[idx + nx] - velocity_v_f32[idx - nx]) / (2.0f32 * 0.1f32);
 
@@ -116,7 +121,8 @@ mod gpu_performance_tests {
                     let s22 = dv_dy;
                     let s12 = 0.5f32 * (du_dy + dv_dx);
 
-                    let s_magnitude = (2.0f32 * (s11 * s11 + s22 * s22 + 2.0f32 * s12 * s12)).sqrt();
+                    let s_magnitude =
+                        (2.0f32 * (s11 * s11 + s22 * s22 + 2.0f32 * s12 * s12)).sqrt();
                     let delta = (0.1f32 * 0.1f32).sqrt();
 
                     cpu_sgs[idx] = (0.1f32 * delta * delta * s_magnitude).max(0.0f32);
@@ -145,7 +151,11 @@ mod gpu_performance_tests {
 
         // GPU should be faster than CPU for this grid size
         // We set a reasonable threshold for CI environments where GPU might be emulated
-        assert!(speedup > 0.5, "GPU should provide reasonable performance (speedup: {:.2}x)", speedup);
+        assert!(
+            speedup > 0.5,
+            "GPU should provide reasonable performance (speedup: {:.2}x)",
+            speedup
+        );
     }
 
     /// Test GPU context creation and basic functionality
@@ -180,8 +190,6 @@ mod gpu_performance_tests {
     #[test]
     fn test_gpu_buffer_performance() {
         let gpu_compute = GpuTurbulenceCompute::new().unwrap();
-
-        
 
         let sizes = [1000, 10000, 100000];
 

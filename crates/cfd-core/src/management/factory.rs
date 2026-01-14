@@ -3,8 +3,8 @@
 //! This module provides factory abstractions that assign creation responsibility
 //! to classes that have the initializing data, following GRASP principles.
 
-use crate::error::{Error, Result};
 use crate::compute::solver::{Solver, SolverConfiguration};
+use crate::error::{Error, Result};
 use nalgebra::RealField;
 use std::any::Any;
 use std::collections::HashMap;

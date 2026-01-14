@@ -118,7 +118,9 @@ pub struct ExponentialTimeDifferencing<T: RealField + Copy> {
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: RealField + Copy + FromPrimitive + ComplexField> Default for ExponentialTimeDifferencing<T> {
+impl<T: RealField + Copy + FromPrimitive + ComplexField> Default
+    for ExponentialTimeDifferencing<T>
+{
     fn default() -> Self {
         Self::new()
     }

@@ -6,7 +6,7 @@ use nalgebra::{DVector, RealField};
 pub struct MomentumOperator1D<T: RealField + Copy> {
     n: usize,
     dx: T,
-    u: T, // Velocity
+    u: T,  // Velocity
     nu: T, // Viscosity
 }
 
@@ -60,7 +60,15 @@ pub struct MomentumOperator2D<T: RealField + Copy> {
 impl<T: RealField + Copy> MomentumOperator2D<T> {
     /// Create a new 2D momentum operator
     pub fn new(nx: usize, ny: usize, dx: T, dy: T, u: T, v: T, nu: T) -> Self {
-        Self { nx, ny, dx, dy, u, v, nu }
+        Self {
+            nx,
+            ny,
+            dx,
+            dy,
+            u,
+            v,
+            nu,
+        }
     }
 }
 
@@ -90,7 +98,8 @@ impl<T: RealField + Copy + num_traits::FromPrimitive> LinearOperator<T> for Mome
                 let adv_y = self.v * (x_s[idx + self.nx] - x_s[idx - self.nx]) * half * dy_inv;
 
                 let diff_x = self.nu * (x_s[idx - 1] + x_s[idx + 1] - two * center) * dx2_inv;
-                let diff_y = self.nu * (x_s[idx - self.nx] + x_s[idx + self.nx] - two * center) * dy2_inv;
+                let diff_y =
+                    self.nu * (x_s[idx - self.nx] + x_s[idx + self.nx] - two * center) * dy2_inv;
 
                 y_s[idx] = adv_x + adv_y - (diff_x + diff_y);
             }
@@ -117,7 +126,15 @@ pub struct EnergyOperator2D<T: RealField + Copy> {
 impl<T: RealField + Copy> EnergyOperator2D<T> {
     /// Create a new 2D energy operator
     pub fn new(nx: usize, ny: usize, dx: T, dy: T, u: T, v: T, alpha: T) -> Self {
-        Self { nx, ny, dx, dy, u, v, alpha }
+        Self {
+            nx,
+            ny,
+            dx,
+            dy,
+            u,
+            v,
+            alpha,
+        }
     }
 }
 
@@ -147,7 +164,8 @@ impl<T: RealField + Copy + num_traits::FromPrimitive> LinearOperator<T> for Ener
                 let adv_y = self.v * (x_s[idx + self.nx] - x_s[idx - self.nx]) * half * dy_inv;
 
                 let diff_x = self.alpha * (x_s[idx - 1] + x_s[idx + 1] - two * center) * dx2_inv;
-                let diff_y = self.alpha * (x_s[idx - self.nx] + x_s[idx + self.nx] - two * center) * dy2_inv;
+                let diff_y =
+                    self.alpha * (x_s[idx - self.nx] + x_s[idx + self.nx] - two * center) * dy2_inv;
 
                 y_s[idx] = adv_x + adv_y - (diff_x + diff_y);
             }

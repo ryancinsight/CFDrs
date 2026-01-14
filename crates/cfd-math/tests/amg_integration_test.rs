@@ -3,9 +3,7 @@
 use cfd_math::linear_solver::preconditioners::multigrid::{
     AMGConfig, AlgebraicMultigrid, CoarseningStrategy, CycleType,
 };
-use cfd_math::linear_solver::{
-    BiCGSTAB, IterativeSolverConfig, Preconditioner, GMRES,
-};
+use cfd_math::linear_solver::{BiCGSTAB, IterativeSolverConfig, Preconditioner, GMRES};
 use cfd_math::sparse::spmv;
 use nalgebra::{DVector, RealField};
 use nalgebra_sparse::CsrMatrix;

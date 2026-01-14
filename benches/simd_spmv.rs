@@ -174,7 +174,11 @@ fn bench_pentadiagonal(c: &mut Criterion) {
             b.iter(|| {
                 // SIMD implementation was removed due to 27-32% regression
                 // Replaced with scalar f32 for comparison
-                spmv(black_box(&matrix_f32), black_box(&x_f32), black_box(&mut y_f32));
+                spmv(
+                    black_box(&matrix_f32),
+                    black_box(&x_f32),
+                    black_box(&mut y_f32),
+                );
             });
         });
     }
@@ -199,7 +203,11 @@ fn bench_pentadiagonal(c: &mut Criterion) {
             b.iter(|| {
                 // SIMD implementation was removed due to 27-32% regression
                 // Replaced with scalar f32 for comparison
-                spmv(black_box(&matrix_f32), black_box(&x_f32), black_box(&mut y_f32));
+                spmv(
+                    black_box(&matrix_f32),
+                    black_box(&x_f32),
+                    black_box(&mut y_f32),
+                );
             });
         });
     }

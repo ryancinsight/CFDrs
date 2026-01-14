@@ -50,8 +50,8 @@
 //! - Strikwerda, J. C. (2004). *Finite Difference Schemes and Partial Differential Equations* (2nd ed.). SIAM.
 //! - Trefethen, L. N. (1996). *Finite Difference and Spectral Methods for ODEs/PDEs* (notes), stencils and accuracy analysis.
 
-use crate::compute::gpu::GpuContext;
 use crate::compute::gpu::shaders::LAPLACIAN_2D_SHADER;
+use crate::compute::gpu::GpuContext;
 use crate::error::Result;
 use bytemuck::{Pod, Zeroable};
 use std::sync::Arc;
@@ -357,8 +357,8 @@ impl Laplacian2DKernel {
                     let left = field[y * nx + (x - 1)];
                     let center = field[idx];
                     let right = field[y * nx + (x + 1)];
-                    laplacian +=
-                        (f64::from(left) - 2.0f64 * f64::from(center) + f64::from(right)) * dx_inv2_64;
+                    laplacian += (f64::from(left) - 2.0f64 * f64::from(center) + f64::from(right))
+                        * dx_inv2_64;
                 } else if x == 0 {
                     match bc {
                         BoundaryType::Dirichlet => {
@@ -376,7 +376,8 @@ impl Laplacian2DKernel {
                                 let u1 = field[y * nx + 1];
                                 let u2 = field[y * nx + 2];
                                 let u3 = field[y * nx + 3];
-                                let d2x = f64::from(2.0 * u0 - 5.0 * u1 + 4.0 * u2 - u3) * dx_inv2_64;
+                                let d2x =
+                                    f64::from(2.0 * u0 - 5.0 * u1 + 4.0 * u2 - u3) * dx_inv2_64;
                                 laplacian += d2x;
                             } else {
                                 let right = field[y * nx + (x + 1)];
@@ -412,7 +413,8 @@ impl Laplacian2DKernel {
                                 let u1 = field[y * nx + (nx - 2)];
                                 let u2 = field[y * nx + (nx - 3)];
                                 let u3 = field[y * nx + (nx - 4)];
-                                let d2x = f64::from(2.0 * u0 - 5.0 * u1 + 4.0 * u2 - u3) * dx_inv2_64;
+                                let d2x =
+                                    f64::from(2.0 * u0 - 5.0 * u1 + 4.0 * u2 - u3) * dx_inv2_64;
                                 laplacian += d2x;
                             } else {
                                 let left = field[y * nx + (x - 1)];
@@ -439,8 +441,8 @@ impl Laplacian2DKernel {
                     let bottom = field[(y - 1) * nx + x];
                     let center = field[idx];
                     let top = field[(y + 1) * nx + x];
-                    laplacian +=
-                        (f64::from(bottom) - 2.0f64 * f64::from(center) + f64::from(top)) * dy_inv2_64;
+                    laplacian += (f64::from(bottom) - 2.0f64 * f64::from(center) + f64::from(top))
+                        * dy_inv2_64;
                 } else if y == 0 {
                     match bc {
                         BoundaryType::Dirichlet => {
@@ -458,7 +460,8 @@ impl Laplacian2DKernel {
                                 let u1 = field[nx + x];
                                 let u2 = field[2 * nx + x];
                                 let u3 = field[3 * nx + x];
-                                let d2y = f64::from(2.0 * u0 - 5.0 * u1 + 4.0 * u2 - u3) * dy_inv2_64;
+                                let d2y =
+                                    f64::from(2.0 * u0 - 5.0 * u1 + 4.0 * u2 - u3) * dy_inv2_64;
                                 laplacian += d2y;
                             } else {
                                 let top = field[(y + 1) * nx + x];
@@ -494,7 +497,8 @@ impl Laplacian2DKernel {
                                 let u1 = field[(ny - 2) * nx + x];
                                 let u2 = field[(ny - 3) * nx + x];
                                 let u3 = field[(ny - 4) * nx + x];
-                                let d2y = f64::from(2.0 * u0 - 5.0 * u1 + 4.0 * u2 - u3) * dy_inv2_64;
+                                let d2y =
+                                    f64::from(2.0 * u0 - 5.0 * u1 + 4.0 * u2 - u3) * dy_inv2_64;
                                 laplacian += d2y;
                             } else {
                                 let bottom = field[(y - 1) * nx + x];
@@ -776,10 +780,7 @@ mod tests {
         // Verify second-order convergence
         for i in 1..errors.len() {
             let rate = (errors[i - 1] / errors[i]).log2();
-            assert!(
-                rate > 1.8,
-                "Convergence rate {rate} too low, expected ~2.0"
-            );
+            assert!(rate > 1.8, "Convergence rate {rate} too low, expected ~2.0");
         }
     }
 
@@ -1017,10 +1018,7 @@ mod tests {
                 }
             }
 
-            assert_eq!(
-                nan_count, 0,
-                "{bc_type} BC: Found {nan_count} NaN values"
-            );
+            assert_eq!(nan_count, 0, "{bc_type} BC: Found {nan_count} NaN values");
             assert_eq!(
                 inf_count, 0,
                 "{bc_type} BC: Found {inf_count} infinite values"
@@ -1340,12 +1338,8 @@ mod tests {
         let gpu_bandwidth = total_memory_gb * 3.0 / gpu_time;
 
         println!("\nPerformance Results:");
-        println!(
-            "CPU: {cpu_gflops:.2} GFLOPS, {cpu_bandwidth:.2} GB/s bandwidth",
-        );
-        println!(
-            "GPU: {gpu_gflops:.2} GFLOPS, {gpu_bandwidth:.2} GB/s bandwidth",
-        );
+        println!("CPU: {cpu_gflops:.2} GFLOPS, {cpu_bandwidth:.2} GB/s bandwidth",);
+        println!("GPU: {gpu_gflops:.2} GFLOPS, {gpu_bandwidth:.2} GB/s bandwidth",);
         println!("Speedup: {:.2}x", cpu_time / gpu_time);
 
         // Analyze bottlenecks

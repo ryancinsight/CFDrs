@@ -93,12 +93,12 @@ impl<T: RealField + Copy> Mesh<T> {
         for element in &self.elements {
             let n = element.nodes.len();
             match element.element_type {
-                crate::domain::mesh::ElementType::Triangle if n == 3 => {
+                crate::geometry::mesh::ElementType::Triangle if n == 3 => {
                     edges_list.push(order_edge(element.nodes[0], element.nodes[1]));
                     edges_list.push(order_edge(element.nodes[1], element.nodes[2]));
                     edges_list.push(order_edge(element.nodes[2], element.nodes[0]));
                 }
-                crate::domain::mesh::ElementType::Quadrilateral if n == 4 => {
+                crate::geometry::mesh::ElementType::Quadrilateral if n == 4 => {
                     edges_list.push(order_edge(element.nodes[0], element.nodes[1]));
                     edges_list.push(order_edge(element.nodes[1], element.nodes[2]));
                     edges_list.push(order_edge(element.nodes[2], element.nodes[3]));
@@ -132,5 +132,9 @@ impl<T: RealField + Copy> Mesh<T> {
 }
 
 fn order_edge(u: usize, v: usize) -> (usize, usize) {
-    if u < v { (u, v) } else { (v, u) }
+    if u < v {
+        (u, v)
+    } else {
+        (v, u)
+    }
 }

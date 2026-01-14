@@ -173,7 +173,7 @@ impl PerformanceAnalyzer {
         // Use recent data within lookback window
         let recent_data = &data[data.len().saturating_sub(self.config.lookback_window)..];
 
-        let trend = self.calculate_linear_trend(recent_data)?;
+        let trend = Self::calculate_linear_trend(recent_data)?;
         Ok(trend)
     }
 
@@ -198,7 +198,7 @@ impl PerformanceAnalyzer {
     }
 
     /// Calculate linear trend using least squares
-    fn calculate_linear_trend(&self, data: &[PerformanceMetrics]) -> Result<PerformanceTrend> {
+    fn calculate_linear_trend(data: &[PerformanceMetrics]) -> Result<PerformanceTrend> {
         let n = data.len() as f64;
         if n < 2.0 {
             return Ok(PerformanceTrend {
@@ -262,7 +262,8 @@ impl PerformanceAnalyzer {
         } else {
             0.0
         };
-        let p_value = 2.0 * (1.0 - Self::t_cdf(t_stat, (n - 2.0) as usize));
+        let df = data.len().saturating_sub(2);
+        let p_value = 2.0 * (1.0 - Self::t_cdf(t_stat, df));
 
         // Classify trend
         let trend_type = if slope.abs() < 1e-6 {
@@ -414,7 +415,7 @@ impl PerformanceAnalyzer {
 
             let baseline = self.get_baseline_metrics(&result.name);
             let recommendations =
-                self.generate_recommendations(result, trend.as_ref(), regression.as_ref());
+                Self::generate_recommendations(result, trend.as_ref(), regression.as_ref());
 
             // Convert TimingResult to PerformanceMetrics if available
             let current_metrics = result
@@ -452,7 +453,6 @@ impl PerformanceAnalyzer {
 
     /// Generate performance recommendations
     fn generate_recommendations(
-        &self,
         result: &BenchmarkResult,
         trend: Option<&PerformanceTrend>,
         regression: Option<&RegressionAlert>,

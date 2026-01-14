@@ -61,7 +61,18 @@ fn benchmark_linear_solver(c: &mut Criterion) {
             |bench, _| {
                 let solver = ConjugateGradient::<f64>::default();
                 let mut x = DVector::from_element(*size, 0.0);
-                bench.iter(|| black_box(solver.solve(&matrix, &b, &mut x, None::<&cfd_math::linear_solver::IdentityPreconditioner>).unwrap()))
+                bench.iter(|| {
+                    black_box(
+                        solver
+                            .solve(
+                                &matrix,
+                                &b,
+                                &mut x,
+                                None::<&cfd_math::linear_solver::IdentityPreconditioner>,
+                            )
+                            .unwrap(),
+                    )
+                })
             },
         );
     }

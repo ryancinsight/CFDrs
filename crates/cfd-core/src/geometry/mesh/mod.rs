@@ -135,7 +135,12 @@ impl<T: RealField + Copy> Mesh<T> {
     }
 
     /// Add an element to the mesh
-    pub fn add_element(&mut self, element_type: ElementType, nodes: Vec<usize>, material_id: usize) {
+    pub fn add_element(
+        &mut self,
+        element_type: ElementType,
+        nodes: Vec<usize>,
+        material_id: usize,
+    ) {
         self.elements.push(Element {
             element_type,
             nodes,

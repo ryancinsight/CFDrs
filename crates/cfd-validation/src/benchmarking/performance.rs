@@ -11,6 +11,27 @@ use nalgebra_sparse::CsrMatrix;
 use std::collections::HashMap;
 use std::fmt;
 
+type BenchmarkOperation<'a> = (&'a str, Box<dyn FnMut() + 'a>);
+
+fn integer_sqrt_floor(n: usize) -> usize {
+    if n < 2 {
+        return n;
+    }
+
+    let n_u128 = n as u128;
+    let mut x0 = n_u128;
+    let mut x1 = u128::midpoint(x0, n_u128 / x0);
+    while x1 < x0 {
+        x0 = x1;
+        x1 = u128::midpoint(x0, n_u128 / x0);
+    }
+
+    match usize::try_from(x0) {
+        Ok(v) => v,
+        Err(_) => n,
+    }
+}
+
 /// Result of a single performance benchmark
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct TimingResult {
@@ -175,7 +196,7 @@ impl PerformanceBenchmark {
     /// Run multiple benchmarks and return results
     pub fn benchmark_suite(
         &self,
-        benchmarks: Vec<(&str, Box<dyn FnMut()>)>,
+        benchmarks: Vec<BenchmarkOperation<'_>>,
     ) -> Result<Vec<TimingResult>> {
         let mut results = Vec::new();
 
@@ -247,13 +268,13 @@ impl AlgorithmComplexity {
 
     /// Set cache efficiency (0.0 = poor, 1.0 = excellent)
     pub fn with_cache_efficiency(mut self, efficiency: f64) -> Self {
-        self.cache_efficiency = efficiency.max(0.0).min(1.0);
+        self.cache_efficiency = efficiency.clamp(0.0, 1.0);
         self
     }
 
     /// Set parallel scalability (0.0 = no speedup, 1.0 = perfect scaling)
     pub fn with_scalability(mut self, scalability: f64) -> Self {
-        self.scalability = scalability.max(0.0).min(1.0);
+        self.scalability = scalability.clamp(0.0, 1.0);
         self
     }
 
@@ -429,7 +450,7 @@ impl CfdPerformanceBenchmarks {
 
         // Estimate performance metrics
         profile.estimate_memory_bandwidth(data_size_bytes, matrix_density);
-        profile.estimate_cache_efficiency((grid_points as f64).sqrt() as usize, cache_size_kb);
+        profile.estimate_cache_efficiency(integer_sqrt_floor(grid_points), cache_size_kb);
         profile.estimate_gflops(operations_per_point, grid_points);
         profile.generate_recommendations();
 
@@ -438,10 +459,7 @@ impl CfdPerformanceBenchmarks {
 
     /// Generate algorithm complexity registry for common CFD operations
     pub fn create_algorithm_registry() -> Vec<AlgorithmComplexity> {
-        let mut registry = Vec::new();
-
-        // Conjugate Gradient solver
-        registry.push(
+        vec![
             AlgorithmComplexity::new("ConjugateGradient")
                 .with_time_complexity("O(N^{3/2})")
                 .with_space_complexity("O(N²)")
@@ -452,21 +470,13 @@ impl CfdPerformanceBenchmarks {
                 .with_reference(
                     "Barrett et al. (1994): Templates for the Solution of Linear Systems",
                 ),
-        );
-
-        // Sparse Matrix-Vector Multiplication (SPMV)
-        registry.push(
             AlgorithmComplexity::new("SPMV")
                 .with_time_complexity("O(nnz)")
                 .with_space_complexity("O(nnz)")
                 .with_memory_pattern("Compressed sparse row format with gather operations")
                 .with_cache_efficiency(0.6)
                 .with_scalability(0.9)
-                .with_reference("Williams et al. (2009): Optimization of sparse matrix-vector multiplication on emerging multicore platforms")
-        );
-
-        // Fast Fourier Transform (FFT)
-        registry.push(
+                .with_reference("Williams et al. (2009): Optimization of sparse matrix-vector multiplication on emerging multicore platforms"),
             AlgorithmComplexity::new("FFT")
                 .with_time_complexity("O(N log N)")
                 .with_space_complexity("O(N)")
@@ -474,10 +484,6 @@ impl CfdPerformanceBenchmarks {
                 .with_cache_efficiency(0.8)
                 .with_scalability(0.85)
                 .with_reference("Frigo & Johnson (2005): The design and implementation of FFTW3"),
-        );
-
-        // Multigrid solver
-        registry.push(
             AlgorithmComplexity::new("Multigrid")
                 .with_time_complexity("O(N)")
                 .with_space_complexity("O(N)")
@@ -486,10 +492,6 @@ impl CfdPerformanceBenchmarks {
                 .with_scalability(0.7)
                 .with_reference("Trottenberg et al. (2001): Multigrid methods")
                 .with_reference("Briggs et al. (2000): A multigrid tutorial"),
-        );
-
-        // Turbulence model evaluation (k-epsilon)
-        registry.push(
             AlgorithmComplexity::new("KEpsilon")
                 .with_time_complexity("O(N)")
                 .with_space_complexity("O(N)")
@@ -499,10 +501,6 @@ impl CfdPerformanceBenchmarks {
                 .with_reference(
                     "Launder & Spalding (1974): The numerical computation of turbulent flows",
                 ),
-        );
-
-        // Navier-Stokes time integration
-        registry.push(
             AlgorithmComplexity::new("NavierStokesIntegration")
                 .with_time_complexity("O(N)")
                 .with_space_complexity("O(N)")
@@ -512,31 +510,25 @@ impl CfdPerformanceBenchmarks {
                 .with_reference(
                     "Hirsch (2007): Numerical computation of internal and external flows",
                 ),
-        );
-
-        // Richardson extrapolation
-        registry.push(
             AlgorithmComplexity::new("RichardsonExtrapolation")
                 .with_time_complexity("O(N * M)")
                 .with_space_complexity("O(N)")
                 .with_memory_pattern("Multiple grid evaluations with convergence analysis")
                 .with_cache_efficiency(0.7)
                 .with_scalability(0.8)
-                .with_reference("Roache (1998): Verification and Validation in Computational Science and Engineering")
-        );
-
-        // Manufactured solutions evaluation
-        registry.push(
+                .with_reference(
+                    "Roache (1998): Verification and Validation in Computational Science and Engineering",
+                ),
             AlgorithmComplexity::new("ManufacturedSolutions")
                 .with_time_complexity("O(N)")
                 .with_space_complexity("O(1)")
                 .with_memory_pattern("Analytical function evaluation at grid points")
                 .with_cache_efficiency(0.95)
                 .with_scalability(0.99)
-                .with_reference("Salari & Knupp (2000): Code verification by the method of manufactured solutions")
-        );
-
-        registry
+                .with_reference(
+                    "Salari & Knupp (2000): Code verification by the method of manufactured solutions",
+                ),
+        ]
     }
 
     /// Benchmark CFD algorithms with comprehensive profiling
@@ -721,54 +713,49 @@ impl CfdPerformanceBenchmarks {
     pub fn run_cfd_suite(&self) -> Result<Vec<TimingResult>> {
         println!("Running CFD Performance Benchmark Suite...");
 
-        let mut benchmarks = Vec::new();
-
-        // Matrix operations benchmark
-        benchmarks.push((
-            "Matrix_Assembly_64x64",
-            Box::new(|| {
-                let mut builder = cfd_math::sparse::SparseMatrixBuilder::new(64 * 64, 64 * 64);
-                for i in 0..64 {
-                    for j in 0..64 {
-                        let idx = i * 64 + j;
-                        if i > 0 {
-                            builder.add_entry(idx, idx - 64, -1.0).unwrap();
+        let benchmarks: Vec<BenchmarkOperation<'static>> = vec![
+            (
+                "Matrix_Assembly_64x64",
+                Box::new(|| {
+                    let mut builder = cfd_math::sparse::SparseMatrixBuilder::new(64 * 64, 64 * 64);
+                    for i in 0..64 {
+                        for j in 0..64 {
+                            let idx = i * 64 + j;
+                            if i > 0 {
+                                builder.add_entry(idx, idx - 64, -1.0).unwrap();
+                            }
+                            if i < 63 {
+                                builder.add_entry(idx, idx + 64, -1.0).unwrap();
+                            }
+                            if j > 0 {
+                                builder.add_entry(idx, idx - 1, -1.0).unwrap();
+                            }
+                            if j < 63 {
+                                builder.add_entry(idx, idx + 1, -1.0).unwrap();
+                            }
+                            builder.add_entry(idx, idx, 4.0).unwrap();
                         }
-                        if i < 63 {
-                            builder.add_entry(idx, idx + 64, -1.0).unwrap();
-                        }
-                        if j > 0 {
-                            builder.add_entry(idx, idx - 1, -1.0).unwrap();
-                        }
-                        if j < 63 {
-                            builder.add_entry(idx, idx + 1, -1.0).unwrap();
-                        }
-                        builder.add_entry(idx, idx, 4.0).unwrap();
                     }
-                }
-                let _matrix = builder.build().unwrap();
-            }) as Box<dyn FnMut()>,
-        ));
-
-        // Vector operations benchmark
-        benchmarks.push((
-            "Vector_Operations_1000",
-            Box::new(|| {
-                let mut v1 = vec![1.0f64; 1000];
-                let v2 = vec![2.0f64; 1000];
-                for i in 0..1000 {
-                    v1[i] = v1[i] * v2[i] + v1[i].sin();
-                }
-            }) as Box<dyn FnMut()>,
-        ));
-
-        // Memory allocation benchmark
-        benchmarks.push((
-            "Memory_Allocation_1M",
-            Box::new(|| {
-                let _data = vec![0.0f64; 1_000_000];
-            }) as Box<dyn FnMut()>,
-        ));
+                    let _matrix = builder.build().unwrap();
+                }),
+            ),
+            (
+                "Vector_Operations_1000",
+                Box::new(|| {
+                    let mut v1 = vec![1.0f64; 1000];
+                    let v2 = vec![2.0f64; 1000];
+                    for i in 0..1000 {
+                        v1[i] = v1[i] * v2[i] + v1[i].sin();
+                    }
+                }),
+            ),
+            (
+                "Memory_Allocation_1M",
+                Box::new(|| {
+                    let _data = vec![0.0f64; 1_000_000];
+                }),
+            ),
+        ];
 
         self.benchmark.benchmark_suite(benchmarks)
     }
@@ -810,7 +797,7 @@ mod tests {
         for result in results {
             assert!(result.stats.mean > 0.0);
             assert!(result.stats.samples > 0);
-            println!("{}", result);
+            println!("{result}");
         }
     }
 
@@ -820,7 +807,7 @@ mod tests {
         let result = TimingResult::new("test".to_string(), measurements)
             .with_metadata("grid".to_string(), "64x64".to_string());
 
-        let display = format!("{}", result);
+        let display = format!("{result}");
         assert!(display.contains("test"));
         assert!(display.contains("grid=64x64"));
     }

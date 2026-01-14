@@ -8,9 +8,8 @@
 fn test_muscl_scheme_creation() {
     use cfd_2d::physics::momentum::{MusclOrder, MusclReconstruction, MusclScheme, Superbee};
 
-    let limiter = Superbee;
-    let muscl2 = MusclScheme::<f64, Superbee>::new(limiter.clone(), MusclOrder::SecondOrder);
-    let muscl3 = MusclScheme::<f64, Superbee>::new(limiter, MusclOrder::ThirdOrder);
+    let muscl2 = MusclScheme::<f64, Superbee>::new(Superbee, MusclOrder::SecondOrder);
+    let muscl3 = MusclScheme::<f64, Superbee>::new(Superbee, MusclOrder::ThirdOrder);
 
     assert_eq!(muscl2.name(), "MUSCL2");
     assert_eq!(muscl3.name(), "MUSCL3");

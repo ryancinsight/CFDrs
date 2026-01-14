@@ -1,8 +1,8 @@
 //! Problem definition and configuration.
 
-use crate::physics::boundary::BoundaryConditionSet;
-use crate::domain::Domain;
 use crate::error::Result;
+use crate::geometry::Domain;
+use crate::physics::boundary::BoundaryConditionSet;
 use crate::physics::fluid::ConstantPropertyFluid;
 use nalgebra::RealField;
 use num_traits::cast::FromPrimitive;
@@ -170,15 +170,17 @@ impl<T: RealField + Copy, D: Domain<T>> Default for ProblemBuilder<T, D> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::geometry::Domain2D;
     use crate::physics::boundary::BoundaryCondition;
-    use crate::domain::Domain2D;
     use nalgebra::vector;
 
     #[test]
     fn test_problem_builder() {
         let problem = ProblemBuilder::new()
             .domain(Domain2D::from_scalars(0.0, 0.0, 1.0, 1.0))
-            .fluid(crate::physics::fluid::database::water_20c().expect("Failed to create water fluid"))
+            .fluid(
+                crate::physics::fluid::database::water_20c().expect("Failed to create water fluid"),
+            )
             .boundary_condition(
                 "inlet",
                 BoundaryCondition::velocity_inlet(vector![1.0, 0.0, 0.0]),

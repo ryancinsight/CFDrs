@@ -301,10 +301,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Flow Conditions:");
     println!("================");
-    println!("Inlet velocity: {:.2} m/s", venturi.inlet_velocity as f64);
-    println!("Inlet pressure: {:.0} Pa", venturi.inlet_pressure as f64);
-    println!("Fluid density: {:.0} kg/m³", venturi.density as f64);
-    println!("Vapor pressure: {:.0} Pa", venturi.vapor_pressure as f64);
+    println!("Inlet velocity: {:.2} m/s", venturi.inlet_velocity);
+    println!("Inlet pressure: {:.0} Pa", venturi.inlet_pressure);
+    println!("Fluid density: {:.0} kg/m³", venturi.density);
+    println!("Vapor pressure: {:.0} Pa", venturi.vapor_pressure);
     println!();
 
     // Analyze cavitation at different inlet velocities
@@ -333,29 +333,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .pressure
             .iter()
             .cloned()
-            .fold(f64::INFINITY, |a, b| {
-                let b_val = b as f64;
-                a.min(b_val)
-            });
+            .fold(f64::INFINITY, |a, b| a.min(b));
 
         let min_sigma = analysis
             .cavitation_number
             .iter()
             .cloned()
-            .fold(f64::INFINITY, |a, b| {
-                let b_val = b as f64;
-                a.min(b_val)
-            });
+            .fold(f64::INFINITY, |a, b| a.min(b));
 
-        let max_velocity = analysis.velocity.iter().cloned().fold(0.0, |a, b| {
-            let b_val = b as f64;
-            a.max(b_val)
-        });
+        let max_velocity = analysis.velocity.iter().cloned().fold(0.0, |a, b| a.max(b));
 
-        let max_cavity = analysis.cavity_length.iter().cloned().fold(0.0, |a, b| {
-            let b_val = b as f64;
-            a.max(b_val)
-        });
+        let max_cavity = analysis
+            .cavity_length
+            .iter()
+            .cloned()
+            .fold(0.0, |a, b| a.max(b));
 
         let has_cavitation = analysis.is_cavitating.iter().any(|&x| x);
 
@@ -384,13 +376,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("{}", "─".repeat(90));
 
     for i in 0..analysis.position.len() {
-        let pos_cm = analysis.position[i] as f64 * 100.0;
-        let area_mm2 = analysis.area[i] as f64 * 1e6;
-        let vel = analysis.velocity[i] as f64;
-        let press = analysis.pressure[i] as f64;
-        let sigma = analysis.cavitation_number[i] as f64;
+        let pos_cm = analysis.position[i] * 100.0;
+        let area_mm2 = analysis.area[i] * 1e6;
+        let vel = analysis.velocity[i];
+        let press = analysis.pressure[i];
+        let sigma = analysis.cavitation_number[i];
         let cavitating = analysis.is_cavitating[i];
-        let cavity_mm = analysis.cavity_length[i] as f64 * 1000.0;
+        let cavity_mm = analysis.cavity_length[i] * 1000.0;
 
         println!(
             "{:>11.1} | {:>10.1} | {:>13.1} | {:>12.0} | {:>4.3} | {:>10} | {:>10.3}",

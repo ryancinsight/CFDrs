@@ -268,26 +268,14 @@ fn test_tvd_limiters_properties() {
             let psi = limiter.apply(r);
 
             // TVD condition 1: 0 ≤ ψ(r) ≤ 2
-            assert!(
-                psi >= 0.0,
-                "Limiter {} violates ψ ≥ 0 for r={}",
-                format!("{:?}", limiter),
-                r
-            );
-            assert!(
-                psi <= 2.0,
-                "Limiter {} violates ψ ≤ 2 for r={}",
-                format!("{:?}", limiter),
-                r
-            );
+            assert!(psi >= 0.0, "Limiter {limiter:?} violates ψ ≥ 0 for r={r}");
+            assert!(psi <= 2.0, "Limiter {limiter:?} violates ψ ≤ 2 for r={r}");
 
             // TVD condition 2: ψ(r) ≤ 2r for r ∈ [0, 1]
             if r <= 1.0 {
                 assert!(
                     psi <= 2.0 * r + 1e-10,
-                    "Limiter {} violates TVD condition for r={}",
-                    format!("{:?}", limiter),
-                    r
+                    "Limiter {limiter:?} violates TVD condition for r={r}"
                 );
             }
         }
@@ -295,18 +283,15 @@ fn test_tvd_limiters_properties() {
         // Test discontinuities: ψ(r) = 0 when r ≤ 0 (no overshoots)
         let psi_neg = limiter.apply(-1.0);
         assert_eq!(
-            psi_neg,
-            0.0,
-            "Limiter {} should be 0 for negative r",
-            format!("{:?}", limiter)
+            psi_neg, 0.0,
+            "Limiter {limiter:?} should be 0 for negative r"
         );
 
         // Test smooth regions: ψ(1) = 1 (full centered differencing)
         let psi_one: f64 = limiter.apply(1.0);
         assert!(
             (psi_one - 1.0).abs() < 1e-10,
-            "Limiter {} should be 1 for r=1",
-            format!("{:?}", limiter)
+            "Limiter {limiter:?} should be 1 for r=1"
         );
     }
 }

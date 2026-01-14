@@ -174,22 +174,22 @@
 //! Hemisphere Publishing. §6.3-6.5.
 
 mod convergence;
-mod domain;
+mod geometry;
 mod linear_system;
 mod matrix_assembly;
 mod problem;
 mod state;
 
 pub use convergence::ConvergenceChecker;
-pub use domain::NetworkDomain;
-pub use linear_system::{LinearSystemSolver, LinearSolverMethod};
+pub use geometry::NetworkDomain;
+pub use linear_system::{LinearSolverMethod, LinearSystemSolver};
 pub use matrix_assembly::MatrixAssembler;
 pub use problem::NetworkProblem;
 pub use state::NetworkState;
 
 use crate::network::Network;
-use cfd_core::error::Result;
 use cfd_core::compute::solver::{Configurable, Solver, Validatable};
+use cfd_core::error::Result;
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
@@ -311,7 +311,11 @@ impl<T: RealField + Copy + FromPrimitive + Copy> NetworkSolver<T> {
 
             // Choose solver method adaptively
             let mut adaptive_solver = LinearSystemSolver::new();
-            let selected_method = if is_spd { LinearSolverMethod::ConjugateGradient } else { LinearSolverMethod::BiCGSTAB };
+            let selected_method = if is_spd {
+                LinearSolverMethod::ConjugateGradient
+            } else {
+                LinearSolverMethod::BiCGSTAB
+            };
             adaptive_solver = adaptive_solver.with_method(selected_method);
 
             // 2. Solve the linearized system
@@ -333,16 +337,22 @@ impl<T: RealField + Copy + FromPrimitive + Copy> NetworkSolver<T> {
                 norm.sqrt()
             };
             let rhs_norm = rhs.norm();
-            if network.last_solver_method.is_some() {} else { network.last_solver_method = Some(selected_method); }
+            if network.last_solver_method.is_some() {
+            } else {
+                network.last_solver_method = Some(selected_method);
+            }
             network.residuals.push(residual_norm);
 
             // For non-linear systems, we must check solution change to ensure the non-linear
             // iteration (Picard/Newton) has stabilized. Linear residual check is insufficient
             // because the linear solver minimizes it within the current linearization step.
             // Using has_converged() ensures we check |x_new - x_old|.
-            let converged = self
-                .convergence
-                .has_converged_dual(&solution, &last_solution, residual_norm, rhs_norm)?;
+            let converged = self.convergence.has_converged_dual(
+                &solution,
+                &last_solution,
+                residual_norm,
+                rhs_norm,
+            )?;
 
             // Check if solution has converged
             if converged {

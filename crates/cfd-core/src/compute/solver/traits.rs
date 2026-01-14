@@ -1,7 +1,7 @@
 //! Core solver traits following Single Responsibility Principle
 
-use crate::error::Result;
 use crate::abstractions::problem::Problem;
+use crate::error::Result;
 use nalgebra::RealField;
 
 /// Core solver trait following Single Responsibility Principle

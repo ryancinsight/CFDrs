@@ -100,11 +100,6 @@ impl PerformanceTimer {
         elapsed
     }
 
-    pub fn reset(&mut self) {
-        self.start_time = None;
-        self.measurements.clear();
-    }
-
     pub fn statistics(&self) -> Option<TimingStatistics> {
         if self.measurements.is_empty() {
             return None;
@@ -120,7 +115,7 @@ impl PerformanceTimer {
             .measurements
             .iter()
             .map(|&d| {
-                let diff = if d > mean { d - mean } else { mean - d };
+                let diff = d.abs_diff(mean);
                 diff.as_secs_f64().powi(2)
             })
             .sum::<f64>()
@@ -355,9 +350,9 @@ pub fn benchmark_memory_access_patterns(c: &mut Criterion, config: &BenchmarkCon
                 let mut data: Vec<f64> = (0..data_size).map(|i| i as f64).collect();
                 b.iter(|| {
                     let mut sum = 0.0;
-                    for i in 0..data.len() {
-                        sum += black_box(data[i]);
-                        data[i] += 1.0; // Modify to prevent optimization
+                    for value in data.iter_mut() {
+                        sum += black_box(*value);
+                        *value += 1.0; // Modify to prevent optimization
                     }
                     black_box(sum);
                 });
@@ -510,9 +505,9 @@ pub fn run_performance_benchmark_suite(
             let data_size = size * size;
             let mut data: Vec<f64> = (0..data_size).map(|i| i as f64).collect();
             let mut sum = 0.0;
-            for i in 0..data.len() {
-                sum += black_box(data[i]);
-                data[i] += 1.0;
+            for value in data.iter_mut() {
+                sum += black_box(*value);
+                *value += 1.0;
             }
             black_box(sum);
         });
@@ -698,7 +693,7 @@ fn generate_comprehensive_performance_report(config: &PerformanceBenchmarkConfig
         for rec in memory_recs {
             report.push_str(&format!("- {}\n", rec));
         }
-        report.push_str("\n");
+        report.push('\n');
     }
 
     report.push_str("### Performance Analysis\n");
@@ -820,9 +815,9 @@ pub fn benchmark_memory_access_patterns_detailed(
                 let mut data: Vec<f64> = (0..data_size).map(|i| i as f64).collect();
                 b.iter(|| {
                     let mut sum = 0.0;
-                    for i in 0..data.len() {
-                        sum += black_box(data[i]);
-                        data[i] += 1.0;
+                    for item in &mut data {
+                        sum += black_box(*item);
+                        *item += 1.0;
                     }
                     black_box(sum);
                 });
@@ -949,9 +944,4 @@ fn save_performance_results(
             recommendations_path.display()
         );
     }
-}
-
-pub fn bench_memory_profiling(c: &mut Criterion) {
-    let config = BenchmarkConfig::default();
-    benchmark_memory_usage(c, &config);
 }

@@ -212,7 +212,9 @@ impl<T: RealField + Copy> Mesh<T> {
         }
         let mut vidx: Vec<usize> = vset.into_iter().collect();
         vidx.sort_unstable();
-        vidx.into_iter().map(|idx| self.vertex(idx).expect("Valid vertex index")).collect()
+        vidx.into_iter()
+            .map(|idx| self.vertex(idx).expect("Valid vertex index"))
+            .collect()
     }
 
     /// Check mesh validity

@@ -3,9 +3,9 @@
 //! This benchmark suite provides comprehensive performance analysis for all major CFD operations,
 //! including memory profiling, scaling analysis, and regression detection capabilities.
 
+use cfd_validation::benchmarking::BenchmarkConfig;
 use criterion::{criterion_group, criterion_main, Criterion};
 use std::time::Duration;
-use cfd_validation::benchmarking::BenchmarkConfig;
 
 // Core CFD operation benchmarks
 #[path = "cfd_suite/core_operations.rs"]
@@ -95,6 +95,7 @@ impl ComprehensiveBenchmarkRunner {
         }
 
         // Regression detection
+        regression_detection::benchmark_regression_detection(c, &self.config);
         self.perform_regression_analysis();
     }
 

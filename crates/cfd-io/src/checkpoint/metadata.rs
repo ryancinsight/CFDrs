@@ -46,7 +46,6 @@ impl CheckpointMetadata {
         }
     }
 
-
     /// Check if version is compatible
     pub fn is_version_compatible(&self) -> bool {
         self.version == CHECKPOINT_VERSION

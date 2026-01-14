@@ -4,7 +4,7 @@
 //! the Stokes equations in a simple tetrahedral domain.
 
 use cfd_3d::fem::{FemConfig, FemSolver};
-use cfd_core::domain::mesh::ElementType;
+use cfd_core::geometry::ElementType;
 use cfd_core::physics::fluid::{ConstantFluid, ConstantPropertyFluid};
 use cfd_mesh::prelude::{Cell, Mesh, Vertex};
 use nalgebra::Point3;

@@ -79,9 +79,7 @@ impl<T: RealField + Copy> RectangularChannelModel<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T>
-    for RectangularChannelModel<T>
-{
+impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for RectangularChannelModel<T> {
     fn calculate_resistance(&self, fluid: &Fluid<T>, conditions: &FlowConditions<T>) -> Result<T> {
         let (r, k) = self.calculate_coefficients(fluid, conditions)?;
         let q = conditions.flow_rate.unwrap_or_else(T::zero);
@@ -89,7 +87,11 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T>
         Ok(r + k * q_abs)
     }
 
-    fn calculate_coefficients(&self, fluid: &Fluid<T>, _conditions: &FlowConditions<T>) -> Result<(T, T)> {
+    fn calculate_coefficients(
+        &self,
+        fluid: &Fluid<T>,
+        _conditions: &FlowConditions<T>,
+    ) -> Result<(T, T)> {
         let viscosity = fluid.viscosity;
 
         // Calculate hydraulic diameter
@@ -147,8 +149,10 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T>
     fn reynolds_range(&self) -> (T, T) {
         (
             T::zero(),
-            T::from_f64(cfd_core::physics::constants::physics::dimensionless::reynolds::PIPE_LAMINAR_MAX)
-                .unwrap_or_else(|| T::zero()),
+            T::from_f64(
+                cfd_core::physics::constants::physics::dimensionless::reynolds::PIPE_LAMINAR_MAX,
+            )
+            .unwrap_or_else(|| T::zero()),
         )
     }
 }

@@ -63,15 +63,15 @@ fn setup_test_conditions(fields: &mut SimulationFields<f64>) {
     }
 
     // Turbulent quantities (typical values for moderate turbulence)
-    let k_intensity = 0.05; // 5% turbulence intensity
-    let u_ref = 1.0; // Reference velocity
+    let k_intensity: f64 = 0.05; // 5% turbulence intensity
+    let u_ref: f64 = 1.0; // Reference velocity
 
     for idx in 0..(nx * ny) {
         let i = idx % nx;
         let j = idx / nx;
 
         // Turbulent kinetic energy: k = (3/2) * (u'²) ≈ 1.5 * (I*u_ref)²
-        let k: f64 = 1.5 * ((k_intensity * u_ref) as f64).powi(2);
+        let k: f64 = 1.5 * (k_intensity * u_ref).powi(2);
 
         // For k-ε: ε = C_μ^{3/4} * k^{3/2} / l, where l ≈ 0.07 * hydraulic diameter
         // For k-ω: ω = ε / (C_μ * k), with ε ≈ k^{3/2} / l

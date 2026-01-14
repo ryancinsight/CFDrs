@@ -136,12 +136,11 @@ impl ScalingAnalysis {
                 timing_results
                     .iter()
                     .map(|(_, time)| *time)
-                    .min_by(|a, b| a.partial_cmp(b).unwrap())
+                    .min_by(|a, b| a.total_cmp(b))
             })
             .ok_or_else(|| Error::InvalidInput("No reference timing found".to_string()))?;
 
         for (processor_count, exec_time) in timing_results {
-            let _problem_sizes = [problem_size];
             let key = (problem_size, *processor_count);
 
             execution_times.insert(key, *exec_time);
@@ -149,7 +148,10 @@ impl ScalingAnalysis {
             parallel_efficiency.insert(key, (reference_time / exec_time) / *processor_count as f64);
         }
 
-        let keys: Vec<(usize, usize)> = processor_counts.iter().map(|&p| (problem_size, p)).collect();
+        let keys: Vec<(usize, usize)> = processor_counts
+            .iter()
+            .map(|&p| (problem_size, p))
+            .collect();
         let metrics = self.calculate_scaling_metrics(&keys, &parallel_efficiency);
 
         Ok(ScalingResult {
@@ -190,7 +192,6 @@ impl ScalingAnalysis {
             })?;
 
         let reference_time = reference_result.2;
-        let _reference_problem_size = reference_result.1;
 
         for (processor_count, problem_size, exec_time) in scaling_results {
             let key = (*problem_size, *processor_count);
@@ -261,14 +262,19 @@ impl ScalingAnalysis {
             .max_by_key(|(_, procs)| procs)
             .copied()
             .unwrap_or((0, 1));
-        let scaling_efficiency = parallel_efficiency.get(&max_procs_key).copied().unwrap_or(0.0);
+        let scaling_efficiency = parallel_efficiency
+            .get(&max_procs_key)
+            .copied()
+            .unwrap_or(0.0);
 
         // Estimate communication overhead (simplified)
         let communication_overhead = if keys.len() > 1 {
             let first_key = keys[0];
             let second_key = keys[1];
-            let single_proc_efficiency = parallel_efficiency.get(&first_key).copied().unwrap_or(1.0);
-            let multi_proc_efficiency = parallel_efficiency.get(&second_key).copied().unwrap_or(1.0);
+            let single_proc_efficiency =
+                parallel_efficiency.get(&first_key).copied().unwrap_or(1.0);
+            let multi_proc_efficiency =
+                parallel_efficiency.get(&second_key).copied().unwrap_or(1.0);
             1.0 - multi_proc_efficiency / single_proc_efficiency
         } else {
             0.0
@@ -524,7 +530,7 @@ mod tests {
 
         assert!(!results.is_empty());
         for (name, result) in results {
-            println!("{}:\n{}", name, result);
+            println!("{name}:\n{result}");
             assert!(result.metrics.avg_parallel_efficiency >= 0.0);
             assert!(result.metrics.avg_parallel_efficiency <= 1.0);
         }
@@ -539,6 +545,6 @@ mod tests {
 
         let recommendations = analyzer.generate_recommendations(&result);
         assert!(!recommendations.is_empty());
-        println!("Recommendations: {:?}", recommendations);
+        println!("Recommendations: {recommendations:?}");
     }
 }

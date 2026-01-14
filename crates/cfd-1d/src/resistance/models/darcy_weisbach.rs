@@ -133,16 +133,18 @@ impl<T: RealField + Copy + FromPrimitive> DarcyWeisbachModel<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T>
-    for DarcyWeisbachModel<T>
-{
+impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for DarcyWeisbachModel<T> {
     fn calculate_resistance(&self, fluid: &Fluid<T>, conditions: &FlowConditions<T>) -> Result<T> {
         let (r, k) = self.calculate_coefficients(fluid, conditions)?;
 
         // For automatic model selection and basic analyzers that expect a single R value,
         // we return the effective resistance R_eff = R + k|Q| such that ΔP = R_eff * Q.
         let q_mag = if let Some(q) = conditions.flow_rate {
-            if q >= T::zero() { q } else { -q }
+            if q >= T::zero() {
+                q
+            } else {
+                -q
+            }
         } else if let Some(v) = conditions.velocity {
             let v_abs = if v >= T::zero() { v } else { -v };
             v_abs * self.area
@@ -200,7 +202,7 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T>
             T::from_f64(
                 cfd_core::physics::constants::physics::dimensionless::reynolds::PIPE_LAMINAR_MAX,
             )
-                .unwrap_or_else(|| T::zero()),
+            .unwrap_or_else(|| T::zero()),
             T::from_f64(MAX_REYNOLDS).unwrap_or_else(|| T::zero()),
         )
     }
@@ -259,8 +261,7 @@ impl<T: RealField + Copy + FromPrimitive> DarcyWeisbachModel<T> {
             let term = relative_roughness
                 / T::from_f64(HAALAND_ROUGHNESS_DIVISOR).unwrap_or_else(|| T::one())
                 + T::from_f64(HAALAND_REYNOLDS_FACTOR).unwrap_or_else(|| T::one()) / reynolds;
-            let log_term = term.ln()
-                / T::from_f64(LOG_BASE_10.ln()).unwrap_or_else(|| T::one());
+            let log_term = term.ln() / T::from_f64(LOG_BASE_10.ln()).unwrap_or_else(|| T::one());
             T::one()
                 / (T::from_f64(HAALAND_EXPONENT_FACTOR).unwrap_or_else(|| T::one()) * log_term)
                     .powi(2)

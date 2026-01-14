@@ -7,7 +7,7 @@ use crate::error::Result;
 use crate::physics::fluid::ConstantPropertyFluid;
 use crate::physics::fluid_dynamics::flow_regimes::{FlowClassifier, FlowRegime};
 use nalgebra::RealField;
-use num_traits::{FromPrimitive, Float};
+use num_traits::{Float, FromPrimitive};
 
 /// Service for fluid dynamics calculations
 pub struct FluidDynamicsService;
@@ -24,9 +24,7 @@ impl FluidDynamicsService {
     }
 
     /// Calculate Prandtl number for constant property fluid
-    pub fn prandtl_number<T: RealField + Copy + Float>(
-        fluid: &ConstantPropertyFluid<T>,
-    ) -> T {
+    pub fn prandtl_number<T: RealField + Copy + Float>(fluid: &ConstantPropertyFluid<T>) -> T {
         let cp = fluid.specific_heat;
         let k = fluid.thermal_conductivity;
         let mu = fluid.viscosity;
@@ -77,13 +75,17 @@ impl FluidDynamicsService {
             Self::colebrook_white_friction_factor(reynolds, relative_roughness)
         } else {
             // Smooth pipe: Blasius (low Re) or Haaland (general explicit)
-            let blasius_max = T::from_f64(crate::physics::constants::physics::hydraulics::BLASIUS_MAX_RE)
-                .unwrap_or_else(|| T::one());
+            let blasius_max =
+                T::from_f64(crate::physics::constants::physics::hydraulics::BLASIUS_MAX_RE)
+                    .unwrap_or_else(|| T::one());
             if reynolds < blasius_max {
-                let coeff = T::from_f64(crate::physics::constants::physics::hydraulics::BLASIUS_COEFFICIENT)
-                    .unwrap_or_else(|| T::one());
-                let exp = T::from_f64(crate::physics::constants::physics::hydraulics::BLASIUS_EXPONENT)
-                    .unwrap_or_else(|| T::one());
+                let coeff = T::from_f64(
+                    crate::physics::constants::physics::hydraulics::BLASIUS_COEFFICIENT,
+                )
+                .unwrap_or_else(|| T::one());
+                let exp =
+                    T::from_f64(crate::physics::constants::physics::hydraulics::BLASIUS_EXPONENT)
+                        .unwrap_or_else(|| T::one());
                 Ok(coeff / Float::powf(reynolds, exp))
             } else {
                 Self::haaland_friction_factor(reynolds, T::zero())
@@ -108,7 +110,12 @@ impl FluidDynamicsService {
         // Simple fixed-point iteration
         for _ in 0..20 {
             let f_old = f;
-            let inv_sqrt_f = -two * Float::log(relative_roughness / three_point_seven + two_point_five_one / (reynolds * Float::sqrt(f)), ten) * point_eight_six;
+            let inv_sqrt_f =
+                -two * Float::log(
+                    relative_roughness / three_point_seven
+                        + two_point_five_one / (reynolds * Float::sqrt(f)),
+                    ten,
+                ) * point_eight_six;
             f = T::one() / (inv_sqrt_f * inv_sqrt_f);
 
             if Float::abs(f - f_old) < tolerance {

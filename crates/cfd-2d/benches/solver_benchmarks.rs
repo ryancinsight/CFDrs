@@ -25,7 +25,8 @@ fn benchmark_lbm_solver(c: &mut Criterion) {
         group.bench_with_input(BenchmarkId::new("step", size), size, |b, _| {
             b.iter(|| {
                 let boundaries = HashMap::new();
-                black_box(solver.step(&boundaries).unwrap())
+                let _: () = solver.step(&boundaries).unwrap();
+                black_box(())
             })
         });
     }

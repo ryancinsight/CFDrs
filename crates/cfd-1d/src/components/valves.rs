@@ -44,7 +44,7 @@ impl<T: RealField + Copy + FromPrimitive> Microvalve<T> {
 }
 
 impl<T: RealField + Copy + FromPrimitive> Component<T> for Microvalve<T> {
-    fn resistance(&self, fluid: &Fluid<T>) -> T {
+    fn resistance(&self, _fluid: &Fluid<T>) -> T {
         if self.opening <= T::zero() {
             // Closed valve - very high linear resistance to simulate no flow
             T::from_f64(1e12).unwrap_or_else(T::one)

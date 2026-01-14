@@ -104,8 +104,7 @@ fn demonstrate_cfl_adaptation(
         } else {
             0.01
         }
-        .min(0.1)
-        .max(0.001); // Clamp to reasonable bounds
+        .clamp(0.001, 0.1); // Clamp to reasonable bounds
 
         // For this demo, simulate the integration step
         let y_new = integrate_step(&test_ode, &y, t, dt_adaptive);
@@ -168,7 +167,7 @@ fn demonstrate_error_adaptation(
 
         // Adapt time step based on error
         let dt_current = integrator.current_dt();
-        let (dt_new, accepted) = integrator.adapt_step(error_estimate as f64);
+        let (dt_new, accepted) = integrator.adapt_step(error_estimate);
 
         if accepted {
             // Step accepted - take the integration step
@@ -245,8 +244,7 @@ fn demonstrate_combined_adaptation(
         } else {
             0.01
         }
-        .min(0.1)
-        .max(0.001);
+        .clamp(0.001, 0.1);
 
         // Get current adaptive time step
         let dt_adaptive = integrator.current_dt();
@@ -256,7 +254,7 @@ fn demonstrate_combined_adaptation(
 
         // Simulate error estimation and step acceptance
         let error_estimate = 3e-7 + 1e-7 * (t / t_final).sin().abs(); // Reasonable error estimates
-        let (dt_new, accepted) = integrator.adapt_step(error_estimate as f64);
+        let (dt_new, accepted) = integrator.adapt_step(error_estimate);
 
         if accepted {
             // Step accepted
@@ -299,7 +297,7 @@ fn demonstrate_combined_adaptation(
 }
 
 /// Simple Euler integration for demonstration
-fn integrate_step<F>(f: F, y: &DVector<f64>, t: f64, dt: f64) -> DVector<f64>
+fn integrate_step<F>(f: &F, y: &DVector<f64>, t: f64, dt: f64) -> DVector<f64>
 where
     F: Fn(f64, &DVector<f64>) -> DVector<f64>,
 {

@@ -226,11 +226,7 @@ impl<T: RealField + FromPrimitive + Copy> PoissonSolver<T> {
         // Normal direction factor:
         // Index 0 is x=1, normal is +direction
         // Index n-1 is x=-1, normal is -direction
-        let normal_factor = if local_idx == 0 {
-            T::one()
-        } else {
-            -T::one()
-        };
+        let normal_factor = if local_idx == 0 { T::one() } else { -T::one() };
 
         match bc {
             PoissonBoundaryCondition::Dirichlet(value) => {
@@ -262,11 +258,7 @@ impl<T: RealField + FromPrimitive + Copy> PoissonSolver<T> {
                     rhs[idx] = *value;
                 }
             }
-            PoissonBoundaryCondition::Robin {
-                alpha,
-                beta,
-                value,
-            } => {
+            PoissonBoundaryCondition::Robin { alpha, beta, value } => {
                 for &idx in boundary_indices {
                     // Clear row
                     for j in 0..matrix.ncols() {
@@ -282,8 +274,7 @@ impl<T: RealField + FromPrimitive + Copy> PoissonSolver<T> {
                             idx - (local_idx - m) * stride
                         };
 
-                        let mut coeff =
-                            *beta * normal_factor * diff_matrix[(local_idx, m)];
+                        let mut coeff = *beta * normal_factor * diff_matrix[(local_idx, m)];
                         if m == local_idx {
                             coeff += *alpha;
                         }

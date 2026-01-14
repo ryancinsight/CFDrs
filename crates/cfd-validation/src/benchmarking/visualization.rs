@@ -14,6 +14,7 @@ use super::scaling::ScalingResult;
 use super::{BenchmarkResult, BenchmarkStatus};
 use std::collections::HashMap;
 use std::fmt;
+use std::fmt::Write as _;
 
 /// Chart types for CFD performance data visualization
 ///
@@ -215,28 +216,34 @@ impl HtmlReportGenerator {
         html.push_str(&self.generate_html_header());
 
         // Title and summary
-        html.push_str(&self.generate_summary_section(results, alerts.unwrap_or(&[])));
+        html.push_str(&Self::generate_summary_section(
+            results,
+            alerts.unwrap_or(&[]),
+        ));
 
         // Performance charts with Chart.js
-        html.push_str(&self.generate_performance_chart(results));
+        html.push_str(&Self::generate_performance_chart(results));
 
         // Scaling analysis
         // Use results which contain scaling info directly
-        html.push_str(&self.generate_scaling_chart(results));
+        html.push_str(&Self::generate_scaling_chart(results));
 
         // Regression alerts (if available)
         if let Some(alerts) = alerts {
-            html.push_str(&self.generate_alerts_section(alerts));
+            html.push_str(&Self::generate_alerts_section(alerts));
         }
 
         // Detailed results table
-        html.push_str(&self.generate_results_table(results));
+        html.push_str(&Self::generate_results_table(results));
 
         // Recommendations
-        html.push_str(&self.generate_recommendations(results, alerts.unwrap_or(&[])));
+        html.push_str(&Self::generate_recommendations(
+            results,
+            alerts.unwrap_or(&[]),
+        ));
 
         // HTML footer
-        html.push_str(&self.generate_html_footer());
+        html.push_str(&Self::generate_html_footer());
 
         html
     }
@@ -629,9 +636,9 @@ impl HtmlReportGenerator {
         )
     }
 
-    fn generate_summary_section(&self, results: &[BenchmarkResult], alerts: &[RegressionAlert]) -> String {
+    fn generate_summary_section(results: &[BenchmarkResult], alerts: &[RegressionAlert]) -> String {
         let total_operations = results.len();
-        let success_rate = self.calculate_success_rate(results);
+        let success_rate = Self::calculate_success_rate(results);
         let total_alerts = alerts.len();
         let critical_alerts = alerts.iter().filter(|a| a.degradation_rate > 25.0).count();
 
@@ -673,7 +680,7 @@ impl HtmlReportGenerator {
         )
     }
 
-    fn generate_alerts_section(&self, alerts: &[RegressionAlert]) -> String {
+    fn generate_alerts_section(alerts: &[RegressionAlert]) -> String {
         if alerts.is_empty() {
             return r#"<div class="chart-container">
                 <h2>Performance Alerts</h2>
@@ -699,7 +706,8 @@ impl HtmlReportGenerator {
                 ("alert-low", "Low")
             };
 
-            alerts_html.push_str(&format!(
+            write!(
+                &mut alerts_html,
                 r#"<div class="alert {}">
                     <strong>{}:</strong> {}<br>
                     <small>Degradation: {:.1}%, Confidence: {:.1}%</small>
@@ -709,14 +717,15 @@ impl HtmlReportGenerator {
                 alert.benchmark_name,
                 alert.degradation_rate,
                 alert.confidence * 100.0
-            ));
+            )
+            .expect("writing to String cannot fail");
         }
 
         alerts_html.push_str("</div>");
         alerts_html
     }
 
-    fn generate_results_table(&self, results: &[BenchmarkResult]) -> String {
+    fn generate_results_table(results: &[BenchmarkResult]) -> String {
         let mut table_html = r#"<div class="chart-container">
             <h2>Detailed Results</h2>
             <table>
@@ -735,22 +744,22 @@ impl HtmlReportGenerator {
 
         for result in results {
             // Extract performance metrics
-            let perf_time = result
-                .performance
-                .as_ref()
-                .map(|p| {
+            let perf_time = result.performance.as_ref().map_or_else(
+                || "N/A".to_string(),
+                |p| {
                     format!(
                         "{:.3}ms ± {:.3}ms",
                         p.stats.mean * 1000.0,
                         p.stats.std_dev * 1000.0
                     )
-                })
-                .unwrap_or_else(|| "N/A".to_string());
+                },
+            );
 
             // Extract memory metrics (use peak memory usage for footprint analysis)
-            let memory_usage = result
-                .memory
-                .as_ref().map_or_else(|| "N/A".to_string(), |m| format!("{:.1}MB", m.peak_allocated as f64 / 1_048_576.0));
+            let memory_usage = result.memory.as_ref().map_or_else(
+                || "N/A".to_string(),
+                |m| format!("{:.1}MB", m.peak_allocated as f64 / 1_048_576.0),
+            );
 
             // Extract scaling info
             let scaling_info = result
@@ -771,11 +780,11 @@ impl HtmlReportGenerator {
             // Determine status color and text
             let (status_color, status_text) = match (&result.status, &result.regression_detected) {
                 (BenchmarkStatus::Passed, None) => ("#28a745", "✅ Passed"),
-                (BenchmarkStatus::Passed, Some(reg)) if *reg > 10.0 => {
-                    ("#ffc107", "⚠️ Minor Regression")
-                }
                 (BenchmarkStatus::Passed, Some(reg)) if *reg > 25.0 => {
                     ("#dc3545", "🚨 Major Regression")
+                }
+                (BenchmarkStatus::Passed, Some(reg)) if *reg > 10.0 => {
+                    ("#ffc107", "⚠️ Minor Regression")
                 }
                 (BenchmarkStatus::Passed, Some(_)) => ("#17a2b8", "⚠️ Regression"),
                 (BenchmarkStatus::Failed, _) => ("#dc3545", "❌ Failed"),
@@ -784,7 +793,8 @@ impl HtmlReportGenerator {
                 (BenchmarkStatus::Running, _) => ("#007bff", "⏳ Running"),
             };
 
-            table_html.push_str(&format!(
+            write!(
+                &mut table_html,
                 r#"<tr>
                     <td>{}</td>
                     <td>{:.3}ms</td>
@@ -800,18 +810,15 @@ impl HtmlReportGenerator {
                 scaling_info,
                 status_color,
                 status_text
-            ));
+            )
+            .expect("writing to String cannot fail");
         }
 
         table_html.push_str(r"</tbody></table></div>");
         table_html
     }
 
-    fn generate_recommendations(
-        &self,
-        results: &[BenchmarkResult],
-        alerts: &[RegressionAlert],
-    ) -> String {
+    fn generate_recommendations(results: &[BenchmarkResult], alerts: &[RegressionAlert]) -> String {
         let mut recommendations = Vec::new();
 
         // Analyze results for recommendations with architectural purity
@@ -829,9 +836,7 @@ impl HtmlReportGenerator {
             .count();
 
         if failed_tests > 0 {
-            recommendations.push(format!(
-                "❌ Fix {failed_tests} failed benchmark operations"
-            ));
+            recommendations.push(format!("❌ Fix {failed_tests} failed benchmark operations"));
         }
 
         // Check for general regressions (any regression > 5% but < 25%)
@@ -839,9 +844,9 @@ impl HtmlReportGenerator {
             .iter()
             .filter(|a| a.degradation_rate > 5.0 && a.degradation_rate <= 25.0)
             .count();
-        
+
         if minor_regressions > 0 {
-             recommendations.push(format!(
+            recommendations.push(format!(
                 "⚠️ Review {minor_regressions} minor performance regressions"
             ));
         }
@@ -893,9 +898,11 @@ impl HtmlReportGenerator {
             .to_string();
 
         for rec in recommendations {
-            rec_html.push_str(&format!(
+            write!(
+                &mut rec_html,
                 r#"<div class="recommendation-item">• {rec}</div>"#
-            ));
+            )
+            .expect("writing to String cannot fail");
         }
 
         rec_html.push_str("</div>");
@@ -903,7 +910,7 @@ impl HtmlReportGenerator {
     }
 
     /// Generate Chart.js performance chart
-    fn generate_performance_chart(&self, results: &[BenchmarkResult]) -> String {
+    fn generate_performance_chart(results: &[BenchmarkResult]) -> String {
         let mut labels = Vec::new();
         let mut execution_times = Vec::new();
         let mut memory_usage = Vec::new();
@@ -1043,11 +1050,9 @@ impl HtmlReportGenerator {
     }
 
     /// Generate scaling analysis chart (Speedup vs Processors)
-    fn generate_scaling_chart(&self, results: &[BenchmarkResult]) -> String {
-        let scaling_benchmarks: Vec<&BenchmarkResult> = results
-            .iter()
-            .filter(|r| r.scaling.is_some())
-            .collect();
+    fn generate_scaling_chart(results: &[BenchmarkResult]) -> String {
+        let scaling_benchmarks: Vec<&BenchmarkResult> =
+            results.iter().filter(|r| r.scaling.is_some()).collect();
 
         if scaling_benchmarks.is_empty() {
             return String::new();
@@ -1065,7 +1070,7 @@ impl HtmlReportGenerator {
             }
         }
         all_processor_counts.sort_unstable();
-        
+
         if all_processor_counts.is_empty() {
             return String::new();
         }
@@ -1073,8 +1078,8 @@ impl HtmlReportGenerator {
         // Prepare datasets
         let mut datasets = Vec::new();
         let colors = [
-            "#4e79a7", "#f28e2c", "#e15759", "#76b7b2", "#59a14f", 
-            "#edc949", "#af7aa1", "#ff9da7", "#9c755f", "#bab0ac"
+            "#4e79a7", "#f28e2c", "#e15759", "#76b7b2", "#59a14f", "#edc949", "#af7aa1", "#ff9da7",
+            "#9c755f", "#bab0ac",
         ];
 
         for (i, result) in scaling_benchmarks.iter().enumerate() {
@@ -1106,6 +1111,15 @@ impl HtmlReportGenerator {
             "datasets": datasets
         });
 
+        let chart_data_json = serde_json::to_string(&chart_data).unwrap_or_else(|e| {
+            serde_json::json!({
+                "labels": [],
+                "datasets": [],
+                "error": e.to_string()
+            })
+            .to_string()
+        });
+
         format!(
             r#"<div class="chart-container">
                 <div class="chart-header">
@@ -1120,7 +1134,7 @@ impl HtmlReportGenerator {
                 const scalingCtx = document.getElementById('scalingChart').getContext('2d');
                 new Chart(scalingCtx, {{
                     type: 'line',
-                    data: {},
+                    data: {chart_data_json},
                     options: {{
                         responsive: true,
                         maintainAspectRatio: false,
@@ -1169,12 +1183,11 @@ impl HtmlReportGenerator {
                     }}
                 }});
             </script>"#,
-            serde_json::to_string(&chart_data).unwrap_or_default()
         )
     }
 
     /// Calculate success rate across all results
-    fn calculate_success_rate(&self, results: &[BenchmarkResult]) -> f64 {
+    fn calculate_success_rate(results: &[BenchmarkResult]) -> f64 {
         if results.is_empty() {
             return 0.0;
         }
@@ -1187,7 +1200,7 @@ impl HtmlReportGenerator {
         (successful as f64 / results.len() as f64) * 100.0
     }
 
-    fn generate_html_footer(&self) -> String {
+    fn generate_html_footer() -> String {
         r"</div></body></html>".to_string()
     }
 }
@@ -1232,14 +1245,18 @@ impl PerformanceDashboard {
         report.push_str("CFD Performance Benchmark Summary\n");
         report.push_str("==================================\n\n");
 
-        report.push_str(&format!(
-            "Total Operations Benchmarked: {}\n",
+        writeln!(
+            &mut report,
+            "Total Operations Benchmarked: {}",
             results.len()
-        ));
-        report.push_str(&format!(
-            "Report Generated: {}\n\n",
+        )
+        .expect("writing to String cannot fail");
+        writeln!(
+            &mut report,
+            "Report Generated: {}\n",
             chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC")
-        ));
+        )
+        .expect("writing to String cannot fail");
 
         // Summary statistics
         let total_time: f64 = results.iter().map(|r| r.duration.as_secs_f64()).sum();
@@ -1251,15 +1268,20 @@ impl PerformanceDashboard {
             .fold(0.0, f64::max);
 
         report.push_str("Performance Statistics:\n");
-        report.push_str(&format!(
-            "  Average Execution Time: {:.3} ms\n",
+        writeln!(
+            &mut report,
+            "  Average Execution Time: {:.3} ms",
             avg_time * 1000.0
-        ));
-        report.push_str(&format!(
-            "  Maximum Execution Time: {:.3} ms\n",
+        )
+        .expect("writing to String cannot fail");
+        writeln!(
+            &mut report,
+            "  Maximum Execution Time: {:.3} ms",
             max_time * 1000.0
-        ));
-        report.push_str(&format!("  Total Execution Time: {total_time:.3} s\n\n"));
+        )
+        .expect("writing to String cannot fail");
+        writeln!(&mut report, "  Total Execution Time: {total_time:.3} s\n")
+            .expect("writing to String cannot fail");
 
         // Operation breakdown
         report.push_str("Operation Breakdown:\n");
@@ -1279,12 +1301,14 @@ impl PerformanceDashboard {
                 .sum::<f64>()
                 / op_results.len() as f64;
 
-            report.push_str(&format!(
-                "  {}: {:.3} ms ({} runs)\n",
+            writeln!(
+                &mut report,
+                "  {}: {:.3} ms ({} runs)",
                 operation,
                 op_avg_time * 1000.0,
                 op_results.len()
-            ));
+            )
+            .expect("writing to String cannot fail");
         }
 
         report
@@ -1375,22 +1399,30 @@ impl BenchmarkExporter {
                 0.0
             };
 
-            csv.push_str(&format!(
-                "{},{},{:.3},{},{:.2},{:?},{}\n",
+            let memory_mb = match result.memory.as_ref() {
+                Some(memory) => {
+                    let mut memory_mb = String::new();
+                    let _ = write!(
+                        &mut memory_mb,
+                        "{:.1}",
+                        memory.total_allocated as f64 / 1024.0 / 1024.0
+                    );
+                    memory_mb
+                }
+                None => "N/A".to_string(),
+            };
+
+            let _ = writeln!(
+                &mut csv,
+                "{},{},{:.3},{},{:.2},{:?},{}",
                 result.name,
                 result.problem_size,
                 result.duration.as_secs_f64() * 1000.0,
-                result
-                    .memory
-                    .as_ref()
-                    .map_or("N/A".to_string(), |m| format!(
-                        "{:.1}",
-                        m.total_allocated as f64 / 1024.0 / 1024.0
-                    )),
+                memory_mb,
                 throughput,
                 result.status,
                 result.regression_detected.is_some()
-            ));
+            );
         }
 
         csv

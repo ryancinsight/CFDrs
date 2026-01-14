@@ -5,10 +5,10 @@
 
 #[cfg(test)]
 mod preconditioner_edge_tests {
-    use crate::linear_solver::Preconditioner;
     use crate::linear_solver::preconditioners::cholesky::IncompleteCholesky;
     use crate::linear_solver::preconditioners::ilu::IncompleteLU;
     use crate::linear_solver::preconditioners::ssor::SSOR;
+    use crate::linear_solver::Preconditioner;
     use crate::sparse::SparseMatrixBuilder;
     use approx::assert_relative_eq;
     use cfd_core::error::Result;

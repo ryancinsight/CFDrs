@@ -7,8 +7,8 @@ use crate::fields::SimulationFields;
 use crate::grid::StructuredGrid2D;
 use crate::physics::momentum::MomentumSolver;
 use crate::solvers::fdm::PoissonSolver;
-use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_core::error::Result;
+use cfd_core::physics::boundary::BoundaryCondition;
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 use std::collections::HashMap;
@@ -209,8 +209,6 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::Debug> Default for SimpleAl
 #[cfg(test)]
 mod tests {
     use super::*;
-    
-    
 
     #[test]
     fn test_simple_algorithm_creation() {

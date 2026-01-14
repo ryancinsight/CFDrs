@@ -274,4 +274,3 @@ criterion_group! {
 }
 
 criterion_main!(turbulence_benchmarks);
-

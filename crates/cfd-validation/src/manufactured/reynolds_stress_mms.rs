@@ -270,18 +270,18 @@ impl<T: RealField + Copy + FromPrimitive> ManufacturedReynoldsStressMMS<T> {
                 }
             }
 
-            PressureStrainModelMMS::Quadratic => self
-                .pressure_strain_quadratic(a_xx, a_xy, a_yy, time_scale, s11, s12, s22, w12, i, j),
+            PressureStrainModelMMS::Quadratic => Self::pressure_strain_quadratic(
+                a_xx, a_xy, a_yy, time_scale, s11, s12, s22, w12, i, j,
+            ),
 
             PressureStrainModelMMS::SSG => {
-                self.pressure_strain_ssg(a_xx, a_xy, a_yy, time_scale, s11, s12, s22, w12, i, j)
+                Self::pressure_strain_ssg(a_xx, a_xy, a_yy, time_scale, s11, s12, s22, w12, i, j)
             }
         }
     }
 
     /// Quadratic pressure-strain correlation (Speziale et al., 1991)
     fn pressure_strain_quadratic(
-        &self,
         a_xx: T,
         a_xy: T,
         a_yy: T,
@@ -329,7 +329,6 @@ impl<T: RealField + Copy + FromPrimitive> ManufacturedReynoldsStressMMS<T> {
 
     /// SSG pressure-strain correlation (Speziale-Sarkar-Gatski, 1991)
     fn pressure_strain_ssg(
-        &self,
         a_xx: T,
         a_xy: T,
         a_yy: T,

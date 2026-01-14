@@ -75,7 +75,7 @@ where
     let norm = work.norm();
     h[(k + 1, k)] = norm;
 
-    if norm > T::from_f64(1e-14).unwrap_or(T::zero()) {
+    if norm > T::default_epsilon() {
         // Store normalized vector as (k+1)-th basis
         let inv_norm = T::one() / norm;
         for i in 0..n {
@@ -99,7 +99,9 @@ mod tests {
         // Mock preconditioner to satisfy type inference if needed, or just use None with explicit type
         struct NoOpPrecond;
         impl Preconditioner<f64> for NoOpPrecond {
-            fn apply_to(&self, _r: &DVector<f64>, _z: &mut DVector<f64>) -> Result<()> { Ok(()) }
+            fn apply_to(&self, _r: &DVector<f64>, _z: &mut DVector<f64>) -> Result<()> {
+                Ok(())
+            }
         }
         let no_precond: Option<&NoOpPrecond> = None;
 
@@ -118,7 +120,7 @@ mod tests {
         let result = arnoldi_iteration(&a, &mut v, &mut h, 0, &mut work, no_precond, None);
 
         // For identity: A*v_0 = v_0, so MGS gives h[0,0]=1, residual=0 (happy breakdown)
-        assert!(result.is_ok()); 
+        assert!(result.is_ok());
         let norm = result.unwrap();
         assert!(norm < 1e-10);
         assert_relative_eq!(h[(0, 0)], 1.0, epsilon = 1e-10);

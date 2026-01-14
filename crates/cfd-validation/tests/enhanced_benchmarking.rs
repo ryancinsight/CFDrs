@@ -451,7 +451,7 @@ fn test_performance_analysis_pipeline() {
     let mut analyzer = PerformanceAnalyzer::new(config);
 
     // Simulate a realistic benchmark history with gradual improvement
-    let history = vec![
+    let history = [
         // Initial performance (baseline)
         PerformanceMetrics {
             mean: 2.0,

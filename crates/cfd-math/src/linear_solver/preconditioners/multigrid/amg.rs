@@ -1,21 +1,22 @@
 //! Algebraic Multigrid (AMG) preconditioner implementation
 
-use super::{
-    AMGConfig, AMGStatistics, AMGHierarchy, CoarseningStrategy, GaussSeidelSmoother, InterpolationStrategy,
-    JacobiSmoother, MultigridLevel, MultigridSmoother, SmootherType, SymmetricGaussSeidelSmoother,
-};
 use super::coarsening::{
-    ruge_stueben_coarsening, aggregation_coarsening, hybrid_coarsening,
-    falgout_coarsening, pmis_coarsening, hmis_coarsening,
+    aggregation_coarsening, falgout_coarsening, hmis_coarsening, hybrid_coarsening,
+    pmis_coarsening, ruge_stueben_coarsening,
 };
 use super::interpolation::{
     create_classical_interpolation, create_direct_interpolation, create_standard_interpolation,
 };
-use crate::error::{Result, MathError};
+use super::{
+    AMGConfig, AMGHierarchy, AMGStatistics, CoarseningStrategy, GaussSeidelSmoother,
+    InterpolationStrategy, JacobiSmoother, MultigridLevel, MultigridSmoother, SmootherType,
+    SymmetricGaussSeidelSmoother,
+};
+use crate::error::{MathError, Result};
 use crate::linear_solver::traits::Preconditioner;
-use crate::sparse::{SparseMatrix, sparse_sparse_mul};
+use crate::sparse::{sparse_sparse_mul, SparseMatrix};
+use nalgebra::DVector;
 use nalgebra::RealField;
-use nalgebra::{DVector};
 use num_traits::FromPrimitive;
 use std::time::Instant;
 
@@ -80,7 +81,9 @@ impl<T: RealField + Copy + FromPrimitive> AlgebraicMultigrid<T> {
     /// Recompute the hierarchy operators for a new matrix with same sparsity pattern
     pub fn recompute(&mut self, fine_matrix: &SparseMatrix<T>) -> Result<()> {
         if self.levels.is_empty() {
-            return Err(MathError::InvalidInput("AMG hierarchy not initialized".to_string()).into());
+            return Err(
+                MathError::InvalidInput("AMG hierarchy not initialized".to_string()).into(),
+            );
         }
 
         // Update the finest level matrix
@@ -93,7 +96,12 @@ impl<T: RealField + Copy + FromPrimitive> AlgebraicMultigrid<T> {
                 let current = &self.levels[i];
                 match (&current.restriction, &current.interpolation) {
                     (Some(r), Some(p)) => (r, p),
-                    _ => return Err(MathError::InvalidInput("Missing transfer operators".to_string()).into()),
+                    _ => {
+                        return Err(MathError::InvalidInput(
+                            "Missing transfer operators".to_string(),
+                        )
+                        .into())
+                    }
                 }
             };
 
@@ -102,8 +110,8 @@ impl<T: RealField + Copy + FromPrimitive> AlgebraicMultigrid<T> {
             let coarse_matrix = sparse_sparse_mul(&temp, interpolation);
 
             // Update next level
-            self.levels[i+1].matrix = coarse_matrix.clone();
-            self.levels[i+1].smoother = self.create_smoother(&coarse_matrix);
+            self.levels[i + 1].matrix = coarse_matrix.clone();
+            self.levels[i + 1].smoother = self.create_smoother(&coarse_matrix);
         }
 
         Ok(())
@@ -131,11 +139,11 @@ impl<T: RealField + Copy + FromPrimitive> AlgebraicMultigrid<T> {
                 let coarse_matrix = {
                     let current_level = self.levels.last_mut().unwrap();
                     let coarse_matrix = restriction * &current_level.matrix * interpolation;
-                    
+
                     // Store operators in the finer level
                     current_level.restriction = Some(restriction.clone());
                     current_level.interpolation = Some(interpolation.clone());
-                    
+
                     coarse_matrix
                 };
 
@@ -146,7 +154,9 @@ impl<T: RealField + Copy + FromPrimitive> AlgebraicMultigrid<T> {
                     interpolation: None,
                     smoother,
                 });
-                self.statistics.level_sizes.push(self.levels.last().unwrap().matrix.nrows());
+                self.statistics
+                    .level_sizes
+                    .push(self.levels.last().unwrap().matrix.nrows());
             }
         } else {
             // Standard build
@@ -173,51 +183,54 @@ impl<T: RealField + Copy + FromPrimitive> AlgebraicMultigrid<T> {
 
             // Perform coarsening using the configured strategy
             let coarsening_result = match self.config.coarsening_strategy {
-                CoarseningStrategy::RugeStueben => {
-                    ruge_stueben_coarsening(&current_level.matrix, T::from_f64(self.config.strength_threshold).unwrap_or_else(T::zero))
-                }
+                CoarseningStrategy::RugeStueben => ruge_stueben_coarsening(
+                    &current_level.matrix,
+                    T::from_f64(self.config.strength_threshold).unwrap_or_else(T::zero),
+                ),
                 CoarseningStrategy::Aggregation => {
                     aggregation_coarsening(&current_level.matrix, 8) // Use default aggregate size
                 }
-                CoarseningStrategy::Hybrid => {
-                    hybrid_coarsening(&current_level.matrix, T::from_f64(self.config.strength_threshold).unwrap_or_else(T::zero), 4)
-                }
-                CoarseningStrategy::Falgout => {
-                    falgout_coarsening(&current_level.matrix, T::from_f64(self.config.strength_threshold).unwrap_or_else(T::zero))
-                }
-                CoarseningStrategy::PMIS => {
-                    pmis_coarsening(&current_level.matrix, T::from_f64(self.config.strength_threshold).unwrap_or_else(T::zero))
-                }
-                CoarseningStrategy::HMIS => {
-                    hmis_coarsening(&current_level.matrix, T::from_f64(self.config.strength_threshold).unwrap_or_else(T::zero), T::from_f64(0.5).unwrap_or_else(T::zero))
-                }
-            }.map_err(|e| MathError::InvalidInput(format!("Coarsening failed: {e}")))?;
+                CoarseningStrategy::Hybrid => hybrid_coarsening(
+                    &current_level.matrix,
+                    T::from_f64(self.config.strength_threshold).unwrap_or_else(T::zero),
+                    4,
+                ),
+                CoarseningStrategy::Falgout => falgout_coarsening(
+                    &current_level.matrix,
+                    T::from_f64(self.config.strength_threshold).unwrap_or_else(T::zero),
+                ),
+                CoarseningStrategy::PMIS => pmis_coarsening(
+                    &current_level.matrix,
+                    T::from_f64(self.config.strength_threshold).unwrap_or_else(T::zero),
+                ),
+                CoarseningStrategy::HMIS => hmis_coarsening(
+                    &current_level.matrix,
+                    T::from_f64(self.config.strength_threshold).unwrap_or_else(T::zero),
+                    T::from_f64(0.5).unwrap_or_else(T::zero),
+                ),
+            }
+            .map_err(|e| MathError::InvalidInput(format!("Coarsening failed: {e}")))?;
 
             // Create interpolation operator based on the coarsening result
             let interpolation = match self.config.interpolation_strategy {
-                InterpolationStrategy::Classical => {
-                    create_classical_interpolation(
-                        &current_level.matrix,
-                        &coarsening_result.coarse_points,
-                        &coarsening_result.strength_matrix,
-                        self.config.max_interpolation_points
-                    )
-                }
-                InterpolationStrategy::Direct => {
-                    Ok(create_direct_interpolation(
-                        &coarsening_result.fine_to_coarse_map,
-                        current_level.matrix.nrows(),
-                        coarsening_result.coarse_points.len()
-                    ))
-                }
-                InterpolationStrategy::Standard => {
-                    create_standard_interpolation(
-                        &current_level.matrix,
-                        &coarsening_result.coarse_points,
-                        &coarsening_result.strength_matrix
-                    )
-                }
-            }.map_err(|e| MathError::InvalidInput(format!("Interpolation failed: {e}")))?;
+                InterpolationStrategy::Classical => create_classical_interpolation(
+                    &current_level.matrix,
+                    &coarsening_result.coarse_points,
+                    &coarsening_result.strength_matrix,
+                    self.config.max_interpolation_points,
+                ),
+                InterpolationStrategy::Direct => Ok(create_direct_interpolation(
+                    &coarsening_result.fine_to_coarse_map,
+                    current_level.matrix.nrows(),
+                    coarsening_result.coarse_points.len(),
+                )),
+                InterpolationStrategy::Standard => create_standard_interpolation(
+                    &current_level.matrix,
+                    &coarsening_result.coarse_points,
+                    &coarsening_result.strength_matrix,
+                ),
+            }
+            .map_err(|e| MathError::InvalidInput(format!("Interpolation failed: {e}")))?;
 
             // Create restriction operator (transpose of interpolation)
             // In nalgebra-sparse, transpose of CSR is CSC, then convert back to CSR
@@ -257,12 +270,9 @@ impl<T: RealField + Copy + FromPrimitive> AlgebraicMultigrid<T> {
     fn create_smoother(&self, _matrix: &SparseMatrix<T>) -> Box<dyn MultigridSmoother<T>> {
         let relaxation = T::from_f64(self.config.relaxation_factor).unwrap_or_else(T::one);
         match self.config.smoother_type {
-            SmootherType::GaussSeidel => {
-                Box::new(GaussSeidelSmoother::new(relaxation))
+            SmootherType::SymmetricGaussSeidel => {
+                Box::new(SymmetricGaussSeidelSmoother::new(relaxation))
             }
-            SmootherType::SymmetricGaussSeidel => Box::new(SymmetricGaussSeidelSmoother::new(
-                relaxation,
-            )),
             SmootherType::Jacobi => Box::new(JacobiSmoother::new(relaxation)),
             _ => Box::new(GaussSeidelSmoother::new(relaxation)),
         }
@@ -284,7 +294,12 @@ impl<T: RealField + Copy + FromPrimitive> AlgebraicMultigrid<T> {
         let mut total_vars = 0;
 
         for level in &self.levels {
-            total_nnz += level.matrix.values().iter().filter(|&&x| x.abs() > T::from_f64(1e-15).unwrap_or_else(T::zero)).count();
+            total_nnz += level
+                .matrix
+                .values()
+                .iter()
+                .filter(|&&x| x.abs() > T::from_f64(1e-15).unwrap_or_else(T::zero))
+                .count();
             total_vars += level.matrix.nrows();
         }
 
@@ -297,7 +312,12 @@ impl<T: RealField + Copy + FromPrimitive> AlgebraicMultigrid<T> {
         let current_level = &self.levels[level_idx];
 
         // 1. Pre-smoothing
-        current_level.smoother.apply(&current_level.matrix, x, b, self.config.pre_smooth_iterations);
+        current_level.smoother.apply(
+            &current_level.matrix,
+            x,
+            b,
+            self.config.pre_smooth_iterations,
+        );
 
         if level_idx < self.levels.len() - 1 {
             // 2. Compute residual: r = b - A*x
@@ -317,10 +337,17 @@ impl<T: RealField + Copy + FromPrimitive> AlgebraicMultigrid<T> {
             *x += e;
 
             // 7. Post-smoothing
-            current_level.smoother.apply(&current_level.matrix, x, b, self.config.post_smooth_iterations);
+            current_level.smoother.apply(
+                &current_level.matrix,
+                x,
+                b,
+                self.config.post_smooth_iterations,
+            );
         } else {
             // Coarsest level solve (can be more iterations or a direct solve)
-            current_level.smoother.apply(&current_level.matrix, x, b, 10);
+            current_level
+                .smoother
+                .apply(&current_level.matrix, x, b, 10);
         }
     }
 }

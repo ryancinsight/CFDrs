@@ -11,19 +11,6 @@ use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criteri
 use serde::{Deserialize, Serialize};
 use std::time::{Duration, Instant};
 
-/// Performance thresholds for alerts
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PerformanceThresholds {
-    /// Maximum acceptable memory usage (MB)
-    pub max_memory_mb: f64,
-    /// Minimum acceptable throughput (operations/sec)
-    pub min_throughput: f64,
-    /// Maximum acceptable latency (ms)
-    pub max_latency_ms: f64,
-    /// Performance regression threshold (%)
-    pub regression_threshold_pct: f64,
-}
-
 /// Scaling analysis configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ScalingConfig {
@@ -322,7 +309,7 @@ fn benchmark_with_threads(
         let variance = measurements
             .iter()
             .map(|&d| {
-                let diff = if d > mean { d - mean } else { mean - d };
+                let diff = d.abs_diff(mean);
                 diff.as_secs_f64().powi(2)
             })
             .sum::<f64>()
@@ -358,16 +345,17 @@ fn simulate_cfd_computation(size: usize) -> f64 {
     for _ in 0..iterations {
         // Parallel computation using rayon
         use rayon::prelude::*;
-        
+
         let mut next_u = velocity_u.clone();
-        
+
         // We use a safer approach with chunks_mut to avoid raw pointers where possible
         // DMatrix stores data in a single contiguous slice (column-major)
         let nx = size;
         let ny = size;
-        
+
         // Parallelize over interior rows (avoiding boundaries)
-        next_u.as_mut_slice()
+        next_u
+            .as_mut_slice()
             .par_chunks_mut(nx) // Each chunk is a column
             .enumerate()
             .filter(|(j, _)| *j > 0 && *j < ny - 1)
@@ -381,11 +369,11 @@ fn simulate_cfd_computation(size: usize) -> f64 {
                         + pressure[(i, j - 1)]
                         + pressure[(i, j + 1)])
                         / 4.0;
-                    
+
                     column[i] = val;
                 }
             });
-        
+
         velocity_u = next_u;
     }
 
@@ -404,11 +392,6 @@ pub fn benchmark_scaling_behavior(c: &mut Criterion, config: &BenchmarkConfig) {
 }
 
 /// Standalone entry point for scaling analysis benchmark
-pub fn standalone_benchmark_scaling(c: &mut Criterion) {
-    let config = BenchmarkConfig::default();
-    benchmark_scaling_behavior(c, &config);
-}
-
 fn benchmark_scaling_behavior_internal(c: &mut Criterion, _config: &BenchmarkConfig) {
     let scaling_config = ScalingConfig::default();
 
@@ -561,5 +544,10 @@ pub fn generate_scaling_recommendations(metrics: &ScalingMetrics) -> Vec<String>
     recommendations
 }
 
-criterion_group!(benches, standalone_benchmark_scaling);
+#[allow(dead_code)]
+fn criterion_scaling_analysis_entry(c: &mut Criterion) {
+    benchmark_scaling_behavior_internal(c, &BenchmarkConfig::default());
+}
+
+criterion_group!(benches, criterion_scaling_analysis_entry);
 criterion_main!(benches);

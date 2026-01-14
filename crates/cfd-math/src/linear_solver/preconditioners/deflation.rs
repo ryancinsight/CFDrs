@@ -4,9 +4,9 @@
 //! known eigenvectors from the spectrum, forcing the iterative solver to focus
 //! on the remaining eigenvalues.
 
-use nalgebra::{DVector, RealField};
 use crate::linear_solver::Preconditioner;
 use cfd_core::error::{Error, Result};
+use nalgebra::{DVector, RealField};
 
 /// Deflation preconditioner for eigenvalue problems
 pub struct DeflationPreconditioner<T: RealField + Copy> {

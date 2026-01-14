@@ -354,11 +354,11 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
                 if let Some(ap_c) = coeffs.ap_consistent.at_mut(i, j) {
                     // Start with the time term
                     let time_term = rho * volume / dt;
-                    
+
                     // Add a small epsilon to ensure we never divide by zero in steady state
                     // This is standard practice in SIMPLEC implementations
                     let eps = T::from_f64(1e-10).unwrap_or_else(T::zero);
-                    
+
                     *ap_c = time_term + eps;
                 }
 

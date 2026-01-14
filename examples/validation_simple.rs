@@ -63,10 +63,7 @@ fn poiseuille_example() {
     ];
 
     println!("Velocity Profile:");
-    println!(
-        "{:>12} | {:>15} | {}",
-        "Position", "Velocity (m/s)", "Location"
-    );
+    println!("{:>12} | {:>15} | Location", "Position", "Velocity (m/s)");
     println!("{}", "-".repeat(50));
 
     for (y, label) in &test_points {

@@ -27,7 +27,8 @@ impl<W: Write> BinaryWriter<W> {
     pub fn write<T: Serialize>(&mut self, data: &T) -> Result<()> {
         let encoded = serde_json::to_vec(data)
             .map_err(|e| Error::Io(std::io::Error::other(format!("Serialization error: {e}"))))?;
-        self.writer.write_all(&encoded)
+        self.writer
+            .write_all(&encoded)
             .map_err(|e| Error::Io(std::io::Error::other(format!("Binary write error: {e}"))))?;
         Ok(())
     }
@@ -88,7 +89,8 @@ impl<R: Read> BinaryReader<R> {
     /// Read deserializable data using serde
     pub fn read<T: for<'de> Deserialize<'de>>(&mut self) -> Result<T> {
         let mut buffer = Vec::new();
-        self.reader.read_to_end(&mut buffer)
+        self.reader
+            .read_to_end(&mut buffer)
             .map_err(|e| Error::Io(std::io::Error::other(format!("Binary read error: {e}"))))?;
         serde_json::from_slice(&buffer)
             .map_err(|e| Error::Io(std::io::Error::other(format!("Deserialization error: {e}"))))

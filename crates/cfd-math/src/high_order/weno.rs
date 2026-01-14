@@ -242,8 +242,8 @@ impl<T: RealField + Copy + FromPrimitive> WENO5<T> {
         let u2 = cells[2];
 
         let term1 = u0 - T::from_f64(2.0).unwrap_or_else(T::one) * u1 + u2;
-        let term2 = u0 - T::from_f64(4.0).unwrap_or_else(T::one) * u1 +
-                   T::from_f64(3.0).unwrap_or_else(T::one) * u2;
+        let term2 = u0 - T::from_f64(4.0).unwrap_or_else(T::one) * u1
+            + T::from_f64(3.0).unwrap_or_else(T::one) * u2;
 
         thirteen_twelfth * term1 * term1 + one_fourth * term2 * term2
     }
@@ -275,8 +275,9 @@ impl<T: RealField + Copy + FromPrimitive> WENO5<T> {
         let u4 = cells[4];
 
         let term1 = u2 - T::from_f64(2.0).unwrap_or_else(T::one) * u3 + u4;
-        let term2 = T::from_f64(3.0).unwrap_or_else(T::one) * u2 -
-                   T::from_f64(4.0).unwrap_or_else(T::one) * u3 + u4;
+        let term2 = T::from_f64(3.0).unwrap_or_else(T::one) * u2
+            - T::from_f64(4.0).unwrap_or_else(T::one) * u3
+            + u4;
 
         thirteen_twelfth * term1 * term1 + one_fourth * term2 * term2
     }
@@ -285,156 +286,6 @@ impl<T: RealField + Copy + FromPrimitive> WENO5<T> {
 impl<T: RealField + Copy + FromPrimitive> Default for WENO5<T> {
     fn default() -> Self {
         Self::new()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use approx::assert_relative_eq;
-
-    #[test]
-    fn test_weno5_smooth_function() {
-        // Test on a smooth function: sin(x)
-        let weno = WENO5::<f64>::new();
-        let dx = 0.1;
-        let x_j = 1.0; // Center of middle cell
-        
-        // Interface we want to reconstruct is x_{j+1/2} = x_j + dx/2
-        let x_interface = x_j + 0.5 * dx;
-        
-        // Cell averages: 1/dx * \int_{x-dx/2}^{x+dx/2} sin(t) dt = (cos(x-dx/2) - cos(x+dx/2)) / dx
-        let avg = |x: f64| ( (x - 0.5 * dx).cos() - (x + 0.5 * dx).cos() ) / dx;
-        
-        let cells = [
-            avg(x_j - 2.0 * dx),
-            avg(x_j - dx),
-            avg(x_j),
-            avg(x_j + dx),
-            avg(x_j + 2.0 * dx),
-        ];
-
-        let reconstructed = weno.reconstruct_left(&cells);
-        let analytical = x_interface.sin();
-
-        // For smooth functions and dx=0.1, WENO5 should be very accurate
-        assert!((reconstructed - analytical).abs() < 1e-6);
-    }
-
-    #[test]
-    fn test_weno5_smoothness_indicators() {
-        let weno = WENO5::<f64>::new();
-
-        // Test with constant data
-        let constant_cells = [1.0, 1.0, 1.0, 1.0, 1.0];
-        assert_relative_eq!(weno.smoothness_indicator_0(&constant_cells), 0.0);
-        assert_relative_eq!(weno.smoothness_indicator_1(&constant_cells), 0.0);
-        assert_relative_eq!(weno.smoothness_indicator_2(&constant_cells), 0.0);
-
-        // Test with linear data: u = x
-        // For dx = 0.1, cells = [0.8, 0.9, 1.0, 1.1, 1.2]
-        let linear_cells = [0.8, 0.9, 1.0, 1.1, 1.2];
-        let beta0 = weno.smoothness_indicator_0(&linear_cells);
-        let beta1 = weno.smoothness_indicator_1(&linear_cells);
-        let beta2 = weno.smoothness_indicator_2(&linear_cells);
-
-        // For linear data u=x, beta_r should be (dx)^2 = 0.01
-        assert_relative_eq!(beta0, 0.01, epsilon = 1e-12);
-        assert_relative_eq!(beta1, 0.01, epsilon = 1e-12);
-        assert_relative_eq!(beta2, 0.01, epsilon = 1e-12);
-    }
-
-    #[test]
-    fn test_weno5_discontinuous() {
-        let weno = WENO5::<f64>::new();
-
-        // Test with discontinuous data
-        let disc_cells = [1.0, 1.0, 1.0, 2.0, 2.0]; // Shock
-        let beta0 = weno.smoothness_indicator_0(&disc_cells);
-        let beta1 = weno.smoothness_indicator_1(&disc_cells);
-        let beta2 = weno.smoothness_indicator_2(&disc_cells);
-
-        // At least one smoothness indicator should be large near discontinuity
-        assert!(beta0 > 0.1 || beta1 > 0.1 || beta2 > 0.1);
-    }
-
-    #[test]
-    fn test_weno5_weights() {
-        let weno = WENO5::<f64>::new();
-
-        // Test that weights sum to 1 for smooth data
-        let smooth_cells = [1.0, 1.01, 1.0201, 1.030301, 1.04060401]; // Smooth function
-
-        // Get the weights indirectly through reconstruction
-        let _q0 = weno.eno3_stencil_0(&smooth_cells);
-        let _q1 = weno.eno3_stencil_1(&smooth_cells);
-        let _q2 = weno.eno3_stencil_2(&smooth_cells);
-
-        let beta0 = weno.smoothness_indicator_0(&smooth_cells);
-        let beta1 = weno.smoothness_indicator_1(&smooth_cells);
-        let beta2 = weno.smoothness_indicator_2(&smooth_cells);
-
-        let c0 = 1.0 / 10.0;
-        let c1 = 6.0 / 10.0;
-        let c2 = 3.0 / 10.0;
-
-        let alpha0 = c0 / (weno.epsilon + beta0).powi(2);
-        let alpha1 = c1 / (weno.epsilon + beta1).powi(2);
-        let alpha2 = c2 / (weno.epsilon + beta2).powi(2);
-
-        let alpha_sum = alpha0 + alpha1 + alpha2;
-        let omega0 = alpha0 / alpha_sum;
-        let omega1 = alpha1 / alpha_sum;
-        let omega2 = alpha2 / alpha_sum;
-
-        // Weights should sum to 1
-        assert_relative_eq!(omega0 + omega1 + omega2, 1.0, epsilon = 1e-12);
-
-        // For smooth data, middle stencil should be heavily weighted
-        assert!(omega1 > 0.5);
-    }
-
-    #[test]
-    fn test_weno7_smooth_function() {
-        // Test on a smooth function: sin(x)
-        let weno = WENO7::<f64>::new();
-        let dx = 0.1;
-        let x_j = 1.0; // Center of middle cell
-        
-        // Interface we want to reconstruct is x_{j+1/2} = x_j + dx/2
-        let x_interface = x_j + 0.5 * dx;
-        
-        // Cell averages for sin(x)
-        let avg = |x: f64| ( (x - 0.5 * dx).cos() - (x + 0.5 * dx).cos() ) / dx;
-        
-        let cells = [
-            avg(x_j - 3.0 * dx),
-            avg(x_j - 2.0 * dx),
-            avg(x_j - dx),
-            avg(x_j),
-            avg(x_j + dx),
-            avg(x_j + 2.0 * dx),
-            avg(x_j + 3.0 * dx),
-        ];
-
-        let reconstructed = weno.reconstruct_left(&cells);
-        let analytical = x_interface.sin();
-
-        println!("reconstructed: {}, analytical: {}, diff: {}", reconstructed, analytical, (reconstructed - analytical).abs());
-        // For smooth functions and dx=0.1, WENO7 should be accurate
-        assert!((reconstructed - analytical).abs() < 1e-5);
-    }
-
-    #[test]
-    fn test_weno7_smoothness_indicators() {
-        let weno = WENO7::<f64>::new();
-
-        // Test with constant data
-        let constant_cells = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0];
-        assert_relative_eq!(weno.smoothness_indicator_0(&constant_cells), 0.0);
-        assert_relative_eq!(weno.smoothness_indicator_1(&constant_cells), 0.0);
-        assert_relative_eq!(weno.smoothness_indicator_2(&constant_cells), 0.0);
-        assert_relative_eq!(weno.smoothness_indicator_3(&constant_cells), 0.0);
     }
 }
 
@@ -558,7 +409,11 @@ impl<T: RealField + Copy + FromPrimitive> WENO7<T> {
         let neg_twenty_three = T::from_f64(-23.0).unwrap_or_else(T::one);
         let twenty_five = T::from_f64(25.0).unwrap_or_else(T::one);
 
-        one_twelfth * (neg_three * cells[0] + thirteen * cells[1] + neg_twenty_three * cells[2] + twenty_five * cells[3])
+        one_twelfth
+            * (neg_three * cells[0]
+                + thirteen * cells[1]
+                + neg_twenty_three * cells[2]
+                + twenty_five * cells[3])
     }
 
     /// 4th-order ENO stencil 1 (left): {u_{j-2}, u_{j-1}, u_j, u_{j+1}}
@@ -632,7 +487,11 @@ impl<T: RealField + Copy + FromPrimitive> WENO7<T> {
         let neg_twenty_three = T::from_f64(-23.0).unwrap_or_else(T::one);
         let twenty_five = T::from_f64(25.0).unwrap_or_else(T::one);
 
-        one_twelfth * (twenty_five * cells[3] + neg_twenty_three * cells[4] + thirteen * cells[5] + neg_three * cells[6])
+        one_twelfth
+            * (twenty_five * cells[3]
+                + neg_twenty_three * cells[4]
+                + thirteen * cells[5]
+                + neg_three * cells[6])
     }
 
     /// Smoothness indicator beta0 for WENO7
@@ -655,12 +514,11 @@ impl<T: RealField + Copy + FromPrimitive> WENO7<T> {
         let u2 = cells[2];
         let u3 = cells[3];
 
-        one_240 * (
-            u0 * (c2107 * u0 - c9402 * u1 + c7042 * u2 - c1854 * u3) +
-            u1 * (c11003 * u1 - c17246 * u2 + c4642 * u3) +
-            u2 * (c7043 * u2 - c3882 * u3) +
-            c547 * u3 * u3
-        )
+        one_240
+            * (u0 * (c2107 * u0 - c9402 * u1 + c7042 * u2 - c1854 * u3)
+                + u1 * (c11003 * u1 - c17246 * u2 + c4642 * u3)
+                + u2 * (c7043 * u2 - c3882 * u3)
+                + c547 * u3 * u3)
     }
 
     /// Smoothness indicator beta1 for WENO7
@@ -683,12 +541,11 @@ impl<T: RealField + Copy + FromPrimitive> WENO7<T> {
         let u3 = cells[3];
         let u4 = cells[4];
 
-        one_240 * (
-            u1 * (c547 * u1 - c2522 * u2 + c1922 * u3 - c494 * u4) +
-            u2 * (c3443 * u2 - c5966 * u3 + c1602 * u4) +
-            u3 * (c2843 * u3 - c1642 * u4) +
-            c267 * u4 * u4
-        )
+        one_240
+            * (u1 * (c547 * u1 - c2522 * u2 + c1922 * u3 - c494 * u4)
+                + u2 * (c3443 * u2 - c5966 * u3 + c1602 * u4)
+                + u3 * (c2843 * u3 - c1642 * u4)
+                + c267 * u4 * u4)
     }
 
     /// Smoothness indicator beta2 for WENO7
@@ -711,12 +568,11 @@ impl<T: RealField + Copy + FromPrimitive> WENO7<T> {
         let u4 = cells[4];
         let u5 = cells[5];
 
-        one_240 * (
-            u2 * (c267 * u2 - c1642 * u3 + c1602 * u4 - c494 * u5) +
-            u3 * (c2843 * u3 - c5966 * u4 + c1922 * u5) +
-            u4 * (c3443 * u4 - c2522 * u5) +
-            c547 * u5 * u5
-        )
+        one_240
+            * (u2 * (c267 * u2 - c1642 * u3 + c1602 * u4 - c494 * u5)
+                + u3 * (c2843 * u3 - c5966 * u4 + c1922 * u5)
+                + u4 * (c3443 * u4 - c2522 * u5)
+                + c547 * u5 * u5)
     }
 
     /// Smoothness indicator beta3 for WENO7
@@ -739,12 +595,11 @@ impl<T: RealField + Copy + FromPrimitive> WENO7<T> {
         let u5 = cells[5];
         let u6 = cells[6];
 
-        one_240 * (
-            u3 * (c547 * u3 - c3882 * u4 + c4642 * u5 - c1854 * u6) +
-            u4 * (c7043 * u4 - c17246 * u5 + c7042 * u6) +
-            u5 * (c11003 * u5 - c9402 * u6) +
-            c2107 * u6 * u6
-        )
+        one_240
+            * (u3 * (c547 * u3 - c3882 * u4 + c4642 * u5 - c1854 * u6)
+                + u4 * (c7043 * u4 - c17246 * u5 + c7042 * u6)
+                + u5 * (c11003 * u5 - c9402 * u6)
+                + c2107 * u6 * u6)
     }
 }
 
@@ -754,3 +609,157 @@ impl<T: RealField + Copy + FromPrimitive> Default for WENO7<T> {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use approx::assert_relative_eq;
+
+    #[test]
+    fn test_weno5_smooth_function() {
+        // Test on a smooth function: sin(x)
+        let weno = WENO5::<f64>::new();
+        let dx = 0.1;
+        let x_j = 1.0; // Center of middle cell
+
+        // Interface we want to reconstruct is x_{j+1/2} = x_j + dx/2
+        let x_interface = x_j + 0.5 * dx;
+
+        // Cell averages: 1/dx * \int_{x-dx/2}^{x+dx/2} sin(t) dt = (cos(x-dx/2) - cos(x+dx/2)) / dx
+        let avg = |x: f64| ((x - 0.5 * dx).cos() - (x + 0.5 * dx).cos()) / dx;
+
+        let cells = [
+            avg(x_j - 2.0 * dx),
+            avg(x_j - dx),
+            avg(x_j),
+            avg(x_j + dx),
+            avg(x_j + 2.0 * dx),
+        ];
+
+        let reconstructed = weno.reconstruct_left(&cells);
+        let analytical = x_interface.sin();
+
+        // For smooth functions and dx=0.1, WENO5 should be very accurate
+        assert!((reconstructed - analytical).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_weno5_smoothness_indicators() {
+        let weno = WENO5::<f64>::new();
+
+        // Test with constant data
+        let constant_cells = [1.0, 1.0, 1.0, 1.0, 1.0];
+        assert_relative_eq!(weno.smoothness_indicator_0(&constant_cells), 0.0);
+        assert_relative_eq!(weno.smoothness_indicator_1(&constant_cells), 0.0);
+        assert_relative_eq!(weno.smoothness_indicator_2(&constant_cells), 0.0);
+
+        // Test with linear data: u = x
+        // For dx = 0.1, cells = [0.8, 0.9, 1.0, 1.1, 1.2]
+        let linear_cells = [0.8, 0.9, 1.0, 1.1, 1.2];
+        let beta0 = weno.smoothness_indicator_0(&linear_cells);
+        let beta1 = weno.smoothness_indicator_1(&linear_cells);
+        let beta2 = weno.smoothness_indicator_2(&linear_cells);
+
+        // For linear data u=x, beta_r should be (dx)^2 = 0.01
+        assert_relative_eq!(beta0, 0.01, epsilon = 1e-12);
+        assert_relative_eq!(beta1, 0.01, epsilon = 1e-12);
+        assert_relative_eq!(beta2, 0.01, epsilon = 1e-12);
+    }
+
+    #[test]
+    fn test_weno5_discontinuous() {
+        let weno = WENO5::<f64>::new();
+
+        // Test with discontinuous data
+        let disc_cells = [1.0, 1.0, 1.0, 2.0, 2.0]; // Shock
+        let beta0 = weno.smoothness_indicator_0(&disc_cells);
+        let beta1 = weno.smoothness_indicator_1(&disc_cells);
+        let beta2 = weno.smoothness_indicator_2(&disc_cells);
+
+        // At least one smoothness indicator should be large near discontinuity
+        assert!(beta0 > 0.1 || beta1 > 0.1 || beta2 > 0.1);
+    }
+
+    #[test]
+    fn test_weno5_weights() {
+        let weno = WENO5::<f64>::new();
+
+        // Test that weights sum to 1 for smooth data
+        let smooth_cells = [1.0, 1.01, 1.0201, 1.030301, 1.04060401]; // Smooth function
+
+        // Get the weights indirectly through reconstruction
+        let _q0 = weno.eno3_stencil_0(&smooth_cells);
+        let _q1 = weno.eno3_stencil_1(&smooth_cells);
+        let _q2 = weno.eno3_stencil_2(&smooth_cells);
+
+        let beta0 = weno.smoothness_indicator_0(&smooth_cells);
+        let beta1 = weno.smoothness_indicator_1(&smooth_cells);
+        let beta2 = weno.smoothness_indicator_2(&smooth_cells);
+
+        let c0 = 1.0 / 10.0;
+        let c1 = 6.0 / 10.0;
+        let c2 = 3.0 / 10.0;
+
+        let alpha0 = c0 / (weno.epsilon + beta0).powi(2);
+        let alpha1 = c1 / (weno.epsilon + beta1).powi(2);
+        let alpha2 = c2 / (weno.epsilon + beta2).powi(2);
+
+        let alpha_sum = alpha0 + alpha1 + alpha2;
+        let omega0 = alpha0 / alpha_sum;
+        let omega1 = alpha1 / alpha_sum;
+        let omega2 = alpha2 / alpha_sum;
+
+        // Weights should sum to 1
+        assert_relative_eq!(omega0 + omega1 + omega2, 1.0, epsilon = 1e-12);
+
+        // For smooth data, middle stencil should be heavily weighted
+        assert!(omega1 > 0.5);
+    }
+
+    #[test]
+    fn test_weno7_smooth_function() {
+        // Test on a smooth function: sin(x)
+        let weno = WENO7::<f64>::new();
+        let dx = 0.1;
+        let x_j = 1.0; // Center of middle cell
+
+        // Interface we want to reconstruct is x_{j+1/2} = x_j + dx/2
+        let x_interface = x_j + 0.5 * dx;
+
+        // Cell averages for sin(x)
+        let avg = |x: f64| ((x - 0.5 * dx).cos() - (x + 0.5 * dx).cos()) / dx;
+
+        let cells = [
+            avg(x_j - 3.0 * dx),
+            avg(x_j - 2.0 * dx),
+            avg(x_j - dx),
+            avg(x_j),
+            avg(x_j + dx),
+            avg(x_j + 2.0 * dx),
+            avg(x_j + 3.0 * dx),
+        ];
+
+        let reconstructed = weno.reconstruct_left(&cells);
+        let analytical = x_interface.sin();
+
+        println!(
+            "reconstructed: {}, analytical: {}, diff: {}",
+            reconstructed,
+            analytical,
+            (reconstructed - analytical).abs()
+        );
+        // For smooth functions and dx=0.1, WENO7 should be accurate
+        assert!((reconstructed - analytical).abs() < 1e-5);
+    }
+
+    #[test]
+    fn test_weno7_smoothness_indicators() {
+        let weno = WENO7::<f64>::new();
+
+        // Test with constant data
+        let constant_cells = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0];
+        assert_relative_eq!(weno.smoothness_indicator_0(&constant_cells), 0.0);
+        assert_relative_eq!(weno.smoothness_indicator_1(&constant_cells), 0.0);
+        assert_relative_eq!(weno.smoothness_indicator_2(&constant_cells), 0.0);
+        assert_relative_eq!(weno.smoothness_indicator_3(&constant_cells), 0.0);
+    }
+}

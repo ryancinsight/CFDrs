@@ -9,7 +9,7 @@
 //! - Hirsch, C. (2007). "Numerical Computation of Internal and External Flows"
 
 #[cfg(test)]
-mod tvd_limiter_edge_cases {
+mod tests {
     use super::super::*;
     use crate::physics::momentum::tvd_limiters::UpwindLimiter;
     use proptest::prelude::*;
@@ -28,7 +28,7 @@ mod tvd_limiter_edge_cases {
 
         for (name, limiter) in limiters {
             let psi = limiter.limit(0.0);
-            assert_eq!(psi, 0.0, "{}: ψ(0) must be 0 (upwind at extrema)", name);
+            assert_eq!(psi, 0.0, "{name}: ψ(0) must be 0 (upwind at extrema)");
         }
     }
 
@@ -44,14 +44,12 @@ mod tvd_limiter_edge_cases {
         ];
 
         for limiter in limiters {
+            let limiter_name = limiter.name();
             for r in [-10.0, -1.0, -0.5, -0.1, -1e-10] {
                 let psi = limiter.limit(r);
                 assert_eq!(
-                    psi,
-                    0.0,
-                    "{}: ψ({}) should be 0 for negative r (downwind of extremum)",
-                    limiter.name(),
-                    r
+                    psi, 0.0,
+                    "{limiter_name}: ψ({r}) should be 0 for negative r (downwind of extremum)"
                 );
             }
         }
@@ -69,14 +67,12 @@ mod tvd_limiter_edge_cases {
         ];
 
         for limiter in limiters {
+            let limiter_name = limiter.name();
             for r in [10.0, 100.0, 1000.0, 1e6] {
                 let psi = limiter.limit(r);
                 assert!(
                     psi <= 2.0 + 1e-10,
-                    "{}: ψ({}) = {} exceeds TVD limit of 2",
-                    limiter.name(),
-                    r,
-                    psi
+                    "{limiter_name}: ψ({r}) = {psi} exceeds TVD limit of 2"
                 );
             }
         }
@@ -116,21 +112,14 @@ mod tvd_limiter_edge_cases {
         ];
 
         for limiter in limiters {
+            let limiter_name = limiter.name();
             for r in [1e-10, 1e-8, 1e-6, 1e-4] {
                 let psi = limiter.limit(r);
-                assert!(
-                    psi >= 0.0,
-                    "{}: ψ({}) should be non-negative",
-                    limiter.name(),
-                    r
-                );
+                assert!(psi >= 0.0, "{limiter_name}: ψ({r}) should be non-negative");
                 // For small r, ψ should be small (but can be O(r) depending on limiter)
                 assert!(
                     psi < 1.0,
-                    "{}: ψ({}) = {} should be small for small r",
-                    limiter.name(),
-                    r,
-                    psi
+                    "{limiter_name}: ψ({r}) = {psi} should be small for small r"
                 );
             }
         }
@@ -148,12 +137,11 @@ mod tvd_limiter_edge_cases {
         ];
 
         for limiter in limiters {
+            let limiter_name = limiter.name();
             let face = limiter.interpolate_face(5.0, 5.0, 5.0);
             assert_eq!(
-                face,
-                5.0,
-                "{}: Uniform field should return central value",
-                limiter.name()
+                face, 5.0,
+                "{limiter_name}: Uniform field should return central value"
             );
         }
     }
@@ -173,16 +161,15 @@ mod tvd_limiter_edge_cases {
         let phi_d = phi_c + 1e-12; // Very small difference
 
         for limiter in limiters {
+            let limiter_name = limiter.name();
             let face = limiter.interpolate_face(phi_c - 1e-12, phi_c, phi_d);
             assert!(
                 face.is_finite(),
-                "{}: Should handle near-uniform field",
-                limiter.name()
+                "{limiter_name}: Should handle near-uniform field"
             );
             assert!(
                 (face - phi_c).abs() < 1e-6,
-                "{}: Face value should be close to central for near-uniform field",
-                limiter.name()
+                "{limiter_name}: Face value should be close to central for near-uniform field"
             );
         }
     }
@@ -210,13 +197,12 @@ mod tvd_limiter_edge_cases {
 
         // Local max: values 10, 20, 10 => r = (20-10)/(10-20) = -1
         for limiter in limiters {
+            let limiter_name = limiter.name();
             let face = limiter.interpolate_face(10.0, 20.0, 10.0);
             // With ψ(-1) = 0, face = 20 + 0.5*0*(10-20) = 20
             assert_eq!(
-                face,
-                20.0,
-                "{}: Local maximum should use upwind value",
-                limiter.name()
+                face, 20.0,
+                "{limiter_name}: Local maximum should use upwind value"
             );
         }
     }
@@ -255,8 +241,8 @@ mod tvd_limiter_edge_cases {
         );
     }
 
-    /// Property test: TVD region constraint for r ∈ [0, 1]
-    /// ψ(r) ≤ 2r for 0 ≤ r ≤ 1
+    // Property test: TVD region constraint for r ∈ [0, 1]
+    // ψ(r) ≤ 2r for 0 ≤ r ≤ 1
     proptest! {
         #[test]
         fn prop_tvd_region_0_to_1(r in 0.0..1.0f64) {
@@ -271,18 +257,18 @@ mod tvd_limiter_edge_cases {
                 let psi = limiter.limit(r);
 
                 // Property: 0 ≤ ψ(r) ≤ 2r for r ∈ [0, 1]
-                assert!(psi >= 0.0, "{}: ψ({}) = {} < 0", name, r, psi);
+                assert!(psi >= 0.0, "{name}: ψ({r}) = {psi} < 0");
                 assert!(
                     psi <= 2.0 * r + 1e-10,
-                    "{}: ψ({}) = {} > 2r = {}",
-                    name, r, psi, 2.0 * r
+                    "{name}: ψ({r}) = {psi} > 2r = {}",
+                    2.0 * r
                 );
             }
         }
     }
 
-    /// Property test: TVD region constraint for r > 1
-    /// 0 ≤ ψ(r) ≤ 2 for r > 1
+    // Property test: TVD region constraint for r > 1
+    // 0 ≤ ψ(r) ≤ 2 for r > 1
     proptest! {
         #[test]
         fn prop_tvd_region_above_1(r in 1.0..10.0f64) {
@@ -297,18 +283,14 @@ mod tvd_limiter_edge_cases {
                 let psi = limiter.limit(r);
 
                 // Property: 0 ≤ ψ(r) ≤ 2 for r > 1
-                assert!(psi >= 0.0, "{}: ψ({}) = {} < 0", name, r, psi);
-                assert!(
-                    psi <= 2.0 + 1e-10,
-                    "{}: ψ({}) = {} > 2",
-                    name, r, psi
-                );
+                assert!(psi >= 0.0, "{name}: ψ({r}) = {psi} < 0");
+                assert!(psi <= 2.0 + 1e-10, "{name}: ψ({r}) = {psi} > 2");
             }
         }
     }
 
-    /// Property test: Negative r always returns 0
-    /// ψ(r) = 0 for r < 0 (downwind of extremum)
+    // Property test: Negative r always returns 0
+    // ψ(r) = 0 for r < 0 (downwind of extremum)
     proptest! {
         #[test]
         fn prop_negative_r_zero(r in -10.0..0.0f64) {
@@ -321,13 +303,13 @@ mod tvd_limiter_edge_cases {
 
             for (name, limiter) in limiters {
                 let psi = limiter.limit(r);
-                assert_eq!(psi, 0.0, "{}: ψ({}) must be 0 for negative r", name, r);
+                assert_eq!(psi, 0.0, "{name}: ψ({r}) must be 0 for negative r");
             }
         }
     }
 
-    /// Property test: Interpolated face value is bounded
-    /// φ_min ≤ φ_face ≤ φ_max
+    // Property test: Interpolated face value is bounded
+    // φ_min ≤ φ_face ≤ φ_max
     proptest! {
         #[test]
         fn prop_face_value_bounded(
@@ -346,25 +328,24 @@ mod tvd_limiter_edge_cases {
             let phi_max = phi_u.max(phi_c).max(phi_d);
 
             for limiter in limiters {
+                let limiter_name = limiter.name();
                 let face = limiter.interpolate_face(phi_u, phi_c, phi_d);
 
                 // Property: Face value should be within bounds (with tolerance)
                 assert!(
                     face >= phi_min - 1e-6,
-                    "{}: face = {} < min = {}",
-                    limiter.name(), face, phi_min
+                    "{limiter_name}: face = {face} < min = {phi_min}"
                 );
                 assert!(
                     face <= phi_max + 1e-6,
-                    "{}: face = {} > max = {}",
-                    limiter.name(), face, phi_max
+                    "{limiter_name}: face = {face} > max = {phi_max}"
                 );
             }
         }
     }
 
-    /// Property test: Monotonicity preservation
-    /// For monotonic data, face value should maintain monotonicity
+    // Property test: Monotonicity preservation
+    // For monotonic data, face value should maintain monotonicity
     proptest! {
         #[test]
         fn prop_monotonicity_preservation(
@@ -383,18 +364,17 @@ mod tvd_limiter_edge_cases {
             ];
 
             for limiter in limiters {
+                let limiter_name = limiter.name();
                 let face = limiter.interpolate_face(phi_u, phi_c, phi_d);
 
                 // Property: For monotonic increasing data, φ_u ≤ face ≤ φ_d
                 assert!(
                     face >= phi_u - 1e-6,
-                    "{}: face = {} < phi_u = {}",
-                    limiter.name(), face, phi_u
+                    "{limiter_name}: face = {face} < phi_u = {phi_u}"
                 );
                 assert!(
                     face <= phi_d + 1e-6,
-                    "{}: face = {} > phi_d = {}",
-                    limiter.name(), face, phi_d
+                    "{limiter_name}: face = {face} > phi_d = {phi_d}"
                 );
             }
         }

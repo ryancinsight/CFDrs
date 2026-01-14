@@ -187,18 +187,34 @@ pub struct ConservationAnalysis<T: RealField + Copy> {
 }
 
 /// Edge case validation result
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CheckStatus {
+    /// Validation passed
+    Passed,
+    /// Validation failed
+    Failed,
+}
+
+impl CheckStatus {
+    #[allow(missing_docs)]
+    pub fn is_passed(&self) -> bool {
+        matches!(self, Self::Passed)
+    }
+}
+
+#[allow(missing_docs)]
 #[derive(Debug, Clone)]
 pub struct EdgeCaseResult {
     /// Boundary condition edge cases passed
-    pub boundary_condition_edge_cases_passed: bool,
+    pub boundary_condition_edge_cases: CheckStatus,
     /// Numerical stability edge cases passed
-    pub numerical_stability_edge_cases_passed: bool,
+    pub numerical_stability_edge_cases: CheckStatus,
     /// Physical constraint validation passed
-    pub physical_constraint_validation_passed: bool,
+    pub physical_constraint_validation: CheckStatus,
     /// Convergence algorithm robustness passed
-    pub convergence_algorithm_robustness_passed: bool,
+    pub convergence_algorithm_robustness: CheckStatus,
     /// Implementation edge cases passed
-    pub implementation_edge_cases_passed: bool,
+    pub implementation_edge_cases: CheckStatus,
 }
 
 /// Edge case testing results

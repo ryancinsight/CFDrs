@@ -142,4 +142,3 @@ fn run_algorithm(
 
     Ok(())
 }
-

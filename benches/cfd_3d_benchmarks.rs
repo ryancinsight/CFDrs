@@ -15,7 +15,7 @@ pub fn bench_fem_element_assembly(c: &mut Criterion) {
     c.bench_function("fem_3d_element_assembly", |b| {
         b.iter(|| {
             // Simulate tetrahedral element with 4 nodes, 10 DOF (3 velocity + 1 pressure per node)
-            let n_dof = 10;
+            let n_dof = 16;
             let mut element_matrix = DMatrix::<f64>::zeros(n_dof, n_dof);
             let viscosity = 0.01;
             let volume = 1.0 / 6.0; // Tetrahedron volume
@@ -216,4 +216,3 @@ criterion_group!(
     bench_ibm_interpolation
 );
 criterion_main!(benches);
-

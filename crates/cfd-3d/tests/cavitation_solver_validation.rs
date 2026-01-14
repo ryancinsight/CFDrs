@@ -8,8 +8,8 @@
 //! - Conservation properties
 
 use cfd_3d::vof::{
-    AdvectionMethod, BubbleDynamicsConfig, CavitationVofConfig,
-    CavitationVofSolver, InterfaceReconstruction, VofConfig,
+    AdvectionMethod, BubbleDynamicsConfig, CavitationVofConfig, CavitationVofSolver,
+    InterfaceReconstruction, VofConfig,
 };
 use cfd_core::physics::cavitation::{damage::CavitationDamage, models::CavitationModel};
 use nalgebra::{DMatrix, Vector3};
@@ -139,6 +139,65 @@ fn test_damage_accumulation() {
     }
 
     println!("✓ Damage accumulation test passed");
+}
+
+#[test]
+fn test_sonoluminescence_energy_field_requires_collapse_and_is_finite() {
+    let config = CavitationVofConfig {
+        vof_config: VofConfig {
+            surface_tension_coefficient: 0.072,
+            interface_compression: 0.1,
+            reconstruction_method: InterfaceReconstruction::PLIC,
+            advection_method: AdvectionMethod::Geometric,
+            max_iterations: 10,
+            tolerance: 1e-6,
+            cfl_number: 0.3,
+            enable_compression: false,
+        },
+        cavitation_model: CavitationModel::Kunz {
+            vaporization_coeff: 100.0,
+            condensation_coeff: 100.0,
+        },
+        damage_model: None,
+        bubble_dynamics: Some(BubbleDynamicsConfig {
+            initial_radius: 1e-6,
+            number_density: 1e13,
+            polytropic_exponent: 1.4,
+            surface_tension: 0.072,
+        }),
+        inception_threshold: 0.3,
+        max_void_fraction: 0.8,
+        relaxation_time: 1e-6,
+        vapor_pressure: 2330.0,
+        liquid_density: 998.0,
+        vapor_density: 0.023,
+        sound_speed: 1500.0,
+    };
+
+    let mut solver = CavitationVofSolver::new(6, 4, 3, config).unwrap();
+
+    let velocity_field = vec![Vector3::zeros(); 6 * 4 * 3];
+    let pressure_field = DMatrix::from_element(6, 4 * 3, 1.0e6);
+    let density_field = DMatrix::from_element(6, 4 * 3, 998.0);
+
+    solver
+        .step(1e-7, &velocity_field, &pressure_field, &density_field)
+        .unwrap();
+
+    let energy = solver
+        .sonoluminescence_energy_field(&pressure_field, 293.15, 50e-12, 1.0)
+        .unwrap();
+
+    assert_eq!(energy.nrows(), 6);
+    assert_eq!(energy.ncols(), 4 * 3);
+
+    let mut any_positive = false;
+    for e in energy.iter().copied() {
+        assert!(e.is_finite());
+        assert!(e >= 0.0);
+        any_positive |= e > 0.0;
+    }
+    assert!(any_positive);
 }
 
 #[test]
@@ -292,7 +351,10 @@ fn test_bubble_dynamics_integration() {
         }
     }
 
-    assert!(radius_changed, "Bubble radius should change with pressure variation");
+    assert!(
+        radius_changed,
+        "Bubble radius should change with pressure variation"
+    );
 
     println!("✓ Bubble dynamics integration test passed");
 }

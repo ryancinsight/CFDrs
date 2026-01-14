@@ -1,6 +1,6 @@
 //! Network domain implementation for 1D CFD
 
-use cfd_core::domain::Domain;
+use cfd_core::geometry::Domain;
 use nalgebra::{Point1, RealField};
 use num_traits::FromPrimitive;
 

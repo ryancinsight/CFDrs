@@ -191,8 +191,8 @@
 use super::constants::{C1_EPSILON, C2_EPSILON, C_MU, EPSILON_MIN, K_MIN, SIGMA_EPSILON, SIGMA_K};
 use super::traits::TurbulenceModel;
 use cfd_core::{
-    physics::constants::mathematical::numeric::{ONE_HALF, TWO},
     error::Result,
+    physics::constants::mathematical::numeric::{ONE_HALF, TWO},
 };
 use nalgebra::{RealField, Vector2};
 use num_traits::FromPrimitive;
@@ -711,17 +711,15 @@ mod tests {
 
         // Verify solution maintains stability (no NaN/inf)
         for i in 0..nx * ny {
-            assert!(k_field[i].is_finite(), "k became non-finite at index {}", i);
+            assert!(k_field[i].is_finite(), "k became non-finite at index {i}");
             assert!(
                 epsilon_field[i].is_finite(),
-                "epsilon became non-finite at index {}",
-                i
+                "epsilon became non-finite at index {i}"
             );
-            assert!(k_field[i] >= 0.0, "k became negative at index {}", i);
+            assert!(k_field[i] >= 0.0, "k became negative at index {i}");
             assert!(
                 epsilon_field[i] >= 0.0,
-                "epsilon became negative at index {}",
-                i
+                "epsilon became negative at index {i}"
             );
         }
 
@@ -735,13 +733,11 @@ mod tests {
 
         assert!(
             k_conservation_error < 0.1,
-            "k conservation error too high: {}",
-            k_conservation_error
+            "k conservation error too high: {k_conservation_error}"
         );
         assert!(
             eps_conservation_error < 0.2,
-            "epsilon conservation error too high: {}",
-            eps_conservation_error
+            "epsilon conservation error too high: {eps_conservation_error}"
         );
     }
 
@@ -815,7 +811,7 @@ mod tests {
                 if k_val >= 0.0 {
                     positive_count += 1;
                 } // Allow zero values
-                if k_val >= 0.0 && k_val < 1e3 {
+                if (0.0..1e3).contains(&k_val) {
                     reasonable_range_count += 1;
                 } // Focus on non-negative and bounded
                 k_min = k_min.min(k_val);
@@ -829,7 +825,7 @@ mod tests {
                 if eps_val >= 0.0 {
                     positive_count += 1;
                 } // Allow zero values
-                if eps_val >= 0.0 && eps_val < 1e3 {
+                if (0.0..1e3).contains(&eps_val) {
                     reasonable_range_count += 1;
                 } // Focus on non-negative and bounded
                 eps_min = eps_min.min(eps_val);
@@ -837,7 +833,7 @@ mod tests {
             }
 
             let total_points = 2 * n * n; // k and epsilon fields
-            let stability_score = (finite_count + positive_count + reasonable_range_count) as f64
+            let stability_score = f64::from(finite_count + positive_count + reasonable_range_count)
                 / (3 * total_points) as f64;
             stability_scores.push(stability_score);
         }
@@ -847,10 +843,7 @@ mod tests {
             let grid_size = grid_sizes[i];
             assert!(
                 score > 0.85,
-                "Poor stability on {}x{} grid: score = {}",
-                grid_size,
-                grid_size,
-                score
+                "Poor stability on {grid_size}x{grid_size} grid: score = {score}"
             );
         }
 
@@ -891,11 +884,11 @@ mod tests {
             let ratio = production / dissipation.max(1e-12);
 
             // In equilibrium, ratio should be order 1 (relaxed bounds for high strain rates)
-            prop_assert!(ratio > 0.0 && ratio < 1e6, "Unrealizable P/ε ratio: {}", ratio);
+            prop_assert!(ratio > 0.0 && ratio < 1e6, "Unrealizable P/ε ratio: {ratio}");
 
             // Both terms must be physically realizable
-            prop_assert!(production >= 0.0, "Negative production: {}", production);
-            prop_assert!(dissipation >= 0.0, "Negative dissipation: {}", dissipation);
+            prop_assert!(production >= 0.0, "Negative production: {production}");
+            prop_assert!(dissipation >= 0.0, "Negative dissipation: {dissipation}");
         });
     }
 
@@ -916,11 +909,9 @@ mod tests {
             let nu_t = model.turbulent_viscosity(k_val, eps_val, 1.0);
             assert!(
                 nu_t.is_finite(),
-                "Turbulence viscosity non-finite: k={}, ε={}",
-                k_val,
-                eps_val
+                "Turbulence viscosity non-finite: k={k_val}, ε={eps_val}"
             );
-            assert!(nu_t >= 0.0, "Negative viscosity: {}", nu_t);
+            assert!(nu_t >= 0.0, "Negative viscosity: {nu_t}");
 
             let strain_rate_magnitude = rng.gen_range(1e-3..1e3);
             let grad = [[0.0, strain_rate_magnitude], [0.0, 0.0]];
@@ -964,9 +955,8 @@ mod tests {
         let ratio = production / dissipation;
         assert_relative_eq!(ratio, 1.0, epsilon = 0.2);
         assert!(
-            ratio >= 0.8 && ratio <= 1.2,
-            "Equilibrium not maintained: P/ε = {}",
-            ratio
+            (0.8..=1.2).contains(&ratio),
+            "Equilibrium not maintained: P/ε = {ratio}"
         );
     }
 
@@ -1022,9 +1012,7 @@ mod tests {
         for &stability in &results {
             assert!(
                 (stability - avg_stability).abs() < 0.1,
-                "Inconsistent stability across grids: {} vs avg {}",
-                stability,
-                avg_stability
+                "Inconsistent stability across grids: {stability} vs avg {avg_stability}"
             );
         }
     }
@@ -1054,13 +1042,11 @@ mod tests {
             // 1. Finite and positive
             assert!(
                 production.is_finite(),
-                "Non-finite production for gradient {:?}",
-                gradient
+                "Non-finite production for gradient {gradient:?}"
             );
             assert!(
                 production > 0.0,
-                "Negative production for gradient {:?}",
-                gradient
+                "Negative production for gradient {gradient:?}"
             );
 
             // 2. Proportional to ν_t
@@ -1068,8 +1054,7 @@ mod tests {
             assert_relative_eq!(production_scaled / production, 3.0, epsilon = 1e-10);
             assert!(
                 (production_scaled / production - 3.0).abs() < 1e-9,
-                "Production not proportional to ν_t for gradient {:?}",
-                gradient
+                "Production not proportional to ν_t for gradient {gradient:?}"
             );
         }
     }
@@ -1077,34 +1062,11 @@ mod tests {
     /// Validate k-ε constants against literature values
     #[test]
     fn test_constants_physical_validation() {
-        // C_mu validation: typical range [0.07, 0.11] for realizability
-        assert!(
-            C_MU >= 0.07 && C_MU <= 0.11,
-            "C_mu = {} not in realizable range [0.07, 0.11]",
-            C_MU
-        );
-
-        // C1_epsilon validation: ensures production-importance weighting
-        assert!(
-            C1_EPSILON > 1.0,
-            "C1_epsilon = {} should be > 1.0 for realizability",
-            C1_EPSILON
-        );
-
-        // C2_epsilon validation: dissipation constant range
-        assert!(
-            C2_EPSILON > C1_EPSILON,
-            "C2_epsilon = {} should be > C1_epsilon = {}",
-            C2_EPSILON,
-            C1_EPSILON
-        );
-
-        // Sigma constants should be positive
-        assert!(
-            SIGMA_K > 0.0 && SIGMA_EPSILON > 0.0,
-            "Sigma constants negative: σ_k={}, σ_ε={}",
-            SIGMA_K,
-            SIGMA_EPSILON
-        );
+        const _: () = {
+            assert!(C_MU >= 0.07 && C_MU <= 0.11);
+            assert!(C1_EPSILON > 1.0);
+            assert!(C2_EPSILON > C1_EPSILON);
+            assert!(SIGMA_K > 0.0 && SIGMA_EPSILON > 0.0);
+        };
     }
 }

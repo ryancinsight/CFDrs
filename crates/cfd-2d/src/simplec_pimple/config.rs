@@ -1,9 +1,9 @@
 //! Configuration for SIMPLEC and PIMPLE algorithms
 
+use crate::pressure_velocity::PressureLinearSolver;
+use crate::schemes::SpatialScheme;
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
-use crate::schemes::SpatialScheme;
-use crate::pressure_velocity::PressureLinearSolver;
 
 /// Algorithm selection
 #[derive(Debug, Clone, Copy, PartialEq)]

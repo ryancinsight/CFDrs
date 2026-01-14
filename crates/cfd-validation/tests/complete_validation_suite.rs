@@ -18,7 +18,7 @@ use cfd_validation::manufactured::{
     ManufacturedKEpsilon, ManufacturedNavierStokes, ManufacturedShockCapturing,
     ManufacturedSolution, ManufacturedSpeciesTransport, ManufacturedTaylorGreen,
 };
-use cfd_validation::reporting::{ValidationSummary};
+use cfd_validation::reporting::ValidationSummary;
 
 /// Complete validation suite test
 #[test]
@@ -330,12 +330,7 @@ fn test_performance_benchmarking(
 
     let passed = results
         .iter()
-        .filter(|r| {
-            matches!(
-                r.status,
-                BenchmarkStatus::Passed
-            )
-        })
+        .filter(|r| matches!(r.status, BenchmarkStatus::Passed))
         .count();
     let total = results.len();
 
@@ -372,12 +367,7 @@ fn generate_comprehensive_report(
     let total_benchmarks = benchmarks.len();
     let passed_benchmarks = benchmarks
         .iter()
-        .filter(|r| {
-            matches!(
-                r.status,
-                BenchmarkStatus::Passed
-            )
-        })
+        .filter(|r| matches!(r.status, BenchmarkStatus::Passed))
         .count();
 
     let total_tests =

@@ -6,9 +6,7 @@ use crate::grid::StructuredGrid2D;
 use cfd_math::linear_solver::preconditioners::multigrid::{
     AMGConfig, CoarseningStrategy, CycleType, InterpolationStrategy, SmootherType,
 };
-use cfd_math::linear_solver::preconditioners::{
-    AlgebraicMultigrid, IdentityPreconditioner,
-};
+use cfd_math::linear_solver::preconditioners::{AlgebraicMultigrid, IdentityPreconditioner};
 use cfd_math::linear_solver::{BiCGSTAB, ConjugateGradient, IterativeLinearSolver, GMRES};
 use cfd_math::sparse::SparseMatrixBuilder;
 use nalgebra::{DVector, RealField, Vector2};
@@ -223,39 +221,80 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
 
         match self.solver_type {
             PressureLinearSolver::ConjugateGradient => {
-                // Use AMG preconditioner if available, otherwise identity
-                if let Some(ref amg) = amg_preconditioner {
+                let solve_result = if let Some(ref amg) = amg_preconditioner {
                     self.cg_solver
-                        .solve(&matrix, &rhs, &mut p_correction_vec, Some(amg))?;
+                        .solve(&matrix, &rhs, &mut p_correction_vec, Some(amg))
                 } else {
                     self.cg_solver.solve(
                         &matrix,
                         &rhs,
                         &mut p_correction_vec,
                         None::<&IdentityPreconditioner>,
-                    )?;
+                    )
+                };
+                match solve_result {
+                    Ok(_) => {}
+                    Err(cfd_core::error::Error::Convergence(
+                        cfd_core::error::ConvergenceErrorKind::Breakdown,
+                    )) if amg_preconditioner.is_some() => {
+                        self.cg_solver.solve(
+                            &matrix,
+                            &rhs,
+                            &mut p_correction_vec,
+                            None::<&IdentityPreconditioner>,
+                        )?;
+                    }
+                    Err(e) => return Err(e),
                 }
             }
             PressureLinearSolver::BiCGSTAB => {
-                // Use AMG preconditioner if available, otherwise identity
-                if let Some(ref amg) = amg_preconditioner {
+                let solve_result = if let Some(ref amg) = amg_preconditioner {
                     self.bicgstab_solver
-                        .solve(&matrix, &rhs, &mut p_correction_vec, Some(amg))?;
+                        .solve(&matrix, &rhs, &mut p_correction_vec, Some(amg))
                 } else {
                     self.bicgstab_solver.solve(
                         &matrix,
                         &rhs,
                         &mut p_correction_vec,
                         None::<&IdentityPreconditioner>,
-                    )?;
+                    )
+                };
+                match solve_result {
+                    Ok(_) => {}
+                    Err(cfd_core::error::Error::Convergence(
+                        cfd_core::error::ConvergenceErrorKind::Breakdown,
+                    )) if amg_preconditioner.is_some() => {
+                        self.bicgstab_solver.solve(
+                            &matrix,
+                            &rhs,
+                            &mut p_correction_vec,
+                            None::<&IdentityPreconditioner>,
+                        )?;
+                    }
+                    Err(e) => return Err(e),
                 }
             }
             PressureLinearSolver::GMRES { .. } => {
-                if let Some(ref solver) = self.gmres_solver {
-                    // Use AMG preconditioner if available, otherwise identity
-                    if let Some(ref amg) = amg_preconditioner {
-                        solver.solve(&matrix, &rhs, &mut p_correction_vec, Some(amg))?;
-                    } else {
+                let Some(ref solver) = self.gmres_solver else {
+                    return Err(cfd_core::error::Error::InvalidConfiguration(
+                        "GMRES solver not initialized".to_string(),
+                    ));
+                };
+                let solve_result = if let Some(ref amg) = amg_preconditioner {
+                    solver.solve(&matrix, &rhs, &mut p_correction_vec, Some(amg))
+                } else {
+                    solver.solve(
+                        &matrix,
+                        &rhs,
+                        &mut p_correction_vec,
+                        None::<&IdentityPreconditioner>,
+                    )
+                };
+                match solve_result {
+                    Ok(_) => {}
+                    Err(cfd_core::error::Error::Convergence(
+                        cfd_core::error::ConvergenceErrorKind::Breakdown,
+                    )) if amg_preconditioner.is_some() => {
                         solver.solve(
                             &matrix,
                             &rhs,
@@ -263,10 +302,7 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
                             None::<&IdentityPreconditioner>,
                         )?;
                     }
-                } else {
-                    return Err(cfd_core::error::Error::InvalidConfiguration(
-                        "GMRES solver not initialized".to_string(),
-                    ));
+                    Err(e) => return Err(e),
                 }
             }
         }
@@ -400,8 +436,8 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
 
                 // Divergence of face velocity (Rhie-Chow)
                 // Source = ρ * ∇·u_face
-                let div_u = (u_face[i][j] - u_face[i - 1][j]) / dx
-                    + (v_face[i][j] - v_face[i][j - 1]) / dy;
+                let div_u =
+                    (u_face[i][j] - u_face[i - 1][j]) / dx + (v_face[i][j] - v_face[i][j - 1]) / dy;
 
                 rhs[row_idx] = rho * div_u;
             }
@@ -453,36 +489,80 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
 
         match self.solver_type {
             PressureLinearSolver::ConjugateGradient => {
-                if let Some(ref amg) = amg_preconditioner {
+                let solve_result = if let Some(ref amg) = amg_preconditioner {
                     self.cg_solver
-                        .solve(&matrix, &rhs, &mut p_correction_vec, Some(amg))?;
+                        .solve(&matrix, &rhs, &mut p_correction_vec, Some(amg))
                 } else {
                     self.cg_solver.solve(
                         &matrix,
                         &rhs,
                         &mut p_correction_vec,
                         None::<&IdentityPreconditioner>,
-                    )?;
+                    )
+                };
+                match solve_result {
+                    Ok(_) => {}
+                    Err(cfd_core::error::Error::Convergence(
+                        cfd_core::error::ConvergenceErrorKind::Breakdown,
+                    )) if amg_preconditioner.is_some() => {
+                        self.cg_solver.solve(
+                            &matrix,
+                            &rhs,
+                            &mut p_correction_vec,
+                            None::<&IdentityPreconditioner>,
+                        )?;
+                    }
+                    Err(e) => return Err(e),
                 }
             }
             PressureLinearSolver::BiCGSTAB => {
-                if let Some(ref amg) = amg_preconditioner {
+                let solve_result = if let Some(ref amg) = amg_preconditioner {
                     self.bicgstab_solver
-                        .solve(&matrix, &rhs, &mut p_correction_vec, Some(amg))?;
+                        .solve(&matrix, &rhs, &mut p_correction_vec, Some(amg))
                 } else {
                     self.bicgstab_solver.solve(
                         &matrix,
                         &rhs,
                         &mut p_correction_vec,
                         None::<&IdentityPreconditioner>,
-                    )?;
+                    )
+                };
+                match solve_result {
+                    Ok(_) => {}
+                    Err(cfd_core::error::Error::Convergence(
+                        cfd_core::error::ConvergenceErrorKind::Breakdown,
+                    )) if amg_preconditioner.is_some() => {
+                        self.bicgstab_solver.solve(
+                            &matrix,
+                            &rhs,
+                            &mut p_correction_vec,
+                            None::<&IdentityPreconditioner>,
+                        )?;
+                    }
+                    Err(e) => return Err(e),
                 }
             }
             PressureLinearSolver::GMRES { .. } => {
-                if let Some(ref solver) = self.gmres_solver {
-                    if let Some(ref amg) = amg_preconditioner {
-                        solver.solve(&matrix, &rhs, &mut p_correction_vec, Some(amg))?;
-                    } else {
+                let Some(ref solver) = self.gmres_solver else {
+                    return Err(cfd_core::error::Error::InvalidConfiguration(
+                        "GMRES solver not initialized".to_string(),
+                    ));
+                };
+                let solve_result = if let Some(ref amg) = amg_preconditioner {
+                    solver.solve(&matrix, &rhs, &mut p_correction_vec, Some(amg))
+                } else {
+                    solver.solve(
+                        &matrix,
+                        &rhs,
+                        &mut p_correction_vec,
+                        None::<&IdentityPreconditioner>,
+                    )
+                };
+                match solve_result {
+                    Ok(_) => {}
+                    Err(cfd_core::error::Error::Convergence(
+                        cfd_core::error::ConvergenceErrorKind::Breakdown,
+                    )) if amg_preconditioner.is_some() => {
                         solver.solve(
                             &matrix,
                             &rhs,
@@ -490,10 +570,7 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
                             None::<&IdentityPreconditioner>,
                         )?;
                     }
-                } else {
-                    return Err(cfd_core::error::Error::InvalidConfiguration(
-                        "GMRES solver not initialized".to_string(),
-                    ));
+                    Err(e) => return Err(e),
                 }
             }
         }
@@ -551,7 +628,7 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
                 // Velocity correction from pressure gradient
                 // Standard SIMPLE: u' = -(dt/rho) * grad(p')
                 // SIMPLEC: u' = -(Vol/Ap) * grad(p')
-                
+
                 let dp_dx = (p_correction[i + 1][j] - p_correction[i - 1][j])
                     / (T::from_f64(cfd_core::physics::constants::mathematical::numeric::TWO)
                         .unwrap_or_else(|| T::zero())

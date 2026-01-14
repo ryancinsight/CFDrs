@@ -64,8 +64,8 @@
 //! - Tezduyar, T.E. (1991). PSPG stabilization
 //! - Girault, V. & Raviart, P.A. (1986). *Finite Element Methods for Navier-Stokes Equations*
 
-use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_core::error::{Error, Result};
+use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_math::linear_solver::{BiCGSTAB, LinearSolver};
 use cfd_math::sparse::{SparseMatrix, SparseMatrixBuilder};
 use nalgebra::{DVector, RealField, Vector3};

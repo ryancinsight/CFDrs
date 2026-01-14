@@ -1,7 +1,7 @@
 //! Arithmetic operations on GPU fields
 
-use crate::compute::gpu::GpuContext;
 use crate::compute::gpu::shaders::{FIELD_ADD_SHADER, FIELD_MUL_SHADER};
+use crate::compute::gpu::GpuContext;
 use std::sync::Arc;
 use wgpu::util::DeviceExt;
 

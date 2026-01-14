@@ -31,7 +31,6 @@
 //! - $G_{ij} \le 0$ represents a physical impossibility (negative resistance) or a disconnected edge.
 //! - Non-finite values (NaN/Inf) indicate numerical instability and are rejected immediately.
 
-
 use crate::network::Network;
 use cfd_core::error::{Error, Result};
 use nalgebra::{DVector, RealField};
@@ -74,8 +73,10 @@ impl<T: RealField + Copy + FromPrimitive + Copy + Send + Sync + Copy> MatrixAsse
         // Invariants: units [A]=conductance [m³/(Pa·s)] or dimensionless, [b]=flow rate [m³/s] or pressure [Pa]
         // Interior rows: sum(G_ij * (P_i - P_j)) = Q_ext_i => G_ii*P_i + sum(G_ij*P_j) = Q_ext_i
         // Dirichlet rows: 1 * P_i = P_fixed_i
-        let mut dirichlet_values: std::collections::HashMap<usize, T> = std::collections::HashMap::new();
-        let mut neumann_sources: std::collections::HashMap<usize, T> = std::collections::HashMap::new();
+        let mut dirichlet_values: std::collections::HashMap<usize, T> =
+            std::collections::HashMap::new();
+        let mut neumann_sources: std::collections::HashMap<usize, T> =
+            std::collections::HashMap::new();
         for (&node_idx, bc) in network.boundary_conditions() {
             let idx: usize = node_idx.index();
             match bc {

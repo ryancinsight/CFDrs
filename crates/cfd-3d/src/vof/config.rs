@@ -1,7 +1,7 @@
 //! VOF configuration and constants
 
-use super::reconstruction::InterfaceReconstruction;
 use super::advection::AdvectionMethod;
+use super::reconstruction::InterfaceReconstruction;
 use serde::{Deserialize, Serialize};
 
 // Named constants for VOF - SSOT principle

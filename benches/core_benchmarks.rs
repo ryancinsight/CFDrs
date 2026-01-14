@@ -1,4 +1,4 @@
-use cfd_core::domain::Domain3D;
+use cfd_core::geometry::Domain3D;
 use cfd_math::differentiation::{FiniteDifference, FiniteDifferenceScheme};
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 

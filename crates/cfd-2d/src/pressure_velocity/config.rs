@@ -56,12 +56,14 @@ impl<T: RealField + Copy + FromPrimitive> PressureVelocityConfig<T> {
             base: cfd_core::compute::solver::SolverConfig::builder()
                 .max_iterations(crate::constants::solver::LOG_INTERVAL)
                 .tolerance(
-                    T::from_f64(cfd_core::physics::constants::numerical::solver::CONVERGENCE_TOLERANCE)
-                        .ok_or_else(|| {
-                            cfd_core::error::Error::InvalidConfiguration(
-                                "Cannot convert tolerance".into(),
-                            )
-                        })?,
+                    T::from_f64(
+                        cfd_core::physics::constants::numerical::solver::CONVERGENCE_TOLERANCE,
+                    )
+                    .ok_or_else(|| {
+                        cfd_core::error::Error::InvalidConfiguration(
+                            "Cannot convert tolerance".into(),
+                        )
+                    })?,
                 )
                 .build(),
             dt: T::from_f64(
@@ -71,14 +73,18 @@ impl<T: RealField + Copy + FromPrimitive> PressureVelocityConfig<T> {
             .ok_or_else(|| {
                 cfd_core::error::Error::InvalidConfiguration("Cannot convert time step".into())
             })?,
-            alpha_u: T::from_f64(cfd_core::physics::constants::numerical::relaxation::VELOCITY_RELAXATION)
-                .ok_or_else(|| {
+            alpha_u: T::from_f64(
+                cfd_core::physics::constants::numerical::relaxation::VELOCITY_RELAXATION,
+            )
+            .ok_or_else(|| {
                 cfd_core::error::Error::InvalidConfiguration(
                     "Cannot convert velocity relaxation".into(),
                 )
             })?,
-            alpha_p: T::from_f64(cfd_core::physics::constants::numerical::relaxation::PRESSURE_RELAXATION)
-                .ok_or_else(|| {
+            alpha_p: T::from_f64(
+                cfd_core::physics::constants::numerical::relaxation::PRESSURE_RELAXATION,
+            )
+            .ok_or_else(|| {
                 cfd_core::error::Error::InvalidConfiguration(
                     "Cannot convert pressure relaxation".into(),
                 )

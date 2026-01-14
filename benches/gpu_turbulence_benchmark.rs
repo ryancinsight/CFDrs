@@ -43,8 +43,10 @@ fn bench_smagorinsky_les(c: &mut Criterion) {
         let pressure = DMatrix::zeros(size, size);
 
         // CPU benchmark
-        let mut config_cpu = SmagorinskyConfig::default();
-        config_cpu.use_gpu = false;
+        let config_cpu = SmagorinskyConfig {
+            use_gpu: false,
+            ..Default::default()
+        };
         let mut les_cpu = SmagorinskyLES::new(size, size, 0.01, 0.01, config_cpu);
 
         group.bench_function(format!("CPU {}x{}", size, size), |b| {
@@ -66,8 +68,10 @@ fn bench_smagorinsky_les(c: &mut Criterion) {
         // GPU benchmark (if available)
         #[cfg(feature = "gpu")]
         {
-            let mut config_gpu = SmagorinskyConfig::default();
-            config_gpu.use_gpu = true;
+            let config_gpu = SmagorinskyConfig {
+                use_gpu: true,
+                ..Default::default()
+            };
             let mut les_gpu = SmagorinskyLES::new(size, size, 0.01, 0.01, config_gpu);
 
             group.bench_function(format!("GPU {}x{}", size, size), |b| {
@@ -197,8 +201,10 @@ fn bench_accuracy_validation(c: &mut Criterion) {
     group.bench_function("Smagorinsky Accuracy Check", |b| {
         b.iter(|| {
             // CPU computation
-            let mut config_cpu = SmagorinskyConfig::default();
-            config_cpu.use_gpu = false;
+            let config_cpu = SmagorinskyConfig {
+                use_gpu: false,
+                ..Default::default()
+            };
             let mut les_cpu = SmagorinskyLES::new(size, size, 0.01, 0.01, config_cpu);
             les_cpu
                 .update(
@@ -217,8 +223,10 @@ fn bench_accuracy_validation(c: &mut Criterion) {
             #[cfg(feature = "gpu")]
             {
                 // GPU computation
-                let mut config_gpu = SmagorinskyConfig::default();
-                config_gpu.use_gpu = true;
+                let config_gpu = SmagorinskyConfig {
+                    use_gpu: true,
+                    ..Default::default()
+                };
                 let mut les_gpu = SmagorinskyLES::new(size, size, 0.01, 0.01, config_gpu);
                 les_gpu
                     .update(

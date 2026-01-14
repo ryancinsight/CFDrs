@@ -9,7 +9,7 @@
 //! - Wilcox, D.C. (2006). "Turbulence Modeling for CFD" (3rd ed.). DCW Industries.
 
 #[cfg(test)]
-mod k_omega_sst_tests {
+mod tests {
     use super::super::k_omega_sst::KOmegaSSTModel;
     use super::super::traits::TurbulenceModel;
     use approx::assert_relative_eq;

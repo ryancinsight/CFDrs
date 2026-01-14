@@ -182,12 +182,13 @@ fn richardson_poisson_equation() -> Result<(), Box<dyn std::error::Error>> {
         let mut max_error: f64 = 0.0;
         let mut count = 0;
 
-        for i in 1..n - 1 {
-            for j in 1..n - 1 {
-                let x = i as f64 * dx;
+        let interior = n - 2;
+        for (i, row) in u.iter().enumerate().skip(1).take(interior) {
+            let x = i as f64 * dx;
+            for (j, &u_ij) in row.iter().enumerate().skip(1).take(interior) {
                 let y = j as f64 * dx;
                 let exact = (PI * x).sin() * (PI * y).sin();
-                let error = (u[i][j] - exact).abs();
+                let error = (u_ij - exact).abs();
 
                 l2_error += error * error;
                 max_error = max_error.max(error);

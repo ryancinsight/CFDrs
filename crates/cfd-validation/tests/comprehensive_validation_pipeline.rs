@@ -8,7 +8,9 @@
 use cfd_validation::benchmarking::suite::{
     BenchmarkConfig, BenchmarkResult, BenchmarkStatus, BenchmarkSuite,
 };
-use cfd_validation::manufactured::{ManufacturedDiffusion, ManufacturedSolution, TaylorGreenManufactured};
+use cfd_validation::manufactured::{
+    ManufacturedDiffusion, ManufacturedSolution, TaylorGreenManufactured,
+};
 use std::time::Duration;
 
 /// Complete validation pipeline test
@@ -32,7 +34,10 @@ fn test_comprehensive_validation_pipeline() {
     println!("------------------------------------------");
 
     let benchmark_passed = run_performance_benchmarks();
-    assert!(benchmark_passed, "Benchmark suite must execute successfully");
+    assert!(
+        benchmark_passed,
+        "Benchmark suite must execute successfully"
+    );
 
     // Phase 3: Quality Assessment
     println!("\n🎯 Phase 3: Quality Assessment");
@@ -78,7 +83,11 @@ fn run_mms_validation_suite() -> Vec<bool> {
     results.push(tg_result);
     println!(
         "  Taylor-Green MMS: {}",
-        if tg_result { "✅ PASSED" } else { "❌ FAILED" }
+        if tg_result {
+            "✅ PASSED"
+        } else {
+            "❌ FAILED"
+        }
     );
 
     results

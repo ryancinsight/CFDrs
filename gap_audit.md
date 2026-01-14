@@ -24,9 +24,10 @@ This audit identifies significant structural redundancies, misplaced concerns, a
     - `src/high_order/weno.rs`
     - `src/spatial/weno.rs`
 - **SIMD/Vectorization**:
-    - `src/simd/`
-    - `src/vectorization_simd.rs`
-    - `src/cfd_simd.rs`
+    - `src/simd/` (Consolidated) ✅
+    - `src/vectorization_simd.rs` (Deleted) ✅
+    - `src/cfd_simd.rs` (Deleted) ✅
+    - `src/vectorization/` (Consolidated into `src/simd/vectorization.rs`) ✅
 - **Linear Solvers**:
     - `src/linear_solver/`: Standard implementations.
     - `src/linear_solver/matrix_free/`: Duplicates solver logic (CG, BiCGSTAB, GMRES) for matrix-free contexts.

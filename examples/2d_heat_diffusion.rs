@@ -9,6 +9,8 @@ use cfd_2d::solvers::fdm::{AdvectionDiffusionSolver, FdmConfig, PoissonSolver};
 use cfd_core::prelude::SolverConfig;
 use std::collections::HashMap;
 
+type GridScalarField = HashMap<(usize, usize), f64>;
+
 fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     println!("=== 2D Heat Diffusion Example ===");
 
@@ -84,13 +86,10 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         .filter_map(|(i, j)| solution.get(&(i, j)).copied())
         .collect();
 
-    let (min_temp, max_temp, avg_temp) = temperatures
-        .iter()
-        .fold(
-            (f64::INFINITY, f64::NEG_INFINITY, 0.0),
-            |(min, max, sum), &temp| (min.min(temp), max.max(temp), sum + temp),
-        )
-        .into();
+    let (min_temp, max_temp, avg_temp) = temperatures.iter().fold(
+        (f64::INFINITY, f64::NEG_INFINITY, 0.0),
+        |(min, max, sum), &temp| (min.min(temp), max.max(temp), sum + temp),
+    );
 
     let avg_temp = avg_temp / temperatures.len() as f64;
 
@@ -136,17 +135,17 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     println!("\n=== Advection-Diffusion Example ===");
 
     // Create velocity field using iterator patterns for zero-copy field initialization
-    let (velocity_x, velocity_y): (HashMap<(usize, usize), f64>, HashMap<(usize, usize), f64>) =
-        grid.iter()
-            .map(|(i, j)| [((i, j), 1.0), ((i, j), 0.0)]) // [x_velocity, y_velocity]
-            .fold(
-                (HashMap::new(), HashMap::new()),
-                |(mut vx, mut vy), [x_entry, y_entry]| {
-                    vx.insert(x_entry.0, x_entry.1);
-                    vy.insert(y_entry.0, y_entry.1);
-                    (vx, vy)
-                },
-            );
+    let (velocity_x, velocity_y): (GridScalarField, GridScalarField) = grid
+        .iter()
+        .map(|(i, j)| [((i, j), 1.0), ((i, j), 0.0)]) // [x_velocity, y_velocity]
+        .fold(
+            (HashMap::new(), HashMap::new()),
+            |(mut vx, mut vy), [x_entry, y_entry]| {
+                vx.insert(x_entry.0, x_entry.1);
+                vy.insert(y_entry.0, y_entry.1);
+                (vx, vy)
+            },
+        );
 
     // Solve advection-diffusion equation
     let diffusivity = 0.1; // Thermal diffusivity

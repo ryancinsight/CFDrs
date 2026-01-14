@@ -64,7 +64,8 @@ impl InterfaceReconstruction {
                                 if alpha > interface_lower && alpha < interface_upper {
                                     match self {
                                         Self::PLIC => {
-                                            let (normal, _) = self.plic_reconstruction(solver, i, j, k);
+                                            let (normal, _) =
+                                                self.plic_reconstruction(solver, i, j, k);
                                             solver.normals[idx] = normal;
                                         }
                                         Self::Gradient => {

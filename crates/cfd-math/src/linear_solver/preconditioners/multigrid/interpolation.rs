@@ -14,7 +14,7 @@ pub fn create_classical_interpolation<T: RealField + Copy + FromPrimitive>(
 ) -> Result<SparseMatrix<T>> {
     let fine_n = fine_matrix.nrows();
     let coarse_n = coarse_points.len();
-    
+
     let mut row_offsets = vec![0; fine_n + 1];
     let mut col_indices = Vec::new();
     let mut values = Vec::new();
@@ -35,8 +35,11 @@ pub fn create_classical_interpolation<T: RealField + Copy + FromPrimitive>(
 
             for k in row_start..row_end {
                 let neighbor_idx = fine_matrix.col_indices()[k];
-                if let Some(coarse_local_idx) = coarse_points.iter().position(|&x| x == neighbor_idx) {
-                    let strength = strength_matrix.get_entry(fine_i, neighbor_idx)
+                if let Some(coarse_local_idx) =
+                    coarse_points.iter().position(|&x| x == neighbor_idx)
+                {
+                    let strength = strength_matrix
+                        .get_entry(fine_i, neighbor_idx)
                         .map_or(T::zero(), |e| e.into_value());
                     // Simple distance-weighted interpolation
                     let distance = T::one(); // Assume unit distance for now
@@ -60,10 +63,13 @@ pub fn create_classical_interpolation<T: RealField + Copy + FromPrimitive>(
         row_offsets[fine_i + 1] = col_indices.len();
     }
 
-    SparseMatrix::try_from_csr_data(fine_n, coarse_n, row_offsets, col_indices, values)
-        .map_err(|e| Error::Numerical(NumericalErrorKind::InvalidValue { 
-            value: format!("Failed to create classical interpolation matrix: {e}") 
-        }))
+    SparseMatrix::try_from_csr_data(fine_n, coarse_n, row_offsets, col_indices, values).map_err(
+        |e| {
+            Error::Numerical(NumericalErrorKind::InvalidValue {
+                value: format!("Failed to create classical interpolation matrix: {e}"),
+            })
+        },
+    )
 }
 
 /// Create direct interpolation operator
@@ -96,7 +102,7 @@ pub fn create_standard_interpolation<T: RealField + Copy + FromPrimitive>(
 ) -> Result<SparseMatrix<T>> {
     let fine_n = fine_matrix.nrows();
     let coarse_n = coarse_points.len();
-    
+
     let mut row_offsets = vec![0; fine_n + 1];
     let mut col_indices = Vec::new();
     let mut values = Vec::new();
@@ -118,12 +124,14 @@ pub fn create_standard_interpolation<T: RealField + Copy + FromPrimitive>(
 
                 // Weight by inverse distance and connection strength
                 if distance > 0.0 {
-                    let strength = if let Some(s) = strength_matrix.get_entry(fine_i, coarse_global_idx) {
-                        s.into_value()
-                    } else {
-                        T::from_f64(1e-6).unwrap_or_else(T::zero)
-                    };
-                    let weight = strength / (T::from_f64(distance).unwrap_or_else(T::zero) + T::one());
+                    let strength =
+                        if let Some(s) = strength_matrix.get_entry(fine_i, coarse_global_idx) {
+                            s.into_value()
+                        } else {
+                            T::from_f64(1e-6).unwrap_or_else(T::zero)
+                        };
+                    let weight =
+                        strength / (T::from_f64(distance).unwrap_or_else(T::zero) + T::one());
                     weights.push((coarse_local_idx, weight));
                     total_weight += weight;
                 }
@@ -142,10 +150,13 @@ pub fn create_standard_interpolation<T: RealField + Copy + FromPrimitive>(
         row_offsets[fine_i + 1] = col_indices.len();
     }
 
-    SparseMatrix::try_from_csr_data(fine_n, coarse_n, row_offsets, col_indices, values)
-        .map_err(|e| Error::Numerical(NumericalErrorKind::InvalidValue { 
-            value: format!("Failed to create standard interpolation matrix: {e}") 
-        }))
+    SparseMatrix::try_from_csr_data(fine_n, coarse_n, row_offsets, col_indices, values).map_err(
+        |e| {
+            Error::Numerical(NumericalErrorKind::InvalidValue {
+                value: format!("Failed to create standard interpolation matrix: {e}"),
+            })
+        },
+    )
 }
 
 /// Validate interpolation operator properties
@@ -189,13 +200,21 @@ pub fn validate_interpolation_operator<T: RealField + Copy + FromPrimitive + ToP
     let avg_c_point_sum = if c_point_row_sums.is_empty() {
         0.0
     } else {
-        c_point_row_sums.iter().map(|&s| s.to_f64().unwrap_or(0.0)).sum::<f64>() / c_point_row_sums.len() as f64
+        c_point_row_sums
+            .iter()
+            .map(|&s| s.to_f64().unwrap_or(0.0))
+            .sum::<f64>()
+            / c_point_row_sums.len() as f64
     };
 
     let avg_f_point_sum = if f_point_row_sums.is_empty() {
         0.0
     } else {
-        f_point_row_sums.iter().map(|&s| s.to_f64().unwrap_or(0.0)).sum::<f64>() / f_point_row_sums.len() as f64
+        f_point_row_sums
+            .iter()
+            .map(|&s| s.to_f64().unwrap_or(0.0))
+            .sum::<f64>()
+            / f_point_row_sums.len() as f64
     };
 
     // Check conservation property (interpolation should preserve constants)
@@ -295,13 +314,38 @@ mod tests {
         assert_eq!(interpolation.ncols(), 3);
 
         // Check that coarse points map correctly
-        assert_eq!(interpolation.get_entry(0, 0).map_or(0.0, |e| e.into_value()), 1.0); // Point 0 -> coarse 0
-        assert_eq!(interpolation.get_entry(2, 1).map_or(0.0, |e| e.into_value()), 1.0); // Point 2 -> coarse 1
-        assert_eq!(interpolation.get_entry(4, 2).map_or(0.0, |e| e.into_value()), 1.0); // Point 4 -> coarse 2
+        assert_eq!(
+            interpolation
+                .get_entry(0, 0)
+                .map_or(0.0, |e| e.into_value()),
+            1.0
+        ); // Point 0 -> coarse 0
+        assert_eq!(
+            interpolation
+                .get_entry(2, 1)
+                .map_or(0.0, |e| e.into_value()),
+            1.0
+        ); // Point 2 -> coarse 1
+        assert_eq!(
+            interpolation
+                .get_entry(4, 2)
+                .map_or(0.0, |e| e.into_value()),
+            1.0
+        ); // Point 4 -> coarse 2
 
         // Check that F-points are zero
-        assert_eq!(interpolation.get_entry(1, 0).map_or(0.0, |e| e.into_value()), 0.0); // Point 1 not mapped
-        assert_eq!(interpolation.get_entry(3, 1).map_or(0.0, |e| e.into_value()), 0.0); // Point 3 not mapped
+        assert_eq!(
+            interpolation
+                .get_entry(1, 0)
+                .map_or(0.0, |e| e.into_value()),
+            0.0
+        ); // Point 1 not mapped
+        assert_eq!(
+            interpolation
+                .get_entry(3, 1)
+                .map_or(0.0, |e| e.into_value()),
+            0.0
+        ); // Point 3 not mapped
     }
 
     #[test]
@@ -329,9 +373,24 @@ mod tests {
         assert_eq!(interpolation.ncols(), 3);
 
         // Check that coarse points have direct injection
-        assert_eq!(interpolation.get_entry(0, 0).map_or(0.0, |e| e.into_value()), 1.0);
-        assert_eq!(interpolation.get_entry(2, 1).map_or(0.0, |e| e.into_value()), 1.0);
-        assert_eq!(interpolation.get_entry(4, 2).map_or(0.0, |e| e.into_value()), 1.0);
+        assert_eq!(
+            interpolation
+                .get_entry(0, 0)
+                .map_or(0.0, |e| e.into_value()),
+            1.0
+        );
+        assert_eq!(
+            interpolation
+                .get_entry(2, 1)
+                .map_or(0.0, |e| e.into_value()),
+            1.0
+        );
+        assert_eq!(
+            interpolation
+                .get_entry(4, 2)
+                .map_or(0.0, |e| e.into_value()),
+            1.0
+        );
     }
 
     #[test]

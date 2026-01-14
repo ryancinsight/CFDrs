@@ -55,8 +55,9 @@ impl CheckpointManager {
     /// * Bit-exact preservation: `checksum(stored_data) == metadata.checksum`
     pub fn save(&self, checkpoint: &Checkpoint<f64>) -> Result<PathBuf> {
         let filename = format!(
-            "checkpoint_iter_{:08}_t_{:.6}.bin",
-            checkpoint.metadata.iteration, checkpoint.metadata.time
+            "checkpoint_iter_{:08}_tbits_{:016x}.bin",
+            checkpoint.metadata.iteration,
+            checkpoint.metadata.time.to_bits()
         );
         let path = self.base_dir.join(filename);
 
@@ -64,9 +65,8 @@ impl CheckpointManager {
         cp.metadata.checksum = cp.compute_checksum();
         cp.metadata.validate()?;
 
-        let encoded = serde_json::to_vec(&cp).map_err(|e| {
-            Error::Serialization(format!("serde encode error: {e}"))
-        })?;
+        let encoded = bincode::serde::encode_to_vec(&cp, bincode::config::standard())
+            .map_err(|e| Error::Serialization(format!("bincode encode error: {e}")))?;
 
         let file = File::create(&path)?;
         let mut writer = BufWriter::new(file);
@@ -85,9 +85,10 @@ impl CheckpointManager {
                 writer.write_all(&encoded)?;
             }
             CompressionStrategy::Zstd(level) => {
-                let mut encoder = zstd::stream::Encoder::new(writer, i32::from(level)).map_err(|e| {
-                    Error::Io(std::io::Error::other(format!("Compression error: {e}")))
-                })?;
+                let mut encoder =
+                    zstd::stream::Encoder::new(writer, i32::from(level)).map_err(|e| {
+                        Error::Io(std::io::Error::other(format!("Compression error: {e}")))
+                    })?;
                 encoder.write_all(&encoded)?;
                 encoder.finish()?;
             }
@@ -126,11 +127,12 @@ impl CheckpointManager {
         let mut buffer = Vec::new();
         reader.read_to_end(&mut buffer)?;
 
-
         let data = match compression_type[0] {
             COMPRESSION_NONE => buffer,
             COMPRESSION_ZSTD => zstd::decode_all(&buffer[..]).map_err(|e| {
-                Error::Io(std::io::Error::other(format!("Zstd decompression error: {e}")))
+                Error::Io(std::io::Error::other(format!(
+                    "Zstd decompression error: {e}"
+                )))
             })?,
             _ => {
                 return Err(Error::Io(std::io::Error::new(
@@ -140,9 +142,12 @@ impl CheckpointManager {
             }
         };
 
-        let checkpoint: Checkpoint<f64> = serde_json::from_slice(&data).map_err(|e| {
-            Error::Io(std::io::Error::other(format!("Serde deserialization error: {e}")))
-        })?;
+        let (checkpoint, _read_bytes): (Checkpoint<f64>, usize) =
+            bincode::serde::decode_from_slice(&data, bincode::config::standard()).map_err(|e| {
+                Error::Io(std::io::Error::other(format!(
+                    "Bincode deserialization error: {e}"
+                )))
+            })?;
 
         checkpoint.metadata.validate()?;
 

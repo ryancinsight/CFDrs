@@ -70,7 +70,11 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float + ToPrimitive> MmsR
         // Compute L2 errors for each grid size
         for &h in grid_sizes {
             let error = self.compute_l2_error(h)?;
-            println!("      h={:.4}, L2 error={:e}", h.to_f64().unwrap(), error.to_f64().unwrap());
+            println!(
+                "      h={:.4}, L2 error={:e}",
+                h.to_f64().unwrap(),
+                error.to_f64().unwrap()
+            );
             l2_errors.push(error);
         }
 
@@ -385,7 +389,6 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float + ToPrimitive> MmsR
         // Require at least three grids to estimate order robustly
         for i in 0..grid_sizes.len().saturating_sub(2) {
             // grids ordered coarse -> fine across triples
-            let _h_coarse = grid_sizes[i];
             let h_medium = grid_sizes[i + 1];
             let h_fine = grid_sizes[i + 2];
 
@@ -444,25 +447,16 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float + ToPrimitive> MmsR
     pub fn check_asymptotic_range(
         grid_sizes: &[T],
         l2_errors: &[T],
-        richardson_results: &[(T, T)],
+        _richardson_results: &[(T, T)],
     ) -> Result<Vec<bool>, String> {
         let mut is_asymptotic = Vec::new();
 
         for i in 0..grid_sizes.len().saturating_sub(2) {
             // grids ordered coarse -> fine across triples
-            let _h_coarse = grid_sizes[i];
-            let h_medium = grid_sizes[i + 1];
-            let h_fine = grid_sizes[i + 2];
-
             let f_coarse = l2_errors[i];
             let f_medium = l2_errors[i + 1];
             let f_fine = l2_errors[i + 2];
 
-            let _estimated_order = richardson_results
-                .get(i).map_or_else(|| T::from_f64(2.0).unwrap(), |(_, order)| *order);
-
-            // Use ratio between medium and fine (> 1)
-            let _r = h_medium / h_fine;
             let asymptotic = RichardsonExtrapolation::is_asymptotic(f_coarse, f_medium, f_fine);
 
             is_asymptotic.push(asymptotic);

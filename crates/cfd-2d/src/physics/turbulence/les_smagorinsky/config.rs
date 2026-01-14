@@ -58,4 +58,3 @@ impl SmagorinskyConfig {
         self
     }
 }
-

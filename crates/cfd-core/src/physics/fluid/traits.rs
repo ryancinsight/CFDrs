@@ -74,7 +74,8 @@ pub trait Fluid<T: RealField + Copy>: Send + Sync {
 
     /// Get speed of sound at given conditions [m/s]
     fn speed_of_sound_at(&self, temperature: T, pressure: T) -> Result<T, Error> {
-        self.properties_at(temperature, pressure).map(|s| s.speed_of_sound)
+        self.properties_at(temperature, pressure)
+            .map(|s| s.speed_of_sound)
     }
 
     /// Get descriptive name

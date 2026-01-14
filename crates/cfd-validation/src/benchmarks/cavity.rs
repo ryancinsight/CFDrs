@@ -5,9 +5,9 @@
 
 use super::{Benchmark, BenchmarkConfig, BenchmarkResult};
 use cfd_core::conversion::{SafeFromF64, SafeFromUsize};
-use cfd_core::error::Result;
+use cfd_core::error::{Error, Result};
 use nalgebra::{DMatrix, RealField};
-use num_traits::FromPrimitive;
+use num_traits::{FromPrimitive, ToPrimitive};
 
 /// Lid-driven cavity benchmark
 pub struct LidDrivenCavity<T: RealField + Copy> {
@@ -247,6 +247,19 @@ impl<T: RealField + Copy + FromPrimitive + SafeFromF64 + num_traits::ToPrimitive
         if let Some((y_positions, u_velocities)) = ghia_data {
             // Compare with computed values in result
             if !result.values.is_empty() {
+                if !result.values.len().is_multiple_of(2) {
+                    return Err(Error::InvalidInput(format!(
+                        "Expected even number of values (u+v centerlines), got {}",
+                        result.values.len()
+                    )));
+                }
+                let u_len = result.values.len() / 2;
+                if u_len == 0 {
+                    return Err(Error::InvalidInput(
+                        "Expected non-empty centerline u values".to_string(),
+                    ));
+                }
+
                 // Compute L2 error against Ghia reference data
                 let mut l2_error_sq = T::zero();
                 let mut num_points = 0;
@@ -254,12 +267,19 @@ impl<T: RealField + Copy + FromPrimitive + SafeFromF64 + num_traits::ToPrimitive
                 // Interpolate computed values to Ghia reference y-positions
                 for (&y_ref, &u_ref) in y_positions.iter().zip(u_velocities.iter()) {
                     // Find closest grid point (simplified - assumes regular grid)
-                    let grid_size_float = self.size.to_f64().unwrap_or(0.0);
-                    let y_ref_f64 = y_ref.to_f64().unwrap_or(0.0);
-                    let grid_idx = ((y_ref_f64 * (grid_size_float - 1.0)) as usize)
-                        .min(result.values.len() - 1);
+                    let y_ref_f64 = y_ref.to_f64().ok_or_else(|| {
+                        Error::ConversionError("Failed to convert y_ref to f64".to_string())
+                    })?;
 
-                    if grid_idx < result.values.len() {
+                    let max_idx = u_len - 1;
+                    let idx_f64 = y_ref_f64.clamp(0.0, 1.0) * max_idx as f64;
+                    let grid_idx = idx_f64
+                        .round()
+                        .to_usize()
+                        .ok_or_else(|| Error::ConversionError("Invalid grid index".to_string()))?
+                        .min(max_idx);
+
+                    if grid_idx < u_len {
                         let u_computed = result.values[grid_idx];
                         let error = u_computed - u_ref;
                         l2_error_sq += error * error;

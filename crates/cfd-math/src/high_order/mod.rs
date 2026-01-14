@@ -37,9 +37,9 @@
 //!     .with_volume_flux(FluxType::Central)
 //!     .with_surface_flux(FluxType::LaxFriedrichs)
 //!     .with_limiter(LimiterType::Minmod);
-//! 
+//!
 //! let dg_op = DGOperator::new(order, num_components, Some(params)).unwrap();
-//! 
+//!
 //! // Set up and run the solver
 //! let mut solver = DGSolver::new(
 //!     dg_op,
@@ -48,14 +48,14 @@
 //!         .with_t_final(1.0)
 //!         .with_dt(0.01)
 //! );
-//! 
+//!
 //! // Initialize and solve
 //! solver.initialize(|x| DVector::from_vec(vec![x.sin()])).unwrap();
-//! 
+//!
 //! fn rhs(_t: f64, u: &DMatrix<f64>) -> Result<DMatrix<f64>> {
 //!     Ok(-u.clone())
 //! }
-//! 
+//!
 //! solver.solve(rhs, None::<fn(f64, &DMatrix<f64>) -> Result<DMatrix<f64>>>).unwrap();
 //! ```
 //!
@@ -85,5 +85,8 @@ pub mod weno;
 
 /// Re-export commonly used items
 pub use dg::*;
-pub use spectral::{SpectralElement, SpectralDiffOp, SpectralInterp, SpectralQuadrature, SpectralFilter, SpectralError};
+pub use spectral::{
+    SpectralDiffOp, SpectralElement, SpectralError, SpectralFilter, SpectralInterp,
+    SpectralQuadrature,
+};
 pub use weno::*;

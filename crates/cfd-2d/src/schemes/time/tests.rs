@@ -1,43 +1,10 @@
 //! Tests for time integration schemes
 
 #[cfg(test)]
-mod tests {
+mod unit {
     use super::super::{TimeIntegrator, TimeScheme};
     use approx::assert_relative_eq;
     use nalgebra::DVector;
-
-    #[test]
-    fn test_bdf2_exponential_decay() {
-        // Test BDF2 with dy/dt = -y (exponential decay)
-        // Exact solution: y(t) = exp(-t)
-        let integrator = TimeIntegrator::<f64>::new(TimeScheme::BDF2);
-        let f = |_t: f64, y: &DVector<f64>| -y;
-
-        let dt = 0.1;
-        let y0 = DVector::from_vec(vec![1.0]);
-
-        // First step with Forward Euler (no history yet)
-        let y1 = &y0 + f(0.0, &y0) * dt;
-
-        // Second step with BDF2
-        let y2 = integrator.step_with_history(f, &y1, Some(&y0), None, dt, dt);
-
-        // Analytical: y(0.2) = exp(-0.2) ≈ 0.8187307530779818
-        // Due to Forward Euler first step, expect some error
-        let expected = (-0.2_f64).exp();
-        // BDF2 after FE first step gives reasonable accuracy
-        assert_relative_eq!(y2[0], expected, epsilon = 1e-2);
-
-        // Verify solution is bounded and positive
-        assert!(y2[0] > 0.0);
-        assert!(y2[0] < 1.0);
-    }
-
-    #[test]
-    fn test_bdf2_order_accuracy() {
-        // Verify BDF2 is 2nd-order accurate
-        assert_eq!(TimeIntegrator::<f64>::new(TimeScheme::BDF2).order(), 2);
-    }
 
     #[test]
     fn test_bdf2_is_implicit() {

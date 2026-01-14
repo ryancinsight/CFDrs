@@ -124,7 +124,7 @@ nalgebra.workspace = true
 num-traits.workspace = true
 simba.workspace = true
 wgpu = { version = "0.19", optional = true }
-mpi = { version = "0.8", optional = true }
+mpi = { version = "0.8", optional = true, default-features = false }
 rand.workspace = true
 
 [dev-dependencies]

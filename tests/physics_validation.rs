@@ -32,9 +32,9 @@ fn test_heat_diffusion_1d() {
     // 1D semi-infinite solid with surface step: T(x,t)/T0 = erfc(x / (2\sqrt{α t}))
     // Reference: Carslaw & Jaeger, Conduction of Heat in Solids, Sec. 2.5
 
-    let thermal_diffusivity = 1e-5; // m²/s
-    let time = 1.0; // seconds
-    let position = 0.01; // meters
+    let thermal_diffusivity: f64 = 1e-5; // m²/s
+    let time: f64 = 1.0; // seconds
+    let position: f64 = 0.01; // meters
 
     fn erfc_approx(x: f64) -> f64 {
         // Abramowitz & Stegun 7.1.26
@@ -50,10 +50,10 @@ fn test_heat_diffusion_1d() {
         1.0 - erf
     }
 
-    let z = (position as f64) / (2.0_f64 * ((thermal_diffusivity as f64) * (time as f64)).sqrt());
+    let z = position / (2.0 * (thermal_diffusivity * time).sqrt());
     let expected_temp_ratio = erfc_approx(z);
 
-    assert!(expected_temp_ratio >= 0.0 && expected_temp_ratio <= 1.0);
+    assert!((0.0..=1.0).contains(&expected_temp_ratio));
     let z2 = 1.1 * z;
     let r2 = erfc_approx(z2);
     assert!(r2 <= expected_temp_ratio + 1e-12);

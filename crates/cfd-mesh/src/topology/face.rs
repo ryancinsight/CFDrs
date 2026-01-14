@@ -897,7 +897,10 @@ mod tests {
     fn test_vertex_count() {
         assert_eq!(Face::triangle(0, 1, 2).vertex_count(), 3);
         assert_eq!(Face::quad(0, 1, 2, 3).vertex_count(), 4);
-        assert_eq!(Face::from_vertices(vec![0, 1, 2, 3, 4, 5]).vertex_count(), 6);
+        assert_eq!(
+            Face::from_vertices(vec![0, 1, 2, 3, 4, 5]).vertex_count(),
+            6
+        );
     }
 
     #[test]

@@ -3,7 +3,6 @@
 use nalgebra::{ComplexField, RealField};
 use num_traits::{Float, FromPrimitive};
 
-
 /// Core Richardson extrapolation implementation
 pub struct RichardsonExtrapolation;
 
@@ -58,8 +57,7 @@ impl RichardsonExtrapolation {
             || order > <T as FromPrimitive>::from_f64(15.0).unwrap()
         {
             return Err(format!(
-                "Richardson extrapolation numerically unstable: order {} out of bounds",
-                order
+                "Richardson extrapolation numerically unstable: order {order} out of bounds"
             ));
         }
 
@@ -290,15 +288,13 @@ mod tests {
         // Should extrapolate to very close to exact solution (1.0)
         assert!(
             nalgebra::ComplexField::abs(extrapolated - 1.0) < 1e-10,
-            "Extrapolation error too large: {}",
-            extrapolated
+            "Extrapolation error too large: {extrapolated}"
         );
 
         // Should estimate order close to 2.0
         assert!(
             nalgebra::ComplexField::abs(order - 2.0) < 0.1,
-            "Order estimation error: {}",
-            order
+            "Order estimation error: {order}"
         );
     }
 
@@ -324,16 +320,14 @@ mod tests {
                 );
                 assert!(
                     order > 0.0 && order < 10.0,
-                    "Order should be reasonable: {}",
-                    order
+                    "Order should be reasonable: {order}"
                 );
             }
             Err(msg) => {
                 // If it fails, should be due to numerical instability
                 assert!(
                     msg.contains("unstable") || msg.contains("Insufficient"),
-                    "Should fail for numerical reasons: {}",
-                    msg
+                    "Should fail for numerical reasons: {msg}"
                 );
             }
         }
@@ -344,8 +338,12 @@ mod tests {
         // Test edge cases that could cause numerical issues
 
         // Case 1: Very small differences (near convergence) - below eps=1e-12
-        let result =
-            RichardsonExtrapolation::estimate_order(1.0 + 1e-13, 1.0 + 0.5e-13, 1.0 + 0.25e-13, 2.0);
+        let result = RichardsonExtrapolation::estimate_order(
+            1.0 + 1e-13,
+            1.0 + 0.5e-13,
+            1.0 + 0.25e-13,
+            2.0,
+        );
         assert!(result.is_err(), "Should detect insufficient variation");
 
         // Case 2: Zero differences (exact solution)
@@ -383,8 +381,7 @@ mod tests {
         // Should estimate order close to 2.0
         assert!(
             nalgebra::ComplexField::abs(estimated_order - 2.0) < 0.1,
-            "Data-driven order estimation failed: {}",
-            estimated_order
+            "Data-driven order estimation failed: {estimated_order}"
         );
     }
 
@@ -409,8 +406,7 @@ mod tests {
         // Should estimate order close to 1.5
         assert!(
             nalgebra::ComplexField::abs(estimated_order - 1.5) < 0.2,
-            "Non-uniform grid order estimation failed: {}",
-            estimated_order
+            "Non-uniform grid order estimation failed: {estimated_order}"
         );
     }
 
@@ -518,19 +514,21 @@ mod tests {
 
     #[test]
     fn test_convergence_order_bounds() {
+        type TestCase = (f64, Box<dyn Fn(f64) -> f64>);
+
         // Test that estimated orders are within reasonable CFD bounds
 
         // Generate test cases with known orders
-        let test_cases: Vec<(f64, Box<dyn Fn(f64) -> f64>)> = vec![
+        let test_cases: Vec<TestCase> = vec![
             (2.0, Box::new(|h: f64| 1.0 + h * h)),       // Second order
             (1.5, Box::new(|h: f64| 1.0 + h.powf(1.5))), // 1.5 order
             (3.0, Box::new(|h: f64| 1.0 + h * h * h)),   // Third order
         ];
 
         for (expected_order, solution_fn) in test_cases {
-            let h_vals = vec![1.0, 0.5, 0.25];
+            let h_vals = [1.0, 0.5, 0.25];
             let solutions: Vec<f64> = h_vals.iter().map(|&h| solution_fn(h)).collect();
-            let refinement_ratios = vec![2.0, 2.0];
+            let refinement_ratios = [2.0, 2.0];
 
             let estimated_order = DataDrivenOrderEstimation::estimate_order_from_solutions(
                 &solutions,
@@ -540,15 +538,11 @@ mod tests {
             // Order should be within reasonable CFD bounds (0.5 to 6.0) and close to expected
             assert!(
                 estimated_order > 0.5 && estimated_order < 6.0,
-                "Order out of bounds: {} (expected ~{})",
-                estimated_order,
-                expected_order
+                "Order out of bounds: {estimated_order} (expected ~{expected_order})"
             );
             assert!(
                 nalgebra::ComplexField::abs(estimated_order - expected_order) < 0.5,
-                "Order estimation too inaccurate: {} vs {}",
-                estimated_order,
-                expected_order
+                "Order estimation too inaccurate: {estimated_order} vs {expected_order}"
             );
         }
     }

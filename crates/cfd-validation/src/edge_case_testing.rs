@@ -29,7 +29,7 @@ impl<T: RealField + Copy> EdgeCaseTestSuite<T> {
     }
 
     /// Run comprehensive edge case validation suite
-    pub fn run_comprehensive_edge_case_tests(&mut self) -> Result<EdgeCaseReport> {
+    pub fn run_comprehensive_edge_case_tests(&self) -> Result<EdgeCaseReport> {
         println!("🔍 Comprehensive CFD Edge Case Validation Suite");
         println!("==============================================");
         println!("Testing boundary conditions, numerical stability, and algorithm limits");
@@ -45,53 +45,53 @@ impl<T: RealField + Copy> EdgeCaseTestSuite<T> {
         };
 
         // Test boundary condition edge cases
-        self.test_boundary_condition_edge_cases(&mut report)?;
+        Self::test_boundary_condition_edge_cases(&mut report)?;
 
         // Test numerical stability limits
-        self.test_numerical_stability_limits(&mut report)?;
+        Self::test_numerical_stability_limits(&mut report)?;
 
         // Test convergence algorithm failures
-        self.test_convergence_algorithm_failures(&mut report)?;
+        Self::test_convergence_algorithm_failures(&mut report)?;
 
         // Test physical constraint violations
-        self.test_physical_constraint_violations(&mut report)?;
+        Self::test_physical_constraint_violations(&mut report)?;
 
         // Test implementation edge cases
-        self.test_implementation_edge_cases(&mut report)?;
+        Self::test_implementation_edge_cases(&mut report)?;
 
         // Generate overall assessment
-        self.generate_overall_assessment(&mut report);
+        Self::generate_overall_assessment(&mut report);
 
         // Display results
-        self.display_edge_case_report(&report);
+        Self::display_edge_case_report(&report);
 
         Ok(report)
     }
 
     /// Test boundary condition edge cases
-    fn test_boundary_condition_edge_cases(&mut self, report: &mut EdgeCaseReport) -> Result<()> {
+    fn test_boundary_condition_edge_cases(report: &mut EdgeCaseReport) -> Result<()> {
         println!("\n🔲 Boundary Condition Edge Case Tests");
 
         // Test 1: Extreme velocity gradients
-        let extreme_gradient_result = self.test_extreme_velocity_gradients()?;
+        let extreme_gradient_result = Self::test_extreme_velocity_gradients()?;
         report
             .boundary_condition_tests
             .push(extreme_gradient_result);
 
         // Test 2: Discontinuous boundary conditions
-        let discontinuity_result = self.test_discontinuous_boundary_conditions()?;
+        let discontinuity_result = Self::test_discontinuous_boundary_conditions()?;
         report.boundary_condition_tests.push(discontinuity_result);
 
         // Test 3: Incompatible boundary conditions
-        let incompatible_result = self.test_incompatible_boundary_conditions()?;
+        let incompatible_result = Self::test_incompatible_boundary_conditions()?;
         report.boundary_condition_tests.push(incompatible_result);
 
         // Test 4: Boundary condition at domain corners
-        let corner_result = self.test_corner_boundary_conditions()?;
+        let corner_result = Self::test_corner_boundary_conditions()?;
         report.boundary_condition_tests.push(corner_result);
 
         // Test 5: Time-dependent boundary conditions
-        let time_dependent_result = self.test_time_dependent_boundary_conditions()?;
+        let time_dependent_result = Self::test_time_dependent_boundary_conditions()?;
         report.boundary_condition_tests.push(time_dependent_result);
 
         println!("  ✅ Completed 5 boundary condition edge case tests");
@@ -99,27 +99,27 @@ impl<T: RealField + Copy> EdgeCaseTestSuite<T> {
     }
 
     /// Test numerical stability limits
-    fn test_numerical_stability_limits(&mut self, report: &mut EdgeCaseReport) -> Result<()> {
+    fn test_numerical_stability_limits(report: &mut EdgeCaseReport) -> Result<()> {
         println!("\n🧮 Numerical Stability Edge Case Tests");
 
         // Test 1: CFL number violations
-        let cfl_violation_result = self.test_cfl_number_violations()?;
+        let cfl_violation_result = Self::test_cfl_number_violations()?;
         report.stability_tests.push(cfl_violation_result);
 
         // Test 2: Stiff equation systems
-        let stiff_system_result = self.test_stiff_equation_systems()?;
+        let stiff_system_result = Self::test_stiff_equation_systems()?;
         report.stability_tests.push(stiff_system_result);
 
         // Test 3: Ill-conditioned matrices
-        let ill_conditioned_result = self.test_ill_conditioned_matrices()?;
+        let ill_conditioned_result = Self::test_ill_conditioned_matrices()?;
         report.stability_tests.push(ill_conditioned_result);
 
         // Test 4: Near-singular systems
-        let near_singular_result = self.test_near_singular_systems()?;
+        let near_singular_result = Self::test_near_singular_systems()?;
         report.stability_tests.push(near_singular_result);
 
         // Test 5: Long-time integration stability
-        let long_time_result = self.test_long_time_integration_stability()?;
+        let long_time_result = Self::test_long_time_integration_stability()?;
         report.stability_tests.push(long_time_result);
 
         println!("  ✅ Completed 5 numerical stability edge case tests");
@@ -127,25 +127,25 @@ impl<T: RealField + Copy> EdgeCaseTestSuite<T> {
     }
 
     /// Test convergence algorithm failures
-    fn test_convergence_algorithm_failures(&mut self, report: &mut EdgeCaseReport) -> Result<()> {
+    fn test_convergence_algorithm_failures(report: &mut EdgeCaseReport) -> Result<()> {
         println!("\n🔄 Convergence Algorithm Edge Case Tests");
 
         // Test 1: Preconditioner breakdown
-        let preconditioner_breakdown_result = self.test_preconditioner_breakdown()?;
+        let preconditioner_breakdown_result = Self::test_preconditioner_breakdown()?;
         report
             .convergence_tests
             .push(preconditioner_breakdown_result);
 
         // Test 2: Slow convergence scenarios
-        let slow_convergence_result = self.test_slow_convergence_scenarios()?;
+        let slow_convergence_result = Self::test_slow_convergence_scenarios()?;
         report.convergence_tests.push(slow_convergence_result);
 
         // Test 3: Divergent iterations
-        let divergent_result = self.test_divergent_iterations()?;
+        let divergent_result = Self::test_divergent_iterations()?;
         report.convergence_tests.push(divergent_result);
 
         // Test 4: Restarted method failures
-        let restart_failure_result = self.test_restarted_method_failures()?;
+        let restart_failure_result = Self::test_restarted_method_failures()?;
         report.convergence_tests.push(restart_failure_result);
 
         println!("  ✅ Completed 4 convergence algorithm edge case tests");
@@ -153,29 +153,29 @@ impl<T: RealField + Copy> EdgeCaseTestSuite<T> {
     }
 
     /// Test physical constraint violations
-    fn test_physical_constraint_violations(&mut self, report: &mut EdgeCaseReport) -> Result<()> {
+    fn test_physical_constraint_violations(report: &mut EdgeCaseReport) -> Result<()> {
         println!("\n⚛️ Physical Constraint Edge Case Tests");
 
         // Test 1: Negative density/pressure
-        let negative_properties_result = self.test_negative_thermodynamic_properties()?;
+        let negative_properties_result = Self::test_negative_thermodynamic_properties()?;
         report
             .physical_constraint_tests
             .push(negative_properties_result);
 
         // Test 2: Turbulence quantities going negative
-        let negative_turbulence_result = self.test_negative_turbulence_quantities()?;
+        let negative_turbulence_result = Self::test_negative_turbulence_quantities()?;
         report
             .physical_constraint_tests
             .push(negative_turbulence_result);
 
         // Test 3: Supersonic flow violations
-        let supersonic_violation_result = self.test_supersonic_flow_violations()?;
+        let supersonic_violation_result = Self::test_supersonic_flow_violations()?;
         report
             .physical_constraint_tests
             .push(supersonic_violation_result);
 
         // Test 4: Boundary layer separation
-        let separation_result = self.test_boundary_layer_separation()?;
+        let separation_result = Self::test_boundary_layer_separation()?;
         report.physical_constraint_tests.push(separation_result);
 
         println!("  ✅ Completed 4 physical constraint edge case tests");
@@ -183,23 +183,23 @@ impl<T: RealField + Copy> EdgeCaseTestSuite<T> {
     }
 
     /// Test implementation edge cases
-    fn test_implementation_edge_cases(&mut self, report: &mut EdgeCaseReport) -> Result<()> {
+    fn test_implementation_edge_cases(report: &mut EdgeCaseReport) -> Result<()> {
         println!("\n💻 Implementation Edge Case Tests");
 
         // Test 1: Memory allocation limits
-        let memory_limit_result = self.test_memory_allocation_limits()?;
+        let memory_limit_result = Self::test_memory_allocation_limits()?;
         report.implementation_tests.push(memory_limit_result);
 
         // Test 2: Floating point precision issues
-        let precision_result = self.test_floating_point_precision_issues()?;
+        let precision_result = Self::test_floating_point_precision_issues()?;
         report.implementation_tests.push(precision_result);
 
         // Test 3: Parallel computation edge cases
-        let parallel_result = self.test_parallel_computation_edge_cases()?;
+        let parallel_result = Self::test_parallel_computation_edge_cases()?;
         report.implementation_tests.push(parallel_result);
 
         // Test 4: Input validation boundaries
-        let input_validation_result = self.test_input_validation_boundaries()?;
+        let input_validation_result = Self::test_input_validation_boundaries()?;
         report.implementation_tests.push(input_validation_result);
 
         println!("  ✅ Completed 4 implementation edge case tests");
@@ -208,7 +208,7 @@ impl<T: RealField + Copy> EdgeCaseTestSuite<T> {
 
     // Individual test implementations (simplified for demonstration)
 
-    fn test_extreme_velocity_gradients(&self) -> Result<EdgeCaseTestResult> {
+    fn test_extreme_velocity_gradients() -> Result<EdgeCaseTestResult> {
         // Test with extreme velocity gradients that could cause numerical issues
         Ok(EdgeCaseTestResult {
             test_name: "Extreme Velocity Gradients".to_string(),
@@ -219,7 +219,7 @@ impl<T: RealField + Copy> EdgeCaseTestSuite<T> {
         })
     }
 
-    fn test_discontinuous_boundary_conditions(&self) -> Result<EdgeCaseTestResult> {
+    fn test_discontinuous_boundary_conditions() -> Result<EdgeCaseTestResult> {
         // Test discontinuous boundary conditions
         Ok(EdgeCaseTestResult {
             test_name: "Discontinuous Boundary Conditions".to_string(),
@@ -230,7 +230,7 @@ impl<T: RealField + Copy> EdgeCaseTestSuite<T> {
         })
     }
 
-    fn test_incompatible_boundary_conditions(&self) -> Result<EdgeCaseTestResult> {
+    fn test_incompatible_boundary_conditions() -> Result<EdgeCaseTestResult> {
         // Test incompatible boundary condition combinations
         Ok(EdgeCaseTestResult {
             test_name: "Incompatible Boundary Conditions".to_string(),
@@ -241,7 +241,7 @@ impl<T: RealField + Copy> EdgeCaseTestSuite<T> {
         })
     }
 
-    fn test_corner_boundary_conditions(&self) -> Result<EdgeCaseTestResult> {
+    fn test_corner_boundary_conditions() -> Result<EdgeCaseTestResult> {
         // Test boundary conditions at domain corners
         Ok(EdgeCaseTestResult {
             test_name: "Corner Boundary Conditions".to_string(),
@@ -252,7 +252,7 @@ impl<T: RealField + Copy> EdgeCaseTestSuite<T> {
         })
     }
 
-    fn test_time_dependent_boundary_conditions(&self) -> Result<EdgeCaseTestResult> {
+    fn test_time_dependent_boundary_conditions() -> Result<EdgeCaseTestResult> {
         // Test time-dependent boundary conditions
         Ok(EdgeCaseTestResult {
             test_name: "Time-Dependent Boundary Conditions".to_string(),
@@ -263,7 +263,7 @@ impl<T: RealField + Copy> EdgeCaseTestSuite<T> {
         })
     }
 
-    fn test_cfl_number_violations(&self) -> Result<EdgeCaseTestResult> {
+    fn test_cfl_number_violations() -> Result<EdgeCaseTestResult> {
         // Test CFL number violations and stability
         Ok(EdgeCaseTestResult {
             test_name: "CFL Number Violations".to_string(),
@@ -274,7 +274,7 @@ impl<T: RealField + Copy> EdgeCaseTestSuite<T> {
         })
     }
 
-    fn test_stiff_equation_systems(&self) -> Result<EdgeCaseTestResult> {
+    fn test_stiff_equation_systems() -> Result<EdgeCaseTestResult> {
         // Test stiff equation systems
         Ok(EdgeCaseTestResult {
             test_name: "Stiff Equation Systems".to_string(),
@@ -285,7 +285,7 @@ impl<T: RealField + Copy> EdgeCaseTestSuite<T> {
         })
     }
 
-    fn test_ill_conditioned_matrices(&self) -> Result<EdgeCaseTestResult> {
+    fn test_ill_conditioned_matrices() -> Result<EdgeCaseTestResult> {
         // Test ill-conditioned matrices
         Ok(EdgeCaseTestResult {
             test_name: "Ill-Conditioned Matrices".to_string(),
@@ -296,7 +296,7 @@ impl<T: RealField + Copy> EdgeCaseTestSuite<T> {
         })
     }
 
-    fn test_near_singular_systems(&self) -> Result<EdgeCaseTestResult> {
+    fn test_near_singular_systems() -> Result<EdgeCaseTestResult> {
         // Test near-singular systems
         Ok(EdgeCaseTestResult {
             test_name: "Near-Singular Systems".to_string(),
@@ -307,7 +307,7 @@ impl<T: RealField + Copy> EdgeCaseTestSuite<T> {
         })
     }
 
-    fn test_long_time_integration_stability(&self) -> Result<EdgeCaseTestResult> {
+    fn test_long_time_integration_stability() -> Result<EdgeCaseTestResult> {
         // Test long-time integration stability
         Ok(EdgeCaseTestResult {
             test_name: "Long-Time Integration Stability".to_string(),
@@ -318,7 +318,7 @@ impl<T: RealField + Copy> EdgeCaseTestSuite<T> {
         })
     }
 
-    fn test_preconditioner_breakdown(&self) -> Result<EdgeCaseTestResult> {
+    fn test_preconditioner_breakdown() -> Result<EdgeCaseTestResult> {
         // Test preconditioner breakdown scenarios
         Ok(EdgeCaseTestResult {
             test_name: "Preconditioner Breakdown".to_string(),
@@ -329,7 +329,7 @@ impl<T: RealField + Copy> EdgeCaseTestSuite<T> {
         })
     }
 
-    fn test_slow_convergence_scenarios(&self) -> Result<EdgeCaseTestResult> {
+    fn test_slow_convergence_scenarios() -> Result<EdgeCaseTestResult> {
         // Test slow convergence scenarios
         Ok(EdgeCaseTestResult {
             test_name: "Slow Convergence Scenarios".to_string(),
@@ -340,7 +340,7 @@ impl<T: RealField + Copy> EdgeCaseTestSuite<T> {
         })
     }
 
-    fn test_divergent_iterations(&self) -> Result<EdgeCaseTestResult> {
+    fn test_divergent_iterations() -> Result<EdgeCaseTestResult> {
         // Test divergent iteration scenarios
         Ok(EdgeCaseTestResult {
             test_name: "Divergent Iterations".to_string(),
@@ -351,7 +351,7 @@ impl<T: RealField + Copy> EdgeCaseTestSuite<T> {
         })
     }
 
-    fn test_restarted_method_failures(&self) -> Result<EdgeCaseTestResult> {
+    fn test_restarted_method_failures() -> Result<EdgeCaseTestResult> {
         // Test restarted method failures
         Ok(EdgeCaseTestResult {
             test_name: "Restarted Method Failures".to_string(),
@@ -362,7 +362,7 @@ impl<T: RealField + Copy> EdgeCaseTestSuite<T> {
         })
     }
 
-    fn test_negative_thermodynamic_properties(&self) -> Result<EdgeCaseTestResult> {
+    fn test_negative_thermodynamic_properties() -> Result<EdgeCaseTestResult> {
         // Test negative density/pressure scenarios
         Ok(EdgeCaseTestResult {
             test_name: "Negative Thermodynamic Properties".to_string(),
@@ -373,7 +373,7 @@ impl<T: RealField + Copy> EdgeCaseTestSuite<T> {
         })
     }
 
-    fn test_negative_turbulence_quantities(&self) -> Result<EdgeCaseTestResult> {
+    fn test_negative_turbulence_quantities() -> Result<EdgeCaseTestResult> {
         // Test negative turbulence quantities
         Ok(EdgeCaseTestResult {
             test_name: "Negative Turbulence Quantities".to_string(),
@@ -384,7 +384,7 @@ impl<T: RealField + Copy> EdgeCaseTestSuite<T> {
         })
     }
 
-    fn test_supersonic_flow_violations(&self) -> Result<EdgeCaseTestResult> {
+    fn test_supersonic_flow_violations() -> Result<EdgeCaseTestResult> {
         // Test supersonic flow violations
         Ok(EdgeCaseTestResult {
             test_name: "Supersonic Flow Violations".to_string(),
@@ -395,7 +395,7 @@ impl<T: RealField + Copy> EdgeCaseTestSuite<T> {
         })
     }
 
-    fn test_boundary_layer_separation(&self) -> Result<EdgeCaseTestResult> {
+    fn test_boundary_layer_separation() -> Result<EdgeCaseTestResult> {
         // Test boundary layer separation
         Ok(EdgeCaseTestResult {
             test_name: "Boundary Layer Separation".to_string(),
@@ -406,7 +406,7 @@ impl<T: RealField + Copy> EdgeCaseTestSuite<T> {
         })
     }
 
-    fn test_memory_allocation_limits(&self) -> Result<EdgeCaseTestResult> {
+    fn test_memory_allocation_limits() -> Result<EdgeCaseTestResult> {
         // Test memory allocation limits
         Ok(EdgeCaseTestResult {
             test_name: "Memory Allocation Limits".to_string(),
@@ -417,7 +417,7 @@ impl<T: RealField + Copy> EdgeCaseTestSuite<T> {
         })
     }
 
-    fn test_floating_point_precision_issues(&self) -> Result<EdgeCaseTestResult> {
+    fn test_floating_point_precision_issues() -> Result<EdgeCaseTestResult> {
         // Test floating point precision issues
         Ok(EdgeCaseTestResult {
             test_name: "Floating Point Precision Issues".to_string(),
@@ -428,7 +428,7 @@ impl<T: RealField + Copy> EdgeCaseTestSuite<T> {
         })
     }
 
-    fn test_parallel_computation_edge_cases(&self) -> Result<EdgeCaseTestResult> {
+    fn test_parallel_computation_edge_cases() -> Result<EdgeCaseTestResult> {
         // Test parallel computation edge cases
         Ok(EdgeCaseTestResult {
             test_name: "Parallel Computation Edge Cases".to_string(),
@@ -439,7 +439,7 @@ impl<T: RealField + Copy> EdgeCaseTestSuite<T> {
         })
     }
 
-    fn test_input_validation_boundaries(&self) -> Result<EdgeCaseTestResult> {
+    fn test_input_validation_boundaries() -> Result<EdgeCaseTestResult> {
         // Test input validation boundaries
         Ok(EdgeCaseTestResult {
             test_name: "Input Validation Boundaries".to_string(),
@@ -451,7 +451,7 @@ impl<T: RealField + Copy> EdgeCaseTestSuite<T> {
     }
 
     /// Generate overall assessment
-    fn generate_overall_assessment(&self, report: &mut EdgeCaseReport) {
+    fn generate_overall_assessment(report: &mut EdgeCaseReport) {
         let total_tests = report.boundary_condition_tests.len()
             + report.stability_tests.len()
             + report.convergence_tests.len()
@@ -512,7 +512,7 @@ impl<T: RealField + Copy> EdgeCaseTestSuite<T> {
     }
 
     /// Display comprehensive edge case report
-    fn display_edge_case_report(&self, report: &EdgeCaseReport) {
+    fn display_edge_case_report(report: &EdgeCaseReport) {
         println!("\n📋 Comprehensive Edge Case Test Report");
         println!("=====================================");
         println!(
@@ -636,11 +636,14 @@ mod tests {
 
     #[test]
     fn test_edge_case_test_suite() {
-        let mut suite = EdgeCaseTestSuite::<f64>::new();
+        let suite = EdgeCaseTestSuite::<f64>::new();
         let report = suite.run_comprehensive_edge_case_tests();
 
         assert!(report.is_ok());
-        let report = report.unwrap();
+        let report = match report {
+            Ok(report) => report,
+            Err(err) => panic!("Edge case test suite failed: {err:?}"),
+        };
 
         assert!(!report.boundary_condition_tests.is_empty());
         assert!(!report.stability_tests.is_empty());

@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use super::constants;
 
 // Use ElementType from cfd-core as the single source of truth
-pub use cfd_core::domain::mesh::ElementType;
+pub use cfd_core::geometry::ElementType;
 
 /// FEM configuration for fluid dynamics
 #[derive(Debug, Clone, Serialize, Deserialize)]

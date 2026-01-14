@@ -6,8 +6,8 @@
 //! - CRC Handbook of Chemistry and Physics
 
 use super::newtonian::{ConstantPropertyFluid, IdealGas};
-use crate::physics::constants::physics::fluid as fluid_constants;
 use crate::error::Error;
+use crate::physics::constants::physics::fluid as fluid_constants;
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 

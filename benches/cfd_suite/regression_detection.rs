@@ -86,7 +86,6 @@ pub struct BenchmarkBaseline {
 pub struct RegressionAnalysis {
     pub benchmark_name: String,
     pub current_performance: BenchmarkResult,
-    pub baseline_performance: Option<BenchmarkBaseline>,
     pub regression_detected: bool,
     pub regression_magnitude: f64,     // percentage change
     pub statistical_significance: f64, // p-value
@@ -100,7 +99,6 @@ pub enum PerformanceTrend {
     Improving,
     Degrading,
     Stable,
-    Volatile,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -284,7 +282,6 @@ impl RegressionDetector {
         RegressionAnalysis {
             benchmark_name: current.name.clone(),
             current_performance: current.clone(),
-            baseline_performance: baseline.cloned(),
             regression_detected,
             regression_magnitude,
             statistical_significance,
@@ -444,13 +441,17 @@ pub fn benchmark_regression_detection(c: &mut Criterion, config: &BenchmarkConfi
         if analysis.regression_detected {
             regressions_found += 1;
             println!(
-                "🚨 REGRESSION: {} - {:.1}% (p={:.3})",
+                "🚨 REGRESSION: {} - {:.1}% (p={:.3}, t={})",
                 analysis.benchmark_name,
                 analysis.regression_magnitude,
-                analysis.statistical_significance
+                analysis.statistical_significance,
+                analysis.current_performance.timestamp
             );
         } else {
-            println!("✅ STABLE: {}", analysis.benchmark_name);
+            println!(
+                "✅ STABLE: {} (t={})",
+                analysis.benchmark_name, analysis.current_performance.timestamp
+            );
         }
     }
 
@@ -523,7 +524,7 @@ fn run_memory_allocation_benchmark(size: usize) -> (Duration, Duration) {
     let variance = times
         .iter()
         .map(|&t| {
-            let diff = if t > mean { t - mean } else { mean - t };
+            let diff = t.abs_diff(mean);
             diff.as_secs_f64().powi(2)
         })
         .sum::<f64>()
@@ -555,7 +556,7 @@ fn run_cfd_computation_benchmark(size: usize) -> (Duration, Duration) {
     let variance = times
         .iter()
         .map(|&t| {
-            let diff = if t > mean { t - mean } else { mean - t };
+            let diff = t.abs_diff(mean);
             diff.as_secs_f64().powi(2)
         })
         .sum::<f64>()
@@ -639,12 +640,3 @@ pub fn detect_performance_regressions(metrics: &[crate::PerformanceMetrics]) {
     // and use the RegressionDetector.
     println!("Analyzing performance for {} operations...", metrics.len());
 }
-
-pub fn bench_regression_detection(c: &mut Criterion) {
-    let config = BenchmarkConfig::default();
-    benchmark_regression_detection(c, &config);
-}
-
-criterion::criterion_group!(benches, bench_regression_detection);
-criterion::criterion_main!(benches);
-

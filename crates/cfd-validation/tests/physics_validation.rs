@@ -43,7 +43,7 @@ fn validate_poiseuille_parabolic_profile() {
 
     // Validate parabolic profile
     let y_values = [0.0, 0.0025, 0.005, 0.0075, 0.01];
-    let expected_velocities = vec![
+    let expected_velocities = [
         5.0,    // Centerline maximum: (1/2μ)(dp/dx)(h²) = (1/(2×0.001))×100×(0.01²) = 5.0
         4.6875, // At y=0.0025: 5.0×(1-(0.0025/0.01)²) = 5.0×(1-0.0625) = 4.6875
         3.75,   // At y=0.005: 5.0×(1-(0.005/0.01)²) = 5.0×(1-0.25) = 3.75
@@ -97,7 +97,7 @@ fn validate_taylor_green_decay() {
 
 #[test]
 fn validate_reynolds_number_calculation() {
-    use cfd_core::physics::constants::physics::{fluid, dimensionless::reynolds};
+    use cfd_core::physics::constants::physics::{dimensionless::reynolds, fluid};
 
     // Test pipe flow transition
     let d = 0.01; // 1 cm diameter
@@ -126,7 +126,7 @@ fn validate_prandtl_number() {
     let pr_computed = mu * cp / k;
 
     // Standard Prandtl number for water at 20°C is ~7.0
-    let water_prandtl_20c = 7.01; 
+    let water_prandtl_20c = 7.01;
 
     assert_relative_eq!(
         pr_computed,

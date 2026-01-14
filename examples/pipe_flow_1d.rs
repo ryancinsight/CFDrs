@@ -9,9 +9,9 @@
 
 use cfd_1d::network::{Network, NetworkBuilder};
 use cfd_1d::solver::{NetworkProblem, NetworkSolver};
+use cfd_core::compute::solver::Solver;
 use cfd_core::error::Result;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
-use cfd_core::compute::solver::Solver;
 use std::f64::consts::PI;
 
 fn main() -> Result<()> {
@@ -115,7 +115,9 @@ fn main() -> Result<()> {
         let max_p = pressure_values
             .iter()
             .fold(f64::NEG_INFINITY, |a: f64, &b| a.max(b));
-        let min_p = pressure_values.iter().fold(f64::INFINITY, |a: f64, &b| a.min(b));
+        let min_p = pressure_values
+            .iter()
+            .fold(f64::INFINITY, |a: f64, &b| a.min(b));
         let avg_p: f64 = pressure_values.iter().sum::<f64>() / pressure_values.len() as f64;
 
         println!("\nStatistical Summary:");

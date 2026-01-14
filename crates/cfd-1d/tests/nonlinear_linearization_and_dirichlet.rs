@@ -1,9 +1,14 @@
-use cfd_1d::network::{Network, NetworkBuilder, Edge, EdgeType};
+use cfd_1d::network::{Edge, EdgeType, Network, NetworkBuilder};
 use cfd_core::error::Result;
 use cfd_core::physics::fluid::newtonian::ConstantPropertyFluid;
 use nalgebra::DVector;
 
-fn build_simple_network<T: nalgebra::RealField + Copy + num_traits::FromPrimitive>() -> (Network<T>, petgraph::graph::EdgeIndex, petgraph::graph::NodeIndex, petgraph::graph::NodeIndex) {
+fn build_simple_network<T: nalgebra::RealField + Copy + num_traits::FromPrimitive>() -> (
+    Network<T>,
+    petgraph::graph::EdgeIndex,
+    petgraph::graph::NodeIndex,
+    petgraph::graph::NodeIndex,
+) {
     // Build a two-node, one-edge network
     let mut builder = NetworkBuilder::<T>::new();
     let inlet = builder.add_inlet("inlet".to_string());
@@ -37,7 +42,12 @@ fn linearization_effective_resistance_matches_r_plus_2k_abs_q() -> Result<()> {
     let r_eff = 3.0_f64 + 2.0_f64 * 1.5_f64 * q_abs; // R + 2k|Q_k|
     let g_expected = 1.0_f64 / r_eff;
     let rel_err = ((conductance - g_expected) / g_expected).abs();
-    assert!(rel_err < 1e-12, "conductance {} vs expected {}", conductance, g_expected);
+    assert!(
+        rel_err < 1e-12,
+        "conductance {} vs expected {}",
+        conductance,
+        g_expected
+    );
     Ok(())
 }
 
@@ -62,7 +72,8 @@ fn update_from_solution_solves_quadratic_with_correct_sign() -> Result<()> {
 
     // Closed-form magnitude for Q|Q| model: |Q| = (sqrt(R^2 + 4k|ΔP|) − R)/(2k)
     let dp = 6.0_f64;
-    let q_mag = ( (2.0_f64*2.0_f64 + 4.0_f64*4.0_f64*dp).sqrt() - 2.0_f64 ) / (2.0_f64*4.0_f64);
+    let q_mag =
+        ((2.0_f64 * 2.0_f64 + 4.0_f64 * 4.0_f64 * dp).sqrt() - 2.0_f64) / (2.0_f64 * 4.0_f64);
     let rel_err = ((q.abs() - q_mag) / q_mag).abs();
     assert!(rel_err < 1e-12, "Q {} vs expected |Q| {}", q, q_mag);
     Ok(())
@@ -89,7 +100,11 @@ fn dirichlet_enforcement_row_identity_and_rhs() -> Result<()> {
     let mut diag_in = 0.0;
     let mut sum_off_in = 0.0;
     for (j, val) in row_in.col_indices().iter().zip(row_in.values()) {
-        if *j == inlet.index() { diag_in = *val; } else { sum_off_in += val.abs(); }
+        if *j == inlet.index() {
+            diag_in = *val;
+        } else {
+            sum_off_in += val.abs();
+        }
     }
     assert_eq!(diag_in, 1.0);
     assert_eq!(sum_off_in, 0.0);
@@ -101,11 +116,15 @@ fn dirichlet_enforcement_row_identity_and_rhs() -> Result<()> {
     let mut diag_out = 0.0;
     let mut off_diag_pos = 0.0;
     for (j, val) in row_out.col_indices().iter().zip(row_out.values()) {
-        if *j == outlet.index() { diag_out = *val; } else { off_diag_pos += val; }
+        if *j == outlet.index() {
+            diag_out = *val;
+        } else {
+            off_diag_pos += val;
+        }
     }
     assert!((diag_out - g).abs() < 1e-12);
     assert_eq!(off_diag_pos, 0.0);
-    assert!((b[outlet.index()] - g*12.0).abs() < 1e-12);
+    assert!((b[outlet.index()] - g * 12.0).abs() < 1e-12);
     Ok(())
 }
 
@@ -141,7 +160,11 @@ fn dirichlet_enforcement_interior_junction() -> Result<()> {
     let mut diag_split = 0.0;
     let mut sum_off_split = 0.0;
     for (j, val) in row_split.col_indices().iter().zip(row_split.values()) {
-        if *j == split.index() { diag_split = *val; } else { sum_off_split += val.abs(); }
+        if *j == split.index() {
+            diag_split = *val;
+        } else {
+            sum_off_split += val.abs();
+        }
     }
     assert_eq!(diag_split, 1.0);
     assert_eq!(sum_off_split, 0.0);
@@ -152,19 +175,22 @@ fn dirichlet_enforcement_interior_junction() -> Result<()> {
     let g_merge = 1.0 / 1e-9;
 
     let row_in = a.row(inlet.index());
-    let mut rhs_in = 0.0;
     let mut diag_in = 0.0;
     for (j, val) in row_in.col_indices().iter().zip(row_in.values()) {
-        if *j == inlet.index() { diag_in = *val; }
+        if *j == inlet.index() {
+            diag_in = *val;
+        }
     }
-    rhs_in = b[inlet.index()];
+    let rhs_in = b[inlet.index()];
     assert!((diag_in - (g1 + g2)).abs() < 1e-12);
     assert!((rhs_in - (g1 + g2) * 10.0).abs() < 1e-12);
 
     let row_out = a.row(outlet.index());
     let mut diag_out = 0.0;
     for (j, val) in row_out.col_indices().iter().zip(row_out.values()) {
-        if *j == outlet.index() { diag_out = *val; }
+        if *j == outlet.index() {
+            diag_out = *val;
+        }
     }
     assert!((diag_out - g_merge).abs() < 1e-12);
     assert!((b[outlet.index()] - g_merge * 10.0).abs() < 1e-12);

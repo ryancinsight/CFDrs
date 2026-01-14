@@ -1,9 +1,9 @@
 //! Coarsening strategies for AMG hierarchy construction
 
 use crate::SparseMatrix;
+use cfd_core::error::{Error, NumericalErrorKind, Result};
 use nalgebra::RealField;
 use num_traits::{FromPrimitive, ToPrimitive};
-use cfd_core::error::{Error, NumericalErrorKind, Result};
 
 /// Result of coarsening operation
 #[derive(Debug, Clone)]
@@ -131,7 +131,8 @@ pub fn aggregation_coarsening<T: RealField + Copy + FromPrimitive>(
     let mut aggregated = vec![false; n];
 
     // Compute strength matrix for aggregation decisions
-    let strength_matrix = compute_strength_matrix(matrix, T::from_f64(0.5).unwrap_or_else(T::zero))?;
+    let strength_matrix =
+        compute_strength_matrix(matrix, T::from_f64(0.5).unwrap_or_else(T::zero))?;
     let s_offsets = strength_matrix.row_offsets();
     let s_indices = strength_matrix.col_indices();
 
@@ -238,7 +239,9 @@ pub fn falgout_coarsening<T: RealField + Copy + FromPrimitive>(
         let i = unassigned[0];
         unassigned.remove(0);
 
-        if status[i] != 0 { continue; }
+        if status[i] != 0 {
+            continue;
+        }
 
         // Check if point should be made coarse
         let mut should_be_coarse = true;
@@ -381,7 +384,8 @@ pub fn hmis_coarsening<T: RealField + Copy + FromPrimitive>(
     match pmis_coarsening(matrix, strength_threshold) {
         Ok(result) => {
             // Check coarsening ratio
-            let coarsening_ratio = T::from_f64(result.coarse_points.len() as f64 / n as f64).unwrap_or_else(T::zero);
+            let coarsening_ratio =
+                T::from_f64(result.coarse_points.len() as f64 / n as f64).unwrap_or_else(T::zero);
 
             // If coarsening ratio is too low, apply aggressive coarsening
             if coarsening_ratio < aggressive_threshold {
@@ -442,15 +446,20 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> AlgebraicDistances<T> {
                 let mut min_distance = T::max_value().unwrap_or_else(T::zero);
 
                 for &coarse_idx in &coarsening.coarse_points {
-                    let is_strong = if let Some(val) = coarsening.strength_matrix.get_entry(i, coarse_idx) {
-                        val.into_value() > T::zero()
-                    } else {
-                        false
-                    };
+                    let is_strong =
+                        if let Some(val) = coarsening.strength_matrix.get_entry(i, coarse_idx) {
+                            val.into_value() > T::zero()
+                        } else {
+                            false
+                        };
 
                     if is_strong {
                         // Direct strong connection - distance 1
-                        min_distance = if min_distance < T::one() { min_distance } else { T::one() };
+                        min_distance = if min_distance < T::one() {
+                            min_distance
+                        } else {
+                            T::one()
+                        };
                     } else {
                         // Compute algebraic distance through intermediate points
                         let distance = compute_algebraic_distance(
@@ -459,7 +468,11 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> AlgebraicDistances<T> {
                             matrix,
                             &coarsening.strength_matrix,
                         );
-                        min_distance = if min_distance < distance { min_distance } else { distance };
+                        min_distance = if min_distance < distance {
+                            min_distance
+                        } else {
+                            distance
+                        };
                     }
                 }
 
@@ -605,7 +618,11 @@ fn compute_algebraic_distance<T: RealField + Copy + FromPrimitive>(
 
         // Also consider direct matrix connections (weaker)
         let matrix_row = matrix.row(node);
-        for (&j, &val) in matrix_row.col_indices().iter().zip(matrix_row.values().iter()) {
+        for (&j, &val) in matrix_row
+            .col_indices()
+            .iter()
+            .zip(matrix_row.values().iter())
+        {
             if j != node && val.abs() > T::from_f64(1e-12).unwrap_or_else(T::zero) && !visited[j] {
                 let edge_weight = T::from_f64(3.0).unwrap_or_else(T::zero); // Direct matrix connection (weaker)
                 let new_dist = current_dist + edge_weight;
@@ -642,7 +659,11 @@ fn compute_strength_matrix<T: RealField + Copy + FromPrimitive>(
         for k in m_offsets[i]..m_offsets[i + 1] {
             let j = m_indices[k];
             if i != j {
-                max_off_diag = if max_off_diag > m_values[k].abs() { max_off_diag } else { m_values[k].abs() };
+                max_off_diag = if max_off_diag > m_values[k].abs() {
+                    max_off_diag
+                } else {
+                    m_values[k].abs()
+                };
             }
         }
 
@@ -660,19 +681,17 @@ fn compute_strength_matrix<T: RealField + Copy + FromPrimitive>(
         row_offsets[i + 1] = col_indices.len();
     }
 
-    SparseMatrix::try_from_csr_data(
-        n,
-        n,
-        row_offsets,
-        col_indices,
-        values,
-    ).map_err(|e| Error::Numerical(NumericalErrorKind::InvalidValue { 
-        value: format!("Failed to create strength matrix: {e}") 
-    }))
+    SparseMatrix::try_from_csr_data(n, n, row_offsets, col_indices, values).map_err(|e| {
+        Error::Numerical(NumericalErrorKind::InvalidValue {
+            value: format!("Failed to create strength matrix: {e}"),
+        })
+    })
 }
 
 /// Analyze coarsening quality
-pub fn analyze_coarsening_quality<T: RealField + Copy + FromPrimitive>(result: &CoarseningResult<T>) -> CoarseningQuality {
+pub fn analyze_coarsening_quality<T: RealField + Copy + FromPrimitive>(
+    result: &CoarseningResult<T>,
+) -> CoarseningQuality {
     let total_points = result.fine_to_coarse_map.len();
     let coarse_points = result.coarse_points.len();
     let assigned_points = result
@@ -848,10 +867,13 @@ mod tests {
     #[test]
     fn test_mapping_correctness() {
         let matrix = create_test_matrix();
-        
+
         // Test all major coarsening algorithms
         let results = vec![
-            ("Ruge-Stueben", ruge_stueben_coarsening(&matrix, 0.25).unwrap()),
+            (
+                "Ruge-Stueben",
+                ruge_stueben_coarsening(&matrix, 0.25).unwrap(),
+            ),
             ("Aggregation", aggregation_coarsening(&matrix, 4).unwrap()),
             ("Falgout", falgout_coarsening(&matrix, 0.25).unwrap()),
             ("PMIS", pmis_coarsening(&matrix, 0.25).unwrap()),
@@ -861,18 +883,28 @@ mod tests {
             // Verify that all mapped points point to valid coarse indices
             for (i, &map) in result.fine_to_coarse_map.iter().enumerate() {
                 if let Some(coarse_idx) = map {
-                    assert!(coarse_idx < result.coarse_points.len(), "[{}] Mapped index out of bounds", name);
-                    
+                    assert!(
+                        coarse_idx < result.coarse_points.len(),
+                        "[{name}] Mapped index out of bounds"
+                    );
+
                     // If i is a coarse point, it should map to its own index in coarse_points
                     if result.coarse_points.contains(&i) {
-                        assert_eq!(result.coarse_points[coarse_idx], i, "[{}] Coarse point mapped to wrong index", name);
+                        assert_eq!(
+                            result.coarse_points[coarse_idx], i,
+                            "[{name}] Coarse point mapped to wrong index"
+                        );
                     }
                 }
             }
 
             // Verify that every coarse point is correctly mapped to its index in coarse_points
             for (idx, &cp) in result.coarse_points.iter().enumerate() {
-                assert_eq!(result.fine_to_coarse_map[cp], Some(idx), "[{}] Coarse point {} not correctly mapped", name, cp);
+                assert_eq!(
+                    result.fine_to_coarse_map[cp],
+                    Some(idx),
+                    "[{name}] Coarse point {cp} not correctly mapped"
+                );
             }
         }
     }
@@ -907,17 +939,17 @@ mod tests {
 
         let sparse_matrix = CsrMatrix::from(&matrix);
         let result = ruge_stueben_coarsening(&sparse_matrix, 0.25).unwrap();
-        
+
         let n_total = sparse_matrix.nrows();
         let n_coarse = result.coarse_points.len();
         let ratio = n_coarse as f64 / n_total as f64;
 
-        println!("Coarsening ratio: {} ({} coarse / {} total)", ratio, n_coarse, n_total);
-        
+        println!("Coarsening ratio: {ratio} ({n_coarse} coarse / {n_total} total)");
+
         // For a 2D Laplacian, Ruge-Stüben typically produces ratio ~0.25 - 0.5
         // Standard coarsening picks roughly every other point in each direction
-        assert!(ratio >= 0.15, "Coarsening ratio too low: {}", ratio);
-        assert!(ratio <= 0.65, "Coarsening ratio too high: {}", ratio);
+        assert!(ratio >= 0.15, "Coarsening ratio too low: {ratio}");
+        assert!(ratio <= 0.65, "Coarsening ratio too high: {ratio}");
     }
 
     #[test]
@@ -934,7 +966,10 @@ mod tests {
         // Verify that all mapped indices are within [0, n_coarse)
         for &map in &result.fine_to_coarse_map {
             if let Some(idx) = map {
-                assert!(idx < n_coarse, "Coarse index {} out of bounds (n_coarse={})", idx, n_coarse);
+                assert!(
+                    idx < n_coarse,
+                    "Coarse index {idx} out of bounds (n_coarse={n_coarse})"
+                );
             }
         }
 
@@ -945,7 +980,10 @@ mod tests {
                 used_indices[idx] = true;
             }
         }
-        assert!(used_indices.iter().all(|&x| x), "Not all coarse indices are utilized");
+        assert!(
+            used_indices.iter().all(|&x| x),
+            "Not all coarse indices are utilized"
+        );
     }
 
     #[test]
@@ -963,28 +1001,50 @@ mod tests {
             for j in 0..n {
                 let idx = i * n + j;
                 matrix[(idx, idx)] = 4.0;
-                if i > 0 { matrix[(idx, (i - 1) * n + j)] = -1.0; }
-                if i < n - 1 { matrix[(idx, (i + 1) * n + j)] = -1.0; }
-                if j > 0 { matrix[(idx, i * n + (j - 1))] = -1.0; }
-                if j < n - 1 { matrix[(idx, i * n + (j + 1))] = -1.0; }
+                if i > 0 {
+                    matrix[(idx, (i - 1) * n + j)] = -1.0;
+                }
+                if i < n - 1 {
+                    matrix[(idx, (i + 1) * n + j)] = -1.0;
+                }
+                if j > 0 {
+                    matrix[(idx, i * n + (j - 1))] = -1.0;
+                }
+                if j < n - 1 {
+                    matrix[(idx, i * n + (j + 1))] = -1.0;
+                }
             }
         }
 
         let sparse_matrix = CsrMatrix::from(&matrix);
         let result = ruge_stueben_coarsening(&sparse_matrix, 0.25).unwrap();
         let quality = analyze_coarsening_quality(&result);
+        let coarsening_ratio = quality.coarsening_ratio;
+        let assignment_ratio = quality.assignment_ratio;
+        let avg_interpolation_points = quality.avg_interpolation_points;
 
         // Check 1: Coarsening ratio
-        assert!(quality.coarsening_ratio > 0.1, "Coarsening too aggressive: {}", quality.coarsening_ratio);
-        assert!(quality.coarsening_ratio < 0.8, "Coarsening too weak: {}", quality.coarsening_ratio);
+        assert!(
+            coarsening_ratio > 0.1,
+            "Coarsening too aggressive: {coarsening_ratio}"
+        );
+        assert!(
+            coarsening_ratio < 0.8,
+            "Coarsening too weak: {coarsening_ratio}"
+        );
 
         // Check 2: Assignment ratio (should be 1.0 for this connected problem)
-        assert!(quality.assignment_ratio > 0.95, "Not all points assigned to coarse grid: {}", quality.assignment_ratio);
+        assert!(
+            assignment_ratio > 0.95,
+            "Not all points assigned to coarse grid: {assignment_ratio}"
+        );
 
         // Check 3: Interpolation points
         // Every F-point should interpolate from at least one C-point
         // (Average should be > 0)
-        assert!(quality.avg_interpolation_points > 0.0, "F-points have no interpolation sources: {}", quality.avg_interpolation_points);
+        assert!(
+            avg_interpolation_points > 0.0,
+            "F-points have no interpolation sources: {avg_interpolation_points}"
+        );
     }
 }
-

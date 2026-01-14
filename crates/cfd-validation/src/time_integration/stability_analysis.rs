@@ -141,10 +141,10 @@ impl<T: RealField + Copy + num_traits::ToPrimitive> StabilityAnalysisRunner<T> {
         self.perform_von_neumann_analysis(&mut report)?;
 
         // Generate overall assessment
-        self.generate_overall_assessment(&mut report);
+        Self::generate_overall_assessment(&mut report);
 
         // Display results
-        self.display_stability_report(&report);
+        Self::display_stability_report(&report);
 
         Ok(report)
     }
@@ -178,7 +178,9 @@ impl<T: RealField + Copy + num_traits::ToPrimitive> StabilityAnalysisRunner<T> {
 
         let region = self.analyzer.compute_rk_stability_region(&a, &b, &c)?;
 
-        let stability_limit = self.analyzer.compute_rk_absolute_stability_limit(&a, &b, &c)?;
+        let stability_limit = self
+            .analyzer
+            .compute_rk_absolute_stability_limit(&a, &b, &c)?;
 
         Ok(RKStabilityResult {
             method_name: "Forward Euler (RK1)".to_string(),
@@ -215,7 +217,9 @@ impl<T: RealField + Copy + num_traits::ToPrimitive> StabilityAnalysisRunner<T> {
         let c = DVector::from_vec(vec![T::zero(), one_third, two_thirds]);
 
         let region = self.analyzer.compute_rk_stability_region(&a, &b, &c)?;
-        let stability_limit = self.analyzer.compute_rk_absolute_stability_limit(&a, &b, &c)?;
+        let stability_limit = self
+            .analyzer
+            .compute_rk_absolute_stability_limit(&a, &b, &c)?;
 
         Ok(RKStabilityResult {
             method_name: "Heun's Method (RK3)".to_string(),
@@ -258,7 +262,9 @@ impl<T: RealField + Copy + num_traits::ToPrimitive> StabilityAnalysisRunner<T> {
         let c = DVector::from_vec(vec![T::zero(), one_half, one_half, T::one()]);
 
         let region = self.analyzer.compute_rk_stability_region(&a, &b, &c)?;
-        let stability_limit = self.analyzer.compute_rk_absolute_stability_limit(&a, &b, &c)?;
+        let stability_limit = self
+            .analyzer
+            .compute_rk_absolute_stability_limit(&a, &b, &c)?;
 
         Ok(RKStabilityResult {
             method_name: "Classic Runge-Kutta 4".to_string(),
@@ -350,7 +356,11 @@ impl<T: RealField + Copy + num_traits::ToPrimitive> StabilityAnalysisRunner<T> {
     fn perform_von_neumann_analysis(&self, report: &mut StabilityAnalysisReport<T>) -> Result<()> {
         println!("\n📊 Von Neumann Stability Analysis");
 
-        let schemes = [NumericalScheme::ForwardEuler, NumericalScheme::RK3, NumericalScheme::RK4];
+        let schemes = [
+            NumericalScheme::ForwardEuler,
+            NumericalScheme::RK3,
+            NumericalScheme::RK4,
+        ];
 
         // Analyze advection equation: ∂u/∂t + a ∂u/∂x = 0
         for scheme in schemes.iter().cloned() {
@@ -402,13 +412,16 @@ impl<T: RealField + Copy + num_traits::ToPrimitive> StabilityAnalysisRunner<T> {
                     - (-num_complex::Complex::new(0.0, k.im * delta_x)).exp())
         };
 
-        let scheme_label = format!("{:?}", scheme);
-        let analysis = self
-            .analyzer
-            .von_neumann_analysis_with_scheme(scheme, spatial_operator, dt, &wave_numbers)?;
+        let scheme_label = format!("{scheme:?}");
+        let analysis = self.analyzer.von_neumann_analysis_with_scheme(
+            scheme,
+            spatial_operator,
+            dt,
+            &wave_numbers,
+        )?;
 
         Ok(VonNeumannResult {
-            pde_type: format!("Linear Advection ({})", scheme_label),
+            pde_type: format!("Linear Advection ({scheme_label})"),
             max_amplification: analysis.max_amplification,
             critical_wave_number: analysis.critical_wave_number,
             is_stable: analysis.is_stable,
@@ -445,13 +458,16 @@ impl<T: RealField + Copy + num_traits::ToPrimitive> StabilityAnalysisRunner<T> {
                     - (num_complex::Complex::new(0.0, k.im * delta_x)).cos())
         };
 
-        let scheme_label = format!("{:?}", scheme);
-        let analysis = self
-            .analyzer
-            .von_neumann_analysis_with_scheme(scheme, spatial_operator, dt, &wave_numbers)?;
+        let scheme_label = format!("{scheme:?}");
+        let analysis = self.analyzer.von_neumann_analysis_with_scheme(
+            scheme,
+            spatial_operator,
+            dt,
+            &wave_numbers,
+        )?;
 
         Ok(VonNeumannResult {
-            pde_type: format!("Diffusion ({})", scheme_label),
+            pde_type: format!("Diffusion ({scheme_label})"),
             max_amplification: analysis.max_amplification,
             critical_wave_number: analysis.critical_wave_number,
             is_stable: analysis.is_stable,
@@ -486,13 +502,16 @@ impl<T: RealField + Copy + num_traits::ToPrimitive> StabilityAnalysisRunner<T> {
                 - num_complex::Complex::new(nu_f64 * k.im * k.im, 0.0)
         };
 
-        let scheme_label = format!("{:?}", scheme);
-        let analysis = self
-            .analyzer
-            .von_neumann_analysis_with_scheme(scheme, spatial_operator, dt, &wave_numbers)?;
+        let scheme_label = format!("{scheme:?}");
+        let analysis = self.analyzer.von_neumann_analysis_with_scheme(
+            scheme,
+            spatial_operator,
+            dt,
+            &wave_numbers,
+        )?;
 
         Ok(VonNeumannResult {
-            pde_type: format!("Burgers' Equation ({})", scheme_label),
+            pde_type: format!("Burgers' Equation ({scheme_label})"),
             max_amplification: analysis.max_amplification,
             critical_wave_number: analysis.critical_wave_number,
             is_stable: analysis.is_stable,
@@ -501,7 +520,7 @@ impl<T: RealField + Copy + num_traits::ToPrimitive> StabilityAnalysisRunner<T> {
     }
 
     /// Generate overall stability assessment
-    fn generate_overall_assessment(&self, report: &mut StabilityAnalysisReport<T>) {
+    fn generate_overall_assessment(report: &mut StabilityAnalysisReport<T>) {
         let mut tests_passed = 0;
         let mut total_tests = 0;
         let mut critical_issues = Vec::new();
@@ -546,11 +565,11 @@ impl<T: RealField + Copy + num_traits::ToPrimitive> StabilityAnalysisRunner<T> {
         };
 
         // Generate recommendations
-        self.generate_recommendations(report);
+        Self::generate_recommendations(report);
     }
 
     /// Generate stability recommendations
-    fn generate_recommendations(&self, report: &mut StabilityAnalysisReport<T>) {
+    fn generate_recommendations(report: &mut StabilityAnalysisReport<T>) {
         // CFL recommendations
         let unstable_cfl = report
             .cfl_analyses
@@ -592,7 +611,7 @@ impl<T: RealField + Copy + num_traits::ToPrimitive> StabilityAnalysisRunner<T> {
     }
 
     /// Display comprehensive stability report
-    fn display_stability_report(&self, report: &StabilityAnalysisReport<T>) {
+    fn display_stability_report(report: &StabilityAnalysisReport<T>) {
         println!("\n📋 Stability Analysis Summary");
         println!("============================");
         println!(

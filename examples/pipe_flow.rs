@@ -5,9 +5,9 @@
 use cfd_1d::network::{ComponentType, EdgeProperties};
 use cfd_1d::solver::{NetworkProblem, NetworkSolver};
 use cfd_1d::{Network, NetworkBuilder};
+use cfd_core::compute::solver::Solver;
 use cfd_core::error::Result;
 use cfd_core::physics::fluid::{ConstantPropertyFluid, FluidTrait};
-use cfd_core::compute::solver::Solver;
 use std::collections::HashMap;
 
 fn main() -> Result<()> {

@@ -86,15 +86,16 @@ fn main() -> Result<()> {
 
     // Check for physics validity
     let stream_function = solver.stream_function();
-    let mut has_circulation = false;
-    for i in 1..nx - 1 {
-        for j in 1..ny - 1 {
-            if stream_function[i][j].abs() > 1e-3 {
-                has_circulation = true;
-                break;
-            }
-        }
-    }
+    let has_circulation = stream_function
+        .iter()
+        .skip(1)
+        .take(nx.saturating_sub(2))
+        .any(|row| {
+            row.iter()
+                .skip(1)
+                .take(ny.saturating_sub(2))
+                .any(|&psi| psi.abs() > 1e-3)
+        });
 
     println!("\n=== PHYSICS CHECK ===");
     if has_circulation {

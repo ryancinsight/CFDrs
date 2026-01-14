@@ -192,8 +192,8 @@ pub struct MixingLengthModel<T: RealField + Copy> {
 impl<T: RealField + Copy + FromPrimitive> MixingLengthModel<T> {
     /// Create a new mixing length model
     pub fn new(length_scale: T) -> Self {
-        let kappa =
-            T::from_f64(crate::physics::constants::physics::fluid::VON_KARMAN).unwrap_or_else(T::one);
+        let kappa = T::from_f64(crate::physics::constants::physics::fluid::VON_KARMAN)
+            .unwrap_or_else(T::one);
         Self {
             length_scale,
             kappa,

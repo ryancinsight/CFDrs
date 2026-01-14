@@ -188,26 +188,23 @@ impl<T: RealField + Copy> IMEXTimeStepper<T> {
     /// Ascher, U. M., Ruuth, S. J., & Wetton, B. T. (1997). Implicit-explicit methods
     /// for time-dependent PDEs. SIAM Journal on Numerical Analysis, 32(3), 797-823.
     pub fn ars343() -> Self {
-        let gamma = (T::from_f64(3.0).unwrap() + T::from_f64(3.0).unwrap().sqrt()) / T::from_f64(6.0).unwrap();
+        let gamma = (T::from_f64(3.0).unwrap() + T::from_f64(3.0).unwrap().sqrt())
+            / T::from_f64(6.0).unwrap();
         let delta = T::one() - T::one() / (T::from_f64(2.0).unwrap() * gamma);
 
-        let c = vec![
-            T::zero(),
-            gamma,
-            T::one(),
-        ];
+        let c = vec![T::zero(), gamma, T::one()];
 
         // Explicit tableau (strictly lower)
         let explicit_a = vec![
-            vec![],                     // Stage 0 (c=0)
-            vec![gamma],                // Stage 1 (c=gamma)
+            vec![],                        // Stage 0 (c=0)
+            vec![gamma],                   // Stage 1 (c=gamma)
             vec![delta, T::one() - delta], // Stage 2 (c=1)
         ];
 
         // Implicit tableau (strictly lower part)
         let implicit_a = vec![
-            vec![],                     // Stage 0
-            vec![T::zero()],            // Stage 1
+            vec![],                                                        // Stage 0
+            vec![T::zero()],                                               // Stage 1
             vec![T::zero(), T::one() - T::from_f64(2.0).unwrap() * gamma], // Stage 2
         ];
 
@@ -218,8 +215,16 @@ impl<T: RealField + Copy> IMEXTimeStepper<T> {
             gamma,     // Stage 2
         ];
 
-        let explicit_b = vec![T::zero(), T::from_f64(0.5).unwrap(), T::from_f64(0.5).unwrap()];
-        let implicit_b = vec![T::zero(), T::from_f64(0.5).unwrap(), T::from_f64(0.5).unwrap()];
+        let explicit_b = vec![
+            T::zero(),
+            T::from_f64(0.5).unwrap(),
+            T::from_f64(0.5).unwrap(),
+        ];
+        let implicit_b = vec![
+            T::zero(),
+            T::from_f64(0.5).unwrap(),
+            T::from_f64(0.5).unwrap(),
+        ];
 
         Self {
             explicit_a,
@@ -304,8 +309,16 @@ impl<T: RealField + Copy> IMEXTimeStepper<T> {
         // Combine RHS evaluations for final solution
         let mut u_new = u.clone();
         for stage in 0..stages {
-            let b_exp = if stage < self.explicit_b.len() { self.explicit_b[stage] } else { T::zero() };
-            let b_imp = if stage < self.implicit_b.len() { self.implicit_b[stage] } else { T::zero() };
+            let b_exp = if stage < self.explicit_b.len() {
+                self.explicit_b[stage]
+            } else {
+                T::zero()
+            };
+            let b_imp = if stage < self.implicit_b.len() {
+                self.implicit_b[stage]
+            } else {
+                T::zero()
+            };
 
             for i in 0..n {
                 u_new[i] += dt * (b_exp * k_explicit[stage][i] + b_imp * k_implicit[stage][i]);
@@ -414,14 +427,7 @@ mod tests {
             while t < t_final - 1e-10 {
                 let step_size = (t_final - t).min(dt);
                 u = imex
-                    .imex_step(
-                        f_explicit,
-                        f_implicit,
-                        jacobian_implicit,
-                        t,
-                        &u,
-                        step_size,
-                    )
+                    .imex_step(f_explicit, f_implicit, jacobian_implicit, t, &u, step_size)
                     .unwrap();
                 t += step_size;
             }
@@ -444,7 +450,10 @@ mod tests {
 
             // Check that observed convergence is reasonably close
             // For ARS343 (3rd order), we expect ratio ~8
-            assert!(ratio > 2.0, "Error not decreasing significantly: ratio = {ratio}");
+            assert!(
+                ratio > 2.0,
+                "Error not decreasing significantly: ratio = {ratio}"
+            );
         }
     }
 
@@ -455,7 +464,8 @@ mod tests {
         // Problem: du/dt = -u (entirely implicit for stiffness)
         let f_explicit = |_t: f64, u: &DVector<f64>| Ok(DVector::zeros(u.len()));
         let f_implicit = |_t: f64, u: &DVector<f64>| Ok(-u.clone());
-        let jacobian_implicit = |_t: f64, u: &DVector<f64>| Ok(-DMatrix::identity(u.len(), u.len()));
+        let jacobian_implicit =
+            |_t: f64, u: &DVector<f64>| Ok(-DMatrix::identity(u.len(), u.len()));
 
         let u0 = DVector::from_vec(vec![2.0, -1.0, 0.5]);
         let dt = 0.01;

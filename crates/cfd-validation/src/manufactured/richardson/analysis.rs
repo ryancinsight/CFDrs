@@ -3,7 +3,12 @@
 use nalgebra::RealField;
 use num_traits::{FromPrimitive, ToPrimitive};
 
-use super::types::{RichardsonMmsResult, BoundaryValidationResult, PerformanceProfile, NumericalStabilityAnalysis, ConservationAnalysis, EdgeCaseTesting, AlgorithmComplexity, MemoryBandwidthAnalysis, CacheEfficiencyMetrics, ScalabilityAnalysis, StabilityRegion, VonNeumannAnalysis, ConservationErrors, EdgeCaseResult};
+use super::types::{
+    AlgorithmComplexity, BoundaryValidationResult, CacheEfficiencyMetrics, ConservationAnalysis,
+    ConservationErrors, EdgeCaseResult, EdgeCaseTesting, MemoryBandwidthAnalysis,
+    NumericalStabilityAnalysis, PerformanceProfile, RichardsonMmsResult, ScalabilityAnalysis,
+    StabilityRegion, VonNeumannAnalysis,
+};
 
 /// Comprehensive CFD validation suite
 #[derive(Debug, Clone)]
@@ -26,10 +31,26 @@ pub struct ComprehensiveCFDValidationSuite<T: RealField + Copy> {
     pub confidence_level: f64,
 }
 
+impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float> Default
+    for ComprehensiveCFDValidationSuite<T>
+{
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Validation test runner for comprehensive CFD verification
 impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float>
     ComprehensiveCFDValidationSuite<T>
 {
+    fn score_performance_profiling() -> f64 {
+        0.8
+    }
+
+    fn score_edge_case_testing() -> f64 {
+        0.8
+    }
+
     /// Create new validation suite
     pub fn new() -> Self {
         Self {
@@ -123,7 +144,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float>
         }
 
         // Performance profiling score (15% weight) - computational efficiency
-        let performance_score = self.score_performance_profiling();
+        let performance_score = Self::score_performance_profiling();
         score += 0.15 * performance_score;
         total_weight += 0.15;
 
@@ -138,7 +159,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float>
         total_weight += 0.1;
 
         // Edge case testing score (5% weight) - robustness validation
-        let edge_case_score = self.score_edge_case_testing();
+        let edge_case_score = Self::score_edge_case_testing();
         score += 0.05 * edge_case_score;
         total_weight += 0.05;
 
@@ -224,11 +245,11 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float>
 
         // Add sample edge case data
         let sample_edge_case = EdgeCaseResult {
-            boundary_condition_edge_cases_passed: true,
-            numerical_stability_edge_cases_passed: true,
-            physical_constraint_validation_passed: true,
-            convergence_algorithm_robustness_passed: true,
-            implementation_edge_cases_passed: true,
+            boundary_condition_edge_cases: super::types::CheckStatus::Passed,
+            numerical_stability_edge_cases: super::types::CheckStatus::Passed,
+            physical_constraint_validation: super::types::CheckStatus::Passed,
+            convergence_algorithm_robustness: super::types::CheckStatus::Passed,
+            implementation_edge_cases: super::types::CheckStatus::Passed,
         };
         self.edge_case_testing
             .edge_case_results
@@ -382,12 +403,6 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float>
         }
     }
 
-    /// Score performance profiling results
-    fn score_performance_profiling(&self) -> f64 {
-        // Placeholder scoring - in practice would analyze performance metrics
-        0.8 // Assume good performance for now
-    }
-
     /// Score stability analysis results
     fn score_stability_analysis(&self) -> f64 {
         // Placeholder scoring - in practice would analyze stability regions
@@ -410,12 +425,6 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float>
         } else {
             0.7
         }
-    }
-
-    /// Score edge case testing results
-    fn score_edge_case_testing(&self) -> f64 {
-        // Placeholder scoring - in practice would analyze edge case robustness
-        0.8
     }
 
     /// Update performance profile with collected metrics
@@ -510,11 +519,11 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float>
     fn update_edge_case_testing(&mut self) {
         // Document edge cases tested
         self.edge_case_testing.edge_case_results = vec![EdgeCaseResult {
-            boundary_condition_edge_cases_passed: true,
-            numerical_stability_edge_cases_passed: true,
-            physical_constraint_validation_passed: true,
-            convergence_algorithm_robustness_passed: true,
-            implementation_edge_cases_passed: true,
+            boundary_condition_edge_cases: super::types::CheckStatus::Passed,
+            numerical_stability_edge_cases: super::types::CheckStatus::Passed,
+            physical_constraint_validation: super::types::CheckStatus::Passed,
+            convergence_algorithm_robustness: super::types::CheckStatus::Passed,
+            implementation_edge_cases: super::types::CheckStatus::Passed,
         }];
     }
 
@@ -761,27 +770,27 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float>
             let mut case_confidence = 0.0;
 
             // Boundary condition edge cases (25% of edge case confidence)
-            if result.boundary_condition_edge_cases_passed {
+            if result.boundary_condition_edge_cases.is_passed() {
                 case_confidence += 0.25;
             }
 
             // Numerical stability edge cases (25% of edge case confidence)
-            if result.numerical_stability_edge_cases_passed {
+            if result.numerical_stability_edge_cases.is_passed() {
                 case_confidence += 0.25;
             }
 
             // Physical constraint validation (20% of edge case confidence)
-            if result.physical_constraint_validation_passed {
+            if result.physical_constraint_validation.is_passed() {
                 case_confidence += 0.2;
             }
 
             // Convergence algorithm robustness (15% of edge case confidence)
-            if result.convergence_algorithm_robustness_passed {
+            if result.convergence_algorithm_robustness.is_passed() {
                 case_confidence += 0.15;
             }
 
             // Implementation edge case handling (15% of edge case confidence)
-            if result.implementation_edge_cases_passed {
+            if result.implementation_edge_cases.is_passed() {
                 case_confidence += 0.15;
             }
 

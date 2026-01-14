@@ -271,12 +271,20 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp> DistributedLinear
                 let mut val = T::zero();
 
                 // x-direction
-                if i > 0 { val -= T::one() / dx_sq; }
-                if i < nx - 1 { val -= T::one() / dx_sq; }
+                if i > 0 {
+                    val -= T::one() / dx_sq;
+                }
+                if i < nx - 1 {
+                    val -= T::one() / dx_sq;
+                }
 
                 // y-direction
-                if j > 0 { val -= T::one() / dy_sq; }
-                if j < ny - 1 { val -= T::one() / dy_sq; }
+                if j > 0 {
+                    val -= T::one() / dy_sq;
+                }
+                if j < ny - 1 {
+                    val -= T::one() / dy_sq;
+                }
 
                 diag[idx] = val;
             }
@@ -295,26 +303,26 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp> DistributedLinear
         for i in 0..nx {
             for j in 0..ny {
                 let row = i * ny + j;
-                
+
                 // Diagonal (calculated same as extract_diagonal)
                 let mut diag_val = T::zero();
-                
+
                 // x-direction
-                if i > 0 { 
+                if i > 0 {
                     diag_val -= T::one() / dx_sq;
                     mat[(row, (i - 1) * ny + j)] = T::one() / dx_sq;
                 }
-                if i < nx - 1 { 
+                if i < nx - 1 {
                     diag_val -= T::one() / dx_sq;
                     mat[(row, (i + 1) * ny + j)] = T::one() / dx_sq;
                 }
 
                 // y-direction
-                if j > 0 { 
+                if j > 0 {
                     diag_val -= T::one() / dy_sq;
                     mat[(row, i * ny + (j - 1))] = T::one() / dy_sq;
                 }
-                if j < ny - 1 { 
+                if j < ny - 1 {
                     diag_val -= T::one() / dy_sq;
                     mat[(row, i * ny + (j + 1))] = T::one() / dy_sq;
                 }
@@ -386,7 +394,7 @@ impl<T: RealField + Copy + FromPrimitive, Op: DistributedLinearOperator<T>>
 
         // Use the actual diagonal from the operator
         let diagonal = operator.extract_diagonal();
-        
+
         for i in 0..local_dim {
             // Store inverse of diagonal for fast application
             let val = if diagonal[i].is_zero() {
@@ -662,7 +670,7 @@ impl<
             // Normalize
             let norm = self.work_vectors[j + 1].norm()?;
             self.hessenberg[(j + 1) * self.krylov_dim + j] = norm;
-            
+
             if norm > T::zero() {
                 self.work_vectors[j + 1].scale(T::one() / norm);
             }
@@ -672,7 +680,7 @@ impl<
                 let (c, s) = self.givens_rotations[i];
                 let h_ij = self.hessenberg[i * self.krylov_dim + j];
                 let h_ip1j = self.hessenberg[(i + 1) * self.krylov_dim + j];
-                
+
                 self.hessenberg[i * self.krylov_dim + j] = c * h_ij + s * h_ip1j;
                 self.hessenberg[(i + 1) * self.krylov_dim + j] = -s * h_ij + c * h_ip1j;
             }
@@ -683,11 +691,11 @@ impl<
             let (c, s, r) = self.compute_givens(h_jj, h_jp1j);
 
             self.givens_rotations[j] = (c, s);
-            
+
             // Apply rotation to H and g
             self.hessenberg[j * self.krylov_dim + j] = r;
             self.hessenberg[(j + 1) * self.krylov_dim + j] = T::zero();
-            
+
             let g_j = g[j];
             g[j] = c * g_j;
             g[j + 1] = -s * g_j;

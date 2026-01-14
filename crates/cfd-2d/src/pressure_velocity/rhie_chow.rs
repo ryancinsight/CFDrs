@@ -113,15 +113,23 @@ impl<T: RealField + Copy + FromPrimitive + Copy> RhieChowInterpolation<T> {
     /// Update momentum equation coefficients for U component (zero-copy)
     /// `A_p` is the diagonal coefficient from U momentum discretization
     pub fn update_u_coefficients(&mut self, ap_u: &Field2D<T>) {
-        // Copy data efficiently without cloning the entire structure
-        self.ap_u_coefficients.data.copy_from_slice(&ap_u.data);
+        let min_ap = T::from_f64(1e-12).unwrap_or_else(T::default_epsilon);
+        for (dst, src) in self.ap_u_coefficients.data.iter_mut().zip(ap_u.data.iter()) {
+            if src.is_finite() && *src > min_ap {
+                *dst = *src;
+            }
+        }
     }
 
     /// Update momentum equation coefficients for V component (zero-copy)
     /// `A_p` is the diagonal coefficient from V momentum discretization
     pub fn update_v_coefficients(&mut self, ap_v: &Field2D<T>) {
-        // Copy data efficiently without cloning the entire structure
-        self.ap_v_coefficients.data.copy_from_slice(&ap_v.data);
+        let min_ap = T::from_f64(1e-12).unwrap_or_else(T::default_epsilon);
+        for (dst, src) in self.ap_v_coefficients.data.iter_mut().zip(ap_v.data.iter()) {
+            if src.is_finite() && *src > min_ap {
+                *dst = *src;
+            }
+        }
     }
 
     /// Update momentum equation coefficients from discretized momentum equation (zero-copy)

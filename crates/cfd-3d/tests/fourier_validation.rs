@@ -89,7 +89,7 @@ fn test_wavenumber_ordering() {
     let wavenumbers = transform.wavenumbers();
 
     // Expected wavenumbers: [0, 1, 2, 3, 4, -3, -2, -1]
-    let expected = vec![0.0, 1.0, 2.0, 3.0, 4.0, -3.0, -2.0, -1.0];
+    let expected = [0.0, 1.0, 2.0, 3.0, 4.0, -3.0, -2.0, -1.0];
 
     assert_eq!(wavenumbers.len(), n);
     for i in 0..n {

@@ -334,17 +334,16 @@ impl AutomatedReporter {
         let failed_tests = 0;
 
         for line in lines {
-            if line.contains("test result:")
-                && line.contains("ok") {
-                    // Parse "test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out"
-                    if let Some(passed_str) = line.split("passed").next() {
-                        if let Some(num_str) = passed_str.split("ok. ").nth(1) {
-                            if let Ok(num) = num_str.trim().parse::<usize>() {
-                                passed_tests = num;
-                            }
+            if line.contains("test result:") && line.contains("ok") {
+                // Parse "test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out"
+                if let Some(passed_str) = line.split("passed").next() {
+                    if let Some(num_str) = passed_str.split("ok. ").nth(1) {
+                        if let Ok(num) = num_str.trim().parse::<usize>() {
+                            passed_tests = num;
                         }
                     }
                 }
+            }
         }
 
         let total_tests = passed_tests; // Simplified - assuming no failures in this example
@@ -408,7 +407,7 @@ mod tests {
         };
 
         let score = report.health_score();
-        assert!(score >= 0.0 && score <= 1.0);
+        assert!((0.0..=1.0).contains(&score));
 
         let issues = report.critical_issues();
         assert!(!issues.is_empty()); // Should detect failures and low coverage

@@ -3,9 +3,9 @@
 use super::metadata::SimulationMetadata;
 use super::parameters::PhysicalParameters;
 use super::state::SimulationState;
-use crate::physics::boundary::BoundaryCondition;
-use crate::domain::Domain;
 use crate::error::{Error, Result};
+use crate::geometry::Domain;
+use crate::physics::boundary::BoundaryCondition;
 use crate::physics::fluid::ConstantPropertyFluid;
 // FluidDynamicsService trait removed - using domain services directly
 use nalgebra::RealField;

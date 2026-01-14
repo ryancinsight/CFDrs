@@ -510,7 +510,6 @@ impl<T: RealField + Copy + FromPrimitive> GeometricMultigrid<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
 
     #[test]
     fn test_geometric_multigrid_creation() {

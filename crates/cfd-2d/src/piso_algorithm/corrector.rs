@@ -68,8 +68,9 @@ where
     fn solve_pressure_correction(&self, fields: &SimulationFields<T>, dt: T) -> Result<Field2D<T>> {
         let mut p_prime = Field2D::new(self.nx, self.ny, T::zero());
         let mut residual = T::from_f64(ONE).unwrap_or_else(T::one);
-        let tolerance = T::from_f64(cfd_core::physics::constants::numerical::solver::CONVERGENCE_TOLERANCE)
-            .unwrap_or_else(|| T::from_f64(1e-6).unwrap_or_else(T::zero));
+        let tolerance =
+            T::from_f64(cfd_core::physics::constants::numerical::solver::CONVERGENCE_TOLERANCE)
+                .unwrap_or_else(|| T::from_f64(1e-6).unwrap_or_else(T::zero));
         let max_iter = cfd_core::physics::constants::numerical::solver::MAX_ITERATIONS_OUTER;
         let mut iter = 0;
 

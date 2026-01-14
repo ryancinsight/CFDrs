@@ -65,7 +65,7 @@ mod tests {
             .unwrap();
 
         // Verify accuracy
-        let expected = vec![1.5f32, 3.5, 5.5, 7.5, 9.5, 11.5, 13.5, 15.5];
+        let expected = [1.5f32, 3.5, 5.5, 7.5, 9.5, 11.5, 13.5, 15.5];
         for (actual, expected) in result.iter().zip(expected.iter()) {
             assert_relative_eq!(*actual, *expected, epsilon = 1e-6);
         }
@@ -86,7 +86,7 @@ mod tests {
             .unwrap();
 
         // Verify accuracy
-        let expected = vec![9.0f32, 7.0, 5.0, 3.0, 1.0, -1.0, -3.0, -5.0];
+        let expected = [9.0f32, 7.0, 5.0, 3.0, 1.0, -1.0, -3.0, -5.0];
         for (actual, expected) in result.iter().zip(expected.iter()) {
             assert_relative_eq!(*actual, *expected, epsilon = 1e-6);
         }
@@ -107,7 +107,7 @@ mod tests {
             .unwrap();
 
         // Verify accuracy
-        let expected = vec![2.0f32, 6.0, 12.0, 20.0];
+        let expected = [2.0f32, 6.0, 12.0, 20.0];
         for (actual, expected) in result.iter().zip(expected.iter()) {
             assert_relative_eq!(*actual, *expected, epsilon = 1e-6);
         }
@@ -128,7 +128,7 @@ mod tests {
             .unwrap();
 
         // Verify accuracy
-        let expected = vec![1.5f64, 3.5, 5.5, 7.5];
+        let expected = [1.5f64, 3.5, 5.5, 7.5];
         for (actual, expected) in result.iter().zip(expected.iter()) {
             assert_relative_eq!(*actual, *expected, epsilon = 1e-12);
         }
@@ -149,7 +149,7 @@ mod tests {
             .unwrap();
 
         // Verify accuracy
-        let expected = vec![9.0f64, 7.0, 5.0, 3.0];
+        let expected = [9.0f64, 7.0, 5.0, 3.0];
         for (actual, expected) in result.iter().zip(expected.iter()) {
             assert_relative_eq!(*actual, *expected, epsilon = 1e-12);
         }
@@ -311,7 +311,7 @@ mod cfd_integration_tests {
             .unwrap();
 
         // Expected: v[i] += dt * rhs[i]
-        let expected = vec![1.001f32, 2.002, 3.003, 4.004];
+        let expected = [1.001f32, 2.002, 3.003, 4.004];
         for (actual, expected) in velocity_new.iter().zip(expected.iter()) {
             assert_relative_eq!(*actual, *expected, epsilon = 1e-6);
         }
@@ -332,7 +332,7 @@ mod cfd_integration_tests {
             .process_f32(&rhs, &ax, &mut residual, SimdOperation::Sub)
             .unwrap();
 
-        let expected = vec![0.2f32, 0.1, 0.1, 0.0];
+        let expected = [0.2f32, 0.1, 0.1, 0.0];
         for (actual, expected) in residual.iter().zip(expected.iter()) {
             assert_relative_eq!(*actual, *expected, epsilon = 1e-6);
         }
@@ -352,7 +352,7 @@ mod cfd_integration_tests {
             .process_f32(&u, &dudx, &mut convection, SimdOperation::Mul)
             .unwrap();
 
-        let expected = vec![0.1f32, 0.4, 0.9, 1.6];
+        let expected = [0.1f32, 0.4, 0.9, 1.6];
         for (actual, expected) in convection.iter().zip(expected.iter()) {
             assert_relative_eq!(*actual, *expected, epsilon = 1e-6);
         }

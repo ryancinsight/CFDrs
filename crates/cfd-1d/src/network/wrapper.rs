@@ -3,8 +3,8 @@
 use super::{NetworkGraph, Node};
 use crate::channel::ChannelGeometry;
 use cfd_core::{
-    physics::boundary::BoundaryCondition,
     error::{Error, Result},
+    physics::boundary::BoundaryCondition,
     physics::fluid::{ConstantPropertyFluid, Fluid},
 };
 use nalgebra::{DVector, RealField};
@@ -215,7 +215,7 @@ impl<T: RealField + Copy + FromPrimitive> Network<T> {
                 .graph
                 .edge_endpoints(edge_idx)
                 .ok_or_else(|| Error::InvalidConfiguration("Missing edge endpoints".into()))?;
-            
+
             let (resistance, quad_coeff) = self
                 .graph
                 .edge_weight(edge_idx)
@@ -226,13 +226,15 @@ impl<T: RealField + Copy + FromPrimitive> Network<T> {
             if resistance < T::zero() {
                 return Err(Error::InvalidConfiguration(format!(
                     "Edge {} has negative resistance: {}",
-                    edge_idx.index(), resistance
+                    edge_idx.index(),
+                    resistance
                 )));
             }
             if quad_coeff < T::zero() {
                 return Err(Error::InvalidConfiguration(format!(
                     "Edge {} has negative quadratic coefficient: {}",
-                    edge_idx.index(), quad_coeff
+                    edge_idx.index(),
+                    quad_coeff
                 )));
             }
 
@@ -253,7 +255,7 @@ impl<T: RealField + Copy + FromPrimitive> Network<T> {
             // |dP| = R*|Q| + k*|Q|^2
             // k*|Q|^2 + R*|Q| - |dP| = 0
             // |Q| = (-R + sqrt(R^2 + 4*k*|dP|)) / (2*k)
-            
+
             let flow = if quad_coeff.abs() < epsilon {
                 // Linear case: Q = dP / R
                 dp / resistance
@@ -261,10 +263,10 @@ impl<T: RealField + Copy + FromPrimitive> Network<T> {
                 // Quadratic case
                 let two = T::from_f64(2.0).expect("Field must support 2.0");
                 let four = T::from_f64(4.0).expect("Field must support 4.0");
-                
+
                 let discriminant = resistance * resistance + four * quad_coeff * dp_abs;
                 let sqrt_disc = discriminant.sqrt();
-                
+
                 // Numerator: -R + sqrt(Delta)
                 // Denominator: 2k
                 let q_mag = (sqrt_disc - resistance) / (two * quad_coeff);
@@ -278,7 +280,7 @@ impl<T: RealField + Copy + FromPrimitive> Network<T> {
             }
         }
 
-        // After updating flow rates, re-calculate resistances and quadratic coefficients 
+        // After updating flow rates, re-calculate resistances and quadratic coefficients
         // if they are flow-rate dependent.
         self.update_resistances()?;
 
@@ -292,7 +294,7 @@ impl<T: RealField + Copy + FromPrimitive> Network<T> {
 
         for edge_idx in edge_indices {
             let flow_rate = *self.flow_rates.get(&edge_idx).unwrap_or(&T::zero());
-            
+
             // Get geometry and other properties from self.properties
             if let Some(props) = self.properties.get(&edge_idx) {
                 if let Some(geometry) = &props.geometry {
@@ -319,7 +321,11 @@ impl<T: RealField + Copy + FromPrimitive> Network<T> {
                     conditions.flow_rate = Some(flow_rate.abs());
 
                     // Re-calculate coefficients
-                    let (r, k) = calculator.calculate_coefficients_auto(&res_geometry, &self.fluid, &conditions)?;
+                    let (r, k) = calculator.calculate_coefficients_auto(
+                        &res_geometry,
+                        &self.fluid,
+                        &conditions,
+                    )?;
 
                     // Update the edge in the graph
                     if let Some(edge) = self.graph.edge_weight_mut(edge_idx) {
@@ -345,13 +351,15 @@ impl<T: RealField + Copy + FromPrimitive> Network<T> {
             if r < T::zero() {
                 return Err(Error::InvalidConfiguration(format!(
                     "Edge {} has negative resistance: {}",
-                    idx.index(), r
+                    idx.index(),
+                    r
                 )));
             }
             if k < T::zero() {
                 return Err(Error::InvalidConfiguration(format!(
                     "Edge {} has negative quadratic coefficient: {}",
-                    idx.index(), k
+                    idx.index(),
+                    k
                 )));
             }
             if r.abs() < eps && k.abs() < eps {
@@ -385,9 +393,16 @@ impl<T: RealField + Copy + FromPrimitive> Network<T> {
             let eps = T::default_epsilon();
             // Conductance is 1/R_eff. We enforce R_eff > ε to avoid division by zero.
             // If R_eff is effectively zero or invalid, we return zero conductance (infinite resistance).
-            let conductance = if r_eff > eps && r_eff.is_finite() { r_eff.recip() } else { T::zero() };
+            let conductance = if r_eff > eps && r_eff.is_finite() {
+                r_eff.recip()
+            } else {
+                T::zero()
+            };
 
-            ParallelEdge { nodes: (from.index(), to.index()), conductance }
+            ParallelEdge {
+                nodes: (from.index(), to.index()),
+                conductance,
+            }
         })
     }
 }

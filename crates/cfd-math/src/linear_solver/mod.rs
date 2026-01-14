@@ -22,11 +22,11 @@
 mod bicgstab;
 mod config;
 mod conjugate_gradient;
-mod traits;
-pub mod operators;
 pub mod gmres;
 pub mod matrix_free;
+pub mod operators;
 pub mod preconditioners;
+mod traits;
 
 pub use bicgstab::BiCGSTAB;
 pub use config::IterativeSolverConfig;
@@ -39,29 +39,17 @@ pub use matrix_free::{
     ParallelMatrixFreeBiCGSTAB,
 };
 pub use matrix_free::{
-    EnergyOperator2D, LaplacianOperator2D, LinearOperator,
-    MomentumOperator1D, MomentumOperator2D, PoissonOperator3D,
+    EnergyOperator2D, LaplacianOperator2D, LinearOperator, MomentumOperator1D, MomentumOperator2D,
+    PoissonOperator3D,
 };
 
+pub use preconditioners::multigrid::AMGConfig;
 pub use preconditioners::{
     AlgebraicMultigrid, DeflationPreconditioner, IdentityPreconditioner, IncompleteLU,
     JacobiPreconditioner, SORPreconditioner, SerialSchwarzPreconditioner, SSOR,
 };
-pub use preconditioners::multigrid::AMGConfig;
 
 pub use traits::{Configurable, IterativeLinearSolver, LinearSolver, Preconditioner};
 
-// REMOVED: Dependencies on cfd-core break the dependency hierarchy.
-// cfd-math should be a foundational library that doesn't depend on application code.
-// Linear solvers should define their own configuration types.
-
 #[cfg(test)]
 mod tests;
-
-// Edge case tests module for comprehensive coverage
-#[cfg(test)]
-mod edge_case_tests;
-
-// Extended edge case tests with property-based testing
-#[cfg(test)]
-mod extended_edge_case_tests;

@@ -14,34 +14,32 @@ use nalgebra_sparse::CsrMatrix;
 
 /// Create a test matrix for benchmarking
 fn create_benchmark_matrix(size: usize) -> CsrMatrix<f64> {
-    // Create a sparse matrix with some structure
     let mut values = Vec::new();
     let mut indices = Vec::new();
     let mut indptr = vec![0];
 
     for i in 0..size {
-        // Diagonal element
-        values.push(4.0);
-        indices.push(i);
+        let mut row_entries: Vec<(usize, f64)> = Vec::with_capacity(5);
+        row_entries.push((i, 4.0));
 
-        // Off-diagonal elements (tridiagonal + some random sparsity)
         if i > 0 {
-            values.push(-1.0);
-            indices.push(i - 1);
+            row_entries.push((i - 1, -1.0));
         }
         if i < size - 1 {
-            values.push(-1.0);
-            indices.push(i + 1);
+            row_entries.push((i + 1, -1.0));
         }
 
-        // Add some random off-diagonals for more realistic sparsity
         if i > 1 && (i % 3) == 0 {
-            values.push(-0.5);
-            indices.push(i - 2);
+            row_entries.push((i - 2, -0.5));
         }
         if i < size - 2 && ((i + 1) % 3) == 0 {
-            values.push(-0.5);
-            indices.push(i + 2);
+            row_entries.push((i + 2, -0.5));
+        }
+
+        row_entries.sort_by_key(|(col, _)| *col);
+        for (col, val) in row_entries {
+            indices.push(col);
+            values.push(val);
         }
 
         indptr.push(values.len());

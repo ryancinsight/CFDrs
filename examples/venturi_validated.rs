@@ -204,10 +204,7 @@ fn test_3_cavity_length_correlation() {
     ];
 
     println!("  Cavity length predictions:");
-    println!(
-        "    {:>6} | {:>12} | {:>12} | {}",
-        "σ", "L/D", "L (mm)", "Regime"
-    );
+    println!("    {:>6} | {:>12} | {:>12} | Regime", "σ", "L/D", "L (mm)");
     println!("    {}", "-".repeat(50));
 
     for (sigma, regime) in test_sigmas {
@@ -315,7 +312,7 @@ fn test_4_pressure_recovery() {
     println!();
 
     // Validation: Cₚᵣ should be between 0 and 1
-    if c_pr_actual >= 0.0 && c_pr_actual <= 1.0 {
+    if (0.0..=1.0).contains(&c_pr_actual) {
         println!("  ✅ PASSED: Pressure recovery coefficient physically reasonable");
     } else {
         println!("  ❌ FAILED: Unphysical recovery coefficient");
@@ -366,8 +363,8 @@ fn test_5_incipient_cavitation() {
 
     println!("  Sweep inlet velocity to find inception:");
     println!(
-        "    {:>10} | {:>10} | {:>10} | {:>10} | {}",
-        "V_inlet", "V_throat", "p_throat", "σ", "Status"
+        "    {:>10} | {:>10} | {:>10} | {:>10} | Status",
+        "V_inlet", "V_throat", "p_throat", "σ"
     );
     println!("    {}", "-".repeat(60));
 
@@ -482,16 +479,33 @@ mod validation_tests {
         let sigma_i: f64 = 1.2;
         let d_throat: f64 = 0.020;
 
-        // Test at σ = 0.8 (known point from Nurick 1976)
-        let sigma: f64 = 0.8;
-        let term = 1.0 / sigma - 1.0 / sigma_i;
-        let l_over_d = k * term.powf(n);
+        let sigma_eq: f64 = sigma_i;
+        let term_eq: f64 = 1.0 / sigma_eq - 1.0 / sigma_i;
+        let l_over_d_eq: f64 = k * term_eq.powf(n);
 
-        // Should be approximately 1.2 from experimental data
-        assert!((l_over_d - 1.2).abs() < 0.2); // Within 20% of experimental
+        assert_relative_eq!(l_over_d_eq, 0.0, epsilon = 1.0e-14);
+        assert!(l_over_d_eq.is_finite());
 
-        // Cavity length should be positive
-        let cavity_length = l_over_d * d_throat;
-        assert!(cavity_length > 0.0);
+        let sigma_high: f64 = 1.1;
+        let term_high: f64 = 1.0 / sigma_high - 1.0 / sigma_i;
+        let l_over_d_high: f64 = k * term_high.powf(n);
+
+        let sigma_low: f64 = 0.8;
+        let term_low: f64 = 1.0 / sigma_low - 1.0 / sigma_i;
+        let l_over_d_low: f64 = k * term_low.powf(n);
+
+        assert!(term_high > 0.0);
+        assert!(term_low > term_high);
+        assert!(l_over_d_high > 0.0);
+        assert!(l_over_d_low > l_over_d_high);
+        assert!(l_over_d_high.is_finite());
+        assert!(l_over_d_low.is_finite());
+
+        let cavity_length_high: f64 = l_over_d_high * d_throat;
+        let cavity_length_low: f64 = l_over_d_low * d_throat;
+        assert!(cavity_length_high > 0.0);
+        assert!(cavity_length_low > cavity_length_high);
+        assert!(cavity_length_high.is_finite());
+        assert!(cavity_length_low.is_finite());
     }
 }

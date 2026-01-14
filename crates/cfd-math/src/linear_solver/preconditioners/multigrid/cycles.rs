@@ -1,10 +1,10 @@
 //! Multigrid cycle algorithms for AMG
 
 use super::MultigridLevel;
+use crate::SparseMatrix;
 use cfd_core::error::{Error, NumericalErrorKind, Result};
 use nalgebra::{DMatrix, DVector};
 use std::time::Instant;
-use crate::SparseMatrix;
 
 /// Apply V-cycle multigrid algorithm
 pub fn apply_v_cycle(
@@ -16,7 +16,9 @@ pub fn apply_v_cycle(
     let start_time = Instant::now();
 
     if levels.is_empty() {
-        return Err(cfd_core::error::Error::InvalidConfiguration("No multigrid levels available".to_string()));
+        return Err(cfd_core::error::Error::InvalidConfiguration(
+            "No multigrid levels available".to_string(),
+        ));
     }
 
     let mut correction = DVector::zeros(residual.len());
@@ -83,7 +85,9 @@ fn apply_multigrid_cycle(
     let r_coarse = if let Some(ref restriction) = current_level.restriction {
         restriction * r_fine
     } else {
-        return Err(Error::InvalidConfiguration("Missing restriction operator".to_string()));
+        return Err(Error::InvalidConfiguration(
+            "Missing restriction operator".to_string(),
+        ));
     };
 
     // 4. Recursive call for coarser levels
@@ -97,7 +101,9 @@ fn apply_multigrid_cycle(
         let fine_correction = interpolation * coarse_correction;
         *correction += fine_correction;
     } else {
-        return Err(Error::InvalidConfiguration("Missing interpolation operator".to_string()));
+        return Err(Error::InvalidConfiguration(
+            "Missing interpolation operator".to_string(),
+        ));
     }
 
     // 6. Post-smoothing
@@ -121,7 +127,9 @@ pub fn apply_w_cycle(
     let start_time = Instant::now();
 
     if levels.is_empty() {
-        return Err(cfd_core::error::Error::InvalidConfiguration("No multigrid levels available".to_string()));
+        return Err(cfd_core::error::Error::InvalidConfiguration(
+            "No multigrid levels available".to_string(),
+        ));
     }
 
     let mut correction = DVector::zeros(residual.len());
@@ -163,7 +171,9 @@ pub fn apply_f_cycle(
     let start_time = Instant::now();
 
     if levels.is_empty() {
-        return Err(cfd_core::error::Error::InvalidConfiguration("No multigrid levels available".to_string()));
+        return Err(cfd_core::error::Error::InvalidConfiguration(
+            "No multigrid levels available".to_string(),
+        ));
     }
 
     // F-cycle starts from coarsest level and works up
@@ -239,7 +249,7 @@ fn solve_coarsest_level(
                 let mut sum = 0.0;
                 let row = matrix.row(i);
                 let mut diag: f64 = 0.0;
-                
+
                 for (&j, &val) in row.col_indices().iter().zip(row.values().iter()) {
                     if i == j {
                         diag = val;
@@ -322,7 +332,6 @@ fn gaussian_elimination_solve(
 #[cfg(test)]
 mod tests {
     use super::*;
-    
 
     fn create_test_multigrid_level() -> MultigridLevel<f64> {
         // Create a simple 3x3 matrix

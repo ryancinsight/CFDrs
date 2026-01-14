@@ -1,6 +1,6 @@
-//! Domain module consolidating spatial representations and mesh operations.
+//! Geometry module consolidating spatial representations and mesh operations.
 //!
-//! This module provides the core abstractions for the computational domain,
+//! This module provides the core abstractions for the computational geometry,
 //! including geometric shapes, structured and unstructured meshes, and
 //! tools for mesh manipulation and quality assessment.
 

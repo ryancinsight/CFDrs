@@ -143,7 +143,6 @@ pub mod simd;
 pub mod sparse;
 pub mod spatial;
 pub mod time_stepping;
-pub mod vectorization;
 
 // --- Curated Top-Level API ---
 // Only expose a very small number of absolutely fundamental traits or structs.

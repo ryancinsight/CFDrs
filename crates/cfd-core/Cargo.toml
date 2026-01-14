@@ -25,7 +25,7 @@ nalgebra-sparse.workspace = true
 num-traits.workspace = true
 indexmap.workspace = true
 rayon.workspace = true
-mpi = { version = "0.8", optional = true }
+mpi = { version = "0.8", optional = true, default-features = false }
 
 [features]
 default = ["gpu"]
@@ -40,8 +40,3 @@ criterion.workspace = true
 tracing-subscriber.workspace = true
 approx.workspace = true
 tokio = { version = "1.0", features = ["full"] }
-
-[[bench]]
-name = "domain_benchmarks"
-harness = false
-

@@ -158,12 +158,7 @@ impl<T: RealField + std::fmt::LowerExp> ParallelVtkWriter<T> {
                 parent.join(format!("{}.pvtu", file_stem))
             };
 
-            self.write_pvtu(
-                &pvtu_filename,
-                &file_stem,
-                point_data,
-                cell_data
-            )?;
+            self.write_pvtu(&pvtu_filename, &file_stem, point_data, cell_data)?;
         }
 
         // Barrier to ensure all files are written before returning
@@ -186,19 +181,35 @@ impl<T: RealField + std::fmt::LowerExp> ParallelVtkWriter<T> {
         let mut writer = BufWriter::new(file);
 
         writeln!(writer, "<?xml version=\"1.0\"?>")?;
-        writeln!(writer, "<VTKFile type=\"UnstructuredGrid\" version=\"0.1\" byte_order=\"LittleEndian\">")?;
+        writeln!(
+            writer,
+            "<VTKFile type=\"UnstructuredGrid\" version=\"0.1\" byte_order=\"LittleEndian\">"
+        )?;
         writeln!(writer, "  <UnstructuredGrid>")?;
 
         let num_points = points.local_data.len() / 3;
         let num_cells = cell_types.len();
 
-        writeln!(writer, "    <Piece NumberOfPoints=\"{}\" NumberOfCells=\"{}\">", num_points, num_cells)?;
+        writeln!(
+            writer,
+            "    <Piece NumberOfPoints=\"{}\" NumberOfCells=\"{}\">",
+            num_points, num_cells
+        )?;
 
         // Points
         writeln!(writer, "      <Points>")?;
-        writeln!(writer, "        <DataArray type=\"Float64\" NumberOfComponents=\"3\" format=\"ascii\">")?;
+        writeln!(
+            writer,
+            "        <DataArray type=\"Float64\" NumberOfComponents=\"3\" format=\"ascii\">"
+        )?;
         for i in 0..num_points {
-            writeln!(writer, "          {:e} {:e} {:e}", points.local_data[3*i], points.local_data[3*i+1], points.local_data[3*i+2])?;
+            writeln!(
+                writer,
+                "          {:e} {:e} {:e}",
+                points.local_data[3 * i],
+                points.local_data[3 * i + 1],
+                points.local_data[3 * i + 2]
+            )?;
         }
         writeln!(writer, "        </DataArray>")?;
         writeln!(writer, "      </Points>")?;
@@ -207,7 +218,10 @@ impl<T: RealField + std::fmt::LowerExp> ParallelVtkWriter<T> {
         writeln!(writer, "      <Cells>")?;
 
         // Connectivity
-        writeln!(writer, "        <DataArray type=\"Int32\" Name=\"connectivity\" format=\"ascii\">")?;
+        writeln!(
+            writer,
+            "        <DataArray type=\"Int32\" Name=\"connectivity\" format=\"ascii\">"
+        )?;
         let mut idx = 0;
         let mut offsets = Vec::with_capacity(num_cells);
         let mut current_offset = 0;
@@ -226,14 +240,20 @@ impl<T: RealField + std::fmt::LowerExp> ParallelVtkWriter<T> {
         writeln!(writer, "        </DataArray>")?;
 
         // Offsets
-        writeln!(writer, "        <DataArray type=\"Int32\" Name=\"offsets\" format=\"ascii\">")?;
+        writeln!(
+            writer,
+            "        <DataArray type=\"Int32\" Name=\"offsets\" format=\"ascii\">"
+        )?;
         for offset in &offsets {
             writeln!(writer, "{}", offset)?;
         }
         writeln!(writer, "        </DataArray>")?;
 
         // Types
-        writeln!(writer, "        <DataArray type=\"UInt8\" Name=\"types\" format=\"ascii\">")?;
+        writeln!(
+            writer,
+            "        <DataArray type=\"UInt8\" Name=\"types\" format=\"ascii\">"
+        )?;
         for &t in cell_types {
             writeln!(writer, "{}", t)?;
         }
@@ -242,28 +262,36 @@ impl<T: RealField + std::fmt::LowerExp> ParallelVtkWriter<T> {
 
         // Point Data
         if !point_data.is_empty() {
-             writeln!(writer, "      <PointData>")?;
-             for (name, data) in point_data {
-                 writeln!(writer, "        <DataArray type=\"Float64\" Name=\"{}\" format=\"ascii\">", name)?;
-                 for val in data.local_data.iter() {
-                     writeln!(writer, "          {:e}", val)?;
-                 }
-                 writeln!(writer, "        </DataArray>")?;
-             }
-             writeln!(writer, "      </PointData>")?;
+            writeln!(writer, "      <PointData>")?;
+            for (name, data) in point_data {
+                writeln!(
+                    writer,
+                    "        <DataArray type=\"Float64\" Name=\"{}\" format=\"ascii\">",
+                    name
+                )?;
+                for val in data.local_data.iter() {
+                    writeln!(writer, "          {:e}", val)?;
+                }
+                writeln!(writer, "        </DataArray>")?;
+            }
+            writeln!(writer, "      </PointData>")?;
         }
 
         // Cell Data
         if !cell_data.is_empty() {
-             writeln!(writer, "      <CellData>")?;
-             for (name, data) in cell_data {
-                 writeln!(writer, "        <DataArray type=\"Float64\" Name=\"{}\" format=\"ascii\">", name)?;
-                 for val in data.local_data.iter() {
-                     writeln!(writer, "          {:e}", val)?;
-                 }
-                 writeln!(writer, "        </DataArray>")?;
-             }
-             writeln!(writer, "      </CellData>")?;
+            writeln!(writer, "      <CellData>")?;
+            for (name, data) in cell_data {
+                writeln!(
+                    writer,
+                    "        <DataArray type=\"Float64\" Name=\"{}\" format=\"ascii\">",
+                    name
+                )?;
+                for val in data.local_data.iter() {
+                    writeln!(writer, "          {:e}", val)?;
+                }
+                writeln!(writer, "        </DataArray>")?;
+            }
+            writeln!(writer, "      </CellData>")?;
         }
 
         writeln!(writer, "    </Piece>")?;
@@ -285,37 +313,57 @@ impl<T: RealField + std::fmt::LowerExp> ParallelVtkWriter<T> {
         let mut writer = BufWriter::new(file);
 
         writeln!(writer, "<?xml version=\"1.0\"?>")?;
-        writeln!(writer, "<VTKFile type=\"PUnstructuredGrid\" version=\"0.1\" byte_order=\"LittleEndian\">")?;
+        writeln!(
+            writer,
+            "<VTKFile type=\"PUnstructuredGrid\" version=\"0.1\" byte_order=\"LittleEndian\">"
+        )?;
         writeln!(writer, "  <PUnstructuredGrid GhostLevel=\"0\">")?;
 
         // PPoints
         writeln!(writer, "    <PPoints>")?;
-        writeln!(writer, "      <PDataArray type=\"Float64\" NumberOfComponents=\"3\"/>")?;
+        writeln!(
+            writer,
+            "      <PDataArray type=\"Float64\" NumberOfComponents=\"3\"/>"
+        )?;
         writeln!(writer, "    </PPoints>")?;
 
         // PCells
         writeln!(writer, "    <PCells>")?;
-        writeln!(writer, "      <PDataArray type=\"Int32\" Name=\"connectivity\"/>")?;
-        writeln!(writer, "      <PDataArray type=\"Int32\" Name=\"offsets\"/>")?;
+        writeln!(
+            writer,
+            "      <PDataArray type=\"Int32\" Name=\"connectivity\"/>"
+        )?;
+        writeln!(
+            writer,
+            "      <PDataArray type=\"Int32\" Name=\"offsets\"/>"
+        )?;
         writeln!(writer, "      <PDataArray type=\"UInt8\" Name=\"types\"/>")?;
         writeln!(writer, "    </PCells>")?;
 
         // PPointData
         if !point_data.is_empty() {
-             writeln!(writer, "    <PPointData>")?;
-             for (name, _) in point_data {
-                 writeln!(writer, "      <PDataArray type=\"Float64\" Name=\"{}\"/>", name)?;
-             }
-             writeln!(writer, "    </PPointData>")?;
+            writeln!(writer, "    <PPointData>")?;
+            for (name, _) in point_data {
+                writeln!(
+                    writer,
+                    "      <PDataArray type=\"Float64\" Name=\"{}\"/>",
+                    name
+                )?;
+            }
+            writeln!(writer, "    </PPointData>")?;
         }
 
         // PCellData
         if !cell_data.is_empty() {
-             writeln!(writer, "    <PCellData>")?;
-             for (name, _) in cell_data {
-                 writeln!(writer, "      <PDataArray type=\"Float64\" Name=\"{}\"/>", name)?;
-             }
-             writeln!(writer, "    </PCellData>")?;
+            writeln!(writer, "    <PCellData>")?;
+            for (name, _) in cell_data {
+                writeln!(
+                    writer,
+                    "      <PDataArray type=\"Float64\" Name=\"{}\"/>",
+                    name
+                )?;
+            }
+            writeln!(writer, "    </PCellData>")?;
         }
 
         // Pieces

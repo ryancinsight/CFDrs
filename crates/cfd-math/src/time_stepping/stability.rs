@@ -109,10 +109,14 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
 
             let z = NumComplex::new(r_boundary * theta.cos(), r_boundary * theta.sin());
             let z_real = T::from_f64(z.re).ok_or_else(|| {
-                Error::InvalidInput("stability boundary real part not representable in T".to_string())
+                Error::InvalidInput(
+                    "stability boundary real part not representable in T".to_string(),
+                )
             })?;
             let z_imag = T::from_f64(z.im).ok_or_else(|| {
-                Error::InvalidInput("stability boundary imag part not representable in T".to_string())
+                Error::InvalidInput(
+                    "stability boundary imag part not representable in T".to_string(),
+                )
             })?;
 
             boundary_points.push(ComplexPoint {
@@ -518,7 +522,9 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
         F: Fn(NumComplex<f64>) -> NumComplex<f64>,
     {
         match scheme {
-            NumericalScheme::ForwardEuler => self.von_neumann_analysis(spatial_operator, dt, wave_numbers),
+            NumericalScheme::ForwardEuler => {
+                self.von_neumann_analysis(spatial_operator, dt, wave_numbers)
+            }
             NumericalScheme::RK3 => {
                 // Heun/Kutta 3rd-order as used in validation
                 let a = DMatrix::from_row_slice(
@@ -546,7 +552,14 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
                     T::from_f64(1.0 / 3.0).unwrap(),
                     T::from_f64(2.0 / 3.0).unwrap(),
                 ]);
-                self.von_neumann_analysis_explicit_rk(&a, &b, &c, spatial_operator, dt, wave_numbers)
+                self.von_neumann_analysis_explicit_rk(
+                    &a,
+                    &b,
+                    &c,
+                    spatial_operator,
+                    dt,
+                    wave_numbers,
+                )
             }
             NumericalScheme::RK4 => {
                 let one_half = T::from_f64(0.5).unwrap();
@@ -579,7 +592,14 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
                     T::from_f64(1.0 / 6.0).unwrap(),
                 ]);
                 let c = DVector::from_vec(vec![T::zero(), one_half, one_half, T::one()]);
-                self.von_neumann_analysis_explicit_rk(&a, &b, &c, spatial_operator, dt, wave_numbers)
+                self.von_neumann_analysis_explicit_rk(
+                    &a,
+                    &b,
+                    &c,
+                    spatial_operator,
+                    dt,
+                    wave_numbers,
+                )
             }
             _ => Err(Error::InvalidInput(
                 "von Neumann analysis is only implemented for explicit schemes".to_string(),
@@ -826,7 +846,11 @@ mod tests {
         assert_relative_eq!(lim1, 2.0, epsilon = 1e-6);
 
         // RK3 (Kutta/Heun 3rd order as used in validation)
-        let a3 = DMatrix::from_row_slice(3, 3, &[0.0, 0.0, 0.0, 1.0 / 3.0, 0.0, 0.0, 0.0, 2.0 / 3.0, 0.0]);
+        let a3 = DMatrix::from_row_slice(
+            3,
+            3,
+            &[0.0, 0.0, 0.0, 1.0 / 3.0, 0.0, 0.0, 0.0, 2.0 / 3.0, 0.0],
+        );
         let b3 = DVector::from_vec(vec![0.25, 0.0, 0.75]);
         let c3 = DVector::from_vec(vec![0.0, 1.0 / 3.0, 2.0 / 3.0]);
         let lim3 = analyzer
@@ -861,7 +885,12 @@ mod tests {
         let spatial_operator = |_k: NumComplex<f64>| NumComplex::new(-1.0, 0.0);
 
         let analysis = analyzer
-            .von_neumann_analysis_with_scheme(NumericalScheme::RK4, spatial_operator, dt, &wave_numbers)
+            .von_neumann_analysis_with_scheme(
+                NumericalScheme::RK4,
+                spatial_operator,
+                dt,
+                &wave_numbers,
+            )
             .unwrap();
 
         assert!(analysis.is_stable);

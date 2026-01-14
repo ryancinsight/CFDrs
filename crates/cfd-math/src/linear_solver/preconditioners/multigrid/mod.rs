@@ -139,7 +139,7 @@
 //! - Stüben, K. (2001). A review of algebraic multigrid. *Journal of Computational and Applied Mathematics*,
 //!
 //! ## Geometric Multigrid (GMG)
- //!
+//!
 //! For structured grids, geometric multigrid provides superior efficiency through
 //! explicit grid hierarchies and optimized transfer operators.
 //!   128(1-2), 281-309.
@@ -306,7 +306,13 @@ impl<T: nalgebra::RealField + Copy> AMGHierarchy<T> {
 /// Trait for multigrid smoothers
 pub trait MultigridSmoother<T: nalgebra::RealField + Copy>: Send + Sync {
     /// Apply the smoother to the system Ax = b
-    fn apply(&self, matrix: &SparseMatrix<T>, x: &mut DVector<T>, b: &DVector<T>, iterations: usize);
+    fn apply(
+        &self,
+        matrix: &SparseMatrix<T>,
+        x: &mut DVector<T>,
+        b: &DVector<T>,
+        iterations: usize,
+    );
 
     /// Clone the smoother into a box
     fn clone_box(&self) -> Box<dyn MultigridSmoother<T>>;

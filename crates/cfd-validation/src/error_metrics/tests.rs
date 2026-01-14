@@ -157,7 +157,6 @@ fn test_error_statistics() -> Result<()> {
 
     // Calculate expected error metrics analytically
     // Errors: [0.1, 0.1, 0.2, 0.2, 0.3]
-    let _errors = [0.1, 0.1, 0.2, 0.2, 0.3]; // Reference for analytical validation
 
     // L1 norm (MAE): (0.1 + 0.1 + 0.2 + 0.2 + 0.3) / 5 = 0.9 / 5 = 0.18
     let expected_l1 = 0.18;

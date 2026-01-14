@@ -1,6 +1,6 @@
 //! Preconditioners for iterative linear solvers
 //!
-//! This module provides various preconditioning techniques essential for 
+//! This module provides various preconditioning techniques essential for
 //! accelerating the convergence of iterative solvers in CFD applications.
 
 pub mod basic;

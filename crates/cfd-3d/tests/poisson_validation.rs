@@ -74,8 +74,12 @@ fn test_poisson_3d_dirichlet_sinusoidal() {
     // X boundaries
     for j in 0..ny {
         for k in 0..nz {
-            assert_relative_eq!(solution[0 * ny * nz + j * nz + k], 0.0, epsilon = 1e-10);
-            assert_relative_eq!(solution[(nx - 1) * ny * nz + j * nz + k], 0.0, epsilon = 1e-10);
+            assert_relative_eq!(solution[j * nz + k], 0.0, epsilon = 1e-10);
+            assert_relative_eq!(
+                solution[(nx - 1) * ny * nz + j * nz + k],
+                0.0,
+                epsilon = 1e-10
+            );
         }
     }
 }
@@ -119,8 +123,12 @@ fn test_poisson_3d_constant_source() {
     // X boundaries
     for j in 0..ny {
         for k in 0..nz {
-            assert_relative_eq!(solution[0 * ny * nz + j * nz + k], 0.0, epsilon = 1e-10);
-            assert_relative_eq!(solution[(nx - 1) * ny * nz + j * nz + k], 0.0, epsilon = 1e-10);
+            assert_relative_eq!(solution[j * nz + k], 0.0, epsilon = 1e-10);
+            assert_relative_eq!(
+                solution[(nx - 1) * ny * nz + j * nz + k],
+                0.0,
+                epsilon = 1e-10
+            );
         }
     }
 }
@@ -236,8 +244,12 @@ fn test_poisson_3d_laplace_equation() {
     // Verify boundary values (interior of the face to avoid corner conflicts)
     for j in 1..ny - 1 {
         for k in 1..nz - 1 {
-            assert_relative_eq!(solution[0 * ny * nz + j * nz + k], 1.0, epsilon = 1e-10);
-            assert_relative_eq!(solution[(nx - 1) * ny * nz + j * nz + k], 0.0, epsilon = 1e-10);
+            assert_relative_eq!(solution[j * nz + k], 1.0, epsilon = 1e-10);
+            assert_relative_eq!(
+                solution[(nx - 1) * ny * nz + j * nz + k],
+                0.0,
+                epsilon = 1e-10
+            );
         }
     }
 }

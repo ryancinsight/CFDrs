@@ -84,14 +84,16 @@ impl<T: RealField + Copy + FromPrimitive> Component<T> for RectangularChannel<T>
             height: self.height,
             length: self.length,
         };
-        
+
         // FlowConditions with zero flow rate to get purely laminar R
         let conditions = crate::resistance::models::FlowConditions::new(T::zero());
-        
-        model.calculate_resistance(fluid, &conditions).unwrap_or_else(|_| {
-            // Fallback for safety, though model should be valid
-            T::from_f64(1e12).unwrap_or_else(T::zero)
-        })
+
+        model
+            .calculate_resistance(fluid, &conditions)
+            .unwrap_or_else(|_| {
+                // Fallback for safety, though model should be valid
+                T::from_f64(1e12).unwrap_or_else(T::zero)
+            })
     }
 
     fn coefficients(&self, fluid: &Fluid<T>) -> (T, T) {
@@ -169,9 +171,9 @@ impl<T: RealField + Copy + FromPrimitive> Component<T> for CircularChannel<T> {
             length: self.length,
         };
         let conditions = crate::resistance::models::FlowConditions::new(T::zero());
-        model.calculate_resistance(fluid, &conditions).unwrap_or_else(|_| {
-            T::from_f64(1e12).unwrap_or_else(T::zero)
-        })
+        model
+            .calculate_resistance(fluid, &conditions)
+            .unwrap_or_else(|_| T::from_f64(1e12).unwrap_or_else(T::zero))
     }
 
     fn coefficients(&self, fluid: &Fluid<T>) -> (T, T) {

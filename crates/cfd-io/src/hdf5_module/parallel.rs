@@ -139,7 +139,8 @@ impl<T: RealField + std::fmt::LowerExp> ParallelHdf5Writer<T> {
         _metadata: &HashMap<String, String>,
     ) -> IoResult<()> {
         Err(IoError::FormatError(
-            "Parallel HDF5 writing is not yet implemented. Please use VTK output or serial HDF5.".to_string()
+            "Parallel HDF5 writing is not yet implemented. Please use VTK output or serial HDF5."
+                .to_string(),
         ))
     }
 
@@ -149,7 +150,7 @@ impl<T: RealField + std::fmt::LowerExp> ParallelHdf5Writer<T> {
         _datasets: &HashMap<String, &DistributedVector<T>>,
     ) -> IoResult<HashMap<String, GlobalDatasetInfo>> {
         Err(IoError::FormatError(
-            "Parallel HDF5 writing is not yet implemented".to_string()
+            "Parallel HDF5 writing is not yet implemented".to_string(),
         ))
     }
 
@@ -166,7 +167,7 @@ impl<T: RealField + std::fmt::LowerExp> ParallelHdf5Writer<T> {
         _metadata: &HashMap<String, String>,
     ) -> IoResult<()> {
         Err(IoError::FormatError(
-            "Parallel HDF5 writing is not yet implemented".to_string()
+            "Parallel HDF5 writing is not yet implemented".to_string(),
         ))
     }
 
@@ -178,7 +179,7 @@ impl<T: RealField + std::fmt::LowerExp> ParallelHdf5Writer<T> {
         _global_info: &HashMap<String, GlobalDatasetInfo>,
     ) -> IoResult<()> {
         Err(IoError::FormatError(
-            "Parallel HDF5 writing is not yet implemented".to_string()
+            "Parallel HDF5 writing is not yet implemented".to_string(),
         ))
     }
 
@@ -191,7 +192,7 @@ impl<T: RealField + std::fmt::LowerExp> ParallelHdf5Writer<T> {
         _info: &GlobalDatasetInfo,
     ) -> IoResult<()> {
         Err(IoError::FormatError(
-            "Parallel HDF5 writing is not yet implemented".to_string()
+            "Parallel HDF5 writing is not yet implemented".to_string(),
         ))
     }
 
@@ -207,7 +208,7 @@ impl<T: RealField + std::fmt::LowerExp> ParallelHdf5Writer<T> {
         _datasets: &HashMap<String, &DistributedVector<T>>,
     ) -> IoResult<()> {
         Err(IoError::FormatError(
-            "Parallel HDF5 writing is not yet implemented".to_string()
+            "Parallel HDF5 writing is not yet implemented".to_string(),
         ))
     }
 
@@ -218,7 +219,7 @@ impl<T: RealField + std::fmt::LowerExp> ParallelHdf5Writer<T> {
         _subdomain: &cfd_core::compute::mpi::LocalSubdomain,
     ) -> IoResult<(usize, T, HashMap<String, DistributedVector<T>>)> {
         Err(IoError::FormatError(
-            "Parallel HDF5 reading is not yet implemented".to_string()
+            "Parallel HDF5 reading is not yet implemented".to_string(),
         ))
     }
 }
@@ -285,7 +286,7 @@ impl<T: RealField> ParallelHdf5Reader<T> {
         _subdomain: &cfd_core::compute::mpi::LocalSubdomain,
     ) -> IoResult<DistributedVector<T>> {
         Err(IoError::FormatError(
-            "Parallel HDF5 reading is not yet implemented".to_string()
+            "Parallel HDF5 reading is not yet implemented".to_string(),
         ))
     }
 }

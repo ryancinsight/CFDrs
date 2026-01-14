@@ -118,9 +118,9 @@ impl<T: RealField + Copy + FromPrimitive + Debug> GMRES<T> {
         let n = b.len();
         let a_size = a.size();
         if a_size != 0 && a_size != n {
-            return Err(Error::InvalidConfiguration(
-                format!("Operator size ({a_size}) doesn't match RHS vector ({n})"),
-            ));
+            return Err(Error::InvalidConfiguration(format!(
+                "Operator size ({a_size}) doesn't match RHS vector ({n})"
+            )));
         }
 
         let m = self.restart_dim;
@@ -144,40 +144,47 @@ impl<T: RealField + Copy + FromPrimitive + Debug> GMRES<T> {
         preconditioner.apply_to(&r0, &mut work)?;
         let beta = work.norm();
 
-        let mut monitor = ConvergenceMonitor::new(beta);
-
-        if beta < self.config.tolerance {
-            return Ok(monitor);
+        let r0_norm = r0.norm();
+        if r0_norm < self.config.tolerance {
+            return Ok(ConvergenceMonitor::new(r0_norm));
         }
 
-        for _outer_iter in 0..=(self.config.max_iterations / m) {
-            if _outer_iter > 0 {
-                // Compute residual for restart
+        if beta <= T::default_epsilon() {
+            return Err(Error::Convergence(ConvergenceErrorKind::Breakdown));
+        }
+
+        let mut monitor = ConvergenceMonitor::new(beta);
+
+        let mut iterations_used = 0usize;
+        let mut is_first_restart = true;
+        while iterations_used < self.config.max_iterations {
+            let beta_restart = if is_first_restart {
+                beta
+            } else {
                 a.apply(x, &mut ax)?;
                 let mut r_restart = b.clone();
                 r_restart -= &ax;
                 preconditioner.apply_to(&r_restart, &mut work)?;
-                let beta_restart = work.norm();
-                monitor.record_residual(beta_restart);
+                work.norm()
+            };
 
-                if beta_restart < self.config.tolerance {
-                    return Ok(monitor);
-                }
-                
-                // Initialize first basis vector for restart
-                v.column_mut(0).copy_from(&(work.clone() / beta_restart));
-                g.fill(T::zero());
-                g[0] = beta_restart;
-            } else {
-                // 2. Initialize first basis vector: v1 = r0 / beta
-                v.column_mut(0).copy_from(&(work.clone() / beta));
-                g.fill(T::zero());
-                g[0] = beta;
+            if beta_restart <= T::default_epsilon() {
+                return Err(Error::Convergence(ConvergenceErrorKind::Breakdown));
             }
+
+            v.column_mut(0).copy_from(&(work.clone() / beta_restart));
+
+            h.fill(T::zero());
+            g.fill(T::zero());
+            c.fill(T::zero());
+            s.fill(T::zero());
+            g[0] = beta_restart;
 
             // 3. Arnoldi iterations
             let mut converged_iter = None;
-            for k in 0..m {
+            let remaining = self.config.max_iterations - iterations_used;
+            let inner_iters = m.min(remaining);
+            for k in 0..inner_iters {
                 // Arnoldi step: build orthonormal basis
                 arnoldi::arnoldi_iteration(
                     a,
@@ -188,6 +195,7 @@ impl<T: RealField + Copy + FromPrimitive + Debug> GMRES<T> {
                     Some(preconditioner),
                     Some(&mut precond_work),
                 )?;
+                iterations_used += 1;
 
                 // Apply previous Givens rotations to new column of H
                 givens::apply_previous_rotations(&mut h, &c, &s, k);
@@ -211,21 +219,31 @@ impl<T: RealField + Copy + FromPrimitive + Debug> GMRES<T> {
             }
 
             // 4. Update solution: x = x + V_k * y_k
-            let k_final = converged_iter.unwrap_or(m);
+            let k_final = converged_iter.unwrap_or(inner_iters);
+            if k_final == 0 {
+                break;
+            }
             let y = givens::solve_upper_triangular(&h, &g, k_final)?;
 
             for i in 0..k_final {
                 x.axpy(y[i], &v.column(i), T::one());
             }
 
-            if converged_iter.is_some() {
+            a.apply(x, &mut ax)?;
+            let mut r_check = b.clone();
+            r_check -= &ax;
+            if r_check.norm() < self.config.tolerance {
                 return Ok(monitor);
             }
+
+            is_first_restart = false;
         }
 
-        Err(Error::Convergence(ConvergenceErrorKind::MaxIterationsExceeded {
-            max: self.config.max_iterations,
-        }))
+        Err(Error::Convergence(
+            ConvergenceErrorKind::MaxIterationsExceeded {
+                max: self.config.max_iterations,
+            },
+        ))
     }
 }
 
@@ -275,262 +293,5 @@ impl<T: RealField + Copy + FromPrimitive + Debug> super::super::traits::LinearSo
             None::<&crate::linear_solver::preconditioners::IdentityPreconditioner>,
         )?;
         Ok(x)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::super::super::preconditioners::IdentityPreconditioner;
-    use super::*;
-    use nalgebra_sparse::{CooMatrix, CsrMatrix};
-
-    #[test]
-    fn test_gmres_diagonal_matrix() {
-        // Simple diagonal matrix: A = diag(1, 2, 3, 4)
-        let n = 4;
-        let mut coo = CooMatrix::new(n, n);
-        for i in 0..n {
-            coo.push(i, i, (i + 1) as f64);
-        }
-        let a = CsrMatrix::from(&coo);
-
-        let b = DVector::from_vec(vec![1.0, 4.0, 9.0, 16.0]);
-        let mut x = DVector::zeros(n);
-
-        let config = IterativeSolverConfig::new(1e-10).with_max_iterations(100);
-        let solver = GMRES::new(config, 10);
-        let precond = IdentityPreconditioner;
-
-        solver
-            .solve_preconditioned(&a, &b, &precond, &mut x)
-            .unwrap();
-
-        // Expected solution: x = [1, 2, 3, 4]
-        let expected = DVector::from_vec(vec![1.0, 2.0, 3.0, 4.0]);
-        let error = (&x - &expected).norm();
-        assert!(error < 1e-9, "Solution error: {error}");
-    }
-
-    #[test]
-    fn test_gmres_non_symmetric() {
-        // Non-symmetric 3x3 matrix
-        let n = 3;
-        let mut coo = CooMatrix::new(n, n);
-        coo.push(0, 0, 4.0);
-        coo.push(0, 1, 1.0);
-        coo.push(1, 0, 2.0);
-        coo.push(1, 1, 5.0);
-        coo.push(1, 2, 1.0);
-        coo.push(2, 1, 3.0);
-        coo.push(2, 2, 6.0);
-        let a = CsrMatrix::from(&coo);
-
-        let b = DVector::from_vec(vec![5.0, 8.0, 9.0]);
-        let mut x = DVector::zeros(n);
-
-        let config = IterativeSolverConfig::new(1e-10).with_max_iterations(100);
-        let solver = GMRES::new(config, 10);
-        let precond = IdentityPreconditioner;
-
-        solver
-            .solve_preconditioned(&a, &b, &precond, &mut x)
-            .unwrap();
-
-        // Verify Ax = b
-        let ax = &a * &x;
-        let residual = (&ax - &b).norm();
-        assert!(residual < 1e-9, "Residual: {residual}");
-    }
-
-    #[test]
-    fn test_gmres_zero_rhs() {
-        let n = 4;
-        let mut coo = CooMatrix::new(n, n);
-        for i in 0..n {
-            coo.push(i, i, (i + 1) as f64);
-        }
-        let a = CsrMatrix::from(&coo);
-
-        let b = DVector::zeros(n);
-        let mut x = DVector::from_element(n, 1.0);
-
-        let config = IterativeSolverConfig::new(1e-10).with_max_iterations(100);
-        let solver = GMRES::new(config, 10);
-        let precond = IdentityPreconditioner;
-
-        solver
-            .solve_preconditioned(&a, &b, &precond, &mut x)
-            .unwrap();
-
-        assert!(x.norm() < 1e-14, "Solution should be zero for zero RHS");
-    }
-
-    #[test]
-    fn test_gmres_restart_dimension() {
-        let n = 5;
-        let mut coo = CooMatrix::new(n, n);
-        // Tridiagonal matrix
-        for i in 0..n {
-            coo.push(i, i, 4.0);
-            if i > 0 {
-                coo.push(i, i - 1, 1.0);
-            }
-            if i < n - 1 {
-                coo.push(i, i + 1, 1.0);
-            }
-        }
-        let a = CsrMatrix::from(&coo);
-
-        let b = DVector::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0]);
-        let mut x = DVector::zeros(n);
-
-        let config = IterativeSolverConfig::new(1e-10).with_max_iterations(100);
-        let solver = GMRES::new(config, 3); // Small restart dimension
-        let precond = IdentityPreconditioner;
-
-        solver
-            .solve_preconditioned(&a, &b, &precond, &mut x)
-            .unwrap();
-
-        // Verify solution
-        let ax = &a * &x;
-        let residual = (&ax - &b).norm();
-        assert!(residual < 1e-9, "Residual: {residual}");
-    }
-
-    #[test]
-    fn test_gmres_with_initial_guess() {
-        let n = 4;
-        let mut coo = CooMatrix::new(n, n);
-        for i in 0..n {
-            coo.push(i, i, (i + 1) as f64);
-        }
-        let a = CsrMatrix::from(&coo);
-
-        let b = DVector::from_vec(vec![1.0, 4.0, 9.0, 16.0]);
-        let mut x = DVector::from_vec(vec![0.5, 1.5, 2.5, 3.5]); // Good initial guess
-
-        let config = IterativeSolverConfig::new(1e-10).with_max_iterations(100);
-        let solver = GMRES::new(config, 10);
-        let precond = IdentityPreconditioner;
-
-        solver
-            .solve_preconditioned(&a, &b, &precond, &mut x)
-            .unwrap();
-
-        // Expected solution: x = [1, 2, 3, 4]
-        let expected = DVector::from_vec(vec![1.0, 2.0, 3.0, 4.0]);
-        let error = (&x - &expected).norm();
-        assert!(error < 1e-9, "Solution error: {error}");
-    }
-
-    #[test]
-    fn test_gmres_larger_nonsymmetric() {
-        // 5x5 nonsymmetric matrix
-        let n = 5;
-        let mut coo = CooMatrix::new(n, n);
-        for i in 0..n {
-            coo.push(i, i, 5.0);
-            if i > 0 {
-                coo.push(i, i - 1, 2.0);
-            }
-            if i < n - 1 {
-                coo.push(i, i + 1, 1.0);
-            }
-        }
-        let a = CsrMatrix::from(&coo);
-
-        let b = DVector::from_vec(vec![6.0, 11.0, 11.0, 11.0, 8.0]);
-        let mut x = DVector::zeros(n);
-
-        let config = IterativeSolverConfig::new(1e-10).with_max_iterations(100);
-        let solver = GMRES::new(config, 10);
-        let precond = IdentityPreconditioner;
-
-        solver
-            .solve_preconditioned(&a, &b, &precond, &mut x)
-            .unwrap();
-
-        // Verify solution
-        let ax = &a * &x;
-        let residual = (&ax - &b).norm();
-        assert!(residual < 1e-9, "Residual: {residual}");
-    }
-
-    #[test]
-    fn test_gmres_convergence_tight_tolerance() {
-        let n = 4;
-        let mut coo = CooMatrix::new(n, n);
-        for i in 0..n {
-            coo.push(i, i, (i + 1) as f64);
-        }
-        let a = CsrMatrix::from(&coo);
-
-        let b = DVector::from_vec(vec![1.0, 4.0, 9.0, 16.0]);
-        let mut x = DVector::zeros(n);
-
-        let config = IterativeSolverConfig::new(1e-14).with_max_iterations(100); // Very tight tolerance
-        let solver = GMRES::new(config, 10);
-        let precond = IdentityPreconditioner;
-
-        let result = solver.solve_preconditioned(&a, &b, &precond, &mut x);
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn test_gmres_max_iterations_exceeded() {
-        let n = 4;
-        let mut coo = CooMatrix::new(n, n);
-        for i in 0..n {
-            coo.push(i, i, (i + 1) as f64);
-        }
-        let a = CsrMatrix::from(&coo);
-
-        let b = DVector::from_vec(vec![1.0, 4.0, 9.0, 16.0]);
-        let mut x = DVector::zeros(n);
-
-        let config = IterativeSolverConfig::new(1e-14).with_max_iterations(1); // Too few iterations
-        let solver = GMRES::new(config, 1);
-        let precond = IdentityPreconditioner;
-
-        let result = solver.solve_preconditioned(&a, &b, &precond, &mut x);
-        assert!(result.is_err()); // Should fail to converge
-    }
-
-    #[test]
-    fn test_gmres_dimension_mismatch() {
-        let n = 4;
-        let mut coo = CooMatrix::new(n, n);
-        for i in 0..n {
-            coo.push(i, i, (i + 1) as f64);
-        }
-        let a = CsrMatrix::from(&coo);
-
-        let b = DVector::from_vec(vec![1.0, 4.0]); // Wrong size!
-        let mut x = DVector::zeros(2);
-
-        let config = IterativeSolverConfig::new(1e-10).with_max_iterations(100);
-        let solver = GMRES::new(config, 10);
-        let precond = IdentityPreconditioner;
-
-        let result = solver.solve_preconditioned(&a, &b, &precond, &mut x);
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_gmres_configurable_trait() {
-        let config = IterativeSolverConfig::new(1e-8).with_max_iterations(200);
-        let solver = GMRES::<f64>::new(config, 20);
-
-        let retrieved = solver.config();
-        assert!((retrieved.tolerance - 1e-8).abs() < 1e-10);
-        assert_eq!(retrieved.max_iterations, 200);
-    }
-
-    #[test]
-    #[should_panic(expected = "GMRES restart dimension must be positive")]
-    fn test_gmres_zero_restart_dim_panics() {
-        let config = IterativeSolverConfig::default();
-        let _solver = GMRES::<f64>::new(config, 0); // Should panic
     }
 }

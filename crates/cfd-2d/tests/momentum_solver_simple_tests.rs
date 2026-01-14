@@ -6,8 +6,8 @@
 //! - Patankar, S. V. (1980). "Numerical Heat Transfer and Fluid Flow"
 //! - Versteeg, H. K. & Malalasekera, W. (2007). "An Introduction to Computational Fluid Dynamics"
 
-use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_core::error::Result as CfdResult;
+use cfd_core::physics::boundary::BoundaryCondition;
 
 use cfd_2d::fields::SimulationFields;
 use cfd_2d::grid::StructuredGrid2D;
@@ -88,7 +88,7 @@ fn test_momentum_solver_basic_execution() -> CfdResult<()> {
     let result = solver.solve(MomentumComponent::U, &mut fields, dt);
 
     // Should not crash (may or may not converge depending on solver settings)
-    assert!(!result.is_err(), "Momentum solver should complete");
+    assert!(result.is_ok(), "Momentum solver should complete");
     // Note: Convergence depends on numerical parameters, we verify execution completes
 
     Ok(())

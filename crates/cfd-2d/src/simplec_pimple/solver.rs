@@ -167,9 +167,7 @@ use super::config::{AlgorithmType, SimplecPimpleConfig};
 use crate::fields::{Field2D, SimulationFields};
 use crate::grid::StructuredGrid2D;
 use crate::physics::{MomentumComponent, MomentumSolver};
-use crate::pressure_velocity::{
-    PressureCorrectionSolver, RhieChowInterpolation,
-};
+use crate::pressure_velocity::{PressureCorrectionSolver, RhieChowInterpolation};
 use nalgebra::{RealField, Vector2};
 use num_traits::{FromPrimitive, ToPrimitive};
 
@@ -222,7 +220,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
             _ => crate::physics::momentum::ConvectionScheme::Upwind, // Fallback for Central/SecondOrder/WENO
         };
 
-        let mut momentum_solver = MomentumSolver::with_convection_scheme(&grid, momentum_convection);
+        let mut momentum_solver =
+            MomentumSolver::with_convection_scheme(&grid, momentum_convection);
         momentum_solver.set_velocity_relaxation(config.alpha_u);
 
         // Create pressure solver using configuration
@@ -432,7 +431,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
             // Step 4: Solve pressure correction equation ∇²p' = (ρ/Δt) ∇·u*
             let p_correction = if let Some(ref rhie_chow) = self.rhie_chow {
                 // Use Rhie-Chow consistent velocities
-                let consistent_velocity = self.interpolate_consistent_velocity(rhie_chow, fields, Some(dt));
+                let consistent_velocity =
+                    self.interpolate_consistent_velocity(rhie_chow, fields, Some(dt));
 
                 // Extract face velocities and coefficients
                 let mut u_face = vec![vec![T::zero(); self.grid.ny]; self.grid.nx - 1];
@@ -453,13 +453,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
                     }
                 }
 
-                self.pressure_solver.solve_pressure_correction_from_faces(
-                    &u_face,
-                    &v_face,
-                    &d_x,
-                    &d_y,
-                    rho,
-                )?
+                self.pressure_solver
+                    .solve_pressure_correction_from_faces(&u_face, &v_face, &d_x, &d_y, rho)?
             } else {
                 self.pressure_solver
                     .solve_pressure_correction(&u_star, dt, rho)?
@@ -497,10 +492,11 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
             // Step 8: Check convergence based on multiple criteria
             let velocity_residual =
                 self.calculate_velocity_residual_from_vectors(&u_prev, &u_corrected);
-            
+
             // Calculate continuity residual using consistent face fluxes if Rhie-Chow is active
             continuity_residual = if let Some(ref rhie_chow) = self.rhie_chow {
-                let u_consistent = self.interpolate_consistent_velocity(rhie_chow, fields, Some(dt));
+                let u_consistent =
+                    self.interpolate_consistent_velocity(rhie_chow, fields, Some(dt));
                 self.calculate_continuity_residual_from_faces(&u_consistent)
             } else {
                 self.calculate_continuity_residual(fields)
@@ -624,15 +620,11 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
                         }
                     }
 
-                    self.pressure_solver.solve_pressure_correction_from_faces(
-                        &u_face,
-                        &v_face,
-                        &d_x,
-                        &d_y,
-                        rho,
-                    )?
+                    self.pressure_solver
+                        .solve_pressure_correction_from_faces(&u_face, &v_face, &d_x, &d_y, rho)?
                 } else {
-                    self.pressure_solver.solve_pressure_correction(&u_star, dt, rho)?
+                    self.pressure_solver
+                        .solve_pressure_correction(&u_star, dt, rho)?
                 };
 
                 // Step 4: Correct velocities and pressure
@@ -885,8 +877,6 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
         }
     }
 
-
-
     /// Calculate velocity residual between current fields and new velocity
     fn _calculate_velocity_residual(
         &self,
@@ -962,10 +952,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
     ///
     /// This is more accurate for Rhie-Chow consistency as it uses the same
     /// flux balance that the pressure correction equation is solving.
-    fn calculate_continuity_residual_from_faces(
-        &self,
-        face_velocity: &[Vec<Vector2<T>>],
-    ) -> T {
+    fn calculate_continuity_residual_from_faces(&self, face_velocity: &[Vec<Vector2<T>>]) -> T {
         let mut max_divergence = T::zero();
 
         for i in 1..self.grid.nx - 1 {
@@ -996,7 +983,11 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
     }
 
     /// Set boundary condition
-    pub fn set_boundary(&mut self, name: String, bc: cfd_core::physics::boundary::BoundaryCondition<T>) {
+    pub fn set_boundary(
+        &mut self,
+        name: String,
+        bc: cfd_core::physics::boundary::BoundaryCondition<T>,
+    ) {
         self.momentum_solver.set_boundary(name, bc);
     }
 

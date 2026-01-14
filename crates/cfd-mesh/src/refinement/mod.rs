@@ -1,8 +1,8 @@
 //! Mesh refinement module
 
+use crate::topology::{Cell, ElementType, Face, Vertex};
 use nalgebra::RealField;
 use std::collections::HashMap;
-use crate::topology::{Cell, Face, Vertex, ElementType};
 
 pub mod criteria;
 
@@ -22,6 +22,7 @@ pub trait RefinementStrategy<T: RealField + Copy>: Send + Sync {
 pub struct UniformRefinement;
 
 impl<T: RealField + Copy> RefinementStrategy<T> for UniformRefinement {
+    #[allow(clippy::too_many_lines)]
     fn refine(&self, mesh: &mut crate::mesh::Mesh<T>) -> Result<(), crate::error::MeshError> {
         if mesh.cell_count() == 0 {
             return Ok(());
@@ -30,14 +31,15 @@ impl<T: RealField + Copy> RefinementStrategy<T> for UniformRefinement {
         // Check if we have only tetrahedra (simplification for now)
         for cell in mesh.cells() {
             if cell.element_type != ElementType::Tetrahedron {
-                return Err(crate::error::MeshError::NotImplemented(
-                    format!("Uniform refinement only implemented for Tetrahedra, found {:?}", cell.element_type)
-                ));
+                return Err(crate::error::MeshError::NotImplemented(format!(
+                    "Uniform refinement only implemented for Tetrahedra, found {:?}",
+                    cell.element_type
+                )));
             }
         }
 
         let mut new_mesh = crate::mesh::Mesh::new();
-        
+
         // 1. Copy existing vertices and keep track of their new indices (identity map for now)
         // We assume new_mesh.vertices will be [old_vertices ..., new_midpoints ...]
         for v in mesh.vertices() {
@@ -46,13 +48,21 @@ impl<T: RealField + Copy> RefinementStrategy<T> for UniformRefinement {
 
         // Map from sorted edge vertex pair (v_min, v_max) to new midpoint vertex index
         let mut midpoint_cache: HashMap<(usize, usize), usize> = HashMap::new();
-        
+
         // Map from sorted face vertex list to new face index (to deduplicate faces)
         let mut face_cache: HashMap<Vec<usize>, usize> = HashMap::new();
 
         // Helper to get or create midpoint
-        let mut get_midpoint = |v1_idx: usize, v2_idx: usize, new_mesh: &mut crate::mesh::Mesh<T>, mesh: &crate::mesh::Mesh<T>| -> usize {
-            let key = if v1_idx < v2_idx { (v1_idx, v2_idx) } else { (v2_idx, v1_idx) };
+        let mut get_midpoint = |v1_idx: usize,
+                                v2_idx: usize,
+                                new_mesh: &mut crate::mesh::Mesh<T>,
+                                mesh: &crate::mesh::Mesh<T>|
+         -> usize {
+            let key = if v1_idx < v2_idx {
+                (v1_idx, v2_idx)
+            } else {
+                (v2_idx, v1_idx)
+            };
             if let Some(&idx) = midpoint_cache.get(&key) {
                 idx
             } else {
@@ -69,26 +79,27 @@ impl<T: RealField + Copy> RefinementStrategy<T> for UniformRefinement {
         };
 
         // Helper to add face (deduplicated)
-        let mut add_face_dedup = |v_indices: Vec<usize>, new_mesh: &mut crate::mesh::Mesh<T>| -> usize {
-            let mut sorted_indices = v_indices.clone();
-            sorted_indices.sort_unstable();
-            
-            if let Some(&idx) = face_cache.get(&sorted_indices) {
-                idx
-            } else {
-                let face = Face::from_vertices(v_indices);
-                let idx = new_mesh.add_face(face);
-                face_cache.insert(sorted_indices, idx);
-                idx
-            }
-        };
+        let mut add_face_dedup =
+            |v_indices: Vec<usize>, new_mesh: &mut crate::mesh::Mesh<T>| -> usize {
+                let mut sorted_indices = v_indices.clone();
+                sorted_indices.sort_unstable();
+
+                if let Some(&idx) = face_cache.get(&sorted_indices) {
+                    idx
+                } else {
+                    let face = Face::from_vertices(v_indices);
+                    let idx = new_mesh.add_face(face);
+                    face_cache.insert(sorted_indices, idx);
+                    idx
+                }
+            };
 
         // 2. Iterate over cells and refine
         for cell in mesh.cells() {
             // Assume Tetrahedron: vertices v0, v1, v2, v3
             // Faces: (0,1,2), (0,1,3), (0,2,3), (1,2,3)
             // Edges: (0,1), (0,2), (0,3), (1,2), (1,3), (2,3)
-            
+
             // Get vertex indices
             // We need to extract them from the faces.
             // Mesh::element_vertices returns references, we need indices.
@@ -104,13 +115,14 @@ impl<T: RealField + Copy> RefinementStrategy<T> for UniformRefinement {
                     }
                 }
             }
-            
+
             if v_indices.len() != 4 {
-                 return Err(crate::error::MeshError::InvalidMesh(
-                    format!("Tetrahedron must have 4 vertices, found {}", v_indices.len())
-                ));
+                return Err(crate::error::MeshError::InvalidMesh(format!(
+                    "Tetrahedron must have 4 vertices, found {}",
+                    v_indices.len()
+                )));
             }
-            
+
             // Sort to ensure deterministic processing if needed, but we need to know topology.
             // Actually, for a tet, any permutation is a valid tet, but we need to know which edges exist.
             // In a full mesh, all pairs of vertices in a tet are edges.
@@ -151,10 +163,22 @@ impl<T: RealField + Copy> RefinementStrategy<T> for UniformRefinement {
 
             for tet_verts in new_tets {
                 // Create faces for new tet
-                let f0 = add_face_dedup(vec![tet_verts[0], tet_verts[1], tet_verts[2]], &mut new_mesh);
-                let f1 = add_face_dedup(vec![tet_verts[0], tet_verts[1], tet_verts[3]], &mut new_mesh);
-                let f2 = add_face_dedup(vec![tet_verts[0], tet_verts[2], tet_verts[3]], &mut new_mesh);
-                let f3 = add_face_dedup(vec![tet_verts[1], tet_verts[2], tet_verts[3]], &mut new_mesh);
+                let f0 = add_face_dedup(
+                    vec![tet_verts[0], tet_verts[1], tet_verts[2]],
+                    &mut new_mesh,
+                );
+                let f1 = add_face_dedup(
+                    vec![tet_verts[0], tet_verts[1], tet_verts[3]],
+                    &mut new_mesh,
+                );
+                let f2 = add_face_dedup(
+                    vec![tet_verts[0], tet_verts[2], tet_verts[3]],
+                    &mut new_mesh,
+                );
+                let f3 = add_face_dedup(
+                    vec![tet_verts[1], tet_verts[2], tet_verts[3]],
+                    &mut new_mesh,
+                );
 
                 new_mesh.add_cell(Cell::tetrahedron(f0, f1, f2, f3));
             }

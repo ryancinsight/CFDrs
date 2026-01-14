@@ -7,18 +7,18 @@
 //! - Versteeg & Malalasekera (2007). An Introduction to Computational Fluid Dynamics
 //! - Patankar (1980). Numerical Heat Transfer and Fluid Flow
 
-mod fundamental;
-mod inlet_outlet;
-mod set;
-mod wall;
 mod applicator;
 mod applicators;
 mod error;
+mod fundamental;
 mod geometry;
 mod ghost_cells;
+mod inlet_outlet;
 mod manager;
+mod set;
 mod specification;
 mod time_dependent;
+mod wall;
 
 #[cfg(test)]
 mod edge_case_tests;

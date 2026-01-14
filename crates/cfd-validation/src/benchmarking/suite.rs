@@ -10,6 +10,7 @@
 use super::{memory::MemoryStatsSnapshot, performance::TimingResult, scaling::ScalingResult};
 use cfd_core::error::Result;
 use std::collections::HashMap;
+use std::fmt::Write as _;
 use std::time::Duration;
 
 /// Benchmark configuration with architectural purity
@@ -184,30 +185,19 @@ impl BenchmarkSuite {
 
     /// Run the full benchmark suite
     pub fn run_full_suite(&self) -> Result<Vec<BenchmarkResult>> {
-        let mut results = Vec::new();
+        let problem_size = self.config.problem_sizes[0];
 
-        // Matrix assembly benchmark
-        results.push(
-            BenchmarkResult::new("matrix_assembly".to_string(), self.config.problem_sizes[0])
+        Ok(vec![
+            BenchmarkResult::new("matrix_assembly".to_string(), problem_size)
                 .with_status(BenchmarkStatus::Passed)
                 .with_duration(Duration::from_millis(150)),
-        );
-
-        // Vector operations benchmark
-        results.push(
-            BenchmarkResult::new("vector_ops".to_string(), self.config.problem_sizes[0])
+            BenchmarkResult::new("vector_ops".to_string(), problem_size)
                 .with_status(BenchmarkStatus::Passed)
                 .with_duration(Duration::from_millis(50)),
-        );
-
-        // Solver iterations benchmark
-        results.push(
-            BenchmarkResult::new("solver_iterations".to_string(), self.config.problem_sizes[0])
+            BenchmarkResult::new("solver_iterations".to_string(), problem_size)
                 .with_status(BenchmarkStatus::Passed)
                 .with_duration(Duration::from_millis(300)),
-        );
-
-        Ok(results)
+        ])
     }
 
     /// Calculate suite statistics
@@ -239,10 +229,9 @@ impl BenchmarkSuite {
             failed,
             regressions,
             total_duration,
-            average_duration: if total > 0 {
-                total_duration / total as u32
-            } else {
-                Duration::ZERO
+            average_duration: match u32::try_from(total) {
+                Ok(total_u32) if total_u32 > 0 => total_duration / total_u32,
+                _ => Duration::ZERO,
             },
         }
     }
@@ -253,37 +242,49 @@ impl BenchmarkSuite {
         let mut report = format!("CFD Benchmark Suite Report\n{}\n\n", "=".repeat(50));
 
         report.push_str("Configuration:\n");
-        report.push_str(&format!("  Iterations: {}\n", self.config.iterations));
-        report.push_str(&format!(
-            "  Memory Profiling: {}\n",
+        let _ = writeln!(&mut report, "  Iterations: {}", self.config.iterations);
+        let _ = writeln!(
+            &mut report,
+            "  Memory Profiling: {}",
             self.config.enable_memory
-        ));
-        report.push_str(&format!(
-            "  Scaling Analysis: {}\n",
+        );
+        let _ = writeln!(
+            &mut report,
+            "  Scaling Analysis: {}",
             self.config.enable_scaling
-        ));
-        report.push_str(&format!(
-            "  Problem Sizes: {:?}\n\n",
+        );
+        let _ = writeln!(
+            &mut report,
+            "  Problem Sizes: {:?}",
             self.config.problem_sizes
-        ));
+        );
+        report.push('\n');
 
         report.push_str("Suite Statistics:\n");
-        report.push_str(&format!("  Total Benchmarks: {}\n", stats.total_benchmarks));
-        report.push_str(&format!(
-            "  Passed: {} ({:.1}%)\n",
+        let _ = writeln!(
+            &mut report,
+            "  Total Benchmarks: {}",
+            stats.total_benchmarks
+        );
+        let _ = writeln!(
+            &mut report,
+            "  Passed: {} ({:.1}%)",
             stats.passed,
             (stats.passed as f64 / stats.total_benchmarks as f64) * 100.0
-        ));
-        report.push_str(&format!("  Failed: {}\n", stats.failed));
-        report.push_str(&format!("  Regressions: {}\n", stats.regressions));
-        report.push_str(&format!(
-            "  Total Duration: {:.3}s\n",
+        );
+        let _ = writeln!(&mut report, "  Failed: {}", stats.failed);
+        let _ = writeln!(&mut report, "  Regressions: {}", stats.regressions);
+        let _ = writeln!(
+            &mut report,
+            "  Total Duration: {:.3}s",
             stats.total_duration.as_secs_f64()
-        ));
-        report.push_str(&format!(
-            "  Average Duration: {:.3}s\n\n",
+        );
+        let _ = writeln!(
+            &mut report,
+            "  Average Duration: {:.3}s",
             stats.average_duration.as_secs_f64()
-        ));
+        );
+        report.push('\n');
 
         report.push_str("Benchmark Results:\n");
         for result in &self.results {
@@ -295,16 +296,17 @@ impl BenchmarkSuite {
                 BenchmarkStatus::Running => "⏳",
             };
 
-            report.push_str(&format!(
+            let _ = write!(
+                &mut report,
                 "  {} {} (size: {}): {:.3}ms",
                 status_icon,
                 result.name,
                 result.problem_size,
                 result.duration.as_secs_f64() * 1000.0
-            ));
+            );
 
             if let Some(regression) = result.regression_detected {
-                report.push_str(&format!(" [Regression: {regression:.1}%]"));
+                let _ = write!(&mut report, " [Regression: {regression:.1}%]");
             }
             report.push('\n');
         }

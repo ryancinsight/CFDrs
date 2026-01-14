@@ -89,5 +89,5 @@ pub const SA_SIGMA: f64 = 2.0 / 3.0;
 /// Empirical constant for destruction term (Spalart & Allmaras 1994)
 pub const SA_CW1_COMPUTED: f64 = 3.239; // CB1/κ² + (1+CB2)/σ
 /// von Kármán constant squared for SA model
-pub const SA_KAPPA_SQ: f64 =
-    cfd_core::physics::constants::physics::fluid::VON_KARMAN * cfd_core::physics::constants::physics::fluid::VON_KARMAN;
+pub const SA_KAPPA_SQ: f64 = cfd_core::physics::constants::physics::fluid::VON_KARMAN
+    * cfd_core::physics::constants::physics::fluid::VON_KARMAN;

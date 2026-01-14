@@ -149,3 +149,115 @@ impl<T: RealField + Copy + FromPrimitive> VenturiCavitation<T> {
         one_third * pi * radius * radius * cavity_len
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::VenturiCavitation;
+
+    fn approx_eq(a: f64, b: f64, tol: f64) -> bool {
+        (a - b).abs() <= tol
+    }
+
+    #[test]
+    fn throat_velocity_matches_continuity() {
+        let venturi = VenturiCavitation::<f64> {
+            inlet_diameter: 0.05,
+            throat_diameter: 0.02,
+            outlet_diameter: 0.05,
+            convergent_angle: 0.0,
+            divergent_angle: 0.0,
+            inlet_pressure: 300_000.0,
+            inlet_velocity: 3.0,
+            density: 998.2,
+            vapor_pressure: 2339.0,
+        };
+
+        let expected = 3.0_f64 * (0.05_f64 / 0.02_f64).powi(2);
+        assert!(approx_eq(venturi.throat_velocity(), expected, 1e-12));
+    }
+
+    #[test]
+    fn throat_pressure_matches_bernoulli() {
+        let venturi = VenturiCavitation::<f64> {
+            inlet_diameter: 0.05,
+            throat_diameter: 0.02,
+            outlet_diameter: 0.05,
+            convergent_angle: 0.0,
+            divergent_angle: 0.0,
+            inlet_pressure: 300_000.0,
+            inlet_velocity: 3.0,
+            density: 998.2,
+            vapor_pressure: 2339.0,
+        };
+
+        let v1 = 3.0;
+        let v2 = venturi.throat_velocity();
+        let expected = 300_000.0 - 0.5 * 998.2 * (v2 * v2 - v1 * v1);
+        assert!(approx_eq(venturi.throat_pressure(), expected, 1e-9));
+    }
+
+    #[test]
+    fn cavitation_number_matches_definition() {
+        let venturi = VenturiCavitation::<f64> {
+            inlet_diameter: 0.05,
+            throat_diameter: 0.02,
+            outlet_diameter: 0.05,
+            convergent_angle: 0.0,
+            divergent_angle: 0.0,
+            inlet_pressure: 300_000.0,
+            inlet_velocity: 3.0,
+            density: 998.2,
+            vapor_pressure: 2339.0,
+        };
+
+        let p_throat = venturi.throat_pressure();
+        let v_throat = venturi.throat_velocity();
+        let expected = (p_throat - 2339.0) / (0.5 * 998.2 * v_throat * v_throat);
+        assert!(approx_eq(venturi.cavitation_number(), expected, 1e-12));
+        assert!(venturi.cavitation_number().is_finite());
+    }
+
+    #[test]
+    fn cavity_length_is_zero_above_incipient_and_grows_as_sigma_drops() {
+        let venturi = VenturiCavitation::<f64> {
+            inlet_diameter: 0.05,
+            throat_diameter: 0.02,
+            outlet_diameter: 0.05,
+            convergent_angle: 0.0,
+            divergent_angle: 0.0,
+            inlet_pressure: 300_000.0,
+            inlet_velocity: 3.0,
+            density: 998.2,
+            vapor_pressure: 2339.0,
+        };
+
+        let l_non = venturi.cavity_length(1.3);
+        let l_weak = venturi.cavity_length(1.1);
+        let l_strong = venturi.cavity_length(0.6);
+
+        assert!(approx_eq(l_non, 0.0, 0.0));
+        assert!(l_weak > 0.0);
+        assert!(l_strong > l_weak);
+    }
+
+    #[test]
+    fn cavity_volume_matches_conical_approximation() {
+        let venturi = VenturiCavitation::<f64> {
+            inlet_diameter: 0.05,
+            throat_diameter: 0.02,
+            outlet_diameter: 0.05,
+            convergent_angle: 0.0,
+            divergent_angle: 0.0,
+            inlet_pressure: 300_000.0,
+            inlet_velocity: 3.0,
+            density: 998.2,
+            vapor_pressure: 2339.0,
+        };
+
+        let sigma = 0.6;
+        let l = venturi.cavity_length(sigma);
+        let r = 0.02 * 0.5;
+        let expected = (std::f64::consts::PI / 3.0) * r * r * l;
+        assert!(approx_eq(venturi.cavity_volume(sigma), expected, 1e-15));
+    }
+}

@@ -45,9 +45,8 @@
 
 pub mod abstractions;
 pub mod compute;
-pub mod domain;
 pub mod error;
-pub mod interpolation;
+pub mod geometry;
 pub use crate::management::conversion;
 /// Domain management, coordination, and plugin system
 pub mod management;
@@ -63,14 +62,14 @@ pub mod physics;
 pub mod prelude {
 
     // Essential types that users will directly interact with
+    pub use crate::abstractions::problem::Problem;
+    pub use crate::abstractions::state::SimulationState;
+    pub use crate::compute::solver::{Solver, SolverConfig, SolverConfiguration};
+    pub use crate::compute::time::TimeIntegrator;
     pub use crate::error::{Error, Result};
-    pub use crate::domain::Domain;
+    pub use crate::geometry::Domain;
     pub use crate::physics::boundary::{BoundaryCondition, WallType};
     pub use crate::physics::fluid::{ConstantPropertyFluid, Fluid};
-    pub use crate::abstractions::problem::Problem;
-    pub use crate::compute::solver::{Solver, SolverConfig, SolverConfiguration};
-    pub use crate::abstractions::state::SimulationState;
-    pub use crate::compute::time::TimeIntegrator;
     pub use crate::physics::values::{Pressure, ReynoldsNumber, Temperature, Velocity};
 
     // Plugin system - only expose the main trait
@@ -82,7 +81,9 @@ pub mod prelude {
 
 /// Factory system for dynamic solver creation (advanced usage)
 pub mod factories {
-    pub use crate::management::factory::{ConcreteSolverFactory, FactoryCapability, SolverFactoryRegistry};
+    pub use crate::management::factory::{
+        ConcreteSolverFactory, FactoryCapability, SolverFactoryRegistry,
+    };
 }
 
 /// Plugin system internals (for plugin developers)
@@ -106,9 +107,9 @@ pub mod aggregates_api {
 
 /// Service layer abstractions
 pub mod services_api {
+    pub use crate::geometry::mesh::{MeshQualityService, QualityLevel};
     pub use crate::physics::fluid_dynamics::flow_regimes::FlowRegime;
     pub use crate::physics::fluid_dynamics::service::FluidDynamicsService;
-    pub use crate::domain::mesh::{MeshQualityService, QualityLevel};
 }
 
 // Note: TypeErasedFactory and TypeErasedSolver are internal implementation details

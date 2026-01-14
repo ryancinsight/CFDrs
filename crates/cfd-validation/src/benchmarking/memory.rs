@@ -261,17 +261,23 @@ impl TrackingAllocator {
     fn record_allocation(&self, size: usize) {
         // Use Release ordering to ensure these updates are visible to snapshot()
         self.stats.allocation_count.fetch_add(1, Ordering::Release);
-        self.stats.total_allocated.fetch_add(size as u64, Ordering::Release);
-        let current = self.stats.current_allocated.fetch_add(size, Ordering::AcqRel) + size;
-        
+        self.stats
+            .total_allocated
+            .fetch_add(size as u64, Ordering::Release);
+        let current = self
+            .stats
+            .current_allocated
+            .fetch_add(size, Ordering::AcqRel)
+            + size;
+
         // Update peak using a loop to ensure we don't overwrite a higher value
         let mut peak = self.stats.peak_allocated.load(Ordering::Acquire);
         while current > peak {
             match self.stats.peak_allocated.compare_exchange_weak(
-                peak, 
-                current, 
-                Ordering::AcqRel, 
-                Ordering::Acquire
+                peak,
+                current,
+                Ordering::AcqRel,
+                Ordering::Acquire,
             ) {
                 Ok(_) => break,
                 Err(actual) => peak = actual,
@@ -282,10 +288,10 @@ impl TrackingAllocator {
         let mut max_size = self.stats.max_allocation_size.load(Ordering::Acquire);
         while size > max_size {
             match self.stats.max_allocation_size.compare_exchange_weak(
-                max_size, 
-                size, 
-                Ordering::AcqRel, 
-                Ordering::Acquire
+                max_size,
+                size,
+                Ordering::AcqRel,
+                Ordering::Acquire,
             ) {
                 Ok(_) => break,
                 Err(actual) => max_size = actual,
@@ -294,9 +300,15 @@ impl TrackingAllocator {
     }
 
     fn record_deallocation(&self, size: usize) {
-        self.stats.deallocation_count.fetch_add(1, Ordering::Release);
-        self.stats.total_deallocated.fetch_add(size as u64, Ordering::Release);
-        self.stats.current_allocated.fetch_sub(size, Ordering::AcqRel);
+        self.stats
+            .deallocation_count
+            .fetch_add(1, Ordering::Release);
+        self.stats
+            .total_deallocated
+            .fetch_add(size as u64, Ordering::Release);
+        self.stats
+            .current_allocated
+            .fetch_sub(size, Ordering::AcqRel);
     }
 }
 
@@ -415,13 +427,15 @@ impl CfdMemoryProfiler {
 
     /// Run comprehensive CFD memory profiling suite
     pub fn run_memory_suite(&self) -> Result<Vec<(String, MemoryStatsSnapshot)>> {
-        let mut results = Vec::new();
+        let matrix_ops = self.profile_matrix_operations()?;
+        let grid_ops = self.profile_grid_operations()?;
+        let sim_fields = self.profile_simulation_fields()?;
 
-        results.push(("Matrix_Operations".to_string(), self.profile_matrix_operations()?));
-        results.push(("Grid_Operations".to_string(), self.profile_grid_operations()?));
-        results.push(("Simulation_Fields".to_string(), self.profile_simulation_fields()?));
-
-        Ok(results)
+        Ok(vec![
+            ("Matrix_Operations".to_string(), matrix_ops),
+            ("Grid_Operations".to_string(), grid_ops),
+            ("Simulation_Fields".to_string(), sim_fields),
+        ])
     }
 }
 
@@ -493,7 +507,7 @@ mod tests {
 
         assert!(!results.is_empty());
         for (name, stats) in results {
-            println!("{}: {}", name, stats);
+            println!("{name}: {stats}");
             assert!(stats.total_allocated > 0);
         }
     }

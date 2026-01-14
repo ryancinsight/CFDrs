@@ -70,7 +70,7 @@ fn test_hagen_poiseuille_reynolds_range() {
     assert_eq!(re_min, 0.0);
 
     // Verify upper bound is at laminar-turbulent transition (Re ≈ 2300)
-    assert!(re_max >= 2000.0 && re_max <= 2400.0, "Re_max = {}", re_max);
+    assert!((2000.0..=2400.0).contains(&re_max), "Re_max = {}", re_max);
 }
 
 /// Test Darcy-Weisbach with Colebrook-White for smooth pipes.
@@ -114,9 +114,9 @@ fn test_darcy_weisbach_smooth_pipe() -> Result<()> {
     // For smooth pipes at Re=10,000, Moody chart gives f ≈ 0.0309
     // Colebrook-White iterative solution gives slightly different value
     let f_expected: f64 = 0.0308449; // More precise value from Colebrook-White
-    // Turbulent Darcy–Weisbach is quadratic in flow. `calculate_resistance()` returns
-    // an effective linearization R_eff = k|Q|. With Q = V·A (circular):
-    // R_eff = f ρ L V / (2 A D)
+                                     // Turbulent Darcy–Weisbach is quadratic in flow. `calculate_resistance()` returns
+                                     // an effective linearization R_eff = k|Q|. With Q = V·A (circular):
+                                     // R_eff = f ρ L V / (2 A D)
     let v: f64 = conditions_turbulent.velocity.unwrap();
     let expected_resistance_turbulent: f64 =
         f_expected * fluid.density * length * v / (2.0 * area * diameter);
@@ -156,8 +156,8 @@ fn test_darcy_weisbach_rough_pipe() -> Result<()> {
     let f_expected: f64 = 0.01721; // Adjusted for Colebrook-White iteration
     let area: f64 = std::f64::consts::PI * diameter.powi(2) / 4.0;
     let v: f64 = conditions.velocity.unwrap();
-    let expected_resistance: f64 = f_expected * fluid.density * length * v
-        / (2.0 * area * diameter);
+    let expected_resistance: f64 =
+        f_expected * fluid.density * length * v / (2.0 * area * diameter);
 
     // Allow 0.05% tolerance for Colebrook-White iteration vs Moody chart
     assert_relative_eq!(resistance, expected_resistance, max_relative = 0.0005);
@@ -267,7 +267,8 @@ fn test_rectangular_channel_analytical() -> Result<()> {
     let d_h_05: f64 = (2.0 * 1e-3 * 0.5e-3) / (1e-3 + 0.5e-3);
     let area_05 = 1e-3 * 0.5e-3;
     let po_05 = 62.19;
-    let expected_resistance_05 = (po_05 * fluid.viscosity * length) / (2.0 * area_05 * d_h_05.powi(2));
+    let expected_resistance_05 =
+        (po_05 * fluid.viscosity * length) / (2.0 * area_05 * d_h_05.powi(2));
     assert_relative_eq!(resistance_05, expected_resistance_05, max_relative = 0.01);
 
     // High aspect ratio (approaches parallel plates): Po = 96.0
@@ -276,7 +277,8 @@ fn test_rectangular_channel_analytical() -> Result<()> {
     let d_h_inf: f64 = (2.0 * 10e-3 * 0.1e-3) / (10e-3 + 0.1e-3);
     let area_inf = 10e-3 * 0.1e-3;
     let po_inf = 96.0;
-    let expected_resistance_inf = (po_inf * fluid.viscosity * length) / (2.0 * area_inf * d_h_inf.powi(2));
+    let expected_resistance_inf =
+        (po_inf * fluid.viscosity * length) / (2.0 * area_inf * d_h_inf.powi(2));
     assert_relative_eq!(resistance_inf, expected_resistance_inf, max_relative = 0.05);
 
     Ok(())

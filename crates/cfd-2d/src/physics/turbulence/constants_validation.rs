@@ -182,7 +182,9 @@ pub struct TurbulenceConstantsValidator<T: RealField + Copy> {
     pub tolerance: T,
 }
 
-impl<T: RealField + FromPrimitive + ToPrimitive + Copy> Default for TurbulenceConstantsValidator<T> {
+impl<T: RealField + FromPrimitive + ToPrimitive + Copy> Default
+    for TurbulenceConstantsValidator<T>
+{
     fn default() -> Self {
         Self {
             dns_database: DnsChannelFlowDatabase::moser_1999_re590(),

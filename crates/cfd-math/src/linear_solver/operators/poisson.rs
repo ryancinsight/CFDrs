@@ -57,7 +57,8 @@ impl<T: RealField + Copy + num_traits::FromPrimitive> LinearOperator<T> for Lapl
                 let center = x_slice[idx];
 
                 let d2x_dx2 = (x_slice[idx - 1] + x_slice[idx + 1] - two * center) * dx2_inv;
-                let d2x_dy2 = (x_slice[idx - self.nx] + x_slice[idx + self.nx] - two * center) * dy2_inv;
+                let d2x_dy2 =
+                    (x_slice[idx - self.nx] + x_slice[idx + self.nx] - two * center) * dy2_inv;
 
                 y_slice[idx] = -(d2x_dx2 + d2x_dy2);
             }
@@ -89,7 +90,14 @@ pub struct PoissonOperator3D<T: RealField + Copy> {
 impl<T: RealField + Copy> PoissonOperator3D<T> {
     /// Create a new 3D Poisson operator
     pub fn new(nx: usize, ny: usize, nz: usize, dx: T, dy: T, dz: T) -> Self {
-        Self { nx, ny, nz, dx, dy, dz }
+        Self {
+            nx,
+            ny,
+            nz,
+            dx,
+            dy,
+            dz,
+        }
     }
 }
 
@@ -116,7 +124,9 @@ impl<T: RealField + Copy + num_traits::FromPrimitive> LinearOperator<T> for Pois
 
                     let d2x = (x_s[idx - 1] + x_s[idx + 1] - two * center) * dx2_inv;
                     let d2y = (x_s[idx - self.nx] + x_s[idx + self.nx] - two * center) * dy2_inv;
-                    let d2z = (x_s[idx - self.nx * self.ny] + x_s[idx + self.nx * self.ny] - two * center) * dz2_inv;
+                    let d2z = (x_s[idx - self.nx * self.ny] + x_s[idx + self.nx * self.ny]
+                        - two * center)
+                        * dz2_inv;
 
                     y_s[idx] = -(d2x + d2y + d2z);
                 }

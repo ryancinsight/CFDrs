@@ -3,12 +3,12 @@
 //! These preconditioners are simple to implement and provide a baseline
 //! for more advanced techniques.
 
-use nalgebra::{DVector, RealField};
-use nalgebra_sparse::CsrMatrix;
-use num_traits::FromPrimitive;
 use crate::linear_solver::Preconditioner;
 use crate::sparse::SparseMatrixExt;
 use cfd_core::error::{Error, NumericalErrorKind, Result};
+use nalgebra::{DVector, RealField};
+use nalgebra_sparse::CsrMatrix;
+use num_traits::FromPrimitive;
 
 /// Identity preconditioner (no preconditioning)
 #[derive(Default)]

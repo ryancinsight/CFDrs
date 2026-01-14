@@ -1,8 +1,8 @@
 //! Problem aggregate for CFD problem definitions
 
-use crate::physics::boundary::BoundaryCondition;
-use crate::domain::Domain;
 use crate::error::{Error, Result};
+use crate::geometry::Domain;
+use crate::physics::boundary::BoundaryCondition;
 use crate::physics::fluid::ConstantPropertyFluid;
 use crate::physics::values::{Pressure, Velocity};
 use nalgebra::RealField;

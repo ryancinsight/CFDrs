@@ -1,12 +1,12 @@
 //! Problem definition for 1D network flow analysis
 
-use super::domain::NetworkDomain;
+use super::geometry::NetworkDomain;
 use super::state::NetworkState;
 use crate::network::Network;
-use cfd_core::physics::boundary::BoundaryConditionSet;
-use cfd_core::error::Result;
-use cfd_core::physics::fluid::ConstantPropertyFluid;
 use cfd_core::abstractions::problem::Problem;
+use cfd_core::error::Result;
+use cfd_core::physics::boundary::BoundaryConditionSet;
+use cfd_core::physics::fluid::ConstantPropertyFluid;
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 

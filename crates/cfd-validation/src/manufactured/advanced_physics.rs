@@ -85,7 +85,6 @@ impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedCompressibleEu
         // This implements exact analytical source term computation
 
         let rho_0 = self.rho_0();
-        let p_0 = self.p_0();
         let u_0 = self.u_0();
 
         // Manufactured solution perturbations
@@ -97,16 +96,10 @@ impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedCompressibleEu
         let rho = rho_0 + rho_prime;
         let u = u_0 + u_prime;
         let v = v_prime; // Assume reference v = 0
-        let p = p_0; // Simplified: constant pressure for now
-
-        // Internal energy and total energy
-        let e_internal = p / ((self.gamma - T::one()) * rho);
-        let e_total = e_internal + T::from_f64_or_one(0.5) * (u * u + v * v);
 
         // Conserved variables
         let rho_u = rho * u;
         let rho_v = rho * v;
-        let rho_e = rho * e_total;
 
         // Time derivatives (exact analytical)
         let kx = self.kx;
@@ -122,37 +115,14 @@ impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedCompressibleEu
         // ∂ρ/∂t
         let drho_dt = -omega * rho_prime;
 
-        // ∂(ρu)/∂t
-        let d_rho_u_dt = -omega * rho_u;
-
-        // ∂(ρv)/∂t
-        let d_rho_v_dt = -omega * rho_v;
-
-        // ∂(ρE)/∂t
-        let d_rho_e_dt = -omega * rho_e;
-
         // Spatial derivatives for flux divergence
-        // ∇·F where F = [ρu, ρu² + p, ρuv, u(ρE + p)]
         let d_f1_dx = rho_u * kx * cos_kx_x * sin_ky_y * exp_omega_t * u_0; // ∂(ρu)/∂x
-        let d_f2_dx = (rho_u * u + p) * kx * cos_kx_x * sin_ky_y * exp_omega_t * u_0; // ∂(ρu² + p)/∂x
-        let d_f3_dx = rho_u * v * kx * cos_kx_x * sin_ky_y * exp_omega_t * u_0; // ∂(ρuv)/∂x
-        let d_f4_dx = u * (rho_e + p) * kx * cos_kx_x * sin_ky_y * exp_omega_t * u_0; // ∂(u(ρE + p))/∂x
 
-        // ∇·G where G = [ρv, ρuv, ρv² + p, v(ρE + p)]
         let d_g1_dy = rho_v * ky * sin_kx_x * cos_ky_y * exp_omega_t * u_0; // ∂(ρv)/∂y
-        let d_g2_dy = rho_u * v * ky * sin_kx_x * cos_ky_y * exp_omega_t * u_0; // ∂(ρuv)/∂y
-        let d_g3_dy = (rho_v * v + p) * ky * sin_kx_x * cos_ky_y * exp_omega_t * u_0; // ∂(ρv² + p)/∂y
-        let d_g4_dy = v * (rho_e + p) * ky * sin_kx_x * cos_ky_y * exp_omega_t * u_0; // ∂(v(ρE + p))/∂y
-
-        // Source terms for each conserved equation
-        let s_rho = drho_dt + d_f1_dx + d_g1_dy;
-        let _s_rho_u = d_rho_u_dt + d_f2_dx + d_g2_dy;
-        let _s_rho_v = d_rho_v_dt + d_f3_dx + d_g3_dy;
-        let _s_rho_e = d_rho_e_dt + d_f4_dx + d_g4_dy;
 
         // Return the mass equation source term as representative
         // In practice, this should return a vector of all source terms
-        s_rho
+        drho_dt + d_f1_dx + d_g1_dy
     }
 }
 
@@ -347,13 +317,13 @@ impl<T: RealField + Copy> ManufacturedShockCapturing<T> {
     }
 
     /// Pre-shock density
-    fn rho_pre(&self) -> T {
+    fn rho_pre() -> T {
         T::one()
     }
 
     /// Post-shock density
     fn rho_post(&self) -> T {
-        self.rho_pre() * self.shock_strength
+        Self::rho_pre() * self.shock_strength
     }
 }
 
@@ -365,7 +335,7 @@ impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedShockCapturing
 
         if x < shock_x {
             // Pre-shock region with relative perturbation
-            self.rho_pre() * (T::one() + perturbation)
+            Self::rho_pre() * (T::one() + perturbation)
         } else {
             // Post-shock region with relative perturbation
             self.rho_post() * (T::one() + perturbation)
@@ -379,7 +349,7 @@ impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedShockCapturing
 
         if x < shock_x {
             // Pre-shock source term (∂ρ/∂t = -ρ_0 * pert)
-            -self.rho_pre() * perturbation
+            -Self::rho_pre() * perturbation
         } else {
             // Post-shock source term
             -self.rho_post() * perturbation
@@ -413,14 +383,9 @@ mod tests {
         // Density should be close to reference state
         assert!(
             rho > 0.9 && rho < 1.2,
-            "Density out of expected range: {}",
-            rho
+            "Density out of expected range: {rho}"
         );
-        assert!(
-            source.is_finite(),
-            "Source term should be finite: {}",
-            source
-        );
+        assert!(source.is_finite(), "Source term should be finite: {source}");
 
         // Check reference state properties
         assert!(euler.u_0() > 1.0, "Sonic speed should be reasonable");
@@ -448,14 +413,12 @@ mod tests {
 
         // Mixture fraction should be in [0,1]
         assert!(
-            z >= 0.0 && z <= 1.0,
-            "Mixture fraction out of bounds: {}",
-            z
+            (0.0..=1.0).contains(&z),
+            "Mixture fraction out of bounds: {z}"
         );
         assert!(
             source.is_finite(),
-            "TCI source term should be finite: {}",
-            source
+            "TCI source term should be finite: {source}"
         );
 
         // Test at multiple points
@@ -463,11 +426,8 @@ mod tests {
         for (x_test, y_test) in test_points {
             let z_test = tci.exact_solution(x_test, y_test, 0.0, t);
             assert!(
-                z_test >= 0.0 && z_test <= 1.0,
-                "Mixture fraction bounds violated at ({},{}): {}",
-                x_test,
-                y_test,
-                z_test
+                (0.0..=1.0).contains(&z_test),
+                "Mixture fraction bounds violated at ({x_test},{y_test}): {z_test}"
             );
         }
     }
@@ -495,13 +455,11 @@ mod tests {
         // Temperature should be reasonable for hypersonic flow
         assert!(
             temp > 2.0 && temp < 5.0,
-            "Temperature out of expected range: {}",
-            temp
+            "Temperature out of expected range: {temp}"
         );
         assert!(
             source.is_finite(),
-            "Hypersonic source term should be finite: {}",
-            source
+            "Hypersonic source term should be finite: {source}"
         );
 
         // Check flow parameters
@@ -538,9 +496,7 @@ mod tests {
         // Post-shock density should be higher due to shock compression
         assert!(
             rho_post > rho_pre,
-            "Post-shock density should be higher: pre={}, post={}",
-            rho_pre,
-            rho_post
+            "Post-shock density should be higher: pre={rho_pre}, post={rho_post}"
         );
         assert!(
             rho_post / rho_pre >= 3.5,
@@ -568,16 +524,14 @@ mod tests {
     fn test_shock_position_evolution() {
         let shock = ManufacturedShockCapturing::<f64>::new(4.0, 2.0, 0.0, 0.05, 2.0, 1.0);
 
-        let times = vec![0.0, 0.25, 0.5, 0.75, 1.0];
+        let times = [0.0, 0.25, 0.5, 0.75, 1.0];
         let mut prev_pos = shock.shock_position(0.0);
 
         for &t in &times[1..] {
             let pos = shock.shock_position(t);
             assert!(
                 pos > prev_pos,
-                "Shock should move forward: t={}, pos={}",
-                t,
-                pos
+                "Shock should move forward: t={t}, pos={pos}"
             );
             assert!(
                 (pos - prev_pos

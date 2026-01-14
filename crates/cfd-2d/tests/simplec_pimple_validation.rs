@@ -42,13 +42,15 @@ fn test_simplec_smoke_re50() -> cfd_core::error::Result<()> {
     run_lid_driven_cavity(
         &mut solver,
         &mut fields,
-        NX,
-        NY,
-        dt,
-        nu,
-        rho,
-        max_time_steps,
-        convergence_tolerance,
+        LidDrivenCavityRun {
+            nx: NX,
+            ny: NY,
+            dt,
+            nu,
+            rho,
+            max_time_steps,
+            convergence_tolerance,
+        },
     )?;
 
     let computed_u = extract_centerline_u(&fields, NX, NY);
@@ -98,13 +100,15 @@ fn test_pimple_smoke_re50() -> cfd_core::error::Result<()> {
     run_lid_driven_cavity(
         &mut solver,
         &mut fields,
-        NX,
-        NY,
-        dt,
-        nu,
-        rho,
-        max_time_steps,
-        convergence_tolerance,
+        LidDrivenCavityRun {
+            nx: NX,
+            ny: NY,
+            dt,
+            nu,
+            rho,
+            max_time_steps,
+            convergence_tolerance,
+        },
     )?;
 
     let computed_u = extract_centerline_u(&fields, NX, NY);
@@ -148,11 +152,9 @@ fn test_pimple_solver_creation() -> cfd_core::error::Result<()> {
     Ok(())
 }
 
-
 /// Run SIMPLEC algorithm on lid-driven cavity problem
-fn run_lid_driven_cavity<T>(
-    solver: &mut SimplecPimpleSolver<T>,
-    fields: &mut SimulationFields<T>,
+#[derive(Debug, Clone, Copy)]
+struct LidDrivenCavityRun<T> {
     nx: usize,
     ny: usize,
     dt: T,
@@ -160,31 +162,37 @@ fn run_lid_driven_cavity<T>(
     rho: T,
     max_time_steps: usize,
     convergence_tolerance: T,
+}
+
+fn run_lid_driven_cavity<T>(
+    solver: &mut SimplecPimpleSolver<T>,
+    fields: &mut SimulationFields<T>,
+    run: LidDrivenCavityRun<T>,
 ) -> cfd_core::error::Result<()>
 where
     T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp,
 {
     // Set up lid-driven cavity boundary conditions
     // Top boundary: u = 1.0, v = 0.0 (moving lid)
-    for i in 0..nx {
-        fields.set_velocity_at(i, ny - 1, &Vector2::new(T::one(), T::zero()));
+    for i in 0..run.nx {
+        fields.set_velocity_at(i, run.ny - 1, &Vector2::new(T::one(), T::zero()));
     }
 
     // Other boundaries: no-slip (u = 0, v = 0)
-    for i in 0..nx {
+    for i in 0..run.nx {
         fields.set_velocity_at(i, 0, &Vector2::zeros()); // bottom
     }
-    for j in 0..ny {
+    for j in 0..run.ny {
         fields.set_velocity_at(0, j, &Vector2::zeros()); // left
-        fields.set_velocity_at(nx - 1, j, &Vector2::zeros()); // right
+        fields.set_velocity_at(run.nx - 1, j, &Vector2::zeros()); // right
     }
 
     // Time stepping until steady state
-    for step in 0..max_time_steps {
-        let residual = solver.solve_time_step(fields, dt, nu, rho)?;
+    for step in 0..run.max_time_steps {
+        let residual = solver.solve_time_step(fields, run.dt, run.nu, run.rho)?;
 
         // Check convergence (steady state - residual becomes very small)
-        if residual < convergence_tolerance {
+        if residual < run.convergence_tolerance {
             println!("Converged at step {}, residual: {:.2e}", step, residual);
             break;
         }
@@ -227,19 +235,6 @@ impl GhiaReferenceData {
             u_centerline: vec![
                 0.0000, -0.08186, -0.09266, -0.10338, -0.14612, -0.24299, -0.32726, -0.17119,
                 -0.11477, 0.02135, 0.16256, 0.29093, 0.55892, 0.61756, 0.68439, 0.75837, 1.0000,
-            ],
-        }
-    }
-
-    fn re1000() -> Self {
-        Self {
-            y: vec![
-                0.0000, 0.0547, 0.0625, 0.0703, 0.1016, 0.1719, 0.2813, 0.4531, 0.5000, 0.6172,
-                0.7344, 0.8516, 0.9531, 0.9609, 0.9688, 0.9766, 1.0000,
-            ],
-            u_centerline: vec![
-                0.0000, -0.18109, -0.20196, -0.22220, -0.29730, -0.38289, -0.27805, -0.10648,
-                -0.06080, 0.05702, 0.18719, 0.33304, 0.46604, 0.51117, 0.57492, 0.65928, 1.0000,
             ],
         }
     }
@@ -290,7 +285,7 @@ where
 
                 let u_ref = u1 + (u2 - u1) * (y_comp - y1) / (y2 - y1);
                 let error = u_comp - u_ref;
-                l2_error = l2_error + error * error;
+                l2_error += error * error;
                 count += 1;
                 continue;
             }
@@ -299,7 +294,7 @@ where
 
         let u_ref = T::from_f64(reference.u_centerline[idx]).unwrap();
         let error = u_comp - u_ref;
-        l2_error = l2_error + error * error;
+        l2_error += error * error;
         count += 1;
     }
 
@@ -359,13 +354,15 @@ fn test_simplec_ghia_cavity_re100() -> cfd_core::error::Result<()> {
     run_lid_driven_cavity(
         &mut solver,
         &mut fields,
-        NX,
-        NY,
-        dt,
-        nu,
-        rho,
-        max_time_steps,
-        convergence_tolerance,
+        LidDrivenCavityRun {
+            nx: NX,
+            ny: NY,
+            dt,
+            nu,
+            rho,
+            max_time_steps,
+            convergence_tolerance,
+        },
     )?;
 
     // Extract centerline velocity profile
@@ -429,13 +426,15 @@ fn test_simplec_ghia_cavity_re400() -> cfd_core::error::Result<()> {
     run_lid_driven_cavity(
         &mut solver,
         &mut fields,
-        NX,
-        NY,
-        dt,
-        nu,
-        rho,
-        max_time_steps,
-        convergence_tolerance,
+        LidDrivenCavityRun {
+            nx: NX,
+            ny: NY,
+            dt,
+            nu,
+            rho,
+            max_time_steps,
+            convergence_tolerance,
+        },
     )?;
 
     let computed_u = extract_centerline_u(&fields, NX, NY);
@@ -501,13 +500,15 @@ fn test_pimple_ghia_cavity_re100() -> cfd_core::error::Result<()> {
     run_lid_driven_cavity(
         &mut solver,
         &mut fields,
-        NX,
-        NY,
-        dt,
-        nu,
-        rho,
-        max_time_steps,
-        convergence_tolerance,
+        LidDrivenCavityRun {
+            nx: NX,
+            ny: NY,
+            dt,
+            nu,
+            rho,
+            max_time_steps,
+            convergence_tolerance,
+        },
     )?;
 
     let computed_u = extract_centerline_u(&fields, NX, NY);
@@ -594,13 +595,15 @@ fn test_pimple_vs_simplec_performance() -> cfd_core::error::Result<()> {
     run_lid_driven_cavity(
         &mut simplec_solver,
         &mut simplec_fields,
-        NX,
-        NY,
-        dt,
-        nu,
-        rho,
-        max_time_steps,
-        convergence_tolerance,
+        LidDrivenCavityRun {
+            nx: NX,
+            ny: NY,
+            dt,
+            nu,
+            rho,
+            max_time_steps,
+            convergence_tolerance,
+        },
     )?;
     let simplec_time = start.elapsed();
 
@@ -609,13 +612,15 @@ fn test_pimple_vs_simplec_performance() -> cfd_core::error::Result<()> {
     run_lid_driven_cavity(
         &mut pimple_solver,
         &mut pimple_fields,
-        NX,
-        NY,
-        dt,
-        nu,
-        rho,
-        max_time_steps,
-        convergence_tolerance,
+        LidDrivenCavityRun {
+            nx: NX,
+            ny: NY,
+            dt,
+            nu,
+            rho,
+            max_time_steps,
+            convergence_tolerance,
+        },
     )?;
     let pimple_time = start.elapsed();
 

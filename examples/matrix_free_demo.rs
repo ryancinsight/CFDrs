@@ -7,9 +7,8 @@
 
 use cfd_math::error::Result;
 use cfd_math::linear_solver::{
-    ConjugateGradient, IterativeSolverConfig,
-    LaplacianOperator2D, LinearOperator,
-    IterativeLinearSolver,
+    ConjugateGradient, IterativeLinearSolver, IterativeSolverConfig, LaplacianOperator2D,
+    LinearOperator,
 };
 use nalgebra::DVector;
 
@@ -74,9 +73,9 @@ fn main() -> Result<()> {
     let mut b_data = vec![0.0; n];
     let pi = std::f64::consts::PI;
 
-    for i in 0..n {
+    for (i, b_i) in b_data.iter_mut().enumerate() {
         let x = i as f64 * dx;
-        b_data[i] = pi * pi * (x).sin();
+        *b_i = pi * pi * x.sin();
     }
     let b = DVector::from_vec(b_data);
 
@@ -85,7 +84,12 @@ fn main() -> Result<()> {
     let solver = ConjugateGradient::new(config);
 
     let mut x = DVector::zeros(n);
-    solver.solve(&operator, &b, &mut x, None::<&cfd_math::linear_solver::preconditioners::IdentityPreconditioner>)?;
+    solver.solve(
+        &operator,
+        &b,
+        &mut x,
+        None::<&cfd_math::linear_solver::preconditioners::IdentityPreconditioner>,
+    )?;
 
     // Check solution
     let mut max_error: f64 = 0.0;
@@ -118,7 +122,12 @@ fn main() -> Result<()> {
     let b_laplace = DVector::from_element(size, 1.0);
 
     let mut p = DVector::zeros(size);
-    solver.solve(&laplacian, &b_laplace, &mut p, None::<&cfd_math::linear_solver::preconditioners::IdentityPreconditioner>)?;
+    solver.solve(
+        &laplacian,
+        &b_laplace,
+        &mut p,
+        None::<&cfd_math::linear_solver::preconditioners::IdentityPreconditioner>,
+    )?;
 
     println!("  Grid: {}x{}", nx, ny);
     println!("  Total DOF: {}", size);

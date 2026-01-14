@@ -68,10 +68,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     match solver.solve(&rhs, &bc_x, &bc_y, &bc_z) {
         Ok(solution) => {
             println!("Spectral solution converged successfully!");
-            println!(
-                "Solution vector length: {}",
-                solution.len()
-            );
+            println!("Solution vector length: {}", solution.len());
             println!();
 
             // Display some sample values
@@ -79,7 +76,13 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
             for i in 0..3.min(nx) {
                 for j in 0..3.min(ny) {
                     for k in 0..3.min(nz) {
-                        println!("  u[{},{},{}] = {:.6}", i, j, k, solution[i * ny * nz + j * nz + k]);
+                        println!(
+                            "  u[{},{},{}] = {:.6}",
+                            i,
+                            j,
+                            k,
+                            solution[i * ny * nz + j * nz + k]
+                        );
                     }
                 }
             }

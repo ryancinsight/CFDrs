@@ -51,19 +51,28 @@ impl<T: RealField + Copy> Checkpoint<T> {
         if self.u_velocity.ncols() != nx || self.u_velocity.nrows() != ny {
             return Err(format!(
                 "U velocity dimensions mismatch: expected {}x{}, got {}x{}",
-                ny, nx, self.u_velocity.nrows(), self.u_velocity.ncols()
+                ny,
+                nx,
+                self.u_velocity.nrows(),
+                self.u_velocity.ncols()
             ));
         }
         if self.v_velocity.ncols() != nx || self.v_velocity.nrows() != ny {
             return Err(format!(
                 "V velocity dimensions mismatch: expected {}x{}, got {}x{}",
-                ny, nx, self.v_velocity.nrows(), self.v_velocity.ncols()
+                ny,
+                nx,
+                self.v_velocity.nrows(),
+                self.v_velocity.ncols()
             ));
         }
         if self.pressure.ncols() != nx || self.pressure.nrows() != ny {
             return Err(format!(
                 "Pressure dimensions mismatch: expected {}x{}, got {}x{}",
-                ny, nx, self.pressure.nrows(), self.pressure.ncols()
+                ny,
+                nx,
+                self.pressure.nrows(),
+                self.pressure.ncols()
             ));
         }
 

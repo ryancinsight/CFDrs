@@ -167,6 +167,6 @@ pub fn get_algorithm_complexity_registry() -> algorithm_complexity::AlgorithmCom
 pub fn run_edge_case_testing() -> cfd_core::error::Result<edge_case_testing::EdgeCaseReport> {
     use edge_case_testing::EdgeCaseTestSuite;
 
-    let mut test_suite: EdgeCaseTestSuite<f64> = EdgeCaseTestSuite::new();
+    let test_suite: EdgeCaseTestSuite<f64> = EdgeCaseTestSuite::new();
     test_suite.run_comprehensive_edge_case_tests()
 }

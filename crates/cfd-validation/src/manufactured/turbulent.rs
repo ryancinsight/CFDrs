@@ -378,7 +378,7 @@ mod tests {
         assert!(k > 0.0);
         assert!(source.is_finite());
 
-        println!("k-ε MMS: k={:.6}, source={:.6}", k, source);
+        println!("k-ε MMS: k={k:.6}, source={source:.6}");
     }
 
     #[test]
@@ -395,7 +395,7 @@ mod tests {
         assert!(solution > 0.0);
         assert!(source.is_finite());
 
-        println!("k-ω MMS: solution={:.6}, source={:.6}", solution, source);
+        println!("k-ω MMS: solution={solution:.6}, source={source:.6}");
     }
 
     #[test]
@@ -412,7 +412,7 @@ mod tests {
         assert!(nu_tilde >= 0.0); // ν̃ should be non-negative
         assert!(source.is_finite());
 
-        println!("SA MMS: ν̃={:.6}, source={:.6}", nu_tilde, source);
+        println!("SA MMS: ν̃={nu_tilde:.6}, source={source:.6}");
     }
 
     #[test]
@@ -429,6 +429,6 @@ mod tests {
         assert!(uv.is_finite());
         assert!(source.is_finite());
 
-        println!("Reynolds stress MMS: -uv={:.6}, source={:.6}", uv, source);
+        println!("Reynolds stress MMS: -uv={uv:.6}, source={source:.6}");
     }
 }

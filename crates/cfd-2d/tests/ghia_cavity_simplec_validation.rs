@@ -45,14 +45,7 @@ where
 
     // Create grid and fluid
     let grid = StructuredGrid2D::new(nx, ny, 0.0, 1.0, 0.0, 1.0).expect("Failed to create grid");
-    let fluid = Fluid::new(
-        "Test Fluid".to_string(),
-        1.0,
-        nu,
-        1000.0,
-        0.001,
-        1482.0,
-    );
+    let fluid = Fluid::new("Test Fluid".to_string(), 1.0, nu, 1000.0, 0.001, 1482.0);
 
     // Create simulation fields
     let mut fields = SimulationFields::with_fluid(nx, ny, &fluid);
@@ -590,11 +583,11 @@ where
     // Create a simple velocity field with known divergence
     // Let's create a field where u = x, v = -y (this has div = 1 - 1 = 0, so should give zero pressure correction)
     let mut u_star = vec![vec![Vector2::zeros(); ny]; nx];
-    for i in 0..nx {
-        for j in 0..ny {
-            let x = i as f64 / (nx - 1) as f64;
+    for (i, row) in u_star.iter_mut().enumerate() {
+        let x = i as f64 / (nx - 1) as f64;
+        for (j, cell) in row.iter_mut().enumerate() {
             let y = j as f64 / (ny - 1) as f64;
-            u_star[i][j] = Vector2::new(x, -y);
+            *cell = Vector2::new(x, -y);
         }
     }
 
@@ -606,12 +599,11 @@ where
         .expect("Pressure correction failed");
 
     // For a divergence-free field, pressure correction should be small
-    let mut max_correction = 0.0;
-    for i in 0..nx {
-        for j in 0..ny {
-            max_correction = max_correction.max(p_correction[i][j].abs());
-        }
-    }
+    let max_correction = p_correction
+        .iter()
+        .flatten()
+        .map(|v| v.abs())
+        .fold(0.0_f64, f64::max);
 
     println!(
         "Max pressure correction for divergence-free field: {:.2e}",

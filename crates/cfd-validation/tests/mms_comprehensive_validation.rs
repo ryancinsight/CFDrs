@@ -208,7 +208,10 @@ fn test_mms_source_term_consistency() {
     let ke_initial = tg.kinetic_energy(0.0);
     let ke_later = tg.kinetic_energy(t);
 
-    assert!(ke_initial > ke_later, "Kinetic energy should decay over time");
+    assert!(
+        ke_initial > ke_later,
+        "Kinetic energy should decay over time"
+    );
 
     // The decay should follow exp(-4νk²t) where k=π
     let expected_ratio = (-4.0 * nu * std::f64::consts::PI * std::f64::consts::PI * t).exp();

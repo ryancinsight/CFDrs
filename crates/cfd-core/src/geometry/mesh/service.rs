@@ -4,8 +4,8 @@
 //! assessing the quality of meshes, acting as a facade for the domain.
 
 use super::{Mesh, MeshGeneration, MeshQuality, MeshRefinement};
-use crate::domain::shapes::Geometry;
 use crate::error::Result;
+use crate::geometry::shapes::Geometry;
 use nalgebra::RealField;
 use std::sync::Arc;
 

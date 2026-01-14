@@ -109,11 +109,9 @@ use cfd_core::error::Result;
 use nalgebra::{DMatrix, RealField, Vector2};
 use num_traits::{FromPrimitive, ToPrimitive};
 
-
 // Performance optimization: SIMD vectorization removed in favor of compiler auto-vectorization
 // and architectural purity. Single-point SIMD intrinsics introduced unnecessary complexity
 // and potential performance degradation due to pack/unpack overhead.
-
 
 // Numerical stability constant
 const EPSILON_MIN: f64 = 1e-12;
@@ -202,14 +200,14 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
             ny,
             wall_distance: None,
             c_mu: Self::constant(C_MU),
-            c1: Self::constant(1.8),      // Launder et al. (1975)
-            c2: Self::constant(0.6),      // Launder et al. (1975)
-            c1_star: Self::constant(1.7), // Speziale et al. (1991)
+            c1: Self::constant(1.8),        // Launder et al. (1975)
+            c2: Self::constant(0.6),        // Launder et al. (1975)
+            c1_star: Self::constant(1.7),   // Speziale et al. (1991)
             c2_star: Self::constant(-1.05), // Speziale et al. (1991)
-            c3: Self::constant(0.8),      // Lumley (1978) / SSG
-            c3_star: Self::constant(1.3), // Speziale et al. (1991)
-            c4: Self::constant(1.25),     // SSG
-            c5: Self::constant(0.40),     // SSG
+            c3: Self::constant(0.8),        // Lumley (1978) / SSG
+            c3_star: Self::constant(1.3),   // Speziale et al. (1991)
+            c4: Self::constant(1.25),       // SSG
+            c5: Self::constant(0.40),       // SSG
             pressure_strain_model: PressureStrainModel::Quadratic,
             wall_reflection: true,
             curvature_correction: true,
@@ -254,7 +252,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
     /// Vector of wall distances for each cell
     pub fn compute_wall_distance_field(&self, wall_mask: &[bool], dx: T, dy: T) -> Vec<T> {
         let n = self.nx * self.ny;
-        let mut distance = vec![T::max_value().expect("Max value required for wall distance initialization"); n];
+        let mut distance =
+            vec![T::max_value().expect("Max value required for wall distance initialization"); n];
 
         // Initialize wall cells with distance 0
         for i in 0..n {
@@ -331,12 +330,16 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
         assert!(
             initial_k > T::zero(),
             "Initial turbulent kinetic energy must be positive: k={}",
-            initial_k.to_f64().expect("Failed to convert initial_k to f64")
+            initial_k
+                .to_f64()
+                .expect("Failed to convert initial_k to f64")
         );
         assert!(
             initial_epsilon > T::zero(),
             "Initial dissipation rate must be positive: ε={}",
-            initial_epsilon.to_f64().expect("Failed to convert initial_epsilon to f64")
+            initial_epsilon
+                .to_f64()
+                .expect("Failed to convert initial_epsilon to f64")
         );
         let mut xx = DMatrix::zeros(self.nx, self.ny);
         let mut xy = DMatrix::zeros(self.nx, self.ny);
@@ -570,8 +573,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
 
                         // Term 4: C4 * k * (M_xx - 2/3 * b:S)
                         // M_xx = 2 * (b_xx * S_xx + b_xy * S_xy)
-                        let m_xx = Self::constant(2.0)
-                            * (anisotropy_xx * s11 + anisotropy_xy * s12);
+                        let m_xx =
+                            Self::constant(2.0) * (anisotropy_xx * s11 + anisotropy_xy * s12);
                         // b:S = -P / (2k)
                         let b_colon_s = anisotropy_xx * s11
                             + anisotropy_yy * s22
@@ -625,8 +628,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
 
                         // Term 4: C4 * k * (M_yy - 2/3 * b:S)
                         // M_yy = 2 * (b_yx * S_xy + b_yy * S_yy)
-                        let m_yy = Self::constant(2.0)
-                            * (anisotropy_xy * s12 + anisotropy_yy * s22);
+                        let m_yy =
+                            Self::constant(2.0) * (anisotropy_xy * s12 + anisotropy_yy * s22);
                         let b_colon_s = anisotropy_xx * s11
                             + anisotropy_yy * s22
                             + Self::constant(2.0) * anisotropy_xy * s12;
@@ -647,32 +650,32 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
         // Add wall-reflection correction if enabled
         if self.wall_reflection {
             phi_ij += self.wall_reflection_correction(
-                    anisotropy_xx,
-                    anisotropy_xy,
-                    anisotropy_yy,
-                    time_scale,
-                    i,
-                    j,
-                    x,
-                    y,
-                );
+                anisotropy_xx,
+                anisotropy_xy,
+                anisotropy_yy,
+                time_scale,
+                i,
+                j,
+                x,
+                y,
+            );
         }
 
         // Add curvature correction if enabled
         if self.curvature_correction {
             phi_ij += self.curvature_correction_term(
-                    anisotropy_xx,
-                    anisotropy_xy,
-                    anisotropy_yy,
-                    time_scale,
-                    s11,
-                    s12,
-                    s22,
-                    w12,
-                    w21,
-                    i,
-                    j,
-                );
+                anisotropy_xx,
+                anisotropy_xy,
+                anisotropy_yy,
+                time_scale,
+                s11,
+                s12,
+                s22,
+                w12,
+                w21,
+                i,
+                j,
+            );
         }
 
         phi_ij
@@ -1393,8 +1396,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
         let du_dy = velocity_gradient[0][1];
         let dv_dx = velocity_gradient[1][0];
         let p_k = Self::constant(0.5)
-            * (-Self::constant(2.0) * xx_new * du_dy
-                - Self::constant(2.0) * yy_new * dv_dx);
+            * (-Self::constant(2.0) * xx_new * du_dy - Self::constant(2.0) * yy_new * dv_dx);
 
         // Standard k-ε constants
         let c_eps1 = Self::constant(1.44);
@@ -1573,8 +1575,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
                     // Full dissipation transport equation
                     let deps_dt = production_term - destruction_term + diffusion_term;
 
-                    epsilon_new[(i, j)] =
-                        (epsilon + dt * deps_dt).max(Self::constant(EPSILON_MIN));
+                    epsilon_new[(i, j)] = (epsilon + dt * deps_dt).max(Self::constant(EPSILON_MIN));
                 } else {
                     // Fallback for numerical stability
                     let epsilon_k_ratio = Self::constant(0.09);
@@ -1615,20 +1616,16 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
         let dy_inv = T::one() / dy;
 
         // du/dx, du/dy
-        let du_dx = dx_inv
-            * (velocity[0][(i + 1, j)] - velocity[0][(i - 1, j)])
-            * Self::constant(0.5);
-        let du_dy = dy_inv
-            * (velocity[0][(i, j + 1)] - velocity[0][(i, j - 1)])
-            * Self::constant(0.5);
+        let du_dx =
+            dx_inv * (velocity[0][(i + 1, j)] - velocity[0][(i - 1, j)]) * Self::constant(0.5);
+        let du_dy =
+            dy_inv * (velocity[0][(i, j + 1)] - velocity[0][(i, j - 1)]) * Self::constant(0.5);
 
         // dv/dx, dv/dy
-        let dv_dx = dx_inv
-            * (velocity[1][(i + 1, j)] - velocity[1][(i - 1, j)])
-            * Self::constant(0.5);
-        let dv_dy = dy_inv
-            * (velocity[1][(i, j + 1)] - velocity[1][(i, j - 1)])
-            * Self::constant(0.5);
+        let dv_dx =
+            dx_inv * (velocity[1][(i + 1, j)] - velocity[1][(i - 1, j)]) * Self::constant(0.5);
+        let dv_dy =
+            dy_inv * (velocity[1][(i, j + 1)] - velocity[1][(i, j - 1)]) * Self::constant(0.5);
 
         [[du_dx, du_dy], [dv_dx, dv_dy]]
     }
@@ -1874,20 +1871,21 @@ mod tests {
             // Validate anisotropy bounds: -2/3 ≤ bij ≤ 2/3 (Pope, 2000)
             let bij_xx = stresses.xx[(20, j)] / stresses.k[(20, j)] - 2.0 / 3.0;
             let bij_yy = stresses.yy[(20, j)] / stresses.k[(20, j)] - 2.0 / 3.0;
+            let bij_bounds = (-2.0 / 3.0 - 1e-6)..=(2.0 / 3.0 + 1e-6);
 
             assert!(
-                bij_xx >= -2.0 / 3.0 - 1e-6 && bij_xx <= 2.0 / 3.0 + 1e-6,
+                bij_bounds.contains(&bij_xx),
                 "⟨u'u'⟩ anisotropy out of bounds"
             );
             assert!(
-                bij_yy >= -2.0 / 3.0 - 1e-6 && bij_yy <= 2.0 / 3.0 + 1e-6,
+                bij_bounds.contains(&bij_yy),
                 "⟨v'v'⟩ anisotropy out of bounds"
             );
         }
 
         // Validate turbulence intensity profiles
         let center_k = stresses.k[(20, 20)];
-        let wall_k = (stresses.k[(20, 1)] + stresses.k[(20, 2)]) / 2.0; // Near-wall average
+        let wall_k = f64::midpoint(stresses.k[(20, 1)], stresses.k[(20, 2)]); // Near-wall average
 
         // Note: In our simplified initialization, k is constant. In real DNS, k peaks near wall.
         // For now, just check that values are reasonable
@@ -1897,7 +1895,7 @@ mod tests {
         );
         assert!(wall_k > 0.0, "Wall turbulence intensity should be positive");
 
-        println!("DNS Channel Flow Validation (Re_τ = {}): PASSED", re_tau);
+        println!("DNS Channel Flow Validation (Re_τ = {re_tau}): PASSED");
         println!("  Wall boundary conditions: ✓");
         println!("  Realizability constraints: ✓");
         println!("  Anisotropy bounds: ✓");
@@ -1921,18 +1919,6 @@ mod tests {
         let shear_rate = 1.0; // S = du/dy = constant
         let center_i = 1; // Center cell in 3x3 grid
         let center_j = 1;
-        let time_scale = stresses.k[(center_i, center_j)] / stresses.epsilon[(center_i, center_j)];
-
-        // Analytical solution for linear pressure-strain model (Rotta, 1951)
-        // d⟨u'v'⟩/dt = -⟨u'u'⟩ S - ⟨v'v'⟩ S - C1 ε/k ⟨u'v'⟩
-        // At equilibrium: 0 = -S (⟨u'u'⟩ + ⟨v'v'⟩) - (C1 ε/k) ⟨u'v'⟩
-        // Solution: ⟨u'v'⟩ = -S (⟨u'u'⟩ + ⟨v'v'⟩) / (C1 ε/k) = -time_scale * S (⟨u'u'⟩ + ⟨v'v'⟩) / C1
-        let c1 = 1.8; // Launder et al. (1975)
-        let _analytical_uv_equilibrium = -time_scale
-            * shear_rate
-            * (stresses.xx[(center_i, center_j)] + stresses.yy[(center_i, center_j)])
-            / c1;
-
         // Create velocity field for shear
         let mut u = DMatrix::zeros(3, 3); // 3x3 for boundary calculations
         let mut v = DMatrix::zeros(3, 3);
@@ -1956,7 +1942,7 @@ mod tests {
         for step in 0..200 {
             let result =
                 model.update_reynolds_stresses_optimized(&mut stresses, &velocity, dt, dx, dy);
-            assert!(result.is_ok(), "RSM update should succeed at step {}", step);
+            assert!(result.is_ok(), "RSM update should succeed at step {step}");
 
             uv_history.push(stresses.xy[(center_i, center_j)]);
 
@@ -1979,8 +1965,7 @@ mod tests {
         // Validate realizability: shear stress should be negative for shear flow
         assert!(
             computed_uv_equilibrium < 0.0,
-            "Shear stress should be negative in shear flow: {:.6}",
-            computed_uv_equilibrium
+            "Shear stress should be negative in shear flow: {computed_uv_equilibrium:.6}"
         );
 
         // Validate evolution occurred: stress evolved from initial isotropic state
@@ -2009,13 +1994,12 @@ mod tests {
                     / uv_history[uv_history.len() - 1].abs().max(1e-12);
             assert!(
                 final_change < 0.02,
-                "Final convergence step too large: {:.6}",
-                final_change
+                "Final convergence step too large: {final_change:.6}"
             );
         }
 
         println!("Homogeneous Shear Physical Validation: PASSED");
-        println!("  Computed equilibrium:  {:.8}", computed_uv_equilibrium);
+        println!("  Computed equilibrium:  {computed_uv_equilibrium:.8}");
         println!("  Evolution occurred: ✓ (from isotropic to shear stress)");
         println!("  Convergence achieved: ✓");
         println!("  Realizability satisfied: ✓");
@@ -2046,8 +2030,8 @@ mod tests {
 
     #[test]
     fn test_reynolds_stress_realizability() {
-        /// Test realizability constraints (Lumley, 1978)
-        /// Validates that solutions satisfy physical constraints on Reynolds stresses
+        // Test realizability constraints (Lumley, 1978)
+        // Validates that solutions satisfy physical constraints on Reynolds stresses
         let model = ReynoldsStressModel::<f64>::new(10, 10);
         let stresses = model.initialize_reynolds_stresses(1.0, 0.1);
 
@@ -2062,58 +2046,41 @@ mod tests {
                 // Normal stresses must be positive (⟨u_i'u_i'⟩ ≥ 0)
                 assert!(
                     xx >= 0.0,
-                    "⟨u'u'⟩ must be non-negative at ({},{}): {:.6}",
-                    x,
-                    y,
-                    xx
+                    "⟨u'u'⟩ must be non-negative at ({x},{y}): {xx:.6}"
                 );
                 assert!(
                     yy >= 0.0,
-                    "⟨v'v'⟩ must be non-negative at ({},{}): {:.6}",
-                    x,
-                    y,
-                    yy
+                    "⟨v'v'⟩ must be non-negative at ({x},{y}): {yy:.6}"
                 );
 
                 // Cauchy-Schwarz inequality: |⟨u'v'⟩| ≤ √(⟨u'u'⟩⟨v'v'⟩)
                 let max_shear = (xx * yy).sqrt();
                 assert!(
                     xy.abs() <= max_shear + 1e-12,
-                    "Shear stress violates Cauchy-Schwarz at ({},{}): |{:.6}| > {:.6}",
-                    x,
-                    y,
-                    xy,
-                    max_shear
+                    "Shear stress violates Cauchy-Schwarz at ({x},{y}): |{xy:.6}| > {max_shear:.6}"
                 );
 
                 // Lumley triangle constraints: -2/3 ≤ bij ≤ 2/3
                 if k > 1e-12 {
+                    let anisotropy_bounds = (-2.0 / 3.0 - 1e-10)..=(2.0 / 3.0 + 1e-10);
                     let bij_xx = xx / k - 2.0 / 3.0;
                     let bij_xy = xy / k; // Off-diagonal normalization
                     let bij_yy = yy / k - 2.0 / 3.0;
 
                     assert!(
-                        bij_xx >= -2.0 / 3.0 - 1e-10 && bij_xx <= 2.0 / 3.0 + 1e-10,
-                        "⟨u'u'⟩ anisotropy out of bounds at ({},{}): {:.6}",
-                        x,
-                        y,
-                        bij_xx
+                        anisotropy_bounds.contains(&bij_xx),
+                        "⟨u'u'⟩ anisotropy out of bounds at ({x},{y}): {bij_xx:.6}"
                     );
                     assert!(
-                        bij_yy >= -2.0 / 3.0 - 1e-10 && bij_yy <= 2.0 / 3.0 + 1e-10,
-                        "⟨v'v'⟩ anisotropy out of bounds at ({},{}): {:.6}",
-                        x,
-                        y,
-                        bij_yy
+                        anisotropy_bounds.contains(&bij_yy),
+                        "⟨v'v'⟩ anisotropy out of bounds at ({x},{y}): {bij_yy:.6}"
                     );
 
                     // Shear stress anisotropy should also be bounded
+                    let bij_xy_abs = bij_xy.abs();
                     assert!(
-                        bij_xy.abs() <= 2.0 / 3.0 + 1e-10,
-                        "Shear stress anisotropy out of bounds at ({},{}): {:.6}",
-                        x,
-                        y,
-                        bij_xy.abs()
+                        bij_xy_abs <= 2.0 / 3.0 + 1e-10,
+                        "Shear stress anisotropy out of bounds at ({x},{y}): {bij_xy_abs:.6}"
                     );
                 }
             }
@@ -2127,8 +2094,8 @@ mod tests {
 
     #[test]
     fn test_production_term_correctness() {
-        /// Test that production term implements exact Reynolds stress formulation
-        /// not the Boussinesq eddy-viscosity approximation
+        // Test that production term implements exact Reynolds stress formulation
+        // not the Boussinesq eddy-viscosity approximation
         let model = ReynoldsStressModel::<f64>::new(1, 1);
 
         // Test case: simple shear flow ∂u/∂y = S (constant)
@@ -2189,11 +2156,11 @@ mod tests {
         let mut model = ReynoldsStressModel::<f64>::new(3, 3);
         // Explicitly use SSG model
         model.pressure_strain_model = PressureStrainModel::SSG;
-        
+
         let mut stresses = model.initialize_reynolds_stresses(1.0, 0.1);
 
         // Homogeneous shear flow parameters
-        let shear_rate = 1.0; 
+        let shear_rate = 1.0;
         let center_i = 1;
         let center_j = 1;
 
@@ -2224,36 +2191,33 @@ mod tests {
         // 1. Verify physical correctness: Shear stress should be negative in simple shear flow
         assert!(
             computed_uv < 0.0,
-            "SSG model should predict negative shear stress: {:.6}",
-            computed_uv
+            "SSG model should predict negative shear stress: {computed_uv:.6}"
         );
 
         // 2. Verify anisotropy evolution (should be distinct from isotropic state)
         let computed_xx = stresses.xx[(center_i, center_j)];
         let computed_yy = stresses.yy[(center_i, center_j)];
-        
+
         // In shear flow, usually <u'u'> > <v'v'>
         assert!(
             computed_xx > computed_yy,
             "Streamwise fluctuations should exceed wall-normal fluctuations in shear flow"
         );
-        
+
         // 3. Verify realizability is maintained
         let k = stresses.k[(center_i, center_j)];
         assert!(k > 0.0, "Kinetic energy must be positive");
         assert!(computed_xx >= 0.0, "Normal stress xx must be positive");
         assert!(computed_yy >= 0.0, "Normal stress yy must be positive");
-        
+
         let max_shear = (computed_xx * computed_yy).sqrt();
         assert!(
             computed_uv.abs() <= max_shear + 1e-10,
-            "SSG model violated realizability: |uv|={} > sqrt(xx*yy)={}",
-            computed_uv,
-            max_shear
+            "SSG model violated realizability: |uv|={computed_uv} > sqrt(xx*yy)={max_shear}"
         );
 
         println!("SSG Model Physical Validation: PASSED");
-        println!("  Computed shear stress: {:.6}", computed_uv);
+        println!("  Computed shear stress: {computed_uv:.6}");
         println!("  Realizability: ✓");
         println!("  Anisotropy correct (xx > yy): ✓");
     }

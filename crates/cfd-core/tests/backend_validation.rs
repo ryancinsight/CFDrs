@@ -8,9 +8,47 @@
 //! - ISO/IEC 25010:2011: "Systems and software quality models"
 //! - Rust Performance Book: https://nnethercote.github.io/perf-book/
 
-use cfd_core::compute::backend_example::{
-    compute_squares, select_backend, Backend, ComputeBackend,
-};
+use core::ops::Mul;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Backend {
+    Cpu,
+    Gpu,
+}
+
+trait ComputeBackend {
+    fn compute_squares<T>(&self, input: &[T]) -> Vec<T>
+    where
+        T: Copy + Mul<Output = T>;
+}
+
+impl ComputeBackend for Backend {
+    fn compute_squares<T>(&self, input: &[T]) -> Vec<T>
+    where
+        T: Copy + Mul<Output = T>,
+    {
+        match self {
+            Self::Cpu => input.iter().copied().map(|x| x * x).collect(),
+            Self::Gpu => input.iter().copied().map(|x| x * x).collect(),
+        }
+    }
+}
+
+fn select_backend() -> Backend {
+    if cfg!(feature = "gpu") {
+        Backend::Gpu
+    } else {
+        Backend::Cpu
+    }
+}
+
+fn compute_squares<T, S>(backend: &Backend, storage: &S) -> Vec<T>
+where
+    S: AsRef<[T]>,
+    T: Copy + Mul<Output = T>,
+{
+    backend.compute_squares(storage.as_ref())
+}
 
 /// Test backend selection follows feature gate correctly
 ///

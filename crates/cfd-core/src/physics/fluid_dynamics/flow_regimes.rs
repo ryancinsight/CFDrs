@@ -32,9 +32,12 @@ impl FlowClassifier {
 
         if re < 0.1 {
             FlowRegime::Stokes
-        } else if re < crate::physics::constants::physics::dimensionless::reynolds::PIPE_LAMINAR_MAX {
+        } else if re < crate::physics::constants::physics::dimensionless::reynolds::PIPE_LAMINAR_MAX
+        {
             FlowRegime::Laminar
-        } else if re < crate::physics::constants::physics::dimensionless::reynolds::PIPE_TURBULENT_MIN {
+        } else if re
+            < crate::physics::constants::physics::dimensionless::reynolds::PIPE_TURBULENT_MIN
+        {
             FlowRegime::Transitional
         } else {
             FlowRegime::Turbulent

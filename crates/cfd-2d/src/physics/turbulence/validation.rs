@@ -75,7 +75,10 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
             test_name: "k-ε Homogeneous Turbulence Decay".to_string(),
             passed: decay_rate > T::from_f64(0.05).unwrap()
                 && decay_rate < T::from_f64(0.5).unwrap(),
-            metric: format!("Decay rate: {rate:.4}", rate = decay_rate.to_f64().unwrap_or(0.0)),
+            metric: format!(
+                "Decay rate: {rate:.4}",
+                rate = decay_rate.to_f64().unwrap_or(0.0)
+            ),
             details: format!(
                 "k_final/k_initial = {ratio:.4}",
                 ratio = final_k_ratio.to_f64().unwrap_or(0.0)
@@ -110,7 +113,10 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
         ValidationResult {
             test_name: "k-ω SST Wall Boundary Condition".to_string(),
             passed: (omega_ratio - T::one()).abs() < self.tolerance,
-            metric: format!("ω_wall ratio: {ratio:.4}", ratio = omega_ratio.to_f64().unwrap_or(0.0)),
+            metric: format!(
+                "ω_wall ratio: {ratio:.4}",
+                ratio = omega_ratio.to_f64().unwrap_or(0.0)
+            ),
             details: format!(
                 "Expected: {expected:.2e}, Got: {got:.2e}",
                 expected = expected_omega_wall.to_f64().unwrap_or(0.0),
@@ -494,9 +500,7 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
             test_name: "Flat Plate Boundary Layer - k-ε Model".to_string(),
             passed,
             metric: format!("Cf ratio: {cf_ratio:.3}"),
-            details: format!(
-                "Expected Cf: {expected_cf:.6}, Calculated: {calculated_cf:.6}"
-            ),
+            details: format!("Expected Cf: {expected_cf:.6}, Calculated: {calculated_cf:.6}"),
         }
     }
 

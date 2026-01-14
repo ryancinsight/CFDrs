@@ -1,17 +1,20 @@
 //! GPU-accelerated matrix-free operators using WGSL compute shaders.
 
 #[cfg(feature = "gpu")]
+use crate::error::Result;
+#[cfg(feature = "gpu")]
 use crate::linear_solver::traits::{GpuLinearOperator, LinearOperator};
 #[cfg(feature = "gpu")]
-use crate::error::Result;
+use cfd_core::compute::gpu::{
+    kernels::laplacian::{BoundaryType, Laplacian2DKernel},
+    GpuBuffer, GpuContext,
+};
 #[cfg(feature = "gpu")]
 use nalgebra::{DVector, RealField};
 #[cfg(feature = "gpu")]
+use num_traits::ToPrimitive;
+#[cfg(feature = "gpu")]
 use std::sync::Arc;
-#[cfg(feature = "gpu")]
-use cfd_core::compute::gpu::{GpuContext, GpuBuffer, kernels::laplacian::{Laplacian2DKernel, BoundaryType}};
-#[cfg(feature = "gpu")]
-use num_traits::{ToPrimitive};
 
 /// Metrics collected for a compute dispatch
 #[cfg(feature = "gpu")]
@@ -22,7 +25,7 @@ pub struct DispatchMetrics {
 }
 
 /// GPU-accelerated 2D Laplacian operator.
-/// 
+///
 /// This operator wraps the mathematically rigorous implementation in `cfd-core`
 /// to provide a `LinearOperator` interface for iterative solvers.
 #[cfg(feature = "gpu")]
@@ -37,7 +40,9 @@ pub struct GpuLaplacianOperator2D<T: RealField + Copy + bytemuck::Pod + bytemuck
 }
 
 #[cfg(feature = "gpu")]
-impl<T: RealField + Copy + bytemuck::Pod + bytemuck::Zeroable + ToPrimitive> GpuLaplacianOperator2D<T> {
+impl<T: RealField + Copy + bytemuck::Pod + bytemuck::Zeroable + ToPrimitive>
+    GpuLaplacianOperator2D<T>
+{
     /// Create a new GPU-accelerated 2D Laplacian operator.
     pub fn new(
         gpu_context: Arc<GpuContext>,
@@ -92,7 +97,7 @@ impl<T: RealField + Copy + bytemuck::Pod + bytemuck::Zeroable + ToPrimitive> Gpu
         self.apply_gpu_async(x, y).await?;
         self.gpu_context.device.poll(wgpu::Maintain::Wait);
         let elapsed = start.elapsed();
-        
+
         Ok(DispatchMetrics {
             duration_ms: elapsed.as_secs_f64() * 1e3,
             timestamp_supported: false, // Default to false for now, can be improved
@@ -101,7 +106,9 @@ impl<T: RealField + Copy + bytemuck::Pod + bytemuck::Zeroable + ToPrimitive> Gpu
 }
 
 #[cfg(feature = "gpu")]
-impl<T: RealField + Copy + bytemuck::Pod + bytemuck::Zeroable + ToPrimitive> LinearOperator<T> for GpuLaplacianOperator2D<T> {
+impl<T: RealField + Copy + bytemuck::Pod + bytemuck::Zeroable + ToPrimitive> LinearOperator<T>
+    for GpuLaplacianOperator2D<T>
+{
     fn apply(&self, x: &DVector<T>, y: &mut DVector<T>) -> Result<()> {
         // Use block_on for the async path when called from sync context
         pollster::block_on(self.apply_gpu_async(x.as_slice(), y.as_mut_slice()))
@@ -117,7 +124,9 @@ impl<T: RealField + Copy + bytemuck::Pod + bytemuck::Zeroable + ToPrimitive> Lin
 }
 
 #[cfg(feature = "gpu")]
-impl<T: RealField + Copy + bytemuck::Pod + bytemuck::Zeroable + ToPrimitive> GpuLinearOperator<T> for GpuLaplacianOperator2D<T> {
+impl<T: RealField + Copy + bytemuck::Pod + bytemuck::Zeroable + ToPrimitive> GpuLinearOperator<T>
+    for GpuLaplacianOperator2D<T>
+{
     fn apply_gpu(
         &self,
         _gpu_context: &Arc<GpuContext>,

@@ -2,6 +2,7 @@
 
 use super::{Reporter, ValidationReport};
 use cfd_core::error::Result;
+use std::fmt::Write as _;
 
 /// Markdown reporter for validation results
 pub struct MarkdownReporter {
@@ -43,50 +44,61 @@ impl Reporter for MarkdownReporter {
 
         // Header
         markdown.push_str("# CFD Validation Report\n\n");
-        markdown.push_str(&format!(
-            "**Generated:** {}\n\n",
+        let _ = writeln!(
+            &mut markdown,
+            "**Generated:** {}\n",
             report
                 .timestamp
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap_or_default()
                 .as_secs()
-        ));
+        );
 
         // Executive Summary
         markdown.push_str("## Executive Summary\n\n");
-        markdown.push_str(&format!(
-            "- **Total Tests:** {}\n",
+        let _ = writeln!(
+            &mut markdown,
+            "- **Total Tests:** {}",
             report.summary.total_tests
-        ));
-        markdown.push_str(&format!(
-            "- **Passed:** {} ({:.1}%)\n",
+        );
+        let _ = writeln!(
+            &mut markdown,
+            "- **Passed:** {} ({:.1}%)",
             report.summary.passed_tests,
             (report.summary.passed_tests as f64 / report.summary.total_tests.max(1) as f64) * 100.0
-        ));
-        markdown.push_str(&format!("- **Failed:** {}\n", report.summary.failed_tests));
-        markdown.push_str(&format!(
-            "- **Skipped:** {}\n",
+        );
+        let _ = writeln!(
+            &mut markdown,
+            "- **Failed:** {}",
+            report.summary.failed_tests
+        );
+        let _ = writeln!(
+            &mut markdown,
+            "- **Skipped:** {}",
             report.summary.skipped_tests
-        ));
-        markdown.push_str(&format!(
-            "- **Test Coverage:** {:.1}%\n",
+        );
+        let _ = writeln!(
+            &mut markdown,
+            "- **Test Coverage:** {:.1}%",
             report.summary.coverage_percentage
-        ));
-        markdown.push_str(&format!(
-            "- **Duration:** {:.1}s\n",
+        );
+        let _ = writeln!(
+            &mut markdown,
+            "- **Duration:** {:.1}s",
             report.summary.total_duration.as_secs_f64()
-        ));
-        markdown.push_str(&format!(
-            "- **Health Score:** {:.3}\n\n",
+        );
+        let _ = writeln!(
+            &mut markdown,
+            "- **Health Score:** {:.3}\n",
             report.health_score()
-        ));
+        );
 
         // Critical Issues
         let critical_issues = report.critical_issues();
         if !critical_issues.is_empty() {
             markdown.push_str("### 🚨 Critical Issues\n\n");
             for issue in &critical_issues {
-                markdown.push_str(&format!("- {issue}\n"));
+                let _ = writeln!(&mut markdown, "- {issue}");
             }
             markdown.push('\n');
         }
@@ -96,18 +108,20 @@ impl Reporter for MarkdownReporter {
             markdown.push_str("## Test Results\n\n");
 
             for (category_name, category) in &report.test_results {
-                markdown.push_str(&format!("### {category_name}\n\n"));
-                markdown.push_str(&format!("- **Total:** {}\n", category.total));
-                markdown.push_str(&format!(
-                    "- **Passed:** {} ({:.1}%)\n",
+                let _ = writeln!(&mut markdown, "### {category_name}\n");
+                let _ = writeln!(&mut markdown, "- **Total:** {}", category.total);
+                let _ = writeln!(
+                    &mut markdown,
+                    "- **Passed:** {} ({:.1}%)",
                     category.passed,
                     (category.passed as f64 / category.total.max(1) as f64) * 100.0
-                ));
-                markdown.push_str(&format!("- **Failed:** {}\n", category.failed));
-                markdown.push_str(&format!(
-                    "- **Coverage:** {:.1}%\n",
+                );
+                let _ = writeln!(&mut markdown, "- **Failed:** {}", category.failed);
+                let _ = writeln!(
+                    &mut markdown,
+                    "- **Coverage:** {:.1}%",
                     category.coverage_percentage
-                ));
+                );
 
                 if self.include_details && !category.details.is_empty() {
                     markdown.push_str("\n**Test Details:**\n\n");
@@ -122,10 +136,11 @@ impl Reporter for MarkdownReporter {
                             super::TestStatus::Timeout => "⏰",
                         };
 
-                        markdown.push_str(&format!(
-                            "| {} | {} | {:.3}ms |\n",
+                        let _ = writeln!(
+                            &mut markdown,
+                            "| {} | {} | {:.3}ms |",
                             test.name, status_emoji, test.duration_ms
-                        ));
+                        );
                     }
                 }
                 markdown.push('\n');
@@ -134,74 +149,91 @@ impl Reporter for MarkdownReporter {
 
         // Code Quality
         markdown.push_str("## Code Quality Metrics\n\n");
-        markdown.push_str(&format!(
-            "- **Lines of Code:** {}\n",
+        let _ = writeln!(
+            &mut markdown,
+            "- **Lines of Code:** {}",
             report.code_quality.lines_of_code
-        ));
-        markdown.push_str(&format!(
-            "- **Test Coverage:** {:.1}%\n",
+        );
+        let _ = writeln!(
+            &mut markdown,
+            "- **Test Coverage:** {:.1}%",
             report.code_quality.test_coverage
-        ));
-        markdown.push_str(&format!(
-            "- **Documentation Coverage:** {:.1}%\n",
+        );
+        let _ = writeln!(
+            &mut markdown,
+            "- **Documentation Coverage:** {:.1}%",
             report.code_quality.documentation_coverage
-        ));
-        markdown.push_str(&format!(
-            "- **Clippy Warnings:** {}\n",
+        );
+        let _ = writeln!(
+            &mut markdown,
+            "- **Clippy Warnings:** {}",
             report.code_quality.clippy_warnings
-        ));
-        markdown.push_str(&format!(
-            "- **Compiler Errors:** {}\n",
+        );
+        let _ = writeln!(
+            &mut markdown,
+            "- **Compiler Errors:** {}",
             report.code_quality.compiler_errors
-        ));
-        markdown.push_str(&format!(
-            "- **Cyclomatic Complexity:** {:.2}\n",
+        );
+        let _ = writeln!(
+            &mut markdown,
+            "- **Cyclomatic Complexity:** {:.2}",
             report.code_quality.cyclomatic_complexity
-        ));
-        markdown.push_str(&format!(
-            "- **Maintainability Index:** {:.2}\n\n",
+        );
+        let _ = writeln!(
+            &mut markdown,
+            "- **Maintainability Index:** {:.2}\n",
             report.code_quality.maintainability_index
-        ));
+        );
 
         // Performance Benchmarks
         if self.include_performance && !report.performance.is_empty() {
             markdown.push_str("## Performance Benchmarks\n\n");
 
             for benchmark in &report.performance {
-                markdown.push_str(&format!("### {}\n\n", benchmark.benchmark_name));
-                markdown.push_str(&format!(
-                    "- **Mean:** {:.3}ms\n",
+                let _ = writeln!(&mut markdown, "### {}\n", benchmark.benchmark_name);
+                let _ = writeln!(
+                    &mut markdown,
+                    "- **Mean:** {:.3}ms",
                     benchmark.metrics.mean * 1000.0
-                ));
-                markdown.push_str(&format!(
-                    "- **Std Dev:** {:.3}ms\n",
+                );
+                let _ = writeln!(
+                    &mut markdown,
+                    "- **Std Dev:** {:.3}ms",
                     benchmark.metrics.std_dev * 1000.0
-                ));
-                markdown.push_str(&format!(
-                    "- **Min:** {:.3}ms\n",
+                );
+                let _ = writeln!(
+                    &mut markdown,
+                    "- **Min:** {:.3}ms",
                     benchmark.metrics.min * 1000.0
-                ));
-                markdown.push_str(&format!(
-                    "- **Max:** {:.3}ms\n",
+                );
+                let _ = writeln!(
+                    &mut markdown,
+                    "- **Max:** {:.3}ms",
                     benchmark.metrics.max * 1000.0
-                ));
-                markdown.push_str(&format!("- **Samples:** {}\n", benchmark.metrics.samples));
-                markdown.push_str(&format!(
-                    "- **Stable:** {}\n",
+                );
+                let _ = writeln!(
+                    &mut markdown,
+                    "- **Samples:** {}",
+                    benchmark.metrics.samples
+                );
+                let _ = writeln!(
+                    &mut markdown,
+                    "- **Stable:** {}",
                     if benchmark.metrics.is_stable(0.05) {
                         "✅"
                     } else {
                         "❌"
                     }
-                ));
+                );
 
                 if let Some(regression) = benchmark.regression_detected {
                     let direction = if regression > 0.0 { "slower" } else { "faster" };
-                    markdown.push_str(&format!(
-                        "- **Regression:** {:.2}% {}\n",
+                    let _ = writeln!(
+                        &mut markdown,
+                        "- **Regression:** {:.2}% {}",
                         regression.abs(),
                         direction
-                    ));
+                    );
                 }
 
                 markdown.push('\n');
@@ -212,7 +244,7 @@ impl Reporter for MarkdownReporter {
         if !report.recommendations.is_empty() {
             markdown.push_str("## Recommendations\n\n");
             for recommendation in &report.recommendations {
-                markdown.push_str(&format!("- {recommendation}\n"));
+                let _ = writeln!(&mut markdown, "- {recommendation}");
             }
             markdown.push('\n');
         }

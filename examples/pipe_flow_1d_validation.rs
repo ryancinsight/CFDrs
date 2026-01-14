@@ -5,9 +5,9 @@
 
 use cfd_1d::network::{Network, NetworkBuilder};
 use cfd_1d::solver::{NetworkProblem, NetworkSolver};
+use cfd_core::compute::solver::Solver;
 use cfd_core::error::Result;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
-use cfd_core::compute::solver::Solver;
 use std::f64::consts::PI;
 
 fn main() -> Result<()> {

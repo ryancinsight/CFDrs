@@ -394,7 +394,7 @@ mod property_tests {
             let z = tci.exact_solution(x, y, 0.0, t);
             let source = tci.source_term(x, y, 0.0, t);
 
-            prop_assert!(z >= 0.0 && z <= 1.0, "Mixture fraction in bounds");
+            prop_assert!((0.0..=1.0).contains(&z), "Mixture fraction in bounds");
             prop_assert!(source.is_finite(), "Source term finite");
             prop_assert!(source.abs() < 100.0, "Source term reasonable magnitude");
         }
@@ -486,4 +486,3 @@ fn test_advanced_physics_integration() {
 
     println!("✅ Advanced physics integration test passed");
 }
-

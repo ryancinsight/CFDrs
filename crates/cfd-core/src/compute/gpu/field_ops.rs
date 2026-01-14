@@ -3,8 +3,8 @@
 //! This module delegates to specialized kernels for individual operations
 //! rather than maintaining a monolithic implementation.
 
-use crate::compute::gpu::GpuContext;
 use crate::compute::gpu::kernels::{FieldAddKernel, FieldMulKernel, Laplacian2DKernel};
+use crate::compute::gpu::GpuContext;
 use std::sync::Arc;
 
 /// Facade for GPU-accelerated field operations

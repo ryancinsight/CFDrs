@@ -4,11 +4,10 @@
 //! grid management, linear solvers, turbulence modeling, and GPU acceleration.
 
 use crate::PerformanceMetrics;
-use cfd_validation::benchmarking::BenchmarkConfig;
 use cfd_2d::grid::{Grid2D, StructuredGrid2D};
-use cfd_math::linear_solver::{ConjugateGradient, IterativeLinearSolver,
-};
+use cfd_math::linear_solver::{ConjugateGradient, IterativeLinearSolver};
 use cfd_math::sparse::SparseMatrixBuilder;
+use cfd_validation::benchmarking::BenchmarkConfig;
 use criterion::{black_box, BenchmarkId, Criterion, Throughput};
 use nalgebra::DVector;
 use std::time::Instant;

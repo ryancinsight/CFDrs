@@ -243,7 +243,7 @@ mod tests {
     #[test]
     fn test_muscl_scheme_naming() {
         let limiter = Superbee;
-        let muscl2 = MusclScheme::<f64, Superbee>::new(limiter.clone(), MusclOrder::SecondOrder);
+        let muscl2 = MusclScheme::<f64, Superbee>::new(limiter, MusclOrder::SecondOrder);
         let muscl3 = MusclScheme::<f64, Superbee>::new(limiter, MusclOrder::ThirdOrder);
 
         assert_eq!(muscl2.name(), "MUSCL2");

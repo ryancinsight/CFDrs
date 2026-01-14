@@ -2,7 +2,7 @@
 //!
 //! Efficient incremental solution of least-squares problem via Givens rotations
 
-use cfd_core::error::Result;
+use cfd_core::error::{ConvergenceErrorKind, Error, Result};
 use nalgebra::{DMatrix, DVector, RealField};
 
 /// Apply previous Givens rotations to the new column of H
@@ -62,11 +62,15 @@ pub fn solve_upper_triangular<T: RealField + Copy>(
 ) -> Result<DVector<T>> {
     let mut y = DVector::zeros(k);
     for i in (0..k).rev() {
+        let diag = h[(i, i)];
+        if diag.abs() <= T::default_epsilon() {
+            return Err(Error::Convergence(ConvergenceErrorKind::Breakdown));
+        }
         let mut sum = g[i];
         for j in (i + 1)..k {
             sum -= h[(i, j)] * y[j];
         }
-        y[i] = sum / h[(i, i)];
+        y[i] = sum / diag;
     }
     Ok(y)
 }
@@ -106,7 +110,7 @@ mod tests {
 
         // Compute rotation to eliminate H[1,0]
         let (cs, sn) = compute_rotation(h[(0, 0)], h[(1, 0)]);
-        
+
         // Apply rotation to H and g
         apply_new_rotation(&mut h, &mut g, cs, sn, 0);
 

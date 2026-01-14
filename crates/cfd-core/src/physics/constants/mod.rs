@@ -181,7 +181,6 @@ pub mod physics {
             pub const HYPERSONIC: f64 = 5.0;
         }
     }
-
 }
 
 /// Numerical and solver constants

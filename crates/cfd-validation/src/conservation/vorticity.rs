@@ -6,7 +6,7 @@
 use super::report::ConservationReport;
 use super::traits::ConservationChecker;
 use cfd_core::conversion::SafeFromF64;
-use cfd_core::error::Result;
+use cfd_core::error::{Error, Result};
 use nalgebra::{DMatrix, RealField};
 use num_traits::FromPrimitive;
 
@@ -125,8 +125,21 @@ impl<T: RealField + Copy + FromPrimitive> VorticityChecker<T> {
             let (i2, j2) = curve_points[(i + 1) % curve_points.len()];
 
             // Tangent vector along curve
-            let di = i2 as i32 - i1 as i32;
-            let dj = j2 as i32 - j1 as i32;
+            let i1_i64 = i64::try_from(i1).map_err(|_| {
+                Error::InvalidInput(format!("Failed to convert curve i-index {i1} to i64"))
+            })?;
+            let i2_i64 = i64::try_from(i2).map_err(|_| {
+                Error::InvalidInput(format!("Failed to convert curve i-index {i2} to i64"))
+            })?;
+            let j1_i64 = i64::try_from(j1).map_err(|_| {
+                Error::InvalidInput(format!("Failed to convert curve j-index {j1} to i64"))
+            })?;
+            let j2_i64 = i64::try_from(j2).map_err(|_| {
+                Error::InvalidInput(format!("Failed to convert curve j-index {j2} to i64"))
+            })?;
+
+            let di = i2_i64 - i1_i64;
+            let dj = j2_i64 - j1_i64;
 
             // Velocity at midpoint
             let i_mid = usize::midpoint(i1, i2).min(self.nx - 1);
@@ -136,8 +149,12 @@ impl<T: RealField + Copy + FromPrimitive> VorticityChecker<T> {
             let v_mid = v[(i_mid, j_mid)];
 
             // dl component (tangent vector)
-            let dl_x = T::from_i32(di).unwrap() * dx;
-            let dl_y = T::from_i32(dj).unwrap() * dy;
+            let dl_x = T::from_i64(di)
+                .ok_or_else(|| Error::ConversionError(format!("Failed to convert di={di} to T")))?
+                * dx;
+            let dl_y = T::from_i64(dj)
+                .ok_or_else(|| Error::ConversionError(format!("Failed to convert dj={dj} to T")))?
+                * dy;
 
             // u·dl contribution
             circulation = circulation + u_mid * dl_x + v_mid * dl_y;
