@@ -40,6 +40,10 @@ fn test_poiseuille_flow_convergence() {
     let mut fields = SimulationFields::new(nx, ny);
 
     // Set initial velocity field to analytical solution
+    // TODO: Optimize nested loop performance by using vectorized operations and cache-friendly access patterns
+    // DEPENDENCIES: Add efficient vectorized operations for field initialization and boundary conditions
+    // BLOCKED BY: Limited understanding of cache-friendly CFD field operation patterns
+    // PRIORITY: Medium - Important for performance optimization and computational efficiency
     for i in 0..nx {
         for j in 0..ny {
             let y = j as f64 * dy;
@@ -63,6 +67,10 @@ fn test_poiseuille_flow_convergence() {
     }
 
     // Apply constant pressure gradient
+    // TODO: Optimize nested loop performance by using vectorized operations and cache-friendly access patterns
+    // DEPENDENCIES: Add efficient vectorized operations for field initialization and boundary conditions
+    // BLOCKED BY: Limited understanding of cache-friendly CFD field operation patterns
+    // PRIORITY: Medium - Important for performance optimization and computational efficiency
     for i in 0..nx {
         for j in 0..ny {
             let x = i as f64 * dx;
@@ -72,7 +80,14 @@ fn test_poiseuille_flow_convergence() {
 
     // Create momentum solver
     // TODO: Implement proper logging framework instead of println! statements
+    // DEPENDENCIES: Add comprehensive logging framework with structured output and error handling
+    // BLOCKED BY: Limited understanding of logging requirements and integration patterns
+    // PRIORITY: Medium - Important for debugging and monitoring CFD simulations
     let grid = StructuredGrid2D::new(nx, ny, 0.0, channel_length, 0.0, channel_height)
+        // TODO: Replace panic-based error handling with proper Result types and error propagation
+        // DEPENDENCIES: Add comprehensive error handling framework for grid creation and validation
+        // BLOCKED BY: Limited understanding of grid failure modes and recovery strategies
+        // PRIORITY: High - Essential for robust test execution and debugging
         .unwrap_or_else(|_| panic!("Failed to create grid for Poiseuille flow validation"));
     let mut solver = MomentumSolver::new(&grid);
     // Reduce relaxation factor for better stability
@@ -112,15 +127,27 @@ fn test_poiseuille_flow_convergence() {
         let u_old = fields.u.clone();
 
         // Solve momentum equations
+        // TODO: Replace panic-based error handling with proper Result types and error propagation
+        // DEPENDENCIES: Add comprehensive error handling framework for momentum solver failures
+        // BLOCKED BY: Limited understanding of momentum solver failure modes and recovery strategies
+        // PRIORITY: High - Essential for robust test execution and debugging
         solver
             .solve(MomentumComponent::U, &mut fields, dt)
             .unwrap_or_else(|e| panic!("Momentum U solve failed: {}", e));
 
         solver
             .solve(MomentumComponent::V, &mut fields, dt)
+            // TODO: Replace panic-based error handling with proper Result types and error propagation
+            // DEPENDENCIES: Add comprehensive error handling framework for momentum solver failures
+            // BLOCKED BY: Limited understanding of momentum solver failure modes and recovery strategies
+            // PRIORITY: High - Essential for robust test execution and debugging
             .unwrap_or_else(|e| panic!("Momentum V solve failed: {}", e));
 
         // Check convergence
+        // TODO: Optimize convergence checking by using vectorized operations and parallel reduction
+        // DEPENDENCIES: Add efficient vectorized operations for convergence monitoring and error analysis
+        // BLOCKED BY: Limited understanding of parallel reduction patterns for convergence checking
+        // PRIORITY: Medium - Important for performance optimization and computational efficiency
         let mut max_change: f64 = 0.0;
         for i in 0..nx {
             for j in 0..ny {

@@ -40,6 +40,10 @@ mod gpu_tests {
 
     #[test]
     fn test_simd_vector_operations() {
+        // TODO: Replace unwrap-based error handling with proper Result types and error propagation
+        // DEPENDENCIES: Add comprehensive error handling framework for GPU compute initialization
+        // BLOCKED BY: Limited understanding of GPU compute failure modes and recovery strategies
+        // PRIORITY: High - Essential for robust GPU testing and debugging
         let compute = UnifiedCompute::new().unwrap();
 
         let a = vec![1.0f32; 1000];
@@ -59,6 +63,10 @@ mod gpu_tests {
 
     #[test]
     fn test_matrix_vector_multiplication() {
+        // TODO: Replace unwrap-based error handling with proper Result types and error propagation
+        // DEPENDENCIES: Add comprehensive error handling framework for GPU compute initialization
+        // BLOCKED BY: Limited understanding of GPU compute failure modes and recovery strategies
+        // PRIORITY: High - Essential for robust GPU testing and debugging
         let compute = UnifiedCompute::new().unwrap();
 
         // 3x3 matrix (row-major)
@@ -68,6 +76,10 @@ mod gpu_tests {
 
         compute
             .matvec_f32(&matrix, &vector, &mut result, 3, 3)
+            // TODO: Replace unwrap-based error handling with proper Result types and error propagation
+            // DEPENDENCIES: Add comprehensive error handling framework for GPU compute operations
+            // BLOCKED BY: Limited understanding of GPU compute operation failure modes and recovery strategies
+            // PRIORITY: High - Essential for robust GPU testing and debugging
             .unwrap();
 
         // Expected: [6.0, 15.0, 24.0]

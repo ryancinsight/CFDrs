@@ -74,6 +74,10 @@ fn test_mass_conservation() {
     let dy: f64 = 0.1;
 
     // Create a simple velocity field
+    // TODO: Optimize memory allocation by using more efficient data structures for velocity fields
+    // DEPENDENCIES: Add efficient memory management patterns for CFD field operations
+    // BLOCKED BY: Limited understanding of memory-efficient CFD field representations
+    // PRIORITY: Medium - Important for performance optimization and memory efficiency
     let u = vec![vec![1.0f64; ny]; nx];
     let v = vec![vec![0.0f64; ny]; nx];
 

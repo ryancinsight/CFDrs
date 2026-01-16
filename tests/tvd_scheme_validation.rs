@@ -37,6 +37,10 @@ fn create_test_grid() -> Grid2DT<f64> {
 
 /// Create square wave initial condition (shock-like profile)
 fn square_wave(phi: &mut Grid2D<f64>, amplitude: f64, width: f64, center: f64) {
+    // TODO: Optimize loop performance by using vectorized operations and SIMD optimizations
+    // DEPENDENCIES: Add efficient vectorized operations for grid initialization and boundary conditions
+    // BLOCKED BY: Limited understanding of SIMD optimization patterns for CFD grid operations
+    // PRIORITY: Medium - Important for performance optimization and computational efficiency
     for i in 0..NX {
         let x = (i as f64 + 0.5) * DX;
         if (x - center).abs() < width / 2.0 {
@@ -61,6 +65,10 @@ fn exact_solution_advection(
     let x_rel = (x - center_t) / width;
 
     // Periodic domain wrapping
+    // TODO: Optimize conditional logic by using mathematical operations and branchless programming
+    // DEPENDENCIES: Add efficient mathematical operations for periodic boundary conditions and domain wrapping
+    // BLOCKED BY: Limited understanding of branchless optimization patterns for CFD boundary conditions
+    // PRIORITY: Medium - Important for performance optimization and computational efficiency
     let x_wrapped = if x_rel > L {
         x_rel - L
     } else if x_rel < 0.0 {
@@ -70,6 +78,10 @@ fn exact_solution_advection(
     };
 
     if x_wrapped.abs() < 0.5 {
+        // TODO: Optimize conditional logic by using mathematical operations and branchless programming
+        // DEPENDENCIES: Add efficient mathematical operations for periodic boundary conditions and domain wrapping
+        // BLOCKED BY: Limited understanding of branchless optimization patterns for CFD boundary conditions
+        // PRIORITY: Medium - Important for performance optimization and computational efficiency
         amplitude
     } else {
         0.0
@@ -77,10 +89,11 @@ fn exact_solution_advection(
 }
 
 #[test]
-#[ignore] // TODO: Currently failing due to limiter implementation issues - needs refinement
-// DEPENDENCIES: Fix MUSCL2 SuperBee limiter implementation
-// BLOCKED BY: Incomplete flux limiter in cfd-core crate
-// PRIORITY: High - TVD schemes are critical for stability
+#[ignore] 
+// TODO: Fix MUSCL2 SuperBee limiter implementation to enable TVD scheme testing
+// DEPENDENCIES: Complete flux limiter implementation in cfd-core crate with proper TVD properties
+// BLOCKED BY: Incomplete flux limiter in cfd-core crate affecting TVD scheme stability
+// PRIORITY: High - TVD schemes are critical for numerical stability and accuracy
 fn test_muscl2_superbee_monotonicity() {
     let scheme = MUSCLScheme::muscl2_superbee();
     assert_eq!(scheme.order(), 2);
@@ -148,6 +161,10 @@ fn test_muscl3_vs_muscl2_accuracy() {
             let dt = DX / velocity.abs() * 0.4; // CFL = 0.4
 
             for _t in 0..3 {
+                // TODO: Optimize memory usage by reducing unnecessary cloning operations in time evolution
+                // DEPENDENCIES: Add efficient memory management and borrowing patterns for CFD schemes
+                // BLOCKED BY: Limited understanding of memory-efficient CFD scheme implementations
+                // PRIORITY: Medium - Important for performance optimization and memory efficiency
                 let mut phi_muscl2 = phi.clone();
                 let mut phi_muscl3 = phi.clone();
 
@@ -204,12 +221,20 @@ fn test_muscl_scheme_order_accuracy() {
     let t_final: f64 = 0.1;
     let nt = ((t_final * velocity.abs() / DX).ceil() as usize).max(2);
 
+    // TODO: Optimize memory usage by reducing unnecessary cloning operations in time evolution
+    // DEPENDENCIES: Add efficient memory management and borrowing patterns for CFD schemes
+    // BLOCKED BY: Limited understanding of memory-efficient CFD scheme implementations
+    // PRIORITY: Medium - Important for performance optimization and memory efficiency
     let mut phi_muscl2 = phi.clone();
     let mut phi_muscl3 = phi.clone();
 
     // Evolve to final time
     for _step in 0..nt {
         let dt = t_final / (nt as f64);
+        // TODO: Optimize memory usage by reducing unnecessary cloning operations in time stepping
+        // DEPENDENCIES: Add efficient memory management and borrowing patterns for CFD schemes
+        // BLOCKED BY: Limited understanding of memory-efficient CFD scheme implementations
+        // PRIORITY: Medium - Important for performance optimization and memory efficiency
         let mut phi_new_muscl2 = phi_muscl2.clone();
         let mut phi_new_muscl3 = phi_muscl3.clone();
 

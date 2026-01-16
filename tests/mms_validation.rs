@@ -27,6 +27,10 @@ fn test_diffusion_mms_validation() {
     println!("  Final time: {t_final}");
 
     let grid_sizes = vec![16, 32, 64];
+    // TODO: Optimize memory allocation by pre-allocating error vectors with known capacity
+    // DEPENDENCIES: Add efficient memory management and capacity planning for validation tests
+    // BLOCKED BY: Limited understanding of memory-efficient validation test patterns
+    // PRIORITY: Medium - Important for performance optimization and memory efficiency
     let mut l2_errors = Vec::new();
     let mut linf_errors = Vec::new();
 
@@ -38,6 +42,10 @@ fn test_diffusion_mms_validation() {
 
         // Set up solver with manufactured source and boundary conditions
         let mut solver = DiffusionSolver::new(n, n, dx, dy, alpha);
+        // TODO: Optimize memory allocation by pre-allocating HashMaps with known capacity
+        // DEPENDENCIES: Add efficient memory management and capacity planning for validation tests
+        // BLOCKED BY: Limited understanding of memory-efficient validation test patterns
+        // PRIORITY: Medium - Important for performance optimization and memory efficiency
         let mut boundary_values = HashMap::new();
         let mut exact_solution = HashMap::new();
         let mut initial_conditions = HashMap::new();
@@ -101,6 +109,10 @@ fn test_mms_integration_pattern() {
     // BLOCKED BY: Limited understanding of MMS test case design and validation criteria
     // PRIORITY: High - Essential for rigorous numerical method verification
     // Generate source terms, boundary conditions, and exact solution
+    // TODO: Optimize memory allocation by pre-allocating HashMaps with known capacity
+    // DEPENDENCIES: Add efficient memory management and capacity planning for validation tests
+    // BLOCKED BY: Limited understanding of memory-efficient validation test patterns
+    // PRIORITY: Medium - Important for performance optimization and memory efficiency
     let mut boundary_values = HashMap::new();
     let mut exact_solution = HashMap::new();
     let mut initial_conditions = HashMap::new();

@@ -61,6 +61,10 @@ fn test_momentum_solver_pure_diffusion() {
     }
 
     // Create solver with pure upwind (for comparison)
+    // TODO: Replace expect-based error handling with proper Result types and error propagation
+    // DEPENDENCIES: Add comprehensive error handling framework for grid creation and solver initialization
+    // BLOCKED BY: Limited understanding of grid failure modes and solver initialization requirements
+    // PRIORITY: High - Essential for robust test execution and debugging
     let grid = StructuredGrid2D::new(nx, ny, 0.0, channel_length, 0.0, channel_height)
         .expect("Failed to create grid");
     let mut solver = MomentumSolver::with_convection_scheme(&grid, ConvectionScheme::Upwind);
@@ -81,6 +85,10 @@ fn test_momentum_solver_pure_diffusion() {
     for step in 0..max_time_steps {
         let u_old = fields.u.clone();
 
+        // TODO: Replace expect-based error handling with proper Result types and error propagation
+        // DEPENDENCIES: Add comprehensive error handling framework for momentum solver failures
+        // BLOCKED BY: Limited understanding of momentum solver failure modes and recovery strategies
+        // PRIORITY: High - Essential for robust test execution and debugging
         solver
             .solve(MomentumComponent::U, &mut fields, dt)
             .expect("Momentum solve failed");
@@ -159,6 +167,10 @@ fn test_momentum_solver_deferred_correction() {
 
     // Create solver with deferred correction
     let grid = StructuredGrid2D::new(nx, ny, 0.0, channel_length, 0.0, channel_height)
+        // TODO: Replace expect-based error handling with proper Result types and error propagation
+        // DEPENDENCIES: Add comprehensive error handling framework for grid creation and solver initialization
+        // BLOCKED BY: Limited understanding of grid failure modes and solver initialization requirements
+        // PRIORITY: High - Essential for robust test execution and debugging
         .expect("Failed to create grid");
     let mut solver = MomentumSolver::with_convection_scheme(
         &grid,
@@ -185,6 +197,10 @@ fn test_momentum_solver_deferred_correction() {
     for step in 0..max_time_steps {
         let u_old = fields.u.clone();
 
+        // TODO: Replace expect-based error handling with proper Result types and error propagation
+        // DEPENDENCIES: Add comprehensive error handling framework for momentum solver failures
+        // BLOCKED BY: Limited understanding of momentum solver failure modes and recovery strategies
+        // PRIORITY: High - Essential for robust test execution and debugging
         solver
             .solve(MomentumComponent::U, &mut fields, dt)
             .expect("Momentum solve failed");
