@@ -30,8 +30,6 @@
 pub mod binary;
 pub mod checkpoint;
 pub mod csv;
-#[cfg(feature = "hdf5")]
-pub mod hdf5_module;
 pub mod vtk;
 
 // The API is now the public module hierarchy. This provides a clear,
@@ -39,7 +37,6 @@ pub mod vtk;
 // Example usage:
 //   use cfd_io::vtk::VtkWriter;
 //   use cfd_io::checkpoint::CheckpointManager;
-//   use cfd_io::hdf5_module::Hdf5Reader;
 //
 // This hierarchical structure prevents namespace pollution and makes
 // it clear which file format each type belongs to.

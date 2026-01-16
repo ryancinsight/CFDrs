@@ -131,6 +131,10 @@ pub fn interpolate_velocity_simd(
         // Average: face = 0.5 * (left + right)
         processor.ops.add(left, right, face)?;
         // Scale in-place by creating temporary
+        // TODO: Optimize SIMD operations to avoid unnecessary temporary allocations
+        // DEPENDENCIES: Implement in-place SIMD scaling and fused multiply-add operations
+        // BLOCKED BY: Limited understanding of SIMD processor capabilities and memory layout
+        // PRIORITY: Medium - Important for performance optimization
         let temp = face.to_vec();
         processor.ops.scale(&temp, 0.5, face)?;
     }
@@ -149,6 +153,10 @@ pub fn interpolate_velocity_simd(
         // Average using SIMD
         processor.ops.add(&temp_bottom, &temp_top, &mut temp_face)?;
         // Scale with temporary to avoid borrow conflict
+        // TODO: Eliminate temporary allocation and borrow conflicts in SIMD operations
+        // DEPENDENCIES: Implement proper memory management and borrowing patterns for SIMD
+        // BLOCKED BY: Rust ownership rules and SIMD processor interface limitations
+        // PRIORITY: Medium - Important for performance and memory efficiency
         let temp_copy = temp_face.clone();
         processor.ops.scale(&temp_copy, 0.5, &mut temp_face)?;
 

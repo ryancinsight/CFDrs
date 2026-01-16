@@ -211,8 +211,7 @@ impl<T: RealField + Copy> GpuKernel<T> for GpuSmagorinskyKernel<T> {
     }
 
     fn dispatch(&self, _encoder: &mut wgpu::CommandEncoder, _params: KernelParams) {
-        // Implementation would dispatch the compute workgroups
-        // This is a simplified version - full implementation needs bind groups etc.
+        // TODO: Create bind groups and dispatch workgroups via a compute pass.
     }
 }
 
@@ -402,6 +401,6 @@ impl<T: RealField + Copy> GpuKernel<T> for GpuDesKernel<T> {
     }
 
     fn dispatch(&self, _encoder: &mut wgpu::CommandEncoder, _params: KernelParams) {
-        // Placeholder implementation
+        // TODO: Implement GPU dispatch (bind groups + dispatch_workgroups) for DES kernel.
     }
 }

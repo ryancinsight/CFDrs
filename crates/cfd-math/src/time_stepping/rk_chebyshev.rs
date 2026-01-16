@@ -235,7 +235,7 @@ impl<T: RealField + Copy + FromPrimitive> RungeKuttaChebyshev<T> {
             // c_1 = w1 * b_1 * T_1(w0) approx w1 * b1 * w0
             // c_j = ...
 
-            let gamma_tilde_j = -(T::one() - b[j - 1]) * mu_tilde_j; // Approximation for now
+            let gamma_tilde_j = -(T::one() - b[j - 1]) * mu_tilde_j; // TODO: Derive gamma_tilde_j from the published RKC scheme.
 
             coeffs.push(RkcStageCoeffs {
                 mu: mu_j,
@@ -274,8 +274,8 @@ impl<T: RealField + Copy + FromPrimitive> RungeKuttaChebyshev<T> {
 
             // Evaluate F_{j-1} = F(t_{j-1}, Y_{j-1})
             // Note: t_{j-1} is approximated. For autonomous F(y), t doesn't matter.
-            // For non-autonomous, we should compute c_j. Assuming autonomous or small dt for now.
-            let f_prev = rhs.evaluate(t0, &y_prev1)?; // Using t0 for simplicity (first order in time for t)
+            // TODO: Evaluate RHS at the correct stage time t_{j-1} = t0 + c_{j-1} dt for non-autonomous problems.
+            let f_prev = rhs.evaluate(t0, &y_prev1)?;
 
             // Y_j = (1 - mu - nu) Y_0 + mu Y_{j-1} + nu Y_{j-2} + mu_tilde dt F_{j-1} + gamma_tilde dt F_0
             let term_y0 = T::one() - coeff.mu - coeff.nu;
@@ -315,7 +315,7 @@ impl<T: RealField + Copy + FromPrimitive> RungeKuttaChebyshev<T> {
                 dt = t_final - t;
             }
 
-            // Simple step without error control for now (RKC error est is complex)
+            // TODO: Add step-size control using an RKC-compatible error estimator.
             y = self.step(rhs, t, &y, dt)?;
             t += dt;
         }
@@ -364,6 +364,10 @@ mod tests {
 
     #[test]
     #[ignore = "FIXME: RKC implementation accuracy issue to be resolved in next sprint"]
+    // TODO: RKC implementation accuracy issue to be resolved in next sprint
+    // DEPENDENCIES: Debug stage coefficient calculations and stability regions
+    // BLOCKED BY: Incorrect recurrence relations in RKC stages
+    // PRIORITY: High - RKC is essential for stiff ODE integration
     fn test_exponential_decay() {
         let lambda: f64 = 1.0;
         let rhs = ExponentialDecay::new(lambda);
@@ -379,6 +383,10 @@ mod tests {
 
     #[test]
     #[ignore = "FIXME: RKC implementation accuracy issue to be resolved in next sprint"]
+    // TODO: RKC implementation accuracy issue to be resolved in next sprint
+    // DEPENDENCIES: Debug stage coefficient calculations and stability regions
+    // BLOCKED BY: Incorrect recurrence relations in RKC stages
+    // PRIORITY: High - RKC is essential for stiff ODE integration
     fn test_stiff_problem() {
         let lambda: f64 = 100.0; // Stiff
         let rhs = ExponentialDecay::new(lambda);
@@ -400,6 +408,10 @@ mod tests {
 
     #[test]
     #[ignore = "FIXME: RKC implementation accuracy issue to be resolved in next sprint"]
+    // TODO: RKC implementation accuracy issue to be resolved in next sprint
+    // DEPENDENCIES: Debug stage coefficient calculations and stability regions
+    // BLOCKED BY: Incorrect recurrence relations in RKC stages
+    // PRIORITY: High - RKC is essential for stiff ODE integration
     fn test_adaptive_solving() {
         let lambda: f64 = 1.0;
         let rhs = ExponentialDecay::new(lambda);

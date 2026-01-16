@@ -220,7 +220,7 @@ impl<T: RealField + Copy + FromPrimitive> GeometricMultigrid<T> {
                 let mut sum = T::zero();
                 let mut weight_sum = T::zero();
 
-                // Collect contributions from fine grid (simple injection for now)
+                // TODO: Use proper full-weighting restriction (not injection).
                 let fine_i = i * 2;
                 let fine_j = j * 2;
 
@@ -230,7 +230,7 @@ impl<T: RealField + Copy + FromPrimitive> GeometricMultigrid<T> {
                     weight_sum += T::one();
                 }
 
-                // Simple averaging (can be improved with proper full weighting)
+                // TODO: Use the correct full-weighting stencil for interior and boundary points.
                 if weight_sum > T::zero() {
                     coarse_residual[coarse_idx] = sum / weight_sum;
                 }
@@ -432,10 +432,16 @@ impl<T: RealField + Copy + FromPrimitive> GeometricMultigrid<T> {
         level: usize,
     ) {
         // For nonlinear problems, we need to work with the current level's operator
-        // This is a simplified implementation assuming the operator handles level management
+        // TODO: Implement explicit multilevel operator handling; current code assumes level management.
+        // DEPENDENCIES: Design proper multilevel operator interface and management
+        // BLOCKED BY: Inconsistent operator interfaces across grid levels
+        // PRIORITY: High - Essential for geometric multigrid functionality
 
         // Pre-smoothing: Apply nonlinear relaxation
-        // For simplicity, we'll use a basic fixed-point iteration as nonlinear smoother
+        // TODO: For simplicity, we'll use a basic fixed-point iteration as nonlinear smoother
+        // DEPENDENCIES: Implement proper nonlinear relaxation methods (Newton, quasi-Newton)
+        // BLOCKED BY: Limited nonlinear solver framework
+        // PRIORITY: Medium - Important for nonlinear multigrid convergence
         self.nonlinear_relaxation(operator, u, f, self.nu1);
 
         // If not the coarsest level, restrict and solve on coarse grid
@@ -478,7 +484,7 @@ impl<T: RealField + Copy + FromPrimitive> GeometricMultigrid<T> {
         self.nonlinear_relaxation(operator, u, f, self.nu2);
     }
 
-    /// Apply nonlinear relaxation (simplified fixed-point iteration)
+    /// TODO: Replace fixed-point relaxation with a proper nonlinear smoother.
     fn nonlinear_relaxation<Op: NonlinearOperator<T>>(
         &self,
         operator: &Op,
@@ -545,7 +551,7 @@ mod tests {
         let n = 8 * 8;
         let mut rhs = DVector::from_element(n, 1.0);
 
-        // Set boundary values to zero (simplified)
+        // TODO: Construct RHS consistent with Dirichlet boundary conditions (not ad hoc zeroing).
         for i in 0..8 {
             for j in 0..8 {
                 let idx = j * 8 + i;

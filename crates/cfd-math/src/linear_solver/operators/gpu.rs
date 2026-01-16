@@ -100,7 +100,7 @@ impl<T: RealField + Copy + bytemuck::Pod + bytemuck::Zeroable + ToPrimitive>
 
         Ok(DispatchMetrics {
             duration_ms: elapsed.as_secs_f64() * 1e3,
-            timestamp_supported: false, // Default to false for now, can be improved
+            timestamp_supported: false, // TODO: Detect and report timestamp query support from the backend.
         })
     }
 }

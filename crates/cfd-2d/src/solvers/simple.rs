@@ -65,9 +65,10 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::Debug> SimpleAlgorithm<T> {
 
     /// Execute one simplified SIMPLE iteration
     ///
-    /// This is a simplified implementation for demonstration.
-    /// A full implementation would include momentum prediction, pressure correction,
-    /// and proper Rhie-Chow interpolation.
+    /// TODO: Implement full SIMPLE algorithm (momentum prediction, pressure correction, Rhie-Chow).
+    /// DEPENDENCIES: Add momentum prediction, pressure correction, and Rhie-Chow interpolation
+    /// BLOCKED BY: Limited understanding of pressure-velocity coupling implementation
+    /// PRIORITY: High - Essential for accurate incompressible flow simulations
     ///
     /// Returns the maximum continuity residual and whether convergence was achieved
     pub fn simple_iteration(
@@ -88,10 +89,10 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::Debug> SimpleAlgorithm<T> {
         let p_old = fields.p.clone();
 
         // Simplified pressure-velocity coupling
-        // In a full implementation, this would involve:
-        // 1. Momentum prediction with current pressure
-        // 2. Pressure correction equation solution
-        // 3. Velocity correction with pressure gradients
+        // TODO: Replace with full SIMPLE coupling loop (prediction/correction/Rhie-Chow).
+        // DEPENDENCIES: Implement momentum prediction, pressure correction, and Rhie-Chow interpolation
+        // BLOCKED BY: Limited understanding of pressure-velocity coupling implementation
+        // PRIORITY: High - Essential for accurate incompressible flow simulations
 
         let mut max_residual = T::zero();
 
@@ -113,7 +114,10 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::Debug> SimpleAlgorithm<T> {
                 }
 
                 // Simple pressure correction to reduce continuity error
-                // p' = -residual * (dt/ρ) - this is a simplified approximation
+                // TODO: p' = -residual * (dt/ρ) - this is a simplified approximation
+                // DEPENDENCIES: Implement proper pressure correction equation solving
+                // BLOCKED BY: Limited understanding of pressure Poisson equation implementation
+                // PRIORITY: High - Essential for pressure-velocity coupling convergence
                 let rho = fields.density.at(i, j);
                 let correction = -residual * dt / rho;
                 fields.p[(i, j)] = p_old[(i, j)] + self.pressure_relaxation * correction;

@@ -96,6 +96,10 @@ fn test_mms_integration_pattern() {
 
     println!("MMS Integration Pattern - PRODUCTION TEMPLATE:");
 
+    // TODO: Implement comprehensive MMS validation framework with configurable test cases
+    // DEPENDENCIES: Add flexible MMS problem generation and automated validation
+    // BLOCKED BY: Limited understanding of MMS test case design and validation criteria
+    // PRIORITY: High - Essential for rigorous numerical method verification
     // Generate source terms, boundary conditions, and exact solution
     let mut boundary_values = HashMap::new();
     let mut exact_solution = HashMap::new();

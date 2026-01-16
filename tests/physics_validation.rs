@@ -53,6 +53,10 @@ fn test_heat_diffusion_1d() {
     let z = position / (2.0 * (thermal_diffusivity * time).sqrt());
     let expected_temp_ratio = erfc_approx(z);
 
+    // TODO: Implement comprehensive physics validation with proper error bounds and tolerance analysis
+    // DEPENDENCIES: Add rigorous validation framework for physical consistency and accuracy
+    // BLOCKED BY: Limited understanding of physics validation tolerance requirements
+    // PRIORITY: Medium - Important for ensuring physical realism in simulations
     assert!((0.0..=1.0).contains(&expected_temp_ratio));
     let z2 = 1.1 * z;
     let r2 = erfc_approx(z2);

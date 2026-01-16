@@ -139,6 +139,7 @@ pub mod integration;
 pub mod interpolation;
 pub mod iterators;
 pub mod linear_solver;
+pub mod performance_monitor;
 pub mod simd;
 pub mod sparse;
 pub mod spatial;

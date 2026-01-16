@@ -627,6 +627,11 @@ mod tests {
     // Constructor Tests
     // ========================================================================
 
+    // TODO: Implement comprehensive face topology validation testing framework
+    // DEPENDENCIES: Add rigorous validation for mesh topology consistency and geometric correctness
+    // BLOCKED BY: Limited understanding of mesh topology validation requirements and edge cases
+    // PRIORITY: Medium - Important for ensuring mesh generation robustness
+
     #[test]
     fn test_triangle_constructor() {
         let face = Face::triangle(0, 1, 2);

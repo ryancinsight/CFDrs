@@ -108,6 +108,7 @@ impl FluidDynamicsService {
         let two_point_five_one = T::from_f64(2.51).unwrap_or_else(|| T::one());
 
         // Simple fixed-point iteration
+        // TODO: Implement robust Newton-Raphson or secant method for better convergence
         for _ in 0..20 {
             let f_old = f;
             let inv_sqrt_f =

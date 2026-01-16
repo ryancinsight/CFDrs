@@ -470,8 +470,7 @@ impl<T: RealField + Copy + FromPrimitive, Op: DistributedLinearOperator<T>>
         // Try to assemble local matrix for direct solve
         if let Some(mat) = operator.assemble_local_matrix() {
             // Use LU decomposition if matrix is available
-            // Note: This is a simplified local solver that doesn't account for overlap yet
-            // Proper Schwarz requires extracting the overlapping submatrix
+            // TODO: Extract overlap-aware submatrix for correct Schwarz local solves.
             let lu = mat.lu();
             let solver = Box::new(move |r: &DVector<T>, z: &mut DVector<T>| {
                 if let Some(sol) = lu.solve(r) {
@@ -505,9 +504,17 @@ impl<T: RealField + Copy + FromPrimitive, Op: DistributedLinearOperator<T>> Prec
     /// Apply additive Schwarz preconditioner
     fn apply(&self, r: &DistributedVector<T>, z: &mut DistributedVector<T>) -> MpiResult<()> {
         // Apply each local solver and accumulate results
+        // TODO: Implement proper distributed solver aggregation strategy
+        // DEPENDENCIES: Add weighted averaging, convergence checking, and load balancing
+        // BLOCKED BY: Limited understanding of distributed solver coordination
+        // PRIORITY: High - Essential for scalable MPI computations
         let mut local_result = DVector::zeros(r.local_data.len());
 
         for solver in &self.local_solvers {
+            // TODO: Implement proper solver combination instead of simple accumulation
+            // DEPENDENCIES: Add solver selection criteria and result combination strategies
+            // BLOCKED BY: No framework for comparing and combining different solver results
+            // PRIORITY: Medium - Important for robust distributed solving
             let mut temp = DVector::zeros(r.local_data.len());
             solver(&r.local_data, &mut temp);
             local_result += temp;
@@ -777,8 +784,7 @@ pub mod parallel_io {
             _cells: &[u32],
             _cell_types: &[u8],
         ) -> MpiResult<()> {
-            // Implementation would write VTK header
-            // This is a placeholder for the actual VTK writing logic
+            // TODO: Implement VTK header writing for distributed meshes
             Ok(())
         }
 
@@ -789,64 +795,7 @@ pub mod parallel_io {
             _point_data: &HashMap<String, &DistributedVector<T>>,
             _cell_data: &HashMap<String, &DistributedVector<T>>,
         ) -> MpiResult<()> {
-            // Implementation would write distributed data
-            // This is a placeholder for the actual distributed data writing
-            Ok(())
-        }
-    }
-
-    /// Parallel HDF5 writer for distributed datasets
-    pub struct ParallelHdf5Writer<T: RealField> {
-        communicator: MpiCommunicator,
-        is_root: bool,
-    }
-
-    impl<T: RealField> ParallelHdf5Writer<T> {
-        /// Create new parallel HDF5 writer
-        pub fn new(communicator: &MpiCommunicator) -> Self {
-            Self {
-                communicator: communicator.clone(),
-                is_root: communicator.is_root(),
-            }
-        }
-
-        /// Write distributed HDF5 file
-        pub fn write_hdf5_file<P: AsRef<Path>>(
-            &self,
-            filename: P,
-            datasets: &HashMap<String, &DistributedVector<T>>,
-            metadata: &HashMap<String, String>,
-        ) -> MpiResult<()> {
-            if self.is_root {
-                // Root process creates file and writes metadata
-                self.write_hdf5_header(filename, metadata)?;
-            }
-
-            // Collective write of distributed data
-            self.write_distributed_datasets(filename, datasets)?;
-
-            Ok(())
-        }
-
-        /// Write HDF5 header and metadata (root process only)
-        fn write_hdf5_header<P: AsRef<Path>>(
-            &self,
-            _filename: P,
-            _metadata: &HashMap<String, String>,
-        ) -> MpiResult<()> {
-            // Implementation would write HDF5 header and metadata
-            // This is a placeholder for the actual HDF5 writing logic
-            Ok(())
-        }
-
-        /// Write distributed datasets using collective I/O
-        fn write_distributed_datasets<P: AsRef<Path>>(
-            &self,
-            _filename: P,
-            _datasets: &HashMap<String, &DistributedVector<T>>,
-        ) -> MpiResult<()> {
-            // Implementation would use HDF5 collective I/O operations
-            // This is a placeholder for the actual distributed dataset writing
+            // TODO: Implement distributed point/cell data writing for VTK
             Ok(())
         }
     }
@@ -868,8 +817,6 @@ mod tests {
     fn test_parallel_io_types() {
         // Test that parallel I/O types can be created (compile-time check)
         let _vtk_marker: std::marker::PhantomData<parallel_io::ParallelVtkWriter<f64>> =
-            std::marker::PhantomData;
-        let _hdf5_marker: std::marker::PhantomData<parallel_io::ParallelHdf5Writer<f64>> =
             std::marker::PhantomData;
     }
 }

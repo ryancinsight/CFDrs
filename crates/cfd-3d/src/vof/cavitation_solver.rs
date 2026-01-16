@@ -457,7 +457,7 @@ impl CavitationVofSolver {
                             // Calculate erosion rate
                             let erosion_rate = damage_model.mdpr(
                                 impact_pressure,
-                                1.0, // frequency (simplified)
+                                1.0, // TODO: Derive cavitation impact frequency from bubble statistics.
                                 dt,
                             );
 
@@ -515,6 +515,10 @@ impl CavitationVofSolver {
     }
 
     #[allow(missing_docs)]
+    // TODO: Implement comprehensive sonoluminescence energy field calculation
+    // DEPENDENCIES: Add accurate cavitation bubble dynamics and energy emission models
+    // BLOCKED BY: Limited understanding of sonoluminescence physics and energy transfer mechanisms
+    // PRIORITY: High - Essential for accurate cavitation simulation and energy analysis
     pub fn sonoluminescence_energy_field(
         &self,
         pressure_field: &DMatrix<f64>,

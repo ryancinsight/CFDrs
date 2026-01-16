@@ -42,7 +42,7 @@ pub fn create_classical_interpolation<T: RealField + Copy + FromPrimitive>(
                         .get_entry(fine_i, neighbor_idx)
                         .map_or(T::zero(), |e| e.into_value());
                     // Simple distance-weighted interpolation
-                    let distance = T::one(); // Assume unit distance for now
+                    let distance = T::one(); // TODO: Compute an actual distance metric for interpolation weights.
                     let weight = strength / (distance + T::one());
                     weights.push((coarse_local_idx, weight));
                     total_weight += weight;

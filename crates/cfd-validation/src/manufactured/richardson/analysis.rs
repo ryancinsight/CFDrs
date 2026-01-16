@@ -405,7 +405,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float>
 
     /// Score stability analysis results
     fn score_stability_analysis(&self) -> f64 {
-        // Placeholder scoring - in practice would analyze stability regions
+        // TODO: Score stability using computed stability regions (not a fixed constant).
         if self
             .numerical_stability_analysis
             .stability_regions
@@ -419,7 +419,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float>
 
     /// Score conservation analysis results
     fn score_conservation_analysis(&self) -> f64 {
-        // Placeholder scoring - in practice would analyze conservation errors
+        // TODO: Score conservation using measured conservation errors (not a fixed constant).
         if self.conservation_analysis.conservation_errors.is_empty() {
             0.0
         } else {
@@ -439,21 +439,21 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float>
             grid_convergence_index: "O(1) per grid pair".to_string(),
         };
 
-        // Basic memory bandwidth analysis (simplified)
+        // TODO: Compute memory bandwidth metrics from measured hardware counters.
         self.performance_profile.memory_bandwidth_analysis = MemoryBandwidthAnalysis {
             memory_access_patterns: "Sequential grid traversals".to_string(),
             cache_line_utilization: "High for structured grids".to_string(),
             memory_bandwidth_requirements: "Low for Richardson extrapolation".to_string(),
         };
 
-        // Cache efficiency (simplified)
+        // TODO: Compute cache efficiency metrics from measured profiling data.
         self.performance_profile.cache_efficiency_metrics = CacheEfficiencyMetrics {
             spatial_locality: "Excellent for grid-based operations".to_string(),
             temporal_locality: "Good for iterative algorithms".to_string(),
             cache_miss_rate: "Low for CFD grids".to_string(),
         };
 
-        // Scalability analysis (simplified)
+        // TODO: Compute scalability metrics from measured strong/weak scaling data.
         self.performance_profile.scalability_analysis = ScalabilityAnalysis {
             parallel_efficiency: "High for domain decomposition".to_string(),
             communication_overhead: "Minimal for Richardson extrapolation".to_string(),

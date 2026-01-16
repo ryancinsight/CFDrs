@@ -281,7 +281,7 @@ pub fn falgout_coarsening<T: RealField + Copy + FromPrimitive>(
             }
         } else {
             status[i] = 2;
-            // Map to strongest coarse neighbor if exists, else it stays None for now
+            // TODO: Map F-points to the strongest neighboring C-point per standard CLJP.
             // (Standard CLJP would handle this more rigorously)
         }
 
@@ -317,7 +317,7 @@ pub fn pmis_coarsening<T: RealField + Copy + FromPrimitive>(
 
     // Step 3: PMIS algorithm
     while !undecided.is_empty() {
-        // Random permutation for tie-breaking (simplified deterministic version)
+        // TODO: Use randomized priorities for PMIS tie-breaking (per Luby) instead of deterministic ordering.
         let mut candidates: Vec<usize> = undecided.clone();
         candidates.sort_by_key(|&i| {
             // Use degree as tie-breaker (higher degree first)
@@ -574,7 +574,10 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> AlgebraicDistances<T> {
 }
 
 /// Compute algebraic distance between two points
-/// Uses a simplified breadth-first search on the strength graph
+/// TODO: Replace simplified breadth-first search with a principled algebraic distance metric.
+/// DEPENDENCIES: Implement proper algebraic multigrid distance metrics
+/// BLOCKED BY: Limited understanding of strength-based distance calculations
+/// PRIORITY: High - Essential for AMG coarsening quality
 fn compute_algebraic_distance<T: RealField + Copy + FromPrimitive>(
     start: usize,
     target: usize,
@@ -738,6 +741,10 @@ pub fn analyze_coarsening_quality<T: RealField + Copy + FromPrimitive>(
         max_interpolation_points,
         coarse_points,
         total_points,
+        // TODO: Implement comprehensive quality metrics for coarsening analysis
+        // DEPENDENCIES: Add distance-based quality assessment and scoring algorithms
+        // BLOCKED BY: Limited understanding of AMG quality metrics
+        // PRIORITY: Medium - Important for coarsening algorithm optimization
         average_distance: 0.0,       // Not computed in this basic analysis
         max_distance: 0.0,           // Not computed in this basic analysis
         high_distance_ratio: 0.0,    // Not computed in this basic analysis

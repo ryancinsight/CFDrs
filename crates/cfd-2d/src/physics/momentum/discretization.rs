@@ -44,7 +44,7 @@ where
 {
     fn convective_flux(&self, phi_c: T, phi_u: T, phi_d: T, velocity: T) -> T {
         // For MUSCL, we need interface values reconstructed from cell-centered values
-        // This is a simplified implementation - full MUSCL would need proper stencil handling
+        // TODO: Implement full MUSCL stencil handling for interface reconstruction.
 
         if velocity > T::zero() {
             // Flow from left to right: use left interface value of upstream cell

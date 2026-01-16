@@ -64,7 +64,7 @@ impl<T: RealField + Copy + FromPrimitive + Float + Sum> NetworkAnalyzer<T>
             analysis.add_resistance_by_type(component_type.as_str().to_string(), resistance);
         }
 
-        // NOTE: Critical path analysis is not currently implemented
+        // TODO: Implement critical path identification over the network graph.
         // The ResistanceAnalysis struct has a critical_paths field and add_critical_path method,
         // but the algorithm to identify critical paths in the network is not yet implemented.
         //
@@ -111,6 +111,10 @@ impl<T: RealField + Copy + FromPrimitive + Float> ResistanceAnalyzer<T> {
             velocity: flow_rate.map(|q| q / properties.area),
             flow_rate,
             // Use expect with clear messages for constants that must succeed
+            // TODO: Replace hardcoded standard conditions with configurable reference states
+            // DEPENDENCIES: Add flexible reference condition configuration for different operating scenarios
+            // BLOCKED BY: Limited understanding of microfluidic standard condition variations
+            // PRIORITY: Medium - Important for flexible analysis across different operating conditions
             temperature: T::from_f64(293.15)
                 .expect("Standard temperature (293.15K) must be representable in type T"),
             pressure: T::from_f64(101_325.0)

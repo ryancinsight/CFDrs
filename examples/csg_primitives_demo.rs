@@ -1,8 +1,9 @@
 //! CSG primitives demonstration
 //!
-//! This example is a placeholder for future CSG capabilities.
-//! CSG boolean operations are not yet implemented in this workspace.
-//! See cfd-mesh csg module for error definitions and future integration points.
+//! TODO: This example is a placeholder for future CSG capabilities.
+//! TODO: CSG boolean operations are not yet implemented in this workspace.
+//! TODO: See cfd-mesh csg module for error definitions and future integration points.
+//! PRIORITY: Medium - CSG integration would enhance mesh generation capabilities
 
 #![allow(missing_docs)]
 

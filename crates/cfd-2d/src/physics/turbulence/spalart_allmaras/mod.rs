@@ -552,7 +552,7 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive>
     fn production_term(&self, velocity_gradient: &[[T; 2]; 2], turbulent_viscosity: T) -> T {
         // For SA model, production is calculated differently
         // P = Cb1 * S̃ * ν̃ where S̃ is modified vorticity
-        // This is a simplified implementation
+        // TODO: Implement SA production using ν̃ transport state instead of approximations.
         let vorticity = self.vorticity_magnitude(velocity_gradient);
         let nu_tilde_estimate = turbulent_viscosity; // Approximation
         let molecular_viscosity = T::from_f64(1e-5).unwrap_or_else(T::one);
@@ -570,7 +570,7 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive>
 
     fn dissipation_term(&self, _nu_tilde: T, epsilon_or_omega: T) -> T {
         // For SA model, dissipation is handled in the transport equation
-        // Return a simplified approximation
+        // TODO: Provide a consistent mapping for dissipation_term in SA adapter trait.
         let _ = epsilon_or_omega; // SA uses modified viscosity transport, not k-ε form
         T::zero() // Not directly applicable
     }

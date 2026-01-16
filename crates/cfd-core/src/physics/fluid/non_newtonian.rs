@@ -95,7 +95,10 @@ impl<T: RealField + FromPrimitive + Copy> PowerLawFluid<T> {
 
 impl<T: RealField + FromPrimitive + Copy> FluidTrait<T> for PowerLawFluid<T> {
     fn properties_at(&self, _temperature: T, _pressure: T) -> Result<FluidState<T>, Error> {
-        // Use reference shear rate for property calculation
+        // TODO: Use reference shear rate for property calculation
+        // DEPENDENCIES: Implement temperature-dependent viscosity models for non-Newtonian fluids
+        // BLOCKED BY: Limited understanding of shear rate effects on temperature-dependent properties
+        // PRIORITY: High - Essential for accurate non-Newtonian CFD simulations
         let apparent_viscosity = self.apparent_viscosity(self.reference_shear_rate);
 
         Ok(FluidState {
@@ -185,7 +188,10 @@ impl<T: RealField + FromPrimitive + Copy> BinghamPlastic<T> {
 
 impl<T: RealField + FromPrimitive + Copy> FluidTrait<T> for BinghamPlastic<T> {
     fn properties_at(&self, _temperature: T, _pressure: T) -> Result<FluidState<T>, Error> {
-        // Use reference shear rate for property calculation
+        // TODO: Use reference shear rate for property calculation
+        // DEPENDENCIES: Implement temperature-dependent yield stress and viscosity models
+        // BLOCKED BY: Limited understanding of temperature effects on yield stress behavior
+        // PRIORITY: High - Essential for accurate Bingham plastic CFD simulations
         let apparent_viscosity = self.apparent_viscosity(self.reference_shear_rate);
 
         Ok(FluidState {
@@ -281,6 +287,10 @@ impl<T: RealField + FromPrimitive + Copy> HerschelBulkley<T> {
 
 impl<T: RealField + FromPrimitive + Copy> FluidTrait<T> for HerschelBulkley<T> {
     fn properties_at(&self, _temperature: T, _pressure: T) -> Result<FluidState<T>, Error> {
+        // TODO: Implement temperature-dependent Herschel-Bulkley properties
+        // DEPENDENCIES: Add temperature effects to yield stress, consistency index, and flow behavior
+        // BLOCKED BY: Complex coupling between temperature and non-Newtonian parameters
+        // PRIORITY: High - Essential for accurate Herschel-Bulkley CFD simulations
         let apparent_viscosity = self.apparent_viscosity(self.reference_shear_rate);
 
         Ok(FluidState {

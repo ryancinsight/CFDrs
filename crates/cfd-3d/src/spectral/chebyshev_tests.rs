@@ -271,6 +271,10 @@ mod tests {
     /// Reference: Boyd (2001), Chapter 3
     #[test]
     #[ignore = "Simplified weights not accurate enough"]
+    // TODO: Implement accurate Gauss-Lobatto quadrature weights for Chebyshev polynomials
+    // DEPENDENCIES: Add proper numerical integration algorithms for spectral methods
+    // BLOCKED BY: Limited understanding of spectral quadrature weight calculations
+    // PRIORITY: High - Essential for accurate spectral method implementation
     fn test_gauss_lobatto_quadrature() {
         let n = 16;
         let cheb = ChebyshevPolynomial::<f64>::new(n).unwrap();
@@ -282,7 +286,7 @@ mod tests {
         for (i, &x) in points.iter().enumerate() {
             let f_val = x * x;
 
-            // Clenshaw-Curtis weights (simplified)
+            // TODO: Implement correct Clenshaw-Curtis / Gauss-Lobatto quadrature weights.
             let weight = if i == 0 || i == n - 1 {
                 1.0 / ((n - 1) * (n - 1)) as f64
             } else {

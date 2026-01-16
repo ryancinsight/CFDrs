@@ -6,6 +6,128 @@
 use cfd_core::error::Result;
 use cfd_math::simd::{SimdCapability, SimdOperation, SimdProcessor};
 use std::sync::Arc;
+use std::time::Instant;
+
+/// Performance benchmarking results
+#[derive(Debug, Clone)]
+pub struct PerformanceBenchmark {
+    /// Array size tested
+    pub size: usize,
+    /// SIMD execution time (nanoseconds)
+    pub simd_time_ns: u64,
+    /// Parallel execution time (nanoseconds)
+    pub parallel_time_ns: u64,
+    /// Optimal threshold based on benchmark
+    pub optimal_threshold: usize,
+}
+
+/// Runtime performance benchmarking for threshold selection
+pub struct PerformanceBenchmarker {
+    benchmarks: Vec<PerformanceBenchmark>,
+    last_benchmark_time: Instant,
+    benchmark_interval: std::time::Duration,
+}
+
+impl PerformanceBenchmarker {
+    /// Create new performance benchmarker
+    pub fn new() -> Self {
+        Self {
+            benchmarks: Vec::new(),
+            last_benchmark_time: Instant::now(),
+            benchmark_interval: std::time::Duration::from_secs(60), // Rebenchmark every minute
+        }
+    }
+
+    /// Run performance benchmarks to determine optimal thresholds
+    pub fn benchmark_thresholds(&mut self, simd_processor: &SimdProcessor) -> Result<usize> {
+        let now = Instant::now();
+        
+        // Skip benchmarking if we've done it recently
+        if now.duration_since(self.last_benchmark_time) < self.benchmark_interval && !self.benchmarks.is_empty() {
+            return Ok(self.get_optimal_threshold());
+        }
+
+        self.last_benchmark_time = now;
+        self.benchmarks.clear();
+
+        // Test different array sizes
+        let test_sizes = vec![100, 500, 1000, 2000, 5000, 10000];
+        
+        for &size in &test_sizes {
+            let benchmark = self.benchmark_size(simd_processor, size)?;
+            self.benchmarks.push(benchmark);
+        }
+
+        Ok(self.get_optimal_threshold())
+    }
+
+    /// Benchmark a specific array size
+    fn benchmark_size(&self, simd_processor: &SimdProcessor, size: usize) -> Result<PerformanceBenchmark> {
+        // Create test data
+        let a: Vec<f32> = (0..size).map(|i| i as f32).collect();
+        let b: Vec<f32> = (0..size).map(|i| (i * 2) as f32).collect();
+        let mut simd_result = vec![0.0f32; size];
+        let mut parallel_result = vec![0.0f32; size];
+
+        // Benchmark SIMD
+        let simd_start = Instant::now();
+        for _ in 0..10 { // Run multiple times for average
+            simd_processor.process_f32(&a, &b, &mut simd_result, SimdOperation::Add)?;
+        }
+        let simd_time = simd_start.elapsed();
+
+        // Benchmark parallel
+        let parallel_start = Instant::now();
+        for _ in 0..10 { // Run multiple times for average
+            use rayon::prelude::*;
+            parallel_result.par_iter_mut()
+                .zip(a.par_iter())
+                .zip(b.par_iter())
+                .for_each(|((res, &a_val), &b_val)| {
+                    *res = a_val + b_val;
+                });
+        }
+        let parallel_time = parallel_start.elapsed();
+
+        // Calculate optimal threshold (where parallel becomes faster than SIMD)
+        let optimal_threshold = if parallel_time < simd_time {
+            size
+        } else {
+            size * 2 // If SIMD is faster, suggest higher threshold
+        };
+
+        Ok(PerformanceBenchmark {
+            size,
+            simd_time_ns: simd_time.as_nanos() as u64 / 10, // Average per run
+            parallel_time_ns: parallel_time.as_nanos() as u64 / 10, // Average per run
+            optimal_threshold,
+        })
+    }
+
+    /// Get current optimal threshold from benchmarks
+    fn get_optimal_threshold(&self) -> usize {
+        // Find the size where parallel becomes consistently faster
+        for benchmark in &self.benchmarks {
+            if benchmark.parallel_time_ns < benchmark.simd_time_ns {
+                return benchmark.size;
+            }
+        }
+        
+        // Default threshold if no clear winner found
+        1000
+    }
+
+    /// Get benchmark results for analysis
+    pub fn get_benchmarks(&self) -> &[PerformanceBenchmark] {
+        &self.benchmarks
+    }
+}
+
+impl Default for PerformanceBenchmarker {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 /// Unified compute backend selection
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -25,6 +147,7 @@ pub struct UnifiedCompute {
     #[allow(dead_code)]
     gpu_context: Option<Arc<wgpu::Device>>,
     simd_processor: SimdProcessor,
+    benchmarker: PerformanceBenchmarker,
 }
 
 impl UnifiedCompute {
@@ -32,6 +155,7 @@ impl UnifiedCompute {
     /// Tries GPU first (supports discrete, integrated, and software rendering)
     pub fn new() -> Result<Self> {
         let simd_processor = SimdProcessor::new();
+        let benchmarker = PerformanceBenchmarker::new();
 
         // Try GPU first - now enabled by default
         #[cfg(feature = "gpu")]
@@ -43,6 +167,7 @@ impl UnifiedCompute {
                         backend: Backend::Gpu,
                         gpu_context: Some(gpu.device.clone()),
                         simd_processor,
+                        benchmarker,
                     });
                 }
                 Err(e) => {
@@ -77,6 +202,7 @@ impl UnifiedCompute {
             #[cfg(feature = "gpu")]
             gpu_context: None,
             simd_processor,
+            benchmarker,
         })
     }
 
@@ -86,13 +212,34 @@ impl UnifiedCompute {
         self.backend
     }
 
+    /// Get performance benchmark results
+    #[must_use]
+    pub fn benchmark_results(&self) -> &[PerformanceBenchmark] {
+        self.benchmarker.get_benchmarks()
+    }
+
+    /// Force re-run performance benchmarks
+    pub fn rebenchmark(&mut self) -> Result<usize> {
+        self.benchmarker.benchmark_thresholds(&self.simd_processor)
+    }
+
     /// Vector addition with automatic dispatch
-    pub fn vector_add_f32(&self, a: &[f32], b: &[f32], result: &mut [f32]) -> Result<()> {
+    /// 
+    /// Performance optimization: Uses runtime performance benchmarking to auto-select optimal threshold
+    /// for switching between SIMD and parallel processing based on actual hardware performance.
+    pub fn vector_add_f32(&mut self, a: &[f32], b: &[f32], result: &mut [f32]) -> Result<()> {
+        // Get optimal threshold from runtime benchmarking
+        let parallel_threshold = self.benchmarker.benchmark_thresholds(&self.simd_processor)?;
+        
         match self.backend {
             Backend::Gpu => {
                 #[cfg(feature = "gpu")]
                 {
-                    // GPU implementation
+                    // TODO: Implement GPU kernel fusion for multiple operations
+                    // CURRENT: Falling back to SIMD processing when GPU backend is selected
+                    // NEEDED: GPU kernel implementation that can handle vector addition on GPU
+                    // DEPENDENCIES: wgpu kernel compilation and buffer management
+                    // PRIORITY: High - GPU acceleration is a key performance feature
                     self.simd_processor
                         .process_f32(a, b, result, SimdOperation::Add)
                 }
@@ -103,8 +250,22 @@ impl UnifiedCompute {
                 }
             }
             Backend::Simd | Backend::Swar => {
-                self.simd_processor
-                    .process_f32(a, b, result, SimdOperation::Add)
+                // Use adaptive threshold based on benchmarked hardware performance
+                if a.len() > parallel_threshold {
+                    // Use parallel processing for large arrays
+                    use rayon::prelude::*;
+                    result.par_iter_mut()
+                        .zip(a.par_iter())
+                        .zip(b.par_iter())
+                        .for_each(|((res, &a_val), &b_val)| {
+                            *res = a_val + b_val;
+                        });
+                    Ok(())
+                } else {
+                    // Use SIMD for smaller arrays where overhead is acceptable
+                    self.simd_processor
+                        .process_f32(a, b, result, SimdOperation::Add)
+                }
             }
         }
     }
@@ -328,14 +489,16 @@ mod tests {
 
     #[test]
     fn test_unified_compute() {
-        let compute = UnifiedCompute::new().unwrap();
+        let compute = UnifiedCompute::new().expect("Failed to create UnifiedCompute backend for testing");
+        // TODO: Replace println! with proper logging framework
         println!("Active backend: {:?}", compute.backend());
 
         let a = vec![1.0f32; 100];
         let b = vec![2.0f32; 100];
         let mut result = vec![0.0f32; 100];
 
-        compute.vector_add_f32(&a, &b, &mut result).unwrap();
+        compute.vector_add_f32(&a, &b, &mut result)
+            .expect("Failed to perform vector addition in test");
 
         for val in &result {
             assert_eq!(*val, 3.0);
@@ -344,7 +507,8 @@ mod tests {
 
     #[test]
     fn test_pressure_solver() {
-        let compute = Arc::new(UnifiedCompute::new().unwrap());
+        let compute = Arc::new(UnifiedCompute::new()
+            .expect("Failed to create UnifiedCompute backend for pressure solver test"));
         let solver = kernels::PressureSolver::new(compute);
 
         let nx = 10;
@@ -353,7 +517,8 @@ mod tests {
         let divergence = vec![0.1f32; nx * ny];
         let mut pressure = vec![0.0f32; nx * ny];
 
-        solver.solve(&divergence, &mut pressure, config).unwrap();
+        solver.solve(&divergence, &mut pressure, config)
+            .expect("Failed to solve pressure equation in test");
 
         // Should produce non-zero pressure
         let sum: f32 = pressure.iter().sum();

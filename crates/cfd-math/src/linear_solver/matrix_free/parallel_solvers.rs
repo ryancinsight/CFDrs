@@ -335,8 +335,7 @@ where
         _alpha: &mut T,
         _omega: &mut T,
     ) -> MpiResult<()> {
-        // Implementation would use persistent MPI requests
-        // For now, fall back to synchronous implementation
+        // TODO: Implement persistent MPI requests and overlap communication with computation.
         Err(
             Error::InvalidConfiguration("Persistent requests not yet implemented".to_string())
                 .into(),
@@ -456,8 +455,7 @@ impl<T: RealField + Copy> ParallelLoadBalancer<T> {
         self.work_estimates[rank] = local_work;
         self.comm_overhead[rank] = local_comm;
 
-        // In a full implementation, this would communicate load information
-        // across all processes for global load balancing decisions
+        // TODO: Communicate load/comm estimates across ranks for global decisions.
     }
 
     /// Get load balancing recommendations.

@@ -145,10 +145,18 @@ fn test_poiseuille_with_monitoring() -> Result<(), Box<dyn std::error::Error>> {
     let mut fields = SimulationFields::new(nx, ny);
 
     // Set pressure gradient
+    // TODO: Implement more sophisticated boundary condition setup
+    // DEPENDENCIES: Add support for various boundary condition types and configurations
+    // BLOCKED BY: Limited boundary condition framework in examples
+    // PRIORITY: Medium - Important for realistic simulation scenarios
     let dx = channel_length / (nx - 1) as f64;
     for i in 0..nx {
         for j in 0..ny {
             let x = i as f64 * dx;
+            // TODO: Add proper boundary condition validation and error handling
+            // DEPENDENCIES: Implement boundary condition consistency checking
+            // BLOCKED BY: No framework for boundary condition validation
+            // PRIORITY: Low - Nice-to-have for robustness
             fields.p.set(i, j, pressure_gradient * x);
         }
     }

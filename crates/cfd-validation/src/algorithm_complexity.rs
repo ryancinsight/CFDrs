@@ -37,12 +37,19 @@ impl AlgorithmComplexityInfo {
     pub fn new(name: &str) -> Self {
         Self {
             name: name.to_string(),
+            // TODO: Determine actual time complexity for each algorithm
             time_complexity: "O(?)".to_string(),
+            // TODO: Determine actual space complexity for each algorithm  
             space_complexity: "O(?)".to_string(),
+            // TODO: Analyze memory access patterns for each algorithm
             memory_pattern: "Unknown".to_string(),
+            // TODO: Benchmark and measure actual cache efficiency
             cache_efficiency: 0.5,
+            // TODO: Analyze parallel scalability characteristics
             scalability: 0.5,
+            // TODO: Add relevant literature references for each algorithm
             references: Vec::new(),
+            // TODO: Add performance notes and optimization hints
             notes: Vec::new(),
         }
     }

@@ -10,7 +10,10 @@ fn main() {
     println!();
     println!("❌ The 'scheme-integration' feature is not enabled.");
     println!();
-    println!("This feature requires system dependencies (fontconfig) that may not be available");
+    // TODO: This feature requires system dependencies (fontconfig) that may not be available
+    // DEPENDENCIES: fontconfig library, pkg-config tool
+    // BLOCKED BY: Missing system dependencies on some platforms
+    // PRIORITY: Medium - Nice-to-have visualization feature
     println!("in all environments. To enable scheme integration:");
     println!();
     println!("1. Install system dependencies:");

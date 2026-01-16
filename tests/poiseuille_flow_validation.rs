@@ -71,8 +71,9 @@ fn test_poiseuille_flow_convergence() {
     }
 
     // Create momentum solver
+    // TODO: Implement proper logging framework instead of println! statements
     let grid = StructuredGrid2D::new(nx, ny, 0.0, channel_length, 0.0, channel_height)
-        .expect("Failed to create grid");
+        .unwrap_or_else(|_| panic!("Failed to create grid for Poiseuille flow validation"));
     let mut solver = MomentumSolver::new(&grid);
     // Reduce relaxation factor for better stability
     solver.set_velocity_relaxation(0.5);
@@ -104,7 +105,8 @@ fn test_poiseuille_flow_convergence() {
     let convergence_tolerance = 1e-1; // Relaxed tolerance for current solver limitations
     let mut converged = false;
 
-    println!("Starting Poiseuille flow simulation...");
+    // TODO: Replace with proper logging framework
+    // println!("Starting Poiseuille flow simulation...");
 
     for step in 0..max_time_steps {
         let u_old = fields.u.clone();
@@ -112,11 +114,11 @@ fn test_poiseuille_flow_convergence() {
         // Solve momentum equations
         solver
             .solve(MomentumComponent::U, &mut fields, dt)
-            .expect("Momentum solve failed");
+            .unwrap_or_else(|e| panic!("Momentum U solve failed: {}", e));
 
         solver
             .solve(MomentumComponent::V, &mut fields, dt)
-            .expect("Momentum solve failed");
+            .unwrap_or_else(|e| panic!("Momentum V solve failed: {}", e));
 
         // Check convergence
         let mut max_change: f64 = 0.0;
@@ -128,14 +130,16 @@ fn test_poiseuille_flow_convergence() {
         }
 
         if max_change < convergence_tolerance {
-            println!("Converged after {step} iterations");
+            // TODO: Replace with proper logging framework
+            // println!("Converged after {step} iterations");
             converged = true;
             break;
         }
 
         if step % 100 == 0 {
             let u_center = fields.u.at(nx / 2, ny / 2);
-            println!("Step {step}: max change = {max_change:.2e}, u_center = {u_center:.6}");
+            // TODO: Replace with proper logging framework
+            // println!("Step {step}: max change = {max_change:.2e}, u_center = {u_center:.6}");
         }
     }
 
@@ -176,7 +180,10 @@ fn test_poiseuille_flow_convergence() {
     assert!(
         max_error < max_acceptable_error,
         "SOLVER LIMITATION: Max error {:.2e} exceeds acceptable limit {:.2e}. \
-        Current momentum solver needs integration with pressure solver for full accuracy.",
+        TODO: Current momentum solver needs integration with pressure solver for full accuracy. \
+        DEPENDENCIES: Implement coupled momentum-pressure solver in cfd-core. \
+        BLOCKED BY: Separate momentum and pressure solvers. \
+        PRIORITY: High - Coupled solver is essential for accuracy.",
         max_error,
         max_acceptable_error
     );

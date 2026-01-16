@@ -77,7 +77,10 @@ fn exact_solution_advection(
 }
 
 #[test]
-#[ignore] // Currently failing due to limiter implementation issues - needs refinement
+#[ignore] // TODO: Currently failing due to limiter implementation issues - needs refinement
+// DEPENDENCIES: Fix MUSCL2 SuperBee limiter implementation
+// BLOCKED BY: Incomplete flux limiter in cfd-core crate
+// PRIORITY: High - TVD schemes are critical for stability
 fn test_muscl2_superbee_monotonicity() {
     let scheme = MUSCLScheme::muscl2_superbee();
     assert_eq!(scheme.order(), 2);

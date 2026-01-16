@@ -98,7 +98,7 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp> GhostCellManager<
                 neighbor_rank,
                 false,
             ),
-            _ => Ok(()), // 3D directions not implemented yet
+            _ => Ok(()), // TODO: Implement 3D ghost-cell exchange (front/back).
         }
     }
 
@@ -303,9 +303,7 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp> GhostCellManager<
         _pressure: &[Vec<T>],
         _subdomain: &LocalSubdomain,
     ) -> MpiResult<bool> {
-        // Check that ghost cells are consistent across process boundaries
-        // This would involve computing checksums and comparing with neighbors
-        // Placeholder for now
+        // TODO: Validate ghost cell consistency across process boundaries (checksums + neighbor compare).
         Ok(true)
     }
 }
@@ -392,7 +390,7 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp> GhostCellManager<
                 neighbor_rank,
                 false,
             ),
-            _ => Ok(Vec::new()), // 3D directions not implemented yet
+            _ => Ok(Vec::new()), // TODO: Implement 3D async ghost-cell exchange (front/back).
         }
     }
 
@@ -637,13 +635,9 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp> GhostCellManager<
         subdomain: &LocalSubdomain,
         requests: Vec<mpi::request::Request<'_, Vec<T>>>,
     ) -> MpiResult<()> {
-        // Wait for all requests to complete and unpack data
-        // This is a simplified implementation - in practice we'd need to track
-        // which requests correspond to which data fields and positions
+        // TODO: Track request-to-field mapping and unpack received buffers into ghost layers.
         for request in requests {
             let _data = MpiCommunicator::wait(request);
-            // In a full implementation, we'd need to properly map received data
-            // back to the correct positions in the field arrays
         }
 
         Ok(())

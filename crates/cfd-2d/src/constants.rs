@@ -47,7 +47,8 @@ pub mod turbulence {
     pub const KAPPA: f64 = cfd_core::physics::constants::physics::fluid::VON_KARMAN;
 
     /// Wall function constant
-    pub const E_WALL: f64 = cfd_core::physics::constants::physics::fluid::WATER_DENSITY; // Placeholder if WALL_FUNCTION_E is missing
+    // TODO: Replace placeholder with correct wall-function constant (WALL_FUNCTION_E).
+    pub const E_WALL: f64 = cfd_core::physics::constants::physics::fluid::WATER_DENSITY;
 
     /// k-epsilon model constant `C_mu`
     pub const C_MU: f64 = 0.09;

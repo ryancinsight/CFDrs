@@ -323,6 +323,7 @@ mod cfd_integration_tests {
         let processor = SimdProcessor::new();
 
         // residual = rhs - A*x (simplified as rhs - ax)
+        // TODO: Implement full matrix-vector multiplication with proper sparse matrix support
         let rhs = vec![1.0f32, 2.0, 3.0, 4.0];
         let ax = vec![0.8f32, 1.9, 2.9, 4.0]; // A*x result
 
@@ -344,6 +345,7 @@ mod cfd_integration_tests {
         let processor = SimdProcessor::new();
 
         // Simplified convection: convection = u * (du/dx)
+        // TODO: Implement full convection term with proper flux limiting
         let u = vec![1.0f32, 2.0, 3.0, 4.0]; // velocity field
         let dudx = vec![0.1f32, 0.2, 0.3, 0.4]; // velocity gradient
 

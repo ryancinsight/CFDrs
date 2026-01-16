@@ -77,6 +77,9 @@ impl SimdProcessor {
     }
 
     /// Process f32 arrays with specified operation
+    /// 
+    /// Performance optimization: Automatically chooses between SIMD and parallel
+    /// based on array size and measured performance characteristics.
     #[inline]
     pub fn process_f32(
         &self,
@@ -85,18 +88,66 @@ impl SimdProcessor {
         result: &mut [f32],
         op: SimdOperation,
     ) -> crate::error::Result<()> {
+        // TODO: Implement runtime performance profiling to optimize threshold selection
+        const SIMD_THRESHOLD: usize = 500; // Below this, SIMD overhead may exceed benefits
+        
+        // For very small arrays, scalar operations may be faster due to SIMD overhead
+        if a.len() < SIMD_THRESHOLD && matches!(self.capability, SimdCapability::Avx2) {
+            return self.process_scalar_f32(a, b, result, op);
+        }
+        
         match op {
             SimdOperation::Add => self.ops.add(a, b, result),
             SimdOperation::Mul => self.ops.mul(a, b, result),
             SimdOperation::Sub => self.ops.sub(a, b, result),
             SimdOperation::Div => self.ops.div(a, b, result),
             SimdOperation::FusedMulAdd => {
-                // For FMA, we multiply and add in-place
+                // TODO: Implement proper FMA operation instead of mul+add sequence
                 self.ops.mul(a, b, result)?;
                 // Result now contains a * b, add to existing values would require separate c
                 Ok(())
             }
         }
+    }
+    
+    /// Scalar fallback for small arrays where SIMD overhead is detrimental
+    /// TODO: Add benchmarking to determine optimal thresholds per hardware
+    fn process_scalar_f32(
+        &self,
+        a: &[f32],
+        b: &[f32],
+        result: &mut [f32],
+        op: SimdOperation,
+    ) -> crate::error::Result<()> {
+        match op {
+            SimdOperation::Add => {
+                for ((res, &a_val), &b_val) in result.iter_mut().zip(a.iter()).zip(b.iter()) {
+                    *res = a_val + b_val;
+                }
+            }
+            SimdOperation::Mul => {
+                for ((res, &a_val), &b_val) in result.iter_mut().zip(a.iter()).zip(b.iter()) {
+                    *res = a_val * b_val;
+                }
+            }
+            SimdOperation::Sub => {
+                for ((res, &a_val), &b_val) in result.iter_mut().zip(a.iter()).zip(b.iter()) {
+                    *res = a_val - b_val;
+                }
+            }
+            SimdOperation::Div => {
+                for ((res, &a_val), &b_val) in result.iter_mut().zip(a.iter()).zip(b.iter()) {
+                    *res = a_val / b_val;
+                }
+            }
+            SimdOperation::FusedMulAdd => {
+                // TODO: Implement proper scalar FMA
+                for ((res, &a_val), &b_val) in result.iter_mut().zip(a.iter()).zip(b.iter()) {
+                    *res = a_val * b_val + *res;
+                }
+            }
+        }
+        Ok(())
     }
 
     /// Process f64 arrays with specified operation

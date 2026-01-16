@@ -20,7 +20,6 @@ csv.workspace = true
 nalgebra.workspace = true
 num-traits.workspace = true
 tracing.workspace = true
-hdf5 = { version = "0.8", optional = true }
 zstd = "0.13"
 tempfile = "3.8"
 rayon.workspace = true
@@ -28,7 +27,6 @@ bytemuck.workspace = true
 
 [features]
 default = []
-hdf5 = ["dep:hdf5"]
 mpi = ["cfd-core/mpi"]
 
 [dev-dependencies]

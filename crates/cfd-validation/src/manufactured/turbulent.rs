@@ -138,7 +138,7 @@ impl<T: RealField + Copy> ManufacturedKOmega<T> {
 
 impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedKOmega<T> {
     fn exact_solution(&self, x: T, y: T, _z: T, t: T) -> T {
-        // Return k for now - in practice would need to specify which quantity
+        // TODO: Return the requested field (k or ω) via a typed API instead of always returning k.
         ManufacturedFunctions::sinusoidal(x, y, t, self.kx, self.ky) * self.k_amplitude
     }
 
@@ -337,15 +337,15 @@ impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedReynoldsStress
 
     fn source_term(&self, x: T, y: T, z: T, t: T) -> T {
         // Source term for Reynolds stress transport equation
-        // Simplified: Production - Dissipation + Diffusion - Time derivative
+        // TODO: Implement full Reynolds-stress transport source terms (production/redistribution/dissipation/diffusion).
 
         let uv = self.exact_solution(x, y, z, t);
         let duv_dt = -uv; // Time derivative
 
-        // Production: -2ν_t S_ij (simplified for 2D)
+        // TODO: Use the correct production term (tensor form, not 2D scalar simplification).
         let production = T::from_f64_or_one(-2.0) * self.strain_rate * uv;
 
-        // Dissipation: ε/3 * 2k/3 (simplified)
+        // TODO: Use a physically consistent dissipation model instead of a constant factor.
         let dissipation = uv * T::from_f64_or_one(0.1); // ε ≈ 0.1k
 
         // Diffusion: ∇·(ν_t ∇(-uv))

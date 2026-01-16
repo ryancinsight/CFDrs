@@ -154,7 +154,10 @@ fn main() {
     println!("  Peak νt/ν ≈ 50-100 (turbulent core)");
     println!("  u+ follows log law: u+ = 2.44*ln(y+) + 5.0");
     println!("\nNote: This is a demonstration example showing k-ω SST usage.");
-    println!("Full validation requires coupled RANS solver with proper");
+    // TODO: Full validation requires coupled RANS solver with proper
+    // DEPENDENCIES: Implement coupled RANS solver with pressure coupling
+    // BLOCKED BY: Separate turbulence and pressure solvers
+    // PRIORITY: High - RANS coupling is essential for turbulent flows
     println!("pressure gradient and time integration.");
 
     // Demonstrate production and dissipation terms

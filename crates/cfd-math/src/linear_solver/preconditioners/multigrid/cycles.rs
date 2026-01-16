@@ -31,7 +31,7 @@ pub fn apply_v_cycle(
         // Apply one V-cycle
         apply_multigrid_cycle(1, levels, residual, &mut correction)?;
 
-        // Check convergence (simplified - in practice you'd compute actual residual)
+        // TODO: Track residual history to compute convergence_factor.
         let residual_norm = (residual - &levels[0].matrix * &correction).norm();
         if residual_norm < tolerance {
             break;
@@ -177,11 +177,9 @@ pub fn apply_f_cycle(
     }
 
     // F-cycle starts from coarsest level and works up
-    // This is a simplified implementation
+    // TODO: Implement true F-cycle (nested iteration) instead of delegating to V-cycle.
 
     // For now, fall back to V-cycle
-    // Full F-cycle implementation would require more sophisticated
-    // nested iteration schemes
     let (correction, stats) = apply_v_cycle(levels, rhs, max_cycles, tolerance)?;
 
     let mut final_stats = stats;
@@ -363,6 +361,10 @@ mod tests {
         let levels = vec![level];
 
         let rhs = nalgebra::DVector::from_vec(vec![1.0, 2.0, 3.0]);
+        // TODO: Implement proper residual computation instead of simplified assignment
+        // DEPENDENCIES: Add residual calculation framework for multigrid testing
+        // BLOCKED BY: Limited test infrastructure for multigrid operations
+        // PRIORITY: Medium - Important for multigrid validation
         let residual = rhs.clone(); // Simplified: residual = rhs
 
         let (correction, stats) = apply_v_cycle(&levels, &residual, 5, 1e-6).unwrap();

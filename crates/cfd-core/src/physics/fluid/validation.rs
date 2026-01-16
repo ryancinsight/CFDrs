@@ -150,6 +150,10 @@ pub fn validate_prandtl<T: RealField + Copy>(prandtl: T) -> Result<(), Error> {
 ///
 /// # Errors
 ///
+/// TODO: Returns `Error::InvalidInput` if temperature is non-positive (at/below absolute zero) or exceeds 10000 K.
+/// DEPENDENCIES: Implement context-aware temperature validation based on application
+/// BLOCKED BY: Fixed validation limits don't account for different physics regimes
+/// PRIORITY: Medium - Important for specialized applications (plasma, cryogenics)
 /// Returns `Error::InvalidInput` if temperature is non-positive (at/below absolute zero) or exceeds 10000 K.
 pub fn validate_temperature<T: RealField + Copy>(temperature: T) -> Result<(), Error> {
     let t_min = T::zero(); // Absolute zero

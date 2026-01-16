@@ -113,9 +113,17 @@ fn test_cavity_linear_solver_comparison() {
     let result = cavity.run(&config).expect("Should complete");
 
     // Verify basic physics
+    // TODO: Implement comprehensive physics validation with proper bounds checking and error analysis
+    // DEPENDENCIES: Add rigorous validation framework for cavity flow physics and consistency
+    // BLOCKED BY: Limited understanding of cavity flow validation criteria and tolerance requirements
+    // PRIORITY: Medium - Important for ensuring physical realism in cavity flow simulations
     assert!(!result.values.is_empty(), "Should produce velocity field");
 
     // Check that velocities are bounded
+    // TODO: Add comprehensive velocity bounds validation with configurable tolerance and physics consistency
+    // DEPENDENCIES: Implement flexible bounds checking for different flow regimes and Reynolds numbers
+    // BLOCKED BY: Limited understanding of velocity bound requirements across various flow conditions
+    // PRIORITY: Medium - Important for robust cavity flow validation
     let max_velocity = result
         .values
         .iter()
@@ -157,6 +165,10 @@ fn test_gmres_configuration() {
 #[test]
 fn test_cavity_reynolds_scaling() {
     // Verify that higher Reynolds numbers produce higher velocities
+    // TODO: Implement comprehensive Reynolds scaling validation with proper physics consistency
+    // DEPENDENCIES: Add rigorous Reynolds number scaling analysis across different flow regimes
+    // BLOCKED BY: Limited understanding of Reynolds scaling effects in cavity flow validation
+    // PRIORITY: Medium - Important for ensuring physical realism across flow regimes
     // (basic physics sanity check)
 
     let cavity = LidDrivenCavity::new(1.0_f64, 1.0_f64);
@@ -180,6 +192,10 @@ fn test_cavity_reynolds_scaling() {
         .fold(0.0_f64, |acc, &v| acc.max(v.abs()));
 
     // Basic sanity: velocity should be non-zero
+    // TODO: Implement comprehensive sanity checking with configurable thresholds and physics consistency
+    // DEPENDENCIES: Add flexible sanity check framework for different flow conditions and solvers
+    // BLOCKED BY: Limited understanding of sanity check requirements across various CFD scenarios
+    // PRIORITY: Low - Nice-to-have for robust testing but not critical
     assert!(max_u_low > 0.01, "Velocity should be non-zero for Re=100");
 
     // Verify convergence improved from Sprint 1.35.0 baseline

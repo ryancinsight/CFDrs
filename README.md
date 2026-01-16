@@ -518,7 +518,7 @@ The CFD suite includes comprehensive MPI parallelization for high-performance co
 - **SIMD Architecture**: Architecture-conditional dispatch (AVX2/SSE/NEON/SWAR) with optimized SpMV (Sprint 1.41.0)
 - **GPU Infrastructure**: WGPU integration with compute shaders
 - **Modular Design**: Clean separation of concerns, proper dendrogram structure
-- **Build System**: HDF5 optional dependency, clean builds
+- **Build System**: Optional dependencies, clean builds
 - **Linear Solvers**: CG, BiCGSTAB, GMRES implementations (algorithmically correct, tested independently)
 - **Zero-Copy Patterns**: Iterator-based APIs, reference-based parameters, buffer reuse (Sprint 1.38.0-1.39.0)
 - **Code Quality**: Idiomatic Rust patterns, comprehensive clippy compliance (Sprint 1.42.0)
@@ -566,11 +566,10 @@ The CFD suite includes comprehensive MPI parallelization for high-performance co
 
 ### Requirements
 - Rust 1.82+ (2021 edition currently, not 2025)
-- Optional: HDF5 libraries for HDF5 support (properly feature-gated)
 
 ### Build Commands
 ```bash
-# Basic build (no GPU, no HDF5, no MPI)
+# Basic build (no GPU, no MPI)
 cargo build --release --no-default-features
 
 # With GPU support (default)
@@ -579,7 +578,7 @@ cargo build --release
 # With MPI support (requires MPI installation)
 cargo build --release --features mpi
 
-# With all features (requires HDF5 and MPI system libraries)
+# With all features
 cargo build --release --all-features
 ```
 

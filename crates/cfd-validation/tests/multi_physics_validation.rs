@@ -40,8 +40,11 @@ fn test_conjugate_heat_transfer_validation() {
         t_solid_interface
     );
 
-    // Test heat flux continuity (more complex - would require derivatives)
-    // For this simplified test, we verify the formulations are consistent
+    // TODO: Test heat flux continuity (more complex - would require derivatives)
+// DEPENDENCIES: Implement derivative calculation for flux continuity verification
+// BLOCKED BY: Missing gradient computation in cfd-validation
+// PRIORITY: High - Essential for multi-physics coupling validation
+// For this simplified test, we verify the formulations are consistent
 
     // Test points across the domain
     let test_points = vec![

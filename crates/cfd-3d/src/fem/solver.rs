@@ -388,8 +388,7 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
                 }
                 BoundaryCondition::Dirichlet { value } => {
                     // General Dirichlet: fixed value for all components
-                    // This is a simplified implementation - in practice, different
-                    // components may have different boundary values
+                    // TODO: Support per-component Dirichlet boundary values (u,v,w,p) at nodes.
                     for i in 0..=constants::VELOCITY_COMPONENTS {
                         let component_dof = dof + i;
                         builder.add_entry(component_dof, component_dof, penalty)?;
@@ -401,16 +400,14 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
                 BoundaryCondition::Neumann { gradient } => {
                     // Neumann: fixed gradient (natural BC for FEM)
                     // In FEM, Neumann BCs are applied via boundary integrals
-                    // This simplified implementation uses weak enforcement
-                    // For proper implementation, boundary element matrices would be needed
-                    // For now, we apply a weak form via penalty method
+                    // TODO: Implement Neumann BCs via boundary integrals (element-level contributions).
                     for i in 0..=constants::VELOCITY_COMPONENTS {
                         let component_dof = dof + i;
                         // For Neumann, we modify the RHS instead of adding penalty to diagonal
-                        // This is a simplified approach - proper implementation needs boundary elements
                         if component_dof < rhs.len() {
                             // Approximate gradient BC: value += gradient * element_size
-                            let element_size = T::from_f64(0.1).unwrap_or_else(|| T::one()); // Approximate
+                            // TODO: Use actual boundary element measure/geometry instead of constant size.
+                            let element_size = T::from_f64(0.1).unwrap_or_else(|| T::one());
                             rhs[component_dof] += *gradient * element_size;
                         }
                     }
@@ -422,7 +419,7 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
                 } => {
                     // Robin: αu + β∂u/∂n = γ
                     // This is complex to implement properly in FEM without boundary elements
-                    // Simplified implementation using penalty method
+                    // TODO: Implement Robin BCs with correct boundary-integral discretization.
                     for i in 0..=constants::VELOCITY_COMPONENTS {
                         let component_dof = dof + i;
                         let robin_penalty = penalty * *alpha; // Weight by α coefficient
@@ -435,8 +432,7 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
                 BoundaryCondition::Periodic { .. } => {
                     // Periodic BCs are complex and typically require special handling
                     // in the mesh connectivity and matrix assembly
-                    // This is a placeholder - proper implementation needs mesh-aware periodicity
-                    // For now, we treat as natural BC (no modification)
+                    // TODO: Implement periodic constraints (mesh-aware pairing + matrix constraints).
                 }
                 _ => {
                     // Unknown or unsupported boundary condition types

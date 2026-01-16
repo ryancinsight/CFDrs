@@ -6,19 +6,19 @@
     "timing_stats": {
       "mean": {
         "secs": 0,
-        "nanos": 864540
+        "nanos": 201124
       },
       "std_dev": {
         "secs": 0,
-        "nanos": 3823461
+        "nanos": 35915
       },
       "min": {
         "secs": 0,
-        "nanos": 183800
+        "nanos": 171200
       },
       "max": {
         "secs": 0,
-        "nanos": 27482400
+        "nanos": 353100
       },
       "samples": 50
     },
@@ -26,11 +26,11 @@
     "efficiency": 1.0,
     "serial_time": {
       "secs": 0,
-      "nanos": 864540
+      "nanos": 201124
     },
     "parallel_time": {
       "secs": 0,
-      "nanos": 864540
+      "nanos": 201124
     }
   },
   {
@@ -40,31 +40,31 @@
     "timing_stats": {
       "mean": {
         "secs": 0,
-        "nanos": 434802
+        "nanos": 169068
       },
       "std_dev": {
         "secs": 0,
-        "nanos": 458553
+        "nanos": 39736
       },
       "min": {
         "secs": 0,
-        "nanos": 180800
+        "nanos": 155600
       },
       "max": {
         "secs": 0,
-        "nanos": 2477400
+        "nanos": 444100
       },
       "samples": 50
     },
-    "speedup": 1.988353319441953,
-    "efficiency": 0.9941766597209765,
+    "speedup": 1.1896041829323114,
+    "efficiency": 0.5948020914661557,
     "serial_time": {
       "secs": 0,
-      "nanos": 864540
+      "nanos": 201124
     },
     "parallel_time": {
       "secs": 0,
-      "nanos": 434802
+      "nanos": 169068
     }
   },
   {
@@ -74,31 +74,31 @@
     "timing_stats": {
       "mean": {
         "secs": 0,
-        "nanos": 261676
+        "nanos": 191294
       },
       "std_dev": {
         "secs": 0,
-        "nanos": 104127
+        "nanos": 31362
       },
       "min": {
         "secs": 0,
-        "nanos": 185300
+        "nanos": 172700
       },
       "max": {
         "secs": 0,
-        "nanos": 890400
+        "nanos": 349800
       },
       "samples": 50
     },
-    "speedup": 3.303856677723597,
-    "efficiency": 0.8259641694308992,
+    "speedup": 1.05138687047163,
+    "efficiency": 0.2628467176179075,
     "serial_time": {
       "secs": 0,
-      "nanos": 864540
+      "nanos": 201124
     },
     "parallel_time": {
       "secs": 0,
-      "nanos": 261676
+      "nanos": 191294
     }
   },
   {
@@ -108,31 +108,31 @@
     "timing_stats": {
       "mean": {
         "secs": 0,
-        "nanos": 277740
+        "nanos": 231056
       },
       "std_dev": {
         "secs": 0,
-        "nanos": 85144
+        "nanos": 65700
       },
       "min": {
         "secs": 0,
-        "nanos": 188500
+        "nanos": 195300
       },
       "max": {
         "secs": 0,
-        "nanos": 618600
+        "nanos": 612800
       },
       "samples": 50
     },
-    "speedup": 3.1127673363577446,
-    "efficiency": 0.3890959170447181,
+    "speedup": 0.8704556471158508,
+    "efficiency": 0.10880695588948135,
     "serial_time": {
       "secs": 0,
-      "nanos": 864540
+      "nanos": 201124
     },
     "parallel_time": {
       "secs": 0,
-      "nanos": 277740
+      "nanos": 231056
     }
   },
   {
@@ -142,31 +142,31 @@
     "timing_stats": {
       "mean": {
         "secs": 0,
-        "nanos": 412178
+        "nanos": 382312
       },
       "std_dev": {
         "secs": 0,
-        "nanos": 212757
+        "nanos": 148576
       },
       "min": {
         "secs": 0,
-        "nanos": 198100
+        "nanos": 274200
       },
       "max": {
         "secs": 0,
-        "nanos": 1378400
+        "nanos": 1165000
       },
       "samples": 50
     },
-    "speedup": 2.0974918603127772,
-    "efficiency": 0.13109324126954858,
+    "speedup": 0.5260729456569504,
+    "efficiency": 0.0328795591035594,
     "serial_time": {
       "secs": 0,
-      "nanos": 864540
+      "nanos": 201124
     },
     "parallel_time": {
       "secs": 0,
-      "nanos": 412178
+      "nanos": 382312
     }
   },
   {
@@ -176,19 +176,19 @@
     "timing_stats": {
       "mean": {
         "secs": 0,
-        "nanos": 1329104
+        "nanos": 977916
       },
       "std_dev": {
         "secs": 0,
-        "nanos": 163170
+        "nanos": 216077
       },
       "min": {
         "secs": 0,
-        "nanos": 1029600
+        "nanos": 733100
       },
       "max": {
         "secs": 0,
-        "nanos": 2169100
+        "nanos": 1497400
       },
       "samples": 50
     },
@@ -196,11 +196,11 @@
     "efficiency": 1.0,
     "serial_time": {
       "secs": 0,
-      "nanos": 1329104
+      "nanos": 977916
     },
     "parallel_time": {
       "secs": 0,
-      "nanos": 1329104
+      "nanos": 977916
     }
   },
   {
@@ -210,31 +210,31 @@
     "timing_stats": {
       "mean": {
         "secs": 0,
-        "nanos": 1433340
+        "nanos": 1118978
       },
       "std_dev": {
         "secs": 0,
-        "nanos": 355876
+        "nanos": 169679
       },
       "min": {
         "secs": 0,
-        "nanos": 1050000
+        "nanos": 945500
       },
       "max": {
         "secs": 0,
-        "nanos": 2992400
+        "nanos": 1985800
       },
       "samples": 50
     },
-    "speedup": 0.9272775475462905,
-    "efficiency": 0.4636387737731453,
+    "speedup": 0.8739367530013994,
+    "efficiency": 0.4369683765006997,
     "serial_time": {
       "secs": 0,
-      "nanos": 1329104
+      "nanos": 977916
     },
     "parallel_time": {
       "secs": 0,
-      "nanos": 1433340
+      "nanos": 1118978
     }
   },
   {
@@ -244,31 +244,31 @@
     "timing_stats": {
       "mean": {
         "secs": 0,
-        "nanos": 1861048
+        "nanos": 939366
       },
       "std_dev": {
         "secs": 0,
-        "nanos": 903789
+        "nanos": 137420
       },
       "min": {
         "secs": 0,
-        "nanos": 1036300
+        "nanos": 777700
       },
       "max": {
         "secs": 0,
-        "nanos": 6162200
+        "nanos": 1408800
       },
       "samples": 50
     },
-    "speedup": 0.7141696506484518,
-    "efficiency": 0.17854241266211296,
+    "speedup": 1.0410383173331799,
+    "efficiency": 0.26025957933329497,
     "serial_time": {
       "secs": 0,
-      "nanos": 1329104
+      "nanos": 977916
     },
     "parallel_time": {
       "secs": 0,
-      "nanos": 1861048
+      "nanos": 939366
     }
   },
   {
@@ -278,31 +278,31 @@
     "timing_stats": {
       "mean": {
         "secs": 0,
-        "nanos": 2415204
+        "nanos": 930820
       },
       "std_dev": {
         "secs": 0,
-        "nanos": 2024777
+        "nanos": 126348
       },
       "min": {
         "secs": 0,
-        "nanos": 982400
+        "nanos": 750200
       },
       "max": {
         "secs": 0,
-        "nanos": 10423800
+        "nanos": 1499600
       },
       "samples": 50
     },
-    "speedup": 0.5503071376165326,
-    "efficiency": 0.06878839220206658,
+    "speedup": 1.0505962484690916,
+    "efficiency": 0.13132453105863645,
     "serial_time": {
       "secs": 0,
-      "nanos": 1329104
+      "nanos": 977916
     },
     "parallel_time": {
       "secs": 0,
-      "nanos": 2415204
+      "nanos": 930820
     }
   },
   {
@@ -312,31 +312,31 @@
     "timing_stats": {
       "mean": {
         "secs": 0,
-        "nanos": 1618120
+        "nanos": 1155910
       },
       "std_dev": {
         "secs": 0,
-        "nanos": 811827
+        "nanos": 247300
       },
       "min": {
         "secs": 0,
-        "nanos": 854800
+        "nanos": 972000
       },
       "max": {
         "secs": 0,
-        "nanos": 5291900
+        "nanos": 2389900
       },
       "samples": 50
     },
-    "speedup": 0.8213877833535214,
-    "efficiency": 0.051336736459595085,
+    "speedup": 0.8460139630248029,
+    "efficiency": 0.05287587268905018,
     "serial_time": {
       "secs": 0,
-      "nanos": 1329104
+      "nanos": 977916
     },
     "parallel_time": {
       "secs": 0,
-      "nanos": 1618120
+      "nanos": 1155910
     }
   },
   {
@@ -346,19 +346,19 @@
     "timing_stats": {
       "mean": {
         "secs": 0,
-        "nanos": 4255164
+        "nanos": 3480084
       },
       "std_dev": {
         "secs": 0,
-        "nanos": 953458
+        "nanos": 777075
       },
       "min": {
         "secs": 0,
-        "nanos": 2588300
+        "nanos": 2604500
       },
       "max": {
         "secs": 0,
-        "nanos": 6184600
+        "nanos": 5366800
       },
       "samples": 50
     },
@@ -366,11 +366,11 @@
     "efficiency": 1.0,
     "serial_time": {
       "secs": 0,
-      "nanos": 4255164
+      "nanos": 3480084
     },
     "parallel_time": {
       "secs": 0,
-      "nanos": 4255164
+      "nanos": 3480084
     }
   },
   {
@@ -380,31 +380,31 @@
     "timing_stats": {
       "mean": {
         "secs": 0,
-        "nanos": 3592606
+        "nanos": 2527564
       },
       "std_dev": {
         "secs": 0,
-        "nanos": 1183135
+        "nanos": 509931
       },
       "min": {
         "secs": 0,
-        "nanos": 1913300
+        "nanos": 1885200
       },
       "max": {
         "secs": 0,
-        "nanos": 6580900
+        "nanos": 4005300
       },
       "samples": 50
     },
-    "speedup": 1.1844226725669333,
-    "efficiency": 0.5922113362834667,
+    "speedup": 1.3768529698951244,
+    "efficiency": 0.6884264849475622,
     "serial_time": {
       "secs": 0,
-      "nanos": 4255164
+      "nanos": 3480084
     },
     "parallel_time": {
       "secs": 0,
-      "nanos": 3592606
+      "nanos": 2527564
     }
   },
   {
@@ -414,31 +414,31 @@
     "timing_stats": {
       "mean": {
         "secs": 0,
-        "nanos": 4226612
+        "nanos": 2388080
       },
       "std_dev": {
         "secs": 0,
-        "nanos": 4748239
+        "nanos": 843903
       },
       "min": {
         "secs": 0,
-        "nanos": 1571900
+        "nanos": 1599700
       },
       "max": {
         "secs": 0,
-        "nanos": 32626600
+        "nanos": 6146400
       },
       "samples": 50
     },
-    "speedup": 1.0067552924186085,
-    "efficiency": 0.2516888231046521,
+    "speedup": 1.4572727881813006,
+    "efficiency": 0.36431819704532514,
     "serial_time": {
       "secs": 0,
-      "nanos": 4255164
+      "nanos": 3480084
     },
     "parallel_time": {
       "secs": 0,
-      "nanos": 4226612
+      "nanos": 2388080
     }
   },
   {
@@ -448,31 +448,31 @@
     "timing_stats": {
       "mean": {
         "secs": 0,
-        "nanos": 3860108
+        "nanos": 1877090
       },
       "std_dev": {
         "secs": 0,
-        "nanos": 1541512
+        "nanos": 333894
       },
       "min": {
         "secs": 0,
-        "nanos": 2340400
+        "nanos": 1527600
       },
       "max": {
         "secs": 0,
-        "nanos": 9208300
+        "nanos": 2988900
       },
       "samples": 50
     },
-    "speedup": 1.1023432504997268,
-    "efficiency": 0.13779290631246585,
+    "speedup": 1.85397823226377,
+    "efficiency": 0.23174727903297124,
     "serial_time": {
       "secs": 0,
-      "nanos": 4255164
+      "nanos": 3480084
     },
     "parallel_time": {
       "secs": 0,
-      "nanos": 3860108
+      "nanos": 1877090
     }
   },
   {
@@ -482,31 +482,31 @@
     "timing_stats": {
       "mean": {
         "secs": 0,
-        "nanos": 3726834
+        "nanos": 2424900
       },
       "std_dev": {
         "secs": 0,
-        "nanos": 1434008
+        "nanos": 448886
       },
       "min": {
         "secs": 0,
-        "nanos": 2022000
+        "nanos": 1962900
       },
       "max": {
         "secs": 0,
-        "nanos": 7792300
+        "nanos": 4091200
       },
       "samples": 50
     },
-    "speedup": 1.141763759802556,
-    "efficiency": 0.07136023498765975,
+    "speedup": 1.4351453668192504,
+    "efficiency": 0.08969658542620315,
     "serial_time": {
       "secs": 0,
-      "nanos": 4255164
+      "nanos": 3480084
     },
     "parallel_time": {
       "secs": 0,
-      "nanos": 3726834
+      "nanos": 2424900
     }
   },
   {
@@ -516,19 +516,19 @@
     "timing_stats": {
       "mean": {
         "secs": 0,
-        "nanos": 27150350
+        "nanos": 24919970
       },
       "std_dev": {
         "secs": 0,
-        "nanos": 1654329
+        "nanos": 2727792
       },
       "min": {
         "secs": 0,
-        "nanos": 24819200
+        "nanos": 21540500
       },
       "max": {
         "secs": 0,
-        "nanos": 31142900
+        "nanos": 32265300
       },
       "samples": 50
     },
@@ -536,11 +536,11 @@
     "efficiency": 1.0,
     "serial_time": {
       "secs": 0,
-      "nanos": 27150350
+      "nanos": 24919970
     },
     "parallel_time": {
       "secs": 0,
-      "nanos": 27150350
+      "nanos": 24919970
     }
   },
   {
@@ -550,31 +550,31 @@
     "timing_stats": {
       "mean": {
         "secs": 0,
-        "nanos": 21328492
+        "nanos": 18223148
       },
       "std_dev": {
         "secs": 0,
-        "nanos": 963741
+        "nanos": 2716388
       },
       "min": {
         "secs": 0,
-        "nanos": 19572400
+        "nanos": 14898800
       },
       "max": {
         "secs": 0,
-        "nanos": 25656000
+        "nanos": 24781800
       },
       "samples": 50
     },
-    "speedup": 1.2729615389592475,
-    "efficiency": 0.6364807694796237,
+    "speedup": 1.3674898541130214,
+    "efficiency": 0.6837449270565107,
     "serial_time": {
       "secs": 0,
-      "nanos": 27150350
+      "nanos": 24919970
     },
     "parallel_time": {
       "secs": 0,
-      "nanos": 21328492
+      "nanos": 18223148
     }
   },
   {
@@ -584,31 +584,31 @@
     "timing_stats": {
       "mean": {
         "secs": 0,
-        "nanos": 18149854
+        "nanos": 18111880
       },
       "std_dev": {
         "secs": 0,
-        "nanos": 760365
+        "nanos": 810216
       },
       "min": {
         "secs": 0,
-        "nanos": 17106300
+        "nanos": 16658600
       },
       "max": {
         "secs": 0,
-        "nanos": 20361700
+        "nanos": 19793000
       },
       "samples": 50
     },
-    "speedup": 1.4958990854692276,
-    "efficiency": 0.3739747713673069,
+    "speedup": 1.3758908517503428,
+    "efficiency": 0.3439727129375857,
     "serial_time": {
       "secs": 0,
-      "nanos": 27150350
+      "nanos": 24919970
     },
     "parallel_time": {
       "secs": 0,
-      "nanos": 18149854
+      "nanos": 18111880
     }
   },
   {
@@ -618,31 +618,31 @@
     "timing_stats": {
       "mean": {
         "secs": 0,
-        "nanos": 18066140
+        "nanos": 18928326
       },
       "std_dev": {
         "secs": 0,
-        "nanos": 970900
+        "nanos": 828327
       },
       "min": {
         "secs": 0,
-        "nanos": 16114400
+        "nanos": 16843100
       },
       "max": {
         "secs": 0,
-        "nanos": 20213500
+        "nanos": 20868400
       },
       "samples": 50
     },
-    "speedup": 1.5028307098251203,
-    "efficiency": 0.18785383872814004,
+    "speedup": 1.3165437873375596,
+    "efficiency": 0.16456797341719495,
     "serial_time": {
       "secs": 0,
-      "nanos": 27150350
+      "nanos": 24919970
     },
     "parallel_time": {
       "secs": 0,
-      "nanos": 18066140
+      "nanos": 18928326
     }
   },
   {
@@ -652,31 +652,31 @@
     "timing_stats": {
       "mean": {
         "secs": 0,
-        "nanos": 18793220
+        "nanos": 19258198
       },
       "std_dev": {
         "secs": 0,
-        "nanos": 936902
+        "nanos": 891517
       },
       "min": {
         "secs": 0,
-        "nanos": 16939700
+        "nanos": 17899900
       },
       "max": {
         "secs": 0,
-        "nanos": 21997400
+        "nanos": 22175000
       },
       "samples": 50
     },
-    "speedup": 1.4446885632158832,
-    "efficiency": 0.0902930352009927,
+    "speedup": 1.2939928232122235,
+    "efficiency": 0.08087455145076397,
     "serial_time": {
       "secs": 0,
-      "nanos": 27150350
+      "nanos": 24919970
     },
     "parallel_time": {
       "secs": 0,
-      "nanos": 18793220
+      "nanos": 19258198
     }
   }
 ]

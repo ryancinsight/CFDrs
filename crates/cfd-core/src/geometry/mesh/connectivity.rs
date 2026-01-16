@@ -104,7 +104,7 @@ impl<T: RealField + Copy> Mesh<T> {
                     edges_list.push(order_edge(element.nodes[2], element.nodes[3]));
                     edges_list.push(order_edge(element.nodes[3], element.nodes[0]));
                 }
-                _ => {} // Simplified for now
+                _ => {} // TODO: Add edge extraction support for other element types.
             }
         }
 

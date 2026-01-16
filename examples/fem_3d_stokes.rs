@@ -55,10 +55,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Note: The actual problem setup and solving would require proper
     // boundary condition implementation that matches the API.
+    // TODO: This example demonstrates the basic setup but needs more work
+    // DEPENDENCIES: Complete boundary condition API in cfd-core
+    // BLOCKED BY: Inconsistent boundary condition interfaces
+    // PRIORITY: High - FEM is essential for complex geometries
     // This example demonstrates the basic setup.
 
     println!("\nFEM solver setup completed successfully!");
-    println!("Note: Full Stokes flow solving requires proper boundary condition setup.");
+    // TODO: Full Stokes flow solving requires proper boundary condition setup.
+    // DEPENDENCIES: Complete boundary condition implementation
+    // PRIORITY: High - Essential for FEM functionality
 
     Ok(())
 }

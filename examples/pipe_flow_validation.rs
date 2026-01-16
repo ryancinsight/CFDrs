@@ -174,7 +174,10 @@ fn create_pipe_mesh(
     }
 
     // Create simple triangular faces (very basic mesh)
-    // This is a simplified mesh for demonstration
+    // TODO: This is a simplified mesh for demonstration - needs proper meshing algorithms
+    // DEPENDENCIES: Implement structured mesh generation for cylindrical geometries
+    // BLOCKED BY: Limited mesh generation framework for complex geometries
+    // PRIORITY: High - Essential for accurate pipe flow simulations
     for i in 0..n_axial {
         for j in 0..n_circ {
             let base_idx = i * (n_circ + 1);

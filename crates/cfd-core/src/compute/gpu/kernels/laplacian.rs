@@ -661,6 +661,10 @@ mod tests {
     use std::sync::Arc;
 
     /// Attempt to create a GPU context; if unavailable, print and skip the test.
+    // TODO: Replace test skipping with proper GPU fallback or mock implementation
+    // DEPENDENCIES: Implement GPU testing framework with fallback mechanisms
+    // BLOCKED BY: Limited GPU testing infrastructure and CI/CD integration
+    // PRIORITY: Medium - Important for continuous integration and testing coverage
     fn create_ctx_or_skip() -> Option<Arc<GpuContext>> {
         match GpuContext::create() {
             Ok(ctx) => Some(Arc::new(ctx)),

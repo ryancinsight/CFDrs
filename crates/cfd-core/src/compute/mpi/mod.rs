@@ -107,15 +107,10 @@
 //! ### Parallel I/O Operations
 //! ```no_run
 //! use cfd_io::vtk::ParallelVtkWriter;
-//! use cfd_io::hdf5_module::ParallelHdf5Writer;
 //!
 //! // Parallel VTK output
 //! let vtk_writer = ParallelVtkWriter::new(&world)?;
 //! vtk_writer.write_vtk_file("output.vtk", &points, &cells, &cell_types, &point_data, &cell_data)?;
-//!
-//! // Parallel HDF5 checkpointing
-//! let hdf5_writer = ParallelHdf5Writer::new(&world)?;
-//! hdf5_writer.write_checkpoint("checkpoint.h5", time_step, simulation_time, &datasets)?;
 //! ```
 //!
 //! ### Dynamic Load Balancing
@@ -167,11 +162,11 @@
 //! ### Blocking Communication (Synchronous)
 //! ```no_run
 //! # use cfd_core::compute::mpi::*;
-//! # let ghost_manager = todo!();
-//! # let mut velocity_u = todo!();
-//! # let mut velocity_v = todo!();
-//! # let mut pressure = todo!();
-//! # let subdomain = todo!();
+//! # let ghost_manager = /* TODO: Replace with actual GhostManager initialization */;
+//! # let mut velocity_u = /* TODO: Replace with actual velocity field initialization */;
+//! # let mut velocity_v = /* TODO: Replace with actual velocity field initialization */;
+//! # let mut pressure = /* TODO: Replace with actual pressure field initialization */;
+//! # let subdomain = /* TODO: Replace with actual subdomain initialization */;
 //! // Standard blocking exchange - waits for completion
 //! ghost_manager.update_ghost_cells(
 //!     &mut velocity_u,
@@ -184,11 +179,11 @@
 //! ### Non-Blocking Communication (Asynchronous)
 //! ```no_run
 //! # use cfd_core::compute::mpi::*;
-//! # let ghost_manager = todo!();
-//! # let mut velocity_u = todo!();
-//! # let mut velocity_v = todo!();
-//! # let mut pressure = todo!();
-//! # let subdomain = todo!();
+//! # let ghost_manager = todo!(); // TODO: Replace with actual GhostManager initialization
+//! # let mut velocity_u = todo!(); // TODO: Replace with actual velocity field initialization
+//! # let mut velocity_v = todo!(); // TODO: Replace with actual velocity field initialization
+//! # let mut pressure = todo!(); // TODO: Replace with actual pressure field initialization
+//! # let subdomain = todo!(); // TODO: Replace with actual subdomain initialization
 //! // Start asynchronous communication
 //! let requests = ghost_manager.update_ghost_cells_async(
 //!     &mut velocity_u,

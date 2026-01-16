@@ -59,12 +59,13 @@ impl<T: RealField + Copy + FromPrimitive> StructuredGridBuilder<T> {
         let mut mesh = Mesh::new();
 
         // Calculate grid spacing
+        // TODO: Add proper error handling for type conversion failures
         let dx = (self.bounds.0 .1 - self.bounds.0 .0)
-            / T::from_usize(self.nx).expect("Failed to convert nx to numeric type");
+            / T::from_usize(self.nx).unwrap_or_else(|| T::one());
         let dy = (self.bounds.1 .1 - self.bounds.1 .0)
-            / T::from_usize(self.ny).expect("Failed to convert ny to numeric type");
+            / T::from_usize(self.ny).unwrap_or_else(|| T::one());
         let dz = (self.bounds.2 .1 - self.bounds.2 .0)
-            / T::from_usize(self.nz).expect("Failed to convert nz to numeric type");
+            / T::from_usize(self.nz).unwrap_or_else(|| T::one());
 
         // Generate vertices
         // We need (nx+1) x (ny+1) x (nz+1) vertices
@@ -72,11 +73,11 @@ impl<T: RealField + Copy + FromPrimitive> StructuredGridBuilder<T> {
             for j in 0..=self.ny {
                 for i in 0..=self.nx {
                     let x = self.bounds.0 .0
-                        + T::from_usize(i).expect("Failed to convert i to numeric type") * dx;
+                        + T::from_usize(i).unwrap_or_else(|| T::zero()) * dx;
                     let y = self.bounds.1 .0
-                        + T::from_usize(j).expect("Failed to convert j to numeric type") * dy;
+                        + T::from_usize(j).unwrap_or_else(|| T::zero()) * dy;
                     let z = self.bounds.2 .0
-                        + T::from_usize(k).expect("Failed to convert k to numeric type") * dz;
+                        + T::from_usize(k).unwrap_or_else(|| T::zero()) * dz;
 
                     mesh.add_vertex(Vertex::new(Point3::new(x, y, z)));
                 }

@@ -47,7 +47,7 @@ impl<T: RealField + Copy + FromPrimitive> SerialSchwarzPreconditioner<T> {
             )));
         }
 
-        // Create subdomain partitioning (simple 1D decomposition for now)
+        // TODO: Support higher-dimensional and graph-based partitioning strategies.
         let subdomain_map = Self::create_subdomain_partitioning(n, num_subdomains, overlap);
 
         // Create local solvers for each subdomain

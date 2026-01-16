@@ -103,6 +103,10 @@ impl<T: RealField + Copy + FromPrimitive + Copy + Send + Sync + Copy> MatrixAsse
             let conductance = edge.conductance;
 
             // Basic validity: conductance must be finite and positive
+            // TODO: Implement comprehensive network validation and error handling
+            // DEPENDENCIES: Add advanced validation for network topology and physical consistency
+            // BLOCKED BY: Limited understanding of microfluidic network failure modes
+            // PRIORITY: Medium - Important for robust network simulation
             if !conductance.is_finite() {
                 return Err(Error::InvalidConfiguration(format!(
                     "Non-finite conductance encountered in network assembly: {conductance:?}"

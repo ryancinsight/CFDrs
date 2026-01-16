@@ -55,7 +55,7 @@ pub struct DESConfig {
     pub des_constant: f64,
     /// Maximum SGS viscosity ratio
     pub max_sgs_ratio: f64,
-    /// RANS viscosity (simplified - would be computed from RANS model)
+    /// TODO: Compute RANS viscosity from attached RANS model state.
     pub rans_viscosity: f64,
     /// Enable GPU acceleration
     pub use_gpu: bool,
@@ -92,7 +92,7 @@ pub struct DetachedEddySimulation {
 impl DetachedEddySimulation {
     /// Create a new DES model
     pub fn new(nx: usize, ny: usize, config: DESConfig) -> Self {
-        // Initialize wall distance (simplified - would need proper computation)
+        // TODO: Compute wall distance from geometry/boundary conditions, not grid indices.
         let mut wall_distance = DMatrix::zeros(nx, ny);
         for i in 0..nx {
             for j in 0..ny {
@@ -143,7 +143,7 @@ impl DetachedEddySimulation {
         let ny = velocity_v.ncols();
         let mut length_scale = DMatrix::zeros(nx, ny);
 
-        // Compute simplified RANS length scale based on flow characteristics
+        // TODO: Replace heuristic RANS length scale with RANS-model-derived length scale.
         let strain_magnitude = self.compute_strain_rate_magnitude(velocity_u, velocity_v, dx, dy);
 
         for i in 0..nx {
@@ -153,7 +153,8 @@ impl DetachedEddySimulation {
 
                 // Simplified RANS length scale (would be computed from actual RANS model)
                 // For now, use a characteristic length based on strain rate
-                let characteristic_velocity = 1.0; // Placeholder
+                // TODO: Derive characteristic velocity from RANS model state (e.g., k, ω, ε).
+                let characteristic_velocity = 1.0;
                 let strain_mag = strain_magnitude[(i, j)];
                 let rans_length: f64 = characteristic_velocity / strain_mag.max(1e-6);
 
@@ -196,13 +197,10 @@ impl DetachedEddySimulation {
                     // LES mode with proper DDES shielding function
                     // Spalart et al. (2006): fd = 1 - tanh[[8(y+/CDDESΔ)³]]
                     //
-                    // For simplified implementation when wall units not available,
-                    // use approximation based on wall distance and grid scale
+                    // TODO: Replace y+ approximation with u_tau-based wall units when available.
                     let cd_des = self.config.des_constant;
 
-                    // Compute y+ approximation (simplified when full wall function not available)
-                    // In practice, this should be: y+ = u_tau * d_w / nu
-                    // Here we use a grid-based approximation
+                    // TODO: Compute y+ = u_tau * d_w / nu instead of a grid-based approximation.
                     let y_plus = d_w / delta.max(1e-10);
 
                     // DDES shielding function (Spalart et al. 2006)
@@ -219,8 +217,7 @@ impl DetachedEddySimulation {
 
     /// Compute IDDES length scale
     fn compute_iddes_length_scale(&self, rans_length: f64, delta: f64, i: usize, j: usize) -> f64 {
-        // IDDES is more complex - simplified implementation
-        // In practice, this involves additional terms for WMLES capability
+        // TODO: Implement full IDDES model terms (WMLES + shielding) per literature.
 
         let l_rans = rans_length;
 
@@ -316,7 +313,7 @@ impl LESTurbulenceModel for DetachedEddySimulation {
         dx: f64,
         dy: f64,
     ) -> cfd_core::error::Result<()> {
-        // Compute DES length scale (simplified - no RANS model dependency)
+        // TODO: Couple DES to an underlying RANS model for attached-region length scales.
         self.des_length_scale = self.compute_des_length_scale(velocity_u, velocity_v, dx, dy);
 
         // Compute SGS viscosity for LES regions
@@ -412,9 +409,10 @@ impl DetachedEddySimulation {
     /// Check if a point is in LES mode (DES length scale active)
     pub fn is_les_mode(&self, i: usize, j: usize) -> bool {
         // LES mode when DES length scale is smaller than grid scale
-        // (simplified - in practice would compare to RANS length scale)
+        // TODO: Compare DES length scale against a consistent local grid scale definition.
         let des_length = self.des_length_scale[(i, j)];
-        let grid_scale = 0.1; // Placeholder grid scale
+        // TODO: Use local grid scale (dx, dy) or Δ definition consistent with DES formulation.
+        let grid_scale = 0.1;
 
         des_length < grid_scale
     }

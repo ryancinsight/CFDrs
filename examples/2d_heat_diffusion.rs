@@ -44,6 +44,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
             .map(|j| ((grid.nx - 1, j), 0.0))
             .collect::<Vec<_>>(),
         // Insulated top and bottom walls (simplified as fixed temperature)
+        // TODO: Implement proper Neumann boundary conditions (∂T/∂n = 0) for insulation
         // Note: This demonstrates iterator chaining for boundary condition setup
         (1..grid.nx - 1)
             .flat_map(|i| {

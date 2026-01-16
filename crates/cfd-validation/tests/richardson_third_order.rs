@@ -4,8 +4,11 @@ use cfd_validation::manufactured::ManufacturedDiffusion;
 
 #[test]
 fn richardson_estimates_third_order_uniform_ratio() {
-    // Set up a minimal MMS study; geometry and manufactured solution are placeholders
-    // for construction only — the order estimation uses the provided closure.
+    // TODO: Set up a minimal MMS study; geometry and manufactured solution are placeholders
+// DEPENDENCIES: Implement realistic MMS test cases with proper physics
+// BLOCKED BY: Limited MMS framework in cfd-validation
+// PRIORITY: Medium - Essential for verification framework
+// for construction only — the order estimation uses the provided closure.
     let mms = ManufacturedDiffusion::<f64>::new(1.0);
     let geometry = RectangularDomain::new(0.0, 1.0, 0.0, 1.0);
 
@@ -16,7 +19,7 @@ fn richardson_estimates_third_order_uniform_ratio() {
         1.0, // base grid size (unused by this test path)
         0.0, // evaluation time
     )
-    .expect("failed to create MmsRichardsonStudy");
+    .unwrap_or_else(|e| panic!("Failed to create MmsRichardsonStudy for third-order test: {}", e));
 
     // Use uniform refinement ratios: coarse→fine as 2, 4, 8, 16
     let grid_sizes = vec![2usize, 4, 8, 16];
@@ -51,7 +54,7 @@ fn richardson_estimates_third_order_nonuniform_ratio() {
         1.0,
         0.0,
     )
-    .expect("failed to create MmsRichardsonStudy");
+    .unwrap_or_else(|e| panic!("Failed to create MmsRichardsonStudy for nonuniform test: {}", e));
 
     // Use mildly nonuniform sizes to avoid perfect uniformity: 2, 3, 6, 12
     let grid_sizes = vec![2usize, 3, 6, 12];

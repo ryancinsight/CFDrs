@@ -313,7 +313,7 @@ impl<T: RealField + Copy + FromPrimitive> Network<T> {
                                 length: geometry.length,
                             }
                         }
-                        _ => continue, // Skip unsupported geometries for now
+                        _ => continue, // TODO: Support remaining CrossSection variants in resistance mapping.
                     };
 
                     // Prepare flow conditions

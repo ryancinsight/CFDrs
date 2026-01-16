@@ -227,12 +227,9 @@ impl DGSolution {
     /// * `limiter` - The limiter to apply
     ///
     /// # Remarks
-    /// This is a placeholder that applies the limiter to each component of the solution.
-    /// The actual implementation depends on the specific limiter being used.
+    /// TODO: Implement limiter application using neighbor solutions and troubled-cell detection.
     pub fn apply_limiter<L: Limiter>(&mut self, limiter: &L) {
-        // For now, we apply the limiter without neighbor information
-        // In a full implementation, this would require neighbor solutions
-        // and a proper troubled cell detection mechanism
+        // TODO: Provide neighbor information and propagate limiter errors instead of discarding.
 
         let empty_neighbors = &[];
         let params = limiter::LimiterParams::new(limiter::LimiterType::Minmod);

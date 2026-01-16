@@ -35,6 +35,7 @@
 #![allow(clippy::needless_range_loop)] // Explicit indexing clearer for multi-dimensional CFD arrays
 #![allow(clippy::used_underscore_binding)] // Underscore prefixed bindings used for intentional partial use
 
+pub mod adaptive_mesh;
 pub mod algorithm_complexity;
 pub mod analytical;
 pub mod analytical_benchmarks;

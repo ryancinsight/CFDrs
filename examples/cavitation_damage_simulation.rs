@@ -159,9 +159,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let _dz = config.lz / config.nz as f64;
 
     // Create velocity field (simplified - uniform inlet, developing flow)
+    // TODO: Implement proper velocity profile based on pipe flow dynamics
     let mut velocity_field = vec![Vector3::zeros(); config.nx * config.ny * config.nz];
 
     // Create pressure field (simplified Bernoulli profile)
+    // TODO: Implement proper pressure field based on Navier-Stokes solution
     let mut pressure_field = vec![0.0; config.nx * config.ny * config.nz];
 
     // Create density field (water density)

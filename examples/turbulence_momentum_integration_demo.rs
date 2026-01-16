@@ -244,7 +244,15 @@ fn demonstrate_combined_turbulence_adaptive(
 
         // Time integration with error control
         let (_y_new, t_new, dt_new, accepted) = time_integrator.step_error_adaptive(
+            // TODO: Replace placeholder RHS with proper turbulence source terms
+            // DEPENDENCIES: Implement realistic turbulence forcing and source term models
+            // BLOCKED BY: Limited turbulence modeling framework
+            // PRIORITY: High - Essential for accurate turbulence simulations
             |_, y| DVector::from_vec(vec![0.0; y.len()]), // Placeholder RHS for demo
+            // TODO: Replace placeholder solution with proper turbulence integration
+            // DEPENDENCIES: Add turbulence-specific solution validation and convergence criteria
+            // BLOCKED BY: No framework for turbulence solution assessment
+            // PRIORITY: Medium - Important for turbulence model validation
             &DVector::from_vec(vec![1.0]),                // Placeholder solution
             t,
         );

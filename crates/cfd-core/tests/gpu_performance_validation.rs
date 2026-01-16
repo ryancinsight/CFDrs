@@ -99,6 +99,7 @@ mod gpu_performance_tests {
         let gpu_ops_per_sec = size as f64 / gpu_time.as_secs_f64();
 
         // CPU computation for comparison (simplified)
+        // TODO: Implement full CPU turbulence model with proper strain rate tensor calculation
         let cpu_start = Instant::now();
         let mut cpu_sgs = vec![0.0f32; size];
 
@@ -108,6 +109,7 @@ mod gpu_performance_tests {
                     let idx = j * nx + i;
 
                     // Simplified strain rate calculation (same as GPU shader)
+                    // TODO: Implement full strain rate tensor with all components
                     let du_dx =
                         (velocity_u_f32[idx + 1] - velocity_u_f32[idx - 1]) / (2.0f32 * 0.1f32);
                     let du_dy =

@@ -374,11 +374,9 @@ mod tests {
     #[test]
     fn test_parallel_io_types() {
         // Test that parallel I/O types exist and can be instantiated
-        use super::distributed_solvers::parallel_io::{ParallelHdf5Writer, ParallelVtkWriter};
+        use super::distributed_solvers::parallel_io::ParallelVtkWriter;
 
         let _vtk_writer: std::marker::PhantomData<ParallelVtkWriter<f64>> =
-            std::marker::PhantomData;
-        let _hdf5_writer: std::marker::PhantomData<ParallelHdf5Writer<f64>> =
             std::marker::PhantomData;
     }
 

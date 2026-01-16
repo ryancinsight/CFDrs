@@ -266,7 +266,7 @@ impl<T: RealField + Copy + FromPrimitive + SafeFromF64 + num_traits::ToPrimitive
 
                 // Interpolate computed values to Ghia reference y-positions
                 for (&y_ref, &u_ref) in y_positions.iter().zip(u_velocities.iter()) {
-                    // Find closest grid point (simplified - assumes regular grid)
+                    // TODO: Interpolate against actual grid geometry instead of nearest-neighbor.
                     let y_ref_f64 = y_ref.to_f64().ok_or_else(|| {
                         Error::ConversionError("Failed to convert y_ref to f64".to_string())
                     })?;

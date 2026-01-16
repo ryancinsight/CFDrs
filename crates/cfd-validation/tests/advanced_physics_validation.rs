@@ -272,6 +272,7 @@ fn test_tci_validation() {
 
         // For fast chemistry (Da >> 1), reaction should drive mixture fraction toward equilibrium
         if tci.damkohler > 1.0 {
+            // TODO: Implement proper reaction-diffusion balance verification
             // This is a simplified check - in practice would verify reaction-diffusion balance
             assert!(
                 source.abs() < 10.0,
@@ -293,6 +294,7 @@ fn test_coupled_compressible_turbulent_validation() {
     let compressible = ManufacturedCompressibleEuler::<f64>::new(3.0, 1.4, 0.0, 0.1, 1.0, 1.0);
 
     // Test compressibility effects on turbulence (simplified coupling)
+    // TODO: Implement proper compressible-turbulence coupling with density fluctuations
     let x = 0.5;
     let y = 0.5;
     let t = 0.5;

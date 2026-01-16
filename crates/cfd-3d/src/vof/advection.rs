@@ -43,6 +43,10 @@ impl AdvectionMethod {
         dt: T,
     ) -> Result<()> {
         // Use alpha_previous as temporary buffer (zero-copy optimization)
+        // TODO: Implement proper memory management for VOF advection operations
+        // DEPENDENCIES: Add efficient buffer management and memory pool for VOF operations
+        // BLOCKED BY: Limited understanding of VOF memory requirements and access patterns
+        // PRIORITY: Medium - Important for performance and memory efficiency
         solver.alpha_previous.copy_from_slice(&solver.alpha);
 
         for k in 1..solver.nz - 1 {
@@ -139,6 +143,10 @@ impl AdvectionMethod {
         dt: T,
     ) -> Result<()> {
         // Use alpha_previous as temporary buffer (zero-copy optimization)
+        // TODO: Implement proper memory management for VOF algebraic advection
+        // DEPENDENCIES: Add efficient buffer management and memory pool for VOF operations
+        // BLOCKED BY: Limited understanding of VOF memory requirements and access patterns
+        // PRIORITY: Medium - Important for performance and memory efficiency
         solver.alpha_previous.copy_from_slice(&solver.alpha);
         let two = T::from_f64(2.0).unwrap_or(T::one() + T::one());
 
@@ -182,6 +190,10 @@ impl AdvectionMethod {
         dt: T,
     ) -> Result<()> {
         // Use alpha_previous as temporary buffer (zero-copy optimization)
+        // TODO: Implement proper memory management for VOF compression operations
+        // DEPENDENCIES: Add efficient buffer management and memory pool for VOF operations
+        // BLOCKED BY: Limited understanding of VOF memory requirements and access patterns
+        // PRIORITY: Medium - Important for performance and memory efficiency
         solver.alpha_previous.copy_from_slice(&solver.alpha);
 
         for k in 1..solver.nz - 1 {

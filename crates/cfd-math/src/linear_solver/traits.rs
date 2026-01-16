@@ -181,6 +181,7 @@ impl<T: RealField + Copy> ConvergenceMonitor<T> {
     /// Get theoretical GMRES convergence bound (approximate)
     #[allow(dead_code)]
     pub fn gmres_theoretical_bound(&self, _kappa: f64) -> Option<T> {
+        // TODO: Implement a GMRES convergence bound or remove the API.
         None
     }
 

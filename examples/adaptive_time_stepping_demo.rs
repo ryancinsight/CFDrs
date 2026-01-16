@@ -99,6 +99,7 @@ fn demonstrate_cfl_adaptation(
         let cfl_current = 0.5 + 0.3 * (t / t_final).sin(); // Varying CFL
 
         // Compute adaptive time step (simplified - in practice use actual CFL calculation)
+        // TODO: Implement proper CFL calculation: dt = CFL * min(dx/|u|, dy/|v|, dz/|w|)
         let dt_adaptive = if cfl_current > 0.0 {
             0.01 * 0.7 / cfl_current // Simplified CFL-based dt
         } else {

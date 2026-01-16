@@ -103,6 +103,7 @@ impl DomainDecomposition {
     }
 
     /// Simple 1D decomposition along x-direction
+    // TODO: Implement load-balanced decomposition with consideration of cell weights/complexity
     fn decompose_1d(global: &GlobalExtents, rank: Rank, size: Size) -> MpiResult<LocalSubdomain> {
         let nx_per_process = global.nx_global / size as usize;
         let remainder = global.nx_global % size as usize;
@@ -168,26 +169,25 @@ impl DomainDecomposition {
         })
     }
 
-    /// Recursive bisection decomposition (placeholder - would use Zoltan/ParMETIS in practice)
+    /// TODO: Implement recursive bisection decomposition (Zoltan/ParMETIS integration).
     fn decompose_bisection(
         _global: &GlobalExtents,
         _rank: Rank,
         _size: Size,
     ) -> MpiResult<LocalSubdomain> {
-        // For now, fall back to 1D decomposition
-        // In practice, this would use a graph partitioning library
+        // TODO: Implement graph partitioning based decomposition; current path is unavailable.
         Err(MpiError::NotAvailable(
             "Recursive bisection not implemented".to_string(),
         ))
     }
 
-    /// METIS-based decomposition (placeholder)
+    /// TODO: Implement METIS-based decomposition.
     fn decompose_metis(
         _global: &GlobalExtents,
         _rank: Rank,
         _size: Size,
     ) -> MpiResult<LocalSubdomain> {
-        // METIS integration would go here
+        // TODO: Integrate METIS and implement mesh/graph partitioning based decomposition.
         Err(MpiError::NotAvailable(
             "METIS decomposition not implemented".to_string(),
         ))
@@ -362,6 +362,10 @@ impl LoadBalancer {
                 all_workloads[i] = local_workload_i32;
             }
             // In real MPI, this would be MPI_Allgather
+            // TODO: Replace simulated broadcast with proper MPI_Allgather implementation
+            // DEPENDENCIES: Implement actual MPI communication primitives
+            // BLOCKED BY: Limited MPI integration in current framework
+            // PRIORITY: High - Essential for distributed memory parallelization
             // For now, simulate with broadcast
             let mut temp = local_workload_i32;
             if i == rank {
@@ -432,7 +436,7 @@ impl LoadBalancer {
         target_work: usize,
         workloads: &[usize],
     ) -> MpiResult<LocalSubdomain> {
-        // Simplified repartitioning - assign work based on cumulative workload
+        // TODO: Implement a real repartitioner (e.g., recursive bisection / space-filling curve).
         let mut cumulative_work = 0;
         let mut start_idx = 0;
 
@@ -444,7 +448,7 @@ impl LoadBalancer {
             cumulative_work += work;
         }
 
-        // Calculate new subdomain boundaries (simplified 1D case)
+        // TODO: Generalize subdomain boundary computation beyond 1D partitioning.
         let global = self.current_decomp.global_extents();
         let cells_per_work_unit = global.nx_global / workloads.len().max(1);
 

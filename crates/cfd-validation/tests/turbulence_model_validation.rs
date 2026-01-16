@@ -115,6 +115,7 @@ fn test_k_epsilon_channel_flow_production() {
     let production = model.production_term(&velocity_gradient, nu_t);
 
     // Expected production from DNS (approximate): P_k ≈ ε in equilibrium log layer
+    // TODO: Implement realistic velocity gradient profile instead of simplified approximation
     // Allow factor of 4 due to model approximations and simplified velocity gradient
     let production_expected = epsilon * rho;
 
@@ -179,6 +180,7 @@ fn test_wall_distance_calculation() {
     let y_wall = f64::from(j) * dy; // Distance from wall
 
     // Calculate wall distance (simplified for test)
+    // TODO: Implement proper eikonal equation solver for wall distance calculation
     // In production: use eikonal equation solver
     let d_wall = y_wall;
 

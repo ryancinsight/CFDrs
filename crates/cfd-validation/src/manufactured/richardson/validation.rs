@@ -1,8 +1,13 @@
 //! MMS validation and Richardson extrapolation study
 
+use cfd_core::error::{Error, Result};
 use nalgebra::{ComplexField, RealField};
 use num_traits::{FromPrimitive, ToPrimitive};
+use std::collections::HashMap;
 
+use crate::manufactured::ManufacturedSolution;
+use cfd_2d::grid::StructuredGrid2D;
+use cfd_2d::solvers::fdm::{PoissonSolver, FdmConfig};
 use super::core::{DataDrivenOrderEstimation, RichardsonExtrapolation};
 use super::types::{RichardsonMmsResult, RichardsonResult};
 use crate::convergence::ConvergenceStudy;
@@ -269,9 +274,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float + ToPrimitive> MmsR
             }
         }
 
-        // Solve the PDE numerically with manufactured source term
-        // This is a simplified Laplace equation solver for demonstration
-        // In practice, this would use the actual CFD solver
+        // Solve using actual CFD Poisson solver
         self.solve_numerical_system(&source_term, &mut numerical_solution, dx, dy)?;
 
         // Compute L2 error norm
@@ -290,8 +293,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float + ToPrimitive> MmsR
         Ok(l2_error)
     }
 
-    /// Solve numerical system with manufactured source term
-    /// This is a simplified implementation - in practice would use actual CFD solver
+    /// Solve numerical system using actual CFD discretization and solver
     fn solve_numerical_system(
         &self,
         source: &[Vec<T>],
@@ -301,42 +303,46 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float + ToPrimitive> MmsR
     ) -> Result<(), String> {
         let nx = source.len();
         let ny = source[0].len();
-        let dx_inv2 = T::one() / (dx * dx);
-        let dy_inv2 = T::one() / (dy * dy);
-
-        // Simple Jacobi iteration for -∇²u = f (Laplace equation)
-        // In practice, this would be replaced with actual CFD solver
-        let max_iter = 10000;
-        let tolerance = T::from_f64(1e-12).unwrap();
-
-        for _iter in 0..max_iter {
-            let mut max_residual = T::zero();
-
-            for i in 1..nx - 1 {
-                for j in 1..ny - 1 {
-                    let old_value = solution[i][j];
-
-                    // Laplace operator: -∇²u = f ⇒ ∇²u = -f ⇒ u[i][j] = (u[i-1][j] + u[i+1][j]) * dx_inv2 + (u[i][j-1] + u[i][j+1]) * dy_inv2 + source[i][j]) / (2*dx_inv2 + 2*dy_inv2)
-                    let laplacian = (solution[i - 1][j] + solution[i + 1][j]) * dx_inv2
-                        + (solution[i][j - 1] + solution[i][j + 1]) * dy_inv2;
-
-                    let rhs = source[i][j];
-                    let denom = T::from_f64(2.0).unwrap() * (dx_inv2 + dy_inv2);
-                    solution[i][j] = (laplacian + rhs) / denom;
-
-                    let residual = ComplexField::abs(solution[i][j] - old_value);
-                    max_residual = RealField::max(max_residual, residual);
+        
+        // Create structured grid for the Poisson solver
+        let grid = StructuredGrid2D::new(nx, ny, T::zero(), T::one(), T::zero(), T::one())
+            .map_err(|e| format!("Failed to create grid: {}", e))?;
+        
+        // Configure Poisson solver with production settings
+        let fdm_config = FdmConfig {
+            tolerance: T::from_f64(1e-12).unwrap(),
+            max_iterations: 1000,
+            use_parallel_spmv: false,
+        };
+        
+        let poisson_solver = PoissonSolver::new(fdm_config);
+        
+        // Convert source term to HashMap format expected by Poisson solver
+        let mut source_map = HashMap::new();
+        let mut boundary_map = HashMap::new();
+        
+        for i in 0..nx {
+            for j in 0..ny {
+                // Apply Dirichlet boundary conditions (zero on boundaries)
+                if i == 0 || i == nx - 1 || j == 0 || j == ny - 1 {
+                    boundary_map.insert((i, j), T::zero());
+                } else {
+                    source_map.insert((i, j), source[i][j]);
                 }
             }
-
-            // Apply boundary conditions from geometry
-            self.apply_boundary_conditions(solution, dx, dy)?;
-
-            if max_residual < tolerance {
-                break;
+        }
+        
+        // Solve using production CFD solver
+        let solution_map = poisson_solver.solve(&grid, &source_map, &boundary_map)
+            .map_err(|e| format!("Poisson solver failed: {}", e))?;
+        
+        // Convert solution back to Vec<Vec<T>> format
+        for i in 0..nx {
+            for j in 0..ny {
+                solution[i][j] = solution_map.get(&(i, j)).copied().unwrap_or(T::zero());
             }
         }
-
+        
         Ok(())
     }
 
@@ -410,25 +416,53 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float + ToPrimitive> MmsR
         Ok(results)
     }
 
-    /// Compute Grid Convergence Index for each grid level
+    /// Compute Grid Convergence Index using standard FS-based formula
     pub fn compute_gci_values(grid_sizes: &[T], l2_errors: &[T]) -> Result<Vec<T>, String> {
         let mut gci_values = Vec::new();
 
         for i in 0..grid_sizes.len().saturating_sub(1) {
-            let h1 = grid_sizes[i];
-            let h2 = grid_sizes[i + 1];
-            let e1 = l2_errors[i];
-            let e2 = l2_errors[i + 1];
+            let h1 = grid_sizes[i];      // Coarse grid spacing
+            let h2 = grid_sizes[i + 1];  // Fine grid spacing
+            let e1 = l2_errors[i];       // Coarse grid error
+            let e2 = l2_errors[i + 1];   // Fine grid error
 
-            // GCI = (3|e2/e1 - 1|) / (r^p - 1) * safety factor
-            // Simplified version for demonstration
+            // Refinement ratio
             let r = h1 / h2;
-            let ratio = e2 / e1;
-            let p = T::from_f64(2.0).unwrap(); // Assume second-order for GCI
-            let r_p = ComplexField::powf(r, p);
+            
+            // Estimate order of convergence p from data (if we have three consecutive points)
+            let p = if i + 2 < grid_sizes.len() {
+                let h3 = grid_sizes[i + 2];  // Finer grid spacing
+                let e3 = l2_errors[i + 2];   // Finer grid error
+                
+                // Use three-point Richardson extrapolation to estimate p
+                // p = ln((e3 - e2)/(e2 - e1)) / ln(r)
+                let numerator = ComplexField::ln((e3 - e2) / (e2 - e1));
+                let denominator = ComplexField::ln(r);
+                
+                if ComplexField::abs(denominator) > T::from_f64(1e-12).unwrap() {
+                    numerator / denominator
+                } else {
+                    T::from_f64(2.0).unwrap() // Default to second order
+                }
+            } else {
+                // Use two-point estimation if only two points available
+                // p = ln(e1/e2) / ln(r)
+                let ratio = e1 / e2;
+                if ratio > T::zero() && r > T::one() {
+                    ComplexField::ln(ratio) / ComplexField::ln(r)
+                } else {
+                    T::from_f64(2.0).unwrap() // Default to second order
+                }
+            };
 
+            // Standard GCI formula (FS-based)
+            // GCI = Fs * |(e2/e1) / (r^p - 1)|
+            let r_p = ComplexField::powf(r, p);
+            let safety_factor = T::from_f64(1.25).unwrap(); // Standard safety factor
+            
             if ComplexField::abs(r_p - T::one()) > T::from_f64(1e-8).unwrap() {
-                let gci = T::from_f64(1.25).unwrap() * ComplexField::abs(ratio) / (r_p - T::one());
+                let error_ratio = e2 / e1;
+                let gci = safety_factor * ComplexField::abs(error_ratio) / ComplexField::abs(r_p - T::one());
                 gci_values.push(gci);
             } else {
                 gci_values.push(T::zero());

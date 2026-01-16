@@ -636,6 +636,10 @@ pub fn generate_regression_recommendations(analyses: &[RegressionAnalysis]) -> V
 /// Helper function to analyze performance regressions from metrics
 pub fn detect_performance_regressions(metrics: &[crate::PerformanceMetrics]) {
     // This is a simplified version for the comprehensive suite
+    // TODO: Implement comprehensive performance regression detection with statistical analysis
+    // DEPENDENCIES: Add robust statistical framework for performance trend analysis and anomaly detection
+    // BLOCKED BY: Limited understanding of performance regression detection algorithms and statistical methods
+    // PRIORITY: High - Essential for maintaining performance quality and detecting degradations
     // In a real implementation, this would convert PerformanceMetrics to BenchmarkResult
     // and use the RegressionDetector.
     println!("Analyzing performance for {} operations...", metrics.len());

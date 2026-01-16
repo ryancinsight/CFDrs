@@ -10,12 +10,7 @@ pub enum IoError {
     /// CSV error from the csv crate
     #[error("CSV error: {0}")]
     Csv(#[from] csv::Error),
-    
-    /// HDF5 error (when feature is enabled)
-    #[cfg(feature = "hdf5")]
-    #[error("HDF5 error: {0}")]
-    Hdf5(#[from] hdf5::Error),
-    
+
     /// File format error
     #[error("Unsupported file format: {0}")]
     UnsupportedFormat(String),

@@ -374,9 +374,8 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> SpatialDiscretization
         // Compute weights
         let _w = self.weno_weights(&beta);
 
-        // Compute candidate fluxes (simplified - full implementation would use proper ENO stencils)
-        // For brevity, using simplified reconstruction - full WENO9 would need proper 5-stencil ENO
-        let flux = T::zero(); // Placeholder - would compute weighted sum of 5 candidate stencils
+        // TODO: Implement WENO9 reconstruction (candidate stencils + nonlinear weights).
+        let flux = T::zero();
 
         flux / grid.dx
     }

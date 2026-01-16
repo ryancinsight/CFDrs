@@ -105,7 +105,6 @@ readme.workspace = true
 [features]
 default = ["gpu"]
 gpu = ["cfd-core/gpu", "dep:wgpu"]
-hdf5 = ["cfd-io/hdf5"]
 csg = ["cfd-mesh/csg", "cfd-3d/csg"]
 mpi = ["cfd-core/mpi", "dep:mpi"]
 simd = ["cfd-core/simd"]

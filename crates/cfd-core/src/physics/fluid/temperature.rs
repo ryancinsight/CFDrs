@@ -8,6 +8,10 @@ use serde::{Deserialize, Serialize};
 
 /// Temperature-dependent viscosity model using polynomial fit
 ///
+/// TODO: μ(T) = `Σ(a_i` * T^i) for i = 0 to n
+/// DEPENDENCIES: Implement more sophisticated temperature models (Sutherland, Arrhenius)
+/// BLOCKED BY: Limited polynomial fitting framework for real fluid properties
+/// PRIORITY: High - Essential for accurate temperature-dependent simulations
 /// μ(T) = `Σ(a_i` * T^i) for i = 0 to n
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PolynomialViscosity<T: RealField + Copy> {
