@@ -12,7 +12,6 @@ use super::core::{DataDrivenOrderEstimation, RichardsonExtrapolation};
 use super::types::{RichardsonMmsResult, RichardsonResult};
 use crate::convergence::ConvergenceStudy;
 use crate::geometry::Geometry;
-use crate::manufactured::ManufacturedSolution;
 
 /// Automated MMS-Richardson convergence study
 pub struct MmsRichardsonStudy<T: RealField + Copy + FromPrimitive> {
@@ -40,7 +39,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float + ToPrimitive> MmsR
         _evaluation_time: T,
     ) -> Result<Self> {
         if num_levels < 3 {
-            return Err(Error::InvalidConfiguration("Need at least 3 grid levels for Richardson extrapolation".to_string()));
+            return Err(Error::InvalidInput("Need at least 3 grid levels for Richardson extrapolation".to_string()));
         }
 
         let study = Self::new(manufactured_solution, geometry);
@@ -67,7 +66,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float + ToPrimitive> MmsR
     /// Run study with specified grid sizes
     pub fn run_study_with_grids(&self, grid_sizes: &[T]) -> Result<RichardsonMmsResult<T>> {
         if grid_sizes.len() < 3 {
-            return Err(Error::InvalidConfiguration("Need at least 3 grid levels for Richardson extrapolation".to_string()));
+            return Err(Error::InvalidInput("Need at least 3 grid levels for Richardson extrapolation".to_string()));
         }
 
         let mut l2_errors = Vec::new();
@@ -309,11 +308,15 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float + ToPrimitive> MmsR
             .map_err(|e| Error::InvalidConfiguration(format!("Failed to create grid: {}", e)))?;
         
         // Configure Poisson solver with production settings
+        use cfd_core::compute::solver::SolverConfig;
+        let solver_config = SolverConfig::builder()
+            .tolerance(T::from_f64(1e-12).unwrap())
+            .max_iterations(1000)
+            .parallel(false)
+            .build();
+
         let fdm_config = FdmConfig {
-            base: cfd_core::compute::solver::SolverConfig::builder()
-                .tolerance(T::from_f64(1e-12).unwrap())
-                .max_iterations(1000)
-                .build(),
+            base: solver_config,
         };
         
         let poisson_solver = PoissonSolver::new(fdm_config);
@@ -324,9 +327,12 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float + ToPrimitive> MmsR
         
         for i in 0..nx {
             for j in 0..ny {
-                // Apply Dirichlet boundary conditions (zero on boundaries)
+                // Apply Dirichlet boundary conditions from exact solution
                 if i == 0 || i == nx - 1 || j == 0 || j == ny - 1 {
-                    boundary_map.insert((i, j), T::zero());
+                    let x = T::from_usize(i).unwrap() * dx;
+                    let y = T::from_usize(j).unwrap() * dy;
+                    let val = self.manufactured_solution.exact_solution(x, y, T::zero(), T::zero());
+                    boundary_map.insert((i, j), val);
                 } else {
                     source_map.insert((i, j), source[i][j]);
                 }
@@ -406,11 +412,11 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float + ToPrimitive> MmsR
             // refinement ratio between medium and fine (> 1)
             let r = h_medium / h_fine;
             let order = RichardsonExtrapolation::estimate_order(f_coarse, f_medium, f_fine, r)
-                .map_err(|e| Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidValue { value: e }))?;
+                .map_err(Error::InvalidInput)?;
 
             // Extrapolate using fine and medium solutions
             let extrapolator = RichardsonExtrapolation::extrapolate(f_coarse, f_medium, f_fine, r)
-                .map_err(|e| Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidValue { value: e }))?;
+                .map_err(Error::InvalidInput)?;
             let extrapolated = extrapolator.0;
 
             results.push((extrapolated, order));

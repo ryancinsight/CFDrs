@@ -10,6 +10,7 @@ use cfd_core::error::ErrorContext;
 use cfd_2d::fields::SimulationFields;
 use cfd_2d::grid::StructuredGrid2D;
 use cfd_2d::physics::momentum::{MomentumComponent, MomentumSolver};
+use rayon::prelude::*;
 use std::time::Instant;
 use tracing::{info, debug};
 use std::sync::Once;
@@ -141,17 +142,14 @@ fn test_poiseuille_flow_convergence() -> Result<(), Box<dyn std::error::Error>> 
             .context("Momentum V solve failed")?;
 
         // Check convergence
-        // TODO: Optimize convergence checking by using vectorized operations and parallel reduction
-        // DEPENDENCIES: Add efficient vectorized operations for convergence monitoring and error analysis
-        // BLOCKED BY: Limited understanding of parallel reduction patterns for convergence checking
-        // PRIORITY: Medium - Important for performance optimization and computational efficiency
-        let mut max_change: f64 = 0.0;
-        for i in 0..nx {
-            for j in 0..ny {
-                let change = (fields.u.at(i, j) - u_old.at(i, j)).abs();
-                max_change = max_change.max(change);
-            }
-        }
+        // Optimized convergence checking using parallel reduction
+        let max_change = fields
+            .u
+            .data()
+            .par_iter()
+            .zip(u_old.data().par_iter())
+            .map(|(u, u_old)| (u - u_old).abs())
+            .reduce(|| 0.0, |a, b| a.max(b));
 
         if max_change < convergence_tolerance {
             info!(step, "Converged");

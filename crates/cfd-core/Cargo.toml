@@ -44,3 +44,7 @@ criterion.workspace = true
 tracing-subscriber.workspace = true
 approx.workspace = true
 tokio = { version = "1.0", features = ["full"] }
+
+[[bench]]
+name = "turbulence_benchmark"
+harness = false
