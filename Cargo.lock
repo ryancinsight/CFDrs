@@ -442,7 +442,6 @@ dependencies = [
  "cfd-io",
  "cfd-math",
  "cfd-mesh",
- "cfd-validation",
  "chrono",
  "criterion",
  "mpi",
@@ -456,6 +455,8 @@ dependencies = [
  "serde",
  "serde_json",
  "simba",
+ "tracing",
+ "tracing-subscriber",
  "wgpu",
 ]
 

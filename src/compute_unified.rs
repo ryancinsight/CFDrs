@@ -7,6 +7,7 @@ use cfd_core::error::Result;
 use cfd_math::simd::{SimdCapability, SimdOperation, SimdProcessor};
 use std::sync::Arc;
 use std::time::Instant;
+use tracing::{info, warn};
 
 /// Performance benchmarking results
 #[derive(Debug, Clone)]
@@ -162,7 +163,7 @@ impl UnifiedCompute {
         {
             match cfd_core::compute::gpu::GpuContext::create() {
                 Ok(gpu) => {
-                    println!("GPU acceleration enabled");
+                    info!("GPU acceleration enabled");
                     return Ok(Self {
                         backend: Backend::Gpu,
                         gpu_context: Some(gpu.device.clone()),
@@ -171,7 +172,7 @@ impl UnifiedCompute {
                     });
                 }
                 Err(e) => {
-                    println!("GPU not available: {e}, falling back to SIMD");
+                    warn!("GPU not available: {e}, falling back to SIMD");
                 }
             }
         }
@@ -180,19 +181,19 @@ impl UnifiedCompute {
         let capability = SimdCapability::detect();
         let backend = match capability {
             SimdCapability::Avx2 => {
-                println!("Using AVX2 SIMD acceleration");
+                info!("Using AVX2 SIMD acceleration");
                 Backend::Simd
             }
             SimdCapability::Sse42 => {
-                println!("Using SSE4.2 SIMD acceleration");
+                info!("Using SSE4.2 SIMD acceleration");
                 Backend::Simd
             }
             SimdCapability::Neon => {
-                println!("Using NEON SIMD acceleration");
+                info!("Using NEON SIMD acceleration");
                 Backend::Simd
             }
             SimdCapability::Swar => {
-                println!("Using SWAR (software SIMD) fallback");
+                info!("Using SWAR (software SIMD) fallback");
                 Backend::Swar
             }
         };
@@ -489,13 +490,16 @@ mod tests {
 
     #[test]
     fn test_unified_compute() {
+        // Initialize logging for the test
+        let _ = tracing_subscriber::fmt().with_test_writer().try_init();
+
         // TODO: Replace expect-based error handling with proper Result types and error propagation
         // DEPENDENCIES: Add comprehensive error handling framework for unified compute backend initialization
         // BLOCKED BY: Limited understanding of unified compute backend failure modes and recovery strategies
         // PRIORITY: High - Essential for robust testing and debugging of compute backends
-        let compute = UnifiedCompute::new().expect("Failed to create UnifiedCompute backend for testing");
-        // TODO: Replace println! with proper logging framework
-        println!("Active backend: {:?}", compute.backend());
+        let mut compute = UnifiedCompute::new().expect("Failed to create UnifiedCompute backend for testing");
+
+        info!("Active backend: {:?}", compute.backend());
 
         let a = vec![1.0f32; 100];
         let b = vec![2.0f32; 100];
