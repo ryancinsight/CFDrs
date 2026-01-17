@@ -456,6 +456,8 @@ dependencies = [
  "serde",
  "serde_json",
  "simba",
+ "tracing",
+ "tracing-subscriber",
  "wgpu",
 ]
 

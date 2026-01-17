@@ -125,8 +125,10 @@ simba.workspace = true
 wgpu = { version = "0.19", optional = true }
 mpi = { version = "0.8", optional = true, default-features = false }
 rand.workspace = true
+tracing.workspace = true
 
 [dev-dependencies]
+tracing-subscriber.workspace = true
 criterion = { version = "0.5", features = ["html_reports"] }
 proptest = "1.0"
 approx = "0.5"
