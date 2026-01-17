@@ -11,6 +11,18 @@ use cfd_2d::fields::SimulationFields;
 use cfd_2d::grid::StructuredGrid2D;
 use cfd_2d::physics::momentum::{MomentumComponent, MomentumSolver};
 use std::time::Instant;
+use tracing::{info, debug};
+use std::sync::Once;
+
+static INIT: Once = Once::new();
+
+fn init_logging() {
+    INIT.call_once(|| {
+        let _ = tracing_subscriber::fmt()
+            .with_test_writer()
+            .try_init();
+    });
+}
 
 /// Analytical solution for Poiseuille flow
 /// u(y) = (1/2μ) * (dp/dx) * y * (H - y)
@@ -21,6 +33,7 @@ fn poiseuille_analytical(y: f64, height: f64, pressure_gradient: f64, viscosity:
 
 #[test]
 fn test_poiseuille_flow_convergence() -> Result<(), Box<dyn std::error::Error>> {
+    init_logging();
     let start = Instant::now();
 
     // Physical parameters
@@ -80,10 +93,6 @@ fn test_poiseuille_flow_convergence() -> Result<(), Box<dyn std::error::Error>> 
     }
 
     // Create momentum solver
-    // TODO: Implement proper logging framework instead of println! statements
-    // DEPENDENCIES: Add comprehensive logging framework with structured output and error handling
-    // BLOCKED BY: Limited understanding of logging requirements and integration patterns
-    // PRIORITY: Medium - Important for debugging and monitoring CFD simulations
     let grid = StructuredGrid2D::new(nx, ny, 0.0, channel_length, 0.0, channel_height)
         .context("Failed to create grid for Poiseuille flow validation")?;
     let mut solver = MomentumSolver::new(&grid);
@@ -117,11 +126,7 @@ fn test_poiseuille_flow_convergence() -> Result<(), Box<dyn std::error::Error>> 
     let convergence_tolerance = 1e-1; // Relaxed tolerance for current solver limitations
     let mut converged = false;
 
-    // TODO: Replace println! statements with proper logging framework for test execution monitoring
-    // DEPENDENCIES: Add comprehensive logging framework with structured log levels and test execution tracking
-    // BLOCKED BY: Limited understanding of test logging requirements and structured logging patterns
-    // PRIORITY: Medium - Important for test execution monitoring and debugging
-    // println!("Starting Poiseuille flow simulation...");
+    info!("Starting Poiseuille flow simulation...");
 
     for step in 0..max_time_steps {
         let u_old = fields.u.clone();
@@ -149,16 +154,14 @@ fn test_poiseuille_flow_convergence() -> Result<(), Box<dyn std::error::Error>> 
         }
 
         if max_change < convergence_tolerance {
-            // TODO: Replace with proper logging framework
-            // println!("Converged after {step} iterations");
+            info!(step, "Converged");
             converged = true;
             break;
         }
 
         if step % 100 == 0 {
             let u_center = fields.u.at(nx / 2, ny / 2);
-            // TODO: Replace with proper logging framework
-            // println!("Step {step}: max change = {max_change:.2e}, u_center = {u_center:.6}");
+            debug!(step, max_change, u_center, "Convergence update");
         }
     }
 
@@ -169,8 +172,8 @@ fn test_poiseuille_flow_convergence() -> Result<(), Box<dyn std::error::Error>> 
     let mut max_error: f64 = 0.0;
     let mut l2_error: f64 = 0.0;
 
-    println!("\nComparing with analytical solution:");
-    println!("y\t\tu_numerical\tu_analytical\terror");
+    info!("Comparing with analytical solution:");
+    info!("y\t\tu_numerical\tu_analytical\terror");
 
     for j in 0..ny {
         let y = j as f64 * dy;
@@ -182,15 +185,15 @@ fn test_poiseuille_flow_convergence() -> Result<(), Box<dyn std::error::Error>> 
         l2_error += error * error * dy;
 
         if j % 5 == 0 {
-            println!("{y:.3}\t\t{u_numerical:.6}\t{u_analytical:.6}\t{error:.2e}");
+            info!("{:.3}\t\t{:.6}\t{:.6}\t{:.2e}", y, u_numerical, u_analytical, error);
         }
     }
 
     l2_error = l2_error.sqrt();
 
-    println!("\nError metrics:");
-    println!("Max error: {max_error:.2e}");
-    println!("L2 error: {l2_error:.2e}");
+    info!("Error metrics:");
+    info!("Max error: {:.2e}", max_error);
+    info!("L2 error: {:.2e}", l2_error);
 
     // RELAXED VALIDATION: Current solver has limitations for standalone momentum solving
     // Accept reasonable accuracy given solver constraints
@@ -215,11 +218,7 @@ fn test_poiseuille_flow_convergence() -> Result<(), Box<dyn std::error::Error>> 
     );
 
     let elapsed = start.elapsed();
-    // TODO: Replace println! statements with proper logging framework for test execution monitoring
-    // DEPENDENCIES: Add comprehensive logging framework with structured log levels and test execution tracking
-    // BLOCKED BY: Limited understanding of test logging requirements and structured logging patterns
-    // PRIORITY: Medium - Important for test execution monitoring and debugging
-    println!("\nTest completed in {:.2} seconds", elapsed.as_secs_f64());
+    info!("Test completed in {:.2} seconds", elapsed.as_secs_f64());
 
     // Solver should take significant time for convergence (not immediate)
     assert!(
@@ -235,6 +234,7 @@ fn test_poiseuille_flow_convergence() -> Result<(), Box<dyn std::error::Error>> 
 
 #[test]
 fn test_poiseuille_mass_conservation() {
+    init_logging();
     // Test that mass is conserved in steady Poiseuille flow
     let nx = 21;
     let ny = 11;
@@ -268,11 +268,7 @@ fn test_poiseuille_mass_conservation() {
         }
     }
 
-    // TODO: Replace println! statements with proper logging framework for test execution monitoring
-    // DEPENDENCIES: Add comprehensive logging framework with structured log levels and test execution tracking
-    // BLOCKED BY: Limited understanding of test logging requirements and structured logging patterns
-    // PRIORITY: Medium - Important for test execution monitoring and debugging
-    println!("Maximum divergence in Poiseuille flow: {max_divergence:.2e}");
+    info!("Maximum divergence in Poiseuille flow: {:.2e}", max_divergence);
     assert!(max_divergence < 1e-10, "Flow is not divergence-free");
 
     // Check mass flux conservation (inlet = outlet)
@@ -285,11 +281,7 @@ fn test_poiseuille_mass_conservation() {
     }
 
     let flux_error = (inlet_flux - outlet_flux).abs();
-    // TODO: Replace println! statements with proper logging framework for test execution monitoring
-    // DEPENDENCIES: Add comprehensive logging framework with structured log levels and test execution tracking
-    // BLOCKED BY: Limited understanding of test logging requirements and structured logging patterns
-    // PRIORITY: Medium - Important for test execution monitoring and debugging
-    println!("Inlet flux: {inlet_flux:.6}, Outlet flux: {outlet_flux:.6}, Error: {flux_error:.2e}");
+    info!("Inlet flux: {:.6}, Outlet flux: {:.6}, Error: {:.2e}", inlet_flux, outlet_flux, flux_error);
 
     assert!(flux_error < 1e-10, "Mass flux not conserved");
 }
