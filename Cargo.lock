@@ -304,7 +304,6 @@ dependencies = [
  "cfd-io",
  "cfd-math",
  "cfd-mesh",
- "cfd-validation",
  "criterion",
  "nalgebra",
  "nalgebra-sparse",
@@ -328,7 +327,6 @@ dependencies = [
  "cfd-io",
  "cfd-math",
  "cfd-mesh",
- "cfd-validation",
  "criterion",
  "crossbeam",
  "nalgebra",
@@ -458,30 +456,6 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "wgpu",
-]
-
-[[package]]
-name = "cfd-validation"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "approx 0.5.1",
- "cfd-2d",
- "cfd-core",
- "cfd-io",
- "cfd-math",
- "chrono",
- "criterion",
- "nalgebra",
- "nalgebra-sparse",
- "num-complex 0.4.6",
- "num-traits",
- "num_cpus",
- "proptest",
- "serde",
- "serde_json",
- "thiserror",
- "tracing",
 ]
 
 [[package]]
