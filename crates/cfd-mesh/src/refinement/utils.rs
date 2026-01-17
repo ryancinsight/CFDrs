@@ -1,5 +1,6 @@
 //! Mesh refinement utilities
 
+use crate::error::MeshError;
 use crate::mesh::Mesh;
 use crate::topology::{Face, Vertex};
 use nalgebra::RealField;
@@ -28,25 +29,28 @@ impl<'a, T: RealField + Copy> RefinementContext<'a, T> {
         }
     }
 
-    pub fn get_midpoint(&mut self, v1_idx: usize, v2_idx: usize) -> usize {
+    pub fn get_midpoint(&mut self, v1_idx: usize, v2_idx: usize) -> Result<usize, MeshError> {
         let key = if v1_idx < v2_idx {
             (v1_idx, v2_idx)
         } else {
             (v2_idx, v1_idx)
         };
         if let Some(&idx) = self.midpoint_cache.get(&key) {
-            idx
+            Ok(idx)
         } else {
-            // TODO: Add proper error handling for invalid vertex indices
-            let v1 = self.old_mesh.vertex(v1_idx)
-                .unwrap_or_else(|| panic!("Invalid vertex index {} in midpoint calculation", v1_idx));
-            let v2 = self.old_mesh.vertex(v2_idx)
-                .unwrap_or_else(|| panic!("Invalid vertex index {} in midpoint calculation", v2_idx));
+            let v1 = self
+                .old_mesh
+                .vertex(v1_idx)
+                .ok_or_else(|| MeshError::InvalidMesh(format!("Invalid vertex index {} in midpoint calculation", v1_idx)))?;
+            let v2 = self
+                .old_mesh
+                .vertex(v2_idx)
+                .ok_or_else(|| MeshError::InvalidMesh(format!("Invalid vertex index {} in midpoint calculation", v2_idx)))?;
             let center = nalgebra::center(&v1.position, &v2.position);
             let new_v = Vertex::new(center);
             let idx = self.new_mesh.add_vertex(new_v);
             self.midpoint_cache.insert(key, idx);
-            idx
+            Ok(idx)
         }
     }
 
