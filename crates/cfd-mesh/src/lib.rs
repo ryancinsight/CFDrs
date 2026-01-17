@@ -8,7 +8,15 @@
 #![allow(clippy::similar_names)] // Geometric variables (x,y,z; i,j,k) naturally similar
 #![allow(clippy::cast_precision_loss)] // Acceptable in geometric calculations
 #![allow(clippy::must_use_candidate)] // Geometric utilities often used in expressions
+// TODO: Complete error documentation for internal APIs to improve developer experience
+// DEPENDENCIES: Add comprehensive error documentation framework for mesh utilities and geometric operations
+// BLOCKED BY: Limited understanding of mesh API error patterns and documentation requirements
+// PRIORITY: Medium - Important for developer experience and mesh framework usability
 #![allow(clippy::missing_errors_doc)] // Error documentation deferred for internal APIs
+// TODO: Complete panic documentation for internal APIs to improve developer experience
+// DEPENDENCIES: Add comprehensive panic documentation framework for mesh utilities and geometric error conditions
+// BLOCKED BY: Limited understanding of mesh API panic patterns and documentation requirements
+// PRIORITY: Medium - Important for developer experience and mesh framework safety
 #![allow(clippy::missing_panics_doc)] // Panic documentation deferred for internal APIs
 #![allow(clippy::cast_sign_loss)] // Signed to unsigned casts common in CFD indexing
 #![allow(clippy::cast_possible_wrap)] // Wrap-around acceptable for grid indices

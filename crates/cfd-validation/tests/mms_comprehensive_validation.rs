@@ -73,9 +73,9 @@ fn test_taylor_green_mms_vorticity() {
     let y = 0.5;
 
     // TODO: Test at multiple times to verify temporal evolution
-// DEPENDENCIES: Implement comprehensive temporal validation framework
-// BLOCKED BY: Limited time-stepping validation in current MMS framework
-// PRIORITY: Medium - Important for time-dependent verification
+    // DEPENDENCIES: Implement comprehensive temporal validation framework with time-stepping consistency checks
+    // BLOCKED BY: Limited time-stepping validation in current MMS framework with incomplete temporal analysis
+    // PRIORITY: High - Important for time-dependent verification and temporal accuracy assessment
     let times = vec![0.0, 0.1, 0.5, 1.0];
     let mut prev_vorticity_mag = f64::INFINITY;
 

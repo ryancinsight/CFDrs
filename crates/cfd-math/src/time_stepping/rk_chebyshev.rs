@@ -316,6 +316,9 @@ impl<T: RealField + Copy + FromPrimitive> RungeKuttaChebyshev<T> {
             }
 
             // TODO: Add step-size control using an RKC-compatible error estimator.
+            // DEPENDENCIES: Add comprehensive error estimation framework for RKC time stepping with adaptive step control
+            // BLOCKED BY: Limited understanding of RKC error estimation algorithms and adaptive step-size control strategies
+            // PRIORITY: High - Essential for robust time integration and numerical stability in stiff systems
             y = self.step(rhs, t, &y, dt)?;
             t += dt;
         }

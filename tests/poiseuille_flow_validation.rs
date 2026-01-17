@@ -120,7 +120,10 @@ fn test_poiseuille_flow_convergence() {
     let convergence_tolerance = 1e-1; // Relaxed tolerance for current solver limitations
     let mut converged = false;
 
-    // TODO: Replace with proper logging framework
+    // TODO: Replace println! statements with proper logging framework for test execution monitoring
+    // DEPENDENCIES: Add comprehensive logging framework with structured log levels and test execution tracking
+    // BLOCKED BY: Limited understanding of test logging requirements and structured logging patterns
+    // PRIORITY: Medium - Important for test execution monitoring and debugging
     // println!("Starting Poiseuille flow simulation...");
 
     for step in 0..max_time_steps {
@@ -223,6 +226,10 @@ fn test_poiseuille_flow_convergence() {
     );
 
     let elapsed = start.elapsed();
+    // TODO: Replace println! statements with proper logging framework for test execution monitoring
+    // DEPENDENCIES: Add comprehensive logging framework with structured log levels and test execution tracking
+    // BLOCKED BY: Limited understanding of test logging requirements and structured logging patterns
+    // PRIORITY: Medium - Important for test execution monitoring and debugging
     println!("\nTest completed in {:.2} seconds", elapsed.as_secs_f64());
 
     // Solver should take significant time for convergence (not immediate)
@@ -270,6 +277,10 @@ fn test_poiseuille_mass_conservation() {
         }
     }
 
+    // TODO: Replace println! statements with proper logging framework for test execution monitoring
+    // DEPENDENCIES: Add comprehensive logging framework with structured log levels and test execution tracking
+    // BLOCKED BY: Limited understanding of test logging requirements and structured logging patterns
+    // PRIORITY: Medium - Important for test execution monitoring and debugging
     println!("Maximum divergence in Poiseuille flow: {max_divergence:.2e}");
     assert!(max_divergence < 1e-10, "Flow is not divergence-free");
 
@@ -283,6 +294,10 @@ fn test_poiseuille_mass_conservation() {
     }
 
     let flux_error = (inlet_flux - outlet_flux).abs();
+    // TODO: Replace println! statements with proper logging framework for test execution monitoring
+    // DEPENDENCIES: Add comprehensive logging framework with structured log levels and test execution tracking
+    // BLOCKED BY: Limited understanding of test logging requirements and structured logging patterns
+    // PRIORITY: Medium - Important for test execution monitoring and debugging
     println!("Inlet flux: {inlet_flux:.6}, Outlet flux: {outlet_flux:.6}, Error: {flux_error:.2e}");
 
     assert!(flux_error < 1e-10, "Mass flux not conserved");

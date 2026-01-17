@@ -32,6 +32,10 @@ default = ["gpu"]
 gpu = ["dep:wgpu"]
 mpi = ["dep:mpi"]
 simd = []
+# TODO: Define experimental features for advanced CFD capabilities and cutting-edge algorithms
+# DEPENDENCIES: Add comprehensive experimental feature framework with proper feature gating
+# BLOCKED BY: Limited understanding of experimental CFD algorithms and feature organization strategies
+# PRIORITY: Medium - Important for research and development of advanced CFD capabilities
 experimental = []
 
 [dev-dependencies]

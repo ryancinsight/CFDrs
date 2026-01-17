@@ -279,6 +279,10 @@ fn generate_cavitation_plots(
             .iter()
             .enumerate()
             .filter(|(_, &v)| {
+                // TODO: Replace unwrap-based error handling with proper Result types and error propagation
+                // DEPENDENCIES: Add comprehensive error handling framework for cavitation result validation
+                // BLOCKED BY: Limited understanding of cavitation result validation failure modes and recovery strategies
+                // PRIORITY: Medium - Important for robust example execution and debugging
                 results
                     .iter()
                     .find(|r| r.inlet_velocity == v)

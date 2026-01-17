@@ -489,6 +489,10 @@ mod tests {
 
     #[test]
     fn test_unified_compute() {
+        // TODO: Replace expect-based error handling with proper Result types and error propagation
+        // DEPENDENCIES: Add comprehensive error handling framework for unified compute backend initialization
+        // BLOCKED BY: Limited understanding of unified compute backend failure modes and recovery strategies
+        // PRIORITY: High - Essential for robust testing and debugging of compute backends
         let compute = UnifiedCompute::new().expect("Failed to create UnifiedCompute backend for testing");
         // TODO: Replace println! with proper logging framework
         println!("Active backend: {:?}", compute.backend());
@@ -497,6 +501,10 @@ mod tests {
         let b = vec![2.0f32; 100];
         let mut result = vec![0.0f32; 100];
 
+        // TODO: Replace expect-based error handling with proper Result types and error propagation
+        // DEPENDENCIES: Add comprehensive error handling framework for vector operations
+        // BLOCKED BY: Limited understanding of vector operation failure modes and recovery strategies
+        // PRIORITY: High - Essential for robust testing and debugging of compute operations
         compute.vector_add_f32(&a, &b, &mut result)
             .expect("Failed to perform vector addition in test");
 
@@ -507,6 +515,10 @@ mod tests {
 
     #[test]
     fn test_pressure_solver() {
+        // TODO: Replace expect-based error handling with proper Result types and error propagation
+        // DEPENDENCIES: Add comprehensive error handling framework for unified compute backend initialization
+        // BLOCKED BY: Limited understanding of unified compute backend failure modes and recovery strategies
+        // PRIORITY: High - Essential for robust testing and debugging of compute backends
         let compute = Arc::new(UnifiedCompute::new()
             .expect("Failed to create UnifiedCompute backend for pressure solver test"));
         let solver = kernels::PressureSolver::new(compute);
@@ -517,6 +529,10 @@ mod tests {
         let divergence = vec![0.1f32; nx * ny];
         let mut pressure = vec![0.0f32; nx * ny];
 
+        // TODO: Replace expect-based error handling with proper Result types and error propagation
+        // DEPENDENCIES: Add comprehensive error handling framework for pressure solver operations
+        // BLOCKED BY: Limited understanding of pressure solver failure modes and recovery strategies
+        // PRIORITY: High - Essential for robust testing and debugging of pressure solvers
         solver.solve(&divergence, &mut pressure, config)
             .expect("Failed to solve pressure equation in test");
 

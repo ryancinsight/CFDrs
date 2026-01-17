@@ -20,7 +20,10 @@ fn test_poiseuille_flow_1d() {
 
     // For a parabolic profile, average velocity should be v_max / 2
     let v_avg = v_max / 2.0;
-
+    // TODO: Replace hardcoded tolerance with configurable validation parameters
+    // DEPENDENCIES: Add comprehensive validation framework with configurable tolerance and accuracy parameters
+    // BLOCKED BY: Limited understanding of physics validation tolerance requirements and parameter organization
+    // PRIORITY: Medium - Important for flexible validation testing and accuracy assessment
     assert!(
         (v_avg - v_max / 2.0).abs() < tolerance * v_max,
         "Poiseuille flow validation failed"

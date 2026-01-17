@@ -129,6 +129,10 @@ fn test_muscl2_superbee_monotonicity() {
             + (phi_new.data[(i + 1, 0)] - phi_new.data[(i, 0)]).abs();
 
         // Total variation should not increase significantly (allowing for some numerical diffusion)
+        // TODO: Implement rigorous TVD condition checking with proper numerical diffusion tolerance analysis
+        // DEPENDENCIES: Add comprehensive TVD condition validation framework with accurate numerical diffusion assessment
+        // BLOCKED BY: Limited understanding of TVD condition violations and numerical diffusion tolerance requirements
+        // PRIORITY: High - Essential for numerical stability and accuracy validation of TVD schemes
         // Relaxed check for current limiter implementation
         assert!(
             tv_new <= tv_original * 2.0,

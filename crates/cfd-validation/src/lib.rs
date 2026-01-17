@@ -14,7 +14,15 @@
 #![allow(clippy::similar_names)] // Test variables often similar (u1,u2; err1,err2)
 #![allow(clippy::cast_precision_loss)] // Acceptable in validation calculations
 #![allow(clippy::must_use_candidate)] // Validation utilities often used in expressions
+// TODO: Complete error documentation for internal APIs to improve developer experience
+// DEPENDENCIES: Add comprehensive error documentation framework for validation utilities and error analysis
+// BLOCKED BY: Limited understanding of validation API error patterns and documentation requirements
+// PRIORITY: Medium - Important for developer experience and validation framework usability
 #![allow(clippy::missing_errors_doc)] // Error documentation deferred for internal APIs
+// TODO: Complete panic documentation for internal APIs to improve developer experience
+// DEPENDENCIES: Add comprehensive panic documentation framework for validation utilities and error conditions
+// BLOCKED BY: Limited understanding of validation API panic patterns and documentation requirements
+// PRIORITY: Medium - Important for developer experience and validation framework safety
 #![allow(clippy::missing_panics_doc)] // Panic documentation deferred for internal APIs
 #![allow(clippy::cast_sign_loss)] // Signed to unsigned casts common in CFD indexing
 #![allow(clippy::cast_possible_wrap)] // Wrap-around acceptable for grid indices

@@ -32,9 +32,17 @@ fn test_ghia_cavity_re100_with_gmres() {
     };
 
     // Run benchmark
+    // TODO: Replace expect-based error handling with proper Result types and error propagation
+    // DEPENDENCIES: Add comprehensive error handling framework for cavity flow benchmark execution
+    // BLOCKED BY: Limited understanding of cavity flow benchmark failure modes and recovery strategies
+    // PRIORITY: High - Essential for robust validation testing and debugging
     let result = cavity.run(&config).expect("Benchmark should complete");
 
     // Get Ghia reference data for Re=100
+    // TODO: Replace expect-based error handling with proper Result types and error propagation
+    // DEPENDENCIES: Add comprehensive error handling framework for reference data loading
+    // BLOCKED BY: Limited understanding of reference data loading failure modes and recovery strategies
+    // PRIORITY: High - Essential for robust validation testing and debugging
     let (ref_y, ref_u) = cavity
         .ghia_reference_data(100.0)
         .expect("Reference data should exist for Re=100");
@@ -79,6 +87,10 @@ fn test_ghia_cavity_re100_with_gmres() {
         "Convergence history should be recorded"
     );
 
+    // TODO: Replace expect-based error handling with proper Result types and error propagation
+    // DEPENDENCIES: Add comprehensive error handling framework for convergence data validation
+    // BLOCKED BY: Limited understanding of convergence data validation failure modes and recovery strategies
+    // PRIORITY: High - Essential for robust validation testing and debugging
     let final_residual = result.convergence.last().expect("Should have residual");
     assert!(
         *final_residual < 0.2,
@@ -110,6 +122,10 @@ fn test_cavity_linear_solver_comparison() {
     };
 
     // Run with benchmark (uses default stream function/vorticity)
+    // TODO: Replace expect-based error handling with proper Result types and error propagation
+    // DEPENDENCIES: Add comprehensive error handling framework for cavity flow benchmark execution
+    // BLOCKED BY: Limited understanding of cavity flow benchmark failure modes and recovery strategies
+    // PRIORITY: High - Essential for robust validation testing and debugging
     let result = cavity.run(&config).expect("Should complete");
 
     // Verify basic physics
@@ -143,6 +159,10 @@ fn test_cavity_linear_solver_comparison() {
 fn test_gmres_configuration() {
     // Verify that GMRES can be configured with different restart dimensions
 
+    // TODO: Replace expect-based error handling with proper Result types and error propagation
+    // DEPENDENCIES: Add comprehensive error handling framework for pressure-velocity configuration
+    // BLOCKED BY: Limited understanding of pressure-velocity configuration failure modes and recovery strategies
+    // PRIORITY: High - Essential for robust validation testing and debugging
     let config_default =
         PressureVelocityConfig::<f64>::new().expect("Should create default config");
 
@@ -183,6 +203,10 @@ fn test_cavity_reynolds_scaling() {
         parallel: false,
     };
 
+    // TODO: Replace expect-based error handling with proper Result types and error propagation
+    // DEPENDENCIES: Add comprehensive error handling framework for cavity flow benchmark execution
+    // BLOCKED BY: Limited understanding of cavity flow benchmark failure modes and recovery strategies
+    // PRIORITY: High - Essential for robust validation testing and debugging
     let result_low = cavity.run(&config_low).expect("Should complete");
 
     // Get maximum velocity magnitude

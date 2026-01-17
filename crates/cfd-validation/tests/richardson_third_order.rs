@@ -5,10 +5,10 @@ use cfd_validation::manufactured::ManufacturedDiffusion;
 #[test]
 fn richardson_estimates_third_order_uniform_ratio() {
     // TODO: Set up a minimal MMS study; geometry and manufactured solution are placeholders
-// DEPENDENCIES: Implement realistic MMS test cases with proper physics
-// BLOCKED BY: Limited MMS framework in cfd-validation
-// PRIORITY: Medium - Essential for verification framework
-// for construction only — the order estimation uses the provided closure.
+    // DEPENDENCIES: Implement realistic MMS test cases with proper physics and boundary conditions
+    // BLOCKED BY: Limited MMS framework in cfd-validation with incomplete physics modeling
+    // PRIORITY: High - Essential for verification framework and third-order accuracy validation
+    // for construction only — the order estimation uses the provided closure.
     let mms = ManufacturedDiffusion::<f64>::new(1.0);
     let geometry = RectangularDomain::new(0.0, 1.0, 0.0, 1.0);
 

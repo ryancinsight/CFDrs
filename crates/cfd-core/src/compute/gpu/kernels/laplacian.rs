@@ -61,10 +61,22 @@ use wgpu::util::DeviceExt;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BoundaryType {
     /// Dirichlet boundary condition (u = 0)
+    // TODO: Add comprehensive documentation for boundary condition types and their mathematical formulations
+    // DEPENDENCIES: Add detailed boundary condition documentation with mathematical derivations and usage examples
+    // BLOCKED BY: Limited understanding of GPU boundary condition implementation patterns and documentation requirements
+    // PRIORITY: Medium - Important for developer experience and GPU kernel usability
     Dirichlet,
     /// Neumann boundary condition (du/dn = 0)
+    // TODO: Add comprehensive documentation for boundary condition types and their mathematical formulations
+    // DEPENDENCIES: Add detailed boundary condition documentation with mathematical derivations and usage examples
+    // BLOCKED BY: Limited understanding of GPU boundary condition implementation patterns and documentation requirements
+    // PRIORITY: Medium - Important for developer experience and GPU kernel usability
     Neumann,
     /// Periodic boundary condition
+    // TODO: Add comprehensive documentation for boundary condition types and their mathematical formulations
+    // DEPENDENCIES: Add detailed boundary condition documentation with mathematical derivations and usage examples
+    // BLOCKED BY: Limited understanding of GPU boundary condition implementation patterns and documentation requirements
+    // PRIORITY: Medium - Important for developer experience and GPU kernel usability
     Periodic,
 }
 
