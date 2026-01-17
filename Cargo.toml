@@ -125,10 +125,9 @@ simba.workspace = true
 wgpu = { version = "0.19", optional = true }
 mpi = { version = "0.8", optional = true, default-features = false }
 rand.workspace = true
-tracing.workspace = true
+tracing = { workspace = true }
 
 [dev-dependencies]
-tracing-subscriber.workspace = true
 criterion = { version = "0.5", features = ["html_reports"] }
 proptest = "1.0"
 approx = "0.5"
@@ -138,6 +137,7 @@ serde = { workspace = true, features = ["derive"] }
 rayon.workspace = true
 chrono = { version = "0.4", features = ["serde"] }
 num_cpus = "1.17"
+tracing-subscriber = { workspace = true }
 
 [[bench]]
 name = "core_benchmarks"

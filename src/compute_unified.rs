@@ -490,13 +490,14 @@ mod tests {
 
     #[test]
     fn test_unified_compute() {
-        let _ = tracing_subscriber::fmt::try_init();
+        // Initialize logging for the test
+        let _ = tracing_subscriber::fmt().with_test_writer().try_init();
 
         // TODO: Replace expect-based error handling with proper Result types and error propagation
         // DEPENDENCIES: Add comprehensive error handling framework for unified compute backend initialization
         // BLOCKED BY: Limited understanding of unified compute backend failure modes and recovery strategies
         // PRIORITY: High - Essential for robust testing and debugging of compute backends
-        let compute = UnifiedCompute::new().expect("Failed to create UnifiedCompute backend for testing");
+        let mut compute = UnifiedCompute::new().expect("Failed to create UnifiedCompute backend for testing");
         info!("Active backend: {:?}", compute.backend());
 
         let a = vec![1.0f32; 100];

@@ -6,6 +6,7 @@
 extern crate cfd_2d;
 extern crate cfd_core;
 
+use cfd_core::error::ErrorContext;
 use cfd_2d::fields::SimulationFields;
 use cfd_2d::grid::StructuredGrid2D;
 use cfd_2d::physics::momentum::{MomentumComponent, MomentumSolver};
@@ -19,7 +20,7 @@ fn poiseuille_analytical(y: f64, height: f64, pressure_gradient: f64, viscosity:
 }
 
 #[test]
-fn test_poiseuille_flow_convergence() {
+fn test_poiseuille_flow_convergence() -> Result<(), Box<dyn std::error::Error>> {
     let start = Instant::now();
 
     // Physical parameters
@@ -84,11 +85,7 @@ fn test_poiseuille_flow_convergence() {
     // BLOCKED BY: Limited understanding of logging requirements and integration patterns
     // PRIORITY: Medium - Important for debugging and monitoring CFD simulations
     let grid = StructuredGrid2D::new(nx, ny, 0.0, channel_length, 0.0, channel_height)
-        // TODO: Replace panic-based error handling with proper Result types and error propagation
-        // DEPENDENCIES: Add comprehensive error handling framework for grid creation and validation
-        // BLOCKED BY: Limited understanding of grid failure modes and recovery strategies
-        // PRIORITY: High - Essential for robust test execution and debugging
-        .unwrap_or_else(|_| panic!("Failed to create grid for Poiseuille flow validation"));
+        .context("Failed to create grid for Poiseuille flow validation")?;
     let mut solver = MomentumSolver::new(&grid);
     // Reduce relaxation factor for better stability
     solver.set_velocity_relaxation(0.5);
@@ -130,21 +127,13 @@ fn test_poiseuille_flow_convergence() {
         let u_old = fields.u.clone();
 
         // Solve momentum equations
-        // TODO: Replace panic-based error handling with proper Result types and error propagation
-        // DEPENDENCIES: Add comprehensive error handling framework for momentum solver failures
-        // BLOCKED BY: Limited understanding of momentum solver failure modes and recovery strategies
-        // PRIORITY: High - Essential for robust test execution and debugging
         solver
             .solve(MomentumComponent::U, &mut fields, dt)
-            .unwrap_or_else(|e| panic!("Momentum U solve failed: {}", e));
+            .context("Momentum U solve failed")?;
 
         solver
             .solve(MomentumComponent::V, &mut fields, dt)
-            // TODO: Replace panic-based error handling with proper Result types and error propagation
-            // DEPENDENCIES: Add comprehensive error handling framework for momentum solver failures
-            // BLOCKED BY: Limited understanding of momentum solver failure modes and recovery strategies
-            // PRIORITY: High - Essential for robust test execution and debugging
-            .unwrap_or_else(|e| panic!("Momentum V solve failed: {}", e));
+            .context("Momentum V solve failed")?;
 
         // Check convergence
         // TODO: Optimize convergence checking by using vectorized operations and parallel reduction
@@ -240,6 +229,8 @@ fn test_poiseuille_flow_convergence() {
         Immediate completion indicates false convergence.",
         elapsed.as_secs_f64()
     );
+
+    Ok(())
 }
 
 #[test]
