@@ -143,6 +143,12 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> MomentumSolv
         &self.boundary_conditions
     }
 
+    /// Validate boundary condition consistency
+    pub fn validate_boundary_conditions(&self) -> cfd_core::error::Result<()> {
+        super::boundary::validate_boundary_consistency(&self.boundary_conditions, &self.grid)
+            .map_err(|e| cfd_core::error::Error::InvalidConfiguration(e.to_string()))
+    }
+
     /// Set turbulence model for computing turbulent viscosity
     pub fn set_turbulence_model(&mut self, model: Box<dyn TurbulenceModel<T>>) {
         self.turbulence_model = Some(model);

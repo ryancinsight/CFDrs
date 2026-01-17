@@ -435,7 +435,7 @@ impl CfdScalingAnalysis {
                 Some(rayon::ThreadPoolBuilder::new()
                     .num_threads(num_threads)
                     .build()
-                    .map_err(|e| Error::validation(format!("Failed to create thread pool: {}", e)))?)
+                    .map_err(|e| Error::InvalidConfiguration(format!("Failed to create thread pool: {}", e)))?)
             } else {
                 None
             };
@@ -468,7 +468,7 @@ impl CfdScalingAnalysis {
                 Some(rayon::ThreadPoolBuilder::new()
                     .num_threads(num_threads)
                     .build()
-                    .map_err(|e| Error::validation(format!("Failed to create thread pool: {}", e)))?)
+                    .map_err(|e| Error::InvalidConfiguration(format!("Failed to create thread pool: {}", e)))?)
             } else {
                 None
             };
