@@ -409,7 +409,7 @@ impl AdaptiveMeshRefinement {
     
     /// Compute physics-based refinement indicator
     fn compute_physics_based_indicator(&self, solution: &DMatrix<f64>, i: usize, j: usize, phenomena: &[PhysicsPhenomena]) -> f64 {
-        let mut indicator = 0.0;
+        let mut indicator: f64 = 0.0;
         
         for phenomenon in phenomena {
             let phenomenon_indicator = match phenomenon {
@@ -622,11 +622,19 @@ impl AdaptiveMeshRefinement {
             }
             RefinementCriteria::FeatureBased { feature_name, .. } => {
                 // Implement feature-based detection using various algorithms
-                indicators[(i, j)] = self.compute_feature_based_indicator(solution, i, j, feature_name);
+                for i in 0..nx {
+                    for j in 0..ny {
+                        indicators[(i, j)] = self.compute_feature_based_indicator(solution, i, j, feature_name);
+                    }
+                }
             }
             RefinementCriteria::PhysicsBased { phenomena, .. } => {
                 // Implement physics-based indicators
-                indicators[(i, j)] = self.compute_physics_based_indicator(solution, i, j, phenomena);
+                for i in 0..nx {
+                    for j in 0..ny {
+                        indicators[(i, j)] = self.compute_physics_based_indicator(solution, i, j, phenomena);
+                    }
+                }
             }
         }
         
@@ -805,7 +813,8 @@ mod tests {
         amr.apply_refinement(&indicators).unwrap();
         
         // Check that refinement was applied near the gradient
-        assert!(amr.refinement_levels[(5, 0)] > 0 || amr.refinement_levels[(6, 0)] > 0);
+        // Note: we check column 1 because central differences skip the boundary (j=0)
+        assert!(amr.refinement_levels[(5, 1)] > 0 || amr.refinement_levels[(6, 1)] > 0);
     }
     
     #[test]
@@ -814,7 +823,7 @@ mod tests {
         let mut amr = AdaptiveMeshRefinement::new(100, 100, criteria);
         amr.max_cells = 100; // Very low limit
         
-        let solution = DMatrix::random(100, 100);
+        let solution = DMatrix::from_fn(100, 100, |i, j| (i as f64 * 0.1).sin() * (j as f64 * 0.1).cos());
         let indicators = amr.compute_refinement_indicators(&solution).unwrap();
         
         // Should fail due to memory limit

@@ -154,7 +154,7 @@ impl ScalingAnalysis {
             .iter()
             .map(|&p| (problem_size, p))
             .collect();
-        let metrics = self.calculate_scaling_metrics(&keys, &parallel_efficiency);
+        let metrics = self.calculate_scaling_metrics(&keys, &parallel_efficiency, &execution_times);
 
         Ok(ScalingResult {
             scaling_type: ScalingType::Strong,
@@ -211,7 +211,7 @@ impl ScalingAnalysis {
         }
 
         let keys: Vec<(usize, usize)> = scaling_results.iter().map(|(p, s, _)| (*s, *p)).collect();
-        let metrics = self.calculate_scaling_metrics(&keys, &parallel_efficiency);
+        let metrics = self.calculate_scaling_metrics(&keys, &parallel_efficiency, &execution_times);
 
         Ok(ScalingResult {
             scaling_type: ScalingType::Weak,
@@ -229,6 +229,7 @@ impl ScalingAnalysis {
         &self,
         keys: &[(usize, usize)],
         parallel_efficiency: &HashMap<(usize, usize), f64>,
+        execution_times: &HashMap<(usize, usize), f64>,
     ) -> ScalingMetrics {
         let mut total_efficiency = 0.0;
         let mut count = 0;
@@ -274,7 +275,7 @@ impl ScalingAnalysis {
             // Calculate communication overhead from timing patterns
             let mut comm_overheads = Vec::new();
             
-            for (problem_size, procs) in &keys {
+            for (problem_size, procs) in keys {
                 if *procs > 1 {
                     let serial_time = execution_times.get(&(*problem_size, 1)).unwrap_or(&1.0);
                     let parallel_time = execution_times.get(&(*problem_size, *procs)).unwrap_or(&1.0);
@@ -435,7 +436,7 @@ impl CfdScalingAnalysis {
                 Some(rayon::ThreadPoolBuilder::new()
                     .num_threads(num_threads)
                     .build()
-                    .map_err(|e| Error::validation(format!("Failed to create thread pool: {}", e)))?)
+                    .map_err(|e| Error::InvalidConfiguration(format!("Failed to create thread pool: {}", e)))?)
             } else {
                 None
             };
@@ -468,7 +469,7 @@ impl CfdScalingAnalysis {
                 Some(rayon::ThreadPoolBuilder::new()
                     .num_threads(num_threads)
                     .build()
-                    .map_err(|e| Error::validation(format!("Failed to create thread pool: {}", e)))?)
+                    .map_err(|e| Error::InvalidConfiguration(format!("Failed to create thread pool: {}", e)))?)
             } else {
                 None
             };
