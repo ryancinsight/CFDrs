@@ -98,34 +98,43 @@ mod gpu_performance_tests {
         let gpu_sgs = gpu_compute.read_buffer(&gpu_buffer).unwrap();
         let gpu_ops_per_sec = size as f64 / gpu_time.as_secs_f64();
 
-        // CPU computation for comparison (simplified)
-        // TODO: Implement full CPU turbulence model with proper strain rate tensor calculation
+        // CPU computation for comparison
         let cpu_start = Instant::now();
         let mut cpu_sgs = vec![0.0f32; size];
+
+        // Grid spacing for derivative calculations
+        let dx = 0.1f32;
+        let dy = 0.1f32;
 
         for _ in 0..iterations {
             for j in 1..(ny - 1) {
                 for i in 1..(nx - 1) {
                     let idx = j * nx + i;
 
-                    // Simplified strain rate calculation (same as GPU shader)
-                    // TODO: Implement full strain rate tensor with all components
+                    // Full strain rate tensor calculation
+                    // Calculate velocity gradients using central differences
                     let du_dx =
-                        (velocity_u_f32[idx + 1] - velocity_u_f32[idx - 1]) / (2.0f32 * 0.1f32);
+                        (velocity_u_f32[idx + 1] - velocity_u_f32[idx - 1]) / (2.0f32 * dx);
                     let du_dy =
-                        (velocity_u_f32[idx + nx] - velocity_u_f32[idx - nx]) / (2.0f32 * 0.1f32);
+                        (velocity_u_f32[idx + nx] - velocity_u_f32[idx - nx]) / (2.0f32 * dy);
                     let dv_dx =
-                        (velocity_v_f32[idx + 1] - velocity_v_f32[idx - 1]) / (2.0f32 * 0.1f32);
+                        (velocity_v_f32[idx + 1] - velocity_v_f32[idx - 1]) / (2.0f32 * dx);
                     let dv_dy =
-                        (velocity_v_f32[idx + nx] - velocity_v_f32[idx - nx]) / (2.0f32 * 0.1f32);
+                        (velocity_v_f32[idx + nx] - velocity_v_f32[idx - nx]) / (2.0f32 * dy);
 
-                    let s11 = du_dx;
-                    let s22 = dv_dy;
-                    let s12 = 0.5f32 * (du_dy + dv_dx);
+                    // Explicitly define all non-zero strain rate tensor components for 2D flow
+                    let s_xx = du_dx;
+                    let s_yy = dv_dy;
+                    let s_xy = 0.5f32 * (du_dy + dv_dx);
+                    let s_yx = s_xy;
 
-                    let s_magnitude =
-                        (2.0f32 * (s11 * s11 + s22 * s22 + 2.0f32 * s12 * s12)).sqrt();
-                    let delta = (0.1f32 * 0.1f32).sqrt();
+                    // Note: For 2D planar flow, S_zz = S_xz = S_yz = 0
+                    // The magnitude is S = sqrt(2 * S_ij * S_ij)
+                    // S_ij * S_ij = s_xx^2 + s_yy^2 + s_xy^2 + s_yx^2 + (zero terms)
+                    let s_contraction = s_xx * s_xx + s_yy * s_yy + s_xy * s_xy + s_yx * s_yx;
+                    let s_magnitude = (2.0f32 * s_contraction).sqrt();
+
+                    let delta = (dx * dy).sqrt();
 
                     cpu_sgs[idx] = (0.1f32 * delta * delta * s_magnitude).max(0.0f32);
                 }
