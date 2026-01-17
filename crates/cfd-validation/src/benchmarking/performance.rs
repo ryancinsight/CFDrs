@@ -582,11 +582,12 @@ impl CfdPerformanceBenchmarks {
             let data_size = matrix.nnz() * 8 * 2; // nnz * 8 bytes * 2 (indices + values)
             let matrix_density = matrix.nnz() as f64 / (matrix_size * matrix_size) as f64;
 
+            let vector_dv = nalgebra::DVector::from_vec(vector.clone());
+            let mut result_dv = nalgebra::DVector::from_vec(result.clone());
+
             let profile = self.create_performance_profile(
                 "SPMV_Poisson_64x64",
                 || {
-                    let vector_dv = nalgebra::DVector::from_vec(vector.clone());
-                    let mut result_dv = nalgebra::DVector::from_vec(result.clone());
                     cfd_math::sparse::spmv(&matrix, &vector_dv, &mut result_dv);
                 },
                 spmv_complexity.clone(),
@@ -664,13 +665,12 @@ impl CfdPerformanceBenchmarks {
         T: RealField + Copy + Scalar + std::fmt::Display,
     {
         let result = vec![T::zero(); matrix.nrows()];
+        let vector_dv = nalgebra::DVector::from_vec(vector.to_vec());
+        let mut result_dv = nalgebra::DVector::from_vec(result);
 
         self.benchmark.benchmark_simple(
             &format!("SPMV_{}x{}", matrix.nrows(), matrix.ncols()),
             || {
-                let matrix = &matrix;
-                let vector_dv = nalgebra::DVector::from_vec(vector.to_vec());
-                let mut result_dv = nalgebra::DVector::from_vec(result.clone());
                 cfd_math::sparse::spmv(matrix, &vector_dv, &mut result_dv);
             },
         )
