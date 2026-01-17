@@ -50,12 +50,12 @@ fn refine_tetrahedron<T: RealField + Copy>(
     let [v0, v1, v2, v3] = [v_indices[0], v_indices[1], v_indices[2], v_indices[3]];
 
     // Get midpoints
-    let m01 = ctx.get_midpoint(v0, v1);
-    let m02 = ctx.get_midpoint(v0, v2);
-    let m03 = ctx.get_midpoint(v0, v3);
-    let m12 = ctx.get_midpoint(v1, v2);
-    let m13 = ctx.get_midpoint(v1, v3);
-    let m23 = ctx.get_midpoint(v2, v3);
+    let m01 = ctx.get_midpoint(v0, v1)?;
+    let m02 = ctx.get_midpoint(v0, v2)?;
+    let m03 = ctx.get_midpoint(v0, v3)?;
+    let m12 = ctx.get_midpoint(v1, v2)?;
+    let m13 = ctx.get_midpoint(v1, v3)?;
+    let m23 = ctx.get_midpoint(v2, v3)?;
 
     // Define the 8 new tets
     let new_tets = vec![
@@ -111,9 +111,9 @@ fn refine_triangle<T: RealField + Copy>(
     let [v0, v1, v2] = [v_indices[0], v_indices[1], v_indices[2]];
 
     // Get midpoints
-    let m01 = ctx.get_midpoint(v0, v1);
-    let m12 = ctx.get_midpoint(v1, v2);
-    let m20 = ctx.get_midpoint(v2, v0);
+    let m01 = ctx.get_midpoint(v0, v1)?;
+    let m12 = ctx.get_midpoint(v1, v2)?;
+    let m20 = ctx.get_midpoint(v2, v0)?;
 
     // Define the 4 new triangles
     let new_tris = vec![
@@ -166,29 +166,29 @@ fn refine_hexahedron<T: RealField + Copy>(
     let vertices = v_indices;
     
     // Get edge midpoints (12 edges for a hex)
-    let m01 = ctx.get_midpoint(vertices[0], vertices[1]);
-    let m12 = ctx.get_midpoint(vertices[1], vertices[2]);
-    let m23 = ctx.get_midpoint(vertices[2], vertices[3]);
-    let m30 = ctx.get_midpoint(vertices[3], vertices[0]);
-    let m45 = ctx.get_midpoint(vertices[4], vertices[5]);
-    let m56 = ctx.get_midpoint(vertices[5], vertices[6]);
-    let m67 = ctx.get_midpoint(vertices[6], vertices[7]);
-    let m74 = ctx.get_midpoint(vertices[7], vertices[4]);
-    let m04 = ctx.get_midpoint(vertices[0], vertices[4]);
-    let m15 = ctx.get_midpoint(vertices[1], vertices[5]);
-    let m26 = ctx.get_midpoint(vertices[2], vertices[6]);
-    let m37 = ctx.get_midpoint(vertices[3], vertices[7]);
+    let m01 = ctx.get_midpoint(vertices[0], vertices[1])?;
+    let m12 = ctx.get_midpoint(vertices[1], vertices[2])?;
+    let m23 = ctx.get_midpoint(vertices[2], vertices[3])?;
+    let m30 = ctx.get_midpoint(vertices[3], vertices[0])?;
+    let m45 = ctx.get_midpoint(vertices[4], vertices[5])?;
+    let m56 = ctx.get_midpoint(vertices[5], vertices[6])?;
+    let m67 = ctx.get_midpoint(vertices[6], vertices[7])?;
+    let m74 = ctx.get_midpoint(vertices[7], vertices[4])?;
+    let m04 = ctx.get_midpoint(vertices[0], vertices[4])?;
+    let m15 = ctx.get_midpoint(vertices[1], vertices[5])?;
+    let m26 = ctx.get_midpoint(vertices[2], vertices[6])?;
+    let m37 = ctx.get_midpoint(vertices[3], vertices[7])?;
 
     // Get face centers (6 faces for a hex)
-    let fc_bottom = ctx.get_midpoint(m01, m23); // Bottom face center
-    let fc_top = ctx.get_midpoint(m45, m67);    // Top face center
-    let fc_front = ctx.get_midpoint(m01, m45);  // Front face center
-    let fc_back = ctx.get_midpoint(m23, m67);   // Back face center
-    let fc_left = ctx.get_midpoint(m30, m74);   // Left face center
-    let fc_right = ctx.get_midpoint(m12, m56);  // Right face center
+    let fc_bottom = ctx.get_midpoint(m01, m23)?; // Bottom face center
+    let fc_top = ctx.get_midpoint(m45, m67)?;    // Top face center
+    let fc_front = ctx.get_midpoint(m01, m45)?;  // Front face center
+    let fc_back = ctx.get_midpoint(m23, m67)?;   // Back face center
+    let fc_left = ctx.get_midpoint(m30, m74)?;   // Left face center
+    let fc_right = ctx.get_midpoint(m12, m56)?;  // Right face center
 
     // Get body center
-    let body_center = ctx.get_midpoint(fc_bottom, fc_top);
+    let body_center = ctx.get_midpoint(fc_bottom, fc_top)?;
 
     // Define the 8 new hexahedra
     let new_hexes = vec![
@@ -665,12 +665,12 @@ impl<T: RealField + Copy> RefinementStrategy<T> for AdaptiveRefinement<T> {
 
             if marked_cells.contains(&i) {
                 // RED REFINEMENT (1 -> 8)
-                let m01 = ctx.get_midpoint(v0, v1);
-                let m02 = ctx.get_midpoint(v0, v2);
-                let m03 = ctx.get_midpoint(v0, v3);
-                let m12 = ctx.get_midpoint(v1, v2);
-                let m13 = ctx.get_midpoint(v1, v3);
-                let m23 = ctx.get_midpoint(v2, v3);
+                let m01 = ctx.get_midpoint(v0, v1)?;
+                let m02 = ctx.get_midpoint(v0, v2)?;
+                let m03 = ctx.get_midpoint(v0, v3)?;
+                let m12 = ctx.get_midpoint(v1, v2)?;
+                let m13 = ctx.get_midpoint(v1, v3)?;
+                let m23 = ctx.get_midpoint(v2, v3)?;
 
                 let new_tets = vec![
                     vec![v0, m01, m02, m03],
@@ -713,7 +713,7 @@ impl<T: RealField + Copy> RefinementStrategy<T> for AdaptiveRefinement<T> {
                 } else if my_split_edges.len() == 1 {
                     // GREEN: Bisect (1 -> 2)
                     let (u, v) = my_split_edges[0];
-                    let m = ctx.get_midpoint(u, v);
+                    let m = ctx.get_midpoint(u, v)?;
 
                     // The two vertices not in the edge
                     let others: Vec<usize> = [v0, v1, v2, v3]
