@@ -39,35 +39,29 @@ mod gpu_tests {
     }
 
     #[test]
-    fn test_simd_vector_operations() {
-        // TODO: Replace unwrap-based error handling with proper Result types and error propagation
-        // DEPENDENCIES: Add comprehensive error handling framework for GPU compute initialization
-        // BLOCKED BY: Limited understanding of GPU compute failure modes and recovery strategies
-        // PRIORITY: High - Essential for robust GPU testing and debugging
-        let compute = UnifiedCompute::new().unwrap();
+    fn test_simd_vector_operations() -> cfd_core::error::Result<()> {
+        let mut compute = UnifiedCompute::new()?;
 
         let a = vec![1.0f32; 1000];
         let b = vec![2.0f32; 1000];
         let mut result = vec![0.0f32; 1000];
 
         // Test addition
-        compute.vector_add_f32(&a, &b, &mut result).unwrap();
+        compute.vector_add_f32(&a, &b, &mut result)?;
         assert_eq!(result[0], 3.0);
         assert_eq!(result[999], 3.0);
 
         // Test multiplication
-        compute.vector_mul_f32(&a, &b, &mut result).unwrap();
+        compute.vector_mul_f32(&a, &b, &mut result)?;
         assert_eq!(result[0], 2.0);
         assert_eq!(result[999], 2.0);
+
+        Ok(())
     }
 
     #[test]
-    fn test_matrix_vector_multiplication() {
-        // TODO: Replace unwrap-based error handling with proper Result types and error propagation
-        // DEPENDENCIES: Add comprehensive error handling framework for GPU compute initialization
-        // BLOCKED BY: Limited understanding of GPU compute failure modes and recovery strategies
-        // PRIORITY: High - Essential for robust GPU testing and debugging
-        let compute = UnifiedCompute::new().unwrap();
+    fn test_matrix_vector_multiplication() -> cfd_core::error::Result<()> {
+        let compute = UnifiedCompute::new()?;
 
         // 3x3 matrix (row-major)
         let matrix = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0];
@@ -75,17 +69,14 @@ mod gpu_tests {
         let mut result = vec![0.0f32; 3];
 
         compute
-            .matvec_f32(&matrix, &vector, &mut result, 3, 3)
-            // TODO: Replace unwrap-based error handling with proper Result types and error propagation
-            // DEPENDENCIES: Add comprehensive error handling framework for GPU compute operations
-            // BLOCKED BY: Limited understanding of GPU compute operation failure modes and recovery strategies
-            // PRIORITY: High - Essential for robust GPU testing and debugging
-            .unwrap();
+            .matvec_f32(&matrix, &vector, &mut result, 3, 3)?;
 
         // Expected: [6.0, 15.0, 24.0]
         assert_eq!(result[0], 6.0);
         assert_eq!(result[1], 15.0);
         assert_eq!(result[2], 24.0);
+
+        Ok(())
     }
 }
 

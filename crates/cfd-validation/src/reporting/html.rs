@@ -1,6 +1,6 @@
 //! HTML report generation for validation results
 
-use super::{Reporter, ValidationReport};
+use super::{Reporter, ValidationReport, TestStatus};
 use cfd_core::error::Result;
 use std::collections::HashMap;
 use std::time::SystemTime;
@@ -281,7 +281,7 @@ impl HtmlReporter {
         format!(
             r#"
         <div class="health-score">
-            <div class="health-score-value {health_class}">{health_score:.0%}</div>
+            <div class="health-score-value {health_class}">{health_score_pct:.0}%</div>
             <div>Overall Health Score</div>
         </div>
 
@@ -303,7 +303,7 @@ impl HtmlReporter {
                 <div class="summary-label">Coverage</div>
             </div>
         </div>"#,
-            health_score = health_score,
+            health_score_pct = health_score * 100.0,
             health_class = health_class,
             passed = report.summary.passed_tests,
             failed = report.summary.failed_tests,

@@ -409,7 +409,7 @@ impl AdaptiveMeshRefinement {
     
     /// Compute physics-based refinement indicator
     fn compute_physics_based_indicator(&self, solution: &DMatrix<f64>, i: usize, j: usize, phenomena: &[PhysicsPhenomena]) -> f64 {
-        let mut indicator = 0.0;
+        let mut indicator: f64 = 0.0;
         
         for phenomenon in phenomena {
             let phenomenon_indicator = match phenomenon {
@@ -622,11 +622,19 @@ impl AdaptiveMeshRefinement {
             }
             RefinementCriteria::FeatureBased { feature_name, .. } => {
                 // Implement feature-based detection using various algorithms
-                indicators[(i, j)] = self.compute_feature_based_indicator(solution, i, j, feature_name);
+                for i in 0..nx {
+                    for j in 0..ny {
+                        indicators[(i, j)] = self.compute_feature_based_indicator(solution, i, j, feature_name);
+                    }
+                }
             }
             RefinementCriteria::PhysicsBased { phenomena, .. } => {
                 // Implement physics-based indicators
-                indicators[(i, j)] = self.compute_physics_based_indicator(solution, i, j, phenomena);
+                for i in 0..nx {
+                    for j in 0..ny {
+                        indicators[(i, j)] = self.compute_physics_based_indicator(solution, i, j, phenomena);
+                    }
+                }
             }
         }
         

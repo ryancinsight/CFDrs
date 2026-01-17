@@ -421,23 +421,33 @@ impl AutomatedReporter {
                         0, 0, 0, Vec::new()
                     ));
                     
-                    let (passed, failed, details) = entry;
-                    *passed += if line.contains(" ok ") { 1 } else { 0 };
-                    *failed += if line.contains(" FAILED ") { 1 } else { 0 };
+                    let (passed, failed, skipped, details) = entry;
+
+                    let is_passed = line.contains(" ok ");
+                    if is_passed {
+                        *passed += 1;
+                    } else {
+                        *failed += 1;
+                    }
                     
                     // Add test detail
-                    let status = if line.contains(" ok ") { "PASSED" } else { "FAILED" };
-                    let duration = if let Some(last_part) = parts.last() {
-                        last_part.trim_end_matches('s').to_string()
+                    let status = if is_passed { TestStatus::Passed } else { TestStatus::Failed };
+                    let duration_ms = if let Some(last_part) = parts.last() {
+                        if let Ok(secs) = last_part.trim_end_matches('s').parse::<f64>() {
+                            secs * 1000.0
+                        } else {
+                            0.0
+                        }
                     } else {
-                        "N/A".to_string()
+                        0.0
                     };
                     
-                    details.push(TestDetail {
+                    details.push(TestResult {
                         name: test_name.to_string(),
-                        status: status.to_string(),
-                        duration: format!("{}s", duration),
+                        status,
+                        duration_ms,
                         error_message: None,
+                        coverage_data: None,
                     });
                 }
             }
@@ -445,15 +455,15 @@ impl AutomatedReporter {
         
         // Convert to TestCategory structs
         let mut result = Vec::new();
-        for (name, (passed, failed, details)) in categories {
-            let total = passed + failed;
+        for (name, (passed, failed, skipped, details)) in categories {
+            let total = passed + failed + skipped;
             let coverage_percentage = if total > 0 { (passed as f64 / total as f64) * 100.0 } else { 0.0 };
             
             result.push(TestCategory {
                 name,
                 passed,
                 failed,
-                skipped: 0,
+                skipped,
                 total,
                 coverage_percentage,
                 details,
@@ -485,7 +495,7 @@ impl AutomatedReporter {
             test_coverage: Self::calculate_test_coverage(test_output),
             documentation_coverage: 73.2, // Would be derived from documentation analysis
             clippy_warnings: 3, // Would be derived from `cargo clippy` output
-            compiler_errors: compiler_errors as u32,
+            compiler_errors: compiler_errors,
             cyclomatic_complexity: 2.1, // Would be derived from complexity analysis tools
             maintainability_index: 78.5, // Would be derived from maintainability analysis
         })

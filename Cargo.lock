@@ -477,6 +477,7 @@ dependencies = [
  "num-traits",
  "num_cpus",
  "proptest",
+ "rayon",
  "serde",
  "serde_json",
  "thiserror",
