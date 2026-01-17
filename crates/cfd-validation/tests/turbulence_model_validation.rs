@@ -115,11 +115,6 @@ fn test_k_epsilon_channel_flow_production() {
     let production = model.production_term(&velocity_gradient, nu_t);
 
     // Expected production from DNS (approximate): P_k ≈ ε in equilibrium log layer
-    // TODO: Implement realistic velocity gradient profile instead of simplified approximation
-    // DEPENDENCIES: Add comprehensive velocity gradient modeling with proper boundary layer physics
-    // BLOCKED BY: Limited understanding of turbulent boundary layer velocity gradient profiles
-    // PRIORITY: High - Essential for accurate turbulence model validation and physics consistency
-    // Allow factor of 4 due to model approximations and simplified velocity gradient
     let production_expected = epsilon * rho;
 
     // Verify production term has correct order of magnitude
@@ -183,11 +178,6 @@ fn test_wall_distance_calculation() {
     let y_wall = f64::from(j) * dy; // Distance from wall
 
     // Calculate wall distance (simplified for test)
-    // TODO: Implement proper eikonal equation solver for wall distance calculation
-    // DEPENDENCIES: Add comprehensive eikonal equation solver for accurate wall distance computation
-    // BLOCKED BY: Limited understanding of eikonal equation solvers and wall distance algorithms
-    // PRIORITY: High - Essential for accurate turbulence modeling near walls and boundary layers
-    // In production: use eikonal equation solver
     let d_wall = y_wall;
 
     // Verify wall distance is positive and bounded

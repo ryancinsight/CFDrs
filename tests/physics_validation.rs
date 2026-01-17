@@ -20,10 +20,6 @@ fn test_poiseuille_flow_1d() {
 
     // For a parabolic profile, average velocity should be v_max / 2
     let v_avg = v_max / 2.0;
-    // TODO: Replace hardcoded tolerance with configurable validation parameters
-    // DEPENDENCIES: Add comprehensive validation framework with configurable tolerance and accuracy parameters
-    // BLOCKED BY: Limited understanding of physics validation tolerance requirements and parameter organization
-    // PRIORITY: Medium - Important for flexible validation testing and accuracy assessment
     assert!(
         (v_avg - v_max / 2.0).abs() < tolerance * v_max,
         "Poiseuille flow validation failed"
@@ -56,10 +52,6 @@ fn test_heat_diffusion_1d() {
     let z = position / (2.0 * (thermal_diffusivity * time).sqrt());
     let expected_temp_ratio = erfc_approx(z);
 
-    // TODO: Implement comprehensive physics validation with proper error bounds and tolerance analysis
-    // DEPENDENCIES: Add rigorous validation framework for physical consistency and accuracy
-    // BLOCKED BY: Limited understanding of physics validation tolerance requirements
-    // PRIORITY: Medium - Important for ensuring physical realism in simulations
     assert!((0.0..=1.0).contains(&expected_temp_ratio));
     let z2 = 1.1 * z;
     let r2 = erfc_approx(z2);
@@ -77,10 +69,6 @@ fn test_mass_conservation() {
     let dy: f64 = 0.1;
 
     // Create a simple velocity field
-    // TODO: Optimize memory allocation by using more efficient data structures for velocity fields
-    // DEPENDENCIES: Add efficient memory management patterns for CFD field operations
-    // BLOCKED BY: Limited understanding of memory-efficient CFD field representations
-    // PRIORITY: Medium - Important for performance optimization and memory efficiency
     let u = vec![vec![1.0f64; ny]; nx];
     let v = vec![vec![0.0f64; ny]; nx];
 

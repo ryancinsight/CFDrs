@@ -15,8 +15,6 @@ use cfd_validation::manufactured::ManufacturedSolution;
 /// Test conjugate heat transfer validation
 #[test]
 fn test_conjugate_heat_transfer_validation() {
-    println!("Testing Conjugate Heat Transfer MMS Validation...");
-
     let cht = ManufacturedConjugateHeatTransfer::<f64>::new(
         10.0, // conductivity ratio (solid/fluid)
         2.0,  // capacity ratio (solid/fluid)
@@ -40,11 +38,27 @@ fn test_conjugate_heat_transfer_validation() {
         t_solid_interface
     );
 
-    // TODO: Test heat flux continuity (more complex - would require derivatives)
-    // DEPENDENCIES: Implement derivative calculation for flux continuity verification across fluid-solid interfaces
-    // BLOCKED BY: Missing gradient computation framework in cfd-validation for accurate flux calculations
-    // PRIORITY: High - Essential for multi-physics coupling validation and interface physics accuracy
-    // For this simplified test, we verify the formulations are consistent
+    {
+        let conductivity_ratio = 10.0_f64;
+        let k_fluid = 1.0_f64;
+        let k_solid = conductivity_ratio * k_fluid;
+        let dx = 1.0e-7_f64;
+
+        let t_f0 = cht.fluid_temperature(0.5 - dx, y_test, t_test);
+        let t_f1 = cht.fluid_temperature(0.5 - 2.0 * dx, y_test, t_test);
+        let d_tdx_fluid = (t_f0 - t_f1) / dx;
+
+        let t_s0 = cht.solid_temperature(0.5 + 2.0 * dx, y_test, t_test);
+        let t_s1 = cht.solid_temperature(0.5 + dx, y_test, t_test);
+        let d_tdx_solid = (t_s0 - t_s1) / dx;
+
+        let flux_fluid = -k_fluid * d_tdx_fluid;
+        let flux_solid = -k_solid * d_tdx_solid;
+        assert!(
+            (flux_fluid - flux_solid).abs() < 1.0e-6,
+            "Heat flux discontinuity at interface: q_f={flux_fluid:.6e}, q_s={flux_solid:.6e}"
+        );
+    }
 
     // Test points across the domain
     let test_points = vec![
@@ -81,7 +95,7 @@ fn test_conjugate_heat_transfer_validation() {
         );
     }
 
-    println!("✓ Conjugate heat transfer validation passed");
+    tracing::info!("Conjugate heat transfer validation passed");
 }
 
 /// Test species transport with chemical reactions

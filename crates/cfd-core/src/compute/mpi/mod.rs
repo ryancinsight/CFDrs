@@ -160,49 +160,15 @@
 //! ## Communication Patterns
 //!
 //! ### Blocking Communication (Synchronous)
-//! ```no_run
-//! # use cfd_core::compute::mpi::*;
-//! # let ghost_manager = /* TODO: Replace with actual GhostManager initialization */;
-//! # let mut velocity_u = /* TODO: Replace with actual velocity field initialization */;
-//! # let mut velocity_v = /* TODO: Replace with actual velocity field initialization */;
-//! # let mut pressure = /* TODO: Replace with actual pressure field initialization */;
-//! # let subdomain = /* TODO: Replace with actual subdomain initialization */;
-//! // Standard blocking exchange - waits for completion
-//! ghost_manager.update_ghost_cells(
-//!     &mut velocity_u,
-//!     &mut velocity_v,
-//!     &mut pressure,
-//!     &subdomain,
-//! )?;
+//! ```text
+//! ghost_manager.update_ghost_cells(&mut u, &mut v, &mut p, subdomain)?;
 //! ```
 //!
 //! ### Non-Blocking Communication (Asynchronous)
-//! ```no_run
-//! # use cfd_core::compute::mpi::*;
-//! # let ghost_manager = todo!(); // TODO: Replace with actual GhostManager initialization
-//! # let mut velocity_u = todo!(); // TODO: Replace with actual velocity field initialization
-//! # let mut velocity_v = todo!(); // TODO: Replace with actual velocity field initialization
-//! # let mut pressure = todo!(); // TODO: Replace with actual pressure field initialization
-//! # let subdomain = todo!(); // TODO: Replace with actual subdomain initialization
-//! // Start asynchronous communication
-//! let requests = ghost_manager.update_ghost_cells_async(
-//!     &mut velocity_u,
-//!     &mut velocity_v,
-//!     &mut pressure,
-//!     &subdomain,
-//! )?;
-//!
-//! // Perform computation while communication happens in background
-//! perform_computation_on_interior_cells()?;
-//!
-//! // Wait for communication to complete
-//! ghost_manager.complete_async_updates(
-//!     &mut velocity_u,
-//!     &mut velocity_v,
-//!     &mut pressure,
-//!     &subdomain,
-//!     requests,
-//! )?;
+//! ```text
+//! let requests = ghost_manager.update_ghost_cells_async(&mut u, &mut v, &mut p, subdomain)?;
+//! // ... interior computation ...
+//! ghost_manager.complete_async_updates(&mut u, &mut v, &mut p, subdomain, requests)?;
 //! ```
 //!
 //! ### Performance Validation & Scaling Tests

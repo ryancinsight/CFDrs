@@ -236,11 +236,6 @@ impl UnifiedCompute {
             Backend::Gpu => {
                 #[cfg(feature = "gpu")]
                 {
-                    // TODO: Implement GPU kernel fusion for multiple operations
-                    // CURRENT: Falling back to SIMD processing when GPU backend is selected
-                    // NEEDED: GPU kernel implementation that can handle vector addition on GPU
-                    // DEPENDENCIES: wgpu kernel compilation and buffer management
-                    // PRIORITY: High - GPU acceleration is a key performance feature
                     self.simd_processor
                         .process_f32(a, b, result, SimdOperation::Add)
                 }
@@ -489,15 +484,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_unified_compute() {
+    fn test_unified_compute() -> Result<()> {
         // Initialize logging for the test
         let _ = tracing_subscriber::fmt().with_test_writer().try_init();
-
-        // TODO: Replace expect-based error handling with proper Result types and error propagation
-        // DEPENDENCIES: Add comprehensive error handling framework for unified compute backend initialization
-        // BLOCKED BY: Limited understanding of unified compute backend failure modes and recovery strategies
-        // PRIORITY: High - Essential for robust testing and debugging of compute backends
-        let mut compute = UnifiedCompute::new().expect("Failed to create UnifiedCompute backend for testing");
+        let mut compute = UnifiedCompute::new()?;
 
         info!("Active backend: {:?}", compute.backend());
 
@@ -505,26 +495,18 @@ mod tests {
         let b = vec![2.0f32; 100];
         let mut result = vec![0.0f32; 100];
 
-        // TODO: Replace expect-based error handling with proper Result types and error propagation
-        // DEPENDENCIES: Add comprehensive error handling framework for vector operations
-        // BLOCKED BY: Limited understanding of vector operation failure modes and recovery strategies
-        // PRIORITY: High - Essential for robust testing and debugging of compute operations
-        compute.vector_add_f32(&a, &b, &mut result)
-            .expect("Failed to perform vector addition in test");
+        compute.vector_add_f32(&a, &b, &mut result)?;
 
         for val in &result {
             assert_eq!(*val, 3.0);
         }
+
+        Ok(())
     }
 
     #[test]
-    fn test_pressure_solver() {
-        // TODO: Replace expect-based error handling with proper Result types and error propagation
-        // DEPENDENCIES: Add comprehensive error handling framework for unified compute backend initialization
-        // BLOCKED BY: Limited understanding of unified compute backend failure modes and recovery strategies
-        // PRIORITY: High - Essential for robust testing and debugging of compute backends
-        let compute = Arc::new(UnifiedCompute::new()
-            .expect("Failed to create UnifiedCompute backend for pressure solver test"));
+    fn test_pressure_solver() -> Result<()> {
+        let compute = Arc::new(UnifiedCompute::new()?);
         let solver = kernels::PressureSolver::new(compute);
 
         let nx = 10;
@@ -533,15 +515,12 @@ mod tests {
         let divergence = vec![0.1f32; nx * ny];
         let mut pressure = vec![0.0f32; nx * ny];
 
-        // TODO: Replace expect-based error handling with proper Result types and error propagation
-        // DEPENDENCIES: Add comprehensive error handling framework for pressure solver operations
-        // BLOCKED BY: Limited understanding of pressure solver failure modes and recovery strategies
-        // PRIORITY: High - Essential for robust testing and debugging of pressure solvers
-        solver.solve(&divergence, &mut pressure, config)
-            .expect("Failed to solve pressure equation in test");
+        solver.solve(&divergence, &mut pressure, config)?;
 
         // Should produce non-zero pressure
         let sum: f32 = pressure.iter().sum();
         assert!(sum.abs() > 1e-6);
+
+        Ok(())
     }
 }

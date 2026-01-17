@@ -27,12 +27,8 @@ fn test_diffusion_mms_validation() {
     println!("  Final time: {t_final}");
 
     let grid_sizes = vec![16, 32, 64];
-    // TODO: Optimize memory allocation by pre-allocating error vectors with known capacity
-    // DEPENDENCIES: Add efficient memory management and capacity planning for validation tests
-    // BLOCKED BY: Limited understanding of memory-efficient validation test patterns
-    // PRIORITY: Medium - Important for performance optimization and memory efficiency
-    let mut l2_errors = Vec::new();
-    let mut linf_errors = Vec::new();
+    let mut l2_errors = Vec::with_capacity(grid_sizes.len());
+    let mut linf_errors = Vec::with_capacity(grid_sizes.len());
 
     for &n in &grid_sizes {
         let dx = 1.0 / (n - 1) as f64;
@@ -42,13 +38,8 @@ fn test_diffusion_mms_validation() {
 
         // Set up solver with manufactured source and boundary conditions
         let mut solver = DiffusionSolver::new(n, n, dx, dy, alpha);
-        // TODO: Optimize memory allocation by pre-allocating HashMaps with known capacity
-        // DEPENDENCIES: Add efficient memory management and capacity planning for validation tests
-        // BLOCKED BY: Limited understanding of memory-efficient validation test patterns
-        // PRIORITY: Medium - Important for performance optimization and memory efficiency
-        let mut boundary_values = HashMap::new();
-        let mut exact_solution = HashMap::new();
-        let mut initial_conditions = HashMap::new();
+        let mut exact_solution = HashMap::with_capacity(n * n);
+        let mut initial_conditions = HashMap::with_capacity(n * n);
 
         for i in 0..n {
             for j in 0..n {
@@ -57,10 +48,6 @@ fn test_diffusion_mms_validation() {
 
                 exact_solution.insert((i, j), manufactured.exact_solution(x, y, 0.0, t_final));
                 initial_conditions.insert((i, j), manufactured.exact_solution(x, y, 0.0, 0.0));
-
-                if i == 0 || i == n - 1 || j == 0 || j == n - 1 {
-                    boundary_values.insert((i, j), manufactured.exact_solution(x, y, 0.0, t_final));
-                }
             }
         }
 
@@ -104,18 +91,9 @@ fn test_mms_integration_pattern() {
 
     println!("MMS Integration Pattern - PRODUCTION TEMPLATE:");
 
-    // TODO: Implement comprehensive MMS validation framework with configurable test cases
-    // DEPENDENCIES: Add flexible MMS problem generation and automated validation
-    // BLOCKED BY: Limited understanding of MMS test case design and validation criteria
-    // PRIORITY: High - Essential for rigorous numerical method verification
     // Generate source terms, boundary conditions, and exact solution
-    // TODO: Optimize memory allocation by pre-allocating HashMaps with known capacity
-    // DEPENDENCIES: Add efficient memory management and capacity planning for validation tests
-    // BLOCKED BY: Limited understanding of memory-efficient validation test patterns
-    // PRIORITY: Medium - Important for performance optimization and memory efficiency
-    let mut boundary_values = HashMap::new();
-    let mut exact_solution = HashMap::new();
-    let mut initial_conditions = HashMap::new();
+    let mut exact_solution = HashMap::with_capacity(nx * ny);
+    let mut initial_conditions = HashMap::with_capacity(nx * ny);
 
     for i in 0..nx {
         for j in 0..ny {
@@ -125,10 +103,6 @@ fn test_mms_integration_pattern() {
 
             exact_solution.insert(pos, manufactured.exact_solution(x, y, 0.0, t_final));
             initial_conditions.insert(pos, manufactured.exact_solution(x, y, 0.0, 0.0));
-
-            if i == 0 || i == nx - 1 || j == 0 || j == ny - 1 {
-                boundary_values.insert(pos, manufactured.exact_solution(x, y, 0.0, t_final));
-            }
         }
     }
 

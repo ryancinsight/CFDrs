@@ -11,6 +11,7 @@ extern crate cfd_core;
 use cfd_2d::fields::SimulationFields;
 use cfd_2d::grid::StructuredGrid2D;
 use cfd_2d::physics::momentum::{ConvectionScheme, MomentumComponent, MomentumSolver};
+use cfd_core::error::Result;
 use cfd_core::physics::boundary::BoundaryCondition;
 
 /// Analytical solution for Poiseuille flow
@@ -20,7 +21,7 @@ fn poiseuille_analytical(y: f64, height: f64, pressure_gradient: f64, viscosity:
 }
 
 #[test]
-fn test_momentum_solver_pure_diffusion() {
+fn test_momentum_solver_pure_diffusion() -> Result<()> {
     // Physical parameters
     let channel_height = 1.0;
     let channel_length = 4.0;
@@ -61,12 +62,8 @@ fn test_momentum_solver_pure_diffusion() {
     }
 
     // Create solver with pure upwind (for comparison)
-    // TODO: Replace expect-based error handling with proper Result types and error propagation
-    // DEPENDENCIES: Add comprehensive error handling framework for grid creation and solver initialization
-    // BLOCKED BY: Limited understanding of grid failure modes and solver initialization requirements
-    // PRIORITY: High - Essential for robust test execution and debugging
     let grid = StructuredGrid2D::new(nx, ny, 0.0, channel_length, 0.0, channel_height)
-        .expect("Failed to create grid");
+        ?;
     let mut solver = MomentumSolver::with_convection_scheme(&grid, ConvectionScheme::Upwind);
 
     solver.set_boundary(
@@ -85,13 +82,7 @@ fn test_momentum_solver_pure_diffusion() {
     for step in 0..max_time_steps {
         let u_old = fields.u.clone();
 
-        // TODO: Replace expect-based error handling with proper Result types and error propagation
-        // DEPENDENCIES: Add comprehensive error handling framework for momentum solver failures
-        // BLOCKED BY: Limited understanding of momentum solver failure modes and recovery strategies
-        // PRIORITY: High - Essential for robust test execution and debugging
-        solver
-            .solve(MomentumComponent::U, &mut fields, dt)
-            .expect("Momentum solve failed");
+        solver.solve(MomentumComponent::U, &mut fields, dt)?;
 
         // Check convergence
         let mut max_change = 0.0;
@@ -130,10 +121,11 @@ fn test_momentum_solver_pure_diffusion() {
         error_percent < 100.0,
         "Error should be high but not completely broken: {error_percent}%"
     );
+    Ok(())
 }
 
 #[test]
-fn test_momentum_solver_deferred_correction() {
+fn test_momentum_solver_deferred_correction() -> Result<()> {
     // Physical parameters
     let channel_height = 1.0;
     let channel_length = 4.0;
@@ -167,11 +159,7 @@ fn test_momentum_solver_deferred_correction() {
 
     // Create solver with deferred correction
     let grid = StructuredGrid2D::new(nx, ny, 0.0, channel_length, 0.0, channel_height)
-        // TODO: Replace expect-based error handling with proper Result types and error propagation
-        // DEPENDENCIES: Add comprehensive error handling framework for grid creation and solver initialization
-        // BLOCKED BY: Limited understanding of grid failure modes and solver initialization requirements
-        // PRIORITY: High - Essential for robust test execution and debugging
-        .expect("Failed to create grid");
+        ?;
     let mut solver = MomentumSolver::with_convection_scheme(
         &grid,
         ConvectionScheme::DeferredCorrectionQuick {
@@ -197,13 +185,7 @@ fn test_momentum_solver_deferred_correction() {
     for step in 0..max_time_steps {
         let u_old = fields.u.clone();
 
-        // TODO: Replace expect-based error handling with proper Result types and error propagation
-        // DEPENDENCIES: Add comprehensive error handling framework for momentum solver failures
-        // BLOCKED BY: Limited understanding of momentum solver failure modes and recovery strategies
-        // PRIORITY: High - Essential for robust test execution and debugging
-        solver
-            .solve(MomentumComponent::U, &mut fields, dt)
-            .expect("Momentum solve failed");
+        solver.solve(MomentumComponent::U, &mut fields, dt)?;
 
         let mut max_change = 0.0;
         for i in 0..nx {
@@ -248,4 +230,5 @@ fn test_momentum_solver_deferred_correction() {
         error_percent < 100.0,
         "Deferred correction should provide some improvement"
     );
+    Ok(())
 }

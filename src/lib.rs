@@ -13,15 +13,7 @@
 #![allow(clippy::cast_possible_truncation)] // Grid indices typically small
 #![allow(clippy::unused_self)] // Trait method interface consistency
 #![allow(clippy::must_use_candidate)] // Computational utilities context-dependent
-// TODO: Complete error documentation for internal APIs to improve developer experience
-// DEPENDENCIES: Add comprehensive error documentation framework with proper error types and messages
-// BLOCKED BY: Limited understanding of internal API error patterns and documentation requirements
-// PRIORITY: Medium - Important for developer experience and API usability
 #![allow(clippy::missing_errors_doc)] // Error documentation deferred for internal APIs
-// TODO: Complete panic documentation for internal APIs to improve developer experience
-// DEPENDENCIES: Add comprehensive panic documentation framework with proper panic conditions and recovery
-// BLOCKED BY: Limited understanding of internal API panic patterns and documentation requirements
-// PRIORITY: Medium - Important for developer experience and API safety
 #![allow(clippy::missing_panics_doc)] // Panic documentation deferred for internal APIs
 #![allow(clippy::cast_sign_loss)] // CFD indexing patterns
 #![allow(clippy::cast_possible_wrap)] // Grid index wrap-around acceptable

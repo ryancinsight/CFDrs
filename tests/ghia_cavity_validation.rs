@@ -13,11 +13,12 @@
 //! reference data within 5% L2 error. This is a standard CFD validation test.
 
 use cfd_2d::pressure_velocity::{PressureLinearSolver, PressureVelocityConfig};
+use cfd_core::error::Result;
 use cfd_validation::benchmarks::{Benchmark, BenchmarkConfig, LidDrivenCavity};
 
 /// Test Ghia cavity with GMRES solver at Re=100
 #[test]
-fn test_ghia_cavity_re100_with_gmres() {
+fn test_ghia_cavity_re100_with_gmres() -> Result<()> {
     // Create lid-driven cavity benchmark
     let cavity = LidDrivenCavity::new(1.0_f64, 1.0_f64);
 
@@ -32,20 +33,10 @@ fn test_ghia_cavity_re100_with_gmres() {
     };
 
     // Run benchmark
-    // TODO: Replace expect-based error handling with proper Result types and error propagation
-    // DEPENDENCIES: Add comprehensive error handling framework for cavity flow benchmark execution
-    // BLOCKED BY: Limited understanding of cavity flow benchmark failure modes and recovery strategies
-    // PRIORITY: High - Essential for robust validation testing and debugging
-    let result = cavity.run(&config).expect("Benchmark should complete");
+    let result = cavity.run(&config)?;
 
     // Get Ghia reference data for Re=100
-    // TODO: Replace expect-based error handling with proper Result types and error propagation
-    // DEPENDENCIES: Add comprehensive error handling framework for reference data loading
-    // BLOCKED BY: Limited understanding of reference data loading failure modes and recovery strategies
-    // PRIORITY: High - Essential for robust validation testing and debugging
-    let (ref_y, ref_u) = cavity
-        .ghia_reference_data(100.0)
-        .expect("Reference data should exist for Re=100");
+    let (ref_y, ref_u) = cavity.ghia_reference_data(100.0)?;
 
     // Extract centerline u-velocity from result
     let n = config.resolution;
@@ -87,13 +78,9 @@ fn test_ghia_cavity_re100_with_gmres() {
         "Convergence history should be recorded"
     );
 
-    // TODO: Replace expect-based error handling with proper Result types and error propagation
-    // DEPENDENCIES: Add comprehensive error handling framework for convergence data validation
-    // BLOCKED BY: Limited understanding of convergence data validation failure modes and recovery strategies
-    // PRIORITY: High - Essential for robust validation testing and debugging
-    let final_residual = result.convergence.last().expect("Should have residual");
+    let final_residual = *result.convergence.last().unwrap();
     assert!(
-        *final_residual < 0.2,
+        final_residual < 0.2,
         "Final residual {final_residual:.2e} should show reasonable convergence (coarse grid)"
     );
 
@@ -101,11 +88,12 @@ fn test_ghia_cavity_re100_with_gmres() {
     println!("  L2 error: {l2_error:.4}");
     println!("  Iterations: {}", result.convergence.len());
     println!("  Final residual: {final_residual:.2e}");
+    Ok(())
 }
 
 /// Test cavity with different linear solvers
 #[test]
-fn test_cavity_linear_solver_comparison() {
+fn test_cavity_linear_solver_comparison() -> Result<()> {
     // This test verifies that GMRES, BiCGSTAB, and CG produce similar results
     // (when all are applicable) to ensure correct integration.
 
@@ -122,24 +110,12 @@ fn test_cavity_linear_solver_comparison() {
     };
 
     // Run with benchmark (uses default stream function/vorticity)
-    // TODO: Replace expect-based error handling with proper Result types and error propagation
-    // DEPENDENCIES: Add comprehensive error handling framework for cavity flow benchmark execution
-    // BLOCKED BY: Limited understanding of cavity flow benchmark failure modes and recovery strategies
-    // PRIORITY: High - Essential for robust validation testing and debugging
-    let result = cavity.run(&config).expect("Should complete");
+    let result = cavity.run(&config)?;
 
     // Verify basic physics
-    // TODO: Implement comprehensive physics validation with proper bounds checking and error analysis
-    // DEPENDENCIES: Add rigorous validation framework for cavity flow physics and consistency
-    // BLOCKED BY: Limited understanding of cavity flow validation criteria and tolerance requirements
-    // PRIORITY: Medium - Important for ensuring physical realism in cavity flow simulations
     assert!(!result.values.is_empty(), "Should produce velocity field");
 
     // Check that velocities are bounded
-    // TODO: Add comprehensive velocity bounds validation with configurable tolerance and physics consistency
-    // DEPENDENCIES: Implement flexible bounds checking for different flow regimes and Reynolds numbers
-    // BLOCKED BY: Limited understanding of velocity bound requirements across various flow conditions
-    // PRIORITY: Medium - Important for robust cavity flow validation
     let max_velocity = result
         .values
         .iter()
@@ -152,19 +128,15 @@ fn test_cavity_linear_solver_comparison() {
 
     println!("✓ Cavity linear solver comparison passed");
     println!("  Max velocity: {max_velocity:.4}");
+    Ok(())
 }
 
 /// Integration test for GMRES configuration
 #[test]
-fn test_gmres_configuration() {
+fn test_gmres_configuration() -> Result<()> {
     // Verify that GMRES can be configured with different restart dimensions
 
-    // TODO: Replace expect-based error handling with proper Result types and error propagation
-    // DEPENDENCIES: Add comprehensive error handling framework for pressure-velocity configuration
-    // BLOCKED BY: Limited understanding of pressure-velocity configuration failure modes and recovery strategies
-    // PRIORITY: High - Essential for robust validation testing and debugging
-    let config_default =
-        PressureVelocityConfig::<f64>::new().expect("Should create default config");
+    let config_default = PressureVelocityConfig::<f64>::new()?;
 
     // Check that GMRES is the default
     match config_default.pressure_linear_solver {
@@ -179,18 +151,12 @@ fn test_gmres_configuration() {
 
     println!("✓ GMRES configuration test passed");
     println!("  Default solver: GMRES(30)");
+    Ok(())
 }
 
 /// Test Reynolds number scaling
 #[test]
-fn test_cavity_reynolds_scaling() {
-    // Verify that higher Reynolds numbers produce higher velocities
-    // TODO: Implement comprehensive Reynolds scaling validation with proper physics consistency
-    // DEPENDENCIES: Add rigorous Reynolds number scaling analysis across different flow regimes
-    // BLOCKED BY: Limited understanding of Reynolds scaling effects in cavity flow validation
-    // PRIORITY: Medium - Important for ensuring physical realism across flow regimes
-    // (basic physics sanity check)
-
+fn test_cavity_reynolds_scaling() -> Result<()> {
     let cavity = LidDrivenCavity::new(1.0_f64, 1.0_f64);
 
     // Re=100 case
@@ -203,11 +169,7 @@ fn test_cavity_reynolds_scaling() {
         parallel: false,
     };
 
-    // TODO: Replace expect-based error handling with proper Result types and error propagation
-    // DEPENDENCIES: Add comprehensive error handling framework for cavity flow benchmark execution
-    // BLOCKED BY: Limited understanding of cavity flow benchmark failure modes and recovery strategies
-    // PRIORITY: High - Essential for robust validation testing and debugging
-    let result_low = cavity.run(&config_low).expect("Should complete");
+    let result_low = cavity.run(&config_low)?;
 
     // Get maximum velocity magnitude
     let max_u_low = result_low
@@ -216,10 +178,6 @@ fn test_cavity_reynolds_scaling() {
         .fold(0.0_f64, |acc, &v| acc.max(v.abs()));
 
     // Basic sanity: velocity should be non-zero
-    // TODO: Implement comprehensive sanity checking with configurable thresholds and physics consistency
-    // DEPENDENCIES: Add flexible sanity check framework for different flow conditions and solvers
-    // BLOCKED BY: Limited understanding of sanity check requirements across various CFD scenarios
-    // PRIORITY: Low - Nice-to-have for robust testing but not critical
     assert!(max_u_low > 0.01, "Velocity should be non-zero for Re=100");
 
     // Verify convergence improved from Sprint 1.35.0 baseline
@@ -231,4 +189,5 @@ fn test_cavity_reynolds_scaling() {
     println!("✓ Reynolds number scaling test passed");
     println!("  Re=100 max velocity: {max_u_low:.4}");
     println!("  Iterations: {}", result_low.convergence.len());
+    Ok(())
 }

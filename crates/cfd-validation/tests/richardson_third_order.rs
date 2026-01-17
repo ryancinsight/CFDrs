@@ -3,12 +3,7 @@ use cfd_validation::manufactured::richardson::MmsRichardsonStudy;
 use cfd_validation::manufactured::ManufacturedDiffusion;
 
 #[test]
-fn richardson_estimates_third_order_uniform_ratio() {
-    // TODO: Set up a minimal MMS study; geometry and manufactured solution are placeholders
-    // DEPENDENCIES: Implement realistic MMS test cases with proper physics and boundary conditions
-    // BLOCKED BY: Limited MMS framework in cfd-validation with incomplete physics modeling
-    // PRIORITY: High - Essential for verification framework and third-order accuracy validation
-    // for construction only — the order estimation uses the provided closure.
+fn richardson_estimates_third_order_uniform_ratio() -> anyhow::Result<()> {
     let mms = ManufacturedDiffusion::<f64>::new(1.0);
     let geometry = RectangularDomain::new(0.0, 1.0, 0.0, 1.0);
 
@@ -18,8 +13,7 @@ fn richardson_estimates_third_order_uniform_ratio() {
         4,   // number of grid levels (coarse to fine)
         1.0, // base grid size (unused by this test path)
         0.0, // evaluation time
-    )
-    .unwrap_or_else(|e| panic!("Failed to create MmsRichardsonStudy for third-order test: {}", e));
+    )?;
 
     // Use uniform refinement ratios: coarse→fine as 2, 4, 8, 16
     let grid_sizes = vec![2usize, 4, 8, 16];
@@ -39,10 +33,12 @@ fn richardson_estimates_third_order_uniform_ratio() {
     // Sanity: extrapolated solution must be non-negative and finite
     let phi = result.extrapolated_solution;
     assert!(phi >= 0.0 && phi.is_finite());
+
+    Ok(())
 }
 
 #[test]
-fn richardson_estimates_third_order_nonuniform_ratio() {
+fn richardson_estimates_third_order_nonuniform_ratio() -> anyhow::Result<()> {
     // Non-uniform refinement ratios to exercise bisection path: 12→6→3→2 (r21=2, r32=2, r43=1.5)
     let mms = ManufacturedDiffusion::<f64>::new(1.0);
     let geometry = RectangularDomain::new(0.0, 1.0, 0.0, 1.0);
@@ -53,8 +49,7 @@ fn richardson_estimates_third_order_nonuniform_ratio() {
         4,
         1.0,
         0.0,
-    )
-    .unwrap_or_else(|e| panic!("Failed to create MmsRichardsonStudy for nonuniform test: {}", e));
+    )?;
 
     // Use mildly nonuniform sizes to avoid perfect uniformity: 2, 3, 6, 12
     let grid_sizes = vec![2usize, 3, 6, 12];
@@ -72,4 +67,6 @@ fn richardson_estimates_third_order_nonuniform_ratio() {
         "Estimated order not near 3.0 with nonuniform ratios, got {}",
         p
     );
+
+    Ok(())
 }

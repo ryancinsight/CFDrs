@@ -37,19 +37,12 @@ impl AlgorithmComplexityInfo {
     pub fn new(name: &str) -> Self {
         Self {
             name: name.to_string(),
-            // TODO: Determine actual time complexity for each algorithm
-            time_complexity: "O(?)".to_string(),
-            // TODO: Determine actual space complexity for each algorithm  
-            space_complexity: "O(?)".to_string(),
-            // TODO: Analyze memory access patterns for each algorithm
-            memory_pattern: "Unknown".to_string(),
-            // TODO: Benchmark and measure actual cache efficiency
-            cache_efficiency: 0.5,
-            // TODO: Analyze parallel scalability characteristics
-            scalability: 0.5,
-            // TODO: Add relevant literature references for each algorithm
+            time_complexity: "Unspecified".to_string(),
+            space_complexity: "Unspecified".to_string(),
+            memory_pattern: "Unspecified".to_string(),
+            cache_efficiency: 0.0,
+            scalability: 0.0,
             references: Vec::new(),
-            // TODO: Add performance notes and optimization hints
             notes: Vec::new(),
         }
     }
@@ -111,22 +104,22 @@ impl AlgorithmComplexityRegistry {
         registry.insert(
             "ConjugateGradient".to_string(),
             AlgorithmComplexityInfo::new("ConjugateGradient")
-                .time_complexity("O(N^{3/2})")
-                .space_complexity("O(N²)")
+                .time_complexity("O(k · nnz(A))")
+                .space_complexity("O(nnz(A) + n)")
                 .memory_pattern("Sparse matrix-vector products with irregular access")
                 .cache_efficiency(0.7)
                 .scalability(0.8)
                 .reference("Saad (2003): Iterative Methods for Sparse Linear Systems")
                 .reference("Barrett et al. (1994): Templates for the Solution of Linear Systems")
                 .note("SPMV bottleneck: memory bandwidth critical")
-                .note("Preconditioning reduces iterations from O(N) to O(√N)"),
+                .note("k depends on conditioning and preconditioner quality"),
         );
 
         registry.insert(
             "GMRES".to_string(),
             AlgorithmComplexityInfo::new("GMRES")
-                .time_complexity("O(N^{3/2})")
-                .space_complexity("O(N²)")
+                .time_complexity("O(k · (nnz(A) + m·n))")
+                .space_complexity("O(nnz(A) + m·n)")
                 .memory_pattern("Arnoldi orthogonalization with dense matrix operations")
                 .cache_efficiency(0.6)
                 .scalability(0.75)
@@ -138,8 +131,8 @@ impl AlgorithmComplexityRegistry {
         registry.insert(
             "BiCGSTAB".to_string(),
             AlgorithmComplexityInfo::new("BiCGSTAB")
-                .time_complexity("O(N^{3/2})")
-                .space_complexity("O(N²)")
+                .time_complexity("O(k · nnz(A))")
+                .space_complexity("O(nnz(A) + n)")
                 .memory_pattern(
                     "Bi-orthogonalization with two matrix-vector products per iteration",
                 )
@@ -414,31 +407,27 @@ impl AlgorithmComplexityRegistry {
         );
 
         report.push_str("## Algorithms by Time Complexity\n\n");
+        let mut complexities = std::collections::BTreeSet::new();
+        for algo in self.algorithms.values() {
+            complexities.insert(algo.time_complexity.as_str());
+        }
 
-        let complexities = [
-            "O(1)",
-            "O(log N)",
-            "O(N)",
-            "O(N log N)",
-            "O(N²)",
-            "O(N^{3/2})",
-            "O(N³)",
-        ];
-
-        for complexity in &complexities {
+        for complexity in complexities {
             let algorithms: Vec<_> = self
                 .algorithms
                 .values()
-                .filter(|algo| algo.time_complexity == *complexity)
+                .filter(|algo| algo.time_complexity == complexity)
                 .collect();
 
-            if !algorithms.is_empty() {
-                let _ = writeln!(&mut report, "### {complexity}\n");
-                for algo in algorithms {
-                    let _ = writeln!(&mut report, "- **{}**: {}", algo.name, algo.memory_pattern);
-                }
-                report.push('\n');
+            if algorithms.is_empty() {
+                continue;
             }
+
+            let _ = writeln!(&mut report, "### {complexity}\n");
+            for algo in algorithms {
+                let _ = writeln!(&mut report, "- **{}**: {}", algo.name, algo.memory_pattern);
+            }
+            report.push('\n');
         }
 
         report.push_str("## Performance Recommendations\n\n");
@@ -483,7 +472,7 @@ mod tests {
         let registry = AlgorithmComplexityRegistry::new();
         let cg = registry.get("ConjugateGradient");
         assert!(cg.is_some());
-        assert_eq!(cg.unwrap().time_complexity, "O(N^{3/2})");
+        assert_eq!(cg.unwrap().time_complexity, "O(k · nnz(A))");
     }
 
     #[test]
