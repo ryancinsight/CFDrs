@@ -89,11 +89,6 @@ fn exact_solution_advection(
 }
 
 #[test]
-#[ignore] 
-// TODO: Fix MUSCL2 SuperBee limiter implementation to enable TVD scheme testing
-// DEPENDENCIES: Complete flux limiter implementation in cfd-core crate with proper TVD properties
-// BLOCKED BY: Incomplete flux limiter in cfd-core crate affecting TVD scheme stability
-// PRIORITY: High - TVD schemes are critical for numerical stability and accuracy
 fn test_muscl2_superbee_monotonicity() {
     let scheme = MUSCLScheme::muscl2_superbee();
     assert_eq!(scheme.order(), 2);
@@ -107,37 +102,51 @@ fn test_muscl2_superbee_monotonicity() {
     let dt = DX * 0.5; // CFL = 0.5
     let mut phi_new = create_test_grid();
 
-    for i in 0..NX - 1 {
-        let face_value = scheme.reconstruct_face_value_x(&phi, velocity, i, 0);
-        let face_value_next = scheme.reconstruct_face_value_x(&phi, velocity, i + 1, 0);
+    // Copy initial state to phi_new
+    for i in 0..NX {
+        phi_new.data[(i, 0)] = phi.data[(i, 0)];
+    }
 
-        // Apply upwind advection: φ_new[i] = φ[i] - velocity * dt/dx * (face_value_next - face_value)
-        let flux_diff = face_value_next - face_value;
+    // Compute fluxes at faces i+1/2
+    // flux[i] = flux at face between i and i+1
+    let mut fluxes = vec![0.0; NX];
+    for i in 0..NX {
+        fluxes[i] = scheme.reconstruct_face_value_x(&phi, velocity, i, 0);
+    }
+
+    // Update cells using computed fluxes
+    // For cell i, we need flux at i+1/2 (fluxes[i]) and i-1/2 (fluxes[i-1])
+    for i in 1..NX - 1 {
+        let f_right = fluxes[i];
+        let f_left = fluxes[i - 1];
+
+        // Apply upwind advection: φ_new[i] = φ[i] - velocity * dt/dx * (f_right - f_left)
+        let flux_diff = f_right - f_left;
         phi_new.data[(i, 0)] = phi.data[(i, 0)] - velocity * dt / DX * flux_diff;
     }
 
-    // Check monotonicity: no new extrema created
-    // Also check TVD property: no oscillations
-    for i in 1..NX - 1 {
-        let phi_i = phi.data[(i, 0)];
-        let phi_im1 = phi.data[(i - 1, 0)];
-        let phi_ip1 = phi.data[(i + 1, 0)];
+    // Check Global TVD property
+    let mut tv_global_orig = 0.0;
+    for i in 0..NX - 1 {
+        tv_global_orig += (phi.data[(i + 1, 0)] - phi.data[(i, 0)]).abs();
+    }
 
-        // TVD condition: total variation should not increase
-        let tv_original = (phi_i - phi_im1).abs() + (phi_ip1 - phi_i).abs();
-        let tv_new = (phi_new.data[(i, 0)] - phi_new.data[(i - 1, 0)]).abs()
-            + (phi_new.data[(i + 1, 0)] - phi_new.data[(i, 0)]).abs();
+    let mut tv_global_new = 0.0;
+    for i in 0..NX - 1 {
+        tv_global_new += (phi_new.data[(i + 1, 0)] - phi_new.data[(i, 0)]).abs();
+    }
 
-        // Total variation should not increase significantly (allowing for some numerical diffusion)
-        // TODO: Implement rigorous TVD condition checking with proper numerical diffusion tolerance analysis
-        // DEPENDENCIES: Add comprehensive TVD condition validation framework with accurate numerical diffusion assessment
-        // BLOCKED BY: Limited understanding of TVD condition violations and numerical diffusion tolerance requirements
-        // PRIORITY: High - Essential for numerical stability and accuracy validation of TVD schemes
-        // Relaxed check for current limiter implementation
-        assert!(
-            tv_new <= tv_original * 2.0,
-            "TVD condition severely violated at i={}",
-            i
+    println!(
+        "Global TV: Orig={}, New={}",
+        tv_global_orig, tv_global_new
+    );
+
+    // TVD means Total Variation does not increase
+    // Use small epsilon for floating point errors
+    if tv_global_new > tv_global_orig + 1e-10 {
+        panic!(
+            "Global TV increased! Orig: {}, New: {}",
+            tv_global_orig, tv_global_new
         );
     }
 }
