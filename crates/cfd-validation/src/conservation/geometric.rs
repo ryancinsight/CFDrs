@@ -41,12 +41,13 @@ impl<T: RealField + Copy + FromPrimitive> GeometricConservationChecker<T> {
         // Simulate multiple Euler time steps
         let dt = <T as SafeFromF64>::from_f64_or_one(0.01);
         let mut u_current = u.clone();
+        let mut u_next = u.clone();
 
         for _step in 0..10 {
             // For constant solution, RHS = 0, so u^{n+1} = u^n
             // But we need to test the actual numerical scheme
             // For now, simulate perfect conservation (no change)
-            let u_next = u_current.clone(); // Perfect GCL
+            u_next.copy_from(&u_current); // Perfect GCL
 
             // Check that solution remains constant
             for i in 0..self.nx {
@@ -58,7 +59,7 @@ impl<T: RealField + Copy + FromPrimitive> GeometricConservationChecker<T> {
                 }
             }
 
-            u_current = u_next;
+            std::mem::swap(&mut u_current, &mut u_next);
         }
 
         let avg_error = if count > 0 {
@@ -102,11 +103,12 @@ impl<T: RealField + Copy + FromPrimitive> GeometricConservationChecker<T> {
         // Simulate RK time integration (simplified)
         let _dt = <T as SafeFromF64>::from_f64_or_one(0.01);
         let mut u_current = u.clone();
+        let mut u_next = u.clone();
 
         for _step in 0..5 {
             // For constant solution, all stage derivatives should be zero
             // So u^{n+1} = u^n
-            let u_next = u_current.clone(); // Perfect GCL
+            u_next.copy_from(&u_current); // Perfect GCL
 
             // Check conservation
             for i in 0..self.nx {
@@ -118,7 +120,7 @@ impl<T: RealField + Copy + FromPrimitive> GeometricConservationChecker<T> {
                 }
             }
 
-            u_current = u_next;
+            std::mem::swap(&mut u_current, &mut u_next);
         }
 
         let avg_error = if count > 0 {

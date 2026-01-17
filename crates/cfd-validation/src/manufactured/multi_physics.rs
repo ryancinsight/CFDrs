@@ -308,7 +308,7 @@ impl<T: RealField + Copy> ManufacturedMHD<T> {
     /// Compute momentum source term for y-component
     pub fn momentum_source_y(&self, x: T, y: T, z: T, t: T) -> T {
         let fields = self.compute_vector_fields(x, y, z, t);
-        let (_, v, _) = fields.velocity;
+        let (u, v, w) = fields.velocity;
         let (_, fy, _) = fields.lorentz_force;
         
         // Time derivative
@@ -331,7 +331,7 @@ impl<T: RealField + Copy> ManufacturedMHD<T> {
     /// Compute momentum source term for z-component
     pub fn momentum_source_z(&self, x: T, y: T, z: T, t: T) -> T {
         let fields = self.compute_vector_fields(x, y, z, t);
-        let (_, _, w) = fields.velocity;
+        let (u, v, w) = fields.velocity;
         let (_, _, fz) = fields.lorentz_force;
         
         // Time derivative

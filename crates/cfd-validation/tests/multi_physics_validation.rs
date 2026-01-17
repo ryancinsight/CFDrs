@@ -185,6 +185,8 @@ fn test_mhd_validation() {
         0.1,  // magnetic field amplitude
         1.0,  // kx
         1.0,  // ky
+        1.0,  // density
+        0.01, // viscosity
     );
 
     // Test MHD solution properties
@@ -430,7 +432,7 @@ mod property_tests {
             kx in 0.5f64..2.0,
             ky in 0.5f64..2.0
         ) {
-            let mhd = ManufacturedMHD::new(mu_0, sigma, vel_amp, mag_amp, kx, ky);
+            let mhd = ManufacturedMHD::new(mu_0, sigma, vel_amp, mag_amp, kx, ky, 1.0, 0.01);
 
             let x = 0.5;
             let y = 0.5;

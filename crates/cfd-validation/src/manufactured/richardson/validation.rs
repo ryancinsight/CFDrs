@@ -12,7 +12,6 @@ use super::core::{DataDrivenOrderEstimation, RichardsonExtrapolation};
 use super::types::{RichardsonMmsResult, RichardsonResult};
 use crate::convergence::ConvergenceStudy;
 use crate::geometry::Geometry;
-use crate::manufactured::ManufacturedSolution;
 
 /// Automated MMS-Richardson convergence study
 pub struct MmsRichardsonStudy<T: RealField + Copy + FromPrimitive> {
@@ -38,9 +37,9 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float + ToPrimitive> MmsR
         num_levels: usize,
         _base_size: T,
         _evaluation_time: T,
-    ) -> Result<Self, String> {
+    ) -> Result<Self> {
         if num_levels < 3 {
-            return Err("Need at least 3 grid levels for Richardson extrapolation".to_string());
+            return Err(Error::InvalidInput("Need at least 3 grid levels for Richardson extrapolation".to_string()));
         }
 
         let study = Self::new(manufactured_solution, geometry);
@@ -53,7 +52,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float + ToPrimitive> MmsR
     }
 
     /// Run complete Richardson extrapolation study
-    pub fn run_study(&self) -> Result<RichardsonMmsResult<T>, String> {
+    pub fn run_study(&self) -> Result<RichardsonMmsResult<T>> {
         // Default grid sizes for geometric refinement
         let grid_sizes = vec![
             T::from_f64(0.25).unwrap(),   // coarse
@@ -65,9 +64,9 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float + ToPrimitive> MmsR
     }
 
     /// Run study with specified grid sizes
-    pub fn run_study_with_grids(&self, grid_sizes: &[T]) -> Result<RichardsonMmsResult<T>, String> {
+    pub fn run_study_with_grids(&self, grid_sizes: &[T]) -> Result<RichardsonMmsResult<T>> {
         if grid_sizes.len() < 3 {
-            return Err("Need at least 3 grid levels for Richardson extrapolation".to_string());
+            return Err(Error::InvalidInput("Need at least 3 grid levels for Richardson extrapolation".to_string()));
         }
 
         let mut l2_errors = Vec::new();
@@ -85,7 +84,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float + ToPrimitive> MmsR
 
         // Perform convergence analysis
         let convergence_study = ConvergenceStudy::new(grid_sizes.to_vec(), l2_errors.clone())
-            .map_err(|e| format!("Convergence study failed: {e}"))?;
+            .map_err(|e| Error::InvalidConfiguration(format!("Convergence study failed: {e}")))?;
 
         // Compute Richardson extrapolation
         let richardson_results = Self::compute_richardson_extrapolation(grid_sizes, &l2_errors)?;
@@ -237,7 +236,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float + ToPrimitive> MmsR
     }
 
     /// Compute L2 error for a given grid size
-    fn compute_l2_error(&self, grid_size: T) -> Result<T, String> {
+    fn compute_l2_error(&self, grid_size: T) -> Result<T> {
         // Compute actual L2 error between numerical solution and manufactured exact solution
         //
         // L2 error: ||u_h - u_exact||_L2 = sqrt(∫_Ω (u_h - u_exact)² dΩ)
@@ -300,19 +299,24 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float + ToPrimitive> MmsR
         solution: &mut [Vec<T>],
         dx: T,
         dy: T,
-    ) -> Result<(), String> {
+    ) -> Result<()> {
         let nx = source.len();
         let ny = source[0].len();
         
         // Create structured grid for the Poisson solver
         let grid = StructuredGrid2D::new(nx, ny, T::zero(), T::one(), T::zero(), T::one())
-            .map_err(|e| format!("Failed to create grid: {}", e))?;
+            .map_err(|e| Error::InvalidConfiguration(format!("Failed to create grid: {}", e)))?;
         
         // Configure Poisson solver with production settings
+        use cfd_core::compute::solver::SolverConfig;
+        let solver_config = SolverConfig::builder()
+            .tolerance(T::from_f64(1e-12).unwrap())
+            .max_iterations(1000)
+            .parallel(false)
+            .build();
+
         let fdm_config = FdmConfig {
-            tolerance: T::from_f64(1e-12).unwrap(),
-            max_iterations: 1000,
-            use_parallel_spmv: false,
+            base: solver_config,
         };
         
         let poisson_solver = PoissonSolver::new(fdm_config);
@@ -323,9 +327,12 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float + ToPrimitive> MmsR
         
         for i in 0..nx {
             for j in 0..ny {
-                // Apply Dirichlet boundary conditions (zero on boundaries)
+                // Apply Dirichlet boundary conditions from exact solution
                 if i == 0 || i == nx - 1 || j == 0 || j == ny - 1 {
-                    boundary_map.insert((i, j), T::zero());
+                    let x = T::from_usize(i).unwrap() * dx;
+                    let y = T::from_usize(j).unwrap() * dy;
+                    let val = self.manufactured_solution.exact_solution(x, y, T::zero(), T::zero());
+                    boundary_map.insert((i, j), val);
                 } else {
                     source_map.insert((i, j), source[i][j]);
                 }
@@ -334,7 +341,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float + ToPrimitive> MmsR
         
         // Solve using production CFD solver
         let solution_map = poisson_solver.solve(&grid, &source_map, &boundary_map)
-            .map_err(|e| format!("Poisson solver failed: {}", e))?;
+            .map_err(|e| Error::Solver(format!("Poisson solver failed: {}", e)))?;
         
         // Convert solution back to Vec<Vec<T>> format
         for i in 0..nx {
@@ -352,7 +359,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float + ToPrimitive> MmsR
         solution: &mut [Vec<T>],
         _dx: T,
         _dy: T,
-    ) -> Result<(), String> {
+    ) -> Result<()> {
         let nx = solution.len();
         let ny = solution[0].len();
 
@@ -389,7 +396,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float + ToPrimitive> MmsR
     pub fn compute_richardson_extrapolation(
         grid_sizes: &[T],
         l2_errors: &[T],
-    ) -> Result<Vec<(T, T)>, String> {
+    ) -> Result<Vec<(T, T)>> {
         let mut results = Vec::new();
 
         // Require at least three grids to estimate order robustly
@@ -404,10 +411,12 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float + ToPrimitive> MmsR
 
             // refinement ratio between medium and fine (> 1)
             let r = h_medium / h_fine;
-            let order = RichardsonExtrapolation::estimate_order(f_coarse, f_medium, f_fine, r)?;
+            let order = RichardsonExtrapolation::estimate_order(f_coarse, f_medium, f_fine, r)
+                .map_err(Error::InvalidInput)?;
 
             // Extrapolate using fine and medium solutions
-            let extrapolator = RichardsonExtrapolation::extrapolate(f_coarse, f_medium, f_fine, r)?;
+            let extrapolator = RichardsonExtrapolation::extrapolate(f_coarse, f_medium, f_fine, r)
+                .map_err(Error::InvalidInput)?;
             let extrapolated = extrapolator.0;
 
             results.push((extrapolated, order));
@@ -417,7 +426,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float + ToPrimitive> MmsR
     }
 
     /// Compute Grid Convergence Index using standard FS-based formula
-    pub fn compute_gci_values(grid_sizes: &[T], l2_errors: &[T]) -> Result<Vec<T>, String> {
+    pub fn compute_gci_values(grid_sizes: &[T], l2_errors: &[T]) -> Result<Vec<T>> {
         let mut gci_values = Vec::new();
 
         for i in 0..grid_sizes.len().saturating_sub(1) {
@@ -482,7 +491,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float + ToPrimitive> MmsR
         grid_sizes: &[T],
         l2_errors: &[T],
         _richardson_results: &[(T, T)],
-    ) -> Result<Vec<bool>, String> {
+    ) -> Result<Vec<bool>> {
         let mut is_asymptotic = Vec::new();
 
         for i in 0..grid_sizes.len().saturating_sub(2) {
