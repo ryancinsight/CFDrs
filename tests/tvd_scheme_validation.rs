@@ -37,13 +37,24 @@ fn create_test_grid() -> Grid2DT<f64> {
 
 /// Create square wave initial condition (shock-like profile)
 fn square_wave(phi: &mut Grid2D<f64>, amplitude: f64, width: f64, center: f64) {
-    for i in 0..NX {
-        let x = (i as f64 + 0.5) * DX;
-        if (x - center).abs() < width / 2.0 {
-            phi.data[(i, 0)] = amplitude;
-        } else {
-            phi.data[(i, 0)] = 0.0;
-        }
+    // Optimize initialization using range-based fill operations (vectorized by compiler/std)
+    let start_idx = ((center - width / 2.0) / DX - 0.5).floor() as isize + 1;
+    let end_idx = ((center + width / 2.0) / DX - 0.5).ceil() as isize;
+
+    let start = start_idx.clamp(0, NX as isize) as usize;
+    let end = end_idx.clamp(0, NX as isize) as usize;
+
+    let slice = phi.data.as_mut_slice();
+
+    // Fill regions
+    if start > 0 {
+        slice[..start].fill(0.0);
+    }
+    if start < end {
+        slice[start..end].fill(amplitude);
+    }
+    if end < NX {
+        slice[end..].fill(0.0);
     }
 }
 
