@@ -1440,13 +1440,13 @@ impl PerformanceComparator {
         let mut comparisons = Vec::new();
 
         // Create lookup map for baseline results
-        let baseline_map: HashMap<(String, usize), &BenchmarkResult> = baseline
+        let baseline_map: HashMap<(&str, usize), &BenchmarkResult> = baseline
             .iter()
-            .map(|r| ((r.name.clone(), r.problem_size), r))
+            .map(|r| ((r.name.as_str(), r.problem_size), r))
             .collect();
 
         for current_result in current {
-            let key = (current_result.name.clone(), current_result.problem_size);
+            let key = (current_result.name.as_str(), current_result.problem_size);
 
             if let Some(baseline_result) = baseline_map.get(&key) {
                 let current_time = current_result.duration.as_secs_f64();
