@@ -2,7 +2,7 @@
 //!
 //! Solves the Poisson equation: ∇²φ = f
 
-use cfd_core::error::Result;
+use cfd_core::error::{Error, Result};
 use cfd_math::sparse::SparseMatrixBuilder;
 use nalgebra::{DVector, RealField};
 use num_traits::FromPrimitive;
@@ -29,12 +29,23 @@ impl<T: RealField + Copy + FromPrimitive> PoissonSolver<T> {
         Self::new(FdmConfig::<T>::default())
     }
 
-    /// Solve Poisson equation on structured grid
+    /// Solve Poisson equation on structured grid (Dirichlet only)
     pub fn solve(
         &self,
         grid: &StructuredGrid2D<T>,
         source: &HashMap<(usize, usize), T>,
         boundary_values: &HashMap<(usize, usize), T>,
+    ) -> Result<HashMap<(usize, usize), T>> {
+        self.solve_with_neumann(grid, source, boundary_values, &HashMap::new())
+    }
+
+    /// Solve Poisson equation with mixed Dirichlet and Neumann boundary conditions
+    pub fn solve_with_neumann(
+        &self,
+        grid: &StructuredGrid2D<T>,
+        source: &HashMap<(usize, usize), T>,
+        dirichlet_boundaries: &HashMap<(usize, usize), T>,
+        neumann_boundaries: &HashMap<(usize, usize), T>,
     ) -> Result<HashMap<(usize, usize), T>> {
         let n = grid.nx() * grid.ny();
         let mut matrix_builder = SparseMatrixBuilder::new(n, n);
@@ -42,10 +53,21 @@ impl<T: RealField + Copy + FromPrimitive> PoissonSolver<T> {
 
         // Build system matrix and RHS vector
         for (linear_idx, (i, j)) in grid.iter().enumerate() {
-            if let Some(boundary_value) = boundary_values.get(&(i, j)).copied() {
+            if let Some(boundary_value) = dirichlet_boundaries.get(&(i, j)).copied() {
                 // Dirichlet boundary condition: φ = boundary_value
                 matrix_builder.add_entry(linear_idx, linear_idx, T::one())?;
                 rhs[linear_idx] = boundary_value;
+            } else if let Some(gradient) = neumann_boundaries.get(&(i, j)).copied() {
+                // Neumann boundary condition: ∂φ/∂n = gradient
+                self.add_neumann_bc(
+                    &mut matrix_builder,
+                    &mut rhs,
+                    grid,
+                    i,
+                    j,
+                    linear_idx,
+                    gradient,
+                )?;
             } else {
                 // Interior point: discretize Laplacian
                 self.add_laplacian_stencil(
@@ -71,6 +93,52 @@ impl<T: RealField + Copy + FromPrimitive> PoissonSolver<T> {
         }
 
         Ok(result)
+    }
+
+    /// Add Neumann boundary condition
+    fn add_neumann_bc(
+        &self,
+        matrix_builder: &mut SparseMatrixBuilder<T>,
+        rhs: &mut DVector<T>,
+        grid: &StructuredGrid2D<T>,
+        i: usize,
+        j: usize,
+        linear_idx: usize,
+        gradient: T,
+    ) -> Result<()> {
+        let (dx, dy) = grid.spacing();
+
+        if i == 0 {
+            // Left wall, normal -x: T_{0,j} - T_{1,j} = g * dx
+            let neighbor_idx = Self::linear_index(grid, i + 1, j);
+            matrix_builder.add_entry(linear_idx, linear_idx, T::one())?;
+            matrix_builder.add_entry(linear_idx, neighbor_idx, -T::one())?;
+            rhs[linear_idx] = gradient * dx;
+        } else if i == grid.nx() - 1 {
+            // Right wall, normal +x: T_{nx-1,j} - T_{nx-2,j} = g * dx
+            let neighbor_idx = Self::linear_index(grid, i - 1, j);
+            matrix_builder.add_entry(linear_idx, linear_idx, T::one())?;
+            matrix_builder.add_entry(linear_idx, neighbor_idx, -T::one())?;
+            rhs[linear_idx] = gradient * dx;
+        } else if j == 0 {
+            // Bottom wall, normal -y: T_{i,0} - T_{i,1} = g * dy
+            let neighbor_idx = Self::linear_index(grid, i, j + 1);
+            matrix_builder.add_entry(linear_idx, linear_idx, T::one())?;
+            matrix_builder.add_entry(linear_idx, neighbor_idx, -T::one())?;
+            rhs[linear_idx] = gradient * dy;
+        } else if j == grid.ny() - 1 {
+            // Top wall, normal +y: T_{i,ny-1} - T_{i,ny-2} = g * dy
+            let neighbor_idx = Self::linear_index(grid, i, j - 1);
+            matrix_builder.add_entry(linear_idx, linear_idx, T::one())?;
+            matrix_builder.add_entry(linear_idx, neighbor_idx, -T::one())?;
+            rhs[linear_idx] = gradient * dy;
+        } else {
+            return Err(Error::InvalidConfiguration(
+                "Neumann boundary condition applied to interior point".into(),
+            ));
+        }
+
+        Ok(())
     }
 
     /// Add 5-point Laplacian stencil for interior points
