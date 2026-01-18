@@ -99,48 +99,14 @@ impl GpuTurbulenceCompute {
     ) -> Result<GpuBuffer<f32>> {
         let size = nx * ny;
 
-        // Manage velocity_u_buffer
-        let velocity_u_buffer = if self
-            .velocity_u_buffer
-            .as_ref()
-            .is_some_and(|b| b.size() == size)
-        {
-            let mut buffer = self.velocity_u_buffer.as_mut().unwrap().clone();
-            buffer.write(velocity_u)?;
-            buffer
-        } else {
-            let buffer = GpuBuffer::from_data(self.context.clone(), velocity_u)?;
-            self.velocity_u_buffer = Some(buffer.clone());
-            buffer
-        };
+        let velocity_u_buffer =
+            Self::ensure_buffer_with_data(&self.context, &mut self.velocity_u_buffer, velocity_u)?;
 
-        // Manage velocity_v_buffer
-        let velocity_v_buffer = if self
-            .velocity_v_buffer
-            .as_ref()
-            .is_some_and(|b| b.size() == size)
-        {
-            let mut buffer = self.velocity_v_buffer.as_mut().unwrap().clone();
-            buffer.write(velocity_v)?;
-            buffer
-        } else {
-            let buffer = GpuBuffer::from_data(self.context.clone(), velocity_v)?;
-            self.velocity_v_buffer = Some(buffer.clone());
-            buffer
-        };
+        let velocity_v_buffer =
+            Self::ensure_buffer_with_data(&self.context, &mut self.velocity_v_buffer, velocity_v)?;
 
-        // Manage sgs_viscosity_buffer
-        let sgs_viscosity_buffer = if self
-            .sgs_viscosity_buffer
-            .as_ref()
-            .is_some_and(|b| b.size() == size)
-        {
-            self.sgs_viscosity_buffer.as_ref().unwrap().clone()
-        } else {
-            let buffer = GpuBuffer::new(self.context.clone(), size)?;
-            self.sgs_viscosity_buffer = Some(buffer.clone());
-            buffer
-        };
+        let sgs_viscosity_buffer =
+            Self::ensure_buffer_sized(&self.context, &mut self.sgs_viscosity_buffer, size)?;
 
         // Execute SGS computation
         self.smagorinsky_kernel.compute_sgs_viscosity(
@@ -185,48 +151,14 @@ impl GpuTurbulenceCompute {
     ) -> Result<GpuBuffer<f32>> {
         let size = nx * ny;
 
-        // Manage velocity_u_buffer
-        let velocity_u_buffer = if self
-            .velocity_u_buffer
-            .as_ref()
-            .is_some_and(|b| b.size() == size)
-        {
-            let mut buffer = self.velocity_u_buffer.as_mut().unwrap().clone();
-            buffer.write(velocity_u)?;
-            buffer
-        } else {
-            let buffer = GpuBuffer::from_data(self.context.clone(), velocity_u)?;
-            self.velocity_u_buffer = Some(buffer.clone());
-            buffer
-        };
+        let velocity_u_buffer =
+            Self::ensure_buffer_with_data(&self.context, &mut self.velocity_u_buffer, velocity_u)?;
 
-        // Manage velocity_v_buffer
-        let velocity_v_buffer = if self
-            .velocity_v_buffer
-            .as_ref()
-            .is_some_and(|b| b.size() == size)
-        {
-            let mut buffer = self.velocity_v_buffer.as_mut().unwrap().clone();
-            buffer.write(velocity_v)?;
-            buffer
-        } else {
-            let buffer = GpuBuffer::from_data(self.context.clone(), velocity_v)?;
-            self.velocity_v_buffer = Some(buffer.clone());
-            buffer
-        };
+        let velocity_v_buffer =
+            Self::ensure_buffer_with_data(&self.context, &mut self.velocity_v_buffer, velocity_v)?;
 
-        // Manage des_length_buffer
-        let des_length_buffer = if self
-            .des_length_buffer
-            .as_ref()
-            .is_some_and(|b| b.size() == size)
-        {
-            self.des_length_buffer.as_ref().unwrap().clone()
-        } else {
-            let buffer = GpuBuffer::new(self.context.clone(), size)?;
-            self.des_length_buffer = Some(buffer.clone());
-            buffer
-        };
+        let des_length_buffer =
+            Self::ensure_buffer_sized(&self.context, &mut self.des_length_buffer, size)?;
 
         // Execute DES length scale computation
         self.des_kernel.compute_des_length_scale(
@@ -243,6 +175,41 @@ impl GpuTurbulenceCompute {
         )?;
 
         Ok(des_length_buffer)
+    }
+
+    /// Ensure buffer exists, has correct data, and return it
+    fn ensure_buffer_with_data(
+        context: &Arc<GpuContext>,
+        buffer_opt: &mut Option<GpuBuffer<f32>>,
+        data: &[f32],
+    ) -> Result<GpuBuffer<f32>> {
+        if buffer_opt
+            .as_ref()
+            .is_some_and(|b| b.size() == data.len())
+        {
+            let mut buffer = buffer_opt.as_mut().unwrap().clone();
+            buffer.write(data)?;
+            Ok(buffer)
+        } else {
+            let buffer = GpuBuffer::from_data(context.clone(), data)?;
+            *buffer_opt = Some(buffer.clone());
+            Ok(buffer)
+        }
+    }
+
+    /// Ensure buffer exists, has correct size, and return it
+    fn ensure_buffer_sized(
+        context: &Arc<GpuContext>,
+        buffer_opt: &mut Option<GpuBuffer<f32>>,
+        size: usize,
+    ) -> Result<GpuBuffer<f32>> {
+        if buffer_opt.as_ref().is_some_and(|b| b.size() == size) {
+            Ok(buffer_opt.as_ref().unwrap().clone())
+        } else {
+            let buffer = GpuBuffer::new(context.clone(), size)?;
+            *buffer_opt = Some(buffer.clone());
+            Ok(buffer)
+        }
     }
 
     /// Read back data from GPU buffer to CPU
