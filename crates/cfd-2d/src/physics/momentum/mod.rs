@@ -6,6 +6,7 @@ mod coefficients;
 mod discretization;
 mod interpolation;
 pub mod muscl;
+mod setup;
 mod solver;
 pub mod tvd_limiters;
 
@@ -20,5 +21,6 @@ pub use coefficients::{ConvectionScheme, MomentumCoefficients};
 pub use discretization::{CentralDifference, DiscretizationScheme, MusclDiscretization, Upwind};
 pub use interpolation::rhie_chow_interpolation;
 pub use muscl::{schemes, MusclOrder, MusclReconstruction, MusclScheme};
+pub use setup::BoundarySetup;
 pub use solver::{MomentumComponent, MomentumSolver};
 pub use tvd_limiters::{Minmod, MonotonizedCentral, Superbee, TvdLimiter, VanLeer};
