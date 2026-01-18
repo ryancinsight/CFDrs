@@ -4,7 +4,7 @@
 
 use cfd_2d::fields::SimulationFields;
 use cfd_2d::grid::StructuredGrid2D;
-use cfd_2d::physics::momentum::{MomentumComponent, MomentumSolver};
+use cfd_2d::physics::momentum::{BoundarySetup, MomentumComponent, MomentumSolver};
 use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_validation::convergence::{ConvergenceMonitor, ConvergenceStatus};
 
@@ -133,23 +133,13 @@ fn test_poiseuille_with_monitoring() -> Result<(), Box<dyn std::error::Error>> {
     let grid = StructuredGrid2D::new(nx, ny, 0.0, channel_length, 0.0, channel_height)?;
     let mut solver = MomentumSolver::new(&grid);
 
-    solver.set_boundary(
-        "south".to_string(),
-        BoundaryCondition::Dirichlet { value: 0.0 },
-    );
-    solver.set_boundary(
-        "north".to_string(),
-        BoundaryCondition::Dirichlet { value: 0.0 },
-    );
-    // Add missing boundaries for validation
-    solver.set_boundary(
-        "west".to_string(),
-        BoundaryCondition::Neumann { gradient: 0.0 },
-    );
-    solver.set_boundary(
-        "east".to_string(),
-        BoundaryCondition::Neumann { gradient: 0.0 },
-    );
+    // Use the sophisticated boundary condition setup framework
+    BoundarySetup::new()
+        .south(BoundaryCondition::Dirichlet { value: 0.0 })
+        .north(BoundaryCondition::Dirichlet { value: 0.0 })
+        .west(BoundaryCondition::Neumann { gradient: 0.0 })
+        .east(BoundaryCondition::Neumann { gradient: 0.0 })
+        .apply(&mut solver);
 
     // Validate boundary conditions
     solver.validate_boundary_conditions()?;
