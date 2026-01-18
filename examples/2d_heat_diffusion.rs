@@ -30,34 +30,34 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     // Set boundary conditions for heat diffusion
     // Left wall: T = 100°C (hot)
     // Right wall: T = 0°C (cold)
-    // Top and bottom walls: insulated (∂T/∂n = 0, approximated as T = neighbor)
+    // Top and bottom walls: insulated (∂T/∂n = 0)
 
     // Set boundaries for all edges at once
     grid.set_edge_boundaries(BoundaryType::Wall);
 
-    // Set boundary values using iterator patterns for zero-copy operations
-    let boundary_values: HashMap<(usize, usize), f64> = [
+    // Set Dirichlet boundary values (Left and Right walls)
+    let dirichlet_boundaries: HashMap<(usize, usize), f64> = [
         // Hot left wall - using iterator combinators
         (0..grid.ny).map(|j| ((0, j), 100.0)).collect::<Vec<_>>(),
         // Cold right wall - functional approach
         (0..grid.ny)
             .map(|j| ((grid.nx - 1, j), 0.0))
             .collect::<Vec<_>>(),
-        // Insulated top and bottom walls (simplified as fixed temperature)
-        // TODO: Implement proper Neumann boundary conditions (∂T/∂n = 0) for insulation
-        // Note: This demonstrates iterator chaining for boundary condition setup
-        (1..grid.nx - 1)
-            .flat_map(|i| {
-                [
-                    ((i, 0), 50.0),           // Bottom wall (simplified)
-                    ((i, grid.ny - 1), 50.0), // Top wall (simplified)
-                ]
-            })
-            .collect::<Vec<_>>(),
     ]
     .into_iter()
     .flatten()
     .collect();
+
+    // Set Neumann boundary values (Top and Bottom walls - insulated)
+    // We apply this to the interior of the top/bottom walls (excluding corners)
+    let neumann_boundaries: HashMap<(usize, usize), f64> = (1..grid.nx - 1)
+        .flat_map(|i| {
+            [
+                ((i, 0), 0.0),           // Bottom wall (insulated, gradient = 0)
+                ((i, grid.ny - 1), 0.0), // Top wall (insulated, gradient = 0)
+            ]
+        })
+        .collect();
 
     // No source term for steady-state heat conduction
     let source = HashMap::new();
@@ -75,7 +75,8 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     // Solve the heat equation
     println!("\nSolving 2D heat equation...");
     let solver = PoissonSolver::new(config);
-    let solution = solver.solve(&grid, &source, &boundary_values)?;
+    // Use proper Neumann boundary conditions
+    let solution = solver.solve_with_neumann(&grid, &source, &dirichlet_boundaries, &neumann_boundaries)?;
 
     // Analyze results
     println!("\n=== Results Analysis ===");
@@ -160,6 +161,19 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 
     let advdiff_config = FdmConfig { base: advdiff_base };
 
+    // Reconstruct simplified boundary values for AdvectionDiffusionSolver
+    // which does not yet support explicit Neumann conditions
+    let mut adv_boundary_values = dirichlet_boundaries.clone();
+    let simplified_top_bottom: HashMap<(usize, usize), f64> = (1..grid.nx - 1)
+        .flat_map(|i| {
+            [
+                ((i, 0), 50.0),           // Bottom wall (simplified)
+                ((i, grid.ny - 1), 50.0), // Top wall (simplified)
+            ]
+        })
+        .collect();
+    adv_boundary_values.extend(simplified_top_bottom);
+
     let advdiff_solver = AdvectionDiffusionSolver::new(advdiff_config);
     let advdiff_solution = advdiff_solver.solve_steady(
         &grid,
@@ -167,7 +181,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         &velocity_y,
         diffusivity,
         &source,
-        &boundary_values,
+        &adv_boundary_values,
     )?;
 
     // Compare solutions
