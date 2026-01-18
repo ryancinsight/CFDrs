@@ -281,18 +281,18 @@ fn bench_memory_transfer(c: &mut Criterion) {
         let data: Vec<f32> = (0..data_size).map(|i| i as f32).collect();
 
         group.bench_function(format!("GPU Transfer {}x{}", size, size), |b| {
-            b.iter(|| {
-                if let Ok(mut gpu_compute) =
-                    cfd_core::compute::gpu::turbulence_compute::GpuTurbulenceCompute::new()
-                {
+            if let Ok(mut gpu_compute) =
+                cfd_core::compute::gpu::turbulence_compute::GpuTurbulenceCompute::new()
+            {
+                b.iter(|| {
                     // Create GPU buffer
                     let result_buffer = gpu_compute
                         .compute_smagorinsky_sgs(&data, &data, size, size, 0.01, 0.01, 0.1)
                         .unwrap();
                     let buffer = gpu_compute.read_buffer(&result_buffer).unwrap();
                     black_box(buffer);
-                }
-            });
+                });
+            }
         });
     }
 
