@@ -246,7 +246,7 @@ impl ManufacturedSolution<f64> for ManufacturedLaplace {
 
     fn source_term(&self, x: f64, y: f64, _z: f64, _t: f64) -> f64 {
         let u = self.exact_solution(x, y, 0.0, 0.0);
-        (self.kx * self.kx + self.ky * self.ky) * u
+        -(self.kx * self.kx + self.ky * self.ky) * u
     }
 }
 

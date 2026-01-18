@@ -72,12 +72,9 @@ impl<T: RealField + Copy + FromPrimitive> StructuredGridBuilder<T> {
         for k in 0..=self.nz {
             for j in 0..=self.ny {
                 for i in 0..=self.nx {
-                    let x = self.bounds.0 .0
-                        + T::from_usize(i).unwrap_or_else(|| T::zero()) * dx;
-                    let y = self.bounds.1 .0
-                        + T::from_usize(j).unwrap_or_else(|| T::zero()) * dy;
-                    let z = self.bounds.2 .0
-                        + T::from_usize(k).unwrap_or_else(|| T::zero()) * dz;
+                    let x = self.bounds.0 .0 + T::from_usize(i).unwrap_or_else(|| T::zero()) * dx;
+                    let y = self.bounds.1 .0 + T::from_usize(j).unwrap_or_else(|| T::zero()) * dy;
+                    let z = self.bounds.2 .0 + T::from_usize(k).unwrap_or_else(|| T::zero()) * dz;
 
                     mesh.add_vertex(Vertex::new(Point3::new(x, y, z)));
                 }

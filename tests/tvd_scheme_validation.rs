@@ -77,7 +77,7 @@ fn exact_solution_advection(
 }
 
 #[test]
-#[ignore] 
+#[ignore]
 fn test_muscl2_superbee_monotonicity() {
     let scheme = MUSCLScheme::muscl2_superbee();
     assert_eq!(scheme.order(), 2);

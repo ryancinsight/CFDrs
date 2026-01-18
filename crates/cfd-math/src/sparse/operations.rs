@@ -46,7 +46,7 @@ pub fn spmv<T: RealField + Copy>(a: &CsrMatrix<T>, x: &DVector<T>, y: &mut DVect
 
     // TODO: Add adaptive threshold based on matrix properties and hardware
     const PARALLEL_THRESHOLD: usize = 1000;
-    
+
     // Use parallel implementation for large matrices
     if a.nrows() > PARALLEL_THRESHOLD {
         spmv_parallel(a, x, y);

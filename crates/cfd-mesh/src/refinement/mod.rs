@@ -143,7 +143,192 @@ fn refine_hexahedron<T: RealField + Copy>(
     cell: &Cell,
     ctx: &mut RefinementContext<T>,
 ) -> Result<(), crate::error::MeshError> {
-    // Get vertices
+    let vertices = collect_cell_vertices(mesh, cell)?;
+
+    let points = HexRefinementPoints::new(ctx, vertices)?;
+    for hex_verts in points.subcells() {
+        add_hexahedron_cell(ctx, hex_verts);
+    }
+
+    Ok(())
+}
+
+struct HexRefinementPoints {
+    vertices: [usize; 8],
+    m01: usize,
+    m12: usize,
+    m23: usize,
+    m30: usize,
+    m45: usize,
+    m56: usize,
+    m67: usize,
+    m74: usize,
+    m04: usize,
+    m15: usize,
+    m26: usize,
+    m37: usize,
+    fc_bottom: usize,
+    fc_top: usize,
+    fc_front: usize,
+    fc_back: usize,
+    fc_left: usize,
+    fc_right: usize,
+    body_center: usize,
+}
+
+impl HexRefinementPoints {
+    fn new<T: RealField + Copy>(
+        ctx: &mut RefinementContext<T>,
+        vertices: [usize; 8],
+    ) -> Result<Self, crate::error::MeshError> {
+        let m01 = ctx.get_midpoint(vertices[0], vertices[1])?;
+        let m12 = ctx.get_midpoint(vertices[1], vertices[2])?;
+        let m23 = ctx.get_midpoint(vertices[2], vertices[3])?;
+        let m30 = ctx.get_midpoint(vertices[3], vertices[0])?;
+        let m45 = ctx.get_midpoint(vertices[4], vertices[5])?;
+        let m56 = ctx.get_midpoint(vertices[5], vertices[6])?;
+        let m67 = ctx.get_midpoint(vertices[6], vertices[7])?;
+        let m74 = ctx.get_midpoint(vertices[7], vertices[4])?;
+        let m04 = ctx.get_midpoint(vertices[0], vertices[4])?;
+        let m15 = ctx.get_midpoint(vertices[1], vertices[5])?;
+        let m26 = ctx.get_midpoint(vertices[2], vertices[6])?;
+        let m37 = ctx.get_midpoint(vertices[3], vertices[7])?;
+
+        let fc_bottom = ctx.get_midpoint(m01, m23)?;
+        let fc_top = ctx.get_midpoint(m45, m67)?;
+        let fc_front = ctx.get_midpoint(m01, m45)?;
+        let fc_back = ctx.get_midpoint(m23, m67)?;
+        let fc_left = ctx.get_midpoint(m30, m74)?;
+        let fc_right = ctx.get_midpoint(m12, m56)?;
+
+        let body_center = ctx.get_midpoint(fc_bottom, fc_top)?;
+
+        Ok(Self {
+            vertices,
+            m01,
+            m12,
+            m23,
+            m30,
+            m45,
+            m56,
+            m67,
+            m74,
+            m04,
+            m15,
+            m26,
+            m37,
+            fc_bottom,
+            fc_top,
+            fc_front,
+            fc_back,
+            fc_left,
+            fc_right,
+            body_center,
+        })
+    }
+
+    fn subcells(&self) -> [[usize; 8]; 8] {
+        [
+            [
+                self.vertices[0],
+                self.m01,
+                self.fc_bottom,
+                self.m30,
+                self.m04,
+                self.fc_front,
+                self.body_center,
+                self.fc_left,
+            ],
+            [
+                self.m01,
+                self.vertices[1],
+                self.m12,
+                self.fc_bottom,
+                self.fc_front,
+                self.m15,
+                self.fc_right,
+                self.body_center,
+            ],
+            [
+                self.fc_bottom,
+                self.m12,
+                self.vertices[2],
+                self.m23,
+                self.body_center,
+                self.fc_right,
+                self.m26,
+                self.fc_back,
+            ],
+            [
+                self.m30,
+                self.fc_bottom,
+                self.m23,
+                self.vertices[3],
+                self.fc_left,
+                self.body_center,
+                self.fc_back,
+                self.m37,
+            ],
+            [
+                self.m04,
+                self.fc_front,
+                self.body_center,
+                self.fc_left,
+                self.vertices[4],
+                self.m45,
+                self.fc_top,
+                self.m74,
+            ],
+            [
+                self.fc_front,
+                self.m15,
+                self.fc_right,
+                self.body_center,
+                self.m45,
+                self.vertices[5],
+                self.m56,
+                self.fc_top,
+            ],
+            [
+                self.body_center,
+                self.fc_right,
+                self.m26,
+                self.fc_back,
+                self.fc_top,
+                self.m56,
+                self.vertices[6],
+                self.m67,
+            ],
+            [
+                self.fc_left,
+                self.body_center,
+                self.fc_back,
+                self.m37,
+                self.m74,
+                self.fc_top,
+                self.m67,
+                self.vertices[7],
+            ],
+        ]
+    }
+}
+
+fn add_hexahedron_cell<T: RealField + Copy>(ctx: &mut RefinementContext<T>, hex_verts: [usize; 8]) {
+    let f0 = ctx.add_face_dedup(vec![hex_verts[0], hex_verts[1], hex_verts[2], hex_verts[3]]);
+    let f1 = ctx.add_face_dedup(vec![hex_verts[4], hex_verts[5], hex_verts[6], hex_verts[7]]);
+    let f2 = ctx.add_face_dedup(vec![hex_verts[0], hex_verts[1], hex_verts[5], hex_verts[4]]);
+    let f3 = ctx.add_face_dedup(vec![hex_verts[2], hex_verts[3], hex_verts[7], hex_verts[6]]);
+    let f4 = ctx.add_face_dedup(vec![hex_verts[0], hex_verts[3], hex_verts[7], hex_verts[4]]);
+    let f5 = ctx.add_face_dedup(vec![hex_verts[1], hex_verts[2], hex_verts[6], hex_verts[5]]);
+
+    ctx.new_mesh
+        .add_cell(Cell::hexahedron(vec![f0, f1, f2, f3, f4, f5]));
+}
+
+fn collect_cell_vertices<T: RealField + Copy>(
+    mesh: &crate::mesh::Mesh<T>,
+    cell: &Cell,
+) -> Result<[usize; 8], crate::error::MeshError> {
     let mut v_indices = Vec::new();
     for &f_idx in &cell.faces {
         if let Some(face) = mesh.face(f_idx) {
@@ -163,66 +348,9 @@ fn refine_hexahedron<T: RealField + Copy>(
         )));
     }
 
-    let vertices = v_indices;
-    
-    // Get edge midpoints (12 edges for a hex)
-    let m01 = ctx.get_midpoint(vertices[0], vertices[1])?;
-    let m12 = ctx.get_midpoint(vertices[1], vertices[2])?;
-    let m23 = ctx.get_midpoint(vertices[2], vertices[3])?;
-    let m30 = ctx.get_midpoint(vertices[3], vertices[0])?;
-    let m45 = ctx.get_midpoint(vertices[4], vertices[5])?;
-    let m56 = ctx.get_midpoint(vertices[5], vertices[6])?;
-    let m67 = ctx.get_midpoint(vertices[6], vertices[7])?;
-    let m74 = ctx.get_midpoint(vertices[7], vertices[4])?;
-    let m04 = ctx.get_midpoint(vertices[0], vertices[4])?;
-    let m15 = ctx.get_midpoint(vertices[1], vertices[5])?;
-    let m26 = ctx.get_midpoint(vertices[2], vertices[6])?;
-    let m37 = ctx.get_midpoint(vertices[3], vertices[7])?;
-
-    // Get face centers (6 faces for a hex)
-    let fc_bottom = ctx.get_midpoint(m01, m23)?; // Bottom face center
-    let fc_top = ctx.get_midpoint(m45, m67)?;    // Top face center
-    let fc_front = ctx.get_midpoint(m01, m45)?;  // Front face center
-    let fc_back = ctx.get_midpoint(m23, m67)?;   // Back face center
-    let fc_left = ctx.get_midpoint(m30, m74)?;   // Left face center
-    let fc_right = ctx.get_midpoint(m12, m56)?;  // Right face center
-
-    // Get body center
-    let body_center = ctx.get_midpoint(fc_bottom, fc_top)?;
-
-    // Define the 8 new hexahedra
-    let new_hexes = vec![
-        // Bottom layer
-        vec![vertices[0], m01, fc_bottom, m30, m04, fc_front, body_center, fc_left],
-        vec![m01, vertices[1], m12, fc_bottom, fc_front, m15, fc_right, body_center],
-        vec![fc_bottom, m12, vertices[2], m23, body_center, fc_right, m26, fc_back],
-        vec![m30, fc_bottom, m23, vertices[3], fc_left, body_center, fc_back, m37],
-        // Top layer
-        vec![m04, fc_front, body_center, fc_left, vertices[4], m45, fc_top, m74],
-        vec![fc_front, m15, fc_right, body_center, m45, vertices[5], m56, fc_top],
-        vec![body_center, fc_right, m26, fc_back, fc_top, m56, vertices[6], m67],
-        vec![fc_left, body_center, fc_back, m37, m74, fc_top, m67, vertices[7]],
-    ];
-
-    for hex_verts in new_hexes {
-        // Create faces for the hexahedron
-        // Bottom face (z=0)
-        let f0 = ctx.add_face_dedup(vec![hex_verts[0], hex_verts[1], hex_verts[2], hex_verts[3]]);
-        // Top face (z=1)
-        let f1 = ctx.add_face_dedup(vec![hex_verts[4], hex_verts[5], hex_verts[6], hex_verts[7]]);
-        // Front face (y=0)
-        let f2 = ctx.add_face_dedup(vec![hex_verts[0], hex_verts[1], hex_verts[5], hex_verts[4]]);
-        // Back face (y=1)
-        let f3 = ctx.add_face_dedup(vec![hex_verts[2], hex_verts[3], hex_verts[7], hex_verts[6]]);
-        // Left face (x=0)
-        let f4 = ctx.add_face_dedup(vec![hex_verts[0], hex_verts[3], hex_verts[7], hex_verts[4]]);
-        // Right face (x=1)
-        let f5 = ctx.add_face_dedup(vec![hex_verts[1], hex_verts[2], hex_verts[6], hex_verts[5]]);
-        
-        ctx.new_mesh.add_cell(Cell::hexahedron(vec![f0, f1, f2, f3, f4, f5]));
-    }
-
-    Ok(())
+    v_indices.try_into().map_err(|_| {
+        crate::error::MeshError::InvalidMesh("Hexahedron vertex collection failed".to_string())
+    })
 }
 
 /// Uniform refinement strategy
@@ -293,18 +421,16 @@ fn estimate_cell_gradient<T: RealField + Copy>(
 ) -> Result<T, crate::error::MeshError> {
     // Get the current cell
     let cell = mesh.cell(cell_idx).ok_or_else(|| {
-        crate::error::MeshError::InvalidMesh(format!("Cell {} not found", cell_idx))
+        crate::error::MeshError::InvalidMesh(format!("Cell {cell_idx} not found"))
     })?;
-    
+
     // Get current cell value
-    let current_value = field.get(cell_idx).copied().unwrap_or_else(|| {
-        T::zero()
-    });
-    
+    let current_value = field.get(cell_idx).copied().unwrap_or_else(|| T::zero());
+
     // Find neighboring cells by sharing faces
     let mut neighbor_values = Vec::new();
     let mut neighbor_positions = Vec::new();
-    
+
     for &face_idx in &cell.faces {
         if let Some(_face) = mesh.face(face_idx) {
             // Find all cells that share this face
@@ -313,7 +439,7 @@ fn estimate_cell_gradient<T: RealField + Copy>(
                     // Found a neighbor
                     if let Some(&neighbor_value) = field.get(other_cell_idx) {
                         neighbor_values.push(neighbor_value);
-                        
+
                         // Compute neighbor cell centroid
                         let centroid = compute_cell_centroid(mesh, other_cell)?;
                         neighbor_positions.push(centroid);
@@ -322,44 +448,44 @@ fn estimate_cell_gradient<T: RealField + Copy>(
             }
         }
     }
-    
+
     if neighbor_values.is_empty() {
         // No neighbors found, gradient is zero
         return Ok(T::zero());
     }
-    
+
     // Compute current cell centroid
     let current_centroid = compute_cell_centroid(mesh, cell)?;
-    
+
     // Compute gradient using least squares approach
     // ∇f ≈ argmin Σ(|f_i - f_current - ∇f·(x_i - x_current)|²)
     let mut gradient_sum = T::zero();
     let mut weight_sum = T::zero();
-    
+
     for (neighbor_value, neighbor_pos) in neighbor_values.iter().zip(neighbor_positions.iter()) {
         let value_diff = *neighbor_value - current_value;
-        
+
         // Compute distance vector
         let dx = neighbor_pos.position.x - current_centroid.position.x;
         let dy = neighbor_pos.position.y - current_centroid.position.y;
         let dz = neighbor_pos.position.z - current_centroid.position.z;
-        
+
         // Compute distance magnitude
         let distance_sq = dx * dx + dy * dy + dz * dz;
-        
+
         if distance_sq > T::from_f64(1e-12).unwrap() {
             // Weight by inverse distance
             let weight = T::one() / distance_sq.sqrt();
-            
+
             // Approximate gradient magnitude as |Δf|/|Δx|
             let distance = distance_sq.sqrt();
             let gradient_contribution = (value_diff / distance).abs();
-            
-            gradient_sum = gradient_sum + weight * gradient_contribution;
-            weight_sum = weight_sum + weight;
+
+            gradient_sum += weight * gradient_contribution;
+            weight_sum += weight;
         }
     }
-    
+
     if weight_sum > T::zero() {
         Ok(gradient_sum / weight_sum)
     } else {
@@ -373,9 +499,9 @@ fn compute_cell_centroid<T: RealField + Copy>(
     cell: &Cell,
 ) -> Result<crate::topology::Vertex<T>, crate::error::MeshError> {
     use std::collections::HashSet;
-    
+
     let mut vertex_indices = HashSet::new();
-    
+
     // Collect all unique vertex indices from all faces
     for &face_idx in &cell.faces {
         if let Some(face) = mesh.face(face_idx) {
@@ -384,27 +510,27 @@ fn compute_cell_centroid<T: RealField + Copy>(
             }
         }
     }
-    
+
     if vertex_indices.is_empty() {
         return Err(crate::error::MeshError::InvalidMesh(
-            "Cell has no vertices".to_string()
+            "Cell has no vertices".to_string(),
         ));
     }
-    
+
     // Compute average position
     let mut sum_x = T::zero();
     let mut sum_y = T::zero();
     let mut sum_z = T::zero();
     let count = T::from_usize(vertex_indices.len()).unwrap();
-    
+
     for &v_idx in &vertex_indices {
         if let Some(vertex) = mesh.vertex(v_idx) {
-            sum_x = sum_x + vertex.position.x;
-            sum_y = sum_y + vertex.position.y;
-            sum_z = sum_z + vertex.position.z;
+            sum_x += vertex.position.x;
+            sum_y += vertex.position.y;
+            sum_z += vertex.position.z;
         }
     }
-    
+
     Ok(crate::topology::Vertex {
         position: nalgebra::Point3::new(sum_x / count, sum_y / count, sum_z / count),
         global_id: None,
@@ -419,16 +545,16 @@ fn check_opposite_edge_pattern<T: RealField + Copy>(
     cell_idx: usize,
 ) -> bool {
     use std::collections::HashSet;
-    
+
     if split_edges.len() != 4 {
         return false;
     }
-    
+
     // Get the cell to understand its topology
     let Some(cell) = mesh.cell(cell_idx) else {
         return false;
     };
-    
+
     // Collect all vertices of the cell
     let mut cell_vertices = HashSet::new();
     for &face_idx in &cell.faces {
@@ -438,19 +564,19 @@ fn check_opposite_edge_pattern<T: RealField + Copy>(
             }
         }
     }
-    
+
     // For a tetrahedron, check if we have exactly 4 vertices
     if cell_vertices.len() != 4 {
         return false;
     }
-    
+
     // Count vertex occurrences in split edges
     let mut vertex_counts = std::collections::HashMap::new();
     for &(u, v) in split_edges {
         *vertex_counts.entry(u).or_insert(0) += 1;
         *vertex_counts.entry(v).or_insert(0) += 1;
     }
-    
+
     // For opposite edges pattern, each vertex should appear exactly 2 times
     // (each vertex is part of exactly 2 opposite edges)
     vertex_counts.values().all(|&count| count == 2)
@@ -496,7 +622,7 @@ impl<T: RealField + Copy> RefinementStrategy<T> for AdaptiveRefinement<T> {
                     // Implement gradient estimation using mesh connectivity/geometry.
                     // Compute gradient magnitude for each cell using neighboring cell values
                     let gradient_magnitude = estimate_cell_gradient(i, mesh, field)?;
-                    
+
                     gradient_magnitude > *threshold
                 }
                 RefinementCriterion::Custom(func) => {
@@ -523,7 +649,7 @@ impl<T: RealField + Copy> RefinementStrategy<T> for AdaptiveRefinement<T> {
         // This implementation ensures mesh conformity by using red-green refinement:
         // 1. "Red" refinement: Complete subdivision (1->8 for tets)
         // 2. "Green" refinement: Partial subdivision to maintain conformity
-        // 
+        //
         // Supported green patterns for tetrahedra:
         // - 1-edge split: Bisect (1->2 tets)
         // - 3-edge face split: Face refinement (1->4 tets)

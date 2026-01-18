@@ -5,6 +5,7 @@
 
 use cfd_core::error::Result;
 use cfd_math::simd::{SimdCapability, SimdOperation, SimdProcessor};
+use rayon::prelude::*;
 use std::sync::Arc;
 use std::time::Instant;
 use tracing::{info, warn};
@@ -42,9 +43,11 @@ impl PerformanceBenchmarker {
     /// Run performance benchmarks to determine optimal thresholds
     pub fn benchmark_thresholds(&mut self, simd_processor: &SimdProcessor) -> Result<usize> {
         let now = Instant::now();
-        
+
         // Skip benchmarking if we've done it recently
-        if now.duration_since(self.last_benchmark_time) < self.benchmark_interval && !self.benchmarks.is_empty() {
+        if now.duration_since(self.last_benchmark_time) < self.benchmark_interval
+            && !self.benchmarks.is_empty()
+        {
             return Ok(self.get_optimal_threshold());
         }
 
@@ -53,7 +56,7 @@ impl PerformanceBenchmarker {
 
         // Test different array sizes
         let test_sizes = vec![100, 500, 1000, 2000, 5000, 10000];
-        
+
         for &size in &test_sizes {
             let benchmark = self.benchmark_size(simd_processor, size)?;
             self.benchmarks.push(benchmark);
@@ -63,7 +66,11 @@ impl PerformanceBenchmarker {
     }
 
     /// Benchmark a specific array size
-    fn benchmark_size(&self, simd_processor: &SimdProcessor, size: usize) -> Result<PerformanceBenchmark> {
+    fn benchmark_size(
+        &self,
+        simd_processor: &SimdProcessor,
+        size: usize,
+    ) -> Result<PerformanceBenchmark> {
         // Create test data
         let a: Vec<f32> = (0..size).map(|i| i as f32).collect();
         let b: Vec<f32> = (0..size).map(|i| (i * 2) as f32).collect();
@@ -72,16 +79,18 @@ impl PerformanceBenchmarker {
 
         // Benchmark SIMD
         let simd_start = Instant::now();
-        for _ in 0..10 { // Run multiple times for average
+        for _ in 0..10 {
+            // Run multiple times for average
             simd_processor.process_f32(&a, &b, &mut simd_result, SimdOperation::Add)?;
         }
         let simd_time = simd_start.elapsed();
 
         // Benchmark parallel
         let parallel_start = Instant::now();
-        for _ in 0..10 { // Run multiple times for average
-            use rayon::prelude::*;
-            parallel_result.par_iter_mut()
+        for _ in 0..10 {
+            // Run multiple times for average
+            parallel_result
+                .par_iter_mut()
                 .zip(a.par_iter())
                 .zip(b.par_iter())
                 .for_each(|((res, &a_val), &b_val)| {
@@ -113,7 +122,7 @@ impl PerformanceBenchmarker {
                 return benchmark.size;
             }
         }
-        
+
         // Default threshold if no clear winner found
         1000
     }
@@ -225,13 +234,15 @@ impl UnifiedCompute {
     }
 
     /// Vector addition with automatic dispatch
-    /// 
+    ///
     /// Performance optimization: Uses runtime performance benchmarking to auto-select optimal threshold
     /// for switching between SIMD and parallel processing based on actual hardware performance.
     pub fn vector_add_f32(&mut self, a: &[f32], b: &[f32], result: &mut [f32]) -> Result<()> {
         // Get optimal threshold from runtime benchmarking
-        let parallel_threshold = self.benchmarker.benchmark_thresholds(&self.simd_processor)?;
-        
+        let parallel_threshold = self
+            .benchmarker
+            .benchmark_thresholds(&self.simd_processor)?;
+
         match self.backend {
             Backend::Gpu => {
                 #[cfg(feature = "gpu")]
@@ -249,8 +260,8 @@ impl UnifiedCompute {
                 // Use adaptive threshold based on benchmarked hardware performance
                 if a.len() > parallel_threshold {
                     // Use parallel processing for large arrays
-                    use rayon::prelude::*;
-                    result.par_iter_mut()
+                    result
+                        .par_iter_mut()
                         .zip(a.par_iter())
                         .zip(b.par_iter())
                         .for_each(|((res, &a_val), &b_val)| {

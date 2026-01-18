@@ -1,8 +1,9 @@
 //! HTML report generation for validation results
 
 use super::{Reporter, ValidationReport};
+use crate::reporting::TestStatus;
 use cfd_core::error::Result;
-use std::collections::HashMap;
+use std::fmt::Write as _;
 use std::time::SystemTime;
 
 /// HTML reporter for validation results
@@ -15,7 +16,7 @@ impl HtmlReporter {
     }
 
     /// Generate HTML header with CSS styling
-    fn generate_header(&self, report: &ValidationReport) -> String {
+    fn generate_header(report: &ValidationReport) -> String {
         format!(
             r#"<!DOCTYPE html>
 <html lang="en">
@@ -269,7 +270,7 @@ impl HtmlReporter {
     }
 
     /// Generate summary section
-    fn generate_summary(&self, report: &ValidationReport) -> String {
+    fn generate_summary(report: &ValidationReport) -> String {
         let health_score = report.health_score();
         let health_class = match health_score {
             score if score >= 0.9 => "excellent",
@@ -281,7 +282,7 @@ impl HtmlReporter {
         format!(
             r#"
         <div class="health-score">
-            <div class="health-score-value {health_class}">{health_score:.0%}</div>
+            <div class="health-score-value {health_class}">{health_score:.0}%</div>
             <div>Overall Health Score</div>
         </div>
 
@@ -303,21 +304,33 @@ impl HtmlReporter {
                 <div class="summary-label">Coverage</div>
             </div>
         </div>"#,
-            health_score = health_score,
+            health_score = health_score * 100.0,
             health_class = health_class,
             passed = report.summary.passed_tests,
             failed = report.summary.failed_tests,
             skipped = report.summary.skipped_tests,
             coverage = report.summary.coverage_percentage,
-            passed_class = if report.summary.failed_tests == 0 { "success" } else { "warning" },
-            failed_class = if report.summary.failed_tests > 0 { "danger" } else { "success" },
+            passed_class = if report.summary.failed_tests == 0 {
+                "success"
+            } else {
+                "warning"
+            },
+            failed_class = if report.summary.failed_tests > 0 {
+                "danger"
+            } else {
+                "success"
+            },
             skipped_class = "warning",
-            coverage_class = if report.summary.coverage_percentage >= 80.0 { "success" } else { "warning" }
+            coverage_class = if report.summary.coverage_percentage >= 80.0 {
+                "success"
+            } else {
+                "warning"
+            }
         )
     }
 
     /// Generate test results section
-    fn generate_test_results(&self, report: &ValidationReport) -> String {
+    fn generate_test_results(report: &ValidationReport) -> String {
         let mut html = String::from(
             r#"
         <div class="section">
@@ -326,12 +339,13 @@ impl HtmlReporter {
 
         if report.test_results.is_empty() {
             html.push_str(
-                r#"
-            <p>No test results available.</p>"#,
+                r"
+            <p>No test results available.</p>",
             );
         } else {
-            for (category_name, category) in &report.test_results {
-                html.push_str(&format!(
+            for category in report.test_results.values() {
+                let _ = write!(
+                    html,
                     r#"
             <div class="test-category">
                 <div class="category-header">
@@ -347,7 +361,7 @@ impl HtmlReporter {
                     passed = category.passed,
                     failed = category.failed,
                     skipped = category.skipped
-                ));
+                );
 
                 for test in &category.details {
                     let status_class = match test.status {
@@ -363,7 +377,8 @@ impl HtmlReporter {
                         TestStatus::Timeout => "timeout",
                     };
 
-                    html.push_str(&format!(
+                    let _ = write!(
+                        html,
                         r#"
                     <div class="test-row">
                         <div class="test-name">{name}</div>
@@ -376,37 +391,37 @@ impl HtmlReporter {
                         status_class = status_class,
                         status_text = status_text,
                         duration = test.duration_ms
-                    ));
+                    );
 
                     if let Some(error) = &test.error_message {
-                        html.push_str(&format!(
+                        let _ = write!(
+                            html,
                             r#"
                     <div class="test-row" style="background: #f8d7da;">
                         <div style="color: #721c24; font-family: monospace; font-size: 0.9em;">{error}</div>
                     </div>"#,
-                            error = error
-                        ));
+                        );
                     }
                 }
 
                 html.push_str(
-                    r#"
+                    r"
                 </div>
-            </div>"#,
+            </div>",
                 );
             }
         }
 
         html.push_str(
-            r#"
-        </div>"#,
+            r"
+        </div>",
         );
 
         html
     }
 
     /// Generate performance section
-    fn generate_performance(&self, report: &ValidationReport) -> String {
+    fn generate_performance(report: &ValidationReport) -> String {
         let mut html = String::from(
             r#"
         <div class="section">
@@ -415,8 +430,8 @@ impl HtmlReporter {
 
         if report.performance.is_empty() {
             html.push_str(
-                r#"
-            <p>No performance data available.</p>"#,
+                r"
+            <p>No performance data available.</p>",
             );
         } else {
             html.push_str(
@@ -446,8 +461,9 @@ impl HtmlReporter {
                     "N/A".to_string()
                 };
 
-                html.push_str(&format!(
-                    r#"
+                let _ = write!(
+                    html,
+                    r"
                     <tr>
                         <td>{name}</td>
                         <td>{mean:.2}</td>
@@ -455,33 +471,33 @@ impl HtmlReporter {
                         <td>{min:.2}</td>
                         <td>{max:.2}</td>
                         <td>{regression}</td>
-                    </tr>"#,
+                    </tr>",
                     name = perf.benchmark_name,
                     mean = perf.metrics.mean,
                     std_dev = perf.metrics.std_dev,
                     min = perf.metrics.min,
                     max = perf.metrics.max,
                     regression = regression
-                ));
+                );
             }
 
             html.push_str(
-                r#"
+                r"
                 </tbody>
-            </table>"#,
+            </table>",
             );
         }
 
         html.push_str(
-            r#"
-        </div>"#,
+            r"
+        </div>",
         );
 
         html
     }
 
     /// Generate code quality section
-    fn generate_code_quality(&self, report: &ValidationReport) -> String {
+    fn generate_code_quality(report: &ValidationReport) -> String {
         format!(
             r#"
         <div class="section">
@@ -523,7 +539,7 @@ impl HtmlReporter {
     }
 
     /// Generate recommendations section
-    fn generate_recommendations(&self, report: &ValidationReport) -> String {
+    fn generate_recommendations(report: &ValidationReport) -> String {
         let mut html = String::from(
             r#"
         <div class="section">
@@ -540,17 +556,17 @@ impl HtmlReporter {
             );
 
             for issue in critical_issues {
-                html.push_str(&format!(
-                    r#"
-                    <li>{}</li>"#,
-                    issue
-                ));
+                let _ = write!(
+                    html,
+                    r"
+                    <li>{issue}</li>"
+                );
             }
 
             html.push_str(
-                r#"
+                r"
                 </ul>
-            </div>"#,
+            </div>",
             );
         }
 
@@ -563,34 +579,34 @@ impl HtmlReporter {
             );
 
             for rec in &report.recommendations {
-                html.push_str(&format!(
-                    r#"
-                    <li>{}</li>"#,
-                    rec
-                ));
+                let _ = write!(
+                    html,
+                    r"
+                    <li>{rec}</li>"
+                );
             }
 
             html.push_str(
-                r#"
+                r"
                 </ul>
-            </div>"#,
+            </div>",
             );
         }
 
         html.push_str(
-            r#"
-        </div>"#,
+            r"
+        </div>",
         );
 
         html
     }
 
     /// Generate HTML footer
-    fn generate_footer(&self) -> String {
-        r#"
+    fn generate_footer() -> String {
+        r"
     </div>
 </body>
-</html>"#
+</html>"
             .to_string()
     }
 }
@@ -599,13 +615,13 @@ impl Reporter for HtmlReporter {
     fn generate_report(&self, report: &ValidationReport) -> Result<String> {
         let html = format!(
             "{}{}{}{}{}{}{}",
-            self.generate_header(report),
-            self.generate_summary(report),
-            self.generate_test_results(report),
-            self.generate_performance(report),
-            self.generate_code_quality(report),
-            self.generate_recommendations(report),
-            self.generate_footer()
+            Self::generate_header(report),
+            Self::generate_summary(report),
+            Self::generate_test_results(report),
+            Self::generate_performance(report),
+            Self::generate_code_quality(report),
+            Self::generate_recommendations(report),
+            Self::generate_footer()
         );
 
         Ok(html)

@@ -62,8 +62,7 @@ fn test_momentum_solver_pure_diffusion() -> Result<()> {
     }
 
     // Create solver with pure upwind (for comparison)
-    let grid = StructuredGrid2D::new(nx, ny, 0.0, channel_length, 0.0, channel_height)
-        ?;
+    let grid = StructuredGrid2D::new(nx, ny, 0.0, channel_length, 0.0, channel_height)?;
     let mut solver = MomentumSolver::with_convection_scheme(&grid, ConvectionScheme::Upwind);
 
     solver.set_boundary(
@@ -158,8 +157,7 @@ fn test_momentum_solver_deferred_correction() -> Result<()> {
     }
 
     // Create solver with deferred correction
-    let grid = StructuredGrid2D::new(nx, ny, 0.0, channel_length, 0.0, channel_height)
-        ?;
+    let grid = StructuredGrid2D::new(nx, ny, 0.0, channel_length, 0.0, channel_height)?;
     let mut solver = MomentumSolver::with_convection_scheme(
         &grid,
         ConvectionScheme::DeferredCorrectionQuick {

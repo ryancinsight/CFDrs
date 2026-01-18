@@ -13,7 +13,7 @@
 //! reference data within 5% L2 error. This is a standard CFD validation test.
 
 use cfd_2d::pressure_velocity::{PressureLinearSolver, PressureVelocityConfig};
-use cfd_core::error::Result;
+use cfd_core::error::{Error, Result};
 use cfd_validation::benchmarks::{Benchmark, BenchmarkConfig, LidDrivenCavity};
 
 /// Test Ghia cavity with GMRES solver at Re=100
@@ -36,7 +36,9 @@ fn test_ghia_cavity_re100_with_gmres() -> Result<()> {
     let result = cavity.run(&config)?;
 
     // Get Ghia reference data for Re=100
-    let (ref_y, ref_u) = cavity.ghia_reference_data(100.0)?;
+    let (ref_y, ref_u) = cavity
+        .ghia_reference_data(100.0)
+        .ok_or_else(|| Error::InvalidInput("Missing Ghia reference data for Re=100".to_string()))?;
 
     // Extract centerline u-velocity from result
     let n = config.resolution;

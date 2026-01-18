@@ -6,11 +6,22 @@
 extern crate cfd_2d;
 extern crate cfd_core;
 
-use cfd_core::error::ErrorContext;
 use cfd_2d::fields::SimulationFields;
 use cfd_2d::grid::StructuredGrid2D;
 use cfd_2d::physics::momentum::{MomentumComponent, MomentumSolver};
+use cfd_core::error::ErrorContext;
+use rayon::prelude::*;
+use std::sync::Once;
 use std::time::Instant;
+use tracing::{debug, info};
+
+static INIT: Once = Once::new();
+
+fn init_logging() {
+    INIT.call_once(|| {
+        let _ = tracing_subscriber::fmt().with_test_writer().try_init();
+    });
+}
 
 /// Analytical solution for Poiseuille flow
 /// u(y) = (1/2μ) * (dp/dx) * y * (H - y)
@@ -21,6 +32,7 @@ fn poiseuille_analytical(y: f64, height: f64, pressure_gradient: f64, viscosity:
 
 #[test]
 fn test_poiseuille_flow_convergence() -> Result<(), Box<dyn std::error::Error>> {
+    init_logging();
     let start = Instant::now();
 
     // Physical parameters
@@ -105,6 +117,7 @@ fn test_poiseuille_flow_convergence() -> Result<(), Box<dyn std::error::Error>> 
     let convergence_tolerance = 1e-1; // Relaxed tolerance for current solver limitations
     let mut converged = false;
 
+    info!("Starting Poiseuille flow simulation...");
     for step in 0..max_time_steps {
         let u_old = fields.u.clone();
 
@@ -118,17 +131,24 @@ fn test_poiseuille_flow_convergence() -> Result<(), Box<dyn std::error::Error>> 
             .context("Momentum V solve failed")?;
 
         // Check convergence
-        let mut max_change: f64 = 0.0;
-        for i in 0..nx {
-            for j in 0..ny {
-                let change = (fields.u.at(i, j) - u_old.at(i, j)).abs();
-                max_change = max_change.max(change);
-            }
-        }
+        // Optimized convergence checking using parallel reduction
+        let max_change = fields
+            .u
+            .data()
+            .par_iter()
+            .zip(u_old.data().par_iter())
+            .map(|(u, u_old)| (u - u_old).abs())
+            .reduce(|| 0.0, |a, b| a.max(b));
 
         if max_change < convergence_tolerance {
+            info!(step, "Converged");
             converged = true;
             break;
+        }
+
+        if step % 100 == 0 {
+            let u_center = fields.u.at(nx / 2, ny / 2);
+            debug!(step, max_change, u_center, "Convergence update");
         }
     }
 
@@ -139,8 +159,8 @@ fn test_poiseuille_flow_convergence() -> Result<(), Box<dyn std::error::Error>> 
     let mut max_error: f64 = 0.0;
     let mut l2_error: f64 = 0.0;
 
-    println!("\nComparing with analytical solution:");
-    println!("y\t\tu_numerical\tu_analytical\terror");
+    info!("Comparing with analytical solution:");
+    info!("y\t\tu_numerical\tu_analytical\terror");
 
     for j in 0..ny {
         let y = j as f64 * dy;
@@ -152,15 +172,18 @@ fn test_poiseuille_flow_convergence() -> Result<(), Box<dyn std::error::Error>> 
         l2_error += error * error * dy;
 
         if j % 5 == 0 {
-            println!("{y:.3}\t\t{u_numerical:.6}\t{u_analytical:.6}\t{error:.2e}");
+            info!(
+                "{:.3}\t\t{:.6}\t{:.6}\t{:.2e}",
+                y, u_numerical, u_analytical, error
+            );
         }
     }
 
     l2_error = l2_error.sqrt();
 
-    println!("\nError metrics:");
-    println!("Max error: {max_error:.2e}");
-    println!("L2 error: {l2_error:.2e}");
+    info!("Error metrics:");
+    info!("Max error: {:.2e}", max_error);
+    info!("L2 error: {:.2e}", l2_error);
 
     // RELAXED VALIDATION: Current solver has limitations for standalone momentum solving
     // Accept reasonable accuracy given solver constraints
@@ -182,7 +205,7 @@ fn test_poiseuille_flow_convergence() -> Result<(), Box<dyn std::error::Error>> 
     );
 
     let elapsed = start.elapsed();
-    println!("\nTest completed in {:.2} seconds", elapsed.as_secs_f64());
+    info!("Test completed in {:.2} seconds", elapsed.as_secs_f64());
 
     // Solver should take significant time for convergence (not immediate)
     assert!(
@@ -198,6 +221,7 @@ fn test_poiseuille_flow_convergence() -> Result<(), Box<dyn std::error::Error>> 
 
 #[test]
 fn test_poiseuille_mass_conservation() {
+    init_logging();
     // Test that mass is conserved in steady Poiseuille flow
     let nx = 21;
     let ny = 11;
@@ -231,7 +255,10 @@ fn test_poiseuille_mass_conservation() {
         }
     }
 
-    println!("Maximum divergence in Poiseuille flow: {max_divergence:.2e}");
+    info!(
+        "Maximum divergence in Poiseuille flow: {:.2e}",
+        max_divergence
+    );
     assert!(max_divergence < 1e-10, "Flow is not divergence-free");
 
     // Check mass flux conservation (inlet = outlet)
@@ -244,7 +271,10 @@ fn test_poiseuille_mass_conservation() {
     }
 
     let flux_error = (inlet_flux - outlet_flux).abs();
-    println!("Inlet flux: {inlet_flux:.6}, Outlet flux: {outlet_flux:.6}, Error: {flux_error:.2e}");
+    info!(
+        "Inlet flux: {:.6}, Outlet flux: {:.6}, Error: {:.2e}",
+        inlet_flux, outlet_flux, flux_error
+    );
 
     assert!(flux_error < 1e-10, "Mass flux not conserved");
 }

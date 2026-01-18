@@ -58,36 +58,40 @@ impl<T: RealField + Copy + FromPrimitive> VorticityChecker<T> {
                 // Convective term: u·∇ω
                 // Compute ∇ω using central differences on vorticity field
                 // First, compute vorticity at neighboring points
-                let omega_ip1 = ((v[(i + 2, j)] - v[(i, j)]) 
-                    / (<T as SafeFromF64>::from_f64_or_one(2.0) * dx)) 
-                    - ((u[(i + 1, j + 1)] - u[(i + 1, j - 1)]) 
-                    / (<T as SafeFromF64>::from_f64_or_one(2.0) * dy));
-                
-                let omega_im1 = ((v[(i, j)] - v[(i - 2, j)]) 
-                    / (<T as SafeFromF64>::from_f64_or_one(2.0) * dx)) 
-                    - ((u[(i - 1, j + 1)] - u[(i - 1, j - 1)]) 
-                    / (<T as SafeFromF64>::from_f64_or_one(2.0) * dy));
-                
-                let omega_jp1 = ((v[(i + 1, j + 1)] - v[(i - 1, j + 1)]) 
-                    / (<T as SafeFromF64>::from_f64_or_one(2.0) * dx)) 
-                    - ((u[(i, j + 2)] - u[(i, j)]) 
-                    / (<T as SafeFromF64>::from_f64_or_one(2.0) * dy));
-                
-                let omega_jm1 = ((v[(i + 1, j - 1)] - v[(i - 1, j - 1)]) 
-                    / (<T as SafeFromF64>::from_f64_or_one(2.0) * dx)) 
-                    - ((u[(i, j)] - u[(i, j - 2)]) 
-                    / (<T as SafeFromF64>::from_f64_or_one(2.0) * dy));
-                
-                let domega_dx = (omega_ip1 - omega_im1) 
-                    / (<T as SafeFromF64>::from_f64_or_one(2.0) * dx);
-                let domega_dy = (omega_jp1 - omega_jm1) 
-                    / (<T as SafeFromF64>::from_f64_or_one(2.0) * dy);
+                let omega_ip1 = ((v[(i + 2, j)] - v[(i, j)])
+                    / (<T as SafeFromF64>::from_f64_or_one(2.0) * dx))
+                    - ((u[(i + 1, j + 1)] - u[(i + 1, j - 1)])
+                        / (<T as SafeFromF64>::from_f64_or_one(2.0) * dy));
+
+                let omega_im1 = ((v[(i, j)] - v[(i - 2, j)])
+                    / (<T as SafeFromF64>::from_f64_or_one(2.0) * dx))
+                    - ((u[(i - 1, j + 1)] - u[(i - 1, j - 1)])
+                        / (<T as SafeFromF64>::from_f64_or_one(2.0) * dy));
+
+                let omega_jp1 = ((v[(i + 1, j + 1)] - v[(i - 1, j + 1)])
+                    / (<T as SafeFromF64>::from_f64_or_one(2.0) * dx))
+                    - ((u[(i, j + 2)] - u[(i, j)])
+                        / (<T as SafeFromF64>::from_f64_or_one(2.0) * dy));
+
+                let omega_jm1 = ((v[(i + 1, j - 1)] - v[(i - 1, j - 1)])
+                    / (<T as SafeFromF64>::from_f64_or_one(2.0) * dx))
+                    - ((u[(i, j)] - u[(i, j - 2)])
+                        / (<T as SafeFromF64>::from_f64_or_one(2.0) * dy));
+
+                let domega_dx =
+                    (omega_ip1 - omega_im1) / (<T as SafeFromF64>::from_f64_or_one(2.0) * dx);
+                let domega_dy =
+                    (omega_jp1 - omega_jm1) / (<T as SafeFromF64>::from_f64_or_one(2.0) * dy);
                 let u_dot_grad_omega = u[(i, j)] * domega_dx + v[(i, j)] * domega_dy;
 
                 // Viscous diffusion: ν∇²ω
                 // Use proper second-order central differences for Laplacian
-                let d2omega_dx2 = (omega_ip1 - <T as SafeFromF64>::from_f64_or_one(2.0) * omega + omega_im1) / (dx * dx);
-                let d2omega_dy2 = (omega_jp1 - <T as SafeFromF64>::from_f64_or_one(2.0) * omega + omega_jm1) / (dy * dy);
+                let d2omega_dx2 = (omega_ip1 - <T as SafeFromF64>::from_f64_or_one(2.0) * omega
+                    + omega_im1)
+                    / (dx * dx);
+                let d2omega_dy2 = (omega_jp1 - <T as SafeFromF64>::from_f64_or_one(2.0) * omega
+                    + omega_jm1)
+                    / (dy * dy);
                 let viscous_diffusion = viscosity * (d2omega_dx2 + d2omega_dy2);
 
                 // Vorticity transport equation residual: ∂ω/∂t + u·∇ω - ν∇²ω

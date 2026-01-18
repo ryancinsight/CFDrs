@@ -12,7 +12,7 @@ fn main() {
 
     // Initialize unified compute
     match UnifiedCompute::new() {
-        Ok(compute) => {
+        Ok(mut compute) => {
             println!("✅ Compute initialization successful!");
 
             match compute.backend() {

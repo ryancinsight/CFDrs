@@ -12,7 +12,7 @@
 use super::analysis::RegressionAlert;
 use super::scaling::ScalingResult;
 use super::{BenchmarkResult, BenchmarkStatus};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fmt::Write as _;
 
@@ -1059,16 +1059,15 @@ impl HtmlReportGenerator {
         }
 
         // Collect all unique processor counts to define the X-axis
-        let mut all_processor_counts = Vec::new();
+        let mut all_processor_counts_set = HashSet::new();
         for result in &scaling_benchmarks {
             if let Some(scaling) = &result.scaling {
                 for &count in &scaling.processor_counts {
-                    if !all_processor_counts.contains(&count) {
-                        all_processor_counts.push(count);
-                    }
+                    all_processor_counts_set.insert(count);
                 }
             }
         }
+        let mut all_processor_counts: Vec<_> = all_processor_counts_set.into_iter().collect();
         all_processor_counts.sort_unstable();
 
         if all_processor_counts.is_empty() {

@@ -3,10 +3,10 @@
 //! Analyzes weak and strong scaling behavior, parallel efficiency,
 //! and identifies scaling bottlenecks in CFD algorithms.
 
+use crate::benchmarks::{Benchmark, BenchmarkConfig, LidDrivenCavity};
 use cfd_core::error::{Error, Result};
 use std::collections::HashMap;
 use std::time::Instant;
-use crate::benchmarks::{Benchmark, BenchmarkConfig, BenchmarkSuite, LidDrivenCavity};
 
 /// Scaling analysis result
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -154,7 +154,7 @@ impl ScalingAnalysis {
             .iter()
             .map(|&p| (problem_size, p))
             .collect();
-        let metrics = self.calculate_scaling_metrics(&keys, &parallel_efficiency);
+        let metrics = self.calculate_scaling_metrics(&keys, &parallel_efficiency, &execution_times);
 
         Ok(ScalingResult {
             scaling_type: ScalingType::Strong,
@@ -211,7 +211,7 @@ impl ScalingAnalysis {
         }
 
         let keys: Vec<(usize, usize)> = scaling_results.iter().map(|(p, s, _)| (*s, *p)).collect();
-        let metrics = self.calculate_scaling_metrics(&keys, &parallel_efficiency);
+        let metrics = self.calculate_scaling_metrics(&keys, &parallel_efficiency, &execution_times);
 
         Ok(ScalingResult {
             scaling_type: ScalingType::Weak,
@@ -229,6 +229,7 @@ impl ScalingAnalysis {
         &self,
         keys: &[(usize, usize)],
         parallel_efficiency: &HashMap<(usize, usize), f64>,
+        execution_times: &HashMap<(usize, usize), f64>,
     ) -> ScalingMetrics {
         let mut total_efficiency = 0.0;
         let mut count = 0;
@@ -273,19 +274,22 @@ impl ScalingAnalysis {
         let communication_overhead = if keys.len() > 1 {
             // Calculate communication overhead from timing patterns
             let mut comm_overheads = Vec::new();
-            
-            for (problem_size, procs) in &keys {
+
+            for (problem_size, procs) in keys {
                 if *procs > 1 {
                     let serial_time = execution_times.get(&(*problem_size, 1)).unwrap_or(&1.0);
-                    let parallel_time = execution_times.get(&(*problem_size, *procs)).unwrap_or(&1.0);
+                    let parallel_time = execution_times
+                        .get(&(*problem_size, *procs))
+                        .unwrap_or(&1.0);
                     let ideal_parallel_time = serial_time / *procs as f64;
-                    
+
                     // Communication overhead = actual parallel time - ideal parallel time
-                    let comm_overhead = (parallel_time - ideal_parallel_time).max(0.0) / parallel_time;
+                    let comm_overhead =
+                        (parallel_time - ideal_parallel_time).max(0.0) / parallel_time;
                     comm_overheads.push(comm_overhead);
                 }
             }
-            
+
             if comm_overheads.is_empty() {
                 0.0
             } else {
@@ -298,7 +302,8 @@ impl ScalingAnalysis {
         // Estimate load imbalance from measured workload distribution variance
         let load_imbalance = if keys.len() > 2 {
             // Calculate variance in parallel efficiency across different processor counts
-            let efficiency_values: Vec<f64> = keys.iter()
+            let efficiency_values: Vec<f64> = keys
+                .iter()
                 .filter_map(|(_, procs)| {
                     if *procs > 1 {
                         parallel_efficiency.get(&(*procs, *procs)).copied()
@@ -307,14 +312,17 @@ impl ScalingAnalysis {
                     }
                 })
                 .collect();
-                
+
             if efficiency_values.len() < 2 {
                 0.0
             } else {
-                let mean_efficiency = efficiency_values.iter().sum::<f64>() / efficiency_values.len() as f64;
-                let variance = efficiency_values.iter()
+                let mean_efficiency =
+                    efficiency_values.iter().sum::<f64>() / efficiency_values.len() as f64;
+                let variance = efficiency_values
+                    .iter()
                     .map(|&e| (e - mean_efficiency).powi(2))
-                    .sum::<f64>() / efficiency_values.len() as f64;
+                    .sum::<f64>()
+                    / efficiency_values.len() as f64;
                 variance.sqrt() // Standard deviation as load imbalance metric
             }
         } else {
@@ -415,10 +423,10 @@ impl CfdScalingAnalysis {
     /// Analyze CFD solver scaling behavior using real benchmark data
     pub fn analyze_cfd_solver_scaling(&self) -> Result<ScalingResult> {
         let mut timing_data = Vec::new();
-        
+
         // Use lid-driven cavity benchmark for scaling analysis
         let cavity = LidDrivenCavity::new(1.0_f64, 1.0_f64);
-        
+
         // Test strong scaling: fixed problem size (64x64 grid) with varying thread counts
         let base_config = BenchmarkConfig {
             resolution: 64,
@@ -428,55 +436,74 @@ impl CfdScalingAnalysis {
             time_step: None,
             parallel: false, // We'll control parallelism manually
         };
-        
+
         for &num_threads in &[1, 2, 4, 8, 16] {
             // Set thread pool size for this measurement
             let _guard = if num_threads > 1 {
-                Some(rayon::ThreadPoolBuilder::new()
-                    .num_threads(num_threads)
-                    .build()
-                    .map_err(|e| Error::validation(format!("Failed to create thread pool: {}", e)))?)
+                Some(
+                    rayon::ThreadPoolBuilder::new()
+                        .num_threads(num_threads)
+                        .build()
+                        .map_err(|e| {
+                            Error::InvalidConfiguration(format!(
+                                "Failed to create thread pool: {e}"
+                            ))
+                        })?,
+                )
             } else {
                 None
             };
-            
+
             // Measure actual execution time
             let start = Instant::now();
             let result = cavity.run(&base_config)?;
             let exec_time = start.elapsed().as_secs_f64();
-            
+
             timing_data.push((num_threads, exec_time));
-            
+
             // Store timing metadata for analysis
-            println!("Thread count: {}, Time: {:.4}s, Iterations: {}", 
-                    num_threads, exec_time, result.metadata.get("iterations").unwrap_or(&"N/A".to_string()));
+            println!(
+                "Thread count: {}, Time: {:.4}s, Iterations: {}",
+                num_threads,
+                exec_time,
+                result
+                    .metadata
+                    .get("iterations")
+                    .unwrap_or(&"N/A".to_string())
+            );
         }
-        
+
         self.analyzer.analyze_strong_scaling(4096, &timing_data) // 64x64 = 4096 cells
     }
 
     /// Analyze CFD grid scaling behavior using real measurements
     pub fn analyze_grid_scaling(&self) -> Result<ScalingResult> {
         let mut scaling_data = Vec::new();
-        
+
         // Use lid-driven cavity for weak scaling analysis
         let cavity = LidDrivenCavity::new(1.0_f64, 1.0_f64);
-        
+
         for &num_threads in &[1, 2, 4, 8] {
             // Set thread pool size for this measurement
             let _guard = if num_threads > 1 {
-                Some(rayon::ThreadPoolBuilder::new()
-                    .num_threads(num_threads)
-                    .build()
-                    .map_err(|e| Error::validation(format!("Failed to create thread pool: {}", e)))?)
+                Some(
+                    rayon::ThreadPoolBuilder::new()
+                        .num_threads(num_threads)
+                        .build()
+                        .map_err(|e| {
+                            Error::InvalidConfiguration(format!(
+                                "Failed to create thread pool: {e}"
+                            ))
+                        })?,
+                )
             } else {
                 None
             };
-            
+
             // Weak scaling: problem size scales with thread count
             let resolution = 32 * num_threads; // Base 32x32 per thread
             let problem_size = resolution * resolution;
-            
+
             let config = BenchmarkConfig {
                 resolution,
                 tolerance: 1e-6,
@@ -485,12 +512,12 @@ impl CfdScalingAnalysis {
                 time_step: None,
                 parallel: false,
             };
-            
+
             // Measure execution time and communication patterns
             let start = Instant::now();
-            let result = cavity.run(&config)?;
+            let _result = cavity.run(&config)?;
             let exec_time = start.elapsed().as_secs_f64();
-            
+
             // Model communication overhead from measured timing patterns
             let base_time_per_cell = exec_time / problem_size as f64;
             let comm_overhead = if num_threads > 1 {
@@ -502,13 +529,14 @@ impl CfdScalingAnalysis {
             } else {
                 0.0
             };
-            
+
             scaling_data.push((num_threads, problem_size, exec_time));
-            
-            println!("Threads: {}, Grid: {}x={}, Cells: {}, Time: {:.4}s, Comm overhead: {:.4}s", 
-                    num_threads, resolution, resolution, problem_size, exec_time, comm_overhead);
+
+            println!(
+                "Threads: {num_threads}, Grid: {resolution}x{resolution}, Cells: {problem_size}, Time: {exec_time:.4}s, Comm overhead: {comm_overhead:.4}s"
+            );
         }
-        
+
         self.analyzer.analyze_weak_scaling(&scaling_data)
     }
 

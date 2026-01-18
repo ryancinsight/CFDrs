@@ -56,8 +56,16 @@ impl<T: RealField + Copy + FromPrimitive> ManufacturedConjugateHeatTransfer<T> {
     /// Evaluate temperature in solid domain (x > interface_x)
     pub fn solid_temperature(&self, x: T, y: T, t: T) -> T {
         let base = ManufacturedFunctions::sinusoidal(x, y, t, self.frequency, self.frequency);
-        // Remove conductivity_ratio to ensure continuity at interface
-        self.amplitude * base
+        let base_interface = ManufacturedFunctions::sinusoidal(
+            self.interface_x,
+            y,
+            t,
+            self.frequency,
+            self.frequency,
+        );
+        let inv_k_ratio = T::one() / self.conductivity_ratio;
+
+        self.amplitude * (base_interface + (base - base_interface) * inv_k_ratio)
     }
 }
 
@@ -107,13 +115,26 @@ impl<T: RealField + Copy + FromPrimitive> ManufacturedConjugateHeatTransfer<T> {
         // Time derivative
         let dt_dt = -t_exact;
 
-        // Laplacian
-        let kx_sq = self.frequency * self.frequency;
-        let ky_sq = self.frequency * self.frequency;
-        let laplacian = -(kx_sq + ky_sq) * t_exact;
+        let base = ManufacturedFunctions::sinusoidal(x, y, t, self.frequency, self.frequency);
+        let base_interface = ManufacturedFunctions::sinusoidal(
+            self.interface_x,
+            y,
+            t,
+            self.frequency,
+            self.frequency,
+        );
+
+        let k_sq = self.frequency * self.frequency;
+        let laplacian_base = -(k_sq + k_sq) * base;
+        let laplacian_base_interface = -k_sq * base_interface;
+
+        let inv_k_ratio = T::one() / self.conductivity_ratio;
+        let laplacian_adjusted = laplacian_base_interface
+            + (laplacian_base - laplacian_base_interface) * inv_k_ratio;
+        let laplacian_t = self.amplitude * laplacian_adjusted;
 
         // Source = ∂T/∂t - α_s ∇²T
-        dt_dt - alpha_s * laplacian
+        dt_dt - alpha_s * laplacian_t
     }
 }
 
@@ -246,33 +267,33 @@ impl<T: RealField + Copy> ManufacturedMHD<T> {
         let spatial_u = ManufacturedFunctions::sinusoidal(x, y, z, self.kx, self.ky);
         let spatial_v = ManufacturedFunctions::sinusoidal(x, y, z, self.ky, self.kx);
         let spatial_w = ManufacturedFunctions::sinusoidal(x, y, z, self.kx, self.kx);
-        
+
         // Temporal decay
         let temporal = nalgebra::ComplexField::exp(-t);
-        
+
         // Velocity field components
         let u = self.velocity_amp * spatial_u * temporal;
         let v = self.velocity_amp * spatial_v * temporal * T::from_f64(0.5).unwrap();
         let w = self.velocity_amp * spatial_w * temporal * T::from_f64(0.25).unwrap();
-        
+
         // Magnetic field components (perpendicular to velocity for interesting dynamics)
         let bx = self.magnetic_amp * spatial_v * temporal;
         let by = self.magnetic_amp * spatial_u * temporal;
         let bz = self.magnetic_amp * spatial_w * temporal * T::from_f64(0.1).unwrap();
-        
+
         // Pressure field (from momentum equation)
         let pressure = self.density * (u * u + v * v + w * w) * T::from_f64(0.5).unwrap();
-        
+
         // Current density J = σ(E + u × B), assuming E = 0 for simplicity
         let jx = self.sigma * (v * bz - w * by);
         let jy = self.sigma * (w * bx - u * bz);
         let jz = self.sigma * (u * by - v * bx);
-        
+
         // Lorentz force F = J × B
         let fx = jy * bz - jz * by;
         let fy = jz * bx - jx * bz;
         let fz = jx * by - jy * bx;
-        
+
         MHDVectorFields {
             velocity: (u, v, w),
             magnetic: (bx, by, bz),
@@ -287,20 +308,20 @@ impl<T: RealField + Copy> ManufacturedMHD<T> {
         let fields = self.compute_vector_fields(x, y, z, t);
         let (u, v, w) = fields.velocity;
         let (fx, _, _) = fields.lorentz_force;
-        
+
         // Time derivative
         let du_dt = -u; // From exp(-t) temporal decay
-        
+
         // Convective terms (u·∇)u
         let convective = u * self.kx * u + v * self.ky * u + w * self.kx * u;
-        
+
         // Viscous terms ν∇²u
         let k_squared = self.kx * self.kx + self.ky * self.ky + self.kx * self.kx;
         let viscous = -self.viscosity * k_squared * u;
-        
+
         // Pressure gradient
         let pressure_grad_x = self.density * self.kx * fields.pressure;
-        
+
         // Source term to make MMS work
         du_dt - convective + pressure_grad_x / self.density - viscous - fx / self.density
     }
@@ -308,22 +329,22 @@ impl<T: RealField + Copy> ManufacturedMHD<T> {
     /// Compute momentum source term for y-component
     pub fn momentum_source_y(&self, x: T, y: T, z: T, t: T) -> T {
         let fields = self.compute_vector_fields(x, y, z, t);
-        let (_, v, _) = fields.velocity;
+        let (u, v, w) = fields.velocity;
         let (_, fy, _) = fields.lorentz_force;
-        
+
         // Time derivative
         let dv_dt = -v * T::from_f64(0.5).unwrap();
-        
+
         // Convective terms
         let convective = u * self.kx * v + v * self.ky * v + w * self.kx * v;
-        
+
         // Viscous terms
         let k_squared = self.kx * self.kx + self.ky * self.ky + self.kx * self.kx;
         let viscous = -self.viscosity * k_squared * v;
-        
+
         // Pressure gradient
         let pressure_grad_y = self.density * self.ky * fields.pressure;
-        
+
         // Source term
         dv_dt - convective + pressure_grad_y / self.density - viscous - fy / self.density
     }
@@ -331,22 +352,22 @@ impl<T: RealField + Copy> ManufacturedMHD<T> {
     /// Compute momentum source term for z-component
     pub fn momentum_source_z(&self, x: T, y: T, z: T, t: T) -> T {
         let fields = self.compute_vector_fields(x, y, z, t);
-        let (_, _, w) = fields.velocity;
+        let (u, v, w) = fields.velocity;
         let (_, _, fz) = fields.lorentz_force;
-        
+
         // Time derivative
         let dw_dt = -w * T::from_f64(0.25).unwrap();
-        
+
         // Convective terms
         let convective = u * self.kx * w + v * self.ky * w + w * self.kx * w;
-        
+
         // Viscous terms
         let k_squared = self.kx * self.kx + self.ky * self.ky + self.kx * self.kx;
         let viscous = -self.viscosity * k_squared * w;
-        
+
         // Pressure gradient (assuming no variation in z for pressure)
         let pressure_grad_z = T::zero();
-        
+
         // Source term
         dw_dt - convective + pressure_grad_z / self.density - viscous - fz / self.density
     }
@@ -355,34 +376,34 @@ impl<T: RealField + Copy> ManufacturedMHD<T> {
     pub fn induction_source(&self, x: T, y: T, z: T, t: T) -> (T, T, T) {
         let fields = self.compute_vector_fields(x, y, z, t);
         let (bx, by, bz) = fields.magnetic;
-        let (u, v, w) = fields.velocity;
-        
+        let (u, v, _w) = fields.velocity;
+
         // Induction equation: ∂B/∂t = ∇×(u×B) + η∇²B
         // where η = 1/(μ₀σ) is magnetic diffusivity
-        
+
         let magnetic_diffusivity = T::one() / (self.mu_0 * self.sigma);
         let k_squared = self.kx * self.kx + self.ky * self.ky + self.kx * self.kx;
-        
+
         // Time derivatives
         let dbx_dt = -bx;
         let dby_dt = -by;
         let dbz_dt = -bz * T::from_f64(0.1).unwrap();
-        
+
         // Diffusion terms
         let diff_x = magnetic_diffusivity * k_squared * bx;
         let diff_y = magnetic_diffusivity * k_squared * by;
         let diff_z = magnetic_diffusivity * k_squared * bz;
-        
+
         // Advection terms (simplified)
         let adv_x = u * self.kx * bx + v * self.ky * bx;
         let adv_y = u * self.kx * by + v * self.ky * by;
         let adv_z = u * self.kx * bz + v * self.ky * bz;
-        
+
         // Source terms
         let sx = dbx_dt - adv_x + diff_x;
         let sy = dby_dt - adv_y + diff_y;
         let sz = dbz_dt - adv_z + diff_z;
-        
+
         (sx, sy, sz)
     }
 }
@@ -475,7 +496,7 @@ mod tests {
         assert!(t_fluid > 0.0);
         assert!(t_solid > 0.0);
         assert!(t_fluid.abs() < 2.0);
-        assert!(t_solid.abs() < 20.0); // Solid should have larger amplitude
+        assert!(t_solid.abs() < 2.0);
 
         // Test source terms
         let s_fluid = cht.source_term(0.25, 0.5, 0.0, 1.0);
@@ -509,19 +530,19 @@ mod tests {
     #[test]
     fn test_mhd() {
         let mhd = ManufacturedMHD::<f64>::new(
-            1.0, // mu_0
-            1.0, // sigma
-            1.0, // velocity amplitude
-            0.1, // magnetic amplitude
-            1.0, // kx
-            1.0, // ky
-            1.0, // density
+            1.0,  // mu_0
+            1.0,  // sigma
+            1.0,  // velocity amplitude
+            0.1,  // magnetic amplitude
+            1.0,  // kx
+            1.0,  // ky
+            1.0,  // density
             0.01, // viscosity
         );
 
         let u = mhd.exact_solution(0.5, 0.5, 0.0, 1.0);
         let source = mhd.source_term(0.5, 0.5, 0.0, 1.0);
-        
+
         // Test vector fields
         let fields = mhd.compute_vector_fields(0.5, 0.5, 0.0, 1.0);
         let (vel_x, vel_y, vel_z) = fields.velocity;
@@ -533,13 +554,13 @@ mod tests {
         assert!(vel_x.is_finite() && vel_y.is_finite() && vel_z.is_finite());
         assert!(mag_x.is_finite() && mag_y.is_finite() && mag_z.is_finite());
         assert!(fx.is_finite() && fy.is_finite() && fz.is_finite());
-        
+
         // Test source terms
         let src_x = mhd.momentum_source_x(0.5, 0.5, 0.0, 1.0);
         let src_y = mhd.momentum_source_y(0.5, 0.5, 0.0, 1.0);
         let src_z = mhd.momentum_source_z(0.5, 0.5, 0.0, 1.0);
         let (ind_x, ind_y, ind_z) = mhd.induction_source(0.5, 0.5, 0.0, 1.0);
-        
+
         assert!(src_x.is_finite() && src_y.is_finite() && src_z.is_finite());
         assert!(ind_x.is_finite() && ind_y.is_finite() && ind_z.is_finite());
     }

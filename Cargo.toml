@@ -126,6 +126,7 @@ wgpu = { version = "0.19", optional = true }
 mpi = { version = "0.8", optional = true, default-features = false }
 rand.workspace = true
 tracing = { workspace = true }
+rayon.workspace = true
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
@@ -134,7 +135,6 @@ approx = "0.5"
 nalgebra-sparse = "0.10"
 serde_json.workspace = true
 serde = { workspace = true, features = ["derive"] }
-rayon.workspace = true
 chrono = { version = "0.4", features = ["serde"] }
 num_cpus = "1.17"
 tracing-subscriber = { workspace = true }

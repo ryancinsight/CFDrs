@@ -253,7 +253,7 @@ fn demonstrate_combined_turbulence_adaptive(
             // DEPENDENCIES: Add turbulence-specific solution validation and convergence criteria
             // BLOCKED BY: No framework for turbulence solution assessment
             // PRIORITY: Medium - Important for turbulence model validation
-            &DVector::from_vec(vec![1.0]),                // Placeholder solution
+            &DVector::from_vec(vec![1.0]), // Placeholder solution
             t,
         );
 

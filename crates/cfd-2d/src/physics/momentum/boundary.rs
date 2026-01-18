@@ -78,7 +78,7 @@
 
 use super::solver::MomentumComponent;
 use crate::grid::traits::Grid2D;
-use cfd_core::physics::boundary::BoundaryCondition;
+use cfd_core::physics::boundary::{BoundaryCondition, BoundaryError};
 use cfd_math::sparse::SparseMatrixBuilder;
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
@@ -141,6 +141,114 @@ where
             "north" => apply_north_boundary(matrix, rhs, bc, component, grid, nx, ny)?,
             "south" => apply_south_boundary(matrix, rhs, bc, component, grid, nx, ny)?,
             _ => {}
+        }
+    }
+
+    Ok(())
+}
+
+/// Get the Dirichlet value for a boundary condition and component
+fn get_dirichlet_value<T: RealField + Copy>(
+    bc: &BoundaryCondition<T>,
+    component: MomentumComponent,
+) -> Option<T> {
+    match bc {
+        BoundaryCondition::Dirichlet { value } => Some(*value),
+        BoundaryCondition::VelocityInlet { velocity } => {
+            let idx = match component {
+                MomentumComponent::U => 0,
+                MomentumComponent::V => 1,
+            };
+            Some(velocity[idx])
+        }
+        BoundaryCondition::Wall { wall_type } => match wall_type {
+            cfd_core::physics::boundary::WallType::NoSlip => Some(T::zero()),
+            cfd_core::physics::boundary::WallType::Moving { velocity } => {
+                let idx = match component {
+                    MomentumComponent::U => 0,
+                    MomentumComponent::V => 1,
+                };
+                Some(velocity[idx])
+            }
+            // Rotating walls have spatially varying Dirichlet values, handled separately or ignored for simple consistency check
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
+/// Validate boundary condition consistency
+pub fn validate_boundary_consistency<T, S>(
+    boundaries: &HashMap<String, BoundaryCondition<T>, S>,
+    _grid: &crate::grid::StructuredGrid2D<T>,
+) -> Result<(), BoundaryError>
+where
+    T: RealField + Copy + FromPrimitive,
+    S: BuildHasher,
+{
+    // 1. Check for required boundaries
+    for direction in &["north", "south", "east", "west"] {
+        if !boundaries.contains_key(*direction) {
+            return Err(BoundaryError::InvalidRegion(format!(
+                "Missing required boundary: {direction}"
+            )));
+        }
+    }
+
+    // 2. Check Periodic Partners
+    for (name, bc) in boundaries {
+        if let BoundaryCondition::Periodic { partner } = bc {
+            // Check if partner exists
+            if !boundaries.contains_key(partner) {
+                return Err(BoundaryError::InvalidRegion(format!(
+                    "Periodic partner '{partner}' not found for boundary '{name}'"
+                )));
+            }
+            // Check reciprocal partnership
+            if let Some(partner_bc) = boundaries.get(partner) {
+                if let BoundaryCondition::Periodic { partner: p2 } = partner_bc {
+                    if p2 != name {
+                        return Err(BoundaryError::InvalidRegion(format!(
+                            "Periodic mismatch: '{name}' points to '{partner}', but '{partner}' points to '{p2}'"
+                        )));
+                    }
+                } else {
+                    return Err(BoundaryError::InvalidRegion(format!(
+                        "Periodic partner '{partner}' is not periodic"
+                    )));
+                }
+            }
+        }
+    }
+
+    // 3. Check Corner Consistency (Dirichlet conflicts)
+    // Corners: (West, South), (East, South), (West, North), (East, North)
+    // We check both U and V components
+    let corners = [
+        ("west", "south"),
+        ("east", "south"),
+        ("west", "north"),
+        ("east", "north"),
+    ];
+
+    for (b1_name, b2_name) in corners {
+        let b1 = boundaries.get(b1_name).unwrap();
+        let b2 = boundaries.get(b2_name).unwrap();
+
+        for component in [MomentumComponent::U, MomentumComponent::V] {
+            if let (Some(v1), Some(v2)) = (
+                get_dirichlet_value(b1, component),
+                get_dirichlet_value(b2, component),
+            ) {
+                let diff = (v1 - v2).abs();
+                let epsilon = T::default_epsilon() * T::from_f64(100.0).unwrap(); // Loose tolerance
+                if diff > epsilon {
+                    // We interpret this as a conflict
+                    return Err(BoundaryError::InvalidRegion(format!(
+                        "Corner conflict at {b1_name}-{b2_name}: Component {component:?} values mismatch ({v1:?} vs {v2:?})"
+                    )));
+                }
+            }
         }
     }
 

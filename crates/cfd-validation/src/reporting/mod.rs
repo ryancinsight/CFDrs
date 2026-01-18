@@ -285,7 +285,7 @@ impl AutomatedReporter {
 
         // Parse test output to extract categories and details
         let test_categories = Self::extract_test_categories(test_output)?;
-        
+
         for category in test_categories {
             builder = builder.add_test_category(category);
         }
@@ -323,9 +323,12 @@ impl AutomatedReporter {
                     // Extract numbers from patterns like:
                     // "test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out"
                     // "test result: FAILED. 9 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out"
-                    
-                    let clean_line = line.replace("test result:", "").replace("ok.", "").replace("FAILED.", "");
-                    
+
+                    let clean_line = line
+                        .replace("test result:", "")
+                        .replace("ok.", "")
+                        .replace("FAILED.", "");
+
                     for part in clean_line.split(';') {
                         let part = part.trim();
                         if part.contains("passed") {
@@ -362,7 +365,7 @@ impl AutomatedReporter {
                     }
                 }
             }
-            
+
             // Parse duration from lines like "test ... ... ok 1.23s" or "test ... ... FAILED 0.45s"
             if (line.contains(" ok ") || line.contains(" FAILED ")) && line.contains('s') {
                 let parts: Vec<&str> = line.split_whitespace().collect();
@@ -374,7 +377,8 @@ impl AutomatedReporter {
             }
         }
 
-        let total_tests = passed_tests + failed_tests + ignored_tests + measured_tests + filtered_tests;
+        let total_tests =
+            passed_tests + failed_tests + ignored_tests + measured_tests + filtered_tests;
 
         Ok(ValidationSummary {
             total_tests,
@@ -393,7 +397,7 @@ impl AutomatedReporter {
     /// Extract test categories from cargo test output
     fn extract_test_categories(test_output: &str) -> Result<Vec<TestCategory>> {
         let mut categories = std::collections::HashMap::new();
-        
+
         // Parse individual test results to categorize them
         for line in test_output.lines() {
             if line.starts_with("test ") && (line.contains(" ok ") || line.contains(" FAILED ")) {
@@ -401,100 +405,122 @@ impl AutomatedReporter {
                 let parts: Vec<&str> = line.split_whitespace().collect();
                 if parts.len() >= 3 {
                     let test_name = parts[1];
-                    
+
                     // Determine category based on test name patterns
-                    let category = if test_name.contains("mms") || test_name.contains("manufactured") {
+                    let category = if test_name.contains("mms")
+                        || test_name.contains("manufactured")
+                    {
                         "MMS Validation"
-                    } else if test_name.contains("turbulent") || test_name.contains("k_omega") || test_name.contains("reynolds") {
+                    } else if test_name.contains("turbulent")
+                        || test_name.contains("k_omega")
+                        || test_name.contains("reynolds")
+                    {
                         "Turbulent Flow"
                     } else if test_name.contains("ghia") || test_name.contains("cavity") {
                         "Benchmark Validation"
                     } else if test_name.contains("poiseuille") || test_name.contains("channel") {
                         "Fundamental Flows"
-                    } else if test_name.contains("richardson") || test_name.contains("convergence") {
+                    } else if test_name.contains("richardson") || test_name.contains("convergence")
+                    {
                         "Convergence Analysis"
                     } else {
                         "General Tests"
                     };
-                    
-                    let entry = categories.entry(category.to_string()).or_insert((
-                        0, 0, 0, Vec::new()
-                    ));
-                    
-                    let (passed, failed, details) = entry;
-                    *passed += if line.contains(" ok ") { 1 } else { 0 };
-                    *failed += if line.contains(" FAILED ") { 1 } else { 0 };
-                    
+
+                    let entry =
+                        categories
+                            .entry(category.to_string())
+                            .or_insert((0, 0, 0, Vec::new()));
+
+                    let (passed, failed, _skipped, details) = entry;
+                    *passed += usize::from(line.contains(" ok "));
+                    *failed += usize::from(line.contains(" FAILED "));
+
                     // Add test detail
-                    let status = if line.contains(" ok ") { "PASSED" } else { "FAILED" };
-                    let duration = if let Some(last_part) = parts.last() {
-                        last_part.trim_end_matches('s').to_string()
+                    let status = if line.contains(" ok ") {
+                        TestStatus::Passed
                     } else {
-                        "N/A".to_string()
+                        TestStatus::Failed
                     };
-                    
-                    details.push(TestDetail {
+                    let duration_ms = if let Some(last_part) = parts.last() {
+                        last_part
+                            .trim_end_matches('s')
+                            .parse::<f64>()
+                            .unwrap_or(0.0)
+                            * 1000.0
+                    } else {
+                        0.0
+                    };
+
+                    details.push(TestResult {
                         name: test_name.to_string(),
-                        status: status.to_string(),
-                        duration: format!("{}s", duration),
+                        status,
+                        duration_ms,
                         error_message: None,
+                        coverage_data: None,
                     });
                 }
             }
         }
-        
+
         // Convert to TestCategory structs
         let mut result = Vec::new();
-        for (name, (passed, failed, details)) in categories {
+        for (name, (passed, failed, skipped, details)) in categories {
             let total = passed + failed;
-            let coverage_percentage = if total > 0 { (passed as f64 / total as f64) * 100.0 } else { 0.0 };
-            
+            let coverage_percentage = if total > 0 {
+                (passed as f64 / total as f64) * 100.0
+            } else {
+                0.0
+            };
+
             result.push(TestCategory {
                 name,
                 passed,
                 failed,
-                skipped: 0,
+                skipped,
                 total,
                 coverage_percentage,
                 details,
             });
         }
-        
+
         Ok(result)
     }
 
     /// Derive code quality metrics from test output and available tooling
     fn derive_code_quality_metrics(test_output: &str) -> Result<CodeQualityReport> {
         // Extract timing information for performance metrics
-        let total_duration = Self::extract_total_duration(test_output);
-        
+        let _total_duration = Self::extract_total_duration(test_output);
+
         // Parse compiler warnings from output
-        let compiler_warnings = test_output.lines()
+        let _compiler_warnings = test_output
+            .lines()
             .filter(|line| line.contains("warning:") || line.contains("warning:"))
             .count();
-        
-        // Parse compiler errors from output  
-        let compiler_errors = test_output.lines()
+
+        // Parse compiler errors from output
+        let compiler_errors = test_output
+            .lines()
             .filter(|line| line.contains("error:") || line.contains("error:"))
             .count();
-        
+
         // For now, use reasonable defaults for metrics that require external tools
         // In a full implementation, these would be derived from actual tool outputs
         Ok(CodeQualityReport {
             lines_of_code: 15420, // Would be derived from `wc -l` or similar
             test_coverage: Self::calculate_test_coverage(test_output),
             documentation_coverage: 73.2, // Would be derived from documentation analysis
-            clippy_warnings: 3, // Would be derived from `cargo clippy` output
-            compiler_errors: compiler_errors as u32,
+            clippy_warnings: 3,           // Would be derived from `cargo clippy` output
+            compiler_errors,
             cyclomatic_complexity: 2.1, // Would be derived from complexity analysis tools
             maintainability_index: 78.5, // Would be derived from maintainability analysis
         })
     }
-    
+
     /// Extract total test duration from output
     fn extract_total_duration(test_output: &str) -> f64 {
         let mut total_duration = 0.0;
-        
+
         for line in test_output.lines() {
             if line.contains("test result:") {
                 // Look for duration in the summary line like "finished in 1.23s"
@@ -508,20 +534,23 @@ impl AutomatedReporter {
                 }
             }
         }
-        
+
         total_duration
     }
-    
+
     /// Calculate test coverage percentage from parsed results
     fn calculate_test_coverage(test_output: &str) -> f64 {
         let mut total_tests = 0;
         let mut passed_tests = 0;
-        
+
         for line in test_output.lines() {
             if line.contains("test result:") && (line.contains("ok") || line.contains("FAILED")) {
                 // Parse the test summary
-                let clean_line = line.replace("test result:", "").replace("ok.", "").replace("FAILED.", "");
-                
+                let clean_line = line
+                    .replace("test result:", "")
+                    .replace("ok.", "")
+                    .replace("FAILED.", "");
+
                 for part in clean_line.split(';') {
                     let part = part.trim();
                     if part.contains("passed") {
@@ -538,11 +567,11 @@ impl AutomatedReporter {
                         }
                     }
                 }
-                
+
                 total_tests += passed_tests;
             }
         }
-        
+
         if total_tests > 0 {
             (passed_tests as f64 / total_tests as f64) * 100.0
         } else {

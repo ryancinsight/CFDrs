@@ -77,7 +77,7 @@ impl SimdProcessor {
     }
 
     /// Process f32 arrays with specified operation
-    /// 
+    ///
     /// Performance optimization: Automatically chooses between SIMD and parallel
     /// based on array size and measured performance characteristics.
     #[inline]
@@ -88,14 +88,18 @@ impl SimdProcessor {
         result: &mut [f32],
         op: SimdOperation,
     ) -> crate::error::Result<()> {
+        if a.len() != b.len() || a.len() != result.len() {
+            return Err(crate::error::MathError::DimensionMismatch.into());
+        }
+
         // TODO: Implement runtime performance profiling to optimize threshold selection
         const SIMD_THRESHOLD: usize = 500; // Below this, SIMD overhead may exceed benefits
-        
+
         // For very small arrays, scalar operations may be faster due to SIMD overhead
         if a.len() < SIMD_THRESHOLD && matches!(self.capability, SimdCapability::Avx2) {
             return self.process_scalar_f32(a, b, result, op);
         }
-        
+
         match op {
             SimdOperation::Add => self.ops.add(a, b, result),
             SimdOperation::Mul => self.ops.mul(a, b, result),
@@ -109,7 +113,7 @@ impl SimdProcessor {
             }
         }
     }
-    
+
     /// Scalar fallback for small arrays where SIMD overhead is detrimental
     /// TODO: Add benchmarking to determine optimal thresholds per hardware
     fn process_scalar_f32(
@@ -143,7 +147,7 @@ impl SimdProcessor {
             SimdOperation::FusedMulAdd => {
                 // TODO: Implement proper scalar FMA
                 for ((res, &a_val), &b_val) in result.iter_mut().zip(a.iter()).zip(b.iter()) {
-                    *res = a_val * b_val + *res;
+                    *res += a_val * b_val;
                 }
             }
         }
@@ -159,6 +163,10 @@ impl SimdProcessor {
         result: &mut [f64],
         op: SimdOperation,
     ) -> crate::error::Result<()> {
+        if a.len() != b.len() || a.len() != result.len() {
+            return Err(crate::error::MathError::DimensionMismatch.into());
+        }
+
         match op {
             SimdOperation::Add => self.ops.add_f64(a, b, result),
             SimdOperation::Mul => self.ops.mul_f64(a, b, result),

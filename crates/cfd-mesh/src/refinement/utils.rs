@@ -38,14 +38,16 @@ impl<'a, T: RealField + Copy> RefinementContext<'a, T> {
         if let Some(&idx) = self.midpoint_cache.get(&key) {
             Ok(idx)
         } else {
-            let v1 = self
-                .old_mesh
-                .vertex(v1_idx)
-                .ok_or_else(|| MeshError::InvalidMesh(format!("Invalid vertex index {} in midpoint calculation", v1_idx)))?;
-            let v2 = self
-                .old_mesh
-                .vertex(v2_idx)
-                .ok_or_else(|| MeshError::InvalidMesh(format!("Invalid vertex index {} in midpoint calculation", v2_idx)))?;
+            let v1 = self.old_mesh.vertex(v1_idx).ok_or_else(|| {
+                MeshError::InvalidMesh(format!(
+                    "Invalid vertex index {v1_idx} in midpoint calculation"
+                ))
+            })?;
+            let v2 = self.old_mesh.vertex(v2_idx).ok_or_else(|| {
+                MeshError::InvalidMesh(format!(
+                    "Invalid vertex index {v2_idx} in midpoint calculation"
+                ))
+            })?;
             let center = nalgebra::center(&v1.position, &v2.position);
             let new_v = Vertex::new(center);
             let idx = self.new_mesh.add_vertex(new_v);

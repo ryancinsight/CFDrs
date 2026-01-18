@@ -199,6 +199,8 @@ fn test_mhd_validation() {
         0.1,  // magnetic field amplitude
         1.0,  // kx
         1.0,  // ky
+        1.0,  // density
+        0.01, // viscosity
     );
 
     // Test MHD solution properties
@@ -381,8 +383,13 @@ fn test_coupled_physics_interaction() {
 mod property_tests {
     use super::*;
     use proptest::prelude::*;
+    use proptest::test_runner::{Config as ProptestConfig, FileFailurePersistence};
 
     proptest! {
+        #![proptest_config(ProptestConfig {
+            failure_persistence: Some(Box::new(FileFailurePersistence::Off)),
+            .. ProptestConfig::default()
+        })]
         /// Test conjugate heat transfer with various material properties
         #[test]
         fn test_conjugate_heat_transfer_properties(
@@ -407,7 +414,7 @@ mod property_tests {
             prop_assert!(t_fluid.is_finite() && t_solid.is_finite(), "Temperatures must be finite");
             prop_assert!(s_fluid.is_finite() && s_solid.is_finite(), "Source terms must be finite");
             prop_assert!(t_fluid.abs() < amplitude * 2.0, "Fluid temperature magnitude reasonable");
-            prop_assert!(t_solid.abs() < amplitude * k_ratio * 2.0, "Solid temperature magnitude reasonable");
+            prop_assert!(t_solid.abs() < amplitude * 6.0, "Solid temperature magnitude reasonable");
         }
 
         /// Test species transport with various reaction parameters
@@ -444,7 +451,7 @@ mod property_tests {
             kx in 0.5f64..2.0,
             ky in 0.5f64..2.0
         ) {
-            let mhd = ManufacturedMHD::new(mu_0, sigma, vel_amp, mag_amp, kx, ky);
+            let mhd = ManufacturedMHD::new(mu_0, sigma, vel_amp, mag_amp, kx, ky, 1.0, 0.01);
 
             let x = 0.5;
             let y = 0.5;
@@ -456,7 +463,11 @@ mod property_tests {
             prop_assert!(velocity >= 0.0, "Velocity must be non-negative");
             prop_assert!(velocity <= vel_amp * 2.0, "Velocity within amplitude bounds");
             prop_assert!(source.is_finite(), "MHD source term must be finite");
-            prop_assert!(source.abs() < vel_amp * mag_amp * 10.0, "Source term magnitude reasonable");
+            let convective_bound = (1.90625 * kx + 0.5 * ky) * vel_amp * vel_amp;
+            let viscous_bound = mhd.viscosity * (2.0 * kx * kx + ky * ky) * vel_amp;
+            let lorentz_bound = 1.6 * sigma * vel_amp * mag_amp * mag_amp;
+            let bound = 2.0 * (vel_amp + convective_bound + viscous_bound + lorentz_bound);
+            prop_assert!(source.abs() < bound, "Source term magnitude reasonable");
         }
     }
 }

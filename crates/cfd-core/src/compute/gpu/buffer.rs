@@ -11,13 +11,24 @@ use std::sync::Arc;
 /// GPU buffer wrapper
 pub struct GpuBuffer<T: RealField + Pod + Zeroable> {
     /// Underlying wgpu buffer
-    pub buffer: wgpu::Buffer,
+    pub buffer: Arc<wgpu::Buffer>,
     /// Buffer size in elements
     size: usize,
     /// GPU context
     context: Arc<GpuContext>,
     /// Phantom data for type safety
     _phantom: PhantomData<T>,
+}
+
+impl<T: RealField + Pod + Zeroable + Copy> Clone for GpuBuffer<T> {
+    fn clone(&self) -> Self {
+        Self {
+            buffer: self.buffer.clone(),
+            size: self.size,
+            context: self.context.clone(),
+            _phantom: PhantomData,
+        }
+    }
 }
 
 impl<T: RealField + Pod + Zeroable + Copy> GpuBuffer<T> {
@@ -38,7 +49,7 @@ impl<T: RealField + Pod + Zeroable + Copy> GpuBuffer<T> {
         });
 
         Ok(Self {
-            buffer,
+            buffer: Arc::new(buffer),
             size,
             context,
             _phantom: PhantomData,
@@ -67,7 +78,7 @@ impl<T: RealField + Pod + Zeroable + Copy> GpuBuffer<T> {
                 });
 
         Ok(Self {
-            buffer,
+            buffer: Arc::new(buffer),
             size: data.len(),
             context,
             _phantom: PhantomData,
