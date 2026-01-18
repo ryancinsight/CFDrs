@@ -53,35 +53,51 @@ fn test_poiseuille_flow_convergence() -> Result<(), Box<dyn std::error::Error>> 
     let mut fields = SimulationFields::new(nx, ny);
 
     // Set initial velocity field to analytical solution
-    for i in 0..nx {
-        for j in 0..ny {
+    // Optimized loop with row-major iteration and vectorized filling
+    fields
+        .u
+        .as_mut_slice()
+        .chunks_exact_mut(nx)
+        .enumerate()
+        .for_each(|(j, row)| {
             let y = j as f64 * dy;
             let u_analytical =
                 poiseuille_analytical(y, channel_height, pressure_gradient, viscosity);
-            fields.u.set(i, j, u_analytical);
-            fields.v.set(i, j, 0.0); // No vertical velocity
-        }
-    }
+            row.fill(u_analytical);
+        });
+    // Note: fields.v is already initialized to 0.0 by SimulationFields::new
 
     // Set boundary conditions
     // No-slip at walls (y = 0 and y = H)
-    for i in 0..nx {
-        // Bottom wall
-        fields.u.set(i, 0, 0.0);
-        fields.v.set(i, 0, 0.0);
+    // Optimized boundary condition application
+    {
+        let u_data = fields.u.as_mut_slice();
+        let v_data = fields.v.as_mut_slice();
 
-        // Top wall
-        fields.u.set(i, ny - 1, 0.0);
-        fields.v.set(i, ny - 1, 0.0);
+        // Bottom wall (row 0)
+        u_data[..nx].fill(0.0);
+        v_data[..nx].fill(0.0);
+
+        // Top wall (row ny-1)
+        let start_top = (ny - 1) * nx;
+        u_data[start_top..].fill(0.0);
+        v_data[start_top..].fill(0.0);
     }
 
     // Apply constant pressure gradient
-    for i in 0..nx {
-        for j in 0..ny {
-            let x = i as f64 * dx;
-            fields.p.set(i, j, pressure_gradient * x);
-        }
-    }
+    // Pre-calculate one row since pressure only depends on x
+    let p_row: Vec<f64> = (0..nx)
+        .map(|i| pressure_gradient * (i as f64 * dx))
+        .collect();
+
+    // Copy to all rows
+    fields
+        .p
+        .as_mut_slice()
+        .chunks_exact_mut(nx)
+        .for_each(|row| {
+            row.copy_from_slice(&p_row);
+        });
 
     // Create momentum solver
     let grid = StructuredGrid2D::new(nx, ny, 0.0, channel_length, 0.0, channel_height)
@@ -231,16 +247,18 @@ fn test_poiseuille_mass_conservation() {
     let mut fields = SimulationFields::new(nx, ny);
 
     // Set up parabolic velocity profile
-    for i in 0..nx {
-        for j in 0..ny {
+    // Optimized initialization
+    fields
+        .u
+        .as_mut_slice()
+        .chunks_exact_mut(nx)
+        .enumerate()
+        .for_each(|(j, row)| {
             let y = j as f64 * dy;
             let height = (ny - 1) as f64 * dy;
-            fields
-                .u
-                .set(i, j, poiseuille_analytical(y, height, -1.0, 1e-3));
-            fields.v.set(i, j, 0.0); // No vertical velocity
-        }
-    }
+            let u_val = poiseuille_analytical(y, height, -1.0, 1e-3);
+            row.fill(u_val);
+        });
 
     // Check divergence (should be zero for incompressible flow)
     let mut max_divergence: f64 = 0.0;
