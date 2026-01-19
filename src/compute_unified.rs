@@ -3,6 +3,8 @@
 //! This module integrates GPU (via wgpu) and SIMD acceleration
 //! at the top level where all dependencies are available.
 
+#[cfg(feature = "gpu")]
+use cfd_core::compute::gpu::{GpuContext, GpuFieldOps};
 use cfd_core::error::Result;
 use cfd_math::simd::{SimdCapability, SimdOperation, SimdProcessor};
 use rayon::prelude::*;
@@ -154,8 +156,7 @@ pub enum Backend {
 pub struct UnifiedCompute {
     backend: Backend,
     #[cfg(feature = "gpu")]
-    #[allow(dead_code)]
-    gpu_context: Option<Arc<wgpu::Device>>,
+    gpu_ops: Option<Arc<GpuFieldOps>>,
     simd_processor: SimdProcessor,
     benchmarker: PerformanceBenchmarker,
 }
@@ -170,12 +171,13 @@ impl UnifiedCompute {
         // Try GPU first - now enabled by default
         #[cfg(feature = "gpu")]
         {
-            match cfd_core::compute::gpu::GpuContext::create() {
+            match GpuContext::create() {
                 Ok(gpu) => {
+                    let gpu = Arc::new(gpu);
                     info!("GPU acceleration enabled");
                     return Ok(Self {
                         backend: Backend::Gpu,
-                        gpu_context: Some(gpu.device.clone()),
+                        gpu_ops: Some(Arc::new(GpuFieldOps::new(gpu))),
                         simd_processor,
                         benchmarker,
                     });
@@ -210,7 +212,7 @@ impl UnifiedCompute {
         Ok(Self {
             backend,
             #[cfg(feature = "gpu")]
-            gpu_context: None,
+            gpu_ops: None,
             simd_processor,
             benchmarker,
         })
@@ -247,8 +249,14 @@ impl UnifiedCompute {
             Backend::Gpu => {
                 #[cfg(feature = "gpu")]
                 {
-                    self.simd_processor
-                        .process_f32(a, b, result, SimdOperation::Add)
+                    if let Some(ops) = &self.gpu_ops {
+                        ops.add_fields(a, b, result);
+                        Ok(())
+                    } else {
+                        // Should not happen if backend is GPU, but safe fallback
+                        self.simd_processor
+                            .process_f32(a, b, result, SimdOperation::Add)
+                    }
                 }
                 #[cfg(not(feature = "gpu"))]
                 {
