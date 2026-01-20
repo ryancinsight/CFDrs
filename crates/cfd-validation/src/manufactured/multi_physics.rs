@@ -129,8 +129,8 @@ impl<T: RealField + Copy + FromPrimitive> ManufacturedConjugateHeatTransfer<T> {
         let laplacian_base_interface = -k_sq * base_interface;
 
         let inv_k_ratio = T::one() / self.conductivity_ratio;
-        let laplacian_adjusted = laplacian_base_interface
-            + (laplacian_base - laplacian_base_interface) * inv_k_ratio;
+        let laplacian_adjusted =
+            laplacian_base_interface + (laplacian_base - laplacian_base_interface) * inv_k_ratio;
         let laplacian_t = self.amplitude * laplacian_adjusted;
 
         // Source = ∂T/∂t - α_s ∇²T

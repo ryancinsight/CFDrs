@@ -85,8 +85,63 @@ impl<T: RealField + FromPrimitive + Copy> FluidTrait<T> for PolynomialViscosity<
     }
 }
 
-// TODO: Implement Arrhenius viscosity model (μ(T) = A * exp(B/T))
-// Common for liquids where viscosity decreases with temperature
+/// Arrhenius viscosity model
+///
+/// μ(T) = A * exp(B/T)
+///
+/// Common for liquids where viscosity decreases with temperature.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ArrheniusViscosity<T: RealField + Copy> {
+    /// Fluid name
+    pub name: String,
+    /// Density [kg/m³]
+    pub density: T,
+    /// Pre-exponential factor A [Pa·s]
+    pub a_factor: T,
+    /// Temperature coefficient B [K]
+    pub b_factor: T,
+    /// Specific heat capacity [J/(kg·K)]
+    pub specific_heat: T,
+    /// Thermal conductivity [W/(m·K)]
+    pub thermal_conductivity: T,
+    /// Speed of sound [m/s]
+    pub speed_of_sound: T,
+}
+
+impl<T: RealField + FromPrimitive + Copy> ArrheniusViscosity<T> {
+    /// Calculate viscosity using Arrhenius model
+    pub fn calculate_viscosity(&self, temperature: T) -> Result<T, Error> {
+        if temperature <= T::zero() {
+            return Err(Error::InvalidInput(
+                "Temperature must be positive".to_string(),
+            ));
+        }
+
+        Ok(self.a_factor * (self.b_factor / temperature).exp())
+    }
+}
+
+impl<T: RealField + FromPrimitive + Copy> FluidTrait<T> for ArrheniusViscosity<T> {
+    fn properties_at(&self, temperature: T, _pressure: T) -> Result<FluidState<T>, Error> {
+        let viscosity = self.calculate_viscosity(temperature)?;
+
+        Ok(FluidState {
+            density: self.density,
+            dynamic_viscosity: viscosity,
+            specific_heat: self.specific_heat,
+            thermal_conductivity: self.thermal_conductivity,
+            speed_of_sound: self.speed_of_sound,
+        })
+    }
+
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn is_temperature_dependent(&self) -> bool {
+        true
+    }
+}
 
 /// Andrade viscosity model
 ///
@@ -264,4 +319,36 @@ mod tests {
         assert!(air.properties_at(0.0, 101325.0).is_err());
     }
 
+    #[test]
+    fn test_arrhenius_viscosity() {
+        let fluid = ArrheniusViscosity::<f64> {
+            name: "Test".to_string(),
+            density: 1000.0,
+            a_factor: 1.0,
+            b_factor: 2.0,
+            specific_heat: 1000.0,
+            thermal_conductivity: 1.0,
+            speed_of_sound: 1500.0,
+        };
+
+        let mu = fluid.calculate_viscosity(2.0).unwrap();
+        assert!((mu - std::f64::consts::E).abs() < 1e-12);
+        assert!(fluid.properties_at(2.0, 1.0).is_ok());
+    }
+
+    #[test]
+    fn test_arrhenius_invalid_temperature() {
+        let fluid = ArrheniusViscosity::<f64> {
+            name: "Test".to_string(),
+            density: 1000.0,
+            a_factor: 1.0,
+            b_factor: 2.0,
+            specific_heat: 1000.0,
+            thermal_conductivity: 1.0,
+            speed_of_sound: 1500.0,
+        };
+
+        assert!(fluid.calculate_viscosity(0.0).is_err());
+        assert!(fluid.calculate_viscosity(-1.0).is_err());
+    }
 }

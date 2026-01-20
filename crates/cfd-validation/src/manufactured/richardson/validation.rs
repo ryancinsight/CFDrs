@@ -359,7 +359,6 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float + ToPrimitive> MmsR
 
         Ok(())
     }
-
 }
 
 // Static methods for Richardson extrapolation analysis

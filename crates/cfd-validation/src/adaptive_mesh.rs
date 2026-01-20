@@ -142,11 +142,7 @@ impl AdaptiveMeshRefinement {
     }
 
     /// Richardson extrapolation-based error estimate
-    fn compute_richardson_error_estimate(
-        solution: &DMatrix<f64>,
-        i: usize,
-        j: usize,
-    ) -> f64 {
+    fn compute_richardson_error_estimate(solution: &DMatrix<f64>, i: usize, j: usize) -> f64 {
         let (nx, ny) = solution.shape();
 
         // Need at least 2x2 stencil for Richardson extrapolation
@@ -220,11 +216,7 @@ impl AdaptiveMeshRefinement {
     }
 
     /// Smoothness-based error estimate
-    fn compute_smoothness_error_estimate(
-        solution: &DMatrix<f64>,
-        i: usize,
-        j: usize,
-    ) -> f64 {
+    fn compute_smoothness_error_estimate(solution: &DMatrix<f64>, i: usize, j: usize) -> f64 {
         let (nx, ny) = solution.shape();
 
         if i == 0 || i >= nx - 1 || j == 0 || j >= ny - 1 {
@@ -287,8 +279,7 @@ impl AdaptiveMeshRefinement {
 
         // Sobel kernels
         // Gx (horizontal gradient)
-        let gx = (-solution[(i - 1, j - 1)]
-            + solution[(i + 1, j - 1)]
+        let gx = (-solution[(i - 1, j - 1)] + solution[(i + 1, j - 1)]
             - 2.0 * solution[(i - 1, j)]
             + 2.0 * solution[(i + 1, j)]
             - solution[(i - 1, j + 1)]

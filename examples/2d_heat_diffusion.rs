@@ -76,7 +76,8 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     println!("\nSolving 2D heat equation...");
     let solver = PoissonSolver::new(config);
     // Use proper Neumann boundary conditions
-    let solution = solver.solve_with_neumann(&grid, &source, &dirichlet_boundaries, &neumann_boundaries)?;
+    let solution =
+        solver.solve_with_neumann(&grid, &source, &dirichlet_boundaries, &neumann_boundaries)?;
 
     // Analyze results
     println!("\n=== Results Analysis ===");

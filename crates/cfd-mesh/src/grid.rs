@@ -4,9 +4,27 @@
 //! The grid builder creates mesh objects with proper connectivity.
 
 use crate::mesh::Mesh;
-use crate::topology::{Cell, Vertex};
+use crate::topology::{Cell, Face, Vertex};
+use crate::{error::MeshError, error::Result};
 use nalgebra::{Point3, RealField};
 use num_traits::FromPrimitive;
+use std::collections::HashMap;
+
+fn get_or_add_quad_face<T: RealField + Copy>(
+    mesh: &mut Mesh<T>,
+    face_map: &mut HashMap<[usize; 4], usize>,
+    verts: [usize; 4],
+) -> usize {
+    let mut key = verts;
+    key.sort_unstable();
+    if let Some(&idx) = face_map.get(&key) {
+        idx
+    } else {
+        let idx = mesh.add_face(Face::quad(verts[0], verts[1], verts[2], verts[3]));
+        face_map.insert(key, idx);
+        idx
+    }
+}
 
 /// Builder for structured grid generation
 ///
@@ -55,26 +73,65 @@ impl<T: RealField + Copy + FromPrimitive> StructuredGridBuilder<T> {
     }
 
     /// Generate the mesh from the grid parameters
-    pub fn build(&self) -> Mesh<T> {
+    pub fn build(&self) -> Result<Mesh<T>> {
+        if self.nx == 0 || self.ny == 0 || self.nz == 0 {
+            return Err(MeshError::GridError(
+                "nx, ny, and nz must be greater than zero".to_string(),
+            ));
+        }
+
+        if self.bounds.0 .1 <= self.bounds.0 .0 || self.bounds.1 .1 <= self.bounds.1 .0 {
+            return Err(MeshError::GridError(
+                "x and y bounds must satisfy min < max".to_string(),
+            ));
+        }
+
+        if self.bounds.2 .1 < self.bounds.2 .0 {
+            return Err(MeshError::GridError(
+                "z bounds must satisfy min <= max".to_string(),
+            ));
+        }
+
+        if self.bounds.2 .1 == self.bounds.2 .0 && self.nz != 1 {
+            return Err(MeshError::GridError(
+                "zero-thickness z bounds require nz == 1".to_string(),
+            ));
+        }
+
         let mut mesh = Mesh::new();
 
-        // Calculate grid spacing
-        // TODO: Add proper error handling for type conversion failures
-        let dx = (self.bounds.0 .1 - self.bounds.0 .0)
-            / T::from_usize(self.nx).unwrap_or_else(|| T::one());
-        let dy = (self.bounds.1 .1 - self.bounds.1 .0)
-            / T::from_usize(self.ny).unwrap_or_else(|| T::one());
-        let dz = (self.bounds.2 .1 - self.bounds.2 .0)
-            / T::from_usize(self.nz).unwrap_or_else(|| T::one());
+        let nx_t = T::from_usize(self.nx).ok_or_else(|| {
+            MeshError::GridError(format!("failed to convert nx={} to scalar type", self.nx))
+        })?;
+        let ny_t = T::from_usize(self.ny).ok_or_else(|| {
+            MeshError::GridError(format!("failed to convert ny={} to scalar type", self.ny))
+        })?;
+        let nz_t = T::from_usize(self.nz).ok_or_else(|| {
+            MeshError::GridError(format!("failed to convert nz={} to scalar type", self.nz))
+        })?;
+
+        let dx = (self.bounds.0 .1 - self.bounds.0 .0) / nx_t;
+        let dy = (self.bounds.1 .1 - self.bounds.1 .0) / ny_t;
+        let dz = (self.bounds.2 .1 - self.bounds.2 .0) / nz_t;
 
         // Generate vertices
         // We need (nx+1) x (ny+1) x (nz+1) vertices
         for k in 0..=self.nz {
+            let k_t = T::from_usize(k).ok_or_else(|| {
+                MeshError::GridError(format!("failed to convert k={k} to scalar type"))
+            })?;
             for j in 0..=self.ny {
+                let j_t = T::from_usize(j).ok_or_else(|| {
+                    MeshError::GridError(format!("failed to convert j={j} to scalar type"))
+                })?;
                 for i in 0..=self.nx {
-                    let x = self.bounds.0 .0 + T::from_usize(i).unwrap_or_else(|| T::zero()) * dx;
-                    let y = self.bounds.1 .0 + T::from_usize(j).unwrap_or_else(|| T::zero()) * dy;
-                    let z = self.bounds.2 .0 + T::from_usize(k).unwrap_or_else(|| T::zero()) * dz;
+                    let i_t = T::from_usize(i).ok_or_else(|| {
+                        MeshError::GridError(format!("failed to convert i={i} to scalar type"))
+                    })?;
+
+                    let x = self.bounds.0 .0 + i_t * dx;
+                    let y = self.bounds.1 .0 + j_t * dy;
+                    let z = self.bounds.2 .0 + k_t * dz;
 
                     mesh.add_vertex(Vertex::new(Point3::new(x, y, z)));
                 }
@@ -85,6 +142,7 @@ impl<T: RealField + Copy + FromPrimitive> StructuredGridBuilder<T> {
         // We have nx x ny x nz cells
         let nx1 = self.nx + 1;
         let ny1 = self.ny + 1;
+        let mut face_map: HashMap<[usize; 4], usize> = HashMap::new();
 
         for k in 0..self.nz {
             for j in 0..self.ny {
@@ -100,12 +158,19 @@ impl<T: RealField + Copy + FromPrimitive> StructuredGridBuilder<T> {
                     let v6 = v4 + nx1 + 1;
                     let v7 = v4 + nx1;
 
-                    mesh.add_cell(Cell::hexahedron(vec![v0, v1, v2, v3, v4, v5, v6, v7]));
+                    let f_bottom = get_or_add_quad_face(&mut mesh, &mut face_map, [v0, v1, v2, v3]);
+                    let f_top = get_or_add_quad_face(&mut mesh, &mut face_map, [v4, v5, v6, v7]);
+                    let f_0 = get_or_add_quad_face(&mut mesh, &mut face_map, [v0, v1, v5, v4]);
+                    let f_1 = get_or_add_quad_face(&mut mesh, &mut face_map, [v1, v2, v6, v5]);
+                    let f_2 = get_or_add_quad_face(&mut mesh, &mut face_map, [v2, v3, v7, v6]);
+                    let f_3 = get_or_add_quad_face(&mut mesh, &mut face_map, [v3, v0, v4, v7]);
+
+                    mesh.add_cell(Cell::hexahedron(vec![f_bottom, f_top, f_0, f_1, f_2, f_3]));
                 }
             }
         }
 
-        mesh
+        Ok(mesh)
     }
 
     /// Get the total number of cells that will be generated
@@ -153,7 +218,7 @@ impl<T: RealField + Copy + FromPrimitive> StructuredGrid2DBuilder<T> {
     }
 
     /// Generate a 2D mesh (as a thin 3D mesh with one layer)
-    pub fn build(&self) -> Mesh<T> {
+    pub fn build(&self) -> Result<Mesh<T>> {
         // Create a thin 3D mesh with nz=1
         StructuredGridBuilder::new(self.nx, self.ny, 1)
             .with_bounds((
@@ -162,5 +227,33 @@ impl<T: RealField + Copy + FromPrimitive> StructuredGrid2DBuilder<T> {
                 (T::zero(), T::zero()), // Zero thickness in z
             ))
             .build()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn build_rejects_zero_dimensions() {
+        let builder = StructuredGridBuilder::<f64>::new(0, 1, 1);
+        assert!(builder.build().is_err());
+    }
+
+    #[test]
+    fn build_rejects_invalid_bounds() {
+        let builder = StructuredGridBuilder::<f64>::new(1, 1, 1).with_bounds((
+            (1.0, 0.0),
+            (0.0, 1.0),
+            (0.0, 1.0),
+        ));
+        assert!(builder.build().is_err());
+    }
+
+    #[test]
+    fn build_2d_produces_mesh() {
+        let mesh = StructuredGrid2DBuilder::<f64>::new(2, 3).build().unwrap();
+        assert_eq!(mesh.cells().len(), 2 * 3);
+        assert_eq!(mesh.vertices().len(), (2 + 1) * (3 + 1) * (1 + 1));
     }
 }

@@ -8,7 +8,9 @@ use cfd_math::simd::{SimdCapability, SimdOperation, SimdProcessor};
 use rayon::prelude::*;
 use std::sync::Arc;
 use std::time::Instant;
-use tracing::{info, warn};
+use tracing::info;
+#[cfg(feature = "gpu")]
+use tracing::warn;
 
 /// Performance benchmarking results
 #[derive(Debug, Clone)]

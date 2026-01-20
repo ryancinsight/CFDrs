@@ -183,10 +183,7 @@ impl GpuTurbulenceCompute {
         buffer_opt: &mut Option<GpuBuffer<f32>>,
         data: &[f32],
     ) -> Result<GpuBuffer<f32>> {
-        if buffer_opt
-            .as_ref()
-            .is_some_and(|b| b.size() == data.len())
-        {
+        if buffer_opt.as_ref().is_some_and(|b| b.size() == data.len()) {
             let mut buffer = buffer_opt.as_mut().unwrap().clone();
             buffer.write(data)?;
             Ok(buffer)

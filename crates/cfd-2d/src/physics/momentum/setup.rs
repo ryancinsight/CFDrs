@@ -1,8 +1,8 @@
 use super::solver::MomentumSolver;
 use cfd_core::physics::boundary::BoundaryCondition;
 use nalgebra::RealField;
-use std::collections::HashMap;
 use num_traits::{FromPrimitive, ToPrimitive};
+use std::collections::HashMap;
 
 /// Builder for configuring boundary conditions for the MomentumSolver
 pub struct BoundarySetup<T: RealField + Copy> {
