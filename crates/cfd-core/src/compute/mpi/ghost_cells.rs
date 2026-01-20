@@ -6,6 +6,7 @@ use super::error::{MpiError, MpiResult};
 use super::LocalSubdomain;
 use nalgebra::{RealField, Vector2};
 use std::collections::HashMap;
+use num_traits::FromPrimitive;
 
 #[derive(Debug, Clone, Copy)]
 enum FieldType {
@@ -74,6 +75,7 @@ pub struct GhostCellManager<T: RealField + Copy> {
     neighbors: HashMap<i32, NeighborInfo>,
     /// Number of ghost cell layers
     ghost_layers: usize,
+    _marker: std::marker::PhantomData<T>,
 }
 
 impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp> GhostCellManager<T> {
@@ -87,6 +89,7 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp> GhostCellManager<
             communicator,
             neighbors,
             ghost_layers,
+            _marker: std::marker::PhantomData,
         }
     }
 
