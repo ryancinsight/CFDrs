@@ -3,7 +3,7 @@
 use super::error::{MpiError, MpiResult};
 use super::{Rank, Size};
 use mpi::traits::*;
-use mpi::{environment, Communicator};
+use mpi::environment;
 use std::sync::Once;
 
 /// Global MPI initialization flag
@@ -142,6 +142,11 @@ impl MpiCommunicator {
         self.comm
             .process_at_rank(source)
             .immediate_receive_into(buffer)
+    }
+
+    /// All-gather operation (gather values from all processes to all processes)
+    pub fn all_gather<T: Equivalence>(&self, send_buf: &T, recv_buf: &mut [T]) {
+        self.comm.all_gather_into(send_buf, recv_buf);
     }
 
     /// Wait for async operation to complete
