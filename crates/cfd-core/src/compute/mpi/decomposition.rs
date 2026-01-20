@@ -349,7 +349,6 @@ impl LoadBalancer {
 
     /// Assess current load balance across processes
     pub fn assess_load_balance(&self, local_workload: usize) -> MpiResult<LoadBalanceMetrics> {
-        let rank = self.communicator.rank() as usize;
         let size = self.communicator.size() as usize;
 
         // Gather workload from all processes
@@ -357,22 +356,8 @@ impl LoadBalancer {
         let local_workload_i32 = local_workload as i32;
 
         // All-gather workloads
-        for i in 0..size {
-            if i == rank {
-                all_workloads[i] = local_workload_i32;
-            }
-            // In real MPI, this would be MPI_Allgather
-            // TODO: Replace simulated broadcast with proper MPI_Allgather implementation
-            // DEPENDENCIES: Implement actual MPI communication primitives
-            // BLOCKED BY: Limited MPI integration in current framework
-            // PRIORITY: High - Essential for distributed memory parallelization
-            // For now, simulate with broadcast
-            let mut temp = local_workload_i32;
-            if i == rank {
-                self.communicator.broadcast(&mut temp);
-                all_workloads[i] = temp;
-            }
-        }
+        self.communicator
+            .all_gather(&local_workload_i32, &mut all_workloads);
 
         // Calculate load balance metrics
         let workloads: Vec<usize> = all_workloads.iter().map(|&x| x as usize).collect();

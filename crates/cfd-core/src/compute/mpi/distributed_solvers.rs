@@ -40,11 +40,13 @@
 //! ```
 
 use super::communicator::MpiCommunicator;
-use super::decomposition::{DomainDecomposition, LocalSubdomain};
+use super::decomposition::DomainDecomposition;
+use super::LocalSubdomain;
 use super::error::{MpiError, MpiResult};
 use super::ghost_cells::GhostCellManager;
 use nalgebra::{DVector, RealField};
 use std::collections::HashMap;
+use num_traits::FromPrimitive;
 
 /// Distributed linear operator trait for matrix-free operations
 pub trait DistributedLinearOperator<T: RealField> {
@@ -74,7 +76,7 @@ pub trait Preconditioner<T: RealField> {
 
 /// Distributed vector with MPI-aware data distribution
 #[derive(Debug, Clone)]
-pub struct DistributedVector<T: RealField> {
+pub struct DistributedVector<T: RealField + Copy> {
     /// Local data owned by this process (excluding ghost cells)
     pub local_data: DVector<T>,
     /// MPI communicator
@@ -151,7 +153,7 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp> DistributedVector
 }
 
 /// 2D Laplacian operator for distributed domains
-pub struct DistributedLaplacian2D<T: RealField> {
+pub struct DistributedLaplacian2D<T: RealField + Copy> {
     communicator: MpiCommunicator,
     subdomain: LocalSubdomain,
     ghost_manager: GhostCellManager<T>,
@@ -526,7 +528,7 @@ impl<T: RealField + Copy + FromPrimitive, Op: DistributedLinearOperator<T>> Prec
 }
 
 /// Distributed GMRES solver
-pub struct DistributedGMRES<T: RealField, Op: DistributedLinearOperator<T>, Prec> {
+pub struct DistributedGMRES<T: RealField + Copy, Op: DistributedLinearOperator<T>, Prec> {
     /// Linear operator
     operator: Op,
     /// Preconditioner
@@ -744,6 +746,7 @@ pub mod parallel_io {
     pub struct ParallelVtkWriter<T: RealField> {
         communicator: MpiCommunicator,
         is_root: bool,
+        _phantom: std::marker::PhantomData<T>,
     }
 
     impl<T: RealField> ParallelVtkWriter<T> {
@@ -752,6 +755,7 @@ pub mod parallel_io {
             Self {
                 communicator: communicator.clone(),
                 is_root: communicator.is_root(),
+                _phantom: std::marker::PhantomData,
             }
         }
 
