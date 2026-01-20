@@ -81,9 +81,10 @@
 //!     compute_cfd_step(&mut velocity_u, &mut velocity_v, &mut pressure, &dist_grid)?;
 //!
 //!     // Optional: Use async communication for overlap with next computation
-//!     // let requests = ghost_manager.update_ghost_cells_async(...)?;
+//!     // let mut ghost_ctx = GhostExchangeContext::new();
+//!     // let requests = ghost_manager.start_async_update(..., &mut ghost_ctx)?;
 //!     // compute_next_step(...);
-//!     // ghost_manager.complete_async_updates(...)?;
+//!     // ghost_manager.complete_async_updates(..., requests, &ghost_ctx)?;
 //! }
 //! ```
 //!
@@ -166,9 +167,10 @@
 //!
 //! ### Non-Blocking Communication (Asynchronous)
 //! ```text
-//! let requests = ghost_manager.update_ghost_cells_async(&mut u, &mut v, &mut p, subdomain)?;
+//! let mut ctx = GhostExchangeContext::new();
+//! let requests = ghost_manager.start_async_update(&u, &v, &p, subdomain, &mut ctx)?;
 //! // ... interior computation ...
-//! ghost_manager.complete_async_updates(&mut u, &mut v, &mut p, subdomain, requests)?;
+//! ghost_manager.complete_async_updates(&mut u, &mut v, &mut p, subdomain, requests, &ctx)?;
 //! ```
 //!
 //! ### Performance Validation & Scaling Tests
