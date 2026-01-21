@@ -360,188 +360,7 @@ impl Laplacian2DKernel {
         bc: BoundaryType,
         result: &mut [f32],
     ) {
-        // High-precision intermediates to reduce cancellation error
-        let dx_inv2_64 = 1.0f64 / (f64::from(dx) * f64::from(dx));
-        let dy_inv2_64 = 1.0f64 / (f64::from(dy) * f64::from(dy));
-
-        // Compute Laplacian for all grid points including boundaries
-        // This ensures mathematical consistency with GPU implementation
-        for y in 0..ny {
-            for x in 0..nx {
-                let idx = y * nx + x;
-                let mut laplacian = 0.0f64;
-
-                // X direction - handle boundary conditions
-                if x > 0 && x < nx - 1 {
-                    // Interior point - standard 5-point stencil
-                    let left = field[y * nx + (x - 1)];
-                    let center = field[idx];
-                    let right = field[y * nx + (x + 1)];
-                    laplacian += (f64::from(left) - 2.0f64 * f64::from(center) + f64::from(right))
-                        * dx_inv2_64;
-                } else if x == 0 {
-                    match bc {
-                        BoundaryType::Dirichlet => {
-                            // Left boundary - Dirichlet u=0 (ghost point method)
-                            let center = field[idx];
-                            // Ghost point u(-1,j) = -u(1,j) => left+right-2*center cancels neighbor, yields -2*center
-                            laplacian += (-2.0f64 * f64::from(center)) * dx_inv2_64;
-                        }
-                        BoundaryType::Neumann => {
-                            // Left boundary - Neumann du/dx=0
-                            // Use one-sided second derivative to avoid bias on endpoint-inclusive grids
-                            let center = field[idx];
-                            if nx >= 4 {
-                                let u0 = center;
-                                let u1 = field[y * nx + 1];
-                                let u2 = field[y * nx + 2];
-                                let u3 = field[y * nx + 3];
-                                let d2x =
-                                    f64::from(2.0 * u0 - 5.0 * u1 + 4.0 * u2 - u3) * dx_inv2_64;
-                                laplacian += d2x;
-                            } else {
-                                let right = field[y * nx + (x + 1)];
-                                laplacian += (f64::from(right) - 2.0f64 * f64::from(center)
-                                    + f64::from(right))
-                                    * dx_inv2_64;
-                            }
-                        }
-                        BoundaryType::Periodic => {
-                            // Left boundary - Periodic on an endpoint-inclusive grid: wrap to n-2
-                            let left = field[y * nx + (nx - 2)];
-                            let center = field[idx];
-                            let right = field[y * nx + (x + 1)];
-                            laplacian += (f64::from(left) - 2.0f64 * f64::from(center)
-                                + f64::from(right))
-                                * dx_inv2_64;
-                        }
-                    }
-                } else if x == nx - 1 {
-                    match bc {
-                        BoundaryType::Dirichlet => {
-                            // Right boundary - Dirichlet u=0 (ghost point method)
-                            let center = field[idx];
-                            // Ghost point u(nx,j) = -u(nx-2,j) => left+right-2*center cancels neighbor, yields -2*center
-                            laplacian += (-2.0f64 * f64::from(center)) * dx_inv2_64;
-                        }
-                        BoundaryType::Neumann => {
-                            // Right boundary - Neumann du/dx=0
-                            // Use one-sided second derivative on endpoint-inclusive grids
-                            let center = field[idx];
-                            if nx >= 4 {
-                                let u0 = center;
-                                let u1 = field[y * nx + (nx - 2)];
-                                let u2 = field[y * nx + (nx - 3)];
-                                let u3 = field[y * nx + (nx - 4)];
-                                let d2x =
-                                    f64::from(2.0 * u0 - 5.0 * u1 + 4.0 * u2 - u3) * dx_inv2_64;
-                                laplacian += d2x;
-                            } else {
-                                let left = field[y * nx + (x - 1)];
-                                laplacian += (f64::from(left) - 2.0f64 * f64::from(center)
-                                    + f64::from(left))
-                                    * dx_inv2_64;
-                            }
-                        }
-                        BoundaryType::Periodic => {
-                            // Right boundary - Periodic on an endpoint-inclusive grid: wrap to index 1
-                            let left = field[y * nx + (x - 1)];
-                            let center = field[idx];
-                            let right = field[y * nx + 1];
-                            laplacian += (f64::from(left) - 2.0f64 * f64::from(center)
-                                + f64::from(right))
-                                * dx_inv2_64;
-                        }
-                    }
-                }
-
-                // Y direction - handle boundary conditions
-                if y > 0 && y < ny - 1 {
-                    // Interior point - standard 5-point stencil
-                    let bottom = field[(y - 1) * nx + x];
-                    let center = field[idx];
-                    let top = field[(y + 1) * nx + x];
-                    laplacian += (f64::from(bottom) - 2.0f64 * f64::from(center) + f64::from(top))
-                        * dy_inv2_64;
-                } else if y == 0 {
-                    match bc {
-                        BoundaryType::Dirichlet => {
-                            // Bottom boundary - Dirichlet u=0 (ghost point method)
-                            let center = field[idx];
-                            // Ghost point u(i,-1) = -u(i,1) => bottom+top-2*center cancels neighbor, yields -2*center
-                            laplacian += (-2.0f64 * f64::from(center)) * dy_inv2_64;
-                        }
-                        BoundaryType::Neumann => {
-                            // Bottom boundary - Neumann du/dy=0
-                            // Use one-sided second derivative on endpoint-inclusive grids
-                            let center = field[idx];
-                            if ny >= 4 {
-                                let u0 = center;
-                                let u1 = field[nx + x];
-                                let u2 = field[2 * nx + x];
-                                let u3 = field[3 * nx + x];
-                                let d2y =
-                                    f64::from(2.0 * u0 - 5.0 * u1 + 4.0 * u2 - u3) * dy_inv2_64;
-                                laplacian += d2y;
-                            } else {
-                                let top = field[(y + 1) * nx + x];
-                                laplacian += (f64::from(top) - 2.0f64 * f64::from(center)
-                                    + f64::from(top))
-                                    * dy_inv2_64;
-                            }
-                        }
-                        BoundaryType::Periodic => {
-                            // Bottom boundary - Periodic on an endpoint-inclusive grid: wrap to ny-2
-                            let bottom = field[(ny - 2) * nx + x];
-                            let center = field[idx];
-                            let top = field[(y + 1) * nx + x];
-                            laplacian += (f64::from(bottom) - 2.0f64 * f64::from(center)
-                                + f64::from(top))
-                                * dy_inv2_64;
-                        }
-                    }
-                } else if y == ny - 1 {
-                    match bc {
-                        BoundaryType::Dirichlet => {
-                            // Top boundary - Dirichlet u=0 (ghost point method)
-                            let center = field[idx];
-                            // Ghost point u(i,ny) = -u(i,ny-2) => bottom+top-2*center cancels neighbor, yields -2*center
-                            laplacian += (-2.0f64 * f64::from(center)) * dy_inv2_64;
-                        }
-                        BoundaryType::Neumann => {
-                            // Top boundary - Neumann du/dy=0
-                            // Use one-sided second derivative on endpoint-inclusive grids
-                            let center = field[idx];
-                            if ny >= 4 {
-                                let u0 = center;
-                                let u1 = field[(ny - 2) * nx + x];
-                                let u2 = field[(ny - 3) * nx + x];
-                                let u3 = field[(ny - 4) * nx + x];
-                                let d2y =
-                                    f64::from(2.0 * u0 - 5.0 * u1 + 4.0 * u2 - u3) * dy_inv2_64;
-                                laplacian += d2y;
-                            } else {
-                                let bottom = field[(y - 1) * nx + x];
-                                laplacian += (f64::from(bottom) - 2.0f64 * f64::from(center)
-                                    + f64::from(bottom))
-                                    * dy_inv2_64;
-                            }
-                        }
-                        BoundaryType::Periodic => {
-                            // Top boundary - Periodic on an endpoint-inclusive grid: wrap to index 1
-                            let bottom = field[(y - 1) * nx + x];
-                            let center = field[idx];
-                            let top = field[nx + x];
-                            laplacian += (f64::from(bottom) - 2.0f64 * f64::from(center)
-                                + f64::from(top))
-                                * dy_inv2_64;
-                        }
-                    }
-                }
-
-                result[idx] = laplacian as f32;
-            }
-        }
+        execute_cpu_reference(field, nx, ny, dx, dy, bc, result);
     }
 
     fn execute_gpu(
@@ -671,6 +490,173 @@ impl Laplacian2DKernel {
             // If mapping failed or timed out, ensure buffer is not left mapped
             staging_buffer.unmap();
             Err("GPU operation timed out or failed".into())
+        }
+    }
+}
+
+fn execute_cpu_reference(
+    field: &[f32],
+    nx: usize,
+    ny: usize,
+    dx: f32,
+    dy: f32,
+    bc: BoundaryType,
+    result: &mut [f32],
+) {
+    let dx_inv2_64 = 1.0f64 / (f64::from(dx) * f64::from(dx));
+    let dy_inv2_64 = 1.0f64 / (f64::from(dy) * f64::from(dy));
+
+    for y in 0..ny {
+        for x in 0..nx {
+            let idx = y * nx + x;
+            let mut laplacian = 0.0f64;
+
+            if x > 0 && x < nx - 1 {
+                let left = field[y * nx + (x - 1)];
+                let center = field[idx];
+                let right = field[y * nx + (x + 1)];
+                laplacian += (f64::from(left) - 2.0f64 * f64::from(center) + f64::from(right))
+                    * dx_inv2_64;
+            } else if x == 0 {
+                match bc {
+                    BoundaryType::Dirichlet => {
+                        let center = field[idx];
+                        laplacian += (-2.0f64 * f64::from(center)) * dx_inv2_64;
+                    }
+                    BoundaryType::Neumann => {
+                        let center = field[idx];
+                        if nx >= 4 {
+                            let u0 = center;
+                            let u1 = field[y * nx + 1];
+                            let u2 = field[y * nx + 2];
+                            let u3 = field[y * nx + 3];
+                            let d2x =
+                                f64::from(2.0 * u0 - 5.0 * u1 + 4.0 * u2 - u3) * dx_inv2_64;
+                            laplacian += d2x;
+                        } else {
+                            let right = field[y * nx + (x + 1)];
+                            laplacian += (f64::from(right) - 2.0f64 * f64::from(center)
+                                + f64::from(right))
+                                * dx_inv2_64;
+                        }
+                    }
+                    BoundaryType::Periodic => {
+                        let left = field[y * nx + (nx - 2)];
+                        let center = field[idx];
+                        let right = field[y * nx + (x + 1)];
+                        laplacian += (f64::from(left) - 2.0f64 * f64::from(center)
+                            + f64::from(right))
+                            * dx_inv2_64;
+                    }
+                }
+            } else if x == nx - 1 {
+                match bc {
+                    BoundaryType::Dirichlet => {
+                        let center = field[idx];
+                        laplacian += (-2.0f64 * f64::from(center)) * dx_inv2_64;
+                    }
+                    BoundaryType::Neumann => {
+                        let center = field[idx];
+                        if nx >= 4 {
+                            let u0 = center;
+                            let u1 = field[y * nx + (nx - 2)];
+                            let u2 = field[y * nx + (nx - 3)];
+                            let u3 = field[y * nx + (nx - 4)];
+                            let d2x =
+                                f64::from(2.0 * u0 - 5.0 * u1 + 4.0 * u2 - u3) * dx_inv2_64;
+                            laplacian += d2x;
+                        } else {
+                            let left = field[y * nx + (x - 1)];
+                            laplacian += (f64::from(left) - 2.0f64 * f64::from(center)
+                                + f64::from(left))
+                                * dx_inv2_64;
+                        }
+                    }
+                    BoundaryType::Periodic => {
+                        let left = field[y * nx + (x - 1)];
+                        let center = field[idx];
+                        let right = field[y * nx + 1];
+                        laplacian += (f64::from(left) - 2.0f64 * f64::from(center)
+                            + f64::from(right))
+                            * dx_inv2_64;
+                    }
+                }
+            }
+
+            if y > 0 && y < ny - 1 {
+                let bottom = field[(y - 1) * nx + x];
+                let center = field[idx];
+                let top = field[(y + 1) * nx + x];
+                laplacian +=
+                    (f64::from(bottom) - 2.0f64 * f64::from(center) + f64::from(top))
+                        * dy_inv2_64;
+            } else if y == 0 {
+                match bc {
+                    BoundaryType::Dirichlet => {
+                        let center = field[idx];
+                        laplacian += (-2.0f64 * f64::from(center)) * dy_inv2_64;
+                    }
+                    BoundaryType::Neumann => {
+                        let center = field[idx];
+                        if ny >= 4 {
+                            let u0 = center;
+                            let u1 = field[nx + x];
+                            let u2 = field[2 * nx + x];
+                            let u3 = field[3 * nx + x];
+                            let d2y =
+                                f64::from(2.0 * u0 - 5.0 * u1 + 4.0 * u2 - u3) * dy_inv2_64;
+                            laplacian += d2y;
+                        } else {
+                            let top = field[(y + 1) * nx + x];
+                            laplacian += (f64::from(top) - 2.0f64 * f64::from(center)
+                                + f64::from(top))
+                                * dy_inv2_64;
+                        }
+                    }
+                    BoundaryType::Periodic => {
+                        let bottom = field[(ny - 2) * nx + x];
+                        let center = field[idx];
+                        let top = field[(y + 1) * nx + x];
+                        laplacian += (f64::from(bottom) - 2.0f64 * f64::from(center)
+                            + f64::from(top))
+                            * dy_inv2_64;
+                    }
+                }
+            } else if y == ny - 1 {
+                match bc {
+                    BoundaryType::Dirichlet => {
+                        let center = field[idx];
+                        laplacian += (-2.0f64 * f64::from(center)) * dy_inv2_64;
+                    }
+                    BoundaryType::Neumann => {
+                        let center = field[idx];
+                        if ny >= 4 {
+                            let u0 = center;
+                            let u1 = field[(ny - 2) * nx + x];
+                            let u2 = field[(ny - 3) * nx + x];
+                            let u3 = field[(ny - 4) * nx + x];
+                            let d2y =
+                                f64::from(2.0 * u0 - 5.0 * u1 + 4.0 * u2 - u3) * dy_inv2_64;
+                            laplacian += d2y;
+                        } else {
+                            let bottom = field[(y - 1) * nx + x];
+                            laplacian += (f64::from(bottom) - 2.0f64 * f64::from(center)
+                                + f64::from(bottom))
+                                * dy_inv2_64;
+                        }
+                    }
+                    BoundaryType::Periodic => {
+                        let bottom = field[(y - 1) * nx + x];
+                        let center = field[idx];
+                        let top = field[nx + x];
+                        laplacian += (f64::from(bottom) - 2.0f64 * f64::from(center)
+                            + f64::from(top))
+                            * dy_inv2_64;
+                    }
+                }
+            }
+
+            result[idx] = laplacian as f32;
         }
     }
 }

@@ -27,6 +27,7 @@
 //! - Wesseling, P. (1992). *An introduction to multigrid methods*. Wiley.
 
 use crate::error::Result;
+use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::Error;
 use nalgebra::{DMatrix, DVector, RealField};
 use num_traits::FromPrimitive;
@@ -220,17 +221,67 @@ impl<T: RealField + Copy + FromPrimitive> GeometricMultigrid<T> {
                 let mut sum = T::zero();
                 let mut weight_sum = T::zero();
 
-                // TODO: Use proper full-weighting restriction (not injection).
                 let fine_i = i * 2;
                 let fine_j = j * 2;
 
+                let four = T::from_f64_or_one(4.0);
+                let two = T::from_f64_or_one(2.0);
+                let one = T::one();
+
                 if fine_i < fine_nx && fine_j < fine_ny {
                     let fine_idx = fine_j * fine_nx + fine_i;
-                    sum += fine_residual[fine_idx];
-                    weight_sum += T::one();
+                    sum += fine_residual[fine_idx] * four;
+                    weight_sum += four;
                 }
 
-                // TODO: Use the correct full-weighting stencil for interior and boundary points.
+                if fine_i > 0 && fine_j < fine_ny {
+                    let fine_idx = fine_j * fine_nx + (fine_i - 1);
+                    sum += fine_residual[fine_idx] * two;
+                    weight_sum += two;
+                }
+
+                if fine_i + 1 < fine_nx && fine_j < fine_ny {
+                    let fine_idx = fine_j * fine_nx + (fine_i + 1);
+                    sum += fine_residual[fine_idx] * two;
+                    weight_sum += two;
+                }
+
+                if fine_j > 0 && fine_i < fine_nx {
+                    let fine_idx = (fine_j - 1) * fine_nx + fine_i;
+                    sum += fine_residual[fine_idx] * two;
+                    weight_sum += two;
+                }
+
+                if fine_j + 1 < fine_ny && fine_i < fine_nx {
+                    let fine_idx = (fine_j + 1) * fine_nx + fine_i;
+                    sum += fine_residual[fine_idx] * two;
+                    weight_sum += two;
+                }
+
+                if fine_i > 0 && fine_j > 0 {
+                    let fine_idx = (fine_j - 1) * fine_nx + (fine_i - 1);
+                    sum += fine_residual[fine_idx] * one;
+                    weight_sum += one;
+                }
+
+                if fine_i + 1 < fine_nx && fine_j > 0 {
+                    let fine_idx = (fine_j - 1) * fine_nx + (fine_i + 1);
+                    sum += fine_residual[fine_idx] * one;
+                    weight_sum += one;
+                }
+
+                if fine_i > 0 && fine_j + 1 < fine_ny {
+                    let fine_idx = (fine_j + 1) * fine_nx + (fine_i - 1);
+                    sum += fine_residual[fine_idx] * one;
+                    weight_sum += one;
+                }
+
+                if fine_i + 1 < fine_nx && fine_j + 1 < fine_ny {
+                    let fine_idx = (fine_j + 1) * fine_nx + (fine_i + 1);
+                    sum += fine_residual[fine_idx] * one;
+                    weight_sum += one;
+                }
+
                 if weight_sum > T::zero() {
                     coarse_residual[coarse_idx] = sum / weight_sum;
                 }

@@ -226,15 +226,17 @@ impl DGSolution {
     /// # Arguments
     /// * `limiter` - The limiter to apply
     ///
-    /// # Remarks
-    /// TODO: Implement limiter application using neighbor solutions and troubled-cell detection.
-    pub fn apply_limiter<L: Limiter>(&mut self, limiter: &L) {
-        // TODO: Provide neighbor information and propagate limiter errors instead of discarding.
+    pub fn apply_limiter<L: Limiter>(
+        &mut self,
+        limiter: &L,
+        neighbors: &[DGSolution],
+        params: &LimiterParams,
+    ) -> Result<()> {
+        if !params.adaptive || limiter.is_troubled_cell(self, neighbors, params) {
+            limiter.limit(self, neighbors, params)?;
+        }
 
-        let empty_neighbors = &[];
-        let params = limiter::LimiterParams::new(limiter::LimiterType::Minmod);
-
-        limiter.limit(self, empty_neighbors, &params).unwrap_or(());
+        Ok(())
     }
 
     /// Get the cell average of the solution

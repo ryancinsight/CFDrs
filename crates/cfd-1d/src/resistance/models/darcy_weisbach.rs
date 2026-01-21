@@ -137,12 +137,11 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for DarcyWeisbachMo
     fn calculate_resistance(&self, fluid: &Fluid<T>, conditions: &FlowConditions<T>) -> Result<T> {
         let (r, k) = self.calculate_coefficients(fluid, conditions)?;
 
-        // For automatic model selection and basic analyzers that expect a single R value,
-        // TODO: Implement sophisticated model selection and resistance calculation strategies
-        // DEPENDENCIES: Add advanced flow regime detection and model switching algorithms
-        // BLOCKED BY: Limited understanding of microfluidic flow regime transitions
-        // PRIORITY: Medium - Important for accurate resistance modeling across flow conditions
-        // we return the effective resistance R_eff = R + k|Q| such that ΔP = R_eff * Q.
+        let k_mag = if k >= T::zero() { k } else { -k };
+        if k_mag <= T::default_epsilon() {
+            return Ok(r);
+        }
+
         let q_mag = if let Some(q) = conditions.flow_rate {
             if q >= T::zero() {
                 q
@@ -153,7 +152,9 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for DarcyWeisbachMo
             let v_abs = if v >= T::zero() { v } else { -v };
             v_abs * self.area
         } else {
-            T::zero()
+            return Err(Error::InvalidConfiguration(
+                "Flow rate or velocity required for turbulent resistance evaluation".to_string(),
+            ));
         };
 
         Ok(r + k * q_mag)

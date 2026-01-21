@@ -121,7 +121,6 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> GhostCellCalculator<T> {
         match self.order {
             1 | 2 => {
                 // First/Second-order: simple reflection
-                // TODO: Implement higher-order boundary conditions with proper gradient reconstruction
                 // g₀ = i₀ - 2*Δx*gradient
                 let two = T::from_f64(2.0).unwrap_or_else(T::one);
                 ghost_values[0] = interior_values[0] - two * dx * gradient;

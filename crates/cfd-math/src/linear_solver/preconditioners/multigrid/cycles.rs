@@ -23,6 +23,7 @@ pub fn apply_v_cycle(
 
     let mut correction = DVector::zeros(residual.len());
     let mut cycle_count = 0;
+    let mut residual_history: Vec<f64> = Vec::new();
 
     // Continue cycling until convergence or max cycles reached
     for cycle in 0..max_cycles {
@@ -31,8 +32,8 @@ pub fn apply_v_cycle(
         // Apply one V-cycle
         apply_multigrid_cycle(1, levels, residual, &mut correction)?;
 
-        // TODO: Track residual history to compute convergence_factor.
         let residual_norm = (residual - &levels[0].matrix * &correction).norm();
+        residual_history.push(residual_norm);
         if residual_norm < tolerance {
             break;
         }
@@ -40,10 +41,25 @@ pub fn apply_v_cycle(
 
     let cycle_time = start_time.elapsed().as_secs_f64();
 
+    let convergence_factor = if residual_history.len() >= 2 {
+        let mut ratio_product = 1.0;
+        for i in 1..residual_history.len() {
+            let previous = residual_history[i - 1];
+            if previous == 0.0 {
+                ratio_product = 0.0;
+                break;
+            }
+            ratio_product *= residual_history[i] / previous;
+        }
+        ratio_product.powf(1.0 / (residual_history.len() as f64 - 1.0))
+    } else {
+        0.0
+    };
+
     let stats = CycleStatistics {
         cycle_type: CycleType::VCycle,
         total_cycles: cycle_count,
-        convergence_factor: 0.0, // Would need to track convergence history
+        convergence_factor,
         total_time: cycle_time,
         time_per_cycle: cycle_time / cycle_count as f64,
     };
@@ -134,6 +150,7 @@ pub fn apply_w_cycle(
 
     let mut correction = DVector::zeros(residual.len());
     let mut cycle_count = 0;
+    let mut residual_history: Vec<f64> = Vec::new();
 
     for cycle in 0..max_cycles {
         cycle_count = cycle + 1;
@@ -143,6 +160,7 @@ pub fn apply_w_cycle(
 
         // Check convergence
         let residual_norm = (residual - &levels[0].matrix * &correction).norm();
+        residual_history.push(residual_norm);
         if residual_norm < tolerance {
             break;
         }
@@ -150,10 +168,25 @@ pub fn apply_w_cycle(
 
     let cycle_time = start_time.elapsed().as_secs_f64();
 
+    let convergence_factor = if residual_history.len() >= 2 {
+        let mut ratio_product = 1.0;
+        for i in 1..residual_history.len() {
+            let previous = residual_history[i - 1];
+            if previous == 0.0 {
+                ratio_product = 0.0;
+                break;
+            }
+            ratio_product *= residual_history[i] / previous;
+        }
+        ratio_product.powf(1.0 / (residual_history.len() as f64 - 1.0))
+    } else {
+        0.0
+    };
+
     let stats = CycleStatistics {
         cycle_type: CycleType::WCycle,
         total_cycles: cycle_count,
-        convergence_factor: 0.0,
+        convergence_factor,
         total_time: cycle_time,
         time_per_cycle: cycle_time / cycle_count as f64,
     };

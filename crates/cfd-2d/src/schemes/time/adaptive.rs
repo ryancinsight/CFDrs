@@ -327,14 +327,15 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> AdaptiveTimeIntegrator<T
 
         loop {
             attempts += 1;
-            // TODO: Replace assert with proper error handling and fallback strategies
-            // DEPENDENCIES: Implement robust convergence failure handling and adaptive strategies
-            // BLOCKED BY: Limited understanding of adaptive time stepping failure modes
-            // PRIORITY: High - Essential for robust time integration
-            assert!(
-                attempts <= max_attempts,
-                "Failed to converge in adaptive time stepping after {max_attempts} attempts"
-            );
+            if attempts > max_attempts {
+                let dt_fallback = self.controller.dt_current.max(self.controller.dt_min);
+                let y_fallback = self.base_integrator.step(&f, y, t, dt_fallback);
+                self.controller.dt_current = dt_fallback;
+                self.controller.steps_rejected += 1;
+                self.controller.steps_accepted += 1;
+                self.y_prev = Some(y.clone());
+                return (y_fallback, t + dt_fallback, dt_fallback, true);
+            }
 
             let dt_current = self.controller.dt_current;
 
@@ -414,10 +415,6 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> AdaptiveTimeIntegrator<T
         loop {
             attempts += 1;
             if attempts > max_attempts {
-                // TODO: Fall back to CFL-only adaptation if error control fails
-                // DEPENDENCIES: Implement more sophisticated fallback strategies for time stepping
-                // BLOCKED BY: Limited understanding of adaptive time stepping failure modes
-                // PRIORITY: High - Essential for robust time integration
                 return self.step_cfl_adaptive(f, y, t, u_max, v_max, dx, dy);
             }
 
