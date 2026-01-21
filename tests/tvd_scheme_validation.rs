@@ -59,7 +59,6 @@ fn square_wave(phi: &mut Grid2D<f64>, amplitude: f64, width: f64, center: f64) {
 }
 
 /// Create linear advection exact solution
-#[allow(dead_code)]
 fn exact_solution_advection(
     x: f64,
     t: f64,
@@ -69,18 +68,15 @@ fn exact_solution_advection(
     velocity: f64,
 ) -> f64 {
     let center_t = center + velocity * t;
-    let x_rel = (x - center_t) / width;
 
-    // Periodic domain wrapping
-    let x_wrapped = if x_rel > L {
-        x_rel - L
-    } else if x_rel < 0.0 {
-        x_rel + L
-    } else {
-        x_rel
-    };
+    // Periodic domain wrapping using branchless logic
+    let dx = x - center_t;
+    // Calculate shortest distance on periodic domain [-L/2, L/2]
+    let dx_wrapped = dx - L * (dx / L).round();
 
-    if x_wrapped.abs() < 0.5 {
+    let x_rel = dx_wrapped / width;
+
+    if x_rel.abs() < 0.5 {
         amplitude
     } else {
         0.0
@@ -372,4 +368,19 @@ fn test_muscl3_boundary_fallback() {
         face_boundary_muscl3, face_boundary_muscl2,
         "MUSCL3 should fall back to MUSCL2 at boundaries"
     );
+}
+
+#[test]
+fn test_exact_solution_periodicity() {
+    // Case 1: Simple inside pulse (no wrapping)
+    assert_eq!(exact_solution_advection(0.5, 0.0, 1.0, 0.2, 0.5, 0.0), 1.0);
+
+    // Case 2: Wrap around boundary (Left side)
+    // Point x=0.95, Center=0.0 (or 1.0). Width=0.2.
+    // 0.95 should be within pulse centered at 0.0 (distance 0.05).
+    // Current logic fails this.
+    assert_eq!(exact_solution_advection(0.95, 0.0, 1.0, 0.2, 0.0, 0.0), 1.0, "Failed wrap-around check at x=0.95");
+
+    // Case 3: Outside pulse
+    assert_eq!(exact_solution_advection(0.8, 0.0, 1.0, 0.2, 0.5, 0.0), 0.0);
 }
