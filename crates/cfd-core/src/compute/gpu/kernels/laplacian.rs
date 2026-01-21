@@ -61,22 +61,10 @@ use wgpu::util::DeviceExt;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BoundaryType {
     /// Dirichlet boundary condition (u = 0)
-    // TODO: Add comprehensive documentation for boundary condition types and their mathematical formulations
-    // DEPENDENCIES: Add detailed boundary condition documentation with mathematical derivations and usage examples
-    // BLOCKED BY: Limited understanding of GPU boundary condition implementation patterns and documentation requirements
-    // PRIORITY: Medium - Important for developer experience and GPU kernel usability
     Dirichlet,
     /// Neumann boundary condition (du/dn = 0)
-    // TODO: Add comprehensive documentation for boundary condition types and their mathematical formulations
-    // DEPENDENCIES: Add detailed boundary condition documentation with mathematical derivations and usage examples
-    // BLOCKED BY: Limited understanding of GPU boundary condition implementation patterns and documentation requirements
-    // PRIORITY: Medium - Important for developer experience and GPU kernel usability
     Neumann,
     /// Periodic boundary condition
-    // TODO: Add comprehensive documentation for boundary condition types and their mathematical formulations
-    // DEPENDENCIES: Add detailed boundary condition documentation with mathematical derivations and usage examples
-    // BLOCKED BY: Limited understanding of GPU boundary condition implementation patterns and documentation requirements
-    // PRIORITY: Medium - Important for developer experience and GPU kernel usability
     Periodic,
 }
 
@@ -86,6 +74,26 @@ impl BoundaryType {
             BoundaryType::Dirichlet => 0,
             BoundaryType::Neumann => 1,
             BoundaryType::Periodic => 2,
+        }
+    }
+
+    #[allow(missing_docs)]
+    #[must_use]
+    pub fn description(self) -> &'static str {
+        match self {
+            BoundaryType::Dirichlet => "Dirichlet: u = 0, odd reflection ghosting for endpoints",
+            BoundaryType::Neumann => "Neumann: du/dn = 0, one-sided second derivatives at endpoints",
+            BoundaryType::Periodic => "Periodic: endpoint-inclusive wrapping to inner indices",
+        }
+    }
+
+    #[allow(missing_docs)]
+    #[must_use]
+    pub fn formulation(self) -> &'static str {
+        match self {
+            BoundaryType::Dirichlet => "d2u/dx2|i=0 = (-2u0)/dx2; d2u/dx2|i=nx-1 = (-2u_{nx-1})/dx2",
+            BoundaryType::Neumann => "d2u/dx2|i=0 = (2u0-5u1+4u2-u3)/dx2 (nx>=4) with mirrored fallback",
+            BoundaryType::Periodic => "left neighbor wraps to nx-2, right neighbor wraps to 1 for endpoint-inclusive grids",
         }
     }
 }

@@ -103,46 +103,6 @@ impl<T: RealField + Copy + FromPrimitive> RungeKuttaChebyshev<T> {
         Self { config, coeffs }
     }
 
-    /// Compute Chebyshev polynomials T_k(x), T'_k(x), T''_k(x)
-    fn chebyshev_eval(k: usize, x: T) -> (T, T, T) {
-        if k == 0 {
-            return (T::one(), T::zero(), T::zero());
-        }
-        if k == 1 {
-            return (x, T::one(), T::zero());
-        }
-
-        let two = T::from_f64(2.0).unwrap();
-        let mut t_prev = x;
-        let mut t_prev2 = T::one();
-        let mut tp_prev = T::one();
-        let mut tp_prev2 = T::zero();
-        let mut tpp_prev = T::zero();
-        let mut tpp_prev2 = T::zero();
-
-        let mut t_curr = T::zero();
-        let mut tp_curr = T::zero();
-        let mut tpp_curr = T::zero();
-
-        for _ in 2..=k {
-            // T_j(x) = 2x T_{j-1}(x) - T_{j-2}(x)
-            t_curr = two * x * t_prev - t_prev2;
-            // T'_j(x) = 2 T_{j-1}(x) + 2x T'_{j-1}(x) - T'_{j-2}(x)
-            tp_curr = two * t_prev + two * x * tp_prev - tp_prev2;
-            // T''_j(x) = 4 T'_{j-1}(x) + 2x T''_{j-1}(x) - T''_{j-2}(x)
-            tpp_curr = T::from_f64(4.0).unwrap() * tp_prev + two * x * tpp_prev - tpp_prev2;
-
-            t_prev2 = t_prev;
-            t_prev = t_curr;
-            tp_prev2 = tp_prev;
-            tp_prev = tp_curr;
-            tpp_prev2 = tpp_prev;
-            tpp_prev = tpp_curr;
-        }
-
-        (t_curr, tp_curr, tpp_curr)
-    }
-
     /// Precompute RKC coefficients for given number of stages and damping
     fn compute_coefficients(s: usize, epsilon: T) -> Vec<RkcStageCoeffs<T>> {
         let mut coeffs = Vec::with_capacity(s + 1);
@@ -158,27 +118,23 @@ impl<T: RealField + Copy + FromPrimitive> RungeKuttaChebyshev<T> {
         }); // Index 0
 
         // w0 = 1 + epsilon / s^2
-        let s_sq = T::from_usize(s * s).unwrap();
+        let two = T::from_f64(2.0).unwrap();
+        let four = T::from_f64(4.0).unwrap();
+        let s_t = T::from_usize(s).unwrap();
+        let s_sq = s_t * s_t;
         let w0 = T::one() + epsilon / s_sq;
 
-        // Calculate b_j = T''_j(w0) / (T'_j(w0))^2
-        let mut b = vec![T::zero(); s + 1];
-        for j in 2..=s {
-            let (_, tp, tpp) = Self::chebyshev_eval(j, w0);
-            b[j] = tpp / (tp * tp);
-        }
-        // b_0 = b_2, b_1 = b_2 according to standard RKC
-        b[0] = b[2];
-        b[1] = b[2];
+        let temp1 = w0 * w0 - T::one();
+        let temp2 = temp1.sqrt();
+        let arg = s_t * (w0 + temp2).ln();
+        let sinh_arg = arg.sinh();
+        let cosh_arg = arg.cosh();
+        let w1 = sinh_arg * temp1 / (cosh_arg * s_t * temp2 - w0 * sinh_arg);
 
-        // Calculate w1 = T'_s(w0) / T''_s(w0)
-        let (_, tps, tpps) = Self::chebyshev_eval(s, w0);
-        let w1 = tps / tpps;
+        let mut bjm1 = T::one() / ((two * w0) * (two * w0));
+        let mut bjm2 = bjm1;
 
-        // First stage coefficient (tilde_mu_1)
-        // Y_1 = Y_0 + tilde_mu_1 * dt * F_0
-        // tilde_mu_1 = w1 * b_1
-        let mu_tilde_1 = w1 * b[1];
+        let mu_tilde_1 = w1 * bjm1;
         coeffs.push(RkcStageCoeffs {
             mu: T::zero(),
             nu: T::zero(),
@@ -187,16 +143,26 @@ impl<T: RealField + Copy + FromPrimitive> RungeKuttaChebyshev<T> {
             c: mu_tilde_1,
         }); // Index 1
 
-        // Subsequent stages j = 2..s
+        let mut zjm1 = w0;
+        let mut zjm2 = T::one();
+        let mut dzjm1 = T::one();
+        let mut dzjm2 = T::zero();
+        let mut d2zjm1 = T::zero();
+        let mut d2zjm2 = T::zero();
+
         for j in 2..=s {
-            let two = T::from_f64(2.0).unwrap();
+            let zj = two * w0 * zjm1 - zjm2;
+            let dzj = two * w0 * dzjm1 - dzjm2 + two * zjm1;
+            let d2zj = two * w0 * d2zjm1 - d2zjm2 + four * dzjm1;
 
-            let mu_j = two * w0 * b[j] / b[j - 1];
-            let nu_j = -b[j] / b[j - 2];
-            let mu_tilde_j = two * w1 * b[j] / b[j - 1];
+            let bj = d2zj / (dzj * dzj);
+            let mu_j = two * w0 * bj / bjm1;
+            let nu_j = -bj / bjm2;
+            let mu_tilde_j = mu_j * w1 / w0;
 
-            let (t_j_minus1, _, _) = Self::chebyshev_eval(j - 1, w0);
-            let gamma_tilde_j = -(T::one() - b[j - 1] * t_j_minus1) * mu_tilde_j;
+            let ajm1 = T::one() - zjm1 * bjm1;
+            let gamma_tilde_j = -ajm1 * mu_tilde_j;
+
             let c_prev = coeffs[j - 1].c;
             let c_prev2 = coeffs[j - 2].c;
             let c_j = mu_j * c_prev + nu_j * c_prev2 + mu_tilde_j + gamma_tilde_j;
@@ -208,13 +174,21 @@ impl<T: RealField + Copy + FromPrimitive> RungeKuttaChebyshev<T> {
                 gamma_tilde: gamma_tilde_j,
                 c: c_j,
             });
+
+            zjm2 = zjm1;
+            zjm1 = zj;
+            dzjm2 = dzjm1;
+            dzjm1 = dzj;
+            d2zjm2 = d2zjm1;
+            d2zjm1 = d2zj;
+            bjm2 = bjm1;
+            bjm1 = bj;
         }
 
         coeffs
     }
 
-    /// Solve ODE system using RKC method
-    pub fn step<F: RhsFunction<T>>(
+    fn step_raw<F: RhsFunction<T>>(
         &self,
         rhs: &F,
         t0: T,
@@ -260,8 +234,7 @@ impl<T: RealField + Copy + FromPrimitive> RungeKuttaChebyshev<T> {
         Ok(y_prev1)
     }
 
-    /// Solve ODE system with adaptive time stepping
-    pub fn solve_adaptive<F: RhsFunction<T>>(
+    fn integrate_adaptive<F: RhsFunction<T>>(
         &self,
         rhs: &F,
         t0: T,
@@ -289,10 +262,10 @@ impl<T: RealField + Copy + FromPrimitive> RungeKuttaChebyshev<T> {
                     ));
                 }
 
-                let y_full = self.step(rhs, t, &y, dt)?;
+                let y_full = self.step_raw(rhs, t, &y, dt)?;
                 let dt_half = dt / T::from_f64(2.0).unwrap();
-                let y_half = self.step(rhs, t, &y, dt_half)?;
-                let y_half_full = self.step(rhs, t + dt_half, &y_half, dt_half)?;
+                let y_half = self.step_raw(rhs, t, &y, dt_half)?;
+                let y_half_full = self.step_raw(rhs, t + dt_half, &y_half, dt_half)?;
 
                 let n = y.len();
                 let mut err_sum = T::zero();
@@ -336,6 +309,31 @@ impl<T: RealField + Copy + FromPrimitive> RungeKuttaChebyshev<T> {
         }
 
         Ok((y, dt))
+    }
+
+    /// Solve ODE system using RKC method
+    pub fn step<F: RhsFunction<T>>(
+        &self,
+        rhs: &F,
+        t0: T,
+        y0: &DVector<T>,
+        dt: T,
+    ) -> Result<DVector<T>> {
+        let t_final = t0 + dt;
+        let (y, _) = self.integrate_adaptive(rhs, t0, y0, t_final, dt)?;
+        Ok(y)
+    }
+
+    /// Solve ODE system with adaptive time stepping
+    pub fn solve_adaptive<F: RhsFunction<T>>(
+        &self,
+        rhs: &F,
+        t0: T,
+        y0: &DVector<T>,
+        t_final: T,
+        dt_initial: T,
+    ) -> Result<(DVector<T>, T)> {
+        self.integrate_adaptive(rhs, t0, y0, t_final, dt_initial)
     }
 
     /// Get the configuration of the RKC solver

@@ -39,17 +39,28 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> QualityStatistics<T> 
     /// Get the mean of all samples
     #[must_use]
     pub fn mean(&self) -> Option<T> {
-        // TODO: Implement comprehensive statistical analysis with proper error handling and edge cases
-        // DEPENDENCIES: Add robust statistical framework for mesh quality metrics and validation
-        // BLOCKED BY: Limited understanding of mesh quality statistical requirements and edge case handling
-        // PRIORITY: Medium - Important for accurate mesh quality assessment
         if self.samples.is_empty() {
             return None;
         }
 
-        let sum: T = self.samples.iter().copied().sum();
+        let mut sum = T::zero();
+        let mut compensation = T::zero();
+        for &value in &self.samples {
+            if !value.is_finite() {
+                return None;
+            }
+            let y = value - compensation;
+            let t = sum + y;
+            compensation = (t - sum) - y;
+            sum = t;
+        }
         let count = T::from_usize(self.samples.len())?;
-        Some(sum / count)
+        let mean = sum / count;
+        if mean.is_finite() {
+            Some(mean)
+        } else {
+            None
+        }
     }
 
     /// Get the median of all samples
