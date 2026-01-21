@@ -419,6 +419,41 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp> GhostCellManager<
         }
     }
 
+    /// Helper to pack 3D buffers
+    fn pack_3d_buffers(
+        &self,
+        velocity_u: &[Vec<Vec<Vector3<T>>>],
+        velocity_v: &[Vec<Vec<Vector3<T>>>],
+        velocity_w: &[Vec<Vec<Vector3<T>>>],
+        pressure: &[Vec<Vec<T>>],
+        start_k: usize,
+        num_layers: usize,
+        nx: usize,
+        ny: usize,
+    ) -> Vec<Vec<T>> {
+        let total_size = nx * ny * num_layers;
+        let mut buffers = vec![Vec::with_capacity(total_size); 10];
+
+        for l in 0..num_layers {
+            let k = start_k + l;
+            for i in 0..nx {
+                for j in 0..ny {
+                    let u = velocity_u[i][j][k];
+                    buffers[0].push(u.x); buffers[1].push(u.y); buffers[2].push(u.z);
+
+                    let v = velocity_v[i][j][k];
+                    buffers[3].push(v.x); buffers[4].push(v.y); buffers[5].push(v.z);
+
+                    let w = velocity_w[i][j][k];
+                    buffers[6].push(w.x); buffers[7].push(w.y); buffers[8].push(w.z);
+
+                    buffers[9].push(pressure[i][j][k]);
+                }
+            }
+        }
+        buffers
+    }
+
     fn exchange_front_back(
         &self,
         velocity_u: &mut [Vec<Vec<Vector3<T>>>],
@@ -434,8 +469,6 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp> GhostCellManager<
         let gl = subdomain.ghost_layers;
 
         // Asymmetric tags to avoid deadlock
-        // 900: Front -> Back
-        // 1000: Back -> Front
         let (send_tag, recv_tag) = if is_front {
             (1000, 900)
         } else {
@@ -443,134 +476,36 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp> GhostCellManager<
         };
 
         // Multi-layer support
-        let send_start_k = if is_front {
-            gl
-        } else {
-            gl + subdomain.nz_local - gl
-        };
+        let send_start_k = if is_front { gl } else { gl + subdomain.nz_local - gl };
+        let recv_start_k = if is_front { 0 } else { gl + subdomain.nz_local };
 
-        let recv_start_k = if is_front {
-            0
-        } else {
-            gl + subdomain.nz_local
-        };
+        let packed_buffers = self.pack_3d_buffers(
+            velocity_u, velocity_v, velocity_w, pressure,
+            send_start_k, gl, nx, ny
+        );
 
-        let layer_size = nx * ny;
-        let total_size = layer_size * gl;
-
-        let mut send_u_x = Vec::with_capacity(total_size);
-        let mut send_u_y = Vec::with_capacity(total_size);
-        let mut send_u_z = Vec::with_capacity(total_size);
-
-        let mut send_v_x = Vec::with_capacity(total_size);
-        let mut send_v_y = Vec::with_capacity(total_size);
-        let mut send_v_z = Vec::with_capacity(total_size);
-
-        let mut send_w_x = Vec::with_capacity(total_size);
-        let mut send_w_y = Vec::with_capacity(total_size);
-        let mut send_w_z = Vec::with_capacity(total_size);
-
-        let mut send_p = Vec::with_capacity(total_size);
-
-        for l in 0..gl {
-            let k = send_start_k + l;
-            for i in 0..nx {
-                for j in 0..ny {
-                    let u = velocity_u[i][j][k];
-                    send_u_x.push(u.x); send_u_y.push(u.y); send_u_z.push(u.z);
-
-                    let v = velocity_v[i][j][k];
-                    send_v_x.push(v.x); send_v_y.push(v.y); send_v_z.push(v.z);
-
-                    let w = velocity_w[i][j][k];
-                    send_w_x.push(w.x); send_w_y.push(w.y); send_w_z.push(w.z);
-
-                    send_p.push(pressure[i][j][k]);
-                }
-            }
-        }
-
-        let mut recv_u_x = vec![T::zero(); total_size];
-        let mut recv_u_y = vec![T::zero(); total_size];
-        let mut recv_u_z = vec![T::zero(); total_size];
-
-        let mut recv_v_x = vec![T::zero(); total_size];
-        let mut recv_v_y = vec![T::zero(); total_size];
-        let mut recv_v_z = vec![T::zero(); total_size];
-
-        let mut recv_w_x = vec![T::zero(); total_size];
-        let mut recv_w_y = vec![T::zero(); total_size];
-        let mut recv_w_z = vec![T::zero(); total_size];
-
-        let mut recv_p = vec![T::zero(); total_size];
+        let total_size = nx * ny * gl;
+        let mut recv_buffers = vec![vec![T::zero(); total_size]; 10];
 
         // Exchange
         if is_front {
-             // If neighbor is Front, I am Back. I send 1000, recv 900.
-             // But tags are unique per field!
-             // So we use base + offset.
-
              // Send Back->Front (1000 series)
-             self.communicator.send(&send_u_x, neighbor_rank, send_tag);
-             self.communicator.send(&send_u_y, neighbor_rank, send_tag+1);
-             self.communicator.send(&send_u_z, neighbor_rank, send_tag+2);
-
-             self.communicator.send(&send_v_x, neighbor_rank, send_tag+3);
-             self.communicator.send(&send_v_y, neighbor_rank, send_tag+4);
-             self.communicator.send(&send_v_z, neighbor_rank, send_tag+5);
-
-             self.communicator.send(&send_w_x, neighbor_rank, send_tag+6);
-             self.communicator.send(&send_w_y, neighbor_rank, send_tag+7);
-             self.communicator.send(&send_w_z, neighbor_rank, send_tag+8);
-
-             self.communicator.send(&send_p, neighbor_rank, send_tag+9);
-
+             for i in 0..10 {
+                 self.communicator.send(&packed_buffers[i], neighbor_rank, send_tag + i as i32);
+             }
              // Recv Front->Back (900 series)
-             recv_u_x = self.communicator.receive(neighbor_rank, recv_tag);
-             recv_u_y = self.communicator.receive(neighbor_rank, recv_tag+1);
-             recv_u_z = self.communicator.receive(neighbor_rank, recv_tag+2);
-
-             recv_v_x = self.communicator.receive(neighbor_rank, recv_tag+3);
-             recv_v_y = self.communicator.receive(neighbor_rank, recv_tag+4);
-             recv_v_z = self.communicator.receive(neighbor_rank, recv_tag+5);
-
-             recv_w_x = self.communicator.receive(neighbor_rank, recv_tag+6);
-             recv_w_y = self.communicator.receive(neighbor_rank, recv_tag+7);
-             recv_w_z = self.communicator.receive(neighbor_rank, recv_tag+8);
-
-             recv_p = self.communicator.receive(neighbor_rank, recv_tag+9);
+             for i in 0..10 {
+                 recv_buffers[i] = self.communicator.receive(neighbor_rank, recv_tag + i as i32);
+             }
         } else {
-             // If neighbor is Back, I am Front. I send 900, recv 1000.
-
              // Recv Back->Front (1000 series)
-             recv_u_x = self.communicator.receive(neighbor_rank, recv_tag);
-             recv_u_y = self.communicator.receive(neighbor_rank, recv_tag+1);
-             recv_u_z = self.communicator.receive(neighbor_rank, recv_tag+2);
-
-             recv_v_x = self.communicator.receive(neighbor_rank, recv_tag+3);
-             recv_v_y = self.communicator.receive(neighbor_rank, recv_tag+4);
-             recv_v_z = self.communicator.receive(neighbor_rank, recv_tag+5);
-
-             recv_w_x = self.communicator.receive(neighbor_rank, recv_tag+6);
-             recv_w_y = self.communicator.receive(neighbor_rank, recv_tag+7);
-             recv_w_z = self.communicator.receive(neighbor_rank, recv_tag+8);
-
-             recv_p = self.communicator.receive(neighbor_rank, recv_tag+9);
-
+             for i in 0..10 {
+                 recv_buffers[i] = self.communicator.receive(neighbor_rank, recv_tag + i as i32);
+             }
              // Send Front->Back (900 series)
-             self.communicator.send(&send_u_x, neighbor_rank, send_tag);
-             self.communicator.send(&send_u_y, neighbor_rank, send_tag+1);
-             self.communicator.send(&send_u_z, neighbor_rank, send_tag+2);
-
-             self.communicator.send(&send_v_x, neighbor_rank, send_tag+3);
-             self.communicator.send(&send_v_y, neighbor_rank, send_tag+4);
-             self.communicator.send(&send_v_z, neighbor_rank, send_tag+5);
-
-             self.communicator.send(&send_w_x, neighbor_rank, send_tag+6);
-             self.communicator.send(&send_w_y, neighbor_rank, send_tag+7);
-             self.communicator.send(&send_w_z, neighbor_rank, send_tag+8);
-
-             self.communicator.send(&send_p, neighbor_rank, send_tag+9);
+             for i in 0..10 {
+                 self.communicator.send(&packed_buffers[i], neighbor_rank, send_tag + i as i32);
+             }
         }
 
         let mut idx = 0;
@@ -578,11 +513,11 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp> GhostCellManager<
             let k = recv_start_k + l;
             for i in 0..nx {
                 for j in 0..ny {
-                    if idx < recv_u_x.len() {
-                        velocity_u[i][j][k] = Vector3::new(recv_u_x[idx], recv_u_y[idx], recv_u_z[idx]);
-                        velocity_v[i][j][k] = Vector3::new(recv_v_x[idx], recv_v_y[idx], recv_v_z[idx]);
-                        velocity_w[i][j][k] = Vector3::new(recv_w_x[idx], recv_w_y[idx], recv_w_z[idx]);
-                        pressure[i][j][k] = recv_p[idx];
+                    if idx < recv_buffers[0].len() {
+                        velocity_u[i][j][k] = Vector3::new(recv_buffers[0][idx], recv_buffers[1][idx], recv_buffers[2][idx]);
+                        velocity_v[i][j][k] = Vector3::new(recv_buffers[3][idx], recv_buffers[4][idx], recv_buffers[5][idx]);
+                        velocity_w[i][j][k] = Vector3::new(recv_buffers[6][idx], recv_buffers[7][idx], recv_buffers[8][idx]);
+                        pressure[i][j][k] = recv_buffers[9][idx];
                     }
                     idx += 1;
                 }
@@ -714,61 +649,26 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp> GhostCellManager<
         let gl = subdomain.ghost_layers;
 
         // Multi-layer support
-        let send_start_k = if is_front {
-            gl
-        } else {
-            gl + subdomain.nz_local - gl
-        };
+        let send_start_k = if is_front { gl } else { gl + subdomain.nz_local - gl };
 
         // Asymmetric tags to avoid deadlock
-        let (send_tag, recv_tag) = if is_front {
-            (1000, 900)
-        } else {
-            (900, 1000)
-        };
+        let (send_tag, recv_tag) = if is_front { (1000, 900) } else { (900, 1000) };
 
         let direction = if is_front { NeighborDirection::Front } else { NeighborDirection::Back };
 
-        let layer_size = nx * ny;
-        let total_size = layer_size * gl;
+        let packed_buffers = self.pack_3d_buffers(
+            velocity_u, velocity_v, velocity_w, pressure,
+            send_start_k, gl, nx, ny
+        );
 
-        let mut send_u_x = Vec::with_capacity(total_size);
-        let mut send_u_y = Vec::with_capacity(total_size);
-        let mut send_u_z = Vec::with_capacity(total_size);
-
-        let mut send_v_x = Vec::with_capacity(total_size);
-        let mut send_v_y = Vec::with_capacity(total_size);
-        let mut send_v_z = Vec::with_capacity(total_size);
-
-        let mut send_w_x = Vec::with_capacity(total_size);
-        let mut send_w_y = Vec::with_capacity(total_size);
-        let mut send_w_z = Vec::with_capacity(total_size);
-
-        let mut send_p = Vec::with_capacity(total_size);
-
-        for l in 0..gl {
-            let k = send_start_k + l;
-            for i in 0..nx {
-                for j in 0..ny {
-                    let u = velocity_u[i][j][k];
-                    send_u_x.push(u.x); send_u_y.push(u.y); send_u_z.push(u.z);
-
-                    let v = velocity_v[i][j][k];
-                    send_v_x.push(v.x); send_v_y.push(v.y); send_v_z.push(v.z);
-
-                    let w = velocity_w[i][j][k];
-                    send_w_x.push(w.x); send_w_y.push(w.y); send_w_z.push(w.z);
-
-                    send_p.push(pressure[i][j][k]);
-                }
-            }
+        // Push send buffers
+        let send_idx = context.send_buffers.len();
+        for buffer in packed_buffers {
+            context.send_buffers.push(buffer);
         }
 
-        let send_idx = context.send_buffers.len();
-        context.send_buffers.push(send_u_x); context.send_buffers.push(send_u_y); context.send_buffers.push(send_u_z);
-        context.send_buffers.push(send_v_x); context.send_buffers.push(send_v_y); context.send_buffers.push(send_v_z);
-        context.send_buffers.push(send_w_x); context.send_buffers.push(send_w_y); context.send_buffers.push(send_w_z);
-        context.send_buffers.push(send_p);
+        let layer_size = nx * ny;
+        let total_size = layer_size * gl;
 
         let recv_idx = context.recv_buffers.len();
         for _ in 0..10 {
@@ -1104,6 +1004,7 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp> GhostCellManager<
                             FieldType::Vx => velocity_v[recv_i][j].x = buffer[j],
                             FieldType::Vy => velocity_v[recv_i][j].y = buffer[j],
                             FieldType::P => pressure[recv_i][j] = buffer[j],
+                            _ => {} // Ignore 3D types in 2D update
                         }
                     }
                 }
@@ -1127,10 +1028,71 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp> GhostCellManager<
                             FieldType::Vx => velocity_v[i][recv_j].x = buffer[i],
                             FieldType::Vy => velocity_v[i][recv_j].y = buffer[i],
                             FieldType::P => pressure[i][recv_j] = buffer[i],
+                            _ => {} // Ignore 3D types in 2D update
                         }
                     }
                 }
                 _ => {}
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Complete asynchronous 3D ghost cell updates
+    pub fn complete_async_updates_3d(
+        &self,
+        velocity_u: &mut [Vec<Vec<Vector3<T>>>],
+        velocity_v: &mut [Vec<Vec<Vector3<T>>>],
+        velocity_w: &mut [Vec<Vec<Vector3<T>>>],
+        pressure: &mut [Vec<Vec<T>>],
+        subdomain: &LocalSubdomain,
+        requests: Vec<mpi::request::Request<'_, Vec<T>>>,
+        context: &GhostExchangeContext<T>,
+    ) -> MpiResult<()> {
+        // Wait for all requests to complete
+        for request in requests {
+            let _ = MpiCommunicator::wait(request);
+        }
+
+        let nx = subdomain.total_nx();
+        let ny = subdomain.total_ny();
+        let gl = subdomain.ghost_layers;
+
+        // Unpack received buffers into ghost layers
+        for op in &context.recv_ops {
+            let buffer = &context.recv_buffers[op.buffer_index];
+
+            if matches!(op.direction, NeighborDirection::Front | NeighborDirection::Back) {
+                let is_front = op.direction == NeighborDirection::Front;
+
+                let recv_start_k = if is_front { 0 } else { gl + subdomain.nz_local };
+
+                if buffer.len() != nx * ny * gl {
+                    continue;
+                }
+
+                let mut idx = 0;
+                for l in 0..gl {
+                    let k = recv_start_k + l;
+                    for i in 0..nx {
+                        for j in 0..ny {
+                            match op.field_type {
+                                FieldType::Ux => velocity_u[i][j][k].x = buffer[idx],
+                                FieldType::Uy => velocity_u[i][j][k].y = buffer[idx],
+                                FieldType::Uz => velocity_u[i][j][k].z = buffer[idx],
+                                FieldType::Vx => velocity_v[i][j][k].x = buffer[idx],
+                                FieldType::Vy => velocity_v[i][j][k].y = buffer[idx],
+                                FieldType::Vz => velocity_v[i][j][k].z = buffer[idx],
+                                FieldType::Wx => velocity_w[i][j][k].x = buffer[idx],
+                                FieldType::Wy => velocity_w[i][j][k].y = buffer[idx],
+                                FieldType::Wz => velocity_w[i][j][k].z = buffer[idx],
+                                FieldType::P => pressure[i][j][k] = buffer[idx],
+                            }
+                            idx += 1;
+                        }
+                    }
+                }
             }
         }
 
