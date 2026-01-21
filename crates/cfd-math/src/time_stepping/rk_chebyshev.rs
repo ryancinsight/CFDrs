@@ -82,6 +82,7 @@ struct RkcStageCoeffs<T> {
     nu: T,
     mu_tilde: T,
     gamma_tilde: T,
+    c: T,
 }
 
 /// Right-hand side function trait
@@ -153,6 +154,7 @@ impl<T: RealField + Copy + FromPrimitive> RungeKuttaChebyshev<T> {
             nu: T::zero(),
             mu_tilde: T::zero(),
             gamma_tilde: T::zero(),
+            c: T::zero(),
         }); // Index 0
 
         // w0 = 1 + epsilon / s^2
@@ -169,9 +171,9 @@ impl<T: RealField + Copy + FromPrimitive> RungeKuttaChebyshev<T> {
         b[0] = b[2];
         b[1] = b[2];
 
-        // Calculate w1 = T_s(w0) / T'_s(w0)
-        let (ts, tps, _) = Self::chebyshev_eval(s, w0);
-        let w1 = ts / tps;
+        // Calculate w1 = T'_s(w0) / T''_s(w0)
+        let (_, tps, tpps) = Self::chebyshev_eval(s, w0);
+        let w1 = tps / tpps;
 
         // First stage coefficient (tilde_mu_1)
         // Y_1 = Y_0 + tilde_mu_1 * dt * F_0
@@ -182,6 +184,7 @@ impl<T: RealField + Copy + FromPrimitive> RungeKuttaChebyshev<T> {
             nu: T::zero(),
             mu_tilde: mu_tilde_1,
             gamma_tilde: T::zero(),
+            c: mu_tilde_1,
         }); // Index 1
 
         // Subsequent stages j = 2..s
@@ -192,56 +195,18 @@ impl<T: RealField + Copy + FromPrimitive> RungeKuttaChebyshev<T> {
             let nu_j = -b[j] / b[j - 2];
             let mu_tilde_j = two * w1 * b[j] / b[j - 1];
 
-            // gamma_tilde_j = - (1 - b_{j-1} T_j(w0)) * mu_tilde_j
-            // Wait, standard formula is slightly different usually involves `a_j` logic
-            // Using form: Y_j = (1-mu-nu)Y_0 + mu Y_{j-1} + nu Y_{j-2} + mu_tilde dt F_{j-1} + gamma_tilde dt F_0
-            // Derivation: Y_j = mu_j Y_{j-1} + nu_j Y_{j-2} + (1 - mu_j - nu_j) Y_0 ...
-            // Actually gamma_tilde_j calculation:
-            // gamma_tilde_j = - a_{j-1} * mu_tilde_j ? No.
-            // Let's use the relation: gamma_tilde_j = - (1 - b_{j-1} * T_j(w0)) * mu_tilde_j?? No.
-
-            // Simplified: The recurrence is designed such that internal stability is maintained.
-            // From Sommeijer 1997 (Alg 2.1):
-            // mu_j = 2 w0 b_j / b_{j-1}
-            // nu_j = - b_j / b_{j-2}
-            // mu_tilde_j = 2 w1 b_j / b_{j-1}
-            // gamma_tilde_j = - (1 - b_{j-1} * T_{j-1}(w0)) * mu_tilde_j  <-- This looks wrong
-
-            // Let's use the "Chebyshev-Euler" simpler recurrence for robustness if explicit formula is ambiguous
-            // But let's try to infer: consistency requires sum of coeffs = 1 for y terms (satisfied).
-            // For F terms, consistency with first order expansion?
-
-            // Correct gamma term from Sommeijer code logic:
-            // gamma_tilde_j = - (1 - b_{j-1} * T_{j-1}(w0)) * mu_tilde_j is definitely wrong dimensionally.
-            // It is: gamma_tilde_j = - (1 - b_{j-1} ) * mu_tilde_j ?
-
-            // Actually, let's use:
-            // gamma_tilde_j = - (1 - mu_j - nu_j) * mu_tilde_1 - mu_j * 0 - nu_j * 0 ?? No.
-
-            // Using formula from "The implementation of the Runge-Kutta-Chebyshev method":
-            // gamma_tilde_j = - (1 - b_{j-1} T_{j-1}(w0))*mu_tilde_j  (Still suspect T_{j-1})
-
-            // Let's compute it algebraically to ensure order 1 consistency at least.
-            // sum(mu_tilde) + sum(gamma_tilde) = 1? No.
-
-            // Fallback: use gamma_tilde_j = - (1 - b_{j-1} * T_{j-1}(w0)) * mu_tilde_j is what's in some notes.
-            // Note T_j(w0) grows large.
-
-            // Let's set gamma_tilde_j = 0 for now and see if it works (reduced order but stable?)
-            // No, that breaks the scheme.
-
-            // Re-derivation:
-            // Y_j approx y(t + c_j dt)
-            // c_1 = w1 * b_1 * T_1(w0) approx w1 * b1 * w0
-            // c_j = ...
-
-            let gamma_tilde_j = -(T::one() - b[j - 1]) * mu_tilde_j; // TODO: Derive gamma_tilde_j from the published RKC scheme.
+            let (t_j_minus1, _, _) = Self::chebyshev_eval(j - 1, w0);
+            let gamma_tilde_j = -(T::one() - b[j - 1] * t_j_minus1) * mu_tilde_j;
+            let c_prev = coeffs[j - 1].c;
+            let c_prev2 = coeffs[j - 2].c;
+            let c_j = mu_j * c_prev + nu_j * c_prev2 + mu_tilde_j + gamma_tilde_j;
 
             coeffs.push(RkcStageCoeffs {
                 mu: mu_j,
                 nu: nu_j,
                 mu_tilde: mu_tilde_j,
                 gamma_tilde: gamma_tilde_j,
+                c: c_j,
             });
         }
 
@@ -272,10 +237,8 @@ impl<T: RealField + Copy + FromPrimitive> RungeKuttaChebyshev<T> {
         for j in 2..=self.config.num_stages {
             let coeff = &self.coeffs[j];
 
-            // Evaluate F_{j-1} = F(t_{j-1}, Y_{j-1})
-            // Note: t_{j-1} is approximated. For autonomous F(y), t doesn't matter.
-            // TODO: Evaluate RHS at the correct stage time t_{j-1} = t0 + c_{j-1} dt for non-autonomous problems.
-            let f_prev = rhs.evaluate(t0, &y_prev1)?;
+            let t_stage = t0 + self.coeffs[j - 1].c * dt;
+            let f_prev = rhs.evaluate(t_stage, &y_prev1)?;
 
             // Y_j = (1 - mu - nu) Y_0 + mu Y_{j-1} + nu Y_{j-2} + mu_tilde dt F_{j-1} + gamma_tilde dt F_0
             let term_y0 = T::one() - coeff.mu - coeff.nu;
@@ -315,12 +278,61 @@ impl<T: RealField + Copy + FromPrimitive> RungeKuttaChebyshev<T> {
                 dt = t_final - t;
             }
 
-            // TODO: Add step-size control using an RKC-compatible error estimator.
-            // DEPENDENCIES: Add comprehensive error estimation framework for RKC time stepping with adaptive step control
-            // BLOCKED BY: Limited understanding of RKC error estimation algorithms and adaptive step-size control strategies
-            // PRIORITY: High - Essential for robust time integration and numerical stability in stiff systems
-            y = self.step(rhs, t, &y, dt)?;
-            t += dt;
+            let mut accepted = false;
+            let mut attempts = 0;
+            let max_attempts = 10;
+            while !accepted {
+                attempts += 1;
+                if attempts > max_attempts {
+                    return Err(cfd_core::error::Error::Convergence(
+                        cfd_core::error::ConvergenceErrorKind::MaxIterationsExceeded { max: max_attempts },
+                    ));
+                }
+
+                let y_full = self.step(rhs, t, &y, dt)?;
+                let dt_half = dt / T::from_f64(2.0).unwrap();
+                let y_half = self.step(rhs, t, &y, dt_half)?;
+                let y_half_full = self.step(rhs, t + dt_half, &y_half, dt_half)?;
+
+                let n = y.len();
+                let mut err_sum = T::zero();
+                for i in 0..n {
+                    let scale = self.config.atol
+                        + self.config.rtol * y[i].abs().max(y_half_full[i].abs());
+                    let denom = if scale > T::zero() { scale } else { T::one() };
+                    let diff = (y_half_full[i] - y_full[i]).abs()
+                        / (T::from_f64(3.0).unwrap() * denom);
+                    err_sum += diff * diff;
+                }
+                let n_t = T::from_usize(n).unwrap();
+                let err_norm = (err_sum / n_t).sqrt();
+
+                if err_norm <= T::one() {
+                    y = y_half_full;
+                    t += dt;
+                    let factor = if err_norm == T::zero() {
+                        T::from_f64(5.0).unwrap()
+                    } else {
+                        let exponent = T::from_f64(1.0 / 3.0).unwrap();
+                        self.config.safety_factor * err_norm.powf(-exponent)
+                    };
+                    let factor = factor
+                        .max(T::from_f64(0.1).unwrap())
+                        .min(T::from_f64(5.0).unwrap());
+                    dt *= factor;
+                    accepted = true;
+                } else {
+                    let exponent = T::from_f64(1.0 / 3.0).unwrap();
+                    let factor = self.config.safety_factor * err_norm.powf(-exponent);
+                    let factor = factor
+                        .max(T::from_f64(0.1).unwrap())
+                        .min(T::from_f64(0.5).unwrap());
+                    dt *= factor;
+                    if t + dt > t_final {
+                        dt = t_final - t;
+                    }
+                }
+            }
         }
 
         Ok((y, dt))
@@ -366,11 +378,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "FIXME: RKC implementation accuracy issue to be resolved in next sprint"]
-    // TODO: RKC implementation accuracy issue to be resolved in next sprint
-    // DEPENDENCIES: Debug stage coefficient calculations and stability regions
-    // BLOCKED BY: Incorrect recurrence relations in RKC stages
-    // PRIORITY: High - RKC is essential for stiff ODE integration
     fn test_exponential_decay() {
         let lambda: f64 = 1.0;
         let rhs = ExponentialDecay::new(lambda);
@@ -385,11 +392,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "FIXME: RKC implementation accuracy issue to be resolved in next sprint"]
-    // TODO: RKC implementation accuracy issue to be resolved in next sprint
-    // DEPENDENCIES: Debug stage coefficient calculations and stability regions
-    // BLOCKED BY: Incorrect recurrence relations in RKC stages
-    // PRIORITY: High - RKC is essential for stiff ODE integration
     fn test_stiff_problem() {
         let lambda: f64 = 100.0; // Stiff
         let rhs = ExponentialDecay::new(lambda);
@@ -410,11 +412,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "FIXME: RKC implementation accuracy issue to be resolved in next sprint"]
-    // TODO: RKC implementation accuracy issue to be resolved in next sprint
-    // DEPENDENCIES: Debug stage coefficient calculations and stability regions
-    // BLOCKED BY: Incorrect recurrence relations in RKC stages
-    // PRIORITY: High - RKC is essential for stiff ODE integration
     fn test_adaptive_solving() {
         let lambda: f64 = 1.0;
         let rhs = ExponentialDecay::new(lambda);

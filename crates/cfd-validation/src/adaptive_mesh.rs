@@ -752,13 +752,50 @@ impl AdaptiveMeshRefinement {
         }
 
         // Check memory constraint
-        let total_cells = self.count_total_cells();
+        let mut total_cells = self.count_total_cells();
         if total_cells > self.max_cells {
-            // TODO: Implement smart coarsening to stay within memory limits
-            return Err(cfd_core::error::Error::InvalidInput(format!(
-                "AMR would exceed memory limit: {} > {}",
-                total_cells, self.max_cells
-            )));
+            let mut candidates: Vec<(f64, u32, usize, usize)> = Vec::new();
+            for i in 0..nx {
+                for j in 0..ny {
+                    let level = self.refinement_levels[(i, j)];
+                    if level > min_level {
+                        candidates.push((indicators[(i, j)], level, i, j));
+                    }
+                }
+            }
+
+            candidates.sort_by(|a, b| {
+                a.0.partial_cmp(&b.0)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+                    .then_with(|| b.1.cmp(&a.1))
+            });
+
+            for &(_, level, i, j) in &candidates {
+                if total_cells <= self.max_cells {
+                    break;
+                }
+                if level <= min_level {
+                    continue;
+                }
+
+                let current_cells = 4_usize.pow(level);
+                let reduced_cells = 4_usize.pow(level - 1);
+                let reduction = current_cells.saturating_sub(reduced_cells);
+                if reduction == 0 {
+                    continue;
+                }
+
+                self.refinement_levels[(i, j)] -= 1;
+                total_cells = total_cells.saturating_sub(reduction);
+                cells_coarsened += 1;
+            }
+
+            if total_cells > self.max_cells {
+                return Err(cfd_core::error::Error::InvalidInput(format!(
+                    "AMR would exceed memory limit: {} > {}",
+                    total_cells, self.max_cells
+                )));
+            }
         }
 
         // Record refinement step

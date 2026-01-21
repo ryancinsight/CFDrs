@@ -45,9 +45,9 @@ use super::decomposition::{DomainDecomposition, LoadBalancer};
 use super::error::{MpiError, MpiResult};
 use super::{Rank, Size};
 use nalgebra::{DVector, RealField};
+use num_traits::FromPrimitive;
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
-use num_traits::FromPrimitive;
 
 /// Comprehensive performance metrics for MPI scaling analysis
 #[derive(Debug, Clone)]

@@ -7,7 +7,7 @@ use cfd_validation::manufactured::advanced_physics::{
     ManufacturedCompressibleEuler, ManufacturedHypersonic, ManufacturedShockCapturing,
     ManufacturedTCI,
 };
-use cfd_validation::manufactured::ManufacturedSolution;
+use cfd_validation::manufactured::{ManufacturedFunctions, ManufacturedKEpsilon, ManufacturedSolution};
 
 /// Test compressible Euler equations validation
 #[test]
@@ -271,13 +271,19 @@ fn test_tci_validation() {
         );
 
         // For fast chemistry (Da >> 1), reaction should drive mixture fraction toward equilibrium
-        if tci.damkohler > 1.0 {
-            // TODO: Implement proper reaction-diffusion balance verification
-            // This is a simplified check - in practice would verify reaction-diffusion balance
+        if tci.damkohler > 1.0 && z_mix > 1e-6 && z_mix < 1.0 - 1e-6 {
+            let base = ManufacturedFunctions::sinusoidal(x, y, t, tci.kx, tci.ky);
+            let dz_dt = -tci.amplitude * base;
+            let k_sq = tci.kx * tci.kx + tci.ky * tci.ky;
+            let diffusion = tci.diffusivity_t * k_sq * tci.amplitude * base;
+            let reaction = tci.damkohler * z_mix * (1.0 - z_mix);
+            let balance = dz_dt - diffusion + reaction;
+            let residual = source - balance;
+            let tolerance = 1e-10 + 1e-6 * balance.abs();
             assert!(
-                source.abs() < 10.0,
-                "Source term magnitude too large for fast chemistry: {}",
-                source
+                residual.abs() <= tolerance,
+                "Reaction-diffusion balance residual too large: {}",
+                residual
             );
         }
     }
@@ -293,14 +299,21 @@ fn test_coupled_compressible_turbulent_validation() {
     // Create coupled compressible Euler and turbulence models
     let compressible = ManufacturedCompressibleEuler::<f64>::new(3.0, 1.4, 0.0, 0.1, 1.0, 1.0);
 
-    // Test compressibility effects on turbulence (simplified coupling)
-    // TODO: Implement proper compressible-turbulence coupling with density fluctuations
+    let turbulence = ManufacturedKEpsilon::<f64>::new(2.5, 1.7, 0.8, 0.01);
     let x = 0.5;
     let y = 0.5;
     let t = 0.5;
 
     let rho = compressible.exact_solution(x, y, 0.0, t);
     let source_comp = compressible.source_term(x, y, 0.0, t);
+    let k = turbulence.exact_solution(x, y, 0.0, t);
+    let k_source = turbulence.source_term(x, y, 0.0, t);
+    let base = ManufacturedFunctions::sinusoidal(x, y, t, compressible.kx, compressible.ky);
+    let drho_dt = -compressible.amplitude * base;
+    let dk_dt = -k;
+    let rho_k = rho * k;
+    let rho_k_dt = rho * dk_dt + k * drho_dt;
+    let coupled_source = rho * k_source + k * drho_dt;
 
     // For compressible flows, density fluctuations affect momentum and energy equations
     assert!(
@@ -309,6 +322,15 @@ fn test_coupled_compressible_turbulent_validation() {
         rho
     );
     assert!(source_comp.is_finite(), "Compressible source term finite");
+    assert!(k >= 0.0 && k.is_finite(), "Turbulent kinetic energy finite");
+    assert!(k_source.is_finite(), "Turbulent source term finite");
+    assert!(rho_k.is_finite(), "Density-weighted turbulence finite");
+    assert!(rho_k_dt.is_finite(), "Density-weighted rate finite");
+    assert!(coupled_source.is_finite(), "Coupled source term finite");
+    assert!(
+        (rho_k_dt - rho * dk_dt).abs() > 0.0,
+        "Density fluctuations must influence coupled turbulence"
+    );
 
     // In a full implementation, we would couple this with turbulence MMS
     // For now, we verify the compressible solution properties

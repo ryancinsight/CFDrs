@@ -266,25 +266,25 @@ impl<T: RealField + Copy + FromPrimitive + SafeFromF64 + num_traits::ToPrimitive
 
                 // Interpolate computed values to Ghia reference y-positions
                 for (&y_ref, &u_ref) in y_positions.iter().zip(u_velocities.iter()) {
-                    // TODO: Interpolate against actual grid geometry instead of nearest-neighbor.
                     let y_ref_f64 = y_ref.to_f64().ok_or_else(|| {
                         Error::ConversionError("Failed to convert y_ref to f64".to_string())
                     })?;
 
                     let max_idx = u_len - 1;
                     let idx_f64 = y_ref_f64.clamp(0.0, 1.0) * max_idx as f64;
-                    let grid_idx = idx_f64
-                        .round()
+                    let low_idx = idx_f64
+                        .floor()
                         .to_usize()
                         .ok_or_else(|| Error::ConversionError("Invalid grid index".to_string()))?
                         .min(max_idx);
-
-                    if grid_idx < u_len {
-                        let u_computed = result.values[grid_idx];
-                        let error = u_computed - u_ref;
-                        l2_error_sq += error * error;
-                        num_points += 1;
-                    }
+                    let high_idx = (low_idx + 1).min(max_idx);
+                    let weight = <T as SafeFromF64>::try_from_f64(idx_f64 - low_idx as f64)?;
+                    let u_low = result.values[low_idx];
+                    let u_high = result.values[high_idx];
+                    let u_computed = u_low * (T::one() - weight) + u_high * weight;
+                    let error = u_computed - u_ref;
+                    l2_error_sq += error * error;
+                    num_points += 1;
                 }
 
                 if num_points > 0 {

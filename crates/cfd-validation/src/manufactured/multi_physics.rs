@@ -8,7 +8,7 @@
 //! - Turbulent combustion
 
 use super::{ManufacturedFunctions, ManufacturedSolution};
-use nalgebra::RealField;
+use nalgebra::{ComplexField, RealField};
 use num_traits::FromPrimitive;
 
 /// Manufactured solution for conjugate heat transfer
@@ -178,8 +178,8 @@ impl<T: RealField + Copy + FromPrimitive> ManufacturedSolution<T>
         self.amplitude * spatial * temporal
     }
 
-    fn source_term(&self, x: T, y: T, z: T, t: T) -> T {
-        let c = self.exact_solution(x, y, z, t);
+    fn source_term(&self, x: T, y: T, _z: T, t: T) -> T {
+        let c = self.exact_solution(x, y, _z, t);
 
         // Species equation: ∂C/∂t = D ∇²C - k C + S
         // We want S such that the MMS satisfies this equation
@@ -422,7 +422,7 @@ impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedMHD<T> {
     }
 }
 
-/// TODO: Provide a physically consistent manufactured multiphase solution.
+#[allow(missing_docs)]
 #[derive(Debug, Clone)]
 pub struct ManufacturedMultiphase<T: RealField + Copy> {
     /// Density ratio (phase 2 / phase 1)
@@ -462,15 +462,57 @@ impl<T: RealField + Copy> ManufacturedMultiphase<T> {
 
 impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedMultiphase<T> {
     fn exact_solution(&self, x: T, y: T, _z: T, t: T) -> T {
-        // TODO: Use a level-set/VOF-consistent manufactured interface field.
-        let spatial = ManufacturedFunctions::sinusoidal(x, y, t, self.kx, self.ky);
-        self.amplitude * spatial
+        let sin_kx = ComplexField::sin(self.kx * x);
+        let sin_ky = ComplexField::sin(self.ky * y);
+        let temporal = ComplexField::exp(-t);
+        let perturbation = self.amplitude * sin_kx * sin_ky * temporal;
+        let epsilon = <T as FromPrimitive>::from_f64(0.02).unwrap();
+        let signed_distance = y - self.interface_y + perturbation;
+        let s = signed_distance / epsilon;
+        <T as FromPrimitive>::from_f64(0.5).unwrap() * (T::one() + ComplexField::tanh(s))
     }
 
-    fn source_term(&self, x: T, y: T, z: T, t: T) -> T {
-        // TODO: Derive the source term from the governing multiphase transport equation.
-        let phi = self.exact_solution(x, y, z, t);
-        -phi
+    fn source_term(&self, x: T, y: T, _z: T, t: T) -> T {
+        let sin_kx = ComplexField::sin(self.kx * x);
+        let cos_kx = ComplexField::cos(self.kx * x);
+        let sin_ky = ComplexField::sin(self.ky * y);
+        let cos_ky = ComplexField::cos(self.ky * y);
+        let temporal = ComplexField::exp(-t);
+        let perturbation = self.amplitude * sin_kx * sin_ky * temporal;
+        let epsilon = <T as FromPrimitive>::from_f64(0.02).unwrap();
+        let signed_distance = y - self.interface_y + perturbation;
+        let s = signed_distance / epsilon;
+        let tanh_s = ComplexField::tanh(s);
+        let cosh_s = ComplexField::cosh(s);
+        let sech2 = T::one() / (cosh_s * cosh_s);
+        let dphi_ds = <T as FromPrimitive>::from_f64(0.5).unwrap() * sech2;
+        let d2phi_ds2 = -sech2 * tanh_s;
+
+        let inv_epsilon = T::one() / epsilon;
+        let ds_dx = self.amplitude * self.kx * cos_kx * sin_ky * temporal * inv_epsilon;
+        let ds_dy = (T::one() + self.amplitude * self.ky * sin_kx * cos_ky * temporal)
+            * inv_epsilon;
+        let ds_dt = -perturbation * inv_epsilon;
+
+        let d2s_dx2 =
+            -self.amplitude * self.kx * self.kx * sin_kx * sin_ky * temporal * inv_epsilon;
+        let d2s_dy2 =
+            -self.amplitude * self.ky * self.ky * sin_kx * sin_ky * temporal * inv_epsilon;
+
+        let dphi_dt = dphi_ds * ds_dt;
+        let dphi_dx = dphi_ds * ds_dx;
+        let dphi_dy = dphi_ds * ds_dy;
+        let d2phi_dx2 = d2phi_ds2 * ds_dx * ds_dx + dphi_ds * d2s_dx2;
+        let d2phi_dy2 = d2phi_ds2 * ds_dy * ds_dy + dphi_ds * d2s_dy2;
+        let laplacian = d2phi_dx2 + d2phi_dy2;
+
+        let u = self.amplitude * self.ky * sin_kx * cos_ky * temporal;
+        let v = -self.amplitude * self.kx * cos_kx * sin_ky * temporal;
+
+        let advection = u * dphi_dx + v * dphi_dy;
+        let diffusion = <T as FromPrimitive>::from_f64(0.01).unwrap() * laplacian;
+
+        dphi_dt + advection - diffusion
     }
 }
 

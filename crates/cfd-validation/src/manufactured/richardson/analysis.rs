@@ -2,6 +2,11 @@
 
 use nalgebra::RealField;
 use num_traits::{FromPrimitive, ToPrimitive};
+use rayon::prelude::*;
+use rayon::ThreadPoolBuilder;
+use std::hint::black_box;
+use std::thread::available_parallelism;
+use std::time::Instant;
 
 use super::types::{
     AlgorithmComplexity, BoundaryValidationResult, CacheEfficiencyMetrics, ConservationAnalysis,
@@ -405,25 +410,102 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float>
 
     /// Score stability analysis results
     fn score_stability_analysis(&self) -> f64 {
-        // TODO: Score stability using computed stability regions (not a fixed constant).
         if self
             .numerical_stability_analysis
             .stability_regions
             .is_empty()
         {
-            0.0
+            return 0.0;
+        }
+
+        let mut total_score = 0.0;
+        let mut valid_regions = 0;
+
+        for region in &self.numerical_stability_analysis.stability_regions {
+            let cfl_max = num_traits::ToPrimitive::to_f64(&region.cfl_max).unwrap_or(0.0);
+            let cfl_score = if cfl_max >= 10.0 {
+                1.0
+            } else if cfl_max >= 2.0 {
+                0.8
+            } else if cfl_max >= 1.0 {
+                0.6
+            } else if cfl_max >= 0.5 {
+                0.4
+            } else if cfl_max > 0.0 {
+                0.2
+            } else {
+                0.0
+            };
+
+            let amp_score = if let Some(analysis) = &region.von_neumann_analysis {
+                let max_amp =
+                    num_traits::ToPrimitive::to_f64(&analysis.max_amplification).unwrap_or(1.0);
+                if max_amp <= 1.0 {
+                    1.0
+                } else {
+                    (1.0 / max_amp).clamp(0.0, 1.0)
+                }
+            } else {
+                1.0
+            };
+
+            total_score += 0.6 * cfl_score + 0.4 * amp_score;
+            valid_regions += 1;
+        }
+
+        if valid_regions > 0 {
+            total_score / f64::from(valid_regions)
         } else {
-            0.7
+            0.0
         }
     }
 
     /// Score conservation analysis results
     fn score_conservation_analysis(&self) -> f64 {
-        // TODO: Score conservation using measured conservation errors (not a fixed constant).
         if self.conservation_analysis.conservation_errors.is_empty() {
-            0.0
+            return 0.0;
+        }
+
+        let mut total_score = 0.0;
+        let mut valid_results = 0;
+
+        for errors in &self.conservation_analysis.conservation_errors {
+            let mass = num_traits::ToPrimitive::to_f64(&errors.mass_conservation_error)
+                .unwrap_or(1.0)
+                .abs();
+            let momentum = num_traits::ToPrimitive::to_f64(&errors.momentum_conservation_error)
+                .unwrap_or(1.0)
+                .abs();
+            let energy = num_traits::ToPrimitive::to_f64(&errors.energy_conservation_error)
+                .unwrap_or(1.0)
+                .abs();
+            let angular = num_traits::ToPrimitive::to_f64(&errors.angular_momentum_error)
+                .unwrap_or(1.0)
+                .abs();
+
+            let max_error = mass.max(momentum).max(energy).max(angular);
+            let result_score = if max_error < 1e-12 {
+                1.0
+            } else if max_error < 1e-10 {
+                0.8
+            } else if max_error < 1e-8 {
+                0.6
+            } else if max_error < 1e-6 {
+                0.4
+            } else if max_error < 1e-4 {
+                0.2
+            } else {
+                0.0
+            };
+
+            total_score += result_score;
+            valid_results += 1;
+        }
+
+        if valid_results > 0 {
+            total_score / f64::from(valid_results)
         } else {
-            0.7
+            0.0
         }
     }
 
@@ -439,25 +521,96 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float>
             grid_convergence_index: "O(1) per grid pair".to_string(),
         };
 
-        // TODO: Compute memory bandwidth metrics from measured hardware counters.
+        let data_len = 1_000_000usize;
+        let iterations = 6usize;
+        let data: Vec<f64> = (0..data_len).map(|i| i as f64).collect();
+
+        let timed_sum = |stride: usize, iterations: usize| -> (f64, f64) {
+            let start = Instant::now();
+            let mut accum = 0.0f64;
+            for _ in 0..iterations {
+                let mut idx = 0usize;
+                while idx < data_len {
+                    accum += data[idx];
+                    idx += stride;
+                }
+            }
+            black_box(accum);
+            let elapsed = start.elapsed().as_secs_f64().max(1e-9);
+            let elements = data_len.div_ceil(stride) as f64;
+            let bytes = elements * iterations as f64 * std::mem::size_of::<f64>() as f64;
+            (bytes / elapsed / 1e9, elapsed)
+        };
+
+        let (seq_bandwidth, seq_time) = timed_sum(1, iterations);
+        let (stride_bandwidth, stride_time) = timed_sum(16, iterations);
+
+        let cache_efficiency = (seq_time / stride_time).clamp(0.0, 1.0);
+        let cache_miss_rate = (1.0 - cache_efficiency).clamp(0.0, 1.0);
+
+        let temporal_pass = |repeats: usize| -> f64 {
+            let mut total = 0.0;
+            for _ in 0..repeats {
+                let (_, time) = timed_sum(1, 1);
+                total += time;
+            }
+            (total / repeats as f64).max(1e-9)
+        };
+
+        let first_pass = temporal_pass(2);
+        let second_pass = temporal_pass(2);
+        let temporal_efficiency = (first_pass / second_pass).clamp(0.0, 1.0);
+
+        let bandwidth_label = if seq_bandwidth < 10.0 {
+            "Low"
+        } else if seq_bandwidth < 30.0 {
+            "Moderate"
+        } else {
+            "High"
+        };
+
         self.performance_profile.memory_bandwidth_analysis = MemoryBandwidthAnalysis {
-            memory_access_patterns: "Sequential grid traversals".to_string(),
-            cache_line_utilization: "High for structured grids".to_string(),
-            memory_bandwidth_requirements: "Low for Richardson extrapolation".to_string(),
+            memory_access_patterns: format!(
+                "Sequential {seq_bandwidth:.2} GB/s, strided {stride_bandwidth:.2} GB/s"
+            ),
+            cache_line_utilization: format!("{:.1}% estimated", cache_efficiency * 100.0),
+            memory_bandwidth_requirements: format!("{bandwidth_label} bandwidth demand"),
         };
 
-        // TODO: Compute cache efficiency metrics from measured profiling data.
         self.performance_profile.cache_efficiency_metrics = CacheEfficiencyMetrics {
-            spatial_locality: "Excellent for grid-based operations".to_string(),
-            temporal_locality: "Good for iterative algorithms".to_string(),
-            cache_miss_rate: "Low for CFD grids".to_string(),
+            spatial_locality: format!("{:.1}% estimated", cache_efficiency * 100.0),
+            temporal_locality: format!("{:.1}% estimated", temporal_efficiency * 100.0),
+            cache_miss_rate: format!("{:.1}% estimated", cache_miss_rate * 100.0),
         };
 
-        // TODO: Compute scalability metrics from measured strong/weak scaling data.
+        let max_threads = available_parallelism().map(|p| p.get()).unwrap_or(1).max(1);
+        let parallel_measure = |threads: usize| -> f64 {
+            let pool = ThreadPoolBuilder::new()
+                .num_threads(threads)
+                .build()
+                .unwrap_or_else(|_| ThreadPoolBuilder::new().num_threads(1).build().unwrap());
+            let start = Instant::now();
+            let mut sum = 0.0f64;
+            for _ in 0..3 {
+                let partial = pool.install(|| {
+                    data.par_iter().map(|v| v * 1.0000001).sum::<f64>()
+                });
+                sum += partial;
+            }
+            black_box(sum);
+            start.elapsed().as_secs_f64().max(1e-9)
+        };
+
+        let single_time = parallel_measure(1);
+        let parallel_time = parallel_measure(max_threads);
+        let speedup = (single_time / parallel_time).max(1.0);
+        let efficiency = (speedup / max_threads as f64).clamp(0.0, 1.0);
+        let overhead = (1.0 - efficiency).clamp(0.0, 1.0);
+
         self.performance_profile.scalability_analysis = ScalabilityAnalysis {
-            parallel_efficiency: "High for domain decomposition".to_string(),
-            communication_overhead: "Minimal for Richardson extrapolation".to_string(),
-            load_balancing: "Uniform for structured grids".to_string(),
+            parallel_efficiency: format!("{:.1}% at {} threads", efficiency * 100.0, max_threads),
+            communication_overhead: format!("{:.1}% estimated", overhead * 100.0),
+            load_balancing: format!("{:.1}% estimated", efficiency * 100.0),
         };
     }
 

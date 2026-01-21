@@ -5,8 +5,10 @@ use nalgebra::{DVector, RealField};
 use nalgebra_sparse::CsrMatrix;
 // use nalgebra_sparse::ops::serial::spmm_csr_csr;
 use crate::linear_solver::LinearOperator;
+use crate::simd::{SimdOps, VectorOps};
 use num_traits::{Float, FromPrimitive, Signed};
 use rayon::prelude::*;
+use std::any::TypeId;
 
 impl<T: RealField + Copy + Send + Sync> LinearOperator<T> for CsrMatrix<T> {
     fn apply(&self, x: &DVector<T>, y: &mut DVector<T>) -> Result<()> {
@@ -44,11 +46,10 @@ pub fn spmv<T: RealField + Copy>(a: &CsrMatrix<T>, x: &DVector<T>, y: &mut DVect
     assert_eq!(x.len(), a.ncols(), "Input vector dimension mismatch");
     assert_eq!(y.len(), a.nrows(), "Output vector dimension mismatch");
 
-    // TODO: Add adaptive threshold based on matrix properties and hardware
-    const PARALLEL_THRESHOLD: usize = 1000;
+    let parallel_threshold = parallel_threshold(a);
 
     // Use parallel implementation for large matrices
-    if a.nrows() > PARALLEL_THRESHOLD {
+    if a.nrows() >= parallel_threshold || a.nnz() >= parallel_threshold.saturating_mul(64) {
         spmv_parallel(a, x, y);
         return;
     }
@@ -57,19 +58,126 @@ pub fn spmv<T: RealField + Copy>(a: &CsrMatrix<T>, x: &DVector<T>, y: &mut DVect
     y.fill(T::zero());
 
     // Standard CSR SpMV: y[i] = sum(A[i,j] * x[j]) for j in row i
-    // TODO: Consider SIMD optimization for regular sparsity patterns
+    let simd_ops = SimdOps::new();
+    let x_slice = x.as_slice();
+    let values = a.values();
+    let col_indices = a.col_indices();
+    let row_offsets = a.row_offsets();
+    let simd_min_len = if TypeId::of::<T>() == TypeId::of::<f64>() {
+        4
+    } else {
+        8
+    };
     for i in 0..a.nrows() {
-        let row_start = a.row_offsets()[i];
-        let row_end = a.row_offsets()[i + 1];
+        let row_start = row_offsets[i];
+        let row_end = row_offsets[i + 1];
+
+        if let Some(start_col) = contiguous_row_start(col_indices, row_start, row_end) {
+            let len = row_end - row_start;
+            if len >= simd_min_len && start_col + len <= x_slice.len() {
+                if let Some(sum) = simd_dot_if_available(
+                    &simd_ops,
+                    &values[row_start..row_end],
+                    &x_slice[start_col..start_col + len],
+                ) {
+                    y[i] = sum;
+                    continue;
+                }
+            }
+        }
 
         let mut sum = T::zero();
         for j in row_start..row_end {
-            let col_idx = a.col_indices()[j];
-            let val = a.values()[j];
+            let col_idx = col_indices[j];
+            let val = values[j];
             sum += val * x[col_idx];
         }
         y[i] = sum;
     }
+}
+
+fn parallel_threshold<T: RealField + Copy>(a: &CsrMatrix<T>) -> usize {
+    let cores = std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(1);
+    let rows = a.nrows();
+    let cols = a.ncols();
+    let nnz = a.nnz();
+    let density = if rows == 0 || cols == 0 {
+        0.0
+    } else {
+        nnz as f64 / (rows * cols) as f64
+    };
+    let avg_nnz_per_row = if rows == 0 { 0 } else { nnz / rows };
+    let base = 256_usize.saturating_mul(cores);
+    let density_factor = if density >= 0.05 {
+        0.5
+    } else if density <= 0.005 {
+        1.5
+    } else {
+        1.0
+    };
+    let workload_factor = if avg_nnz_per_row >= 64 {
+        0.5
+    } else if avg_nnz_per_row <= 8 {
+        1.5
+    } else {
+        1.0
+    };
+    let threshold = (base as f64 * density_factor * workload_factor).round() as usize;
+    let min_threshold = 64_usize.saturating_mul(cores);
+    let max_threshold = 8192_usize.saturating_mul(cores);
+    threshold.clamp(min_threshold, max_threshold)
+}
+
+fn contiguous_row_start(
+    col_indices: &[usize],
+    row_start: usize,
+    row_end: usize,
+) -> Option<usize> {
+    if row_end <= row_start {
+        return None;
+    }
+    let start = *col_indices.get(row_start)?;
+    let mut prev = start;
+    for &col in &col_indices[row_start + 1..row_end] {
+        if col != prev + 1 {
+            return None;
+        }
+        prev = col;
+    }
+    Some(start)
+}
+
+fn simd_dot_if_available<T: RealField + Copy>(
+    simd_ops: &SimdOps,
+    values: &[T],
+    x_slice: &[T],
+) -> Option<T> {
+    if values.len() != x_slice.len() {
+        return None;
+    }
+    let type_id = TypeId::of::<T>();
+    if type_id == TypeId::of::<f32>() {
+        let values_f32 =
+            unsafe { std::slice::from_raw_parts(values.as_ptr().cast::<f32>(), values.len()) };
+        let x_f32 =
+            unsafe { std::slice::from_raw_parts(x_slice.as_ptr().cast::<f32>(), x_slice.len()) };
+        if let Ok(sum) = simd_ops.dot(values_f32, x_f32) {
+            let sum_t = unsafe { std::mem::transmute_copy::<f32, T>(&sum) };
+            return Some(sum_t);
+        }
+    } else if type_id == TypeId::of::<f64>() {
+        let values_f64 =
+            unsafe { std::slice::from_raw_parts(values.as_ptr().cast::<f64>(), values.len()) };
+        let x_f64 =
+            unsafe { std::slice::from_raw_parts(x_slice.as_ptr().cast::<f64>(), x_slice.len()) };
+        if let Ok(sum) = simd_ops.dot_f64(values_f64, x_f64) {
+            let sum_t = unsafe { std::mem::transmute_copy::<f64, T>(&sum) };
+            return Some(sum_t);
+        }
+    }
+    None
 }
 
 /// Parallel sparse matrix-vector multiplication (SpMV): y = A * x

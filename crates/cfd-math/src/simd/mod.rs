@@ -13,9 +13,12 @@ pub mod vectorization;
 #[cfg(test)]
 mod tests;
 
+use crate::performance_monitor::PerformanceAwareSelector;
 pub use arch_detect::ArchDetect;
 pub use ops::{SimdOperation, SimdOps, VectorOps};
 pub use swar::SwarOps;
+use std::sync::Mutex;
+use std::time::Instant;
 
 /// SIMD capability levels
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -59,6 +62,7 @@ pub struct SimdProcessor {
     capability: SimdCapability,
     /// SIMD operations handler
     pub ops: SimdOps,
+    selector: Mutex<PerformanceAwareSelector>,
 }
 
 impl SimdProcessor {
@@ -68,12 +72,38 @@ impl SimdProcessor {
         Self {
             capability,
             ops: SimdOps::new(),
+            selector: Mutex::new(PerformanceAwareSelector::new()),
         }
     }
 
     /// Get detected capability
     pub fn capability(&self) -> SimdCapability {
         self.capability
+    }
+
+    fn operation_key(capability: SimdCapability, op: SimdOperation) -> &'static str {
+        match (capability, op) {
+            (SimdCapability::Avx2, SimdOperation::Add) => "simd_avx2_add",
+            (SimdCapability::Avx2, SimdOperation::Mul) => "simd_avx2_mul",
+            (SimdCapability::Avx2, SimdOperation::Sub) => "simd_avx2_sub",
+            (SimdCapability::Avx2, SimdOperation::Div) => "simd_avx2_div",
+            (SimdCapability::Avx2, SimdOperation::FusedMulAdd) => "simd_avx2_fma",
+            (SimdCapability::Sse42, SimdOperation::Add) => "simd_sse42_add",
+            (SimdCapability::Sse42, SimdOperation::Mul) => "simd_sse42_mul",
+            (SimdCapability::Sse42, SimdOperation::Sub) => "simd_sse42_sub",
+            (SimdCapability::Sse42, SimdOperation::Div) => "simd_sse42_div",
+            (SimdCapability::Sse42, SimdOperation::FusedMulAdd) => "simd_sse42_fma",
+            (SimdCapability::Neon, SimdOperation::Add) => "simd_neon_add",
+            (SimdCapability::Neon, SimdOperation::Mul) => "simd_neon_mul",
+            (SimdCapability::Neon, SimdOperation::Sub) => "simd_neon_sub",
+            (SimdCapability::Neon, SimdOperation::Div) => "simd_neon_div",
+            (SimdCapability::Neon, SimdOperation::FusedMulAdd) => "simd_neon_fma",
+            (SimdCapability::Swar, SimdOperation::Add) => "simd_swar_add",
+            (SimdCapability::Swar, SimdOperation::Mul) => "simd_swar_mul",
+            (SimdCapability::Swar, SimdOperation::Sub) => "simd_swar_sub",
+            (SimdCapability::Swar, SimdOperation::Div) => "simd_swar_div",
+            (SimdCapability::Swar, SimdOperation::FusedMulAdd) => "simd_swar_fma",
+        }
     }
 
     /// Process f32 arrays with specified operation
@@ -92,30 +122,46 @@ impl SimdProcessor {
             return Err(crate::error::MathError::DimensionMismatch.into());
         }
 
-        // TODO: Implement runtime performance profiling to optimize threshold selection
-        const SIMD_THRESHOLD: usize = 500; // Below this, SIMD overhead may exceed benefits
+        let operation_key = Self::operation_key(self.capability, op);
+        let use_simd = {
+            let mut selector = self.selector.lock().map_err(|_| {
+                crate::error::MathError::InvalidInput(
+                    "Performance selector lock poisoned".to_string(),
+                )
+            })?;
+            selector.should_use_simd(operation_key, a.len())
+        };
 
-        // For very small arrays, scalar operations may be faster due to SIMD overhead
-        if a.len() < SIMD_THRESHOLD && matches!(self.capability, SimdCapability::Avx2) {
-            return self.process_scalar_f32(a, b, result, op);
-        }
-
-        match op {
-            SimdOperation::Add => self.ops.add(a, b, result),
-            SimdOperation::Mul => self.ops.mul(a, b, result),
-            SimdOperation::Sub => self.ops.sub(a, b, result),
-            SimdOperation::Div => self.ops.div(a, b, result),
-            SimdOperation::FusedMulAdd => {
-                // TODO: Implement proper FMA operation instead of mul+add sequence
-                self.ops.mul(a, b, result)?;
-                // Result now contains a * b, add to existing values would require separate c
-                Ok(())
+        let start = Instant::now();
+        let result_status = if use_simd {
+            match op {
+                SimdOperation::Add => self.ops.add(a, b, result),
+                SimdOperation::Mul => self.ops.mul(a, b, result),
+                SimdOperation::Sub => self.ops.sub(a, b, result),
+                SimdOperation::Div => self.ops.div(a, b, result),
+                SimdOperation::FusedMulAdd => {
+                    let c = result.to_vec();
+                    self.ops.fma(a, b, &c, result)
+                }
             }
+        } else {
+            self.process_scalar_f32(a, b, result, op)
+        };
+        let elapsed_ns = start.elapsed().as_nanos().min(u128::from(u64::MAX)) as u64;
+
+        if result_status.is_ok() {
+            let mut selector = self.selector.lock().map_err(|_| {
+                crate::error::MathError::InvalidInput(
+                    "Performance selector lock poisoned".to_string(),
+                )
+            })?;
+            selector.record_performance(operation_key, a.len(), elapsed_ns);
         }
+
+        result_status
     }
 
     /// Scalar fallback for small arrays where SIMD overhead is detrimental
-    /// TODO: Add benchmarking to determine optimal thresholds per hardware
     fn process_scalar_f32(
         &self,
         a: &[f32],
@@ -145,9 +191,8 @@ impl SimdProcessor {
                 }
             }
             SimdOperation::FusedMulAdd => {
-                // TODO: Implement proper scalar FMA
                 for ((res, &a_val), &b_val) in result.iter_mut().zip(a.iter()).zip(b.iter()) {
-                    *res += a_val * b_val;
+                    *res = a_val.mul_add(b_val, *res);
                 }
             }
         }

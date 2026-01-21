@@ -1,11 +1,13 @@
 //! Tests for MPI functionality
 
-use super::*;
-use super::decomposition::{DomainDecomposition, NeighborDirection, NeighborInfo};
+use super::decomposition::{
+    DecompositionStrategy, DomainDecomposition, NeighborDirection, NeighborInfo,
+};
 use super::distributed_solvers::{
     AdditiveSchwarzPreconditioner, BlockJacobiPreconditioner, DistributedGMRES,
     DistributedLinearOperator,
 };
+use super::*;
 use nalgebra::RealField;
 
 #[test]
@@ -114,8 +116,7 @@ fn test_ghost_cell_manager_creation() {
     let neighbors = HashMap::new();
     // Test that GhostCellManager can be created (compile-time check)
     // In a real test with MPI, we'd need an actual communicator
-    let _manager_type: std::marker::PhantomData<GhostCellManager<f64>> =
-        std::marker::PhantomData;
+    let _manager_type: std::marker::PhantomData<GhostCellManager<f64>> = std::marker::PhantomData;
 }
 
 #[test]
@@ -212,9 +213,13 @@ fn test_domain_decomposition_neighbors_1d() {
     };
 
     // Test neighbor computation for middle subdomain in 1D decomposition
-    let neighbors =
-        DomainDecomposition::compute_neighbors(&subdomain, &global, 4)
-            .unwrap();
+    let neighbors = DomainDecomposition::compute_neighbors(
+        &subdomain,
+        &global,
+        4,
+        DecompositionStrategy::Simple1D,
+    )
+    .unwrap();
 
     // Should have both left and right neighbors
     assert_eq!(neighbors.len(), 2);
@@ -222,18 +227,12 @@ fn test_domain_decomposition_neighbors_1d() {
     assert!(neighbors.contains_key(&2)); // right neighbor (rank 2)
 
     if let Some(left_info) = neighbors.get(&0) {
-        assert_eq!(
-            left_info.direction,
-            NeighborDirection::Left
-        );
+        assert_eq!(left_info.direction, NeighborDirection::Left);
         assert_eq!(left_info.overlap, 1);
     }
 
     if let Some(right_info) = neighbors.get(&2) {
-        assert_eq!(
-            right_info.direction,
-            NeighborDirection::Right
-        );
+        assert_eq!(right_info.direction, NeighborDirection::Right);
         assert_eq!(right_info.overlap, 1);
     }
 }
@@ -253,19 +252,20 @@ fn test_domain_decomposition_neighbors_boundary() {
     };
 
     // Test neighbor computation for left boundary subdomain
-    let neighbors =
-        DomainDecomposition::compute_neighbors(&subdomain, &global, 4)
-            .unwrap();
+    let neighbors = DomainDecomposition::compute_neighbors(
+        &subdomain,
+        &global,
+        4,
+        DecompositionStrategy::Simple1D,
+    )
+    .unwrap();
 
     // Should only have right neighbor (no left neighbor for boundary)
     assert_eq!(neighbors.len(), 1);
     assert!(neighbors.contains_key(&1)); // right neighbor (rank 1)
 
     if let Some(right_info) = neighbors.get(&1) {
-        assert_eq!(
-            right_info.direction,
-            NeighborDirection::Right
-        );
+        assert_eq!(right_info.direction, NeighborDirection::Right);
         assert_eq!(right_info.overlap, 1);
     }
 }
@@ -278,47 +278,39 @@ fn test_find_rank_for_global_index() {
     // Each process gets 25 cells: [0-24], [25-49], [50-74], [75-99]
 
     assert_eq!(
-        DomainDecomposition::find_rank_for_global_i(10, &global, 4)
-            .unwrap(),
+        DomainDecomposition::find_rank_for_global_i(10, &global, 4).unwrap(),
         0
     );
     assert_eq!(
-        DomainDecomposition::find_rank_for_global_i(30, &global, 4)
-            .unwrap(),
+        DomainDecomposition::find_rank_for_global_i(30, &global, 4).unwrap(),
         1
     );
     assert_eq!(
-        DomainDecomposition::find_rank_for_global_i(60, &global, 4)
-            .unwrap(),
+        DomainDecomposition::find_rank_for_global_i(60, &global, 4).unwrap(),
         2
     );
     assert_eq!(
-        DomainDecomposition::find_rank_for_global_i(85, &global, 4)
-            .unwrap(),
+        DomainDecomposition::find_rank_for_global_i(85, &global, 4).unwrap(),
         3
     );
 
     // Test boundary cases
     assert_eq!(
-        DomainDecomposition::find_rank_for_global_i(24, &global, 4)
-            .unwrap(),
+        DomainDecomposition::find_rank_for_global_i(24, &global, 4).unwrap(),
         0
     );
     assert_eq!(
-        DomainDecomposition::find_rank_for_global_i(25, &global, 4)
-            .unwrap(),
+        DomainDecomposition::find_rank_for_global_i(25, &global, 4).unwrap(),
         1
     );
     assert_eq!(
-        DomainDecomposition::find_rank_for_global_i(49, &global, 4)
-            .unwrap(),
+        DomainDecomposition::find_rank_for_global_i(49, &global, 4).unwrap(),
         1
     );
     assert_eq!(
-        DomainDecomposition::find_rank_for_global_i(50, &global, 4)
-            .unwrap(),
-            2
-        );
+        DomainDecomposition::find_rank_for_global_i(50, &global, 4).unwrap(),
+        2
+    );
 }
 
 #[test]
@@ -345,10 +337,7 @@ fn test_parallel_preconditioner_types() {
     > = std::marker::PhantomData;
 
     let _schwarz_type: std::marker::PhantomData<
-        AdditiveSchwarzPreconditioner<
-            f64,
-            DistributedLaplacian2D<f64>,
-        >,
+        AdditiveSchwarzPreconditioner<f64, DistributedLaplacian2D<f64>>,
     > = std::marker::PhantomData;
 }
 
@@ -360,10 +349,7 @@ fn test_distributed_gmres_solver_type() {
         DistributedGMRES<
             f64,
             DistributedLaplacian2D<f64>,
-            BlockJacobiPreconditioner<
-                f64,
-                DistributedLaplacian2D<f64>,
-            >,
+            BlockJacobiPreconditioner<f64, DistributedLaplacian2D<f64>>,
         >,
     > = std::marker::PhantomData;
 }
@@ -373,8 +359,7 @@ fn test_parallel_io_types() {
     // Test that parallel I/O types exist and can be instantiated
     use super::distributed_solvers::parallel_io::ParallelVtkWriter;
 
-    let _vtk_writer: std::marker::PhantomData<ParallelVtkWriter<f64>> =
-        std::marker::PhantomData;
+    let _vtk_writer: std::marker::PhantomData<ParallelVtkWriter<f64>> = std::marker::PhantomData;
 }
 
 #[test]

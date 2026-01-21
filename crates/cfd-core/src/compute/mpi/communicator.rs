@@ -2,8 +2,8 @@
 
 use super::error::{MpiError, MpiResult};
 use super::{Rank, Size};
-use mpi::traits::*;
 use mpi::environment;
+use mpi::traits::*;
 use std::sync::Once;
 
 /// Global MPI initialization flag

@@ -1,7 +1,7 @@
 {
-  "average_efficiency": 0.4481072715608131,
-  "average_speedup": 1.236194902461554,
-  "max_speedup": 2.0926292705392746,
+  "average_efficiency": 0.42211881704235144,
+  "average_speedup": 1.1551249033125033,
+  "max_speedup": 1.6915803660018518,
   "optimal_thread_count": 1,
-  "scaling_efficiency": 0.03353722814775571
+  "scaling_efficiency": 0.026032839815918123
 }

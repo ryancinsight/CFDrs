@@ -7,8 +7,8 @@ use super::ghost_cells::{GhostCellManager, GhostCellUpdate};
 use super::{GlobalExtents, LocalSubdomain};
 use crate::error::Result;
 use nalgebra::{RealField, Vector2};
-use std::collections::HashMap;
 use num_traits::FromPrimitive;
+use std::collections::HashMap;
 
 /// Distributed grid that manages local subdomain with ghost cells
 #[derive(Debug)]

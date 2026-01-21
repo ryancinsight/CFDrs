@@ -76,7 +76,8 @@ impl DomainDecomposition {
         };
 
         // Determine neighbor relationships
-        let neighbors = Self::compute_neighbors(&local_subdomain, &global_extents, size)?;
+        let neighbors =
+            Self::compute_neighbors(&local_subdomain, &global_extents, size, strategy)?;
 
         Ok(Self {
             global_extents,
@@ -103,23 +104,20 @@ impl DomainDecomposition {
     }
 
     /// Simple 1D decomposition along x-direction
-    // TODO: Implement load-balanced decomposition with consideration of cell weights/complexity
     fn decompose_1d(global: &GlobalExtents, rank: Rank, size: Size) -> MpiResult<LocalSubdomain> {
-        let nx_per_process = global.nx_global / size as usize;
-        let remainder = global.nx_global % size as usize;
-
-        // Distribute remainder cells to first few processes
-        let mut i_start = 0;
-        let mut nx_local = nx_per_process;
-
-        for r in 0..rank {
-            let extra = if r < remainder as i32 { 1 } else { 0 };
-            i_start += nx_per_process + extra;
+        if size <= 0 {
+            return Err(MpiError::DecompositionError(
+                "MPI size must be positive".to_string(),
+            ));
         }
-
-        if rank < remainder as i32 {
-            nx_local += 1;
+        if global.nx_global == 0 {
+            return Err(MpiError::DecompositionError(
+                "Global domain has zero extent in x".to_string(),
+            ));
         }
+        let weights = vec![global.ny_global.max(1) * global.nz_global.max(1); global.nx_global];
+        let partition = Self::partition_1d_by_weights(global.nx_global, &weights, size)?;
+        let (i_start, nx_local) = partition[rank as usize];
 
         Ok(LocalSubdomain {
             rank,
@@ -129,7 +127,7 @@ impl DomainDecomposition {
             i_start_global: i_start,
             j_start_global: 0,
             k_start_global: 0,
-            ghost_layers: 1, // Single layer of ghost cells
+            ghost_layers: 1,
         })
     }
 
@@ -169,28 +167,65 @@ impl DomainDecomposition {
         })
     }
 
-    /// TODO: Implement recursive bisection decomposition (Zoltan/ParMETIS integration).
     fn decompose_bisection(
-        _global: &GlobalExtents,
-        _rank: Rank,
-        _size: Size,
+        global: &GlobalExtents,
+        rank: Rank,
+        size: Size,
     ) -> MpiResult<LocalSubdomain> {
-        // TODO: Implement graph partitioning based decomposition; current path is unavailable.
-        Err(MpiError::NotAvailable(
-            "Recursive bisection not implemented".to_string(),
-        ))
+        let weights = vec![1.0; size as usize];
+        let partitions = Self::partition_rcb(global, &weights)?;
+        partitions
+            .into_iter()
+            .find(|subdomain| subdomain.rank == rank)
+            .ok_or_else(|| {
+                MpiError::DecompositionError("Rank not found in bisection partition".to_string())
+            })
     }
 
-    /// TODO: Implement METIS-based decomposition.
     fn decompose_metis(
-        _global: &GlobalExtents,
-        _rank: Rank,
-        _size: Size,
+        global: &GlobalExtents,
+        rank: Rank,
+        size: Size,
     ) -> MpiResult<LocalSubdomain> {
-        // TODO: Integrate METIS and implement mesh/graph partitioning based decomposition.
-        Err(MpiError::NotAvailable(
-            "METIS decomposition not implemented".to_string(),
-        ))
+        if size <= 0 {
+            return Err(MpiError::DecompositionError(
+                "MPI size must be positive".to_string(),
+            ));
+        }
+        let (px, py, pz) = Self::find_optimal_3d_grid(
+            size as usize,
+            global.nx_global,
+            global.ny_global,
+            global.nz_global,
+        );
+        if px * py * pz != size as usize {
+            return Err(MpiError::DecompositionError(format!(
+                "Cannot create {} x {} x {} grid for {} processes",
+                px, py, pz, size
+            )));
+        }
+        let rx = rank as usize % px;
+        let ry = (rank as usize / px) % py;
+        let rz = rank as usize / (px * py);
+
+        let nx_local = Self::distribute_dimension(global.nx_global, px, rx);
+        let ny_local = Self::distribute_dimension(global.ny_global, py, ry);
+        let nz_local = Self::distribute_dimension(global.nz_global, pz, rz);
+
+        let i_start = Self::compute_global_start(global.nx_global, px, rx);
+        let j_start = Self::compute_global_start(global.ny_global, py, ry);
+        let k_start = Self::compute_global_start(global.nz_global, pz, rz);
+
+        Ok(LocalSubdomain {
+            rank,
+            nx_local,
+            ny_local,
+            nz_local,
+            i_start_global: i_start,
+            j_start_global: j_start,
+            k_start_global: k_start,
+            ghost_layers: 1,
+        })
     }
 
     /// Find optimal 2D processor grid
@@ -202,6 +237,45 @@ impl DomainDecomposition {
             }
         }
         (1, num_procs)
+    }
+
+    fn find_optimal_3d_grid(
+        num_procs: usize,
+        nx: usize,
+        ny: usize,
+        nz: usize,
+    ) -> (usize, usize, usize) {
+        if nz <= 1 {
+            let (px, py) = Self::find_optimal_2d_grid(num_procs);
+            return (px, py, 1);
+        }
+        let mut best = (1, 1, num_procs);
+        let mut best_cost = f64::INFINITY;
+        for px in 1..=num_procs {
+            if num_procs % px != 0 {
+                continue;
+            }
+            let rem = num_procs / px;
+            for py in 1..=rem {
+                if rem % py != 0 {
+                    continue;
+                }
+                let pz = rem / py;
+                let dx = nx as f64 / px as f64;
+                let dy = ny as f64 / py as f64;
+                let dz = nz as f64 / pz as f64;
+                let interface_area = 2.0 * (dx * dy + dx * dz + dy * dz);
+                let aspect = (dx / dy - 1.0).abs()
+                    + (dx / dz - 1.0).abs()
+                    + (dy / dz - 1.0).abs();
+                let cost = interface_area * (1.0 + aspect);
+                if cost < best_cost {
+                    best_cost = cost;
+                    best = (px, py, pz);
+                }
+            }
+        }
+        best
     }
 
     /// Distribute cells among processes in one dimension
@@ -229,41 +303,390 @@ impl DomainDecomposition {
         local: &LocalSubdomain,
         global: &GlobalExtents,
         size: Size,
+        strategy: DecompositionStrategy,
     ) -> MpiResult<HashMap<Rank, NeighborInfo>> {
+        let subdomains = Self::build_subdomains(global, size, strategy)?;
+        let local_i_end = local.i_start_global + local.nx_local - 1;
+        let local_j_end = local.j_start_global + local.ny_local - 1;
+        let local_k_end = local.k_start_global + local.nz_local - 1;
+
         let mut neighbors = HashMap::new();
+        for other in &subdomains {
+            if other.rank == local.rank {
+                continue;
+            }
+            let other_i_end = other.i_start_global + other.nx_local - 1;
+            let other_j_end = other.j_start_global + other.ny_local - 1;
+            let other_k_end = other.k_start_global + other.nz_local - 1;
 
-        // For 1D decomposition, only left/right neighbors
-        let i_end_global = local.i_start_global + local.nx_local - 1;
+            let j_overlap =
+                Self::ranges_overlap(local.j_start_global, local_j_end, other.j_start_global, other_j_end);
+            let k_overlap =
+                Self::ranges_overlap(local.k_start_global, local_k_end, other.k_start_global, other_k_end);
 
-        // Left neighbor
-        if local.i_start_global > 0 {
-            let left_rank = Self::find_rank_for_global_i(local.i_start_global - 1, global, size)?;
-            neighbors.insert(
-                left_rank,
-                NeighborInfo {
-                    direction: NeighborDirection::Left,
-                    overlap: 1,
-                },
-            );
+            if other_i_end + 1 == local.i_start_global && j_overlap && k_overlap {
+                neighbors.insert(
+                    other.rank,
+                    NeighborInfo {
+                        direction: NeighborDirection::Left,
+                        overlap: local.ghost_layers.min(other.ghost_layers),
+                    },
+                );
+            } else if local_i_end + 1 == other.i_start_global && j_overlap && k_overlap {
+                neighbors.insert(
+                    other.rank,
+                    NeighborInfo {
+                        direction: NeighborDirection::Right,
+                        overlap: local.ghost_layers.min(other.ghost_layers),
+                    },
+                );
+            }
+
+            let i_overlap =
+                Self::ranges_overlap(local.i_start_global, local_i_end, other.i_start_global, other_i_end);
+
+            if other_j_end + 1 == local.j_start_global && i_overlap && k_overlap {
+                neighbors.insert(
+                    other.rank,
+                    NeighborInfo {
+                        direction: NeighborDirection::Bottom,
+                        overlap: local.ghost_layers.min(other.ghost_layers),
+                    },
+                );
+            } else if local_j_end + 1 == other.j_start_global && i_overlap && k_overlap {
+                neighbors.insert(
+                    other.rank,
+                    NeighborInfo {
+                        direction: NeighborDirection::Top,
+                        overlap: local.ghost_layers.min(other.ghost_layers),
+                    },
+                );
+            }
+
+            if other_k_end + 1 == local.k_start_global && i_overlap && j_overlap {
+                neighbors.insert(
+                    other.rank,
+                    NeighborInfo {
+                        direction: NeighborDirection::Front,
+                        overlap: local.ghost_layers.min(other.ghost_layers),
+                    },
+                );
+            } else if local_k_end + 1 == other.k_start_global && i_overlap && j_overlap {
+                neighbors.insert(
+                    other.rank,
+                    NeighborInfo {
+                        direction: NeighborDirection::Back,
+                        overlap: local.ghost_layers.min(other.ghost_layers),
+                    },
+                );
+            }
         }
-
-        // Right neighbor
-        if i_end_global < global.nx_global - 1 {
-            let right_rank = Self::find_rank_for_global_i(i_end_global + 1, global, size)?;
-            neighbors.insert(
-                right_rank,
-                NeighborInfo {
-                    direction: NeighborDirection::Right,
-                    overlap: 1,
-                },
-            );
-        }
-
-        // For 2D decomposition, would also check top/bottom neighbors
-        // Implementation would be similar but more complex
 
         Ok(neighbors)
     }
+
+    fn ranges_overlap(a_start: usize, a_end: usize, b_start: usize, b_end: usize) -> bool {
+        a_start <= b_end && b_start <= a_end
+    }
+
+    fn build_subdomains(
+        global: &GlobalExtents,
+        size: Size,
+        strategy: DecompositionStrategy,
+    ) -> MpiResult<Vec<LocalSubdomain>> {
+        let mut subdomains = Vec::with_capacity(size as usize);
+        for rank in 0..size {
+            let subdomain = match strategy {
+                DecompositionStrategy::Simple1D => Self::decompose_1d(global, rank, size)?,
+                DecompositionStrategy::Cartesian2D => Self::decompose_2d(global, rank, size)?,
+                DecompositionStrategy::RecursiveBisection => {
+                    Self::decompose_bisection(global, rank, size)?
+                }
+                DecompositionStrategy::Metis => Self::decompose_metis(global, rank, size)?,
+            };
+            subdomains.push(subdomain);
+        }
+        Ok(subdomains)
+    }
+
+    fn partition_1d_by_weights(
+        nx: usize,
+        weights: &[usize],
+        size: Size,
+    ) -> MpiResult<Vec<(usize, usize)>> {
+        if weights.len() != nx {
+            return Err(MpiError::DecompositionError(
+                "Weight vector length must match nx".to_string(),
+            ));
+        }
+        let total_weight: usize = weights.iter().sum();
+        if total_weight == 0 {
+            return Err(MpiError::DecompositionError(
+                "Total weight must be positive".to_string(),
+            ));
+        }
+        let mut partitions = Vec::with_capacity(size as usize);
+        let mut start = 0usize;
+        let mut acc_weight = 0usize;
+        let mut target_weight = total_weight as f64 / size as f64;
+        let mut current_rank = 0usize;
+        for i in 0..nx {
+            acc_weight += weights[i];
+            let should_split = acc_weight as f64 >= target_weight && current_rank + 1 < size as usize;
+            if should_split {
+                let length = i + 1 - start;
+                partitions.push((start, length));
+                start = i + 1;
+                current_rank += 1;
+                target_weight =
+                    (total_weight as f64 * (current_rank as f64 + 1.0)) / size as f64;
+            }
+        }
+        if start < nx {
+            partitions.push((start, nx - start));
+        }
+        if partitions.len() != size as usize {
+            return Err(MpiError::DecompositionError(
+                "Failed to partition domain across ranks".to_string(),
+            ));
+        }
+        Ok(partitions)
+    }
+
+    fn partition_rcb(global: &GlobalExtents, weights: &[f64]) -> MpiResult<Vec<LocalSubdomain>> {
+        let size = weights.len();
+        if size == 0 {
+            return Err(MpiError::DecompositionError(
+                "Weights must not be empty".to_string(),
+            ));
+        }
+        if global.nx_global == 0 || global.ny_global == 0 || global.nz_global == 0 {
+            return Err(MpiError::DecompositionError(
+                "Global extents must be non-zero in all dimensions".to_string(),
+            ));
+        }
+        let total_weight: f64 = weights.iter().sum();
+        if total_weight <= 0.0 {
+            return Err(MpiError::DecompositionError(
+                "Total weight must be positive".to_string(),
+            ));
+        }
+        let mut partitions = Vec::with_capacity(size);
+        let ranks: Vec<Rank> = (0..size as i32).collect();
+        let region = PartitionRegion {
+            i_start: 0,
+            j_start: 0,
+            k_start: 0,
+            nx: global.nx_global,
+            ny: global.ny_global,
+            nz: global.nz_global,
+        };
+        Self::partition_rcb_recursive(region, &ranks, weights, &mut partitions)?;
+        if partitions.len() != size {
+            return Err(MpiError::DecompositionError(
+                "Recursive bisection did not produce all partitions".to_string(),
+            ));
+        }
+        Ok(partitions)
+    }
+
+    fn partition_rcb_recursive(
+        region: PartitionRegion,
+        ranks: &[Rank],
+        weights: &[f64],
+        partitions: &mut Vec<LocalSubdomain>,
+    ) -> MpiResult<()> {
+        if ranks.len() != weights.len() {
+            return Err(MpiError::DecompositionError(
+                "Rank list and weights must match".to_string(),
+            ));
+        }
+        if ranks.is_empty() {
+            return Err(MpiError::DecompositionError(
+                "Ranks must not be empty".to_string(),
+            ));
+        }
+        if ranks.len() == 1 {
+            partitions.push(LocalSubdomain {
+                rank: ranks[0],
+                nx_local: region.nx,
+                ny_local: region.ny,
+                nz_local: region.nz,
+                i_start_global: region.i_start,
+                j_start_global: region.j_start,
+                k_start_global: region.k_start,
+                ghost_layers: 1,
+            });
+            return Ok(());
+        }
+        let total_weight: f64 = weights.iter().sum();
+        if total_weight <= 0.0 {
+            return Err(MpiError::DecompositionError(
+                "Total weight must be positive".to_string(),
+            ));
+        }
+        let split_dim = region.select_split_dimension().ok_or_else(|| {
+            MpiError::DecompositionError(
+                "Cannot split region with no available dimension".to_string(),
+            )
+        })?;
+        let mut cumulative = 0.0;
+        let mut split_index = 0usize;
+        for (i, weight) in weights.iter().enumerate() {
+            cumulative += *weight;
+            if cumulative >= total_weight / 2.0 {
+                split_index = i + 1;
+                break;
+            }
+        }
+        if split_index == 0 || split_index >= ranks.len() {
+            split_index = ranks.len() / 2;
+        }
+        let left_weights = &weights[..split_index];
+        let right_weights = &weights[split_index..];
+        let left_weight: f64 = left_weights.iter().sum();
+        let right_weight: f64 = right_weights.iter().sum();
+        if left_weight <= 0.0 || right_weight <= 0.0 {
+            return Err(MpiError::DecompositionError(
+                "Partition weights must be positive".to_string(),
+            ));
+        }
+
+        let (left_region, right_region) =
+            region.split(split_dim, left_weight, right_weight)?;
+
+        Self::partition_rcb_recursive(left_region, &ranks[..split_index], left_weights, partitions)?;
+        Self::partition_rcb_recursive(
+            right_region,
+            &ranks[split_index..],
+            right_weights,
+            partitions,
+        )?;
+        Ok(())
+    }
+
+
+#[derive(Clone, Copy)]
+struct PartitionRegion {
+    i_start: usize,
+    j_start: usize,
+    k_start: usize,
+    nx: usize,
+    ny: usize,
+    nz: usize,
+}
+
+#[derive(Clone, Copy)]
+enum PartitionDimension {
+    X,
+    Y,
+    Z,
+}
+
+impl PartitionRegion {
+    fn select_split_dimension(&self) -> Option<PartitionDimension> {
+        let mut best = None;
+        let mut best_len = 0usize;
+        if self.nx > 1 && self.nx >= best_len {
+            best = Some(PartitionDimension::X);
+            best_len = self.nx;
+        }
+        if self.ny > 1 && self.ny > best_len {
+            best = Some(PartitionDimension::Y);
+            best_len = self.ny;
+        }
+        if self.nz > 1 && self.nz > best_len {
+            best = Some(PartitionDimension::Z);
+        }
+        best
+    }
+
+    fn split(
+        &self,
+        dim: PartitionDimension,
+        left_weight: f64,
+        right_weight: f64,
+    ) -> MpiResult<(PartitionRegion, PartitionRegion)> {
+        let total_weight = left_weight + right_weight;
+        if total_weight <= 0.0 {
+            return Err(MpiError::DecompositionError(
+                "Partition weights must be positive".to_string(),
+            ));
+        }
+        let (len, min_len) = match dim {
+            PartitionDimension::X => (self.nx, 1usize),
+            PartitionDimension::Y => (self.ny, 1usize),
+            PartitionDimension::Z => (self.nz, 1usize),
+        };
+        if len <= 1 {
+            return Err(MpiError::DecompositionError(
+                "Cannot split dimension with length <= 1".to_string(),
+            ));
+        }
+        let mut left_len =
+            ((left_weight / total_weight) * len as f64).round() as usize;
+        if left_len < min_len {
+            left_len = min_len;
+        }
+        if left_len >= len {
+            left_len = len - 1;
+        }
+        let right_len = len - left_len;
+        let left = match dim {
+            PartitionDimension::X => PartitionRegion {
+                i_start: self.i_start,
+                j_start: self.j_start,
+                k_start: self.k_start,
+                nx: left_len,
+                ny: self.ny,
+                nz: self.nz,
+            },
+            PartitionDimension::Y => PartitionRegion {
+                i_start: self.i_start,
+                j_start: self.j_start,
+                k_start: self.k_start,
+                nx: self.nx,
+                ny: left_len,
+                nz: self.nz,
+            },
+            PartitionDimension::Z => PartitionRegion {
+                i_start: self.i_start,
+                j_start: self.j_start,
+                k_start: self.k_start,
+                nx: self.nx,
+                ny: self.ny,
+                nz: left_len,
+            },
+        };
+        let right = match dim {
+            PartitionDimension::X => PartitionRegion {
+                i_start: self.i_start + left_len,
+                j_start: self.j_start,
+                k_start: self.k_start,
+                nx: right_len,
+                ny: self.ny,
+                nz: self.nz,
+            },
+            PartitionDimension::Y => PartitionRegion {
+                i_start: self.i_start,
+                j_start: self.j_start + left_len,
+                k_start: self.k_start,
+                nx: self.nx,
+                ny: right_len,
+                nz: self.nz,
+            },
+            PartitionDimension::Z => PartitionRegion {
+                i_start: self.i_start,
+                j_start: self.j_start,
+                k_start: self.k_start + left_len,
+                nx: self.nx,
+                ny: self.ny,
+                nz: right_len,
+            },
+        };
+        Ok((left, right))
+    }
+}
 
     /// Find which rank owns a given global i-index
     fn find_rank_for_global_i(
@@ -398,13 +821,17 @@ impl LoadBalancer {
             self.compute_new_subdomain(rank, target_work_per_proc, new_workloads)?;
 
         // Update neighbor relationships
-        let neighbors =
-            Self::compute_neighbors(&new_subdomain, self.current_decomp.global_extents(), size)?;
+        let neighbors = Self::compute_neighbors(
+            &new_subdomain,
+            self.current_decomp.global_extents(),
+            size,
+            DecompositionStrategy::RecursiveBisection,
+        )?;
 
         // Create new decomposition
         let new_decomp = DomainDecomposition {
             global_extents: self.current_decomp.global_extents().clone(),
-            strategy: self.current_decomp.strategy,
+            strategy: DecompositionStrategy::RecursiveBisection,
             communicator: self.communicator.clone(),
             local_subdomain: new_subdomain,
             neighbors,
@@ -418,38 +845,32 @@ impl LoadBalancer {
     fn compute_new_subdomain(
         &self,
         rank: i32,
-        target_work: usize,
+        _target_work: usize,
         workloads: &[usize],
     ) -> MpiResult<LocalSubdomain> {
-        // TODO: Implement a real repartitioner (e.g., recursive bisection / space-filling curve).
-        let mut cumulative_work = 0;
-        let mut start_idx = 0;
-
-        for (i, &work) in workloads.iter().enumerate() {
-            if cumulative_work + work > (rank as usize) * target_work {
-                start_idx = i;
-                break;
-            }
-            cumulative_work += work;
+        let size = self.communicator.size() as usize;
+        if workloads.len() != size {
+            return Err(MpiError::DecompositionError(
+                "Workloads length must match number of ranks".to_string(),
+            ));
         }
-
-        // TODO: Generalize subdomain boundary computation beyond 1D partitioning.
-        let global = self.current_decomp.global_extents();
-        let cells_per_work_unit = global.nx_global / workloads.len().max(1);
-
-        let i_start = start_idx * cells_per_work_unit;
-        let nx_local = (target_work * cells_per_work_unit).min(global.nx_global - i_start);
-
-        Ok(LocalSubdomain {
-            rank,
-            nx_local,
-            ny_local: global.ny_global,
-            nz_local: global.nz_global,
-            i_start_global: i_start,
-            j_start_global: 0,
-            k_start_global: 0,
-            ghost_layers: 1,
-        })
+        let weights: Vec<f64> = workloads.iter().map(|&w| w as f64).collect();
+        let partitions = Self::partition_rcb(self.current_decomp.global_extents(), &weights)?;
+        let min_cells = self.min_cells_per_process;
+        for subdomain in &partitions {
+            let cell_count = subdomain.nx_local * subdomain.ny_local * subdomain.nz_local;
+            if cell_count < min_cells {
+                return Err(MpiError::DecompositionError(
+                    "Repartitioning produced subdomain below minimum cell threshold".to_string(),
+                ));
+            }
+        }
+        partitions
+            .into_iter()
+            .find(|subdomain| subdomain.rank == rank)
+            .ok_or_else(|| {
+                MpiError::DecompositionError("Rank not found in repartitioned domain".to_string())
+            })
     }
 
     /// Get current decomposition

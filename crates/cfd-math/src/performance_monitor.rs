@@ -4,6 +4,7 @@
 //! decisions about algorithm selection, threshold tuning, and resource allocation.
 
 use std::collections::HashMap;
+use std::hint::black_box;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -58,29 +59,54 @@ impl AdaptivePerformanceMonitor {
     pub fn record_measurement(&self, operation: &str, array_size: usize, execution_time_ns: u64) {
         let mut metrics = self.metrics.lock().unwrap();
         let op_metrics = metrics.entry(operation.to_string()).or_default();
-        let size_metrics = op_metrics.entry(array_size).or_default();
+        let (old_avg, old_std, old_count) = {
+            let size_metrics = op_metrics.entry(array_size).or_default();
+            (
+                size_metrics.avg_time_ns,
+                size_metrics.std_dev_ns,
+                size_metrics.sample_count,
+            )
+        };
 
-        // Update running statistics
-        let new_count = size_metrics.sample_count + 1;
-        let new_avg =
-            (size_metrics.avg_time_ns * size_metrics.sample_count + execution_time_ns) / new_count;
+        let new_count = old_count + 1;
+        let new_avg = (old_avg * old_count + execution_time_ns) / new_count;
 
-        // Simple online variance calculation
         let variance = if new_count > 1 {
-            let old_variance = size_metrics.std_dev_ns.pow(2) as f64;
-            let diff = execution_time_ns as f64 - size_metrics.avg_time_ns as f64;
+            let old_variance = old_std.pow(2) as f64;
+            let diff = execution_time_ns as f64 - old_avg as f64;
             ((new_count - 1) as f64 * old_variance + diff * diff / new_count as f64)
                 / new_count as f64
         } else {
             0.0
         };
 
-        size_metrics.avg_time_ns = new_avg;
-        size_metrics.std_dev_ns = variance.sqrt() as u64;
-        size_metrics.sample_count = new_count;
-        size_metrics.throughput_ops_per_sec = 1_000_000_000.0 / new_avg as f64;
+        {
+            let size_metrics = op_metrics.entry(array_size).or_default();
+            size_metrics.avg_time_ns = new_avg;
+            size_metrics.std_dev_ns = variance.sqrt() as u64;
+            size_metrics.sample_count = new_count;
+            size_metrics.throughput_ops_per_sec = 1_000_000_000.0 / new_avg as f64;
+        }
 
-        // TODO: Implement cache efficiency estimation based on memory access patterns
+        let max_throughput = op_metrics
+            .values()
+            .map(|metrics| metrics.throughput_ops_per_sec)
+            .fold(0.0_f64, f64::max);
+        let cv = if new_avg > 0 {
+            variance.sqrt() / new_avg as f64
+        } else {
+            0.0
+        };
+        let stability = 1.0 / (1.0 + cv);
+        let throughput_ops_per_sec = 1_000_000_000.0 / new_avg as f64;
+        let relative_throughput = if max_throughput > 0.0 {
+            throughput_ops_per_sec / max_throughput
+        } else {
+            0.0
+        };
+        let cache_efficiency = (relative_throughput * stability).clamp(0.0, 1.0);
+        let size_metrics = op_metrics.entry(array_size).or_default();
+        size_metrics.cache_efficiency = cache_efficiency;
     }
 
     /// Get optimal threshold for switching between algorithms
@@ -92,22 +118,43 @@ impl AdaptivePerformanceMonitor {
         let mut sizes: Vec<_> = op_metrics.keys().copied().collect();
         sizes.sort_unstable();
 
-        // TODO: Implement more sophisticated threshold detection using regression
-        for i in 1..sizes.len() {
-            let prev_size = sizes[i - 1];
-            let curr_size = sizes[i];
+        let mut x = Vec::with_capacity(sizes.len());
+        let mut y = Vec::with_capacity(sizes.len());
+        for size in &sizes {
+            let throughput = op_metrics.get(size)?.throughput_ops_per_sec;
+            x.push(*size as f64);
+            y.push(throughput);
+        }
 
-            if let (Some(prev_metrics), Some(curr_metrics)) =
-                (op_metrics.get(&prev_size), op_metrics.get(&curr_size))
-            {
-                // Simple heuristic: look for performance improvement
-                if curr_metrics.throughput_ops_per_sec > prev_metrics.throughput_ops_per_sec * 1.1 {
-                    return Some(curr_size);
-                }
+        if sizes.len() < 4 {
+            return None;
+        }
+
+        let mut best_split = None;
+        let mut best_sse = f64::INFINITY;
+        let mut best_slopes = (0.0, 0.0);
+
+        for split in 2..sizes.len() - 1 {
+            let (slope_left, intercept_left, sse_left) =
+                Self::linear_regression(&x[..split], &y[..split])?;
+            let (slope_right, intercept_right, sse_right) =
+                Self::linear_regression(&x[split..], &y[split..])?;
+            let total_sse = sse_left + sse_right;
+            if total_sse < best_sse {
+                best_sse = total_sse;
+                best_split = Some(split);
+                best_slopes = (slope_left, slope_right);
+                let _ = intercept_left;
+                let _ = intercept_right;
             }
         }
 
-        None
+        let split = best_split?;
+        if best_slopes.1 > best_slopes.0 * 1.05 {
+            Some(sizes[split])
+        } else {
+            None
+        }
     }
 
     /// Check if calibration is needed
@@ -117,18 +164,127 @@ impl AdaptivePerformanceMonitor {
     }
 
     /// Run performance calibration suite
-    /// TODO: Implement comprehensive calibration for all operations
     pub fn run_calibration(&self) -> Result<(), Box<dyn std::error::Error>> {
         println!("Running performance calibration...");
+        let sizes = [64usize, 128, 256, 512, 1024, 2048, 4096, 8192];
 
-        // Mark calibration time
+        for size in sizes {
+            let iterations = (100_000usize / size.max(1)).max(10);
+            let a = vec![1.0_f64; size];
+            let b = vec![2.0_f64; size];
+            let mut c = vec![0.0_f64; size];
+            let alpha = 0.5_f64;
+
+            let start = Instant::now();
+            for _ in 0..iterations {
+                for i in 0..size {
+                    c[i] = black_box(a[i] + b[i]);
+                }
+            }
+            let elapsed = start.elapsed();
+            let avg = elapsed.as_nanos() as u64 / iterations as u64;
+            self.record_measurement("vector_add", size, avg);
+
+            let start = Instant::now();
+            for _ in 0..iterations {
+                for i in 0..size {
+                    c[i] = black_box(a[i] * b[i]);
+                }
+            }
+            let elapsed = start.elapsed();
+            let avg = elapsed.as_nanos() as u64 / iterations as u64;
+            self.record_measurement("vector_mul", size, avg);
+
+            let start = Instant::now();
+            for _ in 0..iterations {
+                let mut sum = 0.0_f64;
+                for i in 0..size {
+                    sum += black_box(a[i] * b[i]);
+                }
+                black_box(sum);
+            }
+            let elapsed = start.elapsed();
+            let avg = elapsed.as_nanos() as u64 / iterations as u64;
+            self.record_measurement("dot", size, avg);
+
+            let start = Instant::now();
+            for _ in 0..iterations {
+                for i in 0..size {
+                    c[i] = black_box(alpha * a[i] + b[i]);
+                }
+            }
+            let elapsed = start.elapsed();
+            let avg = elapsed.as_nanos() as u64 / iterations as u64;
+            self.record_measurement("axpy", size, avg);
+
+            let nnz_per_row = 3usize.min(size.max(1));
+            let mut row_offsets = Vec::with_capacity(size + 1);
+            let mut col_indices = Vec::with_capacity(size * nnz_per_row);
+            let mut values = Vec::with_capacity(size * nnz_per_row);
+            row_offsets.push(0u32);
+            for i in 0..size {
+                let mut cols = Vec::new();
+                if i > 0 {
+                    cols.push(i - 1);
+                }
+                cols.push(i);
+                if i + 1 < size {
+                    cols.push(i + 1);
+                }
+                cols.sort_unstable();
+                for col in cols {
+                    col_indices.push(col as u32);
+                    values.push(1.0_f64 / (col as f64 + 1.0));
+                }
+                row_offsets.push(col_indices.len() as u32);
+            }
+
+            let start = Instant::now();
+            for _ in 0..iterations {
+                for i in 0..size {
+                    let start_idx = row_offsets[i] as usize;
+                    let end_idx = row_offsets[i + 1] as usize;
+                    let mut sum = 0.0_f64;
+                    for idx in start_idx..end_idx {
+                        sum += values[idx] * b[col_indices[idx] as usize];
+                    }
+                    c[i] = black_box(sum);
+                }
+            }
+            let elapsed = start.elapsed();
+            let avg = elapsed.as_nanos() as u64 / iterations as u64;
+            self.record_measurement("spmv", size, avg);
+        }
+
         *self.last_calibration.lock().unwrap() = Instant::now();
-
-        // TODO: Implement calibration benchmarks for different operations
-        // This should test SIMD vs scalar vs parallel for various array sizes
 
         println!("Performance calibration completed");
         Ok(())
+    }
+
+    fn linear_regression(x: &[f64], y: &[f64]) -> Option<(f64, f64, f64)> {
+        let n = x.len();
+        if n < 2 {
+            return None;
+        }
+        let n_f = n as f64;
+        let sum_x = x.iter().sum::<f64>();
+        let sum_y = y.iter().sum::<f64>();
+        let sum_x2 = x.iter().map(|v| v * v).sum::<f64>();
+        let sum_xy = x.iter().zip(y.iter()).map(|(a, b)| a * b).sum::<f64>();
+        let denom = n_f * sum_x2 - sum_x * sum_x;
+        if denom == 0.0 {
+            return None;
+        }
+        let slope = (n_f * sum_xy - sum_x * sum_y) / denom;
+        let intercept = (sum_y - slope * sum_x) / n_f;
+        let mut sse = 0.0_f64;
+        for (xi, yi) in x.iter().zip(y.iter()) {
+            let pred = slope * xi + intercept;
+            let resid = yi - pred;
+            sse += resid * resid;
+        }
+        Some((slope, intercept, sse))
     }
 
     /// Get performance report

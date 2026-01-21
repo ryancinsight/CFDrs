@@ -108,6 +108,13 @@ impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedKEpsilon<T> {
     }
 }
 
+#[allow(missing_docs)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum KOmegaField {
+    K,
+    Omega,
+}
+
 /// Manufactured solution for k-ω turbulence model
 #[derive(Debug, Clone)]
 pub struct ManufacturedKOmega<T: RealField + Copy> {
@@ -121,6 +128,7 @@ pub struct ManufacturedKOmega<T: RealField + Copy> {
     pub omega_amplitude: T,
     /// Turbulent viscosity
     pub nu_t: T,
+    field: KOmegaField,
 }
 
 impl<T: RealField + Copy> ManufacturedKOmega<T> {
@@ -132,14 +140,24 @@ impl<T: RealField + Copy> ManufacturedKOmega<T> {
             k_amplitude,
             omega_amplitude,
             nu_t,
+            field: KOmegaField::K,
         }
+    }
+
+    #[allow(missing_docs)]
+    pub fn with_field(mut self, field: KOmegaField) -> Self {
+        self.field = field;
+        self
     }
 }
 
 impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedKOmega<T> {
     fn exact_solution(&self, x: T, y: T, _z: T, t: T) -> T {
-        // TODO: Return the requested field (k or ω) via a typed API instead of always returning k.
-        ManufacturedFunctions::sinusoidal(x, y, t, self.kx, self.ky) * self.k_amplitude
+        let base = ManufacturedFunctions::sinusoidal(x, y, t, self.kx, self.ky);
+        match self.field {
+            KOmegaField::K => base * self.k_amplitude,
+            KOmegaField::Omega => base * self.omega_amplitude,
+        }
     }
 
     fn source_term(&self, x: T, y: T, _z: T, t: T) -> T {
@@ -335,26 +353,37 @@ impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedReynoldsStress
         ManufacturedFunctions::sinusoidal(x, y, t, self.kx, self.ky) * self.uv_amp
     }
 
-    fn source_term(&self, x: T, y: T, z: T, t: T) -> T {
-        // Source term for Reynolds stress transport equation
-        // TODO: Implement full Reynolds-stress transport source terms (production/redistribution/dissipation/diffusion).
+    fn source_term(&self, x: T, y: T, _z: T, t: T) -> T {
+        let base = ManufacturedFunctions::sinusoidal(x, y, t, self.kx, self.ky);
+        let uu = base * self.uu_amp;
+        let vv = base * self.vv_amp;
+        let uv = base * self.uv_amp;
 
-        let uv = self.exact_solution(x, y, z, t);
-        let duv_dt = -uv; // Time derivative
+        let duv_dt = -uv;
 
-        // TODO: Use the correct production term (tensor form, not 2D scalar simplification).
-        let production = T::from_f64_or_one(-2.0) * self.strain_rate * uv;
+        let dudy = self.strain_rate;
+        let production = -(vv * dudy);
 
-        // TODO: Use a physically consistent dissipation model instead of a constant factor.
-        let dissipation = uv * T::from_f64_or_one(0.1); // ε ≈ 0.1k
-
-        // Diffusion: ∇·(ν_t ∇(-uv))
+        let k_raw = T::from_f64_or_one(0.5) * (uu + vv);
+        let k = nalgebra::ComplexField::abs(k_raw).max(T::from_f64_or_zero(1e-12));
+        let c_mu = T::from_f64_or_one(0.09);
         let kx_sq = self.kx * self.kx;
         let ky_sq = self.ky * self.ky;
-        let nu_t = T::from_f64_or_one(0.01); // Turbulent viscosity
-        let diffusion = nu_t * (kx_sq + ky_sq) * uv;
+        let length = nalgebra::ComplexField::sqrt(kx_sq + ky_sq).max(T::from_f64_or_zero(1e-12));
+        let l_scale = T::one() / length;
+        let epsilon = nalgebra::ComplexField::powf(k, T::from_f64_or_one(1.5))
+            * nalgebra::ComplexField::powf(c_mu, T::from_f64_or_one(0.75))
+            / l_scale;
 
-        production - dissipation + diffusion - duv_dt
+        let c1 = T::from_f64_or_one(1.8);
+        let redistribution = -(c1 * epsilon / k) * uv;
+
+        let nu = T::from_f64_or_zero(1e-5);
+        let nu_t = (c_mu * k * k / epsilon).max(T::from_f64_or_zero(1e-12));
+        let laplacian_uv = -(kx_sq + ky_sq) * uv;
+        let diffusion = (nu + nu_t) * laplacian_uv;
+
+        production + redistribution + diffusion - duv_dt
     }
 }
 
@@ -383,19 +412,25 @@ mod tests {
 
     #[test]
     fn test_k_omega_manufactured_solution() {
-        let mms = ManufacturedKOmega::<f64>::new(1.0, 1.0, 1.0, 10.0, 0.01);
+        let mms_k = ManufacturedKOmega::<f64>::new(1.0, 1.0, 1.0, 10.0, 0.01);
+        let mms_omega = ManufacturedKOmega::<f64>::new(1.0, 1.0, 1.0, 10.0, 0.01)
+            .with_field(KOmegaField::Omega);
 
         let x = 0.5;
         let y = 0.5;
         let t = 1.0;
 
-        let solution = mms.exact_solution(x, y, 0.0, t);
-        let source = mms.source_term(x, y, 0.0, t);
+        let solution_k = mms_k.exact_solution(x, y, 0.0, t);
+        let solution_omega = mms_omega.exact_solution(x, y, 0.0, t);
+        let source = mms_k.source_term(x, y, 0.0, t);
 
-        assert!(solution > 0.0);
+        assert!(solution_k > 0.0);
+        assert!(solution_omega > solution_k);
         assert!(source.is_finite());
 
-        println!("k-ω MMS: solution={solution:.6}, source={source:.6}");
+        println!(
+            "k-ω MMS: k={solution_k:.6}, omega={solution_omega:.6}, source={source:.6}"
+        );
     }
 
     #[test]
