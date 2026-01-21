@@ -4,7 +4,7 @@ use super::communicator::MpiCommunicator;
 use super::decomposition::{NeighborDirection, NeighborInfo};
 use super::error::{MpiError, MpiResult};
 use super::LocalSubdomain;
-use nalgebra::{RealField, Vector2};
+use nalgebra::{RealField, Vector2, Vector3};
 use std::collections::HashMap;
 use num_traits::FromPrimitive;
 
@@ -12,8 +12,13 @@ use num_traits::FromPrimitive;
 enum FieldType {
     Ux,
     Uy,
+    Uz,
     Vx,
     Vy,
+    Vz,
+    Wx,
+    Wy,
+    Wz,
     P,
 }
 
@@ -159,7 +164,9 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp> GhostCellManager<
                 neighbor_rank,
                 false,
             ),
-            _ => Ok(()), // TODO: Implement 3D ghost-cell exchange (front/back).
+            // Note: 3D ghost-cell exchange (Front/Back) requires 3D data structures
+            // and is handled by update_ghost_cells_3d.
+            _ => Ok(()),
         }
     }
 
@@ -367,6 +374,223 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp> GhostCellManager<
         // TODO: Validate ghost cell consistency across process boundaries (checksums + neighbor compare).
         Ok(true)
     }
+
+    /// Update ghost cells for all fields (3D)
+    pub fn update_ghost_cells_3d(
+        &self,
+        velocity_u: &mut [Vec<Vec<Vector3<T>>>],
+        velocity_v: &mut [Vec<Vec<Vector3<T>>>],
+        velocity_w: &mut [Vec<Vec<Vector3<T>>>],
+        pressure: &mut [Vec<Vec<T>>],
+        subdomain: &LocalSubdomain,
+    ) -> MpiResult<()> {
+        for (neighbor_rank, neighbor_info) in &self.neighbors {
+            self.exchange_ghost_cells_3d(
+                velocity_u,
+                velocity_v,
+                velocity_w,
+                pressure,
+                subdomain,
+                *neighbor_rank,
+                neighbor_info,
+            )?;
+        }
+        Ok(())
+    }
+
+    fn exchange_ghost_cells_3d(
+        &self,
+        velocity_u: &mut [Vec<Vec<Vector3<T>>>],
+        velocity_v: &mut [Vec<Vec<Vector3<T>>>],
+        velocity_w: &mut [Vec<Vec<Vector3<T>>>],
+        pressure: &mut [Vec<Vec<T>>],
+        subdomain: &LocalSubdomain,
+        neighbor_rank: i32,
+        neighbor_info: &NeighborInfo,
+    ) -> MpiResult<()> {
+        match neighbor_info.direction {
+            NeighborDirection::Front => self.exchange_front_back(
+                velocity_u, velocity_v, velocity_w, pressure, subdomain, neighbor_rank, true,
+            ),
+            NeighborDirection::Back => self.exchange_front_back(
+                velocity_u, velocity_v, velocity_w, pressure, subdomain, neighbor_rank, false,
+            ),
+            _ => Ok(()),
+        }
+    }
+
+    fn exchange_front_back(
+        &self,
+        velocity_u: &mut [Vec<Vec<Vector3<T>>>],
+        velocity_v: &mut [Vec<Vec<Vector3<T>>>],
+        velocity_w: &mut [Vec<Vec<Vector3<T>>>],
+        pressure: &mut [Vec<Vec<T>>],
+        subdomain: &LocalSubdomain,
+        neighbor_rank: i32,
+        is_front: bool,
+    ) -> MpiResult<()> {
+        let nx = subdomain.total_nx();
+        let ny = subdomain.total_ny();
+        let gl = subdomain.ghost_layers;
+
+        // Asymmetric tags to avoid deadlock
+        // 900: Front -> Back
+        // 1000: Back -> Front
+        let (send_tag, recv_tag) = if is_front {
+            (1000, 900)
+        } else {
+            (900, 1000)
+        };
+
+        // Multi-layer support
+        let send_start_k = if is_front {
+            gl
+        } else {
+            gl + subdomain.nz_local - gl
+        };
+
+        let recv_start_k = if is_front {
+            0
+        } else {
+            gl + subdomain.nz_local
+        };
+
+        let layer_size = nx * ny;
+        let total_size = layer_size * gl;
+
+        let mut send_u_x = Vec::with_capacity(total_size);
+        let mut send_u_y = Vec::with_capacity(total_size);
+        let mut send_u_z = Vec::with_capacity(total_size);
+
+        let mut send_v_x = Vec::with_capacity(total_size);
+        let mut send_v_y = Vec::with_capacity(total_size);
+        let mut send_v_z = Vec::with_capacity(total_size);
+
+        let mut send_w_x = Vec::with_capacity(total_size);
+        let mut send_w_y = Vec::with_capacity(total_size);
+        let mut send_w_z = Vec::with_capacity(total_size);
+
+        let mut send_p = Vec::with_capacity(total_size);
+
+        for l in 0..gl {
+            let k = send_start_k + l;
+            for i in 0..nx {
+                for j in 0..ny {
+                    let u = velocity_u[i][j][k];
+                    send_u_x.push(u.x); send_u_y.push(u.y); send_u_z.push(u.z);
+
+                    let v = velocity_v[i][j][k];
+                    send_v_x.push(v.x); send_v_y.push(v.y); send_v_z.push(v.z);
+
+                    let w = velocity_w[i][j][k];
+                    send_w_x.push(w.x); send_w_y.push(w.y); send_w_z.push(w.z);
+
+                    send_p.push(pressure[i][j][k]);
+                }
+            }
+        }
+
+        let mut recv_u_x = vec![T::zero(); total_size];
+        let mut recv_u_y = vec![T::zero(); total_size];
+        let mut recv_u_z = vec![T::zero(); total_size];
+
+        let mut recv_v_x = vec![T::zero(); total_size];
+        let mut recv_v_y = vec![T::zero(); total_size];
+        let mut recv_v_z = vec![T::zero(); total_size];
+
+        let mut recv_w_x = vec![T::zero(); total_size];
+        let mut recv_w_y = vec![T::zero(); total_size];
+        let mut recv_w_z = vec![T::zero(); total_size];
+
+        let mut recv_p = vec![T::zero(); total_size];
+
+        // Exchange
+        if is_front {
+             // If neighbor is Front, I am Back. I send 1000, recv 900.
+             // But tags are unique per field!
+             // So we use base + offset.
+
+             // Send Back->Front (1000 series)
+             self.communicator.send(&send_u_x, neighbor_rank, send_tag);
+             self.communicator.send(&send_u_y, neighbor_rank, send_tag+1);
+             self.communicator.send(&send_u_z, neighbor_rank, send_tag+2);
+
+             self.communicator.send(&send_v_x, neighbor_rank, send_tag+3);
+             self.communicator.send(&send_v_y, neighbor_rank, send_tag+4);
+             self.communicator.send(&send_v_z, neighbor_rank, send_tag+5);
+
+             self.communicator.send(&send_w_x, neighbor_rank, send_tag+6);
+             self.communicator.send(&send_w_y, neighbor_rank, send_tag+7);
+             self.communicator.send(&send_w_z, neighbor_rank, send_tag+8);
+
+             self.communicator.send(&send_p, neighbor_rank, send_tag+9);
+
+             // Recv Front->Back (900 series)
+             recv_u_x = self.communicator.receive(neighbor_rank, recv_tag);
+             recv_u_y = self.communicator.receive(neighbor_rank, recv_tag+1);
+             recv_u_z = self.communicator.receive(neighbor_rank, recv_tag+2);
+
+             recv_v_x = self.communicator.receive(neighbor_rank, recv_tag+3);
+             recv_v_y = self.communicator.receive(neighbor_rank, recv_tag+4);
+             recv_v_z = self.communicator.receive(neighbor_rank, recv_tag+5);
+
+             recv_w_x = self.communicator.receive(neighbor_rank, recv_tag+6);
+             recv_w_y = self.communicator.receive(neighbor_rank, recv_tag+7);
+             recv_w_z = self.communicator.receive(neighbor_rank, recv_tag+8);
+
+             recv_p = self.communicator.receive(neighbor_rank, recv_tag+9);
+        } else {
+             // If neighbor is Back, I am Front. I send 900, recv 1000.
+
+             // Recv Back->Front (1000 series)
+             recv_u_x = self.communicator.receive(neighbor_rank, recv_tag);
+             recv_u_y = self.communicator.receive(neighbor_rank, recv_tag+1);
+             recv_u_z = self.communicator.receive(neighbor_rank, recv_tag+2);
+
+             recv_v_x = self.communicator.receive(neighbor_rank, recv_tag+3);
+             recv_v_y = self.communicator.receive(neighbor_rank, recv_tag+4);
+             recv_v_z = self.communicator.receive(neighbor_rank, recv_tag+5);
+
+             recv_w_x = self.communicator.receive(neighbor_rank, recv_tag+6);
+             recv_w_y = self.communicator.receive(neighbor_rank, recv_tag+7);
+             recv_w_z = self.communicator.receive(neighbor_rank, recv_tag+8);
+
+             recv_p = self.communicator.receive(neighbor_rank, recv_tag+9);
+
+             // Send Front->Back (900 series)
+             self.communicator.send(&send_u_x, neighbor_rank, send_tag);
+             self.communicator.send(&send_u_y, neighbor_rank, send_tag+1);
+             self.communicator.send(&send_u_z, neighbor_rank, send_tag+2);
+
+             self.communicator.send(&send_v_x, neighbor_rank, send_tag+3);
+             self.communicator.send(&send_v_y, neighbor_rank, send_tag+4);
+             self.communicator.send(&send_v_z, neighbor_rank, send_tag+5);
+
+             self.communicator.send(&send_w_x, neighbor_rank, send_tag+6);
+             self.communicator.send(&send_w_y, neighbor_rank, send_tag+7);
+             self.communicator.send(&send_w_z, neighbor_rank, send_tag+8);
+
+             self.communicator.send(&send_p, neighbor_rank, send_tag+9);
+        }
+
+        let mut idx = 0;
+        for l in 0..gl {
+            let k = recv_start_k + l;
+            for i in 0..nx {
+                for j in 0..ny {
+                    if idx < recv_u_x.len() {
+                        velocity_u[i][j][k] = Vector3::new(recv_u_x[idx], recv_u_y[idx], recv_u_z[idx]);
+                        velocity_v[i][j][k] = Vector3::new(recv_v_x[idx], recv_v_y[idx], recv_v_z[idx]);
+                        velocity_w[i][j][k] = Vector3::new(recv_w_x[idx], recv_w_y[idx], recv_w_z[idx]);
+                        pressure[i][j][k] = recv_p[idx];
+                    }
+                    idx += 1;
+                }
+            }
+        }
+
+        Ok(())
+    }
 }
 
 /// Configuration for ghost cell updates
@@ -424,6 +648,158 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp> GhostCellManager<
         Ok(requests)
     }
 
+    /// Async Update 3D
+    pub fn start_async_update_3d<'a>(
+        &self,
+        velocity_u: &[Vec<Vec<Vector3<T>>>],
+        velocity_v: &[Vec<Vec<Vector3<T>>>],
+        velocity_w: &[Vec<Vec<Vector3<T>>>],
+        pressure: &[Vec<Vec<T>>],
+        subdomain: &LocalSubdomain,
+        context: &'a mut GhostExchangeContext<T>,
+    ) -> MpiResult<Vec<mpi::request::Request<'a, Vec<T>>>> {
+        context.clear();
+        for (neighbor_rank, neighbor_info) in &self.neighbors {
+            self.prepare_ghost_cells_3d(
+                velocity_u, velocity_v, velocity_w, pressure, subdomain, *neighbor_rank, neighbor_info, context
+            )?;
+        }
+
+        let mut requests = Vec::new();
+        let comm = &self.communicator;
+        for (buffer, op) in context.send_buffers.iter().zip(context.send_ops.iter()) {
+            requests.push(comm.send_async(buffer, op.neighbor_rank, op.tag));
+        }
+        for (buffer, op) in context.recv_buffers.iter_mut().zip(context.recv_ops.iter()) {
+            requests.push(comm.receive_async(op.neighbor_rank, op.tag, buffer));
+        }
+        Ok(requests)
+    }
+
+    fn prepare_ghost_cells_3d(
+         &self,
+        velocity_u: &[Vec<Vec<Vector3<T>>>],
+        velocity_v: &[Vec<Vec<Vector3<T>>>],
+        velocity_w: &[Vec<Vec<Vector3<T>>>],
+        pressure: &[Vec<Vec<T>>],
+        subdomain: &LocalSubdomain,
+        neighbor_rank: i32,
+        neighbor_info: &NeighborInfo,
+        context: &mut GhostExchangeContext<T>,
+    ) -> MpiResult<()> {
+        match neighbor_info.direction {
+            NeighborDirection::Front => self.prepare_front_back(
+                velocity_u, velocity_v, velocity_w, pressure, subdomain, neighbor_rank, true, context
+            ),
+             NeighborDirection::Back => self.prepare_front_back(
+                velocity_u, velocity_v, velocity_w, pressure, subdomain, neighbor_rank, false, context
+            ),
+            _ => Ok(()),
+        }
+    }
+
+    fn prepare_front_back(
+        &self,
+        velocity_u: &[Vec<Vec<Vector3<T>>>],
+        velocity_v: &[Vec<Vec<Vector3<T>>>],
+        velocity_w: &[Vec<Vec<Vector3<T>>>],
+        pressure: &[Vec<Vec<T>>],
+        subdomain: &LocalSubdomain,
+        neighbor_rank: i32,
+        is_front: bool,
+        context: &mut GhostExchangeContext<T>,
+    ) -> MpiResult<()> {
+        let nx = subdomain.total_nx();
+        let ny = subdomain.total_ny();
+        let gl = subdomain.ghost_layers;
+
+        // Multi-layer support
+        let send_start_k = if is_front {
+            gl
+        } else {
+            gl + subdomain.nz_local - gl
+        };
+
+        // Asymmetric tags to avoid deadlock
+        let (send_tag, recv_tag) = if is_front {
+            (1000, 900)
+        } else {
+            (900, 1000)
+        };
+
+        let direction = if is_front { NeighborDirection::Front } else { NeighborDirection::Back };
+
+        let layer_size = nx * ny;
+        let total_size = layer_size * gl;
+
+        let mut send_u_x = Vec::with_capacity(total_size);
+        let mut send_u_y = Vec::with_capacity(total_size);
+        let mut send_u_z = Vec::with_capacity(total_size);
+
+        let mut send_v_x = Vec::with_capacity(total_size);
+        let mut send_v_y = Vec::with_capacity(total_size);
+        let mut send_v_z = Vec::with_capacity(total_size);
+
+        let mut send_w_x = Vec::with_capacity(total_size);
+        let mut send_w_y = Vec::with_capacity(total_size);
+        let mut send_w_z = Vec::with_capacity(total_size);
+
+        let mut send_p = Vec::with_capacity(total_size);
+
+        for l in 0..gl {
+            let k = send_start_k + l;
+            for i in 0..nx {
+                for j in 0..ny {
+                    let u = velocity_u[i][j][k];
+                    send_u_x.push(u.x); send_u_y.push(u.y); send_u_z.push(u.z);
+
+                    let v = velocity_v[i][j][k];
+                    send_v_x.push(v.x); send_v_y.push(v.y); send_v_z.push(v.z);
+
+                    let w = velocity_w[i][j][k];
+                    send_w_x.push(w.x); send_w_y.push(w.y); send_w_z.push(w.z);
+
+                    send_p.push(pressure[i][j][k]);
+                }
+            }
+        }
+
+        let send_idx = context.send_buffers.len();
+        context.send_buffers.push(send_u_x); context.send_buffers.push(send_u_y); context.send_buffers.push(send_u_z);
+        context.send_buffers.push(send_v_x); context.send_buffers.push(send_v_y); context.send_buffers.push(send_v_z);
+        context.send_buffers.push(send_w_x); context.send_buffers.push(send_w_y); context.send_buffers.push(send_w_z);
+        context.send_buffers.push(send_p);
+
+        let recv_idx = context.recv_buffers.len();
+        for _ in 0..10 {
+            context.recv_buffers.push(vec![T::zero(); total_size]);
+        }
+
+        // Register Recv Ops
+        let fields = [
+            FieldType::Ux, FieldType::Uy, FieldType::Uz,
+            FieldType::Vx, FieldType::Vy, FieldType::Vz,
+            FieldType::Wx, FieldType::Wy, FieldType::Wz,
+            FieldType::P
+        ];
+
+        for (i, field) in fields.iter().enumerate() {
+            context.recv_ops.push(RecvOp {
+                buffer_index: recv_idx + i,
+                neighbor_rank,
+                direction,
+                field_type: *field,
+                tag: recv_tag + i as i32,
+            });
+            context.send_ops.push(SendOp {
+                buffer_index: send_idx + i,
+                neighbor_rank,
+                tag: send_tag + i as i32,
+            });
+        }
+        Ok(())
+    }
+
     /// Prepare ghost cell exchange with a specific neighbor
     fn prepare_ghost_cells(
         &self,
@@ -472,7 +848,8 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp> GhostCellManager<
                 false,
                 context,
             ),
-            _ => Ok(()), // TODO: Implement 3D async ghost-cell exchange (front/back).
+            // Note: 3D async exchange handled by start_async_update_3d
+            _ => Ok(()),
         }
     }
 
