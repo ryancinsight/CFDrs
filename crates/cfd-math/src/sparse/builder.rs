@@ -29,7 +29,6 @@ pub struct SparseMatrixBuilder<T: RealField + Copy> {
     rows: usize,
     cols: usize,
     entries: Vec<MatrixEntry<T>>,
-    allow_duplicates: bool,
 }
 
 impl<T: RealField + Copy> SparseMatrixBuilder<T> {
@@ -39,7 +38,6 @@ impl<T: RealField + Copy> SparseMatrixBuilder<T> {
             rows,
             cols,
             entries: Vec::new(),
-            allow_duplicates: false,
         }
     }
 
@@ -49,13 +47,15 @@ impl<T: RealField + Copy> SparseMatrixBuilder<T> {
             rows,
             cols,
             entries: Vec::with_capacity(capacity),
-            allow_duplicates: false,
         }
     }
 
     /// Allow duplicate entries (will be summed)
-    pub fn allow_duplicates(mut self, allow: bool) -> Self {
-        self.allow_duplicates = allow;
+    ///
+    /// # Deprecation
+    /// This method is deprecated and is now a no-op. Duplicate entries are always
+    /// efficiently summed by the underlying sparse matrix implementation.
+    pub fn allow_duplicates(self, _allow: bool) -> Self {
         self
     }
 
@@ -99,29 +99,12 @@ impl<T: RealField + Copy> SparseMatrixBuilder<T> {
             return Ok(CsrMatrix::zeros(self.rows, self.cols));
         }
 
-        // Use COO matrix for efficient assembly
+        // Use COO matrix for efficient assembly.
+        // Duplicates are automatically summed during COO to CSR conversion.
         let mut coo = CooMatrix::new(self.rows, self.cols);
 
-        if self.allow_duplicates {
-            // Add entries directly (duplicates will be summed)
-            for entry in &self.entries {
-                coo.push(entry.row, entry.col, entry.value);
-            }
-        } else {
-            // Combine duplicate entries manually for better control
-            let mut entry_map: HashMap<(usize, usize), T> = HashMap::new();
-
-            for entry in &self.entries {
-                let key = (entry.row, entry.col);
-                entry_map
-                    .entry(key)
-                    .and_modify(|v| *v += entry.value)
-                    .or_insert(entry.value);
-            }
-
-            for ((row, col), value) in entry_map {
-                coo.push(row, col, value);
-            }
+        for entry in &self.entries {
+            coo.push(entry.row, entry.col, entry.value);
         }
 
         Ok(CsrMatrix::from(&coo))
