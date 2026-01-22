@@ -854,8 +854,27 @@ impl LoadBalancer {
                 "Workloads length must match number of ranks".to_string(),
             ));
         }
-        let weights: Vec<f64> = workloads.iter().map(|&w| w as f64).collect();
-        let partitions = Self::partition_rcb(self.current_decomp.global_extents(), &weights)?;
+
+        // Gather current volumes from all ranks
+        let local_sub = &self.current_decomp.local_subdomain;
+        let local_volume = (local_sub.nx_local as u64)
+            * (local_sub.ny_local as u64)
+            * (local_sub.nz_local as u64);
+
+        let mut all_volumes = vec![0u64; size];
+        self.communicator.all_gather(&local_volume, &mut all_volumes);
+
+        // Compute weights proportional to Volume / Load (inverse density)
+        // to equalize load in the new partition.
+        // weight = volume / (load + epsilon)
+        let weights: Vec<f64> = workloads
+            .iter()
+            .zip(all_volumes.iter())
+            .map(|(&load, &vol)| vol as f64 / (load as f64 + 1.0))
+            .collect();
+
+        let partitions =
+            DomainDecomposition::partition_rcb(self.current_decomp.global_extents(), &weights)?;
         let min_cells = self.min_cells_per_process;
         for subdomain in &partitions {
             let cell_count = subdomain.nx_local * subdomain.ny_local * subdomain.nz_local;
