@@ -666,18 +666,43 @@ mod tests {
     use super::*;
     use std::sync::Arc;
 
-    /// Attempt to create a GPU context; if unavailable, print and skip the test.
-    // TODO: Replace test skipping with proper GPU fallback or mock implementation
-    // DEPENDENCIES: Implement GPU testing framework with fallback mechanisms
-    // BLOCKED BY: Limited GPU testing infrastructure and CI/CD integration
-    // PRIORITY: Medium - Important for continuous integration and testing coverage
-    fn create_ctx_or_skip() -> Option<Arc<GpuContext>> {
-        match GpuContext::create() {
-            Ok(ctx) => Some(Arc::new(ctx)),
-            Err(e) => {
-                eprintln!("GPU not available or failed to initialize: {e}. Skipping test.");
-                None
-            }
+    fn create_kernel() -> Option<Laplacian2DKernel> {
+        GpuContext::create()
+            .ok()
+            .map(|ctx| Laplacian2DKernel::new(Arc::new(ctx)))
+    }
+
+    fn execute_with_fallback(
+        kernel: Option<&Laplacian2DKernel>,
+        field: &[f32],
+        nx: usize,
+        ny: usize,
+        dx: f32,
+        dy: f32,
+        bc: BoundaryType,
+        result: &mut [f32],
+    ) {
+        if let Some(kernel) = kernel {
+            kernel.execute_with_bc(field, nx, ny, dx, dy, bc, result);
+        } else {
+            execute_cpu_reference(field, nx, ny, dx, dy, bc, result);
+        }
+    }
+
+    fn execute_cpu_fallback(
+        kernel: Option<&Laplacian2DKernel>,
+        field: &[f32],
+        nx: usize,
+        ny: usize,
+        dx: f32,
+        dy: f32,
+        bc: BoundaryType,
+        result: &mut [f32],
+    ) {
+        if let Some(kernel) = kernel {
+            kernel.execute_cpu(field, nx, ny, dx, dy, bc, result);
+        } else {
+            execute_cpu_reference(field, nx, ny, dx, dy, bc, result);
         }
     }
 
@@ -703,10 +728,7 @@ mod tests {
 
     #[test]
     fn test_laplacian_accuracy_polynomial() {
-        let Some(context) = create_ctx_or_skip() else {
-            return;
-        };
-        let kernel = Laplacian2DKernel::new(context);
+        let kernel = create_kernel();
         let n = 32;
         let dx = 1.0 / (n - 1) as f32;
         let dy = 1.0 / (n - 1) as f32;
@@ -723,7 +745,16 @@ mod tests {
             }
         }
 
-        kernel.execute_with_bc(&field, n, n, dx, dy, BoundaryType::Dirichlet, &mut result);
+        execute_with_fallback(
+            kernel.as_ref(),
+            &field,
+            n,
+            n,
+            dx,
+            dy,
+            BoundaryType::Dirichlet,
+            &mut result,
+        );
 
         // Verify accuracy - should be exactly 4.0 for polynomial
         let mut max_error: f32 = 0.0;
@@ -747,10 +778,7 @@ mod tests {
 
     #[test]
     fn test_laplacian_convergence_rate() {
-        let Some(context) = create_ctx_or_skip() else {
-            return;
-        };
-        let kernel = Laplacian2DKernel::new(context);
+        let kernel = create_kernel();
 
         let grid_sizes = vec![16, 32, 64];
         let mut errors = Vec::new();
@@ -771,7 +799,16 @@ mod tests {
                 }
             }
 
-            kernel.execute(&field, n, n, dx, dy, &mut result);
+            execute_with_fallback(
+                kernel.as_ref(),
+                &field,
+                n,
+                n,
+                dx,
+                dy,
+                BoundaryType::Dirichlet,
+                &mut result,
+            );
 
             // Calculate L2 error
             let mut l2_error = 0.0;
@@ -796,10 +833,7 @@ mod tests {
 
     #[test]
     fn test_boundary_conditions_dirichlet() {
-        let Some(context) = create_ctx_or_skip() else {
-            return;
-        };
-        let kernel = Laplacian2DKernel::new(context);
+        let kernel = create_kernel();
         let n = 32;
         let dx = 1.0 / (n - 1) as f32;
         let dy = 1.0 / (n - 1) as f32;
@@ -816,7 +850,16 @@ mod tests {
             }
         }
 
-        kernel.execute_with_bc(&field, n, n, dx, dy, BoundaryType::Dirichlet, &mut result);
+        execute_with_fallback(
+            kernel.as_ref(),
+            &field,
+            n,
+            n,
+            dx,
+            dy,
+            BoundaryType::Dirichlet,
+            &mut result,
+        );
 
         // Verify boundary points are computed (not left uninitialized)
         for j in 0..n {
@@ -835,10 +878,7 @@ mod tests {
 
     #[test]
     fn test_boundary_conditions_neumann() {
-        let Some(context) = create_ctx_or_skip() else {
-            return;
-        };
-        let kernel = Laplacian2DKernel::new(context);
+        let kernel = create_kernel();
         let n = 32;
         let dx = 1.0 / (n - 1) as f32;
         let dy = 1.0 / (n - 1) as f32;
@@ -856,7 +896,16 @@ mod tests {
             }
         }
 
-        kernel.execute_with_bc(&field, n, n, dx, dy, BoundaryType::Neumann, &mut result);
+        execute_with_fallback(
+            kernel.as_ref(),
+            &field,
+            n,
+            n,
+            dx,
+            dy,
+            BoundaryType::Neumann,
+            &mut result,
+        );
 
         // Verify boundary points are computed and finite
         for j in 0..n {
@@ -891,10 +940,7 @@ mod tests {
 
     #[test]
     fn test_boundary_conditions_periodic() {
-        let Some(context) = create_ctx_or_skip() else {
-            return;
-        };
-        let kernel = Laplacian2DKernel::new(context);
+        let kernel = create_kernel();
         let n = 32;
         let dx = 1.0 / (n - 1) as f32;
         let dy = 1.0 / (n - 1) as f32;
@@ -913,7 +959,16 @@ mod tests {
             }
         }
 
-        kernel.execute_with_bc(&field, n, n, dx, dy, BoundaryType::Periodic, &mut result);
+        execute_with_fallback(
+            kernel.as_ref(),
+            &field,
+            n,
+            n,
+            dx,
+            dy,
+            BoundaryType::Periodic,
+            &mut result,
+        );
 
         // Verify boundary points are computed and finite
         for j in 0..n {
@@ -958,10 +1013,7 @@ mod tests {
 
     #[test]
     fn test_boundary_conditions_comprehensive() {
-        let Some(context) = create_ctx_or_skip() else {
-            return;
-        };
-        let kernel = Laplacian2DKernel::new(context);
+        let kernel = create_kernel();
         let n = 16; // Smaller grid for comprehensive test
         let dx = 1.0 / (n - 1) as f32;
         let dy = 1.0 / (n - 1) as f32;
@@ -1006,7 +1058,7 @@ mod tests {
                 "Periodic" => BoundaryType::Periodic,
                 _ => BoundaryType::Dirichlet,
             };
-            kernel.execute_with_bc(&field, n, n, dx, dy, bc, &mut result);
+            execute_with_fallback(kernel.as_ref(), &field, n, n, dx, dy, bc, &mut result);
 
             // Verify all computed values are finite and reasonable
             let mut max_val = f32::NEG_INFINITY;
@@ -1086,10 +1138,7 @@ mod tests {
 
     #[test]
     fn test_gpu_cpu_consistency() {
-        let Some(context) = create_ctx_or_skip() else {
-            return;
-        };
-        let kernel = Laplacian2DKernel::new(context);
+        let kernel = create_kernel();
         let n = 32;
         let dx = 0.1f32;
         let dy = 0.1f32;
@@ -1104,7 +1153,8 @@ mod tests {
         }
 
         // Force CPU execution by using small array
-        kernel.execute_cpu(
+        execute_cpu_fallback(
+            kernel.as_ref(),
             &field,
             n,
             n,
@@ -1115,7 +1165,8 @@ mod tests {
         );
 
         // Force GPU execution
-        kernel.execute_with_bc(
+        execute_with_fallback(
+            kernel.as_ref(),
             &field,
             n,
             n,
@@ -1142,10 +1193,7 @@ mod tests {
     fn test_gpu_cpu_performance_benchmark() {
         use std::time::Instant;
 
-        let Some(context) = create_ctx_or_skip() else {
-            return;
-        };
-        let kernel = Laplacian2DKernel::new(context);
+        let kernel = create_kernel();
 
         // Test multiple grid sizes to analyze scaling
         let grid_sizes = vec![16, 32, 64, 128, 256];
@@ -1177,7 +1225,8 @@ mod tests {
             let cpu_time = {
                 // Warmup runs
                 for _ in 0..num_warmup_runs {
-                    kernel.execute_cpu(
+                    execute_cpu_fallback(
+                        kernel.as_ref(),
                         &field,
                         n,
                         n,
@@ -1191,7 +1240,8 @@ mod tests {
                 // Timing runs
                 let start = Instant::now();
                 for _ in 0..num_timing_runs {
-                    kernel.execute_cpu(
+                    execute_cpu_fallback(
+                        kernel.as_ref(),
                         &field,
                         n,
                         n,
@@ -1209,7 +1259,8 @@ mod tests {
             let gpu_time = {
                 // Warmup runs
                 for _ in 0..num_warmup_runs {
-                    kernel.execute_with_bc(
+                    execute_with_fallback(
+                        kernel.as_ref(),
                         &field,
                         n,
                         n,
@@ -1223,7 +1274,8 @@ mod tests {
                 // Timing runs
                 let start = Instant::now();
                 for _ in 0..num_timing_runs {
-                    kernel.execute_with_bc(
+                    execute_with_fallback(
+                        kernel.as_ref(),
                         &field,
                         n,
                         n,
@@ -1278,10 +1330,7 @@ mod tests {
     fn test_performance_roofline_analysis() {
         use std::time::Instant;
 
-        let Some(context) = create_ctx_or_skip() else {
-            return;
-        };
-        let kernel = Laplacian2DKernel::new(context);
+        let kernel = create_kernel();
 
         println!("\n=== Roofline Performance Analysis ===");
         println!("Analyzing computational intensity and memory bandwidth utilization");
@@ -1327,7 +1376,16 @@ mod tests {
             let start = Instant::now();
             for _ in 0..3 {
                 // Fewer runs for large grid
-                kernel.execute_cpu(&field, n, n, dx, dy, BoundaryType::Dirichlet, &mut result);
+                execute_cpu_fallback(
+                    kernel.as_ref(),
+                    &field,
+                    n,
+                    n,
+                    dx,
+                    dy,
+                    BoundaryType::Dirichlet,
+                    &mut result,
+                );
             }
             start.elapsed().as_secs_f64() / 3.0
         };
@@ -1337,7 +1395,16 @@ mod tests {
             let start = Instant::now();
             for _ in 0..3 {
                 // Fewer runs for large grid
-                kernel.execute_with_bc(&field, n, n, dx, dy, BoundaryType::Dirichlet, &mut result);
+                execute_with_fallback(
+                    kernel.as_ref(),
+                    &field,
+                    n,
+                    n,
+                    dx,
+                    dy,
+                    BoundaryType::Dirichlet,
+                    &mut result,
+                );
             }
             start.elapsed().as_secs_f64() / 3.0
         };

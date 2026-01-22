@@ -65,7 +65,7 @@ criterion = "0.5"
 wgpu = "0.19"
 
 # Internal crates
-cfd-core = { path = "crates/cfd-core" }
+cfd-core = { path = "crates/cfd-core", default-features = false }
 cfd-math = { path = "crates/cfd-math" }
 cfd-io = { path = "crates/cfd-io" }
 cfd-mesh = { path = "crates/cfd-mesh" }

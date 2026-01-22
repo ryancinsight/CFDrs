@@ -9,7 +9,7 @@ documentation.workspace = true
 description = "Mesh handling and CSGrs integration for CFD simulations"
 
 [dependencies]
-cfd-core.workspace = true
+cfd-core = { workspace = true, default-features = false }
 cfd-math.workspace = true
 nalgebra.workspace = true
 num-traits.workspace = true
