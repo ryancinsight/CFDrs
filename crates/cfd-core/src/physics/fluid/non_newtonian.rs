@@ -226,6 +226,10 @@ impl<T: RealField + FromPrimitive + Copy> NonNewtonianFluid<T> for BinghamPlasti
 ///
 /// τ = τ₀ + K * (γ̇)^n  for τ > τ₀
 /// γ̇ = 0               for τ ≤ τ₀
+///
+/// Temperature dependence (optional):
+/// K(T) = K_ref * exp(Ea_k * (1/T - 1/T_ref))
+/// τ₀(T) = τ₀_ref * exp(Ea_y * (1/T - 1/T_ref))
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HerschelBulkley<T: RealField + Copy> {
     /// Fluid name
@@ -246,6 +250,20 @@ pub struct HerschelBulkley<T: RealField + Copy> {
     pub speed_of_sound: T,
     /// Reference shear rate [1/s]
     pub reference_shear_rate: T,
+
+    // Temperature dependence parameters
+    /// Reference temperature for temperature-dependent properties [K]
+    #[serde(default)]
+    pub reference_temperature: Option<T>,
+    /// Activation energy coefficient for consistency index (Ea_k/R) [K]
+    #[serde(default)]
+    pub consistency_activation_energy_coeff: Option<T>,
+    /// Activation energy coefficient for yield stress (Ea_y/R) [K]
+    #[serde(default)]
+    pub yield_stress_activation_energy_coeff: Option<T>,
+    /// Activation energy coefficient for flow behavior index (Ea_n/R) [K]
+    #[serde(default)]
+    pub flow_behavior_activation_energy_coeff: Option<T>,
 }
 
 impl<T: RealField + FromPrimitive + Copy> HerschelBulkley<T> {
@@ -271,27 +289,104 @@ impl<T: RealField + FromPrimitive + Copy> HerschelBulkley<T> {
             thermal_conductivity,
             speed_of_sound,
             reference_shear_rate,
+            reference_temperature: None,
+            consistency_activation_energy_coeff: None,
+            yield_stress_activation_energy_coeff: None,
+            flow_behavior_activation_energy_coeff: None,
         }
     }
-    /// Calculate apparent viscosity at given shear rate
-    pub fn apparent_viscosity(&self, shear_rate: T) -> T {
+
+    /// Set temperature dependence parameters
+    pub fn with_temperature_dependence(
+        mut self,
+        reference_temperature: T,
+        consistency_activation_energy_coeff: Option<T>,
+        yield_stress_activation_energy_coeff: Option<T>,
+        flow_behavior_activation_energy_coeff: Option<T>,
+    ) -> Self {
+        self.reference_temperature = Some(reference_temperature);
+        self.consistency_activation_energy_coeff = consistency_activation_energy_coeff;
+        self.yield_stress_activation_energy_coeff = yield_stress_activation_energy_coeff;
+        self.flow_behavior_activation_energy_coeff = flow_behavior_activation_energy_coeff;
+        self
+    }
+
+    /// Calculate temperature-dependent Consistency Index K(T)
+    pub fn consistency_index_at(&self, temperature: T) -> T {
+        match (self.reference_temperature, self.consistency_activation_energy_coeff) {
+            (Some(t_ref), Some(ea_k)) if temperature > T::zero() => {
+                // Arrhenius-type dependence: K(T) = K_ref * exp(Ea_k * (1/T - 1/T_ref))
+                // Note: ea_k here is actually (Ea/R)
+                let exponent = ea_k * (T::one() / temperature - T::one() / t_ref);
+                self.consistency_index * exponent.exp()
+            }
+            _ => self.consistency_index,
+        }
+    }
+
+    /// Calculate temperature-dependent Yield Stress τ₀(T)
+    pub fn yield_stress_at(&self, temperature: T) -> T {
+        match (self.reference_temperature, self.yield_stress_activation_energy_coeff) {
+            (Some(t_ref), Some(ea_y)) if temperature > T::zero() => {
+                 // Arrhenius-type dependence: τ₀(T) = τ₀_ref * exp(Ea_y * (1/T - 1/T_ref))
+                let exponent = ea_y * (T::one() / temperature - T::one() / t_ref);
+                self.yield_stress * exponent.exp()
+            }
+            _ => self.yield_stress,
+        }
+    }
+
+    /// Calculate temperature-dependent Flow Behavior Index n(T)
+    pub fn flow_behavior_index_at(&self, temperature: T) -> T {
+        match (self.reference_temperature, self.flow_behavior_activation_energy_coeff) {
+            (Some(t_ref), Some(ea_n)) if temperature > T::zero() => {
+                 // Arrhenius-type dependence: n(T) = n_ref * exp(Ea_n * (1/T - 1/T_ref))
+                let exponent = ea_n * (T::one() / temperature - T::one() / t_ref);
+                self.flow_behavior_index * exponent.exp()
+            }
+            _ => self.flow_behavior_index,
+        }
+    }
+
+    /// Calculate apparent viscosity at given shear rate and temperature
+    ///
+    /// If temperature is None, uses reference properties.
+    pub fn apparent_viscosity_at_temp(&self, shear_rate: T, temperature: Option<T>) -> T {
         if shear_rate <= T::zero() {
             return T::from_f64(1e6).unwrap_or_else(T::one);
         }
 
-        let power_law_term =
-            self.consistency_index * shear_rate.powf(self.flow_behavior_index - T::one());
-        self.yield_stress / shear_rate + power_law_term
+        let k = if let Some(t) = temperature {
+            self.consistency_index_at(t)
+        } else {
+            self.consistency_index
+        };
+
+        let y_stress = if let Some(t) = temperature {
+            self.yield_stress_at(t)
+        } else {
+            self.yield_stress
+        };
+
+        let n = if let Some(t) = temperature {
+            self.flow_behavior_index_at(t)
+        } else {
+            self.flow_behavior_index
+        };
+
+        let power_law_term = k * shear_rate.powf(n - T::one());
+        y_stress / shear_rate + power_law_term
+    }
+
+    /// Calculate apparent viscosity at given shear rate (using stored reference properties)
+    pub fn apparent_viscosity(&self, shear_rate: T) -> T {
+        self.apparent_viscosity_at_temp(shear_rate, None)
     }
 }
 
 impl<T: RealField + FromPrimitive + Copy> FluidTrait<T> for HerschelBulkley<T> {
-    fn properties_at(&self, _temperature: T, _pressure: T) -> Result<FluidState<T>, Error> {
-        // TODO: Implement temperature-dependent Herschel-Bulkley properties
-        // DEPENDENCIES: Add temperature effects to yield stress, consistency index, and flow behavior
-        // BLOCKED BY: Complex coupling between temperature and non-Newtonian parameters
-        // PRIORITY: High - Essential for accurate Herschel-Bulkley CFD simulations
-        let apparent_viscosity = self.apparent_viscosity(self.reference_shear_rate);
+    fn properties_at(&self, temperature: T, _pressure: T) -> Result<FluidState<T>, Error> {
+        let apparent_viscosity = self.apparent_viscosity_at_temp(self.reference_shear_rate, Some(temperature));
 
         Ok(FluidState {
             density: self.density,
@@ -304,6 +399,17 @@ impl<T: RealField + FromPrimitive + Copy> FluidTrait<T> for HerschelBulkley<T> {
 
     fn name(&self) -> &str {
         &self.name
+    }
+
+    fn is_temperature_dependent(&self) -> bool {
+        self.reference_temperature.is_some()
+            && (self.consistency_activation_energy_coeff.is_some()
+                || self.yield_stress_activation_energy_coeff.is_some()
+                || self.flow_behavior_activation_energy_coeff.is_some())
+    }
+
+    fn reference_temperature(&self) -> Option<T> {
+        self.reference_temperature
     }
 }
 
@@ -318,5 +424,136 @@ impl<T: RealField + FromPrimitive + Copy> NonNewtonianFluid<T> for HerschelBulkl
 
     fn yield_stress(&self) -> Option<T> {
         Some(self.yield_stress)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_power_law_fluid_viscosity() {
+        let fluid = PowerLawFluid::<f64> {
+            name: "Blood".to_string(),
+            density: 1060.0,
+            consistency_index: 0.035, // Pa·s^n
+            flow_behavior_index: 0.6, // Shear-thinning
+            specific_heat: 3600.0,
+            thermal_conductivity: 0.5,
+            speed_of_sound: 1540.0,
+            reference_shear_rate: 100.0,
+        };
+
+        // At shear rate 100 s^-1:
+        // mu = K * gamma^(n-1) = 0.035 * 100^(0.6-1) = 0.035 * 100^-0.4
+        // 100^-0.4 = (10^2)^-0.4 = 10^-0.8 = 0.158489
+        // mu = 0.035 * 0.158489 = 0.005547
+        let mu = fluid.apparent_viscosity(100.0);
+        assert!((mu - 0.005547).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_bingham_plastic_yield() {
+        let fluid = BinghamPlastic::<f64> {
+            name: "Toothpaste".to_string(),
+            density: 1600.0,
+            yield_stress: 200.0,      // Pa
+            plastic_viscosity: 10.0,  // Pa·s
+            specific_heat: 2000.0,
+            thermal_conductivity: 0.5,
+            speed_of_sound: 1500.0,
+            reference_shear_rate: 1.0,
+        };
+
+        assert!(!fluid.is_yielded(150.0));
+        assert!(fluid.is_yielded(250.0));
+
+        // Viscosity at shear rate 1.0
+        // mu = mu_p + tau_0/gamma = 10 + 200/1 = 210
+        assert!((fluid.apparent_viscosity(1.0) - 210.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_herschel_bulkley_viscosity() {
+        let fluid = HerschelBulkley::<f64> {
+            name: "Drilling Mud".to_string(),
+            density: 1200.0,
+            yield_stress: 5.0,
+            consistency_index: 0.8,
+            flow_behavior_index: 0.7,
+            specific_heat: 2000.0,
+            thermal_conductivity: 0.6,
+            speed_of_sound: 1400.0,
+            reference_shear_rate: 10.0,
+            reference_temperature: None,
+            consistency_activation_energy_coeff: None,
+            yield_stress_activation_energy_coeff: None,
+            flow_behavior_activation_energy_coeff: None,
+        };
+
+        // At shear rate 10.0:
+        // mu = tau_0/gamma + K * gamma^(n-1)
+        // mu = 5.0/10.0 + 0.8 * 10.0^(0.7-1)
+        // mu = 0.5 + 0.8 * 10^-0.3
+        // 10^-0.3 = 0.501187
+        // mu = 0.5 + 0.8 * 0.501187 = 0.5 + 0.40095 = 0.90095
+        let mu = fluid.apparent_viscosity(10.0);
+        assert!((mu - 0.90095).abs() < 1e-5);
+    }
+
+    #[test]
+    fn test_herschel_bulkley_temperature_dependence() {
+        let fluid = HerschelBulkley::<f64> {
+            name: "Temp Dependent Mud".to_string(),
+            density: 1200.0,
+            yield_stress: 10.0,
+            consistency_index: 1.0,
+            flow_behavior_index: 1.0, // Bingham-like for simplicity of calc
+            specific_heat: 2000.0,
+            thermal_conductivity: 0.6,
+            speed_of_sound: 1400.0,
+            reference_shear_rate: 1.0,
+            reference_temperature: None,
+            consistency_activation_energy_coeff: None,
+            yield_stress_activation_energy_coeff: None,
+            flow_behavior_activation_energy_coeff: None,
+        }
+        .with_temperature_dependence(300.0, Some(1000.0), Some(500.0), Some(200.0)); // Ea/R values
+
+        // Test at reference temperature (300K)
+        // Properties should be equal to base values
+        let k_ref = fluid.consistency_index_at(300.0);
+        let y_ref = fluid.yield_stress_at(300.0);
+        let n_ref = fluid.flow_behavior_index_at(300.0);
+        assert!((k_ref - 1.0).abs() < 1e-10);
+        assert!((y_ref - 10.0).abs() < 1e-10);
+        assert!((n_ref - 1.0).abs() < 1e-10);
+
+        // Test at higher temperature (350K)
+        // K(350) = 1.0 * exp(1000 * (1/350 - 1/300))
+        // 1/350 - 1/300 = 0.002857 - 0.003333 = -0.000476
+        // exp(1000 * -0.000476) = exp(-0.47619) = 0.6211
+        let k_hot = fluid.consistency_index_at(350.0);
+        let expected_k = 1.0 * (1000.0f64 * (1.0/350.0 - 1.0/300.0)).exp();
+        assert!((k_hot - expected_k).abs() < 1e-10);
+        assert!(k_hot < 1.0); // Viscosity should decrease
+
+        // Yield stress with different activation energy
+        let y_hot = fluid.yield_stress_at(350.0);
+        let expected_y = 10.0 * (500.0f64 * (1.0/350.0 - 1.0/300.0)).exp();
+        assert!((y_hot - expected_y).abs() < 1e-10);
+        assert!(y_hot < 10.0);
+
+        // Flow behavior index
+        let n_hot = fluid.flow_behavior_index_at(350.0);
+        let expected_n = 1.0 * (200.0f64 * (1.0/350.0 - 1.0/300.0)).exp();
+        assert!((n_hot - expected_n).abs() < 1e-10);
+
+        // Apparent viscosity via FluidTrait
+        // At shear rate 1.0 (ref), T=350
+        // mu = y_hot / 1.0 + k_hot * 1.0^(n_hot - 1)
+        // 1.0^(n-1) is always 1.0 regardless of n
+        let state = fluid.properties_at(350.0, 101325.0).unwrap();
+        assert!((state.dynamic_viscosity - (y_hot + k_hot)).abs() < 1e-10);
     }
 }
