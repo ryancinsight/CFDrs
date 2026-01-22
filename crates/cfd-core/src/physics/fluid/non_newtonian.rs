@@ -311,41 +311,49 @@ impl<T: RealField + FromPrimitive + Copy> HerschelBulkley<T> {
         self
     }
 
+    /// Helper method to calculate Arrhenius-type temperature dependence
+    fn calculate_arrhenius_term(
+        &self,
+        temperature: T,
+        base_value: T,
+        activation_energy_coeff: Option<T>,
+    ) -> T {
+        match (self.reference_temperature, activation_energy_coeff) {
+            (Some(t_ref), Some(ea)) if temperature > T::zero() => {
+                // Arrhenius-type dependence: Val(T) = Val_ref * exp(Ea * (1/T - 1/T_ref))
+                // Note: ea here is actually (Ea/R)
+                let exponent = ea * (T::one() / temperature - T::one() / t_ref);
+                base_value * exponent.exp()
+            }
+            _ => base_value,
+        }
+    }
+
     /// Calculate temperature-dependent Consistency Index K(T)
     pub fn consistency_index_at(&self, temperature: T) -> T {
-        match (self.reference_temperature, self.consistency_activation_energy_coeff) {
-            (Some(t_ref), Some(ea_k)) if temperature > T::zero() => {
-                // Arrhenius-type dependence: K(T) = K_ref * exp(Ea_k * (1/T - 1/T_ref))
-                // Note: ea_k here is actually (Ea/R)
-                let exponent = ea_k * (T::one() / temperature - T::one() / t_ref);
-                self.consistency_index * exponent.exp()
-            }
-            _ => self.consistency_index,
-        }
+        self.calculate_arrhenius_term(
+            temperature,
+            self.consistency_index,
+            self.consistency_activation_energy_coeff,
+        )
     }
 
     /// Calculate temperature-dependent Yield Stress τ₀(T)
     pub fn yield_stress_at(&self, temperature: T) -> T {
-        match (self.reference_temperature, self.yield_stress_activation_energy_coeff) {
-            (Some(t_ref), Some(ea_y)) if temperature > T::zero() => {
-                 // Arrhenius-type dependence: τ₀(T) = τ₀_ref * exp(Ea_y * (1/T - 1/T_ref))
-                let exponent = ea_y * (T::one() / temperature - T::one() / t_ref);
-                self.yield_stress * exponent.exp()
-            }
-            _ => self.yield_stress,
-        }
+        self.calculate_arrhenius_term(
+            temperature,
+            self.yield_stress,
+            self.yield_stress_activation_energy_coeff,
+        )
     }
 
     /// Calculate temperature-dependent Flow Behavior Index n(T)
     pub fn flow_behavior_index_at(&self, temperature: T) -> T {
-        match (self.reference_temperature, self.flow_behavior_activation_energy_coeff) {
-            (Some(t_ref), Some(ea_n)) if temperature > T::zero() => {
-                 // Arrhenius-type dependence: n(T) = n_ref * exp(Ea_n * (1/T - 1/T_ref))
-                let exponent = ea_n * (T::one() / temperature - T::one() / t_ref);
-                self.flow_behavior_index * exponent.exp()
-            }
-            _ => self.flow_behavior_index,
-        }
+        self.calculate_arrhenius_term(
+            temperature,
+            self.flow_behavior_index,
+            self.flow_behavior_activation_energy_coeff,
+        )
     }
 
     /// Calculate apparent viscosity at given shear rate and temperature
