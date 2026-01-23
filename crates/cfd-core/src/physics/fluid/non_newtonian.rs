@@ -6,6 +6,7 @@
 
 use super::traits::{Fluid as FluidTrait, FluidState, NonNewtonianFluid};
 use crate::error::Error;
+use crate::physics::constants::physics::universal::GAS_CONSTANT;
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
@@ -246,6 +247,15 @@ pub struct HerschelBulkley<T: RealField + Copy> {
     pub speed_of_sound: T,
     /// Reference shear rate [1/s]
     pub reference_shear_rate: T,
+    /// Reference temperature for properties [K]
+    #[serde(default)]
+    pub reference_temperature: Option<T>,
+    /// Activation energy for consistency index [J/mol]
+    #[serde(default)]
+    pub activation_energy_k: Option<T>,
+    /// Activation energy for yield stress [J/mol]
+    #[serde(default)]
+    pub activation_energy_tau: Option<T>,
 }
 
 impl<T: RealField + FromPrimitive + Copy> HerschelBulkley<T> {
@@ -271,7 +281,23 @@ impl<T: RealField + FromPrimitive + Copy> HerschelBulkley<T> {
             thermal_conductivity,
             speed_of_sound,
             reference_shear_rate,
+            reference_temperature: None,
+            activation_energy_k: None,
+            activation_energy_tau: None,
         }
+    }
+
+    /// Set temperature dependence parameters
+    pub fn with_temperature_dependence(
+        mut self,
+        reference_temperature: T,
+        activation_energy_k: Option<T>,
+        activation_energy_tau: Option<T>,
+    ) -> Self {
+        self.reference_temperature = Some(reference_temperature);
+        self.activation_energy_k = activation_energy_k;
+        self.activation_energy_tau = activation_energy_tau;
+        self
     }
     /// Calculate apparent viscosity at given shear rate
     pub fn apparent_viscosity(&self, shear_rate: T) -> T {
@@ -286,12 +312,41 @@ impl<T: RealField + FromPrimitive + Copy> HerschelBulkley<T> {
 }
 
 impl<T: RealField + FromPrimitive + Copy> FluidTrait<T> for HerschelBulkley<T> {
-    fn properties_at(&self, _temperature: T, _pressure: T) -> Result<FluidState<T>, Error> {
-        // TODO: Implement temperature-dependent Herschel-Bulkley properties
-        // DEPENDENCIES: Add temperature effects to yield stress, consistency index, and flow behavior
-        // BLOCKED BY: Complex coupling between temperature and non-Newtonian parameters
-        // PRIORITY: High - Essential for accurate Herschel-Bulkley CFD simulations
-        let apparent_viscosity = self.apparent_viscosity(self.reference_shear_rate);
+    fn properties_at(&self, temperature: T, _pressure: T) -> Result<FluidState<T>, Error> {
+        // Calculate adjusted properties based on temperature if reference temperature is set
+        let (k_adj, tau_adj) = if let Some(t_ref) = self.reference_temperature {
+            let r_gas = T::from_f64(GAS_CONSTANT).unwrap_or_else(T::one);
+            let inv_t = T::one() / temperature;
+            let inv_t_ref = T::one() / t_ref;
+            let diff_inv_t = inv_t - inv_t_ref;
+
+            let k = if let Some(ea_k) = self.activation_energy_k {
+                let arg = (ea_k / r_gas) * diff_inv_t;
+                self.consistency_index * arg.exp()
+            } else {
+                self.consistency_index
+            };
+
+            let tau = if let Some(ea_tau) = self.activation_energy_tau {
+                let arg = (ea_tau / r_gas) * diff_inv_t;
+                self.yield_stress * arg.exp()
+            } else {
+                self.yield_stress
+            };
+
+            (k, tau)
+        } else {
+            (self.consistency_index, self.yield_stress)
+        };
+
+        // Calculate apparent viscosity using adjusted properties
+        let shear_rate = self.reference_shear_rate;
+        let apparent_viscosity = if shear_rate <= T::zero() {
+            T::from_f64(1e6).unwrap_or_else(T::one)
+        } else {
+            let power_law_term = k_adj * shear_rate.powf(self.flow_behavior_index - T::one());
+            tau_adj / shear_rate + power_law_term
+        };
 
         Ok(FluidState {
             density: self.density,
@@ -304,6 +359,14 @@ impl<T: RealField + FromPrimitive + Copy> FluidTrait<T> for HerschelBulkley<T> {
 
     fn name(&self) -> &str {
         &self.name
+    }
+
+    fn is_temperature_dependent(&self) -> bool {
+        self.reference_temperature.is_some()
+    }
+
+    fn reference_temperature(&self) -> Option<T> {
+        self.reference_temperature
     }
 }
 
@@ -318,5 +381,82 @@ impl<T: RealField + FromPrimitive + Copy> NonNewtonianFluid<T> for HerschelBulkl
 
     fn yield_stress(&self) -> Option<T> {
         Some(self.yield_stress)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use approx::assert_relative_eq;
+
+    #[test]
+    fn test_herschel_bulkley_constant() {
+        let fluid = HerschelBulkley::<f64>::new(
+            "Test Fluid".to_string(),
+            1000.0,
+            10.0, // yield stress
+            5.0,  // consistency index
+            0.5,  // flow behavior index
+            4000.0,
+            0.6,
+            1500.0,
+            10.0, // reference shear rate
+        );
+
+        let props = fluid.properties_at(300.0, 101325.0).unwrap();
+
+        // Manual calc:
+        // shear_rate = 10.0
+        // power_law_term = 5.0 * 10.0^(0.5 - 1.0) = 5.0 * 10.0^(-0.5) = 5.0 * 0.316227766 = 1.58113883
+        // yield_term = 10.0 / 10.0 = 1.0
+        // viscosity = 1.0 + 1.58113883 = 2.58113883
+
+        assert_relative_eq!(props.dynamic_viscosity, 2.5811388300841898);
+        assert!(!fluid.is_temperature_dependent());
+    }
+
+    #[test]
+    fn test_herschel_bulkley_temperature_dependent() {
+        let t_ref = 300.0;
+        let ea_k = 5000.0; // J/mol
+
+        let fluid = HerschelBulkley::<f64>::new(
+            "Test Fluid".to_string(),
+            1000.0,
+            10.0, // yield stress
+            5.0,  // consistency index
+            0.5,  // flow behavior index
+            4000.0,
+            0.6,
+            1500.0,
+            10.0, // reference shear rate
+        ).with_temperature_dependence(t_ref, Some(ea_k), None);
+
+        assert!(fluid.is_temperature_dependent());
+        assert_eq!(fluid.reference_temperature(), Some(t_ref));
+
+        // Test at T_ref
+        let props_ref = fluid.properties_at(t_ref, 101325.0).unwrap();
+        assert_relative_eq!(props_ref.dynamic_viscosity, 2.5811388300841898);
+
+        // Test at higher temperature
+        // Formula: K(T) = K_ref * exp( (Ea/R) * (1/T - 1/T_ref) )
+        // If T > T_ref, 1/T < 1/T_ref, so (1/T - 1/T_ref) is negative.
+        // exp(negative) < 1. So K(T) < K_ref. Viscosity should decrease.
+
+        let t_high = 350.0;
+        let props_high = fluid.properties_at(t_high, 101325.0).unwrap();
+
+        let r = 8.314462618;
+        let arg = (ea_k / r) * (1.0/t_high - 1.0/t_ref);
+        let k_high = 5.0 * arg.exp();
+
+        let shear_rate = 10.0_f64;
+        let power_law_term = k_high * shear_rate.powf(0.5 - 1.0);
+        let yield_term = 10.0 / shear_rate;
+        let expected_viscosity = yield_term + power_law_term;
+
+        assert_relative_eq!(props_high.dynamic_viscosity, expected_viscosity);
+        assert!(props_high.dynamic_viscosity < props_ref.dynamic_viscosity);
     }
 }
