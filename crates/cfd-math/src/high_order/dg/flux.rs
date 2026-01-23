@@ -79,7 +79,8 @@ pub trait NumericalFlux {
 }
 
 /// Central flux (average of left and right states)
-struct CentralFlux;
+#[derive(Debug, Clone, Copy)]
+pub struct CentralFlux;
 
 impl NumericalFlux for CentralFlux {
     fn compute_flux(
@@ -100,7 +101,8 @@ impl NumericalFlux for CentralFlux {
 }
 
 /// Local Lax-Friedrichs flux
-struct LaxFriedrichsFlux;
+#[derive(Debug, Clone, Copy)]
+pub struct LaxFriedrichsFlux;
 
 impl NumericalFlux for LaxFriedrichsFlux {
     fn compute_flux(
@@ -125,7 +127,8 @@ impl NumericalFlux for LaxFriedrichsFlux {
 }
 
 /// HLL (Harten-Lax-van Leer) approximate Riemann solver
-struct HLLFlux;
+#[derive(Debug, Clone, Copy)]
+pub struct HLLFlux;
 
 impl NumericalFlux for HLLFlux {
     fn compute_flux(
@@ -179,21 +182,60 @@ impl HLLFlux {
     }
 }
 
+/// Enum wrapper for numerical flux implementations to avoid dynamic dispatch
+#[derive(Debug, Clone, Copy)]
+pub enum FluxImpl {
+    /// Central flux
+    Central(CentralFlux),
+    /// Lax-Friedrichs flux
+    LaxFriedrichs(LaxFriedrichsFlux),
+    /// HLL flux
+    HLL(HLLFlux),
+}
+
+impl NumericalFlux for FluxImpl {
+    #[inline]
+    fn compute_flux(
+        &self,
+        u_l: &DVector<f64>,
+        u_r: &DVector<f64>,
+        n: &DVector<f64>,
+        params: &FluxParams,
+    ) -> DVector<f64> {
+        match self {
+            FluxImpl::Central(f) => f.compute_flux(u_l, u_r, n, params),
+            FluxImpl::LaxFriedrichs(f) => f.compute_flux(u_l, u_r, n, params),
+            FluxImpl::HLL(f) => f.compute_flux(u_l, u_r, n, params),
+        }
+    }
+
+    #[inline]
+    fn max_wave_speed(&self, u_l: &DVector<f64>, u_r: &DVector<f64>, n: &DVector<f64>) -> f64 {
+        match self {
+            FluxImpl::Central(f) => f.max_wave_speed(u_l, u_r, n),
+            FluxImpl::LaxFriedrichs(f) => f.max_wave_speed(u_l, u_r, n),
+            FluxImpl::HLL(f) => f.max_wave_speed(u_l, u_r, n),
+        }
+    }
+}
+
 /// Factory for creating numerical flux functions
 pub struct FluxFactory;
 
 impl FluxFactory {
     /// Create a new numerical flux function
-    pub fn create(flux_type: FluxType) -> Box<dyn NumericalFlux> {
+    #[inline]
+    pub fn create(flux_type: FluxType) -> FluxImpl {
         match flux_type {
-            FluxType::Central => Box::new(CentralFlux),
-            FluxType::HLL | FluxType::HLLC => Box::new(HLLFlux),
-            FluxType::LaxFriedrichs | FluxType::Upwind => Box::new(LaxFriedrichsFlux),
+            FluxType::Central => FluxImpl::Central(CentralFlux),
+            FluxType::HLL | FluxType::HLLC => FluxImpl::HLL(HLLFlux),
+            FluxType::LaxFriedrichs | FluxType::Upwind => FluxImpl::LaxFriedrichs(LaxFriedrichsFlux),
         }
     }
 }
 
 /// Compute the numerical flux at an interface
+#[inline]
 pub fn numerical_flux(
     u_l: &DVector<f64>,
     u_r: &DVector<f64>,
