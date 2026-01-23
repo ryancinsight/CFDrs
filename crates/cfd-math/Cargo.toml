@@ -37,3 +37,7 @@ mpi = []
 [[bench]]
 name = "math_benchmarks"
 harness = false
+
+[[bench]]
+name = "flux_alloc_bench"
+harness = false
