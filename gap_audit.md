@@ -45,6 +45,8 @@ This audit identifies significant structural redundancies, misplaced concerns, a
 - **Stubs**: `cfd-core/src/compute/backend_example.rs` and similar "example" files within `src` should be moved to `examples/` or removed.
 - **Dead Code**: Several files (e.g., `reynolds_stress.rs.backup` in `cfd-2d`) and commented-out sections (e.g., `AlignedVector` in `cfd-math`) persist.
 
+**TODO(MEDIUM): Complete dead code cleanup - remove obsolete files, commented-out sections, and unused imports. Dependencies: None. Reference: Code maintainability and build hygiene.**
+
 ## 5. Proposed Restructuring (Deep Vertical Tree)
 
 **TODO(MEDIUM): Expand test coverage from 8.82% to >90% for core numerical algorithms (multigrid, turbulence, discretization). Focus on CFD-Math critical paths. Dependencies: Architectural restructuring completion. Estimated effort: 15-20 hours.**

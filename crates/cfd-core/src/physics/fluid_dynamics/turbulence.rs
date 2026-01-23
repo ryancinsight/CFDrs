@@ -3,6 +3,11 @@
 //! Provides trait-based turbulence model implementations including
 //! LES (Smagorinsky, Dynamic) and mixing length models.
 
+// TODO(HIGH): Move turbulence models from cfd-core to higher-level crates (cfd-2d, cfd-3d)
+// Crate leakage violation - complex physics should not be in fundamental core crate
+// Dependencies: Complete architectural restructuring (REST-001-005)
+// Reference: SOLID principles - turbulence is domain-specific, not fundamental
+
 use super::fields::{FlowField, VelocityField};
 use nalgebra::RealField;
 use num_traits::FromPrimitive;

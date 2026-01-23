@@ -421,21 +421,29 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
     where
         F: Fn(NumComplex<f64>) -> NumComplex<f64>, // L_hat(k) - spatial operator in frequency domain
     {
+        let dt_f64 = dt
+            .to_f64()
+            .ok_or_else(|| Error::InvalidInput("dt must be convertible to f64".to_string()))?;
+
         let mut amplification_factors = Vec::with_capacity(wave_numbers.len());
         let mut max_amplification = T::zero();
         let mut critical_wave_number = T::zero();
 
         for &k in wave_numbers {
-            let k_complex = NumComplex::new(0.0, k.to_f64().unwrap());
+            let k_im = k.to_f64().ok_or_else(|| {
+                Error::InvalidInput("wave number must be convertible to f64".to_string())
+            })?;
+            let k_complex = NumComplex::new(0.0, k_im);
 
             // Compute spatial operator in frequency domain
             let l_hat = spatial_operator(k_complex);
 
             // Amplification factor for forward Euler: g = 1 + dt * L_hat(k)
-            let dt_f64 = dt.to_f64().unwrap();
             let g = NumComplex::new(1.0, 0.0) + NumComplex::new(dt_f64, 0.0) * l_hat;
 
-            let amplification = T::from_f64(g.norm()).unwrap();
+            let amplification = T::from_f64(g.norm()).ok_or_else(|| {
+                Error::InvalidInput("amplification factor not representable in T".to_string())
+            })?;
             amplification_factors.push(amplification);
 
             if amplification > max_amplification {
@@ -444,7 +452,12 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
             }
         }
 
-        let is_stable = max_amplification <= T::from_f64(1.0001).unwrap(); // Allow small numerical errors
+        let stability_threshold = T::from_f64(1.0001).ok_or_else(|| {
+            Error::InvalidInput("stability threshold not representable in T".to_string())
+        })?;
+        let one = T::from_f64(1.0)
+            .ok_or_else(|| Error::InvalidInput("unity not representable in T".to_string()))?;
+        let is_stable = max_amplification <= stability_threshold;
 
         Ok(VonNeumannAnalysis {
             wave_numbers: wave_numbers.to_vec(),
@@ -452,7 +465,7 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
             max_amplification,
             critical_wave_number,
             is_stable,
-            stability_margin: T::from_f64(1.0).unwrap() - max_amplification,
+            stability_margin: one - max_amplification,
         })
     }
 
@@ -481,12 +494,17 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
         let mut critical_wave_number = T::zero();
 
         for &k in wave_numbers {
-            let k_complex = NumComplex::new(0.0, k.to_f64().unwrap());
+            let k_im = k.to_f64().ok_or_else(|| {
+                Error::InvalidInput("wave number must be convertible to f64".to_string())
+            })?;
+            let k_complex = NumComplex::new(0.0, k_im);
             let l_hat = spatial_operator(k_complex);
             let z = NumComplex::new(dt_f64, 0.0) * l_hat;
 
             let g = self.compute_rk_stability_function(a, b, c, z)?;
-            let amplification = T::from_f64(g.norm()).unwrap();
+            let amplification = T::from_f64(g.norm()).ok_or_else(|| {
+                Error::InvalidInput("amplification factor not representable in T".to_string())
+            })?;
             amplification_factors.push(amplification);
 
             if amplification > max_amplification {
@@ -495,7 +513,12 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
             }
         }
 
-        let is_stable = max_amplification <= T::from_f64(1.0001).unwrap();
+        let stability_threshold = T::from_f64(1.0001).ok_or_else(|| {
+            Error::InvalidInput("stability threshold not representable in T".to_string())
+        })?;
+        let one = T::from_f64(1.0)
+            .ok_or_else(|| Error::InvalidInput("unity not representable in T".to_string()))?;
+        let is_stable = max_amplification <= stability_threshold;
 
         Ok(VonNeumannAnalysis {
             wave_numbers: wave_numbers.to_vec(),
@@ -503,7 +526,7 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
             max_amplification,
             critical_wave_number,
             is_stable,
-            stability_margin: T::from_f64(1.0).unwrap() - max_amplification,
+            stability_margin: one - max_amplification,
         })
     }
 
