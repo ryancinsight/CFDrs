@@ -17,6 +17,11 @@ pub struct CoarseningResult<T: RealField + Copy> {
 }
 
 /// Ruge-Stüben coarsening algorithm
+///
+/// TODO(HIGH): Validate AMG convergence theory compliance - ensure interpolation operators
+/// satisfy Brandt (1977) convergence theorem: ||e_k|| ≤ ρ^k ||e_0|| where ρ < 1
+/// Reference: Brandt, A. (1977). Multi-level adaptive solutions to boundary-value problems.
+/// Mathematics of Computation, 31(138), 333-390.
 pub fn ruge_stueben_coarsening<T: RealField + Copy + FromPrimitive>(
     matrix: &SparseMatrix<T>,
     strength_threshold: T,
@@ -87,6 +92,11 @@ pub fn ruge_stueben_coarsening<T: RealField + Copy + FromPrimitive>(
             break;
         }
     }
+
+    // CRITICAL BUG: Missing Ruge-Stüben second pass - all remaining undecided points must be made C-points
+    // Reference: Ruge & Stüben (1987) Algorithm 2, Briggs et al. (2000) Section 8.2.2
+    // TODO(CRITICAL-009): Implement second pass to classify remaining undecided points as C-points
+    // This violates AMG convergence theory and causes incorrect coarsening
 
     // Step 4: Map F-points to their strongest connected C-point
     for i in 0..n {
@@ -282,6 +292,7 @@ pub fn falgout_coarsening<T: RealField + Copy + FromPrimitive>(
         } else {
             status[i] = 2;
             // TODO: Map F-points to the strongest neighboring C-point per standard CLJP.
+            // DEPENDS ON: CRITICAL-009 (second pass implementation)
             // (Standard CLJP would handle this more rigorously)
         }
 
@@ -318,6 +329,7 @@ pub fn pmis_coarsening<T: RealField + Copy + FromPrimitive>(
     // Step 3: PMIS algorithm
     while !undecided.is_empty() {
         // TODO: Use randomized priorities for PMIS tie-breaking (per Luby) instead of deterministic ordering.
+        // DEPENDS ON: CRITICAL-009 (correct coarsening foundation)
         let mut candidates: Vec<usize> = undecided.clone();
         candidates.sort_by_key(|&i| {
             // Use degree as tie-breaker (higher degree first)
@@ -575,6 +587,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> AlgebraicDistances<T> {
 
 /// Compute algebraic distance between two points
 /// TODO: Replace simplified breadth-first search with a principled algebraic distance metric.
+/// DEPENDS ON: CRITICAL-009 (proper coarsening structure)
 /// DEPENDENCIES: Implement proper algebraic multigrid distance metrics
 /// BLOCKED BY: Limited understanding of strength-based distance calculations
 /// PRIORITY: High - Essential for AMG coarsening quality
@@ -742,6 +755,7 @@ pub fn analyze_coarsening_quality<T: RealField + Copy + FromPrimitive>(
         coarse_points,
         total_points,
         // TODO: Implement comprehensive quality metrics for coarsening analysis
+        // DEPENDS ON: CRITICAL-009 (valid coarsening to analyze)
         // DEPENDENCIES: Add distance-based quality assessment and scoring algorithms
         // BLOCKED BY: Limited understanding of AMG quality metrics
         // PRIORITY: Medium - Important for coarsening algorithm optimization

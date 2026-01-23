@@ -52,10 +52,14 @@ A deep audit of the 1D CFD implementation has identified and resolved several ma
 - [ ] **Phase 2: Physics Consolidation (REST-001)**
     - [x] Verify `fluid`, `material`, `boundary`, `constants` are in `cfd-core/src/physics/` ✅
     - [ ] Update re-exports and documentation
+
+**TODO(MEDIUM): Update physics module re-exports and documentation after consolidation. Dependencies: REST-001 completion. Reference: SOLID principles for clean module boundaries.**
 - [ ] **Phase 3: Geometry Consolidation (REST-002)**
     - [x] Rename `domain` to `geometry` in `cfd-core` ✅
     - [x] Move `rhie_chow.rs` to `physics/fluid_dynamics` and remove `interpolation` ✅
     - [ ] Update all external references to `cfd_core::domain` to `cfd_core::geometry`
+
+**TODO(MEDIUM): Update all external references from cfd_core::domain to cfd_core::geometry post-renaming. Dependencies: REST-002 completion. Mathematical foundation: Maintain API consistency for bounded contexts.**
 - [ ] **Phase 4: Compute Consolidation (REST-003)**
     - [x] Move `gpu`, `mpi`, `simd` into `cfd-core/src/compute/` ✅
 - [ ] **Phase 5: Solver Decoupling (REST-004)**
@@ -64,6 +68,10 @@ A deep audit of the 1D CFD implementation has identified and resolved several ma
 - [ ] **Phase 6: Duplicate Elimination (REST-005)**
     - [x] Eliminate SIMD duplication in `cfd-math` ✅
     - [ ] Eliminate WENO duplication in `cfd-math` (src/high_order/weno.rs vs src/spatial/weno.rs)
+
+**TODO(HIGH): Complete duplicate elimination in cfd-math (WENO, SIMD already done). Dependencies: REST-005. Reference: DRY principle and performance optimization.**
+
+**TODO(MEDIUM): Complete architectural restructuring to deep vertical tree architecture per gap_audit.md REST-001 through REST-005. Dependencies: Phase 1 must complete before Phase 2-6. Estimated effort: 15-20 hours. Mathematical foundation: SOLID principles and bounded contexts for numerical methods.**
 
 ---
 
@@ -112,3 +120,5 @@ A deep audit of the 1D CFD implementation has identified and resolved several ma
 **Next Action**: Begin Sprint 1.83.0 CRITICAL-009 remediation (estimated 2-5 hours to fix)
 
 **Timeline to Production-Ready AMG**: 8-12 hours (Sprint 1.83.0 completion)
+
+**TODO(HIGH): Implement comprehensive performance benchmarking framework - strong/weak scaling analysis, regression detection, communication profiling per ASME V&V 20-2009. Dependencies: AMG convergence validation. Estimated effort: 8-12 hours.**

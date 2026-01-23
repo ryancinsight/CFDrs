@@ -209,17 +209,100 @@ pub fn apply_f_cycle(
         ));
     }
 
-    // F-cycle starts from coarsest level and works up
-    // TODO: Implement true F-cycle (nested iteration) instead of delegating to V-cycle.
+    if levels.len() == 1 {
+        let (correction, stats) = apply_v_cycle(levels, rhs, max_cycles, tolerance)?;
+        let mut final_stats = stats;
+        final_stats.cycle_type = CycleType::FCycle;
+        final_stats.total_time = start_time.elapsed().as_secs_f64();
+        return Ok((correction, final_stats));
+    }
 
-    // For now, fall back to V-cycle
-    let (correction, stats) = apply_v_cycle(levels, rhs, max_cycles, tolerance)?;
+    let mut rhs_levels: Vec<DVector<f64>> = Vec::with_capacity(levels.len());
+    rhs_levels.push(rhs.clone());
 
-    let mut final_stats = stats;
-    final_stats.cycle_type = CycleType::FCycle;
-    final_stats.total_time = start_time.elapsed().as_secs_f64();
+    for level_idx in 0..levels.len() - 1 {
+        let restriction = levels[level_idx]
+            .restriction
+            .as_ref()
+            .ok_or_else(|| Error::InvalidConfiguration("Missing restriction operator".to_string()))?;
+        let coarse_rhs = restriction * &rhs_levels[level_idx];
+        rhs_levels.push(coarse_rhs);
+    }
 
-    Ok((correction, final_stats))
+    let coarsest_idx = levels.len() - 1;
+    let mut correction = DVector::zeros(rhs_levels[coarsest_idx].len());
+    solve_coarsest_level(
+        &levels[coarsest_idx].matrix,
+        &rhs_levels[coarsest_idx],
+        &mut correction,
+    )?;
+
+    let mut cycle_count = 0;
+    let mut residual_history: Vec<f64> = Vec::new();
+
+    for level_idx in (0..coarsest_idx).rev() {
+        let interpolation = levels[level_idx]
+            .interpolation
+            .as_ref()
+            .ok_or_else(|| Error::InvalidConfiguration("Missing interpolation operator".to_string()))?;
+        let mut fine_correction = interpolation * &correction;
+
+        apply_multigrid_cycle(
+            1,
+            &levels[level_idx..],
+            &rhs_levels[level_idx],
+            &mut fine_correction,
+        )?;
+
+        if level_idx == 0 {
+            cycle_count += 1;
+            let mut residual_norm =
+                (&rhs_levels[0] - &levels[0].matrix * &fine_correction).norm();
+            residual_history.push(residual_norm);
+
+            while cycle_count < max_cycles && residual_norm >= tolerance {
+                apply_multigrid_cycle(
+                    1,
+                    &levels[level_idx..],
+                    &rhs_levels[level_idx],
+                    &mut fine_correction,
+                )?;
+                cycle_count += 1;
+                residual_norm =
+                    (&rhs_levels[0] - &levels[0].matrix * &fine_correction).norm();
+                residual_history.push(residual_norm);
+            }
+        }
+
+        correction = fine_correction;
+    }
+
+    let cycle_time = start_time.elapsed().as_secs_f64();
+
+    let convergence_factor = if residual_history.len() >= 2 {
+        let mut ratio_product = 1.0;
+        for i in 1..residual_history.len() {
+            let previous = residual_history[i - 1];
+            if previous == 0.0 {
+                ratio_product = 0.0;
+                break;
+            }
+            ratio_product *= residual_history[i] / previous;
+        }
+        ratio_product.powf(1.0 / (residual_history.len() as f64 - 1.0))
+    } else {
+        0.0
+    };
+
+    let stats = CycleStatistics {
+        cycle_type: CycleType::FCycle,
+        total_cycles: cycle_count,
+        convergence_factor,
+        total_time: cycle_time,
+        time_per_cycle: cycle_time / cycle_count as f64,
+    };
+
+    Ok((correction, stats))
 }
 
 /// Cycle type enumeration

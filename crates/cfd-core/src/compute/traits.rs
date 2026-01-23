@@ -161,8 +161,10 @@ impl ComputeBackend {
             // Check if wgpu can create an adapter
             pollster::block_on(async {
                 let instance = wgpu::Instance::default();
+                let options: wgpu::RequestAdapterOptions<'_, '_> =
+                    wgpu::RequestAdapterOptions::default();
                 instance
-                    .request_adapter(&wgpu::RequestAdapterOptions::default())
+                    .request_adapter(&options)
                     .await
                     .is_some()
             })

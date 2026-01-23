@@ -64,6 +64,11 @@
 //! - Tezduyar, T.E. (1991). PSPG stabilization
 //! - Girault, V. & Raviart, P.A. (1986). *Finite Element Methods for Navier-Stokes Equations*
 
+// TODO(HIGH): Complete FEM Boundary Condition Support - Implement per-component BCs, Neumann, Robin, periodic constraints
+// Links individual TODOs at lines 391,403,409,422,435 into unified boundary condition framework
+// Dependencies: Mesh geometry processing, boundary element integration
+// Mathematical Foundation: Hughes (2000) Chapter 4 - Natural boundary conditions via weak formulation
+
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_math::linear_solver::{BiCGSTAB, LinearSolver};

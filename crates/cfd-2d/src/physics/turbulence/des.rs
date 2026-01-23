@@ -28,6 +28,11 @@
 //! - Spalart, P. R., et al. (2006). A new version of detached-eddy simulation.
 //! - Shur, M. L., et al. (2008). A hybrid RANS-LES approach with delayed-DES.
 
+// TODO(HIGH): Complete DES Formulation - Implement full Detached Eddy Simulation with RANS-LES coupling
+// Links individual TODOs at lines 58,95,146,156,200,203,220,316,412,414 into cohesive implementation
+// Dependencies: RANS model integration, wall distance computation, length scale consistency
+// Mathematical Foundation: Spalart et al. (1997) DES97, Shur et al. (2008) IDDES
+
 use super::traits::LESTurbulenceModel;
 use nalgebra::DMatrix;
 use std::f64;

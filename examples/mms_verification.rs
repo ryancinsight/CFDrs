@@ -11,6 +11,7 @@ use cfd_validation::manufactured::{
     ManufacturedAdvection, ManufacturedDiffusion, ManufacturedSolution,
 };
 use std::f64::consts::PI;
+use std::prelude::v1::*;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("====================================================");

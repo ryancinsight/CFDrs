@@ -230,7 +230,7 @@ impl GpuPoissonSolver {
 
         // Perform iterations
         for iter in 0..iterations {
-            let (input_buffer, output_buffer) = if iter % 2 == 0 {
+            let (input_buffer, output_buffer): (&wgpu::Buffer, &wgpu::Buffer) = if iter % 2 == 0 {
                 (&phi_buffer_a, &phi_buffer_b)
             } else {
                 (&phi_buffer_b, &phi_buffer_a)
@@ -317,9 +317,12 @@ impl GpuPoissonSolver {
         // Read back results
         let buffer_slice = staging_buffer.slice(..);
         let (tx, rx) = std::sync::mpsc::channel();
-        buffer_slice.map_async(wgpu::MapMode::Read, move |result| {
-            tx.send(result).unwrap();
-        });
+        buffer_slice.map_async(
+            wgpu::MapMode::Read,
+            move |result: std::result::Result<(), wgpu::BufferAsyncError>| {
+                let _ = tx.send(result);
+            },
+        );
 
         self.device.poll(wgpu::Maintain::Wait);
         rx.recv()

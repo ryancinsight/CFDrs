@@ -490,6 +490,7 @@ impl<T: RealField + Copy + FromPrimitive> GeometricMultigrid<T> {
 
         // Pre-smoothing: Apply nonlinear relaxation
         // TODO: For simplicity, we'll use a basic fixed-point iteration as nonlinear smoother
+        // Reference: Brandt (1977) - Nonlinear multigrid requires proper smoothers for FAS convergence
         // DEPENDENCIES: Implement proper nonlinear relaxation methods (Newton, quasi-Newton)
         // BLOCKED BY: Limited nonlinear solver framework
         // PRIORITY: Medium - Important for nonlinear multigrid convergence
