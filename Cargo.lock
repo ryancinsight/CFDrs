@@ -405,6 +405,7 @@ dependencies = [
  "nalgebra-sparse",
  "num-complex 0.4.6",
  "num-traits",
+ "pollster",
  "proptest",
  "rayon",
  "serde",

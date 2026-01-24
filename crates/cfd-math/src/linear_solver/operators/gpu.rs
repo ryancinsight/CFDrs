@@ -6,21 +6,29 @@ use crate::error::Result;
 use crate::linear_solver::traits::{GpuLinearOperator, LinearOperator};
 #[cfg(feature = "gpu")]
 use cfd_core::compute::gpu::{
-    kernels::laplacian::{BoundaryType, Laplacian2DKernel},
+    kernels::laplacian::Laplacian2DKernel,
     GpuBuffer, GpuContext,
 };
+#[cfg(feature = "gpu")]
+pub use cfd_core::compute::gpu::kernels::laplacian::BoundaryType;
+#[cfg(feature = "gpu")]
+use cfd_core::compute::ComputeBuffer;
 #[cfg(feature = "gpu")]
 use nalgebra::{DVector, RealField};
 #[cfg(feature = "gpu")]
 use num_traits::ToPrimitive;
 #[cfg(feature = "gpu")]
 use std::sync::Arc;
+#[cfg(feature = "gpu")]
+use wgpu;
 
 /// Metrics collected for a compute dispatch
 #[cfg(feature = "gpu")]
 #[derive(Debug, Clone, Copy)]
 pub struct DispatchMetrics {
+    /// Duration of the operation in milliseconds
     pub duration_ms: f64,
+    /// Whether the backend supports timestamp queries
     pub timestamp_supported: bool,
 }
 
@@ -100,7 +108,9 @@ impl<T: RealField + Copy + bytemuck::Pod + bytemuck::Zeroable + ToPrimitive>
 
         Ok(DispatchMetrics {
             duration_ms: elapsed.as_secs_f64() * 1e3,
-            timestamp_supported: false, // TODO: Detect and report timestamp query support from the backend.
+            timestamp_supported: self
+                .gpu_context
+                .supports_features(wgpu::Features::TIMESTAMP_QUERY),
         })
     }
 }
