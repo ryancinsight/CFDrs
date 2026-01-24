@@ -41,3 +41,7 @@ harness = false
 [[bench]]
 name = "flux_alloc_bench"
 harness = false
+
+[[bench]]
+name = "coarsening_bench"
+harness = false
