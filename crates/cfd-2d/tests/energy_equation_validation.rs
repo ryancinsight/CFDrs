@@ -41,12 +41,12 @@ fn test_1d_steady_conduction_analytical() {
 
     // Left boundary (Dirichlet)
     for j in 0..ny {
-        boundary_conditions.insert((0, j), BoundaryCondition::Dirichlet { value: t0 });
+        boundary_conditions.insert((0, j), BoundaryCondition::Dirichlet { value: t0, component_values: None });
     }
 
     // Right boundary (Dirichlet)
     for j in 0..ny {
-        boundary_conditions.insert((nx - 1, j), BoundaryCondition::Dirichlet { value: t1 });
+        boundary_conditions.insert((nx - 1, j), BoundaryCondition::Dirichlet { value: t1, component_values: None });
     }
 
     // Top and bottom boundaries (adiabatic/Neumann)
@@ -156,16 +156,16 @@ fn test_2d_transient_convection_diffusion_mms() {
             let x = i as f64 * dx;
             let t_bottom = (PI * x).sin() * decay;
             let t_top = (PI * x).sin() * (PI * l).sin() * decay;
-            boundary_conditions.insert((i, 0), BoundaryCondition::Dirichlet { value: t_bottom });
-            boundary_conditions.insert((i, ny - 1), BoundaryCondition::Dirichlet { value: t_top });
+            boundary_conditions.insert((i, 0), BoundaryCondition::Dirichlet { value: t_bottom, component_values: None });
+            boundary_conditions.insert((i, ny - 1), BoundaryCondition::Dirichlet { value: t_top, component_values: None });
         }
         for j in 0..ny {
             let y = j as f64 * dy;
             let t_left = (PI * y).sin() * decay;
             let t_right = (PI * l).sin() * (PI * y).sin() * decay;
-            boundary_conditions.insert((0, j), BoundaryCondition::Dirichlet { value: t_left });
+            boundary_conditions.insert((0, j), BoundaryCondition::Dirichlet { value: t_left, component_values: None });
             boundary_conditions
-                .insert((nx - 1, j), BoundaryCondition::Dirichlet { value: t_right });
+                .insert((nx - 1, j), BoundaryCondition::Dirichlet { value: t_right, component_values: None });
         }
 
         solver
@@ -289,17 +289,17 @@ fn test_steady_heat_source_balance() {
     let t_boundary = 300.0;
     let mut boundary_conditions = HashMap::new();
     for i in 0..nx {
-        boundary_conditions.insert((i, 0), BoundaryCondition::Dirichlet { value: t_boundary });
+        boundary_conditions.insert((i, 0), BoundaryCondition::Dirichlet { value: t_boundary, component_values: None });
         boundary_conditions.insert(
             (i, ny - 1),
-            BoundaryCondition::Dirichlet { value: t_boundary },
+            BoundaryCondition::Dirichlet { value: t_boundary, component_values: None },
         );
     }
     for j in 0..ny {
-        boundary_conditions.insert((0, j), BoundaryCondition::Dirichlet { value: t_boundary });
+        boundary_conditions.insert((0, j), BoundaryCondition::Dirichlet { value: t_boundary, component_values: None });
         boundary_conditions.insert(
             (nx - 1, j),
-            BoundaryCondition::Dirichlet { value: t_boundary },
+            BoundaryCondition::Dirichlet { value: t_boundary, component_values: None },
         );
     }
 

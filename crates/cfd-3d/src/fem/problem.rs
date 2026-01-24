@@ -289,7 +289,13 @@ mod tests {
         // Add BCs for all 4 boundary nodes (simple Dirichlet)
         let mut boundary_conditions = HashMap::new();
         for i in 0..4 {
-            boundary_conditions.insert(i, BoundaryCondition::Dirichlet { value: 0.0 });
+            boundary_conditions.insert(
+                i,
+                BoundaryCondition::Dirichlet {
+                    value: 0.0,
+                    component_values: None,
+                },
+            );
         }
 
         let problem = StokesFlowProblem::new(mesh, fluid, boundary_conditions);

@@ -65,12 +65,12 @@ fn test_periodic_channel_flow() {
 
     // South boundary (no-slip wall)
     for i in 0..nx {
-        boundary_conditions.insert((i, 0), BoundaryCondition::Dirichlet { value: 0.0 });
+        boundary_conditions.insert((i, 0), BoundaryCondition::Dirichlet { value: 0.0, component_values: None });
     }
 
     // North boundary (no-slip wall)
     for i in 0..nx {
-        boundary_conditions.insert((i, ny - 1), BoundaryCondition::Dirichlet { value: 0.0 });
+        boundary_conditions.insert((i, ny - 1), BoundaryCondition::Dirichlet { value: 0.0, component_values: None });
     }
 
     // Validate periodic BC creates correct ghost cell patterns
@@ -122,17 +122,17 @@ fn test_symmetric_cavity() {
 
     // East boundary (wall)
     for j in 0..ny {
-        boundary_conditions.insert((nx - 1, j), BoundaryCondition::Dirichlet { value: 0.0 });
+        boundary_conditions.insert((nx - 1, j), BoundaryCondition::Dirichlet { value: 0.0, component_values: None });
     }
 
     // South boundary (wall)
     for i in 0..nx {
-        boundary_conditions.insert((i, 0), BoundaryCondition::Dirichlet { value: 0.0 });
+        boundary_conditions.insert((i, 0), BoundaryCondition::Dirichlet { value: 0.0, component_values: None });
     }
 
     // North boundary (moving lid)
     for i in 0..nx {
-        boundary_conditions.insert((i, ny - 1), BoundaryCondition::Dirichlet { value: 1.0 });
+        boundary_conditions.insert((i, ny - 1), BoundaryCondition::Dirichlet { value: 1.0, component_values: None });
     }
 
     // Validate symmetry BC creates zero-gradient condition
@@ -191,8 +191,8 @@ fn test_pressure_driven_flow() {
 
     // South and north boundaries (walls)
     for i in 0..nx {
-        boundary_conditions.insert((i, 0), BoundaryCondition::Dirichlet { value: 0.0 });
-        boundary_conditions.insert((i, ny - 1), BoundaryCondition::Dirichlet { value: 0.0 });
+        boundary_conditions.insert((i, 0), BoundaryCondition::Dirichlet { value: 0.0, component_values: None });
+        boundary_conditions.insert((i, ny - 1), BoundaryCondition::Dirichlet { value: 0.0, component_values: None });
     }
 
     // Validate pressure BC structure

@@ -80,7 +80,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy + Send + Sync + Copy> MatrixAsse
         for (&node_idx, bc) in network.boundary_conditions() {
             let idx: usize = node_idx.index();
             match bc {
-                crate::network::BoundaryCondition::Dirichlet { value } => {
+                crate::network::BoundaryCondition::Dirichlet { value, .. } => {
                     dirichlet_values.insert(idx, *value);
                 }
                 crate::network::BoundaryCondition::Neumann { gradient } => {

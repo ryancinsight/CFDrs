@@ -391,14 +391,25 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
                         }
                     }
                 }
-                BoundaryCondition::Dirichlet { value } => {
-                    // General Dirichlet: fixed value for all components
-                    // TODO: Support per-component Dirichlet boundary values (u,v,w,p) at nodes.
+                BoundaryCondition::Dirichlet {
+                    value,
+                    component_values,
+                } => {
+                    // General Dirichlet: fixed value for all components, or specific per-component values
                     for i in 0..=constants::VELOCITY_COMPONENTS {
                         let component_dof = dof + i;
                         builder.add_entry(component_dof, component_dof, penalty)?;
                         if component_dof < rhs.len() {
-                            rhs[component_dof] = penalty * *value;
+                            let val = if let Some(comps) = component_values {
+                                if i < comps.len() {
+                                    comps[i].unwrap_or(*value)
+                                } else {
+                                    *value
+                                }
+                            } else {
+                                *value
+                            };
+                            rhs[component_dof] = penalty * val;
                         }
                     }
                 }

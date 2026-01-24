@@ -137,8 +137,13 @@ impl<T: RealField + Copy + FromPrimitive> Network<T> {
 
     /// Set a Dirichlet pressure boundary condition
     pub fn set_pressure(&mut self, node: NodeIndex, pressure: T) {
-        self.boundary_conditions
-            .insert(node, BoundaryCondition::Dirichlet { value: pressure });
+        self.boundary_conditions.insert(
+            node,
+            BoundaryCondition::Dirichlet {
+                value: pressure,
+                component_values: None,
+            },
+        );
         self.pressures.insert(node, pressure);
     }
 
@@ -154,7 +159,7 @@ impl<T: RealField + Copy + FromPrimitive> Network<T> {
 
     /// Explicitly set a boundary condition
     pub fn set_boundary_condition(&mut self, node: NodeIndex, condition: BoundaryCondition<T>) {
-        if let BoundaryCondition::Dirichlet { value } = &condition {
+        if let BoundaryCondition::Dirichlet { value, .. } = &condition {
             self.pressures.insert(node, *value);
         }
         self.boundary_conditions.insert(node, condition);
