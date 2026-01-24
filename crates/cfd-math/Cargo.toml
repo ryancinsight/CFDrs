@@ -23,6 +23,7 @@ bytemuck.workspace = true
 wgpu = { workspace = true, optional = true }
 futures = { version = "0.3", optional = true }
 pollster = { workspace = true, optional = true }
+rand.workspace = true
 
 [dev-dependencies]
 proptest.workspace = true
