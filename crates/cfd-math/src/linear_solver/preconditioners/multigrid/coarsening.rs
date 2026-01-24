@@ -241,14 +241,10 @@ pub fn falgout_coarsening<T: RealField + Copy + FromPrimitive>(
 
     // Step 4: CLJP (Compatible Relaxation with Lambda = 4/3)
     let lambda = 4.0 / 3.0;
-    let mut unassigned: Vec<usize> = sorted_indices.clone();
     let mut status = vec![0; n]; // 0: unassigned, 1: coarse, 2: fine
 
-    while !unassigned.is_empty() {
-        // Take first point from sorted list
-        let i = unassigned[0];
-        unassigned.remove(0);
-
+    for &i in &sorted_indices {
+        // Skip if already assigned
         if status[i] != 0 {
             continue;
         }
@@ -295,9 +291,6 @@ pub fn falgout_coarsening<T: RealField + Copy + FromPrimitive>(
             // DEPENDS ON: CRITICAL-009 (second pass implementation)
             // (Standard CLJP would handle this more rigorously)
         }
-
-        // Re-filter unassigned
-        unassigned.retain(|&idx| status[idx] == 0);
     }
 
     Ok(CoarseningResult {
