@@ -447,6 +447,14 @@ fn gaussian_elimination_solve(
 mod tests {
     use super::*;
 
+    fn compute_residual(
+        matrix: &SparseMatrix<f64>,
+        rhs: &DVector<f64>,
+        solution: &DVector<f64>,
+    ) -> DVector<f64> {
+        rhs - matrix * solution
+    }
+
     fn create_test_multigrid_level() -> MultigridLevel<f64> {
         // Create a simple 3x3 matrix
         let mut coo = nalgebra_sparse::CooMatrix::new(3, 3);
@@ -477,11 +485,8 @@ mod tests {
         let levels = vec![level];
 
         let rhs = nalgebra::DVector::from_vec(vec![1.0, 2.0, 3.0]);
-        // TODO: Implement proper residual computation instead of simplified assignment
-        // DEPENDENCIES: Add residual calculation framework for multigrid testing
-        // BLOCKED BY: Limited test infrastructure for multigrid operations
-        // PRIORITY: Medium - Important for multigrid validation
-        let residual = rhs.clone(); // Simplified: residual = rhs
+        let initial_solution = nalgebra::DVector::from_vec(vec![0.3, -0.2, 0.4]);
+        let residual = compute_residual(&levels[0].matrix, &rhs, &initial_solution);
 
         let (correction, stats) = apply_v_cycle(&levels, &residual, 5, 1e-6).unwrap();
 
@@ -498,7 +503,8 @@ mod tests {
         let levels = vec![level];
 
         let rhs = nalgebra::DVector::from_vec(vec![1.0, 2.0, 3.0]);
-        let residual = rhs.clone();
+        let initial_solution = nalgebra::DVector::from_vec(vec![0.3, -0.2, 0.4]);
+        let residual = compute_residual(&levels[0].matrix, &rhs, &initial_solution);
 
         let (correction, stats) = apply_w_cycle(&levels, &residual, 3, 1e-6).unwrap();
 
@@ -513,7 +519,8 @@ mod tests {
         let levels = vec![level];
 
         let rhs = nalgebra::DVector::from_vec(vec![1.0, 2.0, 3.0]);
-        let residual = rhs.clone();
+        let initial_solution = nalgebra::DVector::from_vec(vec![0.3, -0.2, 0.4]);
+        let residual = compute_residual(&levels[0].matrix, &rhs, &initial_solution);
 
         // Use 0.0 tolerance to ensure it runs for all 2 cycles
         let (_, stats) = apply_v_cycle(&levels, &residual, 2, 0.0).unwrap();
