@@ -65,6 +65,12 @@ pub fn ruge_stueben_coarsening<T: RealField + Copy + FromPrimitive>(
         }
 
         if let Some(i) = i_opt {
+            // Optimization: If the best remaining point has no influence, stop the first pass
+            // and let the second pass handle the rest efficiently.
+            if max_lambda <= 0 {
+                break;
+            }
+
             // Make i a C-point
             status[i] = 1;
             undecided_count -= 1;
@@ -93,35 +99,19 @@ pub fn ruge_stueben_coarsening<T: RealField + Copy + FromPrimitive>(
         }
     }
 
-    // CRITICAL BUG: Missing Ruge-Stüben second pass - all remaining undecided points must be made C-points
+    // Second Pass - Classify remaining undecided points as C-points
+    // This handles isolated points or points with no strong influence that were skipped by the first pass optimization.
     // Reference: Ruge & Stüben (1987) Algorithm 2, Briggs et al. (2000) Section 8.2.2
-    // TODO(CRITICAL-009): Implement second pass to classify remaining undecided points as C-points
-    // This violates AMG convergence theory and causes incorrect coarsening
-
-    // Step 4: Map F-points to their strongest connected C-point
     for i in 0..n {
-        if fine_to_coarse_map[i].is_none() {
-            let mut max_strength = T::from_f64(-1.0).unwrap_or_else(T::zero);
-            let mut best_coarse_idx = None;
-
-            for k in s_offsets[i]..s_offsets[i + 1] {
-                let j = s_indices[k];
-                // Check if j is a C-point
-                if status[j] == 1 {
-                    let strength = strength_matrix.values()[k];
-                    if strength > max_strength {
-                        max_strength = strength;
-                        // Find the index of j in coarse_points
-                        best_coarse_idx = fine_to_coarse_map[j];
-                    }
-                }
-            }
-
-            if let Some(idx) = best_coarse_idx {
-                fine_to_coarse_map[i] = Some(idx);
-            }
+        if status[i] == 0 {
+            status[i] = 1;
+            coarse_points.push(i);
+            fine_to_coarse_map[i] = Some(coarse_points.len() - 1);
         }
     }
+
+    // Step 4: Map F-points to their strongest connected C-point
+    assign_closest_coarse_points(&mut fine_to_coarse_map, &status, &strength_matrix);
 
     Ok(CoarseningResult {
         coarse_points,
@@ -213,6 +203,41 @@ pub fn hybrid_coarsening<T: RealField + Copy + FromPrimitive>(
     }
 }
 
+/// Assign unmapped points (F-points) to their strongest connected C-point
+fn assign_closest_coarse_points<T: RealField + Copy + FromPrimitive>(
+    fine_to_coarse_map: &mut Vec<Option<usize>>,
+    status: &[i32],
+    strength_matrix: &SparseMatrix<T>,
+) {
+    let n = strength_matrix.nrows();
+    let s_offsets = strength_matrix.row_offsets();
+    let s_indices = strength_matrix.col_indices();
+
+    for i in 0..n {
+        if fine_to_coarse_map[i].is_none() {
+            let mut max_strength = T::from_f64(-1.0).unwrap_or_else(T::zero);
+            let mut best_coarse_idx = None;
+
+            for k in s_offsets[i]..s_offsets[i + 1] {
+                let j = s_indices[k];
+                // Check if j is a C-point
+                if status[j] == 1 {
+                    let strength = strength_matrix.values()[k];
+                    if strength > max_strength {
+                        max_strength = strength;
+                        // Find the index of j in coarse_points
+                        best_coarse_idx = fine_to_coarse_map[j];
+                    }
+                }
+            }
+
+            if let Some(idx) = best_coarse_idx {
+                fine_to_coarse_map[i] = Some(idx);
+            }
+        }
+    }
+}
+
 /// Falgout coarsening algorithm (CLJP method)
 /// Reference: Falgout, R. D. (2006). An introduction to algebraic multigrid
 pub fn falgout_coarsening<T: RealField + Copy + FromPrimitive>(
@@ -287,11 +312,11 @@ pub fn falgout_coarsening<T: RealField + Copy + FromPrimitive>(
             }
         } else {
             status[i] = 2;
-            // TODO: Map F-points to the strongest neighboring C-point per standard CLJP.
-            // DEPENDS ON: CRITICAL-009 (second pass implementation)
-            // (Standard CLJP would handle this more rigorously)
         }
     }
+
+    // Map any remaining unmapped F-points to their strongest connected C-point
+    assign_closest_coarse_points(&mut fine_to_coarse_map, &status, &strength_matrix);
 
     Ok(CoarseningResult {
         coarse_points,
