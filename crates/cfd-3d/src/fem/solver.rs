@@ -80,7 +80,7 @@ use tracing;
 use crate::fem::constants;
 use crate::fem::{ElementMatrices, FemConfig, FluidElement, StokesFlowProblem, StokesFlowSolution};
 use cfd_mesh::mesh::Mesh;
-use cfd_mesh::topology::Cell;
+use cfd_mesh::topology::{Cell, Face};
 
 /// Finite Element Method solver for 3D incompressible flow
 pub struct FemSolver<T: RealField + Copy> {
@@ -117,6 +117,46 @@ fn extract_vertex_indices<T: RealField + Copy>(cell: &Cell, mesh: &Mesh<T>) -> R
     }
 
     Ok(indices)
+}
+
+/// Compute area of a face
+fn compute_face_area<T: RealField + Copy>(face: &Face, mesh: &Mesh<T>) -> T {
+    if face.vertices.len() < 3 {
+        return T::zero();
+    }
+
+    // Assume triangle or convex polygon. For triangle:
+    if face.vertices.len() == 3 {
+        if let (Some(v0), Some(v1), Some(v2)) = (
+            mesh.vertex(face.vertices[0]),
+            mesh.vertex(face.vertices[1]),
+            mesh.vertex(face.vertices[2]),
+        ) {
+            // (v1 - v0) x (v2 - v0)
+            let d1 = v1.position - v0.position;
+            let d2 = v2.position - v0.position;
+            let cross = d1.cross(&d2);
+            return cross.norm() * T::from_f64(0.5).unwrap_or_else(T::zero);
+        }
+        return T::zero();
+    }
+
+    // For general polygon (fan triangulation from v0)
+    let mut total_area = T::zero();
+    if let Some(v0) = mesh.vertex(face.vertices[0]) {
+        for i in 1..face.vertices.len() - 1 {
+            if let (Some(v1), Some(v2)) = (
+                mesh.vertex(face.vertices[i]),
+                mesh.vertex(face.vertices[i + 1]),
+            ) {
+                let d1 = v1.position - v0.position;
+                let d2 = v2.position - v0.position;
+                let cross = d1.cross(&d2);
+                total_area += cross.norm() * T::from_f64(0.5).unwrap_or_else(T::zero);
+            }
+        }
+    }
+    total_area
 }
 
 impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
@@ -331,6 +371,92 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
         Ok(())
     }
 
+    /// Identify boundary faces (referenced by only one cell or explicitly marked)
+    fn get_boundary_faces(&self, problem: &StokesFlowProblem<T>) -> Vec<usize> {
+        use std::collections::{HashMap, HashSet};
+
+        // Count how many cells reference each face
+        let mut face_cell_count: HashMap<usize, usize> = HashMap::new();
+        for cell in problem.mesh.cells() {
+            for &face_idx in &cell.faces {
+                *face_cell_count.entry(face_idx).or_insert(0) += 1;
+            }
+        }
+
+        // Collect boundary faces:
+        // 1. Faces explicitly marked as boundaries
+        let marked_boundary_faces: HashSet<usize> =
+            problem.mesh.boundary_faces().into_iter().collect();
+
+        // 2. Faces referenced by exactly one cell (external boundaries)
+        let connectivity_boundary_faces: HashSet<usize> = face_cell_count
+            .iter()
+            .filter(|&(_face_idx, &count)| count == 1)
+            .map(|(&face_idx, _)| face_idx)
+            .collect();
+
+        // Union of both sets
+        let boundary_faces: HashSet<usize> = marked_boundary_faces
+            .union(&connectivity_boundary_faces)
+            .copied()
+            .collect();
+
+        let mut result: Vec<usize> = boundary_faces.into_iter().collect();
+        result.sort_unstable();
+        result
+    }
+
+    /// Apply Neumann boundary conditions via boundary integrals
+    fn apply_neumann_boundary_conditions(
+        &self,
+        _builder: &mut SparseMatrixBuilder<T>,
+        rhs: &mut DVector<T>,
+        problem: &StokesFlowProblem<T>,
+    ) -> Result<()> {
+        let boundary_faces = self.get_boundary_faces(problem);
+
+        for face_idx in boundary_faces {
+            if let Some(face) = problem.mesh.face(face_idx) {
+                // Check if this face has Neumann BCs
+                // We identify a Neumann face if it contains nodes with Neumann BCs.
+                // We average the gradients from Neumann nodes to apply flux.
+                let mut gradients = Vec::new();
+                for &v_idx in &face.vertices {
+                    if let Some(BoundaryCondition::Neumann { gradient }) =
+                        problem.boundary_conditions.get(&v_idx)
+                    {
+                        gradients.push(*gradient);
+                    }
+                }
+
+                if !gradients.is_empty() {
+                    // Average gradients assuming constant flux over element if multiple nodes specify it
+                    let sum = gradients.iter().fold(T::zero(), |acc, &x| acc + x);
+                    let avg_gradient = sum / T::from_usize(gradients.len()).unwrap_or_else(T::one);
+
+                    let area = compute_face_area(face, &problem.mesh);
+                    // For linear shape functions on triangles/polygons, \int N_i d\Gamma approx Area / NumNodes
+                    // Exact for linear triangle is Area / 3.
+                    let num_nodes = T::from_usize(face.vertices.len()).unwrap_or_else(T::one);
+                    let node_contrib = avg_gradient * area / num_nodes;
+
+                    for &v_idx in &face.vertices {
+                        let dof_start = v_idx * (constants::VELOCITY_COMPONENTS + 1);
+
+                        // Apply to all velocity components (u, v, w)
+                        for i in 0..constants::VELOCITY_COMPONENTS {
+                            let dof = dof_start + i;
+                            if dof < rhs.len() {
+                                rhs[dof] += node_contrib;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
     /// Apply boundary conditions to the system
     fn apply_boundary_conditions(
         &self,
@@ -338,6 +464,9 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
         rhs: &mut DVector<T>,
         problem: &StokesFlowProblem<T>,
     ) -> Result<()> {
+        // Apply Neumann BCs first (boundary integrals)
+        self.apply_neumann_boundary_conditions(builder, rhs, problem)?;
+
         // Apply Dirichlet boundary conditions using penalty method
         let penalty = T::from_f64(1e10).unwrap_or_else(T::one);
 
@@ -413,20 +542,9 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
                         }
                     }
                 }
-                BoundaryCondition::Neumann { gradient } => {
-                    // Neumann: fixed gradient (natural BC for FEM)
-                    // In FEM, Neumann BCs are applied via boundary integrals
-                    // TODO: Implement Neumann BCs via boundary integrals (element-level contributions).
-                    for i in 0..=constants::VELOCITY_COMPONENTS {
-                        let component_dof = dof + i;
-                        // For Neumann, we modify the RHS instead of adding penalty to diagonal
-                        if component_dof < rhs.len() {
-                            // Approximate gradient BC: value += gradient * element_size
-                            // TODO: Use actual boundary element measure/geometry instead of constant size.
-                            let element_size = T::from_f64(0.1).unwrap_or_else(|| T::one());
-                            rhs[component_dof] += *gradient * element_size;
-                        }
-                    }
+                BoundaryCondition::Neumann { .. } => {
+                    // Handled via boundary integrals in apply_neumann_boundary_conditions
+                    // We do nothing here as the node contribution is already added to RHS
                 }
                 BoundaryCondition::Robin {
                     alpha,
