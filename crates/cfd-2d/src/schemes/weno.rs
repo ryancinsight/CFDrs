@@ -329,11 +329,11 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> WENO9<T> {
     fn weno_weights(&self, beta: &[T; 5]) -> [T; 5] {
         // Optimized weights for WENO9 (Henrick et al. 2005)
         let d = [
-            T::from_f64(1.0 / 126.0).unwrap_or_else(T::zero), // d0
-            T::from_f64(10.0 / 63.0).unwrap_or_else(T::zero), // d1
-            T::from_f64(10.0 / 21.0).unwrap_or_else(T::zero), // d2
-            T::from_f64(10.0 / 63.0).unwrap_or_else(T::zero), // d3
-            T::from_f64(1.0 / 126.0).unwrap_or_else(T::zero), // d4
+            T::from_f64(weno_constants::WENO9_LINEAR_WEIGHTS[0]).unwrap_or_else(T::zero),
+            T::from_f64(weno_constants::WENO9_LINEAR_WEIGHTS[1]).unwrap_or_else(T::zero),
+            T::from_f64(weno_constants::WENO9_LINEAR_WEIGHTS[2]).unwrap_or_else(T::zero),
+            T::from_f64(weno_constants::WENO9_LINEAR_WEIGHTS[3]).unwrap_or_else(T::zero),
+            T::from_f64(weno_constants::WENO9_LINEAR_WEIGHTS[4]).unwrap_or_else(T::zero),
         ];
 
         let mut alpha = [T::zero(); 5];
@@ -372,10 +372,29 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> SpatialDiscretization
         let beta = self.smoothness_indicators(&v);
 
         // Compute weights
-        let _w = self.weno_weights(&beta);
+        let w = self.weno_weights(&beta);
 
-        // TODO: Implement WENO9 reconstruction (candidate stencils + nonlinear weights).
-        let flux = T::zero();
+        // Compute reconstructed flux using 5 candidate stencils
+        let mut flux = T::zero();
+        let denom =
+            T::from_f64(weno_constants::WENO9_STENCIL_DENOM).unwrap_or_else(T::zero);
+
+        for k in 0..5 {
+            let mut q_k = T::zero();
+            // Stencil k uses points from v[1+k] to v[1+k+4]
+            // v indices correspond to: v[5] is u_i
+            // k=0: v[1]..v[5] (u_{i-4}..u_i)
+            // ...
+            // k=4: v[5]..v[9] (u_i..u_{i+4})
+            for j in 0..5 {
+                let coeff =
+                    T::from_f64(weno_constants::WENO9_STENCIL_COEFFS[k][j])
+                        .unwrap_or_else(T::zero);
+                q_k += coeff * v[1 + k + j];
+            }
+            q_k /= denom;
+            flux += w[k] * q_k;
+        }
 
         flux / grid.dx
     }
