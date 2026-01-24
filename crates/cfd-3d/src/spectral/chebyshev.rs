@@ -129,6 +129,77 @@ impl<T: RealField + FromPrimitive + Copy> ChebyshevPolynomial<T> {
         Ok(&self.diff_matrix * &self.diff_matrix)
     }
 
+    /// Compute Clenshaw-Curtis quadrature weights
+    /// Reference: Trefethen (2000), Chapter 12
+    pub fn quadrature_weights(&self) -> Result<Vec<T>> {
+        let n = self.n;
+        if n < 2 {
+            return Err(cfd_core::error::Error::InvalidConfiguration(
+                "Need at least 2 points for quadrature".into(),
+            ));
+        }
+
+        let big_n = n - 1; // N in Trefethen's notation
+        let big_n_f64 = big_n as f64;
+        let mut w = vec![T::zero(); n];
+
+        let one = T::one();
+
+        // Helper to convert f64 to T
+        let to_t = |val: f64| -> Result<T> {
+            T::from_f64(val).ok_or_else(|| {
+                cfd_core::error::Error::InvalidConfiguration("Cannot convert value".into())
+            })
+        };
+
+        if big_n % 2 == 0 {
+            // N is even
+            let val = 1.0 / (big_n_f64 * big_n_f64 - 1.0);
+            let w_end = to_t(val)?;
+            w[0] = w_end;
+            w[big_n] = w_end;
+
+            for j in 1..big_n {
+                let theta_j = PI * (j as f64) / big_n_f64;
+                let mut sum = T::zero();
+
+                for k in 1..(big_n / 2) {
+                    let coef = 2.0 / (4.0 * (k as f64).powi(2) - 1.0);
+                    let term = to_t(coef)? * to_t((2.0 * (k as f64) * theta_j).cos())?;
+                    sum += term;
+                }
+
+                // Last term for even N
+                let last_coef = 1.0 / (big_n_f64 * big_n_f64 - 1.0);
+                let last_term = to_t(last_coef)? * to_t((big_n_f64 * theta_j).cos())?;
+                sum += last_term;
+
+                w[j] = to_t(2.0 / big_n_f64)? * (one - sum);
+            }
+        } else {
+            // N is odd
+            let val = 1.0 / (big_n_f64 * big_n_f64);
+            let w_end = to_t(val)?;
+            w[0] = w_end;
+            w[big_n] = w_end;
+
+            for j in 1..big_n {
+                let theta_j = PI * (j as f64) / big_n_f64;
+                let mut sum = T::zero();
+
+                for k in 1..=(big_n - 1) / 2 {
+                    let coef = 2.0 / (4.0 * (k as f64).powi(2) - 1.0);
+                    let term = to_t(coef)? * to_t((2.0 * (k as f64) * theta_j).cos())?;
+                    sum += term;
+                }
+
+                w[j] = to_t(2.0 / big_n_f64)? * (one - sum);
+            }
+        }
+
+        Ok(w)
+    }
+
     /// Interpolate function values to arbitrary point
     ///
     /// Uses barycentric Lagrange interpolation for stability

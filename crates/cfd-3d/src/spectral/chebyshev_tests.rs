@@ -270,33 +270,37 @@ mod tests {
     /// Test that Gauss-Lobatto points provide accurate quadrature
     /// Reference: Boyd (2001), Chapter 3
     #[test]
-    #[ignore = "Simplified weights not accurate enough"]
-    // TODO: Implement accurate Gauss-Lobatto quadrature weights for Chebyshev polynomials
-    // DEPENDENCIES: Add proper numerical integration algorithms for spectral methods
-    // BLOCKED BY: Limited understanding of spectral quadrature weight calculations
-    // PRIORITY: High - Essential for accurate spectral method implementation
     fn test_gauss_lobatto_quadrature() {
         let n = 16;
         let cheb = ChebyshevPolynomial::<f64>::new(n).unwrap();
         let points = cheb.collocation_points();
+        let weights = cheb.quadrature_weights().unwrap();
 
-        // Integrate a polynomial of degree < 2n-1 (should be exact)
-        // ∫₋₁¹ x² dx = 2/3
+        // Integrate a polynomial of degree < N (where N=n-1)
+        // Clenshaw-Curtis is exact for polynomials of degree <= N
+
+        // 1. Check sum of weights equals length of interval (2.0)
+        let total_weight: f64 = weights.iter().sum();
+        assert_relative_eq!(total_weight, 2.0, epsilon = 1e-14);
+
+        // 2. Integrate x²: ∫₋₁¹ x² dx = 2/3
         let mut integral = 0.0_f64;
         for (i, &x) in points.iter().enumerate() {
             let f_val = x * x;
-
-            // TODO: Implement correct Clenshaw-Curtis / Gauss-Lobatto quadrature weights.
-            let weight = if i == 0 || i == n - 1 {
-                1.0 / ((n - 1) * (n - 1)) as f64
-            } else {
-                1.0 / (n - 1) as f64
-            };
-
-            integral += f_val * weight * 2.0; // Factor of 2 for [-1, 1] interval
+            integral += f_val * weights[i];
         }
 
         let expected = 2.0 / 3.0;
-        assert_relative_eq!(integral, expected, epsilon = 0.1);
+        assert_relative_eq!(integral, expected, epsilon = 1e-14);
+
+        // 3. Integrate x¹⁰: ∫₋₁¹ x¹⁰ dx = 2/11
+        // Degree 10 <= N=15, so should be exact
+        let mut integral_10 = 0.0_f64;
+        for (i, &x) in points.iter().enumerate() {
+            let f_val = x.powi(10);
+            integral_10 += f_val * weights[i];
+        }
+        let expected_10 = 2.0 / 11.0;
+        assert_relative_eq!(integral_10, expected_10, epsilon = 1e-14);
     }
 }
