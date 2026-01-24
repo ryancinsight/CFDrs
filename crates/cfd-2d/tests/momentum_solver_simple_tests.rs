@@ -30,11 +30,11 @@ fn test_momentum_solver_creation() -> CfdResult<()> {
     let mut solver_with_bc = MomentumSolver::new(&grid);
     solver_with_bc.set_boundary(
         "north".to_string(),
-        BoundaryCondition::Dirichlet { value: 1.0 },
+        BoundaryCondition::Dirichlet { value: 1.0, component_values: None },
     );
     solver_with_bc.set_boundary(
         "south".to_string(),
-        BoundaryCondition::Dirichlet { value: 0.0 },
+        BoundaryCondition::Dirichlet { value: 0.0, component_values: None },
     );
 
     // Test relaxation factor setting (should be within valid range)
@@ -68,19 +68,19 @@ fn test_momentum_solver_basic_execution() -> CfdResult<()> {
     let mut solver = MomentumSolver::new(&grid);
     solver.set_boundary(
         "north".to_string(),
-        BoundaryCondition::Dirichlet { value: 0.5 },
+        BoundaryCondition::Dirichlet { value: 0.5, component_values: None },
     );
     solver.set_boundary(
         "south".to_string(),
-        BoundaryCondition::Dirichlet { value: 0.0 },
+        BoundaryCondition::Dirichlet { value: 0.0, component_values: None },
     );
     solver.set_boundary(
         "west".to_string(),
-        BoundaryCondition::Dirichlet { value: 0.0 },
+        BoundaryCondition::Dirichlet { value: 0.0, component_values: None },
     );
     solver.set_boundary(
         "east".to_string(),
-        BoundaryCondition::Dirichlet { value: 0.0 },
+        BoundaryCondition::Dirichlet { value: 0.0, component_values: None },
     );
 
     // Solve with simple time step
@@ -136,22 +136,22 @@ fn test_simple_algorithm_foundation() -> CfdResult<()> {
     let mut u_solver = MomentumSolver::new(&grid);
     u_solver.set_boundary(
         "north".to_string(),
-        BoundaryCondition::Dirichlet { value: 1.0 },
+        BoundaryCondition::Dirichlet { value: 1.0, component_values: None },
     );
     u_solver.set_boundary(
         "south".to_string(),
-        BoundaryCondition::Dirichlet { value: 0.0 },
+        BoundaryCondition::Dirichlet { value: 0.0, component_values: None },
     );
 
     // V-momentum solver
     let mut v_solver = MomentumSolver::new(&grid);
     v_solver.set_boundary(
         "north".to_string(),
-        BoundaryCondition::Dirichlet { value: 0.0 },
+        BoundaryCondition::Dirichlet { value: 0.0, component_values: None },
     );
     v_solver.set_boundary(
         "south".to_string(),
-        BoundaryCondition::Dirichlet { value: 0.0 },
+        BoundaryCondition::Dirichlet { value: 0.0, component_values: None },
     );
 
     let mut fields = SimulationFields::new(nx, ny);
@@ -192,19 +192,19 @@ fn test_momentum_solver_boundaries() -> CfdResult<()> {
     // Test various boundary conditions
     solver.set_boundary(
         "north".to_string(),
-        BoundaryCondition::Dirichlet { value: 2.0 },
+        BoundaryCondition::Dirichlet { value: 2.0, component_values: None },
     );
     solver.set_boundary(
         "south".to_string(),
-        BoundaryCondition::Dirichlet { value: -1.0 },
+        BoundaryCondition::Dirichlet { value: -1.0, component_values: None },
     );
     solver.set_boundary(
         "west".to_string(),
-        BoundaryCondition::Dirichlet { value: 0.5 },
+        BoundaryCondition::Dirichlet { value: 0.5, component_values: None },
     );
     solver.set_boundary(
         "east".to_string(),
-        BoundaryCondition::Dirichlet { value: -0.5 },
+        BoundaryCondition::Dirichlet { value: -0.5, component_values: None },
     );
 
     let mut fields = SimulationFields::new(nx, ny);

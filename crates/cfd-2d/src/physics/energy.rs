@@ -130,7 +130,7 @@ impl<T: RealField + Copy> EnergyEquationSolver<T> {
         // Apply remaining boundary conditions (non-periodic)
         for (&(i, j), bc) in boundary_conditions {
             match bc {
-                BoundaryCondition::Dirichlet { value } => {
+                BoundaryCondition::Dirichlet { value, .. } => {
                     new_temperature[i][j] = *value;
                 }
                 BoundaryCondition::Neumann { gradient } => {
@@ -250,7 +250,7 @@ mod tests {
         let mut boundary_conditions = HashMap::new();
 
         // Apply Dirichlet BC at point (0, 0)
-        boundary_conditions.insert((0, 0), BoundaryCondition::Dirichlet { value: 350.0 });
+        boundary_conditions.insert((0, 0), BoundaryCondition::Dirichlet { value: 350.0, component_values: None });
 
         let result = solver.solve_explicit(
             &u_velocity,
@@ -696,12 +696,14 @@ mod tests {
                 (0, j),
                 BoundaryCondition::Dirichlet {
                     value: manufacture_temp(0.0, j as f64 * dy, 0.001),
+                    component_values: None,
                 },
             );
             boundary_conditions.insert(
                 (nx - 1, j),
                 BoundaryCondition::Dirichlet {
                     value: manufacture_temp((nx - 1) as f64 * dx, j as f64 * dy, 0.001),
+                    component_values: None,
                 },
             );
         }
@@ -710,12 +712,14 @@ mod tests {
                 (i, 0),
                 BoundaryCondition::Dirichlet {
                     value: manufacture_temp(i as f64 * dx, 0.0, 0.001),
+                    component_values: None,
                 },
             );
             boundary_conditions.insert(
                 (i, ny - 1),
                 BoundaryCondition::Dirichlet {
                     value: manufacture_temp(i as f64 * dx, (ny - 1) as f64 * dy, 0.001),
+                    component_values: None,
                 },
             );
         }
@@ -805,8 +809,8 @@ mod tests {
 
         // Dirichlet on left and right (higher priority)
         for j in 0..5 {
-            boundary_conditions.insert((0, j), BoundaryCondition::Dirichlet { value: 350.0 });
-            boundary_conditions.insert((4, j), BoundaryCondition::Dirichlet { value: 250.0 });
+            boundary_conditions.insert((0, j), BoundaryCondition::Dirichlet { value: 350.0, component_values: None });
+            boundary_conditions.insert((4, j), BoundaryCondition::Dirichlet { value: 250.0, component_values: None });
         }
 
         // Neumann on top and bottom (lower priority - don't overwrite existing)
@@ -945,7 +949,7 @@ mod tests {
                     + 50.0
                         * (std::f64::consts::PI * x_left).sin()
                         * (std::f64::consts::PI * y).cos();
-                boundary_conditions.insert((0, j), BoundaryCondition::Dirichlet { value: t_left });
+                boundary_conditions.insert((0, j), BoundaryCondition::Dirichlet { value: t_left, component_values: None });
 
                 let x_right = 1.0;
                 let t_right = 300.0
@@ -953,7 +957,7 @@ mod tests {
                         * (std::f64::consts::PI * x_right).sin()
                         * (std::f64::consts::PI * y).cos();
                 boundary_conditions
-                    .insert((n - 1, j), BoundaryCondition::Dirichlet { value: t_right });
+                    .insert((n - 1, j), BoundaryCondition::Dirichlet { value: t_right, component_values: None });
             }
             for i in 0..n {
                 let x = i as f64 * dx;
@@ -963,7 +967,7 @@ mod tests {
                         * (std::f64::consts::PI * x).sin()
                         * (std::f64::consts::PI * y_bottom).cos();
                 boundary_conditions
-                    .insert((i, 0), BoundaryCondition::Dirichlet { value: t_bottom });
+                    .insert((i, 0), BoundaryCondition::Dirichlet { value: t_bottom, component_values: None });
 
                 let y_top = 1.0;
                 let t_top = 300.0
@@ -971,7 +975,7 @@ mod tests {
                         * (std::f64::consts::PI * x).sin()
                         * (std::f64::consts::PI * y_top).cos();
                 boundary_conditions
-                    .insert((i, n - 1), BoundaryCondition::Dirichlet { value: t_top });
+                    .insert((i, n - 1), BoundaryCondition::Dirichlet { value: t_top, component_values: None });
             }
 
             // Run diffusion step (zero velocity)
@@ -1027,10 +1031,10 @@ mod tests {
         let mut boundary_conditions = HashMap::new();
 
         // Set different conditions at corners
-        boundary_conditions.insert((0, 0), BoundaryCondition::Dirichlet { value: 400.0 }); // Hot corner
+        boundary_conditions.insert((0, 0), BoundaryCondition::Dirichlet { value: 400.0, component_values: None }); // Hot corner
         boundary_conditions.insert((0, 4), BoundaryCondition::Neumann { gradient: 20.0 }); // Flux corner
         boundary_conditions.insert((4, 0), BoundaryCondition::Symmetry); // Symmetry corner
-        boundary_conditions.insert((4, 4), BoundaryCondition::Dirichlet { value: 250.0 }); // Cold corner
+        boundary_conditions.insert((4, 4), BoundaryCondition::Dirichlet { value: 250.0, component_values: None }); // Cold corner
 
         let u_velocity = vec![vec![0.0; 5]; 5];
         let v_velocity = vec![vec![0.0; 5]; 5];
@@ -1137,12 +1141,14 @@ mod tests {
                 (0, j),
                 BoundaryCondition::Dirichlet {
                     value: 300.0 + x_left * x_left + y * y,
+                    component_values: None,
                 },
             );
             boundary_conditions.insert(
                 (4, j),
                 BoundaryCondition::Dirichlet {
                     value: 300.0 + x_right * x_right + y * y,
+                    component_values: None,
                 },
             );
         }
@@ -1154,12 +1160,14 @@ mod tests {
                 (i, 0),
                 BoundaryCondition::Dirichlet {
                     value: 300.0 + x * x + y_bottom * y_bottom,
+                    component_values: None,
                 },
             );
             boundary_conditions.insert(
                 (i, 4),
                 BoundaryCondition::Dirichlet {
                     value: 300.0 + x * x + y_top * y_top,
+                    component_values: None,
                 },
             );
         }

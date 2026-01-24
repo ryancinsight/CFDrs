@@ -153,7 +153,24 @@ fn get_dirichlet_value<T: RealField + Copy>(
     component: MomentumComponent,
 ) -> Option<T> {
     match bc {
-        BoundaryCondition::Dirichlet { value } => Some(*value),
+        BoundaryCondition::Dirichlet {
+            value,
+            component_values,
+        } => {
+            if let Some(comps) = component_values {
+                let idx = match component {
+                    MomentumComponent::U => 0,
+                    MomentumComponent::V => 1,
+                };
+                if idx < comps.len() {
+                    comps[idx].or(Some(*value))
+                } else {
+                    Some(*value)
+                }
+            } else {
+                Some(*value)
+            }
+        }
         BoundaryCondition::VelocityInlet { velocity } => {
             let idx = match component {
                 MomentumComponent::U => 0,
@@ -414,10 +431,26 @@ fn apply_west_boundary<T: RealField + Copy + FromPrimitive>(
         let idx = j * nx;
 
         match bc {
-            BoundaryCondition::Dirichlet { value } => {
+            BoundaryCondition::Dirichlet {
+                value,
+                component_values,
+            } => {
                 // For Dirichlet BC: diagonal is already 1 (set in assemble_system)
                 // Just set RHS to boundary value
-                rhs[idx] = *value;
+                let val = if let Some(comps) = component_values {
+                    let c_idx = match component {
+                        MomentumComponent::U => 0,
+                        MomentumComponent::V => 1,
+                    };
+                    if c_idx < comps.len() {
+                        comps[c_idx].unwrap_or(*value)
+                    } else {
+                        *value
+                    }
+                } else {
+                    *value
+                };
+                rhs[idx] = val;
             }
             BoundaryCondition::VelocityInlet { velocity } => {
                 // For velocity inlet: set velocity to specified value
@@ -534,10 +567,26 @@ fn apply_east_boundary<T: RealField + Copy + FromPrimitive>(
         let idx = j * nx + nx - 1;
 
         match bc {
-            BoundaryCondition::Dirichlet { value } => {
+            BoundaryCondition::Dirichlet {
+                value,
+                component_values,
+            } => {
                 // For Dirichlet BC: diagonal is already 1 (set in assemble_system)
                 // Just set RHS to boundary value
-                rhs[idx] = *value;
+                let val = if let Some(comps) = component_values {
+                    let c_idx = match component {
+                        MomentumComponent::U => 0,
+                        MomentumComponent::V => 1,
+                    };
+                    if c_idx < comps.len() {
+                        comps[c_idx].unwrap_or(*value)
+                    } else {
+                        *value
+                    }
+                } else {
+                    *value
+                };
+                rhs[idx] = val;
             }
             BoundaryCondition::VelocityInlet { velocity } => {
                 // For velocity inlet: set velocity to specified value
@@ -622,10 +671,26 @@ fn apply_north_boundary<T: RealField + Copy + FromPrimitive>(
         let idx = (ny - 1) * nx + i;
 
         match bc {
-            BoundaryCondition::Dirichlet { value } => {
+            BoundaryCondition::Dirichlet {
+                value,
+                component_values,
+            } => {
                 // For Dirichlet BC: diagonal is already 1 (set in assemble_system)
                 // Just set RHS to boundary value
-                rhs[idx] = *value;
+                let val = if let Some(comps) = component_values {
+                    let c_idx = match component {
+                        MomentumComponent::U => 0,
+                        MomentumComponent::V => 1,
+                    };
+                    if c_idx < comps.len() {
+                        comps[c_idx].unwrap_or(*value)
+                    } else {
+                        *value
+                    }
+                } else {
+                    *value
+                };
+                rhs[idx] = val;
             }
             BoundaryCondition::VelocityInlet { velocity } => {
                 // For velocity inlet: set velocity to specified value
@@ -710,10 +775,26 @@ fn apply_south_boundary<T: RealField + Copy + FromPrimitive>(
         let idx = i;
 
         match bc {
-            BoundaryCondition::Dirichlet { value } => {
+            BoundaryCondition::Dirichlet {
+                value,
+                component_values,
+            } => {
                 // For Dirichlet BC: diagonal is already 1 (set in assemble_system)
                 // Just set RHS to boundary value
-                rhs[idx] = *value;
+                let val = if let Some(comps) = component_values {
+                    let c_idx = match component {
+                        MomentumComponent::U => 0,
+                        MomentumComponent::V => 1,
+                    };
+                    if c_idx < comps.len() {
+                        comps[c_idx].unwrap_or(*value)
+                    } else {
+                        *value
+                    }
+                } else {
+                    *value
+                };
+                rhs[idx] = val;
             }
             BoundaryCondition::VelocityInlet { velocity } => {
                 // For velocity inlet: set velocity to specified value

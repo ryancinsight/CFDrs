@@ -35,7 +35,7 @@ impl<T: RealField + Copy> BoundaryConditionApplicator<T> for DirichletApplicator
     ) -> Result<(), String> {
         let condition = boundary_spec.evaluate_at_time(time);
 
-        if let BoundaryCondition::Dirichlet { value } = condition.as_ref() {
+        if let BoundaryCondition::Dirichlet { value, .. } = condition.as_ref() {
             // Apply Dirichlet value based on region ID
             // For structured grids, interpret region_id as boundary location
             match boundary_spec.region_id.as_str() {

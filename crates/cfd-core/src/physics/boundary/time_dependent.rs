@@ -132,8 +132,14 @@ impl<T: RealField + Copy + FromPrimitive> TimeDependentSpec<T> {
         let factor = self.evaluate(time);
 
         match condition {
-            BoundaryCondition::Dirichlet { value } => BoundaryCondition::Dirichlet {
+            BoundaryCondition::Dirichlet {
+                value,
+                component_values,
+            } => BoundaryCondition::Dirichlet {
                 value: *value * factor,
+                component_values: component_values.as_ref().map(|comps| {
+                    comps.iter().map(|opt| opt.map(|v| v * factor)).collect()
+                }),
             },
             BoundaryCondition::Neumann { gradient } => BoundaryCondition::Neumann {
                 gradient: *gradient * factor,

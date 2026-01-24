@@ -23,11 +23,19 @@ pub enum FundamentalBCType {
 
 /// Core boundary condition types for CFD
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(bound(
+    serialize = "T: RealField + Copy + Serialize",
+    deserialize = "T: RealField + Copy + Deserialize<'de>"
+))]
 pub enum BoundaryCondition<T: RealField + Copy> {
     /// Dirichlet: u = g
     Dirichlet {
-        /// The fixed value to apply at the boundary
+        /// The fixed value to apply at the boundary (default for all components)
         value: T,
+        /// Optional per-component values. If provided, overrides `value` for specific components.
+        /// Index corresponds to component index (e.g., 0=u, 1=v, 2=w, 3=p).
+        #[serde(default)]
+        component_values: Option<Vec<Option<T>>>,
     },
 
     /// Neumann: ∂u/∂n = g

@@ -63,7 +63,7 @@ pub trait BoundaryConditionApplicator<T: RealField + Copy>: Send + Sync {
         let condition = boundary_spec.evaluate_at_time(time);
 
         match condition.as_ref() {
-            BoundaryCondition::Dirichlet { value } => {
+            BoundaryCondition::Dirichlet { value, .. } => {
                 // Flux based on gradient to boundary value
                 normal_gradient * (*value - interior_value)
             }
