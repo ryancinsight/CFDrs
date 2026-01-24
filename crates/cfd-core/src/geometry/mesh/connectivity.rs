@@ -93,18 +93,91 @@ impl<T: RealField + Copy> Mesh<T> {
         for element in &self.elements {
             let n = element.nodes.len();
             match element.element_type {
-                crate::geometry::mesh::ElementType::Triangle if n == 3 => {
-                    edges_list.push(order_edge(element.nodes[0], element.nodes[1]));
-                    edges_list.push(order_edge(element.nodes[1], element.nodes[2]));
-                    edges_list.push(order_edge(element.nodes[2], element.nodes[0]));
+                crate::geometry::mesh::ElementType::Line | crate::geometry::mesh::ElementType::Line3 => {
+                    if n >= 2 {
+                        edges_list.push(order_edge(element.nodes[0], element.nodes[1]));
+                    }
                 }
-                crate::geometry::mesh::ElementType::Quadrilateral if n == 4 => {
-                    edges_list.push(order_edge(element.nodes[0], element.nodes[1]));
-                    edges_list.push(order_edge(element.nodes[1], element.nodes[2]));
-                    edges_list.push(order_edge(element.nodes[2], element.nodes[3]));
-                    edges_list.push(order_edge(element.nodes[3], element.nodes[0]));
+                crate::geometry::mesh::ElementType::Triangle
+                | crate::geometry::mesh::ElementType::Triangle6 => {
+                    if n >= 3 {
+                        edges_list.push(order_edge(element.nodes[0], element.nodes[1]));
+                        edges_list.push(order_edge(element.nodes[1], element.nodes[2]));
+                        edges_list.push(order_edge(element.nodes[2], element.nodes[0]));
+                    }
                 }
-                _ => {} // TODO: Add edge extraction support for other element types.
+                crate::geometry::mesh::ElementType::Quadrilateral
+                | crate::geometry::mesh::ElementType::Quadrilateral9 => {
+                    if n >= 4 {
+                        edges_list.push(order_edge(element.nodes[0], element.nodes[1]));
+                        edges_list.push(order_edge(element.nodes[1], element.nodes[2]));
+                        edges_list.push(order_edge(element.nodes[2], element.nodes[3]));
+                        edges_list.push(order_edge(element.nodes[3], element.nodes[0]));
+                    }
+                }
+                crate::geometry::mesh::ElementType::Tetrahedron
+                | crate::geometry::mesh::ElementType::Tetrahedron10 => {
+                    if n >= 4 {
+                        // Base
+                        edges_list.push(order_edge(element.nodes[0], element.nodes[1]));
+                        edges_list.push(order_edge(element.nodes[1], element.nodes[2]));
+                        edges_list.push(order_edge(element.nodes[2], element.nodes[0]));
+                        // Sides to apex
+                        edges_list.push(order_edge(element.nodes[0], element.nodes[3]));
+                        edges_list.push(order_edge(element.nodes[1], element.nodes[3]));
+                        edges_list.push(order_edge(element.nodes[2], element.nodes[3]));
+                    }
+                }
+                crate::geometry::mesh::ElementType::Hexahedron
+                | crate::geometry::mesh::ElementType::Hexahedron20 => {
+                    if n >= 8 {
+                        // Bottom face
+                        edges_list.push(order_edge(element.nodes[0], element.nodes[1]));
+                        edges_list.push(order_edge(element.nodes[1], element.nodes[2]));
+                        edges_list.push(order_edge(element.nodes[2], element.nodes[3]));
+                        edges_list.push(order_edge(element.nodes[3], element.nodes[0]));
+                        // Top face
+                        edges_list.push(order_edge(element.nodes[4], element.nodes[5]));
+                        edges_list.push(order_edge(element.nodes[5], element.nodes[6]));
+                        edges_list.push(order_edge(element.nodes[6], element.nodes[7]));
+                        edges_list.push(order_edge(element.nodes[7], element.nodes[4]));
+                        // Vertical edges
+                        edges_list.push(order_edge(element.nodes[0], element.nodes[4]));
+                        edges_list.push(order_edge(element.nodes[1], element.nodes[5]));
+                        edges_list.push(order_edge(element.nodes[2], element.nodes[6]));
+                        edges_list.push(order_edge(element.nodes[3], element.nodes[7]));
+                    }
+                }
+                crate::geometry::mesh::ElementType::Pyramid => {
+                    if n >= 5 {
+                        // Base
+                        edges_list.push(order_edge(element.nodes[0], element.nodes[1]));
+                        edges_list.push(order_edge(element.nodes[1], element.nodes[2]));
+                        edges_list.push(order_edge(element.nodes[2], element.nodes[3]));
+                        edges_list.push(order_edge(element.nodes[3], element.nodes[0]));
+                        // Sides to apex
+                        edges_list.push(order_edge(element.nodes[0], element.nodes[4]));
+                        edges_list.push(order_edge(element.nodes[1], element.nodes[4]));
+                        edges_list.push(order_edge(element.nodes[2], element.nodes[4]));
+                        edges_list.push(order_edge(element.nodes[3], element.nodes[4]));
+                    }
+                }
+                crate::geometry::mesh::ElementType::Prism => {
+                    if n >= 6 {
+                        // Bottom triangle
+                        edges_list.push(order_edge(element.nodes[0], element.nodes[1]));
+                        edges_list.push(order_edge(element.nodes[1], element.nodes[2]));
+                        edges_list.push(order_edge(element.nodes[2], element.nodes[0]));
+                        // Top triangle
+                        edges_list.push(order_edge(element.nodes[3], element.nodes[4]));
+                        edges_list.push(order_edge(element.nodes[4], element.nodes[5]));
+                        edges_list.push(order_edge(element.nodes[5], element.nodes[3]));
+                        // Vertical edges
+                        edges_list.push(order_edge(element.nodes[0], element.nodes[3]));
+                        edges_list.push(order_edge(element.nodes[1], element.nodes[4]));
+                        edges_list.push(order_edge(element.nodes[2], element.nodes[5]));
+                    }
+                }
             }
         }
 
@@ -136,5 +209,77 @@ fn order_edge(u: usize, v: usize) -> (usize, usize) {
         (u, v)
     } else {
         (v, u)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::geometry::mesh::{ElementType, Mesh};
+    use nalgebra::Point3;
+
+    #[test]
+    fn test_tetrahedron_edges() {
+        let mut mesh = Mesh::new("test_tet".to_string(), 3);
+        // Add 4 nodes for tetrahedron
+        for i in 0..4 {
+            mesh.add_node(Point3::new(i as f64, 0.0, 0.0));
+        }
+
+        mesh.add_element(ElementType::Tetrahedron, vec![0, 1, 2, 3], 0);
+
+        let edge_conn = mesh.build_edge_connectivity();
+        assert_eq!(edge_conn.edges.len(), 6);
+
+        // Check edges existence
+        let edges: Vec<(usize, usize)> = edge_conn.edges.iter()
+            .map(|e| (e.start, e.end))
+            .collect();
+
+        assert!(edges.contains(&(0, 1)));
+        assert!(edges.contains(&(1, 2)));
+        assert!(edges.contains(&(0, 2)));
+        assert!(edges.contains(&(0, 3)));
+        assert!(edges.contains(&(1, 3)));
+        assert!(edges.contains(&(2, 3)));
+    }
+
+    #[test]
+    fn test_hexahedron_edges() {
+        let mut mesh = Mesh::new("test_hex".to_string(), 3);
+        // Add 8 nodes
+        for i in 0..8 {
+            mesh.add_node(Point3::new(i as f64, 0.0, 0.0));
+        }
+
+        mesh.add_element(ElementType::Hexahedron, vec![0, 1, 2, 3, 4, 5, 6, 7], 0);
+
+        let edge_conn = mesh.build_edge_connectivity();
+        assert_eq!(edge_conn.edges.len(), 12);
+    }
+
+    #[test]
+    fn test_pyramid_edges() {
+        let mut mesh = Mesh::new("test_pyr".to_string(), 3);
+        for i in 0..5 {
+            mesh.add_node(Point3::new(i as f64, 0.0, 0.0));
+        }
+
+        mesh.add_element(ElementType::Pyramid, vec![0, 1, 2, 3, 4], 0);
+
+        let edge_conn = mesh.build_edge_connectivity();
+        assert_eq!(edge_conn.edges.len(), 8);
+    }
+
+    #[test]
+    fn test_prism_edges() {
+        let mut mesh = Mesh::new("test_prism".to_string(), 3);
+        for i in 0..6 {
+            mesh.add_node(Point3::new(i as f64, 0.0, 0.0));
+        }
+
+        mesh.add_element(ElementType::Prism, vec![0, 1, 2, 3, 4, 5], 0);
+
+        let edge_conn = mesh.build_edge_connectivity();
+        assert_eq!(edge_conn.edges.len(), 9);
     }
 }
