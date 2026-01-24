@@ -20,7 +20,10 @@ mod boundary_edge_cases {
         let applicator = DirichletApplicator::<f64>::new();
 
         let spec = BoundaryConditionSpec::new(
-            BoundaryCondition::Dirichlet { value: 0.0 },
+            BoundaryCondition::Dirichlet {
+                value: 0.0,
+                component_values: None,
+            },
             "west".to_string(),
         );
 
@@ -38,7 +41,10 @@ mod boundary_edge_cases {
 
         let large_value = 1e6;
         let spec = BoundaryConditionSpec::new(
-            BoundaryCondition::Dirichlet { value: large_value },
+            BoundaryCondition::Dirichlet {
+                value: large_value,
+                component_values: None,
+            },
             "east".to_string(),
         );
 
@@ -59,7 +65,10 @@ mod boundary_edge_cases {
 
         let small_value = 1e-10;
         let spec = BoundaryConditionSpec::new(
-            BoundaryCondition::Dirichlet { value: small_value },
+            BoundaryCondition::Dirichlet {
+                value: small_value,
+                component_values: None,
+            },
             "west".to_string(),
         );
 
@@ -78,7 +87,10 @@ mod boundary_edge_cases {
         let applicator = DirichletApplicator::<f64>::new();
 
         let spec = BoundaryConditionSpec::new(
-            BoundaryCondition::Dirichlet { value: -10.0 },
+            BoundaryCondition::Dirichlet {
+                value: -10.0,
+                component_values: None,
+            },
             "west".to_string(),
         );
 
@@ -94,7 +106,10 @@ mod boundary_edge_cases {
         let applicator = DirichletApplicator::<f64>::new();
 
         let spec = BoundaryConditionSpec::new(
-            BoundaryCondition::Dirichlet { value: 5.0 },
+            BoundaryCondition::Dirichlet {
+                value: 5.0,
+                component_values: None,
+            },
             "west".to_string(),
         );
 
@@ -110,7 +125,10 @@ mod boundary_edge_cases {
         let applicator = DirichletApplicator::<f64>::new();
 
         let spec = BoundaryConditionSpec::new(
-            BoundaryCondition::Dirichlet { value: 10.0 },
+            BoundaryCondition::Dirichlet {
+                value: 10.0,
+                component_values: None,
+            },
             "west".to_string(),
         );
 
@@ -227,7 +245,10 @@ mod boundary_edge_cases {
             let applicator = DirichletApplicator::<f64>::new();
 
             let spec = BoundaryConditionSpec::new(
-                BoundaryCondition::Dirichlet { value },
+                BoundaryCondition::Dirichlet {
+                    value,
+                    component_values: None,
+                },
                 "west".to_string(),
             );
 
@@ -250,7 +271,10 @@ mod boundary_edge_cases {
             let applicator = DirichletApplicator::<f64>::new();
 
             let spec = BoundaryConditionSpec::new(
-                BoundaryCondition::Dirichlet { value },
+                BoundaryCondition::Dirichlet {
+                    value,
+                    component_values: None,
+                },
                 "west".to_string(),
             );
 
@@ -316,7 +340,10 @@ mod boundary_edge_cases {
         let applicator = DirichletApplicator::<f64>::new();
 
         let spec = BoundaryConditionSpec::new(
-            BoundaryCondition::Dirichlet { value: 10.0 },
+            BoundaryCondition::Dirichlet {
+                value: 10.0,
+                component_values: None,
+            },
             "west".to_string(),
         );
 
@@ -336,7 +363,10 @@ mod boundary_edge_cases {
     #[test]
     fn test_constant_time_evaluation() {
         let spec = BoundaryConditionSpec::new(
-            BoundaryCondition::Dirichlet { value: 5.0 },
+            BoundaryCondition::Dirichlet {
+                value: 5.0,
+                component_values: None,
+            },
             "west".to_string(),
         );
 
@@ -360,7 +390,10 @@ mod boundary_edge_cases {
         let applicator = DirichletApplicator::<f64>::new();
 
         let spec = BoundaryConditionSpec::new(
-            BoundaryCondition::Dirichlet { value: 42.0 },
+            BoundaryCondition::Dirichlet {
+                value: 42.0,
+                component_values: None,
+            },
             "west".to_string(),
         );
 
@@ -378,7 +411,10 @@ mod boundary_edge_cases {
         let applicator = DirichletApplicator::<f64>::new();
 
         let spec = BoundaryConditionSpec::new(
-            BoundaryCondition::Dirichlet { value: 10.0 },
+            BoundaryCondition::Dirichlet {
+                value: 10.0,
+                component_values: None,
+            },
             "all".to_string(),
         );
 
@@ -398,7 +434,10 @@ mod boundary_edge_cases {
         let applicator = DirichletApplicator::<f64>::new();
 
         let spec = BoundaryConditionSpec::new(
-            BoundaryCondition::Dirichlet { value: 20.0 },
+            BoundaryCondition::Dirichlet {
+                value: 20.0,
+                component_values: None,
+            },
             "east".to_string(),
         );
 
@@ -413,7 +452,10 @@ mod boundary_edge_cases {
     #[test]
     fn test_condition_type_identification() {
         let dirichlet_spec = BoundaryConditionSpec::new(
-            BoundaryCondition::Dirichlet { value: 5.0 },
+            BoundaryCondition::Dirichlet {
+                value: 5.0,
+                component_values: None,
+            },
             "west".to_string(),
         );
         assert_eq!(dirichlet_spec.condition_type(), "Dirichlet");
@@ -439,7 +481,10 @@ mod boundary_edge_cases {
     /// Test that applicators correctly identify supported conditions
     #[test]
     fn test_applicator_supports() {
-        let dirichlet_condition = BoundaryCondition::Dirichlet { value: 5.0 };
+        let dirichlet_condition = BoundaryCondition::Dirichlet {
+            value: 5.0,
+            component_values: None,
+        };
         let neumann_condition = BoundaryCondition::Neumann { gradient: 1.0 };
 
         let dirichlet_applicator = DirichletApplicator::<f64>::new();
