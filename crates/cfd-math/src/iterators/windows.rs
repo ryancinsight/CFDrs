@@ -66,7 +66,7 @@ pub struct StridedWindowIterator<I, T> {
     iter: I,
     window_size: usize,
     stride: usize,
-    buffer: Vec<T>,
+    buffer: VecDeque<T>,
 }
 
 impl<I, T> StridedWindowIterator<I, T>
@@ -80,7 +80,7 @@ where
             iter,
             window_size,
             stride,
-            buffer: Vec::new(),
+            buffer: VecDeque::with_capacity(window_size),
         }
     }
 }
@@ -100,19 +100,19 @@ where
             if self.buffer.len() < self.window_size {
                 return None;
             }
-            return Some(self.buffer.clone());
+            return Some(self.buffer.iter().cloned().collect());
         }
 
         // Advance by stride
         for _ in 0..self.stride {
             if let Some(val) = self.iter.next() {
-                self.buffer.push(val);
-                self.buffer.remove(0);
+                self.buffer.push_back(val);
+                self.buffer.pop_front();
             } else {
                 return None;
             }
         }
 
-        Some(self.buffer.clone())
+        Some(self.buffer.iter().cloned().collect())
     }
 }
