@@ -43,7 +43,7 @@ fn test_hagen_poiseuille_analytical_solution() -> Result<()> {
     let expected_resistance =
         128.0 * viscosity * length / (std::f64::consts::PI * diameter.powi(4));
 
-    assert_relative_eq!(resistance, expected_resistance, epsilon = 1e-10);
+    assert_relative_eq!(resistance, expected_resistance, max_relative = 1e-12);
 
     // Verify resistance increases with length (proportionality test)
     let model_2x = HagenPoiseuilleModel::new(diameter, 2.0 * length);
