@@ -45,3 +45,11 @@ harness = false
 [[bench]]
 name = "coarsening_bench"
 harness = false
+
+[[bench]]
+name = "algebraic_distance_bench"
+harness = false
+
+[[bench]]
+name = "spmv_bench"
+harness = false

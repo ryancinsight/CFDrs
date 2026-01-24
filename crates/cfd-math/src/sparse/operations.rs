@@ -54,9 +54,6 @@ pub fn spmv<T: RealField + Copy>(a: &CsrMatrix<T>, x: &DVector<T>, y: &mut DVect
         return;
     }
 
-    // Zero out the output vector (required for accumulation)
-    y.fill(T::zero());
-
     // Standard CSR SpMV: y[i] = sum(A[i,j] * x[j]) for j in row i
     let simd_ops = SimdOps::new();
     let x_slice = x.as_slice();
