@@ -9,7 +9,7 @@ use cfd_core::error::{Error, Result};
 use nalgebra::{DVector, RealField};
 use nalgebra_sparse::CsrMatrix;
 use num_traits::FromPrimitive;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet, VecDeque};
 
 /// Serial Overlapping Schwarz preconditioner
 pub struct SerialSchwarzPreconditioner<T: RealField + Copy> {
@@ -47,8 +47,8 @@ impl<T: RealField + Copy + FromPrimitive> SerialSchwarzPreconditioner<T> {
             )));
         }
 
-        // TODO: Support higher-dimensional and graph-based partitioning strategies.
-        let subdomain_map = Self::create_subdomain_partitioning(n, num_subdomains, overlap);
+        // Support higher-dimensional and graph-based partitioning strategies.
+        let subdomain_map = Self::create_subdomain_partitioning(matrix, num_subdomains, overlap);
 
         // Create local solvers for each subdomain
         let mut local_solvers = Vec::with_capacity(num_subdomains);
@@ -69,15 +69,100 @@ impl<T: RealField + Copy + FromPrimitive> SerialSchwarzPreconditioner<T> {
         })
     }
 
+    /// Compute BFS ordering of the matrix graph
+    ///
+    /// This produces a level-structure ordering that often reduces bandwidth
+    /// and improves locality for partitioning.
+    fn compute_bfs_ordering(matrix: &CsrMatrix<T>) -> Vec<usize> {
+        let n = matrix.nrows();
+        let mut ordering = Vec::with_capacity(n);
+        let mut visited = vec![false; n];
+        let mut queue = VecDeque::new();
+
+        // Iterate through all nodes to handle disconnected components
+        for start_node in 0..n {
+            if visited[start_node] {
+                continue;
+            }
+
+            // Start BFS from this node
+            visited[start_node] = true;
+            queue.push_back(start_node);
+
+            while let Some(node) = queue.pop_front() {
+                ordering.push(node);
+
+                // Add unvisited neighbors
+                let row_start = matrix.row_offsets()[node];
+                let row_end = matrix.row_offsets()[node + 1];
+
+                for pos in row_start..row_end {
+                    let neighbor = matrix.col_indices()[pos];
+                    if !visited[neighbor] {
+                        visited[neighbor] = true;
+                        queue.push_back(neighbor);
+                    }
+                }
+            }
+        }
+
+        ordering
+    }
+
+    /// Expand subdomain by adding neighbors from the graph
+    fn expand_subdomain(
+        matrix: &CsrMatrix<T>,
+        core_indices: &[usize],
+        overlap: usize,
+    ) -> Vec<usize> {
+        if overlap == 0 {
+            let mut result = core_indices.to_vec();
+            result.sort_unstable();
+            return result;
+        }
+
+        let mut included: HashSet<usize> = core_indices.iter().cloned().collect();
+        let mut frontier: VecDeque<usize> = core_indices.iter().cloned().collect();
+
+        for _ in 0..overlap {
+            let mut next_frontier = VecDeque::new();
+
+            while let Some(node) = frontier.pop_front() {
+                let row_start = matrix.row_offsets()[node];
+                let row_end = matrix.row_offsets()[node + 1];
+
+                for pos in row_start..row_end {
+                    let neighbor = matrix.col_indices()[pos];
+                    if included.insert(neighbor) {
+                        next_frontier.push_back(neighbor);
+                    }
+                }
+            }
+
+            frontier = next_frontier;
+            if frontier.is_empty() {
+                break;
+            }
+        }
+
+        let mut result: Vec<usize> = included.into_iter().collect();
+        result.sort_unstable();
+        result
+    }
+
     /// Create subdomain partitioning with overlap
     fn create_subdomain_partitioning(
-        n: usize,
+        matrix: &CsrMatrix<T>,
         num_subdomains: usize,
         overlap: usize,
     ) -> Vec<Vec<usize>> {
+        let n = matrix.nrows();
         let mut subdomain_map = Vec::with_capacity(num_subdomains);
 
-        // Simple 1D domain decomposition
+        // Compute BFS ordering to linearize the graph
+        // This effectively maps 2D/3D structures to 1D while preserving locality
+        let ordering = Self::compute_bfs_ordering(matrix);
+
         let base_size = n / num_subdomains;
         let remainder = n % num_subdomains;
 
@@ -89,22 +174,12 @@ impl<T: RealField + Copy + FromPrimitive> SerialSchwarzPreconditioner<T> {
                 end_idx += 1;
             }
 
-            // Add overlap to the left (except for first subdomain)
-            let actual_start = if i > 0 {
-                start_idx.saturating_sub(overlap)
-            } else {
-                start_idx
-            };
+            // Core subdomain from BFS ordering
+            let core_indices = &ordering[start_idx..end_idx];
 
-            // Add overlap to the right (except for last subdomain)
-            let actual_end = if i < num_subdomains - 1 {
-                (end_idx + overlap).min(n)
-            } else {
-                end_idx.min(n)
-            };
-
-            let subdomain_indices: Vec<usize> = (actual_start..actual_end).collect();
-            subdomain_map.push(subdomain_indices);
+            // Expand subdomain with overlap
+            let expanded_indices = Self::expand_subdomain(matrix, core_indices, overlap);
+            subdomain_map.push(expanded_indices);
 
             start_idx = end_idx;
         }
@@ -213,6 +288,42 @@ impl<T: RealField + Copy> Preconditioner<T> for SerialSchwarzPreconditioner<T> {
         // Use additive Schwarz by default (more parallelizable)
         let result = self.apply_additive(r)?;
         z.copy_from(&result);
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::sparse::SparsePatterns;
+
+    #[test]
+    fn test_2d_partitioning() -> Result<()> {
+        let nx = 10;
+        let ny = 10;
+        let n = nx * ny;
+        let matrix = SparsePatterns::five_point_stencil(nx, ny, 1.0, 1.0)?;
+
+        let num_subdomains = 4;
+        let overlap = 1;
+        let preconditioner = SerialSchwarzPreconditioner::new(&matrix, num_subdomains, overlap)?;
+
+        // Verify we have the correct number of subdomains
+        assert_eq!(preconditioner.subdomain_map.len(), num_subdomains);
+
+        // Verify coverage: union of all subdomains should be all nodes
+        let mut covered = vec![false; n];
+        for subdomain in &preconditioner.subdomain_map {
+            for &idx in subdomain {
+                covered[idx] = true;
+            }
+        }
+        assert!(covered.iter().all(|&x| x), "All nodes should be covered by subdomains");
+
+        // Verify overlap: sum of subdomain sizes should be > n
+        let total_size: usize = preconditioner.subdomain_map.iter().map(|s| s.len()).sum();
+        assert!(total_size > n, "Overlap should increase total size");
+
         Ok(())
     }
 }
