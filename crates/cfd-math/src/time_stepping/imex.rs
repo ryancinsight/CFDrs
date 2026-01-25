@@ -89,8 +89,9 @@ impl<T: RealField + Copy> IMEXTimeStepper<T> {
         dt: T,
         k_explicit: &[DVector<T>],
         k_implicit: &[DVector<T>],
-    ) -> DVector<T> {
-        let mut u_stage = u.clone();
+        u_stage: &mut DVector<T>,
+    ) {
+        u_stage.copy_from(u);
         let n = u.len();
 
         // Add contributions from previous stages
@@ -113,8 +114,6 @@ impl<T: RealField + Copy> IMEXTimeStepper<T> {
                     dt * (a_exp * k_explicit[prev_stage][i] + a_imp * k_implicit[prev_stage][i]);
             }
         }
-
-        u_stage
     }
 
     /// Solve implicit stage using Newton iteration
@@ -265,12 +264,15 @@ impl<T: RealField + Copy> IMEXTimeStepper<T> {
         let mut k_explicit: Vec<DVector<T>> = vec![DVector::zeros(n); stages];
         let mut k_implicit: Vec<DVector<T>> = vec![DVector::zeros(n); stages];
 
+        // Reusable buffer for stage solution
+        let mut u_stage = DVector::zeros(n);
+
         // Compute stages
         for stage in 0..stages {
             let t_stage = t + self.c[stage] * dt;
 
             // Compute stage solution for RHS evaluation
-            let u_stage = self.compute_stage_solution(stage, u, dt, &k_explicit, &k_implicit);
+            self.compute_stage_solution(stage, u, dt, &k_explicit, &k_implicit, &mut u_stage);
 
             // Evaluate RHS at this stage
             k_explicit[stage] = f_explicit(t_stage, &u_stage)?;
