@@ -41,6 +41,12 @@ impl<T: RealField + Copy + FromPrimitive> SerialSchwarzPreconditioner<T> {
         }
 
         let n = matrix.nrows();
+        if matrix.ncols() != n {
+            return Err(Error::InvalidConfiguration(
+                "Schwarz preconditioner requires square matrix".to_string(),
+            ));
+        }
+
         if n < num_subdomains {
             return Err(Error::InvalidConfiguration(format!(
                 "Matrix size {n} too small for {num_subdomains} subdomains"
@@ -71,35 +77,74 @@ impl<T: RealField + Copy + FromPrimitive> SerialSchwarzPreconditioner<T> {
 
     /// Compute BFS ordering of the matrix graph
     ///
-    /// This produces a level-structure ordering that often reduces bandwidth
-    /// and improves locality for partitioning.
+    /// This uses a pseudo-peripheral node heuristic to improve the ordering quality
+    /// (similar to Reverse Cuthill-McKee), reducing the "onion ring" effect in partitions.
     fn compute_bfs_ordering(matrix: &CsrMatrix<T>) -> Vec<usize> {
         let n = matrix.nrows();
         let mut ordering = Vec::with_capacity(n);
-        let mut visited = vec![false; n];
+        let mut global_visited = vec![false; n];
+        let mut probe_visited = vec![false; n];
         let mut queue = VecDeque::new();
+        // Keep track of nodes in the current component to reset probe_visited efficiently
+        let mut component_nodes = Vec::new();
 
         // Iterate through all nodes to handle disconnected components
-        for start_node in 0..n {
-            if visited[start_node] {
+        for i in 0..n {
+            if global_visited[i] {
                 continue;
             }
 
-            // Start BFS from this node
-            visited[start_node] = true;
-            queue.push_back(start_node);
+            // --- Step 1: Probe BFS to find a pseudo-peripheral node ---
+            // Start from node i and find the "furthest" node in this component.
+            let mut pseudo_peripheral_node = i;
+
+            queue.push_back(i);
+            probe_visited[i] = true;
+            component_nodes.push(i);
 
             while let Some(node) = queue.pop_front() {
-                ordering.push(node);
+                pseudo_peripheral_node = node; // The last visited node is the furthest
 
-                // Add unvisited neighbors
                 let row_start = matrix.row_offsets()[node];
                 let row_end = matrix.row_offsets()[node + 1];
 
                 for pos in row_start..row_end {
                     let neighbor = matrix.col_indices()[pos];
-                    if !visited[neighbor] {
-                        visited[neighbor] = true;
+                    // Safety check for non-square matrices (though we check in new())
+                    if neighbor < n && !probe_visited[neighbor] {
+                        probe_visited[neighbor] = true;
+                        queue.push_back(neighbor);
+                        component_nodes.push(neighbor);
+                    }
+                }
+            }
+
+            // Reset probe_visited for next component usage (if any, though we use component_nodes)
+            // Actually, we don't need to reset probe_visited immediately if we use it only for this component,
+            // but we need to ensure we don't revisit nodes in global traversal.
+            // Since components are disjoint, global_visited handles that.
+            // But we need to reset probe_visited to reuse it?
+            // Yes, because component_nodes only tracks THIS component.
+            for &node in &component_nodes {
+                probe_visited[node] = false;
+            }
+            component_nodes.clear();
+
+            // --- Step 2: Main BFS from the pseudo-peripheral node ---
+            // Generate the actual ordering starting from the better root.
+            queue.push_back(pseudo_peripheral_node);
+            global_visited[pseudo_peripheral_node] = true;
+
+            while let Some(node) = queue.pop_front() {
+                ordering.push(node);
+
+                let row_start = matrix.row_offsets()[node];
+                let row_end = matrix.row_offsets()[node + 1];
+
+                for pos in row_start..row_end {
+                    let neighbor = matrix.col_indices()[pos];
+                    if neighbor < n && !global_visited[neighbor] {
+                        global_visited[neighbor] = true;
                         queue.push_back(neighbor);
                     }
                 }
