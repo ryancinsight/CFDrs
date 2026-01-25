@@ -33,6 +33,7 @@
 // Dependencies: RANS model integration, wall distance computation, length scale consistency
 // Mathematical Foundation: Spalart et al. (1997) DES97, Shur et al. (2008) IDDES
 
+use super::boundary_conditions::TurbulenceBoundaryCondition;
 use super::traits::LESTurbulenceModel;
 use nalgebra::DMatrix;
 use std::f64;
@@ -96,20 +97,54 @@ pub struct DetachedEddySimulation {
 
 impl DetachedEddySimulation {
     /// Create a new DES model
-    pub fn new(nx: usize, ny: usize, config: DESConfig) -> Self {
-        // TODO: Compute wall distance from geometry/boundary conditions, not grid indices.
-        let mut wall_distance = DMatrix::zeros(nx, ny);
+    pub fn new(
+        nx: usize,
+        ny: usize,
+        dx: f64,
+        dy: f64,
+        config: DESConfig,
+        boundaries: &[(&str, TurbulenceBoundaryCondition<f64>)],
+    ) -> Self {
+        let mut wall_distance = DMatrix::from_element(nx, ny, f64::MAX);
+
+        let has_boundaries = !boundaries.is_empty();
+
+        // If no boundaries provided, assume all walls (fallback)
+        let process_west = !has_boundaries
+            || boundaries
+                .iter()
+                .any(|(n, bc)| *n == "west" && matches!(bc, TurbulenceBoundaryCondition::Wall { .. }));
+        let process_east = !has_boundaries
+            || boundaries
+                .iter()
+                .any(|(n, bc)| *n == "east" && matches!(bc, TurbulenceBoundaryCondition::Wall { .. }));
+        let process_south = !has_boundaries
+            || boundaries.iter().any(|(n, bc)| {
+                *n == "south" && matches!(bc, TurbulenceBoundaryCondition::Wall { .. })
+            });
+        let process_north = !has_boundaries
+            || boundaries.iter().any(|(n, bc)| {
+                *n == "north" && matches!(bc, TurbulenceBoundaryCondition::Wall { .. })
+            });
+
         for i in 0..nx {
             for j in 0..ny {
-                // Simple wall distance approximation
-                let dist_to_left = i as f64;
-                let dist_to_right = (nx - 1 - i) as f64;
-                let dist_to_bottom = j as f64;
-                let dist_to_top = (ny - 1 - j) as f64;
-                wall_distance[(i, j)] = dist_to_left
-                    .min(dist_to_right)
-                    .min(dist_to_bottom)
-                    .min(dist_to_top);
+                let mut d = f64::MAX;
+
+                if process_west {
+                    d = d.min((i as f64 + 0.5) * dx);
+                }
+                if process_east {
+                    d = d.min((nx as f64 - 1.0 - i as f64 + 0.5) * dx);
+                }
+                if process_south {
+                    d = d.min((j as f64 + 0.5) * dy);
+                }
+                if process_north {
+                    d = d.min((ny as f64 - 1.0 - j as f64 + 0.5) * dy);
+                }
+
+                wall_distance[(i, j)] = d;
             }
         }
 
@@ -446,7 +481,7 @@ mod tests {
     #[test]
     fn test_des_creation() {
         let config = DESConfig::default();
-        let des = DetachedEddySimulation::new(10, 10, config);
+        let des = DetachedEddySimulation::new(10, 10, 0.1, 0.1, config, &[]);
 
         assert_eq!(des.sgs_viscosity.nrows(), 10);
         assert_eq!(des.sgs_viscosity.ncols(), 10);
@@ -463,7 +498,7 @@ mod tests {
                 variant,
                 ..Default::default()
             };
-            let des = DetachedEddySimulation::new(10, 10, config);
+            let des = DetachedEddySimulation::new(10, 10, 0.1, 0.1, config, &[]);
 
             let name = des.get_model_name();
             assert!(name.contains("DES"));
@@ -476,7 +511,7 @@ mod tests {
             variant: DESVariant::DES97, // Use simpler DES97 for testing
             ..DESConfig::default()
         };
-        let des = DetachedEddySimulation::new(10, 10, config);
+        let des = DetachedEddySimulation::new(10, 10, 0.1, 0.1, config, &[]);
 
         // Create dummy velocity fields
         let velocity_u = DMatrix::from_element(10, 10, 1.0);
@@ -495,7 +530,7 @@ mod tests {
     #[test]
     fn test_sgs_viscosity_computation() {
         let config = DESConfig::default();
-        let des = DetachedEddySimulation::new(10, 10, config);
+        let des = DetachedEddySimulation::new(10, 10, 0.1, 0.1, config, &[]);
         let (velocity_u, velocity_v, _) = create_test_fields(10, 10);
 
         let length_scale = DMatrix::from_element(10, 10, 0.01);
@@ -512,7 +547,7 @@ mod tests {
     #[test]
     fn test_des_model_update() {
         let config = DESConfig::default();
-        let mut des = DetachedEddySimulation::new(10, 10, config);
+        let mut des = DetachedEddySimulation::new(10, 10, 0.1, 0.1, config, &[]);
         let (velocity_u, velocity_v, pressure) = create_test_fields(10, 10);
 
         let result = des.update(
@@ -531,7 +566,7 @@ mod tests {
     #[test]
     fn test_des_mode_detection() {
         let config = DESConfig::default();
-        let des = DetachedEddySimulation::new(10, 10, config);
+        let des = DetachedEddySimulation::new(10, 10, 0.1, 0.1, config, &[]);
 
         // Test a point - should work without panicking
         let is_les = des.is_les_mode(5, 5);
@@ -546,7 +581,7 @@ mod tests {
             max_sgs_ratio: 0.6,
             ..Default::default()
         };
-        let des = DetachedEddySimulation::new(10, 10, config);
+        let des = DetachedEddySimulation::new(10, 10, 0.1, 0.1, config, &[]);
 
         let constants = des.get_model_constants();
         assert!(!constants.is_empty());

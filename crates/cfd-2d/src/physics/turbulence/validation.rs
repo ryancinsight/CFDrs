@@ -364,7 +364,7 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
             rans_viscosity: 1e-5,
             use_gpu: false,
         };
-        let mut model = DetachedEddySimulation::new(16, 16, config);
+        let mut model = DetachedEddySimulation::new(16, 16, 0.1, 0.1, config, &[]);
 
         // Create test velocity field
         let mut velocity_u = nalgebra::DMatrix::zeros(16, 16);
@@ -756,7 +756,7 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
                     rans_viscosity: 1e-5,
                     use_gpu: false,
                 };
-                let mut model = DetachedEddySimulation::new(nx, ny, config);
+                let mut model = DetachedEddySimulation::new(nx, ny, 0.1, 0.1, config, &[]);
 
                 let velocity_u = nalgebra::DMatrix::from_element(nx, ny, 1.0);
                 let velocity_v = nalgebra::DMatrix::from_element(nx, ny, 0.0);
