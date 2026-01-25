@@ -296,7 +296,14 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> TurbulenceMo
         density * self.c_mu * k * k / epsilon.max(eps_min)
     }
 
-    fn production_term(&self, velocity_gradient: &[[T; 2]; 2], turbulent_viscosity: T) -> T {
+    fn production_term(
+        &self,
+        velocity_gradient: &[[T; 2]; 2],
+        turbulent_viscosity: T,
+        _turbulence_variable: T,
+        _wall_distance: T,
+        _molecular_viscosity: T,
+    ) -> T {
         let strain = self.strain_rate(velocity_gradient);
         let two = T::from_f64(TWO).unwrap_or_else(T::one);
         turbulent_viscosity * strain * strain * two
@@ -347,7 +354,13 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> TurbulenceMo
                     self.turbulent_viscosity(k_previous[idx], epsilon_previous[idx], density);
 
                 // Production term
-                let p_k = self.production_term(&grad, nu_t);
+                let p_k = self.production_term(
+                    &grad,
+                    nu_t,
+                    k_previous[idx],
+                    T::zero(), // Wall distance not used for k-epsilon production
+                    molecular_viscosity,
+                );
 
                 // Diffusion terms
                 let nu_eff_k = molecular_viscosity + nu_t / self.sigma_k;
@@ -482,7 +495,7 @@ mod tests {
         let model = KEpsilonModel::<f64>::new(10, 10);
         let grad = [[1.0, 0.0], [0.0, 1.0]];
         let nu_t = 0.1;
-        let p_k = model.production_term(&grad, nu_t);
+        let p_k = model.production_term(&grad, nu_t, 0.0, 0.0, 1e-5);
         assert!(p_k > 0.0);
     }
 
@@ -491,7 +504,7 @@ mod tests {
         let model = KEpsilonModel::<f64>::new(10, 10);
         let grad = [[0.0, 0.0], [0.0, 0.0]];
         let nu_t = 0.1;
-        let p_k = model.production_term(&grad, nu_t);
+        let p_k = model.production_term(&grad, nu_t, 0.0, 0.0, 1e-5);
         assert_relative_eq!(p_k, 0.0, epsilon = 1e-10);
     }
 
@@ -649,8 +662,8 @@ mod tests {
         let model = KEpsilonModel::<f64>::new(10, 10);
         let grad = [[1.0, 0.0], [0.0, 1.0]];
 
-        let p_k_1 = model.production_term(&grad, 0.1);
-        let p_k_2 = model.production_term(&grad, 0.2);
+        let p_k_1 = model.production_term(&grad, 0.1, 0.0, 0.0, 1e-5);
+        let p_k_2 = model.production_term(&grad, 0.2, 0.0, 0.0, 1e-5);
 
         // P_k ~ nu_t, so doubling nu_t should double P_k
         assert_relative_eq!(p_k_2 / p_k_1, 2.0, epsilon = 1e-10);
@@ -877,7 +890,7 @@ mod tests {
             // Create velocity gradient for given strain rate
             let velocity_gradient = [[0.0, strain_rate], [0.0, 0.0]]; // Simple shear
 
-            let production = model.production_term(&velocity_gradient, nu_t);
+            let production = model.production_term(&velocity_gradient, nu_t, k, 0.0, 1e-5);
             let dissipation = model.dissipation_term(k, epsilon);
 
             // Production/dissipation ratio should be bounded for realizability
@@ -916,7 +929,7 @@ mod tests {
             let strain_rate_magnitude = rng.gen_range(1e-3..1e3);
             let grad = [[0.0, strain_rate_magnitude], [0.0, 0.0]];
 
-            let production = model.production_term(&grad, 1e-3);
+            let production = model.production_term(&grad, 1e-3, k_val, 0.0, 1e-5);
             assert!(production.is_finite(), "Production non-finite");
             assert!(production >= 0.0, "Negative production");
 
@@ -948,7 +961,7 @@ mod tests {
         // Create velocity gradient that gives this strain rate
         let velocity_gradient = [[0.0, strain_magnitude], [0.0, 0.0]];
 
-        let production = model.production_term(&velocity_gradient, nu_t_eq);
+        let production = model.production_term(&velocity_gradient, nu_t_eq, target_k, 0.0, 1e-5);
         let dissipation = model.dissipation_term(target_k, target_epsilon);
 
         // Should be approximately in equilibrium (within numerical precision)
@@ -1036,7 +1049,7 @@ mod tests {
         ];
 
         for gradient in &test_gradients {
-            let production = model.production_term(gradient, nu_t);
+            let production = model.production_term(gradient, nu_t, 0.0, 0.0, 1e-5);
 
             // Production should be:
             // 1. Finite and positive
@@ -1050,7 +1063,7 @@ mod tests {
             );
 
             // 2. Proportional to ν_t
-            let production_scaled = model.production_term(gradient, nu_t * 3.0);
+            let production_scaled = model.production_term(gradient, nu_t * 3.0, 0.0, 0.0, 1e-5);
             assert_relative_eq!(production_scaled / production, 3.0, epsilon = 1e-10);
             assert!(
                 (production_scaled / production - 3.0).abs() < 1e-9,
