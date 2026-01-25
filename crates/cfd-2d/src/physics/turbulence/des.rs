@@ -210,7 +210,7 @@ impl DetachedEddySimulation {
                     }
                     DESVariant::IDDES => {
                         // Improved DDES
-                        self.compute_iddes_length_scale(rans_length, delta, i, j)
+                        self.compute_iddes_length_scale(rans_length, dx, dy, strain_mag, i, j)
                     }
                 };
 
@@ -256,22 +256,63 @@ impl DetachedEddySimulation {
     }
 
     /// Compute IDDES length scale
-    fn compute_iddes_length_scale(&self, rans_length: f64, delta: f64, i: usize, j: usize) -> f64 {
-        // TODO: Implement full IDDES model terms (WMLES + shielding) per literature.
+    fn compute_iddes_length_scale(
+        &self,
+        rans_length: f64,
+        dx: f64,
+        dy: f64,
+        strain_mag: f64,
+        i: usize,
+        j: usize,
+    ) -> f64 {
+        // IDDES formulation (Shur et al. 2008, Gritskevich et al. 2012)
+        // Combines DDES with WMLES capabilities.
 
-        let l_rans = rans_length;
+        // Constants
+        let c_w = 0.15;
+        let c_des = self.config.des_constant;
+        let kappa = 0.41;
 
-        // Simplified IDDES logic
+        // Grid scales
+        let h_max = dx.max(dy);
+        let h_wn = dx.min(dy); // Approximation for wall-normal spacing
+
+        // Wall distance
         let d_w = self.wall_distance[(i, j)];
-        let h_max = delta; // Simplified grid scale
 
-        if d_w < 0.5 * h_max {
-            // Wall-modeled LES region
-            l_rans.min(0.15 * h_max) // WMLES length scale
-        } else {
-            // Standard DDES
-            self.compute_ddes_length_scale(l_rans, delta, i, j)
-        }
+        // 1. Definition of Delta_IDDES
+        // Delta_IDDES = min(max(Cw * dw, Cw * h_max, h_wn), h_max)
+        let delta_iddes = (c_w * d_w).max(c_w * h_max).max(h_wn).min(h_max);
+
+        // 2. LES length scale
+        let l_les = c_des * delta_iddes;
+
+        // 3. Shielding function f_dt (similar to DDES) and blending f_B
+        // r_dt = nu_t / (k^2 * dw^2 * S)
+        // Estimate local nu_t from rans_length (assuming mixing length hypothesis): nu_t ~ l^2 * S
+        let s = strain_mag.max(1e-10);
+        let nu_t = rans_length.powi(2) * s;
+
+        let r_dt = nu_t / (kappa * kappa * d_w * d_w * s).max(1e-20);
+
+        // f_dt = 1 - tanh[(8 * r_dt)^3] (DDES-like shielding)
+        // Using 8.0 to match standard DDES formulation.
+        let f_dt = 1.0 - (8.0 * r_dt).powi(3).tanh();
+
+        // f_B = tanh[(16 * r_dt)^3] (Blending function)
+        // Using 16.0 to ensure f_B rises before f_dt drops, maintaining RANS shielding
+        // in the transition region.
+        let f_b = (16.0 * r_dt).powi(3).tanh();
+
+        // Final shielding function
+        // tilde_f_d = max(1 - f_dt, f_B)
+        let tilde_f_d = (1.0 - f_dt).max(f_b);
+
+        // 4. IDDES length scale
+        // l_IDDES = tilde_f_d * l_RANS + (1 - tilde_f_d) * l_LES
+        // Note: Omitting elevating function f_e for standard hybrid behavior.
+
+        tilde_f_d * rans_length + (1.0 - tilde_f_d) * l_les
     }
 
     /// Compute SGS viscosity for LES regions
@@ -589,5 +630,23 @@ mod tests {
         // Should include DES-specific constants
         assert!(constants.iter().any(|(name, _)| *name == "DES Constant"));
         assert!(constants.iter().any(|(name, _)| *name == "Max SGS Ratio"));
+    }
+
+    #[test]
+    fn test_iddes_length_scale_computation() {
+        let config = DESConfig {
+            variant: DESVariant::IDDES,
+            ..Default::default()
+        };
+        let des = DetachedEddySimulation::new(10, 10, 0.1, 0.1, config, &[]);
+
+        let velocity_u = DMatrix::from_element(10, 10, 1.0);
+        let velocity_v = DMatrix::from_element(10, 10, 0.5);
+
+        let length_scale = des.compute_des_length_scale(&velocity_u, &velocity_v, 0.1, 0.1);
+
+        assert_eq!(length_scale.nrows(), 10);
+        assert_eq!(length_scale.ncols(), 10);
+        assert!(length_scale.iter().all(|&l| l > 0.0 && l.is_finite()));
     }
 }
