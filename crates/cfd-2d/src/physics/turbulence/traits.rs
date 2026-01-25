@@ -39,7 +39,21 @@ pub trait TurbulenceModel<T: RealField + Copy + ToPrimitive> {
     }
 
     /// Calculate production term
-    fn production_term(&self, velocity_gradient: &[[T; 2]; 2], turbulent_viscosity: T) -> T;
+    ///
+    /// # Arguments
+    /// * `velocity_gradient` - Gradient of the velocity field
+    /// * `turbulent_viscosity` - Eddy viscosity (νt)
+    /// * `turbulence_variable` - Primary turbulence variable (e.g., k for k-ε/k-ω, ν̃ for SA)
+    /// * `wall_distance` - Distance to nearest wall (needed for SA)
+    /// * `molecular_viscosity` - Molecular viscosity (needed for SA)
+    fn production_term(
+        &self,
+        velocity_gradient: &[[T; 2]; 2],
+        turbulent_viscosity: T,
+        turbulence_variable: T,
+        wall_distance: T,
+        molecular_viscosity: T,
+    ) -> T;
 
     /// Calculate dissipation/destruction term
     fn dissipation_term(&self, k: T, epsilon_or_omega: T) -> T;

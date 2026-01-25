@@ -365,7 +365,14 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> TurbulenceMo
         density * nu_t
     }
 
-    fn production_term(&self, velocity_gradient: &[[T; 2]; 2], turbulent_viscosity: T) -> T {
+    fn production_term(
+        &self,
+        velocity_gradient: &[[T; 2]; 2],
+        turbulent_viscosity: T,
+        _turbulence_variable: T,
+        _wall_distance: T,
+        _molecular_viscosity: T,
+    ) -> T {
         // Calculate strain rate tensor magnitude
         let mut s_squared = T::zero();
         for i in 0..2 {
@@ -457,7 +464,13 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> TurbulenceMo
                 let nu_t = self.turbulent_viscosity(k_previous[idx], omega_previous[idx], density);
 
                 // Production term
-                let p_k = self.production_term(&grad, nu_t);
+                let p_k = self.production_term(
+                    &grad,
+                    nu_t,
+                    k_previous[idx],
+                    wall_distance[idx],
+                    molecular_viscosity,
+                );
 
                 // Diffusion terms
                 let nu_eff_k = molecular_viscosity + nu_t * sigma_k;

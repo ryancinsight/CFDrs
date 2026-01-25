@@ -549,23 +549,27 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive>
         density * self.eddy_viscosity(nu_tilde, molecular_viscosity)
     }
 
-    fn production_term(&self, velocity_gradient: &[[T; 2]; 2], turbulent_viscosity: T) -> T {
-        // For SA model, production is calculated differently
-        // P = Cb1 * S̃ * ν̃ where S̃ is modified vorticity
-        // TODO: Implement SA production using ν̃ transport state instead of approximations.
+    fn production_term(
+        &self,
+        velocity_gradient: &[[T; 2]; 2],
+        _turbulent_viscosity: T,
+        turbulence_variable: T,
+        wall_distance: T,
+        molecular_viscosity: T,
+    ) -> T {
+        // For SA model, production is calculated as P = Cb1 * S̃ * ν̃
+        // turbulence_variable corresponds to ν̃ (nu_tilde)
+        let nu_tilde = turbulence_variable;
         let vorticity = self.vorticity_magnitude(velocity_gradient);
-        let nu_tilde_estimate = turbulent_viscosity; // Approximation
-        let molecular_viscosity = T::from_f64(1e-5).unwrap_or_else(T::one);
-        let wall_distance_estimate = T::from_f64(0.01).unwrap_or_else(T::one); // Approximation
 
         let s_tilde = self.modified_vorticity(
             vorticity,
-            nu_tilde_estimate,
+            nu_tilde,
             molecular_viscosity,
-            wall_distance_estimate,
+            wall_distance,
         );
 
-        self.cb1 * s_tilde * nu_tilde_estimate
+        self.cb1 * s_tilde * nu_tilde
     }
 
     fn dissipation_term(&self, _nu_tilde: T, epsilon_or_omega: T) -> T {

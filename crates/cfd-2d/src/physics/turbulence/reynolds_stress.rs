@@ -1752,7 +1752,14 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> TurbulenceModel<T>
         self.c_mu * k * k / epsilon
     }
 
-    fn production_term(&self, velocity_gradient: &[[T; 2]; 2], turbulent_viscosity: T) -> T {
+    fn production_term(
+        &self,
+        velocity_gradient: &[[T; 2]; 2],
+        turbulent_viscosity: T,
+        _turbulence_variable: T,
+        _wall_distance: T,
+        _molecular_viscosity: T,
+    ) -> T {
         // Simplified production for compatibility
         let s11 = velocity_gradient[0][0];
         let s12 = velocity_gradient[0][1];
