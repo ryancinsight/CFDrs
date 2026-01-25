@@ -63,3 +63,7 @@ harness = false
 [[bench]]
 name = "imex_bench"
 harness = false
+
+[[bench]]
+name = "swar_ops_bench"
+harness = false
