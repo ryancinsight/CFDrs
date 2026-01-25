@@ -457,6 +457,87 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
         Ok(())
     }
 
+    /// Apply Robin boundary conditions via boundary integrals
+    fn apply_robin_boundary_conditions(
+        &self,
+        builder: &mut SparseMatrixBuilder<T>,
+        rhs: &mut DVector<T>,
+        problem: &StokesFlowProblem<T>,
+    ) -> Result<()> {
+        let boundary_faces = self.get_boundary_faces(problem);
+
+        for face_idx in boundary_faces {
+            if let Some(face) = problem.mesh.face(face_idx) {
+                // Check if this face has Robin BCs
+                // We identify a Robin face if it contains nodes with Robin BCs.
+                let mut alphas = Vec::new();
+                let mut betas = Vec::new();
+                let mut gammas = Vec::new();
+
+                for &v_idx in &face.vertices {
+                    if let Some(BoundaryCondition::Robin { alpha, beta, gamma }) =
+                        problem.boundary_conditions.get(&v_idx)
+                    {
+                        alphas.push(*alpha);
+                        betas.push(*beta);
+                        gammas.push(*gamma);
+                    }
+                }
+
+                if !alphas.is_empty() {
+                    // Average coefficients
+                    let num_robin_nodes = T::from_usize(alphas.len()).unwrap_or_else(T::one);
+
+                    let avg_alpha = alphas.iter().fold(T::zero(), |acc, &x| acc + x) / num_robin_nodes;
+                    let avg_beta = betas.iter().fold(T::zero(), |acc, &x| acc + x) / num_robin_nodes;
+                    let avg_gamma = gammas.iter().fold(T::zero(), |acc, &x| acc + x) / num_robin_nodes;
+
+                    // Ensure beta is not zero to avoid division by zero
+                    if Float::abs(avg_beta) > T::epsilon() {
+                        let area = compute_face_area(face, &problem.mesh);
+                        let num_nodes = T::from_usize(face.vertices.len()).unwrap_or_else(T::one);
+
+                        // Robin condition: alpha*u + beta*du/dn = gamma
+                        // du/dn = (gamma - alpha*u) / beta
+                        // Weak form boundary term: - \int (du/dn)*v dS
+                        // = - \int ((gamma - alpha*u)/beta)*v dS
+                        // = \int (alpha/beta)*u*v dS - \int (gamma/beta)*v dS
+                        // LHS contribution: + (alpha/beta) \int u*v dS
+                        // RHS contribution: + (gamma/beta) \int v dS
+
+                        let lhs_factor = avg_alpha / avg_beta;
+                        let rhs_factor = avg_gamma / avg_beta;
+
+                        // Lumped approximation: \int N_i N_j dS = delta_ij * Area / num_nodes
+                        // \int N_i dS = Area / num_nodes
+
+                        let lhs_contrib = lhs_factor * area / num_nodes;
+                        let rhs_contrib = rhs_factor * area / num_nodes;
+
+                        for &v_idx in &face.vertices {
+                            let dof_start = v_idx * (constants::VELOCITY_COMPONENTS + 1);
+
+                            // Apply to all velocity components (u, v, w)
+                            for i in 0..constants::VELOCITY_COMPONENTS {
+                                let dof = dof_start + i;
+                                builder.add_entry(dof, dof, lhs_contrib)?;
+                                if dof < rhs.len() {
+                                    rhs[dof] += rhs_contrib;
+                                }
+                            }
+                        }
+                    } else {
+                        tracing::warn!(
+                            "Robin BC encountered with beta approx 0 on face {}, treating as undefined/skipping integral",
+                            face_idx
+                        );
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
     /// Apply boundary conditions to the system
     fn apply_boundary_conditions(
         &self,
@@ -466,6 +547,9 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
     ) -> Result<()> {
         // Apply Neumann BCs first (boundary integrals)
         self.apply_neumann_boundary_conditions(builder, rhs, problem)?;
+
+        // Apply Robin BCs (boundary integrals)
+        self.apply_robin_boundary_conditions(builder, rhs, problem)?;
 
         // Apply Dirichlet boundary conditions using penalty method
         let penalty = T::from_f64(1e10).unwrap_or_else(T::one);
@@ -546,22 +630,9 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
                     // Handled via boundary integrals in apply_neumann_boundary_conditions
                     // We do nothing here as the node contribution is already added to RHS
                 }
-                BoundaryCondition::Robin {
-                    alpha,
-                    beta: _,
-                    gamma,
-                } => {
-                    // Robin: αu + β∂u/∂n = γ
-                    // This is complex to implement properly in FEM without boundary elements
-                    // TODO: Implement Robin BCs with correct boundary-integral discretization.
-                    for i in 0..=constants::VELOCITY_COMPONENTS {
-                        let component_dof = dof + i;
-                        let robin_penalty = penalty * *alpha; // Weight by α coefficient
-                        builder.add_entry(component_dof, component_dof, robin_penalty)?;
-                        if component_dof < rhs.len() {
-                            rhs[component_dof] = robin_penalty * *gamma / *alpha;
-                        }
-                    }
+                BoundaryCondition::Robin { .. } => {
+                    // Handled via boundary integrals in apply_robin_boundary_conditions
+                    // We do nothing here as the node contribution is already added to Matrix/RHS
                 }
                 BoundaryCondition::Periodic { .. } => {
                     // Periodic BCs are complex and typically require special handling
