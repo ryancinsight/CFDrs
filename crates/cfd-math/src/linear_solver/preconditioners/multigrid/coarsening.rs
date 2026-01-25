@@ -4,6 +4,7 @@ use crate::SparseMatrix;
 use cfd_core::error::{Error, NumericalErrorKind, Result};
 use nalgebra::RealField;
 use num_traits::{FromPrimitive, ToPrimitive};
+use rand::Rng;
 
 /// Result of coarsening operation
 #[derive(Debug, Clone)]
@@ -342,57 +343,38 @@ pub fn pmis_coarsening<T: RealField + Copy + FromPrimitive>(
 
     // Step 2: Initialize all points as undecided
     let mut status = vec![0; n]; // 0: undecided, 1: coarse, 2: fine
-    let mut undecided: Vec<usize> = (0..n).collect();
+
+    // Generate random priorities (Luby's algorithm)
+    let mut rng = rand::thread_rng();
+    let priorities: Vec<f64> = (0..n).map(|_| rng.gen()).collect();
+
+    // Sort nodes by priority descending to simulate PMIS
+    let mut sorted_indices: Vec<usize> = (0..n).collect();
+    sorted_indices.sort_by(|&a, &b| priorities[b].partial_cmp(&priorities[a]).unwrap());
 
     // Step 3: PMIS algorithm
-    while !undecided.is_empty() {
-        // TODO: Use randomized priorities for PMIS tie-breaking (per Luby) instead of deterministic ordering.
-        // DEPENDS ON: CRITICAL-009 (correct coarsening foundation)
-        let mut candidates: Vec<usize> = undecided.clone();
-        candidates.sort_by_key(|&i| {
-            // Use degree as tie-breaker (higher degree first)
-            let degree = s_offsets[i + 1] - s_offsets[i];
-            -(degree as i32) // Negative for descending order
-        });
-
-        for &i in &candidates {
-            if status[i] != 0 {
-                continue; // Already decided
-            }
-
-            // Check if all strongly connected undecided neighbors have lower priority
-            let mut can_be_coarse = true;
-            for k in s_offsets[i]..s_offsets[i + 1] {
-                let j = s_indices[k];
-                if status[j] == 0 {
-                    // Compare priorities (using indices as deterministic priority)
-                    if j < i {
-                        can_be_coarse = false;
-                        break;
-                    }
-                }
-            }
-
-            if can_be_coarse {
-                // Make point coarse
-                status[i] = 1; // coarse
-                coarse_points.push(i);
-                fine_to_coarse_map[i] = Some(coarse_points.len() - 1);
-
-                // Mark strongly connected neighbors as fine
-                for k in s_offsets[i]..s_offsets[i + 1] {
-                    let j = s_indices[k];
-                    if status[j] == 0 {
-                        status[j] = 2; // fine
-                        fine_to_coarse_map[j] = Some(coarse_points.len() - 1);
-                    }
-                }
-            }
+    for &i in &sorted_indices {
+        if status[i] != 0 {
+            continue; // Already decided
         }
 
-        // Remove decided points from undecided list
-        undecided.retain(|&i| status[i] == 0);
+        // Make point coarse
+        status[i] = 1; // coarse
+        coarse_points.push(i);
+        fine_to_coarse_map[i] = Some(coarse_points.len() - 1);
+
+        // Mark strongly connected neighbors as fine
+        for k in s_offsets[i]..s_offsets[i + 1] {
+            let j = s_indices[k];
+            if status[j] == 0 {
+                status[j] = 2; // fine
+                // F-points are mapped in the next step to ensure they connect to strongest C-point
+            }
+        }
     }
+
+    // Step 4: Map F-points to their strongest connected C-point
+    assign_closest_coarse_points(&mut fine_to_coarse_map, &status, &strength_matrix);
 
     Ok(CoarseningResult {
         coarse_points,
