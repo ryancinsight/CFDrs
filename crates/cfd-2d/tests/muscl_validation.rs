@@ -32,11 +32,13 @@ fn test_muscl_discretization_schemes() {
     let scheme = MusclDiscretization::new(muscl);
 
     // Test positive velocity (upwind-like behavior)
-    let flux_pos = scheme.convective_flux(1.0, 0.5, 2.0, 1.0);
+    // Stencil: i-1=1.0, i=0.5, i+1=2.0, i+2=2.5
+    let flux_pos = scheme.convective_flux(1.0, 0.5, 2.0, 2.5, 1.0);
     assert!(flux_pos > 0.0);
 
     // Test negative velocity
-    let flux_neg = scheme.convective_flux(1.0, 0.5, 2.0, -1.0);
+    // Stencil: i-1=1.0, i=0.5, i+1=2.0, i+2=2.5
+    let flux_neg = scheme.convective_flux(1.0, 0.5, 2.0, 2.5, -1.0);
     assert!(flux_neg < 0.0);
 
     // Test scheme naming
