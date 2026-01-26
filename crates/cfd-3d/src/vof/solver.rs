@@ -181,11 +181,57 @@ impl<T: RealField + FromPrimitive + Copy> VofSolver<T> {
         &self.curvature
     }
 
+    /// Copy boundary values from alpha to alpha_previous
+    /// This is used to initialize the boundary conditions in the temporary buffer
+    /// without copying the entire field, which provides a performance optimization.
+    pub fn copy_boundaries(&mut self) {
+        // Copy Z boundaries (k=0 and k=nz-1)
+        // These are contiguous blocks of memory (assuming Z is slowest index)
+        let plane_size = self.nx * self.ny;
+        let total_size = self.alpha.len();
+
+        // k=0 plane
+        if total_size >= plane_size {
+            self.alpha_previous[0..plane_size].copy_from_slice(&self.alpha[0..plane_size]);
+        }
+
+        // k=nz-1 plane
+        if total_size >= plane_size {
+            let start = total_size - plane_size;
+            self.alpha_previous[start..total_size].copy_from_slice(&self.alpha[start..total_size]);
+        }
+
+        // Copy Y boundaries (j=0 and j=ny-1) for interior k
+        if self.nz > 2 {
+            for k in 1..self.nz - 1 {
+                // j=0 row
+                let idx_j0 = self.index(0, 0, k);
+                let range_j0 = idx_j0..idx_j0 + self.nx;
+                self.alpha_previous[range_j0.clone()].copy_from_slice(&self.alpha[range_j0]);
+
+                // j=ny-1 row
+                let idx_jend = self.index(0, self.ny - 1, k);
+                let range_jend = idx_jend..idx_jend + self.nx;
+                self.alpha_previous[range_jend.clone()].copy_from_slice(&self.alpha[range_jend]);
+            }
+        }
+
+        // Copy X boundaries (i=0 and i=nx-1) for interior k, interior j
+        if self.nz > 2 && self.ny > 2 {
+            for k in 1..self.nz - 1 {
+                for j in 1..self.ny - 1 {
+                    let idx_i0 = self.index(0, j, k);
+                    self.alpha_previous[idx_i0] = self.alpha[idx_i0];
+
+                    let idx_iend = self.index(self.nx - 1, j, k);
+                    self.alpha_previous[idx_iend] = self.alpha[idx_iend];
+                }
+            }
+        }
+    }
+
     /// Main time step
     pub fn advance(&mut self, dt: T) -> Result<()> {
-        // Store previous values
-        self.alpha_previous.copy_from_slice(&self.alpha);
-
         // Reconstruct interface
         self.reconstruct_interface();
 
