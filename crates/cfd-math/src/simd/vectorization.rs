@@ -305,7 +305,7 @@ impl VectorizedOps {
             let mut sum = T::zero();
             if k_min <= k_max {
                 for k in k_min..=k_max {
-                    sum = sum + signal[n - k] * kernel[k];
+                    sum += signal[n - k] * kernel[k];
                 }
             }
             *output = sum;

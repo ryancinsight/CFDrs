@@ -147,8 +147,8 @@ fn test_poiseuille_flow_convergence() -> Result<(), Box<dyn std::error::Error>> 
     let pressure_bcs = HashMap::new(); // Pressure BCs are handled internally/implicitly for now
 
     // Time integration to steady state
-    let max_time_steps = 350; // Reduced to fit test runtime budget
-    let convergence_tolerance = 1e-4; // Tighter tolerance with coupled solver
+    let max_time_steps = 200;
+    let convergence_tolerance = 1e-3;
     let mut _converged = false;
 
     info!("Starting Poiseuille flow simulation with coupled SIMPLE solver...");

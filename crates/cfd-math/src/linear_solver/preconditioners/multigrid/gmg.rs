@@ -577,18 +577,22 @@ mod tests {
 
     #[test]
     fn test_geometric_multigrid_solve() {
-        let gmg = GeometricMultigrid::<f64>::new(8, 8, 3).unwrap();
+        let mut gmg = GeometricMultigrid::<f64>::new(8, 8, 3).unwrap();
 
         // Create a simple test problem: -Δu = 1 with u=0 on boundary
         let n = 8 * 8;
         let mut rhs = DVector::from_element(n, 1.0);
 
-        // TODO: Construct RHS consistent with Dirichlet boundary conditions (not ad hoc zeroing).
         for i in 0..8 {
             for j in 0..8 {
                 let idx = j * 8 + i;
                 if i == 0 || i == 7 || j == 0 || j == 7 {
                     rhs[idx] = 0.0;
+                    let matrix = &mut gmg.matrices[0];
+                    for col in 0..n {
+                        matrix[(idx, col)] = 0.0;
+                    }
+                    matrix[(idx, idx)] = 1.0;
                 }
             }
         }
