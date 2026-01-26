@@ -37,20 +37,30 @@ use num_traits::FromPrimitive;
 /// This trait defines the interface for nonlinear operators that can be used
 /// with the Full Approximation Scheme (FAS) multigrid method.
 pub trait NonlinearOperator<T: RealField + Copy> {
-    /// Compute the nonlinear residual: F(u) - f = 0
-    fn residual(&self, u: &DVector<T>) -> DVector<T>;
+    /// Compute the nonlinear residual: r = f - F(u)
+    ///
+    /// The default implementation computes f - apply(u).
+    fn residual(&self, u: &DVector<T>, rhs: &DVector<T>, level: usize) -> DVector<T> {
+        rhs - self.apply(u, level)
+    }
 
     /// Apply the nonlinear operator: F(u)
-    fn apply(&self, u: &DVector<T>) -> DVector<T>;
+    fn apply(&self, u: &DVector<T>, level: usize) -> DVector<T>;
 
     /// Solve the nonlinear system on the coarsest level
-    fn coarsest_solve(&self, rhs: &DVector<T>) -> Result<DVector<T>>;
+    fn coarsest_solve(&self, u: &mut DVector<T>, rhs: &DVector<T>, level: usize) -> Result<()>;
 
-    /// Restrict a vector to the next coarser level
-    fn restrict(&self, fine: &DVector<T>, coarse_size: usize) -> DVector<T>;
+    /// Restrict the residual to the next coarser level
+    fn restrict_residual(&self, fine: &DVector<T>, level: usize) -> DVector<T>;
+
+    /// Restrict the solution to the next coarser level
+    fn restrict_solution(&self, fine: &DVector<T>, level: usize) -> DVector<T>;
 
     /// Prolongate a vector to the next finer level
-    fn prolongate(&self, coarse: &DVector<T>, fine_size: usize) -> DVector<T>;
+    fn prolongate(&self, coarse: &DVector<T>, level: usize) -> DVector<T>;
+
+    /// Apply smoothing to the solution u given RHS f
+    fn smooth(&self, u: &mut DVector<T>, rhs: &DVector<T>, level: usize, iterations: usize);
 }
 
 /// Geometric multigrid hierarchy for structured grids
@@ -373,7 +383,7 @@ impl<T: RealField + Copy + FromPrimitive> GeometricMultigrid<T> {
         let mut u = DVector::zeros(n);
 
         // Initial residual computation
-        let initial_residual = operator.residual(&u);
+        let initial_residual = operator.residual(&u, rhs, 0);
         let mut residual_norm = initial_residual.norm();
 
         for iteration in 0..max_iterations {
@@ -381,7 +391,7 @@ impl<T: RealField + Copy + FromPrimitive> GeometricMultigrid<T> {
             self.fas_v_cycle(operator, &mut u, rhs, 0);
 
             // Check convergence using nonlinear residual
-            let new_residual = operator.residual(&u);
+            let new_residual = operator.residual(&u, rhs, 0);
             let new_residual_norm = new_residual.norm();
 
             if new_residual_norm < tolerance {
@@ -482,34 +492,22 @@ impl<T: RealField + Copy + FromPrimitive> GeometricMultigrid<T> {
         f: &DVector<T>,
         level: usize,
     ) {
-        // For nonlinear problems, we need to work with the current level's operator
-        // TODO: Implement explicit multilevel operator handling; current code assumes level management.
-        // DEPENDENCIES: Design proper multilevel operator interface and management
-        // BLOCKED BY: Inconsistent operator interfaces across grid levels
-        // PRIORITY: High - Essential for geometric multigrid functionality
-
         // Pre-smoothing: Apply nonlinear relaxation
-        // TODO: For simplicity, we'll use a basic fixed-point iteration as nonlinear smoother
-        // Reference: Brandt (1977) - Nonlinear multigrid requires proper smoothers for FAS convergence
-        // DEPENDENCIES: Implement proper nonlinear relaxation methods (Newton, quasi-Newton)
-        // BLOCKED BY: Limited nonlinear solver framework
-        // PRIORITY: Medium - Important for nonlinear multigrid convergence
-        self.nonlinear_relaxation(operator, u, f, self.nu1);
+        operator.smooth(u, f, level, self.nu1);
 
         // If not the coarsest level, restrict and solve on coarse grid
         if level < self.matrices.len() - 1 {
             // Restrict solution to coarse grid
-            let coarse_u_restricted = operator.restrict(u, self.matrices[level + 1].nrows());
+            let coarse_u_restricted = operator.restrict_solution(u, level);
 
             // Compute fine grid residual: r = f - F(u)
-            let fine_residual = operator.residual(u);
+            let fine_residual = operator.residual(u, f, level);
 
             // Restrict the residual
-            let coarse_residual_restricted =
-                operator.restrict(&fine_residual, self.matrices[level + 1].nrows());
+            let coarse_residual_restricted = operator.restrict_residual(&fine_residual, level);
 
             // Compute F_coarse(u_coarse_restricted)
-            let coarse_operator_applied = operator.apply(&coarse_u_restricted);
+            let coarse_operator_applied = operator.apply(&coarse_u_restricted, level + 1);
 
             // Compute FAS right-hand side: f_coarse = R(r) + F_coarse(R(u))
             let coarse_rhs = &coarse_residual_restricted + &coarse_operator_applied;
@@ -522,35 +520,17 @@ impl<T: RealField + Copy + FromPrimitive> GeometricMultigrid<T> {
             let coarse_correction_delta = &coarse_correction - &coarse_u_restricted;
 
             // Prolongate correction to fine grid
-            let fine_correction =
-                operator.prolongate(&coarse_correction_delta, self.matrices[level].nrows());
+            let fine_correction = operator.prolongate(&coarse_correction_delta, level);
 
             // Add correction to fine grid solution
             *u += fine_correction;
         } else {
             // Coarsest level: solve nonlinear system directly
-            *u = operator.coarsest_solve(f).unwrap_or_else(|_| u.clone());
+            let _ = operator.coarsest_solve(u, f, level);
         }
 
         // Post-smoothing
-        self.nonlinear_relaxation(operator, u, f, self.nu2);
-    }
-
-    /// TODO: Replace fixed-point relaxation with a proper nonlinear smoother.
-    fn nonlinear_relaxation<Op: NonlinearOperator<T>>(
-        &self,
-        operator: &Op,
-        u: &mut DVector<T>,
-        _f: &DVector<T>,
-        iterations: usize,
-    ) {
-        let omega = T::from_f64(0.8).unwrap(); // Relaxation parameter for nonlinear iteration
-
-        for _ in 0..iterations {
-            // Simple fixed-point iteration: u^{n+1} = u^n + ω * (f - F(u^n))
-            let residual = operator.residual(u);
-            *u += &residual * omega;
-        }
+        operator.smooth(u, f, level, self.nu2);
     }
 
     /// Compute residual r = f - A*u
@@ -618,5 +598,108 @@ mod tests {
         assert!(iterations > 0, "Should require at least one iteration");
         assert!(residual_norm < 1.0, "Residual should be reduced");
         assert_eq!(solution.len(), n, "Solution should have correct size");
+    }
+
+    /// A linear operator wrapper to test the nonlinear FAS solver.
+    /// It basically delegates everything to the underlying GMG matrices/methods.
+    struct LinearPoissonOperator<'a> {
+        gmg: &'a GeometricMultigrid<f64>,
+    }
+
+    impl<'a> NonlinearOperator<f64> for LinearPoissonOperator<'a> {
+        fn apply(&self, u: &DVector<f64>, level: usize) -> DVector<f64> {
+            let matrix = &self.gmg.matrices[level];
+            matrix * u
+        }
+
+        fn coarsest_solve(&self, u: &mut DVector<f64>, rhs: &DVector<f64>, level: usize) -> Result<()> {
+            // For testing, just run a few relaxation steps on the coarsest level
+            let matrix = &self.gmg.matrices[level];
+            // Use 20 iterations for coarse solve, starting from provided guess u
+            self.gmg.jacobi_relaxation(matrix, u, rhs, self.gmg.relaxation_param, 20);
+            Ok(())
+        }
+
+        fn restrict_residual(&self, fine: &DVector<f64>, level: usize) -> DVector<f64> {
+            let (fine_nx, fine_ny) = self.gmg.grid_sizes[level];
+            let (coarse_nx, coarse_ny) = self.gmg.grid_sizes[level + 1];
+            self.gmg.restrict_residual(fine, fine_nx, fine_ny, coarse_nx, coarse_ny)
+        }
+
+        fn restrict_solution(&self, fine: &DVector<f64>, level: usize) -> DVector<f64> {
+            let (fine_nx, _fine_ny) = self.gmg.grid_sizes[level];
+            let (coarse_nx, coarse_ny) = self.gmg.grid_sizes[level + 1];
+
+            let mut coarse = DVector::zeros(coarse_nx * coarse_ny);
+            for j in 0..coarse_ny {
+                for i in 0..coarse_nx {
+                    // Injection: coincide with fine grid points
+                    let coarse_idx = j * coarse_nx + i;
+                    let fine_idx = (2 * j) * fine_nx + (2 * i);
+                    coarse[coarse_idx] = fine[fine_idx];
+                }
+            }
+            coarse
+        }
+
+        fn prolongate(&self, coarse: &DVector<f64>, level: usize) -> DVector<f64> {
+            let (fine_nx, fine_ny) = self.gmg.grid_sizes[level];
+            let (coarse_nx, coarse_ny) = self.gmg.grid_sizes[level + 1];
+            self.gmg.prolongate_correction(coarse, coarse_nx, coarse_ny, fine_nx, fine_ny)
+        }
+
+        fn smooth(&self, u: &mut DVector<f64>, rhs: &DVector<f64>, level: usize, iterations: usize) {
+            let matrix = &self.gmg.matrices[level];
+            self.gmg.jacobi_relaxation(matrix, u, rhs, self.gmg.relaxation_param, iterations);
+        }
+    }
+
+    #[test]
+    fn test_fas_solve_linear_problem() {
+        let gmg = GeometricMultigrid::<f64>::new(16, 16, 3).unwrap();
+        let operator = LinearPoissonOperator { gmg: &gmg };
+
+        // Test problem: -Δu = 1, u=0 on boundary
+        let n = 16 * 16;
+        let mut rhs = DVector::from_element(n, 1.0);
+
+        // Zero out boundaries in RHS effectively (though strict Dirichlet BCs usually involve modifying matrix/RHS)
+        // For this test, we accept the matrix built by create_poisson_matrix which assumes zero BCs implicitly
+        // if we don't put source terms on boundary nodes.
+        for i in 0..16 {
+            for j in 0..16 {
+                if i == 0 || i == 15 || j == 0 || j == 15 {
+                    let idx = j * 16 + i;
+                    rhs[idx] = 0.0;
+                }
+            }
+        }
+
+        // FAS Solve
+        // Note: FAS convergence on linear problems with simple injection/restriction
+        // might be slower than optimized linear MG. Relaxing tolerance for this test.
+        let tolerance = 1e-3;
+        let max_iter = 50;
+        let (solution, iterations, residual_norm) =
+            gmg.solve_fas(&operator, &rhs, tolerance, max_iter).unwrap();
+
+        assert!(iterations > 0);
+        assert!(iterations <= max_iter);
+        assert!(
+            residual_norm < tolerance,
+            "Residual norm {} is not < {}",
+            residual_norm, tolerance
+        );
+
+        // Compare with standard linear solve
+        let (linear_sol, _, _) = gmg.solve(&rhs, tolerance, max_iter).unwrap();
+
+        let diff = &solution - &linear_sol;
+        // The solutions should be relatively close
+        assert!(
+            diff.norm() < 1e-3,
+            "FAS solution should match linear solution for linear problem (diff: {})",
+            diff.norm()
+        );
     }
 }
