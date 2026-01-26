@@ -67,11 +67,17 @@ fn test_momentum_solver_pure_diffusion() -> Result<()> {
 
     solver.set_boundary(
         "south".to_string(),
-        BoundaryCondition::Dirichlet { value: 0.0 },
+        BoundaryCondition::Dirichlet {
+            value: 0.0,
+            component_values: None,
+        },
     );
     solver.set_boundary(
         "north".to_string(),
-        BoundaryCondition::Dirichlet { value: 0.0 },
+        BoundaryCondition::Dirichlet {
+            value: 0.0,
+            component_values: None,
+        },
     );
 
     // Solve to convergence
@@ -168,11 +174,17 @@ fn test_momentum_solver_deferred_correction() -> Result<()> {
 
     solver.set_boundary(
         "south".to_string(),
-        BoundaryCondition::Dirichlet { value: 0.0 },
+        BoundaryCondition::Dirichlet {
+            value: 0.0,
+            component_values: None,
+        },
     );
     solver.set_boundary(
         "north".to_string(),
-        BoundaryCondition::Dirichlet { value: 0.0 },
+        BoundaryCondition::Dirichlet {
+            value: 0.0,
+            component_values: None,
+        },
     );
 
     // Solve to convergence

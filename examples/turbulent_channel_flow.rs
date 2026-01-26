@@ -172,10 +172,22 @@ fn main() {
     let nu_t_wall = sst_model.turbulent_viscosity(k[idx_wall], omega[idx_wall], density) / density;
     let nu_t_core = sst_model.turbulent_viscosity(k[idx_core], omega[idx_core], density) / density;
 
-    let production_wall = sst_model.production_term(&velocity_gradient_wall, nu_t_wall * density);
+    let production_wall = sst_model.production_term(
+        &velocity_gradient_wall,
+        nu_t_wall * density,
+        k[idx_wall],
+        10.0 * dy,
+        molecular_viscosity,
+    );
     let dissipation_wall = sst_model.dissipation_term(k[idx_wall], omega[idx_wall]);
 
-    let production_core = sst_model.production_term(&velocity_gradient_core, nu_t_core * density);
+    let production_core = sst_model.production_term(
+        &velocity_gradient_core,
+        nu_t_core * density,
+        k[idx_core],
+        (ny as f64 * 0.5) * dy,
+        molecular_viscosity,
+    );
     let dissipation_core = sst_model.dissipation_term(k[idx_core], omega[idx_core]);
 
     println!("Near-wall region (y+ ≈ 10):");

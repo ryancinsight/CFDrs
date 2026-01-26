@@ -26,13 +26,14 @@ pub fn create_classical_interpolation<T: RealField + Copy + FromPrimitive>(
             col_indices.push(coarse_idx);
             values.push(T::one());
         } else {
-            // Compute weights based on strong connections to coarse points
             let mut weights = Vec::new();
             let mut total_weight = T::zero();
+            let mut max_strength = T::zero();
 
             let row_start = fine_matrix.row_offsets()[fine_i];
             let row_end = fine_matrix.row_offsets()[fine_i + 1];
 
+            let mut coarse_neighbors = Vec::new();
             for k in row_start..row_end {
                 let neighbor_idx = fine_matrix.col_indices()[k];
                 if let Some(coarse_local_idx) =
@@ -41,8 +42,20 @@ pub fn create_classical_interpolation<T: RealField + Copy + FromPrimitive>(
                     let strength = strength_matrix
                         .get_entry(fine_i, neighbor_idx)
                         .map_or(T::zero(), |e| e.into_value());
-                    // Simple distance-weighted interpolation
-                    let distance = T::one(); // TODO: Compute an actual distance metric for interpolation weights.
+                    if strength > max_strength {
+                        max_strength = strength;
+                    }
+                    coarse_neighbors.push((coarse_local_idx, strength));
+                }
+            }
+
+            for (coarse_local_idx, strength) in coarse_neighbors {
+                if strength > T::zero() {
+                    let distance = if max_strength > T::zero() {
+                        max_strength / strength - T::one()
+                    } else {
+                        T::zero()
+                    };
                     let weight = strength / (distance + T::one());
                     weights.push((coarse_local_idx, weight));
                     total_weight += weight;

@@ -280,9 +280,11 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Simple
 
         // Solve for p'
         let matrix = matrix_builder.build()?;
-        let mut solver_config = IterativeSolverConfig::default();
-        solver_config.tolerance = self.tolerance;
-        solver_config.max_iterations = 2000;
+        let solver_config = IterativeSolverConfig {
+            tolerance: self.tolerance,
+            max_iterations: 2000,
+            ..Default::default()
+        };
         let linear_solver = BiCGSTAB::new(solver_config);
 
         linear_solver.solve(&matrix, &rhs, &mut p_prime, None::<&IdentityPreconditioner>)?;
@@ -296,7 +298,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Simple
 
                 // Correct pressure: P_new = P_old + alpha_p * p'
                 if let Some(p) = fields.p.at_mut(i, j) {
-                    *p = *p + self.pressure_relaxation * pp;
+                    *p += self.pressure_relaxation * pp;
                 }
 
                 // Correct velocity: u_new = u* - D * grad p'
@@ -315,11 +317,11 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Simple
 
                 // Update velocities
                 if let Some(u) = fields.u.at_mut(i, j) {
-                    *u = *u - d_u_p * dp_dx_prime * dx;
+                    *u -= d_u_p * dp_dx_prime * dx;
                 }
 
                 if let Some(v) = fields.v.at_mut(i, j) {
-                    *v = *v - d_v_p * dp_dy_prime * dy;
+                    *v -= d_v_p * dp_dy_prime * dy;
                 }
             }
         }

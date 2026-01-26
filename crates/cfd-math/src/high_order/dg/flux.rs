@@ -168,14 +168,14 @@ impl NumericalFlux for HLLFlux {
 
 impl HLLFlux {
     /// Compute the left-going wave speed
-    fn wave_speed_left(&self, u_l: &DVector<f64>, u_r: &DVector<f64>, _n: &DVector<f64>) -> f64 {
+    fn wave_speed_left(self, u_l: &DVector<f64>, u_r: &DVector<f64>, _n: &DVector<f64>) -> f64 {
         // Simplified for demonstration
         // In practice, this should use the minimum eigenvalue of the flux Jacobian
         u_l.norm() - u_r.norm()
     }
 
     /// Compute the right-going wave speed
-    fn wave_speed_right(&self, u_l: &DVector<f64>, u_r: &DVector<f64>, _n: &DVector<f64>) -> f64 {
+    fn wave_speed_right(self, u_l: &DVector<f64>, u_r: &DVector<f64>, _n: &DVector<f64>) -> f64 {
         // Simplified for demonstration
         // In practice, this should use the maximum eigenvalue of the flux Jacobian
         u_r.norm() + u_l.norm()

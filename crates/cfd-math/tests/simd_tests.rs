@@ -282,6 +282,8 @@ mod tests {
 #[cfg(test)]
 mod cfd_integration_tests {
     use super::*;
+    use nalgebra::DVector;
+    use nalgebra_sparse::{CooMatrix, CsrMatrix};
 
     /// Test SIMD in CFD-like momentum update (v_new = v_old + dt * rhs)
     #[test]
@@ -322,10 +324,22 @@ mod cfd_integration_tests {
     fn test_cfd_residual_calculation() {
         let processor = SimdProcessor::new();
 
-        // residual = rhs - A*x (simplified as rhs - ax)
-        // TODO: Implement full matrix-vector multiplication with proper sparse matrix support
         let rhs = vec![1.0f32, 2.0, 3.0, 4.0];
-        let ax = vec![0.8f32, 1.9, 2.9, 4.0]; // A*x result
+        let mut coo = CooMatrix::new(4, 4);
+        coo.push(0, 0, 2.0);
+        coo.push(0, 1, -1.0);
+        coo.push(1, 0, -1.0);
+        coo.push(1, 1, 2.0);
+        coo.push(1, 2, -1.0);
+        coo.push(2, 1, -1.0);
+        coo.push(2, 2, 2.0);
+        coo.push(2, 3, -1.0);
+        coo.push(3, 2, -1.0);
+        coo.push(3, 3, 2.0);
+        let matrix: CsrMatrix<f32> = CsrMatrix::from(&coo);
+        let x = DVector::from_vec(vec![1.0f32, 2.0, 3.0, 4.0]);
+        let ax = &matrix * x;
+        let ax = ax.iter().copied().collect::<Vec<f32>>();
 
         // Compute rhs - ax
         let mut residual = vec![0.0f32; 4];
@@ -333,7 +347,11 @@ mod cfd_integration_tests {
             .process_f32(&rhs, &ax, &mut residual, SimdOperation::Sub)
             .unwrap();
 
-        let expected = [0.2f32, 0.1, 0.1, 0.0];
+        let expected = rhs
+            .iter()
+            .zip(ax.iter())
+            .map(|(&r, &a)| r - a)
+            .collect::<Vec<f32>>();
         for (actual, expected) in residual.iter().zip(expected.iter()) {
             assert_relative_eq!(*actual, *expected, epsilon = 1e-6);
         }
@@ -344,17 +362,33 @@ mod cfd_integration_tests {
     fn test_cfd_convection_term() {
         let processor = SimdProcessor::new();
 
-        // Simplified convection: convection = u * (du/dx)
-        // TODO: Implement full convection term with proper flux limiting
         let u = vec![1.0f32, 2.0, 3.0, 4.0]; // velocity field
-        let dudx = vec![0.1f32, 0.2, 0.3, 0.4]; // velocity gradient
+        let mut slopes = vec![0.0f32; u.len()];
+        let minmod = |a: f32, b: f32| -> f32 {
+            if a * b <= 0.0 {
+                0.0
+            } else if a.abs() < b.abs() {
+                a
+            } else {
+                b
+            }
+        };
+        for i in 1..u.len() - 1 {
+            let du_left = u[i] - u[i - 1];
+            let du_right = u[i + 1] - u[i];
+            slopes[i] = minmod(du_left, du_right);
+        }
 
         let mut convection = vec![0.0f32; 4];
         processor
-            .process_f32(&u, &dudx, &mut convection, SimdOperation::Mul)
+            .process_f32(&u, &slopes, &mut convection, SimdOperation::Mul)
             .unwrap();
 
-        let expected = [0.1f32, 0.4, 0.9, 1.6];
+        let expected = u
+            .iter()
+            .zip(slopes.iter())
+            .map(|(&value, &slope)| value * slope)
+            .collect::<Vec<f32>>();
         for (actual, expected) in convection.iter().zip(expected.iter()) {
             assert_relative_eq!(*actual, *expected, epsilon = 1e-6);
         }

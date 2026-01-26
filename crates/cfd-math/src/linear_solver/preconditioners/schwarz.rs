@@ -166,8 +166,8 @@ impl<T: RealField + Copy + FromPrimitive> SerialSchwarzPreconditioner<T> {
             return result;
         }
 
-        let mut included: HashSet<usize> = core_indices.iter().cloned().collect();
-        let mut frontier: VecDeque<usize> = core_indices.iter().cloned().collect();
+        let mut included: HashSet<usize> = core_indices.iter().copied().collect();
+        let mut frontier: VecDeque<usize> = core_indices.iter().copied().collect();
 
         for _ in 0..overlap {
             let mut next_frontier = VecDeque::new();

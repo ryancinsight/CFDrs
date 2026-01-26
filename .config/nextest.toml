@@ -1,13 +1,12 @@
 [profile.default]
 # Fail any individual test that exceeds five minutes of wall time.
-test-timeout = "300s"
+test-timeout = "30s"
 
 # Flag tests as slow if they exceed 60s and abort after 3 such intervals.
-slow-timeout = { period = "60s", terminate-after = 3 }
+slow-timeout = { period = "10s", terminate-after = 3 }
 
 # Surface output immediately on failure to aid debugging hung tests.
 failure-output = "immediate"
 
 # Emit status updates for passing/slow tests to see progress in long suites.
 status-level = "all"
-

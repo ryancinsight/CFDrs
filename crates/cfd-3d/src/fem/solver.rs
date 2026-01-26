@@ -626,19 +626,9 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
                         }
                     }
                 }
-                BoundaryCondition::Neumann { .. } => {
-                    // Handled via boundary integrals in apply_neumann_boundary_conditions
-                    // We do nothing here as the node contribution is already added to RHS
-                }
-                BoundaryCondition::Robin { .. } => {
-                    // Handled via boundary integrals in apply_robin_boundary_conditions
-                    // We do nothing here as the node contribution is already added to Matrix/RHS
-                }
-                BoundaryCondition::Periodic { .. } => {
-                    // Periodic BCs are complex and typically require special handling
-                    // in the mesh connectivity and matrix assembly
-                    // TODO: Implement periodic constraints (mesh-aware pairing + matrix constraints).
-                }
+                BoundaryCondition::Neumann { .. }
+                | BoundaryCondition::Robin { .. }
+                | BoundaryCondition::Periodic { .. } => {}
                 _ => {
                     // Unknown or unsupported boundary condition types
                     // Log a warning but don't fail - allows for graceful degradation

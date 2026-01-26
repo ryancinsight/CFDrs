@@ -99,9 +99,17 @@ fn demonstrate_k_epsilon_model(
     let k = 0.01; // Turbulent kinetic energy [m²/s²]
     let epsilon = 0.1; // Dissipation rate [m²/s³]
     let _density = 1.0; // Density [kg/m³]
+    let molecular_viscosity = 1e-5;
+    let wall_distance = 0.01;
 
     let nu_t = model.turbulent_viscosity(k, epsilon, _density);
-    let p_k = model.production_term(&[[0.0, 1.0], [0.0, 0.0]], nu_t); // Simple shear
+    let p_k = model.production_term(
+        &[[0.0, 1.0], [0.0, 0.0]],
+        nu_t,
+        k,
+        wall_distance,
+        molecular_viscosity,
+    );
     let d_k = model.dissipation_term(k, epsilon);
 
     println!("Input conditions:");
@@ -131,6 +139,8 @@ fn demonstrate_k_omega_sst_model(
     let k = 0.01; // Turbulent kinetic energy [m²/s²]
     let omega = 100.0; // Specific dissipation rate [1/s]
     let _density = 1.0; // Density [kg/m³]
+    let molecular_viscosity = 1e-5;
+    let wall_distance = 0.01;
 
     let nu_t = model.turbulent_viscosity(k, omega, _density);
 
@@ -140,7 +150,13 @@ fn demonstrate_k_omega_sst_model(
     let nu_t_limited =
         model.turbulent_viscosity_with_limiter(k, omega, _density, strain_rate_magnitude, f2);
 
-    let p_k = model.production_term(&[[0.0, 1.0], [0.0, 0.0]], nu_t);
+    let p_k = model.production_term(
+        &[[0.0, 1.0], [0.0, 0.0]],
+        nu_t,
+        k,
+        wall_distance,
+        molecular_viscosity,
+    );
     let d_k = model.dissipation_term(k, omega);
 
     println!("Input conditions:");

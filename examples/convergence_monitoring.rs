@@ -135,8 +135,14 @@ fn test_poiseuille_with_monitoring() -> Result<(), Box<dyn std::error::Error>> {
 
     // Use the sophisticated boundary condition setup framework
     BoundarySetup::new()
-        .south(BoundaryCondition::Dirichlet { value: 0.0 })
-        .north(BoundaryCondition::Dirichlet { value: 0.0 })
+        .south(BoundaryCondition::Dirichlet {
+            value: 0.0,
+            component_values: None,
+        })
+        .north(BoundaryCondition::Dirichlet {
+            value: 0.0,
+            component_values: None,
+        })
         .west(BoundaryCondition::Neumann { gradient: 0.0 })
         .east(BoundaryCondition::Neumann { gradient: 0.0 })
         .apply(&mut solver);

@@ -711,8 +711,9 @@ fn compute_strength_matrix<T: RealField + Copy + FromPrimitive>(
 }
 
 /// Analyze coarsening quality
-pub fn analyze_coarsening_quality<T: RealField + Copy + FromPrimitive>(
+pub fn analyze_coarsening_quality<T: RealField + Copy + FromPrimitive + ToPrimitive>(
     result: &CoarseningResult<T>,
+    matrix: &SparseMatrix<T>,
 ) -> CoarseningQuality {
     let total_points = result.fine_to_coarse_map.len();
     let coarse_points = result.coarse_points.len();
@@ -753,24 +754,15 @@ pub fn analyze_coarsening_quality<T: RealField + Copy + FromPrimitive>(
 
     let max_interpolation_points = interpolation_points.iter().copied().max().unwrap_or(0);
 
-    CoarseningQuality {
-        coarsening_ratio,
-        assignment_ratio,
-        avg_interpolation_points,
-        max_interpolation_points,
-        coarse_points,
-        total_points,
-        // TODO: Implement comprehensive quality metrics for coarsening analysis
-        // DEPENDS ON: CRITICAL-009 (valid coarsening to analyze)
-        // DEPENDENCIES: Add distance-based quality assessment and scoring algorithms
-        // BLOCKED BY: Limited understanding of AMG quality metrics
-        // PRIORITY: Medium - Important for coarsening algorithm optimization
-        average_distance: 0.0,       // Not computed in this basic analysis
-        max_distance: 0.0,           // Not computed in this basic analysis
-        high_distance_ratio: 0.0,    // Not computed in this basic analysis
-        quality_score: 0.0,          // Not computed in this basic analysis
-        recommendations: Vec::new(), // Not computed in this basic analysis
-    }
+    let algebraic = AlgebraicDistances::compute(result, matrix);
+    let mut quality = algebraic.quality_assessment();
+    quality.coarsening_ratio = coarsening_ratio;
+    quality.assignment_ratio = assignment_ratio;
+    quality.avg_interpolation_points = avg_interpolation_points;
+    quality.max_interpolation_points = max_interpolation_points;
+    quality.coarse_points = coarse_points;
+    quality.total_points = total_points;
+    quality
 }
 
 /// Quality metrics for coarsening
@@ -854,7 +846,7 @@ mod tests {
         assert_eq!(result.fine_to_coarse_map.len(), matrix.nrows());
         assert_eq!(result.strength_matrix.nrows(), matrix.nrows());
 
-        let quality = analyze_coarsening_quality(&result);
+        let quality = analyze_coarsening_quality(&result, &matrix);
         assert!(quality.coarsening_ratio > 0.0);
         assert!(quality.assignment_ratio > 0.0);
     }
@@ -867,7 +859,7 @@ mod tests {
         assert!(!result.coarse_points.is_empty());
         assert_eq!(result.fine_to_coarse_map.len(), matrix.nrows());
 
-        let quality = analyze_coarsening_quality(&result);
+        let quality = analyze_coarsening_quality(&result, &matrix);
         assert!(quality.coarsening_ratio > 0.0);
     }
 
@@ -875,7 +867,7 @@ mod tests {
     fn test_coarsening_quality_analysis() {
         let matrix = create_test_matrix();
         let result = ruge_stueben_coarsening(&matrix, 0.25).unwrap();
-        let quality = analyze_coarsening_quality(&result);
+        let quality = analyze_coarsening_quality(&result, &matrix);
 
         assert!(quality.coarsening_ratio > 0.0 && quality.coarsening_ratio <= 1.0);
         assert!(quality.assignment_ratio >= 0.0 && quality.assignment_ratio <= 1.0);
@@ -1065,7 +1057,7 @@ mod tests {
 
         let sparse_matrix = CsrMatrix::from(&matrix);
         let result = ruge_stueben_coarsening(&sparse_matrix, 0.25).unwrap();
-        let quality = analyze_coarsening_quality(&result);
+        let quality = analyze_coarsening_quality(&result, &sparse_matrix);
         let coarsening_ratio = quality.coarsening_ratio;
         let assignment_ratio = quality.assignment_ratio;
         let avg_interpolation_points = quality.avg_interpolation_points;

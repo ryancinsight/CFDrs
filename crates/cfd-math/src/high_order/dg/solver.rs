@@ -705,10 +705,8 @@ impl DGSolver {
         }
 
         // Main time-stepping loop
-        let mut result = TimeStepResult::default();
-
         while self.t < self.params.t_final && self.step_count < self.params.max_steps {
-            result = self.step(&f, jac.as_ref())?;
+            let result = self.step(&f, jac.as_ref())?;
 
             if !result.converged {
                 if self.params.verbose {

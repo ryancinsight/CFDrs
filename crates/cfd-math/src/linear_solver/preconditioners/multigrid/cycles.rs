@@ -351,7 +351,6 @@ fn solve_coarsest_level(
         gaussian_elimination_solve(&dense, rhs, solution)?;
     } else {
         // For larger systems, use iterative method
-        let mut residual = rhs - matrix * &*solution;
         let tolerance = 1e-12;
         let max_iter = 100;
 
@@ -377,7 +376,7 @@ fn solve_coarsest_level(
                 }
             }
 
-            residual = rhs - matrix * &*solution;
+            let residual = rhs - matrix * &*solution;
             if residual.norm() < tolerance {
                 break;
             }

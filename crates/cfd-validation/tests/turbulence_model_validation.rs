@@ -112,7 +112,7 @@ fn test_k_epsilon_channel_flow_production() {
 
     // Production term: P_k = ν_t (∂U_i/∂x_j + ∂U_j/∂x_i) ∂U_i/∂x_j
     // For simple shear: P_k = ν_t * 2 * strain²
-    let production = model.production_term(&velocity_gradient, nu_t);
+    let production = model.production_term(&velocity_gradient, nu_t, k, y, nu);
 
     // Expected production from DNS (approximate): P_k ≈ ε in equilibrium log layer
     let production_expected = epsilon * rho;
@@ -274,7 +274,7 @@ fn test_strain_rate_calculation() {
     let rho = 1.225;
     let nu_t = model.turbulent_viscosity(k, epsilon, rho);
 
-    let production = model.production_term(&velocity_gradient, nu_t);
+    let production = model.production_term(&velocity_gradient, nu_t, k, 0.0, 1.5e-5);
 
     // Production term formula: P = ν_t * strain² * 2
     // where strain = sqrt(2 * S_ij * S_ij)

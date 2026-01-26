@@ -71,7 +71,8 @@ fn demonstrate_muscl2_superbee(
         fields.u.at(4, 5), // upwind
         fields.u.at(5, 5), // central
         fields.u.at(6, 5), // downwind
-        1.0,               // positive velocity
+        fields.u.at(7, 5),
+        1.0,
     );
 
     // Test with negative velocity (flow from right to left)
@@ -79,7 +80,8 @@ fn demonstrate_muscl2_superbee(
         fields.u.at(4, 5), // upwind
         fields.u.at(5, 5), // central
         fields.u.at(6, 5), // downwind
-        -1.0,              // negative velocity
+        fields.u.at(7, 5),
+        -1.0,
     );
 
     println!("Superbee limiter results:");
@@ -103,7 +105,8 @@ fn demonstrate_muscl2_vanleer(
         fields.u.at(4, 5), // upwind
         fields.u.at(5, 5), // central
         fields.u.at(6, 5), // downwind
-        1.0,               // positive velocity
+        fields.u.at(7, 5),
+        1.0,
     );
 
     println!("van Leer limiter results:");

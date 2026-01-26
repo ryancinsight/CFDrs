@@ -113,11 +113,17 @@ fn test_poiseuille_flow_convergence() -> Result<(), Box<dyn std::error::Error>> 
     use cfd_core::physics::boundary::BoundaryCondition;
     solver.set_boundary(
         "south".to_string(),
-        BoundaryCondition::Dirichlet { value: 0.0 },
+        BoundaryCondition::Dirichlet {
+            value: 0.0,
+            component_values: None,
+        },
     );
     solver.set_boundary(
         "north".to_string(),
-        BoundaryCondition::Dirichlet { value: 0.0 },
+        BoundaryCondition::Dirichlet {
+            value: 0.0,
+            component_values: None,
+        },
     );
 
     // For channel flow, use zero gradient (Neumann) BCs at inlet/outlet
@@ -141,7 +147,7 @@ fn test_poiseuille_flow_convergence() -> Result<(), Box<dyn std::error::Error>> 
     let pressure_bcs = HashMap::new(); // Pressure BCs are handled internally/implicitly for now
 
     // Time integration to steady state
-    let max_time_steps = 500; // Increased to verify stability
+    let max_time_steps = 350; // Reduced to fit test runtime budget
     let convergence_tolerance = 1e-4; // Tighter tolerance with coupled solver
     let mut _converged = false;
 

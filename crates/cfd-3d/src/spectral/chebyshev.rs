@@ -152,14 +152,14 @@ impl<T: RealField + FromPrimitive + Copy> ChebyshevPolynomial<T> {
             })
         };
 
-        if big_n % 2 == 0 {
+        if big_n.is_multiple_of(2) {
             // N is even
             let val = 1.0 / (big_n_f64 * big_n_f64 - 1.0);
             let w_end = to_t(val)?;
             w[0] = w_end;
             w[big_n] = w_end;
 
-            for j in 1..big_n {
+            for (j, w_j) in w.iter_mut().enumerate().take(big_n).skip(1) {
                 let theta_j = PI * (j as f64) / big_n_f64;
                 let mut sum = T::zero();
 
@@ -174,7 +174,7 @@ impl<T: RealField + FromPrimitive + Copy> ChebyshevPolynomial<T> {
                 let last_term = to_t(last_coef)? * to_t((big_n_f64 * theta_j).cos())?;
                 sum += last_term;
 
-                w[j] = to_t(2.0 / big_n_f64)? * (one - sum);
+                *w_j = to_t(2.0 / big_n_f64)? * (one - sum);
             }
         } else {
             // N is odd
@@ -183,7 +183,7 @@ impl<T: RealField + FromPrimitive + Copy> ChebyshevPolynomial<T> {
             w[0] = w_end;
             w[big_n] = w_end;
 
-            for j in 1..big_n {
+            for (j, w_j) in w.iter_mut().enumerate().take(big_n).skip(1) {
                 let theta_j = PI * (j as f64) / big_n_f64;
                 let mut sum = T::zero();
 
@@ -193,7 +193,7 @@ impl<T: RealField + FromPrimitive + Copy> ChebyshevPolynomial<T> {
                     sum += term;
                 }
 
-                w[j] = to_t(2.0 / big_n_f64)? * (one - sum);
+                *w_j = to_t(2.0 / big_n_f64)? * (one - sum);
             }
         }
 

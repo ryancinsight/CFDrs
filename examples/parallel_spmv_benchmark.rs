@@ -85,36 +85,60 @@ fn benchmark_grid_size(nx: usize, ny: usize) -> Result<(), Box<dyn std::error::E
     // Set boundary conditions (simple walls)
     serial_solver.set_boundary(
         "west".to_string(),
-        cfd_core::physics::boundary::BoundaryCondition::Dirichlet { value: 0.0 },
+        cfd_core::physics::boundary::BoundaryCondition::Dirichlet {
+            value: 0.0,
+            component_values: None,
+        },
     );
     serial_solver.set_boundary(
         "east".to_string(),
-        cfd_core::physics::boundary::BoundaryCondition::Dirichlet { value: 0.0 },
+        cfd_core::physics::boundary::BoundaryCondition::Dirichlet {
+            value: 0.0,
+            component_values: None,
+        },
     );
     serial_solver.set_boundary(
         "south".to_string(),
-        cfd_core::physics::boundary::BoundaryCondition::Dirichlet { value: 0.0 },
+        cfd_core::physics::boundary::BoundaryCondition::Dirichlet {
+            value: 0.0,
+            component_values: None,
+        },
     );
     serial_solver.set_boundary(
         "north".to_string(),
-        cfd_core::physics::boundary::BoundaryCondition::Dirichlet { value: 0.0 },
+        cfd_core::physics::boundary::BoundaryCondition::Dirichlet {
+            value: 0.0,
+            component_values: None,
+        },
     );
 
     parallel_solver.set_boundary(
         "west".to_string(),
-        cfd_core::physics::boundary::BoundaryCondition::Dirichlet { value: 0.0 },
+        cfd_core::physics::boundary::BoundaryCondition::Dirichlet {
+            value: 0.0,
+            component_values: None,
+        },
     );
     parallel_solver.set_boundary(
         "east".to_string(),
-        cfd_core::physics::boundary::BoundaryCondition::Dirichlet { value: 0.0 },
+        cfd_core::physics::boundary::BoundaryCondition::Dirichlet {
+            value: 0.0,
+            component_values: None,
+        },
     );
     parallel_solver.set_boundary(
         "south".to_string(),
-        cfd_core::physics::boundary::BoundaryCondition::Dirichlet { value: 0.0 },
+        cfd_core::physics::boundary::BoundaryCondition::Dirichlet {
+            value: 0.0,
+            component_values: None,
+        },
     );
     parallel_solver.set_boundary(
         "north".to_string(),
-        cfd_core::physics::boundary::BoundaryCondition::Dirichlet { value: 0.0 },
+        cfd_core::physics::boundary::BoundaryCondition::Dirichlet {
+            value: 0.0,
+            component_values: None,
+        },
     );
 
     // Time step
