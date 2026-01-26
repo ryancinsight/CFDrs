@@ -299,15 +299,16 @@ impl VectorizedOps {
         }
 
         result.par_iter_mut().enumerate().for_each(|(n, output)| {
-            *output = (0..kernel_len)
-                .filter_map(|k| {
-                    if n >= k && n - k < signal_len {
-                        Some(signal[n - k] * kernel[k])
-                    } else {
-                        None
-                    }
-                })
-                .fold(T::zero(), |acc, val| acc + val);
+            let k_min = n.saturating_sub(signal_len - 1);
+            let k_max = n.min(kernel_len - 1);
+
+            let mut sum = T::zero();
+            if k_min <= k_max {
+                for k in k_min..=k_max {
+                    sum = sum + signal[n - k] * kernel[k];
+                }
+            }
+            *output = sum;
         });
 
         Ok(())
