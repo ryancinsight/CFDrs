@@ -216,3 +216,25 @@ fn test_simd_performance_characteristics() {
     println!("Vector width (f32): {}", arch.vector_width_f32());
     println!("Vector width (f64): {}", arch.vector_width_f64());
 }
+
+#[test]
+fn test_convolution() {
+    use crate::simd::vectorization::VectorizedOps;
+    let ops = VectorizedOps::new();
+    let signal = vec![1.0, 2.0, 3.0];
+    let kernel = vec![0.5, 1.0];
+    // Expected result len: 3 + 2 - 1 = 4
+    let mut result = vec![0.0; 4];
+
+    ops.convolution(&signal, &kernel, &mut result).unwrap();
+
+    // n=0: signal[0]*kernel[0] = 1*0.5 = 0.5
+    // n=1: signal[1]*kernel[0] + signal[0]*kernel[1] = 2*0.5 + 1*1.0 = 2.0
+    // n=2: signal[2]*kernel[0] + signal[1]*kernel[1] = 3*0.5 + 2*1.0 = 3.5
+    // n=3: signal[2]*kernel[1] = 3*1.0 = 3.0
+
+    assert_relative_eq!(result[0], 0.5, epsilon = 1e-6);
+    assert_relative_eq!(result[1], 2.0, epsilon = 1e-6);
+    assert_relative_eq!(result[2], 3.5, epsilon = 1e-6);
+    assert_relative_eq!(result[3], 3.0, epsilon = 1e-6);
+}

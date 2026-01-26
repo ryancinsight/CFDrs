@@ -43,11 +43,8 @@ impl AdvectionMethod {
         dt: T,
     ) -> Result<()> {
         // Use alpha_previous as temporary buffer (zero-copy optimization)
-        // TODO: Implement proper memory management for VOF advection operations
-        // DEPENDENCIES: Add efficient buffer management and memory pool for VOF operations
-        // BLOCKED BY: Limited understanding of VOF memory requirements and access patterns
-        // PRIORITY: Medium - Important for performance and memory efficiency
-        solver.alpha_previous.copy_from_slice(&solver.alpha);
+        // We only copy boundaries because the interior will be fully overwritten
+        solver.copy_boundaries();
 
         for k in 1..solver.nz - 1 {
             for j in 1..solver.ny - 1 {
@@ -143,11 +140,8 @@ impl AdvectionMethod {
         dt: T,
     ) -> Result<()> {
         // Use alpha_previous as temporary buffer (zero-copy optimization)
-        // TODO: Implement proper memory management for VOF algebraic advection
-        // DEPENDENCIES: Add efficient buffer management and memory pool for VOF operations
-        // BLOCKED BY: Limited understanding of VOF memory requirements and access patterns
-        // PRIORITY: Medium - Important for performance and memory efficiency
-        solver.alpha_previous.copy_from_slice(&solver.alpha);
+        // We only copy boundaries because the interior will be fully overwritten
+        solver.copy_boundaries();
         let two = T::from_f64(2.0).unwrap_or(T::one() + T::one());
 
         for k in 1..solver.nz - 1 {
@@ -190,19 +184,27 @@ impl AdvectionMethod {
         dt: T,
     ) -> Result<()> {
         // Use alpha_previous as temporary buffer (zero-copy optimization)
-        // TODO: Implement proper memory management for VOF compression operations
-        // DEPENDENCIES: Add efficient buffer management and memory pool for VOF operations
-        // BLOCKED BY: Limited understanding of VOF memory requirements and access patterns
-        // PRIORITY: Medium - Important for performance and memory efficiency
-        solver.alpha_previous.copy_from_slice(&solver.alpha);
+        // We iterate over the entire domain to merge copy and update, avoiding a separate full copy
 
-        for k in 1..solver.nz - 1 {
-            for j in 1..solver.ny - 1 {
-                for i in 1..solver.nx - 1 {
+        for k in 0..solver.nz {
+            for j in 0..solver.ny {
+                for i in 0..solver.nx {
                     let idx = solver.index(i, j, k);
+                    let alpha = solver.alpha[idx];
+
+                    // Boundary or bulk phase: just copy
+                    if k == 0
+                        || k == solver.nz - 1
+                        || j == 0
+                        || j == solver.ny - 1
+                        || i == 0
+                        || i == solver.nx - 1
+                    {
+                        solver.alpha_previous[idx] = alpha;
+                        continue;
+                    }
 
                     // Only apply compression near interface
-                    let alpha = solver.alpha[idx];
                     if alpha > T::from_f64(VOF_INTERFACE_LOWER).unwrap_or(T::zero())
                         && alpha < T::from_f64(VOF_INTERFACE_UPPER).unwrap_or(T::one())
                     {
@@ -236,7 +238,11 @@ impl AdvectionMethod {
                             // Bound volume fraction
                             solver.alpha_previous[idx] =
                                 solver.alpha_previous[idx].max(T::zero()).min(T::one());
+                        } else {
+                            solver.alpha_previous[idx] = alpha;
                         }
+                    } else {
+                        solver.alpha_previous[idx] = alpha;
                     }
                 }
             }
