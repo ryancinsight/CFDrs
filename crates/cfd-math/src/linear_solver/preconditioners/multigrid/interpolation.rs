@@ -19,45 +19,129 @@ pub fn create_classical_interpolation<T: RealField + Copy + FromPrimitive>(
     let mut col_indices = Vec::new();
     let mut values = Vec::new();
 
+    // Fast lookup for coarse points: mapping global index -> local coarse index
+    let mut coarse_map = vec![None; fine_n];
+    for (local_idx, &global_idx) in coarse_points.iter().enumerate() {
+        if global_idx < fine_n {
+            coarse_map[global_idx] = Some(local_idx);
+        }
+    }
+
     for fine_i in 0..fine_n {
-        if coarse_points.contains(&fine_i) {
-            // Direct injection for coarse points (C-points)
-            let coarse_idx = coarse_points.iter().position(|&x| x == fine_i).unwrap();
+        if let Some(coarse_idx) = coarse_map[fine_i] {
+            // Point is a C-point: Direct injection
             col_indices.push(coarse_idx);
             values.push(T::one());
         } else {
-            // Compute weights based on strong connections to coarse points
-            let mut weights = Vec::new();
-            let mut total_weight = T::zero();
+            // Point is an F-point: Interpolate from C-neighbors using Ruge-Stüben formula
+            // w_ij = - ( A_ij + sum_{k in F_i^s} ( A_ik * A_kj / sum_{m in C_i} A_km ) ) / ( A_ii + sum_{n in D_i^w} A_in )
 
             let row_start = fine_matrix.row_offsets()[fine_i];
             let row_end = fine_matrix.row_offsets()[fine_i + 1];
+            let fine_row_cols = &fine_matrix.col_indices()[row_start..row_end];
+            let fine_row_vals = &fine_matrix.values()[row_start..row_end];
 
-            for k in row_start..row_end {
-                let neighbor_idx = fine_matrix.col_indices()[k];
-                if let Some(coarse_local_idx) =
-                    coarse_points.iter().position(|&x| x == neighbor_idx)
-                {
-                    let strength = strength_matrix
-                        .get_entry(fine_i, neighbor_idx)
-                        .map_or(T::zero(), |e| e.into_value());
-                    // Simple distance-weighted interpolation
-                    let distance = T::one(); // TODO: Compute an actual distance metric for interpolation weights.
-                    let weight = strength / (distance + T::one());
-                    weights.push((coarse_local_idx, weight));
-                    total_weight += weight;
+            let strength_start = strength_matrix.row_offsets()[fine_i];
+            let strength_end = strength_matrix.row_offsets()[fine_i + 1];
+            let strength_cols = &strength_matrix.col_indices()[strength_start..strength_end];
+
+            // Identify sets C_i (strong C-points) and F_i^s (strong F-points)
+            let mut c_i = Vec::new();
+            let mut f_i_s = Vec::new();
+
+            for &neighbor_idx in strength_cols {
+                if coarse_map[neighbor_idx].is_some() {
+                    c_i.push(neighbor_idx);
+                } else if neighbor_idx != fine_i {
+                    f_i_s.push(neighbor_idx);
                 }
             }
 
-            weights.sort_by(|a, b| a.0.cmp(&b.0));
-            for &(coarse_idx, weight) in &weights {
-                let normalized_weight = if total_weight > T::zero() {
-                    weight / total_weight
-                } else {
-                    T::one() / T::from_usize(weights.len()).unwrap_or_else(T::one)
-                };
-                col_indices.push(coarse_idx);
-                values.push(normalized_weight);
+            if c_i.is_empty() {
+                // If no strong C-points, we can't interpolate strongly.
+                // Fallback to zero or weak interpolation?
+                // Usually implies poor coarsening or isolated F-point.
+                // Leaving row empty effectively means zero value (Dirichlet-like).
+            } else {
+                // Identify diagonal A_ii and sum of weak connections
+                let mut a_ii = T::zero();
+                let mut sum_weak = T::zero();
+
+                for (k, &neighbor_idx) in fine_row_cols.iter().enumerate() {
+                    let val = fine_row_vals[k];
+                    if neighbor_idx == fine_i {
+                        a_ii = val;
+                    } else {
+                        // Check if connection is strong
+                        if strength_cols.binary_search(&neighbor_idx).is_err() {
+                            // Weak connection, add to diagonal sum
+                            sum_weak += val;
+                        }
+                    }
+                }
+
+                let diagonal = a_ii + sum_weak;
+
+                if diagonal.abs() > T::default_epsilon() {
+                    // Precompute denominators for k in F_i^s: sum_{m in C_i} A_km
+                    let mut k_denoms = Vec::with_capacity(f_i_s.len());
+                    for &k in &f_i_s {
+                        let mut denom = T::zero();
+                        for &m in &c_i {
+                            if let Some(val) = fine_matrix.get_entry(k, m) {
+                                denom += val.into_value();
+                            }
+                        }
+                        k_denoms.push(denom);
+                    }
+
+                    // Compute weights for each j in C_i
+                    let mut weights = Vec::new();
+                    let neg_diag_inv = T::one() / -diagonal;
+
+                    for &j in &c_i {
+                        let coarse_local_idx = coarse_map[j].unwrap();
+
+                        // A_ij (direct connection)
+                        let mut a_ij = T::zero();
+                        if let Ok(idx) = fine_row_cols.binary_search(&j) {
+                            a_ij = fine_row_vals[idx];
+                        }
+
+                        let mut indirect_sum = T::zero();
+
+                        // Sum over k in F_i^s
+                        for (idx, &k) in f_i_s.iter().enumerate() {
+                            let denom = k_denoms[idx];
+                            if denom.abs() > T::default_epsilon() {
+                                // A_ik
+                                let mut a_ik = T::zero();
+                                if let Ok(k_idx) = fine_row_cols.binary_search(&k) {
+                                    a_ik = fine_row_vals[k_idx];
+                                }
+
+                                // A_kj
+                                let mut a_kj = T::zero();
+                                if let Some(val) = fine_matrix.get_entry(k, j) {
+                                    a_kj = val.into_value();
+                                }
+
+                                indirect_sum += a_ik * a_kj / denom;
+                            }
+                        }
+
+                        let weight = (a_ij + indirect_sum) * neg_diag_inv;
+                        weights.push((coarse_local_idx, weight));
+                    }
+
+                    // Sort by index for CSR format
+                    weights.sort_by_key(|w| w.0);
+
+                    for (idx, val) in weights {
+                        col_indices.push(idx);
+                        values.push(val);
+                    }
+                }
             }
         }
         row_offsets[fine_i + 1] = col_indices.len();
@@ -391,6 +475,19 @@ mod tests {
                 .map_or(0.0, |e| e.into_value()),
             1.0
         );
+
+        // For 1D Laplacian 3-point stencil [-1, 2, -1], linear interpolation is exact.
+        // F-point 1 is between C-point 0 and C-point 2. Weight should be 0.5 each.
+        // Formula: w_ij = A_ij / A_ii (negated and simplified since no F-F connections)
+        // A_11 = 2. A_10 = -1, A_12 = -1.
+        // w_10 = -(-1)/2 = 0.5
+        // w_12 = -(-1)/2 = 0.5
+
+        let w10 = interpolation.get_entry(1, 0).map_or(0.0, |e| e.into_value());
+        let w11 = interpolation.get_entry(1, 1).map_or(0.0, |e| e.into_value());
+
+        assert!((w10 - 0.5).abs() < 1e-10, "Weight w10 should be 0.5, got {}", w10);
+        assert!((w11 - 0.5).abs() < 1e-10, "Weight w11 should be 0.5, got {}", w11);
     }
 
     #[test]
@@ -429,5 +526,68 @@ mod tests {
         assert_eq!(interpolated[2], 1.0); // C-point
         assert_eq!(interpolated[3], 0.0); // F-point
         assert_eq!(interpolated[4], 1.0); // C-point
+    }
+
+    #[test]
+    fn test_classical_interpolation_weights() {
+        // Test case with F-F connections in a valid RS coarsening scenario
+        // Triangle configuration:
+        //    0(C)
+        //   /  \
+        //  1(F)-2(F)
+        //  |    |
+        //  3(C) 4(C)
+        //
+        // 1 connected to 0, 2, 3. 2 connected to 0, 1, 4.
+        // F-F connection (1,2) should distribute 2's influence on 1 to common C-neighbor 0.
+
+        let n = 5;
+        let mut matrix_dense = DMatrix::<f64>::zeros(n, n);
+
+        // Setup connections with -1.0, and diagonal 3.0
+        let edges = vec![(0,1), (0,2), (1,2), (1,3), (2,4)];
+
+        for i in 0..n { matrix_dense[(i, i)] = 3.0; }
+
+        for (u, v) in edges {
+            matrix_dense[(u, v)] = -1.0;
+            matrix_dense[(v, u)] = -1.0;
+        }
+        // Fix diagonals for C-points to be consistent with laplacian?
+        // Doesn't strictly matter for interpolation formula as we only look at F-point rows.
+        // Row 1: -1(0), -1(2), -1(3). Sum abs off-diag = 3. Diag=3.
+
+        let matrix = SparseMatrix::from(&matrix_dense);
+
+        let coarse_points = vec![0, 3, 4];
+        // Strength matrix (all neighbors are strong)
+        let mut strength_builder = nalgebra_sparse::CooMatrix::new(n, n);
+        for i in 0..n {
+            for j in 0..n {
+                if i != j && matrix_dense[(i, j)].abs() > 0.0_f64 {
+                    strength_builder.push(i, j, 1.0);
+                }
+            }
+        }
+        let strength_matrix = SparseMatrix::from(&strength_builder);
+
+        let interpolation = create_classical_interpolation(&matrix, &coarse_points, &strength_matrix, 2).unwrap();
+
+        // Coarse mapping: 0->0, 3->1, 4->2
+
+        // Check point 1 (F)
+        // C-neighbors: 0, 3. F-neighbor: 2.
+        // w_{1,0}: Direct -1. Indirect via 2: a_{12}*a_{20}/S_2 = (-1*-1)/(-1-0) = -1. Total -2.
+        // w_{1,0} = -(-2)/3 = 2/3.
+        // w_{1,3}: Direct -1. Indirect via 2: a_{12}*a_{23}/S_2 = (-1*0)/-1 = 0. Total -1.
+        // w_{1,3} = -(-1)/3 = 1/3.
+
+        let w1_0 = interpolation.get_entry(1, 0).map_or(0.0, |e| e.into_value());
+        let w1_3 = interpolation.get_entry(1, 1).map_or(0.0, |e| e.into_value());
+
+        println!("Weights for point 1: w(0)={}, w(3)={}", w1_0, w1_3);
+
+        assert!((w1_0 - 2.0/3.0).abs() < 1e-10, "Expected 2/3, got {}", w1_0);
+        assert!((w1_3 - 1.0/3.0).abs() < 1e-10, "Expected 1/3, got {}", w1_3);
     }
 }
