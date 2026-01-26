@@ -41,20 +41,7 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceCalculator<T> {
             let velocity = if let Some(v) = local_conditions.velocity {
                 v
             } else if let Some(q) = local_conditions.flow_rate {
-                // V = Q / A
-                let area = match geometry {
-                    ChannelGeometry::Circular { diameter, .. } => {
-                        T::from_f64(std::f64::consts::PI).unwrap_or_else(T::zero)
-                            * (*diameter * *diameter)
-                            / T::from_f64(4.0).unwrap_or_else(T::zero)
-                    }
-                    ChannelGeometry::Rectangular { width, height, .. } => *width * *height,
-                };
-                if area <= T::zero() {
-                    return Err(Error::InvalidConfiguration(
-                        "Channel area must be positive to compute Reynolds number".to_string(),
-                    ));
-                }
+                let area = self.area(geometry)?;
                 q / area
             } else {
                 return Err(Error::InvalidConfiguration(
@@ -62,23 +49,8 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceCalculator<T> {
                 ));
             };
 
-            let re = match geometry {
-                ChannelGeometry::Circular { diameter, .. } => {
-                    density * velocity * *diameter / viscosity
-                }
-                ChannelGeometry::Rectangular { width, height, .. } => {
-                    // Dh = 2wh / (w + h)
-                    let denom = *width + *height;
-                    if denom <= T::zero() {
-                        return Err(Error::InvalidConfiguration(
-                            "Channel width + height must be positive to compute hydraulic diameter"
-                                .to_string(),
-                        ));
-                    }
-                    let dh = T::from_f64(2.0).unwrap_or_else(T::zero) * (*width * *height) / denom;
-                    density * velocity * dh / viscosity
-                }
-            };
+            let dh = self.hydraulic_diameter(geometry)?;
+            let re = density * velocity * dh / viscosity;
 
             local_conditions.velocity = Some(velocity);
             local_conditions.reynolds_number = Some(re);
@@ -125,6 +97,36 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceCalculator<T> {
                     ))
                 }
             }
+            ChannelGeometry::Elliptical { length, .. }
+            | ChannelGeometry::Trapezoidal { length, .. }
+            | ChannelGeometry::Custom { length, .. } => {
+                let re = local_conditions.reynolds_number.ok_or_else(|| {
+                    Error::InvalidConfiguration(
+                        "Reynolds number required for non-circular resistance calculation"
+                            .to_string(),
+                    )
+                })?;
+                let laminar_limit = T::from_f64(2300.0).unwrap_or_else(T::zero);
+                if re < laminar_limit {
+                    let poiseuille_number = self.poiseuille_number(geometry)?;
+                    let area = self.area(geometry)?;
+                    let dh = self.hydraulic_diameter(geometry)?;
+                    let resistance = (poiseuille_number * fluid.viscosity * *length)
+                        / (T::from_f64(2.0).unwrap_or_else(T::zero) * area * dh * dh);
+                    Ok(resistance)
+                } else {
+                    let dh = self.hydraulic_diameter(geometry)?;
+                    let dw = DarcyWeisbachModel::circular(dh, *length, T::zero());
+                    if dw.is_applicable(&local_conditions) {
+                        dw.validate_invariants(fluid, &local_conditions)?;
+                        dw.calculate_resistance(fluid, &local_conditions)
+                    } else {
+                        Err(Error::InvalidConfiguration(
+                            "No applicable resistance model for non-circular channel at the given Reynolds number".to_string(),
+                        ))
+                    }
+                }
+            }
         }
     }
 
@@ -145,20 +147,7 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceCalculator<T> {
             let velocity = if let Some(v) = local_conditions.velocity {
                 v
             } else if let Some(q) = local_conditions.flow_rate {
-                // V = Q / A
-                let area = match geometry {
-                    ChannelGeometry::Circular { diameter, .. } => {
-                        T::from_f64(std::f64::consts::PI).unwrap_or_else(T::zero)
-                            * (*diameter * *diameter)
-                            / T::from_f64(4.0).unwrap_or_else(T::zero)
-                    }
-                    ChannelGeometry::Rectangular { width, height, .. } => *width * *height,
-                };
-                if area <= T::zero() {
-                    return Err(Error::InvalidConfiguration(
-                        "Channel area must be positive to compute Reynolds number".to_string(),
-                    ));
-                }
+                let area = self.area(geometry)?;
                 q / area
             } else {
                 return Err(Error::InvalidConfiguration(
@@ -166,23 +155,8 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceCalculator<T> {
                 ));
             };
 
-            let re = match geometry {
-                ChannelGeometry::Circular { diameter, .. } => {
-                    density * velocity * *diameter / viscosity
-                }
-                ChannelGeometry::Rectangular { width, height, .. } => {
-                    // Dh = 2wh / (w + h)
-                    let denom = *width + *height;
-                    if denom <= T::zero() {
-                        return Err(Error::InvalidConfiguration(
-                            "Channel width + height must be positive to compute hydraulic diameter"
-                                .to_string(),
-                        ));
-                    }
-                    let dh = T::from_f64(2.0).unwrap_or_else(T::zero) * (*width * *height) / denom;
-                    density * velocity * dh / viscosity
-                }
-            };
+            let dh = self.hydraulic_diameter(geometry)?;
+            let re = density * velocity * dh / viscosity;
 
             local_conditions.velocity = Some(velocity);
             local_conditions.reynolds_number = Some(re);
@@ -229,6 +203,180 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceCalculator<T> {
                     ))
                 }
             }
+            ChannelGeometry::Elliptical { length, .. }
+            | ChannelGeometry::Trapezoidal { length, .. }
+            | ChannelGeometry::Custom { length, .. } => {
+                let re = local_conditions.reynolds_number.ok_or_else(|| {
+                    Error::InvalidConfiguration(
+                        "Reynolds number required for non-circular resistance calculation"
+                            .to_string(),
+                    )
+                })?;
+                let laminar_limit = T::from_f64(2300.0).unwrap_or_else(T::zero);
+                if re < laminar_limit {
+                    let poiseuille_number = self.poiseuille_number(geometry)?;
+                    let area = self.area(geometry)?;
+                    let dh = self.hydraulic_diameter(geometry)?;
+                    let resistance = (poiseuille_number * fluid.viscosity * *length)
+                        / (T::from_f64(2.0).unwrap_or_else(T::zero) * area * dh * dh);
+                    Ok((resistance, T::zero()))
+                } else {
+                    let dh = self.hydraulic_diameter(geometry)?;
+                    let dw = DarcyWeisbachModel::circular(dh, *length, T::zero());
+                    if dw.is_applicable(&local_conditions) {
+                        dw.validate_invariants(fluid, &local_conditions)?;
+                        dw.calculate_coefficients(fluid, &local_conditions)
+                    } else {
+                        Err(Error::InvalidConfiguration(
+                            "No applicable resistance model for non-circular channel at the given Reynolds number".to_string(),
+                        ))
+                    }
+                }
+            }
+        }
+    }
+
+    fn area(&self, geometry: &ChannelGeometry<T>) -> Result<T> {
+        let area = match geometry {
+            ChannelGeometry::Circular { diameter, .. } => {
+                T::from_f64(std::f64::consts::PI).unwrap_or_else(T::zero)
+                    * (*diameter * *diameter)
+                    / T::from_f64(4.0).unwrap_or_else(T::zero)
+            }
+            ChannelGeometry::Rectangular { width, height, .. } => *width * *height,
+            ChannelGeometry::Elliptical {
+                major_axis,
+                minor_axis,
+                ..
+            } => {
+                T::from_f64(std::f64::consts::PI).unwrap_or_else(T::zero) * *major_axis
+                    * *minor_axis
+                    / T::from_f64(4.0).unwrap_or_else(T::zero)
+            }
+            ChannelGeometry::Trapezoidal {
+                top_width,
+                bottom_width,
+                height,
+                ..
+            } => {
+                (*top_width + *bottom_width) * *height
+                    / T::from_f64(2.0).unwrap_or_else(T::zero)
+            }
+            ChannelGeometry::Custom { area, .. } => *area,
+        };
+        if area <= T::zero() {
+            return Err(Error::InvalidConfiguration(
+                "Channel area must be positive to compute Reynolds number".to_string(),
+            ));
+        }
+        Ok(area)
+    }
+
+    fn hydraulic_diameter(&self, geometry: &ChannelGeometry<T>) -> Result<T> {
+        let dh = match geometry {
+            ChannelGeometry::Circular { diameter, .. } => *diameter,
+            ChannelGeometry::Rectangular { width, height, .. } => {
+                let denom = *width + *height;
+                if denom <= T::zero() {
+                    return Err(Error::InvalidConfiguration(
+                        "Channel width + height must be positive to compute hydraulic diameter"
+                            .to_string(),
+                    ));
+                }
+                T::from_f64(2.0).unwrap_or_else(T::zero) * (*width * *height) / denom
+            }
+            ChannelGeometry::Elliptical {
+                major_axis,
+                minor_axis,
+                ..
+            } => {
+                let area = self.area(geometry)?;
+                let a = *major_axis / T::from_f64(2.0).unwrap_or_else(T::zero);
+                let b = *minor_axis / T::from_f64(2.0).unwrap_or_else(T::zero);
+                let denom = a + b;
+                if denom <= T::zero() {
+                    return Err(Error::InvalidConfiguration(
+                        "Ellipse axes must be positive to compute hydraulic diameter".to_string(),
+                    ));
+                }
+                let h = ((a - b) / denom).powi(2);
+                let perimeter = T::from_f64(std::f64::consts::PI).unwrap_or_else(T::zero)
+                    * denom
+                    * (T::one()
+                        + T::from_f64(3.0).unwrap_or_else(T::zero) * h
+                            / (T::from_f64(10.0).unwrap_or_else(T::zero)
+                                + (T::from_f64(4.0).unwrap_or_else(T::zero)
+                                    - T::from_f64(3.0).unwrap_or_else(T::zero) * h)
+                                    .sqrt()));
+                T::from_f64(4.0).unwrap_or_else(T::zero) * area / perimeter
+            }
+            ChannelGeometry::Trapezoidal {
+                top_width,
+                bottom_width,
+                height,
+                ..
+            } => {
+                let area = self.area(geometry)?;
+                let hw =
+                    (*top_width - *bottom_width) / T::from_f64(2.0).unwrap_or_else(T::zero);
+                let side_length = (height.powi(2) + hw.powi(2)).sqrt();
+                let perimeter = *top_width
+                    + *bottom_width
+                    + T::from_f64(2.0).unwrap_or_else(T::zero) * side_length;
+                T::from_f64(4.0).unwrap_or_else(T::zero) * area / perimeter
+            }
+            ChannelGeometry::Custom {
+                hydraulic_diameter,
+                ..
+            } => *hydraulic_diameter,
+        };
+        if dh <= T::zero() {
+            return Err(Error::InvalidConfiguration(
+                "Hydraulic diameter must be positive for resistance calculation".to_string(),
+            ));
+        }
+        Ok(dh)
+    }
+
+    fn poiseuille_number(&self, geometry: &ChannelGeometry<T>) -> Result<T> {
+        match geometry {
+            ChannelGeometry::Elliptical {
+                major_axis,
+                minor_axis,
+                ..
+            } => {
+                if *minor_axis <= T::zero() {
+                    return Err(Error::InvalidConfiguration(
+                        "Ellipse minor axis must be positive for Poiseuille number".to_string(),
+                    ));
+                }
+                let ratio = (*major_axis / *minor_axis) * (*major_axis / *minor_axis);
+                Ok(T::from_f64(64.0).unwrap_or_else(T::zero) * (T::one() + ratio)
+                    / T::from_f64(2.0).unwrap_or_else(T::one))
+            }
+            ChannelGeometry::Trapezoidal {
+                top_width,
+                bottom_width,
+                height,
+                ..
+            } => {
+                if *height <= T::zero() {
+                    return Err(Error::InvalidConfiguration(
+                        "Trapezoid height must be positive for Poiseuille number".to_string(),
+                    ));
+                }
+                let avg_width =
+                    (*top_width + *bottom_width) / T::from_f64(2.0).unwrap_or_else(T::one);
+                let aspect = avg_width / *height;
+                Ok(T::from_f64(64.0).unwrap_or_else(T::zero)
+                    * (T::one() + T::from_f64(0.1).unwrap_or_else(T::zero) * aspect))
+            }
+            ChannelGeometry::Custom { .. } => {
+                Ok(T::from_f64(64.0).unwrap_or_else(T::zero))
+            }
+            _ => Err(Error::InvalidConfiguration(
+                "Poiseuille number is not defined for this geometry".to_string(),
+            )),
         }
     }
 

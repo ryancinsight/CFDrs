@@ -21,4 +21,33 @@ pub enum ChannelGeometry<T: RealField + Copy> {
         /// Length of the channel
         length: T,
     },
+    /// Elliptical channel
+    Elliptical {
+        /// Major axis length of the ellipse
+        major_axis: T,
+        /// Minor axis length of the ellipse
+        minor_axis: T,
+        /// Length of the channel
+        length: T,
+    },
+    /// Trapezoidal channel
+    Trapezoidal {
+        /// Width at the top of the trapezoid
+        top_width: T,
+        /// Width at the bottom of the trapezoid
+        bottom_width: T,
+        /// Height of the trapezoid
+        height: T,
+        /// Length of the channel
+        length: T,
+    },
+    /// Custom cross-section channel
+    Custom {
+        /// Cross-sectional area
+        area: T,
+        /// Hydraulic diameter (4 * area / perimeter)
+        hydraulic_diameter: T,
+        /// Length of the channel
+        length: T,
+    },
 }

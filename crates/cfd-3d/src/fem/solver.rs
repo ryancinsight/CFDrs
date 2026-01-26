@@ -64,11 +64,6 @@
 //! - Tezduyar, T.E. (1991). PSPG stabilization
 //! - Girault, V. & Raviart, P.A. (1986). *Finite Element Methods for Navier-Stokes Equations*
 
-// TODO(HIGH): Complete FEM Boundary Condition Support - Implement per-component BCs, Neumann, Robin, periodic constraints
-// Links individual TODOs at lines 391,403,409,422,435 into unified boundary condition framework
-// Dependencies: Mesh geometry processing, boundary element integration
-// Mathematical Foundation: Hughes (2000) Chapter 4 - Natural boundary conditions via weak formulation
-
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_math::linear_solver::{BiCGSTAB, LinearSolver};
@@ -157,6 +152,29 @@ fn compute_face_area<T: RealField + Copy>(face: &Face, mesh: &Mesh<T>) -> T {
         }
     }
     total_area
+}
+
+fn compute_mesh_scale<T: RealField + Copy + Float>(mesh: &Mesh<T>) -> T {
+    let mut min = Vector3::new(T::infinity(), T::infinity(), T::infinity());
+    let mut max = Vector3::new(T::neg_infinity(), T::neg_infinity(), T::neg_infinity());
+
+    for vertex in mesh.vertices() {
+        let pos = vertex.position.coords;
+        min.x = Float::min(min.x, pos.x);
+        min.y = Float::min(min.y, pos.y);
+        min.z = Float::min(min.z, pos.z);
+        max.x = Float::max(max.x, pos.x);
+        max.y = Float::max(max.y, pos.y);
+        max.z = Float::max(max.z, pos.z);
+    }
+
+    let diff = max - min;
+    let scale = Float::sqrt(diff.x * diff.x + diff.y * diff.y + diff.z * diff.z);
+    if scale.is_finite() && scale > T::zero() {
+        scale
+    } else {
+        T::one()
+    }
 }
 
 impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
@@ -406,6 +424,232 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
         result
     }
 
+    fn collect_boundary_label_nodes(
+        &self,
+        mesh: &Mesh<T>,
+    ) -> Result<std::collections::HashMap<String, Vec<usize>>> {
+        use std::collections::{HashMap, HashSet};
+
+        let mut label_nodes: HashMap<String, HashSet<usize>> = HashMap::new();
+        for face_idx in mesh.boundary_faces() {
+            let label = mesh
+                .boundary_label(face_idx)
+                .ok_or_else(|| {
+                    Error::InvalidConfiguration(format!(
+                        "Boundary face {face_idx} missing label"
+                    ))
+                })?
+                .to_string();
+            let face = mesh.face(face_idx).ok_or_else(|| {
+                Error::InvalidConfiguration(format!("Boundary face {face_idx} not found"))
+            })?;
+            let entry = label_nodes.entry(label).or_default();
+            entry.extend(face.vertices.iter().copied());
+        }
+
+        Ok(label_nodes
+            .into_iter()
+            .map(|(label, nodes)| (label, nodes.into_iter().collect()))
+            .collect())
+    }
+
+    fn compute_periodic_pairs(&self, problem: &StokesFlowProblem<T>) -> Result<Vec<(usize, usize)>> {
+        use std::collections::HashSet;
+
+        let label_nodes = self.collect_boundary_label_nodes(&problem.mesh)?;
+        let label_partner = self.build_label_partner(problem, &label_nodes)?;
+        self.validate_label_partner(&label_partner, &label_nodes)?;
+
+        let mesh_scale = compute_mesh_scale(&problem.mesh);
+        let tol = mesh_scale * T::from_f64(1e-8).unwrap_or_else(T::one);
+
+        let mut pairs = Vec::new();
+        let mut handled: HashSet<String> = HashSet::new();
+
+        for (label, partner) in &label_partner {
+            if handled.contains(label) {
+                continue;
+            }
+            handled.insert(label.clone());
+            handled.insert(partner.clone());
+            let mut label_pairs =
+                self.match_periodic_nodes(problem, label, partner, &label_nodes, tol)?;
+            pairs.append(&mut label_pairs);
+        }
+
+        Ok(pairs)
+    }
+
+    fn build_label_partner(
+        &self,
+        problem: &StokesFlowProblem<T>,
+        label_nodes: &std::collections::HashMap<String, Vec<usize>>,
+    ) -> Result<std::collections::HashMap<String, String>> {
+        use std::collections::{HashMap, HashSet};
+
+        let mut label_partner: HashMap<String, String> = HashMap::new();
+        for (label, nodes) in label_nodes {
+            let mut partners: HashSet<String> = HashSet::new();
+            for node in nodes {
+                if let Some(BoundaryCondition::Periodic { partner }) =
+                    problem.boundary_conditions.get(node)
+                {
+                    partners.insert(partner.clone());
+                }
+            }
+            if partners.is_empty() {
+                continue;
+            }
+            if partners.len() > 1 {
+                return Err(Error::InvalidConfiguration(format!(
+                    "Multiple periodic partners found for boundary label {label}"
+                )));
+            }
+            let partner = partners
+                .into_iter()
+                .next()
+                .unwrap_or_else(|| label.clone());
+            label_partner.insert(label.clone(), partner);
+        }
+
+        Ok(label_partner)
+    }
+
+    fn validate_label_partner(
+        &self,
+        label_partner: &std::collections::HashMap<String, String>,
+        label_nodes: &std::collections::HashMap<String, Vec<usize>>,
+    ) -> Result<()> {
+        for (label, partner) in label_partner {
+            if !label_nodes.contains_key(partner) {
+                return Err(Error::InvalidConfiguration(format!(
+                    "Periodic partner boundary {partner} not found for {label}"
+                )));
+            }
+            if let Some(partner_partner) = label_partner.get(partner) {
+                if partner_partner != label {
+                    return Err(Error::InvalidConfiguration(format!(
+                        "Periodic boundary mismatch: {label} -> {partner}, but {partner} -> {partner_partner}"
+                    )));
+                }
+            } else {
+                return Err(Error::InvalidConfiguration(format!(
+                    "Periodic boundary {partner} missing reciprocal mapping to {label}"
+                )));
+            }
+        }
+
+        Ok(())
+    }
+
+    fn match_periodic_nodes(
+        &self,
+        problem: &StokesFlowProblem<T>,
+        label: &str,
+        partner: &str,
+        label_nodes: &std::collections::HashMap<String, Vec<usize>>,
+        tol: T,
+    ) -> Result<Vec<(usize, usize)>> {
+        use std::collections::HashSet;
+
+        let left_nodes = label_nodes
+            .get(label)
+            .ok_or_else(|| Error::InvalidConfiguration(format!("Boundary label {label} not found")))?;
+        let right_nodes = label_nodes.get(partner).ok_or_else(|| {
+            Error::InvalidConfiguration(format!("Boundary label {partner} not found"))
+        })?;
+
+        let left_centroid = self.compute_nodes_centroid(&problem.mesh, left_nodes)?;
+        let right_centroid = self.compute_nodes_centroid(&problem.mesh, right_nodes)?;
+        let delta = right_centroid - left_centroid;
+
+        let mut right_positions: Vec<(usize, Vector3<T>)> = Vec::with_capacity(right_nodes.len());
+        for &node in right_nodes {
+            let pos = problem
+                .mesh
+                .vertex(node)
+                .ok_or_else(|| {
+                    Error::InvalidConfiguration(format!(
+                        "Boundary node {node} not found in mesh"
+                    ))
+                })?
+                .position
+                .coords;
+            right_positions.push((node, pos));
+        }
+
+        let mut pairs = Vec::with_capacity(left_nodes.len());
+        let mut used_right: HashSet<usize> = HashSet::new();
+        for &left_node in left_nodes {
+            let left_pos = problem
+                .mesh
+                .vertex(left_node)
+                .ok_or_else(|| {
+                    Error::InvalidConfiguration(format!(
+                        "Boundary node {left_node} not found in mesh"
+                    ))
+                })?
+                .position
+                .coords;
+            let target = left_pos + delta;
+
+            let mut best: Option<(usize, T)> = None;
+            for (right_node, right_pos) in &right_positions {
+                if used_right.contains(right_node) {
+                    continue;
+                }
+                let diff = target - *right_pos;
+                let dist = Float::sqrt(diff.x * diff.x + diff.y * diff.y + diff.z * diff.z);
+                if let Some((_, best_dist)) = best {
+                    if dist < best_dist {
+                        best = Some((*right_node, dist));
+                    }
+                } else {
+                    best = Some((*right_node, dist));
+                }
+            }
+
+            if let Some((right_node, dist)) = best {
+                if dist <= tol {
+                    used_right.insert(right_node);
+                    pairs.push((left_node, right_node));
+                } else {
+                    return Err(Error::InvalidConfiguration(format!(
+                        "Periodic node pairing failed for {left_node} -> {right_node} (distance {dist:?} exceeds tolerance)"
+                    )));
+                }
+            } else {
+                return Err(Error::InvalidConfiguration(format!(
+                    "Periodic node pairing failed for boundary node {left_node}"
+                )));
+            }
+        }
+
+        Ok(pairs)
+    }
+
+    fn compute_nodes_centroid(
+        &self,
+        mesh: &Mesh<T>,
+        nodes: &[usize],
+    ) -> Result<Vector3<T>> {
+        let mut sum = Vector3::new(T::zero(), T::zero(), T::zero());
+        let count = T::from_usize(nodes.len()).unwrap_or_else(T::one);
+        for &node in nodes {
+            let pos = mesh
+                .vertex(node)
+                .ok_or_else(|| {
+                Error::InvalidConfiguration(format!(
+                    "Boundary node {node} not found in mesh"
+                ))
+                })?
+                .position
+                .coords;
+            sum += pos;
+        }
+        Ok(sum / count)
+    }
+
     /// Apply Neumann boundary conditions via boundary integrals
     fn apply_neumann_boundary_conditions(
         &self,
@@ -551,6 +795,8 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
         // Apply Robin BCs (boundary integrals)
         self.apply_robin_boundary_conditions(builder, rhs, problem)?;
 
+        self.apply_periodic_boundary_conditions(builder, rhs, problem)?;
+
         // Apply Dirichlet boundary conditions using penalty method
         let penalty = T::from_f64(1e10).unwrap_or_else(T::one);
 
@@ -633,6 +879,37 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
                     // Unknown or unsupported boundary condition types
                     // Log a warning but don't fail - allows for graceful degradation
                     tracing::warn!("Unsupported boundary condition type at node {}", node_idx);
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    fn apply_periodic_boundary_conditions(
+        &self,
+        builder: &mut SparseMatrixBuilder<T>,
+        rhs: &mut DVector<T>,
+        problem: &StokesFlowProblem<T>,
+    ) -> Result<()> {
+        let pairs = self.compute_periodic_pairs(problem)?;
+        if pairs.is_empty() {
+            return Ok(());
+        }
+
+        let penalty = T::from_f64(1e10).unwrap_or_else(T::one);
+        let dofs_per_node = constants::VELOCITY_COMPONENTS + 1;
+
+        for (left, right) in pairs {
+            let left_base = left * dofs_per_node;
+            let right_base = right * dofs_per_node;
+            for i in 0..dofs_per_node {
+                let left_dof = left_base + i;
+                let right_dof = right_base + i;
+                builder.add_entry(left_dof, left_dof, penalty)?;
+                builder.add_entry(left_dof, right_dof, -penalty)?;
+                if left_dof < rhs.len() {
+                    rhs[left_dof] = T::zero();
                 }
             }
         }

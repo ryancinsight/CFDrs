@@ -318,7 +318,32 @@ impl<T: RealField + Copy + FromPrimitive> Network<T> {
                                 length: geometry.length,
                             }
                         }
-                        _ => continue, // TODO: Support remaining CrossSection variants in resistance mapping.
+                        crate::channel::CrossSection::Elliptical {
+                            major_axis,
+                            minor_axis,
+                        } => crate::resistance::ChannelGeometry::Elliptical {
+                            major_axis: *major_axis,
+                            minor_axis: *minor_axis,
+                            length: geometry.length,
+                        },
+                        crate::channel::CrossSection::Trapezoidal {
+                            top_width,
+                            bottom_width,
+                            height,
+                        } => crate::resistance::ChannelGeometry::Trapezoidal {
+                            top_width: *top_width,
+                            bottom_width: *bottom_width,
+                            height: *height,
+                            length: geometry.length,
+                        },
+                        crate::channel::CrossSection::Custom {
+                            area,
+                            hydraulic_diameter,
+                        } => crate::resistance::ChannelGeometry::Custom {
+                            area: *area,
+                            hydraulic_diameter: *hydraulic_diameter,
+                            length: geometry.length,
+                        },
                     };
 
                     // Prepare flow conditions

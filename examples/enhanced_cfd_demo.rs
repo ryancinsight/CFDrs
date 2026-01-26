@@ -24,7 +24,7 @@ use cfd_2d::physics::{
     turbulence::{MilesLES, SigmaModel, VremanModel},
     ImmersedBoundaryMethod,
 };
-use cfd_math::spatial::WenoReconstruction;
+use cfd_math::high_order::weno::WenoReconstruction;
 use cfd_math::time_stepping::RungeKuttaChebyshev;
 use nalgebra::Vector2;
 

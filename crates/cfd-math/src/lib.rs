@@ -142,7 +142,6 @@ pub mod linear_solver;
 pub mod performance_monitor;
 pub mod simd;
 pub mod sparse;
-pub mod spatial;
 pub mod time_stepping;
 
 // --- Curated Top-Level API ---

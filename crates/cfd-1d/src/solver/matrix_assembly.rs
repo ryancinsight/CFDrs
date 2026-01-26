@@ -78,6 +78,12 @@ impl<T: RealField + Copy + FromPrimitive + Copy + Send + Sync + Copy> MatrixAsse
         let mut neumann_sources: std::collections::HashMap<usize, T> =
             std::collections::HashMap::new();
         for (&node_idx, bc) in network.boundary_conditions() {
+            if network.graph.node_weight(node_idx).is_none() {
+                return Err(Error::InvalidConfiguration(format!(
+                    "Boundary condition references missing node {}",
+                    node_idx.index()
+                )));
+            }
             let idx: usize = node_idx.index();
             match bc {
                 crate::network::BoundaryCondition::Dirichlet { value, .. } => {
@@ -94,6 +100,27 @@ impl<T: RealField + Copy + FromPrimitive + Copy + Send + Sync + Copy> MatrixAsse
             }
         }
 
+        if dirichlet_values.is_empty() {
+            return Err(Error::InvalidConfiguration(
+                "At least one Dirichlet boundary condition is required".to_string(),
+            ));
+        }
+
+        for node_idx in network.graph.node_indices() {
+            if network
+                .graph
+                .neighbors_undirected(node_idx)
+                .next()
+                .is_none()
+                && !dirichlet_values.contains_key(&node_idx.index())
+            {
+                return Err(Error::InvalidConfiguration(format!(
+                    "Isolated node without Dirichlet condition: {}",
+                    node_idx.index()
+                )));
+            }
+        }
+
         // Use a simple, sequential loop for better performance and clarity
         // Exact Dirichlet enforcement via row-replacement:
         // - Skip assembling row/column entries touching Dirichlet nodes
@@ -102,11 +129,12 @@ impl<T: RealField + Copy + FromPrimitive + Copy + Send + Sync + Copy> MatrixAsse
             let (i, j) = edge.nodes;
             let conductance = edge.conductance;
 
-            // Basic validity: conductance must be finite and positive
-            // TODO: Implement comprehensive network validation and error handling
-            // DEPENDENCIES: Add advanced validation for network topology and physical consistency
-            // BLOCKED BY: Limited understanding of microfluidic network failure modes
-            // PRIORITY: Medium - Important for robust network simulation
+            if i == j {
+                return Err(Error::InvalidConfiguration(
+                    "Self-loop edge detected in network assembly".to_string(),
+                ));
+            }
+
             if !conductance.is_finite() {
                 return Err(Error::InvalidConfiguration(format!(
                     "Non-finite conductance encountered in network assembly: {conductance:?}"
