@@ -236,10 +236,6 @@ impl<T: RealField + FromPrimitive + Copy> BinghamPlastic<T> {
 
 impl<T: RealField + FromPrimitive + Copy> FluidTrait<T> for BinghamPlastic<T> {
     fn properties_at(&self, _temperature: T, _pressure: T) -> Result<FluidState<T>, Error> {
-        // TODO: Use reference shear rate for property calculation
-        // DEPENDENCIES: Implement temperature-dependent yield stress and viscosity models
-        // BLOCKED BY: Limited understanding of temperature effects on yield stress behavior
-        // PRIORITY: High - Essential for accurate Bingham plastic CFD simulations
         let apparent_viscosity = self.apparent_viscosity(self.reference_shear_rate);
 
         Ok(FluidState {
