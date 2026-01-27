@@ -91,21 +91,13 @@ fn demonstrate_cfl_adaptation(
     let mut steps = 0;
     let mut total_time = 0.0;
 
-    // Simulate adaptive time stepping with CFL control
-    // In a real CFD code, CFL would be computed from velocity field
     while t < t_final {
-        // For demonstration, simulate varying CFL conditions
-        // In practice, this would be computed from max velocities and grid spacing
-        let cfl_current = 0.5 + 0.3 * (t / t_final).sin(); // Varying CFL
-
-        // Compute adaptive time step (simplified - in practice use actual CFL calculation)
-        // TODO: Implement proper CFL calculation: dt = CFL * min(dx/|u|, dy/|v|, dz/|w|)
-        let dt_adaptive = if cfl_current > 0.0 {
-            0.01 * 0.7 / cfl_current // Simplified CFL-based dt
-        } else {
-            0.01
-        }
-        .clamp(0.001, 0.1); // Clamp to reasonable bounds
+        let dx = 0.01;
+        let dy = 0.01;
+        let u_max = 1.0 + 0.5 * (t / t_final).sin().abs();
+        let v_max = 0.8 + 0.4 * (t / t_final).cos().abs();
+        let dt_cfl = (0.7 * 0.8) * (dx / u_max).min(dy / v_max);
+        let dt_adaptive = dt_cfl.clamp(0.001, 0.1);
 
         // For this demo, simulate the integration step
         let y_new = integrate_step(&test_ode, &y, t, dt_adaptive);

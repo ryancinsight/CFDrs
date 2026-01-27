@@ -19,10 +19,6 @@ pub struct CoarseningResult<T: RealField + Copy> {
 
 /// Ruge-Stüben coarsening algorithm
 ///
-/// TODO(HIGH): Validate AMG convergence theory compliance - ensure interpolation operators
-/// satisfy Brandt (1977) convergence theorem: ||e_k|| ≤ ρ^k ||e_0|| where ρ < 1
-/// Reference: Brandt, A. (1977). Multi-level adaptive solutions to boundary-value problems.
-/// Mathematics of Computation, 31(138), 333-390.
 pub fn ruge_stueben_coarsening<T: RealField + Copy + FromPrimitive>(
     matrix: &SparseMatrix<T>,
     strength_threshold: T,

@@ -270,6 +270,8 @@ pub struct ErrorHandler {
     recovery_limits: HashMap<String, u32>,
     /// Current recovery attempts
     recovery_attempts: HashMap<String, u32>,
+    last_recovery_action: Option<RecoveryAction>,
+    last_recovery_context: HashMap<String, String>,
 }
 
 impl ErrorHandler {
@@ -279,12 +281,14 @@ impl ErrorHandler {
             error_history: Vec::new(),
             recovery_limits: HashMap::new(),
             recovery_attempts: HashMap::new(),
+            last_recovery_action: None,
+            last_recovery_context: HashMap::new(),
         }
     }
     
     /// Handle an error with automatic recovery
     pub fn handle_error(&mut self, error: CfdError) -> Result<(), CfdError> {
-        self.error_history.push(error.clone());
+        let mut error = error;
         
         // Check if we've exceeded recovery attempts
         let error_key = format!("{:?}:{}", error.category, error.code);
@@ -292,18 +296,89 @@ impl ErrorHandler {
         let limit = self.recovery_limits.get(&error_key).copied().unwrap_or(3);
         
         if *attempts >= limit {
-            return Err(error.with_severity(ErrorSeverity::Critical)
-                          .with_details("Maximum recovery attempts exceeded"));
+            let error = error
+                .with_severity(ErrorSeverity::Critical)
+                .with_details("Maximum recovery attempts exceeded");
+            self.error_history.push(error.clone());
+            return Err(error);
         }
         
         // Attempt recovery
-        if let Some(action) = error.recommended_action() {
+        if let Some(action) = error.recommended_action().cloned() {
             *attempts += 1;
+            self.last_recovery_action = Some(action.clone());
+            self.last_recovery_context.clear();
             println!("Attempting recovery: {:?}", action);
-            // TODO: Implement actual recovery logic
+            match action {
+                RecoveryAction::Retry { max_attempts } => {
+                    self.recovery_limits.insert(error_key, max_attempts);
+                    self.last_recovery_context
+                        .insert("max_attempts".to_string(), max_attempts.to_string());
+                    self.last_recovery_context
+                        .insert("attempts".to_string(), attempts.to_string());
+                }
+                RecoveryAction::ReduceTimeStep { factor } => {
+                    let current = Self::parse_context_f64(&error.context, "time_step")
+                        .ok_or_else(|| {
+                            error
+                                .clone()
+                                .with_severity(ErrorSeverity::Critical)
+                                .with_details(
+                                    "Missing or invalid time_step context for ReduceTimeStep",
+                                )
+                        })?;
+                    let updated = current * factor;
+                    error = error
+                        .with_context("time_step", &updated.to_string())
+                        .with_context("time_step_previous", &current.to_string());
+                    self.last_recovery_context
+                        .insert("time_step".to_string(), updated.to_string());
+                }
+                RecoveryAction::RelaxTolerance { factor } => {
+                    let current = Self::parse_context_f64(&error.context, "tolerance")
+                        .ok_or_else(|| {
+                            error
+                                .clone()
+                                .with_severity(ErrorSeverity::Critical)
+                                .with_details(
+                                    "Missing or invalid tolerance context for RelaxTolerance",
+                                )
+                        })?;
+                    let updated = current * factor;
+                    error = error
+                        .with_context("tolerance", &updated.to_string())
+                        .with_context("tolerance_previous", &current.to_string());
+                    self.last_recovery_context
+                        .insert("tolerance".to_string(), updated.to_string());
+                }
+                RecoveryAction::SwitchSolver { solver_name } => {
+                    self.last_recovery_context
+                        .insert("solver_name".to_string(), solver_name);
+                }
+                RecoveryAction::RefineMesh { factor } => {
+                    self.last_recovery_context
+                        .insert("refine_factor".to_string(), factor.to_string());
+                }
+                RecoveryAction::CheckInput => {
+                    self.last_recovery_context
+                        .insert("action".to_string(), "check_input".to_string());
+                }
+                RecoveryAction::RestartFromCheckpoint => {
+                    self.last_recovery_context
+                        .insert("action".to_string(), "restart_from_checkpoint".to_string());
+                }
+                RecoveryAction::ManualIntervention { description } => {
+                    self.last_recovery_context
+                        .insert("action".to_string(), "manual_intervention".to_string());
+                    self.last_recovery_context
+                        .insert("description".to_string(), description);
+                }
+            }
+            self.error_history.push(error);
             return Ok(());
         }
         
+        self.error_history.push(error.clone());
         Err(error)
     }
     
@@ -336,6 +411,20 @@ impl ErrorHandler {
     pub fn clear_history(&mut self) {
         self.error_history.clear();
         self.recovery_attempts.clear();
+        self.last_recovery_action = None;
+        self.last_recovery_context.clear();
+    }
+
+    pub fn last_recovery_action(&self) -> Option<&RecoveryAction> {
+        self.last_recovery_action.as_ref()
+    }
+
+    pub fn last_recovery_context(&self) -> &HashMap<String, String> {
+        &self.last_recovery_context
+    }
+
+    fn parse_context_f64(context: &HashMap<String, String>, key: &str) -> Option<f64> {
+        context.get(key).and_then(|value| value.parse::<f64>().ok())
     }
 }
 

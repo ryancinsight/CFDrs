@@ -5,7 +5,8 @@ use cfd_math::linear_solver::preconditioners::multigrid::{
 };
 use cfd_math::linear_solver::{BiCGSTAB, IterativeSolverConfig, Preconditioner, GMRES};
 use cfd_math::sparse::spmv;
-use nalgebra::{DVector, RealField};
+use nalgebra::{DMatrix, DVector, RealField};
+use nalgebra::linalg::SymmetricEigen;
 use nalgebra_sparse::CsrMatrix;
 use num_traits::FromPrimitive;
 
@@ -65,6 +66,22 @@ fn create_rhs<T: RealField + From<f64> + Copy>(
     let mut rhs = DVector::zeros(matrix.nrows());
     spmv(matrix, solution, &mut rhs);
     rhs
+}
+
+fn csr_to_dense<T: RealField + Copy + FromPrimitive>(matrix: &CsrMatrix<T>) -> DMatrix<T> {
+    let nrows = matrix.nrows();
+    let ncols = matrix.ncols();
+    let mut dense = DMatrix::zeros(nrows, ncols);
+    let offsets = matrix.row_offsets();
+    let indices = matrix.col_indices();
+    let values = matrix.values();
+    for row in 0..nrows {
+        for idx in offsets[row]..offsets[row + 1] {
+            let col = indices[idx];
+            dense[(row, col)] = values[idx];
+        }
+    }
+    dense
 }
 
 #[test]
@@ -211,5 +228,63 @@ fn test_amg_construction_edge_cases() {
     assert!(
         amg_custom.is_ok(),
         "AMG should accept custom configurations"
+    );
+}
+
+#[test]
+fn test_amg_two_grid_convergence_factor() {
+    let n = 6;
+    let matrix = create_poisson_matrix::<f64>(n);
+    let amg = AlgebraicMultigrid::new(
+        &matrix,
+        AMGConfig {
+            max_levels: 2,
+            min_coarse_size: 4,
+            cycle_type: CycleType::VCycle,
+            pre_smooth_iterations: 2,
+            post_smooth_iterations: 2,
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    let size = matrix.nrows();
+    let mut e_matrix = DMatrix::zeros(size, size);
+    for i in 0..size {
+        let mut e = DVector::zeros(size);
+        e[i] = 1.0;
+        let mut r = DVector::zeros(size);
+        spmv(&matrix, &e, &mut r);
+        let mut z = DVector::zeros(size);
+        amg.apply_to(&r, &mut z).unwrap();
+        let e_new = &e - z;
+        for row in 0..size {
+            e_matrix[(row, i)] = e_new[row];
+        }
+    }
+    let a_dense = csr_to_dense(&matrix);
+    let cholesky = match a_dense.clone().cholesky() {
+        Some(factor) => factor,
+        None => panic!("Poisson matrix must be SPD for energy norm evaluation"),
+    };
+    let l_inv = match cholesky.l().try_inverse() {
+        Some(inv) => inv,
+        None => panic!("Cholesky factor must be invertible for energy norm evaluation"),
+    };
+    let a_inv_sqrt = l_inv.transpose();
+    let e_transpose = e_matrix.transpose();
+    let left = &e_transpose * (&a_dense * &e_matrix);
+    let m_tilde = &a_inv_sqrt * left * &l_inv;
+    let eig = SymmetricEigen::new(m_tilde);
+    let mut max_eig = 0.0f64;
+    for val in eig.eigenvalues.iter() {
+        if *val > max_eig {
+            max_eig = *val;
+        }
+    }
+    let rho = max_eig.sqrt();
+    assert!(
+        rho < 1.0,
+        "Two-grid error operator energy norm must be < 1, got {}",
+        rho
     );
 }
