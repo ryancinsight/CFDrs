@@ -18,7 +18,7 @@ use nalgebra::{DVector, RealField};
 #[cfg(feature = "gpu")]
 use num_traits::ToPrimitive;
 #[cfg(feature = "gpu")]
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 #[cfg(feature = "gpu")]
 use wgpu;
 
@@ -30,6 +30,13 @@ pub struct DispatchMetrics {
     pub duration_ms: f64,
     /// Whether the backend supports timestamp queries
     pub timestamp_supported: bool,
+}
+
+/// Internal buffers for the operator to avoid reallocation
+#[cfg(feature = "gpu")]
+struct OperatorBuffers<T: RealField + Copy + bytemuck::Pod + bytemuck::Zeroable> {
+    input: GpuBuffer<T>,
+    output: GpuBuffer<T>,
 }
 
 /// GPU-accelerated 2D Laplacian operator.
@@ -45,6 +52,7 @@ pub struct GpuLaplacianOperator2D<T: RealField + Copy + bytemuck::Pod + bytemuck
     dx: T,
     dy: T,
     bc: BoundaryType,
+    buffers: Mutex<Option<OperatorBuffers<T>>>,
 }
 
 #[cfg(feature = "gpu")]
@@ -70,32 +78,50 @@ impl<T: RealField + Copy + bytemuck::Pod + bytemuck::Zeroable + ToPrimitive>
             dx,
             dy,
             bc: bc_type,
+            buffers: Mutex::new(None),
         }
     }
 
     /// Internal method to apply the operator using CPU buffers (with GPU acceleration)
     async fn apply_gpu_async(&self, x: &[T], y: &mut [T]) -> Result<()> {
-        // Create GPU buffers from CPU data
-        let input_buffer = GpuBuffer::from_data(self.gpu_context.clone(), x)?;
-        let mut output_buffer = GpuBuffer::new(self.gpu_context.clone(), y.len())?;
-
         let dx_f32 = self.dx.to_f32().unwrap_or(1.0);
         let dy_f32 = self.dy.to_f32().unwrap_or(1.0);
 
-        // Execute kernel
-        self.kernel.execute_on_gpu(
-            &input_buffer,
-            &mut output_buffer,
-            self.nx,
-            self.ny,
-            dx_f32,
-            dy_f32,
-            self.bc,
-        )?;
+        // Scope for the mutex lock
+        let result_vec = {
+            let mut buffers_guard = self.buffers.lock().map_err(|_| {
+                cfd_core::error::Error::InvalidConfiguration("Failed to lock GPU buffers".into())
+            })?;
 
-        // Read back results
-        let result = output_buffer.read()?;
-        y.copy_from_slice(&result);
+            // Lazy initialization
+            if buffers_guard.is_none() {
+                let size = self.nx * self.ny;
+                let input = GpuBuffer::new(self.gpu_context.clone(), size)?;
+                let output = GpuBuffer::new(self.gpu_context.clone(), size)?;
+                *buffers_guard = Some(OperatorBuffers { input, output });
+            }
+
+            let buffers = buffers_guard.as_mut().unwrap();
+
+            // Update input buffer
+            buffers.input.write(x)?;
+
+            // Execute kernel using persistent buffers
+            self.kernel.execute_on_gpu(
+                &buffers.input,
+                &mut buffers.output,
+                self.nx,
+                self.ny,
+                dx_f32,
+                dy_f32,
+                self.bc,
+            )?;
+
+            // Read back results
+            buffers.output.read()?
+        };
+
+        y.copy_from_slice(&result_vec);
         Ok(())
     }
 
