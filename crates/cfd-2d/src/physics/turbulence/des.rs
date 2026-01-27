@@ -93,6 +93,10 @@ pub struct DetachedEddySimulation {
     /// GPU compute manager (if GPU acceleration is enabled)
     #[cfg(feature = "gpu")]
     gpu_compute: Option<GpuTurbulenceCompute>,
+    /// Grid spacing in x-direction
+    dx: f64,
+    /// Grid spacing in y-direction
+    dy: f64,
 }
 
 impl DetachedEddySimulation {
@@ -168,6 +172,8 @@ impl DetachedEddySimulation {
             wall_distance,
             #[cfg(feature = "gpu")]
             gpu_compute,
+            dx,
+            dy,
         }
     }
 
@@ -394,6 +400,9 @@ impl LESTurbulenceModel for DetachedEddySimulation {
         dx: f64,
         dy: f64,
     ) -> cfd_core::error::Result<()> {
+        self.dx = dx;
+        self.dy = dy;
+
         // TODO: Couple DES to an underlying RANS model for attached-region length scales.
         self.des_length_scale = self.compute_des_length_scale(velocity_u, velocity_v, dx, dy);
 
@@ -490,10 +499,11 @@ impl DetachedEddySimulation {
     /// Check if a point is in LES mode (DES length scale active)
     pub fn is_les_mode(&self, i: usize, j: usize) -> bool {
         // LES mode when DES length scale is smaller than grid scale
-        // TODO: Compare DES length scale against a consistent local grid scale definition.
         let des_length = self.des_length_scale[(i, j)];
-        // TODO: Use local grid scale (dx, dy) or Δ definition consistent with DES formulation.
-        let grid_scale = 0.1;
+
+        // Use local grid scale (dx, dy) or Δ definition consistent with DES formulation.
+        // For DES97/DDES, Δ = max(dx, dy)
+        let grid_scale = self.dx.max(self.dy);
 
         des_length < grid_scale
     }
