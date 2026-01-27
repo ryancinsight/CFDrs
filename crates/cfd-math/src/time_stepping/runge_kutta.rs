@@ -48,6 +48,7 @@
 use super::traits::TimeStepper;
 use cfd_core::error::Result;
 use nalgebra::{DVector, RealField};
+use std::cell::RefCell;
 
 /// Classical 4th-order Runge-Kutta method
 ///
@@ -219,12 +220,16 @@ impl<T: RealField + Copy> TimeStepper<T> for RungeKutta3<T> {
 /// - Maintains 4th-order accuracy with minimal storage
 pub struct LowStorageRK4<T: RealField> {
     _phantom: std::marker::PhantomData<T>,
+    u_tmp: RefCell<DVector<T>>,
+    u_new: RefCell<DVector<T>>,
 }
 
 impl<T: RealField> Default for LowStorageRK4<T> {
     fn default() -> Self {
         Self {
             _phantom: std::marker::PhantomData,
+            u_tmp: RefCell::new(DVector::from_element(0, T::zero())),
+            u_new: RefCell::new(DVector::from_element(0, T::zero())),
         }
     }
 }
@@ -241,8 +246,22 @@ impl<T: RealField + Copy> TimeStepper<T> for LowStorageRK4<T> {
     where
         F: Fn(T, &DVector<T>) -> Result<DVector<T>>,
     {
-        let mut u_tmp = u.clone();
-        let mut u_new = u.clone();
+        let n = u.len();
+        let mut u_tmp = self.u_tmp.borrow_mut();
+        let mut u_new = self.u_new.borrow_mut();
+
+        // Reuse buffers, resize if necessary
+        if u_tmp.len() != n {
+            *u_tmp = u.clone();
+        } else {
+            u_tmp.as_mut_slice().copy_from_slice(u.as_slice());
+        }
+
+        if u_new.len() != n {
+            *u_new = u.clone();
+        } else {
+            u_new.as_mut_slice().copy_from_slice(u.as_slice());
+        }
 
         // Coefficients for Carpenter-Kennedy low-storage RK4
         let a = [
@@ -277,16 +296,20 @@ impl<T: RealField + Copy> TimeStepper<T> for LowStorageRK4<T> {
 
             // Low-storage update: u_new = a[stage] * u_new + u_tmp
             // u_tmp = u_tmp + b[stage] * dt * rhs
-            for i in 0..u.len() {
-                let u_new_i = a[stage] * u_new[i] + u_tmp[i];
-                let u_tmp_i = u_tmp[i] + b[stage] * dt * rhs[i];
+            let u_new_slice = u_new.as_mut_slice();
+            let u_tmp_slice = u_tmp.as_mut_slice();
+            let rhs_slice = rhs.as_slice();
 
-                u_new[i] = u_new_i;
-                u_tmp[i] = u_tmp_i;
+            for i in 0..n {
+                let u_new_i = a[stage] * u_new_slice[i] + u_tmp_slice[i];
+                let u_tmp_i = u_tmp_slice[i] + b[stage] * dt * rhs_slice[i];
+
+                u_new_slice[i] = u_new_i;
+                u_tmp_slice[i] = u_tmp_i;
             }
         }
 
-        Ok(u_new)
+        Ok(u_new.clone())
     }
 
     fn order(&self) -> usize {
