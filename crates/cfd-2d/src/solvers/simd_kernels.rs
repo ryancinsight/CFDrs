@@ -130,35 +130,26 @@ pub fn interpolate_velocity_simd(
 
         // Average: face = 0.5 * (left + right)
         processor.ops.add(left, right, face)?;
-        // Scale in-place by creating temporary
-        // TODO: Optimize SIMD operations to avoid unnecessary temporary allocations
-        // DEPENDENCIES: Implement in-place SIMD scaling and fused multiply-add operations
-        // BLOCKED BY: Limited understanding of SIMD processor capabilities and memory layout
-        // PRIORITY: Medium - Important for performance optimization
-        let temp = face.to_vec();
-        processor.ops.scale(&temp, 0.5, face)?;
+        for value in face {
+            *value *= 0.5;
+        }
     }
 
     // Interpolate v-velocity to y-faces
+    let mut temp_bottom = vec![0.0f32; nx];
+    let mut temp_top = vec![0.0f32; nx];
+    let mut temp_face = vec![0.0f32; nx];
     for j in 0..ny - 1 {
-        let mut temp_bottom = Vec::with_capacity(nx);
-        let mut temp_top = Vec::with_capacity(nx);
-        let mut temp_face = vec![0.0f32; nx];
-
         for i in 0..nx {
-            temp_bottom.push(v_cell[i * ny + j]);
-            temp_top.push(v_cell[i * ny + j + 1]);
+            temp_bottom[i] = v_cell[i * ny + j];
+            temp_top[i] = v_cell[i * ny + j + 1];
         }
 
         // Average using SIMD
         processor.ops.add(&temp_bottom, &temp_top, &mut temp_face)?;
-        // Scale with temporary to avoid borrow conflict
-        // TODO: Eliminate temporary allocation and borrow conflicts in SIMD operations
-        // DEPENDENCIES: Implement proper memory management and borrowing patterns for SIMD
-        // BLOCKED BY: Rust ownership rules and SIMD processor interface limitations
-        // PRIORITY: Medium - Important for performance and memory efficiency
-        let temp_copy = temp_face.clone();
-        processor.ops.scale(&temp_copy, 0.5, &mut temp_face)?;
+        for value in &mut temp_face {
+            *value *= 0.5;
+        }
 
         // Copy back
         for i in 0..nx {
