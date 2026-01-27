@@ -572,11 +572,10 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive>
         self.cb1 * s_tilde * nu_tilde
     }
 
-    fn dissipation_term(&self, _nu_tilde: T, epsilon_or_omega: T) -> T {
-        // For SA model, dissipation is handled in the transport equation
-        // TODO: Provide a consistent mapping for dissipation_term in SA adapter trait.
-        let _ = epsilon_or_omega; // SA uses modified viscosity transport, not k-ε form
-        T::zero() // Not directly applicable
+    fn dissipation_term(&self, nu_tilde: T, wall_distance: T) -> T {
+        let wall_distance = wall_distance.max(T::from_f64(EPSILON_MIN).unwrap_or_else(T::one));
+        let ratio = nu_tilde / wall_distance;
+        self.cw1 * ratio * ratio
     }
 
     fn update(
@@ -625,6 +624,7 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive>
 mod tests {
     use super::*;
     use approx::assert_relative_eq;
+    use crate::physics::turbulence::traits::TurbulenceModel;
 
     #[test]
     fn test_spalart_allmaras_creation() {
@@ -690,6 +690,17 @@ mod tests {
         let ratio = nu_tilde / wall_distance;
         let expected = SA_CW1 * fw * ratio * ratio;
         assert_relative_eq!(destruction, expected, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_dissipation_term_mapping() {
+        let model = SpalartAllmaras::<f64>::new(10, 10);
+        let nu_tilde = 1e-4;
+        let wall_distance = 0.01;
+        let dissipation = model.dissipation_term(nu_tilde, wall_distance);
+        let ratio = nu_tilde / wall_distance;
+        let expected = SA_CW1 * ratio * ratio;
+        assert_relative_eq!(dissipation, expected, epsilon = 1e-10);
     }
 
     #[test]
