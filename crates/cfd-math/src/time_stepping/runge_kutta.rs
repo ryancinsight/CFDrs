@@ -48,6 +48,7 @@
 use super::traits::TimeStepper;
 use cfd_core::error::Result;
 use nalgebra::{DVector, RealField};
+use std::cell::RefCell;
 
 /// Classical 4th-order Runge-Kutta method
 ///
@@ -61,13 +62,14 @@ use nalgebra::{DVector, RealField};
 ///     | 1/6  1/3  1/3  1/6
 /// ```
 pub struct RungeKutta4<T: RealField> {
-    _phantom: std::marker::PhantomData<T>,
+    /// Scratch buffer for intermediate calculations to avoid allocation
+    scratch: RefCell<DVector<T>>,
 }
 
 impl<T: RealField> Default for RungeKutta4<T> {
     fn default() -> Self {
         Self {
-            _phantom: std::marker::PhantomData,
+            scratch: RefCell::new(DVector::zeros(0)),
         }
     }
 }
@@ -86,36 +88,47 @@ impl<T: RealField + Copy> TimeStepper<T> for RungeKutta4<T> {
     {
         let n = u.len();
 
+        // Reuse scratch buffer for intermediate states to avoid allocation
+        let mut scratch = self.scratch.borrow_mut();
+        if scratch.len() != n {
+            *scratch = DVector::zeros(n);
+        }
+
         // k1 = f(t, u)
         let k1 = f(t, u)?;
 
+        let dt_half = dt / T::from_f64(2.0).unwrap();
+        let t2 = t + dt_half;
+
         // k2 = f(t + dt/2, u + dt/2 * k1)
-        let t2 = t + dt / T::from_f64(2.0).unwrap();
-        let u2 = u + &k1 * (dt / T::from_f64(2.0).unwrap());
-        let k2 = f(t2, &u2)?;
+        scratch.copy_from(u);
+        scratch.axpy(dt_half, &k1, T::one());
+        let k2 = f(t2, &scratch)?;
 
         // k3 = f(t + dt/2, u + dt/2 * k2)
-        let u3 = u + &k2 * (dt / T::from_f64(2.0).unwrap());
-        let k3 = f(t2, &u3)?;
+        scratch.copy_from(u);
+        scratch.axpy(dt_half, &k2, T::one());
+        let k3 = f(t2, &scratch)?;
 
         // k4 = f(t + dt, u + dt * k3)
         let t4 = t + dt;
-        let u4 = u + &k3 * dt;
-        let k4 = f(t4, &u4)?;
+        scratch.copy_from(u);
+        scratch.axpy(dt, &k3, T::one());
+        let k4 = f(t4, &scratch)?;
 
         // u_new = u + dt/6 * (k1 + 2*k2 + 2*k3 + k4)
+        // We allocate u_new because the API requires returning an owned DVector.
+        // However, we avoid intermediate temporary vectors in the summation.
         let mut u_new = DVector::zeros(n);
-        let coeff1 = dt / T::from_f64(6.0).unwrap();
-        let _coeff2 = dt / T::from_f64(3.0).unwrap();
+        u_new.copy_from(u);
 
-        for i in 0..n {
-            u_new[i] = u[i]
-                + coeff1
-                    * (k1[i]
-                        + T::from_f64(2.0).unwrap() * k2[i]
-                        + T::from_f64(2.0).unwrap() * k3[i]
-                        + k4[i]);
-        }
+        let coeff = dt / T::from_f64(6.0).unwrap();
+        let coeff_2 = coeff * T::from_f64(2.0).unwrap();
+
+        u_new.axpy(coeff, &k1, T::one());
+        u_new.axpy(coeff_2, &k2, T::one());
+        u_new.axpy(coeff_2, &k3, T::one());
+        u_new.axpy(coeff, &k4, T::one());
 
         Ok(u_new)
     }
