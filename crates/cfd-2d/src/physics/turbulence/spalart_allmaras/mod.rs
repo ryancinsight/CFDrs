@@ -241,6 +241,7 @@ use tracing::instrument;
 /// - d = distance to nearest wall
 /// - fw = wall destruction function
 #[allow(dead_code)]
+#[derive(Debug)]
 pub struct SpalartAllmaras<T: RealField + Copy> {
     /// Grid dimensions
     nx: usize,
@@ -422,22 +423,20 @@ impl<T: RealField + FromPrimitive + Copy> SpalartAllmaras<T> {
         wall_distance_field_2d(self.nx, self.ny, dx, dy)
     }
 
-    /// Update modified turbulent viscosity field
+    /// Update modified turbulent viscosity field with explicit wall distances
     ///
-    /// Solves: ∂ν̃/∂t = P - D + (1/σ)∇·[(ν+ν̃)∇ν̃] + (Cb2/σ)|∇ν̃|²
-    #[instrument(skip(self, nu_tilde, velocity, molecular_viscosity, dx, dy, dt))]
-    pub fn update(
+    /// This method allows providing custom wall distances (e.g., for DES where d is replaced by min(d, Cdes*Delta))
+    #[instrument(skip(self, nu_tilde, velocity, molecular_viscosity, wall_distances, dx, dy, dt))]
+    pub fn update_with_distance(
         &self,
         nu_tilde: &mut [T],
         velocity: &[Vector2<T>],
         molecular_viscosity: T,
+        wall_distances: &[T],
         dx: T,
         dy: T,
         dt: T,
     ) -> Result<()> {
-        // Calculate wall distances
-        let wall_distances = self.wall_distance_field(dx, dy);
-
         // Temporary storage for new values
         let mut nu_new = vec![T::zero(); nu_tilde.len()];
 
@@ -520,6 +519,34 @@ impl<T: RealField + FromPrimitive + Copy> SpalartAllmaras<T> {
         self.apply_boundary_conditions(nu_tilde);
 
         Ok(())
+    }
+
+    /// Update modified turbulent viscosity field
+    ///
+    /// Solves: ∂ν̃/∂t = P - D + (1/σ)∇·[(ν+ν̃)∇ν̃] + (Cb2/σ)|∇ν̃|²
+    #[instrument(skip(self, nu_tilde, velocity, molecular_viscosity, dx, dy, dt))]
+    pub fn update(
+        &self,
+        nu_tilde: &mut [T],
+        velocity: &[Vector2<T>],
+        molecular_viscosity: T,
+        dx: T,
+        dy: T,
+        dt: T,
+    ) -> Result<()> {
+        // Calculate wall distances
+        let wall_distances = self.wall_distance_field(dx, dy);
+
+        // Update with calculated wall distances
+        self.update_with_distance(
+            nu_tilde,
+            velocity,
+            molecular_viscosity,
+            &wall_distances,
+            dx,
+            dy,
+            dt,
+        )
     }
 
     /// Apply boundary conditions

@@ -34,8 +34,9 @@
 // Mathematical Foundation: Spalart et al. (1997) DES97, Shur et al. (2008) IDDES
 
 use super::boundary_conditions::TurbulenceBoundaryCondition;
+use super::spalart_allmaras::SpalartAllmaras;
 use super::traits::LESTurbulenceModel;
-use nalgebra::DMatrix;
+use nalgebra::{DMatrix, Vector2};
 use std::f64;
 
 #[cfg(feature = "gpu")]
@@ -86,10 +87,16 @@ pub struct DetachedEddySimulation {
     config: DESConfig,
     /// SGS viscosity field (LES mode)
     sgs_viscosity: DMatrix<f64>,
+    /// Modified turbulent viscosity field (RANS state variable)
+    nu_tilde: DMatrix<f64>,
+    /// Underlying Spalart-Allmaras RANS model
+    spalart_allmaras: SpalartAllmaras<f64>,
     /// DES length scale field
     des_length_scale: DMatrix<f64>,
     /// Wall distance field (for shielding functions)
     wall_distance: DMatrix<f64>,
+    /// Reusable buffer for velocity field adaptation (SoA to AoS)
+    velocity_buffer: Vec<Vector2<f64>>,
     /// GPU compute manager (if GPU acceleration is enabled)
     #[cfg(feature = "gpu")]
     gpu_compute: Option<GpuTurbulenceCompute>,
@@ -165,11 +172,16 @@ impl DetachedEddySimulation {
             None
         };
 
+        let spalart_allmaras = SpalartAllmaras::new(nx, ny);
+
         Self {
             config,
             sgs_viscosity: DMatrix::zeros(nx, ny),
+            nu_tilde: DMatrix::zeros(nx, ny),
+            spalart_allmaras,
             des_length_scale: DMatrix::zeros(nx, ny),
             wall_distance,
+            velocity_buffer: vec![Vector2::zeros(); nx * ny],
             #[cfg(feature = "gpu")]
             gpu_compute,
             dx,
@@ -189,20 +201,20 @@ impl DetachedEddySimulation {
         let ny = velocity_v.ncols();
         let mut length_scale = DMatrix::zeros(nx, ny);
 
-        // TODO: Replace heuristic RANS length scale with RANS-model-derived length scale.
-        let strain_magnitude = self.compute_strain_rate_magnitude(velocity_u, velocity_v, dx, dy);
+        // Compute strain rate magnitude for IDDES
+        let strain_magnitude = if matches!(self.config.variant, DESVariant::IDDES) {
+            self.compute_strain_rate_magnitude(velocity_u, velocity_v, dx, dy)
+        } else {
+            DMatrix::zeros(1, 1) // Dummy for other variants
+        };
 
         for i in 0..nx {
             for j in 0..ny {
                 // Grid spacing (max of dx, dy for simplicity)
                 let delta = dx.max(dy);
 
-                // Simplified RANS length scale (would be computed from actual RANS model)
-                // For now, use a characteristic length based on strain rate
-                // TODO: Derive characteristic velocity from RANS model state (e.g., k, ω, ε).
-                let characteristic_velocity = 1.0;
-                let strain_mag = strain_magnitude[(i, j)];
-                let rans_length: f64 = characteristic_velocity / strain_mag.max(1e-6);
+                // RANS length scale is the wall distance in SA model
+                let rans_length = self.wall_distance[(i, j)];
 
                 // DES length scale based on variant
                 let des_length = match self.config.variant {
@@ -216,6 +228,7 @@ impl DetachedEddySimulation {
                     }
                     DESVariant::IDDES => {
                         // Improved DDES
+                        let strain_mag = strain_magnitude[(i, j)];
                         self.compute_iddes_length_scale(rans_length, dx, dy, strain_mag, i, j)
                     }
                 };
@@ -321,39 +334,6 @@ impl DetachedEddySimulation {
         tilde_f_d * rans_length + (1.0 - tilde_f_d) * l_les
     }
 
-    /// Compute SGS viscosity for LES regions
-    fn compute_sgs_viscosity(
-        &self,
-        velocity_u: &DMatrix<f64>,
-        velocity_v: &DMatrix<f64>,
-        length_scale: &DMatrix<f64>,
-        dx: f64,
-        dy: f64,
-    ) -> DMatrix<f64> {
-        let nx = velocity_u.nrows();
-        let ny = velocity_u.ncols();
-        let mut sgs_viscosity = DMatrix::zeros(nx, ny);
-
-        // Compute strain rate magnitude (same as Smagorinsky)
-        let strain_magnitude = self.compute_strain_rate_magnitude(velocity_u, velocity_v, dx, dy);
-
-        for i in 0..nx {
-            for j in 0..ny {
-                let l_des = length_scale[(i, j)];
-                let strain_mag = strain_magnitude[(i, j)];
-
-                // SGS viscosity using DES length scale
-                let nu_sgs = (l_des * l_des) * strain_mag;
-
-                // Limit SGS viscosity to prevent excessive dissipation
-                let max_visc = self.config.max_sgs_ratio * self.config.rans_viscosity;
-                sgs_viscosity[(i, j)] = nu_sgs.min(max_visc);
-            }
-        }
-
-        sgs_viscosity
-    }
-
     /// Compute strain rate magnitude (shared with Smagorinsky)
     fn compute_strain_rate_magnitude(
         &self,
@@ -396,19 +376,51 @@ impl LESTurbulenceModel for DetachedEddySimulation {
         _pressure: &DMatrix<f64>,
         _density: f64,
         _viscosity: f64,
-        _dt: f64,
+        dt: f64,
         dx: f64,
         dy: f64,
     ) -> cfd_core::error::Result<()> {
         self.dx = dx;
         self.dy = dy;
 
-        // TODO: Couple DES to an underlying RANS model for attached-region length scales.
+        // Populate velocity buffer (SoA -> AoS adaptation)
+        let nx = velocity_u.nrows();
+        let ny = velocity_v.ncols();
+        for j in 0..ny {
+            for i in 0..nx {
+                let idx = j * nx + i;
+                self.velocity_buffer[idx] = Vector2::new(velocity_u[(i, j)], velocity_v[(i, j)]);
+            }
+        }
+
+        // Compute DES length scale
         self.des_length_scale = self.compute_des_length_scale(velocity_u, velocity_v, dx, dy);
 
-        // Compute SGS viscosity for LES regions
-        self.sgs_viscosity =
-            self.compute_sgs_viscosity(velocity_u, velocity_v, &self.des_length_scale, dx, dy);
+        // Update nu_tilde using Spalart-Allmaras solver with DES length scale override
+        // This effectively implements the DES formulation where the destruction term
+        // uses min(d, C_DES * Delta) instead of d.
+        self.spalart_allmaras.update_with_distance(
+            self.nu_tilde.as_mut_slice(),
+            &self.velocity_buffer,
+            self.config.rans_viscosity, // Use config value as molecular viscosity
+            self.des_length_scale.as_slice(),
+            dx,
+            dy,
+            dt,
+        )?;
+
+        // Update SGS/Turbulent viscosity field
+        for j in 0..ny {
+            for i in 0..nx {
+                let nu_t = self
+                    .spalart_allmaras
+                    .eddy_viscosity(self.nu_tilde[(i, j)], self.config.rans_viscosity);
+
+                // Limit SGS viscosity if needed (though SA usually stable)
+                let max_visc = self.config.max_sgs_ratio * self.config.rans_viscosity;
+                self.sgs_viscosity[(i, j)] = nu_t.min(max_visc);
+            }
+        }
 
         Ok(())
     }
@@ -578,22 +590,6 @@ mod tests {
         assert!(length_scale.iter().all(|&l| l > 0.0 && l.is_finite()));
     }
 
-    #[test]
-    fn test_sgs_viscosity_computation() {
-        let config = DESConfig::default();
-        let des = DetachedEddySimulation::new(10, 10, 0.1, 0.1, config, &[]);
-        let (velocity_u, velocity_v, _) = create_test_fields(10, 10);
-
-        let length_scale = DMatrix::from_element(10, 10, 0.01);
-        let sgs_visc = des.compute_sgs_viscosity(&velocity_u, &velocity_v, &length_scale, 0.1, 0.1);
-
-        // Check dimensions
-        assert_eq!(sgs_visc.nrows(), 10);
-        assert_eq!(sgs_visc.ncols(), 10);
-
-        // SGS viscosity should be non-negative
-        assert!(sgs_visc.iter().all(|&v| v >= 0.0));
-    }
 
     #[test]
     fn test_des_model_update() {
