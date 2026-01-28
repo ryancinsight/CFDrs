@@ -67,3 +67,7 @@ harness = false
 [[bench]]
 name = "swar_ops_bench"
 harness = false
+
+[[bench]]
+name = "rk4_bench"
+harness = false
