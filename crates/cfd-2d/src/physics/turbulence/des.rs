@@ -28,14 +28,12 @@
 //! - Spalart, P. R., et al. (2006). A new version of detached-eddy simulation.
 //! - Shur, M. L., et al. (2008). A hybrid RANS-LES approach with delayed-DES.
 
-// TODO(HIGH): Complete DES Formulation - Implement full Detached Eddy Simulation with RANS-LES coupling
-// Links individual TODOs at lines 58,95,146,156,200,203,220,316,412,414 into cohesive implementation
-// Dependencies: RANS model integration, wall distance computation, length scale consistency
 // Mathematical Foundation: Spalart et al. (1997) DES97, Shur et al. (2008) IDDES
 
 use super::boundary_conditions::TurbulenceBoundaryCondition;
 use super::spalart_allmaras::SpalartAllmaras;
 use super::traits::LESTurbulenceModel;
+use super::wall_functions::WallTreatment;
 use nalgebra::{DMatrix, Vector2};
 use std::f64;
 
@@ -62,8 +60,8 @@ pub struct DESConfig {
     pub des_constant: f64,
     /// Maximum SGS viscosity ratio
     pub max_sgs_ratio: f64,
-    /// TODO: Compute RANS viscosity from attached RANS model state.
-    pub rans_viscosity: f64,
+    /// Molecular viscosity (kinematic)
+    pub molecular_viscosity: f64,
     /// Enable GPU acceleration
     pub use_gpu: bool,
 }
@@ -74,7 +72,7 @@ impl Default for DESConfig {
             variant: DESVariant::DDES,
             des_constant: 0.65,
             max_sgs_ratio: 0.5,   // Prevent excessive SGS viscosity
-            rans_viscosity: 1e-5, // Default molecular viscosity
+            molecular_viscosity: 1e-5, // Default molecular viscosity
             use_gpu: false,
         }
     }
@@ -104,6 +102,17 @@ pub struct DetachedEddySimulation {
     dx: f64,
     /// Grid spacing in y-direction
     dy: f64,
+
+    /// Friction velocity field (u_tau)
+    friction_velocity: DMatrix<f64>,
+    /// Wall units field (y+)
+    y_plus: DMatrix<f64>,
+
+    // Wall treatments for friction velocity calculation
+    south_wall: Option<WallTreatment<f64>>,
+    north_wall: Option<WallTreatment<f64>>,
+    west_wall: Option<WallTreatment<f64>>,
+    east_wall: Option<WallTreatment<f64>>,
 }
 
 impl DetachedEddySimulation {
@@ -118,25 +127,30 @@ impl DetachedEddySimulation {
     ) -> Self {
         let mut wall_distance = DMatrix::from_element(nx, ny, f64::MAX);
 
+        let mut south_wall = None;
+        let mut north_wall = None;
+        let mut west_wall = None;
+        let mut east_wall = None;
+
+        for (name, bc) in boundaries {
+            if let TurbulenceBoundaryCondition::Wall { wall_treatment } = bc {
+                match *name {
+                    "south" => south_wall = Some(wall_treatment.clone()),
+                    "north" => north_wall = Some(wall_treatment.clone()),
+                    "west" => west_wall = Some(wall_treatment.clone()),
+                    "east" => east_wall = Some(wall_treatment.clone()),
+                    _ => {}
+                }
+            }
+        }
+
         let has_boundaries = !boundaries.is_empty();
 
-        // If no boundaries provided, assume all walls (fallback)
-        let process_west = !has_boundaries
-            || boundaries
-                .iter()
-                .any(|(n, bc)| *n == "west" && matches!(bc, TurbulenceBoundaryCondition::Wall { .. }));
-        let process_east = !has_boundaries
-            || boundaries
-                .iter()
-                .any(|(n, bc)| *n == "east" && matches!(bc, TurbulenceBoundaryCondition::Wall { .. }));
-        let process_south = !has_boundaries
-            || boundaries.iter().any(|(n, bc)| {
-                *n == "south" && matches!(bc, TurbulenceBoundaryCondition::Wall { .. })
-            });
-        let process_north = !has_boundaries
-            || boundaries.iter().any(|(n, bc)| {
-                *n == "north" && matches!(bc, TurbulenceBoundaryCondition::Wall { .. })
-            });
+        // If no boundaries provided, assume all walls (fallback) or infer from treatments
+        let process_west = west_wall.is_some() || (!has_boundaries);
+        let process_east = east_wall.is_some() || (!has_boundaries);
+        let process_south = south_wall.is_some() || (!has_boundaries);
+        let process_north = north_wall.is_some() || (!has_boundaries);
 
         for i in 0..nx {
             for j in 0..ny {
@@ -186,7 +200,127 @@ impl DetachedEddySimulation {
             gpu_compute,
             dx,
             dy,
+            friction_velocity: DMatrix::zeros(nx, ny),
+            y_plus: DMatrix::zeros(nx, ny),
+            south_wall,
+            north_wall,
+            west_wall,
+            east_wall,
         }
+    }
+
+    /// Compute friction velocity (u_tau) field
+    fn compute_friction_velocity_field(
+        &self,
+        velocity_u: &DMatrix<f64>,
+        _velocity_v: &DMatrix<f64>,
+        density: f64,
+        molecular_viscosity: f64,
+    ) -> DMatrix<f64> {
+        let nx = velocity_u.nrows();
+        let ny = velocity_u.ncols();
+        let mut u_tau_field = DMatrix::zeros(nx, ny);
+
+        for j in 0..ny {
+            for i in 0..nx {
+                // Determine nearest wall and distance
+                #[allow(unused_assignments)]
+                let mut min_dist = f64::MAX;
+                let mut nearest_wall_treatment = None;
+                let mut velocity_mag = 0.0;
+                let mut dist_w = f64::MAX;
+
+                let idx = j * nx + i;
+                let v_mag = self.velocity_buffer[idx].norm();
+
+                // Check West Wall
+                if let Some(treatment) = &self.west_wall {
+                    let d = (i as f64 + 0.5) * self.dx;
+                    if d < min_dist {
+                        min_dist = d;
+                        nearest_wall_treatment = Some(treatment);
+                        velocity_mag = v_mag;
+                        dist_w = d;
+                    }
+                }
+
+                // Check East Wall
+                if let Some(treatment) = &self.east_wall {
+                    let d = (nx as f64 - 1.0 - i as f64 + 0.5) * self.dx;
+                    if d < min_dist {
+                        min_dist = d;
+                        nearest_wall_treatment = Some(treatment);
+                        velocity_mag = v_mag;
+                        dist_w = d;
+                    }
+                }
+
+                // Check South Wall
+                if let Some(treatment) = &self.south_wall {
+                    let d = (j as f64 + 0.5) * self.dy;
+                    if d < min_dist {
+                        min_dist = d;
+                        nearest_wall_treatment = Some(treatment);
+                        velocity_mag = v_mag;
+                        dist_w = d;
+                    }
+                }
+
+                // Check North Wall
+                if let Some(treatment) = &self.north_wall {
+                    let d = (ny as f64 - 1.0 - j as f64 + 0.5) * self.dy;
+                    if d < min_dist {
+                        min_dist = d;
+                        nearest_wall_treatment = Some(treatment);
+                        velocity_mag = v_mag;
+                        dist_w = d;
+                    }
+                }
+
+                if let Some(treatment) = nearest_wall_treatment {
+                    // Calculate wall shear stress
+                    let tau_w = treatment.wall_shear_stress(
+                        velocity_mag,
+                        dist_w,
+                        density,
+                        molecular_viscosity,
+                    );
+
+                    if tau_w > 0.0 {
+                        u_tau_field[(i, j)] = (tau_w / density).sqrt();
+                    }
+                }
+            }
+        }
+
+        u_tau_field
+    }
+
+    /// Compute y+ field
+    fn compute_y_plus_field(
+        &self,
+        u_tau_field: &DMatrix<f64>,
+        molecular_viscosity: f64,
+        density: f64,
+    ) -> DMatrix<f64> {
+        let nx = u_tau_field.nrows();
+        let ny = u_tau_field.ncols();
+        let mut y_plus_field = DMatrix::zeros(nx, ny);
+
+        let nu = molecular_viscosity / density;
+
+        for j in 0..ny {
+            for i in 0..nx {
+                let d_w = self.wall_distance[(i, j)];
+                let u_tau = u_tau_field[(i, j)];
+
+                if nu > 1e-20 {
+                    y_plus_field[(i, j)] = u_tau * d_w / nu;
+                }
+            }
+        }
+
+        y_plus_field
     }
 
     /// Compute DES length scale
@@ -196,17 +330,12 @@ impl DetachedEddySimulation {
         velocity_v: &DMatrix<f64>,
         dx: f64,
         dy: f64,
+        strain_magnitude: &DMatrix<f64>,
+        molecular_viscosity: f64,
     ) -> DMatrix<f64> {
         let nx = velocity_u.nrows();
         let ny = velocity_v.ncols();
         let mut length_scale = DMatrix::zeros(nx, ny);
-
-        // Compute strain rate magnitude for IDDES
-        let strain_magnitude = if matches!(self.config.variant, DESVariant::IDDES) {
-            self.compute_strain_rate_magnitude(velocity_u, velocity_v, dx, dy)
-        } else {
-            DMatrix::zeros(1, 1) // Dummy for other variants
-        };
 
         for i in 0..nx {
             for j in 0..ny {
@@ -224,12 +353,21 @@ impl DetachedEddySimulation {
                     }
                     DESVariant::DDES => {
                         // Delayed DES with shielding function
-                        self.compute_ddes_length_scale(rans_length, delta, i, j)
+                        let s = strain_magnitude[(i, j)];
+                        self.compute_ddes_length_scale(rans_length, delta, i, j, s, molecular_viscosity)
                     }
                     DESVariant::IDDES => {
                         // Improved DDES
                         let strain_mag = strain_magnitude[(i, j)];
-                        self.compute_iddes_length_scale(rans_length, dx, dy, strain_mag, i, j)
+                        self.compute_iddes_length_scale(
+                            rans_length,
+                            dx,
+                            dy,
+                            strain_mag,
+                            i,
+                            j,
+                            molecular_viscosity,
+                        )
                     }
                 };
 
@@ -241,7 +379,15 @@ impl DetachedEddySimulation {
     }
 
     /// Compute DDES length scale with shielding function
-    fn compute_ddes_length_scale(&self, rans_length: f64, delta: f64, i: usize, j: usize) -> f64 {
+    fn compute_ddes_length_scale(
+        &self,
+        rans_length: f64,
+        delta: f64,
+        i: usize,
+        j: usize,
+        strain_mag: f64,
+        molecular_viscosity: f64,
+    ) -> f64 {
         let d_w = self.wall_distance[(i, j)];
 
         match self.config.variant {
@@ -254,19 +400,29 @@ impl DetachedEddySimulation {
                     l_rans
                 } else {
                     // LES mode with proper DDES shielding function
-                    // Spalart et al. (2006): fd = 1 - tanh[[8(y+/CDDESΔ)³]]
-                    //
-                    // TODO: Replace y+ approximation with u_tau-based wall units when available.
-                    let cd_des = self.config.des_constant;
+                    // Spalart et al. (2006): fd = 1 - tanh[[8 * r_d]^3]
+                    // r_d = (nu_t + nu) / (kappa^2 * d^2 * S)
 
-                    // TODO: Compute y+ = u_tau * d_w / nu instead of a grid-based approximation.
-                    let y_plus = d_w / delta.max(1e-10);
+                    let nu_t = self
+                        .spalart_allmaras
+                        .eddy_viscosity(self.nu_tilde[(i, j)], molecular_viscosity);
+                    let nu = molecular_viscosity;
+                    let kappa = 0.41;
+
+                    // Ensure S is non-zero
+                    let s = strain_mag.max(1e-10);
+
+                    let numerator = nu_t + nu;
+                    let denominator = kappa * kappa * d_w * d_w * s;
+
+                    let r_d = numerator / denominator.max(1e-20);
 
                     // DDES shielding function (Spalart et al. 2006)
-                    let r_d = 8.0 * (y_plus / (cd_des * delta)).powi(3);
-                    let f_d = 1.0 - r_d.tanh();
+                    let f_d = 1.0 - (8.0 * r_d).powi(3).tanh();
 
                     // Blend RANS and LES length scales
+                    // If f_d = 1 (LES region), we use LES
+                    // If f_d = 0 (Shielded RANS region), we use RANS
                     l_rans * (1.0 - f_d) + l_les * f_d
                 }
             }
@@ -283,6 +439,7 @@ impl DetachedEddySimulation {
         strain_mag: f64,
         i: usize,
         j: usize,
+        molecular_viscosity: f64,
     ) -> f64 {
         // IDDES formulation (Shur et al. 2008, Gritskevich et al. 2012)
         // Combines DDES with WMLES capabilities.
@@ -308,11 +465,14 @@ impl DetachedEddySimulation {
 
         // 3. Shielding function f_dt (similar to DDES) and blending f_B
         // r_dt = nu_t / (k^2 * dw^2 * S)
-        // Estimate local nu_t from rans_length (assuming mixing length hypothesis): nu_t ~ l^2 * S
-        let s = strain_mag.max(1e-10);
-        let nu_t = rans_length.powi(2) * s;
+        // Use actual turbulent viscosity
+        let nu_t = self
+            .spalart_allmaras
+            .eddy_viscosity(self.nu_tilde[(i, j)], molecular_viscosity);
 
-        let r_dt = nu_t / (kappa * kappa * d_w * d_w * s).max(1e-20);
+        let s = strain_mag.max(1e-10);
+
+        let r_dt = (nu_t + molecular_viscosity) / (kappa * kappa * d_w * d_w * s).max(1e-20);
 
         // f_dt = 1 - tanh[(8 * r_dt)^3] (DDES-like shielding)
         // Using 8.0 to match standard DDES formulation.
@@ -374,14 +534,17 @@ impl LESTurbulenceModel for DetachedEddySimulation {
         velocity_u: &DMatrix<f64>,
         velocity_v: &DMatrix<f64>,
         _pressure: &DMatrix<f64>,
-        _density: f64,
-        _viscosity: f64,
+        density: f64,
+        viscosity: f64,
         dt: f64,
         dx: f64,
         dy: f64,
     ) -> cfd_core::error::Result<()> {
         self.dx = dx;
         self.dy = dy;
+
+        // Use the passed viscosity (molecular)
+        let molecular_viscosity = viscosity;
 
         // Populate velocity buffer (SoA -> AoS adaptation)
         let nx = velocity_u.nrows();
@@ -393,8 +556,31 @@ impl LESTurbulenceModel for DetachedEddySimulation {
             }
         }
 
+        // Compute Friction Velocity and y+
+        self.friction_velocity = self.compute_friction_velocity_field(
+            velocity_u,
+            velocity_v,
+            density,
+            molecular_viscosity,
+        );
+        self.y_plus = self.compute_y_plus_field(
+            &self.friction_velocity,
+            molecular_viscosity,
+            density,
+        );
+
+        // Compute strain rate magnitude (needed for DDES and IDDES)
+        let strain_magnitude = self.compute_strain_rate_magnitude(velocity_u, velocity_v, dx, dy);
+
         // Compute DES length scale
-        self.des_length_scale = self.compute_des_length_scale(velocity_u, velocity_v, dx, dy);
+        self.des_length_scale = self.compute_des_length_scale(
+            velocity_u,
+            velocity_v,
+            dx,
+            dy,
+            &strain_magnitude,
+            molecular_viscosity,
+        );
 
         // Update nu_tilde using Spalart-Allmaras solver with DES length scale override
         // This effectively implements the DES formulation where the destruction term
@@ -402,7 +588,7 @@ impl LESTurbulenceModel for DetachedEddySimulation {
         self.spalart_allmaras.update_with_distance(
             self.nu_tilde.as_mut_slice(),
             &self.velocity_buffer,
-            self.config.rans_viscosity, // Use config value as molecular viscosity
+            molecular_viscosity,
             self.des_length_scale.as_slice(),
             dx,
             dy,
@@ -414,10 +600,10 @@ impl LESTurbulenceModel for DetachedEddySimulation {
             for i in 0..nx {
                 let nu_t = self
                     .spalart_allmaras
-                    .eddy_viscosity(self.nu_tilde[(i, j)], self.config.rans_viscosity);
+                    .eddy_viscosity(self.nu_tilde[(i, j)], molecular_viscosity);
 
                 // Limit SGS viscosity if needed (though SA usually stable)
-                let max_visc = self.config.max_sgs_ratio * self.config.rans_viscosity;
+                let max_visc = self.config.max_sgs_ratio * molecular_viscosity;
                 self.sgs_viscosity[(i, j)] = nu_t.min(max_visc);
             }
         }
@@ -427,7 +613,7 @@ impl LESTurbulenceModel for DetachedEddySimulation {
 
     fn get_viscosity(&self, i: usize, j: usize) -> f64 {
         // Return total viscosity (molecular + SGS)
-        self.config.rans_viscosity + self.sgs_viscosity[(i, j)]
+        self.config.molecular_viscosity + self.sgs_viscosity[(i, j)]
     }
 
     fn get_turbulent_viscosity_field(&self) -> &DMatrix<f64> {
@@ -508,6 +694,16 @@ impl DetachedEddySimulation {
         &self.sgs_viscosity
     }
 
+    /// Get the friction velocity field
+    pub fn get_friction_velocity_field(&self) -> &DMatrix<f64> {
+        &self.friction_velocity
+    }
+
+    /// Get the y+ field
+    pub fn get_y_plus_field(&self) -> &DMatrix<f64> {
+        &self.y_plus
+    }
+
     /// Check if a point is in LES mode (DES length scale active)
     pub fn is_les_mode(&self, i: usize, j: usize) -> bool {
         // LES mode when DES length scale is smaller than grid scale
@@ -579,8 +775,16 @@ mod tests {
         // Create dummy velocity fields
         let velocity_u = DMatrix::from_element(10, 10, 1.0);
         let velocity_v = DMatrix::from_element(10, 10, 0.5);
+        let strain_mag = DMatrix::zeros(10, 10);
 
-        let length_scale = des.compute_des_length_scale(&velocity_u, &velocity_v, 0.1, 0.1);
+        let length_scale = des.compute_des_length_scale(
+            &velocity_u,
+            &velocity_v,
+            0.1,
+            0.1,
+            &strain_mag,
+            1e-5,
+        );
 
         // Check dimensions
         assert_eq!(length_scale.nrows(), 10);
@@ -589,7 +793,6 @@ mod tests {
         // Length scale should be positive and reasonable
         assert!(length_scale.iter().all(|&l| l > 0.0 && l.is_finite()));
     }
-
 
     #[test]
     fn test_des_model_update() {
@@ -602,7 +805,7 @@ mod tests {
             &velocity_v,
             &pressure,
             1.0,
-            0.01,
+            0.01, // Viscosity
             0.001,
             0.1,
             0.1,
@@ -648,11 +851,78 @@ mod tests {
 
         let velocity_u = DMatrix::from_element(10, 10, 1.0);
         let velocity_v = DMatrix::from_element(10, 10, 0.5);
+        let strain_mag = DMatrix::zeros(10, 10);
 
-        let length_scale = des.compute_des_length_scale(&velocity_u, &velocity_v, 0.1, 0.1);
+        let length_scale = des.compute_des_length_scale(
+            &velocity_u,
+            &velocity_v,
+            0.1,
+            0.1,
+            &strain_mag,
+            1e-5,
+        );
 
         assert_eq!(length_scale.nrows(), 10);
         assert_eq!(length_scale.ncols(), 10);
         assert!(length_scale.iter().all(|&l| l > 0.0 && l.is_finite()));
+    }
+
+    #[test]
+    fn test_friction_velocity_and_y_plus() {
+        use super::super::boundary_conditions::TurbulenceBoundaryCondition;
+        use super::super::wall_functions::{WallFunction, WallTreatment};
+
+        let nx = 20;
+        let ny = 20;
+        let dx = 0.01;
+        let dy = 0.01;
+
+        let config = DESConfig {
+            variant: DESVariant::DDES,
+            des_constant: 0.65,
+            max_sgs_ratio: 0.5,
+            molecular_viscosity: 1e-5,
+            use_gpu: false,
+        };
+
+        let boundaries = vec![
+            ("south", TurbulenceBoundaryCondition::Wall {
+                wall_treatment: WallTreatment::new(WallFunction::Standard)
+            }),
+        ];
+
+        let mut des = DetachedEddySimulation::new(nx, ny, dx, dy, config, &boundaries);
+
+        let mut velocity_u = DMatrix::zeros(nx, ny);
+        let mut velocity_v = DMatrix::zeros(nx, ny);
+        let pressure = DMatrix::zeros(nx, ny);
+
+        // Linear shear flow
+        for j in 0..ny {
+            let y_cell = (j as f64 + 0.5) * dy;
+            let u_val = 100.0 * y_cell;
+            for i in 0..nx {
+                velocity_u[(i, j)] = u_val;
+            }
+        }
+
+        des.update(
+            &velocity_u,
+            &velocity_v,
+            &pressure,
+            1.225,
+            1e-5,
+            0.001,
+            dx,
+            dy,
+        ).unwrap();
+
+        let u_tau = des.get_friction_velocity_field();
+        let y_plus = des.get_y_plus_field();
+
+        // Check values near wall
+        assert!(u_tau[(10, 0)] > 0.0);
+        assert!(y_plus[(10, 0)] > 0.0);
+        assert!(y_plus[(10, 1)] > y_plus[(10, 0)]);
     }
 }
