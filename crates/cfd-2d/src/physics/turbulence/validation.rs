@@ -361,7 +361,7 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
             des_constant: 0.65,
             max_sgs_ratio: 0.5,
             variant: super::des::DESVariant::DES97,
-            rans_viscosity: 1e-5,
+            molecular_viscosity: 1e-5,
             use_gpu: false,
         };
         let mut model = DetachedEddySimulation::new(16, 16, 0.1, 0.1, config, &[]);
@@ -753,7 +753,7 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
                     des_constant: 0.65,
                     max_sgs_ratio: 0.5,
                     variant: super::des::DESVariant::DES97,
-                    rans_viscosity: 1e-5,
+                    molecular_viscosity: 1e-5,
                     use_gpu: false,
                 };
                 let mut model = DetachedEddySimulation::new(nx, ny, 0.1, 0.1, config, &[]);
