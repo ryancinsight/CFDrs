@@ -28,9 +28,6 @@
 //! - Spalart, P. R., et al. (2006). A new version of detached-eddy simulation.
 //! - Shur, M. L., et al. (2008). A hybrid RANS-LES approach with delayed-DES.
 
-// TODO(HIGH): Complete DES Formulation - Implement full Detached Eddy Simulation with RANS-LES coupling
-// Links individual TODOs at lines 58,95,146,156,200,203,220,316,412,414 into cohesive implementation
-// Dependencies: RANS model integration, wall distance computation, length scale consistency
 // Mathematical Foundation: Spalart et al. (1997) DES97, Shur et al. (2008) IDDES
 
 use super::boundary_conditions::TurbulenceBoundaryCondition;
@@ -196,16 +193,19 @@ impl DetachedEddySimulation {
         velocity_v: &DMatrix<f64>,
         dx: f64,
         dy: f64,
+        viscosity: f64,
     ) -> DMatrix<f64> {
         let nx = velocity_u.nrows();
         let ny = velocity_v.ncols();
         let mut length_scale = DMatrix::zeros(nx, ny);
 
-        // Compute strain rate magnitude for IDDES
-        let strain_magnitude = if matches!(self.config.variant, DESVariant::IDDES) {
+        // Compute strain rate magnitude for DDES and IDDES
+        // We need strain magnitude for DDES shielding function as well
+        let strain_magnitude = if matches!(self.config.variant, DESVariant::DDES | DESVariant::IDDES)
+        {
             self.compute_strain_rate_magnitude(velocity_u, velocity_v, dx, dy)
         } else {
-            DMatrix::zeros(1, 1) // Dummy for other variants
+            DMatrix::zeros(1, 1) // Dummy for DES97
         };
 
         for i in 0..nx {
@@ -224,12 +224,28 @@ impl DetachedEddySimulation {
                     }
                     DESVariant::DDES => {
                         // Delayed DES with shielding function
-                        self.compute_ddes_length_scale(rans_length, delta, i, j)
+                        let strain_mag = strain_magnitude[(i, j)];
+                        self.compute_ddes_length_scale(
+                            rans_length,
+                            delta,
+                            strain_mag,
+                            viscosity,
+                            i,
+                            j,
+                        )
                     }
                     DESVariant::IDDES => {
                         // Improved DDES
                         let strain_mag = strain_magnitude[(i, j)];
-                        self.compute_iddes_length_scale(rans_length, dx, dy, strain_mag, i, j)
+                        self.compute_iddes_length_scale(
+                            rans_length,
+                            dx,
+                            dy,
+                            strain_mag,
+                            viscosity,
+                            i,
+                            j,
+                        )
                     }
                 };
 
@@ -241,7 +257,15 @@ impl DetachedEddySimulation {
     }
 
     /// Compute DDES length scale with shielding function
-    fn compute_ddes_length_scale(&self, rans_length: f64, delta: f64, i: usize, j: usize) -> f64 {
+    fn compute_ddes_length_scale(
+        &self,
+        rans_length: f64,
+        delta: f64,
+        strain_mag: f64,
+        viscosity: f64,
+        i: usize,
+        j: usize,
+    ) -> f64 {
         let d_w = self.wall_distance[(i, j)];
 
         match self.config.variant {
@@ -254,19 +278,27 @@ impl DetachedEddySimulation {
                     l_rans
                 } else {
                     // LES mode with proper DDES shielding function
-                    // Spalart et al. (2006): fd = 1 - tanh[[8(y+/CDDESΔ)³]]
-                    //
-                    // TODO: Replace y+ approximation with u_tau-based wall units when available.
-                    let cd_des = self.config.des_constant;
+                    // Spalart et al. (2006): fd = 1 - tanh[[8*rd]^3]
+                    // where rd = (nu_t + nu) / (kappa^2 * d^2 * S)
 
-                    // TODO: Compute y+ = u_tau * d_w / nu instead of a grid-based approximation.
-                    let y_plus = d_w / delta.max(1e-10);
+                    let kappa = 0.41;
+                    let s = strain_mag.max(1e-10);
+
+                    // Get actual turbulent viscosity from RANS model state
+                    let nu_t = self
+                        .spalart_allmaras
+                        .eddy_viscosity(self.nu_tilde[(i, j)], viscosity);
+
+                    // Compute shielding parameter rd
+                    let r_d = (nu_t + viscosity)
+                        / (kappa * kappa * d_w * d_w * s).max(1e-20);
 
                     // DDES shielding function (Spalart et al. 2006)
-                    let r_d = 8.0 * (y_plus / (cd_des * delta)).powi(3);
-                    let f_d = 1.0 - r_d.tanh();
+                    let f_d = 1.0 - (8.0 * r_d).powi(3).tanh();
 
                     // Blend RANS and LES length scales
+                    // When fd=0 (RANS mode), we get l_rans
+                    // When fd=1 (LES mode), we get l_les
                     l_rans * (1.0 - f_d) + l_les * f_d
                 }
             }
@@ -281,6 +313,7 @@ impl DetachedEddySimulation {
         dx: f64,
         dy: f64,
         strain_mag: f64,
+        viscosity: f64,
         i: usize,
         j: usize,
     ) -> f64 {
@@ -308,9 +341,13 @@ impl DetachedEddySimulation {
 
         // 3. Shielding function f_dt (similar to DDES) and blending f_B
         // r_dt = nu_t / (k^2 * dw^2 * S)
-        // Estimate local nu_t from rans_length (assuming mixing length hypothesis): nu_t ~ l^2 * S
+
         let s = strain_mag.max(1e-10);
-        let nu_t = rans_length.powi(2) * s;
+
+        // Use actual turbulent viscosity from RANS model state
+        let nu_t = self
+            .spalart_allmaras
+            .eddy_viscosity(self.nu_tilde[(i, j)], viscosity);
 
         let r_dt = nu_t / (kappa * kappa * d_w * d_w * s).max(1e-20);
 
@@ -375,7 +412,7 @@ impl LESTurbulenceModel for DetachedEddySimulation {
         velocity_v: &DMatrix<f64>,
         _pressure: &DMatrix<f64>,
         _density: f64,
-        _viscosity: f64,
+        viscosity: f64,
         dt: f64,
         dx: f64,
         dy: f64,
@@ -394,7 +431,8 @@ impl LESTurbulenceModel for DetachedEddySimulation {
         }
 
         // Compute DES length scale
-        self.des_length_scale = self.compute_des_length_scale(velocity_u, velocity_v, dx, dy);
+        self.des_length_scale =
+            self.compute_des_length_scale(velocity_u, velocity_v, dx, dy, viscosity);
 
         // Update nu_tilde using Spalart-Allmaras solver with DES length scale override
         // This effectively implements the DES formulation where the destruction term
@@ -580,7 +618,7 @@ mod tests {
         let velocity_u = DMatrix::from_element(10, 10, 1.0);
         let velocity_v = DMatrix::from_element(10, 10, 0.5);
 
-        let length_scale = des.compute_des_length_scale(&velocity_u, &velocity_v, 0.1, 0.1);
+        let length_scale = des.compute_des_length_scale(&velocity_u, &velocity_v, 0.1, 0.1, 1e-5);
 
         // Check dimensions
         assert_eq!(length_scale.nrows(), 10);
@@ -649,10 +687,51 @@ mod tests {
         let velocity_u = DMatrix::from_element(10, 10, 1.0);
         let velocity_v = DMatrix::from_element(10, 10, 0.5);
 
-        let length_scale = des.compute_des_length_scale(&velocity_u, &velocity_v, 0.1, 0.1);
+        let length_scale = des.compute_des_length_scale(&velocity_u, &velocity_v, 0.1, 0.1, 1e-5);
 
         assert_eq!(length_scale.nrows(), 10);
         assert_eq!(length_scale.ncols(), 10);
         assert!(length_scale.iter().all(|&l| l > 0.0 && l.is_finite()));
+    }
+
+    #[test]
+    fn test_ddes_shielding_coupling() {
+        // Verify that RANS state (nu_tilde) affects the DDES length scale
+        // This confirms proper coupling between RANS and LES components
+        let config = DESConfig {
+            variant: DESVariant::DDES,
+            ..Default::default()
+        };
+        let mut des = DetachedEddySimulation::new(10, 10, 0.1, 0.1, config, &[]);
+
+        // Create velocity field with shear (to generate strain)
+        // Uniform shear: u = y, v = 0 -> du/dy = 1 -> S ~ 1
+        let mut velocity_u = DMatrix::zeros(10, 10);
+        for j in 0..10 {
+            for i in 0..10 {
+                velocity_u[(i, j)] = (j as f64) * 0.1;
+            }
+        }
+        let velocity_v = DMatrix::zeros(10, 10);
+
+        // Case 1: Low nu_tilde (should result in different shielding than High nu_tilde)
+        des.nu_tilde.fill(1e-6);
+        let ls_low_nu = des.compute_des_length_scale(&velocity_u, &velocity_v, 0.1, 0.1, 1e-5);
+
+        // Case 2: High nu_tilde
+        des.nu_tilde.fill(0.1);
+        let ls_high_nu = des.compute_des_length_scale(&velocity_u, &velocity_v, 0.1, 0.1, 1e-5);
+
+        // Check a point in the middle
+        let idx = (5, 5);
+        let diff = (ls_low_nu[idx] - ls_high_nu[idx]).abs();
+
+        // If properly coupled, changing nu_tilde should change nu_t, which changes rd,
+        // which changes fd, which changes the blended length scale.
+        // If not coupled (e.g. using only geometric wall distance), diff would be 0.
+        assert!(
+            diff > 1e-10,
+            "DDES length scale should depend on nu_tilde (RANS state)"
+        );
     }
 }
