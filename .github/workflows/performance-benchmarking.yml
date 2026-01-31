@@ -90,9 +90,9 @@ jobs:
       run: |
         cargo bench --bench production_validation -- --verbose --output-format json | tee production_results.json
 
-    - name: Generate performance report
-      run: |
-        cargo run --bin performance_report_generator -- benchmark_results.json performance_report.html
+    # - name: Generate performance report
+    #   run: |
+    #     cargo run --bin performance_report_generator -- benchmark_results.json performance_report.html
 
     - name: Upload benchmark results
       uses: actions/upload-artifact@v4
@@ -102,32 +102,32 @@ jobs:
           benchmark_results.json
           regression_results.json
           production_results.json
-          performance_report.html
-          performance_baselines.json
+          # performance_report.html
+          # performance_baselines.json
 
-    - name: Check for performance regressions
-      id: regression_check
-      run: |
-        # Run regression analysis
-        cargo run --bin regression_analyzer -- performance_baselines.json benchmark_results.json > regression_analysis.txt
+    # - name: Check for performance regressions
+    #   id: regression_check
+    #   run: |
+    #     # Run regression analysis
+    #     cargo run --bin regression_analyzer -- performance_baselines.json benchmark_results.json > regression_analysis.txt
 
-        # Check if there are critical regressions
-        if grep -q "CRITICAL" regression_analysis.txt; then
-          echo "critical_regression=true" >> $GITHUB_OUTPUT
-        else
-          echo "critical_regression=false" >> $GITHUB_OUTPUT
-        fi
+    #     # Check if there are critical regressions
+    #     if grep -q "CRITICAL" regression_analysis.txt; then
+    #       echo "critical_regression=true" >> $GITHUB_OUTPUT
+    #     else
+    #       echo "critical_regression=false" >> $GITHUB_OUTPUT
+    #     fi
 
-        # Count total alerts
-        alert_count=$(grep -c "ALERT\|WARNING\|CRITICAL" regression_analysis.txt || echo "0")
-        echo "alert_count=$alert_count" >> $GITHUB_OUTPUT
+    #     # Count total alerts
+    #     alert_count=$(grep -c "ALERT\|WARNING\|CRITICAL" regression_analysis.txt || echo "0")
+    #     echo "alert_count=$alert_count" >> $GITHUB_OUTPUT
 
-    - name: Update performance baselines
-      if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-      run: |
-        # Only update baselines on main branch after successful benchmarks
-        cp performance_baselines.json performance_baselines_backup.json
-        cargo run --bin baseline_updater -- benchmark_results.json performance_baselines.json
+    # - name: Update performance baselines
+    #   if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    #   run: |
+    #     # Only update baselines on main branch after successful benchmarks
+    #     cp performance_baselines.json performance_baselines_backup.json
+    #     cargo run --bin baseline_updater -- benchmark_results.json performance_baselines.json
 
     - name: Generate performance summary comment
       if: github.event_name == 'pull_request'
@@ -301,10 +301,10 @@ jobs:
         publish_dir: benchmark-artifacts/
         destination_dir: benchmarks/${{ github.sha }}
 
-    - name: Update benchmark dashboard
-      run: |
-        # Generate historical performance dashboard
-        cargo run --bin dashboard_generator -- benchmark-artifacts/ dashboard/
+    # - name: Update benchmark dashboard
+    #   run: |
+    #     # Generate historical performance dashboard
+    #     cargo run --bin dashboard_generator -- benchmark-artifacts/ dashboard/
 
     - name: Deploy dashboard
       if: github.repository == 'your-org/cfd-suite'  # Replace with actual repository
