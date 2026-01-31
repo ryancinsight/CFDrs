@@ -71,3 +71,7 @@ harness = false
 [[bench]]
 name = "rk4_bench"
 harness = false
+
+[[bench]]
+name = "cg_bench"
+harness = false
