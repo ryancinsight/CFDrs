@@ -65,11 +65,10 @@ jobs:
           ${{ runner.os }}-cargo-
 
     - name: Install benchmark dependencies
+      if: runner.os == 'Linux'
       run: |
-        if [ "$RUNNER_OS" == "Linux" ]; then
-          sudo apt-get update
-          sudo apt-get install -y valgrind linux-tools-common
-        fi
+        sudo apt-get update
+        sudo apt-get install -y valgrind linux-tools-common
 
     - name: Build benchmarks
       run: cargo build --release --bench comprehensive_cfd_benchmarks
