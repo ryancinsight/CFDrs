@@ -9,6 +9,42 @@ use cfd_core::error::{ConvergenceErrorKind, Error, Result};
 use nalgebra::{DMatrix, DVector, RealField};
 use num_traits::FromPrimitive;
 use std::fmt::Debug;
+use std::sync::Mutex;
+
+/// Workspace for GMRES solver to avoid repeated allocations
+struct GmresWorkspace<T: RealField + Copy> {
+    v: DMatrix<T>,
+    h: DMatrix<T>,
+    g: DVector<T>,
+    c: DVector<T>,
+    s: DVector<T>,
+    work: DVector<T>,
+    precond_work: DVector<T>,
+    ax: DVector<T>,
+    v_col: DVector<T>,
+    r: DVector<T>,
+    n: usize,
+    m: usize,
+}
+
+impl<T: RealField + Copy> GmresWorkspace<T> {
+    fn new(n: usize, m: usize) -> Self {
+        Self {
+            v: DMatrix::zeros(n, m + 1),
+            h: DMatrix::zeros(m + 1, m),
+            g: DVector::zeros(m + 1),
+            c: DVector::zeros(m),
+            s: DVector::zeros(m),
+            work: DVector::zeros(n),
+            precond_work: DVector::zeros(n),
+            ax: DVector::zeros(n),
+            v_col: DVector::zeros(n),
+            r: DVector::zeros(n),
+            n,
+            m,
+        }
+    }
+}
 
 /// GMRES(m) solver with restart capability
 ///
@@ -68,6 +104,8 @@ pub struct GMRES<T: RealField + Copy> {
     config: IterativeSolverConfig<T>,
     /// Maximum Krylov subspace dimension before restart
     restart_dim: usize,
+    /// Reusable workspace to avoid allocations
+    workspace: Mutex<Option<GmresWorkspace<T>>>,
 }
 
 impl<T: RealField + Copy + FromPrimitive + Debug> GMRES<T> {
@@ -86,6 +124,7 @@ impl<T: RealField + Copy + FromPrimitive + Debug> GMRES<T> {
         Self {
             config,
             restart_dim,
+            workspace: Mutex::new(None),
         }
     }
 
@@ -126,25 +165,22 @@ impl<T: RealField + Copy + FromPrimitive + Debug> GMRES<T> {
         let m = self.restart_dim;
 
         // Workspace vectors and matrices
-        let mut v = DMatrix::zeros(n, m + 1);
-        let mut h = DMatrix::zeros(m + 1, m);
-        let mut g = DVector::zeros(m + 1);
-        let mut c = DVector::zeros(m);
-        let mut s = DVector::zeros(m);
-        let mut work = DVector::zeros(n);
-        let mut precond_work = DVector::zeros(n);
-        let mut ax = DVector::zeros(n);
+        let mut workspace_lock = self.workspace.lock().unwrap();
+        if workspace_lock.as_ref().map_or(true, |ws| ws.n != n || ws.m != m) {
+            *workspace_lock = Some(GmresWorkspace::new(n, m));
+        }
+        let ws = workspace_lock.as_mut().unwrap();
 
         // 1. Initial residual: r0 = b - A*x
-        a.apply(x, &mut ax)?;
-        let mut r0 = b.clone();
-        r0 -= &ax;
+        a.apply(x, &mut ws.ax)?;
+        ws.r.copy_from(b);
+        ws.r -= &ws.ax;
 
         // Apply preconditioning to initial residual if needed (Left Preconditioning)
-        preconditioner.apply_to(&r0, &mut work)?;
-        let beta = work.norm();
+        preconditioner.apply_to(&ws.r, &mut ws.work)?;
+        let beta = ws.work.norm();
 
-        let r0_norm = r0.norm();
+        let r0_norm = ws.r.norm();
         if r0_norm < self.config.tolerance {
             return Ok(ConvergenceMonitor::new(r0_norm));
         }
@@ -161,24 +197,28 @@ impl<T: RealField + Copy + FromPrimitive + Debug> GMRES<T> {
             let beta_restart = if is_first_restart {
                 beta
             } else {
-                a.apply(x, &mut ax)?;
-                let mut r_restart = b.clone();
-                r_restart -= &ax;
-                preconditioner.apply_to(&r_restart, &mut work)?;
-                work.norm()
+                a.apply(x, &mut ws.ax)?;
+                ws.r.copy_from(b);
+                ws.r -= &ws.ax;
+                preconditioner.apply_to(&ws.r, &mut ws.work)?;
+                ws.work.norm()
             };
 
             if beta_restart <= T::default_epsilon() {
                 return Err(Error::Convergence(ConvergenceErrorKind::Breakdown));
             }
 
-            v.column_mut(0).copy_from(&(work.clone() / beta_restart));
+            {
+                let mut v0 = ws.v.column_mut(0);
+                v0.copy_from(&ws.work);
+                v0 *= T::one() / beta_restart;
+            }
 
-            h.fill(T::zero());
-            g.fill(T::zero());
-            c.fill(T::zero());
-            s.fill(T::zero());
-            g[0] = beta_restart;
+            ws.h.fill(T::zero());
+            ws.g.fill(T::zero());
+            ws.c.fill(T::zero());
+            ws.s.fill(T::zero());
+            ws.g[0] = beta_restart;
 
             // 3. Arnoldi iterations
             let mut converged_iter = None;
@@ -188,28 +228,29 @@ impl<T: RealField + Copy + FromPrimitive + Debug> GMRES<T> {
                 // Arnoldi step: build orthonormal basis
                 arnoldi::arnoldi_iteration(
                     a,
-                    &mut v,
-                    &mut h,
+                    &mut ws.v,
+                    &mut ws.h,
                     k,
-                    &mut work,
+                    &mut ws.work,
                     Some(preconditioner),
-                    Some(&mut precond_work),
+                    Some(&mut ws.precond_work),
+                    &mut ws.v_col,
                 )?;
                 iterations_used += 1;
 
                 // Apply previous Givens rotations to new column of H
-                givens::apply_previous_rotations(&mut h, &c, &s, k);
+                givens::apply_previous_rotations(&mut ws.h, &ws.c, &ws.s, k);
 
                 // Compute new Givens rotation to zero out H(k+1, k)
-                let (ck, sk) = givens::compute_rotation(h[(k, k)], h[(k + 1, k)]);
-                c[k] = ck;
-                s[k] = sk;
+                let (ck, sk) = givens::compute_rotation(ws.h[(k, k)], ws.h[(k + 1, k)]);
+                ws.c[k] = ck;
+                ws.s[k] = sk;
 
                 // Apply new Givens rotation to H and g
-                givens::apply_new_rotation(&mut h, &mut g, ck, sk, k);
+                givens::apply_new_rotation(&mut ws.h, &mut ws.g, ck, sk, k);
 
                 // Check convergence using residual norm estimate
-                let residual_estimate = g[k + 1].abs();
+                let residual_estimate = ws.g[k + 1].abs();
                 monitor.record_residual(residual_estimate);
 
                 if residual_estimate < self.config.tolerance {
@@ -223,16 +264,16 @@ impl<T: RealField + Copy + FromPrimitive + Debug> GMRES<T> {
             if k_final == 0 {
                 break;
             }
-            let y = givens::solve_upper_triangular(&h, &g, k_final)?;
+            let y = givens::solve_upper_triangular(&ws.h, &ws.g, k_final)?;
 
             for i in 0..k_final {
-                x.axpy(y[i], &v.column(i), T::one());
+                x.axpy(y[i], &ws.v.column(i), T::one());
             }
 
-            a.apply(x, &mut ax)?;
-            let mut r_check = b.clone();
-            r_check -= &ax;
-            if r_check.norm() < self.config.tolerance {
+            a.apply(x, &mut ws.ax)?;
+            ws.r.copy_from(b);
+            ws.r -= &ws.ax;
+            if ws.r.norm() < self.config.tolerance {
                 return Ok(monitor);
             }
 
