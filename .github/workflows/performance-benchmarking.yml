@@ -69,8 +69,6 @@ jobs:
         if [ "$RUNNER_OS" == "Linux" ]; then
           sudo apt-get update
           sudo apt-get install -y valgrind linux-tools-common
-        elif [ "$RUNNER_OS" == "macOS" ]; then
-          brew install valgrind
         fi
 
     - name: Build benchmarks
