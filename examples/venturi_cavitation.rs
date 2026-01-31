@@ -277,19 +277,16 @@ fn generate_cavitation_plots(
     let _cavity_chart = ChartData {
         labels: inlet_velocities
             .iter()
-            .enumerate()
-            .filter(|(_, &v)| {
-                // TODO: Replace unwrap-based error handling with proper Result types and error propagation
-                // DEPENDENCIES: Add comprehensive error handling framework for cavitation result validation
-                // BLOCKED BY: Limited understanding of cavitation result validation failure modes and recovery strategies
-                // PRIORITY: Medium - Important for robust example execution and debugging
+            .map(|&v| {
                 results
                     .iter()
                     .find(|r| r.inlet_velocity == v)
-                    .unwrap()
-                    .is_cavitating
+                    .ok_or_else(|| format!("Result not found for velocity {}", v))
             })
-            .map(|(_, v)| format!("{:.1}", v))
+            .collect::<Result<Vec<_>, String>>()?
+            .into_iter()
+            .filter(|r| r.is_cavitating)
+            .map(|r| format!("{:.1}", r.inlet_velocity))
             .collect(),
         datasets: vec![Dataset {
             label: "Cavity Length (mm)".to_string(),
