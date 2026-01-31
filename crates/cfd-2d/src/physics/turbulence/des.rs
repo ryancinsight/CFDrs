@@ -28,8 +28,6 @@
 //! - Spalart, P. R., et al. (2006). A new version of detached-eddy simulation.
 //! - Shur, M. L., et al. (2008). A hybrid RANS-LES approach with delayed-DES.
 
-// TODO(HIGH): Complete DES Formulation - Implement full Detached Eddy Simulation with RANS-LES coupling
-// Links individual TODOs at lines 58,95,146,156,200,203,220,316,412,414 into cohesive implementation
 // Dependencies: RANS model integration, wall distance computation, length scale consistency
 // Mathematical Foundation: Spalart et al. (1997) DES97, Shur et al. (2008) IDDES
 
@@ -62,7 +60,7 @@ pub struct DESConfig {
     pub des_constant: f64,
     /// Maximum SGS viscosity ratio
     pub max_sgs_ratio: f64,
-    /// TODO: Compute RANS viscosity from attached RANS model state.
+    /// Molecular viscosity (constant)
     pub rans_viscosity: f64,
     /// Enable GPU acceleration
     pub use_gpu: bool,
@@ -201,11 +199,12 @@ impl DetachedEddySimulation {
         let ny = velocity_v.ncols();
         let mut length_scale = DMatrix::zeros(nx, ny);
 
-        // Compute strain rate magnitude for IDDES
-        let strain_magnitude = if matches!(self.config.variant, DESVariant::IDDES) {
+        // Compute strain rate magnitude for DDES and IDDES
+        // Needed for shielding function r_d
+        let strain_magnitude = if matches!(self.config.variant, DESVariant::DDES | DESVariant::IDDES) {
             self.compute_strain_rate_magnitude(velocity_u, velocity_v, dx, dy)
         } else {
-            DMatrix::zeros(1, 1) // Dummy for other variants
+            DMatrix::zeros(1, 1) // Dummy for DES97
         };
 
         for i in 0..nx {
@@ -216,6 +215,9 @@ impl DetachedEddySimulation {
                 // RANS length scale is the wall distance in SA model
                 let rans_length = self.wall_distance[(i, j)];
 
+                // Get current modified viscosity state (nu_tilde)
+                let nu_tilde_val = self.nu_tilde[(i, j)];
+
                 // DES length scale based on variant
                 let des_length = match self.config.variant {
                     DESVariant::DES97 => {
@@ -224,12 +226,13 @@ impl DetachedEddySimulation {
                     }
                     DESVariant::DDES => {
                         // Delayed DES with shielding function
-                        self.compute_ddes_length_scale(rans_length, delta, i, j)
+                        let strain_mag = strain_magnitude[(i, j)];
+                        self.compute_ddes_length_scale(rans_length, delta, nu_tilde_val, strain_mag, i, j)
                     }
                     DESVariant::IDDES => {
                         // Improved DDES
                         let strain_mag = strain_magnitude[(i, j)];
-                        self.compute_iddes_length_scale(rans_length, dx, dy, strain_mag, i, j)
+                        self.compute_iddes_length_scale(rans_length, dx, dy, nu_tilde_val, strain_mag, i, j)
                     }
                 };
 
@@ -241,7 +244,15 @@ impl DetachedEddySimulation {
     }
 
     /// Compute DDES length scale with shielding function
-    fn compute_ddes_length_scale(&self, rans_length: f64, delta: f64, i: usize, j: usize) -> f64 {
+    fn compute_ddes_length_scale(
+        &self,
+        rans_length: f64,
+        delta: f64,
+        nu_tilde_val: f64,
+        strain_mag: f64,
+        i: usize,
+        j: usize
+    ) -> f64 {
         let d_w = self.wall_distance[(i, j)];
 
         match self.config.variant {
@@ -254,19 +265,27 @@ impl DetachedEddySimulation {
                     l_rans
                 } else {
                     // LES mode with proper DDES shielding function
-                    // Spalart et al. (2006): fd = 1 - tanh[[8(y+/CDDESΔ)³]]
-                    //
-                    // TODO: Replace y+ approximation with u_tau-based wall units when available.
-                    let cd_des = self.config.des_constant;
+                    // Spalart et al. (2006): fd = 1 - tanh[(8 * r_d)^3]
+                    // r_d = (nu_t + nu) / (kappa^2 * d_w^2 * max(S, 1e-10))
 
-                    // TODO: Compute y+ = u_tau * d_w / nu instead of a grid-based approximation.
-                    let y_plus = d_w / delta.max(1e-10);
+                    let kappa = 0.41;
 
-                    // DDES shielding function (Spalart et al. 2006)
-                    let r_d = 8.0 * (y_plus / (cd_des * delta)).powi(3);
-                    let f_d = 1.0 - r_d.tanh();
+                    // Compute turbulent viscosity from nu_tilde using SA relation
+                    let nu_t = self.spalart_allmaras.eddy_viscosity(nu_tilde_val, self.config.rans_viscosity);
+                    let nu = self.config.rans_viscosity;
+
+                    // Strain rate magnitude
+                    let s = strain_mag.max(1e-10);
+
+                    // r_d calculation
+                    let denom = kappa * kappa * d_w * d_w * s;
+                    let r_d = (nu_t + nu) / denom.max(1e-20);
+
+                    // Shielding function
+                    let f_d = 1.0 - (8.0 * r_d).powi(3).tanh();
 
                     // Blend RANS and LES length scales
+                    // f_d is 0 in RANS region (r_d large), 1 in LES region (r_d small)
                     l_rans * (1.0 - f_d) + l_les * f_d
                 }
             }
@@ -280,6 +299,7 @@ impl DetachedEddySimulation {
         rans_length: f64,
         dx: f64,
         dy: f64,
+        nu_tilde_val: f64,
         strain_mag: f64,
         i: usize,
         j: usize,
@@ -308,10 +328,13 @@ impl DetachedEddySimulation {
 
         // 3. Shielding function f_dt (similar to DDES) and blending f_B
         // r_dt = nu_t / (k^2 * dw^2 * S)
-        // Estimate local nu_t from rans_length (assuming mixing length hypothesis): nu_t ~ l^2 * S
-        let s = strain_mag.max(1e-10);
-        let nu_t = rans_length.powi(2) * s;
 
+        // Compute actual turbulent viscosity
+        let nu_t = self.spalart_allmaras.eddy_viscosity(nu_tilde_val, self.config.rans_viscosity);
+
+        let s = strain_mag.max(1e-10);
+
+        // Use actual nu_t instead of mixing length approximation
         let r_dt = nu_t / (kappa * kappa * d_w * d_w * s).max(1e-20);
 
         // f_dt = 1 - tanh[(8 * r_dt)^3] (DDES-like shielding)
@@ -654,5 +677,53 @@ mod tests {
         assert_eq!(length_scale.nrows(), 10);
         assert_eq!(length_scale.ncols(), 10);
         assert!(length_scale.iter().all(|&l| l > 0.0 && l.is_finite()));
+    }
+
+    #[test]
+    fn test_ddes_shielding_behavior() {
+        // Setup DDES
+        let config = DESConfig {
+            variant: DESVariant::DDES,
+            des_constant: 0.65,
+            ..Default::default()
+        };
+
+        let mut des = DetachedEddySimulation::new(10, 10, 1.0, 1.0, config, &[]);
+
+        // Manually overwrite wall distance for a specific point (5, 5)
+        // Set d_w = 1.0.
+        des.wall_distance[(5, 5)] = 1.0;
+
+        // l_RANS = 1.0.
+        // l_LES = 0.65 * 1.0 = 0.65.
+        // l_RANS > l_LES, so shielding logic enters.
+
+        // Case 1: High Eddy Viscosity (Shielding Active -> RANS mode)
+        // nu_tilde needs to be high enough.
+        des.nu_tilde[(5, 5)] = 10.0;
+
+        // Create velocity field that gives S=1.0 at (5,5).
+        // Simple shear: u = y. du/dy = 1.
+        let mut velocity_u = DMatrix::zeros(10, 10);
+        for j in 0..10 {
+            for i in 0..10 {
+                velocity_u[(i, j)] = j as f64;
+            }
+        }
+        let velocity_v = DMatrix::zeros(10, 10);
+
+        let length_scale = des.compute_des_length_scale(&velocity_u, &velocity_v, 1.0, 1.0);
+
+        let l = length_scale[(5, 5)];
+        // Expect RANS length scale (1.0) because of shielding
+        assert!((l - 1.0).abs() < 1e-3, "With high viscosity, DDES should shield and return RANS length (1.0), got {}", l);
+
+        // Case 2: Zero Eddy Viscosity (Shielding Inactive -> LES mode)
+        des.nu_tilde[(5, 5)] = 0.0;
+        let length_scale_les = des.compute_des_length_scale(&velocity_u, &velocity_v, 1.0, 1.0);
+        let l_les = length_scale_les[(5, 5)];
+
+        // Expect LES length scale (0.65)
+        assert!((l_les - 0.65).abs() < 1e-3, "With zero viscosity, DDES should return LES length (0.65), got {}", l_les);
     }
 }
