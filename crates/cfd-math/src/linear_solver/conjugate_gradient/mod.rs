@@ -16,16 +16,31 @@ use cfd_core::error::{ConvergenceErrorKind, Error, NumericalErrorKind, Result};
 use nalgebra::{DVector, RealField};
 use num_traits::FromPrimitive;
 use std::fmt::Debug;
+use std::sync::Mutex;
+
+/// Workspace for CG solver to avoid repeated allocations
+struct Workspace<T: RealField + Copy> {
+    r: DVector<T>,
+    p: DVector<T>,
+    z: DVector<T>,
+    ap: DVector<T>,
+    ax: DVector<T>,
+}
 
 /// Preconditioned Conjugate Gradient solver
 pub struct ConjugateGradient<T: RealField + Copy> {
     config: IterativeSolverConfig<T>,
+    /// Thread-safe workspace for reusing allocations
+    workspace: Mutex<Option<Workspace<T>>>,
 }
 
 impl<T: RealField + Copy> ConjugateGradient<T> {
     /// Create new CG solver
     pub const fn new(config: IterativeSolverConfig<T>) -> Self {
-        Self { config }
+        Self {
+            config,
+            workspace: Mutex::new(None),
+        }
     }
 
     /// Create with default configuration
@@ -53,15 +68,30 @@ impl<T: RealField + Copy> ConjugateGradient<T> {
             )));
         }
 
-        let mut r = DVector::zeros(n);
-        let mut p = DVector::zeros(n);
-        let mut z = DVector::zeros(n);
-        let mut ap = DVector::zeros(n);
-        let mut ax = DVector::zeros(n);
+        // Acquire workspace
+        let mut guard = self.workspace.lock().unwrap();
 
-        a.apply(x, &mut ax)?;
+        // Initialize or resize workspace if needed
+        if guard.as_ref().is_none_or(|ws| ws.r.len() != n) {
+            *guard = Some(Workspace {
+                r: DVector::zeros(n),
+                p: DVector::zeros(n),
+                z: DVector::zeros(n),
+                ap: DVector::zeros(n),
+                ax: DVector::zeros(n),
+            });
+        }
+
+        let Workspace {
+            r, p, z, ap, ax
+        } = guard.as_mut().unwrap();
+
+        // Note: r, p, z, ap, ax are now &mut DVector<T>
+        // We must use dereferencing for operators where necessary
+
+        a.apply(x, ax)?;
         r.copy_from(b);
-        r -= &ax;
+        *r -= &*ax;
 
         let initial_residual_norm = r.norm();
         let mut monitor = ConvergenceMonitor::new(initial_residual_norm);
@@ -70,13 +100,13 @@ impl<T: RealField + Copy> ConjugateGradient<T> {
             return Ok(monitor);
         }
 
-        preconditioner.apply_to(&r, &mut z)?;
-        p.copy_from(&z);
+        preconditioner.apply_to(r, z)?;
+        p.copy_from(z);
 
         let epsilon = T::default_epsilon();
         let breakdown_tolerance = epsilon * epsilon;
 
-        let mut r_dot_z = r.dot(&z);
+        let mut r_dot_z = r.dot(z);
         let r_dot_z_scale = r.norm() * z.norm();
         if r_dot_z.abs() < breakdown_tolerance * (T::one() + r_dot_z_scale) {
             return Err(Error::Convergence(ConvergenceErrorKind::Breakdown));
@@ -86,9 +116,9 @@ impl<T: RealField + Copy> ConjugateGradient<T> {
         }
 
         for _iter in 0..self.config.max_iterations {
-            a.apply(&p, &mut ap)?;
+            a.apply(p, ap)?;
 
-            let p_dot_ap = p.dot(&ap);
+            let p_dot_ap = p.dot(ap);
             let p_dot_ap_scale = p.norm() * ap.norm();
             if p_dot_ap.abs() < breakdown_tolerance * (T::one() + p_dot_ap_scale) {
                 return Err(Error::Convergence(ConvergenceErrorKind::Breakdown));
@@ -99,8 +129,8 @@ impl<T: RealField + Copy> ConjugateGradient<T> {
 
             let alpha = r_dot_z / p_dot_ap;
 
-            x.axpy(alpha, &p, T::one());
-            r.axpy(-alpha, &ap, T::one());
+            x.axpy(alpha, p, T::one());
+            r.axpy(-alpha, ap, T::one());
 
             let residual_norm = r.norm();
             monitor.record_residual(residual_norm);
@@ -109,9 +139,9 @@ impl<T: RealField + Copy> ConjugateGradient<T> {
                 return Ok(monitor);
             }
 
-            preconditioner.apply_to(&r, &mut z)?;
+            preconditioner.apply_to(r, z)?;
 
-            let r_dot_z_new = r.dot(&z);
+            let r_dot_z_new = r.dot(z);
             let r_dot_z_new_scale = r.norm() * z.norm();
             if r_dot_z_new.abs() < breakdown_tolerance * (T::one() + r_dot_z_new_scale) {
                 return Err(Error::Convergence(ConvergenceErrorKind::Breakdown));
@@ -122,8 +152,8 @@ impl<T: RealField + Copy> ConjugateGradient<T> {
 
             let beta = r_dot_z_new / r_dot_z;
 
-            p *= beta;
-            p += &z;
+            *p *= beta;
+            *p += &*z;
 
             r_dot_z = r_dot_z_new;
         }
