@@ -3,11 +3,13 @@
 //! This example demonstrates the use of the 3D FEM solver for solving
 //! the Stokes equations in a simple tetrahedral domain.
 
-use cfd_3d::fem::{FemConfig, FemSolver};
+use cfd_3d::fem::{FemConfig, FemSolver, StokesFlowProblem};
 use cfd_core::geometry::ElementType;
+use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_core::physics::fluid::{ConstantFluid, ConstantPropertyFluid};
-use cfd_mesh::prelude::{Cell, Mesh, Vertex};
-use nalgebra::Point3;
+use cfd_mesh::prelude::{Cell, Face, Mesh, Vertex};
+use nalgebra::{Point3, Vector3};
+use std::collections::HashMap;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("3D FEM Stokes Flow Example");
@@ -28,6 +30,43 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         mesh.cells().len()
     );
 
+    // Identify boundary nodes and set boundary conditions
+    // Lid-driven cavity:
+    // Top face (y=1): Velocity inlet (u=1, v=0, w=0)
+    // Other faces: No-slip wall
+    let mut boundary_conditions = HashMap::new();
+    let tolerance = 1e-6;
+
+    for (i, vertex) in mesh.vertices().iter().enumerate() {
+        let pos = vertex.position;
+        let x = pos.x;
+        let y = pos.y;
+        let z = pos.z;
+
+        // Check if on boundary
+        let on_boundary = x.abs() < tolerance || (x - 1.0).abs() < tolerance ||
+                          y.abs() < tolerance || (y - 1.0).abs() < tolerance ||
+                          z.abs() < tolerance || (z - 1.0).abs() < tolerance;
+
+        if on_boundary {
+            if (y - 1.0).abs() < tolerance {
+                // Top face: Lid velocity
+                boundary_conditions.insert(
+                    i,
+                    BoundaryCondition::velocity_inlet(Vector3::new(1.0, 0.0, 0.0))
+                );
+            } else {
+                // Other faces: No-slip wall
+                boundary_conditions.insert(i, BoundaryCondition::wall_no_slip());
+            }
+        }
+    }
+
+    println!("Boundary conditions set for {} nodes", boundary_conditions.len());
+
+    // Create problem definition
+    let problem = StokesFlowProblem::new(mesh, fluid, boundary_conditions);
+
     // Create FEM solver configuration
     let base = cfd_core::compute::solver::SolverConfig::builder()
         .tolerance(1e-6)
@@ -45,7 +84,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     // Create FEM solver
-    let _solver = FemSolver::new(config);
+    let mut solver = FemSolver::new(config);
 
     println!("FEM solver configured with:");
     println!("  - Element type: Linear tetrahedron (Tet4)");
@@ -53,24 +92,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("  - Quadrature order: 2");
     println!("  - Reynolds number: 100");
 
-    // Note: The actual problem setup and solving would require proper
-    // boundary condition implementation that matches the API.
-    // TODO: This example demonstrates the basic setup but needs more work
-    // DEPENDENCIES: Complete boundary condition API in cfd-core
-    // BLOCKED BY: Inconsistent boundary condition interfaces
-    // PRIORITY: High - FEM is essential for complex geometries
-    // This example demonstrates the basic setup.
+    println!("\nStarting solver...");
+    let solution = solver.solve(&problem)?;
 
-    println!("\nFEM solver setup completed successfully!");
-    // TODO: Full Stokes flow solving requires proper boundary condition setup.
-    // DEPENDENCIES: Complete boundary condition implementation
-    // PRIORITY: High - Essential for FEM functionality
+    println!("FEM solver setup and execution completed successfully!");
+    println!("Solution computed with {} nodes", solution.n_nodes);
 
     Ok(())
 }
 
 /// Create a simple unit cube mesh with tetrahedra
 fn create_unit_cube_mesh() -> Result<Mesh<f64>, Box<dyn std::error::Error>> {
+    let mut mesh = Mesh::new();
+
     // Create 8 vertices of a unit cube
     let vertices = vec![
         Vertex::new(Point3::new(0.0, 0.0, 0.0)), // 0
@@ -83,31 +117,60 @@ fn create_unit_cube_mesh() -> Result<Mesh<f64>, Box<dyn std::error::Error>> {
         Vertex::new(Point3::new(0.0, 1.0, 1.0)), // 7
     ];
 
-    // Create tetrahedra by subdividing the cube
-    // A cube can be divided into 5 or 6 tetrahedra
-    let cells = vec![
-        // Tetrahedron 1
-        Cell::tetrahedron(0, 1, 2, 3), // Tetrahedron with faces 0,1,2,3
-        Cell::tetrahedron(4, 5, 6, 7), // Tetrahedron with faces 4,5,6,7
-        Cell::tetrahedron(8, 9, 10, 11), // Tetrahedron with faces 8,9,10,11
-        Cell::tetrahedron(12, 13, 14, 15), // Tetrahedron with faces 12,13,14,15
-        Cell::tetrahedron(16, 17, 18, 19), // Tetrahedron with faces 16,17,18,19
-        Cell::tetrahedron(20, 21, 22, 23), // Tetrahedron with faces 20,21,22,23
-    ];
-
-    // Create faces (not strictly necessary for FEM, but good for completeness)
-    let _faces: Vec<u8> = vec![];
-
-    let mut mesh = Mesh::new();
-
-    // Add vertices to mesh
     for vertex in vertices {
         mesh.add_vertex(vertex);
     }
 
-    // Add cells to mesh
-    for cell in cells {
-        mesh.add_cell(cell);
+    // 6-tetrahedron decomposition of a cube
+    // Each tet is defined by 4 vertex indices
+    let tet_indices = vec![
+        vec![0, 1, 2, 6],
+        vec![0, 2, 3, 6],
+        vec![0, 5, 1, 6],
+        vec![0, 4, 5, 6],
+        vec![0, 3, 7, 6],
+        vec![0, 7, 4, 6],
+    ];
+
+    // Deduplicate faces
+    let mut face_map: HashMap<Vec<usize>, usize> = HashMap::new();
+
+    for indices in tet_indices {
+        let v0 = indices[0];
+        let v1 = indices[1];
+        let v2 = indices[2];
+        let v3 = indices[3];
+
+        // 4 faces per tet (vertex triplets)
+        let faces_verts = vec![
+            vec![v0, v1, v2],
+            vec![v0, v1, v3],
+            vec![v1, v2, v3],
+            vec![v2, v0, v3],
+        ];
+
+        let mut face_indices = Vec::new();
+
+        for f_verts in faces_verts {
+            let mut sorted_verts = f_verts.clone();
+            sorted_verts.sort_unstable();
+
+            let face_idx = if let Some(&idx) = face_map.get(&sorted_verts) {
+                idx
+            } else {
+                let idx = mesh.add_face(Face::triangle(f_verts[0], f_verts[1], f_verts[2]));
+                face_map.insert(sorted_verts, idx);
+                idx
+            };
+            face_indices.push(face_idx);
+        }
+
+        mesh.add_cell(Cell::tetrahedron(
+            face_indices[0],
+            face_indices[1],
+            face_indices[2],
+            face_indices[3],
+        ));
     }
 
     Ok(mesh)

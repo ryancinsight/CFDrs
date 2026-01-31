@@ -241,6 +241,14 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
         // Get fluid properties
         let viscosity = problem.fluid.viscosity;
 
+        // Pre-calculate vertex positions to avoid repeated allocation
+        let vertex_positions: Vec<Vector3<T>> = problem
+            .mesh
+            .vertices()
+            .iter()
+            .map(|v| v.position.coords)
+            .collect();
+
         // Loop over elements
         for cell in problem.mesh.cells() {
             // Get vertex indices for this cell
@@ -250,15 +258,15 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
             let mut element = FluidElement::new(vertex_indices);
 
             // Calculate element properties
-            // Convert vertices to Vector3 format
-            let vertex_positions: Vec<Vector3<T>> = problem
-                .mesh
-                .vertices()
-                .iter()
-                .map(|v| v.position.coords)
-                .collect();
-            element.calculate_volume(&vertex_positions[..4]); // Use first 4 vertices for tetrahedral
-            element.calculate_shape_derivatives(&vertex_positions[..4]);
+            // Pass global vertices for volume calculation
+            element.calculate_volume(&vertex_positions);
+
+            // Create local vertex list for shape derivatives (expects 4 vertices)
+            if element.nodes.len() == 4 {
+                let local_vertices: Vec<Vector3<T>> =
+                    element.nodes.iter().map(|&idx| vertex_positions[idx]).collect();
+                element.calculate_shape_derivatives(&local_vertices);
+            }
 
             // Calculate element matrices
             let elem_matrices = self.calculate_element_matrices(&element, viscosity);
