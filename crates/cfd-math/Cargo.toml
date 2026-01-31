@@ -71,3 +71,8 @@ harness = false
 [[bench]]
 name = "rk4_bench"
 harness = false
+
+
+[[bench]]
+name = "gmres_bench"
+harness = false

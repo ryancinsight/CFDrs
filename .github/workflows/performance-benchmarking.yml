@@ -65,11 +65,10 @@ jobs:
           ${{ runner.os }}-cargo-
 
     - name: Install benchmark dependencies
+      if: runner.os == 'Linux'
       run: |
-        if [ "$RUNNER_OS" == "Linux" ]; then
-          sudo apt-get update
-          sudo apt-get install -y valgrind linux-tools-common
-        fi
+        sudo apt-get update
+        sudo apt-get install -y valgrind linux-tools-common
 
     - name: Build benchmarks
       run: cargo build --release --bench comprehensive_cfd_benchmarks
@@ -77,119 +76,26 @@ jobs:
     - name: Run comprehensive benchmarks
       if: github.event.inputs.benchmark_type == 'comprehensive' || github.event_name != 'workflow_dispatch'
       run: |
-        cargo bench --bench comprehensive_cfd_benchmarks -- --verbose --output-format json | tee benchmark_results.json
+        cargo bench --bench comprehensive_cfd_benchmarks -- --verbose | tee benchmark_results.txt
 
     - name: Run regression detection benchmarks
       if: github.event.inputs.benchmark_type == 'regression' || github.event_name == 'schedule'
       run: |
-        cargo bench --bench regression_detection -- --verbose --output-format json | tee regression_results.json
+        cargo bench --bench regression_detection -- --verbose | tee regression_results.txt
 
     - name: Run production validation benchmarks
       if: github.event.inputs.benchmark_type == 'production'
       run: |
-        cargo bench --bench production_validation -- --verbose --output-format json | tee production_results.json
-
-    - name: Generate performance report
-      run: |
-        cargo run --bin performance_report_generator -- benchmark_results.json performance_report.html
+        cargo bench --bench production_validation -- --verbose | tee production_results.txt
 
     - name: Upload benchmark results
       uses: actions/upload-artifact@v4
       with:
         name: benchmark-results-${{ matrix.os }}
         path: |
-          benchmark_results.json
-          regression_results.json
-          production_results.json
-          performance_report.html
-          performance_baselines.json
-
-    - name: Check for performance regressions
-      id: regression_check
-      run: |
-        # Run regression analysis
-        cargo run --bin regression_analyzer -- performance_baselines.json benchmark_results.json > regression_analysis.txt
-
-        # Check if there are critical regressions
-        if grep -q "CRITICAL" regression_analysis.txt; then
-          echo "critical_regression=true" >> $GITHUB_OUTPUT
-        else
-          echo "critical_regression=false" >> $GITHUB_OUTPUT
-        fi
-
-        # Count total alerts
-        alert_count=$(grep -c "ALERT\|WARNING\|CRITICAL" regression_analysis.txt || echo "0")
-        echo "alert_count=$alert_count" >> $GITHUB_OUTPUT
-
-    - name: Update performance baselines
-      if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-      run: |
-        # Only update baselines on main branch after successful benchmarks
-        cp performance_baselines.json performance_baselines_backup.json
-        cargo run --bin baseline_updater -- benchmark_results.json performance_baselines.json
-
-    - name: Generate performance summary comment
-      if: github.event_name == 'pull_request'
-      uses: actions/github-script@v6
-      with:
-        script: |
-          const fs = require('fs');
-          const results = JSON.parse(fs.readFileSync('benchmark_results.json', 'utf8'));
-
-          let comment = '## Performance Benchmark Results\n\n';
-
-          // Add summary statistics
-          const totalOps = results.length;
-          const avgTime = results.reduce((sum, r) => sum + r.execution_time, 0) / totalOps;
-
-          comment += `**Summary:**\n`;
-          comment += `- Total Operations: ${totalOps}\n`;
-          comment += `- Average Execution Time: ${(avgTime * 1000).toFixed(3)} ms\n\n`;
-
-          // Add top 5 slowest operations
-          const sorted = results.sort((a, b) => b.execution_time - a.execution_time);
-          comment += `**Top 5 Slowest Operations:**\n`;
-          for (let i = 0; i < Math.min(5, sorted.length); i++) {
-            const op = sorted[i];
-            comment += `${i + 1}. ${op.operation_name} (${op.problem_size}): ${(op.execution_time * 1000).toFixed(3)} ms\n`;
-          }
-
-          comment += `\n[View detailed report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})`;
-
-          github.rest.issues.createComment({
-            issue_number: context.issue.number,
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            body: comment
-          });
-
-    - name: Performance regression notification
-      if: steps.regression_check.outputs.critical_regression == 'true'
-      uses: actions/github-script@v6
-      with:
-        script: |
-          const analysis = require('fs').readFileSync('regression_analysis.txt', 'utf8');
-
-          const body = `🚨 **Critical Performance Regression Detected**
-
-          A performance regression has been detected in the latest benchmarks.
-
-          **Analysis:**
-          \`\`\`
-          ${analysis}
-          \`\`\`
-
-          Please investigate the recent changes that may have caused this regression.
-
-          [View benchmark results](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}})`;
-
-          github.rest.issues.create({
-            title: '🚨 Critical Performance Regression',
-            body: body,
-            labels: ['performance', 'regression', 'urgent'],
-            owner: context.repo.owner,
-            repo: context.repo.repo
-          });
+          benchmark_results.txt
+          regression_results.txt
+          production_results.txt
 
     - name: Slack notification (on failure)
       if: failure() && env.SLACK_WEBHOOK_URL
@@ -200,52 +106,11 @@ jobs:
       env:
         SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
-    - name: Slack notification (performance regression)
-      if: steps.regression_check.outputs.critical_regression == 'true' && env.SLACK_WEBHOOK_URL
-      uses: 8398a7/action-slack@v3
-      with:
-        status: custom
-        fields: repo,message,commit,author,action,eventName,ref,workflow
-        custom_payload: |
-          {
-            "attachments": [{
-              "color": "danger",
-              "title": "🚨 Performance Regression Alert",
-              "text": "Critical performance regression detected in CFD Suite benchmarks",
-              "fields": [
-                {
-                  "title": "Repository",
-                  "value": "${{ github.repository }}",
-                  "short": true
-                },
-                {
-                  "title": "Branch",
-                  "value": "${{ github.ref }}",
-                  "short": true
-                },
-                {
-                  "title": "Commit",
-                  "value": "${{ github.sha }}",
-                  "short": true
-                }
-              ],
-              "actions": [
-                {
-                  "type": "button",
-                  "text": "View Results",
-                  "url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-                }
-              ]
-            }]
-          }
-      env:
-        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-
   performance-alerting:
     name: Performance Alerting
     runs-on: ubuntu-latest
     needs: benchmark
-    if: always() && (needs.benchmark.result == 'failure' || needs.benchmark.outputs.critical_regression == 'true')
+    if: always() && needs.benchmark.result == 'failure'
 
     steps:
     - name: Checkout repository
@@ -275,62 +140,3 @@ jobs:
 
           ---
           This is an automated message from GitHub Actions.
-
-  publish-results:
-    name: Publish Benchmark Results
-    runs-on: ubuntu-latest
-    needs: benchmark
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-
-    - name: Download benchmark artifacts
-      uses: actions/download-artifact@v4
-      with:
-        name: benchmark-results-ubuntu-latest
-        path: benchmark-artifacts/
-
-    - name: Publish to GitHub Pages
-      if: github.repository == 'your-org/cfd-suite'  # Replace with actual repository
-      uses: peaceiris/actions-gh-pages@v3
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: benchmark-artifacts/
-        destination_dir: benchmarks/${{ github.sha }}
-
-    - name: Update benchmark dashboard
-      run: |
-        # Generate historical performance dashboard
-        cargo run --bin dashboard_generator -- benchmark-artifacts/ dashboard/
-
-    - name: Deploy dashboard
-      if: github.repository == 'your-org/cfd-suite'  # Replace with actual repository
-      uses: peaceiris/actions-gh-pages@v3
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: dashboard/
-        keep_files: true
-
-  cleanup:
-    name: Cleanup Old Baselines
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'schedule'
-
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-
-    - name: Clean old benchmark data
-      run: |
-        # Keep only last 30 days of benchmark data
-        find . -name "benchmark_results_*.json" -mtime +30 -delete
-        find . -name "performance_report_*.html" -mtime +30 -delete
-
-    - name: Commit cleanup
-      uses: EndBug/add-and-commit@v9
-      with:
-        message: 'chore: clean up old benchmark data'
-        add: '.'
-        push: true

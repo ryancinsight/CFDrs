@@ -21,6 +21,7 @@ use num_traits::FromPrimitive;
 /// * `work` - Workspace vector for matrix-vector product (stores A*v_k initially, then orthogonalized)
 /// * `preconditioner` - Optional preconditioner for Left Preconditioning (M^{-1})
 /// * `precond_work` - Optional workspace for preconditioning result (required if preconditioner is Some)
+/// * `v_col_work` - Workspace for column extraction (avoids allocation)
 ///
 /// # Returns
 ///
@@ -33,6 +34,7 @@ pub fn arnoldi_iteration<T, Op, P>(
     work: &mut DVector<T>,
     preconditioner: Option<&P>,
     precond_work: Option<&mut DVector<T>>,
+    v_col_work: &mut DVector<T>,
 ) -> Result<T>
 where
     T: RealField + Copy + FromPrimitive,
@@ -42,10 +44,11 @@ where
     let n = work.len();
 
     // Extract k-th basis vector
-    let v_k = v.column(k).clone_owned();
+    // Replaced allocation with copy to workspace
+    v_col_work.copy_from(&v.column(k));
 
     // Compute w = A * v_k
-    a.apply(&v_k, work)?;
+    a.apply(v_col_work, work)?;
 
     // Apply Left Preconditioning if provided: w <- M^{-1} * w
     if let Some(precond) = preconditioner {
@@ -112,12 +115,13 @@ mod tests {
         let mut v = DMatrix::zeros(n, 3);
         let mut h = DMatrix::zeros(3, 2);
         let mut work = DVector::zeros(n);
+        let mut v_col = DVector::zeros(n);
 
         // Initialize first basis vector
         v[(0, 0)] = 1.0;
 
         // First Arnoldi step: A*e_1 = e_1
-        let result = arnoldi_iteration(&a, &mut v, &mut h, 0, &mut work, no_precond, None);
+        let result = arnoldi_iteration(&a, &mut v, &mut h, 0, &mut work, no_precond, None, &mut v_col);
 
         // For identity: A*v_0 = v_0, so MGS gives h[0,0]=1, residual=0 (happy breakdown)
         assert!(result.is_ok());
