@@ -1,5 +1,6 @@
 use cfd_core::physics::fluid_dynamics::fields::FlowField;
-use cfd_core::physics::fluid_dynamics::turbulence::{SmagorinskyModel, TurbulenceModel};
+use cfd_core::physics::fluid_dynamics::turbulence::TurbulenceModel;
+use cfd_3d::physics::turbulence::SmagorinskyModel;
 use criterion::{criterion_group, criterion_main, Criterion};
 
 fn bench_smagorinsky(c: &mut Criterion) {
