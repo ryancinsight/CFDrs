@@ -40,14 +40,15 @@ impl<T: RealField + Copy + FromPrimitive> SmagorinskyModel<T> {
     }
 
     /// Calculate strain rate magnitude at a grid point
-    fn calculate_strain_rate(&self, flow_field: &FlowField<T>, idx: usize) -> T {
+    fn calculate_strain_rate_at_point(
+        &self,
+        flow_field: &FlowField<T>,
+        i: usize,
+        j: usize,
+        k: usize,
+        delta: T,
+    ) -> T {
         let (nx, ny, nz) = flow_field.velocity.dimensions;
-        let i = idx % nx;
-        let j = (idx / nx) % ny;
-        let k = idx / (nx * ny);
-
-        // Grid spacing (assuming uniform)
-        let delta = T::from_f64(1.0 / nx as f64).unwrap_or_else(T::one);
 
         // Calculate strain rate tensor components
         let mut s11 = T::zero();
@@ -145,39 +146,44 @@ impl<T: RealField + Copy + FromPrimitive> SmagorinskyModel<T> {
 
 impl<T: RealField + Copy + FromPrimitive> TurbulenceModel<T> for SmagorinskyModel<T> {
     fn turbulent_viscosity(&self, flow_field: &FlowField<T>) -> Vec<T> {
-        let (nx, _, _) = flow_field.velocity.dimensions;
+        let (nx, ny, nz) = flow_field.velocity.dimensions;
         let delta = T::from_f64(1.0 / nx as f64).unwrap_or_else(T::one);
+        let prefactor = self.cs * self.cs * delta * delta;
 
-        flow_field
-            .velocity
-            .components
-            .iter()
-            .enumerate()
-            .map(|(idx, _)| {
-                let strain_rate = self.calculate_strain_rate(flow_field, idx);
-                // νₜ = (Cs * Δ)² * |S|
-                self.cs * self.cs * delta * delta * strain_rate
-            })
-            .collect()
+        let mut viscosity = Vec::with_capacity(nx * ny * nz);
+
+        for k in 0..nz {
+            for j in 0..ny {
+                for i in 0..nx {
+                    let strain_rate =
+                        self.calculate_strain_rate_at_point(flow_field, i, j, k, delta);
+                    viscosity.push(prefactor * strain_rate);
+                }
+            }
+        }
+        viscosity
     }
 
     fn turbulent_kinetic_energy(&self, flow_field: &FlowField<T>) -> Vec<T> {
         // For Smagorinsky model, estimate TKE from strain rate
         // k ≈ (Cs * Δ * |S|)²
-        let (nx, _, _) = flow_field.velocity.dimensions;
+        let (nx, ny, nz) = flow_field.velocity.dimensions;
         let delta = T::from_f64(1.0 / nx as f64).unwrap_or_else(T::one);
+        let cs_delta = self.cs * delta;
 
-        flow_field
-            .velocity
-            .components
-            .iter()
-            .enumerate()
-            .map(|(idx, _)| {
-                let strain_rate = self.calculate_strain_rate(flow_field, idx);
-                let cs_delta_s = self.cs * delta * strain_rate;
-                cs_delta_s * cs_delta_s
-            })
-            .collect()
+        let mut tke = Vec::with_capacity(nx * ny * nz);
+
+        for k in 0..nz {
+            for j in 0..ny {
+                for i in 0..nx {
+                    let strain_rate =
+                        self.calculate_strain_rate_at_point(flow_field, i, j, k, delta);
+                    let cs_delta_s = cs_delta * strain_rate;
+                    tke.push(cs_delta_s * cs_delta_s);
+                }
+            }
+        }
+        tke
     }
 
     fn name(&self) -> &'static str {
