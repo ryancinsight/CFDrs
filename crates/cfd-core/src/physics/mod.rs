@@ -19,9 +19,8 @@ pub mod api {
     pub use super::constants::{mathematical, physics};
     pub use super::fluid::{ConstantPropertyFluid, Fluid, FluidProperties};
     pub use super::fluid_dynamics::{
-        FlowClassifier, FlowField, FlowOperations, FlowRegime, FluidDynamicsService,
-        KEpsilonConstants, KEpsilonModel, MixingLengthModel, PressureField, RANSModel,
-        RhieChowInterpolation, ScalarField, SmagorinskyModel, TurbulenceModel, VelocityField,
+        FlowClassifier, FlowField, FlowOperations, FlowRegime, FluidDynamicsService, PressureField,
+        RANSModel, RhieChowInterpolation, ScalarField, TurbulenceModel, VelocityField,
     };
     pub use super::material::{MaterialDatabase, SolidProperties};
     pub use super::values::{Pressure, ReynoldsNumber, Temperature, Velocity};

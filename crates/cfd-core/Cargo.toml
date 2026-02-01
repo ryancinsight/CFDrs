@@ -48,7 +48,3 @@ tokio = { version = "1.0", features = ["full"] }
 [[bench]]
 name = "turbulence_benchmark"
 harness = false
-
-[[bench]]
-name = "smagorinsky_benchmark"
-harness = false

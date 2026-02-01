@@ -106,6 +106,7 @@
 pub mod fem;
 pub mod ibm;
 pub mod level_set;
+pub mod physics;
 pub mod spectral;
 pub mod vof;
 

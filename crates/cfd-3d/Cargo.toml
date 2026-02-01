@@ -34,3 +34,6 @@ approx.workspace = true
 criterion.workspace = true
 cfd-validation.workspace = true
 
+[[bench]]
+name = "smagorinsky_benchmark"
+harness = false

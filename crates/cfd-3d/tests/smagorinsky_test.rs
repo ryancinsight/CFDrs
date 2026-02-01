@@ -1,5 +1,6 @@
 use cfd_core::physics::fluid_dynamics::fields::FlowField;
-use cfd_core::physics::fluid_dynamics::turbulence::{SmagorinskyModel, TurbulenceModel};
+use cfd_core::physics::fluid_dynamics::turbulence::TurbulenceModel;
+use cfd_3d::physics::turbulence::SmagorinskyModel;
 
 #[test]
 fn test_smagorinsky_turbulent_viscosity() {
@@ -39,6 +40,9 @@ fn test_smagorinsky_turbulent_viscosity() {
     // Off-diagonals should be 0 because u only depends on x, v only on y, w only on z
     // |S| = sqrt(2 * (S11^2 + S22^2 + S33^2)) = sqrt(2 * 3) = sqrt(6)
     // nu_t = (Cs * Delta)^2 * |S|
+
+    // Strain rate calculation in model uses central difference, so it should be exact for linear field.
+    // du/dx = ( (i+1)d - (i-1)d ) / (2d) = 2d / 2d = 1.
 
     let expected_strain_mag = (6.0f64).sqrt();
     let expected_viscosity = (cs * delta).powi(2) * expected_strain_mag;
