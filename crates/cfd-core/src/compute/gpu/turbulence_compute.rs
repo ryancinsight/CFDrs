@@ -303,6 +303,30 @@ mod tests {
     }
 
     #[cfg(feature = "gpu")]
+    #[tokio::test]
+    async fn test_des_length_scale_computation() {
+        let mut compute = GpuTurbulenceCompute::new().unwrap();
+
+        // Simple test data
+        let nx = 16;
+        let ny = 16;
+        let velocity_u = vec![1.0; nx * ny];
+        let velocity_v = vec![0.0; nx * ny];
+
+        let result = compute.compute_des_length_scale(
+            &velocity_u,
+            &velocity_v,
+            nx,
+            ny,
+            0.1,
+            0.1,
+            0.65, // des_constant
+        );
+
+        assert!(result.is_ok(), "DES length scale computation should succeed");
+    }
+
+    #[cfg(feature = "gpu")]
     #[test]
     fn test_performance_info() {
         let compute = GpuTurbulenceCompute::new().unwrap();
