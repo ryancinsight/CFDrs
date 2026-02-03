@@ -28,6 +28,7 @@ struct TurbulenceParams {
 pub struct GpuSmagorinskyKernel<T: RealField + Copy> {
     shader_module: Option<wgpu::ShaderModule>,
     compute_pipeline: Option<wgpu::ComputePipeline>,
+    bind_group: Option<wgpu::BindGroup>,
     _phantom: PhantomData<T>,
 }
 
@@ -47,6 +48,7 @@ impl<T: RealField + Copy> GpuSmagorinskyKernel<T> {
         Self {
             shader_module: None,
             compute_pipeline: None,
+            bind_group: None,
             _phantom: PhantomData,
         }
     }
@@ -146,23 +148,28 @@ impl<T: RealField + Copy> GpuSmagorinskyKernel<T> {
             ],
         });
 
+        // Store bind group
+        self.bind_group = Some(bind_group);
+
+        // Prepare parameters for dispatch
+        let kernel_params = KernelParams {
+            size: (nx * ny) as usize,
+            work_group_size: 64, // 8x8
+            domain_params: DomainParams {
+                grid_dims: (nx as usize, ny as usize, 1),
+                grid_spacing: (f64::from(dx), f64::from(dy), 1.0),
+                dt: 0.0,
+                reynolds: 0.0,
+                velocity: (0.0, 0.0, 0.0),
+                boundary: BoundaryCondition2D::Periodic, // Default
+            },
+        };
+
         let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
             label: Some("Smagorinsky LES Encoder"),
         });
 
-        {
-            let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
-                label: Some("Smagorinsky LES Pass"),
-                timestamp_writes: None,
-            });
-
-            compute_pass.set_pipeline(pipeline);
-            compute_pass.set_bind_group(0, &bind_group, &[]);
-
-            let workgroups_x = nx.div_ceil(8);
-            let workgroups_y = ny.div_ceil(8);
-            compute_pass.dispatch_workgroups(workgroups_x, workgroups_y, 1);
-        }
+        self.dispatch(&mut encoder, kernel_params);
 
         queue.submit(Some(encoder.finish()));
         Ok(())
@@ -212,8 +219,21 @@ impl<T: RealField + Copy> GpuKernel<T> for GpuSmagorinskyKernel<T> {
         Ok(pipeline)
     }
 
-    fn dispatch(&self, _encoder: &mut wgpu::CommandEncoder, _params: KernelParams) {
-        // TODO: Create bind groups and dispatch workgroups via a compute pass.
+    fn dispatch(&self, encoder: &mut wgpu::CommandEncoder, params: KernelParams) {
+        if let (Some(pipeline), Some(bind_group)) = (&self.compute_pipeline, &self.bind_group) {
+            let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                label: Some("Smagorinsky LES Pass"),
+                timestamp_writes: None,
+            });
+
+            compute_pass.set_pipeline(pipeline);
+            compute_pass.set_bind_group(0, bind_group, &[]);
+
+            let (nx, ny, _) = params.domain_params.grid_dims;
+            let workgroups_x = (nx as u32).div_ceil(8);
+            let workgroups_y = (ny as u32).div_ceil(8);
+            compute_pass.dispatch_workgroups(workgroups_x, workgroups_y, 1);
+        }
     }
 }
 
