@@ -347,7 +347,9 @@ impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T>> Network<T, F> {
                     };
 
                     // Prepare flow conditions
+                    // Initialize with zero velocity, but clear it to allow calculator to derive it from flow rate
                     let mut conditions = crate::resistance::FlowConditions::new(T::zero());
+                    conditions.velocity = None;
                     conditions.flow_rate = Some(flow_rate.abs());
 
                     // Re-calculate coefficients

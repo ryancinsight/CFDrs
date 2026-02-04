@@ -106,8 +106,11 @@ impl<T: RealField + Copy> ConvergenceChecker<T> {
             residual_norm
         };
 
-        // Converged if EITHER relative change OR relative residual is below tolerance
-        // This is a robust check for non-linear systems.
-        Ok(relative_change < self.tolerance || relative_residual < self.tolerance)
+        // Converged if BOTH relative change AND relative residual are below tolerance
+        // This ensures that we have found a fixed point of the non-linear iteration (Picard)
+        // AND that the linear system was solved to sufficient accuracy.
+        // Checking only residual (linear residual) is insufficient because it is minimized
+        // by the linear solver in each step, regardless of whether the non-linear problem is solved.
+        Ok(relative_change < self.tolerance && relative_residual < self.tolerance)
     }
 }

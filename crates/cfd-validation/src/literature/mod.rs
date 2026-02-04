@@ -3,6 +3,7 @@
 //! This module provides validation against published benchmark results
 //! to ensure physics accuracy and numerical correctness.
 
+pub mod blood_flow_1d;
 pub mod chapman_enskog;
 pub mod patankar_1980;
 

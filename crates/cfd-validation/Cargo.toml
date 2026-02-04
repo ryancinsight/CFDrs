@@ -12,6 +12,7 @@ description = "Validation framework and benchmark problems for CFD simulations"
 cfd-core.workspace = true
 cfd-math.workspace = true
 cfd-io.workspace = true
+cfd-1d.workspace = true
 cfd-2d.workspace = true
 nalgebra.workspace = true
 nalgebra-sparse.workspace = true
@@ -26,6 +27,7 @@ chrono = "0.4"
 num_cpus = "1.16"
 num-complex.workspace = true
 rayon.workspace = true
+petgraph.workspace = true
 
 [dev-dependencies]
 proptest.workspace = true

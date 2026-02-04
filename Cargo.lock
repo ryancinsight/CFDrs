@@ -469,6 +469,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "approx 0.5.1",
+ "cfd-1d",
  "cfd-2d",
  "cfd-core",
  "cfd-io",
@@ -480,6 +481,7 @@ dependencies = [
  "num-complex 0.4.6",
  "num-traits",
  "num_cpus",
+ "petgraph",
  "proptest",
  "rayon",
  "serde",
