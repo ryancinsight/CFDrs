@@ -1,27 +1,34 @@
 //! Traits and common types for resistance models.
 
 use cfd_core::error::Result;
-use cfd_core::physics::fluid::Fluid;
+use cfd_core::physics::fluid::FluidTrait;
 use nalgebra::RealField;
 use num_traits::cast::FromPrimitive;
 
 /// Trait for hydraulic resistance models
 pub trait ResistanceModel<T: RealField + Copy> {
     /// Calculate hydraulic resistance [Pa·s/m³]
-    fn calculate_resistance(&self, fluid: &Fluid<T>, conditions: &FlowConditions<T>) -> Result<T>;
+    fn calculate_resistance<F: FluidTrait<T>>(
+        &self,
+        fluid: &F,
+        conditions: &FlowConditions<T>,
+    ) -> Result<T>;
 
     /// Calculate linear and quadratic resistance coefficients
     ///
     /// Returns (R, k) where ΔP = R·Q + k·Q|Q|
     /// - R: Linear resistance coefficient [Pa·s/m³]
     /// - k: Quadratic loss coefficient [Pa·s²/m⁶]
-    fn calculate_coefficients(
+    fn calculate_coefficients<F: FluidTrait<T>>(
         &self,
-        fluid: &Fluid<T>,
+        fluid: &F,
         conditions: &FlowConditions<T>,
     ) -> Result<(T, T)> {
         // Default implementation: assume model is purely linear
-        Ok((self.calculate_resistance(fluid, conditions)?, T::zero()))
+        Ok((
+            self.calculate_resistance(fluid, conditions)?,
+            T::zero(),
+        ))
     }
 
     /// Get model name
@@ -33,15 +40,24 @@ pub trait ResistanceModel<T: RealField + Copy> {
     /// Validate physical invariants (e.g., Mach number, entrance length)
     ///
     /// Returns Ok(()) if all invariants are satisfied, or an error describing the violation.
-    fn validate_invariants(&self, fluid: &Fluid<T>, conditions: &FlowConditions<T>) -> Result<()> {
+    fn validate_invariants<F: FluidTrait<T>>(
+        &self,
+        fluid: &F,
+        conditions: &FlowConditions<T>,
+    ) -> Result<()> {
         self.validate_mach_number(fluid, conditions)
     }
 
     /// Validate Mach number for incompressibility assumption (Ma < 0.3)
-    fn validate_mach_number(&self, fluid: &Fluid<T>, conditions: &FlowConditions<T>) -> Result<()> {
+    fn validate_mach_number<F: FluidTrait<T>>(
+        &self,
+        fluid: &F,
+        conditions: &FlowConditions<T>,
+    ) -> Result<()> {
         // Mach number validation: Ma < 0.3 for incompressibility
         if let Some(velocity) = conditions.velocity {
-            let speed_of_sound = fluid.speed_of_sound;
+            let speed_of_sound =
+                fluid.speed_of_sound_at(conditions.temperature, conditions.pressure)?;
             if speed_of_sound > T::zero() {
                 let v_abs = if velocity >= T::zero() {
                     velocity
@@ -82,6 +98,8 @@ pub struct FlowConditions<T: RealField + Copy> {
     pub velocity: Option<T>,
     /// Flow rate [m³/s]
     pub flow_rate: Option<T>,
+    /// Shear rate [1/s] (at wall or characteristic)
+    pub shear_rate: Option<T>,
     /// Temperature [K]
     pub temperature: T,
     /// Pressure [Pa]
@@ -97,6 +115,7 @@ impl<T: RealField + Copy + FromPrimitive> FlowConditions<T> {
             reynolds_number: None,
             velocity: Some(velocity),
             flow_rate: None,
+            shear_rate: None,
             temperature: T::from_f64(T_STANDARD).unwrap_or_else(T::one),
             pressure: T::from_f64(P_ATM).unwrap_or_else(T::one),
         }

@@ -100,6 +100,20 @@ pub trait Fluid<T: RealField + Copy>: Send + Sync {
     fn reference_pressure(&self) -> Option<T> {
         None
     }
+
+    /// Get viscosity at specific shear rate [Pa·s]
+    ///
+    /// For Newtonian fluids, this returns the dynamic viscosity.
+    /// For non-Newtonian fluids, this returns the apparent viscosity.
+    fn viscosity_at_shear(
+        &self,
+        _shear_rate: T,
+        temperature: T,
+        pressure: T,
+    ) -> Result<T, Error> {
+        self.properties_at(temperature, pressure)
+            .map(|s| s.dynamic_viscosity)
+    }
 }
 
 /// Convenience trait for constant property fluids

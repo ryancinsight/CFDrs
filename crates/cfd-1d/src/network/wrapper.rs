@@ -5,7 +5,7 @@ use crate::channel::ChannelGeometry;
 use cfd_core::{
     error::{Error, Result},
     physics::boundary::BoundaryCondition,
-    physics::fluid::{ConstantPropertyFluid, Fluid},
+    physics::fluid::{ConstantPropertyFluid, FluidTrait},
 };
 use nalgebra::{DVector, RealField};
 use num_traits::FromPrimitive;
@@ -15,11 +15,11 @@ use std::collections::HashMap;
 
 /// Extended network with fluid properties and convenience methods
 #[derive(Clone, Debug)]
-pub struct Network<T: RealField + Copy> {
+pub struct Network<T: RealField + Copy, F: FluidTrait<T> = ConstantPropertyFluid<T>> {
     /// The underlying graph
     pub graph: NetworkGraph<T>,
     /// Fluid properties for the network
-    pub fluid: ConstantPropertyFluid<T>,
+    pub fluid: F,
     /// Prescribed boundary conditions
     boundary_conditions: HashMap<NodeIndex, BoundaryCondition<T>>,
     /// Node pressures
@@ -75,9 +75,9 @@ pub struct ParallelEdge<T: RealField + Copy> {
     pub conductance: T,
 }
 
-impl<T: RealField + Copy + FromPrimitive> Network<T> {
+impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T>> Network<T, F> {
     /// Create a new network
-    pub fn new(graph: NetworkGraph<T>, fluid: ConstantPropertyFluid<T>) -> Self {
+    pub fn new(graph: NetworkGraph<T>, fluid: F) -> Self {
         Self {
             graph,
             fluid,
@@ -91,7 +91,7 @@ impl<T: RealField + Copy + FromPrimitive> Network<T> {
     }
 
     /// Get the fluid properties
-    pub fn fluid(&self) -> &Fluid<T> {
+    pub fn fluid(&self) -> &F {
         &self.fluid
     }
 

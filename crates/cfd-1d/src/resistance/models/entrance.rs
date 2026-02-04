@@ -52,7 +52,7 @@
 
 use super::traits::{FlowConditions, ResistanceModel};
 use cfd_core::error::{Error, Result};
-use cfd_core::physics::fluid::Fluid;
+use cfd_core::physics::fluid::FluidTrait;
 use nalgebra::RealField;
 use num_traits::cast::FromPrimitive;
 use serde::{Deserialize, Serialize};
@@ -99,7 +99,11 @@ impl<T: RealField + Copy> EntranceEffectsModel<T> {
 impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceModel<T>
     for EntranceEffectsModel<T>
 {
-    fn calculate_resistance(&self, _fluid: &Fluid<T>, conditions: &FlowConditions<T>) -> Result<T> {
+    fn calculate_resistance<F: FluidTrait<T>>(
+        &self,
+        _fluid: &F,
+        conditions: &FlowConditions<T>,
+    ) -> Result<T> {
         let reynolds = conditions.reynolds_number.ok_or_else(|| {
             Error::InvalidConfiguration(
                 "Reynolds number required for entrance effects model".to_string(),

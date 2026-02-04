@@ -6,7 +6,7 @@ use crate::network::Network;
 use cfd_core::abstractions::problem::Problem;
 use cfd_core::error::Result;
 use cfd_core::physics::boundary::BoundaryConditionSet;
-use cfd_core::physics::fluid::ConstantPropertyFluid;
+use cfd_core::physics::fluid::{ConstantPropertyFluid, FluidTrait};
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 
@@ -15,20 +15,20 @@ use num_traits::FromPrimitive;
 /// This encapsulates the network state and configuration as a Problem that can be
 /// solved using the core trait system, enabling polymorphism and plugin architecture.
 #[derive(Debug, Clone)]
-pub struct NetworkProblem<T: RealField + Copy> {
+pub struct NetworkProblem<T: RealField + Copy, F: FluidTrait<T> = ConstantPropertyFluid<T>> {
     /// The network to solve
-    pub network: Network<T>,
+    pub network: Network<T, F>,
     /// Computational domain information
     pub domain: NetworkDomain<T>,
     /// Fluid properties
-    fluid: ConstantPropertyFluid<T>,
+    pub fluid: F,
     /// Boundary conditions for the network
     boundary_conditions: BoundaryConditionSet<T>,
 }
 
-impl<T: RealField + Copy + FromPrimitive + Copy> NetworkProblem<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy, F: FluidTrait<T> + Clone> NetworkProblem<T, F> {
     /// Create a new network problem
-    pub fn new(network: Network<T>) -> Self {
+    pub fn new(network: Network<T, F>) -> Self {
         let node_count = network.node_count();
         let characteristic_length = network.characteristic_length();
 
@@ -41,15 +41,18 @@ impl<T: RealField + Copy + FromPrimitive + Copy> NetworkProblem<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + Copy> Problem<T> for NetworkProblem<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy, F: FluidTrait<T> + Clone> Problem<T>
+    for NetworkProblem<T, F>
+{
     type Domain = NetworkDomain<T>;
     type State = NetworkState<T>;
+    type Fluid = F;
 
     fn domain(&self) -> &NetworkDomain<T> {
         &self.domain
     }
 
-    fn fluid(&self) -> &ConstantPropertyFluid<T> {
+    fn fluid(&self) -> &F {
         &self.fluid
     }
 
