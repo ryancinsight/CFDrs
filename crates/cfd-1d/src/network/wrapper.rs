@@ -347,8 +347,16 @@ impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T>> Network<T, F> {
                     };
 
                     // Prepare flow conditions
+                    // Explicitly use from_flow_rate if available, or initialize and set flow rate.
+                    // Using standard ambient temperature (293.15 K) as default instead of zero.
+                    let t_std = T::from_f64(cfd_core::physics::constants::physics::thermo::T_STANDARD)
+                        .unwrap_or_else(T::one);
+
                     let mut conditions = crate::resistance::FlowConditions::new(T::zero());
+                    // Force velocity to None to ensure calculator derives it from flow rate
+                    conditions.velocity = None;
                     conditions.flow_rate = Some(flow_rate.abs());
+                    conditions.temperature = t_std;
 
                     // Re-calculate coefficients
                     let (r, k) = calculator.calculate_coefficients_auto(
