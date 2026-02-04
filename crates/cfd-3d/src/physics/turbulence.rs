@@ -340,8 +340,10 @@ impl<T: RealField + Copy + FromPrimitive> KEpsilonConstants<T> {
                 .unwrap_or_else(T::one),
             c_2: T::from_f64(cfd_core::physics::constants::physics::turbulence::K_EPSILON_C2)
                 .unwrap_or_else(T::one),
-            sigma_k: T::from_f64(cfd_core::physics::constants::physics::turbulence::K_EPSILON_SIGMA_K)
-                .unwrap_or_else(T::one),
+            sigma_k: T::from_f64(
+                cfd_core::physics::constants::physics::turbulence::K_EPSILON_SIGMA_K,
+            )
+            .unwrap_or_else(T::one),
             sigma_epsilon: T::from_f64(
                 cfd_core::physics::constants::physics::turbulence::K_EPSILON_SIGMA_EPSILON,
             )

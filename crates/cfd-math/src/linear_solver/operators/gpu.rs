@@ -5,12 +5,9 @@ use crate::error::Result;
 #[cfg(feature = "gpu")]
 use crate::linear_solver::traits::{GpuLinearOperator, LinearOperator};
 #[cfg(feature = "gpu")]
-use cfd_core::compute::gpu::{
-    kernels::laplacian::Laplacian2DKernel,
-    GpuBuffer, GpuContext,
-};
-#[cfg(feature = "gpu")]
 pub use cfd_core::compute::gpu::kernels::laplacian::BoundaryType;
+#[cfg(feature = "gpu")]
+use cfd_core::compute::gpu::{kernels::laplacian::Laplacian2DKernel, GpuBuffer, GpuContext};
 #[cfg(feature = "gpu")]
 use cfd_core::compute::ComputeBuffer;
 #[cfg(feature = "gpu")]

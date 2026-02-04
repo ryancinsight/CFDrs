@@ -363,7 +363,10 @@ mod tests {
                 covered[idx] = true;
             }
         }
-        assert!(covered.iter().all(|&x| x), "All nodes should be covered by subdomains");
+        assert!(
+            covered.iter().all(|&x| x),
+            "All nodes should be covered by subdomains"
+        );
 
         // Verify overlap: sum of subdomain sizes should be > n
         let total_size: usize = preconditioner.subdomain_map.iter().map(|s| s.len()).sum();

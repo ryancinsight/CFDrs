@@ -1,6 +1,6 @@
+use cfd_3d::physics::turbulence::SmagorinskyModel;
 use cfd_core::physics::fluid_dynamics::fields::FlowField;
 use cfd_core::physics::fluid_dynamics::turbulence::TurbulenceModel;
-use cfd_3d::physics::turbulence::SmagorinskyModel;
 use criterion::{criterion_group, criterion_main, Criterion};
 
 fn bench_smagorinsky(c: &mut Criterion) {
@@ -27,9 +27,7 @@ fn bench_smagorinsky(c: &mut Criterion) {
     let model = SmagorinskyModel::new(0.1);
 
     c.bench_function("smagorinsky_viscosity_64^3", |b| {
-        b.iter(|| {
-            model.turbulent_viscosity(&flow_field)
-        })
+        b.iter(|| model.turbulent_viscosity(&flow_field))
     });
 }
 

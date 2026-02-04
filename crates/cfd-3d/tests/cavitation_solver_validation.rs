@@ -41,6 +41,7 @@ fn test_cavitation_inception() {
         relaxation_time: 1e-6,
         vapor_pressure: 2330.0,
         liquid_density: 998.0,
+        liquid_viscosity: 1.002e-3,
         vapor_density: 0.023,
         sound_speed: 1500.0,
     };
@@ -94,11 +95,11 @@ fn test_damage_accumulation() {
             nucleation_fraction: 5e-4,
             bubble_radius: 1e-6,
             f_vap: 50.0,
-            f_cond: 0.01,
+            f_cond: 0.0,
         },
         damage_model: Some(damage_model),
         bubble_dynamics: Some(BubbleDynamicsConfig {
-            initial_radius: 1e-6,
+            initial_radius: 1e-4,
             number_density: 1e13,
             polytropic_exponent: 1.4,
             surface_tension: 0.072,
@@ -108,6 +109,7 @@ fn test_damage_accumulation() {
         relaxation_time: 0.1,
         vapor_pressure: 2330.0,
         liquid_density: 998.0,
+        liquid_viscosity: 1.002e-3,
         vapor_density: 0.023,
         sound_speed: 1500.0,
     };
@@ -116,11 +118,21 @@ fn test_damage_accumulation() {
 
     // Create cavitating conditions
     let velocity_field = vec![Vector3::new(20.0, 0.0, 0.0); 1000]; // High velocity
-    let pressure_field = DMatrix::from_element(10, 100, 1000.0); // Low pressure
     let density_field = DMatrix::from_element(10, 100, 998.0);
 
+    // Initialize void fraction to ensure damage calculation is triggered
+    {
+        let mut volume_fraction = solver.volume_fraction();
+        volume_fraction.fill(0.1);
+        solver.set_volume_fraction(&volume_fraction).unwrap();
+    }
+
     // Run multiple steps to accumulate damage
-    for _ in 0..10 {
+    // We oscillate pressure to induce both growth (low pressure) and collapse (high pressure)
+    // Damage physically occurs during collapse events
+    for i in 0..20 {
+        let p_val = if i % 2 == 0 { 1000.0 } else { 50000.0 };
+        let pressure_field = DMatrix::from_element(10, 100, p_val);
         solver
             .step(1e-5, &velocity_field, &pressure_field, &density_field)
             .unwrap();
@@ -170,6 +182,7 @@ fn test_sonoluminescence_energy_field_requires_collapse_and_is_finite() {
         relaxation_time: 1e-6,
         vapor_pressure: 2330.0,
         liquid_density: 998.0,
+        liquid_viscosity: 1.002e-3,
         vapor_density: 0.023,
         sound_speed: 1500.0,
     };
@@ -226,6 +239,7 @@ fn test_mass_conservation() {
         relaxation_time: 0.1,
         vapor_pressure: 2330.0,
         liquid_density: 998.0,
+        liquid_viscosity: 1.002e-3,
         vapor_density: 0.023,
         sound_speed: 1500.0,
     };
@@ -312,6 +326,7 @@ fn test_bubble_dynamics_integration() {
         relaxation_time: 0.1,
         vapor_pressure: 2330.0,
         liquid_density: 998.0,
+        liquid_viscosity: 1.002e-3,
         vapor_density: 0.023,
         sound_speed: 1500.0,
     };
@@ -391,6 +406,7 @@ fn test_cavitation_statistics() {
         relaxation_time: 1e-6,
         vapor_pressure: 2330.0,
         liquid_density: 998.0,
+        liquid_viscosity: 1.002e-3,
         vapor_density: 0.023,
         sound_speed: 1500.0,
     };
@@ -501,6 +517,7 @@ fn test_cavitation_model_comparison() {
             relaxation_time: 1e-6,
             vapor_pressure: 2330.0,
             liquid_density: 998.0,
+            liquid_viscosity: 1.002e-3,
             vapor_density: 0.023,
             sound_speed: 1500.0,
         };

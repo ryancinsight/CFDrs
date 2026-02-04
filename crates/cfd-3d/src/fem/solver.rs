@@ -263,8 +263,11 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
 
             // Create local vertex list for shape derivatives (expects 4 vertices)
             if element.nodes.len() == 4 {
-                let local_vertices: Vec<Vector3<T>> =
-                    element.nodes.iter().map(|&idx| vertex_positions[idx]).collect();
+                let local_vertices: Vec<Vector3<T>> = element
+                    .nodes
+                    .iter()
+                    .map(|&idx| vertex_positions[idx])
+                    .collect();
                 element.calculate_shape_derivatives(&local_vertices);
             }
 
@@ -443,9 +446,7 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
             let label = mesh
                 .boundary_label(face_idx)
                 .ok_or_else(|| {
-                    Error::InvalidConfiguration(format!(
-                        "Boundary face {face_idx} missing label"
-                    ))
+                    Error::InvalidConfiguration(format!("Boundary face {face_idx} missing label"))
                 })?
                 .to_string();
             let face = mesh.face(face_idx).ok_or_else(|| {
@@ -461,7 +462,10 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
             .collect())
     }
 
-    fn compute_periodic_pairs(&self, problem: &StokesFlowProblem<T>) -> Result<Vec<(usize, usize)>> {
+    fn compute_periodic_pairs(
+        &self,
+        problem: &StokesFlowProblem<T>,
+    ) -> Result<Vec<(usize, usize)>> {
         use std::collections::HashSet;
 
         let label_nodes = self.collect_boundary_label_nodes(&problem.mesh)?;
@@ -513,10 +517,7 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
                     "Multiple periodic partners found for boundary label {label}"
                 )));
             }
-            let partner = partners
-                .into_iter()
-                .next()
-                .unwrap_or_else(|| label.clone());
+            let partner = partners.into_iter().next().unwrap_or_else(|| label.clone());
             label_partner.insert(label.clone(), partner);
         }
 
@@ -560,9 +561,9 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
     ) -> Result<Vec<(usize, usize)>> {
         use std::collections::HashSet;
 
-        let left_nodes = label_nodes
-            .get(label)
-            .ok_or_else(|| Error::InvalidConfiguration(format!("Boundary label {label} not found")))?;
+        let left_nodes = label_nodes.get(label).ok_or_else(|| {
+            Error::InvalidConfiguration(format!("Boundary label {label} not found"))
+        })?;
         let right_nodes = label_nodes.get(partner).ok_or_else(|| {
             Error::InvalidConfiguration(format!("Boundary label {partner} not found"))
         })?;
@@ -577,9 +578,7 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
                 .mesh
                 .vertex(node)
                 .ok_or_else(|| {
-                    Error::InvalidConfiguration(format!(
-                        "Boundary node {node} not found in mesh"
-                    ))
+                    Error::InvalidConfiguration(format!("Boundary node {node} not found in mesh"))
                 })?
                 .position
                 .coords;
@@ -636,20 +635,14 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
         Ok(pairs)
     }
 
-    fn compute_nodes_centroid(
-        &self,
-        mesh: &Mesh<T>,
-        nodes: &[usize],
-    ) -> Result<Vector3<T>> {
+    fn compute_nodes_centroid(&self, mesh: &Mesh<T>, nodes: &[usize]) -> Result<Vector3<T>> {
         let mut sum = Vector3::new(T::zero(), T::zero(), T::zero());
         let count = T::from_usize(nodes.len()).unwrap_or_else(T::one);
         for &node in nodes {
             let pos = mesh
                 .vertex(node)
                 .ok_or_else(|| {
-                Error::InvalidConfiguration(format!(
-                    "Boundary node {node} not found in mesh"
-                ))
+                    Error::InvalidConfiguration(format!("Boundary node {node} not found in mesh"))
                 })?
                 .position
                 .coords;
@@ -740,9 +733,12 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
                     // Average coefficients
                     let num_robin_nodes = T::from_usize(alphas.len()).unwrap_or_else(T::one);
 
-                    let avg_alpha = alphas.iter().fold(T::zero(), |acc, &x| acc + x) / num_robin_nodes;
-                    let avg_beta = betas.iter().fold(T::zero(), |acc, &x| acc + x) / num_robin_nodes;
-                    let avg_gamma = gammas.iter().fold(T::zero(), |acc, &x| acc + x) / num_robin_nodes;
+                    let avg_alpha =
+                        alphas.iter().fold(T::zero(), |acc, &x| acc + x) / num_robin_nodes;
+                    let avg_beta =
+                        betas.iter().fold(T::zero(), |acc, &x| acc + x) / num_robin_nodes;
+                    let avg_gamma =
+                        gammas.iter().fold(T::zero(), |acc, &x| acc + x) / num_robin_nodes;
 
                     // Ensure beta is not zero to avoid division by zero
                     if Float::abs(avg_beta) > T::epsilon() {

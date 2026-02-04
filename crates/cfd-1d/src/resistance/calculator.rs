@@ -263,8 +263,7 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceCalculator<T> {
     fn area(&self, geometry: &ChannelGeometry<T>) -> Result<T> {
         let area = match geometry {
             ChannelGeometry::Circular { diameter, .. } => {
-                T::from_f64(std::f64::consts::PI).unwrap_or_else(T::zero)
-                    * (*diameter * *diameter)
+                T::from_f64(std::f64::consts::PI).unwrap_or_else(T::zero) * (*diameter * *diameter)
                     / T::from_f64(4.0).unwrap_or_else(T::zero)
             }
             ChannelGeometry::Rectangular { width, height, .. } => *width * *height,
@@ -273,7 +272,8 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceCalculator<T> {
                 minor_axis,
                 ..
             } => {
-                T::from_f64(std::f64::consts::PI).unwrap_or_else(T::zero) * *major_axis
+                T::from_f64(std::f64::consts::PI).unwrap_or_else(T::zero)
+                    * *major_axis
                     * *minor_axis
                     / T::from_f64(4.0).unwrap_or_else(T::zero)
             }
@@ -282,10 +282,7 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceCalculator<T> {
                 bottom_width,
                 height,
                 ..
-            } => {
-                (*top_width + *bottom_width) * *height
-                    / T::from_f64(2.0).unwrap_or_else(T::zero)
-            }
+            } => (*top_width + *bottom_width) * *height / T::from_f64(2.0).unwrap_or_else(T::zero),
             ChannelGeometry::Custom { area, .. } => *area,
         };
         if area <= T::zero() {
@@ -341,8 +338,7 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceCalculator<T> {
                 ..
             } => {
                 let area = self.area(geometry)?;
-                let hw =
-                    (*top_width - *bottom_width) / T::from_f64(2.0).unwrap_or_else(T::zero);
+                let hw = (*top_width - *bottom_width) / T::from_f64(2.0).unwrap_or_else(T::zero);
                 let side_length = (height.powi(2) + hw.powi(2)).sqrt();
                 let perimeter = *top_width
                     + *bottom_width
@@ -350,8 +346,7 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceCalculator<T> {
                 T::from_f64(4.0).unwrap_or_else(T::zero) * area / perimeter
             }
             ChannelGeometry::Custom {
-                hydraulic_diameter,
-                ..
+                hydraulic_diameter, ..
             } => *hydraulic_diameter,
         };
         if dh <= T::zero() {
@@ -375,8 +370,10 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceCalculator<T> {
                     ));
                 }
                 let ratio = (*major_axis / *minor_axis) * (*major_axis / *minor_axis);
-                Ok(T::from_f64(64.0).unwrap_or_else(T::zero) * (T::one() + ratio)
-                    / T::from_f64(2.0).unwrap_or_else(T::one))
+                Ok(
+                    T::from_f64(64.0).unwrap_or_else(T::zero) * (T::one() + ratio)
+                        / T::from_f64(2.0).unwrap_or_else(T::one),
+                )
             }
             ChannelGeometry::Trapezoidal {
                 top_width,
@@ -395,9 +392,7 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceCalculator<T> {
                 Ok(T::from_f64(64.0).unwrap_or_else(T::zero)
                     * (T::one() + T::from_f64(0.1).unwrap_or_else(T::zero) * aspect))
             }
-            ChannelGeometry::Custom { .. } => {
-                Ok(T::from_f64(64.0).unwrap_or_else(T::zero))
-            }
+            ChannelGeometry::Custom { .. } => Ok(T::from_f64(64.0).unwrap_or_else(T::zero)),
             _ => Err(Error::InvalidConfiguration(
                 "Poiseuille number is not defined for this geometry".to_string(),
             )),

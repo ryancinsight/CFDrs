@@ -221,10 +221,9 @@ pub fn apply_f_cycle(
     rhs_levels.push(rhs.clone());
 
     for level_idx in 0..levels.len() - 1 {
-        let restriction = levels[level_idx]
-            .restriction
-            .as_ref()
-            .ok_or_else(|| Error::InvalidConfiguration("Missing restriction operator".to_string()))?;
+        let restriction = levels[level_idx].restriction.as_ref().ok_or_else(|| {
+            Error::InvalidConfiguration("Missing restriction operator".to_string())
+        })?;
         let coarse_rhs = restriction * &rhs_levels[level_idx];
         rhs_levels.push(coarse_rhs);
     }
@@ -241,10 +240,9 @@ pub fn apply_f_cycle(
     let mut residual_history: Vec<f64> = Vec::new();
 
     for level_idx in (0..coarsest_idx).rev() {
-        let interpolation = levels[level_idx]
-            .interpolation
-            .as_ref()
-            .ok_or_else(|| Error::InvalidConfiguration("Missing interpolation operator".to_string()))?;
+        let interpolation = levels[level_idx].interpolation.as_ref().ok_or_else(|| {
+            Error::InvalidConfiguration("Missing interpolation operator".to_string())
+        })?;
         let mut fine_correction = interpolation * &correction;
 
         apply_multigrid_cycle(
@@ -256,8 +254,7 @@ pub fn apply_f_cycle(
 
         if level_idx == 0 {
             cycle_count += 1;
-            let mut residual_norm =
-                (&rhs_levels[0] - &levels[0].matrix * &fine_correction).norm();
+            let mut residual_norm = (&rhs_levels[0] - &levels[0].matrix * &fine_correction).norm();
             residual_history.push(residual_norm);
 
             while cycle_count < max_cycles && residual_norm >= tolerance {
@@ -268,8 +265,7 @@ pub fn apply_f_cycle(
                     &mut fine_correction,
                 )?;
                 cycle_count += 1;
-                residual_norm =
-                    (&rhs_levels[0] - &levels[0].matrix * &fine_correction).norm();
+                residual_norm = (&rhs_levels[0] - &levels[0].matrix * &fine_correction).norm();
                 residual_history.push(residual_norm);
             }
         }

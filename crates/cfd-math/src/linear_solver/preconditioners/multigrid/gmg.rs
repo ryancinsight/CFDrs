@@ -616,18 +616,25 @@ mod tests {
             matrix * u
         }
 
-        fn coarsest_solve(&self, u: &mut DVector<f64>, rhs: &DVector<f64>, level: usize) -> Result<()> {
+        fn coarsest_solve(
+            &self,
+            u: &mut DVector<f64>,
+            rhs: &DVector<f64>,
+            level: usize,
+        ) -> Result<()> {
             // For testing, just run a few relaxation steps on the coarsest level
             let matrix = &self.gmg.matrices[level];
             // Use 20 iterations for coarse solve, starting from provided guess u
-            self.gmg.jacobi_relaxation(matrix, u, rhs, self.gmg.relaxation_param, 20);
+            self.gmg
+                .jacobi_relaxation(matrix, u, rhs, self.gmg.relaxation_param, 20);
             Ok(())
         }
 
         fn restrict_residual(&self, fine: &DVector<f64>, level: usize) -> DVector<f64> {
             let (fine_nx, fine_ny) = self.gmg.grid_sizes[level];
             let (coarse_nx, coarse_ny) = self.gmg.grid_sizes[level + 1];
-            self.gmg.restrict_residual(fine, fine_nx, fine_ny, coarse_nx, coarse_ny)
+            self.gmg
+                .restrict_residual(fine, fine_nx, fine_ny, coarse_nx, coarse_ny)
         }
 
         fn restrict_solution(&self, fine: &DVector<f64>, level: usize) -> DVector<f64> {
@@ -649,12 +656,20 @@ mod tests {
         fn prolongate(&self, coarse: &DVector<f64>, level: usize) -> DVector<f64> {
             let (fine_nx, fine_ny) = self.gmg.grid_sizes[level];
             let (coarse_nx, coarse_ny) = self.gmg.grid_sizes[level + 1];
-            self.gmg.prolongate_correction(coarse, coarse_nx, coarse_ny, fine_nx, fine_ny)
+            self.gmg
+                .prolongate_correction(coarse, coarse_nx, coarse_ny, fine_nx, fine_ny)
         }
 
-        fn smooth(&self, u: &mut DVector<f64>, rhs: &DVector<f64>, level: usize, iterations: usize) {
+        fn smooth(
+            &self,
+            u: &mut DVector<f64>,
+            rhs: &DVector<f64>,
+            level: usize,
+            iterations: usize,
+        ) {
             let matrix = &self.gmg.matrices[level];
-            self.gmg.jacobi_relaxation(matrix, u, rhs, self.gmg.relaxation_param, iterations);
+            self.gmg
+                .jacobi_relaxation(matrix, u, rhs, self.gmg.relaxation_param, iterations);
         }
     }
 
@@ -692,7 +707,8 @@ mod tests {
         assert!(
             residual_norm < tolerance,
             "Residual norm {} is not < {}",
-            residual_norm, tolerance
+            residual_norm,
+            tolerance
         );
 
         // Compare with standard linear solve

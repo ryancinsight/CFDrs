@@ -1,7 +1,7 @@
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, BatchSize};
+use cfd_math::linear_solver::{ConjugateGradient, IdentityPreconditioner, IterativeSolverConfig};
+use criterion::{black_box, criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
 use nalgebra::DVector;
 use nalgebra_sparse::CsrMatrix;
-use cfd_math::linear_solver::{ConjugateGradient, IterativeSolverConfig, IdentityPreconditioner};
 
 fn bench_cg(c: &mut Criterion) {
     let mut group = c.benchmark_group("cg_solver");
@@ -43,7 +43,12 @@ fn bench_cg(c: &mut Criterion) {
             bench.iter_batched_ref(
                 || DVector::zeros(n),
                 |x_mut| {
-                    let _ = solver.solve_preconditioned(black_box(&a), black_box(&b), black_box(&precond), black_box(x_mut));
+                    let _ = solver.solve_preconditioned(
+                        black_box(&a),
+                        black_box(&b),
+                        black_box(&precond),
+                        black_box(x_mut),
+                    );
                 },
                 BatchSize::SmallInput,
             );

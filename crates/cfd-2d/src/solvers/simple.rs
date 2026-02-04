@@ -111,19 +111,27 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Simple
             for i in 0..nx {
                 let ap_u_val = ap_u.at(i, j);
                 if ap_u_val.abs() > min_ap {
-                     // Ensure Ap is positive for stability
-                     let val = if ap_u_val < T::zero() { -ap_u_val } else { ap_u_val };
-                     d_u.set(i, j, dy / val);
+                    // Ensure Ap is positive for stability
+                    let val = if ap_u_val < T::zero() {
+                        -ap_u_val
+                    } else {
+                        ap_u_val
+                    };
+                    d_u.set(i, j, dy / val);
                 } else {
-                     d_u.set(i, j, T::zero());
+                    d_u.set(i, j, T::zero());
                 }
 
                 let ap_v_val = ap_v.at(i, j);
                 if ap_v_val.abs() > min_ap {
-                     let val = if ap_v_val < T::zero() { -ap_v_val } else { ap_v_val };
-                     d_v.set(i, j, dx / val);
+                    let val = if ap_v_val < T::zero() {
+                        -ap_v_val
+                    } else {
+                        ap_v_val
+                    };
+                    d_v.set(i, j, dx / val);
                 } else {
-                     d_v.set(i, j, T::zero());
+                    d_v.set(i, j, T::zero());
                 }
             }
         }
@@ -166,10 +174,26 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Simple
 
                 // Linear extrapolation for boundaries to maintain second-order accuracy
                 let two_val = T::from_f64(2.0).unwrap();
-                let p_ee = if i + 2 < nx { fields.p.at(i + 2, j) } else { two_val * p_e - p_p };
-                let p_ww = if i >= 2 { fields.p.at(i - 2, j) } else { two_val * p_w - p_p };
-                let p_nn = if j + 2 < ny { fields.p.at(i, j + 2) } else { two_val * p_n - p_p };
-                let p_ss = if j >= 2 { fields.p.at(i, j - 2) } else { two_val * p_s - p_p };
+                let p_ee = if i + 2 < nx {
+                    fields.p.at(i + 2, j)
+                } else {
+                    two_val * p_e - p_p
+                };
+                let p_ww = if i >= 2 {
+                    fields.p.at(i - 2, j)
+                } else {
+                    two_val * p_w - p_p
+                };
+                let p_nn = if j + 2 < ny {
+                    fields.p.at(i, j + 2)
+                } else {
+                    two_val * p_n - p_p
+                };
+                let p_ss = if j >= 2 {
+                    fields.p.at(i, j - 2)
+                } else {
+                    two_val * p_s - p_p
+                };
 
                 let d_u_p = d_u.at(i, j);
                 let d_u_e = d_u.at(i + 1, j);
@@ -194,7 +218,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Simple
                 // Using a small factor for Rhie-Chow interpolation to provide some pressure-velocity coupling
                 // while maintaining stability. Full factor (1.0) can be unstable with certain BC configurations.
                 let rc_factor = T::from_f64(0.05).unwrap();
-                let u_face_e = (u_p + u_e) * half + d_face_e * (avg_grad_p_e - grad_p_e) * rc_factor;
+                let u_face_e =
+                    (u_p + u_e) * half + d_face_e * (avg_grad_p_e - grad_p_e) * rc_factor;
 
                 // Similar for North face
                 let grad_p_p_y = (p_n - p_s) / (two * dy);
@@ -202,7 +227,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Simple
                 let avg_grad_p_n = (grad_p_p_y + grad_p_n_y) * half;
                 let grad_p_n = (p_n - p_p) / dy;
 
-                let v_face_n = (v_p + v_n) * half + d_face_n * (avg_grad_p_n - grad_p_n) * rc_factor;
+                let v_face_n =
+                    (v_p + v_n) * half + d_face_n * (avg_grad_p_n - grad_p_n) * rc_factor;
 
                 // We need u_face_w and v_face_s.
                 let d_u_w = d_u.at(i - 1, j);
@@ -210,15 +236,16 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Simple
                 let grad_p_w_x = (p_p - p_ww) / (two * dx);
                 let avg_grad_p_w = (grad_p_w_x + grad_p_p_x) * half;
                 let grad_p_w = (p_p - p_w) / dx;
-                let u_face_w = (u_w + u_p) * half + d_face_w * (avg_grad_p_w - grad_p_w) * rc_factor;
+                let u_face_w =
+                    (u_w + u_p) * half + d_face_w * (avg_grad_p_w - grad_p_w) * rc_factor;
 
                 let d_v_s = d_v.at(i, j - 1);
                 let d_face_s = (d_v_s + d_v_p) * half;
                 let grad_p_s_y = (p_p - p_ss) / (two * dy);
                 let avg_grad_p_s = (grad_p_s_y + grad_p_p_y) * half;
                 let grad_p_s = (p_p - p_s) / dy;
-                let v_face_s = (v_s + v_p) * half + d_face_s * (avg_grad_p_s - grad_p_s) * rc_factor;
-
+                let v_face_s =
+                    (v_s + v_p) * half + d_face_s * (avg_grad_p_s - grad_p_s) * rc_factor;
 
                 // Mass Imbalance (b term for pressure equation)
                 let rho = fields.density.at(i, j);
@@ -266,10 +293,15 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Simple
                     rhs[idx] = T::zero();
                 } else {
                     // Neumann (grad p' = 0)
-                    let neighbor_idx = if i == 0 { idx + 1 }
-                                       else if i == nx - 1 { idx - 1 }
-                                       else if j == 0 { idx + nx }
-                                       else { idx - nx };
+                    let neighbor_idx = if i == 0 {
+                        idx + 1
+                    } else if i == nx - 1 {
+                        idx - 1
+                    } else if j == 0 {
+                        idx + nx
+                    } else {
+                        idx - nx
+                    };
 
                     matrix_builder.add_entry(idx, idx, T::one())?;
                     matrix_builder.add_entry(idx, neighbor_idx, -T::one())?;
@@ -378,7 +410,9 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Simple
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Default for SimpleAlgorithm<T> {
+impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Default
+    for SimpleAlgorithm<T>
+{
     fn default() -> Self {
         Self::new()
     }

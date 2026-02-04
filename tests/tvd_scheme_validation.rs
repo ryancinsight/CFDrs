@@ -379,7 +379,11 @@ fn test_exact_solution_periodicity() {
     // Point x=0.95, Center=0.0 (or 1.0). Width=0.2.
     // 0.95 should be within pulse centered at 0.0 (distance 0.05).
     // Current logic fails this.
-    assert_eq!(exact_solution_advection(0.95, 0.0, 1.0, 0.2, 0.0, 0.0), 1.0, "Failed wrap-around check at x=0.95");
+    assert_eq!(
+        exact_solution_advection(0.95, 0.0, 1.0, 0.2, 0.0, 0.0),
+        1.0,
+        "Failed wrap-around check at x=0.95"
+    );
 
     // Case 3: Outside pulse
     assert_eq!(exact_solution_advection(0.8, 0.0, 1.0, 0.2, 0.5, 0.0), 0.0);

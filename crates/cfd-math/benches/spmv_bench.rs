@@ -1,7 +1,7 @@
+use cfd_math::sparse::spmv;
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use nalgebra::{DVector, RealField};
 use nalgebra_sparse::CsrMatrix;
-use cfd_math::sparse::spmv;
 
 fn bench_spmv(c: &mut Criterion) {
     let mut group = c.benchmark_group("spmv_serial");

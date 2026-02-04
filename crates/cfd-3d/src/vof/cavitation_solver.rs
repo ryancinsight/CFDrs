@@ -61,6 +61,8 @@ pub struct CavitationVofConfig {
     pub vapor_pressure: f64,
     /// Liquid density (kg/m³)
     pub liquid_density: f64,
+    /// Liquid viscosity (Pa·s)
+    pub liquid_viscosity: f64,
     /// Vapor density (kg/m³)
     pub vapor_density: f64,
     /// Speed of sound in liquid (m/s)
@@ -118,6 +120,7 @@ impl BubbleDynamicsSolver {
         ny: usize,
         nz: usize,
         liquid_density: f64,
+        liquid_viscosity: f64,
         vapor_pressure: f64,
     ) -> Self {
         let mut configs = HashMap::new();
@@ -131,7 +134,7 @@ impl BubbleDynamicsSolver {
                     let rp = RayleighPlesset {
                         initial_radius: config.initial_radius,
                         liquid_density,
-                        liquid_viscosity: 1.002e-3, // Water at 20°C
+                        liquid_viscosity,
                         surface_tension: config.surface_tension,
                         vapor_pressure,
                         polytropic_index: config.polytropic_exponent,
@@ -202,6 +205,20 @@ impl BubbleDynamicsSolver {
             0.0
         }
     }
+
+    /// Get bubble natural frequency (Hz) for impact frequency estimation
+    pub fn get_bubble_frequency(&self, i: usize, j: usize, k: usize, ambient_pressure: f64) -> f64 {
+        let key = (i, j, k);
+        let config = self.configs.get(&key);
+        let radius = self.radii.get(&key);
+
+        if let (Some(config), Some(&r)) = (config, radius) {
+            let omega = config.natural_frequency(r, ambient_pressure);
+            omega / (2.0 * std::f64::consts::PI)
+        } else {
+            0.0
+        }
+    }
 }
 
 impl CavitationVofSolver {
@@ -216,6 +233,7 @@ impl CavitationVofSolver {
                 ny,
                 nz,
                 config.liquid_density,
+                config.liquid_viscosity,
                 config.vapor_pressure,
             )
         });
@@ -405,7 +423,7 @@ impl CavitationVofSolver {
     fn update_damage(
         &mut self,
         dt: f64,
-        _pressure_field: &DMatrix<f64>,
+        pressure_field: &DMatrix<f64>,
         density_field: &DMatrix<f64>,
     ) {
         let nx = self.vof_solver.nx;
@@ -427,6 +445,7 @@ impl CavitationVofSolver {
                         let void_fraction = self.vof_solver.alpha[idx];
 
                         if void_fraction > 0.01 {
+                            let pressure = pressure_field[(i, col)];
                             let impact_pressure = if let Some(bubble_solver) = &self.bubble_solver {
                                 bubble_solver.collapse_pressure(
                                     i,
@@ -454,12 +473,34 @@ impl CavitationVofSolver {
                                 }
                             };
 
+                            // Calculate impact frequency
+                            let impact_frequency = if let Some(bubble_solver) = &self.bubble_solver
+                            {
+                                bubble_solver.get_bubble_frequency(i, j, k, pressure)
+                            } else {
+                                // Fallback estimation using VOF config
+                                let radius = self
+                                    .bubble_radius_field
+                                    .as_ref()
+                                    .map_or(1e-6, |f| f[(i, col)]);
+                                let rp = RayleighPlesset {
+                                    initial_radius: radius, // Use current as estimate
+                                    liquid_density: self.config.liquid_density,
+                                    liquid_viscosity: self.config.liquid_viscosity,
+                                    surface_tension: self
+                                        .config
+                                        .vof_config
+                                        .surface_tension_coefficient,
+                                    vapor_pressure: self.config.vapor_pressure,
+                                    polytropic_index: 1.4,
+                                };
+                                rp.natural_frequency(radius, pressure)
+                                    / (2.0 * std::f64::consts::PI)
+                            };
+
                             // Calculate erosion rate
-                            let erosion_rate = damage_model.mdpr(
-                                impact_pressure,
-                                1.0, // TODO: Derive cavitation impact frequency from bubble statistics.
-                                dt,
-                            );
+                            let erosion_rate =
+                                damage_model.mdpr(impact_pressure, impact_frequency, dt);
 
                             // Accumulate damage
                             damage_field[(i, col)] += erosion_rate;
@@ -552,7 +593,7 @@ impl CavitationVofSolver {
         let rp = RayleighPlesset::<f64> {
             initial_radius: bubble_cfg.initial_radius,
             liquid_density: self.config.liquid_density,
-            liquid_viscosity: 1.002e-3,
+            liquid_viscosity: self.config.liquid_viscosity,
             surface_tension: bubble_cfg.surface_tension,
             vapor_pressure: self.config.vapor_pressure,
             polytropic_index: bubble_cfg.polytropic_exponent,

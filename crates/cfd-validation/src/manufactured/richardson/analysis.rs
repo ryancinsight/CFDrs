@@ -592,9 +592,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float>
             let start = Instant::now();
             let mut sum = 0.0f64;
             for _ in 0..3 {
-                let partial = pool.install(|| {
-                    data.par_iter().map(|v| v * 1.0000001).sum::<f64>()
-                });
+                let partial = pool.install(|| data.par_iter().map(|v| v * 1.0000001).sum::<f64>());
                 sum += partial;
             }
             black_box(sum);

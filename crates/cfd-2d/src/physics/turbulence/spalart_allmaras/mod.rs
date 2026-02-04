@@ -426,7 +426,16 @@ impl<T: RealField + FromPrimitive + Copy> SpalartAllmaras<T> {
     /// Update modified turbulent viscosity field with explicit wall distances
     ///
     /// This method allows providing custom wall distances (e.g., for DES where d is replaced by min(d, Cdes*Delta))
-    #[instrument(skip(self, nu_tilde, velocity, molecular_viscosity, wall_distances, dx, dy, dt))]
+    #[instrument(skip(
+        self,
+        nu_tilde,
+        velocity,
+        molecular_viscosity,
+        wall_distances,
+        dx,
+        dy,
+        dt
+    ))]
     pub fn update_with_distance(
         &self,
         nu_tilde: &mut [T],
@@ -589,12 +598,8 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive>
         let nu_tilde = turbulence_variable;
         let vorticity = self.vorticity_magnitude(velocity_gradient);
 
-        let s_tilde = self.modified_vorticity(
-            vorticity,
-            nu_tilde,
-            molecular_viscosity,
-            wall_distance,
-        );
+        let s_tilde =
+            self.modified_vorticity(vorticity, nu_tilde, molecular_viscosity, wall_distance);
 
         self.cb1 * s_tilde * nu_tilde
     }
@@ -650,8 +655,8 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use approx::assert_relative_eq;
     use crate::physics::turbulence::traits::TurbulenceModel;
+    use approx::assert_relative_eq;
 
     #[test]
     fn test_spalart_allmaras_creation() {

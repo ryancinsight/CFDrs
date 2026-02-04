@@ -258,7 +258,9 @@ impl<T: RealField + Copy + FromPrimitive> RungeKuttaChebyshev<T> {
                 attempts += 1;
                 if attempts > max_attempts {
                     return Err(cfd_core::error::Error::Convergence(
-                        cfd_core::error::ConvergenceErrorKind::MaxIterationsExceeded { max: max_attempts },
+                        cfd_core::error::ConvergenceErrorKind::MaxIterationsExceeded {
+                            max: max_attempts,
+                        },
                     ));
                 }
 
@@ -270,11 +272,11 @@ impl<T: RealField + Copy + FromPrimitive> RungeKuttaChebyshev<T> {
                 let n = y.len();
                 let mut err_sum = T::zero();
                 for i in 0..n {
-                    let scale = self.config.atol
-                        + self.config.rtol * y[i].abs().max(y_half_full[i].abs());
+                    let scale =
+                        self.config.atol + self.config.rtol * y[i].abs().max(y_half_full[i].abs());
                     let denom = if scale > T::zero() { scale } else { T::one() };
-                    let diff = (y_half_full[i] - y_full[i]).abs()
-                        / (T::from_f64(3.0).unwrap() * denom);
+                    let diff =
+                        (y_half_full[i] - y_full[i]).abs() / (T::from_f64(3.0).unwrap() * denom);
                     err_sum += diff * diff;
                 }
                 let n_t = T::from_usize(n).unwrap();
