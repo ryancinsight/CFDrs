@@ -3,7 +3,7 @@
 use crate::error::Result;
 use crate::geometry::Domain;
 use crate::physics::boundary::BoundaryConditionSet;
-use crate::physics::fluid::ConstantPropertyFluid;
+use crate::physics::fluid::{ConstantPropertyFluid, FluidTrait};
 use nalgebra::RealField;
 use num_traits::cast::FromPrimitive;
 use std::sync::Arc;
@@ -14,12 +14,14 @@ pub trait Problem<T: RealField + Copy>: Send + Sync {
     type Domain: Domain<T>;
     /// State type for this problem
     type State;
+    /// Fluid type for this problem
+    type Fluid: FluidTrait<T>;
 
     /// Get the computational domain
     fn domain(&self) -> &Self::Domain;
 
     /// Get the fluid properties
-    fn fluid(&self) -> &ConstantPropertyFluid<T>;
+    fn fluid(&self) -> &Self::Fluid;
 
     /// Get the boundary conditions
     fn boundary_conditions(&self) -> &BoundaryConditionSet<T>;
@@ -37,11 +39,11 @@ pub trait Problem<T: RealField + Copy>: Send + Sync {
 
 /// Generic problem configuration
 #[derive(Debug, Clone)]
-pub struct ProblemConfig<T: RealField + Copy, D: Domain<T>> {
+pub struct ProblemConfig<T: RealField + Copy, D: Domain<T>, F: FluidTrait<T>> {
     /// Computational domain
     pub domain: Arc<D>,
     /// Fluid properties
-    pub fluid: ConstantPropertyFluid<T>,
+    pub fluid: F,
     /// Boundary conditions
     pub boundary_conditions: BoundaryConditionSet<T>,
     /// Problem parameters
@@ -76,14 +78,14 @@ impl<T: RealField + FromPrimitive + Copy> Default for ProblemParameters<T> {
 }
 
 /// Problem builder for convenient construction
-pub struct ProblemBuilder<T: RealField + Copy, D: Domain<T>> {
+pub struct ProblemBuilder<T: RealField + Copy, D: Domain<T>, F: FluidTrait<T> = ConstantPropertyFluid<T>> {
     domain: Option<Arc<D>>,
-    fluid: Option<ConstantPropertyFluid<T>>,
+    fluid: Option<F>,
     boundary_conditions: BoundaryConditionSet<T>,
     parameters: ProblemParameters<T>,
 }
 
-impl<T: RealField + Copy, D: Domain<T>> ProblemBuilder<T, D> {
+impl<T: RealField + Copy, D: Domain<T>, F: FluidTrait<T>> ProblemBuilder<T, D, F> {
     /// Create a new problem builder
     #[must_use]
     pub fn new() -> Self {
@@ -104,7 +106,7 @@ impl<T: RealField + Copy, D: Domain<T>> ProblemBuilder<T, D> {
 
     /// Set the fluid
     #[must_use]
-    pub fn fluid(mut self, fluid: ConstantPropertyFluid<T>) -> Self {
+    pub fn fluid(mut self, fluid: F) -> Self {
         self.fluid = Some(fluid);
         self
     }
@@ -141,7 +143,7 @@ impl<T: RealField + Copy, D: Domain<T>> ProblemBuilder<T, D> {
     }
 
     /// Build the problem configuration
-    pub fn build(self) -> Result<ProblemConfig<T, D>> {
+    pub fn build(self) -> Result<ProblemConfig<T, D, F>> {
         let domain = self.domain.ok_or_else(|| {
             crate::error::Error::InvalidConfiguration("Domain not set".to_string())
         })?;
@@ -161,7 +163,7 @@ impl<T: RealField + Copy, D: Domain<T>> ProblemBuilder<T, D> {
     }
 }
 
-impl<T: RealField + Copy, D: Domain<T>> Default for ProblemBuilder<T, D> {
+impl<T: RealField + Copy, D: Domain<T>, F: FluidTrait<T>> Default for ProblemBuilder<T, D, F> {
     fn default() -> Self {
         Self::new()
     }

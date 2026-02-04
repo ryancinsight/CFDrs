@@ -1,6 +1,7 @@
 //! Network state representation for 1D CFD
 
 use crate::network::Network;
+use cfd_core::physics::fluid::FluidTrait;
 use nalgebra::{DVector, RealField};
 /// State representation for a 1D network
 #[derive(Debug, Clone)]
@@ -25,7 +26,7 @@ impl<T: RealField + Copy> NetworkState<T> {
     }
 
     /// Create state from network
-    pub fn from_network(network: &Network<T>) -> Self {
+    pub fn from_network<F: FluidTrait<T>>(network: &Network<T, F>) -> Self {
         let num_nodes = network.node_count();
         let num_edges = network.edge_count();
 

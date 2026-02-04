@@ -81,7 +81,7 @@
 
 use super::traits::{FlowConditions, ResistanceModel};
 use cfd_core::error::{Error, Result};
-use cfd_core::physics::fluid::Fluid;
+use cfd_core::physics::fluid::FluidTrait;
 use nalgebra::RealField;
 use num_traits::cast::FromPrimitive;
 use serde::{Deserialize, Serialize};
@@ -134,7 +134,11 @@ impl<T: RealField + Copy + FromPrimitive> DarcyWeisbachModel<T> {
 }
 
 impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for DarcyWeisbachModel<T> {
-    fn calculate_resistance(&self, fluid: &Fluid<T>, conditions: &FlowConditions<T>) -> Result<T> {
+    fn calculate_resistance<F: FluidTrait<T>>(
+        &self,
+        fluid: &F,
+        conditions: &FlowConditions<T>,
+    ) -> Result<T> {
         let (r, k) = self.calculate_coefficients(fluid, conditions)?;
 
         let k_mag = if k >= T::zero() { k } else { -k };
@@ -160,9 +164,9 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for DarcyWeisbachMo
         Ok(r + k * q_mag)
     }
 
-    fn calculate_coefficients(
+    fn calculate_coefficients<F: FluidTrait<T>>(
         &self,
-        fluid: &Fluid<T>,
+        fluid: &F,
         conditions: &FlowConditions<T>,
     ) -> Result<(T, T)> {
         let reynolds = conditions.reynolds_number.ok_or_else(|| {
@@ -172,8 +176,24 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for DarcyWeisbachMo
         })?;
 
         let friction_factor = self.calculate_friction_factor(reynolds);
-        let density = fluid.density;
-        let viscosity = fluid.viscosity;
+
+        let props = fluid.properties_at(conditions.temperature, conditions.pressure)?;
+        let density = props.density;
+
+        // Shear rate for viscosity
+        let shear_rate = if let Some(sr) = conditions.shear_rate {
+            sr
+        } else {
+            // Estimate 8*v/D
+            if let Some(v) = conditions.velocity {
+                T::from_f64(8.0).unwrap_or_else(T::one) * v.abs() / self.hydraulic_diameter
+            } else {
+                T::zero()
+            }
+        };
+
+        let viscosity = fluid.viscosity_at_shear(shear_rate, conditions.temperature, conditions.pressure)?;
+
         let area = self.area;
 
         let re_transition = T::from_f64(LAMINAR_TRANSITION_RE).unwrap_or_else(|| T::one());
@@ -212,7 +232,11 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for DarcyWeisbachMo
         )
     }
 
-    fn validate_invariants(&self, fluid: &Fluid<T>, conditions: &FlowConditions<T>) -> Result<()> {
+    fn validate_invariants<F: FluidTrait<T>>(
+        &self,
+        fluid: &F,
+        conditions: &FlowConditions<T>,
+    ) -> Result<()> {
         // Call Mach number validation
         self.validate_mach_number(fluid, conditions)?;
 

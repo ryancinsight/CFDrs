@@ -48,7 +48,7 @@
 
 use super::traits::{FlowConditions, ResistanceModel};
 use cfd_core::error::Result;
-use cfd_core::physics::fluid::Fluid;
+use cfd_core::physics::fluid::FluidTrait;
 use nalgebra::RealField;
 use num_traits::cast::FromPrimitive;
 use serde::{Deserialize, Serialize};
@@ -80,26 +80,45 @@ impl<T: RealField + Copy> RectangularChannelModel<T> {
 }
 
 impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for RectangularChannelModel<T> {
-    fn calculate_resistance(&self, fluid: &Fluid<T>, conditions: &FlowConditions<T>) -> Result<T> {
+    fn calculate_resistance<F: FluidTrait<T>>(
+        &self,
+        fluid: &F,
+        conditions: &FlowConditions<T>,
+    ) -> Result<T> {
         let (r, k) = self.calculate_coefficients(fluid, conditions)?;
         let q = conditions.flow_rate.unwrap_or_else(T::zero);
         let q_abs = if q >= T::zero() { q } else { -q };
         Ok(r + k * q_abs)
     }
 
-    fn calculate_coefficients(
+    fn calculate_coefficients<F: FluidTrait<T>>(
         &self,
-        fluid: &Fluid<T>,
-        _conditions: &FlowConditions<T>,
+        fluid: &F,
+        conditions: &FlowConditions<T>,
     ) -> Result<(T, T)> {
-        let viscosity = fluid.viscosity;
-
         // Calculate hydraulic diameter
         let area = self.width * self.height;
         let perimeter =
-            T::from_f64(PERIMETER_FACTOR).unwrap_or_else(|| T::zero()) * (self.width + self.height);
+            T::from_f64(PERIMETER_FACTOR).unwrap_or_else(T::zero) * (self.width + self.height);
         let dh =
-            T::from_f64(HYDRAULIC_DIAMETER_FACTOR).unwrap_or_else(|| T::zero()) * area / perimeter;
+            T::from_f64(HYDRAULIC_DIAMETER_FACTOR).unwrap_or_else(T::zero) * area / perimeter;
+
+        // Estimate shear rate
+        let shear_rate = if let Some(sr) = conditions.shear_rate {
+            sr
+        } else {
+            // Approx 8v/D
+            let v = if let Some(vel) = conditions.velocity {
+                vel
+            } else if let Some(q) = conditions.flow_rate {
+                q / area
+            } else {
+                T::zero()
+            };
+            T::from_f64(8.0).unwrap_or_else(T::one) * v / dh
+        };
+
+        let viscosity = fluid.viscosity_at_shear(shear_rate, conditions.temperature, conditions.pressure)?;
 
         // Calculate aspect ratio (always ≥ 1 for consistency)
         let aspect_ratio =
@@ -121,7 +140,11 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for RectangularChan
         "Rectangular Channel (Exact)"
     }
 
-    fn validate_invariants(&self, fluid: &Fluid<T>, conditions: &FlowConditions<T>) -> Result<()> {
+    fn validate_invariants<F: FluidTrait<T>>(
+        &self,
+        fluid: &F,
+        conditions: &FlowConditions<T>,
+    ) -> Result<()> {
         // Call Mach number validation
         self.validate_mach_number(fluid, conditions)?;
 

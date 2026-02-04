@@ -33,6 +33,7 @@
 
 use crate::network::Network;
 use cfd_core::error::{Error, Result};
+use cfd_core::physics::fluid::FluidTrait;
 use nalgebra::{DVector, RealField};
 use nalgebra_sparse::{coo::CooMatrix, CsrMatrix};
 use num_traits::FromPrimitive;
@@ -65,7 +66,10 @@ impl<T: RealField + Copy + FromPrimitive + Copy + Send + Sync + Copy> MatrixAsse
     /// - A is the conductance matrix
     /// - x is the pressure vector
     /// - b is the source/sink vector
-    pub fn assemble(&self, network: &Network<T>) -> Result<(CsrMatrix<T>, DVector<T>)> {
+    pub fn assemble<F: FluidTrait<T>>(
+        &self,
+        network: &Network<T, F>,
+    ) -> Result<(CsrMatrix<T>, DVector<T>)> {
         let n = network.node_count();
         let mut coo = CooMatrix::new(n, n);
         let mut rhs = DVector::zeros(n);
