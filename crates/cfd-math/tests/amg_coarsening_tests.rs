@@ -1,4 +1,3 @@
-
 #[cfg(test)]
 mod tests {
     use cfd_math::linear_solver::preconditioners::multigrid::ruge_stueben_coarsening;
@@ -12,18 +11,26 @@ mod tests {
         let mut matrix = DMatrix::zeros(n, n);
 
         // Block 1: 0-1-2 strongly connected
-        matrix[(0,0)] = 2.0; matrix[(0,1)] = -1.0;
-        matrix[(1,0)] = -1.0; matrix[(1,1)] = 2.0; matrix[(1,2)] = -1.0;
-        matrix[(2,1)] = -1.0; matrix[(2,2)] = 2.0;
+        matrix[(0, 0)] = 2.0;
+        matrix[(0, 1)] = -1.0;
+        matrix[(1, 0)] = -1.0;
+        matrix[(1, 1)] = 2.0;
+        matrix[(1, 2)] = -1.0;
+        matrix[(2, 1)] = -1.0;
+        matrix[(2, 2)] = 2.0;
 
         // Block 2: 3-4-5 strongly connected
-        matrix[(3,3)] = 2.0; matrix[(3,4)] = -1.0;
-        matrix[(4,3)] = -1.0; matrix[(4,4)] = 2.0; matrix[(4,5)] = -1.0;
-        matrix[(5,4)] = -1.0; matrix[(5,5)] = 2.0;
+        matrix[(3, 3)] = 2.0;
+        matrix[(3, 4)] = -1.0;
+        matrix[(4, 3)] = -1.0;
+        matrix[(4, 4)] = 2.0;
+        matrix[(4, 5)] = -1.0;
+        matrix[(5, 4)] = -1.0;
+        matrix[(5, 5)] = 2.0;
 
         // Weak connection between blocks
-        matrix[(2,3)] = -0.01;
-        matrix[(3,2)] = -0.01;
+        matrix[(2, 3)] = -0.01;
+        matrix[(3, 2)] = -0.01;
 
         CsrMatrix::from(&matrix)
     }
@@ -33,11 +40,13 @@ mod tests {
         let n = 3;
         let mut matrix = DMatrix::zeros(n, n);
 
-        matrix[(0,0)] = 2.0; matrix[(0,1)] = -1.0;
-        matrix[(1,0)] = -1.0; matrix[(1,1)] = 2.0;
+        matrix[(0, 0)] = 2.0;
+        matrix[(0, 1)] = -1.0;
+        matrix[(1, 0)] = -1.0;
+        matrix[(1, 1)] = 2.0;
 
         // Point 2 is isolated (diagonal only)
-        matrix[(2,2)] = 1.0;
+        matrix[(2, 2)] = 1.0;
 
         CsrMatrix::from(&matrix)
     }
@@ -84,7 +93,11 @@ mod tests {
             }
         }
 
-        assert_eq!(unmapped_count, 0, "Found {} unmapped points. Second pass missing?", unmapped_count);
+        assert_eq!(
+            unmapped_count, 0,
+            "Found {} unmapped points. Second pass missing?",
+            unmapped_count
+        );
     }
 
     #[test]
@@ -101,6 +114,10 @@ mod tests {
             }
         }
 
-        assert_eq!(unmapped_count, 0, "Found {} unmapped island points. Second pass missing?", unmapped_count);
+        assert_eq!(
+            unmapped_count, 0,
+            "Found {} unmapped island points. Second pass missing?",
+            unmapped_count
+        );
     }
 }

@@ -5,8 +5,8 @@ use cfd_math::linear_solver::preconditioners::multigrid::{
 };
 use cfd_math::linear_solver::{BiCGSTAB, IterativeSolverConfig, Preconditioner, GMRES};
 use cfd_math::sparse::spmv;
-use nalgebra::{DMatrix, DVector, RealField};
 use nalgebra::linalg::SymmetricEigen;
+use nalgebra::{DMatrix, DVector, RealField};
 use nalgebra_sparse::CsrMatrix;
 use num_traits::FromPrimitive;
 

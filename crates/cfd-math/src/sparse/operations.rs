@@ -127,11 +127,7 @@ fn parallel_threshold<T: RealField + Copy>(a: &CsrMatrix<T>) -> usize {
     threshold.clamp(min_threshold, max_threshold)
 }
 
-fn contiguous_row_start(
-    col_indices: &[usize],
-    row_start: usize,
-    row_end: usize,
-) -> Option<usize> {
+fn contiguous_row_start(col_indices: &[usize], row_start: usize, row_end: usize) -> Option<usize> {
     if row_end <= row_start {
         return None;
     }

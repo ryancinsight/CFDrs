@@ -483,11 +483,23 @@ mod tests {
         // w_10 = -(-1)/2 = 0.5
         // w_12 = -(-1)/2 = 0.5
 
-        let w10 = interpolation.get_entry(1, 0).map_or(0.0, |e| e.into_value());
-        let w11 = interpolation.get_entry(1, 1).map_or(0.0, |e| e.into_value());
+        let w10 = interpolation
+            .get_entry(1, 0)
+            .map_or(0.0, |e| e.into_value());
+        let w11 = interpolation
+            .get_entry(1, 1)
+            .map_or(0.0, |e| e.into_value());
 
-        assert!((w10 - 0.5).abs() < 1e-10, "Weight w10 should be 0.5, got {}", w10);
-        assert!((w11 - 0.5).abs() < 1e-10, "Weight w11 should be 0.5, got {}", w11);
+        assert!(
+            (w10 - 0.5).abs() < 1e-10,
+            "Weight w10 should be 0.5, got {}",
+            w10
+        );
+        assert!(
+            (w11 - 0.5).abs() < 1e-10,
+            "Weight w11 should be 0.5, got {}",
+            w11
+        );
     }
 
     #[test]
@@ -545,9 +557,11 @@ mod tests {
         let mut matrix_dense = DMatrix::<f64>::zeros(n, n);
 
         // Setup connections with -1.0, and diagonal 3.0
-        let edges = vec![(0,1), (0,2), (1,2), (1,3), (2,4)];
+        let edges = vec![(0, 1), (0, 2), (1, 2), (1, 3), (2, 4)];
 
-        for i in 0..n { matrix_dense[(i, i)] = 3.0; }
+        for i in 0..n {
+            matrix_dense[(i, i)] = 3.0;
+        }
 
         for (u, v) in edges {
             matrix_dense[(u, v)] = -1.0;
@@ -571,7 +585,8 @@ mod tests {
         }
         let strength_matrix = SparseMatrix::from(&strength_builder);
 
-        let interpolation = create_classical_interpolation(&matrix, &coarse_points, &strength_matrix, 2).unwrap();
+        let interpolation =
+            create_classical_interpolation(&matrix, &coarse_points, &strength_matrix, 2).unwrap();
 
         // Coarse mapping: 0->0, 3->1, 4->2
 
@@ -582,12 +597,24 @@ mod tests {
         // w_{1,3}: Direct -1. Indirect via 2: a_{12}*a_{23}/S_2 = (-1*0)/-1 = 0. Total -1.
         // w_{1,3} = -(-1)/3 = 1/3.
 
-        let w1_0 = interpolation.get_entry(1, 0).map_or(0.0, |e| e.into_value());
-        let w1_3 = interpolation.get_entry(1, 1).map_or(0.0, |e| e.into_value());
+        let w1_0 = interpolation
+            .get_entry(1, 0)
+            .map_or(0.0, |e| e.into_value());
+        let w1_3 = interpolation
+            .get_entry(1, 1)
+            .map_or(0.0, |e| e.into_value());
 
         println!("Weights for point 1: w(0)={}, w(3)={}", w1_0, w1_3);
 
-        assert!((w1_0 - 2.0/3.0).abs() < 1e-10, "Expected 2/3, got {}", w1_0);
-        assert!((w1_3 - 1.0/3.0).abs() < 1e-10, "Expected 1/3, got {}", w1_3);
+        assert!(
+            (w1_0 - 2.0 / 3.0).abs() < 1e-10,
+            "Expected 2/3, got {}",
+            w1_0
+        );
+        assert!(
+            (w1_3 - 1.0 / 3.0).abs() < 1e-10,
+            "Expected 1/3, got {}",
+            w1_3
+        );
     }
 }

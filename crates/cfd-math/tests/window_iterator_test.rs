@@ -6,12 +6,7 @@ fn test_strided_window_basic() {
     let iter = StridedWindowIterator::new(data.into_iter(), 3, 2);
     let result: Vec<Vec<i32>> = iter.collect();
 
-    let expected = vec![
-        vec![1, 2, 3],
-        vec![3, 4, 5],
-        vec![5, 6, 7],
-        vec![7, 8, 9],
-    ];
+    let expected = vec![vec![1, 2, 3], vec![3, 4, 5], vec![5, 6, 7], vec![7, 8, 9]];
 
     assert_eq!(result, expected);
 }
@@ -23,11 +18,7 @@ fn test_strided_window_overlap() {
     let iter = StridedWindowIterator::new(data.into_iter(), 3, 1);
     let result: Vec<Vec<i32>> = iter.collect();
 
-    let expected = vec![
-        vec![1, 2, 3],
-        vec![2, 3, 4],
-        vec![3, 4, 5],
-    ];
+    let expected = vec![vec![1, 2, 3], vec![2, 3, 4], vec![3, 4, 5]];
 
     assert_eq!(result, expected);
 }
@@ -39,11 +30,7 @@ fn test_strided_window_gap() {
     let iter = StridedWindowIterator::new(data.into_iter(), 2, 3);
     let result: Vec<Vec<i32>> = iter.collect();
 
-    let expected = vec![
-        vec![1, 2],
-        vec![4, 5],
-        vec![7, 8],
-    ];
+    let expected = vec![vec![1, 2], vec![4, 5], vec![7, 8]];
 
     assert_eq!(result, expected);
 }

@@ -82,9 +82,7 @@ impl<T: RealField + Copy> ConjugateGradient<T> {
             });
         }
 
-        let Workspace {
-            r, p, z, ap, ax
-        } = guard.as_mut().unwrap();
+        let Workspace { r, p, z, ap, ax } = guard.as_mut().unwrap();
 
         // Note: r, p, z, ap, ax are now &mut DVector<T>
         // We must use dereferencing for operators where necessary

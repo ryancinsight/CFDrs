@@ -53,7 +53,9 @@ where
             // We need the Left state of the interface i+1/2 (φ_{i+1/2}^L)
             // This is reconstructed from cell i using upstream (i-1) and downstream (i+1, i+2) neighbors
             // Uses full 4-point stencil: i-1, i, i+1, i+2
-            let phi_interface = self.muscl.reconstruct_left(phi_im1, phi_i, phi_ip1, Some(phi_ip2));
+            let phi_interface = self
+                .muscl
+                .reconstruct_left(phi_im1, phi_i, phi_ip1, Some(phi_ip2));
             velocity * phi_interface
         } else {
             // Flow from right to left (negative velocity)

@@ -1,6 +1,6 @@
+use cfd_3d::physics::turbulence::SmagorinskyModel;
 use cfd_core::physics::fluid_dynamics::fields::FlowField;
 use cfd_core::physics::fluid_dynamics::turbulence::TurbulenceModel;
-use cfd_3d::physics::turbulence::SmagorinskyModel;
 
 #[test]
 fn test_smagorinsky_turbulent_viscosity() {

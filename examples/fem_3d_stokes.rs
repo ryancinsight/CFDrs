@@ -44,16 +44,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let z = pos.z;
 
         // Check if on boundary
-        let on_boundary = x.abs() < tolerance || (x - 1.0).abs() < tolerance ||
-                          y.abs() < tolerance || (y - 1.0).abs() < tolerance ||
-                          z.abs() < tolerance || (z - 1.0).abs() < tolerance;
+        let on_boundary = x.abs() < tolerance
+            || (x - 1.0).abs() < tolerance
+            || y.abs() < tolerance
+            || (y - 1.0).abs() < tolerance
+            || z.abs() < tolerance
+            || (z - 1.0).abs() < tolerance;
 
         if on_boundary {
             if (y - 1.0).abs() < tolerance {
                 // Top face: Lid velocity
                 boundary_conditions.insert(
                     i,
-                    BoundaryCondition::velocity_inlet(Vector3::new(1.0, 0.0, 0.0))
+                    BoundaryCondition::velocity_inlet(Vector3::new(1.0, 0.0, 0.0)),
                 );
             } else {
                 // Other faces: No-slip wall
@@ -62,7 +65,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    println!("Boundary conditions set for {} nodes", boundary_conditions.len());
+    println!(
+        "Boundary conditions set for {} nodes",
+        boundary_conditions.len()
+    );
 
     // Create problem definition
     let problem = StokesFlowProblem::new(mesh, fluid, boundary_conditions);

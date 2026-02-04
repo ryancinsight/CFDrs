@@ -428,9 +428,7 @@ mod tests {
         assert!(solution_omega > solution_k);
         assert!(source.is_finite());
 
-        println!(
-            "k-ω MMS: k={solution_k:.6}, omega={solution_omega:.6}, source={source:.6}"
-        );
+        println!("k-ω MMS: k={solution_k:.6}, omega={solution_omega:.6}, source={source:.6}");
     }
 
     #[test]

@@ -364,7 +364,7 @@ pub fn pmis_coarsening<T: RealField + Copy + FromPrimitive>(
             let j = s_indices[k];
             if status[j] == 0 {
                 status[j] = 2; // fine
-                // F-points are mapped in the next step to ensure they connect to strongest C-point
+                               // F-points are mapped in the next step to ensure they connect to strongest C-point
             }
         }
     }

@@ -92,7 +92,8 @@ mod tests {
         let velocity_gradient = [[0.0, 10.0], [0.0, 0.0]];
         let turbulent_viscosity = 0.001; // [kg/(m·s)]
 
-        let production = model.production_term(&velocity_gradient, turbulent_viscosity, 0.0, 0.0, 1e-5);
+        let production =
+            model.production_term(&velocity_gradient, turbulent_viscosity, 0.0, 0.0, 1e-5);
 
         // P_k = νt * 2 * Sij * Sij
         // Sij = 0.5 * (∂ui/∂xj + ∂uj/∂xi)

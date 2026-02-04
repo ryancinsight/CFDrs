@@ -490,8 +490,8 @@ impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedMultiphase<T> 
 
         let inv_epsilon = T::one() / epsilon;
         let ds_dx = self.amplitude * self.kx * cos_kx * sin_ky * temporal * inv_epsilon;
-        let ds_dy = (T::one() + self.amplitude * self.ky * sin_kx * cos_ky * temporal)
-            * inv_epsilon;
+        let ds_dy =
+            (T::one() + self.amplitude * self.ky * sin_kx * cos_ky * temporal) * inv_epsilon;
         let ds_dt = -perturbation * inv_epsilon;
 
         let d2s_dx2 =

@@ -16,9 +16,9 @@ mod tests;
 use crate::performance_monitor::PerformanceAwareSelector;
 pub use arch_detect::ArchDetect;
 pub use ops::{SimdOperation, SimdOps, VectorOps};
-pub use swar::SwarOps;
 use std::sync::Mutex;
 use std::time::Instant;
+pub use swar::SwarOps;
 
 /// SIMD capability levels
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

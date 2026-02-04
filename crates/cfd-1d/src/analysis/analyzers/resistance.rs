@@ -104,7 +104,8 @@ impl<T: RealField + Copy + FromPrimitive + Float + Sum> ResistanceAnalyzer<T> {
 
         for inlet in inlet_nodes {
             for outlet in &outlet_nodes {
-                for node_path in all_simple_paths::<Vec<_>, _>(&network.graph, inlet, *outlet, 0, None)
+                for node_path in
+                    all_simple_paths::<Vec<_>, _>(&network.graph, inlet, *outlet, 0, None)
                 {
                     let mut edge_candidates: Vec<Vec<_>> = Vec::new();
                     let mut valid = true;

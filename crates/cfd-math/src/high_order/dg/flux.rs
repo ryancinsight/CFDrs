@@ -229,7 +229,9 @@ impl FluxFactory {
         match flux_type {
             FluxType::Central => FluxImpl::Central(CentralFlux),
             FluxType::HLL | FluxType::HLLC => FluxImpl::HLL(HLLFlux),
-            FluxType::LaxFriedrichs | FluxType::Upwind => FluxImpl::LaxFriedrichs(LaxFriedrichsFlux),
+            FluxType::LaxFriedrichs | FluxType::Upwind => {
+                FluxImpl::LaxFriedrichs(LaxFriedrichsFlux)
+            }
         }
     }
 }

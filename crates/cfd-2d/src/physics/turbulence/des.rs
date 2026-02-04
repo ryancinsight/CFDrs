@@ -120,13 +120,13 @@ impl DetachedEddySimulation {
 
         // If no boundaries provided, assume all walls (fallback)
         let process_west = !has_boundaries
-            || boundaries
-                .iter()
-                .any(|(n, bc)| *n == "west" && matches!(bc, TurbulenceBoundaryCondition::Wall { .. }));
+            || boundaries.iter().any(|(n, bc)| {
+                *n == "west" && matches!(bc, TurbulenceBoundaryCondition::Wall { .. })
+            });
         let process_east = !has_boundaries
-            || boundaries
-                .iter()
-                .any(|(n, bc)| *n == "east" && matches!(bc, TurbulenceBoundaryCondition::Wall { .. }));
+            || boundaries.iter().any(|(n, bc)| {
+                *n == "east" && matches!(bc, TurbulenceBoundaryCondition::Wall { .. })
+            });
         let process_south = !has_boundaries
             || boundaries.iter().any(|(n, bc)| {
                 *n == "south" && matches!(bc, TurbulenceBoundaryCondition::Wall { .. })
@@ -201,11 +201,12 @@ impl DetachedEddySimulation {
 
         // Compute strain rate magnitude for DDES and IDDES
         // Needed for shielding function r_d
-        let strain_magnitude = if matches!(self.config.variant, DESVariant::DDES | DESVariant::IDDES) {
-            self.compute_strain_rate_magnitude(velocity_u, velocity_v, dx, dy)
-        } else {
-            DMatrix::zeros(1, 1) // Dummy for DES97
-        };
+        let strain_magnitude =
+            if matches!(self.config.variant, DESVariant::DDES | DESVariant::IDDES) {
+                self.compute_strain_rate_magnitude(velocity_u, velocity_v, dx, dy)
+            } else {
+                DMatrix::zeros(1, 1) // Dummy for DES97
+            };
 
         for i in 0..nx {
             for j in 0..ny {
@@ -227,12 +228,27 @@ impl DetachedEddySimulation {
                     DESVariant::DDES => {
                         // Delayed DES with shielding function
                         let strain_mag = strain_magnitude[(i, j)];
-                        self.compute_ddes_length_scale(rans_length, delta, nu_tilde_val, strain_mag, i, j)
+                        self.compute_ddes_length_scale(
+                            rans_length,
+                            delta,
+                            nu_tilde_val,
+                            strain_mag,
+                            i,
+                            j,
+                        )
                     }
                     DESVariant::IDDES => {
                         // Improved DDES
                         let strain_mag = strain_magnitude[(i, j)];
-                        self.compute_iddes_length_scale(rans_length, dx, dy, nu_tilde_val, strain_mag, i, j)
+                        self.compute_iddes_length_scale(
+                            rans_length,
+                            dx,
+                            dy,
+                            nu_tilde_val,
+                            strain_mag,
+                            i,
+                            j,
+                        )
                     }
                 };
 
@@ -251,7 +267,7 @@ impl DetachedEddySimulation {
         nu_tilde_val: f64,
         strain_mag: f64,
         i: usize,
-        j: usize
+        j: usize,
     ) -> f64 {
         let d_w = self.wall_distance[(i, j)];
 
@@ -271,7 +287,9 @@ impl DetachedEddySimulation {
                     let kappa = 0.41;
 
                     // Compute turbulent viscosity from nu_tilde using SA relation
-                    let nu_t = self.spalart_allmaras.eddy_viscosity(nu_tilde_val, self.config.rans_viscosity);
+                    let nu_t = self
+                        .spalart_allmaras
+                        .eddy_viscosity(nu_tilde_val, self.config.rans_viscosity);
                     let nu = self.config.rans_viscosity;
 
                     // Strain rate magnitude
@@ -330,7 +348,9 @@ impl DetachedEddySimulation {
         // r_dt = nu_t / (k^2 * dw^2 * S)
 
         // Compute actual turbulent viscosity
-        let nu_t = self.spalart_allmaras.eddy_viscosity(nu_tilde_val, self.config.rans_viscosity);
+        let nu_t = self
+            .spalart_allmaras
+            .eddy_viscosity(nu_tilde_val, self.config.rans_viscosity);
 
         let s = strain_mag.max(1e-10);
 
@@ -613,7 +633,6 @@ mod tests {
         assert!(length_scale.iter().all(|&l| l > 0.0 && l.is_finite()));
     }
 
-
     #[test]
     fn test_des_model_update() {
         let config = DESConfig::default();
@@ -716,7 +735,11 @@ mod tests {
 
         let l = length_scale[(5, 5)];
         // Expect RANS length scale (1.0) because of shielding
-        assert!((l - 1.0).abs() < 1e-3, "With high viscosity, DDES should shield and return RANS length (1.0), got {}", l);
+        assert!(
+            (l - 1.0).abs() < 1e-3,
+            "With high viscosity, DDES should shield and return RANS length (1.0), got {}",
+            l
+        );
 
         // Case 2: Zero Eddy Viscosity (Shielding Inactive -> LES mode)
         des.nu_tilde[(5, 5)] = 0.0;
@@ -724,6 +747,10 @@ mod tests {
         let l_les = length_scale_les[(5, 5)];
 
         // Expect LES length scale (0.65)
-        assert!((l_les - 0.65).abs() < 1e-3, "With zero viscosity, DDES should return LES length (0.65), got {}", l_les);
+        assert!(
+            (l_les - 0.65).abs() < 1e-3,
+            "With zero viscosity, DDES should return LES length (0.65), got {}",
+            l_les
+        );
     }
 }

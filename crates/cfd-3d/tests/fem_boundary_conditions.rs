@@ -49,5 +49,9 @@ fn test_robin_bc_assembly() {
 
     // We expect it to run. The physical result might be nonsense due to simple mesh/BC setup,
     // but the matrix assembly should work.
-    assert!(result.is_ok(), "Solver failed with error: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "Solver failed with error: {:?}",
+        result.err()
+    );
 }

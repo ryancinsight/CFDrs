@@ -7,7 +7,9 @@ use cfd_validation::manufactured::advanced_physics::{
     ManufacturedCompressibleEuler, ManufacturedHypersonic, ManufacturedShockCapturing,
     ManufacturedTCI,
 };
-use cfd_validation::manufactured::{ManufacturedFunctions, ManufacturedKEpsilon, ManufacturedSolution};
+use cfd_validation::manufactured::{
+    ManufacturedFunctions, ManufacturedKEpsilon, ManufacturedSolution,
+};
 
 /// Test compressible Euler equations validation
 #[test]

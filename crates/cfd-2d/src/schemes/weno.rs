@@ -376,8 +376,7 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> SpatialDiscretization
 
         // Compute reconstructed flux using 5 candidate stencils
         let mut flux = T::zero();
-        let denom =
-            T::from_f64(weno_constants::WENO9_STENCIL_DENOM).unwrap_or_else(T::zero);
+        let denom = T::from_f64(weno_constants::WENO9_STENCIL_DENOM).unwrap_or_else(T::zero);
 
         for k in 0..5 {
             let mut q_k = T::zero();
@@ -388,8 +387,7 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> SpatialDiscretization
             // k=4: v[5]..v[9] (u_i..u_{i+4})
             for j in 0..5 {
                 let coeff =
-                    T::from_f64(weno_constants::WENO9_STENCIL_COEFFS[k][j])
-                        .unwrap_or_else(T::zero);
+                    T::from_f64(weno_constants::WENO9_STENCIL_COEFFS[k][j]).unwrap_or_else(T::zero);
                 q_k += coeff * v[1 + k + j];
             }
             q_k /= denom;

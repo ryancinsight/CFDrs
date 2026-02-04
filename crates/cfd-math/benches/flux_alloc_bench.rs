@@ -1,5 +1,5 @@
+use cfd_math::high_order::dg::{numerical_flux, FluxParams, FluxType};
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use cfd_math::high_order::dg::{FluxParams, FluxType, numerical_flux};
 use nalgebra::DVector;
 
 fn bench_flux_allocation(c: &mut Criterion) {
@@ -9,9 +9,7 @@ fn bench_flux_allocation(c: &mut Criterion) {
     let params = FluxParams::new(FluxType::LaxFriedrichs);
 
     c.bench_function("numerical_flux_allocation", |b| {
-        b.iter(|| {
-            black_box(numerical_flux(&u_l, &u_r, &n, &params))
-        })
+        b.iter(|| black_box(numerical_flux(&u_l, &u_r, &n, &params)))
     });
 }
 
