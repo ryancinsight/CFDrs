@@ -155,10 +155,9 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> LiteratureValidation<T> 
         let grad_ratio = grad3 / grad1;
 
         let mu_ratio = grad_ratio / T::from_f64(16.0).unwrap();
-        let _is_viscosity_reduced = mu_ratio < T::from_f64(0.95).unwrap();
-
-        // Check if shear thinning is occurring (less than Newtonian) but significant gradient exists
-        let _is_shear_thinning = grad_ratio < T::from_f64(16.0).unwrap() && grad_ratio > T::from_f64(5.0).unwrap();
+        // Check if apparent viscosity is significantly reduced compared to Newtonian baseline
+        // For Carreau-Yasuda blood model, high shear in stenosis drastically lowers viscosity.
+        let is_viscosity_reduced = mu_ratio < T::from_f64(0.95).unwrap();
 
         // Debug info from edges
         let mut details = String::new();
@@ -177,8 +176,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> LiteratureValidation<T> 
         // In turbulent regime (if k > 0), simple ratio checks fail. We accept if Q is reasonable and mass conserved.
         // Or if we specifically targeted laminar regime (which we did by lowering pressure), we expect shear thinning.
         // However, if transition still happens or if "shear thinning" effect is small, we should be lenient.
-        // We mainly validate that the simulation runs physically correctly.
-        let passed = q_err < T::from_f64(1e-10).unwrap(); // Mass conservation is key
+        // We mainly validate that the simulation runs physically correctly AND shows shear thinning.
+        let passed = q_err < T::from_f64(1e-10).unwrap() && is_viscosity_reduced;
 
         Ok(ValidationReport {
             test_name: "1D Stenosis Blood Flow".to_string(),
