@@ -8,7 +8,7 @@
 use cfd_3d::fem::{StokesFlowProblem, StokesFlowSolution};
 use cfd_3d::FemConfig;
 use cfd_core::prelude::{BoundaryCondition, Fluid, WallType};
-use cfd_mesh::prelude::{Face, Mesh, Vertex};
+use cfd_mesh::prelude::{Cell, Face, Mesh, Vertex};
 use nalgebra::{Point3, Vector3};
 use std::collections::HashMap;
 use std::f64::consts::PI;
@@ -33,9 +33,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("\nGenerating cylindrical pipe mesh...");
     let pipe_mesh = create_pipe_mesh(pipe_radius, pipe_length, n_circumferential, n_axial)?;
     println!(
-        "  Generated {} vertices, {} faces",
+        "  Generated {} vertices, {} faces, {} cells",
         pipe_mesh.vertices().len(),
-        pipe_mesh.faces().len()
+        pipe_mesh.faces().len(),
+        pipe_mesh.cells().len()
     );
 
     // Set up flow parameters
@@ -148,60 +149,96 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-/// Create a simple cylindrical pipe mesh
+/// Create a simple cylindrical pipe mesh with tetrahedral elements
 fn create_pipe_mesh(
     radius: f64,
     length: f64,
     n_circ: usize,
     n_axial: usize,
 ) -> Result<Mesh<f64>, Box<dyn std::error::Error>> {
-    let mut vertices = Vec::new();
-    let mut faces = Vec::new();
+    let mut mesh = Mesh::new();
+    let mut face_cache: HashMap<Vec<usize>, usize> = HashMap::new();
 
     // Create vertices along the pipe
     for i in 0..=n_axial {
         let z = (i as f64) * length / (n_axial as f64);
+        // Add ring vertices
         for j in 0..n_circ {
             let theta = 2.0 * PI * (j as f64) / (n_circ as f64);
             let x = radius * theta.cos();
             let y = radius * theta.sin();
 
-            vertices.push(Vertex::new(Point3::new(x, y, z)));
+            mesh.add_vertex(Vertex::new(Point3::new(x, y, z)));
         }
 
         // Add center vertex for each cross-section
-        vertices.push(Vertex::new(Point3::new(0.0, 0.0, z)));
+        mesh.add_vertex(Vertex::new(Point3::new(0.0, 0.0, z)));
     }
 
-    // Create simple triangular faces (very basic mesh)
-    // TODO: This is a simplified mesh for demonstration - needs proper meshing algorithms
-    // DEPENDENCIES: Implement structured mesh generation for cylindrical geometries
-    // BLOCKED BY: Limited mesh generation framework for complex geometries
-    // PRIORITY: High - Essential for accurate pipe flow simulations
+    // Generate Tetrahedral Cells
+    // We decompose each wedge (prism) sector into 3 tetrahedrons
     for i in 0..n_axial {
         for j in 0..n_circ {
-            let base_idx = i * (n_circ + 1);
-            let next_base_idx = (i + 1) * (n_circ + 1);
+            // Vertex indices for the current wedge
+            let base_level = i * (n_circ + 1);
+            let next_level = (i + 1) * (n_circ + 1);
 
-            let current = base_idx + j;
-            let next_j = base_idx + ((j + 1) % n_circ);
-            let current_next_level = next_base_idx + j;
+            let b0 = base_level + n_circ; // Center bottom
+            let b1 = base_level + j; // Ring bottom j
+            let b2 = base_level + ((j + 1) % n_circ); // Ring bottom j+1
 
-            // Create triangular face
-            faces.push(Face::triangle(current, next_j, current_next_level));
+            let t0 = next_level + n_circ; // Center top
+            let t1 = next_level + j; // Ring top j
+            let t2 = next_level + ((j + 1) % n_circ); // Ring top j+1
+
+            // Decompose wedge into 3 tetrahedrons
+            // Tet 1: b0, b1, b2, t2
+            // Tet 2: b0, b1, t2, t1
+            // Tet 3: b0, t1, t2, t0
+            let tets = vec![
+                vec![b0, b1, b2, t2],
+                vec![b0, b1, t2, t1],
+                vec![b0, t1, t2, t0],
+            ];
+
+            for tet_verts in tets {
+                // Define the 4 faces of the tetrahedron
+                // Note: Winding order here is arbitrary as we rely on cache for deduplication
+                let face_defs = vec![
+                    vec![tet_verts[0], tet_verts[1], tet_verts[2]],
+                    vec![tet_verts[0], tet_verts[1], tet_verts[3]],
+                    vec![tet_verts[1], tet_verts[2], tet_verts[3]],
+                    vec![tet_verts[2], tet_verts[0], tet_verts[3]],
+                ];
+
+                let mut face_indices = Vec::with_capacity(4);
+
+                for f_verts in face_defs {
+                    // Sort vertices to create a unique key for the face
+                    let mut key = f_verts.clone();
+                    key.sort_unstable();
+
+                    if let Some(&idx) = face_cache.get(&key) {
+                        face_indices.push(idx);
+                    } else {
+                        // Create new face
+                        // Use original order for creation
+                        let face = Face::triangle(f_verts[0], f_verts[1], f_verts[2]);
+                        let idx = mesh.add_face(face);
+                        face_cache.insert(key, idx);
+                        face_indices.push(idx);
+                    }
+                }
+
+                // Add the cell
+                mesh.add_cell(Cell::tetrahedron(
+                    face_indices[0],
+                    face_indices[1],
+                    face_indices[2],
+                    face_indices[3],
+                ));
+            }
         }
-    }
-
-    let mut mesh = Mesh::new();
-
-    // Add vertices to mesh
-    for vertex in vertices {
-        mesh.add_vertex(vertex);
-    }
-
-    // Add faces to mesh
-    for face in faces {
-        mesh.add_face(face);
     }
 
     Ok(mesh)
