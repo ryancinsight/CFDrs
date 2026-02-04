@@ -1,11 +1,20 @@
 use super::traits::{FlowConditions, ResistanceModel};
 use super::{hagen_poiseuille::HagenPoiseuilleModel, darcy_weisbach::DarcyWeisbachModel};
-use cfd_core::physics::fluid::FluidTrait;
+use cfd_core::physics::fluid::{FluidTrait, ConstantPropertyFluid};
 
 #[test]
 fn test_hagen_poiseuille_resistance_matches_formula() {
     // Parameters: μ=1e-3 Pa·s (water), L=1 m, D=0.01 m
-    let fluid = Fluid { density: 1000.0f64, viscosity: 1.0e-3f64 };
+    let fluid = ConstantPropertyFluid {
+        name: "Test Water".to_string(),
+        density: 1000.0,
+        viscosity: 1.0e-3,
+        specific_heat: 4186.0,
+        thermal_conductivity: 0.6,
+        speed_of_sound: 1500.0,
+        reference_temperature: None,
+        reference_pressure: None,
+    };
     let model = HagenPoiseuilleModel::new(0.01f64, 1.0f64);
     let cond = FlowConditions::new(0.0f64);
 
@@ -19,7 +28,16 @@ fn test_hagen_poiseuille_resistance_matches_formula() {
 #[test]
 fn test_darcy_weisbach_laminar_limit_friction_factor() {
     // Laminar regime: Re=1000 < 2000, expect f ≈ 64/Re
-    let fluid = Fluid { density: 1000.0f64, viscosity: 1.0e-3f64 };
+    let fluid = ConstantPropertyFluid {
+        name: "Test Water".to_string(),
+        density: 1000.0,
+        viscosity: 1.0e-3,
+        specific_heat: 4186.0,
+        thermal_conductivity: 0.6,
+        speed_of_sound: 1500.0,
+        reference_temperature: None,
+        reference_pressure: None,
+    };
     let model = DarcyWeisbachModel::circular(0.01f64, 1.0f64, 0.0f64);
     let mut cond = FlowConditions::new(0.0f64);
     cond.reynolds_number = Some(1000.0f64);

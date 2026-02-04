@@ -606,6 +606,7 @@ mod tests {
             reynolds_number: Some(1000.0),
             velocity: Some(0.001),
             flow_rate: None,
+            shear_rate: None,
             temperature: 293.15,
             pressure: 101_325.0,
         };
@@ -614,6 +615,7 @@ mod tests {
             reynolds_number: Some(10_000.0),
             velocity: Some(1.0),
             flow_rate: None,
+            shear_rate: None,
             temperature: 293.15,
             pressure: 101_325.0,
         };

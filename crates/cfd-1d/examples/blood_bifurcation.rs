@@ -150,10 +150,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Calculate shear rate and viscosity
         let props = solution.properties.get(idx).unwrap();
 
+        let v = (*q).abs() / props.area;
+
         let shear_rate = if let Some(geometry) = &props.geometry {
              match geometry.cross_section {
                  CrossSection::Circular { diameter } => {
-                     let v = (*q).abs() / props.area;
                      8.0 * v / diameter
                  },
                  _ => 0.0,
@@ -163,8 +164,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         };
 
         let viscosity = blood.viscosity_at_shear(shear_rate, 310.15, 101325.0)?; // 37°C
-
-        let v = nalgebra::ComplexField::abs(*q) / props.area;
 
         println!("  {}: {:.4} mL/s", edge.id, q_ml);
         println!("     Velocity: {:.2} cm/s", v * 100.0);
