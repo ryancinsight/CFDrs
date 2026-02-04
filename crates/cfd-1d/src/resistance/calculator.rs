@@ -6,7 +6,7 @@ use super::models::{
     ResistanceModel,
 };
 use cfd_core::error::{Error, Result};
-use cfd_core::physics::fluid::Fluid;
+use cfd_core::physics::fluid::{Fluid, FluidTrait};
 use nalgebra::RealField;
 use num_traits::cast::FromPrimitive;
 
@@ -21,6 +21,23 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceCalculator<T> {
     pub fn new() -> Self {
         Self {
             _phantom: std::marker::PhantomData,
+        }
+    }
+
+    /// Estimate shear rate based on geometry and velocity
+    fn estimate_shear_rate(&self, geometry: &ChannelGeometry<T>, velocity: T) -> Result<T> {
+        let dh = self.hydraulic_diameter(geometry)?;
+        // Simple estimation for pipe flow: 8 * v / D
+        // For rectangular channels, this is an approximation but sufficient for apparent viscosity estimation
+        let shear = T::from_f64(8.0).unwrap_or_else(T::one) * velocity / dh;
+        let shear_abs = shear.abs();
+
+        if shear_abs <= T::default_epsilon() {
+            // Fallback to small positive shear rate to avoid division by zero or negative shear in viscosity models
+            // 1e-6 is small enough to effectively be "zero shear" viscosity but numerically safe
+            Ok(T::from_f64(1e-6).unwrap_or_else(T::one))
+        } else {
+            Ok(shear_abs)
         }
     }
 
@@ -131,18 +148,19 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceCalculator<T> {
     }
 
     /// Calculate linear (R) and quadratic (k) coefficients with automatic model selection
-    pub fn calculate_coefficients_auto(
+    pub fn calculate_coefficients_auto<F: FluidTrait<T>>(
         &self,
         geometry: &ChannelGeometry<T>,
-        fluid: &Fluid<T>,
+        fluid: &F,
         conditions: &FlowConditions<T>,
     ) -> Result<(T, T)> {
         let mut local_conditions = conditions.clone();
 
         // Compute Reynolds number if not provided.
         if local_conditions.reynolds_number.is_none() {
-            let density = fluid.density;
-            let viscosity = fluid.viscosity;
+            let properties =
+                fluid.properties_at(conditions.temperature, conditions.pressure)?;
+            let density = properties.density;
 
             let velocity = if let Some(v) = local_conditions.velocity {
                 v
@@ -154,6 +172,13 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceCalculator<T> {
                     "Automatic resistance selection requires either velocity or flow_rate (or an explicit Reynolds number)".to_string(),
                 ));
             };
+
+            let shear_rate = self.estimate_shear_rate(geometry, velocity)?;
+            let viscosity = fluid.viscosity_at_shear(
+                shear_rate,
+                conditions.temperature,
+                conditions.pressure,
+            )?;
 
             let dh = self.hydraulic_diameter(geometry)?;
             let re = density * velocity * dh / viscosity;
@@ -217,7 +242,15 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceCalculator<T> {
                     let poiseuille_number = self.poiseuille_number(geometry)?;
                     let area = self.area(geometry)?;
                     let dh = self.hydraulic_diameter(geometry)?;
-                    let resistance = (poiseuille_number * fluid.viscosity * *length)
+
+                    let shear_rate = self.estimate_shear_rate(geometry, local_conditions.velocity.unwrap_or(T::zero()))?;
+                    let viscosity = fluid.viscosity_at_shear(
+                        shear_rate,
+                        local_conditions.temperature,
+                        local_conditions.pressure,
+                    )?;
+
+                    let resistance = (poiseuille_number * viscosity * *length)
                         / (T::from_f64(2.0).unwrap_or_else(T::zero) * area * dh * dh);
                     Ok((resistance, T::zero()))
                 } else {
@@ -582,6 +615,7 @@ mod tests {
             reynolds_number: Some(1000.0),
             velocity: Some(0.001),
             flow_rate: None,
+            shear_rate: None,
             temperature: 293.15,
             pressure: 101_325.0,
         };
@@ -590,6 +624,7 @@ mod tests {
             reynolds_number: Some(10_000.0),
             velocity: Some(1.0),
             flow_rate: None,
+            shear_rate: None,
             temperature: 293.15,
             pressure: 101_325.0,
         };

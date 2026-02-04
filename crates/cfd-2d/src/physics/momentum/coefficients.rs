@@ -368,6 +368,12 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
                     MomentumComponent::V => fields.v.at(i, j),
                 };
 
+                // Body force term
+                let body_force = match component {
+                    MomentumComponent::U => fields.force_u.at(i, j),
+                    MomentumComponent::V => fields.force_v.at(i, j),
+                };
+
                 // Calculate pressure gradient term for momentum equation
                 // Momentum: ρ ∂u/∂t = μ ∇²u - ∂p/∂x
                 // Rearranging: (ρ/dt + diffusion) * u = (ρ/dt) * u_old - ∂p/∂x
@@ -396,12 +402,13 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
                 };
 
                 if let Some(source) = coeffs.source.at_mut(i, j) {
-                    // RHS = ρ * V * u_old / dt + pressure_force
+                    // RHS = ρ * V * u_old / dt + pressure_force + body_force
                     // where pressure_force = -∂p/∂x * V (total force on control volume)
                     // and V = dx * dy (cell volume in 2D, per unit depth)
                     let volume = dx * dy;
                     *source = fields.density.at(i, j) * volume * previous_velocity / dt
-                        + pressure_gradient * volume;
+                        + pressure_gradient * volume
+                        + body_force * volume;
                 }
             }
         }

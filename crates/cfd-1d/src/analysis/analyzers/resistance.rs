@@ -228,6 +228,7 @@ impl<T: RealField + Copy + FromPrimitive + Float> ResistanceAnalyzer<T> {
             }),
             velocity: flow_rate.map(|q| q / properties.area),
             flow_rate,
+            shear_rate: None,
             temperature,
             pressure,
         };

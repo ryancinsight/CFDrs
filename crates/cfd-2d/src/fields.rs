@@ -220,6 +220,10 @@ pub struct SimulationFields<T: RealField + Copy> {
     pub density: Field2D<T>,
     /// Dynamic viscosity field
     pub viscosity: Field2D<T>,
+    /// External force X-component (e.g. gravity, IBM)
+    pub force_u: Field2D<T>,
+    /// External force Y-component (e.g. gravity, IBM)
+    pub force_v: Field2D<T>,
     /// Grid dimensions
     pub nx: usize,
     /// Number of grid points in y-direction
@@ -238,6 +242,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> SimulationFields<T> {
             p_prime: Field2D::new(nx, ny, T::zero()),
             density: Field2D::new(nx, ny, T::one()),
             viscosity: Field2D::new(nx, ny, T::from_f64(0.001).unwrap_or_else(T::one)),
+            force_u: Field2D::new(nx, ny, T::zero()),
+            force_v: Field2D::new(nx, ny, T::zero()),
             nx,
             ny,
         }
@@ -263,6 +269,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> SimulationFields<T> {
         self.v_star.map_inplace(|val| *val = T::zero());
         self.p.map_inplace(|val| *val = T::zero());
         self.p_prime.map_inplace(|val| *val = T::zero());
+        self.force_u.map_inplace(|val| *val = T::zero());
+        self.force_v.map_inplace(|val| *val = T::zero());
     }
 
     /// Efficiently copy data from another `SimulationFields` instance
@@ -288,6 +296,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> SimulationFields<T> {
         self.p_prime.data.copy_from_slice(&other.p_prime.data);
         self.density.data.copy_from_slice(&other.density.data);
         self.viscosity.data.copy_from_slice(&other.viscosity.data);
+        self.force_u.data.copy_from_slice(&other.force_u.data);
+        self.force_v.data.copy_from_slice(&other.force_v.data);
 
         Ok(())
     }

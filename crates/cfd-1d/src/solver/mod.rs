@@ -2,176 +2,6 @@
 //!
 //! This module provides a comprehensive solver for analyzing fluid flow in microfluidic
 //! networks using sparse linear algebra and circuit analogies.
-//!
-//! ## Mathematical Foundation
-//!
-//! ### Theorem: Network Conservation Principle (Mass Conservation at Nodes)
-//!
-//! **Statement**: For incompressible fluid flow in a network of channels, the conservation
-//! of mass at each interior node requires that the sum of all inflow rates equals the
-//! sum of all outflow rates.
-//!
-//! **Mathematical Formulation**:
-//! ```text
-//! ∑_{edges connected to node i} Q_{edge} = 0    for all interior nodes i
-//! ```
-//!
-//! where Q_{edge} is positive for flow into the node and negative for flow out of the node.
-//!
-//! **Kirchhoff's Current Law Analogy**: This principle is analogous to Kirchhoff's current
-//! law in electrical circuits, where the sum of currents entering a node equals the sum
-//! leaving the node.
-//!
-//! **Proof**: Conservation of mass requires that mass cannot accumulate at nodes in
-//! steady-state incompressible flow. For each node i:
-//!
-//! ∂ρ/∂t + ∇·(ρu) = 0
-//!
-//! For steady-state (∂ρ/∂t = 0) and incompressible (ρ = constant) flow:
-//!
-//! ∇·u = 0
-//!
-//! Integrating over a control volume around node i and applying the divergence theorem:
-//!
-//! ∮_S u·dS = 0
-//!
-//! Where S is the surface enclosing node i. This surface integral becomes a sum over
-//! all channel cross-sections connected to the node.
-//!
-//! **Assumptions**:
-//! 1. Steady-state flow (no time derivatives)
-//! 2. Incompressible fluid (constant density)
-//! 3. No mass sources/sinks at nodes
-//! 4. One-dimensional flow in channels
-//!
-//! **Validity Conditions**: Applies to all microfluidic networks with incompressible fluids
-//! under steady-state conditions.
-//!
-//! **Literature**: Kirchhoff, G. (1847). "Ueber die Auflösung der Gleichungen".
-//! Annalen der Physik, 72, 497-508.
-//!
-//! ### Theorem: Pressure-Flow Relationship (Ohm's Law Analogy)
-//!
-//! **Statement**: The volumetric flow rate Q through a channel is proportional to the
-//! pressure difference across the channel and inversely proportional to the hydraulic
-//! resistance R of the channel.
-//!
-//! **Mathematical Formulation**:
-//! ```text
-//! Q = (ΔP) / R
-//! ```
-//!
-//! where:
-//! - Q is the volumetric flow rate [m³/s]
-//! - ΔP is the pressure difference [Pa]
-//! - R is the hydraulic resistance [Pa·s/m³]
-//!
-//! **Derivation**: Starting from the Hagen-Poiseuille equation for laminar flow:
-//!
-//! ΔP = (128μLQ)/(πD⁴)
-//!
-//! Rearranging gives:
-//!
-//! Q = (πD⁴ ΔP)/(128μL) = ΔP / R
-//!
-//! where R = (128μL)/(πD⁴)
-//!
-//! **Ohm's Law Analogy**: This relationship is analogous to Ohm's law V = IR in
-//! electrical circuits, where pressure difference plays the role of voltage and
-//! hydraulic resistance plays the role of electrical resistance.
-//!
-//! **Assumptions**:
-//! 1. Laminar flow (Re < 2300)
-//! 2. Fully developed flow (L/D > 10)
-//! 3. Newtonian fluid
-//! 4. Constant cross-section channel
-//! 5. No entrance/exit losses (or included in R)
-//!
-//! **Literature**: Hagen, G. (1839). "Über die Bewegung der Flüssigkeiten".
-//! Poggendorff's Annalen, 46, 423-442.
-//!
-//! ### Theorem: Circuit Analogy Validation
-//!
-//! **Statement**: The electrical circuit analogy provides a mathematically valid
-//! representation of fluid networks under the assumptions of incompressible laminar flow.
-//!
-//! **Mathematical Foundation**: The system of equations for a fluid network:
-//!
-//! ```text
-//! ∑_{j≠i} G_{ij} (P_i - P_j) = 0    for all interior nodes i
-//! ```
-//!
-//! is isomorphic to the electrical circuit equations:
-//!
-//! ```text
-//! ∑_{j≠i} G_{ij} (V_i - V_j) = 0    for all interior nodes i
-//! ```
-//!
-//! where:
-//! - P_i, V_i are pressures/voltages at nodes
-//! - G_{ij} = 1/R_{ij} is conductance (inverse resistance)
-//!
-//! **Proof of Isomorphism**: Both systems are linear and can be written in matrix form:
-//!
-//! A x = b
-//!
-//! where A is the conductance matrix, x is the pressure/voltage vector, and b accounts
-//! for boundary conditions and sources.
-//!
-//! **Assumptions and Limitations**:
-//! 1. **Linear Relationship**: Pressure-flow relationship must be linear (valid for laminar flow)
-//! 2. **Incompressibility**: Fluid density constant (no capacitive effects)
-//! 3. **Steady State**: No time derivatives (no inductive effects)
-//! 4. **Passive Elements**: No active pressure sources (pumps, etc.) in basic analogy
-//!
-//! ## Invariants and Boundary Handling
-//!
-//! - Units: `[A] = [Pa·s/m³]`, `[x] = [Pa]`, `[b] = [Pa]`
-//! - Positivity: all edge conductances `G = 1/R` strictly positive
-//! - Dirichlet BCs: enforced exactly via identity rows; preserves SPD
-//! - Neumann BCs: applied as source terms in `b`; discrete conservation holds at junctions
-//! - Nonlinear losses: if `ΔP = R·Q + k·Q²`, assemble with `R_eff = R + 2k|Q|` per iteration
-//!
-//! **Extensions**: Pumps can be modeled as voltage sources, valves as variable resistors.
-//!
-//! **Literature**: White, F.M. (2015). Fluid Mechanics (8th ed.). McGraw-Hill. §6.8.
-//!
-//! ### Theorem: Matrix Assembly and System Formulation
-//!
-//! **Statement**: The network equations can be assembled into a sparse linear system
-//! Ax = b where the matrix A represents network topology and hydraulic conductances.
-//!
-//! **Mathematical Formulation**: For a network with N nodes and M edges:
-//!
-//! ```text
-//! A ∈ ℝ^{N×N},    x ∈ ℝ^N,    b ∈ ℝ^N
-//! ```
-//!
-//! **Matrix Assembly Rules**:
-//! For each edge connecting nodes i and j with conductance G:
-//!
-//! ```text
-//! A[i,i] += G    (diagonal contribution)
-//! A[j,j] += G    (diagonal contribution)
-//! A[i,j] -= G    (off-diagonal coupling)
-//! A[j,i] -= G    (symmetric coupling)
-//! ```
-//!
-//! **Physical Interpretation**: The matrix A represents the discrete Laplacian operator
-//! for the network, where diagonal terms represent the total conductance connected to
-//! each node, and off-diagonal terms represent inter-node coupling.
-//!
-//! **Boundary Conditions**: Dirichlet (fixed pressure) and Neumann (fixed flow) conditions
-//! modify the system appropriately.
-//!
-//! **Existence and Uniqueness**: For connected networks with appropriate boundary conditions,
-//! the system has a unique solution.
-//!
-//! **Proof**: The assembled matrix A is symmetric positive definite for connected networks
-//! with proper boundary conditions, ensuring well-posedness.
-//!
-//! **Literature**: Patankar, S.V. (1980). Numerical Heat Transfer and Fluid Flow.
-//! Hemisphere Publishing. §6.3-6.5.
 
 mod convergence;
 mod geometry;
@@ -190,6 +20,7 @@ pub use state::NetworkState;
 use crate::network::Network;
 use cfd_core::compute::solver::{Configurable, Solver, Validatable};
 use cfd_core::error::Result;
+use cfd_core::physics::fluid::{ConstantPropertyFluid, FluidTrait};
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
@@ -218,7 +49,7 @@ impl<T: RealField + Copy> cfd_core::compute::solver::SolverConfiguration<T> for 
 }
 
 /// Main network solver implementing the core CFD suite trait system
-pub struct NetworkSolver<T: RealField + Copy> {
+pub struct NetworkSolver<T: RealField + Copy, F: FluidTrait<T> = ConstantPropertyFluid<T>> {
     /// Solver configuration
     config: SolverConfig<T>,
     /// Matrix assembler for building the linear system
@@ -228,15 +59,18 @@ pub struct NetworkSolver<T: RealField + Copy> {
     linear_solver: LinearSystemSolver<T>,
     /// Convergence checker
     convergence: ConvergenceChecker<T>,
+    _phantom: std::marker::PhantomData<F>,
 }
 
-impl<T: RealField + Copy + FromPrimitive + Copy> Default for NetworkSolver<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy, F: FluidTrait<T> + Clone> Default
+    for NetworkSolver<T, F>
+{
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + Copy> NetworkSolver<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy, F: FluidTrait<T> + Clone> NetworkSolver<T, F> {
     /// Create a new network solver with default configuration
     #[must_use]
     pub fn new() -> Self {
@@ -252,6 +86,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> NetworkSolver<T> {
             assembler: MatrixAssembler::new(),
             linear_solver: LinearSystemSolver::new(),
             convergence: ConvergenceChecker::new(config.tolerance),
+            _phantom: std::marker::PhantomData,
         }
     }
 
@@ -262,11 +97,12 @@ impl<T: RealField + Copy + FromPrimitive + Copy> NetworkSolver<T> {
             linear_solver: LinearSystemSolver::new(),
             convergence: ConvergenceChecker::new(config.tolerance),
             config,
+            _phantom: std::marker::PhantomData,
         }
     }
 
     /// Solve the network flow problem iteratively for non-linear systems
-    pub fn solve_network(&self, problem: &NetworkProblem<T>) -> Result<Network<T>> {
+    pub fn solve_network(&self, problem: &NetworkProblem<T, F>) -> Result<Network<T, F>> {
         let mut network = problem.network.clone();
         let n = network.node_count();
 
@@ -379,7 +215,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> NetworkSolver<T> {
 
     fn update_network_solution(
         &self,
-        network: &mut Network<T>,
+        network: &mut Network<T, F>,
         solution: &nalgebra::DVector<T>,
     ) -> Result<()> {
         // Update network pressures and flows from solution vector
@@ -387,9 +223,9 @@ impl<T: RealField + Copy + FromPrimitive + Copy> NetworkSolver<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + Copy> Solver<T> for NetworkSolver<T> {
-    type Problem = NetworkProblem<T>;
-    type Solution = Network<T>;
+impl<T: RealField + Copy + FromPrimitive + Copy, F: FluidTrait<T> + Clone> Solver<T> for NetworkSolver<T, F> {
+    type Problem = NetworkProblem<T, F>;
+    type Solution = Network<T, F>;
 
     fn solve(&self, problem: &Self::Problem) -> Result<Self::Solution> {
         self.solve_network(problem)
@@ -400,7 +236,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Solver<T> for NetworkSolver<T> 
     }
 }
 
-impl<T: RealField + Copy> Configurable<T> for NetworkSolver<T> {
+impl<T: RealField + Copy, F: FluidTrait<T>> Configurable<T> for NetworkSolver<T, F> {
     type Config = SolverConfig<T>;
 
     fn config(&self) -> &Self::Config {
@@ -412,8 +248,8 @@ impl<T: RealField + Copy> Configurable<T> for NetworkSolver<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + Copy> Validatable<T> for NetworkSolver<T> {
-    type Problem = NetworkProblem<T>;
+impl<T: RealField + Copy + FromPrimitive + Copy, F: FluidTrait<T> + Clone> Validatable<T> for NetworkSolver<T, F> {
+    type Problem = NetworkProblem<T, F>;
 
     fn validate_problem(&self, problem: &Self::Problem) -> Result<()> {
         // Validate network has nodes
