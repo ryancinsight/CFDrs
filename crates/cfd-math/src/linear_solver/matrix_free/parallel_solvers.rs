@@ -451,11 +451,13 @@ impl<T: RealField + Copy> ParallelLoadBalancer<T> {
 
     /// Update load estimates based on recent performance.
     pub fn update_load_estimates(&mut self, local_work: f64, local_comm: f64) {
-        let rank = self.communicator.rank() as usize;
-        self.work_estimates[rank] = local_work;
-        self.comm_overhead[rank] = local_comm;
+        // Gather work estimates from all ranks
+        self.communicator
+            .all_gather(&local_work, &mut self.work_estimates);
 
-        // TODO: Communicate load/comm estimates across ranks for global decisions.
+        // Gather communication overhead estimates from all ranks
+        self.communicator
+            .all_gather(&local_comm, &mut self.comm_overhead);
     }
 
     /// Get load balancing recommendations.
