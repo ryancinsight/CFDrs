@@ -17,7 +17,7 @@ pub mod venturi;
 pub mod threed;
 pub mod serpentine;
 // TODO: Re-enable once API compatibility is fixed
-// pub mod poiseuille_bifurcation;
+pub mod poiseuille_bifurcation;
 
 pub use bifurcation::BifurcationFlow;
 pub use cavity::LidDrivenCavity;
@@ -28,7 +28,7 @@ pub use trifurcation::TrifurcationFlow;
 pub use venturi::VenturiFlow;
 pub use threed::*;
 pub use serpentine::SerpentineFlow;
-// pub use poiseuille_bifurcation::*;
+pub use poiseuille_bifurcation::*;
 
 /// Trait for CFD benchmark problems
 pub trait Benchmark<T: RealField + Copy> {
