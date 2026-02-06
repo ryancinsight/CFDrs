@@ -576,7 +576,6 @@ mod tests {
         let mu_inf = 0.0035_f64; // 3.5 cP
         
         let model = CassonBlood::new(
-            "Test Blood".to_string(),
             1060.0,
             tau_y,
             mu_inf,
@@ -604,7 +603,6 @@ mod tests {
     #[test]
     fn test_casson_wall_velocity_zero() {
         let model = CassonBlood::new(
-            "Human Blood".to_string(),
             1060.0,
             0.0056,
             0.00345,
@@ -624,7 +622,6 @@ mod tests {
     #[test]
     fn test_casson_flow_rate() {
         let model = CassonBlood::new(
-            "Human Blood".to_string(),
             1060.0,
             0.0056,
             0.00345,
