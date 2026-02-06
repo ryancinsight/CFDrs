@@ -47,12 +47,17 @@ The suite is organized into 8 specialized crates:
 
 ### Advanced Turbulence Models
 - **Smagorinsky LES**: Dynamic subgrid-scale viscosity with Germano-Lilly procedure
-- **Detached Eddy Simulation**: DES97, DDES, and IDDES variants for hybrid RANS-LES
+- **Detached Eddy Simulation (DES)**: DES97, DDES, and **IDDES** variants for hybrid RANS-LES
+- **Wall Modeling**: Geometric wall distance calculation for shielding functions
 - **Strain Rate Tensors**: Efficient computation for SGS stress modeling
 - **Filter Width**: Automatic LES filter width calculation
-- **Wall Distance**: Boundary layer treatment for DES shielding functions
 - **Physics-Based Constants**: Configurable model parameters with validated defaults
 - **Performance**: O(N) field operations per time step
+
+### Complex Fluid Models (Non-Newtonian)
+- **Power-Law Fluids**: Shear-thinning/thickening with temperature dependence
+- **Bingham Plastics**: Yield stress modeling with regularization
+- **Viscosity Models**: Temperature-dependent viscosity updates
 
 ### GPU Compute Acceleration
 - **WGSL Shaders**: WebGPU Shading Language implementations for CFD kernels

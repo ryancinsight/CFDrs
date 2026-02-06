@@ -3,6 +3,7 @@
 //! This module provides a comprehensive framework for fluid modeling in CFD simulations,
 //! supporting Newtonian, non-Newtonian, and temperature-dependent fluid behaviors.
 
+pub mod blood;
 pub mod database;
 pub mod newtonian;
 pub mod non_newtonian;
@@ -12,6 +13,7 @@ pub mod traits;
 pub mod validation;
 
 // Re-export core types
+pub use blood::{CarreauYasudaBlood, CassonBlood, CrossBlood, FahraeuasLindqvist};
 pub use database::{air_20c, water_20c};
 pub use newtonian::ConstantPropertyFluid;
 pub use properties::FluidProperties;
@@ -23,3 +25,4 @@ pub use traits::{
 pub type Fluid<T> = ConstantPropertyFluid<T>;
 
 // Legacy FluidModel trait removed - use traits::Fluid instead
+

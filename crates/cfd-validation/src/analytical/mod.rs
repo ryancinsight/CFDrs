@@ -5,12 +5,16 @@
 
 pub mod couette;
 pub mod poiseuille;
+pub mod poiseuille_2d;
 pub mod stokes;
 pub mod taylor_green;
 pub mod utils;
 
 pub use couette::CouetteFlow;
 pub use poiseuille::{PoiseuilleFlow, PoiseuilleGeometry};
+pub use poiseuille_2d::{
+    PowerLawPoiseuille, CassonPoiseuille, PowerLawModel, RheologicalModel,
+};
 pub use stokes::StokesFlow;
 pub use taylor_green::TaylorGreenVortex;
 pub use utils::{AnalyticalUtils, FlowGeometry};

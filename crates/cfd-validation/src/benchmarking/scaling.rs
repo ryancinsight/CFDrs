@@ -425,7 +425,7 @@ impl CfdScalingAnalysis {
         let mut timing_data = Vec::new();
 
         // Use lid-driven cavity benchmark for scaling analysis
-        let cavity = LidDrivenCavity::new(1.0_f64, 1.0_f64);
+        let cavity = LidDrivenCavity::new(1.0_f64, 1.0_f64, 100.0_f64);
 
         // Test strong scaling: fixed problem size (64x64 grid) with varying thread counts
         let base_config = BenchmarkConfig {
@@ -481,7 +481,7 @@ impl CfdScalingAnalysis {
         let mut scaling_data = Vec::new();
 
         // Use lid-driven cavity for weak scaling analysis
-        let cavity = LidDrivenCavity::new(1.0_f64, 1.0_f64);
+        let cavity = LidDrivenCavity::new(1.0_f64, 1.0_f64, 100.0_f64);
 
         for &num_threads in &[1, 2, 4, 8] {
             // Set thread pool size for this measurement

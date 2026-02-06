@@ -1,10 +1,32 @@
 //! Validation framework for CFD simulations
 //!
 //! This module provides tools for validating CFD implementations against:
-//! - Analytical solutions
-//! - Benchmark problems
-//! - Literature results
-//! - Method of manufactured solutions
+//! - Analytical solutions (Poiseuille, Couette, Womersley)
+//! - Benchmark problems (Lid-driven cavity, Flow over cylinder)
+//! - Literature results (Sangalli et al., Bharadvaj et al.)
+//! - Method of manufactured solutions (MMS)
+//!
+//! ## Mathematical Foundations
+//!
+//! ### 1. Non-Newtonian Rheology: Casson Model
+//! The Casson model is widely used for blood flow, accounting for yield stress $(\tau_y)$ and shear-thinning behavior:
+//! $$\sqrt{\tau} = \sqrt{\tau_y} + \sqrt{\mu_p \dot{\gamma}}$$
+//! for $\tau > \tau_y$, where $\mu_p$ is the plastic viscosity and $\dot{\gamma}$ is the shear rate.
+//!
+//! ### 2. Murray's Law for Vascular Branching
+//! For optimal metabolic efficiency in vascular networks, the parent diameter $D_0$ and daughter diameters $D_i$ must satisfy:
+//! $D_0^3 = \sum D_i^3$
+//! This library validates branching geometries against this cubic relationship.
+//!
+//! ### 3. Richardson Extrapolation and GCI
+//! To verify grid convergence, we compute the Grid Convergence Index (GCI):
+//! $GCI = \frac{1.25 |\epsilon|}{r^p - 1}$
+//! where $\epsilon$ is the relative error between grids, $r$ is the refinement ratio, and $p$ is the observed order of accuracy.
+//!
+//! ### 4. Bernoulli and Cavitation Number
+//! Venturi flow validation utilizes the Bernoulli principle and the cavitation number $\sigma$:
+//! $\sigma = \frac{p_\infty - p_v}{\frac{1}{2}\rho v_\infty^2}$
+//! determining the inception of vapor phase transition at the throat.
 
 #![warn(missing_docs)]
 #![warn(clippy::all)]

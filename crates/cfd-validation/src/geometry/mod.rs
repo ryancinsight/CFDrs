@@ -10,13 +10,22 @@ use nalgebra::RealField;
 
 // Submodules
 pub mod annular;
+pub mod bifurcation_2d;
 pub mod circular;
 pub mod rectangular;
+pub mod trifurcation_2d;
+pub mod venturi;
+pub mod serpentine_2d;
+pub mod threed;
 
 // Public API exports
 pub use self::annular::AnnularDomain;
+pub use self::bifurcation_2d::Bifurcation2D;
 pub use self::circular::CircularDomain;
 pub use self::rectangular::RectangularDomain;
+pub use self::trifurcation_2d::Trifurcation2D;
+pub use self::venturi::Venturi2D;
+pub use self::serpentine_2d::Serpentine2D;
 
 /// Point in 2D space
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -77,10 +86,10 @@ pub enum BoundaryFace {
     Outer,
 }
 
-/// Geometry trait for computational domains used in MMS
-pub trait Geometry<T: RealField + Copy>: Send + Sync {
+/// Geometry trait for 2D computational domains used in MMS
+pub trait Geometry2D<T: RealField + Copy>: Send + Sync {
     /// Clone the geometry as a boxed trait object
-    fn clone_box(&self) -> Box<dyn Geometry<T>>;
+    fn clone_box(&self) -> Box<dyn Geometry2D<T>>;
 
     /// Check if a point is inside the computational domain
     fn contains(&self, point: &Point2D<T>) -> bool;
@@ -103,7 +112,37 @@ pub trait Geometry<T: RealField + Copy>: Send + Sync {
     /// Check if a point is on a boundary face
     fn on_boundary(&self, point: &Point2D<T>, face: BoundaryFace, tolerance: T) -> bool;
 
-    /// Get the area/volume of the domain
+    /// Get the area of the domain
+    fn measure(&self) -> T;
+}
+
+/// Geometry trait for 3D computational domains used in MMS
+pub trait Geometry3D<T: RealField + Copy>: Send + Sync {
+    /// Clone the geometry as a boxed trait object
+    fn clone_box(&self) -> Box<dyn Geometry3D<T>>;
+
+    /// Check if a point is inside the computational domain
+    fn contains(&self, point: &Point3D<T>) -> bool;
+
+    /// Get the distance to the nearest boundary
+    fn distance_to_boundary(&self, point: &Point3D<T>) -> T;
+
+    /// Get the normal vector at a boundary point
+    fn boundary_normal(&self, point: &Point3D<T>) -> Option<Point3D<T>>;
+
+    /// Get boundary condition for a specific boundary face
+    fn boundary_condition(&self, face: BoundaryFace, s: T, t: T) -> BoundaryCondition<T>;
+
+    /// Get domain bounds
+    fn bounds(&self) -> (Point3D<T>, Point3D<T>);
+
+    /// Get parametric coordinates along boundary (0 <= s,t <= 1)
+    fn boundary_parameter(&self, face: BoundaryFace, point: &Point3D<T>) -> Option<(T, T)>;
+
+    /// Check if a point is on a boundary face
+    fn on_boundary(&self, point: &Point3D<T>, face: BoundaryFace, tolerance: T) -> bool;
+
+    /// Get the volume of the domain
     fn measure(&self) -> T;
 }
 

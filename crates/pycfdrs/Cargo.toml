@@ -1,0 +1,32 @@
+[package]
+name = "pycfdrs"
+version = "0.1.0"
+edition = "2021"
+description = "Python bindings for CFD-rs solvers using PyO3"
+readme = "README.md"
+
+[lib]
+name = "pycfdrs"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.22", features = ["extension-module"] }
+numpy = "0.22"
+ndarray = "0.15"
+
+# Internal dependencies
+cfd-1d = { path = "../cfd-1d" }
+cfd-2d = { path = "../cfd-2d" }
+cfd-3d = { path = "../cfd-3d" }
+cfd-core = { path = "../cfd-core" }
+cfd-validation = { path = "../cfd-validation" }
+
+# Common dependencies
+nalgebra = { version = "0.33", features = ["serde"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+num-traits = "0.2"
+
+[profile.release]
+opt-level = 3
+lto = true

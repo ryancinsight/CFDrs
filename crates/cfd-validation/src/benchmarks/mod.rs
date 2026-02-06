@@ -7,15 +7,28 @@ use cfd_core::error::Result;
 use nalgebra::RealField;
 use serde::{Deserialize, Serialize};
 
+pub mod bifurcation;
 pub mod cavity;
 pub mod cylinder;
 pub mod runner;
 pub mod step;
+pub mod trifurcation;
+pub mod venturi;
+pub mod threed;
+pub mod serpentine;
+// TODO: Re-enable once API compatibility is fixed
+// pub mod poiseuille_bifurcation;
 
+pub use bifurcation::BifurcationFlow;
 pub use cavity::LidDrivenCavity;
 pub use cylinder::FlowOverCylinder;
 pub use runner::{BenchmarkRunner, ValidationReport};
 pub use step::BackwardFacingStep;
+pub use trifurcation::TrifurcationFlow;
+pub use venturi::VenturiFlow;
+pub use threed::*;
+pub use serpentine::SerpentineFlow;
+// pub use poiseuille_bifurcation::*;
 
 /// Trait for CFD benchmark problems
 pub trait Benchmark<T: RealField + Copy> {
@@ -48,8 +61,25 @@ pub struct BenchmarkResult<T: RealField + Copy> {
     pub convergence: Vec<T>,
     /// Execution time in seconds
     pub execution_time: f64,
+    /// Computed metrics (e.g., mass conservation, pressure drop)
+    pub metrics: std::collections::HashMap<String, T>,
     /// Additional metadata
     pub metadata: std::collections::HashMap<String, String>,
+}
+
+impl<T: RealField + Copy> BenchmarkResult<T> {
+    /// Create a new benchmark result
+    pub fn new(name: &str) -> Self {
+        Self {
+            name: name.to_string(),
+            values: Vec::new(),
+            errors: Vec::new(),
+            convergence: Vec::new(),
+            execution_time: 0.0,
+            metrics: std::collections::HashMap::new(),
+            metadata: std::collections::HashMap::new(),
+        }
+    }
 }
 
 /// Configuration for running benchmarks

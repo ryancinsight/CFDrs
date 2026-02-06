@@ -80,7 +80,7 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
     /// where p' is the pressure correction and u* is the predicted velocity
     pub fn solve_pressure_correction(
         &self,
-        u_star: &Vec<Vec<Vector2<T>>>,
+        fields: &crate::fields::SimulationFields<T>,
         dt: T,
         rho: T,
     ) -> cfd_core::error::Result<Vec<Vec<T>>> {
@@ -128,6 +128,13 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
 
                 let row_idx = map_index(idx).expect("row index must exist");
 
+                // If cell is masked (solid), enforce p' = 0
+                if !fields.mask.at(i, j) {
+                    builder.add_entry(row_idx, row_idx, T::one())?;
+                    rhs[row_idx] = T::zero();
+                    continue;
+                }
+
                 // Laplacian stencil - diagonal is negative sum of neighbor coefficients
                 let two = T::from_f64(cfd_core::physics::constants::mathematical::numeric::TWO)
                     .unwrap_or_else(|| T::one() + T::one());
@@ -135,38 +142,47 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
 
                 builder.add_entry(row_idx, row_idx, ap)?;
 
-                // Neighbors
+                // Neighbors - only include if they are fluid cells
                 if i > 1 {
                     let neighbor_idx = idx - (ny - 2);
                     if let Some(col_idx) = map_index(neighbor_idx) {
-                        builder.add_entry(row_idx, col_idx, dx2_inv)?;
+                        if fields.mask.at(i - 1, j) {
+                            builder.add_entry(row_idx, col_idx, dx2_inv)?;
+                        }
+                        // Note: If neighbor is solid, p'_neighbor = 0, so no contribution to LHS/RHS
                     }
                 }
                 if i < nx - 2 {
                     let neighbor_idx = idx + (ny - 2);
                     if let Some(col_idx) = map_index(neighbor_idx) {
-                        builder.add_entry(row_idx, col_idx, dx2_inv)?;
+                        if fields.mask.at(i + 1, j) {
+                            builder.add_entry(row_idx, col_idx, dx2_inv)?;
+                        }
                     }
                 }
                 if j > 1 {
                     let neighbor_idx = idx - 1;
                     if let Some(col_idx) = map_index(neighbor_idx) {
-                        builder.add_entry(row_idx, col_idx, dy2_inv)?;
+                        if fields.mask.at(i, j - 1) {
+                            builder.add_entry(row_idx, col_idx, dy2_inv)?;
+                        }
                     }
                 }
                 if j < ny - 2 {
                     let neighbor_idx = idx + 1;
                     if let Some(col_idx) = map_index(neighbor_idx) {
-                        builder.add_entry(row_idx, col_idx, dy2_inv)?;
+                        if fields.mask.at(i, j + 1) {
+                            builder.add_entry(row_idx, col_idx, dy2_inv)?;
+                        }
                     }
                 }
 
                 // Divergence of predicted velocity
-                let div_u = (u_star[i + 1][j].x - u_star[i - 1][j].x)
+                let div_u = (fields.u.at(i + 1, j) - fields.u.at(i - 1, j))
                     / (T::from_f64(cfd_core::physics::constants::mathematical::numeric::TWO)
                         .unwrap_or_else(|| T::zero())
                         * dx)
-                    + (u_star[i][j + 1].y - u_star[i][j - 1].y)
+                    + (fields.v.at(i, j + 1) - fields.v.at(i, j - 1))
                         / (T::from_f64(cfd_core::physics::constants::mathematical::numeric::TWO)
                             .unwrap_or_else(|| T::zero())
                             * dy);
@@ -347,6 +363,7 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
         d_x: &[Vec<T>],    // East face pressure coefficients (nx-1 x ny)
         d_y: &[Vec<T>],    // North face pressure coefficients (nx x ny-1)
         rho: T,
+        fields: &crate::fields::SimulationFields<T>,
     ) -> cfd_core::error::Result<Vec<Vec<T>>> {
         let nx = self.grid.nx;
         let ny = self.grid.ny;
@@ -391,6 +408,13 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
 
                 let row_idx = map_index(idx).expect("row index must exist");
 
+                // If cell is masked (solid), enforce p' = 0
+                if !fields.mask.at(i, j) {
+                    builder.add_entry(row_idx, row_idx, T::one())?;
+                    rhs[row_idx] = T::zero();
+                    continue;
+                }
+
                 // Laplacian stencil with varying coefficients:
                 // [d_e*(p_e - p_p)/dx - d_w*(p_p - p_w)/dx] / dx + [d_n*(p_n - p_p)/dy - d_s*(p_p - p_s)/dy] / dy = Source
                 // ap*p_p + ae*p_e + aw*p_w + an*p_n + as*p_s = Source
@@ -408,29 +432,37 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
 
                 builder.add_entry(row_idx, row_idx, ap)?;
 
-                // Neighbors
+                // Neighbors - only include if they are fluid cells
                 if i > 1 {
                     let neighbor_idx = idx - (ny - 2);
                     if let Some(col_idx) = map_index(neighbor_idx) {
-                        builder.add_entry(row_idx, col_idx, aw)?;
+                        if fields.mask.at(i - 1, j) {
+                            builder.add_entry(row_idx, col_idx, aw)?;
+                        }
                     }
                 }
                 if i < nx - 2 {
                     let neighbor_idx = idx + (ny - 2);
                     if let Some(col_idx) = map_index(neighbor_idx) {
-                        builder.add_entry(row_idx, col_idx, ae)?;
+                        if fields.mask.at(i + 1, j) {
+                            builder.add_entry(row_idx, col_idx, ae)?;
+                        }
                     }
                 }
                 if j > 1 {
                     let neighbor_idx = idx - 1;
                     if let Some(col_idx) = map_index(neighbor_idx) {
-                        builder.add_entry(row_idx, col_idx, as_)?;
+                        if fields.mask.at(i, j - 1) {
+                            builder.add_entry(row_idx, col_idx, as_)?;
+                        }
                     }
                 }
                 if j < ny - 2 {
                     let neighbor_idx = idx + 1;
                     if let Some(col_idx) = map_index(neighbor_idx) {
-                        builder.add_entry(row_idx, col_idx, an)?;
+                        if fields.mask.at(i, j + 1) {
+                            builder.add_entry(row_idx, col_idx, an)?;
+                        }
                     }
                 }
 
@@ -615,6 +647,7 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
         ap_v: &Field2D<T>, // Cell-centered A_p for v
         _rho: T,
         alpha: T,
+        fields: &crate::fields::SimulationFields<T>,
     ) {
         let nx = self.grid.nx;
         let ny = self.grid.ny;
@@ -625,6 +658,13 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
 
         for i in 1..nx - 1 {
             for j in 1..ny - 1 {
+                // Skip solid cells
+                if !fields.mask.at(i, j) {
+                    u_star[i][j].x = T::zero();
+                    u_star[i][j].y = T::zero();
+                    continue;
+                }
+
                 // Velocity correction from pressure gradient
                 // Standard SIMPLE: u' = -(dt/rho) * grad(p')
                 // SIMPLEC: u' = -(Vol/Ap) * grad(p')

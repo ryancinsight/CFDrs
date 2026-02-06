@@ -111,7 +111,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy + LowerExp + num_traits::ToPrimi
         // Step 2: Solve pressure correction equation
         let p_correction =
             self.pressure_solver
-                .solve_pressure_correction(&u_star, self.config.dt, rho)?;
+                .solve_pressure_correction(&state_buffer, self.config.dt, rho)?;
 
         // Step 3: Correct velocity field
         let mut u_corrected = u_star;
@@ -123,6 +123,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy + LowerExp + num_traits::ToPrimi
             &ap_v,
             rho,
             self.config.alpha_u,
+            &state_buffer, // Pass buffer for mask access
         );
 
         // Step 4: Correct pressure field

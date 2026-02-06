@@ -439,7 +439,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> MomentumSolv
         &self,
         coeffs: &MomentumCoefficients<T>,
         component: MomentumComponent,
-        _fields: &SimulationFields<T>,
+        fields: &SimulationFields<T>,
     ) -> cfd_core::error::Result<(SparseMatrix<T>, DVector<T>)> {
         let n = self.grid.nx * self.grid.ny;
         let mut builder = SparseMatrixBuilder::new(n, n);
@@ -448,6 +448,14 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> MomentumSolv
         for j in 0..self.grid.ny {
             for i in 0..self.grid.nx {
                 let idx = j * self.grid.nx + i;
+
+                // Check if this is a masked (solid) cell
+                if !fields.mask.at(i, j) {
+                    // For solid cells: assemble identity equation φ = 0
+                    builder.add_entry(idx, idx, T::one())?;
+                    // RHS is already zero
+                    continue;
+                }
 
                 // Check if this is a Dirichlet boundary node
                 if self.is_dirichlet_boundary(i, j) {
@@ -521,15 +529,25 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> MomentumSolv
                     MomentumComponent::U => {
                         if let Some(u) = fields.u.at_mut(i, j) {
                             let old_value = *u;
-                            // Under-relaxation: u_new = α * u_computed + (1-α) * u_old
-                            *u = alpha * computed_value + one_minus_alpha * old_value;
+                            // Enforce zero velocity in masked (solid) cells
+                            if fields.mask.at(i, j) {
+                                // Under-relaxation: u_new = α * u_computed + (1-α) * u_old
+                                *u = alpha * computed_value + one_minus_alpha * old_value;
+                            } else {
+                                *u = T::zero();
+                            }
                         }
                     }
                     MomentumComponent::V => {
                         if let Some(v) = fields.v.at_mut(i, j) {
                             let old_value = *v;
-                            // Under-relaxation: v_new = α * v_computed + (1-α) * v_old
-                            *v = alpha * computed_value + one_minus_alpha * old_value;
+                            // Enforce zero velocity in masked (solid) cells
+                            if fields.mask.at(i, j) {
+                                // Under-relaxation: v_new = α * v_computed + (1-α) * v_old
+                                *v = alpha * computed_value + one_minus_alpha * old_value;
+                            } else {
+                                *v = T::zero();
+                            }
                         }
                     }
                 }

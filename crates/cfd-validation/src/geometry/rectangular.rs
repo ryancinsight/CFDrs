@@ -1,6 +1,6 @@
 //! Rectangular domain geometry implementation
 
-use super::{BoundaryCondition, BoundaryFace, Geometry, Point2D};
+use super::{BoundaryCondition, BoundaryFace, Geometry2D, Point2D};
 use cfd_core::conversion::SafeFromF64;
 use nalgebra::RealField;
 
@@ -37,8 +37,8 @@ impl<T: RealField> RectangularDomain<T> {
     }
 }
 
-impl<T: RealField + Copy> Geometry<T> for RectangularDomain<T> {
-    fn clone_box(&self) -> Box<dyn Geometry<T>> {
+impl<T: RealField + Copy> Geometry2D<T> for RectangularDomain<T> {
+    fn clone_box(&self) -> Box<dyn Geometry2D<T>> {
         Box::new(self.clone())
     }
 

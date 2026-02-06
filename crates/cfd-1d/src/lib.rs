@@ -42,11 +42,13 @@
 #![allow(clippy::should_implement_trait)] // CFD-specific trait implementations
 
 pub mod analysis;
+pub mod bifurcation;
 pub mod channel;
 pub mod components;
 pub mod network;
 pub mod resistance;
 pub mod solver;
+pub mod vascular;
 
 // Export network functionality
 pub use network::{

@@ -14,6 +14,12 @@ pub enum Error {
     ConvergenceFailure(String),
     /// Invalid configuration
     InvalidConfiguration(String),
+    /// Invalid input parameters
+    InvalidInput(String),
+    /// Numerical instability detected
+    NumericalInstability(String),
+    /// Convergence failed with iteration count and residual
+    ConvergenceFailed { iterations: usize, residual: f64 },
     /// Core error
     CoreError(cfd_core::error::Error),
 }
@@ -24,6 +30,18 @@ impl fmt::Display for Error {
             Self::InvalidDimensions(msg) => write!(f, "Invalid dimensions: {msg}"),
             Self::ConvergenceFailure(msg) => write!(f, "Convergence failure: {msg}"),
             Self::InvalidConfiguration(msg) => write!(f, "Invalid configuration: {msg}"),
+            Self::InvalidInput(msg) => write!(f, "Invalid input: {msg}"),
+            Self::NumericalInstability(msg) => write!(f, "Numerical instability: {msg}"),
+            Self::ConvergenceFailed {
+                iterations,
+                residual,
+            } => {
+                write!(
+                    f,
+                    "Convergence failed after {} iterations (residual: {:.2e})",
+                    iterations, residual
+                )
+            }
             Self::CoreError(e) => write!(f, "Core error: {e}"),
         }
     }

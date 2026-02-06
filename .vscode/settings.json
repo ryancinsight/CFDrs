@@ -1,3 +1,5 @@
 {
-    "python.terminal.shellIntegration.enabled": true
+    "python.terminal.shellIntegration.enabled": true,
+    "kimi.yoloMode": true,
+    "problems.autoReveal": false
 }

@@ -118,6 +118,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Benchmark<T> for FlowOverCylind
             errors: vec![],
             convergence,
             execution_time: 0.0,
+            metrics: std::collections::HashMap::new(),
             metadata: std::collections::HashMap::new(),
         })
     }
@@ -151,6 +152,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Benchmark<T> for FlowOverCylind
             ],
             convergence: vec![],
             execution_time: 0.0,
+            metrics: std::collections::HashMap::new(),
             metadata: std::collections::HashMap::new(),
         })
     }

@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use super::core::{DataDrivenOrderEstimation, RichardsonExtrapolation};
 use super::types::{RichardsonMmsResult, RichardsonResult};
 use crate::convergence::ConvergenceStudy;
-use crate::geometry::Geometry;
+use crate::geometry::Geometry2D;
 use crate::manufactured::ManufacturedSolution;
 use cfd_2d::grid::StructuredGrid2D;
 use cfd_2d::solvers::fdm::{FdmConfig, PoissonSolver};
@@ -23,7 +23,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float + ToPrimitive> MmsR
     /// Create new MMS-Richardson study
     pub fn new(
         manufactured_solution: Box<dyn ManufacturedSolution<T>>,
-        _geometry: Box<dyn Geometry<T>>,
+        _geometry: Box<dyn Geometry2D<T>>,
     ) -> Self {
         Self {
             manufactured_solution,
@@ -33,7 +33,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float + ToPrimitive> MmsR
     /// Create study with geometric grid refinement
     pub fn with_geometric_refinement(
         manufactured_solution: Box<dyn ManufacturedSolution<T>>,
-        geometry: Box<dyn Geometry<T>>,
+        geometry: Box<dyn Geometry2D<T>>,
         num_levels: usize,
         _base_size: T,
         _evaluation_time: T,

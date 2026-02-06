@@ -18,6 +18,8 @@ pub struct StokesFlowProblem<T: RealField + Copy> {
     pub boundary_conditions: HashMap<usize, BoundaryCondition<T>>,
     /// Body force (e.g., gravity)
     pub body_force: Option<Vector3<T>>,
+    /// Spatially varying viscosity (per element)
+    pub element_viscosities: Option<Vec<T>>,
 }
 
 impl<T: RealField + Copy> StokesFlowProblem<T> {
@@ -32,6 +34,7 @@ impl<T: RealField + Copy> StokesFlowProblem<T> {
             fluid,
             boundary_conditions,
             body_force: None,
+            element_viscosities: None,
         }
     }
 

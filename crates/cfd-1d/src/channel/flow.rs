@@ -4,6 +4,7 @@ use super::geometry::ChannelGeometry;
 use nalgebra::RealField;
 
 /// Extended channel flow model
+#[derive(Debug, Clone)]
 pub struct Channel<T: RealField + Copy> {
     /// Channel geometry
     pub geometry: ChannelGeometry<T>,

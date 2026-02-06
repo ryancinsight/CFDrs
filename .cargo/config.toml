@@ -1,0 +1,20 @@
+# Cargo configuration for CFD-rs
+
+[alias]
+# xtask commands
+xtask = "run --package xtask --"
+
+# Common development commands
+dev = "build --workspace"
+test-all = "test --workspace --all-features"
+check-all = "check --workspace --all-features"
+fmt-all = "fmt --all"
+clippy-all = "clippy --workspace --all-features"
+
+# Benchmarking
+bench-all = "bench --workspace"
+bench-gpu = "bench --package cfd-validation --bench gpu_turbulence_benchmark"
+
+# Python bindings
+build-python = "run --package xtask -- build-wheel --release"
+setup-validation = "run --package xtask -- all --plot"

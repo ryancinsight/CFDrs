@@ -5,9 +5,11 @@ members = [
     "crates/cfd-io",
     "crates/cfd-mesh",
     "crates/cfd-1d",
-    "crates/cfd-2d", 
+    "crates/cfd-2d",
     "crates/cfd-3d",
     "crates/cfd-validation",
+    "crates/pycfdrs",
+    "xtask",
 ]
 resolver = "2"
 
@@ -87,6 +89,10 @@ opt-level = 0
 
 [profile.test]
 opt-level = 2
+
+# PyO3 extension building
+[profile.release.package.pycfdrs]
+opt-level = 3
 
 # Root package for examples
 [package]

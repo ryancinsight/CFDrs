@@ -108,7 +108,7 @@ fn bench_des(c: &mut Criterion) {
             use_gpu: false,
             ..Default::default()
         };
-        let mut des_cpu = DetachedEddySimulation::new(size, size, config_cpu);
+        let mut des_cpu = DetachedEddySimulation::new(size, size, 0.01, 0.01, config_cpu, &[]);
 
         group.bench_function(format!("CPU {}x{}", size, size), |b| {
             b.iter(|| {
@@ -133,7 +133,7 @@ fn bench_des(c: &mut Criterion) {
                 use_gpu: true,
                 ..Default::default()
             };
-            let mut des_gpu = DetachedEddySimulation::new(size, size, config_gpu);
+            let mut des_gpu = DetachedEddySimulation::new(size, size, 0.01, 0.01, config_gpu, &[]);
 
             group.bench_function(format!("GPU {}x{}", size, size), |b| {
                 b.iter(|| {

@@ -103,11 +103,13 @@
 #![allow(clippy::ptr_arg)] // &Vec used for API compatibility
 #![allow(clippy::should_implement_trait)] // CFD-specific trait implementations
 
+pub mod bifurcation;
 pub mod fem;
 pub mod ibm;
 pub mod level_set;
 pub mod physics;
 pub mod spectral;
+pub mod trifurcation;
 pub mod vof;
 
 // Export FEM functionality
@@ -312,7 +314,7 @@ mod tests {
         assert!(config_hex.quadrature_order >= 1);
     }
 
-    /// Test collocation point properties - literature validation  
+    /// Test collocation point properties - literature validation
     #[test]
     fn test_chebyshev_collocation_properties() {
         use crate::spectral::ChebyshevPolynomial;

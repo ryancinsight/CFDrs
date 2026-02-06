@@ -555,11 +555,10 @@ impl CavitationVofSolver {
         self.bubble_radius_field.as_ref()
     }
 
-    #[allow(missing_docs)]
-    // TODO: Implement comprehensive sonoluminescence energy field calculation
-    // DEPENDENCIES: Add accurate cavitation bubble dynamics and energy emission models
-    // BLOCKED BY: Limited understanding of sonoluminescence physics and energy transfer mechanisms
-    // PRIORITY: High - Essential for accurate cavitation simulation and energy analysis
+    /// Calculate sonoluminescence energy field
+    ///
+    /// Estimates the radiated energy during bubble collapse using the 
+    /// Rayleigh-Plesset adiabatic compression model and Stefan-Boltzmann law.
     pub fn sonoluminescence_energy_field(
         &self,
         pressure_field: &DMatrix<f64>,

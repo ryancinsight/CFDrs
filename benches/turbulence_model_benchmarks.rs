@@ -133,7 +133,7 @@ fn bench_les_models(c: &mut Criterion) {
                 rans_viscosity: 1.5e-5,
                 use_gpu: false, // CPU benchmark
             };
-            let mut des_model = DetachedEddySimulation::new(nx, ny, config);
+            let mut des_model = DetachedEddySimulation::new(nx, ny, 0.01, 0.01, config, &[]);
             let velocity_u = nalgebra::DMatrix::from_element(nx, ny, 1.0);
             let velocity_v = nalgebra::DMatrix::from_element(nx, ny, 0.0);
             let pressure = nalgebra::DMatrix::zeros(nx, ny);
@@ -203,7 +203,14 @@ fn bench_model_initialization(c: &mut Criterion) {
             use_gpu: false,
         };
         b.iter(|| {
-            black_box(DetachedEddySimulation::new(64, 64, config.clone()));
+            black_box(DetachedEddySimulation::new(
+                64,
+                64,
+                0.01,
+                0.01,
+                config.clone(),
+                &[],
+            ));
         });
     });
 

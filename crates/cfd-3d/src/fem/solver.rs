@@ -86,7 +86,7 @@ pub struct FemSolver<T: RealField + Copy> {
 }
 
 /// Extract vertex indices from a cell
-fn extract_vertex_indices<T: RealField + Copy>(cell: &Cell, mesh: &Mesh<T>) -> Result<Vec<usize>> {
+pub fn extract_vertex_indices<T: RealField + Copy>(cell: &Cell, mesh: &Mesh<T>) -> Result<Vec<usize>> {
     // For tetrahedral elements, extract 4 unique vertex indices from faces
     let mut indices = Vec::with_capacity(4);
 
@@ -250,7 +250,7 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
             .collect();
 
         // Loop over elements
-        for cell in problem.mesh.cells() {
+        for (i, cell) in problem.mesh.cells().iter().enumerate() { let viscosity = if let Some(ref viscosities) = problem.element_viscosities { viscosities[i] } else { problem.fluid.viscosity };
             // Get vertex indices for this cell
             let vertex_indices = extract_vertex_indices(cell, &problem.mesh)?;
 
@@ -406,7 +406,7 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
 
         // Count how many cells reference each face
         let mut face_cell_count: HashMap<usize, usize> = HashMap::new();
-        for cell in problem.mesh.cells() {
+        for (i, cell) in problem.mesh.cells().iter().enumerate() { let viscosity = if let Some(ref viscosities) = problem.element_viscosities { viscosities[i] } else { problem.fluid.viscosity };
             for &face_idx in &cell.faces {
                 *face_cell_count.entry(face_idx).or_insert(0) += 1;
             }
@@ -921,3 +921,5 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
         Ok(())
     }
 }
+
+

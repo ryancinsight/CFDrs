@@ -1,0 +1,32 @@
+{
+  "timestamp": "2026-02-04T22:11:46.410314",
+  "pycfdrs_version": "0.1.0",
+  "tests": {
+    "1D Poiseuille Flow": {
+      "status": "not_implemented",
+      "category": "analytical"
+    },
+    "1D Bifurcation": {
+      "status": "passed",
+      "category": "analytical",
+      "passed": true,
+      "metrics": {
+        "bifurcation_flow_error": 0.0,
+        "bifurcation_shear_error": 0.0,
+        "bifurcation_viscosity_error": 0.0,
+        "bifurcation_pressure_error": 0.0
+      },
+      "max_error": 0.0,
+      "mean_error": 0.0,
+      "sub_tests": {
+        "rheology": true,
+        "bifurcation": true,
+        "trifurcation": true
+      }
+    },
+    "2D Poiseuille Flow": {
+      "status": "not_implemented",
+      "category": "analytical"
+    }
+  }
+}

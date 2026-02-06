@@ -96,6 +96,20 @@ impl<T: Clone> Field2D<T> {
         Some(&self.data[j * self.nx + i])
     }
 
+    /// Get value at element (i, j)
+    /// Returns None for out-of-bounds access
+    #[inline]
+    #[must_use]
+    pub fn get(&self, i: usize, j: usize) -> Option<T>
+    where
+        T: Copy,
+    {
+        if i >= self.nx || j >= self.ny {
+            return None;
+        }
+        Some(self.data[j * self.nx + i])
+    }
+
     /// Get mutable reference to element at (i, j)
     /// Returns None for out-of-bounds access
     #[inline]
@@ -224,6 +238,8 @@ pub struct SimulationFields<T: RealField + Copy> {
     pub force_u: Field2D<T>,
     /// External force Y-component (e.g. gravity, IBM)
     pub force_v: Field2D<T>,
+    /// Mask field (true = fluid, false = solid)
+    pub mask: Field2D<bool>,
     /// Grid dimensions
     pub nx: usize,
     /// Number of grid points in y-direction
@@ -244,6 +260,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> SimulationFields<T> {
             viscosity: Field2D::new(nx, ny, T::from_f64(0.001).unwrap_or_else(T::one)),
             force_u: Field2D::new(nx, ny, T::zero()),
             force_v: Field2D::new(nx, ny, T::zero()),
+            mask: Field2D::new(nx, ny, true),
             nx,
             ny,
         }
@@ -298,6 +315,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> SimulationFields<T> {
         self.viscosity.data.copy_from_slice(&other.viscosity.data);
         self.force_u.data.copy_from_slice(&other.force_u.data);
         self.force_v.data.copy_from_slice(&other.force_v.data);
+        self.mask.data.copy_from_slice(&other.mask.data);
 
         Ok(())
     }

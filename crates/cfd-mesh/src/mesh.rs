@@ -145,6 +145,11 @@ impl<T: RealField + Copy> Mesh<T> {
         &self.vertices
     }
 
+    /// Get all vertices (mutable)
+    pub fn vertices_mut(&mut self) -> &mut [Vertex<T>] {
+        &mut self.vertices
+    }
+
     /// Get all edges
     #[must_use]
     pub fn edges(&self) -> &[Edge] {
@@ -270,6 +275,80 @@ impl<T: RealField + Copy> Mesh<T> {
         }
 
         stats
+    }
+
+    /// Merge another mesh into this one
+    ///
+    /// Vertices that are within the provided tolerance are merged.
+    /// Faces and cells are re-indexed accordingly.
+    pub fn merge(&mut self, other: &Self, tolerance: T) {
+        use std::collections::HashMap;
+
+        let mut v_map = HashMap::new();
+
+        // Identify vertices in other that can be merged with self
+        for (i, other_v) in other.vertices.iter().enumerate() {
+            let mut found = false;
+            for (j, my_v) in self.vertices.iter().enumerate() {
+                if (my_v.position - other_v.position).norm() < tolerance {
+                    v_map.insert(i, j);
+                    found = true;
+                    break;
+                }
+            }
+            if !found {
+                // Add new vertex
+                let new_idx = self.add_vertex(other_v.clone());
+                v_map.insert(i, new_idx);
+            }
+        }
+
+        // Add edges from other
+        let mut e_map = HashMap::new();
+        for (i, other_e) in other.edges.iter().enumerate() {
+            let new_e = Edge::new(
+                *v_map.get(&other_e.start).unwrap(),
+                *v_map.get(&other_e.end).unwrap(),
+            );
+            e_map.insert(i, self.add_edge(new_e));
+        }
+
+        // Add faces from other
+        let mut f_map = HashMap::new();
+        for (i, other_f) in other.faces.iter().enumerate() {
+            let mut new_f_verts = Vec::new();
+            for &v_idx in &other_f.vertices {
+                new_f_verts.push(*v_map.get(&v_idx).unwrap());
+            }
+            let new_f = Face {
+                vertices: new_f_verts,
+                global_id: other_f.global_id,
+                partition_id: other_f.partition_id,
+            };
+            f_map.insert(i, self.add_face(new_f));
+        }
+
+        // Add cells from other
+        for other_c in &other.cells {
+            let mut new_c_faces = Vec::new();
+            for &f_idx in &other_c.faces {
+                new_c_faces.push(*f_map.get(&f_idx).unwrap());
+            }
+            let new_c = Cell {
+                faces: new_c_faces,
+                element_type: other_c.element_type,
+                global_id: other_c.global_id,
+                partition_id: other_c.partition_id,
+            };
+            self.add_cell(new_c);
+        }
+
+        // Merge boundary markers
+        for (&f_idx, label) in &other.boundary_markers {
+            if let Some(&new_f_idx) = f_map.get(&f_idx) {
+                self.boundary_markers.insert(new_f_idx, label.clone());
+            }
+        }
     }
 }
 

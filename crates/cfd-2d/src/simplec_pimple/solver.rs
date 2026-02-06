@@ -454,10 +454,10 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
                 }
 
                 self.pressure_solver
-                    .solve_pressure_correction_from_faces(&u_face, &v_face, &d_x, &d_y, rho)?
+                    .solve_pressure_correction_from_faces(&u_face, &v_face, &d_x, &d_y, rho, fields)?
             } else {
                 self.pressure_solver
-                    .solve_pressure_correction(&u_star, dt, rho)?
+                    .solve_pressure_correction(fields, dt, rho)?
             };
 
             // Step 5: Correct velocities using pressure gradients with under-relaxation
@@ -471,6 +471,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
                     &ap_c_v,
                     rho,
                     T::one(), // Don't double relax here; MomentumSolver already relaxed u*
+                    fields,
                 );
             }
 
@@ -621,10 +622,10 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
                     }
 
                     self.pressure_solver
-                        .solve_pressure_correction_from_faces(&u_face, &v_face, &d_x, &d_y, rho)?
+                        .solve_pressure_correction_from_faces(&u_face, &v_face, &d_x, &d_y, rho, fields)?
                 } else {
                     self.pressure_solver
-                        .solve_pressure_correction(&u_star, dt, rho)?
+                        .solve_pressure_correction(fields, dt, rho)?
                 };
 
                 // Step 4: Correct velocities and pressure
@@ -640,6 +641,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
                         &ap_c_v,
                         rho,
                         T::one(), // Don't double relax here
+                        fields,
                     );
 
                     // Pressure correction: p = p + α_p * p'
