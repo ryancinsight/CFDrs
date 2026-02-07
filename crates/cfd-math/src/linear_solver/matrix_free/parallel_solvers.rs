@@ -41,7 +41,7 @@ pub enum LoadBalancingStrategy {
 /// This solver implements communication overlap techniques and load balancing
 /// optimizations for efficient scaling on distributed systems.
 #[cfg(feature = "mpi")]
-pub struct ParallelMatrixFreeBiCGSTAB<T> {
+pub struct ParallelMatrixFreeBiCGSTAB<T: RealField + Copy> {
     /// Solver configuration
     config: IterativeSolverConfig<T>,
     /// Communication overlap strategy
@@ -455,7 +455,9 @@ impl<T: RealField + Copy> ParallelLoadBalancer<T> {
         self.work_estimates[rank] = local_work;
         self.comm_overhead[rank] = local_comm;
 
-        // TODO: Communicate load/comm estimates across ranks for global decisions.
+        // Communicate load/comm estimates across ranks for global decisions
+        self.communicator.all_gather(&local_work, &mut self.work_estimates);
+        self.communicator.all_gather(&local_comm, &mut self.comm_overhead);
     }
 
     /// Get load balancing recommendations.
