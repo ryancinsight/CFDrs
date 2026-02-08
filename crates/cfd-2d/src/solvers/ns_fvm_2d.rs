@@ -67,7 +67,9 @@
 
 use crate::error::Error;
 use cfd_core::physics::fluid::blood::{CarreauYasudaBlood, CassonBlood};
-use nalgebra::RealField;
+use cfd_math::linear_solver::{BiCGSTAB, IterativeSolverConfig, LinearSolver};
+use nalgebra::{DVector, RealField};
+use nalgebra_sparse::{CooMatrix, CsrMatrix};
 use num_traits::{Float, FromPrimitive};
 use serde::{Deserialize, Serialize};
 
@@ -382,9 +384,278 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
     ///
     /// Full implementation would use iterative solver (Gauss-Seidel, etc.)
     /// for the discretized momentum equations
-    pub fn solve_u_momentum(&mut self, _bc_u: &[BoundaryCondition<T>]) -> Result<(), Error> {
-        // TODO: Implement full momentum solver
-        // This is a placeholder showing the structure
+    pub fn solve_u_momentum(&mut self, bc_u: &[BoundaryCondition<T>]) -> Result<(), Error> {
+        let nx = self.grid.nx;
+        let ny = self.grid.ny;
+        let dx = self.grid.dx;
+        let dy = self.grid.dy;
+        let rho = self.density;
+        let two = T::from_f64(2.0).unwrap();
+        let zero = T::zero();
+
+        // Number of internal u-velocity nodes
+        // u is defined at faces i=0..nx
+        // Internal u nodes are at i=1..nx-1
+        // For each internal i, j ranges from 0..ny-1
+        let n_unknowns = (nx - 1) * ny;
+        if n_unknowns == 0 {
+            return Ok(());
+        }
+
+        let mut coo = CooMatrix::new(n_unknowns, n_unknowns);
+        let mut rhs = DVector::from_element(n_unknowns, zero);
+        let mut x_old = DVector::from_element(n_unknowns, zero);
+
+        // Map (i, j) to linear index k
+        // i ranges from 1 to nx-1
+        // j ranges from 0 to ny-1
+        let get_index = |i: usize, j: usize| -> usize { (i - 1) * ny + j };
+
+        for i in 1..nx {
+            for j in 0..ny {
+                let k = get_index(i, j);
+                x_old[k] = self.field.u[i][j];
+
+                // Geometric parameters
+                // Areas are dy for east/west and dx for north/south (assuming unit depth)
+
+                // Convection fluxes F = rho * u * Area
+                // u at east face of CV (center of scalar cell i)
+                let u_e = (self.field.u[i][j] + self.field.u[i + 1][j]) / two;
+                let f_e = rho * u_e * dy;
+
+                // u at west face of CV (center of scalar cell i-1)
+                let u_w = (self.field.u[i - 1][j] + self.field.u[i][j]) / two;
+                let f_w = rho * u_w * dy;
+
+                // v at north face of CV (corner of scalar cell)
+                let v_n = if j < ny - 1 {
+                    (self.field.v[i - 1][j + 1] + self.field.v[i][j + 1]) / two
+                } else {
+                    // Top boundary
+                    zero // Assuming wall
+                };
+                let f_n = rho * v_n * dx;
+
+                // v at south face of CV
+                let v_s = if j > 0 {
+                    (self.field.v[i - 1][j] + self.field.v[i][j]) / two
+                } else {
+                    // Bottom boundary
+                    zero
+                };
+                let f_s = rho * v_s * dx;
+
+                // Diffusion conductances D = mu * Area / distance
+                // mu at east face of CV is mu[i][j]
+                let d_e = self.field.mu[i][j] * dy / dx;
+
+                // mu at west face of CV is mu[i-1][j]
+                let d_w = self.field.mu[i - 1][j] * dy / dx;
+
+                // mu at north face (interpolated to corner)
+                let mu_n = if j < ny - 1 {
+                    (self.field.mu[i - 1][j]
+                        + self.field.mu[i][j]
+                        + self.field.mu[i - 1][j + 1]
+                        + self.field.mu[i][j + 1])
+                        / (two * two)
+                } else {
+                    (self.field.mu[i - 1][j] + self.field.mu[i][j]) / two
+                };
+                let d_n = mu_n * dx / dy;
+
+                // mu at south face
+                let mu_s = if j > 0 {
+                    (self.field.mu[i - 1][j]
+                        + self.field.mu[i][j]
+                        + self.field.mu[i - 1][j - 1]
+                        + self.field.mu[i][j - 1])
+                        / (two * two)
+                } else {
+                    (self.field.mu[i - 1][j] + self.field.mu[i][j]) / two
+                };
+                let d_s = mu_s * dx / dy;
+
+                // Hybrid differencing scheme
+                // a = max(-F, D - F/2, 0)
+                let a_e_coeff = Float::max(
+                    Float::max(-f_e, d_e - f_e / two),
+                    zero,
+                );
+                let a_w_coeff = Float::max(
+                    Float::max(f_w, d_w + f_w / two),
+                    zero,
+                );
+                let a_n_coeff = Float::max(
+                    Float::max(-f_n, d_n - f_n / two),
+                    zero,
+                );
+                let a_s_coeff = Float::max(
+                    Float::max(f_s, d_s + f_s / two),
+                    zero,
+                );
+
+                // Source term from pressure gradient: (P_w - P_e) * Area
+                // Pressure at i-1 (West) and i (East)
+                let p_term = (self.field.p[i - 1][j] - self.field.p[i][j]) * dy;
+                rhs[k] += p_term;
+
+                // Neighbors and Boundary Conditions
+                let mut a_p = zero;
+
+                // East Neighbor (i+1)
+                if i + 1 < nx {
+                    coo.push(k, get_index(i + 1, j), -a_e_coeff);
+                    a_p += a_e_coeff;
+                } else {
+                    // Right boundary (i=nx-1, neighbor at nx)
+                    // Use bc_u[1] (East)
+                    let bc = if bc_u.len() > 1 {
+                        bc_u[1].clone()
+                    } else {
+                        BoundaryCondition {
+                            bc_type: BCType::Velocity,
+                            value: zero,
+                        }
+                    };
+                    match bc.bc_type {
+                        BCType::Velocity => {
+                            rhs[k] += a_e_coeff * bc.value;
+                            a_p += a_e_coeff;
+                        }
+                        BCType::Pressure => {
+                            // Neumann for velocity usually
+                            a_p += zero; // dU/dn = 0 implies U_E = U_P, so -a_E * U_P adds to a_P? No.
+                                         // -a_E * U_E. If U_E = U_P, then coeff becomes -(a_E) in row.
+                                         // Typically set flux to zero or specific value.
+                                         // For outflow, we often assume dU/dx = 0.
+                                         // So U_E = U_P.
+                                         // Then term -a_E * U_E becomes -a_E * U_P.
+                                         // This reduces diagonal dominance if not careful.
+                                         // Often handled by setting coefficient to 0.
+                        }
+                        _ => { /* Handle others */ }
+                    }
+                }
+
+                // West Neighbor (i-1)
+                if i > 1 {
+                    coo.push(k, get_index(i - 1, j), -a_w_coeff);
+                    a_p += a_w_coeff;
+                } else {
+                    // Left boundary (i=1, neighbor at 0)
+                    // Use bc_u[0] (West)
+                    let bc = if bc_u.len() > 0 {
+                        bc_u[0].clone()
+                    } else {
+                        BoundaryCondition {
+                            bc_type: BCType::Velocity,
+                            value: zero,
+                        }
+                    };
+                    match bc.bc_type {
+                        BCType::Velocity => {
+                            rhs[k] += a_w_coeff * bc.value;
+                            a_p += a_w_coeff;
+                        }
+                        _ => {}
+                    }
+                }
+
+                // North Neighbor (j+1)
+                if j + 1 < ny {
+                    coo.push(k, get_index(i, j + 1), -a_n_coeff);
+                    a_p += a_n_coeff;
+                } else {
+                    // Top boundary
+                    // Use bc_u[3] (North)
+                    let bc = if bc_u.len() > 3 {
+                        bc_u[3].clone()
+                    } else {
+                        BoundaryCondition {
+                            bc_type: BCType::Wall,
+                            value: zero,
+                        }
+                    };
+                    match bc.bc_type {
+                        BCType::Velocity => {
+                            rhs[k] += a_n_coeff * bc.value;
+                            a_p += a_n_coeff;
+                        }
+                        BCType::Wall => {
+                            // u = 0 at wall (no slip)
+                            // Flux is determined by shear stress, but here we enforce value
+                            // Ghost cell approach: u_ghost = -u_P? Or just u_wall = 0.
+                            // If u_wall = 0, then just add to a_P.
+                            rhs[k] += a_n_coeff * bc.value; // which is 0
+                            a_p += a_n_coeff;
+                        }
+                        _ => {}
+                    }
+                }
+
+                // South Neighbor (j-1)
+                if j > 0 {
+                    coo.push(k, get_index(i, j - 1), -a_s_coeff);
+                    a_p += a_s_coeff;
+                } else {
+                    // Bottom boundary
+                    // Use bc_u[2] (South)
+                    let bc = if bc_u.len() > 2 {
+                        bc_u[2].clone()
+                    } else {
+                        BoundaryCondition {
+                            bc_type: BCType::Wall,
+                            value: zero,
+                        }
+                    };
+                    match bc.bc_type {
+                        BCType::Velocity => {
+                            rhs[k] += a_s_coeff * bc.value;
+                            a_p += a_s_coeff;
+                        }
+                        BCType::Wall => {
+                            rhs[k] += a_s_coeff * bc.value;
+                            a_p += a_s_coeff;
+                        }
+                        _ => {}
+                    }
+                }
+
+                // Time dependent term (optional, ignored for steady SIMPLE)
+
+                // Under-relaxation
+                // a_P = a_P / alpha
+                // b = b + (1-alpha) * a_P * u_old
+                let alpha = self.config.alpha_u;
+                let a_p_relaxed = a_p / alpha;
+                rhs[k] += (T::one() - alpha) * a_p_relaxed * x_old[k];
+
+                coo.push(k, k, a_p_relaxed);
+            }
+        }
+
+        // Convert to CSR and solve
+        let matrix = CsrMatrix::from(&coo);
+        let solver = BiCGSTAB::new(IterativeSolverConfig {
+            max_iterations: self.config.max_iterations,
+            tolerance: self.config.tolerance,
+            ..Default::default()
+        });
+
+        // Use Identity preconditioner (None)
+        let x = solver
+            .solve_system(&matrix, &rhs, Some(&x_old))?;
+
+        // Update u field
+        for i in 1..nx {
+            for j in 0..ny {
+                let k = get_index(i, j);
+                self.field.u[i][j] = x[k];
+            }
+        }
+
         Ok(())
     }
 
@@ -463,5 +734,28 @@ mod tests {
         assert_eq!(field.p.len(), 10); // nx
         assert_eq!(field.u[0].len(), 5); // ny
         assert_eq!(field.v[0].len(), 6); // ny+1
+    }
+
+    #[test]
+    fn test_solve_u_momentum_runs() {
+        let grid = StaggeredGrid2D::<f64>::new(1.0, 1.0, 10, 10);
+        let blood = BloodModel::Newtonian(0.001);
+        let density = 1000.0;
+        let config = SIMPLEConfig::default();
+        let mut solver = NavierStokesSolver2D::new(grid, blood, density, config);
+
+        // Set initial conditions
+        solver.initialize_viscosity();
+
+        // Boundary conditions: West=Inlet, East=Outlet, South/North=Wall
+        let bcs = vec![
+            BoundaryCondition { bc_type: BCType::Velocity, value: 0.1 }, // West
+            BoundaryCondition { bc_type: BCType::Velocity, value: 0.1 }, // East
+            BoundaryCondition { bc_type: BCType::Wall, value: 0.0 }, // South
+            BoundaryCondition { bc_type: BCType::Wall, value: 0.0 }, // North
+        ];
+
+        let result = solver.solve_u_momentum(&bcs);
+        assert!(result.is_ok());
     }
 }
