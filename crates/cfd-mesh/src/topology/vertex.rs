@@ -17,7 +17,7 @@ pub struct Vertex<T: RealField + Copy> {
 impl<T: RealField + Copy> Vertex<T> {
     /// Create a new vertex at the given position
     pub fn new(position: Point3<T>) -> Self {
-        Self {
+        Self { 
             position,
             global_id: None,
             partition_id: None,

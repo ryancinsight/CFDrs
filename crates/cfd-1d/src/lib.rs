@@ -82,9 +82,11 @@ pub use channel::{
 
 // Export resistance functionality
 pub use resistance::{
-    ChannelGeometry as ResistanceChannelGeometry, CombinationMethod, DarcyWeisbachModel,
-    FlowConditions, HagenPoiseuilleModel, RectangularChannelModel, ResistanceCalculator,
-    ResistanceModel, ResistanceModelFactory,
+    BendType, ChannelGeometry as ResistanceChannelGeometry, CombinationMethod,
+    DarcyWeisbachModel, ExpansionType, FlowConditions, HagenPoiseuilleModel,
+    RectangularChannelModel, ResistanceCalculator, ResistanceModel, ResistanceModelFactory,
+    SerpentineAnalysis, SerpentineCrossSection, SerpentineModel, VenturiAnalysis, VenturiGeometry,
+    VenturiModel,
 };
 
 /// 1D CFD domain-specific prelude for microfluidic networks

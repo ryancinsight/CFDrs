@@ -153,6 +153,8 @@ impl<T: RealField + Copy + FromPrimitive + Debug> GMRES<T> {
             return Err(Error::Convergence(ConvergenceErrorKind::Breakdown));
         }
 
+
+
         let mut monitor = ConvergenceMonitor::new(beta);
 
         let mut iterations_used = 0usize;

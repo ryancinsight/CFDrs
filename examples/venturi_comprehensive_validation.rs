@@ -149,22 +149,24 @@ fn validate_iso_5167_venturi() {
     let geometry = VenturiGeometry {
         w_inlet: 0.100, // 100 mm in meters
         w_throat: 0.050, // 50 mm
+        l_inlet: 0.050, // 50 mm inlet section
         l_converge: 0.014, // ~14 mm for 14° convergent
         l_throat: 0.030, // ~30 mm throat length
         l_diverge: 0.060, // ~60 mm divergent section
+        height: 0.100, // 100 mm height (square cross-section)
     };
 
     println!("\n[Operating Conditions: Water at 20°C]");
-    let u_inlet = 2.0; // 2 m/s inlet velocity
-    let p_inlet = 101325.0; // 1 atm absolute
-    let rho = 1000.0; // kg/m³
-    let mu = 0.001; // Pa·s
+    let u_inlet: f64 = 2.0; // 2 m/s inlet velocity
+    let p_inlet: f64 = 101325.0; // 1 atm absolute
+    let rho: f64 = 1000.0; // kg/m³
+    let mu: f64 = 0.001; // Pa·s
 
-    let Re_inlet = rho * u_inlet * 0.100 / mu;
+    let re_inlet: f64 = rho * u_inlet * 0.100 / mu;
     println!("  Inlet velocity: {:.1} m/s", u_inlet);
-    println!("  Reynolds number: {:.0}", Re_inlet);
+    println!("  Reynolds number: {:.0}", re_inlet);
     println!("  Flow regime: {} (Bernoulli valid)",
-             if Re_inlet > 2000 { "Turbulent" } else { "Laminar/Transition" });
+             if re_inlet > 2000.0 { "Turbulent" } else { "Laminar/Transition" });
 
     // Bernoulli analysis
     let bernoulli = BernoulliVenturi::new(geometry.clone(), u_inlet, p_inlet, rho);
@@ -182,9 +184,9 @@ fn validate_iso_5167_venturi() {
     println!("  Pressure coefficient Cp_throat: {:.3}", cp_throat);
 
     // Energy conservation check
-    let energy_inlet = p_inlet + 0.5 * rho * u_inlet * u_inlet;
-    let energy_throat = p_throat_ideal + 0.5 * rho * u_throat * u_throat;
-    let energy_error = (energy_inlet - energy_throat).abs() / energy_inlet;
+    let energy_inlet: f64 = p_inlet + 0.5 * rho * u_inlet * u_inlet;
+    let energy_throat: f64 = p_throat_ideal + 0.5 * rho * u_throat * u_throat;
+    let energy_error: f64 = (energy_inlet - energy_throat).abs() / energy_inlet;
 
     println!("\n[Energy Conservation Check]");
     println!("  Energy_inlet: {:.0} Pa-equivalent", energy_inlet);
@@ -238,16 +240,18 @@ fn validate_microfluidic_venturi() {
     let geometry = VenturiGeometry {
         w_inlet: 1e-3, // 1 mm
         w_throat: 0.5e-3, // 0.5 mm
+        l_inlet: 0.5e-3,
         l_converge: 0.5e-3,
         l_throat: 1e-3,
         l_diverge: 2e-3,
+        height: 1e-3,
     };
 
     // Aqueous solution (water-like properties)
-    let u_inlet = 0.01; // 1 cm/s = 0.01 m/s (typical microfluidic)
-    let p_inlet = 101325.0;
-    let rho = 1000.0;
-    let mu = 0.001; // 1 cP
+    let u_inlet: f64 = 0.01; // 1 cm/s = 0.01 m/s (typical microfluidic)
+    let p_inlet: f64 = 101325.0;
+    let rho: f64 = 1000.0;
+    let mu: f64 = 0.001; // 1 cP
 
     let Re_inlet = rho * u_inlet * 1e-3 / mu; // D_h = 1mm
 
@@ -262,14 +266,14 @@ fn validate_microfluidic_venturi() {
     let p_throat = bernoulli.pressure_throat();
 
     println!("\n[Pressure Distribution]");
-    println!("  Inlet: {:.2f} Pa", p_inlet);
-    println!("  Throat: {:.2f} Pa", p_throat);
-    println!("  ΔP: {:.4f} Pa", p_inlet - p_throat);
+    println!("  Inlet: {:.2} Pa", p_inlet);
+    println!("  Throat: {:.2} Pa", p_throat);
+    println!("  ΔP: {:.4} Pa", p_inlet - p_throat);
 
     // At low Re, pressure drop scales differently (more linear with velocity)
     let pressure_drop_ideal = 0.5 * rho * u_inlet * u_inlet * (1.0 - 1.0 / (4.0 * 4.0)); // area ratio = 0.25
     println!("\n[Low Reynolds Considerations]");
-    println!("  Bernoulli ΔP (inertial): {:.5f} Pa", (p_inlet - p_throat).abs());
+    println!("  Bernoulli ΔP (inertial): {:.5} Pa", (p_inlet - p_throat).abs());
     println!("  At low Re, viscous friction becomes significant");
     println!("  Actual ΔP slightly higher than Bernoulli prediction");
 }
@@ -309,9 +313,11 @@ fn validate_industrial_diffuser() {
     let geometry = VenturiGeometry {
         w_inlet: 0.150,
         w_throat: 0.075,
+        l_inlet: 0.050,
         l_converge: 0.020,
         l_throat: 0.040,
         l_diverge: 0.150, // Extended diffuser
+        height: 0.150,
     };
 
     let u_inlet = 3.0; // 3 m/s (higher speed, industrial)
@@ -372,12 +378,15 @@ fn validate_variable_area_ratio() {
     let area_ratios = vec![0.30, 0.40, 0.50, 0.60, 0.70, 0.80];
 
     for beta in area_ratios {
+        let beta: f64 = beta;
         let geometry = VenturiGeometry {
             w_inlet: 0.100,
             w_throat: 0.100 * beta.sqrt(), // D_throat = D_inlet * sqrt(beta)
+            l_inlet: 0.050,
             l_converge: 0.014,
             l_throat: 0.030,
             l_diverge: 0.060,
+            height: 0.100,
         };
 
         let bernoulli = BernoulliVenturi::new(geometry, u_inlet, p_inlet, rho);
@@ -425,9 +434,11 @@ fn validate_reynolds_sweep() {
     let geometry = VenturiGeometry {
         w_inlet: 0.100,
         w_throat: 0.070, // area ratio = 0.49
+        l_inlet: 0.050,
         l_converge: 0.014,
         l_throat: 0.030,
         l_diverge: 0.060,
+        height: 0.100,
     };
 
     println!("\n[Venturi Performance across Flow Regimes]");

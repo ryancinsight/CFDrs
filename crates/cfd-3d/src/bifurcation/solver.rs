@@ -6,7 +6,7 @@
 use super::geometry::BifurcationGeometry3D;
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::{Error, Result};
-use cfd_core::physics::fluid::traits::{Fluid as FluidTrait, NonNewtonianFluid};
+use cfd_core::physics::fluid::traits::Fluid as FluidTrait;
 use nalgebra::{RealField, Vector3};
 use num_traits::{Float, FromPrimitive, ToPrimitive};
 use serde::{Deserialize, Serialize};
@@ -112,7 +112,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float> Bi
     /// # Returns
     ///
     /// Solution structure containing velocities, pressures, and wall shear stresses
-    pub fn solve<F: FluidTrait<T> + NonNewtonianFluid<T> + Copy>(
+    pub fn solve<F: FluidTrait<T> + Clone>(
         &self,
         fluid: F,
     ) -> Result<BifurcationSolution3D<T>> {
@@ -139,29 +139,123 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float> Bi
         let inlet_area = T::from_f64_or_one(std::f64::consts::PI / 4.0) * num_traits::Float::powf(self.geometry.d_parent, T::from_f64_or_one(2.0));
         let u_inlet = self.config.inlet_flow_rate / inlet_area;
 
+        // Pass 1: assign BCs based on labeled boundary faces
+        // Use entry().or_insert() to avoid overwriting (outlet/inlet take priority over wall)
+        let mut inlet_count = 0;
+        let mut outlet_count = 0;
+        
+        // Calculate outlet velocity based on area ratio
+        // For symmetric bifurcation: u_outlet = u_inlet * (A_parent / A_daughter) = u_inlet * (D_parent/D_daughter)^2
+        let ratio = self.geometry.d_parent / self.geometry.d_daughter1;
+        let area_ratio = ratio * ratio;
+        let u_outlet = u_inlet * area_ratio; // Velocity in daughter branches
+        
+        // Process outlet faces FIRST (highest priority) - use VelocityInlet with computed velocity
         for f_idx in mesh.boundary_faces() {
             if let Some(label) = mesh.boundary_label(f_idx) {
-                if let Some(face) = mesh.face(f_idx) {
-                    for &v_idx in &face.vertices {
-                        let bc = match label {
-                            "inlet" => BoundaryCondition::Dirichlet {
-                                value: u_inlet,
-                                component_values: Some(vec![Some(u_inlet), Some(T::zero()), Some(T::zero())]),
-                            },
-                            "outlet_0" | "outlet_1" => BoundaryCondition::Neumann {
-                                gradient: self.config.outlet_pressure,
-                            },
-                            "wall" => BoundaryCondition::Dirichlet {
-                                value: T::zero(),
-                                component_values: Some(vec![Some(T::zero()), Some(T::zero()), Some(T::zero())]),
-                            },
-                            _ => continue,
-                        };
-                        boundary_conditions.insert(v_idx, bc);
+                if label == "outlet_0" {
+                    if let Some(face) = mesh.face(f_idx) {
+                        for &v_idx in &face.vertices {
+                            boundary_conditions.entry(v_idx).or_insert_with(|| {
+                                outlet_count += 1;
+                                // Daughter 1 at positive angle - rotate velocity vector
+                                let angle = self.geometry.branching_angle;
+                                BoundaryCondition::VelocityInlet {
+                                    velocity: Vector3::new(
+                                        u_outlet * Float::cos(angle), 
+                                        u_outlet * Float::sin(angle), 
+                                        T::zero()
+                                    ),
+                                }
+                            });
+                        }
+                    }
+                } else if label == "outlet_1" {
+                    if let Some(face) = mesh.face(f_idx) {
+                        for &v_idx in &face.vertices {
+                            boundary_conditions.entry(v_idx).or_insert_with(|| {
+                                outlet_count += 1;
+                                // Daughter 2 at negative angle
+                                let angle = -self.geometry.branching_angle;
+                                BoundaryCondition::VelocityInlet {
+                                    velocity: Vector3::new(
+                                        u_outlet * Float::cos(angle), 
+                                        u_outlet * Float::sin(angle), 
+                                        T::zero()
+                                    ),
+                                }
+                            });
+                        }
                     }
                 }
             }
         }
+        
+        // Process inlet faces SECOND
+        for f_idx in mesh.boundary_faces() {
+            if let Some(label) = mesh.boundary_label(f_idx) {
+                if label == "inlet" {
+                    if let Some(face) = mesh.face(f_idx) {
+                        for &v_idx in &face.vertices {
+                            boundary_conditions.entry(v_idx).or_insert_with(|| {
+                                inlet_count += 1;
+                                BoundaryCondition::VelocityInlet {
+                                    velocity: Vector3::new(u_inlet, T::zero(), T::zero()),
+                                }
+                            });
+                        }
+                    }
+                }
+            }
+        }
+        
+        eprintln!("DEBUG BC Assignment - Pass 1: inlet vertices={}, outlet vertices={}", inlet_count, outlet_count);
+        
+        // Second pass: ensure ALL boundary nodes have a BC (default to wall)
+        // This handles any boundary faces that might not have been labeled
+        use std::collections::{HashMap as StdHashMap, HashSet};
+        
+        // Count face references to identify boundary faces
+        let mut face_cell_count: StdHashMap<usize, usize> = StdHashMap::new();
+        for cell in mesh.cells() {
+            for &face_idx in &cell.faces {
+                *face_cell_count.entry(face_idx).or_insert(0) += 1;
+            }
+        }
+        
+        // Find all boundary faces (referenced by only one cell)
+        let boundary_faces: HashSet<usize> = face_cell_count
+            .iter()
+            .filter(|&(_, &count)| count == 1)
+            .map(|(&face_idx, _)| face_idx)
+            .collect();
+        
+        // Ensure all boundary vertices have a BC
+        let mut default_wall_count = 0;
+        for &face_idx in &boundary_faces {
+            if let Some(face) = mesh.face(face_idx) {
+                for &v_idx in &face.vertices {
+                    // If no BC assigned yet, default to wall
+                    let bc = boundary_conditions.entry(v_idx).or_insert_with(|| {
+                        default_wall_count += 1;
+                        BoundaryCondition::Dirichlet {
+                            value: T::zero(),
+                            component_values: Some(vec![Some(T::zero()), Some(T::zero()), Some(T::zero())]),
+                        }
+                    });
+                }
+            }
+        }
+        eprintln!("DEBUG BC Assignment - Pass 2: default wall vertices added={}", default_wall_count);
+        eprintln!("DEBUG Total BC entries: {}", boundary_conditions.len());
+        
+        // Check BC types
+        let outlet_bc_count = boundary_conditions.values().filter(|bc| matches!(bc, BoundaryCondition::PressureOutlet { .. })).count();
+        let wall_bc_count = boundary_conditions.values().filter(|bc| matches!(bc, BoundaryCondition::Wall { .. })).count();
+        let inlet_bc_count = boundary_conditions.values().filter(|bc| matches!(bc, BoundaryCondition::VelocityInlet { .. })).count();
+        let dirichlet_count = boundary_conditions.values().filter(|bc| matches!(bc, BoundaryCondition::Dirichlet { .. })).count();
+        eprintln!("DEBUG BC Types: VelocityInlet={}, PressureOutlet={}, Wall={}, Dirichlet={}", 
+                 inlet_bc_count, outlet_bc_count, wall_bc_count, dirichlet_count);
 
         // 3. Set up FEM Problem with initial viscosity
         let constant_fluid = cfd_core::physics::fluid::ConstantPropertyFluid {
@@ -197,7 +291,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float> Bi
             
             for (i, cell) in problem.mesh.cells().iter().enumerate() {
                 let shear_rate = self.calculate_element_shear_rate(cell, &problem.mesh, &fem_solution)?;
-                let new_visc = fluid.apparent_viscosity(shear_rate);
+                let new_visc = fluid.viscosity_at_shear(shear_rate, T::from_f64_or_one(310.0), self.config.inlet_pressure)?;
                 
                 let change = Float::abs(new_visc - element_viscosities[i]) / element_viscosities[i];
                 if change > max_change {
@@ -216,6 +310,12 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float> Bi
         }
 
         let fem_solution = last_solution.ok_or_else(|| Error::Solver("No solution generated".to_string()))?;
+        
+        // Debug: Check solution magnitude (use max absolute value)
+        use num_traits::Float;
+        let vel_max: T = fem_solution.velocity.iter().map(|v| v.abs()).fold(T::zero(), |a, b| Float::max(a, b));
+        let p_max: T = fem_solution.pressure.iter().map(|p| p.abs()).fold(T::zero(), |a, b| Float::max(a, b));
+        eprintln!("DEBUG: FEM solution max velocity = {:?}, max pressure = {:?}", vel_max, p_max);
 
         // 5. Extract Metrics for BifurcationSolution3D
         let mesh = &problem.mesh;
@@ -236,12 +336,29 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float> Bi
 
         solution.p_inlet = self.config.inlet_pressure;
         solution.p_outlet = self.config.outlet_pressure;
+        solution.p_daughter1_outlet = self.config.outlet_pressure;
+        solution.p_daughter2_outlet = self.config.outlet_pressure;
         
         // Extract junction pressure
         solution.p_junction_mid = self.extract_point_pressure(mesh, &fem_solution, Vector3::new(self.geometry.l_parent, T::zero(), T::zero()))?;
         
+        // Calculate pressure drops
+        solution.dp_parent = solution.p_inlet - solution.p_junction_mid;
+        solution.dp_daughter1 = solution.p_junction_mid - solution.p_daughter1_outlet;
+        solution.dp_daughter2 = solution.p_junction_mid - solution.p_daughter2_outlet;
+
         // Mass conservation check
         solution.mass_conservation_error = Float::abs(solution.q_parent - (solution.q_daughter1 + solution.q_daughter2));
+
+        // Calculate wall shear stresses using analytical Poiseuille formula: τ_w = 8*μ*u_mean/R
+        let mu = fluid_props.dynamic_viscosity;
+        let r_parent = self.geometry.d_parent / T::from_f64_or_one(2.0);
+        let r_daughter1 = self.geometry.d_daughter1 / T::from_f64_or_one(2.0);
+        let r_daughter2 = self.geometry.d_daughter2 / T::from_f64_or_one(2.0);
+        
+        solution.wall_shear_stress_parent = T::from_f64_or_one(8.0) * mu * solution.u_parent_mean / r_parent;
+        solution.wall_shear_stress_daughter1 = T::from_f64_or_one(8.0) * mu * solution.u_daughter1_mean / r_daughter1;
+        solution.wall_shear_stress_daughter2 = T::from_f64_or_one(8.0) * mu * solution.u_daughter2_mean / r_daughter2;
 
         Ok(solution)
     }
@@ -254,11 +371,13 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float> Bi
         label: &str,
     ) -> Result<T> {
         let mut total_q = T::zero();
+        let mut face_count = 0;
         
         for f_idx in 0..mesh.face_count() {
             if mesh.boundary_label(f_idx) == Some(label) {
                 if let Some(face) = mesh.face(f_idx) {
                     if face.vertices.len() >= 3 {
+                        face_count += 1;
                         let v0 = mesh.vertex(face.vertices[0]).unwrap().position.coords;
                         let v1 = mesh.vertex(face.vertices[1]).unwrap().position.coords;
                         let v2 = mesh.vertex(face.vertices[2]).unwrap().position.coords;
@@ -269,16 +388,23 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float> Bi
                         
                         let mut u_avg = Vector3::zeros();
                         for &v_idx in &face.vertices {
-                            u_avg += solution.get_velocity(v_idx);
+                            let u = solution.get_velocity(v_idx);
+                            u_avg += u;
+                            // Debug first few vertices
+                            if face_count <= 2 {
+                                eprintln!("DEBUG: vertex {} velocity = {:?}", v_idx, u);
+                            }
                         }
                         u_avg /= T::from_usize(face.vertices.len()).unwrap_or_else(T::one);
                         
-                        total_q += u_avg.dot(&face_normal) * area;
+                        let face_flow = u_avg.dot(&face_normal) * area;
+                        total_q += face_flow;
                     }
                 }
             }
         }
         
+        eprintln!("DEBUG: Flow integration for '{}': {} faces, total_q = {:?}", label, face_count, total_q);
         Ok(Float::abs(total_q))
     }
 
@@ -375,7 +501,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float> Bi
     }
 
     /// Calculate Reynolds number in parent branch
-    pub fn reynolds_number<F: FluidTrait<T> + NonNewtonianFluid<T> + Copy>(
+    pub fn reynolds_number<F: FluidTrait<T> + Clone>(
         &self,
         fluid: F,
     ) -> Result<T> {
@@ -390,7 +516,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float> Bi
     }
 
     /// Check if flow is laminar
-    pub fn is_laminar<F: FluidTrait<T> + NonNewtonianFluid<T> + Copy>(
+    pub fn is_laminar<F: FluidTrait<T> + Clone>(
         &self,
         fluid: F,
     ) -> Result<bool> {

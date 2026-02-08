@@ -5,11 +5,9 @@
 use pyo3::prelude::*;
 use pyo3::exceptions::PyRuntimeError;
 
-use cfd_3d::bifurcation::{BifurcationConfig3D, BifurcationGeometry3D, BifurcationSolver3D, ConicalTransition};
+use cfd_3d::bifurcation::{BifurcationConfig3D, BifurcationGeometry3D, BifurcationSolver3D};
 use cfd_3d::trifurcation::{TrifurcationConfig3D, TrifurcationGeometry3D, TrifurcationSolver3D};
 use cfd_core::physics::fluid::blood::CassonBlood;
-use cfd_core::physics::fluid::ConstantPropertyFluid;
-use num_traits::FromPrimitive;
 
 // ============================================================================
 // 3D Bifurcation Solver
@@ -29,7 +27,7 @@ use num_traits::FromPrimitive;
 /// Wall shear stress: τ_w = μ (∂u/∂n)|_wall
 /// TAWSS (Time-Averaged WSS): Used in hemodynamic studies
 /// OSI (Oscillatory Shear Index): Measures flow reversal
-#[pyclass]
+#[pyclass(name = "Bifurcation3DSolver")]
 pub struct PyBifurcation3DSolver {
     #[pyo3(get)]
     d_parent: f64,
@@ -137,7 +135,7 @@ impl PyBifurcation3DSolver {
 }
 
 /// Result from 3D bifurcation simulation
-#[pyclass]
+#[pyclass(name = "Bifurcation3DResult")]
 pub struct PyBifurcation3DResult {
     #[pyo3(get)]
     pub max_wss: f64,
@@ -168,7 +166,7 @@ impl PyBifurcation3DResult {
 // ============================================================================
 
 /// 3D trifurcation flow solver
-#[pyclass]
+#[pyclass(name = "Trifurcation3DSolver")]
 pub struct PyTrifurcation3DSolver {
     #[pyo3(get)]
     d_parent: f64,
@@ -205,7 +203,7 @@ impl PyTrifurcation3DSolver {
         let solver = TrifurcationSolver3D::new(geom, config);
         let fluid = CassonBlood::<f64>::normal_blood();
 
-        let solution = solver.solve(fluid)
+        let solution = solver.solve(&fluid)
             .map_err(|e| PyRuntimeError::new_err(format!("Solver error: {}", e)))?;
 
         Ok(PyTrifurcation3DResult {
@@ -217,7 +215,7 @@ impl PyTrifurcation3DSolver {
     }
 }
 
-#[pyclass]
+#[pyclass(name = "Trifurcation3DResult")]
 pub struct PyTrifurcation3DResult {
     #[pyo3(get)]
     pub max_wss: f64,
@@ -251,7 +249,7 @@ impl PyTrifurcation3DResult {
 /// u_max = (R²/4μ)(dp/dx)
 /// Q = (πR⁴/8μ)(dp/dx)
 /// ```
-#[pyclass]
+#[pyclass(name = "Poiseuille3DSolver")]
 pub struct PyPoiseuille3DSolver {
     #[pyo3(get)]
     diameter: f64,
@@ -326,7 +324,7 @@ impl PyPoiseuille3DSolver {
     }
 }
 
-#[pyclass]
+#[pyclass(name = "Poiseuille3DResult")]
 pub struct PyPoiseuille3DResult {
     #[pyo3(get)]
     pub max_velocity: f64,

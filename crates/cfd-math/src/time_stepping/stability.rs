@@ -109,14 +109,10 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
 
             let z = NumComplex::new(r_boundary * theta.cos(), r_boundary * theta.sin());
             let z_real = T::from_f64(z.re).ok_or_else(|| {
-                Error::InvalidInput(
-                    "stability boundary real part not representable in T".to_string(),
-                )
+                Error::InvalidInput("stability boundary real part not representable in T".to_string())
             })?;
             let z_imag = T::from_f64(z.im).ok_or_else(|| {
-                Error::InvalidInput(
-                    "stability boundary imag part not representable in T".to_string(),
-                )
+                Error::InvalidInput("stability boundary imag part not representable in T".to_string())
             })?;
 
             boundary_points.push(ComplexPoint {
@@ -248,80 +244,46 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
     ) -> Result<NumComplex<f64>> {
         let s = b.len();
 
-        // Check if method is explicit (strictly lower triangular A)
-        let mut is_explicit = true;
+        // For explicit methods, R(z) = 1 + z*b^T * (I - z*A)^(-1) * 1
+        // This is equivalent to the ratio of polynomials for explicit methods
+
+        // Build the polynomial representation
+        // For explicit RK methods, we can compute this directly
+        // TODO: Implement full stability polynomial
+
+        // Simplified computation for explicit methods
+        // R(z) = sum_{k=0}^s (z^k / k!) * sum_{stages} for order k
+        // For practical computation, we use the matrix form
+
+        // Convert matrices to complex
+        let mut a_complex = DMatrix::<NumComplex<f64>>::zeros(s, s);
+        let mut b_complex = DVector::<NumComplex<f64>>::zeros(s);
+
         for i in 0..s {
-            for j in i..s {
-                if a[(i, j)] != T::zero() {
-                    is_explicit = false;
-                    break;
-                }
-            }
-            if !is_explicit {
-                break;
+            b_complex[i] = NumComplex::new(b[i].to_f64().unwrap(), 0.0);
+            for j in 0..s {
+                a_complex[(i, j)] = NumComplex::new(a[(i, j)].to_f64().unwrap(), 0.0);
             }
         }
 
-        if is_explicit {
-            // For explicit methods, R(z) = 1 + z*b^T * (I - z*A)^(-1) * 1
-            // We can compute w = (I - z*A)^(-1) * 1 using forward substitution
-            // w = 1 + z*A*w
-            // w_i = 1 + z * sum_{j=0}^{i-1} a_{ij} * w_j
+        // Compute (I - z*A)
+        let identity = DMatrix::<NumComplex<f64>>::identity(s, s);
+        let z_a = &a_complex * z; // Matrix * scalar, not scalar * matrix
+        let matrix = &identity - &z_a;
 
-            let mut w = vec![NumComplex::new(0.0, 0.0); s];
-            let one = NumComplex::new(1.0, 0.0);
-
-            for i in 0..s {
-                let mut sum_aw = NumComplex::new(0.0, 0.0);
-                for j in 0..i {
-                    // a[(i, j)] is T, convert to f64 then complex
-                    let a_val = a[(i, j)].to_f64().unwrap();
-                    sum_aw += NumComplex::new(a_val, 0.0) * w[j];
-                }
-                w[i] = one + z * sum_aw;
+        // Compute inverse
+        match matrix.try_inverse() {
+            Some(inv_matrix) => {
+                // Compute b^T * inv_matrix * 1 (ones vector)
+                let ones = DVector::<NumComplex<f64>>::from_element(s, NumComplex::new(1.0, 0.0));
+                let temp = &inv_matrix * &ones;
+                let coeff = b_complex.dot(&temp);
+                let r_z = NumComplex::new(1.0, 0.0) + z * coeff;
+                Ok(r_z)
             }
-
-            // R(z) = 1 + z * sum_{i=0}^{s-1} b_i * w_i
-            let mut sum_bw = NumComplex::new(0.0, 0.0);
-            for i in 0..s {
-                let b_val = b[i].to_f64().unwrap();
-                sum_bw += NumComplex::new(b_val, 0.0) * w[i];
-            }
-
-            let r_z = one + z * sum_bw;
-            Ok(r_z)
-        } else {
-            // Convert matrices to complex
-            let mut a_complex = DMatrix::<NumComplex<f64>>::zeros(s, s);
-            let mut b_complex = DVector::<NumComplex<f64>>::zeros(s);
-
-            for i in 0..s {
-                b_complex[i] = NumComplex::new(b[i].to_f64().unwrap(), 0.0);
-                for j in 0..s {
-                    a_complex[(i, j)] = NumComplex::new(a[(i, j)].to_f64().unwrap(), 0.0);
-                }
-            }
-
-            // Compute (I - z*A)
-            let identity = DMatrix::<NumComplex<f64>>::identity(s, s);
-            let z_a = &a_complex * z; // Matrix * scalar, not scalar * matrix
-            let matrix = &identity - &z_a;
-
-            // Compute inverse
-            match matrix.try_inverse() {
-                Some(inv_matrix) => {
-                    // Compute b^T * inv_matrix * 1 (ones vector)
-                    let ones =
-                        DVector::<NumComplex<f64>>::from_element(s, NumComplex::new(1.0, 0.0));
-                    let temp = &inv_matrix * &ones;
-                    let coeff = b_complex.dot(&temp);
-                    let r_z = NumComplex::new(1.0, 0.0) + z * coeff;
-                    Ok(r_z)
-                }
-                None => {
-                    // Singular matrix - method is unstable for this z
-                    Ok(NumComplex::new(f64::INFINITY, f64::INFINITY))
-                }
+            None => {
+                // Singular matrix - method is unstable for this z
+                Ok(NumComplex::new(f64::INFINITY, f64::INFINITY))
             }
         }
     }
@@ -421,29 +383,21 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
     where
         F: Fn(NumComplex<f64>) -> NumComplex<f64>, // L_hat(k) - spatial operator in frequency domain
     {
-        let dt_f64 = dt
-            .to_f64()
-            .ok_or_else(|| Error::InvalidInput("dt must be convertible to f64".to_string()))?;
-
         let mut amplification_factors = Vec::with_capacity(wave_numbers.len());
         let mut max_amplification = T::zero();
         let mut critical_wave_number = T::zero();
 
         for &k in wave_numbers {
-            let k_im = k.to_f64().ok_or_else(|| {
-                Error::InvalidInput("wave number must be convertible to f64".to_string())
-            })?;
-            let k_complex = NumComplex::new(0.0, k_im);
+            let k_complex = NumComplex::new(0.0, k.to_f64().unwrap());
 
             // Compute spatial operator in frequency domain
             let l_hat = spatial_operator(k_complex);
 
             // Amplification factor for forward Euler: g = 1 + dt * L_hat(k)
+            let dt_f64 = dt.to_f64().unwrap();
             let g = NumComplex::new(1.0, 0.0) + NumComplex::new(dt_f64, 0.0) * l_hat;
 
-            let amplification = T::from_f64(g.norm()).ok_or_else(|| {
-                Error::InvalidInput("amplification factor not representable in T".to_string())
-            })?;
+            let amplification = T::from_f64(g.norm()).unwrap();
             amplification_factors.push(amplification);
 
             if amplification > max_amplification {
@@ -452,12 +406,7 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
             }
         }
 
-        let stability_threshold = T::from_f64(1.0001).ok_or_else(|| {
-            Error::InvalidInput("stability threshold not representable in T".to_string())
-        })?;
-        let one = T::from_f64(1.0)
-            .ok_or_else(|| Error::InvalidInput("unity not representable in T".to_string()))?;
-        let is_stable = max_amplification <= stability_threshold;
+        let is_stable = max_amplification <= T::from_f64(1.0001).unwrap(); // Allow small numerical errors
 
         Ok(VonNeumannAnalysis {
             wave_numbers: wave_numbers.to_vec(),
@@ -465,7 +414,7 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
             max_amplification,
             critical_wave_number,
             is_stable,
-            stability_margin: one - max_amplification,
+            stability_margin: T::from_f64(1.0).unwrap() - max_amplification,
         })
     }
 
@@ -494,17 +443,12 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
         let mut critical_wave_number = T::zero();
 
         for &k in wave_numbers {
-            let k_im = k.to_f64().ok_or_else(|| {
-                Error::InvalidInput("wave number must be convertible to f64".to_string())
-            })?;
-            let k_complex = NumComplex::new(0.0, k_im);
+            let k_complex = NumComplex::new(0.0, k.to_f64().unwrap());
             let l_hat = spatial_operator(k_complex);
             let z = NumComplex::new(dt_f64, 0.0) * l_hat;
 
             let g = self.compute_rk_stability_function(a, b, c, z)?;
-            let amplification = T::from_f64(g.norm()).ok_or_else(|| {
-                Error::InvalidInput("amplification factor not representable in T".to_string())
-            })?;
+            let amplification = T::from_f64(g.norm()).unwrap();
             amplification_factors.push(amplification);
 
             if amplification > max_amplification {
@@ -513,12 +457,7 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
             }
         }
 
-        let stability_threshold = T::from_f64(1.0001).ok_or_else(|| {
-            Error::InvalidInput("stability threshold not representable in T".to_string())
-        })?;
-        let one = T::from_f64(1.0)
-            .ok_or_else(|| Error::InvalidInput("unity not representable in T".to_string()))?;
-        let is_stable = max_amplification <= stability_threshold;
+        let is_stable = max_amplification <= T::from_f64(1.0001).unwrap();
 
         Ok(VonNeumannAnalysis {
             wave_numbers: wave_numbers.to_vec(),
@@ -526,7 +465,7 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
             max_amplification,
             critical_wave_number,
             is_stable,
-            stability_margin: one - max_amplification,
+            stability_margin: T::from_f64(1.0).unwrap() - max_amplification,
         })
     }
 
@@ -545,9 +484,7 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
         F: Fn(NumComplex<f64>) -> NumComplex<f64>,
     {
         match scheme {
-            NumericalScheme::ForwardEuler => {
-                self.von_neumann_analysis(spatial_operator, dt, wave_numbers)
-            }
+            NumericalScheme::ForwardEuler => self.von_neumann_analysis(spatial_operator, dt, wave_numbers),
             NumericalScheme::RK3 => {
                 // Heun/Kutta 3rd-order as used in validation
                 let a = DMatrix::from_row_slice(
@@ -575,14 +512,7 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
                     T::from_f64(1.0 / 3.0).unwrap(),
                     T::from_f64(2.0 / 3.0).unwrap(),
                 ]);
-                self.von_neumann_analysis_explicit_rk(
-                    &a,
-                    &b,
-                    &c,
-                    spatial_operator,
-                    dt,
-                    wave_numbers,
-                )
+                self.von_neumann_analysis_explicit_rk(&a, &b, &c, spatial_operator, dt, wave_numbers)
             }
             NumericalScheme::RK4 => {
                 let one_half = T::from_f64(0.5).unwrap();
@@ -615,14 +545,7 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
                     T::from_f64(1.0 / 6.0).unwrap(),
                 ]);
                 let c = DVector::from_vec(vec![T::zero(), one_half, one_half, T::one()]);
-                self.von_neumann_analysis_explicit_rk(
-                    &a,
-                    &b,
-                    &c,
-                    spatial_operator,
-                    dt,
-                    wave_numbers,
-                )
+                self.von_neumann_analysis_explicit_rk(&a, &b, &c, spatial_operator, dt, wave_numbers)
             }
             _ => Err(Error::InvalidInput(
                 "von Neumann analysis is only implemented for explicit schemes".to_string(),
@@ -756,11 +679,11 @@ impl NumericalScheme {
     /// Maximum CFL number for stability
     pub fn max_cfl_number<T: RealField + Copy>(&self) -> T {
         match self {
-            NumericalScheme::ForwardEuler
-            | NumericalScheme::LaxWendroff
-            | NumericalScheme::Upwind => T::from_f64(1.0).unwrap(),
+            NumericalScheme::ForwardEuler => T::from_f64(1.0).unwrap(),
             NumericalScheme::RK3 => T::from_f64(1.7).unwrap(),
             NumericalScheme::RK4 => T::from_f64(2.8).unwrap(),
+            NumericalScheme::LaxWendroff => T::from_f64(1.0).unwrap(),
+            NumericalScheme::Upwind => T::from_f64(1.0).unwrap(),
             NumericalScheme::CentralDifference => T::from_f64(0.0).unwrap(), // Unstable
         }
     }
@@ -869,11 +792,7 @@ mod tests {
         assert_relative_eq!(lim1, 2.0, epsilon = 1e-6);
 
         // RK3 (Kutta/Heun 3rd order as used in validation)
-        let a3 = DMatrix::from_row_slice(
-            3,
-            3,
-            &[0.0, 0.0, 0.0, 1.0 / 3.0, 0.0, 0.0, 0.0, 2.0 / 3.0, 0.0],
-        );
+        let a3 = DMatrix::from_row_slice(3, 3, &[0.0, 0.0, 0.0, 1.0 / 3.0, 0.0, 0.0, 0.0, 2.0 / 3.0, 0.0]);
         let b3 = DVector::from_vec(vec![0.25, 0.0, 0.75]);
         let c3 = DVector::from_vec(vec![0.0, 1.0 / 3.0, 2.0 / 3.0]);
         let lim3 = analyzer
@@ -908,12 +827,7 @@ mod tests {
         let spatial_operator = |_k: NumComplex<f64>| NumComplex::new(-1.0, 0.0);
 
         let analysis = analyzer
-            .von_neumann_analysis_with_scheme(
-                NumericalScheme::RK4,
-                spatial_operator,
-                dt,
-                &wave_numbers,
-            )
+            .von_neumann_analysis_with_scheme(NumericalScheme::RK4, spatial_operator, dt, &wave_numbers)
             .unwrap();
 
         assert!(analysis.is_stable);

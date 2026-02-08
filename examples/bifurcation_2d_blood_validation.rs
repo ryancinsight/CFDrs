@@ -238,9 +238,9 @@ fn validate_symmetric_casson() -> ValidationResult {
 
     // Configure solver
     let config = SimplecPimpleConfig {
-        max_iterations: 100,
-        velocity_relaxation: 0.7,
-        pressure_relaxation: 0.3,
+        max_inner_iterations: 100,
+        alpha_u: 0.7,
+        alpha_p: 0.3,
         tolerance: 1e-6,
         ..Default::default()
     };
@@ -270,12 +270,12 @@ fn validate_symmetric_casson() -> ValidationResult {
 
     // Extract results (simplified)
     // In full implementation, integrate over boundaries to get flow rates
-    let q_inlet = 1.0e-6; // Target inlet flow
-    let q_outlet1 = 0.5e-6; // Expected from symmetry
-    let q_outlet2 = 0.5e-6;
+    let q_inlet: f64 = 1.0e-6; // Target inlet flow
+    let q_outlet1: f64 = 0.5e-6; // Expected from symmetry
+    let q_outlet2: f64 = 0.5e-6;
 
     // Mass conservation check
-    let mass_error = ((q_outlet1 + q_outlet2 - q_inlet) / q_inlet).abs();
+    let mass_error: f64 = ((q_outlet1 + q_outlet2 - q_inlet) / q_inlet).abs();
 
     // Wall shear stress estimate (Poiseuille approximation)
     let gamma_parent = 8.0 * q_inlet / (std::f64::consts::PI * geom.parent_width.powi(3));

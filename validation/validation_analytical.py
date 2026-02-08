@@ -294,7 +294,7 @@ def validate_1d_bifurcation():
 
     # Compare with pycfdrs solver
     print(f"\nPyCFDrs solution:")
-    bifurc = pycfdrs.PyBifurcationSolver(
+    bifurc = pycfdrs.BifurcationSolver(
         d_parent=d_parent,
         d_daughter1=d_daughter,
         d_daughter2=d_daughter,
@@ -413,7 +413,7 @@ def validate_1d_trifurcation():
 
     # Compare with pycfdrs
     print(f"\nPyCFDrs solution:")
-    trifurc = pycfdrs.PyTrifurcationSolver(
+    trifurc = pycfdrs.TrifurcationSolver(
         d_parent=d_parent,
         d_daughter1=d_daughter,
         d_daughter2=d_daughter,
@@ -458,7 +458,7 @@ def plot_casson_rheology():
     ]
 
     # Get pycfdrs values
-    blood = pycfdrs.PyCassonBlood()
+    blood = pycfdrs.CassonBlood()
     viscosities_pycfdrs = [blood.viscosity(g) * 1000 for g in shear_rates]
 
     # Plot

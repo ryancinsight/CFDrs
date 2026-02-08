@@ -7,7 +7,8 @@ use crate::physics::turbulence::TurbulenceModel;
 use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_math::linear_solver::preconditioners::IdentityPreconditioner;
 use cfd_math::linear_solver::IterativeSolverConfig;
-use cfd_math::linear_solver::{BiCGSTAB, IterativeLinearSolver};
+use cfd_math::linear_solver::{GMRES, IterativeLinearSolver};
+
 use cfd_math::sparse::{SparseMatrix, SparseMatrixBuilder};
 use nalgebra::{DVector, RealField};
 use num_traits::FromPrimitive;
@@ -29,7 +30,8 @@ pub struct MomentumSolver<T: RealField + Copy> {
     /// Boundary conditions
     boundary_conditions: HashMap<String, BoundaryCondition<T>>,
     /// Linear solver
-    linear_solver: BiCGSTAB<T>,
+    linear_solver: GMRES<T>,
+
     /// Convection discretization scheme
     convection_scheme: ConvectionScheme,
     /// Velocity under-relaxation factor (0 < α ≤ 1, default 0.7)
@@ -58,7 +60,9 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> MomentumSolv
             use_preconditioner: true,
             use_parallel_spmv: false,
         };
-        let linear_solver = BiCGSTAB::new(config);
+        let linear_solver = GMRES::new(config, 30);
+
+
 
         Self {
             grid: grid.clone(),
@@ -77,7 +81,9 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> MomentumSolv
     /// Create new momentum solver with specified convection scheme
     pub fn with_convection_scheme(grid: &StructuredGrid2D<T>, scheme: ConvectionScheme) -> Self {
         let config = IterativeSolverConfig::default();
-        let linear_solver = BiCGSTAB::new(config);
+        let linear_solver = GMRES::new(config, 30);
+
+
 
         Self {
             grid: grid.clone(),
@@ -97,7 +103,9 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> MomentumSolv
     #[must_use]
     pub fn with_parallel_spmv(grid: &StructuredGrid2D<T>) -> Self {
         let config = IterativeSolverConfig::default().with_parallel_spmv();
-        let linear_solver = BiCGSTAB::new(config);
+        let linear_solver = GMRES::new(config, 30);
+
+
 
         Self {
             grid: grid.clone(),
@@ -331,12 +339,15 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> MomentumSolv
 
         // Solve linear system
         let mut solution = DVector::zeros(matrix.nrows());
+        let rhs_norm = rhs.norm();
         self.linear_solver.solve(
             &matrix,
             &rhs,
             &mut solution,
             None::<&IdentityPreconditioner>,
         )?;
+
+
 
         // Update velocity field
         self.update_velocity(component, fields, &solution);
@@ -466,7 +477,6 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> MomentumSolv
                     continue;
                 }
 
-                // Interior/Neumann nodes: assemble full PDE coefficients
                 // Central coefficient
                 builder.add_entry(idx, idx, coeffs.ap.at(i, j))?;
 
@@ -488,6 +498,8 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> MomentumSolv
                 rhs[idx] = coeffs.source.at(i, j);
             }
         }
+
+
 
         // Apply higher-order boundary conditions for improved near-wall accuracy
         // This provides better velocity gradients near walls for production accuracy

@@ -50,12 +50,13 @@ def validate_analytical():
     dP_dx = dP / L  # Positive pressure gradient for flow in +x direction
     
     # Create solver
-    solver = pycfdrs.PyPoiseuille2DSolver(height=H, width=W, length=L, nx=50, ny=50)
+    solver = pycfdrs.Poiseuille2DSolver(height=H, width=W, length=L, nx=50, ny=50)
     
     # Test analytical maximum velocity
-    # NOTE: pycfdrs uses negative dP/dx convention, so we compare absolute values
+    # pycfdrs uses formula: u_max = (-dP_dx / (8*mu)) * H^2
+    # For positive dP (pressure drop), the pressure gradient is negative: dP_dx = -dP/L
     u_max_expected = analytical_max_velocity(H, L, dP, mu)
-    u_max_solver = abs(solver.analytical_max_velocity(dP_dx, mu))
+    u_max_solver = abs(solver.analytical_max_velocity(-dP_dx, mu))
     u_max_error = abs(u_max_solver - u_max_expected) / u_max_expected
     
     print(f"\n  Parameters:")
@@ -86,7 +87,7 @@ def validate_wss():
     wss_analytical = analytical_wss(H, L, dP)
     
     # Solve numerically
-    solver = pycfdrs.PyPoiseuille2DSolver(height=H, width=W, length=L, nx=100, ny=50)
+    solver = pycfdrs.Poiseuille2DSolver(height=H, width=W, length=L, nx=100, ny=50)
     result = solver.solve(dP, "newtonian")
     
     wss_error = abs(result.wall_shear_stress - wss_analytical) / wss_analytical

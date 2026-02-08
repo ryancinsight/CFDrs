@@ -13,14 +13,14 @@
 //! reference data within 5% L2 error. This is a standard CFD validation test.
 
 use cfd_2d::pressure_velocity::{PressureLinearSolver, PressureVelocityConfig};
-use cfd_core::error::{Error, Result};
+use cfd_core::error::Result;
 use cfd_validation::benchmarks::{Benchmark, BenchmarkConfig, LidDrivenCavity};
 
 /// Test Ghia cavity with GMRES solver at Re=100
 #[test]
 fn test_ghia_cavity_re100_with_gmres() -> Result<()> {
     // Create lid-driven cavity benchmark
-    let cavity = LidDrivenCavity::new(1.0_f64, 1.0_f64);
+    let cavity = LidDrivenCavity::new(1.0_f64, 1.0_f64, 100.0_f64);
 
     // Configure benchmark for Re=100 (standard test case)
     let config = BenchmarkConfig {
@@ -36,9 +36,9 @@ fn test_ghia_cavity_re100_with_gmres() -> Result<()> {
     let result = cavity.run(&config)?;
 
     // Get Ghia reference data for Re=100
-    let (ref_y, ref_u) = cavity
-        .ghia_reference_data(100.0)
-        .ok_or_else(|| Error::InvalidInput("Missing Ghia reference data for Re=100".to_string()))?;
+    let ghia_data: Vec<(f64, f64)> = cavity.ghia_u_centerline(100.0_f64);
+    let ref_y: Vec<f64> = ghia_data.iter().map(|&(y, _)| y).collect();
+    let ref_u: Vec<f64> = ghia_data.iter().map(|&(_, u)| u).collect();
 
     // Extract centerline u-velocity from result
     let n = config.resolution;
@@ -46,8 +46,8 @@ fn test_ghia_cavity_re100_with_gmres() -> Result<()> {
 
     // Compute L2 error against Ghia reference data
     // Note: We need to interpolate since grid resolutions differ
-    let mut l2_error = 0.0;
-    let mut count = 0;
+    let mut l2_error: f64 = 0.0;
+    let mut count: usize = 0;
 
     for (&y_ref, &u_ref) in ref_y.iter().zip(ref_u.iter()) {
         // Find nearest grid point
@@ -59,7 +59,7 @@ fn test_ghia_cavity_re100_with_gmres() -> Result<()> {
         count += 1;
     }
 
-    l2_error = (l2_error / f64::from(count)).sqrt();
+    l2_error = (l2_error / count as f64).sqrt();
 
     // Validation criterion: L2 error < 60% for coarse grid
     // Note: This is a stream function/vorticity formulation test,
@@ -100,7 +100,7 @@ fn test_cavity_linear_solver_comparison() -> Result<()> {
     // (when all are applicable) to ensure correct integration.
 
     // Create simple cavity setup
-    let cavity = LidDrivenCavity::new(1.0_f64, 1.0_f64);
+    let cavity = LidDrivenCavity::new(1.0_f64, 1.0_f64, 100.0_f64);
 
     let config = BenchmarkConfig {
         reynolds_number: 100.0,
@@ -159,7 +159,7 @@ fn test_gmres_configuration() -> Result<()> {
 /// Test Reynolds number scaling
 #[test]
 fn test_cavity_reynolds_scaling() -> Result<()> {
-    let cavity = LidDrivenCavity::new(1.0_f64, 1.0_f64);
+    let cavity = LidDrivenCavity::new(1.0_f64, 1.0_f64, 100.0_f64);
 
     // Re=100 case
     let config_low = BenchmarkConfig {

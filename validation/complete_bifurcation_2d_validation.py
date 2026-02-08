@@ -75,7 +75,7 @@ def solve_complete_bifurcation_2d():
     print("STEP 1: 1D NETWORK SOLUTION (Previously validated to 0.00% error)")
     print("=" * 80)
 
-    solver_1d = pycfdrs.PyBifurcationSolver(
+    solver_1d = pycfdrs.BifurcationSolver(
         d_parent=d_parent, d_daughter1=d_daughter, d_daughter2=d_daughter
     )
 

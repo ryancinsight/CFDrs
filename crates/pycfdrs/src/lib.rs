@@ -78,6 +78,21 @@ fn pycfdrs(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyPoiseuille3DSolver>()?;
     m.add_class::<PyPoiseuille3DResult>()?;
 
+    // 2D Cavity solver (Ghia benchmark)
+    m.add_class::<PyCavitySolver2D>()?;
+    m.add_class::<PyCavityResult2D>()?;
+
+    // 2D Bifurcation solver
+    m.add_class::<PyBifurcationSolver2D>()?;
+    m.add_class::<PyBifurcationResult2D>()?;
+
+    // 1D Serpentine resistance solver
+    m.add_class::<PySerpentineSolver1D>()?;
+    m.add_class::<PySerpentineResult1D>()?;
+
+    // 1D Venturi resistance solver
+    m.add_class::<PyVenturiSolver1D>()?;
+    m.add_class::<PyVenturiResult1D>()?;
 
     // Add submodule for validation utilities
     let validation = PyModule::new_bound(m.py(), "validation")?;

@@ -5,7 +5,7 @@
 
 use crate::grid::StructuredGridBuilder;
 use crate::mesh::Mesh;
-use nalgebra::{Point3, RealField, Rotation3, Vector3};
+use nalgebra::{RealField, Rotation3, Vector3};
 use num_traits::{Float, FromPrimitive};
 
 /// Builder for 3D branching meshes
@@ -77,7 +77,7 @@ impl<T: RealField + Copy + FromPrimitive + Float> BranchingMeshBuilder<T> {
 
         for i in 0..self.d_daughters.len() {
             let daughter_mesh = self.build_daughter(i)?;
-            mesh.merge(&daughter_mesh, T::from_f64(1e-7).unwrap());
+            mesh.merge(&daughter_mesh, T::from_f64(1e-5).unwrap());
         }
 
         // Mark remaining external faces as walls
@@ -154,13 +154,31 @@ impl<T: RealField + Copy + FromPrimitive + Float> BranchingMeshBuilder<T> {
             }
         }
 
-        // Rotate and translate
-        // Junction point is at (l_parent, 0, 0)
-        let rotation = Rotation3::from_axis_angle(&Vector3::z_axis(), angle);
-        let translation = Vector3::new(self.l_parent, T::zero(), T::zero());
+        // Apply bending transformation
+        // Instead of rigid rotation, we apply a progressive rotation along the length (curvature)
+        // This ensures the inlet face (x=0) remains unrotated (angle=0), matching the parent outlet perfectly,
+        // while the outlet face (x=l) reaches the full branching angle.
+        
+        let origin_x = self.l_parent;
+        let translation = Vector3::new(origin_x, T::zero(), T::zero());
 
         for v in daughter_mesh.vertices_mut() {
-            v.position = rotation * v.position + translation;
+            let x_local_initial = v.position.x;
+            
+            // Calculate progress along the branch (0.0 to 1.0)
+            // Use clamp to handle potential float inaccuracy
+            let mut s = x_local_initial / l;
+            if s < T::zero() { s = T::zero(); }
+            if s > T::one() { s = T::one(); }
+            
+            // Curvature function: linear angle distribution (circular arc)
+            let theta = angle * s;
+            
+            // Rotate the point around the Z-axis
+            let rotation = Rotation3::from_axis_angle(&Vector3::z_axis(), theta);
+            
+            // Transform
+            v.position = rotation.transform_point(&v.position) + translation;
         }
 
         Ok(daughter_mesh)

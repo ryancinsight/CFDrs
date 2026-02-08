@@ -49,6 +49,6 @@ pub mod junction;
 pub mod network_solver;
 pub mod validation;
 
-pub use junction::{BifurcationJunction, TrifurcationJunction};
+pub use junction::{BifurcationJunction, BifurcationSolution, TrifurcationJunction, TrifurcationSolution};
 pub use network_solver::{BifurcationConfig, BifurcationNetworkSolver};
 pub use validation::{BifurcationValidationResult, BifurcationValidator};

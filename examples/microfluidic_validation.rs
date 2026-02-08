@@ -36,16 +36,15 @@
 //!   and Heat Transfer"
 //! - Huo, Y., & Kassab, G.S. (2012). "Intraspecific scaling laws of vascular trees"
 
-use cfd_1d::bifurcation::{BifurcationConfig, BifurcationJunction, BifurcationValidator};
-use cfd_1d::channel::{Channel, ChannelType, CrossSection};
+use cfd_1d::bifurcation::BifurcationJunction;
+use cfd_1d::channel::{Channel, ChannelGeometry};
 use cfd_2d::solvers::serpentine_flow::{
     AdvectionDiffusionMixing, SerpentineGeometry, SerpentineMixingSolution, SerpentineValidator,
 };
 use cfd_2d::solvers::venturi_flow::{
-    BernoulliVenturi, VenturiFlowSolution, VenturiGeometry, VenturiValidator, ViscousVenturi,
+    BernoulliVenturi, VenturiFlowSolution, VenturiGeometry, ViscousVenturi,
 };
 use cfd_core::physics::fluid::blood::{CarreauYasudaBlood, CassonBlood};
-use cfd_core::physics::fluid::water_20c;
 
 // ============================================================================
 // VALIDATION 1: 1D BIFURCATION WITH BLOOD FLOW
@@ -60,47 +59,38 @@ fn validate_bifurcation_blood_flow() {
     // Parent: 100 μm diameter (arteriole)
     // Daughters: 80 μm each (capillaries)
     let parent = Channel::new(
-        "parent_arteriole".to_string(),
-        ChannelType::Circular,
-        CrossSection::Circular { diameter: 100e-6 },
-        1.0e-3, // 1 mm length
+        ChannelGeometry::<f64>::circular(1.0e-3, 100e-6, 1e-6),
     );
 
     let d1 = Channel::new(
-        "daughter1_capillary".to_string(),
-        ChannelType::Circular,
-        CrossSection::Circular { diameter: 80e-6 },
-        1.0e-3,
+        ChannelGeometry::<f64>::circular(1.0e-3, 80e-6, 1e-6),
     );
 
     let d2 = Channel::new(
-        "daughter2_capillary".to_string(),
-        ChannelType::Circular,
-        CrossSection::Circular { diameter: 80e-6 },
-        1.0e-3,
+        ChannelGeometry::<f64>::circular(1.0e-3, 80e-6, 1e-6),
     );
 
     // Create bifurcation with 50-50 flow split (symmetric)
     let bifurcation = BifurcationJunction::new(parent, d1, d2, 0.5);
 
     // Check Murray's law
-    let murray_deviation = bifurcation.murrary_law_deviation();
+    let murray_deviation = bifurcation.murray_law_deviation();
     println!("\nMurray's Law Validation:");
     println!(
-        "  D_parent³ = {:.3e}",
-        bifurcation.parent.hydraulic_diameter().powf(3.0)
+        "  D_parent^3 = {:.3e}",
+        bifurcation.parent.geometry.hydraulic_diameter().powf(3.0)
     );
     println!(
-        "  D_daughter1³ + D_daughter2³ = {:.3e}",
-        bifurcation.daughter1.hydraulic_diameter().powf(3.0)
-            + bifurcation.daughter2.hydraulic_diameter().powf(3.0)
+        "  D_daughter1^3 + D_daughter2^3 = {:.3e}",
+        bifurcation.daughter1.geometry.hydraulic_diameter().powf(3.0)
+            + bifurcation.daughter2.geometry.hydraulic_diameter().powf(3.0)
     );
     println!("  Deviation: {:.2}%", murray_deviation * 100.0);
 
     // Validate with normal Casson blood
     let blood = CassonBlood::<f64>::normal_blood();
-    let flow_rate = 1e-8; // 10 nL/s (physiological)
-    let inlet_pressure = 100.0; // 100 Pa gauge
+    let flow_rate: f64 = 1e-8; // 10 nL/s (physiological)
+    let inlet_pressure: f64 = 100.0; // 100 Pa gauge
 
     match bifurcation.solve(blood, flow_rate, inlet_pressure) {
         Ok(solution) => {
@@ -116,13 +106,13 @@ fn validate_bifurcation_blood_flow() {
                 solution.q_2,
                 solution.q_2 / solution.q_parent * 100.0
             );
-            println!("\n  Inlet pressure: {:.2f} Pa", solution.p_parent);
+            println!("\n  Inlet pressure: {:.2} Pa", solution.p_parent);
             println!(
-                "  Daughter 1 pressure: {:.2f} Pa (ΔP = {:.2f} Pa)",
+                "  Daughter 1 pressure: {:.2} Pa (ΔP = {:.2} Pa)",
                 solution.p_1, solution.dp_1
             );
             println!(
-                "  Daughter 2 pressure: {:.2f} Pa (ΔP = {:.2f} Pa)",
+                "  Daughter 2 pressure: {:.2} Pa (ΔP = {:.2} Pa)",
                 solution.p_2, solution.dp_2
             );
 
@@ -185,53 +175,54 @@ fn validate_venturi_pressure_recovery() {
     println!("\nVenturi Geometry:");
     println!("  Inlet width: {:.3e} m", geometry.w_inlet);
     println!("  Throat width: {:.3e} m", geometry.w_throat);
-    println!("  Area ratio: {:.3f}", geometry.area_ratio());
+    println!("  Area ratio: {:.3}", geometry.area_ratio());
     println!("  Converging length: {:.3e} m", geometry.l_converge);
     println!("  Throat length: {:.3e} m", geometry.l_throat);
     println!("  Diverging length: {:.3e} m", geometry.l_diverge);
 
     // Analytical solution using Bernoulli
-    let u_inlet = 1.0; // 1 m/s inlet velocity
-    let p_inlet = 101325.0; // 1 atm
-    let rho = 1000.0; // Water
+    let u_inlet: f64 = 1.0; // 1 m/s inlet velocity
+    let p_inlet: f64 = 101325.0; // 1 atm
+    let rho: f64 = 1000.0; // Water
 
     let bernoulli = BernoulliVenturi::new(geometry.clone(), u_inlet, p_inlet, rho);
 
     println!("\nBernoulli (Analytical, Frictionless) Solution:");
-    println!("  Inlet velocity: {:.3f} m/s", bernoulli.u_inlet);
-    println!("  Throat velocity: {:.3f} m/s", bernoulli.velocity_throat());
-    println!("  Inlet pressure: {:.1f} Pa", bernoulli.p_inlet);
-    println!("  Throat pressure: {:.1f} Pa", bernoulli.pressure_throat());
+    println!("  Inlet velocity: {:.3} m/s", bernoulli.u_inlet);
+    println!("  Throat velocity: {:.3} m/s", bernoulli.velocity_throat());
+    println!("  Inlet pressure: {:.1} Pa", bernoulli.p_inlet);
+    println!("  Throat pressure: {:.1} Pa", bernoulli.pressure_throat());
     println!(
-        "  Pressure drop at throat: {:.1f} Pa",
+        "  Pressure drop at throat: {:.1} Pa",
         bernoulli.p_inlet - bernoulli.pressure_throat()
     );
     println!(
-        "  Pressure coefficient Cp: {:.4f}",
+        "  Pressure coefficient Cp: {:.4}",
         bernoulli.pressure_coefficient_throat()
     );
 
     // Verify mass conservation
-    let q_inlet = geometry.area_inlet() * bernoulli.u_inlet;
-    let q_throat = geometry.area_throat() * bernoulli.velocity_throat();
+    let q_inlet: f64 = geometry.area_inlet() * bernoulli.u_inlet;
+    let q_throat: f64 = geometry.area_throat() * bernoulli.velocity_throat();
     println!("\n  Mass conservation check:");
     println!("    Q_inlet: {:.3e} m³/s", q_inlet);
     println!("    Q_throat: {:.3e} m³/s", q_throat);
-    println!("    Error: {:.2e}", (q_inlet - q_throat).abs() / q_inlet);
+    let mass_err: f64 = (q_inlet - q_throat).abs() / q_inlet;
+    println!("    Error: {:.2e}", mass_err);
 
     // Viscous solution with friction loss
     println!("\nViscous (Real) Solution with Recovery Loss:");
     let viscous = ViscousVenturi::new(geometry.clone(), u_inlet, p_inlet, rho, 0.15);
     let p_outlet_loss = viscous.pressure_outlet_with_loss();
 
-    println!("  Loss coefficient: {:.3f}", viscous.loss_coefficient);
-    println!("  Outlet pressure (with loss): {:.1f} Pa", p_outlet_loss);
+    println!("  Loss coefficient: {:.3}", viscous.loss_coefficient);
+    println!("  Outlet pressure (with loss): {:.1} Pa", p_outlet_loss);
     println!(
-        "  Pressure recovery coefficient Cp: {:.4f}",
+        "  Pressure recovery coefficient Cp: {:.4}",
         viscous.pressure_recovery_coefficient()
     );
     println!(
-        "  Unrecovered pressure: {:.1f} Pa",
+        "  Unrecovered pressure: {:.1} Pa",
         bernoulli.p_inlet - p_outlet_loss
     );
 
@@ -239,7 +230,7 @@ fn validate_venturi_pressure_recovery() {
     let solution = VenturiFlowSolution::from_bernoulli(&bernoulli, p_outlet_loss);
     let dissipation = solution.energy_dissipation(rho);
     println!(
-        "\n  Energy dissipation: {:.1f} Pa (irreversible loss)",
+        "\n  Energy dissipation: {:.1} Pa (irreversible loss)",
         dissipation
     );
 }
@@ -270,15 +261,15 @@ fn validate_serpentine_mixing_efficiency() {
     // Advection-diffusion analysis
     // Typical aqueous solution: D ≈ 1e-9 m²/s
     // Inlet velocity: 0.01 m/s
-    let velocity = 0.01; // m/s
-    let diffusion = 1e-9; // m²/s (aqueous)
+    let velocity: f64 = 0.01; // m/s
+    let diffusion: f64 = 1e-9; // m²/s (aqueous)
 
     let mixing = AdvectionDiffusionMixing::new(geometry.width, velocity, diffusion);
 
     println!("\nMixing Analysis (Advection-Diffusion):");
-    println!("  Inlet velocity: {:.4f} m/s", velocity);
+    println!("  Inlet velocity: {:.4} m/s", velocity);
     println!("  Diffusion coefficient: {:.3e} m²/s", diffusion);
-    println!("  Peclet number: {:.1f}", mixing.peclet_number());
+    println!("  Peclet number: {:.1}", mixing.peclet_number());
     println!(
         "  Mixing length (90%): {:.3e} m",
         mixing.mixing_length_90_percent()
@@ -294,7 +285,7 @@ fn validate_serpentine_mixing_efficiency() {
     println!("\n  Mixing assessment:");
     println!("    Channel length: {:.3e} m", channel_length);
     println!(
-        "    Diffusion lengths per section: {:.2f}",
+        "    Diffusion lengths per section: {:.2}",
         diffusion_lengths
     );
     println!(
@@ -317,17 +308,17 @@ fn validate_serpentine_mixing_efficiency() {
     );
 
     println!("\nSerpentine Mixing Solution:");
-    println!("  Inlet A concentration: {:.3f} mol/m³", solution.c_inlet_a);
-    println!("  Inlet B concentration: {:.3f} mol/m³", solution.c_inlet_b);
+    println!("  Inlet A concentration: {:.3} mol/m³", solution.c_inlet_a);
+    println!("  Inlet B concentration: {:.3} mol/m³", solution.c_inlet_b);
     println!(
-        "  Outlet concentration (mixed): {:.3f} mol/m³",
+        "  Outlet concentration (mixed): {:.3} mol/m³",
         solution.estimated_outlet_concentration()
     );
     println!(
         "  Mixing fraction at outlet: {:.1}%",
         solution.mixing_fraction_outlet * 100.0
     );
-    println!("  Pressure drop: {:.1f} Pa", solution.pressure_drop);
+    println!("  Pressure drop: {:.1} Pa", solution.pressure_drop);
 
     if solution.is_well_mixed() {
         println!("  ✓ WELL-MIXED (>90% homogeneity)");

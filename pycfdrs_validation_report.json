@@ -1,0 +1,68 @@
+{
+  "timestamp": "2026-02-06 22:44:16.235425",
+  "total_tests": 6,
+  "passed": 5,
+  "failed": 1,
+  "results": [
+    {
+      "test_name": "2D Poiseuille Flow",
+      "l2_error": 0.0,
+      "linf_error": 0.0,
+      "passed": true,
+      "reference": "Python_CFD/poiseuille_flow.py",
+      "details": "Velocity error: 0.00%, Flow error: 0.00%",
+      "expected_value": 0.05701136692065698,
+      "computed_value": 0.05701136692065698
+    },
+    {
+      "test_name": "Bifurcation - Murray's Law",
+      "l2_error": 1.1659495833152589e-16,
+      "linf_error": 2.01948391736579e-16,
+      "passed": true,
+      "reference": "Murray (1926) Proc. Natl. Acad. Sci. 12:207",
+      "details": "Murray: 0.00%, Mass: 0.00e+00%, Pressure: 0.00e+00%",
+      "expected_value": null,
+      "computed_value": null
+    },
+    {
+      "test_name": "Venturi - Bernoulli",
+      "l2_error": 0.6667337845343099,
+      "linf_error": 0.6667337845343099,
+      "passed": false,
+      "reference": "Bernoulli equation (inviscid)",
+      "details": "Cp error: 66.67%",
+      "expected_value": -3.002417094888866,
+      "computed_value": -1.0006041824631042
+    },
+    {
+      "test_name": "Casson Blood Model",
+      "l2_error": 0.07044852430658449,
+      "linf_error": 0.09627260975835872,
+      "passed": true,
+      "reference": "Merrill et al. (1969) J. Appl. Physiol. 27:93",
+      "details": "mu(100s^-1) error: 9.6%, mu(inf) error: 2.56%",
+      "expected_value": null,
+      "computed_value": null
+    },
+    {
+      "test_name": "Carreau-Yasuda Model",
+      "l2_error": 0.1649175929622434,
+      "linf_error": 0.2257813940960426,
+      "passed": true,
+      "reference": "Cho & Kensey (1991) Biorheology 28:243",
+      "details": "mu(1s^-1) error: 22.6%, mu(100s^-1) error: 5.8%",
+      "expected_value": null,
+      "computed_value": null
+    },
+    {
+      "test_name": "Trifurcation Flow",
+      "l2_error": 2.067951531382569e-16,
+      "linf_error": 2.067951531382569e-16,
+      "passed": true,
+      "reference": "Mass conservation",
+      "details": "Mass conservation error: 0.0000%",
+      "expected_value": null,
+      "computed_value": null
+    }
+  ]
+}

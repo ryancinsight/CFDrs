@@ -139,6 +139,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         relaxation_time: 1e-6,    // 1 μs relaxation time
         vapor_pressure: 2330.0,   // 2.33 kPa (Water @ 20°C)
         liquid_density: 998.2,    // 998.2 kg/m³
+        liquid_viscosity: 0.001,  // 1.0 mPa·s (Water @ 20°C)
         vapor_density: 0.017,     // 0.017 kg/m³
         sound_speed: 1482.0,      // 1482 m/s
     };

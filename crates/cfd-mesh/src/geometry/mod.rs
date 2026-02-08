@@ -1,6 +1,8 @@
 //! Geometric operations for meshes.
 
 pub mod branching;
+pub mod venturi;
+pub mod serpentine;
 
 /// Geometry operations
 pub struct Geometry;

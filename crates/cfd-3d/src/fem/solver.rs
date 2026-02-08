@@ -87,8 +87,7 @@ pub struct FemSolver<T: RealField + Copy> {
 
 /// Extract vertex indices from a cell
 pub fn extract_vertex_indices<T: RealField + Copy>(cell: &Cell, mesh: &Mesh<T>) -> Result<Vec<usize>> {
-    // For tetrahedral elements, extract 4 unique vertex indices from faces
-    let mut indices = Vec::with_capacity(4);
+    let mut indices = Vec::with_capacity(8);
 
     for &face_idx in &cell.faces {
         if let Some(face) = mesh.face(face_idx) {
@@ -98,17 +97,6 @@ pub fn extract_vertex_indices<T: RealField + Copy>(cell: &Cell, mesh: &Mesh<T>) 
                 }
             }
         }
-        if indices.len() >= 4 {
-            break;
-        }
-    }
-
-    // Ensure we have exactly 4 indices for tetrahedral element
-    if indices.len() != 4 {
-        return Err(Error::InvalidConfiguration(format!(
-            "Invalid cell topology: expected 4 unique vertices for tetrahedral element, found {}",
-            indices.len()
-        )));
     }
 
     Ok(indices)
@@ -201,26 +189,57 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
         let n_pressure_dof = n_nodes;
         let n_total_dof = n_velocity_dof + n_pressure_dof;
 
-        tracing::debug!("System size: {} nodes, {} total DOFs", n_nodes, n_total_dof);
+        println!("FEM Debug: System size: {} nodes, {} total DOFs", n_nodes, n_total_dof);
 
         // Assemble global system
-        let (matrix, rhs) = self.assemble_system(problem)?;
-
-        // Validate system dimensions
-        debug_assert_eq!(matrix.nrows(), n_total_dof, "Matrix row dimension mismatch");
-        debug_assert_eq!(
-            matrix.ncols(),
-            n_total_dof,
-            "Matrix column dimension mismatch"
-        );
-        debug_assert_eq!(rhs.len(), n_total_dof, "RHS vector dimension mismatch");
+        let (mut matrix, mut rhs) = self.assemble_system(problem)?;
+        
+        // Matrix stats
+        let rhs_norm = rhs.norm();
+        println!("FEM Debug: Global RHS norm: {:?}", rhs_norm);
 
         // Solve linear system
+        // Manual Left Jacobi Preconditioning (Row Scaling)
+        let n_dof = matrix.nrows();
+        for i in 0..n_dof {
+            let row_start = matrix.row_offsets()[i];
+            let row_end = matrix.row_offsets()[i+1];
+            
+            // Find diagonal
+            let mut diag = T::zero();
+            for j in row_start..row_end {
+                if matrix.col_indices()[j] == i {
+                    diag = matrix.values()[j];
+                    break;
+                }
+            }
+
+            if nalgebra::ComplexField::abs(diag) > T::from_f64(1e-18).unwrap_or_else(T::zero) {
+                let inv_diag = T::one() / diag;
+                for j in row_start..row_end {
+                    matrix.values_mut()[j] *= inv_diag;
+                }
+                rhs[i] *= inv_diag;
+            }
+        }
+
         let solution = self.linear_solver.solve_system(&matrix, &rhs, None)?;
 
-        // Extract velocity and pressure
-        let velocity = solution.rows(0, n_velocity_dof).into();
-        let pressure = solution.rows(n_velocity_dof, n_pressure_dof).into();
+        // Extract velocity and pressure from interleaved solution
+        let mut velocity_data = Vec::with_capacity(n_velocity_dof);
+        let mut pressure_data = Vec::with_capacity(n_pressure_dof);
+        let dofs_per_node = constants::VELOCITY_COMPONENTS + 1;
+
+        for i in 0..n_nodes {
+            let base = i * dofs_per_node;
+            for d in 0..constants::VELOCITY_COMPONENTS {
+                velocity_data.push(solution[base + d]);
+            }
+            pressure_data.push(solution[base + constants::VELOCITY_COMPONENTS]);
+        }
+
+        let velocity = DVector::from_vec(velocity_data);
+        let pressure = DVector::from_vec(pressure_data);
 
         Ok(StokesFlowSolution::new(velocity, pressure, n_nodes))
     }
@@ -250,32 +269,58 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
             .collect();
 
         // Loop over elements
-        for (i, cell) in problem.mesh.cells().iter().enumerate() { let viscosity = if let Some(ref viscosities) = problem.element_viscosities { viscosities[i] } else { problem.fluid.viscosity };
+        for (i, cell) in problem.mesh.cells().iter().enumerate() {
+            let viscosity = if let Some(ref viscosities) = problem.element_viscosities {
+                viscosities[i]
+            } else {
+                problem.fluid.viscosity
+            };
+
             // Get vertex indices for this cell
             let vertex_indices = extract_vertex_indices(cell, &problem.mesh)?;
 
-            // Create element
-            let mut element = FluidElement::new(vertex_indices);
+            // Handle different element types via on-the-fly tessellation
+            let tets = if vertex_indices.len() == 8 {
+                // 5-tet decomposition of a hexahedron with standard Z-ordering
+                vec![
+                    vec![vertex_indices[0], vertex_indices[1], vertex_indices[3], vertex_indices[4]],
+                    vec![vertex_indices[1], vertex_indices[2], vertex_indices[3], vertex_indices[6]],
+                    vec![vertex_indices[4], vertex_indices[6], vertex_indices[7], vertex_indices[3]],
+                    vec![vertex_indices[4], vertex_indices[5], vertex_indices[6], vertex_indices[1]],
+                    vec![vertex_indices[1], vertex_indices[3], vertex_indices[4], vertex_indices[6]],
+                ]
+            } else {
+                // Assume tetrahedral or single element
+                vec![vertex_indices]
+            };
 
-            // Calculate element properties
-            // Pass global vertices for volume calculation
-            element.calculate_volume(&vertex_positions);
+            for tet_nodes in tets {
+                // Create element
+                let mut element = FluidElement::new(tet_nodes);
 
-            // Create local vertex list for shape derivatives (expects 4 vertices)
-            if element.nodes.len() == 4 {
+                // Calculate element properties
+                // Pass global vertices for volume calculation
+                element.calculate_volume(&vertex_positions);
+
+                // Create local vertex list for shape derivatives
                 let local_vertices: Vec<Vector3<T>> = element
                     .nodes
                     .iter()
                     .map(|&idx| vertex_positions[idx])
                     .collect();
-                element.calculate_shape_derivatives(&local_vertices);
+                
+                if element.nodes.len() == 4 {
+                    element.calculate_shape_derivatives(&local_vertices);
+                }
+
+                // Calculate element matrices
+                let u_avg = Vector3::zeros(); // For steady Stokes, we can use zero velocity or previous solution
+                let h = element.h(&vertex_positions);
+                let elem_matrices = self.calculate_element_matrices(&element, viscosity, u_avg, h, problem.fluid.density);
+
+                // Assemble into global system
+                self.assemble_element(&mut builder, &mut rhs, &element, &elem_matrices)?;
             }
-
-            // Calculate element matrices
-            let elem_matrices = self.calculate_element_matrices(&element, viscosity);
-
-            // Assemble into global system
-            self.assemble_element(&mut builder, &mut rhs, &element, &elem_matrices)?;
         }
 
         // Apply boundary conditions
@@ -285,77 +330,131 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
         Ok((matrix, rhs))
     }
 
-    /// Calculate element matrices
     fn calculate_element_matrices(
         &self,
         element: &FluidElement<T>,
         viscosity: T,
+        u_avg: Vector3<T>,
+        h: T,
+        density: T,
     ) -> ElementMatrices<T> {
+        use crate::fem::stabilization::StabilizationParameters;
+        
         let n_nodes: usize = element.nodes.len();
         let n_velocity_dof: usize = n_nodes * constants::VELOCITY_COMPONENTS;
         let n_pressure_dof: usize = n_nodes;
         let n_dof: usize = n_velocity_dof + n_pressure_dof;
 
         let mut matrices = ElementMatrices::new(n_dof);
+        let volume = element.volume;
+        let dofs_per_node = constants::VELOCITY_COMPONENTS + 1;
 
-        // Get element volume
-        let volume = self.compute_element_volume(element);
-
-        // For Stokes flow: -∇²u + ∇p = f, ∇·u = 0
-        // We need K (viscous), B (divergence), and B^T (gradient) matrices
-
-        // Viscous stiffness matrix (K) for velocity DOFs
-        // Literature-based finite element formulation using proper Galerkin method
-        let visc_factor = viscosity * volume;
-
-        // For tetrahedral linear elements, use consistent element matrices
-        // Based on Hughes et al. (1986) finite element formulation
+        // 1. Viscous term (K_uu)
+        let k_uu = element.stiffness_contribution(viscosity);
         for i in 0..n_nodes {
             for j in 0..n_nodes {
-                // Compute ∫ ∇N_i · ∇N_j dΩ using analytical integration
-                let k_ij = if i == j {
-                    // Diagonal terms with proper scaling for tetrahedral elements
-                    visc_factor * T::from_f64(0.5).unwrap_or_else(T::one)
-                } else {
-                    // Off-diagonal coupling based on element connectivity
-                    visc_factor * T::from_f64(-0.125).unwrap_or_else(T::zero)
-                };
-
-                // Apply to each velocity component (x, y, z)
                 for d in 0..constants::VELOCITY_COMPONENTS {
-                    let row = i * constants::VELOCITY_COMPONENTS + d;
-                    let col = j * constants::VELOCITY_COMPONENTS + d;
-                    matrices.k_e[(row, col)] = k_ij;
+                    let local_i = i * dofs_per_node + d;
+                    let local_j = j * dofs_per_node + d;
+                    matrices.k_e[(local_i, local_j)] = k_uu[(i * constants::VELOCITY_COMPONENTS + d, j * constants::VELOCITY_COMPONENTS + d)];
                 }
             }
         }
 
-        // Divergence matrix (B) and gradient matrix (B^T)
-        // These couple velocity and pressure
-        let div_factor = volume / T::from_usize(n_nodes).unwrap_or_else(T::one);
+        // 2. Coupling terms (B and B^T)
+        // int_n = Integral of Ni dOmega = Volume / 4
+        let int_n = volume / T::from_f64(4.0).unwrap_or_else(T::one);
 
-        for i in 0..n_nodes {
-            for j in 0..n_nodes {
-                if i == j {
-                    // Gradient operator: pressure to velocity
-                    for d in 0..constants::VELOCITY_COMPONENTS {
-                        let vel_idx = i * constants::VELOCITY_COMPONENTS + d;
-                        let pres_idx = n_velocity_dof + j;
+        // 1.5 Advection term: ∫ ρ (u_avg . grad) u . v dΩ
+        // Picard linearization: (u_old . grad) u
+        for i in 0..n_nodes { // v (test)
+            for j in 0..n_nodes { // u (trial)
+                // (u_avg . grad Nj) * Ni
+                let u_grad_n_j = u_avg.dot(&Vector3::new(
+                    element.shape_derivatives[(0, j)],
+                    element.shape_derivatives[(1, j)],
+                    element.shape_derivatives[(2, j)]
+                ));
+                let advection_entry = density * u_grad_n_j * int_n;
+                
+                for d in 0..constants::VELOCITY_COMPONENTS {
+                    let local_i = i * dofs_per_node + d;
+                    let local_j = j * dofs_per_node + d;
+                    matrices.k_e[(local_i, local_j)] += advection_entry;
+                }
+            }
+        }
 
-                        // B^T: gradient (pressure affects velocity)
-                        matrices.k_e[(vel_idx, pres_idx)] = div_factor;
-                        // B: divergence (velocity affects pressure)
-                        matrices.k_e[(pres_idx, vel_idx)] = div_factor;
+        for i in 0..n_nodes { // Row index (test function)
+            for j in 0..n_nodes { // Col index (trial function)
+                for d in 0..constants::VELOCITY_COMPONENTS {
+                    // Momentum Row (test velocity component d at node i)
+                    // Pressure Col (trial pressure at node j)
+                    // Block B^T: ∫ (∂Nj/∂xd) * Ni dΩ
+                    let vel_idx = i * dofs_per_node + d;
+                    let pres_col = j * dofs_per_node + constants::VELOCITY_COMPONENTS;
+                    let b_t_val = element.shape_derivatives[(d, j)] * int_n;
+                    matrices.k_e[(vel_idx, pres_col)] += b_t_val;
+
+                    // Continuity Row (test pressure at node i)
+                    // Velocity Col (trial velocity component d at node j)
+                    // Block B: ∫ Ni * (∂Nj/∂xd) dΩ
+                    let pres_idx = i * dofs_per_node + constants::VELOCITY_COMPONENTS;
+                    let vel_col = j * dofs_per_node + d;
+                    let b_val = element.shape_derivatives[(d, j)] * int_n;
+                    matrices.k_e[(pres_idx, vel_col)] += b_val;
+                }
+            }
+        }
+
+        // 3. PSPG Stabilization: tau * ∫ (grad p) * (grad q) dΩ
+        // For equal-order P1-P1 elements
+        let stab_params = StabilizationParameters::new(h, viscosity, u_avg, None);
+        let tau_pspg = stab_params.tau_pspg();
+
+        for i in 0..n_nodes { // q (test pressure)
+            for j in 0..n_nodes { // p (trial pressure)
+                let pi_idx = i * dofs_per_node + constants::VELOCITY_COMPONENTS;
+                let pj_idx = j * dofs_per_node + constants::VELOCITY_COMPONENTS;
+                
+                let mut grad_p_dot_grad_q = T::zero();
+                for d in 0..3 {
+                    grad_p_dot_grad_q += element.shape_derivatives[(d, i)] * element.shape_derivatives[(d, j)];
+                }
+                
+                matrices.k_e[(pi_idx, pj_idx)] += tau_pspg * grad_p_dot_grad_q * volume;
+            }
+        }
+
+        // 4. SUPG Stabilization for momentum (optional for Stokes, but included for completeness)
+        let tau_supg = stab_params.tau_supg();
+        if u_avg.norm() > T::from_f64(1e-8).unwrap_or_else(T::zero) {
+            for i in 0..n_nodes { // v (test velocity)
+                for j in 0..n_nodes { // u (trial velocity)
+                    for d1 in 0..3 { // component of test v
+                        let vi_idx = i * dofs_per_node + d1;
+                        for d2 in 0..3 { // component of trial u
+                            let uj_idx = j * dofs_per_node + d2;
+                            
+                            // (u.grad)u * (u.grad)v term
+                            let u_grad_v = u_avg.dot(&Vector3::new(
+                                element.shape_derivatives[(0, i)],
+                                element.shape_derivatives[(1, i)],
+                                element.shape_derivatives[(2, i)]
+                            ));
+                            let u_grad_u = u_avg.dot(&Vector3::new(
+                                element.shape_derivatives[(0, j)],
+                                element.shape_derivatives[(1, j)],
+                                element.shape_derivatives[(2, j)]
+                            ));
+                            
+                            if d1 == d2 {
+                                matrices.k_e[(vi_idx, uj_idx)] += tau_supg * u_grad_v * u_grad_u * volume;
+                            }
+                        }
                     }
                 }
             }
-        }
-
-        // Add small stabilization to pressure block to avoid singular matrix
-        let stab_factor = T::from_f64(1e-8).unwrap_or_else(T::zero) * volume;
-        for i in 0..n_nodes {
-            let pres_idx = n_velocity_dof + i;
-            matrices.k_e[(pres_idx, pres_idx)] += stab_factor;
         }
 
         matrices
@@ -385,14 +484,16 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
         // Direct assembly - add element stiffness to global matrix
         for i in 0..n_nodes {
             for j in 0..n_nodes {
-                for k in 0..dofs_per_node {
-                    let local_i = i * dofs_per_node + k;
-                    let local_j = j * dofs_per_node + k;
-                    let global_i = element.nodes[i] * dofs_per_node + k;
-                    let global_j = element.nodes[j] * dofs_per_node + k;
+                for k1 in 0..dofs_per_node {
+                    for k2 in 0..dofs_per_node {
+                        let local_i = i * dofs_per_node + k1;
+                        let local_j = j * dofs_per_node + k2;
+                        let global_i = element.nodes[i] * dofs_per_node + k1;
+                        let global_j = element.nodes[j] * dofs_per_node + k2;
 
-                    if local_i < matrices.k_e.nrows() && local_j < matrices.k_e.ncols() {
-                        builder.add_entry(global_i, global_j, matrices.k_e[(local_i, local_j)])?;
+                        if local_i < matrices.k_e.nrows() && local_j < matrices.k_e.ncols() {
+                            builder.add_entry(global_i, global_j, matrices.k_e[(local_i, local_j)])?;
+                        }
                     }
                 }
             }
@@ -802,7 +903,9 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
         self.apply_periodic_boundary_conditions(builder, rhs, problem)?;
 
         // Apply Dirichlet boundary conditions using penalty method
-        let penalty = T::from_f64(1e10).unwrap_or_else(T::one);
+        // Using 1.0 to match the scale of the coupling terms (approx 10^-6 to 10^-3)
+        // This gives a relative penalty factor of 10^3 to 10^6 which is stable.
+        let penalty = T::from_f64(1.0).unwrap_or_else(T::one);
 
         for (node_idx, bc) in &problem.boundary_conditions {
             let dof = *node_idx * (constants::VELOCITY_COMPONENTS + 1);
@@ -861,18 +964,22 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
                     // General Dirichlet: fixed value for all components, or specific per-component values
                     for i in 0..=constants::VELOCITY_COMPONENTS {
                         let component_dof = dof + i;
-                        builder.add_entry(component_dof, component_dof, penalty)?;
-                        if component_dof < rhs.len() {
-                            let val = if let Some(comps) = component_values {
-                                if i < comps.len() {
-                                    comps[i].unwrap_or(*value)
-                                } else {
-                                    *value
-                                }
+                        
+                        let target_val = if let Some(comps) = component_values {
+                            if i < comps.len() {
+                                comps[i]
                             } else {
-                                *value
-                            };
-                            rhs[component_dof] = penalty * val;
+                                Some(*value)
+                            }
+                        } else {
+                            Some(*value)
+                        };
+
+                        if let Some(val) = target_val {
+                            builder.add_entry(component_dof, component_dof, penalty)?;
+                            if component_dof < rhs.len() {
+                                rhs[component_dof] = penalty * val;
+                            }
                         }
                     }
                 }

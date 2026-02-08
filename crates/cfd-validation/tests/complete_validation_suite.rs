@@ -258,7 +258,7 @@ fn test_convergence_studies() -> Vec<bool> {
         (
             "Rectangular",
             Box::new(RectangularDomain::new(0.0, 1.0, 0.0, 1.0))
-                as Box<dyn cfd_validation::geometry::Geometry<f64>>,
+                as Box<dyn cfd_validation::geometry::Geometry2D<f64>>,
         ),
         ("Circular", Box::new(CircularDomain::new(0.5, 0.5, 0.4))),
     ];

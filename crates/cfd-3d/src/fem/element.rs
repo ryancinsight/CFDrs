@@ -1,7 +1,7 @@
 //! Element-level operations for FEM
 
 use crate::fem::constants;
-use nalgebra::{DMatrix, Matrix3, RealField, Vector3};
+use nalgebra::{DMatrix, Matrix3, Matrix3x4, RealField, Vector3};
 use num_traits::FromPrimitive;
 
 /// Element matrices for FEM assembly
@@ -34,8 +34,8 @@ pub struct FluidElement<T: RealField + Copy> {
     pub nodes: Vec<usize>,
     /// Element volume
     pub volume: T,
-    /// Shape function derivatives
-    pub shape_derivatives: Matrix3<T>,
+    /// Shape function derivatives (3 rows for x/y/z, 4 columns for nodes 1-4)
+    pub shape_derivatives: Matrix3x4<T>,
 }
 
 impl<T: RealField + FromPrimitive + Copy> FluidElement<T> {
@@ -45,7 +45,7 @@ impl<T: RealField + FromPrimitive + Copy> FluidElement<T> {
         Self {
             nodes,
             volume: T::zero(),
-            shape_derivatives: Matrix3::zeros(),
+            shape_derivatives: Matrix3x4::zeros(),
         }
     }
 
@@ -75,7 +75,7 @@ impl<T: RealField + FromPrimitive + Copy> FluidElement<T> {
     pub fn calculate_shape_derivatives(&mut self, vertices: &[Vector3<T>]) {
         if vertices.len() != 4 {
             // For non-tetrahedral elements, use identity as fallback
-            self.shape_derivatives = Matrix3::identity();
+            self.shape_derivatives = Matrix3x4::identity();
             return;
         }
 
@@ -94,7 +94,7 @@ impl<T: RealField + FromPrimitive + Copy> FluidElement<T> {
 
         if volume.abs() < T::from_f64(1e-12).unwrap_or_else(T::zero) {
             // Degenerate element
-            self.shape_derivatives = Matrix3::zeros();
+            self.shape_derivatives = Matrix3x4::zeros();
             return;
         }
 
@@ -104,23 +104,26 @@ impl<T: RealField + FromPrimitive + Copy> FluidElement<T> {
         let six_v = T::from_f64(6.0).unwrap_or_else(T::one) * volume;
 
         // Store as columns of the derivative matrix
-        self.shape_derivatives = Matrix3::from_columns(&[
-            Vector3::new(
-                (v2.y * (v3.z - v4.z) + v3.y * (v4.z - v2.z) + v4.y * (v2.z - v3.z)) / six_v,
-                (v2.x * (v4.z - v3.z) + v3.x * (v2.z - v4.z) + v4.x * (v3.z - v2.z)) / six_v,
-                (v2.x * (v3.y - v4.y) + v3.x * (v4.y - v2.y) + v4.x * (v2.y - v3.y)) / six_v,
-            ),
-            Vector3::new(
-                (v1.y * (v4.z - v3.z) + v3.y * (v1.z - v4.z) + v4.y * (v3.z - v1.z)) / six_v,
-                (v1.x * (v3.z - v4.z) + v3.x * (v4.z - v1.z) + v4.x * (v1.z - v3.z)) / six_v,
-                (v1.x * (v4.y - v3.y) + v3.x * (v1.y - v4.y) + v4.x * (v3.y - v1.y)) / six_v,
-            ),
-            Vector3::new(
-                (v1.y * (v2.z - v4.z) + v2.y * (v4.z - v1.z) + v4.y * (v1.z - v2.z)) / six_v,
-                (v1.x * (v4.z - v2.z) + v2.x * (v1.z - v4.z) + v4.x * (v2.z - v1.z)) / six_v,
-                (v1.x * (v2.y - v4.y) + v2.x * (v4.y - v1.y) + v4.x * (v1.y - v2.y)) / six_v,
-            ),
-        ]);
+        // Derivatives for nodes 1, 2, 3
+        let d1 = Vector3::new(
+            (v2.y * (v3.z - v4.z) + v3.y * (v4.z - v2.z) + v4.y * (v2.z - v3.z)) / six_v,
+            (v2.x * (v4.z - v3.z) + v3.x * (v2.z - v4.z) + v4.x * (v3.z - v2.z)) / six_v,
+            (v2.x * (v3.y - v4.y) + v3.x * (v4.y - v2.y) + v4.x * (v2.y - v3.y)) / six_v,
+        );
+        let d2 = Vector3::new(
+            (v1.y * (v4.z - v3.z) + v3.y * (v1.z - v4.z) + v4.y * (v3.z - v1.z)) / six_v,
+            (v1.x * (v3.z - v4.z) + v3.x * (v4.z - v1.z) + v4.x * (v1.z - v3.z)) / six_v,
+            (v1.x * (v4.y - v3.y) + v3.x * (v1.y - v4.y) + v4.x * (v3.y - v1.y)) / six_v,
+        );
+        let d3 = Vector3::new(
+            (v1.y * (v2.z - v4.z) + v2.y * (v4.z - v1.z) + v4.y * (v1.z - v2.z)) / six_v,
+            (v1.x * (v4.z - v2.z) + v2.x * (v1.z - v4.z) + v4.x * (v2.z - v1.z)) / six_v,
+            (v1.x * (v2.y - v4.y) + v2.x * (v4.y - v1.y) + v4.x * (v1.y - v2.y)) / six_v,
+        );
+        // For linear shape functions: dN1 + dN2 + dN3 + dN4 = 0, so dN4 = -(dN1 + dN2 + dN3)
+        let d4 = -(d1 + d2 + d3);
+        
+        self.shape_derivatives = Matrix3x4::from_columns(&[d1, d2, d3, d4]);
     }
 
     /// Calculate strain rate from velocity gradient

@@ -52,7 +52,7 @@ fn main() -> Result<()> {
             Venturi3D::new(10.0, 5.0, 5.0, 10.0, 5.0, 15.0, 10.0)
         )),
         Box::new(SerpentineFlow3D::new(
-            Serpentine3D::new(5.0, 2.5, 10.0, 3)
+            Serpentine3D::new(5.0, 2.5, 3, 10.0, 5.0)
         )),
     ];
 
@@ -66,9 +66,9 @@ fn main() -> Result<()> {
     // Generate Report
     let report = BenchmarkRunner::generate_report(&results);
     
-    println!("\n" + &"=".repeat(40));
+    println!("\n{}", "=".repeat(40));
     println!("VALIDATION SUMMARY");
-    println!("" + &"=".repeat(40));
+    println!("{}", "=".repeat(40));
     println!("Timestamp: {}", report.timestamp);
     println!("Total Benchmarks: {}", report.benchmarks.len());
     

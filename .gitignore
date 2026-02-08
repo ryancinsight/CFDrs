@@ -24,3 +24,7 @@ target
 # Text files
 *.txt
 *.log
+
+# External dependencies (cloned for validation)
+external/
+validation/references/

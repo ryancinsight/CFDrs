@@ -3,7 +3,6 @@
 use cfd_core::physics::fluid::blood::{
     CarreauYasudaBlood as RustCarreauYasudaBlood, CassonBlood as RustCassonBlood,
 };
-use cfd_core::physics::fluid::traits::{Fluid, NonNewtonianFluid};
 use num_traits::FromPrimitive;
 use pyo3::prelude::*;
 
@@ -46,6 +45,12 @@ impl PyCassonBlood {
     ///
     /// # Returns
     /// - Apparent viscosity [Pa·s]
+    /// Compute apparent viscosity for given shear rate
+    fn apparent_viscosity(&self, gamma: f64) -> f64 {
+        self.viscosity(gamma)
+    }
+
+    /// Compute apparent viscosity for given shear rate
     fn viscosity(&self, gamma: f64) -> f64 {
         let gamma_val = <f64 as FromPrimitive>::from_f64(gamma).unwrap();
         self.inner.apparent_viscosity(gamma_val)
@@ -122,6 +127,12 @@ impl PyCarreauYasudaBlood {
     ///
     /// # Returns
     /// - Apparent viscosity [Pa·s]
+    /// Compute apparent viscosity for given shear rate
+    fn apparent_viscosity(&self, gamma: f64) -> f64 {
+        self.viscosity(gamma)
+    }
+
+    /// Compute apparent viscosity for given shear rate
     fn viscosity(&self, gamma: f64) -> f64 {
         let gamma_val = <f64 as FromPrimitive>::from_f64(gamma).unwrap();
         self.inner.apparent_viscosity(gamma_val)

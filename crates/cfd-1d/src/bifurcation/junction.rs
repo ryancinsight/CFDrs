@@ -169,25 +169,42 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> Bifurcatio
 
     /// Calculate apparent viscosity in a channel for given flow rate
     ///
-    /// For non-Newtonian fluids, viscosity depends on shear rate:
+    /// For non-Newtonian fluids, viscosity depends on wall shear rate via
+    /// the constitutive model (Casson, Carreau-Yasuda, etc.):
+    ///
     /// ```text
-    /// μ = f(γ̇)  [Casson, Carreau-Yasuda, etc.]
+    /// γ̇_wall = 32Q / (πD³)   [wall shear rate in circular pipe]
+    /// μ_app  = f(γ̇_wall)      [constitutive relation]
     /// ```
     ///
-    /// For Newtonian fluids, returns constant viscosity.
+    /// The `viscosity_at_shear` method on `Fluid<T>` dispatches to the
+    /// correct rheological model. For Newtonian fluids this returns
+    /// constant viscosity regardless of shear rate.
+    ///
+    /// # References
+    ///
+    /// - Cho & Kensey (1991): Carreau-Yasuda model validation for blood
+    /// - Merrill (1969): Casson model for blood rheology
+    /// - Chien (1970): Shear-dependent viscosity measurements
     pub fn apparent_viscosity<F: FluidTrait<T>>(
         fluid: &F,
         q: T,
         channel: &Channel<T>,
     ) -> T {
-        // For non-Newtonian fluids, use shear-rate dependent viscosity
-        // For Newtonian fluids, this falls back to constant viscosity
-        let _gamma = Self::shear_rate(q, channel);
-        // Note: For non-Newtonian fluids, this would use shear-rate dependent viscosity
-        // For simplicity, we use the reference viscosity from the fluid
-        fluid.properties_at(T::from_f64_or_one(293.15), T::from_f64_or_one(101325.0))
-            .map(|state| state.dynamic_viscosity)
-            .unwrap_or_else(|_| T::from_f64_or_one(0.001))
+        let gamma = Self::shear_rate(q, channel);
+        // Use shear-rate-dependent viscosity through the Fluid trait.
+        // `viscosity_at_shear(shear_rate, temperature, pressure)` properly
+        // dispatches to Casson/Carreau-Yasuda/Power-Law/etc. for non-Newtonian
+        // fluids, and returns constant μ for Newtonian fluids.
+        let temperature = T::from_f64_or_one(310.15); // 37°C body temperature
+        let pressure = T::from_f64_or_one(101325.0);  // 1 atm
+        fluid.viscosity_at_shear(gamma, temperature, pressure)
+            .unwrap_or_else(|_| {
+                // Fallback: use reference viscosity if shear-based method fails
+                fluid.properties_at(temperature, pressure)
+                    .map(|state| state.dynamic_viscosity)
+                    .unwrap_or_else(|_| T::from_f64_or_one(0.0035)) // blood ~3.5 mPa·s
+            })
     }
 
     /// Calculate pressure drop across a channel using Hagen-Poiseuille equation
@@ -281,17 +298,22 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> Bifurcatio
             }));
         }
 
-        // Pressure drops in each daughter branch
+        // Pressure drops in parent and daughter branches
+        let dp_parent = Self::pressure_drop(&fluid, q_parent, &self.parent);
         let dp_1 = Self::pressure_drop(&fluid, q_1, &self.daughter1);
         let dp_2 = Self::pressure_drop(&fluid, q_2, &self.daughter2);
 
-        // Daughter pressures
-        let p_1 = p_parent - dp_1;
-        let p_2 = p_parent - dp_2;
+        // Junction pressure (after parent pressure drop)
+        let p_junction = p_parent - dp_parent;
+        
+        // Daughter pressures (after daughter pressure drops from junction)
+        let p_1 = p_junction - dp_1;
+        let p_2 = p_junction - dp_2;
 
         // Junction pressure error (should be small for symmetric bifurcations)
+        // This measures pressure continuity at the junction
         let junction_pressure_error =
-            (p_1 - p_2).abs() / (p_parent.abs() + T::from_f64_or_one(1.0));
+            (p_1 - p_2).abs() / (p_junction.abs() + T::from_f64_or_one(1.0));
 
         // Shear rates (for reporting)
         let gamma_1 = Self::shear_rate(q_1, &self.daughter1);
@@ -306,8 +328,10 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> Bifurcatio
             q_1,
             q_2,
             p_parent,
+            p_junction,
             p_1,
             p_2,
+            dp_parent,
             dp_1,
             dp_2,
             gamma_1,
@@ -334,13 +358,17 @@ pub struct BifurcationSolution<T: RealField + Copy> {
     /// Daughter 2 volumetric flow rate [m³/s]
     pub q_2: T,
 
-    /// Parent branch pressure [Pa]
+    /// Parent inlet pressure [Pa]
     pub p_parent: T,
-    /// Daughter 1 pressure [Pa]
+    /// Junction pressure [Pa]
+    pub p_junction: T,
+    /// Daughter 1 outlet pressure [Pa]
     pub p_1: T,
-    /// Daughter 2 pressure [Pa]
+    /// Daughter 2 outlet pressure [Pa]
     pub p_2: T,
 
+    /// Pressure drop in parent [Pa]
+    pub dp_parent: T,
     /// Pressure drop in daughter 1 [Pa]
     pub dp_1: T,
     /// Pressure drop in daughter 2 [Pa]
@@ -484,6 +512,16 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> Trifurcati
         let junction_pressure_error =
             (p_max - p_min).abs() / (p_parent.abs() + T::from_f64_or_one(1.0));
 
+        // Shear rates (for reporting)
+        let gamma_1 = BifurcationJunction::shear_rate(q_1, &self.daughter1);
+        let gamma_2 = BifurcationJunction::shear_rate(q_2, &self.daughter2);
+        let gamma_3 = BifurcationJunction::shear_rate(q_3, &self.daughter3);
+
+        // Apparent viscosities
+        let mu_1 = BifurcationJunction::apparent_viscosity(&fluid, q_1, &self.daughter1);
+        let mu_2 = BifurcationJunction::apparent_viscosity(&fluid, q_2, &self.daughter2);
+        let mu_3 = BifurcationJunction::apparent_viscosity(&fluid, q_3, &self.daughter3);
+
         Ok(TrifurcationSolution {
             q_parent,
             q_1,
@@ -496,6 +534,12 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> Trifurcati
             dp_1,
             dp_2,
             dp_3,
+            gamma_1,
+            gamma_2,
+            gamma_3,
+            mu_1,
+            mu_2,
+            mu_3,
             junction_pressure_error,
             mass_conservation_error: mass_error,
         })
@@ -527,6 +571,16 @@ pub struct TrifurcationSolution<T: RealField + Copy> {
     pub dp_1: T,
     pub dp_2: T,
     pub dp_3: T,
+
+    /// Wall shear rates [1/s]
+    pub gamma_1: T,
+    pub gamma_2: T,
+    pub gamma_3: T,
+
+    /// Apparent viscosities [Pa·s]
+    pub mu_1: T,
+    pub mu_2: T,
+    pub mu_3: T,
 
     /// Junction pressure error
     pub junction_pressure_error: T,

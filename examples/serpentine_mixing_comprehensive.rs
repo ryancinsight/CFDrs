@@ -149,8 +149,8 @@ impl SerpentineChannel {
 
     /// Total channel length
     fn total_length(&self) -> f64 {
-        let straight_total = self.straight_length * self.cycles;
-        let turn_length = std::f64::consts::PI * self.turn_radius * self.cycles;
+        let straight_total = self.straight_length * self.cycles as f64;
+        let turn_length = std::f64::consts::PI * self.turn_radius * self.cycles as f64;
         straight_total + turn_length
     }
 
@@ -572,7 +572,7 @@ fn validate_grid_convergence() {
     println!("{}", "-".repeat(70));
 
     // Simulated convergence study (Richardson extrapolation)
-    let grids = vec![
+    let grids: Vec<(f64, f64)> = vec![
         (20.0, 0.9500),  // Coarse
         (10.0, 0.9605),  // Medium
         (5.0, 0.9656),   // Fine
@@ -592,9 +592,9 @@ fn validate_grid_convergence() {
     println!("\n[Convergence Analysis]");
 
     // Calculate observed order of convergence
-    let r = 2.0; // refinement ratio
-    let e1 = (grids[0].1 - grids[1].1).abs();
-    let e2 = (grids[1].1 - grids[2].1).abs();
+    let r: f64 = 2.0; // refinement ratio
+    let e1: f64 = (grids[0].1 - grids[1].1).abs();
+    let e2: f64 = (grids[1].1 - grids[2].1).abs();
 
     if e1 > 1e-10 && e2 > 1e-10 {
         let p_obs = (e1 / e2).ln() / r.ln();
@@ -608,7 +608,7 @@ fn validate_grid_convergence() {
     }
 
     // Grid Convergence Index (GCI)
-    let gci_fine = 1.25 * (grids[2].1 - grids[3].1).abs() / ((2.0_f64).powf(2.0) - 1.0);
+    let gci_fine: f64 = 1.25 * (grids[2].1 - grids[3].1).abs() / ((2.0_f64).powf(2.0) - 1.0);
     println!("  Grid Convergence Index (fine): {:.4}", gci_fine);
     if gci_fine < 0.05 {
         println!("  ✓ GCI < 5%: Numerical solution is reliable");

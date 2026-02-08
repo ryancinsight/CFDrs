@@ -8,7 +8,7 @@ use pyo3::prelude::*;
 ///
 /// Contains all outputs from a bifurcation flow calculation including
 /// flow rates, pressures, shear rates, and validation errors.
-#[pyclass]
+#[pyclass(name = "BifurcationResult")]
 #[derive(Debug, Clone)]
 pub struct PyBifurcationResult {
     /// Parent inlet flow rate [m³/s]

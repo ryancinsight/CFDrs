@@ -12,3 +12,6 @@ pub use solver::{TrifurcationConfig3D, TrifurcationSolution3D, TrifurcationSolve
 
 /// Mesh for trifurcation (reuses bifurcation mesh structure)
 pub type TrifurcationMesh<T> = crate::bifurcation::BifurcationMesh<T>;
+
+#[cfg(test)]
+mod tests;

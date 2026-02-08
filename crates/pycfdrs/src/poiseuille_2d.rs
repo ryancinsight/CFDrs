@@ -166,7 +166,7 @@ impl PyPoiseuilleResult {
 }
 
 /// 2D Poiseuille flow solver with non-Newtonian blood rheology
-#[pyclass(name = "PoiseuilleSolver2D")]
+#[pyclass(name = "PoiseuilleSolver2D_Legacy")]
 pub struct PyPoiseuilleSolver {
     config: PyPoiseuilleConfig,
 }

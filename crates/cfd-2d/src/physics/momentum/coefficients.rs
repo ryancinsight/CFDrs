@@ -405,8 +405,12 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
                     // RHS = ρ * V * u_old / dt + pressure_force + body_force
                     // where pressure_force = -∂p/∂x * V (total force on control volume)
                     // and V = dx * dy (cell volume in 2D, per unit depth)
+                    //
+                    // NOTE: Use += to ACCUMULATE with any deferred correction (QUICK/TVD)
+                    // that was already added to the source term above. For Upwind scheme,
+                    // source is still zero here, so += is equivalent to =.
                     let volume = dx * dy;
-                    *source = fields.density.at(i, j) * volume * previous_velocity / dt
+                    *source += fields.density.at(i, j) * volume * previous_velocity / dt
                         + pressure_gradient * volume
                         + body_force * volume;
                 }

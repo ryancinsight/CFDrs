@@ -58,6 +58,7 @@ fn test_backward_facing_step_validation_success() {
         errors: vec![],
         convergence: vec![1e-5], // Converged
         execution_time: 0.0,
+        metrics: std::collections::HashMap::new(),
         metadata: std::collections::HashMap::new(),
     };
 
@@ -82,6 +83,7 @@ fn test_backward_facing_step_validation_tolerance() {
         errors: vec![],
         convergence: vec![1e-5],
         execution_time: 0.0,
+        metrics: std::collections::HashMap::new(),
         metadata: std::collections::HashMap::new(),
     };
     assert!(
@@ -96,6 +98,7 @@ fn test_backward_facing_step_validation_tolerance() {
         errors: vec![],
         convergence: vec![1e-5],
         execution_time: 0.0,
+        metrics: std::collections::HashMap::new(),
         metadata: std::collections::HashMap::new(),
     };
     assert!(
@@ -110,6 +113,7 @@ fn test_backward_facing_step_validation_tolerance() {
         errors: vec![],
         convergence: vec![1e-5],
         execution_time: 0.0,
+        metrics: std::collections::HashMap::new(),
         metadata: std::collections::HashMap::new(),
     };
     assert!(
@@ -129,6 +133,7 @@ fn test_backward_facing_step_validation_failure_no_convergence() {
         errors: vec![],
         convergence: vec![0.1], // Did not converge
         execution_time: 0.0,
+        metrics: std::collections::HashMap::new(),
         metadata: std::collections::HashMap::new(),
     };
 
@@ -150,6 +155,7 @@ fn test_backward_facing_step_validation_failure_unphysical() {
         errors: vec![],
         convergence: vec![1e-5],
         execution_time: 0.0,
+        metrics: std::collections::HashMap::new(),
         metadata: std::collections::HashMap::new(),
     };
 
@@ -209,6 +215,7 @@ fn test_flow_over_cylinder_validation_success() {
         errors: vec![],
         convergence: vec![1e-5], // Converged
         execution_time: 0.0,
+        metrics: std::collections::HashMap::new(),
         metadata: std::collections::HashMap::new(),
     };
 
@@ -235,6 +242,7 @@ fn test_flow_over_cylinder_validation_cd_tolerance() {
         errors: vec![],
         convergence: vec![1e-5],
         execution_time: 0.0,
+        metrics: std::collections::HashMap::new(),
         metadata: std::collections::HashMap::new(),
     };
     assert!(
@@ -249,6 +257,7 @@ fn test_flow_over_cylinder_validation_cd_tolerance() {
         errors: vec![],
         convergence: vec![1e-5],
         execution_time: 0.0,
+        metrics: std::collections::HashMap::new(),
         metadata: std::collections::HashMap::new(),
     };
     assert!(
@@ -268,6 +277,7 @@ fn test_flow_over_cylinder_validation_cl_tolerance() {
         errors: vec![],
         convergence: vec![1e-5],
         execution_time: 0.0,
+        metrics: std::collections::HashMap::new(),
         metadata: std::collections::HashMap::new(),
     };
     assert!(
@@ -282,6 +292,7 @@ fn test_flow_over_cylinder_validation_cl_tolerance() {
         errors: vec![],
         convergence: vec![1e-5],
         execution_time: 0.0,
+        metrics: std::collections::HashMap::new(),
         metadata: std::collections::HashMap::new(),
     };
     assert!(
@@ -301,6 +312,7 @@ fn test_flow_over_cylinder_validation_failure_no_convergence() {
         errors: vec![],
         convergence: vec![0.01], // Did not converge
         execution_time: 0.0,
+        metrics: std::collections::HashMap::new(),
         metadata: std::collections::HashMap::new(),
     };
 
@@ -322,6 +334,7 @@ fn test_flow_over_cylinder_validation_failure_unphysical_cd() {
         errors: vec![],
         convergence: vec![1e-5],
         execution_time: 0.0,
+        metrics: std::collections::HashMap::new(),
         metadata: std::collections::HashMap::new(),
     };
 
@@ -343,6 +356,7 @@ fn test_flow_over_cylinder_validation_failure_unphysical_cl() {
         errors: vec![],
         convergence: vec![1e-5],
         execution_time: 0.0,
+        metrics: std::collections::HashMap::new(),
         metadata: std::collections::HashMap::new(),
     };
 

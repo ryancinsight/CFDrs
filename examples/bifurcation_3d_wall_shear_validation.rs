@@ -541,19 +541,19 @@ fn validate_grid_convergence_3d() {
         (145000, 0.022),
     ];
 
-    let finest = grids[grids.len() - 1].1;
+    let finest: f64 = grids[grids.len() - 1].1;
 
     for (elements, error) in &grids {
-        let delta = (finest - error).abs();
+        let delta: f64 = (finest - error).abs();
         let order = if delta < 0.001 { "✓" } else if delta < 0.01 { "•" } else { "→" };
         println!("{:>20} {:>15.4} {:>18.4} {:>15}", elements, error, delta, order);
     }
 
     println!("\n[Convergence Analysis]");
-    let r = 2.0; // Refinement ratio
-    let e1 = (grids[0].1 - grids[1].1).abs();
-    let e2 = (grids[1].1 - grids[2].1).abs();
-    let e3 = (grids[2].1 - grids[3].1).abs();
+    let r: f64 = 2.0; // Refinement ratio
+    let e1: f64 = (grids[0].1 - grids[1].1).abs();
+    let e2: f64 = (grids[1].1 - grids[2].1).abs();
+    let e3: f64 = (grids[2].1 - grids[3].1).abs();
 
     let p12 = (e1 / e2).ln() / r.ln();
     let p23 = (e2 / e3).ln() / r.ln();

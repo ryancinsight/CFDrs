@@ -52,9 +52,11 @@
 //! - ISO 5167-1:2003. "Measurement of fluid flow by means of pressure differential devices"
 //! - White, F.M. (2011). "Fluid Mechanics" (7th ed.)
 
+use super::ns_fvm_2d::{BloodModel, NavierStokesSolver2D, SIMPLEConfig, StaggeredGrid2D};
 use cfd_core::conversion::SafeFromF64;
+use cfd_core::error::Result as CfdResult;
 use nalgebra::RealField;
-use num_traits::{FromPrimitive, ToPrimitive};
+use num_traits::{Float, FromPrimitive, ToPrimitive};
 use serde::{Deserialize, Serialize};
 
 // ============================================================================
@@ -147,6 +149,42 @@ impl<T: RealField + Copy + FromPrimitive> VenturiGeometry<T> {
     /// Get throat cross-sectional area [m²]
     pub fn area_throat(&self) -> T {
         self.w_throat * self.height
+    }
+
+    /// Check if a point (x, y) is within the fluid domain
+    pub fn contains(&self, x: T, y: T) -> bool {
+        let half_w_inlet = self.w_inlet / T::from_f64(2.0).unwrap();
+        let half_w_throat = self.w_throat / T::from_f64(2.0).unwrap();
+
+        // X-ranges
+        let x_inlet_end = self.l_inlet;
+        let x_converge_end = x_inlet_end + self.l_converge;
+        let x_throat_end = x_converge_end + self.l_throat;
+        let x_diverge_end = x_throat_end + self.l_diverge;
+
+        if x < T::zero() || x > x_diverge_end {
+            return false;
+        }
+
+        // Calculate local width at x
+        let w_local = if x < x_inlet_end {
+            self.w_inlet
+        } else if x < x_converge_end {
+            // Linear convergence
+            let frac = (x - x_inlet_end) / self.l_converge;
+            self.w_inlet + frac * (self.w_throat - self.w_inlet)
+        } else if x < x_throat_end {
+            self.w_throat
+        } else if x < x_diverge_end {
+            // Linear divergence
+            let frac = (x - x_throat_end) / self.l_diverge;
+            self.w_throat + frac * (self.w_inlet - self.w_throat)
+        } else {
+            self.w_inlet
+        };
+
+        let half_w = w_local / T::from_f64(2.0).unwrap();
+        y.abs() <= half_w
     }
 }
 
@@ -399,6 +437,119 @@ impl<T: RealField + Copy + FromPrimitive> VenturiFlowSolution<T> {
 }
 
 // ============================================================================
+// Discretized Venturi Solver
+// ============================================================================
+
+/// 2D Venturi flow solver using Finite Volume Method (FVM)
+pub struct VenturiSolver2D<T: RealField + Copy + Float + FromPrimitive> {
+    geometry: VenturiGeometry<T>,
+    solver: NavierStokesSolver2D<T>,
+}
+
+impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> VenturiSolver2D<T> {
+    /// Create a new discretized Venturi solver
+    pub fn new(
+        geometry: VenturiGeometry<T>,
+        blood: BloodModel<T>,
+        density: T,
+        nx: usize,
+        ny: usize,
+    ) -> Self {
+        let grid = StaggeredGrid2D::new(geometry.total_length(), geometry.w_inlet, nx, ny);
+        let config = SIMPLEConfig::default();
+        let mut solver = NavierStokesSolver2D::new(grid, blood, density, config);
+
+        // Populate mask from geometry
+        let half_h = geometry.w_inlet / T::from_f64(2.0).unwrap();
+        for i in 0..nx {
+            for j in 0..ny {
+                let x = (T::from_usize(i).unwrap() + T::from_f64(0.5).unwrap()) * solver.grid.dx;
+                // Center-shifted y for symmetry at y=0
+                let y = (T::from_usize(j).unwrap() + T::from_f64(0.5).unwrap()) * solver.grid.dy - half_h;
+                solver.field.mask[i][j] = geometry.contains(x, y);
+            }
+        }
+
+        Self { geometry, solver }
+    }
+
+    /// Solve the Venturi flow for a given inlet velocity
+    pub fn solve(&mut self, u_inlet: T) -> CfdResult<VenturiFlowSolution<T>> {
+        let _ = self.solver
+            .solve(u_inlet)
+            .map_err(|e| cfd_core::error::Error::Solver(e.to_string()))?;
+        
+        // Extract metrics
+        let nx = self.solver.grid.nx;
+        let ny = self.solver.grid.ny;
+        
+        // Average inlet velocity from the internal faces (first fluid faces)
+        let mut u_inlet_sim = T::zero();
+        let mut count_inlet = 0;
+        for j in 0..ny {
+            if self.solver.field.mask[0][j] {
+                u_inlet_sim = u_inlet_sim + self.solver.field.u[1][j];
+                count_inlet += 1;
+            }
+        }
+        if count_inlet > 0 {
+            u_inlet_sim = u_inlet_sim / T::from_usize(count_inlet).unwrap();
+        }
+
+        // Find throat section (max velocity)
+        let mut u_max = T::zero();
+        let mut p_throat = T::zero();
+        for i in 0..nx {
+            for j in 0..ny {
+                if self.solver.field.mask[i][j] {
+                    if self.solver.field.u[i][j] > u_max {
+                        u_max = self.solver.field.u[i][j];
+                        p_throat = self.solver.field.p[i][j];
+                    }
+                }
+            }
+        }
+
+        // Average outlet pressure (last fluid column)
+        let mut p_outlet = T::zero();
+        let mut count_outlet = 0;
+        for j in 0..ny {
+            if self.solver.field.mask[nx-1][j] {
+                p_outlet = p_outlet + self.solver.field.p[nx-1][j];
+                count_outlet += 1;
+            }
+        }
+        if count_outlet > 0 {
+            p_outlet = p_outlet / T::from_usize(count_outlet).unwrap();
+        }
+
+        let p_inlet = self.solver.field.p[0][ny/2]; // Reference inlet pressure
+        
+        let dp_throat = p_inlet - p_throat;
+        let dp_recovery = p_outlet - p_inlet;
+        
+        let rho = self.solver.density;
+        let q_dyn = T::from_f64(0.5).unwrap() * rho * u_inlet * u_inlet;
+        let one = T::from_f64(1.0).unwrap();
+        let cp_throat = -dp_throat / num_traits::Float::max(q_dyn, one);
+        let cp_recovery = dp_recovery / num_traits::Float::max(q_dyn, one);
+
+        Ok(VenturiFlowSolution {
+            u_inlet: u_inlet_sim,
+            p_inlet,
+            u_throat: u_max,
+            p_throat,
+            u_outlet: u_inlet_sim, // Assumes symmetric inlet/outlet
+            p_outlet,
+            dp_throat,
+            dp_recovery,
+            cp_throat,
+            cp_recovery,
+        })
+    }
+}
+
+// ============================================================================
 // Validation Against Literature
 // ============================================================================
 
@@ -531,5 +682,24 @@ mod tests {
 
         // Outlet pressure should be less than inlet due to loss
         assert!(p_outlet < viscous.bernoulli.p_inlet);
+    }
+
+    #[test]
+    fn test_discretized_venturi_solver_convergence() {
+        let geom = VenturiGeometry::<f64>::iso_5167_standard();
+        let blood = BloodModel::Newtonian(1.0e-3);
+        let density = 1060.0;
+        
+        let mut solver = VenturiSolver2D::new(geom, blood, density, 40, 20);
+        let result = solver.solve(0.1); // 100 mm/s
+        
+        assert!(result.is_ok(), "Solver failed: {:?}", result.err());
+        let sol = result.unwrap();
+        println!("Venturi Solution: {:?}", sol);
+        
+        // Qualification checks
+        assert!(sol.u_throat > sol.u_inlet, "Velocity should increase in throat ({:.4} > {:.4})", sol.u_throat, sol.u_inlet);
+        assert!(sol.p_throat < sol.p_inlet, "Pressure should decrease in throat ({:.4} < {:.4})", sol.p_throat, sol.p_inlet);
+        assert!(sol.cp_throat < 0.0, "Pressure coefficient at throat should be negative ({:.4})", sol.cp_throat);
     }
 }

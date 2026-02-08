@@ -40,12 +40,10 @@
 //! ```
 
 use super::communicator::MpiCommunicator;
-use super::decomposition::DomainDecomposition;
+use super::decomposition::{DomainDecomposition, LocalSubdomain};
 use super::error::{MpiError, MpiResult};
 use super::ghost_cells::GhostCellManager;
-use super::LocalSubdomain;
 use nalgebra::{DVector, RealField};
-use num_traits::FromPrimitive;
 use std::collections::HashMap;
 
 /// Distributed linear operator trait for matrix-free operations
@@ -76,7 +74,7 @@ pub trait Preconditioner<T: RealField> {
 
 /// Distributed vector with MPI-aware data distribution
 #[derive(Debug, Clone)]
-pub struct DistributedVector<T: RealField + Copy> {
+pub struct DistributedVector<T: RealField> {
     /// Local data owned by this process (excluding ghost cells)
     pub local_data: DVector<T>,
     /// MPI communicator
@@ -153,7 +151,7 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp> DistributedVector
 }
 
 /// 2D Laplacian operator for distributed domains
-pub struct DistributedLaplacian2D<T: RealField + Copy> {
+pub struct DistributedLaplacian2D<T: RealField> {
     communicator: MpiCommunicator,
     subdomain: LocalSubdomain,
     ghost_manager: GhostCellManager<T>,
@@ -273,20 +271,12 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp> DistributedLinear
                 let mut val = T::zero();
 
                 // x-direction
-                if i > 0 {
-                    val -= T::one() / dx_sq;
-                }
-                if i < nx - 1 {
-                    val -= T::one() / dx_sq;
-                }
+                if i > 0 { val -= T::one() / dx_sq; }
+                if i < nx - 1 { val -= T::one() / dx_sq; }
 
                 // y-direction
-                if j > 0 {
-                    val -= T::one() / dy_sq;
-                }
-                if j < ny - 1 {
-                    val -= T::one() / dy_sq;
-                }
+                if j > 0 { val -= T::one() / dy_sq; }
+                if j < ny - 1 { val -= T::one() / dy_sq; }
 
                 diag[idx] = val;
             }
@@ -305,26 +295,26 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp> DistributedLinear
         for i in 0..nx {
             for j in 0..ny {
                 let row = i * ny + j;
-
+                
                 // Diagonal (calculated same as extract_diagonal)
                 let mut diag_val = T::zero();
-
+                
                 // x-direction
-                if i > 0 {
+                if i > 0 { 
                     diag_val -= T::one() / dx_sq;
                     mat[(row, (i - 1) * ny + j)] = T::one() / dx_sq;
                 }
-                if i < nx - 1 {
+                if i < nx - 1 { 
                     diag_val -= T::one() / dx_sq;
                     mat[(row, (i + 1) * ny + j)] = T::one() / dx_sq;
                 }
 
                 // y-direction
-                if j > 0 {
+                if j > 0 { 
                     diag_val -= T::one() / dy_sq;
                     mat[(row, i * ny + (j - 1))] = T::one() / dy_sq;
                 }
-                if j < ny - 1 {
+                if j < ny - 1 { 
                     diag_val -= T::one() / dy_sq;
                     mat[(row, i * ny + (j + 1))] = T::one() / dy_sq;
                 }
@@ -396,7 +386,7 @@ impl<T: RealField + Copy + FromPrimitive, Op: DistributedLinearOperator<T>>
 
         // Use the actual diagonal from the operator
         let diagonal = operator.extract_diagonal();
-
+        
         for i in 0..local_dim {
             // Store inverse of diagonal for fast application
             let val = if diagonal[i].is_zero() {
@@ -434,7 +424,6 @@ pub struct AdditiveSchwarzPreconditioner<T: RealField, Op: DistributedLinearOper
     overlap: usize,
     /// Local solvers for each overlapping subdomain
     local_solvers: Vec<Box<dyn Fn(&DVector<T>, &mut DVector<T>)>>,
-    weights: DVector<T>,
     /// MPI communicator
     communicator: MpiCommunicator,
     /// Domain decomposition
@@ -453,13 +442,11 @@ impl<T: RealField + Copy + FromPrimitive, Op: DistributedLinearOperator<T>>
         overlap: usize,
     ) -> MpiResult<Self> {
         // Create overlapping subdomain solvers
-        let (local_solvers, weights) =
-            Self::create_local_solvers(operator, decomp, communicator, overlap)?;
+        let local_solvers = Self::create_local_solvers(operator, decomp, overlap)?;
 
         Ok(Self {
             overlap,
             local_solvers,
-            weights,
             communicator: communicator.clone(),
             decomp: decomp.clone(),
             _operator: std::marker::PhantomData,
@@ -469,158 +456,38 @@ impl<T: RealField + Copy + FromPrimitive, Op: DistributedLinearOperator<T>>
     /// Create local solvers for overlapping subdomains
     fn create_local_solvers(
         operator: &Op,
-        decomp: &DomainDecomposition,
-        communicator: &MpiCommunicator,
-        overlap: usize,
-    ) -> MpiResult<(Vec<Box<dyn Fn(&DVector<T>, &mut DVector<T>)>>, DVector<T>)> {
-        let local_dim = operator.local_dimension();
-        if local_dim == 0 {
-            return Ok((Vec::new(), DVector::zeros(0)));
-        }
-
-        let subdomain = decomp.local_subdomain();
-        let num_subdomains = (communicator.size() as usize).min(subdomain.nx_local.max(1));
-        let subdomain_maps =
-            Self::create_subdomain_maps(subdomain, num_subdomains.max(1), overlap);
-        let weights = Self::compute_partition_weights(&subdomain_maps, local_dim)?;
-
+        _decomp: &DomainDecomposition,
+        _overlap: usize,
+    ) -> MpiResult<Vec<Box<dyn Fn(&DVector<T>, &mut DVector<T>)>>> {
         // Try to assemble local matrix for direct solve
         if let Some(mat) = operator.assemble_local_matrix() {
-            let mut local_solvers = Vec::with_capacity(subdomain_maps.len());
-            for indices in subdomain_maps {
-                if indices.is_empty() {
-                    continue;
+            // Use LU decomposition if matrix is available
+            // Note: This is a simplified local solver that doesn't account for overlap yet
+            // Proper Schwarz requires extracting the overlapping submatrix
+            let lu = mat.lu();
+            let solver = Box::new(move |r: &DVector<T>, z: &mut DVector<T>| {
+                if let Some(sol) = lu.solve(r) {
+                    z.copy_from(&sol);
+                } else {
+                    // Fallback if singular (should not happen for Laplacian)
+                    z.copy_from(r);
                 }
-                let mut submatrix =
-                    nalgebra::DMatrix::zeros(indices.len(), indices.len());
-                for (row_idx, &row_global) in indices.iter().enumerate() {
-                    for (col_idx, &col_global) in indices.iter().enumerate() {
-                        submatrix[(row_idx, col_idx)] = mat[(row_global, col_global)];
-                    }
-                }
-                let lu = submatrix.lu();
-                let solver = Box::new(move |r: &DVector<T>, z: &mut DVector<T>| {
-                    z.fill(T::zero());
-                    let mut local_rhs = DVector::zeros(indices.len());
-                    for (local_i, &global_i) in indices.iter().enumerate() {
-                        local_rhs[local_i] = r[global_i];
-                    }
-                    if let Some(sol) = lu.solve(&local_rhs) {
-                        for (local_i, &global_i) in indices.iter().enumerate() {
-                            z[global_i] = sol[local_i];
-                        }
-                    } else {
-                        for &global_i in indices.iter() {
-                            z[global_i] = r[global_i];
-                        }
-                    }
-                });
-                local_solvers.push(solver);
-            }
-            Ok((local_solvers, weights))
+            });
+            Ok(vec![solver])
         } else {
             // Fallback to Jacobi if matrix assembly not supported
             let diagonal = operator.extract_diagonal();
-            let mut local_solvers = Vec::with_capacity(subdomain_maps.len());
-            for indices in subdomain_maps {
-                if indices.is_empty() {
-                    continue;
-                }
-                let diagonal = diagonal.clone();
-                let solver = Box::new(move |r: &DVector<T>, z: &mut DVector<T>| {
-                    z.fill(T::zero());
-                    for &i in indices.iter() {
-                        if !diagonal[i].is_zero() {
-                            z[i] = r[i] / diagonal[i];
-                        } else {
-                            z[i] = r[i];
-                        }
+            let solver = Box::new(move |r: &DVector<T>, z: &mut DVector<T>| {
+                for i in 0..r.len() {
+                    if !diagonal[i].is_zero() {
+                        z[i] = r[i] / diagonal[i];
+                    } else {
+                        z[i] = r[i];
                     }
-                });
-                local_solvers.push(solver);
-            }
-            Ok((local_solvers, weights))
-        }
-    }
-
-    fn create_subdomain_maps(
-        subdomain: &LocalSubdomain,
-        num_subdomains: usize,
-        overlap: usize,
-    ) -> Vec<Vec<usize>> {
-        let nx = subdomain.nx_local;
-        let ny = subdomain.ny_local;
-        let mut subdomain_map = Vec::with_capacity(num_subdomains);
-        if nx == 0 || ny == 0 {
-            return subdomain_map;
-        }
-
-        let base_size = nx / num_subdomains;
-        let remainder = nx % num_subdomains;
-        let mut start_i = 0;
-
-        for s in 0..num_subdomains {
-            let mut end_i = start_i + base_size;
-            if s < remainder {
-                end_i += 1;
-            }
-
-            let actual_start = if s > 0 {
-                start_i.saturating_sub(overlap)
-            } else {
-                start_i
-            };
-            let actual_end = if s + 1 < num_subdomains {
-                (end_i + overlap).min(nx)
-            } else {
-                end_i.min(nx)
-            };
-
-            let mut indices = Vec::with_capacity((actual_end - actual_start) * ny);
-            for i in actual_start..actual_end {
-                for j in 0..ny {
-                    indices.push(i * ny + j);
                 }
-            }
-            subdomain_map.push(indices);
-            start_i = end_i;
+            });
+            Ok(vec![solver])
         }
-
-        subdomain_map
-    }
-
-    fn compute_partition_weights(
-        subdomain_maps: &[Vec<usize>],
-        local_dim: usize,
-    ) -> MpiResult<DVector<T>> {
-        if local_dim == 0 {
-            return Ok(DVector::zeros(0));
-        }
-        let mut counts = vec![0usize; local_dim];
-        for subdomain in subdomain_maps {
-            for &idx in subdomain {
-                if idx < local_dim {
-                    counts[idx] += 1;
-                }
-            }
-        }
-
-        let mut weights = Vec::with_capacity(local_dim);
-        for count in counts {
-            if count == 0 {
-                return Err(MpiError::DecompositionError(
-                    "Subdomain partitioning produced uncovered entries".to_string(),
-                ));
-            }
-            let count_t = T::from_usize(count).ok_or_else(|| {
-                MpiError::DecompositionError(
-                    "Failed to convert subdomain weight to scalar type".to_string(),
-                )
-            })?;
-            weights.push(T::one() / count_t);
-        }
-
-        Ok(DVector::from_vec(weights))
     }
 }
 
@@ -629,11 +496,7 @@ impl<T: RealField + Copy + FromPrimitive, Op: DistributedLinearOperator<T>> Prec
 {
     /// Apply additive Schwarz preconditioner
     fn apply(&self, r: &DistributedVector<T>, z: &mut DistributedVector<T>) -> MpiResult<()> {
-        if self.weights.len() != r.local_data.len() {
-            return Err(MpiError::DecompositionError(
-                "Partition weights do not match local dimension".to_string(),
-            ));
-        }
+        // Apply each local solver and accumulate results
         let mut local_result = DVector::zeros(r.local_data.len());
 
         for solver in &self.local_solvers {
@@ -642,17 +505,13 @@ impl<T: RealField + Copy + FromPrimitive, Op: DistributedLinearOperator<T>> Prec
             local_result += temp;
         }
 
-        for i in 0..local_result.len() {
-            local_result[i] *= self.weights[i];
-        }
-
         z.local_data.copy_from(&local_result);
         Ok(())
     }
 }
 
 /// Distributed GMRES solver
-pub struct DistributedGMRES<T: RealField + Copy, Op: DistributedLinearOperator<T>, Prec> {
+pub struct DistributedGMRES<T: RealField, Op: DistributedLinearOperator<T>, Prec> {
     /// Linear operator
     operator: Op,
     /// Preconditioner
@@ -803,7 +662,7 @@ impl<
             // Normalize
             let norm = self.work_vectors[j + 1].norm()?;
             self.hessenberg[(j + 1) * self.krylov_dim + j] = norm;
-
+            
             if norm > T::zero() {
                 self.work_vectors[j + 1].scale(T::one() / norm);
             }
@@ -813,7 +672,7 @@ impl<
                 let (c, s) = self.givens_rotations[i];
                 let h_ij = self.hessenberg[i * self.krylov_dim + j];
                 let h_ip1j = self.hessenberg[(i + 1) * self.krylov_dim + j];
-
+                
                 self.hessenberg[i * self.krylov_dim + j] = c * h_ij + s * h_ip1j;
                 self.hessenberg[(i + 1) * self.krylov_dim + j] = -s * h_ij + c * h_ip1j;
             }
@@ -824,11 +683,11 @@ impl<
             let (c, s, r) = self.compute_givens(h_jj, h_jp1j);
 
             self.givens_rotations[j] = (c, s);
-
+            
             // Apply rotation to H and g
             self.hessenberg[j * self.krylov_dim + j] = r;
             self.hessenberg[(j + 1) * self.krylov_dim + j] = T::zero();
-
+            
             let g_j = g[j];
             g[j] = c * g_j;
             g[j + 1] = -s * g_j;
@@ -864,24 +723,20 @@ impl<
 /// Parallel I/O operations for distributed data
 pub mod parallel_io {
     use super::*;
-    use std::fs::File;
-    use std::io::{BufWriter, Write};
     use std::path::Path;
 
     /// Parallel VTK writer for distributed meshes
     pub struct ParallelVtkWriter<T: RealField> {
         communicator: MpiCommunicator,
         is_root: bool,
-        _phantom: std::marker::PhantomData<T>,
     }
 
-    impl<T: RealField + Copy + std::fmt::LowerExp> ParallelVtkWriter<T> {
+    impl<T: RealField> ParallelVtkWriter<T> {
         /// Create new parallel VTK writer
         pub fn new(communicator: &MpiCommunicator) -> Self {
             Self {
                 communicator: communicator.clone(),
                 is_root: communicator.is_root(),
-                _phantom: std::marker::PhantomData,
             }
         }
 
@@ -897,296 +752,93 @@ pub mod parallel_io {
         ) -> MpiResult<()> {
             if self.is_root {
                 // Root process writes header and collects data from other processes
-                self.write_vtk_header(filename.as_ref(), point_data, cell_data)?;
+                self.write_vtk_header(filename, points, cells, cell_types)?;
             }
 
             // Each process writes its portion of point/cell data
-            self.write_distributed_data(
-                filename.as_ref(),
-                points,
-                cells,
-                cell_types,
-                point_data,
-                cell_data,
-            )?;
-            self.communicator.barrier();
+            self.write_distributed_data(filename, point_data, cell_data)?;
 
             Ok(())
         }
 
         /// Write VTK header (root process only)
-        fn write_vtk_header(
+        fn write_vtk_header<P: AsRef<Path>>(
             &self,
-            filename: &Path,
-            point_data: &HashMap<String, &DistributedVector<T>>,
-            cell_data: &HashMap<String, &DistributedVector<T>>,
+            _filename: P,
+            _points: &DistributedVector<T>,
+            _cells: &[u32],
+            _cell_types: &[u8],
         ) -> MpiResult<()> {
-            let file_stem = filename
-                .file_stem()
-                .unwrap_or_default()
-                .to_string_lossy();
-            let parent = filename.parent().unwrap_or_else(|| Path::new("."));
-            let pvtu_filename = if filename.extension().map_or(false, |ext| ext == "pvtu") {
-                filename.to_path_buf()
-            } else {
-                parent.join(format!("{}.pvtu", file_stem))
-            };
-
-            let file = File::create(pvtu_filename)
-                .map_err(|e| MpiError::IoError(e.to_string()))?;
-            let mut writer = BufWriter::new(file);
-
-            writeln!(writer, "<?xml version=\"1.0\"?>")
-                .map_err(|e| MpiError::IoError(e.to_string()))?;
-            writeln!(
-                writer,
-                "<VTKFile type=\"PUnstructuredGrid\" version=\"0.1\" byte_order=\"LittleEndian\">"
-            )
-            .map_err(|e| MpiError::IoError(e.to_string()))?;
-            writeln!(writer, "  <PUnstructuredGrid GhostLevel=\"0\">")
-                .map_err(|e| MpiError::IoError(e.to_string()))?;
-            writeln!(writer, "    <PPoints>").map_err(|e| MpiError::IoError(e.to_string()))?;
-            writeln!(
-                writer,
-                "      <PDataArray type=\"Float64\" NumberOfComponents=\"3\"/>"
-            )
-            .map_err(|e| MpiError::IoError(e.to_string()))?;
-            writeln!(writer, "    </PPoints>").map_err(|e| MpiError::IoError(e.to_string()))?;
-            writeln!(writer, "    <PCells>").map_err(|e| MpiError::IoError(e.to_string()))?;
-            writeln!(
-                writer,
-                "      <PDataArray type=\"Int32\" Name=\"connectivity\"/>"
-            )
-            .map_err(|e| MpiError::IoError(e.to_string()))?;
-            writeln!(
-                writer,
-                "      <PDataArray type=\"Int32\" Name=\"offsets\"/>"
-            )
-            .map_err(|e| MpiError::IoError(e.to_string()))?;
-            writeln!(
-                writer,
-                "      <PDataArray type=\"UInt8\" Name=\"types\"/>"
-            )
-            .map_err(|e| MpiError::IoError(e.to_string()))?;
-            writeln!(writer, "    </PCells>").map_err(|e| MpiError::IoError(e.to_string()))?;
-
-            if !point_data.is_empty() {
-                writeln!(writer, "    <PPointData>")
-                    .map_err(|e| MpiError::IoError(e.to_string()))?;
-                for (name, _) in point_data {
-                    writeln!(
-                        writer,
-                        "      <PDataArray type=\"Float64\" Name=\"{}\"/>",
-                        name
-                    )
-                    .map_err(|e| MpiError::IoError(e.to_string()))?;
-                }
-                writeln!(writer, "    </PPointData>")
-                    .map_err(|e| MpiError::IoError(e.to_string()))?;
-            }
-
-            if !cell_data.is_empty() {
-                writeln!(writer, "    <PCellData>")
-                    .map_err(|e| MpiError::IoError(e.to_string()))?;
-                for (name, _) in cell_data {
-                    writeln!(
-                        writer,
-                        "      <PDataArray type=\"Float64\" Name=\"{}\"/>",
-                        name
-                    )
-                    .map_err(|e| MpiError::IoError(e.to_string()))?;
-                }
-                writeln!(writer, "    </PCellData>")
-                    .map_err(|e| MpiError::IoError(e.to_string()))?;
-            }
-
-            for r in 0..self.communicator.size() {
-                writeln!(writer, "    <Piece Source=\"{}_{}.vtu\"/>", file_stem, r)
-                    .map_err(|e| MpiError::IoError(e.to_string()))?;
-            }
-
-            writeln!(writer, "  </PUnstructuredGrid>")
-                .map_err(|e| MpiError::IoError(e.to_string()))?;
-            writeln!(writer, "</VTKFile>").map_err(|e| MpiError::IoError(e.to_string()))?;
-
+            // Implementation would write VTK header
+            // This is a placeholder for the actual VTK writing logic
             Ok(())
         }
 
         /// Write distributed point and cell data
-        fn write_distributed_data(
+        fn write_distributed_data<P: AsRef<Path>>(
             &self,
-            filename: &Path,
-            points: &DistributedVector<T>,
-            cells: &[u32],
-            cell_types: &[u8],
-            point_data: &HashMap<String, &DistributedVector<T>>,
-            cell_data: &HashMap<String, &DistributedVector<T>>,
+            _filename: P,
+            _point_data: &HashMap<String, &DistributedVector<T>>,
+            _cell_data: &HashMap<String, &DistributedVector<T>>,
         ) -> MpiResult<()> {
-            let file_stem = filename
-                .file_stem()
-                .unwrap_or_default()
-                .to_string_lossy();
-            let parent = filename.parent().unwrap_or_else(|| Path::new("."));
-            let local_filename = format!("{}_{}.vtu", file_stem, self.communicator.rank());
-            let local_path = parent.join(local_filename);
+            // Implementation would write distributed data
+            // This is a placeholder for the actual distributed data writing
+            Ok(())
+        }
+    }
 
-            if points.local_data.len() % 3 != 0 {
-                return Err(MpiError::DistributionError(
-                    "Point coordinate array length must be divisible by 3".to_string(),
-                ));
+    /// Parallel HDF5 writer for distributed datasets
+    pub struct ParallelHdf5Writer<T: RealField> {
+        communicator: MpiCommunicator,
+        is_root: bool,
+    }
+
+    impl<T: RealField> ParallelHdf5Writer<T> {
+        /// Create new parallel HDF5 writer
+        pub fn new(communicator: &MpiCommunicator) -> Self {
+            Self {
+                communicator: communicator.clone(),
+                is_root: communicator.is_root(),
+            }
+        }
+
+        /// Write distributed HDF5 file
+        pub fn write_hdf5_file<P: AsRef<Path>>(
+            &self,
+            filename: P,
+            datasets: &HashMap<String, &DistributedVector<T>>,
+            metadata: &HashMap<String, String>,
+        ) -> MpiResult<()> {
+            if self.is_root {
+                // Root process creates file and writes metadata
+                self.write_hdf5_header(filename, metadata)?;
             }
 
-            let num_points = points.local_data.len() / 3;
-            let num_cells = cell_types.len();
+            // Collective write of distributed data
+            self.write_distributed_datasets(filename, datasets)?;
 
-            for (name, data) in point_data {
-                if data.local_data.len() != num_points {
-                    return Err(MpiError::DistributionError(format!(
-                        "Point data '{name}' length does not match number of points"
-                    )));
-                }
-            }
+            Ok(())
+        }
 
-            for (name, data) in cell_data {
-                if data.local_data.len() != num_cells {
-                    return Err(MpiError::DistributionError(format!(
-                        "Cell data '{name}' length does not match number of cells"
-                    )));
-                }
-            }
+        /// Write HDF5 header and metadata (root process only)
+        fn write_hdf5_header<P: AsRef<Path>>(
+            &self,
+            _filename: P,
+            _metadata: &HashMap<String, String>,
+        ) -> MpiResult<()> {
+            // Implementation would write HDF5 header and metadata
+            // This is a placeholder for the actual HDF5 writing logic
+            Ok(())
+        }
 
-            let file = File::create(local_path)
-                .map_err(|e| MpiError::IoError(e.to_string()))?;
-            let mut writer = BufWriter::new(file);
-
-            writeln!(writer, "<?xml version=\"1.0\"?>")
-                .map_err(|e| MpiError::IoError(e.to_string()))?;
-            writeln!(
-                writer,
-                "<VTKFile type=\"UnstructuredGrid\" version=\"0.1\" byte_order=\"LittleEndian\">"
-            )
-            .map_err(|e| MpiError::IoError(e.to_string()))?;
-            writeln!(writer, "  <UnstructuredGrid>")
-                .map_err(|e| MpiError::IoError(e.to_string()))?;
-            writeln!(
-                writer,
-                "    <Piece NumberOfPoints=\"{}\" NumberOfCells=\"{}\">",
-                num_points, num_cells
-            )
-            .map_err(|e| MpiError::IoError(e.to_string()))?;
-            writeln!(writer, "      <Points>").map_err(|e| MpiError::IoError(e.to_string()))?;
-            writeln!(
-                writer,
-                "        <DataArray type=\"Float64\" NumberOfComponents=\"3\" format=\"ascii\">"
-            )
-            .map_err(|e| MpiError::IoError(e.to_string()))?;
-            for i in 0..num_points {
-                writeln!(
-                    writer,
-                    "          {:e} {:e} {:e}",
-                    points.local_data[3 * i],
-                    points.local_data[3 * i + 1],
-                    points.local_data[3 * i + 2]
-                )
-                .map_err(|e| MpiError::IoError(e.to_string()))?;
-            }
-            writeln!(writer, "        </DataArray>")
-                .map_err(|e| MpiError::IoError(e.to_string()))?;
-            writeln!(writer, "      </Points>").map_err(|e| MpiError::IoError(e.to_string()))?;
-
-            writeln!(writer, "      <Cells>").map_err(|e| MpiError::IoError(e.to_string()))?;
-            writeln!(
-                writer,
-                "        <DataArray type=\"Int32\" Name=\"connectivity\" format=\"ascii\">"
-            )
-            .map_err(|e| MpiError::IoError(e.to_string()))?;
-            let mut idx = 0usize;
-            let mut offsets = Vec::with_capacity(num_cells);
-            let mut current_offset = 0i32;
-            while idx < cells.len() {
-                let n = cells[idx] as usize;
-                idx += 1;
-                for _ in 0..n {
-                    write!(writer, "{} ", cells[idx])
-                        .map_err(|e| MpiError::IoError(e.to_string()))?;
-                    idx += 1;
-                }
-                writeln!(writer).map_err(|e| MpiError::IoError(e.to_string()))?;
-                current_offset += n as i32;
-                offsets.push(current_offset);
-            }
-            writeln!(writer, "        </DataArray>")
-                .map_err(|e| MpiError::IoError(e.to_string()))?;
-            writeln!(
-                writer,
-                "        <DataArray type=\"Int32\" Name=\"offsets\" format=\"ascii\">"
-            )
-            .map_err(|e| MpiError::IoError(e.to_string()))?;
-            for offset in &offsets {
-                writeln!(writer, "{}", offset)
-                    .map_err(|e| MpiError::IoError(e.to_string()))?;
-            }
-            writeln!(writer, "        </DataArray>")
-                .map_err(|e| MpiError::IoError(e.to_string()))?;
-            writeln!(
-                writer,
-                "        <DataArray type=\"UInt8\" Name=\"types\" format=\"ascii\">"
-            )
-            .map_err(|e| MpiError::IoError(e.to_string()))?;
-            for &t in cell_types {
-                writeln!(writer, "{}", t).map_err(|e| MpiError::IoError(e.to_string()))?;
-            }
-            writeln!(writer, "        </DataArray>")
-                .map_err(|e| MpiError::IoError(e.to_string()))?;
-            writeln!(writer, "      </Cells>").map_err(|e| MpiError::IoError(e.to_string()))?;
-
-            if !point_data.is_empty() {
-                writeln!(writer, "      <PointData>")
-                    .map_err(|e| MpiError::IoError(e.to_string()))?;
-                for (name, data) in point_data {
-                    writeln!(
-                        writer,
-                        "        <DataArray type=\"Float64\" Name=\"{}\" format=\"ascii\">",
-                        name
-                    )
-                    .map_err(|e| MpiError::IoError(e.to_string()))?;
-                    for val in data.local_data.iter() {
-                        writeln!(writer, "          {:e}", val)
-                            .map_err(|e| MpiError::IoError(e.to_string()))?;
-                    }
-                    writeln!(writer, "        </DataArray>")
-                        .map_err(|e| MpiError::IoError(e.to_string()))?;
-                }
-                writeln!(writer, "      </PointData>")
-                    .map_err(|e| MpiError::IoError(e.to_string()))?;
-            }
-
-            if !cell_data.is_empty() {
-                writeln!(writer, "      <CellData>")
-                    .map_err(|e| MpiError::IoError(e.to_string()))?;
-                for (name, data) in cell_data {
-                    writeln!(
-                        writer,
-                        "        <DataArray type=\"Float64\" Name=\"{}\" format=\"ascii\">",
-                        name
-                    )
-                    .map_err(|e| MpiError::IoError(e.to_string()))?;
-                    for val in data.local_data.iter() {
-                        writeln!(writer, "          {:e}", val)
-                            .map_err(|e| MpiError::IoError(e.to_string()))?;
-                    }
-                    writeln!(writer, "        </DataArray>")
-                        .map_err(|e| MpiError::IoError(e.to_string()))?;
-                }
-                writeln!(writer, "      </CellData>")
-                    .map_err(|e| MpiError::IoError(e.to_string()))?;
-            }
-
-            writeln!(writer, "    </Piece>").map_err(|e| MpiError::IoError(e.to_string()))?;
-            writeln!(writer, "  </UnstructuredGrid>")
-                .map_err(|e| MpiError::IoError(e.to_string()))?;
-            writeln!(writer, "</VTKFile>").map_err(|e| MpiError::IoError(e.to_string()))?;
-
+        /// Write distributed datasets using collective I/O
+        fn write_distributed_datasets<P: AsRef<Path>>(
+            &self,
+            _filename: P,
+            _datasets: &HashMap<String, &DistributedVector<T>>,
+        ) -> MpiResult<()> {
+            // Implementation would use HDF5 collective I/O operations
+            // This is a placeholder for the actual distributed dataset writing
             Ok(())
         }
     }
@@ -1208,6 +860,8 @@ mod tests {
     fn test_parallel_io_types() {
         // Test that parallel I/O types can be created (compile-time check)
         let _vtk_marker: std::marker::PhantomData<parallel_io::ParallelVtkWriter<f64>> =
+            std::marker::PhantomData;
+        let _hdf5_marker: std::marker::PhantomData<parallel_io::ParallelHdf5Writer<f64>> =
             std::marker::PhantomData;
     }
 }

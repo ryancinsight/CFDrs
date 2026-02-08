@@ -325,6 +325,19 @@ impl<T: RealField + FromPrimitive + Copy> FluidTrait<T> for CassonBlood<T> {
     fn name(&self) -> &str {
         "Casson Blood Model"
     }
+
+    /// Return shear-rate-dependent viscosity via the Casson constitutive law.
+    /// This override ensures that any code calling `Fluid::viscosity_at_shear`
+    /// (e.g. the 1D bifurcation junction solver) obtains the correct
+    /// non-Newtonian apparent viscosity rather than a constant reference value.
+    fn viscosity_at_shear(
+        &self,
+        shear_rate: T,
+        _temperature: T,
+        _pressure: T,
+    ) -> Result<T, Error> {
+        Ok(self.apparent_viscosity(shear_rate))
+    }
 }
 
 impl<T: RealField + FromPrimitive + Copy> NonNewtonianFluid<T> for CassonBlood<T> {
@@ -541,6 +554,18 @@ impl<T: RealField + FromPrimitive + Copy> FluidTrait<T> for CarreauYasudaBlood<T
     fn name(&self) -> &str {
         "Carreau-Yasuda Blood Model"
     }
+
+    /// Return shear-rate-dependent viscosity via the Carreau-Yasuda model.
+    /// This override ensures correct non-Newtonian apparent viscosity
+    /// when called through the unified `Fluid::viscosity_at_shear` interface.
+    fn viscosity_at_shear(
+        &self,
+        shear_rate: T,
+        _temperature: T,
+        _pressure: T,
+    ) -> Result<T, Error> {
+        Ok(self.apparent_viscosity(shear_rate))
+    }
 }
 
 impl<T: RealField + FromPrimitive + Copy> NonNewtonianFluid<T> for CarreauYasudaBlood<T> {
@@ -638,6 +663,16 @@ impl<T: RealField + FromPrimitive + Copy> FluidTrait<T> for CrossBlood<T> {
 
     fn name(&self) -> &str {
         &self.name
+    }
+
+    /// Return shear-rate-dependent viscosity via the Cross model.
+    fn viscosity_at_shear(
+        &self,
+        shear_rate: T,
+        _temperature: T,
+        _pressure: T,
+    ) -> Result<T, Error> {
+        Ok(self.apparent_viscosity(shear_rate))
     }
 }
 

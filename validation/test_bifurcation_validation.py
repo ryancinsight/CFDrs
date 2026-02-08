@@ -41,7 +41,7 @@ def test_bifurcation_solver():
     )
 
     # Create bifurcation solver
-    bifurc = pycfdrs.PyBifurcationSolver(
+    bifurc = pycfdrs.BifurcationSolver(
         d_parent=d_parent,
         d_daughter1=d_daughter,
         d_daughter2=d_daughter,
@@ -52,7 +52,7 @@ def test_bifurcation_solver():
     print(f"\nSolver: {bifurc}")
 
     # Create blood model
-    blood = pycfdrs.PyCassonBlood()
+    blood = pycfdrs.CassonBlood()
     print(f"\nBlood model: {blood}")
 
     # Solve for physiological conditions
@@ -137,7 +137,7 @@ def test_trifurcation_solver():
     print(f"  Parent diameter:     {d_parent * 1e6:.1f} μm")
     print(f"  Daughter diameters:  {d_daughter * 1e6:.1f} μm (x3)")
 
-    trifurc = pycfdrs.PyTrifurcationSolver(
+    trifurc = pycfdrs.TrifurcationSolver(
         d_parent=d_parent,
         d_daughter1=d_daughter,
         d_daughter2=d_daughter,
@@ -188,7 +188,7 @@ def test_blood_models():
     print("=" * 80)
 
     # Casson model
-    casson = pycfdrs.PyCassonBlood()
+    casson = pycfdrs.CassonBlood()
     print(f"\n{casson}")
     print(f"  Yield stress: {casson.yield_stress():.4f} Pa")
     print(f"  Density: {casson.density():.0f} kg/m³")
@@ -202,7 +202,7 @@ def test_blood_models():
         print(f"    γ̇ = {gamma:4d} s⁻¹ → μ = {mu * 1000:.2f} cP")
 
     # Carreau-Yasuda model
-    carreau = pycfdrs.PyCarreauYasudaBlood()
+    carreau = pycfdrs.CarreauYasudaBlood()
     print(f"\n{carreau}")
     print(f"  Zero shear viscosity: {carreau.viscosity_zero_shear() * 1000:.2f} cP")
     print(f"  High shear viscosity: {carreau.viscosity_high_shear() * 1000:.2f} cP")

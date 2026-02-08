@@ -118,6 +118,9 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
         let dy2_inv = T::one() / (dy * dy);
         let coeff = rho / dt;
 
+        let mut n_fluid = 0;
+        let mut n_solid = 0;
+
         for i in 1..nx - 1 {
             for j in 1..ny - 1 {
                 let idx = (i - 1) * (ny - 2) + (j - 1);
@@ -130,15 +133,17 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
 
                 // If cell is masked (solid), enforce p' = 0
                 if !fields.mask.at(i, j) {
+                    n_solid += 1;
                     builder.add_entry(row_idx, row_idx, T::one())?;
                     rhs[row_idx] = T::zero();
                     continue;
                 }
+                n_fluid += 1;
 
-                // Laplacian stencil - diagonal is negative sum of neighbor coefficients
+                // Laplacian stencil - diagonal is positive sum of neighbor coefficients
                 let two = T::from_f64(cfd_core::physics::constants::mathematical::numeric::TWO)
                     .unwrap_or_else(|| T::one() + T::one());
-                let ap = -two * (dx2_inv + dy2_inv);
+                let ap = two * (dx2_inv + dy2_inv);
 
                 builder.add_entry(row_idx, row_idx, ap)?;
 
@@ -147,16 +152,15 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
                     let neighbor_idx = idx - (ny - 2);
                     if let Some(col_idx) = map_index(neighbor_idx) {
                         if fields.mask.at(i - 1, j) {
-                            builder.add_entry(row_idx, col_idx, dx2_inv)?;
+                            builder.add_entry(row_idx, col_idx, -dx2_inv)?;
                         }
-                        // Note: If neighbor is solid, p'_neighbor = 0, so no contribution to LHS/RHS
                     }
                 }
                 if i < nx - 2 {
                     let neighbor_idx = idx + (ny - 2);
                     if let Some(col_idx) = map_index(neighbor_idx) {
                         if fields.mask.at(i + 1, j) {
-                            builder.add_entry(row_idx, col_idx, dx2_inv)?;
+                            builder.add_entry(row_idx, col_idx, -dx2_inv)?;
                         }
                     }
                 }
@@ -164,7 +168,7 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
                     let neighbor_idx = idx - 1;
                     if let Some(col_idx) = map_index(neighbor_idx) {
                         if fields.mask.at(i, j - 1) {
-                            builder.add_entry(row_idx, col_idx, dy2_inv)?;
+                            builder.add_entry(row_idx, col_idx, -dy2_inv)?;
                         }
                     }
                 }
@@ -172,7 +176,7 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
                     let neighbor_idx = idx + 1;
                     if let Some(col_idx) = map_index(neighbor_idx) {
                         if fields.mask.at(i, j + 1) {
-                            builder.add_entry(row_idx, col_idx, dy2_inv)?;
+                            builder.add_entry(row_idx, col_idx, -dy2_inv)?;
                         }
                     }
                 }
@@ -187,53 +191,19 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
                             .unwrap_or_else(|| T::zero())
                             * dy);
 
-                rhs[row_idx] = coeff * div_u;
+                rhs[row_idx] = -coeff * div_u;
             }
         }
+
+        let rhs_norm = rhs.norm();
+        eprintln!("Pressure Solve: n_fluid={}, n_solid={}, system_size={}, rhs_norm={:?}", n_fluid, n_solid, system_size, rhs_norm);
+
 
         // Solve the linear system using selected solver
         let matrix = builder.build()?;
         let mut p_correction_vec = DVector::zeros(matrix.nrows());
 
-        // Create AMG preconditioner for this solve
-        let amg_config = AMGConfig {
-            cycle_type: CycleType::VCycle,
-            pre_smooth_iterations: 2,
-            post_smooth_iterations: 2,
-            max_levels: 5,
-            min_coarse_size: 10,
-            coarsening_strategy: CoarseningStrategy::RugeStueben,
-            interpolation_strategy: InterpolationStrategy::Classical,
-            smoother_type: SmootherType::GaussSeidel,
-            relaxation_factor: 1.0,
-            strength_threshold: 0.25,
-            max_interpolation_points: 4,
-        };
-
-        let mut amg_preconditioner_opt = self.amg_preconditioner.borrow_mut();
-        let amg_preconditioner = if let Some(amg) = amg_preconditioner_opt.as_mut() {
-            // Try to recompute using existing hierarchy
-            if amg.recompute(&matrix).is_ok() {
-                Some(amg.clone())
-            } else {
-                // Fallback to fresh setup if recompute fails
-                if let Ok(new_amg) = AlgebraicMultigrid::with_config(&matrix, amg_config) {
-                    *amg = new_amg.clone();
-                    Some(new_amg)
-                } else {
-                    None
-                }
-            }
-        } else {
-            // Fresh setup
-            if let Ok(new_amg) = AlgebraicMultigrid::with_config(&matrix, amg_config) {
-                *amg_preconditioner_opt = Some(new_amg.clone());
-                Some(new_amg)
-            } else {
-                None
-            }
-        };
-        drop(amg_preconditioner_opt);
+        let amg_preconditioner: Option<AlgebraicMultigrid<T>> = None;
 
         match self.solver_type {
             PressureLinearSolver::ConjugateGradient => {
@@ -353,15 +323,12 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
     }
 
     /// Solve pressure correction equation using face velocities (Rhie-Chow)
-    ///
-    /// This version uses consistent face fluxes to avoid checkerboarding on colocated grids.
-    /// It also uses spatially varying coefficients d_f derived from the momentum equation.
     pub fn solve_pressure_correction_from_faces(
         &self,
-        u_face: &[Vec<T>], // East face velocities (nx-1 x ny)
-        v_face: &[Vec<T>], // North face velocities (nx x ny-1)
-        d_x: &[Vec<T>],    // East face pressure coefficients (nx-1 x ny)
-        d_y: &[Vec<T>],    // North face pressure coefficients (nx x ny-1)
+        u_face: &[Vec<T>],
+        v_face: &[Vec<T>],
+        d_x: &[Vec<T>],
+        d_y: &[Vec<T>],
         rho: T,
         fields: &crate::fields::SimulationFields<T>,
     ) -> cfd_core::error::Result<Vec<Vec<T>>> {
@@ -370,20 +337,14 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
         let dx = self.grid.dx;
         let dy = self.grid.dy;
 
-        // Number of interior cells
         let n = (nx - 2) * (ny - 2);
-
-        if n == 0 {
-            return Ok(vec![vec![T::zero(); ny]; nx]);
-        }
-        if n == 1 {
+        if n <= 1 {
             return Ok(vec![vec![T::zero(); ny]; nx]);
         }
 
         let reference_idx = 0usize;
         let system_size = n - 1;
 
-        // Map (i, j) interior indices to linear system index
         let map_index = |idx: usize| -> Option<usize> {
             match idx.cmp(&reference_idx) {
                 std::cmp::Ordering::Equal => None,
@@ -398,6 +359,9 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
         let dx2_inv = T::one() / (dx * dx);
         let dy2_inv = T::one() / (dy * dy);
 
+        let mut n_fluid = 0;
+        let mut n_solid = 0;
+
         for i in 1..nx - 1 {
             for j in 1..ny - 1 {
                 let idx = (i - 1) * (ny - 2) + (j - 1);
@@ -408,36 +372,32 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
 
                 let row_idx = map_index(idx).expect("row index must exist");
 
-                // If cell is masked (solid), enforce p' = 0
                 if !fields.mask.at(i, j) {
+                    n_solid += 1;
                     builder.add_entry(row_idx, row_idx, T::one())?;
                     rhs[row_idx] = T::zero();
                     continue;
                 }
+                n_fluid += 1;
 
-                // Laplacian stencil with varying coefficients:
-                // [d_e*(p_e - p_p)/dx - d_w*(p_p - p_w)/dx] / dx + [d_n*(p_n - p_p)/dy - d_s*(p_p - p_s)/dy] / dy = Source
-                // ap*p_p + ae*p_e + aw*p_w + an*p_n + as*p_s = Source
-
-                let de = d_x[i][j]; // East face of (i,j)
-                let dw = d_x[i - 1][j]; // West face of (i,j)
-                let dn = d_y[i][j]; // North face of (i,j)
-                let ds = d_y[i][j - 1]; // South face of (i,j)
+                let de = d_x[i][j];
+                let dw = d_x[i - 1][j];
+                let dn = d_y[i][j];
+                let ds = d_y[i][j - 1];
 
                 let ae = de * dx2_inv;
                 let aw = dw * dx2_inv;
                 let an = dn * dy2_inv;
                 let as_ = ds * dy2_inv;
-                let ap = -(ae + aw + an + as_);
+                let ap = ae + aw + an + as_;
 
                 builder.add_entry(row_idx, row_idx, ap)?;
 
-                // Neighbors - only include if they are fluid cells
                 if i > 1 {
                     let neighbor_idx = idx - (ny - 2);
                     if let Some(col_idx) = map_index(neighbor_idx) {
                         if fields.mask.at(i - 1, j) {
-                            builder.add_entry(row_idx, col_idx, aw)?;
+                            builder.add_entry(row_idx, col_idx, -aw)?;
                         }
                     }
                 }
@@ -445,7 +405,7 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
                     let neighbor_idx = idx + (ny - 2);
                     if let Some(col_idx) = map_index(neighbor_idx) {
                         if fields.mask.at(i + 1, j) {
-                            builder.add_entry(row_idx, col_idx, ae)?;
+                            builder.add_entry(row_idx, col_idx, -ae)?;
                         }
                     }
                 }
@@ -453,7 +413,7 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
                     let neighbor_idx = idx - 1;
                     if let Some(col_idx) = map_index(neighbor_idx) {
                         if fields.mask.at(i, j - 1) {
-                            builder.add_entry(row_idx, col_idx, as_)?;
+                            builder.add_entry(row_idx, col_idx, -as_)?;
                         }
                     }
                 }
@@ -461,63 +421,21 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
                     let neighbor_idx = idx + 1;
                     if let Some(col_idx) = map_index(neighbor_idx) {
                         if fields.mask.at(i, j + 1) {
-                            builder.add_entry(row_idx, col_idx, an)?;
+                            builder.add_entry(row_idx, col_idx, -an)?;
                         }
                     }
                 }
 
-                // Divergence of face velocity (Rhie-Chow)
-                // Source = ρ * ∇·u_face
-                let div_u =
-                    (u_face[i][j] - u_face[i - 1][j]) / dx + (v_face[i][j] - v_face[i][j - 1]) / dy;
-
-                rhs[row_idx] = rho * div_u;
+                let div_u = (u_face[i][j] - u_face[i - 1][j]) / dx + (v_face[i][j] - v_face[i][j - 1]) / dy;
+                rhs[row_idx] = -rho * div_u;
             }
         }
 
-        // Solve the linear system using selected solver
+
+
         let matrix = builder.build()?;
         let mut p_correction_vec = DVector::zeros(matrix.nrows());
-
-        // Create AMG preconditioner for this solve
-        let amg_config = AMGConfig {
-            cycle_type: CycleType::VCycle,
-            pre_smooth_iterations: 2,
-            post_smooth_iterations: 2,
-            max_levels: 5,
-            min_coarse_size: 10,
-            coarsening_strategy: CoarseningStrategy::RugeStueben,
-            interpolation_strategy: InterpolationStrategy::Classical,
-            smoother_type: SmootherType::GaussSeidel,
-            relaxation_factor: 1.0,
-            strength_threshold: 0.25,
-            max_interpolation_points: 4,
-        };
-
-        let mut amg_preconditioner_opt = self.amg_preconditioner.borrow_mut();
-        let amg_preconditioner = if let Some(amg) = amg_preconditioner_opt.as_mut() {
-            // Try to recompute using existing hierarchy
-            if amg.recompute(&matrix).is_ok() {
-                Some(amg.clone())
-            } else {
-                // Fallback to fresh setup if recompute fails
-                if let Ok(new_amg) = AlgebraicMultigrid::with_config(&matrix, amg_config) {
-                    *amg = new_amg.clone();
-                    Some(new_amg)
-                } else {
-                    None
-                }
-            }
-        } else {
-            // Fresh setup
-            if let Ok(new_amg) = AlgebraicMultigrid::with_config(&matrix, amg_config) {
-                *amg_preconditioner_opt = Some(new_amg.clone());
-                Some(new_amg)
-            } else {
-                None
-            }
-        };
-        drop(amg_preconditioner_opt);
+        let amg_preconditioner: Option<AlgebraicMultigrid<T>> = None;
 
         match self.solver_type {
             PressureLinearSolver::ConjugateGradient => {
@@ -607,7 +525,6 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
             }
         }
 
-        // Map solution back to 2D field
         let mut p_correction = vec![vec![T::zero(); ny]; nx];
         for i in 1..nx - 1 {
             for j in 1..ny - 1 {
@@ -623,7 +540,6 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
             }
         }
 
-        // Apply Neumann boundary conditions (zero gradient)
         for i in 0..nx {
             p_correction[i][0] = p_correction[i][1];
             p_correction[i][ny - 1] = p_correction[i][ny - 2];
@@ -637,14 +553,12 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
     }
 
     /// Correct velocity field using pressure correction
-    ///
-    /// This version uses local A_p coefficients for consistent SIMPLEC/PIMPLE correction.
     pub fn correct_velocity(
         &self,
         u_star: &mut Vec<Vec<Vector2<T>>>,
         p_correction: &Vec<Vec<T>>,
-        ap_u: &Field2D<T>, // Cell-centered A_p for u
-        ap_v: &Field2D<T>, // Cell-centered A_p for v
+        ap_u: &Field2D<T>,
+        ap_v: &Field2D<T>,
         _rho: T,
         alpha: T,
         fields: &crate::fields::SimulationFields<T>,
@@ -658,16 +572,11 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
 
         for i in 1..nx - 1 {
             for j in 1..ny - 1 {
-                // Skip solid cells
                 if !fields.mask.at(i, j) {
                     u_star[i][j].x = T::zero();
                     u_star[i][j].y = T::zero();
                     continue;
                 }
-
-                // Velocity correction from pressure gradient
-                // Standard SIMPLE: u' = -(dt/rho) * grad(p')
-                // SIMPLEC: u' = -(Vol/Ap) * grad(p')
 
                 let dp_dx = (p_correction[i + 1][j] - p_correction[i - 1][j])
                     / (T::from_f64(cfd_core::physics::constants::mathematical::numeric::TWO)
@@ -681,7 +590,6 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
                 let factor_u = volume / ap_u.at(i, j);
                 let factor_v = volume / ap_v.at(i, j);
 
-                // Apply velocity correction with relaxation
                 u_star[i][j].x -= alpha * factor_u * dp_dx;
                 u_star[i][j].y -= alpha * factor_v * dp_dy;
             }
@@ -690,11 +598,8 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
 
     /// Correct pressure field
     pub fn correct_pressure(&self, p: &mut Vec<Vec<T>>, p_correction: &Vec<Vec<T>>, alpha: T) {
-        let nx = self.grid.nx;
-        let ny = self.grid.ny;
-
-        for i in 0..nx {
-            for j in 0..ny {
+        for i in 0..p.len() {
+            for j in 0..p[i].len() {
                 p[i][j] += alpha * p_correction[i][j];
             }
         }

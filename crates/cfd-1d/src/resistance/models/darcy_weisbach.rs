@@ -86,6 +86,11 @@ use nalgebra::RealField;
 use num_traits::cast::FromPrimitive;
 use serde::{Deserialize, Serialize};
 
+// Named constants for power operations
+const POWER_TWO: f64 = 2.0;
+const AREA_DIVISOR: f64 = 4.0;
+const RESISTANCE_DIVISOR: f64 = 2.0;
+
 // Named constants for friction factor calculations
 const LAMINAR_FRICTION_COEFFICIENT: f64 = 64.0;
 const LAMINAR_TRANSITION_RE: f64 = 2300.0;
@@ -133,32 +138,21 @@ impl<T: RealField + Copy + FromPrimitive> DarcyWeisbachModel<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for DarcyWeisbachModel<T> {
-    fn calculate_resistance<F: FluidTrait<T>>(
-        &self,
-        fluid: &F,
-        conditions: &FlowConditions<T>,
-    ) -> Result<T> {
+impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T>
+    for DarcyWeisbachModel<T>
+{
+    fn calculate_resistance<F: FluidTrait<T>>(&self, fluid: &F, conditions: &FlowConditions<T>) -> Result<T> {
         let (r, k) = self.calculate_coefficients(fluid, conditions)?;
 
-        let k_mag = if k >= T::zero() { k } else { -k };
-        if k_mag <= T::default_epsilon() {
-            return Ok(r);
-        }
-
+        // For automatic model selection and basic analyzers that expect a single R value,
+        // we return the effective resistance R_eff = R + k|Q| such that ΔP = R_eff * Q.
         let q_mag = if let Some(q) = conditions.flow_rate {
-            if q >= T::zero() {
-                q
-            } else {
-                -q
-            }
+            if q >= T::zero() { q } else { -q }
         } else if let Some(v) = conditions.velocity {
             let v_abs = if v >= T::zero() { v } else { -v };
             v_abs * self.area
         } else {
-            return Err(Error::InvalidConfiguration(
-                "Flow rate or velocity required for turbulent resistance evaluation".to_string(),
-            ));
+            T::zero()
         };
 
         Ok(r + k * q_mag)
@@ -176,24 +170,9 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for DarcyWeisbachMo
         })?;
 
         let friction_factor = self.calculate_friction_factor(reynolds);
-
-        let props = fluid.properties_at(conditions.temperature, conditions.pressure)?;
-        let density = props.density;
-
-        // Shear rate for viscosity
-        let shear_rate = if let Some(sr) = conditions.shear_rate {
-            sr
-        } else {
-            // Estimate 8*v/D
-            if let Some(v) = conditions.velocity {
-                T::from_f64(8.0).unwrap_or_else(T::one) * v.abs() / self.hydraulic_diameter
-            } else {
-                T::zero()
-            }
-        };
-
-        let viscosity = fluid.viscosity_at_shear(shear_rate, conditions.temperature, conditions.pressure)?;
-
+        let state = fluid.properties_at(conditions.temperature, conditions.pressure)?;
+        let density = state.density;
+        let viscosity = state.dynamic_viscosity;
         let area = self.area;
 
         let re_transition = T::from_f64(LAMINAR_TRANSITION_RE).unwrap_or_else(|| T::one());
@@ -224,19 +203,13 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for DarcyWeisbachMo
 
     fn reynolds_range(&self) -> (T, T) {
         (
-            T::from_f64(
-                cfd_core::physics::constants::physics::dimensionless::reynolds::PIPE_LAMINAR_MAX,
-            )
-            .unwrap_or_else(|| T::zero()),
+            T::from_f64(LAMINAR_TRANSITION_RE)
+                .unwrap_or_else(|| T::zero()),
             T::from_f64(MAX_REYNOLDS).unwrap_or_else(|| T::zero()),
         )
     }
 
-    fn validate_invariants<F: FluidTrait<T>>(
-        &self,
-        fluid: &F,
-        conditions: &FlowConditions<T>,
-    ) -> Result<()> {
+    fn validate_invariants<F: FluidTrait<T>>(&self, fluid: &F, conditions: &FlowConditions<T>) -> Result<()> {
         // Call Mach number validation
         self.validate_mach_number(fluid, conditions)?;
 
@@ -290,7 +263,8 @@ impl<T: RealField + Copy + FromPrimitive> DarcyWeisbachModel<T> {
             let term = relative_roughness
                 / T::from_f64(HAALAND_ROUGHNESS_DIVISOR).unwrap_or_else(|| T::one())
                 + T::from_f64(HAALAND_REYNOLDS_FACTOR).unwrap_or_else(|| T::one()) / reynolds;
-            let log_term = term.ln() / T::from_f64(LOG_BASE_10.ln()).unwrap_or_else(|| T::one());
+            let log_term = term.ln()
+                / T::from_f64(LOG_BASE_10.ln()).unwrap_or_else(|| T::one());
             T::one()
                 / (T::from_f64(HAALAND_EXPONENT_FACTOR).unwrap_or_else(|| T::one()) * log_term)
                     .powi(2)

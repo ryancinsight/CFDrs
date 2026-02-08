@@ -413,11 +413,15 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
                 self.momentum_solver
                     .solve_with_coefficients(MomentumComponent::V, fields, dt)?;
 
-            // Step 2: Update Rhie-Chow coefficients for consistent interpolation
+            // Step 2: Update Rhie-Chow with FULL ap coefficients (not ap_consistent)
+            // Rhie-Chow face velocity interpolation requires the full diagonal coefficient
+            // a_P = sum(a_nb) + rho*V/dt, NOT the consistent coefficient a_P^c = rho*V/dt.
+            // Using ap_consistent here made d_face = V/(rho*V/dt) = dt/rho (too large),
+            // breaking the pressure-velocity coupling and preventing convergence.
             if let Some(ref mut rhie_chow) = self.rhie_chow {
-                let (_, ap_c_u, _, ap_c_v) = self.momentum_solver.get_ap_coefficients();
-                rhie_chow.update_u_coefficients(&ap_c_u);
-                rhie_chow.update_v_coefficients(&ap_c_v);
+                let (ap_full_u, _, ap_full_v, _) = self.momentum_solver.get_ap_coefficients();
+                rhie_chow.update_u_coefficients(&ap_full_u);
+                rhie_chow.update_v_coefficients(&ap_full_v);
             }
 
             // Step 3: Extract predicted velocity field u* (after momentum solve)
@@ -578,11 +582,12 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
                 self.momentum_solver
                     .solve_with_coefficients(MomentumComponent::V, fields, dt)?;
 
-            // Update Rhie-Chow coefficients if enabled (improves consistency)
+            // Update Rhie-Chow with FULL ap coefficients (not ap_consistent)
+            // See SIMPLEC Step 2 comment for rationale.
             if let Some(ref mut rhie_chow) = self.rhie_chow {
-                let (_, ap_c_u, _, ap_c_v) = self.momentum_solver.get_ap_coefficients();
-                rhie_chow.update_u_coefficients(&ap_c_u);
-                rhie_chow.update_v_coefficients(&ap_c_v);
+                let (ap_full_u, _, ap_full_v, _) = self.momentum_solver.get_ap_coefficients();
+                rhie_chow.update_u_coefficients(&ap_full_u);
+                rhie_chow.update_v_coefficients(&ap_full_v);
             }
 
             // Step 2: Extract predicted velocity field u*
@@ -590,11 +595,11 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
 
             // Step 3: Inner PISO-like corrections for subcycling
             for _inner_iter in 0..self.config.n_inner_correctors {
-                // Update Rhie-Chow with latest momentum coefficients before use
+                // Update Rhie-Chow with FULL ap coefficients before use
                 if let Some(ref mut rhie_chow) = self.rhie_chow {
-                    let (_, ap_c_u, _, ap_c_v) = self.momentum_solver.get_ap_coefficients();
-                    rhie_chow.update_u_coefficients(&ap_c_u);
-                    rhie_chow.update_v_coefficients(&ap_c_v);
+                    let (ap_full_u, _, ap_full_v, _) = self.momentum_solver.get_ap_coefficients();
+                    rhie_chow.update_u_coefficients(&ap_full_u);
+                    rhie_chow.update_v_coefficients(&ap_full_v);
                 }
 
                 // Step 3: Solve pressure correction equation

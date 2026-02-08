@@ -39,6 +39,35 @@ pub struct TrifurcationSolution3D<T: RealField + Copy> {
 }
 
 /// 3D Trifurcation flow solver
+///
+/// # Physics Equations
+///
+/// **Momentum equation (incompressible):**
+/// ```text
+/// ρ(∂u/∂t + (u·∇)u) + ∇p = ∇·τ + f
+/// τ = μ(∇u + ∇u^T)  [Newtonian, constant μ]
+/// τ = μ(γ̇)(∇u + ∇u^T)  [non-Newtonian, shear-rate dependent]
+/// ```
+///
+/// **Continuity equation:**
+/// ```text
+/// ∇·u = 0
+/// ```
+///
+/// # Numerical Method
+///
+/// - **Discretization**: FEM with P1-P1 (or P1-P0) elements
+/// - **Stabilization**: Streamline Upwind Petrov-Galerkin (SUPG) for advection
+/// - **Time integration**: Implicit Euler (steady-state: single iteration)
+/// - **Nonlinear solver**: Picard fixed-point iteration for viscosity updates
+/// - **Linear solver**: GMRES with ILU(0) preconditioner
+///
+/// # Validation Metrics
+///
+/// - **Mass conservation**: Differences between inlet and sum of outlet fluxes
+/// - **Flow split validation**: Verification of symmetry or specified flow ratios
+/// - **Pressure drop**: Comparison against analytical scaling laws (Hagen-Poiseuille)
+/// - **Murray's Law**: D_p^3 = Σ D_d^3 check for optimal branching
 pub struct TrifurcationSolver3D<T: RealField + Copy> {
     pub geometry: TrifurcationGeometry3D<T>,
     pub config: TrifurcationConfig3D<T>,
@@ -50,9 +79,9 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float> Tr
     }
 
     /// Solve trifurcation flow
-    pub fn solve<F: FluidTrait<T> + NonNewtonianFluid<T> + Copy>(
+    pub fn solve<F: FluidTrait<T> + NonNewtonianFluid<T>>(
         &self,
-        fluid: F,
+        fluid: &F,
     ) -> Result<TrifurcationSolution3D<T>> {
         use crate::fem::{FemConfig, FemSolver, StokesFlowProblem};
         use cfd_mesh::geometry::branching::BranchingMeshBuilder;
@@ -70,6 +99,35 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float> Tr
         );
         let mesh = mesh_builder.build().map_err(|e| Error::Solver(e.to_string()))?;
 
+        // Mesh Connectivity Diagnostics
+        let stats = mesh.statistics();
+        println!("Mesh stats: nodes={}, cells={}, boundary_faces={}", stats.vertex_count, stats.cell_count, stats.boundary_face_count);
+        
+        let mut label_counts = std::collections::HashMap::new();
+        for f_idx in 0..mesh.face_count() {
+            if let Some(label) = mesh.boundary_label(f_idx) {
+                *label_counts.entry(label.to_string()).or_insert(0) += 1;
+            }
+        }
+        println!("Boundary label counts: {:?}", label_counts);
+
+        let mut face_cell_count = HashMap::new();
+        for cell in mesh.cells() {
+            for &f_idx in &cell.faces {
+                *face_cell_count.entry(f_idx).or_insert(0) += 1;
+            }
+        }
+        
+        let mut wall_interfaces = 0;
+        for (f_idx, &count) in &face_cell_count {
+            if count > 1 && mesh.boundary_label(*f_idx) == Some("wall") {
+                wall_interfaces += 1;
+            }
+        }
+        if wall_interfaces > 0 {
+            println!("WARNING: {} interface faces are marked as 'wall'!", wall_interfaces);
+        }
+
         // 2. Define Boundary Conditions
         let mut boundary_conditions = HashMap::new();
         let fluid_props = fluid.properties_at(T::from_f64_or_one(310.0), self.config.inlet_pressure)?;
@@ -84,19 +142,62 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float> Tr
                         let bc = match label {
                             "inlet" => BoundaryCondition::Dirichlet {
                                 value: u_inlet,
-                                component_values: Some(vec![Some(u_inlet), Some(T::zero()), Some(T::zero())]),
+                                component_values: Some(vec![Some(u_inlet), Some(T::zero()), Some(T::zero()), None]),
                             },
-                            "outlet_0" | "outlet_1" | "outlet_2" => BoundaryCondition::Neumann {
-                                gradient: self.config.outlet_pressures[0],
-                            },
+                            "outlet_0" | "outlet_1" | "outlet_2" => {
+                                let idx = label.chars().last().unwrap().to_digit(10).unwrap() as usize;
+                                BoundaryCondition::PressureOutlet {
+                                    pressure: self.config.outlet_pressures[idx],
+                                }
+                            }
                             "wall" => BoundaryCondition::Dirichlet {
                                 value: T::zero(),
-                                component_values: Some(vec![Some(T::zero()), Some(T::zero()), Some(T::zero())]),
+                                component_values: Some(vec![Some(T::zero()), Some(T::zero()), Some(T::zero()), None]),
                             },
                             _ => continue,
                         };
                         boundary_conditions.insert(v_idx, bc);
                     }
+                }
+            }
+        }
+        
+        // Second pass: ensure ALL boundary nodes have a BC (default to wall)
+        // This handles any boundary faces that might not have been labeled
+        use std::collections::HashSet;
+        
+        // Count face references to identify boundary faces
+        let mut face_cell_count: HashMap<usize, usize> = HashMap::new();
+        for cell in mesh.cells() {
+            for &face_idx in &cell.faces {
+                *face_cell_count.entry(face_idx).or_insert(0) += 1;
+            }
+        }
+        
+        // Find all boundary faces (referenced by only one cell)
+        let boundary_faces: HashSet<usize> = face_cell_count
+            .iter()
+            .filter(|&(_, &count)| count == 1)
+            .map(|(&face_idx, _)| face_idx)
+            .collect();
+        
+        // Ensure all boundary vertices have a BC
+        for &face_idx in &boundary_faces {
+            // Skip faces that are explicitly marked as outlets (Neumann)
+            // They don't appear in boundary_conditions (Dirichlet map), but should NOT be walls.
+            if let Some(label) = mesh.boundary_label(face_idx) {
+                if label.starts_with("outlet") {
+                    continue;
+                }
+            }
+
+            if let Some(face) = mesh.face(face_idx) {
+                for &v_idx in &face.vertices {
+                    // If no BC assigned yet, default to wall
+                    boundary_conditions.entry(v_idx).or_insert_with(|| BoundaryCondition::Dirichlet {
+                        value: T::zero(),
+                        component_values: Some(vec![Some(T::zero()), Some(T::zero()), Some(T::zero()), None]),
+                    });
                 }
             }
         }
@@ -120,7 +221,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float> Tr
         let mut solver = FemSolver::new(fem_config);
         let mut last_solution = None;
 
-        for iter in 0..20 { 
+        for _ in 0..20 { 
             problem.element_viscosities = Some(element_viscosities.clone());
             let fem_solution = solver.solve(&problem).map_err(|e| Error::Solver(e.to_string()))?;
             
@@ -164,10 +265,14 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float> Tr
         };
 
         // Fill in mean velocities for daughters
-        let a_d = T::from_f64_or_one(std::f64::consts::PI / 4.0) * self.geometry.d_daughters[0] * self.geometry.d_daughters[0];
-        solution.mean_velocities[1] = q_d1 / a_d;
-        solution.mean_velocities[2] = q_d2 / a_d;
-        solution.mean_velocities[3] = q_d3 / a_d;
+        let a_d1 = T::from_f64_or_one(std::f64::consts::PI / 4.0) * self.geometry.d_daughters[0] * self.geometry.d_daughters[0];
+        let a_d2 = T::from_f64_or_one(std::f64::consts::PI / 4.0) * self.geometry.d_daughters[1] * self.geometry.d_daughters[1];
+        let a_d3 = T::from_f64_or_one(std::f64::consts::PI / 4.0) * self.geometry.d_daughters[2] * self.geometry.d_daughters[2];
+        
+        solution.mean_velocities[1] = q_d1 / a_d1;
+        solution.mean_velocities[2] = q_d2 / a_d2;
+        solution.mean_velocities[3] = q_d3 / a_d3;
+
 
         Ok(solution)
     }
@@ -180,7 +285,6 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float> Tr
         label: &str,
     ) -> Result<T> {
         let mut total_q = T::zero();
-        
         for f_idx in 0..mesh.face_count() {
             if mesh.boundary_label(f_idx) == Some(label) {
                 if let Some(face) = mesh.face(f_idx) {

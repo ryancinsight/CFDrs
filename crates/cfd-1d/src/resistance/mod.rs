@@ -15,6 +15,7 @@ pub use factory::ResistanceModelFactory;
 pub use geometry::ChannelGeometry;
 pub use models::CombinationMethod;
 pub use models::{
-    DarcyWeisbachModel, EntranceEffectsModel, FlowConditions, HagenPoiseuilleModel,
-    RectangularChannelModel, ResistanceModel,
+    BendType, DarcyWeisbachModel, EntranceEffectsModel, ExpansionType, FlowConditions,
+    HagenPoiseuilleModel, RectangularChannelModel, ResistanceModel, SerpentineAnalysis,
+    SerpentineCrossSection, SerpentineModel, VenturiAnalysis, VenturiGeometry, VenturiModel,
 };

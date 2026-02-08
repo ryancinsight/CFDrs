@@ -31,7 +31,6 @@ impl<T: RealField + Copy + Float + Sum + FromPrimitive> QualityAnalyzer<T> {
     pub fn analyze(&self, mesh: &Mesh<T>) -> MeshQualityReport<T> {
         let mut metrics = Vec::new();
         let mut failed_elements = Vec::new();
-        let mut samples = Vec::new();
 
         for (idx, element) in mesh.cells().iter().enumerate() {
             let quality = self.compute_element_quality(element, mesh);
@@ -40,14 +39,16 @@ impl<T: RealField + Copy + Float + Sum + FromPrimitive> QualityAnalyzer<T> {
                 failed_elements.push(idx);
             }
 
-            samples.push(quality.overall_quality_score);
-
             if self.store_detailed {
                 metrics.push(quality);
             }
         }
 
-        let statistics = QualityStatistics::from_samples(samples);
+        let statistics = if metrics.is_empty() {
+            QualityStatistics::default()
+        } else {
+            self.compute_statistics(&metrics)
+        };
 
         MeshQualityReport {
             statistics,
@@ -130,10 +131,7 @@ impl<T: RealField + Copy + Float + Sum + FromPrimitive> QualityAnalyzer<T> {
             .fold(nalgebra::Point3::origin(), |acc, v| acc + v.position.coords)
             / T::from_usize(vertices.len()).unwrap_or(T::one());
 
-        let dists: Vec<T> = vertices
-            .iter()
-            .map(|v| (v.position - centroid).norm())
-            .collect();
+        let dists: Vec<T> = vertices.iter().map(|v| (v.position - centroid).norm()).collect();
         let n = T::from_usize(dists.len()).unwrap_or(T::one());
         let mean_dist = dists.iter().copied().sum::<T>() / n;
 
@@ -141,15 +139,10 @@ impl<T: RealField + Copy + Float + Sum + FromPrimitive> QualityAnalyzer<T> {
             return T::zero();
         }
 
-        let variance = dists
-            .iter()
-            .copied()
-            .map(|d| {
-                let dev = d - mean_dist;
-                dev * dev
-            })
-            .sum::<T>()
-            / n;
+        let variance = dists.iter().copied().map(|d| {
+            let dev = d - mean_dist;
+            dev * dev
+        }).sum::<T>() / n;
 
         let std_dev = ComplexField::sqrt(variance);
         RealField::min(std_dev / mean_dist, T::one())
@@ -169,7 +162,7 @@ impl<T: RealField + Copy + Float + Sum + FromPrimitive> QualityAnalyzer<T> {
     /// Evaluated at element center (1-pt Gauss); min over quadrature pts for bilinear Hex.
     /// Invariants: rigid motion, uniform scaling, affine-equivalent (linear Tet exact).
     /// Lit: Knupp, P.M. (2001). Algebraic mesh quality metrics. Sandia Report.
-    #[allow(clippy::unused_self, clippy::too_many_lines)] // Trait interface consistency
+    #[allow(clippy::unused_self)] // Trait interface consistency
     fn compute_jacobian(&self, element: &Cell, mesh: &Mesh<T>) -> T {
         let vertices = mesh.ordered_element_vertices(element);
         if vertices.len() < 4 {
@@ -196,8 +189,7 @@ impl<T: RealField + Copy + Float + Sum + FromPrimitive> QualityAnalyzer<T> {
                 let ji_norm = j_inv.norm();
 
                 if j_norm > T::zero() && ji_norm > T::zero() {
-                    let three = T::from_f64(3.0).unwrap_or(T::one());
-                    RealField::min(three * det / (j_norm * ji_norm), T::one())
+                    RealField::min(det / (j_norm * ji_norm), T::one())
                 } else {
                     T::zero()
                 }
@@ -206,65 +198,17 @@ impl<T: RealField + Copy + Float + Sum + FromPrimitive> QualityAnalyzer<T> {
                 // Bilinear Hex: J at center ξ=η=ζ=0 (1-pt Gauss quadrature)
                 let eighth = T::one() / T::from_f64(8.0).unwrap_or(T::one());
 
-                let dxi_x = eighth
-                    * (-v[0].position[0] + v[1].position[0] + v[2].position[0]
-                        - v[3].position[0]
-                        - v[4].position[0]
-                        + v[5].position[0]
-                        + v[6].position[0]
-                        - v[7].position[0]);
-                let dxi_y = eighth
-                    * (-v[0].position[1] + v[1].position[1] + v[2].position[1]
-                        - v[3].position[1]
-                        - v[4].position[1]
-                        + v[5].position[1]
-                        + v[6].position[1]
-                        - v[7].position[1]);
-                let dxi_z = eighth
-                    * (-v[0].position[2] + v[1].position[2] + v[2].position[2]
-                        - v[3].position[2]
-                        - v[4].position[2]
-                        + v[5].position[2]
-                        + v[6].position[2]
-                        - v[7].position[2]);
+                let dxi_x = eighth * (-v[0].position[0] + v[1].position[0] + v[2].position[0] - v[3].position[0] - v[4].position[0] + v[5].position[0] + v[6].position[0] - v[7].position[0]);
+                let dxi_y = eighth * (-v[0].position[1] + v[1].position[1] + v[2].position[1] - v[3].position[1] - v[4].position[1] + v[5].position[1] + v[6].position[1] - v[7].position[1]);
+                let dxi_z = eighth * (-v[0].position[2] + v[1].position[2] + v[2].position[2] - v[3].position[2] - v[4].position[2] + v[5].position[2] + v[6].position[2] - v[7].position[2]);
 
-                let deta_x = eighth
-                    * (-v[0].position[0] - v[1].position[0] + v[2].position[0] + v[3].position[0]
-                        - v[4].position[0]
-                        - v[5].position[0]
-                        + v[6].position[0]
-                        + v[7].position[0]);
-                let deta_y = eighth
-                    * (-v[0].position[1] - v[1].position[1] + v[2].position[1] + v[3].position[1]
-                        - v[4].position[1]
-                        - v[5].position[1]
-                        + v[6].position[1]
-                        + v[7].position[1]);
-                let deta_z = eighth
-                    * (-v[0].position[2] - v[1].position[2] + v[2].position[2] + v[3].position[2]
-                        - v[4].position[2]
-                        - v[5].position[2]
-                        + v[6].position[2]
-                        + v[7].position[2]);
+                let deta_x = eighth * (-v[0].position[0] - v[1].position[0] + v[2].position[0] + v[3].position[0] - v[4].position[0] - v[5].position[0] + v[6].position[0] + v[7].position[0]);
+                let deta_y = eighth * (-v[0].position[1] - v[1].position[1] + v[2].position[1] + v[3].position[1] - v[4].position[1] - v[5].position[1] + v[6].position[1] + v[7].position[1]);
+                let deta_z = eighth * (-v[0].position[2] - v[1].position[2] + v[2].position[2] + v[3].position[2] - v[4].position[2] - v[5].position[2] + v[6].position[2] + v[7].position[2]);
 
-                let dzeta_x = eighth
-                    * (-v[0].position[0] - v[1].position[0] - v[2].position[0] - v[3].position[0]
-                        + v[4].position[0]
-                        + v[5].position[0]
-                        + v[6].position[0]
-                        + v[7].position[0]);
-                let dzeta_y = eighth
-                    * (-v[0].position[1] - v[1].position[1] - v[2].position[1] - v[3].position[1]
-                        + v[4].position[1]
-                        + v[5].position[1]
-                        + v[6].position[1]
-                        + v[7].position[1]);
-                let dzeta_z = eighth
-                    * (-v[0].position[2] - v[1].position[2] - v[2].position[2] - v[3].position[2]
-                        + v[4].position[2]
-                        + v[5].position[2]
-                        + v[6].position[2]
-                        + v[7].position[2]);
+                let dzeta_x = eighth * (-v[0].position[0] - v[1].position[0] - v[2].position[0] - v[3].position[0] + v[4].position[0] + v[5].position[0] + v[6].position[0] + v[7].position[0]);
+                let dzeta_y = eighth * (-v[0].position[1] - v[1].position[1] - v[2].position[1] - v[3].position[1] + v[4].position[1] + v[5].position[1] + v[6].position[1] + v[7].position[1]);
+                let dzeta_z = eighth * (-v[0].position[2] - v[1].position[2] - v[2].position[2] - v[3].position[2] + v[4].position[2] + v[5].position[2] + v[6].position[2] + v[7].position[2]);
 
                 let dxi = Vector3::new(dxi_x, dxi_y, dxi_z);
                 let deta = Vector3::new(deta_x, deta_y, deta_z);
@@ -277,14 +221,22 @@ impl<T: RealField + Copy + Float + Sum + FromPrimitive> QualityAnalyzer<T> {
                 let ji_norm = j_inv.norm();
 
                 if j_norm > T::zero() && ji_norm > T::zero() {
-                    let three = T::from_f64(3.0).unwrap_or(T::one());
-                    RealField::min(three * det / (j_norm * ji_norm), T::one())
+                    RealField::min(det / (j_norm * ji_norm), T::one())
                 } else {
                     T::zero()
                 }
             }
+            ElementType::Pyramid | ElementType::Prism => T::zero(), // Pending dispatch
             _ => T::zero(),
         }
+    }
+
+    /// Compute statistics from metrics
+    #[allow(clippy::unused_self)] // Trait interface consistency
+    fn compute_statistics(&self, metrics: &[QualityMetrics<T>]) -> QualityStatistics<T> {
+        let samples: Vec<T> = metrics.iter().map(|m| m.overall_quality_score).collect();
+
+        QualityStatistics::from_samples(samples)
     }
 }
 

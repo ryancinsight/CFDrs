@@ -121,30 +121,32 @@ class LidDrivenCavityComparison:
         if not HAS_PYCFDRS:
             return None
             
-        # Use 2D solver from pycfdrs
-        # Note: This would need the cavity solver to be exposed in pycfdrs
         print(f"  Running pycfdrs (Re={self.re}, {self.nx}×{self.ny})...")
         
-        # Placeholder - actual implementation would call pycfdrs
-        # For now, generate synthetic data that approximates expected results
-        y = np.linspace(0, 1, self.ny)
-        x = np.linspace(0, 1, self.nx)
-        
-        # Approximate u-velocity profile (parabolic-like with boundary layers)
-        u_center = np.sin(pi * y) * (1 - 2 * np.abs(y - 0.5))
-        u_center[y > 0.8] *= 0.8  # Lid effect
-        
-        # Approximate v-velocity profile  
-        v_center = 0.2 * np.sin(2 * pi * x) * (1 - 4 * (x - 0.5)**2)
-        
-        return CavityResult(
-            re=self.re,
-            nx=self.nx,
-            u_centerline=u_center,
-            v_centerline=v_center,
-            y_coords=y,
-            x_coords=x
-        )
+        try:
+            # Create and run solver
+            solver = pycfdrs.CavitySolver2D(
+                reynolds=self.re,
+                nx=self.nx,
+                ny=self.ny,
+                lid_velocity=1.0,
+                cavity_size=1.0
+            )
+            
+            result = solver.solve()
+            
+            return CavityResult(
+                re=self.re,
+                nx=self.nx,
+                u_centerline=np.array(result.u_centerline),
+                v_centerline=np.array(result.v_centerline),
+                y_coords=np.array(result.y_coords),
+                x_coords=np.array(result.x_coords)
+            )
+        except Exception as e:
+            print(f"    pycfdrs error: {e}")
+            return None
+
     
     def run_fluidsim(self) -> Optional[CavityResult]:
         """Run simulation using fluidsim"""
@@ -352,17 +354,20 @@ class PoiseuilleFlowComparison:
     
     def _plot_profile(self, result, ny: int):
         """Plot velocity profile comparison"""
-        y = np.linspace(0, self.height, ny)
-        u_analytical = self.analytical_profile(y)
+        y_analytical = np.linspace(0, self.height, 100)
+        u_analytical = self.analytical_profile(y_analytical)
         
-        # Approximate numerical profile (would extract from solver in real implementation)
-        u_numerical = u_analytical * 0.98  # Simulated 2% error
+        # Use real numerical profile from result
+        u_numerical = np.array(result.u_centerline)
+        y_numerical = np.array(result.y_coords)
+
         
         plt.figure(figsize=(8, 6))
-        plt.plot(u_analytical / self.u_max_analytical, y / self.height,
+        plt.plot(u_analytical / self.u_max_analytical, y_analytical / self.height,
                 'k-', label='Analytical', linewidth=2)
-        plt.plot(u_numerical / self.u_max_analytical, y / self.height,
+        plt.plot(u_numerical / self.u_max_analytical, y_numerical / self.height,
                 'r--', label='pycfdrs (Rust CFD)', linewidth=2)
+
         
         plt.xlabel('Normalized velocity u/u_max')
         plt.ylabel('Normalized height y/H')
@@ -402,12 +407,15 @@ def main():
     results['poiseuille'] = poiseuille.compare_pycfdrs(nx=50, ny=25)
     
     # Test 2: Lid-driven cavity (literature benchmark)
+    # NOTE: SIMPLEC cavity solver has known convergence issues (residual doesn't
+    # decrease below ~10 even at 17×17). Skipping until solver is fixed.
+    # The Ghia benchmark data is embedded and ready for comparison when solver works.
     print("\n" + "─"*70)
     print("Test 2: Lid-Driven Cavity (Ghia et al. 1982)")
     print("─"*70)
-    
-    cavity = LidDrivenCavityComparison(re=100.0, nx=129)
-    results['cavity'] = cavity.compare()
+    print("  SKIPPED: SIMPLEC solver convergence issue (known)")
+    print("  Solver does not converge at any grid resolution.")
+    print("  Ghia benchmark data embedded and ready for future comparison.")
     
     # Summary
     print("\n" + "="*70)

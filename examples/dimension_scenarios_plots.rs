@@ -166,6 +166,7 @@ fn make_vof_config() -> CavitationVofConfig {
         relaxation_time: 1e-6,
         vapor_pressure: 2330.0,
         liquid_density: 998.0,
+        liquid_viscosity: 0.001, // Water at ~20°C [Pa·s]
         vapor_density: 0.023,
         sound_speed: 1500.0,
     }

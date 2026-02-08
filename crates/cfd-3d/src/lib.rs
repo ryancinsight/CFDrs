@@ -109,7 +109,9 @@ pub mod ibm;
 pub mod level_set;
 pub mod physics;
 pub mod spectral;
+pub mod serpentine;
 pub mod trifurcation;
+pub mod venturi;
 pub mod vof;
 
 // Export FEM functionality
