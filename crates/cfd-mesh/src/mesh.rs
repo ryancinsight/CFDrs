@@ -406,6 +406,144 @@ impl<T: RealField + Copy> Mesh<T> {
         Ok(())
     }
 
+    /// Stitch another mesh onto this one at the specified boundary interface.
+    ///
+    /// This topologically fuses `other` to `self` by identifying vertices at the
+    /// interface between `self_face_label` and `other_face_label`.
+    pub fn stitch(
+        &mut self, 
+        other: &Mesh<T>, 
+        self_label: &str, 
+        other_label: &str,
+        tolerance: T
+    ) -> std::result::Result<(), String> {
+        // 1. Identify interface vertices on both sides
+        let self_interface_faces: Vec<usize> = self.boundary_markers.iter()
+            .filter(|&(_, l)| l == self_label)
+            .map(|(&f, _)| f)
+            .collect();
+
+        if self_interface_faces.is_empty() {
+             return Err(format!("Self mesh has no faces with label '{self_label}'"));
+        }
+
+        let other_interface_faces: Vec<usize> = other.boundary_markers.iter()
+            .filter(|&(_, l)| l == other_label)
+            .map(|(&f, _)| f)
+            .collect();
+        
+        if other_interface_faces.is_empty() {
+            return Err(format!("Other mesh has no faces with label '{other_label}'"));
+        }
+
+        // Collect unique vertices at the interfaces
+        let mut self_interface_verts = std::collections::HashSet::new();
+        for &f_idx in &self_interface_faces {
+            if let Some(face) = self.face(f_idx) {
+                for &v in &face.vertices {
+                    self_interface_verts.insert(v);
+                }
+            }
+        }
+
+        let mut other_interface_verts = std::collections::HashSet::new();
+        for &f_idx in &other_interface_faces {
+            if let Some(face) = other.face(f_idx) {
+                for &v in &face.vertices {
+                    other_interface_verts.insert(v);
+                }
+            }
+        }
+        
+        if self_interface_verts.is_empty() {
+             return Err("Found boundary faces but no vertices for self interface".to_string());
+        }
+
+        // 2. Build Vertex Mapping
+        let mut vertex_map = vec![usize::MAX; other.vertices.len()];
+        let mut mapped_count = 0;
+
+        for &ov_idx in &other_interface_verts {
+            let ov = &other.vertices[ov_idx];
+            let mut found = None;
+            let mut min_dist = tolerance; // Only look for vertices closer than tolerance
+            
+            for &sv_idx in &self_interface_verts {
+                let sv = &self.vertices[sv_idx];
+                let dist = sv.distance_to(ov);
+                if dist < min_dist {
+                    min_dist = dist;
+                    found = Some(sv_idx);
+                }
+            }
+
+            match found {
+                Some(sv_idx) => {
+                    vertex_map[ov_idx] = sv_idx;
+                    mapped_count += 1;
+                },
+                None => {
+                    return Err(format!(
+                        "Failed to match interface vertex at {:?} (tolerance {:?})", 
+                        ov.position, tolerance
+                    ));
+                }
+            }
+        }
+
+        if mapped_count != other_interface_verts.len() {
+             return Err(format!(
+                 "Not all interface vertices mapped! mapped={} / total={}", 
+                 mapped_count, other_interface_verts.len()
+             ));
+        }
+
+        // For non-interface vertices, append to self
+        for (i, v) in other.vertices.iter().enumerate() {
+            if vertex_map[i] == usize::MAX {
+                let new_idx = self.vertices.len();
+                self.vertices.push(v.clone());
+                vertex_map[i] = new_idx;
+            }
+        }
+
+        // 3. Import Topology
+        for e in &other.edges {
+            let mut new_edge = e.clone();
+            new_edge.start = vertex_map[e.start];
+            new_edge.end = vertex_map[e.end];
+            self.edges.push(new_edge);
+        }
+
+        let mut face_map = vec![usize::MAX; other.faces.len()];
+        for (i, f) in other.faces.iter().enumerate() {
+             let mut new_face = f.clone();
+             new_face.vertices = f.vertices.iter().map(|&v| vertex_map[v]).collect();
+             let idx = self.faces.len();
+             self.faces.push(new_face);
+             face_map[i] = idx;
+        }
+
+        for c in &other.cells {
+            let mut new_cell = c.clone();
+            new_cell.faces = c.faces.iter().map(|&f| face_map[f]).collect();
+            self.cells.push(new_cell);
+        }
+
+        for (&f_idx, label) in &other.boundary_markers {
+            let new_f_idx = face_map[f_idx];
+            if label != other_label {
+                self.boundary_markers.insert(new_f_idx, label.clone());
+            }
+        }
+        
+        for &f_idx in &self_interface_faces {
+            self.boundary_markers.remove(&f_idx);
+        }
+
+        Ok(())
+    }
+
     /// Compute mesh statistics
     #[must_use]
     #[allow(clippy::field_reassign_with_default)] // Clear, sequential initialization pattern
@@ -532,5 +670,58 @@ mod tests {
 
         assert_eq!(mesh.boundary_faces().len(), 1);
         assert_eq!(mesh.boundary_label(face_idx), Some("inlet"));
+    }
+
+    #[test]
+    fn test_mesh_stitching() {
+        // Create two 1x1x1 cubes
+        // Cube 1: [0,1] x [0,1] x [0,1]
+        let mut mesh1 = crate::grid::StructuredGridBuilder::<f64>::new(1, 1, 1).build().unwrap();
+        // Cube 2: [1,2] x [0,1] x [0,1] (shifted by 1 in x)
+        let mut mesh2 = crate::grid::StructuredGridBuilder::<f64>::new(1, 1, 1)
+            .with_bounds(((1.0, 2.0), (0.0, 1.0), (0.0, 1.0)))
+            .build()
+            .unwrap();
+
+        // Mark interface faces
+        // Mesh1: x=1 face (interface to mesh2)
+        for f in 0..mesh1.face_count() {
+            let face = mesh1.face(f).unwrap();
+            let mut all_x1 = true;
+            for &v in &face.vertices {
+                if (mesh1.vertex(v).unwrap().position.x - 1.0).abs() > 1e-5 {
+                    all_x1 = false;
+                }
+            }
+            if all_x1 { mesh1.mark_boundary(f, "interface_1".to_string()); }
+        }
+
+        // Mesh2: x=1 face (interface to mesh1)
+        for f in 0..mesh2.face_count() {
+            let face = mesh2.face(f).unwrap();
+            let mut all_x1 = true;
+            for &v in &face.vertices {
+                if (mesh2.vertex(v).unwrap().position.x - 1.0).abs() > 1e-5 {
+                    all_x1 = false;
+                }
+            }
+            if all_x1 { mesh2.mark_boundary(f, "interface_2".to_string()); }
+        }
+
+        // Stitch
+        mesh1.stitch(&mesh2, "interface_1", "interface_2", 1e-4).unwrap();
+
+        // Verify
+        // 2 cubes = 2 cells
+        assert_eq!(mesh1.cell_count(), 2);
+        
+        // Vertices:
+        // Cube 1 has 8. Cube 2 has 8.
+        // They share 4 vertices (the face at x=1).
+        // Total should be 8 + 8 - 4 = 12.
+        assert_eq!(mesh1.vertex_count(), 12, "Vertices should be stitched (merged)");
+        
+        // Ensure "interface_1" label is removed
+        assert!(mesh1.boundary_markers.values().all(|l| l != "interface_1"));
     }
 }

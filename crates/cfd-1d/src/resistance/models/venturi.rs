@@ -450,10 +450,19 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for VenturiModel<T>
         let q = v_inlet * a_inlet;
         let q_sq = q * q;
 
-        if q_sq > T::default_epsilon() {
+        // Use velocity-based check instead of q_sq > epsilon, because
+        // microfluidic flow rates (Q ~ 1e-10 m³/s) yield q² ~ 1e-20 which
+        // is below f64::EPSILON ≈ 2.2e-16 even though the flow is physically
+        // meaningful. Only fall back to analytical limit for truly zero flow.
+        let vel_threshold = T::from_f64(1e-15).unwrap_or_else(T::zero);
+        if v_inlet > vel_threshold {
             // Decompose: laminar part (friction ∝ V → R·Q) and inertial part (∝ V² → k·Q²)
             let r = dp_friction / q; // Friction is approximately linear at low Re
-            let k_coeff = (dp_contraction + dp_expansion_loss - dp_recovery) / q_sq;
+            let k_coeff = if q_sq > T::zero() {
+                (dp_contraction + dp_expansion_loss - dp_recovery) / q_sq
+            } else {
+                T::zero()
+            };
             Ok((r, k_coeff))
         } else {
             // Zero flow: return linear estimate from viscous part only

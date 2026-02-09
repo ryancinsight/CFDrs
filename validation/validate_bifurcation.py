@@ -164,7 +164,7 @@ def scipy_cross_validate():
     print(f"  scipy total dP:   {dp_scipy:.6f} Pa")
     print(f"  Daughter dP (analytical): {dp_daughter_analytical:.6f} Pa")
     print(f"  Solver dP (branch 1):     {result.dp_1:.6f} Pa")
-    print("  Note: Casson blood viscosity differs from constant μ=", mu)
+    print("  Note: Casson blood viscosity differs from constant mu=", mu)
     print("[OK] scipy cross-validation\n")
 
 

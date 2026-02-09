@@ -30,6 +30,10 @@ pub struct SparseMatrixBuilder<T: RealField + Copy> {
     cols: usize,
     entries: Vec<MatrixEntry<T>>,
     allow_duplicates: bool,
+    /// DOFs with strong Dirichlet enforcement. For these rows,
+    /// all off-diagonal entries are zeroed and the diagonal is set to the
+    /// stored value during `build()`.
+    dirichlet_dofs: HashMap<usize, T>,
 }
 
 impl<T: RealField + Copy> SparseMatrixBuilder<T> {
@@ -40,6 +44,7 @@ impl<T: RealField + Copy> SparseMatrixBuilder<T> {
             cols,
             entries: Vec::new(),
             allow_duplicates: false,
+            dirichlet_dofs: HashMap::new(),
         }
     }
 
@@ -55,6 +60,7 @@ impl<T: RealField + Copy> SparseMatrixBuilder<T> {
             cols,
             entries: Vec::with_capacity(capacity),
             allow_duplicates: false,
+            dirichlet_dofs: HashMap::new(),
         }
     }
 
@@ -62,6 +68,18 @@ impl<T: RealField + Copy> SparseMatrixBuilder<T> {
     pub fn allow_duplicates(mut self, allow: bool) -> Self {
         self.allow_duplicates = allow;
         self
+    }
+
+    /// Mark a DOF for strong Dirichlet enforcement.
+    ///
+    /// During `build()`, all entries in this row are discarded except the
+    /// diagonal, which is set to `diag_value` (typically `T::one()`).
+    /// The caller must also set `rhs[dof] = diag_value * target`.
+    ///
+    /// This avoids the ill-conditioning inherent in the penalty method by
+    /// producing a row that is exactly `[0 ... 0  diag_value  0 ... 0]`.
+    pub fn set_dirichlet_row(&mut self, row: usize, diag_value: T) {
+        self.dirichlet_dofs.insert(row, diag_value);
     }
 
     /// Add a single entry
@@ -100,7 +118,7 @@ impl<T: RealField + Copy> SparseMatrixBuilder<T> {
 
     /// Build the sparse matrix using COO format for efficiency
     pub fn build(self) -> Result<CsrMatrix<T>> {
-        if self.entries.is_empty() {
+        if self.entries.is_empty() && self.dirichlet_dofs.is_empty() {
             return Ok(CsrMatrix::zeros(self.rows, self.cols));
         }
 
@@ -109,7 +127,11 @@ impl<T: RealField + Copy> SparseMatrixBuilder<T> {
 
         if self.allow_duplicates {
             // Add entries directly (duplicates will be summed)
+            // Skip entries in Dirichlet rows
             for entry in &self.entries {
+                if self.dirichlet_dofs.contains_key(&entry.row) {
+                    continue; // will be replaced by diagonal below
+                }
                 coo.push(entry.row, entry.col, entry.value);
             }
         } else {
@@ -117,6 +139,9 @@ impl<T: RealField + Copy> SparseMatrixBuilder<T> {
             let mut entry_map: HashMap<(usize, usize), T> = HashMap::new();
 
             for entry in &self.entries {
+                if self.dirichlet_dofs.contains_key(&entry.row) {
+                    continue; // will be replaced by diagonal below
+                }
                 let key = (entry.row, entry.col);
                 entry_map
                     .entry(key)
@@ -129,6 +154,11 @@ impl<T: RealField + Copy> SparseMatrixBuilder<T> {
             }
         }
 
+        // Insert clean diagonal entries for Dirichlet-constrained rows
+        for (&row, &diag_val) in &self.dirichlet_dofs {
+            coo.push(row, row, diag_val);
+        }
+
         Ok(CsrMatrix::from(&coo))
     }
 
@@ -137,14 +167,17 @@ impl<T: RealField + Copy> SparseMatrixBuilder<T> {
     where
         T: Send + Sync,
     {
-        if self.entries.is_empty() {
+        if self.entries.is_empty() && self.dirichlet_dofs.is_empty() {
             return Ok(CsrMatrix::zeros(self.rows, self.cols));
         }
 
         // Zero-copy parallel aggregation using advanced iterator patterns
+        // Filter out Dirichlet-constrained rows
+        let dirichlet = &self.dirichlet_dofs;
         let entry_map: HashMap<(usize, usize), T> = self
             .entries
             .par_iter()
+            .filter(|entry| !dirichlet.contains_key(&entry.row))
             .map(|entry| ((entry.row, entry.col), entry.value))
             .fold(HashMap::new, |mut acc, (key, value)| {
                 acc.entry(key).and_modify(|v| *v += value).or_insert(value);
@@ -161,6 +194,11 @@ impl<T: RealField + Copy> SparseMatrixBuilder<T> {
         let mut coo = CooMatrix::new(self.rows, self.cols);
         for ((row, col), value) in entry_map {
             coo.push(row, col, value);
+        }
+
+        // Insert clean diagonal entries for Dirichlet-constrained rows
+        for (&row, &diag_val) in &self.dirichlet_dofs {
+            coo.push(row, row, diag_val);
         }
 
         Ok(CsrMatrix::from(&coo))

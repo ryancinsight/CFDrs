@@ -1001,22 +1001,25 @@ impl<T: RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> 
 
         self.apply_periodic_boundary_conditions(builder, rhs, problem)?;
 
-        // Apply Dirichlet boundary conditions using penalty method
-        // SCALING: System matrix entries are ~10^-10 (Physical).
-        // Penalty of 1e5 gives 10^15 stiffness ratio.
-        let penalty = T::from_f64(1.0e5).unwrap_or_else(T::one);
+        // Apply Dirichlet boundary conditions using strong enforcement
+        // (row elimination). For each constrained DOF, we zero the entire row
+        // in the stiffness matrix, set the diagonal to 1, and set the RHS to
+        // the target value. This avoids the catastrophic ill-conditioning of
+        // the penalty method (which produced condition numbers ~10^15 on
+        // microfluidic meshes where physical entries ~10^-10 and penalty=10^5).
+        let diag_one = T::one();
 
         for (node_idx, bc) in &problem.boundary_conditions {
             let dof = *node_idx * (constants::VELOCITY_COMPONENTS + 1);
 
             match bc {
                 BoundaryCondition::VelocityInlet { velocity } => {
-                    // Apply penalty method for velocity components
+                    // Strong enforcement for velocity components
                     for i in 0..constants::VELOCITY_COMPONENTS {
                         let component_dof = dof + i;
-                        builder.add_entry(component_dof, component_dof, penalty)?;
+                        builder.set_dirichlet_row(component_dof, diag_one);
                         if component_dof < rhs.len() {
-                            rhs[component_dof] = penalty * velocity[i];
+                            rhs[component_dof] = velocity[i];
                         }
                     }
                 }
@@ -1024,26 +1027,22 @@ impl<T: RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> 
                     velocity_direction,
                     ..
                 } => {
-                    // Pressure inlet: Traction handled by apply_pressure_boundary_conditions
-                    // Optional velocity direction allows tangential constraint? 
-                    // For now, we only treat it as pressure traction + free tangential.
-                    // If direction is specified, we might need a Dirichlet constraint on tangential components, 
-                    // but that's complex. Leaving it as natural + traction.
+                    // Pressure inlet: traction handled by apply_pressure_boundary_conditions.
+                    // No additional Dirichlet constraint needed here.
                 }
                 BoundaryCondition::PressureOutlet { pressure } => {
-                    // Pressure outlet: fixed pressure (Dirichlet)
-                    // We also apply traction in apply_pressure_boundary_conditions
+                    // Pressure outlet: fixed pressure (Dirichlet on pressure DOF)
                     let pressure_dof = dof + constants::VELOCITY_COMPONENTS;
-                    builder.add_entry(pressure_dof, pressure_dof, penalty)?;
+                    builder.set_dirichlet_row(pressure_dof, diag_one);
                     if pressure_dof < rhs.len() {
-                        rhs[pressure_dof] = penalty * *pressure;
+                        rhs[pressure_dof] = *pressure;
                     }
                 }
                 BoundaryCondition::Wall { .. } => {
-                    // No-slip wall: zero velocity
+                    // No-slip wall: zero velocity (strong enforcement)
                     for i in 0..constants::VELOCITY_COMPONENTS {
                         let component_dof = dof + i;
-                        builder.add_entry(component_dof, component_dof, penalty)?;
+                        builder.set_dirichlet_row(component_dof, diag_one);
                         if component_dof < rhs.len() {
                             rhs[component_dof] = T::zero();
                         }
@@ -1053,7 +1052,7 @@ impl<T: RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> 
                     value,
                     component_values,
                 } => {
-                    // General Dirichlet: fixed value for all components, or specific per-component values
+                    // General Dirichlet: strong enforcement per component
                     for i in 0..=constants::VELOCITY_COMPONENTS {
                         let component_dof = dof + i;
                         
@@ -1068,9 +1067,9 @@ impl<T: RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> 
                         };
 
                         if let Some(val) = target_val {
-                            builder.add_entry(component_dof, component_dof, penalty)?;
+                            builder.set_dirichlet_row(component_dof, diag_one);
                             if component_dof < rhs.len() {
-                                rhs[component_dof] = penalty * val;
+                                rhs[component_dof] = val;
                             }
                         }
                     }
@@ -1080,7 +1079,6 @@ impl<T: RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> 
                 | BoundaryCondition::Periodic { .. } => {}
                 _ => {
                     // Unknown or unsupported boundary condition types
-                    // Log a warning but don't fail - allows for graceful degradation
                     tracing::warn!("Unsupported boundary condition type at node {}", node_idx);
                 }
             }

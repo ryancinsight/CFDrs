@@ -65,7 +65,7 @@ def validate_1d_trifurcation():
     # Murray deviation ---------------------------------------------------
     D_opt = murray_optimal_daughter(D_p, 3)
     dev = abs(D_d - D_opt) / D_opt
-    print(f"  Murray optimal D_daughter: {D_opt*1e6:.1f} µm  (actual {D_d*1e6:.0f} µm)")
+    print(f"  Murray optimal D_daughter: {D_opt*1e6:.1f} um  (actual {D_d*1e6:.0f} um)")
     print(f"  Murray deviation: {dev:.4f}")
 
     # Flow split: symmetric daughters → Q/3 each -----------------------
@@ -181,7 +181,7 @@ def scipy_cross_validate():
         length=L,
     )
     result = solver.solve(Q, dp_total * 2.0, "newtonian")
-    print(f"  Analytical total ΔP:   {dp_total:.6f} Pa")
+    print(f"  Analytical total dP:   {dp_total:.6f} Pa")
     print(f"  Parent R:   {R_p:.3e}  Daughter R: {R_d:.3e}")
     print(f"  Solver Q_parent: {result.q_parent:.3e}")
     print("[OK] scipy cross-validation\n")
@@ -196,7 +196,7 @@ def main():
                validate_3d_trifurcation, scipy_cross_validate]:
         try:
             fn()
-        except (AssertionError, Exception) as e:  # noqa: F821
+        except (AssertionError, Exception) as e:
             print(f"  [FAIL] {e}")
             ok = False
 

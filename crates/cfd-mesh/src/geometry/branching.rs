@@ -71,16 +71,23 @@ impl<T: RealField + Copy + FromPrimitive + Float> BranchingMeshBuilder<T> {
     /// 2. For each daughter:
     ///    a. Create daughter block
     ///    b. Rotate and translate to junction point
-    ///    c. Merge with existing mesh
+    ///    c. Stitch to parent
     pub fn build(&self) -> crate::error::Result<Mesh<T>> {
         let mut mesh = self.build_parent()?;
 
-        for i in 0..self.d_daughters.len() {
-            let daughter_mesh = self.build_daughter(i)?;
-            mesh.merge(&daughter_mesh, T::from_f64(1e-5).unwrap());
+        for (i, &d_daughter) in self.d_daughters.iter().enumerate() {
+            let l_daughter = self.l_daughters[i];
+            let angle = self.angles[i];
+            
+            let mut daughter_mesh = self.build_daughter(i, d_daughter, l_daughter, angle)?;
+            
+            let parent_interface_label = format!("interface_d{}", i);
+            let daughter_inlet_label = "inlet"; 
+            
+            mesh.stitch(&daughter_mesh, &parent_interface_label, daughter_inlet_label, T::from_f64(1e-7).unwrap())
+                .map_err(|e| crate::error::MeshError::InvalidMesh(format!("Stitching failed for daughter {}: {}", i, e)))?;
         }
-
-        // Mark remaining external faces as walls
+        
         let boundary_faces = mesh.boundary_faces();
         for f_idx in boundary_faces {
             if mesh.boundary_label(f_idx).is_none() {
@@ -93,7 +100,13 @@ impl<T: RealField + Copy + FromPrimitive + Float> BranchingMeshBuilder<T> {
 
     fn build_parent(&self) -> crate::error::Result<Mesh<T>> {
         let half_d = self.d_parent / T::from_f64(2.0).unwrap();
-        let mut mesh = StructuredGridBuilder::new(self.resolution * 2, self.resolution, self.resolution)
+        let n_daughters = self.d_daughters.len();
+        // Ensure y-resolution is divisible by n_daughters for clean N-way splits.
+        // Round up resolution to next multiple of n_daughters.
+        let res_y = ((self.resolution + n_daughters - 1) / n_daughters) * n_daughters;
+        let res_z = self.resolution;
+        
+        let mut mesh = StructuredGridBuilder::new(self.resolution * 2, res_y, res_z)
             .with_bounds((
                 (T::zero(), self.l_parent),
                 (-half_d, half_d),
@@ -101,7 +114,9 @@ impl<T: RealField + Copy + FromPrimitive + Float> BranchingMeshBuilder<T> {
             ))
             .build()?;
 
-        // Mark inlet (x = 0)
+        let d = self.d_parent;
+        let band_height = d / T::from_usize(n_daughters).unwrap();
+
         for f_idx in 0..mesh.face_count() {
             if let Some(face) = mesh.face(f_idx) {
                 let mut all_at_zero = true;
@@ -109,12 +124,37 @@ impl<T: RealField + Copy + FromPrimitive + Float> BranchingMeshBuilder<T> {
                     if let Some(v) = mesh.vertex(v_idx) {
                         if Float::abs(v.position.x) > T::from_f64(1e-7).unwrap() {
                             all_at_zero = false;
-                            break;
                         }
                     }
                 }
                 if all_at_zero {
                     mesh.mark_boundary(f_idx, "inlet".to_string());
+                    continue;
+                }
+                
+                let mut all_at_l = true;
+                let mut center_y = T::zero();
+                 for &v_idx in &face.vertices {
+                    if let Some(v) = mesh.vertex(v_idx) {
+                        if Float::abs(v.position.x - self.l_parent) > T::from_f64(1e-7).unwrap() {
+                            all_at_l = false;
+                        }
+                        center_y = center_y + v.position.y;
+                    }
+                }
+                
+                if all_at_l {
+                    let v_count = T::from_usize(face.vertices.len()).unwrap();
+                    center_y = center_y / v_count;
+                    
+                    // Assign face to daughter based on y-band.
+                    // Daughter 0 gets the topmost band, daughter N-1 the bottommost.
+                    // Bands: daughter k occupies y ∈ [half_d - (k+1)*band_height, half_d - k*band_height]
+                    let y_from_top = half_d - center_y; // distance from top, in [0, d]
+                    let band_f = y_from_top / band_height;
+                    let band_f64: f64 = nalgebra::try_convert(Float::floor(band_f)).unwrap_or(0.0);
+                    let band = (band_f64 as usize).min(n_daughters - 1);
+                    mesh.mark_boundary(f_idx, format!("interface_d{}", band));
                 }
             }
         }
@@ -122,63 +162,57 @@ impl<T: RealField + Copy + FromPrimitive + Float> BranchingMeshBuilder<T> {
         Ok(mesh)
     }
 
-    fn build_daughter(&self, idx: usize) -> crate::error::Result<Mesh<T>> {
-        let d = self.d_daughters[idx];
-        let l = self.l_daughters[idx];
-        let angle = self.angles[idx];
-        let half_d = d / T::from_f64(2.0).unwrap();
-
-        let mut daughter_mesh = StructuredGridBuilder::new(self.resolution * 2, self.resolution, self.resolution)
+    fn build_daughter(&self, idx: usize, _d: T, l: T, angle: T) -> crate::error::Result<Mesh<T>> {
+        let parent_half_d = self.d_parent / T::from_f64(2.0).unwrap();
+        let n_daughters = self.d_daughters.len();
+        // Must use the same adjusted res_y as build_parent for vertex alignment.
+        let parent_res_y = ((self.resolution + n_daughters - 1) / n_daughters) * n_daughters;
+        let ny_daughter = parent_res_y / n_daughters;
+        
+        let d = self.d_parent;
+        let band_height = d / T::from_usize(n_daughters).unwrap();
+        
+        // Daughter k occupies y ∈ [half_d - (k+1)*band_height, half_d - k*band_height]
+        let y_top = parent_half_d - band_height * T::from_usize(idx).unwrap();
+        let y_bot = y_top - band_height;
+        
+        let mut daughter_mesh = StructuredGridBuilder::new(self.resolution * 2, ny_daughter, self.resolution)
             .with_bounds((
                 (T::zero(), l),
-                (-half_d, half_d),
-                (-half_d, half_d),
+                (y_bot, y_top), 
+                (-parent_half_d, parent_half_d),
             ))
             .build()?;
-
-        // Mark outlet (x = l) before transformation
+            
         for f_idx in 0..daughter_mesh.face_count() {
             if let Some(face) = daughter_mesh.face(f_idx) {
+                let mut all_at_zero = true;
                 let mut all_at_l = true;
                 for &v_idx in &face.vertices {
                     if let Some(v) = daughter_mesh.vertex(v_idx) {
-                        if Float::abs(v.position.x - l) > T::from_f64(1e-7).unwrap() {
-                            all_at_l = false;
-                            break;
-                        }
+                        if Float::abs(v.position.x) > T::from_f64(1e-7).unwrap() { all_at_zero = false; }
+                        if Float::abs(v.position.x - l) > T::from_f64(1e-7).unwrap() { all_at_l = false; }
                     }
                 }
-                if all_at_l {
+                if all_at_zero {
+                    daughter_mesh.mark_boundary(f_idx, "inlet".to_string());
+                } else if all_at_l {
                     daughter_mesh.mark_boundary(f_idx, format!("outlet_{}", idx));
                 }
             }
         }
 
-        // Apply bending transformation
-        // Instead of rigid rotation, we apply a progressive rotation along the length (curvature)
-        // This ensures the inlet face (x=0) remains unrotated (angle=0), matching the parent outlet perfectly,
-        // while the outlet face (x=l) reaches the full branching angle.
-        
-        let origin_x = self.l_parent;
-        let translation = Vector3::new(origin_x, T::zero(), T::zero());
+        let translation = Vector3::new(self.l_parent, T::zero(), T::zero());
 
         for v in daughter_mesh.vertices_mut() {
-            let x_local_initial = v.position.x;
-            
-            // Calculate progress along the branch (0.0 to 1.0)
-            // Use clamp to handle potential float inaccuracy
-            let mut s = x_local_initial / l;
-            if s < T::zero() { s = T::zero(); }
-            if s > T::one() { s = T::one(); }
-            
-            // Curvature function: linear angle distribution (circular arc)
-            let theta = angle * s;
-            
-            // Rotate the point around the Z-axis
-            let rotation = Rotation3::from_axis_angle(&Vector3::z_axis(), theta);
-            
-            // Transform
-            v.position = rotation.transform_point(&v.position) + translation;
+             let x_local = v.position.x;
+             let s = x_local / l;
+             let theta = angle * s;
+             
+             let rotation = Rotation3::from_axis_angle(&Vector3::z_axis(), theta);
+             
+             v.position = rotation.transform_point(&v.position);
+             v.position = v.position + translation;
         }
 
         Ok(daughter_mesh)

@@ -1,0 +1,18 @@
+{
+  "timestamp": "2026-02-09T16:51:10.002448",
+  "results": {
+    "Analytical Energy Decay": "PASS",
+    "fluidsim vs Analytical": "PASS",
+    "pycfdrs Poiseuille": "FAIL",
+    "Blood Rheology Literature": "PASS",
+    "Dean Number": "PASS",
+    "Murray's Law": "PASS",
+    "Venturi Bernoulli": "PASS",
+    "3D FEM Convergence": "PASS"
+  },
+  "all_passed": false,
+  "packages": {
+    "pycfdrs": true,
+    "fluidsim": true
+  }
+}

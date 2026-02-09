@@ -248,14 +248,14 @@ impl<T: RealField + Copy + FromPrimitive> SerpentineModel<T> {
         bend_radius: T,
     ) -> Self {
         let dh = cross_section.hydraulic_diameter();
-        let r_dh = if dh > 0.0 {
-            bend_radius / T::from_f64(dh).unwrap_or_else(T::one)
+        // Compute R/D_h ratio for bend loss coefficient lookup.
+        // Use nalgebra::try_convert to extract f64 from generic T.
+        let r_dh_f64 = if dh > 0.0 {
+            let bend_r_f64 = nalgebra::try_convert::<T, f64>(bend_radius).unwrap_or(2.0 * dh);
+            bend_r_f64 / dh
         } else {
-            T::from_f64(2.0).unwrap_or_else(T::one)
+            2.0 // reasonable default R/D_h for smooth bends
         };
-        // Convert T to f64 for BendType — use approximate conversion
-        let r_dh_f64 = 2.0; // fallback
-        let _ = r_dh; // We use the SerpentineCrossSection hydraulic_diameter directly
 
         Self {
             straight_length,
@@ -263,16 +263,7 @@ impl<T: RealField + Copy + FromPrimitive> SerpentineModel<T> {
             cross_section,
             bend_radius,
             bend_type: BendType::Smooth {
-                radius_to_dh_ratio: {
-                    let dh_val = cross_section.hydraulic_diameter();
-                    if dh_val > 0.0 {
-                        // We need to extract f64 from bend_radius T
-                        // For the constructor, assume bend_radius is reasonable
-                        r_dh_f64
-                    } else {
-                        2.0
-                    }
-                },
+                radius_to_dh_ratio: r_dh_f64,
             },
         }
     }
@@ -288,8 +279,13 @@ impl<T: RealField + Copy + FromPrimitive> SerpentineModel<T> {
         let cross_section = SerpentineCrossSection::Rectangular { width, height };
         let straight_length = segment_length * T::from_usize(num_segments).unwrap_or_else(T::one);
         let dh = cross_section.hydraulic_diameter();
-        // Approximate R/D_h ratio
-        let r_dh_approx = if dh > 0.0 { 2.0 } else { 2.0 }; // Will be refined at runtime
+        // Compute R/D_h from the actual bend_radius using nalgebra::try_convert
+        let r_dh_f64 = if dh > 0.0 {
+            let bend_r_f64 = nalgebra::try_convert::<T, f64>(bend_radius).unwrap_or(2.0 * dh);
+            bend_r_f64 / dh
+        } else {
+            2.0
+        };
 
         Self {
             straight_length,
@@ -297,7 +293,7 @@ impl<T: RealField + Copy + FromPrimitive> SerpentineModel<T> {
             cross_section,
             bend_radius,
             bend_type: BendType::Smooth {
-                radius_to_dh_ratio: r_dh_approx,
+                radius_to_dh_ratio: r_dh_f64,
             },
         }
     }
@@ -464,12 +460,18 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for SerpentineModel
         let q = velocity * area;
         let q_sq = q * q;
 
-        if q_sq > T::default_epsilon() {
+        // Use velocity-based check instead of q_sq > epsilon, because
+        // microfluidic flow rates (Q ~ 1e-10 m³/s) yield q² ~ 1e-20 which
+        // is below f64::EPSILON ≈ 2.2e-16 even though the flow is physically
+        // meaningful. We only fall back to the zero-flow analytical limit when
+        // the velocity is truly negligible.
+        let vel_threshold = T::from_f64(1e-15).unwrap_or_else(T::zero);
+        if velocity > vel_threshold {
             // The friction component is proportional to V (laminar) or V^1.75 (turbulent)
             // For laminar flow, f ∝ 1/Re ∝ 1/V, so ΔP_f ∝ V → linear in Q
             // Minor losses are always ∝ V² → quadratic in Q
             let r = dp_friction / q; // Linear resistance coefficient
-            let k_coeff = dp_bends / q_sq; // Quadratic resistance coefficient
+            let k_coeff = if q_sq > T::zero() { dp_bends / q_sq } else { T::zero() };
             Ok((r, k_coeff))
         } else {
             // Zero flow: Hagen-Poiseuille limit for total straight length

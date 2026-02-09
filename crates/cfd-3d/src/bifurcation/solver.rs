@@ -55,9 +55,9 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> Default
             num_time_steps: 1,
             steady_state: true,
             max_nonlinear_iterations: 20,
-            nonlinear_tolerance: T::from_f64_or_one(1e-6),
-            max_linear_iterations: 100,
-            linear_tolerance: T::from_f64_or_one(1e-8),
+            nonlinear_tolerance: T::from_f64_or_one(1e-4),
+            max_linear_iterations: 1000,
+            linear_tolerance: T::from_f64_or_one(1e-6),
         }
     }
 }
@@ -150,39 +150,16 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
         let area_ratio = ratio * ratio;
         let u_outlet = u_inlet * area_ratio; // Velocity in daughter branches
         
-        // Process outlet faces FIRST (highest priority) - use VelocityInlet with computed velocity
+        // Process outlet faces FIRST (highest priority) - use PressureOutlet
         for f_idx in mesh.boundary_faces() {
             if let Some(label) = mesh.boundary_label(f_idx) {
-                if label == "outlet_0" {
+                if label == "outlet_0" || label == "outlet_1" {
                     if let Some(face) = mesh.face(f_idx) {
                         for &v_idx in &face.vertices {
                             boundary_conditions.entry(v_idx).or_insert_with(|| {
                                 outlet_count += 1;
-                                // Daughter 1 at positive angle - rotate velocity vector
-                                let angle = self.geometry.branching_angle;
-                                BoundaryCondition::VelocityInlet {
-                                    velocity: Vector3::new(
-                                        u_outlet * Float::cos(angle), 
-                                        u_outlet * Float::sin(angle), 
-                                        T::zero()
-                                    ),
-                                }
-                            });
-                        }
-                    }
-                } else if label == "outlet_1" {
-                    if let Some(face) = mesh.face(f_idx) {
-                        for &v_idx in &face.vertices {
-                            boundary_conditions.entry(v_idx).or_insert_with(|| {
-                                outlet_count += 1;
-                                // Daughter 2 at negative angle
-                                let angle = -self.geometry.branching_angle;
-                                BoundaryCondition::VelocityInlet {
-                                    velocity: Vector3::new(
-                                        u_outlet * Float::cos(angle), 
-                                        u_outlet * Float::sin(angle), 
-                                        T::zero()
-                                    ),
+                                BoundaryCondition::PressureOutlet {
+                                    pressure: self.config.outlet_pressure,
                                 }
                             });
                         }
