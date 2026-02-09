@@ -126,6 +126,17 @@ impl<T: RealField + FromPrimitive + Copy> FluidElement<T> {
         self.shape_derivatives = Matrix3x4::from_columns(&[d1, d2, d3, d4]);
     }
 
+    /// Calculate characteristic element length h
+    pub fn h(&self, _vertices: &[Vector3<T>]) -> T {
+        // Use cubic root of volume as characteristic length
+        // This is a robust isotropic estimate
+        if self.volume > T::zero() {
+            self.volume.cbrt()
+        } else {
+            T::one()
+        }
+    }
+
     /// Calculate strain rate from velocity gradient
     pub fn strain_rate(&self, velocity_gradient: &Matrix3<T>) -> Matrix3<T> {
         let half = T::from_f64(0.5).unwrap_or_else(T::zero);
