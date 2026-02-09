@@ -77,21 +77,9 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
             )));
         }
 
-        // Check if method is explicit (lower triangular A with zero diagonal)
-        for i in 0..s {
-            if a[(i, i)] != T::zero() {
-                return Err(Error::InvalidInput(
-                    "Not an explicit Runge-Kutta method".to_string(),
-                ));
-            }
-            for j in (i + 1)..s {
-                if a[(i, j)] != T::zero() {
-                    return Err(Error::InvalidInput(
-                        "Not a lower triangular A matrix".to_string(),
-                    ));
-                }
-            }
-        }
+        // Compute stability polynomial coefficients
+        // This also validates that the method is explicit (strictly lower triangular)
+        let coeffs = self.compute_stability_polynomial_coefficients(a, b)?;
 
         let max_r = self
             .max_z
@@ -105,7 +93,8 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
         // For each θ, find the largest radius r such that |R(r e^{iθ})| <= 1.
         for i in 0..self.resolution {
             let theta = 2.0 * PI * i as f64 / self.resolution as f64;
-            let r_boundary = self.find_rk_boundary_radius(a, b, c, theta, max_r)?;
+            // Use polynomial coefficients for efficient evaluation
+            let r_boundary = self.find_rk_boundary_radius(&coeffs, theta, max_r)?;
 
             let z = NumComplex::new(r_boundary * theta.cos(), r_boundary * theta.sin());
             let z_real = T::from_f64(z.re).ok_or_else(|| {
@@ -162,15 +151,18 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
         &self,
         a: &DMatrix<T>,
         b: &DVector<T>,
-        c: &DVector<T>,
+        _c: &DVector<T>,
     ) -> Result<T> {
         let max_r = self
             .max_z
             .to_f64()
             .ok_or_else(|| Error::InvalidInput("max_z must be convertible to f64".to_string()))?;
 
+        // Compute polynomial coefficients
+        let coeffs = self.compute_stability_polynomial_coefficients(a, b)?;
+
         // θ = π corresponds to the negative real axis.
-        let r = self.find_rk_boundary_radius(a, b, c, PI, max_r)?;
+        let r = self.find_rk_boundary_radius(&coeffs, PI, max_r)?;
 
         T::from_f64(r).ok_or_else(|| {
             Error::InvalidInput("absolute stability limit not representable in T".to_string())
@@ -179,9 +171,7 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
 
     fn find_rk_boundary_radius(
         &self,
-        a: &DMatrix<T>,
-        b: &DVector<T>,
-        c: &DVector<T>,
+        coeffs: &[f64],
         theta: f64,
         max_r: f64,
     ) -> Result<f64> {
@@ -199,7 +189,7 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
         for step in 1..=RADIAL_SCAN_STEPS {
             let r = max_r * (step as f64) / (RADIAL_SCAN_STEPS as f64);
             let z = NumComplex::new(r * theta.cos(), r * theta.sin());
-            let r_z = self.compute_rk_stability_function(a, b, c, z)?;
+            let r_z = self.evaluate_stability_polynomial(coeffs, z);
             let stable = r_z.norm() <= 1.0 + STABLE_TOL;
 
             if prev_stable && !stable {
@@ -222,7 +212,7 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
         for _ in 0..BISECTION_ITERS {
             let mid = 0.5 * (low + high);
             let z = NumComplex::new(mid * theta.cos(), mid * theta.sin());
-            let r_z = self.compute_rk_stability_function(a, b, c, z)?;
+            let r_z = self.evaluate_stability_polynomial(coeffs, z);
             let stable = r_z.norm() <= 1.0 + STABLE_TOL;
             if stable {
                 low = mid;
@@ -232,60 +222,6 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
         }
 
         Ok(0.5 * (low + high))
-    }
-
-    /// Compute stability function for explicit Runge-Kutta method
-    fn compute_rk_stability_function(
-        &self,
-        a: &DMatrix<T>,
-        b: &DVector<T>,
-        _c: &DVector<T>,
-        z: NumComplex<f64>,
-    ) -> Result<NumComplex<f64>> {
-        let s = b.len();
-
-        // For explicit methods, R(z) = 1 + z*b^T * (I - z*A)^(-1) * 1
-        // This is equivalent to the ratio of polynomials for explicit methods
-
-        // Build the polynomial representation
-        // For explicit RK methods, we can compute this directly
-        // TODO: Implement full stability polynomial
-
-        // Simplified computation for explicit methods
-        // R(z) = sum_{k=0}^s (z^k / k!) * sum_{stages} for order k
-        // For practical computation, we use the matrix form
-
-        // Convert matrices to complex
-        let mut a_complex = DMatrix::<NumComplex<f64>>::zeros(s, s);
-        let mut b_complex = DVector::<NumComplex<f64>>::zeros(s);
-
-        for i in 0..s {
-            b_complex[i] = NumComplex::new(b[i].to_f64().unwrap(), 0.0);
-            for j in 0..s {
-                a_complex[(i, j)] = NumComplex::new(a[(i, j)].to_f64().unwrap(), 0.0);
-            }
-        }
-
-        // Compute (I - z*A)
-        let identity = DMatrix::<NumComplex<f64>>::identity(s, s);
-        let z_a = &a_complex * z; // Matrix * scalar, not scalar * matrix
-        let matrix = &identity - &z_a;
-
-        // Compute inverse
-        match matrix.try_inverse() {
-            Some(inv_matrix) => {
-                // Compute b^T * inv_matrix * 1 (ones vector)
-                let ones = DVector::<NumComplex<f64>>::from_element(s, NumComplex::new(1.0, 0.0));
-                let temp = &inv_matrix * &ones;
-                let coeff = b_complex.dot(&temp);
-                let r_z = NumComplex::new(1.0, 0.0) + z * coeff;
-                Ok(r_z)
-            }
-            None => {
-                // Singular matrix - method is unstable for this z
-                Ok(NumComplex::new(f64::INFINITY, f64::INFINITY))
-            }
-        }
     }
 
     /// Estimate order of Runge-Kutta method from Butcher tableau
@@ -320,6 +256,75 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
         // Order 4: More complex conditions involving A matrix
         // For now, assume order 4 if basic conditions pass
         4
+    }
+
+    /// Compute stability polynomial coefficients for an explicit Runge-Kutta method.
+    ///
+    /// The stability function is R(z) = 1 + sum_{k=1}^s c_k z^k
+    /// where c_k = b^T A^{k-1} 1.
+    fn compute_stability_polynomial_coefficients(
+        &self,
+        a: &DMatrix<T>,
+        b: &DVector<T>,
+    ) -> Result<Vec<f64>> {
+        let s = b.len();
+
+        // Validate explicit method (strictly lower triangular)
+        for i in 0..s {
+            if a[(i, i)] != T::zero() {
+                return Err(Error::InvalidInput(
+                    "Not an explicit Runge-Kutta method (diagonal not zero)".to_string(),
+                ));
+            }
+            for j in (i + 1)..s {
+                if a[(i, j)] != T::zero() {
+                    return Err(Error::InvalidInput(
+                        "Not an explicit Runge-Kutta method (upper triangle not zero)".to_string(),
+                    ));
+                }
+            }
+        }
+
+        // Convert matrices to f64 for calculation
+        let mut a_f64 = DMatrix::<f64>::zeros(s, s);
+        let mut b_f64 = DVector::<f64>::zeros(s);
+
+        for i in 0..s {
+            b_f64[i] = b[i].to_f64().ok_or_else(|| {
+                Error::InvalidInput("b element not representable in f64".to_string())
+            })?;
+            for j in 0..s {
+                a_f64[(i, j)] = a[(i, j)].to_f64().ok_or_else(|| {
+                    Error::InvalidInput("A element not representable in f64".to_string())
+                })?;
+            }
+        }
+
+        let mut coeffs = Vec::with_capacity(s + 1);
+        coeffs.push(1.0); // c_0
+
+        let mut v = DVector::<f64>::from_element(s, 1.0); // 1 vector
+
+        for _ in 1..=s {
+            let c_k = b_f64.dot(&v);
+            coeffs.push(c_k);
+            v = &a_f64 * v;
+        }
+
+        Ok(coeffs)
+    }
+
+    /// Evaluate stability polynomial at z using Horner's method
+    fn evaluate_stability_polynomial(
+        &self,
+        coeffs: &[f64],
+        z: NumComplex<f64>,
+    ) -> NumComplex<f64> {
+        let mut result = NumComplex::new(0.0, 0.0);
+        for &c in coeffs.iter().rev() {
+            result = result * z + NumComplex::new(c, 0.0);
+        }
+        result
     }
 
     /// Analyze CFL condition for advection equation: ∂u/∂t + a ∂u/∂x = 0
@@ -426,7 +431,7 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
         &self,
         a: &DMatrix<T>,
         b: &DVector<T>,
-        c: &DVector<T>,
+        _c: &DVector<T>,
         spatial_operator: F,
         dt: T,
         wave_numbers: &[T],
@@ -438,6 +443,9 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
             .to_f64()
             .ok_or_else(|| Error::InvalidInput("dt must be convertible to f64".to_string()))?;
 
+        // Compute polynomial coefficients
+        let coeffs = self.compute_stability_polynomial_coefficients(a, b)?;
+
         let mut amplification_factors = Vec::with_capacity(wave_numbers.len());
         let mut max_amplification = T::zero();
         let mut critical_wave_number = T::zero();
@@ -447,7 +455,7 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
             let l_hat = spatial_operator(k_complex);
             let z = NumComplex::new(dt_f64, 0.0) * l_hat;
 
-            let g = self.compute_rk_stability_function(a, b, c, z)?;
+            let g = self.evaluate_stability_polynomial(&coeffs, z);
             let amplification = T::from_f64(g.norm()).unwrap();
             amplification_factors.push(amplification);
 
