@@ -24,7 +24,8 @@ impl<T: RealField + Copy> VenturiFlow3D<T> {
     }
 }
 
-impl<T: RealField + Copy + num_traits::Float + num_traits::FromPrimitive + num_traits::ToPrimitive + cfd_core::conversion::SafeFromF64> Benchmark<T> for VenturiFlow3D<T> {
+impl<T: RealField + Copy + num_traits::Float + num_traits::FromPrimitive + 
+    num_traits::ToPrimitive + cfd_core::conversion::SafeFromF64 + std::convert::From<f64>> Benchmark<T> for VenturiFlow3D<T> {
     fn name(&self) -> &str {
         "3D Venturi Tube Flow"
     }
@@ -50,7 +51,7 @@ impl<T: RealField + Copy + num_traits::Float + num_traits::FromPrimitive + num_t
         // 2. Setup Solver
         let solver_config = VenturiConfig3D {
             inlet_flow_rate: T::from_f64_or_one(1.0e-7), // Default if not in config
-            resolution: (config.resolution, 6),
+            resolution: (config.resolution, 8),
             ..VenturiConfig3D::default()
         };
         

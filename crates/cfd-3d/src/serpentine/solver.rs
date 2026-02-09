@@ -63,7 +63,7 @@ pub struct SerpentineSolver3D<T: RealField + Copy + Float> {
     config: SerpentineConfig3D<T>,
 }
 
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float> SerpentineSolver3D<T> {
+impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + From<f64>> SerpentineSolver3D<T> {
     /// Create new solver from mesh builder and config
     pub fn new(builder: SerpentineMeshBuilder<T>, config: SerpentineConfig3D<T>) -> Self {
         Self { builder, config }
@@ -116,7 +116,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float> Se
                                 // Wall: No-slip
                                 BoundaryCondition::Dirichlet {
                                     value: T::zero(),
-                                    component_values: Some(vec![Some(T::zero()), Some(T::zero()), Some(T::zero())]),
+                                    component_values: Some(vec![Some(T::zero()), Some(T::zero()), Some(T::zero()), None]),
                                 }
                             }
                         });
@@ -146,7 +146,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float> Se
 
         for _ in 0..self.config.max_nonlinear_iterations {
             problem.element_viscosities = Some(element_viscosities.clone());
-            let fem_solution = solver.solve(&problem).map_err(|e| Error::Solver(e.to_string()))?;
+            let fem_solution = solver.solve(&problem, last_solution.as_ref()).map_err(|e| Error::Solver(e.to_string()))?;
             
             let mut max_change = T::zero();
             let mut new_viscosities = Vec::with_capacity(n_elements);

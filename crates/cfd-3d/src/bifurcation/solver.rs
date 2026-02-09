@@ -101,7 +101,7 @@ pub struct BifurcationSolver3D<T: RealField + Copy> {
     config: BifurcationConfig3D<T>,
 }
 
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float> BifurcationSolver3D<T> {
+impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + From<f64>> BifurcationSolver3D<T> {
     /// Create new solver for given geometry and configuration
     pub fn new(geometry: BifurcationGeometry3D<T>, config: BifurcationConfig3D<T>) -> Self {
         Self { geometry, config }
@@ -283,7 +283,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float> Bi
             problem.element_viscosities = Some(element_viscosities.clone());
             
             // Solve Stokes system
-            let fem_solution = solver.solve(&problem).map_err(|e| Error::Solver(e.to_string()))?;
+            let fem_solution = solver.solve(&problem, last_solution.as_ref()).map_err(|e| Error::Solver(e.to_string()))?;
             
             // Calculate shear rates and new viscosities
             let mut max_change = T::zero();
@@ -384,6 +384,12 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float> Bi
                         
                         let n_vec = (v1 - v0).cross(&(v2 - v0));
                         let area = n_vec.norm() * T::from_f64_or_one(0.5);
+                        
+                        // Skip degenerate faces (zero area)
+                        if area < T::from_f64(1e-20).unwrap_or_else(T::zero) {
+                            continue;
+                        }
+                        
                         let face_normal = n_vec.normalize();
                         
                         let mut u_avg = Vector3::zeros();
@@ -398,7 +404,11 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float> Bi
                         u_avg /= T::from_usize(face.vertices.len()).unwrap_or_else(T::one);
                         
                         let face_flow = u_avg.dot(&face_normal) * area;
-                        total_q += face_flow;
+                        
+                        // Skip NaN flows
+                        if !face_flow.is_nan() {
+                            total_q += face_flow;
+                        }
                     }
                 }
             }

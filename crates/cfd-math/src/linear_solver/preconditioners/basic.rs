@@ -28,6 +28,14 @@ pub struct JacobiPreconditioner<T: RealField + Copy> {
 
 impl<T: RealField + From<f64> + FromPrimitive + Copy> JacobiPreconditioner<T> {
     /// Create Jacobi preconditioner from matrix diagonal
+    ///
+    /// # Zero Diagonal Handling
+    ///
+    /// When a diagonal entry is zero or near-zero (< 1e-14), it is replaced with 1.0
+    /// to avoid division by zero. This effectively makes the preconditioner act as
+    /// identity for those rows, which is appropriate for:
+    /// - DOFs with no element contributions (e.g., unused nodes)
+    /// - Pressure DOFs in mixed formulations before stabilization
     pub fn new(a: &CsrMatrix<T>) -> Result<Self> {
         let n = a.nrows();
         if n != a.ncols() {
@@ -40,11 +48,15 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> JacobiPreconditioner<T> {
         let diag = a.diagonal();
         let mut inv_diagonal = DVector::zeros(n);
 
+        let zero_tol = T::from_f64(1e-14_f64).unwrap_or_else(|| T::zero());
         for (i, val) in diag.iter().enumerate() {
-            if val.abs() < T::from_f64(1e-14_f64).unwrap_or_else(|| T::zero()) {
-                return Err(Error::Numerical(NumericalErrorKind::DivisionByZero));
+            if val.abs() < zero_tol {
+                // Replace zero diagonal with 1.0 (identity for this row)
+                // This handles DOFs with no element contributions
+                inv_diagonal[i] = T::one();
+            } else {
+                inv_diagonal[i] = T::one() / *val;
             }
-            inv_diagonal[i] = T::one() / *val;
         }
 
         Ok(Self { inv_diagonal })

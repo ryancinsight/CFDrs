@@ -27,4 +27,5 @@ target
 
 # External dependencies (cloned for validation)
 external/
+external_validation/
 validation/references/

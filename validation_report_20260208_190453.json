@@ -1,0 +1,10 @@
+{
+  "timestamp": "2026-02-08T19:04:53.650844",
+  "pycfdrs_available": true,
+  "total_tests": 6,
+  "passed": 5,
+  "failed": 1,
+  "results": [
+    {
+      "test_name": "2D Poiseuille Flow",
+      "passed": 

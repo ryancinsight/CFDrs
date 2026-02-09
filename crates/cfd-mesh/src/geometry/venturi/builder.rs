@@ -150,6 +150,9 @@ impl<T: RealField + Copy + FromPrimitive + Float> VenturiMeshBuilder<T> {
         // We need to re-scan for boundary faces since StructuredGridBuilder doesn't mark them
         let total_l_val = total_l;
         let boundary_faces = mesh.boundary_faces();
+        println!("Venturi Builder: Total boundary faces from StructuredGridBuilder: {}", boundary_faces.len());
+        
+        let mut face_labels: Vec<(usize, String)> = Vec::new();
         
         for f_idx in boundary_faces {
             if let Some(face) = mesh.face(f_idx) {
@@ -158,23 +161,57 @@ impl<T: RealField + Copy + FromPrimitive + Float> VenturiMeshBuilder<T> {
                 
                 for &v_idx in &face.vertices {
                     if let Some(v) = mesh.vertex(v_idx) {
-                        if Float::abs(v.position.z) > T::from_f64(1e-7).unwrap() {
+                        let z = v.position.z;
+                        let dist_inlet = Float::abs(z);
+                        let dist_outlet = Float::abs(z - total_l_val);
+                        let tol = T::from_f64(1e-5).unwrap(); // Relaxed tolerance
+
+                        if dist_inlet > tol {
                             all_at_inlet = false;
                         }
-                        if Float::abs(v.position.z - total_l_val) > T::from_f64(1e-7).unwrap() {
+                        if dist_outlet > tol {
                             all_at_outlet = false;
                         }
                     }
                 }
                 
                 if all_at_inlet {
-                    mesh.mark_boundary(f_idx, "inlet".to_string());
+                    face_labels.push((f_idx, "inlet".to_string()));
+                    println!("Venturi Builder: Face {} marked INLET", f_idx);
                 } else if all_at_outlet {
-                    mesh.mark_boundary(f_idx, "outlet".to_string());
+                    face_labels.push((f_idx, "outlet".to_string()));
+                    println!("Venturi Builder: Face {} marked OUTLET", f_idx);
                 } else {
-                    mesh.mark_boundary(f_idx, "wall".to_string());
+                    face_labels.push((f_idx, "wall".to_string()));
+                    // Debug print for potential false positives
+                    if true { // Enabled
+                        let mut center_z = T::zero();
+                        let mut count = T::zero();
+                        for &v_idx in &face.vertices {
+                            if let Some(v) = mesh.vertex(v_idx) {
+                                center_z = center_z + v.position.z;
+                                count = count + T::one();
+                            }
+                        }
+                        if count > T::zero() {
+                            center_z = center_z / count;
+                        }
+
+                        let dist_inlet = Float::abs(center_z);
+                        let dist_outlet = Float::abs(center_z - total_l_val);
+                        let tol_debug = T::from_f64(1e-4).unwrap(); // Use wider tolerance for debug check
+
+                        if dist_inlet < tol_debug || dist_outlet < tol_debug {
+                            println!("Venturi Builder Debug: Face {} marked WALL but z={:?} (L={:?}). dist_inlet={:?}, dist_outlet={:?}", 
+                                f_idx, center_z, total_l_val, dist_inlet, dist_outlet);
+                        }
+                    }
                 }
             }
+        }
+
+        for (f_idx, label) in face_labels {
+            mesh.mark_boundary(f_idx, label);
         }
 
         Ok(mesh)

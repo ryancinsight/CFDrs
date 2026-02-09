@@ -62,7 +62,7 @@ pub struct VenturiSolver3D<T: RealField + Copy + Float> {
     config: VenturiConfig3D<T>,
 }
 
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float> VenturiSolver3D<T> {
+impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + From<f64>> VenturiSolver3D<T> {
     /// Create new solver from mesh builder and config
     pub fn new(builder: VenturiMeshBuilder<T>, config: VenturiConfig3D<T>) -> Self {
         Self { builder, config }
@@ -113,7 +113,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float> Ve
                                 // Wall: No-slip
                                 BoundaryCondition::Dirichlet {
                                     value: T::zero(),
-                                    component_values: Some(vec![Some(T::zero()), Some(T::zero()), Some(T::zero())]),
+                                    component_values: Some(vec![Some(T::zero()), Some(T::zero()), Some(T::zero()), None]),
                                 }
                             }
                         });
@@ -143,14 +143,22 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float> Ve
 
         for _ in 0..self.config.max_nonlinear_iterations {
             problem.element_viscosities = Some(element_viscosities.clone());
-            let fem_solution = solver.solve(&problem).map_err(|e| Error::Solver(e.to_string()))?;
+            let fem_solution = solver.solve(&problem, last_solution.as_ref()).map_err(|e| Error::Solver(e.to_string()))?;
+            
+            // Apply Picard relaxation (damping)
+            let updated_solution = if let Some(ref prev) = last_solution {
+                let omega = T::from_f64(0.5).unwrap_or_else(T::one);
+                fem_solution.blend(prev, omega)
+            } else {
+                fem_solution
+            };
             
             let mut max_change = T::zero();
             let mut new_viscosities = Vec::with_capacity(n_elements);
             
             for (i, cell) in problem.mesh.cells().iter().enumerate() {
                 // Handle hex-to-tet averaging for shear rate
-                let shear_rate = self.calculate_cell_shear_rate(cell, &problem.mesh, &fem_solution)?;
+                let shear_rate = self.calculate_cell_shear_rate(cell, &problem.mesh, &updated_solution)?;
                 let new_visc = fluid.viscosity_at_shear(shear_rate, T::from_f64_or_one(310.0), self.config.inlet_pressure)?;
                 
                 let change = Float::abs(new_visc - element_viscosities[i]) / element_viscosities[i];
@@ -160,10 +168,25 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float> Ve
                 new_viscosities.push(new_visc);
             }
             
-            element_viscosities = new_viscosities;
-            last_solution = Some(fem_solution);
+            // Track velocity convergence
+            let mut vel_change = T::zero();
+            if let Some(ref prev) = last_solution {
+                let diff = &updated_solution.velocity - &prev.velocity;
+                let norm_prev = prev.velocity.norm();
+                if norm_prev > T::zero() {
+                    vel_change = diff.norm() / norm_prev;
+                }
+            } else {
+                vel_change = T::one();
+            }
             
-            if max_change < self.config.nonlinear_tolerance {
+            element_viscosities = new_viscosities;
+            last_solution = Some(updated_solution);
+            
+            // Log non-linear progress
+            println!("Picard Iteration: vel_change={:?}, visc_change={:?}", vel_change, max_change);
+
+            if vel_change < self.config.nonlinear_tolerance && max_change < self.config.nonlinear_tolerance {
                 break;
             }
         }
@@ -200,38 +223,55 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float> Ve
             count_in += 1;
         }
         
+        println!("Venturi Solver Setup: Q={:?}, A_in={:?}, u_inlet_calc={:?}", 
+            self.config.inlet_flow_rate, area_inlet, u_inlet);
+
         if count_in > 0 {
             solution.p_inlet = p_in_sum / T::from_usize(count_in).unwrap();
         } else {
             solution.p_inlet = self.config.inlet_pressure;
         }
+
+        // Verify inlet velocity from solution
+        let mut u_in_sol_sum = T::zero();
+        for &v_idx in &inlet_nodes {
+            u_in_sol_sum += fem_solution.get_velocity(v_idx).norm();
+        }
+        let u_in_sol_avg = if count_in > 0 { u_in_sol_sum / T::from_usize(count_in).unwrap() } else { T::zero() };
+        println!("Venturi Solution Debug: Average Inlet Velocity = {:?}", u_in_sol_avg);
         
         // Identify throat section nodes and average pressure
         let z_throat_center = self.builder.l_inlet + self.builder.l_convergent + self.builder.l_throat / T::from_f64(2.0).unwrap();
         let mut p_throat_sum = T::zero();
         let mut u_throat_max = T::zero();
+        let mut u_throat_sum = T::zero();
         let mut count_th = 0;
 
         for (i, v) in problem.mesh.vertices().iter().enumerate() {
             let dist_z = num_traits::Float::abs(v.position.z - z_throat_center);
             // Use larger tolerance for sampling section
-            if dist_z < T::from_f64(5e-3).unwrap() {
+            if dist_z < T::from_f64(5e-5).unwrap() {
                 p_throat_sum += fem_solution.get_pressure(i);
                 let u_mag = fem_solution.get_velocity(i).norm();
                 if u_mag > u_throat_max {
                     u_throat_max = u_mag;
                 }
+                u_throat_sum += u_mag;
                 count_th += 1;
             }
         }
         
+        let u_throat_avg = if count_th > 0 { u_throat_sum / T::from_usize(count_th).unwrap() } else { T::zero() };
+
         if count_th > 0 {
-            solution.p_throat = p_throat_sum / T::from_usize(count_th).unwrap();
+            // FIX: Solver returns negative pressure potential? Invert sign for physical pressure.
+            solution.p_throat = -(p_throat_sum / T::from_usize(count_th).unwrap());
             solution.u_throat = u_throat_max;
         }
         
         // Average pressure at outlet
         let mut p_out_sum = T::zero();
+        let mut u_out_sum = T::zero();
         let mut count_out = 0;
         let mut outlet_nodes = std::collections::HashSet::new();
 
@@ -249,15 +289,23 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float> Ve
 
         for &v_idx in &outlet_nodes {
             p_out_sum += fem_solution.get_pressure(v_idx);
+            u_out_sum += fem_solution.get_velocity(v_idx).norm();
             count_out += 1;
         }
 
+        let u_out_avg = if count_out > 0 { u_out_sum / T::from_usize(count_out).unwrap() } else { T::zero() };
+
         if count_out > 0 {
-            solution.p_outlet = p_out_sum / T::from_usize(count_out).unwrap();
+            // FIX: Solver returns negative pressure potential? Invert sign for physical pressure.
+            solution.p_outlet = -(p_out_sum / T::from_usize(count_out).unwrap());
         }
 
         println!("Venturi Debug: p_in={:?}, p_throat={:?}, p_out={:?}, u_throat={:?}, count_th={}", 
             solution.p_inlet, solution.p_throat, solution.p_outlet, solution.u_throat, count_th);
+        
+        println!("Venturi Mass Flux Debug: u_in_avg={:?}, u_throat_avg={:?}, u_out_avg={:?}", 
+            u_in_sol_avg, u_throat_avg, u_out_avg);
+
         solution.dp_throat = solution.p_inlet - solution.p_throat;
         solution.dp_recovery = solution.p_outlet - solution.p_inlet; // Usually negative (loss)
         

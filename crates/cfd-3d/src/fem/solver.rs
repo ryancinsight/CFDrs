@@ -66,7 +66,7 @@
 
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::boundary::BoundaryCondition;
-use cfd_math::linear_solver::{BiCGSTAB, LinearSolver};
+use cfd_math::linear_solver::{GMRES, LinearSolver};
 use cfd_math::sparse::{SparseMatrix, SparseMatrixBuilder};
 use nalgebra::{DVector, RealField, Vector3};
 use num_traits::{Float, FromPrimitive};
@@ -78,11 +78,11 @@ use cfd_mesh::mesh::Mesh;
 use cfd_mesh::topology::{Cell, Face};
 
 /// Finite Element Method solver for 3D incompressible flow
-pub struct FemSolver<T: RealField + Copy> {
+pub struct FemSolver<T: RealField + Copy + FromPrimitive + num_traits::Float + std::fmt::Debug> {
     /// Configuration (stored for future use)
     _config: FemConfig<T>,
     /// Linear solver for the system
-    linear_solver: Box<dyn LinearSolver<T>>,
+    linear_solver: GMRES<T>,
 }
 
 /// Extract vertex indices from a cell
@@ -165,21 +165,26 @@ fn compute_mesh_scale<T: RealField + Copy + Float>(mesh: &Mesh<T>) -> T {
     }
 }
 
-impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
+impl<T: RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> FemSolver<T> {
     /// Create a new FEM solver
     pub fn new(config: FemConfig<T>) -> Self {
-        let linear_solver: Box<dyn LinearSolver<T>> = Box::new(BiCGSTAB::new(
-            cfd_math::linear_solver::IterativeSolverConfig::default(),
-        ));
+        let mut solver_config = cfd_math::linear_solver::IterativeSolverConfig::default();
+        solver_config.max_iterations = 30000;
+        solver_config.tolerance = T::from_f64(1e-12).unwrap_or_else(T::zero);
 
+        let linear_solver = GMRES::new(solver_config, 100);
+        
         Self {
-            _config: config,
             linear_solver,
+            _config: config,
         }
     }
 
-    /// Solve the Stokes flow problem
-    pub fn solve(&mut self, problem: &StokesFlowProblem<T>) -> Result<StokesFlowSolution<T>> {
+    pub fn solve(
+        &mut self,
+        problem: &StokesFlowProblem<T>,
+        previous_solution: Option<&StokesFlowSolution<T>>,
+    ) -> Result<StokesFlowSolution<T>> {
         tracing::info!("Starting Stokes flow solver");
         // Validate problem setup
         problem.validate()?;
@@ -192,38 +197,40 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
         println!("FEM Debug: System size: {} nodes, {} total DOFs", n_nodes, n_total_dof);
 
         // Assemble global system
-        let (mut matrix, mut rhs) = self.assemble_system(problem)?;
+        let (mut matrix, mut rhs) = self.assemble_system(problem, previous_solution)?;
         
         // Matrix stats
         let rhs_norm = rhs.norm();
         println!("FEM Debug: Global RHS norm: {:?}", rhs_norm);
 
         // Solve linear system
-        // Manual Left Jacobi Preconditioning (Row Scaling)
-        let n_dof = matrix.nrows();
-        for i in 0..n_dof {
-            let row_start = matrix.row_offsets()[i];
-            let row_end = matrix.row_offsets()[i+1];
-            
-            // Find diagonal
-            let mut diag = T::zero();
-            for j in row_start..row_end {
-                if matrix.col_indices()[j] == i {
-                    diag = matrix.values()[j];
-                    break;
-                }
-            }
+        // ILU(0) Preconditioning for robustness
+        // 6. Solve
+        tracing::debug!("Solving linear system...");
+        use cfd_math::linear_solver::preconditioners::ilu::IncompleteLU;
+        let preconditioner = IncompleteLU::new(&matrix)
+            .map_err(|e| Error::Solver(format!("Failed to create ILU(0) preconditioner: {}", e)))?;
+        
+        let mut x = if let Some(ref initial) = previous_solution {
+            initial.interleave()
+        } else {
+            DVector::zeros(rhs.len())
+        };
 
-            if nalgebra::ComplexField::abs(diag) > T::from_f64(1e-18).unwrap_or_else(T::zero) {
-                let inv_diag = T::one() / diag;
-                for j in row_start..row_end {
-                    matrix.values_mut()[j] *= inv_diag;
-                }
-                rhs[i] *= inv_diag;
-            }
-        }
+        println!("  FEM Solver: Initial RHS norm: {:?}", rhs.norm());
+        
+        let monitor = self.linear_solver.solve_preconditioned(
+            &matrix, 
+            &rhs, 
+            &preconditioner, 
+            &mut x
+        ).map_err(|e| Error::Solver(format!("Linear solver failed: {}", e)))?;
+        
+        println!("  FEM Solver: Converged in {} iterations, final residual={:?}", 
+            monitor.iteration, monitor.residual_history.last());
 
-        let solution = self.linear_solver.solve_system(&matrix, &rhs, None)?;
+        let sol_norm = x.norm();
+        println!("FEM Debug: Solution norm: {:?}", sol_norm);
 
         // Extract velocity and pressure from interleaved solution
         let mut velocity_data = Vec::with_capacity(n_velocity_dof);
@@ -233,9 +240,9 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
         for i in 0..n_nodes {
             let base = i * dofs_per_node;
             for d in 0..constants::VELOCITY_COMPONENTS {
-                velocity_data.push(solution[base + d]);
+                velocity_data.push(x[base + d]);
             }
-            pressure_data.push(solution[base + constants::VELOCITY_COMPONENTS]);
+            pressure_data.push(x[base + constants::VELOCITY_COMPONENTS]);
         }
 
         let velocity = DVector::from_vec(velocity_data);
@@ -244,10 +251,10 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
         Ok(StokesFlowSolution::new(velocity, pressure, n_nodes))
     }
 
-    /// Assemble the global system matrix and RHS
     fn assemble_system(
         &self,
         problem: &StokesFlowProblem<T>,
+        previous_solution: Option<&StokesFlowSolution<T>>,
     ) -> Result<(SparseMatrix<T>, DVector<T>)> {
         let n_nodes: usize = problem.mesh.vertex_count();
         let n_velocity_dof: usize = n_nodes * constants::VELOCITY_COMPONENTS;
@@ -289,34 +296,33 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
                     vec![vertex_indices[4], vertex_indices[5], vertex_indices[6], vertex_indices[1]],
                     vec![vertex_indices[1], vertex_indices[3], vertex_indices[4], vertex_indices[6]],
                 ]
-            } else {
-                // Assume tetrahedral or single element
+            } else if vertex_indices.len() == 4 {
+                // Tetrahedral element - use directly
                 vec![vertex_indices]
+            } else {
+                // Skip elements we can't handle (pyramids, prisms, etc.)
+                // Log warning but continue with other elements
+                tracing::warn!("Skipping cell {} with {} vertices (not tet/hex)", i, vertex_indices.len());
+                continue;
             };
 
             for tet_nodes in tets {
-                // Create element
-                let mut element = FluidElement::new(tet_nodes);
-
-                // Calculate element properties
-                // Pass global vertices for volume calculation
-                element.calculate_volume(&vertex_positions);
-
-                // Create local vertex list for shape derivatives
-                let local_vertices: Vec<Vector3<T>> = element
-                    .nodes
+                // Create local vertex list
+                let local_vertices: Vec<Vector3<T>> = tet_nodes
                     .iter()
                     .map(|&idx| vertex_positions[idx])
                     .collect();
-                
-                if element.nodes.len() == 4 {
-                    element.calculate_shape_derivatives(&local_vertices);
-                }
 
-                // Calculate element matrices
-                let u_avg = Vector3::zeros(); // For steady Stokes, we can use zero velocity or previous solution
-                let h = element.h(&vertex_positions);
-                let elem_matrices = self.calculate_element_matrices(&element, viscosity, u_avg, h, problem.fluid.density);
+                // Create and initialize element
+                let mut element = FluidElement::new(tet_nodes.clone());
+                let six_v = element.calculate_volume(&local_vertices);
+                element.calculate_shape_derivatives(&local_vertices);
+
+                // Calculate element matrices with signed six_v for orientation-correct assembly
+                let u_avg = self.calculate_u_avg(&tet_nodes, previous_solution);
+                use crate::fem::stabilization::calculate_element_size;
+                let h = calculate_element_size(&local_vertices, &u_avg);
+                let elem_matrices = self.calculate_element_matrices(&element, viscosity, u_avg, h, problem.fluid.density, six_v);
 
                 // Assemble into global system
                 self.assemble_element(&mut builder, &mut rhs, &element, &elem_matrices)?;
@@ -337,128 +343,109 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
         u_avg: Vector3<T>,
         h: T,
         density: T,
+        six_v: T,
     ) -> ElementMatrices<T> {
         use crate::fem::stabilization::StabilizationParameters;
         
-        let n_nodes: usize = element.nodes.len();
-        let n_velocity_dof: usize = n_nodes * constants::VELOCITY_COMPONENTS;
-        let n_pressure_dof: usize = n_nodes;
-        let n_dof: usize = n_velocity_dof + n_pressure_dof;
-
-        let mut matrices = ElementMatrices::new(n_dof);
-        let volume = element.volume;
+        let n_nodes = element.nodes.len();
         let dofs_per_node = constants::VELOCITY_COMPONENTS + 1;
-
-        // 1. Viscous term (K_uu)
-        let k_uu = element.stiffness_contribution(viscosity);
-        for i in 0..n_nodes {
-            for j in 0..n_nodes {
-                for d in 0..constants::VELOCITY_COMPONENTS {
-                    let local_i = i * dofs_per_node + d;
-                    let local_j = j * dofs_per_node + d;
-                    matrices.k_e[(local_i, local_j)] = k_uu[(i * constants::VELOCITY_COMPONENTS + d, j * constants::VELOCITY_COMPONENTS + d)];
-                }
-            }
-        }
-
-        // 2. Coupling terms (B and B^T)
-        // int_n = Integral of Ni dOmega = Volume / 4
+        let n_total_dof = n_nodes * dofs_per_node;
+        
+        // ElementMatrices::new takes total DOFs
+        let mut matrices = ElementMatrices::new(n_total_dof);
+        
+        // Physical volume for all integral terms
+        let volume = num_traits::Float::abs(six_v) / T::from_f64(6.0).unwrap_or_else(T::one);
+        
+        // Integration weight for linear shape functions: ∫ N_i dV = V / 4
         let int_n = volume / T::from_f64(4.0).unwrap_or_else(T::one);
 
-        // 1.5 Advection term: ∫ ρ (u_avg . grad) u . v dΩ
-        // Picard linearization: (u_old . grad) u
-        for i in 0..n_nodes { // v (test)
-            for j in 0..n_nodes { // u (trial)
-                // (u_avg . grad Nj) * Ni
+        // 3D Stabilization expects Vector3 and Option<T> for dt.
+        // nu (kinematic viscosity) = viscosity (dynamic) / density
+        let nu = viscosity / density;
+        let params = StabilizationParameters::new(h, nu, u_avg, None);
+        let tau_supg = params.tau_supg();
+        let tau_pspg = params.tau_pspg();
+
+
+        for i in 0..n_nodes { // Weight node
+            let u_grad_n_i = u_avg.dot(&Vector3::new(
+                element.shape_derivatives[(0, i)],
+                element.shape_derivatives[(1, i)],
+                element.shape_derivatives[(2, i)]
+            ));
+
+            for j in 0..n_nodes { // Trial node
                 let u_grad_n_j = u_avg.dot(&Vector3::new(
                     element.shape_derivatives[(0, j)],
                     element.shape_derivatives[(1, j)],
                     element.shape_derivatives[(2, j)]
                 ));
-                let advection_entry = density * u_grad_n_j * int_n;
-                
-                for d in 0..constants::VELOCITY_COMPONENTS {
-                    let local_i = i * dofs_per_node + d;
-                    let local_j = j * dofs_per_node + d;
-                    matrices.k_e[(local_i, local_j)] += advection_entry;
-                }
-            }
-        }
 
-        for i in 0..n_nodes { // Row index (test function)
-            for j in 0..n_nodes { // Col index (trial function)
                 for d in 0..constants::VELOCITY_COMPONENTS {
-                    // Momentum Row (test velocity component d at node i)
-                    // Pressure Col (trial pressure at node j)
-                    // Block B^T: ∫ (∂Nj/∂xd) * Ni dΩ
-                    let vel_idx = i * dofs_per_node + d;
-                    let pres_col = j * dofs_per_node + constants::VELOCITY_COMPONENTS;
-                    let b_t_val = element.shape_derivatives[(d, j)] * int_n;
-                    matrices.k_e[(vel_idx, pres_col)] += b_t_val;
+                    let vel_i = i * dofs_per_node + d;
+                    let pres_j = j * dofs_per_node + constants::VELOCITY_COMPONENTS;
+                    let pres_i = i * dofs_per_node + constants::VELOCITY_COMPONENTS;
+                    let vel_j = j * dofs_per_node + d;
 
-                    // Continuity Row (test pressure at node i)
-                    // Velocity Col (trial velocity component d at node j)
-                    // Block B: ∫ Ni * (∂Nj/∂xd) dΩ
-                    let pres_idx = i * dofs_per_node + constants::VELOCITY_COMPONENTS;
-                    let vel_col = j * dofs_per_node + d;
+                    // 2.1 Standard Coupling: B (Continuity) and B^T (Momentum)
+                    // Uses absolute int_n. Signs chosen to make the system [K, G; G^T, 0] or similar.
+                    let b_t_val = element.shape_derivatives[(d, i)] * int_n;
                     let b_val = element.shape_derivatives[(d, j)] * int_n;
-                    matrices.k_e[(pres_idx, vel_col)] += b_val;
+                    matrices.k_e[(vel_i, pres_j)] += b_t_val;
+                    matrices.k_e[(pres_i, vel_j)] += b_val; 
+
+                    // 2.2 Standard Advection (Momentum): ∫ ρ (u_avg . grad Nj) * Ni
+                    // Uses signed int_n
+                    let adv_val = density * u_grad_n_j * int_n;
+                    matrices.k_e[(vel_i, vel_j)] += adv_val;
+
+                    // 2.3 SUPG Stabilization (Momentum)
+                    // Convective-convective: uses volume (always positive energy)
+                    let supg_adv = density * tau_supg * u_grad_n_i * u_grad_n_j * volume;
+                    matrices.k_e[(vel_i, vel_j)] += supg_adv;
+
+                    // Pressure Gradient Coupling in SUPG: ∫ τ (∂Nj/∂xd) * (u_avg . grad Ni)
+                    let supg_p = tau_supg * element.shape_derivatives[(d, j)] * u_grad_n_i * volume;
+                    matrices.k_e[(vel_i, pres_j)] += supg_p;
+
+                    // 2.4 PSPG Stabilization (Continuity)
+                    // Advection-Continuity Coupling: ∫ τ (u_avg . grad Nj) * (∂Ni/∂xd)
+                    let pspg_u = tau_pspg * u_grad_n_j * element.shape_derivatives[(d, i)] * volume;
+                    matrices.k_e[(pres_i, vel_j)] += pspg_u;
                 }
-            }
-        }
 
-        // 3. PSPG Stabilization: tau * ∫ (grad p) * (grad q) dΩ
-        // For equal-order P1-P1 elements
-        let stab_params = StabilizationParameters::new(h, viscosity, u_avg, None);
-        let tau_pspg = stab_params.tau_pspg();
-
-        for i in 0..n_nodes { // q (test pressure)
-            for j in 0..n_nodes { // p (trial pressure)
-                let pi_idx = i * dofs_per_node + constants::VELOCITY_COMPONENTS;
-                let pj_idx = j * dofs_per_node + constants::VELOCITY_COMPONENTS;
-                
+                // 2.5 PSPG Pressure-Pressure: ∫ τ (grad Pj) * (grad Qi)
                 let mut grad_p_dot_grad_q = T::zero();
                 for d in 0..3 {
                     grad_p_dot_grad_q += element.shape_derivatives[(d, i)] * element.shape_derivatives[(d, j)];
                 }
-                
-                matrices.k_e[(pi_idx, pj_idx)] += tau_pspg * grad_p_dot_grad_q * volume;
+                let pres_i = i * dofs_per_node + constants::VELOCITY_COMPONENTS;
+                let pres_j = j * dofs_per_node + constants::VELOCITY_COMPONENTS;
+                matrices.k_e[(pres_i, pres_j)] += tau_pspg * grad_p_dot_grad_q * volume;
             }
         }
 
-        // 4. SUPG Stabilization for momentum (optional for Stokes, but included for completeness)
-        let tau_supg = stab_params.tau_supg();
-        if u_avg.norm() > T::from_f64(1e-8).unwrap_or_else(T::zero) {
-            for i in 0..n_nodes { // v (test velocity)
-                for j in 0..n_nodes { // u (trial velocity)
-                    for d1 in 0..3 { // component of test v
-                        let vi_idx = i * dofs_per_node + d1;
-                        for d2 in 0..3 { // component of trial u
-                            let uj_idx = j * dofs_per_node + d2;
-                            
-                            // (u.grad)u * (u.grad)v term
-                            let u_grad_v = u_avg.dot(&Vector3::new(
-                                element.shape_derivatives[(0, i)],
-                                element.shape_derivatives[(1, i)],
-                                element.shape_derivatives[(2, i)]
-                            ));
-                            let u_grad_u = u_avg.dot(&Vector3::new(
-                                element.shape_derivatives[(0, j)],
-                                element.shape_derivatives[(1, j)],
-                                element.shape_derivatives[(2, j)]
-                            ));
-                            
-                            if d1 == d2 {
-                                matrices.k_e[(vi_idx, uj_idx)] += tau_supg * u_grad_v * u_grad_u * volume;
-                            }
-                        }
-                    }
+        // 3. Viscous Stiffness Block (K)
+        // factor = mu * volume (always positive)
+        let factor = viscosity * volume;
+        for i in 0..n_nodes {
+            for j in 0..n_nodes {
+                let mut visc_term = T::zero();
+                for d in 0..3 {
+                    visc_term += element.shape_derivatives[(d, i)] * element.shape_derivatives[(d, j)];
+                }
+                for d in 0..constants::VELOCITY_COMPONENTS {
+                    let row = i * dofs_per_node + d;
+                    let col = j * dofs_per_node + d;
+                    matrices.k_e[(row, col)] += factor * visc_term;
                 }
             }
         }
 
         matrices
     }
+
 
     fn compute_element_volume(&self, element: &FluidElement<T>) -> T {
         // Use pre-calculated volume if available, otherwise default
@@ -903,9 +890,9 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
         self.apply_periodic_boundary_conditions(builder, rhs, problem)?;
 
         // Apply Dirichlet boundary conditions using penalty method
-        // Using 1.0 to match the scale of the coupling terms (approx 10^-6 to 10^-3)
-        // This gives a relative penalty factor of 10^3 to 10^6 which is stable.
-        let penalty = T::from_f64(1.0).unwrap_or_else(T::one);
+        // SCALING: System matrix entries are ~10^-10 (Physical).
+        // Penalty of 1e5 gives 10^15 stiffness ratio.
+        let penalty = T::from_f64(1.0e5).unwrap_or_else(T::one);
 
         for (node_idx, bc) in &problem.boundary_conditions {
             let dof = *node_idx * (constants::VELOCITY_COMPONENTS + 1);
@@ -1008,7 +995,9 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
             return Ok(());
         }
 
-        let penalty = T::from_f64(1e10).unwrap_or_else(T::one);
+        // Use a robust penalty factor relative to viscous scales (mu ~ 1e-3, h ~ 1e-5 => diag ~ 1e-8)
+        // 1.0e12 gives 20 orders of magnitude separation, ideal for double precision.
+        let penalty = T::from_f64(1.0e12).unwrap_or_else(T::one);
         let dofs_per_node = constants::VELOCITY_COMPONENTS + 1;
 
         for (left, right) in pairs {
@@ -1026,6 +1015,21 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
         }
 
         Ok(())
+    }
+    fn calculate_u_avg(
+        &self,
+        nodes: &[usize],
+        solution: Option<&StokesFlowSolution<T>>,
+    ) -> Vector3<T> {
+        if let Some(sol) = solution {
+            let mut sum = Vector3::zeros();
+            for &node in nodes {
+                sum += sol.get_velocity(node);
+            }
+            sum / T::from_usize(nodes.len()).unwrap_or_else(T::one)
+        } else {
+            Vector3::zeros()
+        }
     }
 }
 

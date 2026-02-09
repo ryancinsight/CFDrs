@@ -23,7 +23,8 @@ impl<T: RealField + Copy> SerpentineFlow3D<T> {
     }
 }
 
-impl<T: RealField + Copy + num_traits::Float + num_traits::FromPrimitive + num_traits::ToPrimitive + cfd_core::conversion::SafeFromF64> Benchmark<T> for SerpentineFlow3D<T> {
+impl<T: RealField + Copy + num_traits::Float + num_traits::FromPrimitive + 
+    num_traits::ToPrimitive + cfd_core::conversion::SafeFromF64 + std::convert::From<f64>> Benchmark<T> for SerpentineFlow3D<T> {
     fn name(&self) -> &str {
         "3D Serpentine Micromixer Flow"
     }

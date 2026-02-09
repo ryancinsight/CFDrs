@@ -8,6 +8,8 @@ use cfd_core::conversion::SafeFromF64;
 use cfd_core::physics::fluid::blood::CassonBlood;
 use nalgebra::RealField;
 
+use num_traits::FromPrimitive;
+
 /// 3D Bifurcation Flow benchmark
 pub struct BifurcationFlow3D<T: RealField + Copy> {
     /// The 3D bifurcation geometry
@@ -23,7 +25,8 @@ impl<T: RealField + Copy> BifurcationFlow3D<T> {
     }
 }
 
-impl<T: RealField + Copy> Benchmark<T> for BifurcationFlow3D<T> {
+impl<T: RealField + Copy + num_traits::Float + num_traits::FromPrimitive + 
+    num_traits::ToPrimitive + cfd_core::conversion::SafeFromF64 + std::convert::From<f64>> Benchmark<T> for BifurcationFlow3D<T> {
     fn name(&self) -> &str {
         "3D Y-Bifurcation Flow"
     }
@@ -47,7 +50,7 @@ impl<T: RealField + Copy> Benchmark<T> for BifurcationFlow3D<T> {
         let d_d2 = self.geometry.d_daughters[1];
         let lhs = d_p * d_p * d_p;
         let rhs = d_d1 * d_d1 * d_d1 + d_d2 * d_d2 * d_d2;
-        let murray_deviation = (lhs - rhs).abs() / lhs;
+        let murray_deviation = num_traits::Float::abs(lhs - rhs) / lhs;
         result.metrics.insert("Murray Deviation".to_string(), murray_deviation);
         
         Ok(result)
@@ -59,7 +62,7 @@ impl<T: RealField + Copy> Benchmark<T> for BifurcationFlow3D<T> {
 
     fn validate(&self, result: &BenchmarkResult<T>) -> cfd_core::error::Result<bool> {
         if let Some(&dev) = result.metrics.get("Murray Deviation") {
-            return Ok(dev.abs() < T::from_f64_or_one(0.01));
+            return Ok(num_traits::Float::abs(dev) < T::from_f64_or_one(0.01));
         }
         Ok(false)
     }

@@ -73,7 +73,7 @@ pub struct TrifurcationSolver3D<T: RealField + Copy> {
     pub config: TrifurcationConfig3D<T>,
 }
 
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float> TrifurcationSolver3D<T> {
+impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + From<f64>> TrifurcationSolver3D<T> {
     pub fn new(geometry: TrifurcationGeometry3D<T>, config: TrifurcationConfig3D<T>) -> Self {
         Self { geometry, config }
     }
@@ -223,7 +223,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float> Tr
 
         for _ in 0..20 { 
             problem.element_viscosities = Some(element_viscosities.clone());
-            let fem_solution = solver.solve(&problem).map_err(|e| Error::Solver(e.to_string()))?;
+            let fem_solution = solver.solve(&problem, last_solution.as_ref()).map_err(|e| Error::Solver(e.to_string()))?;
             
             let mut max_change = T::zero();
             let mut new_viscosities = Vec::with_capacity(n_elements);

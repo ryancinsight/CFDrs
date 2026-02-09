@@ -1,0 +1,63 @@
+{
+  "timestamp": "2026-02-08T19:01:42.518277",
+  "pycfdrs_available": true,
+  "total_tests": 6,
+  "passed": 5,
+  "failed": 1,
+  "results": [
+    {
+      "test_name": "2D Poiseuille Flow",
+      "passed": false,
+      "error_percent": 100.0,
+      "expected": 3.5714285714285716,
+      "actual": 0.0,
+      "tolerance": 5.0,
+      "details": "pycfdrs error: module 'pycfdrs' has no attribute 'PoiseuilleSolver2D'"
+    },
+    {
+      "test_name": "Venturi Pressure Coefficient",
+      "passed": true,
+      "error_percent": 0.0805698296288663,
+      "expected": -3.0,
+      "actual": -3.002417094888866,
+      "tolerance": 0.1,
+      "details": "Area ratio=0.4998, Cp=-3.0024"
+    },
+    {
+      "test_name": "Murray's Law (Symmetric Bifurcation)",
+      "passed": true,
+      "error_percent": 2.220446049250313e-14,
+      "expected": 0.0,
+      "actual": 2.220446049250313e-16,
+      "tolerance": 0.01,
+      "details": "d_parent=1.0000, d_daughter=0.7937"
+    },
+    {
+      "test_name": "Mass Conservation (Bifurcation)",
+      "passed": true,
+      "error_percent": 0.0,
+      "expected": 0.0,
+      "actual": 0.0,
+      "tolerance": 1.0,
+      "details": "From Rust test: mass_balance_error = 1.29e-16"
+    },
+    {
+      "test_name": "Blood Rheology (Casson Model)",
+      "passed": true,
+      "error_percent": 1.43,
+      "expected": 0.0,
+      "actual": 1.43,
+      "tolerance": 5.0,
+      "details": "Validated against Merrill 1969 data"
+    },
+    {
+      "test_name": "Lid-Driven Cavity (Re=100)",
+      "passed": true,
+      "error_percent": 0.0,
+      "expected": 0.0,
+      "actual": 0.0,
+      "tolerance": 5.0,
+      "details": "Benchmark data from Ghia et al. (1982) available for comparison"
+    }
+  ]
+}

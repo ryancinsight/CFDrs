@@ -50,7 +50,7 @@ pub struct BifurcationValidator3D<T: RealField + Copy> {
     mesh_config: MeshRefinementConfig<T>,
 }
 
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + num_traits::Float> BifurcationValidator3D<T> {
+impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + num_traits::Float + From<f64>> BifurcationValidator3D<T> {
     /// Create new validator
     pub fn new(geometry: BifurcationGeometry3D<T>, mesh_config: MeshRefinementConfig<T>) -> Self {
         Self {
