@@ -384,12 +384,6 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
                         
                         let n_vec = (v1 - v0).cross(&(v2 - v0));
                         let area = n_vec.norm() * T::from_f64_or_one(0.5);
-                        
-                        // Skip degenerate faces (zero area)
-                        if area < T::from_f64(1e-20).unwrap_or_else(T::zero) {
-                            continue;
-                        }
-                        
                         let face_normal = n_vec.normalize();
                         
                         let mut u_avg = Vector3::zeros();
@@ -404,11 +398,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
                         u_avg /= T::from_usize(face.vertices.len()).unwrap_or_else(T::one);
                         
                         let face_flow = u_avg.dot(&face_normal) * area;
-                        
-                        // Skip NaN flows
-                        if !face_flow.is_nan() {
-                            total_q += face_flow;
-                        }
+                        total_q += face_flow;
                     }
                 }
             }

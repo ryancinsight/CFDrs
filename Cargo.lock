@@ -1871,6 +1871,7 @@ dependencies = [
  "cfd-2d",
  "cfd-3d",
  "cfd-core",
+ "cfd-mesh",
  "cfd-validation",
  "nalgebra",
  "ndarray",

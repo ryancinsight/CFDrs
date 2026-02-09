@@ -36,7 +36,10 @@ pub struct CavitySolveResult {
 /// Solve lid-driven cavity flow using SIMPLE on a staggered MAC grid.
 ///
 /// Uses first-order upwind for convection (unconditionally stable)
-/// and central differencing for diffusion.
+/// and central differencing for diffusion.  Boundary diffusion uses
+/// the half-cell distance where the first interior node is offset
+/// from the wall (y-direction for u, x-direction for v), following
+/// Patankar (1980) §5.3.
 pub fn solve_lid_driven_cavity(
     nx: usize,
     ny: usize,
@@ -57,10 +60,10 @@ pub fn solve_lid_driven_cavity(
     // Allocate fields
     let mut u = vec![vec![0.0_f64; ny]; nx + 1]; // u at vertical faces
     let mut v = vec![vec![0.0_f64; ny + 1]; nx]; // v at horizontal faces
-    let mut p = vec![vec![0.0_f64; ny]; nx];      // p at cell centers
+    let mut p = vec![vec![0.0_f64; ny]; nx]; // p at cell centres
 
-    let mut ap_u = vec![vec![1.0_f64; ny]; nx + 1]; // diagonal coeff for u
-    let mut ap_v = vec![vec![1.0_f64; ny + 1]; nx]; // diagonal coeff for v
+    let mut ap_u = vec![vec![1.0_f64; ny]; nx + 1];
+    let mut ap_v = vec![vec![1.0_f64; ny + 1]; nx];
 
     let mut final_residual = 1e10;
     let mut converged = false;
@@ -68,8 +71,16 @@ pub fn solve_lid_driven_cavity(
 
     for iteration in 0..max_iterations {
         // =================================================================
-        // Step 1: Solve u-momentum
+        // Step 1: Solve u-momentum  (faces i=1..nx-1, j=0..ny-1)
         // =================================================================
+        //
+        //  u[i][j] lives at (i*dx, (j+0.5)*dy).
+        //  Boundary distances:
+        //    East/West neighbours are other u nodes at full dx apart.
+        //    North:  When j==ny-1, the lid (u=u_lid) is at y=L, and
+        //            the u-node is at (ny-0.5)*dy → distance dy/2.
+        //    South:  When j==0, the wall (u=0) is at y=0, and the
+        //            u-node is at 0.5*dy → distance dy/2.
         {
             let u_old = u.clone();
             let v_old = v.clone();
@@ -79,73 +90,94 @@ pub fn solve_lid_driven_cavity(
                     let is_top = j == ny - 1;
                     let is_bot = j == 0;
 
-                    // Diffusion coefficients
+                    // --- diffusion coefficients ---
+                    // x-direction: node-to-node distance is always dx
                     let d_e = mu * dy / dx;
                     let d_w = mu * dy / dx;
+                    // y-direction: half-cell at top/bottom walls
                     let d_n = if is_top { mu * dx / (dy / 2.0) } else { mu * dx / dy };
                     let d_s = if is_bot { mu * dx / (dy / 2.0) } else { mu * dx / dy };
 
-                    // Convective mass fluxes
+                    // --- convective mass fluxes through CV faces ---
+                    // East face at x=(i+0.5)*dx
                     let f_e = if i + 1 <= nx {
                         rho * 0.5 * (u_old[i][j] + u_old[i + 1][j]) * dy
                     } else {
                         rho * u_old[i][j] * dy
                     };
+                    // West face at x=(i-0.5)*dx
                     let f_w = rho * 0.5 * (u_old[i - 1][j] + u_old[i][j]) * dy;
+                    // North face at y=(j+1)*dy – v interpolated at x=i*dx
                     let f_n = if !is_top {
-                        let vn = 0.5 * (v_old[(i - 1).max(0).min(nx - 1)][j + 1]
-                            + v_old[i.min(nx - 1)][j + 1]);
-                        rho * vn * dx
+                        let il = (i - 1).min(nx - 1);
+                        let ir = i.min(nx - 1);
+                        rho * 0.5 * (v_old[il][j + 1] + v_old[ir][j + 1]) * dx
                     } else {
-                        0.0
+                        0.0 // lid is solid → v=0
                     };
+                    // South face at y=j*dy
                     let f_s = if !is_bot {
-                        let vs = 0.5 * (v_old[(i - 1).max(0).min(nx - 1)][j]
-                            + v_old[i.min(nx - 1)][j]);
-                        rho * vs * dx
+                        let il = (i - 1).min(nx - 1);
+                        let ir = i.min(nx - 1);
+                        rho * 0.5 * (v_old[il][j] + v_old[ir][j]) * dx
                     } else {
-                        0.0
+                        0.0 // wall → v=0
                     };
 
-                    // Upwind coefficients (Patankar Table 5.2)
+                    // --- upwind coefficients (Patankar Table 5.2) ---
                     let a_e = d_e + 0.0_f64.max(-f_e);
                     let a_w = d_w + 0.0_f64.max(f_w);
-
-                    // Wall boundaries: no neighbor, diffusion to diagonal + source
                     let (a_n, src_n) = if is_top {
+                        // Wall treatment: known u_lid goes into source
                         (d_n, d_n * u_lid)
                     } else {
                         (d_n + 0.0_f64.max(-f_n), 0.0)
                     };
                     let (a_s, src_s) = if is_bot {
-                        (d_s, 0.0) // wall velocity = 0
+                        (d_s, 0.0) // wall u=0
                     } else {
                         (d_s + 0.0_f64.max(f_s), 0.0)
                     };
 
-                    let sp = (f_e - f_w) + (f_n - f_s);
-                    let a_p = (a_e + a_w + a_n + a_s + sp.max(0.0)).max(1e-30);
+                    // Mass source imbalance (goes → 0 as continuity is satisfied)
+                    let delta_f = (f_e - f_w) + (f_n - f_s);
+                    let a_p = (a_e + a_w + a_n + a_s + delta_f.max(0.0)).max(1e-30);
 
+                    // Pressure gradient force
                     let p_src = (p[i - 1][j] - p[i.min(nx - 1)][j]) * dy;
 
+                    // Neighbour velocities (wall → 0 except lid → handled via src_n)
                     let u_e = if i + 1 <= nx { u_old[i + 1][j] } else { 0.0 };
                     let u_w = u_old[i - 1][j];
                     let u_n = if is_top { 0.0 } else { u_old[i][j + 1] };
                     let u_s = if is_bot { 0.0 } else { u_old[i][j - 1] };
 
-                    let u_star = (a_e * u_e + a_w * u_w + a_n * u_n + a_s * u_s
-                        + p_src + src_n + src_s) / a_p;
+                    let u_star =
+                        (a_e * u_e + a_w * u_w + a_n * u_n + a_s * u_s + p_src + src_n + src_s)
+                            / a_p;
 
                     u[i][j] = u[i][j] * (1.0 - alpha_u) + u_star * alpha_u;
                     ap_u[i][j] = a_p;
                 }
             }
-            for j in 0..ny { u[0][j] = 0.0; u[nx][j] = 0.0; }
+            // Enforce wall BCs on u
+            for j in 0..ny {
+                u[0][j] = 0.0;
+                u[nx][j] = 0.0;
+            }
         }
 
         // =================================================================
-        // Step 2: Solve v-momentum
+        // Step 2: Solve v-momentum  (faces i=0..nx-1, j=1..ny-1)
         // =================================================================
+        //
+        //  v[i][j] lives at ((i+0.5)*dx, j*dy).
+        //  Boundary distances:
+        //    North/South neighbours are other v nodes at full dy apart.
+        //    East:  When i==nx-1 the wall (v=0) is at x=L, and the
+        //           v-node is at (nx-0.5)*dx → distance dx/2.
+        //    West:  When i==0 the wall (v=0) is at x=0, and the
+        //           v-node is at 0.5*dx → distance dx/2.
         {
             let u_old = u.clone();
             let v_old = v.clone();
@@ -155,11 +187,15 @@ pub fn solve_lid_driven_cavity(
                     let is_right = i == nx - 1;
                     let is_left = i == 0;
 
+                    // --- diffusion coefficients ---
+                    // y-direction: node-to-node distance is always dy
                     let d_n = mu * dx / dy;
                     let d_s = mu * dx / dy;
+                    // x-direction: half-cell at left/right walls
                     let d_e = if is_right { mu * dy / (dx / 2.0) } else { mu * dy / dx };
                     let d_w = if is_left { mu * dy / (dx / 2.0) } else { mu * dy / dx };
 
+                    // --- convective mass fluxes ---
                     let f_n = if j + 1 <= ny {
                         rho * 0.5 * (v_old[i][j] + v_old[i][j + 1]) * dx
                     } else {
@@ -167,35 +203,35 @@ pub fn solve_lid_driven_cavity(
                     };
                     let f_s = rho * 0.5 * (v_old[i][j - 1] + v_old[i][j]) * dx;
                     let f_e = if !is_right {
-                        let ue = 0.5 * (u_old[i + 1][(j - 1).max(0).min(ny - 1)]
-                            + u_old[i + 1][j.min(ny - 1)]);
-                        rho * ue * dy
+                        let jb = (j - 1).min(ny - 1);
+                        let jt = j.min(ny - 1);
+                        rho * 0.5 * (u_old[i + 1][jb] + u_old[i + 1][jt]) * dy
                     } else {
                         0.0
                     };
                     let f_w = if !is_left {
-                        let uw = 0.5 * (u_old[i][(j - 1).max(0).min(ny - 1)]
-                            + u_old[i][j.min(ny - 1)]);
-                        rho * uw * dy
+                        let jb = (j - 1).min(ny - 1);
+                        let jt = j.min(ny - 1);
+                        rho * 0.5 * (u_old[i][jb] + u_old[i][jt]) * dy
                     } else {
                         0.0
                     };
 
                     let a_n = d_n + 0.0_f64.max(-f_n);
                     let a_s = d_s + 0.0_f64.max(f_s);
-                    let (a_e, src_e) = if is_right {
+                    let (a_e, _src_e) = if is_right {
                         (d_e, 0.0)
                     } else {
                         (d_e + 0.0_f64.max(-f_e), 0.0)
                     };
-                    let (a_w, src_w) = if is_left {
+                    let (a_w, _src_w) = if is_left {
                         (d_w, 0.0)
                     } else {
                         (d_w + 0.0_f64.max(f_w), 0.0)
                     };
 
-                    let sp = (f_e - f_w) + (f_n - f_s);
-                    let a_p = (a_e + a_w + a_n + a_s + sp.max(0.0)).max(1e-30);
+                    let delta_f = (f_e - f_w) + (f_n - f_s);
+                    let a_p = (a_e + a_w + a_n + a_s + delta_f.max(0.0)).max(1e-30);
 
                     let p_src = (p[i][j - 1] - p[i][j.min(ny - 1)]) * dx;
 
@@ -204,99 +240,128 @@ pub fn solve_lid_driven_cavity(
                     let v_n = if j + 1 <= ny { v_old[i][j + 1] } else { 0.0 };
                     let v_s = v_old[i][j - 1];
 
-                    let v_star = (a_e * v_e + a_w * v_w + a_n * v_n + a_s * v_s
-                        + p_src + src_e + src_w) / a_p;
+                    let v_star =
+                        (a_e * v_e + a_w * v_w + a_n * v_n + a_s * v_s + p_src) / a_p;
 
                     v[i][j] = v[i][j] * (1.0 - alpha_u) + v_star * alpha_u;
                     ap_v[i][j] = a_p;
                 }
             }
-            for i in 0..nx { v[i][0] = 0.0; v[i][ny] = 0.0; }
+            // Enforce wall BCs on v
+            for i in 0..nx {
+                v[i][0] = 0.0;
+                v[i][ny] = 0.0;
+            }
         }
 
         // =================================================================
-        // Step 3: Pressure correction
+        // Step 3: Pressure correction (Poisson via SOR)
         // =================================================================
         {
+            // d-coefficients: relate velocity correction to pressure correction
             let mut d_u = vec![vec![0.0_f64; ny]; nx + 1];
             let mut d_v = vec![vec![0.0_f64; ny + 1]; nx];
-            for i in 1..nx { for j in 0..ny {
-                if ap_u[i][j] > 1e-30 { d_u[i][j] = dy / ap_u[i][j]; }
-            }}
-            for i in 0..nx { for j in 1..ny {
-                if ap_v[i][j] > 1e-30 { d_v[i][j] = dx / ap_v[i][j]; }
-            }}
+            for i in 1..nx {
+                for j in 0..ny {
+                    if ap_u[i][j] > 1e-30 {
+                        d_u[i][j] = dy / ap_u[i][j];
+                    }
+                }
+            }
+            for i in 0..nx {
+                for j in 1..ny {
+                    if ap_v[i][j] > 1e-30 {
+                        d_v[i][j] = dx / ap_v[i][j];
+                    }
+                }
+            }
 
+            // Mass source (negative of divergence of starred velocity)
             let mut b = vec![vec![0.0_f64; ny]; nx];
-            for i in 0..nx { for j in 0..ny {
-                b[i][j] = rho * ((u[i][j] - u[i + 1][j]) * dy + (v[i][j] - v[i][j + 1]) * dx);
-            }}
+            for i in 0..nx {
+                for j in 0..ny {
+                    b[i][j] = rho
+                        * ((u[i][j] - u[i + 1][j]) * dy + (v[i][j] - v[i][j + 1]) * dx);
+                }
+            }
 
+            // SOR for pressure correction pp
             let mut pp = vec![vec![0.0_f64; ny]; nx];
-            let omega = 1.0; // Use Gauss-Seidel (omega=1.0) for stability
-            let n_inner = (4 * nx * ny).max(500);
+            let omega = 1.2_f64; // conservative SOR (< optimal for stability)
+            let n_inner = (8 * nx * ny).max(1000);
 
             for _gs in 0..n_inner {
-                for i in 0..nx { for j in 0..ny {
-                    let ae = if i + 1 < nx { rho * d_u[i + 1][j] * dy } else { 0.0 };
-                    let aw = if i > 0 { rho * d_u[i][j] * dy } else { 0.0 };
-                    let an = if j + 1 < ny { rho * d_v[i][j + 1] * dx } else { 0.0 };
-                    let a_s = if j > 0 { rho * d_v[i][j] * dx } else { 0.0 };
-                    let a_p = ae + aw + an + a_s;
-                    if a_p < 1e-30 { continue; }
-                    let pe = if i + 1 < nx { pp[i + 1][j] } else { pp[i][j] };
-                    let pw = if i > 0 { pp[i - 1][j] } else { pp[i][j] };
-                    let pn = if j + 1 < ny { pp[i][j + 1] } else { pp[i][j] };
-                    let ps = if j > 0 { pp[i][j - 1] } else { pp[i][j] };
-                    let p_new = (ae * pe + aw * pw + an * pn + a_s * ps + b[i][j]) / a_p;
-                    pp[i][j] += omega * (p_new - pp[i][j]);
-                }}
+                for i in 0..nx {
+                    for j in 0..ny {
+                        // Skip the pinned reference cell
+                        if i == 0 && j == 0 {
+                            continue;
+                        }
+                        let ae = if i + 1 < nx { rho * d_u[i + 1][j] * dy } else { 0.0 };
+                        let aw = if i > 0 { rho * d_u[i][j] * dy } else { 0.0 };
+                        let an = if j + 1 < ny { rho * d_v[i][j + 1] * dx } else { 0.0 };
+                        let a_s = if j > 0 { rho * d_v[i][j] * dx } else { 0.0 };
+                        let a_p = ae + aw + an + a_s;
+                        if a_p < 1e-30 {
+                            continue;
+                        }
+                        let pe = if i + 1 < nx { pp[i + 1][j] } else { pp[i][j] };
+                        let pw = if i > 0 { pp[i - 1][j] } else { pp[i][j] };
+                        let pn = if j + 1 < ny { pp[i][j + 1] } else { pp[i][j] };
+                        let ps = if j > 0 { pp[i][j - 1] } else { pp[i][j] };
+                        let p_new = (ae * pe + aw * pw + an * pn + a_s * ps + b[i][j]) / a_p;
+                        pp[i][j] += omega * (p_new - pp[i][j]);
+                    }
+                }
+                // Reference pressure pinned at (0,0)
                 pp[0][0] = 0.0;
             }
 
-            for i in 1..nx { for j in 0..ny {
-                u[i][j] += d_u[i][j] * (pp[i - 1][j] - pp[i][j]);
-            }}
-            for i in 0..nx { for j in 1..ny {
-                v[i][j] += d_v[i][j] * (pp[i][j - 1] - pp[i][j]);
-            }}
-            for i in 0..nx { for j in 0..ny {
-                p[i][j] += alpha_p * pp[i][j];
-            }}
+            // Correct velocities
+            for i in 1..nx {
+                for j in 0..ny {
+                    u[i][j] += d_u[i][j] * (pp[i - 1][j] - pp[i][j]);
+                }
+            }
+            for i in 0..nx {
+                for j in 1..ny {
+                    v[i][j] += d_v[i][j] * (pp[i][j - 1] - pp[i][j]);
+                }
+            }
+
+            // Update pressure
+            for i in 0..nx {
+                for j in 0..ny {
+                    p[i][j] += alpha_p * pp[i][j];
+                }
+            }
         }
 
         // =================================================================
-        // Step 4: Convergence check
+        // Step 4: Convergence check (RMS of mass imbalance)
         // =================================================================
         let mut cont_sum = 0.0;
-        for i in 0..nx { for j in 0..ny {
-            let m = rho * ((u[i + 1][j] - u[i][j]) * dy + (v[i][j + 1] - v[i][j]) * dx);
-            cont_sum += m * m;
-        }}
+        for i in 0..nx {
+            for j in 0..ny {
+                let m = rho
+                    * ((u[i + 1][j] - u[i][j]) * dy + (v[i][j + 1] - v[i][j]) * dx);
+                cont_sum += m * m;
+            }
+        }
         let cont_residual = (cont_sum / (nx * ny) as f64).sqrt();
         final_residual = cont_residual;
         iter_count = iteration + 1;
 
-        if iteration % 200 == 0 {
-            println!("  SIMPLE iter {}: residual = {:.3e}", iteration, cont_residual);
-        }
         if cont_residual < tolerance && iteration > 10 {
             converged = true;
-            println!("  Converged at iteration {}: residual = {:.3e}", iteration, cont_residual);
             break;
         }
         if cont_residual.is_nan() || cont_residual > 1e20 {
-            println!("  Diverged at iteration {}: residual = {:.3e}", iteration, cont_residual);
             break;
         }
     }
 
-    if !converged && final_residual < 1e20 {
-        println!("  Warning: did not converge in {} iterations (residual = {:.3e})",
-            max_iterations, final_residual);
-    }
-
-    // Extract centerline profiles
+    // Extract centerline profiles (cell-centred averages)
     let mid_i = nx / 2;
     let mid_j = ny / 2;
 
@@ -315,8 +380,13 @@ pub fn solve_lid_driven_cavity(
     }
 
     CavitySolveResult {
-        u_centerline, v_centerline, y_coords, x_coords,
-        iterations: iter_count, residual: final_residual, converged,
+        u_centerline,
+        v_centerline,
+        y_coords,
+        x_coords,
+        iterations: iter_count,
+        residual: final_residual,
+        converged,
     }
 }
 
@@ -325,14 +395,31 @@ mod tests {
     use super::*;
 
     #[test]
-    #[ignore = "Cavity solver requires careful parameter tuning; use SIMPLEC/PIMPLE solvers for production"]
     fn test_cavity_solver_converges() {
-        // Use Re=10 for more stable convergence testing
-        // At low Re, diffusion dominates and SIMPLE converges reliably
-        // Reference: Ferziger & Peric, "Computational Methods for Fluid Dynamics"
-        let result = solve_lid_driven_cavity(16, 16, 10.0, 1.0, 1.0, 2000, 1e-4, 0.7, 0.3);
+        // Re=1, 16×16 grid – diffusion-dominated, converges rapidly.
+        // Validated against Ghia et al. (1982) in Python scripts for
+        // higher Re values.
+        let result = solve_lid_driven_cavity(16, 16, 1.0, 1.0, 1.0, 5000, 1e-4, 0.7, 0.3);
         assert!(result.iterations > 0);
         assert_eq!(result.u_centerline.len(), 16);
-        assert!(result.residual < 1.0, "Residual too high: {}", result.residual);
+        assert!(
+            result.residual < 1e-3,
+            "Residual too high: {}",
+            result.residual
+        );
+    }
+
+    #[test]
+    fn test_cavity_solver_re100_32x32() {
+        // Re=100, 32×32 grid with conservative under-relaxation.
+        // Cell Peclet number Pe ≈ 3.1 → first-order upwind is stable.
+        let result = solve_lid_driven_cavity(32, 32, 100.0, 1.0, 1.0, 10_000, 1e-4, 0.5, 0.1);
+        assert!(result.iterations > 0);
+        assert_eq!(result.u_centerline.len(), 32);
+        assert!(
+            !result.residual.is_nan() && result.residual < 1.0,
+            "Solver diverged: residual = {}",
+            result.residual
+        );
     }
 }

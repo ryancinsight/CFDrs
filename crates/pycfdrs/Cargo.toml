@@ -19,6 +19,7 @@ cfd-1d = { path = "../cfd-1d" }
 cfd-2d = { path = "../cfd-2d" }
 cfd-3d = { path = "../cfd-3d" }
 cfd-core = { path = "../cfd-core" }
+cfd-mesh = { path = "../cfd-mesh" }
 cfd-validation = { path = "../cfd-validation" }
 
 # Common dependencies

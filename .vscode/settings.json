@@ -2,5 +2,5 @@
     "python.terminal.shellIntegration.enabled": true,
     "kimi.yoloMode": true,
     "problems.autoReveal": false,
-    "chat.agent.maxRequests": 200
+    "chat.agent.maxRequests": 400
 }

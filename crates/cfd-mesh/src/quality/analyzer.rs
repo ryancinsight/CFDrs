@@ -39,9 +39,7 @@ impl<T: RealField + Copy + Float + Sum + FromPrimitive> QualityAnalyzer<T> {
                 failed_elements.push(idx);
             }
 
-            if self.store_detailed {
-                metrics.push(quality);
-            }
+            metrics.push(quality);
         }
 
         let statistics = if metrics.is_empty() {
@@ -294,7 +292,12 @@ mod tests {
         let report = analyzer.analyze(&mesh);
 
         assert!(report.is_acceptable());
-        // Unit tet should have high quality
-        assert!(report.statistics.mean().unwrap_or(0.0) > 0.8);
+        // Right-angle tet (edges 1,1,1,√2,√2,√2) has aspect ratio √2 ≈ 1.41,
+        // so quality < 1.0 but still well-formed (> 0.5).
+        assert!(
+            report.statistics.mean().unwrap_or(0.0) > 0.5,
+            "Right-angle tet quality too low: {:?}",
+            report.statistics.mean()
+        );
     }
 }

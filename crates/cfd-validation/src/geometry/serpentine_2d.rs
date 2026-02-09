@@ -132,9 +132,45 @@ impl<T: RealField + Copy> Geometry2D<T> for Serpentine2D<T> {
     }
 
     fn measure(&self) -> T {
-        // Approximate area (width * arc_length)
-        // For now, simplify to width * total_length as a first-order approximation
-        // In 2D, the swept area of a constant-width channel along a curve is exactly width * arc_length
-        self.width * self.total_length() // placeholder for true measure if needed
+        // The swept area of a constant-width channel is width × arc_length.
+        //
+        // For a sinusoidal centerline  y(x) = A sin(2π x / λ),
+        //   dy/dx = A (2π/λ) cos(2π x / λ)
+        //
+        // Arc length of one period:
+        //   L_period = ∫₀^λ √(1 + (dy/dx)²) dx
+        //
+        // We compute this numerically with the trapezoidal rule (512 points
+        // per period gives <1e-8 relative error for typical A/λ < 1).
+        //
+        // Reference: Weisstein, Eric W. "Arc Length." MathWorld.
+
+        let two_pi = T::from_f64(2.0 * std::f64::consts::PI).unwrap();
+        let k = two_pi / self.period_length; // wave number
+        let ak = self.amplitude * k;          // A·k = A·2π/λ
+
+        // Compute arc length for one period via composite trapezoidal rule
+        let n_quad: usize = 512;
+        let dx = self.period_length / T::from_usize(n_quad).unwrap();
+        let mut arc_length_period = T::zero();
+        for i in 0..=n_quad {
+            let x_loc = dx * T::from_usize(i).unwrap();
+            let dydx = ak * (k * x_loc).cos();
+            let integrand = (T::one() + dydx * dydx).sqrt();
+            let weight = if i == 0 || i == n_quad {
+                T::from_f64(0.5).unwrap()
+            } else {
+                T::one()
+            };
+            arc_length_period += weight * integrand * dx;
+        }
+
+        // Total arc length = inlet + serpentine periods + outlet
+        // Inlet and outlet are straight, so their arc length equals their length.
+        let arc_length_total = self.l_inlet
+            + arc_length_period * T::from_usize(self.periods).unwrap()
+            + self.l_outlet;
+
+        self.width * arc_length_total
     }
 }

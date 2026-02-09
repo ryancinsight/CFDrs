@@ -1,0 +1,95 @@
+{
+  "timestamp": "2026-02-09T15:01:55.762361",
+  "total_tests": 11,
+  "passed_tests": 11,
+  "results": [
+    {
+      "name": "Poiseuille Flow (u_max)",
+      "category": "Analytical",
+      "passed": true,
+      "error": 1.554312234475219e-16,
+      "tolerance": 0.01,
+      "details": "u_max = 3.5714e-01 m/s"
+    },
+    {
+      "name": "Poiseuille Profile Shape",
+      "category": "Analytical",
+      "passed": true,
+      "error": 1.2811039212164168e-16,
+      "tolerance": 1e-10,
+      "details": "L2 error = 1.2811e-16"
+    },
+    {
+      "name": "Cavity Convergence",
+      "category": "Benchmark",
+      "passed": true,
+      "error": 0.0,
+      "tolerance": 0.0,
+      "details": "Converged = True"
+    },
+    {
+      "name": "Cavity L2 Error",
+      "category": "Benchmark",
+      "passed": true,
+      "error": 0.33979994056251245,
+      "tolerance": 0.5,
+      "details": "L2 = 0.3398 (coarse 65x65 grid)"
+    },
+    {
+      "name": "Cavity Reverse Flow",
+      "category": "Physics",
+      "passed": true,
+      "error": 0.0,
+      "tolerance": 0.0,
+      "details": "u_center = -0.0163"
+    },
+    {
+      "name": "Grid Convergence (Monotonic)",
+      "category": "Numerical",
+      "passed": true,
+      "error": 0.0004164931278632933,
+      "tolerance": 1e-10,
+      "details": "Fine grid error = 0.041649%"
+    },
+    {
+      "name": "Grid Convergence (Order)",
+      "category": "Numerical",
+      "passed": true,
+      "error": 0.0,
+      "tolerance": 0.0,
+      "details": "p = 4.31"
+    },
+    {
+      "name": "Advection-Diffusion (Laminar)",
+      "category": "Physics",
+      "passed": true,
+      "error": 0.00022712707146690914,
+      "tolerance": 1.0,
+      "details": "Re = 0.23"
+    },
+    {
+      "name": "Advection-Diffusion (Peclet)",
+      "category": "Physics",
+      "passed": true,
+      "error": 0.8,
+      "tolerance": 1.0,
+      "details": "Pe = 800.0"
+    },
+    {
+      "name": "Dean Number Calculation",
+      "category": "Physics",
+      "passed": true,
+      "error": 0.06256515314365323,
+      "tolerance": 0.1,
+      "details": "De = 0.10 (expected 0.11)"
+    },
+    {
+      "name": "Dean Flow Regime",
+      "category": "Physics",
+      "passed": true,
+      "error": 0.0,
+      "tolerance": 0.0,
+      "details": "De = 0.11, regime identified correctly"
+    }
+  ]
+}

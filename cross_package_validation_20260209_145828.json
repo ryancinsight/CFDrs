@@ -1,0 +1,9 @@
+{
+  "timestamp": "2026-02-09T14:58:28.494203",
+  "total_tests": 11,
+  "passed_tests": 10,
+  "results": [
+    {
+      "name": "Poiseuille Flow (u_max)",
+      "category": "Analytical",
+      "passed": 

@@ -45,7 +45,7 @@ fn test_robin_bc_assembly() {
     let mut solver = FemSolver::new(config);
 
     // Solve (should not panic)
-    let result = solver.solve(&problem);
+    let result = solver.solve(&problem, None);
 
     // We expect it to run. The physical result might be nonsense due to simple mesh/BC setup,
     // but the matrix assembly should work.

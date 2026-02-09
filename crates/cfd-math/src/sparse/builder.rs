@@ -43,6 +43,11 @@ impl<T: RealField + Copy> SparseMatrixBuilder<T> {
         }
     }
 
+    /// Read-only access to the accumulated entries
+    pub fn entries(&self) -> &[MatrixEntry<T>] {
+        &self.entries
+    }
+
     /// Create with estimated capacity
     pub fn with_capacity(rows: usize, cols: usize, capacity: usize) -> Self {
         Self {

@@ -244,16 +244,14 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
     ) -> Result<NumComplex<f64>> {
         let s = b.len();
 
-        // For explicit methods, R(z) = 1 + z*b^T * (I - z*A)^(-1) * 1
-        // This is equivalent to the ratio of polynomials for explicit methods
-
-        // Build the polynomial representation
-        // For explicit RK methods, we can compute this directly
-        // TODO: Implement full stability polynomial
-
-        // Simplified computation for explicit methods
-        // R(z) = sum_{k=0}^s (z^k / k!) * sum_{stages} for order k
-        // For practical computation, we use the matrix form
+        // For explicit methods, R(z) = 1 + z·b^T (I - z·A)^{-1} 𝟏
+        //
+        // This matrix form evaluates the stability polynomial *exactly*
+        // for any s-stage explicit RK method.  For an order-p method the
+        // polynomial satisfies R(z) = Σ_{k=0}^{p} z^k/k! + O(z^{p+1}),
+        // matching the Taylor expansion of exp(z) through order p.
+        //
+        // Reference: Hairer, Nørsett & Wanner (1993) §IV.2, Theorem 2.1.
 
         // Convert matrices to complex
         let mut a_complex = DMatrix::<NumComplex<f64>>::zeros(s, s);

@@ -180,7 +180,13 @@ impl<T: RealField + Copy> Mesh<T> {
     /// Backwards compatibility: currently marked or external (used by logic that expects to find all boundaries)
     #[must_use]
     pub fn boundary_faces(&self) -> Vec<usize> {
-        self.external_faces()
+        let mut result: std::collections::HashSet<usize> = self.external_faces().into_iter().collect();
+        for &idx in self.boundary_markers.keys() {
+            result.insert(idx);
+        }
+        let mut v: Vec<usize> = result.into_iter().collect();
+        v.sort_unstable();
+        v
     }
 
     /// Get boundary label for a face

@@ -52,7 +52,7 @@ fn main() -> Result<()> {
             Venturi3D::new(10.0, 5.0, 5.0, 10.0, 5.0, 15.0, 10.0)
         )),
         Box::new(SerpentineFlow3D::new(
-            Serpentine3D::new(5.0, 2.5, 3, 10.0, 5.0)
+            Serpentine3D::new(5.0, 2.5, 10.0, 3)
         )),
     ];
 

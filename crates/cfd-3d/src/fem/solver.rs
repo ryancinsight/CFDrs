@@ -204,13 +204,9 @@ impl<T: RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> 
         println!("FEM Debug: Global RHS norm: {:?}", rhs_norm);
 
         // Solve linear system
-        // ILU(0) Preconditioning for robustness
-        // 6. Solve
         tracing::debug!("Solving linear system...");
         use cfd_math::linear_solver::preconditioners::ilu::IncompleteLU;
-        let preconditioner = IncompleteLU::new(&matrix)
-            .map_err(|e| Error::Solver(format!("Failed to create ILU(0) preconditioner: {}", e)))?;
-        
+
         let mut x = if let Some(ref initial) = previous_solution {
             initial.interleave()
         } else {
@@ -218,15 +214,24 @@ impl<T: RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> 
         };
 
         println!("  FEM Solver: Initial RHS norm: {:?}", rhs.norm());
-        
-        let monitor = self.linear_solver.solve_preconditioned(
-            &matrix, 
-            &rhs, 
-            &preconditioner, 
-            &mut x
-        ).map_err(|e| Error::Solver(format!("Linear solver failed: {}", e)))?;
-        
-        println!("  FEM Solver: Converged in {} iterations, final residual={:?}", 
+
+        // Try ILU(0)-preconditioned GMRES first; fall back to unpreconditioned
+        // GMRES if the ILU construction fails (e.g. singular diagonal from
+        // degenerate elements in the mesh).
+        let monitor = match IncompleteLU::new(&matrix) {
+            Ok(preconditioner) => {
+                self.linear_solver.solve_preconditioned(
+                    &matrix, &rhs, &preconditioner, &mut x
+                ).map_err(|e| Error::Solver(format!("Linear solver failed: {}", e)))?
+            }
+            Err(_ilu_err) => {
+                tracing::warn!("ILU(0) preconditioner failed, falling back to unpreconditioned GMRES");
+                self.linear_solver.solve_unpreconditioned(&matrix, &rhs, &mut x)
+                    .map_err(|e| Error::Solver(format!("Linear solver (unpreconditioned) failed: {}", e)))?
+            }
+        };
+
+        println!("  FEM Solver: Converged in {} iterations, final residual={:?}",
             monitor.iteration, monitor.residual_history.last());
 
         let sol_norm = x.norm();
@@ -316,9 +321,15 @@ impl<T: RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> 
                 // Create and initialize element
                 let mut element = FluidElement::new(tet_nodes.clone());
                 let six_v = element.calculate_volume(&local_vertices);
+                let volume = Float::abs(six_v) / T::from_f64(6.0).unwrap_or_else(T::one);
+                
+                if volume < T::from_f64(1e-18).unwrap_or_else(T::zero) {
+                   eprintln!("WARN: Element {} (tet) has near-zero volume: {:?}", i, volume);
+                }
+
                 element.calculate_shape_derivatives(&local_vertices);
 
-                // Calculate element matrices with signed six_v for orientation-correct assembly
+                // Calculate element matrices
                 let u_avg = self.calculate_u_avg(&tet_nodes, previous_solution);
                 use crate::fem::stabilization::calculate_element_size;
                 let h = calculate_element_size(&local_vertices, &u_avg);
@@ -331,6 +342,35 @@ impl<T: RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> 
 
         // Apply boundary conditions
         self.apply_boundary_conditions(&mut builder, &mut rhs, problem)?;
+
+        // Ensure all diagonal entries exist (required by ILU preconditioner).
+        // In a mixed velocity-pressure formulation the pressure-pressure block
+        // has no diagonal contribution from the Galerkin terms; the stabilisation
+        // (PSPG) adds some, but nodes that belong only to degenerate elements
+        // may still lack meaningful diagonal entries.  We regularise with a
+        // small fraction of the average diagonal magnitude so that the ILU
+        // factorisation succeeds and the system is non-singular, while the
+        // perturbation remains negligible for well-conditioned DOFs.
+        {
+            // Compute average absolute diagonal for scaling
+            let mut diag_sum = T::zero();
+            let mut diag_count = 0usize;
+            for entry in builder.entries() {
+                if entry.row == entry.col && Float::abs(entry.value) > T::zero() {
+                    diag_sum += Float::abs(entry.value);
+                    diag_count += 1;
+                }
+            }
+            let avg_diag = if diag_count > 0 {
+                diag_sum / T::from_usize(diag_count).unwrap_or_else(T::one)
+            } else {
+                T::one()
+            };
+            let eps = avg_diag * T::from_f64(1e-10).unwrap_or_else(T::zero);
+            for i in 0..n_total_dof {
+                let _ = builder.add_entry(i, i, eps);
+            }
+        }
 
         let matrix = builder.build()?;
         Ok((matrix, rhs))
@@ -874,6 +914,75 @@ impl<T: RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> 
         Ok(())
     }
 
+    /// Apply Pressure boundary conditions via boundary integrals (RHS traction)
+    fn apply_pressure_boundary_conditions(
+        &self,
+        _builder: &mut SparseMatrixBuilder<T>,
+        rhs: &mut DVector<T>,
+        problem: &StokesFlowProblem<T>,
+    ) -> Result<()> {
+        let boundary_faces = self.get_boundary_faces(problem);
+
+        for face_idx in boundary_faces {
+            if let Some(face) = problem.mesh.face(face_idx) {
+                // Check for Pressure BCs on this face
+                let mut pressures = Vec::new();
+                for &v_idx in &face.vertices {
+                    if let Some(bc) = problem.boundary_conditions.get(&v_idx) {
+                        match bc {
+                            BoundaryCondition::PressureOutlet { pressure } => pressures.push(*pressure),
+                            BoundaryCondition::PressureInlet { pressure, .. } => pressures.push(*pressure),
+                            _ => {}
+                        }
+                    }
+                }
+
+                if !pressures.is_empty() {
+                    let num_p_nodes = T::from_usize(pressures.len()).unwrap_or_else(T::one);
+                    let avg_pressure = pressures.iter().fold(T::zero(), |acc, &x| acc + x) / num_p_nodes;
+
+                    // Compute area and normal
+                    if face.vertices.len() >= 3 {
+                        if let (Some(v0), Some(v1), Some(v2)) = (
+                            problem.mesh.vertex(face.vertices[0]),
+                            problem.mesh.vertex(face.vertices[1]),
+                            problem.mesh.vertex(face.vertices[2]),
+                        ) {
+                            let d1 = v1.position.coords - v0.position.coords;
+                            let d2 = v2.position.coords - v0.position.coords;
+                            let cross = d1.cross(&d2);
+                            let cross_norm = cross.norm();
+                            
+                            // Skip degenerate faces
+                            if cross_norm < T::from_f64(1e-12).unwrap_or_else(T::zero) {
+                                continue;
+                            }
+                            
+                            let area = cross_norm * T::from_f64(0.5).unwrap_or_else(T::zero);
+                            let normal = cross / cross_norm; // Outward normal
+
+                            // Traction t = -p * n
+                            // Contribution = \int t . v dS = -p * n * Area / num_nodes
+                            let force_mag = -avg_pressure * area;
+                            let node_force = normal * (force_mag / T::from_usize(face.vertices.len()).unwrap_or_else(T::one));
+
+                            for &v_idx in &face.vertices {
+                                let dof_start = v_idx * (constants::VELOCITY_COMPONENTS + 1);
+                                for i in 0..constants::VELOCITY_COMPONENTS {
+                                    let dof = dof_start + i;
+                                    if dof < rhs.len() {
+                                        rhs[dof] += node_force[i];
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
     /// Apply boundary conditions to the system
     fn apply_boundary_conditions(
         &self,
@@ -886,6 +995,9 @@ impl<T: RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> 
 
         // Apply Robin BCs (boundary integrals)
         self.apply_robin_boundary_conditions(builder, rhs, problem)?;
+
+        // Apply Pressure BCs (traction integrals)
+        self.apply_pressure_boundary_conditions(builder, rhs, problem)?;
 
         self.apply_periodic_boundary_conditions(builder, rhs, problem)?;
 
@@ -909,25 +1021,18 @@ impl<T: RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> 
                     }
                 }
                 BoundaryCondition::PressureInlet {
-                    pressure,
                     velocity_direction,
+                    ..
                 } => {
-                    // Pressure inlet: fixed pressure, optional velocity direction
-                    let pressure_dof = dof + constants::VELOCITY_COMPONENTS;
-                    builder.add_entry(pressure_dof, pressure_dof, penalty)?;
-                    if pressure_dof < rhs.len() {
-                        rhs[pressure_dof] = penalty * *pressure;
-                    }
-
-                    // If velocity direction is specified, set tangential velocity components
-                    if let Some(_dir) = velocity_direction {
-                        // For inlet, we typically specify normal velocity via pressure
-                        // Tangential components may be free or specified
-                        // Here we leave them free (no penalty applied)
-                    }
+                    // Pressure inlet: Traction handled by apply_pressure_boundary_conditions
+                    // Optional velocity direction allows tangential constraint? 
+                    // For now, we only treat it as pressure traction + free tangential.
+                    // If direction is specified, we might need a Dirichlet constraint on tangential components, 
+                    // but that's complex. Leaving it as natural + traction.
                 }
                 BoundaryCondition::PressureOutlet { pressure } => {
-                    // Pressure outlet: fixed pressure
+                    // Pressure outlet: fixed pressure (Dirichlet)
+                    // We also apply traction in apply_pressure_boundary_conditions
                     let pressure_dof = dof + constants::VELOCITY_COMPONENTS;
                     builder.add_entry(pressure_dof, pressure_dof, penalty)?;
                     if pressure_dof < rhs.len() {

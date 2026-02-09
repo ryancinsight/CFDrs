@@ -77,6 +77,10 @@ fn pycfdrs(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyTrifurcation3DResult>()?;
     m.add_class::<PyPoiseuille3DSolver>()?;
     m.add_class::<PyPoiseuille3DResult>()?;
+    m.add_class::<PyVenturi3DSolver>()?;
+    m.add_class::<PyVenturi3DResult>()?;
+    m.add_class::<PySerpentine3DSolver>()?;
+    m.add_class::<PySerpentine3DResult>()?;
 
     // 2D Cavity solver (Ghia benchmark)
     m.add_class::<PyCavitySolver2D>()?;

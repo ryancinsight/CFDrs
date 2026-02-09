@@ -871,8 +871,11 @@ impl PySerpentineSolver1D {
             width: self.width,
             height: self.height,
         };
+        // SerpentineModel::new expects TOTAL straight length, but Python API
+        // exposes per-segment straight_length, so multiply by num_segments.
+        let total_straight = self.straight_length * self.num_segments as f64;
         let model = SerpentineModel::new(
-            self.straight_length,
+            total_straight,
             self.num_segments,
             cross_section,
             self.bend_radius,
