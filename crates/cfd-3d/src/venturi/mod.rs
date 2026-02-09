@@ -7,4 +7,7 @@
 //! - Complete validation against analytical and ISO 5167 solutions
 
 pub mod solver;
+pub mod validation;
+
 pub use solver::{VenturiSolver3D, VenturiConfig3D, VenturiSolution3D};
+pub use validation::{VenturiValidator3D, VenturiValidationResult3D};

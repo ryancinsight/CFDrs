@@ -16,6 +16,10 @@ pub struct TrifurcationConfig3D<T: RealField + Copy> {
     pub inlet_flow_rate: T,
     pub inlet_pressure: T,
     pub outlet_pressures: [T; 3],
+    pub max_nonlinear_iterations: usize,
+    pub nonlinear_tolerance: T,
+    pub max_linear_iterations: usize,
+    pub linear_tolerance: T,
 }
 
 impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> Default for TrifurcationConfig3D<T> {
@@ -24,6 +28,10 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> Default fo
             inlet_flow_rate: T::from_f64_or_one(1e-8),
             inlet_pressure: T::from_f64_or_one(100.0),
             outlet_pressures: [T::zero(), T::zero(), T::zero()],
+            max_nonlinear_iterations: 20,
+            nonlinear_tolerance: T::from_f64_or_one(1e-4),
+            max_linear_iterations: 1000,
+            linear_tolerance: T::from_f64_or_one(1e-6),
         }
     }
 }
@@ -221,7 +229,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
         let mut solver = FemSolver::new(fem_config);
         let mut last_solution = None;
 
-        for _ in 0..20 { 
+        for _ in 0..self.config.max_nonlinear_iterations { 
             problem.element_viscosities = Some(element_viscosities.clone());
             let fem_solution = solver.solve(&problem, last_solution.as_ref()).map_err(|e| Error::Solver(e.to_string()))?;
             
@@ -242,7 +250,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
             element_viscosities = new_viscosities;
             last_solution = Some(fem_solution);
             
-            if max_change < T::from_f64_or_one(1e-6) {
+            if max_change < self.config.nonlinear_tolerance {
                 break;
             }
         }

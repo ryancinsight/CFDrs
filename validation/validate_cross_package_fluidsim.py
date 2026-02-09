@@ -3,22 +3,31 @@
 Cross-package validation: pycfdrs vs fluidsim (pseudo-spectral NS solver).
 
 Compares both codes against analytical solutions and each other:
-  1. Taylor-Green vortex decay energy vs analytical E(t) = E0 * exp(-2*nu*k^2*t)
-  2. Enstrophy evolution comparison
-  3. Poiseuille flow analytical comparison (pycfdrs only — fluidsim is periodic)
-  4. Energy spectrum slope at inertial range
+  1. Taylor-Green vortex decay energy vs analytical E(t) = E0 * exp(-4*nu*k^2*t)
+  2. fluidsim Taylor-Green decay vs analytical (pseudo-spectral, 64x64)
+  3. Poiseuille flow analytical comparison (pycfdrs only -- fluidsim is periodic)
+  4. Blood rheology vs Merrill (1969)
+  5. Dean number consistency
+  6. Murray's law verification
+  7. Venturi Bernoulli
+  8. 3D FEM convergence
+  9. fluidsim enstrophy decay vs analytical
+ 10. fluidsim grid convergence (32->64->128)
+ 11. fluidsim velocity field pointwise comparison
 
 References:
   - Taylor G.I. & Green A.E. (1937). "Mechanism of the production of small
     eddies from large ones." Proc. R. Soc. Lond. A 158:499-521.
   - Brachet M.E. et al. (1983). "Small-scale structure of the Taylor-Green
     vortex." J. Fluid Mech. 130:411-452.
+  - Merrill E.W. (1969). "Rheology of blood." Physiol. Rev. 49(4):863-888.
 """
 
 import sys
 import math
 import json
 import os
+import tempfile
 import numpy as np
 from datetime import datetime
 
@@ -43,10 +52,10 @@ except ImportError:
 
 def taylor_green_energy(t, nu, k=1.0, E0=0.5):
     """Exact kinetic energy of 2D Taylor-Green vortex at time t.
-    
+
     u(x,y,t) = -cos(kx)*sin(ky)*exp(-2*nu*k^2*t)
     v(x,y,t) =  sin(kx)*cos(ky)*exp(-2*nu*k^2*t)
-    
+
     E(t) = 0.5 * <u^2 + v^2> = E0 * exp(-4*nu*k^2*t)
     """
     return E0 * math.exp(-4.0 * nu * k**2 * t)
@@ -54,85 +63,94 @@ def taylor_green_energy(t, nu, k=1.0, E0=0.5):
 
 def taylor_green_enstrophy(t, nu, k=1.0, Z0=1.0):
     """Exact enstrophy of 2D Taylor-Green vortex.
-    
-    Z(t) = k^2 * E(t) / 0.5 = 2*k^2*E0*exp(-4*nu*k^2*t)
-    For E0=0.5: Z(t) = k^2 * exp(-4*nu*k^2*t)
+
+    omega = 2*k*cos(kx)*cos(ky)*exp(-2*nu*k^2*t)
+    Z(t) = 0.5*<omega^2> = Z0 * exp(-4*nu*k^2*t)
+    For k=1, Z0 = 0.5*<(2*cos(x)*cos(y))^2> = 0.5*4*0.25 = 0.5
     """
     return Z0 * math.exp(-4.0 * nu * k**2 * t)
 
 
 # -----------------------------------------------------------------------
-# fluidsim Taylor-Green
+# fluidsim helpers
 # -----------------------------------------------------------------------
 
-def run_fluidsim_taylor_green(nu=0.01, nx=64, t_final=1.0, dt_sample=0.1):
-    """Run Taylor-Green vortex decay using fluidsim ns2d solver."""
+def _create_fluidsim_taylor_green(nu=0.01, nx=64, t_final=1.0):
+    """Create a fluidsim ns2d simulation initialised with Taylor-Green IC.
+
+    Returns (sim, X, Y, E0, Z0) or None if fluidsim is unavailable.
+    """
     if not HAS_FLUIDSIM:
         return None
-    
+
+    # fluidsim needs a writable results directory
+    os.environ.setdefault(
+        'FLUIDSIM_PATH',
+        os.path.join(tempfile.gettempdir(), 'fluidsim_runs'),
+    )
+
     Simul = import_simul_class_from_key('ns2d')
     params = Simul.create_default_params()
-    
-    # Domain: [0, 2*pi] x [0, 2*pi]
+
+    # FFT backend -- MUST use pyfftw (fftw2d not available on Windows)
+    params.oper.type_fft = 'fft2d.with_pyfftw'
+
+    # Domain [0, 2*pi]^2
     params.oper.nx = nx
     params.oper.ny = nx
     params.oper.Lx = 2 * math.pi
     params.oper.Ly = 2 * math.pi
-    
-    params.nu_2 = nu  # kinematic viscosity
-    
+
+    params.nu_2 = nu
     params.time_stepping.t_end = t_final
-    params.time_stepping.deltat_max = 0.01
-    
-    # Disable output to keep things clean
+    params.time_stepping.deltat_max = 0.005
+
+    # Suppress all file output
     params.output.periods_print.print_stdout = 0
     params.output.periods_save.phys_fields = 0
     params.output.periods_save.spectra = 0
     params.output.periods_save.spatial_means = 0
     params.output.periods_save.spect_energy_budg = 0
     params.output.periods_plot.phys_fields = 0
-    
-    # Init with Taylor-Green vortex
-    params.init_fields.type = 'noise'  # We'll override below
-    
+
+    # Placeholder init -- overridden below
+    params.init_fields.type = 'noise'
+    params.NEW_DIR_RESULTS = True
+
     sim = Simul(params)
-    
-    # Override initial condition with Taylor-Green
-    oper = sim.oper
-    X, Y = oper.get_XY_loc()
-    
-    # u = -cos(x)*sin(y), v = sin(x)*cos(y)
+
+    # Set Taylor-Green initial condition
+    X = sim.oper.XX
+    Y = sim.oper.YY
     ux = -np.cos(X) * np.sin(Y)
     uy = np.sin(X) * np.cos(Y)
-    
-    # Convert to spectral
-    rot_fft = oper.rotfft_from_vecfft(oper.fft(ux), oper.fft(uy))
-    sim.state.init_statephys_from(rot_fft=oper.ifft(rot_fft))
-    sim.state.init_statespect_from(rot_fft=rot_fft)
-    
-    # Collect energy at sample times
-    times = []
-    energies = []
-    
-    # Initial energy
-    E0 = 0.5 * np.mean(ux**2 + uy**2)
-    times.append(0.0)
-    energies.append(float(E0))
-    
-    # Time stepping
-    n_samples = int(t_final / dt_sample)
-    for i in range(n_samples):
-        t_next = (i + 1) * dt_sample
-        sim.time_stepping.start_from(t_start=sim.time_stepping.t, 
-                                      t_end=t_next)
-        
-        # Compute energy
-        ux_f, uy_f = sim.state.get_var('ux'), sim.state.get_var('uy')
-        E = 0.5 * np.mean(ux_f**2 + uy_f**2)
-        times.append(float(sim.time_stepping.t))
-        energies.append(float(E))
-    
-    return {'times': times, 'energies': energies, 'nu': nu, 'nx': nx}
+    rot = 2.0 * np.cos(X) * np.cos(Y)
+
+    sim.state.state_phys.set_var('ux', ux)
+    sim.state.state_phys.set_var('uy', uy)
+    sim.state.state_phys.set_var('rot', rot)
+    sim.state.statespect_from_statephys()
+
+    E0 = 0.5 * float(np.mean(ux**2 + uy**2))    # 0.25
+    Z0 = 0.5 * float(np.mean(rot**2))             # 0.5
+    return sim, X, Y, E0, Z0
+
+
+def _fluidsim_energy(sim):
+    ux = sim.state.state_phys.get_var('ux')
+    uy = sim.state.state_phys.get_var('uy')
+    return 0.5 * float(np.mean(ux**2 + uy**2))
+
+
+def _fluidsim_enstrophy(sim):
+    rot = sim.state.state_phys.get_var('rot')
+    return 0.5 * float(np.mean(rot**2))
+
+
+def _fluidsim_advance_to(sim, t_target):
+    """Advance simulation to *at least* t_target via one_time_step()."""
+    while sim.time_stepping.t < t_target - 1e-12:
+        sim.time_stepping.one_time_step()
 
 
 # -----------------------------------------------------------------------
@@ -172,40 +190,49 @@ def validate_analytical_energy_decay():
 
 
 def validate_fluidsim_vs_analytical():
-    """Test: fluidsim Taylor-Green decay vs analytical."""
+    """Test: fluidsim Taylor-Green energy decay vs analytical (64x64)."""
     print("\n" + "=" * 60)
-    print("Test 2: fluidsim vs Analytical (Taylor-Green decay)")
+    print("Test 2: fluidsim vs Analytical (Taylor-Green energy decay)")
     print("=" * 60)
-    
+
     if not HAS_FLUIDSIM:
         print("  [SKIP] fluidsim not available")
         return True
-    
-    try:
-        nu = 0.01
-        result = run_fluidsim_taylor_green(nu=nu, nx=64, t_final=1.0, dt_sample=0.2)
-        
-        if result is None:
-            print("  [SKIP] fluidsim run returned None")
-            return True
-        
-        max_err = 0.0
-        print(f"  {'t':>6s}  {'E_fluidsim':>12s}  {'E_analytical':>14s}  {'rel_err':>10s}")
-        for t, E_fs in zip(result['times'], result['energies']):
-            E_an = taylor_green_energy(t, nu, E0=result['energies'][0])
-            rel_err = abs(E_fs - E_an) / E_an if E_an > 0 else 0.0
-            max_err = max(max_err, rel_err)
-            print(f"  {t:6.2f}  {E_fs:12.8f}  {E_an:14.8f}  {rel_err:10.2e}")
-        
-        print(f"\n  Max relative error: {max_err:.4e}")
-        # Pseudo-spectral should be very accurate
-        assert max_err < 0.05, f"fluidsim energy mismatch: {max_err}"
-        print("  [PASS] fluidsim matches analytical within 5%")
+
+    nu = 0.01
+    t_final = 5.0
+    checkpoints = [0.5, 1.0, 2.0, 3.0, 5.0]
+
+    setup = _create_fluidsim_taylor_green(nu=nu, nx=64, t_final=t_final)
+    if setup is None:
+        print("  [SKIP] fluidsim setup returned None")
         return True
-    except Exception as e:
-        print(f"  [WARN] fluidsim test failed: {e}")
-        print("  Skipping -- possible API/env issue")
-        return True  # Don't fail test suite for fluidsim issues
+
+    sim, X, Y, E0, _ = setup
+
+    times_out = [0.0]
+    energies_out = [E0]
+
+    for t_target in checkpoints:
+        _fluidsim_advance_to(sim, t_target)
+        E = _fluidsim_energy(sim)
+        times_out.append(sim.time_stepping.t)
+        energies_out.append(E)
+
+    max_err = 0.0
+    print(f"  {'t':>6s}  {'E_fluidsim':>14s}  {'E_analytical':>14s}  {'rel_err':>10s}")
+    print(f"  {'-'*6}  {'-'*14}  {'-'*14}  {'-'*10}")
+    for t, E_fs in zip(times_out, energies_out):
+        E_an = taylor_green_energy(t, nu, E0=E0)
+        rel_err = abs(E_fs - E_an) / E_an if E_an > 0 else 0.0
+        max_err = max(max_err, rel_err)
+        print(f"  {t:6.2f}  {E_fs:14.10f}  {E_an:14.10f}  {rel_err:10.2e}")
+
+    print(f"\n  Max relative error: {max_err:.4e}")
+    # Pseudo-spectral + exact TG IC should give machine-precision energy decay
+    assert max_err < 1e-6, f"fluidsim energy vs analytical mismatch: {max_err}"
+    print("  [PASS] fluidsim matches analytical within 1e-6")
+    return True
 
 
 def validate_pycfdrs_poiseuille_analytical():
@@ -465,6 +492,146 @@ def validate_3d_solvers_convergence():
     return passed
 
 
+def validate_fluidsim_enstrophy():
+    """Test: fluidsim enstrophy decay vs analytical Z(t) = Z0*exp(-4*nu*t)."""
+    print("\n" + "=" * 60)
+    print("Test 9: fluidsim Enstrophy Decay vs Analytical")
+    print("=" * 60)
+
+    if not HAS_FLUIDSIM:
+        print("  [SKIP] fluidsim not available")
+        return True
+
+    nu = 0.01
+    t_final = 3.0
+    checkpoints = [0.5, 1.0, 2.0, 3.0]
+
+    setup = _create_fluidsim_taylor_green(nu=nu, nx=64, t_final=t_final)
+    if setup is None:
+        print("  [SKIP] fluidsim setup returned None")
+        return True
+
+    sim, X, Y, E0, Z0 = setup
+
+    print(f"  nu={nu}, nx=64, Z0={Z0:.8f}")
+    print(f"  {'t':>6s}  {'Z_fluidsim':>14s}  {'Z_analytical':>14s}  {'rel_err':>10s}")
+    print(f"  {'-'*6}  {'-'*14}  {'-'*14}  {'-'*10}")
+
+    max_err = 0.0
+    for t_target in checkpoints:
+        _fluidsim_advance_to(sim, t_target)
+        Z_sim = _fluidsim_enstrophy(sim)
+        Z_an = taylor_green_enstrophy(t_target, nu, Z0=Z0)
+        rel_err = abs(Z_sim - Z_an) / Z_an if Z_an > 0 else 0.0
+        max_err = max(max_err, rel_err)
+        print(f"  {t_target:6.2f}  {Z_sim:14.10f}  {Z_an:14.10f}  {rel_err:10.2e}")
+
+    print(f"\n  Max relative error: {max_err:.4e}")
+    assert max_err < 1e-5, f"fluidsim enstrophy vs analytical mismatch: {max_err}"
+    print("  [PASS] fluidsim enstrophy matches analytical within 1e-5")
+    return True
+
+
+def validate_fluidsim_grid_convergence():
+    """Test: fluidsim energy error decreases with resolution (spectral convergence)."""
+    print("\n" + "=" * 60)
+    print("Test 10: fluidsim Grid Convergence (32 -> 64 -> 128)")
+    print("=" * 60)
+
+    if not HAS_FLUIDSIM:
+        print("  [SKIP] fluidsim not available")
+        return True
+
+    nu = 0.01
+    t_eval = 2.0  # evaluate at t=2
+    resolutions = [32, 64, 128]
+    errors = []
+
+    print(f"  nu={nu}, t_eval={t_eval}")
+    print(f"  {'nx':>6s}  {'E_fluidsim':>14s}  {'E_analytical':>14s}  {'rel_err':>12s}")
+    print(f"  {'-'*6}  {'-'*14}  {'-'*14}  {'-'*12}")
+
+    for nx in resolutions:
+        setup = _create_fluidsim_taylor_green(nu=nu, nx=nx, t_final=t_eval)
+        if setup is None:
+            print(f"  [SKIP] nx={nx} setup failed")
+            return True
+
+        sim, _, _, E0, _ = setup
+        _fluidsim_advance_to(sim, t_eval)
+        E_sim = _fluidsim_energy(sim)
+        E_an = taylor_green_energy(t_eval, nu, E0=E0)
+        rel_err = abs(E_sim - E_an) / E_an if E_an > 0 else 0.0
+        errors.append(rel_err)
+        print(f"  {nx:6d}  {E_sim:14.10f}  {E_an:14.10f}  {rel_err:12.4e}")
+
+    # Each doubling should reduce error (spectral convergence)
+    if len(errors) >= 2 and errors[0] > 1e-14:
+        for i in range(1, len(errors)):
+            if errors[i-1] > 1e-14:
+                ratio = errors[i] / errors[i-1]
+                print(f"  Error ratio nx={resolutions[i]}/nx={resolutions[i-1]}: {ratio:.4e}")
+
+    # All resolutions should be very accurate for smooth TG flow
+    assert errors[-1] < 1e-6, f"Finest grid error too large: {errors[-1]}"
+    # Convergence: finer grid should be more accurate (or both near machine precision)
+    assert errors[-1] <= errors[0] + 1e-14, "Grid convergence not observed"
+    print("  [PASS] Spectral convergence verified")
+    return True
+
+
+def validate_fluidsim_velocity_field():
+    """Test: fluidsim velocity field matches pointwise analytical at t=1.0."""
+    print("\n" + "=" * 60)
+    print("Test 11: fluidsim Pointwise Velocity Comparison")
+    print("=" * 60)
+
+    if not HAS_FLUIDSIM:
+        print("  [SKIP] fluidsim not available")
+        return True
+
+    nu = 0.01
+    t_eval = 1.0
+
+    setup = _create_fluidsim_taylor_green(nu=nu, nx=64, t_final=t_eval)
+    if setup is None:
+        print("  [SKIP] fluidsim setup returned None")
+        return True
+
+    sim, X, Y, E0, _ = setup
+    _fluidsim_advance_to(sim, t_eval)
+
+    # Analytical velocity field at t=1.0
+    decay = math.exp(-2.0 * nu * t_eval)
+    ux_an = -np.cos(X) * np.sin(Y) * decay
+    uy_an = np.sin(X) * np.cos(Y) * decay
+
+    ux_sim = sim.state.state_phys.get_var('ux')
+    uy_sim = sim.state.state_phys.get_var('uy')
+
+    # L2 and Linf errors
+    err_ux = ux_sim - ux_an
+    err_uy = uy_sim - uy_an
+
+    l2_ux = float(np.sqrt(np.mean(err_ux**2)))
+    l2_uy = float(np.sqrt(np.mean(err_uy**2)))
+    linf_ux = float(np.max(np.abs(err_ux)))
+    linf_uy = float(np.max(np.abs(err_uy)))
+
+    u_scale = float(np.max(np.abs(ux_an)))  # normalization scale
+
+    print(f"  nu={nu}, nx=64, t={t_eval}")
+    print(f"  u_scale (max |ux_analytical|): {u_scale:.8f}")
+    print(f"  ux:  L2={l2_ux:.4e}  Linf={linf_ux:.4e}  rel_Linf={linf_ux/u_scale:.4e}")
+    print(f"  uy:  L2={l2_uy:.4e}  Linf={linf_uy:.4e}  rel_Linf={linf_uy/u_scale:.4e}")
+
+    rel_linf = max(linf_ux, linf_uy) / u_scale
+    print(f"\n  Max relative Linf error: {rel_linf:.4e}")
+    assert rel_linf < 1e-6, f"Pointwise velocity error too large: {rel_linf}"
+    print("  [PASS] Pointwise velocity matches analytical within 1e-6")
+    return True
+
+
 # -----------------------------------------------------------------------
 # Main
 # -----------------------------------------------------------------------
@@ -482,6 +649,9 @@ def main():
         ("Murray's Law", validate_murray_law_consistency),
         ("Venturi Bernoulli", validate_venturi_bernoulli),
         ("3D FEM Convergence", validate_3d_solvers_convergence),
+        ("fluidsim Enstrophy", validate_fluidsim_enstrophy),
+        ("fluidsim Grid Convergence", validate_fluidsim_grid_convergence),
+        ("fluidsim Velocity Field", validate_fluidsim_velocity_field),
     ]
     
     for name, fn in tests:

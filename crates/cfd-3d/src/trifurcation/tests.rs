@@ -24,6 +24,10 @@ mod tests {
             inlet_flow_rate: 1.0e-7, // m^3/s (lower flow rate for blood)
             inlet_pressure: 100.0, // Pa
             outlet_pressures: [0.0, 0.0, 0.0],
+            max_nonlinear_iterations: 20,
+            nonlinear_tolerance: 1e-4,
+            max_linear_iterations: 1000,
+            linear_tolerance: 1e-6,
         };
 
         let solver = TrifurcationSolver3D::new(geometry, config);
