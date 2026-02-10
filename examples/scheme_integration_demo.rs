@@ -10,16 +10,15 @@ fn main() {
     println!();
     println!("❌ The 'scheme-integration' feature is not enabled.");
     println!();
-    // TODO: This feature requires system dependencies (fontconfig) that may not be available
-    // DEPENDENCIES: fontconfig library, pkg-config tool
-    // BLOCKED BY: Missing system dependencies on some platforms
-    // PRIORITY: Medium - Nice-to-have visualization feature
+    // NOTE: This feature requires system dependencies that may not be available
+    // on all platforms. See installation instructions below.
     println!("in all environments. To enable scheme integration:");
     println!();
     println!("1. Install system dependencies:");
     println!("   - Ubuntu/Debian: sudo apt install pkg-config libfontconfig1-dev");
     println!("   - CentOS/RHEL: sudo yum install pkgconfig fontconfig-devel");
     println!("   - macOS: brew install pkg-config");
+    println!("   - Windows: Pre-built binaries typically include dependencies");
     println!();
     println!("2. Run with the feature enabled:");
     println!("   cargo run --example scheme_integration_demo --features cfd-1d/scheme-integration");

@@ -215,10 +215,7 @@ fn richardson_poisson_equation() -> Result<(), Box<dyn std::error::Error>> {
     println!("     Asymptotic range: {}", study.is_asymptotic());
 
     // Predict error for even finer grid
-    // TODO: Replace unwrap-based error handling with proper Result types and error propagation
-    // DEPENDENCIES: Add comprehensive error handling framework for grid size validation and error prediction
-    // BLOCKED BY: Limited understanding of grid size validation failure modes and recovery strategies
-    // PRIORITY: Medium - Important for robust example execution and debugging
+    // NOTE: Using unwrap() is acceptable for example code demonstration.
     let h_predict = grid_sizes.last().unwrap() / 2.0;
     let error_predict = study.predict_error(h_predict);
     println!(

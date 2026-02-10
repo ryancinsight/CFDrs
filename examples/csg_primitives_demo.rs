@@ -1,9 +1,14 @@
 //! CSG primitives demonstration
 //!
-//! TODO: This example is a placeholder for future CSG capabilities.
-//! TODO: CSG boolean operations are not yet implemented in this workspace.
-//! TODO: See cfd-mesh csg module for error definitions and future integration points.
-//! PRIORITY: Medium - CSG integration would enhance mesh generation capabilities
+//! NOTE: This is a placeholder example for future CSG capabilities.
+//! CSG boolean operations are planned for future implementation.
+//! See cfd-mesh csg module for error definitions and integration points.
+//!
+//! ## Planned Features
+//! - Basic primitives (cube, sphere, cylinder, cone)
+//! - Boolean operations (union, difference, intersection)
+//! - Builder pattern for complex geometries
+//! - Integration with mesh generation pipeline
 
 #![allow(missing_docs)]
 

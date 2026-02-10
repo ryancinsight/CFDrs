@@ -159,14 +159,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let _dy = config.ly / config.ny as f64;
     let _dz = config.lz / config.nz as f64;
 
-    // Create velocity field (simplified - uniform inlet, developing flow)
-    // TODO: Implement proper velocity profile based on pipe flow dynamics
-    // LINKED TO: Navier-Stokes solver implementation in production crates
+    // Create velocity field (simplified uniform inlet for demonstration)
+    // NOTE: This example uses a simplified velocity profile for demonstration purposes.
+    // Production implementations should use proper NS solvers from cfd-2d/cfd-3d crates
+    // with SIMPLE/PISO algorithms for full pressure-velocity coupling.
     let mut velocity_field = vec![Vector3::zeros(); config.nx * config.ny * config.nz];
 
-    // Create pressure field (simplified Bernoulli profile)
-    // TODO: Implement proper pressure field based on Navier-Stokes solution
-    // LINKED TO: Pressure-velocity coupling in SIMPLE/PISO algorithms
+    // Create pressure field (simplified Bernoulli profile for demonstration)
+    // NOTE: Production applications should solve the full NS equations with proper
+    // boundary conditions and iterative pressure-velocity coupling algorithms.
     let mut pressure_field = vec![0.0; config.nx * config.ny * config.nz];
 
     // Create density field (water density)

@@ -1,9 +1,16 @@
 //! CSG (Constructive Solid Geometry) operations example
 //!
-//! TODO: This example is a placeholder for future CSG capabilities.
-//! TODO: CSG boolean operations are not yet implemented in this workspace.
-//! TODO: See cfd-mesh csg module for error definitions and future integration points.
-//! PRIORITY: Medium - CSG operations would enable complex geometry generation
+//! NOTE: This is a placeholder example for future CSG capabilities.
+//! CSG boolean operations are planned for future implementation.
+//! See cfd-mesh csg module for error definitions and integration points.
+//!
+//! ## Planned Features
+//! - Basic primitive creation (cube, sphere, cylinder, cone)
+//! - Boolean operations (union, difference, intersection, XOR)
+//! - Transformations (translate, rotate, scale, mirror)
+//! - Complex geometry using builder pattern
+//! - CFD-specific geometries (flow domains, pipes, heat exchangers)
+//! - Mesh analysis and STL export
 
 #![allow(missing_docs)]
 

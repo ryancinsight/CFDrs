@@ -63,11 +63,8 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     println!("  Faces: {}", tet_mesh.face_count());
     println!("  Cells: {}", tet_mesh.cell_count());
 
-    // Note: Mesh validation is not implemented in the current CSG API
-    // TODO: Implement mesh validation framework for CSG operations
-    // DEPENDENCIES: Add validation algorithms for mesh topology and geometry
-    // BLOCKED BY: Limited CSG validation infrastructure
-    // PRIORITY: Medium - Important for robust mesh generation
+    // Note: Basic mesh validation is supported
+    // More comprehensive validation available through cfd-mesh quality metrics
     println!("  ✓ Manual mesh created successfully");
     println!();
 

@@ -16,7 +16,8 @@ pub mod trifurcation;
 pub mod venturi;
 pub mod threed;
 pub mod serpentine;
-// TODO: Re-enable once API compatibility is fixed
+// NOTE: poiseuille_bifurcation module temporarily disabled due to API compatibility.
+// Awaiting alignment with updated cfd-1d/cfd-2d solver interfaces.
 // pub mod poiseuille_bifurcation;
 
 pub use bifurcation::BifurcationFlow;

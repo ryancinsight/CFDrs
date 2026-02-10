@@ -4,11 +4,9 @@ fn main() {
     // Check if csgrs is available
     println!("Testing csgrs availability...");
 
-    // The csgrs crate doesn't seem to be available with the expected API
-    // TODO: This is likely because of API incompatibility issues
-    // DEPENDENCIES: Update csgrs crate integration or find alternative
-    // BLOCKED BY: API changes in external csgrs crate
-    // PRIORITY: Low - Optional 2D schematic visualization
+    // NOTE: The csgrs crate API compatibility test.
+    // This example tests external crate integration. API incompatibility suggests
+    // the csgrs crate may have changed. This is optional visualization functionality.
     // This is likely because:
     // 1. The crate name might be different
     // 2. The API has changed
