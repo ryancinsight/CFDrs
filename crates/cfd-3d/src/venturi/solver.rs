@@ -106,8 +106,11 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
                                     velocity: Vector3::new(T::zero(), T::zero(), u_inlet),
                                 }
                             } else if label == "outlet" {
-                                BoundaryCondition::PressureOutlet {
-                                    pressure: self.config.outlet_pressure,
+                                // Enforce P=0 strongly (Dirichlet) to fix pressure level
+                                // Natural BC (PressureOutlet) might leave P floating.
+                                BoundaryCondition::Dirichlet {
+                                    value: T::zero(),
+                                    component_values: Some(vec![None, None, None, Some(self.config.outlet_pressure)]),
                                 }
                             } else {
                                 // Wall: No-slip
@@ -156,16 +159,35 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
             let mut max_change = T::zero();
             let mut new_viscosities = Vec::with_capacity(n_elements);
             
+            let mut shear_min = <T as Float>::max_value();
+            let mut shear_max = <T as Float>::min_value();
+            let mut shear_sum = T::zero();
+
             for (i, cell) in problem.mesh.cells().iter().enumerate() {
                 // Handle hex-to-tet averaging for shear rate
                 let shear_rate = self.calculate_cell_shear_rate(cell, &problem.mesh, &updated_solution)?;
-                let new_visc = fluid.viscosity_at_shear(shear_rate, T::from_f64_or_one(310.0), self.config.inlet_pressure)?;
                 
+                if shear_rate < shear_min { shear_min = shear_rate; }
+                if shear_rate > shear_max { shear_max = shear_rate; }
+                shear_sum += shear_rate;
+
+                let mut new_visc = fluid.viscosity_at_shear(shear_rate, T::from_f64_or_one(310.0), self.config.inlet_pressure)?;
+                
+                // TEMP DEBUG: Force Newtonian by capping at 1.0x
+                let max_viscosity = problem.fluid.viscosity * T::from_f64(1.0).unwrap();
+                if new_visc > max_viscosity {
+                    new_visc = max_viscosity;
+                }
+
                 let change = Float::abs(new_visc - element_viscosities[i]) / element_viscosities[i];
                 if change > max_change {
                     max_change = change;
                 }
                 new_viscosities.push(new_visc);
+            }
+            if n_elements > 0 {
+                let shear_avg = shear_sum / T::from_usize(n_elements).unwrap();
+                println!("Shear Rate Stats: Min={:?}, Max={:?}, Avg={:?}", shear_min, shear_max, shear_avg);
             }
             
             // Track velocity convergence
@@ -215,14 +237,6 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
                 }
             }
         }
-
-        println!("Venturi Debug: Found {} inlet faces, {} inlet nodes", inlet_faces_found, inlet_nodes.len());
-
-        for &v_idx in &inlet_nodes {
-            p_in_sum += fem_solution.get_pressure(v_idx);
-            count_in += 1;
-        }
-        
         println!("Venturi Solver Setup: Q={:?}, A_in={:?}, u_inlet_calc={:?}", 
             self.config.inlet_flow_rate, area_inlet, u_inlet);
 
@@ -362,15 +376,18 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
         let mut total_shear = T::zero();
         let mut total_vol = T::zero();
 
-        for tet_nodes in tets {
+        for (tet_idx, tet_nodes) in tets.iter().enumerate() {
             let mut element = FluidElement::new(tet_nodes.clone());
-            element.calculate_volume(&vertex_positions);
-            let vol = element.volume;
             
             let mut element_vertices = Vec::with_capacity(4);
-            for &idx in &tet_nodes {
+            for &idx in tet_nodes {
                 element_vertices.push(vertex_positions[idx]);
             }
+
+            // Fix: calculate_volume expects the element's vertices, not the full mesh list
+            element.calculate_volume(&element_vertices); 
+            let vol = element.volume;
+            
             element.calculate_shape_derivatives(&element_vertices);
             
             let mut l = nalgebra::Matrix3::zeros();

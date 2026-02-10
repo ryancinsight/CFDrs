@@ -7,4 +7,7 @@
 //! - Analysis of Dean vortices and secondary flow effects
 
 pub mod solver;
+pub mod validation;
+
 pub use solver::{SerpentineSolver3D, SerpentineConfig3D, SerpentineSolution3D};
+pub use validation::{SerpentineValidator3D, SerpentineValidationResult3D};
