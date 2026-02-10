@@ -34,9 +34,11 @@ mod poiseuille_2d;
 mod result_types;
 mod solver_2d;
 mod solver_3d;
+mod womersley;
 
 pub use bifurcation::{PyBifurcationSolver, PyTrifurcationResult, PyTrifurcationSolver};
 pub use blood::*;
+pub use womersley::*;
 pub use poiseuille_2d::{PyPoiseuilleConfig, PyPoiseuilleResult, PyPoiseuilleSolver};
 pub use result_types::PyBifurcationResult;
 pub use solver_2d::*;
@@ -61,6 +63,13 @@ fn pycfdrs(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Blood models
     m.add_class::<PyCassonBlood>()?;
     m.add_class::<PyCarreauYasudaBlood>()?;
+    m.add_class::<PyCrossBlood>()?;
+    m.add_class::<PyFahraeuasLindqvist>()?;
+
+    // Womersley pulsatile flow
+    m.add_class::<PyWomersleyNumber>()?;
+    m.add_class::<PyWomersleyProfile>()?;
+    m.add_class::<PyWomersleyFlow>()?;
 
     // 2D solvers (extended)
     m.add_class::<PyPoiseuille2DSolver>()?;

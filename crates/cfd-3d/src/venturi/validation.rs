@@ -4,7 +4,7 @@
 //! ISO 5167 standards for Venturi tubes.
 
 use super::solver::{VenturiConfig3D, VenturiSolution3D, VenturiSolver3D};
-use cfd_core::conversion::{SafeFromF64, SafeRealField};
+use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::Error;
 use cfd_core::physics::fluid::traits::{Fluid as FluidTrait, NonNewtonianFluid};
 use cfd_mesh::geometry::venturi::VenturiMeshBuilder;
@@ -41,11 +41,11 @@ pub fn iso_discharge_coefficient<T: RealField + Copy + FromPrimitive>(
 // Venturi Validator
 // ============================================================================
 
-pub struct VenturiValidator3D<T: RealField + Copy> {
+pub struct VenturiValidator3D<T: RealField + Copy + Float> {
     pub mesh_builder: VenturiMeshBuilder<T>,
 }
 
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + From<f64>> VenturiValidator3D<T> {
+impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float> VenturiValidator3D<T> {
     pub fn new(mesh_builder: VenturiMeshBuilder<T>) -> Self {
         Self { mesh_builder }
     }
@@ -167,7 +167,7 @@ mod tests {
         let solver = VenturiSolver3D::new(builder.clone(), config.clone());
         let fluid = cfd_core::physics::fluid::blood::CassonBlood::normal_blood();
         
-        let solution = solver.solve(&fluid).expect("Solver failed");
+        let solution = solver.solve(fluid).expect("Solver failed");
         
         let fluid_props = fluid.properties_at(310.0, 100.0).unwrap();
         let validator = VenturiValidator3D::new(builder);

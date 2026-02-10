@@ -1,0 +1,102 @@
+<!--
+This file should not be modified (except for adding xml comments).
+Created by the Python programs:
+FluidDyn 0.9.0
+FluidSim Core 0.9.0
+FluidSim 0.9.0
+
+-->
+<params NEW_DIR_RESULTS="True" ONLY_COARSE_OPER="False" beta="0.0" nu_2="1e-06"
+        nu_4="0.0" nu_8="0.0" nu_m4="0.0"
+        path_run="C:\Users\RyanClanton\gcli\software\millifluidic_design\CFDrs\validation\fluidsim_output\NS2D_64x64_S2pix2pi_2026-02-09_18-10-12"
+        short_name_type_run="">
+  <oper Lx="6.283185307179586" Ly="6.283185307179586" NO_KY0="False"
+        NO_SHEAR_MODES="False" coef_dealiasing="0.6666666666666666" nx="64"
+        ny="64" truncation_shape="cubic" type_fft="fft2d.with_pyfftw"/>  
+
+  <time_stepping USE_CFL="False" USE_T_END="True" cfl_coef="None"
+                 deltat0="0.0005" deltat_max="0.2" it_end="10"
+                 max_elapsed="None" t_end="10.0" type_time_scheme="RK4">
+    <phaseshift_random nb_pairs="1" nb_steps_compute_new_pair="None"/>  
+
+  </time_stepping>
+
+  <init_fields available_types="['from_file', 'from_simul', 'in_script',
+               'constant', 'noise', 'jet', 'dipole']" modif_after_init="False"
+               type="constant">
+    <from_file path=""/>  
+
+    <constant value="1.0"/>  
+
+    <noise length="0.0" velo_max="1.0"/>  
+
+  </init_fields>
+
+  <forcing available_types="['in_script', 'in_script_coarse', 'pseudo_spectral',
+           'proportional', 'tcrandom', 'tcrandom_anisotropic']" enable="False"
+           forcing_rate="1.0" key_forced="None" nkmax_forcing="5"
+           nkmin_forcing="4" type="">
+    <milestone nx_max="None">
+      <objects diameter="1.0" number="2" type="cylinders"
+               width_boundary_layers="0.1"/>  
+
+      <movement type="uniform">
+        <uniform speed="1.0"/>  
+
+        <sinusoidal length="1.0" period="1.0"/>  
+
+        <periodic_uniform length="1.0" length_acc="1.0" speed="1.0"/>  
+
+      </movement>
+
+    </milestone>
+
+    <normalized constant_rate_of="None" type="2nd_degree_eq"
+                which_root="minabs"/>  
+
+    <random only_positive="False"/>  
+
+    <tcrandom time_correlation="based_on_forcing_rate"/>  
+
+    <tcrandom_anisotropic angle="45°" delta_angle="None"
+                          kz_negative_enable="False"/>  
+
+  </forcing>
+
+  <output HAS_TO_SAVE="True" ONLINE_PLOT_OK="True" period_refresh_plots="1"
+          sub_directory="">
+    <periods_save increments="0" phys_fields="0" spatial_means="0"
+                  spatiotemporal_spectra="0" spect_energy_budg="0" spectra="0"
+                  spectra_multidim="0" temporal_spectra="0"/>  
+
+    <periods_print print_stdout="0"/>  
+
+    <periods_plot phys_fields="0"/>  
+
+    <phys_fields field_to_plot="rot" file_with_it="False"/>  
+
+    <spectra HAS_TO_PLOT_SAVED="False"/>  
+
+    <spectra_multidim HAS_TO_PLOT_SAVED="False"/>  
+
+    <spatial_means HAS_TO_PLOT_SAVED="False"/>  
+
+    <spect_energy_budg HAS_TO_PLOT_SAVED="False"/>  
+
+    <increments HAS_TO_PLOT_SAVED="False"/>  
+
+    <temporal_spectra SAVE_AS_FLOAT32="True" file_max_size="10.0"
+                      probes_deltax="0.1" probes_deltay="0.1"
+                      probes_region="None"/>  
+
+    <spatiotemporal_spectra SAVE_AS_COMPLEX64="True" file_max_size="10.0"
+                            probes_region="None"/>  
+
+  </output>
+
+  <preprocess enable="False" forcing_const="1.0" forcing_scale="unity"
+              init_field_const="1.0" init_field_scale="unity"
+              viscosity_const="1.0" viscosity_scale="enstrophy_forcing"
+              viscosity_type="laplacian"/>  
+
+</params>

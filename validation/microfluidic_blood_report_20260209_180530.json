@@ -1,0 +1,190 @@
+{
+  "timestamp": "2026-02-09T18:05:30.581674",
+  "suite": "microfluidic_blood_validation",
+  "total_tests": 49,
+  "passed": 47,
+  "failed": 2,
+  "results": [
+    {
+      "name": "1.1 Casson yield stress = 0.0056 Pa (Merrill 1969)",
+      "passed": true,
+      "details": "tau_y = 0.005600 Pa (expected 0.0056), rel err = 0.00e+00",
+      "reference": "Merrill et al. 1969"
+    },
+    {
+      "name": "1.10 Carreau-Yasuda constitutive equation verification",
+      "passed": true,
+      "details": "max rel err = 0.00e+00 across gamma = [0.01, 10000] s^-1",
+      "reference": "Cho & Kensey 1991"
+    },
+    {
+      "name": "1.11 Cross model constitutive: mu = mu_inf + (mu_0-mu_inf)/(1+(K*gamma)^n)",
+      "passed": true,
+      "details": "max rel err = 0.00e+00",
+      "reference": "Cross 1965"
+    },
+    {
+      "name": "1.12 All 3 models agree within 2x at gamma=100 s^-1 (arterial)",
+      "passed": true,
+      "details": "Casson=4.385, CY=4.708, Cross=3.905 mPa.s; max/min ratio = 1.206",
+      "reference": "Rheology consensus"
+    },
+    {
+      "name": "1.13 All models converge to mu_inf at gamma=10000 s^-1",
+      "passed": true,
+      "details": "Casson: mu=3.5385 mPa.s, err=2.56e-02; Carreau-Yasuda: mu=3.5150 mPa.s, err=1.89e-02; Cross: mu=3.4540 mPa.s, err=1.17e-03",
+      "reference": "Rheology"
+    },
+    {
+      "name": "1.2 Casson mu_inf = 0.00345 Pa.s (Merrill 1969)",
+      "passed": true,
+      "details": "mu_inf = 0.003450 Pa.s (expected 0.00345), rel err = 0.00e+00",
+      "reference": "Merrill et al. 1969"
+    },
+    {
+      "name": "1.3 Casson density = 1060 kg/m^3 (Fung 1993)",
+      "passed": true,
+      "details": "rho = 1060.0 kg/m^3",
+      "reference": "Fung 1993"
+    },
+    {
+      "name": "1.4 Casson mu(100 s^-1) ~ 4 mPa.s (Merrill 1969 Fig. 5)",
+      "passed": true,
+      "details": "mu(100 s^-1) = 4.385 mPa.s (literature: 3.5-5.0 mPa.s)",
+      "reference": "Merrill et al. 1969"
+    },
+    {
+      "name": "1.5 Casson constitutive: mu_app = (sqrt(tau_y)/sqrt(gamma) + sqrt(mu_inf))^2",
+      "passed": true,
+      "details": "max relative error = 0.00e+00 across gamma = [1, 5000] s^-1",
+      "reference": "Casson 1959"
+    },
+    {
+      "name": "1.6 Casson shear-thinning: mu strictly decreasing with gamma",
+      "passed": true,
+      "details": "0 monotonicity violations out of 99 pairs",
+      "reference": "Rheology"
+    },
+    {
+      "name": "1.7 Carreau-Yasuda limits: mu_0=0.056, mu_inf=0.00345 Pa.s",
+      "passed": true,
+      "details": "mu_0 = 0.056, mu_inf = 0.00345, rel errs = 0.00e+00, 0.00e+00",
+      "reference": "Cho & Kensey 1991"
+    },
+    {
+      "name": "1.8 Carreau-Yasuda zero-shear limit: mu(0) -> mu_0",
+      "passed": true,
+      "details": "mu(1e-10 s^-1) = 0.056000, mu_0 = 0.056000, err = 0.00e+00",
+      "reference": "Cho & Kensey 1991"
+    },
+    {
+      "name": "1.9 Carreau-Yasuda high-shear limit: mu(1e5) -> mu_inf",
+      "passed": true,
+      "details": "mu(1e5 s^-1) = 0.003465, mu_inf = 0.003450, err = 4.29e-03",
+      "reference": "Cho & Kensey 1991"
+    },
+    {
+      "name": "2.1 F-L effect significant for D < 300 um",
+      "passed": true,
+      "details": "50um=True, 100um=True, 200um=True, 500um=False, 1mm=False",
+      "reference": "Pries et al. 1992"
+    },
+    {
+      "name": "2.2 F-L: viscosity decreases with diameter (10-300 um range)",
+      "passed": true,
+      "details": "D=300um: mu_rel=1.9900; D=200um: mu_rel=1.9898; D=100um: mu_rel=1.9702; D=50um: mu_rel=1.8076; D=30um: mu_rel=1.5464; D=20um: mu_rel=1.2981",
+      "reference": "Pries et al. 1992"
+    },
+    {
+      "name": "2.3 F-L: large-vessel limit mu_rel -> 1 + 2.2*Ht",
+      "passed": true,
+      "details": "mu_rel(5mm) = 1.9900, expected ~ 1.9900, err = 0.00e+00",
+      "reference": "Pries et al. 1992"
+    },
+    {
+      "name": "2.4 F-L: empirical formula verification",
+      "passed": true,
+      "details": "max rel err = 0.00e+00",
+      "reference": "Pries et al. 1992 simplified"
+    },
+    {
+      "name": "2.5 F-L: hematocrit dependence",
+      "passed": true,
+      "details": "Ht=0.30: 1.6468, Ht=0.45: 1.9702, Ht=0.60: 2.2936",
+      "reference": "Pries et al. 1992"
+    },
+    {
+      "name": "2.6 F-L: tube hematocrit < feed hematocrit (Fahraeus effect)",
+      "passed": true,
+      "details": "Ht_tube = 0.2308 < Ht_feed = 0.45",
+      "reference": "Fahraeus 1929"
+    },
+    {
+      "name": "2.7 F-L: apparent viscosity = plasma_viscosity * mu_rel",
+      "passed": true,
+      "details": "mu_app = 0.002404, mu_plasma*mu_rel = 0.002404, err = 0.00e+00",
+      "reference": "Definition"
+    },
+    {
+      "name": "3.1 Womersley number: alpha = R*sqrt(omega*rho/mu)",
+      "passed": true,
+      "details": "alpha = 17.402791, expected = 17.402791, err = 0.00e+00",
+      "reference": "Womersley 1955"
+    },
+    {
+      "name": "3.10 Low-alpha Womersley Q ~ pi*R^4*P_hat/(8*mu)",
+      "passed": true,
+      "details": "Q(0) = 4.38e-14 m^3/s, expected = 4.38e-14 m^3/s, err = 1.59e-08",
+      "reference": "Poiseuille"
+    },
+    {
+      "name": "3.11 WomersleyFlow mean velocity = Poiseuille (pulsatile=0 at t=pi/2/omega)",
+      "passed": true,
+      "details": "u_center = 0.642857 m/s, Poiseuille = 0.642857 m/s, err = 0.00e+00",
+      "reference": "Poiseuille+Womersley"
+    },
+    {
+      "name": "3.12 Low-alpha impedance ~ Poiseuille resistance: 8*mu*L/(pi*R^4)",
+      "passed": true,
+      "details": "alpha = 0.0378, |Z| = 2.2816e+13, R_Poiseuille = 2.2816e+13, err = 1.71e-16",
+      "reference": "Womersley 1955"
+    },
+    {
+      "name": "3.2 Human aorta: alpha ~ 18 (R=12.5mm, 72bpm)",
+      "passed": true,
+      "details": "alpha_aorta = 18.8890 (expected ~18.8890), regime = PlugFlow",
+      "reference": "Fung 1997"
+    },
+    {
+      "name": "3.3 Human femoral: alpha ~ 4 (R=3mm, 72bpm)",
+      "passed": true,
+      "details": "alpha_femoral = 4.5334 (expected ~4), regime = Inertial",
+      "reference": "Fung 1997"
+    },
+    {
+      "name": "3.4 Arteriole: alpha < 1 (quasi-steady)",
+      "passed": true,
+      "details": "alpha_arteriole = 0.037778, regime = QuasiSteady",
+      "reference": "Fung 1997"
+    },
+    {
+      "name": "3.5 Stokes layer thickness: delta = sqrt(2*mu/(rho*omega))",
+      "passed": true,
+      "details": "delta = 0.8126 mm (expected 0.8126 mm), err = 0.00e+00",
+      "reference": "Womersley 1955"
+    },
+    {
+      "name": "3.6 Flow regime classification",
+      "passed": true,
+      "details": "alpha=0.04->QuasiSteady, 1.51->Transitional, 4.53->Inertial, 18.89->PlugFlow",
+      "reference": "Womersley 1955"
+    },
+    {
+      "name": "3.7 Womersley no-slip: u(r=R, t) = 0 for all t",
+      "passed": true,
+      "details": "max |u(r=R)| = 0.00e+00 m/s",
+      "reference": "Womersley 1955"
+    },
+    {
+      "name": "3.8 Low-alpha Womersley -> Poiseuille parabolic profile",
+      "passed": 

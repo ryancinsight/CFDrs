@@ -265,7 +265,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
 
         if count_th > 0 {
             // FIX: Solver returns negative pressure potential? Invert sign for physical pressure.
-            solution.p_throat = -(p_throat_sum / T::from_usize(count_th).unwrap());
+            solution.p_throat = p_throat_sum / T::from_usize(count_th).unwrap();
             solution.u_throat = u_throat_max;
         }
         
@@ -297,7 +297,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
 
         if count_out > 0 {
             // FIX: Solver returns negative pressure potential? Invert sign for physical pressure.
-            solution.p_outlet = -(p_out_sum / T::from_usize(count_out).unwrap());
+            solution.p_outlet = p_out_sum / T::from_usize(count_out).unwrap();
         }
 
         println!("Venturi Debug: p_in={:?}, p_throat={:?}, p_out={:?}, u_throat={:?}, count_th={}", 
@@ -310,8 +310,26 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
         solution.dp_recovery = solution.p_outlet - solution.p_inlet; // Usually negative (loss)
         
         let q_dyn = Float::max(T::from_f64(0.5).unwrap() * fluid_props.density * u_inlet * u_inlet, T::one());
-        solution.cp_throat = (solution.p_throat - solution.p_inlet) / q_dyn;
+        solution.cp_throat = (solution.p_inlet - solution.p_throat) / q_dyn;
         solution.cp_recovery = (solution.p_outlet - solution.p_inlet) / q_dyn;
+        
+        // Calculate Mass Balance Error
+        // Qin = u_in_avg * A_in
+        // Qth = u_th_avg * A_th
+        let area_throat = if self.config.circular {
+            T::from_f64_or_one(std::f64::consts::PI / 4.0) * self.builder.d_throat * self.builder.d_throat
+        } else {
+            self.builder.d_throat * self.builder.d_throat
+        };
+        let q_in = u_in_sol_avg * area_inlet;
+        let q_th = u_throat_avg * area_throat;
+        solution.mass_error = if q_in > T::from_f64(1e-12).unwrap() {
+            (q_in - q_th) / q_in
+        } else {
+            T::zero()
+        };
+        
+        println!("Venturi Mass Balance: Q_in={:?}, Q_th={:?}, Error={:?}", q_in, q_th, solution.mass_error);
 
         Ok(solution)
     }
@@ -407,6 +425,8 @@ pub struct VenturiSolution3D<T: RealField + Copy> {
     pub cp_throat: T,
     /// Pressure recovery coefficient at the outlet
     pub cp_recovery: T,
+    /// Mass balance error (relative)
+    pub mass_error: T,
 }
 
 impl<T: RealField + Copy> VenturiSolution3D<T> {
@@ -421,6 +441,7 @@ impl<T: RealField + Copy> VenturiSolution3D<T> {
             dp_recovery: T::zero(),
             cp_throat: T::zero(),
             cp_recovery: T::zero(),
+            mass_error: T::zero(),
         }
     }
 }

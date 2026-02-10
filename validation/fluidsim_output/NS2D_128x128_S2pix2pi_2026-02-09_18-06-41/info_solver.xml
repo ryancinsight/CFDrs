@@ -1,0 +1,118 @@
+<!--
+This file should not be modified (except for adding xml comments).
+Created by the Python programs:
+FluidDyn 0.9.0
+FluidSim Core 0.9.0
+FluidSim 0.9.0
+
+-->
+<solver class_name="Simul" module_name="fluidsim.solvers.ns2d.solver"
+        short_name="NS2D">
+  <classes>
+    <Operators class_name="OperatorsPseudoSpectral2D"
+               module_name="fluidsim.operators.operators2d"/>  
+
+    <State class_name="StateNS2D" keys_computable="['div', 'q', 'v']"
+           keys_linear_eigenmodes="['rot_fft']" keys_phys_needed="['rot']"
+           keys_state_phys="['ux', 'uy', 'rot']" keys_state_spect="['rot_fft']"
+           module_name="fluidsim.solvers.ns2d.state"/>  
+
+    <TimeStepping class_name="TimeSteppingPseudoSpectral"
+                  module_name="fluidsim.base.time_stepping.pseudo_spect"/>  
+
+    <InitFields class_name="InitFieldsNS2D"
+                module_name="fluidsim.solvers.ns2d.init_fields">
+      <classes>
+        <from_file class_name="InitFieldsFromFile"
+                   module_name="fluidsim.base.init_fields"/>  
+
+        <from_simul class_name="InitFieldsFromSimul"
+                    module_name="fluidsim.base.init_fields"/>  
+
+        <in_script class_name="InitFieldsInScript"
+                   module_name="fluidsim.base.init_fields"/>  
+
+        <constant class_name="InitFieldsConstant"
+                  module_name="fluidsim.base.init_fields"/>  
+
+        <noise class_name="InitFieldsNoise"
+               module_name="fluidsim.solvers.ns2d.init_fields"/>  
+
+        <jet class_name="InitFieldsJet"
+             module_name="fluidsim.solvers.ns2d.init_fields"/>  
+
+        <dipole class_name="InitFieldsDipole"
+                module_name="fluidsim.solvers.ns2d.init_fields"/>  
+
+      </classes>
+
+    </InitFields>
+
+    <Forcing class_name="ForcingNS2D"
+             module_name="fluidsim.solvers.ns2d.forcing">
+      <classes>
+        <tcrandom_anisotropic
+                              class_name="TimeCorrelatedRandomPseudoSpectralAnisotropic"
+                              module_name="fluidsim.base.forcing.anisotropic"/>  
+
+        <milestone class_name="ForcingMilestone"
+                   module_name="fluidsim.base.forcing.milestone"/>  
+
+        <in_script class_name="InScriptForcingPseudoSpectral"
+                   module_name="fluidsim.base.forcing.specific"/>  
+
+        <in_script_coarse class_name="InScriptForcingPseudoSpectralCoarse"
+                          module_name="fluidsim.base.forcing.specific"/>  
+
+        <proportional class_name="Proportional"
+                      module_name="fluidsim.base.forcing.specific"/>  
+
+        <tcrandom class_name="TimeCorrelatedRandomPseudoSpectral"
+                  module_name="fluidsim.base.forcing.specific"/>  
+
+      </classes>
+
+    </Forcing>
+
+    <Output class_name="Output" module_name="fluidsim.solvers.ns2d.output">
+      <classes>
+        <PrintStdOut class_name="PrintStdOutNS2D"
+                     module_name="fluidsim.solvers.ns2d.output.print_stdout"/>  
+
+        <PhysFields class_name="PhysFieldsBase2D"
+                    module_name="fluidsim.base.output.phys_fields2d"/>  
+
+        <Spectra class_name="SpectraNS2D"
+                 module_name="fluidsim.solvers.ns2d.output.spectra"/>  
+
+        <SpectraMultiDim class_name="SpectraMultiDimNS2D"
+                         module_name="fluidsim.solvers.ns2d.output.spectra_multidim"/>  
+
+        <SpatialMeans class_name="SpatialMeansNS2D"
+                      module_name="fluidsim.solvers.ns2d.output.spatial_means"/>  
+
+        <SpectEnergyBudg class_name="SpectralEnergyBudgetNS2D"
+                         module_name="fluidsim.solvers.ns2d.output.spect_energy_budget"/>  
+
+        <Increments class_name="Increments"
+                    module_name="fluidsim.base.output.increments"/>  
+
+        <TemporalSpectra class_name="TemporalSpectra2D"
+                         module_name="fluidsim.base.output.temporal_spectra"/>  
+
+        <SpatioTemporalSpectra class_name="SpatioTemporalSpectraNS2D"
+                               module_name="fluidsim.solvers.ns2d.output.spatiotemporal_spectra"/>  
+
+      </classes>
+
+    </Output>
+
+    <Preprocess class_name="PreprocessPseudoSpectral"
+                module_name="fluidsim.base.preprocess.pseudo_spect">
+      <classes/>  
+
+    </Preprocess>
+
+  </classes>
+
+</solver>
