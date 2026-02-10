@@ -210,7 +210,7 @@ impl<T: RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> 
              let tets = if idxs.len() == 8 {
                  vec![
                     vec![0, 1, 3, 4], vec![1, 2, 3, 6],
-                    vec![4, 6, 7, 3], vec![4, 5, 6, 1],
+                    vec![4, 7, 6, 3], vec![4, 6, 5, 1], // Fixed winding for positive volume
                     vec![1, 3, 4, 6]
                  ]
              } else {
@@ -479,22 +479,22 @@ impl<T: RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> 
 
                     // 2.2 Standard Advection (Momentum): ∫ ρ (u_avg . grad Nj) * Ni
                     // Uses signed int_n
-                    let adv_val = density * u_grad_n_j * int_n;
-                    matrices.k_e[(vel_i, vel_j)] += adv_val;
+                    // let adv_val = density * u_grad_n_j * int_n;
+                    // matrices.k_e[(vel_i, vel_j)] += adv_val;
 
                     // 2.3 SUPG Stabilization (Momentum)
                     // Convective-convective: uses volume (always positive energy)
-                    let supg_adv = density * tau_supg * u_grad_n_i * u_grad_n_j * volume;
-                    matrices.k_e[(vel_i, vel_j)] += supg_adv;
+                    // let supg_adv = density * tau_supg * u_grad_n_i * u_grad_n_j * volume;
+                    // matrices.k_e[(vel_i, vel_j)] += supg_adv;
 
                     // Pressure Gradient Coupling in SUPG: ∫ τ (∂Nj/∂xd) * (u_avg . grad Ni)
-                    let supg_p = tau_supg * element.shape_derivatives[(d, j)] * u_grad_n_i * volume;
-                    matrices.k_e[(vel_i, pres_j)] += supg_p;
+                    // let supg_p = tau_supg * element.shape_derivatives[(d, j)] * u_grad_n_i * volume;
+                    // matrices.k_e[(vel_i, pres_j)] += supg_p;
 
                     // 2.4 PSPG Stabilization (Continuity)
                     // Advection-Continuity Coupling: ∫ τ (u_avg . grad Nj) * (∂Ni/∂xd)
-                    let pspg_u = tau_pspg * u_grad_n_j * element.shape_derivatives[(d, i)] * volume;
-                    matrices.k_e[(pres_i, vel_j)] += pspg_u;
+                    // let pspg_u = tau_pspg * u_grad_n_j * element.shape_derivatives[(d, i)] * volume;
+                    // matrices.k_e[(pres_i, vel_j)] += pspg_u;
                 }
 
                 // 2.5 PSPG Pressure-Pressure: ∫ τ (grad Pj) * (grad Qi)
@@ -1044,12 +1044,10 @@ impl<T: RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> 
         self.apply_periodic_boundary_conditions(builder, rhs, problem)?;
 
         // Apply Dirichlet boundary conditions using strong enforcement
-        // (row elimination). For each constrained DOF, we zero the entire row
-        // in the stiffness matrix, set the diagonal to 1, and set the RHS to
-        // the target value. This avoids the catastrophic ill-conditioning of
-        // the penalty method (which produced condition numbers ~10^15 on
-        // microfluidic meshes where physical entries ~10^-10 and penalty=10^5).
-        let diag_one = T::one();
+        // (row elimination). We scale the diagonal by viscosity * mesh_scale to match
+        // the magnitude of stiffness matrix entries (~mu*h), ensuring consistent
+        // conditioning across scales (Unit vs Micro).
+        let diag_scale = problem.fluid.viscosity * compute_mesh_scale(&problem.mesh);
 
         for (node_idx, bc) in &problem.boundary_conditions {
             let dof = *node_idx * (constants::VELOCITY_COMPONENTS + 1);
@@ -1059,9 +1057,9 @@ impl<T: RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> 
                     // Strong enforcement for velocity components
                     for i in 0..constants::VELOCITY_COMPONENTS {
                         let component_dof = dof + i;
-                        builder.set_dirichlet_row(component_dof, diag_one);
+                        builder.set_dirichlet_row(component_dof, diag_scale);
                         if component_dof < rhs.len() {
-                            rhs[component_dof] = velocity[i];
+                            rhs[component_dof] = velocity[i] * diag_scale;
                         }
                     }
                 }
@@ -1075,16 +1073,17 @@ impl<T: RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> 
                 BoundaryCondition::PressureOutlet { pressure } => {
                     // Pressure outlet: fixed pressure (Dirichlet on pressure DOF)
                     let pressure_dof = dof + constants::VELOCITY_COMPONENTS;
-                    builder.set_dirichlet_row(pressure_dof, diag_one);
+                    // Pressure rows might have different scaling (tau ~ h^2/mu?), but using viscous scale is safer than 1.0
+                    builder.set_dirichlet_row(pressure_dof, diag_scale);
                     if pressure_dof < rhs.len() {
-                        rhs[pressure_dof] = *pressure;
+                        rhs[pressure_dof] = *pressure * diag_scale;
                     }
                 }
                 BoundaryCondition::Wall { .. } => {
                     // No-slip wall: zero velocity (strong enforcement)
                     for i in 0..constants::VELOCITY_COMPONENTS {
                         let component_dof = dof + i;
-                        builder.set_dirichlet_row(component_dof, diag_one);
+                        builder.set_dirichlet_row(component_dof, diag_scale);
                         if component_dof < rhs.len() {
                             rhs[component_dof] = T::zero();
                         }
@@ -1109,9 +1108,9 @@ impl<T: RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> 
                         };
 
                         if let Some(val) = target_val {
-                            builder.set_dirichlet_row(component_dof, diag_one);
+                            builder.set_dirichlet_row(component_dof, diag_scale);
                             if component_dof < rhs.len() {
-                                rhs[component_dof] = val;
+                                rhs[component_dof] = val * diag_scale;
                             }
                         }
                     }

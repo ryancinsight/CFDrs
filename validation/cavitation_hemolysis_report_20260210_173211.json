@@ -1,0 +1,135 @@
+{
+  "timestamp": "2026-02-10T17:32:11.462146",
+  "suite": "cavitation_hemolysis_sonoluminescence_validation",
+  "total_tests": 17,
+  "passed": 16,
+  "failed": 1,
+  "success_rate": 0.9411764705882353,
+  "physical_constants": {
+    "water_vapor_pressure_pa": 2339.0,
+    "blood_density_kg_m3": 1060.0,
+    "critical_shear_stress_pa": 150.0,
+    "fda_hemolysis_limit_mg_dl": 10.0
+  },
+  "results": [
+    {
+      "name": "1.1 Blake threshold for 10 \u03bcm bubble in water",
+      "passed": false,
+      "details": "P_Blake = 79975 Pa (P_v = 2339 Pa)",
+      "reference": "Brennen 1995",
+      "timestamp": "2026-02-10T17:32:11.461725"
+    },
+    {
+      "name": "1.2 Bubble natural frequency scales with 1/R",
+      "passed": true,
+      "details": "f(1\u03bcm)=3248377Hz, f(10\u03bcm)=324838Hz, f(100\u03bcm)=32484Hz; scaling errors: 0.0%, 0.0%",
+      "reference": "Rayleigh 1917",
+      "timestamp": "2026-02-10T17:32:11.461778"
+    },
+    {
+      "name": "1.3 Rayleigh collapse time ~ 1 \u03bcs for 10 \u03bcm bubble",
+      "passed": true,
+      "details": "t_collapse = 0.913 \u03bcs (expected ~1 \u03bcs)",
+      "reference": "Rayleigh 1917",
+      "timestamp": "2026-02-10T17:32:11.461786"
+    },
+    {
+      "name": "1.4 Inertial cavitation produces T > 1000 K",
+      "passed": true,
+      "details": "T_peak = 32052 K for (50\u03bcm -> 1\u03bcm) collapse",
+      "reference": "Plesset & Prosperetti 1977",
+      "timestamp": "2026-02-10T17:32:11.461792"
+    },
+    {
+      "name": "2.1 Giersiepen model: damage increases with stress",
+      "passed": true,
+      "details": "D(50Pa)=7.56e-02, D(100Pa)=4.03e-01, ratio=5.34 (expected 5.34)",
+      "reference": "Giersiepen et al. 1990",
+      "timestamp": "2026-02-10T17:32:11.461804"
+    },
+    {
+      "name": "2.2 Giersiepen model: damage increases with time",
+      "passed": true,
+      "details": "D(0.1s)=1.07e+00, D(1s)=6.55e+00, ratio=6.10",
+      "reference": "Giersiepen et al. 1990",
+      "timestamp": "2026-02-10T17:32:11.461812"
+    },
+    {
+      "name": "2.3 Giersiepen iso-damage curves",
+      "passed": true,
+      "details": "D1=0.460702, D2=0.460702, D3=0.460702; max error=0.00%",
+      "reference": "Giersiepen et al. 1990",
+      "timestamp": "2026-02-10T17:32:11.461818"
+    },
+    {
+      "name": "2.4 FDA hemolysis limit: \u0394Hb < 10 mg/dL",
+      "passed": true,
+      "details": "Acceptable: 1.23 mg/dL, Unacceptable: 12.27 mg/dL (limit: 10 mg/dL)",
+      "reference": "FDA Guidance 2019",
+      "timestamp": "2026-02-10T17:32:11.461821"
+    },
+    {
+      "name": "3.1 Millifluidic venturi: pressure drop calculation",
+      "passed": true,
+      "details": "U_throat = 16.0 m/s, \u0394P = 135.2 kPa",
+      "reference": "Bernoulli equation",
+      "timestamp": "2026-02-10T17:32:11.461826"
+    },
+    {
+      "name": "3.2 Microfluidic venturi: extreme shear stress",
+      "passed": true,
+      "details": "\u03c4_wall = 5600 Pa [CRITICAL - hemolysis risk]",
+      "reference": "Poiseuille flow",
+      "timestamp": "2026-02-10T17:32:11.461830"
+    },
+    {
+      "name": "3.3 Cavitation inception in venturi throat",
+      "passed": true,
+      "details": "P_throat = -28.7 kPa, P_Blake = 80.0 kPa, Cavitation: True",
+      "reference": "Blake threshold",
+      "timestamp": "2026-02-10T17:32:11.461835"
+    },
+    {
+      "name": "3.4 Hemolysis in microfluidic venturi throat",
+      "passed": true,
+      "details": "\u03c4=5600Pa, t=20.0\u03bcs, D=8.43e+00, \u0394Hb=10341.43 mg/dL [FAIL FDA]",
+      "reference": "Giersiepen 1990",
+      "timestamp": "2026-02-10T17:32:11.461840"
+    },
+    {
+      "name": "4.1 SBSL peak temperature estimation",
+      "passed": true,
+      "details": "T_peak = 4646 K for R_max=5\u03bcm -> R_min=0.5\u03bcm",
+      "reference": "Barber et al. 1997",
+      "timestamp": "2026-02-10T17:32:11.461845"
+    },
+    {
+      "name": "4.2 Radiated energy from Stefan-Boltzmann law",
+      "passed": true,
+      "details": "E_radiated = 0.09 pJ, P_peak = 1.78 mW (condition-dependent)",
+      "reference": "Barber et al. 1997",
+      "timestamp": "2026-02-10T17:32:11.461848"
+    },
+    {
+      "name": "4.3 MBSL (multi-bubble) vs SBSL intensity",
+      "passed": true,
+      "details": "P_SBSL = 20.00 \u03bcW, P_MBSL = 1000.00 \u03bcW (ratio: 50.0\u00d7)",
+      "reference": "Brennen 1995",
+      "timestamp": "2026-02-10T17:32:11.461850"
+    },
+    {
+      "name": "5.1 pycfdrs VenturiSolver1D: cavitation prediction",
+      "passed": true,
+      "details": "Solver executed: True",
+      "reference": "Integration",
+      "timestamp": "2026-02-10T17:32:11.462103"
+    },
+    {
+      "name": "5.2 pycfdrs blood rheology under high shear",
+      "passed": true,
+      "details": "\u03b3=1000.0 s\u207b\u00b9: Casson=3.734, CY=3.736, \u03bc_\u221e=3.450 mPa\u00b7s",
+      "reference": "Blood flow",
+      "timestamp": "2026-02-10T17:32:11.462128"
+    }
+  ]
+}

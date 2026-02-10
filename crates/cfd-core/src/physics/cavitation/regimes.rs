@@ -351,7 +351,7 @@ impl<T: RealField + Copy + std::fmt::Display> std::fmt::Display for CavitationRe
              Cavitation Number: {}\n\
              Mechanical Index: {}\n\
              Max Bubble Radius: {} μm\n\
-             Sonoluminescence Probability: {:. 1}%\n\
+             Sonoluminescence Probability: {:.1}%\n\
              Damage Potential: {:.1}%\n\
              Hemolysis Risk: {:.1}%",
             self.regime,
