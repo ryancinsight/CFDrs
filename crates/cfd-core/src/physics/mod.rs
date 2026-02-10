@@ -8,6 +8,7 @@ pub mod cavitation;
 pub mod constants;
 pub mod fluid;
 pub mod fluid_dynamics;
+pub mod hemolysis;
 pub mod material;
 pub mod values;
 
@@ -21,6 +22,9 @@ pub mod api {
     pub use super::fluid_dynamics::{
         FlowClassifier, FlowField, FlowOperations, FlowRegime, FluidDynamicsService, PressureField,
         RANSModel, RhieChowInterpolation, ScalarField, TurbulenceModel, VelocityField,
+    };
+    pub use super::hemolysis::{
+        BloodTrauma, BloodTraumaSeverity, HemolysisCalculator, HemolysisModel, PlateletActivation,
     };
     pub use super::material::{MaterialDatabase, SolidProperties};
     pub use super::values::{Pressure, ReynoldsNumber, Temperature, Velocity};

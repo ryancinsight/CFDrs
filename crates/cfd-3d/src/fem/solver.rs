@@ -196,6 +196,48 @@ impl<T: RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> 
 
         println!("FEM Debug: System size: {} nodes, {} total DOFs", n_nodes, n_total_dof);
 
+        // Check Mesh Quality
+        let mut min_vol = T::infinity();
+        let mut max_vol = T::neg_infinity();
+        let mut neg_vol_count = 0;
+        let mut small_vol_count = 0;
+        
+        for cell in problem.mesh.cells() {
+             let idxs = extract_vertex_indices(cell, &problem.mesh)?;
+             let verts: Vec<Vector3<T>> = idxs.iter().map(|&i| problem.mesh.vertex(i).unwrap().position.coords).collect();
+             
+             // Check substructured tets
+             let tets = if idxs.len() == 8 {
+                 vec![
+                    vec![0, 1, 3, 4], vec![1, 2, 3, 6],
+                    vec![4, 6, 7, 3], vec![4, 5, 6, 1],
+                    vec![1, 3, 4, 6]
+                 ]
+             } else {
+                 vec![vec![0, 1, 2, 3]]
+             };
+             
+             for tet in tets {
+                 let v0 = verts[tet[0]];
+                 let v1 = verts[tet[1]];
+                 let v2 = verts[tet[2]];
+                 let v3 = verts[tet[3]];
+                 let det = (v1-v0).dot(&(v2-v0).cross(&(v3-v0)));
+                 let vol = det / T::from_f64(6.0).unwrap();
+                 
+                 if vol < min_vol { min_vol = vol; }
+                 if vol > max_vol { max_vol = vol; }
+                 if vol < T::zero() { neg_vol_count += 1; }
+                 if Float::abs(vol) < T::from_f64(1e-15).unwrap() { small_vol_count += 1; }
+             }
+        }
+        println!("FEM Mesh Quality: MinVol={:?}, MaxVol={:?}, NegElements={}, SmallElements={}", 
+            min_vol, max_vol, neg_vol_count, small_vol_count);
+        
+        if neg_vol_count > 0 {
+             tracing::warn!("Mesh contains inverted elements! Solver may fail.");
+        }
+
         // Assemble global system
         let (mut matrix, mut rhs) = self.assemble_system(problem, previous_solution)?;
         

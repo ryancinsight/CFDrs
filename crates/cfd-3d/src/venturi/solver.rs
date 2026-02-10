@@ -173,10 +173,13 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
 
                 let mut new_visc = fluid.viscosity_at_shear(shear_rate, T::from_f64_or_one(310.0), self.config.inlet_pressure)?;
                 
-                // TEMP DEBUG: Force Newtonian by capping at 1.0x
-                let max_viscosity = problem.fluid.viscosity * T::from_f64(1.0).unwrap();
+                // Cap viscosity at 20x reference (stability)
+                let max_viscosity = problem.fluid.viscosity * T::from_f64(20.0).unwrap();
                 if new_visc > max_viscosity {
                     new_visc = max_viscosity;
+                }
+                if new_visc < problem.fluid.viscosity {
+                    new_visc = problem.fluid.viscosity;
                 }
 
                 let change = Float::abs(new_visc - element_viscosities[i]) / element_viscosities[i];
@@ -240,17 +243,20 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
         println!("Venturi Solver Setup: Q={:?}, A_in={:?}, u_inlet_calc={:?}", 
             self.config.inlet_flow_rate, area_inlet, u_inlet);
 
+        let mut u_in_sol_sum = T::zero();
+        for &v_idx in &inlet_nodes {
+            p_in_sum += fem_solution.get_pressure(v_idx);
+            // Use norm for general velocity magnitude
+            u_in_sol_sum += fem_solution.get_velocity(v_idx).norm();
+            count_in += 1;
+        }
+
         if count_in > 0 {
             solution.p_inlet = p_in_sum / T::from_usize(count_in).unwrap();
         } else {
             solution.p_inlet = self.config.inlet_pressure;
         }
 
-        // Verify inlet velocity from solution
-        let mut u_in_sol_sum = T::zero();
-        for &v_idx in &inlet_nodes {
-            u_in_sol_sum += fem_solution.get_velocity(v_idx).norm();
-        }
         let u_in_sol_avg = if count_in > 0 { u_in_sol_sum / T::from_usize(count_in).unwrap() } else { T::zero() };
         println!("Venturi Solution Debug: Average Inlet Velocity = {:?}", u_in_sol_avg);
         
