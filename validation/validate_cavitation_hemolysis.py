@@ -169,12 +169,6 @@ class HemolysisModel:
         return C * (shear_stress ** alpha) * (exposure_time ** beta)
     
     @staticmethod
-    def critical_shear_time_product(damage_threshold: float = 0.01) -> float:
-        """Calculate τ*t product for threshold damage"""
-        # For D = 0.01: τ^2.416 * t^0.785 = 0.01 / 3.62e-5 = 276.24
-        return 276.24 ** (1 / (2.416 + 0.785))
-    
-    @staticmethod
     def normalized_index_hemolysis(delta_hb: float, hb_initial: float, hematocrit: float) -> float:
         """Calculate Normalized Index of Hemolysis (NIH) in %"""
         # NIH = (100 - Hct)/Hct * ΔHb/Hb₀ * 100%

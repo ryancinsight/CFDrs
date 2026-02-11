@@ -246,12 +246,22 @@ impl PyTrifurcation3DResult {
 
 /// 3D Poiseuille flow in circular pipe
 ///
+/// **IMPORTANT - Sign Convention:**
+/// This solver uses pressure **gradient** convention:
+/// - `pressure_drop < 0` → forward flow (Q > 0)
+/// - `pressure_drop > 0` → backward flow (Q < 0)
+/// - dp/dx = pressure_drop / length = (P_out - P_in) / L
+///
 /// Analytical solution:
 /// ```text
 /// u(r) = u_max(1 - (r/R)²)
 /// u_max = (R²/4μ)(dp/dx)
 /// Q = (πR⁴/8μ)(dp/dx)
 /// ```
+///
+/// **Note:** This is an analytical calculator using Hagen-Poiseuille formula
+/// with constant viscosity evaluated at γ̇=100 s⁻¹. Grid parameters
+/// (nr, ntheta, nz) are stored but not used in computation.
 #[pyclass(name = "Poiseuille3DSolver")]
 pub struct PyPoiseuille3DSolver {
     #[pyo3(get)]
@@ -304,17 +314,42 @@ impl PyPoiseuille3DSolver {
     }
 
     /// Solve 3D pipe flow simulation
+    ///
+    /// # Arguments
+    /// * `pressure_drop` - Pressure drop (Pa). Use NEGATIVE for forward flow!
+    /// * `blood_type` - Blood model: "newtonian", "casson", or "carreau_yasuda"
+    ///
+    /// # Returns
+    /// Flow rate (m³/s), velocity (m/s), Reynolds number, wall shear stress (Pa)
     fn solve(&self, pressure_drop: f64, blood_type: &str) -> PyResult<PyPoiseuille3DResult> {
-        // Simple pipe flow simulation using Poiseuille logic
-        let rho = 1060.0;
-        let fluid = match blood_type {
-            "casson" => CassonBlood::<f64>::normal_blood(),
-            _ => CassonBlood::<f64>::normal_blood(),
+        use cfd_core::physics::fluid::blood::CarreauYasudaBlood;
+        
+        let rho = 1060.0;  // Blood density (kg/m³)
+        
+        // Approximate shear rate for viscosity evaluation
+        // For pipe flow: γ̇ ≈ 8*u_avg/D, using u_avg ≈ 0.1 m/s as estimate
+        let gamma_dot = 100.0;  // s⁻¹
+        
+        // Match blood type to appropriate model
+        let mu = match blood_type {
+            "newtonian" => 0.0035,  // Newtonian blood at high shear (3.5 mPa·s)
+            "casson" => {
+                let fluid = CassonBlood::<f64>::normal_blood();
+                fluid.apparent_viscosity(gamma_dot)
+            },
+            "carreau_yasuda" | "carreau_yasuda_blood" => {
+                let fluid = CarreauYasudaBlood::<f64>::normal_blood();
+                fluid.apparent_viscosity(gamma_dot)
+            },
+            _ => {
+                return Err(PyRuntimeError::new_err(
+                    format!("Unknown blood type '{}'. Use: newtonian, casson, or carreau_yasuda", blood_type)
+                ));
+            }
         };
 
-        // For Poiseuille, we use analytical reference for fast validation in bindings
+        // Analytical Hagen-Poiseuille solution
         let dp_dx = pressure_drop / self.length;
-        let mu = fluid.apparent_viscosity(100.0);
         let u_max = self.analytical_max_velocity(dp_dx, mu);
         let q = self.analytical_flow_rate(dp_dx, mu);
 
