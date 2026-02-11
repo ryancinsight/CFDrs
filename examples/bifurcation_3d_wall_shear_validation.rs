@@ -184,13 +184,14 @@ impl FlowConditions {
         self.rho * self.u_inlet * d / self.mu
     }
 
-    fn shear_stress_inlet(&self) -> f64 {
-        // Wall shear stress for Poiseuille flow in cylinder
-        (4.0 * self.mu * self.u_inlet) / self.d_inlet() // Not defined!
-    }
-
-    fn d_inlet(&self) -> f64 {
-        0.1 // Placeholder - this function is incomplete
+    /// Calculate wall shear stress for Poiseuille flow in cylinder
+    /// 
+    /// For fully developed laminar flow in a circular pipe:
+    /// τ_w = (4 μ u) / R = (8 μ u) / D
+    /// 
+    /// where u is mean velocity, μ is viscosity, D is diameter
+    fn shear_stress_inlet(&self, d_inlet: f64) -> f64 {
+        (8.0 * self.mu * self.u_inlet) / d_inlet
     }
 }
 
