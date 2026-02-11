@@ -31,6 +31,7 @@ pub mod csg;
 pub mod error;
 pub mod geometry;
 pub mod grid;
+pub mod hierarchy;
 pub mod mesh;
 pub mod quality;
 pub mod refinement;

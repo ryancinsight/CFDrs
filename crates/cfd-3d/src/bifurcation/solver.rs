@@ -130,7 +130,9 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
             self.geometry.branching_angle,
             8, // resolution factor
         );
-        let mesh = mesh_builder.build().map_err(|e| Error::Solver(e.to_string()))?;
+        let base_mesh = mesh_builder.build().map_err(|e| Error::Solver(e.to_string()))?;
+        let tet_mesh = cfd_mesh::hierarchy::hex_to_tet::HexToTetConverter::convert(&base_mesh);
+        let mesh = cfd_mesh::hierarchy::hierarchical_mesh::P2MeshConverter::convert_to_p2(&tet_mesh);
 
         // 2. Define Boundary Conditions
         let mut boundary_conditions = HashMap::new();
@@ -406,47 +408,92 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
         Ok(solution.get_pressure(best_node))
     }
 
-    /// Calculate shear rate within a tetrahedral element
     fn calculate_element_shear_rate(
         &self,
         cell: &cfd_mesh::topology::Cell,
         mesh: &cfd_mesh::mesh::Mesh<T>,
         solution: &crate::fem::StokesFlowSolution<T>,
     ) -> Result<T> {
-        use crate::fem::element::FluidElement;
-        
-        let mut vertex_indices = Vec::with_capacity(4);
+        let mut idxs = Vec::with_capacity(10);
         for &face_idx in &cell.faces {
             if let Some(face) = mesh.face(face_idx) {
                 for &v_idx in &face.vertices {
-                    if !vertex_indices.contains(&v_idx) {
-                        vertex_indices.push(v_idx);
+                    if !idxs.contains(&v_idx) {
+                        idxs.push(v_idx);
                     }
                 }
             }
-            if vertex_indices.len() >= 4 { break; }
         }
 
-        if vertex_indices.len() < 4 {
+        if idxs.len() < 4 {
             return Err(Error::Solver("Invalid cell topology".to_string()));
         }
 
-        let mut element = FluidElement::new(vertex_indices.clone());
-        let vertex_positions: Vec<Vector3<T>> = mesh.vertices().iter().map(|v| v.position.coords).collect();
-        // Just take the positions of the 4 nodes
-        let mut element_vertices = Vec::with_capacity(4);
-        for &idx in &vertex_indices {
-            element_vertices.push(vertex_positions[idx]);
+        let mut local_verts = Vec::with_capacity(idxs.len());
+        for &idx in &idxs {
+            local_verts.push(mesh.vertex(idx).unwrap().position.coords);
         }
-        
-        element.calculate_shape_derivatives(&element_vertices);
-        
+
         let mut l = nalgebra::Matrix3::zeros();
-        for i in 0..4 {
-            let u = solution.get_velocity(vertex_indices[i]);
-            for j in 0..3 { 
-                for k in 0..3 { 
-                    l[(j, k)] += element.shape_derivatives[(k, i)] * u[j];
+        
+        if idxs.len() == 10 {
+            // Tet10 (P2): Evaluate gradient at centroid (L = [0.25, 0.25, 0.25, 0.25])
+            use crate::fem::shape_functions::LagrangeTet10;
+            
+            // 1. Calculate P1 gradients (∇L_i)
+            let mut tet4 = crate::fem::element::FluidElement::new(idxs[0..4].to_vec());
+            let six_v = tet4.calculate_volume(&local_verts);
+            if num_traits::Float::abs(six_v) < T::from_f64(1e-24).unwrap() {
+                return Ok(T::zero());
+            }
+            tet4.calculate_shape_derivatives(&local_verts[0..4]);
+            let p1_grads = nalgebra::Matrix3x4::from_columns(&[
+                Vector3::new(
+                    tet4.shape_derivatives[(0, 0)],
+                    tet4.shape_derivatives[(1, 0)],
+                    tet4.shape_derivatives[(2, 0)]
+                ),
+                Vector3::new(
+                    tet4.shape_derivatives[(0, 1)],
+                    tet4.shape_derivatives[(1, 1)],
+                    tet4.shape_derivatives[(2, 1)]
+                ),
+                Vector3::new(
+                    tet4.shape_derivatives[(0, 2)],
+                    tet4.shape_derivatives[(1, 2)],
+                    tet4.shape_derivatives[(2, 2)]
+                ),
+                Vector3::new(
+                    tet4.shape_derivatives[(0, 3)],
+                    tet4.shape_derivatives[(1, 3)],
+                    tet4.shape_derivatives[(2, 3)]
+                ),
+            ]);
+
+            // 2. Evaluate P2 gradients at centroid
+            let tet10 = LagrangeTet10::new(p1_grads);
+            let l_centroid = [T::from_f64(0.25).unwrap(); 4];
+            let p2_grads = tet10.gradients(&l_centroid);
+
+            // 3. Compute velocity gradient: L = sum(u_i * ∇N_i)
+            for i in 0..10 {
+                let u = solution.get_velocity(idxs[i]);
+                for row in 0..3 {
+                    for col in 0..3 {
+                        l[(row, col)] += p2_grads[(col, i)] * u[row];
+                    }
+                }
+            }
+        } else {
+            // Tet4: constant gradient
+            let mut element = crate::fem::element::FluidElement::new(idxs.clone());
+            element.calculate_shape_derivatives(&local_verts);
+            for i in 0..4 {
+                let u = solution.get_velocity(idxs[i]);
+                for row in 0..3 {
+                    for col in 0..3 {
+                        l[(row, col)] += element.shape_derivatives[(col, i)] * u[row];
+                    }
                 }
             }
         }

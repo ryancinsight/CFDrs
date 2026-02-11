@@ -1,7 +1,7 @@
 //! Element-level operations for FEM
 
 use crate::fem::constants;
-use nalgebra::{DMatrix, Matrix3, Matrix3x4, RealField, Vector3};
+use nalgebra::{DMatrix, DVector, Matrix3, Matrix3x4, RealField, Vector3};
 use num_traits::{Float, FromPrimitive};
 
 /// Element matrices for FEM assembly
@@ -34,18 +34,19 @@ pub struct FluidElement<T: RealField + Copy> {
     pub nodes: Vec<usize>,
     /// Element volume
     pub volume: T,
-    /// Shape function derivatives (3 rows for x/y/z, 4 columns for nodes 1-4)
-    pub shape_derivatives: Matrix3x4<T>,
+    /// Shape function derivatives (3 rows for x/y/z, 4 columns for nodes 1-4 for P1, or 10 columns for P2)
+    pub shape_derivatives: DMatrix<T>,
 }
 
 impl<T: RealField + FromPrimitive + Copy + Float> FluidElement<T> {
     /// Create new fluid element
     #[must_use]
     pub fn new(nodes: Vec<usize>) -> Self {
+        let n = nodes.len();
         Self {
             nodes,
             volume: T::zero(),
-            shape_derivatives: Matrix3x4::zeros(),
+            shape_derivatives: DMatrix::zeros(3, n),
         }
     }
 
@@ -88,25 +89,35 @@ impl<T: RealField + FromPrimitive + Copy + Float> FluidElement<T> {
         let six_v = d1_vec.dot(&d2_vec.cross(&d3_vec));
 
         if num_traits::Float::abs(six_v) < T::from_f64(1e-24).unwrap_or_else(T::zero) {
-            self.shape_derivatives = Matrix3x4::zeros();
+            self.shape_derivatives = DMatrix::zeros(3, 4);
             return;
         }
 
-        // Calculate derivatives using signed cofactor matrix
-        // d1 corresponding to face opposite to node 0 (v1) -> grad_N0
-        let grad_n0 = Vector3::new(
+        // Calculate derivatives using signed cofactor matrix of the 4×4 coordinate
+        // determinant (Zienkiewicz & Taylor, Vol 1, 6th Ed, §7.3).
+        //
+        // For node i of a tet with 0-based indexing in the 4×4 coordinate matrix:
+        //   ∂N_i/∂x = B_i / (6V),  where B_i = (-1)^{i+1} * M_{i,1}
+        //   ∂N_i/∂y = C_i / (6V),  where C_i = (-1)^{i+2} * M_{i,2}
+        //   ∂N_i/∂z = D_i / (6V),  where D_i = (-1)^{i+3} * M_{i,3}
+        //
+        // The raw minor expressions below compute M_{i,j}. The alternating cofactor
+        // sign (-1)^{i+j} is applied via the leading negation on each vector.
+
+        // Face opposite to node 0 (v1) -> grad_N0: cofactor signs are (-,+,-)
+        let grad_n0 = -Vector3::new(
             (v2.y * (v3.z - v4.z) + v3.y * (v4.z - v2.z) + v4.y * (v2.z - v3.z)) / six_v,
             (v2.x * (v4.z - v3.z) + v3.x * (v2.z - v4.z) + v4.x * (v3.z - v2.z)) / six_v,
             (v2.x * (v3.y - v4.y) + v3.x * (v4.y - v2.y) + v4.x * (v2.y - v3.y)) / six_v,
         );
-        // d2 corresponding to face opposite to node 1 (v2) -> grad_N1
-        let grad_n1 = Vector3::new(
+        // Face opposite to node 1 (v2) -> grad_N1: cofactor signs are (+,-,+)
+        let grad_n1 = -Vector3::new(
             (v1.y * (v4.z - v3.z) + v3.y * (v1.z - v4.z) + v4.y * (v3.z - v1.z)) / six_v,
             (v1.x * (v3.z - v4.z) + v3.x * (v4.z - v1.z) + v4.x * (v1.z - v3.z)) / six_v,
             (v1.x * (v4.y - v3.y) + v3.x * (v1.y - v4.y) + v4.x * (v3.y - v1.y)) / six_v,
         );
-        // d3 corresponding to face opposite to node 2 (v3) -> grad_N2
-        let grad_n2 = Vector3::new(
+        // Face opposite to node 2 (v3) -> grad_N2: cofactor signs are (-,+,-)
+        let grad_n2 = -Vector3::new(
             (v1.y * (v2.z - v4.z) + v2.y * (v4.z - v1.z) + v4.y * (v1.z - v2.z)) / six_v,
             (v1.x * (v4.z - v2.z) + v2.x * (v1.z - v4.z) + v4.x * (v2.z - v1.z)) / six_v,
             (v1.x * (v2.y - v4.y) + v2.x * (v4.y - v1.y) + v4.x * (v1.y - v2.y)) / six_v,
@@ -115,8 +126,13 @@ impl<T: RealField + FromPrimitive + Copy + Float> FluidElement<T> {
         // Sum of gradients is zero: grad_N3 = -(grad_N0 + grad_N1 + grad_N2)
         let grad_n3 = -(grad_n0 + grad_n1 + grad_n2);
         
+        
         // CRITICAL FIX: Columns must correspond to nodes [0, 1, 2, 3]
-        self.shape_derivatives = Matrix3x4::from_columns(&[grad_n0, grad_n1, grad_n2, grad_n3]);
+        let c0 = DVector::from_iterator(3, grad_n0.iter().copied());
+        let c1 = DVector::from_iterator(3, grad_n1.iter().copied());
+        let c2 = DVector::from_iterator(3, grad_n2.iter().copied());
+        let c3 = DVector::from_iterator(3, grad_n3.iter().copied());
+        self.shape_derivatives = DMatrix::from_columns(&[c0, c1, c2, c3]);
     }
 
     /// Calculate element stiffness matrix contribution for Stokes flow

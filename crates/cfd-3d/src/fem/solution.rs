@@ -10,18 +10,32 @@ pub struct StokesFlowSolution<T: RealField + Copy> {
     pub velocity: DVector<T>,
     /// Pressure field (1 per node)
     pub pressure: DVector<T>,
-    /// Number of nodes
+    /// Number of total nodes
     pub n_nodes: usize,
+    /// Number of corner nodes (which have pressure DOFs in Taylor-Hood)
+    pub n_corner_nodes: usize,
 }
 
 impl<T: RealField + Copy> StokesFlowSolution<T> {
     /// Create a new solution
     #[must_use]
     pub fn new(velocity: DVector<T>, pressure: DVector<T>, n_nodes: usize) -> Self {
+        let n_corner = pressure.len();
         Self {
             velocity,
             pressure,
             n_nodes,
+            n_corner_nodes: n_corner,
+        }
+    }
+
+    /// Explicit Taylor-Hood constructor
+    pub fn new_with_corners(velocity: DVector<T>, pressure: DVector<T>, n_nodes: usize, n_corners: usize) -> Self {
+        Self {
+            velocity,
+            pressure,
+            n_nodes,
+            n_corner_nodes: n_corners,
         }
     }
 
@@ -70,15 +84,18 @@ impl<T: RealField + Copy> StokesFlowSolution<T> {
     /// Interleave velocity and pressure into a single vector for the linear solver
     /// Format: [u0, v0, w0, p0, u1, v1, w1, p1, ...]
     pub fn interleave(&self) -> DVector<T> {
-        let dofs_per_node = constants::VELOCITY_COMPONENTS + 1;
-        let mut data = DVector::zeros(self.n_nodes * dofs_per_node);
-        for i in 0..self.n_nodes {
-            let base = i * dofs_per_node;
-            let v_base = i * constants::VELOCITY_COMPONENTS;
-            data[base] = self.velocity[v_base];
-            data[base + 1] = self.velocity[v_base + 1];
-            data[base + 2] = self.velocity[v_base + 2];
-            data[base + 3] = self.pressure[i];
+        // Blocks: [U...V...W... P...]
+        // Note: Taylor-Hood naturally uses block formats for saddle points.
+        // We order as [u0,v0,w0, u1,v1,w1, ..., uN,vN,wN, p0, p1, ..., pK]
+        let n_vel = self.n_nodes * constants::VELOCITY_COMPONENTS;
+        let n_pres = self.n_corner_nodes;
+        let mut data = DVector::zeros(n_vel + n_pres);
+        
+        for i in 0..n_vel {
+            data[i] = self.velocity[i];
+        }
+        for i in 0..n_pres {
+            data[n_vel + i] = self.pressure[i];
         }
         data
     }

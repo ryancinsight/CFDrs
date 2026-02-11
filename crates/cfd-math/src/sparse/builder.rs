@@ -1,7 +1,7 @@
 //! Sparse matrix builder with efficient assembly
 
 use cfd_core::error::{Error, Result};
-use nalgebra::RealField;
+use nalgebra::{DVector, RealField};
 use nalgebra_sparse::{CooMatrix, CsrMatrix};
 use rayon::prelude::*;
 use std::collections::HashMap;
@@ -30,10 +30,10 @@ pub struct SparseMatrixBuilder<T: RealField + Copy> {
     cols: usize,
     entries: Vec<MatrixEntry<T>>,
     allow_duplicates: bool,
-    /// DOFs with strong Dirichlet enforcement. For these rows,
-    /// all off-diagonal entries are zeroed and the diagonal is set to the
-    /// stored value during `build()`.
-    dirichlet_dofs: HashMap<usize, T>,
+    /// DOFs with strong Dirichlet enforcement: maps DOF index -> (diag_value, prescribed_value).
+    /// During build, rows are replaced by `diag_value * I`, and column contributions
+    /// from Dirichlet DOFs are eliminated into the RHS vector.
+    dirichlet_dofs: HashMap<usize, (T, T)>,
 }
 
 impl<T: RealField + Copy> SparseMatrixBuilder<T> {
@@ -70,16 +70,15 @@ impl<T: RealField + Copy> SparseMatrixBuilder<T> {
         self
     }
 
-    /// Mark a DOF for strong Dirichlet enforcement.
+    /// Mark a DOF for strong Dirichlet enforcement with column elimination.
     ///
-    /// During `build()`, all entries in this row are discarded except the
-    /// diagonal, which is set to `diag_value` (typically `T::one()`).
-    /// The caller must also set `rhs[dof] = diag_value * target`.
+    /// During `build()`, all entries in this row are discarded and the diagonal
+    /// is set to `diag_value`. Column entries from Dirichlet DOFs in non-Dirichlet
+    /// rows are eliminated into the RHS: `rhs[j] -= K[j,i] * prescribed_value`.
     ///
-    /// This avoids the ill-conditioning inherent in the penalty method by
-    /// producing a row that is exactly `[0 ... 0  diag_value  0 ... 0]`.
-    pub fn set_dirichlet_row(&mut self, row: usize, diag_value: T) {
-        self.dirichlet_dofs.insert(row, diag_value);
+    /// The caller must also set `rhs[dof] = diag_value * prescribed_value`.
+    pub fn set_dirichlet_row(&mut self, row: usize, diag_value: T, prescribed_value: T) {
+        self.dirichlet_dofs.insert(row, (diag_value, prescribed_value));
     }
 
     /// Add a single entry
@@ -116,46 +115,93 @@ impl<T: RealField + Copy> SparseMatrixBuilder<T> {
         Ok(())
     }
 
-    /// Build the sparse matrix using COO format for efficiency
+    /// Build the sparse matrix with proper Dirichlet enforcement including
+    /// column elimination. For each Dirichlet DOF i with prescribed value g_i:
+    ///   - Row i is replaced by [0...0 diag_value 0...0]
+    ///   - For each non-Dirichlet row j with entry K[j,i]:
+    ///     rhs[j] -= K[j,i] * g_i  (column elimination into RHS)
+    ///     K[j,i] is set to zero
+    ///
+    /// This is the standard FEM Dirichlet BC enforcement that maintains the
+    /// correct coupling between constrained and free DOFs.
+    pub fn build_with_rhs(self, rhs: &mut DVector<T>) -> Result<CsrMatrix<T>> {
+        if self.entries.is_empty() && self.dirichlet_dofs.is_empty() {
+            return Ok(CsrMatrix::zeros(self.rows, self.cols));
+        }
+
+        let mut coo = CooMatrix::new(self.rows, self.cols);
+
+        // Combine duplicate entries and apply Dirichlet enforcement
+        let mut entry_map: HashMap<(usize, usize), T> = HashMap::new();
+
+        for entry in &self.entries {
+            let row_is_dirichlet = self.dirichlet_dofs.contains_key(&entry.row);
+            let col_is_dirichlet = self.dirichlet_dofs.get(&entry.col);
+
+            if row_is_dirichlet {
+                // Skip: row will be replaced by diagonal
+                continue;
+            }
+
+            if let Some(&(_diag, prescribed_val)) = col_is_dirichlet {
+                // Column elimination: move contribution to RHS
+                // rhs[row] -= K[row, col] * prescribed_value
+                if entry.row < rhs.len() {
+                    rhs[entry.row] -= entry.value * prescribed_val;
+                }
+                // Don't add to matrix (column is zeroed)
+                continue;
+            }
+
+            // Normal entry: accumulate
+            let key = (entry.row, entry.col);
+            entry_map
+                .entry(key)
+                .and_modify(|v| *v += entry.value)
+                .or_insert(entry.value);
+        }
+
+        for ((row, col), value) in entry_map {
+            coo.push(row, col, value);
+        }
+
+        // Insert clean diagonal entries for Dirichlet-constrained rows
+        for (&row, &(diag_val, _)) in &self.dirichlet_dofs {
+            coo.push(row, row, diag_val);
+        }
+
+        Ok(CsrMatrix::from(&coo))
+    }
+
+    /// Build without column elimination (legacy behavior for non-FEM use cases).
+    /// Only zeros Dirichlet rows, does NOT eliminate columns.
     pub fn build(self) -> Result<CsrMatrix<T>> {
         if self.entries.is_empty() && self.dirichlet_dofs.is_empty() {
             return Ok(CsrMatrix::zeros(self.rows, self.cols));
         }
 
-        // Use COO matrix for efficient assembly
         let mut coo = CooMatrix::new(self.rows, self.cols);
 
-        if self.allow_duplicates {
-            // Add entries directly (duplicates will be summed)
-            // Skip entries in Dirichlet rows
-            for entry in &self.entries {
-                if self.dirichlet_dofs.contains_key(&entry.row) {
-                    continue; // will be replaced by diagonal below
-                }
-                coo.push(entry.row, entry.col, entry.value);
-            }
-        } else {
-            // Combine duplicate entries manually for better control
-            let mut entry_map: HashMap<(usize, usize), T> = HashMap::new();
+        // Combine duplicate entries manually for better control
+        let mut entry_map: HashMap<(usize, usize), T> = HashMap::new();
 
-            for entry in &self.entries {
-                if self.dirichlet_dofs.contains_key(&entry.row) {
-                    continue; // will be replaced by diagonal below
-                }
-                let key = (entry.row, entry.col);
-                entry_map
-                    .entry(key)
-                    .and_modify(|v| *v += entry.value)
-                    .or_insert(entry.value);
+        for entry in &self.entries {
+            if self.dirichlet_dofs.contains_key(&entry.row) {
+                continue; // will be replaced by diagonal below
             }
+            let key = (entry.row, entry.col);
+            entry_map
+                .entry(key)
+                .and_modify(|v| *v += entry.value)
+                .or_insert(entry.value);
+        }
 
-            for ((row, col), value) in entry_map {
-                coo.push(row, col, value);
-            }
+        for ((row, col), value) in entry_map {
+            coo.push(row, col, value);
         }
 
         // Insert clean diagonal entries for Dirichlet-constrained rows
-        for (&row, &diag_val) in &self.dirichlet_dofs {
+        for (&row, &(diag_val, _)) in &self.dirichlet_dofs {
             coo.push(row, row, diag_val);
         }
 
@@ -197,7 +243,7 @@ impl<T: RealField + Copy> SparseMatrixBuilder<T> {
         }
 
         // Insert clean diagonal entries for Dirichlet-constrained rows
-        for (&row, &diag_val) in &self.dirichlet_dofs {
+        for (&row, &(diag_val, _)) in &self.dirichlet_dofs {
             coo.push(row, row, diag_val);
         }
 

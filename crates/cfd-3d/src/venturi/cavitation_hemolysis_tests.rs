@@ -135,7 +135,7 @@ mod tests {
         let exposure_time = throat_length / velocity; // 20 μs
 
         let damage = calc
-            .model
+            .model()
             .damage_index(shear_stress, exposure_time)
             .unwrap();
 
@@ -179,7 +179,7 @@ mod tests {
         let baseline_stress = 200.0; // Pa, high but subcavitation
         let baseline_time = 0.1; // s
         let baseline_damage = calc
-            .model
+            .model()
             .damage_index(baseline_stress, baseline_time)
             .unwrap();
 
@@ -206,7 +206,7 @@ mod tests {
         // Effective stress with cavitation
         let effective_stress = baseline_stress + impact_pressure * 0.1; // 10% coupling
         let cavitation_damage = calc
-            .model
+            .model()
             .damage_index(effective_stress, baseline_time)
             .unwrap();
 
@@ -315,8 +315,8 @@ mod tests {
         println!("\nCavitation Damage Scaling:");
         for &velocity in &velocities {
             // Dynamic pressure drop scales as 0.5 * ρ * U²
-            let dynamic_pressure = 0.5 * 998.0 * velocity * velocity;
-            let throat_pressure = (101325.0 - dynamic_pressure).max(2339.0);
+            let dynamic_pressure: f64 = 0.5 * 998.0 * velocity * velocity;
+            let throat_pressure: f64 = (101325.0 - dynamic_pressure).max(2339.0);
 
             let classifier =
                 CavitationRegimeClassifier::new(bubble_model, throat_pressure, None, None);
@@ -338,7 +338,7 @@ mod tests {
         );
         let high_v_classifier = CavitationRegimeClassifier::new(
             bubble_model,
-            (101325.0 - 0.5 * 998.0 * 20.0 * 20.0).max(2339.0),
+            (101325.0_f64 - 0.5 * 998.0 * 20.0 * 20.0).max(2339.0),
             None,
             None,
         );
@@ -359,9 +359,9 @@ mod tests {
         // Throat: D=0.5mm, U=16m/s (continuity)
         // Outlet: D=2mm, U=1m/s
 
-        let inlet_diameter = 2e-3;
-        let throat_diameter = 0.5e-3;
-        let inlet_velocity = 1.0;
+        let inlet_diameter: f64 = 2e-3;
+        let throat_diameter: f64 = 0.5e-3;
+        let inlet_velocity: f64 = 1.0;
 
         // Continuity: A₁U₁ = A₂U₂
         let area_ratio = (inlet_diameter / throat_diameter).powi(2);
@@ -403,8 +403,8 @@ mod tests {
         let throat_length = 1e-3; // 1 mm
         let exposure_time = throat_length / throat_velocity;
 
-        let damage = calc.model.damage_index(shear_stress, exposure_time).unwrap();
-        let delta_hb = calc.hemolysis_release(damage);
+        let damage = calc.model().damage_index(shear_stress, exposure_time).unwrap();
+        let delta_hb = calc.hemoglobin_release(damage);
 
         let trauma = BloodTrauma {
             hemolysis_level: delta_hb * 100.0, // Convert to mg/dL

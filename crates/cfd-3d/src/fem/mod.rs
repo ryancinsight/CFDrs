@@ -17,6 +17,8 @@ pub mod problem;
 pub mod solution;
 pub mod solver;
 pub mod stabilization;
+pub mod quadrature;
+pub mod shape_functions;
 
 // Re-export main types for convenience
 pub use config::FemConfig;

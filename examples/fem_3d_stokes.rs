@@ -99,7 +99,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("  - Reynolds number: 100");
 
     println!("\nStarting solver...");
-    let solution = solver.solve(&problem)?;
+    let solution = solver.solve(&problem, None)?;
 
     println!("FEM solver setup and execution completed successfully!");
     println!("Solution computed with {} nodes", solution.n_nodes);

@@ -424,11 +424,19 @@ impl<T: RealField + Copy> SparseMatrixExt<T> for CsrMatrix<T> {
             ));
         }
 
-        // This requires row-wise access which CSR provides
-        // But modification is complex, would need to rebuild
-        Err(Error::InvalidConfiguration(
-            "Row scaling not directly supported for CSR format".to_string(),
-        ))
+        // CSR format stores row offsets, so row scaling is straightforward:
+        // entries for row i are at indices row_offsets[i]..row_offsets[i+1]
+        let row_offsets = self.row_offsets().to_vec();
+        for i in 0..self.nrows() {
+            let start = row_offsets[i];
+            let end = row_offsets[i + 1];
+            let s = scaling[i];
+            for idx in start..end {
+                self.values_mut()[idx] *= s;
+            }
+        }
+
+        Ok(())
     }
 
     fn scale_columns(&mut self, scaling: &DVector<T>) -> Result<()> {

@@ -9,12 +9,14 @@ pub mod tensor;
 pub mod traits;
 pub mod utils;
 pub mod variable;
+pub mod quadrature_3d;
 
 // Re-export main types for convenience
 pub use composite::CompositeQuadrature;
 pub use quadrature::{GaussQuadrature, SimpsonsRule, TrapezoidalRule};
+pub use quadrature_3d::TetrahedronQuadrature;
 pub use tensor::TensorProductQuadrature;
-pub use traits::Quadrature;
+pub use traits::{Quadrature, Quadrature3D};
 pub use utils::IntegrationUtils;
 pub use variable::VariableQuadrature;
 

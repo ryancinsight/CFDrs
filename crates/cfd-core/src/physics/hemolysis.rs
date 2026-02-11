@@ -294,6 +294,11 @@ impl<T: RealField + Copy + FromPrimitive> HemolysisCalculator<T> {
         Ok(total_damage)
     }
 
+    /// Get a reference to the hemolysis model
+    pub fn model(&self) -> &HemolysisModel {
+        &self.model
+    }
+
     /// Calculate critical shear stress for onset of hemolysis
     pub fn critical_shear_stress(&self, exposure_time: f64) -> Result<f64> {
         // Typical threshold: D = 0.01 (1% damage)
