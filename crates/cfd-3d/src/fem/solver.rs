@@ -44,7 +44,7 @@ impl<T: RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> 
         
         let n_total_dof = rhs.len();
         let n_nodes = problem.mesh.vertex_count();
-        let n_corner_nodes = self.count_corner_nodes(&problem.mesh);
+        let n_corner_nodes = problem.n_corner_nodes;
         let n_velocity_dof = n_nodes * 3;
 
         let mut x = if let Some(sol) = previous_solution {
@@ -80,11 +80,6 @@ impl<T: RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> 
         Ok(StokesFlowSolution::new_with_corners(velocity, pressure, n_nodes, n_corner_nodes))
     }
 
-    fn count_corner_nodes(&self, mesh: &Mesh<T>) -> usize {
-        mesh.cells().iter()
-            .flat_map(|c| extract_vertex_indices(c, mesh).unwrap_or_default().into_iter().take(4))
-            .fold(0, |max, v| if v > max { v } else { max }) + 1
-    }
 
     fn assemble_system(
         &self,
@@ -92,7 +87,7 @@ impl<T: RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> 
         previous_solution: Option<&StokesFlowSolution<T>>,
     ) -> Result<(SparseMatrix<T>, DVector<T>)> {
         let n_nodes = problem.mesh.vertex_count();
-        let n_corner_nodes = self.count_corner_nodes(&problem.mesh);
+        let n_corner_nodes = problem.n_corner_nodes;
         let n_velocity_dof = n_nodes * 3;
         let n_total_dof = n_velocity_dof + n_corner_nodes;
 
@@ -266,15 +261,68 @@ impl<T: RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> 
 }
 
 pub fn extract_vertex_indices<T: RealField + Copy>(cell: &Cell, mesh: &Mesh<T>) -> Result<Vec<usize>> {
-    let mut indices = Vec::new();
+    let mut counts = std::collections::HashMap::new();
     for &f_idx in &cell.faces {
         if let Some(f) = mesh.face(f_idx) {
             for &v_idx in &f.vertices {
-                if !indices.contains(&v_idx) { indices.push(v_idx); }
+                *counts.entry(v_idx).or_insert(0) += 1;
             }
         }
     }
-    Ok(indices)
+    
+    // In a tetrahedron, corners are shared by 3 faces, mid-edges by 2.
+    let mut corners = Vec::new();
+    let mut mid_edges = Vec::new();
+    for (&v_idx, &count) in &counts {
+        if count == 3 {
+            corners.push(v_idx);
+        } else if count == 2 {
+            mid_edges.push(v_idx);
+        }
+    }
+    
+    if corners.len() == 4 && mid_edges.is_empty() && counts.len() == 4 {
+        // P1 Tet
+        corners.sort_unstable(); // Keep deterministic
+        return Ok(corners);
+    }
+    
+    if corners.len() == 4 && mid_edges.len() == 6 {
+        // P2 Tet
+        // We need them in canonical Tet10 order for LagrangeTet10:
+        // Corners: 0, 1, 2, 3
+        // Mid-edges: 4:(0,1), 5:(1,2), 6:(2,0), 7:(0,3), 8:(1,3), 9:(2,3)
+        corners.sort_unstable();
+        let mut final_nodes = corners.clone();
+        
+        let edges = [(0,1), (1,2), (2,0), (0,3), (1,3), (2,3)];
+        for &(i, j) in &edges {
+            let v_i = corners[i];
+            let v_j = corners[j];
+            // The mid-node for (v_i, v_j) is the one shared by faces that both contain v_i and v_j.
+            // Or simpler: find the mid_edge node that is closest to (v_i + v_j)/2
+            let p_i = mesh.vertex(v_i).unwrap().position.coords;
+            let p_j = mesh.vertex(v_j).unwrap().position.coords;
+            let target = (p_i + p_j) * T::from_f64(0.5).unwrap();
+            
+            let mut best_node = mid_edges[0];
+            let mut min_dist = (mesh.vertex(best_node).unwrap().position.coords - target).norm();
+            for &m_idx in &mid_edges[1..] {
+                let dist = (mesh.vertex(m_idx).unwrap().position.coords - target).norm();
+                if dist < min_dist {
+                    min_dist = dist;
+                    best_node = m_idx;
+                }
+            }
+            final_nodes.push(best_node);
+        }
+        return Ok(final_nodes);
+    }
+    
+    // Fallback for other elements (e.g. Hex)
+    let mut all: Vec<usize> = counts.keys().copied().collect();
+    all.sort_unstable();
+    Ok(all)
 }
 
 fn compute_mesh_scale<T: RealField + Copy + Float>(mesh: &Mesh<T>) -> T {

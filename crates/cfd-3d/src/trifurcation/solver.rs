@@ -248,7 +248,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
             speed_of_sound: fluid_props.speed_of_sound,
         };
 
-        let mut problem = StokesFlowProblem::new(mesh, constant_fluid, boundary_conditions);
+        let mut problem = StokesFlowProblem::new(mesh, constant_fluid, boundary_conditions, tet_mesh.vertex_count());
         let n_elements = problem.mesh.cell_count();
         let mut element_viscosities = vec![fluid_props.dynamic_viscosity; n_elements];
         

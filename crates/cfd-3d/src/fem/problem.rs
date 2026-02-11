@@ -20,6 +20,9 @@ pub struct StokesFlowProblem<T: RealField + Copy> {
     pub body_force: Option<Vector3<T>>,
     /// Spatially varying viscosity (per element)
     pub element_viscosities: Option<Vec<T>>,
+    /// Number of corner nodes (original vertices before P2 conversion)
+    /// Used for pressure degrees of freedom in Taylor-Hood
+    pub n_corner_nodes: usize,
 }
 
 impl<T: RealField + Copy> StokesFlowProblem<T> {
@@ -28,6 +31,7 @@ impl<T: RealField + Copy> StokesFlowProblem<T> {
         mesh: Mesh<T>,
         fluid: ConstantPropertyFluid<T>,
         boundary_conditions: HashMap<usize, BoundaryCondition<T>>,
+        n_corner_nodes: usize,
     ) -> Self {
         Self {
             mesh,
@@ -35,6 +39,7 @@ impl<T: RealField + Copy> StokesFlowProblem<T> {
             boundary_conditions,
             body_force: None,
             element_viscosities: None,
+            n_corner_nodes,
         }
     }
 
@@ -217,7 +222,7 @@ mod tests {
         let fluid = ConstantPropertyFluid::<f64>::water_20c().unwrap();
         let boundary_conditions = HashMap::new();
 
-        let problem = StokesFlowProblem::new(mesh, fluid, boundary_conditions);
+        let problem = StokesFlowProblem::new(mesh, fluid, boundary_conditions, 4);
         let boundary_nodes = problem.get_boundary_nodes();
 
         // All 4 vertices should be boundary nodes
@@ -233,7 +238,7 @@ mod tests {
         let fluid = ConstantPropertyFluid::<f64>::water_20c().unwrap();
         let boundary_conditions = HashMap::new();
 
-        let problem = StokesFlowProblem::new(mesh, fluid, boundary_conditions);
+        let problem = StokesFlowProblem::new(mesh, fluid, boundary_conditions, 5);
         let boundary_nodes = problem.get_boundary_nodes();
 
         // All 5 vertices are on boundary (even shared ones appear on external faces)
@@ -256,7 +261,7 @@ mod tests {
         let fluid = ConstantPropertyFluid::<f64>::water_20c().unwrap();
         let boundary_conditions = HashMap::new();
 
-        let problem = StokesFlowProblem::new(mesh, fluid, boundary_conditions);
+        let problem = StokesFlowProblem::new(mesh, fluid, boundary_conditions, 4);
         let boundary_nodes = problem.get_boundary_nodes();
 
         // All 4 vertices should still be boundary nodes
@@ -271,7 +276,7 @@ mod tests {
         let fluid = ConstantPropertyFluid::<f64>::water_20c().unwrap();
         let boundary_conditions = HashMap::new(); // Empty - no BCs defined
 
-        let problem = StokesFlowProblem::new(mesh, fluid, boundary_conditions);
+        let problem = StokesFlowProblem::new(mesh, fluid, boundary_conditions, 4);
 
         // Should fail validation - boundary nodes exist but no BCs
         let result = problem.validate();
@@ -301,7 +306,7 @@ mod tests {
             );
         }
 
-        let problem = StokesFlowProblem::new(mesh, fluid, boundary_conditions);
+        let problem = StokesFlowProblem::new(mesh, fluid, boundary_conditions, 4);
 
         // Should pass validation
         let result = problem.validate();
@@ -315,7 +320,7 @@ mod tests {
         let fluid = ConstantPropertyFluid::<f64>::water_20c().unwrap();
         let boundary_conditions = HashMap::new();
 
-        let problem = StokesFlowProblem::new(mesh, fluid, boundary_conditions);
+        let problem = StokesFlowProblem::new(mesh, fluid, boundary_conditions, 4);
         let boundary_nodes = problem.get_boundary_nodes();
 
         // Check sorted order

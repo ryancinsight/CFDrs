@@ -98,10 +98,18 @@ impl HexToTetConverter {
                          let nf = Self::get_tri_face_idx(&face_map, [face.vertices[0], face.vertices[1], face.vertices[2]]);
                          if let Some(idx) = nf { new_mesh.mark_boundary(idx, label.to_string()); }
                     } else if face.vertices.len() == 4 {
-                         let f1 = Self::get_tri_face_idx(&face_map, [face.vertices[0], face.vertices[1], face.vertices[2]]);
-                         let f2 = Self::get_tri_face_idx(&face_map, [face.vertices[0], face.vertices[2], face.vertices[3]]);
-                         if let Some(idx) = f1 { new_mesh.mark_boundary(idx, label.to_string()); }
-                         if let Some(idx) = f2 { new_mesh.mark_boundary(idx, label.to_string()); }
+                         let v = &face.vertices;
+                         let possible_tris = [
+                             [v[0], v[1], v[2]],
+                             [v[1], v[2], v[3]],
+                             [v[2], v[3], v[0]],
+                             [v[3], v[0], v[1]],
+                         ];
+                         for tri_nodes in &possible_tris {
+                             if let Some(idx) = Self::get_tri_face_idx(&face_map, *tri_nodes) {
+                                 new_mesh.mark_boundary(idx, label.to_string());
+                             }
+                         }
                     }
                 }
             }
