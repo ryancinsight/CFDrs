@@ -332,40 +332,55 @@ impl<T: RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> 
         let mesh_scale = compute_mesh_scale(&problem.mesh);
         let diag_scale = problem.fluid.viscosity * mesh_scale;
 
+        let mut vel_dofs = std::collections::HashSet::new();
+        let mut p_dofs = std::collections::HashSet::new();
+        let mut inlet_nodes = 0usize;
+        let mut wall_nodes = 0usize;
+        let mut outlet_nodes = 0usize;
+        let mut dirichlet_nodes = 0usize;
+
         // Track if any pressure boundary condition is applied
         let mut has_pressure_bc = false;
 
         for (&node_idx, bc) in &problem.boundary_conditions {
             match bc {
                 BoundaryCondition::VelocityInlet { velocity } => {
+                    inlet_nodes += 1;
                     for d in 0..3 {
                         let dof = node_idx + d * v_offset;
                         builder.set_dirichlet_row(dof, diag_scale, velocity[d]);
                         rhs[dof] = velocity[d] * diag_scale;
+                        vel_dofs.insert(dof);
                     }
                 }
                 BoundaryCondition::Wall { .. } => {
+                    wall_nodes += 1;
                     for d in 0..3 {
                         let dof = node_idx + d * v_offset;
                         builder.set_dirichlet_row(dof, diag_scale, T::zero());
                         rhs[dof] = T::zero();
+                        vel_dofs.insert(dof);
                     }
                 }
                 BoundaryCondition::PressureOutlet { pressure } | BoundaryCondition::PressureInlet { pressure, .. } => {
+                    outlet_nodes += 1;
                     if node_idx < problem.n_corner_nodes {
                         has_pressure_bc = true;
                         let dof = p_offset + node_idx;
                         builder.set_dirichlet_row(dof, diag_scale, *pressure);
                         rhs[dof] = *pressure * diag_scale;
+                        p_dofs.insert(dof);
                     }
                 }
                 BoundaryCondition::Dirichlet { value, component_values } => {
+                    dirichlet_nodes += 1;
                     if let Some(comps) = component_values {
                         for d in 0..3 {
                             if let Some(Some(val)) = comps.get(d) {
                                 let dof = node_idx + d * v_offset;
                                 builder.set_dirichlet_row(dof, diag_scale, *val);
                                 rhs[dof] = *val * diag_scale;
+                                vel_dofs.insert(dof);
                             }
                         }
                         if let Some(Some(p_val)) = comps.get(3) {
@@ -374,6 +389,7 @@ impl<T: RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> 
                                 let dof = p_offset + node_idx;
                                 builder.set_dirichlet_row(dof, diag_scale, *p_val);
                                 rhs[dof] = *p_val * diag_scale;
+                                p_dofs.insert(dof);
                             }
                         }
                     } else {
@@ -383,6 +399,7 @@ impl<T: RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> 
                             let dof = node_idx + d * v_offset;
                             builder.set_dirichlet_row(dof, diag_scale, *value);
                             rhs[dof] = *value * diag_scale;
+                            vel_dofs.insert(dof);
                         }
                     }
                 }
@@ -400,6 +417,18 @@ impl<T: RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> 
             println!("  Pinned pressure DOF {} to zero (no pressure BC specified)", reference_pressure_dof);
         }
 
+        println!(
+            "  BC Diagnostics: inlet_nodes={}, wall_nodes={}, outlet_nodes={}, dirichlet_nodes={}",
+            inlet_nodes, wall_nodes, outlet_nodes, dirichlet_nodes
+        );
+        println!(
+            "  BC Diagnostics: velocity_dofs_set={}, pressure_dofs_set={}, n_velocity_dof={}, n_pressure_dof={}",
+            vel_dofs.len(),
+            p_dofs.len(),
+            n_nodes * 3,
+            problem.n_corner_nodes
+        );
+
         Ok(())
     }
 
@@ -414,7 +443,7 @@ impl<T: RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> 
     }
 }
 
-pub fn extract_vertex_indices<T: RealField + Copy>(cell: &Cell, mesh: &Mesh<T>) -> Result<Vec<usize>> {
+pub fn extract_vertex_indices<T: RealField + Copy + Float>(cell: &Cell, mesh: &Mesh<T>) -> Result<Vec<usize>> {
     let mut counts = std::collections::HashMap::new();
     for &f_idx in &cell.faces {
         if let Some(f) = mesh.face(f_idx) {
@@ -437,8 +466,8 @@ pub fn extract_vertex_indices<T: RealField + Copy>(cell: &Cell, mesh: &Mesh<T>) 
     
     if corners.len() == 4 && mid_edges.is_empty() && counts.len() == 4 {
         // P1 Tet
-        corners.sort_unstable(); // Keep deterministic
-        return Ok(corners);
+        let ordered = order_tet_corners(&corners, mesh);
+        return Ok(ordered);
     }
     
     if corners.len() == 4 && mid_edges.len() == 6 {
@@ -446,13 +475,13 @@ pub fn extract_vertex_indices<T: RealField + Copy>(cell: &Cell, mesh: &Mesh<T>) 
         // We need them in canonical Tet10 order for LagrangeTet10:
         // Corners: 0, 1, 2, 3
         // Mid-edges: 4:(0,1), 5:(1,2), 6:(2,0), 7:(0,3), 8:(1,3), 9:(2,3)
-        corners.sort_unstable();
-        let mut final_nodes = corners.clone();
+        let ordered = order_tet_corners(&corners, mesh);
+        let mut final_nodes = ordered.clone();
         
         let edges = [(0,1), (1,2), (2,0), (0,3), (1,3), (2,3)];
         for &(i, j) in &edges {
-            let v_i = corners[i];
-            let v_j = corners[j];
+            let v_i = ordered[i];
+            let v_j = ordered[j];
             // The mid-node for (v_i, v_j) is the one shared by faces that both contain v_i and v_j.
             // Or simpler: find the mid_edge node that is closest to (v_i + v_j)/2
             let p_i = mesh.vertex(v_i).unwrap().position.coords;
@@ -477,6 +506,48 @@ pub fn extract_vertex_indices<T: RealField + Copy>(cell: &Cell, mesh: &Mesh<T>) 
     let mut all: Vec<usize> = counts.keys().copied().collect();
     all.sort_unstable();
     Ok(all)
+}
+
+fn order_tet_corners<T: RealField + Copy + Float>(corners: &[usize], mesh: &Mesh<T>) -> Vec<usize> {
+    let perms: [[usize; 4]; 24] = [
+        [0, 1, 2, 3], [0, 1, 3, 2], [0, 2, 1, 3], [0, 2, 3, 1], [0, 3, 1, 2], [0, 3, 2, 1],
+        [1, 0, 2, 3], [1, 0, 3, 2], [1, 2, 0, 3], [1, 2, 3, 0], [1, 3, 0, 2], [1, 3, 2, 0],
+        [2, 0, 1, 3], [2, 0, 3, 1], [2, 1, 0, 3], [2, 1, 3, 0], [2, 3, 0, 1], [2, 3, 1, 0],
+        [3, 0, 1, 2], [3, 0, 2, 1], [3, 1, 0, 2], [3, 1, 2, 0], [3, 2, 0, 1], [3, 2, 1, 0],
+    ];
+
+    let mut best: Option<Vec<usize>> = None;
+    let mut best_det = T::neg_infinity();
+
+    for perm in perms.iter() {
+        let v0 = corners[perm[0]];
+        let v1 = corners[perm[1]];
+        let v2 = corners[perm[2]];
+        let v3 = corners[perm[3]];
+
+        let p0 = mesh.vertex(v0).unwrap().position.coords;
+        let p1 = mesh.vertex(v1).unwrap().position.coords;
+        let p2 = mesh.vertex(v2).unwrap().position.coords;
+        let p3 = mesh.vertex(v3).unwrap().position.coords;
+
+        let det = (p1 - p0).cross(&(p2 - p0)).dot(&(p3 - p0));
+        if det > T::zero() {
+            let candidate = vec![v0, v1, v2, v3];
+            let take = match &best {
+                None => true,
+                Some(existing) => candidate < *existing,
+            };
+            if take {
+                best = Some(candidate);
+                best_det = det;
+            }
+        } else if best.is_none() && det > best_det {
+            best_det = det;
+            best = Some(vec![v0, v1, v2, v3]);
+        }
+    }
+
+    best.unwrap_or_else(|| corners.to_vec())
 }
 
 fn compute_mesh_scale<T: RealField + Copy + Float>(mesh: &Mesh<T>) -> T {

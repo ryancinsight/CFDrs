@@ -515,13 +515,31 @@ impl<T: RealField + Copy> Mesh<T> {
             self.edges.push(new_edge);
         }
 
+        // Build lookup of existing faces by canonical vertex set so stitched
+        // interface faces are shared between adjacent cells (not duplicated).
+        let mut canonical_face_map: std::collections::HashMap<Vec<usize>, usize> =
+            std::collections::HashMap::new();
+        for (i, face) in self.faces.iter().enumerate() {
+            let mut key = face.vertices.clone();
+            key.sort_unstable();
+            canonical_face_map.insert(key, i);
+        }
+
         let mut face_map = vec![usize::MAX; other.faces.len()];
         for (i, f) in other.faces.iter().enumerate() {
              let mut new_face = f.clone();
              new_face.vertices = f.vertices.iter().map(|&v| vertex_map[v]).collect();
-             let idx = self.faces.len();
-             self.faces.push(new_face);
-             face_map[i] = idx;
+             let mut key = new_face.vertices.clone();
+             key.sort_unstable();
+
+             if let Some(&existing_idx) = canonical_face_map.get(&key) {
+                 face_map[i] = existing_idx;
+             } else {
+                 let idx = self.faces.len();
+                 self.faces.push(new_face);
+                 canonical_face_map.insert(key, idx);
+                 face_map[i] = idx;
+             }
         }
 
         for c in &other.cells {
@@ -723,5 +741,9 @@ mod tests {
         
         // Ensure "interface_1" label is removed
         assert!(mesh1.boundary_markers.values().all(|l| l != "interface_1"));
+
+        // The stitched interface should be internal (shared by two cells), not
+        // counted as an external boundary.
+        assert_eq!(mesh1.external_faces().len(), 10, "Joined cubes should have 10 external faces");
     }
 }

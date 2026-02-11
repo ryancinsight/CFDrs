@@ -432,8 +432,10 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
                 if mesh.boundary_label(f_idx) == Some("inlet") {
                     if let Some(face) = mesh.face(f_idx) {
                         for &vi in &face.vertices {
-                            sum += fem_solution.get_pressure(vi);
-                            cnt += 1;
+                            if vi < fem_solution.n_corner_nodes {
+                                sum += fem_solution.get_pressure(vi);
+                                cnt += 1;
+                            }
                         }
                     }
                 }
@@ -448,8 +450,10 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
                 if mesh.boundary_label(f_idx) == Some(label) {
                     if let Some(face) = mesh.face(f_idx) {
                         for &vi in &face.vertices {
-                            sum += fem_solution.get_pressure(vi);
-                            cnt += 1;
+                            if vi < fem_solution.n_corner_nodes {
+                                sum += fem_solution.get_pressure(vi);
+                                cnt += 1;
+                            }
                         }
                     }
                 }
@@ -488,6 +492,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
         solution: &crate::fem::StokesFlowSolution<T>,
         label: &str,
     ) -> Result<T> {
+        let reference_normal = self.boundary_reference_normal(label);
         let mut total_q = T::zero();
         for f_idx in 0..mesh.face_count() {
             if mesh.boundary_label(f_idx) == Some(label) {
@@ -499,7 +504,15 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
                         
                         let n_vec = (v1 - v0).cross(&(v2 - v0));
                         let area = n_vec.norm() * T::from_f64_or_one(0.5);
-                        let face_normal = n_vec.normalize();
+                        if area <= T::zero() {
+                            continue;
+                        }
+                        let mut face_normal = n_vec.normalize();
+                        if let Some(ref_n) = reference_normal {
+                            if face_normal.dot(&ref_n) < T::zero() {
+                                face_normal = -face_normal;
+                            }
+                        }
                         
                         let mut u_avg = Vector3::zeros();
                         for &v_idx in &face.vertices {
@@ -514,6 +527,25 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
         }
         
         Ok(Float::abs(total_q))
+    }
+
+    fn boundary_reference_normal(&self, label: &str) -> Option<Vector3<T>> {
+        match label {
+            "inlet" => Some(Vector3::new(-T::one(), T::zero(), T::zero())),
+            "outlet_0" => {
+                let theta = self.geometry.branching_angles[0];
+                Some(Vector3::new(Float::cos(theta), Float::sin(theta), T::zero()))
+            }
+            "outlet_1" => {
+                let theta = self.geometry.branching_angles[1];
+                Some(Vector3::new(Float::cos(theta), Float::sin(theta), T::zero()))
+            }
+            "outlet_2" => {
+                let theta = self.geometry.branching_angles[2];
+                Some(Vector3::new(Float::cos(theta), Float::sin(theta), T::zero()))
+            }
+            _ => None,
+        }
     }
 
     fn calculate_element_shear_rate(
