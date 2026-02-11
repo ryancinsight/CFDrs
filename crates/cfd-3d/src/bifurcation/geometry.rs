@@ -166,7 +166,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> Bifurcatio
     ///
     /// Returns D₀³ - (D₁³ + D₂³), which should be close to 0
     pub fn murray_law_deviation(&self) -> T {
-        let _three = T::from_f64_or_one(3.0);
+        let three = T::from_f64_or_one(3.0);
         self.d_parent.powi(3) - (self.d_daughter1.powi(3) + self.d_daughter2.powi(3))
     }
 

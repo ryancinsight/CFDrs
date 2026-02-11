@@ -316,7 +316,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
         let q_d3 = self.calculate_boundary_flow(mesh, &fem_solution, "outlet_2")?;
         
         // Fill in mean velocities for daughters
-        let _a_parent = T::from_f64_or_one(std::f64::consts::PI / 4.0) * self.geometry.d_parent * self.geometry.d_parent;
+        let a_parent = T::from_f64_or_one(std::f64::consts::PI / 4.0) * self.geometry.d_parent * self.geometry.d_parent;
         let a_d1 = T::from_f64_or_one(std::f64::consts::PI / 4.0) * self.geometry.d_daughters[0] * self.geometry.d_daughters[0];
         let a_d2 = T::from_f64_or_one(std::f64::consts::PI / 4.0) * self.geometry.d_daughters[1] * self.geometry.d_daughters[1];
         let a_d3 = T::from_f64_or_one(std::f64::consts::PI / 4.0) * self.geometry.d_daughters[2] * self.geometry.d_daughters[2];

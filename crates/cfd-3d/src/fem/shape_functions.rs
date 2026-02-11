@@ -1,6 +1,6 @@
 //! Shape functions for high-order finite elements
 
-use nalgebra::{Matrix3x4, RealField, DMatrix};
+use nalgebra::{Matrix3x4, RealField, Vector3, DMatrix};
 use num_traits::{Float, FromPrimitive};
 
 /// Quadratic Lagrange shape functions for 10-node tetrahedra (P2)

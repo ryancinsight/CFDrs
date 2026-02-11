@@ -4,10 +4,11 @@
 //! analytical/literature solutions.
 
 use super::geometry::TrifurcationGeometry3D;
-use super::solver::TrifurcationSolution3D;
+use super::solver::{TrifurcationConfig3D, TrifurcationSolution3D, TrifurcationSolver3D};
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::Error;
-use nalgebra::RealField; // Added ComplexField for abs()
+use cfd_core::physics::fluid::traits::{Fluid as FluidTrait, NonNewtonianFluid};
+use nalgebra::{RealField, ComplexField}; // Added ComplexField for abs()
 use num_traits::{FromPrimitive, ToPrimitive};
 use serde::{Deserialize, Serialize};
 
@@ -60,7 +61,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + num_trait
         // 2. Flow Split Symmetry Check (for symmetric geometry)
         // Q_d1 should equal Q_d3 (top and bottom), Q_d2 is middle
         let q_d1 = solution.flow_rates[1];
-        let _q_d2 = solution.flow_rates[2];
+        let q_d2 = solution.flow_rates[2];
         let q_d3 = solution.flow_rates[3];
         
         // For symmetric trifurcation, we expect top/bottom symmetry

@@ -1,7 +1,7 @@
 //! Element-level operations for FEM
 
 use crate::fem::constants;
-use nalgebra::{DMatrix, DVector, Matrix3, RealField, Vector3};
+use nalgebra::{DMatrix, DVector, Matrix3, Matrix3x4, RealField, Vector3};
 use num_traits::{Float, FromPrimitive};
 
 /// Element matrices for FEM assembly

@@ -9,7 +9,7 @@ use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::Error;
 use cfd_core::physics::fluid::traits::Fluid as FluidTrait;
 use cfd_core::physics::fluid::traits::NonNewtonianFluid;
-use nalgebra::RealField;
+use nalgebra::{ComplexField, RealField};
 use num_traits::{FromPrimitive, ToPrimitive};
 use serde::{Deserialize, Serialize};
 

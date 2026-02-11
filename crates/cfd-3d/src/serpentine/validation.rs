@@ -3,9 +3,10 @@
 //! Provides validation for Dean flow physics and mass conservation in
 //! curved serpentine channels.
 
-use super::solver::{SerpentineConfig3D, SerpentineSolution3D};
+use super::solver::{SerpentineConfig3D, SerpentineSolution3D, SerpentineSolver3D};
 use cfd_core::conversion::{SafeFromF64};
 use cfd_core::error::Error;
+use cfd_core::physics::fluid::traits::{Fluid as FluidTrait, NonNewtonianFluid};
 use cfd_mesh::geometry::serpentine::SerpentineMeshBuilder;
 use nalgebra::RealField;
 use num_traits::{Float, FromPrimitive, ToPrimitive};
@@ -29,7 +30,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float> Se
         &self,
         solution: &SerpentineSolution3D<T>,
         config: &SerpentineConfig3D<T>,
-        _fluid_density: T,
+        fluid_density: T,
         fluid_viscosity: T,
     ) -> Result<SerpentineValidationResult3D<T>, Error> {
         // 1. Mass Conservation Check
