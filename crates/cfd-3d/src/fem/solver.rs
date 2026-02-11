@@ -5,7 +5,9 @@
 
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::boundary::BoundaryCondition;
-use cfd_math::linear_solver::{GMRES, LinearSolver, IncompleteLU};
+use cfd_math::linear_solver::{
+    BlockDiagonalPreconditioner, GMRES, IncompleteLU, LinearSolver, Preconditioner,
+};
 use cfd_math::sparse::{SparseMatrix, SparseMatrixBuilder};
 use nalgebra::{DVector, RealField, Vector3};
 use num_traits::{Float, FromPrimitive};
@@ -70,15 +72,36 @@ impl<T: RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> 
         println!("  FEM Solver: System size {}x{}", n_total_dof, n_total_dof);
         println!("  GMRES: restart={}, max_iter={}", restart, gmres_config.max_iterations);
         
-        let preconditioner = IncompleteLU::new(&matrix)
-             .map_err(|e| Error::Solver(format!("ILU failed: {}", e)))?;
-             
-        let solver = GMRES::new(gmres_config, restart);
-        let monitor = solver.solve_preconditioned(&matrix, &rhs, &preconditioner, &mut x)
-            .map_err(|e| Error::Solver(format!("GMRES failed: {}", e)))?;
-            
-        println!("  Taylor-Hood FEM Solver: Converged in {} iterations, resid={:?}", 
-            monitor.iteration, monitor.residual_history.last());
+        // Try block diagonal preconditioner (specialized for saddle-point systems)
+        println!("  Attempting block diagonal preconditioner for saddle-point system...");
+        let block_precond = BlockDiagonalPreconditioner::new(&matrix, n_velocity_dof, n_corner_nodes)
+            .map_err(|e| Error::Solver(format!("Block preconditioner failed: {}", e)))?;
+        
+        let solver = GMRES::new(gmres_config.clone(), restart);
+        
+        // First attempt with block preconditioner
+        match solver.solve_preconditioned(&matrix, &rhs, &block_precond, &mut x) {
+            Ok(monitor) => {
+                println!("  ✓ Block diagonal preconditioner: Converged in {} iterations, resid={:?}", 
+                    monitor.iteration, monitor.residual_history.last());
+            }
+            Err(e) => {
+                println!("  ✗ Block diagonal preconditioner failed: {}", e);
+                println!("  Falling back to ILU preconditioner...");
+                
+                // Reset initial guess
+                x.fill(T::zero());
+                
+                let ilu_preconditioner = IncompleteLU::new(&matrix)
+                    .map_err(|e| Error::Solver(format!("ILU failed: {}", e)))?;
+                
+                let monitor = solver.solve_preconditioned(&matrix, &rhs, &ilu_preconditioner, &mut x)
+                    .map_err(|e| Error::Solver(format!("GMRES failed: {}", e)))?;
+                
+                println!("  ✓ ILU preconditioner: Converged in {} iterations, resid={:?}", 
+                    monitor.iteration, monitor.residual_history.last());
+            }
+        }
 
         let velocity = x.rows(0, n_velocity_dof).into_owned();
         let pressure = x.rows(n_velocity_dof, n_corner_nodes).into_owned();
@@ -252,10 +275,12 @@ impl<T: RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> 
                     }
                 }
                 BoundaryCondition::PressureOutlet { pressure } | BoundaryCondition::PressureInlet { pressure, .. } => {
-                    has_pressure_bc = true;
-                    let dof = p_offset + node_idx;
-                    builder.set_dirichlet_row(dof, diag_scale, *pressure);
-                    rhs[dof] = *pressure * diag_scale;
+                    if node_idx < problem.n_corner_nodes {
+                        has_pressure_bc = true;
+                        let dof = p_offset + node_idx;
+                        builder.set_dirichlet_row(dof, diag_scale, *pressure);
+                        rhs[dof] = *pressure * diag_scale;
+                    }
                 }
                 BoundaryCondition::Dirichlet { value, component_values } => {
                     if let Some(comps) = component_values {
@@ -267,10 +292,12 @@ impl<T: RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> 
                             }
                         }
                         if let Some(Some(p_val)) = comps.get(3) {
-                            has_pressure_bc = true;
-                            let dof = p_offset + node_idx;
-                            builder.set_dirichlet_row(dof, diag_scale, *p_val);
-                            rhs[dof] = *p_val * diag_scale;
+                            if node_idx < problem.n_corner_nodes {
+                                has_pressure_bc = true;
+                                let dof = p_offset + node_idx;
+                                builder.set_dirichlet_row(dof, diag_scale, *p_val);
+                                rhs[dof] = *p_val * diag_scale;
+                            }
                         }
                     } else {
                         // Scalar Dirichlet: apply to all velocity components (standard wall/inlet)

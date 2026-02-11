@@ -20,6 +20,7 @@
 //! - Providing efficient preconditioner APIs
 
 mod bicgstab;
+pub mod block_preconditioner;
 mod config;
 mod conjugate_gradient;
 pub mod gmres;
@@ -44,6 +45,9 @@ pub use matrix_free::{
 };
 
 pub use preconditioners::multigrid::AMGConfig;
+pub use block_preconditioner::{
+    BlockDiagonalPreconditioner, DiagonalPreconditioner, SimplePreconditioner,
+};
 pub use preconditioners::{
     AlgebraicMultigrid, DeflationPreconditioner, IdentityPreconditioner, IncompleteLU,
     JacobiPreconditioner, SORPreconditioner, SerialSchwarzPreconditioner, SSOR,
