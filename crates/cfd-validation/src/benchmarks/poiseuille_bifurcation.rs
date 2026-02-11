@@ -53,10 +53,12 @@
 //!    → Validation data for carotid bifurcation
 
 use cfd_1d::bifurcation::junction::BifurcationJunction;
+use cfd_1d::channel::{Channel, ChannelGeometry};
 use cfd_2d::solvers::{BloodModel as BloodModel2D, PoiseuilleConfig, PoiseuilleFlow2D};
-use cfd_core::physics::fluid::blood::{CarreauYasudaBlood, CassonBlood};
+use cfd_core::conversion::SafeFromF64;
+use cfd_core::physics::fluid::blood::CassonBlood;
 use nalgebra::RealField;
-use num_traits::{Float, FromPrimitive};
+use num_traits::{Float, FromPrimitive, ToPrimitive};
 use serde::{Deserialize, Serialize};
 
 /// Complete 2D bifurcation solution combining 1D network + 2D flow in each segment
@@ -173,37 +175,72 @@ impl<T: RealField + Copy + FromPrimitive + Float> BifurcationConfig2D<T> {
 }
 
 /// Solve complete 2D bifurcation with validated 1D+2D approach
-pub fn solve_bifurcation_2d<T: RealField + Copy + Float + FromPrimitive>(
+pub fn solve_bifurcation_2d<T: RealField + Copy + Float + FromPrimitive + ToPrimitive + SafeFromF64>(
     config: &BifurcationConfig2D<T>,
     blood_casson: &CassonBlood<T>,
 ) -> Result<BifurcationSolution2D<T>, String> {
 
     // Step 1: Solve 1D network to get flow rates and pressure drops
-    // This is already validated to 0.00% error
-    let junction_1d = BifurcationJunction::new(
-        config.d_parent,
+    // Calculate flow split ratio based on Poiseuille resistance assumption (Newtonian approximation)
+    // R = L / D^4 (proportionality)
+    // r = Q1 / Qp = R2 / (R1 + R2) assuming parallel resistance logic for pressure drop equality?
+    // Wait, pressure drop equality: Q1 R1 = Q2 R2 = dP
+    // Q1 R1 = (Qp - Q1) R2 => Q1 R1 + Q1 R2 = Qp R2 => Q1 (R1 + R2) = Qp R2
+    // Q1 / Qp = R2 / (R1 + R2)
+    // R ~ L / D^4
+    // Q1 / Qp = (L2/D2^4) / (L1/D1^4 + L2/D2^4)
+    // Multiply by D1^4 D2^4:
+    // Q1 / Qp = L2 D1^4 / (L1 D2^4 + L2 D1^4)
+
+    let four = 4;
+    let d1_4 = Float::powi(config.d_daughter1, four);
+    let d2_4 = Float::powi(config.d_daughter2, four);
+    let term1 = config.length_daughter2 * d1_4;
+    let term2 = config.length_daughter1 * d2_4;
+
+    let split_ratio = term1 / (term1 + term2);
+
+    // Create channels
+    let parent_geom = ChannelGeometry::circular(
         config.length_parent,
-        config.d_daughter1,
+        config.d_parent,
+        T::zero(), // Assuming smooth
+    );
+    let parent = Channel::new(parent_geom);
+
+    let d1_geom = ChannelGeometry::circular(
         config.length_daughter1,
-        config.d_daughter2,
+        config.d_daughter1,
+        T::zero(),
+    );
+    let d1 = Channel::new(d1_geom);
+
+    let d2_geom = ChannelGeometry::circular(
         config.length_daughter2,
+        config.d_daughter2,
+        T::zero(),
+    );
+    let d2 = Channel::new(d2_geom);
+
+    let junction_1d = BifurcationJunction::new(
+        parent,
+        d1,
+        d2,
+        split_ratio,
     );
 
-    // Create blood model for 1D
-    use cfd_1d::blood::BloodModel as BloodModel1D;
-    let blood_1d = BloodModel1D::Casson(blood_casson.clone());
-
+    // Use Casson blood directly as it implements FluidTrait
     let solution_1d = junction_1d
-        .solve(config.flow_rate, config.inlet_pressure, &blood_1d)
+        .solve(*blood_casson, config.flow_rate, config.inlet_pressure)
         .map_err(|e| format!("1D solution failed: {:?}", e))?;
 
     // Extract 1D results
-    let q_p = solution_1d.flow_rate_parent;
-    let q_1 = solution_1d.flow_rate_daughter1;
-    let q_2 = solution_1d.flow_rate_daughter2;
-    let dp_p = solution_1d.pressure_drop_parent;
-    let dp_1 = solution_1d.pressure_drop_daughter1;
-    let dp_2 = solution_1d.pressure_drop_daughter2;
+    let q_p = solution_1d.q_parent;
+    let q_1 = solution_1d.q_1;
+    let q_2 = solution_1d.q_2;
+    let dp_p = solution_1d.dp_parent;
+    let dp_1 = solution_1d.dp_1;
+    let dp_2 = solution_1d.dp_2;
 
     // Step 2: Solve 2D Poiseuille in parent vessel
     // Already validated to 0.72% error
@@ -226,7 +263,7 @@ pub fn solve_bifurcation_2d<T: RealField + Copy + Float + FromPrimitive>(
     // Step 3: Solve 2D Poiseuille in daughter 1
     let mut config_d1 = PoiseuilleConfig::<T>::default();
     config_d1.height = config.d_daughter1;
-    config_d1.width = config.d_daughter1;
+    config_d1.width = config.d_daughter1; // Circular approximation
     config_d1.length = config.length_daughter1;
     config_d1.ny = config.ny;
     config_d1.pressure_gradient = dp_1 / config.length_daughter1;
@@ -242,7 +279,7 @@ pub fn solve_bifurcation_2d<T: RealField + Copy + Float + FromPrimitive>(
     // Step 4: Solve 2D Poiseuille in daughter 2
     let mut config_d2 = PoiseuilleConfig::<T>::default();
     config_d2.height = config.d_daughter2;
-    config_d2.width = config.d_daughter2;
+    config_d2.width = config.d_daughter2; // Circular approximation
     config_d2.length = config.length_daughter2;
     config_d2.ny = config.ny;
     config_d2.pressure_gradient = dp_2 / config.length_daughter2;
@@ -315,8 +352,13 @@ pub fn validate_bifurcation<T: RealField + Copy + Float + FromPrimitive>(
     );
 
     // Check 4: WSS scaling with diameter
-    // WSS should be higher in smaller vessels
-    let wss_ratio_expected = config.d_parent / config.d_daughter1;
+    // Theoretical WSS ratio based on Poiseuille flow:
+    // tau ~ Q / D^3
+    // tau_d / tau_p = (Q_d / Q_p) * (D_p / D_d)^3
+    let flow_ratio = solution.q_daughter1 / solution.q_parent;
+    let diameter_ratio = config.d_parent / config.d_daughter1;
+    let wss_ratio_expected = flow_ratio * diameter_ratio * diameter_ratio * diameter_ratio;
+
     let wss_ratio_actual = solution.wss_daughter1 / solution.wss_parent;
     let wss_error = Float::abs((wss_ratio_actual - wss_ratio_expected) / wss_ratio_expected);
 
