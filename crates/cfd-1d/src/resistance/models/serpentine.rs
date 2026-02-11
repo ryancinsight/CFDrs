@@ -438,15 +438,12 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for SerpentineModel
         // --- 1. Straight segment friction ---
         let f_straight = self.base_friction_factor(re_safe);
 
-        // --- 2. Dean number curvature correction ---
-        let dean = self.dean_number(re_safe);
-        let enhancement = self.curvature_enhancement(dean);
-        let f_curved = f_straight * enhancement;
-
-        // Pressure drop from friction in straight segments (with curvature correction):
+        // Pressure drop from friction in straight segments (NO curvature correction for straight parts):
         // ΔP_friction = f × (L/D_h) × (ρV²/2)
+        // Note: Curvature enhancement is NOT applied to straight sections,
+        // only to bend regions via the bend loss coefficient.
         let half = T::from_f64(0.5).unwrap_or_else(T::one);
-        let dp_friction = f_curved * (self.straight_length / dh) * half * density * velocity * velocity;
+        let dp_friction = f_straight * (self.straight_length / dh) * half * density * velocity * velocity;
 
         // --- 3. Bend minor losses ---
         let n_bends = T::from_usize(self.num_bends()).unwrap_or_else(T::zero);
@@ -598,7 +595,9 @@ impl<T: RealField + Copy + FromPrimitive> SerpentineModel<T> {
         let f_straight = self.base_friction_factor(re_safe);
         let f_curved = f_straight * enhancement;
 
-        let dp_friction = f_curved * (self.straight_length / dh) * half * density * velocity * velocity;
+        // Friction in straight sections: Use f_straight (NOT f_curved)
+        // Curvature effects are captured in bend losses, not friction along straight sections
+        let dp_friction = f_straight * (self.straight_length / dh) * half * density * velocity * velocity;
 
         let n_bends = T::from_usize(self.num_bends()).unwrap_or_else(T::zero);
         let k_bend = self.bend_type.loss_coefficient(re_safe);

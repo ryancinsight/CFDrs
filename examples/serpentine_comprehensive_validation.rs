@@ -73,14 +73,23 @@ fn test_straight_channel_poiseuille() -> ValidationResult {
 
     // Blood properties
     let blood = CassonBlood::<f64>::normal_blood();
-    let shear_rate: f64 = 100.0; // s^-1
-    let viscosity: f64 = blood.apparent_viscosity(shear_rate);
+    
+    // Calculate ACTUAL shear rate that the model will use
+    // γ̇ = 8V/D where V = Q/A
+    let area: f64 = std::f64::consts::PI * (diameter / 2.0).powi(2);
+    let velocity: f64 = flow_rate / area;
+    let actual_shear_rate: f64 = 8.0 * velocity / diameter;
+    
+    // Use the ACTUAL shear rate for viscosity (not arbitrary 100 s^-1)
+    let viscosity: f64 = blood.apparent_viscosity(actual_shear_rate);
     let density: f64 = blood.density;
 
     println!("Parameters:");
     println!("  Diameter: {:.1} um", diameter * 1e6);
     println!("  Length: {:.2} mm", length * 1e3);
     println!("  Flow rate: {:.1} nL/s", flow_rate * 1e9);
+    println!("  Velocity: {:.3e} m/s", velocity);
+    println!("  Wall shear rate: {:.1} s^-1", actual_shear_rate);
     println!("  Viscosity: {:.4e} Pa.s", viscosity);
 
     // Create serpentine channel model with 1 segment (straight channel)
@@ -176,12 +185,14 @@ fn test_dean_number() -> ValidationResult {
     println!("  Dean number: {:.2}", de_computed);
     println!("  Laminar regime (De < 100): {}", de_laminar);
 
+    let relative_error = (de_computed - de_expected).abs() / de_expected.max(1e-15);
+
     ValidationResult {
         test_name: "Dean Number".to_string(),
         computed: de_computed,
         expected: de_expected,
-        relative_error: (de_computed - de_expected).abs() / de_expected.max(1e-15),
-        passed: de_laminar && re < 10.0, // Low Re for laminar
+        relative_error,
+        passed: de_laminar && relative_error < 1e-10, // Dean number matches exactly, and flow is laminar
         reference: "Dean (1927)".to_string(),
     }
 }
@@ -222,7 +233,12 @@ fn test_serpentine_pressure_drop() -> ValidationResult {
     // Flow conditions
     let flow_rate: f64 = 1e-9; // 1 nL/s
     let blood = CassonBlood::<f64>::normal_blood();
-    let viscosity: f64 = blood.apparent_viscosity(100.0);
+    
+    // Calculate ACTUAL viscosity at ACTUAL shear rate (for fair comparison)
+    let area: f64 = std::f64::consts::PI * (diameter / 2.0).powi(2);
+    let velocity: f64 = flow_rate / area;
+    let actual_shear_rate: f64 = 8.0 * velocity / diameter;
+    let viscosity: f64 = blood.apparent_viscosity(actual_shear_rate);
 
     let conditions = FlowConditions {
         flow_rate: Some(flow_rate),
@@ -245,6 +261,9 @@ fn test_serpentine_pressure_drop() -> ValidationResult {
         dp_friction, dp_friction / dp_total * 100.0);
     println!("  Bend sections: {:.3e} Pa ({:.1}%)",
         dp_bends, dp_bends / dp_total * 100.0);
+    println!("  Velocity: {:.3e} m/s", velocity);
+    println!("  Wall shear rate: {:.1} s^-1", actual_shear_rate);
+    println!("  Viscosity (actual): {:.4e} Pa.s", viscosity);
 
     // Validation: bend losses should contribute meaningfully for serpentine
     let bend_fraction: f64 = dp_bends / dp_total;
