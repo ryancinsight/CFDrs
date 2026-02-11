@@ -217,7 +217,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
             }
         }
 
-        let fem_solution = last_solution.ok_or_else(|| Error::Solver("No solution generated".to_string()))?;
+        let _fem_solution = last_solution.ok_or_else(|| Error::Solver("No solution generated".to_string()))?;
         
         // 5. Extract Metrics
         let mut solution = SerpentineSolution3D::new();

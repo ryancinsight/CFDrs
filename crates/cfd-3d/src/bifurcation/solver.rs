@@ -150,7 +150,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
         // For symmetric bifurcation: u_outlet = u_inlet * (A_parent / A_daughter) = u_inlet * (D_parent/D_daughter)^2
         let ratio = self.geometry.d_parent / self.geometry.d_daughter1;
         let area_ratio = ratio * ratio;
-        let u_outlet = u_inlet * area_ratio; // Velocity in daughter branches
+        let _u_outlet = u_inlet * area_ratio; // Velocity in daughter branches
         
         // Process outlet faces FIRST (highest priority) - use PressureOutlet
         for f_idx in mesh.boundary_faces() {
@@ -215,7 +215,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
             if let Some(face) = mesh.face(face_idx) {
                 for &v_idx in &face.vertices {
                     // If no BC assigned yet, default to wall
-                    let bc = boundary_conditions.entry(v_idx).or_insert_with(|| {
+                    let _bc = boundary_conditions.entry(v_idx).or_insert_with(|| {
                         default_wall_count += 1;
                         BoundaryCondition::Dirichlet {
                             value: T::zero(),

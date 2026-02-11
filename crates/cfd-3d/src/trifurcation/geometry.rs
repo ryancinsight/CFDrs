@@ -5,7 +5,7 @@
 
 use crate::bifurcation::ConicalTransition;
 use cfd_core::conversion::SafeFromF64;
-use nalgebra::{Point3, RealField, Vector3};
+use nalgebra::RealField;
 use num_traits::{FromPrimitive, ToPrimitive};
 use serde::{Deserialize, Serialize};
 
@@ -57,7 +57,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> Trifurcati
 
     /// Verification based on Generalized Murray's Law: D_0^3 = Σ D_i^3
     pub fn murray_law_deviation(&self) -> T {
-        let three = T::from_f64_or_one(3.0);
+        let _three = T::from_f64_or_one(3.0);
         let sum_daughters = self.d_daughters[0].powi(3)
             + self.d_daughters[1].powi(3)
             + self.d_daughters[2].powi(3);

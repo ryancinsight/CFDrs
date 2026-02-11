@@ -3,10 +3,9 @@
 //! Provides mesh convergence studies, error metrics, and validation against
 //! ISO 5167 standards for Venturi tubes.
 
-use super::solver::{VenturiConfig3D, VenturiSolution3D, VenturiSolver3D};
+use super::solver::{VenturiConfig3D, VenturiSolution3D};
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::Error;
-use cfd_core::physics::fluid::traits::{Fluid as FluidTrait, NonNewtonianFluid};
 use cfd_mesh::geometry::venturi::VenturiMeshBuilder;
 use nalgebra::RealField;
 use num_traits::{Float, FromPrimitive, ToPrimitive};
@@ -19,10 +18,10 @@ use serde::{Deserialize, Serialize};
 /// Calculate theoretical discharge coefficient for a classical Venturi tube
 /// based on ISO 5167-4
 pub fn iso_discharge_coefficient<T: RealField + Copy + FromPrimitive>(
-    reynolds_d: T,
-    beta: T,
-    pipe_roughness: T,
-    d_inlet: T,
+    _reynolds_d: T,
+    _beta: T,
+    _pipe_roughness: T,
+    _d_inlet: T,
 ) -> T {
     // For machined convergent section:
     // C = 0.995 usually
@@ -87,7 +86,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float> Ve
         // p_in - p_th = 0.5 * rho * u_in^2 * ((A_in/A_th)^2 - 1)
         
         let u_in_avg = config.inlet_flow_rate / a_inlet;
-        let beta = self.mesh_builder.d_throat / self.mesh_builder.d_inlet;
+        let _beta = self.mesh_builder.d_throat / self.mesh_builder.d_inlet;
         let area_ratio = a_inlet / a_throat; // > 1
         
         let dp_bernoulli = T::from_f64(0.5).unwrap() * fluid_density * u_in_avg * u_in_avg * (area_ratio * area_ratio - T::one());

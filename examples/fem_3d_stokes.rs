@@ -70,8 +70,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         boundary_conditions.len()
     );
 
+    // Number of corner nodes (vertices in the original P1 mesh)
+    let n_corner_nodes = mesh.vertices().len();
+
     // Create problem definition
-    let problem = StokesFlowProblem::new(mesh, fluid, boundary_conditions);
+    let problem = StokesFlowProblem::new(mesh, fluid, boundary_conditions, n_corner_nodes);
 
     // Create FEM solver configuration
     let base = cfd_core::compute::solver::SolverConfig::builder()
