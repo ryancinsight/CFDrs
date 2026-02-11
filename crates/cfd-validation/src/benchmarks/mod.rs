@@ -18,7 +18,7 @@ pub mod threed;
 pub mod serpentine;
 // NOTE: poiseuille_bifurcation module temporarily disabled due to API compatibility.
 // Awaiting alignment with updated cfd-1d/cfd-2d solver interfaces.
-// pub mod poiseuille_bifurcation;
+pub mod poiseuille_bifurcation;
 
 pub use bifurcation::BifurcationFlow;
 pub use cavity::LidDrivenCavity;
@@ -29,7 +29,7 @@ pub use trifurcation::TrifurcationFlow;
 pub use venturi::VenturiFlow;
 pub use threed::*;
 pub use serpentine::SerpentineFlow;
-// pub use poiseuille_bifurcation::*;
+pub use poiseuille_bifurcation::*;
 
 /// Trait for CFD benchmark problems
 pub trait Benchmark<T: RealField + Copy> {
