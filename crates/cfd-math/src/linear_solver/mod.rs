@@ -21,6 +21,7 @@
 
 mod bicgstab;
 pub mod block_preconditioner;
+mod direct_solver;
 mod config;
 mod conjugate_gradient;
 pub mod gmres;
@@ -32,6 +33,7 @@ mod traits;
 pub use bicgstab::BiCGSTAB;
 pub use config::IterativeSolverConfig;
 pub use conjugate_gradient::ConjugateGradient;
+pub use direct_solver::DirectSparseSolver;
 pub use gmres::GMRES;
 #[cfg(feature = "mpi")]
 pub use matrix_free::{

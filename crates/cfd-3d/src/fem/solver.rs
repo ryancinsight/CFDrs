@@ -6,7 +6,8 @@
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_math::linear_solver::{
-    BlockDiagonalPreconditioner, GMRES, IncompleteLU, LinearSolver, Preconditioner,
+    BiCGSTAB, BlockDiagonalPreconditioner, DirectSparseSolver, GMRES, IncompleteLU, LinearSolver,
+    Preconditioner,
 };
 use cfd_math::sparse::{SparseMatrix, SparseMatrixBuilder};
 use nalgebra::{DVector, RealField, Vector3};
@@ -60,6 +61,34 @@ impl<T: RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> 
             DVector::zeros(n_total_dof)
         };
 
+        let direct_solver = DirectSparseSolver::default();
+        if direct_solver.can_handle_size(n_total_dof) {
+            println!("  Attempting direct sparse LU solve (rsparse)...");
+            match direct_solver.solve(&matrix, &rhs) {
+                Ok(x_direct) => {
+                    x = x_direct;
+                    let velocity = x.rows(0, n_velocity_dof).into_owned();
+                    let pressure = x.rows(n_velocity_dof, n_corner_nodes).into_owned();
+                    println!("  Direct solve completed successfully.");
+                    return Ok(StokesFlowSolution::new_with_corners(
+                        velocity,
+                        pressure,
+                        n_nodes,
+                        n_corner_nodes,
+                    ));
+                }
+                Err(err) => {
+                    println!("  Direct solve failed: {}", err);
+                    println!("  Falling back to iterative solvers...");
+                }
+            }
+        } else {
+            println!(
+                "  Skipping direct solve: system size {} exceeds limit {}",
+                n_total_dof, direct_solver.max_size
+            );
+        }
+
         let rel_tol = T::from_f64(1e-8).unwrap_or_else(T::zero);
         let abs_tol = Float::max(rel_tol * rhs.norm(), T::from_f64(1e-14).unwrap_or_else(T::zero));
         
@@ -85,21 +114,69 @@ impl<T: RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> 
                 println!("  ✓ Block diagonal preconditioner: Converged in {} iterations, resid={:?}", 
                     monitor.iteration, monitor.residual_history.last());
             }
-            Err(e) => {
-                println!("  ✗ Block diagonal preconditioner failed: {}", e);
-                println!("  Falling back to ILU preconditioner...");
-                
-                // Reset initial guess
+            Err(block_err) => {
+                let block_err_msg = format!("{block_err}");
+                println!("  ✗ Block diagonal preconditioner failed: {}", block_err_msg);
+                println!("  Falling back to unpreconditioned GMRES...");
+
+                // Reset initial guess before each fallback strategy.
                 x.fill(T::zero());
-                
-                let ilu_preconditioner = IncompleteLU::new(&matrix)
-                    .map_err(|e| Error::Solver(format!("ILU failed: {}", e)))?;
-                
-                let monitor = solver.solve_preconditioned(&matrix, &rhs, &ilu_preconditioner, &mut x)
-                    .map_err(|e| Error::Solver(format!("GMRES failed: {}", e)))?;
-                
-                println!("  ✓ ILU preconditioner: Converged in {} iterations, resid={:?}", 
-                    monitor.iteration, monitor.residual_history.last());
+                match solver.solve_unpreconditioned(&matrix, &rhs, &mut x) {
+                    Ok(monitor) => {
+                        println!(
+                            "  ✓ Unpreconditioned GMRES: Converged in {} iterations, resid={:?}",
+                            monitor.iteration,
+                            monitor.residual_history.last()
+                        );
+                    }
+                    Err(gmres_unprec_err) => {
+                        let gmres_unprec_err_msg = format!("{gmres_unprec_err}");
+                        println!("  ✗ Unpreconditioned GMRES failed: {}", gmres_unprec_err_msg);
+                        println!("  Falling back to ILU-preconditioned GMRES...");
+
+                        x.fill(T::zero());
+                        let ilu_result = IncompleteLU::new(&matrix);
+                        let gmres_ilu_result = if let Ok(ilu_preconditioner) = ilu_result {
+                            solver.solve_preconditioned(&matrix, &rhs, &ilu_preconditioner, &mut x)
+                        } else {
+                            Err(cfd_core::error::Error::Solver(
+                                "ILU preconditioner construction failed".to_string(),
+                            ))
+                        };
+
+                        match gmres_ilu_result {
+                            Ok(monitor) => {
+                                println!(
+                                    "  ✓ ILU preconditioned GMRES: Converged in {} iterations, resid={:?}",
+                                    monitor.iteration,
+                                    monitor.residual_history.last()
+                                );
+                            }
+                            Err(gmres_ilu_err) => {
+                                let gmres_ilu_err_msg = format!("{gmres_ilu_err}");
+                                println!("  ✗ ILU-preconditioned GMRES failed: {}", gmres_ilu_err_msg);
+                                println!("  Falling back to unpreconditioned BiCGSTAB...");
+
+                                x.fill(T::zero());
+                                let bicg = BiCGSTAB::new(gmres_config.clone());
+                                let monitor = bicg
+                                    .solve_unpreconditioned(&matrix, &rhs, &mut x)
+                                    .map_err(|bicg_err| {
+                                        Error::Solver(format!(
+                                            "All linear solver attempts failed. block={}, gmres_unpreconditioned={}, gmres_ilu={}, bicgstab={}",
+                                            block_err_msg, gmres_unprec_err_msg, gmres_ilu_err_msg, bicg_err
+                                        ))
+                                    })?;
+
+                                println!(
+                                    "  ✓ Unpreconditioned BiCGSTAB: Converged in {} iterations, resid={:?}",
+                                    monitor.iteration,
+                                    monitor.residual_history.last()
+                                );
+                            }
+                        }
+                    }
+                }
             }
         }
 

@@ -24,7 +24,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Create a simple tetrahedral mesh
     // NOTE: Need refined mesh with interior nodes for proper cavity flow simulation
-    let nx = 3; // Grid resolution: 3x3x3 = 27 vertices (smaller for convergence testing)
+    let nx = 5; // Grid resolution (5x5x5 = 125 vertices for validation)
     let mesh = create_refined_cube_mesh(nx)?;
     println!(
         "Created tetrahedral mesh with {} vertices and {} cells",

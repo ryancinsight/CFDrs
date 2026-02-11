@@ -453,6 +453,7 @@ dependencies = [
  "proptest",
  "rand 0.8.5",
  "rayon",
+ "rsparse",
  "serde",
  "thiserror",
  "tokio",
@@ -2115,6 +2116,12 @@ name = "renderdoc-sys"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "19b30a45b0cd0bcca8037f3d0dc3421eaf95327a17cad11964fb8179b4fc4832"
+
+[[package]]
+name = "rsparse"
+version = "1.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9d65dc8db760bdc8c94f4163c5d09be710f76fc92a4a1f698c441925db83c09e"
 
 [[package]]
 name = "rustc-hash"

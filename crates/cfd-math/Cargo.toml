@@ -12,6 +12,7 @@ description = "Mathematical utilities and numerical methods for CFD simulations"
 cfd-core.workspace = true
 nalgebra.workspace = true
 nalgebra-sparse.workspace = true
+rsparse.workspace = true
 num-traits.workspace = true
 num-complex.workspace = true
 rayon.workspace = true
