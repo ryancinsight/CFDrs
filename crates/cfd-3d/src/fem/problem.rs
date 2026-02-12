@@ -100,21 +100,13 @@ impl<T: RealField + Copy> StokesFlowProblem<T> {
         }
 
         // Collect boundary faces:
-        // 1. Faces explicitly marked as boundaries
-        let marked_boundary_faces: HashSet<usize> =
-            self.mesh.boundary_faces().into_iter().collect();
-
-        // 2. Faces referenced by exactly one cell (external boundaries)
-        let connectivity_boundary_faces: HashSet<usize> = face_cell_count
+        // Only faces referenced by exactly one cell (external boundaries) are considered
+        // "boundary faces" that require boundary conditions.
+        // Marked internal faces (e.g. interfaces) are excluded.
+        let boundary_faces: HashSet<usize> = face_cell_count
             .iter()
             .filter(|&(_face_idx, &count)| count == 1)
             .map(|(&face_idx, _)| face_idx)
-            .collect();
-
-        // Union of both sets
-        let boundary_faces: HashSet<usize> = marked_boundary_faces
-            .union(&connectivity_boundary_faces)
-            .copied()
             .collect();
 
         // Collect unique vertices from all boundary faces
@@ -327,5 +319,76 @@ mod tests {
         let mut sorted = boundary_nodes.clone();
         sorted.sort_unstable();
         assert_eq!(boundary_nodes, sorted);
+    }
+
+    #[test]
+    fn test_validate_ignores_internal_marked_nodes() {
+        // Create a 2x2x2 grid which has one internal node (center)
+        // Center vertex is at index 13 (i=1, j=1, k=1) for a 3x3x3 vertex grid
+        let mesh = cfd_mesh::grid::StructuredGridBuilder::<f64>::new(2, 2, 2)
+            .build()
+            .unwrap();
+
+        // Find an internal face.
+        // Internal faces are those with count > 1.
+        let mut internal_face_idx = None;
+        let mut face_cell_count = std::collections::HashMap::new();
+        for cell in mesh.cells() {
+            for &f_idx in &cell.faces {
+                *face_cell_count.entry(f_idx).or_insert(0) += 1;
+            }
+        }
+
+        for (f_idx, count) in face_cell_count {
+            if count > 1 {
+                internal_face_idx = Some(f_idx);
+                break;
+            }
+        }
+
+        let internal_face_idx = internal_face_idx.expect("Should have internal faces in 2x2x2 grid");
+
+        // Mark this internal face as "monitor"
+        let mut mesh = mesh;
+        mesh.mark_boundary(internal_face_idx, "monitor".to_string());
+
+        let fluid = ConstantPropertyFluid::<f64>::water_20c().unwrap();
+
+        // Apply BCs only to external boundary nodes
+        // (For simplicity, apply to all nodes that are on external faces)
+        let mut boundary_conditions = HashMap::new();
+        let external_faces = mesh.external_faces();
+
+        let mut external_nodes = std::collections::HashSet::new();
+        for f_idx in external_faces {
+            if let Some(face) = mesh.face(f_idx) {
+                for &v in &face.vertices {
+                    external_nodes.insert(v);
+                }
+            }
+        }
+
+        for node in external_nodes {
+            boundary_conditions.insert(
+                node,
+                BoundaryCondition::Dirichlet {
+                    value: 0.0,
+                    component_values: None,
+                },
+            );
+        }
+
+        let problem = StokesFlowProblem::new(mesh, fluid, boundary_conditions, 27);
+
+        // After fix: get_boundary_nodes() should exclude internal marked faces.
+        // The center node (index 13) is on the internal face but NOT on any external face.
+        // It should NOT be considered a boundary node, so it shouldn't require a BC.
+
+        let result = problem.validate();
+
+        println!("Validation result: {:?}", result);
+
+        // We expect it to succeed now because internal marked nodes are ignored.
+        assert!(result.is_ok(), "Validation should succeed for marked internal nodes without BCs (after fix)");
     }
 }
