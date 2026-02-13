@@ -43,6 +43,29 @@ impl<T: RealField + Copy + FromPrimitive + Float + Sum> NetworkAnalyzer<T> for F
             if flow_rate != T::zero() {
                 analysis.add_component_flow(edge.id.clone(), flow_rate);
 
+                let area = edge.properties.area;
+                let velocity = flow_rate / area;
+                let velocity_mag = Float::abs(velocity);
+                analysis.add_velocity(edge.id.clone(), velocity_mag);
+
+                let hydraulic_diameter = edge.properties.hydraulic_diameter.unwrap_or_else(|| {
+                    T::from_f64(4.0).unwrap_or_else(T::one) * area
+                        / (T::from_f64(std::f64::consts::PI).unwrap_or_else(T::one)
+                            * Float::sqrt(area))
+                });
+
+                let reynolds = network.fluid().density * velocity_mag * hydraulic_diameter
+                    / network.fluid().viscosity;
+                analysis.add_reynolds_number(edge.id.clone(), reynolds);
+
+                if hydraulic_diameter > T::zero() {
+                    let eight = T::from_f64(8.0).unwrap_or_else(T::one);
+                    let shear_rate = eight * velocity_mag / hydraulic_diameter;
+                    let shear_stress = network.fluid().viscosity * shear_rate;
+                    analysis.add_wall_shear_rate(edge.id.clone(), shear_rate);
+                    analysis.add_wall_shear_stress(edge.id.clone(), shear_stress);
+                }
+
                 // Determine flow regime
                 let regime = self.determine_flow_regime(network, &edge, flow_rate);
                 analysis.add_flow_regime(edge.id.clone(), regime);
