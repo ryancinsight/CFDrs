@@ -10,15 +10,16 @@
 - [x] Blood rheology - Rust/Python 0.00% error
 - [x] Placeholder audit - 1 critical fix applied
 
-### Current Issues to Fix
-- [ ] Fix cfd-3d trifurcation validation test (import errors)
-- [ ] Fix cfd-3d serpentine validation test (import errors)
-- [ ] Fix cfd-3d venturi validation test (import errors)
-- [ ] Fix unused import warnings
-- [ ] Commit and push changes
+### Completed This Sprint
+- [x] Fixed cfd-3d trifurcation validation imports (NonNewtonianFluid)
+- [x] Fixed cfd-3d serpentine validation imports (NonNewtonianFluid)
+- [x] Fixed cfd-3d venturi validation imports (NonNewtonianFluid)
+- [x] Fixed fem_boundary_conditions.rs test (n_corner_nodes argument)
+- [x] Added SPRINT_TASK_LIST.md for tracking
+- [x] Committed and pushed changes to git
 
 ### Pending Validations
-- [ ] 3D FEM solver convergence (GMRES preconditioner)
+- [ ] 3D FEM solver convergence - needs block preconditioner for saddle-point systems
 - [ ] fluidsim cross-package comparison
 - [ ] Complete trifurcation 3D validation
 - [ ] Complete bifurcation 3D validation
@@ -30,7 +31,7 @@
 - fluidsim (to install) - Full CFD suite
 
 ### Next Sprint Goals
-1. Fix all 3D test compilation errors
-2. Implement block preconditioner for 3D FEM
+1. Investigate 3D FEM matrix conditioning
+2. Implement specialized preconditioner for saddle-point systems
 3. Complete validation against fluidsim
-4. Push working changes to git
+4. Run full test suite
