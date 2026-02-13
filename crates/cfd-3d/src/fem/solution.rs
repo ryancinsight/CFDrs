@@ -6,7 +6,7 @@ use nalgebra::{DVector, RealField, Vector3};
 /// Solution for 3D incompressible flow
 #[derive(Debug, Clone)]
 pub struct StokesFlowSolution<T: RealField + Copy> {
-    /// Velocity field (3 components per node)
+    /// Velocity field stored in block order: [u_nodes, v_nodes, w_nodes]
     pub velocity: DVector<T>,
     /// Pressure field (1 per node)
     pub pressure: DVector<T>,
@@ -42,11 +42,12 @@ impl<T: RealField + Copy> StokesFlowSolution<T> {
     /// Get velocity at node
     #[must_use]
     pub fn get_velocity(&self, node_idx: usize) -> Vector3<T> {
-        let base = node_idx * constants::VELOCITY_COMPONENTS;
+        let base = node_idx;
+        let v_offset = self.n_nodes;
         Vector3::new(
             self.velocity[base],
-            self.velocity[base + 1],
-            self.velocity[base + 2],
+            self.velocity[base + v_offset],
+            self.velocity[base + 2 * v_offset],
         )
     }
 
@@ -58,10 +59,11 @@ impl<T: RealField + Copy> StokesFlowSolution<T> {
 
     /// Set velocity at node
     pub fn set_velocity(&mut self, node_idx: usize, vel: &Vector3<T>) {
-        let base = node_idx * constants::VELOCITY_COMPONENTS;
+        let base = node_idx;
+        let v_offset = self.n_nodes;
         self.velocity[base] = vel.x;
-        self.velocity[base + 1] = vel.y;
-        self.velocity[base + 2] = vel.z;
+        self.velocity[base + v_offset] = vel.y;
+        self.velocity[base + 2 * v_offset] = vel.z;
     }
 
     /// Set pressure at node
@@ -82,11 +84,9 @@ impl<T: RealField + Copy> StokesFlowSolution<T> {
     }
 
     /// Interleave velocity and pressure into a single vector for the linear solver
-    /// Format: [u0, v0, w0, p0, u1, v1, w1, p1, ...]
+    /// Format: [u_nodes..., v_nodes..., w_nodes..., p_nodes...]
     pub fn interleave(&self) -> DVector<T> {
         // Blocks: [U...V...W... P...]
-        // Note: Taylor-Hood naturally uses block formats for saddle points.
-        // We order as [u0,v0,w0, u1,v1,w1, ..., uN,vN,wN, p0, p1, ..., pK]
         let n_vel = self.n_nodes * constants::VELOCITY_COMPONENTS;
         let n_pres = self.n_corner_nodes;
         let mut data = DVector::zeros(n_vel + n_pres);

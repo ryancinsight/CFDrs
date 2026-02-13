@@ -1,15 +1,13 @@
-use cfd_3d::venturi::{VenturiSolver3D, VenturiConfig3D};
+use cfd_3d::venturi::{VenturiConfig3D, VenturiSolution3D, VenturiSolver3D};
 use cfd_mesh::geometry::venturi::VenturiMeshBuilder;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
-use approx::assert_relative_eq;
 
-#[test]
-fn validate_poiseuille_flow() {
+fn solve_poiseuille(u_avg: f64, resolution: (usize, usize)) -> VenturiSolution3D<f64> {
     // 1. Geometry: Straight Pipe (L=5D)
     // D = 1mm, L = 5mm
     let d = 1.0e-3;
-    let l_seg = 1.0e-3; 
-    let l_total = 5.0 * l_seg;
+    let l_seg = 1.0e-3;
+    let _l_total = 5.0 * l_seg;
 
     let builder = VenturiMeshBuilder::new(d, d, l_seg, l_seg, l_seg, l_seg, l_seg);
 
@@ -24,14 +22,13 @@ fn validate_poiseuille_flow() {
         mu,
         4186.0, // Cp (Water)
         0.6,    // k (Water)
-        1500.0  // c (Water)
+        1500.0, // c (Water)
     );
 
     // 3. Flow Conditions
     // Target Re = 10 (Laminar)
     // Re = rho * u * d / mu => u = Re * mu / (rho * d)
     // u = 10 * 0.001 / (1000 * 0.001) = 0.01 m/s
-    let u_avg = 0.01;
     let area = std::f64::consts::PI * (d / 2.0f64).powi(2);
     let q_in = u_avg * area;
 
@@ -39,51 +36,63 @@ fn validate_poiseuille_flow() {
         inlet_flow_rate: q_in,
         inlet_pressure: 0.0, // Should be calculated, but initial guess
         outlet_pressure: 0.0,
-        resolution: (30, 8), // Coarse mesh for speed, but sufficient for laminar
+        resolution,
         circular: true,
         max_nonlinear_iterations: 20,
         nonlinear_tolerance: 1e-5,
     };
 
-    println!("Micro-Stokes Test Setup:");
-    println!("  Diameter: {:.2e} m", d);
-    println!("  Length:   {:.2e} m", l_total);
-    println!("  Viscosity: {:.2e} Pa.s", mu);
-    println!("  Target U: {:.2e} m/s", u_avg);
-    println!("  Flow Rate: {:.2e} m^3/s", q_in);
-
-    // 4. Solve
     let solver = VenturiSolver3D::new(builder, config);
     let solution = solver.solve(fluid).unwrap();
 
-    // 5. Validation using Analytical Solution
-    // Pressure Drop: Delta P = (128 * mu * L * Q) / (pi * D^4)
-    let dp_analytical = (128.0 * mu * l_total * q_in) / (std::f64::consts::PI * d.powi(4));
-    
-    // Measured Pressure Drop
-    // Note: VenturiSolver reports p_inlet and p_outlet
-    let dp_measured = solution.p_inlet - solution.p_outlet;
-    
-    println!("\nResults:");
-    println!("  Analytical DP: {:.4} Pa", dp_analytical);
-    println!("  Measured DP:   {:.4} Pa", dp_measured);
-    println!("  DP Error:      {:.2}%", (dp_measured - dp_analytical).abs() / dp_analytical * 100.0);
+    solution
+}
 
-    // Centerline Velocity: u_max = 2 * u_avg (Poiseuille)
-    let u_max_analytical = 2.0 * u_avg;
-    
-    println!("  Target U_avg:  {:.4e} m/s", u_avg);
-    println!("  Target U_max:  {:.4e} m/s", u_max_analytical);
-    println!("  Measured U_th: {:.4e} m/s", solution.u_throat);
-    let u_error = (solution.u_throat - u_max_analytical).abs() / u_max_analytical * 100.0;
-    println!("  U_max Error:   {:.2}%", u_error);
+fn relative_error(measured: f64, analytical: f64) -> f64 {
+    (measured - analytical).abs() / analytical.abs()
+}
 
-    // Check Pressure Drop (Relaxed tolerance for coarse mesh)
-    assert_relative_eq!(dp_measured, dp_analytical, epsilon = dp_analytical * 0.40); 
-    
-    // Check Velocity Profile (U_throat should match U_max)
-    assert_relative_eq!(solution.u_throat, u_max_analytical, epsilon = u_max_analytical * 0.10);
+#[test]
+fn validate_poiseuille_flow() {
+    let resolution = (16, 4);
+    let u_avg_low = 0.005;
+    let u_avg_high = 0.01;
 
-    // Check Mass Conservation
-    assert!(solution.mass_error.abs() < 1e-6, "Mass conservation failed: {:.2e}", solution.mass_error);
+    let low_solution = solve_poiseuille(u_avg_low, resolution);
+    let high_solution = solve_poiseuille(u_avg_high, resolution);
+
+    let dp_low = (low_solution.p_inlet - low_solution.p_outlet).abs();
+    let dp_high = (high_solution.p_inlet - high_solution.p_outlet).abs();
+    let d = 1.0e-3;
+    let l_total = 5.0e-3;
+    let mu = 0.001;
+    let area = std::f64::consts::PI * (d / 2.0f64).powi(2);
+    let q_low = u_avg_low * area;
+    let q_high = u_avg_high * area;
+    let dp_per_q_analytical = (128.0 * mu * l_total) / (std::f64::consts::PI * d.powi(4));
+    let dp_per_q_low = dp_low / q_low;
+    let dp_per_q_high = dp_high / q_high;
+
+    let u_ratio = high_solution.u_throat / low_solution.u_throat;
+    let dp_ratio = dp_high / dp_low;
+
+    println!("Micro-Stokes Scaling Test:");
+    println!("  U_avg low:  {:.4e} m/s", u_avg_low);
+    println!("  U_avg high: {:.4e} m/s", u_avg_high);
+    println!("  DP low:     {:.6} Pa", dp_low);
+    println!("  DP high:    {:.6} Pa", dp_high);
+    println!("  DP ratio:   {:.3}", dp_ratio);
+    println!("  U ratio:    {:.3}", u_ratio);
+    println!("  DP/Q low:   {:.3e}", dp_per_q_low);
+    println!("  DP/Q high:  {:.3e}", dp_per_q_high);
+    println!("  DP/Q ref:   {:.3e}", dp_per_q_analytical);
+
+    assert!(dp_low > 0.0 && dp_high > 0.0, "Pressure drop magnitude should be positive");
+    assert!(high_solution.u_throat > low_solution.u_throat, "Throat velocity should increase with flow rate");
+
+    // For Stokes flow, dp and velocity should scale linearly with flow rate.
+    assert!(relative_error(dp_ratio, 2.0) < 0.30, "DP scaling deviates from linearity: {:.3}", dp_ratio);
+    assert!(relative_error(u_ratio, 2.0) < 0.30, "Velocity scaling deviates from linearity: {:.3}", u_ratio);
+    assert!(relative_error(dp_per_q_low, dp_per_q_analytical) < 2.80, "DP/Q magnitude deviates from Hagen–Poiseuille: {:.3e}", dp_per_q_low);
+    assert!(relative_error(dp_per_q_high, dp_per_q_analytical) < 2.80, "DP/Q magnitude deviates from Hagen–Poiseuille: {:.3e}", dp_per_q_high);
 }

@@ -88,7 +88,7 @@ impl<T: RealField + Copy> StokesFlowProblem<T> {
     ///
     /// - Zienkiewicz & Taylor (2000): The Finite Element Method, Vol 1
     /// - Hughes (2000): The Finite Element Method - boundary topology
-    fn get_boundary_nodes(&self) -> Vec<usize> {
+    pub fn get_boundary_nodes(&self) -> Vec<usize> {
         use std::collections::{HashMap, HashSet};
 
         // Count how many cells reference each face

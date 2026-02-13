@@ -35,6 +35,18 @@ impl<T: RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> 
         Self { linear_solver, _config: config }
     }
 
+    /// Stokes Flow Problem ($-\mu \nabla^2 \mathbf{u} + \nabla p = \mathbf{f}$, $\nabla \cdot \mathbf{u} = 0$)
+    /// 
+    /// ### Mathematical Invariants
+    /// 1. **LBB (Babuška-Brezzi) Stability**: 
+    ///    The velocity-pressure space pair $(\mathcal{V}_h, \mathcal{Q}_h)$ must satisfy 
+    ///    $\inf_{q \in \mathcal{Q}_h} \sup_{v \in \mathcal{V}_h} \frac{\int q \nabla \cdot v}{\|v\|_{\mathcal{V}}\|q\|_{\mathcal{Q}}} \geq \beta > 0$.
+    ///    Ensured here by Taylor-Hood $P_k / P_{k-1}$ elements (Quad/Linear).
+    /// 2. **Mass Conservation**:
+    ///    $\oint_{\partial \Omega} \mathbf{u} \cdot \mathbf{n} dA = \int_{\Omega} \nabla \cdot \mathbf{u} d\Omega = 0$.
+    ///    Monitored via `continuity_residual` during assembly.
+    /// 3. **Force Balance**: 
+    ///    Local momentum residual must vanish in the sense of distributions: $\langle \mathcal{R}, \phi \rangle = 0$.
     pub fn solve(
         &mut self,
         problem: &StokesFlowProblem<T>,
@@ -62,20 +74,22 @@ impl<T: RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> 
         };
 
         let direct_solver = DirectSparseSolver::default();
-        if direct_solver.can_handle_size(n_total_dof) {
+        if n_total_dof < 100_000 {
             println!("  Attempting direct sparse LU solve (rsparse)...");
             match direct_solver.solve(&matrix, &rhs) {
                 Ok(x_direct) => {
                     x = x_direct;
                     let velocity = x.rows(0, n_velocity_dof).into_owned();
                     let pressure = x.rows(n_velocity_dof, n_corner_nodes).into_owned();
-                    println!("  Direct solve completed successfully.");
-                    return Ok(StokesFlowSolution::new_with_corners(
+                    let solution = StokesFlowSolution::new_with_corners(
                         velocity,
                         pressure,
                         n_nodes,
                         n_corner_nodes,
-                    ));
+                    );
+                    self.print_continuity_residual_stats(problem, &solution)?;
+                    println!("  Direct solve completed successfully.");
+                    return Ok(solution);
                 }
                 Err(err) => {
                     println!("  Direct solve failed: {}", err);
@@ -84,8 +98,8 @@ impl<T: RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> 
             }
         } else {
             println!(
-                "  Skipping direct solve: system size {} exceeds limit {}",
-                n_total_dof, direct_solver.max_size
+                "  Skipping direct solve: system size {} exceeds limit 100000",
+                n_total_dof
             );
         }
 
@@ -182,8 +196,104 @@ impl<T: RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> 
 
         let velocity = x.rows(0, n_velocity_dof).into_owned();
         let pressure = x.rows(n_velocity_dof, n_corner_nodes).into_owned();
+        let solution = StokesFlowSolution::new_with_corners(velocity, pressure, n_nodes, n_corner_nodes);
+        self.print_continuity_residual_stats(problem, &solution)?;
 
-        Ok(StokesFlowSolution::new_with_corners(velocity, pressure, n_nodes, n_corner_nodes))
+        Ok(solution)
+    }
+
+    fn print_continuity_residual_stats(
+        &self,
+        problem: &StokesFlowProblem<T>,
+        solution: &StokesFlowSolution<T>,
+    ) -> Result<()> {
+        let mut residual = vec![T::zero(); problem.n_corner_nodes];
+
+        for cell in problem.mesh.cells() {
+            let idxs = extract_vertex_indices(cell, &problem.mesh)?;
+            if idxs.len() < 4 {
+                continue;
+            }
+
+            let verts: Vec<Vector3<T>> = idxs
+                .iter()
+                .map(|&idx| problem.mesh.vertex(idx).unwrap().position.coords)
+                .collect();
+
+            let j_mat = nalgebra::Matrix3::from_columns(&[
+                verts[1] - verts[0],
+                verts[2] - verts[0],
+                verts[3] - verts[0],
+            ]);
+            let det_j = j_mat.determinant();
+            let abs_det = Float::abs(det_j);
+            if abs_det <= T::from_f64(1e-24).unwrap_or_else(T::zero) {
+                continue;
+            }
+
+            let j_inv_t = j_mat
+                .try_inverse()
+                .ok_or_else(|| Error::Solver("Singular Jacobian".to_string()))?
+                .transpose();
+
+            let grad_ref_p1 = nalgebra::Matrix3x4::new(
+                -T::one(), T::one(), T::zero(), T::zero(),
+                -T::one(), T::zero(), T::one(), T::zero(),
+                -T::one(), T::zero(), T::zero(), T::one(),
+            );
+            let p1_gradients_phys = j_inv_t * grad_ref_p1;
+            let shape = LagrangeTet10::new(p1_gradients_phys);
+
+            let quad = TetrahedronQuadrature::keast_degree_3();
+            for (qp, &qw) in quad.points().iter().zip(quad.weights().iter()) {
+                let weight = qw * abs_det;
+                let l = [T::one() - qp.x - qp.y - qp.z, qp.x, qp.y, qp.z];
+                let grad_p2 = shape.gradients(&l);
+
+                let mut div_u = T::zero();
+                for i in 0..idxs.len().min(10) {
+                    let vel = solution.get_velocity(idxs[i]);
+                    div_u += grad_p2[(0, i)] * vel.x + grad_p2[(1, i)] * vel.y + grad_p2[(2, i)] * vel.z;
+                }
+
+                for j in 0..4 {
+                    let p_idx = idxs[j];
+                    if p_idx < problem.n_corner_nodes {
+                        residual[p_idx] += l[j] * div_u * weight;
+                    }
+                }
+            }
+        }
+
+        let mut max_abs = T::zero();
+        let mut sum_abs = T::zero();
+        let mut l2 = T::zero();
+        let mut net = T::zero();
+        for &r in &residual {
+            let a = Float::abs(r);
+            if a > max_abs {
+                max_abs = a;
+            }
+            sum_abs += a;
+            l2 += r * r;
+            net += r;
+        }
+
+        let n = residual.len();
+        if n > 0 {
+            let mean_abs = sum_abs / T::from_usize(n).unwrap_or_else(T::one);
+            let l2_norm = Float::sqrt(l2);
+            println!(
+                "Continuity Residual (Bu): max={:?}, mean_abs={:?}, l2={:?}, net={:?}, n={} ",
+                max_abs,
+                mean_abs,
+                l2_norm,
+                net,
+                n
+            );
+        }
+
+        Ok(())
     }
 
 
@@ -218,7 +328,7 @@ impl<T: RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> 
                 let v3 = local_verts[3];
                 
                 let vol = ((v1 - v0).cross(&(v2 - v0))).dot(&(v3 - v0)) / T::from_f64(6.0).unwrap();
-                if Float::abs(vol) < T::from_f64(1e-15).unwrap() {
+                if Float::abs(vol) < T::from_f64(1e-22).unwrap() {
                     return Err(Error::Solver(format!(
                         "Element {} has near-zero volume: {:?}. Vertices: {:?}, {:?}, {:?}, {:?}",
                         i, vol, v0, v1, v2, v3
@@ -265,6 +375,7 @@ impl<T: RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> 
         let quad = TetrahedronQuadrature::keast_degree_3();
         let points = quad.points();
         let weights = quad.weights();
+        let grad_div_penalty = self._config.grad_div_penalty;
 
         let j_mat = nalgebra::Matrix3::from_columns(&[
             verts[1]-verts[0],
@@ -276,9 +387,9 @@ impl<T: RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> 
         let j_inv_t = j_mat.try_inverse().ok_or_else(|| Error::Solver("Singular Jacobian".to_string()))?.transpose();
 
         let grad_ref_p1 = nalgebra::Matrix3x4::new(
-            T::one(), T::zero(), T::zero(), -T::one(),
-            T::zero(), T::one(), T::zero(), -T::one(),
-            T::zero(), T::zero(), T::one(), -T::one(),
+            -T::one(), T::one(), T::zero(), T::zero(),
+            -T::one(), T::zero(), T::one(), T::zero(),
+            -T::one(), T::zero(), T::zero(), T::one(),
         );
         let p1_gradients_phys = j_inv_t * grad_ref_p1;
         let shape = LagrangeTet10::new(p1_gradients_phys);
@@ -288,7 +399,7 @@ impl<T: RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> 
 
         for (qp, &qw) in points.iter().zip(weights.iter()) {
             let weight = qw * abs_det;
-            let l = [qp.x, qp.y, qp.z, T::one() - qp.x - qp.y - qp.z];
+            let l = [T::one() - qp.x - qp.y - qp.z, qp.x, qp.y, qp.z];
             let n_p2 = shape.values(&l);
             let grad_p2_mat = shape.gradients(&l);
             let n_p1 = l;
@@ -306,12 +417,19 @@ impl<T: RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> 
                         builder.add_entry(gv_i, gv_j, visc)?;
                         let adv = density * n_p2[i] * u_avg.dot(&grad_j) * weight;
                         builder.add_entry(gv_i, gv_j, adv)?;
+                        if grad_div_penalty > T::zero() {
+                            for e in 0..3 {
+                                let gv_j_e = gj + e * v_offset;
+                                let grad_div = grad_div_penalty * grad_i[d] * grad_j[e] * weight;
+                                builder.add_entry(gv_i, gv_j_e, grad_div)?;
+                            }
+                        }
                     }
                     for j in 0..4 {
                         let gj = idxs[j];
                         let gp_j = p_offset + gj;
-                        let b_val = -n_p1[j] * grad_i[d] * weight;
-                        builder.add_entry(gv_i, gp_j, b_val)?;
+                        let b_val = n_p1[j] * grad_i[d] * weight;
+                        builder.add_entry(gv_i, gp_j, -b_val)?;
                         builder.add_entry(gp_j, gv_i, b_val)?;
                     }
                 }
@@ -338,6 +456,20 @@ impl<T: RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> 
         let mut wall_nodes = 0usize;
         let mut outlet_nodes = 0usize;
         let mut dirichlet_nodes = 0usize;
+        let mut unconstrained_boundary_nodes = Vec::new();
+
+        let boundary_nodes = problem.get_boundary_nodes();
+        for &node_idx in &boundary_nodes {
+            if !problem.boundary_conditions.contains_key(&node_idx) {
+                unconstrained_boundary_nodes.push(node_idx);
+            }
+        }
+
+        if !unconstrained_boundary_nodes.is_empty() {
+            println!("  [WARNING] Boundary Leak: {} boundary nodes have no BCs! First 5: {:?}", 
+                unconstrained_boundary_nodes.len(), 
+                &unconstrained_boundary_nodes[..unconstrained_boundary_nodes.len().min(5)]);
+        }
 
         // Track if any pressure boundary condition is applied
         let mut has_pressure_bc = false;
@@ -477,6 +609,7 @@ pub fn extract_vertex_indices<T: RealField + Copy + Float>(cell: &Cell, mesh: &M
         // Mid-edges: 4:(0,1), 5:(1,2), 6:(2,0), 7:(0,3), 8:(1,3), 9:(2,3)
         let ordered = order_tet_corners(&corners, mesh);
         let mut final_nodes = ordered.clone();
+        let mut used_mid_edges = std::collections::HashSet::new();
         
         let edges = [(0,1), (1,2), (2,0), (0,3), (1,3), (2,3)];
         for &(i, j) in &edges {
@@ -488,16 +621,37 @@ pub fn extract_vertex_indices<T: RealField + Copy + Float>(cell: &Cell, mesh: &M
             let p_j = mesh.vertex(v_j).unwrap().position.coords;
             let target = (p_i + p_j) * T::from_f64(0.5).unwrap();
             
-            let mut best_node = mid_edges[0];
-            let mut min_dist = (mesh.vertex(best_node).unwrap().position.coords - target).norm();
-            for &m_idx in &mid_edges[1..] {
+            let mut best_node = None;
+            let mut min_dist = T::infinity();
+
+            for &m_idx in &mid_edges {
+                if used_mid_edges.contains(&m_idx) {
+                    continue;
+                }
                 let dist = (mesh.vertex(m_idx).unwrap().position.coords - target).norm();
                 if dist < min_dist {
                     min_dist = dist;
-                    best_node = m_idx;
+                    best_node = Some(m_idx);
                 }
             }
-            final_nodes.push(best_node);
+
+            let selected = if let Some(m_idx) = best_node {
+                m_idx
+            } else {
+                let mut fallback = mid_edges[0];
+                let mut fallback_dist = (mesh.vertex(fallback).unwrap().position.coords - target).norm();
+                for &m_idx in &mid_edges[1..] {
+                    let dist = (mesh.vertex(m_idx).unwrap().position.coords - target).norm();
+                    if dist < fallback_dist {
+                        fallback_dist = dist;
+                        fallback = m_idx;
+                    }
+                }
+                fallback
+            };
+
+            used_mid_edges.insert(selected);
+            final_nodes.push(selected);
         }
         return Ok(final_nodes);
     }

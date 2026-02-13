@@ -397,7 +397,9 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
         let mut best_node = 0;
         let mut min_dist = <T as RealField>::max_value().unwrap_or_else(T::one);
         
-        for (i, v) in mesh.vertices().iter().enumerate() {
+        let n_pressure_nodes = solution.n_corner_nodes.min(mesh.vertex_count());
+        for i in 0..n_pressure_nodes {
+            let v = &mesh.vertices()[i];
             let dist = (v.position.coords - point).norm();
             if dist < min_dist {
                 min_dist = dist;

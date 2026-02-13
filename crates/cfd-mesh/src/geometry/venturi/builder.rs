@@ -153,6 +153,11 @@ impl<T: RealField + Copy + FromPrimitive + Float> VenturiMeshBuilder<T> {
         println!("Venturi Builder: Total boundary faces from StructuredGridBuilder: {}", boundary_faces.len());
         
         let mut face_labels: Vec<(usize, String)> = Vec::new();
+        let mut inlet_faces = 0usize;
+        let mut outlet_faces = 0usize;
+        let mut wall_faces = 0usize;
+        let mut inlet_misaligned = 0usize;
+        let mut outlet_misaligned = 0usize;
         
         for f_idx in boundary_faces {
             if let Some(face) = mesh.face(f_idx) {
@@ -177,12 +182,15 @@ impl<T: RealField + Copy + FromPrimitive + Float> VenturiMeshBuilder<T> {
                 
                 if all_at_inlet {
                     face_labels.push((f_idx, "inlet".to_string()));
+                    inlet_faces += 1;
                     println!("Venturi Builder: Face {} marked INLET", f_idx);
                 } else if all_at_outlet {
                     face_labels.push((f_idx, "outlet".to_string()));
+                    outlet_faces += 1;
                     println!("Venturi Builder: Face {} marked OUTLET", f_idx);
                 } else {
                     face_labels.push((f_idx, "wall".to_string()));
+                    wall_faces += 1;
                     // Debug print for potential false positives
                     if true { // Enabled
                         let mut center_z = T::zero();
@@ -207,12 +215,38 @@ impl<T: RealField + Copy + FromPrimitive + Float> VenturiMeshBuilder<T> {
                         }
                     }
                 }
+
+                // Normal alignment check for inlet/outlet faces
+                if all_at_inlet || all_at_outlet {
+                    if face.vertices.len() >= 3 {
+                        let v0 = mesh.vertex(face.vertices[0]).unwrap().position.coords;
+                        let v1 = mesh.vertex(face.vertices[1]).unwrap().position.coords;
+                        let v2 = mesh.vertex(face.vertices[2]).unwrap().position.coords;
+                        let n = (v1 - v0).cross(&(v2 - v0));
+                        let n_norm = n.norm();
+                        if n_norm > eps {
+                            let nz = Float::abs(n.z) / n_norm;
+                            if nz < T::from_f64(0.9).unwrap() {
+                                if all_at_inlet {
+                                    inlet_misaligned += 1;
+                                } else {
+                                    outlet_misaligned += 1;
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
 
         for (f_idx, label) in face_labels {
             mesh.mark_boundary(f_idx, label);
         }
+
+        println!(
+            "Venturi Builder: inlet_faces={}, outlet_faces={}, wall_faces={}, inlet_misaligned={}, outlet_misaligned={}",
+            inlet_faces, outlet_faces, wall_faces, inlet_misaligned, outlet_misaligned
+        );
 
         Ok(mesh)
     }

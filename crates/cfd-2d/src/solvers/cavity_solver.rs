@@ -58,8 +58,8 @@ pub fn solve_lid_driven_cavity(
     let mu = rho * nu;
 
     // Allocate fields
-    let mut u = vec![vec![0.0_f64; ny]; nx + 1]; // u at vertical faces
-    let mut v = vec![vec![0.0_f64; ny + 1]; nx]; // v at horizontal faces
+    let mut u = vec![vec![1e-6_f64; ny]; nx + 1]; // u at vertical faces
+    let mut v = vec![vec![1e-6_f64; ny + 1]; nx]; // v at horizontal faces
     let mut p = vec![vec![0.0_f64; ny]; nx]; // p at cell centres
 
     let mut ap_u = vec![vec![1.0_f64; ny]; nx + 1];
@@ -69,6 +69,7 @@ pub fn solve_lid_driven_cavity(
     let mut converged = false;
     let mut iter_count = 0;
 
+    let max_iterations = 2000;
     for iteration in 0..max_iterations {
         // =================================================================
         // Step 1: Solve u-momentum  (faces i=1..nx-1, j=0..ny-1)
@@ -129,12 +130,13 @@ pub fn solve_lid_driven_cavity(
                     let a_w = d_w + 0.0_f64.max(f_w);
                     let (a_n, src_n) = if is_top {
                         // Wall treatment: known u_lid goes into source
-                        (d_n, d_n * u_lid)
+                        // Factor of 2 since wall is at distance dy/2
+                        (2.0 * d_n, 2.0 * d_n * u_lid)
                     } else {
                         (d_n + 0.0_f64.max(-f_n), 0.0)
                     };
                     let (a_s, src_s) = if is_bot {
-                        (d_s, 0.0) // wall u=0
+                        (2.0 * d_s, 0.0) // wall u=0, factor of 2
                     } else {
                         (d_s + 0.0_f64.max(f_s), 0.0)
                     };
@@ -220,12 +222,12 @@ pub fn solve_lid_driven_cavity(
                     let a_n = d_n + 0.0_f64.max(-f_n);
                     let a_s = d_s + 0.0_f64.max(f_s);
                     let (a_e, _src_e) = if is_right {
-                        (d_e, 0.0)
+                        (2.0 * d_e, 0.0) // wall v=0, factor 2
                     } else {
                         (d_e + 0.0_f64.max(-f_e), 0.0)
                     };
                     let (a_w, _src_w) = if is_left {
-                        (d_w, 0.0)
+                        (2.0 * d_w, 0.0) // wall v=0, factor 2
                     } else {
                         (d_w + 0.0_f64.max(f_w), 0.0)
                     };
@@ -349,10 +351,14 @@ pub fn solve_lid_driven_cavity(
             }
         }
         let cont_residual = (cont_sum / (nx * ny) as f64).sqrt();
+        if iteration % 100 == 0 {
+            println!("Iteration {}: residual={:?}", iteration, cont_residual);
+        }
+        
         final_residual = cont_residual;
         iter_count = iteration + 1;
 
-        if cont_residual < tolerance && iteration > 10 {
+        if cont_residual < tolerance && iteration > 500 {
             converged = true;
             break;
         }
@@ -369,14 +375,14 @@ pub fn solve_lid_driven_cavity(
     let mut y_coords = Vec::with_capacity(ny);
     for j in 0..ny {
         y_coords.push((j as f64 + 0.5) * dy / cavity_size);
-        u_centerline.push(0.5 * (u[mid_i][j] + u[mid_i + 1][j]) / u_lid);
+        u_centerline.push(u[mid_i][j] / u_lid);
     }
 
     let mut v_centerline = Vec::with_capacity(nx);
     let mut x_coords = Vec::with_capacity(nx);
     for i in 0..nx {
         x_coords.push((i as f64 + 0.5) * dx / cavity_size);
-        v_centerline.push(0.5 * (v[i][mid_j] + v[i][mid_j + 1]) / u_lid);
+        v_centerline.push(v[i][mid_j] / u_lid);
     }
 
     CavitySolveResult {

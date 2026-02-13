@@ -46,16 +46,15 @@ def run_cavity_validation(re: int = 100, nx: int = 129, ny: int = 129):
     solver = pycfdrs.CavitySolver2D(
         nx=nx,
         ny=ny,
-        re=float(re),
-        max_iterations=100000,
-        tolerance=1e-5
+        reynolds=float(re),
+        lid_velocity=1.0,
+        cavity_size=1.0
     )
     
     result = solver.solve()
     
-    print(f"Solver converged: {result.converged}")
-    print(f"Iterations: {result.iterations}")
-    print(f"Final residual: {result.residual:.2e}\n")
+    print(f"Solver Status: {'Converged' if result.converged else 'Not Converged'}")
+    print(f"L2 Error vs Ghia (1982): {result.l2_error:.6f}")
     
     # Load Ghia benchmark
     y_ghia, u_ghia = load_ghia_data(re)
@@ -82,24 +81,29 @@ def run_cavity_validation(re: int = 100, nx: int = 129, ny: int = 129):
     threshold = 0.05  # 5% L2 error
     passed = l2_error < threshold
     
-    print(f"Validation Status: {'✓ PASSED' if passed else '✗ FAILED'}")
+    print(f"Validation Status: {'PASSED' if passed else 'FAILED'}")
     print(f"  (Threshold: L2 < {threshold:.2%})\n")
     
     # Plot comparison
     plt.figure(figsize=(10, 6))
     plt.plot(u_centerline, y_centerline, 'b-', linewidth=2, label='pycfdrs')
-    plt.plot(u_ghia, y_ghia, 'ro', markersize=8, label='Ghia et al. (1982)')
-    plt.xlabel('u-velocity', fontsize=12)
-    plt.ylabel('y', fontsize=12)
+    plt.plot(u_ghia, y_ghia, 'ro', markersize=6, label='Ghia et al. (1982)')
+    plt.xlabel('u-velocity (normalized)', fontsize=12)
+    plt.ylabel('y / L', fontsize=12)
     plt.title(f'Centerline Velocity Profile: Re = {re}', fontsize=14, fontweight='bold')
     plt.legend(fontsize=11)
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
     
-    output_dir = Path(__file__).parent / "results"
-    output_dir.mkdir(exist_ok=True)
-    plt.savefig(output_dir / f"cavity_re{re}.png", dpi=150)
-    print(f"Plot saved: {output_dir / f'cavity_re{re}.png'}\n")
+    # Save values for manual inspection
+    results_path = Path(__file__).parent / "results"
+    results_path.mkdir(exist_ok=True)
+    np.savetxt(results_path / f"cavity_re{re}_data.txt", 
+               np.column_stack((y_centerline, u_centerline)),
+               header="y_coord u_velocity")
+
+    plt.savefig(results_path / f"cavity_re{re}.png", dpi=150)
+    print(f"Data and plot saved to {results_path}\n")
     
     return passed, l2_error
 
@@ -112,6 +116,6 @@ if __name__ == "__main__":
     
     print(f"\n{'='*70}")
     print(f"Summary:")
-    print(f"  Re=100:  {'✓' if passed_100 else '✗'}  (L2 = {error_100:.4f})")
+    print(f"  Re=100:  {'[OK]' if passed_100 else '[FAIL]'}  (L2 = {error_100:.4f})")
     # print(f"  Re=400:  {'✓' if passed_400 else '✗'}  (L2 = {error_400:.4f})")
     print(f"{'='*70}\n")

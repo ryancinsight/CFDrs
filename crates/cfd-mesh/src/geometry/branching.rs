@@ -88,12 +88,10 @@ impl<T: RealField + Copy + FromPrimitive + Float> BranchingMeshBuilder<T> {
                 .map_err(|e| crate::error::MeshError::InvalidMesh(format!("Stitching failed for daughter {}: {}", i, e)))?;
         }
         
-        let boundary_faces = mesh.boundary_faces();
-        for f_idx in boundary_faces {
-            if mesh.boundary_label(f_idx).is_none() {
-                mesh.mark_boundary(f_idx, "wall".to_string());
-            }
-        }
+        // Note: We no longer aggressively mark all unlabeled topological boundaries as "wall".
+        // If the mesh is shattered (e.g. during HexToTet conversion), this would pin internal flow.
+        // Instead, we trust the explicit labels from build_parent and build_daughter.
+        // Unlabeled external faces will be treated as symmetry/leaky by the solver unless explicitly handled.
 
         Ok(mesh)
     }
@@ -155,6 +153,9 @@ impl<T: RealField + Copy + FromPrimitive + Float> BranchingMeshBuilder<T> {
                     let band_f64: f64 = nalgebra::try_convert(Float::floor(band_f)).unwrap_or(0.0);
                     let band = (band_f64 as usize).min(n_daughters - 1);
                     mesh.mark_boundary(f_idx, format!("interface_d{}", band));
+                } else {
+                    // It's a wall face on the parent cylinder
+                    mesh.mark_boundary(f_idx, "wall".to_string());
                 }
             }
         }
@@ -198,6 +199,9 @@ impl<T: RealField + Copy + FromPrimitive + Float> BranchingMeshBuilder<T> {
                     daughter_mesh.mark_boundary(f_idx, "inlet".to_string());
                 } else if all_at_l {
                     daughter_mesh.mark_boundary(f_idx, format!("outlet_{}", idx));
+                } else {
+                    // It's a wall face on the side of the daughter branch
+                    daughter_mesh.mark_boundary(f_idx, "wall".to_string());
                 }
             }
         }

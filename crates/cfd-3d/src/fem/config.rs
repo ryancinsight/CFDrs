@@ -26,6 +26,8 @@ pub struct FemConfig<T: RealField + Copy> {
     pub element_type: ElementType,
     /// Quadrature order
     pub quadrature_order: usize,
+    /// Grad-div stabilization penalty (0 to disable)
+    pub grad_div_penalty: T,
 }
 
 impl<T: RealField + FromPrimitive + Copy> Default for FemConfig<T> {
@@ -38,6 +40,7 @@ impl<T: RealField + FromPrimitive + Copy> Default for FemConfig<T> {
             reynolds: Some(T::from_f64(constants::DEFAULT_REYNOLDS).unwrap_or_else(|| T::zero())),
             element_type: ElementType::Tetrahedron,
             quadrature_order: constants::DEFAULT_QUADRATURE_ORDER,
+            grad_div_penalty: T::zero(),
         }
     }
 }

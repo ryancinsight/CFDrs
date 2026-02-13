@@ -36,18 +36,16 @@ def run_poiseuille_3d_validation():
     
     # Run solver
     solver = pycfdrs.Poiseuille3DSolver(
-        radius=R,
+        diameter=2*R,
         length=L,
-        pressure_drop=dp,
-        viscosity=mu,
-        density=rho,
-        resolution=(10, 10, 20)  # radial x angular x axial
+        nr=10,
+        ntheta=10,
+        nz=20
     )
     
-    result =solver.solve()
+    result = solver.solve(pressure_drop=-dp, blood_type="newtonian")
     
-    print(f"Solver Status: Converged")
-    print(f"System Size: {result.n_nodes} nodes\n")
+    print(f"Solver Status: Converged\n")
     
     # Analytical solution
     u_max_analytical = dp * R**2 / (4 * mu * L)
@@ -58,7 +56,7 @@ def run_poiseuille_3d_validation():
     print(f"  Q:         {q_analytical * 1e9:.6f} nl/s\n")
     
     # Extract numerical solution
-    u_max_numerical = result.u_max
+    u_max_numerical = result.max_velocity
     q_numerical = result.flow_rate
     
     print(f"Numerical Solution:")
@@ -77,7 +75,7 @@ def run_poiseuille_3d_validation():
     threshold = 0.02  # 2% error
     passed = (u_error < threshold) and (q_error < threshold)
     
-    print(f"Validation Status: {'✓ PASSED' if passed else '✗ FAILED'}")
+    print(f"Validation Status: {'PASSED' if passed else 'FAILED'}")
     print(f"  (Threshold: < {threshold * 100:.1f}%)\n")
     
     # Plot radial velocity profile
@@ -112,7 +110,7 @@ if __name__ == "__main__":
     
     print(f"\n{'='*70}")
     print(f"Summary:")
-    print(f"  Validation: {'✓ PASSED' if passed else '✗ FAILED'}")
+    print(f"  Validation: {'PASSED' if passed else 'FAILED'}")
     print(f"  u_max error: {u_err * 100:.2f}%")
     print(f"  Flow rate error: {q_err * 100:.2f}%")
     print(f"{'='*70}\n")

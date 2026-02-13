@@ -87,11 +87,170 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
 
         // 1.1 Decompose to Tetrahedra and Promote to Quadratic (P2) mesh for Taylor-Hood elements (Q2-Q1)
         let tet_mesh = cfd_mesh::hierarchy::hex_to_tet::HexToTetConverter::convert(&base_mesh);
-        let mesh = cfd_mesh::hierarchy::hierarchical_mesh::P2MeshConverter::convert_to_p2(&tet_mesh);
+        let mut mesh = cfd_mesh::hierarchy::hierarchical_mesh::P2MeshConverter::convert_to_p2(&tet_mesh);
+
+        // Re-apply boundary labels after conversion to ensure all boundary faces are tagged.
+        // Some conversion paths introduce boundary faces without labels.
+        {
+            let total_l = self.builder.l_inlet
+                + self.builder.l_convergent
+                + self.builder.l_throat
+                + self.builder.l_divergent
+                + self.builder.l_outlet;
+            let tol = T::from_f64(1e-5).unwrap();
+
+            let boundary_faces: Vec<usize> = mesh.boundary_faces();
+            for f_idx in boundary_faces {
+                if mesh.boundary_label(f_idx).is_some() {
+                    continue;
+                }
+
+                if let Some(face) = mesh.face(f_idx) {
+                    let mut all_at_inlet = true;
+                    let mut all_at_outlet = true;
+                    for &v_idx in &face.vertices {
+                        if let Some(v) = mesh.vertex(v_idx) {
+                            let z = v.position.z;
+                            let dist_inlet = Float::abs(z);
+                            let dist_outlet = Float::abs(z - total_l);
+                            if dist_inlet > tol {
+                                all_at_inlet = false;
+                            }
+                            if dist_outlet > tol {
+                                all_at_outlet = false;
+                            }
+                        }
+                    }
+
+                    if all_at_inlet {
+                        mesh.mark_boundary(f_idx, "inlet".to_string());
+                    } else if all_at_outlet {
+                        mesh.mark_boundary(f_idx, "outlet".to_string());
+                    } else {
+                        mesh.mark_boundary(f_idx, "wall".to_string());
+                    }
+                }
+            }
+        }
+
+        // Boundary diagnostics: labeled faces vs connectivity boundary faces
+        {
+            use std::collections::{HashMap, HashSet};
+
+            let mut face_cell_count: HashMap<usize, usize> = HashMap::new();
+            for cell in mesh.cells() {
+                for &face_idx in &cell.faces {
+                    *face_cell_count.entry(face_idx).or_insert(0) += 1;
+                }
+            }
+
+            let connectivity_boundary_faces: HashSet<usize> = face_cell_count
+                .iter()
+                .filter(|&(_face_idx, &count)| count == 1)
+                .map(|(&face_idx, _)| face_idx)
+                .collect();
+
+            let marked_boundary_faces: HashSet<usize> =
+                mesh.boundary_faces().into_iter().collect();
+
+            let boundary_union: HashSet<usize> = marked_boundary_faces
+                .union(&connectivity_boundary_faces)
+                .copied()
+                .collect();
+
+            let mut inlet_faces = 0usize;
+            let mut outlet_faces = 0usize;
+            let mut wall_faces = 0usize;
+            let mut unlabeled_faces = 0usize;
+
+            let mut inlet_nodes = HashSet::new();
+            let mut outlet_nodes = HashSet::new();
+            let mut wall_nodes = HashSet::new();
+            let mut labeled_nodes = HashSet::new();
+
+            for &f_idx in &marked_boundary_faces {
+                let label = mesh.boundary_label(f_idx);
+                match label.as_deref() {
+                    Some("inlet") => {
+                        inlet_faces += 1;
+                        if let Some(face) = mesh.face(f_idx) {
+                            for &v_idx in &face.vertices {
+                                inlet_nodes.insert(v_idx);
+                                labeled_nodes.insert(v_idx);
+                            }
+                        }
+                    }
+                    Some("outlet") => {
+                        outlet_faces += 1;
+                        if let Some(face) = mesh.face(f_idx) {
+                            for &v_idx in &face.vertices {
+                                outlet_nodes.insert(v_idx);
+                                labeled_nodes.insert(v_idx);
+                            }
+                        }
+                    }
+                    Some("wall") => {
+                        wall_faces += 1;
+                        if let Some(face) = mesh.face(f_idx) {
+                            for &v_idx in &face.vertices {
+                                wall_nodes.insert(v_idx);
+                                labeled_nodes.insert(v_idx);
+                            }
+                        }
+                    }
+                    _ => {
+                        unlabeled_faces += 1;
+                    }
+                }
+            }
+
+            let mut connectivity_nodes = HashSet::new();
+            for &f_idx in &connectivity_boundary_faces {
+                if let Some(face) = mesh.face(f_idx) {
+                    for &v_idx in &face.vertices {
+                        connectivity_nodes.insert(v_idx);
+                    }
+                }
+            }
+
+            let inlet_outlet_overlap = inlet_nodes.intersection(&outlet_nodes).count();
+            let inlet_wall_overlap = inlet_nodes.intersection(&wall_nodes).count();
+            let outlet_wall_overlap = outlet_nodes.intersection(&wall_nodes).count();
+
+            println!(
+                "Venturi Boundary Debug: marked_faces={}, connectivity_faces={}, union_faces={}, unlabeled_marked={} ",
+                marked_boundary_faces.len(),
+                connectivity_boundary_faces.len(),
+                boundary_union.len(),
+                unlabeled_faces
+            );
+            println!(
+                "Venturi Boundary Debug: inlet_faces={}, outlet_faces={}, wall_faces={}, inlet_nodes={}, outlet_nodes={}, wall_nodes={} ",
+                inlet_faces, outlet_faces, wall_faces,
+                inlet_nodes.len(), outlet_nodes.len(), wall_nodes.len()
+            );
+            println!(
+                "Venturi Boundary Debug: overlap inlet/outlet={}, inlet/wall={}, outlet/wall={}, labeled_nodes={}, connectivity_nodes={}, total_nodes={}",
+                inlet_outlet_overlap,
+                inlet_wall_overlap,
+                outlet_wall_overlap,
+                labeled_nodes.len(),
+                connectivity_nodes.len(),
+                mesh.vertex_count()
+            );
+
+            let labeled_not_connectivity = labeled_nodes.difference(&connectivity_nodes).count();
+            let connectivity_not_labeled = connectivity_nodes.difference(&labeled_nodes).count();
+            println!(
+                "Venturi Boundary Debug: labeled_not_connectivity={}, connectivity_not_labeled={}",
+                labeled_not_connectivity,
+                connectivity_not_labeled
+            );
+        }
 
         // 2. Define Boundary Conditions
-        // Priority: inlet > outlet > wall. Process inlet/outlet first so that
-        // shared corner/edge nodes get the correct BC instead of a no-slip wall BC.
+        // Explicitly classify boundary node sets first so that inlet/wall intersection
+        // (rim) nodes can be treated consistently.
         let mut boundary_conditions = HashMap::new();
         let fluid_props = fluid.properties_at(T::from_f64_or_one(310.0), self.config.inlet_pressure)?;
 
@@ -102,55 +261,228 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
         };
         let u_inlet = self.config.inlet_flow_rate / area_inlet;
 
-        // Pass 1: Assign inlet BCs (highest priority)
-        for f_idx in mesh.boundary_faces() {
-            if let Some(label) = mesh.boundary_label(f_idx) {
-                if label == "inlet" {
-                    if let Some(face) = mesh.face(f_idx) {
-                        for &v_idx in &face.vertices {
-                            boundary_conditions.insert(v_idx,
-                                BoundaryCondition::VelocityInlet {
-                                    velocity: Vector3::new(T::zero(), T::zero(), u_inlet),
-                                });
+        let mut inlet_nodes = std::collections::HashSet::new();
+        let mut outlet_nodes = std::collections::HashSet::new();
+        let mut wall_nodes = std::collections::HashSet::new();
+        let mut boundary_vertices = std::collections::HashSet::new();
+
+        let mut face_cell_count: HashMap<usize, usize> = HashMap::new();
+        for cell in mesh.cells() {
+            for &f_idx in &cell.faces {
+                *face_cell_count.entry(f_idx).or_insert(0) += 1;
+            }
+        }
+        let boundary_faces: Vec<usize> = face_cell_count
+            .iter()
+            .filter(|&(_, &count)| count == 1)
+            .map(|(&idx, _)| idx)
+            .collect();
+
+        let mut z_min = <T as RealField>::max_value().unwrap_or_else(T::one);
+        let mut z_max = -<T as RealField>::max_value().unwrap_or_else(T::one);
+        for v in mesh.vertices() {
+            let z = v.position.z;
+            if z < z_min {
+                z_min = z;
+            }
+            if z > z_max {
+                z_max = z;
+            }
+        }
+        let z_span = z_max - z_min;
+        let z_tol = z_span / T::from_usize(self.config.resolution.0.max(1)).unwrap()
+            * T::from_f64(0.75).unwrap_or_else(T::one);
+
+        for &f_idx in &boundary_faces {
+            if let Some(face) = mesh.face(f_idx) {
+                let label = mesh.boundary_label(f_idx);
+                let z_center = {
+                    let mut sum = T::zero();
+                    let mut count = 0usize;
+                    for &v_idx in &face.vertices {
+                        if let Some(v) = mesh.vertex(v_idx) {
+                            sum += v.position.z;
+                            count += 1;
                         }
+                    }
+                    if count > 0 {
+                        sum / T::from_usize(count).unwrap()
+                    } else {
+                        T::zero()
+                    }
+                };
+
+                let is_inlet = matches!(label, Some("inlet"))
+                    || (label.is_none() && Float::abs(z_center - z_min) <= z_tol);
+                let is_outlet = matches!(label, Some("outlet"))
+                    || (label.is_none() && Float::abs(z_center - z_max) <= z_tol);
+
+                for &v_idx in &face.vertices {
+                    boundary_vertices.insert(v_idx);
+                }
+
+                if is_inlet {
+                    for &v_idx in &face.vertices {
+                        inlet_nodes.insert(v_idx);
+                    }
+                } else if is_outlet {
+                    for &v_idx in &face.vertices {
+                        outlet_nodes.insert(v_idx);
+                    }
+                } else {
+                    for &v_idx in &face.vertices {
+                        wall_nodes.insert(v_idx);
                     }
                 }
             }
         }
 
-        // Pass 2: Assign outlet BCs (do not overwrite inlet nodes)
-        for f_idx in mesh.boundary_faces() {
-            if let Some(label) = mesh.boundary_label(f_idx) {
-                if label == "outlet" {
-                    if let Some(face) = mesh.face(f_idx) {
-                        for &v_idx in &face.vertices {
-                            boundary_conditions.entry(v_idx).or_insert(
-                                BoundaryCondition::Dirichlet {
-                                    value: T::zero(),
-                                    component_values: Some(vec![None, None, None, Some(self.config.outlet_pressure)]),
-                                });
-                        }
-                    }
+        let inlet_wall_rim_nodes: std::collections::HashSet<usize> = inlet_nodes
+            .intersection(&wall_nodes)
+            .copied()
+            .collect();
+
+        // Pass 1: Apply inlet velocity to non-rim inlet nodes and no-slip to inlet-wall rim nodes.
+        for &v_idx in inlet_nodes.iter() {
+            if inlet_wall_rim_nodes.contains(&v_idx) {
+                boundary_conditions.insert(
+                    v_idx,
+                    BoundaryCondition::Dirichlet {
+                        value: T::zero(),
+                        component_values: Some(vec![Some(T::zero()), Some(T::zero()), Some(T::zero()), None]),
+                    },
+                );
+            } else {
+                boundary_conditions.insert(
+                    v_idx,
+                    BoundaryCondition::VelocityInlet {
+                        velocity: Vector3::new(T::zero(), T::zero(), u_inlet),
+                    },
+                );
+            }
+        }
+
+        // Pass 2: Assign a single outlet pressure reference (gauge) on a corner node.
+        // Applying pressure Dirichlet on many outlet pressure DOFs over-constrains the
+        // mixed system and removes too many continuity equations.
+        let mut outlet_corner_nodes = std::collections::HashSet::new();
+        for &v_idx in outlet_nodes.iter() {
+            if v_idx < tet_mesh.vertex_count() {
+                outlet_corner_nodes.insert(v_idx);
+            }
+        }
+
+        let mut p_ref_node = None;
+        let mut best_r2 = <T as RealField>::max_value().unwrap_or_else(T::one);
+        for &v_idx in &outlet_corner_nodes {
+            if let Some(v) = mesh.vertex(v_idx) {
+                let r2 = v.position.x * v.position.x + v.position.y * v.position.y;
+                if r2 < best_r2 {
+                    best_r2 = r2;
+                    p_ref_node = Some(v_idx);
                 }
             }
         }
 
-        // Pass 3: Assign wall (no-slip) BCs to remaining boundary nodes
-        for f_idx in mesh.boundary_faces() {
-            if let Some(label) = mesh.boundary_label(f_idx) {
-                if label != "inlet" && label != "outlet" {
-                    if let Some(face) = mesh.face(f_idx) {
-                        for &v_idx in &face.vertices {
-                            boundary_conditions.entry(v_idx).or_insert(
+        if let Some(p_ref_node) = p_ref_node {
+            boundary_conditions.insert(
+                p_ref_node,
+                BoundaryCondition::PressureOutlet {
+                    pressure: self.config.outlet_pressure,
+                },
+            );
+        }
+
+        // Mark remaining outlet nodes as explicit natural outflow BCs so they are
+        // not treated as unconstrained boundary leaks by generic diagnostics.
+        for &v_idx in outlet_nodes.iter() {
+            if boundary_conditions.contains_key(&v_idx) {
+                continue;
+            }
+            boundary_conditions.insert(v_idx, BoundaryCondition::Outflow);
+        }
+
+        // Pass 3: Assign wall (no-slip) BCs to wall nodes EXCEPT those on the inlet or outlet.
+        for &v_idx in wall_nodes.iter() {
+            if inlet_nodes.contains(&v_idx) || outlet_nodes.contains(&v_idx) {
+                continue;
+            }
+            boundary_conditions.insert(
+                v_idx,
+                BoundaryCondition::Dirichlet {
+                    value: T::zero(),
+                    component_values: Some(vec![Some(T::zero()), Some(T::zero()), Some(T::zero()), None]),
+                },
+            );
+        }
+
+        // Pass 4: Ensure all boundary vertices have a BC unless intentionally left as outlet natural boundary.
+        let inlet_radius_sq = {
+            let r = T::from_f64(0.5).unwrap() * self.builder.d_inlet * T::from_f64(0.98).unwrap();
+            r * r
+        };
+        let mut repaired_nodes = 0usize;
+        for &v_idx in &boundary_vertices {
+            if boundary_conditions.contains_key(&v_idx) {
+                continue;
+            }
+            if let Some(v) = mesh.vertex(v_idx) {
+                let z = v.position.z;
+                if Float::abs(z - z_max) <= z_tol {
+                    continue;
+                }
+                if Float::abs(z - z_min) <= z_tol {
+                    if self.config.circular {
+                        let r_sq = v.position.x * v.position.x + v.position.y * v.position.y;
+                        if r_sq >= inlet_radius_sq {
+                            boundary_conditions.insert(
+                                v_idx,
                                 BoundaryCondition::Dirichlet {
                                     value: T::zero(),
                                     component_values: Some(vec![Some(T::zero()), Some(T::zero()), Some(T::zero()), None]),
-                                });
+                                },
+                            );
+                        } else {
+                            boundary_conditions.insert(
+                                v_idx,
+                                BoundaryCondition::VelocityInlet {
+                                    velocity: Vector3::new(T::zero(), T::zero(), u_inlet),
+                                },
+                            );
                         }
+                    } else {
+                        boundary_conditions.insert(
+                            v_idx,
+                            BoundaryCondition::VelocityInlet {
+                                velocity: Vector3::new(T::zero(), T::zero(), u_inlet),
+                            },
+                        );
                     }
+                } else {
+                    boundary_conditions.insert(
+                        v_idx,
+                        BoundaryCondition::Dirichlet {
+                            value: T::zero(),
+                            component_values: Some(vec![Some(T::zero()), Some(T::zero()), Some(T::zero()), None]),
+                        },
+                    );
                 }
+                repaired_nodes += 1;
             }
         }
+
+        println!(
+            "Venturi Outlet Corner BC: corner_nodes={}, pressure_ref_applied={}",
+            outlet_corner_nodes.len(),
+            if outlet_corner_nodes.is_empty() { 0 } else { 1 }
+        );
+        println!(
+            "Venturi Inlet/Wall Compatibility: inlet_nodes={}, wall_nodes={}, rim_nodes={}",
+            inlet_nodes.len(),
+            wall_nodes.len(),
+            inlet_wall_rim_nodes.len()
+        );
+        println!("Venturi BC Coverage Repair: repaired_nodes={}", repaired_nodes);
 
         // 3. Set up FEM Problem with initial viscosity
         let constant_basis = cfd_core::physics::fluid::ConstantPropertyFluid {
@@ -167,7 +499,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
         let mut element_viscosities = vec![fluid_props.dynamic_viscosity; n_elements];
         
         // 4. Picard Iteration Loop
-        let fem_config = FemConfig::default();
+        let mut fem_config = FemConfig::default();
+        fem_config.grad_div_penalty = T::zero();
         let mut solver = FemSolver::new(fem_config);
         let mut last_solution = None;
 
@@ -293,11 +626,14 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
                     bin_count[b], bin_u_max[b]);
             }
         }
+
+        self.print_divergence_stats(&problem.mesh, &fem_solution)?;
         let mut solution = VenturiSolution3D::new();
         solution.u_inlet = u_inlet;
         
         // Average pressure at inlet
         let mut p_in_sum = T::zero();
+        let mut p_in_count = 0usize;
         let mut count_in = 0;
         let mut inlet_nodes = std::collections::HashSet::new();
         let mut inlet_faces_found = 0;
@@ -319,14 +655,17 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
 
         let mut u_in_sol_sum = T::zero();
         for &v_idx in &inlet_nodes {
-            p_in_sum += fem_solution.get_pressure(v_idx);
+            if v_idx < fem_solution.n_corner_nodes {
+                p_in_sum += fem_solution.get_pressure(v_idx);
+                p_in_count += 1;
+            }
             // Use norm for general velocity magnitude
             u_in_sol_sum += fem_solution.get_velocity(v_idx).norm();
             count_in += 1;
         }
 
-        if count_in > 0 {
-            solution.p_inlet = p_in_sum / T::from_usize(count_in).unwrap();
+        if p_in_count > 0 {
+            solution.p_inlet = p_in_sum / T::from_usize(p_in_count).unwrap();
         } else {
             solution.p_inlet = self.config.inlet_pressure;
         }
@@ -340,6 +679,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
         // Use tolerance proportional to mesh spacing (half the axial element size)
         let throat_tol = total_length / T::from_usize(self.config.resolution.0.max(1)).unwrap() * T::from_f64(0.6).unwrap();
         let mut p_throat_sum = T::zero();
+        let mut p_throat_count = 0usize;
         let mut u_throat_max = T::zero();
         let mut u_throat_sum = T::zero();
         let mut count_th = 0;
@@ -347,7 +687,10 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
         for (i, v) in problem.mesh.vertices().iter().enumerate() {
             let dist_z = num_traits::Float::abs(v.position.z - z_throat_center);
             if dist_z < throat_tol {
-                p_throat_sum += fem_solution.get_pressure(i);
+                if i < fem_solution.n_corner_nodes {
+                    p_throat_sum += fem_solution.get_pressure(i);
+                    p_throat_count += 1;
+                }
                 let u_mag = fem_solution.get_velocity(i).norm();
                 if u_mag > u_throat_max {
                     u_throat_max = u_mag;
@@ -359,14 +702,15 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
         
         let u_throat_avg = if count_th > 0 { u_throat_sum / T::from_usize(count_th).unwrap() } else { T::zero() };
 
-        if count_th > 0 {
+        if p_throat_count > 0 {
             // FIX: Solver returns negative pressure potential? Invert sign for physical pressure.
-            solution.p_throat = p_throat_sum / T::from_usize(count_th).unwrap();
+            solution.p_throat = p_throat_sum / T::from_usize(p_throat_count).unwrap();
             solution.u_throat = u_throat_max;
         }
         
         // Average pressure at outlet
         let mut p_out_sum = T::zero();
+        let mut p_out_count = 0usize;
         let mut u_out_sum = T::zero();
         let mut count_out = 0;
         let mut outlet_nodes = std::collections::HashSet::new();
@@ -384,23 +728,121 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
         }
 
         for &v_idx in &outlet_nodes {
-            p_out_sum += fem_solution.get_pressure(v_idx);
+            if v_idx < fem_solution.n_corner_nodes {
+                p_out_sum += fem_solution.get_pressure(v_idx);
+                p_out_count += 1;
+            }
             u_out_sum += fem_solution.get_velocity(v_idx).norm();
             count_out += 1;
         }
 
         let u_out_avg = if count_out > 0 { u_out_sum / T::from_usize(count_out).unwrap() } else { T::zero() };
 
-        if count_out > 0 {
-            // FIX: Solver returns negative pressure potential? Invert sign for physical pressure.
-            solution.p_outlet = p_out_sum / T::from_usize(count_out).unwrap();
+        if p_out_count > 0 {
+            solution.p_outlet = p_out_sum / T::from_usize(p_out_count).unwrap();
         }
 
-        println!("Venturi Debug: p_in={:?}, p_throat={:?}, p_out={:?}, u_throat={:?}, count_th={}", 
-            solution.p_inlet, solution.p_throat, solution.p_outlet, solution.u_throat, count_th);
+        // Sample pressure from interior inlet/outlet slices to reduce boundary-node artifacts.
+        // Use flux-weighted averaging (u_z-weighted) for better effective pressure-drop estimate.
+        let axial_dx = total_length / T::from_usize(self.config.resolution.0.max(1)).unwrap();
+        let slice_tol = axial_dx * T::from_f64(0.55).unwrap();
+        let z_in_sample = axial_dx * T::from_f64(5.0).unwrap();
+        let z_out_sample = total_length - axial_dx * T::from_f64(5.0).unwrap();
+        let core_radius_frac = T::from_f64(0.90).unwrap();
+        let core_radius_sq = if self.config.circular {
+            let r_core = T::from_f64(0.5).unwrap() * self.builder.d_inlet * core_radius_frac;
+            r_core * r_core
+        } else {
+            T::zero()
+        };
+
+        let mut p_in_slice_sum = T::zero();
+        let mut p_in_slice_count = 0usize;
+        let mut p_out_slice_sum = T::zero();
+        let mut p_out_slice_count = 0usize;
+        let mut p_in_slice_weight_sum = T::zero();
+        let mut p_out_slice_weight_sum = T::zero();
+        let mut p_in_slice_weighted_sum = T::zero();
+        let mut p_out_slice_weighted_sum = T::zero();
+        let weight_floor = T::from_f64(1e-12).unwrap_or_else(T::zero);
+
+        for (i, v) in problem.mesh.vertices().iter().enumerate() {
+            if i >= fem_solution.n_corner_nodes {
+                continue;
+            }
+
+            let z = v.position.z;
+            if self.config.circular {
+                let r_sq = v.position.x * v.position.x + v.position.y * v.position.y;
+                if r_sq > core_radius_sq {
+                    continue;
+                }
+            }
+
+            if Float::abs(z - z_in_sample) <= slice_tol {
+                let p_i = fem_solution.get_pressure(i);
+                let uzi = Float::max(fem_solution.get_velocity(i).z, T::zero());
+                let wi = if uzi > weight_floor { uzi } else { weight_floor };
+                p_in_slice_sum += p_i;
+                p_in_slice_count += 1;
+                p_in_slice_weighted_sum += wi * p_i;
+                p_in_slice_weight_sum += wi;
+            }
+            if Float::abs(z - z_out_sample) <= slice_tol {
+                let p_i = fem_solution.get_pressure(i);
+                let uzi = Float::max(fem_solution.get_velocity(i).z, T::zero());
+                let wi = if uzi > weight_floor { uzi } else { weight_floor };
+                p_out_slice_sum += p_i;
+                p_out_slice_count += 1;
+                p_out_slice_weighted_sum += wi * p_i;
+                p_out_slice_weight_sum += wi;
+            }
+        }
+
+        if p_in_slice_count > 0 {
+            if p_in_slice_weight_sum > T::zero() {
+                solution.p_inlet = p_in_slice_weighted_sum / p_in_slice_weight_sum;
+            } else {
+                solution.p_inlet = p_in_slice_sum / T::from_usize(p_in_slice_count).unwrap();
+            }
+        }
+        if p_out_slice_count > 0 {
+            if p_out_slice_weight_sum > T::zero() {
+                solution.p_outlet = p_out_slice_weighted_sum / p_out_slice_weight_sum;
+            } else {
+                solution.p_outlet = p_out_slice_sum / T::from_usize(p_out_slice_count).unwrap();
+            }
+        }
+
+        println!("Venturi Debug: p_in={:?}, p_throat={:?}, p_out={:?}, u_throat={:?}, count_th={}, p_in_slice_n={}, p_out_slice_n={}, p_in_wsum={:?}, p_out_wsum={:?}", 
+            solution.p_inlet, solution.p_throat, solution.p_outlet, solution.u_throat, count_th, p_in_slice_count, p_out_slice_count, p_in_slice_weight_sum, p_out_slice_weight_sum);
         
         println!("Venturi Mass Flux Debug: u_in_avg={:?}, u_throat_avg={:?}, u_out_avg={:?}", 
             u_in_sol_avg, u_throat_avg, u_out_avg);
+
+        let q_in_face = self.calculate_boundary_flow(&problem.mesh, &fem_solution, "inlet")?;
+        let q_out_face = self.calculate_boundary_flow(&problem.mesh, &fem_solution, "outlet")?;
+        println!("Venturi Mass Flux Debug: q_in_face={:?}, q_out_face={:?}", q_in_face, q_out_face);
+
+        let total_length = self.builder.l_inlet
+            + self.builder.l_convergent
+            + self.builder.l_throat
+            + self.builder.l_divergent
+            + self.builder.l_outlet;
+        let plane_tol = total_length / T::from_usize(self.config.resolution.0.max(1)).unwrap()
+            * T::from_f64(0.55).unwrap_or_else(T::one);
+        let plane_fracs = [0.0, 0.25, 0.5, 0.75, 1.0];
+        for frac in plane_fracs {
+            let z_plane = total_length * T::from_f64(frac).unwrap();
+            let (q_plane, faces) = self.calculate_plane_flux(&problem.mesh, &fem_solution, z_plane, plane_tol)?;
+            println!(
+                "Venturi Slice Flux: z_frac={:.2}, z={:?}, faces={}, total_q={:?}",
+                frac,
+                z_plane,
+                faces,
+                q_plane
+            );
+        }
 
         solution.dp_throat = solution.p_inlet - solution.p_throat;
         solution.dp_recovery = solution.p_outlet - solution.p_inlet; // Usually negative (loss)
@@ -410,8 +852,9 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
         solution.cp_recovery = (solution.p_outlet - solution.p_inlet) / q_dyn;
         
         // Calculate Mass Balance Error
-        // Qin = u_in_avg * A_in
-        // Qth = u_th_avg * A_th
+        // Qin = u_in_avg * A_in (reference)
+        // Qth = u_th_avg * A_th (slice-based)
+        // q_in_face/q_out_face = integrated boundary flux
         let area_throat = if self.config.circular {
             T::from_f64_or_one(std::f64::consts::PI / 4.0) * self.builder.d_throat * self.builder.d_throat
         } else {
@@ -419,13 +862,16 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
         };
         let q_in = u_in_sol_avg * area_inlet;
         let q_th = u_throat_avg * area_throat;
-        solution.mass_error = if q_in > T::from_f64(1e-12).unwrap() {
-            (q_in - q_th) / q_in
+        solution.mass_error = if q_in_face > T::from_f64(1e-12).unwrap() {
+            (q_in_face - q_out_face) / q_in_face
         } else {
             T::zero()
         };
-        
-        println!("Venturi Mass Balance: Q_in={:?}, Q_th={:?}, Error={:?}", q_in, q_th, solution.mass_error);
+
+        println!(
+            "Venturi Mass Balance: Q_in={:?}, Q_th={:?}, Q_in_face={:?}, Q_out_face={:?}, Error={:?}",
+            q_in, q_th, q_in_face, q_out_face, solution.mass_error
+        );
 
         Ok(solution)
     }
@@ -508,6 +954,240 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
         let shear = Float::sqrt(T::from_f64_or_one(2.0) * inner_prod);
         Ok(shear)
     }
+
+    fn print_divergence_stats(
+        &self,
+        mesh: &cfd_mesh::mesh::Mesh<T>,
+        solution: &crate::fem::StokesFlowSolution<T>,
+    ) -> Result<()> {
+        use crate::fem::solver::extract_vertex_indices;
+
+        let mut min_div = <T as RealField>::max_value().unwrap_or_else(T::one);
+        let mut max_div = T::zero();
+        let mut sum_div = T::zero();
+        let mut count = 0usize;
+        let mut total_volume = T::zero();
+        let mut signed_div_sum = T::zero();
+        let mut abs_div_vol_sum = T::zero();
+
+        for cell in mesh.cells() {
+            let idxs = extract_vertex_indices(cell, mesh)?;
+            if idxs.len() < 4 {
+                continue;
+            }
+
+            let mut local_verts = Vec::with_capacity(idxs.len());
+            for &idx in &idxs {
+                local_verts.push(mesh.vertex(idx).unwrap().position.coords);
+            }
+
+            let mut div = T::zero();
+            let mut cell_volume = T::zero();
+            if idxs.len() == 10 {
+                let mut tet4 = crate::fem::element::FluidElement::new(idxs[0..4].to_vec());
+                let six_v = tet4.calculate_volume(&local_verts);
+                if Float::abs(six_v) < T::from_f64(1e-24).unwrap() {
+                    continue;
+                }
+                cell_volume = tet4.volume;
+                tet4.calculate_shape_derivatives(&local_verts[0..4]);
+                let p1_grads = nalgebra::Matrix3x4::from_columns(&[
+                    Vector3::new(
+                        tet4.shape_derivatives[(0, 0)],
+                        tet4.shape_derivatives[(1, 0)],
+                        tet4.shape_derivatives[(2, 0)],
+                    ),
+                    Vector3::new(
+                        tet4.shape_derivatives[(0, 1)],
+                        tet4.shape_derivatives[(1, 1)],
+                        tet4.shape_derivatives[(2, 1)],
+                    ),
+                    Vector3::new(
+                        tet4.shape_derivatives[(0, 2)],
+                        tet4.shape_derivatives[(1, 2)],
+                        tet4.shape_derivatives[(2, 2)],
+                    ),
+                    Vector3::new(
+                        tet4.shape_derivatives[(0, 3)],
+                        tet4.shape_derivatives[(1, 3)],
+                        tet4.shape_derivatives[(2, 3)],
+                    ),
+                ]);
+
+                let tet10 = crate::fem::shape_functions::LagrangeTet10::new(p1_grads);
+                let l_centroid = [T::from_f64(0.25).unwrap(); 4];
+                let p2_grads = tet10.gradients(&l_centroid);
+
+                for i in 0..10 {
+                    let u = solution.get_velocity(idxs[i]);
+                    div += p2_grads[(0, i)] * u.x
+                        + p2_grads[(1, i)] * u.y
+                        + p2_grads[(2, i)] * u.z;
+                }
+            } else {
+                let mut element = crate::fem::element::FluidElement::new(idxs.clone());
+                element.calculate_volume(&local_verts);
+                element.calculate_shape_derivatives(&local_verts);
+                cell_volume = element.volume;
+                for i in 0..4 {
+                    let u = solution.get_velocity(idxs[i]);
+                    div += element.shape_derivatives[(0, i)] * u.x
+                        + element.shape_derivatives[(1, i)] * u.y
+                        + element.shape_derivatives[(2, i)] * u.z;
+                }
+            }
+
+            let div_abs = Float::abs(div);
+            if div_abs < min_div {
+                min_div = div_abs;
+            }
+            if div_abs > max_div {
+                max_div = div_abs;
+            }
+            sum_div += div_abs;
+            total_volume += cell_volume;
+            signed_div_sum += div * cell_volume;
+            abs_div_vol_sum += div_abs * cell_volume;
+            count += 1;
+        }
+
+        if count > 0 {
+            let avg_div = sum_div / T::from_usize(count).unwrap_or_else(T::one);
+            let vol_avg_div = if total_volume > T::zero() {
+                abs_div_vol_sum / total_volume
+            } else {
+                T::zero()
+            };
+            println!(
+                "Divergence Stats: min={:?}, max={:?}, avg={:?}, vol_avg={:?}, net={:?} (n={}, vol={:?})",
+                min_div,
+                max_div,
+                avg_div,
+                vol_avg_div,
+                signed_div_sum,
+                count,
+                total_volume
+            );
+        }
+
+        Ok(())
+    }
+
+    fn calculate_boundary_flow(
+        &self,
+        mesh: &cfd_mesh::mesh::Mesh<T>,
+        solution: &crate::fem::StokesFlowSolution<T>,
+        label: &str,
+    ) -> Result<T> {
+        let mut total_q = T::zero();
+        let mut face_count = 0usize;
+
+        for f_idx in mesh.boundary_faces() {
+            if mesh.boundary_label(f_idx) == Some(label) {
+                if let Some(face) = mesh.face(f_idx) {
+                    if face.vertices.len() >= 3 {
+                        face_count += 1;
+                        let v0 = mesh.vertex(face.vertices[0]).unwrap().position.coords;
+                        let v1 = mesh.vertex(face.vertices[1]).unwrap().position.coords;
+                        let v2 = mesh.vertex(face.vertices[2]).unwrap().position.coords;
+
+                        let n_vec = (v1 - v0).cross(&(v2 - v0));
+                        let area = n_vec.norm() * T::from_f64_or_one(0.5);
+                        if area <= T::zero() {
+                            continue;
+                        }
+                        let face_normal = n_vec.normalize();
+
+                        let mut u_avg = Vector3::zeros();
+                        for &v_idx in &face.vertices {
+                            u_avg += solution.get_velocity(v_idx);
+                        }
+                        u_avg /= T::from_usize(face.vertices.len()).unwrap_or_else(T::one);
+
+                        let mut n_oriented = face_normal;
+                        if label == "inlet" && n_oriented.z > T::zero() {
+                            n_oriented = -n_oriented;
+                        } else if label == "outlet" && n_oriented.z < T::zero() {
+                            n_oriented = -n_oriented;
+                        }
+
+                        let signed_flux = u_avg.dot(&n_oriented) * area;
+                        let face_flow = if label == "inlet" {
+                            -signed_flux
+                        } else {
+                            signed_flux
+                        };
+                        total_q += face_flow;
+                    }
+                }
+            }
+        }
+
+        println!(
+            "Venturi Flux: label={}, faces={}, total_q={:?}",
+            label, face_count, total_q
+        );
+
+        Ok(total_q)
+    }
+
+    fn calculate_plane_flux(
+        &self,
+        mesh: &cfd_mesh::mesh::Mesh<T>,
+        solution: &crate::fem::StokesFlowSolution<T>,
+        z_plane: T,
+        tol: T,
+    ) -> Result<(T, usize)> {
+        let mut total_q = T::zero();
+        let mut face_count = 0usize;
+
+        for face in mesh.faces() {
+            if face.vertices.len() < 3 {
+                continue;
+            }
+
+            let mut on_plane = true;
+            for &v_idx in &face.vertices {
+                if let Some(v) = mesh.vertex(v_idx) {
+                    if Float::abs(v.position.z - z_plane) > tol {
+                        on_plane = false;
+                        break;
+                    }
+                }
+            }
+            if !on_plane {
+                continue;
+            }
+
+            let v0 = mesh.vertex(face.vertices[0]).unwrap().position.coords;
+            let v1 = mesh.vertex(face.vertices[1]).unwrap().position.coords;
+            let v2 = mesh.vertex(face.vertices[2]).unwrap().position.coords;
+
+            let n_vec = (v1 - v0).cross(&(v2 - v0));
+            let area = n_vec.norm() * T::from_f64_or_one(0.5);
+            if area <= T::zero() {
+                continue;
+            }
+            let face_normal = n_vec.normalize();
+
+            let mut u_avg = Vector3::zeros();
+            for &v_idx in &face.vertices {
+                u_avg += solution.get_velocity(v_idx);
+            }
+            u_avg /= T::from_usize(face.vertices.len()).unwrap_or_else(T::one);
+
+            let mut face_flow = u_avg.dot(&face_normal) * area;
+            if face_normal.z < T::zero() {
+                face_flow = -face_flow;
+            }
+
+            total_q += face_flow;
+            face_count += 1;
+        }
+
+        Ok((total_q, face_count))
+    }
+
 }
 
 // ============================================================================
