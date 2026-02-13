@@ -17,6 +17,9 @@ References:
 
 import sys
 import numpy as np
+import json
+from datetime import datetime, UTC
+from pathlib import Path
 
 try:
     import pycfdrs
@@ -192,13 +195,34 @@ def main():
         sys.exit(0)
 
     ok = True
+    validation_records = []
     for fn in [validate_1d_trifurcation, validate_1d_trifurcation_blood,
                validate_3d_trifurcation, scipy_cross_validate]:
+        record = {"name": fn.__name__, "passed": False, "error": None}
         try:
             fn()
+            record["passed"] = True
         except (AssertionError, Exception) as e:
-            print(f"  [FAIL] {e}")
+            message = str(e)
+            print(f"  [FAIL] {message}")
+            record["error"] = message
             ok = False
+        validation_records.append(record)
+
+    timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
+    payload = {
+        "timestamp_utc": datetime.now(UTC).isoformat(),
+        "suite": "trifurcation_cross_package_validation",
+        "all_passed": ok,
+        "packages": {
+            "pycfdrs": HAS_PYCFDRS,
+            "scipy": any(r["name"] == "scipy_cross_validate" and r["passed"] for r in validation_records),
+        },
+        "results": validation_records,
+    }
+    out_path = Path.cwd() / f"cross_package_trifurcation_{timestamp}.json"
+    out_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    print(f"Wrote validation summary: {out_path}")
 
     print("ALL TRIFURCATION VALIDATIONS " + ("PASSED" if ok else "FAILED"))
     sys.exit(0 if ok else 1)
