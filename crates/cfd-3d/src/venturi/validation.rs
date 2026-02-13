@@ -6,7 +6,7 @@
 use super::solver::{VenturiConfig3D, VenturiSolution3D, VenturiSolver3D};
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::Error;
-use cfd_core::physics::fluid::traits::{Fluid as FluidTrait, NonNewtonianFluid};
+use cfd_core::physics::fluid::traits::Fluid as FluidTrait;
 use cfd_mesh::geometry::venturi::VenturiMeshBuilder;
 use nalgebra::RealField;
 use num_traits::{Float, FromPrimitive, ToPrimitive};

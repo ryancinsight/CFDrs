@@ -7,8 +7,8 @@ use super::geometry::TrifurcationGeometry3D;
 use super::solver::{TrifurcationConfig3D, TrifurcationSolution3D, TrifurcationSolver3D};
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::Error;
-use cfd_core::physics::fluid::traits::{Fluid as FluidTrait, NonNewtonianFluid};
-use nalgebra::{RealField, ComplexField}; // Added ComplexField for abs()
+use cfd_core::physics::fluid::traits::Fluid as FluidTrait;
+use nalgebra::RealField;
 use num_traits::{FromPrimitive, ToPrimitive};
 use serde::{Deserialize, Serialize};
 

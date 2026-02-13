@@ -38,7 +38,8 @@ fn test_robin_bc_assembly() {
         boundary_conditions.insert(i, bc.clone());
     }
 
-    let problem = StokesFlowProblem::new(mesh, fluid, boundary_conditions);
+    let n_corner_nodes = mesh.vertices().len();
+    let problem = StokesFlowProblem::new(mesh, fluid, boundary_conditions, n_corner_nodes);
 
     // Setup Solver
     let config = FemConfig::default();
