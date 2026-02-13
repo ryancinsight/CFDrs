@@ -85,30 +85,38 @@ impl<T: RealField + Copy + FromPrimitive> CavitationRegimeClassifier<T> {
     pub fn classify_regime(&self) -> CavitationRegime {
         // Check Blake threshold for cavitation inception
         let blake_threshold = self.blake_threshold();
-        let current_pressure = if let Some(p_ac) = self.acoustic_pressure {
+        
+        // For acoustic/hydrodynamic cavitation, the relevant pressure is the minimum pressure
+        // (peak negative pressure) - this is where bubble expansion/collapse happens
+        let min_pressure = if let Some(p_ac) = self.acoustic_pressure {
             self.ambient_pressure - p_ac
         } else {
             self.ambient_pressure
         };
 
-        if current_pressure >= blake_threshold {
-            // No cavitation - pressure too high
+        // If minimum pressure is above Blake threshold, no cavitation occurs
+        // (bubble stays below critical radius)
+        if min_pressure >= blake_threshold {
+            // No cavitation - pressure never drops below threshold
             return CavitationRegime::None;
         }
 
-        // Calculate inertial threshold
+        // Calculate inertial threshold (pressure amplitude needed for inertial collapse)
         let inertial_threshold = self.inertial_threshold();
 
         // Classify based on pressure amplitude
         if let Some(p_ac) = self.acoustic_pressure {
+            // Compare acoustic pressure amplitude against inertial threshold
             if p_ac > inertial_threshold {
                 CavitationRegime::Inertial
             } else {
+                // Below inertial but below Blake - stable cavitation
                 CavitationRegime::Stable
             }
         } else {
-            // For hydrodynamic cavitation, use cavitation number
-            let sigma = self.cavitation_number(current_pressure);
+            // For hydrodynamic cavitation (no acoustic), use ambient pressure
+            // and check if local pressure drops below Blake threshold
+            let sigma = self.cavitation_number(min_pressure);
             
             // Empirical thresholds from literature:
             // σ > 1.5: no cavitation
@@ -399,14 +407,19 @@ mod tests {
     #[test]
     fn test_regime_classification_stable() {
         let bubble = create_test_bubble();
+        // Use lower ambient pressure so that acoustic pressure drops below Blake threshold
+        // but not high enough for inertial cavitation
+        // With P_ambient=30kPa and P_acoustic=20kPa, min_pressure=10kPa
+        // Blake threshold ~67kPa, so this triggers cavitation
         let classifier = CavitationRegimeClassifier::new(
             bubble,
-            1e5,
-            Some(1e4), // Moderate acoustic pressure
+            3e4,  // Lower ambient pressure
+            Some(2e4), // Acoustic pressure high enough to reach below Blake threshold
             Some(20e3), // 20 kHz
         );
         
         let regime = classifier.classify_regime();
+        // Should be Stable (below Blake but not inertial)
         assert_eq!(regime, CavitationRegime::Stable);
     }
 
@@ -444,8 +457,18 @@ mod tests {
     fn test_damage_potential_ordering() {
         let bubble = create_test_bubble();
         
+        // None: High ambient pressure - no cavitation
         let classifier_none = CavitationRegimeClassifier::new(bubble, 1e5, None, None);
-        let classifier_stable = CavitationRegimeClassifier::new(bubble, 1e5, Some(1e4), Some(20e3));
+        
+        // Stable: Lower ambient pressure, moderate acoustic - stable cavitation
+        let classifier_stable = CavitationRegimeClassifier::new(
+            bubble,
+            3e4,  // Lower ambient
+            Some(2e4), // Acoustic pressure to reach below Blake but not inertial
+            Some(20e3),
+        );
+        
+        // Inertial: High acoustic pressure - inertial cavitation
         let classifier_inertial = CavitationRegimeClassifier::new(bubble, 1e5, Some(1e6), Some(20e3));
         
         let damage_none = classifier_none.damage_potential();
