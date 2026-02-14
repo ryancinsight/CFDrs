@@ -1,0 +1,54 @@
+{
+  "timestamp_utc": "2026-02-14T00:58:11.318826+00:00",
+  "validation_type": "cross_package_serpentine",
+  "packages_compared": [
+    "pycfdrs",
+    "scipy"
+  ],
+  "geometry": {
+    "n_segments": 4,
+    "width_m": 0.0002,
+    "height_m": 0.0001,
+    "segment_length_m": 0.005,
+    "total_length_m": 0.02
+  },
+  "boundary_conditions": {
+    "inlet_pressure_pa": 200.0,
+    "outlet_pressure_pa": 0.0,
+    "pressure_drop_pa": 200.0
+  },
+  "fluid_properties": {
+    "model": "Casson",
+    "effective_viscosity_pas": 0.004385090439033435,
+    "density_kg_m3": 1060.0
+  },
+  "results": {
+    "pycfdrs": {
+      "flow_rate_m3_s": 3.800757794710466e-11,
+      "velocity_avg_m_s": 0.001900378897355233,
+      "velocity_max_m_s": 0.0028505683460328494,
+      "total_pressure_drop_pa": 200.0,
+      "reynolds_number": 0.06890627431302979,
+      "wall_shear_stress_pa": 0.5,
+      "segment_flow_variation": 0.0
+    },
+    "scipy": {
+      "flow_rate_m3_s": 3.8007577947104667e-11,
+      "velocity_avg_m_s": 0.0019003788973552334,
+      "total_pressure_drop_pa": 200.0
+    }
+  },
+  "comparison": {
+    "flow_rate_error": 1.7002789666219223e-16,
+    "velocity_error": 2.2820757986618223e-16,
+    "pressure_drop_error": 0.0,
+    "mass_conservation_variation": 0.0
+  },
+  "validation_status": {
+    "flow_rate": "PASS",
+    "velocity": "PASS",
+    "pressure_drop": "PASS",
+    "mass_conservation": "PASS",
+    "overall": "PASS"
+  }
+}
