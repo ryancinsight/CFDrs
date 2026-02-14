@@ -508,6 +508,7 @@ dependencies = [
  "cfd-2d",
  "cfd-3d",
  "cfd-core",
+ "cfd-fluidics",
  "cfd-io",
  "cfd-math",
  "cfd-mesh",

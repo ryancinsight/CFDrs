@@ -124,6 +124,7 @@ cfd-core.workspace = true
 cfd-math.workspace = true
 cfd-io.workspace = true
 cfd-mesh.workspace = true
+cfd-fluidics.workspace = true
 cfd-1d.workspace = true
 cfd-2d.workspace = true
 cfd-3d.workspace = true

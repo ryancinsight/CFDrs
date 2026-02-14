@@ -4,10 +4,12 @@
 
 use cfd_1d::network::{ComponentType, EdgeProperties};
 use cfd_1d::solver::{NetworkProblem, NetworkSolver};
-use cfd_1d::{Network, NetworkBuilder};
+use cfd_1d::Network;
 use cfd_core::compute::solver::Solver;
 use cfd_core::error::Result;
 use cfd_core::physics::fluid::{ConstantPropertyFluid, FluidTrait};
+use cfd_fluidics::{serpentine_chain, FluidicDesigner};
+use petgraph::visit::EdgeRef;
 use std::collections::HashMap;
 
 fn main() -> Result<()> {
@@ -20,19 +22,33 @@ fn main() -> Result<()> {
     println!("Density: {} kg/m³", fluid.density);
     println!("Viscosity: {} Pa·s", fluid.viscosity);
 
-    // Build network using NetworkBuilder
-    let mut builder = NetworkBuilder::new();
-    let inlet = builder.add_inlet("inlet".to_string());
-    let outlet = builder.add_outlet("outlet".to_string());
-    let edge_idx = builder.connect_with_pipe(inlet, outlet, "pipe1".to_string());
-    let graph = builder.build()?;
+    // Build network topology via cfd-fluidics (phase-2 architecture split)
+    const PIPE_LENGTH: f64 = 1.0; // meters
+    const PIPE_AREA: f64 = 1e-6; // m² (1mm²)
+    let hydraulic_diameter = 2.0 * (PIPE_AREA / std::f64::consts::PI).sqrt();
+
+    let designer = FluidicDesigner::new();
+    let blueprint = serpentine_chain("single_pipe", 1, PIPE_LENGTH, hydraulic_diameter);
+    let graph = designer.generate(&blueprint)?;
+
+    let inlet = graph
+        .node_indices()
+        .find(|idx| graph[*idx].id == "inlet")
+        .expect("inlet node exists in generated blueprint");
+    let outlet = graph
+        .node_indices()
+        .find(|idx| graph[*idx].id == "outlet")
+        .expect("outlet node exists in generated blueprint");
+    let edge_idx = graph
+        .edge_references()
+        .find(|e| e.weight().id == "segment_1")
+        .map(|e| e.id())
+        .expect("segment_1 edge exists in generated blueprint");
 
     // Create network with fluid
     let mut network = Network::new(graph, fluid);
 
     // Add edge properties (1m long, 1mm² cross-section)
-    const PIPE_LENGTH: f64 = 1.0; // meters
-    const PIPE_AREA: f64 = 1e-6; // m² (1mm²)
     const HAGEN_POISEUILLE_FACTOR: f64 = 8.0;
     const INLET_PRESSURE: f64 = 101325.0; // Pa (1 atm)
     const OUTLET_PRESSURE: f64 = 101225.0; // Pa
@@ -47,7 +63,7 @@ fn main() -> Result<()> {
         resistance,
         length: PIPE_LENGTH,
         area: PIPE_AREA,
-        hydraulic_diameter: Some(2.0 * (PIPE_AREA / std::f64::consts::PI).sqrt()),
+        hydraulic_diameter: Some(hydraulic_diameter),
         geometry: None,
         properties: HashMap::new(),
     };
