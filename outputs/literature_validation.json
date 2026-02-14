@@ -1,0 +1,345 @@
+{
+  "title": "CFD-1D Literature Validation Report",
+  "timestamp": "2026-02-13T19:34:39.956289700+00:00",
+  "n_cases": 6,
+  "n_pass": 41,
+  "n_fail": 0,
+  "all_pass": true,
+  "cases": [
+    {
+      "id": 1,
+      "name": "Shah-London Poiseuille Number",
+      "reference": "Shah & London (1978), Table 43",
+      "all_pass": true,
+      "rows": [
+        {
+          "parameter": "Po(α=1)",
+          "literature": 5.6910000000e1,
+          "cfd_1d": 5.6910000000e1,
+          "error_pct": 0.000000,
+          "pass": true
+        },
+        {
+          "parameter": "Po(α=2)",
+          "literature": 6.2190000000e1,
+          "cfd_1d": 6.2229300000e1,
+          "error_pct": 0.063193,
+          "pass": true
+        },
+        {
+          "parameter": "Po(α=3)",
+          "literature": 6.8360000000e1,
+          "cfd_1d": 6.8379772840e1,
+          "error_pct": 0.028925,
+          "pass": true
+        },
+        {
+          "parameter": "Po(α=5)",
+          "literature": 7.8810000000e1,
+          "cfd_1d": 7.6286155776e1,
+          "error_pct": 3.202442,
+          "pass": true
+        },
+        {
+          "parameter": "Po(α=10)",
+          "literature": 8.4680000000e1,
+          "cfd_1d": 8.4703574688e1,
+          "error_pct": 0.027840,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "Hagen-Poiseuille Resistance",
+      "reference": "Hagen (1839); Poiseuille (1840); White (2006)",
+      "all_pass": true,
+      "rows": [
+        {
+          "parameter": "R(D=0.5mm)",
+          "literature": 3.2660122210e10,
+          "cfd_1d": 3.2660122210e10,
+          "error_pct": 0.000000,
+          "pass": true
+        },
+        {
+          "parameter": "R(D=1.0mm)",
+          "literature": 2.0412576381e9,
+          "cfd_1d": 2.0412576381e9,
+          "error_pct": 0.000000,
+          "pass": true
+        },
+        {
+          "parameter": "R(D=2.0mm)",
+          "literature": 1.2757860238e8,
+          "cfd_1d": 1.2757860238e8,
+          "error_pct": 0.000000,
+          "pass": true
+        },
+        {
+          "parameter": "R(D=3.0mm)",
+          "literature": 2.5200711582e7,
+          "cfd_1d": 2.5200711582e7,
+          "error_pct": 0.000000,
+          "pass": true
+        },
+        {
+          "parameter": "R(0.5mm)/R(1.0mm)",
+          "literature": 1.6000000000e1,
+          "cfd_1d": 1.6000000000e1,
+          "error_pct": 0.000000,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "Bruus Shallow-Channel Approximation",
+      "reference": "Bruus (2008), Theoretical Microfluidics, Eq. 3.30",
+      "all_pass": true,
+      "rows": [
+        {
+          "parameter": "Bruus vs SL (α=1.5)",
+          "literature": 1.0921655221e10,
+          "cfd_1d": 1.1056551724e10,
+          "error_pct": 1.235129,
+          "pass": true
+        },
+        {
+          "parameter": "Bruus vs SL (α=2.0)",
+          "literature": 7.0147978425e9,
+          "cfd_1d": 7.0213138686e9,
+          "error_pct": 0.092890,
+          "pass": true
+        },
+        {
+          "parameter": "Bruus vs SL (α=3.0)",
+          "literature": 4.0602389562e9,
+          "cfd_1d": 4.0587341772e9,
+          "error_pct": 0.037061,
+          "pass": true
+        },
+        {
+          "parameter": "Bruus vs SL (α=5.0)",
+          "literature": 2.2014353689e9,
+          "cfd_1d": 2.2011899314e9,
+          "error_pct": 0.011149,
+          "pass": true
+        },
+        {
+          "parameter": "Bruus vs SL (α=10.0)",
+          "literature": 1.0269630802e9,
+          "cfd_1d": 1.0265955176e9,
+          "error_pct": 0.035791,
+          "pass": true
+        },
+        {
+          "parameter": "Bruus vs SL (α=20.0)",
+          "literature": 4.9679644272e8,
+          "cfd_1d": 4.9660299432e8,
+          "error_pct": 0.038939,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "name": "Dean Number & Curvature Enhancement",
+      "reference": "Dean (1928); Ito (1959); Idelchik (2007)",
+      "all_pass": true,
+      "rows": [
+        {
+          "parameter": "De(Re=10)",
+          "literature": 3.1622776602e0,
+          "cfd_1d": 3.1622776602e0,
+          "error_pct": 0.000000,
+          "pass": true
+        },
+        {
+          "parameter": "De(Re=50)",
+          "literature": 1.5811388301e1,
+          "cfd_1d": 1.5811388301e1,
+          "error_pct": 0.000000,
+          "pass": true
+        },
+        {
+          "parameter": "De(Re=100)",
+          "literature": 3.1622776602e1,
+          "cfd_1d": 3.1622776602e1,
+          "error_pct": 0.000000,
+          "pass": true
+        },
+        {
+          "parameter": "De(Re=200)",
+          "literature": 6.3245553203e1,
+          "cfd_1d": 6.3245553203e1,
+          "error_pct": 0.000000,
+          "pass": true
+        },
+        {
+          "parameter": "De(Re=500)",
+          "literature": 1.5811388301e2,
+          "cfd_1d": 1.5811388301e2,
+          "error_pct": 0.000000,
+          "pass": true
+        },
+        {
+          "parameter": "f_c/f_s(De≈25.0)",
+          "literature": 1.4960372960e0,
+          "cfd_1d": 1.4960372960e0,
+          "error_pct": 0.000000,
+          "pass": true
+        },
+        {
+          "parameter": "f_c/f_s(De≈50.0)",
+          "literature": 1.6823952957e0,
+          "cfd_1d": 1.6823952957e0,
+          "error_pct": 0.000000,
+          "pass": true
+        },
+        {
+          "parameter": "f_c/f_s(De≈100.0)",
+          "literature": 1.9292576419e0,
+          "cfd_1d": 1.9292576419e0,
+          "error_pct": 0.000000,
+          "pass": true
+        },
+        {
+          "parameter": "f_c/f_s(De≈200.0)",
+          "literature": 2.2486697953e0,
+          "cfd_1d": 2.2486697953e0,
+          "error_pct": 0.000000,
+          "pass": true
+        },
+        {
+          "parameter": "K_sharp(Re=100)",
+          "literature": 4.7000000000e0,
+          "cfd_1d": 4.7000000000e0,
+          "error_pct": 0.000000,
+          "pass": true
+        },
+        {
+          "parameter": "K_smooth_R5(Re=100)",
+          "literature": 1.0500000000e0,
+          "cfd_1d": 1.0500000000e0,
+          "error_pct": 0.000000,
+          "pass": true
+        },
+        {
+          "parameter": "K_smooth_R2(Re=100)",
+          "literature": 1.4000000000e0,
+          "cfd_1d": 1.4000000000e0,
+          "error_pct": 0.000000,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "name": "Venturi Pressure Drop",
+      "reference": "Bernoulli; ISO 5167-4; Idelchik (2007)",
+      "all_pass": true,
+      "rows": [
+        {
+          "parameter": "ΔP_contr(V=0.01)",
+          "literature": 1.4122021741e0,
+          "cfd_1d": 1.4122021741e0,
+          "error_pct": 0.000000,
+          "pass": true
+        },
+        {
+          "parameter": "ΔP_exp(V=0.01)",
+          "literature": 8.9820000000e-2,
+          "cfd_1d": 8.9820000000e-2,
+          "error_pct": 0.000000,
+          "pass": true
+        },
+        {
+          "parameter": "ΔP_contr(V=0.05)",
+          "literature": 2.6860478920e1,
+          "cfd_1d": 2.6860478920e1,
+          "error_pct": 0.000000,
+          "pass": true
+        },
+        {
+          "parameter": "ΔP_exp(V=0.05)",
+          "literature": 2.2455000000e0,
+          "cfd_1d": 2.2455000000e0,
+          "error_pct": 0.000000,
+          "pass": true
+        },
+        {
+          "parameter": "ΔP_contr(V=0.10)",
+          "literature": 9.2609379095e1,
+          "cfd_1d": 9.2609379095e1,
+          "error_pct": 0.000000,
+          "pass": true
+        },
+        {
+          "parameter": "ΔP_exp(V=0.10)",
+          "literature": 8.9820000000e0,
+          "cfd_1d": 8.9820000000e0,
+          "error_pct": 0.000000,
+          "pass": true
+        },
+        {
+          "parameter": "ΔP_contr(V=0.50)",
+          "literature": 1.5138980744e3,
+          "cfd_1d": 1.5138980744e3,
+          "error_pct": 0.000000,
+          "pass": true
+        },
+        {
+          "parameter": "ΔP_exp(V=0.50)",
+          "literature": 2.2455000000e2,
+          "cfd_1d": 2.2455000000e2,
+          "error_pct": 0.000000,
+          "pass": true
+        },
+        {
+          "parameter": "ΔP·Cd² ratio (V²)",
+          "literature": 1.0000000000e2,
+          "cfd_1d": 1.0000000000e2,
+          "error_pct": 0.000000,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "name": "Network Cross-Validation (Kirchhoff)",
+      "reference": "Kirchhoff's laws; scheme→cfd-1d pipeline",
+      "all_pass": true,
+      "rows": [
+        {
+          "parameter": "Mass conservation",
+          "literature": 1.0569832322e-6,
+          "cfd_1d": 1.0569832322e-6,
+          "error_pct": 0.000000,
+          "pass": true
+        },
+        {
+          "parameter": "ΔP boundary",
+          "literature": 7.0000000000e3,
+          "cfd_1d": 7.0000000000e3,
+          "error_pct": 0.000000,
+          "pass": true
+        },
+        {
+          "parameter": "Avg ΔP per channel",
+          "literature": 1.1034190521e3,
+          "cfd_1d": 1.1034190521e3,
+          "error_pct": 0.000000,
+          "pass": true
+        },
+        {
+          "parameter": "Pressure monotonic",
+          "literature": 1.0000000000e0,
+          "cfd_1d": 1.0000000000e0,
+          "error_pct": 0.000000,
+          "pass": true
+        }
+      ]
+    }
+  ]
+}

@@ -77,7 +77,7 @@ def test_poiseuille_2d():
     print(f"\nSolver config: {config}")
 
     # Create solver
-    solver = pycfdrs.PoiseuilleSolver2D(config)
+    solver = pycfdrs.PoiseuilleSolver2D_Legacy(config)
     print(f"Solver: {solver}")
 
     # Create Casson blood model

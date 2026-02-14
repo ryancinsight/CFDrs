@@ -48,6 +48,12 @@ import sys
 import matplotlib.pyplot as plt
 import numpy as np
 
+# Set UTF-8 encoding for stdout to handle Unicode characters
+import io
+if sys.platform == "win32":
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8")
+
 try:
     import pycfdrs
 except ImportError:
@@ -161,18 +167,18 @@ def solve_complete_venturi_2d():
     # and verify that velocities scale with area as predicted by continuity
 
     # For fully-developed Poiseuille flow, the relationship is:
-    # Q = (H³W/12μ) |dP/dx|
+    # Q = (H³W/12um) |dP/dx|
     # where H is height, W is width
 
     # For constant Q through sections with different widths:
-    # (dP/dx)₁ × W₁ = (dP/dx)₂ × W₂  (if H constant)
+    # (dP/dx)₁ x W₁ = (dP/dx)₂ x W₂  (if H constant)
 
     # Let's use a small pressure gradient and check velocity scaling
     height = 1e-3  # 1 mm channel height (constant through Venturi)
 
     # Solve in inlet section
     # We need to find pressure gradient that gives us target velocity
-    # For Poiseuille: u_max ≈ (H²/8μ)|dP/dx| (Newtonian approximation)
+    # For Poiseuille: u_max ≈ (H²/8um)|dP/dx| (Newtonian approximation)
     # Target average velocity ≈ (2/3) u_max for parabolic profile
 
     # Approximate pressure gradient
@@ -192,7 +198,7 @@ def solve_complete_venturi_2d():
     )
 
     blood = pycfdrs.CassonBlood()
-    solver_inlet = pycfdrs.PoiseuilleSolver2D(config_inlet)
+    solver_inlet = pycfdrs.PoiseuilleSolver2D_Legacy(config_inlet)
     result_inlet = solver_inlet.solve(blood)
 
     print(f"  Converged: {result_inlet.iterations} iterations")
@@ -201,8 +207,8 @@ def solve_complete_venturi_2d():
     print(f"  WSS: {result_inlet.wall_shear_stress:.3f} Pa")
 
     # For throat, use continuity: Q_inlet = Q_throat
-    # Q = (H³W/12μ_eff) dP/dx
-    # So: dP/dx_throat = dP/dx_inlet × (W_inlet / W_throat) for same Q
+    # Q = (H³W/12um_eff) dP/dx
+    # So: dP/dx_throat = dP/dx_inlet x (W_inlet / W_throat) for same Q
     dp_dx_throat = dp_dx_inlet * (w_inlet / w_throat)
 
     print(f"\nThroat Section:")
@@ -218,7 +224,7 @@ def solve_complete_venturi_2d():
         tolerance=1e-8,
     )
 
-    solver_throat = pycfdrs.PoiseuilleSolver2D(config_throat)
+    solver_throat = pycfdrs.PoiseuilleSolver2D_Legacy(config_throat)
     result_throat = solver_throat.solve(blood)
 
     print(f"  Converged: {result_throat.iterations} iterations")
@@ -239,7 +245,7 @@ def solve_complete_venturi_2d():
     print(f"   Throat flow rate: {result_throat.flow_rate:.6e} m³/s")
     print(f"   Error: {mass_error * 100:.3f}%")
     assert mass_error < 0.05, f"Mass conservation error > 5%: {mass_error * 100}%"
-    print(f"   ✓ PASSED (< 5%)")
+    print(f"   [OK] PASSED (< 5%)")
 
     print(f"\n2. Velocity Ratio (from Continuity):")
     # For 2D Poiseuille, average velocity ≈ (2/3) max velocity
@@ -254,7 +260,7 @@ def solve_complete_venturi_2d():
     print(f"   Velocity ratio (theory): {velocity_ratio_theory:.3f}")
     print(f"   Error: {velocity_error * 100:.1f}%")
     assert velocity_error < 0.15, f"Velocity ratio error > 15%: {velocity_error * 100}%"
-    print(f"   ✓ PASSED (< 15%)")
+    print(f"   [OK] PASSED (< 15%)")
 
     print(f"\n3. Pressure Drop Estimation:")
     # Total pressure drop through sections
@@ -273,16 +279,16 @@ def solve_complete_venturi_2d():
     print(f"   WSS ratio: {wss_ratio:.3f}")
     print(f"   Throat WSS > Inlet WSS: {wss_ratio > 1.0}")
     assert wss_ratio > 1.0, f"WSS should increase in throat"
-    print(f"   ✓ PASSED (WSS increases with velocity)")
+    print(f"   [OK] PASSED (WSS increases with velocity)")
 
     print(f"\n5. Non-Newtonian Behavior:")
     visc_range_inlet = max(result_inlet.viscosity) / min(result_inlet.viscosity)
     visc_range_throat = max(result_throat.viscosity) / min(result_throat.viscosity)
-    print(f"   Inlet viscosity range: {visc_range_inlet:.1f}×")
-    print(f"   Throat viscosity range: {visc_range_throat:.1f}×")
+    print(f"   Inlet viscosity range: {visc_range_inlet:.1f}x")
+    print(f"   Throat viscosity range: {visc_range_throat:.1f}x")
     assert visc_range_inlet > 10, f"Shear-thinning not observed in inlet"
     assert visc_range_throat > 10, f"Shear-thinning not observed in throat"
-    print(f"   ✓ PASSED (> 10× confirms non-Newtonian)")
+    print(f"   [OK] PASSED (> 10x confirms non-Newtonian)")
 
     # Plot results
     fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(14, 10))
@@ -389,8 +395,8 @@ def solve_complete_venturi_2d():
     print(f"  1. 2D Poiseuille solver: 0.72% error (validated separately)")
     print(f"  2. Mass conservation: {mass_error * 100:.3f}% (< 5%)")
     print(f"  3. Velocity ratio: {velocity_error * 100:.1f}% error vs continuity")
-    print(f"  4. WSS scaling: {wss_ratio:.2f}× increase in throat")
-    print(f"  5. Non-Newtonian behavior: {visc_range_throat:.0f}× viscosity range")
+    print(f"  4. WSS scaling: {wss_ratio:.2f}x increase in throat")
+    print(f"  5. Non-Newtonian behavior: {visc_range_throat:.0f}x viscosity range")
     print(f"\nThe Venturi demonstrates:")
     print(f"  - Flow acceleration in throat (continuity)")
     print(f"  - Increased wall shear stress (velocity gradient)")
@@ -406,10 +412,10 @@ if __name__ == "__main__":
         success = solve_complete_venturi_2d()
         sys.exit(0 if success else 1)
     except AssertionError as e:
-        print(f"\n❌ VALIDATION FAILED: {e}")
+        print(f"\n[FAIL] VALIDATION FAILED: {e}")
         sys.exit(1)
     except Exception as e:
-        print(f"\n❌ ERROR: {e}")
+        print(f"\n[FAIL] ERROR: {e}")
         import traceback
 
         traceback.print_exc()

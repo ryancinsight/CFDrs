@@ -1,0 +1,31 @@
+{
+  "timestamp_utc": "2026-02-13T21:55:42.613545+00:00",
+  "suite": "trifurcation_cross_package_validation",
+  "all_passed": true,
+  "packages": {
+    "pycfdrs": true,
+    "scipy": true
+  },
+  "results": [
+    {
+      "name": "validate_1d_trifurcation",
+      "passed": true,
+      "error": null
+    },
+    {
+      "name": "validate_1d_trifurcation_blood",
+      "passed": true,
+      "error": null
+    },
+    {
+      "name": "validate_3d_trifurcation",
+      "passed": true,
+      "error": null
+    },
+    {
+      "name": "scipy_cross_validate",
+      "passed": true,
+      "error": null
+    }
+  ]
+}

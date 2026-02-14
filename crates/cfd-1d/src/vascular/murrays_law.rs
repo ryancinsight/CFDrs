@@ -262,7 +262,6 @@ impl<T: RealField + FromPrimitive + Copy> OptimalBifurcation<T> {
     /// * `flow_ratio` - Flow ratio Q₁/(Q₁+Q₂) (0 < ratio < 1)
     pub fn asymmetric(parent_diameter: T, parent_flow: T, flow_ratio: T) -> Self {
         let one = T::one();
-        let murray = MurraysLaw::<T>::new();
 
         // Flow split
         let q1 = parent_flow * flow_ratio;

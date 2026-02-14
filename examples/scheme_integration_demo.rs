@@ -1,60 +1,70 @@
-//! Example demonstrating scheme library integration for 2D microfluidic schematics
-
-#[cfg(feature = "scheme-integration")]
-use cfd_1d::prelude::*;
+//! Example demonstrating scheme → cfd-1d bridge.
+//!
+//! Run with: `cargo run --example scheme_integration_demo --features scheme-integration`
 
 #[cfg(not(feature = "scheme-integration"))]
 fn main() {
     println!("Scheme Integration Demo");
     println!("======================");
     println!();
-    println!("❌ The 'scheme-integration' feature is not enabled.");
+    println!("The 'scheme-integration' feature is not enabled.");
     println!();
-    // NOTE: This feature requires system dependencies that may not be available
-    // on all platforms. See installation instructions below.
-    println!("in all environments. To enable scheme integration:");
+    println!("Run with the feature enabled:");
+    println!("  cargo run --example scheme_integration_demo --features scheme-integration");
     println!();
-    println!("1. Install system dependencies:");
-    println!("   - Ubuntu/Debian: sudo apt install pkg-config libfontconfig1-dev");
-    println!("   - CentOS/RHEL: sudo yum install pkgconfig fontconfig-devel");
-    println!("   - macOS: brew install pkg-config");
-    println!("   - Windows: Pre-built binaries typically include dependencies");
-    println!();
-    println!("2. Run with the feature enabled:");
-    println!("   cargo run --example scheme_integration_demo --features cfd-1d/scheme-integration");
-    println!();
-    println!("Alternatively, you can design microfluidic networks programmatically");
-    println!("using the NetworkBuilder API without 2D schematic visualization.");
+    println!("Alternatively, design microfluidic networks programmatically");
+    println!("using the NetworkBuilder API without 2D schematic input.");
 }
 
 #[cfg(feature = "scheme-integration")]
 fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
+    use cfd_1d::scheme_bridge::SchemeNetworkConverter;
     use scheme::{
         config::{ChannelTypeConfig, GeometryConfig, SerpentineConfig},
         geometry::{generator::create_geometry, SplitType},
-        visualizations::schematic::plot_geometry,
     };
 
-    println!("Scheme Integration Demo");
-    println!("======================");
+    println!("Scheme → CFD-1D Bridge Demo");
+    println!("===========================\n");
 
-    // Create a simple bifurcation network
-    println!("\n1. Creating a simple bifurcation network...");
-    let bifurcation_system = helpers::create_bifurcation_schematic(200.0, 100.0, 2)?;
+    // ── 1. Simple bifurcation ────────────────────────────────────────────
+    println!("1. Creating a simple bifurcation schematic...");
+    let bifurcation_system = create_geometry(
+        (200.0, 100.0),
+        &[SplitType::Bifurcation],
+        &GeometryConfig::default(),
+        &ChannelTypeConfig::AllStraight,
+    );
     println!(
-        "   Created system with {} nodes and {} channels",
+        "   Scheme: {} nodes, {} channels",
         bifurcation_system.nodes.len(),
         bifurcation_system.channels.len()
     );
 
-    // Export to PNG
-    println!("\n2. Exporting to PNG...");
-    helpers::export_to_png(&bifurcation_system, "bifurcation.png")?;
-    println!("   Saved to bifurcation.png");
+    // Convert to cfd-1d network
+    println!("\n2. Converting to CFD-1D network...");
+    let converter = SchemeNetworkConverter::new(&bifurcation_system);
+    let summary = converter.summary();
+    println!("{}", summary);
 
-    // Create a more complex system with mixed channel types
-    println!("\n3. Creating a complex system with serpentine channels...");
-    let config = GeometryConfig::default();
+    let network = converter.build_network_with_water()?;
+    println!(
+        "   Network: {} nodes, {} edges",
+        network.node_count(),
+        network.edge_count()
+    );
+
+    // Show node info
+    println!("\n3. Node details:");
+    for node in network.nodes() {
+        println!(
+            "   {} ({:?}) at ({:.4e}, {:.4e}) m",
+            node.id, node.node_type, node.position.0, node.position.1
+        );
+    }
+
+    // ── 2. Complex serpentine system ─────────────────────────────────────
+    println!("\n4. Creating complex serpentine bifurcation+trifurcation...");
     let serpentine_config = SerpentineConfig {
         fill_factor: 0.8,
         wavelength_factor: 3.0,
@@ -66,56 +76,47 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let complex_system = create_geometry(
         (300.0, 150.0),
         &[SplitType::Bifurcation, SplitType::Trifurcation],
-        &config,
+        &GeometryConfig::default(),
         &ChannelTypeConfig::AllSerpentine(serpentine_config),
     );
-
     println!(
-        "   Created system with {} nodes and {} channels",
+        "   Scheme: {} nodes, {} channels",
         complex_system.nodes.len(),
         complex_system.channels.len()
     );
 
-    // Extract layout information
-    println!("\n4. Extracting layout information...");
-    let nodes = helpers::convert_nodes(&complex_system.nodes);
-    let paths = helpers::extract_channel_paths(&complex_system.channels);
+    // Convert with millimetre scale (scheme coordinates in mm)
+    let converter = SchemeNetworkConverter::with_scale(&complex_system, 1e-3);
+    let summary = converter.summary();
+    println!("{}", summary);
 
-    println!("   Node positions:");
-    for (id, pos) in nodes.iter().take(5) {
-        println!("     Node {}: ({:.2}, {:.2})", id, pos.0, pos.1);
-    }
-    if nodes.len() > 5 {
-        println!("     ... and {} more nodes", nodes.len() - 5);
-    }
+    let network = converter.build_network_with_water()?;
+    println!(
+        "   Network: {} nodes, {} edges",
+        network.node_count(),
+        network.edge_count()
+    );
 
-    println!("\n   Channel paths:");
-    for (i, path) in paths.iter().enumerate().take(3) {
+    // Show resistance info
+    println!("\n5. Edge resistance summary:");
+    for edge_ref in network.graph.edge_references() {
+        let e = edge_ref.weight();
         println!(
-            "     Channel {}: {} -> {} ({:?}, {} points)",
-            i,
-            path.source,
-            path.target,
-            path.channel_type,
-            path.points.len()
+            "   {} ({:?}): R = {:.4e} Pa·s/m³, k = {:.4e}",
+            e.id, e.edge_type, e.resistance, e.quad_coeff
         );
     }
-    if paths.len() > 3 {
-        println!("     ... and {} more channels", paths.len() - 3);
-    }
 
-    // Export complex system
-    println!("\n5. Exporting complex system...");
-    plot_geometry(&complex_system, "complex_serpentine.png")?;
-    println!("   Saved to complex_serpentine.png");
+    // ── 3. JSON round-trip ──────────────────────────────────────────────
+    println!("\n6. JSON round-trip test...");
+    let json = bifurcation_system.to_json()?;
+    let restored: scheme::geometry::ChannelSystem =
+        scheme::geometry::ChannelSystem::from_json(&json)?;
+    let conv2 = SchemeNetworkConverter::new(&restored);
+    let net2 = conv2.build_network_with_water()?;
+    assert_eq!(network.node_count(), net2.node_count());
+    println!("   Round-trip OK: {} nodes, {} edges", net2.node_count(), net2.edge_count());
 
-    // Demonstrate JSON serialization
-    println!("\n6. Serializing to JSON...");
-    let json = serde_json::to_string_pretty(&complex_system)?;
-    std::fs::write("complex_system.json", &json)?;
-    println!("   Saved to complex_system.json ({} bytes)", json.len());
-
-    println!("\nScheme integration demo completed successfully!");
-
+    println!("\nScheme → CFD-1D bridge demo completed successfully!");
     Ok(())
 }

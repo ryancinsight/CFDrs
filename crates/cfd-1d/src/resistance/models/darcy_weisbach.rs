@@ -86,11 +86,6 @@ use nalgebra::RealField;
 use num_traits::cast::FromPrimitive;
 use serde::{Deserialize, Serialize};
 
-// Named constants for power operations
-const POWER_TWO: f64 = 2.0;
-const AREA_DIVISOR: f64 = 4.0;
-const RESISTANCE_DIVISOR: f64 = 2.0;
-
 // Named constants for friction factor calculations
 const LAMINAR_FRICTION_COEFFICIENT: f64 = 64.0;
 const LAMINAR_TRANSITION_RE: f64 = 2300.0;

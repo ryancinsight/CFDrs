@@ -9,6 +9,8 @@ mod linear_system;
 mod matrix_assembly;
 mod problem;
 mod state;
+mod transient_composition;
+mod transient_droplets;
 
 pub use convergence::ConvergenceChecker;
 pub use geometry::NetworkDomain;
@@ -16,6 +18,14 @@ pub use linear_system::{LinearSolverMethod, LinearSystemSolver};
 pub use matrix_assembly::MatrixAssembler;
 pub use problem::NetworkProblem;
 pub use state::NetworkState;
+pub use transient_composition::{
+    CompositionState, EdgeFlowEvent, InletCompositionEvent, MixtureComposition,
+    PressureBoundaryEvent, SimulationTimeConfig, TransientCompositionSimulator,
+};
+pub use transient_droplets::{
+    ChannelOccupancy, DropletBoundary, DropletInjection, DropletPosition, DropletSnapshot,
+    DropletSplitPolicy, DropletState, DropletTrackingState, SplitMode, TransientDropletSimulator,
+};
 
 use crate::network::Network;
 use cfd_core::compute::solver::{Configurable, Solver, Validatable};

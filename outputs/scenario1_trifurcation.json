@@ -1,0 +1,13 @@
+{
+  "scenario": "Trifurcation Distributor",
+  "n_channels": 14,
+  "max_wall_shear_Pa": 117.2082,
+  "avg_wall_shear_Pa": 18.4184,
+  "max_reynolds": 563.45,
+  "inlet_flow_m3s": 1.395335e-6,
+  "topology": "trifurcation",
+  "p_inlet_Pa": "10000",
+  "p_outlet_Pa": "1000",
+  "flow_uniformity": "0.1012",
+  "timestamp": "2026-02-13T18:36:04.750393500+00:00"
+}

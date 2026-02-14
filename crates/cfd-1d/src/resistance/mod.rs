@@ -16,6 +16,7 @@ pub use geometry::ChannelGeometry;
 pub use models::CombinationMethod;
 pub use models::{
     BendType, DarcyWeisbachModel, EntranceEffectsModel, ExpansionType, FlowConditions,
-    HagenPoiseuilleModel, RectangularChannelModel, ResistanceModel, SerpentineAnalysis,
-    SerpentineCrossSection, SerpentineModel, VenturiAnalysis, VenturiGeometry, VenturiModel,
+    HagenPoiseuilleModel, MembranePoreModel, RectangularChannelModel, ResistanceModel,
+    SerpentineAnalysis, SerpentineCrossSection, SerpentineModel, VenturiAnalysis,
+    VenturiGeometry, VenturiModel,
 };

@@ -2,11 +2,11 @@
 
 use super::geometry::ChannelGeometry;
 use super::models::{
-    DarcyWeisbachModel, FlowConditions, HagenPoiseuilleModel, RectangularChannelModel,
-    ResistanceModel, SerpentineCrossSection, SerpentineModel, VenturiModel,
+    DarcyWeisbachModel, FlowConditions, HagenPoiseuilleModel, MembranePoreModel,
+    RectangularChannelModel, ResistanceModel, SerpentineModel, VenturiModel,
 };
 use cfd_core::error::{Error, Result};
-use cfd_core::physics::fluid::{Fluid, FluidTrait};
+use cfd_core::physics::fluid::FluidTrait;
 use nalgebra::RealField;
 use num_traits::cast::FromPrimitive;
 
@@ -400,6 +400,24 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceCalculator<T> {
     ) -> Result<(T, T)> {
         model.validate_invariants(fluid, conditions)?;
         model.calculate_coefficients(fluid, conditions)
+    }
+
+    /// Calculate hydraulic resistance of a porous membrane.
+    ///
+    /// Uses the parallel-pore model from `MembranePoreModel`.
+    pub fn calculate_membrane_porous<F: FluidTrait<T>>(
+        &self,
+        thickness: T,
+        width: T,
+        height: T,
+        pore_radius: T,
+        porosity: T,
+        fluid: &F,
+        conditions: &FlowConditions<T>,
+    ) -> Result<T> {
+        let model = MembranePoreModel::new(thickness, width, height, pore_radius, porosity);
+        model.validate_invariants(fluid, conditions)?;
+        model.calculate_resistance(fluid, conditions)
     }
 }
 

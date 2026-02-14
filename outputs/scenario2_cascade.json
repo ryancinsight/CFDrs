@@ -1,0 +1,12 @@
+{
+  "scenario": "Two-Level Cascade",
+  "n_channels": 26,
+  "max_wall_shear_Pa": 76.3803,
+  "avg_wall_shear_Pa": 6.3650,
+  "max_reynolds": 157.31,
+  "inlet_flow_m3s": 2.856822e-7,
+  "topology": "bifurcation_x2",
+  "n_levels": "2",
+  "channel_type": "serpentine",
+  "timestamp": "2026-02-13T18:36:04.771885200+00:00"
+}

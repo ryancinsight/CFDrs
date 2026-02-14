@@ -299,7 +299,7 @@ impl<T: RealField + FromPrimitive + Copy> BifurcationNetwork<T> {
         fn add_generation<T: RealField + FromPrimitive + Copy>(
             network: &mut BifurcationNetwork<T>,
             murray: &MurraysLaw<T>,
-            parent_id: usize,
+            _parent_id: usize,
             parent_radius: T,
             parent_length: T,
             length_ratio: T,
@@ -331,7 +331,6 @@ impl<T: RealField + FromPrimitive + Copy> BifurcationNetwork<T> {
 
             // Add junction
             let daughter1_id = network.vessels.len();
-            let daughter2_id = network.vessels.len() + 1; // Will be added after first daughter tree
 
             // Recursively add daughters
             let _terminal1 = add_generation(

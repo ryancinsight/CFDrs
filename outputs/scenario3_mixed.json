@@ -1,0 +1,12 @@
+{
+  "scenario": "Mixed Venturi-Serpentine",
+  "n_channels": 10,
+  "max_wall_shear_Pa": 40.8942,
+  "avg_wall_shear_Pa": 24.5365,
+  "max_reynolds": 248.81,
+  "inlet_flow_m3s": 8.215348e-7,
+  "topology": "bifurcation",
+  "channel_type": "adaptive_mixed",
+  "n_cavitating": "10",
+  "timestamp": "2026-02-13T18:36:04.783659500+00:00"
+}

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""
+# -*- coding: utf-8 -*-
+"""  
 COMPLETE 2D Bifurcation Validation Using Validated Components
 
 This combines:
@@ -13,7 +14,12 @@ which is the physiologically relevant case.
 """
 
 import sys
+import io
 
+# Set UTF-8 encoding for stdout to handle Unicode characters
+if sys.platform == 'win32':
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -42,7 +48,7 @@ def solve_complete_bifurcation_2d():
     print("=" * 80)
 
     # Configuration: Murray's Law optimal bifurcation
-    d_parent = 100e-6  # 100 μm (circular tube diameter)
+    d_parent = 100e-6  # 100 umm (circular tube diameter)
     d_daughter = d_parent / (2.0 ** (1.0 / 3.0))  # Murray's Law
     flow_rate = 30e-9  # 30 nL/s
     inlet_p = 100.0  # 100 Pa
@@ -60,15 +66,15 @@ def solve_complete_bifurcation_2d():
     l_daughter = 50.0 * d_daughter
 
     print(f"\nConfiguration:")
-    print(f"  Parent diameter (circular): {d_parent * 1e6:.2f} μm")
-    print(f"  Parent channel (square): {h_parent * 1e6:.2f} × {h_parent * 1e6:.2f} μm")
-    print(f"  Daughter diameter (circular): {d_daughter * 1e6:.2f} μm (Murray's Law)")
+    print(f"  Parent diameter (circular): {d_parent * 1e6:.2f} um")
+    print(f"  Parent channel (square): {h_parent * 1e6:.2f} x {h_parent * 1e6:.2f} um")
+    print(f"  Daughter diameter (circular): {d_daughter * 1e6:.2f} um (Murray's Law)")
     print(
-        f"  Daughter channel (square): {h_daughter * 1e6:.2f} × {h_daughter * 1e6:.2f} μm"
+        f"  Daughter channel (square): {h_daughter * 1e6:.2f} x {h_daughter * 1e6:.2f} um"
     )
     print(f"  Flow rate: {flow_rate * 1e9:.2f} nL/s")
-    print(f"  Parent L/D: 50 ({l_parent * 1e3:.2f} mm / {d_parent * 1e6:.2f} μm)")
-    print(f"  Daughter L/D: 50 ({l_daughter * 1e3:.2f} mm / {d_daughter * 1e6:.2f} μm)")
+    print(f"  Parent L/D: 50 ({l_parent * 1e3:.2f} mm / {d_parent * 1e6:.2f} um)")
+    print(f"  Daughter L/D: 50 ({l_daughter * 1e3:.2f} mm / {d_daughter * 1e6:.2f} um)")
 
     # Step 1: 1D Network Solution (VALIDATED 0.00%)
     print(f"\n{'=' * 80}")
@@ -111,7 +117,7 @@ def solve_complete_bifurcation_2d():
 
     assert mass_error_1d < 1e-10, f"1D mass conservation failed: {mass_error_1d}"
     assert dp_error_1d < 1e-10, f"1D pressure equality failed: {dp_error_1d}"
-    print(f"  ✓ 1D solution validated (0.00% error)")
+    print(f"  [OK] 1D solution validated (0.00% error)")
 
     # Step 2: 2D Poiseuille in Parent (VALIDATED 0.72%)
     print(f"\n{'=' * 80}")
@@ -127,7 +133,7 @@ def solve_complete_bifurcation_2d():
         tolerance=1e-8,
     )
 
-    solver_parent = pycfdrs.PoiseuilleSolver2D(config_parent)
+    solver_parent = pycfdrs.PoiseuilleSolver2D_Legacy(config_parent)
     result_parent = solver_parent.solve(blood)
 
     print(f"\nParent Vessel Results:")
@@ -156,7 +162,7 @@ def solve_complete_bifurcation_2d():
         tolerance=1e-8,
     )
 
-    solver_d1 = pycfdrs.PoiseuilleSolver2D(config_d1)
+    solver_d1 = pycfdrs.PoiseuilleSolver2D_Legacy(config_d1)
     result_d1 = solver_d1.solve(blood)
 
     config_d2 = pycfdrs.PoiseuilleConfig2D(
@@ -168,7 +174,7 @@ def solve_complete_bifurcation_2d():
         tolerance=1e-8,
     )
 
-    solver_d2 = pycfdrs.PoiseuilleSolver2D(config_d2)
+    solver_d2 = pycfdrs.PoiseuilleSolver2D_Legacy(config_d2)
     result_d2 = solver_d2.solve(blood)
 
     print(f"\nDaughter 1 Results:")
@@ -196,7 +202,7 @@ def solve_complete_bifurcation_2d():
     print(f"   Outflow (daughters): {total_out:.6e} m³/s")
     print(f"   Error: {mass_error_2d * 100:.3f}%")
     assert mass_error_2d < 0.02, f"2D mass conservation > 2%: {mass_error_2d * 100}%"
-    print(f"   ✓ PASSED (< 2%)")
+    print(f"   [OK] PASSED (< 2%)")
 
     print(f"\n2. Murray's Law:")
     d_p3 = d_parent**3
@@ -206,7 +212,7 @@ def solve_complete_bifurcation_2d():
     print(f"   d₁³ + d₂³: {d_d3:.6e}")
     print(f"   Error: {murray_error * 100:.3f}%")
     assert murray_error < 0.01, f"Murray's Law > 1%: {murray_error * 100}%"
-    print(f"   ✓ PASSED (< 1%)")
+    print(f"   [OK] PASSED (< 1%)")
 
     print(f"\n3. Wall Shear Stress Scaling:")
     print(f"   Parent WSS: {result_parent.wall_shear_stress:.3f} Pa")
@@ -218,13 +224,13 @@ def solve_complete_bifurcation_2d():
     print(f"   WSS ratio (d/p): {wss_ratio:.3f}")
     print(f"   Daughter WSS > Parent WSS: {wss_ratio > 1.0}")
     assert wss_ratio > 0.5, f"WSS ratio too low: {wss_ratio}"
-    print(f"   ✓ PASSED (WSS increases in smaller vessels)")
+    print(f"   [OK] PASSED (WSS increases in smaller vessels)")
 
     print(f"\n4. Non-Newtonian Behavior:")
     visc_range = max(result_parent.viscosity) / min(result_parent.viscosity)
-    print(f"   Viscosity variation: {visc_range:.1f}× (min to max)")
-    assert visc_range > 10, f"Shear-thinning not observed: {visc_range}×"
-    print(f"   ✓ PASSED (> 10× confirms non-Newtonian)")
+    print(f"   Viscosity variation: {visc_range:.1f}x (min to max)")
+    assert visc_range > 10, f"Shear-thinning not observed: {visc_range}x"
+    print(f"   [OK] PASSED (> 10x confirms non-Newtonian)")
 
     # Plot results
     fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(14, 10))
@@ -251,7 +257,7 @@ def solve_complete_bifurcation_2d():
         lw=2,
         label="Daughter 2",
     )
-    ax1.set_xlabel("y [μm]")
+    ax1.set_xlabel("y [um]")
     ax1.set_ylabel("Velocity [m/s]")
     ax1.set_title("Velocity Profiles in Each Segment")
     ax1.legend()
@@ -272,7 +278,7 @@ def solve_complete_bifurcation_2d():
         lw=2,
         label="Daughter 1",
     )
-    ax2.set_xlabel("y [μm]")
+    ax2.set_xlabel("y [um]")
     ax2.set_ylabel("Viscosity [cP]")
     ax2.set_title("Viscosity Profiles (Non-Newtonian)")
     ax2.legend()
@@ -294,7 +300,7 @@ def solve_complete_bifurcation_2d():
         lw=2,
         label="Daughter 1",
     )
-    ax3.set_xlabel("y [μm]")
+    ax3.set_xlabel("y [um]")
     ax3.set_ylabel("Shear Rate [s⁻¹]")
     ax3.set_title("Shear Rate Profiles")
     ax3.legend()
@@ -327,7 +333,7 @@ def solve_complete_bifurcation_2d():
     print(f"  3. Mass conservation in 2D: < 2%")
     print(f"  4. Murray's Law geometry: < 1%")
     print(f"  5. WSS scaling: increases in smaller vessels")
-    print(f"  6. Non-Newtonian shear-thinning: > 10× viscosity range")
+    print(f"  6. Non-Newtonian shear-thinning: > 10x viscosity range")
     print(f"\nNOTE: 1D uses circular tubes, 2D uses rectangular channels.")
     print(f"Each solver is independently validated. The 2D solution demonstrates")
     print(f"correct physics (mass conservation, non-Newtonian behavior, WSS scaling)")
@@ -342,10 +348,10 @@ if __name__ == "__main__":
         success = solve_complete_bifurcation_2d()
         sys.exit(0 if success else 1)
     except AssertionError as e:
-        print(f"\n❌ VALIDATION FAILED: {e}")
+        print(f"\n[FAIL] VALIDATION FAILED: {e}")
         sys.exit(1)
     except Exception as e:
-        print(f"\n❌ ERROR: {e}")
+        print(f"\n[FAIL] ERROR: {e}")
         import traceback
 
         traceback.print_exc()

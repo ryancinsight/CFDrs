@@ -17,11 +17,11 @@ Serpentine channels consist of alternating straight sections connected by
    - Predictable pressure drop
 
 2. **Bends**: Secondary flow due to centrifugal effects
-   - Dean number: De = Re × √(D_h / R_c)
+   - Dean number: De = Re x √(D_h / R_c)
    - Dean vortices enhance mixing
 
 3. **Flow Re-development**: After each bend, flow transitions back to
-   fully-developed profile over entrance length L_e ≈ 0.05 × Re × D_h
+   fully-developed profile over entrance length L_e ≈ 0.05 x Re x D_h
 
 # Validation Strategy
 
@@ -47,6 +47,12 @@ import sys
 import matplotlib.pyplot as plt
 import numpy as np
 
+# Set UTF-8 encoding for stdout to handle Unicode characters
+import io
+if sys.platform == "win32":
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8")
+
 try:
     import pycfdrs
 except ImportError:
@@ -70,8 +76,8 @@ def solve_complete_serpentine_2d():
 
     # Serpentine geometry
     n_segments = 4  # Number of straight segments
-    width = 200e-6  # 200 μm channel width
-    height = 100e-6  # 100 μm channel height
+    width = 200e-6  # 200 umm channel width
+    height = 100e-6  # 100 umm channel height
     segment_length = 5e-3  # 5 mm per segment
 
     # Flow conditions
@@ -83,8 +89,8 @@ def solve_complete_serpentine_2d():
 
     print(f"\nSerpentine Geometry:")
     print(f"  Number of segments: {n_segments}")
-    print(f"  Channel width: {width * 1e6:.0f} μm")
-    print(f"  Channel height: {height * 1e6:.0f} μm")
+    print(f"  Channel width: {width * 1e6:.0f} umm")
+    print(f"  Channel height: {height * 1e6:.0f} umm")
     print(f"  Segment length: {segment_length * 1e3:.1f} mm")
     print(f"  Total length: {n_segments * segment_length * 1e3:.1f} mm")
 
@@ -93,16 +99,16 @@ def solve_complete_serpentine_2d():
     Re = rho * inlet_velocity_target * D_h / mu_eff
     print(f"\nFlow Conditions:")
     print(f"  Target velocity: {inlet_velocity_target * 1e2:.1f} cm/s")
-    print(f"  Hydraulic diameter: {D_h * 1e6:.1f} μm")
+    print(f"  Hydraulic diameter: {D_h * 1e6:.1f} umm")
     print(f"  Reynolds number: {Re:.2f}")
 
     # Estimate entrance length
     L_e = 0.05 * Re * D_h
     print(f"  Entrance length: {L_e * 1e3:.2f} mm")
     if segment_length > 3 * L_e:
-        print(f"  ✓ Segments long enough for fully-developed flow (L >> L_e)")
+        print(f"  [OK] Segments long enough for fully-developed flow (L >> L_e)")
     else:
-        print(f"  ⚠ Segments may not be fully developed (L < 3×L_e)")
+        print(f"  ⚠ Segments may not be fully developed (L < 3xL_e)")
 
     # Step 1: Solve each segment
     print(f"\n{'=' * 80}")
@@ -110,7 +116,7 @@ def solve_complete_serpentine_2d():
     print("=" * 80)
 
     # Estimate pressure gradient needed
-    # For Poiseuille: u_max ≈ (H²/8μ) dP/dx
+    # For Poiseuille: u_max ≈ (H²/8um) dP/dx
     # Target average velocity ≈ (2/3) u_max
     dp_dx_estimate = 8.0 * mu_eff * inlet_velocity_target * (2.0 / 3.0) / height**2
 
@@ -133,7 +139,7 @@ def solve_complete_serpentine_2d():
             tolerance=1e-8,
         )
 
-        solver = pycfdrs.PoiseuilleSolver2D(config)
+        solver = pycfdrs.PoiseuilleSolver2D_Legacy(config)
         result = solver.solve(blood)
 
         print(f"  Converged: {result.iterations} iterations")
@@ -162,7 +168,7 @@ def solve_complete_serpentine_2d():
     print(f"   Variation: {mass_error * 100:.3f}%")
 
     assert mass_error < 0.01, f"Flow rate variation > 1%: {mass_error * 100}%"
-    print(f"   ✓ PASSED (< 1% variation)")
+    print(f"   [OK] PASSED (< 1% variation)")
 
     print(f"\n2. Total Pressure Drop:")
     dp_per_segment = dp_dx_estimate * segment_length
@@ -173,7 +179,7 @@ def solve_complete_serpentine_2d():
 
     # Check if pressure drop is reasonable for microfluidics
     assert dp_total < 10000, f"Pressure drop too high: {dp_total} Pa"
-    print(f"   ✓ PASSED (< 10 kPa, reasonable for microfluidics)")
+    print(f"   [OK] PASSED (< 10 kPa, reasonable for microfluidics)")
 
     print(f"\n3. Wall Shear Stress Uniformity:")
     wss_values = [seg.wall_shear_stress for seg in segments]
@@ -188,7 +194,7 @@ def solve_complete_serpentine_2d():
     print(f"   Variation: {wss_variation * 100:.3f}%")
 
     assert wss_variation < 0.01, f"WSS variation > 1%: {wss_variation * 100}%"
-    print(f"   ✓ PASSED (< 1% variation, uniform shear)")
+    print(f"   [OK] PASSED (< 1% variation, uniform shear)")
 
     print(f"\n4. Physiological Relevance:")
     # Physiological WSS in microvessels: 0.5-7 Pa
@@ -197,16 +203,16 @@ def solve_complete_serpentine_2d():
     print(f"   Physiological range: 0.5 - 7.0 Pa (microvessels)")
 
     if wss_in_range:
-        print(f"   ✓ WSS within reasonable range for microfluidics")
+        print(f"   [OK] WSS within reasonable range for microfluidics")
     else:
         print(f"   ⚠ WSS outside typical physiological range (still valid)")
 
     print(f"\n5. Non-Newtonian Behavior in All Segments:")
     for i, seg in enumerate(segments):
         visc_range = max(seg.viscosity) / min(seg.viscosity)
-        print(f"   Segment {i + 1} viscosity range: {visc_range:.1f}×")
+        print(f"   Segment {i + 1} viscosity range: {visc_range:.1f}x")
         assert visc_range > 10, f"Segment {i + 1}: Shear-thinning not observed"
-    print(f"   ✓ PASSED (> 10× in all segments confirms non-Newtonian)")
+    print(f"   [OK] PASSED (> 10x in all segments confirms non-Newtonian)")
 
     print(f"\n6. Velocity Profile Consistency:")
     max_velocities = [max(seg.velocity) for seg in segments]
@@ -220,7 +226,7 @@ def solve_complete_serpentine_2d():
     print(f"   Variation: {u_max_variation * 100:.3f}%")
 
     assert u_max_variation < 0.01, f"Velocity variation > 1%: {u_max_variation * 100}%"
-    print(f"   ✓ PASSED (< 1% variation, consistent profiles)")
+    print(f"   [OK] PASSED (< 1% variation, consistent profiles)")
 
     # Plot results
     fig = plt.figure(figsize=(16, 10))
@@ -239,7 +245,7 @@ def solve_complete_serpentine_2d():
             lw=2,
             label=f"Segment {i + 1}",
         )
-    ax1.set_xlabel("y [μm]")
+    ax1.set_xlabel("y [umm]")
     ax1.set_ylabel("Velocity [m/s]")
     ax1.set_title(f"Velocity Profiles: All {n_segments} Segments")
     ax1.legend(ncol=n_segments)
@@ -253,7 +259,7 @@ def solve_complete_serpentine_2d():
         "b-",
         lw=2,
     )
-    ax2.set_xlabel("y [μm]")
+    ax2.set_xlabel("y [umm]")
     ax2.set_ylabel("Viscosity [cP]")
     ax2.set_title("Viscosity Profile (Segment 1)")
     ax2.grid(True, alpha=0.3)
@@ -267,7 +273,7 @@ def solve_complete_serpentine_2d():
         "g-",
         lw=2,
     )
-    ax3.set_xlabel("y [μm]")
+    ax3.set_xlabel("y [umm]")
     ax3.set_ylabel("Shear Rate [s⁻¹]")
     ax3.set_title("Shear Rate Profile (Segment 1)")
     ax3.grid(True, alpha=0.3)
@@ -310,8 +316,8 @@ def solve_complete_serpentine_2d():
     summary_text = f"""SERPENTINE VALIDATION SUMMARY
 
     Geometry:
-    • {n_segments} segments × {segment_length * 1e3:.1f} mm
-    • {width * 1e6:.0f} × {height * 1e6:.0f} μm channel
+    • {n_segments} segments x {segment_length * 1e3:.1f} mm
+    • {width * 1e6:.0f} x {height * 1e6:.0f} umm channel
     • Total length: {n_segments * segment_length * 1e3:.1f} mm
 
     Flow:
@@ -320,11 +326,11 @@ def solve_complete_serpentine_2d():
     • WSS = {wss_avg:.2f} Pa
 
     Validation:
-    ✓ Mass conserv: {mass_error * 100:.3f}%
-    ✓ WSS uniform: {wss_variation * 100:.3f}%
-    ✓ Velocity consistent
-    ✓ Non-Newtonian (>1000×)
-    ✓ Total ΔP: {dp_total:.1f} Pa
+    [OK] Mass conserv: {mass_error * 100:.3f}%
+    [OK] WSS uniform: {wss_variation * 100:.3f}%
+    [OK] Velocity consistent
+    [OK] Non-Newtonian (>1000x)
+    [OK] Total ΔP: {dp_total:.1f} Pa
     """
 
     ax7.text(
@@ -349,7 +355,7 @@ def solve_complete_serpentine_2d():
     print(f"  2. Mass conservation: {mass_error * 100:.3f}% variation across segments")
     print(f"  3. WSS uniformity: {wss_variation * 100:.3f}% variation")
     print(f"  4. Velocity consistency: {u_max_variation * 100:.3f}% variation")
-    print(f"  5. Non-Newtonian behavior: > 1000× viscosity range in all segments")
+    print(f"  5. Non-Newtonian behavior: > 1000x viscosity range in all segments")
     print(
         f"  6. Total pressure drop: {dp_total:.1f} Pa ({dp_total / 133.322:.1f} mmHg)"
     )
@@ -371,10 +377,10 @@ if __name__ == "__main__":
         success = solve_complete_serpentine_2d()
         sys.exit(0 if success else 1)
     except AssertionError as e:
-        print(f"\n❌ VALIDATION FAILED: {e}")
+        print(f"\n[FAIL] VALIDATION FAILED: {e}")
         sys.exit(1)
     except Exception as e:
-        print(f"\n❌ ERROR: {e}")
+        print(f"\n[FAIL] ERROR: {e}")
         import traceback
 
         traceback.print_exc()

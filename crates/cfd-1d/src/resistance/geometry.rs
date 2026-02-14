@@ -1,6 +1,6 @@
 //! Channel geometry definitions for resistance calculations.
 
-use cfd_core::error::{Error, Result};
+use cfd_core::error::Result;
 use nalgebra::RealField;
 use num_traits::cast::FromPrimitive;
 

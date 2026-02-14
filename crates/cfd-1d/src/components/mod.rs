@@ -13,6 +13,7 @@ use std::collections::HashMap;
 pub mod channels;
 pub mod constants;
 pub mod factory;
+pub mod membranes;
 pub mod mixers;
 pub mod pumps;
 pub mod sensors;
@@ -21,6 +22,7 @@ pub mod valves;
 // Re-export commonly used types
 pub use channels::{CircularChannel, RectangularChannel};
 pub use factory::ComponentFactory;
+pub use membranes::{OrganCompartment, PorousMembrane};
 pub use mixers::{Micromixer, MixerType};
 pub use pumps::{Micropump, PumpType};
 pub use sensors::{FlowSensor, SensorType};

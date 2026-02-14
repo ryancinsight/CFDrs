@@ -100,8 +100,6 @@ const LAMINAR_LIMIT_RE: f64 = 2300.0;
 const LAMINAR_FRICTION_COEFF: f64 = 64.0;
 const BLASIUS_COEFF: f64 = 0.3164;
 const BLASIUS_EXP: f64 = 0.25;
-const DEFAULT_DISCHARGE_COEFF: f64 = 0.98;
-const DEFAULT_RECOVERY_EFFICIENCY: f64 = 0.75;
 
 /// Venturi tube geometry specification
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -442,8 +440,6 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for VenturiModel<T>
         // --- Net pressure drop ---
         // Total ΔP = contraction + friction + expansion_loss - recovery
         // Note: recovery is pressure regain, so it reduces the total drop
-        let dp_total = dp_contraction + dp_friction + dp_expansion_loss - dp_recovery;
-
         // Convert to resistance form: ΔP = R·Q + k·Q|Q|
         // For the quadratic component (dominant at higher Re):
         // ΔP ∝ V² ∝ Q² → k = ΔP / Q²

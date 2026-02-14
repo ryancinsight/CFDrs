@@ -42,11 +42,13 @@
 #![allow(clippy::should_implement_trait)] // CFD-specific trait implementations
 
 pub mod analysis;
-pub mod bifurcation;
 pub mod channel;
 pub mod components;
+pub mod junctions;
 pub mod network;
 pub mod resistance;
+#[cfg(feature = "scheme-integration")]
+pub mod scheme_bridge;
 pub mod solver;
 pub mod vascular;
 
@@ -59,19 +61,23 @@ pub use network::{
 // Export solver functionality
 pub use solver::{
     ConvergenceChecker, LinearSystemSolver, MatrixAssembler, NetworkDomain, NetworkProblem,
-    NetworkSolver, NetworkState,
+    NetworkSolver, NetworkState, CompositionState, EdgeFlowEvent, InletCompositionEvent, MixtureComposition,
+    PressureBoundaryEvent, SimulationTimeConfig, TransientCompositionSimulator, ChannelOccupancy, DropletBoundary, DropletInjection,
+    DropletPosition, DropletSnapshot, DropletSplitPolicy, DropletState,
+    DropletTrackingState, SplitMode, TransientDropletSimulator,
 };
 
 // Export component functionality
 pub use components::{
     CircularChannel, Component, ComponentFactory, FlowSensor, Micromixer, Micropump, Microvalve,
-    MixerType, PumpType, RectangularChannel, SensorType, ValveType,
+    MixerType, OrganCompartment, PorousMembrane, PumpType, RectangularChannel, SensorType,
+    ValveType,
 };
 
 // Export analysis functionality
 pub use analysis::{
-    FlowAnalysis, NetworkAnalysisResult, NetworkAnalyzerOrchestrator, PerformanceMetrics,
-    PressureAnalysis, ResistanceAnalysis,
+    BloodShearLimits, FlowAnalysis, NetworkAnalysisResult, NetworkAnalyzerOrchestrator,
+    PerformanceMetrics, PressureAnalysis, ResistanceAnalysis, ShearLimitViolation,
 };
 
 // Export channel functionality
@@ -84,9 +90,16 @@ pub use channel::{
 pub use resistance::{
     BendType, ChannelGeometry as ResistanceChannelGeometry, CombinationMethod,
     DarcyWeisbachModel, ExpansionType, FlowConditions, HagenPoiseuilleModel,
-    RectangularChannelModel, ResistanceCalculator, ResistanceModel, ResistanceModelFactory,
-    SerpentineAnalysis, SerpentineCrossSection, SerpentineModel, VenturiAnalysis, VenturiGeometry,
-    VenturiModel,
+    MembranePoreModel, RectangularChannelModel, ResistanceCalculator, ResistanceModel,
+    ResistanceModelFactory, SerpentineAnalysis, SerpentineCrossSection, SerpentineModel,
+    VenturiAnalysis, VenturiGeometry, VenturiModel,
+};
+
+// Export hierarchical junction functionality
+pub use junctions::branching::{
+    BranchingNetworkConfig, BranchingNetworkSolver, BranchingValidationResult,
+    BranchingValidator, ThreeWayBranchJunction, ThreeWayBranchSolution,
+    TwoWayBranchJunction, TwoWayBranchSolution,
 };
 
 /// 1D CFD domain-specific prelude for microfluidic networks
@@ -97,22 +110,39 @@ pub use resistance::{
 ///
 /// For basic 1D functionality, prefer `cfd_suite::prelude::*`.
 pub mod prelude {
-    // === Scheme Integration (2D Visualization) ===
+    // === Scheme Integration (2D → 1D bridge) ===
+    #[cfg(feature = "scheme-integration")]
+    pub use crate::scheme_bridge::{SchemeNetworkConverter, BridgeError};
 
     // === Extended Network Components ===
     // Specialized components not in main prelude
     pub use crate::{
-        analysis::{NetworkAnalysisResult, NetworkAnalyzerOrchestrator, PerformanceMetrics},
+        analysis::{
+            BloodShearLimits, NetworkAnalysisResult, NetworkAnalyzerOrchestrator,
+            PerformanceMetrics, ShearLimitViolation,
+        },
         channel::{
             Channel, ChannelGeometry, ChannelType, CrossSection, FlowRegime, FlowState,
             SurfaceProperties, Wettability,
         },
         components::{
-            ComponentFactory, FlowSensor, Micromixer, MixerType, PumpType, SensorType, ValveType,
+            ComponentFactory, FlowSensor, Micromixer, MixerType, OrganCompartment,
+            PorousMembrane, PumpType, SensorType, ValveType,
         },
         network::{Edge, EdgeProperties, EdgeType, Node, NodeProperties, NodeType},
+        junctions::branching::{
+            BranchingNetworkConfig, BranchingNetworkSolver, BranchingValidationResult,
+            BranchingValidator, ThreeWayBranchJunction, ThreeWayBranchSolution,
+            TwoWayBranchJunction, TwoWayBranchSolution,
+        },
         resistance::{
             DarcyWeisbachModel, FlowConditions, ResistanceCalculator, ResistanceModelFactory,
+        },
+        solver::{
+            ChannelOccupancy, CompositionState, DropletBoundary, DropletInjection,
+            DropletPosition, DropletSnapshot, DropletSplitPolicy, DropletState,
+            DropletTrackingState, EdgeFlowEvent, InletCompositionEvent, MixtureComposition, PressureBoundaryEvent, SimulationTimeConfig, SplitMode,
+            TransientCompositionSimulator, TransientDropletSimulator,
         },
     };
 }

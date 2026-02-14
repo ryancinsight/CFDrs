@@ -5,7 +5,7 @@
 
 use crate::bifurcation::ConicalTransition;
 use cfd_core::conversion::SafeFromF64;
-use nalgebra::{Point3, RealField, Vector3};
+use nalgebra::RealField;
 use num_traits::{FromPrimitive, ToPrimitive};
 use serde::{Deserialize, Serialize};
 

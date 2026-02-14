@@ -2,10 +2,10 @@
 //!
 //! Provides Python interface to the 1D bifurcation solver with non-Newtonian blood flow.
 
-use cfd_1d::bifurcation::{BifurcationJunction, TrifurcationJunction};
+use cfd_1d::junctions::branching::{TwoWayBranchJunction, ThreeWayBranchJunction};
 use cfd_1d::channel::{Channel, ChannelGeometry};
 use cfd_core::physics::fluid::blood::{CarreauYasudaBlood, CassonBlood};
-use pyo3::exceptions::{PyRuntimeError, PyTypeError};
+use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 
 use crate::result_types::PyBifurcationResult;
@@ -120,7 +120,7 @@ impl PyBifurcationSolver {
         let d1 = Channel::new(d1_geom);
         let d2 = Channel::new(d2_geom);
 
-        let bifurc = BifurcationJunction::new(parent, d1, d2, self.flow_split_ratio);
+        let bifurc = TwoWayBranchJunction::new(parent, d1, d2, self.flow_split_ratio);
 
         match blood_type {
             "casson" => {
@@ -282,7 +282,7 @@ impl PyTrifurcationSolver {
         let d3 = Channel::new(d3_geom);
 
         let trifurc =
-            TrifurcationJunction::new(parent, d1, d2, d3, (1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0));
+            ThreeWayBranchJunction::new(parent, d1, d2, d3, (1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0));
         let blood = CassonBlood::<f64>::normal_blood();
 
         match trifurc.solve(blood, flow_rate, pressure) {

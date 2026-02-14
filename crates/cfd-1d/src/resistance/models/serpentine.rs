@@ -450,9 +450,6 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for SerpentineModel
         let k_bend = self.bend_type.loss_coefficient(re_safe);
         let dp_bends = n_bends * k_bend * half * density * velocity * velocity;
 
-        // --- Total ---
-        let dp_total = dp_friction + dp_bends;
-
         // Decompose into R·Q (viscous/linear) + k·Q² (inertial/quadratic)
         let q = velocity * area;
         let q_sq = q * q;

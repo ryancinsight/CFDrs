@@ -115,7 +115,7 @@ gpu = ["cfd-core/gpu", "dep:wgpu"]
 csg = ["cfd-mesh/csg", "cfd-3d/csg"]
 mpi = ["cfd-core/mpi", "dep:mpi"]
 simd = ["cfd-core/simd"]
-scheme-integration = []
+scheme-integration = ["cfd-1d/scheme-integration"]
 
 [dependencies]
 cfd-core.workspace = true
@@ -129,6 +129,7 @@ cfd-validation.workspace = true
 nalgebra.workspace = true
 num-traits.workspace = true
 simba.workspace = true
+petgraph.workspace = true
 wgpu = { version = "0.19", optional = true }
 mpi = { version = "0.8", optional = true, default-features = false }
 rand.workspace = true
@@ -145,6 +146,8 @@ serde = { workspace = true, features = ["derive"] }
 chrono = { version = "0.4", features = ["serde"] }
 num_cpus = "1.17"
 tracing-subscriber = { workspace = true }
+scheme = { path = "../scheme" }
+plotters = { version = "0.3", default-features = false, features = ["svg_backend", "line_series"] }
 
 [[bench]]
 name = "core_benchmarks"
@@ -164,6 +167,21 @@ path = "examples/spectral_performance.rs"
 
 [[example]]
 name = "scheme_integration_demo"
+
+[[example]]
+name = "blood_millifluidic_simulation"
+path = "examples/blood_millifluidic_simulation.rs"
+required-features = ["scheme-integration"]
+
+[[example]]
+name = "millifluidic_scenarios"
+path = "examples/millifluidic_scenarios.rs"
+required-features = ["scheme-integration"]
+
+[[example]]
+name = "literature_validation"
+path = "examples/literature_validation.rs"
+required-features = ["scheme-integration"]
 
 [[example]]
 name = "pipe_flow_validation"
