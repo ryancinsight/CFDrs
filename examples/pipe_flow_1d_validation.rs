@@ -3,11 +3,12 @@
 //! This example validates the 1D pipe flow solver against the analytical
 //! Hagen-Poiseuille solution for laminar flow in a circular pipe.
 
-use cfd_1d::network::{Network, NetworkBuilder};
+use cfd_1d::network::Network;
 use cfd_1d::solver::{NetworkProblem, NetworkSolver};
 use cfd_core::compute::solver::Solver;
 use cfd_core::error::Result;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
+use cfd_fluidics::{serpentine_chain, FluidicDesigner};
 use std::f64::consts::PI;
 
 fn main() -> Result<()> {
@@ -45,22 +46,25 @@ fn main() -> Result<()> {
         1482.0, // Speed of sound (m/s)
     );
 
-    // Build network using builder pattern
-    let mut builder = NetworkBuilder::new();
+    // Build network topology via cfd-fluidics
+    let designer = FluidicDesigner::new();
+    let blueprint = serpentine_chain("pipe_validation", 1, pipe_length, 2.0 * pipe_radius);
+    let graph = designer.generate(&blueprint)?;
 
-    // Add inlet and outlet nodes
-    let inlet = builder.add_inlet("inlet".to_string());
-    let outlet = builder.add_outlet("outlet".to_string());
+    // Get generated inlet/outlet node handles for boundary conditions
+    let inlet = graph
+        .node_indices()
+        .find(|idx| graph[*idx].id == "inlet")
+        .expect("inlet node exists in generated blueprint");
+    let outlet = graph
+        .node_indices()
+        .find(|idx| graph[*idx].id == "outlet")
+        .expect("outlet node exists in generated blueprint");
 
     // Calculate resistance for circular pipe (Hagen-Poiseuille)
     let pipe_area = PI * pipe_radius * pipe_radius;
     let resistance = 8.0 * fluid_viscosity * pipe_length / (PI * pipe_radius.powi(4));
 
-    // Add pipe between inlet and outlet
-    builder.connect_with_pipe(inlet, outlet, "pipe".to_string());
-
-    // Build the network
-    let graph = builder.build()?;
     let network = Network::new(graph, fluid);
 
     // Set boundary conditions would need to be implemented differently

@@ -2,7 +2,7 @@
 //!
 //! This example demonstrates the 1D CFD API with:
 //! - Error-free builder pattern (single point of failure in .build())
-//! - Self-documenting parameter names using NetworkBuilder
+//! - Topology generation via cfd-fluidics (single source of truth)
 //! - Clear method naming (.build() instead of .build_network())
 //! - Standard library usage (windows() instead of custom windowed_operation)
 //! - Cohesive workflow connecting simulation results to analysis
@@ -122,7 +122,7 @@ fn main() -> Result<()> {
 
     println!("\n✓ Example completed successfully");
     println!("✓ Demonstrates proper 1D CFD API usage");
-    println!("✓ Shows builder pattern for network construction");
+    println!("✓ Shows cfd-fluidics generation for network construction");
     println!("✓ Includes physics validation metrics");
 
     Ok(())
