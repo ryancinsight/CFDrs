@@ -1,0 +1,14 @@
+[package]
+name = "cfd-fluidics"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+documentation.workspace = true
+description = "Fluidic network design and generation crate with layered architecture"
+
+[dependencies]
+cfd-core = { path = "../cfd-core" }
+cfd-1d = { path = "../cfd-1d" }
+petgraph.workspace = true

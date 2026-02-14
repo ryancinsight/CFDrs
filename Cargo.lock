@@ -427,6 +427,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "cfd-fluidics"
+version = "0.1.0"
+dependencies = [
+ "cfd-1d",
+ "cfd-core",
+ "petgraph",
+]
+
+[[package]]
 name = "cfd-io"
 version = "0.1.0"
 dependencies = [
