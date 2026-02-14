@@ -7,11 +7,12 @@
 //! - Standard library usage (windows() instead of custom windowed_operation)
 //! - Cohesive workflow connecting simulation results to analysis
 
-use cfd_1d::network::{Network, NetworkBuilder};
+use cfd_1d::network::Network;
 use cfd_1d::solver::{NetworkProblem, NetworkSolver};
 use cfd_core::compute::solver::Solver;
 use cfd_core::error::Result;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
+use cfd_fluidics::{serpentine_chain, FluidicDesigner};
 use std::f64::consts::PI;
 
 fn main() -> Result<()> {
@@ -32,18 +33,10 @@ fn main() -> Result<()> {
     println!("  Density: {} kg/m³", water.density);
     println!("  Viscosity: {} Pa·s", water.viscosity);
 
-    // Build network using builder pattern
-    let mut builder = NetworkBuilder::new();
-
-    // Add inlet and outlet nodes
-    let inlet = builder.add_inlet("inlet".to_string());
-    let outlet = builder.add_outlet("outlet".to_string());
-
-    // Connect with pipe
-    builder.connect_with_pipe(inlet, outlet, "main_pipe".to_string());
-
-    // Build the network
-    let graph = builder.build()?;
+    // Build network via cfd-fluidics design/generation crate
+    let designer = FluidicDesigner::new();
+    let blueprint = serpentine_chain("main_pipe_1d", 1, 1.0, 0.01);
+    let graph = designer.generate(&blueprint)?;
     let network = Network::new(graph, water);
 
     println!("\nNetwork created with {} nodes", network.node_count());
