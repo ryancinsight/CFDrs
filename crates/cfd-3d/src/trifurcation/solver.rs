@@ -160,6 +160,23 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
         };
 
         let mut problem = StokesFlowProblem::new(mesh, constant_fluid, boundary_conditions, tet_mesh.vertex_count());
+
+        // Ensure all boundary nodes have BCs (fix for potentially unmarked boundary faces)
+        let boundary_nodes = problem.get_boundary_nodes();
+        let mut missing_nodes = Vec::new();
+        for &node_idx in &boundary_nodes {
+            if !problem.boundary_conditions.contains_key(&node_idx) {
+                missing_nodes.push(node_idx);
+            }
+        }
+
+        if !missing_nodes.is_empty() {
+            println!("Warning: Assigning default Wall BC to {} unmarked boundary nodes", missing_nodes.len());
+            for node_idx in missing_nodes {
+                problem.boundary_conditions.insert(node_idx, BoundaryCondition::wall_no_slip());
+            }
+        }
+
         let n_elements = problem.mesh.cell_count();
         let mut element_viscosities = vec![fluid_props.dynamic_viscosity; n_elements];
         

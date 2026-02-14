@@ -69,16 +69,17 @@ impl<T: RealField + Copy> StokesFlowProblem<T> {
 
     /// Get all boundary node indices
     ///
-    /// Boundary nodes are vertices that belong to boundary faces.
-    /// A boundary face is one that is referenced by only one cell,
-    /// or is explicitly marked as a boundary face.
+    /// Boundary nodes are vertices that belong to faces on the topological boundary
+    /// of the domain (referenced by exactly one cell).
+    ///
+    /// Note: This method purposely ignores internal faces even if they are marked
+    /// as boundaries, to avoid flagging interior nodes as requiring boundary conditions.
     ///
     /// # Algorithm
     ///
     /// 1. Identify boundary faces:
-    ///    - Faces marked explicitly in boundary_markers
     ///    - Faces belonging to exactly one cell (external boundaries)
-    /// 2. Collect unique vertices from all boundary faces
+    /// 2. Collect unique vertices from these faces
     ///
     /// # Returns
     ///
@@ -100,21 +101,13 @@ impl<T: RealField + Copy> StokesFlowProblem<T> {
         }
 
         // Collect boundary faces:
-        // 1. Faces explicitly marked as boundaries
-        let marked_boundary_faces: HashSet<usize> =
-            self.mesh.boundary_faces().into_iter().collect();
-
-        // 2. Faces referenced by exactly one cell (external boundaries)
-        let connectivity_boundary_faces: HashSet<usize> = face_cell_count
+        // Only consider faces referenced by exactly one cell (external boundaries).
+        // Marked internal faces are intentionally ignored to prevent flagging
+        // interior nodes as missing BCs.
+        let boundary_faces: HashSet<usize> = face_cell_count
             .iter()
             .filter(|&(_face_idx, &count)| count == 1)
             .map(|(&face_idx, _)| face_idx)
-            .collect();
-
-        // Union of both sets
-        let boundary_faces: HashSet<usize> = marked_boundary_faces
-            .union(&connectivity_boundary_faces)
-            .copied()
             .collect();
 
         // Collect unique vertices from all boundary faces
@@ -327,5 +320,92 @@ mod tests {
         let mut sorted = boundary_nodes.clone();
         sorted.sort_unstable();
         assert_eq!(boundary_nodes, sorted);
+    }
+
+    /// Create a 4-tet mesh with a central vertex
+    ///
+    /// Mesh structure:
+    /// Vertices:
+    /// v0: (0,0,0) [center]
+    /// v1: (1,1,1)
+    /// v2: (1,-1,-1)
+    /// v3: (-1,1,-1)
+    /// v4: (-1,-1,1)
+    ///
+    /// Tets:
+    /// t0: (0,1,2,3)
+    /// t1: (0,1,2,4)
+    /// t2: (0,1,3,4)
+    /// t3: (0,2,3,4)
+    fn create_centered_tet_mesh() -> Mesh<f64> {
+        let mut mesh = Mesh::new();
+
+        mesh.add_vertex(cfd_mesh::topology::Vertex::new(Point3::new(0.0, 0.0, 0.0))); // v0
+        mesh.add_vertex(cfd_mesh::topology::Vertex::new(Point3::new(1.0, 1.0, 1.0))); // v1
+        mesh.add_vertex(cfd_mesh::topology::Vertex::new(Point3::new(1.0, -1.0, -1.0))); // v2
+        mesh.add_vertex(cfd_mesh::topology::Vertex::new(Point3::new(-1.0, 1.0, -1.0))); // v3
+        mesh.add_vertex(cfd_mesh::topology::Vertex::new(Point3::new(-1.0, -1.0, 1.0))); // v4
+
+        // Faces involving v0 (internal)
+        let f_012 = mesh.add_face(Face::triangle(0, 1, 2));
+        let f_023 = mesh.add_face(Face::triangle(0, 2, 3));
+        let f_031 = mesh.add_face(Face::triangle(0, 3, 1));
+        let f_014 = mesh.add_face(Face::triangle(0, 1, 4));
+        let f_024 = mesh.add_face(Face::triangle(0, 2, 4));
+        let f_034 = mesh.add_face(Face::triangle(0, 3, 4));
+
+        // Faces on boundary (external)
+        let f_123 = mesh.add_face(Face::triangle(1, 2, 3));
+        let f_124 = mesh.add_face(Face::triangle(1, 2, 4));
+        let f_134 = mesh.add_face(Face::triangle(1, 3, 4));
+        let f_234 = mesh.add_face(Face::triangle(2, 3, 4));
+
+        // Tets
+        // t0: (0,1,2,3) -> faces (0,1,2), (0,2,3), (0,3,1), (1,2,3)
+        // Order faces correctly for tetrahedra (not critical for node collection but good practice)
+        mesh.add_cell(Cell::tetrahedron(f_012, f_023, f_031, f_123));
+
+        // t1: (0,1,2,4) -> faces (0,1,2), (0,1,4), (0,2,4), (1,2,4)
+        mesh.add_cell(Cell::tetrahedron(f_012, f_014, f_024, f_124));
+
+        // t2: (0,1,3,4) -> faces (0,3,1), (0,1,4), (0,3,4), (1,3,4)
+        mesh.add_cell(Cell::tetrahedron(f_031, f_014, f_034, f_134));
+
+        // t3: (0,2,3,4) -> faces (0,2,3), (0,2,4), (0,3,4), (2,3,4)
+        mesh.add_cell(Cell::tetrahedron(f_023, f_024, f_034, f_234));
+
+        mesh
+    }
+
+    #[test]
+    fn test_interior_node_ignored() {
+        let mut mesh = create_centered_tet_mesh();
+
+        // Mark an internal face (containing v0) as boundary
+        // Face 0 is (0,1,2), which is shared by t0 and t1.
+        mesh.mark_boundary(0, "internal_boundary".to_string());
+
+        let fluid = ConstantPropertyFluid::<f64>::water_20c().unwrap();
+        let mut boundary_conditions = HashMap::new();
+
+        // Add BCs for external nodes (1,2,3,4) so validate() can pass
+        for i in 1..=4 {
+            boundary_conditions.insert(
+                i,
+                BoundaryCondition::Dirichlet {
+                    value: 0.0,
+                    component_values: None,
+                },
+            );
+        }
+
+        let problem = StokesFlowProblem::new(mesh, fluid, boundary_conditions, 5);
+        let boundary_nodes = problem.get_boundary_nodes();
+
+        // After fix, v0 (index 0) should NOT be included because face 0 is internal (even if marked).
+        assert!(!boundary_nodes.contains(&0), "Interior node should NOT be flagged as boundary");
+
+        // Validation should pass
+        assert!(problem.validate().is_ok(), "Validation should pass with interior node unmarked");
     }
 }
