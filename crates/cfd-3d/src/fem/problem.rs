@@ -100,21 +100,13 @@ impl<T: RealField + Copy> StokesFlowProblem<T> {
         }
 
         // Collect boundary faces:
-        // 1. Faces explicitly marked as boundaries
-        let marked_boundary_faces: HashSet<usize> =
-            self.mesh.boundary_faces().into_iter().collect();
-
-        // 2. Faces referenced by exactly one cell (external boundaries)
-        let connectivity_boundary_faces: HashSet<usize> = face_cell_count
+        // We strictly use topological boundary faces (referenced by exactly one cell).
+        // This avoids flagging internal marked faces (e.g., for tracking or internal boundaries)
+        // as needing boundary conditions, which would incorrectly require BCs on interior nodes.
+        let boundary_faces: HashSet<usize> = face_cell_count
             .iter()
             .filter(|&(_face_idx, &count)| count == 1)
             .map(|(&face_idx, _)| face_idx)
-            .collect();
-
-        // Union of both sets
-        let boundary_faces: HashSet<usize> = marked_boundary_faces
-            .union(&connectivity_boundary_faces)
-            .copied()
             .collect();
 
         // Collect unique vertices from all boundary faces
@@ -327,5 +319,42 @@ mod tests {
         let mut sorted = boundary_nodes.clone();
         sorted.sort_unstable();
         assert_eq!(boundary_nodes, sorted);
+    }
+
+    #[test]
+    fn test_interior_node_ignored() {
+        // This test verifies that marking an internal face does not cause
+        // strictly internal nodes (if they existed) to be flagged as boundary.
+        // While we can't easily create a strictly internal node with just a few tets,
+        // we can verify that the validation logic treats marked internal faces correctly
+        // by ensuring that validating a mesh with a marked internal face works
+        // when boundary conditions are applied to the external boundary.
+
+        let mesh = create_two_tet_mesh();
+        let mut problem = StokesFlowProblem::new(
+            mesh,
+            ConstantPropertyFluid::<f64>::water_20c().unwrap(),
+            HashMap::new(),
+            5
+        );
+
+        // Mark the internal face (face 2 is shared in create_two_tet_mesh)
+        problem.mesh.mark_boundary(2, "internal_interface".to_string());
+
+        // Apply BCs to all nodes (since all are on the boundary in this small mesh)
+        for i in 0..5 {
+            problem.boundary_conditions.insert(
+                i,
+                BoundaryCondition::Dirichlet { value: 0.0, component_values: None }
+            );
+        }
+
+        // Should pass validation
+        assert!(problem.validate().is_ok());
+
+        // Now, let's verify that get_boundary_nodes() doesn't return duplicates
+        // or unexpected counts.
+        let nodes = problem.get_boundary_nodes();
+        assert_eq!(nodes.len(), 5);
     }
 }

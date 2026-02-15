@@ -99,13 +99,13 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
         let q_inlet_target = self.config.inlet_flow_rate;
         let u_inlet = q_inlet_target / inlet_area;
 
-        // Use explicitly marked boundary faces from the mesh
-        let marked_faces = mesh.marked_boundary_faces();
-        println!("  Boundary face count: {}", marked_faces.len());
+        // Use all boundary faces (marked + external unmarked)
+        let all_boundary_faces = mesh.boundary_faces();
+        println!("  Boundary face count: {}", all_boundary_faces.len());
 
         // Pass 1: Assign inlet BCs (highest priority)
         let inlet_vec = Vector3::new(u_inlet, T::zero(), T::zero());
-        for &f_idx in &marked_faces {
+        for &f_idx in &all_boundary_faces {
             if let Some(label) = mesh.boundary_label(f_idx) {
                 if label == "inlet" {
                     if let Some(face) = mesh.face(f_idx) {
@@ -118,7 +118,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
         }
 
         // Pass 2: Assign outlet BCs
-        for &f_idx in &marked_faces {
+        for &f_idx in &all_boundary_faces {
             if let Some(label) = mesh.boundary_label(f_idx) {
                 if label.starts_with("outlet") {
                     let idx = label.chars().last().unwrap().to_digit(10).unwrap() as usize;
@@ -134,14 +134,18 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
             }
         }
 
-        // Pass 3: Assign wall (no-slip) BCs
-        for &f_idx in &marked_faces {
-            if let Some(label) = mesh.boundary_label(f_idx) {
-                if label == "wall" {
-                    if let Some(face) = mesh.face(f_idx) {
-                        for &v_idx in &face.vertices {
-                            boundary_conditions.entry(v_idx).or_insert(BoundaryCondition::wall_no_slip());
-                        }
+        // Pass 3: Assign wall (no-slip) BCs to marked walls AND unmarked boundaries
+        for &f_idx in &all_boundary_faces {
+            let label = mesh.boundary_label(f_idx);
+            let is_wall = match label {
+                Some(l) => l == "wall",
+                None => true, // Treat unmarked faces as walls
+            };
+
+            if is_wall {
+                if let Some(face) = mesh.face(f_idx) {
+                    for &v_idx in &face.vertices {
+                        boundary_conditions.entry(v_idx).or_insert(BoundaryCondition::wall_no_slip());
                     }
                 }
             }
