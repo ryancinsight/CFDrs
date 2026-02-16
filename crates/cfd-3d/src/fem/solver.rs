@@ -54,11 +54,7 @@ impl<T: RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> 
     ) -> Result<StokesFlowSolution<T>> {
         tracing::info!("Starting Taylor-Hood Stokes solver");
         
-        // NOTE: Temporarily skip validation - the get_boundary_nodes() implementation
-        // is overly conservative and flags interior nodes as missing BCs.
-        // Interior nodes are solved for, they should NOT have BCs.
-        // TODO: Fix validate() to only check actual boundary nodes  
-        // problem.validate()?;
+        problem.validate()?;
 
         let (matrix, rhs) = self.assemble_system(problem, previous_solution)?;
         
@@ -458,7 +454,7 @@ impl<T: RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> 
         let mut dirichlet_nodes = 0usize;
         let mut unconstrained_boundary_nodes = Vec::new();
 
-        let boundary_nodes = problem.get_boundary_nodes();
+        let boundary_nodes = problem.get_external_boundary_nodes();
         for &node_idx in &boundary_nodes {
             if !problem.boundary_conditions.contains_key(&node_idx) {
                 unconstrained_boundary_nodes.push(node_idx);

@@ -52,7 +52,7 @@ impl<T: RealField + Copy> StokesFlowProblem<T> {
     /// Validate problem setup
     pub fn validate(&self) -> Result<()> {
         // Check that all boundary nodes have boundary conditions
-        let boundary_nodes = self.get_boundary_nodes();
+        let boundary_nodes = self.get_external_boundary_nodes();
         let missing_bcs: Vec<usize> = boundary_nodes
             .into_iter()
             .filter(|&node| !self.boundary_conditions.contains_key(&node))
@@ -65,6 +65,30 @@ impl<T: RealField + Copy> StokesFlowProblem<T> {
         }
 
         Ok(())
+    }
+
+    /// Get all boundary node indices on the external boundary (topologically)
+    ///
+    /// This excludes internal faces that might be marked as boundaries.
+    /// Use this for validation and applying essential BCs.
+    pub fn get_external_boundary_nodes(&self) -> Vec<usize> {
+        use std::collections::HashSet;
+
+        // Faces referenced by exactly one cell (external boundaries)
+        let external_faces = self.mesh.external_faces();
+
+        // Collect unique vertices from all external boundary faces
+        let mut boundary_vertices: HashSet<usize> = HashSet::new();
+        for &face_idx in &external_faces {
+            if let Some(face) = self.mesh.face(face_idx) {
+                boundary_vertices.extend(&face.vertices);
+            }
+        }
+
+        // Convert to sorted vector for deterministic output
+        let mut result: Vec<usize> = boundary_vertices.into_iter().collect();
+        result.sort_unstable();
+        result
     }
 
     /// Get all boundary node indices
@@ -327,5 +351,71 @@ mod tests {
         let mut sorted = boundary_nodes.clone();
         sorted.sort_unstable();
         assert_eq!(boundary_nodes, sorted);
+    }
+
+    fn create_split_tet_mesh() -> Mesh<f64> {
+        let mut mesh = Mesh::new();
+        // 4 corners of a large tet
+        mesh.add_vertex(cfd_mesh::topology::Vertex::new(Point3::new(0.0, 0.0, 0.0))); // 0
+        mesh.add_vertex(cfd_mesh::topology::Vertex::new(Point3::new(1.0, 0.0, 0.0))); // 1
+        mesh.add_vertex(cfd_mesh::topology::Vertex::new(Point3::new(0.0, 1.0, 0.0))); // 2
+        mesh.add_vertex(cfd_mesh::topology::Vertex::new(Point3::new(0.0, 0.0, 1.0))); // 3
+
+        // Internal node
+        mesh.add_vertex(cfd_mesh::topology::Vertex::new(Point3::new(0.25, 0.25, 0.25))); // 4
+
+        // External faces:
+        let f_012 = mesh.add_face(Face::triangle(0, 1, 2)); // 0
+        let f_013 = mesh.add_face(Face::triangle(0, 1, 3)); // 1
+        let f_023 = mesh.add_face(Face::triangle(0, 2, 3)); // 2
+        let f_123 = mesh.add_face(Face::triangle(1, 2, 3)); // 3
+
+        // Internal faces:
+        let f_014 = mesh.add_face(Face::triangle(0, 1, 4)); // 4
+        let f_124 = mesh.add_face(Face::triangle(1, 2, 4)); // 5
+        let f_204 = mesh.add_face(Face::triangle(2, 0, 4)); // 6
+        let f_034 = mesh.add_face(Face::triangle(0, 3, 4)); // 7
+        let f_134 = mesh.add_face(Face::triangle(1, 3, 4)); // 8
+        let f_234 = mesh.add_face(Face::triangle(2, 3, 4)); // 9
+
+        // Cells:
+        // T1: 0,1,2,4 -> faces: f_012, f_014, f_124, f_204
+        mesh.add_cell(Cell::tetrahedron(f_012, f_014, f_124, f_204));
+
+        // T2: 0,1,3,4 -> faces: f_013, f_014, f_134, f_034
+        mesh.add_cell(Cell::tetrahedron(f_013, f_014, f_134, f_034));
+
+        // T3: 0,2,3,4 -> faces: f_023, f_204, f_234, f_034
+        mesh.add_cell(Cell::tetrahedron(f_023, f_204, f_234, f_034));
+
+        // T4: 1,2,3,4 -> faces: f_123, f_124, f_234, f_134
+        mesh.add_cell(Cell::tetrahedron(f_123, f_124, f_234, f_134));
+
+        mesh
+    }
+
+    #[test]
+    fn test_validate_ignores_internal_marked_faces() {
+        let mut mesh = create_split_tet_mesh();
+
+        // Mark an internal face (e.g. f_014, index 4)
+        mesh.mark_boundary(4, "internal_interface".to_string());
+
+        let fluid = ConstantPropertyFluid::<f64>::water_20c().unwrap();
+        let mut boundary_conditions = HashMap::new();
+
+        // Apply BCs only to external nodes (0, 1, 2, 3)
+        // Node 4 is strictly internal.
+        for i in 0..4 {
+             boundary_conditions.insert(i, BoundaryCondition::Dirichlet { value: 0.0, component_values: None });
+        }
+
+        let problem = StokesFlowProblem::new(mesh, fluid, boundary_conditions, 5);
+
+        // After fix, this should SUCCEED because node 4 is strictly internal (not on any external face).
+        // The fact that it's on a "marked" internal face should be ignored by validate.
+        let result = problem.validate();
+
+        assert!(result.is_ok(), "Should ignore internal marked faces during validation: {:?}", result.err());
     }
 }
