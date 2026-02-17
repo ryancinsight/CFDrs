@@ -52,7 +52,9 @@ impl<T: RealField + Copy> StokesFlowProblem<T> {
     /// Validate problem setup
     pub fn validate(&self) -> Result<()> {
         // Check that all boundary nodes have boundary conditions
-        let boundary_nodes = self.get_boundary_nodes();
+        // We only check external boundary nodes (topological boundary).
+        // Internal nodes (even if on marked internal faces) do not REQUIRE BCs.
+        let boundary_nodes = self.get_external_boundary_nodes();
         let missing_bcs: Vec<usize> = boundary_nodes
             .into_iter()
             .filter(|&node| !self.boundary_conditions.contains_key(&node))
@@ -65,6 +67,42 @@ impl<T: RealField + Copy> StokesFlowProblem<T> {
         }
 
         Ok(())
+    }
+
+    /// Get all boundary node indices based solely on topological externality
+    /// (faces referenced by exactly one cell).
+    ///
+    /// This ignores internal marked faces, unlike `get_boundary_nodes`.
+    pub fn get_external_boundary_nodes(&self) -> Vec<usize> {
+        use std::collections::{HashMap, HashSet};
+
+        // Count how many cells reference each face
+        let mut face_cell_count: HashMap<usize, usize> = HashMap::new();
+        for cell in self.mesh.cells() {
+            for &face_idx in &cell.faces {
+                *face_cell_count.entry(face_idx).or_insert(0) += 1;
+            }
+        }
+
+        // Collect external boundary faces (referenced by exactly one cell)
+        let external_boundary_faces: HashSet<usize> = face_cell_count
+            .iter()
+            .filter(|&(_face_idx, &count)| count == 1)
+            .map(|(&face_idx, _)| face_idx)
+            .collect();
+
+        // Collect unique vertices from all external boundary faces
+        let mut boundary_vertices: HashSet<usize> = HashSet::new();
+        for &face_idx in &external_boundary_faces {
+            if let Some(face) = self.mesh.face(face_idx) {
+                boundary_vertices.extend(&face.vertices);
+            }
+        }
+
+        // Convert to sorted vector for deterministic output
+        let mut result: Vec<usize> = boundary_vertices.into_iter().collect();
+        result.sort_unstable();
+        result
     }
 
     /// Get all boundary node indices
@@ -327,5 +365,58 @@ mod tests {
         let mut sorted = boundary_nodes.clone();
         sorted.sort_unstable();
         assert_eq!(boundary_nodes, sorted);
+    }
+
+    #[test]
+    fn test_boundary_detection_internal_marked_face() {
+        // Construct a mesh with a strictly internal marked face.
+        // Vertices 0, 1, 2 form a face.
+        // Two cells reference this face.
+        // There are no other faces.
+        // Vertices 0, 1, 2 are strictly internal (not on any external face).
+        let mut mesh = Mesh::<f64>::new();
+        mesh.add_vertex(cfd_mesh::topology::Vertex::new(Point3::new(0.0, 0.0, 0.0)));
+        mesh.add_vertex(cfd_mesh::topology::Vertex::new(Point3::new(1.0, 0.0, 0.0)));
+        mesh.add_vertex(cfd_mesh::topology::Vertex::new(Point3::new(0.0, 1.0, 0.0)));
+
+        let face_idx = mesh.add_face(Face::triangle(0, 1, 2));
+
+        // Mark the face as a "boundary" (e.g. internal interface)
+        mesh.mark_boundary(face_idx, "internal_interface".to_string());
+
+        // Create 2 dummy cells referencing this face
+        let cell1 = Cell {
+            faces: vec![face_idx],
+            element_type: cfd_mesh::topology::ElementType::Tetrahedron,
+            global_id: None,
+            partition_id: None,
+        };
+        let cell2 = Cell {
+            faces: vec![face_idx],
+            element_type: cfd_mesh::topology::ElementType::Tetrahedron,
+            global_id: None,
+            partition_id: None,
+        };
+        mesh.add_cell(cell1);
+        mesh.add_cell(cell2);
+
+        let fluid = ConstantPropertyFluid::<f64>::water_20c().unwrap();
+        let boundary_conditions = HashMap::new(); // No BCs
+
+        let problem = StokesFlowProblem::new(mesh, fluid, boundary_conditions, 3);
+
+        // 1. Check get_boundary_nodes (old behavior) includes the internal marked nodes
+        let boundary_nodes = problem.get_boundary_nodes();
+        assert!(!boundary_nodes.is_empty(), "get_boundary_nodes should include marked internal faces");
+        assert_eq!(boundary_nodes.len(), 3);
+        assert!(boundary_nodes.contains(&0));
+
+        // 2. Check get_external_boundary_nodes (new behavior) EXCLUDES them
+        let external_nodes = problem.get_external_boundary_nodes();
+        assert!(external_nodes.is_empty(), "get_external_boundary_nodes should be empty for strictly internal marked face");
+
+        // 3. Check validate passes (because it uses get_external_boundary_nodes)
+        let validation = problem.validate();
+        assert!(validation.is_ok(), "validate() should pass for internal marked face without BCs");
     }
 }
