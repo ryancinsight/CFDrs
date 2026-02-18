@@ -1,0 +1,46 @@
+[package]
+name = "cfd-schematics"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+documentation.workspace = true
+description = "Schematic network design, geometry generation, and metadata export for microfluidic/millifluidic devices"
+
+[features]
+default = []
+
+[dependencies]
+cfd-core = { path = "../cfd-core" }
+petgraph.workspace = true
+plotters = { version = "0.3.5", default-features = false, features = ["bitmap_backend", "bitmap_encoder", "svg_backend", "line_series", "ttf"] }
+thiserror.workspace = true
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+
+[[example]]
+name = "comprehensive_split_patterns"
+path = "examples/comprehensive_split_patterns.rs"
+
+[[example]]
+name = "comprehensive_serpentine_demo"
+path = "examples/comprehensive_serpentine_demo.rs"
+
+[[example]]
+name = "comprehensive_arc_demo"
+path = "examples/comprehensive_arc_demo.rs"
+
+[[example]]
+name = "frustum_channel_demo"
+path = "examples/frustum_channel_demo.rs"
+
+[[example]]
+name = "unified_generator_demo"
+path = "examples/unified_generator_demo.rs"
+
+[[example]]
+name = "optimization_profile_comparison"
+path = "examples/optimization_profile_comparison.rs"
+
+
