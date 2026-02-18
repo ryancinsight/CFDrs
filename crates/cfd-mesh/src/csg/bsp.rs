@@ -23,16 +23,8 @@ use crate::csg::split::split_triangle;
 /// millimeter-scale geometry.
 pub const BSP_PLANE_TOLERANCE: Real = 1e-5;
 
-/// Maximum BSP tree depth.
-///
-/// A convex polyhedron (e.g. a tessellated sphere) places ALL other faces into
-/// the back subtree at every level because every face plane has all other
-/// vertices behind it.  This creates a linear O(N)-depth chain.  128 was far
-/// too low for sphere inputs (960 faces) — the remaining 832 faces were
-/// force-dumped as "coplanar" at a node with `plane = None`, causing
-/// `clip_faces` to return them all unchanged (kept) regardless of their
-/// actual inside/outside status.  Set to 65536 so no realistic mesh hits it.
-const MAX_BSP_DEPTH: usize = 65536;
+/// Maximum BSP tree depth to prevent pathological splitting.
+const MAX_BSP_DEPTH: usize = 128;
 
 /// A node in the BSP tree.
 pub struct BspNode {
@@ -256,33 +248,83 @@ impl Default for BspNode {
 
 /// Select the best splitting plane from a set of faces.
 ///
-/// Heuristic: minimize `8 × spanning_count + |front_count - back_count|`.
+/// Heuristic: minimize `4 × spanning_count + |front_count - back_count|`.
+///
+/// The spanning weight is 4 (not the earlier 8) so that axis-aligned
+/// centroid-median planes (which produce balanced splits at the cost of some
+/// spanning) can beat the degenerate all-back face planes produced by convex
+/// tessellated bodies such as spheres.
+///
+/// In addition to the first 16 face-plane candidates, the function always
+/// tries the three axis-aligned planes through the bounding-box centroid of
+/// all face centroids.  For convex polyhedra those planes are well-balanced
+/// (score ≈ 4×spanning + 0) whereas any face-plane gives score = N (all
+/// other faces on one side, 0 spanning).
 fn select_splitting_plane(faces: &[FaceData], pool: &VertexPool) -> Plane {
-    let candidate_count = faces.len().min(16); // Limit candidates for performance
+    let candidate_count = faces.len().min(16);
 
     let mut best_plane = face_plane(&faces[0], pool);
     let mut best_score = i64::MAX;
 
-    for i in 0..candidate_count {
-        let candidate = face_plane(&faces[i], pool);
+    // Closure: score a single candidate plane.
+    let score_plane = |candidate: &Plane| -> i64 {
         let mut front = 0i64;
         let mut back = 0i64;
         let mut spanning = 0i64;
-
         for face in faces {
-            let (class, _) = classify_triangle(face.vertices, pool, &candidate);
+            let (class, _) = classify_triangle(face.vertices, pool, candidate);
             match class {
-                PolygonClassification::Front => front += 1,
-                PolygonClassification::Back => back += 1,
+                PolygonClassification::Front    => front += 1,
+                PolygonClassification::Back     => back += 1,
                 PolygonClassification::Spanning => spanning += 1,
                 PolygonClassification::Coplanar => {}
             }
         }
+        4 * spanning + (front - back).abs()
+    };
 
-        let score = 8 * spanning + (front - back).abs();
+    // Try face-plane candidates.
+    for i in 0..candidate_count {
+        let candidate = face_plane(&faces[i], pool);
+        let score = score_plane(&candidate);
         if score < best_score {
             best_score = score;
             best_plane = candidate;
+        }
+    }
+
+    // Also try axis-aligned centroid-median planes.
+    //
+    // For convex polyhedra (e.g. tessellated spheres), every face plane puts
+    // all other faces into the back subtree (score = N), while an axis-aligned
+    // median plane produces a balanced split (score ≈ 4×spanning).  Without
+    // these extra candidates the BSP degenerates into an O(N) linear chain,
+    // causing cascade-splitting of near-seam faces and exponential face blowup.
+    let mut cx_sum = 0.0_f64;
+    let mut cy_sum = 0.0_f64;
+    let mut cz_sum = 0.0_f64;
+    let n = faces.len() as Real;
+    for face in faces {
+        let a = pool.position(face.vertices[0]);
+        let b = pool.position(face.vertices[1]);
+        let c = pool.position(face.vertices[2]);
+        cx_sum += (a.x + b.x + c.x) as f64;
+        cy_sum += (a.y + b.y + c.y) as f64;
+        cz_sum += (a.z + b.z + c.z) as f64;
+    }
+    let mid_x = (cx_sum / (3.0 * n as f64)) as Real;
+    let mid_y = (cy_sum / (3.0 * n as f64)) as Real;
+    let mid_z = (cz_sum / (3.0 * n as f64)) as Real;
+    let axis_candidates = [
+        Plane::from_normal_and_point(Vector3r::x(), &Point3r::new(mid_x, 0.0, 0.0)),
+        Plane::from_normal_and_point(Vector3r::y(), &Point3r::new(0.0, mid_y, 0.0)),
+        Plane::from_normal_and_point(Vector3r::z(), &Point3r::new(0.0, 0.0, mid_z)),
+    ];
+    for candidate in &axis_candidates {
+        let score = score_plane(candidate);
+        if score < best_score {
+            best_score = score;
+            best_plane = *candidate;
         }
     }
 
