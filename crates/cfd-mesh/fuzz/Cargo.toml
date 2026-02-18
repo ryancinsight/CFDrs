@@ -1,0 +1,24 @@
+[package]
+name = "cfd-mesh-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+cfd-mesh = { path = ".." }
+
+[[bin]]
+name = "fuzz_read_stl"
+path = "fuzz_targets/fuzz_read_stl.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_read_stl_he"
+path = "fuzz_targets/fuzz_read_stl_he.rs"
+test = false
+doc = false

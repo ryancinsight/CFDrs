@@ -1,7 +1,7 @@
 # cfd-mesh: Architecture & Implementation Proposal
 
 > **Status**: Active rewrite — replacing all internals while preserving the public API.
-> Last updated: Phase 6 complete. Phases 1–6 done; 7–9 in backlog.
+> Last updated: Phase 7 complete. Phases 1–7 done; 8–9 in backlog.
 
 ---
 
@@ -665,7 +665,7 @@ proptest! {
 | **4** Validation | ✅ DONE | `topology/manifold.rs`, `watertight/check.rs`, `quality/validation.rs` | Manifold + Euler + winding + patch checks; `WatertightReport` |
 | **5** NURBS | ✅ DONE | `geometry/nurbs/` | KnotVector, BSplineCurve, NurbsSurface, adaptive tessellation |
 | **6** Builders | ✅ DONE | `geometry/venturi.rs`, `serpentine.rs`, `branching.rs` | Added `build_surface() → IndexedMesh` to all three builders; deprecated legacy `build() → Mesh<T>`; cleaned warnings; removed dead `welding/snapping_grid.rs`; replaced `#![allow(unused)]` with `#![allow(dead_code)]` in lib.rs |
-| **7** I/O | 🔲 TODO | `io/stl.rs`, `io/vtk.rs` | Extend to new mesh format; add fuzz targets |
+| **7** I/O | ✅ DONE | `io/stl.rs`, `io/vtk.rs` | `read_binary_stl` low-level reader; `read_stl`/`write_stl_ascii`/`write_stl_binary` high-level IndexedMesh helpers; `read_stl_he`/`write_stl_ascii_he`/`write_stl_binary_he` for HalfEdgeMesh; `fuzz_read_stl` entry point; `write_vtk_indexed`/`write_vtk_he`; cargo-fuzz harness in `fuzz/` with targets `fuzz_read_stl` + `fuzz_read_stl_he`; 6 new unit tests (round-trip ASCII, binary, half-edge, fuzz smoke tests); 83 tests pass |
 | **8** Boolean | 🔲 TODO | `csg/broad_phase.rs`, `csg/intersect.rs`, `csg/clip.rs`, `csg/reconstruct.rs`, `csg/boolean.rs` | Exact Boolean ops replacing csgrs port |
 | **9** Docs | 🔲 TODO | `lib.rs` + all modules | Rustdoc + aquamarine + theorems + examples; remove `#![allow(missing_docs)]` + `#![allow(dead_code)]` |
 
