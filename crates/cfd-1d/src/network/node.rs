@@ -15,6 +15,18 @@ pub struct Node<T: RealField + Copy> {
     pub position: (T, T),
 }
 
+use scheme::domain::model::NodeSpec;
+
+impl<T: RealField + Copy> From<&NodeSpec> for Node<T> {
+    fn from(spec: &NodeSpec) -> Self {
+        Self {
+            id: spec.id.as_str().to_string(),
+            node_type: spec.kind,
+            position: (T::zero(), T::zero()), // Positions are assigned later from layout
+        }
+    }
+}
+
 impl<T: RealField + Copy> Node<T> {
     /// Create a new node
     #[must_use]

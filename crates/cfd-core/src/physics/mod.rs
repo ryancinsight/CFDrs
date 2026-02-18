@@ -10,7 +10,7 @@ pub mod fluid;
 pub mod fluid_dynamics;
 pub mod hemolysis;
 pub mod material;
-pub mod microfluidics;
+
 pub mod values;
 
 #[allow(missing_docs)]

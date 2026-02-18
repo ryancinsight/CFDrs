@@ -22,6 +22,21 @@ pub struct Edge<T: RealField + Copy> {
     pub quad_coeff: T,
 }
 
+use scheme::domain::model::ChannelSpec;
+use num_traits::FromPrimitive;
+
+impl<T: RealField + Copy + FromPrimitive> From<&ChannelSpec> for Edge<T> {
+    fn from(spec: &ChannelSpec) -> Self {
+        Self {
+            id: spec.id.as_str().to_string(),
+            edge_type: spec.kind,
+            flow_rate: T::zero(),
+            resistance: T::from_f64(spec.resistance).unwrap_or(T::one()),
+            quad_coeff: T::from_f64(spec.quad_coeff).unwrap_or(T::zero()),
+        }
+    }
+}
+
 impl<T: RealField + Copy> Edge<T> {
     /// Create a new edge
     #[must_use]
