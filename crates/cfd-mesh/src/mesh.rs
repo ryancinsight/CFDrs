@@ -899,6 +899,41 @@ impl<'id> HalfEdgeMesh<'id> {
             .collect()
     }
 
+    // ── Half-edge primitive accessors ─────────────────────────────────────
+
+    /// Return the twin of a half-edge.
+    ///
+    /// # Panics
+    /// Panics if `he` is not a valid half-edge key.
+    #[inline]
+    pub fn he_twin(&self, he: HalfEdgeKey, token: &GhostToken<'id>) -> HalfEdgeKey {
+        self.half_edges[he].borrow(token).twin
+    }
+
+    /// Return the face associated with a half-edge, or `None` for boundary sentinels.
+    #[inline]
+    pub fn he_face(&self, he: HalfEdgeKey, token: &GhostToken<'id>) -> Option<FaceKey> {
+        self.half_edges[he].borrow(token).face
+    }
+
+    /// Return the next half-edge in the face loop.
+    #[inline]
+    pub fn he_next(&self, he: HalfEdgeKey, token: &GhostToken<'id>) -> HalfEdgeKey {
+        self.half_edges[he].borrow(token).next
+    }
+
+    /// Return the previous half-edge in the face loop.
+    #[inline]
+    pub fn he_prev(&self, he: HalfEdgeKey, token: &GhostToken<'id>) -> HalfEdgeKey {
+        self.half_edges[he].borrow(token).prev
+    }
+
+    /// Return the tip vertex of a half-edge (the vertex it points *to*).
+    #[inline]
+    pub fn he_vertex(&self, he: HalfEdgeKey, token: &GhostToken<'id>) -> VertexKey {
+        self.half_edges[he].borrow(token).vertex
+    }
+
     // ── Geometric queries ─────────────────────────────────────────────────
 
     /// Compute the signed volume of the mesh (positive for outward orientation).

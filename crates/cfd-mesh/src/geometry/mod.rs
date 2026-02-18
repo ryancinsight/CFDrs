@@ -14,3 +14,6 @@ pub use predicates::Orientation;
 pub mod venturi;
 pub mod serpentine;
 pub mod branching;
+
+pub mod nurbs;
+pub use nurbs::{NurbsCurve, NurbsSurface, TessellationOptions};
