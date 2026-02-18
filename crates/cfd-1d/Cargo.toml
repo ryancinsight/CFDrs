@@ -10,12 +10,12 @@ description = "1D CFD simulations for microfluidic networks"
 
 [features]
 default = []
-scheme-integration = ["dep:scheme"]
+# scheme-integration = ["dep:scheme"]
 
 [dependencies]
 cfd-core = { path = "../cfd-core" }
 cfd-math = { path = "../cfd-math" }
-scheme = { path = "../../../scheme", optional = true }
+# scheme = { path = "../../../scheme", optional = true }
 nalgebra.workspace = true
 nalgebra-sparse = "0.10"
 sprs = "0.11"
@@ -31,7 +31,6 @@ rayon = "1.10"
 tracing = "0.1"
 
 [dev-dependencies]
-scheme = { path = "../../../scheme" }
+# scheme = { path = "../../../scheme" }
 tracing-subscriber = "0.3"
 proptest = "1.0"
-

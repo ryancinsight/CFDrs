@@ -147,6 +147,39 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
             }
         }
 
+        // Pass 4: Auto-detect unmarked boundary nodes and assign default Wall BC
+        // This is necessary because the mesh generator might leave some external faces unmarked,
+        // or the marking process missed some. Validation requires ALL external nodes to have BCs.
+        let mut all_boundary_nodes = std::collections::HashSet::new();
+        let mut face_cell_count: std::collections::HashMap<usize, usize> = std::collections::HashMap::new();
+        for cell in mesh.cells() {
+            for &f_idx in &cell.faces {
+                *face_cell_count.entry(f_idx).or_insert(0) += 1;
+            }
+        }
+
+        for (f_idx, count) in face_cell_count {
+            if count == 1 {
+                if let Some(face) = mesh.face(f_idx) {
+                    for &v_idx in &face.vertices {
+                        all_boundary_nodes.insert(v_idx);
+                    }
+                }
+            }
+        }
+
+        let mut unmarked_count = 0;
+        for &v_idx in &all_boundary_nodes {
+             if !boundary_conditions.contains_key(&v_idx) {
+                 boundary_conditions.insert(v_idx, BoundaryCondition::wall_no_slip());
+                 unmarked_count += 1;
+             }
+        }
+
+        if unmarked_count > 0 {
+            println!("  Assigned default Wall BC to {} unmarked boundary nodes.", unmarked_count);
+        }
+
         println!("  Unique boundary nodes constrained: {}", boundary_conditions.len());
 
         // 3. Set up FEM Problem
