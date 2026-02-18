@@ -31,6 +31,14 @@ anyhow = { workspace = true }
 
 # Data structures
 indexmap = { workspace = true }
+slotmap = { workspace = true }
+
+# Mesh / geometry — state-of-the-art kernel
+geometry-predicates = { workspace = true }
+rstar               = { workspace = true }
+kiddo               = { workspace = true }
+bvh                 = { workspace = true }
+spade               = { workspace = true }
 
 # Serialization
 serde = { workspace = true }
@@ -47,6 +55,9 @@ cfd-schematics = { workspace = true, optional = true }
 
 # Logging
 tracing = { workspace = true }
+
+# Documentation diagrams
+aquamarine = { workspace = true }
 
 [dev-dependencies]
 approx = { workspace = true }

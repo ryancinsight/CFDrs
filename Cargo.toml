@@ -48,6 +48,17 @@ simba = "0.9"
 # Data structures
 indexmap = "2.0"
 petgraph = "0.6"
+slotmap = "1.0"
+
+# Mesh / geometry
+geometry-predicates = "0.3"
+rstar               = "0.12"
+kiddo               = "5.2"
+bvh                 = "0.9"
+spade               = "2.9"
+
+# Documentation
+aquamarine = "0.5"
 
 # Serialization
 serde = { version = "1.0", features = ["derive"] }
