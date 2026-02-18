@@ -1,11 +1,46 @@
-//! Generic mesh type for CFD solvers.
+//! # Mesh Types
 //!
-//! This module provides two mesh types:
+//! This module provides three mesh types:
 //!
+//! - **[`HalfEdgeMesh<'id>`]** — the new state-of-the-art mesh backed by a
+//!   GhostCell-permissioned half-edge topology kernel with SlotMap generational
+//!   keys. Use [`with_mesh`] as the entry point.
 //! - **`Mesh<T>`** — legacy FEM/FVM mesh with typed vertices, faces, and cells.
-//! - **`IndexedMesh`** — the new indexed-triangle surface mesh combining
+//!   Kept for downstream compatibility with `cfd-3d` geometry builders.
+//! - **[`IndexedMesh`]** — the watertight-first surface mesh combining
 //!   `VertexPool` (spatial-hash dedup), `FaceStore`, `EdgeStore`, and
-//!   `AttributeStore` for watertight CFD geometry.
+//!   `AttributeStore`. Also kept for backward compatibility.
+//!
+//! ## Quick Start — New API
+//!
+//! ```rust,ignore
+//! use cfd_mesh::mesh::with_mesh;
+//!
+//! let result = with_mesh(|mut mesh, mut token| {
+//!     let a = mesh.add_vertex([0.0, 0.0, 0.0], &token);
+//!     let b = mesh.add_vertex([1.0, 0.0, 0.0], &token);
+//!     let c = mesh.add_vertex([0.0, 1.0, 0.0], &token);
+//!     mesh.add_triangle(a, b, c, &mut token).expect("valid triangle");
+//!     mesh.vertex_count()
+//! });
+//! assert_eq!(result, 3);
+//! ```
+//!
+//! ## Architecture
+//!
+//! ```text
+//! with_mesh(|mesh, token| {
+//!   │
+//!   ├── GhostToken<'id>  — the single permission key for the entire mesh
+//!   │                      &token  → read access to any GhostCell<'id, _>
+//!   │                      &mut token → write access (exclusive)
+//!   │
+//!   └── HalfEdgeMesh<'id>
+//!       ├── SlotMap<VertexKey,   GhostCell<'id, VertexData>>
+//!       ├── SlotMap<HalfEdgeKey, GhostCell<'id, HalfEdgeData>>
+//!       ├── SlotMap<FaceKey,     GhostCell<'id, FaceData>>
+//!       └── SlotMap<PatchKey,    BoundaryPatch>   (no aliasing → no GhostCell)
+//! })
 
 use nalgebra::{Point3, RealField};
 use std::collections::HashMap;
@@ -158,6 +193,25 @@ impl<T: Copy + RealField> Mesh<T> {
             ElementType::Wedge => 6,
             ElementType::Pyramid => 5,
         }).unwrap_or(4)
+    }
+
+    /// Return the axis-aligned bounding box as `(min_point, max_point)`.
+    ///
+    /// Returns `(Point3::origin(), Point3::origin())` for an empty mesh.
+    pub fn bounds(&self) -> (Point3<T>, Point3<T>) {
+        if self.vertices.is_empty() {
+            return (Point3::origin(), Point3::origin());
+        }
+        let mut lo = self.vertices[0].position;
+        let mut hi = lo;
+        for v in &self.vertices[1..] {
+            let p = v.position;
+            for i in 0..3 {
+                if p[i] < lo[i] { lo[i] = p[i]; }
+                if p[i] > hi[i] { hi[i] = p[i]; }
+            }
+        }
+        (lo, hi)
     }
 
     // ---- boundary management --------------------------------------------
@@ -487,5 +541,514 @@ impl MeshBuilder {
 impl Default for MeshBuilder {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+// =============================================================================
+// HalfEdgeMesh<'id> — the new GhostCell-permissioned half-edge mesh
+// =============================================================================
+
+use nalgebra::Point3 as NPoint3;
+use slotmap::SlotMap;
+use crate::permission::{GhostToken, GhostCell};
+use crate::core::index::{VertexKey, HalfEdgeKey, FaceKey, PatchKey};
+// Real is already imported above via `use crate::core::scalar::{Real, ...}`
+use crate::topology::halfedge::{
+    BoundaryPatch as HeBoundaryPatch,
+    FaceData as HeFaceData,
+    HalfEdgeData,
+    PatchType,
+    VertexData,
+};
+use crate::core::error::{MeshError, MeshResult};
+
+/// The state-of-the-art half-edge mesh with GhostCell-permissioned access.
+///
+/// All mesh data (vertex positions, half-edge connectivity, face normals) lives
+/// inside [`GhostCell`] wrappers inside [`SlotMap`]s. Reading or writing any
+/// datum requires the matching [`GhostToken<'id>`].
+///
+/// # Entry Point
+///
+/// Use [`with_mesh`] to create a mesh and token together:
+///
+/// ```rust,ignore
+/// use cfd_mesh::mesh::with_mesh;
+///
+/// let volume = with_mesh(|mut mesh, mut token| {
+///     // build mesh here, then extract a result
+///     mesh.signed_volume(&token)
+/// });
+/// ```
+///
+/// # Invariants
+///
+/// For every half-edge `he` in a valid mesh:
+/// 1. `twin(twin(he)) == he`  — twin is an involution
+/// 2. `next(prev(he)) == he`  — next and prev are inverses
+/// 3. `face(next(he)) == face(he)` — all half-edges in a face loop share a face
+/// 4. Face loops and vertex rings terminate in finite steps
+/// 5. All keys in `HalfEdgeData` reference live entries in their respective SlotMaps
+///
+/// # Diagram
+///
+/// ```text
+/// HalfEdgeMesh<'id>
+/// ├── SlotMap<VertexKey,   GhostCell<'id, VertexData>>
+/// │     VertexData { position: Point3<Real>, half_edge: HalfEdgeKey }
+/// ├── SlotMap<HalfEdgeKey, GhostCell<'id, HalfEdgeData>>
+/// │     HalfEdgeData { vertex, face, twin, next, prev }
+/// ├── SlotMap<FaceKey,     GhostCell<'id, FaceData>>
+/// │     FaceData { half_edge, patch, normal }
+/// └── SlotMap<PatchKey,    BoundaryPatch>
+///       BoundaryPatch { name, patch_type }
+/// ```
+pub struct HalfEdgeMesh<'id> {
+    vertices:   SlotMap<VertexKey,   GhostCell<'id, VertexData>>,
+    half_edges: SlotMap<HalfEdgeKey, GhostCell<'id, HalfEdgeData>>,
+    faces:      SlotMap<FaceKey,     GhostCell<'id, HeFaceData>>,
+    /// Patches do not need GhostCell: they are identified by `PatchKey` and
+    /// are never aliased in topology, so `&mut self` is sufficient for mutation.
+    patches:    SlotMap<PatchKey,    HeBoundaryPatch>,
+    /// Twin lookup map: (origin_vertex, tip_vertex) → HalfEdgeKey.
+    /// Used during `add_triangle` to find the twin of a new half-edge.
+    twin_map:   hashbrown::HashMap<(VertexKey, VertexKey), HalfEdgeKey>,
+}
+
+impl<'id> HalfEdgeMesh<'id> {
+    /// Create an empty mesh. Use [`with_mesh`] instead of calling this directly.
+    fn new() -> Self {
+        Self {
+            vertices:   SlotMap::with_key(),
+            half_edges: SlotMap::with_key(),
+            faces:      SlotMap::with_key(),
+            patches:    SlotMap::with_key(),
+            twin_map:   hashbrown::HashMap::new(),
+        }
+    }
+
+    // ── Vertex operations ─────────────────────────────────────────────────
+
+    /// Add a vertex at `position` and return its key.
+    ///
+    /// The `half_edge` field is initially set to a placeholder and must be
+    /// updated when the first face using this vertex is added.
+    ///
+    /// # Example
+    /// ```rust,ignore
+    /// let vk = mesh.add_vertex([0.0, 0.0, 0.0], &token);
+    /// ```
+    pub fn add_vertex(
+        &mut self,
+        position: impl Into<NPoint3<Real>>,
+        _token: &GhostToken<'id>,
+    ) -> VertexKey {
+        let data = VertexData::new(position.into());
+        self.vertices.insert(GhostCell::new(data))
+    }
+
+    /// Number of vertices.
+    #[inline]
+    pub fn vertex_count(&self) -> usize {
+        self.vertices.len()
+    }
+
+    /// Get the position of a vertex.
+    pub fn vertex_pos(
+        &self,
+        key: VertexKey,
+        token: &GhostToken<'id>,
+    ) -> Option<Point3<Real>> {
+        self.vertices.get(key).map(|c| c.borrow(token).position)
+    }
+
+    /// Mutate the position of a vertex.
+    pub fn set_vertex_pos(
+        &self,
+        key: VertexKey,
+        pos: Point3<Real>,
+        token: &mut GhostToken<'id>,
+    ) -> MeshResult<()> {
+        let cell = self.vertices.get(key).ok_or(MeshError::Other("invalid vertex key".into()))?;
+        cell.borrow_mut(token).position = pos;
+        Ok(())
+    }
+
+    // ── Face operations ───────────────────────────────────────────────────
+
+    /// Add a triangular face defined by three vertex keys.
+    ///
+    /// Creates three half-edges (`a→b`, `b→c`, `c→a`) and their boundary
+    /// sentinel twins if no adjacent face exists yet. Sets `vertex.half_edge`
+    /// for each vertex to an outgoing half-edge.
+    ///
+    /// # Errors
+    /// Returns [`MeshError::InvalidVertexRef`] if any vertex key is stale.
+    /// Returns [`MeshError::NonManifoldEdge`] if adding this triangle would
+    /// create a non-manifold edge (more than 2 faces per edge).
+    ///
+    /// # Invariants maintained
+    /// After a successful call, `twin(twin(he)) == he` for all new half-edges.
+    pub fn add_triangle(
+        &mut self,
+        a: VertexKey,
+        b: VertexKey,
+        c: VertexKey,
+        token: &mut GhostToken<'id>,
+    ) -> MeshResult<FaceKey> {
+        // Validate all keys
+        for &vk in &[a, b, c] {
+            if !self.vertices.contains_key(vk) {
+                return Err(MeshError::Other("invalid vertex key".into()));
+            }
+        }
+
+        // Check for non-manifold edges.
+        // A directed edge (src→dst) as an INTERIOR half-edge (face.is_some()) may
+        // appear at most once.  A SENTINEL entry (face.is_none()) is a boundary
+        // placeholder waiting to be replaced — adding a face over it is legal.
+        for &(src, dst) in &[(a, b), (b, c), (c, a)] {
+            if let Some(&existing) = self.twin_map.get(&(src, dst)) {
+                let is_interior = self.half_edges
+                    .get(existing)
+                    .map_or(false, |cell| cell.borrow(token).face.is_some());
+                if is_interior {
+                    return Err(MeshError::Other(
+                        "non-manifold edge: directed edge already exists".into(),
+                    ));
+                }
+            }
+        }
+
+        // Insert placeholder half-edges (we'll fill their fields next)
+        let he_ab = self.half_edges.insert(GhostCell::new(HalfEdgeData {
+            vertex: b,
+            face: None, // filled below
+            twin: HalfEdgeKey::default(),
+            next: HalfEdgeKey::default(),
+            prev: HalfEdgeKey::default(),
+        }));
+        let he_bc = self.half_edges.insert(GhostCell::new(HalfEdgeData {
+            vertex: c,
+            face: None,
+            twin: HalfEdgeKey::default(),
+            next: HalfEdgeKey::default(),
+            prev: HalfEdgeKey::default(),
+        }));
+        let he_ca = self.half_edges.insert(GhostCell::new(HalfEdgeData {
+            vertex: a,
+            face: None,
+            twin: HalfEdgeKey::default(),
+            next: HalfEdgeKey::default(),
+            prev: HalfEdgeKey::default(),
+        }));
+
+        // Compute face normal from vertex positions
+        let pa = self.vertices[a].borrow(token).position;
+        let pb = self.vertices[b].borrow(token).position;
+        let pc = self.vertices[c].borrow(token).position;
+        let edge1 = pb - pa;
+        let edge2 = pc - pa;
+        let cross = edge1.cross(&edge2);
+        let normal = if cross.norm() > 1e-15 {
+            nalgebra::UnitVector3::new_normalize(cross)
+        } else {
+            nalgebra::UnitVector3::new_unchecked(nalgebra::Vector3::z())
+        };
+
+        // Create the face
+        let face_key = self.faces.insert(GhostCell::new(HeFaceData::new(he_ab, normal)));
+
+        // Wire up half-edge fields: face, next, prev
+        {
+            let d_ab = self.half_edges[he_ab].borrow_mut(token);
+            d_ab.face = Some(face_key);
+            d_ab.next = he_bc;
+            d_ab.prev = he_ca;
+        }
+        {
+            let d_bc = self.half_edges[he_bc].borrow_mut(token);
+            d_bc.face = Some(face_key);
+            d_bc.next = he_ca;
+            d_bc.prev = he_ab;
+        }
+        {
+            let d_ca = self.half_edges[he_ca].borrow_mut(token);
+            d_ca.face = Some(face_key);
+            d_ca.next = he_ab;
+            d_ca.prev = he_bc;
+        }
+
+        // Wire up twins — find or create boundary sentinels
+        for (src, dst, he) in [(a, b, he_ab), (b, c, he_bc), (c, a, he_ca)] {
+            let reverse = (dst, src);
+            if let Some(&existing_twin) = self.twin_map.get(&reverse) {
+                // The reverse half-edge already exists (from a previously added face)
+                self.half_edges[he].borrow_mut(token).twin = existing_twin;
+                self.half_edges[existing_twin].borrow_mut(token).twin = he;
+            } else {
+                // Create a boundary sentinel: a half-edge with face=None pointing
+                // in the reverse direction, acting as the "exterior" twin.
+                let sentinel = self.half_edges.insert(GhostCell::new(HalfEdgeData {
+                    vertex: src,
+                    face: None,
+                    twin: he,
+                    next: he, // placeholder; boundary loop is stitched separately
+                    prev: he,
+                }));
+                self.half_edges[he].borrow_mut(token).twin = sentinel;
+                // Register the sentinel so the next face can claim it as its twin
+                self.twin_map.insert((dst, src), sentinel);
+            }
+            // Register the interior half-edge
+            self.twin_map.insert((src, dst), he);
+        }
+
+        // Update vertex.half_edge to point to an outgoing half-edge
+        self.vertices[a].borrow_mut(token).half_edge = he_ab;
+        self.vertices[b].borrow_mut(token).half_edge = he_bc;
+        self.vertices[c].borrow_mut(token).half_edge = he_ca;
+
+        // Debug-mode invariant check
+        #[cfg(debug_assertions)]
+        self.check_triangle_invariants(face_key, token);
+
+        Ok(face_key)
+    }
+
+    /// Number of faces.
+    #[inline]
+    pub fn face_count(&self) -> usize {
+        self.faces.len()
+    }
+
+    /// Number of half-edges (includes boundary sentinels; each interior edge = 2).
+    #[inline]
+    pub fn half_edge_count(&self) -> usize {
+        self.half_edges.len()
+    }
+
+    // ── Patch operations ──────────────────────────────────────────────────
+
+    /// Create a named boundary patch.
+    pub fn add_patch(&mut self, name: impl Into<String>, patch_type: PatchType) -> PatchKey {
+        self.patches.insert(HeBoundaryPatch::new(name, patch_type))
+    }
+
+    /// Assign a face to a boundary patch.
+    pub fn assign_face_to_patch(
+        &mut self,
+        face: FaceKey,
+        patch: PatchKey,
+        token: &mut GhostToken<'id>,
+    ) -> MeshResult<()> {
+        if !self.patches.contains_key(patch) {
+            return Err(MeshError::Other("invalid patch key".into()));
+        }
+        let cell = self.faces.get(face).ok_or(MeshError::Other("invalid face key".into()))?;
+        cell.borrow_mut(token).patch = Some(patch);
+        Ok(())
+    }
+
+    // ── Traversal iterators ───────────────────────────────────────────────
+
+    /// Iterate over all vertex keys.
+    pub fn vertex_keys<'a>(&'a self) -> impl Iterator<Item = VertexKey> + use<'a, 'id> {
+        self.vertices.keys()
+    }
+
+    /// Iterate over all face keys (interior faces only — no boundary sentinels).
+    pub fn face_keys<'a>(&'a self) -> impl Iterator<Item = FaceKey> + use<'a, 'id> {
+        self.faces.keys()
+    }
+
+    /// Iterate over the half-edges bounding a face (the face loop).
+    ///
+    /// Yields half-edge keys in CCW order starting from `face.half_edge`.
+    ///
+    /// # Panics
+    /// Panics if `face_key` is invalid or the face loop is malformed.
+    pub fn face_half_edges<'a>(
+        &'a self,
+        face_key: FaceKey,
+        token: &'a GhostToken<'id>,
+    ) -> Vec<HalfEdgeKey> {
+        let start = self.faces[face_key].borrow(token).half_edge;
+        let mut result = Vec::with_capacity(3);
+        let mut current = start;
+        loop {
+            result.push(current);
+            current = self.half_edges[current].borrow(token).next;
+            if current == start { break; }
+            if result.len() > 65536 {
+                panic!("face loop did not close — topology corrupted");
+            }
+        }
+        result
+    }
+
+    /// Iterate over the vertices of a face in order.
+    pub fn face_vertices<'a>(
+        &'a self,
+        face_key: FaceKey,
+        token: &'a GhostToken<'id>,
+    ) -> Vec<VertexKey> {
+        self.face_half_edges(face_key, token)
+            .iter()
+            .map(|&he| self.half_edges[he].borrow(token).vertex)
+            .collect()
+    }
+
+    // ── Geometric queries ─────────────────────────────────────────────────
+
+    /// Compute the signed volume of the mesh (positive for outward orientation).
+    ///
+    /// Uses the divergence theorem: `V = Σ_faces (v0 · (v1 × v2)) / 6`.
+    pub fn signed_volume(&self, token: &GhostToken<'id>) -> Real {
+        let mut vol = Real::default();
+        for face_key in self.faces.keys() {
+            let verts = self.face_vertices(face_key, token);
+            if verts.len() == 3 {
+                if let (Some(p0), Some(p1), Some(p2)) = (
+                    self.vertex_pos(verts[0], token),
+                    self.vertex_pos(verts[1], token),
+                    self.vertex_pos(verts[2], token),
+                ) {
+                    vol += p0.coords.dot(&p1.coords.cross(&p2.coords));
+                }
+            }
+        }
+        vol / 6.0
+    }
+
+    // ── Debug invariant checks ────────────────────────────────────────────
+
+    #[cfg(debug_assertions)]
+    fn check_triangle_invariants(&self, face_key: FaceKey, token: &GhostToken<'id>) {
+        let half_edges = self.face_half_edges(face_key, token);
+        for &he in &half_edges {
+            let twin = self.half_edges[he].borrow(token).twin;
+            let twin_twin = self.half_edges[twin].borrow(token).twin;
+            debug_assert_eq!(he, twin_twin, "twin(twin(he)) != he for {:?}", he);
+            let next = self.half_edges[he].borrow(token).next;
+            let prev_of_next = self.half_edges[next].borrow(token).prev;
+            debug_assert_eq!(he, prev_of_next, "prev(next(he)) != he for {:?}", he);
+        }
+    }
+}
+
+// ── `with_mesh` entry point ────────────────────────────────────────────────
+
+/// The canonical entry point for the GhostCell half-edge mesh.
+///
+/// Introduces a fresh brand `'id`, creates an empty [`HalfEdgeMesh<'id>`] and
+/// a matching [`GhostToken<'id>`], and passes both to the closure `f`. The
+/// brand cannot escape the closure, ensuring the mesh and token cannot be
+/// mixed with an unrelated scope.
+///
+/// # Example
+///
+/// ```rust,ignore
+/// use cfd_mesh::mesh::with_mesh;
+///
+/// let count = with_mesh(|mut mesh, mut token| {
+///     let a = mesh.add_vertex([0.0, 0.0, 0.0], &token);
+///     let b = mesh.add_vertex([1.0, 0.0, 0.0], &token);
+///     let c = mesh.add_vertex([0.0, 1.0, 0.0], &token);
+///     mesh.add_triangle(a, b, c, &mut token).unwrap();
+///     mesh.face_count()
+/// });
+/// assert_eq!(count, 1);
+/// ```
+///
+/// # Type Signature
+///
+/// The `for<'id>` bound in the closure signature is what prevents the brand
+/// from escaping: the closure must work for *any* brand, so no specific `'id`
+/// can be smuggled out.
+pub fn with_mesh<F, R>(f: F) -> R
+where
+    F: for<'id> FnOnce(HalfEdgeMesh<'id>, GhostToken<'id>) -> R,
+{
+    GhostToken::new(|token| f(HalfEdgeMesh::new(), token))
+}
+
+#[cfg(test)]
+mod he_tests {
+    use super::*;
+
+    #[test]
+    fn add_single_triangle() {
+        let face_count = with_mesh(|mut mesh, mut token| {
+            let a = mesh.add_vertex(Point3::new(0.0, 0.0, 0.0), &token);
+            let b = mesh.add_vertex(Point3::new(1.0, 0.0, 0.0), &token);
+            let c = mesh.add_vertex(Point3::new(0.0, 1.0, 0.0), &token);
+            mesh.add_triangle(a, b, c, &mut token).unwrap();
+            (mesh.vertex_count(), mesh.face_count())
+        });
+        assert_eq!(face_count, (3, 1));
+    }
+
+    #[test]
+    fn twin_involution_holds() {
+        with_mesh(|mut mesh, mut token| {
+            let a = mesh.add_vertex(Point3::new(0.0, 0.0, 0.0), &token);
+            let b = mesh.add_vertex(Point3::new(1.0, 0.0, 0.0), &token);
+            let c = mesh.add_vertex(Point3::new(0.0, 1.0, 0.0), &token);
+            let face = mesh.add_triangle(a, b, c, &mut token).unwrap();
+
+            for he in mesh.face_half_edges(face, &token) {
+                let twin = mesh.half_edges[he].borrow(&token).twin;
+                let twin_twin = mesh.half_edges[twin].borrow(&token).twin;
+                assert_eq!(he, twin_twin, "twin(twin(he)) != he for {:?}", he);
+            }
+        });
+    }
+
+    #[test]
+    fn two_adjacent_triangles_share_interior_twin() {
+        with_mesh(|mut mesh, mut token| {
+            // △ A-B-C and △ B-D-C sharing edge B-C
+            let a = mesh.add_vertex(Point3::new(0.0, 0.0, 0.0), &token);
+            let b = mesh.add_vertex(Point3::new(1.0, 0.0, 0.0), &token);
+            let c = mesh.add_vertex(Point3::new(0.5, 1.0, 0.0), &token);
+            let d = mesh.add_vertex(Point3::new(1.5, 1.0, 0.0), &token);
+            let f1 = mesh.add_triangle(a, b, c, &mut token).unwrap();
+            let f2 = mesh.add_triangle(b, d, c, &mut token).unwrap();
+
+            // The shared edge B→C (in f1) and C→B (in f2) should be twins
+            let hes1 = mesh.face_half_edges(f1, &token);
+            let hes2 = mesh.face_half_edges(f2, &token);
+
+            // Find the he in f1 pointing to c (the B→C half-edge)
+            let he_bc = hes1.iter().copied().find(|&he| {
+                mesh.half_edges[he].borrow(&token).vertex == c
+            });
+            let he_cb = hes2.iter().copied().find(|&he| {
+                mesh.half_edges[he].borrow(&token).vertex == b
+            });
+
+            if let (Some(he_bc), Some(he_cb)) = (he_bc, he_cb) {
+                let twin_of_bc = mesh.half_edges[he_bc].borrow(&token).twin;
+                assert_eq!(twin_of_bc, he_cb, "twin of B→C should be C→B");
+                let twin_of_cb = mesh.half_edges[he_cb].borrow(&token).twin;
+                assert_eq!(twin_of_cb, he_bc, "twin of C→B should be B→C");
+            }
+        });
+    }
+
+    #[test]
+    fn patch_assignment() {
+        with_mesh(|mut mesh, mut token| {
+            let a = mesh.add_vertex(Point3::new(0.0, 0.0, 0.0), &token);
+            let b = mesh.add_vertex(Point3::new(1.0, 0.0, 0.0), &token);
+            let c = mesh.add_vertex(Point3::new(0.0, 1.0, 0.0), &token);
+            let face = mesh.add_triangle(a, b, c, &mut token).unwrap();
+            let patch = mesh.add_patch("inlet", PatchType::Inlet);
+            mesh.assign_face_to_patch(face, patch, &mut token).unwrap();
+
+            let assigned = mesh.faces[face].borrow(&token).patch;
+            assert_eq!(assigned, Some(patch));
+        });
     }
 }

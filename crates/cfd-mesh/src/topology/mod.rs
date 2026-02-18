@@ -3,12 +3,14 @@
 //! Built from the indexed storage layer. No redundant adjacency rebuilding —
 //! the `EdgeStore` provides persistent adjacency.
 
+pub mod halfedge;
 pub mod adjacency;
 pub mod connectivity;
 pub mod manifold;
 pub mod orientation;
 
 pub use adjacency::AdjacencyGraph;
+pub use halfedge::{HalfEdgeData, VertexData, FaceData, BoundaryPatch, PatchType};
 
 // ── Mesh-element types needed by cfd-3d ──────────────────────────────────────
 

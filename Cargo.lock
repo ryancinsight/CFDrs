@@ -160,6 +160,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "aquamarine"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "21cc1548309245035eb18aa7f0967da6bc65587005170c56e6ef2788a4cf3f4e"
+dependencies = [
+ "include_dir",
+ "itertools 0.10.5",
+ "proc-macro-error",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.104",
+]
+
+[[package]]
 name = "arbitrary"
 version = "1.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -175,6 +189,12 @@ dependencies = [
  "quote",
  "syn 2.0.104",
 ]
+
+[[package]]
+name = "array-init"
+version = "2.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3d62b7694a562cdf5a74227903507c56ab2cc8bdd1f781ed5cb4cf9c9f810bfc"
 
 [[package]]
 name = "arrayvec"
@@ -271,6 +291,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "az"
+version = "1.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "be5eb007b7cacc6c660343e96f650fedf4b5a77512399eb952ca6642cf8d13f7"
+
+[[package]]
 name = "base64"
 version = "0.22.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -305,7 +331,7 @@ dependencies = [
  "bitflags 2.9.1",
  "cexpr",
  "clang-sys",
- "itertools 0.10.5",
+ "itertools 0.11.0",
  "lazy_static",
  "lazycell",
  "log",
@@ -431,6 +457,20 @@ name = "bumpalo"
 version = "3.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "46c5e41b57b8bba42a04676d81cb89e9ee8e859a1a66f80a5a72e1cb76b34d43"
+
+[[package]]
+name = "bvh"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "130070ae145ee1deee52b77d4bbf7a0345ee1771ee363211807ddaaf64652f0d"
+dependencies = [
+ "approx 0.5.1",
+ "log",
+ "nalgebra 0.32.6",
+ "num",
+ "rand 0.8.5",
+ "rayon",
+]
 
 [[package]]
 name = "bytemuck"
@@ -649,16 +689,23 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "approx 0.5.1",
+ "aquamarine",
+ "bvh",
  "cfd-schematics",
  "criterion",
+ "geometry-predicates",
  "hashbrown 0.15.5",
  "indexmap",
+ "kiddo",
  "nalgebra 0.33.2",
  "num-traits 0.2.19",
  "proptest",
  "rayon",
+ "rstar 0.12.2",
  "serde",
  "serde_json",
+ "slotmap",
+ "spade",
  "thiserror 1.0.69",
  "tracing",
 ]
@@ -734,7 +781,7 @@ dependencies = [
  "rayon",
  "serde",
  "serde_json",
- "simba",
+ "simba 0.9.1",
  "tracing",
  "tracing-subscriber",
  "wgpu",
@@ -883,6 +930,12 @@ name = "clap_lex"
 version = "0.7.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b94f61472cee1439c0b966b47e3aca9ae07e45d070759512cd390ea2bebc6675"
+
+[[package]]
+name = "cmov"
+version = "0.4.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6d5ce5728ecb5285a5dd35f02a6a8e34e0828e0b38e8e632e249a3fe3f320211"
 
 [[package]]
 name = "codespan-reporting"
@@ -1224,8 +1277,14 @@ dependencies = [
  "libc",
  "option-ext",
  "redox_users",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
+
+[[package]]
+name = "divrem"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "69dde51e8fef5e12c1d65e0929b03d66e4c0c18282bc30ed2ca050ad6f44dd82"
 
 [[package]]
 name = "dlib"
@@ -1233,7 +1292,7 @@ version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "330c60081dcc4c72131f8eb70510f1ac07223e5d4163db481a04a0befcffa412"
 dependencies = [
- "libloading 0.7.4",
+ "libloading 0.8.8",
 ]
 
 [[package]]
@@ -1433,6 +1492,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1e6853b52649d4ac5c0bd02320cddc5ba956bdb407c4b75a2c6b75bf51500f8c"
 dependencies = [
  "simd-adler32",
+]
+
+[[package]]
+name = "fixed"
+version = "1.30.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c566da967934c6c7ee0458a9773de9b2a685bd2ce26a3b28ddfc740e640182f5"
+dependencies = [
+ "az",
+ "bytemuck",
+ "half",
+ "num-traits 0.2.19",
+ "typenum",
 ]
 
 [[package]]
@@ -1643,6 +1715,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "generator"
+version = "0.8.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "52f04ae4152da20c76fe800fa48659201d5cf627c5149ca0b707b69d7eef6cf9"
+dependencies = [
+ "cc",
+ "cfg-if",
+ "libc",
+ "log",
+ "rustversion",
+ "windows-link 0.2.1",
+ "windows-result",
+]
+
+[[package]]
 name = "generic-array"
 version = "0.12.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1724,6 +1811,12 @@ checksum = "c5a7f08910fd98737a6eda7568e7c5e645093e073328eeef49758cfe8b0489c7"
 dependencies = [
  "libm",
 ]
+
+[[package]]
+name = "geometry-predicates"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8dba84198cf199c11b83f1cb9243eaeb70dc50b719d2835ebf34bf2481bca010"
 
 [[package]]
 name = "getrandom"
@@ -2246,6 +2339,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e7c5cedc30da3a610cac6b4ba17597bdf7152cf974e8aab3afb3d54455e371c8"
 
 [[package]]
+name = "include_dir"
+version = "0.7.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "923d117408f1e49d914f1a379a309cffe4f18c05cf4e3d12e613a15fc81bd0dd"
+dependencies = [
+ "include_dir_macros",
+]
+
+[[package]]
+name = "include_dir_macros"
+version = "0.7.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7cab85a7ed0bd5f0e76d93846e0147172bed2e2d3f859bcc33a8d9699cad1a75"
+dependencies = [
+ "proc-macro2",
+ "quote",
+]
+
+[[package]]
 name = "indexmap"
 version = "2.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2383,6 +2495,26 @@ name = "khronos_api"
 version = "3.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2db585e1d738fc771bf08a151420d3ed193d9d895a36df7f6f8a9456b911ddc"
+
+[[package]]
+name = "kiddo"
+version = "5.2.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "07ab03cc75e18eb1eec59f4037e2e17ce9d13920f0013b0719dea613d9414e4e"
+dependencies = [
+ "aligned-vec",
+ "array-init",
+ "az",
+ "cmov",
+ "divrem",
+ "fixed",
+ "generator",
+ "num-traits 0.2.19",
+ "ordered-float",
+ "sorted-vec",
+ "tracing",
+ "tracing-subscriber",
+]
 
 [[package]]
 name = "lazy_static"
@@ -2640,6 +2772,23 @@ dependencies = [
 
 [[package]]
 name = "nalgebra"
+version = "0.32.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7b5c17de023a86f59ed79891b2e5d5a94c705dbe904a5b5c9c952ea6221b03e4"
+dependencies = [
+ "approx 0.5.1",
+ "matrixmultiply",
+ "nalgebra-macros 0.2.2",
+ "num-complex 0.4.6",
+ "num-rational",
+ "num-traits 0.2.19",
+ "serde",
+ "simba 0.8.1",
+ "typenum",
+]
+
+[[package]]
+name = "nalgebra"
 version = "0.33.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "26aecdf64b707efd1310e3544d709c5c0ac61c13756046aaaba41be5c4f66a3b"
@@ -2651,7 +2800,7 @@ dependencies = [
  "num-rational",
  "num-traits 0.2.19",
  "serde",
- "simba",
+ "simba 0.9.1",
  "typenum",
 ]
 
@@ -2684,7 +2833,7 @@ dependencies = [
  "num-rational",
  "num-traits 0.2.19",
  "serde",
- "simba",
+ "simba 0.9.1",
  "typenum",
 ]
 
@@ -3034,7 +3183,7 @@ dependencies = [
  "num-traits 0.2.19",
  "ordered-float",
  "rstar 0.12.2",
- "simba",
+ "simba 0.9.1",
  "slab",
  "smallvec",
  "spade",
@@ -3210,6 +3359,30 @@ checksum = "ff24dfcda44452b9816fff4cd4227e1bb73ff5a2f1bc1105aa92fb8565ce44d2"
 dependencies = [
  "proc-macro2",
  "syn 2.0.104",
+]
+
+[[package]]
+name = "proc-macro-error"
+version = "1.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "da25490ff9892aab3fcf7c36f08cfb902dd3e71ca0f9f9517bea02a73a5ce38c"
+dependencies = [
+ "proc-macro-error-attr",
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+ "version_check",
+]
+
+[[package]]
+name = "proc-macro-error-attr"
+version = "1.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a1be40180e52ecc98ad80b184934baf3d0d29f979574e439af5a55274b35f869"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "version_check",
 ]
 
 [[package]]
@@ -3461,7 +3634,7 @@ dependencies = [
  "parry3d-f64",
  "profiling",
  "rustc-hash 2.1.1",
- "simba",
+ "simba 0.9.1",
  "static_assertions",
  "thiserror 2.0.18",
 ]
@@ -3872,6 +4045,19 @@ dependencies = [
 
 [[package]]
 name = "simba"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "061507c94fc6ab4ba1c9a0305018408e312e17c041eb63bef8aa726fa33aceae"
+dependencies = [
+ "approx 0.5.1",
+ "num-complex 0.4.6",
+ "num-traits 0.2.19",
+ "paste",
+ "wide",
+]
+
+[[package]]
+name = "simba"
 version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c99284beb21666094ba2b75bbceda012e610f5479dfcc2d6e2426f53197ffd95"
@@ -3928,6 +4114,12 @@ dependencies = [
  "libc",
  "windows-sys 0.60.2",
 ]
+
+[[package]]
+name = "sorted-vec"
+version = "0.8.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "19f58d7b0190c7f12df7e8be6b79767a0836059159811b869d5ab55721fe14d0"
 
 [[package]]
 name = "spade"

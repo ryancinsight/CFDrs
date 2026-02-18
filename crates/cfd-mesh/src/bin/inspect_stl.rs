@@ -39,7 +39,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Let's use `cfd_mesh::io::stl` logic but adapted, or rely on `cfd_mesh`.
     let mut pool = cfd_mesh::storage::vertex_pool::VertexPool::default_millifluidic();
     let mut faces = cfd_mesh::storage::face_store::FaceStore::new();
-    let region = cfd_mesh::core::index::RegionId::new(0);
+    let region = cfd_mesh::core::index::RegionId::from_usize(0);
 
     // Try reading (assuming ASCII for now based on example output, but example used binary write!)
     // Wait, example output said "STL files written to ...".

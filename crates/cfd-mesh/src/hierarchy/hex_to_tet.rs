@@ -481,7 +481,7 @@ mod tests {
 
     #[test]
     fn structured_hex_mesh_converts_to_non_degenerate_tets() {
-        let hex_mesh = StructuredGridBuilder::<f64>::new(4, 4, 4).build().unwrap();
+        let hex_mesh = StructuredGridBuilder::new(4, 4, 4).build().unwrap();
         let tet_mesh = HexToTetConverter::convert(&hex_mesh);
 
         assert!(tet_mesh.cell_count() > 0);

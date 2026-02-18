@@ -71,6 +71,33 @@ impl<T: Copy + RealField + Float + FromPrimitive> BranchingMeshBuilder<T> {
     }
 }
 
+/// Decompose a triangular prism defined by two triangles (b0,a0,a1) and (b1,c0,c1)
+/// into 3 tetrahedra and add them to the mesh.
+fn add_prism_tets<T: Copy + RealField>(
+    mesh: &mut Mesh<T>,
+    b0: usize, a0: usize, a1: usize,
+    b1: usize, c0: usize, c1: usize,
+) {
+    // Tet 1: [b0, a0, a1, b1]
+    let f0 = mesh.add_face(Face::triangle(b0, a0, a1));
+    let f1 = mesh.add_face(Face::triangle(b0, a0, b1));
+    let f2 = mesh.add_face(Face::triangle(b0, a1, b1));
+    let f3 = mesh.add_face(Face::triangle(a0, a1, b1));
+    mesh.add_cell(Cell::tetrahedron(f0, f1, f2, f3));
+    // Tet 2: [a0, a1, b1, c0]
+    let g0 = mesh.add_face(Face::triangle(a0, a1, b1));
+    let g1 = mesh.add_face(Face::triangle(a0, a1, c0));
+    let g2 = mesh.add_face(Face::triangle(a0, b1, c0));
+    let g3 = mesh.add_face(Face::triangle(a1, b1, c0));
+    mesh.add_cell(Cell::tetrahedron(g0, g1, g2, g3));
+    // Tet 3: [a1, b1, c0, c1]
+    let h0 = mesh.add_face(Face::triangle(a1, b1, c0));
+    let h1 = mesh.add_face(Face::triangle(a1, b1, c1));
+    let h2 = mesh.add_face(Face::triangle(a1, c0, c1));
+    let h3 = mesh.add_face(Face::triangle(b1, c0, c1));
+    mesh.add_cell(Cell::tetrahedron(h0, h1, h2, h3));
+}
+
 fn build_branching_mesh<T: Copy + RealField + Float + FromPrimitive>(
     b: BranchingMeshBuilder<T>,
 ) -> Result<Mesh<T>, BuildError> {
@@ -97,17 +124,13 @@ fn build_branching_mesh<T: Copy + RealField + Float + FromPrimitive>(
         }
     }
 
-    // Parent cells
+    // Parent cells — decompose each annular prism sector into 3 tetrahedra.
     for iz in 0..(n_ax - 1) {
         let base0 = iz * verts_per_ring;
         let base1 = (iz + 1) * verts_per_ring;
         for ia in 0..n_ang {
             let ia1 = (ia + 1) % n_ang;
-            let f0 = mesh.add_face(Face::triangle(base0+1+ia, base0+1+ia1, base0));
-            let f1 = mesh.add_face(Face::triangle(base1+1+ia, base1+1+ia1, base1));
-            let f2 = mesh.add_face(Face::triangle(base0+1+ia, base1+1+ia, base0+1+ia1));
-            let f3 = mesh.add_face(Face::triangle(base0+1+ia1, base1+1+ia, base1+1+ia1));
-            mesh.add_cell(Cell::tetrahedron(f0, f1, f2, f3));
+            add_prism_tets(&mut mesh, base0, base0+1+ia, base0+1+ia1, base1, base1+1+ia, base1+1+ia1);
         }
     }
 
@@ -153,11 +176,7 @@ fn build_branching_mesh<T: Copy + RealField + Float + FromPrimitive>(
             let base1 = vertex_offset + (iz + 1) * verts_per_ring;
             for ia in 0..n_ang {
                 let ia1 = (ia + 1) % n_ang;
-                let f0 = mesh.add_face(Face::triangle(base0+1+ia, base0+1+ia1, base0));
-                let f1 = mesh.add_face(Face::triangle(base1+1+ia, base1+1+ia1, base1));
-                let f2 = mesh.add_face(Face::triangle(base0+1+ia, base1+1+ia, base0+1+ia1));
-                let f3 = mesh.add_face(Face::triangle(base0+1+ia1, base1+1+ia, base1+1+ia1));
-                mesh.add_cell(Cell::tetrahedron(f0, f1, f2, f3));
+                add_prism_tets(&mut mesh, base0, base0+1+ia, base0+1+ia1, base1, base1+1+ia, base1+1+ia1);
             }
         }
 

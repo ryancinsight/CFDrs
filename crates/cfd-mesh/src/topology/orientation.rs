@@ -74,7 +74,7 @@ pub fn fix_orientation(face_store: &mut FaceStore, edge_store: &EdgeStore) -> us
     let mut queue = std::collections::VecDeque::new();
 
     // Seed with face 0
-    let seed = FaceId::new(0);
+    let seed = FaceId::from_usize(0);
     queue.push_back(seed);
     visited.insert(seed);
 
