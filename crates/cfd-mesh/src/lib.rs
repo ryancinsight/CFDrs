@@ -2,6 +2,11 @@
 //!
 //! State-of-the-art watertight CFD mesh generation for millifluidic devices.
 //!
+//! This crate provides three mesh representations (one modern, two legacy),
+//! a complete Boolean CSG pipeline, spatial-hash vertex welding, exact
+//! geometric predicates, manifold/watertight checking, and OpenFOAM-compatible
+//! I/O — all targeting millimetre-scale microfluidic channel geometries.
+//!
 //! ## Quick Start — new GhostCell half-edge API
 //!
 //! ```rust,ignore
@@ -18,28 +23,82 @@
 //!     mesh.add_triangle(b, d, c, &mut token).unwrap();
 //!     mesh.signed_volume(&token)
 //! });
+//! assert!(vol > 0.0, "outward-oriented tetrahedron has positive volume");
+//! ```
+//!
+//! ## Quick Start — IndexedMesh builder
+//!
+//! ```rust,ignore
+//! use cfd_mesh::{MeshBuilder, core::scalar::Point3r};
+//!
+//! let mesh = MeshBuilder::new()
+//!     .add_triangle_vertex_positions(/* ... */)
+//!     .build();
+//! assert!(mesh.is_watertight());
+//! ```
+//!
+//! ## Architecture Diagram
+//!
+//! ```text
+//! ┌─ cfd-mesh crate ─────────────────────────────────────────────────────────┐
+//! │                                                                           │
+//! │  Entry points                                                             │
+//! │  ┌──────────────────┐    ┌───────────────────┐    ┌──────────────────┐   │
+//! │  │  with_mesh(f)    │    │   MeshBuilder     │    │  csg_boolean_*   │   │
+//! │  │  HalfEdgeMesh    │    │   IndexedMesh     │    │  CsgNode tree    │   │
+//! │  └────────┬─────────┘    └────────┬──────────┘    └────────┬─────────┘   │
+//! │           │                       │                         │             │
+//! │  ┌────────▼─────────┐    ┌────────▼──────────┐   ┌────────▼──────────┐  │
+//! │  │ permission/      │    │ storage/           │   │ csg/ (feature)    │  │
+//! │  │  GhostToken      │    │  VertexPool        │   │  BspTree          │  │
+//! │  │  GhostCell       │    │  FaceStore         │   │  BvhTree          │  │
+//! │  └────────┬─────────┘    │  EdgeStore         │   │  boolean pipeline │  │
+//! │           │              └────────┬──────────┘   └───────────────────┘  │
+//! │  ┌────────▼─────────┐            │                                       │
+//! │  │ topology/        │    ┌────────▼──────────┐                           │
+//! │  │  halfedge kernel │    │ geometry/          │                           │
+//! │  │  BoundaryPatch   │    │  exact predicates  │                           │
+//! │  │  ElementType     │    │  AABB, Plane, NURBS│                           │
+//! │  └──────────────────┘    └───────────────────┘                           │
+//! │                                                                           │
+//! │  Cross-cutting: welding/  watertight/  quality/  io/  core/              │
+//! └───────────────────────────────────────────────────────────────────────────┘
 //! ```
 //!
 //! ## Module Overview
 //!
 //! | Module | Contents |
-//! |---|---|
+//! |--------|---------|
 //! | [`mesh`] | `HalfEdgeMesh`, `Mesh<T>`, `IndexedMesh`, `MeshBuilder` |
 //! | [`topology`] | Half-edge structures, boundary patches, element types |
-//! | [`geometry`] | Exact predicates, AABB, plane, builders |
+//! | [`geometry`] | Exact predicates, AABB, plane, NURBS, builders |
 //! | [`welding`] | 26-neighbor `SnappingGrid`, `SpatialHashGrid`, `MeshWelder` |
 //! | [`storage`] | `VertexPool`, `FaceStore`, `EdgeStore`, `SlotPool` |
 //! | [`watertight`] | Manifold check, Euler characteristic, repair |
+//! | [`quality`] | Triangle quality metrics and validation reports |
 //! | [`permission`] | `GhostToken`, `GhostCell`, `PermissionedArena` |
 //! | [`core`] | Scalar types, indices (`VertexKey`, `VertexId`, …), errors |
-//! | [`csg`] | BSP-tree + BVH boolean operations (feature-gated) |
+//! | [`io`] | STL and VTK mesh I/O |
+//! | [`csg`] | BSP-tree + BVH boolean operations (feature `csg`) |
+//!
+//! ## Invariants
+//!
+//! The following mesh invariants are enforced at all API boundaries:
+//!
+//! 1. **Manifold half-edge**: every interior edge is shared by exactly 2 faces;
+//!    `twin(twin(he)) == he` and `next(prev(he)) == he`.
+//! 2. **Spatial deduplication**: `VertexPool` and `SnappingGrid` guarantee that
+//!    no two vertex positions are closer than `TOLERANCE` apart.
+//! 3. **Watertight closure**: `IndexedMesh::is_watertight()` verifies zero
+//!    boundary edges (every edge has exactly 2 adjacent faces).
+//! 4. **Generational key safety**: `VertexKey` / `FaceKey` values are valid
+//!    only within the mesh that created them; stale keys return `None`.
 
-// `dead_code` is suppressed crate-wide during the Phase 1-9 rewrite: many
-// public API items are used only by downstream crates (cfd-3d, cfd-validation),
-// not within cfd-mesh itself.  Remove this allow once Phase 9 (docs + cleanup)
-// is complete.
-#![allow(dead_code)]
-#![allow(missing_docs)]
+// Phase 9: Rustdoc enforcement. All public items in user-facing modules must
+// have documentation. Internal modules (channel, grid, hierarchy, io internals,
+// permission internals) suppress the lint with targeted #[allow(missing_docs)].
+#![warn(missing_docs)]
+
 
 pub mod core;
 pub mod permission;

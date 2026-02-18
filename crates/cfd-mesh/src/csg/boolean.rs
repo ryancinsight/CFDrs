@@ -223,13 +223,33 @@ pub enum CsgNode {
     /// A terminal mesh operand.
     Leaf(IndexedMesh),
     /// A ∪ B — mesh union.
-    Union { left: Box<CsgNode>, right: Box<CsgNode> },
+    Union {
+        /// Left operand of the union.
+        left: Box<CsgNode>,
+        /// Right operand of the union.
+        right: Box<CsgNode>,
+    },
     /// A ∩ B — mesh intersection.
-    Intersection { left: Box<CsgNode>, right: Box<CsgNode> },
+    Intersection {
+        /// Left operand of the intersection.
+        left: Box<CsgNode>,
+        /// Right operand of the intersection.
+        right: Box<CsgNode>,
+    },
     /// A \ B — subtract B from A.
-    Difference { left: Box<CsgNode>, right: Box<CsgNode> },
+    Difference {
+        /// Mesh to subtract from (minuend).
+        left: Box<CsgNode>,
+        /// Mesh to subtract (subtrahend).
+        right: Box<CsgNode>,
+    },
     /// Apply a rigid-body transform to the sub-tree before evaluation.
-    Transform { node: Box<CsgNode>, iso: Isometry3<Real> },
+    Transform {
+        /// Sub-tree whose result will be transformed.
+        node: Box<CsgNode>,
+        /// Rigid-body isometry to apply to all vertices.
+        iso: Isometry3<Real>,
+    },
 }
 
 impl CsgNode {

@@ -32,7 +32,7 @@
 //! Sutherland & Hodgman (1974), "Reentrant polygon clipping",
 //! *Communications of the ACM*, 17(1), 32–42.
 
-use crate::core::scalar::{Real, Point3r};
+use crate::core::scalar::Point3r;
 use crate::geometry::predicates::{orient_3d, Orientation};
 
 // ── Polygon clipping ──────────────────────────────────────────────────────────
@@ -162,6 +162,7 @@ pub fn fan_triangulate(polygon: &[Point3r]) -> Vec<[Point3r; 3]> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::core::scalar::Real;
 
     // CCW plane normal points in +z: pa=(0,0,0), pb=(1,0,0), pc=(0,1,0)
     // → inside = z ≥ 0.

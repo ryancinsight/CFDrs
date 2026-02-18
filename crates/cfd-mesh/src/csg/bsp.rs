@@ -3,7 +3,6 @@
 //! Adapted from csgrs's BSP approach but operating on indexed faces.
 //! Splitting plane heuristic: minimize `8 × spans + |front - back|`.
 
-use crate::core::index::{FaceId, RegionId};
 use crate::core::scalar::{Real, Vector3r};
 use crate::geometry::plane::Plane;
 use crate::storage::face_store::FaceData;

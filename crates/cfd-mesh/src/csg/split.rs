@@ -3,8 +3,8 @@
 //! When a triangle straddles a plane, it is split into up to 3 sub-triangles,
 //! some in front and some behind.
 
-use crate::core::index::{VertexId, FaceId, RegionId};
-use crate::core::scalar::{Real, Point3r, Vector3r};
+use crate::core::index::{VertexId, RegionId};
+use crate::core::scalar::{Point3r, Vector3r};
 use crate::geometry::plane::{Plane, PointClassification};
 use crate::storage::face_store::FaceData;
 use crate::storage::vertex_pool::VertexPool;

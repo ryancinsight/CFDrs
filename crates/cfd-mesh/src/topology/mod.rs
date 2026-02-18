@@ -19,11 +19,17 @@ use nalgebra::Point3;
 /// Element type of a mesh cell.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ElementType {
+    /// Four triangular faces; the fundamental 3-D simplex.
     Tetrahedron,
+    /// Six quadrilateral faces; structured-grid workhorse.
     Hexahedron,
+    /// Two-dimensional simplex (surface and 2D grids).
     Triangle,
+    /// Four-sided planar element (surface and 2D structured grids).
     Quadrilateral,
+    /// Triangular prism — bridging tet / hex zones.
     Wedge,
+    /// Square base with four triangular faces; bridges hex and tet zones.
     Pyramid,
 }
 

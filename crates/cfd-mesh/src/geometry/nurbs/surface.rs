@@ -109,9 +109,19 @@ pub enum SurfaceError {
     /// Control grid is empty.
     EmptyControlGrid,
     /// Degree in the named direction is zero.
-    ZeroDegree { direction: char },
+    ZeroDegree {
+        /// Direction character: `'u'` or `'v'`.
+        direction: char,
+    },
     /// Knot count does not satisfy `n + p + 2`.
-    KnotCountMismatch { direction: char, got: usize, expected: usize },
+    KnotCountMismatch {
+        /// Direction character: `'u'` or `'v'`.
+        direction: char,
+        /// Actual number of knots supplied.
+        got: usize,
+        /// Required number of knots (`n + degree + 2`).
+        expected: usize,
+    },
     /// Weight grid dimensions differ from the control grid.
     WeightGridMismatch,
 }
