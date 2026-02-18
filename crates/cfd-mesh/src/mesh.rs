@@ -850,6 +850,20 @@ impl<'id> HalfEdgeMesh<'id> {
         Ok(())
     }
 
+    /// Return the [`PatchKey`] assigned to a face, if any.
+    ///
+    /// Returns `None` for faces that have not been assigned to any boundary
+    /// patch via [`assign_face_to_patch`](Self::assign_face_to_patch).
+    pub fn face_patch(&self, face: FaceKey, token: &GhostToken<'id>) -> Option<PatchKey> {
+        self.faces.get(face)?.borrow(token).patch
+    }
+
+    /// Return the [`BoundaryPatch`](crate::topology::halfedge::BoundaryPatch)
+    /// registered under `patch`, or `None` if the key is stale.
+    pub fn patch_info(&self, patch: PatchKey) -> Option<&HeBoundaryPatch> {
+        self.patches.get(patch)
+    }
+
     // ── Traversal iterators ───────────────────────────────────────────────
 
     /// Iterate over all vertex keys.
