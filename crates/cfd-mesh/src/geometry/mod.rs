@@ -1,18 +1,14 @@
-//! Geometric operations for meshes.
+//! Geometric primitives and mesh builders.
 
-pub mod branching;
+pub mod plane;
+pub mod aabb;
+pub mod normal;
+pub mod measure;
+pub mod distance;
+
+pub use plane::Plane;
+pub use aabb::Aabb;
+
 pub mod venturi;
 pub mod serpentine;
-
-/// Geometry operations
-pub struct Geometry;
-
-impl Default for Geometry {
-    fn default() -> Self {
-        Self
-    }
-}
-
-impl Geometry {
-    // Geometry operations would be implemented here
-}
+pub mod branching;

@@ -1,117 +1,39 @@
-//! Core quality metrics for mesh elements
-//!
-//! Based on established metrics from:
-//! - Knupp, P. (2001). "Algebraic mesh quality metrics"
-//! - Shewchuk, J. (2002). "What is a good linear finite element?"
+//! Quality metric definitions.
 
-use nalgebra::RealField;
-use serde::{Deserialize, Serialize};
+use crate::core::scalar::Real;
 
-/// Comprehensive quality metrics for mesh elements
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct QualityMetrics<T: RealField + Copy> {
-    /// Aspect ratio (1.0 = perfect, >1 = stretched)
-    pub aspect_ratio: T,
-
-    /// Skewness (0.0 = perfect, 1.0 = degenerate)
-    pub skewness: T,
-
-    /// Orthogonality (1.0 = perfect, 0.0 = non-orthogonal)
-    pub orthogonality: T,
-
-    /// Smoothness (variation between neighboring cells)
-    pub smoothness: T,
-
-    /// Jacobian determinant (positive = valid)
-    pub jacobian: T,
-
-    /// Condition number (1.0 = perfect, higher = worse)
-    pub condition_number: T,
-
-    /// Volume/Area ratio to ideal element
-    pub size_ratio: T,
-
-    /// Overall quality score (0-1, higher is better)
-    pub overall_quality_score: T,
+/// A quality metric measurement.
+#[derive(Clone, Debug)]
+pub struct QualityMetric {
+    /// Minimum value across all elements.
+    pub min: Real,
+    /// Maximum value across all elements.
+    pub max: Real,
+    /// Mean value across all elements.
+    pub mean: Real,
+    /// Number of elements measured.
+    pub count: usize,
 }
 
-impl<T: RealField + Copy> QualityMetrics<T> {
-    /// Create metrics with all values set to ideal
-    #[must_use]
-    pub fn ideal() -> Self {
-        Self {
-            aspect_ratio: T::one(),
-            skewness: T::zero(),
-            orthogonality: T::one(),
-            smoothness: T::one(),
-            jacobian: T::one(),
-            condition_number: T::one(),
-            size_ratio: T::one(),
-            overall_quality_score: T::one(),
+impl QualityMetric {
+    /// Create from a slice of values.
+    pub fn from_values(values: &[Real]) -> Option<Self> {
+        if values.is_empty() {
+            return None;
         }
+        let min = values.iter().copied().fold(Real::INFINITY, Real::min);
+        let max = values.iter().copied().fold(Real::NEG_INFINITY, Real::max);
+        let sum: Real = values.iter().sum();
+        Some(Self {
+            min,
+            max,
+            mean: sum / values.len() as Real,
+            count: values.len(),
+        })
     }
 
-    /// Calculate overall quality score from individual metrics
-    pub fn calculate_overall_score(&mut self) {
-        // Weighted harmonic mean of metrics
-        let weights = [
-            T::from_f64(0.2).unwrap_or_else(|| T::one()), // aspect_ratio
-            T::from_f64(0.2).unwrap_or_else(|| T::one()), // skewness
-            T::from_f64(0.15).unwrap_or_else(|| T::one()), // orthogonality
-            T::from_f64(0.1).unwrap_or_else(|| T::one()), // smoothness
-            T::from_f64(0.15).unwrap_or_else(|| T::one()), // jacobian
-            T::from_f64(0.1).unwrap_or_else(|| T::one()), // condition
-            T::from_f64(0.1).unwrap_or_else(|| T::one()), // size_ratio
-        ];
-
-        let metrics = [
-            self.aspect_ratio_quality(),
-            T::one() - self.skewness,
-            self.orthogonality,
-            self.smoothness,
-            self.jacobian_quality(),
-            self.condition_quality(),
-            self.size_ratio_quality(),
-        ];
-
-        let mut weighted_sum = T::zero();
-        let mut weight_total = T::zero();
-
-        for (metric, weight) in metrics.iter().zip(weights.iter()) {
-            if *metric > T::zero() {
-                weighted_sum += *weight / *metric;
-                weight_total += *weight;
-            }
-        }
-
-        self.overall_quality_score = if weighted_sum > T::zero() {
-            weight_total / weighted_sum
-        } else {
-            T::zero()
-        };
-    }
-
-    /// Convert aspect ratio to quality metric (0-1)
-    fn aspect_ratio_quality(&self) -> T {
-        T::one() / self.aspect_ratio.max(T::one() / self.aspect_ratio)
-    }
-
-    /// Convert Jacobian to quality metric (0-1)
-    fn jacobian_quality(&self) -> T {
-        if self.jacobian > T::zero() {
-            (T::one() - (T::one() - self.jacobian).abs()).max(T::zero())
-        } else {
-            T::zero()
-        }
-    }
-
-    /// Convert condition number to quality metric (0-1)
-    fn condition_quality(&self) -> T {
-        T::one() / self.condition_number
-    }
-
-    /// Convert size ratio to quality metric (0-1)
-    fn size_ratio_quality(&self) -> T {
-        (T::one() - (T::one() - self.size_ratio).abs()).max(T::zero())
+    /// Number of elements below a threshold.
+    pub fn count_below(values: &[Real], threshold: Real) -> usize {
+        values.iter().filter(|&&v| v < threshold).count()
     }
 }

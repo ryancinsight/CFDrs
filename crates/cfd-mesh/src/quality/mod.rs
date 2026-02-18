@@ -1,13 +1,11 @@
-//! Mesh quality assessment module
+//! Mesh quality assessment.
 //!
-//! Provides comprehensive mesh quality metrics following established CFD literature.
+//! Triangle quality metrics relevant to CFD meshing:
+//! aspect ratio, skewness, minimum angle, etc.
 
-pub mod analyzer;
-pub mod criteria;
 pub mod metrics;
-pub mod statistics;
+pub mod triangle;
+pub mod validation;
 
-pub use analyzer::QualityAnalyzer;
-pub use criteria::{QualityCriteria, QualityThresholds};
-pub use metrics::QualityMetrics;
-pub use statistics::QualityStatistics;
+pub use metrics::QualityMetric;
+pub use validation::MeshValidator;

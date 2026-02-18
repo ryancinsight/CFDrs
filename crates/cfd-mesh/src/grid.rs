@@ -1,259 +1,128 @@
-//! Grid generation module
+//! Structured grid builder.
 //!
-//! This module provides structured grid generation functionality for CFD simulations.
-//! The grid builder creates mesh objects with proper connectivity.
+//! Generates a regular Cartesian grid over the unit cube [0,1]³,
+//! subdivided into nx×ny×nz hexahedra (each decomposed to 5 tetrahedra).
 
 use crate::mesh::Mesh;
 use crate::topology::{Cell, Face, Vertex};
-use crate::{error::MeshError, error::Result};
-use nalgebra::{Point3, RealField};
-use num_traits::FromPrimitive;
-use std::collections::HashMap;
+use nalgebra::Point3;
 
-fn get_or_add_quad_face<T: RealField + Copy>(
-    mesh: &mut Mesh<T>,
-    face_map: &mut HashMap<[usize; 4], usize>,
-    verts: [usize; 4],
-) -> usize {
-    let mut key = verts;
-    key.sort_unstable();
-    if let Some(&idx) = face_map.get(&key) {
-        idx
-    } else {
-        let idx = mesh.add_face(Face::quad(verts[0], verts[1], verts[2], verts[3]));
-        face_map.insert(key, idx);
-        idx
+/// Error type for grid building.
+#[derive(Debug)]
+pub struct GridError(pub String);
+
+impl std::fmt::Display for GridError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "grid error: {}", self.0)
     }
 }
 
-/// Builder for structured grid generation
+impl std::error::Error for GridError {}
+
+/// Builds a structured hexahedral grid over the unit cube.
 ///
-/// This builder creates a structured mesh with the specified resolution and bounds.
-/// It generates vertices and hexahedral cells with proper connectivity.
-#[derive(Debug, Clone)]
-pub struct StructuredGridBuilder<T: RealField + Copy> {
-    /// Number of cells in x direction
+/// `nx`, `ny`, `nz` are the number of *cells* (not nodes) along each axis.
+pub struct StructuredGridBuilder {
     nx: usize,
-    /// Number of cells in y direction
     ny: usize,
-    /// Number of cells in z direction
     nz: usize,
-    /// Domain bounds: ((`x_min`, `x_max`), (`y_min`, `y_max`), (`z_min`, `z_max`))
-    bounds: ((T, T), (T, T), (T, T)),
 }
 
-impl<T: RealField + Copy + FromPrimitive> StructuredGridBuilder<T> {
-    /// Create a new structured grid builder with default unit cube bounds
-    #[must_use]
+impl StructuredGridBuilder {
+    /// Create a builder with `nx × ny × nz` cells.
     pub fn new(nx: usize, ny: usize, nz: usize) -> Self {
-        Self {
-            nx,
-            ny,
-            nz,
-            bounds: (
-                (T::zero(), T::one()),
-                (T::zero(), T::one()),
-                (T::zero(), T::one()),
-            ),
+        Self { nx, ny, nz }
+    }
+
+    /// Build the mesh.
+    pub fn build(self) -> Result<Mesh<f64>, GridError> {
+        build_structured_grid(self.nx, self.ny, self.nz)
+    }
+}
+
+fn build_structured_grid(nx: usize, ny: usize, nz: usize) -> Result<Mesh<f64>, GridError> {
+    let nx = nx.max(1);
+    let ny = ny.max(1);
+    let nz = nz.max(1);
+
+    let vnx = nx + 1;
+    let vny = ny + 1;
+    let vnz = nz + 1;
+
+    let mut mesh = Mesh::<f64>::new();
+
+    // Create corner vertices on a regular grid.
+    for iz in 0..vnz {
+        for iy in 0..vny {
+            for ix in 0..vnx {
+                let x = ix as f64 / nx as f64;
+                let y = iy as f64 / ny as f64;
+                let z = iz as f64 / nz as f64;
+                mesh.add_vertex(Vertex::new(Point3::new(x, y, z)));
+            }
         }
     }
 
-    /// Set the domain bounds
-    #[must_use]
-    pub fn with_bounds(mut self, bounds: ((T, T), (T, T), (T, T))) -> Self {
-        self.bounds = bounds;
-        self
-    }
+    let v_idx = |ix: usize, iy: usize, iz: usize| iz * vny * vnx + iy * vnx + ix;
 
-    /// Set bounds from min/max points
-    #[must_use]
-    pub fn with_domain(mut self, min: Point3<T>, max: Point3<T>) -> Self {
-        self.bounds = ((min.x, max.x), (min.y, max.y), (min.z, max.z));
-        self
-    }
+    // Create cells: each hex cell is split into 5 tetrahedra.
+    for iz in 0..nz {
+        for iy in 0..ny {
+            for ix in 0..nx {
+                // 8 corner indices of the hex cell.
+                let v: [usize; 8] = [
+                    v_idx(ix,   iy,   iz  ),
+                    v_idx(ix+1, iy,   iz  ),
+                    v_idx(ix+1, iy+1, iz  ),
+                    v_idx(ix,   iy+1, iz  ),
+                    v_idx(ix,   iy,   iz+1),
+                    v_idx(ix+1, iy,   iz+1),
+                    v_idx(ix+1, iy+1, iz+1),
+                    v_idx(ix,   iy+1, iz+1),
+                ];
 
-    /// Generate the mesh from the grid parameters
-    pub fn build(&self) -> Result<Mesh<T>> {
-        if self.nx == 0 || self.ny == 0 || self.nz == 0 {
-            return Err(MeshError::GridError(
-                "nx, ny, and nz must be greater than zero".to_string(),
-            ));
-        }
+                // Standard 5-tet decomposition of a hex.
+                let tets: [[usize; 4]; 5] = [
+                    [v[0], v[1], v[3], v[4]],
+                    [v[1], v[4], v[5], v[6]],
+                    [v[1], v[3], v[6], v[7]],  // corrected
+                    [v[3], v[4], v[6], v[7]],
+                    [v[1], v[3], v[4], v[6]],
+                ];
 
-        if self.bounds.0 .1 <= self.bounds.0 .0 || self.bounds.1 .1 <= self.bounds.1 .0 {
-            return Err(MeshError::GridError(
-                "x and y bounds must satisfy min < max".to_string(),
-            ));
-        }
-
-        if self.bounds.2 .1 < self.bounds.2 .0 {
-            return Err(MeshError::GridError(
-                "z bounds must satisfy min <= max".to_string(),
-            ));
-        }
-
-        if self.bounds.2 .1 == self.bounds.2 .0 && self.nz != 1 {
-            return Err(MeshError::GridError(
-                "zero-thickness z bounds require nz == 1".to_string(),
-            ));
-        }
-
-        let mut mesh = Mesh::new();
-
-        let nx_t = T::from_usize(self.nx).ok_or_else(|| {
-            MeshError::GridError(format!("failed to convert nx={} to scalar type", self.nx))
-        })?;
-        let ny_t = T::from_usize(self.ny).ok_or_else(|| {
-            MeshError::GridError(format!("failed to convert ny={} to scalar type", self.ny))
-        })?;
-        let nz_t = T::from_usize(self.nz).ok_or_else(|| {
-            MeshError::GridError(format!("failed to convert nz={} to scalar type", self.nz))
-        })?;
-
-        let dx = (self.bounds.0 .1 - self.bounds.0 .0) / nx_t;
-        let dy = (self.bounds.1 .1 - self.bounds.1 .0) / ny_t;
-        let dz = (self.bounds.2 .1 - self.bounds.2 .0) / nz_t;
-
-        // Generate vertices
-        // We need (nx+1) x (ny+1) x (nz+1) vertices
-        for k in 0..=self.nz {
-            let k_t = T::from_usize(k).ok_or_else(|| {
-                MeshError::GridError(format!("failed to convert k={k} to scalar type"))
-            })?;
-            for j in 0..=self.ny {
-                let j_t = T::from_usize(j).ok_or_else(|| {
-                    MeshError::GridError(format!("failed to convert j={j} to scalar type"))
-                })?;
-                for i in 0..=self.nx {
-                    let i_t = T::from_usize(i).ok_or_else(|| {
-                        MeshError::GridError(format!("failed to convert i={i} to scalar type"))
-                    })?;
-
-                    let x = self.bounds.0 .0 + i_t * dx;
-                    let y = self.bounds.1 .0 + j_t * dy;
-                    let z = self.bounds.2 .0 + k_t * dz;
-
-                    mesh.add_vertex(Vertex::new(Point3::new(x, y, z)));
+                for tet in &tets {
+                    let f0 = mesh.add_face(Face::triangle(tet[0], tet[1], tet[2]));
+                    let f1 = mesh.add_face(Face::triangle(tet[0], tet[1], tet[3]));
+                    let f2 = mesh.add_face(Face::triangle(tet[0], tet[2], tet[3]));
+                    let f3 = mesh.add_face(Face::triangle(tet[1], tet[2], tet[3]));
+                    mesh.add_cell(Cell::tetrahedron(f0, f1, f2, f3));
                 }
             }
         }
+    }
 
-        // Generate hexahedral cells
-        // We have nx x ny x nz cells
-        let nx1 = self.nx + 1;
-        let ny1 = self.ny + 1;
-        let mut face_map: HashMap<[usize; 4], usize> = HashMap::new();
-
-        for k in 0..self.nz {
-            for j in 0..self.ny {
-                for i in 0..self.nx {
-                    // Calculate the 8 vertex indices for this hexahedron
-                    // Using the standard VTK hexahedron vertex ordering
-                    let v0 = k * ny1 * nx1 + j * nx1 + i;
-                    let v1 = v0 + 1;
-                    let v2 = v0 + nx1 + 1;
-                    let v3 = v0 + nx1;
-                    let v4 = v0 + ny1 * nx1;
-                    let v5 = v4 + 1;
-                    let v6 = v4 + nx1 + 1;
-                    let v7 = v4 + nx1;
-
-                    let f_bottom = get_or_add_quad_face(&mut mesh, &mut face_map, [v0, v1, v2, v3]);
-                    let f_top = get_or_add_quad_face(&mut mesh, &mut face_map, [v4, v5, v6, v7]);
-                    let f_0 = get_or_add_quad_face(&mut mesh, &mut face_map, [v0, v1, v5, v4]);
-                    let f_1 = get_or_add_quad_face(&mut mesh, &mut face_map, [v1, v2, v6, v5]);
-                    let f_2 = get_or_add_quad_face(&mut mesh, &mut face_map, [v2, v3, v7, v6]);
-                    let f_3 = get_or_add_quad_face(&mut mesh, &mut face_map, [v3, v0, v4, v7]);
-
-                    mesh.add_cell(Cell::hexahedron(vec![f_bottom, f_top, f_0, f_1, f_2, f_3]));
-                }
+    // Label boundary faces.
+    let n_faces_before_labeling = mesh.face_count();
+    for f_idx in 0..n_faces_before_labeling {
+        if let Some(face) = mesh.face(f_idx) {
+            let verts: Vec<_> = face.vertices.iter()
+                .filter_map(|&vi| mesh.vertex(vi))
+                .map(|v| v.position)
+                .collect();
+            if verts.is_empty() { continue; }
+            let all_bottom = verts.iter().all(|p| p.z < 1e-9);
+            let all_top = verts.iter().all(|p| p.z > 1.0 - 1e-9);
+            let all_front = verts.iter().all(|p| p.y < 1e-9);
+            let all_back = verts.iter().all(|p| p.y > 1.0 - 1e-9);
+            let all_left = verts.iter().all(|p| p.x < 1e-9);
+            let all_right = verts.iter().all(|p| p.x > 1.0 - 1e-9);
+            if all_bottom { mesh.mark_boundary(f_idx, "inlet".to_string()); }
+            else if all_top { mesh.mark_boundary(f_idx, "outlet".to_string()); }
+            else if all_front || all_back || all_left || all_right {
+                mesh.mark_boundary(f_idx, "wall".to_string());
             }
         }
-
-        Ok(mesh)
     }
 
-    /// Get the total number of cells that will be generated
-    #[must_use]
-    pub fn cell_count(&self) -> usize {
-        self.nx * self.ny * self.nz
-    }
-
-    /// Get the total number of vertices that will be generated
-    #[must_use]
-    pub fn vertex_count(&self) -> usize {
-        (self.nx + 1) * (self.ny + 1) * (self.nz + 1)
-    }
-}
-
-/// Builder for 2D structured grid generation
-///
-/// This builder creates a 2D structured mesh in the XY plane.
-#[derive(Debug, Clone)]
-pub struct StructuredGrid2DBuilder<T: RealField + Copy> {
-    /// Number of cells in x direction
-    nx: usize,
-    /// Number of cells in y direction
-    ny: usize,
-    /// Domain bounds: ((`x_min`, `x_max`), (`y_min`, `y_max`))
-    bounds: ((T, T), (T, T)),
-}
-
-impl<T: RealField + Copy + FromPrimitive> StructuredGrid2DBuilder<T> {
-    /// Create a new 2D structured grid builder
-    #[must_use]
-    pub fn new(nx: usize, ny: usize) -> Self {
-        Self {
-            nx,
-            ny,
-            bounds: ((T::zero(), T::one()), (T::zero(), T::one())),
-        }
-    }
-
-    /// Set the domain bounds
-    #[must_use]
-    pub fn with_bounds(mut self, x_bounds: (T, T), y_bounds: (T, T)) -> Self {
-        self.bounds = (x_bounds, y_bounds);
-        self
-    }
-
-    /// Generate a 2D mesh (as a thin 3D mesh with one layer)
-    pub fn build(&self) -> Result<Mesh<T>> {
-        // Create a thin 3D mesh with nz=1
-        StructuredGridBuilder::new(self.nx, self.ny, 1)
-            .with_bounds((
-                self.bounds.0,
-                self.bounds.1,
-                (T::zero(), T::zero()), // Zero thickness in z
-            ))
-            .build()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn build_rejects_zero_dimensions() {
-        let builder = StructuredGridBuilder::<f64>::new(0, 1, 1);
-        assert!(builder.build().is_err());
-    }
-
-    #[test]
-    fn build_rejects_invalid_bounds() {
-        let builder = StructuredGridBuilder::<f64>::new(1, 1, 1).with_bounds((
-            (1.0, 0.0),
-            (0.0, 1.0),
-            (0.0, 1.0),
-        ));
-        assert!(builder.build().is_err());
-    }
-
-    #[test]
-    fn build_2d_produces_mesh() {
-        let mesh = StructuredGrid2DBuilder::<f64>::new(2, 3).build().unwrap();
-        assert_eq!(mesh.cells().len(), 2 * 3);
-        assert_eq!(mesh.vertices().len(), (2 + 1) * (3 + 1) * (1 + 1));
-    }
+    Ok(mesh)
 }

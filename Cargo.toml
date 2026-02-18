@@ -4,12 +4,13 @@ members = [
     "crates/cfd-math",
     "crates/cfd-io",
     "crates/cfd-mesh",
-    "crates/cfd-fluidics",
+    "crates/cfd-optim",
+    "crates/cfd-schematics",
     "crates/cfd-1d",
     "crates/cfd-2d",
     "crates/cfd-3d",
     "crates/cfd-validation",
-    "crates/pycfdrs",
+    "crates/cfd-python",
     "xtask",
 ]
 resolver = "2"
@@ -73,7 +74,8 @@ cfd-core = { path = "crates/cfd-core", default-features = false }
 cfd-math = { path = "crates/cfd-math" }
 cfd-io = { path = "crates/cfd-io" }
 cfd-mesh = { path = "crates/cfd-mesh" }
-cfd-fluidics = { path = "crates/cfd-fluidics" }
+cfd-optim = { path = "crates/cfd-optim" }
+cfd-schematics = { path = "crates/cfd-schematics" }
 cfd-1d = { path = "crates/cfd-1d" }
 cfd-2d = { path = "crates/cfd-2d" }
 cfd-3d = { path = "crates/cfd-3d" }
@@ -94,7 +96,7 @@ opt-level = 0
 opt-level = 2
 
 # PyO3 extension building
-[profile.release.package.pycfdrs]
+[profile.release.package.cfd-python]
 opt-level = 3
 
 # Root package for examples
@@ -124,7 +126,6 @@ cfd-core.workspace = true
 cfd-math.workspace = true
 cfd-io.workspace = true
 cfd-mesh.workspace = true
-cfd-fluidics.workspace = true
 cfd-1d.workspace = true
 cfd-2d.workspace = true
 cfd-3d.workspace = true
@@ -149,7 +150,7 @@ serde = { workspace = true, features = ["derive"] }
 chrono = { version = "0.4", features = ["serde"] }
 num_cpus = "1.17"
 tracing-subscriber = { workspace = true }
-scheme = { path = "../scheme" }
+scheme = { package = "cfd-schematics", path = "crates/cfd-schematics" }
 plotters = { version = "0.3", default-features = false, features = ["svg_backend", "line_series"] }
 
 [[bench]]
@@ -184,6 +185,19 @@ required-features = ["scheme-integration"]
 [[example]]
 name = "literature_validation"
 path = "examples/literature_validation.rs"
+required-features = ["scheme-integration"]
+
+[[example]]
+name = "blood_rheology_models"
+path = "examples/blood_rheology_models.rs"
+
+[[example]]
+name = "womersley_pulsatile_millifluidic"
+path = "examples/womersley_pulsatile_millifluidic.rs"
+
+[[example]]
+name = "murrays_law_bifurcation"
+path = "examples/murrays_law_bifurcation.rs"
 required-features = ["scheme-integration"]
 
 [[example]]

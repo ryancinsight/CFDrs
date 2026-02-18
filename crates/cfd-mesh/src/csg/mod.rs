@@ -1,14 +1,29 @@
-//! CSG (Constructive Solid Geometry) operations
+//! CSG boolean operations on indexed meshes.
 //!
-//! This module provides comprehensive CSG mesh generation and boolean operations
-//! using the csgrs crate, enabling creation of complex geometries through
-//! constructive solid geometry techniques.
+//! Adapted from the BSP-tree approach used in `csgrs`, but operating
+//! on indexed vertices/faces rather than duplicated polygon soups.
+//!
+//! Feature-gated behind `csg`.
 
-mod errors;
-// Future modules - to be implemented when CSG feature is fully developed
-// mod primitives;
-// mod operations;
-// mod geometry;
-// mod transform;
+pub mod classify;
+pub mod split;
+pub mod bsp;
+pub mod boolean;
 
-pub use errors::CsgError;
+pub use boolean::{BooleanOp, csg_boolean};
+
+use thiserror::Error;
+
+/// Error type for CSG operations.
+#[derive(Error, Debug)]
+pub enum CsgError {
+    /// BSP construction failed.
+    #[error("BSP construction failed: {0}")]
+    BspError(String),
+    /// Boolean operation produced empty result.
+    #[error("boolean operation produced empty mesh: {0}")]
+    EmptyResult(String),
+    /// Generic CSG error.
+    #[error("CSG error: {0}")]
+    Other(String),
+}
