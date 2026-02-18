@@ -323,6 +323,11 @@ impl IndexedMesh {
         self.edges = Some(EdgeStore::from_face_store(&self.faces));
     }
 
+    /// Get existing edges (immutable).
+    pub fn edges_ref(&self) -> Option<&EdgeStore> {
+        self.edges.as_ref()
+    }
+
     // ── Geometric queries ─────────────────────────────────────
 
     /// Axis-aligned bounding box.
@@ -376,6 +381,51 @@ impl IndexedMesh {
     pub fn quality_report(&self) -> crate::quality::validation::QualityReport {
         let validator = crate::quality::validation::MeshValidator::default();
         validator.validate(&self.faces, &self.vertices)
+    }
+
+    // ── Normal Recomputation ──────────────────────────────────
+
+    /// Recompute all vertex normals from face geometry.
+    ///
+    /// After CSG operations, face winding may have changed, but the vertex
+    /// normals stored in the pool are the original normals. This method
+    /// recalculates normals based on the current face winding, averaging
+    /// contributions from all faces that share each vertex.
+    ///
+    /// For each face, the normal is computed from the cross product:
+    /// `n = normalize((v1 - v0) × (v2 - v0))`
+    ///
+    /// Each vertex's normal is the average of all face normals that use it.
+    pub fn recompute_normals(&mut self) {
+        use crate::geometry::normal::triangle_normal;
+
+        // Accumulate normals for each vertex
+        let mut normal_sums: Vec<Vector3r> = vec![Vector3r::zeros(); self.vertices.len()];
+        let mut counts: Vec<usize> = vec![0; self.vertices.len()];
+
+        for (_, face) in self.faces.iter_enumerated() {
+            let a = self.vertices.position(face.vertices[0]);
+            let b = self.vertices.position(face.vertices[1]);
+            let c = self.vertices.position(face.vertices[2]);
+
+            let face_normal = triangle_normal(&a, &b, &c).unwrap_or_else(|| Vector3r::z());
+
+            for &vi in &face.vertices {
+                normal_sums[vi.as_usize()] += face_normal;
+                counts[vi.as_usize()] += 1;
+            }
+        }
+
+        // Update vertex normals
+        for (i, (sum, count)) in normal_sums.iter().zip(counts.iter()).enumerate() {
+            if *count > 0 {
+                let avg = sum / (*count as Real);
+                let len = avg.norm();
+                if len > 1e-12 {
+                    self.vertices.set_normal(VertexId::new(i as u32), avg / len);
+                }
+            }
+        }
     }
 }
 

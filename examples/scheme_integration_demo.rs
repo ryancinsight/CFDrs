@@ -1,28 +1,16 @@
 //! Example demonstrating scheme → cfd-1d bridge.
 //!
-//! Run with: `cargo run --example scheme_integration_demo --features scheme-integration`
+//! Run with: `cargo run --example scheme_integration_demo`
 
-#[cfg(not(feature = "scheme-integration"))]
-fn main() {
-    println!("Scheme Integration Demo");
-    println!("======================");
-    println!();
-    println!("The 'scheme-integration' feature is not enabled.");
-    println!();
-    println!("Run with the feature enabled:");
-    println!("  cargo run --example scheme_integration_demo --features scheme-integration");
-    println!();
-    println!("Alternatively, design microfluidic networks programmatically");
-    println!("using the NetworkBuilder API without 2D schematic input.");
-}
-
-#[cfg(feature = "scheme-integration")]
 fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
-    use cfd_1d::scheme_bridge::SchemeNetworkConverter;
-    use scheme::{
+    use cfd_schematics::{
         config::{ChannelTypeConfig, GeometryConfig, SerpentineConfig},
-        geometry::{generator::create_geometry, SplitType},
+        geometry::{
+            generator::create_geometry,
+            types::{ChannelSystem, SplitType},
+        },
     };
+    use cfd_schematics::scheme_bridge::SchemeNetworkConverter;
 
     println!("Scheme → CFD-1D Bridge Demo");
     println!("===========================\n");
@@ -110,8 +98,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     // ── 3. JSON round-trip ──────────────────────────────────────────────
     println!("\n6. JSON round-trip test...");
     let json = bifurcation_system.to_json()?;
-    let restored: scheme::geometry::ChannelSystem =
-        scheme::geometry::ChannelSystem::from_json(&json)?;
+    let restored: ChannelSystem = ChannelSystem::from_json(&json)?;
     let conv2 = SchemeNetworkConverter::new(&restored);
     let net2 = conv2.build_network_with_water()?;
     assert_eq!(network.node_count(), net2.node_count());

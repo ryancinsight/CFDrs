@@ -47,6 +47,7 @@ impl EdgeData {
 /// Storage for edges, built from faces.
 ///
 /// Edges are identified by their canonical vertex pair `(min, max)`.
+#[derive(Clone)]
 pub struct EdgeStore {
     /// Edge data indexed by `EdgeId`.
     edges: Vec<EdgeData>,

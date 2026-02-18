@@ -47,8 +47,7 @@ pub mod components;
 pub mod junctions;
 pub mod network;
 pub mod resistance;
-#[cfg(feature = "scheme-integration")]
-pub mod scheme_bridge;
+
 pub mod solver;
 pub mod vascular;
 
@@ -110,10 +109,6 @@ pub use junctions::branching::{
 ///
 /// For basic 1D functionality, prefer `cfd_suite::prelude::*`.
 pub mod prelude {
-    // === Scheme Integration (2D → 1D bridge) ===
-    #[cfg(feature = "scheme-integration")]
-    pub use crate::scheme_bridge::{SchemeNetworkConverter, BridgeError};
-
     // === Extended Network Components ===
     // Specialized components not in main prelude
     pub use crate::{

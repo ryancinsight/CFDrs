@@ -2,7 +2,7 @@
 //!
 //! This example demonstrates the 1D CFD API with:
 //! - Error-free builder pattern (single point of failure in .build())
-//! - Topology generation via cfd-fluidics (single source of truth)
+//! - Topology generation via cfd-schematics (single source of truth)
 //! - Clear method naming (.build() instead of .build_network())
 //! - Standard library usage (windows() instead of custom windowed_operation)
 //! - Cohesive workflow connecting simulation results to analysis
@@ -12,7 +12,7 @@ use cfd_1d::solver::{NetworkProblem, NetworkSolver};
 use cfd_core::compute::solver::Solver;
 use cfd_core::error::Result;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
-use cfd_fluidics::{serpentine_chain, FluidicDesigner};
+use cfd_schematics::{serpentine_chain, FluidicDesigner};
 use std::f64::consts::PI;
 
 fn main() -> Result<()> {
@@ -33,7 +33,7 @@ fn main() -> Result<()> {
     println!("  Density: {} kg/m³", water.density);
     println!("  Viscosity: {} Pa·s", water.viscosity);
 
-    // Build network via cfd-fluidics design/generation crate
+    // Build network via cfd-schematics design/generation crate
     let designer = FluidicDesigner::new();
     let blueprint = serpentine_chain("main_pipe_1d", 1, 1.0, 0.01);
     let graph = designer.generate(&blueprint)?;
@@ -122,7 +122,7 @@ fn main() -> Result<()> {
 
     println!("\n✓ Example completed successfully");
     println!("✓ Demonstrates proper 1D CFD API usage");
-    println!("✓ Shows cfd-fluidics generation for network construction");
+    println!("✓ Shows cfd-schematics generation for network construction");
     println!("✓ Includes physics validation metrics");
 
     Ok(())

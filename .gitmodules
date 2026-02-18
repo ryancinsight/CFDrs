@@ -1,0 +1,33 @@
+[submodule "crates/cfd-1d"]
+	path = crates/cfd-1d
+	url = https://github.com/ryancinsight/CFDrs
+[submodule "crates/cfd-2d"]
+	path = crates/cfd-2d
+	url = https://github.com/ryancinsight/CFDrs
+[submodule "crates/cfd-3d"]
+	path = crates/cfd-3d
+	url = https://github.com/ryancinsight/CFDrs
+[submodule "crates/cfd-core"]
+	path = crates/cfd-core
+	url = https://github.com/ryancinsight/CFDrs
+[submodule "crates/cfd-schematics"]
+	path = crates/cfd-schematics
+	url = https://github.com/ryancinsight/CFDrs
+[submodule "crates/cfd-io"]
+	path = crates/cfd-io
+	url = https://github.com/ryancinsight/CFDrs
+[submodule "crates/cfd-math"]
+	path = crates/cfd-math
+	url = https://github.com/ryancinsight/CFDrs
+[submodule "crates/cfd-mesh"]
+	path = crates/cfd-mesh
+	url = https://github.com/ryancinsight/CFDrs
+[submodule "crates/cfd-optim"]
+	path = crates/cfd-optim
+	url = https://github.com/ryancinsight/CFDrs
+[submodule "crates/cfd-validation"]
+	path = crates/cfd-validation
+	url = https://github.com/ryancinsight/CFDrs
+[submodule "crates/cfd-python"]
+	path = crates/cfd-python
+	url = https://github.com/ryancinsight/CFDrs

@@ -1,14 +1,14 @@
 //! xtask - Build automation for CFD-rs Python bindings and validation
 //!
 //! This tool automates the complete workflow:
-//! 1. Build pycfdrs wheels with maturin
+//! 1. Build cfd-python wheels with maturin
 //! 2. Setup Python virtual environment
-//! 3. Install pycfdrs and validation dependencies
+//! 3. Install cfd-python and validation dependencies
 //! 4. Install FEniCS or alternative CFD packages
 //! 5. Run validation suite
 //!
 //! Usage:
-//!   cargo xtask build-wheel       # Build pycfdrs wheel
+//!   cargo xtask build-wheel       # Build cfd-python wheel
 //!   cargo xtask setup-venv        # Create virtual environment
 //!   cargo xtask install-deps      # Install Python dependencies
 //!   cargo xtask install-fenics    # Install FEniCS for validation
@@ -31,7 +31,7 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Build pycfdrs wheel with maturin
+    /// Build cfd-python wheel with maturin
     BuildWheel {
         /// Build in release mode
         #[arg(long, default_value_t = true)]
@@ -148,7 +148,7 @@ fn check_compilation(sh: &Shell) -> Result<()> {
     match result {
         Ok(_) => {
             println!("✅ No compilation errors found!");
-            println!("Ready to build pycfdrs wheels.");
+            println!("Ready to build cfd-python wheels.");
             Ok(())
         }
         Err(_) => {
@@ -156,16 +156,16 @@ fn check_compilation(sh: &Shell) -> Result<()> {
             println!("\nCommon issues:");
             println!("  - Missing ToPrimitive trait bounds in cfd-1d/cfd-3d");
             println!("  - Type conversion issues in generic implementations");
-            println!("\nFix these errors before building pycfdrs:");
+            println!("\nFix these errors before building cfd-python:");
             println!("  cargo build --workspace --all-features");
             bail!("Compilation failed")
         }
     }
 }
 
-/// Build pycfdrs wheel with maturin
+/// Build cfd-python wheel with maturin
 fn build_wheel(sh: &Shell, release: bool) -> Result<()> {
-    println!("🔨 Building pycfdrs wheel...\n");
+    println!("🔨 Building cfd-python wheel...\n");
 
     // First check compilation
     if let Err(_) = check_compilation(sh) {
@@ -174,8 +174,8 @@ fn build_wheel(sh: &Shell, release: bool) -> Result<()> {
         return Ok(());
     }
 
-    let pycfdrs_dir = project_root().join("crates").join("pycfdrs");
-    let _dir = sh.push_dir(&pycfdrs_dir);
+    let cfd_python_dir = project_root().join("crates").join("cfd-python");
+    let _dir = sh.push_dir(&cfd_python_dir);
 
     // Check if maturin is installed
     if cmd!(sh, "maturin --version").ignore_status().run().is_err() {
@@ -193,7 +193,7 @@ fn build_wheel(sh: &Shell, release: bool) -> Result<()> {
     }
 
     // Find the wheel
-    let wheel_dir = pycfdrs_dir.join("target").join("wheels");
+    let wheel_dir = cfd_python_dir.join("target").join("wheels");
     if wheel_dir.exists() {
         println!("\n✅ Wheel built successfully!");
         println!("Location: {}", wheel_dir.display());
@@ -283,26 +283,26 @@ fn install_deps(sh: &Shell, venv_path: &Path, with_fenics: bool) -> Result<()> {
         cmd!(sh, "{pip_str} install -r {requirements}").run()?;
     }
 
-    // Install pycfdrs wheel if available
+    // Install cfd-python wheel if available
     let wheel_dir = project_root()
         .join("crates")
-        .join("pycfdrs")
+        .join("cfd-python")
         .join("target")
         .join("wheels");
     if wheel_dir.exists() {
         if let Ok(entries) = std::fs::read_dir(&wheel_dir) {
             for entry in entries.flatten() {
                 if entry.path().extension().and_then(|s| s.to_str()) == Some("whl") {
-                    println!("\nInstalling pycfdrs...");
+                    println!("\nInstalling cfd-python...");
                     let wheel = entry.path();
                     cmd!(sh, "{pip_str} install --force-reinstall {wheel}").run()?;
-                    println!("✅ pycfdrs installed!");
+                    println!("✅ cfd-python installed!");
                     break;
                 }
             }
         }
     } else {
-        println!("⚠️  No pycfdrs wheel found. Run: cargo xtask build-wheel");
+        println!("⚠️  No cfd-python wheel found. Run: cargo xtask build-wheel");
     }
 
     if with_fenics {
@@ -346,7 +346,7 @@ fn install_fenics(sh: &Shell, use_conda: bool) -> Result<()> {
                 println!("\n✅ FEniCS installed in conda environment!");
                 println!("\nActivate with:");
                 println!("  conda activate cfdrs-validation");
-                println!("\nThen install pycfdrs:");
+                println!("\nThen install cfd-python:");
                 println!(
                     "  cargo xtask install-deps --venv $(conda info --base)/envs/cfdrs-validation"
                 );
@@ -387,13 +387,13 @@ fn validate(sh: &Shell, venv_path: &Path, plot: bool, quick: bool, category: &st
 
     let python_str = python.to_str().unwrap();
 
-    // Check if pycfdrs is installed
-    let check_result = cmd!(sh, "{python_str} -c \"import pycfdrs\"")
+    // Check if cfd_python is installed
+    let check_result = cmd!(sh, "{python_str} -c \"import cfd_python\"")
         .ignore_status()
         .run();
 
     if check_result.is_err() {
-        println!("❌ pycfdrs not installed in virtual environment!");
+        println!("❌ cfd_python not installed in virtual environment!");
         println!("\nRun:");
         println!("  cargo xtask build-wheel");
         println!("  cargo xtask install-deps");
@@ -438,7 +438,7 @@ fn run_all(sh: &Shell, with_fenics: bool, plot: bool) -> Result<()> {
     println!();
 
     // 2. Build wheel
-    println!("Step 2/6: Building pycfdrs wheel...");
+    println!("Step 2/6: Building cfd-python wheel...");
     build_wheel(sh, true)?;
     println!();
 
@@ -492,10 +492,10 @@ fn clean(sh: &Shell) -> Result<()> {
     println!("Cleaning Rust build artifacts...");
     cmd!(sh, "cargo clean").run()?;
 
-    // Remove pycfdrs wheels
-    let wheel_dir = project_root().join("crates").join("pycfdrs").join("target");
+    // Remove cfd-python wheels
+    let wheel_dir = project_root().join("crates").join("cfd-python").join("target");
     if wheel_dir.exists() {
-        println!("Removing pycfdrs wheels...");
+        println!("Removing cfd-python wheels...");
         std::fs::remove_dir_all(&wheel_dir).context("Failed to remove wheel directory")?;
     }
 

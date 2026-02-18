@@ -368,19 +368,25 @@ mod tests {
     #[test]
     fn test_block_diagonal_preconditioner() {
         // Create simple 4x4 saddle-point system: 2 velocity, 2 pressure DOFs
+        // This represents a stabilized FEM system with pressure diagonal
         let mut builder = SparseMatrixBuilder::new(4, 4);
         
-        // Momentum block (2x2)
+        // Momentum block (2x2) - viscous terms
         builder.add_entry(0, 0, 4.0).unwrap();
         builder.add_entry(1, 1, 4.0).unwrap();
         
-        // Gradient block
+        // Gradient block (velocity -> pressure coupling)
         builder.add_entry(0, 2, 1.0).unwrap();
         builder.add_entry(1, 3, 1.0).unwrap();
         
-        // Divergence block
+        // Divergence block (pressure -> velocity coupling)
         builder.add_entry(2, 0, 1.0).unwrap();
         builder.add_entry(3, 1, 1.0).unwrap();
+        
+        // Pressure block diagonal (stabilization term, typical in FEM)
+        // Without this, the pressure block is singular
+        builder.add_entry(2, 2, 1.0).unwrap();
+        builder.add_entry(3, 3, 1.0).unwrap();
         
         let mut rhs = DVector::zeros(4);
         let matrix = builder.build_with_rhs(&mut rhs).unwrap();

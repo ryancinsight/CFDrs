@@ -1,9 +1,9 @@
 //! Polygon classification against a splitting plane.
 
 use crate::core::index::VertexId;
-use crate::core::scalar::{Real, Point3r, TOLERANCE};
 use crate::geometry::plane::{Plane, PointClassification};
 use crate::storage::vertex_pool::VertexPool;
+use crate::csg::bsp::BSP_PLANE_TOLERANCE;
 
 /// Classification of a polygon relative to a plane.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -27,9 +27,9 @@ pub fn classify_triangle(
     plane: &Plane,
 ) -> (PolygonClassification, [PointClassification; 3]) {
     let classifications = [
-        plane.classify_point(&pool.position(verts[0])),
-        plane.classify_point(&pool.position(verts[1])),
-        plane.classify_point(&pool.position(verts[2])),
+        plane.classify_point_with_eps(&pool.position(verts[0]), BSP_PLANE_TOLERANCE),
+        plane.classify_point_with_eps(&pool.position(verts[1]), BSP_PLANE_TOLERANCE),
+        plane.classify_point_with_eps(&pool.position(verts[2]), BSP_PLANE_TOLERANCE),
     ];
 
     let mut front = false;

@@ -1,18 +1,19 @@
 //! Millifluidic mesh generation from cfd-schematics designs.
 //!
-//! Demonstrates the full pipeline: schematic → 3D mesh → STL export for:
-//! 1. Straight channel (baseline)
-//! 2. Bifurcation
-//! 3. Trifurcation
-//! 4. Serpentine
+//! Demonstrates the full CSG pipeline: schematic → channel sweep → union
+//! channels → subtract from substrate → STL export.
 //!
-//! This is the cfd-mesh equivalent of blue2mesh's `scheme_to_stl_demo`.
-//! Instead of blue2mesh's `ExtrusionConfig`, we use `SweepMesher` with
-//! the `IndexedMesh` architecture for deduplication and watertight validation.
+//! Design targets:
+//! - **96-well plate** footprint: 127.76 × 85.48 mm, 14.35 mm height (SBS)
+//! - **4 mm dialysis tubing** — channel diameter = 4 mm (radius 2 mm)
+//! - **Z-centred channels** — centerlines at z = height / 2
+//! - **CSG subtraction** — channels are merged (union), then subtracted from
+//!   the substrate cuboid so the result has internal passages with visible
+//!   inlet/outlet port holes on the side faces.
 //!
 //! Run with:
 //! ```sh
-//! cargo run -p cfd-mesh --example millifluidic_mesh_demo --features scheme-io
+//! cargo run -p cfd-mesh --example millifluidic_mesh_demo --features "scheme-io,csg"
 //! ```
 
 use std::fs;
@@ -22,23 +23,45 @@ use std::time::Instant;
 // cfd-mesh types
 use cfd_mesh::IndexedMesh;
 use cfd_mesh::core::index::RegionId;
-use cfd_mesh::core::scalar::Real;
+use cfd_mesh::core::scalar::{Real, Point3r};
+use cfd_mesh::channel::profile::ChannelProfile;
+use cfd_mesh::channel::path::ChannelPath;
 use cfd_mesh::channel::sweep::SweepMesher;
 use cfd_mesh::channel::substrate::SubstrateBuilder;
+use cfd_mesh::csg::boolean::{BooleanOp, csg_boolean};
 use cfd_mesh::io::stl;
-use cfd_mesh::io::scheme::{self, Schematic};
+use cfd_mesh::storage::face_store::FaceData;
+use cfd_mesh::storage::vertex_pool::VertexPool;
 
 // cfd-schematics types
 use cfd_schematics::config::{ChannelTypeConfig, GeometryConfig, SerpentineConfig};
 use cfd_schematics::geometry::generator::create_geometry;
 use cfd_schematics::geometry::SplitType;
 
+// ── Physical constants ────────────────────────────────────────
+
+/// SBS-standard 96-well plate footprint (mm).
+const PLATE_WIDTH_MM: Real = 127.76;
+const PLATE_DEPTH_MM: Real = 85.48;
+/// SBS-standard 96-well plate height (mm).
+const PLATE_HEIGHT_MM: Real = 14.35;
+
+/// Dialysis tubing outer diameter (mm).
+const CHANNEL_DIAMETER_MM: Real = 4.0;
+const CHANNEL_RADIUS_MM: Real = CHANNEL_DIAMETER_MM / 2.0;
+
+/// Number of polygon segments around the circular channel cross-section.
+const CHANNEL_SEGMENTS: usize = 24;
+
+/// How far (mm) channel tubes extend past the substrate face to ensure
+/// clean through-holes during CSG subtraction.
+const PORT_EXTENSION_MM: Real = 2.0;
+
 // ── Demo case definition ──────────────────────────────────────
 
 struct DemoCase {
     name: &'static str,
     description: &'static str,
-    box_dims_mm: (f64, f64),
     splits: Vec<SplitType>,
     channel_type_config: ChannelTypeConfig,
 }
@@ -58,12 +81,23 @@ struct MeshReport {
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("=================================================================");
-    println!("  cfd-mesh :: Millifluidic Mesh Generation from Schematics");
+    println!("  cfd-mesh :: Millifluidic Mesh (CSG pipeline)");
     println!("=================================================================");
     println!();
+    println!(
+        "  Plate: {:.2} × {:.2} × {:.2} mm (SBS 96-well)",
+        PLATE_WIDTH_MM, PLATE_DEPTH_MM, PLATE_HEIGHT_MM
+    );
+    println!(
+        "  Channel Ø: {:.1} mm (4 mm dialysis tubing), {} segments",
+        CHANNEL_DIAMETER_MM, CHANNEL_SEGMENTS
+    );
+    println!();
 
-    let out_dir = "outputs/millifluidic_demo";
-    fs::create_dir_all(out_dir)?;
+    let crate_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+    let out_dir_path = crate_dir.join("outputs").join("millifluidic_demo");
+    fs::create_dir_all(&out_dir_path)?;
+    let out_dir = out_dir_path.to_str().expect("non-UTF8 path");
 
     let geometry_config = GeometryConfig::default();
 
@@ -71,28 +105,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         DemoCase {
             name: "straight_channel",
             description: "Single straight channel (baseline)",
-            box_dims_mm: (127.15, 85.75),
             splits: vec![],
             channel_type_config: ChannelTypeConfig::AllStraight,
         },
         DemoCase {
             name: "bifurcation",
             description: "Single bifurcation (2 daughter channels)",
-            box_dims_mm: (200.0, 120.0),
             splits: vec![SplitType::Bifurcation],
             channel_type_config: ChannelTypeConfig::AllStraight,
         },
         DemoCase {
             name: "trifurcation",
             description: "Single trifurcation (3 daughter channels)",
-            box_dims_mm: (240.0, 140.0),
             splits: vec![SplitType::Trifurcation],
             channel_type_config: ChannelTypeConfig::AllStraight,
         },
         DemoCase {
             name: "serpentine",
             description: "Bifurcation with serpentine channel paths",
-            box_dims_mm: (260.0, 140.0),
             splits: vec![SplitType::Bifurcation],
             channel_type_config: ChannelTypeConfig::AllSerpentine(SerpentineConfig::default()),
         },
@@ -116,13 +146,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("=================================================================");
     println!(
         "{:<22} {:>8} {:>8} {:>4} {:>12} {:>12} {:>8}",
-        "Name", "Vertices", "Faces", "Ch", "Area (mm2)", "Vol (mm3)", "ms"
+        "Name", "Vertices", "Faces", "Ch", "Area (mm²)", "Vol (mm³)", "ms"
     );
     println!("{:-<78}", "");
     for r in &reports {
         println!(
             "{:<22} {:>8} {:>8} {:>4} {:>12.2} {:>12.2} {:>8}",
-            r.name, r.vertices, r.faces, r.channels, r.surface_area_mm2, r.volume_mm3, r.elapsed_ms
+            r.name, r.vertices, r.faces, r.channels,
+            r.surface_area_mm2, r.volume_mm3, r.elapsed_ms
         );
         println!("  -> {}", r.stl_path);
     }
@@ -144,62 +175,79 @@ fn process_case(
     println!("--- {} ---", case.name);
     println!("  {}", case.description);
 
-    // 1. Generate 2D schematic via cfd-schematics
+    // 1. Generate 2D schematic via cfd-schematics using 96-well plate footprint
+    let box_dims = (PLATE_WIDTH_MM as f64, PLATE_DEPTH_MM as f64);
     let channel_system = create_geometry(
-        case.box_dims_mm,
+        box_dims,
         &case.splits,
         geometry_config,
         &case.channel_type_config,
     );
     println!(
-        "  Schematic: box {:?} mm, {} nodes, {} channels",
-        channel_system.box_dims,
+        "  Schematic: {} nodes, {} channels",
         channel_system.nodes.len(),
         channel_system.channels.len()
     );
 
-    // 2. Convert to cfd-mesh Schematic via interchange bridge
-    let substrate_height_mm: Real = 10.0;
-    let channel_segments: usize = 16;
-    let schematic = scheme::from_channel_system(
-        &channel_system,
-        substrate_height_mm,
-        channel_segments,
-    )?;
+    // 2. Convert interchange → 3D channel paths (lifted to z = height/2)
+    let interchange = channel_system.to_interchange();
+    let mid_z = PLATE_HEIGHT_MM / 2.0;
+    let n_channels = interchange.channels.len();
+
+    // Build channel definitions with 4 mm diameter and extended endpoints
+    let profile = ChannelProfile::Circular {
+        radius: CHANNEL_RADIUS_MM,
+        segments: CHANNEL_SEGMENTS,
+    };
+
+    let mut channel_paths: Vec<ChannelPath> = Vec::with_capacity(n_channels);
+    for ch in &interchange.channels {
+        if ch.centerline_mm.len() < 2 {
+            continue;
+        }
+        // Lift 2D → 3D at z = mid_z
+        let mut pts: Vec<Point3r> = ch
+            .centerline_mm
+            .iter()
+            .map(|&(x, y)| Point3r::new(x as Real, y as Real, mid_z))
+            .collect();
+
+        // Extend both endpoints past the substrate so CSG creates clean port holes
+        extend_endpoints(&mut pts, PORT_EXTENSION_MM);
+        channel_paths.push(ChannelPath::new(pts));
+    }
+
     println!(
-        "  Parsed: substrate {:.1}x{:.1}x{:.1} mm, {} channels",
-        schematic.substrate.width,
-        schematic.substrate.depth,
-        schematic.substrate.height,
-        schematic.channels.len(),
+        "  Channels: {} paths, Ø {:.1} mm, z = {:.2} mm",
+        channel_paths.len(),
+        CHANNEL_DIAMETER_MM,
+        mid_z
     );
 
-    // 3. Mesh the schematic
-    let mesh = mesh_schematic(&schematic)?;
+    // 3. Mesh: substrate cuboid + channel tubes → CSG subtract
+    let mesh = mesh_with_csg(&profile, &channel_paths)?;
     println!(
-        "  Meshed: {} vertices, {} faces",
+        "  Meshed (CSG): {} vertices, {} faces",
         mesh.vertex_count(),
         mesh.face_count(),
     );
 
-    // 4. Compute metrics
+    // 4. Metrics
     let area = mesh.surface_area();
     let vol = mesh.signed_volume();
-    println!("  Area: {:.2} mm^2, Signed volume: {:.2} mm^3", area, vol);
+    println!("  Area: {:.2} mm², Volume: {:.2} mm³", area, vol);
 
     // 5. Quality report
     let qr = mesh.quality_report();
     if let (Some(ar), Some(ma)) = (&qr.aspect_ratio, &qr.min_angle) {
         println!(
-            "  Quality: aspect_ratio mean={:.2} max={:.2}, min_angle mean={:.1} min={:.1} deg",
-            ar.mean,
-            ar.max,
-            ma.mean.to_degrees(),
-            ma.min.to_degrees(),
+            "  Quality: AR mean={:.2} max={:.2}, min∠ mean={:.1}° min={:.1}°",
+            ar.mean, ar.max,
+            ma.mean.to_degrees(), ma.min.to_degrees(),
         );
     }
     if qr.passed {
-        println!("  Quality: PASSED ({} faces, 0 failing)", qr.total_faces);
+        println!("  Quality: PASSED ({} faces)", qr.total_faces);
     } else {
         println!(
             "  Quality: {} / {} faces failing",
@@ -225,7 +273,7 @@ fn process_case(
         name: case.name.to_string(),
         vertices: mesh.vertex_count(),
         faces: mesh.face_count(),
-        channels: schematic.channels.len(),
+        channels: channel_paths.len(),
         surface_area_mm2: area as f64,
         volume_mm3: vol as f64,
         stl_path,
@@ -233,44 +281,118 @@ fn process_case(
     })
 }
 
-// ── Core meshing logic ────────────────────────────────────────
+// ── Core CSG meshing ──────────────────────────────────────────
 
-/// Mesh a full `Schematic` into an `IndexedMesh`.
+/// Build the millifluidic chip via CSG: substrate \ union(channels).
 ///
-/// For each channel in the schematic, a profile sweep along the centerline
-/// is performed. The substrate cuboid is also generated. All geometry shares
-/// the same `IndexedMesh` vertex pool for automatic deduplication.
-fn mesh_schematic(schematic: &Schematic) -> Result<IndexedMesh, Box<dyn std::error::Error>> {
-    let mut mesh = IndexedMesh::new();
-    let sweeper = SweepMesher::new();
+/// 1. Generate substrate cuboid (closed, 12 faces).
+/// 2. Sweep each channel path into a capped tube.
+/// 3. Iteratively union all channel tubes into one merged volume.
+/// 4. Subtract the merged channel volume from the substrate.
+///
+/// The result is a solid chip body with internal channel passages and
+/// visible inlet/outlet port holes where channels pierce the substrate.
+fn mesh_with_csg(
+    profile: &ChannelProfile,
+    channel_paths: &[ChannelPath],
+) -> Result<IndexedMesh, Box<dyn std::error::Error>> {
+    let mut pool = VertexPool::default_millifluidic();
+    let sweeper = SweepMesher::new(); // caps both ends
 
-    // Region 0: substrate
+    // ── 1. Substrate cuboid ───────────────────────────────────
     let substrate_region = RegionId::new(0);
-    let sub = &schematic.substrate;
-    let substrate_builder = SubstrateBuilder::new(sub.width, sub.depth, sub.height)
-        .with_origin(sub.origin);
-    let substrate_faces = substrate_builder.build(&mut mesh.vertices, substrate_region);
-    for f in &substrate_faces {
+    let substrate_faces = SubstrateBuilder::new(PLATE_WIDTH_MM, PLATE_DEPTH_MM, PLATE_HEIGHT_MM)
+        .with_origin(Point3r::origin())
+        .build(&mut pool, substrate_region);
+
+    println!(
+        "  Substrate: {:.2}×{:.2}×{:.2} mm → {} faces",
+        PLATE_WIDTH_MM, PLATE_DEPTH_MM, PLATE_HEIGHT_MM,
+        substrate_faces.len()
+    );
+
+    // ── 2. Sweep each channel into a capped tube ─────────────
+    let mut channel_face_sets: Vec<Vec<FaceData>> = Vec::with_capacity(channel_paths.len());
+
+    for (i, path) in channel_paths.iter().enumerate() {
+        let region = RegionId::new((i + 1) as u32);
+        let faces = sweeper.sweep(profile, path, &mut pool, region);
+        println!(
+            "  Channel {}: {} pts → {} faces",
+            i,
+            path.points().len(),
+            faces.len()
+        );
+        channel_face_sets.push(faces);
+    }
+
+    // ── 3. Merge (union) all channel tubes ────────────────────
+    let merged_channels = if channel_face_sets.len() == 1 {
+        channel_face_sets.into_iter().next().unwrap()
+    } else {
+        let mut merged = channel_face_sets[0].clone();
+        for (i, set) in channel_face_sets[1..].iter().enumerate() {
+            print!("  Union channel {}+{} ...", 0, i + 1);
+            match csg_boolean(BooleanOp::Union, &merged, set, &mut pool) {
+                Ok(result) => {
+                    println!(" {} faces", result.len());
+                    merged = result;
+                }
+                Err(e) => {
+                    // If union fails (non-overlapping channels), just concatenate
+                    println!(" union failed ({}), concatenating", e);
+                    merged.extend_from_slice(set);
+                }
+            }
+        }
+        merged
+    };
+
+    println!(
+        "  Merged channels: {} faces total",
+        merged_channels.len()
+    );
+
+    // ── 4. CSG difference: substrate \ channels ───────────────
+    println!("  CSG: substrate \\ channels ...");
+    let result_faces = csg_boolean(
+        BooleanOp::Difference,
+        &substrate_faces,
+        &merged_channels,
+        &mut pool,
+    )?;
+    println!("  CSG result: {} faces", result_faces.len());
+
+    // ── 5. Assemble IndexedMesh ───────────────────────────────
+    let mut mesh = IndexedMesh::new();
+    mesh.vertices = pool;
+    for f in &result_faces {
         mesh.faces.push(*f);
     }
-
-    // Channels: region 1, 2, 3, ...
-    for (i, channel) in schematic.channels.iter().enumerate() {
-        let region = RegionId::new((i + 1) as u32);
-        let channel_faces = sweeper.sweep(
-            &channel.profile,
-            &channel.path,
-            &mut mesh.vertices,
-            region,
-        );
-
-        for f in &channel_faces {
-            mesh.faces.push(*f);
-        }
-    }
-
-    // Build edge adjacency
     mesh.rebuild_edges();
 
     Ok(mesh)
+}
+
+// ── Helpers ───────────────────────────────────────────────────
+
+/// Extend both endpoints of a polyline outward by `dist` mm along the
+/// tangent direction. This ensures swept channel tubes protrude past the
+/// substrate faces so CSG subtraction creates clean through-holes.
+fn extend_endpoints(pts: &mut Vec<Point3r>, dist: Real) {
+    if pts.len() < 2 {
+        return;
+    }
+    let n = pts.len();
+
+    // Extend start backward
+    let start_dir = (pts[0] - pts[1]).normalize();
+    let new_start = pts[0] + start_dir * dist;
+
+    // Extend end forward
+    let end_dir = (pts[n - 1] - pts[n - 2]).normalize();
+    let new_end = pts[n - 1] + end_dir * dist;
+
+    pts.insert(0, new_start);
+    pts.push(new_end);
 }

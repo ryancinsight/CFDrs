@@ -123,6 +123,11 @@ impl FaceStore {
         id
     }
 
+    /// Remove the last face.
+    pub fn pop(&mut self) -> Option<FaceData> {
+        self.faces.pop()
+    }
+
     /// Add a triangle from three vertex IDs (untagged).
     pub fn add_triangle(&mut self, v0: VertexId, v1: VertexId, v2: VertexId) -> FaceId {
         self.push(FaceData::untagged(v0, v1, v2))

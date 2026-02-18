@@ -95,7 +95,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // Create problem
-    let problem = StokesFlowProblem::new(pipe_mesh, fluid, boundary_conditions);
+    let n_corner_nodes = pipe_mesh.vertices().len();
+    let problem = StokesFlowProblem::new(pipe_mesh, fluid, boundary_conditions, n_corner_nodes);
 
     // Solve the flow
     println!("\nSolving 3D Stokes flow...");

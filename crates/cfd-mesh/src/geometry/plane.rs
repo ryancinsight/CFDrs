@@ -61,13 +61,19 @@ impl Plane {
         self.normal.dot(&point.coords) + self.w
     }
 
-    /// Classify a point relative to this plane.
+    /// Classify a point relative to this plane (using the default TOLERANCE).
     #[inline]
     pub fn classify_point(&self, point: &Point3r) -> PointClassification {
+        self.classify_point_with_eps(point, TOLERANCE)
+    }
+
+    /// Classify a point with a custom epsilon (used by BSP operations).
+    #[inline]
+    pub fn classify_point_with_eps(&self, point: &Point3r, eps: Real) -> PointClassification {
         let dist = self.signed_distance(point);
-        if dist > TOLERANCE {
+        if dist > eps {
             PointClassification::Front
-        } else if dist < -TOLERANCE {
+        } else if dist < -eps {
             PointClassification::Back
         } else {
             PointClassification::Coplanar
@@ -86,13 +92,20 @@ impl Plane {
     ///
     /// Returns `None` if the segment is parallel to the plane.
     pub fn intersect_segment(&self, a: &Point3r, b: &Point3r) -> Option<Real> {
+        self.intersect_segment_with_eps(a, b, TOLERANCE)
+    }
+
+    /// Compute the intersection parameter with a custom epsilon.
+    pub fn intersect_segment_with_eps(&self, a: &Point3r, b: &Point3r, eps: Real) -> Option<Real> {
         let da = self.signed_distance(a);
         let db = self.signed_distance(b);
         let denom = da - db;
-        if denom.abs() < TOLERANCE {
+        if denom.abs() < eps {
             return None;
         }
-        Some(da / denom)
+        let t = da / denom;
+        // Clamp to [0,1] to avoid extrapolation from accumulated FP error
+        Some(t.max(0.0).min(1.0))
     }
 }
 

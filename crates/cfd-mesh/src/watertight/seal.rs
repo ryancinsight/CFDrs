@@ -24,12 +24,32 @@ pub fn seal_boundary_loops(
     }
 
     // Collect boundary edges as directed pairs
+    // Collect boundary edges as directed pairs
     let mut boundary_pairs: Vec<(VertexId, VertexId)> = Vec::new();
     for &eid in &boundary {
         let edge = edge_store.get(eid);
-        // For boundary edges, the single adjacent face determines the winding.
-        // The sealing face should have opposite winding, so we reverse the edge.
-        boundary_pairs.push((edge.vertices.1, edge.vertices.0));
+        // For boundary edges (valence 1), the single adjacent face determines the winding.
+        let face_id = edge.faces[0];
+        let face = face_store.get(face_id);
+        
+        let (v0, v1) = edge.vertices;
+        
+        // Check if the face uses the edge as (v0, v1) or (v1, v0).
+        // The boundary loop should run in the opposite direction to seal it.
+        // Face edges are: (f.v[0], f.v[1]), (f.v[1], f.v[2]), (f.v[2], f.v[0])
+        let mut is_forward = false;
+        let [a, b, c] = face.vertices;
+        if (a == v0 && b == v1) || (b == v0 && c == v1) || (c == v0 && a == v1) {
+            is_forward = true;
+        }
+
+        if is_forward {
+            // Face has (v0 -> v1). Boundary loop must be (v1 -> v0).
+            boundary_pairs.push((v1, v0));
+        } else {
+            // Face has (v1 -> v0). Boundary loop must be (v0 -> v1).
+            boundary_pairs.push((v0, v1));
+        }
     }
 
     // Find connected loops

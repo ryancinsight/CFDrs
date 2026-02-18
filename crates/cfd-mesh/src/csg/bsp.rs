@@ -4,12 +4,35 @@
 //! Splitting plane heuristic: minimize `8 × spans + |front - back|`.
 
 use crate::core::index::{FaceId, RegionId};
-use crate::core::scalar::{Real, Point3r, Vector3r, TOLERANCE};
+use crate::core::scalar::{Real, Point3r, Vector3r};
 use crate::geometry::plane::Plane;
 use crate::storage::face_store::FaceData;
 use crate::storage::vertex_pool::VertexPool;
 use crate::csg::classify::{classify_triangle, PolygonClassification};
 use crate::csg::split::split_triangle;
+
+/// Plane-classification tolerance for BSP operations.
+///
+/// This must be larger than vertex-weld `TOLERANCE` to absorb the floating-
+/// point error that accumulates when evaluating `dot(n, p) + w` for points
+/// that have passed through multiple arithmetic operations. Using `TOLERANCE`
+/// (1e-9 for f64) causes nearly every triangle to be classified `Spanning`,
+/// triggering exponential face-splitting and infinite loops.
+///
+/// 1e-5 mm (~10 nm) matches csgrs's default epsilon and is safe for
+/// millimeter-scale geometry.
+pub const BSP_PLANE_TOLERANCE: Real = 1e-5;
+
+/// Maximum BSP tree depth.
+///
+/// A convex polyhedron (e.g. a tessellated sphere) places ALL other faces into
+/// the back subtree at every level because every face plane has all other
+/// vertices behind it.  This creates a linear O(N)-depth chain.  128 was far
+/// too low for sphere inputs (960 faces) — the remaining 832 faces were
+/// force-dumped as "coplanar" at a node with `plane = None`, causing
+/// `clip_faces` to return them all unchanged (kept) regardless of their
+/// actual inside/outside status.  Set to 65536 so no realistic mesh hits it.
+const MAX_BSP_DEPTH: usize = 65536;
 
 /// A node in the BSP tree.
 pub struct BspNode {
@@ -21,16 +44,24 @@ pub struct BspNode {
     front: Option<Box<BspNode>>,
     /// Back subtree.
     back: Option<Box<BspNode>>,
+    /// Depth of this node in the tree.
+    depth: usize,
 }
 
 impl BspNode {
-    /// Create an empty BSP node.
+    /// Create an empty BSP node at depth 0.
     pub fn new() -> Self {
+        Self::with_depth(0)
+    }
+
+    /// Create an empty BSP node at given depth.
+    fn with_depth(depth: usize) -> Self {
         Self {
             plane: None,
             coplanar: Vec::new(),
             front: None,
             back: None,
+            depth,
         }
     }
 
@@ -48,6 +79,13 @@ impl BspNode {
     /// Add faces to this BSP node.
     pub fn add_faces(&mut self, faces: &[FaceData], pool: &mut VertexPool) {
         if faces.is_empty() {
+            return;
+        }
+
+        // Guard: if depth limit is reached, store all remaining faces as
+        // coplanar to prevent exponential blowup on degenerate meshes.
+        if self.depth >= MAX_BSP_DEPTH {
+            self.coplanar.extend_from_slice(faces);
             return;
         }
 
@@ -81,18 +119,24 @@ impl BspNode {
             }
         }
 
+        let child_depth = self.depth + 1;
         if !front_list.is_empty() {
-            let front = self.front.get_or_insert_with(|| Box::new(BspNode::new()));
+            let front = self.front.get_or_insert_with(|| Box::new(BspNode::with_depth(child_depth)));
             front.add_faces(&front_list, pool);
         }
 
         if !back_list.is_empty() {
-            let back = self.back.get_or_insert_with(|| Box::new(BspNode::new()));
+            let back = self.back.get_or_insert_with(|| Box::new(BspNode::with_depth(child_depth)));
             back.add_faces(&back_list, pool);
         }
     }
 
     /// Clip a set of faces to the inside of this BSP tree.
+    ///
+    /// For CSG operations, "inside" means the back half-space of this BSP tree.
+    /// Faces entirely in front are discarded; faces in back are kept.
+    /// Coplanar faces are kept only if their normal aligns with the plane normal
+    /// (i.e., they face the same direction as the "inside" of the plane).
     pub fn clip_faces(&self, faces: &[FaceData], pool: &mut VertexPool) -> Vec<FaceData> {
         let plane = match &self.plane {
             Some(p) => p,
@@ -107,7 +151,38 @@ impl BspNode {
             match class {
                 PolygonClassification::Front => front_list.push(*face),
                 PolygonClassification::Back => back_list.push(*face),
-                PolygonClassification::Coplanar => front_list.push(*face),
+                PolygonClassification::Coplanar => {
+                    // Critical: Check coplanar face orientation relative to the plane.
+                    //
+                    // This mirrors csgrs's orient_plane logic for coplanar polygons.
+                    // orient_plane takes a point on the polygon's plane and moves it
+                    // along the polygon's normal, then checks which side of the BSP
+                    // plane it lands on.
+                    //
+                    // The result is: BSP_normal · polygon_normal > 0 → FRONT
+                    //
+                    // In csgrs's clip_polygons, coplanar faces go to:
+                    // - front_parts if orient_plane returns FRONT (kept when no front child)
+                    // - back_parts otherwise (discarded when no back child)
+                    //
+                    // For a closed solid, faces with normals pointing OUTWARD are on
+                    // the exterior surface. When such a face lies on a BSP splitting plane:
+                    // - If face normal · plane normal > 0: face is on the "outside" (FRONT)
+                    // - If face normal · plane normal <= 0: face is on the "inside" (BACK)
+                    let face_normal = compute_face_normal(face, pool);
+                    let dot = face_normal.dot(&plane.normal);
+                    if dot > 0.0 {
+                        // Face normal aligns with BSP plane normal
+                        // → this face is on the exterior side of the BSP's solid
+                        // → goes to front_list (kept when no front child)
+                        front_list.push(*face);
+                    } else {
+                        // Face normal opposes BSP plane normal (or perpendicular)
+                        // → this face is on the interior side of the BSP's solid
+                        // → goes to back_list (discarded when no back child)
+                        back_list.push(*face);
+                    }
+                }
                 PolygonClassification::Spanning => {
                     let result = split_triangle(face, classifications, plane, pool);
                     front_list.extend(result.front);
@@ -221,4 +296,20 @@ fn face_plane(face: &FaceData, pool: &VertexPool) -> Plane {
     let c = pool.position(face.vertices[2]);
     Plane::from_three_points(&a, &b, &c)
         .unwrap_or_else(|| Plane::new(Vector3r::z(), 0.0))
+}
+
+/// Compute the normal vector of a triangular face.
+fn compute_face_normal(face: &FaceData, pool: &VertexPool) -> Vector3r {
+    let a = pool.position(face.vertices[0]);
+    let b = pool.position(face.vertices[1]);
+    let c = pool.position(face.vertices[2]);
+    let ab = b - a;
+    let ac = c - a;
+    let cross = ab.cross(&ac);
+    let len = cross.norm();
+    if len > 1e-12 {
+        cross / len
+    } else {
+        Vector3r::z() // Degenerate face, return arbitrary normal
+    }
 }

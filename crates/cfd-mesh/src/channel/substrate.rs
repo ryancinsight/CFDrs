@@ -71,15 +71,16 @@ impl SubstrateBuilder {
             Vector3r::new(1.0, 0.0, 0.0),  // right
         ];
 
-        // Face quads (as index pairs into corners+normals), each split into 2 triangles
-        // CCW winding when viewed from outside
+        // Face quads (vertex indices into `corners`), each split into 2 triangles.
+        // The quad [a,b,c,d] is fan-triangulated as (a,b,c) + (a,c,d).
+        // Winding must be CCW when viewed from outside so both triangles agree.
         let face_quads: [([usize; 4], usize); 6] = [
-            ([0, 2, 1, 3], 0), // bottom: 0-3-2-1 → 0,2,1 + 0,3,2
-            ([4, 5, 6, 7], 1), // top: 4-5-6-7
-            ([0, 1, 5, 4], 2), // front: 0-1-5-4
-            ([2, 3, 7, 6], 3), // back: 2-3-7-6
-            ([0, 4, 7, 3], 4), // left: 0-4-7-3
-            ([1, 2, 6, 5], 5), // right: 1-2-6-5
+            ([0, 3, 2, 1], 0), // bottom (-Z): 0→3→2→1
+            ([4, 5, 6, 7], 1), // top    (+Z): 4→5→6→7
+            ([0, 1, 5, 4], 2), // front  (-Y): 0→1→5→4
+            ([2, 3, 7, 6], 3), // back   (+Y): 2→3→7→6
+            ([0, 4, 7, 3], 4), // left   (-X): 0→4→7→3
+            ([1, 2, 6, 5], 5), // right  (+X): 1→2→6→5
         ];
 
         let mut faces = Vec::with_capacity(12);

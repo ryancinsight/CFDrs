@@ -59,11 +59,11 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 try:
-    import pycfdrs
+    import cfd_python as pycfdrs
 
     PYCFDRS_AVAILABLE = True
 except ImportError:
-    print("WARNING: pycfdrs not available. Please build with 'maturin develop'")
+    print("WARNING: cfd_python not available. Please build with 'maturin develop'")
     PYCFDRS_AVAILABLE = False
 
 
@@ -462,7 +462,7 @@ def validate_venturi_flow(
             "Re": Re,
         }
     else:
-        print("Skipping numerical simulation (pycfdrs not available)")
+        print("Skipping numerical simulation (cfd_python not available)")
         return {
             "passed": False,
             "Cp_throat_analytical": Cp_throat_analytical,

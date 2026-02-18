@@ -8,7 +8,7 @@ use cfd_1d::solver::{NetworkProblem, NetworkSolver};
 use cfd_core::compute::solver::Solver;
 use cfd_core::error::Result;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
-use cfd_fluidics::{serpentine_chain, FluidicDesigner};
+use cfd_schematics::{serpentine_chain, FluidicDesigner};
 use std::f64::consts::PI;
 
 fn main() -> Result<()> {
@@ -46,7 +46,7 @@ fn main() -> Result<()> {
         1482.0, // Speed of sound (m/s)
     );
 
-    // Build network topology via cfd-fluidics
+    // Build network topology via cfd-schematics
     let designer = FluidicDesigner::new();
     let blueprint = serpentine_chain("pipe_validation", 1, pipe_length, 2.0 * pipe_radius);
     let graph = designer.generate(&blueprint)?;

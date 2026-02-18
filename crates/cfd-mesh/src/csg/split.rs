@@ -4,10 +4,11 @@
 //! some in front and some behind.
 
 use crate::core::index::{VertexId, FaceId, RegionId};
-use crate::core::scalar::{Real, Point3r, Vector3r, TOLERANCE};
+use crate::core::scalar::{Real, Point3r, Vector3r};
 use crate::geometry::plane::{Plane, PointClassification};
 use crate::storage::face_store::FaceData;
 use crate::storage::vertex_pool::VertexPool;
+use crate::csg::bsp::BSP_PLANE_TOLERANCE;
 
 /// Result of splitting a triangle against a plane.
 pub struct SplitResult {
@@ -60,7 +61,7 @@ pub fn split_triangle(
         if crosses {
             let pi = pool.position(vi);
             let pj = pool.position(vj);
-            if let Some(t) = plane.intersect_segment(&pi, &pj) {
+            if let Some(t) = plane.intersect_segment_with_eps(&pi, &pj, BSP_PLANE_TOLERANCE) {
                 let intersection = Point3r::from(pi.coords.lerp(&pj.coords, t));
                 // Compute interpolated normal
                 let ni = pool.normal(vi);

@@ -98,6 +98,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         reynolds: Some(100.0),
         element_type: ElementType::Tetrahedron,
         quadrature_order: 2,
+        grad_div_penalty: 0.0,
     };
 
     // Create FEM solver

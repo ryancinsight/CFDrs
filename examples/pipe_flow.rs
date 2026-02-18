@@ -8,7 +8,7 @@ use cfd_1d::Network;
 use cfd_core::compute::solver::Solver;
 use cfd_core::error::Result;
 use cfd_core::physics::fluid::{ConstantPropertyFluid, FluidTrait};
-use cfd_fluidics::{serpentine_chain, FluidicDesigner};
+use cfd_schematics::{serpentine_chain, FluidicDesigner};
 use petgraph::visit::EdgeRef;
 use std::collections::HashMap;
 
@@ -22,7 +22,7 @@ fn main() -> Result<()> {
     println!("Density: {} kg/m³", fluid.density);
     println!("Viscosity: {} Pa·s", fluid.viscosity);
 
-    // Build network topology via cfd-fluidics (phase-2 architecture split)
+    // Build network topology via cfd-schematics (phase-2 architecture split)
     const PIPE_LENGTH: f64 = 1.0; // meters
     const PIPE_AREA: f64 = 1e-6; // m² (1mm²)
     let hydraulic_diameter = 2.0 * (PIPE_AREA / std::f64::consts::PI).sqrt();

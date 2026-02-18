@@ -41,7 +41,7 @@ pub fn csg_boolean(
     Ok(result)
 }
 
-/// A ∪ B = clip_a_to_b_complement ∪ clip_b_to_a_complement
+/// A ∪ B
 fn boolean_union(
     faces_a: &[FaceData],
     faces_b: &[FaceData],
@@ -52,16 +52,20 @@ fn boolean_union(
 
     bsp_a.clip_to(&bsp_b, pool);
     bsp_b.clip_to(&bsp_a, pool);
-    bsp_b.invert();
-    bsp_b.clip_to(&bsp_a, pool);
-    bsp_b.invert();
 
-    let mut result = bsp_a.all_faces();
-    result.extend(bsp_b.all_faces());
-    result
+    // Merge b's remaining faces into a's tree, then collect everything.
+    let b_faces = bsp_b.all_faces();
+    bsp_a.add_faces(&b_faces, pool);
+    bsp_a.all_faces()
 }
 
 /// A ∩ B
+///
+/// Matches csgrs exactly:
+/// ```text
+/// a.invert(); b.clip_to(a); b.invert(); a.clip_to(b); b.clip_to(a);
+/// a.build(b.all()); a.invert(); return a.all()
+/// ```
 fn boolean_intersection(
     faces_a: &[FaceData],
     faces_b: &[FaceData],
@@ -76,17 +80,19 @@ fn boolean_intersection(
     bsp_a.clip_to(&bsp_b, pool);
     bsp_b.clip_to(&bsp_a, pool);
 
-    let mut result = bsp_a.all_faces();
-    result.extend(bsp_b.all_faces());
-
-    // Invert back
-    for face in &mut result {
-        face.flip();
-    }
-    result
+    let b_faces = bsp_b.all_faces();
+    bsp_a.add_faces(&b_faces, pool);
+    bsp_a.invert();
+    bsp_a.all_faces()
 }
 
-/// A \ B (difference)
+/// A \ B  (subtract B from A)
+///
+/// Matches csgrs exactly:
+/// ```text
+/// a.invert(); a.clip_to(b); b.clip_to(a); b.invert(); b.clip_to(a); b.invert();
+/// a.build(b.all()); a.invert(); return a.all()
+/// ```
 fn boolean_difference(
     faces_a: &[FaceData],
     faces_b: &[FaceData],
@@ -95,17 +101,16 @@ fn boolean_difference(
     let mut bsp_a = BspNode::build(faces_a, pool);
     let mut bsp_b = BspNode::build(faces_b, pool);
 
+    // Difference: A \ B
     bsp_a.invert();
-    bsp_b.clip_to(&bsp_a, pool);
-    bsp_b.invert();
     bsp_a.clip_to(&bsp_b, pool);
     bsp_b.clip_to(&bsp_a, pool);
-
-    let mut result = bsp_a.all_faces();
-    result.extend(bsp_b.all_faces());
-
-    for face in &mut result {
-        face.flip();
-    }
-    result
+    bsp_b.invert();
+    bsp_b.clip_to(&bsp_a, pool);
+    bsp_b.invert();
+    
+    let b_faces = bsp_b.all_faces();
+    bsp_a.add_faces(&b_faces, pool);
+    bsp_a.invert();
+    bsp_a.all_faces()
 }

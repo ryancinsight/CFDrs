@@ -87,9 +87,15 @@ impl VertexPool {
         }
     }
 
-    /// Create with sensible defaults for millifluidic meshes (cell_size = 0.01 mm).
+    /// Create with sensible defaults for millifluidic meshes.
+    ///
+    /// - `cell_size = 0.01 mm` — spatial hash cell; should be ≥ weld tolerance.
+    /// - `tolerance = 1e-4 mm` (100 nm) — tight enough to preserve geometry,
+    ///   loose enough to weld CSG intersection vertices that drift by accumulated
+    ///   floating-point error. Using `TOLERANCE` (1e-9) mis-matches the BSP
+    ///   plane tolerance and prevents intersection vertices from being welded.
     pub fn default_millifluidic() -> Self {
-        Self::new(0.01, TOLERANCE)
+        Self::new(0.01, 1e-4)
     }
 
     /// Number of unique vertices.
@@ -178,6 +184,18 @@ impl VertexPool {
     #[inline]
     pub fn normal(&self, id: VertexId) -> &Vector3r {
         &self.vertices[id.as_usize()].normal
+    }
+
+    /// Set vertex normal by ID.
+    #[inline]
+    pub fn set_normal(&mut self, id: VertexId, normal: Vector3r) {
+        self.vertices[id.as_usize()].normal = normal;
+    }
+
+    /// Set vertex normal by index (convenience for bulk updates).
+    #[inline]
+    pub fn set_normal_by_index(&mut self, index: usize, normal: Vector3r) {
+        self.vertices[index].normal = normal;
     }
 
     /// Iterate over all vertices with IDs.
