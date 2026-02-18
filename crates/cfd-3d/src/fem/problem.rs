@@ -100,21 +100,13 @@ impl<T: RealField + Copy> StokesFlowProblem<T> {
         }
 
         // Collect boundary faces:
-        // 1. Faces explicitly marked as boundaries
-        let marked_boundary_faces: HashSet<usize> =
-            self.mesh.boundary_faces().into_iter().collect();
-
-        // 2. Faces referenced by exactly one cell (external boundaries)
-        let connectivity_boundary_faces: HashSet<usize> = face_cell_count
+        // Only consider faces referenced by exactly one cell (external boundaries)
+        // Internal marked faces (count > 1) are intentionally ignored for BC validation
+        // as they represent internal degrees of freedom that should not be constrained.
+        let boundary_faces: HashSet<usize> = face_cell_count
             .iter()
             .filter(|&(_face_idx, &count)| count == 1)
             .map(|(&face_idx, _)| face_idx)
-            .collect();
-
-        // Union of both sets
-        let boundary_faces: HashSet<usize> = marked_boundary_faces
-            .union(&connectivity_boundary_faces)
-            .copied()
             .collect();
 
         // Collect unique vertices from all boundary faces
@@ -213,6 +205,84 @@ mod tests {
         mesh.add_cell(Cell::tetrahedron(f2, f4, f5, f6));
 
         mesh
+    }
+
+    /// Create a star mesh with a central vertex surrounded by 4 tetrahedra
+    /// This ensures the central vertex (idx 0) is strictly internal
+    fn create_star_mesh() -> Mesh<f64> {
+        let mut mesh = Mesh::new();
+
+        // 0: Center (Internal)
+        mesh.add_vertex(cfd_mesh::topology::Vertex::new(Point3::new(0.0, 0.0, 0.0)));
+        // 1-4: Outer vertices
+        mesh.add_vertex(cfd_mesh::topology::Vertex::new(Point3::new(1.0, 1.0, 1.0)));
+        mesh.add_vertex(cfd_mesh::topology::Vertex::new(Point3::new(1.0, -1.0, -1.0)));
+        mesh.add_vertex(cfd_mesh::topology::Vertex::new(Point3::new(-1.0, 1.0, -1.0)));
+        mesh.add_vertex(cfd_mesh::topology::Vertex::new(Point3::new(-1.0, -1.0, 1.0)));
+
+        // Faces connecting center (0) to outer vertices (internal faces)
+        let f012 = mesh.add_face(Face::triangle(0, 1, 2));
+        let f013 = mesh.add_face(Face::triangle(0, 1, 3));
+        let f014 = mesh.add_face(Face::triangle(0, 1, 4));
+        let f023 = mesh.add_face(Face::triangle(0, 2, 3));
+        let f024 = mesh.add_face(Face::triangle(0, 2, 4));
+        let f034 = mesh.add_face(Face::triangle(0, 3, 4));
+
+        // Faces on the hull (external)
+        let f_123 = mesh.add_face(Face::triangle(1, 2, 3));
+        let f_142 = mesh.add_face(Face::triangle(1, 4, 2));
+        let f_134 = mesh.add_face(Face::triangle(1, 3, 4));
+        let f_243 = mesh.add_face(Face::triangle(2, 4, 3));
+
+        // Cells
+        // T1: 0, 1, 2, 3. Internal faces: f012, f013, f023. External: f_123
+        mesh.add_cell(Cell::tetrahedron(f012, f013, f023, f_123));
+
+        // T2: 0, 1, 4, 2. Internal faces: f014, f012, f024. External: f_142
+        mesh.add_cell(Cell::tetrahedron(f014, f012, f024, f_142));
+
+        // T3: 0, 1, 3, 4. Internal faces: f013, f034, f014. External: f_134
+        mesh.add_cell(Cell::tetrahedron(f013, f034, f014, f_134));
+
+        // T4: 0, 2, 4, 3. Internal faces: f024, f034, f023. External: f_243
+        mesh.add_cell(Cell::tetrahedron(f024, f034, f023, f_243));
+
+        mesh
+    }
+
+    #[test]
+    fn test_internal_marked_face_ignored() {
+        let mut mesh = create_star_mesh();
+
+        // Mark an internal face (e.g., face 0: 0-1-2)
+        // Face 0 is shared by T1 and T2, so it's internal.
+        mesh.mark_boundary(0, "internal_probe".to_string());
+
+        let fluid = ConstantPropertyFluid::<f64>::water_20c().unwrap();
+        // Provide BCs for outer nodes (1,2,3,4)
+        let mut boundary_conditions = HashMap::new();
+        for i in 1..=4 {
+             boundary_conditions.insert(
+                i,
+                BoundaryCondition::Dirichlet {
+                    value: 0.0,
+                    component_values: None,
+                },
+            );
+        }
+        // NO BC for node 0 (center)
+
+        let problem = StokesFlowProblem::new(mesh, fluid, boundary_conditions, 5);
+
+        // This should pass validation IF internal faces are ignored.
+        // But before the fix, it should contain node 0.
+        let boundary_nodes = problem.get_boundary_nodes();
+
+        // The fix is NOT yet applied, so we expect this test to FAIL if we assert !contains(0).
+        // However, I will write the test assuming the fix, so verification will show failure first.
+        assert!(!boundary_nodes.contains(&0), "Strictly internal node 0 should not be a boundary node");
+
+        assert!(problem.validate().is_ok());
     }
 
     #[test]

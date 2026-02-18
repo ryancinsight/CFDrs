@@ -54,11 +54,8 @@ impl<T: RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> 
     ) -> Result<StokesFlowSolution<T>> {
         tracing::info!("Starting Taylor-Hood Stokes solver");
         
-        // NOTE: Temporarily skip validation - the get_boundary_nodes() implementation
-        // is overly conservative and flags interior nodes as missing BCs.
-        // Interior nodes are solved for, they should NOT have BCs.
-        // TODO: Fix validate() to only check actual boundary nodes  
-        // problem.validate()?;
+        // Validate problem setup (boundary conditions, etc.)
+        problem.validate()?;
 
         let (matrix, rhs) = self.assemble_system(problem, previous_solution)?;
         

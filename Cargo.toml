@@ -117,7 +117,8 @@ gpu = ["cfd-core/gpu", "dep:wgpu"]
 csg = ["cfd-mesh/csg", "cfd-3d/csg"]
 mpi = ["cfd-core/mpi", "dep:mpi"]
 simd = ["cfd-core/simd"]
-scheme-integration = ["cfd-1d/scheme-integration"]
+scheme-integration = []
+# scheme-integration = ["cfd-1d/scheme-integration"]
 
 [dependencies]
 cfd-core.workspace = true
@@ -149,7 +150,7 @@ serde = { workspace = true, features = ["derive"] }
 chrono = { version = "0.4", features = ["serde"] }
 num_cpus = "1.17"
 tracing-subscriber = { workspace = true }
-scheme = { path = "../scheme" }
+# scheme = { path = "../scheme" }
 plotters = { version = "0.3", default-features = false, features = ["svg_backend", "line_series"] }
 
 [[bench]]
