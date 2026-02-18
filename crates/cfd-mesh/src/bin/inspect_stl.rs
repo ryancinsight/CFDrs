@@ -1,7 +1,7 @@
 use std::env;
 use std::fs::File;
 use std::io::BufReader;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use cfd_mesh::core::scalar::{Real, Point3r, Vector3r};
 
 #[derive(Debug, Default)]
@@ -11,7 +11,7 @@ struct StlStats {
     degenerate_faces: usize,
     open_edges: usize,
     non_manifold_edges: usize,
-    inverted_normals: usize, // Heuristic check
+    _inverted_normals: usize, // Heuristic check (reserved)
     volume: Real,
     area: Real,
     min_corner: Point3r,
@@ -28,35 +28,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let path = &args[1];
     println!("Inspecting: {}", path);
 
-    let file = File::open(path)?;
-    let mut reader = BufReader::new(file);
-
-    // We use a simplified STL parser here or crate support
-    // For now, let's use the cfd-mesh IO if available, or write a quick parser.
-    // Since `cfd-mesh` has `read_ascii_stl`, we might want to expose a generic read.
-    // But `cfd-mesh` parser requires VertexPool and FaceStore.
-    
-    // Let's use `cfd_mesh::io::stl` logic but adapted, or rely on `cfd_mesh`.
     let mut pool = cfd_mesh::storage::vertex_pool::VertexPool::default_millifluidic();
     let mut faces = cfd_mesh::storage::face_store::FaceStore::new();
     let region = cfd_mesh::core::index::RegionId::from_usize(0);
 
-    // Try reading (assuming ASCII for now based on example output, but example used binary write!)
-    // Wait, example output said "STL files written to ...".
-    // boolean_sphere_cube writes binary STL.
-    // `io::stl` has `write_binary_stl` but no `read_binary_stl` in the file I viewed?
-    // Let's check `src/io/stl.rs` again. It had `read_ascii_stl`. Does it have binary read?
-    // I only viewed 150 lines. It might be missing.
-
-    // If no binary read, I'll implement a quick binary reader here.
-    
-    // Check if file is binary (starts with 80 bytes header, then u32 count).
+    // Check if file is binary (starts with 80-byte header then u32 count).
     // ASCII usually starts with "solid".
-    
     let file = File::open(path)?;
-    let meta = file.metadata()?;
-    let len = meta.len();
-    
     let mut reader = BufReader::new(file);
     // Simple heuristic: read first 5 bytes.
     let mut start = [0u8; 5];

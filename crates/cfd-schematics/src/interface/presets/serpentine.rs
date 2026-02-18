@@ -30,7 +30,7 @@ pub fn serpentine_chain(
             format!("turn_{}", i + 1)
         };
 
-        bp.add_channel(ChannelSpec::new(
+        bp.add_channel(ChannelSpec::new_pipe(
             format!("segment_{}", i + 1),
             from,
             to,

@@ -34,7 +34,11 @@
 //! | [`core`] | Scalar types, indices (`VertexKey`, `VertexId`, …), errors |
 //! | [`csg`] | BSP-tree + BVH boolean operations (feature-gated) |
 
-#![allow(unused)]
+// `dead_code` is suppressed crate-wide during the Phase 1-9 rewrite: many
+// public API items are used only by downstream crates (cfd-3d, cfd-validation),
+// not within cfd-mesh itself.  Remove this allow once Phase 9 (docs + cleanup)
+// is complete.
+#![allow(dead_code)]
 #![allow(missing_docs)]
 
 pub mod core;

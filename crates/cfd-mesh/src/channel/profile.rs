@@ -1,6 +1,6 @@
 //! Cross-section profiles for channels.
 
-use crate::core::scalar::{Real, Point3r, Vector3r};
+use crate::core::scalar::Real;
 use crate::core::constants;
 
 /// Cross-section shape for a channel.

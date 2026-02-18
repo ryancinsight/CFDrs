@@ -5,7 +5,7 @@
 
 use hashbrown::HashMap;
 
-use crate::core::index::{VertexId, FaceId};
+use crate::core::index::VertexId;
 use crate::core::scalar::{Real, Point3r, TOLERANCE};
 use crate::storage::face_store::FaceStore;
 use crate::welding::spatial_hash::SpatialHashGrid;

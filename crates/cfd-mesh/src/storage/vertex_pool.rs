@@ -7,7 +7,7 @@
 use hashbrown::HashMap;
 
 use crate::core::index::VertexId;
-use crate::core::scalar::{Real, Point3r, Vector3r, TOLERANCE};
+use crate::core::scalar::{Real, Point3r, Vector3r};
 
 /// Data stored per vertex.
 #[derive(Clone, Debug)]

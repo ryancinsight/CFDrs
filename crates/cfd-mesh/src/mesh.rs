@@ -270,9 +270,9 @@ impl<T: Copy + RealField> Mesh<T> {
 // =========================================================================
 
 use crate::core::index::{VertexId, FaceId, RegionId};
-use crate::core::scalar::{Real, Point3r, Vector3r, TOLERANCE};
+use crate::core::scalar::{Real, Point3r, Vector3r};
 use crate::storage::vertex_pool::VertexPool;
-use crate::storage::face_store::{FaceStore, FaceData};
+use crate::storage::face_store::FaceStore;
 use crate::storage::edge_store::EdgeStore;
 use crate::storage::attribute::AttributeStore;
 use crate::geometry::aabb::Aabb;

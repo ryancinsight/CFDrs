@@ -1,6 +1,6 @@
 //! Mesh-wide quality validation.
 
-use crate::core::scalar::{Real, Point3r};
+use crate::core::scalar::Real;
 use crate::core::constants;
 use crate::core::error::{MeshError, MeshResult};
 use crate::quality::metrics::QualityMetric;

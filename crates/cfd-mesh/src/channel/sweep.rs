@@ -4,11 +4,10 @@
 //! `ExtrusionEngine` but producing indexed mesh faces directly.
 
 use crate::core::index::{VertexId, RegionId};
-use crate::core::scalar::{Real, Point3r, Vector3r};
-use crate::storage::face_store::{FaceData, FaceStore};
+use crate::storage::face_store::FaceData;
 use crate::storage::vertex_pool::VertexPool;
 use crate::channel::profile::ChannelProfile;
-use crate::channel::path::{ChannelPath, FrenetFrame};
+use crate::channel::path::ChannelPath;
 
 /// Sweep mesher: sweeps a 2D profile along a 3D path.
 pub struct SweepMesher {

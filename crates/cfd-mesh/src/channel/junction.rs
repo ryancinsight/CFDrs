@@ -7,7 +7,6 @@ use crate::core::scalar::{Real, Point3r, Vector3r};
 use crate::core::index::RegionId;
 use crate::storage::face_store::FaceData;
 use crate::storage::vertex_pool::VertexPool;
-use crate::channel::profile::ChannelProfile;
 
 /// Type of junction.
 #[derive(Clone, Debug)]
@@ -46,7 +45,7 @@ impl JunctionType {
     pub fn generate(
         &self,
         center: &Point3r,
-        direction: &Vector3r,
+        _direction: &Vector3r,
         vertex_pool: &mut VertexPool,
         region: RegionId,
     ) -> Vec<FaceData> {
@@ -65,7 +64,7 @@ impl JunctionType {
 fn generate_icosphere_faces(
     center: &Point3r,
     radius: Real,
-    depth: usize,
+    _depth: usize,
     pool: &mut VertexPool,
     region: RegionId,
 ) -> Vec<FaceData> {

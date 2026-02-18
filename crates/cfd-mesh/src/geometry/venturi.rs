@@ -1,13 +1,18 @@
 //! Venturi tube mesh builder.
 //!
-//! Builds a structured hexahedral mesh for a Venturi flow passage and
-//! optionally converts it to tetrahedra (done externally via `HexToTetConverter`).
+//! Builds a structured mesh for a Venturi flow passage.
+//! Use [`VenturiMeshBuilder::build_surface`] for the modern [`IndexedMesh`]
+//! boundary-surface output.  The legacy [`VenturiMeshBuilder::build`] method
+//! (returns a `Mesh<T>` tetrahedral volume mesh) is kept for downstream FEM
+//! compatibility but is deprecated.
 
 use nalgebra::RealField;
-use num_traits::{Float, FromPrimitive};
+use num_traits::{Float, FromPrimitive, ToPrimitive};
 
-use crate::mesh::Mesh;
-use crate::topology::{Cell, ElementType, Face, Vertex};
+use crate::mesh::{Mesh, IndexedMesh};
+use crate::topology::{Cell, Face, Vertex};
+use crate::core::index::RegionId;
+use crate::core::scalar::{Real, Point3r, Vector3r};
 use nalgebra::Point3;
 
 /// Error type for mesh building.
@@ -90,14 +95,113 @@ impl<T: Copy + RealField + Float + FromPrimitive> VenturiMeshBuilder<T> {
     /// Build the mesh.
     ///
     /// Returns a structured hexahedral mesh of the Venturi passage.
+    #[deprecated(note = "use `build_surface()` which returns an `IndexedMesh` boundary surface")]
     pub fn build(self) -> Result<Mesh<T>, BuildError> {
         build_venturi_mesh(self)
+    }
+
+    /// Build a watertight surface mesh (wall + inlet + outlet caps).
+    ///
+    /// Returns an [`IndexedMesh`] with three named regions:
+    /// - `RegionId(0)` — outer wall
+    /// - `RegionId(1)` — inlet cap
+    /// - `RegionId(2)` — outlet cap
+    pub fn build_surface(&self) -> Result<IndexedMesh, BuildError> {
+        build_venturi_surface(self)
     }
 }
 
 // ---------------------------------------------------------------------------
 // Internal mesh generation
 // ---------------------------------------------------------------------------
+
+fn build_venturi_surface<T: Copy + RealField + Float + FromPrimitive + ToPrimitive>(
+    b: &VenturiMeshBuilder<T>,
+) -> Result<IndexedMesh, BuildError> {
+    let f = |v: T| v.to_f64().ok_or_else(|| BuildError("float conv".into()));
+
+    let d_inlet = f(b.d_inlet)?;
+    let d_throat = f(b.d_throat)?;
+    let l_inlet = f(b.l_inlet)?;
+    let l_convergent = f(b.l_convergent)?;
+    let l_throat = f(b.l_throat)?;
+    let l_divergent = f(b.l_divergent)?;
+    let l_outlet = f(b.l_outlet)?;
+
+    let nx = b.resolution_x.max(2);
+    let n_ang: usize = if b.circular { b.resolution_y.max(2) * 4 } else { 4 };
+    let total_l = l_inlet + l_convergent + l_throat + l_divergent + l_outlet;
+
+    let wall_region = RegionId::from_usize(0);
+    let inlet_region = RegionId::from_usize(1);
+    let outlet_region = RegionId::from_usize(2);
+
+    // Radius at axial position z (all in f64).
+    let radius_at_f64 = |z: Real| -> Real {
+        let r_in = d_inlet / 2.0;
+        let r_th = d_throat / 2.0;
+        let z1 = l_inlet;
+        let z2 = z1 + l_convergent;
+        let z3 = z2 + l_throat;
+        let z4 = z3 + l_divergent;
+        if z <= z1 { r_in }
+        else if z <= z2 { let t = (z - z1) / l_convergent; r_in + (r_th - r_in) * t }
+        else if z <= z3 { r_th }
+        else if z <= z4 { let t = (z - z3) / l_divergent; r_th + (r_in - r_th) * t }
+        else { r_in }
+    };
+
+    let mut mesh = IndexedMesh::new();
+
+    // Build rings of vertices (no center node needed for surface mesh).
+    let mut rings: Vec<Vec<crate::core::index::VertexId>> = Vec::with_capacity(nx);
+    for i in 0..nx {
+        let t = i as Real / (nx - 1) as Real;
+        let z = total_l * t;
+        let r = radius_at_f64(z);
+        let mut ring = Vec::with_capacity(n_ang);
+        for ia in 0..n_ang {
+            let theta = std::f64::consts::TAU * ia as Real / n_ang as Real;
+            let (sin_t, cos_t) = theta.sin_cos();
+            let vid = mesh.add_vertex(
+                Point3r::new(r * cos_t, r * sin_t, z),
+                Vector3r::new(cos_t, sin_t, 0.0),
+            );
+            ring.push(vid);
+        }
+        rings.push(ring);
+    }
+
+    // Wall: quad strip between adjacent rings → 2 triangles per quad.
+    for iz in 0..(nx - 1) {
+        for ia in 0..n_ang {
+            let ia1 = (ia + 1) % n_ang;
+            let v00 = rings[iz][ia];
+            let v01 = rings[iz][ia1];
+            let v10 = rings[iz + 1][ia];
+            let v11 = rings[iz + 1][ia1];
+            mesh.add_face_with_region(v00, v10, v01, wall_region);
+            mesh.add_face_with_region(v01, v10, v11, wall_region);
+        }
+    }
+
+    // Inlet cap at z = 0 (normal = −z).
+    let ic = mesh.add_vertex(Point3r::new(0.0, 0.0, 0.0), Vector3r::new(0.0, 0.0, -1.0));
+    for ia in 0..n_ang {
+        let ia1 = (ia + 1) % n_ang;
+        mesh.add_face_with_region(ic, rings[0][ia1], rings[0][ia], inlet_region);
+    }
+
+    // Outlet cap at z = total_l (normal = +z).
+    let oc = mesh.add_vertex(Point3r::new(0.0, 0.0, total_l), Vector3r::new(0.0, 0.0, 1.0));
+    let last = nx - 1;
+    for ia in 0..n_ang {
+        let ia1 = (ia + 1) % n_ang;
+        mesh.add_face_with_region(oc, rings[last][ia], rings[last][ia1], outlet_region);
+    }
+
+    Ok(mesh)
+}
 
 fn build_venturi_mesh<T: Copy + RealField + Float + FromPrimitive>(
     b: VenturiMeshBuilder<T>,
@@ -107,7 +211,7 @@ fn build_venturi_mesh<T: Copy + RealField + Float + FromPrimitive>(
 
     let total_l = b.l_inlet + b.l_convergent + b.l_throat + b.l_divergent + b.l_outlet;
     let two_pi = T::from_f64(std::f64::consts::TAU).ok_or_else(|| BuildError("float conv".into()))?;
-    let half = T::from_f64(0.5).ok_or_else(|| BuildError("float conv".into()))?;
+    let _half = T::from_f64(0.5).ok_or_else(|| BuildError("float conv".into()))?;
 
     let mut mesh = Mesh::new();
 
@@ -149,8 +253,8 @@ fn build_venturi_mesh<T: Copy + RealField + Float + FromPrimitive>(
         let base0 = iz * verts_per_ring;
         let base1 = (iz + 1) * verts_per_ring;
 
-        let z0 = z_vals[iz];
-        let z1 = z_vals[iz + 1];
+        let _z0 = z_vals[iz];
+        let _z1 = z_vals[iz + 1];
 
         for ia in 0..n_ang {
             let ia1 = (ia + 1) % n_ang;

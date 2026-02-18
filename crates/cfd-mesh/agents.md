@@ -1,6 +1,7 @@
 # cfd-mesh: Architecture & Implementation Proposal
 
 > **Status**: Active rewrite — replacing all internals while preserving the public API.
+> Last updated: Phase 6 complete. Phases 1–6 done; 7–9 in backlog.
 
 ---
 
@@ -656,17 +657,17 @@ proptest! {
 
 ## 11. Implementation Phases
 
-| Phase | Key Files | Goal |
-|-------|-----------|------|
-| **1** Foundation | `Cargo.toml`, `core/index.rs`, `permission/arena.rs`, `mesh.rs` | `Mesh<'id>`, `with_mesh()` — builds on existing `GhostToken`/`GhostCell` in `permission/`; extend `PermissionedArena` to SlotMap backing; generic `Mesh<T>` kept as-is |
-| **2** Geometry | `geometry/predicates.rs`, `welding/snap.rs` | Exact predicates; unified 26-neighbor SnappingGrid |
-| **3** Topology | `topology/halfedge.rs`, `storage/` (pool, vertex_pool, face_store, edge_store) | Full half-edge CRUD + traversal iterators |
-| **4** Validation | `topology/manifold.rs`, `watertight/check.rs`, `quality/validation.rs` | Manifold + Euler + winding + patch checks; `WatertightReport` |
-| **5** NURBS | `geometry/nurbs/` | KnotVector, BSplineCurve, NurbsSurface, adaptive tessellation |
-| **6** Builders | `geometry/venturi.rs`, `serpentine.rs`, `branching.rs`, `grid.rs`, `channel/sweep.rs`, `hierarchy/` | Port all geometry builders to new API |
-| **7** I/O | `io/stl.rs`, `io/vtk.rs` | Extend to new mesh format; add fuzz targets |
-| **8** Boolean | `csg/broad_phase.rs`, `csg/intersect.rs`, `csg/clip.rs`, `csg/reconstruct.rs`, `csg/boolean.rs` | Exact Boolean ops replacing csgrs port |
-| **9** Docs | `lib.rs` + all modules | Rustdoc + aquamarine + theorems + examples |
+| Phase | Status | Key Files | Goal |
+|-------|--------|-----------|------|
+| **1** Foundation | ✅ DONE | `Cargo.toml`, `core/index.rs`, `permission/arena.rs`, `mesh.rs` | `Mesh<'id>`, `with_mesh()` — builds on existing `GhostToken`/`GhostCell` in `permission/`; extend `PermissionedArena` to SlotMap backing; generic `Mesh<T>` kept as-is |
+| **2** Geometry | ✅ DONE | `geometry/predicates.rs`, `welding/snap.rs` | Exact predicates; unified 26-neighbor SnappingGrid |
+| **3** Topology | ✅ DONE | `topology/halfedge.rs`, `storage/` (pool, vertex_pool, face_store, edge_store) | Full half-edge CRUD + traversal iterators |
+| **4** Validation | ✅ DONE | `topology/manifold.rs`, `watertight/check.rs`, `quality/validation.rs` | Manifold + Euler + winding + patch checks; `WatertightReport` |
+| **5** NURBS | ✅ DONE | `geometry/nurbs/` | KnotVector, BSplineCurve, NurbsSurface, adaptive tessellation |
+| **6** Builders | ✅ DONE | `geometry/venturi.rs`, `serpentine.rs`, `branching.rs` | Added `build_surface() → IndexedMesh` to all three builders; deprecated legacy `build() → Mesh<T>`; cleaned warnings; removed dead `welding/snapping_grid.rs`; replaced `#![allow(unused)]` with `#![allow(dead_code)]` in lib.rs |
+| **7** I/O | 🔲 TODO | `io/stl.rs`, `io/vtk.rs` | Extend to new mesh format; add fuzz targets |
+| **8** Boolean | 🔲 TODO | `csg/broad_phase.rs`, `csg/intersect.rs`, `csg/clip.rs`, `csg/reconstruct.rs`, `csg/boolean.rs` | Exact Boolean ops replacing csgrs port |
+| **9** Docs | 🔲 TODO | `lib.rs` + all modules | Rustdoc + aquamarine + theorems + examples; remove `#![allow(missing_docs)]` + `#![allow(dead_code)]` |
 
 ---
 

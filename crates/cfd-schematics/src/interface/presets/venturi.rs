@@ -18,7 +18,7 @@ pub fn venturi_chain(
     bp.add_node(NodeSpec::new("throat", NodeKind::Junction));
     bp.add_node(NodeSpec::new("outlet", NodeKind::Outlet));
 
-    bp.add_channel(ChannelSpec::new(
+    bp.add_channel(ChannelSpec::new_pipe(
         "inlet_section",
         "inlet",
         "contraction",
@@ -28,7 +28,7 @@ pub fn venturi_chain(
         0.0,
     ));
 
-    bp.add_channel(ChannelSpec::new(
+    bp.add_channel(ChannelSpec::new_pipe(
         "throat_section",
         "contraction",
         "throat",
@@ -38,7 +38,7 @@ pub fn venturi_chain(
         0.0,
     ));
 
-    bp.add_channel(ChannelSpec::new(
+    bp.add_channel(ChannelSpec::new_pipe(
         "diffuser_section",
         "throat",
         "outlet",

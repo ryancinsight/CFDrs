@@ -172,7 +172,7 @@ pub fn check_halfedge<'id>(
     // We detect them by iterating over half-edges from each face loop and
     // checking the twin's face field.
     let mut boundary_count: usize = 0;
-    let mut non_manifold_count: usize = 0;
+    let non_manifold_count: usize = 0;
 
     // Collect all half-edge keys from interior face loops
     let mut interior_hes: HashSet<HalfEdgeKey> = HashSet::new();
@@ -195,7 +195,7 @@ pub fn check_halfedge<'id>(
     // For a pure triangle mesh with no boundary sentinels, each undirected
     // edge is represented by exactly 2 half-edges.  Sentinels inflate the
     // count; subtract them.
-    let boundary_he_count = (he_total as usize) - interior_hes.len();
+    let _boundary_he_count = (he_total as usize) - interior_hes.len();
     let e = (interior_hes.len() as i64) / 2;
     let euler = v - e + f;
 

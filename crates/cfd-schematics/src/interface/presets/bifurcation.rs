@@ -17,7 +17,7 @@ pub fn symmetric_bifurcation(
     bp.add_node(NodeSpec::new("outlet_1", NodeKind::Outlet));
     bp.add_node(NodeSpec::new("outlet_2", NodeKind::Outlet));
 
-    bp.add_channel(ChannelSpec::new(
+    bp.add_channel(ChannelSpec::new_pipe(
         "parent",
         "inlet",
         "junction",
@@ -27,7 +27,7 @@ pub fn symmetric_bifurcation(
         0.0,
     ));
 
-    bp.add_channel(ChannelSpec::new(
+    bp.add_channel(ChannelSpec::new_pipe(
         "daughter_1",
         "junction",
         "outlet_1",
@@ -37,7 +37,7 @@ pub fn symmetric_bifurcation(
         0.0,
     ));
 
-    bp.add_channel(ChannelSpec::new(
+    bp.add_channel(ChannelSpec::new_pipe(
         "daughter_2",
         "junction",
         "outlet_2",

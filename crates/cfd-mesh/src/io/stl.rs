@@ -2,10 +2,9 @@
 //!
 //! Supports both ASCII and binary STL formats.
 
-use std::io::{self, Read, Write, BufRead, BufReader, BufWriter};
-use std::path::Path;
+use std::io::{Read, Write, BufRead, BufReader};
 
-use crate::core::index::{VertexId, RegionId};
+use crate::core::index::RegionId;
 use crate::core::scalar::{Real, Point3r, Vector3r};
 use crate::core::error::{MeshError, MeshResult};
 use crate::storage::face_store::{FaceData, FaceStore};
@@ -59,7 +58,7 @@ pub fn write_binary_stl<W: Write>(
     let n_triangles = face_store.len() as u32;
     writer
         .write_all(&n_triangles.to_le_bytes())
-        .map_err(MeshError::Io)?;;
+        .map_err(MeshError::Io)?;
 
     for (_, face) in face_store.iter_enumerated() {
         let a = vertex_pool.position(face.vertices[0]);

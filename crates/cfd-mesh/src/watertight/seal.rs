@@ -1,6 +1,6 @@
 //! Boundary sealing: close holes in an otherwise-manifold mesh.
 
-use crate::core::index::{VertexId, FaceId, RegionId};
+use crate::core::index::{VertexId, RegionId};
 use crate::core::scalar::{Point3r, Vector3r};
 use crate::storage::edge_store::EdgeStore;
 use crate::storage::face_store::{FaceData, FaceStore};

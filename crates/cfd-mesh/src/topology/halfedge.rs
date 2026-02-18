@@ -78,8 +78,7 @@ use nalgebra::{Point3, UnitVector3, Vector3};
 /// | `Periodic` | `cyclicAMI` | Matched pair |
 /// | `Channel` | `patch` | Millifluidic channel boundary |
 /// | `Custom` | user-defined | Any |
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum PatchType {
     /// Velocity or pressure inlet.
     Inlet,
@@ -118,8 +117,7 @@ impl PatchType {
 /// - `name` is non-empty.
 /// - All faces assigned to this patch must be boundary faces (i.e. their
 ///   bounding half-edges have `face == None` on the exterior side).
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct BoundaryPatch {
     /// Human-readable name (e.g. `"inlet"`, `"wall_top"`).
     pub name: String,

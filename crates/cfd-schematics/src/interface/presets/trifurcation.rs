@@ -18,7 +18,7 @@ pub fn symmetric_trifurcation(
     bp.add_node(NodeSpec::new("outlet_2", NodeKind::Outlet));
     bp.add_node(NodeSpec::new("outlet_3", NodeKind::Outlet));
 
-    bp.add_channel(ChannelSpec::new(
+    bp.add_channel(ChannelSpec::new_pipe(
         "parent",
         "inlet",
         "junction",
@@ -29,7 +29,7 @@ pub fn symmetric_trifurcation(
     ));
 
     for i in 1..=3 {
-        bp.add_channel(ChannelSpec::new(
+        bp.add_channel(ChannelSpec::new_pipe(
             format!("daughter_{i}"),
             "junction",
             format!("outlet_{i}"),
