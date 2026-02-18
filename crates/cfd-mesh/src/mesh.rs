@@ -42,7 +42,7 @@
 //!       └── SlotMap<PatchKey,    BoundaryPatch>   (no aliasing → no GhostCell)
 //! })
 
-use nalgebra::{Point3, RealField};
+use nalgebra::{Point3, Vector3, RealField};
 use std::collections::HashMap;
 
 use crate::topology::{Cell, ElementType, Face, Vertex};
@@ -266,29 +266,37 @@ impl<T: Copy + RealField> Mesh<T> {
 }
 
 // =========================================================================
-// IndexedMesh — the new watertight-first surface mesh
+// IndexedMesh<T> — watertight-first surface mesh, generic over precision
 // =========================================================================
 
 use crate::core::index::{VertexId, FaceId, RegionId};
-use crate::core::scalar::{Real, Point3r, Vector3r};
+use crate::core::scalar::{Real, Scalar};
 use crate::storage::vertex_pool::VertexPool;
 use crate::storage::face_store::FaceStore;
 use crate::storage::edge_store::EdgeStore;
 use crate::storage::attribute::AttributeStore;
 use crate::geometry::aabb::Aabb;
 
-/// A deduplicated, indexed triangle surface mesh.
+/// A deduplicated, indexed triangle surface mesh — generic over scalar `T`.
+///
+/// | Type parameter | Precision | Tolerance |
+/// |----------------|-----------|-----------|
+/// | `f64` (default) | 64-bit | 1 nm |
+/// | `f32`          | 32-bit | 10 µm (GPU staging) |
+///
+/// The default `T = f64` means all existing `IndexedMesh::new()` call-sites
+/// continue to compile without any annotation.  New code may write
+/// `IndexedMesh::<f32>::new()` to get single-precision geometry at zero
+/// additional runtime cost.
 ///
 /// Combines:
-/// - `VertexPool` — spatial-hash-deduplicated vertex storage
+/// - [`VertexPool<T>`] — spatial-hash-deduplicated vertex storage
 /// - `FaceStore` — indexed triangles with region tags
 /// - `EdgeStore` — persistent adjacency (rebuilt on demand)
 /// - `AttributeStore` — named per-face scalar channels
-///
-/// Use `MeshBuilder` for ergonomic construction.
-pub struct IndexedMesh {
-    /// Shared, deduplicated vertex positions + normals.
-    pub vertices: VertexPool,
+pub struct IndexedMesh<T: Scalar = f64> {
+    /// Deduplicated vertex positions and normals.
+    pub vertices: VertexPool<T>,
     /// Indexed triangular faces.
     pub faces: FaceStore,
     /// Edge adjacency (lazily built from faces).
@@ -297,47 +305,45 @@ pub struct IndexedMesh {
     pub attributes: AttributeStore<FaceId>,
 }
 
-impl IndexedMesh {
-    /// Create an empty `IndexedMesh` with default millifluidic tolerances.
+impl<T: Scalar> IndexedMesh<T> {
+    /// Create an empty mesh with default millifluidic tolerances.
     pub fn new() -> Self {
         Self {
-            vertices: VertexPool::default_millifluidic(),
-            faces: FaceStore::new(),
-            edges: None,
+            vertices:   VertexPool::default_millifluidic(),
+            faces:      FaceStore::new(),
+            edges:      None,
             attributes: AttributeStore::new(),
         }
     }
 
-    /// Create with a custom welding tolerance.
-    pub fn with_tolerance(cell_size: Real, tolerance: Real) -> Self {
+    /// Create with explicit welding tolerance.
+    pub fn with_tolerance(cell_size: T, tolerance: T) -> Self {
         Self {
-            vertices: VertexPool::new(cell_size, tolerance),
-            faces: FaceStore::new(),
-            edges: None,
+            vertices:   VertexPool::new(cell_size, tolerance),
+            faces:      FaceStore::new(),
+            edges:      None,
             attributes: AttributeStore::new(),
         }
     }
 
-    // ── Vertex operations ─────────────────────────────────────
+    // ── Vertex operations ─────────────────────────────────────────────────
 
-    /// Insert a vertex (deduplicated via spatial hash).
-    pub fn add_vertex(&mut self, position: Point3r, normal: Vector3r) -> VertexId {
-        self.edges = None; // invalidate edge cache
+    /// Insert a vertex (deduplicated via spatial hash); returns its ID.
+    pub fn add_vertex(&mut self, position: Point3<T>, normal: Vector3<T>) -> VertexId {
+        self.edges = None;
         self.vertices.insert_or_weld(position, normal)
     }
 
     /// Insert a vertex by position only (zero normal).
-    pub fn add_vertex_pos(&mut self, position: Point3r) -> VertexId {
+    pub fn add_vertex_pos(&mut self, position: Point3<T>) -> VertexId {
         self.edges = None;
-        self.vertices.insert_or_weld(position, Vector3r::zeros())
+        self.vertices.insert_or_weld(position, Vector3::<T>::zeros())
     }
 
     /// Number of unique vertices.
-    pub fn vertex_count(&self) -> usize {
-        self.vertices.len()
-    }
+    pub fn vertex_count(&self) -> usize { self.vertices.len() }
 
-    // ── Face operations ───────────────────────────────────────
+    // ── Face operations ───────────────────────────────────────────────────
 
     /// Add a triangle face from three vertex IDs.
     pub fn add_face(&mut self, v0: VertexId, v1: VertexId, v2: VertexId) -> FaceId {
@@ -358,16 +364,14 @@ impl IndexedMesh {
     }
 
     /// Number of faces.
-    pub fn face_count(&self) -> usize {
-        self.faces.len()
-    }
+    pub fn face_count(&self) -> usize { self.faces.len() }
 
-    // ── Edge / adjacency access ───────────────────────────────
+    // ── Edge / adjacency access ───────────────────────────────────────────
 
     /// Get (or lazily build) the edge store.
     pub fn edges(&mut self) -> &EdgeStore {
         if self.edges.is_none() {
-        self.edges = Some(EdgeStore::from_face_store(&self.faces));
+            self.edges = Some(EdgeStore::from_face_store(&self.faces));
         }
         self.edges.as_ref().unwrap()
     }
@@ -377,20 +381,18 @@ impl IndexedMesh {
         self.edges = Some(EdgeStore::from_face_store(&self.faces));
     }
 
-    /// Get existing edges (immutable).
-    pub fn edges_ref(&self) -> Option<&EdgeStore> {
-        self.edges.as_ref()
-    }
+    /// Immutable view of the edge store (may be stale).
+    pub fn edges_ref(&self) -> Option<&EdgeStore> { self.edges.as_ref() }
 
-    // ── Geometric queries ─────────────────────────────────────
+    // ── Geometric queries ─────────────────────────────────────────────────
 
     /// Axis-aligned bounding box.
-    pub fn bounding_box(&self) -> Aabb {
+    pub fn bounding_box(&self) -> Aabb<T> {
         Aabb::from_points(self.vertices.positions())
     }
 
-    /// Total surface area.
-    pub fn surface_area(&self) -> Real {
+    /// Total surface area of all triangles.
+    pub fn surface_area(&self) -> T {
         use crate::geometry::measure;
         measure::total_surface_area(
             self.faces.iter_enumerated().map(|(_, f)| {
@@ -404,7 +406,7 @@ impl IndexedMesh {
     }
 
     /// Signed volume (positive for outward-oriented closed mesh).
-    pub fn signed_volume(&self) -> Real {
+    pub fn signed_volume(&self) -> T {
         use crate::geometry::measure;
         measure::total_signed_volume(
             self.faces.iter_enumerated().map(|(_, f)| {
@@ -417,7 +419,7 @@ impl IndexedMesh {
         )
     }
 
-    // ── Validation ────────────────────────────────────────────
+    // ── Validation ────────────────────────────────────────────────────────
 
     /// Check watertightness (rebuilds edges if needed).
     pub fn is_watertight(&mut self) -> bool {
@@ -453,8 +455,7 @@ impl IndexedMesh {
     pub fn recompute_normals(&mut self) {
         use crate::geometry::normal::triangle_normal;
 
-        // Accumulate normals for each vertex
-        let mut normal_sums: Vec<Vector3r> = vec![Vector3r::zeros(); self.vertices.len()];
+        let mut normal_sums: Vec<Vector3<T>> = vec![Vector3::<T>::zeros(); self.vertices.len()];
         let mut counts: Vec<usize> = vec![0; self.vertices.len()];
 
         for (_, face) in self.faces.iter_enumerated() {
@@ -462,7 +463,8 @@ impl IndexedMesh {
             let b = self.vertices.position(face.vertices[1]);
             let c = self.vertices.position(face.vertices[2]);
 
-            let face_normal = triangle_normal(&a, &b, &c).unwrap_or_else(|| Vector3r::z());
+            let face_normal = triangle_normal(a, b, c)
+                .unwrap_or_else(|| Vector3::<T>::z());
 
             for &vi in &face.vertices {
                 normal_sums[vi.as_usize()] += face_normal;
@@ -470,12 +472,11 @@ impl IndexedMesh {
             }
         }
 
-        // Update vertex normals
         for (i, (sum, count)) in normal_sums.iter().zip(counts.iter()).enumerate() {
             if *count > 0 {
-                let avg = sum / (*count as Real);
+                let avg = *sum / <T as Scalar>::from_f64(*count as f64);
                 let len = avg.norm();
-                if len > 1e-12 {
+                if len > <T as Scalar>::from_f64(1e-12) {
                     self.vertices.set_normal(VertexId::new(i as u32), avg / len);
                 }
             }
@@ -483,36 +484,30 @@ impl IndexedMesh {
     }
 }
 
-impl Default for IndexedMesh {
-    fn default() -> Self {
-        Self::new()
-    }
+impl<T: Scalar> Default for IndexedMesh<T> {
+    fn default() -> Self { Self::new() }
 }
 
-// ── Builder ───────────────────────────────────────────────────
+// ── MeshBuilder<T> ────────────────────────────────────────────────────────────
 
-/// Ergonomic builder for constructing an `IndexedMesh`.
-pub struct MeshBuilder {
-    mesh: IndexedMesh,
+/// Ergonomic builder for constructing an [`IndexedMesh<T>`].
+pub struct MeshBuilder<T: Scalar = f64> {
+    mesh: IndexedMesh<T>,
 }
 
-impl MeshBuilder {
-    /// Start building with default settings.
+impl<T: Scalar> MeshBuilder<T> {
+    /// Start building with default millifluidic tolerances.
     pub fn new() -> Self {
-        Self {
-            mesh: IndexedMesh::new(),
-        }
+        Self { mesh: IndexedMesh::new() }
     }
 
-    /// Start building with custom tolerance.
-    pub fn with_tolerance(cell_size: Real, tolerance: Real) -> Self {
-        Self {
-            mesh: IndexedMesh::with_tolerance(cell_size, tolerance),
-        }
+    /// Start building with custom tolerances.
+    pub fn with_tolerance(cell_size: T, tolerance: T) -> Self {
+        Self { mesh: IndexedMesh::with_tolerance(cell_size, tolerance) }
     }
 
-    /// Add a vertex by position (returns the builder for chaining).
-    pub fn vertex(&mut self, pos: Point3r) -> VertexId {
+    /// Add a vertex by position; returns its [`VertexId`].
+    pub fn vertex(&mut self, pos: Point3<T>) -> VertexId {
         self.mesh.add_vertex_pos(pos)
     }
 
@@ -521,8 +516,8 @@ impl MeshBuilder {
         self.mesh.add_face(v0, v1, v2)
     }
 
-    /// Add raw triangle soup — each triple is (p0, p1, p2).
-    pub fn add_triangle_soup(&mut self, triangles: &[(Point3r, Point3r, Point3r)]) {
+    /// Add raw triangle soup — each triple is `(p0, p1, p2)`.
+    pub fn add_triangle_soup(&mut self, triangles: &[(Point3<T>, Point3<T>, Point3<T>)]) {
         for (a, b, c) in triangles {
             let va = self.mesh.add_vertex_pos(*a);
             let vb = self.mesh.add_vertex_pos(*b);
@@ -531,24 +526,21 @@ impl MeshBuilder {
         }
     }
 
-    /// Finalize the mesh (builds edges).
-    pub fn build(mut self) -> IndexedMesh {
+    /// Finalise: build edges and return the mesh.
+    pub fn build(mut self) -> IndexedMesh<T> {
         self.mesh.rebuild_edges();
         self.mesh
     }
 }
 
-impl Default for MeshBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
+impl<T: Scalar> Default for MeshBuilder<T> {
+    fn default() -> Self { Self::new() }
 }
 
 // =============================================================================
 // HalfEdgeMesh<'id> — the new GhostCell-permissioned half-edge mesh
 // =============================================================================
 
-use nalgebra::Point3 as NPoint3;
 use slotmap::SlotMap;
 use crate::permission::{GhostToken, GhostCell};
 use crate::core::index::{VertexKey, HalfEdgeKey, FaceKey, PatchKey};
@@ -640,7 +632,7 @@ impl<'id> HalfEdgeMesh<'id> {
     /// ```
     pub fn add_vertex(
         &mut self,
-        position: impl Into<NPoint3<Real>>,
+        position: impl Into<Point3<Real>>,
         _token: &GhostToken<'id>,
     ) -> VertexKey {
         let data = VertexData::new(position.into());

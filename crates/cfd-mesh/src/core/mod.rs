@@ -7,6 +7,6 @@ pub mod index;
 pub mod error;
 pub mod constants;
 
-pub use scalar::Real;
+pub use scalar::{Real, Scalar};
 pub use index::{VertexId, FaceId, EdgeId, HalfEdgeId, RegionId};
 pub use error::{MeshError, MeshResult};

@@ -24,6 +24,7 @@
 //! to $V - E + F = 2$ for a closed manifold of genus 0.
 
 use crate::core::error::{MeshError, MeshResult};
+use crate::core::scalar::Scalar;
 use crate::storage::edge_store::EdgeStore;
 use crate::storage::face_store::FaceStore;
 use crate::storage::vertex_pool::VertexPool;
@@ -59,8 +60,8 @@ pub struct WatertightReport {
 }
 
 /// Check if a mesh is watertight.
-pub fn check_watertight(
-    vertex_pool: &VertexPool,
+pub fn check_watertight<T: Scalar>(
+    vertex_pool: &VertexPool<T>,
     face_store: &FaceStore,
     edge_store: &EdgeStore,
 ) -> WatertightReport {
@@ -77,6 +78,7 @@ pub fn check_watertight(
             )
         }),
     );
+    let signed_vol_f64 = num_traits::ToPrimitive::to_f64(&signed_vol).unwrap_or(0.0);
 
     // Euler characteristic: V - E + F = 2 for a closed genus-0 manifold.
     // For a triangle mesh with E manifold edges: each face has 3 edges, each
@@ -93,7 +95,7 @@ pub fn check_watertight(
         boundary_edge_count: manifold_report.boundary_edges,
         non_manifold_edge_count: manifold_report.non_manifold_edges,
         orientation_consistent: orientation_ok,
-        signed_volume: signed_vol as f64,
+        signed_volume: signed_vol_f64,
         is_watertight: is_closed && orientation_ok,
         euler_characteristic: Some(euler),
         euler_expected: 2,
@@ -101,8 +103,8 @@ pub fn check_watertight(
 }
 
 /// Assert the mesh is watertight, returning an error if not.
-pub fn assert_watertight(
-    vertex_pool: &VertexPool,
+pub fn assert_watertight<T: Scalar>(
+    vertex_pool: &VertexPool<T>,
     face_store: &FaceStore,
     edge_store: &EdgeStore,
 ) -> MeshResult<WatertightReport> {

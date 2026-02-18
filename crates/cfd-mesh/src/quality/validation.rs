@@ -1,6 +1,7 @@
 //! Mesh-wide quality validation.
 
-use crate::core::scalar::Real;
+use nalgebra::Point3;
+use crate::core::scalar::{Real, Point3r, Scalar};
 use crate::core::constants;
 use crate::core::error::{MeshError, MeshResult};
 use crate::quality::metrics::QualityMetric;
@@ -70,10 +71,10 @@ impl MeshValidator {
     }
 
     /// Validate mesh quality.
-    pub fn validate(
+    pub fn validate<T: Scalar>(
         &self,
         face_store: &FaceStore,
-        vertex_pool: &VertexPool,
+        vertex_pool: &VertexPool<T>,
     ) -> QualityReport {
         let n = face_store.len();
         let mut aspect_ratios = Vec::with_capacity(n);
@@ -83,9 +84,17 @@ impl MeshValidator {
         let mut failing = 0usize;
 
         for (_, face) in face_store.iter_enumerated() {
-            let a = vertex_pool.position(face.vertices[0]);
-            let b = vertex_pool.position(face.vertices[1]);
-            let c = vertex_pool.position(face.vertices[2]);
+            let to_p3r = |p: &Point3<T>| -> Point3r {
+                use num_traits::ToPrimitive as TP;
+                Point3r::new(
+                    TP::to_f64(&p.x).unwrap_or(0.0),
+                    TP::to_f64(&p.y).unwrap_or(0.0),
+                    TP::to_f64(&p.z).unwrap_or(0.0),
+                )
+            };
+            let a = to_p3r(vertex_pool.position(face.vertices[0]));
+            let b = to_p3r(vertex_pool.position(face.vertices[1]));
+            let c = to_p3r(vertex_pool.position(face.vertices[2]));
 
             let ar = triangle::aspect_ratio(&a, &b, &c);
             let ma = triangle::min_angle(&a, &b, &c);
@@ -118,10 +127,10 @@ impl MeshValidator {
     }
 
     /// Validate and return error if quality is below threshold.
-    pub fn assert_quality(
+    pub fn assert_quality<T: Scalar>(
         &self,
         face_store: &FaceStore,
-        vertex_pool: &VertexPool,
+        vertex_pool: &VertexPool<T>,
     ) -> MeshResult<QualityReport> {
         let report = self.validate(face_store, vertex_pool);
         if !report.passed {

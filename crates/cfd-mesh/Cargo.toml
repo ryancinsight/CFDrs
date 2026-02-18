@@ -9,11 +9,11 @@ keywords = ["mesh", "cfd", "millifluidic", "watertight", "ghostcell"]
 categories = ["science", "simulation"]
 
 [features]
-default = ["f64"]
-f64 = []
-f32 = []
+default = []
 millifluidic = []
 parallel = ["dep:rayon"]
+# csg is always compiled; the feature flag is kept as a no-op marker so that
+# downstream crates that activate cfd-mesh/csg continue to build without error.
 csg = []
 stl-io = []
 vtk-io = []
@@ -63,3 +63,51 @@ aquamarine = { workspace = true }
 approx = { workspace = true }
 proptest = { workspace = true }
 criterion = { workspace = true }
+
+# ── Primitive validation examples ─────────────────────────────────────────────
+
+[[example]]
+name = "primitives_tetrahedron"
+path = "examples/primitives/tetrahedron.rs"
+
+[[example]]
+name = "primitives_cube"
+path = "examples/primitives/cube.rs"
+
+[[example]]
+name = "primitives_sphere"
+path = "examples/primitives/sphere.rs"
+
+[[example]]
+name = "primitives_cylinder"
+path = "examples/primitives/cylinder.rs"
+
+[[example]]
+name = "primitives_cone"
+path = "examples/primitives/cone.rs"
+
+[[example]]
+name = "primitives_torus"
+path = "examples/primitives/torus.rs"
+
+[[example]]
+name = "primitives_venturi"
+path = "examples/primitives/venturi.rs"
+
+# ── CSG diagnostic examples ───────────────────────────────────────────────────
+
+[[example]]
+name = "csg_diagnostic"
+path = "examples/csg_diagnostic.rs"
+
+[[example]]
+name = "csg_diagnostic_offset_cubes_normals"
+path = "examples/csg_diagnostic_offset_cubes_normals.rs"
+
+[[example]]
+name = "csg_diagnostic_offset_spheres_normals"
+path = "examples/csg_diagnostic_offset_spheres_normals.rs"
+
+[[example]]
+name = "csg_diagnostic_slab_overlap_normals"
+path = "examples/csg_diagnostic_slab_overlap_normals.rs"
