@@ -42,6 +42,14 @@ pub fn csg_boolean(
 }
 
 /// A ∪ B
+///
+/// Matches csgrs exactly:
+/// ```text
+/// a.clip_to(b); b.clip_to(a); b.invert(); b.clip_to(a); b.invert();
+/// a.build(b.all()); return a.all()
+/// ```
+/// The invert/clip/invert around b de-duplicates coplanar faces that would
+/// otherwise appear in both a and b, producing non-manifold geometry.
 fn boolean_union(
     faces_a: &[FaceData],
     faces_b: &[FaceData],
@@ -52,8 +60,10 @@ fn boolean_union(
 
     bsp_a.clip_to(&bsp_b, pool);
     bsp_b.clip_to(&bsp_a, pool);
+    bsp_b.invert();
+    bsp_b.clip_to(&bsp_a, pool);
+    bsp_b.invert();
 
-    // Merge b's remaining faces into a's tree, then collect everything.
     let b_faces = bsp_b.all_faces();
     bsp_a.add_faces(&b_faces, pool);
     bsp_a.all_faces()

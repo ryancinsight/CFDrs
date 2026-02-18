@@ -10,7 +10,7 @@ members = [
     "crates/cfd-3d",
     "crates/cfd-optim",
     "crates/cfd-validation",
-    "crates/pycfdrs",
+    "crates/cfd-python",
     "xtask",
 ]
 resolver = "2"

@@ -22,12 +22,6 @@
 [submodule "crates/cfd-mesh"]
 	path = crates/cfd-mesh
 	url = https://github.com/ryancinsight/CFDrs
-[submodule "crates/cfd-optim"]
-	path = crates/cfd-optim
-	url = https://github.com/ryancinsight/CFDrs
 [submodule "crates/cfd-validation"]
 	path = crates/cfd-validation
-	url = https://github.com/ryancinsight/CFDrs
-[submodule "crates/cfd-python"]
-	path = crates/cfd-python
 	url = https://github.com/ryancinsight/CFDrs

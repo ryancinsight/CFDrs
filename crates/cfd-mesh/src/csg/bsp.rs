@@ -4,7 +4,7 @@
 //! Splitting plane heuristic: minimize `8 × spans + |front - back|`.
 
 use crate::core::index::{FaceId, RegionId};
-use crate::core::scalar::{Real, Point3r, Vector3r};
+use crate::core::scalar::{Real, Vector3r};
 use crate::geometry::plane::Plane;
 use crate::storage::face_store::FaceData;
 use crate::storage::vertex_pool::VertexPool;
@@ -248,25 +248,24 @@ impl Default for BspNode {
 
 /// Select the best splitting plane from a set of faces.
 ///
-/// Heuristic: minimize `4 × spanning_count + |front_count - back_count|`.
+/// Heuristic: minimize `4 × spanning_count + |front_count - back_count|`
+/// across up to 16 face-plane candidates.
 ///
-/// The spanning weight is 4 (not the earlier 8) so that axis-aligned
-/// centroid-median planes (which produce balanced splits at the cost of some
-/// spanning) can beat the degenerate all-back face planes produced by convex
-/// tessellated bodies such as spheres.
-///
-/// In addition to the first 16 face-plane candidates, the function always
-/// tries the three axis-aligned planes through the bounding-box centroid of
-/// all face centroids.  For convex polyhedra those planes are well-balanced
-/// (score ≈ 4×spanning + 0) whereas any face-plane gives score = N (all
-/// other faces on one side, 0 spanning).
+/// IMPORTANT: Only face planes (planes derived from actual mesh triangles)
+/// are used as candidates.  Axis-aligned or other arbitrary planes must NOT
+/// be included because BSP-based CSG clipping relies on every splitting plane
+/// being an actual boundary surface of the solid.  A point in the FRONT
+/// half-space of a face plane is guaranteed to be outside the solid at that
+/// face; no such guarantee holds for an arbitrary axis-aligned plane, which
+/// would cause `clip_faces` to incorrectly classify interior faces as
+/// "outside" and produce wrong volumes and excessive face splitting.
 fn select_splitting_plane(faces: &[FaceData], pool: &VertexPool) -> Plane {
     let candidate_count = faces.len().min(16);
 
     let mut best_plane = face_plane(&faces[0], pool);
     let mut best_score = i64::MAX;
 
-    // Closure: score a single candidate plane.
+    // Score a single candidate plane.
     let score_plane = |candidate: &Plane| -> i64 {
         let mut front = 0i64;
         let mut back = 0i64;
@@ -283,48 +282,12 @@ fn select_splitting_plane(faces: &[FaceData], pool: &VertexPool) -> Plane {
         4 * spanning + (front - back).abs()
     };
 
-    // Try face-plane candidates.
     for i in 0..candidate_count {
         let candidate = face_plane(&faces[i], pool);
         let score = score_plane(&candidate);
         if score < best_score {
             best_score = score;
             best_plane = candidate;
-        }
-    }
-
-    // Also try axis-aligned centroid-median planes.
-    //
-    // For convex polyhedra (e.g. tessellated spheres), every face plane puts
-    // all other faces into the back subtree (score = N), while an axis-aligned
-    // median plane produces a balanced split (score ≈ 4×spanning).  Without
-    // these extra candidates the BSP degenerates into an O(N) linear chain,
-    // causing cascade-splitting of near-seam faces and exponential face blowup.
-    let mut cx_sum = 0.0_f64;
-    let mut cy_sum = 0.0_f64;
-    let mut cz_sum = 0.0_f64;
-    let n = faces.len() as Real;
-    for face in faces {
-        let a = pool.position(face.vertices[0]);
-        let b = pool.position(face.vertices[1]);
-        let c = pool.position(face.vertices[2]);
-        cx_sum += (a.x + b.x + c.x) as f64;
-        cy_sum += (a.y + b.y + c.y) as f64;
-        cz_sum += (a.z + b.z + c.z) as f64;
-    }
-    let mid_x = (cx_sum / (3.0 * n as f64)) as Real;
-    let mid_y = (cy_sum / (3.0 * n as f64)) as Real;
-    let mid_z = (cz_sum / (3.0 * n as f64)) as Real;
-    let axis_candidates = [
-        Plane::from_normal_and_point(Vector3r::x(), &Point3r::new(mid_x, 0.0, 0.0)),
-        Plane::from_normal_and_point(Vector3r::y(), &Point3r::new(0.0, mid_y, 0.0)),
-        Plane::from_normal_and_point(Vector3r::z(), &Point3r::new(0.0, 0.0, mid_z)),
-    ];
-    for candidate in &axis_candidates {
-        let score = score_plane(candidate);
-        if score < best_score {
-            best_score = score;
-            best_plane = *candidate;
         }
     }
 

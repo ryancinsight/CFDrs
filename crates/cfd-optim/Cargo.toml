@@ -1,0 +1,24 @@
+[package]
+name = "cfd-optim"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Optimization and mesh handoff pipeline for millifluidic design scenarios"
+keywords = ["optimization", "millifluidics", "cfd"]
+categories = ["science", "simulation"]
+
+[features]
+default = []
+mesh-export = ["dep:blue2mesh"]
+
+[dependencies]
+serde = { workspace = true, features = ["derive"] }
+thiserror.workspace = true
+
+cfd-core = { workspace = true, default-features = false }
+cfd-1d.workspace = true
+cfd-schematics.workspace = true
+
+blue2mesh = { path = "../../../blue2mesh", optional = true, default-features = false, features = ["mesh-generation", "cfd-export", "stl-export"] }
