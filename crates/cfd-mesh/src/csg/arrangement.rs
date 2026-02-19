@@ -270,27 +270,21 @@ pub fn boolean_intersecting_arrangement(
     let pairs = broad_phase_pairs(faces_a, pool, faces_b, pool);
 
     // Build per-face lists of intersecting partner faces.
-    // segs_a[i] = list of B face indices whose AABB overlaps A face i AND
-    //             whose triangle properly intersects A face i.
     let mut partners_a: HashMap<usize, Vec<(usize, FaceData)>> = HashMap::new();
     let mut partners_b: HashMap<usize, Vec<(usize, FaceData)>> = HashMap::new();
 
-    // Coplanar face tracking: maps an A (or B) face index to the geometric
-    // normals of its coplanar partners from the other soup.
+    // Coplanar face tracking: maps a quantised plane key to lists of face
+    // indices from A and B that lie in that plane.
     //
-    // Coplanar pairs are NOT routed through the Sutherland-Hodgman clip
-    // machinery — orient_3d returns Degenerate for all vertices, making every
-    // point appear "inside" the halfplane, so clipping produces the full
-    // original face as both inside_part and outside_part (double-counted).
+    // Coplanar pairs CANNOT go through the Sutherland-Hodgman clip machinery —
+    // `orient_3d` returns `Degenerate` for every query point when all points
+    // are coplanar, making every clip half-plane appear as "all inside".
     //
-    // Instead, coplanar faces are added whole in Phase 3 (via the `else`
-    // branch) and classified in Phase 4 with an interior-nudge: the test
-    // point is displaced by NUDGE_COPLANAR along the INWARD face normal (into
-    // the solid's body) so that `point_in_mesh_local` sees the correct cross-
-    // sectional inside/outside at that depth.  The B-side co-oriented copy
-    // (dot > 0) is always discarded to prevent a duplicate surface patch.
-    let mut coplanar_a: HashMap<usize, Vec<Vector3r>> = HashMap::new();
-    let mut coplanar_b: HashMap<usize, Vec<Vector3r>> = HashMap::new();
+    // Instead we collect coplanar face sets (grouped by plane) and run the
+    // exact 2-D Sutherland-Hodgman pipeline (`boolean_coplanar`) on each group.
+    // This gives geometrically exact boundary clipping for cap faces.
+    let mut coplanar_plane_a: HashMap<(i64, i64, i64, i64), Vec<usize>> = HashMap::new();
+    let mut coplanar_plane_b: HashMap<(i64, i64, i64, i64), Vec<usize>> = HashMap::new();
 
     // ── Phase 2: narrow phase — exact intersection test ───────────────────────
     for pair in &pairs {
@@ -306,42 +300,106 @@ pub fn boolean_intersecting_arrangement(
                     .push((pair.face_a, *fa));
             }
             IntersectionType::Coplanar => {
-                // Record partner normals; do NOT add to `partners_*` (bypass clip).
-                let nb = {
-                    let d    = *pool.position(fb.vertices[0]);
-                    let e    = *pool.position(fb.vertices[1]);
-                    let f_pt = *pool.position(fb.vertices[2]);
-                    let de   = Vector3r::new(e.x - d.x, e.y - d.y, e.z - d.z);
-                    let df   = Vector3r::new(f_pt.x - d.x, f_pt.y - d.y, f_pt.z - d.z);
-                    de.cross(&df)
+                // Compute quantised plane key for A face: (nx, ny, nz, d)
+                // where (nx,ny,nz) is the normalised normal (×1000) and d is
+                // the signed distance from origin (×1000), both rounded.
+                // The key uses the canonical normal direction (always positive Z
+                // component, or positive Y if Z≈0, etc.) so that two parallel
+                // planes with opposite stored windings hash to the same key.
+                let plane_key = |face: &FaceData| -> (i64, i64, i64, i64) {
+                    let p0 = *pool.position(face.vertices[0]);
+                    let p1 = *pool.position(face.vertices[1]);
+                    let p2 = *pool.position(face.vertices[2]);
+                    let ab = Vector3r::new(p1.x-p0.x, p1.y-p0.y, p1.z-p0.z);
+                    let ac = Vector3r::new(p2.x-p0.x, p2.y-p0.y, p2.z-p0.z);
+                    let n  = ab.cross(&ac);
+                    let nl = n.norm();
+                    if nl < 1e-20 { return (0,0,0,0); }
+                    // Canonicalise direction: flip if leading nonzero component < 0.
+                    let (nx, ny, nz) = (n.x/nl, n.y/nl, n.z/nl);
+                    let flip = if nz.abs() > 0.01 { nz < 0.0 }
+                               else if ny.abs() > 0.01 { ny < 0.0 }
+                               else { nx < 0.0 };
+                    let (cx, cy, cz) = if flip { (-nx,-ny,-nz) } else { (nx,ny,nz) };
+                    // Signed distance from origin: d = n · p0.
+                    let d = (if flip { -1.0 } else { 1.0 })
+                            * (nx*p0.x + ny*p0.y + nz*p0.z);
+                    (
+                        (cx * 1000.0).round() as i64,
+                        (cy * 1000.0).round() as i64,
+                        (cz * 1000.0).round() as i64,
+                        (d  * 1000.0).round() as i64,
+                    )
                 };
-                let na = {
-                    let pa = *pool.position(fa.vertices[0]);
-                    let pb = *pool.position(fa.vertices[1]);
-                    let pc = *pool.position(fa.vertices[2]);
-                    let ab = Vector3r::new(pb.x - pa.x, pb.y - pa.y, pb.z - pa.z);
-                    let ac = Vector3r::new(pc.x - pa.x, pc.y - pa.y, pc.z - pa.z);
-                    ab.cross(&ac)
-                };
-                coplanar_a.entry(pair.face_a).or_default().push(nb);
-                coplanar_b.entry(pair.face_b).or_default().push(na);
+                let ka = plane_key(fa);
+                let kb = plane_key(fb);
+                // Both faces are coplanar, so they must hash to the same key.
+                // Use ka (A's key) as the canonical group key.
+                let key = ka; // == kb (same plane)
+                let _ = kb;   // suppress unused warning
+                coplanar_plane_a.entry(key).or_default().push(pair.face_a);
+                coplanar_plane_b.entry(key).or_default().push(pair.face_b);
             }
             IntersectionType::None => {}
         }
     }
 
+    // ── Phase 2b: deduplicate coplanar index lists ────────────────────────────
+    // Multiple pairs may record the same face index multiple times (one entry
+    // per AABB-overlapping partner).  Deduplicate so each face appears once.
+    for v in coplanar_plane_a.values_mut() { v.sort_unstable(); v.dedup(); }
+    for v in coplanar_plane_b.values_mut() { v.sort_unstable(); v.dedup(); }
+
+    // ── Phase 2c: run 2-D Boolean on each coplanar plane group ───────────────
+    // For each plane that has faces in BOTH A and B, run `boolean_coplanar`
+    // (exact 2-D Sutherland-Hodgman) on those face subsets.
+    // The resulting fragments are exact: boundary edges are computed as true
+    // 2-D edge intersections rather than staircase approximations.
+    //
+    // Face indices used here are excluded from Phase 3/4 processing.
+    let mut coplanar_a_used: std::collections::HashSet<usize> = std::collections::HashSet::new();
+    let mut coplanar_b_used: std::collections::HashSet<usize> = std::collections::HashSet::new();
+    let mut result_faces: Vec<FaceData> = Vec::new();
+
+    for (key, a_idxs) in &coplanar_plane_a {
+        if let Some(b_idxs) = coplanar_plane_b.get(key) {
+            // Collect face subsets for this plane.
+            let cap_a: Vec<FaceData> = a_idxs.iter().map(|&i| faces_a[i]).collect();
+            let cap_b: Vec<FaceData> = b_idxs.iter().map(|&i| faces_b[i]).collect();
+
+            // Detect the plane basis from the A-cap faces.
+            if let Some(basis) =
+                crate::csg::coplanar::detect_flat_plane(&cap_a, pool)
+            {
+                let coplanar_result = crate::csg::coplanar::boolean_coplanar(
+                    op, &cap_a, &cap_b, pool, &basis,
+                );
+                result_faces.extend(coplanar_result);
+
+                // Mark these indices as handled.
+                for &i in a_idxs { coplanar_a_used.insert(i); }
+                for &i in b_idxs { coplanar_b_used.insert(i); }
+            }
+            // If detect_flat_plane fails (unexpected), fall through to Phase 3/4
+            // which will handle these faces with the nudge-test approach.
+        }
+        // A-only coplanar faces (no B counterpart in this plane) fall through
+        // to Phase 3/4 where they are classified as whole fragments.
+    }
+
     // ── Phase 3: subdivide intersecting faces ─────────────────────────────────
     // For each A-face that has intersecting B-partners, clip it into fragments.
-    // Faces with no partners are left whole.
+    // Coplanar faces already handled above are skipped.
 
     let mut frags: Vec<FragRecord> = Vec::new();
 
     // A faces
     for (fa_idx, fa) in faces_a.iter().enumerate() {
+        if coplanar_a_used.contains(&fa_idx) {
+            continue; // handled by 2-D Boolean above
+        }
         if let Some(partners) = partners_a.get(&fa_idx) {
             let (inside, outside) = subdivide_one_face(fa_idx, fa, partners, pool);
-            // "inside" fragments of A are at the seam; "outside" are the remainder of A.
-            // We collect all and classify in Phase 4.
             for tri in inside {
                 frags.push(FragRecord { tri, parent_idx: fa_idx, from_a: true });
             }
@@ -359,6 +417,9 @@ pub fn boolean_intersecting_arrangement(
 
     // B faces
     for (fb_idx, fb) in faces_b.iter().enumerate() {
+        if coplanar_b_used.contains(&fb_idx) {
+            continue; // handled by 2-D Boolean above
+        }
         if let Some(partners) = partners_b.get(&fb_idx) {
             let (inside, outside) = subdivide_one_face(fb_idx, fb, partners, pool);
             for tri in inside {
@@ -383,139 +444,31 @@ pub fn boolean_intersecting_arrangement(
     // exactly on a face plane of the other mesh.
     const NUDGE: Real = 1e-8;
 
-    let mut result_faces: Vec<FaceData> = Vec::new();
-
-    // Interior nudge for coplanar faces: large enough to move the test point
-    // past the shared cap plane and into the interior of the solid body so
-    // that `point_in_mesh_local` tests cross-sectional inside/outside.
-    // Value chosen as ~1% of a typical mm-scale mesh feature; must be << min
-    // feature size but >> NUDGE so it reliably crosses the cap boundary.
-    const COPLANAR_NUDGE: Real = 1e-3;
-
     for frag in &frags {
         let c = centroid(&frag.tri);
         let n = tri_normal(&frag.tri);
         let nlen = n.norm();
         let face_normal = if nlen > 1e-20 { n / nlen } else { Vector3r::zeros() };
 
-        // ── Choose nudge direction and magnitude ──────────────────────────────
-        //
-        // Ordinary faces: nudge by NUDGE (1e-8) along the outward face normal.
-        // This puts the test point just outside the surface so the ray-cast
-        // correctly distinguishes inside/outside of the OTHER solid.
-        //
-        // Coplanar faces: the outward face normal is perpendicular to the cap
-        // plane and points AWAY from the solid's interior.  A tiny nudge along
-        // it moves the test point just below/above the shared cap plane — still
-        // effectively on the surface boundary, where ray-cast results are
-        // ambiguous (whether the test is inside B depends on which side of B's
-        // cap we probed).
-        //
-        // Fix: for coplanar faces, nudge by COPLANAR_NUDGE (1e-3) along the
-        // INWARD normal (−face_normal), moving the test point INTO the solid
-        // body.  From inside the solid, the ray-cast to B's lateral surface
-        // gives the correct cross-sectional inside/outside answer.
-        let is_coplanar_frag = if frag.from_a {
-            coplanar_a.contains_key(&frag.parent_idx)
-        } else {
-            coplanar_b.contains_key(&frag.parent_idx)
-        };
+        let test_pt = Point3r::new(
+            c.x + face_normal.x * NUDGE,
+            c.y + face_normal.y * NUDGE,
+            c.z + face_normal.z * NUDGE,
+        );
 
-        let test_pt = if is_coplanar_frag && face_normal.norm() > 1e-20 {
-            // Inward nudge: move INTO the solid (opposite to outward face normal).
-            Point3r::new(
-                c.x - face_normal.x * COPLANAR_NUDGE,
-                c.y - face_normal.y * COPLANAR_NUDGE,
-                c.z - face_normal.z * COPLANAR_NUDGE,
-            )
-        } else {
-            Point3r::new(
-                c.x + face_normal.x * NUDGE,
-                c.y + face_normal.y * NUDGE,
-                c.z + face_normal.z * NUDGE,
-            )
-        };
-
-        // Determine keep/flip based on op and which soup the fragment comes from.
-        //
-        // Coplanar handling rules (dot = n_A · n_B, both un-normalised):
-        //
-        //   A-side coplanar (in coplanar_a):
-        //     Union        → always keep A's copy (regardless of spatial test)
-        //     Intersection → keep if inward test-point is inside B
-        //     Difference   → keep if inward test-point is outside B
-        //       (inward test-point correctly resolves cross-sectional in/out)
-        //
-        //   B-side coplanar (in coplanar_b), co-oriented (dot ≥ 0):
-        //     All ops      → discard B's copy (A's copy covers this region)
-        //
-        //   B-side coplanar, counter-oriented (dot < 0):
-        //     Standard ray-cast (rare — one face is inward, one outward)
         let (keep, flip) = if frag.from_a {
-            if let Some(_b_normals) = coplanar_a.get(&frag.parent_idx) {
-                match op {
-                    BooleanOp::Union => {
-                        // Always keep A's coplanar face — it forms the cap surface.
-                        (true, false)
-                    }
-                    BooleanOp::Intersection => {
-                        // Keep A's cap fragment if its interior is inside B.
-                        let inside_b = point_in_mesh_local(&test_pt, faces_b, pool);
-                        (inside_b, false)
-                    }
-                    BooleanOp::Difference => {
-                        // Keep A's cap fragment if its interior is outside B.
-                        let inside_b = point_in_mesh_local(&test_pt, faces_b, pool);
-                        (!inside_b, false)
-                    }
-                }
-            } else {
-                let inside_b = point_in_mesh_local(&test_pt, faces_b, pool);
-                match op {
-                    BooleanOp::Union        => (!inside_b, false),
-                    BooleanOp::Intersection => (inside_b,  false),
-                    BooleanOp::Difference   => (!inside_b, false),
-                }
+            let inside_b = point_in_mesh_local(&test_pt, faces_b, pool);
+            match op {
+                BooleanOp::Union        => (!inside_b, false),
+                BooleanOp::Intersection => (inside_b,  false),
+                BooleanOp::Difference   => (!inside_b, false),
             }
         } else {
-            if let Some(a_normals) = coplanar_b.get(&frag.parent_idx) {
-                let na  = a_normals[0];
-                let dot = n.dot(&na);
-                if dot >= 0.0 {
-                    // Co-oriented coplanar faces (e.g. two top caps at the same height).
-                    //
-                    // A already contributes its copy of the shared plane.  For
-                    // Intersection and Difference we discard B's copy entirely (A covers
-                    // the region).  For Union however, B may have cap area that lies
-                    // OUTSIDE A's cross-section (the non-lens part of B's cap) — that
-                    // area is NOT covered by A, so we must keep it.
-                    //
-                    // Use the inward nudge to probe cross-sectional inside/outside of A:
-                    //   Union        → keep B's cap if its interior is outside A
-                    //   Intersection → discard (A's copy covers the intersection cap)
-                    //   Difference   → discard (this is A \ B; B's cap is subtracted away)
-                    let inside_a = point_in_mesh_local(&test_pt, faces_a, pool);
-                    match op {
-                        BooleanOp::Union        => (!inside_a, false),
-                        BooleanOp::Intersection => (false,     false),
-                        BooleanOp::Difference   => (false,     false),
-                    }
-                } else {
-                    // Counter-oriented: apply standard ray-cast logic.
-                    let inside_a = point_in_mesh_local(&test_pt, faces_a, pool);
-                    match op {
-                        BooleanOp::Union        => (!inside_a, false),
-                        BooleanOp::Intersection => (inside_a,  false),
-                        BooleanOp::Difference   => (inside_a,  true),
-                    }
-                }
-            } else {
-                let inside_a = point_in_mesh_local(&test_pt, faces_a, pool);
-                match op {
-                    BooleanOp::Union        => (!inside_a, false),
-                    BooleanOp::Intersection => (inside_a,  false),
-                    BooleanOp::Difference   => (inside_a,  true),
-                }
+            let inside_a = point_in_mesh_local(&test_pt, faces_a, pool);
+            match op {
+                BooleanOp::Union        => (!inside_a, false),
+                BooleanOp::Intersection => (inside_a,  false),
+                BooleanOp::Difference   => (inside_a,  true),
             }
         };
 
