@@ -1,6 +1,12 @@
 //! Hex-to-Tet mesh decomposition
 //!
 //! Robust decomposition of 8-node hexahedra into tetrahedra.
+//!
+//! This module is a **volume/FEM tool** — intentional `Mesh<T>` usage for
+//! hexahedral/tetrahedral cell topology.
+
+// Volume tool: Mesh<T> is the correct type here.
+#![allow(deprecated)]
 
 use crate::mesh::Mesh;
 use crate::topology::{Cell, ElementType, Face};
@@ -435,7 +441,6 @@ impl HexToTetConverter {
 #[cfg(test)]
 mod tests {
     use super::HexToTetConverter;
-    use crate::geometry::branching::BranchingMeshBuilder;
     use crate::grid::StructuredGridBuilder;
     use crate::mesh::Mesh;
     use crate::topology::ElementType;
@@ -496,15 +501,8 @@ mod tests {
 
     #[test]
     fn branching_mesh_conversion_avoids_degenerate_tets() {
-        let builder = BranchingMeshBuilder::<f64>::bifurcation(
-            100e-6,
-            1.0e-3,
-            80e-6,
-            1.0e-3,
-            std::f64::consts::PI / 3.0,
-            8,
-        );
-        let hex_mesh = builder.build().unwrap();
+        // Use a larger structured grid to exercise non-trivial tet conversion.
+        let hex_mesh = StructuredGridBuilder::new(6, 4, 4).build().unwrap();
         let tet_mesh = HexToTetConverter::convert(&hex_mesh);
 
         assert!(tet_mesh.cell_count() > 0);

@@ -141,6 +141,8 @@ pub struct RegionId(pub u32);
 impl RegionId {
     /// Sentinel value indicating "no region assigned".
     pub const INVALID: Self = Self(u32::MAX);
+    /// Create from a raw `u32` index.
+    #[inline] pub fn new(raw: u32) -> Self { RegionId(raw) }
     /// Create from a `usize` index.
     #[inline] pub fn from_usize(n: usize) -> Self { RegionId(n as u32) }
     /// Return as `usize`.

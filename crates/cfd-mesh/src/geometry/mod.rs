@@ -17,3 +17,6 @@ pub mod branching;
 
 pub mod nurbs;
 pub use nurbs::{NurbsCurve, NurbsSurface, TessellationOptions};
+
+pub mod primitives;
+pub use primitives::{Tetrahedron, Cube, UvSphere, Cylinder, Cone, Torus, LinearSweep, RevolutionSweep};

@@ -40,6 +40,8 @@ pub mod intersect;
 pub mod clip;
 /// Fragment mesh reconstruction after Boolean classification.
 pub mod reconstruct;
+/// Mesh Arrangement CSG pipeline for curved surfaces (replaces BSP for non-flat meshes).
+pub mod arrangement;
 
 // ── Legacy BSP modules (kept for backward compatibility) ──────────────────────
 

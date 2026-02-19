@@ -94,20 +94,37 @@ path = "examples/primitives/torus.rs"
 name = "primitives_venturi"
 path = "examples/primitives/venturi.rs"
 
-# ── CSG diagnostic examples ───────────────────────────────────────────────────
+[[example]]
+name = "primitives_linear_sweep"
+path = "examples/primitives/linear_sweep.rs"
 
 [[example]]
-name = "csg_diagnostic"
-path = "examples/csg_diagnostic.rs"
+name = "primitives_revolution_sweep"
+path = "examples/primitives/revolution_sweep.rs"
+
+# ── CSG boolean operation examples ────────────────────────────────────────────
 
 [[example]]
-name = "csg_diagnostic_offset_cubes_normals"
-path = "examples/csg_diagnostic_offset_cubes_normals.rs"
+name = "csg_cube_cube"
+path = "examples/csg/cube_cube.rs"
 
 [[example]]
-name = "csg_diagnostic_offset_spheres_normals"
-path = "examples/csg_diagnostic_offset_spheres_normals.rs"
+name = "csg_cube_sphere"
+path = "examples/csg/cube_sphere.rs"
 
 [[example]]
-name = "csg_diagnostic_slab_overlap_normals"
-path = "examples/csg_diagnostic_slab_overlap_normals.rs"
+name = "csg_cube_cylinder"
+path = "examples/csg/cube_cylinder.rs"
+
+[[example]]
+name = "csg_sphere_cylinder"
+path = "examples/csg/sphere_cylinder.rs"
+
+[[example]]
+name = "csg_sphere_sphere"
+path = "examples/csg/sphere_sphere.rs"
+
+[[example]]
+name = "csg_cylinder_cylinder"
+path = "examples/csg/cylinder_cylinder.rs"
+

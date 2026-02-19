@@ -2,6 +2,12 @@
 //!
 //! Generates a regular Cartesian grid over the unit cube [0,1]³,
 //! subdivided into nx×ny×nz hexahedra (each decomposed to 5 tetrahedra).
+//!
+//! This module is a **volume/FEM tool** — it intentionally uses `Mesh<T>` for
+//! hexahedral cell topology and is exempt from the surface-mesh deprecation.
+
+// Volume tool: Mesh<T> is the correct type here.
+#![allow(deprecated)]
 
 use crate::mesh::Mesh;
 use crate::topology::{Cell, Face, Vertex};

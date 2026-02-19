@@ -49,7 +49,7 @@
 //! │  └────────┬─────────┘    └────────┬──────────┘    └────────┬─────────┘   │
 //! │           │                       │                         │             │
 //! │  ┌────────▼─────────┐    ┌────────▼──────────┐   ┌────────▼──────────┐  │
-//! │  │ permission/      │    │ storage/           │   │ csg/ (feature)    │  │
+//! │  │ permission/      │    │ storage/           │   │ csg/              │  │
 //! │  │  GhostToken      │    │  VertexPool        │   │  BspTree          │  │
 //! │  │  GhostCell       │    │  FaceStore         │   │  BvhTree          │  │
 //! │  └────────┬─────────┘    │  EdgeStore         │   │  boolean pipeline │  │
@@ -79,7 +79,7 @@
 //! | [`permission`] | `GhostToken`, `GhostCell`, `PermissionedArena` |
 //! | [`core`] | Scalar types, indices (`VertexKey`, `VertexId`, …), errors |
 //! | [`io`] | STL and VTK mesh I/O |
-//! | [`csg`] | BSP-tree + BVH boolean operations (feature `csg`) |
+//! | [`csg`] | BSP-tree + BVH boolean operations |
 //!
 //! ## Invariants
 //!
@@ -114,7 +114,6 @@ pub mod watertight;
 pub mod channel;
 pub mod io;
 
-#[cfg(feature = "csg")]
 pub mod csg;
 
 // ── Primary re-exports ────────────────────────────────────────────────────────
@@ -125,7 +124,8 @@ pub use mesh::with_mesh;
 /// The GhostCell-permissioned half-edge mesh (new API).
 pub use mesh::HalfEdgeMesh;
 
-/// Legacy generic FEM/FVM mesh.
+/// Legacy generic FEM/FVM mesh — retained only for volume tools (`grid.rs`, `hex_to_tet.rs`).
+#[allow(deprecated)]
 pub use mesh::Mesh;
 
 /// Legacy watertight-first indexed surface mesh.
@@ -144,3 +144,9 @@ pub use topology::halfedge::PatchType;
 
 /// Exact Shewchuk orientation result.
 pub use geometry::Orientation;
+
+/// Analytic mesh primitives (tetrahedron, cube, sphere, cylinder, cone, torus, sweeps).
+pub use geometry::primitives;
+
+/// Primitive builder re-exports for ergonomic top-level access.
+pub use geometry::{Tetrahedron, Cube, UvSphere, Cylinder, Cone, Torus, LinearSweep, RevolutionSweep};

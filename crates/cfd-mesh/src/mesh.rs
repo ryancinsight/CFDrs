@@ -61,6 +61,7 @@ pub struct MeshStatistics {
 /// A generic CFD mesh with vertices, faces, and cells.
 ///
 /// `T` is the floating-point scalar type (typically `f64`).
+#[deprecated(note = "use `IndexedMesh` for surface meshes; `Mesh<T>` is retained only for volume/FEM tools (grid.rs, hex_to_tet.rs)")]
 #[derive(Clone, Debug)]
 pub struct Mesh<T: Copy + RealField> {
     // ---- high-level typed arrays -----------------------------------------
@@ -76,12 +77,16 @@ pub struct Mesh<T: Copy + RealField> {
     pub elements: Vec<Vec<usize>>,
 }
 
+// The impl blocks below intentionally work with the deprecated Mesh<T>; suppress the
+// self-referential warning so it does not pollute the compiler output for call-sites.
+#[allow(deprecated)]
 impl<T: Copy + RealField> Default for Mesh<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
+#[allow(deprecated)]
 impl<T: Copy + RealField> Mesh<T> {
     /// Create an empty mesh.
     pub fn new() -> Self {

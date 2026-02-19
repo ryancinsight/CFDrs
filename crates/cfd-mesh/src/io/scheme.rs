@@ -25,6 +25,8 @@ pub struct ChannelDef {
     pub path: ChannelPath,
     /// Channel cross-section profile.
     pub profile: ChannelProfile,
+    /// Optional width scaling factors along the path (for variable-width channels).
+    pub width_scales: Option<Vec<Real>>,
 }
 
 /// A parsed substrate definition.
@@ -159,6 +161,7 @@ fn parse_channels(value: &serde_json::Value) -> MeshResult<Vec<ChannelDef>> {
                 radius: diameter / 2.0,
                 segments,
             },
+            width_scales: None,
         });
     }
 
@@ -218,28 +221,44 @@ pub fn from_interchange(
             .map(|&(x, y)| Point3r::new(x as Real, y as Real, mid_z))
             .collect();
 
-        let (width_mm, height_mm) = match &ch.profile {
+        let mut width_scales = None;
+
+        let profile = match &ch.profile {
             cfd_schematics::geometry::InterchangeChannelProfile::Constant {
                 width_mm,
                 height_mm,
                 ..
-            } => (*width_mm, *height_mm),
+            } => ChannelProfile::Rectangular {
+                width: *width_mm as Real,
+                height: *height_mm as Real,
+            },
             cfd_schematics::geometry::InterchangeChannelProfile::Frustum {
                 inlet_width_mm,
                 height_mm,
+                width_profile_mm,
                 ..
-            } => (*inlet_width_mm, *height_mm),
-        };
+            } => {
+                let inlet_w = *inlet_width_mm as Real;
+                // Calculate scaling factors relative to inlet width
+                let scales: Vec<Real> = width_profile_mm
+                    .iter()
+                    .map(|&w| (w as Real) / inlet_w)
+                    .collect();
+                
+                width_scales = Some(scales);
 
-        let profile = ChannelProfile::Circular {
-            radius: (width_mm as Real) / 2.0,
-            segments: channel_segments,
+                ChannelProfile::Rectangular {
+                    width: inlet_w,
+                    height: *height_mm as Real,
+                }
+            }
         };
 
         channels.push(ChannelDef {
             id: format!("ch{}", ch.id),
             path: ChannelPath::new(points),
             profile,
+            width_scales,
         });
     }
 

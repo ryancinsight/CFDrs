@@ -2,6 +2,12 @@
 //!
 //! The Taylor-Hood element (P2/P1) requires mid-edge nodes in addition to
 //! corner nodes.  `P2MeshConverter::convert_to_p2` inserts these edge midpoints.
+//!
+//! This module is a **volume/FEM tool** — intentional `Mesh<T>` usage for P1/P2
+//! nodal topology.
+
+// Volume tool: Mesh<T> is the correct type here.
+#![allow(deprecated)]
 
 use nalgebra::RealField;
 use crate::mesh::Mesh;
