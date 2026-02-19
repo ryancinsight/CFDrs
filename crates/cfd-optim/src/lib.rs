@@ -163,40 +163,40 @@ pub struct MeshHandoffRecord {
     pub mesh_output_path: String,
 }
 
-#[cfg(feature = "mesh-export")]
-pub fn generate_mesh_handoff(
-    ranked: &[RankedScenario],
-    top_k: usize,
-    mesh_output_dir: &std::path::Path,
-) -> Result<Vec<MeshHandoffRecord>, OptimError> {
-    use blue2mesh::{export::CfdExporter, MeshGenerator};
-
-    let selected = top_candidates(ranked, top_k)?;
-    let mut records = Vec::with_capacity(selected.len());
-
-    for item in selected {
-        let scenario = item.scenario;
-        let mesh = MeshGenerator::new()
-            .generate_from_scheme(&scenario.scheme_json_path)
-            .map_err(|err| OptimError::MeshExportFailed {
-                scenario_id: scenario.id.clone(),
-                message: err.to_string(),
-            })?;
-
-        let output = mesh_output_dir.join(format!("{}_mesh.vtk", scenario.id));
-        CfdExporter::new()
-            .export_vtk(&mesh, &output)
-            .map_err(|err| OptimError::MeshExportFailed {
-                scenario_id: scenario.id.clone(),
-                message: err.to_string(),
-            })?;
-
-        records.push(MeshHandoffRecord {
-            scenario_id: scenario.id,
-            scheme_json_path: scenario.scheme_json_path,
-            mesh_output_path: output.to_string_lossy().to_string(),
-        });
-    }
-
-    Ok(records)
-}
+// #[cfg(feature = "mesh-export")]
+// pub fn generate_mesh_handoff(
+//     ranked: &[RankedScenario],
+//     top_k: usize,
+//     mesh_output_dir: &std::path::Path,
+// ) -> Result<Vec<MeshHandoffRecord>, OptimError> {
+//     use blue2mesh::{export::CfdExporter, MeshGenerator};
+//
+//     let selected = top_candidates(ranked, top_k)?;
+//     let mut records = Vec::with_capacity(selected.len());
+//
+//     for item in selected {
+//         let scenario = item.scenario;
+//         let mesh = MeshGenerator::new()
+//             .generate_from_scheme(&scenario.scheme_json_path)
+//             .map_err(|err| OptimError::MeshExportFailed {
+//                 scenario_id: scenario.id.clone(),
+//                 message: err.to_string(),
+//             })?;
+//
+//         let output = mesh_output_dir.join(format!("{}_mesh.vtk", scenario.id));
+//         CfdExporter::new()
+//             .export_vtk(&mesh, &output)
+//             .map_err(|err| OptimError::MeshExportFailed {
+//                 scenario_id: scenario.id.clone(),
+//                 message: err.to_string(),
+//             })?;
+//
+//         records.push(MeshHandoffRecord {
+//             scenario_id: scenario.id,
+//             scheme_json_path: scenario.scheme_json_path,
+//             mesh_output_path: output.to_string_lossy().to_string(),
+//         });
+//     }
+//
+//     Ok(records)
+// }
