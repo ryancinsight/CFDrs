@@ -52,12 +52,11 @@ use std::fs;
 use std::io::BufWriter;
 use std::time::Instant;
 
-use cfd_mesh::core::scalar::{Point3r, Real, Vector3r};
+use cfd_mesh::core::scalar::{Point3r, Real};
 use cfd_mesh::csg::boolean::{BooleanOp, csg_boolean_indexed};
-use cfd_mesh::geometry::normal::triangle_normal;
 use cfd_mesh::geometry::primitives::{Cylinder, PrimitiveMesh};
 use cfd_mesh::io::stl;
-use cfd_mesh::IndexedMesh;
+use cfd_mesh::{IndexedMesh, analyze_normals};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("=================================================================");
@@ -177,51 +176,3 @@ fn write_stl(mesh: &IndexedMesh, path: &std::path::Path) -> Result<(), Box<dyn s
     Ok(())
 }
 
-struct NormalAnalysis {
-    outward_faces: usize,
-    inward_faces: usize,
-    degenerate_faces: usize,
-    face_vertex_alignment_mean: Real,
-    face_vertex_alignment_min: Real,
-}
-
-fn analyze_normals(mesh: &IndexedMesh) -> NormalAnalysis {
-    let mut centroid_sum = Vector3r::zeros();
-    let mut cnt = 0usize;
-    for (_, v) in mesh.vertices.iter() { centroid_sum += v.position.coords; cnt += 1; }
-    let center = if cnt > 0 { Point3r::from(centroid_sum / cnt as Real) } else { Point3r::origin() };
-
-    let mut outward = 0usize;
-    let mut inward  = 0usize;
-    let mut degen   = 0usize;
-    let mut asum: Real = 0.0;
-    let mut acnt       = 0usize;
-    let mut amin: Real = 1.0;
-
-    for face in mesh.faces.iter() {
-        let a = mesh.vertices.position(face.vertices[0]);
-        let b = mesh.vertices.position(face.vertices[1]);
-        let c = mesh.vertices.position(face.vertices[2]);
-        let Some(fn_) = triangle_normal(a, b, c) else { degen += 1; continue; };
-        let fc  = Point3r::new((a.x+b.x+c.x)/3.0, (a.y+b.y+c.y)/3.0, (a.z+b.z+c.z)/3.0);
-        let dir = fc - center;
-        if dir.norm() > 1e-12 {
-            if fn_.dot(&dir.normalize()) >= 0.0 { outward += 1; } else { inward += 1; }
-        }
-        let avg = (*mesh.vertices.normal(face.vertices[0])
-            + *mesh.vertices.normal(face.vertices[1])
-            + *mesh.vertices.normal(face.vertices[2])) / 3.0;
-        let l = avg.norm();
-        if l > 1e-12 {
-            let al = fn_.dot(&(avg / l));
-            asum += al; acnt += 1; amin = amin.min(al);
-        }
-    }
-    NormalAnalysis {
-        outward_faces: outward,
-        inward_faces: inward,
-        degenerate_faces: degen,
-        face_vertex_alignment_mean: if acnt > 0 { asum / acnt as Real } else { 0.0 },
-        face_vertex_alignment_min:  if acnt > 0 { amin } else { 0.0 },
-    }
-}

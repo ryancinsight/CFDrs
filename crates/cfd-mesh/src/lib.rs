@@ -136,6 +136,9 @@ pub use mesh::MeshBuilder;
 
 // ── Convenience re-exports ────────────────────────────────────────────────────
 
+/// Normal-orientation analysis report for `IndexedMesh` surfaces.
+pub use quality::{NormalAnalysis, analyze_normals};
+
 /// Named CFD boundary patch (Inlet / Outlet / Wall / Symmetry / Periodic).
 pub use topology::halfedge::BoundaryPatch;
 
