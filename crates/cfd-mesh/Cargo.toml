@@ -102,6 +102,78 @@ path = "examples/primitives/linear_sweep.rs"
 name = "primitives_revolution_sweep"
 path = "examples/primitives/revolution_sweep.rs"
 
+[[example]]
+name = "primitives_octahedron"
+path = "examples/primitives/octahedron.rs"
+
+[[example]]
+name = "primitives_icosahedron"
+path = "examples/primitives/icosahedron.rs"
+
+[[example]]
+name = "primitives_ellipsoid"
+path = "examples/primitives/ellipsoid.rs"
+
+[[example]]
+name = "primitives_frustum"
+path = "examples/primitives/frustum.rs"
+
+[[example]]
+name = "primitives_capsule"
+path = "examples/primitives/capsule.rs"
+
+[[example]]
+name = "primitives_pipe"
+path = "examples/primitives/pipe.rs"
+
+[[example]]
+name = "primitives_elbow"
+path = "examples/primitives/elbow.rs"
+
+[[example]]
+name = "primitives_biconcave_disk"
+path = "examples/primitives/biconcave_disk.rs"
+
+[[example]]
+name = "primitives_spherical_shell"
+path = "examples/primitives/spherical_shell.rs"
+
+[[example]]
+name = "primitives_stadium_prism"
+path = "examples/primitives/stadium_prism.rs"
+
+[[example]]
+name = "primitives_dodecahedron"
+path = "examples/primitives/dodecahedron.rs"
+
+[[example]]
+name = "primitives_geodesic_sphere"
+path = "examples/primitives/geodesic_sphere.rs"
+
+[[example]]
+name = "primitives_helix_sweep"
+path = "examples/primitives/helix_sweep.rs"
+
+[[example]]
+name = "primitives_rounded_cube"
+path = "examples/primitives/rounded_cube.rs"
+
+[[example]]
+name = "primitives_cuboctahedron"
+path = "examples/primitives/cuboctahedron.rs"
+
+[[example]]
+name = "primitives_pyramid"
+path = "examples/primitives/pyramid.rs"
+
+[[example]]
+name = "primitives_antiprism"
+path = "examples/primitives/antiprism.rs"
+
+[[example]]
+name = "primitives_truncated_icosahedron"
+path = "examples/primitives/truncated_icosahedron.rs"
+
 # ── CSG boolean operation examples ────────────────────────────────────────────
 
 [[example]]
@@ -127,4 +199,18 @@ path = "examples/csg/sphere_sphere.rs"
 [[example]]
 name = "csg_cylinder_cylinder"
 path = "examples/csg/cylinder_cylinder.rs"
+
+[[example]]
+name = "csg_cylinder_cylinder_symmetric"
+path = "examples/csg/cylinder_cylinder_symmetric.rs"
+
+[[example]]
+name = "csg_cylinder_cylinder_asymmetric"
+path = "examples/csg/cylinder_cylinder_asymmetric.rs"
+
+# ── Coplanar 2-D Boolean examples ──────────────────────────────────────────────
+
+[[example]]
+name = "csg_coplanar_disk_disk"
+path = "examples/csg_coplanar/disk_disk.rs"
 

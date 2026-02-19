@@ -58,6 +58,22 @@ pub fn csg_boolean(
     faces_b: &[FaceData],
     pool: &mut VertexPool,
 ) -> MeshResult<Vec<FaceData>> {
+    // ── Coplanar flat-mesh pre-check ─────────────────────────────────────────
+    // Flat (zero-volume) meshes like disks must be handled before the 3-D
+    // containment/ray-cast logic, which is unreliable on zero-volume geometry.
+    // If both operands lie in the same plane, dispatch directly to the 2-D
+    // Sutherland-Hodgman pipeline regardless of AABB containment.
+    if let (Some(basis), Some(_)) = (
+        crate::csg::coplanar::detect_flat_plane(faces_a, pool),
+        crate::csg::coplanar::detect_flat_plane(faces_b, pool),
+    ) {
+        let result = crate::csg::coplanar::boolean_coplanar(op, faces_a, faces_b, pool, &basis);
+        if result.is_empty() {
+            return Err(MeshError::EmptyBooleanResult { op: format!("{:?}", op) });
+        }
+        return Ok(result);
+    }
+
     let result = match op {
         BooleanOp::Union => boolean_union(faces_a, faces_b, pool),
         BooleanOp::Intersection => boolean_intersection(faces_a, faces_b, pool),
@@ -271,6 +287,16 @@ fn boolean_union(faces_a: &[FaceData], faces_b: &[FaceData], pool: &mut VertexPo
             r
         }
         Containment::Intersecting => {
+            // ── Coplanar (2-D) fast path: both meshes are flat and share the same plane.
+            if let (Some(basis), Some(_)) = (
+                crate::csg::coplanar::detect_flat_plane(faces_a, pool),
+                crate::csg::coplanar::detect_flat_plane(faces_b, pool),
+            ) {
+                return crate::csg::coplanar::boolean_coplanar(
+                    BooleanOp::Union, faces_a, faces_b, pool, &basis,
+                );
+            }
+            // ── Curved surface path: use Mesh Arrangement pipeline.
             if is_curved_mesh(faces_a, pool) || is_curved_mesh(faces_b, pool) {
                 return crate::csg::arrangement::boolean_intersecting_arrangement(
                     BooleanOp::Union, faces_a, faces_b, pool,
@@ -297,6 +323,16 @@ fn boolean_intersection(faces_a: &[FaceData], faces_b: &[FaceData], pool: &mut V
         Containment::AInsideB => faces_a.to_vec(),
         Containment::Disjoint => Vec::new(),
         Containment::Intersecting => {
+            // ── Coplanar (2-D) fast path.
+            if let (Some(basis), Some(_)) = (
+                crate::csg::coplanar::detect_flat_plane(faces_a, pool),
+                crate::csg::coplanar::detect_flat_plane(faces_b, pool),
+            ) {
+                return crate::csg::coplanar::boolean_coplanar(
+                    BooleanOp::Intersection, faces_a, faces_b, pool, &basis,
+                );
+            }
+            // ── Curved surface path.
             if is_curved_mesh(faces_a, pool) || is_curved_mesh(faces_b, pool) {
                 return crate::csg::arrangement::boolean_intersecting_arrangement(
                     BooleanOp::Intersection, faces_a, faces_b, pool,
@@ -329,6 +365,16 @@ fn boolean_difference(faces_a: &[FaceData], faces_b: &[FaceData], pool: &mut Ver
         Containment::AInsideB => Vec::new(),  // A is swallowed by B → empty
         Containment::Disjoint => faces_a.to_vec(),  // B doesn't touch A → A unchanged
         Containment::Intersecting => {
+            // ── Coplanar (2-D) fast path.
+            if let (Some(basis), Some(_)) = (
+                crate::csg::coplanar::detect_flat_plane(faces_a, pool),
+                crate::csg::coplanar::detect_flat_plane(faces_b, pool),
+            ) {
+                return crate::csg::coplanar::boolean_coplanar(
+                    BooleanOp::Difference, faces_a, faces_b, pool, &basis,
+                );
+            }
+            // ── Curved surface path.
             if is_curved_mesh(faces_a, pool) || is_curved_mesh(faces_b, pool) {
                 return crate::csg::arrangement::boolean_intersecting_arrangement(
                     BooleanOp::Difference, faces_a, faces_b, pool,

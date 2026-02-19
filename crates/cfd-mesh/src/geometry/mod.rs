@@ -19,4 +19,10 @@ pub mod nurbs;
 pub use nurbs::{NurbsCurve, NurbsSurface, TessellationOptions};
 
 pub mod primitives;
-pub use primitives::{Tetrahedron, Cube, UvSphere, Cylinder, Cone, Torus, LinearSweep, RevolutionSweep};
+pub use primitives::{
+    Tetrahedron, Cube, UvSphere, Cylinder, Cone, Torus, LinearSweep, RevolutionSweep,
+    Octahedron, Icosahedron, Ellipsoid, Frustum, Capsule, Pipe, Elbow,
+    BiconcaveDisk, SphericalShell, StadiumPrism, Dodecahedron, GeodesicSphere,
+    HelixSweep, RoundedCube, Cuboctahedron, Pyramid, Antiprism, TruncatedIcosahedron,
+    Disk,
+};

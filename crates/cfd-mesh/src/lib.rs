@@ -145,8 +145,14 @@ pub use topology::halfedge::PatchType;
 /// Exact Shewchuk orientation result.
 pub use geometry::Orientation;
 
-/// Analytic mesh primitives (tetrahedron, cube, sphere, cylinder, cone, torus, sweeps).
+/// Analytic mesh primitives (26 builders from tetrahedron to truncated icosahedron).
 pub use geometry::primitives;
 
 /// Primitive builder re-exports for ergonomic top-level access.
-pub use geometry::{Tetrahedron, Cube, UvSphere, Cylinder, Cone, Torus, LinearSweep, RevolutionSweep};
+pub use geometry::{
+    Tetrahedron, Cube, UvSphere, Cylinder, Cone, Torus, LinearSweep, RevolutionSweep,
+    Octahedron, Icosahedron, Ellipsoid, Frustum, Capsule, Pipe, Elbow,
+    BiconcaveDisk, SphericalShell, StadiumPrism, Dodecahedron, GeodesicSphere,
+    HelixSweep, RoundedCube, Cuboctahedron, Pyramid, Antiprism, TruncatedIcosahedron,
+    Disk,
+};

@@ -42,6 +42,8 @@ pub mod clip;
 pub mod reconstruct;
 /// Mesh Arrangement CSG pipeline for curved surfaces (replaces BSP for non-flat meshes).
 pub mod arrangement;
+/// 2-D coplanar Boolean operations for flat surface meshes (disks, rings, etc.).
+pub mod coplanar;
 
 // ── Legacy BSP modules (kept for backward compatibility) ──────────────────────
 
