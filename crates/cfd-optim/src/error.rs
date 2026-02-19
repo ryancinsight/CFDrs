@@ -32,8 +32,8 @@ pub enum OptimError {
     #[error("invalid top_k value: {0}")]
     InvalidTopK(usize),
 
-    /// Legacy: mesh export failed.
-    #[cfg(feature = "mesh-export")]
-    #[error("mesh export failed for scenario {scenario_id}: {message}")]
-    MeshExportFailed { scenario_id: String, message: String },
+    // Legacy: mesh export failed.
+    // #[cfg(feature = "mesh-export")]
+    // #[error("mesh export failed for scenario {scenario_id}: {message}")]
+    // MeshExportFailed { scenario_id: String, message: String },
 }
