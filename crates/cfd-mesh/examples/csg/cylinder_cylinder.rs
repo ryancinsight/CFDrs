@@ -1,38 +1,40 @@
 //! CSG Cylinder–Cylinder: union, intersection, and difference
 //!
-//! Two Y-axis cylinders of equal radius (r = 0.6 mm) with parallel but
-//! offset axes (Δx = 0.6 mm = r).  Cylinder A is h = 3 mm tall; Cylinder B
-//! is taller (h = 4 mm) and centred so it extends 0.5 mm past both caps of A.
-//! The height mismatch avoids coplanar cap faces.  Both operands are curved,
-//! so the **Mesh Arrangement pipeline** is used automatically.
+//! Two equal-radius, equal-height Y-axis cylinders (r = 0.6 mm, h = 3 mm)
+//! whose axes are parallel but offset by exactly one radius (Δx = 0.6 mm = r).
+//! The cylinders partially overlap along their full height, forming a
+//! **cylindrical lens** cross-section.  Both operands are curved and their cap
+//! faces are **exactly coplanar** — this exercises the coplanar-face
+//! classification path in the Mesh Arrangement pipeline.
 //!
 //! ## Geometry
 //!
 //! ```text
-//! Cylinder A : base (−0.3, −1.5, 0), r = 0.6, h = 3  →  Y ∈ [−1.5, 1.5]
-//! Cylinder B : base (+0.3, −2.0, 0), r = 0.6, h = 4  →  Y ∈ [−2.0, 2.0]
+//! Cylinder A : base (−0.3, −1.5, 0), r = 0.6, h = 3 mm  →  Y ∈ [−1.5, 1.5]
+//! Cylinder B : base (+0.3, −1.5, 0), r = 0.6, h = 3 mm  →  Y ∈ [−1.5, 1.5]
 //!   axis separation d = 0.6 mm = r  →  θ = arccos(d / 2r) = arccos(0.5) = π/3
+//!   cap planes exactly coplanar at y = ±1.5
 //! ```
 //!
-//! Because B fully spans A in Y, the intersection is the cylindrical lens
-//! cross-section extruded over A's full height:
+//! The intersection cross-section is a symmetric lens of two equal circular
+//! segments.  For d = r:
 //!
 //! ```text
 //! θ         = π / 3
 //! A_segment = r² (θ − sin θ cos θ)  =  r² (π/3 − √3/4)
 //! A_lens    = 2 · A_segment
-//! V_∩       = A_lens · h_A  =  2 · h_A · r² · (π/3 − √3/4)
+//! V_∩       = A_lens · h  =  2 h r² (π/3 − √3/4)
 //! ```
 //!
-//! With r = 0.6, h_A = 3:
+//! With r = 0.6, h = 3:
 //!   A_lens ≈ 2 · 0.36 · (1.0472 − 0.4330) ≈ 0.4422 mm²
 //!   V_∩    ≈ 0.4422 · 3 ≈ 1.3267 mm³
 //!
-//! | Operation | Expected (mm³)            | Pipeline    |
-//! |-----------|--------------------------|-------------|
-//! | A ∪ B     | V_A + V_B − V_∩          | Arrangement |
-//! | A ∩ B     | V_∩ ≈ 1.3267             | Arrangement |
-//! | A \ B     | V_A − V_∩ ≈ 2.0662       | Arrangement |
+//! | Operation | Expected (mm³)          | Pipeline    |
+//! |-----------|------------------------|-------------|
+//! | A ∪ B     | 2·V_cyl − V_∩          | Arrangement |
+//! | A ∩ B     | V_∩ ≈ 1.3267           | Arrangement |
+//! | A \ B     | V_cyl − V_∩ ≈ 2.0662   | Arrangement |
 //!
 //! ## Run
 //!
@@ -56,34 +58,31 @@ use cfd_mesh::IndexedMesh;
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("=================================================================");
     println!("  CSG Cylinder–Cylinder: Union | Intersection | Difference");
-    println!("  (Mesh Arrangement pipeline — both operands curved)");
+    println!("  (Mesh Arrangement pipeline — both operands curved, coplanar caps)");
     println!("=================================================================");
 
-    let r: f64  = 0.6;   // both cylinder radii
-    let h_a: f64 = 3.0;  // Cylinder A height
-    let h_b: f64 = 4.0;  // Cylinder B height (taller → B spans A in Y, no coplanar caps)
-    let d: f64  = r;     // axis separation = r  →  θ = π/3
+    let r: f64 = 0.6;   // both cylinder radii
+    let h: f64 = 3.0;   // both cylinder heights (equal → coplanar cap planes)
+    let d: f64 = r;     // axis separation = r  →  θ = π/3
 
-    let v_a = std::f64::consts::PI * r * r * h_a;
-    let v_b = std::f64::consts::PI * r * r * h_b;
+    let v_cyl = std::f64::consts::PI * r * r * h;
 
-    // Cylindrical-lens cross-section (d = r):
-    //   θ = arccos(d / 2r) = arccos(0.5) = π/3
+    // Cylindrical-lens cross-section (d = r  →  θ = π/3):
     //   A_segment = r²(θ − sin θ · cos θ)
-    //   V_∩ = 2 · h_A · A_segment   (B spans A's full height)
-    let theta = (d / (2.0 * r)).acos();                      // π/3
-    let a_seg = r * r * (theta - theta.sin() * theta.cos());
-    let v_intersect = 2.0 * h_a * a_seg;
+    //   V_∩ = 2 · h · A_segment
+    let theta  = (d / (2.0 * r)).acos();              // π/3
+    let a_seg  = r * r * (theta - theta.sin() * theta.cos());
+    let v_intersect = 2.0 * h * a_seg;
 
-    println!("  Cylinder A : base (−0.3,−1.5,0), r={r}, h={h_a}  V = {v_a:.4} mm³");
-    println!("  Cylinder B : base (+0.3,−2.0,0), r={r}, h={h_b}  V = {v_b:.4} mm³");
-    println!("  Axis separation d={d} mm (= r → θ=π/3)");
-    println!("  Overlap    : cylindrical lens over A's height      V = {v_intersect:.4} mm³");
+    println!("  Cylinder A : base (−0.3,−1.5,0), r={r}, h={h}  V = {v_cyl:.4} mm³");
+    println!("  Cylinder B : base (+0.3,−1.5,0), r={r}, h={h}  V = {v_cyl:.4} mm³");
+    println!("  Axis sep d={d} mm (=r → θ=π/3); caps coplanar at y=±1.5");
+    println!("  Overlap    : cylindrical lens cross-section      V = {v_intersect:.4} mm³");
     println!();
     println!("  Expected volumes:");
-    println!("    Union        : {:.4} mm³", v_a + v_b - v_intersect);
+    println!("    Union        : {:.4} mm³", 2.0 * v_cyl - v_intersect);
     println!("    Intersection : {v_intersect:.4} mm³");
-    println!("    Difference   : {:.4} mm³", v_a - v_intersect);
+    println!("    Difference   : {:.4} mm³", v_cyl - v_intersect);
     println!();
 
     let crate_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
@@ -91,18 +90,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     fs::create_dir_all(&out_dir)?;
 
     let t_build = Instant::now();
-    // A: Y ∈ [−1.5, 1.5]
     let cyl_a = Cylinder {
-        base_center: Point3r::new(-d / 2.0, -h_a / 2.0, 0.0),
+        base_center: Point3r::new(-d / 2.0, -h / 2.0, 0.0),
         radius: r,
-        height: h_a,
+        height: h,
         segments: 64,
     }.build()?;
-    // B: Y ∈ [−2.0, 2.0] — extends 0.5 mm past each cap of A
     let cyl_b = Cylinder {
-        base_center: Point3r::new( d / 2.0, -h_b / 2.0, 0.0),
+        base_center: Point3r::new( d / 2.0, -h / 2.0, 0.0),
         radius: r,
-        height: h_b,
+        height: h,
         segments: 64,
     }.build()?;
     println!("  Mesh built: {} + {} cylinder faces  ({} ms)",
@@ -114,7 +111,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let t0 = Instant::now();
         let mut result = csg_boolean_indexed(BooleanOp::Union, &cyl_a, &cyl_b)?;
         let ms = t0.elapsed().as_millis();
-        report("Union (A ∪ B)", &mut result, v_a + v_b - v_intersect, 0.05, ms);
+        report("Union (A ∪ B)", &mut result, 2.0 * v_cyl - v_intersect, 0.05, ms);
         write_stl(&result, &out_dir.join("cylinder_cylinder_union.stl"))?;
         println!("  STL: outputs/csg/cylinder_cylinder_union.stl");
         println!();
@@ -136,7 +133,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let t0 = Instant::now();
         let mut result = csg_boolean_indexed(BooleanOp::Difference, &cyl_a, &cyl_b)?;
         let ms = t0.elapsed().as_millis();
-        report("Difference (A \\ B)", &mut result, v_a - v_intersect, 0.05, ms);
+        report("Difference (A \\ B)", &mut result, v_cyl - v_intersect, 0.05, ms);
         write_stl(&result, &out_dir.join("cylinder_cylinder_difference.stl"))?;
         println!("  STL: outputs/csg/cylinder_cylinder_difference.stl");
         println!();

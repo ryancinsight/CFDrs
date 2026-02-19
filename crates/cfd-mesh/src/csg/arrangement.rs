@@ -275,18 +275,56 @@ pub fn boolean_intersecting_arrangement(
     let mut partners_a: HashMap<usize, Vec<(usize, FaceData)>> = HashMap::new();
     let mut partners_b: HashMap<usize, Vec<(usize, FaceData)>> = HashMap::new();
 
+    // Coplanar face tracking: maps an A (or B) face index to the geometric
+    // normals of its coplanar partners from the other soup.
+    //
+    // Coplanar pairs are NOT routed through the Sutherland-Hodgman clip
+    // machinery — orient_3d returns Degenerate for all vertices, making every
+    // point appear "inside" the halfplane, so clipping produces the full
+    // original face as both inside_part and outside_part (double-counted).
+    //
+    // Instead, coplanar faces are added whole in Phase 3 (via the `else`
+    // branch) and classified in Phase 4 with an interior-nudge: the test
+    // point is displaced by NUDGE_COPLANAR along the INWARD face normal (into
+    // the solid's body) so that `point_in_mesh_local` sees the correct cross-
+    // sectional inside/outside at that depth.  The B-side co-oriented copy
+    // (dot > 0) is always discarded to prevent a duplicate surface patch.
+    let mut coplanar_a: HashMap<usize, Vec<Vector3r>> = HashMap::new();
+    let mut coplanar_b: HashMap<usize, Vec<Vector3r>> = HashMap::new();
+
     // ── Phase 2: narrow phase — exact intersection test ───────────────────────
     for pair in &pairs {
         let fa = &faces_a[pair.face_a];
         let fb = &faces_b[pair.face_b];
         match intersect_triangles(fa, pool, fb, pool) {
-            IntersectionType::Segment { .. } | IntersectionType::Coplanar => {
+            IntersectionType::Segment { .. } => {
                 partners_a.entry(pair.face_a)
                     .or_default()
                     .push((pair.face_b, *fb));
                 partners_b.entry(pair.face_b)
                     .or_default()
                     .push((pair.face_a, *fa));
+            }
+            IntersectionType::Coplanar => {
+                // Record partner normals; do NOT add to `partners_*` (bypass clip).
+                let nb = {
+                    let d    = *pool.position(fb.vertices[0]);
+                    let e    = *pool.position(fb.vertices[1]);
+                    let f_pt = *pool.position(fb.vertices[2]);
+                    let de   = Vector3r::new(e.x - d.x, e.y - d.y, e.z - d.z);
+                    let df   = Vector3r::new(f_pt.x - d.x, f_pt.y - d.y, f_pt.z - d.z);
+                    de.cross(&df)
+                };
+                let na = {
+                    let pa = *pool.position(fa.vertices[0]);
+                    let pb = *pool.position(fa.vertices[1]);
+                    let pc = *pool.position(fa.vertices[2]);
+                    let ab = Vector3r::new(pb.x - pa.x, pb.y - pa.y, pb.z - pa.z);
+                    let ac = Vector3r::new(pc.x - pa.x, pc.y - pa.y, pc.z - pa.z);
+                    ab.cross(&ac)
+                };
+                coplanar_a.entry(pair.face_a).or_default().push(nb);
+                coplanar_b.entry(pair.face_b).or_default().push(na);
             }
             IntersectionType::None => {}
         }
@@ -347,31 +385,137 @@ pub fn boolean_intersecting_arrangement(
 
     let mut result_faces: Vec<FaceData> = Vec::new();
 
+    // Interior nudge for coplanar faces: large enough to move the test point
+    // past the shared cap plane and into the interior of the solid body so
+    // that `point_in_mesh_local` tests cross-sectional inside/outside.
+    // Value chosen as ~1% of a typical mm-scale mesh feature; must be << min
+    // feature size but >> NUDGE so it reliably crosses the cap boundary.
+    const COPLANAR_NUDGE: Real = 1e-3;
+
     for frag in &frags {
         let c = centroid(&frag.tri);
         let n = tri_normal(&frag.tri);
         let nlen = n.norm();
-        let nudge_dir = if nlen > 1e-20 { n / nlen } else { Vector3r::zeros() };
-        let test_pt = Point3r::new(
-            c.x + nudge_dir.x * NUDGE,
-            c.y + nudge_dir.y * NUDGE,
-            c.z + nudge_dir.z * NUDGE,
-        );
+        let face_normal = if nlen > 1e-20 { n / nlen } else { Vector3r::zeros() };
+
+        // ── Choose nudge direction and magnitude ──────────────────────────────
+        //
+        // Ordinary faces: nudge by NUDGE (1e-8) along the outward face normal.
+        // This puts the test point just outside the surface so the ray-cast
+        // correctly distinguishes inside/outside of the OTHER solid.
+        //
+        // Coplanar faces: the outward face normal is perpendicular to the cap
+        // plane and points AWAY from the solid's interior.  A tiny nudge along
+        // it moves the test point just below/above the shared cap plane — still
+        // effectively on the surface boundary, where ray-cast results are
+        // ambiguous (whether the test is inside B depends on which side of B's
+        // cap we probed).
+        //
+        // Fix: for coplanar faces, nudge by COPLANAR_NUDGE (1e-3) along the
+        // INWARD normal (−face_normal), moving the test point INTO the solid
+        // body.  From inside the solid, the ray-cast to B's lateral surface
+        // gives the correct cross-sectional inside/outside answer.
+        let is_coplanar_frag = if frag.from_a {
+            coplanar_a.contains_key(&frag.parent_idx)
+        } else {
+            coplanar_b.contains_key(&frag.parent_idx)
+        };
+
+        let test_pt = if is_coplanar_frag && face_normal.norm() > 1e-20 {
+            // Inward nudge: move INTO the solid (opposite to outward face normal).
+            Point3r::new(
+                c.x - face_normal.x * COPLANAR_NUDGE,
+                c.y - face_normal.y * COPLANAR_NUDGE,
+                c.z - face_normal.z * COPLANAR_NUDGE,
+            )
+        } else {
+            Point3r::new(
+                c.x + face_normal.x * NUDGE,
+                c.y + face_normal.y * NUDGE,
+                c.z + face_normal.z * NUDGE,
+            )
+        };
 
         // Determine keep/flip based on op and which soup the fragment comes from.
+        //
+        // Coplanar handling rules (dot = n_A · n_B, both un-normalised):
+        //
+        //   A-side coplanar (in coplanar_a):
+        //     Union        → always keep A's copy (regardless of spatial test)
+        //     Intersection → keep if inward test-point is inside B
+        //     Difference   → keep if inward test-point is outside B
+        //       (inward test-point correctly resolves cross-sectional in/out)
+        //
+        //   B-side coplanar (in coplanar_b), co-oriented (dot ≥ 0):
+        //     All ops      → discard B's copy (A's copy covers this region)
+        //
+        //   B-side coplanar, counter-oriented (dot < 0):
+        //     Standard ray-cast (rare — one face is inward, one outward)
         let (keep, flip) = if frag.from_a {
-            let inside_b = point_in_mesh_local(&test_pt, faces_b, pool);
-            match op {
-                BooleanOp::Union        => (!inside_b, false), // keep A parts outside B
-                BooleanOp::Intersection => (inside_b,  false), // keep A parts inside B
-                BooleanOp::Difference   => (!inside_b, false), // keep A parts outside B
+            if let Some(_b_normals) = coplanar_a.get(&frag.parent_idx) {
+                match op {
+                    BooleanOp::Union => {
+                        // Always keep A's coplanar face — it forms the cap surface.
+                        (true, false)
+                    }
+                    BooleanOp::Intersection => {
+                        // Keep A's cap fragment if its interior is inside B.
+                        let inside_b = point_in_mesh_local(&test_pt, faces_b, pool);
+                        (inside_b, false)
+                    }
+                    BooleanOp::Difference => {
+                        // Keep A's cap fragment if its interior is outside B.
+                        let inside_b = point_in_mesh_local(&test_pt, faces_b, pool);
+                        (!inside_b, false)
+                    }
+                }
+            } else {
+                let inside_b = point_in_mesh_local(&test_pt, faces_b, pool);
+                match op {
+                    BooleanOp::Union        => (!inside_b, false),
+                    BooleanOp::Intersection => (inside_b,  false),
+                    BooleanOp::Difference   => (!inside_b, false),
+                }
             }
         } else {
-            let inside_a = point_in_mesh_local(&test_pt, faces_a, pool);
-            match op {
-                BooleanOp::Union        => (!inside_a, false), // keep B parts outside A
-                BooleanOp::Intersection => (inside_a,  false), // keep B parts inside A
-                BooleanOp::Difference   => (inside_a,  true),  // keep B parts inside A, flipped
+            if let Some(a_normals) = coplanar_b.get(&frag.parent_idx) {
+                let na  = a_normals[0];
+                let dot = n.dot(&na);
+                if dot >= 0.0 {
+                    // Co-oriented coplanar faces (e.g. two top caps at the same height).
+                    //
+                    // A already contributes its copy of the shared plane.  For
+                    // Intersection and Difference we discard B's copy entirely (A covers
+                    // the region).  For Union however, B may have cap area that lies
+                    // OUTSIDE A's cross-section (the non-lens part of B's cap) — that
+                    // area is NOT covered by A, so we must keep it.
+                    //
+                    // Use the inward nudge to probe cross-sectional inside/outside of A:
+                    //   Union        → keep B's cap if its interior is outside A
+                    //   Intersection → discard (A's copy covers the intersection cap)
+                    //   Difference   → discard (this is A \ B; B's cap is subtracted away)
+                    let inside_a = point_in_mesh_local(&test_pt, faces_a, pool);
+                    match op {
+                        BooleanOp::Union        => (!inside_a, false),
+                        BooleanOp::Intersection => (false,     false),
+                        BooleanOp::Difference   => (false,     false),
+                    }
+                } else {
+                    // Counter-oriented: apply standard ray-cast logic.
+                    let inside_a = point_in_mesh_local(&test_pt, faces_a, pool);
+                    match op {
+                        BooleanOp::Union        => (!inside_a, false),
+                        BooleanOp::Intersection => (inside_a,  false),
+                        BooleanOp::Difference   => (inside_a,  true),
+                    }
+                }
+            } else {
+                let inside_a = point_in_mesh_local(&test_pt, faces_a, pool);
+                match op {
+                    BooleanOp::Union        => (!inside_a, false),
+                    BooleanOp::Intersection => (inside_a,  false),
+                    BooleanOp::Difference   => (inside_a,  true),
+                }
             }
         };
 
@@ -529,6 +673,72 @@ mod tests {
             err < 0.05,
             "sphere-sphere difference volume error {:.1}% > 5% (got {:.4}, expected {:.4})",
             err * 100.0, vol, expected
+        );
+    }
+
+    /// Regression test: equal-height parallel cylinders with exactly coplanar caps.
+    ///
+    /// Two cylinders of equal radius r = 0.4 mm and equal height h = 3 mm,
+    /// with axes offset by d = r = 0.4 mm in X.  Both base caps sit at
+    /// exactly y = −1.5 and both top caps at y = +1.5.
+    ///
+    /// Before the fix: the coplanar cap faces were routed through the
+    /// Sutherland-Hodgman clip, which duplicated them (orient_3d Degenerate =
+    /// "inside"), causing the union volume to exceed V_A + V_B.
+    ///
+    /// After the fix: coplanar pairs bypass clipping and are classified by
+    /// normal alignment.  Co-oriented cap pairs keep exactly one copy, so:
+    ///   vol(A ∪ B) < V_A + V_B   (overlap correctly subtracted)
+    ///   vol(A ∩ B) > 0            (lens region positive)
+    #[test]
+    fn coplanar_caps_no_double_counting() {
+        use crate::geometry::primitives::{Cylinder, PrimitiveMesh};
+        let r = 0.4_f64;
+        let h = 3.0_f64;
+        // Both cylinders: Y ∈ [−1.5, 1.5] — caps coplanar at y = ±1.5.
+        let cyl_a = Cylinder {
+            base_center: Point3r::new(-r / 2.0, -h / 2.0, 0.0),
+            radius: r,
+            height: h,
+            segments: 32,
+        }.build().expect("cyl_a build failed");
+        let cyl_b = Cylinder {
+            base_center: Point3r::new( r / 2.0, -h / 2.0, 0.0),
+            radius: r,
+            height: h,
+            segments: 32,
+        }.build().expect("cyl_b build failed");
+
+        let v_each = std::f64::consts::PI * r * r * h; // ≈ 1.5080
+
+        let union_mesh = csg_boolean_indexed(BooleanOp::Union, &cyl_a, &cyl_b)
+            .expect("union should succeed");
+        let union_vol = signed_volume(&union_mesh);
+
+        // Union must be strictly less than V_A + V_B (not double-counted).
+        assert!(
+            union_vol < 2.0 * v_each - 0.01,
+            "union vol {:.4} should be < 2·V_each = {:.4} (coplanar caps double-counted)",
+            union_vol, 2.0 * v_each,
+        );
+        // And it must be positive.
+        assert!(union_vol > 0.1, "union vol {:.4} should be positive", union_vol);
+
+        // Intersection must be positive (the lens barrel is non-empty).
+        let inter_mesh = csg_boolean_indexed(BooleanOp::Intersection, &cyl_a, &cyl_b)
+            .expect("intersection should succeed");
+        let inter_vol = signed_volume(&inter_mesh);
+        assert!(inter_vol > 0.05, "intersection vol {:.4} should be positive", inter_vol);
+
+        // Inclusion-exclusion: vol(A) + vol(B) ≈ vol(A∪B) + vol(A∩B)
+        // Allow 10% tolerance for triangulation discretisation.
+        let ie_lhs = 2.0 * v_each;
+        let ie_rhs = union_vol + inter_vol;
+        let ie_err = (ie_lhs - ie_rhs).abs() / ie_lhs;
+        assert!(
+            ie_err < 0.10,
+            "inclusion-exclusion error {:.1}% > 10% (lhs={:.4}, rhs={:.4})",
+            ie_err * 100.0, ie_lhs, ie_rhs,
         );
     }
 }
