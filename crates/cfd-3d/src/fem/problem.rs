@@ -99,22 +99,11 @@ impl<T: RealField + Copy> StokesFlowProblem<T> {
             }
         }
 
-        // Collect boundary faces:
-        // 1. Faces explicitly marked as boundaries
-        let marked_boundary_faces: HashSet<usize> =
-            self.mesh.boundary_faces().into_iter().collect();
-
-        // 2. Faces referenced by exactly one cell (external boundaries)
-        let connectivity_boundary_faces: HashSet<usize> = face_cell_count
+        // Collect boundary faces referenced by exactly one cell (external boundaries)
+        let boundary_faces: HashSet<usize> = face_cell_count
             .iter()
             .filter(|&(_face_idx, &count)| count == 1)
             .map(|(&face_idx, _)| face_idx)
-            .collect();
-
-        // Union of both sets
-        let boundary_faces: HashSet<usize> = marked_boundary_faces
-            .union(&connectivity_boundary_faces)
-            .copied()
             .collect();
 
         // Collect unique vertices from all boundary faces
@@ -327,5 +316,61 @@ mod tests {
         let mut sorted = boundary_nodes.clone();
         sorted.sort_unstable();
         assert_eq!(boundary_nodes, sorted);
+    }
+
+    #[test]
+    fn test_internal_node_ignored() {
+        let mut mesh = Mesh::new();
+        // Vertices: 0 is center, 1-4 are outer
+        mesh.add_vertex(cfd_mesh::topology::Vertex::new(Point3::new(0.0, 0.0, 0.0))); // Center
+        mesh.add_vertex(cfd_mesh::topology::Vertex::new(Point3::new(1.0, 1.0, 1.0)));
+        mesh.add_vertex(cfd_mesh::topology::Vertex::new(Point3::new(1.0, -1.0, -1.0)));
+        mesh.add_vertex(cfd_mesh::topology::Vertex::new(Point3::new(-1.0, 1.0, -1.0)));
+        mesh.add_vertex(cfd_mesh::topology::Vertex::new(Point3::new(-1.0, -1.0, 1.0)));
+
+        // Outer faces of the big tetrahedron would be (1,2,3), (1,3,4), (1,4,2), (2,4,3)
+        // We form 4 internal tets using vertex 0.
+
+        // Tet 1: 0, 1, 2, 3
+        let f0 = mesh.add_face(Face::triangle(0, 1, 2)); // internal
+        let f1 = mesh.add_face(Face::triangle(0, 2, 3)); // internal
+        let f2 = mesh.add_face(Face::triangle(0, 3, 1)); // internal
+        let f3 = mesh.add_face(Face::triangle(1, 2, 3)); // External
+        mesh.add_cell(Cell::tetrahedron(f0, f1, f2, f3));
+
+        // Tet 2: 0, 1, 3, 4
+        // Faces: (0,1,3) is f2 shared.
+        // Need (0,3,4), (0,4,1).
+        let f4 = mesh.add_face(Face::triangle(0, 3, 4)); // internal
+        let f5 = mesh.add_face(Face::triangle(0, 4, 1)); // internal
+        let f6 = mesh.add_face(Face::triangle(1, 3, 4)); // External
+        mesh.add_cell(Cell::tetrahedron(f2, f4, f5, f6));
+
+        // Tet 3: 0, 1, 4, 2
+        // Faces: (0,4,1) is f5 shared. (0,1,2) is f0 shared.
+        // Need (0,2,4).
+        let f7 = mesh.add_face(Face::triangle(0, 2, 4)); // internal
+        let f8 = mesh.add_face(Face::triangle(1, 4, 2)); // External
+        mesh.add_cell(Cell::tetrahedron(f5, f0, f7, f8));
+
+        // Tet 4: 0, 2, 4, 3
+        // Faces: (0,2,3) is f1 shared. (0,3,4) is f4 shared. (0,4,2) is f7 shared (reversed 0,2,4).
+        // External (2,3,4) -> (2,4,3)
+        let f9 = mesh.add_face(Face::triangle(2, 4, 3)); // External
+        mesh.add_cell(Cell::tetrahedron(f1, f4, f7, f9));
+
+        let fluid = ConstantPropertyFluid::<f64>::water_20c().unwrap();
+        let boundary_conditions = HashMap::new();
+        let problem = StokesFlowProblem::new(mesh, fluid, boundary_conditions, 5);
+
+        let boundary_nodes = problem.get_boundary_nodes();
+
+        // Node 0 should NOT be in boundary_nodes
+        assert!(!boundary_nodes.contains(&0), "Internal node 0 should not be a boundary node");
+
+        // Nodes 1,2,3,4 SHOULD be in boundary_nodes
+        for i in 1..=4 {
+            assert!(boundary_nodes.contains(&i));
+        }
     }
 }
