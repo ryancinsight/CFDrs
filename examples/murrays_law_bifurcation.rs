@@ -71,10 +71,10 @@ use cfd_1d::solver::{NetworkProblem, NetworkSolver, SolverConfig};
 // cfd-core
 use cfd_core::physics::fluid::ConstantPropertyFluid;
 
-// scheme (requires --features scheme-integration)
-use scheme::config::*;
-use scheme::geometry::generator::create_geometry;
-use scheme::geometry::SplitType;
+// cfd-schematics (canonical SSOT for network topology)
+use cfd_schematics::config::*;
+use cfd_schematics::geometry::generator::create_geometry;
+use cfd_schematics::geometry::SplitType;
 
 use petgraph::graph::NodeIndex;
 

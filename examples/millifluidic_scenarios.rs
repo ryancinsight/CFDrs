@@ -43,10 +43,10 @@ use cfd_1d::solver::{
 // cfd-core
 use cfd_core::physics::fluid::ConstantPropertyFluid;
 
-// scheme
-use scheme::config::*;
-use scheme::geometry::generator::create_geometry;
-use scheme::geometry::{ChannelSystem, ChannelType as SchemeChannelType, SplitType};
+// cfd-schematics (canonical SSOT for network topology)
+use cfd_schematics::config::*;
+use cfd_schematics::geometry::generator::create_geometry;
+use cfd_schematics::geometry::{ChannelSystem, ChannelType as SchemeChannelType, SplitType};
 
 // petgraph
 use petgraph::graph::NodeIndex;
