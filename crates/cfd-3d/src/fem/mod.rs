@@ -18,6 +18,7 @@ pub mod projection_solver;
 pub mod solution;
 pub mod solver;
 pub mod stabilization;
+pub mod stress;
 pub mod quadrature;
 pub mod shape_functions;
 
