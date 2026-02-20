@@ -352,19 +352,25 @@ pub fn boolean_intersecting_arrangement(
     let mut partners_a: HashMap<usize, Vec<(usize, FaceData)>> = HashMap::new();
     let mut partners_b: HashMap<usize, Vec<(usize, FaceData)>> = HashMap::new();
 
-    // Coplanar face tracking: maps a quantised plane key to lists of face
-    // indices from A and B that lie in that plane.
+    // Coplanar face tracking: groups faces into exact algebraic coplanarity equivalence 
+    // classes by storing an arbitrary group ID (assigned consecutively).
+    //
+    // Exact geometry dictates that faces are coplanar if and only if all points of
+    // Face B lie strictly in the algebraic plane of Face A (`orient3d == Zero`).
     //
     // Coplanar pairs CANNOT go through the Sutherland-Hodgman clip machinery —
     // `orient_3d` returns `Degenerate` for every query point when all points
     // are coplanar, making every clip half-plane appear as "all inside".
-    //
-    // Instead we collect coplanar face sets (grouped by plane) and run the
+    // Instead we collect coplanar face sets (grouped by exact coplanarity) and run the
     // exact 2-D Sutherland-Hodgman pipeline (`boolean_coplanar`) on each group.
-    // This gives geometrically exact boundary clipping for cap faces.
-    let mut coplanar_plane_a: HashMap<(i64, i64, i64, i64), Vec<usize>> = HashMap::new();
-    let mut coplanar_plane_b: HashMap<(i64, i64, i64, i64), Vec<usize>> = HashMap::new();
-
+    
+    // Group IDs mappings
+    let mut coplanar_plane_a: HashMap<usize, Vec<usize>> = HashMap::new();
+    let mut coplanar_plane_b: HashMap<usize, Vec<usize>> = HashMap::new();
+    
+    // Union-find or simple array-of-arrays to track exact coplanarity planes.
+    // Each element is a representative face `(face_idx_a, face_data_a)`.
+    let mut coplanar_groups: Vec<(usize, FaceData)> = Vec::new();
     // ── Phase 2: narrow phase — exact intersection test ───────────────────────
     for pair in &pairs {
         let fa = &faces_a[pair.face_a];
@@ -379,45 +385,45 @@ pub fn boolean_intersecting_arrangement(
                     .push((pair.face_a, *fa));
             }
             IntersectionType::Coplanar => {
-                // Compute quantised plane key for A face: (nx, ny, nz, d)
-                // where (nx,ny,nz) is the normalised normal (×1000) and d is
-                // the signed distance from origin (×1000), both rounded.
-                // The key uses the canonical normal direction (always positive Z
-                // component, or positive Y if Z≈0, etc.) so that two parallel
-                // planes with opposite stored windings hash to the same key.
-                let plane_key = |face: &FaceData| -> (i64, i64, i64, i64) {
-                    let p0 = *pool.position(face.vertices[0]);
-                    let p1 = *pool.position(face.vertices[1]);
-                    let p2 = *pool.position(face.vertices[2]);
-                    let ab = Vector3r::new(p1.x-p0.x, p1.y-p0.y, p1.z-p0.z);
-                    let ac = Vector3r::new(p2.x-p0.x, p2.y-p0.y, p2.z-p0.z);
-                    let n  = ab.cross(&ac);
-                    let nl = n.norm();
-                    if nl < 1e-20 { return (0,0,0,0); }
-                    // Canonicalise direction: flip if leading nonzero component < 0.
-                    let (nx, ny, nz) = (n.x/nl, n.y/nl, n.z/nl);
-                    let flip = if nz.abs() > 0.01 { nz < 0.0 }
-                               else if ny.abs() > 0.01 { ny < 0.0 }
-                               else { nx < 0.0 };
-                    let (cx, cy, cz) = if flip { (-nx,-ny,-nz) } else { (nx,ny,nz) };
-                    // Signed distance from origin: d = n · p0.
-                    let d = (if flip { -1.0 } else { 1.0 })
-                            * (nx*p0.x + ny*p0.y + nz*p0.z);
-                    (
-                        (cx * 1000.0).round() as i64,
-                        (cy * 1000.0).round() as i64,
-                        (cz * 1000.0).round() as i64,
-                        (d  * 1000.0).round() as i64,
-                    )
+                // To group exactly coplanar faces without float quantization, we 
+                // check if the current face A is algebraically coplanar with any 
+                // existing known coplanar group representative.
+                
+                use crate::topology::predicates::{orient3d, Sign};
+                
+                let p0 = pool.position(fa.vertices[0]);
+                let p1 = pool.position(fa.vertices[1]);
+                let p2 = pool.position(fa.vertices[2]);
+                
+                let mut found_group = None;
+                for (group_id, (_, rep_face)) in coplanar_groups.iter().enumerate() {
+                    let r0 = pool.position(rep_face.vertices[0]);
+                    let r1 = pool.position(rep_face.vertices[1]);
+                    let r2 = pool.position(rep_face.vertices[2]);
+                    
+                    // Verify if Representative is perfectly coplanar with Face A.
+                    // A is coplanar with Rep if all 3 points of A lie exactly on the plane of Rep.
+                    if orient3d(r0, r1, r2, p0) == Sign::Zero &&
+                       orient3d(r0, r1, r2, p1) == Sign::Zero &&
+                       orient3d(r0, r1, r2, p2) == Sign::Zero 
+                    {
+                        found_group = Some(group_id);
+                        break;
+                    }
+                }
+                
+                let group_id = if let Some(id) = found_group {
+                    id
+                } else {
+                    let new_id = coplanar_groups.len();
+                    coplanar_groups.push((pair.face_a, *fa));
+                    new_id
                 };
-                let ka = plane_key(fa);
-                let kb = plane_key(fb);
-                // Both faces are coplanar, so they must hash to the same key.
-                // Use ka (A's key) as the canonical group key.
-                let key = ka; // == kb (same plane)
-                let _ = kb;   // suppress unused warning
-                coplanar_plane_a.entry(key).or_default().push(pair.face_a);
-                coplanar_plane_b.entry(key).or_default().push(pair.face_b);
+                
+                coplanar_plane_a.entry(group_id).or_default().push(pair.face_a);
+                // pair.face_b generated IntersectionType::Coplanar, so it is strictly 
+                // coplanar with face_a and therefore belongs in the same group.
+                coplanar_plane_b.entry(group_id).or_default().push(pair.face_b);
             }
             IntersectionType::None => {}
         }
@@ -772,5 +778,39 @@ mod tests {
             "inclusion-exclusion error {:.1}% > 10% (lhs={:.4}, rhs={:.4})",
             ie_err * 100.0, ie_lhs, ie_rhs,
         );
+    }
+
+    /// Regression test: ensure faces that are almost but not exactly coplanar
+    /// do not get grouped together by a quantization heuristic.
+    #[test]
+    fn exact_algebraic_coplanarity_no_shatter() {
+        let mut pool: VertexPool<f64> = VertexPool::default_millifluidic();
+        
+        // Let's create `IndexedMesh`es so they run through the full `BooleanOp` pipeline
+        // assuring broad-phase overlap tests correctly dispatch to intersection.
+        let mut mesh_a = IndexedMesh::new();
+        let mut mesh_b = IndexedMesh::new();
+        
+        let a1 = mesh_a.add_vertex(Point3r::new(0.0, 0.0, 0.0), Vector3r::z());
+        let a2 = mesh_a.add_vertex(Point3r::new(1.0, 0.0, 0.0), Vector3r::z());
+        let a3 = mesh_a.add_vertex(Point3r::new(0.0, 1.0, 0.0), Vector3r::z());
+        mesh_a.add_face(a1, a2, a3);
+
+        let b1 = mesh_b.add_vertex(Point3r::new(0.0, 0.0, 0.0000001), Vector3r::z());
+        let b2 = mesh_b.add_vertex(Point3r::new(1.0, 0.0, 0.0000001), Vector3r::z());
+        let b3 = mesh_b.add_vertex(Point3r::new(0.0, 1.0, 0.0), Vector3r::z());
+        mesh_b.add_face(b1, b2, b3);
+
+        let result = crate::csg::boolean::csg_boolean_indexed(
+            crate::csg::boolean::BooleanOp::Intersection, &mesh_a, &mesh_b
+        );
+        
+        assert!(result.is_ok(), "Intersection evaluation should not error");
+        let result_mesh = result.unwrap();
+        // Since they only intersect at exactly one line inside the 2D plane (y=0, z~=0),
+        // there is no 3D overlap, and no coplanar 2D area overlap. The intersection mesh correctly
+        // produces the exact intersection artifacts (typically 1 or 2 seam fragments) rather than completely
+        // vanishing or duplicating due to a coplanar grouping heuristic.
+        assert!(result_mesh.faces.len() <= 2, "Non-coplanar tilted faces should not output massive coplanar intersection");
     }
 }

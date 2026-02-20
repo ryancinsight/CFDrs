@@ -48,6 +48,6 @@ An audit of `cfd-mesh` was conducted focusing on Constructive Solid Geometry (CS
 - **Required Fix**: Upgrade from naive distance-based collapsing to topology-preserving vertex welding. Implement robust vertex merging that guarantees preservation of 2-manifold properties and avoids non-manifold edge creation, utilizing topological invariant checks during the merge phase.
 
 #### 4. Curved Mesh Arrangement Pipeline (`csg/arrangement.rs`)
-- **Current State**: Uses a 5-phase Boolean layout with floating-point coordinate math, epsilon fallbacks (e.g., `denom.abs() < 1e-30`), a brittle hardcoded normal quantization hack to evaluate coplanarity (`i64` cast of `1000.0 * value`), and heuristic parity ray-casting employing a hardcoded `NUDGE = 1e-8`.
-- **Gap**: Grossly violates the "Mathematical Proofs" and "Implementation Purity" guidelines. Reliance on heuristic epsilons introduces unprovable numerical drift. Quantization of 3D normals to $10^3$ buckets is mathematically corrupt and destroys exact geometry. Ray nudging fails for topologically singular intersections.
-- **Required Fix**: Eliminate all epsilon checks and heuristic quantizations. Replace coplanarity float grouping with exact algebraic collinearity predicates. Replace heuristic raycasting with Generalized Winding Number (GWN) algorithms or rigorous singularity-aware boundary tracking.
+- **Current State**: Uses a 5-phase Boolean layout with exact algebraic coplanarity grouping via rigorous `orient3d`, strict GWN raycasting algorithm for inclusion, and mathematically robust barycentric evaluation.
+- **Gap**: Fixed.
+- **Status**: ✅ **FIXED** - Eliminated all $10^{-N}$ epsilon fallbacks and normal scaling approximations. Replaced heuristic ray-casting with exact mathematical algorithms.
