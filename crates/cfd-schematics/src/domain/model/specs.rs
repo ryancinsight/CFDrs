@@ -1,6 +1,55 @@
 use super::{EdgeId, NodeId};
 use serde::{Deserialize, Serialize};
 
+/// Cross-section geometry specification for a channel
+///
+/// Carries the physical geometry needed by the 1D solver to compute
+/// hydraulic resistance. This lives in `cfd-schematics` so that examples
+/// can fully specify a network via `ChannelSpec` without importing
+/// `cfd_1d::channel` types.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub enum CrossSectionSpec {
+    /// Circular cross-section (e.g. tubing, blood vessels)
+    Circular {
+        /// Inner diameter [m]
+        diameter_m: f64,
+    },
+    /// Rectangular cross-section (e.g. PDMS microfluidic channels)
+    Rectangular {
+        /// Width [m]
+        width_m: f64,
+        /// Height [m]
+        height_m: f64,
+    },
+}
+
+impl CrossSectionSpec {
+    /// Hydraulic diameter [m]: `D_h = 4A / P`
+    ///
+    /// - Circular: `D_h = d`
+    /// - Rectangular: `D_h = 2wh / (w + h)`
+    #[must_use]
+    pub fn hydraulic_diameter(&self) -> f64 {
+        match self {
+            Self::Circular { diameter_m } => *diameter_m,
+            Self::Rectangular { width_m, height_m } => {
+                2.0 * width_m * height_m / (width_m + height_m)
+            }
+        }
+    }
+
+    /// Cross-sectional area [m²]
+    #[must_use]
+    pub fn area(&self) -> f64 {
+        match self {
+            Self::Circular { diameter_m } => {
+                std::f64::consts::PI * (diameter_m / 2.0).powi(2)
+            }
+            Self::Rectangular { width_m, height_m } => width_m * height_m,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum NodeKind {
     Inlet,
@@ -8,6 +57,7 @@ pub enum NodeKind {
     Reservoir,
     Junction,
 }
+
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NodeSpec {
@@ -39,7 +89,9 @@ pub struct ChannelSpec {
     pub from: NodeId,
     pub to: NodeId,
     pub length_m: f64,
-    pub diameter_m: f64,
+    /// Physical cross-section geometry — used by `cfd-1d` to compute hydraulic resistance.
+    /// Replaces the old `diameter_m` field with a typed, extensible spec.
+    pub cross_section: CrossSectionSpec,
     pub resistance: f64,
     pub quad_coeff: f64,
     // Component properties
@@ -49,6 +101,7 @@ pub struct ChannelSpec {
 }
 
 impl ChannelSpec {
+    /// Create a circular-cross-section pipe channel spec.
     #[must_use]
     pub fn new_pipe(
         id: impl Into<String>,
@@ -65,7 +118,34 @@ impl ChannelSpec {
             from: NodeId::new(from),
             to: NodeId::new(to),
             length_m,
-            diameter_m,
+            cross_section: CrossSectionSpec::Circular { diameter_m },
+            resistance,
+            quad_coeff,
+            valve_cv: None,
+            pump_max_flow: None,
+            pump_max_pressure: None,
+        }
+    }
+
+    /// Create a rectangular-cross-section pipe channel spec.
+    #[must_use]
+    pub fn new_pipe_rect(
+        id: impl Into<String>,
+        from: impl Into<String>,
+        to: impl Into<String>,
+        length_m: f64,
+        width_m: f64,
+        height_m: f64,
+        resistance: f64,
+        quad_coeff: f64,
+    ) -> Self {
+        Self {
+            id: EdgeId::new(id),
+            kind: EdgeKind::Pipe,
+            from: NodeId::new(from),
+            to: NodeId::new(to),
+            length_m,
+            cross_section: CrossSectionSpec::Rectangular { width_m, height_m },
             resistance,
             quad_coeff,
             valve_cv: None,
@@ -86,10 +166,10 @@ impl ChannelSpec {
             kind: EdgeKind::Valve,
             from: NodeId::new(from),
             to: NodeId::new(to),
-            length_m: 0.0, // Valves are 0-length in 1D usually, or negligible
-            diameter_m: 0.0,
-            resistance: 0.0, // Calculated from Cv
-            quad_coeff: 0.0, // Calculated from Cv
+            length_m: 0.0,
+            cross_section: CrossSectionSpec::Circular { diameter_m: 0.0 },
+            resistance: 0.0,
+            quad_coeff: 0.0,
             valve_cv: Some(cv),
             pump_max_flow: None,
             pump_max_pressure: None,
@@ -110,7 +190,7 @@ impl ChannelSpec {
             from: NodeId::new(from),
             to: NodeId::new(to),
             length_m: 0.0,
-            diameter_m: 0.0,
+            cross_section: CrossSectionSpec::Circular { diameter_m: 0.0 },
             resistance: 0.0,
             quad_coeff: 0.0,
             valve_cv: None,

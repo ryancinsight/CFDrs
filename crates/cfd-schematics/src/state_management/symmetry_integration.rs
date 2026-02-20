@@ -6,7 +6,7 @@
 //! and all other specified design principles.
 
 use crate::{
-    config_constants::ConstantsRegistry,
+    config::ConstantsRegistry,
     error::{ConfigurationError, SchemeError, SchemeResult},
     state_management::{
         adaptive::{

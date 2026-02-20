@@ -5,7 +5,7 @@
 //! multi-channel compatibility.
 
 use crate::config::{GeometryConfig, OptimizationProfile, SerpentineConfig};
-use crate::config_constants::ConstantsRegistry;
+use crate::config::ConstantsRegistry;
 use crate::geometry::types::Point2D;
 
 /// Optimization algorithm constants
@@ -288,9 +288,10 @@ fn optimize_fast(
     let mut iterations = 0;
 
     // Grid search over parameter combinations
-    for &wavelength_factor in wavelength_factors {
-        for &wave_density_factor in wave_density_factors {
-            for &fill_factor in fill_factors {
+    // Grid search over parameter combinations
+    for &wavelength_factor in &wavelength_factors {
+        for &wave_density_factor in &wave_density_factors {
+            for &fill_factor in &fill_factors {
                 iterations += 1;
 
                 // Create test configuration without cloning the entire config
@@ -461,7 +462,7 @@ fn optimize_nelder_mead(
         })
         .collect();
 
-    let constants = crate::config_constants::ConstantsRegistry::new();
+    let constants = crate::config::ConstantsRegistry::new();
     let max_iterations = constants.get_max_optimization_iterations();
     let tolerance = constants.get_optimization_tolerance();
     let mut iterations = 0;

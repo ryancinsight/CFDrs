@@ -7,6 +7,7 @@
 
 use crate::error::VisualizationResult;
 use crate::geometry::{ChannelSystem, Point2D};
+use crate::visualizations::analysis_field::AnalysisOverlay;
 
 /// Trait for rendering 2D microfluidic schematics
 ///
@@ -27,6 +28,25 @@ pub trait SchematicRenderer {
         system: &ChannelSystem,
         output_path: &str,
         config: &RenderConfig,
+    ) -> VisualizationResult<()>;
+
+    /// Render a channel system with CFD simulation results overlaid as colors
+    ///
+    /// Channels are colored by the field quantity in `overlay.edge_data` and
+    /// nodes are colored by `overlay.node_data`. Normalization and colormap
+    /// application are handled internally by the renderer.
+    ///
+    /// # Arguments
+    /// * `system` - The channel system to render
+    /// * `output_path` - Path where the rendered output should be saved
+    /// * `config` - Configuration for the rendering
+    /// * `overlay` - Typed CFD analysis overlay with field data and colormap
+    fn render_analysis(
+        &self,
+        system: &ChannelSystem,
+        output_path: &str,
+        config: &RenderConfig,
+        overlay: &AnalysisOverlay,
     ) -> VisualizationResult<()>;
 
     /// Get the supported output formats for this renderer

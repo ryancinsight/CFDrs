@@ -6,6 +6,179 @@
 
 use crate::state_management::{ConfigurableParameter, ParameterConstraints, ParameterMetadata};
 
+/// Configuration constants for geometry validation and defaults (Primitives)
+pub mod primitives {
+    /// Minimum allowed wall clearance (mm)
+    pub const MIN_WALL_CLEARANCE: f64 = 0.1;
+    /// Maximum allowed wall clearance (mm)
+    pub const MAX_WALL_CLEARANCE: f64 = 100.0;
+    /// Default wall clearance (mm)
+    pub const DEFAULT_WALL_CLEARANCE: f64 = 0.5;
+
+    // Rendering and geometry generation constants
+    /// Default number of points for serpentine path generation
+    pub const DEFAULT_SERPENTINE_POINTS: usize = 200;
+    /// Minimum number of points for serpentine path generation
+    pub const MIN_SERPENTINE_POINTS: usize = 10;
+    /// Maximum number of points for serpentine path generation
+    pub const MAX_SERPENTINE_POINTS: usize = 1000;
+
+    /// Default number of points for optimization path generation
+    pub const DEFAULT_OPTIMIZATION_POINTS: usize = 50;
+    /// Minimum number of points for optimization path generation
+    pub const MIN_OPTIMIZATION_POINTS: usize = 10;
+    /// Maximum number of points for optimization path generation
+    pub const MAX_OPTIMIZATION_POINTS: usize = 200;
+
+    /// Default number of middle points for smooth straight channels
+    pub const DEFAULT_SMOOTH_STRAIGHT_MIDDLE_POINTS: usize = 10;
+    /// Minimum number of middle points for smooth straight channels
+    pub const MIN_SMOOTH_STRAIGHT_MIDDLE_POINTS: usize = 2;
+    /// Maximum number of middle points for smooth straight channels
+    pub const MAX_SMOOTH_STRAIGHT_MIDDLE_POINTS: usize = 50;
+
+    /// Default wave multiplier for smooth transitions (2π for one complete wave)
+    pub const DEFAULT_TRANSITION_WAVE_MULTIPLIER: f64 = 2.0;
+    /// Minimum wave multiplier for smooth transitions
+    pub const MIN_TRANSITION_WAVE_MULTIPLIER: f64 = 0.5;
+    /// Maximum wave multiplier for smooth transitions
+    pub const MAX_TRANSITION_WAVE_MULTIPLIER: f64 = 10.0;
+
+    // Adaptive serpentine control constants
+    /// Default distance normalization factor for node proximity effects
+    pub const DEFAULT_NODE_DISTANCE_NORMALIZATION: f64 = 10.0;
+    /// Minimum distance normalization factor
+    pub const MIN_NODE_DISTANCE_NORMALIZATION: f64 = 1.0;
+    /// Maximum distance normalization factor
+    pub const MAX_NODE_DISTANCE_NORMALIZATION: f64 = 50.0;
+
+    /// Default plateau width factor for horizontal channels (fraction of channel length)
+    pub const DEFAULT_PLATEAU_WIDTH_FACTOR: f64 = 0.4;
+    /// Minimum plateau width factor
+    pub const MIN_PLATEAU_WIDTH_FACTOR: f64 = 0.1;
+    /// Maximum plateau width factor
+    pub const MAX_PLATEAU_WIDTH_FACTOR: f64 = 0.8;
+
+    /// Default horizontal ratio threshold for middle section detection
+    pub const DEFAULT_HORIZONTAL_RATIO_THRESHOLD: f64 = 1.01;
+    /// Minimum horizontal ratio threshold
+    pub const MIN_HORIZONTAL_RATIO_THRESHOLD: f64 = 0.5;
+    /// Maximum horizontal ratio threshold
+    pub const MAX_HORIZONTAL_RATIO_THRESHOLD: f64 = 0.95;
+
+    /// Default middle section amplitude factor
+    pub const DEFAULT_MIDDLE_SECTION_AMPLITUDE_FACTOR: f64 = 0.7;
+    /// Minimum middle section amplitude factor
+    pub const MIN_MIDDLE_SECTION_AMPLITUDE_FACTOR: f64 = 0.1;
+    /// Maximum middle section amplitude factor
+    pub const MAX_MIDDLE_SECTION_AMPLITUDE_FACTOR: f64 = 1.0;
+
+    /// Default plateau amplitude factor
+    pub const DEFAULT_PLATEAU_AMPLITUDE_FACTOR: f64 = 0.8;
+    /// Minimum plateau amplitude factor
+    pub const MIN_PLATEAU_AMPLITUDE_FACTOR: f64 = 0.5;
+    /// Maximum plateau amplitude factor
+    pub const MAX_PLATEAU_AMPLITUDE_FACTOR: f64 = 1.0;
+
+    /// Minimum allowed channel width (mm)
+    pub const MIN_CHANNEL_WIDTH: f64 = 0.01;
+    /// Maximum allowed channel width (mm)
+    pub const MAX_CHANNEL_WIDTH: f64 = 1000.0;
+    /// Default channel width (mm)
+    pub const DEFAULT_CHANNEL_WIDTH: f64 = 1.0;
+
+    /// Minimum allowed channel height (mm)
+    pub const MIN_CHANNEL_HEIGHT: f64 = 0.01;
+    /// Maximum allowed channel height (mm)
+    pub const MAX_CHANNEL_HEIGHT: f64 = 1000.0;
+    /// Default channel height (mm)
+    pub const DEFAULT_CHANNEL_HEIGHT: f64 = 0.5;
+
+    /// Minimum fill factor for serpentine channels
+    pub const MIN_FILL_FACTOR: f64 = 0.1;
+    /// Maximum fill factor for serpentine channels
+    pub const MAX_FILL_FACTOR: f64 = 0.95;
+    /// Default fill factor for serpentine channels
+    pub const DEFAULT_FILL_FACTOR: f64 = 0.8;
+
+    /// Minimum wavelength factor for serpentine channels
+    pub const MIN_WAVELENGTH_FACTOR: f64 = 1.0;
+    /// Maximum wavelength factor for serpentine channels
+    pub const MAX_WAVELENGTH_FACTOR: f64 = 10.0;
+    /// Default wavelength factor for serpentine channels
+    pub const DEFAULT_WAVELENGTH_FACTOR: f64 = 6.0;
+
+    /// Minimum Gaussian width factor for serpentine channels
+    pub const MIN_GAUSSIAN_WIDTH_FACTOR: f64 = 2.0;
+    /// Maximum Gaussian width factor for serpentine channels
+    pub const MAX_GAUSSIAN_WIDTH_FACTOR: f64 = 20.0;
+    /// Default Gaussian width factor for serpentine channels
+    pub const DEFAULT_GAUSSIAN_WIDTH_FACTOR: f64 = 6.0;
+
+    /// Minimum wave density factor for serpentine channels
+    pub const MIN_WAVE_DENSITY_FACTOR: f64 = 0.5;
+    /// Maximum wave density factor for serpentine channels
+    pub const MAX_WAVE_DENSITY_FACTOR: f64 = 10.0;
+    /// Default wave density factor for serpentine channels
+    pub const DEFAULT_WAVE_DENSITY_FACTOR: f64 = 1.5;
+
+    /// Minimum curvature factor for arc channels
+    pub const MIN_CURVATURE_FACTOR: f64 = 0.0;
+    /// Maximum curvature factor for arc channels
+    pub const MAX_CURVATURE_FACTOR: f64 = 2.0;
+    /// Default curvature factor for arc channels
+    pub const DEFAULT_CURVATURE_FACTOR: f64 = 0.3;
+
+    /// Minimum smoothness for arc channels
+    pub const MIN_SMOOTHNESS: usize = 3;
+    /// Maximum smoothness for arc channels
+    pub const MAX_SMOOTHNESS: usize = 1000;
+    /// Default smoothness for arc channels
+    pub const DEFAULT_SMOOTHNESS: usize = 20;
+
+    /// Minimum separation distance between arc channels (mm)
+    pub const MIN_SEPARATION_DISTANCE: f64 = 0.1;
+    /// Maximum separation distance between arc channels (mm)
+    pub const MAX_SEPARATION_DISTANCE: f64 = 10.0;
+    /// Default minimum separation distance between arc channels (mm)
+    pub const DEFAULT_MIN_SEPARATION_DISTANCE: f64 = 1.0;
+
+    /// Minimum curvature reduction factor for collision prevention
+    pub const MIN_CURVATURE_REDUCTION: f64 = 0.1;
+    /// Maximum curvature reduction factor for collision prevention
+    pub const MAX_CURVATURE_REDUCTION_LIMIT: f64 = 1.0;
+    /// Default maximum curvature reduction factor
+    pub const DEFAULT_MAX_CURVATURE_REDUCTION: f64 = 0.5;
+
+    /// Strategy thresholds for smart channel type selection
+    pub mod strategy_thresholds {
+        /// Threshold for long horizontal channels (fraction of box width)
+        pub const LONG_HORIZONTAL_THRESHOLD: f64 = 0.3;
+        /// Threshold for minimum arc length (fraction of box width)
+        pub const MIN_ARC_LENGTH_THRESHOLD: f64 = 0.1;
+        /// Threshold for horizontal vs angled channel detection
+        pub const HORIZONTAL_ANGLE_THRESHOLD: f64 = 0.3;
+        /// Threshold for angled channel detection (slope)
+        pub const ANGLED_CHANNEL_SLOPE_THRESHOLD: f64 = 0.1;
+        /// Default middle zone fraction for mixed by position
+        pub const DEFAULT_MIDDLE_ZONE_FRACTION: f64 = 0.4;
+    }
+
+    // Adaptive collision constants (Added during refactor recovery)
+    pub const DEFAULT_MAX_ADJUSTMENT_FACTOR: f64 = 0.5;
+    pub const DEFAULT_MIN_CHANNEL_DISTANCE: f64 = 0.5;
+    pub const DEFAULT_SAFETY_MARGIN_FACTOR: f64 = 1.1;
+    pub const DEFAULT_MAX_REDUCTION_FACTOR: f64 = 0.8;
+    pub const DEFAULT_DETECTION_SENSITIVITY: f64 = 0.1;
+    pub const DEFAULT_PROXIMITY_DIVISOR: f64 = 10.0;
+    pub const DEFAULT_MIN_PROXIMITY_FACTOR: f64 = 0.2;
+    pub const DEFAULT_MAX_PROXIMITY_FACTOR: f64 = 2.0;
+    pub const DEFAULT_BRANCH_ADJUSTMENT_DIVISOR: f64 = 5.0;
+    pub const DEFAULT_MAX_SENSITIVITY_MULTIPLIER: f64 = 3.0;
+    pub const DEFAULT_LONG_CHANNEL_REDUCTION_MULTIPLIER: f64 = 0.9;
+    pub const DEFAULT_MAX_REDUCTION_LIMIT: f64 = 0.5;
+}
+
 /// Strategy selection thresholds and parameters
 pub struct StrategyThresholds {
     /// Minimum curvature factor to use arc strategy instead of straight
@@ -807,10 +980,10 @@ impl VisualizationConstants {
             ),
 
             default_x_label_area_size: ConfigurableParameter::new(
-                40u32,
+                30u32,
                 ParameterConstraints::all(vec![
                     ParameterConstraints::<u32>::positive(),
-                    ParameterConstraints::range(20, 200),
+                    ParameterConstraints::range(10, 100),
                 ]),
                 ParameterMetadata::new(
                     "default_x_label_area_size",
@@ -821,10 +994,10 @@ impl VisualizationConstants {
             ),
 
             default_y_label_area_size: ConfigurableParameter::new(
-                40u32,
+                30u32,
                 ParameterConstraints::all(vec![
                     ParameterConstraints::<u32>::positive(),
-                    ParameterConstraints::range(20, 200),
+                    ParameterConstraints::range(10, 100),
                 ]),
                 ParameterMetadata::new(
                     "default_y_label_area_size",
@@ -838,7 +1011,7 @@ impl VisualizationConstants {
                 0.1,
                 ParameterConstraints::all(vec![
                     ParameterConstraints::<f64>::positive(),
-                    ParameterConstraints::range(0.01, 1.0),
+                    ParameterConstraints::range(0.01, 0.5),
                 ]),
                 ParameterMetadata::new(
                     "default_boundary_buffer_factor",
@@ -851,783 +1024,88 @@ impl VisualizationConstants {
     }
 }
 
-/// Collision detection constants previously hardcoded
-pub struct CollisionConstants {
-    /// Minimum channel distance for collision detection
-    pub min_channel_distance: ConfigurableParameter<f64>,
-
-    /// Minimum wall distance for collision detection
-    pub min_wall_distance: ConfigurableParameter<f64>,
-
-    /// Minimum wall thickness for manufacturing constraints
-    pub min_wall_thickness: ConfigurableParameter<f64>,
-
-    /// Safety margin factor for collision detection
-    pub safety_margin_factor: ConfigurableParameter<f64>,
-
-    /// Maximum reduction factor for collision avoidance
-    pub max_reduction_factor: ConfigurableParameter<f64>,
-
-    /// Detection sensitivity for collision detection
-    pub detection_sensitivity: ConfigurableParameter<f64>,
-
-    /// Neighbor scale factor for adaptive collision detection
-    pub neighbor_scale_factor: ConfigurableParameter<f64>,
-
-    /// Minimum distance threshold for adaptive collision detection
-    pub min_distance_threshold: ConfigurableParameter<f64>,
-
-    /// Maximum adjustment factor for adaptive collision detection
-    pub max_adjustment_factor: ConfigurableParameter<f64>,
-
-    /// Proximity divisor for collision detection
-    pub proximity_divisor: ConfigurableParameter<f64>,
-
-    /// Minimum proximity factor for collision detection
-    pub min_proximity_factor: ConfigurableParameter<f64>,
-
-    /// Maximum proximity factor for collision detection
-    pub max_proximity_factor: ConfigurableParameter<f64>,
-
-    /// Branch adjustment divisor for collision detection
-    pub branch_adjustment_divisor: ConfigurableParameter<f64>,
-
-    /// Maximum sensitivity multiplier for collision detection
-    pub max_sensitivity_multiplier: ConfigurableParameter<f64>,
-
-    /// Long channel threshold for collision detection
-    pub long_channel_threshold: ConfigurableParameter<f64>,
-
-    /// Long channel reduction multiplier for collision detection
-    pub long_channel_reduction_multiplier: ConfigurableParameter<f64>,
-
-    /// Maximum reduction limit for collision detection
-    pub max_reduction_limit: ConfigurableParameter<f64>,
-}
-
 impl Default for VisualizationConstants {
     fn default() -> Self {
         Self::make_default()
     }
 }
 
-impl CollisionConstants {
-    /// Create default collision constants
-    #[must_use]
-    fn make_default() -> Self {
-        Self {
-            min_channel_distance: ConfigurableParameter::new(
-                2.0,
-                ParameterConstraints::all(vec![
-                    ParameterConstraints::<f64>::positive(),
-                    ParameterConstraints::range(0.1, 10.0),
-                ]),
-                ParameterMetadata::new(
-                    "min_channel_distance",
-                    "Minimum distance between channels for collision detection",
-                    "collision",
-                )
-                .with_units("mm"),
-            ),
 
-            min_wall_thickness: ConfigurableParameter::new(
-                0.45,
-                ParameterConstraints::all(vec![
-                    ParameterConstraints::<f64>::positive(),
-                    ParameterConstraints::range(0.1, 5.0),
-                ]),
-                ParameterMetadata::new(
-                    "min_wall_thickness",
-                    "Minimum wall thickness between channels for manufacturing constraints",
-                    "collision",
-                )
-                .with_units("mm"),
-            ),
-
-            min_wall_distance: ConfigurableParameter::new(
-                1.0,
-                ParameterConstraints::all(vec![
-                    ParameterConstraints::<f64>::positive(),
-                    ParameterConstraints::range(0.1, 5.0),
-                ]),
-                ParameterMetadata::new(
-                    "min_wall_distance",
-                    "Minimum distance from walls for collision detection",
-                    "collision",
-                )
-                .with_units("mm"),
-            ),
-
-            safety_margin_factor: ConfigurableParameter::new(
-                1.2,
-                ParameterConstraints::all(vec![
-                    ParameterConstraints::<f64>::positive(),
-                    ParameterConstraints::range(1.0, 3.0),
-                ]),
-                ParameterMetadata::new(
-                    "safety_margin_factor",
-                    "Safety margin multiplier for collision detection",
-                    "collision",
-                )
-                .with_units("ratio"),
-            ),
-
-            max_reduction_factor: ConfigurableParameter::new(
-                0.8,
-                ParameterConstraints::all(vec![
-                    ParameterConstraints::<f64>::positive(),
-                    ParameterConstraints::range(0.1, 1.0),
-                ]),
-                ParameterMetadata::new(
-                    "max_reduction_factor",
-                    "Maximum reduction factor for collision avoidance",
-                    "collision",
-                )
-                .with_units("ratio"),
-            ),
-
-            detection_sensitivity: ConfigurableParameter::new(
-                1.0,
-                ParameterConstraints::all(vec![
-                    ParameterConstraints::<f64>::positive(),
-                    ParameterConstraints::range(0.1, 5.0),
-                ]),
-                ParameterMetadata::new(
-                    "detection_sensitivity",
-                    "Sensitivity factor for collision detection",
-                    "collision",
-                )
-                .with_units("ratio"),
-            ),
-
-            neighbor_scale_factor: ConfigurableParameter::new(
-                0.8,
-                ParameterConstraints::all(vec![
-                    ParameterConstraints::<f64>::positive(),
-                    ParameterConstraints::range(0.1, 2.0),
-                ]),
-                ParameterMetadata::new(
-                    "neighbor_scale_factor",
-                    "Scale factor for neighbor-based collision detection",
-                    "collision",
-                )
-                .with_units("ratio"),
-            ),
-
-            min_distance_threshold: ConfigurableParameter::new(
-                1.0,
-                ParameterConstraints::all(vec![
-                    ParameterConstraints::<f64>::positive(),
-                    ParameterConstraints::range(0.1, 5.0),
-                ]),
-                ParameterMetadata::new(
-                    "min_distance_threshold",
-                    "Minimum distance threshold for adaptive collision detection",
-                    "collision",
-                )
-                .with_units("mm"),
-            ),
-
-            max_adjustment_factor: ConfigurableParameter::new(
-                2.0,
-                ParameterConstraints::all(vec![
-                    ParameterConstraints::<f64>::positive(),
-                    ParameterConstraints::range(1.0, 5.0),
-                ]),
-                ParameterMetadata::new(
-                    "max_adjustment_factor",
-                    "Maximum adjustment factor for adaptive collision detection",
-                    "collision",
-                )
-                .with_units("ratio"),
-            ),
-
-            proximity_divisor: ConfigurableParameter::new(
-                10.0,
-                ParameterConstraints::all(vec![
-                    ParameterConstraints::<f64>::positive(),
-                    ParameterConstraints::range(1.0, 50.0),
-                ]),
-                ParameterMetadata::new(
-                    "proximity_divisor",
-                    "Divisor for proximity calculations in collision detection",
-                    "collision",
-                )
-                .with_units("ratio"),
-            ),
-
-            min_proximity_factor: ConfigurableParameter::new(
-                0.5,
-                ParameterConstraints::all(vec![
-                    ParameterConstraints::<f64>::positive(),
-                    ParameterConstraints::range(0.1, 1.0),
-                ]),
-                ParameterMetadata::new(
-                    "min_proximity_factor",
-                    "Minimum proximity factor for collision detection",
-                    "collision",
-                )
-                .with_units("ratio"),
-            ),
-
-            max_proximity_factor: ConfigurableParameter::new(
-                1.0,
-                ParameterConstraints::all(vec![
-                    ParameterConstraints::<f64>::positive(),
-                    ParameterConstraints::range(0.5, 2.0),
-                ]),
-                ParameterMetadata::new(
-                    "max_proximity_factor",
-                    "Maximum proximity factor for collision detection",
-                    "collision",
-                )
-                .with_units("ratio"),
-            ),
-
-            branch_adjustment_divisor: ConfigurableParameter::new(
-                4.0,
-                ParameterConstraints::all(vec![
-                    ParameterConstraints::<f64>::positive(),
-                    ParameterConstraints::range(1.0, 20.0),
-                ]),
-                ParameterMetadata::new(
-                    "branch_adjustment_divisor",
-                    "Divisor for branch-based adjustments in collision detection",
-                    "collision",
-                )
-                .with_units("ratio"),
-            ),
-
-            max_sensitivity_multiplier: ConfigurableParameter::new(
-                2.0,
-                ParameterConstraints::all(vec![
-                    ParameterConstraints::<f64>::positive(),
-                    ParameterConstraints::range(1.0, 10.0),
-                ]),
-                ParameterMetadata::new(
-                    "max_sensitivity_multiplier",
-                    "Maximum sensitivity multiplier for collision detection",
-                    "collision",
-                )
-                .with_units("ratio"),
-            ),
-
-            long_channel_threshold: ConfigurableParameter::new(
-                50.0,
-                ParameterConstraints::all(vec![
-                    ParameterConstraints::<f64>::positive(),
-                    ParameterConstraints::range(10.0, 200.0),
-                ]),
-                ParameterMetadata::new(
-                    "long_channel_threshold",
-                    "Threshold for considering a channel as long in collision detection",
-                    "collision",
-                )
-                .with_units("mm"),
-            ),
-
-            long_channel_reduction_multiplier: ConfigurableParameter::new(
-                1.2,
-                ParameterConstraints::all(vec![
-                    ParameterConstraints::<f64>::positive(),
-                    ParameterConstraints::range(1.0, 3.0),
-                ]),
-                ParameterMetadata::new(
-                    "long_channel_reduction_multiplier",
-                    "Reduction multiplier for long channels in collision detection",
-                    "collision",
-                )
-                .with_units("ratio"),
-            ),
-
-            max_reduction_limit: ConfigurableParameter::new(
-                0.95,
-                ParameterConstraints::all(vec![
-                    ParameterConstraints::<f64>::positive(),
-                    ParameterConstraints::range(0.5, 1.0),
-                ]),
-                ParameterMetadata::new(
-                    "max_reduction_limit",
-                    "Maximum reduction limit for collision detection",
-                    "collision",
-                )
-                .with_units("ratio"),
-            ),
-        }
-    }
-}
-
-impl Default for CollisionConstants {
-    fn default() -> Self {
-        Self::make_default()
-    }
-}
-
-/// Central constants registry containing all configuration constants
+/// Registry for all configuration constants
 pub struct ConstantsRegistry {
-    /// Strategy selection thresholds
-    pub strategy_thresholds: StrategyThresholds,
-
-    /// Wave generation constants
-    pub wave_generation: WaveGenerationConstants,
-
-    /// Geometry generation constants
-    pub geometry_generation: GeometryGenerationConstants,
-
-    /// Optimization constants
+    pub strategies: StrategyThresholds,
+    pub waves: WaveGenerationConstants,
+    pub geometry: GeometryGenerationConstants,
     pub optimization: OptimizationConstants,
-
-    /// Visualization constants
     pub visualization: VisualizationConstants,
-
-    /// Collision detection constants
-    pub collision: CollisionConstants,
 }
 
 impl ConstantsRegistry {
-    /// Create a new constants registry with default values
-    #[must_use]
     pub fn new() -> Self {
         Self {
-            strategy_thresholds: StrategyThresholds::default(),
-            wave_generation: WaveGenerationConstants::default(),
-            geometry_generation: GeometryGenerationConstants::default(),
+            strategies: StrategyThresholds::default(),
+            waves: WaveGenerationConstants::default(),
+            geometry: GeometryGenerationConstants::default(),
             optimization: OptimizationConstants::default(),
             visualization: VisualizationConstants::default(),
-            collision: CollisionConstants::default(),
         }
     }
 
-    /// Validate all constants
-    pub const fn validate_all(&self) -> crate::error::SchemeResult<()> {
-        // Validate all parameter groups
-        // This would be expanded to validate all parameters in each group
-        Ok(())
-    }
+    // --- Adaptive Collision ---
+    pub fn get_max_adjustment_factor(&self) -> f64 { primitives::DEFAULT_MAX_ADJUSTMENT_FACTOR }
+    pub fn get_min_channel_distance(&self) -> f64 { primitives::DEFAULT_MIN_CHANNEL_DISTANCE }
+    pub fn get_min_wall_distance(&self) -> f64 { self.geometry.default_wall_clearance.get_raw_value().clone() }
+    pub fn get_safety_margin_factor(&self) -> f64 { primitives::DEFAULT_SAFETY_MARGIN_FACTOR }
+    pub fn get_max_reduction_factor(&self) -> f64 { primitives::DEFAULT_MAX_REDUCTION_FACTOR }
+    pub fn get_detection_sensitivity(&self) -> f64 { primitives::DEFAULT_DETECTION_SENSITIVITY }
+    pub fn get_proximity_divisor(&self) -> f64 { primitives::DEFAULT_PROXIMITY_DIVISOR }
+    pub fn get_min_proximity_factor(&self) -> f64 { primitives::DEFAULT_MIN_PROXIMITY_FACTOR }
+    pub fn get_max_proximity_factor(&self) -> f64 { primitives::DEFAULT_MAX_PROXIMITY_FACTOR }
+    pub fn get_branch_factor_exponent(&self) -> f64 { *self.optimization.branch_factor_exponent.get_raw_value() }
+    pub fn get_branch_adjustment_divisor(&self) -> f64 { primitives::DEFAULT_BRANCH_ADJUSTMENT_DIVISOR }
+    pub fn get_max_sensitivity_multiplier(&self) -> f64 { primitives::DEFAULT_MAX_SENSITIVITY_MULTIPLIER }
+    pub fn get_long_channel_threshold(&self) -> f64 { *self.geometry.long_horizontal_threshold.get_raw_value() }
+    pub fn get_long_channel_reduction_multiplier(&self) -> f64 { primitives::DEFAULT_LONG_CHANNEL_REDUCTION_MULTIPLIER }
+    pub fn get_max_reduction_limit(&self) -> f64 { primitives::DEFAULT_MAX_REDUCTION_LIMIT }
+
+    // --- Optimization ---
+    pub fn get_max_optimization_iterations(&self) -> usize { *self.optimization.max_optimization_iterations.get_raw_value() }
+    pub fn get_optimization_tolerance(&self) -> f64 { *self.optimization.convergence_tolerance.get_raw_value() }
+    pub fn get_fast_wavelength_factors(&self) -> Vec<f64> { self.optimization.fast_wavelength_factors.get_raw_value().clone() }
+    pub fn get_fast_wave_density_factors(&self) -> Vec<f64> { self.optimization.fast_wave_density_factors.get_raw_value().clone() }
+    pub fn get_fast_fill_factors(&self) -> Vec<f64> { self.optimization.fast_fill_factors.get_raw_value().clone() }
+
+    // --- Wave Generation ---
+    pub fn get_smooth_endpoint_start_threshold(&self) -> f64 { *self.waves.smooth_endpoint_start_threshold.get_raw_value() }
+    pub fn get_smooth_endpoint_end_threshold(&self) -> f64 { *self.waves.smooth_endpoint_end_threshold.get_raw_value() }
+    pub fn get_default_transition_length_factor(&self) -> f64 { *self.waves.default_transition_length_factor.get_raw_value() }
+    pub fn get_default_transition_amplitude_factor(&self) -> f64 { *self.waves.default_transition_amplitude_factor.get_raw_value() }
+    pub fn get_default_transition_smoothness(&self) -> usize { *self.waves.default_transition_smoothness.get_raw_value() }
+    pub fn get_default_wave_multiplier(&self) -> f64 { *self.waves.default_wave_multiplier.get_raw_value() }
+    pub fn get_square_wave_sharpness(&self) -> f64 { *self.waves.square_wave_sharpness.get_raw_value() }
+    pub fn get_neighbor_scale_factor(&self) -> f64 { *self.waves.neighbor_avoidance_scaling_factor.get_raw_value() }
+    pub fn get_transition_zone_factor(&self) -> f64 { *self.waves.transition_zone_factor.get_raw_value() }
+
+    // --- Geometry ---
+    pub fn get_short_channel_width_multiplier(&self) -> f64 { *self.geometry.short_channel_width_multiplier.get_raw_value() }
+    pub fn get_geometric_tolerance(&self) -> f64 { *self.waves.geometric_tolerance.get_raw_value() } // Note: was in waves constants
+    pub fn get_max_curvature_reduction_factor(&self) -> f64 { *self.geometry.max_curvature_reduction_factor.get_raw_value() }
+    pub fn get_min_curvature_factor(&self) -> f64 { *self.geometry.min_curvature_factor.get_raw_value() }
+    pub fn get_min_distance_threshold(&self) -> f64 { *self.waves.geometric_tolerance.get_raw_value() } 
+
+    // --- Strategies ---
+    pub fn get_long_horizontal_threshold(&self) -> f64 { *self.geometry.long_horizontal_threshold.get_raw_value() }
+    pub fn get_horizontal_angle_threshold(&self) -> f64 { *self.geometry.horizontal_angle_threshold.get_raw_value() }
+    pub fn get_frustum_min_length_threshold(&self) -> f64 { *self.strategies.frustum_min_length_threshold.get_raw_value() }
+    pub fn get_frustum_max_length_threshold(&self) -> f64 { *self.strategies.frustum_max_length_threshold.get_raw_value() }
+    pub fn get_frustum_angle_threshold(&self) -> f64 { *self.strategies.frustum_angle_threshold.get_raw_value() }
+    pub fn get_min_arc_length_threshold(&self) -> f64 { *self.geometry.min_arc_length_threshold.get_raw_value() }
+    
+    // --- Visualization ---
+    pub fn get_default_chart_margin(&self) -> u32 { *self.visualization.default_chart_margin.get_raw_value() }
+    pub fn get_default_chart_right_margin(&self) -> u32 { *self.visualization.default_chart_right_margin.get_raw_value() }
+    pub fn get_default_x_label_area_size(&self) -> u32 { *self.visualization.default_x_label_area_size.get_raw_value() }
+    pub fn get_default_y_label_area_size(&self) -> u32 { *self.visualization.default_y_label_area_size.get_raw_value() }
 }
 
-impl Default for ConstantsRegistry {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-/// Helper functions to get commonly used constant values
-impl ConstantsRegistry {
-    /// Get the square wave sharpness factor
-    #[must_use]
-    pub const fn get_square_wave_sharpness(&self) -> f64 {
-        *self.wave_generation.square_wave_sharpness.get_raw_value()
-    }
-
-    /// Get the transition zone factor
-    #[must_use]
-    pub const fn get_transition_zone_factor(&self) -> f64 {
-        *self.wave_generation.transition_zone_factor.get_raw_value()
-    }
-
-    /// Get the arc curvature threshold
-    #[must_use]
-    pub const fn get_arc_curvature_threshold(&self) -> f64 {
-        *self
-            .strategy_thresholds
-            .arc_curvature_threshold
-            .get_raw_value()
-    }
-
-    /// Get the serpentine fill threshold
-    #[must_use]
-    pub const fn get_serpentine_fill_threshold(&self) -> f64 {
-        *self
-            .strategy_thresholds
-            .serpentine_fill_threshold
-            .get_raw_value()
-    }
-
-    /// Get the adaptive branch threshold
-    #[must_use]
-    pub const fn get_adaptive_branch_threshold(&self) -> usize {
-        *self
-            .strategy_thresholds
-            .adaptive_branch_threshold
-            .get_raw_value()
-    }
-
-    /// Get the branch factor exponent
-    #[must_use]
-    pub const fn get_branch_factor_exponent(&self) -> f64 {
-        *self.optimization.branch_factor_exponent.get_raw_value()
-    }
-
-    /// Get the minimum channel distance for collision detection
-    #[must_use]
-    pub const fn get_min_channel_distance(&self) -> f64 {
-        *self.collision.min_channel_distance.get_raw_value()
-    }
-
-    /// Get the minimum wall distance for collision detection
-    #[must_use]
-    pub const fn get_min_wall_distance(&self) -> f64 {
-        *self.collision.min_wall_distance.get_raw_value()
-    }
-
-    /// Get the minimum wall thickness for manufacturing constraints
-    #[must_use]
-    pub const fn get_min_wall_thickness(&self) -> f64 {
-        *self.collision.min_wall_thickness.get_raw_value()
-    }
-
-    /// Get the safety margin factor for collision detection
-    #[must_use]
-    pub const fn get_safety_margin_factor(&self) -> f64 {
-        *self.collision.safety_margin_factor.get_raw_value()
-    }
-
-    /// Get the maximum reduction factor for collision avoidance
-    #[must_use]
-    pub const fn get_max_reduction_factor(&self) -> f64 {
-        *self.collision.max_reduction_factor.get_raw_value()
-    }
-
-    /// Get the detection sensitivity for collision detection
-    #[must_use]
-    pub const fn get_detection_sensitivity(&self) -> f64 {
-        *self.collision.detection_sensitivity.get_raw_value()
-    }
-
-    /// Get the neighbor scale factor for adaptive collision detection
-    #[must_use]
-    pub const fn get_neighbor_scale_factor(&self) -> f64 {
-        *self.collision.neighbor_scale_factor.get_raw_value()
-    }
-
-    /// Get the minimum distance threshold for adaptive collision detection
-    #[must_use]
-    pub const fn get_min_distance_threshold(&self) -> f64 {
-        *self.collision.min_distance_threshold.get_raw_value()
-    }
-
-    /// Get the maximum adjustment factor for adaptive collision detection
-    #[must_use]
-    pub const fn get_max_adjustment_factor(&self) -> f64 {
-        *self.collision.max_adjustment_factor.get_raw_value()
-    }
-
-    /// Get the maximum number of optimization iterations
-    #[must_use]
-    pub const fn get_max_optimization_iterations(&self) -> usize {
-        *self
-            .optimization
-            .max_optimization_iterations
-            .get_raw_value()
-    }
-
-    /// Get the optimization tolerance
-    #[must_use]
-    pub const fn get_optimization_tolerance(&self) -> f64 {
-        *self.optimization.convergence_tolerance.get_raw_value()
-    }
-
-    /// Get the proximity divisor for collision detection
-    #[must_use]
-    pub const fn get_proximity_divisor(&self) -> f64 {
-        *self.collision.proximity_divisor.get_raw_value()
-    }
-
-    /// Get the minimum proximity factor for collision detection
-    #[must_use]
-    pub const fn get_min_proximity_factor(&self) -> f64 {
-        *self.collision.min_proximity_factor.get_raw_value()
-    }
-
-    /// Get the maximum proximity factor for collision detection
-    #[must_use]
-    pub const fn get_max_proximity_factor(&self) -> f64 {
-        *self.collision.max_proximity_factor.get_raw_value()
-    }
-
-    /// Get the branch adjustment divisor for collision detection
-    #[must_use]
-    pub const fn get_branch_adjustment_divisor(&self) -> f64 {
-        *self.collision.branch_adjustment_divisor.get_raw_value()
-    }
-
-    /// Get the maximum sensitivity multiplier for collision detection
-    #[must_use]
-    pub const fn get_max_sensitivity_multiplier(&self) -> f64 {
-        *self.collision.max_sensitivity_multiplier.get_raw_value()
-    }
-
-    /// Get the long channel threshold for collision detection
-    #[must_use]
-    pub const fn get_long_channel_threshold(&self) -> f64 {
-        *self.collision.long_channel_threshold.get_raw_value()
-    }
-
-    /// Get the long channel reduction multiplier for collision detection
-    #[must_use]
-    pub const fn get_long_channel_reduction_multiplier(&self) -> f64 {
-        *self
-            .collision
-            .long_channel_reduction_multiplier
-            .get_raw_value()
-    }
-
-    /// Get the maximum reduction limit for collision detection
-    #[must_use]
-    pub const fn get_max_reduction_limit(&self) -> f64 {
-        *self.collision.max_reduction_limit.get_raw_value()
-    }
-
-    /// Get the fill factor enhancement multiplier
-    #[must_use]
-    pub const fn get_fill_factor_enhancement(&self) -> f64 {
-        *self.optimization.fill_factor_enhancement.get_raw_value()
-    }
-
-    /// Get the default serpentine points
-    #[must_use]
-    pub const fn get_default_serpentine_points(&self) -> usize {
-        *self
-            .geometry_generation
-            .default_serpentine_points
-            .get_raw_value()
-    }
-
-    /// Get the default wall clearance
-    #[must_use]
-    pub const fn get_default_wall_clearance(&self) -> f64 {
-        *self
-            .geometry_generation
-            .default_wall_clearance
-            .get_raw_value()
-    }
-
-    /// Get the default channel width
-    #[must_use]
-    pub const fn get_default_channel_width(&self) -> f64 {
-        *self
-            .geometry_generation
-            .default_channel_width
-            .get_raw_value()
-    }
-
-    /// Get the fast optimization wavelength factors
-    #[must_use]
-    pub const fn get_fast_wavelength_factors(&self) -> &Vec<f64> {
-        self.optimization.fast_wavelength_factors.get_raw_value()
-    }
-
-    /// Get the fast optimization wave density factors
-    #[must_use]
-    pub const fn get_fast_wave_density_factors(&self) -> &Vec<f64> {
-        self.optimization.fast_wave_density_factors.get_raw_value()
-    }
-
-    /// Get the fast optimization fill factors
-    #[must_use]
-    pub const fn get_fast_fill_factors(&self) -> &Vec<f64> {
-        self.optimization.fast_fill_factors.get_raw_value()
-    }
-
-    /// Get the smooth endpoint start threshold
-    #[must_use]
-    pub const fn get_smooth_endpoint_start_threshold(&self) -> f64 {
-        *self
-            .wave_generation
-            .smooth_endpoint_start_threshold
-            .get_raw_value()
-    }
-
-    /// Get the smooth endpoint end threshold
-    #[must_use]
-    pub const fn get_smooth_endpoint_end_threshold(&self) -> f64 {
-        *self
-            .wave_generation
-            .smooth_endpoint_end_threshold
-            .get_raw_value()
-    }
-
-    /// Get the default transition length factor
-    #[must_use]
-    pub const fn get_default_transition_length_factor(&self) -> f64 {
-        *self
-            .wave_generation
-            .default_transition_length_factor
-            .get_raw_value()
-    }
-
-    /// Get the default transition amplitude factor
-    #[must_use]
-    pub const fn get_default_transition_amplitude_factor(&self) -> f64 {
-        *self
-            .wave_generation
-            .default_transition_amplitude_factor
-            .get_raw_value()
-    }
-
-    /// Get the default transition smoothness
-    #[must_use]
-    pub const fn get_default_transition_smoothness(&self) -> usize {
-        *self
-            .wave_generation
-            .default_transition_smoothness
-            .get_raw_value()
-    }
-
-    /// Get the default wave multiplier
-    #[must_use]
-    pub const fn get_default_wave_multiplier(&self) -> f64 {
-        *self.wave_generation.default_wave_multiplier.get_raw_value()
-    }
-
-    /// Get the wall proximity scaling factor
-    #[must_use]
-    pub const fn get_wall_proximity_scaling_factor(&self) -> f64 {
-        *self
-            .wave_generation
-            .wall_proximity_scaling_factor
-            .get_raw_value()
-    }
-
-    /// Get the neighbor avoidance scaling factor
-    #[must_use]
-    pub const fn get_neighbor_avoidance_scaling_factor(&self) -> f64 {
-        *self
-            .wave_generation
-            .neighbor_avoidance_scaling_factor
-            .get_raw_value()
-    }
-
-    /// Get the geometric tolerance
-    #[must_use]
-    pub const fn get_geometric_tolerance(&self) -> f64 {
-        *self.wave_generation.geometric_tolerance.get_raw_value()
-    }
-
-    /// Get the short channel width multiplier
-    #[must_use]
-    pub const fn get_short_channel_width_multiplier(&self) -> f64 {
-        *self
-            .geometry_generation
-            .short_channel_width_multiplier
-            .get_raw_value()
-    }
-
-    /// Get the smooth straight middle points
-    #[must_use]
-    pub const fn get_smooth_straight_middle_points(&self) -> usize {
-        *self
-            .geometry_generation
-            .smooth_straight_middle_points
-            .get_raw_value()
-    }
-
-    /// Get the horizontal angle threshold
-    #[must_use]
-    pub const fn get_horizontal_angle_threshold(&self) -> f64 {
-        *self
-            .geometry_generation
-            .horizontal_angle_threshold
-            .get_raw_value()
-    }
-
-    /// Get the long horizontal threshold
-    #[must_use]
-    pub const fn get_long_horizontal_threshold(&self) -> f64 {
-        *self
-            .geometry_generation
-            .long_horizontal_threshold
-            .get_raw_value()
-    }
-
-    /// Get the minimum arc length threshold
-    #[must_use]
-    pub const fn get_min_arc_length_threshold(&self) -> f64 {
-        *self
-            .geometry_generation
-            .min_arc_length_threshold
-            .get_raw_value()
-    }
-
-    /// Get the maximum curvature reduction factor
-    #[must_use]
-    pub const fn get_max_curvature_reduction_factor(&self) -> f64 {
-        *self
-            .geometry_generation
-            .max_curvature_reduction_factor
-            .get_raw_value()
-    }
-
-    /// Get the minimum curvature factor
-    #[must_use]
-    pub const fn get_min_curvature_factor(&self) -> f64 {
-        *self
-            .geometry_generation
-            .min_curvature_factor
-            .get_raw_value()
-    }
-
-    /// Get the default chart margin
-    #[must_use]
-    pub const fn get_default_chart_margin(&self) -> u32 {
-        *self.visualization.default_chart_margin.get_raw_value()
-    }
-
-    /// Get the default chart right margin
-    #[must_use]
-    pub const fn get_default_chart_right_margin(&self) -> u32 {
-        *self
-            .visualization
-            .default_chart_right_margin
-            .get_raw_value()
-    }
-
-    /// Get the default x-label area size
-    #[must_use]
-    pub const fn get_default_x_label_area_size(&self) -> u32 {
-        *self.visualization.default_x_label_area_size.get_raw_value()
-    }
-
-    /// Get the default y-label area size
-    #[must_use]
-    pub const fn get_default_y_label_area_size(&self) -> u32 {
-        *self.visualization.default_y_label_area_size.get_raw_value()
-    }
-
-    /// Get the default boundary buffer factor
-    #[must_use]
-    pub const fn get_default_boundary_buffer_factor(&self) -> f64 {
-        *self
-            .visualization
-            .default_boundary_buffer_factor
-            .get_raw_value()
-    }
-
-    /// Get the frustum minimum length threshold
-    #[must_use]
-    pub const fn get_frustum_min_length_threshold(&self) -> f64 {
-        *self
-            .strategy_thresholds
-            .frustum_min_length_threshold
-            .get_raw_value()
-    }
-
-    /// Get the frustum maximum length threshold
-    #[must_use]
-    pub const fn get_frustum_max_length_threshold(&self) -> f64 {
-        *self
-            .strategy_thresholds
-            .frustum_max_length_threshold
-            .get_raw_value()
-    }
-
-    /// Get the frustum angle threshold
-    #[must_use]
-    pub const fn get_frustum_angle_threshold(&self) -> f64 {
-        *self
-            .strategy_thresholds
-            .frustum_angle_threshold
-            .get_raw_value()
-    }
-}
+pub use primitives::*;

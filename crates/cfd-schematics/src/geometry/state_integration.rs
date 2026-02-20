@@ -742,7 +742,7 @@ fn generate_serpentine_path_with_params(
 
 /// Calculate smooth envelope for endpoints
 fn calculate_smooth_envelope(t: f64) -> f64 {
-    let constants = crate::config_constants::ConstantsRegistry::new();
+    let constants = crate::config::ConstantsRegistry::new();
     let transition_zone = constants.get_transition_zone_factor();
     if t < transition_zone {
         0.5 * (1.0 - (std::f64::consts::PI * t / transition_zone).cos())

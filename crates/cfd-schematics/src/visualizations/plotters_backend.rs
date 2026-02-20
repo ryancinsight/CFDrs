@@ -4,9 +4,10 @@
 //! using the plotters library. This demonstrates how the abstraction allows
 //! for different rendering backends while maintaining the same interface.
 
-use crate::config_constants::ConstantsRegistry;
+use crate::config::ConstantsRegistry;
 use crate::error::{VisualizationError, VisualizationResult};
 use crate::geometry::{ChannelSystem, Point2D};
+use crate::visualizations::analysis_field::{colorize, AnalysisOverlay, ColormapKind};
 use crate::visualizations::traits::{
     Color, GeometricDrawer, LineStyle, OutputFormat, RenderConfig, SchematicRenderer, TextStyle,
     VisualizationEngine,
@@ -26,6 +27,24 @@ impl SchematicRenderer for PlottersRenderer {
         output_path: &str,
         config: &RenderConfig,
     ) -> VisualizationResult<()> {
+        self.render_analysis(
+            system,
+            output_path,
+            config,
+            &AnalysisOverlay::new(
+                crate::visualizations::analysis_field::AnalysisField::FlowRate,
+                ColormapKind::BlueRed,
+            ),
+        )
+    }
+
+    fn render_analysis(
+        &self,
+        system: &ChannelSystem,
+        output_path: &str,
+        config: &RenderConfig,
+        overlay: &AnalysisOverlay,
+    ) -> VisualizationResult<()> {
         // Validate input
         if system.channels.is_empty() && system.nodes.is_empty() {
             return Err(VisualizationError::EmptyChannelSystem);
@@ -38,9 +57,9 @@ impl SchematicRenderer for PlottersRenderer {
 
         match output_format {
             OutputFormat::PNG | OutputFormat::JPEG => {
-                self.render_bitmap(system, output_path, config)
+                self.render_bitmap(system, output_path, config, overlay)
             }
-            OutputFormat::SVG => self.render_svg(system, output_path, config),
+            OutputFormat::SVG => self.render_svg(system, output_path, config, overlay),
             OutputFormat::PDF => Err(VisualizationError::UnsupportedFormat {
                 format: "PDF".to_string(),
                 message: "PDF output is not yet implemented".to_string(),
@@ -86,15 +105,15 @@ impl PlottersRenderer {
         system: &ChannelSystem,
         output_path: &str,
         config: &RenderConfig,
+        overlay: &AnalysisOverlay,
     ) -> VisualizationResult<()> {
-        // Create the drawing backend
         let root =
             BitMapBackend::new(output_path, (config.width, config.height)).into_drawing_area();
 
         root.fill(&convert_color(&config.background_color))
             .map_err(|e| VisualizationError::rendering_error(&e.to_string()))?;
 
-        self.render_with_backend(system, config, root, output_path)
+        self.render_with_backend(system, config, root, output_path, overlay)
     }
 
     /// Render to SVG format
@@ -103,25 +122,28 @@ impl PlottersRenderer {
         system: &ChannelSystem,
         output_path: &str,
         config: &RenderConfig,
+        overlay: &AnalysisOverlay,
     ) -> VisualizationResult<()> {
-        // Create the SVG backend
         let root = SVGBackend::new(output_path, (config.width, config.height)).into_drawing_area();
 
         root.fill(&convert_color(&config.background_color))
             .map_err(|e| VisualizationError::rendering_error(&e.to_string()))?;
 
-        self.render_with_backend(system, config, root, output_path)
+        self.render_with_backend(system, config, root, output_path, overlay)
     }
 
     /// Common rendering logic for both bitmap and SVG backends
+    ///
+    /// Renders channels colored by `overlay.edge_data`, nodes colored by
+    /// `overlay.node_data`, and a colorbar legend strip on the right margin.
     fn render_with_backend<DB: DrawingBackend>(
         &self,
         system: &ChannelSystem,
         config: &RenderConfig,
         root: DrawingArea<DB, Shift>,
         output_path: &str,
+        overlay: &AnalysisOverlay,
     ) -> VisualizationResult<()> {
-        // Set up coordinate system
         let (length, width) = system.box_dims;
         let x_buffer = length * config.margin_fraction;
         let y_buffer = width * config.margin_fraction;
@@ -151,12 +173,9 @@ impl PlottersRenderer {
                 .map_err(|e| VisualizationError::rendering_error(&e.to_string()))?;
         }
 
-        // Draw channels with type-specific colors
-        let (boundary_lines, channel_lines) = system.get_lines_by_type();
-
-        // Draw boundary lines first
+        // --- Boundary outline ---
         chart
-            .draw_series(boundary_lines.iter().map(|(p1, p2)| {
+            .draw_series(system.box_outline.iter().map(|(p1, p2)| {
                 PathElement::new(
                     vec![*p1, *p2],
                     convert_color(&config.boundary_style.color)
@@ -165,16 +184,119 @@ impl PlottersRenderer {
             }))
             .map_err(|e| VisualizationError::rendering_error(&e.to_string()))?;
 
-        // Draw channels by type with different colors
-        for (channel_type, lines) in channel_lines {
-            let style = config.channel_type_styles.get_style(channel_type);
+        // --- Channels colored by overlay edge data ---
+        let has_edge_data = !overlay.edge_data.is_empty();
+        for channel in &system.channels {
+            let style = if has_edge_data {
+                // Use analysis color if data is present for this channel
+                let color = overlay
+                    .edge_color(channel.id)
+                    .unwrap_or_else(|| Color::rgb(128, 128, 128));
+                LineStyle::solid(color, config.channel_style.width)
+            } else {
+                // Fall back to type-based default style
+                let category = crate::geometry::ChannelTypeCategory::from(&channel.channel_type);
+                config.channel_type_styles.get_style(category).clone()
+            };
+
+            let path = crate::geometry::types::centerline_for_channel(channel, &system.nodes);
+            if path.len() < 2 {
+                continue;
+            }
+
             chart
-                .draw_series(lines.iter().map(|(p1, p2)| {
-                    PathElement::new(
-                        vec![*p1, *p2],
-                        convert_color(&style.color).stroke_width(style.width as u32),
-                    )
-                }))
+                .draw_series(std::iter::once(PathElement::new(
+                    path,
+                    convert_color(&style.color).stroke_width(style.width as u32),
+                )))
+                .map_err(|e| VisualizationError::rendering_error(&e.to_string()))?;
+        }
+
+        // --- Nodes colored by overlay node data ---
+        let has_node_data = !overlay.node_data.is_empty();
+        if has_node_data {
+            // Node radius in data-space units (2% of the shorter dimension)
+            let node_radius = (length.min(width) * 0.02).max(0.5);
+            for node in &system.nodes {
+                let color = overlay
+                    .node_color(node.id)
+                    .unwrap_or_else(|| Color::rgb(200, 200, 200));
+                let (cx, cy) = node.point;
+                // Draw filled circle approximated as a small polygon
+                let steps = 16usize;
+                let circle_pts: Vec<Point2D> = (0..=steps)
+                    .map(|i| {
+                        let angle = 2.0 * std::f64::consts::PI * (i as f64) / (steps as f64);
+                        (cx + node_radius * angle.cos(), cy + node_radius * angle.sin())
+                    })
+                    .collect();
+                chart
+                    .draw_series(std::iter::once(PathElement::new(
+                        circle_pts,
+                        convert_color(&color).stroke_width(3),
+                    )))
+                    .map_err(|e| VisualizationError::rendering_error(&e.to_string()))?;
+            }
+        }
+
+        // --- Colorbar legend (right margin, 10 gradient steps) ---
+        if has_edge_data || has_node_data {
+            let (min_val, max_val) = if has_edge_data {
+                overlay.edge_range()
+            } else {
+                overlay.node_range()
+            };
+            let bar_steps = 20usize;
+            let bar_x_start = length + x_buffer * 0.2;
+            let bar_x_end = length + x_buffer * 0.7;
+            let bar_y_start = y_buffer;
+            let bar_y_end = width - y_buffer;
+            let step_height = (bar_y_end - bar_y_start) / bar_steps as f64;
+
+            for i in 0..bar_steps {
+                // t=1 at top (high), t=0 at bottom (low)
+                let t = 1.0 - (i as f64) / (bar_steps as f64);
+                let color = colorize(t, overlay.colormap);
+                let y_top = bar_y_start + (i as f64) * step_height;
+                let y_bot = y_top + step_height;
+                // Draw as a filled rectangle approximated by a closed path
+                let rect_pts = vec![
+                    (bar_x_start, y_top),
+                    (bar_x_end, y_top),
+                    (bar_x_end, y_bot),
+                    (bar_x_start, y_bot),
+                    (bar_x_start, y_top),
+                ];
+                chart
+                    .draw_series(std::iter::once(PathElement::new(
+                        rect_pts,
+                        convert_color(&color).stroke_width(4),
+                    )))
+                    .map_err(|e| VisualizationError::rendering_error(&e.to_string()))?;
+            }
+
+            // Label min/max on colorbar
+            chart
+                .draw_series(std::iter::once(Text::new(
+                    format!("{max_val:.2e}"),
+                    (bar_x_start, bar_y_start),
+                    ("sans-serif", 10).into_font(),
+                )))
+                .map_err(|e| VisualizationError::rendering_error(&e.to_string()))?;
+            chart
+                .draw_series(std::iter::once(Text::new(
+                    format!("{min_val:.2e}"),
+                    (bar_x_start, bar_y_end),
+                    ("sans-serif", 10).into_font(),
+                )))
+                .map_err(|e| VisualizationError::rendering_error(&e.to_string()))?;
+            // Field label
+            chart
+                .draw_series(std::iter::once(Text::new(
+                    overlay.field.label().to_string(),
+                    (bar_x_start, (bar_y_start + bar_y_end) / 2.0),
+                    ("sans-serif", 9).into_font(),
+                )))
                 .map_err(|e| VisualizationError::rendering_error(&e.to_string()))?;
         }
 

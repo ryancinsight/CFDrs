@@ -5,7 +5,7 @@
 //! and GRASP design principles for maximum flexibility and maintainability.
 
 use crate::{
-    config_constants::ConstantsRegistry,
+    config::ConstantsRegistry,
     geometry::collision_detection::CollisionDetectionResult,
     state_management::{
         adaptive::{
@@ -151,7 +151,7 @@ pub struct DistanceBasedCollisionAdapter {
 
 impl Default for DistanceBasedCollisionAdapter {
     fn default() -> Self {
-        let constants = crate::config_constants::ConstantsRegistry::new();
+        let constants = crate::config::ConstantsRegistry::new();
         Self {
             neighbor_scale_factor: constants.get_neighbor_scale_factor(),
             min_distance_threshold: constants.get_min_distance_threshold(),

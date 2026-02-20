@@ -7,7 +7,7 @@
 use crate::config::{
     constants, ArcConfig, ChannelTypeConfig, FrustumConfig, GeometryConfig, SerpentineConfig,
 };
-use crate::config_constants::ConstantsRegistry;
+use crate::config::ConstantsRegistry;
 use crate::geometry::optimization::optimize_serpentine_parameters;
 use crate::geometry::{ChannelType, Point2D};
 use crate::state_management::bilateral_symmetry::{

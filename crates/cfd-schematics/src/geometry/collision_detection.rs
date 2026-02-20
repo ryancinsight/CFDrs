@@ -5,7 +5,7 @@
 //! both channel-to-channel and channel-to-wall boundary constraints.
 
 use crate::{
-    config_constants::ConstantsRegistry,
+    config::ConstantsRegistry,
     error::{ConfigurationError, SchemeError, SchemeResult},
     geometry::Point2D,
     state_management::{adaptive::ChannelGenerationContext, ParameterRegistry},
