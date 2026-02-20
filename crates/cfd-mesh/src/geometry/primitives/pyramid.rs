@@ -132,7 +132,6 @@ mod tests {
     use super::*;
     use crate::storage::edge_store::EdgeStore;
     use crate::watertight::check::check_watertight;
-    use std::f64::consts::PI;
 
     #[test]
     fn pyramid_is_watertight() {

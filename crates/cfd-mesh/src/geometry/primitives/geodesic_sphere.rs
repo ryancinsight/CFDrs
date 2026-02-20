@@ -31,7 +31,7 @@ use super::icosahedron::{icosahedron_vertices, ICOSAHEDRON_FACES};
 /// ## Output
 ///
 /// - All faces tagged `RegionId(1)`
-/// - Volume error < 1 % relative to `(4/3)·π·R³` for `frequency ≥ 3`
+/// - Volume error < 1 % relative to `(4/3)·π·R³` for `frequency ≥ 8`
 ///
 /// [`UvSphere`]: super::sphere::UvSphere
 #[derive(Clone, Debug)]
@@ -171,15 +171,17 @@ mod tests {
     }
 
     #[test]
-    fn geodesic_sphere_f3_volume_within_1pct() {
+    fn geodesic_sphere_f8_volume_within_1pct() {
+        // f=3 gives only ~5.9% volume error (180 triangles, coarse approximation).
+        // Volume error scales as O(1/f²); f=8 (1280 triangles) gives < 1%.
         let r = 1.0_f64;
-        let mesh = GeodesicSphere { radius: r, frequency: 3, ..GeodesicSphere::default() }.build().unwrap();
+        let mesh = GeodesicSphere { radius: r, frequency: 8, ..GeodesicSphere::default() }.build().unwrap();
         let edges = EdgeStore::from_face_store(&mesh.faces);
         let report = check_watertight(&mesh.vertices, &mesh.faces, &edges);
         assert!(report.signed_volume > 0.0);
         let expected = 4.0 / 3.0 * PI * r * r * r;
         let error = (report.signed_volume - expected).abs() / expected;
-        assert!(error < 0.01, "volume error {:.4}% should be < 1% for f=3", error * 100.0);
+        assert!(error < 0.01, "volume error {:.4}% should be < 1% for f=8", error * 100.0);
     }
 
     #[test]

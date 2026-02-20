@@ -36,10 +36,10 @@
 //!   │                      &mut token → write access (exclusive)
 //!   │
 //!   └── HalfEdgeMesh<'id>
-//!       ├── SlotMap<VertexKey,   GhostCell<'id, VertexData>>
-//!       ├── SlotMap<HalfEdgeKey, GhostCell<'id, HalfEdgeData>>
-//!       ├── SlotMap<FaceKey,     GhostCell<'id, FaceData>>
-//!       └── SlotMap<PatchKey,    BoundaryPatch>   (no aliasing → no GhostCell)
+//!       ├── GhostSlotPool<'id, VertexKey,   VertexData>
+//!       ├── GhostSlotPool<'id, HalfEdgeKey, HalfEdgeData>
+//!       ├── GhostSlotPool<'id, FaceKey,     FaceData>
+//!       └── SlotMap<PatchKey, BoundaryPatch>   (no aliasing → no GhostCell)
 //! })
 
 use nalgebra::{Point3, Vector3, RealField};
@@ -557,6 +557,7 @@ impl<T: Scalar> Default for MeshBuilder<T> {
 
 use slotmap::SlotMap;
 use crate::permission::{GhostToken, GhostCell};
+use crate::storage::slotmap_pool::GhostSlotPool;
 use crate::core::index::{VertexKey, HalfEdgeKey, FaceKey, PatchKey};
 // Real is already imported above via `use crate::core::scalar::{Real, ...}`
 use crate::topology::halfedge::{
@@ -600,19 +601,19 @@ use crate::core::error::{MeshError, MeshResult};
 ///
 /// ```text
 /// HalfEdgeMesh<'id>
-/// ├── SlotMap<VertexKey,   GhostCell<'id, VertexData>>
+/// ├── GhostSlotPool<'id, VertexKey,   VertexData>
 /// │     VertexData { position: Point3<Real>, half_edge: HalfEdgeKey }
-/// ├── SlotMap<HalfEdgeKey, GhostCell<'id, HalfEdgeData>>
+/// ├── GhostSlotPool<'id, HalfEdgeKey, HalfEdgeData>
 /// │     HalfEdgeData { vertex, face, twin, next, prev }
-/// ├── SlotMap<FaceKey,     GhostCell<'id, FaceData>>
+/// ├── GhostSlotPool<'id, FaceKey,     FaceData>
 /// │     FaceData { half_edge, patch, normal }
-/// └── SlotMap<PatchKey,    BoundaryPatch>
+/// └── SlotMap<PatchKey, BoundaryPatch>
 ///       BoundaryPatch { name, patch_type }
 /// ```
 pub struct HalfEdgeMesh<'id> {
-    vertices:   SlotMap<VertexKey,   GhostCell<'id, VertexData>>,
-    half_edges: SlotMap<HalfEdgeKey, GhostCell<'id, HalfEdgeData>>,
-    faces:      SlotMap<FaceKey,     GhostCell<'id, HeFaceData>>,
+    vertices:   GhostSlotPool<'id, VertexKey,   VertexData>,
+    half_edges: GhostSlotPool<'id, HalfEdgeKey, HalfEdgeData>,
+    faces:      GhostSlotPool<'id, FaceKey,     HeFaceData>,
     /// Patches do not need GhostCell: they are identified by `PatchKey` and
     /// are never aliased in topology, so `&mut self` is sufficient for mutation.
     patches:    SlotMap<PatchKey,    HeBoundaryPatch>,
@@ -625,9 +626,9 @@ impl<'id> HalfEdgeMesh<'id> {
     /// Create an empty mesh. Use [`with_mesh`] instead of calling this directly.
     fn new() -> Self {
         Self {
-            vertices:   SlotMap::with_key(),
-            half_edges: SlotMap::with_key(),
-            faces:      SlotMap::with_key(),
+            vertices:   GhostSlotPool::new(),
+            half_edges: GhostSlotPool::new(),
+            faces:      GhostSlotPool::new(),
             patches:    SlotMap::with_key(),
             twin_map:   hashbrown::HashMap::new(),
         }
