@@ -51,6 +51,20 @@ pub enum DesignTopology {
     /// time, and light / ultrasound path length.  FDA compliance is easier to
     /// achieve because the flow is distributed over a large channel area.
     SerpentineGrid,
+
+    /// Inlet → curved section (Dean flow margination) → venturi throat
+    /// (inertial focusing of cancer cells to center) → split outlet:
+    /// center channel (cancer cells + cavitation) + peripheral channels
+    /// (healthy cells / RBCs pushed to walls by Dean flow).
+    ///
+    /// Designed for **cancer cell isolation + sonodynamic therapy**:
+    /// - Large, stiff cancer cells (MCF-7, κ ≈ 0.35) focus to channel center.
+    /// - Small, deformable RBCs (κ ≈ 0.14) focus to channel walls.
+    /// - Venturi throat in the center channel generates cavitation for SDT.
+    /// - Peripheral channels return healthy cells without cavitation exposure.
+    ///
+    /// Physics: inertial lift (Di Carlo 2009) + Dean drag (Gossett 2009).
+    CellSeparationVenturi,
 }
 
 impl DesignTopology {
@@ -62,6 +76,7 @@ impl DesignTopology {
             Self::TrifurcationVenturi => "Trifurcation + Venturi ×3",
             Self::VenturiSerpentine => "Venturi → Serpentine Grid",
             Self::SerpentineGrid => "Serpentine Grid (full 6×6)",
+            Self::CellSeparationVenturi => "Cell Separation + Venturi (cancer focus)",
         }
     }
 
@@ -73,6 +88,7 @@ impl DesignTopology {
             Self::TrifurcationVenturi => "TV",
             Self::VenturiSerpentine => "VS",
             Self::SerpentineGrid => "SG",
+            Self::CellSeparationVenturi => "CS",
         }
     }
 
@@ -84,6 +100,7 @@ impl DesignTopology {
                 | Self::BifurcationVenturi
                 | Self::TrifurcationVenturi
                 | Self::VenturiSerpentine
+                | Self::CellSeparationVenturi
         )
     }
 
@@ -96,6 +113,7 @@ impl DesignTopology {
                 | Self::TrifurcationVenturi
                 | Self::VenturiSerpentine
                 | Self::SerpentineGrid
+                | Self::CellSeparationVenturi
         )
     }
 
@@ -112,6 +130,8 @@ impl DesignTopology {
             Self::TrifurcationVenturi => 3,
             Self::VenturiSerpentine => 1,
             Self::SerpentineGrid => 0,
+            // One venturi in the center channel for cancer cell cavitation
+            Self::CellSeparationVenturi => 1,
         }
     }
 
@@ -123,6 +143,8 @@ impl DesignTopology {
             Self::TrifurcationVenturi => 3,
             Self::VenturiSerpentine => 1,
             Self::SerpentineGrid => 1,
+            // 2 outlets: center (cancer cells) + peripheral (healthy cells)
+            Self::CellSeparationVenturi => 2,
         }
     }
 
@@ -140,6 +162,8 @@ impl DesignTopology {
             Self::TrifurcationVenturi => 1.0,
             // Serpentine sweeps all 6 rows → all 36 wells
             Self::VenturiSerpentine | Self::SerpentineGrid => 1.0,
+            // Center channel covers cancer cell treatment wells (≈ half the plate)
+            Self::CellSeparationVenturi => 0.5,
         }
     }
 }
@@ -249,6 +273,7 @@ pub fn build_candidate_space() -> Vec<DesignCandidate> {
         DesignTopology::TrifurcationVenturi,
         DesignTopology::VenturiSerpentine,
         DesignTopology::SerpentineGrid,
+        DesignTopology::CellSeparationVenturi,
     ];
 
     // throat diameter = 0 placeholder for topologies without venturi

@@ -25,6 +25,7 @@
 //! threshold used here.
 
 use cfd_1d::{FlowConditions, SerpentineModel, VenturiModel};
+use cfd_1d::cell_separation::{CellProperties, CellSeparationModel};
 use cfd_core::physics::fluid::blood::CassonBlood;
 use serde::{Deserialize, Serialize};
 
@@ -95,6 +96,25 @@ pub struct SdtMetrics {
     /// `true` if the total ΔP < available gauge pressure (syringe pump can
     /// drive the flow without stalling).
     pub pressure_feasible: bool,
+
+    // ── Cell separation ──
+    /// Inertial focusing separation efficiency for MCF-7 cancer cells vs RBCs.
+    ///
+    /// Defined as `|x̃_cancer − x̃_rbc|` ∈ [0, 1] where `x̃` is the normalised
+    /// lateral equilibrium position (0 = center, 1 = wall).
+    ///
+    /// `0.0` for topologies without a cell separation stage.
+    pub cell_separation_efficiency: f64,
+
+    /// Fraction of MCF-7 cancer cells collected in the center channel.
+    ///
+    /// `0.0` for topologies without a cell separation stage.
+    pub cancer_center_fraction: f64,
+
+    /// Fraction of RBCs collected in the peripheral (wall) channels.
+    ///
+    /// `0.0` for topologies without a cell separation stage.
+    pub rbc_peripheral_fraction: f64,
 }
 
 // ── Public entry point ───────────────────────────────────────────────────────
@@ -164,6 +184,29 @@ pub fn compute_metrics(candidate: &DesignCandidate) -> Result<SdtMetrics, OptimE
     let total_path = path_venturi_mm + path_distribution_mm;
     let pressure_feasible = total_dp <= candidate.inlet_gauge_pa;
 
+    // ── Cell separation metrics ──────────────────────────────────────────────
+    // Only computed for CellSeparationVenturi topology; zero for all others.
+    let sep_metrics: (f64, f64, f64) =
+        if candidate.topology == crate::design::DesignTopology::CellSeparationVenturi {
+            let cancer = CellProperties::mcf7_breast_cancer();
+            let rbc = CellProperties::red_blood_cell();
+            let model = CellSeparationModel::new(
+                candidate.channel_width_m,
+                candidate.channel_height_m,
+                Some(candidate.bend_radius_m),
+            );
+            let mean_v = candidate.flow_rate_m3_s
+                / (candidate.channel_width_m * candidate.channel_height_m);
+            // Estimate shear rate for viscosity calculation: γ̇ ≈ 6V/h (slit flow approximation)
+            let shear_est = 6.0 * mean_v / candidate.channel_height_m;
+            match model.analyze(&cancer, &rbc, blood.density, blood.apparent_viscosity(shear_est), mean_v) {
+                Some(a) => (a.separation_efficiency, a.target_center_fraction, a.background_peripheral_fraction),
+                None => (0.0, 0.0, 0.0),
+            }
+        } else {
+            (0.0, 0.0, 0.0)
+        };
+
     Ok(SdtMetrics {
         cavitation_number,
         cavitation_potential,
@@ -179,6 +222,9 @@ pub fn compute_metrics(candidate: &DesignCandidate) -> Result<SdtMetrics, OptimE
         total_pressure_drop_pa: total_dp,
         total_path_length_mm: total_path,
         pressure_feasible,
+        cell_separation_efficiency: sep_metrics.0,
+        cancer_center_fraction: sep_metrics.1,
+        rbc_peripheral_fraction: sep_metrics.2,
     })
 }
 
@@ -264,10 +310,10 @@ fn eval_distribution_stage(
             eval_serpentine(candidate, blood)
         }
 
-        // ── Bifurcation / trifurcation ───────────────────────────────────
-        DesignTopology::BifurcationVenturi | DesignTopology::TrifurcationVenturi => {
-            eval_branching(candidate, blood)
-        }
+        // ── Bifurcation / trifurcation / separation ──────────────────────
+        DesignTopology::BifurcationVenturi
+        | DesignTopology::TrifurcationVenturi
+        | DesignTopology::CellSeparationVenturi => eval_branching(candidate, blood),
 
         // ── Single venturi with no distribution stage ────────────────────
         DesignTopology::SingleVenturi => {

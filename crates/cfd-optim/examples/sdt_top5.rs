@@ -130,6 +130,57 @@ fn main() {
         }
     }
 
+    // ── Mode 3: Cell Separation ──────────────────────────────────────────
+    println!("\n{}", "=".repeat(110));
+    println!("  cfd-optim  |  Cell Separation Mode  |  Cancer cell focusing + SDT cavitation");
+    println!("{}", "=".repeat(110));
+    println!("  Objective: Maximise separation efficiency (|x̃_cancer - x̃_healthy|)");
+    println!("           + cavitation potential (σ < 1) + low haemolysis");
+    println!("  Constraint: same as above");
+    println!("{}", "-".repeat(110));
+
+    match SdtOptimizer::new(OptimMode::CellSeparation, weights).top_5() {
+        Ok(designs) => {
+            println!(
+                "{:>4}  {:<42}  {:>7}  {:>9}  {:>9}  {:>7}  {:>7}  {:>7}  {:>9}",
+                "#", "Candidate ID", "Score", "Sep.Eff", "σ", "HI", "Cov%", "Ca.Cen%", "RBC.Per%"
+            );
+            println!("{}", "-".repeat(110));
+            for d in &designs {
+                let m = &d.metrics;
+                let sigma_str = if m.cavitation_number.is_finite() {
+                    format!("{:>9.3}", m.cavitation_number)
+                } else {
+                    format!("{:>9}", "—")
+                };
+                println!(
+                    "{:>4}  {:<42}  {:>7.4}  {:>9.4}  {}  {:>7.2e}  {:>6.0}%  {:>7.0}%  {:>8.0}%",
+                    d.rank,
+                    truncate(&d.candidate.id, 42),
+                    d.score,
+                    m.cell_separation_efficiency,
+                    sigma_str,
+                    m.hemolysis_index_per_pass,
+                    m.well_coverage_fraction * 100.0,
+                    m.cancer_center_fraction * 100.0,
+                    m.rbc_peripheral_fraction * 100.0,
+                );
+            }
+
+            println!("\n  ── Detailed breakdown ──");
+            for d in &designs {
+                // Only print details for the winner to save space
+                if d.rank == 1 {
+                    println!();
+                    print_detailed(d);
+                }
+            }
+        }
+        Err(e) => {
+            eprintln!("  ERROR: {e}");
+        }
+    }
+
     println!("\n{}", "=".repeat(110));
     println!("  Done.  Physical units: Pa, m3/s, m, s  |  Plate: ANSI/SLAS 1-2004 96-well");
     println!("{}", "=".repeat(110));
@@ -217,4 +268,12 @@ fn print_detailed(d: &cfd_optim::RankedDesign) {
         "    Path length: {:.1} mm  |  Score: {:.4}",
         m.total_path_length_mm, d.score
     );
+    if c.topology == cfd_optim::design::DesignTopology::CellSeparationVenturi {
+        println!(
+            "    Separation : Eff = {:.4}  |  Cancer (Center): {:.1}%  |  RBC (Periph): {:.1}%",
+            m.cell_separation_efficiency,
+            m.cancer_center_fraction * 100.0,
+            m.rbc_peripheral_fraction * 100.0
+        );
+    }
 }

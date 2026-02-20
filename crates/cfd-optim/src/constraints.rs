@@ -101,7 +101,7 @@ pub const THROAT_DIAMETERS_M: [f64; 3] = [50e-6, 100e-6, 150e-6];
 pub const CHANNEL_WIDTHS_M: [f64; 3] = [0.3e-3, 0.5e-3, 0.8e-3];
 
 /// Fixed channel height used for all rectangular channels [m]
-pub const CHANNEL_HEIGHT_M: f64 = 0.2e-3; // 200 μm
+pub const CHANNEL_HEIGHT_M: f64 = 0.1e-3; // 100 μm
 
 /// Fixed inlet diameter for all venturi stages [m]
 pub const VENTURI_INLET_DIAM_M: f64 = 0.5e-3; // 500 μm

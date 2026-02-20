@@ -58,6 +58,17 @@ pub enum OptimMode {
         /// Weight on the exposure sub-score (0.0–1.0).
         exposure_weight: f64,
     },
+
+    /// Maximise separation efficiency of cancer cells from healthy cells
+    /// while maintaining cavitation and FDA compliance.
+    ///
+    /// Hard constraints: same as `SdtCavitation`.
+    ///
+    /// Soft objectives:
+    /// - Separation efficiency (maximise |x̃_cancer - x̃_healthy|)
+    /// - Cavitation potential (secondary goal)
+    /// - Low haemolysis index
+    CellSeparation,
 }
 
 // ── Scoring weights ──────────────────────────────────────────────────────────
@@ -82,6 +93,14 @@ pub struct SdtWeights {
     pub exp_coverage: f64,
     /// Weight on normalised residence time in the treatment zone.
     pub exp_residence: f64,
+
+    // ── Cell separation weights ──────────────────────────────────────────
+    /// Weight on separation efficiency.
+    pub sep_efficiency: f64,
+    /// Weight on cavitation potential in separation mode.
+    pub sep_cavitation: f64,
+    /// Weight on low haemolysis index in separation mode.
+    pub sep_hemolysis: f64,
 }
 
 impl Default for SdtWeights {
@@ -98,6 +117,12 @@ impl Default for SdtWeights {
             exp_uniformity: 0.45,
             exp_coverage: 0.35,
             exp_residence: 0.20,
+
+            // Cell Separation: primary goal is separation; cavitation is secondary
+            // but still required for therapy.
+            sep_efficiency: 0.50,
+            sep_cavitation: 0.30,
+            sep_hemolysis: 0.20,
         }
     }
 }
@@ -126,6 +151,7 @@ pub fn score_candidate(metrics: &SdtMetrics, mode: OptimMode, weights: &SdtWeigh
             (cavitation_weight * s_cav + exposure_weight * s_exp)
                 / (cavitation_weight + exposure_weight).max(1e-12)
         }
+        OptimMode::CellSeparation => score_cell_separation(metrics, weights),
     }
 }
 
@@ -164,6 +190,18 @@ fn score_exposure(metrics: &SdtMetrics, w: &SdtWeights) -> f64 {
     w.exp_uniformity * uniformity + w.exp_coverage * coverage + w.exp_residence * res_norm
 }
 
+/// Score for the cell separation objective.
+fn score_cell_separation(metrics: &SdtMetrics, w: &SdtWeights) -> f64 {
+    let separation = metrics.cell_separation_efficiency.clamp(0.0, 1.0);
+    let cav = metrics.cavitation_potential;
+
+    // Haemolysis penalty (similar to cavitation mode)
+    let hi_ratio = (metrics.hemolysis_index_per_pass / HI_PASS_LIMIT).min(2.0);
+    let hi_factor = (1.0 - 0.5 * hi_ratio).max(0.0);
+
+    w.sep_efficiency * separation + w.sep_cavitation * cav + w.sep_hemolysis * hi_factor
+}
+
 // ── Utility ──────────────────────────────────────────────────────────────────
 
 /// Return a human-readable summary line for a scored candidate.
@@ -172,5 +210,6 @@ pub fn score_description(mode: OptimMode) -> &'static str {
         OptimMode::SdtCavitation => "SDT Cavitation",
         OptimMode::UniformExposure => "Uniform Exposure",
         OptimMode::Combined { .. } => "Combined (Cavitation + Exposure)",
+        OptimMode::CellSeparation => "Cell Separation + SDT",
     }
 }
