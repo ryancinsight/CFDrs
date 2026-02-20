@@ -371,6 +371,15 @@ impl<T: Scalar> IndexedMesh<T> {
     /// Number of faces.
     pub fn face_count(&self) -> usize { self.faces.len() }
 
+    /// Flip the winding order of all faces (swap v1 <-> v2 on every triangle).
+    ///
+    /// Call this after building a mesh whose face-construction algorithm
+    /// produces consistent *inward* normals, to obtain outward normals.
+    pub fn flip_faces(&mut self) {
+        self.edges = None;
+        self.faces.iter_mut().for_each(|f| f.flip());
+    }
+
     // ── Edge / adjacency access ───────────────────────────────────────────
 
     /// Get (or lazily build) the edge store.
