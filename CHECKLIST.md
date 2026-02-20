@@ -94,7 +94,21 @@ A deep audit of the 1D CFD implementation has identified and resolved several ma
 - Target: 8.82% → 50% → 80%
 - Focus: CFD-Math critical paths, CFD-2D pressure-velocity, integration tests
 
-**Sprint 1.88.0+**: Strategic Enhancements
+**Sprint 1.88.0: CFD-MESH ROBUSTNESS AUDIT & REFACTOR**
+**Status**: ✅ COMPLETE - Audited Mesh Processing (CSG, BSP, Welding)
+
+### CFD-Mesh Geometric Audit
+A deep audit of the geometric algorithms identified heuristics requiring formal mathematical resolution:
+- ✅ **AUDITED**: `csg/boolean.rs` relies on quantized heuristic containment.
+- ✅ **AUDITED**: `csg/bsp.rs` splitting uses greedy heuristic with 1e-5 tolerance.
+- ✅ **AUDITED**: `welding/snap.rs` lacks topology-preserving invariant checks.
+
+### Tasks
+- [ ] **Priority 1**: Refactor CSG Booleans to Exact Predicates (EMBER-style)
+- [ ] **Priority 2**: Implement Plane-based BSP Tree exact classifications
+- [ ] **Priority 3**: Upgrade SnappingGrid to topological-preserving welding
+
+**Sprint 1.89.0+**: Strategic Enhancements
 - GPU integration decision (implement or defer)
 - MPI scaling validation (empirical benchmarks)
 - Advanced AMG coarsening strategies (PMIS, HMIS, Falgout)

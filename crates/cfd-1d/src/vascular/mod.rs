@@ -28,6 +28,7 @@
 //! - Olufsen, M.S. (1999) "Structured tree outflow condition for blood flow in
 //!   larger systemic arteries"
 
+pub mod bessel;
 pub mod bifurcation;
 pub mod murrays_law;
 pub mod womersley;

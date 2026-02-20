@@ -15,7 +15,7 @@ use cfd_1d::{
     BloodShearLimits, EdgeProperties, Network, NetworkAnalysisResult, NetworkAnalyzerOrchestrator,
     NetworkBuilder,
 };
-use scheme::domain::model::ChannelSpec;
+use cfd_schematics::domain::model::ChannelSpec;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Approximate whole-blood Newtonianized properties for this screening demo.

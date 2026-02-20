@@ -212,6 +212,22 @@ path = "examples/csg/cylinder_cylinder_symmetric.rs"
 name = "csg_cylinder_cylinder_asymmetric"
 path = "examples/csg/cylinder_cylinder_asymmetric.rs"
 
+[[example]]
+name = "csg_cylinder_cylinder_l_shape"
+path = "examples/csg/cylinder_cylinder_l_shape.rs"
+
+[[example]]
+name = "csg_cylinder_cylinder_perpendicular"
+path = "examples/csg/cylinder_cylinder_perpendicular.rs"
+
+[[example]]
+name = "csg_cylinder_cylinder_t_junction"
+path = "examples/csg/cylinder_cylinder_t_junction.rs"
+
+[[example]]
+name = "csg_cylinder_cylinder_v_shape"
+path = "examples/csg/cylinder_cylinder_v_shape.rs"
+
 # ── Coplanar 2-D Boolean examples ──────────────────────────────────────────────
 
 [[example]]

@@ -15,8 +15,7 @@ pub mod constants {
     pub const DEFAULT_PRANDTL: f64 = 0.71;
     /// Stefan-Boltzmann constant [W/(m²·K⁴)]
     pub const STEFAN_BOLTZMANN: f64 = 5.67e-8;
-    /// Central difference coefficient for second derivatives
-    pub const CENTRAL_DIFF_COEFF: f64 = 2.0;
+
 }
 
 /// Energy equation solver
@@ -96,34 +95,39 @@ impl<T: RealField + Copy> EnergyEquationSolver<T> {
 
                 let t = self.temperature[i][j];
                 let alpha = self.thermal_diffusivity[i][j];
-                let u = u_velocity[i][j];
-                let v = v_velocity[i][j];
 
-                // Convection terms (upwind scheme)
-                let dt_dx = if u > T::zero() {
-                    (t - new_temperature[i - 1][j]) / dx // Use updated boundary values
-                } else {
-                    (new_temperature[i + 1][j] - t) / dx
-                };
+                // Face-interpolated temperatures (Central Differencing)
+                let two = T::one() + T::one();
+                let t_west = self.temperature[i - 1][j];
+                let t_east = self.temperature[i + 1][j];
+                let t_south = self.temperature[i][j - 1];
+                let t_north = self.temperature[i][j + 1];
 
-                let dt_dy = if v > T::zero() {
-                    (t - new_temperature[i][j - 1]) / dy
-                } else {
-                    (new_temperature[i][j + 1] - t) / dy
-                };
+                // Face-interpolated velocities
+                let u_west = (u_velocity[i - 1][j] + u_velocity[i][j]) / two;
+                let u_east = (u_velocity[i][j] + u_velocity[i + 1][j]) / two;
+                let v_south = (v_velocity[i][j - 1] + v_velocity[i][j]) / two;
+                let v_north = (v_velocity[i][j] + v_velocity[i][j + 1]) / two;
 
-                // Diffusion terms (central difference) - use updated boundary values
-                let coeff = T::from_f64(constants::CENTRAL_DIFF_COEFF).unwrap_or_else(|| T::zero());
-                let d2t_dx2 =
-                    (new_temperature[i + 1][j] - coeff * t + new_temperature[i - 1][j]) / (dx * dx);
-                let d2t_dy2 =
-                    (new_temperature[i][j + 1] - coeff * t + new_temperature[i][j - 1]) / (dy * dy);
+                // Conservative convective fluxes across cell faces
+                let f_conv_east = u_east * (t + t_east) / two;
+                let f_conv_west = u_west * (t_west + t) / two;
+                let f_conv_north = v_north * (t + t_north) / two;
+                let f_conv_south = v_south * (t_south + t) / two;
 
-                // Update temperature
-                new_temperature[i][j] = t + dt
-                    * (-u * dt_dx - v * dt_dy
-                        + alpha * (d2t_dx2 + d2t_dy2)
-                        + self.heat_source[i][j]);
+                // Conservative diffusive fluxes across cell faces
+                // (Using local alpha for the cell face gradient)
+                let f_diff_east = alpha * (t_east - t) / dx;
+                let f_diff_west = alpha * (t - t_west) / dx;
+                let f_diff_north = alpha * (t_north - t) / dy;
+                let f_diff_south = alpha * (t - t_south) / dy;
+
+                // Flux balance (Finite Volume Method)
+                let conv_term = (f_conv_east - f_conv_west) / dx + (f_conv_north - f_conv_south) / dy;
+                let diff_term = (f_diff_east - f_diff_west) / dx + (f_diff_north - f_diff_south) / dy;
+
+                // Explicit update
+                new_temperature[i][j] = t + dt * (-conv_term + diff_term + self.heat_source[i][j]);
             }
         }
 

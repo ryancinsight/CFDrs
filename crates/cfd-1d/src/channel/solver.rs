@@ -126,19 +126,50 @@ impl<T: RealField + Copy + FromPrimitive + Float> ChannelGeometry<T> {
                 major_axis,
                 minor_axis,
             } => {
-                // Ramanujan's formula for ellipse perimeter (accurate to machine precision for typical aspect ratios)
+                // Exact formula using Arithmetic-Geometric Mean (AGM) for Complete Elliptic Integral of the Second Kind
                 let pi = T::from_f64(std::f64::consts::PI).unwrap_or_else(|| T::zero());
-                let a = *major_axis / T::from_f64(2.0).unwrap_or_else(|| T::zero());
-                let b = *minor_axis / T::from_f64(2.0).unwrap_or_else(|| T::zero());
-                let h = Float::powi((a - b) / (a + b), 2);
-                pi * (a + b)
-                    * (T::one()
-                        + T::from_f64(3.0).unwrap_or_else(|| T::zero()) * h
-                            / (T::from_f64(10.0).unwrap_or_else(|| T::zero())
-                                + Float::sqrt(
-                                    T::from_f64(4.0).unwrap_or_else(|| T::zero())
-                                        - T::from_f64(3.0).unwrap_or_else(|| T::zero()) * h,
-                                )))
+                let two = T::from_f64(2.0).unwrap_or_else(|| T::zero());
+                let a_val = *major_axis / two;
+                let b_val = *minor_axis / two;
+
+                // Ensure a >= b for standard integral form
+                let (a, b) = if a_val > b_val { (a_val, b_val) } else { (b_val, a_val) };
+
+                if a == b || b == T::zero() {
+                    return two * pi * a;
+                }
+
+                let m = T::one() - (b * b) / (a * a);
+                
+                let mut a_n = T::one();
+                let mut b_n = Float::sqrt(T::one() - m);
+                let mut c_n = Float::sqrt(m);
+                
+                let mut sum = c_n * c_n / two;
+                let mut power = T::one();
+                
+                let tolerance = T::from_f64(1e-14).unwrap_or_else(|| T::zero());
+                
+                for _ in 0..20 {
+                    let a_next = (a_n + b_n) / two;
+                    let b_next = Float::sqrt(a_n * b_n);
+                    let c_next = (a_n - b_n) / two;
+                    
+                    a_n = a_next;
+                    b_n = b_next;
+                    c_n = c_next;
+                    
+                    sum = sum + power * c_n * c_n;
+                    power = power * two;
+                    
+                    if c_n < tolerance || c_n == T::zero() {
+                        break;
+                    }
+                }
+                
+                let e_m = (pi / (two * a_n)) * (T::one() - sum);
+                let four = T::from_f64(4.0).unwrap_or_else(|| T::zero());
+                four * a * e_m
             }
             CrossSection::Trapezoidal {
                 top_width,

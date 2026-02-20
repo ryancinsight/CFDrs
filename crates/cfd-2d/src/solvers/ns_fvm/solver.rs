@@ -24,7 +24,6 @@ use super::field::FlowField2D;
 use super::grid::StaggeredGrid2D;
 use super::BloodModel;
 use crate::error::Error;
-use cfd_core::physics::fluid_dynamics::rhie_chow::RhieChowInterpolation;
 use nalgebra::RealField;
 use num_traits::{Float, FromPrimitive};
 
@@ -578,114 +577,6 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
         Ok(())
     }
 
-    // ── Rhie-Chow ─────────────────────────────────────────────────────────────
-
-    /// Rhie-Chow face-velocity interpolation to prevent checkerboard oscillations.
-    pub fn rhie_chow_interpolation(&mut self) {
-        let nx = self.grid.nx;
-        let ny = self.grid.ny;
-        let dx = self.grid.dx;
-        let dy = self.grid.dy;
-        let tiny = T::from_f64(1e-30).unwrap_or(T::zero());
-
-        // Delegate kernel to cfd-core
-        let rc = RhieChowInterpolation::new(dx, dy);
-
-        // U-faces
-        for i in 1..nx {
-            for j in 0..ny {
-                if !self.field.mask[i - 1][j] || !self.field.mask[i][j] {
-                    continue;
-                }
-                let a_p = self.a_p_u[i][j];
-                if a_p < tiny {
-                    continue;
-                }
-                let _d = dy / a_p; // Used in custom formulation, but core uses a_P+a_E
-
-                // Map solver variables to RhieChow inputs
-                // Solver stores a_p at face (i,j).
-                // Core expects cell coefficients a_p, a_e.
-                // Here we approximate with the face coefficient stored by SIMPLE.
-                // Note: The core formulation assumes cell-centered momentum equations.
-                // Our staggered solver has face-centered momentum.
-                // Actually, for staggered grids, Rhie-Chow is NOT typically needed for u/v!
-                // It's needed for *collocated* grids.
-                // BUT, if we are smoothing or preventing decoupling in partial steps, we might compute it.
-                //
-                // Wait, Patankar (staggered) *doesn't* use Rhie-Chow.
-                // Rhie-Chow is calculating cell-face velocities from cell-centered pressure.
-                // In staggered, the velocity *is* at the face.
-                //
-                // The existing code implements a smoothing correction similar to RC:
-                // u = u + d * (dp_compact - dp_wide)
-                // This is a "stabilizing" term used in some staggered codes to damp oscillations.
-                //
-                // Since I must use the SSOT, and the SSOT is `RhieChowInterpolation`,
-                // I will maintain the loop but perform the *interpolation* using the core logic IF it maps.
-                //
-                // The core logic: u_f = (u_L + u_R)/2 - alpha * d_f * (dp/dx - grad_p_avg).
-                // The local logic: u = u + d * (dp_compact - dp_wide).
-                //
-                // Valid substitution:
-                // self.field.u[i][j] is our "velocity at face".
-                // The existing code *modifies* it in-place using pressure derivatives.
-                // This looks exactly like the RC correction term.
-
-                let dp_compact = if i > 0 && i < nx {
-                    self.field.p[i - 1][j] - self.field.p[i][j]
-                } else {
-                    T::zero()
-                };
-                let dp_dx_p = if i >= 2 && i - 1 < nx {
-                    (self.field.p[i - 2][j] - self.field.p[i][j]) / (dx + dx)
-                } else {
-                    T::zero()
-                };
-                let dp_dx_e = if i > 0 && i + 1 < nx {
-                    (self.field.p[i - 1][j] - self.field.p[i + 1][j]) / (dx + dx)
-                } else {
-                    T::zero()
-                };
-                let dp_wide = (dp_dx_p + dp_dx_e) * (T::one() / (T::one() + T::one())) * dx;
-
-                // Reuse the 'd' factor from momentum solve
-                let d = dy / a_p;
-                self.field.u[i][j] = self.field.u[i][j] + d * (dp_compact - dp_wide);
-            }
-        }
-
-        // V-faces
-        for i in 0..nx {
-            for j in 1..ny {
-                if !self.field.mask[i][j - 1] || !self.field.mask[i][j] {
-                    continue;
-                }
-                let a_p = self.a_p_v[i][j];
-                if a_p < tiny {
-                    continue;
-                }
-                let d = dx / a_p;
-                let dp_compact = if j > 0 && j < ny {
-                    self.field.p[i][j - 1] - self.field.p[i][j]
-                } else {
-                    T::zero()
-                };
-                let dp_dy_s = if j >= 2 && j - 1 < ny {
-                    (self.field.p[i][j - 2] - self.field.p[i][j]) / (dy + dy)
-                } else {
-                    T::zero()
-                };
-                let dp_dy_n = if j > 0 && j + 1 < ny {
-                    (self.field.p[i][j - 1] - self.field.p[i][j + 1]) / (dy + dy)
-                } else {
-                    T::zero()
-                };
-                let dp_wide = (dp_dy_s + dp_dy_n) * (T::one() / (T::one() + T::one())) * dy;
-                self.field.v[i][j] = self.field.v[i][j] + d * (dp_compact - dp_wide);
-            }
-        }
-    }
 
     // ── convergence ───────────────────────────────────────────────────────────
 
@@ -765,7 +656,6 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
             self.solve_u_momentum(&bc_inlet, &bc_outlet, u_inlet)?;
             self.solve_v_momentum(&bc_wall_noslip, &bc_wall_noslip)?;
             self.solve_pressure_correction()?;
-            self.rhie_chow_interpolation();
 
             // Update viscosity? config has interval
             if iteration % self.config.viscosity_update_interval == 0 {

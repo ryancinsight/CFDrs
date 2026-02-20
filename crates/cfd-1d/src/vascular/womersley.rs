@@ -36,7 +36,8 @@
 //!   flow and viscous drag in arteries when the pressure gradient is known"
 //! - Fung, Y.C. (1997) "Biomechanics: Circulation"
 
-use nalgebra::RealField;
+use crate::vascular::bessel::{bessel_j0, bessel_j1};
+use nalgebra::{Complex, RealField};
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
 use std::f64::consts::PI;
@@ -210,7 +211,7 @@ impl<T: RealField + FromPrimitive + Copy> WomersleyProfile<T> {
         }
     }
 
-    /// Calculate velocity at radial position and time using asymptotic formulas
+    /// Calculate velocity at radial position and time using exact Bessel functions
     ///
     /// # Arguments
     /// * `xi` - Dimensionless radial position r/R (0 ≤ xi ≤ 1)
@@ -220,6 +221,9 @@ impl<T: RealField + FromPrimitive + Copy> WomersleyProfile<T> {
     /// Axial velocity u(r,t) [m/s]
     pub fn velocity(&self, xi: T, t: T) -> T {
         let alpha = self.womersley.value();
+        let rho = self.womersley.density;
+        let omega = self.womersley.omega;
+        let p_hat = self.pressure_amplitude;
         let one = T::one();
 
         // Clamp xi to valid range
@@ -231,84 +235,29 @@ impl<T: RealField + FromPrimitive + Copy> WomersleyProfile<T> {
             xi
         };
 
-        // Phase angle ωt
-        let phase = self.womersley.omega * t;
+        // i^{3/2} = e^{i 3pi/4} = (-1 + i) / sqrt(2)
+        let sqrt2 = T::from_f64(2.0).unwrap().sqrt();
+        let i_3_2 = Complex::new(-one / sqrt2, one / sqrt2);
 
-        if alpha < T::from_f64(1.0).unwrap() {
-            // Low α: quasi-steady Poiseuille with small phase lag
-            self.velocity_low_alpha(xi, phase, alpha)
-        } else if alpha > T::from_f64(10.0).unwrap() {
-            // High α: plug flow with boundary layer
-            self.velocity_high_alpha(xi, phase, alpha)
-        } else {
-            // Intermediate: interpolate between limits
-            self.velocity_intermediate(xi, phase, alpha)
-        }
-    }
+        // z = i^{3/2} * alpha
+        let z = i_3_2 * alpha;
+        let z_xi = z * xi;
 
-    /// Low Womersley number approximation (quasi-steady Poiseuille)
-    fn velocity_low_alpha(&self, xi: T, phase: T, alpha: T) -> T {
-        let r = self.womersley.radius;
-        let mu = self.womersley.viscosity;
-        let one = T::one();
-        let four = T::from_f64(4.0).unwrap();
-        let eight = T::from_f64(8.0).unwrap();
-
-        // Amplitude: P̂R²/(4μ)
-        let amplitude = self.pressure_amplitude * r * r / (four * mu);
-
-        // Parabolic profile: 1 - ξ²
-        let shape = one - xi * xi;
-
-        // Phase lag: φ ≈ α²/8 (small α approximation)
-        let phase_lag = alpha * alpha / eight;
-
-        amplitude * shape * (phase - phase_lag).cos()
-    }
-
-    /// High Womersley number approximation (plug flow with boundary layer)
-    fn velocity_high_alpha(&self, xi: T, phase: T, _alpha: T) -> T {
-        let rho = self.womersley.density;
-        let omega = self.womersley.omega;
-        let one = T::one();
-
-        // Core velocity amplitude: P̂/(ρω)
-        let amplitude = self.pressure_amplitude / (rho * omega);
-
-        // Boundary layer penetration: exp(-(1-ξ)R/δ)
-        let delta = self.womersley.stokes_layer_thickness();
-        let r = self.womersley.radius;
-        let bl_arg = -(one - xi) * r / delta;
-        let bl_factor = one - bl_arg.exp();
-
-        amplitude * bl_factor * phase.sin()
-    }
-
-    /// Intermediate Womersley number (blended approximation)
-    fn velocity_intermediate(&self, xi: T, phase: T, alpha: T) -> T {
-        let one = T::one();
-        let three = T::from_f64(3.0).unwrap();
-        let seven = T::from_f64(7.0).unwrap();
-
-        // Blend weight (0 at α=1, 1 at α=10)
-        let w_high = (alpha - one) / (T::from_f64(10.0).unwrap() - one);
-        let w_high = if w_high < T::zero() {
-            T::zero()
-        } else if w_high > one {
-            one
-        } else {
-            w_high
-        };
-        let w_low = one - w_high;
-
-        // Blended velocity
-        let u_low = self.velocity_low_alpha(xi, phase, alpha);
-        let u_high = self.velocity_high_alpha(xi, phase, alpha);
-
-        // Use additional correction for transitional regime
-        let correction_factor = one - T::from_f64(0.2).unwrap() * (-(alpha - three).abs() / seven).exp();
-
-        (w_low * u_low + w_high * u_high) * correction_factor
+        let j0_z = bessel_j0(z);
+        let j0_z_xi = bessel_j0(z_xi);
+        
+        let ratio = j0_z_xi / j0_z;
+        let term_brackets = Complex::new(one, T::zero()) - ratio;
+        
+        // P_hat / (i * rho * omega) = -i * P_hat / (rho * omega)
+        let coeff = Complex::new(T::zero(), -p_hat / (rho * omega));
+        
+        // e^{i \omega t} = cos(\omega t) + i \sin(\omega t)
+        let phase = omega * t;
+        let exp_iwt = Complex::new(phase.cos(), phase.sin());
+        
+        // Final: Re{ coeff * term_brackets * exp_iwt }
+        (coeff * term_brackets * exp_iwt).re
     }
 
     /// Calculate centerline velocity (maximum velocity)
@@ -316,50 +265,72 @@ impl<T: RealField + FromPrimitive + Copy> WomersleyProfile<T> {
         self.velocity(T::zero(), t)
     }
 
-    /// Calculate wall shear stress
+    /// Calculate wall shear stress using exact Bessel functions
     ///
-    /// τ_w = -μ · (∂u/∂r)|_{r=R}
+    /// τ_w(t) = -μ · (∂u/∂r)|_{r=R}
     pub fn wall_shear_stress(&self, t: T) -> T {
         let alpha = self.womersley.value();
         let r = self.womersley.radius;
-        let mu = self.womersley.viscosity;
         let rho = self.womersley.density;
+        let mu = self.womersley.viscosity;
         let omega = self.womersley.omega;
-        let phase = omega * t;
+        let p_hat = self.pressure_amplitude;
+        let one = T::one();
 
-        if alpha < T::from_f64(1.0).unwrap() {
-            // Low α: τ_w = (P̂R/2) · cos(ωt - φ)
-            let two = T::from_f64(2.0).unwrap();
-            let eight = T::from_f64(8.0).unwrap();
-            let phase_lag = alpha * alpha / eight;
-            (self.pressure_amplitude * r / two) * (phase - phase_lag).cos()
-        } else {
-            // High α: τ_w ≈ (P̂/α) · √(μρω) · cos(ωt - π/4)
-            let sqrt_murhow = (mu * rho * omega).sqrt();
-            let pi_4 = T::from_f64(PI / 4.0).unwrap();
-            (self.pressure_amplitude / alpha) * sqrt_murhow * (phase - pi_4).cos()
-        }
+        let sqrt2 = T::from_f64(2.0).unwrap().sqrt();
+        let i_3_2 = Complex::new(-one / sqrt2, one / sqrt2);
+
+        let z = i_3_2 * alpha;
+        let j0_z = bessel_j0(z);
+        let j1_z = bessel_j1(z);
+        
+        // z * J_1(z) / J_0(z)
+        let term = z * j1_z / j0_z;
+        
+        // P_hat / (i * rho * omega)
+        let coeff = Complex::new(T::zero(), -p_hat / (rho * omega));
+        
+        let phase = omega * t;
+        let exp_iwt = Complex::new(phase.cos(), phase.sin());
+        
+        // du/dxi at xi=1
+        let du_dxi = (coeff * term * exp_iwt).re;
+        
+        // tau_w = -mu / R * du/dxi
+        -mu / r * du_dxi
     }
 
-    /// Calculate volumetric flow rate Q(t)
+    /// Calculate volumetric flow rate Q(t) using exact Bessel functions
     pub fn flow_rate(&self, t: T) -> T {
         let alpha = self.womersley.value();
         let r = self.womersley.radius;
-        let mu = self.womersley.viscosity;
         let rho = self.womersley.density;
         let omega = self.womersley.omega;
-        let phase = omega * t;
+        let p_hat = self.pressure_amplitude;
+        let one = T::one();
+        let two = T::from_f64(2.0).unwrap();
         let pi = T::from_f64(PI).unwrap();
 
-        if alpha < T::from_f64(1.0).unwrap() {
-            // Poiseuille: Q = πR⁴P̂/(8μ) · cos(ωt - φ)
-            let eight = T::from_f64(8.0).unwrap();
-            let phase_lag = alpha * alpha / eight;
-            (pi * r.powi(4) * self.pressure_amplitude / (eight * mu)) * (phase - phase_lag).cos()
-        } else {
-            // High α: Q ≈ πR²P̂/(ρω) · sin(ωt)
-            (pi * r * r * self.pressure_amplitude / (rho * omega)) * phase.sin()
-        }
+        let sqrt2 = two.sqrt();
+        let i_3_2 = Complex::new(-one / sqrt2, one / sqrt2);
+
+        let z = i_3_2 * alpha;
+        let j0_z = bessel_j0(z);
+        let j1_z = bessel_j1(z);
+        
+        // 2 * J_1(z) / (z * J_0(z))
+        let complex_two = Complex::new(two, T::zero());
+        let term = complex_two * j1_z / (z * j0_z);
+        let bracket = Complex::new(one, T::zero()) - term;
+        
+        // P_hat / (i * rho * omega)
+        let coeff = Complex::new(T::zero(), -p_hat / (rho * omega));
+        
+        let phase = omega * t;
+        let exp_iwt = Complex::new(phase.cos(), phase.sin());
+        
+        // Q = pi * R^2 * Re{ coeff * bracket * exp_iwt }
+        pi * r * r * (coeff * bracket * exp_iwt).re
     }
 }
 
@@ -466,7 +437,6 @@ impl<T: RealField + FromPrimitive + Copy> WomersleyFlow<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use approx::assert_relative_eq;
 
     #[test]
     fn test_womersley_number_calculation() {

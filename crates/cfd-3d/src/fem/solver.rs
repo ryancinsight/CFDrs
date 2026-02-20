@@ -54,11 +54,10 @@ impl<T: RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> 
     ) -> Result<StokesFlowSolution<T>> {
         tracing::info!("Starting Taylor-Hood Stokes solver");
         
-        // NOTE: Temporarily skip validation - the get_boundary_nodes() implementation
-        // is overly conservative and flags interior nodes as missing BCs.
-        // Interior nodes are solved for, they should NOT have BCs.
-        // TODO: Fix validate() to only check actual boundary nodes  
-        // problem.validate()?;
+        // Strictly enforce mathematical well-posedness (Lax-Milgram requirement)
+        // If this fails, the geometric mesh builder missed assigning boundary conditions
+        // to some topological boundary nodes (e.g., P2 mid-edge nodes), making the BVP ill-posed.
+        problem.validate()?;
 
         let (matrix, rhs) = self.assemble_system(problem, previous_solution)?;
         

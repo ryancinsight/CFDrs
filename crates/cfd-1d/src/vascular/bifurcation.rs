@@ -447,7 +447,6 @@ impl<T: RealField + FromPrimitive + Copy> Default for BifurcationNetwork<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use approx::assert_relative_eq;
 
     #[test]
     fn test_vessel_segment_resistance() {

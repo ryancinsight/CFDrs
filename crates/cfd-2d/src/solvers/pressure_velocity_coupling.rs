@@ -8,7 +8,6 @@ use crate::fields::{SimulationFields, Field2D};
 use crate::grid::StructuredGrid2D;
 use crate::physics::momentum::MomentumSolver;
 use crate::physics::turbulence::TurbulenceModel;
-use crate::pressure_velocity::rhie_chow::RhieChowInterpolation;
 use crate::solvers::fdm::PoissonSolver;
 use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_core::error::{Error, Result};
@@ -110,26 +109,6 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::Debug> SimpleAlgorithm<T> {
         // (In practice, these would be extracted from the linear system solution)
         let u_star = fields.u.clone(); // Predicted U-velocity
         let v_star = fields.v.clone(); // Predicted V-velocity
-
-        // Build previous velocity field as Vector2 for transient Rhie–Chow term
-        let mut u_old_vec = Field2D::new(grid.nx, grid.ny, Vector2::new(T::zero(), T::zero()));
-        for j in 0..grid.ny {
-            for i in 0..grid.nx {
-                u_old_vec[(i, j)] = Vector2::new(u_old[(i, j)], v_old[(i, j)]);
-            }
-        }
-
-        // Apply Rhie-Chow interpolation using actual A_p coefficients from momentum solver
-        self.apply_rhie_chow_interpolation(
-            &u_star,
-            &v_star,
-            fields,
-            grid,
-            dt,
-            &coeffs_u.ap,
-            &coeffs_v.ap,
-            &u_old_vec,
-        )?;
 
         // 2. PRESSURE CORRECTION STEP
         // Solve pressure Poisson equation: ∇²p' = ∇·u*
@@ -239,95 +218,7 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::Debug> SimpleAlgorithm<T> {
         Ok((max_residual, converged))
     }
 
-    /// Apply Rhie-Chow interpolation to prevent pressure oscillations
-    ///
-    /// This prevents checkerboard pressure oscillations by including pressure
-    /// gradients in the velocity interpolation at cell faces.
-    ///
-    /// **Theorem (Rhie-Chow Consistency)**: For colocated grids, the pressure correction equation
-    /// becomes ill-conditioned, leading to checkerboard oscillations in pressure and velocity fields.
-    /// The face velocity is computed as: u_f = ū_f + d_f * [(∇p)_cells - (∇p)_face]
-    ///
-    /// **Reference**: Rhie, C.M. and Chow, W.L. (1983). "Numerical study of the turbulent
-    /// flow past an airfoil with trailing edge separation." AIAA Journal, 21(11), 1525-1532.
-    fn apply_rhie_chow_interpolation(
-        &self,
-        u_star: &Field2D<T>,
-        v_star: &Field2D<T>,
-        fields: &mut SimulationFields<T>,
-        grid: &StructuredGrid2D<T>,
-        dt: T,
-        ap_u: &Field2D<T>,
-        ap_v: &Field2D<T>,
-        u_old_vec: &Field2D<Vector2<T>>,
-    ) -> Result<()> {
-        // Create Rhie-Chow interpolator
-        let mut rhie_chow = RhieChowInterpolation::new(grid);
 
-        // Update momentum coefficients (A_p from discretized momentum equations)
-        // Use actual coefficients provided by momentum solver
-        rhie_chow.update_u_coefficients(ap_u);
-        rhie_chow.update_v_coefficients(ap_v);
-
-        // Provide previous velocity field for transient correction term
-        rhie_chow.update_old_velocity(u_old_vec);
-
-        // Convert predicted velocities to Vector2 field format for Rhie–Chow interpolation
-        let mut velocity_field = Field2D::new(grid.nx, grid.ny, Vector2::new(T::zero(), T::zero()));
-
-        // Copy velocities to field format (interior cells only)
-        for i in 0..grid.nx {
-            for j in 0..grid.ny {
-                velocity_field[(i, j)] = Vector2::new(u_star[(i, j)], v_star[(i, j)]);
-            }
-        }
-
-        // Apply Rhie-Chow interpolation to prevent pressure-velocity oscillations
-        // This ensures that the interpolated face velocities satisfy the momentum equations
-        // and prevent checkerboard pressure patterns
-
-        // For each interior cell, apply Rhie-Chow correction to velocities
-        for i in 1..grid.nx - 1 {
-            for j in 1..grid.ny - 1 {
-                // Compute Rhie-Chow corrected face velocities and apply correction to cell velocities
-                // This prevents the decoupling that causes pressure oscillations
-
-                // East face correction (affects u-velocity at cell i,j)
-                if i < grid.nx - 1 {
-                    let u_face_corrected = rhie_chow.face_velocity_x(
-                        &velocity_field,
-                        &fields.p,
-                        grid.dx,
-                        grid.dy,
-                        Some(dt),
-                        i,
-                        j,
-                    );
-
-                    // Apply Rhie-Chow correction to u-velocity (full correction, no blending)
-                    fields.u[(i, j)] = u_face_corrected;
-                }
-
-                // North face correction (affects v-velocity at cell i,j)
-                if j < grid.ny - 1 {
-                    let v_face_corrected = rhie_chow.face_velocity_y(
-                        &velocity_field,
-                        &fields.p,
-                        grid.dx,
-                        grid.dy,
-                        Some(dt),
-                        i,
-                        j,
-                    );
-
-                    // Apply Rhie-Chow correction to v-velocity (full correction, no blending)
-                    fields.v[(i, j)] = v_face_corrected;
-                }
-            }
-        }
-
-        Ok(())
-    }
 
     /// Construct the pressure correction equation RHS
     fn construct_pressure_correction_equation(
@@ -614,77 +505,5 @@ mod tests {
         assert!(rhs[center_idx].abs() > 0.0, "Pressure correction RHS should be non-zero at divergent points");
     }
 
-    #[test]
-    fn test_rhie_chow_interpolation_uses_ap_coefficients() {
-        let simple = SimpleAlgorithm::<f64>::new();
 
-        // 3x3 grid
-        let grid = StructuredGrid2D::<f64>::new(3, 3, 0.0, 1.0, 0.0, 1.0).unwrap();
-
-        // Two field states to compare effects of different A_p
-        let mut fields_high = SimulationFields::<f64>::new(3, 3);
-        let mut fields_low = SimulationFields::<f64>::new(3, 3);
-
-        // Impose a quadratic pressure field in x-direction to ensure
-        // (∇p)_cells ≠ (∇p)_face and produce a non-zero correction
-        for j in 0..3 {
-            for i in 0..3 {
-                let p_val = (i as f64).powi(2);
-                fields_high.p[(i, j)] = p_val;
-                fields_low.p[(i, j)] = p_val;
-            }
-        }
-
-        // Predicted velocities (zeros)
-        let u_star = Field2D::new(3, 3, 0.0f64);
-        let v_star = Field2D::new(3, 3, 0.0f64);
-
-        // Momentum coefficients A_p
-        let ap_high = Field2D::new(3, 3, 10.0f64);
-        let ap_low = Field2D::new(3, 3, 0.1f64);
-
-        // Old velocity buffer (zeros)
-        let u_old_vec = Field2D::new(3, 3, nalgebra::Vector2::new(0.0f64, 0.0f64));
-
-        let dt = 0.01f64;
-
-        // Apply Rhie–Chow with high A_p (smaller correction expected)
-        simple
-            .apply_rhie_chow_interpolation(
-                &u_star,
-                &v_star,
-                &mut fields_high,
-                &grid,
-                dt,
-                &ap_high,
-                &ap_high,
-                &u_old_vec,
-            )
-            .unwrap();
-
-        // Apply Rhie–Chow with low A_p (larger correction expected)
-        simple
-            .apply_rhie_chow_interpolation(
-                &u_star,
-                &v_star,
-                &mut fields_low,
-                &grid,
-                dt,
-                &ap_low,
-                &ap_low,
-                &u_old_vec,
-            )
-            .unwrap();
-
-        let u_center_high = fields_high.u[(1, 1)];
-        let u_center_low = fields_low.u[(1, 1)];
-
-        // Non-zero correction under a pressure gradient
-        assert!(u_center_high.abs() > 0.0, "Rhie–Chow must produce non-zero correction for pressure gradient");
-        // Verify correction magnitude depends on A_p via d_f = V / A_p
-        assert!(
-            u_center_low.abs() > u_center_high.abs(),
-            "Smaller A_p should increase Rhie–Chow correction magnitude",
-        );
-    }
 }

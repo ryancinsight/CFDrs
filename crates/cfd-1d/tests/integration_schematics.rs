@@ -35,7 +35,7 @@ fn test_new_components_integration() {
 
 #[test]
 fn test_from_spec_conversion() {
-    use scheme::domain::model::{NodeSpec, ChannelSpec, NodeId, NodeKind, EdgeKind};
+    use cfd_schematics::domain::model::{NodeSpec, ChannelSpec, NodeId, NodeKind, EdgeKind};
     use cfd_1d::network::{Node, Edge};
     
     let n_spec = NodeSpec {

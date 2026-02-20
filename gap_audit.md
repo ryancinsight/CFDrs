@@ -1,61 +1,53 @@
-# Codebase Audit & Gap Analysis
+# Gap Audit: `cfd-1d` Mathematical Purity (CRITICAL-011)
 
-## Executive Summary
-This audit identifies significant structural redundancies, misplaced concerns, and "Potemkin village" implementations (stubs/placeholders) that violate the Elite Mathematically-Verified Systems Architect principles.
+## Overview
+An audit of `cfd-1d` was conducted to ensure all algorithms are strictly implemented from first principles, heavily documented with mathematical theorems, and devoid of placeholders or approximations, in accordance with the project's elite architectural constraints.
 
-## 1. Architectural Redundancies
+## Findings: Mathematical Approximations
 
-### 1.1 `cfd-core` Structural Duplication
-- **Domain Representations**: 
-    - `src/domain/`: Contains `Domain1D/2D/3D`.
-    - `src/domains/`: An umbrella module that duplicates many concerns (BCs, fluid dynamics) already present in top-level modules.
-- **GPU Implementations**:
-    - `src/gpu/`: Basic field operations and validation.
-    - `src/compute/gpu/`: Advanced WGSL shaders, pipelines, and kernels.
-- **Boundary Conditions**:
-    - `src/boundary/`: Fundamental BC types.
-    - `src/domains/boundary_conditions/`: Manager and applicator logic.
-- **Fluid Properties**:
-    - `src/fluid/`: Newtonian/Non-Newtonian traits and properties.
-    - `src/domains/material_properties/`: Duplicates fluid property calculations and database.
+### 1. Womersley Flow Velocity Profile (`womersley.rs`)
+- **Current State**: Uses asymptotic closed-form approximations for low ($\alpha < 1$) and high ($\alpha > 10$) Womersley numbers, with an arbitrary interpolated blend for the transitional regime.
+- **Gap**: The true velocity profile requires evaluation of the complex Bessel function of the first kind, zero order: $J_0(z)$ where $z = i^{3/2} \alpha \xi$. The current implementation fundamentally fails the correctness principle by approximating this complex arithmetic. 
+- **Required Fix**: Implement an exact Bessel function calculator using power series for complex arguments (or Kelvin functions `ber`, `bei`) and re-derive the Womersley profile directly from the exact analytical solution.
 
-### 1.2 `cfd-math` Implementation Duplication
-- **WENO Schemes**:
-    - `src/high_order/weno.rs`
-    - `src/spatial/weno.rs`
-- **SIMD/Vectorization**:
-    - `src/simd/` (Consolidated) ✅
-    - `src/vectorization_simd.rs` (Deleted) ✅
-    - `src/cfd_simd.rs` (Deleted) ✅
-    - `src/vectorization/` (Consolidated into `src/simd/vectorization.rs`) ✅
-- **Linear Solvers**:
-    - `src/linear_solver/`: Standard implementations.
-    - `src/linear_solver/matrix_free/`: Duplicates solver logic (CG, BiCGSTAB, GMRES) for matrix-free contexts.
+### 2. Darcy Friction Factor (`darcy_weisbach.rs` & `channel/solver.rs`)
+- **Current State**: Uses the explicit Haaland equation to approximate the Darcy friction factor for turbulent flow.
+- **Gap**: The Haaland equation is only an approximation (error up to $\pm 2\%$) of the implicit Colebrook-White equation.
+- **Required Fix**: The exact Colebrook equation ($1/\sqrt{f} = -2 \log_{10}(\epsilon/3.7D_h + 2.51/(Re\sqrt{f}))$) must be solved exactly via an iterative numerical method (e.g., Newton-Raphson) with rigorous convergence bounds.
 
-## 2. Separation of Concerns (SoC) Violations
-- **Misplaced Solvers**: `cfd-core/src/domains/numerical_methods/linear_solvers.rs` contains a simplified `ConjugateGradient` implementation which belongs in `cfd-math`.
-- **Crate Leakage**: `cfd-core` contains complex physics models (RANS, Turbulence) in `src/domains/fluid_dynamics/` which might be better suited for higher-level crates or consolidated under a single `physics` module in `cfd-core`.
+### 3. Ellipse Perimeter / Hydraulic Diameter (`geometry.rs` & `branching/physics.rs`)
+- **Current State**: Implements a "Ramanujan-like" approximation ($D_h \approx \sqrt{ab}$ or $2ab/(a+b)$) for the perimeter and hydraulic diameter of an ellipse.
+- **Gap**: The perimeter of an ellipse is not algebraically solvable; it requires the Complete Elliptic Integral of the Second Kind, $E(e)$.
+- **Required Fix**: Implement $E(e)$ exactly using the infinite series or AGM (Arithmetic-Geometric Mean) method to guarantee mathematically perfect boundary evaluation.
 
-## 3. Maintenance & Documentation Gaps
-- **Intra-doc Links**: Many modules lack proper intra-doc links between related traits and implementations.
-- **Mathematical Invariants**: Documentation often describes *what* the code does but lacks the *mathematical proofs* or *invariants* required by the persona.
-- **Inconsistent Error Handling**: Some modules use `Option` for failures (e.g., `LinearSystemSolver::solve` in `cfd-core`), while others use `Result` (e.g., `cfd-math`).
+### 4. Serpentine Flow Approximations (`resistance/models/serpentine.rs`)
+- **Current State**: Uses "White 1929 approximation" for negligible curvature effect and a "circular approximation" for shear rate estimation.
+- **Gap**: Dean flow physics must be accurately accounted for using the exact Dean Number ($De$) rather than rough historical geometry simplifications.
+- **Required Fix**: Apply exact Dean vortices physics models to precisely capture secondary flow resistances in rigid bends.
 
-## 4. Correctness & Quality
-- **Stubs**: `cfd-core/src/compute/backend_example.rs` and similar "example" files within `src` should be moved to `examples/` or removed.
-- **Dead Code**: Several files (e.g., `reynolds_stress.rs.backup` in `cfd-2d`) and commented-out sections (e.g., `AlignedVector` in `cfd-math`) persist.
+## Gap Audit: `cfd-mesh` Robustness and Mathematical Purity (CRITICAL-012)
 
-**TODO(MEDIUM): Complete dead code cleanup - remove obsolete files, commented-out sections, and unused imports. Dependencies: None. Reference: Code maintainability and build hygiene.**
+### Overview
+An audit of `cfd-mesh` was conducted focusing on Constructive Solid Geometry (CSG), BSP tree generation, vertex welding, and watertight snapping. The goal is to ensure all geometric processing aligns with the highest standards of mathematical correctness and eliminates heuristic-based approximations, based on the latest 2024 research in robust mesh booleans (e.g., EMBER: Exact Mesh Booleans via plane-based representations).
 
-## 5. Proposed Restructuring (Deep Vertical Tree)
+### Findings: Geometric Heuristics and Precision Gaps
 
-**TODO(MEDIUM): Expand test coverage from 8.82% to >90% for core numerical algorithms (multigrid, turbulence, discretization). Focus on CFD-Math critical paths. Dependencies: Architectural restructuring completion. Estimated effort: 15-20 hours.**
-- **cfd-core**:
-    - `src/physics/`: Consolidate `fluid`, `material_properties`, `boundary`, `constants`.
-    - `src/geometry/`: Consolidate `domain`, `mesh_operations`.
-    - `src/compute/`: Consolidate `gpu`, `mpi`, `simd`.
-    - `src/abstractions/`: Fundamental traits and types.
-- **cfd-math**:
-    - `src/solvers/`: Hierarchical organization of linear/nonlinear solvers.
-    - `src/discretization/`: Consolidation of spatial/temporal schemes.
-    - `src/operators/`: Consolidation of sparse/dense/matrix-free operators.
+#### 1. CSG Boolean Operations (`csg/boolean.rs`)
+- **Current State**: Implements standard mesh face-soup booleans reliant on a heuristic containment check and naive BSP clipping. Uses `is_curved_mesh` to classify curved vs. flat surfaces by quantizing normals to a coarse grid (0.1 resolution).
+- **Gap**: The containment detection and splitting logic suffer from floating-point inaccuracies, leading to sliver triangles, non-manifold edges, and shattering. The normal quantization is an unacceptable heuristic approximation. State-of-the-art methods (e.g., EMBER) mandate exact predicate evaluations or plane-based integer representations to guarantee exact, reliable booleans without degenerate failures.
+- **Required Fix**: Refactor CSG booleans to use robust multi-precision exact predicates (like Shewchuk's or arithmetic expansions) and a plane-based representation. Eliminate normal quantization heuristics entirely.
+
+#### 2. BSP Tree Splitting (`csg/bsp.rs`)
+- **Current State**: Calculates the splitting plane using a greedy heuristic (`4 * spans + |front - back|`) over up to 16 candidates. Relies on `BSP_PLANE_TOLERANCE = 1e-5` for classification.
+- **Gap**: The floating-point tolerance approach fails for coplanar or nearly coplanar intersections, violating mathematical purity. A heuristic candidate subset does not guarantee optimal or failure-free trees.
+- **Required Fix**: Implement exact geometry predicates for BSP classification. Transition from point-based floating-point geometry to plane-based geometry (representing vertices as intersections of planes) to eliminate epsilon tolerances during inside/outside classification.
+
+#### 3. Vertex Welding & Snapping (`welding/snap.rs` & `welding/welder.rs`)
+- **Current State**: Uses an i64-quantized `SnappingGrid` with a 27-neighborhood search, bounded by a user-defined floating-point tolerance `eps` (e.g., 1e-6). `welder.rs` uses a basic `SpatialHashGrid`.
+- **Gap**: While spatial hashing is fast, epsilon-welding without topological awareness breaks manifoldness (e.g., collapsing distinct but close surface sheets). True epsilon-robustness must prevent topological inversions.
+- **Required Fix**: Upgrade from naive distance-based collapsing to topology-preserving vertex welding. Implement robust vertex merging that guarantees preservation of 2-manifold properties and avoids non-manifold edge creation, utilizing topological invariant checks during the merge phase.
+
+#### 4. Curved Mesh Arrangement Pipeline (`csg/arrangement.rs`)
+- **Current State**: Uses a 5-phase Boolean layout with floating-point coordinate math, epsilon fallbacks (e.g., `denom.abs() < 1e-30`), a brittle hardcoded normal quantization hack to evaluate coplanarity (`i64` cast of `1000.0 * value`), and heuristic parity ray-casting employing a hardcoded `NUDGE = 1e-8`.
+- **Gap**: Grossly violates the "Mathematical Proofs" and "Implementation Purity" guidelines. Reliance on heuristic epsilons introduces unprovable numerical drift. Quantization of 3D normals to $10^3$ buckets is mathematically corrupt and destroys exact geometry. Ray nudging fails for topologically singular intersections.
+- **Required Fix**: Eliminate all epsilon checks and heuristic quantizations. Replace coplanarity float grouping with exact algebraic collinearity predicates. Replace heuristic raycasting with Generalized Winding Number (GWN) algorithms or rigorous singularity-aware boundary tracking.

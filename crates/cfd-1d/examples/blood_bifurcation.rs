@@ -22,8 +22,8 @@ use cfd_1d::solver::{NetworkProblem, NetworkSolver, SolverConfig};
 use cfd_core::compute::solver::Solver;
 use cfd_core::physics::fluid::non_newtonian::CarreauYasuda;
 use cfd_core::physics::fluid::FluidTrait;
-use scheme::domain::model::{ChannelSpec, NodeKind, NodeSpec};
-use scheme::visualizations::{
+use cfd_schematics::domain::model::{ChannelSpec, NodeKind, NodeSpec};
+use cfd_schematics::visualizations::{
     analysis_field::{AnalysisField, AnalysisOverlay, ColormapKind},
     traits::{RenderConfig, SchematicRenderer},
     PlottersRenderer,

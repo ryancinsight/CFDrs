@@ -253,53 +253,41 @@ impl<T: RealField + Copy + FromPrimitive> DarcyWeisbachModel<T> {
                 / reynolds;
         }
 
-        // Initial guess using Haaland explicit formula for convergence
-        let mut f = {
-            let term = relative_roughness
-                / T::from_f64(HAALAND_ROUGHNESS_DIVISOR).unwrap_or_else(|| T::one())
-                + T::from_f64(HAALAND_REYNOLDS_FACTOR).unwrap_or_else(|| T::one()) / reynolds;
-            let log_term = term.ln()
-                / T::from_f64(LOG_BASE_10.ln()).unwrap_or_else(|| T::one());
-            T::one()
-                / (T::from_f64(HAALAND_EXPONENT_FACTOR).unwrap_or_else(|| T::one()) * log_term)
-                    .powi(2)
-        };
-
-        // Iterative solution of Colebrook-White equation
-        // 1/sqrt(f) = -2.0 * log10(ε/(3.7*D) + 2.51/(Re*sqrt(f)))
         let tolerance = T::from_f64(COLEBROOK_TOLERANCE)
             .unwrap_or_else(|| T::from_f64(1e-6).unwrap_or_else(|| T::zero()));
         let max_iter = 50;
         let ln10 = T::from_f64(LOG_BASE_10.ln()).unwrap_or_else(|| T::one());
+        let two = T::from_f64(COLEBROOK_COEFFICIENT).unwrap_or_else(|| T::one());
+        let rough_term = relative_roughness / T::from_f64(COLEBROOK_ROUGHNESS_DIVISOR).unwrap_or_else(|| T::one());
+        let smooth_term_coeff = T::from_f64(COLEBROOK_REYNOLDS_NUMERATOR).unwrap_or_else(|| T::one()) / reynolds;
 
+        // Start with x0 = 1/sqrt(f0). Using robust standard initial guess f0 = 0.02
+        // x0 = 1 / sqrt(0.02) ≈ 7.0710678
+        let mut x = T::from_f64(7.0710678).unwrap_or_else(|| T::one());
+
+        // Newton-Raphson iteration for Colebrook-White equation
+        // g(x) = x + 2.0 * log10( \epsilon / 3.7D + 2.51 * x / Re ) = 0
         for _ in 0..max_iter {
-            let sqrt_f = f.sqrt();
-            let term1 = relative_roughness
-                / T::from_f64(COLEBROOK_ROUGHNESS_DIVISOR).unwrap_or_else(|| T::one());
-            let term2 = T::from_f64(COLEBROOK_REYNOLDS_NUMERATOR).unwrap_or_else(|| T::one())
-                / (reynolds * sqrt_f);
-
-            let log_arg = term1 + term2;
-            if log_arg <= T::zero() {
-                // Fallback to previous value if log argument invalid
+            let inner = rough_term + smooth_term_coeff * x;
+            if inner <= T::zero() {
                 break;
             }
 
-            let inv_sqrt_f = -T::from_f64(COLEBROOK_COEFFICIENT).unwrap_or_else(|| T::one())
-                * (log_arg.ln() / ln10);
-            let f_next = T::one() / (inv_sqrt_f * inv_sqrt_f);
+            // g(x) = x + 2 * log10(inner) = x + 2 * ln(inner) / ln(10)
+            let g = x + two * (inner.ln() / ln10);
 
-            // Check convergence
-            let diff = f_next - f;
+            // g'(x) = 1 + (2 / ln10) * (smooth_term_coeff / inner)
+            let g_prime = T::one() + (two / ln10) * (smooth_term_coeff / inner);
+
+            let diff = g / g_prime;
+            x = x - diff;
+
             let diff_abs = if diff >= T::zero() { diff } else { -diff };
             if diff_abs < tolerance {
-                f = f_next;
                 break;
             }
-
-            f = f_next;
         }
 
-        f
+        T::one() / (x * x)
     }
 }

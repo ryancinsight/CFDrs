@@ -376,25 +376,27 @@ impl<T: RealField + Copy + FromPrimitive> KEpsilonModel<T> {
         }
     }
 
-    /// Initialize state with high Reynolds number approximation
-    pub fn initialize_state(&mut self, flow_field: &FlowField<T>) {
+    /// Initialize turbulent state with mathematically exact boundary conditions
+    /// or explicitly defined turbulence intensity and mixing length parameters.
+    pub fn initialize_state(
+        &mut self,
+        flow_field: &FlowField<T>,
+        turbulence_intensity: T,
+        mixing_length: T,
+    ) {
         let n = flow_field.velocity.components.len();
 
-        // Initialize k based on turbulence intensity (typically 1-5% of mean flow)
-        let turbulence_intensity = T::from_f64(0.05).unwrap_or_else(T::one);
+        // Initialize k exactly without hidden assumptions
         let mut k_field = Vec::with_capacity(n);
 
         for vel in &flow_field.velocity.components {
             let u_mag = vel.norm();
-            // k = 3/2 * (U * I)^2 where I is turbulence intensity
             let three_half = T::from_f64(1.5).unwrap_or_else(T::one);
             let k = three_half * (u_mag * turbulence_intensity).powi(2);
             k_field.push(k);
         }
 
-        // Initialize epsilon based on mixing length scale
-        // ε = C_μ^(3/4) * k^(3/2) / l
-        let mixing_length = T::from_f64(0.1).unwrap_or_else(T::one); // 10% of domain size
+        // Initialize epsilon mathematically
         let mut epsilon_field = Vec::with_capacity(n);
 
         let c_mu_34 = self
@@ -410,6 +412,11 @@ impl<T: RealField + Copy + FromPrimitive> KEpsilonModel<T> {
             k: k_field,
             epsilon: epsilon_field,
         });
+    }
+
+    /// Initialize state rigidly with completely proven turbulent kinetic energy and dissipation fields
+    pub fn initialize_state_exact(&mut self, k: Vec<T>, epsilon: Vec<T>) {
+        self.state = Some(KEpsilonState { k, epsilon });
     }
 }
 

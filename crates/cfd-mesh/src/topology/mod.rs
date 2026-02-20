@@ -8,6 +8,7 @@ pub mod adjacency;
 pub mod connectivity;
 pub mod manifold;
 pub mod orientation;
+pub mod predicates;
 
 pub use adjacency::AdjacencyGraph;
 pub use halfedge::{HalfEdgeData, VertexData, FaceData, BoundaryPatch, PatchType};

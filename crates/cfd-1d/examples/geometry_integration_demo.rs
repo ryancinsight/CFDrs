@@ -13,14 +13,14 @@
 use cfd_1d::network::{EdgeProperties, Network, NetworkBuilder};
 use cfd_1d::solver::{NetworkProblem, NetworkSolver, SolverConfig};
 use cfd_core::compute::solver::Solver;
-use scheme::config::{ChannelTypeConfig, GeometryConfig};
-use scheme::domain::model::{ChannelSpec, NodeKind, NodeSpec};
-use scheme::geometry::generator::create_geometry;
-use scheme::geometry::{ChannelSystem, SplitType};
-use scheme::visualizations::analysis_field::{AnalysisField, AnalysisOverlay, ColormapKind};
-use scheme::visualizations::plotters_backend::create_plotters_renderer;
-use scheme::visualizations::traits::SchematicRenderer;
-use scheme::visualizations::RenderConfig;
+use cfd_schematics::config::{ChannelTypeConfig, GeometryConfig};
+use cfd_schematics::domain::model::{ChannelSpec, NodeKind, NodeSpec};
+use cfd_schematics::geometry::generator::create_geometry;
+use cfd_schematics::geometry::{ChannelSystem, SplitType};
+use cfd_schematics::visualizations::analysis_field::{AnalysisField, AnalysisOverlay, ColormapKind};
+use cfd_schematics::visualizations::plotters_backend::create_plotters_renderer;
+use cfd_schematics::visualizations::traits::SchematicRenderer;
+use cfd_schematics::visualizations::RenderConfig;
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
@@ -245,7 +245,7 @@ fn convert_geometry_to_specs(system: &ChannelSystem) -> (Vec<NodeSpec>, Vec<Chan
                 (height_m, width_m)
             };
             let resistance = if h > 0.0 {
-                (12.0 * mu * length_m) / (w * h.powi(3) * (1.0 - 0.63 * h / w))
+                (12.0 * mu * length_m) / (w * f64::powi(h, 3) * (1.0 - 0.63 * h / w))
             } else {
                 f64::INFINITY
             };

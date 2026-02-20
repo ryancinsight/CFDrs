@@ -24,8 +24,7 @@
 //! wall shear stress.  A per-pass HI < 0.001 (0.1 %) is the acceptability
 //! threshold used here.
 
-use cfd_1d::{FlowConditions, SerpentineModel, VenturiModel};
-use cfd_1d::cell_separation::{CellProperties, CellSeparationModel};
+
 use cfd_core::physics::fluid::blood::CassonBlood;
 use serde::{Deserialize, Serialize};
 
@@ -122,105 +121,229 @@ pub struct SdtMetrics {
 /// Evaluate all physics-based metrics for a single design candidate.
 ///
 /// Uses [`CassonBlood::normal_blood`] (Casson non-Newtonian blood at 37 °C)
-/// and the `cfd-1d` models for venturi and serpentine stages.
+/// and the `cfd-1d` network solver mapped to `VenturiModel` / `SerpentineModel`.
 ///
 /// # Errors
-/// Returns [`OptimError::PhysicsError`] if a 1-D model fails (e.g. zero
-/// throat diameter passed to a venturi-bearing topology).
+/// Returns [`OptimError::PhysicsError`] if network solving or a 1-D model fails.
 pub fn compute_metrics(candidate: &DesignCandidate) -> Result<SdtMetrics, OptimError> {
+    use cfd_1d::network::network_from_blueprint;
+    use cfd_1d::solver::{NetworkProblem, NetworkSolver};
+    use cfd_1d::{FlowConditions, SerpentineModel, VenturiModel};
+    use cfd_1d::cell_separation::{CellProperties, CellSeparationModel};
+
+    let bp = generate_network(candidate)?;
     let blood = CassonBlood::<f64>::normal_blood();
 
-    // ── Venturi stage ────────────────────────────────────────────────────────
-    let (
-        cavitation_number,
-        cavitation_potential,
-        throat_shear_rate,
-        throat_shear_pa,
-        dp_venturi,
-        path_venturi_mm,
-        v_throat,
-    ) = if candidate.topology.has_venturi() {
-        eval_venturi_stage(candidate, &blood)?
-    } else {
-        (f64::INFINITY, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
-    };
+    let mut network = network_from_blueprint(&bp, blood.clone()).map_err(|e| {
+        OptimError::PhysicsError {
+            id: candidate.id.clone(),
+            reason: format!("Network build failed: {}", e),
+        }
+    })?;
 
-    let throat_exceeds_fda = throat_shear_pa > FDA_MAX_WALL_SHEAR_PA;
+    // Apply Boundary Conditions
+    let inlet_node = network
+        .graph
+        .node_indices()
+        .find(|i| network.graph.node_weight(*i).unwrap().id == "inlet")
+        .ok_or_else(|| OptimError::PhysicsError {
+            id: candidate.id.clone(),
+            reason: "Missing inlet node".into(),
+        })?;
 
-    // ── Distribution / serpentine stage ─────────────────────────────────────
-    let DistributionResult {
-        flow_uniformity,
-        well_coverage_fraction,
-        max_main_shear_pa,
-        dp_distribution_pa,
-        path_distribution_mm,
-        residence_time_s,
-    } = eval_distribution_stage(candidate, &blood)?;
+    network.set_neumann_flow(inlet_node, candidate.flow_rate_m3_s);
 
-    let fda_main_compliant = max_main_shear_pa <= FDA_MAX_WALL_SHEAR_PA;
+    for idx in network.graph.node_indices() {
+        if network.graph.node_weight(idx).unwrap().node_type
+            == cfd_1d::network::NodeType::Outlet
+        {
+            network.set_pressure(idx, 0.0);
+        }
+    }
 
-    // ── Cumulative haemolysis index ─────────────────────────────────────────
-    let hemolysis_index_per_pass = {
-        // Throat contribution (brief high-shear transit)
-        let hi_throat = if candidate.topology.has_venturi() && v_throat > 0.0 {
-            let t_throat = candidate.throat_length_m / v_throat; // transit time [s]
-            giersiepen_hi(throat_shear_pa, t_throat)
-        } else {
-            0.0
+    let solver = NetworkSolver::<f64, cfd_core::physics::fluid::blood::CassonBlood<f64>>::new();
+    let problem = NetworkProblem::new(network);
+
+    let solved_network = solver.solve_network(&problem).map_err(|e| {
+        OptimError::PhysicsError {
+            id: candidate.id.clone(),
+            reason: format!("Network solve failed: {}", e),
+        }
+    })?;
+
+    let mut max_main_shear_pa = 0.0_f64;
+    let mut total_hi = 0.0_f64;
+    let mut venturi_sigma = f64::INFINITY;
+    let mut venturi_shear_rate: f64 = 0.0;
+    let mut venturi_shear_pa: f64 = 0.0;
+    let mut pressure_deficit: f64 = 0.0;
+    
+    let mut distribution_path_len_m = 0.0;
+    let mut total_path_len_m = 0.0;
+    let mut residence_time_s = 0.0;
+
+    for edge in solved_network.edges_with_properties() {
+        let q = edge.flow_rate.abs();
+        let p_from = solved_network.pressures[&edge.nodes.0];
+        let p_to = solved_network.pressures[&edge.nodes.1];
+        let dp_graph = (p_from - p_to).abs();
+        
+        // Accumulate paths (use specific edges that form a single chain from inlet to outlet)
+        let is_primary_path = match edge.id.as_str() {
+            "trunk" | "b1" | "b_peri" | "venturi_1" | "serpentine" | "trunk_v" | "trunk_s" => true,
+            _ => false,
         };
 
-        // Main-channel contribution (long low-shear exposure)
-        let hi_main = if residence_time_s > 0.0 {
-            giersiepen_hi(max_main_shear_pa, residence_time_s)
-        } else {
-            0.0
-        };
+        if edge.id.starts_with("venturi") {
+            if candidate.topology.has_venturi() {
+                let d_inlet = candidate.inlet_diameter_m;
+                let d_throat = candidate.throat_diameter_m;
+                let l_throat = candidate.throat_length_m.max(d_throat * 2.0);
 
-        hi_throat + hi_main
-    };
+                let model = VenturiModel::<f64>::millifluidic(d_inlet, d_throat, l_throat);
+                let mut cond = FlowConditions::<f64>::new(0.0);
+                cond.flow_rate = Some(q);
+                cond.pressure = p_from;
 
-    // ── Totals ───────────────────────────────────────────────────────────────
-    let total_dp = dp_venturi + dp_distribution_pa;
-    let total_path = path_venturi_mm + path_distribution_mm;
-    let pressure_feasible = total_dp <= candidate.inlet_gauge_pa;
+                if let Ok(analysis) = model.analyze(&blood, &cond) {
+                    let v_throat = analysis.throat_velocity;
+                    let shear_rate = analysis.throat_shear_rate;
+                    let shear_pa = blood.apparent_viscosity(shear_rate) * shear_rate;
 
-    // ── Cell separation metrics ──────────────────────────────────────────────
-    // Only computed for CellSeparationVenturi topology; zero for all others.
-    let sep_metrics: (f64, f64, f64) =
-        if candidate.topology == crate::design::DesignTopology::CellSeparationVenturi {
-            let cancer = CellProperties::mcf7_breast_cancer();
-            let rbc = CellProperties::red_blood_cell();
-            let model = CellSeparationModel::new(
-                candidate.channel_width_m,
-                candidate.channel_height_m,
-                Some(candidate.bend_radius_m),
+                    let dynamic_pressure = 0.5 * BLOOD_DENSITY_KG_M3 * v_throat * v_throat;
+                    let sigma = if v_throat > 0.0 {
+                        (p_from + P_ATM_PA - BLOOD_VAPOR_PRESSURE_PA) / dynamic_pressure
+                    } else {
+                        f64::INFINITY
+                    };
+
+                    venturi_sigma = venturi_sigma.min(sigma);
+                    venturi_shear_rate = venturi_shear_rate.max(shear_rate);
+                    venturi_shear_pa = venturi_shear_pa.max(shear_pa);
+
+                    if is_primary_path {
+                        pressure_deficit += (analysis.dp_total - dp_graph).max(0.0);
+                        let t_throat = l_throat / v_throat.max(1e-9);
+                        total_hi += giersiepen_hi(shear_pa, t_throat);
+                        // Approximate venturi path len
+                        let v_len = d_inlet * 10.0 + l_throat;
+                        total_path_len_m += v_len;
+                    }
+                }
+            }
+        } else if edge.id.starts_with("serpentine") {
+            let w = candidate.channel_width_m;
+            let h = candidate.channel_height_m;
+            let v_ch = q / (w * h);
+            let model = cfd_1d::SerpentineModel::<f64>::millifluidic_rectangular(
+                w, h, candidate.segment_length_m, candidate.serpentine_segments, candidate.bend_radius_m,
             );
-            let mean_v = candidate.flow_rate_m3_s
-                / (candidate.channel_width_m * candidate.channel_height_m);
-            // Estimate shear rate for viscosity calculation: γ̇ ≈ 6V/h (slit flow approximation)
-            let shear_est = 6.0 * mean_v / candidate.channel_height_m;
-            match model.analyze(&cancer, &rbc, blood.density, blood.apparent_viscosity(shear_est), mean_v) {
-                Some(a) => (a.separation_efficiency, a.target_center_fraction, a.background_peripheral_fraction),
-                None => (0.0, 0.0, 0.0),
+            let mut cond = FlowConditions::<f64>::new(v_ch);
+            cond.flow_rate = Some(q);
+            if let Ok(analysis) = model.analyze(&blood, &cond) {
+                let shear_rate = analysis.wall_shear_rate;
+                let shear_pa = blood.apparent_viscosity(shear_rate) * shear_rate;
+
+                max_main_shear_pa = max_main_shear_pa.max(shear_pa);
+
+                if is_primary_path {
+                    pressure_deficit += (analysis.dp_total - dp_graph).max(0.0);
+                    let n = candidate.serpentine_segments as f64;
+                    let bends = (n - 1.0).max(0.0);
+                    let path_m = n * candidate.segment_length_m + bends * std::f64::consts::PI * candidate.bend_radius_m;
+                    let res = path_m * w * h / q.max(1e-12);
+                    total_hi += giersiepen_hi(shear_pa, res);
+                    distribution_path_len_m += path_m;
+                    total_path_len_m += path_m;
+                    residence_time_s += res;
+                }
             }
         } else {
-            (0.0, 0.0, 0.0)
-        };
+            // Normal trunk/branch rectangular distribution channel
+            let w = candidate.channel_width_m;
+            let h = candidate.channel_height_m;
+            let v_ch = q / (w * h);
+            let shear_rate = 6.0 * v_ch / h;
+            let shear_pa = blood.apparent_viscosity(shear_rate) * shear_rate;
+
+            max_main_shear_pa = max_main_shear_pa.max(shear_pa);
+
+            if is_primary_path {
+                let path_len = edge.properties.length;
+                let res = path_len * w * h / q.max(1e-12);
+                total_hi += giersiepen_hi(shear_pa, res);
+                distribution_path_len_m += path_len;
+                total_path_len_m += path_len;
+                residence_time_s += res;
+            }
+        }
+    }
+
+    let mut outlet_flows = Vec::new();
+    for idx in solved_network.graph.node_indices() {
+        if solved_network.graph.node_weight(idx).unwrap().node_type == cfd_1d::network::NodeType::Outlet {
+            // Find edge connecting to this node
+            for edge in solved_network.edges_with_properties() {
+                if edge.nodes.1 == idx {
+                    outlet_flows.push(edge.flow_rate.abs());
+                }
+            }
+        }
+    }
+    
+    let flow_uniformity = if outlet_flows.len() > 1 {
+        let mean = outlet_flows.iter().sum::<f64>() / outlet_flows.len() as f64;
+        let var = outlet_flows.iter().map(|f| (f - mean).powi(2)).sum::<f64>() / outlet_flows.len() as f64;
+        let std_dev = var.sqrt();
+        (1.0 - (std_dev / mean.max(1e-12))).max(0.0_f64).min(1.0_f64)
+    } else {
+        1.0_f64
+    };
+
+    let total_dp = solved_network.pressures[&inlet_node] + pressure_deficit;
+
+    let cav_potential = if venturi_sigma < SIGMA_CRIT && venturi_sigma >= 0.0 {
+        (1.0 - venturi_sigma / SIGMA_CRIT).clamp(0.0, 1.0)
+    } else {
+        0.0
+    };
+
+    let well_coverage_fraction = candidate.topology.nominal_well_coverage();
+    let pressure_feasible = total_dp <= candidate.inlet_gauge_pa;
+
+    // Cell separation
+    let sep_metrics = if candidate.topology == DesignTopology::CellSeparationVenturi {
+        let cancer = cfd_1d::cell_separation::CellProperties::mcf7_breast_cancer();
+        let rbc = cfd_1d::cell_separation::CellProperties::red_blood_cell();
+        let model = cfd_1d::cell_separation::CellSeparationModel::new(
+            candidate.channel_width_m,
+            candidate.channel_height_m,
+            Some(candidate.bend_radius_m),
+        );
+        let mean_v = candidate.flow_rate_m3_s / (candidate.channel_width_m * candidate.channel_height_m);
+        let shear_est = 6.0 * mean_v / candidate.channel_height_m;
+        match model.analyze(&cancer, &rbc, blood.density, blood.apparent_viscosity(shear_est), mean_v) {
+            Some(a) => (a.separation_efficiency, a.target_center_fraction, a.background_peripheral_fraction),
+            None => (0.0, 0.0, 0.0),
+        }
+    } else {
+        (0.0, 0.0, 0.0)
+    };
 
     Ok(SdtMetrics {
-        cavitation_number,
-        cavitation_potential,
-        throat_shear_rate_inv_s: throat_shear_rate,
-        throat_shear_pa,
-        throat_exceeds_fda,
+        cavitation_number: venturi_sigma,
+        cavitation_potential: cav_potential,
+        throat_shear_rate_inv_s: venturi_shear_rate,
+        throat_shear_pa: venturi_shear_pa,
+        throat_exceeds_fda: venturi_shear_pa > FDA_MAX_WALL_SHEAR_PA,
         max_main_channel_shear_pa: max_main_shear_pa,
-        fda_main_compliant,
-        hemolysis_index_per_pass,
+        fda_main_compliant: max_main_shear_pa <= FDA_MAX_WALL_SHEAR_PA,
+        hemolysis_index_per_pass: total_hi,
         flow_uniformity,
         well_coverage_fraction,
         mean_residence_time_s: residence_time_s,
         total_pressure_drop_pa: total_dp,
-        total_path_length_mm: total_path,
+        total_path_length_mm: total_path_len_m * 1000.0,
         pressure_feasible,
         cell_separation_efficiency: sep_metrics.0,
         cancer_center_fraction: sep_metrics.1,
@@ -228,233 +351,81 @@ pub fn compute_metrics(candidate: &DesignCandidate) -> Result<SdtMetrics, OptimE
     })
 }
 
-// ── Venturi stage evaluator ──────────────────────────────────────────────────
-
-/// Returns `(σ, cav_potential, shear_rate_1/s, shear_pa, dp_pa, path_mm, v_throat)`.
-fn eval_venturi_stage(
+fn generate_network(
     candidate: &DesignCandidate,
-    blood: &CassonBlood<f64>,
-) -> Result<(f64, f64, f64, f64, f64, f64, f64), OptimError> {
-    let d_inlet = candidate.inlet_diameter_m;
-    let d_throat = candidate.throat_diameter_m;
-    let l_throat = candidate.throat_length_m.max(d_throat * 2.0); // ensure non-trivial length
+) -> Result<cfd_schematics::domain::model::NetworkBlueprint, OptimError> {
+    use cfd_schematics::domain::model::{ChannelSpec, NetworkBlueprint, NodeKind, NodeSpec};
+    let mut bp = NetworkBlueprint::new(candidate.id.clone());
 
-    if d_throat <= 0.0 {
-        return Err(OptimError::InvalidParameter(format!(
-            "candidate '{}': throat_diameter_m must be > 0 for topology '{}'",
-            candidate.id,
-            candidate.topology.name()
-        )));
-    }
+    bp.add_node(NodeSpec::new("inlet", NodeKind::Inlet));
 
-    // Per-venturi flow rate and inlet velocity
-    let q_v = candidate.per_venturi_flow();
-    let a_inlet = std::f64::consts::FRAC_PI_4 * d_inlet * d_inlet;
-    let v_inlet = q_v / a_inlet;
-
-    let model = VenturiModel::<f64>::millifluidic(d_inlet, d_throat, l_throat);
-    let mut cond = FlowConditions::<f64>::new(v_inlet);
-    cond.pressure = candidate.inlet_pressure_pa();
-
-    let analysis = model.analyze(blood, &cond).map_err(|e| OptimError::PhysicsError {
-        id: candidate.id.clone(),
-        reason: e.to_string(),
-    })?;
-
-    let v_throat = analysis.throat_velocity;
-    let shear_rate = analysis.throat_shear_rate;
-    let mu_eff = blood.apparent_viscosity(shear_rate);
-    let shear_pa = mu_eff * shear_rate;
-
-    // Cavitation number: σ = (P_inlet − P_vapor) / (½ρV²)
-    let sigma = if v_throat > 0.0 {
-        let dynamic_pressure = 0.5 * BLOOD_DENSITY_KG_M3 * v_throat * v_throat;
-        (candidate.inlet_pressure_pa() - BLOOD_VAPOR_PRESSURE_PA) / dynamic_pressure
-    } else {
-        f64::INFINITY
-    };
-
-    let cav_potential = if sigma < SIGMA_CRIT && sigma >= 0.0 {
-        (1.0 - sigma / SIGMA_CRIT).clamp(0.0, 1.0)
-    } else {
-        0.0
-    };
-
-    // Approximate venturi path length: inlet cone (4×d) + throat (l_throat) + diffuser (6×d)
-    let path_mm = (d_inlet * 10.0 + l_throat) * candidate.topology.venturi_count() as f64 * 1000.0;
-
-    // Total pressure drop across ALL parallel venturis (same ΔP, different Q → same ΔP)
-    let dp = analysis.dp_total;
-
-    Ok((sigma, cav_potential, shear_rate, shear_pa, dp, path_mm, v_throat))
-}
-
-// ── Distribution stage evaluator ────────────────────────────────────────────
-
-struct DistributionResult {
-    flow_uniformity: f64,
-    well_coverage_fraction: f64,
-    max_main_shear_pa: f64,
-    dp_distribution_pa: f64,
-    path_distribution_mm: f64,
-    residence_time_s: f64,
-}
-
-fn eval_distribution_stage(
-    candidate: &DesignCandidate,
-    blood: &CassonBlood<f64>,
-) -> Result<DistributionResult, OptimError> {
     match candidate.topology {
-        // ── Serpentine-based topologies ──────────────────────────────────
-        DesignTopology::SerpentineGrid | DesignTopology::VenturiSerpentine => {
-            eval_serpentine(candidate, blood)
-        }
-
-        // ── Bifurcation / trifurcation / separation ──────────────────────
-        DesignTopology::BifurcationVenturi
-        | DesignTopology::TrifurcationVenturi
-        | DesignTopology::CellSeparationVenturi => eval_branching(candidate, blood),
-
-        // ── Single venturi with no distribution stage ────────────────────
         DesignTopology::SingleVenturi => {
-            // Wall shear in the short outlet channel downstream of the venturi
-            // (approximated as main channel shear at inlet velocity)
-            let q = candidate.flow_rate_m3_s;
-            let w = candidate.channel_width_m;
-            let h = candidate.channel_height_m;
-            let v = q / (w * h);
-            let shear_rate = 6.0 * v / h;
-            let mu_eff = blood.apparent_viscosity(shear_rate);
-            let shear_pa = mu_eff * shear_rate;
+            bp.add_node(NodeSpec::new("outlet", NodeKind::Outlet));
+            bp.add_channel(ChannelSpec::new_pipe(
+                "venturi_1", "inlet", "outlet",
+                candidate.throat_length_m, candidate.inlet_diameter_m, 1.0, 0.0,
+            ));
+        }
+        DesignTopology::BifurcationVenturi => {
+            bp.add_node(NodeSpec::new("split1", NodeKind::Junction));
+            bp.add_node(NodeSpec::new("split2_1", NodeKind::Junction));
+            bp.add_node(NodeSpec::new("split2_2", NodeKind::Junction));
 
-            Ok(DistributionResult {
-                flow_uniformity: 1.0,
-                // Single outlet → 1 cavitation site, coverage ≈ 1 well / 36
-                well_coverage_fraction: DesignTopology::SingleVenturi.nominal_well_coverage(),
-                max_main_shear_pa: shear_pa,
-                dp_distribution_pa: 0.0, // negligible outlet stub
-                path_distribution_mm: 0.0,
-                residence_time_s: 0.0,
-            })
+            for i in 1..=4 {
+                bp.add_node(NodeSpec::new(format!("outlet_{i}"), NodeKind::Outlet));
+            }
+
+            let trunk_len = TREATMENT_HEIGHT_MM * 0.25e-3;
+            let branch_len = TREATMENT_HEIGHT_MM * 0.25e-3;
+
+            bp.add_channel(ChannelSpec::new_pipe_rect("trunk", "inlet", "split1", trunk_len, candidate.channel_width_m, candidate.channel_height_m, 1.0, 0.0));
+            bp.add_channel(ChannelSpec::new_pipe_rect("b1", "split1", "split2_1", branch_len, candidate.channel_width_m, candidate.channel_height_m, 1.0, 0.0));
+            bp.add_channel(ChannelSpec::new_pipe_rect("b2", "split1", "split2_2", branch_len, candidate.channel_width_m, candidate.channel_height_m, 1.0, 0.0));
+
+            bp.add_channel(ChannelSpec::new_pipe("venturi_1", "split2_1", "outlet_1", candidate.throat_length_m, candidate.inlet_diameter_m, 1.0, 0.0));
+            bp.add_channel(ChannelSpec::new_pipe("venturi_2", "split2_1", "outlet_2", candidate.throat_length_m, candidate.inlet_diameter_m, 1.0, 0.0));
+            bp.add_channel(ChannelSpec::new_pipe("venturi_3", "split2_2", "outlet_3", candidate.throat_length_m, candidate.inlet_diameter_m, 1.0, 0.0));
+            bp.add_channel(ChannelSpec::new_pipe("venturi_4", "split2_2", "outlet_4", candidate.throat_length_m, candidate.inlet_diameter_m, 1.0, 0.0));
+        }
+        DesignTopology::TrifurcationVenturi => {
+            bp.add_node(NodeSpec::new("split1", NodeKind::Junction));
+            for i in 1..=3 {
+                bp.add_node(NodeSpec::new(format!("outlet_{i}"), NodeKind::Outlet));
+            }
+
+            let trunk_len = TREATMENT_HEIGHT_MM * 0.5e-3;
+            bp.add_channel(ChannelSpec::new_pipe_rect("trunk", "inlet", "split1", trunk_len, candidate.channel_width_m, candidate.channel_height_m, 1.0, 0.0));
+
+            bp.add_channel(ChannelSpec::new_pipe("venturi_1", "split1", "outlet_1", candidate.throat_length_m, candidate.inlet_diameter_m, 1.0, 0.0));
+            bp.add_channel(ChannelSpec::new_pipe("venturi_2", "split1", "outlet_2", candidate.throat_length_m, candidate.inlet_diameter_m, 1.0, 0.0));
+            bp.add_channel(ChannelSpec::new_pipe("venturi_3", "split1", "outlet_3", candidate.throat_length_m, candidate.inlet_diameter_m, 1.0, 0.0));
+        }
+        DesignTopology::VenturiSerpentine => {
+            bp.add_node(NodeSpec::new("venturi_out", NodeKind::Junction));
+            bp.add_node(NodeSpec::new("outlet", NodeKind::Outlet));
+
+            bp.add_channel(ChannelSpec::new_pipe("venturi_1", "inlet", "venturi_out", candidate.throat_length_m, candidate.inlet_diameter_m, 1.0, 0.0));
+            bp.add_channel(ChannelSpec::new_pipe_rect("serpentine", "venturi_out", "outlet", candidate.segment_length_m, candidate.channel_width_m, candidate.channel_height_m, 1.0, 0.0));
+        }
+        DesignTopology::SerpentineGrid => {
+            bp.add_node(NodeSpec::new("outlet", NodeKind::Outlet));
+            bp.add_channel(ChannelSpec::new_pipe_rect("serpentine", "inlet", "outlet", candidate.segment_length_m, candidate.channel_width_m, candidate.channel_height_m, 1.0, 0.0));
+        }
+        DesignTopology::CellSeparationVenturi => {
+            bp.add_node(NodeSpec::new("split1", NodeKind::Junction));
+            bp.add_node(NodeSpec::new("outlet_center", NodeKind::Outlet));
+            bp.add_node(NodeSpec::new("outlet_peri", NodeKind::Outlet));
+
+            let trunk_len = TREATMENT_HEIGHT_MM * 0.5e-3;
+            bp.add_channel(ChannelSpec::new_pipe_rect("trunk", "inlet", "split1", trunk_len, candidate.channel_width_m, candidate.channel_height_m, 1.0, 0.0));
+
+            bp.add_channel(ChannelSpec::new_pipe("venturi_1", "split1", "outlet_center", candidate.throat_length_m, candidate.inlet_diameter_m, 1.0, 0.0));
+            bp.add_channel(ChannelSpec::new_pipe_rect("b_peri", "split1", "outlet_peri", trunk_len, candidate.channel_width_m, candidate.channel_height_m, 1.0, 0.0));
         }
     }
-}
 
-/// Evaluate the serpentine distribution stage.
-fn eval_serpentine(
-    candidate: &DesignCandidate,
-    blood: &CassonBlood<f64>,
-) -> Result<DistributionResult, OptimError> {
-    let w = candidate.channel_width_m;
-    let h = candidate.channel_height_m;
-    let seg_len = candidate.segment_length_m;
-    let n_segs = candidate.serpentine_segments;
-    let bend_r = candidate.bend_radius_m;
-
-    if n_segs == 0 {
-        return Err(OptimError::InvalidParameter(format!(
-            "candidate '{}': serpentine_segments must be >= 1",
-            candidate.id
-        )));
-    }
-
-    // For VenturiSerpentine the full flow enters the serpentine downstream of
-    // the single venturi; for SerpentineGrid the full flow enters directly.
-    let q_ch = candidate.flow_rate_m3_s;
-    let v_ch = q_ch / (w * h);
-
-    let model =
-        SerpentineModel::<f64>::millifluidic_rectangular(w, h, seg_len, n_segs, bend_r);
-    let cond = FlowConditions::<f64>::new(v_ch);
-
-    let analysis = model.analyze(blood, &cond).map_err(|e| OptimError::PhysicsError {
-        id: candidate.id.clone(),
-        reason: e.to_string(),
-    })?;
-
-    let shear_rate = analysis.wall_shear_rate;
-    let mu_eff = blood.apparent_viscosity(shear_rate);
-    let shear_pa = mu_eff * shear_rate;
-
-    // Path length: straights + semicircular bends
-    let n_bends = (n_segs.saturating_sub(1)) as f64;
-    let path_m =
-        (n_segs as f64) * seg_len + n_bends * std::f64::consts::PI * bend_r;
-    let path_mm = path_m * 1000.0;
-
-    // Well coverage: normalise path length against the minimum for full coverage
-    // (6 row-sweeps × 45 mm = 270 mm).
-    let coverage = (path_m / FULL_GRID_SERPENTINE_LENGTH_M).min(1.0);
-
-    // Residence time = channel volume / flow rate
-    let vol = path_m * w * h;
-    let residence = vol / q_ch;
-
-    // Single serpentine → perfect flow uniformity (single stream)
-    Ok(DistributionResult {
-        flow_uniformity: 1.0,
-        well_coverage_fraction: coverage,
-        max_main_shear_pa: shear_pa,
-        dp_distribution_pa: analysis.dp_total,
-        path_distribution_mm: path_mm,
-        residence_time_s: residence,
-    })
-}
-
-/// Evaluate the distribution channels in branching topologies
-/// (bifurcation + trifurcation).
-///
-/// Uses fully-developed rectangular-channel shear estimate for the main
-/// trunk and daughter channels.
-fn eval_branching(
-    candidate: &DesignCandidate,
-    blood: &CassonBlood<f64>,
-) -> Result<DistributionResult, OptimError> {
-    let n_branches = candidate.topology.outlet_count() as f64;
-    let w = candidate.channel_width_m;
-    let h = candidate.channel_height_m;
-
-    // Main trunk: carries full flow Q
-    let q_trunk = candidate.flow_rate_m3_s;
-    let shear_trunk = compute_rect_wall_shear(q_trunk, w, h, blood);
-
-    // Daughter branches: each carries Q / n_branches
-    let q_branch = q_trunk / n_branches;
-    let shear_branch = compute_rect_wall_shear(q_branch, w, h, blood);
-
-    let max_shear = shear_trunk.max(shear_branch);
-
-    // Approximate ΔP of the distribution network using Hagen-Poiseuille scaling:
-    //   ΔP ≈ 12 μ L Q / (h³ w)   [rectangular channel]
-    // Use average viscosity from Casson model at the dominant shear rate.
-    let mu_trunk = blood.apparent_viscosity(6.0 * (q_trunk / (w * h)) / h);
-    // Branch length ≈ half-pitch from junction to well row
-    let l_branch = TREATMENT_HEIGHT_MM * 0.5e-3; // ~22.5 mm
-    let dh = 2.0 * w * h / (w + h); // hydraulic diameter
-    let re_branch = BLOOD_DENSITY_KG_M3 * (q_branch / (w * h)) * dh / mu_trunk;
-    let f = if re_branch > 0.0 { 64.0 / re_branch } else { 64.0 };
-    let v_branch = q_branch / (w * h);
-    let dp_branch = f * (l_branch / dh) * 0.5 * BLOOD_DENSITY_KG_M3 * v_branch * v_branch;
-
-    // Path length = inlet trunk + branch channels
-    let trunk_len_mm = TREATMENT_HEIGHT_MM * 0.5; // 22.5 mm to bifurcation point
-    let branch_len_mm = l_branch * 1000.0 * n_branches;
-    let path_mm = trunk_len_mm + branch_len_mm;
-
-    // Residence time in distribution channels
-    let vol_trunk = (trunk_len_mm * 1e-3) * w * h;
-    let vol_branches = (l_branch * n_branches) * w * h;
-    let residence = (vol_trunk + vol_branches) / q_trunk;
-
-    // Symmetric designs: perfect flow uniformity
-    Ok(DistributionResult {
-        flow_uniformity: 1.0,
-        well_coverage_fraction: candidate.topology.nominal_well_coverage(),
-        max_main_shear_pa: max_shear,
-        dp_distribution_pa: dp_branch,
-        path_distribution_mm: path_mm,
-        residence_time_s: residence,
-    })
+    Ok(bp)
 }
 
 // ── Physics helpers ──────────────────────────────────────────────────────────
@@ -469,14 +440,4 @@ pub fn giersiepen_hi(tau_pa: f64, t_s: f64) -> f64 {
         return 0.0;
     }
     GIERSIEPEN_C * t_s.powf(GIERSIEPEN_ALPHA) * tau_pa.powf(GIERSIEPEN_BETA)
-}
-
-/// Wall shear stress in a rectangular channel (fully developed Poiseuille flow).
-///
-/// Approximation: τ_wall ≈ μ_eff × 6V/h  (valid when w >> h).
-fn compute_rect_wall_shear(q: f64, w: f64, h: f64, blood: &CassonBlood<f64>) -> f64 {
-    let v = q / (w * h);
-    let gamma = 6.0 * v / h;
-    let mu = blood.apparent_viscosity(gamma);
-    mu * gamma
 }

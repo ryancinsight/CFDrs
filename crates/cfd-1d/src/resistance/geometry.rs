@@ -85,8 +85,50 @@ impl<T: RealField + Copy + FromPrimitive> ChannelGeometry<T> {
                 Ok(four * area / perimeter)
             }
             Self::Elliptical { major_axis, minor_axis, .. } => {
-                // Approximation: Dh ≈ 2ab/(a+b) for ellipse (Ramanujan-like)
-                Ok(two * *major_axis * *minor_axis / (*major_axis + *minor_axis))
+                // Exact formula using Arithmetic-Geometric Mean (AGM) for Complete Elliptic Integral of the Second Kind
+                let pi = T::from_f64(std::f64::consts::PI).unwrap_or_else(T::zero);
+                let a_val = *major_axis / two;
+                let b_val = *minor_axis / two;
+
+                // Ensure a >= b for standard integral form
+                let (a, b) = if a_val > b_val { (a_val, b_val) } else { (b_val, a_val) };
+
+                if a == b || b == T::zero() {
+                    return Ok(two * a);
+                }
+
+                let m = T::one() - (b * b) / (a * a);
+                
+                let mut a_n = T::one();
+                let mut b_n = (T::one() - m).sqrt();
+                let mut c_n = m.sqrt();
+                
+                let mut sum = c_n * c_n / two;
+                let mut power = T::one();
+                
+                let tolerance = T::from_f64(1e-14).unwrap_or_else(T::zero);
+                
+                for _ in 0..20 {
+                    let a_next = (a_n + b_n) / two;
+                    let b_next = (a_n * b_n).sqrt();
+                    let c_next = (a_n - b_n) / two;
+                    
+                    a_n = a_next;
+                    b_n = b_next;
+                    c_n = c_next;
+                    
+                    sum = sum + power * c_n * c_n;
+                    power = power * two;
+                    
+                    if c_n < tolerance || c_n == T::zero() {
+                        break;
+                    }
+                }
+                
+                let e_m = (pi / (two * a_n)) * (T::one() - sum);
+                let perimeter = four * a * e_m;
+                let area = pi * a * b;
+                Ok(four * area / perimeter)
             }
             Self::Trapezoidal { top_width, bottom_width, height, .. } => {
                 let area = self.cross_sectional_area()?;

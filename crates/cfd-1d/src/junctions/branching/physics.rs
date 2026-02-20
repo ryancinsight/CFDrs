@@ -91,8 +91,50 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> TwoWayBran
                 major_axis,
                 minor_axis,
             } => {
-                // Approximation for ellipse: D_h ≈ sqrt(major * minor)
-                (*major_axis * *minor_axis).sqrt()
+                let pi = T::from_f64_or_one(std::f64::consts::PI);
+                let two = T::from_f64_or_one(2.0);
+                let four = T::from_f64_or_one(4.0);
+                
+                let a_val = *major_axis / two;
+                let b_val = *minor_axis / two;
+
+                let (a, b) = if a_val > b_val { (a_val, b_val) } else { (b_val, a_val) };
+
+                if a == b || b == T::from_f64_or_one(0.0) {
+                    return two * a;
+                }
+
+                let m = T::from_f64_or_one(1.0) - (b * b) / (a * a);
+                
+                let mut a_n = T::from_f64_or_one(1.0);
+                let mut b_n = (T::from_f64_or_one(1.0) - m).sqrt();
+                let mut c_n = m.sqrt();
+                
+                let mut sum = c_n * c_n / two;
+                let mut power = T::from_f64_or_one(1.0);
+                let tolerance = T::from_f64_or_one(1e-14);
+                
+                for _ in 0..20 {
+                    let a_next = (a_n + b_n) / two;
+                    let b_next = (a_n * b_n).sqrt();
+                    let c_next = (a_n - b_n) / two;
+                    
+                    a_n = a_next;
+                    b_n = b_next;
+                    c_n = c_next;
+                    
+                    sum = sum + power * c_n * c_n;
+                    power = power * two;
+                    
+                    if c_n < tolerance || c_n == T::from_f64_or_one(0.0) {
+                        break;
+                    }
+                }
+                
+                let e_m = (pi / (two * a_n)) * (T::from_f64_or_one(1.0) - sum);
+                let perimeter = four * a * e_m;
+                let area = pi * a * b;
+                four * area / perimeter
             }
             CrossSection::Trapezoidal {
                 top_width,

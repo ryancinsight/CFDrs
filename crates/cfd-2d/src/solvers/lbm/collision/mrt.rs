@@ -59,25 +59,23 @@ impl<T: RealField + Copy + FromPrimitive> RelaxationMatrix<T> {
     pub fn default_d2q9(tau: T) -> Self {
         let omega = T::one() / tau;
 
-        // Standard D2Q9 relaxation rates
-        // s0: density (conserved)
-        // s1,s2: momentum (conserved)
-        // s3: energy
-        // s4: energy squared
-        // s5,s6: energy flux
-        // s7,s8: stress tensor
+        // Standard D2Q9 relaxation rates optimized for stability and acoustic damping
+        // per Lallemand & Luo (2000)
+        let s_e = T::from_f64(1.64).unwrap_or(omega);
+        let s_eps = T::from_f64(1.54).unwrap_or(omega);
+        let s_q = T::from_f64(1.9).unwrap_or(omega);
 
         Self {
             s: [
-                T::zero(), // density
-                T::zero(), // momentum x
-                T::zero(), // momentum y
-                omega,     // energy
-                omega,     // energy squared
-                omega,     // energy flux x
-                omega,     // energy flux y
-                omega,     // stress xx
-                omega,     // stress xy
+                T::zero(), // s0: density (conserved)
+                T::zero(), // s1: momentum x (conserved)
+                T::zero(), // s2: momentum y (conserved)
+                s_e,       // s3: energy (bulk viscosity control)
+                s_eps,     // s4: energy squared
+                s_q,       // s5: energy flux x
+                s_q,       // s6: energy flux y
+                omega,     // s7: stress xx (kinematic viscosity)
+                omega,     // s8: stress xy (kinematic viscosity)
             ],
         }
     }
