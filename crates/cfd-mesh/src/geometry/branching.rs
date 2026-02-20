@@ -7,7 +7,7 @@
 use nalgebra::RealField;
 use num_traits::{Float, FromPrimitive, ToPrimitive};
 
-use crate::mesh::IndexedMesh;
+use crate::mesh::{IndexedMesh, Mesh};
 use crate::geometry::venturi::BuildError;
 use crate::core::index::RegionId;
 use crate::core::scalar::{Real, Point3r, Vector3r};
@@ -75,6 +75,12 @@ impl<T: Copy + RealField + Float + FromPrimitive> BranchingMeshBuilder<T> {
     /// - `RegionId(2+d)` — outlet cap for daughter `d`
     pub fn build_surface(&self) -> Result<IndexedMesh, BuildError> {
         build_branching_surface(self)
+    }
+
+    /// Legacy build method for volumetric structured mesh (placeholder).
+    /// Returns an error as this functionality has been removed in favor of `build_surface`.
+    pub fn build(&self) -> Result<Mesh<T>, BuildError> {
+        Err(BuildError("Legacy build() removed. Use build_surface()".into()))
     }
 }
 
@@ -234,4 +240,3 @@ fn build_branching_surface<T: Copy + RealField + Float + FromPrimitive + ToPrimi
 
     Ok(mesh)
 }
-
