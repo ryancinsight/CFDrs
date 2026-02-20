@@ -1107,3 +1107,40 @@ mod tests {
         }
     }
 }
+
+// ============================================================================
+// Blood Model Dispatch Enum
+// ============================================================================
+
+/// Dispatch enum for blood rheology models.
+///
+/// The single authoritative selector over Casson, Carreau-Yasuda, and Newtonian
+/// (constant μ) blood models. All solver crates MUST import this type rather than
+/// defining their own dispatch enum.
+#[derive(Debug, Clone)]
+pub enum BloodModel<T: RealField + Copy> {
+    /// Casson model with yield stress (suitable for large vessels, D > 500 µm)
+    Casson(CassonBlood<T>),
+    /// Carreau-Yasuda model (full shear-rate range, 0.01–1000 s⁻¹)
+    CarreauYasuda(CarreauYasudaBlood<T>),
+    /// Newtonian approximation with constant dynamic viscosity [Pa·s]
+    Newtonian(T),
+}
+
+impl<T: RealField + Copy + num_traits::FromPrimitive> BloodModel<T> {
+    /// Compute apparent dynamic viscosity at `shear_rate` [s⁻¹].
+    #[must_use]
+    pub fn viscosity(&self, shear_rate: T) -> T {
+        match self {
+            BloodModel::Casson(m) => m.apparent_viscosity(shear_rate),
+            BloodModel::CarreauYasuda(m) => m.apparent_viscosity(shear_rate),
+            BloodModel::Newtonian(mu) => *mu,
+        }
+    }
+
+    /// Returns `true` for Newtonian blood (constant viscosity).
+    pub fn is_newtonian(&self) -> bool {
+        matches!(self, BloodModel::Newtonian(_))
+    }
+}
+

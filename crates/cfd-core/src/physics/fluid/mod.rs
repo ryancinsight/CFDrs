@@ -13,7 +13,7 @@ pub mod traits;
 pub mod validation;
 
 // Re-export core types
-pub use blood::{CarreauYasudaBlood, CassonBlood, CrossBlood, FahraeuasLindqvist};
+pub use blood::{BloodModel, CarreauYasudaBlood, CassonBlood, CrossBlood, FahraeuasLindqvist};
 pub use database::{air_20c, water_20c};
 pub use newtonian::ConstantPropertyFluid;
 pub use properties::FluidProperties;
