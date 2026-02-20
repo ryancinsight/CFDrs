@@ -1,7 +1,7 @@
 //! Network edge definitions
 
 use nalgebra::RealField;
-use scheme::domain::model::EdgeKind;
+use cfd_schematics::domain::model::EdgeKind;
 use serde::{Deserialize, Serialize};
 
 /// Edge in the network
@@ -22,17 +22,49 @@ pub struct Edge<T: RealField + Copy> {
     pub quad_coeff: T,
 }
 
-use scheme::domain::model::ChannelSpec;
+use cfd_schematics::domain::model::ChannelSpec;
 use num_traits::FromPrimitive;
 
 impl<T: RealField + Copy + FromPrimitive> From<&ChannelSpec> for Edge<T> {
     fn from(spec: &ChannelSpec) -> Self {
+        let mut resistance = T::from_f64(spec.resistance).unwrap_or(T::zero());
+        let mut quad_coeff = T::from_f64(spec.quad_coeff).unwrap_or(T::zero());
+
+        match spec.kind {
+            EdgeKind::Valve => {
+                if let Some(cv) = spec.valve_cv {
+                    // Heuristic: k = 1/Cv^2 for initial validation
+                    if cv > 0.0 {
+                        let cv_t = T::from_f64(cv).unwrap_or(T::one());
+                        quad_coeff = T::one() / (cv_t * cv_t);
+                    }
+                }
+                // Ensure non-zero to pass builder validation if nothing else set
+                if resistance.abs() < T::default_epsilon() && quad_coeff.abs() < T::default_epsilon() {
+                     resistance = T::from_f64(1e-6).unwrap_or(T::zero());
+                }
+            }
+            EdgeKind::Pump => {
+                // Pumps need non-zero internal resistance for solver stability/builder validation
+                if resistance.abs() < T::default_epsilon() && quad_coeff.abs() < T::default_epsilon() {
+                     resistance = T::from_f64(1e-6).unwrap_or(T::zero());
+                }
+            }
+            _ => {}
+        }
+        
+        // Ensure resistance is non-zero for numerical stability (Newton-Raphson at Q=0)
+        let min_r = T::from_f64(1e-8).unwrap_or(T::default_epsilon());
+        if resistance.abs() < min_r {
+            resistance = min_r;
+        }
+
         Self {
             id: spec.id.as_str().to_string(),
             edge_type: spec.kind,
             flow_rate: T::zero(),
-            resistance: T::from_f64(spec.resistance).unwrap_or(T::one()),
-            quad_coeff: T::from_f64(spec.quad_coeff).unwrap_or(T::zero()),
+            resistance,
+            quad_coeff,
         }
     }
 }

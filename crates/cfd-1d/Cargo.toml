@@ -14,7 +14,7 @@ default = []
 [dependencies]
 cfd-core = { path = "../cfd-core" }
 cfd-math = { path = "../cfd-math" }
-scheme = { package = "cfd-schematics", path = "../cfd-schematics" }
+cfd-schematics = { path = "../cfd-schematics" }
 nalgebra.workspace = true
 nalgebra-sparse = "0.10"
 sprs = "0.11"

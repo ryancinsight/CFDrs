@@ -55,6 +55,71 @@ pub struct EdgeProperties<T: RealField + Copy> {
     pub properties: HashMap<String, T>,
 }
 
+use crate::channel::{ChannelType, CrossSection, SurfaceProperties, Wettability};
+use cfd_schematics::domain::model::{ChannelSpec, CrossSectionSpec};
+
+impl<T: RealField + Copy + FromPrimitive> From<&ChannelSpec> for EdgeProperties<T> {
+    /// Convert a `ChannelSpec` from `cfd-schematics` into solver-layer `EdgeProperties`.
+    ///
+    /// This is the canonical bridge between the schematic domain model and the
+    /// 1D solver. It eliminates the need for examples to import `cfd_1d::channel`
+    /// types directly.
+    fn from(spec: &ChannelSpec) -> Self {
+        let length = T::from_f64(spec.length_m).unwrap_or(T::zero());
+        let resistance = T::from_f64(spec.resistance).unwrap_or(T::zero());
+
+        let (cross_section, area, hydraulic_diameter) = match spec.cross_section {
+            CrossSectionSpec::Circular { diameter_m } => {
+                let d = T::from_f64(diameter_m).unwrap_or(T::zero());
+                let a = T::from_f64(
+                    std::f64::consts::PI * (diameter_m / 2.0).powi(2),
+                )
+                .unwrap_or(T::zero());
+                (CrossSection::Circular { diameter: d }, a, Some(d))
+            }
+            CrossSectionSpec::Rectangular { width_m, height_m } => {
+                let w = T::from_f64(width_m).unwrap_or(T::zero());
+                let h = T::from_f64(height_m).unwrap_or(T::zero());
+                let a = T::from_f64(width_m * height_m).unwrap_or(T::zero());
+                let dh = T::from_f64(2.0 * width_m * height_m / (width_m + height_m))
+                    .unwrap_or(T::zero());
+                (CrossSection::Rectangular { width: w, height: h }, a, Some(dh))
+            }
+        };
+
+        let geometry = Some(ChannelGeometry {
+            channel_type: ChannelType::Straight,
+            length,
+            cross_section,
+            surface: SurfaceProperties {
+                roughness: T::zero(),
+                contact_angle: None,
+                surface_energy: None,
+                wettability: Wettability::Hydrophilic,
+            },
+            variations: Vec::new(),
+        });
+
+        let component_type = match spec.kind {
+            cfd_schematics::domain::model::EdgeKind::Pipe => super::ComponentType::Pipe,
+            cfd_schematics::domain::model::EdgeKind::Valve => super::ComponentType::Valve,
+            cfd_schematics::domain::model::EdgeKind::Pump => super::ComponentType::Pump,
+        };
+
+        Self {
+            id: spec.id.as_str().to_string(),
+            component_type,
+            length,
+            area,
+            hydraulic_diameter,
+            resistance,
+            geometry,
+            properties: HashMap::new(),
+        }
+    }
+}
+
+
 /// Edge with properties for iteration
 pub struct EdgeWithProperties<'a, T: RealField + Copy> {
     /// Edge identifier

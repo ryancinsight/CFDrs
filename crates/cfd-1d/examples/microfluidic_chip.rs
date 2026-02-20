@@ -77,6 +77,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("   - Edges: {}", network.edge_count());
     println!("   - Fluid: {}", network.fluid().name);
 
+    // Export structure for verification
+    use std::fs;
+    use std::path::Path;
+    
+    let output_dir = Path::new("crates/cfd-1d/outputs");
+    if !output_dir.exists() {
+        fs::create_dir_all(output_dir)?;
+    }
+    
+    let structure = serde_json::json!({
+        "example": "microfluidic_chip",
+        "nodes": network.node_count(),
+        "edges": network.edge_count(),
+        "description": "Structure built successfully"
+    });
+    
+    let json_path = output_dir.join("microfluidic_chip_structure.json");
+    fs::write(&json_path, serde_json::to_string_pretty(&structure)?)?;
+    println!("✅ Exported structure to {}", json_path.display());
+
     // Set boundary pressures
     network.set_pressure(inlet, INLET_PRESSURE);
     network.set_pressure(outlet_1, OUTLET_PRESSURE);

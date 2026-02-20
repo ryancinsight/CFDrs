@@ -1,7 +1,7 @@
 //! Network node definitions
 
 use nalgebra::RealField;
-use scheme::domain::model::NodeKind;
+use cfd_schematics::domain::model::NodeKind;
 use serde::{Deserialize, Serialize};
 
 /// Node in the network
@@ -15,7 +15,7 @@ pub struct Node<T: RealField + Copy> {
     pub position: (T, T),
 }
 
-use scheme::domain::model::NodeSpec;
+use cfd_schematics::domain::model::NodeSpec;
 
 impl<T: RealField + Copy> From<&NodeSpec> for Node<T> {
     fn from(spec: &NodeSpec) -> Self {

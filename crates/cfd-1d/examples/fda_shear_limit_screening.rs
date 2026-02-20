@@ -1,9 +1,12 @@
 //! End-to-end FDA-oriented blood shear limit screening example.
 //!
 //! This example:
-//! 1) Builds and solves a simple 1D channel network,
+//! 1) Builds and solves a simple 1D channel network defined via `ChannelSpec`,
 //! 2) Runs flow analysis,
 //! 3) Flags components that exceed configured blood shear limits.
+//!
+//! Network topology and physical geometry are defined entirely via
+//! `cfd-schematics` `ChannelSpec` — no `cfd_1d::channel` imports required.
 //!
 //! Run with:
 //! `cargo run -p cfd-1d --example fda_shear_limit_screening`
@@ -12,11 +15,10 @@ use cfd_1d::{
     BloodShearLimits, EdgeProperties, Network, NetworkAnalysisResult, NetworkAnalyzerOrchestrator,
     NetworkBuilder,
 };
-use cfd_1d::channel::{ChannelGeometry, ChannelType, CrossSection, SurfaceProperties, Wettability};
+use scheme::domain::model::ChannelSpec;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Approximate whole-blood Newtonianized properties for this screening demo.
-    // (Use your validated blood model/rheology calibration for production studies.)
     let blood_like = cfd_core::physics::fluid::ConstantPropertyFluid::<f64>::new(
         "Blood-like (screening)".to_string(),
         1060.0,
@@ -35,36 +37,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut network = Network::new(graph, blood_like);
 
     // Intentionally narrow channel to demonstrate a potential shear-limit flag.
-    let diameter = 120e-6;
-    let length = 2.0e-3;
-    let area = std::f64::consts::PI * (diameter * 0.5_f64).powi(2);
-    let geometry = ChannelGeometry {
-        channel_type: ChannelType::Straight,
-        length,
-        cross_section: CrossSection::Circular { diameter },
-        surface: SurfaceProperties {
-            roughness: 0.0,
-            contact_angle: None,
-            surface_energy: None,
-            wettability: Wettability::Hydrophilic,
-        },
-        variations: Vec::new(),
-    };
+    // Hagen-Poiseuille: R = 128·μ·L / (π·D⁴)
+    let diameter = 120e-6_f64;
+    let length = 2.0e-3_f64;
+    let mu = 0.0035_f64;
+    let resistance = 128.0 * mu * length / (std::f64::consts::PI * diameter.powi(4));
 
-    network.add_edge_properties(
-        edge,
-        EdgeProperties {
-            id: "treatment_channel".to_string(),
-            component_type: cfd_1d::network::ComponentType::Pipe,
-            length,
-            area,
-            hydraulic_diameter: Some(diameter),
-            resistance: 0.0,
-            geometry: Some(geometry),
-            properties: std::collections::HashMap::new(),
-        },
+    let channel_spec = ChannelSpec::new_pipe(
+        "treatment_channel",
+        "inlet",
+        "outlet",
+        length,
+        diameter,
+        resistance,
+        0.0,
     );
 
+    // EdgeProperties::from(&ChannelSpec) populates ChannelGeometry from CrossSectionSpec
+    network.add_edge_properties(edge, EdgeProperties::from(&channel_spec));
     network.update_resistances()?;
 
     // Pressure-driven setup.

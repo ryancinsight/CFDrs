@@ -1,0 +1,41 @@
+{
+  "edges": [
+    {
+      "flow_rate": 4.999999999999926e-6,
+      "id": "Parent",
+      "resistance": 0.0
+    },
+    {
+      "flow_rate": 3.0374530823163384e-6,
+      "id": "Daughter1",
+      "resistance": 0.0
+    },
+    {
+      "flow_rate": 1.9625469176837946e-6,
+      "id": "Daughter2",
+      "resistance": 0.0
+    }
+  ],
+  "nodes": [
+    {
+      "id": "Inlet",
+      "pressure": 13714.532476620585,
+      "type": "Inlet"
+    },
+    {
+      "id": "Bifurcation",
+      "pressure": 13562.10375094195,
+      "type": "Junction"
+    },
+    {
+      "id": "Outlet1",
+      "pressure": 13332.199999999997,
+      "type": "Outlet"
+    },
+    {
+      "id": "Outlet2",
+      "pressure": 13332.199999999997,
+      "type": "Outlet"
+    }
+  ]
+}

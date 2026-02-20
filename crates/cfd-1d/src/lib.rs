@@ -1,18 +1,64 @@
-//! 1D CFD simulations and microfluidic network solvers.
+//! # cfd-1d — 1D Lumped-Network Microfluidic Solver
 //!
-//! This crate provides 1D computational fluid dynamics solvers specifically
-//! designed for microfluidic and millifluidic networks. It includes support
-//! for:
-//! - Channel-based flow networks
-//! - Electrical circuit analogy solvers
-//! - Pressure-driven flow simulations
-//! - Component-based microfluidic devices
+//! `cfd-1d` solves **pressure-driven flow in microfluidic channel networks**
+//! using the electrical circuit analogy: each channel is a lumped hydraulic
+//! resistance and the network is solved as a linear system (Kirchhoff's laws).
 //!
-//! ## 2D Schematic Support
+//! ## Physical Model
 //!
-//! This crate is designed to integrate with the `scheme` library for
-//! 2D schematic representation of 1D microfluidic networks, similar to
-//! how `cfd-3d` integrates with `csgrs` for 3D mesh handling.
+//! The 1D model makes the following assumptions:
+//! - Flow is **fully developed** in every cross-section (Hagen-Poiseuille).
+//! - Channels are **straight** or have analytically correctable geometry.
+//! - Inertial effects are negligible (low Reynolds number, Re ≪ 1).
+//! - The fluid state at a node is described by a single scalar: **pressure**.
+//!
+//! Under these assumptions the governing equation per edge is:
+//!
+//! ```text
+//!   Q = ΔP / R     where R = 128·μ·L / (π·D⁴)   (circular)
+//!                        R = 12·μ·L / (w·h³·φ)   (rectangular, φ = shape factor)
+//! ```
+//!
+//! This collapses the full 3D Navier-Stokes problem to a sparse linear system
+//! solvable in microseconds, making it ideal for rapid design-space exploration.
+//!
+//! ## Relationship with `cfd-schematics`
+//!
+//! `cfd-schematics` is the **topology and geometry authority**. `cfd-1d` does
+//! not define its own network types — it consumes:
+//! - `NodeSpec` → `Node<T>` (via `From<&NodeSpec>`)
+//! - `ChannelSpec` → `EdgeProperties<T>` (via `From<&ChannelSpec>`)
+//! - `CrossSectionSpec` → `CrossSection<T>` + `ChannelGeometry<T>`
+//!
+//! The 2D schematic rendered by `cfd-schematics` is a **layout diagram** of
+//! the network topology — it is not a simulation domain. The schematic's x-y
+//! coordinates place channels on a chip diagram; the 1D solver only sees
+//! channel length and cross-section, not position.
+//!
+//! ## Relationship with `cfd-2d`
+//!
+//! | Aspect              | `cfd-1d`                          | `cfd-2d`                              |
+//! |---------------------|-----------------------------------|---------------------------------------|
+//! | Governing equations | Kirchhoff / Hagen-Poiseuille      | Navier-Stokes (u, v, p fields)        |
+//! | Spatial resolution  | Per-channel scalar (Q, ΔP)        | Per-cell vector/scalar field          |
+//! | Grid                | Graph (nodes + edges)             | Structured / unstructured 2D grid     |
+//! | Solvers             | Sparse linear system              | FDM, FVM, LBM, SIMPLE, PISO          |
+//! | Turbulence          | Not applicable (Re ≪ 1)           | k-ε, k-ω SST, DES, Reynolds stress   |
+//! | Cost                | Microseconds                      | Seconds to hours                      |
+//! | Use case            | Network design, flow distribution | Detailed velocity/pressure fields     |
+//!
+//! `cfd-1d` results (pressure at nodes, flow rate per channel) can seed
+//! boundary conditions for a `cfd-2d` simulation of a single channel segment.
+//!
+//! ## Modules
+//! - **network**: Graph, `NetworkBuilder`, `EdgeProperties`, `Network` wrapper
+//! - **solver**: `NetworkSolver`, `NetworkProblem`, `SolverConfig`
+//! - **channel**: `CrossSection`, `ChannelGeometry`, `SurfaceProperties`
+//! - **analysis**: `NetworkAnalyzerOrchestrator`, `FlowAnalysis`, `BloodShearLimits`
+//! - **resistance**: Hydraulic resistance calculators
+//! - **components**: Valves, pumps, filters
+//! - **junctions**: T-junction, Y-junction, bifurcation models
+
 
 #![warn(missing_docs)]
 #![warn(clippy::all)]
@@ -48,6 +94,7 @@ pub mod junctions;
 pub mod network;
 pub mod resistance;
 
+pub mod cell_separation;
 pub mod solver;
 pub mod vascular;
 
