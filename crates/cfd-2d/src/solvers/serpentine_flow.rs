@@ -527,7 +527,7 @@ impl<T: RealField + Copy + Float + FromPrimitive> SerpentineSolver2D<T> {
         let width = bbox[1] - bbox[0];
         let height = bbox[3] - bbox[2];
         
-        let grid = crate::solvers::ns_fvm_2d::StaggeredGrid2D::new(width, height, nx, ny);
+        let grid = crate::solvers::ns_fvm_2d::StaggeredGrid2D::new(nx, ny, width, height);
         let config = SIMPLEConfig::default();
         let mut ns_solver = NavierStokesSolver2D::new(grid, blood, density, config);
 

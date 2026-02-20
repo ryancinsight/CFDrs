@@ -455,7 +455,7 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> VenturiSolver2D<
         nx: usize,
         ny: usize,
     ) -> Self {
-        let grid = StaggeredGrid2D::new(geometry.total_length(), geometry.w_inlet, nx, ny);
+        let grid = StaggeredGrid2D::new(nx, ny, geometry.total_length(), geometry.w_inlet);
         let config = SIMPLEConfig::default();
         let mut solver = NavierStokesSolver2D::new(grid, blood, density, config);
 

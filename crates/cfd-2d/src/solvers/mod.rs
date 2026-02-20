@@ -7,6 +7,7 @@ pub mod cavity_solver;
 pub mod fdm;
 pub mod fvm;
 pub mod lbm;
+pub mod ns_fvm;
 pub mod ns_fvm_2d;
 pub mod scalar_transport_2d;
 pub mod bifurcation_flow;

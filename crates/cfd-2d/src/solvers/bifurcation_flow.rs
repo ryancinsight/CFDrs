@@ -172,7 +172,7 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> BifurcationSolve
         let width = bbox[1] - bbox[0];
         let height = bbox[3] - bbox[2];
 
-        let grid = StaggeredGrid2D::new(width, height, nx, ny);
+        let grid = StaggeredGrid2D::new(nx, ny, width, height);
         let mut ns_solver = NavierStokesSolver2D::new(grid, blood, density, config);
 
         // Populate mask
