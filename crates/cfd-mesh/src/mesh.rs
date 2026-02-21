@@ -268,6 +268,67 @@ impl<T: Copy + RealField> Mesh<T> {
             boundary_face_count: bf.len(),
         }
     }
+
+    /// Cast the mesh scalar type to another type `U`.
+    pub fn cast<U: Copy + RealField + num_traits::FromPrimitive + 'static>(self) -> Mesh<U>
+    where
+        T: num_traits::ToPrimitive,
+    {
+        let convert_point = |p: Point3<T>| -> Point3<U> {
+            Point3::new(
+                U::from_f64(p.x.to_f64().unwrap()).unwrap(),
+                U::from_f64(p.y.to_f64().unwrap()).unwrap(),
+                U::from_f64(p.z.to_f64().unwrap()).unwrap(),
+            )
+        };
+
+        let vertices = self
+            .vertices
+            .into_iter()
+            .map(|v| Vertex {
+                position: convert_point(v.position),
+            })
+            .collect();
+        let faces = self.faces; // Faces are integer indices, no conversion needed
+        let cells = self.cells; // Cells are integer indices, no conversion needed
+        let boundary_labels = self.boundary_labels;
+        let nodes = self.nodes.into_iter().map(convert_point).collect();
+        let elements = self.elements;
+
+        Mesh {
+            vertices,
+            faces,
+            cells,
+            boundary_labels,
+            nodes,
+            elements,
+        }
+    }
+}
+
+#[allow(deprecated)]
+impl<T: Scalar> From<IndexedMesh<T>> for Mesh<T> {
+    fn from(indexed: IndexedMesh<T>) -> Self {
+        let mut mesh = Mesh::new();
+
+        // Transfer vertices
+        for i in 0..indexed.vertex_count() {
+            let p = indexed.vertices.position(VertexId::from_usize(i));
+            mesh.add_vertex(Vertex { position: *p });
+        }
+
+        // Transfer faces
+        for i in 0..indexed.face_count() {
+            let f = indexed.faces.get(FaceId::from_usize(i));
+            let vertices: Vec<usize> = f.vertices.iter().map(|v| v.as_usize()).collect();
+            // Note: IndexedMesh faces don't store normal directly in Face struct usually,
+            // but for Mesh<T> we just need connectivity.
+            mesh.add_face(Face { vertices });
+        }
+
+        // IndexedMesh is surface-only, so cells are empty.
+        mesh
+    }
 }
 
 // =========================================================================

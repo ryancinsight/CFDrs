@@ -7,7 +7,7 @@
 use nalgebra::RealField;
 use num_traits::{Float, FromPrimitive, ToPrimitive};
 
-use crate::mesh::IndexedMesh;
+use crate::mesh::{IndexedMesh, Mesh};
 use crate::core::index::RegionId;
 use crate::core::scalar::{Real, Point3r, Vector3r};
 
@@ -96,6 +96,22 @@ impl<T: Copy + RealField + Float + FromPrimitive> VenturiMeshBuilder<T> {
     /// - `RegionId(2)` — outlet cap
     pub fn build_surface(&self) -> Result<IndexedMesh, BuildError> {
         build_venturi_surface(self)
+    }
+
+    /// Alias for [`build_surface`](Self::build_surface).
+    ///
+    /// # Deprecated
+    /// This method converts the [`IndexedMesh`] to the legacy [`Mesh<T>`] type for
+    /// compatibility with `cfd-3d` volume meshing tools.
+    #[allow(deprecated)]
+    pub fn build(&self) -> Result<Mesh<T>, BuildError>
+    where
+        T: 'static,
+    {
+        self.build_surface().map(|m| {
+            let m_f64: Mesh<Real> = m.into();
+            m_f64.cast::<T>()
+        })
     }
 }
 
