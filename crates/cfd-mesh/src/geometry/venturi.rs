@@ -97,6 +97,11 @@ impl<T: Copy + RealField + Float + FromPrimitive> VenturiMeshBuilder<T> {
     pub fn build_surface(&self) -> Result<IndexedMesh, BuildError> {
         build_venturi_surface(self)
     }
+
+    /// Alias for [`build_surface`](Self::build_surface).
+    pub fn build(&self) -> Result<IndexedMesh, BuildError> {
+        self.build_surface()
+    }
 }
 
 // ---------------------------------------------------------------------------

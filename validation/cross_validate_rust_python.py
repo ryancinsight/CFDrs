@@ -16,14 +16,18 @@ print("="*80)
 print("RUST vs PYTHON PHYSICS VALIDATION")
 print("="*80)
 
-# Try to import pycfdrs
+# Try to import pycfdrs (or cfd_python)
 try:
-    import pycfdrs
+    try:
+        import pycfdrs
+        print("\n✓ pycfdrs module loaded successfully\n")
+    except ImportError:
+        import cfd_python as pycfdrs
+        print("\n✓ cfd_python module loaded successfully (aliased as pycfdrs)\n")
     has_pycfdrs = True
-    print("\n✓ pycfdrs module loaded successfully\n")
 except ImportError:
     has_pycfdrs = False
-    print("\n✗ pycfdrs not available - will compare Python calculations only\n")
+    print("\n✗ pycfdrs/cfd_python not available - will compare Python calculations only\n")
     print("Run: maturin develop --release\n")
 
 # Physical constants (match validation scripts)
@@ -54,12 +58,48 @@ print(f"  R_c = {R_c_python*1e6:.4f} μm")
 print(f"  P_Blake = {P_Blake_python:.2f} Pa = {P_Blake_python/1000:.2f} kPa")
 
 if has_pycfdrs:
-    # TODO: Check if pycfdrs exposes Blake threshold calculation
-    # For now, document that Rust implementation is in regimes.rs
     print(f"\nRust implementation:")
     print(f"  Located in: crates/cfd-core/src/physics/cavitation/regimes.rs")
     print(f"  Method: blake_threshold() and blake_critical_radius()")
-    print(f"  Formula matches Python implementation ✓")
+
+    # Create bubble model
+    bubble = pycfdrs.RayleighPlesset(
+        initial_radius=R_0,
+        liquid_density=WATER_DENSITY,
+        liquid_viscosity=WATER_VISCOSITY,
+        surface_tension=WATER_SURFACE_TENSION,
+        vapor_pressure=WATER_VAPOR_PRESSURE,
+        polytropic_index=1.4
+    )
+
+    # Create classifier
+    classifier = pycfdrs.CavitationRegimeClassifier(
+        bubble,
+        ambient_pressure=P_inf,
+        acoustic_pressure=None,
+        acoustic_frequency=None
+    )
+
+    # Get thresholds
+    P_Blake_rust = classifier.blake_threshold()
+
+    # Check Blake radius directly via bubble model
+    # Note: blake_critical_radius is on RayleighPlesset in Rust bindings
+    R_c_rust = bubble.blake_critical_radius(P_inf)
+
+    print(f"  Rust R_c = {R_c_rust*1e6:.4f} μm")
+    print(f"  Rust P_Blake = {P_Blake_rust:.2f} Pa")
+
+    # Compare
+    diff_Rc = abs(R_c_rust - R_c_python) / R_c_python * 100
+    diff_P = abs(P_Blake_rust - P_Blake_python) / P_Blake_python * 100
+
+    if diff_Rc < 0.01 and diff_P < 0.01:
+        print(f"  ✓ Formula matches Python implementation (Error: Rc={diff_Rc:.4f}%, P={diff_P:.4f}%)")
+    else:
+        print(f"  ✗ Formula MISMATCH (Error: Rc={diff_Rc:.4f}%, P={diff_P:.4f}%)")
+        sys.exit(1)
+
 else:
     print(f"\nRust verification skipped (pycfdrs not available)")
 
@@ -104,9 +144,28 @@ if has_pycfdrs:
     print(f"  Type: CarreauYasudaBlood")
     print(f"  Method: apparent_viscosity(shear_rate)")
     
-    # Try to test if we can create a blood model
-    # Note: This depends on pycfdrs API structure
-    print(f"\n  TODO: Add pycfdrs API test if blood model is exposed")
+    # Create blood model (uses defaults which match Cho & Kensey 1991 for normal blood)
+    # Rust default params: mu_0=0.056, mu_inf=0.00345, lambda=3.313, a=2.0, n=0.3568
+    blood = pycfdrs.CarreauYasudaBlood()
+
+    # Test at same shear rates
+    max_error = 0.0
+    for gamma_dot in test_shear_rates:
+        mu_rust = blood.apparent_viscosity(float(gamma_dot))
+        mu_python = carreau_yasuda_python(gamma_dot)
+
+        diff = abs(mu_rust - mu_python)
+        diff_pct = diff / mu_python * 100 if mu_python > 0 else 0
+        max_error = max(max_error, diff_pct)
+
+        # print(f"  γ={gamma_dot}: Rust={mu_rust:.6f}, Py={mu_python:.6f}, Diff={diff_pct:.4f}%")
+
+    if max_error < 0.01:
+         print(f"  ✓ Validated at all shear rates (Max error: {max_error:.6f}%)")
+    else:
+         print(f"  ✗ Validation FAILED (Max error: {max_error:.6f}%)")
+         sys.exit(1)
+
 else:
     print(f"\nRust verification skipped (pycfdrs not available)")
 
@@ -145,9 +204,28 @@ for tau, t in test_cases:
 
 if has_pycfdrs:
     print(f"\nRust implementation:")
-    print(f"  Located in: crates/cfd-core/src/physics/hemolysis/giersiepen.rs")
-    print(f"  Method: calculate_damage(shear_stress, exposure_time)")
-    print(f"\n  TODO: Add pycfdrs API test if hemolysis model is exposed")
+    print(f"  Located in: crates/cfd-core/src/physics/hemolysis.rs")
+    print(f"  Method: damage_index(shear_stress, exposure_time)")
+
+    # Create standard Giersiepen model
+    model = pycfdrs.HemolysisModel.giersiepen_standard()
+
+    max_error = 0.0
+    for tau, t in test_cases:
+        damage_rust = model.damage_index(tau, t)
+        damage_python = giersiepen_python(tau, t)
+
+        diff = abs(damage_rust - damage_python)
+        diff_pct = diff / damage_python * 100 if damage_python > 0 else 0
+        max_error = max(max_error, diff_pct)
+
+        # print(f"  τ={tau}, t={t}: Rust={damage_rust:.6e}, Py={damage_python:.6e}, Diff={diff_pct:.4f}%")
+
+    if max_error < 0.01:
+        print(f"  ✓ Validated for all test cases (Max error: {max_error:.6f}%)")
+    else:
+        print(f"  ✗ Validation FAILED (Max error: {max_error:.6f}%)")
+        sys.exit(1)
 else:
     print(f"\nRust verification skipped (pycfdrs not available)")
 
@@ -157,27 +235,25 @@ print("="*80)
 
 if has_pycfdrs:
     print(f"""
-All three validated models have corresponding Rust implementations:
+All three validated models have corresponding Rust implementations verified:
 
 1. ✓ Blake Threshold
    - Python: validation/validate_cavitation_hemolysis.py line 129-134
-   - Rust: crates/cfd-core/src/physics/cavitation/regimes.rs line 130-137
+   - Rust: crates/cfd-core/src/physics/cavitation/regimes.rs
    - Formula: P_Blake = P_v + 4σ/(3R_c) where R_c = 0.85×2σ/(P_∞-P_v)
+   - Status: MATCHES
 
 2. ✓ Carreau-Yasuda Blood
    - Python: validation scripts
    - Rust: crates/cfd-core/src/physics/fluid/blood.rs
    - Formula: μ = μ_∞ + (μ₀-μ_∞)[1+(λγ̇)^a]^((n-1)/a)
+   - Status: MATCHES
 
 3. ✓ Giersiepen Hemolysis
    - Python: validation/validate_cavitation_hemolysis.py line 160-168
-   - Rust: crates/cfd-core/src/physics/hemolysis/giersiepen.rs
+   - Rust: crates/cfd-core/src/physics/hemolysis.rs
    - Formula: D = C×τ^α×t^β
-
-NEXT STEP: Add explicit cross-validation tests that:
-  - Call Rust via pycfdrs with same inputs
-  - Compare outputs to Python calculations
-  - Assert < 0.01% difference
+   - Status: MATCHES
 """)
 else:
     print(f"""
@@ -185,37 +261,33 @@ Python implementations validated against literature.
 
 To complete Rust validation:
 1. Build pycfdrs: maturin develop --release
-2. Expose required methods in Python bindings
-3. Re-run this script to cross-check values
-
-Rust files to verify:
-  - crates/cfd-core/src/physics/cavitation/regimes.rs (Blake threshold)
-  - crates/cfd-core/src/physics/fluid/blood.rs (Carreau-Yasuda)
-  - crates/cfd-core/src/physics/hemolysis/giersiepen.rs (Giersiepen model)
+2. Re-run this script to cross-check values
 """)
 
 print("\n" + "="*80)
 print("VALIDATION STATUS")
 print("="*80)
 
+cross_check_status = "✓ VERIFIED" if has_pycfdrs else "⚠ PENDING"
+
 validation_status = {
     "Blake Threshold": {
         "Physics": "✓ VALIDATED (against Brennen 1995)",
         "Python": "✓ CORRECT (R_c formulation)",
         "Rust": "✓ IMPLEMENTED (regimes.rs)",
-        "Cross-check": "⚠ PENDING" if not has_pycfdrs else "✓ READY"
+        "Cross-check": cross_check_status
     },
     "Blood Viscosity": {
         "Physics": "✓ VALIDATED (against Cho & Kensey 1991)",
         "Python": "✓ CORRECT (λ=3.313s convergence)",
         "Rust": "✓ IMPLEMENTED (blood.rs)",
-        "Cross-check": "⚠ PENDING" if not has_pycfdrs else "✓ READY"
+        "Cross-check": cross_check_status
     },
     "Hemolysis Model": {
         "Physics": "✓ VALIDATED (against Giersiepen 1990)",
         "Python": "✓ CORRECT (iso-damage curves)",
-        "Rust": "✓ IMPLEMENTED (giersiepen.rs)",
-        "Cross-check": "⚠ PENDING" if not has_pycfdrs else "✓ READY"
+        "Rust": "✓ IMPLEMENTED (hemolysis.rs)",
+        "Cross-check": cross_check_status
     }
 }
 

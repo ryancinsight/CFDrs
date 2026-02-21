@@ -29,3 +29,4 @@ target
 external/
 external_validation/
 validation/references/
+.venv/
