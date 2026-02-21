@@ -45,7 +45,7 @@ impl PyRayleighPlesset {
 }
 
 /// Cavitation regime types
-#[pyclass(name = "CavitationRegime", eq, eq_int)]
+#[pyclass(name = "CavitationRegime", eq)]
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum PyCavitationRegime {
     None,

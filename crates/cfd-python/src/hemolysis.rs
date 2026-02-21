@@ -104,7 +104,7 @@ impl PyHemolysisCalculator {
 }
 
 /// Blood trauma severity classification
-#[pyclass(name = "BloodTraumaSeverity", eq, eq_int)]
+#[pyclass(name = "BloodTraumaSeverity", eq)]
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum PyBloodTraumaSeverity {
     Minimal,
