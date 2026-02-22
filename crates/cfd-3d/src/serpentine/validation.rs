@@ -55,12 +55,12 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float> Se
         let reynolds_num = u_mean * diameter / kinematic_viscosity;
 
         // Exact Maximum Dean Number calculation
-        let de_exact_max = reynolds_num * (diameter / (T::from_f64(2.0).unwrap() * min_radius_of_curvature)).sqrt();
+        let de_exact_max = reynolds_num * Float::sqrt(diameter / (T::from_f64(2.0).unwrap() * min_radius_of_curvature));
         
         // Ensure the solver's calculated Dean number aligns with our analytical maximum
         let de_calc = solution.dean_number;
         let de_tolerance = de_exact_max * T::from_f64(0.05).unwrap(); // 5% max deviation allowance for local averaging
-        let de_valid = (de_calc - de_exact_max).abs() < de_tolerance || de_calc > T::zero();
+        let de_valid = Float::abs(de_calc - de_exact_max) < de_tolerance || de_calc > T::zero();
 
         // 2. Analytical Pressure Continuity Bounds
         // Curved pipe minimum pressure drop is strictly bounded below by the Hagen-Poiseuille 

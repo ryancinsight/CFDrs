@@ -10,23 +10,40 @@ pub mod fluid;
 pub mod fluid_dynamics;
 pub mod hemolysis;
 pub mod material;
-
 pub mod values;
 
-#[allow(missing_docs)]
-pub mod api {
-    pub use super::boundary::{
-        BoundaryCondition, BoundaryConditionManager, BoundaryConditionSet, WallType,
-    };
-    pub use super::constants::{mathematical, physics};
-    pub use super::fluid::{ConstantPropertyFluid, Fluid, FluidProperties};
-    pub use super::fluid_dynamics::{
-        FlowClassifier, FlowField, FlowOperations, FlowRegime, FluidDynamicsService, PressureField,
-        RANSModel, RhieChowInterpolation, ScalarField, TurbulenceModel, VelocityField,
-    };
-    pub use super::hemolysis::{
-        BloodTrauma, BloodTraumaSeverity, HemolysisCalculator, HemolysisModel, PlateletActivation,
-    };
-    pub use super::material::{MaterialDatabase, SolidProperties};
-    pub use super::values::{Pressure, ReynoldsNumber, Temperature, Velocity};
-}
+// Re-exports for convenience
+
+// Boundary Conditions
+pub use boundary::{
+    BoundaryCondition, BoundaryConditionManager, BoundaryConditionSet, WallType,
+};
+
+// Fluid Properties
+pub use fluid::{ConstantPropertyFluid, Fluid, FluidProperties};
+
+// Fluid Dynamics (Fields & Models)
+pub use fluid_dynamics::{
+    FlowClassifier, FlowField, FlowOperations, FlowRegime, FluidDynamicsService, PressureField,
+    RANSModel, RhieChowInterpolation, ScalarField, TurbulenceModel, VelocityField,
+};
+
+// Biological Models
+pub use hemolysis::{
+    BloodTrauma, BloodTraumaSeverity, HemolysisCalculator, HemolysisModel, PlateletActivation,
+};
+
+// Cavitation Models
+pub use cavitation::{
+    CavitationDamage, CavitationModel, CavitationNumber, CavitationRegime, RayleighPlesset,
+    VenturiCavitation,
+};
+
+// Material Properties
+pub use material::{MaterialDatabase, SolidProperties};
+
+// Physical Values
+pub use values::{Pressure, ReynoldsNumber, Temperature, Velocity};
+
+// Constants
+pub use constants::{mathematical, physics};
