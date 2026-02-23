@@ -321,48 +321,47 @@ impl<T: RealField + Copy + FromPrimitive> SerpentineModel<T> {
         reynolds * ratio.sqrt()
     }
 
+    /// Friction factor enhancement ratio `f_curved / f_straight` for flow in a
+    /// curved channel.
+    ///
+    /// Uses the White (1929) empirical correlation for laminar secondary flow:
+    ///
+    /// ```text
+    /// f_c / f_s = 1 + 0.033 (log₁₀ De)⁴   for De ≤ 370
+    /// ```
+    ///
+    /// For `De > 370` the result is clamped at the De = 370 value (≈ 2.43) to
+    /// avoid unphysical extrapolation into the turbulent secondary-flow regime
+    /// where a different correlation (Ito 1959 turbulent) would be required.
+    ///
+    /// Returns 1.0 for De ≤ 0 (no curvature / straight pipe).
+    ///
+    /// # References
+    /// - White, C. M. (1929). "Streamline flow through curved pipes."
+    ///   *Proc. R. Soc. Lond. A*, 123(792), 645–663.
+    ///
+    /// # Usage note
+    /// This enhancement applies to **continuously curved** pipes (helical, spiral).
+    /// For a serpentine with discrete straight segments and U-turns, curvature
+    /// effects are already captured by the bend K-factor minor losses, so this
+    /// value is reported in `SerpentineAnalysis` for information but is **not**
+    /// applied to the straight-section friction in `calculate_coefficients`.
     fn curvature_enhancement(&self, dean: T) -> T {
         let one = T::one();
-        
-        // First-principles mathematical formulation of secondary flow momentum transport.
-        // Instead of piecewise empirical fits (e.g., Ito 1959, White 1929), this uses
-        // an exact analytical continuation of the perturbation series (Dean 1928) 
-        // and boundary layer asymptotic limits (Adler 1934, Barua 1963).
-        
-        // Exact laminar Dean boundary layer leading exponent for high Dean numbers:
-        // f_c / f_s ~ C_lam * De^(1/2)
-        let c_lam = T::from_f64(0.1033).unwrap_or_else(T::one); 
-        
-        // Exact turbulent asymptotic exponent for ultra-high Dean numbers:
-        // f_c / f_s ~ C_turb * De^(1/4)
-        let c_turb = T::from_f64(0.336).unwrap_or_else(T::one);
-        
-        let de_lam_limit = c_lam * dean.sqrt();
-        let de_turb_limit = c_turb * dean.powf(T::from_f64(0.25).unwrap_or_else(T::one));
-        
-        // Unified analytic continuation bridging the three exact physical regimes:
-        // 1. Viscous dominant (perturbation order 4)
-        // 2. Secondary flow laminar boundary layer dominant (order 1/2)
-        // 3. Turbulent toroidal layer dominant (order 1/4)
-        
-        // We construct a universally valid mathematical function via L-p norms
-        // ensuring infinite differentiability and strict asymptotic adherence without arbitrary thresholds.
-        
-        let laminar_term = (one + de_lam_limit.powi(4)).powf(T::from_f64(0.25).unwrap_or_else(T::one));
-        let turbulent_term = (one + de_turb_limit.powi(8)).powf(T::from_f64(0.125).unwrap_or_else(T::one));
-        
-        // Smooth harmonic-like transition favoring the dominant dissipative mechanism
-        // At De -> 0: enhancement -> 1.0 (exact)
-        // At De ~ O(100): enhancement tracks laminar boundary layer (exact)
-        // At De -> inf: enhancement tracks turbulent boundary layer (exact)
-        
-        if dean < T::from_f64(400.0).unwrap_or_else(T::one) {
-             laminar_term
-        } else {
-             // For purely rigorous asymptotic transition
-             let weight = (T::from_f64(400.0).unwrap_or_else(T::one) / dean).powi(2);
-             weight * laminar_term + (one - weight) * turbulent_term
+        let zero = T::zero();
+
+        if dean <= zero {
+            return one;
         }
+
+        // White (1929): f_c/f_s = 1 + 0.033 * (log₁₀(De))⁴
+        // Valid for laminar secondary flow (De ≤ 370).
+        let de_f64 = nalgebra::try_convert::<T, f64>(dean).unwrap_or(1.0_f64).max(1e-10_f64);
+        let de_clamped = de_f64.min(370.0_f64); // clamp to White's validity range
+        let log_de = de_clamped.log10();
+        let enhancement = 1.0_f64 + 0.033_f64 * log_de.powi(4);
+
+        T::from_f64(enhancement).unwrap_or_else(T::one)
     }
 
     /// Base (straight channel) friction factor
@@ -663,9 +662,44 @@ mod tests {
             bend_type: BendType::Smooth { radius_to_dh_ratio: 5.0 },
         };
 
-        // At very low De, enhancement should be ~1.0
+        // White (1929) at De=5: f_c/f_s = 1 + 0.033*(log₁₀(5))⁴ ≈ 1.008
+        // Enhancement should be very close to 1.0 at low De (< 2% deviation).
         let enhancement = model.curvature_enhancement(5.0);
-        assert_relative_eq!(enhancement, 1.0, epsilon = 1e-3);
+        assert!(
+            (enhancement - 1.0).abs() < 0.02,
+            "Enhancement at De=5 should be within 2% of 1.0, got {enhancement}"
+        );
+    }
+
+    /// Validate curvature_enhancement against the White (1929) formula at known De values.
+    ///
+    /// White (1929): f_c/f_s = 1 + 0.033*(log₁₀(De))⁴
+    #[test]
+    fn test_curvature_enhancement_white_1929_values() {
+        let model = SerpentineModel::<f64> {
+            straight_length: 0.02,
+            num_segments: 5,
+            cross_section: SerpentineCrossSection::Circular { diameter: 0.001 },
+            bend_radius: 0.005,
+            bend_type: BendType::Smooth { radius_to_dh_ratio: 5.0 },
+        };
+
+        // De = 0 or negative → enhancement = 1.0 (no curvature)
+        assert_relative_eq!(model.curvature_enhancement(0.0_f64), 1.0, epsilon = 1e-9);
+
+        // De = 10: 1 + 0.033*(log₁₀(10))⁴ = 1 + 0.033*1 = 1.033
+        let e10 = model.curvature_enhancement(10.0_f64);
+        assert_relative_eq!(e10, 1.033, epsilon = 0.002);
+
+        // De = 100: 1 + 0.033*(log₁₀(100))⁴ = 1 + 0.033*16 = 1.528
+        let e100 = model.curvature_enhancement(100.0_f64);
+        assert_relative_eq!(e100, 1.528, epsilon = 0.002);
+
+        // De = 370 (clamped): 1 + 0.033*(log₁₀(370))⁴ = 1 + 0.033*(2.568)⁴ ≈ 2.43
+        let e370 = model.curvature_enhancement(370.0_f64);
+        let e_above_clamp = model.curvature_enhancement(1000.0_f64);
+        assert_relative_eq!(e370, e_above_clamp, epsilon = 0.001); // clamped at De=370
+        assert!(e370 > 2.0 && e370 < 3.0, "Enhancement at De=370 should be ~2.43");
     }
 
     #[test]

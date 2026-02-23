@@ -10,13 +10,17 @@
 //!
 //! ### Sudden Contraction (Sharp-Edged Inlet)
 //!
-//! K_entry = (1 - A₁/A₂)² * (1 + C/Re_D₂)
+//! K_entry = 0.5·(1 − A₂/A₁) · (1 + C/Re_D₂)
 //!
 //! where:
-//! - A₁ is the upstream cross-sectional area
-//! - A₂ is the downstream cross-sectional area
-//! - C is a constant (typically 0.1-0.2)
+//! - A₁ is the upstream cross-sectional area (larger)
+//! - A₂ is the downstream cross-sectional area (smaller)
+//! - C is a constant (typically 0.1)
 //! - Re_D₂ is Reynolds number based on downstream hydraulic diameter
+//!
+//! Physical limits:
+//! - A₂/A₁ → 0 (large reservoir → pipe): K → 0.5  (Idelchik, §5)
+//! - A₂/A₁ = 1 (no contraction):          K → 0
 //!
 //! ### Smooth Contraction (Well-Rounded Inlet)
 //!
@@ -150,14 +154,26 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceModel<T>
 }
 
 impl<T: RealField + Copy + FromPrimitive + num_traits::Float> EntranceEffectsModel<T> {
-    /// Calculate loss coefficient for sudden contraction
+    /// Calculate loss coefficient for sudden (sharp-edged) contraction.
+    ///
+    /// Uses the Idelchik (1994) linear approximation:
+    ///
+    /// ```text
+    /// K = 0.5 · (1 − A₂/A₁) · (1 + C/Re)
+    ///   = 0.5 · (1 − 1/area_ratio) · (1 + C/Re)
+    /// ```
+    ///
+    /// where `area_ratio = A₁/A₂ ≥ 1`.  As `area_ratio → ∞` (large reservoir
+    /// entering a pipe), `K → 0.5`, matching the well-known sharp-edged inlet
+    /// coefficient (White 2011, §6.7; Idelchik 1994, §5).
     fn calculate_sudden_contraction_coefficient(&self, area_ratio: T, reynolds: T) -> T {
+        // 1 − A₂/A₁ = 1 − 1/area_ratio  ∈ [0, 1)
         let contraction_ratio = T::one() - T::one() / area_ratio;
 
-        // Base loss coefficient for sudden contraction
-        let k_base = contraction_ratio * contraction_ratio;
+        // Base loss coefficient: 0.5·(1 − A₂/A₁)
+        let k_base = T::from_f64(0.5).unwrap_or_else(T::one) * contraction_ratio;
 
-        // Reynolds number correction (Idelchik correlation)
+        // Low-Reynolds correction (Idelchik): multiply by (1 + C/Re)
         let re_correction =
             T::from_f64(SUDDEN_CONTRACTION_CONSTANT).unwrap_or_else(|| T::zero()) / reynolds;
 

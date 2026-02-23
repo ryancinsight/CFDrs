@@ -5,7 +5,12 @@
 //! **Theorem**: In a converging-diverging (Venturi) tube, the pressure drop
 //! between the upstream section (1) and the throat section (2) is given by:
 //!
-//! ΔP₁₂ = (ρ V₂²/2)(1 - (A₂/A₁)²) / C_d²
+//! ΔP₁₂ = (ρ V₂²/2)(1 − (A₂/A₁)²) / C_d²
+//!
+//! where (A₂/A₁) is the **area ratio** (throat / inlet).
+//! In terms of the diameter ratio β = D₂/D₁:
+//!   (A₂/A₁) = β²   so   (A₂/A₁)² = β⁴
+//! Therefore: ΔP₁₂ = (ρ V₂²/2)(1 − β⁴) / C_d²
 //!
 //! where:
 //! - ρ is the fluid density [kg/m³]
@@ -283,6 +288,14 @@ impl<T: RealField + Copy + FromPrimitive> VenturiModel<T> {
     }
 
     /// Area ratio β² = (A_throat / A_inlet) = (D_throat / D_inlet)²
+    ///
+    /// Note: the Bernoulli pressure term requires `(1 − β⁴)` = `(1 − β²·β²)` because:
+    ///
+    /// ```text
+    /// ΔP = ½ρV_t²[1 − (A_t/A_i)²]   where (A_t/A_i)² = (D_t/D_i)⁴ = β²·β²
+    /// ```
+    ///
+    /// Callers must use `one - beta_sq * beta_sq`, **not** `one - beta_sq`.
     fn beta_squared(&self) -> T {
         let ratio = self.throat_diameter / self.inlet_diameter;
         ratio * ratio
@@ -413,13 +426,16 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for VenturiModel<T>
         let re_inlet = density * v_inlet * self.inlet_diameter / viscosity_inlet;
 
         // --- 1. Contraction loss (Bernoulli + discharge coefficient) ---
-        let beta_sq = self.beta_squared();
+        let beta_sq = self.beta_squared();  // = (D_t/D_i)² = A_t/A_i
         let c_d = self.effective_discharge_coefficient(re_inlet);
 
-        // ΔP_contraction = (ρ V_throat²/2)(1 - β²) / C_d²
+        // ΔP_contraction = ½ρV_t²(1 − (A_t/A_i)²) / C_d²
+        //                = ½ρV_t²(1 − β⁴) / C_d²   where β⁴ = beta_sq·beta_sq
+        // Note: (A_t/A_i)² = (D_t/D_i)⁴ = beta_sq², NOT beta_sq.
         let half = T::from_f64(0.5).unwrap_or_else(T::one);
         let one = T::one();
-        let dp_contraction = half * density * v_throat * v_throat * (one - beta_sq) / (c_d * c_d);
+        let dp_contraction =
+            half * density * v_throat * v_throat * (one - beta_sq * beta_sq) / (c_d * c_d);
 
         // --- 2. Throat friction loss ---
         let f = self.throat_friction_factor(re_throat);
@@ -605,7 +621,9 @@ impl<T: RealField + Copy + FromPrimitive> VenturiModel<T> {
         let k_exp = T::from_f64(self.expansion_type.loss_coefficient()).unwrap_or_else(T::one);
         let eta_r = T::from_f64(self.expansion_type.recovery_efficiency()).unwrap_or_else(T::one);
 
-        let dp_contraction = half * density * v_throat * v_throat * (one - beta_sq) / (c_d * c_d);
+        // ΔP_contraction = ½ρV_t²(1 − β⁴) / C_d²  where β⁴ = (A_t/A_i)² = beta_sq·beta_sq
+        let dp_contraction =
+            half * density * v_throat * v_throat * (one - beta_sq * beta_sq) / (c_d * c_d);
         let dp_friction = f * (self.throat_length / self.throat_diameter)
             * half * density * v_throat * v_throat;
         let dv = v_throat - v_outlet;
@@ -659,9 +677,10 @@ mod tests {
         // Check throat velocity: V_throat = V_inlet * (D_inlet/D_throat)² = 2 * 4 = 8 m/s
         assert_relative_eq!(analysis.throat_velocity, 8.0, epsilon = 0.01);
 
-        // Ideal Bernoulli: ΔP = ½ * 998.2 * 8² * (1 - 0.25) = ½ * 998.2 * 64 * 0.75 = 23,956.8 Pa
-        // With C_d = 1.0, the contraction drop should be close to ideal
-        let dp_ideal = 0.5 * 998.2 * 64.0 * 0.75;
+        // β = D_t/D_i = 0.5  →  β⁴ = 0.0625  →  (1 − β⁴) = 0.9375
+        // Ideal Bernoulli: ΔP = ½ * 998.2 * 8² * (1 − β⁴) = ½ * 998.2 * 64 * 0.9375 ≈ 29,946 Pa
+        // With C_d = 1.0, the contraction drop must equal the ideal Bernoulli value.
+        let dp_ideal = 0.5 * 998.2 * 64.0 * 0.9375;
         assert_relative_eq!(analysis.dp_contraction, dp_ideal, epsilon = dp_ideal * 0.05);
 
         Ok(())

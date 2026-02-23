@@ -386,11 +386,15 @@ fn test_resistance_scaling_laws() -> Result<()> {
 
 /// Test entrance effects for sudden contraction (sharp-edged inlet).
 ///
-/// Validates against Idelchik (1994) Handbook of Hydraulic Resistance:
-/// K_entry = (1 - A₁/A₂)² * (1 + 0.1/Re) for sudden contraction
+/// Validates against Idelchik (1994) Handbook of Hydraulic Resistance, §5:
+/// K_entry = 0.5·(1 − A₂/A₁)·(1 + C/Re)  where C = 0.1
+///
+/// Physical limits:
+/// - A₂/A₁ → 0 (large reservoir → pipe): K → 0.5  (Idelchik §5)
+/// - A₂/A₁ = 1 (no contraction):          K → 0
 #[test]
 fn test_entrance_effects_sudden_contraction() -> Result<()> {
-    // Test case: contraction from 4 mm² to 1 mm² (area ratio = 4)
+    // Test case: contraction from 4 mm² to 1 mm² (area ratio A₁/A₂ = 4)
     let upstream_area: f64 = 4e-6; // 4 mm²
     let downstream_area: f64 = 1e-6; // 1 mm²
     let area_ratio = upstream_area / downstream_area; // 4.0
@@ -407,9 +411,10 @@ fn test_entrance_effects_sudden_contraction() -> Result<()> {
 
         let resistance = model.calculate_resistance(&fluid, &conditions)?;
 
-        // Calculate expected loss coefficient
-        let contraction_ratio = 1.0 - 1.0 / area_ratio; // 1 - 1/4 = 0.75
-        let k_base = contraction_ratio * contraction_ratio; // 0.75² = 0.5625
+        // Idelchik (1994), §5: K = 0.5·(1 − A₂/A₁)·(1 + C/Re)
+        //   contraction_ratio = 1 − A₂/A₁ = 1 − 1/area_ratio = 1 − 0.25 = 0.75
+        let contraction_ratio = 1.0 - 1.0 / area_ratio; // 0.75
+        let k_base = 0.5 * contraction_ratio; // 0.5 * 0.75 = 0.375
         let re_correction = 0.1 / re;
         let k_expected = k_base * (1.0 + re_correction);
 
@@ -483,10 +488,10 @@ fn test_entrance_effects_reynolds_dependence() -> Result<()> {
         resistance_low
     );
 
-    // Verify the ratio matches theoretical expectation
+    // Verify the ratio matches theoretical expectation: K = 0.5·(1−A₂/A₁)·(1+C/Re)
     let area_ratio = upstream_area / downstream_area;
     let contraction_ratio = 1.0 - 1.0 / area_ratio;
-    let k_base = contraction_ratio * contraction_ratio;
+    let k_base = 0.5 * contraction_ratio; // Idelchik (1994) §5
 
     let k_low = k_base * (1.0 + 0.1 / re_low);
     let k_high = k_base * (1.0 + 0.1 / re_high);
@@ -502,7 +507,7 @@ fn test_entrance_effects_reynolds_dependence() -> Result<()> {
 /// Test area ratio dependence of entrance loss coefficient.
 ///
 /// Validates that larger contractions produce higher entrance losses
-/// following the (1 - A₁/A₂)² relationship.
+/// following the 0.5·(1 − A₂/A₁) relationship (Idelchik 1994, §5).
 #[test]
 fn test_entrance_effects_area_ratio_dependence() -> Result<()> {
     let downstream_area: f64 = 1e-6;

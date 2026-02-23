@@ -52,9 +52,14 @@
 //!
 //! ## Equilibrium position
 //!
-//! The equilibrium lateral position `x̃_eq` satisfies `F_L(x̃_eq) + F_D = 0`.
-//! We solve this numerically using bisection on the interval `[0, 1]` (by
-//! symmetry, only the half-channel need be considered).
+//! The equilibrium lateral position `x̃_eq` satisfies `F_L(x̃_eq) = F_D`.
+//!
+//! In the toward-center sign convention (F_L > 0 → toward center), Dean drag
+//! acts toward the wall, so the bisection solves `F_L(x̃) − F_D = 0`.
+//! Increasing F_D shifts the equilibrium toward the wall (larger x̃), consistent
+//! with experimental observations of Dean-flow-enhanced cell migration.
+//! We solve this numerically using bisection on `[0, 0.95]` (by symmetry,
+//! only the half-channel need be considered).
 //!
 //! # References
 //! - Di Carlo, D. (2009). Inertial microfluidics. *Lab Chip*, 9, 3038–3046.
@@ -207,7 +212,12 @@ pub struct EquilibriumResult {
 
 /// Compute the lateral equilibrium position of a cell in a rectangular channel.
 ///
-/// Solves `F_L(x̃) + F_D_net = 0` using bisection on `x̃ ∈ [0, 1]`.
+/// Solves `F_L(x̃) − F_D = 0` using bisection on `x̃ ∈ [0, 0.95]`.
+///
+/// Sign convention: F_L positive = toward center; Dean drag `F_D ≥ 0` acts
+/// toward the wall, so it enters with a negative sign.  This ensures that
+/// larger Dean forces shift the equilibrium toward the wall, as observed
+/// experimentally (Gossett & Di Carlo 2009).
 ///
 /// For straight channels (`bend_radius_m = None`), `F_D = 0` and the
 /// equilibrium is determined by inertial lift alone.
@@ -263,10 +273,19 @@ pub fn lateral_equilibrium(
         (0.0, 0.0)
     };
 
-    // Net force function: F_L(x̃) + F_D (Dean pushes toward wall → positive x̃)
-    // We seek x̃ where this is zero.
+    // Net force function (in the toward-center sign convention).
+    //
+    // Sign convention: positive = force toward channel CENTER.
+    //   • F_L > 0  → inertial lift pushes toward center (away from wall)
+    //   • F_L < 0  → inertial lift pushes toward wall
+    //   • f_dean ≥ 0 is the Dean drag MAGNITUDE; it acts toward the wall,
+    //     so it enters as −f_dean in this toward-center convention.
+    //
+    // Equilibrium: F_L(x̃) − f_dean = 0  →  F_L(x̃) = f_dean
+    // For straight channel (f_dean=0) this gives F_L = 0 (Segré-Silberberg).
+    // For curved channels f_dean > 0 forces equilibrium to larger x̃ (toward wall).
     let net_force = |x: f64| -> f64 {
-        inertial_lift_force_n(x, cell, fluid_density_kg_m3, mean_velocity_m_s, h) + f_dean
+        inertial_lift_force_n(x, cell, fluid_density_kg_m3, mean_velocity_m_s, h) - f_dean
     };
 
     // Bisection on [0, 0.95] (avoid wall singularity)
