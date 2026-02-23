@@ -259,19 +259,21 @@ pub fn compute_metrics(candidate: &DesignCandidate) -> Result<SdtMetrics, OptimE
         }
         DesignTopology::TrifurcationVenturi => {
             // inlet → trunk(Q) → [Tri] → 3 branches(Q/3) → venturi in each
-            let trunk_len = TREATMENT_HEIGHT_MM * 0.5e-3;
-            add_rect(q, w, h, trunk_len);
+            let trunk_len  = TREATMENT_HEIGHT_MM * 0.5e-3;
+            let branch_len = TREATMENT_HEIGHT_MM * 0.25e-3;
+            add_rect(q,       w, h, trunk_len);
+            add_rect(q / 3.0, w, h, branch_len);  // 3 branches, each Q/3
         }
         DesignTopology::VenturiSerpentine | DesignTopology::SerpentineGrid => {
             // Venturi and serpentine handled separately below; no extra trunk.
         }
         DesignTopology::CellSeparationVenturi | DesignTopology::WbcCancerSeparationVenturi => {
             // inlet → trunk(Q) → split → venturi_center(Q/2) + peri_bypass(Q/2)
+            // The peripheral bypass carries Q/2 through the same cross-section, so
+            // its wall shear is exactly half that of the Q trunk already tracked by
+            // add_rect below — the max() is always dominated by the full-Q trunk.
             let trunk_len = TREATMENT_HEIGHT_MM * 0.5e-3;
             add_rect(q, w, h, trunk_len);
-            // Peripheral bypass: Q/2 — parallel path, not added to total_dp
-            let (_, shear_peri) = rect_metrics(q / 2.0, w, h, trunk_len);
-            max_main_shear_pa = max_main_shear_pa.max(shear_peri);
         }
         DesignTopology::DoubleBifurcationVenturi => {
             // inlet → trunk(Q) → [Bi] → branch1(Q/2) → [Bi] → 4×(Q/4) → venturi
@@ -338,6 +340,9 @@ pub fn compute_metrics(candidate: &DesignCandidate) -> Result<SdtMetrics, OptimE
             // levels == 0: single straight channel — distribution handled by venturi block
         }
     }
+    // Explicitly drop the closure so its mutable borrows are released before
+    // the venturi / serpentine sections access those variables directly.
+    drop(add_rect);
 
     // ── Planar rectangular venturi section ───────────────────────────────────
     // Real millifluidic venturis narrow the channel *width* while keeping the
@@ -475,6 +480,130 @@ pub fn compute_metrics(candidate: &DesignCandidate) -> Result<SdtMetrics, OptimE
         total_hi        += giersiepen_hi(shear_pa, res);
         total_path_len_m += path_m;
         residence_time_s += res;
+    }
+
+    // ── Outlet collection tree (mirror of inlet — symmetric split-merge) ──────
+    // Every tree topology is symmetric: the outlet collection tree is the
+    // mirror image of the inlet distribution tree.  Blood traverses both halves,
+    // so we add the same segment costs again in reverse order (leaf → trunk).
+    //
+    // IMPORTANT: this block is placed *after* the venturi section so that the σ
+    // calculation (which uses `total_dp` at the venturi) only sees inlet-side
+    // pressure — adding the outlet tree beforehand would incorrectly reduce the
+    // apparent available pressure and understate cavitation potential.
+    //
+    // Redefine `add_rect` here (inlet version was drop()ed above to release borrows
+    // before the venturi/serpentine sections).
+    let mut add_rect = |q_ch: f64, w_ch: f64, h_ch: f64, len: f64| {
+        let (dp, shear) = rect_metrics(q_ch, w_ch, h_ch, len);
+        total_dp          += dp;
+        max_main_shear_pa  = max_main_shear_pa.max(shear);
+        let t = len * w_ch * h_ch / q_ch.max(1e-12);
+        total_hi          += giersiepen_hi(shear, t);
+        total_path_len_m  += len;
+        residence_time_s  += t;
+    };
+    match candidate.topology {
+        // No symmetric outlet merge tree for these topologies:
+        DesignTopology::SingleVenturi
+        | DesignTopology::SerialDoubleVenturi
+        | DesignTopology::VenturiSerpentine
+        | DesignTopology::SerpentineGrid
+        | DesignTopology::CellSeparationVenturi
+        | DesignTopology::WbcCancerSeparationVenturi => {
+            // intentional: either a straight path or a deliberate multi-outlet split
+        }
+
+        DesignTopology::BifurcationVenturi => {
+            // outlet mirror: 2 branches (Q/2) → merge → trunk (Q)
+            let branch_len = TREATMENT_HEIGHT_MM * 0.25e-3;
+            let trunk_len  = TREATMENT_HEIGHT_MM * 0.25e-3;
+            add_rect(q / 2.0, w, h, branch_len); // outlet branch
+            add_rect(q,       w, h, trunk_len);   // outlet trunk
+        }
+
+        DesignTopology::TrifurcationVenturi => {
+            // outlet mirror: 3 branches (Q/3) → merge → trunk (Q)
+            let branch_len = TREATMENT_HEIGHT_MM * 0.25e-3;
+            let trunk_len  = TREATMENT_HEIGHT_MM * 0.50e-3;
+            add_rect(q / 3.0, w, h, branch_len); // outlet branch
+            add_rect(q,       w, h, trunk_len);   // outlet trunk
+        }
+
+        DesignTopology::DoubleBifurcationVenturi => {
+            // outlet mirror: leaf(Q/4) → branch1(Q/2) → trunk(Q)
+            let branch2_len = TREATMENT_HEIGHT_MM * 0.10e-3;
+            let branch1_len = TREATMENT_HEIGHT_MM * 0.15e-3;
+            let trunk_len   = TREATMENT_HEIGHT_MM * 0.20e-3;
+            add_rect(q / 4.0, w, h, branch2_len); // outlet leaf
+            add_rect(q / 2.0, w, h, branch1_len); // outlet branch
+            add_rect(q,       w, h, trunk_len);    // outlet trunk
+        }
+
+        DesignTopology::TripleBifurcationVenturi => {
+            // outlet mirror: leaf(Q/8) → branch2(Q/4) → branch1(Q/2) → trunk(Q)
+            let branch3_len = TREATMENT_HEIGHT_MM * 0.08e-3;
+            let branch2_len = TREATMENT_HEIGHT_MM * 0.10e-3;
+            let branch1_len = TREATMENT_HEIGHT_MM * 0.12e-3;
+            let trunk_len   = TREATMENT_HEIGHT_MM * 0.15e-3;
+            add_rect(q / 8.0, w, h, branch3_len); // outlet leaf
+            add_rect(q / 4.0, w, h, branch2_len); // outlet branch 2
+            add_rect(q / 2.0, w, h, branch1_len); // outlet branch 1
+            add_rect(q,       w, h, trunk_len);    // outlet trunk
+        }
+
+        DesignTopology::DoubleTrifurcationVenturi => {
+            // outlet mirror: leaf(Q/9) → branch1(Q/3) → trunk(Q)
+            let branch2_len = TREATMENT_HEIGHT_MM * 0.10e-3;
+            let branch1_len = TREATMENT_HEIGHT_MM * 0.15e-3;
+            let trunk_len   = TREATMENT_HEIGHT_MM * 0.20e-3;
+            add_rect(q / 9.0, w, h, branch2_len); // outlet leaf
+            add_rect(q / 3.0, w, h, branch1_len); // outlet branch
+            add_rect(q,       w, h, trunk_len);    // outlet trunk
+        }
+
+        DesignTopology::BifurcationTrifurcationVenturi => {
+            // outlet mirror: leaf(Q/6) → branch1(Q/2) → trunk(Q)
+            let branch2_len = TREATMENT_HEIGHT_MM * 0.12e-3;
+            let branch1_len = TREATMENT_HEIGHT_MM * 0.20e-3;
+            let trunk_len   = TREATMENT_HEIGHT_MM * 0.25e-3;
+            add_rect(q / 6.0, w, h, branch2_len); // outlet leaf
+            add_rect(q / 2.0, w, h, branch1_len); // outlet branch
+            add_rect(q,       w, h, trunk_len);    // outlet trunk
+        }
+
+        DesignTopology::BifurcationSerpentine => {
+            // outlet mirror: trunk (Q) collects from 2 serpentine arms
+            let trunk_len = TREATMENT_HEIGHT_MM * 0.25e-3;
+            add_rect(q, w, h, trunk_len);
+        }
+
+        DesignTopology::TrifurcationSerpentine => {
+            // outlet mirror: trunk (Q) collects from 3 serpentine arms
+            let trunk_len = TREATMENT_HEIGHT_MM * 0.33e-3;
+            add_rect(q, w, h, trunk_len);
+        }
+
+        DesignTopology::AdaptiveTree { levels, split_types } => {
+            // Outlet mirror: iterate levels in reverse (leaf → trunk).
+            // Compute total fan product = divisor at deepest level first,
+            // then peel back one fan stage per iteration.
+            if levels > 0 {
+                let level_len = TREATMENT_HEIGHT_MM * 1e-3 * 0.5 / (levels as f64 + 1.0);
+                let mut total_fan = 1usize;
+                for i in 0..levels as usize {
+                    let fan = if (split_types >> i) & 1 == 0 { 2 } else { 3 };
+                    total_fan *= fan;
+                }
+                let mut divisor = total_fan;
+                for i in (0..levels as usize).rev() {
+                    add_rect(q / divisor as f64, w, h, level_len); // outlet leaf / branch
+                    let fan = if (split_types >> i) & 1 == 0 { 2 } else { 3 };
+                    divisor /= fan;
+                }
+                add_rect(q, w, h, level_len); // outlet trunk
+            }
+        }
     }
 
     // ── Derived / summary metrics ─────────────────────────────────────────────
