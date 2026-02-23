@@ -131,7 +131,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
             8, // resolution factor
         );
         let base_mesh = mesh_builder.build().map_err(|e| Error::Solver(e.to_string()))?;
-        let tet_mesh = cfd_mesh::hierarchy::hex_to_tet::HexToTetConverter::convert(&base_mesh);
+        let legacy_mesh = cfd_mesh::mesh::Mesh::from_indexed(&base_mesh);
+        let tet_mesh = cfd_mesh::hierarchy::hex_to_tet::HexToTetConverter::convert(&legacy_mesh);
         let mesh = cfd_mesh::hierarchy::hierarchical_mesh::P2MeshConverter::convert_to_p2(&tet_mesh);
 
         // 2. Define Boundary Conditions

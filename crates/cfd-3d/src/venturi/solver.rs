@@ -86,7 +86,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
             .map_err(|e| Error::Solver(e.to_string()))?;
 
         // 1.1 Decompose to Tetrahedra and Promote to Quadratic (P2) mesh for Taylor-Hood elements (Q2-Q1)
-        let tet_mesh = cfd_mesh::hierarchy::hex_to_tet::HexToTetConverter::convert(&base_mesh);
+        let legacy_mesh = cfd_mesh::mesh::Mesh::from_indexed(&base_mesh);
+        let tet_mesh = cfd_mesh::hierarchy::hex_to_tet::HexToTetConverter::convert(&legacy_mesh);
         let mut mesh = cfd_mesh::hierarchy::hierarchical_mesh::P2MeshConverter::convert_to_p2(&tet_mesh);
 
         // Re-apply boundary labels after conversion to ensure all boundary faces are tagged.

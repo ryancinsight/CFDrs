@@ -76,6 +76,11 @@ impl<T: Copy + RealField + Float + FromPrimitive> BranchingMeshBuilder<T> {
     pub fn build_surface(&self) -> Result<IndexedMesh, BuildError> {
         build_branching_surface(self)
     }
+
+    /// Alias for [`build_surface`] to support legacy API calls.
+    pub fn build(&self) -> Result<IndexedMesh, BuildError> {
+        self.build_surface()
+    }
 }
 
 fn build_branching_surface<T: Copy + RealField + Float + FromPrimitive + ToPrimitive>(
