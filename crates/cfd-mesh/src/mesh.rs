@@ -188,6 +188,30 @@ impl<T: Copy + RealField> Mesh<T> {
         self.cells.get(idx)
     }
 
+    /// Convert from an `IndexedMesh` (surface) to a `Mesh` (legacy/volume).
+    ///
+    /// This creates a mesh with vertices and faces but no cells.
+    pub fn from_indexed(indexed: &IndexedMesh<T>) -> Self
+    where
+        T: crate::core::scalar::Scalar,
+    {
+        let mut mesh = Self::new();
+        // Copy vertices
+        for i in 0..indexed.vertex_count() {
+            let vid = crate::core::index::VertexId::new(i as u32);
+            let pos = indexed.vertices.position(vid);
+            mesh.add_vertex(crate::topology::Vertex::new(*pos));
+        }
+        // Copy faces
+        for face in indexed.faces.iter() {
+            let v0 = face.vertices[0].as_usize();
+            let v1 = face.vertices[1].as_usize();
+            let v2 = face.vertices[2].as_usize();
+            mesh.add_face(crate::topology::Face::triangle(v0, v1, v2));
+        }
+        mesh
+    }
+
     /// Return the number of vertices per element (4 for tetrahedra).
     pub fn nodes_per_element(&self) -> usize {
         self.cells.first().map(|c| match c.element_type {

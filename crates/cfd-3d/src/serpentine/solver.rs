@@ -87,8 +87,28 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
             .map_err(|e| Error::Solver(e.to_string()))?;
 
         // 1.1 Decompose to Tetrahedra and Promote to Quadratic (P2) mesh for Taylor-Hood elements (Q2-Q1)
-        let tet_mesh = cfd_mesh::hierarchy::hex_to_tet::HexToTetConverter::convert(&base_mesh);
-        let mesh = cfd_mesh::hierarchy::hierarchical_mesh::P2MeshConverter::convert_to_p2(&tet_mesh);
+        let legacy_mesh = cfd_mesh::mesh::Mesh::from_indexed(&base_mesh);
+        let tet_mesh = cfd_mesh::hierarchy::hex_to_tet::HexToTetConverter::convert(&legacy_mesh);
+        let p2_mesh_f64 = cfd_mesh::hierarchy::hierarchical_mesh::P2MeshConverter::convert_to_p2(&tet_mesh);
+
+        let mut mesh = cfd_mesh::mesh::Mesh::<T>::new();
+        for v in p2_mesh_f64.vertices() {
+            let p = v.position;
+            mesh.add_vertex(cfd_mesh::topology::Vertex::new(nalgebra::Point3::new(
+                T::from_f64(p.x).unwrap(), T::from_f64(p.y).unwrap(), T::from_f64(p.z).unwrap()
+            )));
+        }
+        for f in p2_mesh_f64.faces() {
+            mesh.add_face(f.clone());
+        }
+        for c in p2_mesh_f64.cells() {
+            mesh.add_cell(c.clone());
+        }
+        for f_idx in p2_mesh_f64.marked_boundary_faces() {
+            if let Some(label) = p2_mesh_f64.boundary_label(f_idx) {
+                mesh.mark_boundary(f_idx, label.to_string());
+            }
+        }
 
         // 2. Define Boundary Conditions
         // Priority: inlet > outlet > wall. Process inlet/outlet first so that
