@@ -11,7 +11,7 @@ use num_traits::FromPrimitive;
 
 /// Boundary condition type for Poisson equation
 #[derive(Debug, Clone)]
-pub enum PoissonBoundaryCondition<T: RealField + Copy> {
+pub enum PoissonBoundaryCondition<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     /// Dirichlet: u = g on boundary
     Dirichlet(T),
     /// Neumann: ∂u/∂n = g on boundary
@@ -30,7 +30,7 @@ pub enum PoissonBoundaryCondition<T: RealField + Copy> {
 }
 
 /// Spectral Poisson solver
-pub struct PoissonSolver<T: RealField + Copy> {
+pub struct PoissonSolver<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     /// Grid dimensions
     nx: usize,
     ny: usize,
@@ -41,7 +41,7 @@ pub struct PoissonSolver<T: RealField + Copy> {
     basis_z: ChebyshevPolynomial<T>,
 }
 
-impl<T: RealField + FromPrimitive + Copy> PoissonSolver<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> PoissonSolver<T> {
     /// Create new Poisson solver with default Chebyshev basis
     pub fn new(nx: usize, ny: usize, nz: usize) -> Result<Self> {
         Ok(Self {

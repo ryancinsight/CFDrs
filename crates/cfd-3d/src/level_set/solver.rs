@@ -129,7 +129,7 @@ use nalgebra::{RealField, Vector3};
 use num_traits::FromPrimitive;
 
 /// Level Set solver for interface tracking
-pub struct LevelSetSolver<T: RealField + FromPrimitive + Copy> {
+pub struct LevelSetSolver<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> {
     config: LevelSetConfig,
     /// Grid dimensions
     nx: usize,
@@ -151,7 +151,7 @@ pub struct LevelSetSolver<T: RealField + FromPrimitive + Copy> {
     time_step: usize,
 }
 
-impl<T: RealField + FromPrimitive + Copy> LevelSetSolver<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> LevelSetSolver<T> {
     /// Create a new Level Set solver
     pub fn new(
         config: LevelSetConfig,
@@ -208,10 +208,10 @@ impl<T: RealField + FromPrimitive + Copy> LevelSetSolver<T> {
     /// Update narrow band indices based on current level set
     pub fn update_narrow_band(&mut self) {
         self.narrow_band.clear();
-        let band_width = T::from_f64(self.config.band_width).unwrap_or_else(T::zero);
+        let band_width = <T as FromPrimitive>::from_f64(self.config.band_width).unwrap_or_else(T::zero);
 
         for idx in 0..self.phi.len() {
-            if self.phi[idx].abs() <= band_width * self.dx.min(self.dy).min(self.dz) {
+            if num_traits::Float::abs(self.phi[idx]) <= band_width * num_traits::Float::min(num_traits::Float::min(self.dx, self.dy), self.dz) {
                 self.narrow_band.push(idx);
             }
         }
@@ -297,7 +297,7 @@ impl<T: RealField + FromPrimitive + Copy> LevelSetSolver<T> {
     /// Reinitialize level set to signed distance function
     fn reinitialize(&mut self) -> Result<()> {
         let iterations = 10; // Number of reinitialization iterations
-        let dtau = T::from_f64(0.5).unwrap_or_else(|| T::one()) * self.dx.min(self.dy).min(self.dz);
+        let dtau = <T as FromPrimitive>::from_f64(0.5).unwrap_or_else(|| T::one()) * num_traits::Float::min(num_traits::Float::min(self.dx, self.dy), self.dz);
 
         for _ in 0..iterations {
             // Zero-copy: Use existing phi_previous buffer instead of cloning
@@ -314,8 +314,8 @@ impl<T: RealField + FromPrimitive + Copy> LevelSetSolver<T> {
 
                         // Sign function
                         let sign_phi = self.phi_previous[idx]
-                            / (self.phi_previous[idx].abs()
-                                + T::from_f64(1e-6).unwrap_or_else(|| T::zero()));
+                            / (num_traits::Float::abs(self.phi_previous[idx])
+                                + <T as FromPrimitive>::from_f64(1e-6).unwrap_or_else(|| T::zero()));
 
                         // Reinitialization equation: ∂φ/∂τ + S(φ₀)(|∇φ| - 1) = 0
                         self.phi[idx] =
@@ -337,13 +337,13 @@ impl<T: RealField + FromPrimitive + Copy> LevelSetSolver<T> {
 
         // Central differences for gradient
         let dphi_dx = (self.phi[self.index(i + 1, j, k)] - self.phi[self.index(i - 1, j, k)])
-            / (T::from_f64(2.0).unwrap_or_else(|| T::one()) * dx);
+            / (<T as FromPrimitive>::from_f64(2.0).unwrap_or_else(|| T::one()) * dx);
         let dphi_dy = (self.phi[self.index(i, j + 1, k)] - self.phi[self.index(i, j - 1, k)])
-            / (T::from_f64(2.0).unwrap_or_else(|| T::one()) * dy);
+            / (<T as FromPrimitive>::from_f64(2.0).unwrap_or_else(|| T::one()) * dy);
         let dphi_dz = (self.phi[self.index(i, j, k + 1)] - self.phi[self.index(i, j, k - 1)])
-            / (T::from_f64(2.0).unwrap_or_else(|| T::one()) * dz);
+            / (<T as FromPrimitive>::from_f64(2.0).unwrap_or_else(|| T::one()) * dz);
 
-        (dphi_dx * dphi_dx + dphi_dy * dphi_dy + dphi_dz * dphi_dz).sqrt()
+        num_traits::Float::sqrt(dphi_dx * dphi_dx + dphi_dy * dphi_dy + dphi_dz * dphi_dz)
     }
 
     /// Calculate gradient magnitude using `phi_previous` buffer (for zero-copy reinitialization)
@@ -355,14 +355,14 @@ impl<T: RealField + FromPrimitive + Copy> LevelSetSolver<T> {
         // Central differences for gradient using phi_previous
         let dphi_dx = (self.phi_previous[self.index(i + 1, j, k)]
             - self.phi_previous[self.index(i - 1, j, k)])
-            / (T::from_f64(2.0).unwrap_or_else(|| T::one()) * dx);
+            / (<T as FromPrimitive>::from_f64(2.0).unwrap_or_else(|| T::one()) * dx);
         let dphi_dy = (self.phi_previous[self.index(i, j + 1, k)]
             - self.phi_previous[self.index(i, j - 1, k)])
-            / (T::from_f64(2.0).unwrap_or_else(|| T::one()) * dy);
+            / (<T as FromPrimitive>::from_f64(2.0).unwrap_or_else(|| T::one()) * dy);
         let dphi_dz = (self.phi_previous[self.index(i, j, k + 1)]
             - self.phi_previous[self.index(i, j, k - 1)])
-            / (T::from_f64(2.0).unwrap_or_else(|| T::one()) * dz);
+            / (<T as FromPrimitive>::from_f64(2.0).unwrap_or_else(|| T::one()) * dz);
 
-        (dphi_dx * dphi_dx + dphi_dy * dphi_dy + dphi_dz * dphi_dz).sqrt()
+        num_traits::Float::sqrt(dphi_dx * dphi_dx + dphi_dy * dphi_dy + dphi_dz * dphi_dz)
     }
 }

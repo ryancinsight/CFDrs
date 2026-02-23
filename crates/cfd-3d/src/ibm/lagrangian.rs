@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 /// Lagrangian point representing an immersed boundary
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LagrangianPoint<T: RealField + Copy> {
+pub struct LagrangianPoint<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     /// Position of the Lagrangian point
     pub position: Vector3<T>,
     /// Velocity at the Lagrangian point
@@ -16,7 +16,7 @@ pub struct LagrangianPoint<T: RealField + Copy> {
     pub weight: T,
 }
 
-impl<T: RealField + Copy> LagrangianPoint<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy> LagrangianPoint<T> {
     /// Create a new Lagrangian point
     pub fn new(position: Vector3<T>, weight: T) -> Self {
         Self {

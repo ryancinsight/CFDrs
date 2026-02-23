@@ -3,15 +3,16 @@
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
-use cfd_mesh::mesh::Mesh;
+use cfd_mesh::domain::core::index::FaceId;
+use cfd_mesh::IndexedMesh;
 use nalgebra::{RealField, Vector3};
 use std::collections::HashMap;
 
 /// Problem definition for 3D incompressible flow using FEM
-#[derive(Debug, Clone)]
-pub struct StokesFlowProblem<T: RealField + Copy> {
+#[derive(Clone)]
+pub struct StokesFlowProblem<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     /// Computational mesh
-    pub mesh: Mesh<T>,
+    pub mesh: IndexedMesh<T>,
     /// Fluid properties
     pub fluid: ConstantPropertyFluid<T>,
     /// Boundary conditions mapped by node index
@@ -25,10 +26,10 @@ pub struct StokesFlowProblem<T: RealField + Copy> {
     pub n_corner_nodes: usize,
 }
 
-impl<T: RealField + Copy> StokesFlowProblem<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy> StokesFlowProblem<T> {
     /// Create a new Stokes flow problem
     pub fn new(
-        mesh: Mesh<T>,
+        mesh: IndexedMesh<T>,
         fluid: ConstantPropertyFluid<T>,
         boundary_conditions: HashMap<usize, BoundaryCondition<T>>,
         n_corner_nodes: usize,
@@ -93,7 +94,7 @@ impl<T: RealField + Copy> StokesFlowProblem<T> {
 
         // Count how many cells reference each face
         let mut face_cell_count: HashMap<usize, usize> = HashMap::new();
-        for cell in self.mesh.cells() {
+        for cell in self.mesh.cells.iter() {
             for &face_idx in &cell.faces {
                 *face_cell_count.entry(face_idx).or_insert(0) += 1;
             }
@@ -101,27 +102,29 @@ impl<T: RealField + Copy> StokesFlowProblem<T> {
 
         // Collect boundary faces:
         // 1. Faces explicitly marked as boundaries
-        let marked_boundary_faces: HashSet<usize> =
-            self.mesh.boundary_faces().into_iter().collect();
+        let marked_boundary_faces: std::collections::HashSet<usize> =
+            self.mesh.boundary_faces().into_iter().map(|f| f.as_usize()).collect();
 
         // 2. Faces referenced by exactly one cell (external boundaries)
-        let connectivity_boundary_faces: HashSet<usize> = face_cell_count
+        let connectivity_boundary_faces: std::collections::HashSet<usize> = face_cell_count
             .iter()
             .filter(|&(_face_idx, &count)| count == 1)
             .map(|(&face_idx, _)| face_idx)
             .collect();
 
         // Union of both sets
-        let boundary_faces: HashSet<usize> = marked_boundary_faces
+        let boundary_faces: std::collections::HashSet<usize> = marked_boundary_faces
             .union(&connectivity_boundary_faces)
             .copied()
             .collect();
 
-        // Collect unique vertices from all boundary faces
-        let mut boundary_vertices: HashSet<usize> = HashSet::new();
+        let mut boundary_vertices: std::collections::HashSet<usize> = std::collections::HashSet::new();
         for &face_idx in &boundary_faces {
-            if let Some(face) = self.mesh.face(face_idx) {
-                boundary_vertices.extend(&face.vertices);
+            if face_idx < self.mesh.face_count() {
+                let face = self.mesh.faces.get(FaceId::from_usize(face_idx));
+                for &v_id in &face.vertices {
+                    boundary_vertices.insert(v_id.as_usize());
+                }
             }
         }
 
@@ -135,7 +138,7 @@ impl<T: RealField + Copy> StokesFlowProblem<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cfd_mesh::topology::{Cell, Face};
+    use cfd_mesh::domain::topology::{Cell, Face};
     use nalgebra::Point3;
 
     /// Create a simple tetrahedral mesh for testing
@@ -158,10 +161,10 @@ mod tests {
         let mut mesh = Mesh::new();
 
         // Add 4 vertices
-        mesh.add_vertex(cfd_mesh::topology::Vertex::new(Point3::new(0.0, 0.0, 0.0)));
-        mesh.add_vertex(cfd_mesh::topology::Vertex::new(Point3::new(1.0, 0.0, 0.0)));
-        mesh.add_vertex(cfd_mesh::topology::Vertex::new(Point3::new(0.5, 1.0, 0.0)));
-        mesh.add_vertex(cfd_mesh::topology::Vertex::new(Point3::new(0.5, 0.5, 1.0)));
+        mesh.add_vertex(cfd_mesh::domain::topology::Vertex::new(Point3::new(0.0, 0.0, 0.0)));
+        mesh.add_vertex(cfd_mesh::domain::topology::Vertex::new(Point3::new(1.0, 0.0, 0.0)));
+        mesh.add_vertex(cfd_mesh::domain::topology::Vertex::new(Point3::new(0.5, 1.0, 0.0)));
+        mesh.add_vertex(cfd_mesh::domain::topology::Vertex::new(Point3::new(0.5, 0.5, 1.0)));
 
         // Add 4 triangular faces
         let f0 = mesh.add_face(Face::triangle(0, 1, 2)); // bottom
@@ -191,11 +194,11 @@ mod tests {
         let mut mesh = Mesh::new();
 
         // Add 5 vertices
-        mesh.add_vertex(cfd_mesh::topology::Vertex::new(Point3::new(0.0, 0.0, 0.0)));
-        mesh.add_vertex(cfd_mesh::topology::Vertex::new(Point3::new(1.0, 0.0, 0.0)));
-        mesh.add_vertex(cfd_mesh::topology::Vertex::new(Point3::new(0.5, 1.0, 0.0)));
-        mesh.add_vertex(cfd_mesh::topology::Vertex::new(Point3::new(0.5, 0.5, 1.0)));
-        mesh.add_vertex(cfd_mesh::topology::Vertex::new(Point3::new(1.5, 0.5, 1.0)));
+        mesh.add_vertex(cfd_mesh::domain::topology::Vertex::new(Point3::new(0.0, 0.0, 0.0)));
+        mesh.add_vertex(cfd_mesh::domain::topology::Vertex::new(Point3::new(1.0, 0.0, 0.0)));
+        mesh.add_vertex(cfd_mesh::domain::topology::Vertex::new(Point3::new(0.5, 1.0, 0.0)));
+        mesh.add_vertex(cfd_mesh::domain::topology::Vertex::new(Point3::new(0.5, 0.5, 1.0)));
+        mesh.add_vertex(cfd_mesh::domain::topology::Vertex::new(Point3::new(1.5, 0.5, 1.0)));
 
         // First tetrahedron faces
         let f0 = mesh.add_face(Face::triangle(0, 1, 2)); // bottom tet1

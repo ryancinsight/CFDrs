@@ -145,7 +145,7 @@ const DEFAULT_PROPORTIONAL_GAIN: f64 = 10.0;
 const DEFAULT_INTEGRAL_GAIN: f64 = 1.0;
 
 /// IBM solver for 3D flow around immersed boundaries
-pub struct IbmSolver<T: RealField + FromPrimitive + ToPrimitive + Copy> {
+pub struct IbmSolver<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + ToPrimitive + Copy> {
     /// Configuration
     #[allow(dead_code)]
     config: IbmConfig,
@@ -161,22 +161,22 @@ pub struct IbmSolver<T: RealField + FromPrimitive + ToPrimitive + Copy> {
     grid_size: (usize, usize, usize),
 }
 
-impl<T: RealField + FromPrimitive + ToPrimitive + Copy> IbmSolver<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + ToPrimitive + Copy> IbmSolver<T> {
     /// Create a new IBM solver
     pub fn new(config: IbmConfig, dx: Vector3<T>, grid_size: (usize, usize, usize)) -> Self {
         let kernel = InterpolationKernel::new(
             DeltaFunction::RomaPeskin4,
-            T::from_f64(config.smoothing_width).unwrap_or_else(T::one),
+            <T as FromPrimitive>::from_f64(config.smoothing_width).unwrap_or_else(T::one),
         );
 
         let forcing: Box<dyn ForcingMethod<T>> = if config.use_direct_forcing {
             Box::new(DirectForcing::new(
-                T::from_f64(config.force_scale).unwrap_or_else(T::one),
+                <T as FromPrimitive>::from_f64(config.force_scale).unwrap_or_else(T::one),
             ))
         } else {
             Box::new(FeedbackForcing::new(
-                T::from_f64(DEFAULT_PROPORTIONAL_GAIN).unwrap_or_else(T::one),
-                T::from_f64(DEFAULT_INTEGRAL_GAIN).unwrap_or_else(T::one),
+                <T as FromPrimitive>::from_f64(DEFAULT_PROPORTIONAL_GAIN).unwrap_or_else(T::one),
+                <T as FromPrimitive>::from_f64(DEFAULT_INTEGRAL_GAIN).unwrap_or_else(T::one),
             ))
         };
 
@@ -243,9 +243,9 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> IbmSolver<T> {
         let stencil = self.kernel.stencil_size();
 
         // Find grid indices and convert to integers
-        let i_int = ((position.x / self.dx.x).floor()).to_isize().unwrap_or(0);
-        let j_int = ((position.y / self.dx.y).floor()).to_isize().unwrap_or(0);
-        let k_int = ((position.z / self.dx.z).floor()).to_isize().unwrap_or(0);
+        let i_int = (num_traits::Float::floor(position.x / self.dx.x)).to_isize().unwrap_or(0);
+        let j_int = (num_traits::Float::floor(position.y / self.dx.y)).to_isize().unwrap_or(0);
+        let k_int = (num_traits::Float::floor(position.z / self.dx.z)).to_isize().unwrap_or(0);
 
         let i_start = i_int - (stencil as isize / 2);
         let j_start = j_int - (stencil as isize / 2);
@@ -262,15 +262,12 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> IbmSolver<T> {
                         let idx =
                             ii + jj * self.grid_size.0 + kk * self.grid_size.0 * self.grid_size.1;
 
-                        let rx = (position.x / self.dx.x
-                            - T::from_usize(ii).unwrap_or_else(T::zero))
-                        .abs();
-                        let ry = (position.y / self.dx.y
-                            - T::from_usize(jj).unwrap_or_else(T::zero))
-                        .abs();
-                        let rz = (position.z / self.dx.z
-                            - T::from_usize(kk).unwrap_or_else(T::zero))
-                        .abs();
+                        let rx = position.x / self.dx.x
+                            - T::from_usize(ii).unwrap_or_else(T::zero);
+                        let ry = position.y / self.dx.y
+                            - T::from_usize(jj).unwrap_or_else(T::zero);
+                        let rz = position.z / self.dx.z
+                            - T::from_usize(kk).unwrap_or_else(T::zero);
 
                         let weight =
                             self.kernel.delta(rx) * self.kernel.delta(ry) * self.kernel.delta(rz);
@@ -292,13 +289,13 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> IbmSolver<T> {
         let stencil = self.kernel.stencil_size();
 
         // Find grid indices and convert to integers
-        let i_int = ((point.position.x / self.dx.x).floor())
+        let i_int = (num_traits::Float::floor(point.position.x / self.dx.x))
             .to_isize()
             .unwrap_or(0);
-        let j_int = ((point.position.y / self.dx.y).floor())
+        let j_int = (num_traits::Float::floor(point.position.y / self.dx.y))
             .to_isize()
             .unwrap_or(0);
-        let k_int = ((point.position.z / self.dx.z).floor())
+        let k_int = (num_traits::Float::floor(point.position.z / self.dx.z))
             .to_isize()
             .unwrap_or(0);
 
@@ -317,15 +314,12 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> IbmSolver<T> {
                         let idx =
                             ii + jj * self.grid_size.0 + kk * self.grid_size.0 * self.grid_size.1;
 
-                        let rx = (point.position.x / self.dx.x
-                            - T::from_usize(ii).unwrap_or_else(T::zero))
-                        .abs();
-                        let ry = (point.position.y / self.dx.y
-                            - T::from_usize(jj).unwrap_or_else(T::zero))
-                        .abs();
-                        let rz = (point.position.z / self.dx.z
-                            - T::from_usize(kk).unwrap_or_else(T::zero))
-                        .abs();
+                        let rx = point.position.x / self.dx.x
+                            - T::from_usize(ii).unwrap_or_else(T::zero);
+                        let ry = point.position.y / self.dx.y
+                            - T::from_usize(jj).unwrap_or_else(T::zero);
+                        let rz = point.position.z / self.dx.z
+                            - T::from_usize(kk).unwrap_or_else(T::zero);
 
                         let weight =
                             self.kernel.delta(rx) * self.kernel.delta(ry) * self.kernel.delta(rz);

@@ -146,7 +146,7 @@ mod tests {
         // Analytical derivative: π*cos(πx)
         for i in 1..n - 1 {
             // Skip endpoints where sin(πx) = 0
-            let expected = PI * (PI * points[i]).cos();
+            let expected = PI * num_traits::Float::cos(PI * points[i]);
             assert_relative_eq!(du_dx[i], expected, epsilon = 1e-9);
         }
     }
@@ -206,7 +206,7 @@ mod tests {
     fn test_spectral_accuracy_exponential_decay() {
         // Test function: exp(sin(πx))
         let f = |x: f64| (PI * x).sin().exp();
-        let df = |x: f64| PI * (PI * x).cos() * (PI * x).sin().exp();
+        let df = |x: f64| PI * num_traits::Float::cos(PI * x) * (PI * x).sin().exp();
 
         let n_values = [8, 12, 16];
         let mut errors = Vec::new();
@@ -224,7 +224,7 @@ mod tests {
             let mut max_error = 0.0_f64;
             for i in 2..n - 2 {
                 let error = (du_dx[i] - df(points[i])).abs();
-                max_error = max_error.max(error);
+                max_error = num_traits::Float::max(max_error, error);
             }
             errors.push(max_error);
         }

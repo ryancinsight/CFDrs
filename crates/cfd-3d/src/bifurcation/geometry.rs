@@ -23,7 +23,7 @@ use serde::{Deserialize, Serialize};
 /// - **Abrupt junction**: Immediate step change (δ → 0)
 /// - **Rounded junction**: Smooth spline transition
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub enum ConicalTransition<T: RealField + Copy> {
+pub enum ConicalTransition<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     /// Smooth linear taper
     SmoothCone {
         /// Transition length [m]
@@ -38,7 +38,7 @@ pub enum ConicalTransition<T: RealField + Copy> {
     },
 }
 
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> ConicalTransition<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> ConicalTransition<T> {
     /// Calculate diameter at position along transition
     ///
     /// For smooth cone:
@@ -53,7 +53,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> ConicalTra
         transition_length: T,
     ) -> T {
         let one = T::one();
-        let x_normalized = (x / transition_length).clamp(T::zero(), one);
+        let x_normalized = (x / transition_length);
         
         match self {
             ConicalTransition::SmoothCone { length: _ } => {
@@ -70,7 +70,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> ConicalTra
                 // Exact C1-continuous cosine interpolation for mathematically smooth interfaces
                 let pi = T::from_f64_or_one(std::f64::consts::PI);
                 let two = T::from_f64_or_one(2.0);
-                d_daughter + (d_parent - d_daughter) / two * (one + (pi * x_normalized).cos())
+                d_daughter + (d_parent - d_daughter) / two * (one + num_traits::Float::cos(pi * x_normalized))
             }
         }
     }
@@ -84,7 +84,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> ConicalTra
 ///
 /// Represents a bifurcating vessel with parent, transition zone, and two daughters.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BifurcationGeometry3D<T: RealField + Copy> {
+pub struct BifurcationGeometry3D<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     /// Parent branch diameter [m]
     pub d_parent: T,
     /// Parent branch length [m]
@@ -111,7 +111,7 @@ pub struct BifurcationGeometry3D<T: RealField + Copy> {
     pub parent_axis: Vector3<T>,
 }
 
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> BifurcationGeometry3D<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> BifurcationGeometry3D<T> {
     /// Create symmetric bifurcation (equal daughters)
     pub fn symmetric(
         d_parent: T,
@@ -168,7 +168,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> Bifurcatio
     /// Returns D₀³ - (D₁³ + D₂³), which should be close to 0
     pub fn murray_law_deviation(&self) -> T {
         let three = T::from_f64_or_one(3.0);
-        self.d_parent.powi(3) - (self.d_daughter1.powi(3) + self.d_daughter2.powi(3))
+        num_traits::Float::powi(self.d_parent, 3) - (num_traits::Float::powi(self.d_daughter1, 3) + num_traits::Float::powi(self.d_daughter2, 3))
     }
 
     /// Calculate total mathematically exact volume of bifurcation
@@ -250,7 +250,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> Bifurcatio
             let d_prime = (d_plus - d_minus) / (two * epsilon);
             
             let arg = T::one() + (d_prime / two) * (d_prime / two);
-            surface += w_t * pi * d * arg.sqrt() * half_l;
+            surface += w_t * pi * d * num_traits::Float::sqrt(arg) * half_l;
         }
         surface
     }
@@ -264,7 +264,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> Bifurcatio
 ///
 /// Represents tetrahedral or hexahedral mesh with node and element lists.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BifurcationMesh<T: RealField + Copy> {
+pub struct BifurcationMesh<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     /// Node coordinates (node_id -> Point3)
     pub nodes: Vec<Point3<T>>,
     /// Element connectivity (element_id -> [node_ids])
@@ -275,7 +275,7 @@ pub struct BifurcationMesh<T: RealField + Copy> {
     pub boundary_elements: Vec<Vec<usize>>,
 }
 
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> BifurcationMesh<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> BifurcationMesh<T> {
     /// Create empty mesh
     pub fn new(element_type: usize) -> Self {
         Self {
@@ -328,8 +328,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> Bifurcatio
                 let e02 = (p2 - p0).norm();
                 let e03 = (p3 - p0).norm();
 
-                let max_edge = e01.max(e02).max(e03);
-                let min_edge = e01.min(e02).min(e03);
+                let max_edge = num_traits::Float::max(num_traits::Float::max(e01, e02), e03);
+                let min_edge = num_traits::Float::min(num_traits::Float::min(e01, e02), e03);
 
                 if min_edge > T::from_f64_or_one(1e-15) {
                     total_ar = total_ar + max_edge / min_edge;

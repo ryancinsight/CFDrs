@@ -40,22 +40,23 @@ use std::collections::HashSet;
 use crate::fem::{FemConfig, StokesFlowProblem, StokesFlowSolution};
 use crate::fem::shape_functions::LagrangeTet10;
 use crate::fem::quadrature::TetrahedronQuadrature;
-use cfd_mesh::mesh::Mesh;
-use cfd_mesh::topology::Cell;
+use cfd_mesh::IndexedMesh;
+use cfd_mesh::domain::core::index::{FaceId, VertexId};
+use cfd_mesh::domain::topology::Cell;
 
 /// Pressure projection solver for incompressible Stokes/Navier-Stokes equations
-pub struct ProjectionSolver<T: RealField + Copy + FromPrimitive + Float + std::fmt::Debug> {
+pub struct ProjectionSolver<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + Float + std::fmt::Debug> {
     config: FemConfig<T>,
     /// Time step for transient simulations
     dt: T,
 }
 
-impl<T: RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> ProjectionSolver<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> ProjectionSolver<T> {
     /// Create new projection solver with default time step
     pub fn new(config: FemConfig<T>) -> Self {
         Self { 
             config,
-            dt: T::from_f64(0.001).unwrap_or_else(T::one),
+            dt: <T as FromPrimitive>::from_f64(0.001).unwrap_or_else(T::one),
         }
     }
 
@@ -89,7 +90,7 @@ impl<T: RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> 
         // Use GMRES for momentum (non-symmetric due to convection)
         let mut gmres_config = cfd_math::linear_solver::IterativeSolverConfig::default();
         gmres_config.max_iterations = 10000;
-        gmres_config.tolerance = T::from_f64(1e-10).unwrap_or_else(T::zero);
+        gmres_config.tolerance = <T as FromPrimitive>::from_f64(1e-10).unwrap_or_else(T::zero);
         
         let momentum_solver = GMRES::new(gmres_config.clone(), 100);
         let monitor = momentum_solver.solve(&momentum_matrix, &momentum_rhs, &mut u_star, None::<&IdentityPreconditioner>)
@@ -143,13 +144,13 @@ impl<T: RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> 
         let mut builder = SparseMatrixBuilder::new(n_velocity_dof, n_velocity_dof);
         let mut rhs = DVector::zeros(n_velocity_dof);
 
-        let vertex_positions: Vec<Vector3<T>> = problem.mesh.vertices().iter()
-            .map(|v| v.position.coords).collect();
+        let vertex_positions: Vec<Vector3<T>> = problem.mesh.vertices.iter()
+            .map(|v| v.1.position.coords).collect();
 
-        println!("    Assembling momentum matrix ({} elements)...", problem.mesh.cells().len());
+        println!("    Assembling momentum matrix ({} elements)...", problem.mesh.cells.len());
 
         // Assemble viscous + transient terms (no pressure gradient)
-        for (i, cell) in problem.mesh.cells().iter().enumerate() {
+        for (i, cell) in problem.mesh.cells.iter().enumerate() {
             let viscosity = problem.element_viscosities.as_ref().map_or(problem.fluid.viscosity, |v| v[i]);
             let idxs = extract_vertex_indices(cell, &problem.mesh)?;
             let positions: Vec<Vector3<T>> = idxs.iter()
@@ -184,13 +185,13 @@ impl<T: RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> 
         let mut builder = SparseMatrixBuilder::new(n_corner_nodes, n_corner_nodes);
         let mut rhs = DVector::zeros(n_corner_nodes);
 
-        let vertex_positions: Vec<Vector3<T>> = problem.mesh.vertices().iter()
-            .map(|v| v.position.coords).collect();
+        let vertex_positions: Vec<Vector3<T>> = problem.mesh.vertices.iter()
+            .map(|v| v.1.position.coords).collect();
 
         println!("    Assembling pressure Poisson matrix...");
 
         // Assemble Laplacian for pressure using P1 elements
-        for cell in problem.mesh.cells().iter() {
+        for cell in problem.mesh.cells.iter() {
             let idxs = extract_vertex_indices(cell, &problem.mesh)?;
             let positions: Vec<Vector3<T>> = idxs.iter()
                 .map(|&idx| vertex_positions[idx])
@@ -225,14 +226,14 @@ impl<T: RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> 
         pressure: &DVector<T>,
     ) -> Result<DVector<T>> {
         let n_nodes = problem.mesh.vertex_count();
-        let vertex_positions: Vec<Vector3<T>> = problem.mesh.vertices().iter()
-            .map(|v| v.position.coords).collect();
+        let vertex_positions: Vec<Vector3<T>> = problem.mesh.vertices.iter()
+            .map(|v| v.1.position.coords).collect();
 
         let mut velocity = u_star.clone();
         let dt_over_rho = self.dt / problem.fluid.density;
 
         // For each element, compute pressure gradient and correct velocity
-        for cell in problem.mesh.cells().iter() {
+        for cell in problem.mesh.cells.iter() {
             let idxs = extract_vertex_indices(cell, &problem.mesh)?;
             let positions: Vec<Vector3<T>> = idxs.iter()
                 .map(|&idx| vertex_positions[idx])
@@ -290,7 +291,7 @@ impl<T: RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> 
         let det_j = j_mat.determinant();
         let abs_det = Float::abs(det_j);
         
-        if abs_det < T::from_f64(1e-20).unwrap() {
+        if abs_det < <T as FromPrimitive>::from_f64(1e-20).unwrap() {
             return Err(Error::Solver("Near-zero element volume in momentum assembly".to_string()));
         }
 
@@ -377,7 +378,7 @@ impl<T: RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> 
         let det_j = j_mat.determinant();
         let abs_det = Float::abs(det_j);
         
-        if abs_det < T::from_f64(1e-20).unwrap() {
+        if abs_det < <T as FromPrimitive>::from_f64(1e-20).unwrap() {
             return Err(Error::Solver("Near-zero element volume in pressure assembly".to_string()));
         }
 
@@ -399,7 +400,7 @@ impl<T: RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> 
         // For P1 elements, the Laplacian matrix is constant over the element
         // K_ij = ∫ ∇N_i · ∇N_j dV = (∇N_i · ∇N_j) * V/4
         // Using exact integration for linear elements
-        let vol = abs_det / T::from_f64(6.0).unwrap();
+        let vol = abs_det / <T as FromPrimitive>::from_f64(6.0).unwrap();
         
         for i in 0..4 {
             let grad_i = grad_p1_phys.column(i);
@@ -655,13 +656,13 @@ impl<T: RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> 
         problem: &StokesFlowProblem<T>,
         velocity: &DVector<T>,
     ) -> Result<T> {
-        let vertex_positions: Vec<Vector3<T>> = problem.mesh.vertices().iter()
-            .map(|v| v.position.coords)
+        let vertex_positions: Vec<Vector3<T>> = problem.mesh.vertices.iter()
+            .map(|v| v.1.position.coords)
             .collect();
 
         let mut max_div = T::zero();
 
-        for cell in problem.mesh.cells().iter() {
+        for cell in problem.mesh.cells.iter() {
             let idxs = extract_vertex_indices(cell, &problem.mesh)?;
             let positions: Vec<Vector3<T>> = idxs.iter()
                 .map(|&idx| vertex_positions[idx])
@@ -707,7 +708,7 @@ impl<T: RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> 
 }
 
 /// Convert a CsrMatrix into a SparseMatrixBuilder so that Dirichlet BCs can be applied.
-fn csr_to_builder<T: RealField + Copy>(matrix: SparseMatrix<T>) -> SparseMatrixBuilder<T> {
+fn csr_to_builder<T: cfd_mesh::domain::core::Scalar + RealField + Copy>(matrix: SparseMatrix<T>) -> SparseMatrixBuilder<T> {
     let nrows = matrix.nrows();
     let ncols = matrix.ncols();
     let nnz = matrix.nnz();
@@ -726,18 +727,19 @@ fn csr_to_builder<T: RealField + Copy>(matrix: SparseMatrix<T>) -> SparseMatrixB
 }
 
 /// Extract vertex indices from cell
-fn extract_vertex_indices<T: RealField + Copy + Float>(
+fn extract_vertex_indices<T: cfd_mesh::domain::core::Scalar + RealField + Copy + Float>(
     cell: &Cell,
-    mesh: &Mesh<T>,
+    mesh: &IndexedMesh<T>,
 ) -> Result<Vec<usize>> {
-    use cfd_mesh::topology::ElementType;
+    use cfd_mesh::domain::topology::ElementType;
 
     match &cell.element_type {
         ElementType::Tetrahedron => {
             let mut vertex_set = std::collections::HashSet::new();
             for &face_idx in &cell.faces {
-                if let Some(face) = mesh.face(face_idx) {
-                    vertex_set.extend(face.vertices.iter().copied());
+                if face_idx < mesh.face_count() {
+                    let face = mesh.faces.get(cfd_mesh::domain::core::index::FaceId::from_usize(face_idx));
+                    vertex_set.extend(face.vertices.iter().map(|v| v.as_usize()));
                 }
             }
             let mut indices: Vec<usize> = vertex_set.into_iter().collect();
@@ -754,12 +756,12 @@ fn extract_vertex_indices<T: RealField + Copy + Float>(
 }
 
 /// Compute mesh scale for diagonal scaling
-fn compute_mesh_scale<T: RealField + Copy + Float>(mesh: &Mesh<T>) -> T {
+fn compute_mesh_scale<T: cfd_mesh::domain::core::Scalar + RealField + Copy + Float>(mesh: &IndexedMesh<T>) -> T {
     let mut min = Vector3::new(T::infinity(), T::infinity(), T::infinity());
     let mut max = Vector3::new(T::neg_infinity(), T::neg_infinity(), T::neg_infinity());
     
-    for v in mesh.vertices() {
-        let p = v.position.coords;
+    for v in mesh.vertices.iter() {
+        let p = v.1.position.coords;
         min.x = Float::min(min.x, p.x);
         min.y = Float::min(min.y, p.y);
         min.z = Float::min(min.z, p.z);

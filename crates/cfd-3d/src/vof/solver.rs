@@ -94,7 +94,7 @@ use super::initialization::Initialization;
 use super::reconstruction::InterfaceReconstruction;
 
 /// VOF solver for multiphase flow
-pub struct VofSolver<T: RealField + FromPrimitive + Copy> {
+pub struct VofSolver<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> {
     pub(crate) config: VofConfig,
     /// Grid dimensions
     pub(crate) nx: usize,
@@ -116,7 +116,7 @@ pub struct VofSolver<T: RealField + FromPrimitive + Copy> {
     pub(crate) curvature: Vec<T>,
 }
 
-impl<T: RealField + FromPrimitive + Copy> VofSolver<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> VofSolver<T> {
     /// Create VOF solver instance
     pub fn create(config: VofConfig, nx: usize, ny: usize, nz: usize, dx: T, dy: T, dz: T) -> Self {
         let grid_size = nx * ny * nz;
@@ -270,12 +270,12 @@ impl<T: RealField + FromPrimitive + Copy> VofSolver<T> {
         }
 
         if max_velocity > T::zero() {
-            let dx_min = self.dx.min(self.dy).min(self.dz);
-            T::from_f64(self.config.cfl_number).unwrap_or(T::from_f64(0.3).unwrap_or(T::one()))
+            let dx_min = <T as num_traits::Float>::min(<T as num_traits::Float>::min(self.dx, self.dy), self.dz);
+            <T as FromPrimitive>::from_f64(self.config.cfl_number).unwrap_or(<T as FromPrimitive>::from_f64(0.3).unwrap_or(T::one()))
                 * dx_min
                 / max_velocity
         } else {
-            T::from_f64(1e-3).unwrap_or(T::one())
+            <T as FromPrimitive>::from_f64(1e-3).unwrap_or(T::one())
         }
     }
 

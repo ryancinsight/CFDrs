@@ -4,7 +4,7 @@ use nalgebra::{RealField, Vector3};
 use num_traits::FromPrimitive;
 
 /// Forcing method for IBM
-pub trait ForcingMethod<T: RealField + Copy> {
+pub trait ForcingMethod<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     /// Calculate forcing term
     fn calculate_force(
         &self,
@@ -18,18 +18,18 @@ pub trait ForcingMethod<T: RealField + Copy> {
 }
 
 /// Direct forcing method
-pub struct DirectForcing<T: RealField + Copy> {
+pub struct DirectForcing<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     scale: T,
 }
 
-impl<T: RealField + FromPrimitive + Copy> DirectForcing<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> DirectForcing<T> {
     /// Create a new direct forcing method
     pub fn new(scale: T) -> Self {
         Self { scale }
     }
 }
 
-impl<T: RealField + FromPrimitive + Copy> ForcingMethod<T> for DirectForcing<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> ForcingMethod<T> for DirectForcing<T> {
     fn calculate_force(
         &self,
         desired_velocity: &Vector3<T>,
@@ -49,13 +49,13 @@ impl<T: RealField + FromPrimitive + Copy> ForcingMethod<T> for DirectForcing<T> 
 }
 
 /// Feedback forcing method with proportional-integral control
-pub struct FeedbackForcing<T: RealField + Copy> {
+pub struct FeedbackForcing<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     kp: T, // Proportional gain
     ki: T, // Integral gain
     integral: Vector3<T>,
 }
 
-impl<T: RealField + FromPrimitive + Copy> FeedbackForcing<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> FeedbackForcing<T> {
     /// Create a new feedback forcing method
     pub fn new(kp: T, ki: T) -> Self {
         Self {
@@ -71,7 +71,7 @@ impl<T: RealField + FromPrimitive + Copy> FeedbackForcing<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive + Copy> ForcingMethod<T> for FeedbackForcing<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> ForcingMethod<T> for FeedbackForcing<T> {
     fn calculate_force(
         &self,
         desired_velocity: &Vector3<T>,

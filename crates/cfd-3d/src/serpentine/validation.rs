@@ -7,7 +7,7 @@ use super::solver::{SerpentineConfig3D, SerpentineSolution3D, SerpentineSolver3D
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::Error;
 use cfd_core::physics::fluid::traits::Fluid as FluidTrait;
-use cfd_mesh::geometry::serpentine::SerpentineMeshBuilder;
+use cfd_mesh::SerpentineMeshBuilder;
 use nalgebra::RealField;
 use num_traits::{Float, FromPrimitive, ToPrimitive};
 use serde::{Deserialize, Serialize};
@@ -16,11 +16,11 @@ use serde::{Deserialize, Serialize};
 // Serpentine Validator
 // ============================================================================
 
-pub struct SerpentineValidator3D<T: RealField + Copy + Float> {
+pub struct SerpentineValidator3D<T: cfd_mesh::domain::core::Scalar + RealField + Copy + Float> {
     pub mesh_builder: SerpentineMeshBuilder<T>,
 }
 
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float> SerpentineValidator3D<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float> SerpentineValidator3D<T> {
     pub fn new(mesh_builder: SerpentineMeshBuilder<T>) -> Self {
         Self { mesh_builder }
     }
@@ -34,7 +34,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float> Se
         fluid_viscosity: T,
     ) -> Result<SerpentineValidationResult3D<T>, Error> {
         let diameter = self.mesh_builder.diameter;
-        let k = T::from_f64(2.0 * std::f64::consts::PI).unwrap() / self.mesh_builder.wavelength;
+        let k = <T as FromPrimitive>::from_f64(2.0 * std::f64::consts::PI).unwrap() / self.mesh_builder.wavelength;
         
         // 1. Mathematically Exact Maximum Dean Number Analysis
         // For y = A sin(kx), exact curvature kappa = |y''| / (1 + y'^2)^(3/2)
@@ -44,7 +44,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float> Se
 
         // Area for mean velocity
         let area = if config.circular {
-            T::from_f64(std::f64::consts::PI / 4.0).unwrap() * diameter * diameter
+            <T as FromPrimitive>::from_f64(std::f64::consts::PI / 4.0).unwrap() * diameter * diameter
         } else {
             diameter * diameter
         };
@@ -55,12 +55,12 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float> Se
         let reynolds_num = u_mean * diameter / kinematic_viscosity;
 
         // Exact Maximum Dean Number calculation
-        let de_exact_max = reynolds_num * (diameter / (T::from_f64(2.0).unwrap() * min_radius_of_curvature)).sqrt();
+        let de_exact_max = reynolds_num * num_traits::Float::sqrt(diameter / (<T as FromPrimitive>::from_f64(2.0).unwrap() * min_radius_of_curvature));
         
         // Ensure the solver's calculated Dean number aligns with our analytical maximum
         let de_calc = solution.dean_number;
-        let de_tolerance = de_exact_max * T::from_f64(0.05).unwrap(); // 5% max deviation allowance for local averaging
-        let de_valid = (de_calc - de_exact_max).abs() < de_tolerance || de_calc > T::zero();
+        let de_tolerance = de_exact_max * <T as FromPrimitive>::from_f64(0.05).unwrap(); // 5% max deviation allowance for local averaging
+        let de_valid = num_traits::Float::abs(de_calc - de_exact_max) < de_tolerance || de_calc > T::zero();
 
         // 2. Analytical Pressure Continuity Bounds
         // Curved pipe minimum pressure drop is strictly bounded below by the Hagen-Poiseuille 
@@ -68,10 +68,10 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float> Se
         let straight_length = self.mesh_builder.wavelength * T::from_usize(self.mesh_builder.num_periods).unwrap();
         
         let exact_straight_dp = if config.circular {
-            T::from_f64(32.0).unwrap() * fluid_viscosity * straight_length * u_mean / (diameter * diameter)
+            <T as FromPrimitive>::from_f64(32.0).unwrap() * fluid_viscosity * straight_length * u_mean / (diameter * diameter)
         } else {
             // Exact infinite series solution for square duct yields f*Re ≈ 56.91
-            T::from_f64(28.455).unwrap() * fluid_viscosity * straight_length * u_mean / (diameter * diameter) * T::from_f64(2.0).unwrap()
+            <T as FromPrimitive>::from_f64(28.455).unwrap() * fluid_viscosity * straight_length * u_mean / (diameter * diameter) * <T as FromPrimitive>::from_f64(2.0).unwrap()
         };
 
         let dp_actual = Float::abs(solution.dp_total);
@@ -97,14 +97,14 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float> Se
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SerpentineValidationResult3D<T: RealField + Copy> {
+pub struct SerpentineValidationResult3D<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     pub test_name: String,
     pub dp_straight: Option<T>,
     pub validation_passed: bool,
     pub error_message: Option<String>,
 }
 
-impl<T: RealField + Copy> SerpentineValidationResult3D<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy> SerpentineValidationResult3D<T> {
     pub fn new(test_name: String) -> Self {
         Self {
             test_name,

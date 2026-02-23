@@ -6,7 +6,7 @@ use num_traits::{Float, FromPrimitive};
 
 /// Element matrices for FEM assembly
 #[derive(Debug, Clone)]
-pub struct ElementMatrices<T: RealField + Copy> {
+pub struct ElementMatrices<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     /// Element stiffness matrix
     pub k_e: DMatrix<T>,
     /// Element mass matrix
@@ -15,7 +15,7 @@ pub struct ElementMatrices<T: RealField + Copy> {
     pub f_e: DMatrix<T>,
 }
 
-impl<T: RealField + FromPrimitive + Copy> ElementMatrices<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> ElementMatrices<T> {
     /// Create new element matrices
     #[must_use]
     pub fn new(n_dof: usize) -> Self {
@@ -29,7 +29,7 @@ impl<T: RealField + FromPrimitive + Copy> ElementMatrices<T> {
 
 /// Fluid element for FEM calculations
 #[derive(Debug, Clone)]
-pub struct FluidElement<T: RealField + Copy> {
+pub struct FluidElement<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     /// Node indices
     pub nodes: Vec<usize>,
     /// Element volume
@@ -38,7 +38,7 @@ pub struct FluidElement<T: RealField + Copy> {
     pub shape_derivatives: DMatrix<T>,
 }
 
-impl<T: RealField + FromPrimitive + Copy + Float> FluidElement<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Float> FluidElement<T> {
     /// Create new fluid element
     #[must_use]
     pub fn new(nodes: Vec<usize>) -> Self {
@@ -66,7 +66,7 @@ impl<T: RealField + FromPrimitive + Copy + Float> FluidElement<T> {
         let e3 = v3 - v0;
 
         let det_j = e1.dot(&e2.cross(&e3)); // Signed 6V
-        self.volume = num_traits::Float::abs(det_j) / T::from_f64(6.0).unwrap_or_else(T::one);
+        self.volume = num_traits::Float::abs(det_j) / <T as FromPrimitive>::from_f64(6.0).unwrap_or_else(T::one);
         det_j // Return signed 6V for orientation-correct assembly
     }
 
@@ -88,7 +88,7 @@ impl<T: RealField + FromPrimitive + Copy + Float> FluidElement<T> {
         let d3_vec = v4 - v1;
         let six_v = d1_vec.dot(&d2_vec.cross(&d3_vec));
 
-        if num_traits::Float::abs(six_v) < T::from_f64(1e-24).unwrap_or_else(T::zero) {
+        if num_traits::Float::abs(six_v) < <T as FromPrimitive>::from_f64(1e-24).unwrap_or_else(T::zero) {
             self.shape_derivatives = DMatrix::zeros(3, 4);
             return;
         }
@@ -170,7 +170,7 @@ impl<T: RealField + FromPrimitive + Copy + Float> FluidElement<T> {
                                         * self.shape_derivatives[(d, j)];
                                 k_e[(row, col)] += factor
                                     * cross_term
-                                    * T::from_f64(0.5).unwrap_or_else(T::one);
+                                    * <T as FromPrimitive>::from_f64(0.5).unwrap_or_else(T::one);
                             }
                         }
                     }
@@ -182,7 +182,7 @@ impl<T: RealField + FromPrimitive + Copy + Float> FluidElement<T> {
 
     /// Calculate strain rate from velocity gradient
     pub fn strain_rate(&self, velocity_gradient: &Matrix3<T>) -> Matrix3<T> {
-        let half = T::from_f64(0.5).unwrap_or_else(T::zero);
+        let half = <T as FromPrimitive>::from_f64(0.5).unwrap_or_else(T::zero);
         (velocity_gradient + velocity_gradient.transpose()) * half
     }
 }

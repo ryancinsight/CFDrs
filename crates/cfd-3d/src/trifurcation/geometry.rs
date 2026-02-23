@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 
 /// 3D Trifurcation geometry
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TrifurcationGeometry3D<T: RealField + Copy> {
+pub struct TrifurcationGeometry3D<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     /// Parent branch diameter [m]
     pub d_parent: T,
     /// Parent branch length [m]
@@ -32,7 +32,7 @@ pub struct TrifurcationGeometry3D<T: RealField + Copy> {
     pub branching_angles: [T; 3],
 }
 
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> TrifurcationGeometry3D<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> TrifurcationGeometry3D<T> {
     /// Create a symmetric 3D trifurcation
     pub fn symmetric(
         d_parent: T,
@@ -58,9 +58,9 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> Trifurcati
     /// Verification based on Generalized Murray's Law: D_0^3 = Σ D_i^3
     pub fn murray_law_deviation(&self) -> T {
         let three = T::from_f64_or_one(3.0);
-        let sum_daughters = self.d_daughters[0].powi(3)
-            + self.d_daughters[1].powi(3)
-            + self.d_daughters[2].powi(3);
-        self.d_parent.powi(3) - sum_daughters
+        let sum_daughters = num_traits::Float::powi(self.d_daughters[0], 3)
+            + num_traits::Float::powi(self.d_daughters[1], 3)
+            + num_traits::Float::powi(self.d_daughters[2], 3);
+        num_traits::Float::powi(self.d_parent, 3) - sum_daughters
     }
 }

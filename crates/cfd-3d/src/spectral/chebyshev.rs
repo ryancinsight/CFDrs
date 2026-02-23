@@ -8,7 +8,7 @@ use num_traits::FromPrimitive;
 use std::f64::consts::PI;
 
 /// Chebyshev polynomial basis
-pub struct ChebyshevPolynomial<T: RealField + Copy> {
+pub struct ChebyshevPolynomial<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     /// Number of collocation points
     n: usize,
     /// Collocation points (Gauss-Lobatto)
@@ -17,7 +17,7 @@ pub struct ChebyshevPolynomial<T: RealField + Copy> {
     diff_matrix: DMatrix<T>,
 }
 
-impl<T: RealField + FromPrimitive + Copy> ChebyshevPolynomial<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> ChebyshevPolynomial<T> {
     /// Create new Chebyshev basis with n collocation points
     pub fn new(n: usize) -> Result<Self> {
         let points = Self::gauss_lobatto_points(n)?;
@@ -44,7 +44,7 @@ impl<T: RealField + FromPrimitive + Copy> ChebyshevPolynomial<T> {
 
         for j in 0..n {
             let theta = PI * (j as f64) / n_f64;
-            let x = T::from_f64(theta.cos()).ok_or_else(|| {
+            let x = <T as FromPrimitive>::from_f64(num_traits::Float::cos(theta)).ok_or_else(|| {
                 cfd_core::error::Error::InvalidConfiguration(
                     "Cannot convert collocation point".into(),
                 )
@@ -59,7 +59,7 @@ impl<T: RealField + FromPrimitive + Copy> ChebyshevPolynomial<T> {
     /// Based on Trefethen (2000), Chapter 6
     fn differentiation_matrix(n: usize, points: &[T]) -> Result<DMatrix<T>> {
         let mut d = DMatrix::zeros(n, n);
-        let two = T::from_f64(2.0).ok_or_else(|| {
+        let two = <T as FromPrimitive>::from_f64(2.0).ok_or_else(|| {
             cfd_core::error::Error::InvalidConfiguration("Cannot convert constant".into())
         })?;
 
@@ -147,7 +147,7 @@ impl<T: RealField + FromPrimitive + Copy> ChebyshevPolynomial<T> {
 
         // Helper to convert f64 to T
         let to_t = |val: f64| -> Result<T> {
-            T::from_f64(val).ok_or_else(|| {
+            <T as FromPrimitive>::from_f64(val).ok_or_else(|| {
                 cfd_core::error::Error::InvalidConfiguration("Cannot convert value".into())
             })
         };
@@ -171,7 +171,7 @@ impl<T: RealField + FromPrimitive + Copy> ChebyshevPolynomial<T> {
 
                 // Last term for even N
                 let last_coef = 1.0 / (big_n_f64 * big_n_f64 - 1.0);
-                let last_term = to_t(last_coef)? * to_t((big_n_f64 * theta_j).cos())?;
+                let last_term = to_t(last_coef)? * to_t(num_traits::Float::cos(big_n_f64 * theta_j))?;
                 sum += last_term;
 
                 *w_j = to_t(2.0 / big_n_f64)? * (one - sum);
@@ -213,7 +213,7 @@ impl<T: RealField + FromPrimitive + Copy> ChebyshevPolynomial<T> {
             )));
         }
 
-        let two = T::from_f64(2.0).ok_or_else(|| {
+        let two = <T as FromPrimitive>::from_f64(2.0).ok_or_else(|| {
             cfd_core::error::Error::InvalidConfiguration("Cannot convert constant".into())
         })?;
 
@@ -237,7 +237,7 @@ impl<T: RealField + FromPrimitive + Copy> ChebyshevPolynomial<T> {
 
         // Check if x matches a grid point
         for (j, &x_j) in self.points.iter().enumerate() {
-            if (x - x_j).abs() < T::from_f64(1e-14).unwrap_or_else(T::zero) {
+            if num_traits::Float::abs(x - x_j) < <T as FromPrimitive>::from_f64(1e-14).unwrap_or_else(T::zero) {
                 return Ok(values[j]);
             }
         }

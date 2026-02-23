@@ -12,14 +12,14 @@ use num_traits::FromPrimitive;
 
 /// Smagorinsky subgrid-scale model for LES
 #[derive(Debug, Clone)]
-pub struct SmagorinskyModel<T: RealField + Copy> {
+pub struct SmagorinskyModel<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     /// Smagorinsky constant (typically 0.1-0.2)
     pub cs: T,
     /// Base Smagorinsky constant for dynamic model
     pub cs_base: T,
 }
 
-impl<T: RealField + Copy + FromPrimitive> SmagorinskyModel<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> SmagorinskyModel<T> {
     /// Create a new Smagorinsky model with standard constant
     pub fn new(cs: T) -> Self {
         Self { cs, cs_base: cs }
@@ -47,7 +47,7 @@ impl<T: RealField + Copy + FromPrimitive> SmagorinskyModel<T> {
                 flow_field.velocity.get(i + 1, j, k),
                 flow_field.velocity.get(i - 1, j, k),
             ) {
-                let two = T::from_f64(2.0).unwrap_or_else(T::one);
+                let two = <T as FromPrimitive>::from_f64(2.0).unwrap_or_else(T::one);
                 s11 = (u_plus.x - u_minus.x) / (two * delta);
             }
         }
@@ -57,7 +57,7 @@ impl<T: RealField + Copy + FromPrimitive> SmagorinskyModel<T> {
                 flow_field.velocity.get(i, j + 1, k),
                 flow_field.velocity.get(i, j - 1, k),
             ) {
-                let two = T::from_f64(2.0).unwrap_or_else(T::one);
+                let two = <T as FromPrimitive>::from_f64(2.0).unwrap_or_else(T::one);
                 s22 = (v_plus.y - v_minus.y) / (two * delta);
             }
         }
@@ -67,7 +67,7 @@ impl<T: RealField + Copy + FromPrimitive> SmagorinskyModel<T> {
                 flow_field.velocity.get(i, j, k + 1),
                 flow_field.velocity.get(i, j, k - 1),
             ) {
-                let two = T::from_f64(2.0).unwrap_or_else(T::one);
+                let two = <T as FromPrimitive>::from_f64(2.0).unwrap_or_else(T::one);
                 s33 = (w_plus.z - w_minus.z) / (two * delta);
             }
         }
@@ -85,7 +85,7 @@ impl<T: RealField + Copy + FromPrimitive> SmagorinskyModel<T> {
                 flow_field.velocity.get(i + 1, j, k),
                 flow_field.velocity.get(i - 1, j, k),
             ) {
-                let two = T::from_f64(2.0).unwrap_or_else(T::one);
+                let two = <T as FromPrimitive>::from_f64(2.0).unwrap_or_else(T::one);
                 let du_dy = (u_jp.x - u_jm.x) / (two * delta);
                 let dv_dx = (v_ip.y - v_im.y) / (two * delta);
                 s12 = (du_dy + dv_dx) / two;
@@ -100,7 +100,7 @@ impl<T: RealField + Copy + FromPrimitive> SmagorinskyModel<T> {
                 flow_field.velocity.get(i + 1, j, k),
                 flow_field.velocity.get(i - 1, j, k),
             ) {
-                let two = T::from_f64(2.0).unwrap_or_else(T::one);
+                let two = <T as FromPrimitive>::from_f64(2.0).unwrap_or_else(T::one);
                 let du_dz = (u_kp.x - u_km.x) / (two * delta);
                 let dw_dx = (w_ip.z - w_im.z) / (two * delta);
                 s13 = (du_dz + dw_dx) / two;
@@ -115,7 +115,7 @@ impl<T: RealField + Copy + FromPrimitive> SmagorinskyModel<T> {
                 flow_field.velocity.get(i, j + 1, k),
                 flow_field.velocity.get(i, j - 1, k),
             ) {
-                let two = T::from_f64(2.0).unwrap_or_else(T::one);
+                let two = <T as FromPrimitive>::from_f64(2.0).unwrap_or_else(T::one);
                 let dv_dz = (v_kp.y - v_km.y) / (two * delta);
                 let dw_dy = (w_jp.z - w_jm.z) / (two * delta);
                 s23 = (dv_dz + dw_dy) / two;
@@ -123,17 +123,17 @@ impl<T: RealField + Copy + FromPrimitive> SmagorinskyModel<T> {
         }
 
         // Strain rate magnitude: |S| = sqrt(2 * Sij * Sij)
-        let two = T::from_f64(2.0).unwrap_or_else(T::one);
+        let two = <T as FromPrimitive>::from_f64(2.0).unwrap_or_else(T::one);
         let s_mag_sq =
             two * (s11 * s11 + s22 * s22 + s33 * s33 + two * (s12 * s12 + s13 * s13 + s23 * s23));
-        s_mag_sq.sqrt()
+        num_traits::Float::sqrt(s_mag_sq)
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive> TurbulenceModel<T> for SmagorinskyModel<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> TurbulenceModel<T> for SmagorinskyModel<T> {
     fn turbulent_viscosity(&self, flow_field: &FlowField<T>) -> Vec<T> {
         let (nx, ny, nz) = flow_field.velocity.dimensions;
-        let delta = T::from_f64(1.0 / nx as f64).unwrap_or_else(T::one);
+        let delta = <T as FromPrimitive>::from_f64(1.0 / nx as f64).unwrap_or_else(T::one);
         let prefactor = self.cs * self.cs * delta * delta;
 
         let mut viscosity = Vec::with_capacity(nx * ny * nz);
@@ -154,7 +154,7 @@ impl<T: RealField + Copy + FromPrimitive> TurbulenceModel<T> for SmagorinskyMode
         // For Smagorinsky model, estimate TKE from strain rate
         // k ≈ (Cs * Δ * |S|)²
         let (nx, ny, nz) = flow_field.velocity.dimensions;
-        let delta = T::from_f64(1.0 / nx as f64).unwrap_or_else(T::one);
+        let delta = <T as FromPrimitive>::from_f64(1.0 / nx as f64).unwrap_or_else(T::one);
         let cs_delta = self.cs * delta;
 
         let mut tke = Vec::with_capacity(nx * ny * nz);
@@ -179,17 +179,17 @@ impl<T: RealField + Copy + FromPrimitive> TurbulenceModel<T> for SmagorinskyMode
 
 /// Mixing length turbulence model
 #[derive(Debug, Clone)]
-pub struct MixingLengthModel<T: RealField + Copy> {
+pub struct MixingLengthModel<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     /// Mixing length scale
     pub length_scale: T,
     /// von Kármán constant
     pub kappa: T,
 }
 
-impl<T: RealField + Copy + FromPrimitive> MixingLengthModel<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> MixingLengthModel<T> {
     /// Create a new mixing length model
     pub fn new(length_scale: T) -> Self {
-        let kappa = T::from_f64(cfd_core::physics::constants::physics::fluid::VON_KARMAN)
+        let kappa = <T as FromPrimitive>::from_f64(cfd_core::physics::constants::physics::fluid::VON_KARMAN)
             .unwrap_or_else(T::one);
         Self {
             length_scale,
@@ -205,8 +205,8 @@ impl<T: RealField + Copy + FromPrimitive> MixingLengthModel<T> {
         let j = (idx / nx) % ny;
         let k = idx / (nx * ny);
 
-        let delta = T::from_f64(1.0 / nx as f64).unwrap_or_else(T::one);
-        let two = T::from_f64(2.0).unwrap_or_else(T::one);
+        let delta = <T as FromPrimitive>::from_f64(1.0 / nx as f64).unwrap_or_else(T::one);
+        let two = <T as FromPrimitive>::from_f64(2.0).unwrap_or_else(T::one);
 
         let mut grad_u_sq = T::zero();
 
@@ -246,11 +246,11 @@ impl<T: RealField + Copy + FromPrimitive> MixingLengthModel<T> {
             }
         }
 
-        grad_u_sq.sqrt()
+        num_traits::Float::sqrt(grad_u_sq)
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive> TurbulenceModel<T> for MixingLengthModel<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> TurbulenceModel<T> for MixingLengthModel<T> {
     fn turbulent_viscosity(&self, flow_field: &FlowField<T>) -> Vec<T> {
         // νₜ = l² * |∂u/∂y| (Prandtl's mixing length hypothesis)
         flow_field
@@ -288,7 +288,7 @@ impl<T: RealField + Copy + FromPrimitive> TurbulenceModel<T> for MixingLengthMod
 
 /// k-epsilon turbulence model state
 #[derive(Debug, Clone)]
-pub struct KEpsilonState<T: RealField + Copy> {
+pub struct KEpsilonState<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     /// Turbulent kinetic energy
     pub k: Vec<T>,
     /// Dissipation rate
@@ -297,7 +297,7 @@ pub struct KEpsilonState<T: RealField + Copy> {
 
 /// k-epsilon turbulence model
 #[derive(Debug, Clone)]
-pub struct KEpsilonModel<T: RealField + Copy> {
+pub struct KEpsilonModel<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     /// Model constants
     pub constants: KEpsilonConstants<T>,
     /// Current state (k and epsilon fields)
@@ -317,7 +317,7 @@ pub struct KEpsilonModel<T: RealField + Copy> {
 /// Launder, B.E. and Spalding, D.B. (1974). "The numerical computation of turbulent flows."
 /// Computer Methods in Applied Mechanics and Engineering, 3(2), 269-289.
 #[derive(Debug, Clone)]
-pub struct KEpsilonConstants<T: RealField + Copy> {
+pub struct KEpsilonConstants<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     /// Model constant `C_μ` = 0.09
     pub c_mu: T,
     /// Production constant `C_1ε` = 1.44
@@ -330,21 +330,21 @@ pub struct KEpsilonConstants<T: RealField + Copy> {
     pub sigma_epsilon: T,
 }
 
-impl<T: RealField + Copy + FromPrimitive> KEpsilonConstants<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> KEpsilonConstants<T> {
     /// Create standard k-epsilon constants
     pub fn standard() -> Self {
         Self {
-            c_mu: T::from_f64(cfd_core::physics::constants::physics::turbulence::K_EPSILON_C_MU)
+            c_mu: <T as FromPrimitive>::from_f64(cfd_core::physics::constants::physics::turbulence::K_EPSILON_C_MU)
                 .unwrap_or_else(T::one),
-            c_1: T::from_f64(cfd_core::physics::constants::physics::turbulence::K_EPSILON_C1)
+            c_1: <T as FromPrimitive>::from_f64(cfd_core::physics::constants::physics::turbulence::K_EPSILON_C1)
                 .unwrap_or_else(T::one),
-            c_2: T::from_f64(cfd_core::physics::constants::physics::turbulence::K_EPSILON_C2)
+            c_2: <T as FromPrimitive>::from_f64(cfd_core::physics::constants::physics::turbulence::K_EPSILON_C2)
                 .unwrap_or_else(T::one),
-            sigma_k: T::from_f64(
+            sigma_k: <T as FromPrimitive>::from_f64(
                 cfd_core::physics::constants::physics::turbulence::K_EPSILON_SIGMA_K,
             )
             .unwrap_or_else(T::one),
-            sigma_epsilon: T::from_f64(
+            sigma_epsilon: <T as FromPrimitive>::from_f64(
                 cfd_core::physics::constants::physics::turbulence::K_EPSILON_SIGMA_EPSILON,
             )
             .unwrap_or_else(T::one),
@@ -352,13 +352,13 @@ impl<T: RealField + Copy + FromPrimitive> KEpsilonConstants<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive> Default for KEpsilonModel<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Default for KEpsilonModel<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive> KEpsilonModel<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> KEpsilonModel<T> {
     /// Create a new k-epsilon model with standard constants
     #[must_use]
     pub fn new() -> Self {
@@ -391,20 +391,20 @@ impl<T: RealField + Copy + FromPrimitive> KEpsilonModel<T> {
 
         for vel in &flow_field.velocity.components {
             let u_mag = vel.norm();
-            let three_half = T::from_f64(1.5).unwrap_or_else(T::one);
-            let k = three_half * (u_mag * turbulence_intensity).powi(2);
+            let three_half = <T as FromPrimitive>::from_f64(1.5).unwrap_or_else(T::one);
+            let k = three_half * num_traits::Float::powi(u_mag * turbulence_intensity, 2);
             k_field.push(k);
         }
 
         // Initialize epsilon mathematically
         let mut epsilon_field = Vec::with_capacity(n);
 
-        let c_mu_34 = self
-            .constants
-            .c_mu
-            .powf(T::from_f64(0.75).unwrap_or_else(T::one));
+        let c_mu_34 = num_traits::Float::powf(
+            self.constants.c_mu,
+            <T as FromPrimitive>::from_f64(0.75).unwrap_or_else(T::one),
+        );
         for &k in &k_field {
-            let epsilon = c_mu_34 * k.powf(T::from_f64(1.5).unwrap_or_else(T::one)) / mixing_length;
+            let epsilon = c_mu_34 * num_traits::Float::powf(k, <T as FromPrimitive>::from_f64(1.5).unwrap_or_else(T::one)) / mixing_length;
             epsilon_field.push(epsilon);
         }
 
@@ -420,7 +420,7 @@ impl<T: RealField + Copy + FromPrimitive> KEpsilonModel<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive> TurbulenceModel<T> for KEpsilonModel<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> TurbulenceModel<T> for KEpsilonModel<T> {
     fn turbulent_viscosity(&self, flow_field: &FlowField<T>) -> Vec<T> {
         // νₜ = C_μ * k² / ε
         match &self.state {
@@ -429,7 +429,7 @@ impl<T: RealField + Copy + FromPrimitive> TurbulenceModel<T> for KEpsilonModel<T
                 .iter()
                 .zip(state.epsilon.iter())
                 .map(|(&k, &eps)| {
-                    if eps > T::from_f64(1e-10).unwrap_or_else(T::zero) {
+                    if eps > <T as FromPrimitive>::from_f64(1e-10).unwrap_or_else(T::zero) {
                         self.constants.c_mu * k * k / eps
                     } else {
                         T::zero()
@@ -455,7 +455,7 @@ impl<T: RealField + Copy + FromPrimitive> TurbulenceModel<T> for KEpsilonModel<T
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive> RANSModel<T> for KEpsilonModel<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> RANSModel<T> for KEpsilonModel<T> {
     fn dissipation_rate(&self, _flow_field: &FlowField<T>) -> Vec<T> {
         match &self.state {
             Some(state) => state.epsilon.clone(),

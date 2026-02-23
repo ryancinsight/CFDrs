@@ -6,7 +6,7 @@ use nalgebra::{RealField, Vector3};
 use num_traits::FromPrimitive;
 
 /// Initialization methods for VOF
-pub enum Initialization<T: RealField + Copy> {
+pub enum Initialization<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     /// Initialize with a sphere
     Sphere { center: Vector3<T>, radius: T },
     /// Initialize with a rectangular block
@@ -21,7 +21,7 @@ pub enum Initialization<T: RealField + Copy> {
     },
 }
 
-impl<T: RealField + FromPrimitive + Copy> Initialization<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Initialization<T> {
     /// Apply initialization to the solver
     pub fn apply(self, solver: &mut VofSolver<T>) {
         match self {
@@ -41,7 +41,7 @@ impl<T: RealField + FromPrimitive + Copy> Initialization<T> {
     }
 }
 
-fn initialize_sphere<T: RealField + FromPrimitive + Copy>(
+fn initialize_sphere<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy>(
     solver: &mut VofSolver<T>,
     center: Vector3<T>,
     radius: T,
@@ -50,13 +50,13 @@ fn initialize_sphere<T: RealField + FromPrimitive + Copy>(
         for j in 0..solver.ny {
             for i in 0..solver.nx {
                 let x = (T::from_usize(i).unwrap_or(T::zero())
-                    + T::from_f64(0.5).unwrap_or(T::zero()))
+                    + <T as FromPrimitive>::from_f64(0.5).unwrap_or(T::zero()))
                     * solver.dx;
                 let y = (T::from_usize(j).unwrap_or(T::zero())
-                    + T::from_f64(0.5).unwrap_or(T::zero()))
+                    + <T as FromPrimitive>::from_f64(0.5).unwrap_or(T::zero()))
                     * solver.dy;
                 let z = (T::from_usize(k).unwrap_or(T::zero())
-                    + T::from_f64(0.5).unwrap_or(T::zero()))
+                    + <T as FromPrimitive>::from_f64(0.5).unwrap_or(T::zero()))
                     * solver.dz;
 
                 let pos = Vector3::new(x, y, z);
@@ -65,15 +65,15 @@ fn initialize_sphere<T: RealField + FromPrimitive + Copy>(
                 let idx = solver.index(i, j, k);
 
                 // Smooth initialization using tanh function
-                let eps = T::from_f64(INTERFACE_THICKNESS).unwrap_or(T::zero()) * solver.dx;
+                let eps = <T as FromPrimitive>::from_f64(INTERFACE_THICKNESS).unwrap_or(T::zero()) * solver.dx;
                 let arg = (radius - distance) / eps;
-                solver.alpha[idx] = T::from_f64(0.5).unwrap_or(T::zero()) * (T::one() + arg.tanh());
+                solver.alpha[idx] = <T as FromPrimitive>::from_f64(0.5).unwrap_or(T::zero()) * (T::one() + <T as num_traits::Float>::tanh(arg));
             }
         }
     }
 }
 
-fn initialize_block<T: RealField + FromPrimitive + Copy>(
+fn initialize_block<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy>(
     solver: &mut VofSolver<T>,
     min_corner: Vector3<T>,
     max_corner: Vector3<T>,
@@ -82,13 +82,13 @@ fn initialize_block<T: RealField + FromPrimitive + Copy>(
         for j in 0..solver.ny {
             for i in 0..solver.nx {
                 let x = (T::from_usize(i).unwrap_or(T::zero())
-                    + T::from_f64(0.5).unwrap_or(T::zero()))
+                    + <T as FromPrimitive>::from_f64(0.5).unwrap_or(T::zero()))
                     * solver.dx;
                 let y = (T::from_usize(j).unwrap_or(T::zero())
-                    + T::from_f64(0.5).unwrap_or(T::zero()))
+                    + <T as FromPrimitive>::from_f64(0.5).unwrap_or(T::zero()))
                     * solver.dy;
                 let z = (T::from_usize(k).unwrap_or(T::zero())
-                    + T::from_f64(0.5).unwrap_or(T::zero()))
+                    + <T as FromPrimitive>::from_f64(0.5).unwrap_or(T::zero()))
                     * solver.dz;
 
                 let idx = solver.index(i, j, k);
@@ -110,7 +110,7 @@ fn initialize_block<T: RealField + FromPrimitive + Copy>(
     }
 }
 
-fn initialize_plane<T: RealField + FromPrimitive + Copy>(
+fn initialize_plane<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy>(
     solver: &mut VofSolver<T>,
     point: Vector3<T>,
     normal: Vector3<T>,
@@ -121,13 +121,13 @@ fn initialize_plane<T: RealField + FromPrimitive + Copy>(
         for j in 0..solver.ny {
             for i in 0..solver.nx {
                 let x = (T::from_usize(i).unwrap_or(T::zero())
-                    + T::from_f64(0.5).unwrap_or(T::zero()))
+                    + <T as FromPrimitive>::from_f64(0.5).unwrap_or(T::zero()))
                     * solver.dx;
                 let y = (T::from_usize(j).unwrap_or(T::zero())
-                    + T::from_f64(0.5).unwrap_or(T::zero()))
+                    + <T as FromPrimitive>::from_f64(0.5).unwrap_or(T::zero()))
                     * solver.dy;
                 let z = (T::from_usize(k).unwrap_or(T::zero())
-                    + T::from_f64(0.5).unwrap_or(T::zero()))
+                    + <T as FromPrimitive>::from_f64(0.5).unwrap_or(T::zero()))
                     * solver.dz;
 
                 let pos = Vector3::new(x, y, z);
@@ -136,9 +136,9 @@ fn initialize_plane<T: RealField + FromPrimitive + Copy>(
                 let idx = solver.index(i, j, k);
 
                 // Smooth initialization
-                let eps = T::from_f64(INTERFACE_THICKNESS).unwrap_or(T::zero()) * solver.dx;
+                let eps = <T as FromPrimitive>::from_f64(INTERFACE_THICKNESS).unwrap_or(T::zero()) * solver.dx;
                 let arg = distance / eps;
-                solver.alpha[idx] = T::from_f64(0.5).unwrap_or(T::zero()) * (T::one() + arg.tanh());
+                solver.alpha[idx] = <T as FromPrimitive>::from_f64(0.5).unwrap_or(T::zero()) * (T::one() + <T as num_traits::Float>::tanh(arg));
             }
         }
     }

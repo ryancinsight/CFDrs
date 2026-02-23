@@ -7,7 +7,8 @@
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::traits::Fluid as FluidTrait;
-use cfd_mesh::geometry::serpentine::SerpentineMeshBuilder;
+use cfd_mesh::domain::core::index::{FaceId, VertexId};
+use cfd_mesh::SerpentineMeshBuilder;
 use nalgebra::{RealField, Vector3};
 use num_traits::{Float, FromPrimitive, ToPrimitive};
 use serde::{Deserialize, Serialize};
@@ -18,7 +19,7 @@ use serde::{Deserialize, Serialize};
 
 /// Configuration for 3D Serpentine solver
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SerpentineConfig3D<T: RealField + Copy> {
+pub struct SerpentineConfig3D<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     /// Inlet volumetric flow rate [m³/s]
     pub inlet_flow_rate: T,
     /// Inlet pressure [Pa]
@@ -37,7 +38,7 @@ pub struct SerpentineConfig3D<T: RealField + Copy> {
     pub circular: bool,
 }
 
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> Default
+impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> Default
     for SerpentineConfig3D<T>
 {
     fn default() -> Self {
@@ -58,12 +59,12 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> Default
 // ============================================================================
 
 /// 3D Finite Element Navier-Stokes solver for Serpentine channels
-pub struct SerpentineSolver3D<T: RealField + Copy + Float> {
+pub struct SerpentineSolver3D<T: cfd_mesh::domain::core::Scalar + RealField + Copy + Float> {
     builder: SerpentineMeshBuilder<T>,
     config: SerpentineConfig3D<T>,
 }
 
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + From<f64>> SerpentineSolver3D<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + From<f64>> SerpentineSolver3D<T> {
     /// Create new solver from mesh builder and config
     pub fn new(builder: SerpentineMeshBuilder<T>, config: SerpentineConfig3D<T>) -> Self {
         Self { builder, config }
@@ -83,12 +84,16 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
             .clone()
             .with_resolution(self.config.resolution.0, self.config.resolution.1)
             .with_circular(self.config.circular)
-            .build()
-            .map_err(|e| Error::Solver(e.to_string()))?;
+            .build_surface();
+        
+        let base_mesh = match base_mesh {
+            Ok(m) => m,
+            Err(e) => return Err(Error::Solver(format!("{:?}", e))),
+        };
 
         // 1.1 Decompose to Tetrahedra and Promote to Quadratic (P2) mesh for Taylor-Hood elements (Q2-Q1)
-        let tet_mesh = cfd_mesh::hierarchy::hex_to_tet::HexToTetConverter::convert(&base_mesh);
-        let mesh = cfd_mesh::hierarchy::hierarchical_mesh::P2MeshConverter::convert_to_p2(&tet_mesh);
+        let tet_mesh = cfd_mesh::application::hierarchy::hex_to_tet::HexToTetConverter::convert(&base_mesh);
+        let mesh = cfd_mesh::application::hierarchy::hierarchical_mesh::P2MeshConverter::convert_to_p2(&tet_mesh);
 
         // 2. Define Boundary Conditions
         // Priority: inlet > outlet > wall. Process inlet/outlet first so that
@@ -107,13 +112,12 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
         for f_idx in mesh.boundary_faces() {
             if let Some(label) = mesh.boundary_label(f_idx) {
                 if label == "inlet" {
-                    if let Some(face) = mesh.face(f_idx) {
-                        for &v_idx in &face.vertices {
-                            boundary_conditions.insert(v_idx,
-                                BoundaryCondition::VelocityInlet {
-                                    velocity: Vector3::new(T::zero(), T::zero(), u_inlet),
-                                });
-                        }
+                    let face = mesh.faces.get(f_idx);
+                    for &v_idx in &face.vertices {
+                        boundary_conditions.insert(v_idx.as_usize(),
+                            BoundaryCondition::VelocityInlet {
+                                velocity: Vector3::new(0.0_f64, 0.0_f64, u_inlet.to_f64().unwrap_or(0.0)),
+                            });
                     }
                 }
             }
@@ -123,13 +127,12 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
         for f_idx in mesh.boundary_faces() {
             if let Some(label) = mesh.boundary_label(f_idx) {
                 if label == "outlet" {
-                    if let Some(face) = mesh.face(f_idx) {
-                        for &v_idx in &face.vertices {
-                            boundary_conditions.entry(v_idx).or_insert(
-                                BoundaryCondition::PressureOutlet {
-                                    pressure: self.config.outlet_pressure,
-                                });
-                        }
+                    let face = mesh.faces.get(f_idx);
+                    for &v_idx in &face.vertices {
+                        boundary_conditions.entry(v_idx.as_usize()).or_insert(
+                            BoundaryCondition::PressureOutlet {
+                                pressure: self.config.outlet_pressure.to_f64().unwrap_or(0.0),
+                            });
                     }
                 }
             }
@@ -139,35 +142,34 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
         for f_idx in mesh.boundary_faces() {
             if let Some(label) = mesh.boundary_label(f_idx) {
                 if label != "inlet" && label != "outlet" {
-                    if let Some(face) = mesh.face(f_idx) {
-                        for &v_idx in &face.vertices {
-                            boundary_conditions.entry(v_idx).or_insert(
-                                BoundaryCondition::Dirichlet {
-                                    value: T::zero(),
-                                    component_values: Some(vec![Some(T::zero()), Some(T::zero()), Some(T::zero()), None]),
-                                });
-                        }
+                    let face = mesh.faces.get(f_idx);
+                    for &v_idx in &face.vertices {
+                        boundary_conditions.entry(v_idx.as_usize()).or_insert(
+                            BoundaryCondition::Dirichlet {
+                                value: 0.0_f64,
+                                component_values: Some(vec![Some(0.0_f64), Some(0.0_f64), Some(0.0_f64), None]),
+                            });
                     }
                 }
             }
         }
 
         // 3. Set up FEM Problem with initial viscosity
-        let constant_basis = cfd_core::physics::fluid::ConstantPropertyFluid {
+        let constant_basis = cfd_core::physics::fluid::ConstantPropertyFluid::<f64> {
             name: "Picard Basis".to_string(),
-            density: fluid_props.density,
-            viscosity: fluid_props.dynamic_viscosity,
-            specific_heat: fluid_props.specific_heat,
-            thermal_conductivity: fluid_props.thermal_conductivity,
-            speed_of_sound: fluid_props.speed_of_sound,
+            density: fluid_props.density.to_f64().unwrap_or(0.0),
+            viscosity: fluid_props.dynamic_viscosity.to_f64().unwrap_or(0.0),
+            specific_heat: fluid_props.specific_heat.to_f64().unwrap_or(0.0),
+            thermal_conductivity: fluid_props.thermal_conductivity.to_f64().unwrap_or(0.0),
+            speed_of_sound: fluid_props.speed_of_sound.to_f64().unwrap_or(0.0),
         };
 
-        let mut problem = StokesFlowProblem::new(mesh, constant_basis, boundary_conditions, tet_mesh.vertex_count());
+        let mut problem = StokesFlowProblem::<f64>::new(mesh, constant_basis, boundary_conditions, tet_mesh.vertex_count());
         let n_elements = problem.mesh.cell_count();
-        let mut element_viscosities = vec![fluid_props.dynamic_viscosity; n_elements];
+        let mut element_viscosities = vec![fluid_props.dynamic_viscosity.to_f64().unwrap_or(0.0); n_elements];
         
         // 4. Picard Iteration Loop
-        let fem_config = FemConfig::default();
+        let fem_config = FemConfig::<f64>::default();
         let mut solver = FemSolver::new(fem_config);
         let mut last_solution = None;
 
@@ -188,22 +190,24 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
 
             // Apply Picard relaxation (damping)
             let updated_solution = if let Some(ref prev) = last_solution {
-                let omega = T::from_f64(0.5).unwrap_or_else(T::one);
+                let omega = 0.5_f64;
                 fem_solution.blend(prev, omega)
             } else {
                 fem_solution
             };
 
-            let mut max_change = T::zero();
+            let mut max_change_f64 = 0.0_f64;
             let mut new_viscosities = Vec::with_capacity(n_elements);
 
-            for (i, cell) in problem.mesh.cells().iter().enumerate() {
-                let shear_rate = self.calculate_cell_shear_rate(cell, &problem.mesh, &updated_solution)?;
-                let new_visc = fluid.viscosity_at_shear(shear_rate, T::from_f64_or_one(310.0), self.config.inlet_pressure)?;
+            for (i, cell) in problem.mesh.cells.iter().enumerate() {
+                let shear_rate_f64 = self.calculate_cell_shear_rate_f64(cell, &problem.mesh, &updated_solution)?;
+                let shear_rate = <T as From<f64>>::from(shear_rate_f64);
+                let new_visc_t = fluid.viscosity_at_shear(shear_rate, T::from_f64_or_one(310.0), self.config.inlet_pressure)?;
+                let new_visc = new_visc_t.to_f64().unwrap_or(0.0);
 
                 let change = Float::abs(new_visc - element_viscosities[i]) / element_viscosities[i];
-                if change > max_change {
-                    max_change = change;
+                if change > max_change_f64 {
+                    max_change_f64 = change;
                 }
                 new_viscosities.push(new_visc);
             }
@@ -211,8 +215,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
             element_viscosities = new_viscosities;
             last_solution = Some(updated_solution);
 
-            println!("Picard iteration {}: visc_change={:?}", iter, max_change);
-            if max_change < self.config.nonlinear_tolerance {
+            println!("Picard iteration {}: visc_change={:?}", iter, max_change_f64);
+            if max_change_f64 < self.config.nonlinear_tolerance.to_f64().unwrap_or(1e-4) {
                 break;
             }
         }
@@ -229,29 +233,29 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
         // Calculate Dean Number: De = Re * sqrt(Dh / 2Rc)
         // For sine wave path x = A*sin(k*z), curvature kappa = |x''| / (1 + x'^2)^(3/2)
         // Max curvature at peaks: kappa_max = A*k^2. Radius Rc = 1/kappa_max = 1 / (A * (2pi/lambda)^2)
-        let k = T::from_f64(2.0 * std::f64::consts::PI).unwrap() / self.builder.wavelength;
+        let k = <T as FromPrimitive>::from_f64(2.0 * std::f64::consts::PI).unwrap() / self.builder.wavelength;
         let kappa_max = self.builder.amplitude * k * k;
-        let rc = T::one() / Float::max(kappa_max, T::from_f64(1e-10).unwrap());
+        let rc = T::one() / Float::max(kappa_max, <T as FromPrimitive>::from_f64(1e-10).unwrap());
         
         let re = (fluid_props.density * u_inlet * self.builder.diameter) / fluid_props.dynamic_viscosity;
-        solution.dean_number = re * Float::sqrt(self.builder.diameter / (T::from_f64(2.0).unwrap() * rc));
+        solution.dean_number = re * Float::sqrt(self.builder.diameter / (<T as FromPrimitive>::from_f64(2.0).unwrap() * rc));
 
         Ok(solution)
     }
 
-    fn calculate_cell_shear_rate(
+    fn calculate_cell_shear_rate_f64(
         &self,
-        cell: &cfd_mesh::topology::Cell,
-        mesh: &cfd_mesh::mesh::Mesh<T>,
-        solution: &crate::fem::StokesFlowSolution<T>,
-    ) -> Result<T> {
+        cell: &cfd_mesh::domain::topology::Cell,
+        mesh: &cfd_mesh::IndexedMesh<f64>,
+        solution: &crate::fem::StokesFlowSolution<f64>,
+    ) -> Result<f64> {
         let mut idxs = Vec::with_capacity(10);
         for &face_idx in &cell.faces {
-            if let Some(face) = mesh.face(face_idx) {
-                for &v_idx in &face.vertices {
-                    if !idxs.contains(&v_idx) {
-                        idxs.push(v_idx);
-                    }
+            let face = mesh.faces.get(FaceId::from_usize(face_idx));
+            for &v_idx in &face.vertices {
+                let v_idx_u = v_idx.as_usize();
+                if !idxs.contains(&v_idx_u) {
+                    idxs.push(v_idx_u);
                 }
             }
         }
@@ -262,7 +266,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
 
         let mut local_verts = Vec::with_capacity(idxs.len());
         for &idx in &idxs {
-            local_verts.push(mesh.vertex(idx).unwrap().position.coords);
+            local_verts.push(mesh.vertices.get(VertexId::from_usize(idx)).position.coords);
         }
 
         let mut l = nalgebra::Matrix3::zeros();
@@ -272,10 +276,10 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
             use crate::fem::shape_functions::LagrangeTet10;
             
             // 1. Calculate P1 gradients (∇L_i)
-            let mut tet4 = crate::fem::element::FluidElement::new(idxs[0..4].to_vec());
+            let mut tet4 = crate::fem::element::FluidElement::<f64>::new(idxs[0..4].to_vec());
             let six_v = tet4.calculate_volume(&local_verts);
-            if num_traits::Float::abs(six_v) < T::from_f64(1e-24).unwrap() {
-                return Ok(T::zero());
+            if six_v.abs() < 1e-24_f64 {
+                return Ok(0.0_f64);
             }
             tet4.calculate_shape_derivatives(&local_verts[0..4]);
             let p1_grads = nalgebra::Matrix3x4::from_columns(&[
@@ -303,7 +307,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
 
             // 2. Evaluate P2 gradients at centroid
             let tet10 = LagrangeTet10::new(p1_grads);
-            let l_centroid = [T::from_f64(0.25).unwrap(); 4];
+            let l_centroid = [0.25_f64; 4];
             let p2_grads = tet10.gradients(&l_centroid);
 
             // 3. Compute velocity gradient: L = sum(u_i * ∇N_i)
@@ -317,7 +321,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
             }
         } else {
             // Tet4: constant gradient
-            let mut element = crate::fem::element::FluidElement::new(idxs.clone());
+            let mut element = crate::fem::element::FluidElement::<f64>::new(idxs.clone());
             element.calculate_shape_derivatives(&local_verts);
             for i in 0..4 {
                 let u = solution.get_velocity(idxs[i]);
@@ -329,14 +333,14 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
             }
         }
 
-        let epsilon = (l + l.transpose()) * T::from_f64_or_one(0.5);
-        let mut inner_prod = T::zero();
+        let epsilon = (l + l.transpose()) * 0.5_f64;
+        let mut inner_prod = 0.0_f64;
         for i in 0..3 {
             for j in 0..3 {
                 inner_prod += epsilon[(i, j)] * epsilon[(i, j)];
             }
         }
-        let shear = Float::sqrt(T::from_f64_or_one(2.0) * inner_prod);
+        let shear = (2.0_f64 * inner_prod).sqrt();
 
         Ok(shear)
     }
@@ -348,7 +352,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
 
 /// Complete solution to 3D Serpentine problem
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub struct SerpentineSolution3D<T: RealField + Copy> {
+pub struct SerpentineSolution3D<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     /// Inlet mean velocity [m/s]
     pub u_inlet: T,
     /// Inlet pressure [Pa]
@@ -361,7 +365,7 @@ pub struct SerpentineSolution3D<T: RealField + Copy> {
     pub dean_number: T,
 }
 
-impl<T: RealField + Copy> SerpentineSolution3D<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy> SerpentineSolution3D<T> {
     /// Create new solution structure
     pub fn new() -> Self {
         Self {

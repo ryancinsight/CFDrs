@@ -4,12 +4,12 @@ use nalgebra::{Matrix3x4, RealField, Vector3, DMatrix};
 use num_traits::{Float, FromPrimitive};
 
 /// Quadratic Lagrange shape functions for 10-node tetrahedra (P2)
-pub struct LagrangeTet10<T: RealField + Copy> {
+pub struct LagrangeTet10<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     /// Corner node gradients (∇L_i) - constant over the tet
     p1_gradients: Matrix3x4<T>,
 }
 
-impl<T: RealField + FromPrimitive + Copy + Float> LagrangeTet10<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Float> LagrangeTet10<T> {
     /// Create new P2 shape functions from elemental P1 gradients
     pub fn new(p1_gradients: Matrix3x4<T>) -> Self {
         Self { p1_gradients }
@@ -19,8 +19,8 @@ impl<T: RealField + FromPrimitive + Copy + Float> LagrangeTet10<T> {
     /// L = [L1, L2, L3, L4] where sum(L) = 1.0
     pub fn values(&self, l: &[T; 4]) -> [T; 10] {
         let mut n = [T::zero(); 10];
-        let two = T::from_f64(2.0).unwrap();
-        let four = T::from_f64(4.0).unwrap();
+        let two = <T as FromPrimitive>::from_f64(2.0).unwrap();
+        let four = <T as FromPrimitive>::from_f64(4.0).unwrap();
 
         // Corner nodes (0-3)
         for i in 0..4 {
@@ -48,7 +48,7 @@ impl<T: RealField + FromPrimitive + Copy + Float> LagrangeTet10<T> {
     /// Returns 3x10 matrix (rows for x,y,z; columns for nodes 0-9)
     pub fn gradients(&self, l: &[T; 4]) -> DMatrix<T> {
         let mut grad = DMatrix::zeros(3, 10);
-        let four = T::from_f64(4.0).unwrap();
+        let four = <T as FromPrimitive>::from_f64(4.0).unwrap();
 
         // Corner nodes (0-3): ∇Ni = (4Li - 1) ∇Li
         for i in 0..4 {

@@ -29,7 +29,7 @@ impl InterfaceReconstruction {
     }
 
     /// Reconstruct interface normals and curvature
-    pub fn reconstruct<T: RealField + FromPrimitive + Copy>(self, solver: &mut VofSolver<T>) {
+    pub fn reconstruct<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy>(self, solver: &mut VofSolver<T>) {
         // Calculate interface normals
         self.calculate_normals(solver);
 
@@ -39,7 +39,7 @@ impl InterfaceReconstruction {
 
     /// Calculate interface normal vectors using gradient of volume fraction
     /// Uses cache blocking for improved memory access patterns
-    fn calculate_normals<T: RealField + FromPrimitive + Copy>(self, solver: &mut VofSolver<T>) {
+    fn calculate_normals<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy>(self, solver: &mut VofSolver<T>) {
         // Process domain in cache-friendly blocks
         for k_block in (1..solver.nz - 1).step_by(CACHE_BLOCK_SIZE_K) {
             for j_block in (1..solver.ny - 1).step_by(CACHE_BLOCK_SIZE_J) {
@@ -56,9 +56,9 @@ impl InterfaceReconstruction {
 
                                 // Only calculate for interface cells
                                 let alpha = solver.alpha[idx];
-                                let interface_lower = T::from_f64(VOF_INTERFACE_LOWER)
+                                let interface_lower = <T as FromPrimitive>::from_f64(VOF_INTERFACE_LOWER)
                                     .expect("Failed to represent VOF_INTERFACE_LOWER constant");
-                                let interface_upper = T::from_f64(VOF_INTERFACE_UPPER)
+                                let interface_upper = <T as FromPrimitive>::from_f64(VOF_INTERFACE_UPPER)
                                     .expect("Failed to represent VOF_INTERFACE_UPPER constant");
 
                                 if alpha > interface_lower && alpha < interface_upper {
@@ -71,7 +71,7 @@ impl InterfaceReconstruction {
                                         Self::Gradient => {
                                             // Simple gradient-based normal
                                             let normal = self.calculate_gradient(solver, i, j, k);
-                                            let epsilon = T::from_f64(VOF_EPSILON)
+                                            let epsilon = <T as FromPrimitive>::from_f64(VOF_EPSILON)
                                                 .expect("Failed to represent VOF_EPSILON constant");
                                             if normal.norm() > epsilon {
                                                 solver.normals[idx] = normal.normalize();
@@ -93,14 +93,14 @@ impl InterfaceReconstruction {
     }
 
     /// Calculate gradient of volume fraction using central differences
-    fn calculate_gradient<T: RealField + FromPrimitive + Copy>(
+    fn calculate_gradient<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy>(
         self,
         solver: &VofSolver<T>,
         i: usize,
         j: usize,
         k: usize,
     ) -> Vector3<T> {
-        let two = T::from_f64(2.0).expect("Failed to represent constant 2.0");
+        let two = <T as FromPrimitive>::from_f64(2.0).expect("Failed to represent constant 2.0");
 
         let dx = (solver.alpha[solver.index(i + 1, j, k)]
             - solver.alpha[solver.index(i - 1, j, k)])
@@ -120,7 +120,7 @@ impl InterfaceReconstruction {
     /// This is a single-step PLIC reconstruction using Youngs' method for the normal.
     /// The normal is calculated from the gradient of the volume fraction field.
     /// Note: This is NOT an iterative Newton-Raphson solver - it's a direct calculation.
-    fn plic_reconstruction<T: RealField + FromPrimitive + Copy>(
+    fn plic_reconstruction<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy>(
         self,
         solver: &VofSolver<T>,
         i: usize,
@@ -129,7 +129,7 @@ impl InterfaceReconstruction {
     ) -> (Vector3<T>, T) {
         // 1. Calculate the interface normal using Youngs' gradient method
         let mut normal = self.calculate_gradient(solver, i, j, k);
-        let epsilon = T::from_f64(VOF_EPSILON).expect("Failed to represent VOF_EPSILON constant");
+        let epsilon = <T as FromPrimitive>::from_f64(VOF_EPSILON).expect("Failed to represent VOF_EPSILON constant");
 
         if normal.norm() > epsilon {
             normal = normal.normalize();
@@ -150,7 +150,7 @@ impl InterfaceReconstruction {
     ///
     /// The search terminates when the interval width is smaller than the tolerance,
     /// not after a fixed number of iterations.
-    fn find_plane_constant<T: RealField + FromPrimitive + Copy>(
+    fn find_plane_constant<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy>(
         self,
         normal: Vector3<T>,
         target_volume: T,
@@ -161,18 +161,18 @@ impl InterfaceReconstruction {
         // Binary search for plane constant
         let cell_volume = dx * dy * dz;
         let mut c_min = T::zero();
-        let mut c_max = normal.x.abs() * dx + normal.y.abs() * dy + normal.z.abs() * dz;
+        let mut c_max = <T as num_traits::Float>::abs(normal.x) * dx + <T as num_traits::Float>::abs(normal.y) * dy + <T as num_traits::Float>::abs(normal.z) * dz;
 
-        let tolerance = T::from_f64(constants::PLIC_TOLERANCE)
+        let tolerance = <T as FromPrimitive>::from_f64(constants::PLIC_TOLERANCE)
             .expect("Failed to represent PLIC_TOLERANCE constant");
-        let half = T::from_f64(0.5).expect("Failed to represent constant 0.5");
+        let half = <T as FromPrimitive>::from_f64(0.5).expect("Failed to represent constant 0.5");
 
         // Loop until the search interval is smaller than the tolerance
         while (c_max - c_min) > tolerance {
             let c_mid = c_min + (c_max - c_min) * half;
             let volume = self.calculate_volume_under_plane_3d(normal, c_mid, dx, dy, dz);
 
-            if (volume - target_volume * cell_volume).abs() < tolerance * cell_volume {
+            if num_traits::Float::abs(volume - target_volume * cell_volume) < tolerance * cell_volume {
                 return c_mid;
             }
 
@@ -191,7 +191,7 @@ impl InterfaceReconstruction {
     /// This implements the full 3D analytical formula from Scardovelli & Zaleski (2000).
     /// The formula requires sorting the normal components and using different expressions
     /// based on their relative magnitudes.
-    fn calculate_volume_under_plane_3d<T: RealField + FromPrimitive + Copy>(
+    fn calculate_volume_under_plane_3d<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy>(
         self,
         normal: Vector3<T>,
         plane_constant: T,
@@ -206,9 +206,9 @@ impl InterfaceReconstruction {
 
             // Normalize the normal vector components by cell dimensions
             let mut n = [
-                normal.x.abs() * dx,
-                normal.y.abs() * dy,
-                normal.z.abs() * dz,
+                <T as num_traits::Float>::abs(normal.x) * dx,
+                <T as num_traits::Float>::abs(normal.y) * dy,
+                <T as num_traits::Float>::abs(normal.z) * dz,
             ];
 
             // Sort components in ascending order
@@ -219,9 +219,9 @@ impl InterfaceReconstruction {
             let n3 = n[2];
 
             // Check for degenerate case
-            let epsilon = T::from_f64(1e-10).expect("Failed to represent epsilon");
+            let epsilon = <T as FromPrimitive>::from_f64(1e-10).expect("Failed to represent epsilon");
             if n3 < epsilon {
-                let half = T::from_f64(0.5).expect("Failed to represent 0.5");
+                let half = <T as FromPrimitive>::from_f64(0.5).expect("Failed to represent 0.5");
                 return half * cell_volume;
             }
 
@@ -235,9 +235,9 @@ impl InterfaceReconstruction {
             }
 
             // Constants for the analytical formula
-            let six = T::from_f64(6.0).expect("Failed to represent 6.0");
-            let two = T::from_f64(2.0).expect("Failed to represent 2.0");
-            let three = T::from_f64(3.0).expect("Failed to represent 3.0");
+            let six = <T as FromPrimitive>::from_f64(6.0).expect("Failed to represent 6.0");
+            let two = <T as FromPrimitive>::from_f64(2.0).expect("Failed to represent 2.0");
+            let three = <T as FromPrimitive>::from_f64(3.0).expect("Failed to represent 3.0");
 
             // Compute volume fraction based on the region
             // These are the analytical formulas from Scardovelli & Zaleski (2000)
@@ -277,11 +277,11 @@ impl InterfaceReconstruction {
     }
 
     /// Calculate interface curvature from normals using cache blocking
-    fn calculate_curvature<T: RealField + FromPrimitive + Copy>(self, solver: &mut VofSolver<T>) {
-        let two = T::from_f64(2.0).expect("Failed to represent constant 2.0");
-        let interface_lower = T::from_f64(VOF_INTERFACE_LOWER)
+    fn calculate_curvature<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy>(self, solver: &mut VofSolver<T>) {
+        let two = <T as FromPrimitive>::from_f64(2.0).expect("Failed to represent constant 2.0");
+        let interface_lower = <T as FromPrimitive>::from_f64(VOF_INTERFACE_LOWER)
             .expect("Failed to represent VOF_INTERFACE_LOWER constant");
-        let interface_upper = T::from_f64(VOF_INTERFACE_UPPER)
+        let interface_upper = <T as FromPrimitive>::from_f64(VOF_INTERFACE_UPPER)
             .expect("Failed to represent VOF_INTERFACE_UPPER constant");
 
         // Process domain in cache-friendly blocks

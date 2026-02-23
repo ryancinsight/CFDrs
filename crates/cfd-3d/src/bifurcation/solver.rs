@@ -6,7 +6,9 @@
 use super::geometry::BifurcationGeometry3D;
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::{Error, Result};
+use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_core::physics::fluid::traits::Fluid as FluidTrait;
+use cfd_mesh::domain::core::index::{FaceId, VertexId};
 use nalgebra::{RealField, Vector3};
 use num_traits::{Float, FromPrimitive, ToPrimitive};
 use serde::{Deserialize, Serialize};
@@ -17,7 +19,7 @@ use serde::{Deserialize, Serialize};
 
 /// Configuration for 3D bifurcation solver
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BifurcationConfig3D<T: RealField + Copy> {
+pub struct BifurcationConfig3D<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     /// Inlet volumetric flow rate [m³/s]
     pub inlet_flow_rate: T,
     /// Inlet pressure [Pa]
@@ -43,7 +45,7 @@ pub struct BifurcationConfig3D<T: RealField + Copy> {
     pub linear_tolerance: T,
 }
 
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> Default
+impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> Default
     for BifurcationConfig3D<T>
 {
     fn default() -> Self {
@@ -96,12 +98,12 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> Default
 /// - **Momentum balance**: ∫momentum dV matched to inlet
 /// - **Energy dissipation**: Tracked for viscous losses
 /// - **Wall shear stress**: Computed from velocity gradient
-pub struct BifurcationSolver3D<T: RealField + Copy> {
+pub struct BifurcationSolver3D<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     geometry: BifurcationGeometry3D<T>,
     config: BifurcationConfig3D<T>,
 }
 
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + From<f64>> BifurcationSolver3D<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + From<f64>> BifurcationSolver3D<T> {
     /// Create new solver for given geometry and configuration
     pub fn new(geometry: BifurcationGeometry3D<T>, config: BifurcationConfig3D<T>) -> Self {
         Self { geometry, config }
@@ -117,7 +119,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
         fluid: F,
     ) -> Result<BifurcationSolution3D<T>> {
         use crate::fem::{FemConfig, FemSolver, StokesFlowProblem};
-        use cfd_mesh::geometry::branching::BranchingMeshBuilder;
+        use cfd_mesh::BranchingMeshBuilder;
+        use cfd_mesh::domain::core::index::{FaceId, VertexId};
         use std::collections::HashMap;
         use cfd_core::physics::boundary::BoundaryCondition;
 
@@ -130,9 +133,12 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
             self.geometry.branching_angle,
             8, // resolution factor
         );
-        let base_mesh = mesh_builder.build().map_err(|e| Error::Solver(e.to_string()))?;
-        let tet_mesh = cfd_mesh::hierarchy::hex_to_tet::HexToTetConverter::convert(&base_mesh);
-        let mesh = cfd_mesh::hierarchy::hierarchical_mesh::P2MeshConverter::convert_to_p2(&tet_mesh);
+        let base_mesh = match mesh_builder.build_surface() {
+            Ok(m) => m,
+            Err(e) => return Err(Error::Solver(format!("{:?}", e))),
+        };
+        let tet_mesh = cfd_mesh::application::hierarchy::hex_to_tet::HexToTetConverter::convert(&base_mesh);
+        let mesh = cfd_mesh::application::hierarchy::hierarchical_mesh::P2MeshConverter::convert_to_p2(&tet_mesh);
 
         // 2. Define Boundary Conditions
         let mut boundary_conditions = HashMap::new();
@@ -153,36 +159,34 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
         let u_outlet = u_inlet * area_ratio; // Velocity in daughter branches
         
         // Process outlet faces FIRST (highest priority) - use PressureOutlet
-        for f_idx in mesh.boundary_faces() {
-            if let Some(label) = mesh.boundary_label(f_idx) {
+        for f_id in mesh.boundary_faces() {
+            if let Some(label) = mesh.boundary_label(f_id) {
                 if label == "outlet_0" || label == "outlet_1" {
-                    if let Some(face) = mesh.face(f_idx) {
-                        for &v_idx in &face.vertices {
-                            boundary_conditions.entry(v_idx).or_insert_with(|| {
-                                outlet_count += 1;
-                                BoundaryCondition::PressureOutlet {
-                                    pressure: self.config.outlet_pressure,
-                                }
-                            });
-                        }
+                    let face = mesh.faces.get(f_id);
+                    for &v_idx in &face.vertices {
+                        boundary_conditions.entry(v_idx.as_usize()).or_insert_with(|| {
+                            outlet_count += 1;
+                            BoundaryCondition::PressureOutlet {
+                                pressure: self.config.outlet_pressure,
+                            }
+                        });
                     }
                 }
             }
         }
         
         // Process inlet faces SECOND
-        for f_idx in mesh.boundary_faces() {
-            if let Some(label) = mesh.boundary_label(f_idx) {
+        for f_id in mesh.boundary_faces() {
+            if let Some(label) = mesh.boundary_label(f_id) {
                 if label == "inlet" {
-                    if let Some(face) = mesh.face(f_idx) {
-                        for &v_idx in &face.vertices {
-                            boundary_conditions.entry(v_idx).or_insert_with(|| {
-                                inlet_count += 1;
-                                BoundaryCondition::VelocityInlet {
-                                    velocity: Vector3::new(u_inlet, T::zero(), T::zero()),
-                                }
-                            });
-                        }
+                    let face = mesh.faces.get(f_id);
+                    for &v_idx in &face.vertices {
+                        boundary_conditions.entry(v_idx.as_usize()).or_insert_with(|| {
+                            inlet_count += 1;
+                            BoundaryCondition::VelocityInlet {
+                                velocity: Vector3::new(u_inlet, T::zero(), T::zero()),
+                            }
+                        });
                     }
                 }
             }
@@ -196,7 +200,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
         
         // Count face references to identify boundary faces
         let mut face_cell_count: StdHashMap<usize, usize> = StdHashMap::new();
-        for cell in mesh.cells() {
+        for cell in mesh.cells.iter() {
             for &face_idx in &cell.faces {
                 *face_cell_count.entry(face_idx).or_insert(0) += 1;
             }
@@ -212,10 +216,11 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
         // Ensure all boundary vertices have a BC
         let mut default_wall_count = 0;
         for &face_idx in &boundary_faces {
-            if let Some(face) = mesh.face(face_idx) {
-                for &v_idx in &face.vertices {
+            if face_idx < mesh.face_count() {
+                let face = mesh.faces.get(FaceId::from_usize(face_idx));
+                for &v_id in &face.vertices {
                     // If no BC assigned yet, default to wall
-                    let bc = boundary_conditions.entry(v_idx).or_insert_with(|| {
+                    boundary_conditions.entry(v_id.as_usize()).or_insert_with(|| {
                         default_wall_count += 1;
                         BoundaryCondition::Dirichlet {
                             value: T::zero(),
@@ -236,22 +241,60 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
         eprintln!("DEBUG BC Types: VelocityInlet={}, PressureOutlet={}, Wall={}, Dirichlet={}", 
                  inlet_bc_count, outlet_bc_count, wall_bc_count, dirichlet_count);
 
-        // 3. Set up FEM Problem with initial viscosity
-        let constant_fluid = cfd_core::physics::fluid::ConstantPropertyFluid {
+        // 3. Set up FEM Problem with f64 precision (build_surface produces f64 mesh)
+        let constant_fluid_f64 = cfd_core::physics::fluid::ConstantPropertyFluid::<f64> {
             name: "Picard Iteration Basis".to_string(),
-            density: fluid_props.density,
-            viscosity: fluid_props.dynamic_viscosity,
-            specific_heat: fluid_props.specific_heat,
-            thermal_conductivity: fluid_props.thermal_conductivity,
-            speed_of_sound: fluid_props.speed_of_sound,
+            density: fluid_props.density.to_f64().unwrap_or(1060.0),
+            viscosity: fluid_props.dynamic_viscosity.to_f64().unwrap_or(3.5e-3),
+            specific_heat: fluid_props.specific_heat.to_f64().unwrap_or(3600.0),
+            thermal_conductivity: fluid_props.thermal_conductivity.to_f64().unwrap_or(0.5),
+            speed_of_sound: fluid_props.speed_of_sound.to_f64().unwrap_or(1540.0),
         };
 
-        let mut problem = StokesFlowProblem::new(mesh, constant_fluid, boundary_conditions, tet_mesh.vertex_count());
+        // Convert boundary conditions from T -> f64 via manual variant mapping
+        let convert_bc = |bc: BoundaryCondition<T>| -> BoundaryCondition<f64> {
+            use cfd_core::physics::boundary::BoundaryCondition as BC;
+            let to_f = |v: T| v.to_f64().unwrap_or(0.0);
+            match bc {
+                BC::Dirichlet { value, component_values } => BC::Dirichlet {
+                    value: to_f(value),
+                    component_values: component_values.map(|vs| vs.into_iter().map(|v| v.map(to_f)).collect()),
+                },
+                BC::VelocityInlet { velocity } => BC::VelocityInlet {
+                    velocity: nalgebra::Vector3::new(to_f(velocity.x), to_f(velocity.y), to_f(velocity.z)),
+                },
+                BC::PressureOutlet { pressure } => BC::PressureOutlet { pressure: to_f(pressure) },
+                BC::Neumann { gradient } => BC::Neumann { gradient: to_f(gradient) },
+                BC::PressureInlet { pressure, velocity_direction } => BC::PressureInlet {
+                    pressure: to_f(pressure),
+                    velocity_direction: velocity_direction.map(|v| nalgebra::Vector3::new(to_f(v.x), to_f(v.y), to_f(v.z))),
+                },
+                BC::MassFlowInlet { mass_flow_rate, temperature } => BC::MassFlowInlet {
+                    mass_flow_rate: to_f(mass_flow_rate),
+                    temperature: temperature.map(to_f),
+                },
+                BC::VolumeFlowInlet { volume_flow_rate } => BC::VolumeFlowInlet { volume_flow_rate: to_f(volume_flow_rate) },
+                BC::Wall { .. } | BC::Symmetry | BC::Outflow | BC::Periodic { .. } => BC::Dirichlet { value: 0.0_f64, component_values: Some(vec![Some(0.0_f64); 3]) },
+                BC::Robin { alpha, beta, gamma } => BC::Robin { alpha: to_f(alpha), beta: to_f(beta), gamma: to_f(gamma) },
+                BC::CharacteristicInlet { riemann_invariant_r1, riemann_invariant_r2, entropy, velocity, pressure } => BC::CharacteristicInlet {
+                    riemann_invariant_r1: riemann_invariant_r1.map(to_f),
+                    riemann_invariant_r2: riemann_invariant_r2.map(to_f),
+                    entropy: entropy.map(to_f),
+                    velocity: velocity.map(|v| nalgebra::Vector3::new(to_f(v.x), to_f(v.y), to_f(v.z))),
+                    pressure: pressure.map(to_f),
+                },
+                BC::CharacteristicOutlet { pressure, extrapolate_velocity } => BC::CharacteristicOutlet { pressure: to_f(pressure), extrapolate_velocity },
+            }
+        };
+        let bc_f64: std::collections::HashMap<usize, BoundaryCondition<f64>> =
+            boundary_conditions.into_iter().map(|(k, bc)| (k, convert_bc(bc))).collect();
+
+        let mut problem = StokesFlowProblem::<f64>::new(mesh, constant_fluid_f64, bc_f64, tet_mesh.vertex_count());
         let n_elements = problem.mesh.cell_count();
-        let mut element_viscosities = vec![fluid_props.dynamic_viscosity; n_elements];
+        let mut element_viscosities: Vec<f64> = vec![fluid_props.dynamic_viscosity.to_f64().unwrap_or(3.5e-3); n_elements];
         
         // 4. Picard Iteration Loop
-        let fem_config = FemConfig::default();
+        let fem_config = FemConfig::<f64>::default();
         let mut solver = FemSolver::new(fem_config);
         let mut last_solution = None;
 
@@ -265,16 +308,18 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
             let fem_solution = solver.solve(&problem, last_solution.as_ref()).map_err(|e| Error::Solver(e.to_string()))?;
             
             // Calculate shear rates and new viscosities
-            let mut max_change = T::zero();
+            let mut max_change_f64: f64 = 0.0;
             let mut new_viscosities = Vec::with_capacity(n_elements);
             
-            for (i, cell) in problem.mesh.cells().iter().enumerate() {
-                let shear_rate = self.calculate_element_shear_rate(cell, &problem.mesh, &fem_solution)?;
-                let new_visc = fluid.viscosity_at_shear(shear_rate, T::from_f64_or_one(310.0), self.config.inlet_pressure)?;
+            for (i, cell) in problem.mesh.cells.iter().enumerate() {
+                let shear_rate_f64 = self.calculate_element_shear_rate_f64(cell, &problem.mesh, &fem_solution)?;
+                let shear_rate = T::from_f64_or_one(shear_rate_f64);
+                let new_visc_t = fluid.viscosity_at_shear(shear_rate, T::from_f64_or_one(310.0), self.config.inlet_pressure)?;
+                let new_visc = new_visc_t.to_f64().unwrap_or(3.5e-3);
                 
-                let change = Float::abs(new_visc - element_viscosities[i]) / element_viscosities[i];
-                if change > max_change {
-                    max_change = change;
+                let change = num_traits::Float::abs(new_visc - element_viscosities[i]) / element_viscosities[i];
+                if change > max_change_f64 {
+                    max_change_f64 = change;
                 }
                 new_viscosities.push(new_visc);
             }
@@ -282,7 +327,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
             element_viscosities = new_viscosities;
             last_solution = Some(fem_solution);
             
-            if max_change < self.config.nonlinear_tolerance {
+            if max_change_f64 < self.config.nonlinear_tolerance.to_f64().unwrap_or(1e-4) {
                 tracing::info!("Picard converged in {} iterations", iter + 1);
                 break;
             }
@@ -290,11 +335,10 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
 
         let fem_solution = last_solution.ok_or_else(|| Error::Solver("No solution generated".to_string()))?;
         
-        // Debug: Check solution magnitude (use max absolute value)
-        use num_traits::Float;
-        let vel_max: T = fem_solution.velocity.iter().map(|v| v.abs()).fold(T::zero(), |a, b| Float::max(a, b));
-        let p_max: T = fem_solution.pressure.iter().map(|p| p.abs()).fold(T::zero(), |a, b| Float::max(a, b));
-        eprintln!("DEBUG: FEM solution max velocity = {:?}, max pressure = {:?}", vel_max, p_max);
+        // Debug: Check solution magnitude
+        let vel_max_f64: f64 = fem_solution.velocity.iter().map(|v| num_traits::Float::abs(*v)).fold(0.0_f64, |a, b| f64::max(a, b));
+        let p_max_f64: f64 = fem_solution.pressure.iter().map(|p| num_traits::Float::abs(*p)).fold(0.0_f64, |a, b| f64::max(a, b));
+        eprintln!("DEBUG: FEM solution max velocity = {:?}, max pressure = {:?}", vel_max_f64, p_max_f64);
 
         // 5. Extract Metrics for BifurcationSolution3D
         let mesh = &problem.mesh;
@@ -303,8 +347,10 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
         solution.q_parent = self.config.inlet_flow_rate;
         
         // Calculate flows through daughters
-        solution.q_daughter1 = self.calculate_boundary_flow(mesh, &fem_solution, "outlet_0")?;
-        solution.q_daughter2 = self.calculate_boundary_flow(mesh, &fem_solution, "outlet_1")?;
+        let q_d1_f64 = self.calculate_boundary_flow_f64(mesh, &fem_solution, "outlet_0")?;
+        let q_d2_f64 = self.calculate_boundary_flow_f64(mesh, &fem_solution, "outlet_1")?;
+        solution.q_daughter1 = <T as From<f64>>::from(q_d1_f64);
+        solution.q_daughter2 = <T as From<f64>>::from(q_d2_f64);
         
         // Ensure u_daughter_mean is calculated
         let a_d1 = T::from_f64_or_one(std::f64::consts::PI / 4.0) * self.geometry.d_daughter1 * self.geometry.d_daughter1;
@@ -319,7 +365,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
         solution.p_daughter2_outlet = self.config.outlet_pressure;
         
         // Extract junction pressure
-        solution.p_junction_mid = self.extract_point_pressure(mesh, &fem_solution, Vector3::new(self.geometry.l_parent, T::zero(), T::zero()))?;
+        let p_junc_f64 = self.extract_point_pressure_f64(mesh, &fem_solution, nalgebra::Vector3::new(self.geometry.l_parent.to_f64().unwrap_or(0.0), 0.0_f64, 0.0_f64))?;
+        solution.p_junction_mid = <T as From<f64>>::from(p_junc_f64);
         
         // Calculate pressure drops
         solution.dp_parent = solution.p_inlet - solution.p_junction_mid;
@@ -342,65 +389,63 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
         Ok(solution)
     }
 
-    /// Calculate flow rate through a boundary label using u·n integration
-    fn calculate_boundary_flow(
+    /// Calculate flow rate through a boundary label using u·n integration (f64 precision)
+    fn calculate_boundary_flow_f64(
         &self,
-        mesh: &cfd_mesh::mesh::Mesh<T>,
-        solution: &crate::fem::StokesFlowSolution<T>,
+        mesh: &cfd_mesh::IndexedMesh<f64>,
+        solution: &crate::fem::StokesFlowSolution<f64>,
         label: &str,
-    ) -> Result<T> {
-        let mut total_q = T::zero();
+    ) -> Result<f64> {
+        let mut total_q = 0.0_f64;
         let mut face_count = 0;
         
         for f_idx in 0..mesh.face_count() {
-            if mesh.boundary_label(f_idx) == Some(label) {
-                if let Some(face) = mesh.face(f_idx) {
-                    if face.vertices.len() >= 3 {
-                        face_count += 1;
-                        let v0 = mesh.vertex(face.vertices[0]).unwrap().position.coords;
-                        let v1 = mesh.vertex(face.vertices[1]).unwrap().position.coords;
-                        let v2 = mesh.vertex(face.vertices[2]).unwrap().position.coords;
-                        
-                        let n_vec = (v1 - v0).cross(&(v2 - v0));
-                        let area = n_vec.norm() * T::from_f64_or_one(0.5);
-                        let face_normal = n_vec.normalize();
-                        
-                        let mut u_avg = Vector3::zeros();
-                        for &v_idx in &face.vertices {
-                            let u = solution.get_velocity(v_idx);
-                            u_avg += u;
-                            // Debug first few vertices
-                            if face_count <= 2 {
-                                eprintln!("DEBUG: vertex {} velocity = {:?}", v_idx, u);
-                            }
-                        }
-                        u_avg /= T::from_usize(face.vertices.len()).unwrap_or_else(T::one);
-                        
-                        let face_flow = u_avg.dot(&face_normal) * area;
-                        total_q += face_flow;
+            let f_id = FaceId::from_usize(f_idx);
+            if mesh.boundary_label(f_id) == Some(label) {
+                face_count += 1;
+                let face = mesh.faces.get(f_id);
+                // FaceData always has exactly 3 vertices
+                let v0 = mesh.vertices.position(face.vertices[0]).coords;
+                let v1 = mesh.vertices.position(face.vertices[1]).coords;
+                let v2 = mesh.vertices.position(face.vertices[2]).coords;
+                
+                let n_vec = (v1 - v0).cross(&(v2 - v0));
+                let area = n_vec.norm() * 0.5_f64;
+                let face_normal = n_vec.normalize();
+                
+                let mut u_avg = nalgebra::Vector3::zeros();
+                for &v_id in &face.vertices {
+                    let u = solution.get_velocity(v_id.as_usize());
+                    u_avg += u;
+                    if face_count <= 2 {
+                        eprintln!("DEBUG: vertex {} velocity = {:?}", v_id.as_usize(), u);
                     }
                 }
+                u_avg /= 3.0_f64;
+                
+                let face_flow = u_avg.dot(&face_normal) * area;
+                total_q += face_flow;
             }
         }
         
         eprintln!("DEBUG: Flow integration for '{}': {} faces, total_q = {:?}", label, face_count, total_q);
-        Ok(Float::abs(total_q))
+        Ok(total_q.abs())
     }
 
-    /// Extract pressure at a point in the mesh (closest node)
-    fn extract_point_pressure(
+    /// Extract pressure at a point in the mesh (closest node, f64 precision)
+    fn extract_point_pressure_f64(
         &self,
-        mesh: &cfd_mesh::mesh::Mesh<T>,
-        solution: &crate::fem::StokesFlowSolution<T>,
-        point: Vector3<T>,
-    ) -> Result<T> {
+        mesh: &cfd_mesh::IndexedMesh<f64>,
+        solution: &crate::fem::StokesFlowSolution<f64>,
+        point: nalgebra::Vector3<f64>,
+    ) -> Result<f64> {
         let mut best_node = 0;
-        let mut min_dist = <T as RealField>::max_value().unwrap_or_else(T::one);
+        let mut min_dist = f64::MAX;
         
         let n_pressure_nodes = solution.n_corner_nodes.min(mesh.vertex_count());
         for i in 0..n_pressure_nodes {
-            let v = &mesh.vertices()[i];
-            let dist = (v.position.coords - point).norm();
+            let pos = mesh.vertices.position(VertexId::from_usize(i));
+            let dist = (pos.coords - point).norm();
             if dist < min_dist {
                 min_dist = dist;
                 best_node = i;
@@ -410,18 +455,21 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
         Ok(solution.get_pressure(best_node))
     }
 
-    fn calculate_element_shear_rate(
+    /// Calculate element shear rate (f64 internal precision)
+    fn calculate_element_shear_rate_f64(
         &self,
-        cell: &cfd_mesh::topology::Cell,
-        mesh: &cfd_mesh::mesh::Mesh<T>,
-        solution: &crate::fem::StokesFlowSolution<T>,
-    ) -> Result<T> {
-        let mut idxs = Vec::with_capacity(10);
+        cell: &cfd_mesh::domain::topology::Cell,
+        mesh: &cfd_mesh::IndexedMesh<f64>,
+        solution: &crate::fem::StokesFlowSolution<f64>,
+    ) -> Result<f64> {
+        let mut idxs: Vec<usize> = Vec::with_capacity(10);
         for &face_idx in &cell.faces {
-            if let Some(face) = mesh.face(face_idx) {
-                for &v_idx in &face.vertices {
-                    if !idxs.contains(&v_idx) {
-                        idxs.push(v_idx);
+            if face_idx < mesh.face_count() {
+                let face = mesh.faces.get(FaceId::from_usize(face_idx));
+                for &v_id in &face.vertices {
+                    let v_usize = v_id.as_usize();
+                    if !idxs.contains(&v_usize) {
+                        idxs.push(v_usize);
                     }
                 }
             }
@@ -433,20 +481,20 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
 
         let mut local_verts = Vec::with_capacity(idxs.len());
         for &idx in &idxs {
-            local_verts.push(mesh.vertex(idx).unwrap().position.coords);
+            local_verts.push(mesh.vertices.position(VertexId::from_usize(idx)).coords);
         }
 
         let mut l = nalgebra::Matrix3::zeros();
         
-        if idxs.len() == 10 {
+        if idxs.len() == 10_usize {
             // Tet10 (P2): Evaluate gradient at centroid (L = [0.25, 0.25, 0.25, 0.25])
             use crate::fem::shape_functions::LagrangeTet10;
             
             // 1. Calculate P1 gradients (∇L_i)
-            let mut tet4 = crate::fem::element::FluidElement::new(idxs[0..4].to_vec());
+            let mut tet4 = crate::fem::element::FluidElement::<f64>::new(idxs[0..4].to_vec());
             let six_v = tet4.calculate_volume(&local_verts);
-            if num_traits::Float::abs(six_v) < T::from_f64(1e-24).unwrap() {
-                return Ok(T::zero());
+            if six_v.abs() < 1e-24_f64 {
+                return Ok(0.0_f64);
             }
             tet4.calculate_shape_derivatives(&local_verts[0..4]);
             let p1_grads = nalgebra::Matrix3x4::from_columns(&[
@@ -474,7 +522,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
 
             // 2. Evaluate P2 gradients at centroid
             let tet10 = LagrangeTet10::new(p1_grads);
-            let l_centroid = [T::from_f64(0.25).unwrap(); 4];
+            let l_centroid = [0.25_f64; 4];
             let p2_grads = tet10.gradients(&l_centroid);
 
             // 3. Compute velocity gradient: L = sum(u_i * ∇N_i)
@@ -500,15 +548,15 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
             }
         }
         
-        let epsilon = (l + l.transpose()) * T::from_f64_or_one(0.5);
-        let mut inner_prod = T::zero();
+        let epsilon = (l + l.transpose()) * 0.5_f64;
+        let mut inner_prod = 0.0_f64;
         for i in 0..3 {
             for j in 0..3 {
                 inner_prod += epsilon[(i, j)] * epsilon[(i, j)];
             }
         }
         
-        Ok(Float::sqrt(T::from_f64_or_one(2.0) * inner_prod))
+        Ok(num_traits::Float::sqrt(2.0_f64 * inner_prod))
     }
 
     /// Validate solver configuration
@@ -557,7 +605,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + F
 
 /// Complete solution to 3D bifurcation problem
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub struct BifurcationSolution3D<T: RealField + Copy> {
+pub struct BifurcationSolution3D<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     pub q_parent: T,
     pub q_daughter1: T,
     pub q_daughter2: T,
@@ -578,7 +626,7 @@ pub struct BifurcationSolution3D<T: RealField + Copy> {
     pub mass_conservation_error: T,
 }
 
-impl<T: RealField + Copy> BifurcationSolution3D<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy> BifurcationSolution3D<T> {
     pub fn new(_geometry: &BifurcationGeometry3D<T>) -> Self {
         Self {
             q_parent: T::zero(),

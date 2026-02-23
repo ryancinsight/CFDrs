@@ -5,7 +5,7 @@ use nalgebra::{DVector, RealField, Vector3};
 
 /// Solution for 3D incompressible flow
 #[derive(Debug, Clone)]
-pub struct StokesFlowSolution<T: RealField + Copy> {
+pub struct StokesFlowSolution<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     /// Velocity field stored in block order: [u_nodes, v_nodes, w_nodes]
     pub velocity: DVector<T>,
     /// Pressure field (1 per node)
@@ -16,7 +16,7 @@ pub struct StokesFlowSolution<T: RealField + Copy> {
     pub n_corner_nodes: usize,
 }
 
-impl<T: RealField + Copy> StokesFlowSolution<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy> StokesFlowSolution<T> {
     /// Create a new solution
     #[must_use]
     pub fn new(velocity: DVector<T>, pressure: DVector<T>, n_nodes: usize) -> Self {

@@ -5,16 +5,17 @@
 
 use cfd_core::physics::fluid::ConstantPropertyFluid;
 use nalgebra::{Matrix3, RealField};
+use num_traits::FromPrimitive;
 
 /// Calculate stress tensor from strain rate and pressure.
 ///
 /// $\sigma = -pI + 2\mu \dot{\epsilon}$
-pub fn stress_tensor<T: RealField + Copy>(
+pub fn stress_tensor<T: cfd_mesh::domain::core::Scalar + RealField + Copy>(
     fluid: &ConstantPropertyFluid<T>,
     pressure: T,
     strain_rate: &Matrix3<T>,
 ) -> Matrix3<T> {
-    let two = T::from_f64(2.0).unwrap_or_else(T::zero);
+    let two = <T as FromPrimitive>::from_f64(2.0).unwrap_or_else(T::zero);
     let mut stress = strain_rate * (two * fluid.viscosity);
 
     // Add pressure contribution to diagonal
@@ -28,7 +29,7 @@ pub fn stress_tensor<T: RealField + Copy>(
 /// Calculate strain rate tensor from velocity gradient.
 ///
 /// $\dot{\epsilon} = 0.5 (\nabla u + (\nabla u)^T)$
-pub fn strain_rate_tensor<T: RealField + Copy>(velocity_gradient: &Matrix3<T>) -> Matrix3<T> {
-    let half = T::from_f64(0.5).unwrap_or_else(T::zero);
+pub fn strain_rate_tensor<T: cfd_mesh::domain::core::Scalar + RealField + Copy>(velocity_gradient: &Matrix3<T>) -> Matrix3<T> {
+    let half = <T as FromPrimitive>::from_f64(0.5).unwrap_or_else(T::zero);
     (velocity_gradient + velocity_gradient.transpose()) * half
 }

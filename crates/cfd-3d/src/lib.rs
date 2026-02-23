@@ -219,7 +219,7 @@ mod tests {
         let computed_derivative_at_x1: f64 = derivative[0];
 
         // Allow for numerical differentiation error
-        assert!((computed_derivative_at_x1 - expected_derivative_at_x1).abs() < 0.1);
+        assert!(num_traits::Float::abs(computed_derivative_at_x1 - expected_derivative_at_x1) < 0.1);
     }
 
     /// Test Fourier transform accuracy with analytical solutions
@@ -246,7 +246,7 @@ mod tests {
         // This implementation normalizes by dividing by n in forward DFT
         // So for constant signal of 1, DC magnitude should be 1
         let expected_magnitude = 1.0;
-        assert!((dc_magnitude - expected_magnitude).abs() < 1e-12);
+        assert!(num_traits::Float::abs(dc_magnitude - expected_magnitude) < 1e-12);
 
         // All other components should be essentially zero (using efficient FFT)
         for i in 1..n {
@@ -327,7 +327,7 @@ mod tests {
 
         // Test Gauss-Lobatto point properties
         // First and last points should be ±1
-        assert!((points[0] - 1.0).abs() < 1e-14);
+        assert!(num_traits::Float::abs(points[0] - 1.0) < 1e-14);
         assert!((points[points.len() - 1] + 1.0).abs() < 1e-14);
 
         // Points should be in descending order (1, ..., -1)
@@ -352,7 +352,7 @@ mod tests {
 
         // For f(x) = x², f''(x) should be approximately 2 everywhere
         for &val in second_derivative.iter() {
-            assert!((val - 2.0).abs() < 1e-10); // High accuracy expected
+            assert!(num_traits::Float::abs(val - 2.0) < 1e-10); // High accuracy expected
         }
     }
 }

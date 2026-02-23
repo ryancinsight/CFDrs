@@ -18,13 +18,13 @@ use serde::{Deserialize, Serialize};
 
 /// Mesh convergence study configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MeshRefinementConfig<T: RealField + Copy> {
+pub struct MeshRefinementConfig<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     pub n_levels: usize,
     pub refinement_factor: T,
     pub expected_order: T,
 }
 
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> Default for MeshRefinementConfig<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> Default for MeshRefinementConfig<T> {
     fn default() -> Self {
         Self {
             n_levels: 3,
@@ -38,12 +38,12 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> Default fo
 // Trifurcation Validator
 // ============================================================================
 
-pub struct TrifurcationValidator3D<T: RealField + Copy> {
+pub struct TrifurcationValidator3D<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     pub geometry: TrifurcationGeometry3D<T>,
     pub mesh_config: MeshRefinementConfig<T>,
 }
 
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + num_traits::Float + From<f64>> TrifurcationValidator3D<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + num_traits::Float + From<f64>> TrifurcationValidator3D<T> {
     pub fn new(geometry: TrifurcationGeometry3D<T>, mesh_config: MeshRefinementConfig<T>) -> Self {
         Self { geometry, mesh_config }
     }
@@ -93,7 +93,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + num_trait
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TrifurcationValidationResult3D<T: RealField + Copy> {
+pub struct TrifurcationValidationResult3D<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     pub test_name: String,
     pub mass_error: Option<T>,
     pub symmetry_error: Option<T>,
@@ -101,7 +101,7 @@ pub struct TrifurcationValidationResult3D<T: RealField + Copy> {
     pub error_message: Option<String>,
 }
 
-impl<T: RealField + Copy> TrifurcationValidationResult3D<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy> TrifurcationValidationResult3D<T> {
     pub fn new(test_name: String) -> Self {
         Self {
             test_name,

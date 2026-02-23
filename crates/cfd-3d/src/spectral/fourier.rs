@@ -10,14 +10,14 @@ use num_traits::FromPrimitive;
 use std::f64::consts::PI;
 
 /// Fourier transform operations
-pub struct FourierTransform<T: RealField + Copy> {
+pub struct FourierTransform<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     /// Number of modes
     n: usize,
     /// Wavenumbers
     wavenumbers: Vec<T>,
 }
 
-impl<T: RealField + FromPrimitive + Copy> FourierTransform<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> FourierTransform<T> {
     /// Create new Fourier transform operator
     pub fn new(n: usize) -> Result<Self> {
         let mut wavenumbers = Vec::with_capacity(n);
@@ -30,7 +30,7 @@ impl<T: RealField + FromPrimitive + Copy> FourierTransform<T> {
                 (i as f64) - (n as f64)
             };
 
-            let wn = T::from_f64(k).ok_or_else(|| {
+            let wn = <T as FromPrimitive>::from_f64(k).ok_or_else(|| {
                 cfd_core::error::Error::InvalidConfiguration("Cannot convert wavenumber".into())
             })?;
             wavenumbers.push(wn);
@@ -101,9 +101,9 @@ impl<T: RealField + FromPrimitive + Copy> FourierTransform<T> {
         // Iterative FFT using Danielson-Lanczos lemma
         let mut length = 2;
         while length <= n {
-            let angle = sign * T::from_f64(2.0 * PI).unwrap_or(T::one())
+            let angle = sign * <T as FromPrimitive>::from_f64(2.0 * PI).unwrap_or(T::one())
                 / T::from_usize(length).unwrap_or(T::one());
-            let wlen = Complex::new(angle.cos(), angle.sin());
+            let wlen = Complex::new(num_traits::Float::cos(angle), num_traits::Float::sin(angle));
 
             for i in (0..n).step_by(length) {
                 let mut w = Complex::new(T::one(), T::zero());
@@ -123,7 +123,7 @@ impl<T: RealField + FromPrimitive + Copy> FourierTransform<T> {
     fn dft_forward(&self, u: &DVector<T>) -> Result<DVector<Complex<T>>> {
         let n = self.n;
         let mut u_hat = DVector::zeros(n);
-        let two_pi = T::from_f64(2.0 * PI).ok_or_else(|| {
+        let two_pi = <T as FromPrimitive>::from_f64(2.0 * PI).ok_or_else(|| {
             cfd_core::error::Error::InvalidConfiguration("Cannot convert constant".into())
         })?;
 
@@ -133,7 +133,7 @@ impl<T: RealField + FromPrimitive + Copy> FourierTransform<T> {
                 let phase =
                     -two_pi * self.wavenumbers[k] * T::from_usize(j).unwrap_or_else(|| T::zero())
                         / T::from_usize(n).unwrap_or_else(|| T::zero());
-                let exp = Complex::new(phase.cos(), phase.sin());
+                let exp = Complex::new(num_traits::Float::cos(phase), num_traits::Float::sin(phase));
                 sum += exp * Complex::new(u[j], T::zero());
             }
             u_hat[k] = sum;
@@ -168,7 +168,7 @@ impl<T: RealField + FromPrimitive + Copy> FourierTransform<T> {
     fn dft_inverse_real(&self, u_hat: &DVector<Complex<T>>) -> Result<DVector<T>> {
         let n = self.n;
         let mut u = DVector::zeros(n);
-        let two_pi = T::from_f64(2.0 * PI).ok_or_else(|| {
+        let two_pi = <T as FromPrimitive>::from_f64(2.0 * PI).ok_or_else(|| {
             cfd_core::error::Error::InvalidConfiguration("Cannot convert constant".into())
         })?;
 
@@ -178,7 +178,7 @@ impl<T: RealField + FromPrimitive + Copy> FourierTransform<T> {
                 let phase =
                     two_pi * self.wavenumbers[k] * T::from_usize(j).unwrap_or_else(|| T::zero())
                         / T::from_usize(n).unwrap_or_else(|| T::zero());
-                let exp = Complex::new(phase.cos(), phase.sin());
+                let exp = Complex::new(num_traits::Float::cos(phase), num_traits::Float::sin(phase));
                 sum += exp * u_hat[k];
             }
             u[j] = sum.re;
@@ -195,11 +195,11 @@ impl<T: RealField + FromPrimitive + Copy> FourierTransform<T> {
 }
 
 /// Spectral derivative computation
-pub struct SpectralDerivative<T: RealField + Copy> {
+pub struct SpectralDerivative<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     transform: FourierTransform<T>,
 }
 
-impl<T: RealField + FromPrimitive + Copy> SpectralDerivative<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> SpectralDerivative<T> {
     /// Create a new spectral derivative operator for the given grid size
     ///
     /// # Arguments

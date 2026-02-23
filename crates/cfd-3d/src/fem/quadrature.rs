@@ -4,21 +4,21 @@ use nalgebra::{RealField, Vector3};
 use num_traits::FromPrimitive;
 
 /// Numerical integration for tetrahedra
-pub struct TetrahedronQuadrature<T: RealField + Copy> {
+pub struct TetrahedronQuadrature<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     points: Vec<Vector3<T>>,
     weights: Vec<T>,
 }
 
-impl<T: RealField + Copy + FromPrimitive> TetrahedronQuadrature<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> TetrahedronQuadrature<T> {
     /// Keast degree 3 quadrature rule (5 points)
     /// Precision O(h^4), enough for quadratic elements
     pub fn keast_degree_3() -> Self {
-        let a = T::from_f64(0.25).unwrap();
-        let b = T::from_f64(0.5).unwrap();
-        let c = T::from_f64(1.0/6.0).unwrap();
+        let a = <T as FromPrimitive>::from_f64(0.25).unwrap();
+        let b = <T as FromPrimitive>::from_f64(0.5).unwrap();
+        let c = <T as FromPrimitive>::from_f64(1.0/6.0).unwrap();
         
         let p1 = Vector3::new(a, a, a);
-        let w1 = T::from_f64(-0.8).unwrap() / T::from_f64(6.0).unwrap(); // Normalized volume = 1/6
+        let w1 = <T as FromPrimitive>::from_f64(-0.8).unwrap() / <T as FromPrimitive>::from_f64(6.0).unwrap(); // Normalized volume = 1/6
         
         // Other 4 points are permutations of (1/2, 1/6, 1/6)
         let points = vec![
@@ -29,7 +29,7 @@ impl<T: RealField + Copy + FromPrimitive> TetrahedronQuadrature<T> {
             Vector3::new(c, c, c),
         ];
         
-        let w2 = T::from_f64(0.45).unwrap() / T::from_f64(6.0).unwrap();
+        let w2 = <T as FromPrimitive>::from_f64(0.45).unwrap() / <T as FromPrimitive>::from_f64(6.0).unwrap();
         let weights = vec![w1, w2, w2, w2, w2];
         
         Self { points, weights }

@@ -15,7 +15,7 @@ pub enum SpectralBasis {
 }
 
 /// Trait for basis function operations
-pub trait BasisFunction<T: RealField + Copy> {
+pub trait BasisFunction<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     /// Evaluate basis function at given point
     fn evaluate(&self, x: T, mode: usize) -> T;
 

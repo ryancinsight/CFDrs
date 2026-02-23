@@ -17,20 +17,21 @@ use tracing;
 use crate::fem::{FemConfig, StokesFlowProblem, StokesFlowSolution};
 use crate::fem::shape_functions::LagrangeTet10;
 use crate::fem::quadrature::TetrahedronQuadrature;
-use cfd_mesh::mesh::Mesh;
-use cfd_mesh::topology::Cell;
+use cfd_mesh::IndexedMesh;
+use cfd_mesh::domain::core::index::{FaceId, VertexId};
+use cfd_mesh::domain::topology::Cell;
 
 /// Finite Element Method solver for 3D incompressible flow
-pub struct FemSolver<T: RealField + Copy + FromPrimitive + num_traits::Float + std::fmt::Debug> {
+pub struct FemSolver<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + num_traits::Float + std::fmt::Debug> {
     _config: FemConfig<T>,
     linear_solver: GMRES<T>,
 }
 
-impl<T: RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> FemSolver<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> FemSolver<T> {
     pub fn new(config: FemConfig<T>) -> Self {
         let mut solver_config = cfd_math::linear_solver::IterativeSolverConfig::default();
         solver_config.max_iterations = 30000;
-        solver_config.tolerance = T::from_f64(1e-12).unwrap_or_else(T::zero);
+        solver_config.tolerance = <T as FromPrimitive>::from_f64(1e-12).unwrap_or_else(T::zero);
         let linear_solver = GMRES::new(solver_config, 100);
         Self { linear_solver, _config: config }
     }
@@ -102,14 +103,14 @@ impl<T: RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> 
             );
         }
 
-        let rel_tol = T::from_f64(1e-8).unwrap_or_else(T::zero);
-        let abs_tol = Float::max(rel_tol * rhs.norm(), T::from_f64(1e-14).unwrap_or_else(T::zero));
+        let rel_tol = <T as FromPrimitive>::from_f64(1e-8).unwrap_or_else(T::zero);
+        let abs_tol = Float::max(rel_tol * rhs.norm(), <T as FromPrimitive>::from_f64(1e-14).unwrap_or_else(T::zero));
         
         let mut gmres_config = cfd_math::linear_solver::IterativeSolverConfig::default();
         gmres_config.max_iterations = 50000; // Increased for complex 3D problems
         gmres_config.tolerance = abs_tol;
 
-        let restart = 200.min(n_total_dof);
+        let restart = std::cmp::min(200, n_total_dof);
         
         println!("  FEM Solver: System size {}x{}", n_total_dof, n_total_dof);
         println!("  GMRES: restart={}, max_iter={}", restart, gmres_config.max_iterations);
@@ -208,7 +209,7 @@ impl<T: RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> 
     ) -> Result<()> {
         let mut residual = vec![T::zero(); problem.n_corner_nodes];
 
-        for cell in problem.mesh.cells() {
+        for cell in problem.mesh.cells.iter() {
             let idxs = extract_vertex_indices(cell, &problem.mesh)?;
             if idxs.len() < 4 {
                 continue;
@@ -216,7 +217,7 @@ impl<T: RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> 
 
             let verts: Vec<Vector3<T>> = idxs
                 .iter()
-                .map(|&idx| problem.mesh.vertex(idx).unwrap().position.coords)
+                .map(|&idx| problem.mesh.vertices.position(cfd_mesh::domain::core::index::VertexId::from_usize(idx)).coords)
                 .collect();
 
             let j_mat = nalgebra::Matrix3::from_columns(&[
@@ -226,7 +227,7 @@ impl<T: RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> 
             ]);
             let det_j = j_mat.determinant();
             let abs_det = Float::abs(det_j);
-            if abs_det <= T::from_f64(1e-24).unwrap_or_else(T::zero) {
+            if abs_det <= <T as FromPrimitive>::from_f64(1e-24).unwrap_or_else(T::zero) {
                 continue;
             }
 
@@ -309,25 +310,25 @@ impl<T: RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> 
         let mut builder = SparseMatrixBuilder::new(n_total_dof, n_total_dof);
         let mut rhs = DVector::zeros(n_total_dof);
 
-        let vertex_positions: Vec<Vector3<T>> = problem.mesh.vertices().iter()
-            .map(|v| v.position.coords).collect();
+        let vertex_positions: Vec<Vector3<T>> = problem.mesh.vertices.iter()
+            .map(|v| v.1.position.coords).collect();
 
-        println!("  Assembling {} elements...", problem.mesh.cells().len());
+        println!("  Assembling {} elements...", problem.mesh.cells.len());
         
-        for (i, cell) in problem.mesh.cells().iter().enumerate() {
+        for (i, cell) in problem.mesh.cells.iter().enumerate() {
             let viscosity = problem.element_viscosities.as_ref().map_or(problem.fluid.viscosity, |v| v[i]);
             let idxs = extract_vertex_indices(cell, &problem.mesh)?;
             let local_verts: Vec<Vector3<T>> = idxs.iter().map(|&idx| vertex_positions[idx]).collect();
             
             // Check for degenerate elements
-            if local_verts.len() >= 4 {
+            if local_verts.len() >= 4_usize {
                 let v0 = local_verts[0];
                 let v1 = local_verts[1];
                 let v2 = local_verts[2];
                 let v3 = local_verts[3];
                 
-                let vol = ((v1 - v0).cross(&(v2 - v0))).dot(&(v3 - v0)) / T::from_f64(6.0).unwrap();
-                if Float::abs(vol) < T::from_f64(1e-22).unwrap() {
+                let vol = ((v1 - v0).cross(&(v2 - v0))).dot(&(v3 - v0)) / <T as FromPrimitive>::from_f64(6.0).unwrap();
+                if Float::abs(vol) < <T as FromPrimitive>::from_f64(1e-22).unwrap() {
                     return Err(Error::Solver(format!(
                         "Element {} has near-zero volume: {:?}. Vertices: {:?}, {:?}, {:?}, {:?}",
                         i, vol, v0, v1, v2, v3
@@ -351,7 +352,7 @@ impl<T: RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> 
             println!("  WARNING: All velocity DOFs are constrained (may cause incompressibility conflict)");
         }
 
-        let diag_eps = problem.fluid.viscosity * T::from_f64(1e-12).unwrap();
+        let diag_eps = problem.fluid.viscosity * <T as FromPrimitive>::from_f64(1e-12).unwrap();
         for i in n_velocity_dof..n_total_dof {
             let _ = builder.add_entry(i, i, diag_eps);
         }
@@ -574,12 +575,13 @@ impl<T: RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> 
     }
 }
 
-pub fn extract_vertex_indices<T: RealField + Copy + Float>(cell: &Cell, mesh: &Mesh<T>) -> Result<Vec<usize>> {
+pub fn extract_vertex_indices<T: cfd_mesh::domain::core::Scalar + RealField + Copy + Float>(cell: &Cell, mesh: &IndexedMesh<T>) -> Result<Vec<usize>> {
     let mut counts = std::collections::HashMap::new();
     for &f_idx in &cell.faces {
-        if let Some(f) = mesh.face(f_idx) {
-            for &v_idx in &f.vertices {
-                *counts.entry(v_idx).or_insert(0) += 1;
+        if f_idx < mesh.face_count() {
+            let f = mesh.faces.get(cfd_mesh::domain::core::index::FaceId::from_usize(f_idx));
+            for &v_id in &f.vertices {
+                *counts.entry(v_id.as_usize()).or_insert(0) += 1;
             }
         }
     }
@@ -616,9 +618,9 @@ pub fn extract_vertex_indices<T: RealField + Copy + Float>(cell: &Cell, mesh: &M
             let v_j = ordered[j];
             // The mid-node for (v_i, v_j) is the one shared by faces that both contain v_i and v_j.
             // Or simpler: find the mid_edge node that is closest to (v_i + v_j)/2
-            let p_i = mesh.vertex(v_i).unwrap().position.coords;
-            let p_j = mesh.vertex(v_j).unwrap().position.coords;
-            let target = (p_i + p_j) * T::from_f64(0.5).unwrap();
+            let p_i = mesh.vertices.position(cfd_mesh::domain::core::index::VertexId::from_usize(v_i)).coords;
+            let p_j = mesh.vertices.position(cfd_mesh::domain::core::index::VertexId::from_usize(v_j)).coords;
+            let target = (p_i + p_j) * <T as FromPrimitive>::from_f64(0.5).unwrap();
             
             let mut best_node = None;
             let mut min_dist = T::infinity();
@@ -627,7 +629,7 @@ pub fn extract_vertex_indices<T: RealField + Copy + Float>(cell: &Cell, mesh: &M
                 if used_mid_edges.contains(&m_idx) {
                     continue;
                 }
-                let dist = (mesh.vertex(m_idx).unwrap().position.coords - target).norm();
+                let dist = (mesh.vertices.position(cfd_mesh::domain::core::index::VertexId::from_usize(m_idx)).coords - target).norm();
                 if dist < min_dist {
                     min_dist = dist;
                     best_node = Some(m_idx);
@@ -638,9 +640,9 @@ pub fn extract_vertex_indices<T: RealField + Copy + Float>(cell: &Cell, mesh: &M
                 m_idx
             } else {
                 let mut fallback = mid_edges[0];
-                let mut fallback_dist = (mesh.vertex(fallback).unwrap().position.coords - target).norm();
+                let mut fallback_dist = (mesh.vertices.position(cfd_mesh::domain::core::index::VertexId::from_usize(fallback)).coords - target).norm();
                 for &m_idx in &mid_edges[1..] {
-                    let dist = (mesh.vertex(m_idx).unwrap().position.coords - target).norm();
+                    let dist = (mesh.vertices.position(cfd_mesh::domain::core::index::VertexId::from_usize(m_idx)).coords - target).norm();
                     if dist < fallback_dist {
                         fallback_dist = dist;
                         fallback = m_idx;
@@ -661,7 +663,7 @@ pub fn extract_vertex_indices<T: RealField + Copy + Float>(cell: &Cell, mesh: &M
     Ok(all)
 }
 
-fn order_tet_corners<T: RealField + Copy + Float>(corners: &[usize], mesh: &Mesh<T>) -> Vec<usize> {
+fn order_tet_corners<T: cfd_mesh::domain::core::Scalar + RealField + Copy + Float>(corners: &[usize], mesh: &IndexedMesh<T>) -> Vec<usize> {
     let perms: [[usize; 4]; 24] = [
         [0, 1, 2, 3], [0, 1, 3, 2], [0, 2, 1, 3], [0, 2, 3, 1], [0, 3, 1, 2], [0, 3, 2, 1],
         [1, 0, 2, 3], [1, 0, 3, 2], [1, 2, 0, 3], [1, 2, 3, 0], [1, 3, 0, 2], [1, 3, 2, 0],
@@ -678,10 +680,10 @@ fn order_tet_corners<T: RealField + Copy + Float>(corners: &[usize], mesh: &Mesh
         let v2 = corners[perm[2]];
         let v3 = corners[perm[3]];
 
-        let p0 = mesh.vertex(v0).unwrap().position.coords;
-        let p1 = mesh.vertex(v1).unwrap().position.coords;
-        let p2 = mesh.vertex(v2).unwrap().position.coords;
-        let p3 = mesh.vertex(v3).unwrap().position.coords;
+        let p0 = mesh.vertices.position(cfd_mesh::domain::core::index::VertexId::from_usize(v0)).coords;
+        let p1 = mesh.vertices.position(cfd_mesh::domain::core::index::VertexId::from_usize(v1)).coords;
+        let p2 = mesh.vertices.position(cfd_mesh::domain::core::index::VertexId::from_usize(v2)).coords;
+        let p3 = mesh.vertices.position(cfd_mesh::domain::core::index::VertexId::from_usize(v3)).coords;
 
         let det = (p1 - p0).cross(&(p2 - p0)).dot(&(p3 - p0));
         if det > T::zero() {
@@ -703,11 +705,11 @@ fn order_tet_corners<T: RealField + Copy + Float>(corners: &[usize], mesh: &Mesh
     best.unwrap_or_else(|| corners.to_vec())
 }
 
-fn compute_mesh_scale<T: RealField + Copy + Float>(mesh: &Mesh<T>) -> T {
+fn compute_mesh_scale<T: cfd_mesh::domain::core::Scalar + RealField + Copy + Float>(mesh: &IndexedMesh<T>) -> T {
     let mut min = Vector3::new(T::infinity(), T::infinity(), T::infinity());
     let mut max = Vector3::new(T::neg_infinity(), T::neg_infinity(), T::neg_infinity());
-    for v in mesh.vertices() {
-        let p = v.position.coords;
+    for v in mesh.vertices.iter() {
+        let p = v.1.position.coords;
         min.x = Float::min(min.x, p.x); 
         min.y = Float::min(min.y, p.y); 
         min.z = Float::min(min.z, p.z);

@@ -7,7 +7,7 @@ use super::solver::{VenturiConfig3D, VenturiSolution3D, VenturiSolver3D};
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::Error;
 use cfd_core::physics::fluid::traits::Fluid as FluidTrait;
-use cfd_mesh::geometry::venturi::VenturiMeshBuilder;
+use cfd_mesh::VenturiMeshBuilder;
 use nalgebra::RealField;
 use num_traits::{Float, FromPrimitive, ToPrimitive};
 use serde::{Deserialize, Serialize};
@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize};
 
 /// Calculate theoretical discharge coefficient for a classical Venturi tube
 /// based on ISO 5167-4
-pub fn iso_discharge_coefficient<T: RealField + Copy + FromPrimitive>(
+pub fn iso_discharge_coefficient<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive>(
     reynolds_d: T,
     beta: T,
     pipe_roughness: T,
@@ -34,18 +34,18 @@ pub fn iso_discharge_coefficient<T: RealField + Copy + FromPrimitive>(
     // but here we use simple constant or lookup for Venturi.
     // ISO 5167-4 specifies C = 0.995 +/- 1% for 2e5 < Re < 1e6 and 0.4 < beta < 0.75
     
-    T::from_f64(0.995).unwrap()
+    <T as FromPrimitive>::from_f64(0.995).unwrap()
 }
 
 // ============================================================================
 // Venturi Validator
 // ============================================================================
 
-pub struct VenturiValidator3D<T: RealField + Copy + Float> {
+pub struct VenturiValidator3D<T: cfd_mesh::domain::core::Scalar + RealField + Copy + Float> {
     pub mesh_builder: VenturiMeshBuilder<T>,
 }
 
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float> VenturiValidator3D<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float> VenturiValidator3D<T> {
     pub fn new(mesh_builder: VenturiMeshBuilder<T>) -> Self {
         Self { mesh_builder }
     }
@@ -64,13 +64,13 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float> Ve
         // We'll trust solver.u_inlet * A_in vs solution.u_throat * A_throat vs Q_in
         
         let a_inlet = if config.circular {
-            T::from_f64(std::f64::consts::PI / 4.0).unwrap() * self.mesh_builder.d_inlet * self.mesh_builder.d_inlet
+            <T as FromPrimitive>::from_f64(std::f64::consts::PI / 4.0).unwrap() * self.mesh_builder.d_inlet * self.mesh_builder.d_inlet
         } else {
             self.mesh_builder.d_inlet * self.mesh_builder.d_inlet
         };
         
         let a_throat = if config.circular {
-            T::from_f64(std::f64::consts::PI / 4.0).unwrap() * self.mesh_builder.d_throat * self.mesh_builder.d_throat
+            <T as FromPrimitive>::from_f64(std::f64::consts::PI / 4.0).unwrap() * self.mesh_builder.d_throat * self.mesh_builder.d_throat
         } else {
             self.mesh_builder.d_throat * self.mesh_builder.d_throat
         };
@@ -90,7 +90,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float> Ve
         let beta = self.mesh_builder.d_throat / self.mesh_builder.d_inlet;
         let area_ratio = a_inlet / a_throat; // > 1
         
-        let dp_bernoulli = T::from_f64(0.5).unwrap() * fluid_density * u_in_avg * u_in_avg * (area_ratio * area_ratio - T::one());
+        let dp_bernoulli = <T as FromPrimitive>::from_f64(0.5).unwrap() * fluid_density * u_in_avg * u_in_avg * (area_ratio * area_ratio - T::one());
         
         let dp_actual = solution.p_inlet - solution.p_throat;
         
@@ -104,11 +104,11 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float> Ve
 
         let mut result = VenturiValidationResult3D::new("Venturi Flow Validation".to_string());
         result.dp_error = Some(error_dp);
-        result.validation_passed = error_dp > T::from_f64(-0.1).unwrap() && recovery_ok; // Allow 10% tolerance for Bernoulli approximation, must be higher than Bernoulli
+        result.validation_passed = error_dp > <T as FromPrimitive>::from_f64(-0.1).unwrap() && recovery_ok; // Allow 10% tolerance for Bernoulli approximation, must be higher than Bernoulli
 
         if !result.validation_passed {
              let mut msg = String::new();
-            if error_dp <= T::from_f64(-0.1).unwrap() { msg.push_str(&format!("Pressure drop too low (Bernoulli violation): {:?}; ", error_dp)); }
+            if error_dp <= <T as FromPrimitive>::from_f64(-0.1).unwrap() { msg.push_str(&format!("Pressure drop too low (Bernoulli violation): {:?}; ", error_dp)); }
             if !recovery_ok { msg.push_str("Pressure recovery positive (impossible); "); }
             result.error_message = Some(msg);
         }
@@ -118,14 +118,14 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float> Ve
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct VenturiValidationResult3D<T: RealField + Copy> {
+pub struct VenturiValidationResult3D<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     pub test_name: String,
     pub dp_error: Option<T>,
     pub validation_passed: bool,
     pub error_message: Option<String>,
 }
 
-impl<T: RealField + Copy> VenturiValidationResult3D<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy> VenturiValidationResult3D<T> {
     pub fn new(test_name: String) -> Self {
         Self {
             test_name,

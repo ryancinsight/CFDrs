@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 
 /// Mesh convergence study configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MeshRefinementConfig<T: RealField + Copy> {
+pub struct MeshRefinementConfig<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     /// Number of refinement levels
     pub n_levels: usize,
     /// Refinement factor (h_new = h_old / factor)
@@ -28,7 +28,7 @@ pub struct MeshRefinementConfig<T: RealField + Copy> {
     pub expected_order: T,
 }
 
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> Default
+impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> Default
     for MeshRefinementConfig<T>
 {
     fn default() -> Self {
@@ -45,12 +45,12 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> Default
 // ============================================================================
 
 /// Comprehensive validator for 3D bifurcation simulations
-pub struct BifurcationValidator3D<T: RealField + Copy> {
+pub struct BifurcationValidator3D<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     geometry: BifurcationGeometry3D<T>,
     mesh_config: MeshRefinementConfig<T>,
 }
 
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + num_traits::Float + From<f64>> BifurcationValidator3D<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + num_traits::Float + From<f64>> BifurcationValidator3D<T> {
     /// Create new validator
     pub fn new(geometry: BifurcationGeometry3D<T>, mesh_config: MeshRefinementConfig<T>) -> Self {
         Self {
@@ -174,7 +174,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + num_trait
 
 /// Result of bifurcation validation
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BifurcationValidationResult3D<T: RealField + Copy> {
+pub struct BifurcationValidationResult3D<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     /// Test name
     pub test_name: String,
     /// Mass conservation error
@@ -191,7 +191,7 @@ pub struct BifurcationValidationResult3D<T: RealField + Copy> {
     pub error_message: Option<String>,
 }
 
-impl<T: RealField + Copy + ToPrimitive> BifurcationValidationResult3D<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + ToPrimitive> BifurcationValidationResult3D<T> {
     /// Create new validation result
     pub fn new(test_name: String) -> Self {
         Self {
