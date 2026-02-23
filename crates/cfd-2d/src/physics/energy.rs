@@ -15,7 +15,8 @@ pub mod constants {
     pub const DEFAULT_PRANDTL: f64 = 0.71;
     /// Stefan-Boltzmann constant [W/(m²·K⁴)]
     pub const STEFAN_BOLTZMANN: f64 = 5.67e-8;
-
+    /// Denominator coefficient for central difference: (u_{i+1} - u_{i-1}) / (CENTRAL_DIFF_COEFF · Δx)
+    pub const CENTRAL_DIFF_COEFF: f64 = 2.0;
 }
 
 /// Energy equation solver

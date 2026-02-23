@@ -33,7 +33,6 @@ serde_json.workspace = true
 proptest.workspace = true
 approx.workspace = true
 criterion.workspace = true
-cfd-validation.workspace = true
 rand.workspace = true
 
 [[bench]]

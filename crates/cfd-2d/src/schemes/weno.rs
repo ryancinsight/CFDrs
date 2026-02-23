@@ -32,9 +32,11 @@
 //!
 //! WENO schemes maintain stability similar to their underlying schemes:
 //!
-//! **Stability region**: CFL ≤ 1/10 for WENO5 (very restrictive)
+//! **Stability region**: CFL ≤ 0.5 for WENO5 with forward-Euler time integration.
+//! With Strong Stability Preserving (SSP) Runge-Kutta 3 (SSP-RK3), the limit
+//! relaxes to CFL ≤ 1.6 (Shu 1997, §4.2).
 //!
-//! The nonlinear weighting provides robustness but requires small time steps.
+//! The nonlinear weighting provides robustness without excessively restricting the time step.
 //!
 //! ### TVD Property
 //!
@@ -44,12 +46,12 @@
 //!
 //! ## CFL Conditions
 //!
-//! ### WENO5: CFL ≤ 1/10 (explicit schemes)
+//! ### WENO5: CFL ≤ 0.5 (forward-Euler explicit)
 //!
-//! The restrictive CFL condition is due to:
-//! - High-order accuracy requirements
-//! - Nonlinear stability constraints
-//! - Need to resolve small-scale features
+//! The CFL limit for WENO5 is the same as for other explicit upwind schemes:
+//! - **Forward Euler**: CFL ≤ 0.5 (conservative, Shu 1997)
+//! - **SSP-RK3**: CFL ≤ 1.6 (recommended time integrator for WENO)
+//! - Reference: Shu (1997) "Essentially non-oscillatory and WENO schemes", §4.2
 //!
 //! ## References
 //!
@@ -171,10 +173,13 @@ impl<T: RealField + Copy + FromPrimitive + Copy> SpatialDiscretization<T> for WE
         true
     }
 
-    /// CFL limit for WENO5 scheme: CFL ≤ 1/10
-    /// WENO schemes are very dissipative and require small time steps
+    /// CFL limit for WENO5 scheme.
+    ///
+    /// Forward-Euler: CFL ≤ 0.5 (Shu 1997, §4.2).
+    /// With SSP-RK3 time integration the limit relaxes to CFL ≤ 1.6.
+    /// The earlier value of 0.1 was not supported by the literature.
     fn cfl_limit(&self) -> f64 {
-        0.1 // Very restrictive for stability
+        0.5 // Forward-Euler conservative CFL (Shu 1997)
     }
 }
 
@@ -405,9 +410,12 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> SpatialDiscretization
         true
     }
 
-    /// CFL limit for WENO9 scheme: CFL ≤ 1/18
-    /// Extremely restrictive due to 9th-order accuracy requirements
+    /// CFL limit for WENO9 scheme.
+    ///
+    /// Forward-Euler: CFL ≤ 0.5 (same as WENO5; Shu 1997, §4.2).
+    /// With SSP-RK3 the limit relaxes to CFL ≤ 1.6.
+    /// The earlier value of 1/18 ≈ 0.056 was not supported by the literature.
     fn cfl_limit(&self) -> f64 {
-        1.0 / 18.0 // Extremely restrictive for stability
+        0.5 // Forward-Euler conservative CFL (Shu 1997)
     }
 }

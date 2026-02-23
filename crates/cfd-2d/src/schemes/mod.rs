@@ -16,6 +16,8 @@ pub mod upwind;
 pub mod weno;
 pub mod weno_constants;
 #[cfg(test)]
+pub mod tvd_tests;
+#[cfg(test)]
 pub mod weno_tests;
 
 // Re-export main types

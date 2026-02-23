@@ -9,7 +9,6 @@
 //! - Diffusion: Central difference.
 //! - Solver: Gauss-Seidel iterations.
 
-use cfd_core::error::Error;
 use nalgebra::RealField;
 use num_traits::{Float, FromPrimitive};
 use serde::{Deserialize, Serialize};

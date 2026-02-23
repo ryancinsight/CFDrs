@@ -28,7 +28,8 @@
 //! \phi(r) \geq 0, \quad 0 \leq \frac{\phi(r)}{r} \leq 2, \quad 0 \leq \phi(r) \leq 2
 //! ```
 //!
-//! where $r = \frac{u_i - u_{i-1}}{u_{i+1} - u_i}$ is the gradient ratio.
+//! where $r = \frac{u_{i+1} - u_i}{u_i - u_{i-1}}$ is the gradient ratio
+//! (van Leer 1979 convention: forward / backward difference).
 //!
 //! ## MUSCL (Monotonic Upstream-centered Scheme for Conservation Laws)
 //!
@@ -243,13 +244,15 @@
 //!
 //! ### Gradient Ratio Calculation
 //!
-//! The gradient ratio $r_i$ is computed with division-by-zero protection:
+//! The gradient ratio $r_i$ is computed with division-by-zero protection using
+//! the **van Leer (1979) convention** (forward difference over backward difference):
 //!
 //! ```math
-//! r_i = \frac{u_i - u_{i-1}}{u_{i+1} - u_i + \epsilon}
+//! r_i = \frac{u_{i+1} - u_i}{u_i - u_{i-1} + \epsilon}
 //! ```
 //!
-//! where $\epsilon$ is machine epsilon.
+//! where $\epsilon$ is machine epsilon.  The limiter $\psi(r_i)$ is then applied
+//! to the backward difference $(u_i - u_{i-1})$ to form the limited slope.
 //!
 //! ### Limiter Application
 //!
@@ -670,11 +673,21 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + Copy> FaceReconstructio
             match self.order {
                 MUSCLOrder::SecondOrder => {
                     if velocity_at_face >= T::zero() {
-                        // Flow from left to right - reconstruct φ_{i+1/2}^L
+                        // Flow from left to right: left state φ_{i+1/2}^L from cell i's stencil
+                        // φ_{i+1/2}^L = φ_i + (1/2)·ψ(r_i)·(φ_i - φ_{i-1})
                         self.reconstruct_left_muscl2(phi_im1, phi_i, phi_ip1)
                     } else {
-                        // Flow from right to left - reconstruct φ_{i+1/2}^R
-                        self.reconstruct_right_muscl2(phi_im1, phi_i, phi_ip1)
+                        // Flow from right to left: right state φ_{i+1/2}^R from cell i+1's stencil
+                        // φ_{i+1/2}^R = φ_{i+1} - (1/2)·ψ(r_{i+1})·(φ_{i+2} - φ_{i+1})
+                        // Requires stencil [φ_i, φ_{i+1}, φ_{i+2}] centered on cell i+1
+                        // Reference: van Leer (1979); LeVeque (2002) §6.5
+                        if i + 2 < nx {
+                            let phi_ip2 = phi.data[(i + 2, j)];
+                            self.reconstruct_right_muscl2(phi_i, phi_ip1, phi_ip2)
+                        } else {
+                            // Near right boundary: fall back to first-order upwind
+                            phi_ip1
+                        }
                     }
                 }
                 MUSCLOrder::ThirdOrder => {
@@ -705,8 +718,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + Copy> FaceReconstructio
         i: usize,
         j: usize,
     ) -> T {
-        let _nx = phi.data.ncols();
-        let ny = phi.data.nrows();
+        let _nx = phi.data.nrows(); // Number of cells in x-direction (rows)
+        let ny = phi.data.ncols(); // Number of cells in y-direction (cols)
 
         // Handle boundary cases with one-sided reconstruction (analogous to x-direction)
         if j == 0 {
@@ -758,9 +771,21 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + Copy> FaceReconstructio
             match self.order {
                 MUSCLOrder::SecondOrder => {
                     if velocity_at_face >= T::zero() {
+                        // Flow upward: left state φ_{j+1/2}^L from cell j's stencil
+                        // φ_{j+1/2}^L = φ_j + (1/2)·ψ(r_j)·(φ_j - φ_{j-1})
                         self.reconstruct_left_muscl2(phi_jm1, phi_j, phi_jp1)
                     } else {
-                        self.reconstruct_right_muscl2(phi_jm1, phi_j, phi_jp1)
+                        // Flow downward: right state φ_{j+1/2}^R from cell j+1's stencil
+                        // φ_{j+1/2}^R = φ_{j+1} - (1/2)·ψ(r_{j+1})·(φ_{j+2} - φ_{j+1})
+                        // Requires stencil [φ_j, φ_{j+1}, φ_{j+2}] centered on cell j+1
+                        // Reference: van Leer (1979); LeVeque (2002) §6.5
+                        if j + 2 < ny {
+                            let phi_jp2 = phi.data[(i, j + 2)];
+                            self.reconstruct_right_muscl2(phi_j, phi_jp1, phi_jp2)
+                        } else {
+                            // Near top boundary: fall back to first-order upwind
+                            phi_jp1
+                        }
                     }
                 }
                 MUSCLOrder::ThirdOrder => {

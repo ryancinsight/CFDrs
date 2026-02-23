@@ -304,9 +304,11 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> TurbulenceMo
         _wall_distance: T,
         _molecular_viscosity: T,
     ) -> T {
+        // P_k = ν_t · |S|² where strain_rate() returns |S| = sqrt(2·S_ij·S_ij)
+        // Therefore |S|² = 2·S_ij·S_ij and P_k = 2·ν_t·S_ij·S_ij = ν_t·|S|²
+        // Reference: Launder & Spalding (1974), Eq. (2.5)
         let strain = self.strain_rate(velocity_gradient);
-        let two = T::from_f64(TWO).unwrap_or_else(T::one);
-        turbulent_viscosity * strain * strain * two
+        turbulent_viscosity * strain * strain
     }
 
     fn dissipation_term(&self, _k: T, epsilon: T) -> T {
@@ -940,20 +942,25 @@ mod tests {
     }
 
     /// Analytical validation: steady-state equilibrium
+    ///
+    /// At equilibrium P_k = ε.  With P_k = ν_t·|S|² and ν_t = Cμ·k²/ε:
+    ///   (Cμ k²/ε)·|S|² = ε  →  |S| = ε / (√Cμ · k)
+    ///
+    /// Reference: Launder & Spalding (1974) §2, Jones & Launder (1972) §4
     #[test]
     fn test_equilibrium_balance() {
         let model = KEpsilonModel::<f64>::new(10, 10);
 
-        // Set up equilibrium condition: P_k = ε_k
-        // From k-ε theory: at equilibrium P = ε, where P = 2ν_t|S|^2
-        // So: 2ν_t|S|^2 = ε
-        // With ν_t = Cμ k²/ε, we get: 2*(Cμ k²/ε)*|S|² = ε
-        // Thus: |S| = ε / sqrt(2*Cμ*k)
+        // Set up equilibrium condition: P_k = ε
+        // From k-ε theory: at equilibrium P_k = ε, where P_k = ν_t·|S|²
+        // So: ν_t·|S|² = ε
+        // With ν_t = Cμ k²/ε, we get: (Cμ k²/ε)·|S|² = ε
+        // Thus: |S| = ε / (sqrt(Cμ) · k)
         let target_epsilon: f64 = 1.0;
         let target_k: f64 = 1.0;
 
-        // Calculate required strain rate for equilibrium
-        let strain_magnitude = target_epsilon / (2.0 * C_MU * target_k).sqrt();
+        // Calculate required strain rate for equilibrium: |S| = ε / (√Cμ · k)
+        let strain_magnitude = target_epsilon / (C_MU.sqrt() * target_k);
 
         // Calculate required ν_t for these values (should satisfy equilibrium)
         let nu_t_eq = model.turbulent_viscosity(target_k, target_epsilon, 1.0);
