@@ -191,12 +191,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "array-init"
-version = "2.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3d62b7694a562cdf5a74227903507c56ab2cc8bdd1f781ed5cb4cf9c9f810bfc"
-
-[[package]]
 name = "arrayvec"
 version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -289,12 +283,6 @@ checksum = "375082f007bd67184fb9c0374614b29f9aaa604ec301635f72338bb65386a53d"
 dependencies = [
  "arrayvec",
 ]
-
-[[package]]
-name = "az"
-version = "1.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "be5eb007b7cacc6c660343e96f650fedf4b5a77512399eb952ca6642cf8d13f7"
 
 [[package]]
 name = "base64"
@@ -457,20 +445,6 @@ name = "bumpalo"
 version = "3.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "46c5e41b57b8bba42a04676d81cb89e9ee8e859a1a66f80a5a72e1cb76b34d43"
-
-[[package]]
-name = "bvh"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "130070ae145ee1deee52b77d4bbf7a0345ee1771ee363211807ddaaf64652f0d"
-dependencies = [
- "approx 0.5.1",
- "log",
- "nalgebra 0.32.6",
- "num",
- "rand 0.8.5",
- "rayon",
-]
 
 [[package]]
 name = "bytemuck"
@@ -693,22 +667,18 @@ dependencies = [
  "anyhow",
  "approx 0.5.1",
  "aquamarine",
- "bvh",
  "cfd-schematics",
  "criterion",
  "geometry-predicates",
  "hashbrown 0.15.5",
  "indexmap",
- "kiddo",
  "nalgebra 0.33.2",
  "num-traits 0.2.19",
  "proptest",
  "rayon",
- "rstar 0.12.2",
  "serde",
  "serde_json",
  "slotmap",
- "spade",
  "thiserror 1.0.69",
  "tracing",
 ]
@@ -721,7 +691,10 @@ dependencies = [
  "cfd-1d",
  "cfd-core",
  "cfd-schematics",
+ "plotters",
+ "rand 0.8.5",
  "serde",
+ "serde_json",
  "thiserror 1.0.69",
 ]
 
@@ -784,7 +757,7 @@ dependencies = [
  "rayon",
  "serde",
  "serde_json",
- "simba 0.9.1",
+ "simba",
  "tracing",
  "tracing-subscriber",
  "wgpu",
@@ -933,12 +906,6 @@ name = "clap_lex"
 version = "0.7.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b94f61472cee1439c0b966b47e3aca9ae07e45d070759512cd390ea2bebc6675"
-
-[[package]]
-name = "cmov"
-version = "0.4.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6d5ce5728ecb5285a5dd35f02a6a8e34e0828e0b38e8e632e249a3fe3f320211"
 
 [[package]]
 name = "codespan-reporting"
@@ -1284,12 +1251,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "divrem"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "69dde51e8fef5e12c1d65e0929b03d66e4c0c18282bc30ed2ca050ad6f44dd82"
-
-[[package]]
 name = "dlib"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1498,19 +1459,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "fixed"
-version = "1.30.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c566da967934c6c7ee0458a9773de9b2a685bd2ce26a3b28ddfc740e640182f5"
-dependencies = [
- "az",
- "bytemuck",
- "half",
- "num-traits 0.2.19",
- "typenum",
-]
-
-[[package]]
 name = "fixedbitset"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1715,21 +1663,6 @@ dependencies = [
  "pin-project-lite",
  "pin-utils",
  "slab",
-]
-
-[[package]]
-name = "generator"
-version = "0.8.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "52f04ae4152da20c76fe800fa48659201d5cf627c5149ca0b707b69d7eef6cf9"
-dependencies = [
- "cc",
- "cfg-if",
- "libc",
- "log",
- "rustversion",
- "windows-link 0.2.1",
- "windows-result",
 ]
 
 [[package]]
@@ -2500,26 +2433,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2db585e1d738fc771bf08a151420d3ed193d9d895a36df7f6f8a9456b911ddc"
 
 [[package]]
-name = "kiddo"
-version = "5.2.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "07ab03cc75e18eb1eec59f4037e2e17ce9d13920f0013b0719dea613d9414e4e"
-dependencies = [
- "aligned-vec",
- "array-init",
- "az",
- "cmov",
- "divrem",
- "fixed",
- "generator",
- "num-traits 0.2.19",
- "ordered-float",
- "sorted-vec",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
 name = "lazy_static"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2775,23 +2688,6 @@ dependencies = [
 
 [[package]]
 name = "nalgebra"
-version = "0.32.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7b5c17de023a86f59ed79891b2e5d5a94c705dbe904a5b5c9c952ea6221b03e4"
-dependencies = [
- "approx 0.5.1",
- "matrixmultiply",
- "nalgebra-macros 0.2.2",
- "num-complex 0.4.6",
- "num-rational",
- "num-traits 0.2.19",
- "serde",
- "simba 0.8.1",
- "typenum",
-]
-
-[[package]]
-name = "nalgebra"
 version = "0.33.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "26aecdf64b707efd1310e3544d709c5c0ac61c13756046aaaba41be5c4f66a3b"
@@ -2803,7 +2699,7 @@ dependencies = [
  "num-rational",
  "num-traits 0.2.19",
  "serde",
- "simba 0.9.1",
+ "simba",
  "typenum",
 ]
 
@@ -2836,7 +2732,7 @@ dependencies = [
  "num-rational",
  "num-traits 0.2.19",
  "serde",
- "simba 0.9.1",
+ "simba",
  "typenum",
 ]
 
@@ -3186,7 +3082,7 @@ dependencies = [
  "num-traits 0.2.19",
  "ordered-float",
  "rstar 0.12.2",
- "simba 0.9.1",
+ "simba",
  "slab",
  "smallvec",
  "spade",
@@ -3637,7 +3533,7 @@ dependencies = [
  "parry3d-f64",
  "profiling",
  "rustc-hash 2.1.1",
- "simba 0.9.1",
+ "simba",
  "static_assertions",
  "thiserror 2.0.18",
 ]
@@ -4048,19 +3944,6 @@ dependencies = [
 
 [[package]]
 name = "simba"
-version = "0.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "061507c94fc6ab4ba1c9a0305018408e312e17c041eb63bef8aa726fa33aceae"
-dependencies = [
- "approx 0.5.1",
- "num-complex 0.4.6",
- "num-traits 0.2.19",
- "paste",
- "wide",
-]
-
-[[package]]
-name = "simba"
 version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c99284beb21666094ba2b75bbceda012e610f5479dfcc2d6e2426f53197ffd95"
@@ -4117,12 +4000,6 @@ dependencies = [
  "libc",
  "windows-sys 0.60.2",
 ]
-
-[[package]]
-name = "sorted-vec"
-version = "0.8.10"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "19f58d7b0190c7f12df7e8be6b79767a0836059159811b869d5ab55721fe14d0"
 
 [[package]]
 name = "spade"

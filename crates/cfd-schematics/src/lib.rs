@@ -80,14 +80,15 @@ pub mod interface;
 
 // ── Flat convenience re-exports ───────────────────────────────────────────────
 pub use application::use_cases::NetworkGenerationService;
-pub use domain::model::{ChannelSpec, EdgeKind, NetworkBlueprint, NodeKind, NodeSpec};
+pub use domain::model::{ChannelSpec, CrossSectionSpec, EdgeKind, NetworkBlueprint, NodeKind, NodeSpec};
 pub use error::{
     ConfigurationError, GeometryError, SchemeError, SchemeResult, StrategyError,
     VisualizationError,
 };
 pub use infrastructure::adapters::{build_design_graph, DesignGraph, PetgraphGraphSink};
 pub use interface::presets::{
-    serpentine_chain, symmetric_bifurcation, symmetric_trifurcation, venturi_chain,
+    bifurcation_rect, serpentine_chain, serpentine_rect, symmetric_bifurcation,
+    symmetric_trifurcation, trifurcation_rect, venturi_chain, venturi_rect,
 };
 pub use state_management::{
     ConfigurableParameter, ConstraintError, ParameterConstraints, ParameterError,
@@ -107,6 +108,7 @@ pub mod network {
         build_design_graph, DesignGraph, PetgraphGraphSink,
     };
     pub use crate::interface::presets::{
-        serpentine_chain, symmetric_bifurcation, symmetric_trifurcation, venturi_chain,
+        bifurcation_rect, serpentine_chain, serpentine_rect, symmetric_bifurcation,
+        symmetric_trifurcation, trifurcation_rect, venturi_chain, venturi_rect,
     };
 }

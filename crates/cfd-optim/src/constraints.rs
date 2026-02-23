@@ -88,23 +88,23 @@ pub const GIERSIEPEN_BETA: f64 = 1.991;
 
 // ── Design parameter sweep ranges ─────────────────────────────────────────
 
-/// Volumetric flow rates to sweep [m³/s]  (1, 5, 10 mL/min)
-pub const FLOW_RATES_M3_S: [f64; 3] = [1.667e-8, 8.333e-8, 1.667e-7];
+/// Volumetric flow rates to sweep [m³/s]  (10, 30, 60 mL/min — photopheresis-like millifluidic)
+pub const FLOW_RATES_M3_S: [f64; 3] = [1.667e-7, 5.0e-7, 1.0e-6];
 
 /// Gauge pressures at inlet [Pa]  (1, 2, 3 bar above atmospheric)
 pub const INLET_GAUGES_PA: [f64; 3] = [100_000.0, 200_000.0, 300_000.0];
 
-/// Venturi throat diameters [m]  (50, 100, 150 μm)
+/// Venturi throat diameters [m]  (50, 100, 150 μm — narrow throat, constant chip height)
 pub const THROAT_DIAMETERS_M: [f64; 3] = [50e-6, 100e-6, 150e-6];
 
-/// Main channel widths for rectangular serpentine channels [m]  (0.3, 0.5, 0.8 mm)
-pub const CHANNEL_WIDTHS_M: [f64; 3] = [0.3e-3, 0.5e-3, 0.8e-3];
+/// Main channel widths for rectangular serpentine channels [m]  (1.0, 2.0, 4.0 mm — millifluidic)
+pub const CHANNEL_WIDTHS_M: [f64; 3] = [1.0e-3, 2.0e-3, 4.0e-3];
 
 /// Fixed channel height used for all rectangular channels [m]
-pub const CHANNEL_HEIGHT_M: f64 = 0.1e-3; // 100 μm
+pub const CHANNEL_HEIGHT_M: f64 = 0.5e-3; // 500 μm — millifluidic
 
-/// Fixed inlet diameter for all venturi stages [m]
-pub const VENTURI_INLET_DIAM_M: f64 = 0.5e-3; // 500 μm
+/// Fixed inlet/outlet port diameter for all venturi stages [m]  (4 mm port as specified)
+pub const VENTURI_INLET_DIAM_M: f64 = 4.0e-3; // 4 mm
 
 /// Serpentine segment lengths to sweep [m]  (one pass = full treatment width; 45 mm)
 pub const SERPENTINE_SEG_LENGTHS_M: [f64; 2] = [

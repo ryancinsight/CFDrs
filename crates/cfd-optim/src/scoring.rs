@@ -69,6 +69,18 @@ pub enum OptimMode {
     /// - Cavitation potential (secondary goal)
     /// - Low haemolysis index
     CellSeparation,
+
+    /// Maximise three-population separation (WBC + cancer → center, RBC → periphery)
+    /// while delivering SDT cavitation through the venturi throat.
+    ///
+    /// Hard constraints: same as `SdtCavitation`.
+    ///
+    /// Soft objectives:
+    /// - Three-population separation efficiency (`x̃_rbc − max(x̃_cancer, x̃_wbc)`)
+    /// - WBC center fraction (WBCs co-focused with cancer cells)
+    /// - Cavitation potential (SDT delivery in center channel)
+    /// - Low haemolysis index
+    ThreePopSeparation,
 }
 
 // ── Scoring weights ──────────────────────────────────────────────────────────
@@ -94,13 +106,23 @@ pub struct SdtWeights {
     /// Weight on normalised residence time in the treatment zone.
     pub exp_residence: f64,
 
-    // ── Cell separation weights ──────────────────────────────────────────
+    // ── Cell separation weights (2-population: cancer vs RBC) ───────────
     /// Weight on separation efficiency.
     pub sep_efficiency: f64,
     /// Weight on cavitation potential in separation mode.
     pub sep_cavitation: f64,
     /// Weight on low haemolysis index in separation mode.
     pub sep_hemolysis: f64,
+
+    // ── Three-population separation weights (WBC+cancer→center, RBC→wall) ─
+    /// Weight on three-population separation efficiency (`x̃_rbc − max(x̃_cancer, x̃_wbc)`).
+    pub sep3_efficiency: f64,
+    /// Weight on WBC center fraction (WBCs co-focused with cancer cells).
+    pub sep3_wbc_center: f64,
+    /// Weight on cavitation potential in three-population mode.
+    pub sep3_cavitation: f64,
+    /// Weight on low haemolysis index in three-population mode.
+    pub sep3_hemolysis: f64,
 }
 
 impl Default for SdtWeights {
@@ -123,6 +145,13 @@ impl Default for SdtWeights {
             sep_efficiency: 0.50,
             sep_cavitation: 0.30,
             sep_hemolysis: 0.20,
+
+            // Three-population separation: efficiency and WBC co-focus are primary;
+            // cavitation (SDT delivery to co-focused cells) and HI are secondary.
+            sep3_efficiency: 0.40,
+            sep3_wbc_center: 0.20,
+            sep3_cavitation: 0.25,
+            sep3_hemolysis: 0.15,
         }
     }
 }
@@ -152,6 +181,7 @@ pub fn score_candidate(metrics: &SdtMetrics, mode: OptimMode, weights: &SdtWeigh
                 / (cavitation_weight + exposure_weight).max(1e-12)
         }
         OptimMode::CellSeparation => score_cell_separation(metrics, weights),
+        OptimMode::ThreePopSeparation => score_three_pop_separation(metrics, weights),
     }
 }
 
@@ -202,6 +232,28 @@ fn score_cell_separation(metrics: &SdtMetrics, w: &SdtWeights) -> f64 {
     w.sep_efficiency * separation + w.sep_cavitation * cav + w.sep_hemolysis * hi_factor
 }
 
+/// Score for the three-population separation objective (WBC+cancer→center, RBC→wall).
+///
+/// Rewards designs where:
+/// - `three_pop_sep_efficiency` is high (RBCs pushed to wall relative to both WBC and cancer)
+/// - `wbc_center_fraction` is high (WBCs co-focus with cancer cells in center channel)
+/// - Cavitation potential is non-zero (SDT is delivered to the co-focused cells)
+/// - Haemolysis index is low
+fn score_three_pop_separation(metrics: &SdtMetrics, w: &SdtWeights) -> f64 {
+    // Clamp sep_efficiency to [0, 1]; negative efficiency (cells mixed up) scores 0.
+    let sep3 = metrics.three_pop_sep_efficiency.clamp(0.0, 1.0);
+    let wbc_center = metrics.wbc_center_fraction.clamp(0.0, 1.0);
+    let cav = metrics.cavitation_potential;
+
+    let hi_ratio = (metrics.hemolysis_index_per_pass / HI_PASS_LIMIT).min(2.0);
+    let hi_factor = (1.0 - 0.5 * hi_ratio).max(0.0);
+
+    w.sep3_efficiency * sep3
+        + w.sep3_wbc_center * wbc_center
+        + w.sep3_cavitation * cav
+        + w.sep3_hemolysis * hi_factor
+}
+
 // ── Utility ──────────────────────────────────────────────────────────────────
 
 /// Return a human-readable summary line for a scored candidate.
@@ -211,5 +263,6 @@ pub fn score_description(mode: OptimMode) -> &'static str {
         OptimMode::UniformExposure => "Uniform Exposure",
         OptimMode::Combined { .. } => "Combined (Cavitation + Exposure)",
         OptimMode::CellSeparation => "Cell Separation + SDT",
+        OptimMode::ThreePopSeparation => "Three-Pop Separation (WBC+Cancer→Center, RBC→Wall) + SDT",
     }
 }

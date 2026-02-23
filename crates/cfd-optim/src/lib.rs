@@ -43,6 +43,8 @@
 pub mod constraints;
 pub mod design;
 pub mod error;
+pub mod evo;
+pub mod export;
 pub mod metrics;
 pub mod optimizer;
 pub mod scoring;
@@ -51,6 +53,8 @@ pub mod scoring;
 
 pub use design::{build_candidate_space, DesignCandidate, DesignTopology};
 pub use error::OptimError;
+pub use evo::{decode_genome, GeneticOptimizer, MillifluidicGenome};
+pub use export::{save_comparison_svg, save_schematic_svg, save_top5_json};
 pub use metrics::{compute_metrics, giersiepen_hi, SdtMetrics};
 pub use optimizer::{OptimStats, RankedDesign, SdtOptimizer};
 pub use scoring::{score_candidate, score_description, OptimMode, SdtWeights};

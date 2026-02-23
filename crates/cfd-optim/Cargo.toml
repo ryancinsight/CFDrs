@@ -15,10 +15,25 @@ mesh-export = ["dep:blue2mesh"]
 
 [dependencies]
 serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
 thiserror.workspace = true
+rand.workspace = true
+plotters = { version = "0.3", default-features = false, features = ["svg_backend", "line_series"] }
 
 cfd-core = { workspace = true, default-features = false }
 cfd-1d.workspace = true
 cfd-schematics.workspace = true
 
 blue2mesh = { path = "../../../blue2mesh", optional = true, default-features = false, features = ["mesh-generation", "cfd-export", "stl-export"] }
+
+[[example]]
+name = "sdt_top5"
+path = "examples/sdt_top5.rs"
+
+[[example]]
+name = "sdt_export"
+path = "examples/sdt_export.rs"
+
+[[example]]
+name = "sdt_evo"
+path = "examples/sdt_evo.rs"
