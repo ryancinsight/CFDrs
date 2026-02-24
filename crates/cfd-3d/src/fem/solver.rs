@@ -210,7 +210,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
         let mut residual = vec![T::zero(); problem.n_corner_nodes];
 
         for cell in problem.mesh.cells.iter() {
-            let idxs = extract_vertex_indices(cell, &problem.mesh)?;
+            let idxs = extract_vertex_indices(cell, &problem.mesh, problem.n_corner_nodes)?;
             if idxs.len() < 4 {
                 continue;
             }
@@ -317,7 +317,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
         
         for (i, cell) in problem.mesh.cells.iter().enumerate() {
             let viscosity = problem.element_viscosities.as_ref().map_or(problem.fluid.viscosity, |v| v[i]);
-            let idxs = extract_vertex_indices(cell, &problem.mesh)?;
+            let idxs = extract_vertex_indices(cell, &problem.mesh, problem.n_corner_nodes)?;
             let local_verts: Vec<Vector3<T>> = idxs.iter().map(|&idx| vertex_positions[idx]).collect();
             
             // Check for degenerate elements
@@ -575,7 +575,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
     }
 }
 
-pub fn extract_vertex_indices<T: cfd_mesh::domain::core::Scalar + RealField + Copy + Float>(cell: &Cell, mesh: &IndexedMesh<T>) -> Result<Vec<usize>> {
+pub fn extract_vertex_indices<T: cfd_mesh::domain::core::Scalar + RealField + Copy + Float>(cell: &Cell, mesh: &IndexedMesh<T>, n_corner_nodes: usize) -> Result<Vec<usize>> {
     let mut counts = std::collections::HashMap::new();
     for &f_idx in &cell.faces {
         if f_idx < mesh.face_count() {
@@ -598,9 +598,37 @@ pub fn extract_vertex_indices<T: cfd_mesh::domain::core::Scalar + RealField + Co
     }
     
     if corners.len() == 4 && mid_edges.is_empty() && counts.len() == 4 {
-        // P1 Tet
         let ordered = order_tet_corners(&corners, mesh);
-        return Ok(ordered);
+        
+        if mesh.vertex_count() > n_corner_nodes {
+            // P2 mesh: Face geometry only has corners, missing mid-edges. 
+            // Recover mid-edges via geometric search over extra nodes.
+            let mut final_nodes = ordered.clone();
+            let edges = [(0,1), (1,2), (2,0), (0,3), (1,3), (2,3)];
+            for &(i, j) in &edges {
+                let v_i = ordered[i];
+                let v_j = ordered[j];
+                let p_i = mesh.vertices.position(cfd_mesh::domain::core::index::VertexId::from_usize(v_i)).coords;
+                let p_j = mesh.vertices.position(cfd_mesh::domain::core::index::VertexId::from_usize(v_j)).coords;
+                let target = (p_i + p_j) * <T as num_traits::FromPrimitive>::from_f64(0.5).unwrap();
+                
+                let mut best_m = 0;
+                let mut min_dist_sq = <T as num_traits::Float>::infinity();
+                for m_idx in n_corner_nodes..mesh.vertex_count() {
+                    let pm = mesh.vertices.position(cfd_mesh::domain::core::index::VertexId::from_usize(m_idx)).coords;
+                    let dist_sq = (pm - target).norm_squared();
+                    if dist_sq < min_dist_sq {
+                        min_dist_sq = dist_sq;
+                        best_m = m_idx;
+                    }
+                }
+                final_nodes.push(best_m);
+            }
+            return Ok(final_nodes);
+        } else {
+            // P1 Tet
+            return Ok(ordered);
+        }
     }
     
     if corners.len() == 4 && mid_edges.len() == 6 {

@@ -78,63 +78,68 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
         use std::collections::HashMap;
         use cfd_core::physics::boundary::BoundaryCondition;
 
-        // 1. Generate Mesh
-        let base_mesh = self.builder
-            .clone()
-            .with_resolution(self.config.resolution.0, self.config.resolution.1)
-            .with_circular(self.config.circular)
-            .build_surface();
-        
-        let base_mesh = match base_mesh {
-            Ok(m) => m,
-            Err(e) => return Err(Error::Solver(format!("{:?}", e))),
+        // 1. Generate mapped Venturi volume mesh
+        // HACK: VenturiMeshBuilder currently generates surface meshes only.
+        // We temporarily inject a volume generator by mapping a StructuredGrid internally.
+        let mut base_mesh = cfd_mesh::domain::grid::StructuredGridBuilder::new(
+            self.config.resolution.1,
+            self.config.resolution.1,
+            self.config.resolution.0,
+        )
+        .build()
+        .map_err(|e| Error::Solver(e.to_string()))?;
+
+        let r_in = self.builder.d_inlet.to_f64().unwrap() / 2.0;
+        let r_th = self.builder.d_throat.to_f64().unwrap() / 2.0;
+        let l_in = self.builder.l_inlet.to_f64().unwrap();
+        let l_conv = self.builder.l_convergent.to_f64().unwrap();
+        let l_th = self.builder.l_throat.to_f64().unwrap();
+        let l_div = self.builder.l_divergent.to_f64().unwrap();
+        let l_out = self.builder.l_outlet.to_f64().unwrap();
+        let total_l = l_in + l_conv + l_th + l_div + l_out;
+
+        let radius_at = |z: f64| -> f64 {
+            if z <= l_in { r_in }
+            else if z <= l_in + l_conv {
+                let f = (z - l_in) / l_conv;
+                r_in - (r_in - r_th) * f
+            }
+            else if z <= l_in + l_conv + l_th { r_th }
+            else if z <= l_in + l_conv + l_th + l_div {
+                let f = (z - (l_in + l_conv + l_th)) / l_div;
+                r_th + (r_in - r_th) * f
+            }
+            else { r_in } // outlet
         };
 
-        // 1.1 Decompose to Tetrahedra and Promote to Quadratic (P2) mesh for Taylor-Hood elements (Q2-Q1)
-        let tet_mesh = cfd_mesh::application::hierarchy::hex_to_tet::HexToTetConverter::convert(&base_mesh);
-        let mut mesh = cfd_mesh::application::hierarchy::hierarchical_mesh::P2MeshConverter::convert_to_p2(&tet_mesh);
+        let is_circular = self.config.circular;
+        for i in 0..base_mesh.vertex_count() {
+            use cfd_mesh::domain::core::index::VertexId;
+            let vid = VertexId::from_usize(i);
+            let p = *base_mesh.vertices.position(vid);
 
-        // Re-apply boundary labels after conversion to ensure all boundary faces are tagged.
-        // Some conversion paths introduce boundary faces without labels.
-        {
-            let total_l = self.builder.l_inlet
-                + self.builder.l_convergent
-                + self.builder.l_throat
-                + self.builder.l_divergent
-                + self.builder.l_outlet;
-            let tol = <T as FromPrimitive>::from_f64(1e-5).unwrap();
+            let z_new = p.z * total_l;
+            let r = radius_at(z_new);
 
-            let boundary_faces: Vec<FaceId> = mesh.boundary_faces();
-            for f_idx in boundary_faces {
-                let face = mesh.faces.get(f_idx);
-                if mesh.boundary_label(f_idx).is_some() {
-                    continue;
-                }
+            let u = p.x * 2.0 - 1.0;
+            let v = p.y * 2.0 - 1.0;
 
-                let mut all_at_inlet = true;
-                let mut all_at_outlet = true;
-                for &v_idx in &face.vertices {
-                    let v = mesh.vertices.get(v_idx);
-                    let z = <T as From<f64>>::from(v.position.z);
-                    let dist_inlet = Float::abs(z);
-                    let dist_outlet = Float::abs(z - total_l);
-                    if dist_inlet > tol {
-                        all_at_inlet = false;
-                    }
-                    if dist_outlet > tol {
-                        all_at_outlet = false;
-                    }
-                }
+            let (x_new, y_new) = if is_circular {
+                let x_d = u * (1.0 - v * v / 2.0).sqrt();
+                let y_d = v * (1.0 - u * u / 2.0).sqrt();
+                (x_d * r, y_d * r)
+            } else {
+                (u * r, v * r)
+            };
 
-                if all_at_inlet {
-                    mesh.mark_boundary(f_idx, "inlet".to_string());
-                } else if all_at_outlet {
-                    mesh.mark_boundary(f_idx, "outlet".to_string());
-                } else {
-                    mesh.mark_boundary(f_idx, "wall".to_string());
-                }
-            }
+            let v_mut = base_mesh.vertices.get_mut(vid);
+            v_mut.position.x = x_new;
+            v_mut.position.y = y_new;
+            v_mut.position.z = z_new;
         }
+
+        let tet_mesh = base_mesh; // base_mesh from StructuredGridBuilder is already tetrahedrons
+        let mut mesh = cfd_mesh::application::hierarchy::hierarchical_mesh::P2MeshConverter::convert_to_p2(&tet_mesh);
 
         // Boundary diagnostics: labeled faces vs connectivity boundary faces
         {
