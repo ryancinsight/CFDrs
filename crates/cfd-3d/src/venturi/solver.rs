@@ -138,7 +138,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
             v_mut.position.z = z_new;
         }
 
-        let tet_mesh = base_mesh; // base_mesh from StructuredGridBuilder is already tetrahedrons
+        let tet_mesh = base_mesh;
         let mut mesh = cfd_mesh::application::hierarchy::hierarchical_mesh::P2MeshConverter::convert_to_p2(&tet_mesh);
 
         // Boundary diagnostics: labeled faces vs connectivity boundary faces
@@ -888,7 +888,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
     ) -> Result<f64> {
         use crate::fem::solver::extract_vertex_indices;
         
-        let idxs = extract_vertex_indices(cell, mesh).map_err(|e| Error::Solver(e.to_string()))?;
+        let idxs = extract_vertex_indices(cell, mesh, solution.n_corner_nodes).map_err(|e| Error::Solver(e.to_string()))?;
         let vertex_positions: Vec<Vector3<f64>> = mesh.vertices.iter().map(|(_, v)| v.position.coords).collect();
         let local_verts: Vec<Vector3<f64>> = idxs.iter().map(|&i| vertex_positions[i]).collect();
 
@@ -975,7 +975,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
         let mut abs_div_vol_sum = 0.0_f64;
 
         for cell in mesh.cells.iter() {
-            let idxs = extract_vertex_indices(cell, mesh)?;
+            let idxs = extract_vertex_indices(cell, mesh, solution.n_corner_nodes)?;
             if idxs.len() < 4 {
                 continue;
             }

@@ -9,7 +9,7 @@ use nalgebra::Point3;
 /// `Aabb::new(...)` or `Aabb::empty()` without type annotations continues
 /// to compile unchanged.  New code may instantiate `Aabb<f32>` for
 /// GPU-staging geometry without any feature flag.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Aabb<T: Scalar = f64> {
     /// Minimum corner.
     pub min: Point3<T>,

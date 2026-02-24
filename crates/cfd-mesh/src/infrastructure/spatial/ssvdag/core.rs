@@ -36,6 +36,7 @@ pub enum SvoNode {
 }
 
 /// Sparse Voxel Octree built with exact Cartesian recursive subdivision.
+#[derive(Clone)]
 pub struct SparseVoxelOctree {
     /// The bounding box of the entire DAG.
     pub root_aabb: Aabb,
@@ -64,7 +65,7 @@ impl SparseVoxelOctree {
     }
 
     /// Recursively insert or lookup a node, ensuring DAG deduplication.
-    fn intern_node(&mut self, node: SvoNode) -> DagIndex {
+    pub(crate) fn intern_node(&mut self, node: SvoNode) -> DagIndex {
         if let Some(&idx) = self.node_map.get(&node) {
             return idx;
         }
@@ -78,7 +79,7 @@ impl SparseVoxelOctree {
     /// Splits an AABB tightly into 8 sub-octants.
     /// Because division by 2.0 only subtracts 1 from the exponent of an IEEE 754 float,
     /// the split is exact (no mantissa truncation).
-    fn exact_subdivide(aabb: &Aabb) -> [Aabb; 8] {
+    pub(crate) fn exact_subdivide(aabb: &Aabb) -> [Aabb; 8] {
         let min = aabb.min;
         let max = aabb.max;
         let mid = Point3r::new(

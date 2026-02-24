@@ -43,6 +43,7 @@ use crate::fem::quadrature::TetrahedronQuadrature;
 use cfd_mesh::IndexedMesh;
 use cfd_mesh::domain::core::index::{FaceId, VertexId};
 use cfd_mesh::domain::topology::Cell;
+use crate::fem::solver::extract_vertex_indices;
 
 /// Pressure projection solver for incompressible Stokes/Navier-Stokes equations
 pub struct ProjectionSolver<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + Float + std::fmt::Debug> {
@@ -152,7 +153,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
         // Assemble viscous + transient terms (no pressure gradient)
         for (i, cell) in problem.mesh.cells.iter().enumerate() {
             let viscosity = problem.element_viscosities.as_ref().map_or(problem.fluid.viscosity, |v| v[i]);
-            let idxs = extract_vertex_indices(cell, &problem.mesh)?;
+            let idxs = extract_vertex_indices(cell, &problem.mesh, problem.n_corner_nodes)?;
             let positions: Vec<Vector3<T>> = idxs.iter()
                 .map(|&idx| vertex_positions[idx])
                 .collect();
@@ -192,7 +193,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
 
         // Assemble Laplacian for pressure using P1 elements
         for cell in problem.mesh.cells.iter() {
-            let idxs = extract_vertex_indices(cell, &problem.mesh)?;
+            let idxs = extract_vertex_indices(cell, &problem.mesh, problem.n_corner_nodes)?;
             let positions: Vec<Vector3<T>> = idxs.iter()
                 .map(|&idx| vertex_positions[idx])
                 .collect();
@@ -234,7 +235,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
 
         // For each element, compute pressure gradient and correct velocity
         for cell in problem.mesh.cells.iter() {
-            let idxs = extract_vertex_indices(cell, &problem.mesh)?;
+            let idxs = extract_vertex_indices(cell, &problem.mesh, problem.n_corner_nodes)?;
             let positions: Vec<Vector3<T>> = idxs.iter()
                 .map(|&idx| vertex_positions[idx])
                 .collect();
@@ -663,7 +664,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
         let mut max_div = T::zero();
 
         for cell in problem.mesh.cells.iter() {
-            let idxs = extract_vertex_indices(cell, &problem.mesh)?;
+            let idxs = extract_vertex_indices(cell, &problem.mesh, problem.n_corner_nodes)?;
             let positions: Vec<Vector3<T>> = idxs.iter()
                 .map(|&idx| vertex_positions[idx])
                 .collect();
@@ -726,34 +727,7 @@ fn csr_to_builder<T: cfd_mesh::domain::core::Scalar + RealField + Copy>(matrix: 
     builder
 }
 
-/// Extract vertex indices from cell
-fn extract_vertex_indices<T: cfd_mesh::domain::core::Scalar + RealField + Copy + Float>(
-    cell: &Cell,
-    mesh: &IndexedMesh<T>,
-) -> Result<Vec<usize>> {
-    use cfd_mesh::domain::topology::ElementType;
 
-    match &cell.element_type {
-        ElementType::Tetrahedron => {
-            let mut vertex_set = std::collections::HashSet::new();
-            for &face_idx in &cell.faces {
-                if face_idx < mesh.face_count() {
-                    let face = mesh.faces.get(cfd_mesh::domain::core::index::FaceId::from_usize(face_idx));
-                    vertex_set.extend(face.vertices.iter().map(|v| v.as_usize()));
-                }
-            }
-            let mut indices: Vec<usize> = vertex_set.into_iter().collect();
-            indices.sort_unstable();
-            if indices.len() != 4 {
-                return Err(Error::InvalidConfiguration(
-                    format!("Expected 4 vertices for tetrahedron, got {}", indices.len()),
-                ));
-            }
-            Ok(indices)
-        }
-        _ => Err(Error::InvalidConfiguration("Expected tetrahedral cell".to_string())),
-    }
-}
 
 /// Compute mesh scale for diagonal scaling
 fn compute_mesh_scale<T: cfd_mesh::domain::core::Scalar + RealField + Copy + Float>(mesh: &IndexedMesh<T>) -> T {
