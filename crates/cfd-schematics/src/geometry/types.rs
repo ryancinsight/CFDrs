@@ -693,6 +693,7 @@ impl ChannelSystem {
                 valve_cv: None,
                 pump_max_flow: None,
                 pump_max_pressure: None,
+                metadata: None,
             });
         }
 

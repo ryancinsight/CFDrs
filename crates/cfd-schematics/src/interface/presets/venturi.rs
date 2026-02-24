@@ -1,4 +1,5 @@
 use crate::domain::model::{ChannelSpec, NetworkBlueprint, NodeKind, NodeSpec};
+use crate::domain::therapy_metadata::{TherapyZone, TherapyZoneMetadata};
 
 const BLOOD_MU: f64 = 3.5e-3;
 
@@ -18,35 +19,44 @@ pub fn venturi_chain(
     bp.add_node(NodeSpec::new("throat", NodeKind::Junction));
     bp.add_node(NodeSpec::new("outlet", NodeKind::Outlet));
 
-    bp.add_channel(ChannelSpec::new_pipe(
-        "inlet_section",
-        "inlet",
-        "contraction",
-        section_length,
-        inlet_diameter_m,
-        hp_resistance(section_length, inlet_diameter_m),
-        0.0,
-    ));
+    bp.add_channel(
+        ChannelSpec::new_pipe(
+            "inlet_section",
+            "inlet",
+            "contraction",
+            section_length,
+            inlet_diameter_m,
+            hp_resistance(section_length, inlet_diameter_m),
+            0.0,
+        )
+        .with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)),
+    );
 
-    bp.add_channel(ChannelSpec::new_pipe(
-        "throat_section",
-        "contraction",
-        "throat",
-        section_length,
-        throat_diameter_m,
-        hp_resistance(section_length, throat_diameter_m),
-        0.0,
-    ));
+    bp.add_channel(
+        ChannelSpec::new_pipe(
+            "throat_section",
+            "contraction",
+            "throat",
+            section_length,
+            throat_diameter_m,
+            hp_resistance(section_length, throat_diameter_m),
+            0.0,
+        )
+        .with_metadata(TherapyZoneMetadata::new(TherapyZone::CancerTarget)),
+    );
 
-    bp.add_channel(ChannelSpec::new_pipe(
-        "diffuser_section",
-        "throat",
-        "outlet",
-        section_length,
-        inlet_diameter_m,
-        hp_resistance(section_length, inlet_diameter_m),
-        0.0,
-    ));
+    bp.add_channel(
+        ChannelSpec::new_pipe(
+            "diffuser_section",
+            "throat",
+            "outlet",
+            section_length,
+            inlet_diameter_m,
+            hp_resistance(section_length, inlet_diameter_m),
+            0.0,
+        )
+        .with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)),
+    );
 
     bp
 }
@@ -85,36 +95,45 @@ pub fn venturi_rect(
     bp.add_node(NodeSpec::new("throat", NodeKind::Junction));
     bp.add_node(NodeSpec::new("outlet", NodeKind::Outlet));
 
-    bp.add_channel(ChannelSpec::new_pipe_rect(
-        "inlet_section",
-        "inlet",
-        "contraction",
-        l_taper,
-        inlet_width_m,
-        height_m,
-        shah_london_resistance(inlet_width_m, height_m, l_taper, BLOOD_MU),
-        0.0,
-    ));
-    bp.add_channel(ChannelSpec::new_pipe_rect(
-        "throat_section",
-        "contraction",
-        "throat",
-        l_throat,
-        throat_width_m,
-        height_m,
-        shah_london_resistance(throat_width_m, height_m, l_throat, BLOOD_MU),
-        0.0,
-    ));
-    bp.add_channel(ChannelSpec::new_pipe_rect(
-        "diffuser_section",
-        "throat",
-        "outlet",
-        l_taper,
-        inlet_width_m,
-        height_m,
-        shah_london_resistance(inlet_width_m, height_m, l_taper, BLOOD_MU),
-        0.0,
-    ));
+    bp.add_channel(
+        ChannelSpec::new_pipe_rect(
+            "inlet_section",
+            "inlet",
+            "contraction",
+            l_taper,
+            inlet_width_m,
+            height_m,
+            shah_london_resistance(inlet_width_m, height_m, l_taper, BLOOD_MU),
+            0.0,
+        )
+        .with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)),
+    );
+    bp.add_channel(
+        ChannelSpec::new_pipe_rect(
+            "throat_section",
+            "contraction",
+            "throat",
+            l_throat,
+            throat_width_m,
+            height_m,
+            shah_london_resistance(throat_width_m, height_m, l_throat, BLOOD_MU),
+            0.0,
+        )
+        .with_metadata(TherapyZoneMetadata::new(TherapyZone::CancerTarget)),
+    );
+    bp.add_channel(
+        ChannelSpec::new_pipe_rect(
+            "diffuser_section",
+            "throat",
+            "outlet",
+            l_taper,
+            inlet_width_m,
+            height_m,
+            shah_london_resistance(inlet_width_m, height_m, l_taper, BLOOD_MU),
+            0.0,
+        )
+        .with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)),
+    );
 
     bp
 }

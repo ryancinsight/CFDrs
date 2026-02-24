@@ -1,4 +1,5 @@
 use crate::domain::model::{ChannelSpec, NetworkBlueprint, NodeKind, NodeSpec};
+use crate::domain::therapy_metadata::{TherapyZone, TherapyZoneMetadata};
 
 const BLOOD_MU: f64 = 3.5e-3;
 
@@ -27,25 +28,37 @@ pub fn symmetric_bifurcation(
         0.0,
     ));
 
-    bp.add_channel(ChannelSpec::new_pipe(
-        "daughter_1",
-        "junction",
-        "outlet_1",
-        daughter_length_m,
-        daughter_diameter_m,
-        hp_resistance(daughter_length_m, daughter_diameter_m),
-        0.0,
-    ));
+    bp.add_channel(
+        ChannelSpec::new_pipe(
+            "daughter_1",
+            "junction",
+            "outlet_1",
+            daughter_length_m,
+            daughter_diameter_m,
+            hp_resistance(daughter_length_m, daughter_diameter_m),
+            0.0,
+        )
+        .with_metadata(TherapyZoneMetadata::new(TherapyZone::HealthyBypass)),
+    );
 
-    bp.add_channel(ChannelSpec::new_pipe(
-        "daughter_2",
-        "junction",
-        "outlet_2",
-        daughter_length_m,
-        daughter_diameter_m,
-        hp_resistance(daughter_length_m, daughter_diameter_m),
-        0.0,
-    ));
+    bp.add_channel(
+        ChannelSpec::new_pipe(
+            "daughter_2",
+            "junction",
+            "outlet_2",
+            daughter_length_m,
+            daughter_diameter_m,
+            hp_resistance(daughter_length_m, daughter_diameter_m),
+            0.0,
+        )
+        .with_metadata(TherapyZoneMetadata::new(TherapyZone::HealthyBypass)),
+    );
+
+    // Parent is mixed flow
+    if let Some(parent) = bp.channels.iter_mut().find(|c| c.id.as_str() == "parent") {
+        parent.metadata = Some(crate::geometry::metadata::MetadataContainer::new());
+        parent.metadata.as_mut().unwrap().insert(TherapyZoneMetadata::new(TherapyZone::MixedFlow));
+    }
 
     bp
 }
@@ -86,16 +99,24 @@ pub fn bifurcation_rect(
     ));
 
     for i in 1..=2 {
-        bp.add_channel(ChannelSpec::new_pipe_rect(
-            format!("daughter_{i}"),
-            "junction",
-            format!("outlet_{i}"),
-            daughter_length_m,
-            daughter_width_m,
-            height_m,
-            shah_london_resistance(daughter_width_m, height_m, daughter_length_m, BLOOD_MU),
-            0.0,
-        ));
+        bp.add_channel(
+            ChannelSpec::new_pipe_rect(
+                format!("daughter_{i}"),
+                "junction",
+                format!("outlet_{i}"),
+                daughter_length_m,
+                daughter_width_m,
+                height_m,
+                shah_london_resistance(daughter_width_m, height_m, daughter_length_m, BLOOD_MU),
+                0.0,
+            )
+            .with_metadata(TherapyZoneMetadata::new(TherapyZone::HealthyBypass)),
+        );
+    }
+
+    if let Some(parent) = bp.channels.iter_mut().find(|c| c.id.as_str() == "parent") {
+        parent.metadata = Some(crate::geometry::metadata::MetadataContainer::new());
+        parent.metadata.as_mut().unwrap().insert(TherapyZoneMetadata::new(TherapyZone::MixedFlow));
     }
 
     bp

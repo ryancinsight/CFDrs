@@ -98,9 +98,19 @@ pub struct ChannelSpec {
     pub valve_cv: Option<f64>,
     pub pump_max_flow: Option<f64>,
     pub pump_max_pressure: Option<f64>,
+    #[serde(skip)]
+    pub metadata: Option<crate::geometry::metadata::MetadataContainer>,
 }
 
 impl ChannelSpec {
+    pub fn with_metadata<T: crate::geometry::metadata::Metadata + Clone + 'static>(mut self, meta: T) -> Self {
+        if self.metadata.is_none() {
+            self.metadata = Some(crate::geometry::metadata::MetadataContainer::new());
+        }
+        self.metadata.as_mut().unwrap().insert(meta);
+        self
+    }
+
     /// Create a circular-cross-section pipe channel spec.
     #[must_use]
     pub fn new_pipe(
@@ -124,6 +134,7 @@ impl ChannelSpec {
             valve_cv: None,
             pump_max_flow: None,
             pump_max_pressure: None,
+            metadata: None,
         }
     }
 
@@ -151,6 +162,7 @@ impl ChannelSpec {
             valve_cv: None,
             pump_max_flow: None,
             pump_max_pressure: None,
+            metadata: None,
         }
     }
 
@@ -173,6 +185,7 @@ impl ChannelSpec {
             valve_cv: Some(cv),
             pump_max_flow: None,
             pump_max_pressure: None,
+            metadata: None,
         }
     }
 
@@ -196,6 +209,7 @@ impl ChannelSpec {
             valve_cv: None,
             pump_max_flow: Some(max_flow),
             pump_max_pressure: Some(max_pressure),
+            metadata: None,
         }
     }
 }
