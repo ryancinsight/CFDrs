@@ -139,7 +139,14 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
         }
 
         let tet_mesh = base_mesh;
-        let mut mesh = cfd_mesh::application::hierarchy::hierarchical_mesh::P2MeshConverter::convert_to_p2(&tet_mesh);
+        // Use P1 (linear) elements directly.  The P2MeshConverter is a surface-mesh
+        // tool (1:4 triangle subdivision) and corrupts volumetric tet topology when
+        // applied to a 3-D mesh: after it clears + replaces all faces the cell→face
+        // index map becomes invalid, extract_vertex_indices falls to its unsorted
+        // fallback, and the first four "corner" nodes are nearly coplanar (volume
+        // < 1e-22), causing assembly to fail on element 0.  P1 Taylor-Hood elements
+        // are well-posed for Stokes flow at the mesh resolutions used here.
+        let mesh = tet_mesh.clone();
 
         // Boundary diagnostics: labeled faces vs connectivity boundary faces
         {

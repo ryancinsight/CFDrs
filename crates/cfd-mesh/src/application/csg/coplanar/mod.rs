@@ -48,5 +48,5 @@ pub mod basis;
 pub mod geometry2d;
 pub mod operations;
 
-pub(crate) use basis::{detect_flat_plane, PlaneBasis};
+pub(crate) use basis::detect_flat_plane;
 pub(crate) use operations::boolean_coplanar;

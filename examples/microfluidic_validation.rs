@@ -36,7 +36,7 @@
 //!   and Heat Transfer"
 //! - Huo, Y., & Kassab, G.S. (2012). "Intraspecific scaling laws of vascular trees"
 
-use cfd_1d::bifurcation::BifurcationJunction;
+use cfd_1d::junctions::branching::TwoWayBranchJunction;
 use cfd_1d::channel::{Channel, ChannelGeometry};
 use cfd_2d::solvers::serpentine_flow::{
     AdvectionDiffusionMixing, SerpentineGeometry, SerpentineMixingSolution, SerpentineValidator,
@@ -71,7 +71,7 @@ fn validate_bifurcation_blood_flow() {
     );
 
     // Create bifurcation with 50-50 flow split (symmetric)
-    let bifurcation = BifurcationJunction::new(parent, d1, d2, 0.5);
+    let bifurcation = TwoWayBranchJunction::new(parent, d1, d2, 0.5);
 
     // Check Murray's law
     let murray_deviation = bifurcation.murray_law_deviation();

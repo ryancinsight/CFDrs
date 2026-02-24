@@ -43,8 +43,7 @@ use std::collections::HashMap;
 
 // cfd-1d
 use cfd_1d::channel::{ChannelType as CfdChannelType, CrossSection};
-use cfd_1d::network::{Network, NodeType};
-use cfd_1d::scheme_bridge::SchemeNetworkConverter;
+use cfd_1d::network::{network_from_blueprint, Network, NodeType};
 use cfd_1d::solver::{NetworkProblem, NetworkSolver, SolverConfig};
 
 // cfd-core
@@ -208,7 +207,7 @@ struct DesignResult {
 
 fn run_simulation(spec: &DesignSpec) -> Result<DesignResult, Box<dyn std::error::Error>> {
     // ── 1. Create scheme geometry ────────────────────────────────────────
-    let geometry_config = GeometryConfig::new(0.5, 1.0, 0.5)?;
+    let geometry_config = GeometryConfig::new(0.5, 1.0, 0.5, GeometryGenerationConfig::default())?;
     let system = create_geometry(
         (CHIP_LENGTH_MM, CHIP_WIDTH_MM),
         &[SplitType::Bifurcation],
@@ -218,12 +217,11 @@ fn run_simulation(spec: &DesignSpec) -> Result<DesignResult, Box<dyn std::error:
 
     // ── 2. Convert scheme → cfd-1d network ──────────────────────────────
     let system_clone = system.clone();
-    let converter = SchemeNetworkConverter::with_scale(&system, SCALE_MM_TO_M);
-    let summary = converter.summary();
-    println!("    {}", summary.to_string().replace('\n', "\n    "));
+    let blueprint = system.to_blueprint(SCALE_MM_TO_M).expect("blueprint");
+    println!("    Network: {} nodes, {} channels", blueprint.nodes.len(), blueprint.channels.len());
 
     let blood = newtonian_blood();
-    let mut network = converter.build_network(blood)?;
+    let mut network = network_from_blueprint(&blueprint, blood)?;
 
     // ── 3. Identify inlets / outlets and apply BCs ──────────────────────
     let mut inlets: Vec<NodeIndex> = Vec::new();

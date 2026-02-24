@@ -1,8 +1,8 @@
-use cfd_mesh::geometry::primitives::{Disk, PrimitiveMesh};
-use cfd_mesh::csg::boolean::{BooleanOp, csg_boolean_indexed};
-use cfd_mesh::core::scalar::Point3r;
-use cfd_mesh::storage::edge_store::EdgeStore;
-use cfd_mesh::topology::manifold;
+use cfd_mesh::domain::geometry::primitives::{Disk, PrimitiveMesh};
+use cfd_mesh::application::csg::boolean::{BooleanOp, csg_boolean_indexed};
+use cfd_mesh::domain::core::scalar::Point3r;
+use cfd_mesh::infrastructure::storage::EdgeStore;
+use cfd_mesh::domain::topology::manifold;
 
 fn disk(cx: f64, r: f64, n: usize) -> cfd_mesh::IndexedMesh {
     Disk { center: Point3r::new(cx, 0., 0.), radius: r, segments: n }.build().unwrap()

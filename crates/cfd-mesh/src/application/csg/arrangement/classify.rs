@@ -1,4 +1,4 @@
-use crate::domain::core::scalar::{Point3r, Real, Vector3r};
+use crate::domain::core::scalar::{Point3r, Vector3r, Scalar};
 use crate::infrastructure::storage::face_store::FaceData;
 use crate::infrastructure::storage::vertex_pool::VertexPool;
 // Ã¢â€â‚¬Ã¢â€â‚¬ Internal types Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
@@ -31,34 +31,42 @@ pub struct FragRecord {
 ///
 /// Reference: Jacobson et al. (2013), "Robust Inside-Outside Segmentation using
 /// Generalized Winding Numbers", ACM SIGGRAPH.
-pub fn gwn(query: &Point3r, faces: &[FaceData], pool: &VertexPool) -> Real {
-    let mut solid_angle_sum = 0.0_f64;
+pub fn gwn<T: Scalar>(query: &nalgebra::Point3<T>, faces: &[FaceData], pool: &VertexPool<T>) -> T {
+    let mut solid_angle_sum = <T as Scalar>::from_f64(0.0);
+    let one_e_20 = <T as Scalar>::from_f64(1e-20);
+    let one_e_30 = <T as Scalar>::from_f64(1e-30);
+    let two = <T as Scalar>::from_f64(2.0);
+    let four_pi = <T as Scalar>::from_f64(4.0 * std::f64::consts::PI);
+
     for face in faces {
         let a = pool.position(face.vertices[0]);
         let b = pool.position(face.vertices[1]);
         let c = pool.position(face.vertices[2]);
 
-        let va = Vector3r::new(a.x - query.x, a.y - query.y, a.z - query.z);
-        let vb = Vector3r::new(b.x - query.x, b.y - query.y, b.z - query.z);
-        let vc = Vector3r::new(c.x - query.x, c.y - query.y, c.z - query.z);
+        let va = nalgebra::Vector3::new(a.x - query.x, a.y - query.y, a.z - query.z);
+        let vb = nalgebra::Vector3::new(b.x - query.x, b.y - query.y, b.z - query.z);
+        let vc = nalgebra::Vector3::new(c.x - query.x, c.y - query.y, c.z - query.z);
 
         let la = va.norm();
         let lb = vb.norm();
         let lc = vc.norm();
 
         // Skip faces where query coincides with a vertex.
-        if la < 1e-20 || lb < 1e-20 || lc < 1e-20 {
+        if la < one_e_20 || lb < one_e_20 || lc < one_e_20 {
             continue;
         }
 
         let num = va.dot(&vb.cross(&vc));
         let den = la * lb * lc + va.dot(&vb) * lc + vb.dot(&vc) * la + vc.dot(&va) * lb;
 
-        if den.abs() > 1e-30 || num.abs() > 1e-30 {
-            solid_angle_sum += 2.0 * num.atan2(den);
+        // Use nalgebra's ComplexField::abs() for generic T
+        use num_traits::Float;
+        if Float::abs(den) > one_e_30 || Float::abs(num) > one_e_30 {
+            solid_angle_sum += two * Float::atan2(num, den);
         }
     }
-    (solid_angle_sum / (4.0 * std::f64::consts::PI)).clamp(-1.0, 1.0)
+    use num_traits::clamp;
+    clamp(solid_angle_sum / four_pi, <T as Scalar>::from_f64(-1.0), <T as Scalar>::from_f64(1.0))
 }
 
 /// Classify whether a fragment's centroid is inside the opposing mesh.
@@ -76,11 +84,11 @@ pub fn classify_fragment(
     centroid: &Point3r,
     frag_normal: &Vector3r,
     other_faces: &[FaceData],
-    pool: &VertexPool,
+    pool: &VertexPool<f64>,
 ) -> bool {
     use crate::domain::topology::predicates::{orient3d, Sign};
 
-    let wn = gwn(centroid, other_faces, pool);
+    let wn = gwn::<f64>(centroid, other_faces, pool);
     let wn_abs = wn.abs();
     // Fast path: unambiguous.
     if wn_abs > 0.65 {

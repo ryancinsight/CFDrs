@@ -28,6 +28,7 @@ pub fn polygon_area(poly: &[[Real; 2]]) -> Real {
 }
 
 /// Test if a simple polygon is convex.
+#[allow(dead_code)]
 pub(crate) fn is_convex(poly: &[[Real; 2]]) -> bool {
     let n = poly.len();
     if n < 3 {

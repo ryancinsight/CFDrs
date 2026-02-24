@@ -71,11 +71,14 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
         }
     }
 
-    /// Initialise viscosity field from the blood model's reference viscosity.
+    /// Initialise viscosity field from the blood model's apparent viscosity at
+    /// the reference shear rate.  Using μ_∞ (high-shear limit) here would
+    /// under-estimate viscosity by ~30 %, making the initial velocity field too
+    /// fast and slowing SIMPLE convergence for non-Newtonian blood.
     pub fn initialize_viscosity(&mut self) {
         let mu_init = match &self.blood {
-            BloodModel::Casson(m) => m.infinite_shear_viscosity,
-            BloodModel::CarreauYasuda(m) => m.infinite_shear_viscosity,
+            BloodModel::Casson(m) => m.apparent_viscosity(m.reference_shear_rate),
+            BloodModel::CarreauYasuda(m) => m.apparent_viscosity(m.reference_shear_rate),
             BloodModel::Newtonian(mu) => *mu,
         };
         for i in 0..self.grid.nx {
@@ -657,9 +660,10 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
             self.solve_v_momentum(&bc_wall_noslip, &bc_wall_noslip)?;
             self.solve_pressure_correction()?;
 
-            // Update viscosity? config has interval
+            // Update viscosity with under-relaxation (alpha_mu) to prevent
+            // oscillation in non-Newtonian SIMPLE iterations.
             if iteration % self.config.viscosity_update_interval == 0 {
-                self.field.update_viscosity(&self.grid, &self.blood);
+                self.field.update_viscosity(&self.grid, &self.blood, self.config.alpha_mu);
             }
 
             let (res_u, res_v, res_p) = self.compute_residuals();

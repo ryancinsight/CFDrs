@@ -41,8 +41,7 @@ use cfd_1d::{
 };
 
 // cfd-1d — network / solver
-use cfd_1d::network::{Network, NodeType};
-use cfd_1d::scheme_bridge::SchemeNetworkConverter;
+use cfd_1d::network::{network_from_blueprint, Network, NodeType};
 use cfd_1d::solver::{NetworkProblem, NetworkSolver, SolverConfig};
 
 // cfd-core
@@ -692,7 +691,7 @@ fn case_network_cross_validation() -> ValidationCase {
     let mut rows = Vec::new();
 
     // Create a bifurcation chip via scheme
-    let config = GeometryConfig::new(0.5, 1.0, 0.5).unwrap();
+    let config = GeometryConfig::new(0.5, 1.0, 0.5, GeometryGenerationConfig::default()).unwrap();
     let system = create_geometry(
         (60.0, 30.0),
         &[SplitType::Bifurcation],
@@ -700,8 +699,8 @@ fn case_network_cross_validation() -> ValidationCase {
         &ChannelTypeConfig::AllStraight,
     );
 
-    let converter = SchemeNetworkConverter::with_scale(&system, 1e-3);
-    let mut network = converter.build_network(fluid.clone()).unwrap();
+    let blueprint = system.to_blueprint(1e-3).expect("blueprint");
+    let mut network = network_from_blueprint(&blueprint, fluid.clone()).unwrap();
 
     let (inlets, outlets) = find_boundary_nodes(&network);
     let p_in = 8000.0_f64;

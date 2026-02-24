@@ -64,8 +64,7 @@ use plotters::prelude::*;
 
 // cfd-1d
 use cfd_1d::vascular::{MurraysLaw, OptimalBifurcation};
-use cfd_1d::network::{Network, NodeType};
-use cfd_1d::scheme_bridge::SchemeNetworkConverter;
+use cfd_1d::network::{network_from_blueprint, Network, NodeType};
 use cfd_1d::solver::{NetworkProblem, NetworkSolver, SolverConfig};
 
 // cfd-core
@@ -326,7 +325,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // ── Section 5: Scheme simulation of the equal-width bifurcation ───────
     println!("Scheme Simulation — Straight equal-width bifurcation chip:");
-    let geometry_config = GeometryConfig::new(0.5, 1.0, 0.5)?;
+    let geometry_config = GeometryConfig::new(0.5, 1.0, 0.5, GeometryGenerationConfig::default())?
     let system = create_geometry(
         (CHIP_LEN, CHIP_WID),
         &[SplitType::Bifurcation],
@@ -336,11 +335,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let blood = ConstantPropertyFluid::new(
         "Blood (Newtonian)".into(), RHO, MU, CP, K_THERM, SOUND,
     );
-    let converter = SchemeNetworkConverter::with_scale(&system, SCALE);
-    let summary = converter.summary();
-    println!("  {}", summary.to_string().replace('\n', "\n  "));
+    let blueprint = system.to_blueprint(SCALE).expect("blueprint");
+    println!("  Network: {} nodes, {} channels", blueprint.nodes.len(), blueprint.channels.len());
 
-    let mut network = converter.build_network(blood)?;
+    let mut network = network_from_blueprint(&blueprint, blood)?;
 
     let mut inlets: Vec<NodeIndex> = Vec::new();
     let mut outlets: Vec<NodeIndex> = Vec::new();

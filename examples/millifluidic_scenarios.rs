@@ -33,8 +33,7 @@ use std::path::Path;
 
 // cfd-1d
 use cfd_1d::channel::{ChannelType as CfdChannelType, CrossSection};
-use cfd_1d::network::{Network, NodeType};
-use cfd_1d::scheme_bridge::SchemeNetworkConverter;
+use cfd_1d::network::{network_from_blueprint, Network, NodeType};
 use cfd_1d::solver::{
     InletCompositionEvent, MixtureComposition, NetworkProblem, NetworkSolver,
     SimulationTimeConfig, SolverConfig, TransientCompositionSimulator,
@@ -389,7 +388,7 @@ fn scenario_trifurcation() -> Result<(), Box<dyn std::error::Error>> {
     println!("    Topology: 1 inlet → 3 outlets (straight channels)");
     println!("    Goal: evaluate flow uniformity in 3-way split\n");
 
-    let config = GeometryConfig::new(0.5, 1.0, 0.5)?;
+    let config = GeometryConfig::new(0.5, 1.0, 0.5, GeometryGenerationConfig::default())?;
     let system = create_geometry(
         (CHIP_W, CHIP_H),
         &[SplitType::Trifurcation],
@@ -397,11 +396,10 @@ fn scenario_trifurcation() -> Result<(), Box<dyn std::error::Error>> {
         &ChannelTypeConfig::AllStraight,
     );
 
-    let converter = SchemeNetworkConverter::with_scale(&system, SCALE_MM_TO_M);
-    let summary = converter.summary();
-    println!("    {}", summary.to_string().replace('\n', "\n    "));
+    let blueprint = system.to_blueprint(SCALE_MM_TO_M).expect("blueprint");
+    println!("    Network: {} nodes, {} channels", blueprint.nodes.len(), blueprint.channels.len());
 
-    let mut network = converter.build_network(blood_fluid())?;
+    let mut network = network_from_blueprint(&blueprint, blood_fluid())?;
     let (inlets, outlets) = find_boundary_nodes(&network);
 
     let p_in = 10_000.0;
@@ -474,7 +472,7 @@ fn scenario_cascade() -> Result<(), Box<dyn std::error::Error>> {
     println!("    Goal: Dean-enhanced mixing with progressive shear\n");
 
     // Larger chip to ensure channels satisfy L/Dh ≥ 10 for 2-level splits
-    let config = GeometryConfig::new(0.3, 0.8, 0.3)?;
+    let config = GeometryConfig::new(0.3, 0.8, 0.3, GeometryGenerationConfig::default())?;
     let system = create_geometry(
         (90.0, 50.0),
         &[SplitType::Bifurcation, SplitType::Bifurcation],
@@ -489,11 +487,10 @@ fn scenario_cascade() -> Result<(), Box<dyn std::error::Error>> {
         }),
     );
 
-    let converter = SchemeNetworkConverter::with_scale(&system, SCALE_MM_TO_M);
-    let summary = converter.summary();
-    println!("    {}", summary.to_string().replace('\n', "\n    "));
+    let blueprint = system.to_blueprint(SCALE_MM_TO_M).expect("blueprint");
+    println!("    Network: {} nodes, {} channels", blueprint.nodes.len(), blueprint.channels.len());
 
-    let mut network = converter.build_network(blood_fluid())?;
+    let mut network = network_from_blueprint(&blueprint, blood_fluid())?;
     let (inlets, outlets) = find_boundary_nodes(&network);
 
     let p_in = 12_000.0;
@@ -569,7 +566,7 @@ fn scenario_mixed_venturi() -> Result<(), Box<dyn std::error::Error>> {
     println!("    Topology: bifurcation with frustum (venturi) channels");
     println!("    Goal: compare shear + cavitation in tapered geometry\n");
 
-    let config = GeometryConfig::new(0.5, 1.0, 0.5)?;
+    let config = GeometryConfig::new(0.5, 1.0, 0.5, GeometryGenerationConfig::default())?;
     let system = create_geometry(
         (CHIP_W, CHIP_H),
         &[SplitType::Bifurcation],
@@ -584,11 +581,10 @@ fn scenario_mixed_venturi() -> Result<(), Box<dyn std::error::Error>> {
         }),
     );
 
-    let converter = SchemeNetworkConverter::with_scale(&system, SCALE_MM_TO_M);
-    let summary = converter.summary();
-    println!("    {}", summary.to_string().replace('\n', "\n    "));
+    let blueprint = system.to_blueprint(SCALE_MM_TO_M).expect("blueprint");
+    println!("    Network: {} nodes, {} channels", blueprint.nodes.len(), blueprint.channels.len());
 
-    let mut network = converter.build_network(blood_fluid())?;
+    let mut network = network_from_blueprint(&blueprint, blood_fluid())?;
     let (inlets, outlets) = find_boundary_nodes(&network);
 
     let p_in = 12_000.0;
@@ -690,7 +686,7 @@ fn scenario_pressure_sweep() -> Result<(), Box<dyn std::error::Error>> {
     println!("    Design: bifurcation, blood, vary P_inlet from 3 to 12 kPa");
     println!("    Goal: characterise τ_w vs ΔP and identify safe operating window\n");
 
-    let config = GeometryConfig::new(0.5, 1.0, 0.5)?;
+    let config = GeometryConfig::new(0.5, 1.0, 0.5, GeometryGenerationConfig::default())?;
     let system = create_geometry(
         (CHIP_W, CHIP_H),
         &[SplitType::Bifurcation],
@@ -706,9 +702,9 @@ fn scenario_pressure_sweep() -> Result<(), Box<dyn std::error::Error>> {
     let mut sweep_csv = std::fs::File::create("outputs/scenario4_sweep.csv")?;
     writeln!(sweep_csv, "P_in_Pa,max_tau_w_Pa,avg_tau_w_Pa,Q_inlet_mL_min,Re_max")?;
 
+    let blueprint = system.to_blueprint(SCALE_MM_TO_M).expect("blueprint");
     for &p_in in &pressures {
-        let converter = SchemeNetworkConverter::with_scale(&system, SCALE_MM_TO_M);
-        let mut network = converter.build_network(blood_fluid())?;
+        let mut network = network_from_blueprint(&blueprint, blood_fluid())?;
         let (inlets, outlets) = find_boundary_nodes(&network);
         for &ni in &inlets { network.set_pressure(ni, p_in); }
         for &ni in &outlets { network.set_pressure(ni, p_out); }
@@ -850,7 +846,7 @@ fn scenario_transient_composition() -> Result<(), Box<dyn std::error::Error>> {
     println!("    Design: bifurcation, water, reagent A → B switch at t = 5 s");
     println!("    Goal: observe mixing front propagation through network\n");
 
-    let config = GeometryConfig::new(0.5, 1.0, 0.5)?;
+    let config = GeometryConfig::new(0.5, 1.0, 0.5, GeometryGenerationConfig::default())?;
     let system = create_geometry(
         (CHIP_W, CHIP_H),
         &[SplitType::Bifurcation],
@@ -858,10 +854,10 @@ fn scenario_transient_composition() -> Result<(), Box<dyn std::error::Error>> {
         &ChannelTypeConfig::AllStraight,
     );
 
-    let converter = SchemeNetworkConverter::with_scale(&system, SCALE_MM_TO_M);
+    let blueprint = system.to_blueprint(SCALE_MM_TO_M).expect("blueprint");
 
     // First solve steady-state to get flow field
-    let mut network = converter.build_network(water_fluid())?;
+    let mut network = network_from_blueprint(&blueprint, water_fluid())?;
     let (inlets, outlets) = find_boundary_nodes(&network);
 
     let p_in = 8_000.0;

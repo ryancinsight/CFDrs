@@ -253,7 +253,12 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
                 let mut div_u = T::zero();
                 for i in 0..idxs.len().min(10) {
                     let vel = solution.get_velocity(idxs[i]);
-                    div_u += grad_p2[(0, i)] * vel.x + grad_p2[(1, i)] * vel.y + grad_p2[(2, i)] * vel.z;
+                    let grad_i = if idxs.len() == 4 { 
+                        Vector3::new(p1_gradients_phys[(0, i)], p1_gradients_phys[(1, i)], p1_gradients_phys[(2, i)]) 
+                    } else { 
+                        Vector3::new(grad_p2[(0, i)], grad_p2[(1, i)], grad_p2[(2, i)]) 
+                    };
+                    div_u += grad_i.x * vel.x + grad_i.y * vel.y + grad_i.z * vel.z;
                 }
 
                 for j in 0..4 {
@@ -406,16 +411,28 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
 
             for i in 0..idxs.len().min(10) {
                 let gi = idxs[i];
-                let grad_i = grad_p2_mat.column(i);
+                let grad_i = if idxs.len() == 4 { 
+                    Vector3::new(p1_gradients_phys[(0, i)], p1_gradients_phys[(1, i)], p1_gradients_phys[(2, i)])
+                } else { 
+                    Vector3::new(grad_p2_mat[(0, i)], grad_p2_mat[(1, i)], grad_p2_mat[(2, i)])
+                };
+                let n_i = if idxs.len() == 4 { n_p1[i] } else { n_p2[i] };
+
                 for d in 0..3 {
                     let gv_i = gi + d * v_offset;
                     for j in 0..idxs.len().min(10) {
                         let gj = idxs[j];
                         let gv_j = gj + d * v_offset;
-                        let grad_j = grad_p2_mat.column(j);
+                        let grad_j = if idxs.len() == 4 { 
+                            Vector3::new(p1_gradients_phys[(0, j)], p1_gradients_phys[(1, j)], p1_gradients_phys[(2, j)])
+                        } else { 
+                            Vector3::new(grad_p2_mat[(0, j)], grad_p2_mat[(1, j)], grad_p2_mat[(2, j)])
+                        };
+                        let n_j = if idxs.len() == 4 { n_p1[j] } else { n_p2[j] };
+
                         let visc = viscosity * grad_i.dot(&grad_j) * weight;
                         builder.add_entry(gv_i, gv_j, visc)?;
-                        let adv = density * n_p2[i] * u_avg.dot(&grad_j) * weight;
+                        let adv = density * n_i * u_avg.dot(&grad_j) * weight;
                         builder.add_entry(gv_i, gv_j, adv)?;
                         if grad_div_penalty > T::zero() {
                             for e in 0..3 {
@@ -435,6 +452,49 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
                 }
             }
         }
+
+        // PSPG pressure stabilization for P1/P1 equal-order elements.
+        //
+        // Equal-order P1 interpolation for both velocity and pressure violates
+        // the Babuška–Brezzi (LBB/inf-sup) condition, producing spurious
+        // checkerboard pressure modes.  Adding the Pressure-Stabilising /
+        // Petrov-Galerkin (PSPG) term to each element's continuity equation
+        //
+        //   τ_K ∫_K ∇p_h · ∇q dV_K,   τ_K = h_K² / (4μ)
+        //
+        // suppresses these modes and restores a physically correct pressure
+        // distribution (Hughes, Franca & Balestra 1986, Comput. Methods Appl.
+        // Mech. Engrg. 59, 85-99).
+        //
+        // For P2/P1 Taylor-Hood elements (idxs.len() == 10) the LBB condition
+        // is already satisfied; no stabilisation is needed or added.
+        if idxs.len() <= 4 {
+            let six  = <T as FromPrimitive>::from_f64(6.0).unwrap();
+            let four = <T as FromPrimitive>::from_f64(4.0).unwrap();
+            let v_k  = abs_det / six;          // element volume
+            let h_k  = Float::cbrt(v_k);       // characteristic length
+            let tau  = h_k * h_k / (viscosity * four);
+
+            for j in 0..4 {
+                let gp_j  = p_offset + idxs[j];
+                let grp_j = Vector3::new(
+                    p1_gradients_phys[(0, j)],
+                    p1_gradients_phys[(1, j)],
+                    p1_gradients_phys[(2, j)],
+                );
+                for k in 0..4 {
+                    let gp_k  = p_offset + idxs[k];
+                    let grp_k = Vector3::new(
+                        p1_gradients_phys[(0, k)],
+                        p1_gradients_phys[(1, k)],
+                        p1_gradients_phys[(2, k)],
+                    );
+                    let val = tau * grp_j.dot(&grp_k) * v_k;
+                    builder.add_entry(gp_j, gp_k, val)?;
+                }
+            }
+        }
+
         Ok(())
     }
 

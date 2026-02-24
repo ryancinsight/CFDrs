@@ -2,7 +2,7 @@
 //!
 //! Merges coincident vertices while strictly preserving 2-manifold properties.
 
-use hashbrown::{HashMap, HashSet};
+use hashbrown::HashMap;
 
 use crate::application::welding::spatial_hash::SpatialHashGrid;
 use crate::domain::core::index::VertexId;

@@ -775,6 +775,7 @@ dependencies = [
  "cfd-io",
  "cfd-math",
  "cfd-mesh",
+ "cfd-schematics",
  "chrono",
  "criterion",
  "nalgebra 0.33.2",

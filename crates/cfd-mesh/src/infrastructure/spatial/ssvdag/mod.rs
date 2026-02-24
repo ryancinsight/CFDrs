@@ -5,5 +5,6 @@
 
 pub mod boolean;
 pub mod core;
+pub mod rasterize;
 
 pub use core::{DagIndex, SparseVoxelOctree, SvoNode};

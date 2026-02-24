@@ -78,16 +78,23 @@ impl<T: RealField + Copy + FromPrimitive + Float> FlowField2D<T> {
     }
 
     /// Update viscosity field from shear rate using the active `BloodModel`.
-    pub fn update_viscosity(&mut self, grid: &StaggeredGrid2D<T>, blood: &BloodModel<T>) {
+    ///
+    /// `alpha_mu` under-relaxes the update: μ_new = (1−α)·μ_old + α·μ_computed.
+    /// For non-Newtonian models (Casson, Carreau-Yasuda) this prevents viscosity
+    /// oscillation between SIMPLE iterations (Patankar 1980, §6.7).
+    /// For Newtonian blood the factor has no effect (μ_computed is constant).
+    pub fn update_viscosity(&mut self, grid: &StaggeredGrid2D<T>, blood: &BloodModel<T>, alpha_mu: T) {
+        let one = T::one();
         for i in 0..grid.nx {
             for j in 0..grid.ny {
                 let gamma = self.compute_shear_rate(i, j, grid.dx, grid.dy);
                 self.gamma_dot[i][j] = gamma;
-                self.mu[i][j] = match blood {
+                let mu_computed = match blood {
                     BloodModel::Casson(m)        => m.apparent_viscosity(gamma),
                     BloodModel::CarreauYasuda(m) => m.apparent_viscosity(gamma),
                     BloodModel::Newtonian(mu)    => *mu,
                 };
+                self.mu[i][j] = self.mu[i][j] * (one - alpha_mu) + mu_computed * alpha_mu;
             }
         }
     }

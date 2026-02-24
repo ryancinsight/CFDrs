@@ -103,7 +103,7 @@ fn build_structured_grid(nx: usize, ny: usize, nz: usize) -> Result<IndexedMesh<
                     let tets_a: [[VertexId; 4]; 5] = [
                         [v[0], v[1], v[3], v[4]],
                         [v[1], v[2], v[3], v[6]],
-                        [v[4], v[5], v[6], v[1]],
+                        [v[4], v[5], v[1], v[6]], // Swapped v6 and v1
                         [v[4], v[7], v[6], v[3]],
                         [v[1], v[3], v[4], v[6]],
                     ];
@@ -116,11 +116,11 @@ fn build_structured_grid(nx: usize, ny: usize, nz: usize) -> Result<IndexedMesh<
                     }
                 } else {
                     let tets_b: [[VertexId; 4]; 5] = [
-                        [v[1], v[0], v[2], v[5]],
+                        [v[1], v[0], v[5], v[2]], // Swapped v2 and v5
                         [v[3], v[0], v[2], v[7]],
-                        [v[4], v[0], v[5], v[7]],
+                        [v[4], v[0], v[7], v[5]], // Swapped v5 and v7
                         [v[6], v[2], v[5], v[7]],
-                        [v[0], v[2], v[5], v[7]],
+                        [v[0], v[2], v[7], v[5]], // Swapped v5 and v7
                     ];
                     for tet in &tets_b {
                         let f0 = add_tri(tet[0], tet[1], tet[2], &mut mesh).as_usize();

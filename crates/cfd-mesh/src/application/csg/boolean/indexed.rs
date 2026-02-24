@@ -62,6 +62,12 @@ pub fn csg_boolean_indexed(
     let result_faces = csg_boolean(op, &faces_a, &faces_b, &mut combined)?;
     let mut mesh = reconstruct::reconstruct_mesh(&result_faces, &combined);
 
+    // Recompute vertex normals from the final face geometry.
+    // After boolean operations, B-sourced faces may have had their winding
+    // flipped (e.g. for Difference) but retain the original vertex normals from
+    // mesh B.  Recomputing from face geometry ensures alignment consistency.
+    mesh.recompute_normals();
+
     if !is_coplanar {
         mesh.rebuild_edges();
         let report = crate::application::watertight::check::check_watertight(

@@ -557,7 +557,9 @@ impl<T: RealField + Copy + Float + FromPrimitive> SerpentineSolver2D<T> {
         c_left: T,  // Concentration on left half of inlet
         c_right: T, // Concentration on right half of inlet
     ) -> CfdResult<SerpentineMixingSolution<T>> {
-        self.solve_with_tolerance(u_inlet, diffusion_coeff, c_left, c_right, T::from_f64(1e-8).unwrap())
+        // Use the scalar-transport default tolerance (1e-5), which matches the
+        // FVM spatial truncation error O(Δx²) on typical coarse grids.
+        self.solve_with_tolerance(u_inlet, diffusion_coeff, c_left, c_right, T::from_f64(1e-5).unwrap())
     }
 
     /// Solve for flow and mixing with custom tolerance

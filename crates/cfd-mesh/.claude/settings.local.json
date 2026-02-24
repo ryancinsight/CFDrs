@@ -41,7 +41,9 @@
       "Bash(git push:*)",
       "Bash(sort:*)",
       "mcp__desktop-commander__start_search",
-      "mcp__desktop-commander__get_more_search_results"
+      "mcp__desktop-commander__get_more_search_results",
+      "Bash(taskkill:*)",
+      "Bash(tee:*)"
     ]
   }
 }

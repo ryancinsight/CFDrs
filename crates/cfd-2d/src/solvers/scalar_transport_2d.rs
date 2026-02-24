@@ -29,7 +29,11 @@ impl<T: RealField + Copy + FromPrimitive> Default for ScalarTransportConfig<T> {
     fn default() -> Self {
         Self {
             max_iterations: 5000,
-            tolerance: T::from_f64(1e-8).unwrap(),
+            // 1e-5 matches the FVM spatial truncation error O(Δx²) on typical
+            // coarse grids (Δx ~ 0.003 m → Δx² ~ 1e-5).  Using 1e-8 demands
+            // residuals an order of magnitude below the discretisation error,
+            // which is unachievable with Gauss-Seidel on advection-dominated flows.
+            tolerance: T::from_f64(1e-5).unwrap(),
             diffusion_coeff: T::from_f64(1e-9).unwrap(), // Typical diffusion
         }
     }

@@ -134,7 +134,7 @@ pub use vof::{VofConfig, VofSolver};
 
 // CSG integration from cfd-mesh - feature-gated for optional dependency
 #[cfg(feature = "csg")]
-pub use cfd_mesh::csg::CsgError;
+pub use cfd_mesh::application::csg::CsgError;
 
 #[cfg(test)]
 mod tests {

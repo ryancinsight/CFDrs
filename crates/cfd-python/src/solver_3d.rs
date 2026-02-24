@@ -389,7 +389,7 @@ impl PyPoiseuille3DResult {
 // ============================================================================
 
 use cfd_3d::venturi::{VenturiConfig3D, VenturiSolver3D, VenturiSolution3D};
-use cfd_mesh::geometry::venturi::VenturiMeshBuilder;
+use cfd_mesh::VenturiMeshBuilder;
 
 /// 3D Venturi flow solver
 #[pyclass(name = "Venturi3DSolver")]
@@ -519,7 +519,7 @@ pub struct PyVenturi3DResult {
 // ============================================================================
 
 use cfd_3d::serpentine::{SerpentineConfig3D, SerpentineSolver3D, SerpentineSolution3D};
-use cfd_mesh::geometry::serpentine::SerpentineMeshBuilder;
+use cfd_mesh::SerpentineMeshBuilder;
 
 /// 3D Serpentine flow solver
 #[pyclass(name = "Serpentine3DSolver")]
