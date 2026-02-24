@@ -5,10 +5,10 @@
 
 use hashbrown::HashMap;
 
-use crate::core::index::VertexId;
-use crate::core::scalar::{Real, Point3r, TOLERANCE};
-use crate::storage::face_store::FaceStore;
-use crate::welding::spatial_hash::SpatialHashGrid;
+use crate::application::welding::spatial_hash::SpatialHashGrid;
+use crate::domain::core::index::VertexId;
+use crate::domain::core::scalar::{Point3r, Real, TOLERANCE};
+use crate::infrastructure::storage::face_store::FaceStore;
 
 /// Weld result.
 #[derive(Debug)]
@@ -41,11 +41,7 @@ impl MeshWelder {
     /// Weld duplicate vertices in a position list and remap face references.
     ///
     /// Returns the deduplicated positions and the remap table.
-    pub fn weld(
-        &self,
-        positions: &[Point3r],
-        face_store: &mut FaceStore,
-    ) -> WeldResult {
+    pub fn weld(&self, positions: &[Point3r], face_store: &mut FaceStore) -> WeldResult {
         let mut grid = SpatialHashGrid::new(self.tolerance * 2.0);
         let mut canonical: Vec<Point3r> = Vec::with_capacity(positions.len());
         let mut remap: HashMap<u32, u32> = HashMap::with_capacity(positions.len());

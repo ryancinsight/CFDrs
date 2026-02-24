@@ -42,8 +42,8 @@
 //! ## Example
 //!
 //! ```rust,no_run
-//! use cfd_mesh::geometry::nurbs::knot::KnotVector;
-//! use cfd_mesh::geometry::nurbs::curve::NurbsCurve;
+//! use cfd_mesh::domain::geometry::nurbs::knot::KnotVector;
+//! use cfd_mesh::domain::geometry::nurbs::curve::NurbsCurve;
 //! use nalgebra::SVector;
 //!
 //! // Quadratic NURBS arc (quarter circle in XY plane)
@@ -61,9 +61,9 @@
 //! assert!((scale - 1.0).abs() < 1e-10, "point should be on unit circle");
 //! ```
 
-use crate::core::scalar::Real;
 use super::basis::{eval_basis, eval_basis_and_deriv};
-use super::knot::{KnotVector, KnotError};
+use super::knot::{KnotError, KnotVector};
+use crate::domain::core::scalar::Real;
 use nalgebra::SVector;
 
 // ── Errors ────────────────────────────────────────────────────────────────────
@@ -107,8 +107,14 @@ impl std::fmt::Display for CurveError {
                 write!(f, "expected {expected} knots (n+p+2), got {got}")
             }
             CurveError::ZeroDegree => write!(f, "degree must be ≥ 1"),
-            CurveError::WeightsMismatch { weights, control_points } => {
-                write!(f, "weights length {weights} != control points {control_points}")
+            CurveError::WeightsMismatch {
+                weights,
+                control_points,
+            } => {
+                write!(
+                    f,
+                    "weights length {weights} != control points {control_points}"
+                )
             }
             CurveError::NonPositiveWeight { index } => {
                 write!(f, "weight[{index}] ≤ 0")
@@ -186,9 +192,16 @@ impl<const D: usize> BSplineCurve<D> {
         let n = control_points.len() - 1;
         let expected = n + degree + 2;
         if knots.len() != expected {
-            return Err(CurveError::KnotCountMismatch { got: knots.len(), expected });
+            return Err(CurveError::KnotCountMismatch {
+                got: knots.len(),
+                expected,
+            });
         }
-        Ok(Self { control_points, knots, degree })
+        Ok(Self {
+            control_points,
+            knots,
+            degree,
+        })
     }
 
     /// Create a clamped uniform B-spline with the given control points and degree.
@@ -202,7 +215,11 @@ impl<const D: usize> BSplineCurve<D> {
         let n = control_points.len() - 1;
         assert!(n >= degree, "need at least degree+1 control points");
         let knots = KnotVector::clamped_uniform(n, degree);
-        Self { control_points, knots, degree }
+        Self {
+            control_points,
+            knots,
+            degree,
+        }
     }
 
     /// The parameter domain `[t_min, t_max]`.
@@ -341,9 +358,17 @@ impl<const D: usize> NurbsCurve<D> {
         let n = control_points.len() - 1;
         let expected = n + degree + 2;
         if knots.len() != expected {
-            return Err(CurveError::KnotCountMismatch { got: knots.len(), expected });
+            return Err(CurveError::KnotCountMismatch {
+                got: knots.len(),
+                expected,
+            });
         }
-        Ok(Self { control_points, weights, knots, degree })
+        Ok(Self {
+            control_points,
+            weights,
+            knots,
+            degree,
+        })
     }
 
     /// Create a NURBS curve from a B-spline (all weights = 1).
@@ -425,17 +450,17 @@ impl<const D: usize> NurbsCurve<D> {
         let (basis, dbasis) = eval_basis_and_deriv(span, t, self.degree, &self.knots);
         let p = self.degree;
 
-        let mut a = SVector::<Real, D>::zeros();   // Σ N·w·P
-        let mut da = SVector::<Real, D>::zeros();  // Σ N'·w·P
-        let mut w: Real = 0.0;                       // Σ N·w
-        let mut dw: Real = 0.0;                      // Σ N'·w
+        let mut a = SVector::<Real, D>::zeros(); // Σ N·w·P
+        let mut da = SVector::<Real, D>::zeros(); // Σ N'·w·P
+        let mut w: Real = 0.0; // Σ N·w
+        let mut dw: Real = 0.0; // Σ N'·w
 
         for j in 0..=p {
             let cp = self.control_points[span - p + j];
             let wj = self.weights[span - p + j];
             a += cp * (basis[j] * wj);
             da += cp * (dbasis[j] * wj);
-            w  += basis[j] * wj;
+            w += basis[j] * wj;
             dw += dbasis[j] * wj;
         }
 
@@ -467,7 +492,6 @@ impl<const D: usize> NurbsCurve<D> {
             })
             .collect()
     }
-
 }
 
 impl NurbsCurve<3> {
@@ -475,9 +499,9 @@ impl NurbsCurve<3> {
     ///
     /// By the convex hull property of NURBS, the bounding box of the control
     /// points is a conservative bound; this provides a tighter empirical bound.
-    pub fn aabb(&self, resolution: usize) -> crate::geometry::Aabb {
-        use crate::geometry::Aabb;
-        use crate::core::scalar::Point3r;
+    pub fn aabb(&self, resolution: usize) -> crate::domain::geometry::Aabb {
+        use crate::domain::core::scalar::Point3r;
+        use crate::domain::geometry::Aabb;
         let mut aabb = Aabb::empty();
         let (lo, hi) = self.domain();
         let res = resolution.max(8);
@@ -536,7 +560,10 @@ mod tests {
         let curve = BSplineCurve::clamped(pts, 1);
         let (_, tan) = curve.point_and_tangent(0.5);
         // Tangent direction is (1,1,1), magnitude = degree * (P1-P0) / knot diff
-        assert!(tan.dot(&v3(1.0, 1.0, 1.0)) > 0.0, "tangent must point in positive direction");
+        assert!(
+            tan.dot(&v3(1.0, 1.0, 1.0)) > 0.0,
+            "tangent must point in positive direction"
+        );
     }
 
     #[test]
@@ -583,11 +610,7 @@ mod tests {
         // Exact unit quarter-circle in XY plane:
         // P0=(1,0), w0=1  P1=(1,1), w1=1/√2  P2=(0,1), w2=1
         let sq2_inv: Real = std::f64::consts::FRAC_1_SQRT_2 as Real;
-        let ctrl = vec![
-            V2::new(1.0, 0.0),
-            V2::new(1.0, 1.0),
-            V2::new(0.0, 1.0),
-        ];
+        let ctrl = vec![V2::new(1.0, 0.0), V2::new(1.0, 1.0), V2::new(0.0, 1.0)];
         let weights = vec![1.0, sq2_inv, 1.0];
         let knots = KnotVector::try_new(vec![0.0, 0.0, 0.0, 1.0, 1.0, 1.0]).unwrap();
         let curve = NurbsCurve::new(ctrl, weights, knots, 2).unwrap();
@@ -609,11 +632,7 @@ mod tests {
     #[test]
     fn nurbs_endpoints_interpolate() {
         // Any clamped NURBS must pass through first and last control points
-        let ctrl = vec![
-            v3(1.0, 2.0, 3.0),
-            v3(4.0, 5.0, 6.0),
-            v3(7.0, 8.0, 9.0),
-        ];
+        let ctrl = vec![v3(1.0, 2.0, 3.0), v3(4.0, 5.0, 6.0), v3(7.0, 8.0, 9.0)];
         let weights = vec![1.0, 0.5, 2.0];
         let knots = KnotVector::clamped_uniform(2, 2);
         let curve = NurbsCurve::new(ctrl.clone(), weights, knots, 2).unwrap();
@@ -636,11 +655,7 @@ mod tests {
 
     #[test]
     fn nurbs_aabb_contains_control_points() {
-        let ctrl = vec![
-            v3(-1.0, -2.0, -3.0),
-            v3(0.0, 0.0, 0.0),
-            v3(4.0, 5.0, 6.0),
-        ];
+        let ctrl = vec![v3(-1.0, -2.0, -3.0), v3(0.0, 0.0, 0.0), v3(4.0, 5.0, 6.0)];
         let weights = vec![1.0, 1.5, 1.0];
         let knots = KnotVector::clamped_uniform(2, 2);
         let curve = NurbsCurve::new(ctrl, weights, knots, 2).unwrap();

@@ -1,19 +1,19 @@
-﻿//! NURBS and B-Spline Surfaces -- tensor-product parameterisation.
+//! NURBS and B-Spline Surfaces -- tensor-product parameterisation.
 //!
 //! `BSplineSurface` is the non-rational case (all weights == 1).
 //! `NurbsSurface` is the rational case with per-control-point positive weights.
 //! Both are parameterised over a rectangular domain [u0,u1] x [v0,v1].
 
-use crate::core::scalar::Real;
 use super::basis::{eval_basis, eval_basis_and_deriv};
 use super::knot::KnotVector;
+use crate::domain::core::scalar::Real;
 use nalgebra::{Point3, UnitVector3, Vector3};
 
 // ---------------------------------------------------------------------------
 // Type aliases
 // ---------------------------------------------------------------------------
 
-/// 3-D point (matches `crate::core::scalar::Point3r`).
+/// 3-D point (matches `crate::domain::core::scalar::Point3r`).
 pub type Pt3 = Point3<Real>;
 
 /// 3-D vector.
@@ -40,15 +40,27 @@ impl ControlGrid {
     /// # Panics
     /// Panics if `data.len() != n_rows * n_cols`.
     pub fn new(data: Vec<Pt3>, n_rows: usize, n_cols: usize) -> Self {
-        assert_eq!(data.len(), n_rows * n_cols, "data.len() must equal n_rows * n_cols");
-        Self { data, n_rows, n_cols }
+        assert_eq!(
+            data.len(),
+            n_rows * n_cols,
+            "data.len() must equal n_rows * n_cols"
+        );
+        Self {
+            data,
+            n_rows,
+            n_cols,
+        }
     }
 
     /// Number of rows (u direction).
-    pub fn n_rows(&self) -> usize { self.n_rows }
+    pub fn n_rows(&self) -> usize {
+        self.n_rows
+    }
 
     /// Number of columns (v direction).
-    pub fn n_cols(&self) -> usize { self.n_cols }
+    pub fn n_cols(&self) -> usize {
+        self.n_cols
+    }
 
     /// Access control point at `(row, col)`.
     #[inline]
@@ -72,7 +84,11 @@ pub struct WeightGrid {
 impl WeightGrid {
     /// All-ones weight grid (equivalent to B-spline).
     pub fn uniform(n_rows: usize, n_cols: usize) -> Self {
-        Self { data: vec![1.0; n_rows * n_cols], n_rows, n_cols }
+        Self {
+            data: vec![1.0; n_rows * n_cols],
+            n_rows,
+            n_cols,
+        }
     }
 
     /// Create from a flat row-major vector.
@@ -84,7 +100,11 @@ impl WeightGrid {
         for (i, &w) in data.iter().enumerate() {
             assert!(w > 0.0, "weight[{}] = {} is not positive", i, w);
         }
-        Self { data, n_rows, n_cols }
+        Self {
+            data,
+            n_rows,
+            n_cols,
+        }
     }
 
     /// Access weight at `(row, col)`.
@@ -94,9 +114,13 @@ impl WeightGrid {
     }
 
     /// Dimensions.
-    pub fn n_rows(&self) -> usize { self.n_rows }
+    pub fn n_rows(&self) -> usize {
+        self.n_rows
+    }
     /// Dimensions.
-    pub fn n_cols(&self) -> usize { self.n_cols }
+    pub fn n_cols(&self) -> usize {
+        self.n_cols
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -133,8 +157,16 @@ impl std::fmt::Display for SurfaceError {
             SurfaceError::ZeroDegree { direction } => {
                 write!(f, "degree in {} direction must be >= 1", direction)
             }
-            SurfaceError::KnotCountMismatch { direction, got, expected } => {
-                write!(f, "knot-{}: expected {} knots, got {}", direction, expected, got)
+            SurfaceError::KnotCountMismatch {
+                direction,
+                got,
+                expected,
+            } => {
+                write!(
+                    f,
+                    "knot-{}: expected {} knots, got {}",
+                    direction, expected, got
+                )
             }
             SurfaceError::WeightGridMismatch => {
                 write!(f, "weight grid dimensions differ from control grid")
@@ -182,24 +214,38 @@ impl BSplineSurface {
         if control_grid.n_rows() == 0 || control_grid.n_cols() == 0 {
             return Err(SurfaceError::EmptyControlGrid);
         }
-        if degree_u == 0 { return Err(SurfaceError::ZeroDegree { direction: 'u' }); }
-        if degree_v == 0 { return Err(SurfaceError::ZeroDegree { direction: 'v' }); }
+        if degree_u == 0 {
+            return Err(SurfaceError::ZeroDegree { direction: 'u' });
+        }
+        if degree_v == 0 {
+            return Err(SurfaceError::ZeroDegree { direction: 'v' });
+        }
 
         // n + p + 2  where  n_u = n_cols - 1,  n_v = n_rows - 1
         // (u varies along columns, v varies along rows)
         let exp_u = control_grid.n_cols() + degree_u + 1;
         if knots_u.len() != exp_u {
             return Err(SurfaceError::KnotCountMismatch {
-                direction: 'u', got: knots_u.len(), expected: exp_u,
+                direction: 'u',
+                got: knots_u.len(),
+                expected: exp_u,
             });
         }
         let exp_v = control_grid.n_rows() + degree_v + 1;
         if knots_v.len() != exp_v {
             return Err(SurfaceError::KnotCountMismatch {
-                direction: 'v', got: knots_v.len(), expected: exp_v,
+                direction: 'v',
+                got: knots_v.len(),
+                expected: exp_v,
             });
         }
-        Ok(Self { control_grid, knots_u, knots_v, degree_u, degree_v })
+        Ok(Self {
+            control_grid,
+            knots_u,
+            knots_v,
+            degree_u,
+            degree_v,
+        })
     }
 
     /// Create with clamped uniform knot vectors constructed automatically.
@@ -211,8 +257,8 @@ impl BSplineSurface {
         if control_grid.n_rows() == 0 || control_grid.n_cols() == 0 {
             return Err(SurfaceError::EmptyControlGrid);
         }
-        let n_u = control_grid.n_cols() - 1;  // u = cols
-        let n_v = control_grid.n_rows() - 1;  // v = rows
+        let n_u = control_grid.n_cols() - 1; // u = cols
+        let n_v = control_grid.n_rows() - 1; // v = rows
         let ku = KnotVector::clamped_uniform(n_u, degree_u);
         let kv = KnotVector::clamped_uniform(n_v, degree_v);
         Self::new(control_grid, ku, kv, degree_u, degree_v)
@@ -225,8 +271,8 @@ impl BSplineSurface {
 
     /// Evaluate the surface at `(u, v)`.
     pub fn point(&self, u: Real, v: Real) -> Pt3 {
-        let n_u = self.control_grid.n_cols() - 1;  // u = cols
-        let n_v = self.control_grid.n_rows() - 1;  // v = rows
+        let n_u = self.control_grid.n_cols() - 1; // u = cols
+        let n_v = self.control_grid.n_rows() - 1; // v = rows
         let su = self.knots_u.find_span(u, n_u);
         let sv = self.knots_v.find_span(v, n_v);
         let bu = eval_basis(su, u, self.degree_u, &self.knots_u);
@@ -246,8 +292,8 @@ impl BSplineSurface {
 
     /// Evaluate surface point and partial derivatives `(S, dS/du, dS/dv)`.
     pub fn point_and_derivs(&self, u: Real, v: Real) -> (Pt3, Vec3, Vec3) {
-        let n_u = self.control_grid.n_cols() - 1;  // u = cols
-        let n_v = self.control_grid.n_rows() - 1;  // v = rows
+        let n_u = self.control_grid.n_cols() - 1; // u = cols
+        let n_v = self.control_grid.n_rows() - 1; // v = rows
         let su = self.knots_u.find_span(u, n_u);
         let sv = self.knots_v.find_span(v, n_v);
         let (bu, dbu) = eval_basis_and_deriv(su, u, self.degree_u, &self.knots_u);
@@ -262,9 +308,9 @@ impl BSplineSurface {
         for (j, (&nu, &dnu)) in bu.iter().zip(dbu.iter()).enumerate() {
             for (k, (&nv, &dnv)) in bv.iter().zip(dbv.iter()).enumerate() {
                 let pt = self.control_grid.get(sv - pv + k, su - pu + j).coords;
-                s      += pt * (nu * nv);
-                ds_du  += pt * (dnu * nv);
-                ds_dv  += pt * (nu * dnv);
+                s += pt * (nu * nv);
+                ds_du += pt * (dnu * nv);
+                ds_dv += pt * (nu * dnv);
             }
         }
         (Pt3::from(s), ds_du, ds_dv)
@@ -317,14 +363,23 @@ impl NurbsSurface {
     ) -> Result<Self, SurfaceError> {
         // Delegate structural checks to BSplineSurface constructor
         let _test = BSplineSurface::new(
-            control_grid.clone(), knots_u.clone(), knots_v.clone(), degree_u, degree_v,
+            control_grid.clone(),
+            knots_u.clone(),
+            knots_v.clone(),
+            degree_u,
+            degree_v,
         )?;
-        if weights.n_rows() != control_grid.n_rows()
-            || weights.n_cols() != control_grid.n_cols()
-        {
+        if weights.n_rows() != control_grid.n_rows() || weights.n_cols() != control_grid.n_cols() {
             return Err(SurfaceError::WeightGridMismatch);
         }
-        Ok(Self { control_grid, weights, knots_u, knots_v, degree_u, degree_v })
+        Ok(Self {
+            control_grid,
+            weights,
+            knots_u,
+            knots_v,
+            degree_u,
+            degree_v,
+        })
     }
 
     /// Create a NURBS surface from a B-spline (all weights = 1).
@@ -370,8 +425,8 @@ impl NurbsSurface {
     ///   dS/du = (dA/du * W - A * dW/du) / W^2
     /// where A = sum N_i(u) N_j(v) w_ij P_ij and W = sum N_i N_j w_ij.
     pub fn point_and_derivs(&self, u: Real, v: Real) -> (Pt3, Vec3, Vec3) {
-        let n_u = self.control_grid.n_cols() - 1;  // u = cols
-        let n_v = self.control_grid.n_rows() - 1;  // v = rows
+        let n_u = self.control_grid.n_cols() - 1; // u = cols
+        let n_v = self.control_grid.n_rows() - 1; // v = rows
         let su = self.knots_u.find_span(u, n_u);
         let sv = self.knots_v.find_span(v, n_v);
         let (bu, dbu) = eval_basis_and_deriv(su, u, self.degree_u, &self.knots_u);
@@ -392,12 +447,12 @@ impl NurbsSurface {
                 // get(row, col) = get(v_idx, u_idx)
                 let wij = self.weights.get(sv - pv + k, su - pu + j);
                 let pt = self.control_grid.get(sv - pv + k, su - pu + j).coords;
-                a      += pt * (nu * nv * wij);
-                da_du  += pt * (dnu * nv * wij);
-                da_dv  += pt * (nu * dnv * wij);
-                w      += nu * nv * wij;
-                dw_du  += dnu * nv * wij;
-                dw_dv  += nu * dnv * wij;
+                a += pt * (nu * nv * wij);
+                da_du += pt * (dnu * nv * wij);
+                da_dv += pt * (nu * dnv * wij);
+                w += nu * nv * wij;
+                dw_du += dnu * nv * wij;
+                dw_dv += nu * dnv * wij;
             }
         }
 
@@ -419,8 +474,8 @@ impl NurbsSurface {
     }
 
     /// Axis-aligned bounding box from a resolution x resolution sample grid.
-    pub fn aabb(&self, resolution: usize) -> crate::geometry::Aabb {
-        use crate::geometry::Aabb;
+    pub fn aabb(&self, resolution: usize) -> crate::domain::geometry::Aabb {
+        use crate::domain::geometry::Aabb;
         let mut aabb = Aabb::empty();
         let ((u0, u1), (v0, v1)) = self.domain();
         let res = resolution.max(4);
@@ -438,8 +493,8 @@ impl NurbsSurface {
     // -- internal --
 
     fn rational_eval(&self, u: Real, v: Real) -> (Vec3, Real) {
-        let n_u = self.control_grid.n_cols() - 1;  // u = cols
-        let n_v = self.control_grid.n_rows() - 1;  // v = rows
+        let n_u = self.control_grid.n_cols() - 1; // u = cols
+        let n_v = self.control_grid.n_rows() - 1; // v = rows
         let su = self.knots_u.find_span(u, n_u);
         let sv = self.knots_v.find_span(v, n_v);
         let bu = eval_basis(su, u, self.degree_u, &self.knots_u);
@@ -471,7 +526,9 @@ impl NurbsSurface {
 mod tests {
     use super::*;
 
-    fn pt(x: Real, y: Real, z: Real) -> Pt3 { Pt3::new(x, y, z) }
+    fn pt(x: Real, y: Real, z: Real) -> Pt3 {
+        Pt3::new(x, y, z)
+    }
 
     fn grid_2x2(pts: &[Pt3]) -> ControlGrid {
         ControlGrid::new(pts.to_vec(), 2, 2)
@@ -482,8 +539,10 @@ mod tests {
     #[test]
     fn bspline_bilinear_corners() {
         let pts = vec![
-            pt(0.0, 0.0, 0.0), pt(1.0, 0.0, 0.0),
-            pt(0.0, 1.0, 0.0), pt(1.0, 1.0, 0.0),
+            pt(0.0, 0.0, 0.0),
+            pt(1.0, 0.0, 0.0),
+            pt(0.0, 1.0, 0.0),
+            pt(1.0, 1.0, 0.0),
         ];
         let surf = BSplineSurface::clamped(grid_2x2(&pts), 1, 1).unwrap();
         assert!((surf.point(0.0, 0.0) - pt(0.0, 0.0, 0.0)).norm() < 1e-12);
@@ -495,8 +554,10 @@ mod tests {
     #[test]
     fn bspline_bilinear_midpoint() {
         let pts = vec![
-            pt(0.0, 0.0, 0.0), pt(1.0, 0.0, 0.0),
-            pt(0.0, 1.0, 0.0), pt(1.0, 1.0, 0.0),
+            pt(0.0, 0.0, 0.0),
+            pt(1.0, 0.0, 0.0),
+            pt(0.0, 1.0, 0.0),
+            pt(1.0, 1.0, 0.0),
         ];
         let surf = BSplineSurface::clamped(grid_2x2(&pts), 1, 1).unwrap();
         let mid = surf.point(0.5, 0.5);
@@ -506,8 +567,10 @@ mod tests {
     #[test]
     fn bspline_normal_flat_patch() {
         let pts = vec![
-            pt(0.0, 0.0, 0.0), pt(1.0, 0.0, 0.0),
-            pt(0.0, 1.0, 0.0), pt(1.0, 1.0, 0.0),
+            pt(0.0, 0.0, 0.0),
+            pt(1.0, 0.0, 0.0),
+            pt(0.0, 1.0, 0.0),
+            pt(1.0, 1.0, 0.0),
         ];
         let surf = BSplineSurface::clamped(grid_2x2(&pts), 1, 1).unwrap();
         let n = surf.normal(0.5, 0.5).expect("should have valid normal");
@@ -517,8 +580,10 @@ mod tests {
     #[test]
     fn bspline_wrong_knot_count_errors() {
         let pts = vec![
-            pt(0.0, 0.0, 0.0), pt(1.0, 0.0, 0.0),
-            pt(0.0, 1.0, 0.0), pt(1.0, 1.0, 0.0),
+            pt(0.0, 0.0, 0.0),
+            pt(1.0, 0.0, 0.0),
+            pt(0.0, 1.0, 0.0),
+            pt(1.0, 1.0, 0.0),
         ];
         let grid = grid_2x2(&pts);
         let ku = KnotVector::try_new(vec![0.0, 1.0]).unwrap(); // too short
@@ -531,8 +596,10 @@ mod tests {
     #[test]
     fn nurbs_unit_weight_matches_bspline() {
         let pts = vec![
-            pt(0.0, 0.0, 0.0), pt(1.0, 0.0, 0.0),
-            pt(0.0, 1.0, 0.0), pt(1.0, 1.0, 0.0),
+            pt(0.0, 0.0, 0.0),
+            pt(1.0, 0.0, 0.0),
+            pt(0.0, 1.0, 0.0),
+            pt(1.0, 1.0, 0.0),
         ];
         let bs = BSplineSurface::clamped(ControlGrid::new(pts.clone(), 2, 2), 1, 1).unwrap();
         let ns = NurbsSurface::from_bspline(bs.clone());
@@ -544,7 +611,9 @@ mod tests {
                 let pn = ns.point(u, v);
                 assert!(
                     (pb - pn).norm() < 1e-12,
-                    "unit-weight NURBS != B-spline at ({}, {})", u, v
+                    "unit-weight NURBS != B-spline at ({}, {})",
+                    u,
+                    v
                 );
             }
         }
@@ -553,8 +622,10 @@ mod tests {
     #[test]
     fn nurbs_clamped_corners_interpolated() {
         let pts = vec![
-            pt(0.0, 0.0, 1.0), pt(1.0, 0.0, 2.0),
-            pt(0.0, 1.0, 3.0), pt(1.0, 1.0, 4.0),
+            pt(0.0, 0.0, 1.0),
+            pt(1.0, 0.0, 2.0),
+            pt(0.0, 1.0, 3.0),
+            pt(1.0, 1.0, 4.0),
         ];
         let surf = NurbsSurface::clamped(ControlGrid::new(pts.clone(), 2, 2), 1, 1).unwrap();
         assert!((surf.point(0.0, 0.0) - pts[0]).norm() < 1e-12);
@@ -566,8 +637,10 @@ mod tests {
     #[test]
     fn nurbs_aabb_non_degenerate() {
         let pts = vec![
-            pt(-1.0, -1.0, 0.0), pt(1.0, -1.0, 0.0),
-            pt(-1.0,  1.0, 0.0), pt(1.0,  1.0, 0.0),
+            pt(-1.0, -1.0, 0.0),
+            pt(1.0, -1.0, 0.0),
+            pt(-1.0, 1.0, 0.0),
+            pt(1.0, 1.0, 0.0),
         ];
         let surf = NurbsSurface::clamped(ControlGrid::new(pts, 2, 2), 1, 1).unwrap();
         let aabb = surf.aabb(8);
@@ -577,8 +650,10 @@ mod tests {
     #[test]
     fn nurbs_normal_not_zero() {
         let pts = vec![
-            pt(0.0, 0.0, 0.0), pt(1.0, 0.0, 0.0),
-            pt(0.0, 1.0, 0.0), pt(1.0, 1.0, 0.0),
+            pt(0.0, 0.0, 0.0),
+            pt(1.0, 0.0, 0.0),
+            pt(0.0, 1.0, 0.0),
+            pt(1.0, 1.0, 0.0),
         ];
         let surf = NurbsSurface::clamped(ControlGrid::new(pts, 2, 2), 1, 1).unwrap();
         assert!(surf.normal(0.5, 0.5).is_some());
@@ -587,8 +662,10 @@ mod tests {
     #[test]
     fn weight_grid_mismatch_errors() {
         let pts = vec![
-            pt(0.0, 0.0, 0.0), pt(1.0, 0.0, 0.0),
-            pt(0.0, 1.0, 0.0), pt(1.0, 1.0, 0.0),
+            pt(0.0, 0.0, 0.0),
+            pt(1.0, 0.0, 0.0),
+            pt(0.0, 1.0, 0.0),
+            pt(1.0, 1.0, 0.0),
         ];
         let grid = ControlGrid::new(pts, 2, 2);
         let wrong_weights = WeightGrid::uniform(3, 3); // 3x3 != 2x2
@@ -597,4 +674,3 @@ mod tests {
         assert!(NurbsSurface::new(grid, wrong_weights, ku, kv, 1, 1).is_err());
     }
 }
-

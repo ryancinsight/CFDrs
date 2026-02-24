@@ -1,10 +1,10 @@
 //! Regular tetrahedron primitive.
 
-use crate::core::index::RegionId;
-use crate::core::scalar::{Point3r, Vector3r};
-use crate::geometry::normal::triangle_normal;
-use crate::mesh::IndexedMesh;
-use super::{PrimitiveMesh, PrimitiveError};
+use super::{PrimitiveError, PrimitiveMesh};
+use crate::domain::core::index::RegionId;
+use crate::domain::core::scalar::{Point3r, Vector3r};
+use crate::domain::geometry::normal::triangle_normal;
+use crate::domain::mesh::IndexedMesh;
 
 /// Builds a regular tetrahedron inscribed in a sphere of the given `radius`.
 ///
@@ -34,11 +34,13 @@ pub struct Tetrahedron {
 }
 
 impl Default for Tetrahedron {
-    fn default() -> Self { Self { radius: 1.0 } }
+    fn default() -> Self {
+        Self { radius: 1.0 }
+    }
 }
 
 impl PrimitiveMesh for Tetrahedron {
-    fn build(&self) -> Result<crate::mesh::IndexedMesh, PrimitiveError> {
+    fn build(&self) -> Result<crate::domain::mesh::IndexedMesh, PrimitiveError> {
         build(self)
     }
 }
@@ -56,10 +58,10 @@ fn build(t: &Tetrahedron) -> Result<IndexedMesh, PrimitiveError> {
 
     // Canonical vertices: alternating corners of a cube of half-side r.
     // Centroid = origin.
-    let a = Point3r::new( r,  r,  r);
-    let b = Point3r::new(-r, -r,  r);
-    let c = Point3r::new(-r,  r, -r);
-    let d = Point3r::new( r, -r, -r);
+    let a = Point3r::new(r, r, r);
+    let b = Point3r::new(-r, -r, r);
+    let c = Point3r::new(-r, r, -r);
+    let d = Point3r::new(r, -r, -r);
 
     // Outward-facing winding (outward CCW, signed_volume > 0):
     //  face ACB, face ABD, face ADC, face BCD
@@ -73,8 +75,7 @@ fn build(t: &Tetrahedron) -> Result<IndexedMesh, PrimitiveError> {
     ];
 
     for (p0, p1, p2) in faces {
-        let n = triangle_normal(p0, p1, p2)
-            .unwrap_or(Vector3r::zeros());
+        let n = triangle_normal(p0, p1, p2).unwrap_or(Vector3r::zeros());
         let v0 = mesh.add_vertex(*p0, n);
         let v1 = mesh.add_vertex(*p1, n);
         let v2 = mesh.add_vertex(*p2, n);
@@ -87,8 +88,8 @@ fn build(t: &Tetrahedron) -> Result<IndexedMesh, PrimitiveError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::storage::edge_store::EdgeStore;
-    use crate::watertight::check::check_watertight;
+    use crate::application::watertight::check::check_watertight;
+    use crate::infrastructure::storage::edge_store::EdgeStore;
 
     #[test]
     fn tetrahedron_is_watertight() {
@@ -105,7 +106,10 @@ mod tests {
         let mesh = Tetrahedron { radius: r }.build().unwrap();
         let edges = EdgeStore::from_face_store(&mesh.faces);
         let report = check_watertight(&mesh.vertices, &mesh.faces, &edges);
-        assert!(report.signed_volume > 0.0, "outward normals → positive volume");
+        assert!(
+            report.signed_volume > 0.0,
+            "outward normals → positive volume"
+        );
     }
 
     #[test]

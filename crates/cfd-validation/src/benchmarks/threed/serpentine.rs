@@ -6,17 +6,17 @@
 use super::super::{Benchmark, BenchmarkConfig, BenchmarkResult};
 use crate::geometry::threed::Serpentine3D;
 use cfd_3d::serpentine::{SerpentineSolver3D, SerpentineConfig3D};
-use cfd_mesh::geometry::serpentine::SerpentineMeshBuilder;
+use cfd_mesh::SerpentineMeshBuilder;
 use cfd_core::physics::fluid::blood::CarreauYasudaBlood;
 use nalgebra::RealField;
 
 /// 3D Serpentine Flow benchmark
-pub struct SerpentineFlow3D<T: RealField + Copy> {
+pub struct SerpentineFlow3D<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     /// The 3D serpentine geometry
     pub geometry: Serpentine3D<T>,
 }
 
-impl<T: RealField + Copy> SerpentineFlow3D<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy> SerpentineFlow3D<T> {
     /// Create a new 3D serpentine flow benchmark
     pub fn new(geometry: Serpentine3D<T>) -> Self {
         Self { geometry }
@@ -24,7 +24,7 @@ impl<T: RealField + Copy> SerpentineFlow3D<T> {
 }
 
 impl<T: RealField + Copy + num_traits::Float + num_traits::FromPrimitive + 
-    num_traits::ToPrimitive + cfd_core::conversion::SafeFromF64 + std::convert::From<f64>> Benchmark<T> for SerpentineFlow3D<T> {
+    num_traits::ToPrimitive + cfd_core::conversion::SafeFromF64 + std::convert::From<f64> + cfd_mesh::domain::core::Scalar> Benchmark<T> for SerpentineFlow3D<T> {
     fn name(&self) -> &str {
         "3D Serpentine Micromixer Flow"
     }

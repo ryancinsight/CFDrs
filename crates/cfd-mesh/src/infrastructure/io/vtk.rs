@@ -2,15 +2,15 @@
 //!
 //! Writes a VTK legacy ASCII file suitable for ParaView visualization.
 
-use std::io::Write;
 use std::collections::HashMap;
+use std::io::Write;
 
-use crate::core::scalar::Real;
-use crate::core::error::{MeshError, MeshResult};
-use crate::mesh::{HalfEdgeMesh, IndexedMesh};
-use crate::permission::GhostToken;
-use crate::storage::face_store::FaceStore;
-use crate::storage::vertex_pool::VertexPool;
+use crate::domain::core::error::{MeshError, MeshResult};
+use crate::domain::core::scalar::Real;
+use crate::domain::mesh::{HalfEdgeMesh, IndexedMesh};
+use crate::infrastructure::permission::GhostToken;
+use crate::infrastructure::storage::face_store::FaceStore;
+use crate::infrastructure::storage::vertex_pool::VertexPool;
 
 /// Write an indexed mesh as a VTK legacy ASCII unstructured grid.
 pub fn write_vtk<W: Write>(
@@ -29,7 +29,7 @@ pub fn write_vtk<W: Write>(
     // Points
     writeln!(writer, "POINTS {n_verts} double").map_err(MeshError::Io)?;
     for i in 0..n_verts {
-        let vid = crate::core::index::VertexId::new(i as u32);
+        let vid = crate::domain::core::index::VertexId::new(i as u32);
         let p = vertex_pool.position(vid);
         writeln!(writer, "{} {} {}", p.x, p.y, p.z).map_err(MeshError::Io)?;
     }
@@ -75,8 +75,11 @@ pub fn write_vtk_he<'id, W: Write>(
     // Build a sequential index for every vertex key.
     let vertex_keys: Vec<_> = mesh.vertex_keys().collect();
     let n_verts = vertex_keys.len();
-    let vertex_index: HashMap<_, usize> =
-        vertex_keys.iter().enumerate().map(|(i, &k)| (k, i)).collect();
+    let vertex_index: HashMap<_, usize> = vertex_keys
+        .iter()
+        .enumerate()
+        .map(|(i, &k)| (k, i))
+        .collect();
 
     let face_keys: Vec<_> = mesh.face_keys().collect();
     let n_faces = face_keys.len();
@@ -89,8 +92,9 @@ pub fn write_vtk_he<'id, W: Write>(
     // Points
     writeln!(writer, "POINTS {n_verts} double").map_err(MeshError::Io)?;
     for &vk in &vertex_keys {
-        let p = mesh.vertex_pos(vk, token)
-            .unwrap_or_else(|| crate::core::scalar::Point3r::new(0.0, 0.0, 0.0));
+        let p = mesh
+            .vertex_pos(vk, token)
+            .unwrap_or_else(|| crate::domain::core::scalar::Point3r::new(0.0, 0.0, 0.0));
         writeln!(writer, "{} {} {}", p.x, p.y, p.z).map_err(MeshError::Io)?;
     }
 

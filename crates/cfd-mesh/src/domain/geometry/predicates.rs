@@ -43,7 +43,7 @@
 use geometry_predicates as gp;
 use nalgebra::Point2;
 
-use crate::core::scalar::Real;
+use crate::domain::core::scalar::Real;
 
 /// The sign of an orientation determinant.
 ///
@@ -120,7 +120,7 @@ fn r(v: Real) -> f64 {
 ///
 /// # Example
 /// ```rust
-/// use cfd_mesh::geometry::predicates::{orient_2d, Orientation};
+/// use cfd_mesh::domain::geometry::predicates::{orient_2d, Orientation};
 /// use nalgebra::Point2;
 ///
 /// let a = Point2::new(0.0_f64, 0.0);
@@ -129,11 +129,7 @@ fn r(v: Real) -> f64 {
 /// assert_eq!(orient_2d(&a, &b, &c), Orientation::Positive); // CCW
 /// ```
 pub fn orient_2d(a: &Point2<Real>, b: &Point2<Real>, c: &Point2<Real>) -> Orientation {
-    let det = gp::orient2d(
-        [r(a.x), r(a.y)],
-        [r(b.x), r(b.y)],
-        [r(c.x), r(c.y)],
-    );
+    let det = gp::orient2d([r(a.x), r(a.y)], [r(b.x), r(b.y)], [r(c.x), r(c.y)]);
     Orientation::from_det(det)
 }
 
@@ -142,11 +138,7 @@ pub fn orient_2d(a: &Point2<Real>, b: &Point2<Real>, c: &Point2<Real>) -> Orient
 /// Convenience overload accepting `[Real; 2]` arrays.
 #[inline]
 pub fn orient_2d_arr(a: [Real; 2], b: [Real; 2], c: [Real; 2]) -> Orientation {
-    let det = gp::orient2d(
-        [r(a[0]), r(a[1])],
-        [r(b[0]), r(b[1])],
-        [r(c[0]), r(c[1])],
-    );
+    let det = gp::orient2d([r(a[0]), r(a[1])], [r(b[0]), r(b[1])], [r(c[0]), r(c[1])]);
     Orientation::from_det(det)
 }
 
@@ -166,7 +158,7 @@ pub fn orient_2d_arr(a: [Real; 2], b: [Real; 2], c: [Real; 2]) -> Orientation {
 ///
 /// # Example
 /// ```rust
-/// use cfd_mesh::geometry::predicates::{orient_3d, Orientation};
+/// use cfd_mesh::domain::geometry::predicates::{orient_3d, Orientation};
 ///
 /// // Tetrahedron with positive volume
 /// let o  = [0.0_f64, 0.0, 0.0];
@@ -175,12 +167,7 @@ pub fn orient_2d_arr(a: [Real; 2], b: [Real; 2], c: [Real; 2]) -> Orientation {
 /// let ez = [0.0, 0.0, 1.0];
 /// assert_eq!(orient_3d(o, ex, ey, ez), Orientation::Positive);
 /// ```
-pub fn orient_3d(
-    a: [Real; 3],
-    b: [Real; 3],
-    c: [Real; 3],
-    d: [Real; 3],
-) -> Orientation {
+pub fn orient_3d(a: [Real; 3], b: [Real; 3], c: [Real; 3], d: [Real; 3]) -> Orientation {
     let to64 = |v: [Real; 3]| [r(v[0]), r(v[1]), r(v[2])];
     // gp::orient3d returns positive when d is *below* the abc plane (Shewchuk
     // convention).  We negate so that our API convention is "d above = Positive",
@@ -299,7 +286,7 @@ mod tests {
 
     #[test]
     fn orient_3d_positive_tet() {
-        let o  = [0.0, 0.0, 0.0];
+        let o = [0.0, 0.0, 0.0];
         let ex = [1.0, 0.0, 0.0];
         let ey = [0.0, 1.0, 0.0];
         let ez = [0.0, 0.0, 1.0];
@@ -308,7 +295,7 @@ mod tests {
 
     #[test]
     fn orient_3d_negative_tet() {
-        let o  = [0.0, 0.0, 0.0];
+        let o = [0.0, 0.0, 0.0];
         let ex = [1.0, 0.0, 0.0];
         let ey = [0.0, 1.0, 0.0];
         // Swap ex and ey to flip sign
@@ -319,7 +306,12 @@ mod tests {
     fn orient_3d_coplanar() {
         // All four points in z=0 plane
         assert_eq!(
-            orient_3d([0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [1.0, 1.0, 0.0]),
+            orient_3d(
+                [0.0, 0.0, 0.0],
+                [1.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0],
+                [1.0, 1.0, 0.0]
+            ),
             Orientation::Degenerate
         );
     }

@@ -11,14 +11,14 @@ use nalgebra::RealField;
 use num_traits::FromPrimitive;
 
 /// 3D Bifurcation Flow benchmark
-pub struct BifurcationFlow3D<T: RealField + Copy> {
+pub struct BifurcationFlow3D<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     /// The 3D bifurcation geometry
     pub geometry: Bifurcation3D<T>,
     /// The blood rheology model
     pub fluid: CassonBlood<T>,
 }
 
-impl<T: RealField + Copy> BifurcationFlow3D<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy> BifurcationFlow3D<T> {
     /// Create a new 3D bifurcation flow benchmark
     pub fn new(geometry: Bifurcation3D<T>, fluid: CassonBlood<T>) -> Self {
         Self { geometry, fluid }
@@ -26,7 +26,7 @@ impl<T: RealField + Copy> BifurcationFlow3D<T> {
 }
 
 impl<T: RealField + Copy + num_traits::Float + num_traits::FromPrimitive + 
-    num_traits::ToPrimitive + cfd_core::conversion::SafeFromF64 + std::convert::From<f64>> Benchmark<T> for BifurcationFlow3D<T> {
+    num_traits::ToPrimitive + cfd_core::conversion::SafeFromF64 + std::convert::From<f64> + cfd_mesh::domain::core::Scalar> Benchmark<T> for BifurcationFlow3D<T> {
     fn name(&self) -> &str {
         "3D Y-Bifurcation Flow"
     }

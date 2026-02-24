@@ -2,10 +2,10 @@
 
 use std::f64::consts::TAU;
 
-use crate::core::index::RegionId;
-use crate::core::scalar::{Point3r, Vector3r};
-use crate::mesh::IndexedMesh;
-use super::{PrimitiveMesh, PrimitiveError};
+use super::{PrimitiveError, PrimitiveMesh};
+use crate::domain::core::index::RegionId;
+use crate::domain::core::scalar::{Point3r, Vector3r};
+use crate::domain::mesh::IndexedMesh;
 
 /// Builds a closed circular tube swept along a helical centreline.
 ///
@@ -81,12 +81,14 @@ impl PrimitiveMesh for HelixSweep {
 fn build(hs: &HelixSweep) -> Result<IndexedMesh, PrimitiveError> {
     if hs.coil_radius <= 0.0 {
         return Err(PrimitiveError::InvalidParam(format!(
-            "coil_radius must be > 0, got {}", hs.coil_radius
+            "coil_radius must be > 0, got {}",
+            hs.coil_radius
         )));
     }
     if hs.tube_radius <= 0.0 {
         return Err(PrimitiveError::InvalidParam(format!(
-            "tube_radius must be > 0, got {}", hs.tube_radius
+            "tube_radius must be > 0, got {}",
+            hs.tube_radius
         )));
     }
     if hs.tube_radius >= hs.coil_radius {
@@ -97,12 +99,14 @@ fn build(hs: &HelixSweep) -> Result<IndexedMesh, PrimitiveError> {
     }
     if hs.pitch <= 0.0 {
         return Err(PrimitiveError::InvalidParam(format!(
-            "pitch must be > 0, got {}", hs.pitch
+            "pitch must be > 0, got {}",
+            hs.pitch
         )));
     }
     if hs.turns <= 0.0 {
         return Err(PrimitiveError::InvalidParam(format!(
-            "turns must be > 0, got {}", hs.turns
+            "turns must be > 0, got {}",
+            hs.turns
         )));
     }
     if hs.tube_segments < 3 {
@@ -110,25 +114,25 @@ fn build(hs: &HelixSweep) -> Result<IndexedMesh, PrimitiveError> {
     }
     if hs.arc_segments_per_turn < 3 {
         return Err(PrimitiveError::InvalidParam(
-            "arc_segments_per_turn must be ≥ 3".into()
+            "arc_segments_per_turn must be ≥ 3".into(),
         ));
     }
 
-    let wall_region   = RegionId::new(1);
-    let inlet_region  = RegionId::new(2);
+    let wall_region = RegionId::new(1);
+    let inlet_region = RegionId::new(2);
     let outlet_region = RegionId::new(3);
 
     let mut mesh = IndexedMesh::new();
 
     let big_r = hs.coil_radius;
-    let r     = hs.tube_radius;
+    let r = hs.tube_radius;
     let pitch = hs.pitch;
-    let ns    = hs.tube_segments;
-    let na    = (hs.arc_segments_per_turn as f64 * hs.turns).round() as usize;
+    let ns = hs.tube_segments;
+    let na = (hs.arc_segments_per_turn as f64 * hs.turns).round() as usize;
     let theta_max = TAU * hs.turns;
 
     // Constant arc-length factor L = sqrt(R² + (pitch/2π)²)
-    let p2pi = pitch / TAU;  // pitch / (2π)
+    let p2pi = pitch / TAU; // pitch / (2π)
     let big_l = (big_r * big_r + p2pi * p2pi).sqrt();
 
     // ── Frenet–Serret frame at helix parameter θ ─────────────────────────────
@@ -156,14 +160,16 @@ fn build(hs: &HelixSweep) -> Result<IndexedMesh, PrimitiveError> {
     };
 
     // Pre-build ring vertex arrays for shared edge connectivity
-    let mut rings: Vec<Vec<crate::core::index::VertexId>> = Vec::with_capacity(na + 1);
+    let mut rings: Vec<Vec<crate::domain::core::index::VertexId>> = Vec::with_capacity(na + 1);
     for ia in 0..=na {
         let theta = ia as f64 / na as f64 * theta_max;
-        let row: Vec<_> = (0..ns).map(|ib| {
-            let beta = ib as f64 / ns as f64 * TAU;
-            let (p, n) = tube_vertex(theta, beta);
-            mesh.add_vertex(p, n)
-        }).collect();
+        let row: Vec<_> = (0..ns)
+            .map(|ib| {
+                let beta = ib as f64 / ns as f64 * TAU;
+                let (p, n) = tube_vertex(theta, beta);
+                mesh.add_vertex(p, n)
+            })
+            .collect();
         rings.push(row);
     }
 
@@ -212,8 +218,8 @@ fn build(hs: &HelixSweep) -> Result<IndexedMesh, PrimitiveError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::storage::edge_store::EdgeStore;
-    use crate::watertight::check::check_watertight;
+    use crate::application::watertight::check::check_watertight;
+    use crate::infrastructure::storage::edge_store::EdgeStore;
     use std::f64::consts::PI;
 
     #[test]
@@ -244,17 +250,57 @@ mod tests {
         let arc_len = 2.0 * ((TAU * 2.0).powi(2) + 1.0_f64.powi(2)).sqrt();
         let expected = PI * r * r * arc_len;
         let error = (report.signed_volume - expected).abs() / expected;
-        assert!(error < 0.01, "Pappus volume error {:.4}% should be < 1%", error * 100.0);
+        assert!(
+            error < 0.01,
+            "Pappus volume error {:.4}% should be < 1%",
+            error * 100.0
+        );
     }
 
     #[test]
     fn helix_sweep_rejects_invalid_params() {
-        assert!(HelixSweep { coil_radius: 0.0, ..HelixSweep::default() }.build().is_err());
-        assert!(HelixSweep { tube_radius: 0.0, ..HelixSweep::default() }.build().is_err());
-        assert!(HelixSweep { tube_radius: 3.0, coil_radius: 2.0, ..HelixSweep::default() }.build().is_err());
-        assert!(HelixSweep { pitch: 0.0, ..HelixSweep::default() }.build().is_err());
-        assert!(HelixSweep { turns: 0.0, ..HelixSweep::default() }.build().is_err());
-        assert!(HelixSweep { tube_segments: 2, ..HelixSweep::default() }.build().is_err());
-        assert!(HelixSweep { arc_segments_per_turn: 2, ..HelixSweep::default() }.build().is_err());
+        assert!(HelixSweep {
+            coil_radius: 0.0,
+            ..HelixSweep::default()
+        }
+        .build()
+        .is_err());
+        assert!(HelixSweep {
+            tube_radius: 0.0,
+            ..HelixSweep::default()
+        }
+        .build()
+        .is_err());
+        assert!(HelixSweep {
+            tube_radius: 3.0,
+            coil_radius: 2.0,
+            ..HelixSweep::default()
+        }
+        .build()
+        .is_err());
+        assert!(HelixSweep {
+            pitch: 0.0,
+            ..HelixSweep::default()
+        }
+        .build()
+        .is_err());
+        assert!(HelixSweep {
+            turns: 0.0,
+            ..HelixSweep::default()
+        }
+        .build()
+        .is_err());
+        assert!(HelixSweep {
+            tube_segments: 2,
+            ..HelixSweep::default()
+        }
+        .build()
+        .is_err());
+        assert!(HelixSweep {
+            arc_segments_per_turn: 2,
+            ..HelixSweep::default()
+        }
+        .build()
+        .is_err());
     }
 }

@@ -12,11 +12,11 @@ use std::f64::consts::PI;
 use std::fs;
 use std::io::BufWriter;
 
+use cfd_mesh::application::watertight::check::check_watertight;
+use cfd_mesh::domain::geometry::primitives::PrimitiveMesh;
+use cfd_mesh::infrastructure::io::stl;
+use cfd_mesh::infrastructure::storage::edge_store::EdgeStore;
 use cfd_mesh::UvSphere;
-use cfd_mesh::geometry::primitives::PrimitiveMesh;
-use cfd_mesh::io::stl;
-use cfd_mesh::storage::edge_store::EdgeStore;
-use cfd_mesh::watertight::check::check_watertight;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("=================================================================");
@@ -38,8 +38,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("  Vertices  : {}", mesh.vertices.len());
     println!("  Faces     : {}", mesh.faces.len());
     println!("  Watertight: {}", report.is_watertight);
-    println!("  Volume    : {:.6} mm³  (expected {:.6})", report.signed_volume, expected_vol);
-    println!("  Euler χ   : {:?}  (expected 2)", report.euler_characteristic);
+    println!(
+        "  Volume    : {:.6} mm³  (expected {:.6})",
+        report.signed_volume, expected_vol
+    );
+    println!(
+        "  Euler χ   : {:?}  (expected 2)",
+        report.euler_characteristic
+    );
 
     let crate_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
     let out_dir = crate_dir.join("outputs").join("primitives");

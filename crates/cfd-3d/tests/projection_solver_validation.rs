@@ -12,14 +12,15 @@
 use cfd_3d::fem::{FemConfig, ProjectionSolver, StokesFlowProblem};
 use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
-use cfd_mesh::grid::StructuredGridBuilder;
-use cfd_mesh::mesh::Mesh;
-use cfd_mesh::topology::{Cell, Face};
+use cfd_mesh::domain::grid::StructuredGridBuilder;
+use cfd_mesh::IndexedMesh;
+use cfd_mesh::domain::core::index::VertexId;
+use cfd_mesh::domain::topology::{Cell, Face};
 use nalgebra::Vector3;
 use std::collections::HashMap;
 
 /// Create a simple tetrahedral mesh for a unit cube using structured grid builder
-fn create_cube_mesh(nx: usize, ny: usize, nz: usize) -> Mesh<f64> {
+fn create_cube_mesh(nx: usize, ny: usize, nz: usize) -> IndexedMesh<f64> {
     StructuredGridBuilder::new(nx - 1, ny - 1, nz - 1)
         .build()
         .expect("Failed to create cube mesh")
@@ -60,7 +61,8 @@ fn test_stokes_flow_unit_cube() {
     let mut boundary_conditions: HashMap<usize, BoundaryCondition<f64>> = HashMap::new();
     
     // Apply boundary conditions to all boundary nodes
-    for (node_idx, vertex) in mesh.vertices().iter().enumerate() {
+    for node_idx in 0..mesh.vertex_count() {
+        let vertex = mesh.vertices.get(VertexId::from_usize(node_idx));
         let p = vertex.position;
         let is_boundary = p.x.abs() < 1e-6 || p.x > 0.999 ||
                           p.y.abs() < 1e-6 || p.y > 0.999 ||
@@ -154,7 +156,8 @@ fn test_pressure_driven_channel_flow() {
     
     let u_in = 0.001; // 1 mm/s inlet velocity
     
-    for (node_idx, vertex) in mesh.vertices().iter().enumerate() {
+    for node_idx in 0..mesh.vertex_count() {
+        let vertex = mesh.vertices.get(VertexId::from_usize(node_idx));
         let p = vertex.position;
         
         if p.x.abs() < 1e-6 {
@@ -204,7 +207,8 @@ fn test_pressure_driven_channel_flow() {
             let mut center_u = 0.0_f64;
             let mut center_count = 0;
             
-            for (node_idx, vertex) in problem.mesh.vertices().iter().enumerate() {
+            for node_idx in 0..problem.mesh.vertex_count() {
+                let vertex = problem.mesh.vertices.get(VertexId::from_usize(node_idx));
                 let p = vertex.position;
                 // Check if near center
                 if (p.x - 0.5).abs() < 0.2 && (p.y - 0.5).abs() < 0.2 && (p.z - 0.5).abs() < 0.2 {
@@ -249,7 +253,8 @@ fn test_divergence_free_constraint() {
     // Simple boundary conditions - all walls
     let mut boundary_conditions: HashMap<usize, BoundaryCondition<f64>> = HashMap::new();
     
-    for (node_idx, vertex) in mesh.vertices().iter().enumerate() {
+    for node_idx in 0..mesh.vertex_count() {
+        let vertex = mesh.vertices.get(VertexId::from_usize(node_idx));
         let p = vertex.position;
         let is_boundary = p.x.abs() < 1e-6 || p.x > 0.999 ||
                           p.y.abs() < 1e-6 || p.y > 0.999 ||
@@ -316,7 +321,8 @@ fn test_mass_conservation() {
     
     let u_in = 0.0005; // 0.5 mm/s
     
-    for (node_idx, vertex) in mesh.vertices().iter().enumerate() {
+    for node_idx in 0..mesh.vertex_count() {
+        let vertex = mesh.vertices.get(VertexId::from_usize(node_idx));
         let p = vertex.position;
         
         if p.x.abs() < 1e-6 {
@@ -357,7 +363,8 @@ fn test_mass_conservation() {
         let mut inlet_count = 0;
         let mut outlet_count = 0;
         
-        for (node_idx, vertex) in problem.mesh.vertices().iter().enumerate() {
+        for node_idx in 0..problem.mesh.vertex_count() {
+            let vertex = problem.mesh.vertices.get(VertexId::from_usize(node_idx));
             let p = vertex.position;
             
             if p.x.abs() < 1e-6 {

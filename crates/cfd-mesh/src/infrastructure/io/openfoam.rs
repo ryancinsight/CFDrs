@@ -38,8 +38,8 @@
 //! ```rust,ignore
 //! use std::path::Path;
 //! use cfd_mesh::{MeshBuilder, io::openfoam::write_openfoam_polymesh};
-//! use cfd_mesh::core::index::RegionId;
-//! use cfd_mesh::topology::halfedge::PatchType;
+//! use cfd_mesh::domain::core::index::RegionId;
+//! use cfd_mesh::domain::topology::halfedge::PatchType;
 //!
 //! let mesh = MeshBuilder::new().build(); // populate mesh first
 //! write_openfoam_polymesh(
@@ -56,10 +56,10 @@
 use std::io::Write;
 use std::path::Path;
 
-use crate::core::index::RegionId;
-use crate::core::error::{MeshError, MeshResult};
-use crate::mesh::IndexedMesh;
-use crate::topology::halfedge::PatchType;
+use crate::domain::core::error::{MeshError, MeshResult};
+use crate::domain::core::index::RegionId;
+use crate::domain::mesh::IndexedMesh;
+use crate::domain::topology::halfedge::PatchType;
 
 // ── FoamFile header helper ────────────────────────────────────────────────────
 
@@ -70,13 +70,34 @@ fn write_foam_header(
     location: &str,
     object: &str,
 ) -> std::io::Result<()> {
-    writeln!(w, "/*--------------------------------*- C++ -*----------------------------------*\\")?;
-    writeln!(w, "| =========                 |                                                 |")?;
-    writeln!(w, "| \\\\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |")?;
-    writeln!(w, "|  \\\\    /   O peration     | Version:  v2306                                 |")?;
-    writeln!(w, "|   \\\\  /    A nd           | Website:  www.openfoam.com                      |")?;
-    writeln!(w, "|    \\\\/     M anipulation  |                                                 |")?;
-    writeln!(w, "\\*---------------------------------------------------------------------------*/")?;
+    writeln!(
+        w,
+        "/*--------------------------------*- C++ -*----------------------------------*\\"
+    )?;
+    writeln!(
+        w,
+        "| =========                 |                                                 |"
+    )?;
+    writeln!(
+        w,
+        "| \\\\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |"
+    )?;
+    writeln!(
+        w,
+        "|  \\\\    /   O peration     | Version:  v2306                                 |"
+    )?;
+    writeln!(
+        w,
+        "|   \\\\  /    A nd           | Website:  www.openfoam.com                      |"
+    )?;
+    writeln!(
+        w,
+        "|    \\\\/     M anipulation  |                                                 |"
+    )?;
+    writeln!(
+        w,
+        "\\*---------------------------------------------------------------------------*/"
+    )?;
     writeln!(w, "FoamFile")?;
     writeln!(w, "{{")?;
     writeln!(w, "    version     2.0;")?;
@@ -85,7 +106,10 @@ fn write_foam_header(
     writeln!(w, "    location    \"{location}\";")?;
     writeln!(w, "    object      {object};")?;
     writeln!(w, "}}")?;
-    writeln!(w, "// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //")?;
+    writeln!(
+        w,
+        "// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //"
+    )?;
     writeln!(w)?;
     Ok(())
 }
@@ -148,7 +172,9 @@ pub fn write_openfoam_polymesh(
     patches: &[(RegionId, &str, PatchType)],
 ) -> MeshResult<()> {
     if mesh.vertex_count() == 0 {
-        return Err(MeshError::Other("cannot write empty mesh to OpenFOAM format".into()));
+        return Err(MeshError::Other(
+            "cannot write empty mesh to OpenFOAM format".into(),
+        ));
     }
 
     std::fs::create_dir_all(dir).map_err(MeshError::Io)?;
@@ -215,144 +241,34 @@ pub fn write_openfoam_polymesh(
     Ok(())
 }
 
-// ── HalfEdgeMesh writer ───────────────────────────────────────────────────────
-
-use crate::mesh::HalfEdgeMesh;
-use crate::permission::GhostToken;
-
-/// Write a [`HalfEdgeMesh`] as an OpenFOAM `constant/polyMesh` directory.
-///
-/// Patch information is taken directly from the mesh's [`BoundaryPatch`]
-/// records (registered via [`HalfEdgeMesh::add_patch`]).  Faces not
-/// assigned to any patch are grouped into a synthetic `"defaultFaces"`
-/// wall patch.
-///
-/// # Arguments
-///
-/// - `mesh` — the half-edge surface mesh.
-/// - `token` — the matching `GhostToken` (read-only access).
-/// - `dir` — output directory (will be created if absent).
-///
-/// # Errors
-///
-/// Returns [`MeshError::Io`] on any file system error.
-pub fn write_openfoam_polymesh_he<'id>(
-    mesh: &HalfEdgeMesh<'id>,
-    token: &GhostToken<'id>,
-    dir: &Path,
-) -> MeshResult<()> {
-    use crate::core::index::{VertexKey, PatchKey};
-
-    if mesh.vertex_count() == 0 {
-        return Err(MeshError::Other("cannot write empty mesh to OpenFOAM format".into()));
-    }
-
-    std::fs::create_dir_all(dir).map_err(MeshError::Io)?;
-
-    // Assign a dense index to each vertex
-    let vertex_keys: Vec<VertexKey> = mesh.vertex_keys().collect();
-    let vertex_index: hashbrown::HashMap<VertexKey, u32> = vertex_keys
-        .iter()
-        .enumerate()
-        .map(|(i, &k)| (k, i as u32))
-        .collect();
-
-    // Group face triangles by PatchKey (None = unassigned → default patch)
-    let mut patch_groups: indexmap::IndexMap<Option<PatchKey>, Vec<[u32; 3]>> =
-        indexmap::IndexMap::new();
-
-    for face_key in mesh.face_keys() {
-        let verts = mesh.face_vertices(face_key, token);
-        if verts.len() != 3 {
-            continue;
-        }
-        let patch_key = mesh.face_patch(face_key, token);
-        let tri = [
-            vertex_index[&verts[0]],
-            vertex_index[&verts[1]],
-            vertex_index[&verts[2]],
-        ];
-        patch_groups.entry(patch_key).or_default().push(tri);
-    }
-
-    // Build sorted face list and PatchSpec list
-    let mut sorted_faces: Vec<[u32; 3]> = Vec::new();
-    let mut specs: Vec<PatchSpec> = Vec::new();
-    let mut cursor = 0usize;
-
-    // Emit named patches first (Some(PatchKey) groups), then the default group
-    let (named_groups, default_group): (Vec<_>, Vec<_>) = patch_groups
-        .iter()
-        .partition(|(pk, _)| pk.is_some());
-
-    for (patch_key, tris) in &named_groups {
-        let pk = patch_key.unwrap();
-        let (name, pt) = mesh
-            .patch_info(pk)
-            .map(|bp| (bp.name.clone(), bp.patch_type.clone()))
-            .unwrap_or_else(|| ("unnamed".to_owned(), PatchType::Wall));
-        let n = tris.len();
-        specs.push(PatchSpec { name, patch_type: pt, start_face: cursor, n_faces: n });
-        sorted_faces.extend_from_slice(tris);
-        cursor += n;
-    }
-    for (_, tris) in &default_group {
-        let n = tris.len();
-        if n > 0 {
-            specs.push(PatchSpec {
-                name: "defaultFaces".into(),
-                patch_type: PatchType::Wall,
-                start_face: cursor,
-                n_faces: n,
-            });
-            sorted_faces.extend_from_slice(tris);
-            // cursor += n; // last group; no further increment needed
-        }
-    }
-
-    // ── Write five OpenFOAM files ─────────────────────────────────────────
-    write_points_file(
-        dir,
-        vertex_keys.iter().filter_map(|&k| mesh.vertex_pos(k, token)),
-    )?;
-    write_faces_file(dir, &sorted_faces)?;
-    write_owner_file(dir, sorted_faces.len())?;
-    write_neighbour_file(dir)?;
-    write_boundary_file(dir, &specs)?;
-
-    Ok(())
-}
-
 // ── Shared file writers ───────────────────────────────────────────────────────
 
 fn write_points_file(
     dir: &Path,
-    positions: impl Iterator<Item = nalgebra::Point3<crate::core::scalar::Real>>,
+    positions: impl Iterator<Item = nalgebra::Point3<crate::domain::core::scalar::Real>>,
 ) -> MeshResult<()> {
     let path = dir.join("points");
-    let mut file = std::io::BufWriter::new(
-        std::fs::File::create(&path).map_err(MeshError::Io)?,
-    );
+    let mut file = std::io::BufWriter::new(std::fs::File::create(&path).map_err(MeshError::Io)?);
     write_foam_header(&mut file, "vectorField", "constant/polyMesh", "points")
         .map_err(MeshError::Io)?;
     let pts: Vec<_> = positions.collect();
     writeln!(file, "{}", pts.len()).map_err(MeshError::Io)?;
     writeln!(file, "(").map_err(MeshError::Io)?;
     for p in &pts {
-        writeln!(file, "    ({:.15e} {:.15e} {:.15e})", p.x, p.y, p.z)
-            .map_err(MeshError::Io)?;
+        writeln!(file, "    ({:.15e} {:.15e} {:.15e})", p.x, p.y, p.z).map_err(MeshError::Io)?;
     }
     writeln!(file, ")").map_err(MeshError::Io)?;
-    writeln!(file, "\n// ************************************************************************* //")
-        .map_err(MeshError::Io)?;
+    writeln!(
+        file,
+        "\n// ************************************************************************* //"
+    )
+    .map_err(MeshError::Io)?;
     Ok(())
 }
 
 fn write_faces_file(dir: &Path, faces: &[[u32; 3]]) -> MeshResult<()> {
     let path = dir.join("faces");
-    let mut file = std::io::BufWriter::new(
-        std::fs::File::create(&path).map_err(MeshError::Io)?,
-    );
+    let mut file = std::io::BufWriter::new(std::fs::File::create(&path).map_err(MeshError::Io)?);
     write_foam_header(&mut file, "faceList", "constant/polyMesh", "faces")
         .map_err(MeshError::Io)?;
     writeln!(file, "{}", faces.len()).map_err(MeshError::Io)?;
@@ -361,16 +277,17 @@ fn write_faces_file(dir: &Path, faces: &[[u32; 3]]) -> MeshResult<()> {
         writeln!(file, "    3({v0} {v1} {v2})").map_err(MeshError::Io)?;
     }
     writeln!(file, ")").map_err(MeshError::Io)?;
-    writeln!(file, "\n// ************************************************************************* //")
-        .map_err(MeshError::Io)?;
+    writeln!(
+        file,
+        "\n// ************************************************************************* //"
+    )
+    .map_err(MeshError::Io)?;
     Ok(())
 }
 
 fn write_owner_file(dir: &Path, n_faces: usize) -> MeshResult<()> {
     let path = dir.join("owner");
-    let mut file = std::io::BufWriter::new(
-        std::fs::File::create(&path).map_err(MeshError::Io)?,
-    );
+    let mut file = std::io::BufWriter::new(std::fs::File::create(&path).map_err(MeshError::Io)?);
     write_foam_header(&mut file, "labelList", "constant/polyMesh", "owner")
         .map_err(MeshError::Io)?;
     writeln!(file, "{n_faces}").map_err(MeshError::Io)?;
@@ -379,33 +296,40 @@ fn write_owner_file(dir: &Path, n_faces: usize) -> MeshResult<()> {
         writeln!(file, "    {i}").map_err(MeshError::Io)?;
     }
     writeln!(file, ")").map_err(MeshError::Io)?;
-    writeln!(file, "\n// ************************************************************************* //")
-        .map_err(MeshError::Io)?;
+    writeln!(
+        file,
+        "\n// ************************************************************************* //"
+    )
+    .map_err(MeshError::Io)?;
     Ok(())
 }
 
 fn write_neighbour_file(dir: &Path) -> MeshResult<()> {
     let path = dir.join("neighbour");
-    let mut file = std::io::BufWriter::new(
-        std::fs::File::create(&path).map_err(MeshError::Io)?,
-    );
+    let mut file = std::io::BufWriter::new(std::fs::File::create(&path).map_err(MeshError::Io)?);
     write_foam_header(&mut file, "labelList", "constant/polyMesh", "neighbour")
         .map_err(MeshError::Io)?;
     writeln!(file, "0").map_err(MeshError::Io)?;
     writeln!(file, "(").map_err(MeshError::Io)?;
     writeln!(file, ")").map_err(MeshError::Io)?;
-    writeln!(file, "\n// ************************************************************************* //")
-        .map_err(MeshError::Io)?;
+    writeln!(
+        file,
+        "\n// ************************************************************************* //"
+    )
+    .map_err(MeshError::Io)?;
     Ok(())
 }
 
 fn write_boundary_file(dir: &Path, specs: &[PatchSpec]) -> MeshResult<()> {
     let path = dir.join("boundary");
-    let mut file = std::io::BufWriter::new(
-        std::fs::File::create(&path).map_err(MeshError::Io)?,
-    );
-    write_foam_header(&mut file, "polyBoundaryMesh", "constant/polyMesh", "boundary")
-        .map_err(MeshError::Io)?;
+    let mut file = std::io::BufWriter::new(std::fs::File::create(&path).map_err(MeshError::Io)?);
+    write_foam_header(
+        &mut file,
+        "polyBoundaryMesh",
+        "constant/polyMesh",
+        "boundary",
+    )
+    .map_err(MeshError::Io)?;
     writeln!(file, "{}", specs.len()).map_err(MeshError::Io)?;
     writeln!(file, "(").map_err(MeshError::Io)?;
     for spec in specs {
@@ -427,8 +351,11 @@ fn write_boundary_file(dir: &Path, specs: &[PatchSpec]) -> MeshResult<()> {
         writeln!(file, "    }}").map_err(MeshError::Io)?;
     }
     writeln!(file, ")").map_err(MeshError::Io)?;
-    writeln!(file, "\n// ************************************************************************* //")
-        .map_err(MeshError::Io)?;
+    writeln!(
+        file,
+        "\n// ************************************************************************* //"
+    )
+    .map_err(MeshError::Io)?;
     Ok(())
 }
 
@@ -437,8 +364,8 @@ fn write_boundary_file(dir: &Path, specs: &[PatchSpec]) -> MeshResult<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::mesh::MeshBuilder;
-    use crate::core::scalar::Point3r;
+    use crate::domain::core::scalar::Point3r;
+    use crate::domain::mesh::MeshBuilder;
 
     /// Helper: build a tiny tetrahedron IndexedMesh.
     fn tet_mesh() -> IndexedMesh {
@@ -479,7 +406,11 @@ mod tests {
             .lines()
             .find(|l| l.trim().parse::<usize>().is_ok())
             .unwrap_or("");
-        assert_eq!(count_line.trim(), "4", "expected vertex count 4 in points file");
+        assert_eq!(
+            count_line.trim(),
+            "4",
+            "expected vertex count 4 in points file"
+        );
         std::fs::remove_dir_all(&dir).ok();
     }
 
@@ -513,7 +444,7 @@ mod tests {
 
     #[test]
     fn boundary_file_named_patches_respected() {
-        use crate::mesh::IndexedMesh;
+        use crate::domain::mesh::IndexedMesh;
 
         // Build a mesh with two regions
         let mut mesh = IndexedMesh::new();
@@ -540,8 +471,14 @@ mod tests {
         let content = std::fs::read_to_string(dir.join("boundary")).unwrap();
         assert!(content.contains("inlet"), "should contain 'inlet'");
         assert!(content.contains("outlet"), "should contain 'outlet'");
-        assert!(content.contains("physicalType    inlet"), "inlet physicalType");
-        assert!(content.contains("physicalType    outlet"), "outlet physicalType");
+        assert!(
+            content.contains("physicalType    inlet"),
+            "inlet physicalType"
+        );
+        assert!(
+            content.contains("physicalType    outlet"),
+            "outlet physicalType"
+        );
         std::fs::remove_dir_all(&dir).ok();
     }
 

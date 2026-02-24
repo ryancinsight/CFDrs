@@ -1,10 +1,10 @@
 //! Geodesic sphere primitive — icosahedron with subdivided faces.
 
-use crate::core::index::RegionId;
-use crate::core::scalar::{Point3r, Vector3r};
-use crate::mesh::IndexedMesh;
-use super::{PrimitiveMesh, PrimitiveError};
 use super::icosahedron::{icosahedron_vertices, ICOSAHEDRON_FACES};
+use super::{PrimitiveError, PrimitiveMesh};
+use crate::domain::core::index::RegionId;
+use crate::domain::core::scalar::{Point3r, Vector3r};
+use crate::domain::mesh::IndexedMesh;
 
 /// Builds a geodesic sphere by subdividing each icosahedron face `frequency`
 /// times and projecting vertices onto a sphere of the given `radius`.
@@ -64,13 +64,12 @@ impl PrimitiveMesh for GeodesicSphere {
 fn build(g: &GeodesicSphere) -> Result<IndexedMesh, PrimitiveError> {
     if g.radius <= 0.0 {
         return Err(PrimitiveError::InvalidParam(format!(
-            "radius must be > 0, got {}", g.radius
+            "radius must be > 0, got {}",
+            g.radius
         )));
     }
     if g.frequency < 1 {
-        return Err(PrimitiveError::InvalidParam(
-            "frequency must be ≥ 1".into()
-        ));
+        return Err(PrimitiveError::InvalidParam("frequency must be ≥ 1".into()));
     }
 
     let region = RegionId::new(1);
@@ -122,9 +121,9 @@ fn build(g: &GeodesicSphere) -> Result<IndexedMesh, PrimitiveError> {
         for si in 0..f {
             for sj in 0..f - si {
                 // Up triangle
-                let (p0, n0) = sub_pt(si,     sj);
+                let (p0, n0) = sub_pt(si, sj);
                 let (p1, n1) = sub_pt(si + 1, sj);
-                let (p2, n2) = sub_pt(si,     sj + 1);
+                let (p2, n2) = sub_pt(si, sj + 1);
                 let v0 = mesh.add_vertex(p0, n0);
                 let v1 = mesh.add_vertex(p1, n1);
                 let v2 = mesh.add_vertex(p2, n2);
@@ -147,14 +146,19 @@ fn build(g: &GeodesicSphere) -> Result<IndexedMesh, PrimitiveError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::storage::edge_store::EdgeStore;
-    use crate::watertight::check::check_watertight;
+    use crate::application::watertight::check::check_watertight;
+    use crate::infrastructure::storage::edge_store::EdgeStore;
     use std::f64::consts::PI;
 
     #[test]
     fn geodesic_sphere_f1_is_watertight() {
         // Frequency 1 = icosahedron itself.
-        let mesh = GeodesicSphere { frequency: 1, ..GeodesicSphere::default() }.build().unwrap();
+        let mesh = GeodesicSphere {
+            frequency: 1,
+            ..GeodesicSphere::default()
+        }
+        .build()
+        .unwrap();
         let edges = EdgeStore::from_face_store(&mesh.faces);
         let report = check_watertight(&mesh.vertices, &mesh.faces, &edges);
         assert!(report.is_watertight, "geodesic f=1 must be watertight");
@@ -175,28 +179,59 @@ mod tests {
         // f=3 gives only ~5.9% volume error (180 triangles, coarse approximation).
         // Volume error scales as O(1/f²); f=8 (1280 triangles) gives < 1%.
         let r = 1.0_f64;
-        let mesh = GeodesicSphere { radius: r, frequency: 8, ..GeodesicSphere::default() }.build().unwrap();
+        let mesh = GeodesicSphere {
+            radius: r,
+            frequency: 8,
+            ..GeodesicSphere::default()
+        }
+        .build()
+        .unwrap();
         let edges = EdgeStore::from_face_store(&mesh.faces);
         let report = check_watertight(&mesh.vertices, &mesh.faces, &edges);
         assert!(report.signed_volume > 0.0);
         let expected = 4.0 / 3.0 * PI * r * r * r;
         let error = (report.signed_volume - expected).abs() / expected;
-        assert!(error < 0.01, "volume error {:.4}% should be < 1% for f=8", error * 100.0);
+        assert!(
+            error < 0.01,
+            "volume error {:.4}% should be < 1% for f=8",
+            error * 100.0
+        );
     }
 
     #[test]
     fn geodesic_sphere_face_count() {
         // F = 20 * f^2
         for f in 1..=4 {
-            let mesh = GeodesicSphere { frequency: f, ..GeodesicSphere::default() }.build().unwrap();
-            assert_eq!(mesh.faces.len(), 20 * f * f,
-                "f={}: expected {} faces, got {}", f, 20*f*f, mesh.faces.len());
+            let mesh = GeodesicSphere {
+                frequency: f,
+                ..GeodesicSphere::default()
+            }
+            .build()
+            .unwrap();
+            assert_eq!(
+                mesh.faces.len(),
+                20 * f * f,
+                "f={}: expected {} faces, got {}",
+                f,
+                20 * f * f,
+                mesh.faces.len()
+            );
         }
     }
 
     #[test]
     fn geodesic_sphere_rejects_invalid_params() {
-        assert!(GeodesicSphere { radius: 0.0, ..GeodesicSphere::default() }.build().is_err());
-        assert!(GeodesicSphere { frequency: 0, ..GeodesicSphere::default() }.build().is_err());
+        assert!(GeodesicSphere {
+            radius: 0.0,
+            ..GeodesicSphere::default()
+        }
+        .build()
+        .is_err());
+        assert!(GeodesicSphere {
+            frequency: 0,
+            ..GeodesicSphere::default()
+        }
+        .build()
+        .is_err());
     }
 }

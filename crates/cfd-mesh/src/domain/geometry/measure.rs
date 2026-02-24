@@ -1,7 +1,7 @@
 //! Area and volume measurements — generic over scalar precision `T: Scalar`.
 
+use crate::domain::core::scalar::Scalar;
 use nalgebra::Point3;
-use crate::core::scalar::Scalar;
 
 /// Area of a triangle.
 pub fn triangle_area<T: Scalar>(a: &Point3<T>, b: &Point3<T>, c: &Point3<T>) -> T {
@@ -22,7 +22,9 @@ pub fn signed_triangle_volume<T: Scalar>(a: &Point3<T>, b: &Point3<T>, c: &Point
 pub fn total_surface_area<'a, T: Scalar + 'a>(
     triangles: impl Iterator<Item = (&'a Point3<T>, &'a Point3<T>, &'a Point3<T>)>,
 ) -> T {
-    triangles.map(|(a, b, c)| triangle_area(a, b, c)).fold(T::zero(), |acc, v| acc + v)
+    triangles
+        .map(|(a, b, c)| triangle_area(a, b, c))
+        .fold(T::zero(), |acc, v| acc + v)
 }
 
 /// Total signed volume from an iterator of triangle vertex triples.
@@ -30,8 +32,7 @@ pub fn total_surface_area<'a, T: Scalar + 'a>(
 /// Positive for outward-oriented closed meshes.
 pub fn total_signed_volume<'a, T: Scalar + 'a>(
     triangles: impl Iterator<Item = (&'a Point3<T>, &'a Point3<T>, &'a Point3<T>)>,
-) -> T
-{
+) -> T {
     triangles
         .map(|(a, b, c)| signed_triangle_volume(a, b, c))
         .fold(T::zero(), |acc, v| acc + v)

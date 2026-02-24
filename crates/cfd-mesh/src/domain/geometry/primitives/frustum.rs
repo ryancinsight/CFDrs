@@ -2,10 +2,10 @@
 
 use std::f64::consts::TAU;
 
-use crate::core::index::RegionId;
-use crate::core::scalar::{Point3r, Vector3r};
-use crate::mesh::IndexedMesh;
-use super::{PrimitiveMesh, PrimitiveError};
+use super::{PrimitiveError, PrimitiveMesh};
+use crate::domain::core::index::RegionId;
+use crate::domain::core::scalar::{Point3r, Vector3r};
+use crate::domain::mesh::IndexedMesh;
 
 /// Builds a closed truncated right circular cone (frustum).
 ///
@@ -70,7 +70,8 @@ impl PrimitiveMesh for Frustum {
 fn build(f: &Frustum) -> Result<IndexedMesh, PrimitiveError> {
     if f.bottom_radius <= 0.0 {
         return Err(PrimitiveError::InvalidParam(format!(
-            "bottom_radius must be > 0, got {}", f.bottom_radius
+            "bottom_radius must be > 0, got {}",
+            f.bottom_radius
         )));
     }
     if f.top_radius <= 0.0 {
@@ -81,7 +82,8 @@ fn build(f: &Frustum) -> Result<IndexedMesh, PrimitiveError> {
     }
     if f.height <= 0.0 {
         return Err(PrimitiveError::InvalidParam(format!(
-            "height must be > 0, got {}", f.height
+            "height must be > 0, got {}",
+            f.height
         )));
     }
     if f.segments < 3 {
@@ -92,7 +94,7 @@ fn build(f: &Frustum) -> Result<IndexedMesh, PrimitiveError> {
     let mut mesh = IndexedMesh::new();
     let r0 = f.bottom_radius;
     let r1 = f.top_radius;
-    let h  = f.height;
+    let h = f.height;
     let bx = f.base_center.x;
     let by = f.base_center.y;
     let bz = f.base_center.z;
@@ -112,8 +114,8 @@ fn build(f: &Frustum) -> Result<IndexedMesh, PrimitiveError> {
         let n0 = Vector3r::new(h * c0 / slant, (r0 - r1) / slant, h * s0 / slant);
         let n1 = Vector3r::new(h * c1 / slant, (r0 - r1) / slant, h * s1 / slant);
 
-        let p_bot0 = Point3r::new(bx + r0 * c0, by,     bz + r0 * s0);
-        let p_bot1 = Point3r::new(bx + r0 * c1, by,     bz + r0 * s1);
+        let p_bot0 = Point3r::new(bx + r0 * c0, by, bz + r0 * s0);
+        let p_bot1 = Point3r::new(bx + r0 * c1, by, bz + r0 * s1);
         let p_top0 = Point3r::new(bx + r1 * c0, by + h, bz + r1 * s0);
         let p_top1 = Point3r::new(bx + r1 * c1, by + h, bz + r1 * s1);
 
@@ -167,8 +169,8 @@ fn build(f: &Frustum) -> Result<IndexedMesh, PrimitiveError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::storage::edge_store::EdgeStore;
-    use crate::watertight::check::check_watertight;
+    use crate::application::watertight::check::check_watertight;
+    use crate::infrastructure::storage::edge_store::EdgeStore;
     use std::f64::consts::PI;
 
     #[test]
@@ -184,16 +186,25 @@ mod tests {
     fn frustum_volume_positive_and_approximately_correct() {
         let (r0, r1, h) = (1.0_f64, 0.5_f64, 2.0_f64);
         let mesh = Frustum {
-            bottom_radius: r0, top_radius: r1, height: h,
-            segments: 64, ..Frustum::default()
-        }.build().unwrap();
+            bottom_radius: r0,
+            top_radius: r1,
+            height: h,
+            segments: 64,
+            ..Frustum::default()
+        }
+        .build()
+        .unwrap();
         let edges = EdgeStore::from_face_store(&mesh.faces);
         let report = check_watertight(&mesh.vertices, &mesh.faces, &edges);
         assert!(report.signed_volume > 0.0);
         // Prismatoid formula: V = (π·h/3)·(r0² + r0·r1 + r1²)
         let expected = PI * h / 3.0 * (r0 * r0 + r0 * r1 + r1 * r1);
         let error = (report.signed_volume - expected).abs() / expected;
-        assert!(error < 0.005, "volume error {:.4}% should be < 0.5%", error * 100.0);
+        assert!(
+            error < 0.005,
+            "volume error {:.4}% should be < 0.5%",
+            error * 100.0
+        );
     }
 
     #[test]
@@ -202,9 +213,14 @@ mod tests {
         let r = 1.0_f64;
         let h = 2.0_f64;
         let mesh = Frustum {
-            bottom_radius: r, top_radius: r, height: h,
-            segments: 64, ..Frustum::default()
-        }.build().unwrap();
+            bottom_radius: r,
+            top_radius: r,
+            height: h,
+            segments: 64,
+            ..Frustum::default()
+        }
+        .build()
+        .unwrap();
         let edges = EdgeStore::from_face_store(&mesh.faces);
         let report = check_watertight(&mesh.vertices, &mesh.faces, &edges);
         let expected = PI * r * r * h;
@@ -214,10 +230,35 @@ mod tests {
 
     #[test]
     fn frustum_rejects_invalid_params() {
-        assert!(Frustum { bottom_radius: 0.0, ..Frustum::default() }.build().is_err());
-        assert!(Frustum { top_radius: 0.0, ..Frustum::default() }.build().is_err());
-        assert!(Frustum { top_radius: -1.0, ..Frustum::default() }.build().is_err());
-        assert!(Frustum { height: 0.0, ..Frustum::default() }.build().is_err());
-        assert!(Frustum { segments: 2, ..Frustum::default() }.build().is_err());
+        assert!(Frustum {
+            bottom_radius: 0.0,
+            ..Frustum::default()
+        }
+        .build()
+        .is_err());
+        assert!(Frustum {
+            top_radius: 0.0,
+            ..Frustum::default()
+        }
+        .build()
+        .is_err());
+        assert!(Frustum {
+            top_radius: -1.0,
+            ..Frustum::default()
+        }
+        .build()
+        .is_err());
+        assert!(Frustum {
+            height: 0.0,
+            ..Frustum::default()
+        }
+        .build()
+        .is_err());
+        assert!(Frustum {
+            segments: 2,
+            ..Frustum::default()
+        }
+        .build()
+        .is_err());
     }
 }

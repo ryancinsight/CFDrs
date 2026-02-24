@@ -2,10 +2,10 @@
 
 use std::f64::consts::TAU;
 
-use crate::core::index::RegionId;
-use crate::core::scalar::{Point3r, Vector3r};
-use crate::mesh::IndexedMesh;
-use super::{PrimitiveMesh, PrimitiveError};
+use super::{PrimitiveError, PrimitiveMesh};
+use crate::domain::core::index::RegionId;
+use crate::domain::core::scalar::{Point3r, Vector3r};
+use crate::domain::mesh::IndexedMesh;
 
 /// Builds a closed right circular cone.
 ///
@@ -60,12 +60,14 @@ impl PrimitiveMesh for Cone {
 fn build(c: &Cone) -> Result<IndexedMesh, PrimitiveError> {
     if c.radius <= 0.0 {
         return Err(PrimitiveError::InvalidParam(format!(
-            "radius must be > 0, got {}", c.radius
+            "radius must be > 0, got {}",
+            c.radius
         )));
     }
     if c.height <= 0.0 {
         return Err(PrimitiveError::InvalidParam(format!(
-            "height must be > 0, got {}", c.height
+            "height must be > 0, got {}",
+            c.height
         )));
     }
     if c.segments < 3 {
@@ -105,8 +107,8 @@ fn build(c: &Cone) -> Result<IndexedMesh, PrimitiveError> {
         let p_base1 = Point3r::new(bx + r * c1, by, bz + r * s1);
 
         let vapex = mesh.add_vertex(apex_pos, n_apex);
-        let vb0   = mesh.add_vertex(p_base0, n0);
-        let vb1   = mesh.add_vertex(p_base1, n1);
+        let vb0 = mesh.add_vertex(p_base0, n0);
+        let vb1 = mesh.add_vertex(p_base1, n1);
 
         // CCW from outside: apex → base1 → base0
         mesh.add_face_with_region(vapex, vb1, vb0, region);
@@ -136,8 +138,8 @@ fn build(c: &Cone) -> Result<IndexedMesh, PrimitiveError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::storage::edge_store::EdgeStore;
-    use crate::watertight::check::check_watertight;
+    use crate::application::watertight::check::check_watertight;
+    use crate::infrastructure::storage::edge_store::EdgeStore;
     use std::f64::consts::PI;
 
     #[test]
@@ -151,13 +153,22 @@ mod tests {
 
     #[test]
     fn cone_volume_positive_and_approximately_correct() {
-        let c = Cone { radius: 1.0, height: 2.0, segments: 64, ..Cone::default() };
+        let c = Cone {
+            radius: 1.0,
+            height: 2.0,
+            segments: 64,
+            ..Cone::default()
+        };
         let mesh = c.build().unwrap();
         let edges = EdgeStore::from_face_store(&mesh.faces);
         let report = check_watertight(&mesh.vertices, &mesh.faces, &edges);
         assert!(report.signed_volume > 0.0);
         let expected = PI * 1.0_f64.powi(2) * 2.0 / 3.0;
         let error = (report.signed_volume - expected).abs() / expected;
-        assert!(error < 0.005, "volume error {:.4}% should be < 0.5%", error * 100.0);
+        assert!(
+            error < 0.005,
+            "volume error {:.4}% should be < 0.5%",
+            error * 100.0
+        );
     }
 }

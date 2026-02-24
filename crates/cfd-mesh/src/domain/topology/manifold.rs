@@ -3,9 +3,9 @@
 //! Checks that every edge is shared by exactly 2 faces (closed 2-manifold)
 //! and no vertex has a non-disk fan topology.
 
-use crate::core::index::EdgeId;
-use crate::core::error::{MeshError, MeshResult};
-use crate::storage::edge_store::EdgeStore;
+use crate::domain::core::error::{MeshError, MeshResult};
+use crate::domain::core::index::EdgeId;
+use crate::infrastructure::storage::edge_store::EdgeStore;
 
 /// Result of manifold checking.
 #[derive(Clone, Debug)]

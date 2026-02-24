@@ -1,0 +1,403 @@
+//! Sutherland–Hodgman polygon clipping with exact orientation predicates.
+//!
+//! Clips a convex polygon against a half-space.  The half-space is defined by
+//! three CCW-oriented points `(pa, pb, pc)` on the boundary plane: a point P
+//! is considered **inside** iff
+//! `orient_3d(pa, pb, pc, P) ≥ 0` (i.e. `Positive` or `Degenerate`).
+//!
+//! Using exact [`orient_3d`] for the inside/outside decision means that no
+//! false clipping occurs due to floating-point cancellation exactly at the
+//! boundary.  The intersection-point computation itself uses ordinary `f64`
+//! arithmetic, which is acceptable because position errors do not affect the
+//! topological correctness of the Boolean result.
+//!
+//! ## Algorithm
+//!
+//! Sutherland–Hodgman for a single clipping half-space (one pass):
+//!
+//! ```text
+//! output = []
+//! for each directed edge (S → E) in the polygon:
+//!   S inside,  E inside   →  append E
+//!   S inside,  E outside  →  append clip(S, E)
+//!   S outside, E inside   →  append clip(S, E), append E
+//!   S outside, E outside  →  (skip)
+//! ```
+//!
+//! To clip against a full convex polytope, call [`clip_polygon_to_halfplane`]
+//! once for each face of the polytope.
+//!
+//! ## Why this cannot handle coplanar faces
+//!
+//! When a query point lies in the same plane as `(pa, pb, pc)`, `orient_3d`
+//! returns `Degenerate` (signed tet volume = 0).  Every point then appears
+//! "inside" every half-space, so the clipper does nothing.  For coplanar
+//! geometry, use [`crate::application::csg::clip::boolean_clip`] instead.
+//!
+//! ## References
+//!
+//! Sutherland & Hodgman (1974), "Reentrant polygon clipping",
+//! *Communications of the ACM*, 17(1), 32–42.
+
+use crate::domain::core::scalar::Point3r;
+use crate::domain::geometry::predicates::{orient_3d, Orientation};
+
+// ── Polygon clipping ──────────────────────────────────────────────────────────
+
+/// Clip a convex polygon against a half-space using Sutherland–Hodgman.
+///
+/// The half-space is defined by three points `pa`, `pb`, `pc` in
+/// **counter-clockwise** order.  A point P is inside iff
+/// `orient_3d(pa, pb, pc, P) ≥ 0`.
+///
+/// # Returns
+///
+/// The clipped polygon vertices, or an empty `Vec` when the entire polygon
+/// lies outside.  Returns empty for inputs with fewer than 3 vertices.
+///
+/// # Example
+///
+/// ```rust
+/// # use cfd_mesh::application::csg::clip::clip_polygon_to_halfplane;
+/// # use nalgebra::Point3;
+/// let square: Vec<Point3<f64>> = vec![
+///     Point3::new(0.0, 0.0, 0.0),
+///     Point3::new(2.0, 0.0, 0.0),
+///     Point3::new(2.0, 2.0, 0.0),
+///     Point3::new(0.0, 2.0, 0.0),
+/// ];
+/// // Clip plane z=0 with inside = z≥0 (normal +z: pa→pb→pc CCW viewed from +z).
+/// let pa = Point3::new(0.0_f64, 0.0, 0.0);
+/// let pb = Point3::new(1.0, 0.0, 0.0);
+/// let pc = Point3::new(0.0, 1.0, 0.0);
+/// let clipped = clip_polygon_to_halfplane(&square, &pa, &pb, &pc);
+/// // All four square vertices lie in z=0 (Degenerate = inside) → fully kept.
+/// assert_eq!(clipped.len(), 4);
+/// ```
+pub fn clip_polygon_to_halfplane(
+    polygon: &[Point3r],
+    pa: &Point3r,
+    pb: &Point3r,
+    pc: &Point3r,
+) -> Vec<Point3r> {
+    if polygon.len() < 3 {
+        return Vec::new();
+    }
+
+    let plane_normal = (pb - pa).cross(&(pc - pa));
+
+    let is_inside = |p: &Point3r| -> bool {
+        let arr = |q: &Point3r| [q.x, q.y, q.z];
+        orient_3d(arr(pa), arr(pb), arr(pc), arr(p)) != Orientation::Negative
+    };
+
+    // Plane-edge intersection parameter t ∈ [0,1] along S→E.
+    let clip_point = |s: &Point3r, e: &Point3r| -> Point3r {
+        let ds = plane_normal.dot(&(s - pa));
+        let de = plane_normal.dot(&(e - pa));
+        let denom = ds - de;
+        if denom.abs() < 1e-20 {
+            return *s; // Edge is parallel to the plane.
+        }
+        let t = ds / denom;
+        Point3r::new(
+            s.x + (e.x - s.x) * t,
+            s.y + (e.y - s.y) * t,
+            s.z + (e.z - s.z) * t,
+        )
+    };
+
+    let n_verts = polygon.len();
+    let mut output = Vec::with_capacity(n_verts);
+
+    for i in 0..n_verts {
+        let s = &polygon[i];
+        let e = &polygon[(i + 1) % n_verts];
+        let s_in = is_inside(s);
+        let e_in = is_inside(e);
+
+        match (s_in, e_in) {
+            (true, true) => output.push(*e),
+            (true, false) => output.push(clip_point(s, e)),
+            (false, true) => {
+                output.push(clip_point(s, e));
+                output.push(*e);
+            }
+            (false, false) => {}
+        }
+    }
+
+    output
+}
+
+// ── Triangle convenience wrappers ─────────────────────────────────────────────
+
+/// Clip a triangle against a half-space and fan-triangulate the result.
+///
+/// Returns the sub-triangles that lie inside the half-space, or an empty
+/// `Vec` if the triangle is fully clipped.
+pub fn clip_triangle_to_halfplane(
+    a: &Point3r,
+    b: &Point3r,
+    c: &Point3r,
+    pa: &Point3r,
+    pb: &Point3r,
+    pc: &Point3r,
+) -> Vec<[Point3r; 3]> {
+    let polygon = [*a, *b, *c];
+    let clipped = clip_polygon_to_halfplane(&polygon, pa, pb, pc);
+    fan_triangulate(&clipped)
+}
+
+// ── Fan triangulation ─────────────────────────────────────────────────────────
+
+/// Fan-triangulate a convex polygon represented as an ordered vertex list.
+///
+/// Returns `n − 2` triangles for an n-gon (n ≥ 3).
+/// Returns an empty `Vec` when the polygon has fewer than 3 vertices.
+///
+/// # Theorem: Fan Triangulation is valid for Convex Polygons
+/// For a convex n-gon with vertices V0 … V_{n-1}, the triangles
+/// (V0, V_i, V_{i+1}) for i = 1 … n−2 are non-overlapping and cover the
+/// polygon exactly.  All edges V0–V_i lie strictly inside (or on the boundary
+/// of) the polygon by convexity. ∎
+pub fn fan_triangulate(polygon: &[Point3r]) -> Vec<[Point3r; 3]> {
+    if polygon.len() < 3 {
+        return Vec::new();
+    }
+    if polygon.len() == 3 {
+        return vec![[polygon[0], polygon[1], polygon[2]]];
+    }
+
+    // Deduplicate adjacent identical vertices
+    let mut deduplicated: Vec<Point3r> = Vec::with_capacity(polygon.len());
+    for &p in polygon {
+        if let Some(&last) = deduplicated.last() {
+            if (p - last).norm_squared() > 1e-20 {
+                deduplicated.push(p);
+            }
+        } else {
+            deduplicated.push(p);
+        }
+    }
+    if deduplicated.len() > 1
+        && (deduplicated[0] - deduplicated.last().unwrap()).norm_squared() < 1e-20
+    {
+        deduplicated.pop();
+    }
+    if deduplicated.len() < 3 {
+        return Vec::new();
+    }
+    if deduplicated.len() == 3 {
+        return vec![[deduplicated[0], deduplicated[1], deduplicated[2]]];
+    }
+
+    let p0 = deduplicated[0];
+    let p1 = deduplicated[1];
+    let p2 = deduplicated[2];
+    let normal = (p1 - p0).cross(&(p2 - p0));
+    if normal.norm_squared() < 1e-30 {
+        return Vec::new();
+    }
+
+    let ax = normal.x.abs();
+    let ay = normal.y.abs();
+    let az = normal.z.abs();
+    let (axis_u, axis_v) = if ax >= ay && ax >= az {
+        (1, 2)
+    } else if ay >= ax && ay >= az {
+        (0, 2)
+    } else {
+        (0, 1)
+    };
+
+    let mut pslg = crate::application::delaunay::Pslg::new();
+    let mut pslg_vids = Vec::with_capacity(deduplicated.len());
+    let mut unique_pts = Vec::with_capacity(deduplicated.len());
+    for p in &deduplicated {
+        let u = p[axis_u];
+        let v = p[axis_v];
+        pslg_vids.push(pslg.add_vertex(u, v));
+        unique_pts.push([u, v]);
+    }
+
+    let mut pslg_edges = std::collections::HashSet::new();
+    let nb = pslg_vids.len();
+    for i in 0..nb {
+        let va = pslg_vids[i].idx();
+        let vb = pslg_vids[(i + 1) % nb].idx();
+        if va != vb {
+            let p_a = unique_pts[va];
+            let p_b = unique_pts[vb];
+            let on_edge =
+                crate::application::csg::arrangement::planar::collect_points_on_segment_interior(
+                    &unique_pts,
+                    p_a,
+                    p_b,
+                    (va, vb),
+                    1e-8,
+                    1e-14,
+                );
+            crate::application::csg::arrangement::planar::insert_shattered_subedges(
+                on_edge,
+                &mut pslg_edges,
+            );
+        }
+    }
+
+    for (a, b) in pslg_edges {
+        // Only add segment if it hasn't been added yet and the edge does not degenerate
+        if a != b {
+            let _ = pslg.add_segment(
+                crate::application::delaunay::PslgVertexId::from_usize(a),
+                crate::application::delaunay::PslgVertexId::from_usize(b),
+            );
+        }
+    }
+
+    let cdt = match crate::application::delaunay::Cdt::try_from_pslg(&pslg) {
+        Ok(c) => c,
+        Err(_) => {
+            // Fallback to naive fan triangulation if exact bounds shatter fails
+            let root = deduplicated[0];
+            return (1..deduplicated.len() - 1)
+                .map(|i| [root, deduplicated[i], deduplicated[i + 1]])
+                .collect();
+        }
+    };
+    let dt = cdt.triangulation();
+    let mut faces = Vec::new();
+
+    for (_, tri) in dt.interior_triangles() {
+        let [pv0, pv1, pv2] = tri.vertices;
+        if pv0.idx() >= nb || pv1.idx() >= nb || pv2.idx() >= nb {
+            continue;
+        }
+
+        let v0 = deduplicated[pv0.idx()];
+        let v1 = deduplicated[pv1.idx()];
+        let v2 = deduplicated[pv2.idx()];
+
+        let tn = (v1 - v0).cross(&(v2 - v0));
+        if tn.dot(&normal) >= 0.0 {
+            faces.push([v0, v1, v2]);
+        } else {
+            faces.push([v0, v2, v1]);
+        }
+    }
+
+    if faces.is_empty() {
+        // Fallback for flat sub-components (numeric wipeout)
+        let root = deduplicated[0];
+        return (1..deduplicated.len() - 1)
+            .map(|i| [root, deduplicated[i], deduplicated[i + 1]])
+            .collect();
+    }
+
+    faces
+}
+
+// ── Tests ─────────────────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::domain::core::scalar::Real;
+
+    // CCW plane normal points in +z: pa=(0,0,0), pb=(1,0,0), pc=(0,1,0)
+    // → inside = z ≥ 0.
+    fn z_plane() -> (Point3r, Point3r, Point3r) {
+        (
+            Point3r::new(0.0, 0.0, 0.0),
+            Point3r::new(1.0, 0.0, 0.0),
+            Point3r::new(0.0, 1.0, 0.0),
+        )
+    }
+
+    #[test]
+    fn square_on_boundary_fully_kept() {
+        let poly: Vec<Point3r> = vec![
+            Point3r::new(0.0, 0.0, 0.0),
+            Point3r::new(1.0, 0.0, 0.0),
+            Point3r::new(1.0, 1.0, 0.0),
+            Point3r::new(0.0, 1.0, 0.0),
+        ];
+        let (pa, pb, pc) = z_plane();
+        let result = clip_polygon_to_halfplane(&poly, &pa, &pb, &pc);
+        // All vertices are on the plane (Degenerate = inside).
+        assert_eq!(result.len(), 4);
+    }
+
+    #[test]
+    fn triangle_below_plane_fully_clipped() {
+        let poly: Vec<Point3r> = vec![
+            Point3r::new(0.0, 0.0, -1.0),
+            Point3r::new(1.0, 0.0, -1.0),
+            Point3r::new(0.0, 1.0, -1.0),
+        ];
+        let (pa, pb, pc) = z_plane();
+        let result = clip_polygon_to_halfplane(&poly, &pa, &pb, &pc);
+        assert!(
+            result.is_empty(),
+            "triangle fully below z=0 should be fully clipped, got {} vertices",
+            result.len()
+        );
+    }
+
+    #[test]
+    fn triangle_above_plane_fully_kept() {
+        let poly: Vec<Point3r> = vec![
+            Point3r::new(0.0, 0.0, 1.0),
+            Point3r::new(1.0, 0.0, 1.0),
+            Point3r::new(0.0, 1.0, 1.0),
+        ];
+        let (pa, pb, pc) = z_plane();
+        let result = clip_polygon_to_halfplane(&poly, &pa, &pb, &pc);
+        assert_eq!(result.len(), 3, "triangle above z=0 should be fully kept");
+    }
+
+    #[test]
+    fn straddling_triangle_clipped_correctly() {
+        // Triangle straddles z=0: one vertex below, two above.
+        let poly: Vec<Point3r> = vec![
+            Point3r::new(0.0, 0.0, -1.0), // below
+            Point3r::new(2.0, 0.0, 1.0),  // above
+            Point3r::new(0.0, 2.0, 1.0),  // above
+        ];
+        let (pa, pb, pc) = z_plane();
+        let result = clip_polygon_to_halfplane(&poly, &pa, &pb, &pc);
+        // Result should be a quadrilateral (4 vertices): the two intersection
+        // points plus the two above-plane vertices.
+        assert_eq!(
+            result.len(),
+            4,
+            "straddling triangle should produce quadrilateral, got {result:?}"
+        );
+        for p in &result {
+            assert!(
+                p.z >= -1e-9,
+                "all result vertices should be ≥ z=0, got z={}",
+                p.z
+            );
+        }
+    }
+
+    #[test]
+    fn fan_triangulate_pentagon() {
+        let poly: Vec<Point3r> = (0..5)
+            .map(|i| {
+                let angle = i as Real * std::f64::consts::TAU / 5.0;
+                Point3r::new(angle.cos(), angle.sin(), 0.0)
+            })
+            .collect();
+        let tris = fan_triangulate(&poly);
+        assert_eq!(tris.len(), 3, "pentagon → 3 triangles");
+    }
+
+    #[test]
+    fn fan_triangulate_degenerate_returns_empty() {
+        let poly: Vec<Point3r> = vec![Point3r::new(0.0, 0.0, 0.0), Point3r::new(1.0, 0.0, 0.0)];
+        let tris = fan_triangulate(&poly);
+        assert!(tris.is_empty());
+    }
+}

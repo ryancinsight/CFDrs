@@ -74,7 +74,10 @@ impl<'brand, T> PermissionedArena<'brand, T> {
     }
 
     /// Iterate over all elements immutably.
-    pub fn iter<'a>(&'a self, token: &'a GhostToken<'brand>) -> impl Iterator<Item = &'a T> + use<'a, 'brand, T> {
+    pub fn iter<'a>(
+        &'a self,
+        token: &'a GhostToken<'brand>,
+    ) -> impl Iterator<Item = &'a T> + use<'a, 'brand, T> {
         self.elements.iter().map(move |c| c.borrow(token))
     }
 

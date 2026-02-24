@@ -7,26 +7,7 @@
 //! geometric predicates, manifold/watertight checking, and OpenFOAM-compatible
 //! I/O — all targeting millimetre-scale microfluidic channel geometries.
 //!
-//! ## Quick Start — new GhostCell half-edge API
-//!
-//! ```rust,ignore
-//! use cfd_mesh::{with_mesh, welding::SnappingGrid};
-//!
-//! let vol = with_mesh(|mut mesh, mut token| {
-//!     let a = mesh.add_vertex([0.0, 0.0, 0.0], &token);
-//!     let b = mesh.add_vertex([1.0, 0.0, 0.0], &token);
-//!     let c = mesh.add_vertex([0.0, 1.0, 0.0], &token);
-//!     let d = mesh.add_vertex([0.0, 0.0, 1.0], &token);
-//!     mesh.add_triangle(a, b, c, &mut token).unwrap();
-//!     mesh.add_triangle(a, c, d, &mut token).unwrap();
-//!     mesh.add_triangle(a, d, b, &mut token).unwrap();
-//!     mesh.add_triangle(b, d, c, &mut token).unwrap();
-//!     mesh.signed_volume(&token)
-//! });
-//! assert!(vol > 0.0, "outward-oriented tetrahedron has positive volume");
-//! ```
-//!
-//! ## Quick Start — IndexedMesh builder
+//! ## Quick Start
 //!
 //! ```rust,ignore
 //! use cfd_mesh::{MeshBuilder, core::scalar::Point3r};
@@ -99,63 +80,43 @@
 // permission internals) suppress the lint with targeted #[allow(missing_docs)].
 #![warn(missing_docs)]
 
-
-pub mod core;
-pub mod permission;
-pub mod storage;
-pub mod topology;
-pub mod geometry;
-pub mod hierarchy;
-pub mod grid;
-pub mod mesh;
-pub mod welding;
-pub mod quality;
-pub mod watertight;
-pub mod channel;
-pub mod io;
-
-pub mod csg;
-
-// ── Primary re-exports ────────────────────────────────────────────────────────
-
-/// Create an empty `HalfEdgeMesh` + `GhostToken` inside a branded closure.
-pub use mesh::with_mesh;
-
-/// The GhostCell-permissioned half-edge mesh (new API).
-pub use mesh::HalfEdgeMesh;
-
-/// Legacy generic FEM/FVM mesh — retained only for volume tools (`grid.rs`, `hex_to_tet.rs`).
-#[allow(deprecated)]
-pub use mesh::Mesh;
+pub mod application;
+pub mod domain;
+pub mod infrastructure;
 
 /// Legacy watertight-first indexed surface mesh.
-pub use mesh::IndexedMesh;
+pub use domain::mesh::IndexedMesh;
 
 /// Ergonomic builder for `IndexedMesh`.
-pub use mesh::MeshBuilder;
+pub use domain::mesh::MeshBuilder;
 
 // ── Convenience re-exports ────────────────────────────────────────────────────
 
 /// Normal-orientation analysis report for `IndexedMesh` surfaces.
-pub use quality::{NormalAnalysis, analyze_normals};
+pub use application::quality::{analyze_normals, NormalAnalysis};
 
 /// Named CFD boundary patch (Inlet / Outlet / Wall / Symmetry / Periodic).
-pub use topology::halfedge::BoundaryPatch;
+pub use domain::topology::halfedge::BoundaryPatch;
 
 /// CFD boundary patch type discriminant.
-pub use topology::halfedge::PatchType;
+pub use domain::topology::halfedge::PatchType;
 
 /// Exact Shewchuk orientation result.
-pub use geometry::Orientation;
+pub use domain::geometry::Orientation;
 
 /// Analytic mesh primitives (26 builders from tetrahedron to truncated icosahedron).
-pub use geometry::primitives;
+pub use domain::geometry::primitives;
 
 /// Primitive builder re-exports for ergonomic top-level access.
-pub use geometry::{
-    Tetrahedron, Cube, UvSphere, Cylinder, Cone, Torus, LinearSweep, RevolutionSweep,
-    Octahedron, Icosahedron, Ellipsoid, Frustum, Capsule, Pipe, Elbow,
-    BiconcaveDisk, SphericalShell, StadiumPrism, Dodecahedron, GeodesicSphere,
-    HelixSweep, RoundedCube, Cuboctahedron, Pyramid, Antiprism, TruncatedIcosahedron,
-    Disk,
+pub use domain::geometry::{
+    Antiprism, BiconcaveDisk, Capsule, Cone, Cube, Cuboctahedron, Cylinder, Disk, Dodecahedron,
+    Elbow, Ellipsoid, Frustum, GeodesicSphere, HelixSweep, Icosahedron, LinearSweep, Octahedron,
+    Pipe, Pyramid, RevolutionSweep, RoundedCube, SphericalShell, StadiumPrism, Tetrahedron, Torus,
+    TruncatedIcosahedron, UvSphere,
+};
+
+/// Application-level channel builders.
+pub use application::channel::{
+    ChannelPath, JunctionType, ChannelProfile, SubstrateBuilder, SweepMesher,
+    BranchingMeshBuilder, SerpentineMeshBuilder, VenturiMeshBuilder
 };

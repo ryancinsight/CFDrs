@@ -2,10 +2,10 @@
 
 use std::f64::consts::TAU;
 
-use crate::core::index::RegionId;
-use crate::core::scalar::{Point3r, Vector3r};
-use crate::mesh::IndexedMesh;
-use super::{PrimitiveMesh, PrimitiveError};
+use super::{PrimitiveError, PrimitiveMesh};
+use crate::domain::core::index::RegionId;
+use crate::domain::core::scalar::{Point3r, Vector3r};
+use crate::domain::mesh::IndexedMesh;
 
 /// Builds a closed circular-arc tube sweep (pipe bend / elbow).
 ///
@@ -83,7 +83,8 @@ impl PrimitiveMesh for Elbow {
 fn build(el: &Elbow) -> Result<IndexedMesh, PrimitiveError> {
     if el.tube_radius <= 0.0 {
         return Err(PrimitiveError::InvalidParam(format!(
-            "tube_radius must be > 0, got {}", el.tube_radius
+            "tube_radius must be > 0, got {}",
+            el.tube_radius
         )));
     }
     if el.bend_radius <= el.tube_radius {
@@ -94,7 +95,8 @@ fn build(el: &Elbow) -> Result<IndexedMesh, PrimitiveError> {
     }
     if el.bend_angle <= 0.0 || el.bend_angle > TAU {
         return Err(PrimitiveError::InvalidParam(format!(
-            "bend_angle must be in (0, 2π], got {}", el.bend_angle
+            "bend_angle must be in (0, 2π], got {}",
+            el.bend_angle
         )));
     }
     if el.tube_segments < 3 {
@@ -102,28 +104,28 @@ fn build(el: &Elbow) -> Result<IndexedMesh, PrimitiveError> {
     }
     if el.arc_segments < 1 {
         return Err(PrimitiveError::InvalidParam(
-            "arc_segments must be ≥ 1".into()
+            "arc_segments must be ≥ 1".into(),
         ));
     }
 
-    let wall_region   = RegionId::new(1);
-    let inlet_region  = RegionId::new(2);
+    let wall_region = RegionId::new(1);
+    let inlet_region = RegionId::new(2);
     let outlet_region = RegionId::new(3);
 
     let mut mesh = IndexedMesh::new();
-    let r   = el.tube_radius;
+    let r = el.tube_radius;
     let big_r = el.bend_radius;
-    let ba  = el.bend_angle;
-    let ns  = el.tube_segments;
-    let na  = el.arc_segments;
+    let ba = el.bend_angle;
+    let ns = el.tube_segments;
+    let na = el.arc_segments;
 
     // ── Helpers ──────────────────────────────────────────────────────────────
 
     // Frenet frame at arc angle alpha (planar circle in XZ plane).
     let frenet = |alpha: f64| -> (Vector3r, Vector3r, Vector3r) {
-        let t = Vector3r::new(alpha.sin(), 0.0, alpha.cos());       // tangent
-        let n = Vector3r::new(alpha.cos(), 0.0, -alpha.sin());      // principal normal
-        let b = Vector3r::y();                                       // binormal = +Y
+        let t = Vector3r::new(alpha.sin(), 0.0, alpha.cos()); // tangent
+        let n = Vector3r::new(alpha.cos(), 0.0, -alpha.sin()); // principal normal
+        let b = Vector3r::y(); // binormal = +Y
         (t, n, b)
     };
 
@@ -138,21 +140,23 @@ fn build(el: &Elbow) -> Result<IndexedMesh, PrimitiveError> {
         let cb = beta.cos();
         let sb = beta.sin();
         let n_out = n_frame * cb + b_frame * sb;
-        let pos   = centre_at(alpha) + n_out * r;
+        let pos = centre_at(alpha) + n_out * r;
         (pos, n_out)
     };
 
     // Pre-build ring vertex arrays for shared edge connectivity
     // rings[ia][ib] = VertexId at arc station ia, tube angle ib.
     // Caps reuse rings[0] and rings[na] so wall/cap edges are topologically shared.
-    let mut rings: Vec<Vec<crate::core::index::VertexId>> = Vec::with_capacity(na + 1);
+    let mut rings: Vec<Vec<crate::domain::core::index::VertexId>> = Vec::with_capacity(na + 1);
     for ia in 0..=na {
         let alpha = ia as f64 / na as f64 * ba;
-        let row: Vec<_> = (0..ns).map(|ib| {
-            let beta = ib as f64 / ns as f64 * TAU;
-            let (p, n) = tube_vertex(alpha, beta);
-            mesh.add_vertex(p, n)
-        }).collect();
+        let row: Vec<_> = (0..ns)
+            .map(|ib| {
+                let beta = ib as f64 / ns as f64 * TAU;
+                let (p, n) = tube_vertex(alpha, beta);
+                mesh.add_vertex(p, n)
+            })
+            .collect();
         rings.push(row);
     }
 
@@ -213,8 +217,8 @@ fn build(el: &Elbow) -> Result<IndexedMesh, PrimitiveError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::storage::edge_store::EdgeStore;
-    use crate::watertight::check::check_watertight;
+    use crate::application::watertight::check::check_watertight;
+    use crate::infrastructure::storage::edge_store::EdgeStore;
     use std::f64::consts::PI;
 
     #[test]
@@ -232,16 +236,25 @@ mod tests {
         let big_r = 2.0_f64;
         let ba = PI; // 180° bend
         let mesh = Elbow {
-            tube_radius: r, bend_radius: big_r, bend_angle: ba,
-            tube_segments: 32, arc_segments: 48,
-        }.build().unwrap();
+            tube_radius: r,
+            bend_radius: big_r,
+            bend_angle: ba,
+            tube_segments: 32,
+            arc_segments: 48,
+        }
+        .build()
+        .unwrap();
         let edges = EdgeStore::from_face_store(&mesh.faces);
         let report = check_watertight(&mesh.vertices, &mesh.faces, &edges);
         assert!(report.signed_volume > 0.0);
         // Pappus: V = π r² · R · θ
         let expected = PI * r * r * big_r * ba;
         let error = (report.signed_volume - expected).abs() / expected;
-        assert!(error < 0.01, "volume error {:.4}% should be < 1% at 32×48", error * 100.0);
+        assert!(
+            error < 0.01,
+            "volume error {:.4}% should be < 1% at 32×48",
+            error * 100.0
+        );
     }
 
     #[test]
@@ -252,7 +265,9 @@ mod tests {
             arc_segments: 48,
             tube_segments: 24,
             ..Elbow::default()
-        }.build().unwrap();
+        }
+        .build()
+        .unwrap();
         let edges = EdgeStore::from_face_store(&mesh.faces);
         let report = check_watertight(&mesh.vertices, &mesh.faces, &edges);
         assert!(report.is_watertight);
@@ -263,11 +278,42 @@ mod tests {
 
     #[test]
     fn elbow_rejects_invalid_params() {
-        assert!(Elbow { tube_radius: 0.0, ..Elbow::default() }.build().is_err());
-        assert!(Elbow { bend_radius: 0.4, tube_radius: 0.5, ..Elbow::default() }.build().is_err());
-        assert!(Elbow { bend_angle: 0.0, ..Elbow::default() }.build().is_err());
-        assert!(Elbow { bend_angle: 7.0, ..Elbow::default() }.build().is_err()); // > 2π
-        assert!(Elbow { tube_segments: 2, ..Elbow::default() }.build().is_err());
-        assert!(Elbow { arc_segments: 0, ..Elbow::default() }.build().is_err());
+        assert!(Elbow {
+            tube_radius: 0.0,
+            ..Elbow::default()
+        }
+        .build()
+        .is_err());
+        assert!(Elbow {
+            bend_radius: 0.4,
+            tube_radius: 0.5,
+            ..Elbow::default()
+        }
+        .build()
+        .is_err());
+        assert!(Elbow {
+            bend_angle: 0.0,
+            ..Elbow::default()
+        }
+        .build()
+        .is_err());
+        assert!(Elbow {
+            bend_angle: 7.0,
+            ..Elbow::default()
+        }
+        .build()
+        .is_err()); // > 2π
+        assert!(Elbow {
+            tube_segments: 2,
+            ..Elbow::default()
+        }
+        .build()
+        .is_err());
+        assert!(Elbow {
+            arc_segments: 0,
+            ..Elbow::default()
+        }
+        .build()
+        .is_err());
     }
 }

@@ -2,8 +2,8 @@
 
 use thiserror::Error;
 
-use crate::core::index::{VertexId, FaceId, EdgeId};
-use crate::core::scalar::Point3r;
+use crate::domain::core::index::{EdgeId, FaceId, VertexId};
+use crate::domain::core::scalar::Point3r;
 
 /// Alias for `Result<T, MeshError>`.
 pub type MeshResult<T> = Result<T, MeshError>;

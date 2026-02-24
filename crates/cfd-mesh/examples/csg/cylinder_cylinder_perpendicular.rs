@@ -42,12 +42,12 @@ use std::time::Instant;
 
 use nalgebra::{Isometry3, UnitQuaternion, Vector3};
 
-use cfd_mesh::core::scalar::{Point3r, Real};
-use cfd_mesh::csg::boolean::{BooleanOp, csg_boolean_indexed};
-use cfd_mesh::csg::CsgNode;
-use cfd_mesh::geometry::primitives::{Cylinder, PrimitiveMesh};
-use cfd_mesh::io::stl;
-use cfd_mesh::{IndexedMesh, analyze_normals};
+use cfd_mesh::application::csg::boolean::{csg_boolean_indexed, BooleanOp};
+use cfd_mesh::application::csg::CsgNode;
+use cfd_mesh::domain::core::scalar::{Point3r, Real};
+use cfd_mesh::domain::geometry::primitives::{Cylinder, PrimitiveMesh};
+use cfd_mesh::infrastructure::io::stl;
+use cfd_mesh::{analyze_normals, IndexedMesh};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("=================================================================");
@@ -56,16 +56,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("  (Mesh Arrangement pipeline — axes cross at origin at 90°)");
     println!("=================================================================");
 
-    let r: f64 = 0.5;   // both cylinder radii
-    let h: f64 = 3.0;   // both cylinder heights
+    let r: f64 = 0.5; // both cylinder radii
+    let h: f64 = 3.0; // both cylinder heights
 
     let v_cyl = std::f64::consts::PI * r * r * h;
 
     // Steinmetz bicylinder intersection volume: 16r³/3
     let v_intersect = 16.0 / 3.0 * r * r * r;
 
-    println!("  Cylinder A : axis +Y, base (0,{:.2},0),  r={r}, h={h}  V = {v_cyl:.4} mm³",
-        -h / 2.0);
+    println!(
+        "  Cylinder A : axis +Y, base (0,{:.2},0),  r={r}, h={h}  V = {v_cyl:.4} mm³",
+        -h / 2.0
+    );
     println!("  Cylinder B : axis +X (A rotated 90° about Z), r={r}, h={h}  V = {v_cyl:.4} mm³");
     println!("  Both axes pass through origin; intersection = Steinmetz solid");
     println!("  Steinmetz V_∩ = 16r³/3 = {v_intersect:.4} mm³");
@@ -77,7 +79,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!();
 
     let crate_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
-    let out_dir   = crate_dir.join("outputs").join("csg");
+    let out_dir = crate_dir.join("outputs").join("csg");
     fs::create_dir_all(&out_dir)?;
 
     let t_build = Instant::now();
@@ -88,7 +90,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         radius: r,
         height: h,
         segments: 64,
-    }.build()?;
+    }
+    .build()?;
 
     // Cylinder B: the Cylinder primitive is Y-axis only, so we build it
     // identically to A and then rotate it into the X-axis orientation.
@@ -100,19 +103,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             radius: r,
             height: h,
             segments: 64,
-        }.build()?;
+        }
+        .build()?;
         let rot = UnitQuaternion::<Real>::from_axis_angle(
             &Vector3::z_axis(),
-            -std::f64::consts::FRAC_PI_2,  // +Y → +X
+            -std::f64::consts::FRAC_PI_2, // +Y → +X
         );
         CsgNode::Transform {
             node: Box::new(CsgNode::Leaf(raw)),
-            iso:  Isometry3::from_parts(nalgebra::Translation3::identity(), rot),
-        }.evaluate()?
+            iso: Isometry3::from_parts(nalgebra::Translation3::identity(), rot),
+        }
+        .evaluate()?
     };
 
-    println!("  Mesh built: {} + {} cylinder faces  ({} ms)",
-        cyl_a.face_count(), cyl_b.face_count(), t_build.elapsed().as_millis());
+    println!(
+        "  Mesh built: {} + {} cylinder faces  ({} ms)",
+        cyl_a.face_count(),
+        cyl_b.face_count(),
+        t_build.elapsed().as_millis()
+    );
     println!();
 
     // ── Union ─────────────────────────────────────────────────────────────────
@@ -120,8 +129,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let t0 = Instant::now();
         let mut result = csg_boolean_indexed(BooleanOp::Union, &cyl_a, &cyl_b)?;
         let ms = t0.elapsed().as_millis();
-        report("Union (A ∪ B)", &mut result, 2.0 * v_cyl - v_intersect, 0.05, ms);
-        write_stl(&result, &out_dir.join("cylinder_cylinder_perpendicular_union.stl"))?;
+        report(
+            "Union (A ∪ B)",
+            &mut result,
+            2.0 * v_cyl - v_intersect,
+            0.05,
+            ms,
+        );
+        write_stl(
+            &result,
+            &out_dir.join("cylinder_cylinder_perpendicular_union.stl"),
+        )?;
         println!("  STL: outputs/csg/cylinder_cylinder_perpendicular_union.stl");
         println!();
     }
@@ -131,8 +149,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let t0 = Instant::now();
         let mut result = csg_boolean_indexed(BooleanOp::Intersection, &cyl_a, &cyl_b)?;
         let ms = t0.elapsed().as_millis();
-        report("Intersection (A ∩ B) — Steinmetz solid", &mut result, v_intersect, 0.05, ms);
-        write_stl(&result, &out_dir.join("cylinder_cylinder_perpendicular_intersection.stl"))?;
+        report(
+            "Intersection (A ∩ B) — Steinmetz solid",
+            &mut result,
+            v_intersect,
+            0.05,
+            ms,
+        );
+        write_stl(
+            &result,
+            &out_dir.join("cylinder_cylinder_perpendicular_intersection.stl"),
+        )?;
         println!("  STL: outputs/csg/cylinder_cylinder_perpendicular_intersection.stl");
         println!();
     }
@@ -142,8 +169,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let t0 = Instant::now();
         let mut result = csg_boolean_indexed(BooleanOp::Difference, &cyl_a, &cyl_b)?;
         let ms = t0.elapsed().as_millis();
-        report("Difference (A \\ B)", &mut result, v_cyl - v_intersect, 0.05, ms);
-        write_stl(&result, &out_dir.join("cylinder_cylinder_perpendicular_difference.stl"))?;
+        report(
+            "Difference (A \\ B)",
+            &mut result,
+            v_cyl - v_intersect,
+            0.05,
+            ms,
+        );
+        write_stl(
+            &result,
+            &out_dir.join("cylinder_cylinder_perpendicular_difference.stl"),
+        )?;
         println!("  STL: outputs/csg/cylinder_cylinder_perpendicular_difference.stl");
         println!();
     }
@@ -155,10 +191,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 fn report(label: &str, mesh: &mut IndexedMesh, expected: f64, tol: f64, ms: u128) {
-    let vol    = mesh.signed_volume();
-    let is_wt  = mesh.is_watertight();
-    let n      = analyze_normals(mesh);
-    let err    = (vol - expected).abs() / expected.abs().max(1e-12);
+    let vol = mesh.signed_volume();
+    let is_wt = mesh.is_watertight();
+    let n = analyze_normals(mesh);
+    let err = (vol - expected).abs() / expected.abs().max(1e-12);
     let status = if err <= tol { "PASS" } else { "FAIL" };
 
     println!("  ── {label} ──");
@@ -166,17 +202,26 @@ fn report(label: &str, mesh: &mut IndexedMesh, expected: f64, tol: f64, ms: u128
     println!("    Volume     : {vol:.4} mm³  (expected {expected:.4})");
     println!("    Vol error  : {:.2}%  [{status}]", err * 100.0);
     println!("    Watertight : {is_wt}");
-    println!("    Normals    : outward={}, inward={} ({:.1}%), degen={}",
-        n.outward_faces, n.inward_faces,
-        if mesh.face_count() > 0 { n.inward_faces as Real / mesh.face_count() as Real * 100.0 } else { 0.0 },
-        n.degenerate_faces);
-    println!("    Alignment  : mean={:.4}  min={:.4}",
-        n.face_vertex_alignment_mean, n.face_vertex_alignment_min);
+    println!(
+        "    Normals    : outward={}, inward={} ({:.1}%), degen={}",
+        n.outward_faces,
+        n.inward_faces,
+        if mesh.face_count() > 0 {
+            n.inward_faces as Real / mesh.face_count() as Real * 100.0
+        } else {
+            0.0
+        },
+        n.degenerate_faces
+    );
+    println!(
+        "    Alignment  : mean={:.4}  min={:.4}",
+        n.face_vertex_alignment_mean, n.face_vertex_alignment_min
+    );
     println!("    Elapsed    : {ms} ms");
 }
 
 fn write_stl(mesh: &IndexedMesh, path: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
-    let file  = fs::File::create(path)?;
+    let file = fs::File::create(path)?;
     let mut w = BufWriter::new(file);
     stl::write_binary_stl(&mut w, &mesh.vertices, &mesh.faces)?;
     Ok(())

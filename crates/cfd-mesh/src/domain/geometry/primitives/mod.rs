@@ -44,7 +44,7 @@
 //! ## Example
 //!
 //! ```rust,ignore
-//! use cfd_mesh::geometry::primitives::UvSphere;
+//! use cfd_mesh::domain::geometry::primitives::UvSphere;
 //!
 //! let mesh = UvSphere { radius: 1.0, segments: 32, stacks: 16 }
 //!     .build()
@@ -52,63 +52,63 @@
 //! assert!(mesh.signed_volume() > 0.0);
 //! ```
 
-pub mod tetrahedron;
-pub mod cube;
-pub mod sphere;
-pub mod cylinder;
+pub mod antiprism;
+pub mod biconcave_disk;
+pub mod capsule;
 pub mod cone;
-pub mod torus;
-pub mod linear_sweep;
-pub mod revolution_sweep;
-pub mod octahedron;
-pub mod icosahedron;
+pub mod cube;
+pub mod cuboctahedron;
+pub mod cylinder;
+pub mod disk;
+pub mod dodecahedron;
+pub mod elbow;
 pub mod ellipsoid;
 pub mod frustum;
-pub mod capsule;
-pub mod pipe;
-pub mod elbow;
-pub mod biconcave_disk;
-pub mod spherical_shell;
-pub mod stadium_prism;
-pub mod dodecahedron;
 pub mod geodesic_sphere;
 pub mod helix_sweep;
-pub mod rounded_cube;
-pub mod cuboctahedron;
+pub mod icosahedron;
+pub mod linear_sweep;
+pub mod octahedron;
+pub mod pipe;
 pub mod pyramid;
-pub mod antiprism;
+pub mod revolution_sweep;
+pub mod rounded_cube;
+pub mod sphere;
+pub mod spherical_shell;
+pub mod stadium_prism;
+pub mod tetrahedron;
+pub mod torus;
 pub mod truncated_icosahedron;
-pub mod disk;
 
-pub use tetrahedron::Tetrahedron;
-pub use cube::Cube;
-pub use sphere::UvSphere;
-pub use cylinder::Cylinder;
+pub use antiprism::Antiprism;
+pub use biconcave_disk::BiconcaveDisk;
+pub use capsule::Capsule;
 pub use cone::Cone;
-pub use torus::Torus;
-pub use linear_sweep::LinearSweep;
-pub use revolution_sweep::RevolutionSweep;
-pub use octahedron::Octahedron;
-pub use icosahedron::Icosahedron;
+pub use cube::Cube;
+pub use cuboctahedron::Cuboctahedron;
+pub use cylinder::Cylinder;
+pub use disk::Disk;
+pub use dodecahedron::Dodecahedron;
+pub use elbow::Elbow;
 pub use ellipsoid::Ellipsoid;
 pub use frustum::Frustum;
-pub use capsule::Capsule;
-pub use pipe::Pipe;
-pub use elbow::Elbow;
-pub use biconcave_disk::BiconcaveDisk;
-pub use spherical_shell::SphericalShell;
-pub use stadium_prism::StadiumPrism;
-pub use dodecahedron::Dodecahedron;
 pub use geodesic_sphere::GeodesicSphere;
 pub use helix_sweep::HelixSweep;
-pub use rounded_cube::RoundedCube;
-pub use cuboctahedron::Cuboctahedron;
+pub use icosahedron::Icosahedron;
+pub use linear_sweep::LinearSweep;
+pub use octahedron::Octahedron;
+pub use pipe::Pipe;
 pub use pyramid::Pyramid;
-pub use antiprism::Antiprism;
+pub use revolution_sweep::RevolutionSweep;
+pub use rounded_cube::RoundedCube;
+pub use sphere::UvSphere;
+pub use spherical_shell::SphericalShell;
+pub use stadium_prism::StadiumPrism;
+pub use tetrahedron::Tetrahedron;
+pub use torus::Torus;
 pub use truncated_icosahedron::TruncatedIcosahedron;
-pub use disk::Disk;
 
-use crate::mesh::IndexedMesh;
+use crate::domain::mesh::IndexedMesh;
 
 /// Common error type for primitive mesh builders.
 #[derive(Debug, thiserror::Error)]
@@ -121,7 +121,7 @@ pub enum PrimitiveError {
     TooFewSegments(usize),
     /// The resulting mesh is not watertight (internal consistency failure).
     #[error("internal mesh error: {0}")]
-    Mesh(#[from] crate::core::error::MeshError),
+    Mesh(#[from] crate::domain::core::error::MeshError),
 }
 
 /// Trait for all primitive mesh builders.

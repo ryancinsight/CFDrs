@@ -14,7 +14,7 @@
 //! ## Usage
 //!
 //! ```rust,ignore
-//! use cfd_mesh::permission::{GhostToken, GhostCell};
+//! use cfd_mesh::infrastructure::permission::{GhostToken, GhostCell};
 //!
 //! GhostToken::new(|mut token| {
 //!     let cell = GhostCell::new(42u32);
@@ -24,10 +24,10 @@
 //! });
 //! ```
 
-pub mod token;
-pub mod cell;
 pub mod arena;
+pub mod cell;
+pub mod token;
 
-pub use token::GhostToken;
-pub use cell::GhostCell;
 pub use arena::PermissionedArena;
+pub use cell::GhostCell;
+pub use token::GhostToken;

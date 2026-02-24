@@ -2,11 +2,11 @@
 //!
 //! Single source of truth for all fundamental types used across the crate.
 
-pub mod scalar;
-pub mod index;
-pub mod error;
 pub mod constants;
+pub mod error;
+pub mod index;
+pub mod scalar;
 
-pub use scalar::{Real, Scalar};
-pub use index::{VertexId, FaceId, EdgeId, HalfEdgeId, RegionId};
 pub use error::{MeshError, MeshResult};
+pub use index::{EdgeId, FaceId, HalfEdgeId, RegionId, VertexId};
+pub use scalar::{Real, Scalar};

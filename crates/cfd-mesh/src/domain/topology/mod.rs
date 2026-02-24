@@ -3,15 +3,15 @@
 //! Built from the indexed storage layer. No redundant adjacency rebuilding —
 //! the `EdgeStore` provides persistent adjacency.
 
-pub mod halfedge;
 pub mod adjacency;
 pub mod connectivity;
+pub mod halfedge;
 pub mod manifold;
 pub mod orientation;
 pub mod predicates;
 
 pub use adjacency::AdjacencyGraph;
-pub use halfedge::{HalfEdgeData, VertexData, FaceData, BoundaryPatch, PatchType};
+pub use halfedge::{BoundaryPatch, FaceData, HalfEdgeData, PatchType, VertexData};
 
 // ── Mesh-element types needed by cfd-3d ──────────────────────────────────────
 
@@ -58,11 +58,15 @@ pub struct Face {
 impl Face {
     /// Triangular face.
     pub fn triangle(v0: usize, v1: usize, v2: usize) -> Self {
-        Self { vertices: vec![v0, v1, v2] }
+        Self {
+            vertices: vec![v0, v1, v2],
+        }
     }
     /// Quadrilateral face.
     pub fn quad(v0: usize, v1: usize, v2: usize, v3: usize) -> Self {
-        Self { vertices: vec![v0, v1, v2, v3] }
+        Self {
+            vertices: vec![v0, v1, v2, v3],
+        }
     }
 }
 
@@ -87,10 +91,7 @@ impl Cell {
         }
     }
     /// Hexahedral cell — six quadrilateral faces.
-    pub fn hexahedron(
-        f0: usize, f1: usize, f2: usize,
-        f3: usize, f4: usize, f5: usize,
-    ) -> Self {
+    pub fn hexahedron(f0: usize, f1: usize, f2: usize, f3: usize, f4: usize, f5: usize) -> Self {
         Self {
             faces: vec![f0, f1, f2, f3, f4, f5],
             element_type: ElementType::Hexahedron,

@@ -3,12 +3,12 @@
 //! This is the core extrusion engine — the equivalent of blue2mesh's
 //! `ExtrusionEngine` but producing indexed mesh faces directly.
 
-use crate::core::index::{VertexId, RegionId};
-use crate::core::scalar::Real;
-use crate::storage::face_store::FaceData;
-use crate::storage::vertex_pool::VertexPool;
-use crate::channel::profile::ChannelProfile;
-use crate::channel::path::ChannelPath;
+use crate::application::channel::path::ChannelPath;
+use crate::application::channel::profile::ChannelProfile;
+use crate::domain::core::index::{RegionId, VertexId};
+use crate::domain::core::scalar::Real;
+use crate::infrastructure::storage::face_store::FaceData;
+use crate::infrastructure::storage::vertex_pool::VertexPool;
 
 /// Sweep mesher: sweeps a 2D profile along a 3D path.
 pub struct SweepMesher {
@@ -49,9 +49,7 @@ impl SweepMesher {
         for frame in &frames {
             let mut ring = Vec::with_capacity(n_profile);
             for pt2d in &profile_pts {
-                let pos = frame.position
-                    + frame.normal * pt2d[0]
-                    + frame.binormal * pt2d[1];
+                let pos = frame.position + frame.normal * pt2d[0] + frame.binormal * pt2d[1];
                 let outward = (pos - frame.position).normalize();
                 let vid = vertex_pool.insert_or_weld(pos, outward);
                 ring.push(vid);
@@ -121,7 +119,7 @@ impl SweepMesher {
     /// # Arguments
     /// * `profile` - The base profile to sweep.
     /// * `path` - The 3D path to sweep along.
-    /// * `width_scales` - Scaling factors for the profile's X-dimension at each path point. 
+    /// * `width_scales` - Scaling factors for the profile's X-dimension at each path point.
     ///                    Must have the same length as the path frames.
     /// * `vertex_pool` - Destination for vertices.
     /// * `region` - Region ID for generated faces.
@@ -140,7 +138,11 @@ impl SweepMesher {
 
         if width_scales.len() != n_stations {
             // Using a simple assertion for library correctness.
-            assert_eq!(width_scales.len(), n_stations, "Width scales must match path length");
+            assert_eq!(
+                width_scales.len(),
+                n_stations,
+                "Width scales must match path length"
+            );
         }
 
         // Generate vertex rings at each station
@@ -154,9 +156,7 @@ impl SweepMesher {
                 let local_x = pt2d[0] * scale_x;
                 let local_y = pt2d[1]; // Height (Y) remains constant
 
-                let pos = frame.position
-                    + frame.normal * local_x
-                    + frame.binormal * local_y;
+                let pos = frame.position + frame.normal * local_x + frame.binormal * local_y;
                 let outward = (pos - frame.position).normalize();
                 let vid = vertex_pool.insert_or_weld(pos, outward);
                 ring.push(vid);

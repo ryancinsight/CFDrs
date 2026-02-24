@@ -1,11 +1,9 @@
 //! ARM NEON SIMD implementations
 
-use cfd_core::error::Result;
-
 // NEON implementations for f32
 #[cfg(all(target_arch = "aarch64", target_feature = "neon"))]
 #[inline]
-pub unsafe fn add_neon_f32(a: &[f32], b: &[f32], result: &mut [f32]) -> Result<()> {
+pub unsafe fn add_neon_f32(a: &[f32], b: &[f32], result: &mut [f32]) -> cfd_core::error::Result<()> {
     use std::arch::aarch64::*;
 
     let len = a.len();
@@ -28,7 +26,7 @@ pub unsafe fn add_neon_f32(a: &[f32], b: &[f32], result: &mut [f32]) -> Result<(
 
 #[cfg(all(target_arch = "aarch64", target_feature = "neon"))]
 #[inline]
-pub unsafe fn sub_neon_f32(a: &[f32], b: &[f32], result: &mut [f32]) -> Result<()> {
+pub unsafe fn sub_neon_f32(a: &[f32], b: &[f32], result: &mut [f32]) -> cfd_core::error::Result<()> {
     use std::arch::aarch64::*;
 
     let len = a.len();
@@ -50,7 +48,7 @@ pub unsafe fn sub_neon_f32(a: &[f32], b: &[f32], result: &mut [f32]) -> Result<(
 
 #[cfg(all(target_arch = "aarch64", target_feature = "neon"))]
 #[inline]
-pub unsafe fn mul_neon_f32(a: &[f32], b: &[f32], result: &mut [f32]) -> Result<()> {
+pub unsafe fn mul_neon_f32(a: &[f32], b: &[f32], result: &mut [f32]) -> cfd_core::error::Result<()> {
     use std::arch::aarch64::*;
 
     let len = a.len();

@@ -11,12 +11,12 @@
 use std::fs;
 use std::io::BufWriter;
 
+use cfd_mesh::application::watertight::check::check_watertight;
+use cfd_mesh::domain::core::scalar::Point3r;
+use cfd_mesh::domain::geometry::primitives::PrimitiveMesh;
+use cfd_mesh::infrastructure::io::stl;
+use cfd_mesh::infrastructure::storage::edge_store::EdgeStore;
 use cfd_mesh::Cube;
-use cfd_mesh::core::scalar::Point3r;
-use cfd_mesh::geometry::primitives::PrimitiveMesh;
-use cfd_mesh::io::stl;
-use cfd_mesh::storage::edge_store::EdgeStore;
-use cfd_mesh::watertight::check::check_watertight;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("=================================================================");
@@ -28,7 +28,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         width: 2.0,
         height: 2.0,
         depth: 2.0,
-    }.build()?;
+    }
+    .build()?;
 
     let edges = EdgeStore::from_face_store(&mesh.faces);
     let report = check_watertight(&mesh.vertices, &mesh.faces, &edges);
@@ -36,8 +37,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("  Vertices  : {}", mesh.vertices.len());
     println!("  Faces     : {}", mesh.faces.len());
     println!("  Watertight: {}", report.is_watertight);
-    println!("  Volume    : {:.6} mm³  (expected 8.0)", report.signed_volume);
-    println!("  Euler χ   : {:?}  (expected 2)", report.euler_characteristic);
+    println!(
+        "  Volume    : {:.6} mm³  (expected 8.0)",
+        report.signed_volume
+    );
+    println!(
+        "  Euler χ   : {:?}  (expected 2)",
+        report.euler_characteristic
+    );
 
     let crate_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
     let out_dir = crate_dir.join("outputs").join("primitives");

@@ -2,10 +2,10 @@
 
 use std::f64::consts::{PI, TAU};
 
-use crate::core::index::RegionId;
-use crate::core::scalar::{Point3r, Vector3r};
-use crate::mesh::IndexedMesh;
-use super::{PrimitiveMesh, PrimitiveError};
+use super::{PrimitiveError, PrimitiveMesh};
+use crate::domain::core::index::RegionId;
+use crate::domain::core::scalar::{Point3r, Vector3r};
+use crate::domain::mesh::IndexedMesh;
 
 /// Builds a capsule: a closed right cylinder capped with two hemispheres.
 ///
@@ -67,12 +67,14 @@ impl PrimitiveMesh for Capsule {
 fn build(cap: &Capsule) -> Result<IndexedMesh, PrimitiveError> {
     if cap.radius <= 0.0 {
         return Err(PrimitiveError::InvalidParam(format!(
-            "radius must be > 0, got {}", cap.radius
+            "radius must be > 0, got {}",
+            cap.radius
         )));
     }
     if cap.cylinder_height < 0.0 {
         return Err(PrimitiveError::InvalidParam(format!(
-            "cylinder_height must be ≥ 0, got {}", cap.cylinder_height
+            "cylinder_height must be ≥ 0, got {}",
+            cap.cylinder_height
         )));
     }
     if cap.segments < 3 {
@@ -80,19 +82,19 @@ fn build(cap: &Capsule) -> Result<IndexedMesh, PrimitiveError> {
     }
     if cap.hemisphere_stacks < 1 {
         return Err(PrimitiveError::InvalidParam(
-            "hemisphere_stacks must be ≥ 1".into()
+            "hemisphere_stacks must be ≥ 1".into(),
         ));
     }
 
     let region = RegionId::new(1);
     let mut mesh = IndexedMesh::new();
-    let r   = cap.radius;
-    let hl  = cap.cylinder_height;
-    let cx  = cap.center.x;
-    let cy  = cap.center.y;
-    let cz  = cap.center.z;
-    let ns  = cap.segments;
-    let hs  = cap.hemisphere_stacks;
+    let r = cap.radius;
+    let hl = cap.cylinder_height;
+    let cx = cap.center.x;
+    let cy = cap.center.y;
+    let cz = cap.center.z;
+    let ns = cap.segments;
+    let hs = cap.hemisphere_stacks;
 
     // Y-offsets for the two hemisphere centres (= cylinder cap positions).
     let top_cy = cy + hl / 2.0;
@@ -205,8 +207,8 @@ fn build(cap: &Capsule) -> Result<IndexedMesh, PrimitiveError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::storage::edge_store::EdgeStore;
-    use crate::watertight::check::check_watertight;
+    use crate::application::watertight::check::check_watertight;
+    use crate::infrastructure::storage::edge_store::EdgeStore;
     use std::f64::consts::PI;
 
     #[test]
@@ -223,17 +225,25 @@ mod tests {
         let r = 0.5_f64;
         let h = 2.0_f64;
         let mesh = Capsule {
-            radius: r, cylinder_height: h,
-            segments: 64, hemisphere_stacks: 16,
+            radius: r,
+            cylinder_height: h,
+            segments: 64,
+            hemisphere_stacks: 16,
             ..Capsule::default()
-        }.build().unwrap();
+        }
+        .build()
+        .unwrap();
         let edges = EdgeStore::from_face_store(&mesh.faces);
         let report = check_watertight(&mesh.vertices, &mesh.faces, &edges);
         assert!(report.signed_volume > 0.0);
         // V = π r² (h + 4r/3)
         let expected = PI * r * r * (h + 4.0 * r / 3.0);
         let error = (report.signed_volume - expected).abs() / expected;
-        assert!(error < 0.005, "volume error {:.4}% should be < 0.5%", error * 100.0);
+        assert!(
+            error < 0.005,
+            "volume error {:.4}% should be < 0.5%",
+            error * 100.0
+        );
     }
 
     #[test]
@@ -241,24 +251,57 @@ mod tests {
         // cylinder_height = 0 → capsule becomes a sphere
         let r = 1.0_f64;
         let mesh = Capsule {
-            radius: r, cylinder_height: 0.0,
-            segments: 64, hemisphere_stacks: 16,
+            radius: r,
+            cylinder_height: 0.0,
+            segments: 64,
+            hemisphere_stacks: 16,
             ..Capsule::default()
-        }.build().unwrap();
+        }
+        .build()
+        .unwrap();
         let edges = EdgeStore::from_face_store(&mesh.faces);
         let report = check_watertight(&mesh.vertices, &mesh.faces, &edges);
         assert!(report.is_watertight);
         let expected = 4.0 / 3.0 * PI * r * r * r;
         let error = (report.signed_volume - expected).abs() / expected;
-        assert!(error < 0.005, "sphere-degenerate error {:.4}%", error * 100.0);
+        assert!(
+            error < 0.005,
+            "sphere-degenerate error {:.4}%",
+            error * 100.0
+        );
     }
 
     #[test]
     fn capsule_rejects_invalid_params() {
-        assert!(Capsule { radius: 0.0, ..Capsule::default() }.build().is_err());
-        assert!(Capsule { radius: -1.0, ..Capsule::default() }.build().is_err());
-        assert!(Capsule { cylinder_height: -0.1, ..Capsule::default() }.build().is_err());
-        assert!(Capsule { segments: 2, ..Capsule::default() }.build().is_err());
-        assert!(Capsule { hemisphere_stacks: 0, ..Capsule::default() }.build().is_err());
+        assert!(Capsule {
+            radius: 0.0,
+            ..Capsule::default()
+        }
+        .build()
+        .is_err());
+        assert!(Capsule {
+            radius: -1.0,
+            ..Capsule::default()
+        }
+        .build()
+        .is_err());
+        assert!(Capsule {
+            cylinder_height: -0.1,
+            ..Capsule::default()
+        }
+        .build()
+        .is_err());
+        assert!(Capsule {
+            segments: 2,
+            ..Capsule::default()
+        }
+        .build()
+        .is_err());
+        assert!(Capsule {
+            hemisphere_stacks: 0,
+            ..Capsule::default()
+        }
+        .build()
+        .is_err());
     }
 }

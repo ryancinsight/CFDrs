@@ -3,10 +3,10 @@
 //! Creates the outer chip body as a cuboid, with channels subtracted via CSG.
 //! Equivalent to blue2mesh's cuboid substrate generation.
 
-use crate::core::index::RegionId;
-use crate::core::scalar::{Real, Point3r, Vector3r};
-use crate::storage::face_store::FaceData;
-use crate::storage::vertex_pool::VertexPool;
+use crate::domain::core::index::RegionId;
+use crate::domain::core::scalar::{Point3r, Real, Vector3r};
+use crate::infrastructure::storage::face_store::FaceData;
+use crate::infrastructure::storage::vertex_pool::VertexPool;
 
 /// Builder for millifluidic chip substrates.
 pub struct SubstrateBuilder {
@@ -40,11 +40,7 @@ impl SubstrateBuilder {
     /// Generate the cuboid substrate mesh.
     ///
     /// Produces 12 triangles (2 per face × 6 faces) with outward normals.
-    pub fn build(
-        &self,
-        vertex_pool: &mut VertexPool,
-        region: RegionId,
-    ) -> Vec<FaceData> {
+    pub fn build(&self, vertex_pool: &mut VertexPool, region: RegionId) -> Vec<FaceData> {
         let o = self.origin;
         let w = self.width;
         let d = self.depth;
@@ -52,14 +48,14 @@ impl SubstrateBuilder {
 
         // 8 corners of the cuboid
         let corners = [
-            Point3r::new(o.x,     o.y,     o.z),     // 0: min
-            Point3r::new(o.x + w, o.y,     o.z),     // 1
+            Point3r::new(o.x, o.y, o.z),             // 0: min
+            Point3r::new(o.x + w, o.y, o.z),         // 1
             Point3r::new(o.x + w, o.y + d, o.z),     // 2
-            Point3r::new(o.x,     o.y + d, o.z),     // 3
-            Point3r::new(o.x,     o.y,     o.z + h), // 4
-            Point3r::new(o.x + w, o.y,     o.z + h), // 5
+            Point3r::new(o.x, o.y + d, o.z),         // 3
+            Point3r::new(o.x, o.y, o.z + h),         // 4
+            Point3r::new(o.x + w, o.y, o.z + h),     // 5
             Point3r::new(o.x + w, o.y + d, o.z + h), // 6
-            Point3r::new(o.x,     o.y + d, o.z + h), // 7
+            Point3r::new(o.x, o.y + d, o.z + h),     // 7
         ];
 
         let normals = [

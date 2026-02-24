@@ -93,7 +93,11 @@ impl<'brand, T: Default> Default for GhostCell<'brand, T> {
 
 impl<'brand, T: std::fmt::Debug> GhostCell<'brand, T> {
     /// Debug-format the inner value. Requires `&GhostToken`.
-    pub fn debug_with(&self, token: &GhostToken<'brand>, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    pub fn debug_with(
+        &self,
+        token: &GhostToken<'brand>,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
         self.borrow(token).fmt(f)
     }
 }

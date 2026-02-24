@@ -55,7 +55,7 @@
 
 use hashbrown::HashMap;
 
-use crate::core::scalar::{Real, Point3r};
+use crate::domain::core::scalar::{Point3r, Real};
 
 // ── GridCell ─────────────────────────────────────────────────────────────────
 
@@ -156,7 +156,10 @@ impl SnappingGrid {
     /// # Panics
     /// Panics if `eps` is not finite and positive.
     pub fn new(eps: Real) -> Self {
-        assert!(eps.is_finite() && eps > 0.0, "eps must be finite and positive");
+        assert!(
+            eps.is_finite() && eps > 0.0,
+            "eps must be finite and positive"
+        );
         Self {
             buckets: HashMap::new(),
             positions: Vec::new(),
@@ -303,35 +306,6 @@ impl SnappingGrid {
         self.buckets.clear();
         self.positions.clear();
     }
-
-    // ── HalfEdgeMesh<'id> integration ─────────────────────────────────────
-
-    /// Insert or weld a vertex into a [`HalfEdgeMesh`], returning its
-    /// [`VertexKey`].
-    ///
-    /// Maps the `u32` index maintained by the snapping grid to a
-    /// `VertexKey` via `key_map`.  If the vertex is new, it is added to the
-    /// mesh and the map is updated.
-    pub fn insert_or_weld_he<'id>(
-        &mut self,
-        point: Point3r,
-        key_map: &mut HashMap<u32, crate::core::index::VertexKey>,
-        mesh: &mut crate::mesh::HalfEdgeMesh<'id>,
-        token: &mut crate::permission::GhostToken<'id>,
-    ) -> crate::core::index::VertexKey {
-        let (idx, is_new) = self.insert_or_weld(point);
-        if is_new {
-            let snapped = self.positions[idx as usize];
-            let vk = mesh.add_vertex(snapped, token);
-            key_map.insert(idx, vk);
-            vk
-        } else {
-            *key_map.entry(idx).or_insert_with(|| {
-                let snapped = self.positions[idx as usize];
-                mesh.add_vertex(snapped, token)
-            })
-        }
-    }
 }
 
 // ── Legacy SnapConfig shim ────────────────────────────────────────────────────
@@ -452,7 +426,7 @@ mod tests {
         let mut g = SnappingGrid::new(eps);
         let (i0, _) = g.insert_or_weld(pt(0.4, 0.0, 0.0)); // rounds to x=0
         let (i1, _) = g.insert_or_weld(pt(0.6, 0.0, 0.0)); // rounds to x=1
-        // distance = 0.2 < eps=1.0, so must weld
+                                                           // distance = 0.2 < eps=1.0, so must weld
         assert_eq!(i0, i1, "26-neighbor search must weld across cell boundary");
     }
 

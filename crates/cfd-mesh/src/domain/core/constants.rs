@@ -1,6 +1,6 @@
 //! Physical and geometric constants for millifluidic design.
 
-use crate::core::scalar::Real;
+use crate::domain::core::scalar::Real;
 
 /// π
 pub const PI: Real = std::f64::consts::PI as Real;

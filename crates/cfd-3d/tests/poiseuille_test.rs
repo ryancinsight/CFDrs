@@ -1,5 +1,5 @@
 use cfd_3d::venturi::{VenturiConfig3D, VenturiSolution3D, VenturiSolver3D};
-use cfd_mesh::geometry::venturi::VenturiMeshBuilder;
+use cfd_mesh::VenturiMeshBuilder;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
 
 fn solve_poiseuille(u_avg: f64, resolution: (usize, usize)) -> VenturiSolution3D<f64> {

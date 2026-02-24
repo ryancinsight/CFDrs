@@ -2,11 +2,11 @@
 
 use std::f64::consts::TAU;
 
-use crate::core::index::RegionId;
-use crate::core::scalar::{Point3r, Vector3r};
-use crate::geometry::normal::triangle_normal;
-use crate::mesh::IndexedMesh;
-use super::{PrimitiveMesh, PrimitiveError};
+use super::{PrimitiveError, PrimitiveMesh};
+use crate::domain::core::index::RegionId;
+use crate::domain::core::scalar::{Point3r, Vector3r};
+use crate::domain::geometry::normal::triangle_normal;
+use crate::domain::mesh::IndexedMesh;
 
 /// Builds a right antiprism with two parallel regular n-gon faces.
 ///
@@ -60,12 +60,14 @@ impl PrimitiveMesh for Antiprism {
 fn build(ap: &Antiprism) -> Result<IndexedMesh, PrimitiveError> {
     if ap.base_radius <= 0.0 {
         return Err(PrimitiveError::InvalidParam(format!(
-            "base_radius must be > 0, got {}", ap.base_radius
+            "base_radius must be > 0, got {}",
+            ap.base_radius
         )));
     }
     if ap.height <= 0.0 {
         return Err(PrimitiveError::InvalidParam(format!(
-            "height must be > 0, got {}", ap.height
+            "height must be > 0, got {}",
+            ap.height
         )));
     }
     if ap.sides < 3 {
@@ -75,23 +77,27 @@ fn build(ap: &Antiprism) -> Result<IndexedMesh, PrimitiveError> {
     let region = RegionId::new(1);
     let mut mesh = IndexedMesh::new();
 
-    let r  = ap.base_radius;
+    let r = ap.base_radius;
     let bx = ap.base_center.x;
     let by = ap.base_center.y;
     let bz = ap.base_center.z;
     let ns = ap.sides;
 
     // Bottom polygon vertices (y = by)
-    let bot: Vec<Point3r> = (0..ns).map(|i| {
-        let angle = i as f64 / ns as f64 * TAU;
-        Point3r::new(bx + r * angle.cos(), by, bz + r * angle.sin())
-    }).collect();
+    let bot: Vec<Point3r> = (0..ns)
+        .map(|i| {
+            let angle = i as f64 / ns as f64 * TAU;
+            Point3r::new(bx + r * angle.cos(), by, bz + r * angle.sin())
+        })
+        .collect();
 
     // Top polygon vertices (y = by + height, rotated by π/n)
-    let top: Vec<Point3r> = (0..ns).map(|i| {
-        let angle = (i as f64 + 0.5) / ns as f64 * TAU;
-        Point3r::new(bx + r * angle.cos(), by + ap.height, bz + r * angle.sin())
-    }).collect();
+    let top: Vec<Point3r> = (0..ns)
+        .map(|i| {
+            let angle = (i as f64 + 0.5) / ns as f64 * TAU;
+            Point3r::new(bx + r * angle.cos(), by + ap.height, bz + r * angle.sin())
+        })
+        .collect();
 
     // ── Lateral strip (2·sides triangles) ─────────────────────────────────────
     // For each i:
@@ -109,7 +115,7 @@ fn build(ap: &Antiprism) -> Result<IndexedMesh, PrimitiveError> {
         {
             let n = triangle_normal(&top[i], &bot[j], &top[j]).unwrap_or(Vector3r::zeros());
             let vt0 = mesh.add_vertex(top[i], n);
-            let vb  = mesh.add_vertex(bot[j], n);
+            let vb = mesh.add_vertex(bot[j], n);
             let vt1 = mesh.add_vertex(top[j], n);
             mesh.add_face_with_region(vt0, vb, vt1, region);
         }
@@ -149,8 +155,8 @@ fn build(ap: &Antiprism) -> Result<IndexedMesh, PrimitiveError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::storage::edge_store::EdgeStore;
-    use crate::watertight::check::check_watertight;
+    use crate::application::watertight::check::check_watertight;
+    use crate::infrastructure::storage::edge_store::EdgeStore;
 
     #[test]
     fn antiprism_is_watertight() {
@@ -163,7 +169,14 @@ mod tests {
 
     #[test]
     fn antiprism_volume_positive() {
-        let mesh = Antiprism { sides: 8, height: 2.0, base_radius: 1.5, ..Antiprism::default() }.build().unwrap();
+        let mesh = Antiprism {
+            sides: 8,
+            height: 2.0,
+            base_radius: 1.5,
+            ..Antiprism::default()
+        }
+        .build()
+        .unwrap();
         let edges = EdgeStore::from_face_store(&mesh.faces);
         let report = check_watertight(&mesh.vertices, &mesh.faces, &edges);
         assert!(report.is_watertight);
@@ -172,8 +185,23 @@ mod tests {
 
     #[test]
     fn antiprism_rejects_invalid_params() {
-        assert!(Antiprism { base_radius: 0.0, ..Antiprism::default() }.build().is_err());
-        assert!(Antiprism { height: 0.0, ..Antiprism::default() }.build().is_err());
-        assert!(Antiprism { sides: 2, ..Antiprism::default() }.build().is_err());
+        assert!(Antiprism {
+            base_radius: 0.0,
+            ..Antiprism::default()
+        }
+        .build()
+        .is_err());
+        assert!(Antiprism {
+            height: 0.0,
+            ..Antiprism::default()
+        }
+        .build()
+        .is_err());
+        assert!(Antiprism {
+            sides: 2,
+            ..Antiprism::default()
+        }
+        .build()
+        .is_err());
     }
 }

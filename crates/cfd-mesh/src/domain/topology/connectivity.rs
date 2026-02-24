@@ -2,9 +2,9 @@
 
 use hashbrown::HashSet;
 
-use crate::core::index::FaceId;
-use crate::topology::AdjacencyGraph;
-use crate::storage::face_store::FaceStore;
+use crate::domain::core::index::FaceId;
+use crate::domain::topology::AdjacencyGraph;
+use crate::infrastructure::storage::face_store::FaceStore;
 
 /// Identify connected components using BFS on face adjacency.
 ///

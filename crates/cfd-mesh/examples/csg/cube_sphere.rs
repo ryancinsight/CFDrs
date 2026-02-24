@@ -45,11 +45,11 @@ use std::fs;
 use std::io::BufWriter;
 use std::time::Instant;
 
-use cfd_mesh::core::scalar::{Point3r, Real};
-use cfd_mesh::csg::boolean::{BooleanOp, csg_boolean_indexed};
-use cfd_mesh::geometry::primitives::{PrimitiveMesh, UvSphere};
-use cfd_mesh::io::stl;
-use cfd_mesh::{Cube, IndexedMesh, analyze_normals};
+use cfd_mesh::application::csg::boolean::{csg_boolean_indexed, BooleanOp};
+use cfd_mesh::domain::core::scalar::{Point3r, Real};
+use cfd_mesh::domain::geometry::primitives::{PrimitiveMesh, UvSphere};
+use cfd_mesh::infrastructure::io::stl;
+use cfd_mesh::{analyze_normals, Cube, IndexedMesh};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("=================================================================");
@@ -59,12 +59,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let r: f64 = 1.0;
     let d: f64 = 0.5; // distance from sphere centre to +X face (x = 2 − 1.5 = 0.5)
-    let v_cube   = 8.0_f64;
+    let v_cube = 8.0_f64;
     let v_sphere = 4.0 * std::f64::consts::PI * r.powi(3) / 3.0;
     // Spherical cap outside cube: h = R − d = 0.5
-    let h_cap  = r - d;
-    let v_cap  = std::f64::consts::PI * h_cap * h_cap / 3.0 * (3.0 * r - h_cap);
-    let v_overlap = v_sphere - v_cap;  // portion inside the cube
+    let h_cap = r - d;
+    let v_cap = std::f64::consts::PI * h_cap * h_cap / 3.0 * (3.0 * r - h_cap);
+    let v_overlap = v_sphere - v_cap; // portion inside the cube
 
     println!("  Cube   A : [0,2]³ mm                         V = {v_cube:.4} mm³");
     println!("  Sphere B : centre (1.5,1,1), r = {r:.1} mm   V = {v_sphere:.4} mm³");
@@ -72,28 +72,39 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("  Overlap (sphere inside cube)                   V = {v_overlap:.4} mm³");
     println!();
     println!("  Expected volumes:");
-    println!("    Union        : {:.4} mm³", v_cube + v_sphere - v_overlap);
+    println!(
+        "    Union        : {:.4} mm³",
+        v_cube + v_sphere - v_overlap
+    );
     println!("    Intersection : {v_overlap:.4} mm³");
     println!("    Difference   : {:.4} mm³", v_cube - v_overlap);
     println!();
 
     let crate_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
-    let out_dir   = crate_dir.join("outputs").join("csg");
+    let out_dir = crate_dir.join("outputs").join("csg");
     fs::create_dir_all(&out_dir)?;
 
     let t_build = Instant::now();
     let cube = Cube {
         origin: Point3r::new(0.0, 0.0, 0.0),
-        width: 2.0, height: 2.0, depth: 2.0,
-    }.build()?;
+        width: 2.0,
+        height: 2.0,
+        depth: 2.0,
+    }
+    .build()?;
     let sphere = UvSphere {
         radius: r,
         center: Point3r::new(1.5, 1.0, 1.0),
         stacks: 64,
         segments: 32,
-    }.build()?;
-    println!("  Mesh built: {} cube + {} sphere faces  ({} ms)",
-        cube.face_count(), sphere.face_count(), t_build.elapsed().as_millis());
+    }
+    .build()?;
+    println!(
+        "  Mesh built: {} cube + {} sphere faces  ({} ms)",
+        cube.face_count(),
+        sphere.face_count(),
+        t_build.elapsed().as_millis()
+    );
     println!();
 
     // ── Union ─────────────────────────────────────────────────────────────────
@@ -101,7 +112,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let t0 = Instant::now();
         let mut result = csg_boolean_indexed(BooleanOp::Union, &cube, &sphere)?;
         let ms = t0.elapsed().as_millis();
-        report("Union (A ∪ B)", &mut result, v_cube + v_sphere - v_overlap, 0.05, ms);
+        report(
+            "Union (A ∪ B)",
+            &mut result,
+            v_cube + v_sphere - v_overlap,
+            0.05,
+            ms,
+        );
         write_stl(&result, &out_dir.join("cube_sphere_union.stl"))?;
         println!("  STL: outputs/csg/cube_sphere_union.stl");
         println!();
@@ -123,7 +140,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let t0 = Instant::now();
         let mut result = csg_boolean_indexed(BooleanOp::Difference, &cube, &sphere)?;
         let ms = t0.elapsed().as_millis();
-        report("Difference (A \\ B)", &mut result, v_cube - v_overlap, 0.05, ms);
+        report(
+            "Difference (A \\ B)",
+            &mut result,
+            v_cube - v_overlap,
+            0.05,
+            ms,
+        );
         write_stl(&result, &out_dir.join("cube_sphere_difference.stl"))?;
         println!("  STL: outputs/csg/cube_sphere_difference.stl");
         println!();
@@ -136,10 +159,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 fn report(label: &str, mesh: &mut IndexedMesh, expected: f64, tol: f64, ms: u128) {
-    let vol    = mesh.signed_volume();
-    let is_wt  = mesh.is_watertight();
-    let n      = analyze_normals(mesh);
-    let err    = (vol - expected).abs() / expected.abs().max(1e-12);
+    let vol = mesh.signed_volume();
+    let is_wt = mesh.is_watertight();
+    let n = analyze_normals(mesh);
+    let err = (vol - expected).abs() / expected.abs().max(1e-12);
     let status = if err <= tol { "PASS" } else { "FAIL" };
 
     println!("  ── {label} ──");
@@ -147,19 +170,27 @@ fn report(label: &str, mesh: &mut IndexedMesh, expected: f64, tol: f64, ms: u128
     println!("    Volume     : {vol:.4} mm³  (expected {expected:.4})");
     println!("    Vol error  : {:.2}%  [{status}]", err * 100.0);
     println!("    Watertight : {is_wt}");
-    println!("    Normals    : outward={}, inward={} ({:.1}%), degen={}",
-        n.outward_faces, n.inward_faces,
-        if mesh.face_count() > 0 { n.inward_faces as Real / mesh.face_count() as Real * 100.0 } else { 0.0 },
-        n.degenerate_faces);
-    println!("    Alignment  : mean={:.4}  min={:.4}",
-        n.face_vertex_alignment_mean, n.face_vertex_alignment_min);
+    println!(
+        "    Normals    : outward={}, inward={} ({:.1}%), degen={}",
+        n.outward_faces,
+        n.inward_faces,
+        if mesh.face_count() > 0 {
+            n.inward_faces as Real / mesh.face_count() as Real * 100.0
+        } else {
+            0.0
+        },
+        n.degenerate_faces
+    );
+    println!(
+        "    Alignment  : mean={:.4}  min={:.4}",
+        n.face_vertex_alignment_mean, n.face_vertex_alignment_min
+    );
     println!("    Elapsed    : {ms} ms");
 }
 
 fn write_stl(mesh: &IndexedMesh, path: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
-    let file  = fs::File::create(path)?;
+    let file = fs::File::create(path)?;
     let mut w = BufWriter::new(file);
     stl::write_binary_stl(&mut w, &mesh.vertices, &mesh.faces)?;
     Ok(())
 }
-

@@ -22,7 +22,7 @@
 //!
 //! Binary search gives O(log m) lookup.
 
-use crate::core::scalar::Real;
+use crate::domain::core::scalar::Real;
 
 /// A validated knot vector.
 ///
@@ -152,18 +152,25 @@ impl KnotVector {
 
     /// Return the multiplicity of knot value `t` (number of times it appears).
     pub fn multiplicity(&self, t: Real) -> usize {
-        self.knots.iter().filter(|&&k| (k - t).abs() < 1e-14).count()
+        self.knots
+            .iter()
+            .filter(|&&k| (k - t).abs() < 1e-14)
+            .count()
     }
 
     /// Return `true` if this is a clamped (open) knot vector for degree `p`:
     /// the first `p+1` entries are equal and the last `p+1` entries are equal.
     pub fn is_clamped(&self, p: usize) -> bool {
         let m = self.knots.len() - 1;
-        if m < 2 * p { return false; }
+        if m < 2 * p {
+            return false;
+        }
         let first = self.knots[0];
         let last = self.knots[m];
         self.knots[..=p].iter().all(|&k| (k - first).abs() < 1e-14)
-            && self.knots[m - p..].iter().all(|&k| (k - last).abs() < 1e-14)
+            && self.knots[m - p..]
+                .iter()
+                .all(|&k| (k - last).abs() < 1e-14)
     }
 }
 

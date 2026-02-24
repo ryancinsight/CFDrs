@@ -20,10 +20,10 @@ use std::fs;
 use std::io::BufWriter;
 use std::time::Instant;
 
-use cfd_mesh::core::scalar::Real;
-use cfd_mesh::csg::boolean::{BooleanOp, csg_boolean_indexed};
-use cfd_mesh::geometry::primitives::PrimitiveMesh;
-use cfd_mesh::io::stl;
+use cfd_mesh::domain::core::scalar::Real;
+use cfd_mesh::application::csg::boolean::{BooleanOp, csg_boolean_indexed};
+use cfd_mesh::domain::geometry::primitives::PrimitiveMesh;
+use cfd_mesh::infrastructure::io::stl;
 use cfd_mesh::{Cube, IndexedMesh, NormalAnalysis, analyze_normals};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -83,12 +83,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("    face↔vertex alignment: mean={:.4}, min={:.4}",
         normals.face_vertex_alignment_mean, normals.face_vertex_alignment_min);
 
-    // 2% tolerance — cube-only BSP is numerically exact for axis-aligned faces
-    let vol_ok        = vol_err <= 0.02;
-    let align_mean_ok = normals.face_vertex_alignment_mean >= 0.05;
-    let status = if vol_ok && align_mean_ok { "PASS" } else { "FAIL" };
-    println!("  Status: {} (vol_err={:.2}%, align_mean={:.4})",
-        status, vol_err * 100.0, normals.face_vertex_alignment_mean);
+    // 2% volume tolerance.
+    // Note: face-to-centroid alignment is not a valid correctness metric for
+    // non-convex solids (e.g., slotted blocks where slot-wall normals point
+    // inward relative to the overall centroid but are geometrically correct).
+    // Watertightness + volume accuracy are the appropriate checks here.
+    let vol_ok = vol_err <= 0.02;
+    let status = if vol_ok && is_wt { "PASS" } else { "FAIL" };
+    println!("  Status: {} (vol_err={:.2}%, watertight={})",
+        status, vol_err * 100.0, is_wt);
 
     let stl_path = out_dir.join("difference_slotted_block.stl");
     {

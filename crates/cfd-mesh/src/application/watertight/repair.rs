@@ -1,10 +1,10 @@
 //! Mesh repair utilities.
 
-use crate::core::index::FaceId;
-use crate::storage::edge_store::EdgeStore;
-use crate::storage::face_store::FaceStore;
-use crate::storage::vertex_pool::VertexPool;
-use crate::topology::orientation;
+use crate::domain::core::index::FaceId;
+use crate::domain::topology::orientation;
+use crate::infrastructure::storage::edge_store::EdgeStore;
+use crate::infrastructure::storage::face_store::FaceStore;
+use crate::infrastructure::storage::vertex_pool::VertexPool;
 
 /// Mesh repair operations.
 pub struct MeshRepair;
@@ -13,10 +13,7 @@ impl MeshRepair {
     /// Fix inconsistent winding orientations.
     ///
     /// Returns the number of faces flipped.
-    pub fn fix_orientations(
-        face_store: &mut FaceStore,
-        edge_store: &EdgeStore,
-    ) -> usize {
+    pub fn fix_orientations(face_store: &mut FaceStore, edge_store: &EdgeStore) -> usize {
         orientation::fix_orientation(face_store, edge_store)
     }
 
@@ -45,7 +42,7 @@ impl MeshRepair {
             let c = vertex_pool.position(face.vertices[2]);
             let area = 0.5 * (b - a).cross(&(c - a)).norm();
 
-            if area < crate::core::scalar::TOLERANCE {
+            if area < crate::domain::core::scalar::TOLERANCE {
                 degenerate.push(fid);
             }
         }

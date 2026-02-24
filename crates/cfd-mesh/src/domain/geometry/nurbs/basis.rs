@@ -32,8 +32,8 @@
 //!
 //! All evaluations in this module maintain this invariant.
 
-use crate::core::scalar::Real;
 use super::knot::KnotVector;
+use crate::domain::core::scalar::Real;
 
 /// Evaluate the `p+1` non-zero B-spline basis functions at parameter `t`.
 ///
@@ -132,11 +132,7 @@ pub fn eval_basis_and_deriv(
                 d = a[s2][0] * ndu[r - k][pk as usize];
             }
             let j1 = if rk >= -1 { 1 } else { (-rk) as usize };
-            let j2 = if (r as isize - 1) <= pk {
-                k - 1
-            } else {
-                p - r
-            };
+            let j2 = if (r as isize - 1) <= pk { k - 1 } else { p - r };
             for i in j1..=j2 {
                 a[s2][i] = (a[s1][i] - a[s1][i - 1]) / ndu[pk as usize + 1][r + i - k];
                 d += a[s2][i] * ndu[r + i - k][pk as usize];
@@ -161,7 +157,7 @@ pub fn eval_basis_and_deriv(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::geometry::nurbs::knot::KnotVector;
+    use crate::domain::geometry::nurbs::knot::KnotVector;
 
     #[test]
     fn partition_of_unity() {

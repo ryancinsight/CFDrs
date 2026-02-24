@@ -4,13 +4,22 @@
 //! heuristics from causing degenerate topological failures like non-manifold
 //! edge creation. These functions wrap adaptive multi-precision arithmetic.
 
-use crate::core::scalar::Point3r;
+use crate::domain::core::scalar::Point3r;
 
 /// Exact algebraic sign representing geometric orientation.
+///
+/// # Theorem — Geometric Robustness
+///
+/// Shewchuk's adaptive-precision arithmetic guarantees that the sign of the
+/// orientation determinant is computed exactly, even for nearly-collinear or
+/// nearly-coplanar point configurations. No epsilon-based fallbacks.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Sign {
+    /// Points are in clockwise order (negative determinant).
     Negative = -1,
+    /// Points are collinear/coplanar (zero determinant).
     Zero = 0,
+    /// Points are in counter-clockwise order (positive determinant).
     Positive = 1,
 }
 
@@ -26,17 +35,31 @@ impl Sign {
             Sign::Zero
         }
     }
-    
-    pub fn is_positive(self) -> bool { self == Sign::Positive }
-    pub fn is_negative(self) -> bool { self == Sign::Negative }
-    pub fn is_zero(self) -> bool { self == Sign::Zero }
+
+    /// Returns `true` if the sign is positive (counter-clockwise).
+    #[inline]
+    pub fn is_positive(self) -> bool {
+        self == Sign::Positive
+    }
+
+    /// Returns `true` if the sign is negative (clockwise).
+    #[inline]
+    pub fn is_negative(self) -> bool {
+        self == Sign::Negative
+    }
+
+    /// Returns `true` if the sign is zero (collinear/coplanar).
+    #[inline]
+    pub fn is_zero(self) -> bool {
+        self == Sign::Zero
+    }
 }
 
 /// Exact 3D orientation predicate.
-/// 
+///
 /// Returns whether the point `d` is strictly above, strictly below, or perfectly
 /// coplanar with the oriented plane defined by `a`, `b`, and `c`.
-/// 
+///
 /// This evaluation is mathematically exact and immune to floating-point epsilon noise.
 #[inline]
 pub fn orient3d(a: &Point3r, b: &Point3r, c: &Point3r, d: &Point3r) -> Sign {
@@ -44,13 +67,13 @@ pub fn orient3d(a: &Point3r, b: &Point3r, c: &Point3r, d: &Point3r) -> Sign {
     let pb = [b.x as f64, b.y as f64, b.z as f64];
     let pc = [c.x as f64, c.y as f64, c.z as f64];
     let pd = [d.x as f64, d.y as f64, d.z as f64];
-    
+
     let det = geometry_predicates::orient3d(pa, pb, pc, pd);
     Sign::from_exact_f64(det)
 }
 
 /// Exact 2D orientation predicate (Sutherland-Hodgman / coplanar clipping).
-/// 
+///
 /// Returns whether the point `c` lies strictly left, strictly right, or perfectly
 /// collinear with the directed line from `a` to `b` in the 2D plane (X-Y).
 #[inline]
@@ -58,7 +81,7 @@ pub fn orient2d(a: &Point3r, b: &Point3r, c: &Point3r) -> Sign {
     let pa = [a.x as f64, a.y as f64];
     let pb = [b.x as f64, b.y as f64];
     let pc = [c.x as f64, c.y as f64];
-    
+
     let det = geometry_predicates::orient2d(pa, pb, pc);
     Sign::from_exact_f64(det)
 }
@@ -70,7 +93,7 @@ pub fn incircle2d(a: &Point3r, b: &Point3r, c: &Point3r, d: &Point3r) -> Sign {
     let pb = [b.x as f64, b.y as f64];
     let pc = [c.x as f64, c.y as f64];
     let pd = [d.x as f64, d.y as f64];
-    
+
     let det = geometry_predicates::incircle(pa, pb, pc, pd);
     Sign::from_exact_f64(det)
 }
@@ -83,7 +106,7 @@ pub fn insphere3d(a: &Point3r, b: &Point3r, c: &Point3r, d: &Point3r, e: &Point3
     let pc = [c.x as f64, c.y as f64, c.z as f64];
     let pd = [d.x as f64, d.y as f64, d.z as f64];
     let pe = [e.x as f64, e.y as f64, e.z as f64];
-    
+
     let det = geometry_predicates::insphere(pa, pb, pc, pd, pe);
     Sign::from_exact_f64(det)
 }

@@ -14,10 +14,10 @@ use std::fs;
 use std::io::BufWriter;
 use std::time::Instant;
 
-use cfd_mesh::core::scalar::Real;
-use cfd_mesh::csg::boolean::{BooleanOp, csg_boolean_indexed};
-use cfd_mesh::geometry::primitives::PrimitiveMesh;
-use cfd_mesh::io::stl;
+use cfd_mesh::domain::core::scalar::Real;
+use cfd_mesh::application::csg::boolean::{BooleanOp, csg_boolean_indexed};
+use cfd_mesh::domain::geometry::primitives::PrimitiveMesh;
+use cfd_mesh::infrastructure::io::stl;
 use cfd_mesh::{Cube, IndexedMesh, NormalAnalysis, analyze_normals};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

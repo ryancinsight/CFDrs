@@ -2,15 +2,15 @@
 
 use std::f64::consts::{PI, TAU};
 
-use cfd_mesh::IndexedMesh;
 use cfd_mesh::core::index::RegionId;
 use cfd_mesh::core::scalar::{Point3r, Real, Vector3r};
-use cfd_mesh::csg::boolean::{BooleanOp, csg_boolean};
+use cfd_mesh::csg::boolean::{csg_boolean, BooleanOp};
 use cfd_mesh::csg::bsp::BspNode;
 use cfd_mesh::storage::edge_store::EdgeStore;
 use cfd_mesh::storage::face_store::FaceData;
 use cfd_mesh::storage::vertex_pool::VertexPool;
 use cfd_mesh::topology::{manifold, orientation};
+use cfd_mesh::IndexedMesh;
 
 const EPS_VOLUME: Real = 0.1;
 
@@ -25,8 +25,18 @@ struct MeshSummary {
 #[test]
 fn overlapping_cubes_match_analytical_volumes() -> Result<(), Box<dyn std::error::Error>> {
     let mut pool = VertexPool::default_millifluidic();
-    let cube_a = generate_cube_outward(2.0, Point3r::new(0.0, 0.0, 0.0), &mut pool, RegionId::new(1));
-    let cube_b = generate_cube_outward(2.0, Point3r::new(1.0, 1.0, 1.0), &mut pool, RegionId::new(2));
+    let cube_a = generate_cube_outward(
+        2.0,
+        Point3r::new(0.0, 0.0, 0.0),
+        &mut pool,
+        RegionId::new(1),
+    );
+    let cube_b = generate_cube_outward(
+        2.0,
+        Point3r::new(1.0, 1.0, 1.0),
+        &mut pool,
+        RegionId::new(2),
+    );
 
     let union_faces = csg_boolean(BooleanOp::Union, &cube_a, &cube_b, &mut pool)?;
     let intersection_faces = csg_boolean(BooleanOp::Intersection, &cube_a, &cube_b, &mut pool)?;
@@ -36,7 +46,11 @@ fn overlapping_cubes_match_analytical_volumes() -> Result<(), Box<dyn std::error
     let intersection = summarize_faces(&pool, &intersection_faces);
     let difference = summarize_faces(&pool, &difference_faces);
 
-    assert!((union.volume - 15.0).abs() <= EPS_VOLUME, "union volume={}", union.volume);
+    assert!(
+        (union.volume - 15.0).abs() <= EPS_VOLUME,
+        "union volume={}",
+        union.volume
+    );
     assert!(
         (intersection.volume - 1.0).abs() <= EPS_VOLUME,
         "intersection volume={}",
@@ -55,15 +69,27 @@ fn overlapping_cubes_match_analytical_volumes() -> Result<(), Box<dyn std::error
 fn invalid_operands_reproduce_failure_markers() {
     let mut pool = VertexPool::default_millifluidic();
 
-    let mut inward_cube = generate_cube_outward(1.0, Point3r::origin(), &mut pool, RegionId::new(10));
+    let mut inward_cube =
+        generate_cube_outward(1.0, Point3r::origin(), &mut pool, RegionId::new(10));
     for face in &mut inward_cube {
         face.flip();
     }
 
-    let open_sphere =
-        generate_uv_sphere(Point3r::new(0.5, 0.5, 0.5), 0.75, 32, 16, false, &mut pool, RegionId::new(20));
+    let open_sphere = generate_uv_sphere(
+        Point3r::new(0.5, 0.5, 0.5),
+        0.75,
+        32,
+        16,
+        false,
+        &mut pool,
+        RegionId::new(20),
+    );
 
-    for op in [BooleanOp::Union, BooleanOp::Intersection, BooleanOp::Difference] {
+    for op in [
+        BooleanOp::Union,
+        BooleanOp::Intersection,
+        BooleanOp::Difference,
+    ] {
         match csg_boolean(op, &inward_cube, &open_sphere, &mut pool) {
             Ok(result) => {
                 let summary = summarize_faces(&pool, &result);
@@ -101,16 +127,36 @@ fn difference_sequence_manual_variant_matches_current_on_cube_case(
 
 fn run_current_difference() -> Result<MeshSummary, Box<dyn std::error::Error>> {
     let mut pool = VertexPool::default_millifluidic();
-    let a = generate_cube_outward(2.0, Point3r::new(0.0, 0.0, 0.0), &mut pool, RegionId::new(1));
-    let b = generate_cube_outward(2.0, Point3r::new(1.0, 1.0, 1.0), &mut pool, RegionId::new(2));
+    let a = generate_cube_outward(
+        2.0,
+        Point3r::new(0.0, 0.0, 0.0),
+        &mut pool,
+        RegionId::new(1),
+    );
+    let b = generate_cube_outward(
+        2.0,
+        Point3r::new(1.0, 1.0, 1.0),
+        &mut pool,
+        RegionId::new(2),
+    );
     let faces = csg_boolean(BooleanOp::Difference, &a, &b, &mut pool)?;
     Ok(summarize_faces(&pool, &faces))
 }
 
 fn run_manual_difference_with_extra_invert() -> Result<MeshSummary, Box<dyn std::error::Error>> {
     let mut pool = VertexPool::default_millifluidic();
-    let a_faces = generate_cube_outward(2.0, Point3r::new(0.0, 0.0, 0.0), &mut pool, RegionId::new(1));
-    let b_faces = generate_cube_outward(2.0, Point3r::new(1.0, 1.0, 1.0), &mut pool, RegionId::new(2));
+    let a_faces = generate_cube_outward(
+        2.0,
+        Point3r::new(0.0, 0.0, 0.0),
+        &mut pool,
+        RegionId::new(1),
+    );
+    let b_faces = generate_cube_outward(
+        2.0,
+        Point3r::new(1.0, 1.0, 1.0),
+        &mut pool,
+        RegionId::new(2),
+    );
 
     let mut a = BspNode::build(&a_faces, &mut pool);
     let mut b = BspNode::build(&b_faces, &mut pool);

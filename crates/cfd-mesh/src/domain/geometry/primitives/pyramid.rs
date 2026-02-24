@@ -2,11 +2,11 @@
 
 use std::f64::consts::TAU;
 
-use crate::core::index::RegionId;
-use crate::core::scalar::{Point3r, Vector3r};
-use crate::geometry::normal::triangle_normal;
-use crate::mesh::IndexedMesh;
-use super::{PrimitiveMesh, PrimitiveError};
+use super::{PrimitiveError, PrimitiveMesh};
+use crate::domain::core::index::RegionId;
+use crate::domain::core::scalar::{Point3r, Vector3r};
+use crate::domain::geometry::normal::triangle_normal;
+use crate::domain::mesh::IndexedMesh;
 
 /// Builds a right pyramid with a regular n-gon base.
 ///
@@ -62,12 +62,14 @@ impl PrimitiveMesh for Pyramid {
 fn build(p: &Pyramid) -> Result<IndexedMesh, PrimitiveError> {
     if p.base_radius <= 0.0 {
         return Err(PrimitiveError::InvalidParam(format!(
-            "base_radius must be > 0, got {}", p.base_radius
+            "base_radius must be > 0, got {}",
+            p.base_radius
         )));
     }
     if p.height <= 0.0 {
         return Err(PrimitiveError::InvalidParam(format!(
-            "height must be > 0, got {}", p.height
+            "height must be > 0, got {}",
+            p.height
         )));
     }
     if p.sides < 3 {
@@ -77,7 +79,7 @@ fn build(p: &Pyramid) -> Result<IndexedMesh, PrimitiveError> {
     let region = RegionId::new(1);
     let mut mesh = IndexedMesh::new();
 
-    let r  = p.base_radius;
+    let r = p.base_radius;
     let bx = p.base_center.x;
     let by = p.base_center.y;
     let bz = p.base_center.z;
@@ -86,20 +88,21 @@ fn build(p: &Pyramid) -> Result<IndexedMesh, PrimitiveError> {
     // Apex
     let apex = Point3r::new(bx, by + p.height, bz);
     // Base polygon vertices (CCW from above = CW from below = correct for outward normals)
-    let base: Vec<Point3r> = (0..ns).map(|i| {
-        let angle = i as f64 / ns as f64 * TAU;
-        Point3r::new(bx + r * angle.cos(), by, bz + r * angle.sin())
-    }).collect();
+    let base: Vec<Point3r> = (0..ns)
+        .map(|i| {
+            let angle = i as f64 / ns as f64 * TAU;
+            Point3r::new(bx + r * angle.cos(), by, bz + r * angle.sin())
+        })
+        .collect();
 
     // ── Lateral faces ─────────────────────────────────────────────────────────
     // Triangle: apex, base[i], base[i+1] — normal points outward.
     // Verify CCW winding by checking sign with triangle_normal.
     for i in 0..ns {
         let j = (i + 1) % ns;
-        let n = triangle_normal(&apex, &base[i], &base[j])
-            .unwrap_or(Vector3r::zeros());
+        let n = triangle_normal(&apex, &base[i], &base[j]).unwrap_or(Vector3r::zeros());
         // Ensure normal points outward (away from axis, positive horizontal component).
-        let va = mesh.add_vertex(apex,    n);
+        let va = mesh.add_vertex(apex, n);
         let v0 = mesh.add_vertex(base[i], n);
         let v1 = mesh.add_vertex(base[j], n);
         mesh.add_face_with_region(va, v0, v1, region);
@@ -130,8 +133,8 @@ fn build(p: &Pyramid) -> Result<IndexedMesh, PrimitiveError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::storage::edge_store::EdgeStore;
-    use crate::watertight::check::check_watertight;
+    use crate::application::watertight::check::check_watertight;
+    use crate::infrastructure::storage::edge_store::EdgeStore;
 
     #[test]
     fn pyramid_is_watertight() {
@@ -144,25 +147,54 @@ mod tests {
 
     #[test]
     fn pyramid_volume_positive_and_correct() {
-        let r  = 1.0_f64;
-        let h  = 2.0_f64;
+        let r = 1.0_f64;
+        let h = 2.0_f64;
         let ns = 4_usize;
-        let mesh = Pyramid { base_radius: r, height: h, sides: ns, ..Pyramid::default() }.build().unwrap();
+        let mesh = Pyramid {
+            base_radius: r,
+            height: h,
+            sides: ns,
+            ..Pyramid::default()
+        }
+        .build()
+        .unwrap();
         let edges = EdgeStore::from_face_store(&mesh.faces);
         let report = check_watertight(&mesh.vertices, &mesh.faces, &edges);
-        assert!(report.signed_volume > 0.0, "pyramid signed_volume must be positive");
+        assert!(
+            report.signed_volume > 0.0,
+            "pyramid signed_volume must be positive"
+        );
         // V = (1/3) * base_area * h
         // base_area = n * r^2 * sin(2π/n) / 2
         let base_area = ns as f64 * r * r * (TAU / ns as f64).sin() / 2.0;
         let expected = base_area * h / 3.0;
         let error = (report.signed_volume - expected).abs() / expected;
-        assert!(error < 1e-9, "volume error {:.2e} should be machine eps", error);
+        assert!(
+            error < 1e-9,
+            "volume error {:.2e} should be machine eps",
+            error
+        );
     }
 
     #[test]
     fn pyramid_rejects_invalid_params() {
-        assert!(Pyramid { base_radius: 0.0, ..Pyramid::default() }.build().is_err());
-        assert!(Pyramid { height: 0.0, ..Pyramid::default() }.build().is_err());
-        assert!(Pyramid { sides: 2, ..Pyramid::default() }.build().is_err());
+        assert!(Pyramid {
+            base_radius: 0.0,
+            ..Pyramid::default()
+        }
+        .build()
+        .is_err());
+        assert!(Pyramid {
+            height: 0.0,
+            ..Pyramid::default()
+        }
+        .build()
+        .is_err());
+        assert!(Pyramid {
+            sides: 2,
+            ..Pyramid::default()
+        }
+        .build()
+        .is_err());
     }
 }

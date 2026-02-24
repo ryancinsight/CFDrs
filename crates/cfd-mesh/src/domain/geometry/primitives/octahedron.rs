@@ -1,10 +1,10 @@
 //! Regular octahedron primitive.
 
-use crate::core::index::RegionId;
-use crate::core::scalar::{Point3r, Vector3r};
-use crate::geometry::normal::triangle_normal;
-use crate::mesh::IndexedMesh;
-use super::{PrimitiveMesh, PrimitiveError};
+use super::{PrimitiveError, PrimitiveMesh};
+use crate::domain::core::index::RegionId;
+use crate::domain::core::scalar::{Point3r, Vector3r};
+use crate::domain::geometry::normal::triangle_normal;
+use crate::domain::mesh::IndexedMesh;
 
 /// Builds a regular octahedron inscribed in a sphere of the given `radius`.
 ///
@@ -43,7 +43,10 @@ pub struct Octahedron {
 
 impl Default for Octahedron {
     fn default() -> Self {
-        Self { radius: 1.0, center: Point3r::origin() }
+        Self {
+            radius: 1.0,
+            center: Point3r::origin(),
+        }
     }
 }
 
@@ -56,7 +59,8 @@ impl PrimitiveMesh for Octahedron {
 fn build(o: &Octahedron) -> Result<IndexedMesh, PrimitiveError> {
     if o.radius <= 0.0 {
         return Err(PrimitiveError::InvalidParam(format!(
-            "radius must be > 0, got {}", o.radius
+            "radius must be > 0, got {}",
+            o.radius
         )));
     }
 
@@ -68,12 +72,12 @@ fn build(o: &Octahedron) -> Result<IndexedMesh, PrimitiveError> {
     let cz = o.center.z;
 
     // Six axis vertices.
-    let px = Point3r::new(cx + r, cy,     cz    );
-    let nx = Point3r::new(cx - r, cy,     cz    );
-    let py = Point3r::new(cx,     cy + r, cz    );
-    let ny = Point3r::new(cx,     cy - r, cz    );
-    let pz = Point3r::new(cx,     cy,     cz + r);
-    let nz = Point3r::new(cx,     cy,     cz - r);
+    let px = Point3r::new(cx + r, cy, cz);
+    let nx = Point3r::new(cx - r, cy, cz);
+    let py = Point3r::new(cx, cy + r, cz);
+    let ny = Point3r::new(cx, cy - r, cz);
+    let pz = Point3r::new(cx, cy, cz + r);
+    let nz = Point3r::new(cx, cy, cz - r);
 
     // Eight faces with outward CCW winding.
     // Each normal is the unit centroid direction (verified analytically).
@@ -114,8 +118,8 @@ fn build(o: &Octahedron) -> Result<IndexedMesh, PrimitiveError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::storage::edge_store::EdgeStore;
-    use crate::watertight::check::check_watertight;
+    use crate::application::watertight::check::check_watertight;
+    use crate::infrastructure::storage::edge_store::EdgeStore;
     use approx::assert_relative_eq;
 
     #[test]
@@ -130,10 +134,18 @@ mod tests {
     #[test]
     fn octahedron_volume_positive_and_exact() {
         let r = 1.5_f64;
-        let mesh = Octahedron { radius: r, ..Octahedron::default() }.build().unwrap();
+        let mesh = Octahedron {
+            radius: r,
+            ..Octahedron::default()
+        }
+        .build()
+        .unwrap();
         let edges = EdgeStore::from_face_store(&mesh.faces);
         let report = check_watertight(&mesh.vertices, &mesh.faces, &edges);
-        assert!(report.signed_volume > 0.0, "outward normals → positive volume");
+        assert!(
+            report.signed_volume > 0.0,
+            "outward normals → positive volume"
+        );
         // V = (4/3) R³  (exact for octahedron, no discretisation error)
         let expected = 4.0 / 3.0 * r * r * r;
         assert_relative_eq!(report.signed_volume, expected, epsilon = 1e-10);
@@ -141,7 +153,17 @@ mod tests {
 
     #[test]
     fn octahedron_invalid_radius() {
-        assert!(Octahedron { radius: 0.0, ..Octahedron::default() }.build().is_err());
-        assert!(Octahedron { radius: -1.0, ..Octahedron::default() }.build().is_err());
+        assert!(Octahedron {
+            radius: 0.0,
+            ..Octahedron::default()
+        }
+        .build()
+        .is_err());
+        assert!(Octahedron {
+            radius: -1.0,
+            ..Octahedron::default()
+        }
+        .build()
+        .is_err());
     }
 }

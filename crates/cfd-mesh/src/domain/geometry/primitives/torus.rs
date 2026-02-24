@@ -2,10 +2,10 @@
 
 use std::f64::consts::TAU;
 
-use crate::core::index::RegionId;
-use crate::core::scalar::{Point3r, Vector3r};
-use crate::mesh::IndexedMesh;
-use super::{PrimitiveMesh, PrimitiveError};
+use super::{PrimitiveError, PrimitiveMesh};
+use crate::domain::core::index::RegionId;
+use crate::domain::core::scalar::{Point3r, Vector3r};
+use crate::domain::mesh::IndexedMesh;
 
 /// Builds a ring torus centred at the origin, lying in the XZ plane.
 ///
@@ -23,7 +23,7 @@ use super::{PrimitiveMesh, PrimitiveError};
 /// ## Topology
 ///
 /// The torus has genus 1, so `V − E + F = 0` (not 2).
-/// [`check_watertight`][crate::watertight::check::check_watertight] will
+/// [`check_watertight`][crate::application::watertight::check::check_watertight] will
 /// report `euler_characteristic = 0` and `is_watertight = true` (the mesh
 /// *is* closed and oriented; only the Euler check differs from a sphere).
 ///
@@ -72,12 +72,14 @@ impl PrimitiveMesh for Torus {
 fn build(t: &Torus) -> Result<IndexedMesh, PrimitiveError> {
     if t.major_radius <= 0.0 {
         return Err(PrimitiveError::InvalidParam(format!(
-            "major_radius must be > 0, got {}", t.major_radius
+            "major_radius must be > 0, got {}",
+            t.major_radius
         )));
     }
     if t.minor_radius <= 0.0 {
         return Err(PrimitiveError::InvalidParam(format!(
-            "minor_radius must be > 0, got {}", t.minor_radius
+            "minor_radius must be > 0, got {}",
+            t.minor_radius
         )));
     }
     if t.minor_radius >= t.major_radius {
@@ -157,8 +159,8 @@ fn build(t: &Torus) -> Result<IndexedMesh, PrimitiveError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::storage::edge_store::EdgeStore;
-    use crate::watertight::check::check_watertight;
+    use crate::application::watertight::check::check_watertight;
+    use crate::infrastructure::storage::edge_store::EdgeStore;
     use std::f64::consts::PI;
 
     #[test]
@@ -168,10 +170,16 @@ mod tests {
         let report = check_watertight(&mesh.vertices, &mesh.faces, &edges);
         // Torus is closed (no boundary edges) and consistently oriented
         assert!(report.is_closed, "torus must be closed");
-        assert!(report.orientation_consistent, "torus must be consistently oriented");
+        assert!(
+            report.orientation_consistent,
+            "torus must be consistently oriented"
+        );
         // Euler characteristic for a torus (genus 1) = 0
-        assert_eq!(report.euler_characteristic, Some(0),
-            "torus Euler characteristic must be 0 (genus 1)");
+        assert_eq!(
+            report.euler_characteristic,
+            Some(0),
+            "torus Euler characteristic must be 0 (genus 1)"
+        );
         // The is_watertight flag checks closed && oriented — both should be true
         assert!(report.is_watertight, "torus passes watertight check");
     }
@@ -180,20 +188,36 @@ mod tests {
     fn torus_volume_positive_and_approximately_correct() {
         let r_maj = 3.0_f64;
         let r_min = 1.0_f64;
-        let t = Torus { major_radius: r_maj, minor_radius: r_min,
-            major_segments: 96, minor_segments: 48 };
+        let t = Torus {
+            major_radius: r_maj,
+            minor_radius: r_min,
+            major_segments: 96,
+            minor_segments: 48,
+        };
         let mesh = t.build().unwrap();
         let edges = EdgeStore::from_face_store(&mesh.faces);
         let report = check_watertight(&mesh.vertices, &mesh.faces, &edges);
-        assert!(report.signed_volume > 0.0, "outward normals → positive volume");
+        assert!(
+            report.signed_volume > 0.0,
+            "outward normals → positive volume"
+        );
         let expected = 2.0 * PI * PI * r_maj * r_min * r_min;
         let error = (report.signed_volume - expected).abs() / expected;
-        assert!(error < 0.01, "volume error {:.4}% should be < 1.0% at 96×48", error * 100.0);
+        assert!(
+            error < 0.01,
+            "volume error {:.4}% should be < 1.0% at 96×48",
+            error * 100.0
+        );
     }
 
     #[test]
     fn torus_minor_radius_exceeds_major() {
-        let result = Torus { major_radius: 1.0, minor_radius: 2.0, ..Torus::default() }.build();
+        let result = Torus {
+            major_radius: 1.0,
+            minor_radius: 2.0,
+            ..Torus::default()
+        }
+        .build();
         assert!(result.is_err());
     }
 }

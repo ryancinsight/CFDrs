@@ -2,10 +2,10 @@
 
 use std::f64::consts::PI;
 
-use crate::core::index::RegionId;
-use crate::core::scalar::{Point3r, Vector3r};
-use crate::mesh::IndexedMesh;
-use super::{PrimitiveMesh, PrimitiveError};
+use super::{PrimitiveError, PrimitiveMesh};
+use crate::domain::core::index::RegionId;
+use crate::domain::core::scalar::{Point3r, Vector3r};
+use crate::domain::mesh::IndexedMesh;
 
 /// Builds a prism with a stadium (rounded-rectangle) cross-section.
 ///
@@ -78,35 +78,38 @@ impl PrimitiveMesh for StadiumPrism {
 fn build(sp: &StadiumPrism) -> Result<IndexedMesh, PrimitiveError> {
     if sp.width <= 0.0 {
         return Err(PrimitiveError::InvalidParam(format!(
-            "width must be > 0, got {}", sp.width
+            "width must be > 0, got {}",
+            sp.width
         )));
     }
     if sp.height <= 0.0 {
         return Err(PrimitiveError::InvalidParam(format!(
-            "height must be > 0, got {}", sp.height
+            "height must be > 0, got {}",
+            sp.height
         )));
     }
     if sp.corner_radius <= 0.0 || sp.corner_radius > sp.width / 2.0 {
         return Err(PrimitiveError::InvalidParam(format!(
             "corner_radius must be in (0, width/2] = (0, {}], got {}",
-            sp.width / 2.0, sp.corner_radius
+            sp.width / 2.0,
+            sp.corner_radius
         )));
     }
     if sp.corner_segments < 1 {
         return Err(PrimitiveError::InvalidParam(
-            "corner_segments must be ≥ 1".into()
+            "corner_segments must be ≥ 1".into(),
         ));
     }
 
     let region = RegionId::new(1);
     let mut mesh = IndexedMesh::new();
 
-    let r   = sp.corner_radius;
-    let h   = sp.height;
-    let bx  = sp.base_center.x;
-    let by  = sp.base_center.y;
-    let bz  = sp.base_center.z;
-    let cs  = sp.corner_segments;
+    let r = sp.corner_radius;
+    let h = sp.height;
+    let bx = sp.base_center.x;
+    let by = sp.base_center.y;
+    let bz = sp.base_center.z;
+    let cs = sp.corner_segments;
 
     // flat_length along X between the two semicircle centres
     let flat = sp.width - 2.0 * r;
@@ -155,7 +158,7 @@ fn build(sp: &StadiumPrism) -> Result<IndexedMesh, PrimitiveError> {
             if let Some(last) = dedup.last() {
                 let dx = p[0] - last[0];
                 let dz = p[1] - last[1];
-                if dx*dx + dz*dz < tol_sq {
+                if dx * dx + dz * dz < tol_sq {
                     continue; // skip duplicate
                 }
             }
@@ -167,7 +170,7 @@ fn build(sp: &StadiumPrism) -> Result<IndexedMesh, PrimitiveError> {
             let last = *dedup.last().unwrap();
             let dx = last[0] - first[0];
             let dz = last[1] - first[1];
-            if dx*dx + dz*dz < tol_sq {
+            if dx * dx + dz * dz < tol_sq {
                 dedup.pop();
             }
         }
@@ -177,8 +180,8 @@ fn build(sp: &StadiumPrism) -> Result<IndexedMesh, PrimitiveError> {
     let np = profile.len();
 
     // Pre-build bottom and top ring vertex ID arrays for shared topology.
-    let mut bot_vids: Vec<crate::core::index::VertexId> = Vec::with_capacity(np);
-    let mut top_vids: Vec<crate::core::index::VertexId> = Vec::with_capacity(np);
+    let mut bot_vids: Vec<crate::domain::core::index::VertexId> = Vec::with_capacity(np);
+    let mut top_vids: Vec<crate::domain::core::index::VertexId> = Vec::with_capacity(np);
     for i in 0..np {
         let [x0, z0] = profile[i];
         let j = (i + 1) % np;
@@ -186,9 +189,13 @@ fn build(sp: &StadiumPrism) -> Result<IndexedMesh, PrimitiveError> {
         let dx = x1 - x0;
         let dz = z1 - z0;
         let len = (dx * dx + dz * dz).sqrt();
-        let (nx, nz) = if len > 1e-14 { (dz / len, -dx / len) } else { (0.0, 0.0) };
+        let (nx, nz) = if len > 1e-14 {
+            (dz / len, -dx / len)
+        } else {
+            (0.0, 0.0)
+        };
         let n = Vector3r::new(nx, 0.0, nz);
-        let pb = Point3r::new(bx + x0, by,     bz + z0);
+        let pb = Point3r::new(bx + x0, by, bz + z0);
         let pt = Point3r::new(bx + x0, by + h, bz + z0);
         bot_vids.push(mesh.add_vertex(pb, n));
         top_vids.push(mesh.add_vertex(pt, n));
@@ -209,7 +216,7 @@ fn build(sp: &StadiumPrism) -> Result<IndexedMesh, PrimitiveError> {
     // Bottom cap (y = by, normal -Y)
     // Lateral face 2 (vb0, vt1, vb1) creates bottom edge bj->bi.
     // Cap must provide opposite direction bi->bj to complete the manifold edge.
-    // Winding (vc, bi, bj) = (vc, v0, v1) gives cross product with -Y component. 
+    // Winding (vc, bi, bj) = (vc, v0, v1) gives cross product with -Y component.
     {
         let n_down = -Vector3r::y();
         let center_bottom = Point3r::new(bx, by, bz);
@@ -248,8 +255,8 @@ fn build(sp: &StadiumPrism) -> Result<IndexedMesh, PrimitiveError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::storage::edge_store::EdgeStore;
-    use crate::watertight::check::check_watertight;
+    use crate::application::watertight::check::check_watertight;
+    use crate::infrastructure::storage::edge_store::EdgeStore;
     use std::f64::consts::PI;
 
     #[test]
@@ -257,27 +264,40 @@ mod tests {
         let mesh = StadiumPrism::default().build().unwrap();
         let edges = EdgeStore::from_face_store(&mesh.faces);
         let report = check_watertight(&mesh.vertices, &mesh.faces, &edges);
-        assert!(report.is_watertight, "stadium_prism must be watertight: {:?}", report);
+        assert!(
+            report.is_watertight,
+            "stadium_prism must be watertight: {:?}",
+            report
+        );
         assert_eq!(report.euler_characteristic, Some(2));
     }
 
     #[test]
     fn stadium_prism_volume_positive_and_approximately_correct() {
-        let r  = 0.5_f64;
-        let w  = 2.0_f64;  // width = 2*r here (semicircle-only, flat=1.0)
-        let h  = 2.0_f64;
+        let r = 0.5_f64;
+        let w = 2.0_f64; // width = 2*r here (semicircle-only, flat=1.0)
+        let h = 2.0_f64;
         let flat = w - 2.0 * r;
         let mesh = StadiumPrism {
-            width: w, height: h, corner_radius: r, corner_segments: 16,
+            width: w,
+            height: h,
+            corner_radius: r,
+            corner_segments: 16,
             ..StadiumPrism::default()
-        }.build().unwrap();
+        }
+        .build()
+        .unwrap();
         let edges = EdgeStore::from_face_store(&mesh.faces);
         let report = check_watertight(&mesh.vertices, &mesh.faces, &edges);
         assert!(report.signed_volume > 0.0);
         // V = (π·r² + 2·r·flat_length) · h
         let expected = (PI * r * r + 2.0 * r * flat) * h;
         let error = (report.signed_volume - expected).abs() / expected;
-        assert!(error < 0.01, "volume error {:.4}% should be < 1%", error * 100.0);
+        assert!(
+            error < 0.01,
+            "volume error {:.4}% should be < 1%",
+            error * 100.0
+        );
     }
 
     #[test]
@@ -286,23 +306,58 @@ mod tests {
         let r = 1.0_f64;
         let h = 2.0_f64;
         let mesh = StadiumPrism {
-            width: 2.0 * r, height: h, corner_radius: r, corner_segments: 16,
+            width: 2.0 * r,
+            height: h,
+            corner_radius: r,
+            corner_segments: 16,
             ..StadiumPrism::default()
-        }.build().unwrap();
+        }
+        .build()
+        .unwrap();
         let edges = EdgeStore::from_face_store(&mesh.faces);
         let report = check_watertight(&mesh.vertices, &mesh.faces, &edges);
         assert!(report.is_watertight);
         let expected = PI * r * r * h;
         let error = (report.signed_volume - expected).abs() / expected;
-        assert!(error < 0.02, "cylinder degenerate error {:.4}%", error * 100.0);
+        assert!(
+            error < 0.02,
+            "cylinder degenerate error {:.4}%",
+            error * 100.0
+        );
     }
 
     #[test]
     fn stadium_prism_rejects_invalid_params() {
-        assert!(StadiumPrism { width: 0.0, ..StadiumPrism::default() }.build().is_err());
-        assert!(StadiumPrism { height: 0.0, ..StadiumPrism::default() }.build().is_err());
-        assert!(StadiumPrism { corner_radius: 0.0, ..StadiumPrism::default() }.build().is_err());
-        assert!(StadiumPrism { corner_radius: 1.5, width: 2.0, ..StadiumPrism::default() }.build().is_err());
-        assert!(StadiumPrism { corner_segments: 0, ..StadiumPrism::default() }.build().is_err());
+        assert!(StadiumPrism {
+            width: 0.0,
+            ..StadiumPrism::default()
+        }
+        .build()
+        .is_err());
+        assert!(StadiumPrism {
+            height: 0.0,
+            ..StadiumPrism::default()
+        }
+        .build()
+        .is_err());
+        assert!(StadiumPrism {
+            corner_radius: 0.0,
+            ..StadiumPrism::default()
+        }
+        .build()
+        .is_err());
+        assert!(StadiumPrism {
+            corner_radius: 1.5,
+            width: 2.0,
+            ..StadiumPrism::default()
+        }
+        .build()
+        .is_err());
+        assert!(StadiumPrism {
+            corner_segments: 0,
+            ..StadiumPrism::default()
+        }
+        .build()
+        .is_err());
     }
 }

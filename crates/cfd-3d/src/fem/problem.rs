@@ -138,6 +138,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy> StokesFlowProblem<T> 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use cfd_mesh::IndexedMesh;
+    use cfd_mesh::domain::core::index::VertexId;
     use cfd_mesh::domain::topology::{Cell, Face};
     use nalgebra::Point3;
 
@@ -157,23 +159,23 @@ mod tests {
     /// ```
     ///
     /// One tetrahedron with 4 triangular faces, all are boundary faces
-    fn create_test_tet_mesh() -> Mesh<f64> {
-        let mut mesh = Mesh::new();
+    fn create_test_tet_mesh() -> IndexedMesh<f64> {
+        let mut mesh = IndexedMesh::new();
 
         // Add 4 vertices
-        mesh.add_vertex(cfd_mesh::domain::topology::Vertex::new(Point3::new(0.0, 0.0, 0.0)));
-        mesh.add_vertex(cfd_mesh::domain::topology::Vertex::new(Point3::new(1.0, 0.0, 0.0)));
-        mesh.add_vertex(cfd_mesh::domain::topology::Vertex::new(Point3::new(0.5, 1.0, 0.0)));
-        mesh.add_vertex(cfd_mesh::domain::topology::Vertex::new(Point3::new(0.5, 0.5, 1.0)));
+        let v0 = mesh.add_vertex_pos(Point3::new(0.0, 0.0, 0.0));
+        let v1 = mesh.add_vertex_pos(Point3::new(1.0, 0.0, 0.0));
+        let v2 = mesh.add_vertex_pos(Point3::new(0.5, 1.0, 0.0));
+        let v3 = mesh.add_vertex_pos(Point3::new(0.5, 0.5, 1.0));
 
         // Add 4 triangular faces
-        let f0 = mesh.add_face(Face::triangle(0, 1, 2)); // bottom
-        let f1 = mesh.add_face(Face::triangle(0, 1, 3)); // front
-        let f2 = mesh.add_face(Face::triangle(1, 2, 3)); // right
-        let f3 = mesh.add_face(Face::triangle(2, 0, 3)); // left
+        let f0 = mesh.add_face(v0, v1, v2).0; // bottom
+        let f1 = mesh.add_face(v0, v1, v3).0; // front
+        let f2 = mesh.add_face(v1, v2, v3).0; // right
+        let f3 = mesh.add_face(v2, v0, v3).0; // left
 
         // Add 1 tetrahedral cell
-        mesh.add_cell(Cell::tetrahedron(f0, f1, f2, f3));
+        mesh.add_cell(Cell::tetrahedron(f0 as usize, f1 as usize, f2 as usize, f3 as usize));
 
         mesh
     }
@@ -190,30 +192,30 @@ mod tests {
     ///    \|/   \|
     ///    v1     v1
     /// ```
-    fn create_two_tet_mesh() -> Mesh<f64> {
-        let mut mesh = Mesh::new();
+    fn create_two_tet_mesh() -> IndexedMesh<f64> {
+        let mut mesh = IndexedMesh::new();
 
         // Add 5 vertices
-        mesh.add_vertex(cfd_mesh::domain::topology::Vertex::new(Point3::new(0.0, 0.0, 0.0)));
-        mesh.add_vertex(cfd_mesh::domain::topology::Vertex::new(Point3::new(1.0, 0.0, 0.0)));
-        mesh.add_vertex(cfd_mesh::domain::topology::Vertex::new(Point3::new(0.5, 1.0, 0.0)));
-        mesh.add_vertex(cfd_mesh::domain::topology::Vertex::new(Point3::new(0.5, 0.5, 1.0)));
-        mesh.add_vertex(cfd_mesh::domain::topology::Vertex::new(Point3::new(1.5, 0.5, 1.0)));
+        let v0 = mesh.add_vertex_pos(Point3::new(0.0, 0.0, 0.0));
+        let v1 = mesh.add_vertex_pos(Point3::new(1.0, 0.0, 0.0));
+        let v2 = mesh.add_vertex_pos(Point3::new(0.5, 1.0, 0.0));
+        let v3 = mesh.add_vertex_pos(Point3::new(0.5, 0.5, 1.0));
+        let v4 = mesh.add_vertex_pos(Point3::new(1.5, 0.5, 1.0));
 
         // First tetrahedron faces
-        let f0 = mesh.add_face(Face::triangle(0, 1, 2)); // bottom tet1
-        let f1 = mesh.add_face(Face::triangle(0, 1, 3)); // front tet1
-        let f2 = mesh.add_face(Face::triangle(1, 2, 3)); // shared face (internal)
-        let f3 = mesh.add_face(Face::triangle(2, 0, 3)); // left tet1
+        let f0 = mesh.add_face(v0, v1, v2).0; // bottom tet1
+        let f1 = mesh.add_face(v0, v1, v3).0; // front tet1
+        let f2 = mesh.add_face(v1, v2, v3).0; // shared face (internal)
+        let f3 = mesh.add_face(v2, v0, v3).0; // left tet1
 
         // Second tetrahedron faces (shares f2)
-        let f4 = mesh.add_face(Face::triangle(1, 2, 4)); // right tet2
-        let f5 = mesh.add_face(Face::triangle(1, 3, 4)); // bottom tet2
-        let f6 = mesh.add_face(Face::triangle(2, 3, 4)); // top tet2
+        let f4 = mesh.add_face(v1, v2, v4).0; // right tet2
+        let f5 = mesh.add_face(v1, v3, v4).0; // bottom tet2
+        let f6 = mesh.add_face(v2, v3, v4).0; // top tet2
 
         // Add cells
-        mesh.add_cell(Cell::tetrahedron(f0, f1, f2, f3));
-        mesh.add_cell(Cell::tetrahedron(f2, f4, f5, f6));
+        mesh.add_cell(Cell::tetrahedron(f0 as usize, f1 as usize, f2 as usize, f3 as usize));
+        mesh.add_cell(Cell::tetrahedron(f2 as usize, f4 as usize, f5 as usize, f6 as usize));
 
         mesh
     }
@@ -259,7 +261,8 @@ mod tests {
         let mut mesh = create_test_tet_mesh();
 
         // Mark face 0 as "inlet"
-        mesh.mark_boundary(0, "inlet".to_string());
+        use cfd_mesh::domain::core::index::FaceId;
+        mesh.mark_boundary(FaceId::from_usize(0), "inlet".to_string());
 
         let fluid = ConstantPropertyFluid::<f64>::water_20c().unwrap();
         let boundary_conditions = HashMap::new();

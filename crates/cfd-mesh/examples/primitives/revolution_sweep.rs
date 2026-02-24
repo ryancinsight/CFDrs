@@ -22,11 +22,11 @@ use std::f64::consts::{PI, TAU};
 use std::fs;
 use std::io::BufWriter;
 
+use cfd_mesh::application::watertight::check::check_watertight;
+use cfd_mesh::domain::geometry::primitives::PrimitiveMesh;
+use cfd_mesh::infrastructure::io::stl;
+use cfd_mesh::infrastructure::storage::edge_store::EdgeStore;
 use cfd_mesh::RevolutionSweep;
-use cfd_mesh::geometry::primitives::PrimitiveMesh;
-use cfd_mesh::io::stl;
-use cfd_mesh::storage::edge_store::EdgeStore;
-use cfd_mesh::watertight::check::check_watertight;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("=================================================================");
@@ -43,22 +43,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     {
         let profile = vec![
             (1.0_f64, 0.0),
-            (2.0,     0.0),
-            (2.0,     0.5),
-            (1.0,     0.5),
-            (1.0,     0.0),   // ← close the loop
+            (2.0, 0.0),
+            (2.0, 0.5),
+            (1.0, 0.5),
+            (1.0, 0.0), // ← close the loop
         ];
-        let sweep = RevolutionSweep { profile, segments: 48, angle: TAU };
+        let sweep = RevolutionSweep {
+            profile,
+            segments: 48,
+            angle: TAU,
+        };
         let mesh = sweep.build()?;
 
         let edges = EdgeStore::from_face_store(&mesh.faces);
         let report = check_watertight(&mesh.vertices, &mesh.faces, &edges);
 
-        let r_bar      = 1.5_f64;
-        let area       = 1.0_f64 * 0.5_f64;
+        let r_bar = 1.5_f64;
+        let area = 1.0_f64 * 0.5_f64;
         let expected_v = TAU * r_bar * area;
-        let vol        = mesh.signed_volume();
-        let vol_err    = (vol - expected_v).abs() / expected_v;
+        let vol = mesh.signed_volume();
+        let vol_err = (vol - expected_v).abs() / expected_v;
 
         println!("  [Washer (annulus): r=1..2, h=0.5, full 360°]");
         println!("    Vertices  : {}", mesh.vertices.len());
@@ -66,10 +70,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("    Closed    : {}", report.is_closed);
         println!("    Oriented  : {}", report.orientation_consistent);
         println!("    Watertight: {}", report.is_watertight);
-        println!("    Volume    : {:.6} mm³  (Pappus expected {:.6}, err {:.2}%)",
-            vol, expected_v, vol_err * 100.0);
-        println!("    Euler χ   : {:?}  (χ=0 expected for genus-1 torus topology)", report.euler_characteristic);
-        let status = if report.is_watertight && vol_err < 0.02 { "PASS" } else { "FAIL" };
+        println!(
+            "    Volume    : {:.6} mm³  (Pappus expected {:.6}, err {:.2}%)",
+            vol,
+            expected_v,
+            vol_err * 100.0
+        );
+        println!(
+            "    Euler χ   : {:?}  (χ=0 expected for genus-1 torus topology)",
+            report.euler_characteristic
+        );
+        let status = if report.is_watertight && vol_err < 0.02 {
+            "PASS"
+        } else {
+            "FAIL"
+        };
         println!("    Status    : {}", status);
 
         let stl_path = out_dir.join("revolution_sweep_washer.stl");
@@ -86,21 +101,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     {
         let profile = vec![
             (1.0_f64, 0.0),
-            (2.0,     0.0),
-            (2.0,     1.0),
-            (1.0,     1.0),
-            (1.0,     0.0),   // ← close the loop
+            (2.0, 0.0),
+            (2.0, 1.0),
+            (1.0, 1.0),
+            (1.0, 0.0), // ← close the loop
         ];
         let angle = PI / 2.0;
-        let sweep = RevolutionSweep { profile, segments: 32, angle };
+        let sweep = RevolutionSweep {
+            profile,
+            segments: 32,
+            angle,
+        };
         let mesh = sweep.build()?;
 
         let edges = EdgeStore::from_face_store(&mesh.faces);
         let report = check_watertight(&mesh.vertices, &mesh.faces, &edges);
 
         let expected_v = angle * 1.5_f64 * 1.0_f64;
-        let vol        = mesh.signed_volume();
-        let vol_err    = (vol - expected_v).abs() / expected_v;
+        let vol = mesh.signed_volume();
+        let vol_err = (vol - expected_v).abs() / expected_v;
 
         println!("  [Quarter-wedge: r=1..2, h=1, 90° sweep]");
         println!("    Vertices  : {}", mesh.vertices.len());
@@ -108,10 +127,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("    Closed    : {}", report.is_closed);
         println!("    Oriented  : {}", report.orientation_consistent);
         println!("    Watertight: {}", report.is_watertight);
-        println!("    Volume    : {:.6} mm³  (Pappus expected {:.6}, err {:.2}%)",
-            vol, expected_v, vol_err * 100.0);
-        println!("    Euler χ   : {:?}  (expected 2)", report.euler_characteristic);
-        let status = if report.is_watertight && vol_err < 0.02 { "PASS" } else { "FAIL" };
+        println!(
+            "    Volume    : {:.6} mm³  (Pappus expected {:.6}, err {:.2}%)",
+            vol,
+            expected_v,
+            vol_err * 100.0
+        );
+        println!(
+            "    Euler χ   : {:?}  (expected 2)",
+            report.euler_characteristic
+        );
+        let status = if report.is_watertight && vol_err < 0.02 {
+            "PASS"
+        } else {
+            "FAIL"
+        };
         println!("    Status    : {}", status);
 
         let stl_path = out_dir.join("revolution_sweep_quarter_wedge.stl");
@@ -128,21 +158,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     {
         let profile = vec![
             (2.0_f64, 0.0),
-            (2.5,     0.0),
-            (2.5,     0.5),
-            (2.0,     0.5),
-            (2.0,     0.0),   // ← close the loop
+            (2.5, 0.0),
+            (2.5, 0.5),
+            (2.0, 0.5),
+            (2.0, 0.0), // ← close the loop
         ];
         let angle = PI;
-        let sweep = RevolutionSweep { profile, segments: 32, angle };
+        let sweep = RevolutionSweep {
+            profile,
+            segments: 32,
+            angle,
+        };
         let mesh = sweep.build()?;
 
         let edges = EdgeStore::from_face_store(&mesh.faces);
         let report = check_watertight(&mesh.vertices, &mesh.faces, &edges);
 
         let expected_v = PI * 2.25_f64 * 0.25_f64;
-        let vol        = mesh.signed_volume();
-        let vol_err    = (vol - expected_v).abs() / expected_v;
+        let vol = mesh.signed_volume();
+        let vol_err = (vol - expected_v).abs() / expected_v;
 
         println!("  [Half-turn Elbow: r=2..2.5, h=0.5, 180° sweep]");
         println!("    Vertices  : {}", mesh.vertices.len());
@@ -150,10 +184,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("    Closed    : {}", report.is_closed);
         println!("    Oriented  : {}", report.orientation_consistent);
         println!("    Watertight: {}", report.is_watertight);
-        println!("    Volume    : {:.6} mm³  (Pappus expected {:.6}, err {:.2}%)",
-            vol, expected_v, vol_err * 100.0);
-        println!("    Euler χ   : {:?}  (expected 2)", report.euler_characteristic);
-        let status = if report.is_watertight && vol_err < 0.02 { "PASS" } else { "FAIL" };
+        println!(
+            "    Volume    : {:.6} mm³  (Pappus expected {:.6}, err {:.2}%)",
+            vol,
+            expected_v,
+            vol_err * 100.0
+        );
+        println!(
+            "    Euler χ   : {:?}  (expected 2)",
+            report.euler_characteristic
+        );
+        let status = if report.is_watertight && vol_err < 0.02 {
+            "PASS"
+        } else {
+            "FAIL"
+        };
         println!("    Status    : {}", status);
 
         let stl_path = out_dir.join("revolution_sweep_elbow.stl");

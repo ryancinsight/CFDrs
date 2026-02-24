@@ -1,9 +1,9 @@
 //! Axis-aligned box (cuboid) primitive.
 
-use crate::core::index::RegionId;
-use crate::core::scalar::{Point3r, Vector3r};
-use crate::mesh::IndexedMesh;
-use super::{PrimitiveMesh, PrimitiveError};
+use super::{PrimitiveError, PrimitiveMesh};
+use crate::domain::core::index::RegionId;
+use crate::domain::core::scalar::{Point3r, Vector3r};
+use crate::domain::mesh::IndexedMesh;
 
 /// Builds an axis-aligned box (cuboid) with the given dimensions.
 ///
@@ -58,7 +58,9 @@ impl Cube {
 }
 
 impl Default for Cube {
-    fn default() -> Self { Self::unit() }
+    fn default() -> Self {
+        Self::unit()
+    }
 }
 
 impl PrimitiveMesh for Cube {
@@ -84,25 +86,25 @@ fn build(c: &Cube) -> Result<IndexedMesh, PrimitiveError> {
 
     // 8 corner positions
     let p = [
-        Point3r::new(ox,     oy,     oz    ), // 0 left-bottom-back
-        Point3r::new(ox + w, oy,     oz    ), // 1 right-bottom-back
-        Point3r::new(ox + w, oy + h, oz    ), // 2 right-top-back
-        Point3r::new(ox,     oy + h, oz    ), // 3 left-top-back
-        Point3r::new(ox,     oy,     oz + d), // 4 left-bottom-front
-        Point3r::new(ox + w, oy,     oz + d), // 5 right-bottom-front
+        Point3r::new(ox, oy, oz),             // 0 left-bottom-back
+        Point3r::new(ox + w, oy, oz),         // 1 right-bottom-back
+        Point3r::new(ox + w, oy + h, oz),     // 2 right-top-back
+        Point3r::new(ox, oy + h, oz),         // 3 left-top-back
+        Point3r::new(ox, oy, oz + d),         // 4 left-bottom-front
+        Point3r::new(ox + w, oy, oz + d),     // 5 right-bottom-front
         Point3r::new(ox + w, oy + h, oz + d), // 6 right-top-front
-        Point3r::new(ox,     oy + h, oz + d), // 7 left-top-front
+        Point3r::new(ox, oy + h, oz + d),     // 7 left-top-front
     ];
 
     // 6 quads: (corner indices [CCW from outside], outward normal)
     // Winding is CCW when viewed from outside the face.
     let quads: &[([usize; 4], Vector3r)] = &[
         ([0, 3, 2, 1], -Vector3r::z()), // −Z back face
-        ([4, 5, 6, 7],  Vector3r::z()), // +Z front face
+        ([4, 5, 6, 7], Vector3r::z()),  // +Z front face
         ([0, 1, 5, 4], -Vector3r::y()), // −Y bottom face
-        ([3, 7, 6, 2],  Vector3r::y()), // +Y top face
+        ([3, 7, 6, 2], Vector3r::y()),  // +Y top face
         ([0, 4, 7, 3], -Vector3r::x()), // −X left face
-        ([1, 2, 6, 5],  Vector3r::x()), // +X right face
+        ([1, 2, 6, 5], Vector3r::x()),  // +X right face
     ];
 
     for &(idx, normal) in quads {
@@ -122,8 +124,8 @@ fn build(c: &Cube) -> Result<IndexedMesh, PrimitiveError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::storage::edge_store::EdgeStore;
-    use crate::watertight::check::check_watertight;
+    use crate::application::watertight::check::check_watertight;
+    use crate::infrastructure::storage::edge_store::EdgeStore;
     use approx::assert_relative_eq;
 
     #[test]
@@ -137,9 +139,14 @@ mod tests {
 
     #[test]
     fn cube_volume_correct() {
-        let mesh = Cube { origin: Point3r::origin(), width: 2.0, height: 3.0, depth: 4.0 }
-            .build()
-            .unwrap();
+        let mesh = Cube {
+            origin: Point3r::origin(),
+            width: 2.0,
+            height: 3.0,
+            depth: 4.0,
+        }
+        .build()
+        .unwrap();
         let edges = EdgeStore::from_face_store(&mesh.faces);
         let report = check_watertight(&mesh.vertices, &mesh.faces, &edges);
         assert_relative_eq!(report.signed_volume, 24.0, epsilon = 1e-10);
@@ -147,8 +154,13 @@ mod tests {
 
     #[test]
     fn cube_invalid_dimensions() {
-        let result = Cube { origin: Point3r::origin(), width: -1.0, height: 1.0, depth: 1.0 }
-            .build();
+        let result = Cube {
+            origin: Point3r::origin(),
+            width: -1.0,
+            height: 1.0,
+            depth: 1.0,
+        }
+        .build();
         assert!(result.is_err());
     }
 }

@@ -2,10 +2,10 @@
 
 use std::f64::consts::TAU;
 
-use crate::core::index::RegionId;
-use crate::core::scalar::{Point3r, Vector3r};
-use crate::mesh::IndexedMesh;
-use super::{PrimitiveMesh, PrimitiveError};
+use super::{PrimitiveError, PrimitiveMesh};
+use crate::domain::core::index::RegionId;
+use crate::domain::core::scalar::{Point3r, Vector3r};
+use crate::domain::mesh::IndexedMesh;
 
 /// Builds a closed right circular cylinder.
 ///
@@ -56,12 +56,14 @@ impl PrimitiveMesh for Cylinder {
 fn build(c: &Cylinder) -> Result<IndexedMesh, PrimitiveError> {
     if c.radius <= 0.0 {
         return Err(PrimitiveError::InvalidParam(format!(
-            "radius must be > 0, got {}", c.radius
+            "radius must be > 0, got {}",
+            c.radius
         )));
     }
     if c.height <= 0.0 {
         return Err(PrimitiveError::InvalidParam(format!(
-            "height must be > 0, got {}", c.height
+            "height must be > 0, got {}",
+            c.height
         )));
     }
     if c.segments < 3 {
@@ -89,8 +91,8 @@ fn build(c: &Cylinder) -> Result<IndexedMesh, PrimitiveError> {
         let n0 = Vector3r::new(c0, 0.0, s0);
         let n1 = Vector3r::new(c1, 0.0, s1);
 
-        let p_bot0 = Point3r::new(bx + r * c0, by,     bz + r * s0);
-        let p_bot1 = Point3r::new(bx + r * c1, by,     bz + r * s1);
+        let p_bot0 = Point3r::new(bx + r * c0, by, bz + r * s0);
+        let p_bot1 = Point3r::new(bx + r * c1, by, bz + r * s1);
         let p_top0 = Point3r::new(bx + r * c0, by + h, bz + r * s0);
         let p_top1 = Point3r::new(bx + r * c1, by + h, bz + r * s1);
 
@@ -146,8 +148,8 @@ fn build(c: &Cylinder) -> Result<IndexedMesh, PrimitiveError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::storage::edge_store::EdgeStore;
-    use crate::watertight::check::check_watertight;
+    use crate::application::watertight::check::check_watertight;
+    use crate::infrastructure::storage::edge_store::EdgeStore;
     use std::f64::consts::PI;
 
     #[test]
@@ -161,19 +163,32 @@ mod tests {
 
     #[test]
     fn cylinder_volume_positive_and_approximately_correct() {
-        let c = Cylinder { radius: 1.0, height: 2.0, segments: 64, ..Cylinder::default() };
+        let c = Cylinder {
+            radius: 1.0,
+            height: 2.0,
+            segments: 64,
+            ..Cylinder::default()
+        };
         let mesh = c.build().unwrap();
         let edges = EdgeStore::from_face_store(&mesh.faces);
         let report = check_watertight(&mesh.vertices, &mesh.faces, &edges);
         assert!(report.signed_volume > 0.0);
         let expected = PI * 1.0_f64.powi(2) * 2.0;
         let error = (report.signed_volume - expected).abs() / expected;
-        assert!(error < 0.005, "volume error {:.4}% should be < 0.5%", error * 100.0);
+        assert!(
+            error < 0.005,
+            "volume error {:.4}% should be < 0.5%",
+            error * 100.0
+        );
     }
 
     #[test]
     fn cylinder_too_few_segments() {
-        let result = Cylinder { segments: 2, ..Cylinder::default() }.build();
+        let result = Cylinder {
+            segments: 2,
+            ..Cylinder::default()
+        }
+        .build();
         assert!(result.is_err());
     }
 }

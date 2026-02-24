@@ -4,9 +4,9 @@
 
 use hashbrown::HashMap;
 
-use crate::core::index::{VertexId, FaceId};
-use crate::storage::edge_store::EdgeStore;
-use crate::storage::face_store::FaceStore;
+use crate::domain::core::index::{FaceId, VertexId};
+use crate::infrastructure::storage::edge_store::EdgeStore;
+use crate::infrastructure::storage::face_store::FaceStore;
 
 /// Pre-built adjacency graph for vertex-vertex and vertex-face queries.
 pub struct AdjacencyGraph {

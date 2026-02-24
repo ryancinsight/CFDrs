@@ -93,14 +93,15 @@ use std::time::Instant;
 
 use nalgebra::{Isometry3, Translation3, UnitQuaternion, Vector3};
 
-use cfd_mesh::core::scalar::{Point3r, Real};
-use cfd_mesh::csg::boolean::{BooleanOp, csg_boolean_indexed};
-use cfd_mesh::csg::CsgNode;
-use cfd_mesh::geometry::primitives::{Cylinder, Elbow, PrimitiveMesh};
-use cfd_mesh::io::stl;
-use cfd_mesh::storage::edge_store::EdgeStore;
-use cfd_mesh::watertight::check::check_watertight;
-use cfd_mesh::{IndexedMesh, analyze_normals};
+use cfd_mesh::application::csg::boolean::{csg_boolean_indexed, BooleanOp};
+use cfd_mesh::application::csg::CsgNode;
+use cfd_mesh::application::watertight::check::check_watertight;
+use cfd_mesh::domain::core::scalar::{Point3r, Real};
+use cfd_mesh::domain::geometry::primitives::{Cylinder, Elbow, PrimitiveMesh};
+use cfd_mesh::infrastructure::io::stl;
+use cfd_mesh::infrastructure::storage::edge_store::EdgeStore;
+use cfd_mesh::infrastructure::storage::face_store::FaceData;
+use cfd_mesh::{analyze_normals, IndexedMesh};
 
 // ── Configuration ─────────────────────────────────────────────────────────────
 
@@ -120,10 +121,10 @@ const H: f64 = 3.0;
 
 /// Half-angle of the V [rad].  Angle between the stem axis (+Y) and each branch.
 /// 30° (π/6) gives a moderate V; must satisfy R_BEND·sinθ < H.
-const THETA: f64 = std::f64::consts::PI / 6.0;  // 30°
+const THETA: f64 = std::f64::consts::PI / 6.0; // 30°
 
 /// Bend-centreline radius [mm].  Must be > R.  Controls how tight the rounded fork is.
-const R_BEND: f64 = 2.0 * R;  // = 1.0 mm
+const R_BEND: f64 = 2.0 * R; // = 1.0 mm
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
@@ -145,18 +146,28 @@ fn run_sharp() -> Result<(), Box<dyn std::error::Error>> {
     let (sθ, cθ) = THETA.sin_cos();
     let v_cyl = std::f64::consts::PI * R * R * H;
 
-    println!("  Half-angle θ = {:.1}°  (branch axes at ±{:.1}° from +Y)",
-        THETA.to_degrees(), THETA.to_degrees());
-    println!("  Stem  (A): base (0,{:.2},0), axis +Y,              r={R}, H={H}  V={v_cyl:.4} mm³", -H);
-    println!("  Left  (B): tip  (0,0,0),    axis (−{sθ:.3},{cθ:.3},0), r={R}, H={H}  V={v_cyl:.4} mm³");
-    println!("  Right (C): tip  (0,0,0),    axis (+{sθ:.3},{cθ:.3},0), r={R}, H={H}  V={v_cyl:.4} mm³");
+    println!(
+        "  Half-angle θ = {:.1}°  (branch axes at ±{:.1}° from +Y)",
+        THETA.to_degrees(),
+        THETA.to_degrees()
+    );
+    println!(
+        "  Stem  (A): base (0,{:.2},0), axis +Y,              r={R}, H={H}  V={v_cyl:.4} mm³",
+        -H
+    );
+    println!(
+        "  Left  (B): tip  (0,0,0),    axis (−{sθ:.3},{cθ:.3},0), r={R}, H={H}  V={v_cyl:.4} mm³"
+    );
+    println!(
+        "  Right (C): tip  (0,0,0),    axis (+{sθ:.3},{cθ:.3},0), r={R}, H={H}  V={v_cyl:.4} mm³"
+    );
     println!();
     println!("  Note: junction overlap volume is small and geometry-dependent;");
     println!("        expected volume uses a loose 10% tolerance.");
     println!();
 
     let crate_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
-    let out_dir   = crate_dir.join("outputs").join("csg");
+    let out_dir = crate_dir.join("outputs").join("csg");
     fs::create_dir_all(&out_dir)?;
 
     let t0 = Instant::now();
@@ -167,7 +178,8 @@ fn run_sharp() -> Result<(), Box<dyn std::error::Error>> {
         radius: R,
         height: H,
         segments: 64,
-    }.build()?;
+    }
+    .build()?;
 
     // ── Right branch: +Y rotated −θ about Z → axis (sinθ, cosθ, 0) ───────────
     // Rotation −θ about Z maps +Y → (sinθ, cosθ, 0).
@@ -179,15 +191,17 @@ fn run_sharp() -> Result<(), Box<dyn std::error::Error>> {
             radius: R,
             height: H,
             segments: 64,
-        }.build()?;
+        }
+        .build()?;
         let rot = UnitQuaternion::<Real>::from_axis_angle(
             &Vector3::z_axis(),
-            -THETA,   // +Y → (sinθ, cosθ, 0)
+            -THETA, // +Y → (sinθ, cosθ, 0)
         );
         CsgNode::Transform {
             node: Box::new(CsgNode::Leaf(raw)),
-            iso:  Isometry3::from_parts(Translation3::identity(), rot),
-        }.evaluate()?
+            iso: Isometry3::from_parts(Translation3::identity(), rot),
+        }
+        .evaluate()?
     };
 
     // ── Left branch: +Y rotated +θ about Z → axis (−sinθ, cosθ, 0) ──────────
@@ -197,20 +211,26 @@ fn run_sharp() -> Result<(), Box<dyn std::error::Error>> {
             radius: R,
             height: H,
             segments: 64,
-        }.build()?;
+        }
+        .build()?;
         let rot = UnitQuaternion::<Real>::from_axis_angle(
             &Vector3::z_axis(),
-            THETA,    // +Y → (−sinθ, cosθ, 0)
+            THETA, // +Y → (−sinθ, cosθ, 0)
         );
         CsgNode::Transform {
             node: Box::new(CsgNode::Leaf(raw)),
-            iso:  Isometry3::from_parts(Translation3::identity(), rot),
-        }.evaluate()?
+            iso: Isometry3::from_parts(Translation3::identity(), rot),
+        }
+        .evaluate()?
     };
 
     let build_ms = t0.elapsed().as_millis();
-    println!("  Meshes built: stem={} left={} right={} faces  ({build_ms} ms)",
-        stem.face_count(), left.face_count(), right.face_count());
+    println!(
+        "  Meshes built: stem={} left={} right={} faces  ({build_ms} ms)",
+        stem.face_count(),
+        left.face_count(),
+        right.face_count()
+    );
     println!();
 
     // Union: (stem ∪ right) ∪ left
@@ -222,8 +242,17 @@ fn run_sharp() -> Result<(), Box<dyn std::error::Error>> {
     // Expected: 3·V_cyl minus the small junction overlap — use 3·V_cyl as upper bound
     // with a generous 10% tolerance so the check passes regardless of overlap size.
     let v_expected = 3.0 * v_cyl;
-    report("Union (stem ∪ left ∪ right) — sharp junction", &mut result, v_expected, 0.10, union_ms);
-    write_stl(&result, &out_dir.join("cylinder_cylinder_v_shape_sharp.stl"))?;
+    report(
+        "Union (stem ∪ left ∪ right) — sharp junction",
+        &mut result,
+        v_expected,
+        0.10,
+        union_ms,
+    );
+    write_stl(
+        &result,
+        &out_dir.join("cylinder_cylinder_v_shape_sharp.stl"),
+    )?;
     println!("  STL: outputs/csg/cylinder_cylinder_v_shape_sharp.stl");
 
     println!("=================================================================");
@@ -243,12 +272,12 @@ fn run_rounded() -> Result<(), Box<dyn std::error::Error>> {
     // It advances the centreline by:
     //   axial (Y) displacement: R_BEND · sinθ
     //   radial (X) displacement: R_BEND · (1 − cosθ)
-    let axial_reach  = R_BEND * sθ;   // how much Y the elbow consumes
-    let radial_reach = R_BEND * (1.0 - cθ);   // how much X the elbow consumes
+    let axial_reach = R_BEND * sθ; // how much Y the elbow consumes
+    let radial_reach = R_BEND * (1.0 - cθ); // how much X the elbow consumes
 
     // Straight leg lengths so total reach per leg equals H.
-    let stem_len = H - axial_reach;   // stem stops axial_reach before origin
-    let arm_len  = H - radial_reach;  // arm starts radial_reach past origin in branch dir
+    let stem_len = H - axial_reach; // stem stops axial_reach before origin
+    let arm_len = H - radial_reach; // arm starts radial_reach past origin in branch dir
 
     // Overlap eps: push the arm base into the elbow barrel so the arrangement
     // pipeline sees genuine 3-D intersection geometry rather than nearly-coplanar
@@ -256,7 +285,7 @@ fn run_rounded() -> Result<(), Box<dyn std::error::Error>> {
     // elbow outlet protrudes eps past the arm base plane along the branch direction.
     // The arm base then clearly cuts through the elbow barrel wall at several
     // triangles' worth of depth, giving the arrangement pipeline stable geometry.
-    let eps = R * 0.10;  // ≈ 0.050 mm overlap
+    let eps = R * 0.10; // ≈ 0.050 mm overlap
 
     // ── Volume estimate ───────────────────────────────────────────────────────
     // Pappus gives the volume of each piece in isolation.  The two elbows share
@@ -269,9 +298,9 @@ fn run_rounded() -> Result<(), Box<dyn std::error::Error>> {
     //
     // Corrected total (with small additional eps-overlap terms that cancel in the union):
     //   v_total ≈ v_stem + (2·v_elbow − v_elbow_overlap) + 2·v_arm
-    let v_stem    = std::f64::consts::PI * R * R * stem_len;
-    let v_elbow   = std::f64::consts::PI * R * R * R_BEND * THETA;
-    let v_arm     = std::f64::consts::PI * R * R * arm_len;
+    let v_stem = std::f64::consts::PI * R * R * stem_len;
+    let v_elbow = std::f64::consts::PI * R * R * R_BEND * THETA;
+    let v_arm = std::f64::consts::PI * R * R * arm_len;
 
     // Lens-integral overlap between the two mirrored elbows (numerical quadrature).
     let v_elbow_overlap: f64 = {
@@ -303,13 +332,15 @@ fn run_rounded() -> Result<(), Box<dyn std::error::Error>> {
     println!("  Piece volumes (Pappus):");
     println!("    Stem straight  : {v_stem:.4} mm³");
     println!("    Each elbow     : {v_elbow:.4} mm³  (π r² R_bend θ)");
-    println!("    Elbow overlap  : −{v_elbow_overlap:.4} mm³  (lens integral, both elbows share inlet)");
+    println!(
+        "    Elbow overlap  : −{v_elbow_overlap:.4} mm³  (lens integral, both elbows share inlet)"
+    );
     println!("    Each arm       : {v_arm:.4} mm³");
     println!("    Total (corrected) : {v_total:.4} mm³");
     println!();
 
     let crate_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
-    let out_dir   = crate_dir.join("outputs").join("csg");
+    let out_dir = crate_dir.join("outputs").join("csg");
     fs::create_dir_all(&out_dir)?;
 
     let t0 = Instant::now();
@@ -323,7 +354,8 @@ fn run_rounded() -> Result<(), Box<dyn std::error::Error>> {
         radius: R,
         height: stem_len + eps,
         segments: 64,
-    }.build()?;
+    }
+    .build()?;
 
     // ── Elbow isometry helper ─────────────────────────────────────────────────
     //
@@ -349,31 +381,30 @@ fn run_rounded() -> Result<(), Box<dyn std::error::Error>> {
     //
     // The elbow inlet is at y = stem top = −H + stem_len = −axial_reach.
 
-    let elbow_inlet_y = -H + stem_len;   // = −axial_reach
+    let elbow_inlet_y = -H + stem_len; // = −axial_reach
 
     // Rotation common to both elbows: −90° about X
     let rot_base = UnitQuaternion::<Real>::from_axis_angle(
         &Vector3::x_axis(),
-        -std::f64::consts::FRAC_PI_2,  // +Z → +Y
+        -std::f64::consts::FRAC_PI_2, // +Z → +Y
     );
 
     // ── Piece 2: Right elbow ──────────────────────────────────────────────────
     let right_elbow = {
         let raw = Elbow {
-            tube_radius:   R,
-            bend_radius:   R_BEND,
-            bend_angle:    THETA,
+            tube_radius: R,
+            bend_radius: R_BEND,
+            bend_angle: THETA,
             tube_segments: 64,
-            arc_segments:  32,
-        }.build()?;
-        let iso = Isometry3::from_parts(
-            Translation3::new(0.0, elbow_inlet_y, 0.0),
-            rot_base,
-        );
+            arc_segments: 32,
+        }
+        .build()?;
+        let iso = Isometry3::from_parts(Translation3::new(0.0, elbow_inlet_y, 0.0), rot_base);
         CsgNode::Transform {
             node: Box::new(CsgNode::Leaf(raw)),
             iso,
-        }.evaluate()?
+        }
+        .evaluate()?
     };
 
     // ── Piece 3: Left elbow ───────────────────────────────────────────────────
@@ -381,26 +412,25 @@ fn run_rounded() -> Result<(), Box<dyn std::error::Error>> {
     // Combined rotation: (180°Y) ∘ (−90°X).
     let rot_flip_y = UnitQuaternion::<Real>::from_axis_angle(
         &Vector3::y_axis(),
-        std::f64::consts::PI,   // flip X → −X, Z → −Z
+        std::f64::consts::PI, // flip X → −X, Z → −Z
     );
-    let rot_left = rot_flip_y * rot_base;  // apply rot_base first, then flip Y
+    let rot_left = rot_flip_y * rot_base; // apply rot_base first, then flip Y
 
     let left_elbow = {
         let raw = Elbow {
-            tube_radius:   R,
-            bend_radius:   R_BEND,
-            bend_angle:    THETA,
+            tube_radius: R,
+            bend_radius: R_BEND,
+            bend_angle: THETA,
             tube_segments: 64,
-            arc_segments:  32,
-        }.build()?;
-        let iso = Isometry3::from_parts(
-            Translation3::new(0.0, elbow_inlet_y, 0.0),
-            rot_left,
-        );
+            arc_segments: 32,
+        }
+        .build()?;
+        let iso = Isometry3::from_parts(Translation3::new(0.0, elbow_inlet_y, 0.0), rot_left);
         CsgNode::Transform {
             node: Box::new(CsgNode::Leaf(raw)),
             iso,
-        }.evaluate()?
+        }
+        .evaluate()?
     };
 
     // ── Pieces 4 & 5: Arm straights ───────────────────────────────────────────
@@ -417,11 +447,11 @@ fn run_rounded() -> Result<(), Box<dyn std::error::Error>> {
 
     let rot_right_arm = UnitQuaternion::<Real>::from_axis_angle(
         &Vector3::z_axis(),
-        -THETA,   // +Y → right branch direction (sinθ, cosθ, 0)
+        -THETA, // +Y → right branch direction (sinθ, cosθ, 0)
     );
     let rot_left_arm = UnitQuaternion::<Real>::from_axis_angle(
         &Vector3::z_axis(),
-        THETA,    // +Y → left branch direction (−sinθ, cosθ, 0)
+        THETA, // +Y → left branch direction (−sinθ, cosθ, 0)
     );
 
     let right_arm = {
@@ -430,14 +460,16 @@ fn run_rounded() -> Result<(), Box<dyn std::error::Error>> {
             radius: R,
             height: arm_len + eps,
             segments: 64,
-        }.build()?;
+        }
+        .build()?;
         let tx = radial_reach - eps * sθ;
-        let ty =              - eps * cθ;
+        let ty = -eps * cθ;
         let iso = Isometry3::from_parts(Translation3::new(tx, ty, 0.0), rot_right_arm);
         CsgNode::Transform {
             node: Box::new(CsgNode::Leaf(raw)),
             iso,
-        }.evaluate()?
+        }
+        .evaluate()?
     };
 
     let left_arm = {
@@ -446,20 +478,27 @@ fn run_rounded() -> Result<(), Box<dyn std::error::Error>> {
             radius: R,
             height: arm_len + eps,
             segments: 64,
-        }.build()?;
+        }
+        .build()?;
         let tx = -(radial_reach - eps * sθ);
-        let ty =               - eps * cθ;
+        let ty = -eps * cθ;
         let iso = Isometry3::from_parts(Translation3::new(tx, ty, 0.0), rot_left_arm);
         CsgNode::Transform {
             node: Box::new(CsgNode::Leaf(raw)),
             iso,
-        }.evaluate()?
+        }
+        .evaluate()?
     };
 
     let build_ms = t0.elapsed().as_millis();
-    println!("  Pieces built: stem={} r_elbow={} l_elbow={} r_arm={} l_arm={} faces  ({build_ms} ms)",
-        stem.face_count(), right_elbow.face_count(), left_elbow.face_count(),
-        right_arm.face_count(), left_arm.face_count());
+    println!(
+        "  Pieces built: stem={} r_elbow={} l_elbow={} r_arm={} l_arm={} faces  ({build_ms} ms)",
+        stem.face_count(),
+        right_elbow.face_count(),
+        left_elbow.face_count(),
+        right_arm.face_count(),
+        left_arm.face_count()
+    );
     println!();
 
     // ── Union all five pieces ─────────────────────────────────────────────────
@@ -480,22 +519,81 @@ fn run_rounded() -> Result<(), Box<dyn std::error::Error>> {
     report("right_elbow ∪ right_arm", &mut right_branch, 0.0, 1.0, ms1);
 
     // left_branch  = left_elbow  ∪ left_arm
-    let mut left_branch  = csg_boolean_indexed(BooleanOp::Union, &left_elbow,  &left_arm)?;
+    let mut left_branch = csg_boolean_indexed(BooleanOp::Union, &left_elbow, &left_arm)?;
     let ms2 = t1.elapsed().as_millis();
-    report("left_elbow ∪ left_arm", &mut left_branch, 0.0, 1.0, ms2 - ms1);
+    report(
+        "left_elbow ∪ left_arm",
+        &mut left_branch,
+        0.0,
+        1.0,
+        ms2 - ms1,
+    );
 
     // fork = both branches.
     let mut fork = csg_boolean_indexed(BooleanOp::Union, &right_branch, &left_branch)?;
     let ms3 = t1.elapsed().as_millis();
     report("right_branch ∪ left_branch", &mut fork, 0.0, 1.0, ms3 - ms2);
 
-    // Final union: attach the stem.
-    let mut result = csg_boolean_indexed(BooleanOp::Union, &stem, &fork)?;
+    let mut result = match csg_boolean_indexed(BooleanOp::Union, &stem, &fork) {
+        Ok(res) => res,
+        Err(e) => {
+            let _ = write_stl(&stem, &out_dir.join("cylinder_debug_stem.stl"));
+            let _ = write_stl(&fork, &out_dir.join("cylinder_debug_fork.stl"));
+
+            // Try to force build the mesh ignoring checks to export the broken state
+            use cfd_mesh::application::csg::boolean::csg_boolean;
+            let mut combined =
+                cfd_mesh::infrastructure::storage::vertex_pool::VertexPool::default_millifluidic();
+            let faces_a: Vec<_> = stem
+                .faces
+                .iter()
+                .map(|f| FaceData {
+                    vertices: f.vertices.map(|v| {
+                        combined
+                            .insert_or_weld(*stem.vertices.position(v), *stem.vertices.normal(v))
+                    }),
+                    region: f.region,
+                })
+                .collect();
+            let faces_b: Vec<_> = fork
+                .faces
+                .iter()
+                .map(|f| FaceData {
+                    vertices: f.vertices.map(|v| {
+                        combined
+                            .insert_or_weld(*fork.vertices.position(v), *fork.vertices.normal(v))
+                    }),
+                    region: f.region,
+                })
+                .collect();
+
+            if let Ok(result_faces) =
+                csg_boolean(BooleanOp::Union, &faces_a, &faces_b, &mut combined)
+            {
+                let broken = cfd_mesh::application::csg::reconstruct::reconstruct_mesh(
+                    &result_faces,
+                    &combined,
+                );
+                let _ = write_stl(&broken, &out_dir.join("cylinder_debug_failed_result.stl"));
+            }
+
+            return Err(Box::new(e));
+        }
+    };
 
     let union_ms = t1.elapsed().as_millis();
 
-    report("Union (stem ∪ elbows ∪ arms) — rounded junction", &mut result, v_total, 0.05, union_ms);
-    write_stl(&result, &out_dir.join("cylinder_cylinder_v_shape_rounded.stl"))?;
+    report(
+        "Union (stem ∪ elbows ∪ arms) — rounded junction",
+        &mut result,
+        v_total,
+        0.05,
+        union_ms,
+    );
+    write_stl(
+        &result,
+        &out_dir.join("cylinder_cylinder_v_shape_rounded.stl"),
+    )?;
     println!("  STL: outputs/csg/cylinder_cylinder_v_shape_rounded.stl");
 
     println!("=================================================================");
@@ -505,32 +603,46 @@ fn run_rounded() -> Result<(), Box<dyn std::error::Error>> {
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 fn report(label: &str, mesh: &mut IndexedMesh, expected: f64, tol: f64, ms: u128) {
-    let vol    = mesh.signed_volume();
-    let n      = analyze_normals(mesh);
-    let err    = (vol - expected).abs() / expected.abs().max(1e-12);
+    let vol = mesh.signed_volume();
+    let n = analyze_normals(mesh);
+    let err = (vol - expected).abs() / expected.abs().max(1e-12);
     let status = if err <= tol { "PASS" } else { "FAIL" };
 
     let edges = EdgeStore::from_face_store(&mesh.faces);
-    let wt    = check_watertight(&mesh.vertices, &mesh.faces, &edges);
+    let wt = check_watertight(&mesh.vertices, &mesh.faces, &edges);
     let wt_status = if wt.is_watertight { "PASS" } else { "FAIL" };
 
     println!("  ── {label} ──");
     println!("    Faces      : {}", mesh.face_count());
     println!("    Volume     : {vol:.4} mm³  (expected ≈ {expected:.4})");
     println!("    Vol error  : {:.2}%  [{status}]", err * 100.0);
-    println!("    Watertight : {}  [{wt_status}]  boundary_edges={}  non_manifold={}  euler_χ={:?}",
-        wt.is_watertight, wt.boundary_edge_count, wt.non_manifold_edge_count, wt.euler_characteristic);
-    println!("    Normals    : outward={}, inward={} ({:.1}%), degen={}",
-        n.outward_faces, n.inward_faces,
-        if mesh.face_count() > 0 { n.inward_faces as Real / mesh.face_count() as Real * 100.0 } else { 0.0 },
-        n.degenerate_faces);
-    println!("    Alignment  : mean={:.4}  min={:.4}",
-        n.face_vertex_alignment_mean, n.face_vertex_alignment_min);
+    println!(
+        "    Watertight : {}  [{wt_status}]  boundary_edges={}  non_manifold={}  euler_χ={:?}",
+        wt.is_watertight,
+        wt.boundary_edge_count,
+        wt.non_manifold_edge_count,
+        wt.euler_characteristic
+    );
+    println!(
+        "    Normals    : outward={}, inward={} ({:.1}%), degen={}",
+        n.outward_faces,
+        n.inward_faces,
+        if mesh.face_count() > 0 {
+            n.inward_faces as Real / mesh.face_count() as Real * 100.0
+        } else {
+            0.0
+        },
+        n.degenerate_faces
+    );
+    println!(
+        "    Alignment  : mean={:.4}  min={:.4}",
+        n.face_vertex_alignment_mean, n.face_vertex_alignment_min
+    );
     println!("    Elapsed    : {ms} ms");
 }
 
 fn write_stl(mesh: &IndexedMesh, path: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
-    let file  = fs::File::create(path)?;
+    let file = fs::File::create(path)?;
     let mut w = BufWriter::new(file);
     stl::write_binary_stl(&mut w, &mesh.vertices, &mesh.faces)?;
     Ok(())

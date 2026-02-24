@@ -1,7 +1,7 @@
 //! Axis-Aligned Bounding Box — generic over scalar precision `T: Scalar`.
 
+use crate::domain::core::scalar::Scalar;
 use nalgebra::Point3;
-use crate::core::scalar::Scalar;
 
 /// Axis-aligned bounding box generic over scalar precision.
 ///
@@ -33,26 +33,62 @@ impl<T: Scalar> Aabb<T> {
 
     /// Expand to include `p`.
     pub fn expand(&mut self, p: &Point3<T>) {
-        if p.x < self.min.x { self.min.x = p.x; }
-        if p.y < self.min.y { self.min.y = p.y; }
-        if p.z < self.min.z { self.min.z = p.z; }
-        if p.x > self.max.x { self.max.x = p.x; }
-        if p.y > self.max.y { self.max.y = p.y; }
-        if p.z > self.max.z { self.max.z = p.z; }
+        if p.x < self.min.x {
+            self.min.x = p.x;
+        }
+        if p.y < self.min.y {
+            self.min.y = p.y;
+        }
+        if p.z < self.min.z {
+            self.min.z = p.z;
+        }
+        if p.x > self.max.x {
+            self.max.x = p.x;
+        }
+        if p.y > self.max.y {
+            self.max.y = p.y;
+        }
+        if p.z > self.max.z {
+            self.max.z = p.z;
+        }
     }
 
     /// Union with another AABB.
     pub fn union(&self, other: &Aabb<T>) -> Aabb<T> {
         Aabb {
             min: Point3::new(
-                if self.min.x < other.min.x { self.min.x } else { other.min.x },
-                if self.min.y < other.min.y { self.min.y } else { other.min.y },
-                if self.min.z < other.min.z { self.min.z } else { other.min.z },
+                if self.min.x < other.min.x {
+                    self.min.x
+                } else {
+                    other.min.x
+                },
+                if self.min.y < other.min.y {
+                    self.min.y
+                } else {
+                    other.min.y
+                },
+                if self.min.z < other.min.z {
+                    self.min.z
+                } else {
+                    other.min.z
+                },
             ),
             max: Point3::new(
-                if self.max.x > other.max.x { self.max.x } else { other.max.x },
-                if self.max.y > other.max.y { self.max.y } else { other.max.y },
-                if self.max.z > other.max.z { self.max.z } else { other.max.z },
+                if self.max.x > other.max.x {
+                    self.max.x
+                } else {
+                    other.max.x
+                },
+                if self.max.y > other.max.y {
+                    self.max.y
+                } else {
+                    other.max.y
+                },
+                if self.max.z > other.max.z {
+                    self.max.z
+                } else {
+                    other.max.z
+                },
             ),
         }
     }
@@ -65,6 +101,16 @@ impl<T: Scalar> Aabb<T> {
             && self.max.y >= other.min.y
             && self.min.z <= other.max.z
             && self.max.z >= other.min.z
+    }
+
+    /// Check if this AABB completely contains another AABB.
+    pub fn contains_aabb(&self, other: &Aabb<T>) -> bool {
+        self.min.x <= other.min.x
+            && self.max.x >= other.max.x
+            && self.min.y <= other.min.y
+            && self.max.y >= other.max.y
+            && self.min.z <= other.min.z
+            && self.max.z >= other.max.z
     }
 
     /// Check if `p` lies inside or on the boundary of this AABB.
@@ -171,4 +217,3 @@ mod tests {
         assert!(!a.intersects(&c));
     }
 }
-

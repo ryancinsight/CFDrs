@@ -3,10 +3,10 @@
 //! Handles T-junctions, Y-junctions, and cross-junctions common in
 //! millifluidic chip designs.
 
-use crate::core::scalar::{Real, Point3r, Vector3r};
-use crate::core::index::RegionId;
-use crate::storage::face_store::FaceData;
-use crate::storage::vertex_pool::VertexPool;
+use crate::domain::core::index::RegionId;
+use crate::domain::core::scalar::{Point3r, Real, Vector3r};
+use crate::infrastructure::storage::face_store::FaceData;
+use crate::infrastructure::storage::vertex_pool::VertexPool;
 
 /// Type of junction.
 #[derive(Clone, Debug)]

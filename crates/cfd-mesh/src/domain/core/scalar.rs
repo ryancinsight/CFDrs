@@ -21,7 +21,7 @@
 //! conversion to `f64` for human-readable outputs.  The sealed super-trait
 //! restricts the impl set to `{f32, f64}`, matching IEEE 754 hardware support.
 
-use nalgebra::{Point3, Vector3, Matrix4};
+use nalgebra::{Matrix4, Point3, Vector3};
 
 // ── Sealed trait ──────────────────────────────────────────────────────────────
 // Prevents downstream crates from implementing `Scalar` for arbitrary types.
@@ -86,16 +86,24 @@ pub trait Scalar:
 
 impl Scalar for f64 {
     #[inline(always)]
-    fn tolerance() -> Self { 1e-9 }
+    fn tolerance() -> Self {
+        1e-9
+    }
     #[inline(always)]
-    fn from_f64(v: f64) -> Self { v }
+    fn from_f64(v: f64) -> Self {
+        v
+    }
 }
 
 impl Scalar for f32 {
     #[inline(always)]
-    fn tolerance() -> Self { 1e-5_f32 }
+    fn tolerance() -> Self {
+        1e-5_f32
+    }
     #[inline(always)]
-    fn from_f64(v: f64) -> Self { v as f32 }
+    fn from_f64(v: f64) -> Self {
+        v as f32
+    }
 }
 
 // ── Default-precision convenience aliases ─────────────────────────────────────
@@ -126,7 +134,11 @@ pub const TOLERANCE_SQ: Real = TOLERANCE * TOLERANCE;
 /// Replace NaN or ±Inf with zero — generic over any `T: Scalar`.
 #[inline]
 pub fn sanitize<T: Scalar>(v: T) -> T {
-    if <T as num_traits::Float>::is_finite(v) { v } else { T::zero() }
+    if <T as num_traits::Float>::is_finite(v) {
+        v
+    } else {
+        T::zero()
+    }
 }
 
 /// Replace NaN / ±Inf components of a point with zero — generic.
@@ -147,8 +159,10 @@ mod tests {
 
     #[test]
     fn tolerance_ordering() {
-        assert!(f32::tolerance() > f64::tolerance() as f32,
-            "f32 tolerance must be coarser than f64");
+        assert!(
+            f32::tolerance() > f64::tolerance() as f32,
+            "f32 tolerance must be coarser than f64"
+        );
     }
 
     #[test]

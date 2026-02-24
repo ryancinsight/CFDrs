@@ -4,7 +4,7 @@
 //! than owned `Polygon<S>` structs. The plane is defined by the Hessian
 //! normal form: `n · x + d = 0`.
 
-use crate::core::scalar::{Real, Point3r, Vector3r, TOLERANCE};
+use crate::domain::core::scalar::{Point3r, Real, Vector3r, TOLERANCE};
 
 /// Classification of a point relative to a plane.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -111,7 +111,6 @@ impl Plane {
 
 impl PartialEq for Plane {
     fn eq(&self, other: &Self) -> bool {
-        (self.normal - other.normal).norm() < TOLERANCE
-            && (self.w - other.w).abs() < TOLERANCE
+        (self.normal - other.normal).norm() < TOLERANCE && (self.w - other.w).abs() < TOLERANCE
     }
 }

@@ -19,14 +19,14 @@ use std::fs;
 use std::io::BufWriter;
 
 use cfd_mesh::YJunction;
-use cfd_mesh::geometry::primitives::PrimitiveMesh;
-use cfd_mesh::io::stl;
-use cfd_mesh::storage::edge_store::EdgeStore;
-use cfd_mesh::watertight::check::check_watertight;
+use cfd_mesh::domain::geometry::primitives::PrimitiveMesh;
+use cfd_mesh::infrastructure::io::stl;
+use cfd_mesh::infrastructure::storage::edge_store::EdgeStore;
+use cfd_mesh::application::watertight::check::check_watertight;
 
 fn print_report(
     label: &str,
-    mesh: &cfd_mesh::mesh::IndexedMesh,
+    mesh: &cfd_mesh::domain::mesh::IndexedMesh,
     stl_path: &std::path::Path,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let edges  = EdgeStore::from_face_store(&mesh.faces);

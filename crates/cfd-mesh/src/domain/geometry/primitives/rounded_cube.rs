@@ -2,10 +2,10 @@
 
 use std::f64::consts::{PI, TAU};
 
-use crate::core::index::RegionId;
-use crate::core::scalar::{Point3r, Vector3r};
-use crate::mesh::IndexedMesh;
-use super::{PrimitiveMesh, PrimitiveError};
+use super::{PrimitiveError, PrimitiveMesh};
+use crate::domain::core::index::RegionId;
+use crate::domain::core::scalar::{Point3r, Vector3r};
+use crate::domain::mesh::IndexedMesh;
 
 /// Builds a box with cylindrical edge fillets and spherical corner octants.
 ///
@@ -76,9 +76,21 @@ fn build(rc: &RoundedCube) -> Result<IndexedMesh, PrimitiveError> {
     let r = rc.corner_radius;
     let cs = rc.corner_segments;
 
-    if w <= 0.0 { return Err(PrimitiveError::InvalidParam(format!("width must be > 0, got {w}"))); }
-    if h <= 0.0 { return Err(PrimitiveError::InvalidParam(format!("height must be > 0, got {h}"))); }
-    if d <= 0.0 { return Err(PrimitiveError::InvalidParam(format!("depth must be > 0, got {d}"))); }
+    if w <= 0.0 {
+        return Err(PrimitiveError::InvalidParam(format!(
+            "width must be > 0, got {w}"
+        )));
+    }
+    if h <= 0.0 {
+        return Err(PrimitiveError::InvalidParam(format!(
+            "height must be > 0, got {h}"
+        )));
+    }
+    if d <= 0.0 {
+        return Err(PrimitiveError::InvalidParam(format!(
+            "depth must be > 0, got {d}"
+        )));
+    }
     if r <= 0.0 || r > w / 2.0 || r > h / 2.0 || r > d / 2.0 {
         return Err(PrimitiveError::InvalidParam(format!(
             "corner_radius must be in (0, min(w,h,d)/2] = (0, {}], got {r}",
@@ -86,24 +98,32 @@ fn build(rc: &RoundedCube) -> Result<IndexedMesh, PrimitiveError> {
         )));
     }
     if cs < 1 {
-        return Err(PrimitiveError::InvalidParam("corner_segments must be ≥ 1".into()));
+        return Err(PrimitiveError::InvalidParam(
+            "corner_segments must be ≥ 1".into(),
+        ));
     }
 
     let region = RegionId::new(1);
     let mut mesh = IndexedMesh::new();
 
     // Inner box corners (after subtracting r from all sides).
-    let x0 = rc.origin.x + r;  let x1 = rc.origin.x + w - r;
-    let y0 = rc.origin.y + r;  let y1 = rc.origin.y + h - r;
-    let z0 = rc.origin.z + r;  let z1 = rc.origin.z + d - r;
+    let x0 = rc.origin.x + r;
+    let x1 = rc.origin.x + w - r;
+    let y0 = rc.origin.y + r;
+    let y1 = rc.origin.y + h - r;
+    let z0 = rc.origin.z + r;
+    let z1 = rc.origin.z + d - r;
 
     // ── Six flat face panels ──────────────────────────────────────────────────
     // Each face is a rectangle in the inner box's face plane, pushed outward by r.
 
     // Helper: add a quad (two triangles) with a given flat normal.
     let add_quad = |mesh: &mut IndexedMesh,
-                        p00: Point3r, p10: Point3r, p11: Point3r, p01: Point3r,
-                        n: Vector3r| {
+                    p00: Point3r,
+                    p10: Point3r,
+                    p11: Point3r,
+                    p01: Point3r,
+                    n: Vector3r| {
         let v00 = mesh.add_vertex(p00, n);
         let v10 = mesh.add_vertex(p10, n);
         let v11 = mesh.add_vertex(p11, n);
@@ -114,40 +134,64 @@ fn build(rc: &RoundedCube) -> Result<IndexedMesh, PrimitiveError> {
 
     // −X face (normal = −X), x = x0 − r = origin.x
     let fx = rc.origin.x;
-    add_quad(&mut mesh,
-        Point3r::new(fx, y0, z0), Point3r::new(fx, y1, z0),
-        Point3r::new(fx, y1, z1), Point3r::new(fx, y0, z1),
-        -Vector3r::x());
+    add_quad(
+        &mut mesh,
+        Point3r::new(fx, y0, z0),
+        Point3r::new(fx, y1, z0),
+        Point3r::new(fx, y1, z1),
+        Point3r::new(fx, y0, z1),
+        -Vector3r::x(),
+    );
     // +X face (normal = +X), x = x1 + r = origin.x + w
     let fx = rc.origin.x + w;
-    add_quad(&mut mesh,
-        Point3r::new(fx, y0, z1), Point3r::new(fx, y1, z1),
-        Point3r::new(fx, y1, z0), Point3r::new(fx, y0, z0),
-        Vector3r::x());
+    add_quad(
+        &mut mesh,
+        Point3r::new(fx, y0, z1),
+        Point3r::new(fx, y1, z1),
+        Point3r::new(fx, y1, z0),
+        Point3r::new(fx, y0, z0),
+        Vector3r::x(),
+    );
     // −Y face (normal = −Y)
     let fy = rc.origin.y;
-    add_quad(&mut mesh,
-        Point3r::new(x0, fy, z1), Point3r::new(x1, fy, z1),
-        Point3r::new(x1, fy, z0), Point3r::new(x0, fy, z0),
-        -Vector3r::y());
+    add_quad(
+        &mut mesh,
+        Point3r::new(x0, fy, z1),
+        Point3r::new(x1, fy, z1),
+        Point3r::new(x1, fy, z0),
+        Point3r::new(x0, fy, z0),
+        -Vector3r::y(),
+    );
     // +Y face (normal = +Y)
     let fy = rc.origin.y + h;
-    add_quad(&mut mesh,
-        Point3r::new(x0, fy, z0), Point3r::new(x1, fy, z0),
-        Point3r::new(x1, fy, z1), Point3r::new(x0, fy, z1),
-        Vector3r::y());
+    add_quad(
+        &mut mesh,
+        Point3r::new(x0, fy, z0),
+        Point3r::new(x1, fy, z0),
+        Point3r::new(x1, fy, z1),
+        Point3r::new(x0, fy, z1),
+        Vector3r::y(),
+    );
     // −Z face (normal = −Z)
     let fz = rc.origin.z;
-    add_quad(&mut mesh,
-        Point3r::new(x0, y0, fz), Point3r::new(x1, y0, fz),
-        Point3r::new(x1, y1, fz), Point3r::new(x0, y1, fz),
-        -Vector3r::z());
+    add_quad(
+        &mut mesh,
+        Point3r::new(x0, y0, fz),
+        Point3r::new(x1, y0, fz),
+        Point3r::new(x1, y1, fz),
+        Point3r::new(x0, y1, fz),
+        -Vector3r::z(),
+    );
     // +Z face (normal = +Z)
     let fz = rc.origin.z + d;
-    add_quad(&mut mesh,
-        Point3r::new(x1, y0, fz), Point3r::new(x0, y0, fz),
-        Point3r::new(x0, y1, fz), Point3r::new(x1, y1, fz),
-        Vector3r::z());
+    add_quad(
+        &mut mesh,
+        Point3r::new(x1, y0, fz),
+        Point3r::new(x0, y0, fz),
+        Point3r::new(x0, y1, fz),
+        Point3r::new(x1, y1, fz),
+        Vector3r::z(),
+    );
 
     // ── Quarter-cylinder edge strips ──────────────────────────────────────────
     // Each of the 12 edges of a box has a quarter-cylinder of radius r.
@@ -162,25 +206,27 @@ fn build(rc: &RoundedCube) -> Result<IndexedMesh, PrimitiveError> {
     // For the 4 Z-parallel edges (varying z from z0 to z1):
     let z_edges: [([f64; 3], f64, f64, i8, i8); 4] = [
         // [corner_x, corner_y, _], angle_start, angle_end, nx_sign, ny_sign
-        ([x0, y0, 0.0], PI,     3.0*PI/2.0, -1,  -1),  // −X, −Y corner → arc in 3rd quadrant
-        ([x1, y0, 0.0], 3.0*PI/2.0, TAU,    1,   -1),  // +X, −Y corner
-        ([x1, y1, 0.0], 0.0,    PI/2.0,     1,    1),  // +X, +Y corner
-        ([x0, y1, 0.0], PI/2.0, PI,         -1,   1),  // −X, +Y corner
+        ([x0, y0, 0.0], PI, 3.0 * PI / 2.0, -1, -1), // −X, −Y corner → arc in 3rd quadrant
+        ([x1, y0, 0.0], 3.0 * PI / 2.0, TAU, 1, -1), // +X, −Y corner
+        ([x1, y1, 0.0], 0.0, PI / 2.0, 1, 1),        // +X, +Y corner
+        ([x0, y1, 0.0], PI / 2.0, PI, -1, 1),        // −X, +Y corner
     ];
     for ([cx_, cy_, _], a_start, a_end, _snx, _sny) in z_edges {
         for k in 0..cs {
             let a0 = a_start + k as f64 / cs as f64 * (a_end - a_start);
-            let a1 = a_start + (k+1) as f64 / cs as f64 * (a_end - a_start);
+            let a1 = a_start + (k + 1) as f64 / cs as f64 * (a_end - a_start);
             let (c0, s0) = (a0.cos(), a0.sin());
             let (c1, s1) = (a1.cos(), a1.sin());
             let n0 = Vector3r::new(c0, s0, 0.0);
             let n1 = Vector3r::new(c1, s1, 0.0);
-            let pb0 = Point3r::new(cx_ + r*c0, cy_ + r*s0, z0);
-            let pt0 = Point3r::new(cx_ + r*c0, cy_ + r*s0, z1);
-            let pb1 = Point3r::new(cx_ + r*c1, cy_ + r*s1, z0);
-            let pt1 = Point3r::new(cx_ + r*c1, cy_ + r*s1, z1);
-            let vb0 = mesh.add_vertex(pb0, n0); let vt0 = mesh.add_vertex(pt0, n0);
-            let vb1 = mesh.add_vertex(pb1, n1); let vt1 = mesh.add_vertex(pt1, n1);
+            let pb0 = Point3r::new(cx_ + r * c0, cy_ + r * s0, z0);
+            let pt0 = Point3r::new(cx_ + r * c0, cy_ + r * s0, z1);
+            let pb1 = Point3r::new(cx_ + r * c1, cy_ + r * s1, z0);
+            let pt1 = Point3r::new(cx_ + r * c1, cy_ + r * s1, z1);
+            let vb0 = mesh.add_vertex(pb0, n0);
+            let vt0 = mesh.add_vertex(pt0, n0);
+            let vb1 = mesh.add_vertex(pb1, n1);
+            let vt1 = mesh.add_vertex(pt1, n1);
             mesh.add_face_with_region(vb0, vt0, vt1, region);
             mesh.add_face_with_region(vb0, vt1, vb1, region);
         }
@@ -192,25 +238,27 @@ fn build(rc: &RoundedCube) -> Result<IndexedMesh, PrimitiveError> {
     // = (0, -dx*dz, dx*dy) — points in -Z,+Y for +X sweep going in +Z,+Y arc direction → outward.
     // To make inward (consistent with flat panels), reverse: (vb0, vb1, vt1) and (vb0, vt1, vt0).
     let x_edges: [([f64; 3], f64, f64); 4] = [
-        ([0.0, y0, z0], PI,     3.0*PI/2.0),
-        ([0.0, y0, z1], 3.0*PI/2.0, TAU   ),
-        ([0.0, y1, z1], 0.0,    PI/2.0    ),
-        ([0.0, y1, z0], PI/2.0, PI        ),
+        ([0.0, y0, z0], PI, 3.0 * PI / 2.0),
+        ([0.0, y0, z1], 3.0 * PI / 2.0, TAU),
+        ([0.0, y1, z1], 0.0, PI / 2.0),
+        ([0.0, y1, z0], PI / 2.0, PI),
     ];
     for ([_, cy_, cz_], a_start, a_end) in x_edges {
         for k in 0..cs {
             let a0 = a_start + k as f64 / cs as f64 * (a_end - a_start);
-            let a1 = a_start + (k+1) as f64 / cs as f64 * (a_end - a_start);
+            let a1 = a_start + (k + 1) as f64 / cs as f64 * (a_end - a_start);
             let (c0, s0) = (a0.cos(), a0.sin());
             let (c1, s1) = (a1.cos(), a1.sin());
             let n0 = Vector3r::new(0.0, s0, c0);
             let n1 = Vector3r::new(0.0, s1, c1);
-            let pb0 = Point3r::new(x0, cy_ + r*s0, cz_ + r*c0);
-            let pt0 = Point3r::new(x1, cy_ + r*s0, cz_ + r*c0);
-            let pb1 = Point3r::new(x0, cy_ + r*s1, cz_ + r*c1);
-            let pt1 = Point3r::new(x1, cy_ + r*s1, cz_ + r*c1);
-            let vb0 = mesh.add_vertex(pb0, n0); let vt0 = mesh.add_vertex(pt0, n0);
-            let vb1 = mesh.add_vertex(pb1, n1); let vt1 = mesh.add_vertex(pt1, n1);
+            let pb0 = Point3r::new(x0, cy_ + r * s0, cz_ + r * c0);
+            let pt0 = Point3r::new(x1, cy_ + r * s0, cz_ + r * c0);
+            let pb1 = Point3r::new(x0, cy_ + r * s1, cz_ + r * c1);
+            let pt1 = Point3r::new(x1, cy_ + r * s1, cz_ + r * c1);
+            let vb0 = mesh.add_vertex(pb0, n0);
+            let vt0 = mesh.add_vertex(pt0, n0);
+            let vb1 = mesh.add_vertex(pb1, n1);
+            let vt1 = mesh.add_vertex(pt1, n1);
             // Reversed from Z-edge pattern to produce inward winding (matching flat panels).
             mesh.add_face_with_region(vb0, vt1, vt0, region);
             mesh.add_face_with_region(vb0, vb1, vt1, region);
@@ -221,25 +269,27 @@ fn build(rc: &RoundedCube) -> Result<IndexedMesh, PrimitiveError> {
     // Sweep is along Y (pb=y0, pt=y1); arc varies in XZ plane.
     // Same analysis as X-edges — sweep-along-axis produces outward winding; reverse it.
     let y_edges: [([f64; 3], f64, f64); 4] = [
-        ([x0, 0.0, z0], PI,     3.0*PI/2.0),
-        ([x1, 0.0, z0], 3.0*PI/2.0, TAU   ),
-        ([x1, 0.0, z1], 0.0,    PI/2.0    ),
-        ([x0, 0.0, z1], PI/2.0, PI        ),
+        ([x0, 0.0, z0], PI, 3.0 * PI / 2.0),
+        ([x1, 0.0, z0], 3.0 * PI / 2.0, TAU),
+        ([x1, 0.0, z1], 0.0, PI / 2.0),
+        ([x0, 0.0, z1], PI / 2.0, PI),
     ];
     for ([cx_, _, cz_], a_start, a_end) in y_edges {
         for k in 0..cs {
             let a0 = a_start + k as f64 / cs as f64 * (a_end - a_start);
-            let a1 = a_start + (k+1) as f64 / cs as f64 * (a_end - a_start);
+            let a1 = a_start + (k + 1) as f64 / cs as f64 * (a_end - a_start);
             let (c0, s0) = (a0.cos(), a0.sin());
             let (c1, s1) = (a1.cos(), a1.sin());
             let n0 = Vector3r::new(c0, 0.0, s0);
             let n1 = Vector3r::new(c1, 0.0, s1);
-            let pb0 = Point3r::new(cx_ + r*c0, y0, cz_ + r*s0);
-            let pt0 = Point3r::new(cx_ + r*c0, y1, cz_ + r*s0);
-            let pb1 = Point3r::new(cx_ + r*c1, y0, cz_ + r*s1);
-            let pt1 = Point3r::new(cx_ + r*c1, y1, cz_ + r*s1);
-            let vb0 = mesh.add_vertex(pb0, n0); let vt0 = mesh.add_vertex(pt0, n0);
-            let vb1 = mesh.add_vertex(pb1, n1); let vt1 = mesh.add_vertex(pt1, n1);
+            let pb0 = Point3r::new(cx_ + r * c0, y0, cz_ + r * s0);
+            let pt0 = Point3r::new(cx_ + r * c0, y1, cz_ + r * s0);
+            let pb1 = Point3r::new(cx_ + r * c1, y0, cz_ + r * s1);
+            let pt1 = Point3r::new(cx_ + r * c1, y1, cz_ + r * s1);
+            let vb0 = mesh.add_vertex(pb0, n0);
+            let vt0 = mesh.add_vertex(pt0, n0);
+            let vb1 = mesh.add_vertex(pb1, n1);
+            let vt1 = mesh.add_vertex(pt1, n1);
             // Reversed from Z-edge pattern to produce inward winding (matching flat panels).
             mesh.add_face_with_region(vb0, vt1, vt0, region);
             mesh.add_face_with_region(vb0, vb1, vt1, region);
@@ -270,16 +320,16 @@ fn build(rc: &RoundedCube) -> Result<IndexedMesh, PrimitiveError> {
                 for iu in 0..cs {
                     for iv in 0..cs {
                         let u0 = iu as f64 / cs as f64 * PI / 2.0;
-                        let u1 = (iu+1) as f64 / cs as f64 * PI / 2.0;
+                        let u1 = (iu + 1) as f64 / cs as f64 * PI / 2.0;
                         let v0 = iv as f64 / cs as f64 * PI / 2.0;
-                        let v1 = (iv+1) as f64 / cs as f64 * PI / 2.0;
+                        let v1 = (iv + 1) as f64 / cs as f64 * PI / 2.0;
 
                         let corner_pt = |u: f64, v: f64| -> (Point3r, Vector3r) {
                             let nx = sx * u.cos();
                             let ny = sy * u.sin() * v.cos();
                             let nz = sz * u.sin() * v.sin();
                             let n = Vector3r::new(nx, ny, nz);
-                            let pos = Point3r::new(ccx + r*nx, ccy + r*ny, ccz + r*nz);
+                            let pos = Point3r::new(ccx + r * nx, ccy + r * ny, ccz + r * nz);
                             (pos, n)
                         };
 
@@ -336,24 +386,34 @@ fn build(rc: &RoundedCube) -> Result<IndexedMesh, PrimitiveError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::storage::edge_store::EdgeStore;
-    use crate::watertight::check::check_watertight;
+    use crate::application::watertight::check::check_watertight;
+    use crate::infrastructure::storage::edge_store::EdgeStore;
 
     #[test]
     fn rounded_cube_is_watertight() {
         let mesh = RoundedCube::default().build().unwrap();
         let edges = EdgeStore::from_face_store(&mesh.faces);
         let report = check_watertight(&mesh.vertices, &mesh.faces, &edges);
-        assert!(report.is_watertight, "rounded_cube must be watertight: {:?}", report);
+        assert!(
+            report.is_watertight,
+            "rounded_cube must be watertight: {:?}",
+            report
+        );
         assert_eq!(report.euler_characteristic, Some(2));
     }
 
     #[test]
     fn rounded_cube_volume_positive() {
         let mesh = RoundedCube {
-            width: 4.0, height: 3.0, depth: 2.0, corner_radius: 0.3,
-            corner_segments: 6, ..RoundedCube::default()
-        }.build().unwrap();
+            width: 4.0,
+            height: 3.0,
+            depth: 2.0,
+            corner_radius: 0.3,
+            corner_segments: 6,
+            ..RoundedCube::default()
+        }
+        .build()
+        .unwrap();
         let edges = EdgeStore::from_face_store(&mesh.faces);
         let report = check_watertight(&mesh.vertices, &mesh.faces, &edges);
         assert!(report.is_watertight);
@@ -364,10 +424,33 @@ mod tests {
 
     #[test]
     fn rounded_cube_rejects_invalid_params() {
-        assert!(RoundedCube { width: 0.0, ..RoundedCube::default() }.build().is_err());
-        assert!(RoundedCube { corner_radius: 0.0, ..RoundedCube::default() }.build().is_err());
+        assert!(RoundedCube {
+            width: 0.0,
+            ..RoundedCube::default()
+        }
+        .build()
+        .is_err());
+        assert!(RoundedCube {
+            corner_radius: 0.0,
+            ..RoundedCube::default()
+        }
+        .build()
+        .is_err());
         // corner_radius > min(w,h,d)/2
-        assert!(RoundedCube { corner_radius: 1.5, width: 2.0, height: 2.0, depth: 2.0, ..RoundedCube::default() }.build().is_err());
-        assert!(RoundedCube { corner_segments: 0, ..RoundedCube::default() }.build().is_err());
+        assert!(RoundedCube {
+            corner_radius: 1.5,
+            width: 2.0,
+            height: 2.0,
+            depth: 2.0,
+            ..RoundedCube::default()
+        }
+        .build()
+        .is_err());
+        assert!(RoundedCube {
+            corner_segments: 0,
+            ..RoundedCube::default()
+        }
+        .build()
+        .is_err());
     }
 }

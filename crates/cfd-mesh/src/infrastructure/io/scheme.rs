@@ -11,10 +11,10 @@
 
 use std::io::Read;
 
-use crate::core::scalar::{Real, Point3r};
-use crate::core::error::{MeshError, MeshResult};
-use crate::channel::profile::ChannelProfile;
-use crate::channel::path::ChannelPath;
+use crate::application::channel::path::ChannelPath;
+use crate::application::channel::profile::ChannelProfile;
+use crate::domain::core::error::{MeshError, MeshResult};
+use crate::domain::core::scalar::{Point3r, Real};
 
 /// A parsed channel definition from a schematic.
 #[derive(Clone, Debug)]
@@ -68,8 +68,7 @@ pub struct Schematic {
 /// }
 /// ```
 pub fn import_schematic<R: Read>(reader: R) -> MeshResult<Schematic> {
-    let value: serde_json::Value =
-        serde_json::from_reader(reader).map_err(MeshError::Json)?;
+    let value: serde_json::Value = serde_json::from_reader(reader).map_err(MeshError::Json)?;
 
     let substrate = parse_substrate(&value)?;
     let channels = parse_channels(&value)?;
@@ -125,10 +124,7 @@ fn parse_channels(value: &serde_json::Value) -> MeshResult<Vec<ChannelDef>> {
     let mut defs = Vec::with_capacity(channels.len());
 
     for ch in channels {
-        let id = ch["id"]
-            .as_str()
-            .unwrap_or("unnamed")
-            .to_string();
+        let id = ch["id"].as_str().unwrap_or("unnamed").to_string();
 
         let diameter = ch["diameter"]
             .as_f64()
@@ -143,9 +139,9 @@ fn parse_channels(value: &serde_json::Value) -> MeshResult<Vec<ChannelDef>> {
         let points: Vec<Point3r> = path_arr
             .iter()
             .map(|p| {
-                let arr = p.as_array().ok_or_else(|| {
-                    MeshError::Other("path point must be array".to_string())
-                })?;
+                let arr = p
+                    .as_array()
+                    .ok_or_else(|| MeshError::Other("path point must be array".to_string()))?;
                 Ok(Point3r::new(
                     arr[0].as_f64().unwrap_or(0.0) as Real,
                     arr[1].as_f64().unwrap_or(0.0) as Real,
@@ -244,7 +240,7 @@ pub fn from_interchange(
                     .iter()
                     .map(|&w| (w as Real) / inlet_w)
                     .collect();
-                
+
                 width_scales = Some(scales);
 
                 ChannelProfile::Rectangular {

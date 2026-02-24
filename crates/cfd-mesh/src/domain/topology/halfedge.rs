@@ -1,6 +1,6 @@
 //! # Half-Edge Topology Kernel
 //!
-//! The half-edge data structure is the topological backbone of [`crate::mesh::Mesh`].
+//! The half-edge data structure is the topological backbone of [`crate::domain::mesh::Mesh`].
 //! Every undirected edge in the mesh is represented as a pair of directed
 //! *half-edges*, one per adjacent face. This gives O(1) local traversal for
 //! all CFD stencil operations: face-to-face adjacency, vertex one-ring
@@ -56,8 +56,8 @@
 //! exactly encoded by these combinatorial conditions. Interior vertices have a
 //! disk link; boundary vertices have a half-disk link. ∎
 
-use crate::core::index::{VertexKey, HalfEdgeKey, FaceKey, PatchKey};
-use crate::core::scalar::Real;
+use crate::domain::core::index::{FaceKey, HalfEdgeKey, PatchKey, VertexKey};
+use crate::domain::core::scalar::Real;
 use nalgebra::{Point3, UnitVector3, Vector3};
 
 // ── Boundary patch types ──────────────────────────────────────────────────────
@@ -100,10 +100,10 @@ impl PatchType {
     /// Returns the OpenFOAM boundary type string for this patch.
     pub fn openfoam_type(&self) -> &str {
         match self {
-            PatchType::Wall     => "wall",
+            PatchType::Wall => "wall",
             PatchType::Symmetry => "symmetry",
             PatchType::Periodic => "cyclicAMI",
-            _                   => "patch",
+            _ => "patch",
         }
     }
 }
@@ -128,7 +128,10 @@ pub struct BoundaryPatch {
 impl BoundaryPatch {
     /// Create a new boundary patch.
     pub fn new(name: impl Into<String>, patch_type: PatchType) -> Self {
-        Self { name: name.into(), patch_type }
+        Self {
+            name: name.into(),
+            patch_type,
+        }
     }
 }
 
@@ -269,7 +272,11 @@ pub struct FaceData {
 impl FaceData {
     /// Create face data with a given entry half-edge and precomputed normal.
     pub fn new(half_edge: HalfEdgeKey, normal: UnitVector3<Real>) -> Self {
-        Self { half_edge, patch: None, normal }
+        Self {
+            half_edge,
+            patch: None,
+            normal,
+        }
     }
 
     /// Create face data with a zero normal (placeholder; call `recompute_normal`).

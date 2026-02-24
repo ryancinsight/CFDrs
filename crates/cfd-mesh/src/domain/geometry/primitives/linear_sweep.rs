@@ -42,8 +42,8 @@
 //! ## Example
 //!
 //! ```rust,ignore
-//! use cfd_mesh::geometry::primitives::{LinearSweep, PrimitiveMesh};
-//! use cfd_mesh::core::scalar::Point2r;
+//! use cfd_mesh::domain::geometry::primitives::{LinearSweep, PrimitiveMesh};
+//! use cfd_mesh::domain::core::scalar::Point2r;
 //!
 //! // Square cross-section 2×2, swept 3 mm tall
 //! let profile = vec![
@@ -57,10 +57,10 @@
 
 use std::f64::consts::TAU;
 
-use crate::core::index::RegionId;
-use crate::core::scalar::{Point3r, Vector3r};
-use crate::mesh::IndexedMesh;
-use super::{PrimitiveMesh, PrimitiveError};
+use super::{PrimitiveError, PrimitiveMesh};
+use crate::domain::core::index::RegionId;
+use crate::domain::core::scalar::{Point3r, Vector3r};
+use crate::domain::mesh::IndexedMesh;
 
 // Re-use nalgebra's 2-D point via f64 scalars.
 /// 2-D point in the XZ plane.
@@ -78,7 +78,7 @@ pub type Point2 = nalgebra::Point2<f64>;
 /// # Example
 ///
 /// ```rust,ignore
-/// use cfd_mesh::geometry::primitives::{LinearSweep, PrimitiveMesh};
+/// use cfd_mesh::domain::geometry::primitives::{LinearSweep, PrimitiveMesh};
 ///
 /// let triangle = LinearSweep {
 ///     profile: vec![
@@ -102,15 +102,19 @@ pub struct LinearSweep {
 
 impl LinearSweep {
     /// Convenience constructor for a profile point (x, z).
-    pub fn pt(x: f64, z: f64) -> Point2 { Point2::new(x, z) }
+    pub fn pt(x: f64, z: f64) -> Point2 {
+        Point2::new(x, z)
+    }
 
     /// Build a regular n-gon (convex polygon) profile of the given radius.
     /// The first vertex is at angle 0 (i.e. `(radius, 0)` in XZ).
     pub fn regular_polygon(n: usize, radius: f64) -> Vec<Point2> {
-        (0..n).map(|i| {
-            let a = i as f64 / n as f64 * TAU;
-            Point2::new(radius * a.cos(), radius * a.sin())
-        }).collect()
+        (0..n)
+            .map(|i| {
+                let a = i as f64 / n as f64 * TAU;
+                Point2::new(radius * a.cos(), radius * a.sin())
+            })
+            .collect()
     }
 
     /// Compute the signed area of the profile polygon.
@@ -133,9 +137,9 @@ impl Default for LinearSweep {
         Self {
             profile: vec![
                 Point2::new(-0.5, -0.5),
-                Point2::new( 0.5, -0.5),
-                Point2::new( 0.5,  0.5),
-                Point2::new(-0.5,  0.5),
+                Point2::new(0.5, -0.5),
+                Point2::new(0.5, 0.5),
+                Point2::new(-0.5, 0.5),
             ],
             height: 1.0,
         }
@@ -155,14 +159,16 @@ fn build(s: &LinearSweep) -> Result<IndexedMesh, PrimitiveError> {
     }
     if s.height <= 0.0 {
         return Err(PrimitiveError::InvalidParam(format!(
-            "height must be > 0, got {}", s.height
+            "height must be > 0, got {}",
+            s.height
         )));
     }
 
     let area = LinearSweep::signed_area(&s.profile);
     if area <= 0.0 {
         return Err(PrimitiveError::InvalidParam(format!(
-            "profile signed area must be > 0 (CCW winding), got {:.6}", area
+            "profile signed area must be > 0 (CCW winding), got {:.6}",
+            area
         )));
     }
 
@@ -177,20 +183,22 @@ fn build(s: &LinearSweep) -> Result<IndexedMesh, PrimitiveError> {
     //
     // Edge vector: d = (dx, dz) = (p_{i+1}.x - p_i.x, p_{i+1}.z - p_i.z)
     // Outward perpendicular (CCW polygon): n = (dz, -dx) normalised.
-    let edge_normals: Vec<Vector3r> = (0..n).map(|i| {
-        let j = (i + 1) % n;
-        let dx = s.profile[j].x - s.profile[i].x;
-        let dz = s.profile[j].y - s.profile[i].y;
-        // 2-D outward normal: (dz, -dx) — points right of the CCW edge direction
-        let nx = dz;
-        let nz = -dx;
-        let len = (nx * nx + nz * nz).sqrt();
-        if len > 1e-14 {
-            Vector3r::new(nx / len, 0.0, nz / len)
-        } else {
-            Vector3r::new(1.0, 0.0, 0.0)  // degenerate edge fallback
-        }
-    }).collect();
+    let edge_normals: Vec<Vector3r> = (0..n)
+        .map(|i| {
+            let j = (i + 1) % n;
+            let dx = s.profile[j].x - s.profile[i].x;
+            let dz = s.profile[j].y - s.profile[i].y;
+            // 2-D outward normal: (dz, -dx) — points right of the CCW edge direction
+            let nx = dz;
+            let nz = -dx;
+            let len = (nx * nx + nz * nz).sqrt();
+            if len > 1e-14 {
+                Vector3r::new(nx / len, 0.0, nz / len)
+            } else {
+                Vector3r::new(1.0, 0.0, 0.0) // degenerate edge fallback
+            }
+        })
+        .collect();
 
     // ── Lateral surface ───────────────────────────────────────────────────────
     //
@@ -217,7 +225,11 @@ fn build(s: &LinearSweep) -> Result<IndexedMesh, PrimitiveError> {
             let en_prev = edge_normals[prev_i];
             let avg = en + en_prev;
             let len = avg.norm();
-            if len > 1e-14 { avg / len } else { en }
+            if len > 1e-14 {
+                avg / len
+            } else {
+                en
+            }
         };
         let nj = {
             let next_j = (j + 1) % n;
@@ -225,7 +237,11 @@ fn build(s: &LinearSweep) -> Result<IndexedMesh, PrimitiveError> {
             let avg = en + en_next;
             let _ = next_j; // suppress unused warning
             let len = avg.norm();
-            if len > 1e-14 { avg / len } else { en }
+            if len > 1e-14 {
+                avg / len
+            } else {
+                en
+            }
         };
 
         let pi = &s.profile[i];
@@ -233,8 +249,8 @@ fn build(s: &LinearSweep) -> Result<IndexedMesh, PrimitiveError> {
 
         let p_bot_i = Point3r::new(pi.x, 0.0, pi.y);
         let p_bot_j = Point3r::new(pj.x, 0.0, pj.y);
-        let p_top_i = Point3r::new(pi.x, h,   pi.y);
-        let p_top_j = Point3r::new(pj.x, h,   pj.y);
+        let p_top_i = Point3r::new(pi.x, h, pi.y);
+        let p_top_j = Point3r::new(pj.x, h, pj.y);
 
         let v_bot_i = mesh.add_vertex(p_bot_i, ni);
         let v_bot_j = mesh.add_vertex(p_bot_j, nj);
@@ -268,7 +284,7 @@ fn build(s: &LinearSweep) -> Result<IndexedMesh, PrimitiveError> {
         for i in 1..(n - 1) {
             let pi = &s.profile[i];
             let pi1 = &s.profile[i + 1];
-            let vi  = mesh.add_vertex(Point3r::new(pi.x,  0.0, pi.y),  n_down);
+            let vi = mesh.add_vertex(Point3r::new(pi.x, 0.0, pi.y), n_down);
             let vi1 = mesh.add_vertex(Point3r::new(pi1.x, 0.0, pi1.y), n_down);
             // Forward fan: (v0, v_i, v_{i+1}) → covers edge bot_i→bot_j ✓, normal -Y ✓
             mesh.add_face_with_region(v0, vi, vi1, region);
@@ -293,7 +309,7 @@ fn build(s: &LinearSweep) -> Result<IndexedMesh, PrimitiveError> {
         for i in 1..(n - 1) {
             let pi = &s.profile[i];
             let pi1 = &s.profile[i + 1];
-            let vi  = mesh.add_vertex(Point3r::new(pi.x,  h, pi.y),  n_up);
+            let vi = mesh.add_vertex(Point3r::new(pi.x, h, pi.y), n_up);
             let vi1 = mesh.add_vertex(Point3r::new(pi1.x, h, pi1.y), n_up);
             // Reversed fan: (v0, v_{i+1}, v_i) → covers edge top_j→top_i ✓, normal +Y ✓
             mesh.add_face_with_region(v0, vi1, vi, region);
@@ -310,23 +326,31 @@ fn build(s: &LinearSweep) -> Result<IndexedMesh, PrimitiveError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::storage::edge_store::EdgeStore;
-    use crate::watertight::check::check_watertight;
+    use crate::application::watertight::check::check_watertight;
+    use crate::infrastructure::storage::edge_store::EdgeStore;
 
     #[test]
     fn linear_sweep_square_is_watertight() {
         // Square profile: 2×2, swept 3 mm tall → should be identical to a box
         let profile = vec![
             Point2::new(-1.0, -1.0),
-            Point2::new( 1.0, -1.0),
-            Point2::new( 1.0,  1.0),
-            Point2::new(-1.0,  1.0),
+            Point2::new(1.0, -1.0),
+            Point2::new(1.0, 1.0),
+            Point2::new(-1.0, 1.0),
         ];
-        let mesh = LinearSweep { profile, height: 3.0 }.build().unwrap();
+        let mesh = LinearSweep {
+            profile,
+            height: 3.0,
+        }
+        .build()
+        .unwrap();
         let edges = EdgeStore::from_face_store(&mesh.faces);
         let report = check_watertight(&mesh.vertices, &mesh.faces, &edges);
         assert!(report.is_closed, "sweep must be closed");
-        assert!(report.orientation_consistent, "sweep must be consistently oriented");
+        assert!(
+            report.orientation_consistent,
+            "sweep must be consistently oriented"
+        );
         assert!(report.is_watertight, "sweep must be watertight");
         assert_eq!(report.euler_characteristic, Some(2), "genus-0 solid: χ=2");
     }
@@ -336,28 +360,45 @@ mod tests {
         // 2×2 square × 3 tall → volume = 4 × 3 = 12 mm³
         let profile = vec![
             Point2::new(-1.0, -1.0),
-            Point2::new( 1.0, -1.0),
-            Point2::new( 1.0,  1.0),
-            Point2::new(-1.0,  1.0),
+            Point2::new(1.0, -1.0),
+            Point2::new(1.0, 1.0),
+            Point2::new(-1.0, 1.0),
         ];
-        let mesh = LinearSweep { profile, height: 3.0 }.build().unwrap();
+        let mesh = LinearSweep {
+            profile,
+            height: 3.0,
+        }
+        .build()
+        .unwrap();
         let edges = EdgeStore::from_face_store(&mesh.faces);
         let report = check_watertight(&mesh.vertices, &mesh.faces, &edges);
-        assert!(report.signed_volume > 0.0, "outward normals → positive volume");
+        assert!(
+            report.signed_volume > 0.0,
+            "outward normals → positive volume"
+        );
         let expected = 12.0_f64; // exact for a box
         let error = (report.signed_volume - expected).abs() / expected;
-        assert!(error < 1e-10, "square sweep volume must be exact, error={:.2e}", error);
+        assert!(
+            error < 1e-10,
+            "square sweep volume must be exact, error={:.2e}",
+            error
+        );
     }
 
     #[test]
     fn linear_sweep_triangle_is_watertight() {
         // Equilateral-ish triangle
         let profile = vec![
-            Point2::new(-1.0,  0.0),
-            Point2::new( 1.0,  0.0),
-            Point2::new( 0.0,  1.732),
+            Point2::new(-1.0, 0.0),
+            Point2::new(1.0, 0.0),
+            Point2::new(0.0, 1.732),
         ];
-        let mesh = LinearSweep { profile, height: 2.0 }.build().unwrap();
+        let mesh = LinearSweep {
+            profile,
+            height: 2.0,
+        }
+        .build()
+        .unwrap();
         let edges = EdgeStore::from_face_store(&mesh.faces);
         let report = check_watertight(&mesh.vertices, &mesh.faces, &edges);
         assert!(report.is_watertight, "triangular prism must be watertight");
@@ -381,19 +422,27 @@ mod tests {
         let expected_vol = expected_area * h;
         let error = (report.signed_volume - expected_vol).abs() / expected_vol;
         assert!(report.signed_volume > 0.0, "positive volume");
-        assert!(error < 0.01, "hexagonal prism volume error {:.4}% < 1%", error * 100.0);
+        assert!(
+            error < 0.01,
+            "hexagonal prism volume error {:.4}% < 1%",
+            error * 100.0
+        );
     }
 
     #[test]
     fn linear_sweep_rejects_cw_profile() {
         // CW profile (negative area) should be rejected
         let profile = vec![
-            Point2::new(-1.0,  1.0),
-            Point2::new( 1.0,  1.0),
-            Point2::new( 1.0, -1.0),
+            Point2::new(-1.0, 1.0),
+            Point2::new(1.0, 1.0),
+            Point2::new(1.0, -1.0),
             Point2::new(-1.0, -1.0),
         ];
-        let result = LinearSweep { profile, height: 1.0 }.build();
+        let result = LinearSweep {
+            profile,
+            height: 1.0,
+        }
+        .build();
         assert!(result.is_err(), "CW profile should return InvalidParam");
     }
 
@@ -401,20 +450,25 @@ mod tests {
     fn linear_sweep_rejects_zero_height() {
         let profile = vec![
             Point2::new(-1.0, -1.0),
-            Point2::new( 1.0, -1.0),
-            Point2::new( 1.0,  1.0),
+            Point2::new(1.0, -1.0),
+            Point2::new(1.0, 1.0),
         ];
-        let result = LinearSweep { profile, height: 0.0 }.build();
+        let result = LinearSweep {
+            profile,
+            height: 0.0,
+        }
+        .build();
         assert!(result.is_err());
     }
 
     #[test]
     fn linear_sweep_rejects_too_few_points() {
-        let profile = vec![
-            Point2::new(-1.0, -1.0),
-            Point2::new( 1.0, -1.0),
-        ];
-        let result = LinearSweep { profile, height: 1.0 }.build();
+        let profile = vec![Point2::new(-1.0, -1.0), Point2::new(1.0, -1.0)];
+        let result = LinearSweep {
+            profile,
+            height: 1.0,
+        }
+        .build();
         assert!(result.is_err());
     }
 }

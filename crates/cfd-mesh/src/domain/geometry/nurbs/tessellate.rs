@@ -1,4 +1,4 @@
-﻿//! Curvature-adaptive tessellation of NURBS curves and surfaces.
+//! Curvature-adaptive tessellation of NURBS curves and surfaces.
 //!
 //! # Surface tessellation algorithm
 //!
@@ -18,10 +18,10 @@
 //!    midpoint and recurse on both halves.
 //! 4. Return the ordered list of 3-D sample positions.
 
-use crate::core::scalar::{Real, Point3r};
-use crate::mesh::IndexedMesh;
 use super::curve::NurbsCurve;
 use super::surface::NurbsSurface;
+use crate::domain::core::scalar::{Point3r, Real};
+use crate::domain::mesh::IndexedMesh;
 use nalgebra::UnitVector3;
 
 // ---------------------------------------------------------------------------
@@ -54,7 +54,9 @@ impl Default for TessellationOptions {
 
 impl TessellationOptions {
     /// Create with default settings.
-    pub fn new() -> Self { Self::default() }
+    pub fn new() -> Self {
+        Self::default()
+    }
 
     /// Set the maximum deviation angle in degrees (builder pattern).
     pub fn with_max_angle(mut self, deg: Real) -> Self {
@@ -82,11 +84,7 @@ fn angle_deg(a: UnitVector3<Real>, b: UnitVector3<Real>) -> Real {
 
 /// Maximum normal deviation (degrees) at the four corners of a parameter quad.
 /// Returns 0.0 if fewer than 2 normals could be computed (degenerate surface).
-fn quad_max_angle_deg(
-    surf: &NurbsSurface,
-    u0: Real, v0: Real,
-    u1: Real, v1: Real,
-) -> Real {
+fn quad_max_angle_deg(surf: &NurbsSurface, u0: Real, v0: Real, u1: Real, v1: Real) -> Real {
     let corners = [(u0, v0), (u1, v0), (u0, v1), (u1, v1)];
     let normals: Vec<UnitVector3<Real>> = corners
         .iter()
@@ -97,7 +95,9 @@ fn quad_max_angle_deg(
     for i in 0..normals.len() {
         for j in (i + 1)..normals.len() {
             let a = angle_deg(normals[i], normals[j]);
-            if a > max_a { max_a = a; }
+            if a > max_a {
+                max_a = a;
+            }
         }
     }
     max_a
@@ -108,8 +108,10 @@ fn quad_max_angle_deg(
 /// Appends leaf quads `(u0, v0, u1, v1)` to `leaves`.
 fn subdivide_quad(
     surf: &NurbsSurface,
-    u0: Real, v0: Real,
-    u1: Real, v1: Real,
+    u0: Real,
+    v0: Real,
+    u1: Real,
+    v1: Real,
     depth: usize,
     opts: &TessellationOptions,
     leaves: &mut Vec<(Real, Real, Real, Real)>,
@@ -147,8 +149,8 @@ fn subdivide_quad(
 ///
 /// # Example
 /// ```rust,ignore
-/// use cfd_mesh::geometry::nurbs::surface::NurbsSurface;
-/// use cfd_mesh::geometry::nurbs::tessellate::{TessellationOptions, tessellate_surface};
+/// use cfd_mesh::domain::geometry::nurbs::surface::NurbsSurface;
+/// use cfd_mesh::domain::geometry::nurbs::tessellate::{TessellationOptions, tessellate_surface};
 ///
 /// let opts = TessellationOptions::new().with_max_angle(2.0).with_min_segments(8);
 /// let mesh = tessellate_surface(&my_surf, &opts);
@@ -199,7 +201,7 @@ pub fn tessellate_surface(surf: &NurbsSurface, opts: &TessellationOptions) -> In
 ///
 /// # Example
 /// ```rust,ignore
-/// use cfd_mesh::geometry::nurbs::tessellate::{TessellationOptions, tessellate_curve};
+/// use cfd_mesh::domain::geometry::nurbs::tessellate::{TessellationOptions, tessellate_curve};
 ///
 /// let pts = tessellate_curve(&my_curve, &TessellationOptions::default());
 /// assert!(pts.len() >= 2);
@@ -273,44 +275,66 @@ fn subdivide_curve_segment(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use super::super::surface::{ControlGrid, NurbsSurface};
     use super::super::curve::NurbsCurve;
     use super::super::knot::KnotVector;
+    use super::super::surface::{ControlGrid, NurbsSurface};
+    use super::*;
     use nalgebra::SVector;
 
     type V3 = SVector<Real, 3>;
-    fn v3(x: Real, y: Real, z: Real) -> V3 { V3::new(x, y, z) }
-    fn pt3(x: Real, y: Real, z: Real) -> Point3r { Point3r::new(x, y, z) }
+    fn v3(x: Real, y: Real, z: Real) -> V3 {
+        V3::new(x, y, z)
+    }
+    fn pt3(x: Real, y: Real, z: Real) -> Point3r {
+        Point3r::new(x, y, z)
+    }
 
     // -- Surface tessellation --
 
     #[test]
     fn tessellate_flat_surface_produces_triangles() {
         let pts = vec![
-            pt3(0.0, 0.0, 0.0), pt3(1.0, 0.0, 0.0),
-            pt3(0.0, 1.0, 0.0), pt3(1.0, 1.0, 0.0),
+            pt3(0.0, 0.0, 0.0),
+            pt3(1.0, 0.0, 0.0),
+            pt3(0.0, 1.0, 0.0),
+            pt3(1.0, 1.0, 0.0),
         ];
         let surf = NurbsSurface::clamped(ControlGrid::new(pts, 2, 2), 1, 1).unwrap();
-        let opts = TessellationOptions { min_segments: 2, max_angle_deg: 5.0, max_depth: 3 };
+        let opts = TessellationOptions {
+            min_segments: 2,
+            max_angle_deg: 5.0,
+            max_depth: 3,
+        };
         let mesh = tessellate_surface(&surf, &opts);
         // 2*2 coarse grid -> 4 quads -> 8 triangles (all flat, no subdivision)
-        assert_eq!(mesh.face_count(), 8, "flat 2x2 grid should give exactly 8 triangles");
+        assert_eq!(
+            mesh.face_count(),
+            8,
+            "flat 2x2 grid should give exactly 8 triangles"
+        );
         assert!(mesh.vertex_count() >= 3);
     }
 
     #[test]
     fn tessellate_flat_surface_vertices_on_plane() {
         let pts = vec![
-            pt3(0.0, 0.0, 0.0), pt3(2.0, 0.0, 0.0),
-            pt3(0.0, 2.0, 0.0), pt3(2.0, 2.0, 0.0),
+            pt3(0.0, 0.0, 0.0),
+            pt3(2.0, 0.0, 0.0),
+            pt3(0.0, 2.0, 0.0),
+            pt3(2.0, 2.0, 0.0),
         ];
         let surf = NurbsSurface::clamped(ControlGrid::new(pts, 2, 2), 1, 1).unwrap();
-        let opts = TessellationOptions { min_segments: 4, max_angle_deg: 5.0, max_depth: 4 };
+        let opts = TessellationOptions {
+            min_segments: 4,
+            max_angle_deg: 5.0,
+            max_depth: 4,
+        };
         let mesh = tessellate_surface(&surf, &opts);
         // Every vertex of a flat (z=0) surface should have z == 0
         for i in 0..mesh.vertex_count() {
-            let pos = mesh.vertices.position(crate::core::index::VertexId::new(i as u32));
+            let pos = mesh
+                .vertices
+                .position(crate::domain::core::index::VertexId::new(i as u32));
             assert!(pos.z.abs() < 1e-10, "vertex z={} should be ~0", pos.z);
         }
     }
@@ -318,11 +342,17 @@ mod tests {
     #[test]
     fn tessellate_surface_min_segments_respected() {
         let pts = vec![
-            pt3(0.0, 0.0, 0.0), pt3(1.0, 0.0, 0.0),
-            pt3(0.0, 1.0, 0.0), pt3(1.0, 1.0, 0.0),
+            pt3(0.0, 0.0, 0.0),
+            pt3(1.0, 0.0, 0.0),
+            pt3(0.0, 1.0, 0.0),
+            pt3(1.0, 1.0, 0.0),
         ];
         let surf = NurbsSurface::clamped(ControlGrid::new(pts, 2, 2), 1, 1).unwrap();
-        let opts = TessellationOptions { min_segments: 8, max_angle_deg: 100.0, max_depth: 0 };
+        let opts = TessellationOptions {
+            min_segments: 8,
+            max_angle_deg: 100.0,
+            max_depth: 0,
+        };
         // max_angle=100 deg means no subdivision beyond min_segments; depth=0 means stop immediately
         // 8x8 = 64 quads -> 128 triangles
         let mesh = tessellate_surface(&surf, &opts);
@@ -338,7 +368,11 @@ mod tests {
         let weights = vec![1.0_f64; 2];
         let knots = KnotVector::clamped_uniform(1, 1);
         let curve = NurbsCurve::new(ctrl, weights, knots, 1).unwrap();
-        let opts = TessellationOptions { min_segments: 4, max_angle_deg: 5.0, max_depth: 4 };
+        let opts = TessellationOptions {
+            min_segments: 4,
+            max_angle_deg: 5.0,
+            max_depth: 4,
+        };
         let pts = tessellate_curve(&curve, &opts);
         assert!(pts.len() >= 2);
         // First point near (0,0,0), last point near (1,1,1)
@@ -367,10 +401,17 @@ mod tests {
         let weights = vec![1.0_f64; 3];
         let knots = KnotVector::clamped_uniform(2, 2);
         let curve = NurbsCurve::new(ctrl, weights, knots, 2).unwrap();
-        let opts = TessellationOptions { min_segments: 8, max_angle_deg: 100.0, max_depth: 0 };
+        let opts = TessellationOptions {
+            min_segments: 8,
+            max_angle_deg: 100.0,
+            max_depth: 0,
+        };
         let pts = tessellate_curve(&curve, &opts);
         // With max_angle=100 and max_depth=0, only min_segments cuts are made
-        assert_eq!(pts.len(), opts.min_segments + 1, "should have min_segments+1 points");
+        assert_eq!(
+            pts.len(),
+            opts.min_segments + 1,
+            "should have min_segments+1 points"
+        );
     }
 }
-

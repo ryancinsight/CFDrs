@@ -40,9 +40,9 @@
 
 use std::f64::consts::TAU;
 
-use crate::core::scalar::{Point3r, Vector3r};
-use crate::mesh::IndexedMesh;
-use super::{PrimitiveMesh, PrimitiveError};
+use super::{PrimitiveError, PrimitiveMesh};
+use crate::domain::core::scalar::{Point3r, Vector3r};
+use crate::domain::mesh::IndexedMesh;
 
 /// Flat circular disk in the plane `y = base_center.y`.
 ///
@@ -66,8 +66,8 @@ pub struct Disk {
 impl Default for Disk {
     fn default() -> Self {
         Self {
-            center:   Point3r::origin(),
-            radius:   1.0,
+            center: Point3r::origin(),
+            radius: 1.0,
             segments: 32,
         }
     }
@@ -76,9 +76,10 @@ impl Default for Disk {
 impl PrimitiveMesh for Disk {
     fn build(&self) -> Result<IndexedMesh, PrimitiveError> {
         if self.radius <= 0.0 {
-            return Err(PrimitiveError::InvalidParam(
-                format!("Disk radius must be > 0, got {}", self.radius),
-            ));
+            return Err(PrimitiveError::InvalidParam(format!(
+                "Disk radius must be > 0, got {}",
+                self.radius
+            )));
         }
         if self.segments < 3 {
             return Err(PrimitiveError::TooFewSegments(self.segments));
@@ -129,9 +130,13 @@ mod tests {
     use approx::assert_relative_eq;
 
     fn build_disk(r: f64, n: usize) -> IndexedMesh {
-        Disk { center: Point3r::origin(), radius: r, segments: n }
-            .build()
-            .expect("Disk::build failed")
+        Disk {
+            center: Point3r::origin(),
+            radius: r,
+            segments: n,
+        }
+        .build()
+        .expect("Disk::build failed")
     }
 
     /// # Theorem
@@ -169,14 +174,18 @@ mod tests {
     fn disk_area_converges_to_pi_r_squared() {
         let r = 2.5_f64;
         let mesh = build_disk(r, 256);
-        let area: f64 = mesh.faces.iter().map(|f| {
-            let a = mesh.vertices.position(f.vertices[0]);
-            let b = mesh.vertices.position(f.vertices[1]);
-            let c = mesh.vertices.position(f.vertices[2]);
-            let ab = b - a;
-            let ac = c - a;
-            ab.cross(&ac).norm() * 0.5
-        }).sum();
+        let area: f64 = mesh
+            .faces
+            .iter()
+            .map(|f| {
+                let a = mesh.vertices.position(f.vertices[0]);
+                let b = mesh.vertices.position(f.vertices[1]);
+                let c = mesh.vertices.position(f.vertices[2]);
+                let ab = b - a;
+                let ac = c - a;
+                ab.cross(&ac).norm() * 0.5
+            })
+            .sum();
         let expected = std::f64::consts::PI * r * r;
         let err = (area - expected).abs() / expected;
         assert!(err < 0.001, "area error {:.4}% > 0.1%", err * 100.0);
@@ -196,14 +205,24 @@ mod tests {
     /// Disk rejects non-positive radius.
     #[test]
     fn disk_rejects_zero_radius() {
-        let err = Disk { center: Point3r::origin(), radius: 0.0, segments: 32 }.build();
+        let err = Disk {
+            center: Point3r::origin(),
+            radius: 0.0,
+            segments: 32,
+        }
+        .build();
         assert!(err.is_err());
     }
 
     /// Disk rejects too few segments.
     #[test]
     fn disk_rejects_too_few_segments() {
-        let err = Disk { center: Point3r::origin(), radius: 1.0, segments: 2 }.build();
+        let err = Disk {
+            center: Point3r::origin(),
+            radius: 1.0,
+            segments: 2,
+        }
+        .build();
         assert!(err.is_err());
     }
 
@@ -215,7 +234,9 @@ mod tests {
             center: Point3r::new(1.0, cy, -2.0),
             radius: 0.5,
             segments: 16,
-        }.build().expect("build failed");
+        }
+        .build()
+        .expect("build failed");
         for (_, v) in disk.vertices.iter() {
             assert_relative_eq!(v.position.y, cy, epsilon = 1e-12);
         }

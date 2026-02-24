@@ -2,10 +2,10 @@
 
 use std::f64::consts::{PI, TAU};
 
-use crate::core::index::RegionId;
-use crate::core::scalar::{Point3r, Vector3r};
-use crate::mesh::IndexedMesh;
-use super::{PrimitiveMesh, PrimitiveError};
+use super::{PrimitiveError, PrimitiveMesh};
+use crate::domain::core::index::RegionId;
+use crate::domain::core::scalar::{Point3r, Vector3r};
+use crate::domain::mesh::IndexedMesh;
 
 /// Builds a triaxial ellipsoid.
 ///
@@ -79,17 +79,20 @@ impl PrimitiveMesh for Ellipsoid {
 fn build(e: &Ellipsoid) -> Result<IndexedMesh, PrimitiveError> {
     if e.semi_x <= 0.0 {
         return Err(PrimitiveError::InvalidParam(format!(
-            "semi_x must be > 0, got {}", e.semi_x
+            "semi_x must be > 0, got {}",
+            e.semi_x
         )));
     }
     if e.semi_y <= 0.0 {
         return Err(PrimitiveError::InvalidParam(format!(
-            "semi_y must be > 0, got {}", e.semi_y
+            "semi_y must be > 0, got {}",
+            e.semi_y
         )));
     }
     if e.semi_z <= 0.0 {
         return Err(PrimitiveError::InvalidParam(format!(
-            "semi_z must be > 0, got {}", e.semi_z
+            "semi_z must be > 0, got {}",
+            e.semi_z
         )));
     }
     if e.segments < 3 {
@@ -97,7 +100,8 @@ fn build(e: &Ellipsoid) -> Result<IndexedMesh, PrimitiveError> {
     }
     if e.stacks < 2 {
         return Err(PrimitiveError::InvalidParam(format!(
-            "stacks must be ≥ 2, got {}", e.stacks
+            "stacks must be ≥ 2, got {}",
+            e.stacks
         )));
     }
 
@@ -117,11 +121,7 @@ fn build(e: &Ellipsoid) -> Result<IndexedMesh, PrimitiveError> {
         let cp = phi.cos();
         let ct = theta.cos();
         let st = theta.sin();
-        let pos = Point3r::new(
-            cx + a * sp * ct,
-            cy + b * cp,
-            cz + c * sp * st,
-        );
+        let pos = Point3r::new(cx + a * sp * ct, cy + b * cp, cz + c * sp * st);
         // Raw gradient direction: (sp*ct/a, cp/b, sp*st/c)
         let nx = sp * ct / a;
         let ny = cp / b;
@@ -174,8 +174,8 @@ fn build(e: &Ellipsoid) -> Result<IndexedMesh, PrimitiveError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::storage::edge_store::EdgeStore;
-    use crate::watertight::check::check_watertight;
+    use crate::application::watertight::check::check_watertight;
+    use crate::infrastructure::storage::edge_store::EdgeStore;
     use std::f64::consts::PI;
 
     #[test]
@@ -191,16 +191,25 @@ mod tests {
     fn ellipsoid_volume_positive_and_approximately_correct() {
         let (a, b, c) = (2.0_f64, 1.0_f64, 1.5_f64);
         let mesh = Ellipsoid {
-            semi_x: a, semi_y: b, semi_z: c,
-            segments: 64, stacks: 32,
+            semi_x: a,
+            semi_y: b,
+            semi_z: c,
+            segments: 64,
+            stacks: 32,
             ..Ellipsoid::default()
-        }.build().unwrap();
+        }
+        .build()
+        .unwrap();
         let edges = EdgeStore::from_face_store(&mesh.faces);
         let report = check_watertight(&mesh.vertices, &mesh.faces, &edges);
         assert!(report.signed_volume > 0.0);
         let expected = 4.0 / 3.0 * PI * a * b * c;
         let error = (report.signed_volume - expected).abs() / expected;
-        assert!(error < 0.005, "volume error {:.4}% should be < 0.5% at 64×32", error * 100.0);
+        assert!(
+            error < 0.005,
+            "volume error {:.4}% should be < 0.5% at 64×32",
+            error * 100.0
+        );
     }
 
     #[test]
@@ -208,10 +217,15 @@ mod tests {
         // When a=b=c=r the ellipsoid should match the UvSphere volume exactly.
         let r = 1.0_f64;
         let mesh = Ellipsoid {
-            semi_x: r, semi_y: r, semi_z: r,
-            segments: 64, stacks: 32,
+            semi_x: r,
+            semi_y: r,
+            semi_z: r,
+            segments: 64,
+            stacks: 32,
             ..Ellipsoid::default()
-        }.build().unwrap();
+        }
+        .build()
+        .unwrap();
         let edges = EdgeStore::from_face_store(&mesh.faces);
         let report = check_watertight(&mesh.vertices, &mesh.faces, &edges);
         let expected = 4.0 * PI / 3.0 * r * r * r;
@@ -221,10 +235,35 @@ mod tests {
 
     #[test]
     fn ellipsoid_rejects_invalid_params() {
-        assert!(Ellipsoid { semi_x: 0.0, ..Ellipsoid::default() }.build().is_err());
-        assert!(Ellipsoid { semi_y: -1.0, ..Ellipsoid::default() }.build().is_err());
-        assert!(Ellipsoid { semi_z: 0.0, ..Ellipsoid::default() }.build().is_err());
-        assert!(Ellipsoid { segments: 2, ..Ellipsoid::default() }.build().is_err());
-        assert!(Ellipsoid { stacks: 1, ..Ellipsoid::default() }.build().is_err());
+        assert!(Ellipsoid {
+            semi_x: 0.0,
+            ..Ellipsoid::default()
+        }
+        .build()
+        .is_err());
+        assert!(Ellipsoid {
+            semi_y: -1.0,
+            ..Ellipsoid::default()
+        }
+        .build()
+        .is_err());
+        assert!(Ellipsoid {
+            semi_z: 0.0,
+            ..Ellipsoid::default()
+        }
+        .build()
+        .is_err());
+        assert!(Ellipsoid {
+            segments: 2,
+            ..Ellipsoid::default()
+        }
+        .build()
+        .is_err());
+        assert!(Ellipsoid {
+            stacks: 1,
+            ..Ellipsoid::default()
+        }
+        .build()
+        .is_err());
     }
 }

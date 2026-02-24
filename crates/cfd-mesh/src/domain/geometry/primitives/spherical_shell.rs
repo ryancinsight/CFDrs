@@ -3,10 +3,10 @@
 use std::f64::consts::PI;
 use std::f64::consts::TAU;
 
-use crate::core::index::RegionId;
-use crate::core::scalar::{Point3r, Vector3r};
-use crate::mesh::IndexedMesh;
-use super::{PrimitiveMesh, PrimitiveError};
+use super::{PrimitiveError, PrimitiveMesh};
+use crate::domain::core::index::RegionId;
+use crate::domain::core::scalar::{Point3r, Vector3r};
+use crate::domain::mesh::IndexedMesh;
 
 /// Builds a hollow sphere — two concentric sphere surfaces connected by
 /// annular polar caps.
@@ -70,7 +70,8 @@ impl PrimitiveMesh for SphericalShell {
 fn build(s: &SphericalShell) -> Result<IndexedMesh, PrimitiveError> {
     if s.inner_radius <= 0.0 {
         return Err(PrimitiveError::InvalidParam(format!(
-            "inner_radius must be > 0, got {}", s.inner_radius
+            "inner_radius must be > 0, got {}",
+            s.inner_radius
         )));
     }
     if s.outer_radius <= s.inner_radius {
@@ -83,9 +84,7 @@ fn build(s: &SphericalShell) -> Result<IndexedMesh, PrimitiveError> {
         return Err(PrimitiveError::TooFewSegments(s.segments));
     }
     if s.stacks < 3 {
-        return Err(PrimitiveError::InvalidParam(
-            "stacks must be ≥ 3".into()
-        ));
+        return Err(PrimitiveError::InvalidParam("stacks must be ≥ 3".into()));
     }
 
     let region = RegionId::new(1);
@@ -103,38 +102,44 @@ fn build(s: &SphericalShell) -> Result<IndexedMesh, PrimitiveError> {
     // This creates nk-1 latitudinal rings (indices 1 .. nk-1 inclusive).
 
     // Build outer ring VertexId arrays (phi rings 1 to nk-1)
-    let mut outer_rings: Vec<Vec<crate::core::index::VertexId>> = Vec::with_capacity(nk - 1);
-    for k in 0..nk-1 {
+    let mut outer_rings: Vec<Vec<crate::domain::core::index::VertexId>> =
+        Vec::with_capacity(nk - 1);
+    for k in 0..nk - 1 {
         let phi = (k + 1) as f64 / nk as f64 * PI;
         let sp = phi.sin();
         let cp = phi.cos();
         let y = cy + ro * cp;
-        let row: Vec<_> = (0..ns).map(|j| {
-            let theta = j as f64 / ns as f64 * TAU;
-            let ct = theta.cos();
-            let st = theta.sin();
-            let pos = Point3r::new(cx + ro * sp * ct, y, cz + ro * sp * st);
-            let n = Vector3r::new(sp * ct, cp, sp * st);
-            mesh.add_vertex(pos, n)
-        }).collect();
+        let row: Vec<_> = (0..ns)
+            .map(|j| {
+                let theta = j as f64 / ns as f64 * TAU;
+                let ct = theta.cos();
+                let st = theta.sin();
+                let pos = Point3r::new(cx + ro * sp * ct, y, cz + ro * sp * st);
+                let n = Vector3r::new(sp * ct, cp, sp * st);
+                mesh.add_vertex(pos, n)
+            })
+            .collect();
         outer_rings.push(row);
     }
 
     // Build inner ring VertexId arrays
-    let mut inner_rings: Vec<Vec<crate::core::index::VertexId>> = Vec::with_capacity(nk - 1);
-    for k in 0..nk-1 {
+    let mut inner_rings: Vec<Vec<crate::domain::core::index::VertexId>> =
+        Vec::with_capacity(nk - 1);
+    for k in 0..nk - 1 {
         let phi = (k + 1) as f64 / nk as f64 * PI;
         let sp = phi.sin();
         let cp = phi.cos();
         let y = cy + ri * cp;
-        let row: Vec<_> = (0..ns).map(|j| {
-            let theta = j as f64 / ns as f64 * TAU;
-            let ct = theta.cos();
-            let st = theta.sin();
-            let pos = Point3r::new(cx + ri * sp * ct, y, cz + ri * sp * st);
-            let n = Vector3r::new(-sp * ct, -cp, -sp * st);
-            mesh.add_vertex(pos, n)
-        }).collect();
+        let row: Vec<_> = (0..ns)
+            .map(|j| {
+                let theta = j as f64 / ns as f64 * TAU;
+                let ct = theta.cos();
+                let st = theta.sin();
+                let pos = Point3r::new(cx + ri * sp * ct, y, cz + ri * sp * st);
+                let n = Vector3r::new(-sp * ct, -cp, -sp * st);
+                mesh.add_vertex(pos, n)
+            })
+            .collect();
         inner_rings.push(row);
     }
 
@@ -173,17 +178,17 @@ fn build(s: &SphericalShell) -> Result<IndexedMesh, PrimitiveError> {
     {
         for j in 0..ns {
             let j1 = (j + 1) % ns;
-            let oi  = outer_rings[0][j];
+            let oi = outer_rings[0][j];
             let oi1 = outer_rings[0][j1];
-            let ii  = inner_rings[0][j];
+            let ii = inner_rings[0][j];
             let ii1 = inner_rings[0][j1];
             // Face 1: (oi, oi1, ii1) provides outer[j]->outer[j1] (opposite of lateral)
             //         and inner[j1]->inner[j] via face 2 below... wait let me recalculate
             // Need: oi->oi1 (opposite of lateral oi1->oi) and ii1->ii (opposite of lateral ii->ii1)
             // Face 1 (oi, ii1, ii): edges oi->ii1, ii1->ii (correct for inner), ii->oi
             // Face 2 (oi, oi1, ii1): edges oi->oi1 (correct for outer), oi1->ii1, ii1->oi
-            mesh.add_face_with_region(oi,  ii1, ii,  region);
-            mesh.add_face_with_region(oi,  oi1, ii1, region);
+            mesh.add_face_with_region(oi, ii1, ii, region);
+            mesh.add_face_with_region(oi, oi1, ii1, region);
         }
     }
 
@@ -196,15 +201,15 @@ fn build(s: &SphericalShell) -> Result<IndexedMesh, PrimitiveError> {
         let inner_last_k = inner_rings.len() - 1;
         for j in 0..ns {
             let j1 = (j + 1) % ns;
-            let oi  = outer_rings[outer_last_k][j];
+            let oi = outer_rings[outer_last_k][j];
             let oi1 = outer_rings[outer_last_k][j1];
-            let ii  = inner_rings[inner_last_k][j];
+            let ii = inner_rings[inner_last_k][j];
             let ii1 = inner_rings[inner_last_k][j1];
             // Need: oi1->oi (opposite of lateral oi->oi1) and ii->ii1 (opposite of lateral ii1->ii)
             // Face 1 (ii, ii1, oi1): edges ii->ii1 (correct), ii1->oi1, oi1->ii
             // Face 2 (ii, oi1, oi): edges ii->oi1, oi1->oi (correct), oi->ii
-            mesh.add_face_with_region(ii,  ii1, oi1, region);
-            mesh.add_face_with_region(ii,  oi1, oi,  region);
+            mesh.add_face_with_region(ii, ii1, oi1, region);
+            mesh.add_face_with_region(ii, oi1, oi, region);
         }
     }
 
@@ -219,8 +224,8 @@ fn build(s: &SphericalShell) -> Result<IndexedMesh, PrimitiveError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::storage::edge_store::EdgeStore;
-    use crate::watertight::check::check_watertight;
+    use crate::application::watertight::check::check_watertight;
+    use crate::infrastructure::storage::edge_store::EdgeStore;
     use std::f64::consts::PI;
 
     #[test]
@@ -229,10 +234,16 @@ mod tests {
         let edges = EdgeStore::from_face_store(&mesh.faces);
         let report = check_watertight(&mesh.vertices, &mesh.faces, &edges);
         assert!(report.is_closed, "shell must be closed");
-        assert!(report.orientation_consistent, "shell must be consistently oriented");
+        assert!(
+            report.orientation_consistent,
+            "shell must be consistently oriented"
+        );
         // Genus 1 (through-bore at poles) → χ = 0
-        assert_eq!(report.euler_characteristic, Some(0),
-            "spherical shell Euler characteristic must be 0 (genus 1)");
+        assert_eq!(
+            report.euler_characteristic,
+            Some(0),
+            "spherical shell Euler characteristic must be 0 (genus 1)"
+        );
         assert!(report.is_watertight, "shell passes watertight check");
     }
 
@@ -240,23 +251,52 @@ mod tests {
     fn spherical_shell_volume_positive_and_approximately_correct() {
         let (ri, ro) = (0.9_f64, 1.0_f64);
         let mesh = SphericalShell {
-            outer_radius: ro, inner_radius: ri,
-            segments: 64, stacks: 32,
+            outer_radius: ro,
+            inner_radius: ri,
+            segments: 64,
+            stacks: 32,
             ..SphericalShell::default()
-        }.build().unwrap();
+        }
+        .build()
+        .unwrap();
         let edges = EdgeStore::from_face_store(&mesh.faces);
         let report = check_watertight(&mesh.vertices, &mesh.faces, &edges);
         assert!(report.signed_volume > 0.0);
         let expected = 4.0 / 3.0 * PI * (ro * ro * ro - ri * ri * ri);
         let error = (report.signed_volume - expected).abs() / expected;
-        assert!(error < 0.01, "volume error {:.4}% should be < 1%", error * 100.0);
+        assert!(
+            error < 0.01,
+            "volume error {:.4}% should be < 1%",
+            error * 100.0
+        );
     }
 
     #[test]
     fn spherical_shell_rejects_invalid_params() {
-        assert!(SphericalShell { inner_radius: 0.0, ..SphericalShell::default() }.build().is_err());
-        assert!(SphericalShell { outer_radius: 0.8, inner_radius: 0.9, ..SphericalShell::default() }.build().is_err());
-        assert!(SphericalShell { segments: 2, ..SphericalShell::default() }.build().is_err());
-        assert!(SphericalShell { stacks: 2, ..SphericalShell::default() }.build().is_err());
+        assert!(SphericalShell {
+            inner_radius: 0.0,
+            ..SphericalShell::default()
+        }
+        .build()
+        .is_err());
+        assert!(SphericalShell {
+            outer_radius: 0.8,
+            inner_radius: 0.9,
+            ..SphericalShell::default()
+        }
+        .build()
+        .is_err());
+        assert!(SphericalShell {
+            segments: 2,
+            ..SphericalShell::default()
+        }
+        .build()
+        .is_err());
+        assert!(SphericalShell {
+            stacks: 2,
+            ..SphericalShell::default()
+        }
+        .build()
+        .is_err());
     }
 }

@@ -1,26 +1,26 @@
 use cfd_3d::fem::{FemConfig, FemSolver, StokesFlowProblem};
 use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
-use cfd_mesh::mesh::Mesh;
-use cfd_mesh::topology::{Cell, Face, Vertex};
+use cfd_mesh::IndexedMesh;
+use cfd_mesh::domain::topology::{Cell, Face};
 use nalgebra::Point3;
 use std::collections::HashMap;
 
 #[test]
 fn test_robin_bc_assembly() {
     // Create a single tetrahedron mesh
-    let mut mesh = Mesh::new();
-    mesh.add_vertex(Vertex::new(Point3::new(0.0, 0.0, 0.0)));
-    mesh.add_vertex(Vertex::new(Point3::new(1.0, 0.0, 0.0)));
-    mesh.add_vertex(Vertex::new(Point3::new(0.0, 1.0, 0.0)));
-    mesh.add_vertex(Vertex::new(Point3::new(0.0, 0.0, 1.0)));
+    let mut mesh = IndexedMesh::new();
+    let v0 = mesh.add_vertex_pos(Point3::new(0.0, 0.0, 0.0));
+    let v1 = mesh.add_vertex_pos(Point3::new(1.0, 0.0, 0.0));
+    let v2 = mesh.add_vertex_pos(Point3::new(0.0, 1.0, 0.0));
+    let v3 = mesh.add_vertex_pos(Point3::new(0.0, 0.0, 1.0));
 
-    let f0 = mesh.add_face(Face::triangle(0, 1, 2));
-    let f1 = mesh.add_face(Face::triangle(0, 1, 3));
-    let f2 = mesh.add_face(Face::triangle(1, 2, 3));
-    let f3 = mesh.add_face(Face::triangle(2, 0, 3));
+    let f0 = mesh.add_face(v0, v1, v2).0;
+    let f1 = mesh.add_face(v0, v1, v3).0;
+    let f2 = mesh.add_face(v1, v2, v3).0;
+    let f3 = mesh.add_face(v2, v0, v3).0;
 
-    mesh.add_cell(Cell::tetrahedron(f0, f1, f2, f3));
+    mesh.add_cell(Cell::tetrahedron(f0 as usize, f1 as usize, f2 as usize, f3 as usize));
 
     // Setup Fluid
     let fluid = ConstantPropertyFluid::water_20c().unwrap();
@@ -38,7 +38,7 @@ fn test_robin_bc_assembly() {
         boundary_conditions.insert(i, bc.clone());
     }
 
-    let n_corner_nodes = mesh.vertices().len();
+    let n_corner_nodes = mesh.vertex_count();
     let problem = StokesFlowProblem::new(mesh, fluid, boundary_conditions, n_corner_nodes);
 
     // Setup Solver

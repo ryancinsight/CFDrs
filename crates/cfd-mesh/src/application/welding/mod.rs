@@ -15,9 +15,9 @@
 //! - [`SnapConfig`] — coordinate snapping only (no dedup); shim in `snap.rs`.
 //! - [`MeshWelder`] — batch vertex welding for existing `IndexedMesh`es.
 
+pub mod snap;
 pub mod spatial_hash;
 pub mod welder;
-pub mod snap;
 
 pub use snap::{GridCell, SnapConfig, SnappingGrid};
 pub use spatial_hash::SpatialHashGrid;

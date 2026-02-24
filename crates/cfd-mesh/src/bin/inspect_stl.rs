@@ -1,8 +1,8 @@
+use cfd_mesh::domain::core::scalar::{Point3r, Real, Vector3r};
+use std::collections::HashMap;
 use std::env;
 use std::fs::File;
 use std::io::BufReader;
-use std::collections::HashMap;
-use cfd_mesh::core::scalar::{Real, Point3r, Vector3r};
 
 #[derive(Debug, Default)]
 struct StlStats {
@@ -28,9 +28,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let path = &args[1];
     println!("Inspecting: {}", path);
 
-    let mut pool = cfd_mesh::storage::vertex_pool::VertexPool::default_millifluidic();
-    let mut faces = cfd_mesh::storage::face_store::FaceStore::new();
-    let region = cfd_mesh::core::index::RegionId::from_usize(0);
+    let mut pool =
+        cfd_mesh::infrastructure::storage::vertex_pool::VertexPool::default_millifluidic();
+    let mut faces = cfd_mesh::infrastructure::storage::face_store::FaceStore::new();
+    let region = cfd_mesh::domain::core::index::RegionId::from_usize(0);
 
     // Check if file is binary (starts with 80-byte header then u32 count).
     // ASCII usually starts with "solid".
@@ -40,7 +41,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut start = [0u8; 5];
     use std::io::Read;
     reader.read_exact(&mut start)?;
-    
+
     // Reset
     let file = File::open(path)?;
     let mut reader = BufReader::new(file);
@@ -48,7 +49,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let is_ascii = &start == b"solid";
 
     if is_ascii {
-        cfd_mesh::io::stl::read_ascii_stl(reader, &mut pool, &mut faces, region)?;
+        cfd_mesh::infrastructure::io::stl::read_ascii_stl(reader, &mut pool, &mut faces, region)?;
     } else {
         // Binary reader impl
         read_binary_stl(&mut reader, &mut pool, &mut faces, region)?;
@@ -66,13 +67,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 fn read_binary_stl<R: std::io::Read>(
     reader: &mut R,
-    pool: &mut cfd_mesh::storage::vertex_pool::VertexPool,
-    faces: &mut cfd_mesh::storage::face_store::FaceStore,
-    region: cfd_mesh::core::index::RegionId,
+    pool: &mut cfd_mesh::infrastructure::storage::vertex_pool::VertexPool,
+    faces: &mut cfd_mesh::infrastructure::storage::face_store::FaceStore,
+    region: cfd_mesh::domain::core::index::RegionId,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut header = [0u8; 80];
     reader.read_exact(&mut header)?;
-    
+
     let mut count_buf = [0u8; 4];
     reader.read_exact(&mut count_buf)?;
     let count = u32::from_le_bytes(count_buf);
@@ -80,26 +81,26 @@ fn read_binary_stl<R: std::io::Read>(
     for _ in 0..count {
         let mut buf = [0u8; 50]; // 12 (normal) + 36 (verts) + 2 (attr)
         reader.read_exact(&mut buf)?;
-        
+
         let nx = f32::from_le_bytes(buf[0..4].try_into()?);
         let ny = f32::from_le_bytes(buf[4..8].try_into()?);
         let nz = f32::from_le_bytes(buf[8..12].try_into()?);
         let normal = Vector3r::new(nx as Real, ny as Real, nz as Real);
 
-        let mut vs = [cfd_mesh::core::index::VertexId::new(0); 3];
+        let mut vs = [cfd_mesh::domain::core::index::VertexId::new(0); 3];
         for i in 0..3 {
             let offset = 12 + i * 12;
-            let vx = f32::from_le_bytes(buf[offset..offset+4].try_into()?);
-            let vy = f32::from_le_bytes(buf[offset+4..offset+8].try_into()?);
-            let vz = f32::from_le_bytes(buf[offset+8..offset+12].try_into()?);
+            let vx = f32::from_le_bytes(buf[offset..offset + 4].try_into()?);
+            let vy = f32::from_le_bytes(buf[offset + 4..offset + 8].try_into()?);
+            let vz = f32::from_le_bytes(buf[offset + 8..offset + 12].try_into()?);
             let p = Point3r::new(vx as Real, vy as Real, vz as Real);
-            
+
             // We use the normal from STL? Or recalc?
             // STL normal is often garbage. Let's store it but rely on geom.
             vs[i] = pool.insert_or_weld(p, normal);
         }
-        
-        faces.push(cfd_mesh::storage::face_store::FaceData {
+
+        faces.push(cfd_mesh::infrastructure::storage::face_store::FaceData {
             vertices: vs,
             region,
         });
@@ -108,8 +109,8 @@ fn read_binary_stl<R: std::io::Read>(
 }
 
 fn analyze_mesh(
-    pool: &cfd_mesh::storage::vertex_pool::VertexPool,
-    faces: &cfd_mesh::storage::face_store::FaceStore,
+    pool: &cfd_mesh::infrastructure::storage::vertex_pool::VertexPool,
+    faces: &cfd_mesh::infrastructure::storage::face_store::FaceStore,
 ) -> StlStats {
     let mut stats = StlStats::default();
     stats.triangle_count = faces.len();
@@ -141,7 +142,7 @@ fn analyze_mesh(
         let cross = edge1.cross(&edge2);
         let area = cross.norm() * 0.5;
         stats.area += area;
-        
+
         if area < 1e-9 {
             stats.degenerate_faces += 1;
         }
@@ -151,8 +152,8 @@ fn analyze_mesh(
 
         // Edges (sorted vertex pairs)
         for i in 0..3 {
-            let v_start = v[i].min(v[(i+1)%3]);
-            let v_end = v[i].max(v[(i+1)%3]);
+            let v_start = v[i].min(v[(i + 1) % 3]);
+            let v_end = v[i].max(v[(i + 1) % 3]);
             *edge_counts.entry((v_start, v_end)).or_insert(0) += 1;
         }
     }
@@ -172,16 +173,22 @@ fn print_report(stats: &StlStats) {
     println!("--- Mesh Report ---");
     println!("Triangles: {}", stats.triangle_count);
     println!("Vertices:  {}", stats.vertex_count);
-    println!("Bounds:    [{:.2}, {:.2}, {:.2}] to [{:.2}, {:.2}, {:.2}]", 
-        stats.min_corner.x, stats.min_corner.y, stats.min_corner.z,
-        stats.max_corner.x, stats.max_corner.y, stats.max_corner.z);
+    println!(
+        "Bounds:    [{:.2}, {:.2}, {:.2}] to [{:.2}, {:.2}, {:.2}]",
+        stats.min_corner.x,
+        stats.min_corner.y,
+        stats.min_corner.z,
+        stats.max_corner.x,
+        stats.max_corner.y,
+        stats.max_corner.z
+    );
     println!("Volume:    {:.4}", stats.volume);
     println!("Area:      {:.4}", stats.area);
     println!("Legacy Qs:");
     println!("  Degenerate faces:   {}", stats.degenerate_faces);
     println!("  Open edges (holes): {}", stats.open_edges);
     println!("  Non-manifold edges: {}", stats.non_manifold_edges);
-    
+
     if stats.volume < 0.0 {
         println!("WARNING: Negative volume! Mesh likely inverted (inside-out).");
     }

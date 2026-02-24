@@ -5,7 +5,7 @@
 
 use hashbrown::HashMap;
 
-use crate::core::scalar::{Real, Point3r};
+use crate::domain::core::scalar::{Point3r, Real};
 
 /// Key for a spatial hash grid cell.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
@@ -75,12 +75,7 @@ impl SpatialHashGrid {
     /// Query: find all indices within `radius` of `point`.
     ///
     /// Searches the 3×3×3 neighborhood and filters by actual distance.
-    pub fn query_radius(
-        &self,
-        point: &Point3r,
-        radius: Real,
-        positions: &[Point3r],
-    ) -> Vec<u32> {
+    pub fn query_radius(&self, point: &Point3r, radius: Real, positions: &[Point3r]) -> Vec<u32> {
         let cell = GridCell::from_point(point, self.inv_cell_size);
         let radius_sq = radius * radius;
         let mut results = Vec::new();

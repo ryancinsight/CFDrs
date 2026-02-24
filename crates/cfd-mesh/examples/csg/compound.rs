@@ -30,11 +30,11 @@ use std::fs;
 use std::io::BufWriter;
 use std::time::Instant;
 
-use cfd_mesh::core::scalar::Real;
-use cfd_mesh::csg::boolean::{BooleanOp, CsgNode, csg_boolean_indexed};
+use cfd_mesh::domain::core::scalar::Real;
+use cfd_mesh::application::csg::boolean::{BooleanOp, CsgNode, csg_boolean_indexed};
 use cfd_mesh::{Cube, IndexedMesh, NormalAnalysis, analyze_normals};
-use cfd_mesh::geometry::primitives::PrimitiveMesh;
-use cfd_mesh::io::stl;
+use cfd_mesh::domain::geometry::primitives::PrimitiveMesh;
+use cfd_mesh::infrastructure::io::stl;
 
 // BSP-cut flat-face fragments inherit zero-length vertex normals → low alignment is expected.
 // We validate geometry via exact volume instead; alignment is informational only.

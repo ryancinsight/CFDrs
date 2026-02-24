@@ -63,9 +63,9 @@
 //! regions and concentrates them at highly-curved areas — critical for smooth
 //! CFD boundary interfaces.
 
-pub mod knot;
 pub mod basis;
 pub mod curve;
+pub mod knot;
 pub mod surface;
 pub mod tessellate;
 

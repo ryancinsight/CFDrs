@@ -6,18 +6,18 @@
 use super::super::{Benchmark, BenchmarkConfig, BenchmarkResult};
 use crate::geometry::threed::Venturi3D;
 use cfd_3d::venturi::{VenturiSolver3D, VenturiConfig3D};
-use cfd_mesh::geometry::venturi::VenturiMeshBuilder;
+use cfd_mesh::VenturiMeshBuilder;
 use cfd_core::physics::fluid::blood::CarreauYasudaBlood;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
 use nalgebra::RealField;
 
 /// 3D Venturi Flow benchmark
-pub struct VenturiFlow3D<T: RealField + Copy> {
+pub struct VenturiFlow3D<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     /// The 3D venturi geometry
     pub geometry: Venturi3D<T>,
 }
 
-impl<T: RealField + Copy> VenturiFlow3D<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy> VenturiFlow3D<T> {
     /// Create a new 3D venturi flow benchmark
     pub fn new(geometry: Venturi3D<T>) -> Self {
         Self { geometry }
@@ -25,7 +25,7 @@ impl<T: RealField + Copy> VenturiFlow3D<T> {
 }
 
 impl<T: RealField + Copy + num_traits::Float + num_traits::FromPrimitive + 
-    num_traits::ToPrimitive + cfd_core::conversion::SafeFromF64 + std::convert::From<f64>> Benchmark<T> for VenturiFlow3D<T> {
+    num_traits::ToPrimitive + cfd_core::conversion::SafeFromF64 + std::convert::From<f64> + cfd_mesh::domain::core::Scalar> Benchmark<T> for VenturiFlow3D<T> {
     fn name(&self) -> &str {
         "3D Venturi Tube Flow"
     }

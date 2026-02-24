@@ -3,10 +3,10 @@
 //! For a closed manifold, every shared edge should be traversed in opposite
 //! directions by its two adjacent faces (consistent orientation).
 
-use crate::core::index::FaceId;
-use crate::core::error::{MeshError, MeshResult};
-use crate::storage::face_store::FaceStore;
-use crate::storage::edge_store::EdgeStore;
+use crate::domain::core::error::{MeshError, MeshResult};
+use crate::domain::core::index::FaceId;
+use crate::infrastructure::storage::edge_store::EdgeStore;
+use crate::infrastructure::storage::face_store::FaceStore;
 
 /// Check if all faces have consistent winding orientation.
 ///
@@ -41,9 +41,9 @@ pub fn check_orientation(face_store: &FaceStore, edge_store: &EdgeStore) -> Mesh
 
 /// Determine if edge `(a, b)` appears as `a→b` (true) or `b→a` (false) in the face.
 fn directed_edge_order(
-    verts: [crate::core::index::VertexId; 3],
-    a: crate::core::index::VertexId,
-    b: crate::core::index::VertexId,
+    verts: [crate::domain::core::index::VertexId; 3],
+    a: crate::domain::core::index::VertexId,
+    b: crate::domain::core::index::VertexId,
 ) -> Option<bool> {
     for i in 0..3 {
         let j = (i + 1) % 3;

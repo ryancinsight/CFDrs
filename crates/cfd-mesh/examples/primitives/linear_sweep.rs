@@ -18,11 +18,11 @@ use std::f64::consts::PI;
 use std::fs;
 use std::io::BufWriter;
 
+use cfd_mesh::application::watertight::check::check_watertight;
+use cfd_mesh::domain::geometry::primitives::{linear_sweep::Point2, PrimitiveMesh};
+use cfd_mesh::infrastructure::io::stl;
+use cfd_mesh::infrastructure::storage::edge_store::EdgeStore;
 use cfd_mesh::LinearSweep;
-use cfd_mesh::geometry::primitives::{PrimitiveMesh, linear_sweep::Point2};
-use cfd_mesh::io::stl;
-use cfd_mesh::storage::edge_store::EdgeStore;
-use cfd_mesh::watertight::check::check_watertight;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("=================================================================");
@@ -37,11 +37,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     {
         let profile = vec![
             Point2::new(-1.0, -1.0),
-            Point2::new( 1.0, -1.0),
-            Point2::new( 1.0,  1.0),
-            Point2::new(-1.0,  1.0),
+            Point2::new(1.0, -1.0),
+            Point2::new(1.0, 1.0),
+            Point2::new(-1.0, 1.0),
         ];
-        let sweep = LinearSweep { profile, height: 3.0 };
+        let sweep = LinearSweep {
+            profile,
+            height: 3.0,
+        };
         let mesh = sweep.build()?;
 
         let edges = EdgeStore::from_face_store(&mesh.faces);
@@ -54,8 +57,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("    Closed    : {}", report.is_closed);
         println!("    Oriented  : {}", report.orientation_consistent);
         println!("    Watertight: {}", report.is_watertight);
-        println!("    Volume    : {:.6} mm³  (expected {:.6})", report.signed_volume, expected_vol);
-        println!("    Euler χ   : {:?}  (expected 2)", report.euler_characteristic);
+        println!(
+            "    Volume    : {:.6} mm³  (expected {:.6})",
+            report.signed_volume, expected_vol
+        );
+        println!(
+            "    Euler χ   : {:?}  (expected 2)",
+            report.euler_characteristic
+        );
 
         let stl_path = out_dir.join("linear_sweep_square.stl");
         let file = fs::File::create(&stl_path)?;
@@ -84,8 +93,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("    Closed    : {}", report.is_closed);
         println!("    Oriented  : {}", report.orientation_consistent);
         println!("    Watertight: {}", report.is_watertight);
-        println!("    Volume    : {:.6} mm³  (expected {:.6})", report.signed_volume, expected_vol);
-        println!("    Euler χ   : {:?}  (expected 2)", report.euler_characteristic);
+        println!(
+            "    Volume    : {:.6} mm³  (expected {:.6})",
+            report.signed_volume, expected_vol
+        );
+        println!(
+            "    Euler χ   : {:?}  (expected 2)",
+            report.euler_characteristic
+        );
 
         let stl_path = out_dir.join("linear_sweep_hexagon.stl");
         let file = fs::File::create(&stl_path)?;
@@ -101,9 +116,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Place vertices at angles 90°, 210°, 330° (= 90 + 0, 120, 240)
         let r = 1.0_f64;
         let profile = vec![
-            Point2::new(r * (PI / 2.0).cos(),       r * (PI / 2.0).sin()),
-            Point2::new(r * (PI / 2.0 + 2.0 * PI / 3.0).cos(), r * (PI / 2.0 + 2.0 * PI / 3.0).sin()),
-            Point2::new(r * (PI / 2.0 + 4.0 * PI / 3.0).cos(), r * (PI / 2.0 + 4.0 * PI / 3.0).sin()),
+            Point2::new(r * (PI / 2.0).cos(), r * (PI / 2.0).sin()),
+            Point2::new(
+                r * (PI / 2.0 + 2.0 * PI / 3.0).cos(),
+                r * (PI / 2.0 + 2.0 * PI / 3.0).sin(),
+            ),
+            Point2::new(
+                r * (PI / 2.0 + 4.0 * PI / 3.0).cos(),
+                r * (PI / 2.0 + 4.0 * PI / 3.0).sin(),
+            ),
         ];
         let height = 2.0_f64;
         // Area of equilateral triangle with circumradius r: A = 3√3/4 × side²
@@ -122,8 +143,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("    Closed    : {}", report.is_closed);
         println!("    Oriented  : {}", report.orientation_consistent);
         println!("    Watertight: {}", report.is_watertight);
-        println!("    Volume    : {:.6} mm³  (expected {:.6})", report.signed_volume, expected_vol);
-        println!("    Euler χ   : {:?}  (expected 2)", report.euler_characteristic);
+        println!(
+            "    Volume    : {:.6} mm³  (expected {:.6})",
+            report.signed_volume, expected_vol
+        );
+        println!(
+            "    Euler χ   : {:?}  (expected 2)",
+            report.euler_characteristic
+        );
 
         let stl_path = out_dir.join("linear_sweep_triangle.stl");
         let file = fs::File::create(&stl_path)?;

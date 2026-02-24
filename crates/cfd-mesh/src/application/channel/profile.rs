@@ -1,7 +1,7 @@
 //! Cross-section profiles for channels.
 
-use crate::core::scalar::Real;
-use crate::core::constants;
+use crate::domain::core::constants;
+use crate::domain::core::scalar::Real;
 
 /// Cross-section shape for a channel.
 #[derive(Clone, Debug)]
@@ -51,12 +51,7 @@ impl ChannelProfile {
             ChannelProfile::Rectangular { width, height } => {
                 let hw = width / 2.0;
                 let hh = height / 2.0;
-                vec![
-                    [-hw, -hh],
-                    [hw, -hh],
-                    [hw, hh],
-                    [-hw, hh],
-                ]
+                vec![[-hw, -hh], [hw, -hh], [hw, hh], [-hw, hh]]
             }
             ChannelProfile::RoundedRectangular {
                 width,
@@ -72,15 +67,14 @@ impl ChannelProfile {
                 // Four corners: bottom-right, top-right, top-left, bottom-left
                 let corners = [
                     (hw, -hh, 3.0 * constants::FRAC_PI_2), // bottom-right → 270°
-                    (hw, hh, 0.0),                          // top-right → 0°
-                    (-hw, hh, constants::FRAC_PI_2),        // top-left → 90°
-                    (-hw, -hh, constants::PI),               // bottom-left → 180°
+                    (hw, hh, 0.0),                         // top-right → 0°
+                    (-hw, hh, constants::FRAC_PI_2),       // top-left → 90°
+                    (-hw, -hh, constants::PI),             // bottom-left → 180°
                 ];
 
                 for (cx, cy, start_angle) in &corners {
                     for i in 0..=n {
-                        let angle = start_angle
-                            + constants::FRAC_PI_2 * (i as Real) / (n as Real);
+                        let angle = start_angle + constants::FRAC_PI_2 * (i as Real) / (n as Real);
                         points.push([
                             cx + corner_radius * angle.cos(),
                             cy + corner_radius * angle.sin(),

@@ -1,5 +1,5 @@
 use cfd_3d::venturi::{VenturiSolver3D, VenturiConfig3D};
-use cfd_mesh::geometry::venturi::VenturiMeshBuilder;
+use cfd_mesh::VenturiMeshBuilder;
 use cfd_core::physics::fluid::blood::CassonBlood;
 use approx::assert_relative_eq;
 

@@ -1,10 +1,10 @@
 //! Regular dodecahedron primitive — 12 pentagonal faces.
 
-use crate::core::index::RegionId;
-use crate::core::scalar::{Point3r, Vector3r};
-use crate::geometry::normal::triangle_normal;
-use crate::mesh::IndexedMesh;
-use super::{PrimitiveMesh, PrimitiveError};
+use super::{PrimitiveError, PrimitiveMesh};
+use crate::domain::core::index::RegionId;
+use crate::domain::core::scalar::{Point3r, Vector3r};
+use crate::domain::geometry::normal::triangle_normal;
+use crate::domain::mesh::IndexedMesh;
 
 /// Builds a regular dodecahedron inscribed in a sphere of the given `radius`.
 ///
@@ -38,7 +38,10 @@ pub struct Dodecahedron {
 
 impl Default for Dodecahedron {
     fn default() -> Self {
-        Self { radius: 1.0, center: Point3r::origin() }
+        Self {
+            radius: 1.0,
+            center: Point3r::origin(),
+        }
     }
 }
 
@@ -59,33 +62,33 @@ const PHI: f64 = 1.618_033_988_749_895;
 /// - 12–15 (±1/φ, ±φ, 0) permutation
 /// - 16–19 (±φ, 0, ±1/φ) permutation
 fn raw_vertices() -> [[f64; 3]; 20] {
-    let p = PHI;          // φ
-    let ip = 1.0 / PHI;   // 1/φ
+    let p = PHI; // φ
+    let ip = 1.0 / PHI; // 1/φ
     [
         // cube corners
-        [ 1.0,  1.0,  1.0],  // 0
-        [ 1.0,  1.0, -1.0],  // 1
-        [ 1.0, -1.0,  1.0],  // 2
-        [ 1.0, -1.0, -1.0],  // 3
-        [-1.0,  1.0,  1.0],  // 4
-        [-1.0,  1.0, -1.0],  // 5
-        [-1.0, -1.0,  1.0],  // 6
-        [-1.0, -1.0, -1.0],  // 7
+        [1.0, 1.0, 1.0],    // 0
+        [1.0, 1.0, -1.0],   // 1
+        [1.0, -1.0, 1.0],   // 2
+        [1.0, -1.0, -1.0],  // 3
+        [-1.0, 1.0, 1.0],   // 4
+        [-1.0, 1.0, -1.0],  // 5
+        [-1.0, -1.0, 1.0],  // 6
+        [-1.0, -1.0, -1.0], // 7
         // (0, ±1/φ, ±φ) family
-        [ 0.0,  ip,  p],     // 8
-        [ 0.0,  ip, -p],     // 9
-        [ 0.0, -ip,  p],     // 10
-        [ 0.0, -ip, -p],     // 11
+        [0.0, ip, p],   // 8
+        [0.0, ip, -p],  // 9
+        [0.0, -ip, p],  // 10
+        [0.0, -ip, -p], // 11
         // (±1/φ, ±φ, 0) family
-        [ ip,  p, 0.0],      // 12
-        [ ip, -p, 0.0],      // 13
-        [-ip,  p, 0.0],      // 14
-        [-ip, -p, 0.0],      // 15
+        [ip, p, 0.0],   // 12
+        [ip, -p, 0.0],  // 13
+        [-ip, p, 0.0],  // 14
+        [-ip, -p, 0.0], // 15
         // (±φ, 0, ±1/φ) family
-        [ p, 0.0,  ip],      // 16
-        [ p, 0.0, -ip],      // 17
-        [-p, 0.0,  ip],      // 18
-        [-p, 0.0, -ip],      // 19
+        [p, 0.0, ip],   // 16
+        [p, 0.0, -ip],  // 17
+        [-p, 0.0, ip],  // 18
+        [-p, 0.0, -ip], // 19
     ]
 }
 
@@ -99,24 +102,25 @@ fn raw_vertices() -> [[f64; 3]; 20] {
 /// of a dodecahedron), and every directed edge appears once in each direction
 /// across adjacent faces — confirmed by edge-pair enumeration.
 const DODECAHEDRON_FACES: [[usize; 5]; 12] = [
-    [ 0,  8, 10,  2, 16],   // face  1 (+z cluster top)
-    [ 0, 12, 14,  4,  8],   // face  2 (+y front)
-    [ 0, 16, 17,  1, 12],   // face  3 (+x top)
-    [ 8,  4, 18,  6, 10],   // face  4 (-x front)
-    [ 4, 14,  5, 19, 18],   // face  5 (-x back)
-    [14, 12,  1,  9,  5],   // face  6 (+y back)
-    [16,  2, 13,  3, 17],   // face  7 (+x bottom)
-    [ 2, 10,  6, 15, 13],   // face  8 (-x bottom)
-    [ 6, 18, 19,  7, 15],   // face  9 (-z cluster bottom)
-    [ 1, 17,  3, 11,  9],   // face 10 (+x back)
-    [ 3, 13, 15,  7, 11],   // face 11 (-y bottom)
-    [ 5,  9, 11,  7, 19],   // face 12 (-y back)
+    [0, 8, 10, 2, 16],  // face  1 (+z cluster top)
+    [0, 12, 14, 4, 8],  // face  2 (+y front)
+    [0, 16, 17, 1, 12], // face  3 (+x top)
+    [8, 4, 18, 6, 10],  // face  4 (-x front)
+    [4, 14, 5, 19, 18], // face  5 (-x back)
+    [14, 12, 1, 9, 5],  // face  6 (+y back)
+    [16, 2, 13, 3, 17], // face  7 (+x bottom)
+    [2, 10, 6, 15, 13], // face  8 (-x bottom)
+    [6, 18, 19, 7, 15], // face  9 (-z cluster bottom)
+    [1, 17, 3, 11, 9],  // face 10 (+x back)
+    [3, 13, 15, 7, 11], // face 11 (-y bottom)
+    [5, 9, 11, 7, 19],  // face 12 (-y back)
 ];
 
 fn build(d: &Dodecahedron) -> Result<IndexedMesh, PrimitiveError> {
     if d.radius <= 0.0 {
         return Err(PrimitiveError::InvalidParam(format!(
-            "radius must be > 0, got {}", d.radius
+            "radius must be > 0, got {}",
+            d.radius
         )));
     }
 
@@ -130,13 +134,15 @@ fn build(d: &Dodecahedron) -> Result<IndexedMesh, PrimitiveError> {
     let cy = d.center.y;
     let cz = d.center.z;
 
-    let verts: Vec<Point3r> = raw.iter().map(|v| {
-        Point3r::new(cx + v[0] * scale, cy + v[1] * scale, cz + v[2] * scale)
-    }).collect();
+    let verts: Vec<Point3r> = raw
+        .iter()
+        .map(|v| Point3r::new(cx + v[0] * scale, cy + v[1] * scale, cz + v[2] * scale))
+        .collect();
 
     for face_indices in &DODECAHEDRON_FACES {
         // Face centroid — used to orient per-triangle normals outward.
-        let centroid_coords: Vector3r = face_indices.iter()
+        let centroid_coords: Vector3r = face_indices
+            .iter()
             .map(|&i| verts[i].coords)
             .fold(Vector3r::zeros(), |acc, v| acc + v)
             / 5.0;
@@ -151,7 +157,11 @@ fn build(d: &Dodecahedron) -> Result<IndexedMesh, PrimitiveError> {
             let n = match triangle_normal(p0, p1, p2) {
                 Some(n) => {
                     // Flip if pointing toward the centre rather than outward.
-                    if n.dot(&centroid.coords) < 0.0 { -n } else { n }
+                    if n.dot(&centroid.coords) < 0.0 {
+                        -n
+                    } else {
+                        n
+                    }
                 }
                 None => Vector3r::zeros(),
             };
@@ -169,21 +179,30 @@ fn build(d: &Dodecahedron) -> Result<IndexedMesh, PrimitiveError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::storage::edge_store::EdgeStore;
-    use crate::watertight::check::check_watertight;
+    use crate::application::watertight::check::check_watertight;
+    use crate::infrastructure::storage::edge_store::EdgeStore;
 
     #[test]
     fn dodecahedron_is_watertight() {
         let mesh = Dodecahedron::default().build().unwrap();
         let edges = EdgeStore::from_face_store(&mesh.faces);
         let report = check_watertight(&mesh.vertices, &mesh.faces, &edges);
-        assert!(report.is_watertight, "dodecahedron must be watertight: {:?}", report);
+        assert!(
+            report.is_watertight,
+            "dodecahedron must be watertight: {:?}",
+            report
+        );
         assert_eq!(report.euler_characteristic, Some(2));
     }
 
     #[test]
     fn dodecahedron_volume_positive() {
-        let mesh = Dodecahedron { radius: 2.0, ..Dodecahedron::default() }.build().unwrap();
+        let mesh = Dodecahedron {
+            radius: 2.0,
+            ..Dodecahedron::default()
+        }
+        .build()
+        .unwrap();
         let edges = EdgeStore::from_face_store(&mesh.faces);
         let report = check_watertight(&mesh.vertices, &mesh.faces, &edges);
         assert!(report.signed_volume > 0.0, "volume must be positive");
@@ -191,7 +210,17 @@ mod tests {
 
     #[test]
     fn dodecahedron_invalid_radius() {
-        assert!(Dodecahedron { radius: 0.0, ..Dodecahedron::default() }.build().is_err());
-        assert!(Dodecahedron { radius: -1.0, ..Dodecahedron::default() }.build().is_err());
+        assert!(Dodecahedron {
+            radius: 0.0,
+            ..Dodecahedron::default()
+        }
+        .build()
+        .is_err());
+        assert!(Dodecahedron {
+            radius: -1.0,
+            ..Dodecahedron::default()
+        }
+        .build()
+        .is_err());
     }
 }

@@ -2,10 +2,10 @@
 
 use std::f64::consts::{PI, TAU};
 
-use crate::core::index::RegionId;
-use crate::core::scalar::{Point3r, Vector3r};
-use crate::mesh::IndexedMesh;
-use super::{PrimitiveMesh, PrimitiveError};
+use super::{PrimitiveError, PrimitiveMesh};
+use crate::domain::core::index::RegionId;
+use crate::domain::core::scalar::{Point3r, Vector3r};
+use crate::domain::mesh::IndexedMesh;
 
 /// Builds a UV-parametric sphere.
 ///
@@ -58,7 +58,8 @@ impl PrimitiveMesh for UvSphere {
 fn build(s: &UvSphere) -> Result<IndexedMesh, PrimitiveError> {
     if s.radius <= 0.0 {
         return Err(PrimitiveError::InvalidParam(format!(
-            "radius must be > 0, got {}", s.radius
+            "radius must be > 0, got {}",
+            s.radius
         )));
     }
     if s.segments < 3 {
@@ -66,7 +67,8 @@ fn build(s: &UvSphere) -> Result<IndexedMesh, PrimitiveError> {
     }
     if s.stacks < 2 {
         return Err(PrimitiveError::InvalidParam(format!(
-            "stacks must be ≥ 2, got {}", s.stacks
+            "stacks must be ≥ 2, got {}",
+            s.stacks
         )));
     }
 
@@ -128,8 +130,8 @@ fn build(s: &UvSphere) -> Result<IndexedMesh, PrimitiveError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::storage::edge_store::EdgeStore;
-    use crate::watertight::check::check_watertight;
+    use crate::application::watertight::check::check_watertight;
+    use crate::infrastructure::storage::edge_store::EdgeStore;
     use std::f64::consts::PI;
 
     #[test]
@@ -144,8 +146,14 @@ mod tests {
     #[test]
     fn sphere_volume_approximately_correct() {
         let r = 1.0_f64;
-        let mesh = UvSphere { radius: r, segments: 64, stacks: 32, ..UvSphere::default() }
-            .build().unwrap();
+        let mesh = UvSphere {
+            radius: r,
+            segments: 64,
+            stacks: 32,
+            ..UvSphere::default()
+        }
+        .build()
+        .unwrap();
         let edges = EdgeStore::from_face_store(&mesh.faces);
         let report = check_watertight(&mesh.vertices, &mesh.faces, &edges);
         let expected = 4.0 * PI / 3.0 * r * r * r;
@@ -162,12 +170,19 @@ mod tests {
         let mesh = UvSphere::default().build().unwrap();
         let edges = EdgeStore::from_face_store(&mesh.faces);
         let report = check_watertight(&mesh.vertices, &mesh.faces, &edges);
-        assert!(report.signed_volume > 0.0, "outward normals → positive volume");
+        assert!(
+            report.signed_volume > 0.0,
+            "outward normals → positive volume"
+        );
     }
 
     #[test]
     fn sphere_too_few_segments() {
-        let result = UvSphere { segments: 2, ..UvSphere::default() }.build();
+        let result = UvSphere {
+            segments: 2,
+            ..UvSphere::default()
+        }
+        .build();
         assert!(result.is_err());
     }
 }

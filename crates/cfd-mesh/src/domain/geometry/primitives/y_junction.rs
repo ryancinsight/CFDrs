@@ -43,9 +43,9 @@
 
 use std::f64::consts::{TAU, PI};
 
-use crate::core::index::{RegionId, VertexId};
-use crate::core::scalar::{Point3r, Vector3r};
-use crate::mesh::IndexedMesh;
+use crate::domain::core::index::{RegionId, VertexId};
+use crate::domain::core::scalar::{Point3r, Vector3r};
+use crate::domain::mesh::IndexedMesh;
 use super::{PrimitiveMesh, PrimitiveError};
 
 // ── Struct ─────────────────────────────────────────────────────────────────────
@@ -454,7 +454,7 @@ mod tests {
         // Re-borrow for detailed stats
         let report = {
             let edges = mesh.edges_ref().unwrap();
-            crate::watertight::check::check_watertight(
+            crate::application::watertight::check::check_watertight(
                 &mesh.vertices, &mesh.faces, edges,
             )
         };

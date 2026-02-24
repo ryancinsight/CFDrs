@@ -1,10 +1,10 @@
 //! Boundary sealing: close holes in an otherwise-manifold mesh.
 
-use crate::core::index::{VertexId, RegionId};
-use crate::core::scalar::{Point3r, Vector3r};
-use crate::storage::edge_store::EdgeStore;
-use crate::storage::face_store::{FaceData, FaceStore};
-use crate::storage::vertex_pool::VertexPool;
+use crate::domain::core::index::{RegionId, VertexId};
+use crate::domain::core::scalar::{Point3r, Vector3r};
+use crate::infrastructure::storage::edge_store::EdgeStore;
+use crate::infrastructure::storage::face_store::{FaceData, FaceStore};
+use crate::infrastructure::storage::vertex_pool::VertexPool;
 
 /// Seal boundary loops by fan triangulation from the centroid.
 ///
@@ -31,9 +31,9 @@ pub fn seal_boundary_loops(
         // For boundary edges (valence 1), the single adjacent face determines the winding.
         let face_id = edge.faces[0];
         let face = face_store.get(face_id);
-        
+
         let (v0, v1) = edge.vertices;
-        
+
         // Check if the face uses the edge as (v0, v1) or (v1, v0).
         // The boundary loop should run in the opposite direction to seal it.
         // Face edges are: (f.v[0], f.v[1]), (f.v[1], f.v[2]), (f.v[2], f.v[0])
@@ -66,7 +66,7 @@ pub fn seal_boundary_loops(
         for &vid in boundary_loop {
             centroid.coords += vertex_pool.position(vid).coords;
         }
-        centroid.coords /= boundary_loop.len() as crate::core::scalar::Real;
+        centroid.coords /= boundary_loop.len() as crate::domain::core::scalar::Real;
 
         let centroid_id = vertex_pool.insert_or_weld(centroid, Vector3r::zeros());
 

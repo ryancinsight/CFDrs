@@ -2,10 +2,10 @@
 
 use std::f64::consts::TAU;
 
-use crate::core::index::RegionId;
-use crate::core::scalar::{Point3r, Vector3r};
-use crate::mesh::IndexedMesh;
-use super::{PrimitiveMesh, PrimitiveError};
+use super::{PrimitiveError, PrimitiveMesh};
+use crate::domain::core::index::RegionId;
+use crate::domain::core::scalar::{Point3r, Vector3r};
+use crate::domain::mesh::IndexedMesh;
 
 /// Builds a hollow right circular cylinder (pipe / annular tube).
 ///
@@ -24,7 +24,7 @@ use super::{PrimitiveMesh, PrimitiveError};
 /// ## Topology
 ///
 /// The bore creates a topological genus-1 handle, so `V − E + F = 0` (like
-/// [`Torus`]).  [`check_watertight`][crate::watertight::check::check_watertight]
+/// [`Torus`]).  [`check_watertight`][crate::application::watertight::check::check_watertight]
 /// reports `euler_characteristic = 0` and `is_watertight = true`.
 ///
 /// ## Uses
@@ -71,7 +71,8 @@ impl PrimitiveMesh for Pipe {
 fn build(p: &Pipe) -> Result<IndexedMesh, PrimitiveError> {
     if p.inner_radius <= 0.0 {
         return Err(PrimitiveError::InvalidParam(format!(
-            "inner_radius must be > 0, got {}", p.inner_radius
+            "inner_radius must be > 0, got {}",
+            p.inner_radius
         )));
     }
     if p.outer_radius <= p.inner_radius {
@@ -82,7 +83,8 @@ fn build(p: &Pipe) -> Result<IndexedMesh, PrimitiveError> {
     }
     if p.height <= 0.0 {
         return Err(PrimitiveError::InvalidParam(format!(
-            "height must be > 0, got {}", p.height
+            "height must be > 0, got {}",
+            p.height
         )));
     }
     if p.segments < 3 {
@@ -93,7 +95,7 @@ fn build(p: &Pipe) -> Result<IndexedMesh, PrimitiveError> {
     let mut mesh = IndexedMesh::new();
     let ri = p.inner_radius;
     let ro = p.outer_radius;
-    let h  = p.height;
+    let h = p.height;
     let bx = p.base_center.x;
     let by = p.base_center.y;
     let bz = p.base_center.z;
@@ -107,8 +109,8 @@ fn build(p: &Pipe) -> Result<IndexedMesh, PrimitiveError> {
         let (c1, s1) = (a1.cos(), a1.sin());
         let n0 = Vector3r::new(c0, 0.0, s0);
         let n1 = Vector3r::new(c1, 0.0, s1);
-        let vb0 = mesh.add_vertex(Point3r::new(bx + ro * c0, by,     bz + ro * s0), n0);
-        let vb1 = mesh.add_vertex(Point3r::new(bx + ro * c1, by,     bz + ro * s1), n1);
+        let vb0 = mesh.add_vertex(Point3r::new(bx + ro * c0, by, bz + ro * s0), n0);
+        let vb1 = mesh.add_vertex(Point3r::new(bx + ro * c1, by, bz + ro * s1), n1);
         let vt0 = mesh.add_vertex(Point3r::new(bx + ro * c0, by + h, bz + ro * s0), n0);
         let vt1 = mesh.add_vertex(Point3r::new(bx + ro * c1, by + h, bz + ro * s1), n1);
         mesh.add_face_with_region(vb0, vt0, vt1, region);
@@ -125,8 +127,8 @@ fn build(p: &Pipe) -> Result<IndexedMesh, PrimitiveError> {
         // Inward-facing normal (toward axis)
         let n0 = Vector3r::new(-c0, 0.0, -s0);
         let n1 = Vector3r::new(-c1, 0.0, -s1);
-        let vb0 = mesh.add_vertex(Point3r::new(bx + ri * c0, by,     bz + ri * s0), n0);
-        let vb1 = mesh.add_vertex(Point3r::new(bx + ri * c1, by,     bz + ri * s1), n1);
+        let vb0 = mesh.add_vertex(Point3r::new(bx + ri * c0, by, bz + ri * s0), n0);
+        let vb1 = mesh.add_vertex(Point3r::new(bx + ri * c1, by, bz + ri * s1), n1);
         let vt0 = mesh.add_vertex(Point3r::new(bx + ri * c0, by + h, bz + ri * s0), n0);
         let vt1 = mesh.add_vertex(Point3r::new(bx + ri * c1, by + h, bz + ri * s1), n1);
         // Reversed winding compared to outer lateral
@@ -141,10 +143,22 @@ fn build(p: &Pipe) -> Result<IndexedMesh, PrimitiveError> {
         for i in 0..p.segments {
             let a0 = i as f64 / p.segments as f64 * TAU;
             let a1 = (i + 1) as f64 / p.segments as f64 * TAU;
-            let oi  = mesh.add_vertex(Point3r::new(bx + ro * a0.cos(), by, bz + ro * a0.sin()), n_down);
-            let oi1 = mesh.add_vertex(Point3r::new(bx + ro * a1.cos(), by, bz + ro * a1.sin()), n_down);
-            let ii  = mesh.add_vertex(Point3r::new(bx + ri * a0.cos(), by, bz + ri * a0.sin()), n_down);
-            let ii1 = mesh.add_vertex(Point3r::new(bx + ri * a1.cos(), by, bz + ri * a1.sin()), n_down);
+            let oi = mesh.add_vertex(
+                Point3r::new(bx + ro * a0.cos(), by, bz + ro * a0.sin()),
+                n_down,
+            );
+            let oi1 = mesh.add_vertex(
+                Point3r::new(bx + ro * a1.cos(), by, bz + ro * a1.sin()),
+                n_down,
+            );
+            let ii = mesh.add_vertex(
+                Point3r::new(bx + ri * a0.cos(), by, bz + ri * a0.sin()),
+                n_down,
+            );
+            let ii1 = mesh.add_vertex(
+                Point3r::new(bx + ri * a1.cos(), by, bz + ri * a1.sin()),
+                n_down,
+            );
             mesh.add_face_with_region(ii1, ii, oi, region);
             mesh.add_face_with_region(ii1, oi, oi1, region);
         }
@@ -157,10 +171,22 @@ fn build(p: &Pipe) -> Result<IndexedMesh, PrimitiveError> {
         for i in 0..p.segments {
             let a0 = i as f64 / p.segments as f64 * TAU;
             let a1 = (i + 1) as f64 / p.segments as f64 * TAU;
-            let oi  = mesh.add_vertex(Point3r::new(bx + ro * a0.cos(), by + h, bz + ro * a0.sin()), n_up);
-            let oi1 = mesh.add_vertex(Point3r::new(bx + ro * a1.cos(), by + h, bz + ro * a1.sin()), n_up);
-            let ii  = mesh.add_vertex(Point3r::new(bx + ri * a0.cos(), by + h, bz + ri * a0.sin()), n_up);
-            let ii1 = mesh.add_vertex(Point3r::new(bx + ri * a1.cos(), by + h, bz + ri * a1.sin()), n_up);
+            let oi = mesh.add_vertex(
+                Point3r::new(bx + ro * a0.cos(), by + h, bz + ro * a0.sin()),
+                n_up,
+            );
+            let oi1 = mesh.add_vertex(
+                Point3r::new(bx + ro * a1.cos(), by + h, bz + ro * a1.sin()),
+                n_up,
+            );
+            let ii = mesh.add_vertex(
+                Point3r::new(bx + ri * a0.cos(), by + h, bz + ri * a0.sin()),
+                n_up,
+            );
+            let ii1 = mesh.add_vertex(
+                Point3r::new(bx + ri * a1.cos(), by + h, bz + ri * a1.sin()),
+                n_up,
+            );
             mesh.add_face_with_region(oi, ii, ii1, region);
             mesh.add_face_with_region(oi, ii1, oi1, region);
         }
@@ -172,8 +198,8 @@ fn build(p: &Pipe) -> Result<IndexedMesh, PrimitiveError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::storage::edge_store::EdgeStore;
-    use crate::watertight::check::check_watertight;
+    use crate::application::watertight::check::check_watertight;
+    use crate::infrastructure::storage::edge_store::EdgeStore;
     use std::f64::consts::PI;
 
     #[test]
@@ -182,10 +208,16 @@ mod tests {
         let edges = EdgeStore::from_face_store(&mesh.faces);
         let report = check_watertight(&mesh.vertices, &mesh.faces, &edges);
         assert!(report.is_closed, "pipe must be closed");
-        assert!(report.orientation_consistent, "pipe must be consistently oriented");
+        assert!(
+            report.orientation_consistent,
+            "pipe must be consistently oriented"
+        );
         // Genus 1 (through-bore) → Euler characteristic = 0
-        assert_eq!(report.euler_characteristic, Some(0),
-            "pipe Euler characteristic must be 0 (genus 1)");
+        assert_eq!(
+            report.euler_characteristic,
+            Some(0),
+            "pipe Euler characteristic must be 0 (genus 1)"
+        );
         assert!(report.is_watertight, "pipe passes watertight check");
     }
 
@@ -193,23 +225,59 @@ mod tests {
     fn pipe_volume_positive_and_approximately_correct() {
         let (ri, ro, h) = (0.5_f64, 1.0_f64, 2.0_f64);
         let mesh = Pipe {
-            inner_radius: ri, outer_radius: ro, height: h,
-            segments: 64, ..Pipe::default()
-        }.build().unwrap();
+            inner_radius: ri,
+            outer_radius: ro,
+            height: h,
+            segments: 64,
+            ..Pipe::default()
+        }
+        .build()
+        .unwrap();
         let edges = EdgeStore::from_face_store(&mesh.faces);
         let report = check_watertight(&mesh.vertices, &mesh.faces, &edges);
         assert!(report.signed_volume > 0.0);
         let expected = PI * (ro * ro - ri * ri) * h;
         let error = (report.signed_volume - expected).abs() / expected;
-        assert!(error < 0.005, "volume error {:.4}% should be < 0.5%", error * 100.0);
+        assert!(
+            error < 0.005,
+            "volume error {:.4}% should be < 0.5%",
+            error * 100.0
+        );
     }
 
     #[test]
     fn pipe_rejects_invalid_params() {
-        assert!(Pipe { inner_radius: 0.0, ..Pipe::default() }.build().is_err());
-        assert!(Pipe { outer_radius: 0.4, inner_radius: 0.5, ..Pipe::default() }.build().is_err());
-        assert!(Pipe { outer_radius: 0.5, inner_radius: 0.5, ..Pipe::default() }.build().is_err());
-        assert!(Pipe { height: 0.0, ..Pipe::default() }.build().is_err());
-        assert!(Pipe { segments: 2, ..Pipe::default() }.build().is_err());
+        assert!(Pipe {
+            inner_radius: 0.0,
+            ..Pipe::default()
+        }
+        .build()
+        .is_err());
+        assert!(Pipe {
+            outer_radius: 0.4,
+            inner_radius: 0.5,
+            ..Pipe::default()
+        }
+        .build()
+        .is_err());
+        assert!(Pipe {
+            outer_radius: 0.5,
+            inner_radius: 0.5,
+            ..Pipe::default()
+        }
+        .build()
+        .is_err());
+        assert!(Pipe {
+            height: 0.0,
+            ..Pipe::default()
+        }
+        .build()
+        .is_err());
+        assert!(Pipe {
+            segments: 2,
+            ..Pipe::default()
+        }
+        .build()
+        .is_err());
     }
 }

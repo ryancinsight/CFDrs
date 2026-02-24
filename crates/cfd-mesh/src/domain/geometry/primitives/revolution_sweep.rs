@@ -33,7 +33,7 @@
 //! ## Example
 //!
 //! ```rust,ignore
-//! use cfd_mesh::geometry::primitives::{RevolutionSweep, PrimitiveMesh};
+//! use cfd_mesh::domain::geometry::primitives::{RevolutionSweep, PrimitiveMesh};
 //! use std::f64::consts::TAU;
 //!
 //! // Revolve a rectangular profile → hollow cylinder-like shape
@@ -47,10 +47,10 @@
 
 use std::f64::consts::TAU;
 
-use crate::core::index::RegionId;
-use crate::core::scalar::{Point3r, Vector3r};
-use crate::mesh::IndexedMesh;
-use super::{PrimitiveMesh, PrimitiveError};
+use super::{PrimitiveError, PrimitiveMesh};
+use crate::domain::core::index::RegionId;
+use crate::domain::core::scalar::{Point3r, Vector3r};
+use crate::domain::mesh::IndexedMesh;
 
 /// Builds a solid of revolution by sweeping a 2D profile in the YR plane
 /// around the Y axis.
@@ -65,7 +65,7 @@ use super::{PrimitiveMesh, PrimitiveError};
 /// # Example
 ///
 /// ```rust,ignore
-/// use cfd_mesh::geometry::primitives::{RevolutionSweep, PrimitiveMesh};
+/// use cfd_mesh::domain::geometry::primitives::{RevolutionSweep, PrimitiveMesh};
 /// use std::f64::consts::TAU;
 ///
 /// // Full revolution of a circular arc → torus-like ring
@@ -115,13 +115,15 @@ fn build(s: &RevolutionSweep) -> Result<IndexedMesh, PrimitiveError> {
     }
     if s.angle <= 0.0 || s.angle > TAU + 1e-12 {
         return Err(PrimitiveError::InvalidParam(format!(
-            "angle must be in (0, 2π], got {:.6}", s.angle
+            "angle must be in (0, 2π], got {:.6}",
+            s.angle
         )));
     }
     for &(r, _y) in &s.profile {
         if r < 0.0 {
             return Err(PrimitiveError::InvalidParam(format!(
-                "all radial values must be ≥ 0, got {}", r
+                "all radial values must be ≥ 0, got {}",
+                r
             )));
         }
     }
@@ -147,35 +149,43 @@ fn build(s: &RevolutionSweep) -> Result<IndexedMesh, PrimitiveError> {
 
     // Compute profile vertex normals by averaging adjacent edge normals.
     // Each profile edge has a 2-D outward normal (nr, ny) in the r-y plane.
-    let edge_n2d: Vec<(f64, f64)> = (0..(np - 1)).map(|i| {
-        let (r0, y0) = s.profile[i];
-        let (r1, y1) = s.profile[i + 1];
-        let dr = r1 - r0;
-        let dy = y1 - y0;
-        let len = (dr * dr + dy * dy).sqrt();
-        if len > 1e-14 {
-            // Outward profile normal: (dy/len, -dr/len) = rotate edge 90° right
-            (dy / len, -dr / len)
-        } else {
-            (1.0, 0.0)
-        }
-    }).collect();
+    let edge_n2d: Vec<(f64, f64)> = (0..(np - 1))
+        .map(|i| {
+            let (r0, y0) = s.profile[i];
+            let (r1, y1) = s.profile[i + 1];
+            let dr = r1 - r0;
+            let dy = y1 - y0;
+            let len = (dr * dr + dy * dy).sqrt();
+            if len > 1e-14 {
+                // Outward profile normal: (dy/len, -dr/len) = rotate edge 90° right
+                (dy / len, -dr / len)
+            } else {
+                (1.0, 0.0)
+            }
+        })
+        .collect();
 
     // Vertex profile normals: average of adjacent edge normals.
-    let vertex_n2d: Vec<(f64, f64)> = (0..np).map(|i| {
-        if i == 0 {
-            edge_n2d[0]
-        } else if i == np - 1 {
-            edge_n2d[np - 2]
-        } else {
-            let (nr0, ny0) = edge_n2d[i - 1];
-            let (nr1, ny1) = edge_n2d[i];
-            let nr = nr0 + nr1;
-            let ny = ny0 + ny1;
-            let len = (nr * nr + ny * ny).sqrt();
-            if len > 1e-14 { (nr / len, ny / len) } else { (nr1, ny1) }
-        }
-    }).collect();
+    let vertex_n2d: Vec<(f64, f64)> = (0..np)
+        .map(|i| {
+            if i == 0 {
+                edge_n2d[0]
+            } else if i == np - 1 {
+                edge_n2d[np - 2]
+            } else {
+                let (nr0, ny0) = edge_n2d[i - 1];
+                let (nr1, ny1) = edge_n2d[i];
+                let nr = nr0 + nr1;
+                let ny = ny0 + ny1;
+                let len = (nr * nr + ny * ny).sqrt();
+                if len > 1e-14 {
+                    (nr / len, ny / len)
+                } else {
+                    (nr1, ny1)
+                }
+            }
+        })
+        .collect();
 
     // Compute the actual angular step — for a full revolution the last column
     // wraps back to the first.
@@ -187,23 +197,29 @@ fn build(s: &RevolutionSweep) -> Result<IndexedMesh, PrimitiveError> {
     let ncols = if is_full { nm } else { nm + 1 };
 
     // Vertex ID grid: grid[j][i] = VertexId at angular col j, profile row i.
-    let mut grid: Vec<Vec<crate::core::index::VertexId>> = Vec::with_capacity(ncols);
+    let mut grid: Vec<Vec<crate::domain::core::index::VertexId>> = Vec::with_capacity(ncols);
     for j in 0..ncols {
         let phi = j as f64 * angular_step;
         let cp = phi.cos();
         let sp = phi.sin();
 
-        let col: Vec<crate::core::index::VertexId> = (0..np).map(|i| {
-            let (r, y) = s.profile[i];
-            let pos = Point3r::new(r * cp, y, r * sp);
-            // 3-D outward normal from 2-D profile normal (nr, ny):
-            //   n_3d = (nr · cos(φ),  ny,  nr · sin(φ))
-            let (nr, ny) = vertex_n2d[i];
-            let n = Vector3r::new(nr * cp, ny, nr * sp);
-            let nlen = n.norm();
-            let n = if nlen > 1e-14 { n / nlen } else { Vector3r::new(cp, 0.0, sp) };
-            mesh.add_vertex(pos, n)
-        }).collect();
+        let col: Vec<crate::domain::core::index::VertexId> = (0..np)
+            .map(|i| {
+                let (r, y) = s.profile[i];
+                let pos = Point3r::new(r * cp, y, r * sp);
+                // 3-D outward normal from 2-D profile normal (nr, ny):
+                //   n_3d = (nr · cos(φ),  ny,  nr · sin(φ))
+                let (nr, ny) = vertex_n2d[i];
+                let n = Vector3r::new(nr * cp, ny, nr * sp);
+                let nlen = n.norm();
+                let n = if nlen > 1e-14 {
+                    n / nlen
+                } else {
+                    Vector3r::new(cp, 0.0, sp)
+                };
+                mesh.add_vertex(pos, n)
+            })
+            .collect();
 
         grid.push(col);
     }
@@ -258,8 +274,8 @@ fn build(s: &RevolutionSweep) -> Result<IndexedMesh, PrimitiveError> {
         // so we stop the fan one step earlier: for i in 1..(cap_fan_end).
         let (r_last, y_last) = s.profile[np - 1];
         let (r_first, y_first) = s.profile[0];
-        let profile_is_closed = (r_last - r_first).abs() < 1e-10
-            && (y_last - y_first).abs() < 1e-10;
+        let profile_is_closed =
+            (r_last - r_first).abs() < 1e-10 && (y_last - y_first).abs() < 1e-10;
         // For an open profile, fan covers i=1..np-2 (np-1 exclusive).
         // For a closed profile, fan covers i=1..np-3 (np-2 exclusive),
         // because the last lateral segment closes back to profile[0] which
@@ -278,9 +294,9 @@ fn build(s: &RevolutionSweep) -> Result<IndexedMesh, PrimitiveError> {
             let v_fan_center = mesh.add_vertex(Point3r::new(r0, y0, 0.0), n_start);
 
             for i in 1..cap_fan_end {
-                let (ri,  yi)  = s.profile[i];
+                let (ri, yi) = s.profile[i];
                 let (ri1, yi1) = s.profile[i + 1];
-                let vi  = mesh.add_vertex(Point3r::new(ri,  yi,  0.0), n_start);
+                let vi = mesh.add_vertex(Point3r::new(ri, yi, 0.0), n_start);
                 let vi1 = mesh.add_vertex(Point3r::new(ri1, yi1, 0.0), n_start);
                 mesh.add_face_with_region(v_fan_center, vi1, vi, region);
             }
@@ -296,25 +312,26 @@ fn build(s: &RevolutionSweep) -> Result<IndexedMesh, PrimitiveError> {
         // Fan: (center, vi1, vi) traverses vi1→vi ✓
         let phi_end = s.angle;
         let n_end = Vector3r::new(-phi_end.sin(), 0.0, phi_end.cos());
-        let n_end = { let l = n_end.norm(); if l > 1e-14 { n_end / l } else { n_end } };
+        let n_end = {
+            let l = n_end.norm();
+            if l > 1e-14 {
+                n_end / l
+            } else {
+                n_end
+            }
+        };
 
         {
             let (r0, y0) = s.profile[0];
             let cp_end = phi_end.cos();
             let sp_end = phi_end.sin();
-            let v_fan_center = mesh.add_vertex(
-                Point3r::new(r0 * cp_end, y0, r0 * sp_end), n_end
-            );
+            let v_fan_center = mesh.add_vertex(Point3r::new(r0 * cp_end, y0, r0 * sp_end), n_end);
 
             for i in 1..cap_fan_end {
-                let (ri,  yi)  = s.profile[i];
+                let (ri, yi) = s.profile[i];
                 let (ri1, yi1) = s.profile[i + 1];
-                let vi  = mesh.add_vertex(
-                    Point3r::new(ri  * cp_end, yi,  ri  * sp_end), n_end
-                );
-                let vi1 = mesh.add_vertex(
-                    Point3r::new(ri1 * cp_end, yi1, ri1 * sp_end), n_end
-                );
+                let vi = mesh.add_vertex(Point3r::new(ri * cp_end, yi, ri * sp_end), n_end);
+                let vi1 = mesh.add_vertex(Point3r::new(ri1 * cp_end, yi1, ri1 * sp_end), n_end);
                 // Lateral right seam at col nm: edge goes v11→v10 (descending).
                 // Cap must reverse: ascending = vi→vi1.
                 // Fan: (center, vi, vi1) traverses vi→vi1 ✓, normal = -X at π/2 ✓
@@ -333,8 +350,8 @@ fn build(s: &RevolutionSweep) -> Result<IndexedMesh, PrimitiveError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::storage::edge_store::EdgeStore;
-    use crate::watertight::check::check_watertight;
+    use crate::application::watertight::check::check_watertight;
+    use crate::infrastructure::storage::edge_store::EdgeStore;
     use std::f64::consts::PI;
 
     /// Revolve a single vertical edge of radius r and height h → open tube
@@ -353,7 +370,10 @@ mod tests {
         // The lateral surface of a cylinder (open tube) is NOT closed — it has
         // two boundary loops (top and bottom circles). This test verifies the
         // topology compiles and the faces have consistent winding.
-        assert!(report.orientation_consistent, "revolution winding must be consistent");
+        assert!(
+            report.orientation_consistent,
+            "revolution winding must be consistent"
+        );
     }
 
     /// Revolve a closed rectangular profile → solid ring (washer shape)
@@ -372,7 +392,7 @@ mod tests {
             (2.0, 0.0),
             (2.0, 0.5),
             (1.0, 0.5),
-            (1.0, 0.0),  // close the loop back to start
+            (1.0, 0.0), // close the loop back to start
         ];
         let sweep = RevolutionSweep {
             profile,
@@ -383,8 +403,14 @@ mod tests {
         let edges = EdgeStore::from_face_store(&mesh.faces);
         let report = check_watertight(&mesh.vertices, &mesh.faces, &edges);
         // Full revolution of a 5-point closed profile → closed torus-like surface
-        assert!(report.orientation_consistent, "revolution winding must be consistent");
-        assert!(report.is_closed, "full revolution of closed 5-point profile must be closed");
+        assert!(
+            report.orientation_consistent,
+            "revolution winding must be consistent"
+        );
+        assert!(
+            report.is_closed,
+            "full revolution of closed 5-point profile must be closed"
+        );
     }
 
     /// Revolve a triangular profile → cone-like solid (full 360°).
@@ -402,7 +428,10 @@ mod tests {
         assert!(mesh.face_count() > 0, "cone-like sweep must produce faces");
         let edges = EdgeStore::from_face_store(&mesh.faces);
         let report = check_watertight(&mesh.vertices, &mesh.faces, &edges);
-        assert!(report.orientation_consistent, "cone revolution winding must be consistent");
+        assert!(
+            report.orientation_consistent,
+            "cone revolution winding must be consistent"
+        );
     }
 
     /// Partial revolution of a closed rectangular profile → watertight wedge.
@@ -418,19 +447,28 @@ mod tests {
             (2.0, 0.0),
             (2.0, 1.0),
             (1.0, 1.0),
-            (1.0, 0.0),  // close the loop
+            (1.0, 0.0), // close the loop
         ];
         let sweep = RevolutionSweep {
             profile,
             segments: 16,
-            angle: PI / 2.0,   // 90°
+            angle: PI / 2.0, // 90°
         };
         let mesh = sweep.build().unwrap();
         let edges = EdgeStore::from_face_store(&mesh.faces);
         let report = check_watertight(&mesh.vertices, &mesh.faces, &edges);
-        assert!(report.orientation_consistent, "partial revolution winding must be consistent");
-        assert!(report.is_closed, "partial revolution with closed profile + end caps must be closed");
-        assert!(report.is_watertight, "partial revolution must be watertight");
+        assert!(
+            report.orientation_consistent,
+            "partial revolution winding must be consistent"
+        );
+        assert!(
+            report.is_closed,
+            "partial revolution with closed profile + end caps must be closed"
+        );
+        assert!(
+            report.is_watertight,
+            "partial revolution must be watertight"
+        );
     }
 
     /// Volume of partial revolution: Pappus's theorem.
@@ -448,7 +486,7 @@ mod tests {
             (2.0, 0.0),
             (2.0, 1.0),
             (1.0, 1.0),
-            (1.0, 0.0),  // close the loop
+            (1.0, 0.0), // close the loop
         ];
         let sweep = RevolutionSweep {
             profile,
@@ -461,7 +499,11 @@ mod tests {
         assert!(report.signed_volume > 0.0, "positive volume");
         let expected = 1.5_f64 * 1.0 * (PI / 2.0);
         let error = (report.signed_volume - expected).abs() / expected;
-        assert!(error < 0.02, "Pappus volume error {:.4}% < 2%", error * 100.0);
+        assert!(
+            error < 0.02,
+            "Pappus volume error {:.4}% < 2%",
+            error * 100.0
+        );
     }
 
     #[test]
@@ -470,7 +512,8 @@ mod tests {
             profile: vec![(1.0, 0.0)],
             segments: 16,
             angle: TAU,
-        }.build();
+        }
+        .build();
         assert!(result.is_err());
     }
 
@@ -480,7 +523,8 @@ mod tests {
             profile: vec![(-1.0, 0.0), (1.0, 1.0)],
             segments: 16,
             angle: TAU,
-        }.build();
+        }
+        .build();
         assert!(result.is_err());
     }
 
@@ -490,7 +534,8 @@ mod tests {
             profile: vec![(1.0, 0.0), (1.0, 1.0)],
             segments: 2,
             angle: TAU,
-        }.build();
+        }
+        .build();
         assert!(result.is_err());
     }
 }

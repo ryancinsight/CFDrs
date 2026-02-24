@@ -1,7 +1,7 @@
 //! Normal computation for triangles and polygon fans — generic over `T: Scalar`.
 
+use crate::domain::core::scalar::Scalar;
 use nalgebra::{Point3, Vector3};
-use crate::core::scalar::Scalar;
 
 /// Compute the face normal of a triangle (CCW winding → outward).
 ///
@@ -22,11 +22,7 @@ pub fn triangle_normal<T: Scalar>(
 }
 
 /// Area-weighted normal of a triangle (magnitude = 2 × area).
-pub fn triangle_area_normal<T: Scalar>(
-    a: &Point3<T>,
-    b: &Point3<T>,
-    c: &Point3<T>,
-) -> Vector3<T> {
+pub fn triangle_area_normal<T: Scalar>(a: &Point3<T>, b: &Point3<T>, c: &Point3<T>) -> Vector3<T> {
     let ab = b - a;
     let ac = c - a;
     ab.cross(&ac)
@@ -100,9 +96,9 @@ pub fn angle_weighted_normal<T: Scalar>(
 /// Convenience alias for `triangle_normal::<f64>`.
 #[inline]
 pub fn triangle_normal_f64(
-    a: &crate::core::scalar::Point3r,
-    b: &crate::core::scalar::Point3r,
-    c: &crate::core::scalar::Point3r,
-) -> Option<crate::core::scalar::Vector3r> {
+    a: &crate::domain::core::scalar::Point3r,
+    b: &crate::domain::core::scalar::Point3r,
+    c: &crate::domain::core::scalar::Point3r,
+) -> Option<crate::domain::core::scalar::Vector3r> {
     triangle_normal(a, b, c)
 }

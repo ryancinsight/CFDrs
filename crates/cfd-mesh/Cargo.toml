@@ -35,11 +35,6 @@ slotmap = { workspace = true }
 
 # Mesh / geometry — state-of-the-art kernel
 geometry-predicates = { workspace = true }
-rstar               = { workspace = true }
-kiddo               = { workspace = true }
-bvh                 = { workspace = true }
-spade               = { workspace = true }
-
 # Serialization
 serde = { workspace = true }
 serde_json = { workspace = true }

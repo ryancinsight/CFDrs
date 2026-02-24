@@ -1,6 +1,6 @@
 //! Channel centerline paths.
 
-use crate::core::scalar::{Real, Point3r, Vector3r};
+use crate::domain::core::scalar::{Point3r, Real, Vector3r};
 
 /// A channel centerline path defined by ordered waypoints.
 #[derive(Clone, Debug)]
@@ -35,10 +35,7 @@ impl ChannelPath {
 
     /// Total path length.
     pub fn length(&self) -> Real {
-        self.points
-            .windows(2)
-            .map(|w| (w[1] - w[0]).norm())
-            .sum()
+        self.points.windows(2).map(|w| (w[1] - w[0]).norm()).sum()
     }
 
     /// Direction at a given segment index (normalized).
