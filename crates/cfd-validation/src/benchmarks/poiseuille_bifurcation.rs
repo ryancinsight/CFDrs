@@ -52,11 +52,13 @@
 //!    *Journal of Biomechanics* 28:845-856
 //!    → Validation data for carotid bifurcation
 
-use cfd_1d::bifurcation::junction::BifurcationJunction;
+use cfd_1d::channel::{Channel, ChannelGeometry};
+use cfd_1d::junctions::branching::TwoWayBranchJunction;
 use cfd_2d::solvers::{BloodModel as BloodModel2D, PoiseuilleConfig, PoiseuilleFlow2D};
-use cfd_core::physics::fluid::blood::{CarreauYasudaBlood, CassonBlood};
+use cfd_core::conversion::SafeFromF64;
+use cfd_core::physics::fluid::blood::CassonBlood;
 use nalgebra::RealField;
-use num_traits::{Float, FromPrimitive};
+use num_traits::{Float, FromPrimitive, ToPrimitive};
 use serde::{Deserialize, Serialize};
 
 /// Complete 2D bifurcation solution combining 1D network + 2D flow in each segment
@@ -173,40 +175,48 @@ impl<T: RealField + Copy + FromPrimitive + Float> BifurcationConfig2D<T> {
 }
 
 /// Solve complete 2D bifurcation with validated 1D+2D approach
-pub fn solve_bifurcation_2d<T: RealField + Copy + Float + FromPrimitive>(
+pub fn solve_bifurcation_2d<T>(
     config: &BifurcationConfig2D<T>,
     blood_casson: &CassonBlood<T>,
-) -> Result<BifurcationSolution2D<T>, String> {
-
+) -> Result<BifurcationSolution2D<T>, String>
+where
+    T: RealField + Copy + Float + FromPrimitive + ToPrimitive + SafeFromF64,
+{
     // Step 1: Solve 1D network to get flow rates and pressure drops
-    // This is already validated to 0.00% error
-    let junction_1d = BifurcationJunction::new(
-        config.d_parent,
-        config.length_parent,
-        config.d_daughter1,
-        config.length_daughter1,
-        config.d_daughter2,
-        config.length_daughter2,
-    );
+    // We use TwoWayBranchJunction from cfd-1d
 
-    // Create blood model for 1D
-    use cfd_1d::blood::BloodModel as BloodModel1D;
-    let blood_1d = BloodModel1D::Casson(blood_casson.clone());
+    // Create channel geometries
+    let geom_parent = ChannelGeometry::circular(config.length_parent, config.d_parent, T::zero());
+    let geom_d1 = ChannelGeometry::circular(config.length_daughter1, config.d_daughter1, T::zero());
+    let geom_d2 = ChannelGeometry::circular(config.length_daughter2, config.d_daughter2, T::zero());
 
+    let parent = Channel::new(geom_parent);
+    let daughter1 = Channel::new(geom_d1);
+    let daughter2 = Channel::new(geom_d2);
+
+    // Calculate approximate flow split ratio based on geometry (D^4/L)
+    // R ~ L/D^4 => G ~ D^4/L
+    let g1 = Float::powi(config.d_daughter1, 4) / config.length_daughter1;
+    let g2 = Float::powi(config.d_daughter2, 4) / config.length_daughter2;
+    let split_ratio = g1 / (g1 + g2);
+
+    let junction_1d = TwoWayBranchJunction::new(parent, daughter1, daughter2, split_ratio);
+
+    // Solve 1D
+    // TwoWayBranchJunction.solve takes fluid as first argument
     let solution_1d = junction_1d
-        .solve(config.flow_rate, config.inlet_pressure, &blood_1d)
+        .solve(blood_casson.clone(), config.flow_rate, config.inlet_pressure)
         .map_err(|e| format!("1D solution failed: {:?}", e))?;
 
     // Extract 1D results
-    let q_p = solution_1d.flow_rate_parent;
-    let q_1 = solution_1d.flow_rate_daughter1;
-    let q_2 = solution_1d.flow_rate_daughter2;
-    let dp_p = solution_1d.pressure_drop_parent;
-    let dp_1 = solution_1d.pressure_drop_daughter1;
-    let dp_2 = solution_1d.pressure_drop_daughter2;
+    let q_p = solution_1d.q_parent;
+    let q_1 = solution_1d.q_1;
+    let q_2 = solution_1d.q_2;
+    let dp_p = solution_1d.dp_parent;
+    let dp_1 = solution_1d.dp_1;
+    let dp_2 = solution_1d.dp_2;
 
     // Step 2: Solve 2D Poiseuille in parent vessel
-    // Already validated to 0.72% error
     let mut config_parent = PoiseuilleConfig::<T>::default();
     config_parent.height = config.d_parent;
     config_parent.width = config.d_parent; // Circular approximation
@@ -315,8 +325,9 @@ pub fn validate_bifurcation<T: RealField + Copy + Float + FromPrimitive>(
     );
 
     // Check 4: WSS scaling with diameter
-    // WSS should be higher in smaller vessels
-    let wss_ratio_expected = config.d_parent / config.d_daughter1;
+    // For Murray's Law (Q ~ D^3), Wall Shear Stress should be CONSTANT throughout the network
+    // References: Murray (1926), Zamir (1976)
+    let wss_ratio_expected = T::one();
     let wss_ratio_actual = solution.wss_daughter1 / solution.wss_parent;
     let wss_error = Float::abs((wss_ratio_actual - wss_ratio_expected) / wss_ratio_expected);
 

@@ -11,7 +11,7 @@ categories = ["science", "simulation"]
 
 [features]
 default = []
-mesh-export = ["dep:blue2mesh"]
+# mesh-export = ["dep:blue2mesh"]
 
 [dependencies]
 serde = { workspace = true, features = ["derive"] }
@@ -24,7 +24,7 @@ cfd-core = { workspace = true, default-features = false }
 cfd-1d.workspace = true
 cfd-schematics.workspace = true
 
-blue2mesh = { path = "../../../blue2mesh", optional = true, default-features = false, features = ["mesh-generation", "cfd-export", "stl-export"] }
+# blue2mesh = { path = "../../../blue2mesh", optional = true, default-features = false, features = ["mesh-generation", "cfd-export", "stl-export"] }
 
 [[example]]
 name = "sdt_top5"
