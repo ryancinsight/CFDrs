@@ -9,7 +9,7 @@ use crate::error::{ConfigurationError, ConfigurationResult};
 /// # Examples
 ///
 /// ```rust
-/// use scheme::config::GeometryGenerationConfig;
+/// use cfd_schematics::config::GeometryGenerationConfig;
 ///
 /// // Create with default values
 /// let config = GeometryGenerationConfig::default();

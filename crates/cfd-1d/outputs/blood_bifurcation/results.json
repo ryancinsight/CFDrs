@@ -1,0 +1,52 @@
+{
+  "edges": [
+    {
+      "flow_rate_m3s": 4.999999999999926e-6,
+      "flow_rate_mls": 4.999999999999926,
+      "id": "Parent",
+      "resistance": 30485745.135727573,
+      "wall_shear_stress_pa": 3.0485745135727123
+    },
+    {
+      "flow_rate_m3s": 3.0374530823163384e-6,
+      "flow_rate_mls": 3.0374530823163384,
+      "id": "Daughter1",
+      "resistance": 75687931.36801128,
+      "wall_shear_stress_pa": 4.3105976330233755
+    },
+    {
+      "flow_rate_m3s": 1.9625469176837946e-6,
+      "flow_rate_mls": 1.9625469176837946,
+      "id": "Daughter2",
+      "resistance": 117149449.9495201,
+      "wall_shear_stress_pa": 4.789818581391304
+    }
+  ],
+  "fluid": "CarreauYasuda Blood",
+  "nodes": [
+    {
+      "id": "Inlet",
+      "pressure_mmhg": 102.86773733232764,
+      "pressure_pa": 13714.532476620585,
+      "type": "Inlet"
+    },
+    {
+      "id": "Bifurcation",
+      "pressure_mmhg": 101.72442470816482,
+      "pressure_pa": 13562.10375094195,
+      "type": "Junction"
+    },
+    {
+      "id": "Outlet1",
+      "pressure_mmhg": 99.99999999999997,
+      "pressure_pa": 13332.199999999997,
+      "type": "Outlet"
+    },
+    {
+      "id": "Outlet2",
+      "pressure_mmhg": 99.99999999999997,
+      "pressure_pa": 13332.199999999997,
+      "type": "Outlet"
+    }
+  ]
+}

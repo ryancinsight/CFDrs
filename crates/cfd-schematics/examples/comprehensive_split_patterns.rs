@@ -10,11 +10,13 @@ use cfd_schematics::{
     visualizations::schematic::plot_geometry,
 };
 use std::fs;
+use std::path::PathBuf;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    fs::create_dir_all("outputs/split_patterns/bifurcation")?;
-    fs::create_dir_all("outputs/split_patterns/trifurcation")?;
-    fs::create_dir_all("outputs/split_patterns/mixed")?;
+    let out = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("outputs");
+    fs::create_dir_all(out.join("split_patterns/bifurcation"))?;
+    fs::create_dir_all(out.join("split_patterns/trifurcation"))?;
+    fs::create_dir_all(out.join("split_patterns/mixed"))?;
 
     let config = GeometryConfig::default();
     let channel_config = ChannelTypeConfig::default();
@@ -45,18 +47,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     for (name, splits, box_dims) in bifurcation_patterns {
         let system = create_geometry(box_dims, &splits, &config, &channel_config);
-        let output_path = format!(
-            "outputs/split_patterns/bifurcation/{}_bifurcation.png",
+        let output_path = out.join(format!(
+            "split_patterns/bifurcation/{}_bifurcation.png",
             name
-        );
-        plot_geometry(&system, &output_path)?;
+        ));
+        plot_geometry(&system, output_path.to_str().unwrap())?;
 
         println!(
             "   ✓ {}: {} channels, {} nodes -> {}",
             name,
             system.channels.len(),
             system.nodes.len(),
-            output_path
+            output_path.display()
         );
     }
 
@@ -82,18 +84,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     for (name, splits, box_dims) in trifurcation_patterns {
         let system = create_geometry(box_dims, &splits, &config, &channel_config);
-        let output_path = format!(
-            "outputs/split_patterns/trifurcation/{}_trifurcation.png",
+        let output_path = out.join(format!(
+            "split_patterns/trifurcation/{}_trifurcation.png",
             name
-        );
-        plot_geometry(&system, &output_path)?;
+        ));
+        plot_geometry(&system, output_path.to_str().unwrap())?;
 
         println!(
             "   ✓ {}: {} channels, {} nodes -> {}",
             name,
             system.channels.len(),
             system.nodes.len(),
-            output_path
+            output_path.display()
         );
     }
 
@@ -133,15 +135,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     for (name, splits, box_dims) in mixed_patterns {
         let system = create_geometry(box_dims, &splits, &config, &channel_config);
-        let output_path = format!("outputs/split_patterns/mixed/{}_pattern.png", name);
-        plot_geometry(&system, &output_path)?;
+        let output_path = out.join(format!("split_patterns/mixed/{}_pattern.png", name));
+        plot_geometry(&system, output_path.to_str().unwrap())?;
 
         println!(
             "   ✓ {}: {} channels, {} nodes -> {}",
             name,
             system.channels.len(),
             system.nodes.len(),
-            output_path
+            output_path.display()
         );
     }
 

@@ -23,14 +23,17 @@ use cfd_schematics::visualizations::{
 };
 use std::collections::HashMap;
 use std::fs;
+use std::path::PathBuf;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("🔬 Venturi Schematic + 2D CFD Example");
     println!("======================================");
 
     // ── 0. Output directory ───────────────────────────────────────────────────
-    let out = "crates/cfd-2d/outputs";
-    fs::create_dir_all(out)?;
+    let out = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("outputs")
+        .join("venturi");
+    fs::create_dir_all(&out)?;
 
     // ── Phase 1: Design (cfd-schematics) ─────────────────────────────────────
     println!("\n📐 Phase 1: Schematic Design");
@@ -78,9 +81,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ..Default::default()
     };
 
-    let schematic_path = format!("{out}/venturi_schematic.png");
-    renderer.render_system(&system, &schematic_path, &schematic_cfg)?;
-    println!("  ✅ Schematic → {schematic_path}");
+    let schematic_path = out.join("venturi_schematic.png");
+    renderer.render_system(&system, schematic_path.to_str().unwrap(), &schematic_cfg)?;
+    println!("  ✅ Schematic → {}", schematic_path.display());
 
     // ── Phase 2: Simulation (cfd-2d) ─────────────────────────────────────────
     println!("\n⚙️  Phase 2: 2D CFD Simulation");
@@ -148,9 +151,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ..Default::default()
     };
 
-    let overlay_path = format!("{out}/venturi_pressure_overlay.png");
-    renderer.render_analysis(&system, &overlay_path, &overlay_cfg, &overlay)?;
-    println!("  ✅ Pressure overlay → {overlay_path}");
+    let overlay_path = out.join("venturi_pressure_overlay.png");
+    renderer.render_analysis(&system, overlay_path.to_str().unwrap(), &overlay_cfg, &overlay)?;
+    println!("  ✅ Pressure overlay → {}", overlay_path.display());
 
     println!("\n✅ Venturi example complete.");
     Ok(())

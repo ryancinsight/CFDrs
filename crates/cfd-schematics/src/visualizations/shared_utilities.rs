@@ -24,10 +24,10 @@ use plotters::prelude::*;
 /// # Examples
 ///
 /// ```rust,no_run
-/// use scheme::geometry::generator::create_geometry;
-/// use scheme::geometry::SplitType;
-/// use scheme::config::{GeometryConfig, ChannelTypeConfig};
-/// use scheme::visualizations::shared_utilities::visualize;
+/// use cfd_schematics::geometry::generator::create_geometry;
+/// use cfd_schematics::geometry::SplitType;
+/// use cfd_schematics::config::{GeometryConfig, ChannelTypeConfig};
+/// use cfd_schematics::visualizations::shared_utilities::visualize;
 ///
 /// let system = create_geometry(
 ///     (200.0, 100.0),

@@ -3,8 +3,10 @@
 //! Creates the outer chip body as a cuboid, with channels subtracted via CSG.
 //! Equivalent to blue2mesh's cuboid substrate generation.
 
+use crate::domain::core::error::MeshResult;
 use crate::domain::core::index::RegionId;
 use crate::domain::core::scalar::{Point3r, Real, Vector3r};
+use crate::domain::mesh::IndexedMesh;
 use crate::infrastructure::storage::face_store::FaceData;
 use crate::infrastructure::storage::vertex_pool::VertexPool;
 
@@ -35,6 +37,17 @@ impl SubstrateBuilder {
     pub fn with_origin(mut self, origin: Point3r) -> Self {
         self.origin = origin;
         self
+    }
+
+    /// Create a substrate matching the ANSI SBS 96-well plate footprint.
+    ///
+    /// The XY footprint is always 127.76 × 85.47 mm (SBS standard block dimensions).
+    /// `height_mm` sets the chip thickness (Z dimension).
+    ///
+    /// Channels should be centered at `y = 42.735 mm` (half of 85.47) and
+    /// `z = height_mm / 2.0` so they run through the centre of the block.
+    pub fn well_plate_96(height_mm: Real) -> Self {
+        Self::new(127.76, 85.47, height_mm)
     }
 
     /// Generate the cuboid substrate mesh.
@@ -99,5 +112,54 @@ impl SubstrateBuilder {
         }
 
         faces
+    }
+
+    /// Build a watertight [`IndexedMesh`] from this substrate definition.
+    ///
+    /// Creates a fresh `VertexPool` using millifluidic tolerances, assembles
+    /// the face soup, and packs it into an `IndexedMesh` ready for CSG operations.
+    pub fn build_indexed(&self) -> MeshResult<IndexedMesh> {
+        let mut pool = VertexPool::default_millifluidic();
+        let region = RegionId::from_usize(0);
+        let faces = self.build(&mut pool, region);
+
+        let mut mesh = IndexedMesh::new();
+        // VertexPool assigns sequential IDs 0..N in insertion order.
+        // IndexedMesh::add_vertex also assigns sequential IDs — so face vertex
+        // references from the pool are valid in the new mesh.
+        for (_, vdata) in pool.iter() {
+            mesh.add_vertex(vdata.position, vdata.normal);
+        }
+        for face in &faces {
+            mesh.add_face_with_region(
+                face.vertices[0],
+                face.vertices[1],
+                face.vertices[2],
+                face.region,
+            );
+        }
+        mesh.rebuild_edges();
+        Ok(mesh)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn well_plate_96_has_sbs_dimensions() {
+        let b = SubstrateBuilder::well_plate_96(5.0);
+        assert!((b.width - 127.76).abs() < 1e-9);
+        assert!((b.depth - 85.47).abs() < 1e-9);
+        assert!((b.height - 5.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn build_indexed_is_watertight() {
+        let mut mesh = SubstrateBuilder::well_plate_96(5.0)
+            .build_indexed()
+            .expect("build_indexed failed");
+        assert!(mesh.is_watertight(), "substrate mesh must be watertight");
     }
 }

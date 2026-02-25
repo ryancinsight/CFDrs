@@ -23,7 +23,7 @@ use cfd_schematics::visualizations::traits::SchematicRenderer;
 use cfd_schematics::visualizations::RenderConfig;
 use std::collections::HashMap;
 use std::fs;
-use std::path::Path;
+use std::path::PathBuf;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("🧪 Geometry Integration Demo");
@@ -144,10 +144,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_node_data(node_pressure_data);
 
     // ── 7. Render ────────────────────────────────────────────────────────────
-    let output_dir = Path::new("crates/cfd-1d/outputs");
-    if !output_dir.exists() {
-        fs::create_dir_all(output_dir)?;
-    }
+    let output_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("outputs").join("geometry_integration");
+    fs::create_dir_all(&output_dir)?;
 
     let renderer = create_plotters_renderer();
     let mut render_config = RenderConfig::default();

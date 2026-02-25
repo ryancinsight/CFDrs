@@ -416,7 +416,7 @@ impl GeometryGenerator {
                 }
             };
 
-            for i in 0..n_branches {
+            for (i, &width) in child_widths.iter().enumerate().take(n_branches) {
                 let y_new = if n_branches <= 1 {
                     *y_center
                 } else {
@@ -426,7 +426,7 @@ impl GeometryGenerator {
                 new_lines.push(((current_x, *y_center), (current_x + dx, y_new)));
                 next_y_coords.push(y_new);
                 next_y_ranges.push(child_range);
-                next_widths.push(child_widths[i]);
+                next_widths.push(width);
             }
         }
         (next_y_coords, next_y_ranges, next_widths, new_lines)
@@ -511,7 +511,7 @@ impl GeometryGenerator {
         curvature_padding.min(y_range * 0.2)
     }
 
-    fn generate_second_half(&mut self, splits: &[SplitType], center_widths: &[f64]) {
+    fn generate_second_half(&mut self, splits: &[SplitType], _center_widths: &[f64]) {
         let (length, width) = self.box_dims;
         let effective_width = (-2.0f64).mul_add(self.config.wall_clearance, width);
         let half_l = length / 2.0;
@@ -639,7 +639,7 @@ impl GeometryGenerator {
 /// # Examples
 ///
 /// ```rust
-/// use scheme::{
+/// use cfd_schematics::{
 ///     geometry::{generator::create_geometry, SplitType},
 ///     config::{GeometryConfig, ChannelTypeConfig},
 /// };
@@ -687,7 +687,7 @@ pub fn create_geometry(
 /// # Examples
 ///
 /// ```rust
-/// use scheme::{
+/// use cfd_schematics::{
 ///     geometry::{generator::{create_geometry_with_metadata, MetadataConfig}, SplitType},
 ///     config::{GeometryConfig, ChannelTypeConfig},
 /// };

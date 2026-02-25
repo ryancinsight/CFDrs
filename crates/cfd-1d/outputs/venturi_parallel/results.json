@@ -1,0 +1,375 @@
+{
+  "analysis": "venturi_parallel_comparison",
+  "configurations": [
+    {
+      "channels": [
+        {
+          "cavitation_number": -2.3467405580229284,
+          "cavity_length_m": 0.0,
+          "flow_rate_m3s": 1.0126381788365558e-6,
+          "id": "chan_0",
+          "is_cavitating": true,
+          "pressure_drop_pa": 770.3142392899588,
+          "resistance_solver": 760700371.9482423,
+          "resistance_venturi": 543927933.5108615,
+          "throat_pressure_pa": 1222.3204947084919,
+          "throat_velocity_ms": 1.2893309738033008
+        },
+        {
+          "cavitation_number": -10.288946640748646,
+          "cavity_length_m": 0.0,
+          "flow_rate_m3s": 5.06319089418278e-7,
+          "id": "chan_1",
+          "is_cavitating": true,
+          "pressure_drop_pa": 459.37152142008244,
+          "resistance_solver": 907276717.431028,
+          "resistance_venturi": 648735255.3422358,
+          "throat_pressure_pa": 1035.265884387164,
+          "throat_velocity_ms": 0.6446654869016505
+        },
+        {
+          "cavitation_number": -10.288946640748646,
+          "cavity_length_m": 0.0,
+          "flow_rate_m3s": 5.06319089418278e-7,
+          "id": "chan_2",
+          "is_cavitating": true,
+          "pressure_drop_pa": 459.37152142008244,
+          "resistance_solver": 907276717.431028,
+          "resistance_venturi": 648735255.3422358,
+          "throat_pressure_pa": 1035.265884387164,
+          "throat_velocity_ms": 0.6446654869016505
+        },
+        {
+          "cavitation_number": -12.504053498527533,
+          "cavity_length_m": 0.0,
+          "flow_rate_m3s": 5.063190894182779e-7,
+          "id": "chan_3",
+          "is_cavitating": true,
+          "pressure_drop_pa": 385.1571196449794,
+          "resistance_solver": 760700371.9482423,
+          "resistance_venturi": 543927933.5108615,
+          "throat_pressure_pa": 575.8943629670817,
+          "throat_velocity_ms": 0.6446654869016504
+        },
+        {
+          "cavitation_number": -12.504053498527533,
+          "cavity_length_m": 0.0,
+          "flow_rate_m3s": 5.063190894182779e-7,
+          "id": "chan_4",
+          "is_cavitating": true,
+          "pressure_drop_pa": 385.1571196449794,
+          "resistance_solver": 760700371.9482423,
+          "resistance_venturi": 543927933.5108615,
+          "throat_pressure_pa": 575.8943629670817,
+          "throat_velocity_ms": 0.6446654869016504
+        },
+        {
+          "cavitation_number": -14.361295702856001,
+          "cavity_length_m": 0.0,
+          "flow_rate_m3s": 5.063190894182779e-7,
+          "id": "chan_5",
+          "is_cavitating": true,
+          "pressure_drop_pa": 385.1571196449794,
+          "resistance_solver": 760700371.9482423,
+          "resistance_venturi": 543927933.5108615,
+          "throat_pressure_pa": 190.73724332210233,
+          "throat_velocity_ms": 0.6446654869016504
+        },
+        {
+          "cavitation_number": -14.361295702856001,
+          "cavity_length_m": 0.0,
+          "flow_rate_m3s": 5.063190894182779e-7,
+          "id": "chan_6",
+          "is_cavitating": true,
+          "pressure_drop_pa": 385.1571196449794,
+          "resistance_solver": 760700371.9482423,
+          "resistance_venturi": 543927933.5108615,
+          "throat_pressure_pa": 190.73724332210233,
+          "throat_velocity_ms": 0.6446654869016504
+        },
+        {
+          "cavitation_number": 10000000000.0,
+          "cavity_length_m": 0.0,
+          "flow_rate_m3s": 0.0,
+          "id": "chan_7",
+          "is_cavitating": true,
+          "pressure_drop_pa": 0.0,
+          "resistance_solver": 907276717.431028,
+          "resistance_venturi": 648735255.342236,
+          "throat_pressure_pa": 0.0,
+          "throat_velocity_ms": 0.0
+        },
+        {
+          "cavitation_number": 10000000000.0,
+          "cavity_length_m": 0.0,
+          "flow_rate_m3s": 0.0,
+          "id": "chan_8",
+          "is_cavitating": true,
+          "pressure_drop_pa": 0.0,
+          "resistance_solver": 907276717.431028,
+          "resistance_venturi": 648735255.342236,
+          "throat_pressure_pa": 0.0,
+          "throat_velocity_ms": 0.0
+        },
+        {
+          "cavitation_number": 10000000000.0,
+          "cavity_length_m": 0.0,
+          "flow_rate_m3s": 0.0,
+          "id": "chan_9",
+          "is_cavitating": true,
+          "pressure_drop_pa": 0.0,
+          "resistance_solver": 760700371.9482423,
+          "resistance_venturi": 543927933.5108615,
+          "throat_pressure_pa": 0.0,
+          "throat_velocity_ms": 0.0
+        }
+      ],
+      "configuration": "mild",
+      "frustum": {
+        "contraction_ratio": 2.0,
+        "inlet_width_mm": 2.0,
+        "outlet_width_mm": 2.0,
+        "throat_width_mm": 1.0
+      },
+      "nodes": [
+        {
+          "id": "node_0",
+          "pressure_pa": 2000.0,
+          "type": "Inlet"
+        },
+        {
+          "id": "node_1",
+          "pressure_pa": 1229.6857607100412,
+          "type": "Junction"
+        },
+        {
+          "id": "node_2",
+          "pressure_pa": 770.3142392899588,
+          "type": "Junction"
+        },
+        {
+          "id": "node_3",
+          "pressure_pa": 770.3142392899588,
+          "type": "Junction"
+        },
+        {
+          "id": "node_4",
+          "pressure_pa": 385.1571196449794,
+          "type": "Junction"
+        },
+        {
+          "id": "node_5",
+          "pressure_pa": 385.1571196449794,
+          "type": "Junction"
+        },
+        {
+          "id": "node_6",
+          "pressure_pa": 0.0,
+          "type": "Junction"
+        },
+        {
+          "id": "node_7",
+          "pressure_pa": 0.0,
+          "type": "Junction"
+        },
+        {
+          "id": "node_8",
+          "pressure_pa": 0.0,
+          "type": "Junction"
+        },
+        {
+          "id": "node_9",
+          "pressure_pa": 0.0,
+          "type": "Outlet"
+        }
+      ]
+    },
+    {
+      "channels": [
+        {
+          "cavitation_number": -1.0841712848764329,
+          "cavity_length_m": 0.0,
+          "flow_rate_m3s": 1.0126381788365558e-6,
+          "id": "chan_0",
+          "is_cavitating": true,
+          "pressure_drop_pa": 770.3142392899588,
+          "resistance_solver": 760700371.9482423,
+          "resistance_venturi": 16965593454.510881,
+          "throat_pressure_pa": -11220.551589955638,
+          "throat_velocity_ms": 5.157323895213203
+        },
+        {
+          "cavitation_number": -1.5805591650467905,
+          "cavity_length_m": 0.0,
+          "flow_rate_m3s": 5.06319089418278e-7,
+          "id": "chan_1",
+          "is_cavitating": true,
+          "pressure_drop_pa": 459.37152142008244,
+          "resistance_solver": 907276717.431028,
+          "resistance_venturi": 10379764085.475773,
+          "throat_pressure_pa": -2075.4521367788693,
+          "throat_velocity_ms": 2.578661947606602
+        },
+        {
+          "cavitation_number": -1.5805591650467905,
+          "cavity_length_m": 0.0,
+          "flow_rate_m3s": 5.06319089418278e-7,
+          "id": "chan_2",
+          "is_cavitating": true,
+          "pressure_drop_pa": 459.37152142008244,
+          "resistance_solver": 907276717.431028,
+          "resistance_venturi": 10379764085.475773,
+          "throat_pressure_pa": -2075.4521367788693,
+          "throat_velocity_ms": 2.578661947606602
+        },
+        {
+          "cavitation_number": -1.7190033436579706,
+          "cavity_length_m": 0.0,
+          "flow_rate_m3s": 5.063190894182779e-7,
+          "id": "chan_3",
+          "is_cavitating": true,
+          "pressure_drop_pa": 385.1571196449794,
+          "resistance_solver": 760700371.9482423,
+          "resistance_venturi": 8702846936.173784,
+          "throat_pressure_pa": -2534.8236581989504,
+          "throat_velocity_ms": 2.5786619476066015
+        },
+        {
+          "cavitation_number": -1.7190033436579706,
+          "cavity_length_m": 0.0,
+          "flow_rate_m3s": 5.063190894182779e-7,
+          "id": "chan_4",
+          "is_cavitating": true,
+          "pressure_drop_pa": 385.1571196449794,
+          "resistance_solver": 760700371.9482423,
+          "resistance_venturi": 8702846936.173784,
+          "throat_pressure_pa": -2534.8236581989504,
+          "throat_velocity_ms": 2.5786619476066015
+        },
+        {
+          "cavitation_number": -1.8350809814284998,
+          "cavity_length_m": 0.0,
+          "flow_rate_m3s": 5.063190894182779e-7,
+          "id": "chan_5",
+          "is_cavitating": true,
+          "pressure_drop_pa": 385.1571196449794,
+          "resistance_solver": 760700371.9482423,
+          "resistance_venturi": 8702846936.173784,
+          "throat_pressure_pa": -2919.98077784393,
+          "throat_velocity_ms": 2.5786619476066015
+        },
+        {
+          "cavitation_number": -1.8350809814284998,
+          "cavity_length_m": 0.0,
+          "flow_rate_m3s": 5.063190894182779e-7,
+          "id": "chan_6",
+          "is_cavitating": true,
+          "pressure_drop_pa": 385.1571196449794,
+          "resistance_solver": 760700371.9482423,
+          "resistance_venturi": 8702846936.173784,
+          "throat_pressure_pa": -2919.98077784393,
+          "throat_velocity_ms": 2.5786619476066015
+        },
+        {
+          "cavitation_number": 10000000000.0,
+          "cavity_length_m": 0.0,
+          "flow_rate_m3s": 0.0,
+          "id": "chan_7",
+          "is_cavitating": true,
+          "pressure_drop_pa": 0.0,
+          "resistance_solver": 907276717.431028,
+          "resistance_venturi": 10379764085.475777,
+          "throat_pressure_pa": 0.0,
+          "throat_velocity_ms": 0.0
+        },
+        {
+          "cavitation_number": 10000000000.0,
+          "cavity_length_m": 0.0,
+          "flow_rate_m3s": 0.0,
+          "id": "chan_8",
+          "is_cavitating": true,
+          "pressure_drop_pa": 0.0,
+          "resistance_solver": 907276717.431028,
+          "resistance_venturi": 10379764085.475777,
+          "throat_pressure_pa": 0.0,
+          "throat_velocity_ms": 0.0
+        },
+        {
+          "cavitation_number": 10000000000.0,
+          "cavity_length_m": 0.0,
+          "flow_rate_m3s": 0.0,
+          "id": "chan_9",
+          "is_cavitating": true,
+          "pressure_drop_pa": 0.0,
+          "resistance_solver": 760700371.9482423,
+          "resistance_venturi": 8702846936.173784,
+          "throat_pressure_pa": 0.0,
+          "throat_velocity_ms": 0.0
+        }
+      ],
+      "configuration": "aggressive",
+      "frustum": {
+        "contraction_ratio": 4.0,
+        "inlet_width_mm": 2.0,
+        "outlet_width_mm": 2.0,
+        "throat_width_mm": 0.5
+      },
+      "nodes": [
+        {
+          "id": "node_0",
+          "pressure_pa": 2000.0,
+          "type": "Inlet"
+        },
+        {
+          "id": "node_1",
+          "pressure_pa": 1229.6857607100412,
+          "type": "Junction"
+        },
+        {
+          "id": "node_2",
+          "pressure_pa": 770.3142392899588,
+          "type": "Junction"
+        },
+        {
+          "id": "node_3",
+          "pressure_pa": 770.3142392899588,
+          "type": "Junction"
+        },
+        {
+          "id": "node_4",
+          "pressure_pa": 385.1571196449794,
+          "type": "Junction"
+        },
+        {
+          "id": "node_5",
+          "pressure_pa": 385.1571196449794,
+          "type": "Junction"
+        },
+        {
+          "id": "node_6",
+          "pressure_pa": 0.0,
+          "type": "Junction"
+        },
+        {
+          "id": "node_7",
+          "pressure_pa": 0.0,
+          "type": "Junction"
+        },
+        {
+          "id": "node_8",
+          "pressure_pa": 0.0,
+          "type": "Junction"
+        },
+        {
+          "id": "node_9",
+          "pressure_pa": 0.0,
+          "type": "Outlet"
+        }
+      ]
+    }
+  ],
+  "density_kg_m3": 998.0,
+  "fluid": "Water 25°C",
+  "vapor_pressure_pa": 3169.0,
+  "viscosity_pa_s": 0.00089
+}

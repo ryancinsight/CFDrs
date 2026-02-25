@@ -9,7 +9,7 @@ use crate::error::{ConfigurationError, ConfigurationResult};
 /// # Examples
 ///
 /// ```rust
-/// use scheme::config::AdaptiveSerpentineConfig;
+/// use cfd_schematics::config::AdaptiveSerpentineConfig;
 ///
 /// // Create with default adaptive behavior
 /// let config = AdaptiveSerpentineConfig::default();

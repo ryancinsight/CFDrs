@@ -34,6 +34,7 @@
 //! | [`Pyramid`] | Right n-gon pyramid | `A_base h / 3` |
 //! | [`Antiprism`] | n-gon antiprism | varies |
 //! | [`TruncatedIcosahedron`] | Soccer ball / C₆₀ | varies |
+//! | [`SerpentineTube`] | Multi-pass serpentine channel | `π r²·(n·L + (n−1)·π·R)` |
 //!
 //! ## Winding convention
 //!
@@ -76,6 +77,7 @@ pub mod rounded_cube;
 pub mod sphere;
 pub mod spherical_shell;
 pub mod stadium_prism;
+pub mod serpentine_tube;
 pub mod tetrahedron;
 pub mod torus;
 pub mod truncated_icosahedron;
@@ -104,6 +106,7 @@ pub use rounded_cube::RoundedCube;
 pub use sphere::UvSphere;
 pub use spherical_shell::SphericalShell;
 pub use stadium_prism::StadiumPrism;
+pub use serpentine_tube::SerpentineTube;
 pub use tetrahedron::Tetrahedron;
 pub use torus::Torus;
 pub use truncated_icosahedron::TruncatedIcosahedron;

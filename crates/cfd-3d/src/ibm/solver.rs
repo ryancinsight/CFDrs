@@ -170,9 +170,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + ToPrimitive
         );
 
         let forcing: Box<dyn ForcingMethod<T>> = if config.use_direct_forcing {
-            Box::new(DirectForcing::new(
-                <T as FromPrimitive>::from_f64(config.force_scale).unwrap_or_else(T::one),
-            ))
+            Box::new(DirectForcing::new())
         } else {
             Box::new(FeedbackForcing::new(
                 <T as FromPrimitive>::from_f64(DEFAULT_PROPORTIONAL_GAIN).unwrap_or_else(T::one),

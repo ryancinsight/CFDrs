@@ -287,6 +287,278 @@ impl<T: Scalar> IndexedMesh<T> {
             }
         }
     }
+
+    /// Repair any inconsistent face windings so that all normals point outward.
+    ///
+    /// Uses a manifold BFS flood from the extremal face to determine globally
+    /// consistent outward orientation, then flips any inward-facing face's
+    /// winding in-place (`v1 ↔ v2`). Finally calls [`recompute_normals`] to
+    /// synchronise vertex normals with the repaired geometry.
+    ///
+    /// ## Theorem basis
+    ///
+    /// For any closed orientable 2-manifold M embedded in ℝ³, the face with
+    /// the vertex carrying the highest X coordinate must have an outward normal
+    /// with `n_x ≥ 0` (Jordan-Brouwer separation theorem applied to the +X
+    /// axis half-space). BFS propagation from this seed via the half-edge
+    /// adjacency graph assigns a globally consistent orientation label to every
+    /// reachable face. Flipping only the faces labelled *inward* corrects the
+    /// minority misclassified by Phase-4 GWN seam ambiguity in the CSG
+    /// pipeline (Turk & Levoy 1994; Zhou et al. 2016 "Mesh Arrangements for
+    /// Solid Geometry") without disturbing the majority that are already correct.
+    ///
+    /// ## Properties
+    ///
+    /// - **Topology-preserving**: only vertex ordering within each face changes;
+    ///   no vertices or edges are created, deleted, or repositioned.
+    /// - **Watertightness-preserving**: the undirected edge graph is unchanged.
+    /// - **O(F + E)** time and space (same as the half-edge BFS).
+    /// - **No-op** on meshes already all-outward; safe to call unconditionally.
+    ///
+    /// ## Disconnected components
+    ///
+    /// Each connected component is re-seeded from its own extremal face, so
+    /// multi-component meshes (e.g. a chip body with separate channel voids)
+    /// are handled correctly.
+    pub fn orient_outward(&mut self) {
+        use std::collections::{HashMap, VecDeque};
+        use crate::domain::geometry::normal::triangle_normal;
+
+        // Collect an owned copy of all face data so the immutable borrow ends
+        // before the mutable `self.faces.iter_mut()` pass below.
+        use crate::infrastructure::storage::face_store::FaceData;
+        let face_list: Vec<FaceData> = self.faces.iter().copied().collect();
+        let n_faces: usize = face_list.len();
+        if n_faces == 0 {
+            return;
+        }
+
+        // Per-face normals (None = degenerate) and max-X vertex position.
+        // Both are computed from the immutable vertex pool before the later
+        // mutable pass.
+        let mut face_normals: Vec<Option<Vector3<T>>> = Vec::with_capacity(n_faces);
+        let mut face_max_x: Vec<T> = Vec::with_capacity(n_faces);
+        for face in &face_list {
+            let a = self.vertices.position(face.vertices[0]);
+            let b = self.vertices.position(face.vertices[1]);
+            let c = self.vertices.position(face.vertices[2]);
+            face_normals.push(triangle_normal(a, b, c));
+            // Use explicit comparison to avoid ambiguity between
+            // nalgebra::RealField::max and num_traits::Float::max.
+            let ab = if a.x > b.x { a.x } else { b.x };
+            face_max_x.push(if ab > c.x { ab } else { c.x });
+        }
+
+        // Directed half-edge → face index.
+        let half_edge_cap: usize = n_faces * 3;
+        let mut half_edge: HashMap<(VertexId, VertexId), usize> =
+            HashMap::with_capacity(half_edge_cap);
+        for (fi, face) in face_list.iter().enumerate() {
+            let v = face.vertices;
+            for k in 0..3 {
+                let j = (k + 1) % 3;
+                half_edge.insert((v[k], v[j]), fi);
+            }
+        }
+
+        // BFS orientation labels: Some(true) = outward, Some(false) = inward.
+        let mut orientation: Vec<Option<bool>> = vec![None; n_faces];
+
+        // Outer loop handles disconnected components — each gets its own seed.
+        loop {
+            // Find the unvisited non-degenerate face with the maximum X vertex.
+            let seed_fi = {
+                let mut best_x = <T as num_traits::Float>::neg_infinity();
+                let mut best: Option<usize> = None;
+                for fi in 0..n_faces {
+                    if orientation[fi].is_some() || face_normals[fi].is_none() {
+                        continue;
+                    }
+                    if face_max_x[fi] > best_x {
+                        best_x = face_max_x[fi];
+                        best = Some(fi);
+                    }
+                }
+                match best {
+                    Some(fi) => fi,
+                    None => break,
+                }
+            };
+
+            // Seed orientation: the outward normal of the extremal face must
+            // have a non-negative X component.
+            let seed_normal = face_normals[seed_fi].unwrap();
+            orientation[seed_fi] = Some(seed_normal.x >= T::zero());
+
+            let mut queue: VecDeque<usize> = VecDeque::new();
+            queue.push_back(seed_fi);
+
+            while let Some(fi) = queue.pop_front() {
+                let is_outward = orientation[fi].unwrap();
+                let v = face_list[fi].vertices;
+                for k in 0..3 {
+                    let j = (k + 1) % 3;
+                    let va = v[k];
+                    let vb = v[j];
+                    // Reverse edge (vb→va): consistent adjacency → same orientation.
+                    if let Some(&nfi) = half_edge.get(&(vb, va)) {
+                        if orientation[nfi].is_none() && face_normals[nfi].is_some() {
+                            orientation[nfi] = Some(is_outward);
+                            queue.push_back(nfi);
+                        }
+                    // Forward edge (va→vb): same direction → winding flip.
+                    } else if let Some(&nfi) = half_edge.get(&(va, vb)) {
+                        if orientation[nfi].is_none() && face_normals[nfi].is_some() {
+                            orientation[nfi] = Some(!is_outward);
+                            queue.push_back(nfi);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Flip inward faces in-place (swap v1 ↔ v2).
+        let mut fi = 0usize;
+        for face in self.faces.iter_mut() {
+            if orientation[fi] == Some(false) {
+                face.flip();
+            }
+            fi += 1;
+        }
+        self.edges = None;
+
+        // Synchronise vertex normals with the repaired winding.
+        self.recompute_normals();
+    }
+
+    /// Remove all connected face components except the largest one.
+    ///
+    /// After a CSG Difference operation, phantom closed "islands" — small groups
+    /// of faces that are locally manifold but disconnected from the main body —
+    /// can appear at the seam boundary.  Each island passes `is_watertight = true`
+    /// individually but inflates the Euler characteristic (χ = 4 instead of 2),
+    /// corrupts the signed volume, and produces floating geometry in STL output.
+    ///
+    /// **Threshold:** a component is discarded when its face count is less than
+    /// `max(4, largest_component_size × 5%)`.  The 5 % relative threshold with
+    /// a 4-face absolute minimum reliably suppresses seam artefacts while
+    /// preserving large intentional secondary bodies.
+    ///
+    /// **Field handling after reconstruction:**
+    ///
+    /// | Field             | Action                                      |
+    /// |-------------------|---------------------------------------------|
+    /// | `vertices`        | Rebuilt — orphaned vertices removed          |
+    /// | `faces`           | Rebuilt from kept-component faces only       |
+    /// | `edges`           | Set to `None` — lazily rebuilt on next call  |
+    /// | `cells`           | Cleared — CSG surfaces carry no cell data    |
+    /// | `attributes`      | Remapped via old→new `FaceId` translation    |
+    /// | `boundary_labels` | Remapped; labels on discarded faces dropped  |
+    ///
+    /// # Returns
+    /// Number of components discarded (`0` when the mesh was already clean).
+    pub fn retain_largest_component(&mut self) -> usize {
+        use crate::domain::topology::AdjacencyGraph;
+        use crate::domain::topology::connectivity::connected_components;
+
+        // Ensure edge adjacency is current.
+        self.rebuild_edges();
+        let edges = self.edges.as_ref().expect("edges just rebuilt");
+
+        let adj = AdjacencyGraph::build(&self.faces, edges);
+        let components = connected_components(&self.faces, &adj);
+
+        // Fast path: already a single component.
+        if components.len() <= 1 {
+            return 0;
+        }
+
+        let largest_size = components.iter().map(|c| c.len()).max().unwrap_or(0);
+        // Discard if face_count < max(4, largest * 0.05).
+        let min_keep = ((largest_size as f64 * 0.05).ceil() as usize).max(4);
+
+        // Single-pass over components: build a fresh mesh from kept faces only.
+        let mut new_mesh = IndexedMesh::<T>::new();
+        // Map old VertexId → new VertexId (None = not yet seen).
+        let mut vertex_remap: Vec<Option<VertexId>> = vec![None; self.vertices.len()];
+        // Map old FaceId → new FaceId for attribute/label remapping.
+        let mut face_remap: HashMap<FaceId, FaceId> = HashMap::new();
+        let mut discarded = 0usize;
+
+        for component in &components {
+            if component.len() < min_keep {
+                discarded += 1;
+                tracing::debug!(
+                    "retain_largest_component: discarding {} phantom face(s) \
+                     (threshold = {} faces)",
+                    component.len(),
+                    min_keep,
+                );
+                continue;
+            }
+            for &old_fid in component {
+                let fd = *self.faces.get(old_fid);
+                let mut nv = [VertexId::default(); 3];
+                for (k, &vid) in fd.vertices.iter().enumerate() {
+                    let idx = vid.as_usize();
+                    nv[k] = *vertex_remap[idx].get_or_insert_with(|| {
+                        new_mesh.add_vertex(
+                            *self.vertices.position(vid),
+                            *self.vertices.normal(vid),
+                        )
+                    });
+                }
+                // Guard: skip any face that collapsed under vertex welding.
+                if nv[0] == nv[1] || nv[1] == nv[2] || nv[2] == nv[0] {
+                    continue;
+                }
+                let new_fid = if fd.region == RegionId::INVALID {
+                    new_mesh.add_face(nv[0], nv[1], nv[2])
+                } else {
+                    new_mesh.add_face_with_region(nv[0], nv[1], nv[2], fd.region)
+                };
+                face_remap.insert(old_fid, new_fid);
+            }
+        }
+
+        if discarded == 0 {
+            return 0;
+        }
+
+        // Remap per-face scalar attributes.
+        let old_attrs = std::mem::replace(&mut self.attributes, AttributeStore::new());
+        for channel in old_attrs.channel_names() {
+            for (&old_fid, &new_fid) in &face_remap {
+                if let Some(val) = old_attrs.get(channel, old_fid) {
+                    new_mesh.attributes.set(channel, new_fid, val);
+                }
+            }
+        }
+
+        // Remap boundary labels.
+        let old_labels = std::mem::replace(&mut self.boundary_labels, HashMap::new());
+        new_mesh.boundary_labels = old_labels
+            .into_iter()
+            .filter_map(|(old_fid, label)| {
+                face_remap.get(&old_fid).map(|&nf| (nf, label))
+            })
+            .collect();
+
+        // Swap stores in-place.
+        self.vertices        = new_mesh.vertices;
+        self.faces           = new_mesh.faces;
+        self.edges           = None;         // stale; lazily rebuilt on next use
+        self.cells           = Vec::new();   // CSG surfaces carry no volumetric cells
+        self.attributes      = new_mesh.attributes;
+        self.boundary_labels = new_mesh.boundary_labels;
+
+        tracing::debug!(
+            "retain_largest_component: removed {} component(s); {} faces remain",
+            discarded,
+            self.faces.len(),
+        );
+        discarded
+    }
 }
 
 impl<T: Scalar> Default for IndexedMesh<T> {

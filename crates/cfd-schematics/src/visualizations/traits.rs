@@ -259,7 +259,7 @@ impl OutputFormat {
 /// # Examples
 ///
 /// ```rust
-/// use scheme::visualizations::Color;
+/// use cfd_schematics::visualizations::Color;
 ///
 /// // Create a red color
 /// let red = Color::rgba(255, 0, 0, 255);
@@ -337,7 +337,7 @@ impl Color {
 /// # Examples
 ///
 /// ```rust
-/// use scheme::visualizations::{LineStyle, Color};
+/// use cfd_schematics::visualizations::{LineStyle, Color};
 ///
 /// // Solid black line
 /// let solid_line = LineStyle::solid(Color::BLACK, 1.0);
@@ -384,7 +384,7 @@ impl LineStyle {
 /// # Examples
 ///
 /// ```rust
-/// use scheme::visualizations::{TextStyle, Color};
+/// use cfd_schematics::visualizations::{TextStyle, Color};
 ///
 /// // Default text style
 /// let text_style = TextStyle::new(Color::BLACK, 12.0, "Arial");

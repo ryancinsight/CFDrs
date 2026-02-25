@@ -294,7 +294,7 @@ impl PlottersRenderer {
             chart
                 .draw_series(std::iter::once(Text::new(
                     overlay.field.label().to_string(),
-                    (bar_x_start, (bar_y_start + bar_y_end) / 2.0),
+                    (bar_x_start, f64::midpoint(bar_y_start, bar_y_end)),
                     ("sans-serif", 9).into_font(),
                 )))
                 .map_err(|e| VisualizationError::rendering_error(&e.to_string()))?;

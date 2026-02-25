@@ -79,12 +79,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Export structure for verification
     use std::fs;
-    use std::path::Path;
+    use std::path::PathBuf;
     
-    let output_dir = Path::new("crates/cfd-1d/outputs");
-    if !output_dir.exists() {
-        fs::create_dir_all(output_dir)?;
-    }
+    let output_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("outputs").join("microfluidic_chip");
+    fs::create_dir_all(&output_dir)?;
     
     let structure = serde_json::json!({
         "example": "microfluidic_chip",

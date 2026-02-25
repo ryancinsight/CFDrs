@@ -44,8 +44,6 @@ impl ChannelPath {
         dir.normalize()
     }
 
-    /// Compute a local frame (tangent, normal, binormal) at each waypoint
-    /// using the Frenet–Serret formulas with fallback for straight segments.
     pub fn compute_frames(&self) -> Vec<FrenetFrame> {
         let n = self.points.len();
         let mut frames = Vec::with_capacity(n);
@@ -61,8 +59,18 @@ impl ChannelPath {
                 .normalize()
             };
 
-            // Find a normal perpendicular to tangent
-            let normal = find_perpendicular(&tangent);
+            // Use a consistent Up vector (Z-axis) to prevent twisting and guarantee perfectly
+            // aligned seams across distinct channel segments in planar schematics.
+            let mut up = Vector3r::new(0.0, 0.0, 1.0);
+            
+            // If tangent is parallel to Z-axis, fallback to X-axis as up
+            if tangent.z.abs() > 0.999 {
+                up = Vector3r::new(1.0, 0.0, 0.0);
+            }
+            
+            // local X (normal) is perpendicular to tangent and up
+            let normal = up.cross(&tangent).normalize();
+            // local Y (binormal) is perpendicular to normal and tangent, pointing "up"
             let binormal = tangent.cross(&normal).normalize();
 
             frames.push(FrenetFrame {
@@ -88,15 +96,4 @@ pub struct FrenetFrame {
     pub normal: Vector3r,
     /// Binormal direction (tangent × normal).
     pub binormal: Vector3r,
-}
-
-/// Find a vector perpendicular to `v`.
-fn find_perpendicular(v: &Vector3r) -> Vector3r {
-    let candidate = if v.x.abs() < 0.9 {
-        Vector3r::x()
-    } else {
-        Vector3r::y()
-    };
-    let perp = v.cross(&candidate);
-    perp.normalize()
 }

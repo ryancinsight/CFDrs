@@ -43,7 +43,19 @@
       "mcp__desktop-commander__start_search",
       "mcp__desktop-commander__get_more_search_results",
       "Bash(taskkill:*)",
-      "Bash(tee:*)"
+      "Bash(tee:*)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(cargo clippy:*)",
+      "Bash(Get-ChildItem \"C:\\\\Users\\\\RyanClanton\\\\gcli\\\\software\\\\millifluidic_design\\\\CFDrs\\\\crates\\\\cfd-schematics\\\\src\" -Recurse -Filter \"*.rs\")",
+      "Bash(Select-String:*)",
+      "Bash(Select-Object -First 10)",
+      "Bash(ForEach-Object { $_Path + \":\" + $_LineNumber + \": \" + $_Line })",
+      "WebFetch(domain:arxiv.org)",
+      "WebFetch(domain:www.gianmarcocherchi.com)",
+      "WebFetch(domain:ar5iv.labs.arxiv.org)",
+      "WebFetch(domain:www.researchgate.net)",
+      "WebFetch(domain:www.cgal.org)"
     ]
   }
 }

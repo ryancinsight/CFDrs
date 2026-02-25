@@ -13,7 +13,7 @@ use crate::geometry::ChannelType;
 /// # Examples
 ///
 /// ```rust
-/// use scheme::config::{ChannelTypeConfig, SerpentineConfig, ArcConfig, FrustumConfig};
+/// use cfd_schematics::config::{ChannelTypeConfig, SerpentineConfig, ArcConfig, FrustumConfig};
 ///
 /// // All channels will be straight lines
 /// let straight_config = ChannelTypeConfig::AllStraight;

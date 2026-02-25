@@ -28,6 +28,7 @@ gpu = ["cfd-core/gpu"]
 
 [dev-dependencies]
 cfd-schematics = { path = "../cfd-schematics" }
+cfd-validation = { path = "../cfd-validation" }
 plotters = { version = "0.3.5", default-features = false, features = ["bitmap_backend", "bitmap_encoder", "svg_backend", "line_series", "ttf"] }
 serde_json.workspace = true
 proptest.workspace = true

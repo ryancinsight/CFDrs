@@ -13,12 +13,14 @@ use cfd_schematics::{
     visualizations::schematic::plot_geometry,
 };
 use std::fs;
+use std::path::PathBuf;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    fs::create_dir_all("outputs/serpentine/wave_shapes")?;
-    fs::create_dir_all("outputs/serpentine/configurations")?;
-    fs::create_dir_all("outputs/serpentine/phase_directions")?;
-    fs::create_dir_all("outputs/serpentine/optimization")?;
+    let out = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("outputs");
+    fs::create_dir_all(out.join("serpentine/wave_shapes"))?;
+    fs::create_dir_all(out.join("serpentine/configurations"))?;
+    fs::create_dir_all(out.join("serpentine/phase_directions"))?;
+    fs::create_dir_all(out.join("serpentine/optimization"))?;
 
     let config = GeometryConfig::default();
     let splits = vec![SplitType::Bifurcation, SplitType::Trifurcation];
@@ -44,9 +46,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         &config,
         &ChannelTypeConfig::AllSerpentine(sine_config),
     );
-    let sine_output = "outputs/serpentine/wave_shapes/sine_wave.png";
-    plot_geometry(&sine_system, sine_output)?;
-    println!("   ✓ Sine wave: Smooth, natural curves -> {}", sine_output);
+    let sine_output = out.join("serpentine/wave_shapes/sine_wave.png");
+    plot_geometry(&sine_system, sine_output.to_str().unwrap())?;
+    println!("   ✓ Sine wave: Smooth, natural curves -> {}", sine_output.display());
 
     let square_config = base_config.with_square_wave();
     let square_system = create_geometry(
@@ -55,9 +57,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         &config,
         &ChannelTypeConfig::AllSerpentine(square_config),
     );
-    let square_output = "outputs/serpentine/wave_shapes/square_wave.png";
-    plot_geometry(&square_system, square_output)?;
-    println!("   ✓ Square wave: Angular transitions -> {}", square_output);
+    let square_output = out.join("serpentine/wave_shapes/square_wave.png");
+    plot_geometry(&square_system, square_output.to_str().unwrap())?;
+    println!("   ✓ Square wave: Angular transitions -> {}", square_output.display());
 
     println!("\n🔄 Phase Direction Control:");
 
@@ -79,9 +81,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             &config,
             &ChannelTypeConfig::AllSerpentine(phase_config),
         );
-        let output = format!("outputs/serpentine/phase_directions/{}.png", name);
-        plot_geometry(&system, &output)?;
-        println!("   ✓ {}: {} -> {}", name, description, output);
+        let output = out.join(format!("serpentine/phase_directions/{}.png", name));
+        plot_geometry(&system, output.to_str().unwrap())?;
+        println!("   ✓ {}: {} -> {}", name, description, output.display());
     }
 
     println!("\n⚙️  Configuration Presets:");
@@ -116,9 +118,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             &config,
             &ChannelTypeConfig::AllSerpentine(preset_config),
         );
-        let output = format!("outputs/serpentine/configurations/{}.png", name);
-        plot_geometry(&system, &output)?;
-        println!("   ✓ {}: {} -> {}", name, description, output);
+        let output = out.join(format!("serpentine/configurations/{}.png", name));
+        plot_geometry(&system, output.to_str().unwrap())?;
+        println!("   ✓ {}: {} -> {}", name, description, output.display());
     }
 
     println!("\n🚀 Optimization Features:");
@@ -144,8 +146,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             &config,
             &ChannelTypeConfig::AllSerpentine(opt_config),
         );
-        let output = format!("outputs/serpentine/optimization/{}.png", name);
-        plot_geometry(&system, &output)?;
+        let output = out.join(format!("serpentine/optimization/{}.png", name));
+        plot_geometry(&system, output.to_str().unwrap())?;
 
         let total_length: f64 = system
             .channels
@@ -165,7 +167,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         println!(
             "   ✓ {}: {} (total length: {:.1}mm) -> {}",
-            name, description, total_length, output
+            name, description, total_length, output.display()
         );
     }
 
@@ -194,9 +196,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             &config,
             &ChannelTypeConfig::AllSerpentine(single_config),
         );
-        let output = format!("outputs/serpentine/wave_shapes/single_{}.png", name);
-        plot_geometry(&system, &output)?;
-        println!("   ✓ Single channel {}: -> {}", name, output);
+        let output = out.join(format!("serpentine/wave_shapes/single_{}.png", name));
+        plot_geometry(&system, output.to_str().unwrap())?;
+        println!("   ✓ Single channel {}: -> {}", name, output.display());
     }
 
     println!("\n📊 Feature Summary:");
@@ -210,7 +212,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     println!("\n✅ Comprehensive serpentine demonstration complete!");
-    println!("   All outputs organized in outputs/serpentine/ subdirectories");
+    println!("   All outputs organized in {}/serpentine/ subdirectories", out.display());
 
     Ok(())
 }

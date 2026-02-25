@@ -25,14 +25,17 @@ use cfd_schematics::visualizations::{
 };
 use std::collections::HashMap;
 use std::fs;
+use std::path::PathBuf;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("🔬 Bifurcation Schematic + 2D CFD Example");
     println!("==========================================");
 
     // ── 0. Output directory ───────────────────────────────────────────────────
-    let out = "crates/cfd-2d/outputs";
-    fs::create_dir_all(out)?;
+    let out = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("outputs")
+        .join("bifurcation");
+    fs::create_dir_all(&out)?;
 
     // ── Phase 1: Design (cfd-schematics) ─────────────────────────────────────
     println!("\n📐 Phase 1: Schematic Design");
@@ -90,9 +93,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ..Default::default()
     };
 
-    let schematic_path = format!("{out}/bifurcation_schematic.png");
-    renderer.render_system(&system, &schematic_path, &schematic_cfg)?;
-    println!("  ✅ Schematic → {schematic_path}");
+    let schematic_path = out.join("bifurcation_schematic.png");
+    renderer.render_system(&system, schematic_path.to_str().unwrap(), &schematic_cfg)?;
+    println!("  ✅ Schematic → {}", schematic_path.display());
     println!("  Murray's law: r_parent={:.3} mm, r_daughter={:.3} mm", r_parent, r_daughter);
     println!("  Verification: r_p³ = {:.4}, r_d1³+r_d2³ = {:.4}",
         r_parent.powi(3),
@@ -172,9 +175,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ..Default::default()
     };
 
-    let overlay_path = format!("{out}/bifurcation_flow_overlay.png");
-    renderer.render_analysis(&system, &overlay_path, &overlay_cfg, &overlay)?;
-    println!("  ✅ Flow rate overlay → {overlay_path}");
+    let overlay_path = out.join("bifurcation_flow_overlay.png");
+    renderer.render_analysis(&system, overlay_path.to_str().unwrap(), &overlay_cfg, &overlay)?;
+    println!("  ✅ Flow rate overlay → {}", overlay_path.display());
 
     println!("\n✅ Bifurcation example complete.");
     Ok(())

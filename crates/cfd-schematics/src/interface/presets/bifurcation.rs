@@ -14,25 +14,28 @@ pub fn symmetric_bifurcation(
     let mut bp = NetworkBlueprint::new(name);
 
     bp.add_node(NodeSpec::new("inlet", NodeKind::Inlet));
-    bp.add_node(NodeSpec::new("junction", NodeKind::Junction));
-    bp.add_node(NodeSpec::new("outlet_1", NodeKind::Outlet));
-    bp.add_node(NodeSpec::new("outlet_2", NodeKind::Outlet));
+    bp.add_node(NodeSpec::new("diverging_junction", NodeKind::Junction));
+    bp.add_node(NodeSpec::new("converging_junction", NodeKind::Junction));
+    bp.add_node(NodeSpec::new("outlet", NodeKind::Outlet));
 
-    bp.add_channel(ChannelSpec::new_pipe(
-        "parent",
-        "inlet",
-        "junction",
-        parent_length_m,
-        parent_diameter_m,
-        hp_resistance(parent_length_m, parent_diameter_m),
-        0.0,
-    ));
+    bp.add_channel(
+        ChannelSpec::new_pipe(
+            "parent_in",
+            "inlet",
+            "diverging_junction",
+            parent_length_m,
+            parent_diameter_m,
+            hp_resistance(parent_length_m, parent_diameter_m),
+            0.0,
+        )
+        .with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)),
+    );
 
     bp.add_channel(
         ChannelSpec::new_pipe(
             "daughter_1",
-            "junction",
-            "outlet_1",
+            "diverging_junction",
+            "converging_junction",
             daughter_length_m,
             daughter_diameter_m,
             hp_resistance(daughter_length_m, daughter_diameter_m),
@@ -44,8 +47,8 @@ pub fn symmetric_bifurcation(
     bp.add_channel(
         ChannelSpec::new_pipe(
             "daughter_2",
-            "junction",
-            "outlet_2",
+            "diverging_junction",
+            "converging_junction",
             daughter_length_m,
             daughter_diameter_m,
             hp_resistance(daughter_length_m, daughter_diameter_m),
@@ -54,11 +57,18 @@ pub fn symmetric_bifurcation(
         .with_metadata(TherapyZoneMetadata::new(TherapyZone::HealthyBypass)),
     );
 
-    // Parent is mixed flow
-    if let Some(parent) = bp.channels.iter_mut().find(|c| c.id.as_str() == "parent") {
-        parent.metadata = Some(crate::geometry::metadata::MetadataContainer::new());
-        parent.metadata.as_mut().unwrap().insert(TherapyZoneMetadata::new(TherapyZone::MixedFlow));
-    }
+    bp.add_channel(
+        ChannelSpec::new_pipe(
+            "parent_out",
+            "converging_junction",
+            "outlet",
+            parent_length_m,
+            parent_diameter_m,
+            hp_resistance(parent_length_m, parent_diameter_m),
+            0.0,
+        )
+        .with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)),
+    );
 
     bp
 }
@@ -68,8 +78,7 @@ fn hp_resistance(length_m: f64, diameter_m: f64) -> f64 {
 }
 
 /// Rectangular-channel symmetric bifurcation.
-///
-/// Topology: `inlet → parent → junction → (daughter_1, daughter_2) → outlets`.
+/// Topology: `inlet → parent_in → diverging_junction → (daughter_1, daughter_2) → converging_junction → parent_out → outlet`.
 /// All channels are rectangular with constant `height_m`.
 #[must_use]
 pub fn bifurcation_rect(
@@ -83,27 +92,30 @@ pub fn bifurcation_rect(
     let mut bp = NetworkBlueprint::new(name);
 
     bp.add_node(NodeSpec::new("inlet", NodeKind::Inlet));
-    bp.add_node(NodeSpec::new("junction", NodeKind::Junction));
-    bp.add_node(NodeSpec::new("outlet_1", NodeKind::Outlet));
-    bp.add_node(NodeSpec::new("outlet_2", NodeKind::Outlet));
+    bp.add_node(NodeSpec::new("diverging_junction", NodeKind::Junction));
+    bp.add_node(NodeSpec::new("converging_junction", NodeKind::Junction));
+    bp.add_node(NodeSpec::new("outlet", NodeKind::Outlet));
 
-    bp.add_channel(ChannelSpec::new_pipe_rect(
-        "parent",
-        "inlet",
-        "junction",
-        parent_length_m,
-        parent_width_m,
-        height_m,
-        shah_london_resistance(parent_width_m, height_m, parent_length_m, BLOOD_MU),
-        0.0,
-    ));
+    bp.add_channel(
+        ChannelSpec::new_pipe_rect(
+            "parent_in",
+            "inlet",
+            "diverging_junction",
+            parent_length_m,
+            parent_width_m,
+            height_m,
+            shah_london_resistance(parent_width_m, height_m, parent_length_m, BLOOD_MU),
+            0.0,
+        )
+        .with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)),
+    );
 
     for i in 1..=2 {
         bp.add_channel(
             ChannelSpec::new_pipe_rect(
                 format!("daughter_{i}"),
-                "junction",
-                format!("outlet_{i}"),
+                "diverging_junction",
+                "converging_junction",
                 daughter_length_m,
                 daughter_width_m,
                 height_m,
@@ -114,10 +126,19 @@ pub fn bifurcation_rect(
         );
     }
 
-    if let Some(parent) = bp.channels.iter_mut().find(|c| c.id.as_str() == "parent") {
-        parent.metadata = Some(crate::geometry::metadata::MetadataContainer::new());
-        parent.metadata.as_mut().unwrap().insert(TherapyZoneMetadata::new(TherapyZone::MixedFlow));
-    }
+    bp.add_channel(
+        ChannelSpec::new_pipe_rect(
+            "parent_out",
+            "converging_junction",
+            "outlet",
+            parent_length_m,
+            parent_width_m,
+            height_m,
+            shah_london_resistance(parent_width_m, height_m, parent_length_m, BLOOD_MU),
+            0.0,
+        )
+        .with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)),
+    );
 
     bp
 }

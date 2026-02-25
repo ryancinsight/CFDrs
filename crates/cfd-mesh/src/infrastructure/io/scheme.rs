@@ -220,6 +220,24 @@ pub fn from_interchange(
         let mut width_scales = None;
 
         let profile = match &ch.profile {
+            cfd_schematics::geometry::InterchangeChannelProfile::Circular {
+                diameter_mm,
+                ..
+            } => ChannelProfile::Circular {
+                radius: (*diameter_mm as Real) / 2.0,
+                segments: channel_segments,
+            },
+            cfd_schematics::geometry::InterchangeChannelProfile::RoundedRectangular {
+                width_mm,
+                height_mm,
+                corner_radius_mm,
+                ..
+            } => ChannelProfile::RoundedRectangular {
+                width: *width_mm as Real,
+                height: *height_mm as Real,
+                corner_radius: *corner_radius_mm as Real,
+                corner_segments: channel_segments.max(4) / 4,
+            },
             cfd_schematics::geometry::InterchangeChannelProfile::Constant {
                 width_mm,
                 height_mm,

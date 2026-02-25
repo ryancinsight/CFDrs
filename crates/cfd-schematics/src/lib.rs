@@ -1,3 +1,43 @@
+// ── Clippy configuration ─────────────────────────────────────────────────────
+// Pedantic lints enabled, with domain-appropriate exceptions:
+#![warn(clippy::all, clippy::pedantic)]
+// usize→f64 casts are pervasive in geometry/point-count arithmetic
+#![allow(clippy::cast_precision_loss)]
+// Every Result-returning fn documenting errors is excessive for internal APIs
+#![allow(clippy::missing_errors_doc)]
+// Too aggressive for builder/config-heavy crate
+#![allow(clippy::must_use_candidate)]
+// Trait-object consistency requires &self even if unused by some impls
+#![allow(clippy::unused_self)]
+// Builder pattern returns Self — must_use on Self is noise
+#![allow(clippy::return_self_not_must_use)]
+// Domain math variables (x0 vs x1) are intentionally similar
+#![allow(clippy::similar_names)]
+// Complex geometry functions are inherently long
+#![allow(clippy::too_many_lines)]
+// Complex config types are acceptable
+#![allow(clippy::type_complexity)]
+// Config constructors legitimately have many parameters
+#![allow(clippy::too_many_arguments)]
+// Geometry structs have many fields
+#![allow(clippy::struct_excessive_bools)]
+// f64→u32/u8 casts are clamped in practice (pixel coordinates, color channels)
+#![allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+// Module-level re-exports are deliberate API design
+#![allow(clippy::module_name_repetitions)]
+// format! push is clearer than write! for non-hot-path string building
+#![allow(clippy::format_push_string)]
+// Domain-specific terms (e.g. NodeSpec) don't need backticks
+#![allow(clippy::doc_markdown)]
+// Some public APIs take owned values for ergonomics
+#![allow(clippy::needless_pass_by_value)]
+// &mut Vec is sometimes needed for push operations
+#![allow(clippy::ptr_arg)]
+// Panics docs are low-value for internal geometry functions
+#![allow(clippy::missing_panics_doc)]
+// Returning &str tied to argument lifetime is correct
+#![allow(clippy::unnecessary_literal_bound)]
+
 //! # cfd-schematics — Design-Time Topology & Visualization Layer
 //!
 //! `cfd-schematics` is the **single authoritative source** for microfluidic

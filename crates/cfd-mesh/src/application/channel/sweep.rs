@@ -59,7 +59,9 @@ impl SweepMesher {
 
         let mut faces = Vec::new();
 
-        // Connect adjacent rings with quad strips (split into triangles)
+        // Connect adjacent rings with quad strips (split into two CCW-from-outside triangles).
+        // Winding order verified: [ring_a[i], ring_b[j], ring_b[i]] produces outward normal
+        // (radially away from the sweep axis) for CCW profiles viewed along the sweep direction.
         for s in 0..(n_stations - 1) {
             let ring_a = &rings[s];
             let ring_b = &rings[s + 1];
@@ -67,13 +69,13 @@ impl SweepMesher {
                 let j = (i + 1) % n_profile;
 
                 // Quad: ring_a[i], ring_b[i], ring_b[j], ring_a[j]
-                // Split into two triangles
+                // CCW from outside → outward-facing normals → positive signed_volume
                 faces.push(FaceData {
-                    vertices: [ring_a[i], ring_b[i], ring_b[j]],
+                    vertices: [ring_a[i], ring_b[j], ring_b[i]],
                     region,
                 });
                 faces.push(FaceData {
-                    vertices: [ring_a[i], ring_b[j], ring_a[j]],
+                    vertices: [ring_a[i], ring_a[j], ring_b[j]],
                     region,
                 });
             }
@@ -120,7 +122,7 @@ impl SweepMesher {
     /// * `profile` - The base profile to sweep.
     /// * `path` - The 3D path to sweep along.
     /// * `width_scales` - Scaling factors for the profile's X-dimension at each path point.
-    ///                    Must have the same length as the path frames.
+    ///   Must have the same length as the path frames.
     /// * `vertex_pool` - Destination for vertices.
     /// * `region` - Region ID for generated faces.
     pub fn sweep_variable(
@@ -166,7 +168,7 @@ impl SweepMesher {
 
         let mut faces = Vec::new();
 
-        // Connect adjacent rings with quad strips (split into triangles)
+        // Connect adjacent rings with quad strips (split into two CCW-from-outside triangles).
         for s in 0..(n_stations - 1) {
             let ring_a = &rings[s];
             let ring_b = &rings[s + 1];
@@ -174,11 +176,11 @@ impl SweepMesher {
                 let j = (i + 1) % n_profile;
 
                 faces.push(FaceData {
-                    vertices: [ring_a[i], ring_b[i], ring_b[j]],
+                    vertices: [ring_a[i], ring_b[j], ring_b[i]],
                     region,
                 });
                 faces.push(FaceData {
-                    vertices: [ring_a[i], ring_b[j], ring_a[j]],
+                    vertices: [ring_a[i], ring_a[j], ring_b[j]],
                     region,
                 });
             }

@@ -13,13 +13,15 @@ use cfd_schematics::{
     visualizations::schematic::plot_geometry,
 };
 use std::fs;
+use std::path::PathBuf;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    fs::create_dir_all("outputs/arcs/curvature")?;
-    fs::create_dir_all("outputs/arcs/smoothness")?;
-    fs::create_dir_all("outputs/arcs/directions")?;
-    fs::create_dir_all("outputs/arcs/symmetry")?;
-    fs::create_dir_all("outputs/mixed/adaptive_selection")?;
+    let out = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("outputs");
+    fs::create_dir_all(out.join("arcs/curvature"))?;
+    fs::create_dir_all(out.join("arcs/smoothness"))?;
+    fs::create_dir_all(out.join("arcs/directions"))?;
+    fs::create_dir_all(out.join("arcs/symmetry"))?;
+    fs::create_dir_all(out.join("mixed/adaptive_selection"))?;
 
     let config = GeometryConfig::default();
     let splits = vec![SplitType::Bifurcation, SplitType::Trifurcation];
@@ -55,11 +57,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             &config,
             &ChannelTypeConfig::AllArcs(arc_config),
         );
-        let output = format!("outputs/arcs/curvature/{}_curvature.png", name);
-        plot_geometry(&system, &output)?;
+        let output = out.join(format!("arcs/curvature/{}_curvature.png", name));
+        plot_geometry(&system, output.to_str().unwrap())?;
         println!(
             "   ✓ {}: {} (factor: {}) -> {}",
-            name, description, factor, output
+            name, description, factor, output.display()
         );
     }
 
@@ -89,9 +91,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             &config,
             &ChannelTypeConfig::AllArcs(arc_config),
         );
-        let output = format!("outputs/arcs/smoothness/{}_smoothness.png", name);
-        plot_geometry(&system, &output)?;
-        println!("   ✓ {}: {} -> {}", name, description, output);
+        let output = out.join(format!("arcs/smoothness/{}_smoothness.png", name));
+        plot_geometry(&system, output.to_str().unwrap())?;
+        println!("   ✓ {}: {} -> {}", name, description, output.display());
     }
 
     println!("\n🧭 Directional Control:");
@@ -119,9 +121,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             &config,
             &ChannelTypeConfig::AllArcs(arc_config),
         );
-        let output = format!("outputs/arcs/directions/{}_direction.png", name);
-        plot_geometry(&system, &output)?;
-        println!("   ✓ {}: {} -> {}", name, description, output);
+        let output = out.join(format!("arcs/directions/{}_direction.png", name));
+        plot_geometry(&system, output.to_str().unwrap())?;
+        println!("   ✓ {}: {} -> {}", name, description, output.display());
     }
 
     println!("\n⚙️  Configuration Presets:");
@@ -147,9 +149,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             &config,
             &ChannelTypeConfig::AllArcs(preset_config),
         );
-        let output = format!("outputs/arcs/curvature/{}_preset.png", name);
-        plot_geometry(&system, &output)?;
-        println!("   ✓ {}: {} -> {}", name, description, output);
+        let output = out.join(format!("arcs/curvature/{}_preset.png", name));
+        plot_geometry(&system, output.to_str().unwrap())?;
+        println!("   ✓ {}: {} -> {}", name, description, output.display());
     }
 
     println!("\n🧠 Smart Mixed Channel Selection:");
@@ -186,9 +188,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     for (name, adaptive_config, description) in adaptive_configs {
         let system = create_geometry(box_dims, &splits, &config, &adaptive_config);
-        let output = format!("outputs/mixed/adaptive_selection/{}.png", name);
-        plot_geometry(&system, &output)?;
-        println!("   ✓ {}: {} -> {}", name, description, output);
+        let output = out.join(format!("mixed/adaptive_selection/{}.png", name));
+        plot_geometry(&system, output.to_str().unwrap())?;
+        println!("   ✓ {}: {} -> {}", name, description, output.display());
     }
 
     println!("\n🪞 Enhanced Bilateral Mirror Symmetry:");
@@ -231,9 +233,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             &config,
             &ChannelTypeConfig::AllArcs(enhanced_config),
         );
-        let output = format!("outputs/arcs/symmetry/{}.png", name);
-        plot_geometry(&system, &output)?;
-        println!("   ✓ {}: {} -> {}", name, description, output);
+        let output = out.join(format!("arcs/symmetry/{}.png", name));
+        plot_geometry(&system, output.to_str().unwrap())?;
+        println!("   ✓ {}: {} -> {}", name, description, output.display());
     }
 
     println!("\n🔗 Single Arc Examples:");
@@ -263,9 +265,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             &config,
             &ChannelTypeConfig::AllArcs(single_config),
         );
-        let output = format!("outputs/arcs/curvature/single_{}.png", name);
-        plot_geometry(&system, &output)?;
-        println!("   ✓ Single arc {}: -> {}", name, output);
+        let output = out.join(format!("arcs/curvature/single_{}.png", name));
+        plot_geometry(&system, output.to_str().unwrap())?;
+        println!("   ✓ Single arc {}: -> {}", name, output.display());
     }
 
     println!("\n📊 Feature Summary:");
@@ -283,7 +285,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("   • Performance Optimized: Efficient generation for all smoothness levels");
 
     println!("\n✅ Comprehensive arc demonstration complete!");
-    println!("   All outputs organized in outputs/arcs/ and outputs/mixed/ subdirectories");
+    println!("   All outputs organized in {}/arcs/ and {}/mixed/ subdirectories", out.display(), out.display());
 
     Ok(())
 }

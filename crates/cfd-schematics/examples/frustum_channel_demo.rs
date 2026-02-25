@@ -19,13 +19,15 @@ use cfd_schematics::{
     visualizations::schematic::plot_geometry,
 };
 use std::fs;
+use std::path::PathBuf;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("🌊 Frustum Channel Demonstration");
     println!("================================");
     println!();
 
-    fs::create_dir_all("outputs")?;
+    let out = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("outputs");
+    fs::create_dir_all(&out)?;
 
     demonstrate_taper_profiles()?;
     demonstrate_throat_positions()?;
@@ -35,7 +37,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("✅ All demonstrations completed successfully!");
     println!();
-    println!("📁 Output files saved to 'outputs/' directory:");
+    println!("📁 Output files saved to '{}' directory:", out.display());
     println!("   • frustum_linear_taper.svg");
     println!("   • frustum_exponential_taper.svg");
     println!("   • frustum_smooth_taper.svg");
@@ -47,8 +49,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn demonstrate_taper_profiles() -> Result<(), Box<dyn std::error::Error>> {
-    println!("1️⃣  Demonstrating Taper Profiles");
+fn demonstrate_taper_profiles() -> Result<(), Box<dyn std::error::Error>> {    let out = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("outputs");    println!("1️⃣  Demonstrating Taper Profiles");
     println!("   Testing Linear, Exponential, and Smooth taper profiles");
 
     let base_config = FrustumConfig {
@@ -70,7 +71,7 @@ fn demonstrate_taper_profiles() -> Result<(), Box<dyn std::error::Error>> {
         &GeometryConfig::default(),
         &ChannelTypeConfig::AllFrustum(linear_config),
     );
-    plot_geometry(&linear_system, "outputs/frustum_linear_taper.svg")?;
+    plot_geometry(&linear_system, out.join("frustum_linear_taper.svg").to_str().unwrap())?;
     println!("   ✅ Linear taper: saved to frustum_linear_taper.svg");
 
     let exponential_config = FrustumConfig {
@@ -83,7 +84,7 @@ fn demonstrate_taper_profiles() -> Result<(), Box<dyn std::error::Error>> {
         &GeometryConfig::default(),
         &ChannelTypeConfig::AllFrustum(exponential_config),
     );
-    plot_geometry(&exponential_system, "outputs/frustum_exponential_taper.svg")?;
+    plot_geometry(&exponential_system, out.join("frustum_exponential_taper.svg").to_str().unwrap())?;
     println!("   ✅ Exponential taper: saved to frustum_exponential_taper.svg");
 
     let smooth_config = FrustumConfig {
@@ -96,15 +97,14 @@ fn demonstrate_taper_profiles() -> Result<(), Box<dyn std::error::Error>> {
         &GeometryConfig::default(),
         &ChannelTypeConfig::AllFrustum(smooth_config),
     );
-    plot_geometry(&smooth_system, "outputs/frustum_smooth_taper.svg")?;
+    plot_geometry(&smooth_system, out.join("frustum_smooth_taper.svg").to_str().unwrap())?;
     println!("   ✅ Smooth taper: saved to frustum_smooth_taper.svg");
 
     println!();
     Ok(())
 }
 
-fn demonstrate_throat_positions() -> Result<(), Box<dyn std::error::Error>> {
-    println!("2️⃣  Demonstrating Throat Positions");
+fn demonstrate_throat_positions() -> Result<(), Box<dyn std::error::Error>> {    let out = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("outputs");    println!("2️⃣  Demonstrating Throat Positions");
     println!("   Testing throat at 25%, 50%, and 75% positions");
 
     let config_25 = FrustumConfig {
@@ -122,15 +122,14 @@ fn demonstrate_throat_positions() -> Result<(), Box<dyn std::error::Error>> {
         &GeometryConfig::default(),
         &ChannelTypeConfig::AllFrustum(config_25),
     );
-    plot_geometry(&system, "outputs/frustum_throat_positions.svg")?;
+    plot_geometry(&system, out.join("frustum_throat_positions.svg").to_str().unwrap())?;
     println!("   ✅ Variable throat positions: saved to frustum_throat_positions.svg");
 
     println!();
     Ok(())
 }
 
-fn demonstrate_width_configurations() -> Result<(), Box<dyn std::error::Error>> {
-    println!("3️⃣  Demonstrating Width Configurations");
+fn demonstrate_width_configurations() -> Result<(), Box<dyn std::error::Error>> {    let out = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("outputs");    println!("3️⃣  Demonstrating Width Configurations");
     println!("   Testing different inlet/throat/outlet width ratios");
 
     let high_compression = FrustumConfig {
@@ -148,15 +147,14 @@ fn demonstrate_width_configurations() -> Result<(), Box<dyn std::error::Error>> 
         &GeometryConfig::default(),
         &ChannelTypeConfig::AllFrustum(high_compression),
     );
-    plot_geometry(&system, "outputs/frustum_width_configs.svg")?;
+    plot_geometry(&system, out.join("frustum_width_configs.svg").to_str().unwrap())?;
     println!("   ✅ High compression ratio: saved to frustum_width_configs.svg");
 
     println!();
     Ok(())
 }
 
-fn demonstrate_mixed_channel_systems() -> Result<(), Box<dyn std::error::Error>> {
-    println!("4️⃣  Demonstrating Mixed Channel Systems");
+fn demonstrate_mixed_channel_systems() -> Result<(), Box<dyn std::error::Error>> {    let out = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("outputs");    println!("4️⃣  Demonstrating Mixed Channel Systems");
     println!("   Testing adaptive selection with frustum channels included");
 
     let adaptive_config = ChannelTypeConfig::default();
@@ -167,7 +165,7 @@ fn demonstrate_mixed_channel_systems() -> Result<(), Box<dyn std::error::Error>>
         &GeometryConfig::default(),
         &adaptive_config,
     );
-    plot_geometry(&system, "outputs/mixed_channel_system.svg")?;
+    plot_geometry(&system, out.join("mixed_channel_system.svg").to_str().unwrap())?;
     println!("   ✅ Mixed system: saved to mixed_channel_system.svg");
 
     let mut channel_counts = std::collections::HashMap::new();
@@ -191,8 +189,7 @@ fn demonstrate_mixed_channel_systems() -> Result<(), Box<dyn std::error::Error>>
     Ok(())
 }
 
-fn demonstrate_json_serialization() -> Result<(), Box<dyn std::error::Error>> {
-    println!("5️⃣  Demonstrating JSON Serialization");
+fn demonstrate_json_serialization() -> Result<(), Box<dyn std::error::Error>> {    let out = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("outputs");    println!("5️⃣  Demonstrating JSON Serialization");
     println!("   Testing export/import of frustum channel systems");
 
     let frustum_config = FrustumConfig {
@@ -212,7 +209,7 @@ fn demonstrate_json_serialization() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     let json = original_system.to_json()?;
-    fs::write("outputs/frustum_system_export.json", &json)?;
+    fs::write(out.join("frustum_system_export.json"), &json)?;
     println!("   ✅ Exported to: frustum_system_export.json");
 
     let imported_system = ChannelSystem::from_json(&json)?;

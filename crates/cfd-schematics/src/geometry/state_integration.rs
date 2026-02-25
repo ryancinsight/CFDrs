@@ -559,6 +559,7 @@ pub fn generate_state_managed_arc_path(
 }
 
 /// Generate arc path with specific parameters
+#[allow(clippy::unnecessary_wraps)]
 fn generate_arc_path_with_params(
     p1: Point2D,
     p2: Point2D,
@@ -618,19 +619,19 @@ fn generate_arc_path_with_params(
 
     // Apply collision prevention if enabled
     if params.enable_collision_prevention {
-        apply_collision_prevention(&mut path, params)?;
+        apply_collision_prevention(&mut path, params);
     }
 
     Ok(path)
 }
 
 /// Apply collision prevention to arc path
-fn apply_collision_prevention(path: &mut [Point2D], params: &ArcParameters) -> SchemeResult<()> {
+fn apply_collision_prevention(path: &mut [Point2D], params: &ArcParameters) {
     // This is a simplified collision prevention implementation
     // In practice, this would use neighbor information and wall constraints
 
     if !params.enable_collision_prevention {
-        return Ok(());
+        return;
     }
 
     // Apply curvature reduction if needed (simplified logic)
@@ -656,8 +657,6 @@ fn apply_collision_prevention(path: &mut [Point2D], params: &ArcParameters) -> S
                 .mul_add(reduction_factor, straight_y * (1.0 - reduction_factor));
         }
     }
-
-    Ok(())
 }
 
 /// Helper function to create a state-managed serpentine path
@@ -690,6 +689,7 @@ pub fn generate_state_managed_serpentine_path(
 }
 
 /// Generate serpentine path with specific parameters
+#[allow(clippy::unnecessary_wraps)]
 fn generate_serpentine_path_with_params(
     p1: Point2D,
     p2: Point2D,

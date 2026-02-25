@@ -270,40 +270,70 @@ where
         }
     }
 
-    /// Update face fluxes using Rhie-Chow interpolation
-    /// Reference: Rhie & Chow (1983), AIAA Journal, 21(11), 1525-1532
+    /// Update face fluxes using the full Rhie-Chow interpolation.
+    ///
+    /// # Theorem (Rhie & Chow, 1983, Eq. 13)
+    /// The face velocity includes both cell-centred and face pressure gradients:
+    ///
+    ///   u_f = ū_f + d_f · [(∇p)_cells − (∇p)_face]
+    ///
+    /// where:
+    /// - `ū_f` = arithmetic mean of adjacent cell velocities
+    /// - `d_f` = Volume/A_p, the pressure-momentum coupling coefficient
+    /// - `(∇p)_cells` = average of the two adjacent cell-centred pressure gradients
+    /// - `(∇p)_face` = direct face pressure gradient
+    ///
+    /// Omitting `(∇p)_cells` reduces this to plain pressure interpolation which does
+    /// NOT suppress checkerboard oscillations. Both terms are mathematically mandatory.
     fn update_face_fluxes(&self, fields: &mut SimulationFields<T>) {
-        // Rhie-Chow interpolation to prevent pressure-velocity decoupling
-        // u_f = ū_f - d_f * (∇p_f - ∇p̄_f)
-
         for i in 1..self.nx - 1 {
             for j in 1..self.ny - 1 {
-                // Get velocity components
-                let u_ij = fields.u.at(i, j);
-                let u_ip1 = fields.u.at(i + 1, j);
-                let v_ij = fields.v.at(i, j);
-                let v_jp1 = fields.v.at(i, j + 1);
-
-                // East face velocity
                 let two_t = T::from_f64(TWO).unwrap_or_else(|| T::one() + T::one());
-                let u_e = (u_ij + u_ip1) / two_t;
-                let p_grad_e = (fields.p.at(i + 1, j) - fields.p.at(i, j)) / self.dx;
-                let four_t =
-                    T::from_f64(FOUR).unwrap_or_else(|| T::from_f64(4.0).unwrap_or_else(T::one));
-                let d_e = self.dx * self.dx / (fields.viscosity.at(i, j) * four_t);
+                let four_t = T::from_f64(FOUR)
+                    .unwrap_or_else(|| T::from_f64(4.0).unwrap_or_else(T::one));
 
-                // Apply Rhie-Chow correction for u component
-                let u_corrected = u_e - d_e * p_grad_e;
+                // d_f = Volume / A_p (A_p approximated from viscous diffusion: ν/Δx)
+                let d_u = self.dx * self.dy / (fields.viscosity.at(i, j) * four_t);
+                let d_v = self.dx * self.dy / (fields.viscosity.at(i, j) * four_t);
 
-                // North face velocity
-                let v_n = (v_ij + v_jp1) / two_t;
-                let p_grad_n = (fields.p.at(i, j + 1) - fields.p.at(i, j)) / self.dy;
-                let d_n = self.dy * self.dy / (fields.viscosity.at(i, j) * four_t);
+                // ─── U-velocity on east face ──────────────────────────────────────
+                let u_bar = (fields.u.at(i, j) + fields.u.at(i + 1, j)) / two_t;
 
-                // Apply Rhie-Chow correction for v component
-                let v_corrected = v_n - d_n * p_grad_n;
+                // Cell-centred ∇p_x at cell i and i+1
+                let dp_dx_p = if i > 0 && i < self.nx - 1 {
+                    (fields.p.at(i + 1, j) - fields.p.at(i - 1, j)) / (two_t * self.dx)
+                } else {
+                    (fields.p.at(i + 1, j) - fields.p.at(i, j)) / self.dx
+                };
+                let dp_dx_e = if i + 1 < self.nx - 1 {
+                    (fields.p.at(i + 2, j) - fields.p.at(i, j)) / (two_t * self.dx)
+                } else {
+                    (fields.p.at(i + 1, j) - fields.p.at(i, j)) / self.dx
+                };
+                let dp_dx_cells = (dp_dx_p + dp_dx_e) / two_t;
+                let dp_dx_face = (fields.p.at(i + 1, j) - fields.p.at(i, j)) / self.dx;
 
-                // Update velocity fields
+                // Full Rhie-Chow: ū_f + d_f · [(∇p)_cells − (∇p)_face]
+                let u_corrected = u_bar + d_u * (dp_dx_cells - dp_dx_face);
+
+                // ─── V-velocity on north face ─────────────────────────────────────
+                let v_bar = (fields.v.at(i, j) + fields.v.at(i, j + 1)) / two_t;
+
+                let dp_dy_p = if j > 0 && j < self.ny - 1 {
+                    (fields.p.at(i, j + 1) - fields.p.at(i, j - 1)) / (two_t * self.dy)
+                } else {
+                    (fields.p.at(i, j + 1) - fields.p.at(i, j)) / self.dy
+                };
+                let dp_dy_n = if j + 1 < self.ny - 1 {
+                    (fields.p.at(i, j + 2) - fields.p.at(i, j)) / (two_t * self.dy)
+                } else {
+                    (fields.p.at(i, j + 1) - fields.p.at(i, j)) / self.dy
+                };
+                let dp_dy_cells = (dp_dy_p + dp_dy_n) / two_t;
+                let dp_dy_face = (fields.p.at(i, j + 1) - fields.p.at(i, j)) / self.dy;
+
+                let v_corrected = v_bar + d_v * (dp_dy_cells - dp_dy_face);
+
                 if let Some(u) = fields.u.at_mut(i, j) {
                     *u = u_corrected;
                 }

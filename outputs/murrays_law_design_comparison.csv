@@ -1,4 +1,0 @@
-design,d_parent_mm,d_daughter_mm,r_total_GPa_s_m3,wss_parent_Pa,wss_daughter_Pa,uniformity,murray_deviation,re_parent
-Murray optimal (D₀/2^(1/3)),2.0000,1.5874,0.402839,0.074272,0.074272,1.000000,0.00000000,3.21
-Equal-width (D₀),2.0000,2.0000,0.267380,0.074272,0.037136,0.500000,1.00000000,3.21
-Over-narrow (0.65 D₀),2.0000,1.3000,0.677546,0.074272,0.135225,0.549250,0.45075000,3.21

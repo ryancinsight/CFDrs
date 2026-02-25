@@ -18,6 +18,6 @@ pub mod primitives;
 pub use primitives::{
     Antiprism, BiconcaveDisk, Capsule, Cone, Cube, Cuboctahedron, Cylinder, Disk, Dodecahedron,
     Elbow, Ellipsoid, Frustum, GeodesicSphere, HelixSweep, Icosahedron, LinearSweep, Octahedron,
-    Pipe, Pyramid, RevolutionSweep, RoundedCube, SphericalShell, StadiumPrism, Tetrahedron, Torus,
-    TruncatedIcosahedron, UvSphere,
+    Pipe, Pyramid, RevolutionSweep, RoundedCube, SerpentineTube, SphericalShell, StadiumPrism,
+    Tetrahedron, Torus, TruncatedIcosahedron, UvSphere,
 };

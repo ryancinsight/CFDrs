@@ -165,12 +165,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // ── 9. JSON Export ───────────────────────────────────────────────────────
     use std::fs;
-    use std::path::Path;
+    use std::path::PathBuf;
 
-    let output_dir = Path::new("crates/cfd-1d/outputs");
-    if !output_dir.exists() {
-        fs::create_dir_all(output_dir)?;
-    }
+    let output_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("outputs").join("blood_bifurcation");
+    fs::create_dir_all(&output_dir)?;
 
     let results = serde_json::json!({
         "fluid": "CarreauYasuda Blood",
@@ -192,12 +190,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 "flow_rate_m3s": q,
                 "flow_rate_mls": q * 1e6,
                 "wall_shear_stress_pa": shear,
-                "resistance": solution.properties.get(&idx).map(|p| p.resistance).unwrap_or(0.0)
+                "resistance": e.resistance
             })
         }).collect::<Vec<_>>()
     });
 
-    let json_path = output_dir.join("blood_bifurcation_results.json");
+    let json_path = output_dir.join("results.json");
     fs::write(&json_path, serde_json::to_string_pretty(&results)?)?;
     println!("\n✅ Exported results to {}", json_path.display());
 

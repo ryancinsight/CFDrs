@@ -117,7 +117,7 @@ pub fn colorize(t: f64, colormap: ColormapKind) -> Color {
 ///
 /// # Usage
 /// ```rust,ignore
-/// use scheme::visualizations::analysis_field::{AnalysisField, AnalysisOverlay, ColormapKind};
+/// use cfd_schematics::visualizations::analysis_field::{AnalysisField, AnalysisOverlay, ColormapKind};
 ///
 /// let overlay = AnalysisOverlay::new(AnalysisField::Pressure, ColormapKind::BlueRed)
 ///     .with_node_data(node_pressures)
@@ -171,8 +171,8 @@ impl AnalysisOverlay {
         if values.is_empty() {
             return (0.0, 1.0);
         }
-        let min = values.iter().cloned().fold(f64::INFINITY, f64::min);
-        let max = values.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+        let min = values.iter().copied().fold(f64::INFINITY, f64::min);
+        let max = values.iter().copied().fold(f64::NEG_INFINITY, f64::max);
         // Guard against degenerate case where all values are equal
         if (max - min).abs() < f64::EPSILON {
             (min - 1.0, max + 1.0)
@@ -188,8 +188,8 @@ impl AnalysisOverlay {
         if values.is_empty() {
             return (0.0, 1.0);
         }
-        let min = values.iter().cloned().fold(f64::INFINITY, f64::min);
-        let max = values.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+        let min = values.iter().copied().fold(f64::INFINITY, f64::min);
+        let max = values.iter().copied().fold(f64::NEG_INFINITY, f64::max);
         if (max - min).abs() < f64::EPSILON {
             (min - 1.0, max + 1.0)
         } else {

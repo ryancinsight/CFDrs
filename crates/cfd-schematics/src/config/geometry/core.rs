@@ -10,7 +10,7 @@ use super::generation::GeometryGenerationConfig;
 /// # Examples
 ///
 /// ```rust
-/// use scheme::config::{GeometryConfig, GeometryGenerationConfig};
+/// use cfd_schematics::config::{GeometryConfig, GeometryGenerationConfig};
 ///
 /// // Create with default settings
 /// let config = GeometryConfig::default();

@@ -516,12 +516,13 @@ impl<T: RealField + Copy + ToPrimitive> MUSCLScheme<T> {
             let slope1 = self.limited_slope(phi_im1, phi_i, phi_ip1);
             let slope2 = self.limited_slope(phi_i, phi_ip1, phi_ip2);
 
-            // Symmetric QUICK-like for right interface
-            let quick = (T::from_f64(6.0).unwrap() * phi_ip1
-                       - T::from_f64(2.0).unwrap() * phi_i
-                       + T::from_f64(8.0).unwrap() * phi_ip2
-                       - phi_ip2) // Approximation - full QUICK would need more points
-                      / T::from_f64(12.0).unwrap();
+            // Exact right-interface MUSCL3 reconstruction from van Leer (1979).
+            // For the right state at face i+1/2, centered on cell i+1:
+            // u_{i+1/2}^R = (1/6) * [ -u_{i-1+1} + 5*u_{i+1} + 2*u_{i+2} ]
+            //             = (1/6) * [ -phi_i + 5*phi_ip1 + 2*phi_ip2 ]
+            let quick = (-phi_i + T::from_f64(5.0).unwrap() * phi_ip1
+                + T::from_f64(2.0).unwrap() * phi_ip2)
+                / T::from_f64(6.0).unwrap();
 
             // Blend with MUSCL2
             let muscl2 = self.reconstruct_right_muscl2(phi_im1, phi_i, phi_ip1);
