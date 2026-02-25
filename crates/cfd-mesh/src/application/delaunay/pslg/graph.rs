@@ -325,6 +325,79 @@ impl Pslg {
 
     // ── Bounding box ──────────────────────────────────────────────────────
 
+    /// Resolve any interior-crossing segment pairs by iteratively finding a
+    /// crossing pair, inserting their 2-D intersection as a new vertex, and
+    /// replacing each crossing segment with two sub-segments that share the
+    /// new vertex.  Repeats until no interior crossings remain.
+    ///
+    /// After this call [`Self::validate`] will not return
+    /// [`PslgValidationError::IntersectingSegments`] for proper interior
+    /// crossings.  Collinear-overlap errors, if any, are left unmodified.
+    ///
+    /// # Complexity
+    ///
+    /// O(k · n²) where k is the number of crossing pairs in the original
+    /// PSLG.  For the CSG corefine use-case k is typically 0–3.
+    pub fn resolve_crossings(&mut self) {
+        'outer: loop {
+            let n_seg = self.segments.len();
+
+            // Scan for proper interior-crossing pairs — compute intersection
+            // vertex and split both crossing segments into halves.
+            for i in 0..n_seg {
+                for j in (i + 1)..n_seg {
+                    let si = self.segments[i];
+                    let sj = self.segments[j];
+
+                    // Adjacent segments (shared endpoint) are always valid.
+                    if si.start == sj.start
+                        || si.start == sj.end
+                        || si.end == sj.start
+                        || si.end == sj.end
+                    {
+                        continue;
+                    }
+
+                    let a1 = self.vertices[si.start.idx()].to_point2();
+                    let a2 = self.vertices[si.end.idx()].to_point2();
+                    let b1 = self.vertices[sj.start.idx()].to_point2();
+                    let b2 = self.vertices[sj.end.idx()].to_point2();
+
+                    if !segments_cross_interior(&a1, &a2, &b1, &b2) {
+                        continue;
+                    }
+
+                    let (px, py) = match segment_cross_point(&a1, &a2, &b1, &b2) {
+                        Some(p) => p,
+                        // orient_2d says crossing but formula says parallel —
+                        // geometrically impossible; skip defensively.
+                        None => continue,
+                    };
+
+                    let xid = self.add_vertex(px, py);
+
+                    // Record endpoints before swap_removes invalidate the copies.
+                    let (si_s, si_e) = (si.start, si.end);
+                    let (sj_s, sj_e) = (sj.start, sj.end);
+
+                    // Remove higher index first so lower index stays valid.
+                    self.segments.swap_remove(j);
+                    self.segments.swap_remove(i);
+
+                    // Four sub-segments sharing the new intersection vertex.
+                    self.add_segment(si_s, xid);
+                    self.add_segment(xid, si_e);
+                    self.add_segment(sj_s, xid);
+                    self.add_segment(xid, sj_e);
+
+                    continue 'outer; // restart with updated segment list
+                }
+            }
+
+            break; // no interior crossings remain
+        }
+    }
+
     /// Compute the axis-aligned bounding box `(min, max)`.
     ///
     /// Returns `None` if the PSLG has fewer than 1 vertex.
@@ -431,4 +504,52 @@ fn collinear_overlap_interior(
 
     let overlap = a_hi.min(b_hi) - a_lo.max(b_lo);
     overlap > 0.0
+}
+
+/// Strict proper-interior crossing test — does **not** report endpoint
+/// touches or collinear overlaps.  The caller must already have filtered out
+/// segment pairs that share an endpoint.
+fn segments_cross_interior(
+    a1: &Point2<Real>,
+    a2: &Point2<Real>,
+    b1: &Point2<Real>,
+    b2: &Point2<Real>,
+) -> bool {
+    let o1 = orient_2d(a1, a2, b1);
+    let o2 = orient_2d(a1, a2, b2);
+    let o3 = orient_2d(b1, b2, a1);
+    let o4 = orient_2d(b1, b2, a2);
+
+    // Any degenerate orientation means at least one endpoint is collinear
+    // with the opposite segment — not a proper interior crossing.
+    if o1 == Orientation::Degenerate
+        || o2 == Orientation::Degenerate
+        || o3 == Orientation::Degenerate
+        || o4 == Orientation::Degenerate
+    {
+        return false;
+    }
+
+    o1 != o2 && o3 != o4
+}
+
+/// Compute the f64 parametric crossing point of two non-parallel line segments.
+///
+/// Returns `None` when the segments are parallel (|denom| < 1e-30).
+fn segment_cross_point(
+    a1: &Point2<Real>,
+    a2: &Point2<Real>,
+    b1: &Point2<Real>,
+    b2: &Point2<Real>,
+) -> Option<(Real, Real)> {
+    let dx_a = a2.x - a1.x;
+    let dy_a = a2.y - a1.y;
+    let dx_b = b2.x - b1.x;
+    let dy_b = b2.y - b1.y;
+    let denom = dx_a * dy_b - dy_a * dx_b;
+    if denom.abs() < 1e-30 {
+        return None;
+    }
+    let t = ((b1.x - a1.x) * dy_b - (b1.y - a1.y) * dx_b) / denom;
+    Some((a1.x + t * dx_a, a1.y + t * dy_a))
 }

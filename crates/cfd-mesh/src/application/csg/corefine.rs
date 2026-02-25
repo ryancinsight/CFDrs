@@ -254,6 +254,9 @@ pub fn corefine_face(
     }
 
     // ── Step 6: Build CDT ────────────────────────────────────────────────────
+    // Resolve any interior segment crossings that arise from 3-D seam curves
+    // whose 2-D projections cross (e.g. out-of-plane multi-branch junctions).
+    pslg.resolve_crossings();
     let cdt = Cdt::from_pslg(&pslg);
     let dt = cdt.triangulation();
 

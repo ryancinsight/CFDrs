@@ -148,3 +148,78 @@ fn pslg_validate_detects_degenerate_segment() {
         .expect_err("expected degenerate segment error");
     assert!(matches!(err, PslgValidationError::DegenerateSegment { .. }));
 }
+
+// ── resolve_crossings ──────────────────────────────────────────────────────
+
+#[test]
+fn resolve_crossings_splits_crossing_pair() {
+    let mut pslg = Pslg::new();
+    // Two crossing diagonals: (0,0)→(1,1) and (0,1)→(1,0), cross at (0.5, 0.5).
+    let a = pslg.add_vertex(0.0, 0.0);
+    let b = pslg.add_vertex(1.0, 1.0);
+    let c = pslg.add_vertex(0.0, 1.0);
+    let d = pslg.add_vertex(1.0, 0.0);
+    pslg.add_segment(a, b);
+    pslg.add_segment(c, d);
+
+    assert!(pslg.validate().is_err(), "should be invalid before resolve");
+
+    pslg.resolve_crossings();
+
+    assert!(pslg.validate().is_ok(), "should be valid after resolve");
+    assert_eq!(pslg.vertex_count(), 5, "4 original + 1 intersection vertex");
+    assert_eq!(pslg.segment_count(), 4, "2 original → 4 sub-segments");
+
+    // The intersection vertex was appended last: index 4.
+    let xv = pslg.vertices()[4];
+    assert!((xv.x - 0.5).abs() < 1e-12, "intersection x ≈ 0.5, got {}", xv.x);
+    assert!((xv.y - 0.5).abs() < 1e-12, "intersection y ≈ 0.5, got {}", xv.y);
+}
+
+#[test]
+fn resolve_crossings_noop_on_valid_pslg() {
+    let mut pslg = Pslg::new();
+    let a = pslg.add_vertex(0.0, 0.0);
+    let b = pslg.add_vertex(1.0, 0.0);
+    let c = pslg.add_vertex(1.0, 1.0);
+    pslg.add_segment(a, b);
+    pslg.add_segment(b, c);
+
+    assert!(pslg.validate().is_ok());
+    pslg.resolve_crossings();
+    assert!(pslg.validate().is_ok(), "valid PSLG must stay valid");
+    assert_eq!(pslg.vertex_count(), 3, "no new vertices on valid PSLG");
+    assert_eq!(pslg.segment_count(), 2, "no new segments on valid PSLG");
+}
+
+#[test]
+fn resolve_crossings_handles_multiple_crossings() {
+    let mut pslg = Pslg::new();
+    // A long horizontal segment crossed by two separate vertical segments.
+    //   seg 0: (0,0)→(4,0)   long horizontal
+    //   seg 1: (1,-1)→(1,1)  vertical at x=1, crosses seg 0 at (1, 0)
+    //   seg 2: (3,-1)→(3,1)  vertical at x=3, crosses seg 0 at (3, 0)
+    // The two crossings are at distinct points so no degenerate three-way
+    // intersection arises.
+    let a = pslg.add_vertex(0.0, 0.0);
+    let b = pslg.add_vertex(4.0, 0.0);
+    let c = pslg.add_vertex(1.0, -1.0);
+    let d = pslg.add_vertex(1.0, 1.0);
+    let e = pslg.add_vertex(3.0, -1.0);
+    let f = pslg.add_vertex(3.0, 1.0);
+    pslg.add_segment(a, b); // horizontal
+    pslg.add_segment(c, d); // vertical at x=1
+    pslg.add_segment(e, f); // vertical at x=3
+
+    // At least one crossing before.
+    assert!(pslg.validate().is_err());
+
+    pslg.resolve_crossings();
+
+    // After resolution the PSLG must be valid.
+    assert!(pslg.validate().is_ok(), "all crossings should be resolved");
+    // 6 original + 2 intersection vertices.
+    assert_eq!(pslg.vertex_count(), 8);
+    // 1 horizontal → 3 sub-segments; 2 verticals → 2×2 = 4 sub-segments = 7 total.
+    assert_eq!(pslg.segment_count(), 7);
+}
