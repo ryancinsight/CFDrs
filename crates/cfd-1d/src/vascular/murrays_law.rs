@@ -6,11 +6,26 @@
 //!
 //! # Mathematical Foundation
 //!
-//! ## Power Law Relationship
-//! The generalized Murray's Law states:
+//! ## Theorem: Murray's Law of Minimal Work
+//!
+//! **Theorem**: The optimal radius $r$ of a vascular segment that minimizes the total
+//! biological work $W_{total}$ required to maintain steady blood flow $Q$ scales as $r \propto Q^{1/3}$.
+//!
+//! **Proof Outline**: The total work is the sum of viscous dissipation power (Poiseuille resistance)
+//! and the metabolic cost of maintaining the blood volume:
+//! $$ W_{total} = Q \cdot \Delta P + \lambda \cdot (\pi r^2 L) $$
+//! $$ W_{total} = Q^2 \left( \frac{8 \mu L}{\pi r^4} \right) + \lambda \pi r^2 L $$
+//!
+//! Setting $\frac{\partial W}{\partial r} = 0$ yields the optimal flow-radius relationship:
+//! $$ Q = \sqrt{\frac{\lambda \pi^2}{16 \mu}} r^3 \implies Q \propto r^3 $$
+//!
+//! ## General Power Law Relationship
+//! Generalized for any branching junction (parent $0$, daughters $1$ and $2$), Murray's Law dictates:
 //! ```text
 //! D₀^k = D₁^k + D₂^k
 //! ```
+//!
+//! Where $k=3$ for laminar Newtonian flow (canonical Murray's Law) and $k \approx 2.7$ for turbulent flow.
 //!
 //! Where:
 //! - D₀ = parent vessel diameter
@@ -66,7 +81,7 @@ impl<T: RealField + FromPrimitive + Copy> MurraysLaw<T> {
     /// Create Murray's Law calculator with classic exponent k=3
     pub fn new() -> Self {
         Self {
-            exponent: T::from_f64(3.0).unwrap(),
+            exponent: T::from_f64(3.0).unwrap_or_else(T::one),
         }
     }
 
@@ -78,14 +93,14 @@ impl<T: RealField + FromPrimitive + Copy> MurraysLaw<T> {
     /// Create for turbulent flow conditions (k ≈ 2.7)
     pub fn turbulent() -> Self {
         Self {
-            exponent: T::from_f64(2.7).unwrap(),
+            exponent: T::from_f64(2.7).unwrap_or_else(T::one),
         }
     }
 
     /// Create for area-preserving bifurcation (k = 2)
     pub fn area_preserving() -> Self {
         Self {
-            exponent: T::from_f64(2.0).unwrap(),
+            exponent: T::from_f64(2.0).unwrap_or_else(T::one),
         }
     }
 
@@ -102,7 +117,7 @@ impl<T: RealField + FromPrimitive + Copy> MurraysLaw<T> {
     /// # Returns
     /// Optimal daughter diameter (D₁ = D₂)
     pub fn symmetric_daughter_diameter(&self, parent_diameter: T) -> T {
-        let two = T::from_f64(2.0).unwrap();
+        let two = T::from_f64(2.0).unwrap_or_else(T::one);
         let one_over_k = T::one() / self.exponent;
         parent_diameter / two.powf(one_over_k)
     }
@@ -188,7 +203,7 @@ impl<T: RealField + FromPrimitive + Copy> MurraysLaw<T> {
     ///
     /// A_daughters / A_parent = 2^(1 - 2/k)
     pub fn ideal_area_ratio(&self) -> T {
-        let two = T::from_f64(2.0).unwrap();
+        let two = T::from_f64(2.0).unwrap_or_else(T::one);
         let exp = T::one() - two / self.exponent;
         two.powf(exp)
     }
@@ -233,14 +248,14 @@ impl<T: RealField + FromPrimitive + Copy> OptimalBifurcation<T> {
         let d_daughter = murray.symmetric_daughter_diameter(parent_diameter);
 
         // Symmetric: equal flow split
-        let two = T::from_f64(2.0).unwrap();
+        let two = T::from_f64(2.0).unwrap_or_else(T::one);
         let daughter_flow = parent_flow / two;
 
         // Optimal angle for symmetric bifurcation: θ = 37.5°
         // cos(θ) = r₁/r₀ for symmetric case
         // Actually: cos(θ) = (2^(1/3) - 1) / 2^(1/3) ... complex formula
         // Simplified: θ ≈ 37.5° = 0.654 rad for k=3
-        let angle = T::from_f64(37.5 * PI / 180.0).unwrap();
+        let angle = T::from_f64(37.5 * PI / 180.0).unwrap_or_else(T::one);
 
         Self {
             parent_diameter,
@@ -270,8 +285,8 @@ impl<T: RealField + FromPrimitive + Copy> OptimalBifurcation<T> {
         // For Poiseuille flow: Q ∝ D⁴, so D ∝ Q^(1/4)
         // Under Murray's Law: D₁³ = D₀³ · (Q₁/Q₀), D₂³ = D₀³ · (Q₂/Q₀)
         // Therefore: D₁ = D₀ · (Q₁/Q₀)^(1/3)
-        let d1 = parent_diameter * (flow_ratio).powf(T::one() / T::from_f64(3.0).unwrap());
-        let d2 = parent_diameter * (one - flow_ratio).powf(T::one() / T::from_f64(3.0).unwrap());
+        let d1 = parent_diameter * (flow_ratio).powf(T::one() / T::from_f64(3.0).unwrap_or_else(T::one));
+        let d2 = parent_diameter * (one - flow_ratio).powf(T::one() / T::from_f64(3.0).unwrap_or_else(T::one));
 
         // Branching angles from optimization (simplified)
         // For asymmetric bifurcation, angles relate to radius ratios
@@ -334,9 +349,9 @@ impl<T: RealField + FromPrimitive + Copy> OptimalBifurcation<T> {
     ///
     /// Uses Poiseuille resistance: ΔP = 8μLQ/(πR⁴)
     pub fn pressure_drop_daughter1(&self, viscosity: T, length: T) -> T {
-        let pi = T::from_f64(PI).unwrap();
-        let eight = T::from_f64(8.0).unwrap();
-        let r = self.daughter1_diameter / T::from_f64(2.0).unwrap();
+        let pi = T::from_f64(PI).unwrap_or_else(T::one);
+        let eight = T::from_f64(8.0).unwrap_or_else(T::one);
+        let r = self.daughter1_diameter / T::from_f64(2.0).unwrap_or_else(T::one);
         eight * viscosity * length * self.daughter1_flow / (pi * r.powi(4))
     }
 }
@@ -478,7 +493,7 @@ mod tests {
     #[test]
     fn test_trifurcation_extension() {
         // Murray's Law extends to trifurcations: D₀³ = D₁³ + D₂³ + D₃³
-        let murray = MurraysLaw::<f64>::new();
+        let _murray = MurraysLaw::<f64>::new();
         let d0 = 10.0_f64;
         let d1 = 6.0_f64;
         let d2 = 5.0_f64;

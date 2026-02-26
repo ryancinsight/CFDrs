@@ -5,11 +5,22 @@
 //!
 //! # Mathematical Foundation
 //!
-//! ## Junction Conditions
-//! At a bifurcation junction:
-//! 1. Mass conservation: Q₀ = Q₁ + Q₂
-//! 2. Pressure continuity: p₀ = p₁ = p₂ (no junction loss)
-//!    OR p₁ = p₀ - K·ρ·V²/2 (with junction loss)
+//! ## Theorem: 1D Bifurcation Energy Conservation
+//!
+//! **Theorem**: At a singular bifurcation junction connecting a parent vessel ($0$)
+//! to $N$ daughter vessels ($i=1\dots N$), the steady-state 1D energy conservation
+//! (Bernoulli equation integrated over the junction control volume) dictates:
+//!
+//! $$ p_0 + \frac{1}{2}\rho v_0^2 = p_i + \frac{1}{2}\rho v_i^2 + \Delta p_{\text{loss},i} \quad \forall i \in \{1 \dots N\} $$
+//!
+//! where the irreversible form loss $\Delta p_{\text{loss},i} = K_i \frac{1}{2}\rho v_0^2$.
+//!
+//! If kinetic energy recovery ($\frac{1}{2}\rho(v_0^2 - v_i^2)$) is assumed negligible
+//! or explicitly captured by the empirical $K$-factor scaling, the junction simplifies
+//! to a resistive node:
+//! $$ p_i = p_0 - K_i \frac{1}{2}\rho v_0^2 $$
+//!
+//! Mass conservation is strictly simultaneously enforced: $Q_0 = \sum_{i=1}^N Q_i$.
 //!
 //! ## Network Resistance
 //! Series: R_total = R₁ + R₂
@@ -89,8 +100,8 @@ impl<T: RealField + FromPrimitive + Copy> VesselSegment<T> {
             id,
             radius,
             length,
-            wall_thickness: radius * T::from_f64(0.1).unwrap(), // 10% of radius
-            youngs_modulus: T::from_f64(0.4e6).unwrap(),        // ~0.4 MPa for arteries
+            wall_thickness: radius * T::from_f64(0.1).unwrap_or_else(T::one), // 10% of radius
+            youngs_modulus: T::from_f64(0.4e6).unwrap_or_else(T::one),        // ~0.4 MPa for arteries
             inlet_node,
             outlet_node,
         }
@@ -98,42 +109,42 @@ impl<T: RealField + FromPrimitive + Copy> VesselSegment<T> {
 
     /// Calculate Poiseuille resistance R = 8μL/(πR⁴)
     pub fn resistance(&self, viscosity: T) -> T {
-        let pi = T::from_f64(PI).unwrap();
-        let eight = T::from_f64(8.0).unwrap();
+        let pi = T::from_f64(PI).unwrap_or_else(T::one);
+        let eight = T::from_f64(8.0).unwrap_or_else(T::one);
         eight * viscosity * self.length / (pi * self.radius.powi(4))
     }
 
     /// Calculate inertance L = ρL/(πR²)
     pub fn inertance(&self, density: T) -> T {
-        let pi = T::from_f64(PI).unwrap();
+        let pi = T::from_f64(PI).unwrap_or_else(T::one);
         density * self.length / (pi * self.radius * self.radius)
     }
 
     /// Calculate compliance C = 3πR³L/(2Eh)
     /// Based on thin-walled tube approximation
     pub fn compliance(&self) -> T {
-        let pi = T::from_f64(PI).unwrap();
-        let three = T::from_f64(3.0).unwrap();
-        let two = T::from_f64(2.0).unwrap();
+        let pi = T::from_f64(PI).unwrap_or_else(T::one);
+        let three = T::from_f64(3.0).unwrap_or_else(T::one);
+        let two = T::from_f64(2.0).unwrap_or_else(T::one);
         three * pi * self.radius.powi(3) * self.length
             / (two * self.youngs_modulus * self.wall_thickness)
     }
 
     /// Calculate wave speed c = √(Eh/(2ρR))
     pub fn wave_speed(&self, density: T) -> T {
-        let two = T::from_f64(2.0).unwrap();
+        let two = T::from_f64(2.0).unwrap_or_else(T::one);
         (self.youngs_modulus * self.wall_thickness / (two * density * self.radius)).sqrt()
     }
 
     /// Calculate cross-sectional area
     pub fn area(&self) -> T {
-        let pi = T::from_f64(PI).unwrap();
+        let pi = T::from_f64(PI).unwrap_or_else(T::one);
         pi * self.radius * self.radius
     }
 
     /// Calculate diameter
     pub fn diameter(&self) -> T {
-        let two = T::from_f64(2.0).unwrap();
+        let two = T::from_f64(2.0).unwrap_or_else(T::one);
         two * self.radius
     }
 }
@@ -175,10 +186,10 @@ impl<T: RealField + FromPrimitive + Copy> Bifurcation<T> {
                 JunctionType::Trifurcation
             },
             loss_model: JunctionLossModel::None,
-            k_factor: T::from_f64(0.1).unwrap(),
+            k_factor: T::from_f64(0.1).unwrap_or_else(T::one),
             parent_vessels: vec![parent_id],
             daughter_vessels: daughter_ids,
-            pressure: T::from_f64(13_332.0).unwrap(), // ~100 mmHg
+            pressure: T::from_f64(13_332.0).unwrap_or_else(T::one), // ~100 mmHg
             flow_rates: vec![T::zero(); n_flows],
         }
     }
@@ -190,10 +201,10 @@ impl<T: RealField + FromPrimitive + Copy> Bifurcation<T> {
             id,
             junction_type: JunctionType::Confluence,
             loss_model: JunctionLossModel::None,
-            k_factor: T::from_f64(0.05).unwrap(),
+            k_factor: T::from_f64(0.05).unwrap_or_else(T::one),
             parent_vessels: parent_ids,
             daughter_vessels: vec![daughter_id],
-            pressure: T::from_f64(1_333.0).unwrap(), // ~10 mmHg for veins
+            pressure: T::from_f64(1_333.0).unwrap_or_else(T::one), // ~10 mmHg for veins
             flow_rates: vec![T::zero(); n_flows],
         }
     }
@@ -207,7 +218,7 @@ impl<T: RealField + FromPrimitive + Copy> Bifurcation<T> {
         let parent_flow: T = self.flow_rates.iter().take(self.parent_vessels.len()).fold(T::zero(), |acc, &f| acc + f);
         let daughter_flow: T = self.flow_rates.iter().skip(self.parent_vessels.len()).fold(T::zero(), |acc, &f| acc + f);
 
-        if parent_flow.abs() < T::from_f64(1e-20).unwrap() {
+        if parent_flow.abs() < T::from_f64(1e-20).unwrap_or_else(T::one) {
             return T::zero();
         }
 
@@ -219,7 +230,7 @@ impl<T: RealField + FromPrimitive + Copy> Bifurcation<T> {
         match self.loss_model {
             JunctionLossModel::None => parent_pressure,
             JunctionLossModel::KFactor => {
-                let half = T::from_f64(0.5).unwrap();
+                let half = T::from_f64(0.5).unwrap_or_else(T::one);
                 parent_pressure - self.k_factor * half * density * parent_velocity * parent_velocity
             }
             JunctionLossModel::EnergyPreserving => {

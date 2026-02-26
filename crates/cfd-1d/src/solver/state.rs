@@ -1,4 +1,18 @@
 //! Network state representation for 1D CFD
+//!
+//! ## Theorem: 1D Discrete State Space
+//!
+//! **Theorem**: The thermodynamic and hydrodynamic state of a 1D network at any
+//! instant $t$ is fully described by the tuple $\Sigma(t) = (\mathbf{P}, \mathbf{Q})$, where:
+//!
+//! - $\mathbf{P} \in \mathbb{R}^{|\mathcal{V}|}$ is the vector of nodal pressures.
+//! - $\mathbf{Q} \in \mathbb{R}^{|\mathcal{E}|}$ is the vector of volumetric flow rates
+//!   through the network edges.
+//!
+//! **Corollary (Incompressibility)**: For an incompressible fluid without compliant
+//! vessels, $\mathbf{P}$ alone strictly determines $\mathbf{Q}$ via local resistance
+//! laws $Q_{ij} = G_{ij}(\mathbf{P}, \mathbf{Q}) \cdot (P_i - P_j)$.
+//! Thus, the primary prognostic variable solved for is the nodal pressure field $\mathbf{P}$.
 
 use crate::network::Network;
 use cfd_core::physics::fluid::FluidTrait;

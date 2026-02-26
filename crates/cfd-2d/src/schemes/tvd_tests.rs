@@ -26,7 +26,9 @@
 /// - LeVeque, R. J. (2002). *Finite Volume Methods for Hyperbolic Problems*. §6.5.
 #[cfg(test)]
 mod tests {
-    use super::super::{tvd::FluxLimiter, tvd::MUSCLOrder, FaceReconstruction, Grid2D, MUSCLScheme};
+    use super::super::{
+        tvd::FluxLimiter, tvd::MUSCLOrder, FaceReconstruction, Grid2D, MUSCLScheme,
+    };
     use approx::assert_relative_eq;
 
     // ─────────────────────────────────────────────────────────────────────────

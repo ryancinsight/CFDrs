@@ -1,5 +1,42 @@
 //! SUPG/PSPG stabilization for FEM
 //!
+//! # Theorem — SUPG Stability (Brooks & Hughes 1982)
+//!
+//! The Streamline Upwind Petrov–Galerkin (SUPG) method modifies the test
+//! functions by adding a streamline perturbation:
+//!
+//! ```text
+//! w_h = N_i + τ_SUPG (u · ∇N_i)
+//! ```
+//!
+//! This restores coercivity of the bilinear form for advection-dominated flows
+//! ($Pe_h > 1$), ensuring nodal stability without introducing excessive
+//! numerical diffusion.
+//!
+//! # Theorem — PSPG Circumvention of LBB (Tezduyar 1991)
+//!
+//! The Pressure-Stabilising Petrov–Galerkin (PSPG) method adds a pressure
+//! stabilisation term:
+//!
+//! ```text
+//! B_PSPG = Σ_e ∫_{Ω_e} τ_PSPG ∇q · R_m dΩ
+//! ```
+//!
+//! where $R_m$ is the momentum residual. This permits equal-order
+//! velocity-pressure interpolation by circumventing the Babuška–Brezzi (LBB)
+//! inf-sup condition.
+//!
+//! # Theorem — Stabilisation Parameter (Tezduyar & Osawa 2000)
+//!
+//! The element-level stabilisation parameter is:
+//!
+//! ```text
+//! τ = [(2/Δt)² + (2|u|/h)² + (4ν/h²)²]^{-1/2}
+//! ```
+//!
+//! This reduces to the correct limits: $\tau \to h/(2|u|)$ for $Pe_h \gg 1$
+//! and $\tau \to h^2/(4\nu)$ for $Pe_h \ll 1$.
+//!
 //! References:
 //! - Brooks, A.N. and Hughes, T.J.R. (1982). "Streamline upwind/Petrov-Galerkin formulations
 //!   for convection dominated flows with particular emphasis on the incompressible Navier-Stokes equations"

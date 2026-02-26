@@ -23,6 +23,16 @@
 //! - Speziale, C. G., Sarkar, S., & Gatski, T. B. (1991). J. Fluid Mech., 227, 245–272.
 //! - Gibson, M. M., & Launder, B. E. (1978). J. Fluid Mech., 86(3), 491–511.
 //! - Suga, K., & Craft, T. J. (2003). Flow Turbulence Combust., 70, 143–162.
+//!
+//! # Theorem
+//! The turbulence model must satisfy the realizability conditions for the Reynolds stress tensor.
+//!
+//! **Proof sketch**:
+//! For any turbulent flow, the Reynolds stress tensor $\tau_{ij} = -\rho \overline{u_i^\prime u_j^\prime}$
+//! must be positive semi-definite. This requires that the turbulent kinetic energy $k \ge 0$
+//! and the normal stresses $\overline{u_i^\prime u_i^\prime} \ge 0$. The implemented model
+//! enforces these constraints either through exact transport equations or bounded eddy-viscosity
+//! formulations, ensuring physical realizability and numerical stability.
 
 pub mod curvature;
 pub mod diffusion;
@@ -69,21 +79,34 @@ mod tests {
 
         for j in 1..39 {
             let y_plus = (j as f64 / 39.0) * re_tau;
-            let k_plus = if y_plus <= 10.0 { 0.15 * y_plus * y_plus }
-                         else if y_plus <= 100.0 { 3.3 + 0.25 * (y_plus - 10.0).ln() }
-                         else { 2.5 * (y_plus / 100.0).ln() + 1.0 };
+            let k_plus = if y_plus <= 10.0 {
+                0.15 * y_plus * y_plus
+            } else if y_plus <= 100.0 {
+                3.3 + 0.25 * (y_plus - 10.0).ln()
+            } else {
+                2.5 * (y_plus / 100.0).ln() + 1.0
+            };
             let k_dns = k_plus * nu * nu * re_tau * re_tau;
             stresses.k[(20, j)] = k_dns;
             stresses.epsilon[(20, j)] = k_dns.powf(1.5) / 0.09;
-            let anis = if y_plus <= 10.0 { 0.8 } else if y_plus <= 50.0 { 0.6 } else { 0.4 };
+            let anis = if y_plus <= 10.0 {
+                0.8
+            } else if y_plus <= 50.0 {
+                0.6
+            } else {
+                0.4
+            };
             stresses.xx[(20, j)] = (2.0 / 3.0 + anis) * k_dns;
             stresses.yy[(20, j)] = (2.0 / 3.0 - anis) * k_dns;
             stresses.xy[(20, j)] = 0.0;
         }
 
         model.apply_wall_boundary_conditions(
-            &mut stresses.xx, &mut stresses.xy, &mut stresses.yy,
-            &mut stresses.k, &mut stresses.epsilon,
+            &mut stresses.xx,
+            &mut stresses.xy,
+            &mut stresses.yy,
+            &mut stresses.k,
+            &mut stresses.epsilon,
         );
 
         assert_relative_eq!(stresses.k[(20, 0)], 0.0, epsilon = 1e-10);
@@ -93,12 +116,21 @@ mod tests {
             assert!(stresses.xx[(20, j)] >= 0.0, "⟨u'u'⟩ must be non-negative");
             assert!(stresses.yy[(20, j)] >= 0.0, "⟨v'v'⟩ must be non-negative");
             let max_shear = (stresses.xx[(20, j)] * stresses.yy[(20, j)]).sqrt();
-            assert!(stresses.xy[(20, j)].abs() <= max_shear + 1e-10, "Cauchy-Schwarz violated");
+            assert!(
+                stresses.xy[(20, j)].abs() <= max_shear + 1e-10,
+                "Cauchy-Schwarz violated"
+            );
             let k = stresses.k[(20, j)];
             let bij_xx = stresses.xx[(20, j)] / k - 2.0 / 3.0;
             let bij_yy = stresses.yy[(20, j)] / k - 2.0 / 3.0;
-            assert!(bij_xx.abs() <= 2.0 / 3.0 + 1e-6, "b_xx anisotropy out of bounds");
-            assert!(bij_yy.abs() <= 2.0 / 3.0 + 1e-6, "b_yy anisotropy out of bounds");
+            assert!(
+                bij_xx.abs() <= 2.0 / 3.0 + 1e-6,
+                "b_xx anisotropy out of bounds"
+            );
+            assert!(
+                bij_yy.abs() <= 2.0 / 3.0 + 1e-6,
+                "b_yy anisotropy out of bounds"
+            );
         }
     }
 
@@ -111,7 +143,11 @@ mod tests {
         let shear_rate = 1.0f64;
         let mut u = DMatrix::zeros(3, 3);
         let v = DMatrix::zeros(3, 3);
-        for j in 0..3 { for i in 0..3 { u[(i, j)] = shear_rate * j as f64 * 0.1; } }
+        for j in 0..3 {
+            for i in 0..3 {
+                u[(i, j)] = shear_rate * j as f64 * 0.1;
+            }
+        }
         let velocity = [u, v];
         let dt = 0.001;
         let dx = 0.1;
@@ -119,20 +155,28 @@ mod tests {
 
         let mut uv_history = Vec::new();
         for step in 0..200 {
-            let result = model.update_reynolds_stresses_optimized(&mut stresses, &velocity, dt, dx, dy);
+            let result =
+                model.update_reynolds_stresses_optimized(&mut stresses, &velocity, dt, dx, dy);
             assert!(result.is_ok(), "RSM update failed at step {step}");
             uv_history.push(stresses.xy[(1, 1)]);
             if step > 10
                 && (uv_history[step] - uv_history[step - 1]).abs()
-                    / uv_history[step].abs().max(1e-12) < 0.001
+                    / uv_history[step].abs().max(1e-12)
+                    < 0.001
             {
                 break;
             }
         }
 
         let eq = stresses.xy[(1, 1)];
-        assert!(eq < 0.0, "Shear stress must be negative in shear flow: {eq:.6}");
-        assert!(eq.abs() > 1e-6, "Shear stress must evolve from isotropic IC");
+        assert!(
+            eq < 0.0,
+            "Shear stress must be negative in shear flow: {eq:.6}"
+        );
+        assert!(
+            eq.abs() > 1e-6,
+            "Shear stress must evolve from isotropic IC"
+        );
     }
 
     #[test]
@@ -158,17 +202,21 @@ mod tests {
     fn test_reynolds_stress_realizability() {
         let model = ReynoldsStressModel::<f64>::new(10, 10);
         let s = model.initialize_reynolds_stresses(1.0, 0.1);
-        for y in 0..10 { for x in 0..10 {
-            let xx = s.xx[(x, y)]; let xy = s.xy[(x, y)]; let yy = s.yy[(x, y)];
-            let k = s.k[(x, y)];
-            assert!(xx >= 0.0, "⟨u'u'⟩ non-negative");
-            assert!(yy >= 0.0, "⟨v'v'⟩ non-negative");
-            assert!(xy.abs() <= (xx * yy).sqrt() + 1e-12, "Cauchy-Schwarz");
-            if k > 1e-12 {
-                assert!((xx / k - 2.0/3.0).abs() <= 2.0/3.0 + 1e-10);
-                assert!((yy / k - 2.0/3.0).abs() <= 2.0/3.0 + 1e-10);
+        for y in 0..10 {
+            for x in 0..10 {
+                let xx = s.xx[(x, y)];
+                let xy = s.xy[(x, y)];
+                let yy = s.yy[(x, y)];
+                let k = s.k[(x, y)];
+                assert!(xx >= 0.0, "⟨u'u'⟩ non-negative");
+                assert!(yy >= 0.0, "⟨v'v'⟩ non-negative");
+                assert!(xy.abs() <= (xx * yy).sqrt() + 1e-12, "Cauchy-Schwarz");
+                if k > 1e-12 {
+                    assert!((xx / k - 2.0 / 3.0).abs() <= 2.0 / 3.0 + 1e-10);
+                    assert!((yy / k - 2.0 / 3.0).abs() <= 2.0 / 3.0 + 1e-10);
+                }
             }
-        } }
+        }
     }
 
     #[test]
@@ -180,7 +228,9 @@ mod tests {
             yy: DMatrix::from_element(1, 1, 0.8),
             k: DMatrix::from_element(1, 1, 1.35),
             epsilon: DMatrix::from_element(1, 1, 0.1),
-            epsilon_xx: None, epsilon_xy: None, epsilon_yy: None,
+            epsilon_xx: None,
+            epsilon_xy: None,
+            epsilon_yy: None,
         };
         let vg = [[0.0, 1.0], [0.0, 0.0]];
         let p_xx = model.production_term(&rs, &vg, 0, 0, 0, 0);
@@ -200,12 +250,20 @@ mod tests {
         let mut stresses = model.initialize_reynolds_stresses(1.0, 0.1);
         let mut u = DMatrix::zeros(3, 3);
         let v = DMatrix::zeros(3, 3);
-        for j in 0..3 { for i in 0..3 { u[(i, j)] = j as f64 * 0.1; } }
+        for j in 0..3 {
+            for i in 0..3 {
+                u[(i, j)] = j as f64 * 0.1;
+            }
+        }
         let velocity = [u, v];
         for _ in 0..50 {
-            let r = model.update_reynolds_stresses_optimized(&mut stresses, &velocity, 0.001, 0.1, 0.1);
+            let r =
+                model.update_reynolds_stresses_optimized(&mut stresses, &velocity, 0.001, 0.1, 0.1);
             assert!(r.is_ok(), "SSG update failed");
         }
-        assert!(stresses.xy[(1, 1)] < 0.0, "Shear stress must be negative in shear flow");
+        assert!(
+            stresses.xy[(1, 1)] < 0.0,
+            "Shear stress must be negative in shear flow"
+        );
     }
 }

@@ -3,9 +3,24 @@
 //! This module implements high-accuracy spectral methods using Fourier and
 //! Chebyshev expansions for solving partial differential equations.
 //!
-//! ## Mathematical Foundation
+//! # Theorem — Spectral Convergence (Canuto et al. 2006)
 //!
-//! ### Spectral Expansion
+//! For analytic solutions, spectral methods achieve exponential convergence:
+//!
+//! ```text
+//! ‖u − u_N‖ ≤ C e^{−cN}
+//! ```
+//!
+//! where $N$ is the number of modes and $c > 0$ depends on the analyticity
+//! strip width of the solution.
+//!
+//! # Theorem — Aliasing Error (Orszag 1971)
+//!
+//! For nonlinear terms, dealiasing is required to maintain spectral accuracy.
+//! The 3/2-rule ensures aliasing-free computation: zero-pad to $M \geq 3N/2$
+//! modes before evaluating products in physical space.
+//!
+//! ## Spectral Expansion
 //! Solutions are represented as truncated series:
 //!
 //! ```math

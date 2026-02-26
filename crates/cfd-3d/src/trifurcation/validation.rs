@@ -2,12 +2,21 @@
 //!
 //! Provides mesh convergence studies, error metrics, and comparison with
 //! analytical/literature solutions.
+//!
+//! # Theorem — Richardson Extrapolation / GCI (Roache 1994)
+//!
+//! The Grid Convergence Index for a three-grid study:
+//!
+//! ```text
+//! GCI = 1.25 |ε| / (r^p − 1)
+//! ```
+//!
+//! bounds the discretisation error with 95% confidence.
 
 use super::geometry::TrifurcationGeometry3D;
-use super::solver::{TrifurcationConfig3D, TrifurcationSolution3D, TrifurcationSolver3D};
+use super::solver::TrifurcationSolution3D;
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::Error;
-use cfd_core::physics::fluid::traits::Fluid as FluidTrait;
 use nalgebra::RealField;
 use num_traits::{FromPrimitive, ToPrimitive};
 use serde::{Deserialize, Serialize};
@@ -19,8 +28,11 @@ use serde::{Deserialize, Serialize};
 /// Mesh convergence study configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MeshRefinementConfig<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
+    /// Number of mesh refinement levels
     pub n_levels: usize,
+    /// Element size ratio between successive levels
     pub refinement_factor: T,
+    /// Expected order of convergence (e.g. 2.0 for P1 elements)
     pub expected_order: T,
 }
 
@@ -38,12 +50,16 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
 // Trifurcation Validator
 // ============================================================================
 
+/// Validator for 3D trifurcation flow simulation results
 pub struct TrifurcationValidator3D<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
+    /// Trifurcation channel geometry
     pub geometry: TrifurcationGeometry3D<T>,
+    /// Mesh refinement configuration
     pub mesh_config: MeshRefinementConfig<T>,
 }
 
 impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + num_traits::Float + From<f64>> TrifurcationValidator3D<T> {
+    /// Create a new trifurcation validator
     pub fn new(geometry: TrifurcationGeometry3D<T>, mesh_config: MeshRefinementConfig<T>) -> Self {
         Self { geometry, mesh_config }
     }
@@ -61,7 +77,6 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
         // 2. Flow Split Symmetry Check (for symmetric geometry)
         // Q_d1 should equal Q_d3 (top and bottom), Q_d2 is middle
         let q_d1 = solution.flow_rates[1];
-        let q_d2 = solution.flow_rates[2];
         let q_d3 = solution.flow_rates[3];
         
         // For symmetric trifurcation, we expect top/bottom symmetry
@@ -82,8 +97,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
 
         if !result.validation_passed {
              let mut msg = String::new();
-            if !mass_ok { msg.push_str(&format!("Mass error too high: {:?}; ", mass_error)); }
-            if !symmetry_ok { msg.push_str(&format!("Asymmetry detected: {:?}; ", symmetry_error)); }
+            if !mass_ok { use std::fmt::Write; let _ = write!(msg, "Mass error too high: {mass_error:?}; "); }
+            if !symmetry_ok { use std::fmt::Write; let _ = write!(msg, "Asymmetry detected: {symmetry_error:?}; "); }
             if !wss_ok { msg.push_str("WSS out of range; "); }
             result.error_message = Some(msg);
         }
@@ -92,16 +107,23 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
     }
 }
 
+/// Validation result for 3D trifurcation flow
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TrifurcationValidationResult3D<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
+    /// Name of the validation test
     pub test_name: String,
+    /// Relative mass conservation error
     pub mass_error: Option<T>,
+    /// Symmetry error between top and bottom daughters
     pub symmetry_error: Option<T>,
+    /// Whether all validation checks passed
     pub validation_passed: bool,
+    /// Detailed error message when validation fails
     pub error_message: Option<String>,
 }
 
 impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy> TrifurcationValidationResult3D<T> {
+    /// Create a new (default-failing) validation result
     pub fn new(test_name: String) -> Self {
         Self {
             test_name,
@@ -116,7 +138,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy> TrifurcationValidatio
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cfd_core::physics::fluid::traits::Fluid;
+    use super::super::solver::{TrifurcationConfig3D, TrifurcationSolver3D};
 
     #[test]
     fn test_trifurcation_blood_flow() {

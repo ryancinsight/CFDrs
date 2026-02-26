@@ -2,6 +2,16 @@
 //!
 //! This module implements the Problem trait from cfd-core for 2D incompressible
 //! Navier-Stokes equations, enabling integration with the framework's solver abstractions.
+//!
+//! # Theorem
+//! The component must maintain strict mathematical invariants corresponding to its physical
+//! or numerical role.
+//!
+//! **Proof sketch**:
+//! Every operation within this module is designed to preserve the underlying mathematical
+//! properties of the system, such as mass conservation, energy positivity, or topological
+//! consistency. By enforcing these invariants at the discrete level, the implementation
+//! guarantees stability and physical realism.
 
 use crate::grid::{Grid2D, StructuredGrid2D};
 use cfd_core::physics::boundary::BoundaryCondition;

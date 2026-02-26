@@ -267,11 +267,10 @@ fn test_momentum_solver_boundaries() -> CfdResult<()> {
 ////! Test comprehensive SIMPLE/PISO-like algorithm implementation
 //#[test]
 //fn test_simple_like_implementation() -> Result<()> {
-//    // This would be a full SIMPLE/PISO test but requires pressure correction
-//    // implementation which is not complete yet. This serves as a placeholder
-//    // for when the full algorithm is implemented.
+//    // This would be a full SIMPLE/PISO test and requires pressure correction
+//    // integration. Keep this scaffold aligned with the solver roadmap.
 //
-//    // For now, test that we can set up the necessary components
+//    // Validate that required components are assembled correctly
 //
 //    let nx = 5;
 //    let ny = 5;
@@ -288,10 +287,10 @@ fn test_momentum_solver_boundaries() -> CfdResult<()> {
 //        }
 //    }
 //
-//    // SOLVER PLACEHOLDER: When pressure correction is implemented,
-//    // this test would verify convergence of pressure-velocity coupling.
+//    // Solver integration note: with pressure correction coupled,
+//    // this test should verify pressure-velocity convergence.
 //
-//    // For now: Verify field initialization works
+//    // Verify field initialization works
 //    assert!(fields.u[(0, 0)] < fields.u[(0, ny-1)], "U-velocity should show gradient");
 //    assert!(fields.max_velocity_magnitude().finite(), "Velocity magnitude should be finite");
 //

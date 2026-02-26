@@ -53,7 +53,11 @@ pub fn wall_reflection_correction<T: RealField + Copy + FromPrimitive>(
 
     // y⁺ damping function: (1 − exp(−y⁺/A))/ y⁺  (Van Driest form)
     let u_tau = (epsilon * c::<T>(0.09).sqrt() * k).sqrt(); // u_τ ≈ C_μ^{1/4} k^{1/2}
-    let y_plus = if nu > T::zero() { y * u_tau / nu } else { T::zero() };
+    let y_plus = if nu > T::zero() {
+        y * u_tau / nu
+    } else {
+        T::zero()
+    };
 
     let damping_factor = if y_plus > T::zero() {
         let a_damping = c::<T>(25.0);
@@ -64,13 +68,25 @@ pub fn wall_reflection_correction<T: RealField + Copy + FromPrimitive>(
 
     let reflection_term = match (i, j) {
         (0, 0) => {
-            let delta = if wall_normal_index == 0 { T::one() } else { T::zero() };
-            -c_w1 * damping_factor * (a_nn * a_nn + a_pp * a_pp - c::<T>(2.0 / 3.0) * (a_nn + a_pp) * delta)
+            let delta = if wall_normal_index == 0 {
+                T::one()
+            } else {
+                T::zero()
+            };
+            -c_w1
+                * damping_factor
+                * (a_nn * a_nn + a_pp * a_pp - c::<T>(2.0 / 3.0) * (a_nn + a_pp) * delta)
         }
         (0, 1) | (1, 0) => -c_w2 * damping_factor * (a_nn * a_ps + a_pp * a_ps),
         (1, 1) => {
-            let delta = if wall_normal_index == 1 { T::one() } else { T::zero() };
-            -c_w1 * damping_factor * (a_nn * a_nn + a_pp * a_pp - c::<T>(2.0 / 3.0) * (a_nn + a_pp) * delta)
+            let delta = if wall_normal_index == 1 {
+                T::one()
+            } else {
+                T::zero()
+            };
+            -c_w1
+                * damping_factor
+                * (a_nn * a_nn + a_pp * a_pp - c::<T>(2.0 / 3.0) * (a_nn + a_pp) * delta)
         }
         _ => T::zero(),
     };

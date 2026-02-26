@@ -3,7 +3,28 @@
     "allow": [
       "mcp__acp__Bash",
       "mcp__acp__Write",
-      "mcp__acp__Edit"
+      "mcp__acp__Edit",
+      "mcp__desktop-commander__list_directory",
+      "Bash(ls:*)",
+      "Bash(wc:*)",
+      "Bash(cargo check:*)",
+      "Bash(cargo test:*)",
+      "Bash(cargo clippy:*)",
+      "Bash(cargo run:*)",
+      "mcp__desktop-commander__read_file",
+      "Bash(find:*)",
+      "Bash(test:*)",
+      "Bash(du:*)",
+      "Bash(done)",
+      "mcp__Windows-MCP__Scrape",
+      "Bash(grep:*)",
+      "mcp__desktop-commander__start_process",
+      "mcp__desktop-commander__interact_with_process",
+      "mcp__desktop-commander__read_multiple_files",
+      "Bash(git stash:*)",
+      "mcp__desktop-commander__edit_block",
+      "mcp__desktop-commander__read_process_output",
+      "WebFetch(domain:pmc.ncbi.nlm.nih.gov)"
     ]
   }
 }

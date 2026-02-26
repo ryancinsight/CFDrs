@@ -433,8 +433,15 @@ impl DGOperator {
         match self.params.surface_flux {
             FluxType::Central => 0.5 * (f + &f_ext),
             FluxType::Upwind => {
-                // Simple upwinding based on characteristic speeds
-                let a = 1.0; // Characteristic speed (simplified)
+                // Upwind direction determined by the characteristic speed.
+                // Use the local normal velocity: average of interior and exterior
+                // state projections, falling back to params.alpha for sign.
+                let a = 0.5 * (u.sum() + u_ext.sum());
+                let a = if a.abs() < f64::EPSILON {
+                    self.params.alpha
+                } else {
+                    a
+                };
                 if a >= 0.0 {
                     f.clone()
                 } else {

@@ -147,7 +147,6 @@ const DEFAULT_INTEGRAL_GAIN: f64 = 1.0;
 /// IBM solver for 3D flow around immersed boundaries
 pub struct IbmSolver<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + ToPrimitive + Copy> {
     /// Configuration
-    #[allow(dead_code)]
     config: IbmConfig,
     /// Lagrangian points representing the immersed boundary
     lagrangian_points: Vec<LagrangianPoint<T>>,
@@ -186,6 +185,11 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + ToPrimitive
             dx,
             grid_size,
         }
+    }
+
+    /// Configuration used to create this solver.
+    pub fn config(&self) -> &IbmConfig {
+        &self.config
     }
 
     /// Add a Lagrangian point

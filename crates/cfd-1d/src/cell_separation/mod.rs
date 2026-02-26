@@ -21,6 +21,7 @@
 //! | [`properties`] | Cell physical properties (size, deformability, density) |
 //! | [`margination`] | Inertial lift and Dean drag force models |
 //! | [`separation_model`] | High-level separation analysis and efficiency metrics |
+//! | [`cell_interaction`] | RBC-WBC cell-cell interaction correction (CFL model, HCT ≥ 1%) |
 //!
 //! # Quick start
 //!
@@ -42,11 +43,17 @@
 //! - Di Carlo, D. (2009). Inertial microfluidics. *Lab Chip*, 9, 3038–3046.
 //! - Gossett, D. R. & Di Carlo, D. (2009). *Anal. Chem.*, 81, 8459–8465.
 //! - Hur, S. C. et al. (2011). *Lab Chip*, 11, 912–920.
+//! - Fedosov, D. A. et al. (2012). Margination of white blood cells in microcapillary flow.
+//!   *Phys. Rev. Lett.*, 108, 028104.
 
+pub mod cascade_junction;
+pub mod cell_interaction;
 pub mod margination;
 pub mod properties;
 pub mod separation_model;
 
+pub use cascade_junction::{cascade_junction_separation, tri_center_q_frac, CascadeJunctionResult};
+pub use cell_interaction::enhanced_lateral_equilibrium;
 pub use margination::{
     dean_drag_force_n, dean_number, inertial_lift_force_n, lateral_equilibrium, EquilibriumResult,
 };

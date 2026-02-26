@@ -121,14 +121,19 @@ impl BlueprintMeshPipeline {
     /// 7. Label boundary faces (inlet / outlet / wall).
     /// 8. Optionally build chip body via CSG Difference.
     pub fn run(bp: &NetworkBlueprint, config: &PipelineConfig) -> MeshResult<PipelineOutput> {
-        // Step 1 — diameter constraint
-        InletOutletConstraint::check(bp).map_err(|e| MeshError::ChannelError {
-            message: e.to_string(),
-        })?;
-
-        // Step 2 — classify topology
+        // Step 2 — classify topology (must precede constraint check so we can
+        // skip the 4 mm port constraint for ParallelArray micro-channels).
         let topo = NetworkTopology::new(bp);
         let class = topo.classify();
+
+        // Step 1 — diameter constraint.
+        // ParallelArray micro-channels (D_h << 4 mm) are not subject to the
+        // 96-well-plate macro-port constraint — skip the check for that topology.
+        if !matches!(&class, TopologyClass::ParallelArray { .. }) {
+            InletOutletConstraint::check(bp).map_err(|e| MeshError::ChannelError {
+                message: e.to_string(),
+            })?;
+        }
 
         if class == TopologyClass::Complex {
             return Err(MeshError::ChannelError {
@@ -144,7 +149,7 @@ impl BlueprintMeshPipeline {
         // The serpentine zigzag inserts synthetic turn segments that don't map to
         // blueprint channels, so we cannot use layout.len() here.
         let segment_count = bp.channels.len();
-        let layout = synthesize_layout(&class, &topo, y_center, z_mid, config)?;
+        let layout = synthesize_layout(&class, &topo, bp, y_center, z_mid, config)?;
 
         // Step 4 — wall clearance (routing bounds)
         // Inlet/outlet ports are allowed to touch the x=0 and x=WIDTH_MM faces;
@@ -201,6 +206,9 @@ impl BlueprintMeshPipeline {
         } else if matches!(&class, TopologyClass::Bifurcation) {
             build_bifurcation_fluid_mesh(&mesh_layout, config)?
         } else {
+            // VenturiChain, Trifurcation, ParallelArray: per-segment meshes + iterative
+            // CSG union.  ParallelArray channels are non-overlapping (different Y rows)
+            // so no T-junction degeneracy arises.
             let segment_meshes: Vec<IndexedMesh> = mesh_layout
                 .iter()
                 .map(|seg| build_segment_mesh(seg, config))
@@ -218,7 +226,13 @@ impl BlueprintMeshPipeline {
 
         // Step 8 — chip body
         let chip_mesh = if config.include_chip_body {
-            Some(if matches!(&class, TopologyClass::LinearChain { .. }) {
+            Some(if matches!(&class, TopologyClass::ParallelArray { .. }) {
+                // ParallelArray: N non-overlapping straight channels at different Y
+                // positions.  Sequential subtraction keeps each void tube simple
+                // (no multi-tube junction faces) and avoids the CDT PSLG panic
+                // from pre-unioning all parallel tubes before the Difference step.
+                build_chip_body_sequential(&mesh_layout, config)?
+            } else if matches!(&class, TopologyClass::LinearChain { .. }) {
                 // Bent-polyline void for the serpentine chip body has a
                 // fundamental CSG problem: the 90° turn tube's interior rings
                 // are coplanar with (or tangent to) the substrate faces
@@ -283,6 +297,7 @@ struct SegmentLayout {
 fn synthesize_layout(
     class: &TopologyClass,
     topo: &NetworkTopology<'_>,
+    bp: &NetworkBlueprint,
     y_center: Real,
     z_mid: Real,
     config: &PipelineConfig,
@@ -500,10 +515,68 @@ fn synthesize_layout(
             Ok(layout)
         }
 
+        // ParallelArray: N parallel straight channels all running full chip width,
+        // evenly spaced in Y around y_center.
+        TopologyClass::ParallelArray { n_channels } => {
+            synthesize_parallel_array_layout(bp, *n_channels, y_center, z_mid, config)
+        }
+
         TopologyClass::Complex => Err(MeshError::ChannelError {
             message: "Complex topology not supported".to_string(),
         }),
     }
+}
+
+// ── ParallelArray layout synthesis ───────────────────────────────────────────
+
+/// Lay out N parallel straight channels evenly spaced in Y across the chip.
+///
+/// Each channel spans the full chip width (0 → `chip_w`) at its own Y row.
+/// Row pitch is `max(max_dia_mm × 2.5, 1.0)` mm.  If the requested spread
+/// would exceed the routing bounds, the pitch is reduced to the maximum that
+/// fits — channels remain non-overlapping as long as `max_dia_mm × 1.0 ≤
+/// reduced_pitch` (enforced by the wall-clearance check in `run()`).
+fn synthesize_parallel_array_layout(
+    bp: &NetworkBlueprint,
+    n_channels: usize,
+    y_center: Real,
+    z_mid: Real,
+    config: &PipelineConfig,
+) -> MeshResult<Vec<SegmentLayout>> {
+    let chip_w = SbsWellPlate96::WIDTH_MM;
+    let max_y  = SbsWellPlate96::DEPTH_MM - config.wall_clearance_mm;
+    let min_y  = config.wall_clearance_mm;
+
+    // Determine cross-section from the first channel in the blueprint.
+    let first_ch = bp.channels.first().ok_or_else(|| MeshError::ChannelError {
+        message: "ParallelArray blueprint has no channels".to_string(),
+    })?;
+    let cs = first_ch.cross_section;
+
+    // Row pitch: default 2.5 × diameter; clamped so all rows fit within bounds.
+    let max_dia_mm = cross_section_diameter_mm(&cs);
+    let unclamped_pitch = (max_dia_mm * 2.5).max(1.0);
+    // Maximum pitch that keeps all N rows inside [min_y, max_y].
+    let available_span = (max_y - min_y).max(0.0);
+    let row_pitch = if n_channels <= 1 {
+        unclamped_pitch
+    } else {
+        unclamped_pitch.min(available_span / (n_channels as Real - 1.0))
+    };
+
+    // Y positions: centred on y_center.
+    let y_base = y_center - (n_channels as Real - 1.0) / 2.0 * row_pitch;
+
+    let mut layout = Vec::with_capacity(n_channels);
+    for i in 0..n_channels {
+        let y_row = y_base + i as Real * row_pitch;
+        layout.push(SegmentLayout {
+            start: Point3r::new(0.0,   y_row, z_mid),
+            end:   Point3r::new(chip_w, y_row, z_mid),
+            cross_section: cs,
+        });
+    }
+    Ok(layout)
 }
 
 // ── Segment mesh ──────────────────────────────────────────────────────────────
@@ -658,12 +731,17 @@ fn label_boundaries(
         return;
     }
 
-    // Determine inlet and outlet positions from layout
+    // Determine inlet and outlet positions from layout.
     let first_seg = &layout[0];
     let inlet_r_mm = cross_section_radius_mm(&first_seg.cross_section);
     let epsilon = 2.0 * inlet_r_mm;
 
-    let inlet_pos = first_seg.start;
+    // For all topologies except ParallelArray, the single inlet is layout[0].start.
+    // For ParallelArray, every channel has its own inlet cap at x=0.
+    let inlet_positions: Vec<Point3r> = match class {
+        TopologyClass::ParallelArray { .. } => layout.iter().map(|s| s.start).collect(),
+        _ => vec![first_seg.start],
+    };
 
     let outlet_positions: Vec<Point3r> = match class {
         TopologyClass::LinearChain { .. } | TopologyClass::VenturiChain => {
@@ -678,6 +756,10 @@ fn label_boundaries(
         TopologyClass::Trifurcation => {
             // Layout has 3 segments: [merged_straight, d1_angled, d3_angled].
             // All three ends are outlet faces.
+            layout.iter().map(|s| s.end).collect()
+        }
+        TopologyClass::ParallelArray { .. } => {
+            // Every channel has its own outlet cap at x = chip_w.
             layout.iter().map(|s| s.end).collect()
         }
         TopologyClass::Complex => vec![],
@@ -698,7 +780,7 @@ fn label_boundaries(
             (p0.z + p1.z + p2.z) / 3.0,
         );
 
-        let label = if (centroid - inlet_pos).norm() < epsilon {
+        let label = if inlet_positions.iter().any(|ip| (centroid - ip).norm() < epsilon) {
             "inlet"
         } else if outlet_positions
             .iter()

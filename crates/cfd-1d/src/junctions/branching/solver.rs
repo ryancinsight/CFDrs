@@ -82,7 +82,10 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> BranchingN
         inlet_pressure: T,
         inlet_flow_rate: T,
     ) -> Result<TwoWayBranchSolution<T>, Error> {
-        junction.solve(fluid, inlet_flow_rate, inlet_pressure)
+        junction.solve(fluid, inlet_flow_rate, inlet_pressure,
+            T::from_f64_or_one(293.15), // 20°C standard temperature [K]
+            T::from_f64_or_one(101325.0), // 1 atm [Pa]
+        )
     }
 
     /// Solve branching network by forward pass
@@ -109,7 +112,10 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> BranchingN
         let mut current_flow = self.config.inlet_flow_rate;
 
         for branch_junction in branch_junctions {
-            let solution = branch_junction.solve(fluid, current_flow, current_pressure)?;
+            let solution = branch_junction.solve(fluid, current_flow, current_pressure,
+                T::from_f64_or_one(293.15),
+                T::from_f64_or_one(101325.0),
+            )?;
 
             // For next branch junction, use daughter pressures and flows
             // (In a real tree, this would route to specific daughter branches)
@@ -147,17 +153,22 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> BranchingN
         // Use reference flow rate for viscosity evaluation
         let q_ref = self.config.inlet_flow_rate;
 
-        let r_parent = TwoWayBranchJunction::pressure_drop(&fluid, q_ref, &junction.parent)
+        let r_parent = TwoWayBranchJunction::pressure_drop(&fluid, q_ref, &junction.parent,
+            T::from_f64_or_one(293.15), T::from_f64_or_one(101325.0))
             / (q_ref + T::from_f64_or_one(1e-15));
         let r_1 = TwoWayBranchJunction::pressure_drop(
             &fluid,
             q_ref / T::from_f64_or_one(2.0),
             &junction.daughter1,
+            T::from_f64_or_one(293.15),
+            T::from_f64_or_one(101325.0),
         ) / (q_ref / T::from_f64_or_one(2.0) + T::from_f64_or_one(1e-15));
         let r_2 = TwoWayBranchJunction::pressure_drop(
             &fluid,
             q_ref / T::from_f64_or_one(2.0),
             &junction.daughter2,
+            T::from_f64_or_one(293.15),
+            T::from_f64_or_one(101325.0),
         ) / (q_ref / T::from_f64_or_one(2.0) + T::from_f64_or_one(1e-15));
 
         (r_parent, r_1, r_2)

@@ -1,5 +1,45 @@
 # Project Checklist
 
+## Sprint 1.90.0: CFD CRATES COMPREHENSIVE AUDIT & ENHANCEMENT ✅ COMPLETE
+
+**Status**: ✅ COMPLETE — All 5 crates audited, theorem-documented, adversarially tested. All tests pass.
+
+### Structural Changes
+- [x] `cfd-math`: `performance_monitor.rs` → `diagnostics/performance_monitor.rs` (SRP)
+- [x] `cfd-math`: `diagnostics/mod.rs` with Adaptive Threshold Optimality theorem + backward-compat shim
+- [x] `cfd-core`: Removed empty orphan `management/neuronavigation/`
+- [x] `cfd-1d`: `resistance/traits.rs` converted from misleading redirect comment to proper `pub use` re-export (SSOT + DIP)
+- [x] `cfd-3d`: All 9 bare `.unwrap()` in `lib.rs` tests → `.expect("invariant message")` / `Result<()`
+- [x] `cfd-3d`: `src/tests/adversarial_tests.rs` created and wired into module
+
+### Theorem Documentation (28 formal theorems added)
+- [x] `cfd-math`: Taylor Remainder, Spectral, SBP | Gauss-Legendre, Composite, Fubini | CSR SpMV, Cholesky, Parallel | Runge, Lebesgue, Cubic Spline | Dahlquist, RK4, CFL, RKC
+- [x] `cfd-core/physics`: NS Existence (Leray), Well-Posedness (Lax), Frame Invariance (Noll), Buckingham Π
+- [x] `cfd-1d/resistance`: Hagen-Poiseuille, Rectangular Duct, Dean Number, Kirchhoff's Laws, Knudsen Regime
+- [x] `cfd-2d/solvers`: Lax-Richtmyer, Gauss Divergence, BGK+Chapman-Enskog, SIMPLE, PISO, Fixed-Point Contraction
+- [x] `cfd-3d/vof`: PLIC Conservation, Accuracy O(h²), Young-Laplace, Maximum Principle
+- [x] `cfd-3d/spectral`: Parseval, Aliasing/Nyquist (3/2 dealiasing), Gauss-Lobatto, Exponential Convergence
+
+### Adversarial Tests (21 new tests)
+- [x] `cfd-math`: ill-conditioned (κ=10^14), zero-RHS, dimension mismatch, n=500 SPD stress, NaN-safety, convergence history, sparse builder bounds
+- [x] `cfd-math`: interpolation extrapolation rejection, single-point, duplicate nodes, quadratic exactness
+- [x] `cfd-3d`: VOF conservation/bounds, Parseval round-trip, energy localization, aliasing, FEM config invariants, level set
+
+### Verification Results
+- [x] `cargo check` exit 0 on all 5 crates
+- [x] `cargo test -p cfd-math` → all pass   |   `cargo test -p cfd-core` → all pass
+- [x] `cargo test -p cfd-1d` → all pass   |   `cargo test -p cfd-2d` → all pass   |   `cargo test -p cfd-3d` → all pass
+
+---
+
+## Sprint 1.91.0: ARCHITECTURAL PURITY PHASE 2 ✅ COMPLETE
+- [x] **WENO Deduplication**: `cfd-math/src/high_order/weno.rs` vs `src/spatial/weno.rs` (SSOT established, `spatial` deleted)
+- [x] Update all `cfd_core::domain` → `cfd_core::geometry` references (REST-002) (Verified completed)
+- [x] Remove simplified solvers from `cfd-core` (REST-004) (Replaced simplified blood/cavitation with exact math, removed obsolete files)
+- [x] CSG Boolean exact predicates (cfd-mesh) (Verified exact GWN and arithmetic predicates exist)
+
+---
+
 ## Sprint 1.86.0 Status: ✅ COMPLETE
 
 - [x] Resolve Richardson extrapolation validation errors

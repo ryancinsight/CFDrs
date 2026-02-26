@@ -10,6 +10,6 @@ mod solver;
 mod surface;
 
 pub use cross_section::CrossSection;
-pub use flow::{Channel, FlowRegime, FlowState, NumericalParameters};
+pub use flow::{Channel, FlowRegime, FlowState, NumericalParameters, KN_SLIP_MIN};
 pub use geometry::{ChannelGeometry, ChannelType, GeometricVariation};
 pub use surface::{SurfaceProperties, Wettability};

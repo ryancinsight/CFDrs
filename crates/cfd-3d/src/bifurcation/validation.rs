@@ -2,6 +2,17 @@
 //!
 //! Provides mesh convergence studies, error metrics, and comparison with
 //! analytical/literature solutions.
+//!
+//! # Theorem — Richardson Extrapolation / GCI (Roache 1994)
+//!
+//! Given three grid solutions $\phi_1, \phi_2, \phi_3$ with refinement ratio $r$:
+//!
+//! ```text
+//! p = ln((φ_3 − φ_2) / (φ_2 − φ_1)) / ln(r)
+//! GCI = 1.25 |ε| / (r^p − 1)
+//! ```
+//!
+//! The GCI provides a 95% confidence band on the discretisation error.
 
 use super::geometry::BifurcationGeometry3D;
 use super::solver::{BifurcationConfig3D, BifurcationSolution3D, BifurcationSolver3D};
@@ -9,7 +20,7 @@ use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::Error;
 use cfd_core::physics::fluid::traits::Fluid as FluidTrait;
 use cfd_core::physics::fluid::traits::NonNewtonianFluid;
-use nalgebra::{ComplexField, RealField};
+use nalgebra::RealField;
 use num_traits::{FromPrimitive, ToPrimitive};
 use serde::{Deserialize, Serialize};
 
@@ -107,32 +118,70 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
     /// ```
     ///
     /// where r is refinement factor.
-    pub fn validate_mesh_convergence<F: FluidTrait<T> + NonNewtonianFluid<T> + Copy + num_traits::FromPrimitive>(
+    pub fn validate_mesh_convergence<F: FluidTrait<T> + NonNewtonianFluid<T> + Clone>(
         &self,
         config: &BifurcationConfig3D<T>,
         fluid: F,
     ) -> Result<BifurcationValidationResult3D<T>, Error> {
-        // Create coarse and fine solvers
-        let solver_coarse = BifurcationSolver3D::new(self.geometry.clone(), config.clone());
-        let solver_fine = BifurcationSolver3D::new(self.geometry.clone(), config.clone());
+        let r = self.mesh_config.refinement_factor;
+        let r_f64 = r.to_f64().unwrap_or(2.0);
+        if r_f64 <= 1.0 {
+            return Err(Error::InvalidInput(
+                "Mesh refinement factor must be > 1".to_string(),
+            ));
+        }
 
-        // Solve on both meshes
-        let sol_coarse = solver_coarse.solve(fluid)?;
+        // Build three levels: coarse, medium, fine
+        let mut cfg_coarse = config.clone();
+        let mut cfg_medium = config.clone();
+        let mut cfg_fine = config.clone();
+
+        let base_resolution = config.mesh_resolution.max(2);
+        let medium_resolution = ((base_resolution as f64) * r_f64).round() as usize;
+        let fine_resolution = ((base_resolution as f64) * r_f64 * r_f64).round() as usize;
+
+        cfg_coarse.mesh_resolution = base_resolution;
+        cfg_medium.mesh_resolution = medium_resolution.max(base_resolution + 1);
+        cfg_fine.mesh_resolution = fine_resolution.max(cfg_medium.mesh_resolution + 1);
+
+        let solver_coarse = BifurcationSolver3D::new(self.geometry.clone(), cfg_coarse);
+        let solver_medium = BifurcationSolver3D::new(self.geometry.clone(), cfg_medium);
+        let solver_fine = BifurcationSolver3D::new(self.geometry.clone(), cfg_fine);
+
+        let sol_coarse = solver_coarse.solve(fluid.clone())?;
+        let sol_medium = solver_medium.solve(fluid.clone())?;
         let sol_fine = solver_fine.solve(fluid)?;
 
-        // Calculate errors (using pressure drop as representative variable)
-        let error_coarse = num_traits::Float::abs((sol_coarse.p_inlet - sol_coarse.p_outlet) - (sol_fine.p_inlet - sol_fine.p_outlet))
-            / (num_traits::Float::abs(sol_fine.p_inlet - sol_fine.p_outlet) + T::from_f64_or_one(1.0));
+        // Representative scalar quantity for convergence study
+        let phi_coarse = sol_coarse.p_inlet - sol_coarse.p_outlet;
+        let phi_medium = sol_medium.p_inlet - sol_medium.p_outlet;
+        let phi_fine = sol_fine.p_inlet - sol_fine.p_outlet;
 
-        // Richardson extrapolation
-        let r = self.mesh_config.refinement_factor;
-        let p_expected = self.mesh_config.expected_order;
-        let gci = T::from_f64_or_one(1.25) * error_coarse / (num_traits::Float::powf(r, p_expected) - T::one());
+        let eps10 = num_traits::Float::abs(phi_medium - phi_coarse);
+        let eps21 = num_traits::Float::abs(phi_fine - phi_medium);
+        let tiny = T::from_f64_or_one(1e-20);
+
+        if eps10 <= tiny || eps21 <= tiny {
+            let mut result = BifurcationValidationResult3D::new("Mesh Convergence".to_string());
+            result.convergence_order = None;
+            result.gci = Some(T::zero());
+            result.validation_passed = true;
+            result.error_message = Some(
+                "Inter-level differences are at numerical noise floor; treating as grid-converged".to_string(),
+            );
+            return Ok(result);
+        }
+
+        let p_obs = num_traits::Float::ln(eps10 / eps21) / num_traits::Float::ln(r);
+        let rel_error_fine = eps21 / (num_traits::Float::abs(phi_fine) + tiny);
+        let gci = T::from_f64_or_one(1.25) * rel_error_fine / (num_traits::Float::powf(r, p_obs) - T::one());
 
         let mut result = BifurcationValidationResult3D::new("Mesh Convergence".to_string());
-        result.convergence_order = Some(T::from_f64_or_one(2.0)); // Approximate
+        result.convergence_order = Some(p_obs);
         result.gci = Some(gci);
-        result.validation_passed = gci < T::from_f64_or_one(0.05); // GCI < 5%
+        result.validation_passed =
+            gci < T::from_f64_or_one(0.05)
+                && p_obs >= T::from_f64_or_one(0.5) * self.mesh_config.expected_order;
 
         Ok(result)
     }
@@ -142,7 +191,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
         &self,
         solution: &BifurcationSolution3D<T>,
     ) -> Result<BifurcationValidationResult3D<T>, Error> {
-        // Check physical reasonableness - relaxed tolerances for now
+        // Physical reasonableness checks for microfluidic bifurcation flows
         let mass_ok = solution.mass_conservation_error < T::from_f64_or_one(1e-6);
 
         // Wall shear stresses should be in physiological range for blood
@@ -213,22 +262,22 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + ToPrimitive> Bifurca
 
         if let Some(m_err) = self.mass_error {
             if let Some(m) = m_err.to_f64() {
-                println!("Mass error: {:.2e}", m);
+                println!("Mass error: {m:.2e}");
             }
         }
         if let Some(p_err) = self.pressure_error {
             if let Some(p) = p_err.to_f64() {
-                println!("Pressure error: {:.2e}", p);
+                println!("Pressure error: {p:.2e}");
             }
         }
         if let Some(order) = self.convergence_order {
             if let Some(o) = order.to_f64() {
-                println!("Convergence order: {:.2}", o);
+                println!("Convergence order: {o:.2}");
             }
         }
         if let Some(gci_val) = self.gci {
             if let Some(g) = gci_val.to_f64() {
-                println!("GCI: {:.2e}", g);
+                println!("GCI: {g:.2e}");
             }
         }
 
@@ -242,7 +291,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + ToPrimitive> Bifurca
         );
 
         if let Some(msg) = &self.error_message {
-            println!("Error: {}", msg);
+            println!("Error: {msg}");
         }
         println!("{}", "-".repeat(60));
     }
@@ -281,5 +330,42 @@ mod tests {
         println!("Validation message: {:?}", result.error_message);
         
         assert!(result.validation_passed);
+    }
+
+    #[test]
+    fn test_mesh_convergence_outputs_observed_order_and_gci() {
+        let geom = BifurcationGeometry3D::<f64>::symmetric(100e-6, 80e-6, 1e-3, 1e-3, 100e-6);
+        let mesh_config = MeshRefinementConfig::default();
+        let validator = BifurcationValidator3D::new(geom, mesh_config);
+
+        let mut config = BifurcationConfig3D::default();
+        config.mesh_resolution = 4;
+
+        let water = cfd_core::physics::fluid::blood::CassonBlood::normal_blood();
+        let result = validator
+            .validate_mesh_convergence(&config, water)
+            .expect("mesh convergence validation should succeed");
+
+        assert!(result.gci.is_some());
+        assert!(
+            result.convergence_order.is_some() || result.gci == Some(0.0),
+            "Expected observed order or noise-floor convergence marker"
+        );
+    }
+
+    #[test]
+    fn test_mesh_convergence_rejects_invalid_refinement_factor() {
+        let geom = BifurcationGeometry3D::<f64>::symmetric(100e-6, 80e-6, 1e-3, 1e-3, 100e-6);
+        let mesh_config = MeshRefinementConfig {
+            refinement_factor: 1.0,
+            ..MeshRefinementConfig::default()
+        };
+        let validator = BifurcationValidator3D::new(geom, mesh_config);
+
+        let config = BifurcationConfig3D::default();
+        let water = cfd_core::physics::fluid::blood::CassonBlood::normal_blood();
+
+        let result = validator.validate_mesh_convergence(&config, water);
+        assert!(result.is_err());
     }
 }

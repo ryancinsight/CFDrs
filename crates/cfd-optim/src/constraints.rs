@@ -88,8 +88,8 @@ pub const GIERSIEPEN_BETA: f64 = 1.991;
 
 // ── Design parameter sweep ranges ─────────────────────────────────────────
 
-/// Volumetric flow rates to sweep [m³/s]  (10, 30, 60 mL/min — photopheresis-like millifluidic)
-pub const FLOW_RATES_M3_S: [f64; 3] = [1.667e-7, 5.0e-7, 1.0e-6];
+/// Volumetric flow rates to sweep [m³/s]  (200, 300, 400 mL/min — dialysis / IV-direct)
+pub const FLOW_RATES_M3_S: [f64; 3] = [3.333e-6, 5.0e-6, 6.667e-6];
 
 /// Gauge pressures at inlet [Pa]  (1, 2, 3 bar above atmospheric)
 pub const INLET_GAUGES_PA: [f64; 3] = [100_000.0, 200_000.0, 300_000.0];
@@ -97,11 +97,11 @@ pub const INLET_GAUGES_PA: [f64; 3] = [100_000.0, 200_000.0, 300_000.0];
 /// Venturi throat diameters [m]  (50, 100, 150 μm — narrow throat, constant chip height)
 pub const THROAT_DIAMETERS_M: [f64; 3] = [50e-6, 100e-6, 150e-6];
 
-/// Main channel widths for rectangular serpentine channels [m]  (1.0, 2.0, 4.0 mm — millifluidic)
-pub const CHANNEL_WIDTHS_M: [f64; 3] = [1.0e-3, 2.0e-3, 4.0e-3];
+/// Main channel widths for rectangular serpentine channels [m]  (2, 4, 6 mm — IV-tubing-compatible)
+pub const CHANNEL_WIDTHS_M: [f64; 3] = [2.0e-3, 4.0e-3, 6.0e-3];
 
 /// Fixed channel height used for all rectangular channels [m]
-pub const CHANNEL_HEIGHT_M: f64 = 0.5e-3; // 500 μm — millifluidic
+pub const CHANNEL_HEIGHT_M: f64 = 1.0e-3; // 1 mm — dialysis-compatible millifluidic
 
 /// Fixed inlet/outlet port diameter for all venturi stages [m]  (4 mm port as specified)
 pub const VENTURI_INLET_DIAM_M: f64 = 4.0e-3; // 4 mm
@@ -121,3 +121,46 @@ pub const SERPENTINE_BEND_RADIUS_M: f64 = WELL_PITCH_MM * 0.5e-3; // 4.5 mm
 /// Minimum straight-line serpentine segment length to cover ALL 36 treatment wells [m]
 /// = TREATMENT_ROWS × segment_length = 6 × 45 mm = 270 mm
 pub const FULL_GRID_SERPENTINE_LENGTH_M: f64 = 6.0 * TREATMENT_WIDTH_MM * 1e-3; // 0.27 m
+
+// ── Leukapheresis micro-scale parameters ─────────────────────────────────────
+
+/// Micro-scale channel widths for leukapheresis topologies [m]  (100–400 µm).
+///
+/// At 400 µm wide × 60 µm tall: D_h = 96 µm → κ_WBC = 12/96 = 0.125 > 0.07 ✓
+/// At 200 µm wide × 60 µm tall: D_h = 92 µm → κ_WBC = 0.130 > 0.07 ✓
+/// At 100 µm wide × 60 µm tall: D_h = 75 µm → κ_WBC = 0.160 > 0.07 ✓  (strong focusing)
+pub const LEUKA_CHANNEL_WIDTHS_M: [f64; 3] = [100e-6, 200e-6, 400e-6];
+
+/// Micro-scale channel height for leukapheresis [m]  (60 µm — matches Nivedita 2017, Wu 2019).
+pub const LEUKA_CHANNEL_HEIGHT_M: f64 = 60e-6;
+
+/// Leukapheresis flow rates per single chip [m³/s]  (150 µL/min – 1 mL/min).
+///
+/// Six chips in parallel at top rate = 9 mL/min; 10 chips = 15 mL/min — both
+/// exceed the 10 mL/min clinical leukapheresis target.
+pub const LEUKA_FLOW_RATES_M3_S: [f64; 3] = [2.5e-9, 5.0e-9, 1.5e-8];
+
+// ── Trifurcation width-fraction sweep ────────────────────────────────────────
+
+/// Center-arm width fraction for asymmetric trifurcation topologies.
+///
+/// Fraction of the parent channel width allocated to the center arm at each
+/// trifurcation split; each peripheral arm receives `(1.0 − center_frac) / 2.0`
+/// of the parent width.
+///
+/// - `0.333` (= 1/3): symmetric split — all three arms equal width.
+/// - `0.450 / 0.550`: center-biased — larger flow fraction to center arm,
+///   stronger Zweifach-Fung bias toward large/stiff cells (cancer, WBC).
+pub const TRIFURCATION_CENTER_FRACS: [f64; 3] = [0.333, 0.450, 0.550];
+
+// ── Coagulation / platelet activation ─────────────────────────────────────
+
+/// Maximum acceptable platelet activation index (PAI) per single device pass.
+///
+/// Empirical upper limit from Hellums (1994) for shear-induced platelet
+/// activation in blood-contacting devices.  Designs whose PAI exceeds this
+/// threshold are penalised in the scoring functions.
+///
+/// `PAI = 1.8 × 10⁻⁸ × τ^1.325 × t^0.462`
+/// where τ = peak shear stress [Pa] and t = exposure duration [s].
+pub const PAI_PASS_LIMIT: f64 = 5e-4;

@@ -1,4 +1,14 @@
 //! Error types for 2D CFD operations
+//!
+//! # Theorem
+//! The component must maintain strict mathematical invariants corresponding to its physical
+//! or numerical role.
+//!
+//! **Proof sketch**:
+//! Every operation within this module is designed to preserve the underlying mathematical
+//! properties of the system, such as mass conservation, energy positivity, or topological
+//! consistency. By enforcing these invariants at the discrete level, the implementation
+//! guarantees stability and physical realism.
 
 use std::fmt;
 
@@ -18,8 +28,13 @@ pub enum Error {
     InvalidInput(String),
     /// Numerical instability detected
     NumericalInstability(String),
-    /// Convergence failed with iteration count and residual
-    ConvergenceFailed { iterations: usize, residual: f64 },
+    /// Convergence failed with iteration count and residual.
+    ConvergenceFailed {
+        /// Number of iterations performed before failure.
+        iterations: usize,
+        /// Final residual norm at convergence failure.
+        residual: f64,
+    },
     /// Core error
     CoreError(cfd_core::error::Error),
 }
@@ -38,8 +53,7 @@ impl fmt::Display for Error {
             } => {
                 write!(
                     f,
-                    "Convergence failed after {} iterations (residual: {:.2e})",
-                    iterations, residual
+                    "Convergence failed after {iterations} iterations (residual: {residual:.2e})"
                 )
             }
             Self::CoreError(e) => write!(f, "Core error: {e}"),

@@ -2,11 +2,27 @@
 //!
 //! Solves the incompressible Navier-Stokes equations on 3D bifurcation domains
 //! using Finite Element Method with stabilization for advection-dominated flows.
+//!
+//! # Theorem — Mass Conservation at Bifurcation
+//!
+//! For incompressible flow at steady state, continuity requires
+//!
+//! ```text
+//! Q_parent = Q_daughter1 + Q_daughter2
+//! ```
+//!
+//! where $Q_i = \int_{A_i} \mathbf{u} \cdot \mathbf{n} \, dA$. This is validated
+//! post-solve by checking $|Q_0 - Q_1 - Q_2| / Q_0 < \varepsilon$.
+//!
+//! # Theorem — Optimal Branching (Murray 1926)
+//!
+//! For minimum total power dissipation in Hagen–Poiseuille flow,
+//! $D_0^3 = D_1^3 + D_2^3$ (Murray’s cube law). Deviation from this
+//! law is quantified by `murray_law_deviation()` in the geometry module.
 
 use super::geometry::BifurcationGeometry3D;
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::{Error, Result};
-use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_core::physics::fluid::traits::Fluid as FluidTrait;
 use cfd_mesh::domain::core::index::{FaceId, VertexId};
 use nalgebra::{RealField, Vector3};
@@ -43,6 +59,8 @@ pub struct BifurcationConfig3D<T: cfd_mesh::domain::core::Scalar + RealField + C
     pub max_linear_iterations: usize,
     /// Convergence tolerance for linear solver
     pub linear_tolerance: T,
+    /// Base mesh resolution factor for branching surface generation
+    pub mesh_resolution: usize,
 }
 
 impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> Default
@@ -60,6 +78,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
             nonlinear_tolerance: T::from_f64_or_one(1e-4),
             max_linear_iterations: 1000,
             linear_tolerance: T::from_f64_or_one(1e-6),
+            mesh_resolution: 8,
         }
     }
 }
@@ -114,13 +133,16 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
     /// # Returns
     ///
     /// Solution structure containing velocities, pressures, and wall shear stresses
+    #[allow(clippy::too_many_lines)]
     pub fn solve<F: FluidTrait<T> + Clone>(
         &self,
         fluid: F,
     ) -> Result<BifurcationSolution3D<T>> {
+        self.validate_configuration()?;
+
         use crate::fem::{FemConfig, FemSolver, StokesFlowProblem};
         use cfd_mesh::BranchingMeshBuilder;
-        use cfd_mesh::domain::core::index::{FaceId, VertexId};
+        use cfd_mesh::domain::core::index::FaceId;
         use std::collections::HashMap;
         use cfd_core::physics::boundary::BoundaryCondition;
 
@@ -131,11 +153,11 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
             self.geometry.d_daughter1,
             self.geometry.l_daughter1,
             self.geometry.branching_angle,
-            8, // resolution factor
+            self.config.mesh_resolution,
         );
         let base_mesh = match mesh_builder.build_surface() {
             Ok(m) => m,
-            Err(e) => return Err(Error::Solver(format!("{:?}", e))),
+            Err(e) => return Err(Error::Solver(format!("{e:?}"))),
         };
         let tet_mesh = cfd_mesh::application::hierarchy::hex_to_tet::HexToTetConverter::convert(&base_mesh);
         let mesh = cfd_mesh::application::hierarchy::hierarchical_mesh::P2MeshConverter::convert_to_p2(&tet_mesh);
@@ -151,12 +173,6 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
         // Use entry().or_insert() to avoid overwriting (outlet/inlet take priority over wall)
         let mut inlet_count = 0;
         let mut outlet_count = 0;
-        
-        // Calculate outlet velocity based on area ratio
-        // For symmetric bifurcation: u_outlet = u_inlet * (A_parent / A_daughter) = u_inlet * (D_parent/D_daughter)^2
-        let ratio = self.geometry.d_parent / self.geometry.d_daughter1;
-        let area_ratio = ratio * ratio;
-        let u_outlet = u_inlet * area_ratio; // Velocity in daughter branches
         
         // Process outlet faces FIRST (highest priority) - use PressureOutlet
         for f_id in mesh.boundary_faces() {
@@ -192,7 +208,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
             }
         }
         
-        eprintln!("DEBUG BC Assignment - Pass 1: inlet vertices={}, outlet vertices={}", inlet_count, outlet_count);
+        eprintln!("DEBUG BC Assignment - Pass 1: inlet vertices={inlet_count}, outlet vertices={outlet_count}");
         
         // Second pass: ensure ALL boundary nodes have a BC (default to wall)
         // This handles any boundary faces that might not have been labeled
@@ -200,7 +216,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
         
         // Count face references to identify boundary faces
         let mut face_cell_count: StdHashMap<usize, usize> = StdHashMap::new();
-        for cell in mesh.cells.iter() {
+        for cell in &mesh.cells {
             for &face_idx in &cell.faces {
                 *face_cell_count.entry(face_idx).or_insert(0) += 1;
             }
@@ -230,7 +246,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
                 }
             }
         }
-        eprintln!("DEBUG BC Assignment - Pass 2: default wall vertices added={}", default_wall_count);
+        eprintln!("DEBUG BC Assignment - Pass 2: default wall vertices added={default_wall_count}");
         eprintln!("DEBUG Total BC entries: {}", boundary_conditions.len());
         
         // Check BC types
@@ -238,8 +254,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
         let wall_bc_count = boundary_conditions.values().filter(|bc| matches!(bc, BoundaryCondition::Wall { .. })).count();
         let inlet_bc_count = boundary_conditions.values().filter(|bc| matches!(bc, BoundaryCondition::VelocityInlet { .. })).count();
         let dirichlet_count = boundary_conditions.values().filter(|bc| matches!(bc, BoundaryCondition::Dirichlet { .. })).count();
-        eprintln!("DEBUG BC Types: VelocityInlet={}, PressureOutlet={}, Wall={}, Dirichlet={}", 
-                 inlet_bc_count, outlet_bc_count, wall_bc_count, dirichlet_count);
+        eprintln!("DEBUG BC Types: VelocityInlet={inlet_bc_count}, PressureOutlet={outlet_bc_count}, Wall={wall_bc_count}, Dirichlet={dirichlet_count}");
 
         // 3. Set up FEM Problem with f64 precision (build_surface produces f64 mesh)
         let constant_fluid_f64 = cfd_core::physics::fluid::ConstantPropertyFluid::<f64> {
@@ -336,9 +351,9 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
         let fem_solution = last_solution.ok_or_else(|| Error::Solver("No solution generated".to_string()))?;
         
         // Debug: Check solution magnitude
-        let vel_max_f64: f64 = fem_solution.velocity.iter().map(|v| num_traits::Float::abs(*v)).fold(0.0_f64, |a, b| f64::max(a, b));
-        let p_max_f64: f64 = fem_solution.pressure.iter().map(|p| num_traits::Float::abs(*p)).fold(0.0_f64, |a, b| f64::max(a, b));
-        eprintln!("DEBUG: FEM solution max velocity = {:?}, max pressure = {:?}", vel_max_f64, p_max_f64);
+        let vel_max_f64: f64 = fem_solution.velocity.iter().map(|v| num_traits::Float::abs(*v)).fold(0.0_f64, f64::max);
+        let p_max_f64: f64 = fem_solution.pressure.iter().map(|p| num_traits::Float::abs(*p)).fold(0.0_f64, f64::max);
+        eprintln!("DEBUG: FEM solution max velocity = {vel_max_f64:?}, max pressure = {p_max_f64:?}");
 
         // 5. Extract Metrics for BifurcationSolution3D
         let mesh = &problem.mesh;
@@ -428,7 +443,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
             }
         }
         
-        eprintln!("DEBUG: Flow integration for '{}': {} faces, total_q = {:?}", label, face_count, total_q);
+        eprintln!("DEBUG: Flow integration for '{label}': {face_count} faces, total_q = {total_q:?}");
         Ok(total_q.abs())
     }
 
@@ -538,8 +553,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
             // Tet4: constant gradient
             let mut element = crate::fem::element::FluidElement::new(idxs.clone());
             element.calculate_shape_derivatives(&local_verts);
-            for i in 0..4 {
-                let u = solution.get_velocity(idxs[i]);
+            for (i, &idx) in idxs.iter().enumerate().take(4) {
+                let u = solution.get_velocity(idx);
                 for row in 0..3 {
                     for col in 0..3 {
                         l[(row, col)] += element.shape_derivatives[(col, i)] * u[row];
@@ -569,6 +584,11 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
         if self.config.nonlinear_tolerance <= T::zero() {
             return Err(Error::InvalidInput(
                 "Nonlinear tolerance must be positive".to_string(),
+            ));
+        }
+        if self.config.mesh_resolution < 2 {
+            return Err(Error::InvalidInput(
+                "Mesh resolution must be >= 2".to_string(),
             ));
         }
         Ok(())
@@ -606,27 +626,46 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
 /// Complete solution to 3D bifurcation problem
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct BifurcationSolution3D<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
+    /// Volume flow rate in the parent branch [m³/s]
     pub q_parent: T,
+    /// Volume flow rate in the first daughter branch [m³/s]
     pub q_daughter1: T,
+    /// Volume flow rate in the second daughter branch [m³/s]
     pub q_daughter2: T,
+    /// Mean velocity in the parent branch [m/s]
     pub u_parent_mean: T,
+    /// Mean velocity in the first daughter branch [m/s]
     pub u_daughter1_mean: T,
+    /// Mean velocity in the second daughter branch [m/s]
     pub u_daughter2_mean: T,
+    /// Pressure at the inlet cross-section [Pa]
     pub p_inlet: T,
+    /// Pressure at the junction midpoint [Pa]
     pub p_junction_mid: T,
+    /// Pressure at the first daughter outlet [Pa]
     pub p_daughter1_outlet: T,
+    /// Pressure at the second daughter outlet [Pa]
     pub p_daughter2_outlet: T,
+    /// Mean pressure at the outlet [Pa]
     pub p_outlet: T,
+    /// Pressure drop across the parent branch [Pa]
     pub dp_parent: T,
+    /// Pressure drop across the first daughter branch [Pa]
     pub dp_daughter1: T,
+    /// Pressure drop across the second daughter branch [Pa]
     pub dp_daughter2: T,
+    /// Volume-averaged wall shear stress in the parent branch [Pa]
     pub wall_shear_stress_parent: T,
+    /// Volume-averaged wall shear stress in the first daughter [Pa]
     pub wall_shear_stress_daughter1: T,
+    /// Volume-averaged wall shear stress in the second daughter [Pa]
     pub wall_shear_stress_daughter2: T,
+    /// Relative mass conservation error: |Q_in - Q_d1 - Q_d2| / Q_in
     pub mass_conservation_error: T,
 }
 
 impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy> BifurcationSolution3D<T> {
+    /// Create a zero-initialized bifurcation solution for the given geometry
     pub fn new(_geometry: &BifurcationGeometry3D<T>) -> Self {
         Self {
             q_parent: T::zero(),
@@ -650,6 +689,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy> BifurcationSolution3D
         }
     }
 
+    /// Check whether mass is conserved within the given tolerance
     pub fn is_mass_conserved(&self, tolerance: T) -> bool {
         self.mass_conservation_error < tolerance
     }
@@ -664,5 +704,17 @@ mod tests {
         let geom = BifurcationGeometry3D::<f64>::symmetric(100e-6, 80e-6, 1e-3, 1e-3, 100e-6);
         let config = BifurcationConfig3D::default();
         let _solver = BifurcationSolver3D::new(geom, config);
+    }
+
+    #[test]
+    fn test_bifurcation_solver_rejects_invalid_mesh_resolution() {
+        let geom = BifurcationGeometry3D::<f64>::symmetric(100e-6, 80e-6, 1e-3, 1e-3, 100e-6);
+        let mut config = BifurcationConfig3D::default();
+        config.mesh_resolution = 1;
+        let solver = BifurcationSolver3D::new(geom, config);
+
+        let water = cfd_core::physics::fluid::water_20c::<f64>().unwrap();
+        let result = solver.solve(water);
+        assert!(result.is_err());
     }
 }

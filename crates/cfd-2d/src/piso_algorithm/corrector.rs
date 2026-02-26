@@ -289,8 +289,8 @@ where
         for i in 1..self.nx - 1 {
             for j in 1..self.ny - 1 {
                 let two_t = T::from_f64(TWO).unwrap_or_else(|| T::one() + T::one());
-                let four_t = T::from_f64(FOUR)
-                    .unwrap_or_else(|| T::from_f64(4.0).unwrap_or_else(T::one));
+                let four_t =
+                    T::from_f64(FOUR).unwrap_or_else(|| T::from_f64(4.0).unwrap_or_else(T::one));
 
                 // d_f = Volume / A_p (A_p approximated from viscous diffusion: ν/Δx)
                 let d_u = self.dx * self.dy / (fields.viscosity.at(i, j) * four_t);

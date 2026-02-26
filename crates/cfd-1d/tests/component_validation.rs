@@ -262,17 +262,17 @@ fn test_microvalve_opening_mechanics() -> Result<()> {
 /// Validates that mixer enforces minimum inlet count.
 #[test]
 fn test_micromixer_inlet_validation() -> Result<()> {
-    // Valid mixer with 2 inlets
-    let mixer2 = Micromixer::<f64>::new(2, 1e12);
-    assert_eq!(mixer2.n_inlets, 2);
+    // Valid mixer with 2 bends
+    let mixer2 = Micromixer::<f64>::new(MixerType::YJunction, 100e-6, 1e-3, 2)?;
+    assert_eq!(mixer2.n_bends, 2);
 
-    // Valid mixer with 3 inlets
-    let mixer3 = Micromixer::<f64>::new(3, 1e12);
-    assert_eq!(mixer3.n_inlets, 3);
+    // Valid mixer with 3 bends
+    let mixer3 = Micromixer::<f64>::new(MixerType::Serpentine, 100e-6, 1e-3, 3)?;
+    assert_eq!(mixer3.n_bends, 3);
 
-    // Edge case: 1 inlet (should still work, though not practical)
-    let mixer1 = Micromixer::<f64>::new(1, 1e12);
-    assert_eq!(mixer1.n_inlets, 1);
+    // Edge case: 1 bend (minimum enforced by constructor)
+    let mixer1 = Micromixer::<f64>::new(MixerType::TJunction, 100e-6, 1e-3, 1)?;
+    assert_eq!(mixer1.n_bends, 1);
 
     Ok(())
 }

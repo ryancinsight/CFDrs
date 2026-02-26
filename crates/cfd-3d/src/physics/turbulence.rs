@@ -4,6 +4,38 @@
 //! LES (Smagorinsky) and RANS (k-epsilon, Mixing Length) models.
 //!
 //! Moved from cfd-core to cfd-3d as these models are specific to 3D flow fields.
+//!
+//! # Theorem — Smagorinsky SGS Model (Smagorinsky 1963)
+//!
+//! The subgrid-scale eddy viscosity in the Smagorinsky LES model is
+//!
+//! ```text
+//! ν_t = (C_s Δ)² |S|
+//! ```
+//!
+//! where $C_s \in [0.1, 0.2]$ is the Smagorinsky constant, $\Delta$ is the
+//! filter width (grid spacing), and $|S| = \sqrt{2 S_{ij} S_{ij}}$ is the
+//! resolved strain-rate magnitude.
+//!
+//! **Proof sketch.** Dimensional analysis of the SGS stress tensor $\tau_{ij}
+//! = -2 \nu_t \bar{S}_{ij}$ combined with Kolmogorov’s equilibrium hypothesis
+//! (dissipation rate $\epsilon \sim \nu_t |S|^2 / \Delta^2$) gives $\nu_t
+//! \propto \Delta^2 |S|$.
+//!
+//! # Theorem — Kolmogorov –5/3 Spectrum (Kolmogorov 1941)
+//!
+//! In the inertial subrange of homogeneous isotropic turbulence, the
+//! energy spectrum follows
+//!
+//! ```text
+//! E(k) = C_K ε^{2/3} k^{-5/3}
+//! ```
+//!
+//! where $C_K \approx 1.5$ is the Kolmogorov constant. The Smagorinsky model
+//! effectively assumes this spectral form to derive $C_s$ from $C_K$.
+//!
+//! **Reference:** Smagorinsky, J., "General circulation experiments with the
+//! primitive equations", Mon. Wea. Rev. 91, 1963, pp. 99–164.
 
 use cfd_core::physics::fluid_dynamics::fields::{FlowField, VelocityField};
 use cfd_core::physics::fluid_dynamics::{rans::RANSModel, turbulence::TurbulenceModel};

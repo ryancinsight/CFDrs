@@ -267,5 +267,31 @@ fn metric_annotation(d: &RankedDesign, mode: OptimMode) -> String {
                 m.well_coverage_fraction * 100.0,
             )
         }
+        OptimMode::SdtTherapy => {
+            let sigma = if m.cavitation_number.is_finite() {
+                format!("σ={:.3}", m.cavitation_number)
+            } else {
+                "σ=∞".to_owned()
+            };
+            format!(
+                "3pop={:.3}  {}  HI={:.1e}  unif={:.3}  cov={:.0}%",
+                m.three_pop_sep_efficiency,
+                sigma,
+                m.hemolysis_index_per_pass,
+                m.flow_uniformity,
+                m.well_coverage_fraction * 100.0,
+            )
+        }
+        OptimMode::PediatricLeukapheresis { patient_weight_kg } => {
+            let bv_ml = patient_weight_kg * 85.0;
+            format!(
+                "wbc_rec={:.0}%  rbc_pass={:.0}%  purity={:.0}%  ECV={:.1}mL/{:.0}mL",
+                m.wbc_recovery * 100.0,
+                m.rbc_pass_fraction * 100.0,
+                m.wbc_purity * 100.0,
+                m.total_ecv_ml,
+                bv_ml * 0.10,
+            )
+        }
     }
 }

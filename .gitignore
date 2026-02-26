@@ -29,3 +29,12 @@ target
 external/
 external_validation/
 validation/references/
+
+# Root-level debug artifacts (preserve parse_clippy*.py, add_theorems.py in sub-paths)
+/*.py
+/*.png
+/*.ps1
+/*_old.rs
+
+# Example/optimiser output directories (all crates)
+outputs/

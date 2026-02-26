@@ -9,6 +9,7 @@ mod linear_system;
 mod matrix_assembly;
 mod problem;
 mod state;
+/// Transient solvers for composition and droplet tracking over time.
 pub mod transient;
 
 pub use convergence::ConvergenceChecker;
@@ -64,9 +65,6 @@ pub struct NetworkSolver<T: RealField + Copy, F: FluidTrait<T> = ConstantPropert
     config: SolverConfig<T>,
     /// Matrix assembler for building the linear system
     assembler: MatrixAssembler<T>,
-    /// Linear system solver
-    #[allow(dead_code)]
-    linear_solver: LinearSystemSolver<T>,
     /// Convergence checker
     convergence: ConvergenceChecker<T>,
     _phantom: std::marker::PhantomData<F>,
@@ -84,9 +82,12 @@ impl<T: RealField + Copy + FromPrimitive + Copy, F: FluidTrait<T> + Clone> Netwo
     /// Create a new network solver with default configuration
     #[must_use]
     pub fn new() -> Self {
-        let tolerance = T::from_f64(1e-6).expect(
-            "Failed to represent the default tolerance value (1e-6) in the target numeric type T",
-        );
+        // Default tolerance: 1e-6, falling back to a multiple of machine epsilon
+        // so that the solver never panics on exotic numeric types.
+        let tolerance = T::from_f64(1e-6).unwrap_or_else(|| {
+            let eps = T::default_epsilon();
+            T::from_usize(1000).unwrap_or(T::one()) * eps
+        });
         let config = SolverConfig {
             tolerance,
             max_iterations: 1000,
@@ -94,7 +95,6 @@ impl<T: RealField + Copy + FromPrimitive + Copy, F: FluidTrait<T> + Clone> Netwo
         Self {
             config: config.clone(),
             assembler: MatrixAssembler::new(),
-            linear_solver: LinearSystemSolver::new(),
             convergence: ConvergenceChecker::new(config.tolerance),
             _phantom: std::marker::PhantomData,
         }
@@ -104,7 +104,6 @@ impl<T: RealField + Copy + FromPrimitive + Copy, F: FluidTrait<T> + Clone> Netwo
     pub fn with_config(config: SolverConfig<T>) -> Self {
         Self {
             assembler: MatrixAssembler::new(),
-            linear_solver: LinearSystemSolver::new(),
             convergence: ConvergenceChecker::new(config.tolerance),
             config,
             _phantom: std::marker::PhantomData,

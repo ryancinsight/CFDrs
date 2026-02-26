@@ -5,6 +5,12 @@
 //! - Finite Element Method (FEM) for Navier-Stokes equations
 //! - Blood flow with non-Newtonian rheology
 //! - Analysis of Dean vortices and secondary flow effects
+//!
+//! # Theorem — Dean Number Instability Criterion
+//!
+//! Secondary Dean vortices arise when
+//! $De = Re\sqrt{D/(2R)}$ exceeds a critical threshold, providing the
+//! governing dimensionless criterion for curved-channel transition behavior.
 
 pub mod solver;
 pub mod validation;

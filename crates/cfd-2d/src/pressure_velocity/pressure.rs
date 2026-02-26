@@ -1,50 +1,46 @@
-//! Pressure correction solver for STANDARD algorithm
+//! Pressure correction solver — struct definition and field corrections
+//!
+//! # Theorem (Pressure-Velocity Coupling — Patankar & Spalding 1972)
+//!
+//! The SIMPLE-family pressure correction ensures discrete mass conservation by
+//! solving a Poisson equation for the pressure correction `p'` and then updating
+//! both the velocity and pressure fields:
+//!
+//! ```text
+//! u = u* − (Vol / a_P) ∇p'   (velocity correction)
+//! p = p  + α_p · p'           (pressure correction)
+//! ```
+//!
+//! See [`correction`](super::correction) for the matrix assembly and solve details.
 
 use super::config::PressureLinearSolver;
 use crate::fields::Field2D;
 use crate::grid::StructuredGrid2D;
-use cfd_math::linear_solver::preconditioners::multigrid::{
-    AMGConfig, CoarseningStrategy, CycleType, InterpolationStrategy, SmootherType,
-};
-use cfd_math::linear_solver::preconditioners::{AlgebraicMultigrid, IdentityPreconditioner};
-use cfd_math::linear_solver::{BiCGSTAB, ConjugateGradient, IterativeLinearSolver, GMRES};
-use cfd_math::sparse::SparseMatrixBuilder;
-use nalgebra::{DVector, RealField, Vector2};
+use cfd_math::linear_solver::preconditioners::AlgebraicMultigrid;
+use cfd_math::linear_solver::{BiCGSTAB, ConjugateGradient, GMRES};
+use nalgebra::{RealField, Vector2};
 use num_traits::FromPrimitive;
 use std::fmt::Debug;
 
 /// Pressure correction solver supporting multiple linear solver backends
 pub struct PressureCorrectionSolver<T: RealField + Copy> {
-    /// Grid
-    grid: StructuredGrid2D<T>,
-    /// Linear solver choice
-    solver_type: PressureLinearSolver,
-    /// Conjugate Gradient solver (for symmetric systems)
-    cg_solver: ConjugateGradient<T>,
-    /// BiCGSTAB solver (for non-symmetric systems)
-    bicgstab_solver: BiCGSTAB<T>,
-    /// GMRES solver (industry standard for SIMPLE/PISO)
-    gmres_solver: Option<GMRES<T>>,
-    /// Cached AMG preconditioner for performance
-    amg_preconditioner: std::cell::RefCell<Option<AlgebraicMultigrid<T>>>,
+    pub(super) grid: StructuredGrid2D<T>,
+    pub(super) solver_type: PressureLinearSolver,
+    pub(super) cg_solver: ConjugateGradient<T>,
+    pub(super) bicgstab_solver: BiCGSTAB<T>,
+    pub(super) gmres_solver: Option<GMRES<T>>,
+    pub(super) _amg_preconditioner: std::cell::RefCell<Option<AlgebraicMultigrid<T>>>,
 }
 
 impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
     /// Create new pressure correction solver with specified linear solver
     ///
-    /// # Arguments
+    /// ## Recommended Solver Selection
     ///
-    /// * `grid` - Computational grid
-    /// * `solver_type` - Linear solver selection (CG, BiCGSTAB, or GMRES)
-    ///
-    /// # Recommended Solver Selection
-    ///
-    /// - **GMRES**: Industry standard for SIMPLE/PISO (default)
-    ///   - Reference: Saad (2003), Patankar (1980)
-    ///   - Best for non-symmetric pressure Poisson equations
-    ///   - restart_dim=30 optimal for most CFD applications
-    /// - **BiCGSTAB**: Good alternative for non-symmetric systems
-    /// - **CG**: Only for symmetric systems (not typical in CFD)
+    /// - **GMRES**: Industry standard for SIMPLE/PISO (default).
+    ///   Reference: Saad (2003), Patankar (1980).
+    /// - **BiCGSTAB**: Good alternative for non-symmetric systems.
+    /// - **CG**: Only for symmetric systems.
     pub fn new(
         grid: StructuredGrid2D<T>,
         solver_type: PressureLinearSolver,
@@ -68,491 +64,11 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
             cg_solver: ConjugateGradient::new(config),
             bicgstab_solver: BiCGSTAB::new(config),
             gmres_solver,
-            amg_preconditioner: std::cell::RefCell::new(None),
+            _amg_preconditioner: std::cell::RefCell::new(None),
         })
     }
 
-    /// Solve pressure correction equation
-    ///
-    /// The pressure correction equation is derived from the continuity equation:
-    /// ∇²p' = ρ/Δt * ∇·u*
-    ///
-    /// where p' is the pressure correction and u* is the predicted velocity
-    pub fn solve_pressure_correction(
-        &self,
-        fields: &crate::fields::SimulationFields<T>,
-        dt: T,
-        rho: T,
-    ) -> cfd_core::error::Result<Vec<Vec<T>>> {
-        let nx = self.grid.nx;
-        let ny = self.grid.ny;
-        let dx = self.grid.dx;
-        let dy = self.grid.dy;
-
-        // Build discrete Laplacian matrix and divergence source term
-        let n = (nx - 2) * (ny - 2); // Interior points only
-
-        if n == 0 {
-            return Ok(vec![vec![T::zero(); ny]; nx]);
-        }
-        if n == 1 {
-            // Single interior point: fix pressure correction to zero
-            return Ok(vec![vec![T::zero(); ny]; nx]);
-        }
-
-        let reference_idx = 0usize;
-        let system_size = n - 1;
-
-        let map_index = |idx: usize| -> Option<usize> {
-            match idx.cmp(&reference_idx) {
-                std::cmp::Ordering::Equal => None,
-                std::cmp::Ordering::Less => Some(idx),
-                std::cmp::Ordering::Greater => Some(idx - 1),
-            }
-        };
-
-        let mut builder = SparseMatrixBuilder::new(system_size, system_size);
-        let mut rhs = DVector::zeros(system_size);
-
-        let dx2_inv = T::one() / (dx * dx);
-        let dy2_inv = T::one() / (dy * dy);
-        let coeff = rho / dt;
-
-        let mut n_fluid = 0;
-        let mut n_solid = 0;
-
-        for i in 1..nx - 1 {
-            for j in 1..ny - 1 {
-                let idx = (i - 1) * (ny - 2) + (j - 1);
-
-                if idx == reference_idx {
-                    continue;
-                }
-
-                let row_idx = map_index(idx).expect("row index must exist");
-
-                // If cell is masked (solid), enforce p' = 0
-                if !fields.mask.at(i, j) {
-                    n_solid += 1;
-                    builder.add_entry(row_idx, row_idx, T::one())?;
-                    rhs[row_idx] = T::zero();
-                    continue;
-                }
-                n_fluid += 1;
-
-                // Laplacian stencil - diagonal is positive sum of neighbor coefficients
-                let two = T::from_f64(cfd_core::physics::constants::mathematical::numeric::TWO)
-                    .unwrap_or_else(|| T::one() + T::one());
-                let ap = two * (dx2_inv + dy2_inv);
-
-                builder.add_entry(row_idx, row_idx, ap)?;
-
-                // Neighbors - only include if they are fluid cells
-                if i > 1 {
-                    let neighbor_idx = idx - (ny - 2);
-                    if let Some(col_idx) = map_index(neighbor_idx) {
-                        if fields.mask.at(i - 1, j) {
-                            builder.add_entry(row_idx, col_idx, -dx2_inv)?;
-                        }
-                    }
-                }
-                if i < nx - 2 {
-                    let neighbor_idx = idx + (ny - 2);
-                    if let Some(col_idx) = map_index(neighbor_idx) {
-                        if fields.mask.at(i + 1, j) {
-                            builder.add_entry(row_idx, col_idx, -dx2_inv)?;
-                        }
-                    }
-                }
-                if j > 1 {
-                    let neighbor_idx = idx - 1;
-                    if let Some(col_idx) = map_index(neighbor_idx) {
-                        if fields.mask.at(i, j - 1) {
-                            builder.add_entry(row_idx, col_idx, -dy2_inv)?;
-                        }
-                    }
-                }
-                if j < ny - 2 {
-                    let neighbor_idx = idx + 1;
-                    if let Some(col_idx) = map_index(neighbor_idx) {
-                        if fields.mask.at(i, j + 1) {
-                            builder.add_entry(row_idx, col_idx, -dy2_inv)?;
-                        }
-                    }
-                }
-
-                // Divergence of predicted velocity
-                let div_u = (fields.u.at(i + 1, j) - fields.u.at(i - 1, j))
-                    / (T::from_f64(cfd_core::physics::constants::mathematical::numeric::TWO)
-                        .unwrap_or_else(|| T::zero())
-                        * dx)
-                    + (fields.v.at(i, j + 1) - fields.v.at(i, j - 1))
-                        / (T::from_f64(cfd_core::physics::constants::mathematical::numeric::TWO)
-                            .unwrap_or_else(|| T::zero())
-                            * dy);
-
-                rhs[row_idx] = -coeff * div_u;
-            }
-        }
-
-        let rhs_norm = rhs.norm();
-        eprintln!("Pressure Solve: n_fluid={}, n_solid={}, system_size={}, rhs_norm={:?}", n_fluid, n_solid, system_size, rhs_norm);
-
-
-        // Solve the linear system using selected solver
-        let matrix = builder.build()?;
-        let mut p_correction_vec = DVector::zeros(matrix.nrows());
-
-        let amg_preconditioner: Option<AlgebraicMultigrid<T>> = None;
-
-        match self.solver_type {
-            PressureLinearSolver::ConjugateGradient => {
-                let solve_result = if let Some(ref amg) = amg_preconditioner {
-                    self.cg_solver
-                        .solve(&matrix, &rhs, &mut p_correction_vec, Some(amg))
-                } else {
-                    self.cg_solver.solve(
-                        &matrix,
-                        &rhs,
-                        &mut p_correction_vec,
-                        None::<&IdentityPreconditioner>,
-                    )
-                };
-                match solve_result {
-                    Ok(_) => {}
-                    Err(cfd_core::error::Error::Convergence(
-                        cfd_core::error::ConvergenceErrorKind::Breakdown,
-                    )) if amg_preconditioner.is_some() => {
-                        self.cg_solver.solve(
-                            &matrix,
-                            &rhs,
-                            &mut p_correction_vec,
-                            None::<&IdentityPreconditioner>,
-                        )?;
-                    }
-                    Err(e) => return Err(e),
-                }
-            }
-            PressureLinearSolver::BiCGSTAB => {
-                let solve_result = if let Some(ref amg) = amg_preconditioner {
-                    self.bicgstab_solver
-                        .solve(&matrix, &rhs, &mut p_correction_vec, Some(amg))
-                } else {
-                    self.bicgstab_solver.solve(
-                        &matrix,
-                        &rhs,
-                        &mut p_correction_vec,
-                        None::<&IdentityPreconditioner>,
-                    )
-                };
-                match solve_result {
-                    Ok(_) => {}
-                    Err(cfd_core::error::Error::Convergence(
-                        cfd_core::error::ConvergenceErrorKind::Breakdown,
-                    )) if amg_preconditioner.is_some() => {
-                        self.bicgstab_solver.solve(
-                            &matrix,
-                            &rhs,
-                            &mut p_correction_vec,
-                            None::<&IdentityPreconditioner>,
-                        )?;
-                    }
-                    Err(e) => return Err(e),
-                }
-            }
-            PressureLinearSolver::GMRES { .. } => {
-                let Some(ref solver) = self.gmres_solver else {
-                    return Err(cfd_core::error::Error::InvalidConfiguration(
-                        "GMRES solver not initialized".to_string(),
-                    ));
-                };
-                let solve_result = if let Some(ref amg) = amg_preconditioner {
-                    solver.solve(&matrix, &rhs, &mut p_correction_vec, Some(amg))
-                } else {
-                    solver.solve(
-                        &matrix,
-                        &rhs,
-                        &mut p_correction_vec,
-                        None::<&IdentityPreconditioner>,
-                    )
-                };
-                match solve_result {
-                    Ok(_) => {}
-                    Err(cfd_core::error::Error::Convergence(
-                        cfd_core::error::ConvergenceErrorKind::Breakdown,
-                    )) if amg_preconditioner.is_some() => {
-                        solver.solve(
-                            &matrix,
-                            &rhs,
-                            &mut p_correction_vec,
-                            None::<&IdentityPreconditioner>,
-                        )?;
-                    }
-                    Err(e) => return Err(e),
-                }
-            }
-        }
-
-        // Convert back to 2D grid
-        let mut p_correction = vec![vec![T::zero(); ny]; nx];
-        for i in 1..nx - 1 {
-            for j in 1..ny - 1 {
-                let idx = (i - 1) * (ny - 2) + (j - 1);
-                let value = if idx == reference_idx {
-                    T::zero()
-                } else if let Some(col_idx) = map_index(idx) {
-                    p_correction_vec[col_idx]
-                } else {
-                    T::zero()
-                };
-                p_correction[i][j] = value;
-            }
-        }
-
-        // Apply Neumann boundary conditions (zero gradient)
-        for i in 0..nx {
-            p_correction[i][0] = p_correction[i][1];
-            p_correction[i][ny - 1] = p_correction[i][ny - 2];
-        }
-        for j in 0..ny {
-            p_correction[0][j] = p_correction[1][j];
-            p_correction[nx - 1][j] = p_correction[nx - 2][j];
-        }
-
-        Ok(p_correction)
-    }
-
-    /// Solve pressure correction equation using face velocities (Rhie-Chow)
-    pub fn solve_pressure_correction_from_faces(
-        &self,
-        u_face: &[Vec<T>],
-        v_face: &[Vec<T>],
-        d_x: &[Vec<T>],
-        d_y: &[Vec<T>],
-        rho: T,
-        fields: &crate::fields::SimulationFields<T>,
-    ) -> cfd_core::error::Result<Vec<Vec<T>>> {
-        let nx = self.grid.nx;
-        let ny = self.grid.ny;
-        let dx = self.grid.dx;
-        let dy = self.grid.dy;
-
-        let n = (nx - 2) * (ny - 2);
-        if n <= 1 {
-            return Ok(vec![vec![T::zero(); ny]; nx]);
-        }
-
-        let reference_idx = 0usize;
-        let system_size = n - 1;
-
-        let map_index = |idx: usize| -> Option<usize> {
-            match idx.cmp(&reference_idx) {
-                std::cmp::Ordering::Equal => None,
-                std::cmp::Ordering::Less => Some(idx),
-                std::cmp::Ordering::Greater => Some(idx - 1),
-            }
-        };
-
-        let mut builder = SparseMatrixBuilder::new(system_size, system_size);
-        let mut rhs = DVector::zeros(system_size);
-
-        let dx2_inv = T::one() / (dx * dx);
-        let dy2_inv = T::one() / (dy * dy);
-
-        let mut n_fluid = 0;
-        let mut n_solid = 0;
-
-        for i in 1..nx - 1 {
-            for j in 1..ny - 1 {
-                let idx = (i - 1) * (ny - 2) + (j - 1);
-
-                if idx == reference_idx {
-                    continue;
-                }
-
-                let row_idx = map_index(idx).expect("row index must exist");
-
-                if !fields.mask.at(i, j) {
-                    n_solid += 1;
-                    builder.add_entry(row_idx, row_idx, T::one())?;
-                    rhs[row_idx] = T::zero();
-                    continue;
-                }
-                n_fluid += 1;
-
-                let de = d_x[i][j];
-                let dw = d_x[i - 1][j];
-                let dn = d_y[i][j];
-                let ds = d_y[i][j - 1];
-
-                let ae = de * dx2_inv;
-                let aw = dw * dx2_inv;
-                let an = dn * dy2_inv;
-                let as_ = ds * dy2_inv;
-                let ap = ae + aw + an + as_;
-
-                builder.add_entry(row_idx, row_idx, ap)?;
-
-                if i > 1 {
-                    let neighbor_idx = idx - (ny - 2);
-                    if let Some(col_idx) = map_index(neighbor_idx) {
-                        if fields.mask.at(i - 1, j) {
-                            builder.add_entry(row_idx, col_idx, -aw)?;
-                        }
-                    }
-                }
-                if i < nx - 2 {
-                    let neighbor_idx = idx + (ny - 2);
-                    if let Some(col_idx) = map_index(neighbor_idx) {
-                        if fields.mask.at(i + 1, j) {
-                            builder.add_entry(row_idx, col_idx, -ae)?;
-                        }
-                    }
-                }
-                if j > 1 {
-                    let neighbor_idx = idx - 1;
-                    if let Some(col_idx) = map_index(neighbor_idx) {
-                        if fields.mask.at(i, j - 1) {
-                            builder.add_entry(row_idx, col_idx, -as_)?;
-                        }
-                    }
-                }
-                if j < ny - 2 {
-                    let neighbor_idx = idx + 1;
-                    if let Some(col_idx) = map_index(neighbor_idx) {
-                        if fields.mask.at(i, j + 1) {
-                            builder.add_entry(row_idx, col_idx, -an)?;
-                        }
-                    }
-                }
-
-                let div_u = (u_face[i][j] - u_face[i - 1][j]) / dx + (v_face[i][j] - v_face[i][j - 1]) / dy;
-                rhs[row_idx] = -rho * div_u;
-            }
-        }
-
-
-
-        let matrix = builder.build()?;
-        let mut p_correction_vec = DVector::zeros(matrix.nrows());
-        let amg_preconditioner: Option<AlgebraicMultigrid<T>> = None;
-
-        match self.solver_type {
-            PressureLinearSolver::ConjugateGradient => {
-                let solve_result = if let Some(ref amg) = amg_preconditioner {
-                    self.cg_solver
-                        .solve(&matrix, &rhs, &mut p_correction_vec, Some(amg))
-                } else {
-                    self.cg_solver.solve(
-                        &matrix,
-                        &rhs,
-                        &mut p_correction_vec,
-                        None::<&IdentityPreconditioner>,
-                    )
-                };
-                match solve_result {
-                    Ok(_) => {}
-                    Err(cfd_core::error::Error::Convergence(
-                        cfd_core::error::ConvergenceErrorKind::Breakdown,
-                    )) if amg_preconditioner.is_some() => {
-                        self.cg_solver.solve(
-                            &matrix,
-                            &rhs,
-                            &mut p_correction_vec,
-                            None::<&IdentityPreconditioner>,
-                        )?;
-                    }
-                    Err(e) => return Err(e),
-                }
-            }
-            PressureLinearSolver::BiCGSTAB => {
-                let solve_result = if let Some(ref amg) = amg_preconditioner {
-                    self.bicgstab_solver
-                        .solve(&matrix, &rhs, &mut p_correction_vec, Some(amg))
-                } else {
-                    self.bicgstab_solver.solve(
-                        &matrix,
-                        &rhs,
-                        &mut p_correction_vec,
-                        None::<&IdentityPreconditioner>,
-                    )
-                };
-                match solve_result {
-                    Ok(_) => {}
-                    Err(cfd_core::error::Error::Convergence(
-                        cfd_core::error::ConvergenceErrorKind::Breakdown,
-                    )) if amg_preconditioner.is_some() => {
-                        self.bicgstab_solver.solve(
-                            &matrix,
-                            &rhs,
-                            &mut p_correction_vec,
-                            None::<&IdentityPreconditioner>,
-                        )?;
-                    }
-                    Err(e) => return Err(e),
-                }
-            }
-            PressureLinearSolver::GMRES { .. } => {
-                let Some(ref solver) = self.gmres_solver else {
-                    return Err(cfd_core::error::Error::InvalidConfiguration(
-                        "GMRES solver not initialized".to_string(),
-                    ));
-                };
-                let solve_result = if let Some(ref amg) = amg_preconditioner {
-                    solver.solve(&matrix, &rhs, &mut p_correction_vec, Some(amg))
-                } else {
-                    solver.solve(
-                        &matrix,
-                        &rhs,
-                        &mut p_correction_vec,
-                        None::<&IdentityPreconditioner>,
-                    )
-                };
-                match solve_result {
-                    Ok(_) => {}
-                    Err(cfd_core::error::Error::Convergence(
-                        cfd_core::error::ConvergenceErrorKind::Breakdown,
-                    )) if amg_preconditioner.is_some() => {
-                        solver.solve(
-                            &matrix,
-                            &rhs,
-                            &mut p_correction_vec,
-                            None::<&IdentityPreconditioner>,
-                        )?;
-                    }
-                    Err(e) => return Err(e),
-                }
-            }
-        }
-
-        let mut p_correction = vec![vec![T::zero(); ny]; nx];
-        for i in 1..nx - 1 {
-            for j in 1..ny - 1 {
-                let idx = (i - 1) * (ny - 2) + (j - 1);
-                let value = if idx == reference_idx {
-                    T::zero()
-                } else if let Some(col_idx) = map_index(idx) {
-                    p_correction_vec[col_idx]
-                } else {
-                    T::zero()
-                };
-                p_correction[i][j] = value;
-            }
-        }
-
-        for i in 0..nx {
-            p_correction[i][0] = p_correction[i][1];
-            p_correction[i][ny - 1] = p_correction[i][ny - 2];
-        }
-        for j in 0..ny {
-            p_correction[0][j] = p_correction[1][j];
-            p_correction[nx - 1][j] = p_correction[nx - 2][j];
-        }
-
-        Ok(p_correction)
-    }
-
-    /// Correct velocity field using pressure correction
+    /// Correct velocity field using pressure correction gradient
     pub fn correct_velocity(
         &self,
         u_star: &mut Vec<Vec<Vector2<T>>>,
@@ -567,8 +83,9 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
         let ny = self.grid.ny;
         let dx = self.grid.dx;
         let dy = self.grid.dy;
-
         let volume = dx * dy;
+        let two = T::from_f64(cfd_core::physics::constants::mathematical::numeric::TWO)
+            .unwrap_or_else(|| T::one() + T::one());
 
         for i in 1..nx - 1 {
             for j in 1..ny - 1 {
@@ -578,14 +95,8 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
                     continue;
                 }
 
-                let dp_dx = (p_correction[i + 1][j] - p_correction[i - 1][j])
-                    / (T::from_f64(cfd_core::physics::constants::mathematical::numeric::TWO)
-                        .unwrap_or_else(|| T::zero())
-                        * dx);
-                let dp_dy = (p_correction[i][j + 1] - p_correction[i][j - 1])
-                    / (T::from_f64(cfd_core::physics::constants::mathematical::numeric::TWO)
-                        .unwrap_or_else(|| T::zero())
-                        * dy);
+                let dp_dx = (p_correction[i + 1][j] - p_correction[i - 1][j]) / (two * dx);
+                let dp_dy = (p_correction[i][j + 1] - p_correction[i][j - 1]) / (two * dy);
 
                 let factor_u = volume / ap_u.at(i, j);
                 let factor_v = volume / ap_v.at(i, j);
@@ -596,7 +107,7 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
         }
     }
 
-    /// Correct pressure field
+    /// Correct pressure field with under-relaxation
     pub fn correct_pressure(&self, p: &mut Vec<Vec<T>>, p_correction: &Vec<Vec<T>>, alpha: T) {
         for i in 0..p.len() {
             for j in 0..p[i].len() {

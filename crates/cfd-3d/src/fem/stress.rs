@@ -2,6 +2,27 @@
 //!
 //! Provides helper methods for computing stress and strain tensors from
 //! velocity gradients and fluid properties, specifically for FEM assembly.
+//!
+//! # Theorem — Newtonian Constitutive Relation (Cauchy 1827, Stokes 1845)
+//!
+//! For an incompressible Newtonian fluid, the Cauchy stress tensor is
+//!
+//! ```text
+//! σ = −p I + 2μ ε̇
+//! ```
+//!
+//! where $p$ is the mechanical pressure, $\mu$ is the dynamic viscosity, and
+//! the strain-rate tensor is the symmetric part of the velocity gradient:
+//!
+//! ```text
+//! ε̇ = ½(∇u + (∇u)ᵀ)
+//! ```
+//!
+//! **Theorem (Symmetry).** $\dot{\varepsilon}$ is symmetric by construction:
+//! $\dot{\varepsilon}_{ij} = \dot{\varepsilon}_{ji}$.
+//!
+//! **Theorem (Trace-free for incompressible flow).** $\mathrm{tr}(\dot{\varepsilon})
+//! = \nabla \cdot \mathbf{u} = 0$, so the deviatoric and total strain rates coincide.
 
 use cfd_core::physics::fluid::ConstantPropertyFluid;
 use nalgebra::{Matrix3, RealField};

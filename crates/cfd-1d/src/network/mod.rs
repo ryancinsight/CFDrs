@@ -8,9 +8,11 @@ mod edge;
 mod graph;
 mod metadata;
 mod node;
+pub mod sink;
 mod wrapper;
 
 pub use builder::{network_from_blueprint, NetworkBuilder};
+pub use sink::NetworkBuilderSink;
 pub use component_type::ComponentType;
 pub use edge::{ChannelProperties, Edge};
 pub use graph::{NetworkGraph, NetworkGraphExt};

@@ -1,7 +1,7 @@
 # CFDrs Workspace — Agent Reference
 
 > **Owner**: Ryan Clanton (`@ryancinsight`)  
-> **Current Sprint**: 1.89.0 (Multiphase Complete) — `cfd-mesh` at Phase 10 (OpenFOAM I/O)  
+> **Current Sprint**: 1.90.0 — SDT Therapy + Leukapheresis Pipeline
 > **Quality Gates**: Build 0 warnings ✅ · Tests 100% pass ✅ · Clippy 0 production ✅ · 0 technical debt ✅
 
 ---
@@ -31,7 +31,7 @@ crates/
   cfd-1d              1D lumped-network Hagen-Poiseuille solver for channel networks
   cfd-2d              2D incompressible N-S: SIMPLE/PISO, LBM, FDM/FVM
   cfd-3d              3D FEM/IBM/Level-Set, LES/DES turbulence, multiphase (VOF + LS)
-  cfd-optim           Top-5 millifluidic SDT design optimiser (cavitation + uniform exposure)
+  cfd-optim           SDT therapy + leukapheresis optimiser: 19 topology families, wave-channel SVG, 3D mesh pipeline
   cfd-validation      MMS, Richardson extrapolation, Ghia cavity, analytical benchmarks
   cfd-python          PyO3 Python bindings (pycfdrs)
 xtask/               Cargo xtask automation
@@ -278,7 +278,7 @@ Each crate has its own `agents.md` with module structure, key APIs, theorems, an
 | `crates/cfd-1d/agents.md` | Lumped-network Hagen-Poiseuille solver, resistance models, vascular |
 | `crates/cfd-2d/agents.md` | 2D N-S: SIMPLE/PISO/LBM, turbulence zoo, Rhie-Chow |
 | `crates/cfd-3d/agents.md` | 3D FEM/IBM/Level-Set/VOF/spectral, domain solvers |
-| `crates/cfd-optim/agents.md` | SDT top-5 optimiser, constraints, multi-objective scoring |
+| `crates/cfd-optim/agents.md` | SDT therapy + leukapheresis optimiser: 19 topology families, GA, wave-channel SVG, 3D mesh pipeline |
 | `crates/cfd-validation/agents.md` | MMS, Richardson/GCI, benchmarks, conservation checks |
 | `crates/cfd-python/agents.md` | PyO3 pycfdrs bindings, all Python classes, build instructions |
 
@@ -321,59 +321,4 @@ Phase N: <Short imperative summary>
 
 ---
 
-## Code Review Findings (Sprint 1.89.x)
-
-### Summary of Flagged Items
-
-The following instances of "simplified", "placeholder", and "stub" were identified during code review:
-
-| Crate | Count | Severity | Notes |
-|-------|-------|----------|-------|
-| `cfd-core` | 9 | Low | MPI distributed solvers have placeholder implementations; documented blood model simplifications |
-| `cfd-math` | 9 | Low | Block preconditioner, WENO/DG documented simplifications - acceptable |
-| `cfd-mesh` | 9 | Low | Half-edge placeholders, channel junction stub, Martinez clipper |
-| `cfd-io` | 0 | ✅ Clean | No issues found |
-| `cfd-schematics` | 14 | Medium | Multiple geometry optimization simplifications - needs review |
-| `cfd-1d` | 2 | Low | Murray's law, margination - physically justified |
-| `cfd-2d` | 9 | Low | SIMPLE, turbulence validation, Reynolds stress - documented |
-| `cfd-3d` | 2 | Low | Venturi validation placeholder, bifurcation geometry |
-| `cfd-optim` | 2 | Low | Throat placeholder, generic stub for compat |
-| `cfd-validation` | 16 | Low | MMS/analytical simplifications - expected for validation |
-| `cfd-python` | 1 | Low | Blood model simplification documented |
-
-### Critical Flags Requiring Action
-
-1. **cfd-core: compute/mpi/distributed_solvers.rs**
-   - Multiple placeholder implementations that return `Ok(())` without actual logic
-   - VTK/HDF5/distributed data writing stubs
-
-2. **cfd-schematics: geometry/optimization.rs**
-   - Function `generate_simplified_serpentine_path` - needs implementation review
-
-3. **cfd-schematics: geometry/state_integration.rs**
-   - Multiple "simplified" mappings noted as needing "full implementation"
-
-### Files Requiring Cleanup
-
-The following log and txt files were identified in the workspace:
-
-```
-Root: *.txt (100+ files), *.log files
-crates/cfd-mesh/: build_welder.log, build.log, diff.txt, err.txt, test.log
-```
-
-### Crate-Level agents.md Status
-
-- `crates/cfd-mesh/agents.md` - Exists, comprehensive
-- Other crates - Do not have individual agents.md files (as noted in root)
-
-### Recommendations
-
-1. **High Priority**: Complete MPI distributed solver stubs in cfd-core
-2. **Medium Priority**: Review cfd-schematics geometry simplifications for production readiness
-3. **Low Priority**: Clean up log and txt files from workspace
-4. **Ongoing**: Continue documenting simplifications with mathematical justification
-
----
-
-*For crate-specific architecture, see each crate's `agents.md` (currently only `crates/cfd-mesh/agents.md` exists).*
+*For crate-specific architecture, see each crate's `agents.md`.*

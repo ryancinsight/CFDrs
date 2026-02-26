@@ -1,6 +1,31 @@
 //! Shape functions for high-order finite elements
+//!
+//! # Theorem — P2 Lagrange Basis Properties (Ciarlet 1978)
+//!
+//! The 10-node quadratic Lagrange basis on a tetrahedron satisfies:
+//!
+//! 1. **Partition of unity:** $\sum_{i=0}^{9} N_i(\mathbf{x}) = 1$ for all $\mathbf{x}$ in the element.
+//! 2. **Kronecker delta:** $N_i(\mathbf{x}_j) = \delta_{ij}$ at each node.
+//! 3. **Completeness:** The basis spans all polynomials of degree $\leq 2$ on the tetrahedron.
+//!
+//! **Proof sketch.** Corner functions $N_i = L_i(2L_i - 1)$ and mid-edge functions
+//! $N_{ij} = 4 L_i L_j$ form a unisolvent set on the 10-node principal lattice of
+//! $\mathbb{P}_2$. Partition of unity follows from the identity
+//! $(\sum L_i)^2 = \sum L_i(2L_i - 1) + 2\sum_{i<j} 2L_i L_j = 1$.
+//!
+//! # Theorem — Quadratic Element Convergence Rate
+//!
+//! For a P2 finite element solution $u_h$ of a smooth solution $u \in H^3(\Omega)$:
+//!
+//! ```text
+//! ‖u − u_h‖_{H^1} ≤ C h² |u|_{H^3}
+//! ```
+//!
+//! where $h$ is the maximum element diameter and $C$ depends only on the mesh shape regularity.
+//!
+//! **Reference:** Brenner & Scott, "Math. Theory of FEM", 3rd Ed., Thm. 4.4.20.
 
-use nalgebra::{Matrix3x4, RealField, Vector3, DMatrix};
+use nalgebra::{Matrix3x4, RealField, DMatrix};
 use num_traits::{Float, FromPrimitive};
 
 /// Quadratic Lagrange shape functions for 10-node tetrahedra (P2)
@@ -51,8 +76,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
         let four = <T as FromPrimitive>::from_f64(4.0).unwrap();
 
         // Corner nodes (0-3): ∇Ni = (4Li - 1) ∇Li
-        for i in 0..4 {
-            let factor = four * l[i] - T::one();
+        for (i, &li) in l.iter().enumerate() {
+            let factor = four * li - T::one();
             let g_i = self.p1_gradients.column(i) * factor;
             grad.set_column(i, &g_i);
         }

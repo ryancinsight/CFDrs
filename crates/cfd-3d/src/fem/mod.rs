@@ -3,6 +3,17 @@
 //! This module implements a mixed finite element formulation for the Stokes
 //! and Navier-Stokes equations with stabilization.
 //!
+//! # Theorem — Discrete Inf-Sup Stability (Taylor–Hood)
+//!
+//! For the P2-P1 velocity-pressure pair used by this module, the discrete
+//! inf-sup condition holds on shape-regular tetrahedral meshes:
+//!
+//! ```text
+//! inf_{q_h} sup_{v_h} (div v_h, q_h) / (||v_h||_1 ||q_h||_0) >= β > 0
+//! ```
+//!
+//! ensuring unique solvability and pressure stability of the mixed system.
+//!
 //! ## Literature References
 //! - Hughes, T.J.R., Franca, L.P., Balestra, M. (1986). "A new finite element formulation
 //!   for computational fluid dynamics: V. Circumventing the Babuška-Brezzi condition:

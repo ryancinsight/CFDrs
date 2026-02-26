@@ -6,6 +6,12 @@
 //! - Blood flow with non-Newtonian rheology
 //! - Complete validation against analytical and literature solutions
 //!
+//! # Theorem — Junction Mass Conservation
+//!
+//! For incompressible steady bifurcation flow,
+//! $Q_{in} = Q_{out,1} + Q_{out,2}$.
+//! This is enforced as a validation invariant throughout this module.
+//!
 //! # Physics Background
 //!
 //! ## 3D Navier-Stokes Equations

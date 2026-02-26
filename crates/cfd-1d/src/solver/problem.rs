@@ -1,4 +1,21 @@
 //! Problem definition for 1D network flow analysis
+//!
+//! ## Theorem: Well-Posedness of the 1D Network Problem
+//!
+//! **Theorem**: A 1D network flow problem is strictly well-posed (admits a unique
+//! pressure field $\mathbf{P} \in \mathbb{R}^{|\mathcal{V}|}$) if and only if:
+//!
+//! 1. **Graph Connectedness**: The network graph $\mathcal{G}$ is weakly connected.
+//!    (Isolated sub-graphs require their own separate boundary conditions).
+//! 2. **Dirichlet Uniqueness**: There exists at least one node $i \in \mathcal{V}$
+//!    with a prescribed Dirichlet boundary condition (fixed pressure).
+//! 3. **Positivity of Conductance**: All edges $e \in \mathcal{E}$ have a strictly
+//!    positive, finite hydraulic conductance $G_e > 0$.
+//!
+//! If condition (2) is violated, the corresponding discrete Laplacian is exactly
+//! singular with a nullspace rank of 1 (containing the constant vector $\mathbf{1}$).
+//! In this physical state, only pressure *differentials* $\Delta P$ and corresponding
+//! flows $\mathbf{Q}$ are uniquely defined; the absolute pressure floats.
 
 use super::geometry::NetworkDomain;
 use super::state::NetworkState;

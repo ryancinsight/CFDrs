@@ -28,6 +28,23 @@ struct Workspace<T: RealField + Copy> {
 }
 
 /// Preconditioned Conjugate Gradient solver
+///
+/// # Theorem (CG Convergence in the A-norm)
+///
+/// For an SPD matrix $A \in \mathbb{R}^{n \times n}$ with eigenvalues
+/// $0 < \lambda_1 \le \cdots \le \lambda_n$, the CG iterates satisfy
+///
+/// $$\|x_k - x^*\|_A \le 2 \left(\frac{\sqrt{\kappa} - 1}{\sqrt{\kappa} + 1}\right)^k \|x_0 - x^*\|_A$$
+///
+/// where $\kappa = \lambda_n / \lambda_1$ is the spectral condition number.
+///
+/// **Proof sketch**: CG minimises $\|x_k - x^*\|_A$ over the Krylov subspace
+/// $x_0 + \mathcal{K}_k(A, r_0)$. Among all polynomials $p_k$ of degree $k$
+/// with $p_k(0) = 1$, the Chebyshev polynomial $T_k$ on $[\lambda_1, \lambda_n]$
+/// yields the tightest uniform bound. Evaluating $\max_{\lambda \in [\lambda_1,
+/// \lambda_n]} |T_k(\lambda) / T_k(0)|$ gives the stated contraction factor.
+///
+/// **Reference**: Hestenes & Stiefel (1952); Saad (2003) §6.7.
 pub struct ConjugateGradient<T: RealField + Copy> {
     config: IterativeSolverConfig<T>,
     /// Thread-safe workspace for reusing allocations

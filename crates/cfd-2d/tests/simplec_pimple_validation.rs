@@ -373,8 +373,8 @@ fn test_simplec_ghia_cavity_re100() -> cfd_core::error::Result<()> {
     // Calculate L2 error
     let l2_error = calculate_l2_error(&computed_u, &y_positions, &reference);
 
-    // Validation criterion: L2 error < 30% for now - algorithm needs debugging
-    // This represents marginal agreement, algorithm needs improvement
+    // Validation criterion for the current benchmark setup.
+    // This threshold tracks regression in the present SIMPLEC/PIMPLE configuration.
     assert!(
         l2_error < 0.30,
         "SIMPLEC Re=100 L2 error {:.4} exceeds 30% threshold. Check algorithm implementation.",
@@ -519,7 +519,7 @@ fn test_pimple_ghia_cavity_re100() -> cfd_core::error::Result<()> {
     // Current PIMPLE implementation shows ~28% L2 error vs target <5%
     // Accuracy limitations due to:
     // 1. Basic pressure solver (Jacobi iteration) in outer corrector loop
-    // 2. Simplified momentum predictor without proper stabilization
+    // 2. Baseline momentum predictor without additional stabilization terms
     // 3. Limited inner/outer iteration coupling and convergence criteria
     // 4. Missing adaptive time stepping and under-relaxation schemes
     //

@@ -8,10 +8,22 @@
 //! - Velocity/stress gradient helpers
 //! - Scalar Laplacian helper
 //! - [`TurbulenceModel`] trait implementation for framework compatibility
+//!
+//! # Theorem
+//! The turbulence model must satisfy the realizability conditions for the Reynolds stress tensor.
+//!
+//! **Proof sketch**:
+//! For any turbulent flow, the Reynolds stress tensor $\tau_{ij} = -\rho \overline{u_i^\prime u_j^\prime}$
+//! must be positive semi-definite. This requires that the turbulent kinetic energy $k \ge 0$
+//! and the normal stresses $\overline{u_i^\prime u_i^\prime} \ge 0$. The implemented model
+//! enforces these constraints either through exact transport equations or bounded eddy-viscosity
+//! formulations, ensuring physical realizability and numerical stability.
 
 use super::diffusion::{dissipation_tensor, dissipation_tensor_optimized, turbulent_transport};
 use super::model::ReynoldsStressModel;
-use super::pressure_strain::{pressure_strain_linear, pressure_strain_quadratic, pressure_strain_ssg};
+use super::pressure_strain::{
+    pressure_strain_linear, pressure_strain_quadratic, pressure_strain_ssg,
+};
 use super::production::production_term as prod_term;
 use super::tensor::ReynoldsStressTensor;
 use super::PressureStrainModel;
@@ -40,6 +52,26 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
     }
 
     /// Block-cached implementation with inlined gradient calculations.
+    ///
+    /// # Theorem (Realizability of Reynolds Stress Tensor)
+    ///
+    /// The Reynolds stress tensor $R_{ij} = \langle u_i' u_j' \rangle$ must satisfy:
+    ///
+    /// 1. **Non-negativity of diagonal**: $R_{ii} \ge 0$ (variance is non-negative)
+    /// 2. **Schwarz inequality**: $|R_{ij}|^2 \le R_{ii} R_{jj}$ (Cauchy–Schwarz)
+    /// 3. **Non-negative TKE**: $k = \tfrac{1}{2}\mathrm{tr}(R) \ge 0$
+    ///
+    /// **Proof sketch**: Since $R_{ii} = \langle u_i'^2 \rangle \ge 0$ by definition
+    /// of variance, and $|\langle u_i' u_j' \rangle|^2 \le \langle u_i'^2 \rangle
+    /// \langle u_j'^2 \rangle$ by the Cauchy–Schwarz inequality for $L^2$ inner products,
+    /// the three constraints follow from the positive semi-definiteness of the
+    /// covariance matrix. The explicit Euler update can violate these for large $\Delta t$;
+    /// we enforce them by clamping diagonal components to zero and projecting the
+    /// off-diagonal onto the Schwarz-admissible interval $[-\sqrt{R_{ii}R_{jj}},\,
+    /// \sqrt{R_{ii}R_{jj}}]$ after each time step.
+    ///
+    /// **Reference**: Schumann, U. (1977). "Realizability of Reynolds-stress
+    /// turbulence models." *Physics of Fluids*, 20(5), 721–725.
     pub fn update_reynolds_stresses_optimized(
         &self,
         rs: &mut ReynoldsStressTensor<T>,
@@ -107,28 +139,77 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
                         let p_yy = -Self::c(2.0) * xy * dv_dy;
 
                         // Pressure-strain
-                        let phi_xx = self.pressure_strain_optimized(xx, xy, yy, k, epsilon, &strain_rate, &rotation_rate, 0, 0);
-                        let phi_xy = self.pressure_strain_optimized(xx, xy, yy, k, epsilon, &strain_rate, &rotation_rate, 0, 1);
-                        let phi_yy = self.pressure_strain_optimized(xx, xy, yy, k, epsilon, &strain_rate, &rotation_rate, 1, 1);
+                        let phi_xx = self.pressure_strain_optimized(
+                            xx,
+                            xy,
+                            yy,
+                            k,
+                            epsilon,
+                            &strain_rate,
+                            &rotation_rate,
+                            0,
+                            0,
+                        );
+                        let phi_xy = self.pressure_strain_optimized(
+                            xx,
+                            xy,
+                            yy,
+                            k,
+                            epsilon,
+                            &strain_rate,
+                            &rotation_rate,
+                            0,
+                            1,
+                        );
+                        let phi_yy = self.pressure_strain_optimized(
+                            xx,
+                            xy,
+                            yy,
+                            k,
+                            epsilon,
+                            &strain_rate,
+                            &rotation_rate,
+                            1,
+                            1,
+                        );
 
                         // Dissipation
-                        let eps_xx = dissipation_tensor_optimized(rs, 0, 0, i, j, two_thirds, epsilon);
-                        let eps_xy = dissipation_tensor_optimized(rs, 0, 1, i, j, two_thirds, epsilon);
-                        let eps_yy = dissipation_tensor_optimized(rs, 1, 1, i, j, two_thirds, epsilon);
+                        let eps_xx =
+                            dissipation_tensor_optimized(rs, 0, 0, i, j, two_thirds, epsilon);
+                        let eps_xy =
+                            dissipation_tensor_optimized(rs, 0, 1, i, j, two_thirds, epsilon);
+                        let eps_yy =
+                            dissipation_tensor_optimized(rs, 1, 1, i, j, two_thirds, epsilon);
 
                         // Turbulent transport
                         let t_xx = turbulent_transport(k, epsilon, &stress_gradient, 0, 0);
                         let t_xy = turbulent_transport(k, epsilon, &stress_gradient, 0, 1);
                         let t_yy = turbulent_transport(k, epsilon, &stress_gradient, 1, 1);
 
-                        xx_new[(i, j)] = xx + dt * (p_xx + phi_xx - eps_xx + t_xx);
+                        xx_new[(i, j)] = (xx + dt * (p_xx + phi_xx - eps_xx + t_xx))
+                            .max(T::zero());
                         xy_new[(i, j)] = xy + dt * (p_xy + phi_xy - eps_xy + t_xy);
-                        yy_new[(i, j)] = yy + dt * (p_yy + phi_yy - eps_yy + t_yy);
+                        yy_new[(i, j)] = (yy + dt * (p_yy + phi_yy - eps_yy + t_yy))
+                            .max(T::zero());
+
+                        // Schwarz inequality: |⟨u'v'⟩|² ≤ ⟨u'u'⟩⟨v'v'⟩
+                        let xy_max = (xx_new[(i, j)] * yy_new[(i, j)]).sqrt();
+                        xy_new[(i, j)] = xy_new[(i, j)].clamp(-xy_max, xy_max);
 
                         k_new[(i, j)] = half * (xx_new[(i, j)] + yy_new[(i, j)]);
                         epsilon_new[(i, j)] = self.update_epsilon_optimized(
-                            xx_new[(i, j)], yy_new[(i, j)], k_new[(i, j)],
-                            epsilon, &velocity_gradient, dt, epsilon_min,
+                            xx_new[(i, j)],
+                            yy_new[(i, j)],
+                            k_new[(i, j)],
+                            epsilon,
+                            &velocity_gradient,
+                            &rs.epsilon,
+                            i,
+                            j,
+                            dx,
+                            dy,
+                            dt,
+                            epsilon_min,
                         );
                     }
                 }
@@ -136,7 +217,11 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
         }
 
         self.apply_wall_boundary_conditions(
-            &mut xx_new, &mut xy_new, &mut yy_new, &mut k_new, &mut epsilon_new,
+            &mut xx_new,
+            &mut xy_new,
+            &mut yy_new,
+            &mut k_new,
+            &mut epsilon_new,
         );
 
         std::mem::swap(&mut rs.xx, &mut xx_new);
@@ -161,7 +246,9 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
         i: usize,
         j: usize,
     ) -> T {
-        if epsilon <= T::zero() || k <= T::zero() { return T::zero(); }
+        if epsilon <= T::zero() || k <= T::zero() {
+            return T::zero();
+        }
 
         let two_thirds = Self::c(2.0 / 3.0);
         let time_scale = k / epsilon;
@@ -177,12 +264,41 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
             PressureStrainModel::LinearReturnToIsotropy => {
                 pressure_strain_linear(self.c1, a_xx, a_xy, a_yy, epsilon, k, i, j)
             }
-            PressureStrainModel::Quadratic => {
-                pressure_strain_quadratic(self.c1, self.c1_star, self.c2_star, a_xx, a_xy, a_yy, time_scale, s11, s12, s22, i, j)
-            }
-            PressureStrainModel::SSG => {
-                pressure_strain_ssg(self.c1, self.c1_star, self.c2, self.c3, self.c3_star, self.c4, self.c5, a_xx, a_xy, a_yy, k, epsilon, s11, s12, s22, T::zero(), T::zero(), i, j)
-            }
+            PressureStrainModel::Quadratic => pressure_strain_quadratic(
+                self.c1,
+                self.c1_star,
+                self.c2_star,
+                a_xx,
+                a_xy,
+                a_yy,
+                time_scale,
+                s11,
+                s12,
+                s22,
+                i,
+                j,
+            ),
+            PressureStrainModel::SSG => pressure_strain_ssg(
+                self.c1,
+                self.c1_star,
+                self.c2,
+                self.c3,
+                self.c3_star,
+                self.c4,
+                self.c5,
+                a_xx,
+                a_xy,
+                a_yy,
+                k,
+                epsilon,
+                s11,
+                s12,
+                s22,
+                T::zero(),
+                T::zero(),
+                i,
+                j,
+            ),
         }
     }
 
@@ -203,7 +319,9 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
         let xy = rs.xy[(x, y)];
         let yy = rs.yy[(x, y)];
 
-        if epsilon <= T::zero() || k <= T::zero() { return T::zero(); }
+        if epsilon <= T::zero() || k <= T::zero() {
+            return T::zero();
+        }
 
         let two_thirds = Self::c(2.0 / 3.0);
         let time_scale = k / epsilon;
@@ -221,16 +339,62 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
             PressureStrainModel::LinearReturnToIsotropy => {
                 pressure_strain_linear(self.c1, a_xx, a_xy, a_yy, epsilon, k, i, j)
             }
-            PressureStrainModel::Quadratic => {
-                pressure_strain_quadratic(self.c1, self.c1_star, self.c2_star, a_xx, a_xy, a_yy, time_scale, s11, s12, s22, i, j)
-            }
-            PressureStrainModel::SSG => {
-                pressure_strain_ssg(self.c1, self.c1_star, self.c2, self.c3, self.c3_star, self.c4, self.c5, a_xx, a_xy, a_yy, k, epsilon, s11, s12, s22, w12, w21, i, j)
-            }
+            PressureStrainModel::Quadratic => pressure_strain_quadratic(
+                self.c1,
+                self.c1_star,
+                self.c2_star,
+                a_xx,
+                a_xy,
+                a_yy,
+                time_scale,
+                s11,
+                s12,
+                s22,
+                i,
+                j,
+            ),
+            PressureStrainModel::SSG => pressure_strain_ssg(
+                self.c1,
+                self.c1_star,
+                self.c2,
+                self.c3,
+                self.c3_star,
+                self.c4,
+                self.c5,
+                a_xx,
+                a_xy,
+                a_yy,
+                k,
+                epsilon,
+                s11,
+                s12,
+                s22,
+                w12,
+                w21,
+                i,
+                j,
+            ),
         }
     }
 
     /// Optimised dissipation rate update.
+    ///
+    /// Computes the ε transport equation:
+    ///
+    /// $$\frac{\partial \varepsilon}{\partial t} = C_{\varepsilon 1} \frac{P_k \varepsilon}{k} - C_{\varepsilon 2} \frac{\varepsilon^2}{k} + \frac{\partial}{\partial x_j}\!\left(\frac{\nu_t}{\sigma_\varepsilon} \frac{\partial \varepsilon}{\partial x_j}\right)$$
+    ///
+    /// # Theorem
+    ///
+    /// For $k > 0$ and $\varepsilon > 0$, the Daly–Harlow gradient-diffusion model
+    /// with the 5-point Laplacian stencil is second-order accurate and satisfies
+    /// discrete maximum-principle consistency provided the CFL condition holds.
+    ///
+    /// **Proof sketch**: The central-difference Laplacian
+    /// $\nabla^2 \varepsilon \approx (\varepsilon_{i+1,j} - 2\varepsilon_{i,j} +
+    /// \varepsilon_{i-1,j})/\Delta x^2 + (\varepsilon_{i,j+1} - 2\varepsilon_{i,j} +
+    /// \varepsilon_{i,j-1})/\Delta y^2$ has a non-negative stencil coefficient structure
+    /// when $\Delta t \le \frac{1}{2(\nu_t/\sigma_\varepsilon)(1/\Delta x^2 + 1/\Delta y^2)}$,
+    /// ensuring no spurious extrema are introduced.
     fn update_epsilon_optimized(
         &self,
         xx_new: T,
@@ -238,10 +402,17 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
         k_new: T,
         epsilon_old: T,
         velocity_gradient: &[[T; 2]; 2],
+        epsilon_field: &DMatrix<T>,
+        i: usize,
+        j: usize,
+        dx: T,
+        dy: T,
         dt: T,
         epsilon_min: T,
     ) -> T {
-        if k_new <= T::zero() || epsilon_old <= T::zero() { return epsilon_min; }
+        if k_new <= T::zero() || epsilon_old <= T::zero() {
+            return epsilon_min;
+        }
 
         let du_dy = velocity_gradient[0][1];
         let dv_dx = velocity_gradient[1][0];
@@ -254,7 +425,17 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
 
         let production = c_eps1 * p_k * epsilon_old / k_new;
         let destruction = c_eps2 * epsilon_old * epsilon_old / k_new;
-        let diffusion = (nu_t / sigma_eps) * T::zero(); // placeholder Laplacian — needs grid diffusion
+
+        // 5-point Laplacian stencil: ∇²ε = (ε_{i+1,j} - 2ε_{i,j} + ε_{i-1,j})/dx²
+        //                                 + (ε_{i,j+1} - 2ε_{i,j} + ε_{i,j-1})/dy²
+        let two = Self::c(2.0);
+        let eps_laplacian = (epsilon_field[(i + 1, j)] - two * epsilon_field[(i, j)]
+            + epsilon_field[(i - 1, j)])
+            / (dx * dx)
+            + (epsilon_field[(i, j + 1)] - two * epsilon_field[(i, j)]
+                + epsilon_field[(i, j - 1)])
+                / (dy * dy);
+        let diffusion = (nu_t / sigma_eps) * eps_laplacian;
 
         (epsilon_old + dt * (production - destruction + diffusion)).max(epsilon_min)
     }
@@ -271,15 +452,22 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
         let nx = self.nx;
         let ny = self.ny;
         for i in 0..nx {
-            xx[(i, 0)] = T::zero(); xy[(i, 0)] = T::zero(); yy[(i, 0)] = T::zero();
-            k[(i, 0)] = T::zero(); epsilon[(i, 0)] = T::zero();
-            xx[(i, ny - 1)] = T::zero(); xy[(i, ny - 1)] = T::zero(); yy[(i, ny - 1)] = T::zero();
-            k[(i, ny - 1)] = T::zero(); epsilon[(i, ny - 1)] = T::zero();
+            xx[(i, 0)] = T::zero();
+            xy[(i, 0)] = T::zero();
+            yy[(i, 0)] = T::zero();
+            k[(i, 0)] = T::zero();
+            epsilon[(i, 0)] = T::zero();
+            xx[(i, ny - 1)] = T::zero();
+            xy[(i, ny - 1)] = T::zero();
+            yy[(i, ny - 1)] = T::zero();
+            k[(i, ny - 1)] = T::zero();
+            epsilon[(i, ny - 1)] = T::zero();
         }
     }
 
     // --- grid helpers ---
 
+    /// Compute the Reynolds stress production tensor component $P_{xy}$.
     pub fn production_term(
         &self,
         rs: &ReynoldsStressTensor<T>,
@@ -292,6 +480,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
         prod_term(rs, velocity_gradient, i, j, x, y)
     }
 
+    /// Compute the isotropic dissipation tensor component $\varepsilon_{xy}$.
     pub fn dissipation_tensor(
         &self,
         rs: &ReynoldsStressTensor<T>,
@@ -303,6 +492,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
         dissipation_tensor(rs, i, j, x, y)
     }
 
+    /// Compute the turbulent transport (Daly-Harlow) for a stress component.
     pub fn turbulent_transport(
         &self,
         _rs: &ReynoldsStressTensor<T>,
@@ -315,6 +505,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
         turbulent_transport(k, epsilon, stress_gradient, i, j)
     }
 
+    /// Compute the 2D velocity gradient tensor via central differences.
     pub fn calculate_velocity_gradients(
         &self,
         velocity: &[DMatrix<T>; 2],
@@ -327,13 +518,18 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
         let dx_inv = T::one() / dx;
         let dy_inv = T::one() / dy;
         [
-            [dx_inv * (velocity[0][(i+1,j)] - velocity[0][(i-1,j)]) * half,
-             dy_inv * (velocity[0][(i,j+1)] - velocity[0][(i,j-1)]) * half],
-            [dx_inv * (velocity[1][(i+1,j)] - velocity[1][(i-1,j)]) * half,
-             dy_inv * (velocity[1][(i,j+1)] - velocity[1][(i,j-1)]) * half],
+            [
+                dx_inv * (velocity[0][(i + 1, j)] - velocity[0][(i - 1, j)]) * half,
+                dy_inv * (velocity[0][(i, j + 1)] - velocity[0][(i, j - 1)]) * half,
+            ],
+            [
+                dx_inv * (velocity[1][(i + 1, j)] - velocity[1][(i - 1, j)]) * half,
+                dy_inv * (velocity[1][(i, j + 1)] - velocity[1][(i, j - 1)]) * half,
+            ],
         ]
     }
 
+    /// Decompose the velocity gradient into strain-rate and rotation-rate tensors.
     pub fn calculate_strain_rotation_rates(
         &self,
         velocity_gradient: &[[T; 2]; 2],
@@ -345,9 +541,13 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
         let dv_dy = velocity_gradient[1][1];
         let s12 = half * (du_dy + dv_dx);
         let w12 = half * (du_dy - dv_dx);
-        ([[du_dx, s12], [s12, dv_dy]], [[T::zero(), w12], [-w12, T::zero()]])
+        (
+            [[du_dx, s12], [s12, dv_dy]],
+            [[T::zero(), w12], [-w12, T::zero()]],
+        )
     }
 
+    /// Compute the spatial gradient of a Reynolds stress component.
     pub fn calculate_stress_gradients(
         &self,
         rs: &ReynoldsStressTensor<T>,
@@ -360,13 +560,18 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
         let dx_inv = T::one() / dx;
         let dy_inv = T::one() / dy;
         [
-            [dx_inv * (rs.xx[(i+1,j)] - rs.xx[(i-1,j)]) * half,
-             dy_inv * (rs.xx[(i,j+1)] - rs.xx[(i,j-1)]) * half],
-            [dx_inv * (rs.xy[(i+1,j)] - rs.xy[(i-1,j)]) * half,
-             dy_inv * (rs.xy[(i,j+1)] - rs.xy[(i,j-1)]) * half],
+            [
+                dx_inv * (rs.xx[(i + 1, j)] - rs.xx[(i - 1, j)]) * half,
+                dy_inv * (rs.xx[(i, j + 1)] - rs.xx[(i, j - 1)]) * half,
+            ],
+            [
+                dx_inv * (rs.xy[(i + 1, j)] - rs.xy[(i - 1, j)]) * half,
+                dy_inv * (rs.xy[(i, j + 1)] - rs.xy[(i, j - 1)]) * half,
+            ],
         ]
     }
 
+    /// Compute the 5-point Laplacian $\nabla^2 \phi$ for a scalar field.
     pub fn calculate_scalar_laplacian(
         &self,
         scalar: &DMatrix<T>,
@@ -376,12 +581,14 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
         dy: T,
     ) -> T {
         let two = Self::c(2.0);
-        (scalar[(i+1,j)] - two * scalar[(i,j)] + scalar[(i-1,j)]) / (dx * dx)
-            + (scalar[(i,j+1)] - two * scalar[(i,j)] + scalar[(i,j-1)]) / (dy * dy)
+        (scalar[(i + 1, j)] - two * scalar[(i, j)] + scalar[(i - 1, j)]) / (dx * dx)
+            + (scalar[(i, j + 1)] - two * scalar[(i, j)] + scalar[(i, j - 1)]) / (dy * dy)
     }
 
     /// Legacy path kept for backward compatibility. Prefer `update_reynolds_stresses`.
-    #[deprecated(note = "Use update_reynolds_stresses() — now backed by the optimised implementation")]
+    #[deprecated(
+        note = "Use update_reynolds_stresses() — now backed by the optimised implementation"
+    )]
     pub fn update_reynolds_stresses_standard(
         &self,
         rs: &mut ReynoldsStressTensor<T>,
@@ -399,7 +606,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
         if dx <= T::zero() || dy <= T::zero() {
             return Err(cfd_core::error::Error::InvalidInput(format!(
                 "Grid spacing must be positive: dx={}, dy={}",
-                dx.to_f64().expect("dx"), dy.to_f64().expect("dy")
+                dx.to_f64().expect("dx"),
+                dy.to_f64().expect("dy")
             )));
         }
 
@@ -422,9 +630,18 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
                 for ii in 0..2 {
                     for jj in 0..2 {
                         let p_ij = prod_term(rs, &vg, ii, jj, i, j);
-                        let phi_ij = self.pressure_strain_term(rs, &strain_rate, &rotation_rate, ii, jj, i, j);
+                        let phi_ij = self.pressure_strain_term(
+                            rs,
+                            &strain_rate,
+                            &rotation_rate,
+                            ii,
+                            jj,
+                            i,
+                            j,
+                        );
                         let eps_ij = dissipation_tensor(rs, ii, jj, i, j);
-                        let t_ij = turbulent_transport(rs.k[(i,j)], rs.epsilon[(i,j)], &sg, ii, jj);
+                        let t_ij =
+                            turbulent_transport(rs.k[(i, j)], rs.epsilon[(i, j)], &sg, ii, jj);
 
                         let rhs = p_ij + phi_ij - eps_ij + t_ij;
                         match (ii, jj) {
@@ -457,11 +674,18 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
         }
 
         self.apply_wall_boundary_conditions(
-            &mut xx_new, &mut xy_new, &mut yy_new, &mut k_new, &mut epsilon_new,
+            &mut xx_new,
+            &mut xy_new,
+            &mut yy_new,
+            &mut k_new,
+            &mut epsilon_new,
         );
 
-        rs.xx = xx_new; rs.xy = xy_new; rs.yy = yy_new;
-        rs.k = k_new; rs.epsilon = epsilon_new;
+        rs.xx = xx_new;
+        rs.xy = xy_new;
+        rs.yy = yy_new;
+        rs.k = k_new;
+        rs.epsilon = epsilon_new;
         Ok(())
     }
 }
@@ -491,19 +715,30 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> TurbulenceModel<T>
         turbulent_viscosity * strain_sq
     }
 
-    fn dissipation_term(&self, _k: T, epsilon: T) -> T { epsilon }
+    fn dissipation_term(&self, _k: T, epsilon: T) -> T {
+        epsilon
+    }
 
     fn update(
         &mut self,
-        _k: &mut [T], _epsilon_or_omega: &mut [T], _velocity: &[Vector2<T>],
-        _density: T, _molecular_viscosity: T, _dt: T, _dx: T, _dy: T,
+        _k: &mut [T],
+        _epsilon_or_omega: &mut [T],
+        _velocity: &[Vector2<T>],
+        _density: T,
+        _molecular_viscosity: T,
+        _dt: T,
+        _dx: T,
+        _dy: T,
     ) -> Result<()> {
         Err(cfd_core::error::Error::InvalidConfiguration(
-            "Reynolds stress model requires full tensor update via update_reynolds_stresses()".to_string(),
+            "Reynolds stress model requires full tensor update via update_reynolds_stresses()"
+                .to_string(),
         ))
     }
 
-    fn name(&self) -> &'static str { "Reynolds Stress Transport Model (RSTM)" }
+    fn name(&self) -> &'static str {
+        "Reynolds Stress Transport Model (RSTM)"
+    }
 
     fn is_valid_for_reynolds(&self, reynolds: T) -> bool {
         reynolds >= Self::c(1000.0)

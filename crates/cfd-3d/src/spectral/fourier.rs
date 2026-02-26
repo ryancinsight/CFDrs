@@ -1,8 +1,30 @@
 //! Fourier transform operations for spectral methods
 //!
-//! Implements efficient FFT using Cooley-Tukey algorithm (O(n log n))
-//! Reference: Canuto et al. (2006). "Spectral Methods: Fundamentals in Single Domains"
-//! Cooley-Tukey: Cooley & Tukey (1965). "An algorithm for the machine calculation of complex Fourier series"
+//! # Theorem — Cooley–Tukey FFT Complexity (Cooley & Tukey 1965)
+//!
+//! The Discrete Fourier Transform of a sequence of length $N = 2^k$ can be
+//! computed in $O(N \log N)$ operations by recursive factorisation into
+//! even/odd sub-transforms (Danielson–Lanczos butterfly).
+//!
+//! # Theorem — Fourier Spectral Convergence (Canuto et al. 2006)
+//!
+//! For a smooth periodic function $u \in C^\infty$, the Fourier truncation
+//! error decays faster than any polynomial:
+//!
+//! ```text
+//! ‖u − P_N u‖ = O(N^{−k})    ∀ k ∈ ℤ⁺
+//! ```
+//!
+//! If $u$ is analytic in a strip of width $\sigma > 0$ around the real axis,
+//! convergence is exponential: $O(e^{-\sigma N})$.
+//!
+//! # Theorem — 3/2 Dealiasing Rule (Orszag 1971)
+//!
+//! For a quadratic nonlinearity computed on $N$ modes, the aliased
+//! contribution can be eliminated by zero-padding to $M \geq 3N/2$ modes
+//! before transforming to physical space.
+//!
+//! Reference: Cooley & Tukey (1965). "An algorithm for the machine calculation of complex Fourier series"
 
 use cfd_core::error::Result;
 use nalgebra::{Complex, DVector, RealField};

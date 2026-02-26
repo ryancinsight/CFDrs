@@ -187,6 +187,16 @@
 //! The model is suitable for industrial CFD applications with high Reynolds numbers
 //! and attached boundary layers. For complex flows with separation or low Reynolds
 //! numbers, consider using more advanced turbulence models.
+//!
+//! # Theorem
+//! The turbulence model must satisfy the realizability conditions for the Reynolds stress tensor.
+//!
+//! **Proof sketch**:
+//! For any turbulent flow, the Reynolds stress tensor $\tau_{ij} = -\rho \overline{u_i^\prime u_j^\prime}$
+//! must be positive semi-definite. This requires that the turbulent kinetic energy $k \ge 0$
+//! and the normal stresses $\overline{u_i^\prime u_i^\prime} \ge 0$. The implemented model
+//! enforces these constraints either through exact transport equations or bounded eddy-viscosity
+//! formulations, ensuring physical realizability and numerical stability.
 
 use super::constants::{C1_EPSILON, C2_EPSILON, C_MU, EPSILON_MIN, K_MIN, SIGMA_EPSILON, SIGMA_K};
 use super::traits::TurbulenceModel;

@@ -2,19 +2,17 @@
 //!
 //! Runs the parametric sweep for each [`OptimMode`], exports:
 //!
-//! - `outputs/cfd-optim/<mode>.json` — full ranked design list with all
+//! - `cfd-optim/outputs/<mode>.json` — full ranked design list with all
 //!   metrics, suitable for downstream processing or archival.
-//! - `outputs/cfd-optim/<mode>.svg`  — bar-chart comparison of the top 5
+//! - `cfd-optim/outputs/<mode>.svg`  — bar-chart comparison of the top 5
 //!   designs with annotated key metrics.
-//! - `outputs/cfd-optim/<mode>/rank<N>_<topology>.svg` — 2D channel schematic
+//! - `cfd-optim/outputs/<mode>/rank<N>_<topology>.svg` — 2D channel schematic
 //!   for each of the top 5 designs, showing the spatial channel layout.
 //!
 //! # Run with
 //! ```bash
 //! cargo run -p cfd-optim --example sdt_export
 //! ```
-
-use std::path::PathBuf;
 
 use cfd_optim::{
     evo::GeneticOptimizer,
@@ -23,7 +21,7 @@ use cfd_optim::{
 };
 
 fn main() {
-    let out_dir = PathBuf::from("outputs/cfd-optim");
+    let out_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("outputs");
     std::fs::create_dir_all(&out_dir).expect("failed to create output directory");
 
     let weights = SdtWeights::default();
@@ -86,10 +84,12 @@ fn main() {
                             },
                         OptimMode::CellSeparation =>
                             format!("{:>9.4}", m.cell_separation_efficiency),
-                        OptimMode::ThreePopSeparation =>
+                        OptimMode::ThreePopSeparation | OptimMode::SdtTherapy =>
                             format!("{:>9.4}", m.three_pop_sep_efficiency),
                         OptimMode::UniformExposure =>
                             format!("{:>9.4}", m.flow_uniformity),
+                        OptimMode::PediatricLeukapheresis { .. } =>
+                            format!("{:>8.1}%", m.wbc_recovery * 100.0),
                     };
                     let id_trunc = if d.candidate.id.len() > 38 {
                         &d.candidate.id[..38]
@@ -166,10 +166,12 @@ fn main() {
                             },
                         OptimMode::CellSeparation =>
                             format!("{:>9.4}", m.cell_separation_efficiency),
-                        OptimMode::ThreePopSeparation =>
+                        OptimMode::ThreePopSeparation | OptimMode::SdtTherapy =>
                             format!("{:>9.4}", m.three_pop_sep_efficiency),
                         OptimMode::UniformExposure =>
                             format!("{:>9.4}", m.flow_uniformity),
+                        OptimMode::PediatricLeukapheresis { .. } =>
+                            format!("{:>8.1}%", m.wbc_recovery * 100.0),
                     };
                     let id_trunc = if d.candidate.id.len() > 38 {
                         &d.candidate.id[..38]

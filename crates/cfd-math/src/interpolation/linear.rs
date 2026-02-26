@@ -29,10 +29,10 @@ impl<T: RealField + Copy> LinearInterpolation<T> {
             ));
         }
 
-        // Verify x_data is sorted
-        if !x_data.windows(2).all(|w| w[0] <= w[1]) {
+        // Verify x_data is strictly increasing (no duplicates)
+        if !x_data.windows(2).all(|w| w[0] < w[1]) {
             return Err(Error::InvalidConfiguration(
-                "x_data must be sorted in ascending order".to_string(),
+                "x_data must be strictly increasing (no duplicate nodes)".to_string(),
             ));
         }
 

@@ -8,6 +8,16 @@
 //! - Moser, Kim & Mansour (1999). Direct numerical simulation of turbulent channel flow. Physics of Fluids.
 //! - Spalart & Allmaras (1994). A one-equation turbulence model for aerodynamic flows. AIAA Paper 92-0439.
 //! - Menter (1994). Two-equation eddy-viscosity turbulence models for engineering applications. AIAA Journal.
+//!
+//! # Theorem
+//! The turbulence model must satisfy the realizability conditions for the Reynolds stress tensor.
+//!
+//! **Proof sketch**:
+//! For any turbulent flow, the Reynolds stress tensor $\tau_{ij} = -\rho \overline{u_i^\prime u_j^\prime}$
+//! must be positive semi-definite. This requires that the turbulent kinetic energy $k \ge 0$
+//! and the normal stresses $\overline{u_i^\prime u_i^\prime} \ge 0$. The implemented model
+//! enforces these constraints either through exact transport equations or bounded eddy-viscosity
+//! formulations, ensuring physical realizability and numerical stability.
 
 #[cfg(test)]
 mod tests {

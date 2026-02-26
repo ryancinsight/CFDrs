@@ -480,3 +480,4 @@ fn test_gmres_zero_restart_dim_panics() {
 
 mod edge_case_tests;
 mod extended_edge_case_tests;
+mod adversarial_solver_tests;

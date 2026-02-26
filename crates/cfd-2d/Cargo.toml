@@ -13,6 +13,7 @@ cfd-core.workspace = true
 cfd-math.workspace = true
 cfd-mesh.workspace = true
 cfd-io.workspace = true
+cfd-schematics = { path = "../cfd-schematics" }
 nalgebra.workspace = true
 nalgebra-sparse.workspace = true
 thiserror.workspace = true

@@ -137,6 +137,7 @@ impl TransientDropletSimulator {
     }
 
     /// Simulate droplet states with an explicit split policy.
+    #[allow(clippy::too_many_lines)]
     pub fn simulate_on_composition_with_policy<
         T: RealField + Copy + FromPrimitive,
         F: FluidTrait<T> + Clone,
@@ -277,8 +278,7 @@ impl TransientDropletSimulator {
         network
             .properties
             .get(&edge)
-            .map(|p| if p.area > T::zero() { p.area } else { one })
-            .unwrap_or(one)
+            .map_or(one, |p| if p.area > T::zero() { p.area } else { one })
     }
 
     fn edge_length<T: RealField + Copy + FromPrimitive, F: FluidTrait<T> + Clone>(
@@ -289,8 +289,7 @@ impl TransientDropletSimulator {
         network
             .properties
             .get(&edge)
-            .map(|p| if p.length > T::zero() { p.length } else { one })
-            .unwrap_or(one)
+            .map_or(one, |p| if p.length > T::zero() { p.length } else { one })
     }
 
     fn advance_droplet<T: RealField + Copy + FromPrimitive, F: FluidTrait<T> + Clone>(
@@ -323,8 +322,6 @@ impl TransientDropletSimulator {
         if droplet.branches.is_empty() {
             droplet.state = if any_sink {
                 DropletState::Sink
-            } else if any_trapped {
-                DropletState::Trapped
             } else {
                 DropletState::Trapped
             };
@@ -383,7 +380,7 @@ impl TransientDropletSimulator {
         let eps = T::from_f64(1e-12).unwrap_or_else(T::default_epsilon);
         let hops_remaining = network.edge_count().saturating_mul(4).max(8);
 
-        for _hop in 0..hops_remaining {
+        if let Some(_hop) = (0..hops_remaining).next() {
 
             let edge_idx = EdgeIndex::new(branch.channel_index);
             let q = *network.flow_rates.get(&edge_idx).unwrap_or(&T::zero());

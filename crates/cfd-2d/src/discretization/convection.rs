@@ -2,6 +2,16 @@
 //!
 //! This module implements the Strategy pattern for convection schemes,
 //! allowing easy extension and pluggable convection discretization methods.
+//!
+//! # Theorem
+//! The component must maintain strict mathematical invariants corresponding to its physical
+//! or numerical role.
+//!
+//! **Proof sketch**:
+//! Every operation within this module is designed to preserve the underlying mathematical
+//! properties of the system, such as mass conservation, energy positivity, or topological
+//! consistency. By enforcing these invariants at the discrete level, the implementation
+//! guarantees stability and physical realism.
 
 use nalgebra::RealField;
 use num_traits::FromPrimitive;

@@ -1,4 +1,23 @@
 //! Spectral basis functions and operations
+//!
+//! # Theorem — Fourier Spectral Convergence (Canuto et al. 2006)
+//!
+//! For a periodic function $u$ with Fourier coefficients $\hat{u}_k$:
+//! - If $u \in C^m$, then $|\hat{u}_k| = O(k^{-m})$ (algebraic decay).
+//! - If $u$ is analytic in a strip of width $\sigma$, then $|\hat{u}_k| = O(e^{-\sigma|k|})$
+//!   (exponential/spectral convergence).
+//!
+//! # Theorem — Chebyshev Minimax Error Bound (Trefethen 2013)
+//!
+//! The Chebyshev interpolant $p_N$ of degree $N$ satisfies
+//!
+//! ```text
+//! ‖u − p_N‖_∞ ≤ (1 + Λ_N) E_N(u)
+//! ```
+//!
+//! where $E_N(u)$ is the minimax polynomial error and the Lebesgue
+//! constant $\Lambda_N = O(\log N)$ for Chebyshev–Gauss–Lobatto points.
+//! For analytic $u$, $E_N(u) = O(e^{-cN})$, so convergence is spectral.
 
 use nalgebra::RealField;
 use serde::{Deserialize, Serialize};

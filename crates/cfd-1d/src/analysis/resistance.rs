@@ -1,4 +1,19 @@
 //! Resistance analysis module for network components.
+//!
+//! ## Theorem: Series/Parallel Resistance Duality
+//!
+//! **Theorem**: For a set of `n` positive hydraulic resistances `{R_1, …, R_n}`:
+//!
+//! 1. **Series**: `R_series = Σ_{i=1}^{n} R_i`, and `R_series ≥ max{R_i}`.
+//! 2. **Parallel**: `R_parallel = 1 / Σ (1/R_i)`, and `R_parallel ≤ min{R_i}`.
+//! 3. **Duality bound**: `R_parallel ≤ min{R_i} ≤ max{R_i} ≤ R_series`.
+//!
+//! **Proof of (3)**:
+//! - `R_series = Σ R_i ≥ R_j` for any `j` (all terms positive). ✓
+//! - `1/R_parallel = Σ (1/R_i) ≥ 1/R_j` for any `j`, so `R_parallel ≤ R_j`. ✓
+//!
+//! These inequalities are strict when `n > 1` and all `R_i` are finite and positive. ∎
+
 
 use nalgebra::RealField;
 use std::collections::HashMap;

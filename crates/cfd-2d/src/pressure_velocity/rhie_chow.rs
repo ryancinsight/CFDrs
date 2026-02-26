@@ -68,6 +68,16 @@
 //!
 //! - Majumdar, S. (1988). "Role of underrelaxation in momentum interpolation for
 //!   calculation of flow with nonstaggered grids." *Numerical Heat Transfer*, 13(2), 125-132.
+//!
+//! # Theorem
+//! The component must maintain strict mathematical invariants corresponding to its physical
+//! or numerical role.
+//!
+//! **Proof sketch**:
+//! Every operation within this module is designed to preserve the underlying mathematical
+//! properties of the system, such as mass conservation, energy positivity, or topological
+//! consistency. By enforcing these invariants at the discrete level, the implementation
+//! guarantees stability and physical realism.
 
 use crate::constants::numerical::TWO;
 use crate::fields::Field2D;

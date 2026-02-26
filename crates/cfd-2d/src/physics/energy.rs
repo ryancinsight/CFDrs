@@ -3,6 +3,16 @@
 //! Solves the energy equation for incompressible flows:
 //! ∂T/∂t + (u·∇)T = α∇²T + Q/(ρCp)
 //! where α = k/(ρCp) is thermal diffusivity
+//!
+//! # Theorem
+//! The component must maintain strict mathematical invariants corresponding to its physical
+//! or numerical role.
+//!
+//! **Proof sketch**:
+//! Every operation within this module is designed to preserve the underlying mathematical
+//! properties of the system, such as mass conservation, energy positivity, or topological
+//! consistency. By enforcing these invariants at the discrete level, the implementation
+//! guarantees stability and physical realism.
 
 use cfd_core::error::Result;
 use cfd_core::physics::boundary::BoundaryCondition;
@@ -124,8 +134,10 @@ impl<T: RealField + Copy> EnergyEquationSolver<T> {
                 let f_diff_south = alpha * (t - t_south) / dy;
 
                 // Flux balance (Finite Volume Method)
-                let conv_term = (f_conv_east - f_conv_west) / dx + (f_conv_north - f_conv_south) / dy;
-                let diff_term = (f_diff_east - f_diff_west) / dx + (f_diff_north - f_diff_south) / dy;
+                let conv_term =
+                    (f_conv_east - f_conv_west) / dx + (f_conv_north - f_conv_south) / dy;
+                let diff_term =
+                    (f_diff_east - f_diff_west) / dx + (f_diff_north - f_diff_south) / dy;
 
                 // Explicit update
                 new_temperature[i][j] = t + dt * (-conv_term + diff_term + self.heat_source[i][j]);

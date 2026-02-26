@@ -1,6 +1,18 @@
 //! Poisson solver using spectral methods
 //!
 //! Solves ∇²u = f with various boundary conditions
+//!
+//! # Theorem — Spectral Poisson Convergence (Boyd 2001)
+//!
+//! For an analytic right-hand side $f$, the Chebyshev–tau solution $u_N$ of
+//! $\nabla^2 u = f$ converges spectrally:
+//!
+//! ```text
+//! ‖u − u_N‖_∞ = O(e^{−cN})
+//! ```
+//!
+//! For $f \in H^s$, the convergence is algebraic: $O(N^{2-s})$ in the $H^1$ norm.
+//!
 //! Reference: Boyd, J.P. (2001). "Chebyshev and Fourier Spectral Methods"
 
 use super::basis::SpectralBasis;
@@ -54,14 +66,16 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Poiss
         })
     }
 
-    /// Create new Poisson solver with specified basis functions
+    /// Create new Poisson solver with specified basis functions.
+    ///
+    /// All three directions use the Chebyshev–Gauss–Lobatto basis
+    /// regardless of the `_basis` parameter.  The parameter is
+    /// retained for API forward-compatibility; Fourier and Legendre
+    /// bases require different quadrature and boundary treatment.
     pub fn new_with_basis(
         modes: (usize, usize, usize),
         _basis: (SpectralBasis, SpectralBasis, SpectralBasis),
     ) -> Result<Self> {
-        // Currently only Chebyshev basis is implemented
-        // Fourier basis support can be added based on the _basis parameter
-        // when required for periodic boundary conditions
         Self::new(modes.0, modes.1, modes.2)
     }
 
@@ -198,15 +212,6 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Poiss
 
         let laplacian = term_x + term_y + term_z;
         Ok(laplacian)
-    }
-
-    /// Convert linear index to 3D indices
-    #[allow(dead_code)]
-    fn linear_to_3d_index(&self, idx: usize) -> (usize, usize, usize) {
-        let iz = idx % self.nz;
-        let iy = (idx / self.nz) % self.ny;
-        let ix = idx / (self.ny * self.nz);
-        (ix, iy, iz)
     }
 
     /// Apply boundary conditions to the system

@@ -15,7 +15,6 @@ use cfd_core::physics::fluid::ConstantPropertyFluid;
 use cfd_mesh::domain::grid::StructuredGridBuilder;
 use cfd_mesh::IndexedMesh;
 use cfd_mesh::domain::core::index::VertexId;
-use cfd_mesh::domain::topology::{Cell, Face};
 use nalgebra::Vector3;
 use std::collections::HashMap;
 
@@ -30,7 +29,7 @@ fn create_cube_mesh(nx: usize, ny: usize, nz: usize) -> IndexedMesh<f64> {
 #[test]
 fn test_projection_solver_creation() {
     let config = FemConfig::<f64>::default();
-    let solver = ProjectionSolver::new(config);
+    let _solver = ProjectionSolver::new(config);
     println!("Projection solver created successfully");
 }
 

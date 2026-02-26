@@ -123,8 +123,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> TwoWayBran
                     b_n = b_next;
                     c_n = c_next;
                     
-                    sum = sum + power * c_n * c_n;
-                    power = power * two;
+                    sum += power * c_n * c_n;
+                    power *= two;
                     
                     if c_n < tolerance || c_n == T::from_f64_or_one(0.0) {
                         break;
@@ -179,9 +179,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> TwoWayBran
         let d1_cubed = d1.powf(three);
         let d2_cubed = d2.powf(three);
 
-        let deviation =
-            (d0_cubed - (d1_cubed + d2_cubed)).abs() / d0_cubed.max(T::from_f64_or_one(1e-10));
-        deviation
+        
+        (d0_cubed - (d1_cubed + d2_cubed)).abs() / d0_cubed.max(T::from_f64_or_one(1e-10))
     }
 
     /// Calculate shear rate in a channel for given volumetric flow rate
@@ -209,7 +208,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> TwoWayBran
         (thirty_two * q) / (pi * d * d * d)
     }
 
-    /// Calculate apparent viscosity in a channel for given flow rate
+    /// Calculate apparent viscosity in a channel for given flow rate.
     ///
     /// For non-Newtonian fluids, viscosity depends on wall shear rate via
     /// the constitutive model (Casson, Carreau-Yasuda, etc.):
@@ -219,9 +218,10 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> TwoWayBran
     /// μ_app  = f(γ̇_wall)      [constitutive relation]
     /// ```
     ///
-    /// The `viscosity_at_shear` method on `Fluid<T>` dispatches to the
-    /// correct rheological model. For Newtonian fluids this returns
-    /// constant viscosity regardless of shear rate.
+    /// `temperature` and `pressure` are forwarded to the fluid trait so that
+    /// temperature-dependent viscosity models (e.g. Arrhenius) are evaluated
+    /// at the correct thermodynamic state. Pass `cfd_core::physics::constants::
+    /// physics::thermo::T_STANDARD` and `P_ATM` for standard conditions.
     ///
     /// # References
     ///
@@ -232,24 +232,21 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> TwoWayBran
         fluid: &F,
         q: T,
         channel: &Channel<T>,
+        temperature: T,
+        pressure: T,
     ) -> T {
         let gamma = Self::shear_rate(q, channel);
-        // Use shear-rate-dependent viscosity through the Fluid trait.
-        // `viscosity_at_shear(shear_rate, temperature, pressure)` properly
-        // dispatches to Casson/Carreau-Yasuda/Power-Law/etc. for non-Newtonian
-        // fluids, and returns constant μ for Newtonian fluids.
-        let temperature = T::from_f64_or_one(310.15); // 37°C body temperature
-        let pressure = T::from_f64_or_one(101325.0);  // 1 atm
-        fluid.viscosity_at_shear(gamma, temperature, pressure)
+        // Dispatch to the correct rheological model via the Fluid trait.
+        fluid
+            .viscosity_at_shear(gamma, temperature, pressure)
             .unwrap_or_else(|_| {
-                // Fallback: use reference viscosity if shear-based method fails
-                fluid.properties_at(temperature, pressure)
-                    .map(|state| state.dynamic_viscosity)
-                    .unwrap_or_else(|_| T::from_f64_or_one(0.0035)) // blood ~3.5 mPa·s
+                // Fallback: reference viscosity from the fluid properties
+                fluid
+                    .properties_at(temperature, pressure).map_or_else(|_| T::from_f64_or_one(0.0035), |state| state.dynamic_viscosity) // 3.5 mPa·s (blood default)
             })
     }
 
-    /// Calculate pressure drop across a channel using Hagen-Poiseuille equation
+    /// Calculate pressure drop across a channel using Hagen-Poiseuille equation.
     ///
     /// # Mathematical Derivation
     ///
@@ -260,29 +257,29 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> TwoWayBran
     /// ```
     ///
     /// where:
-    /// - μ = dynamic viscosity (can be shear-rate dependent)
+    /// - μ = dynamic viscosity at (`temperature`, `pressure`) and local shear rate
     /// - Q = volumetric flow rate
     /// - L = pipe length
-    /// - D = pipe diameter
+    /// - D = hydraulic diameter
     ///
-    /// This is exact for Newtonian fluids. For non-Newtonian fluids, it's an
+    /// This is exact for Newtonian fluids. For non-Newtonian fluids, it is an
     /// approximation using the apparent viscosity at the wall shear rate.
     ///
     /// # Validation
     ///
-    /// This formula is validated for:
     /// - Circular pipes with Re < 2300 (laminar)
-    /// - Poiseuille profile assumed
-    /// - Blood modeled with Casson or Carreau-Yasuda
+    /// - Blood modelled with Casson or Carreau-Yasuda models
     pub fn pressure_drop<F: FluidTrait<T>>(
         fluid: &F,
         q: T,
         channel: &Channel<T>,
+        temperature: T,
+        pressure: T,
     ) -> T {
         let one_two_eight = T::from_f64_or_one(128.0);
         let pi = T::from_f64_or_one(std::f64::consts::PI);
 
-        let mu = Self::apparent_viscosity(fluid, q, channel);
+        let mu = Self::apparent_viscosity(fluid, q, channel, temperature, pressure);
         let d = Self::hydraulic_diameter(channel);
         let l = channel.geometry.length;
 
@@ -290,7 +287,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> TwoWayBran
         (one_two_eight * mu * q * l) / (pi * d * d * d * d)
     }
 
-    /// Solve a two-way branch with given parent pressure and flow rate
+    /// Solve a two-way branch with given parent pressure, flow rate and thermodynamic state.
     ///
     /// # Problem Formulation
     ///
@@ -313,17 +310,18 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> TwoWayBran
     /// 6. Verify: P_0 - ΔP_1 ≈ P_0 - ΔP_2 (pressure continuity at junction)
     ///
     /// # Arguments
-    /// * `fluid` - Fluid with properties and viscosity model
-    /// * `q_parent` - Parent flow rate [m³/s]
-    /// * `p_parent` - Parent pressure [Pa]
-    ///
-    /// # Returns
-    /// Tuple of (Q_1, Q_2, P_1, P_2, junction_pressure_error)
+    /// * `fluid`       - Fluid with properties and viscosity model
+    /// * `q_parent`    - Parent flow rate [m³/s]
+    /// * `p_parent`    - Parent pressure [Pa]
+    /// * `temperature` - Fluid temperature [K] (used for viscosity evaluation)
+    /// * `pressure`    - Thermodynamic pressure [Pa] (used for viscosity evaluation)
     pub fn solve<F: FluidTrait<T> + Copy>(
         &self,
         fluid: F,
         q_parent: T,
         p_parent: T,
+        temperature: T,
+        pressure: T,
     ) -> Result<TwoWayBranchSolution<T>, Error> {
         // Mass conservation: Q_0 = Q_1 + Q_2
         let one = T::one();
@@ -341,13 +339,13 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> TwoWayBran
         }
 
         // Pressure drops in parent and daughter branches
-        let dp_parent = Self::pressure_drop(&fluid, q_parent, &self.parent);
-        let dp_1 = Self::pressure_drop(&fluid, q_1, &self.daughter1);
-        let dp_2 = Self::pressure_drop(&fluid, q_2, &self.daughter2);
+        let dp_parent = Self::pressure_drop(&fluid, q_parent, &self.parent, temperature, pressure);
+        let dp_1 = Self::pressure_drop(&fluid, q_1, &self.daughter1, temperature, pressure);
+        let dp_2 = Self::pressure_drop(&fluid, q_2, &self.daughter2, temperature, pressure);
 
         // Junction pressure (after parent pressure drop)
         let p_junction = p_parent - dp_parent;
-        
+
         // Daughter pressures (after daughter pressure drops from junction)
         let p_1 = p_junction - dp_1;
         let p_2 = p_junction - dp_2;
@@ -362,8 +360,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> TwoWayBran
         let gamma_2 = Self::shear_rate(q_2, &self.daughter2);
 
         // Apparent viscosities
-        let mu_1 = Self::apparent_viscosity(&fluid, q_1, &self.daughter1);
-        let mu_2 = Self::apparent_viscosity(&fluid, q_2, &self.daughter2);
+        let mu_1 = Self::apparent_viscosity(&fluid, q_1, &self.daughter1, temperature, pressure);
+        let mu_2 = Self::apparent_viscosity(&fluid, q_2, &self.daughter2, temperature, pressure);
 
         Ok(TwoWayBranchSolution {
             q_parent,
@@ -464,11 +462,10 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> fmt::Displ
 
         write!(
             f,
-            "TwoWayBranchSolution {{\n  Parent: Q={:.2e} m³/s, P={} Pa\n  \
-             Daughter1: Q={:.2e} m³/s, P={} Pa\n  \
-             Daughter2: Q={:.2e} m³/s, P={} Pa\n  \
-             Junction P error: {:.2e}, Mass error: {:.2e}\n}}",
-            q_parent_f, p_parent_f, q_1_f, p_1_f, q_2_f, p_2_f, junction_error_f, mass_error_f
+            "TwoWayBranchSolution {{\n  Parent: Q={q_parent_f:.2e} m³/s, P={p_parent_f} Pa\n  \
+             Daughter1: Q={q_1_f:.2e} m³/s, P={p_1_f} Pa\n  \
+             Daughter2: Q={q_2_f:.2e} m³/s, P={p_2_f} Pa\n  \
+             Junction P error: {junction_error_f:.2e}, Mass error: {mass_error_f:.2e}\n}}"
         )
     }
 }
@@ -534,12 +531,14 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> ThreeWayBr
         (d0_cubed - daughters_sum).abs() / d0_cubed.max(T::from_f64_or_one(1e-10))
     }
 
-    /// Solve a three-way branch with given parent pressure and flow rate
+    /// Solve a three-way branch with given parent pressure, flow rate, and thermodynamic state.
     pub fn solve<F: FluidTrait<T> + NonNewtonianFluid<T> + Copy>(
         &self,
         fluid: F,
         q_parent: T,
         p_parent: T,
+        temperature: T,
+        pressure: T,
     ) -> Result<ThreeWayBranchSolution<T>, Error> {
         // Distribute flows
         let q_1 = self.flow_split_ratios.0 * q_parent;
@@ -558,9 +557,9 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> ThreeWayBr
         }
 
         // Pressure drops
-        let dp_1 = TwoWayBranchJunction::pressure_drop(&fluid, q_1, &self.daughter1);
-        let dp_2 = TwoWayBranchJunction::pressure_drop(&fluid, q_2, &self.daughter2);
-        let dp_3 = TwoWayBranchJunction::pressure_drop(&fluid, q_3, &self.daughter3);
+        let dp_1 = TwoWayBranchJunction::pressure_drop(&fluid, q_1, &self.daughter1, temperature, pressure);
+        let dp_2 = TwoWayBranchJunction::pressure_drop(&fluid, q_2, &self.daughter2, temperature, pressure);
+        let dp_3 = TwoWayBranchJunction::pressure_drop(&fluid, q_3, &self.daughter3, temperature, pressure);
 
         // Daughter pressures
         let p_1 = p_parent - dp_1;
@@ -579,9 +578,9 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> ThreeWayBr
         let gamma_3 = TwoWayBranchJunction::shear_rate(q_3, &self.daughter3);
 
         // Apparent viscosities
-        let mu_1 = TwoWayBranchJunction::apparent_viscosity(&fluid, q_1, &self.daughter1);
-        let mu_2 = TwoWayBranchJunction::apparent_viscosity(&fluid, q_2, &self.daughter2);
-        let mu_3 = TwoWayBranchJunction::apparent_viscosity(&fluid, q_3, &self.daughter3);
+        let mu_1 = TwoWayBranchJunction::apparent_viscosity(&fluid, q_1, &self.daughter1, temperature, pressure);
+        let mu_2 = TwoWayBranchJunction::apparent_viscosity(&fluid, q_2, &self.daughter2, temperature, pressure);
+        let mu_3 = TwoWayBranchJunction::apparent_viscosity(&fluid, q_3, &self.daughter3, temperature, pressure);
 
         Ok(ThreeWayBranchSolution {
             q_parent,
@@ -692,9 +691,11 @@ mod tests {
         let q_parent = 1.0e-6; // 1 μL/s
         let p_parent = 1000.0; // 1000 Pa
 
-        let solution = two_way_branch.solve(blood, q_parent, p_parent).unwrap();
+        // Use standard blood temperature (37°C = 310.15 K) and atmospheric pressure
+        let t_blood = 310.15_f64;
+        let p_atm = 101325.0_f64;
+        let solution = two_way_branch.solve(blood, q_parent, p_parent, t_blood, p_atm).unwrap();
 
-        // Verify mass conservation (blood has slight variations due to non-Newtonian effects)
         assert_relative_eq!(
             solution.q_1 + solution.q_2,
             q_parent,
@@ -720,7 +721,9 @@ mod tests {
         let q_parent = 1.0e-8; // 10 nL/s
         let p_parent = 100.0; // 100 Pa
 
-        let solution = two_way_branch.solve(blood, q_parent, p_parent).unwrap();
+        let t_blood = 310.15_f64;
+        let p_atm = 101325.0_f64;
+        let solution = two_way_branch.solve(blood, q_parent, p_parent, t_blood, p_atm).unwrap();
 
         // Blood should have non-Newtonian viscosity effects
         assert!(solution.mu_1 > 0.0);
@@ -763,7 +766,9 @@ mod tests {
 
         let branch = ThreeWayBranchJunction::new(parent, d1, d2, d3, (0.4, 0.35, 0.25));
         let blood = CassonBlood::<f64>::normal_blood();
-        let solution = branch.solve(blood, 9.0e-9, 120.0).unwrap();
+        let t_blood = 310.15_f64;
+        let p_atm = 101325.0_f64;
+        let solution = branch.solve(blood, 9.0e-9, 120.0, t_blood, p_atm).unwrap();
 
         assert_relative_eq!(solution.q_1 + solution.q_2 + solution.q_3, solution.q_parent, epsilon = 1e-10);
         assert!(solution.p_1 <= solution.p_parent);
@@ -785,5 +790,85 @@ mod tests {
         let deviation = branch.murray_law_deviation();
 
         assert!(deviation < 1e-12);
+    }
+
+    #[test]
+    fn test_two_way_symmetric_pressure_continuity() {
+        // Symmetric branch
+        let parent_geom = ChannelGeometry::<f64>::circular(1.0e-2, 2.0e-3, 1e-6);
+        let parent = Channel::new(parent_geom);
+        
+        let d1_geom = ChannelGeometry::<f64>::circular(1.0e-2, 1.5e-3, 1e-6);
+        let d1 = Channel::new(d1_geom.clone());
+        let d2 = Channel::new(d1_geom);
+
+        let branch = TwoWayBranchJunction::new(parent, d1, d2, 0.5);
+        let blood = CassonBlood::<f64>::normal_blood();
+        let t_blood = 310.15_f64;
+        let p_atm = 101325.0_f64;
+        let solution = branch.solve(blood, 1.0e-6, 1000.0, t_blood, p_atm).unwrap();
+
+        // Symmetric branching with 0.5 split should have identical pressure drops
+        // and zero junction pressure error.
+        assert_relative_eq!(solution.dp_1, solution.dp_2, epsilon = 1e-10);
+        assert_relative_eq!(solution.p_1, solution.p_2, epsilon = 1e-10);
+        assert!(solution.junction_pressure_error < 1e-12);
+    }
+
+    #[test]
+    fn test_two_way_murray_optimal_flow_split() {
+        let parent_geom = ChannelGeometry::<f64>::circular(1.0e-2, 2.0e-3, 1e-6);
+        let parent = Channel::new(parent_geom);
+        
+        // Murray's law: r_0^3 = r_1^3 + r_2^3. For optimal flow split where P1=P2,
+        // flow split Q1/Q0 should equal r1^3 / (r1^3 + r2^3).
+        let r1 = 1.6e-3;
+        let r2 = 1.2e-3;
+        let d1 = Channel::new(ChannelGeometry::<f64>::circular(1.0e-2, r1, 1e-6));
+        let d2 = Channel::new(ChannelGeometry::<f64>::circular(1.0e-2, r2, 1e-6));
+
+        let optimal_split = r1.powi(3) / (r1.powi(3) + r2.powi(3));
+        
+        let branch = TwoWayBranchJunction::new(parent, d1, d2, optimal_split);
+        let blood = CassonBlood::<f64>::normal_blood();
+        let t_blood = 310.15_f64;
+        let p_atm = 101325.0_f64;
+        let solution = branch.solve(blood, 1.0e-6, 1000.0, t_blood, p_atm).unwrap();
+
+        // The pressure continuity error should be minimal at the optimal split
+        // Note: For Casson blood (non-Newtonian), the exact analytical optimum shifts slightly,
+        // but it should still be very close.
+        assert!(solution.junction_pressure_error < 0.15, "Error: {}", solution.junction_pressure_error);
+    }
+
+    #[test]
+    fn test_three_way_flow_split_sums_to_one() {
+        let parent_geom = ChannelGeometry::<f64>::circular(1.0e-2, 2.0e-3, 1e-6);
+        let parent = Channel::new(parent_geom);
+
+        let d1 = Channel::new(ChannelGeometry::<f64>::circular(1.0e-2, 1.0e-3, 1e-6));
+        let d2 = Channel::new(ChannelGeometry::<f64>::circular(1.0e-2, 1.0e-3, 1e-6));
+        let d3 = Channel::new(ChannelGeometry::<f64>::circular(1.0e-2, 1.0e-3, 1e-6));
+
+        // Test multiple valid split combinations
+        let splits = [(0.2, 0.3, 0.5), (0.1, 0.1, 0.8), (0.3333, 0.3333, 0.3334)];
+        let blood = CassonBlood::<f64>::normal_blood();
+        let q_parent = 1.0e-6;
+
+        for (s1, s2, s3) in splits {
+            let branch = ThreeWayBranchJunction::new(parent.clone(), d1.clone(), d2.clone(), d3.clone(), (s1, s2, s3));
+            let t_blood = 310.15_f64;
+            let p_atm = 101325.0_f64;
+            let solution = branch.solve(blood, q_parent, 1000.0, t_blood, p_atm).unwrap();
+
+            
+            // Should perfectly conserve mass
+            let q_sum = solution.q_1 + solution.q_2 + solution.q_3;
+            assert_relative_eq!(q_sum, q_parent, epsilon = 1e-10);
+            // mass_conservation_error should be at machine precision; junction
+            // pressure continuity depends on how close the prescribed split is
+            // to the resistance-weighted optimum, so only check mass here.
+            assert!(solution.mass_conservation_error < 1e-10);
+        }
     }
 }

@@ -1,4 +1,19 @@
 //! Lagrangian point representation for IBM
+//!
+//! # Theorem — Peskin Regularised Delta Properties (Peskin 2002)
+//!
+//! The discrete delta function $\delta_h$ used for Eulerian–Lagrangian
+//! interpolation must satisfy:
+//!
+//! 1. **Partition of unity:** $\sum_j \delta_h(x - x_j) h = 1$
+//! 2. **First moment:** $\sum_j x_j \, \delta_h(x - x_j) h = x$
+//! 3. **Compact support:** $\delta_h(r) = 0$ for $|r| \geq r_{\text{cut}}$
+//!
+//! These properties ensure that interpolation and spreading operations
+//! conserve zeroth and first moments (force and torque).
+//!
+//! **Reference:** Peskin, C.S., "The immersed boundary method",
+//! Acta Numerica 11, 2002, pp. 479–517.
 
 use nalgebra::{RealField, Vector3};
 use serde::{Deserialize, Serialize};

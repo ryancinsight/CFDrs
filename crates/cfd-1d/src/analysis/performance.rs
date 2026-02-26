@@ -1,4 +1,27 @@
 //! Performance metrics module for network systems.
+//!
+//! ## Theorem: Network Power Dissipation
+//!
+//! **Theorem**: The total viscous power dissipated in a resistive network is:
+//!
+//! ```text
+//! W_total = Σ_{e ∈ E} Q_e · ΔP_e = Σ_{e ∈ E} R_e · Q_e²   [W]
+//! ```
+//!
+//! This follows directly from Ohm's analogy for hydraulic networks (ΔP_e = R_e · Q_e)
+//! and applies to **linear** (Hagen-Poiseuille) resistances. For nonlinear components
+//! with `ΔP = R_lin · Q + k · Q²`, the dissipated power is `Q · (R_lin Q + k Q²)`.
+//!
+//! **Hydraulic efficiency** is the fraction of driven power that produces useful
+//! volumetric throughput:
+//!
+//! ```text
+//! η_hyd = Q_useful · ΔP_useful / W_pump   [dimensionless, ∈ (0, 1)]
+//! ```
+//!
+//! For an ideal network without junction losses, `η_hyd → 1` as all power goes
+//! into moving fluid through the channel resistances.
+
 
 use nalgebra::RealField;
 use std::collections::HashMap;

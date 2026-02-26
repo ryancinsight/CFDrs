@@ -9,6 +9,30 @@
 //! where $\mathbf{A}$ is the conductance matrix, $\mathbf{x}$ is the pressure vector, and $\mathbf{b}$
 //! contains source terms and boundary condition contributions.
 //!
+//! ## Theorem: Kirchhoff's Current Law (KCL)
+//!
+//! **Theorem**: At every internal (non-boundary) node $i$, the sum of all incoming
+//! and outgoing mass flows must equal any external source $Q_{ext,i}$:
+//!
+//! $$ \sum_{j \in \mathcal{N}(i)} G_{ij} (P_i - P_j) = Q_{ext,i} $$
+//!
+//! where $P_i$ is the pressure at node $i$, $G_{ij}$ is the hydraulic conductance
+//! of the edge connecting $i$ and $j$, and $\mathcal{N}(i)$ is the set of neighbors of $i$.
+//!
+//! ## Theorem: Network Laplacian
+//!
+//! **Theorem**: For a network with exclusively internal nodes, the assembled matrix $\mathbf{A}$
+//! is the weighted Graph Laplacian $\mathbf{L} = \mathbf{D} - \mathbf{W}$, where $\mathbf{W}$
+//! is the adjacency matrix of conductances $W_{ij} = G_{ij}$, and $\mathbf{D}$ is the diagonal
+//! degree matrix $D_{ii} = \sum_{j} G_{ij}$.
+//!
+//! **Properties**:
+//! 1. $\mathbf{A}$ is symmetric positive semi-definite (SPSD).
+//! 2. The row sums of $\mathbf{A}$ are exactly zero: $\mathbf{A}\mathbf{1} = \mathbf{0}$.
+//! 3. The null space is spanned by the constant vector $\mathbf{1}$, implying pressures
+//!    are only unique up to an additive constant unless at least one Dirichlet boundary
+//!    condition is specified.
+//!
 //! ## Dirichlet Boundary Conditions
 //!
 //! Exact Dirichlet enforcement is achieved via **Row Replacement with Column Elimination**.

@@ -2,6 +2,39 @@
 //!
 //! Solves the incompressible Navier-Stokes equations on 3D Venturi domains
 //! using Finite Element Method with support for non-Newtonian blood rheology.
+//!
+//! # Theorem — Bernoulli’s Equation (Inviscid Steady Flow)
+//!
+//! Along a streamline of steady, inviscid, incompressible flow:
+//!
+//! ```text
+//! p + ½ ρ u² = const
+//! ```
+//!
+//! From continuity ($A_1 u_1 = A_2 u_2$), the pressure drop in the Venturi
+//! converging section is $\Delta p = \frac{1}{2} \rho (u_2^2 - u_1^2)$.
+//!
+//! # Theorem — ISO 5167 Discharge Coefficient
+//!
+//! The volumetric flow rate through a Venturi tube is
+//!
+//! ```text
+//! Q = C_d · A_throat · √(2 Δp / ρ)
+//! ```
+//!
+//! where $C_d = 0.995$ for a classical (machined convergent) Venturi per
+//! ISO 5167-4:2003, valid for $2 \times 10^5 \leq Re_D \leq 2 \times 10^6$
+//! and $0.4 \leq \beta \leq 0.75$ ($\beta = D_{throat}/D_{inlet}$).
+//!
+//! # Theorem — Pressure Recovery Coefficient
+//!
+//! The pressure recovery downstream of the throat is characterised by
+//!
+//! ```text
+//! C_p = (p_d − p_t) / (½ ρ u_t²)
+//! ```
+//!
+//! For a well-designed diffuser with 5–7° half-angle, $C_p \approx 0.8–0.9$.
 
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::{Error, Result};
@@ -70,6 +103,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
     }
 
     /// Solve Venturi flow with given fluid (Newtonian or blood)
+    #[allow(clippy::too_many_lines)]
     pub fn solve<F: FluidTrait<T> + Clone>(
         &self,
         fluid: F,
@@ -78,9 +112,10 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
         use std::collections::HashMap;
         use cfd_core::physics::boundary::BoundaryCondition;
 
-        // 1. Generate mapped Venturi volume mesh
-        // HACK: VenturiMeshBuilder currently generates surface meshes only.
-        // We temporarily inject a volume generator by mapping a StructuredGrid internally.
+        // Generate the volume mesh via iso-parametric mapping of a structured
+        // reference cube onto the Venturi geometry.  A unit-cube grid is mapped
+        // so that the axial coordinate spans the full Venturi length while the
+        // cross-section follows the local diameter profile (circular or square).
         let mut base_mesh = cfd_mesh::domain::grid::StructuredGridBuilder::new(
             self.config.resolution.1,
             self.config.resolution.1,
@@ -153,7 +188,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
             use std::collections::{HashMap, HashSet};
 
             let mut face_cell_count: HashMap<usize, usize> = HashMap::new();
-            for cell in mesh.cells.iter() {
+            for cell in &mesh.cells {
                 for &face_idx in &cell.faces {
                     *face_cell_count.entry(face_idx).or_insert(0) += 1;
                 }
@@ -186,7 +221,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
             for &f_idx_usize in &marked_boundary_faces {
                 let f_idx = FaceId::from_usize(f_idx_usize);
                 let label = mesh.boundary_label(f_idx);
-                match label.as_deref() {
+                match label {
                     Some("inlet") => {
                         inlet_faces += 1;
                         let face = mesh.faces.get(f_idx);
@@ -254,9 +289,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
             let labeled_not_connectivity = labeled_nodes.difference(&connectivity_nodes).count();
             let connectivity_not_labeled = connectivity_nodes.difference(&labeled_nodes).count();
             println!(
-                "Venturi Boundary Debug: labeled_not_connectivity={}, connectivity_not_labeled={}",
-                labeled_not_connectivity,
-                connectivity_not_labeled
+                "Venturi Boundary Debug: labeled_not_connectivity={labeled_not_connectivity}, connectivity_not_labeled={connectivity_not_labeled}"
             );
         }
 
@@ -279,7 +312,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
         let mut boundary_vertices = std::collections::HashSet::new();
 
         let mut face_cell_count: HashMap<usize, usize> = HashMap::new();
-        for cell in mesh.cells.iter() {
+        for cell in &mesh.cells {
             for &f_idx in &cell.faces {
                 *face_cell_count.entry(f_idx).or_insert(0) += 1;
             }
@@ -354,7 +387,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
             .collect();
 
         // Pass 1: Apply inlet velocity to non-rim inlet nodes and no-slip to inlet-wall rim nodes.
-        for &v_idx in inlet_nodes.iter() {
+        for &v_idx in &inlet_nodes {
             if inlet_wall_rim_nodes.contains(&v_idx) {
                 boundary_conditions.insert(
                     v_idx,
@@ -377,7 +410,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
         // Applying pressure Dirichlet on many outlet pressure DOFs over-constrains the
         // mixed system and removes too many continuity equations.
         let mut outlet_corner_nodes = std::collections::HashSet::new();
-        for &v_idx in outlet_nodes.iter() {
+        for &v_idx in &outlet_nodes {
             if v_idx < tet_mesh.vertex_count() {
                 outlet_corner_nodes.insert(v_idx);
             }
@@ -405,7 +438,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
 
         // Mark remaining outlet nodes as explicit natural outflow BCs so they are
         // not treated as unconstrained boundary leaks by generic diagnostics.
-        for &v_idx in outlet_nodes.iter() {
+        for &v_idx in &outlet_nodes {
             if boundary_conditions.contains_key(&v_idx) {
                 continue;
             }
@@ -413,7 +446,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
         }
 
         // Pass 3: Assign wall (no-slip) BCs to wall nodes EXCEPT those on the inlet or outlet.
-        for &v_idx in wall_nodes.iter() {
+        for &v_idx in &wall_nodes {
             if inlet_nodes.contains(&v_idx) || outlet_nodes.contains(&v_idx) {
                 continue;
             }
@@ -483,7 +516,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
         println!(
             "Venturi Outlet Corner BC: corner_nodes={}, pressure_ref_applied={}",
             outlet_corner_nodes.len(),
-            if outlet_corner_nodes.is_empty() { 0 } else { 1 }
+            i32::from(!outlet_corner_nodes.is_empty())
         );
         println!(
             "Venturi Inlet/Wall Compatibility: inlet_nodes={}, wall_nodes={}, rim_nodes={}",
@@ -491,7 +524,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
             wall_nodes.len(),
             inlet_wall_rim_nodes.len()
         );
-        println!("Venturi BC Coverage Repair: repaired_nodes={}", repaired_nodes);
+        println!("Venturi BC Coverage Repair: repaired_nodes={repaired_nodes}");
 
         // 3. Set up FEM Problem with initial viscosity
         let constant_basis = cfd_core::physics::fluid::ConstantPropertyFluid::<f64> {
@@ -508,8 +541,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
         let mut element_viscosities = vec![fluid_props.dynamic_viscosity.to_f64().unwrap_or(0.0); n_elements];
         
         // 4. Picard Iteration Loop
-        let mut fem_config = FemConfig::<f64>::default();
-        fem_config.grad_div_penalty = 0.0_f64;
+        let fem_config = FemConfig::<f64>::default();
         let mut solver = FemSolver::new(fem_config);
         let mut last_solution = None;
 
@@ -542,8 +574,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
             let mut max_change_f64 = 0.0_f64;
             let mut new_viscosities = Vec::with_capacity(n_elements);
             
-            let mut shear_min_f64 = std::f64::MAX;
-            let mut shear_max_f64 = std::f64::MIN;
+            let mut shear_min_f64 = f64::MAX;
+            let mut shear_max_f64 = f64::MIN;
             let mut shear_sum_f64 = 0.0_f64;
 
             for (i, cell) in problem.mesh.cells.iter().enumerate() {
@@ -575,7 +607,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
             }
             if n_elements > 0 {
                 let shear_avg = shear_sum_f64 / (n_elements as f64);
-                println!("Shear Rate Stats: Min={:?}, Max={:?}, Avg={:?}", shear_min_f64, shear_max_f64, shear_avg);
+                println!("Shear Rate Stats: Min={shear_min_f64:?}, Max={shear_max_f64:?}, Avg={shear_avg:?}");
             }
             
             // Track velocity convergence
@@ -583,7 +615,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
             if let Some(ref prev) = last_solution {
                 let diff = &updated_solution.velocity - &prev.velocity;
                 let norm_prev = prev.velocity.norm();
-                if norm_prev > std::f64::MIN_POSITIVE {
+                if norm_prev > f64::MIN_POSITIVE {
                     vel_change_f64 = diff.norm() / norm_prev;
                 }
             } else {
@@ -594,7 +626,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
             last_solution = Some(updated_solution);
             
             // Log non-linear progress
-            println!("Picard Iteration: vel_change={:?}, visc_change={:?}", vel_change_f64, max_change_f64);
+            println!("Picard Iteration: vel_change={vel_change_f64:?}, visc_change={max_change_f64:?}");
 
             let tol_f64 = self.config.nonlinear_tolerance.to_f64().unwrap_or(1e-4);
             if vel_change_f64 < tol_f64 && max_change_f64 < tol_f64 {
@@ -648,12 +680,9 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
         let mut p_in_count = 0usize;
         let mut count_in = 0;
         let mut inlet_nodes = std::collections::HashSet::new();
-        let mut inlet_faces_found = 0;
-
         for f_idx in problem.mesh.boundary_faces() {
             if let Some(label) = problem.mesh.boundary_label(f_idx) {
                 if label == "inlet" {
-                    inlet_faces_found += 1;
                     let face = problem.mesh.faces.get(f_idx);
                     for &v_idx in &face.vertices {
                         inlet_nodes.insert(v_idx.as_usize());
@@ -682,7 +711,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
         }
 
         let u_in_sol_avg = if count_in > 0 { u_in_sol_sum / T::from_usize(count_in).unwrap() } else { T::zero() };
-        println!("Venturi Solution Debug: Average Inlet Velocity = {:?}", u_in_sol_avg);
+        println!("Venturi Solution Debug: Average Inlet Velocity = {u_in_sol_avg:?}");
         
         // Identify throat section nodes and average pressure
         let z_throat_center = self.builder.l_inlet + self.builder.l_convergent + self.builder.l_throat / <T as FromPrimitive>::from_f64(2.0).unwrap();
@@ -829,12 +858,11 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
         println!("Venturi Debug: p_in={:?}, p_throat={:?}, p_out={:?}, u_throat={:?}, count_th={}, p_in_slice_n={}, p_out_slice_n={}, p_in_wsum={:?}, p_out_wsum={:?}", 
             solution.p_inlet, solution.p_throat, solution.p_outlet, solution.u_throat, count_th, p_in_slice_count, p_out_slice_count, p_in_slice_weight_sum, p_out_slice_weight_sum);
         
-        println!("Venturi Mass Flux Debug: u_in_avg={:?}, u_throat_avg={:?}, u_out_avg={:?}", 
-            u_in_sol_avg, u_throat_avg, u_out_avg);
+        println!("Venturi Mass Flux Debug: u_in_avg={u_in_sol_avg:?}, u_throat_avg={u_throat_avg:?}, u_out_avg={u_out_avg:?}");
 
         let q_in_face = self.calculate_boundary_flow(&problem.mesh, &fem_solution, "inlet")?;
         let q_out_face = self.calculate_boundary_flow(&problem.mesh, &fem_solution, "outlet")?;
-        println!("Venturi Mass Flux Debug: q_in_face={:?}, q_out_face={:?}", q_in_face, q_out_face);
+        println!("Venturi Mass Flux Debug: q_in_face={q_in_face:?}, q_out_face={q_out_face:?}");
 
         let total_length = self.builder.l_inlet
             + self.builder.l_convergent
@@ -847,11 +875,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
             let z_plane = total_length.to_f64().unwrap_or(0.0) * frac;
             let (q_plane, faces) = self.calculate_plane_flux(&problem.mesh, &fem_solution, z_plane, plane_tol)?;
             println!(
-                "Venturi Slice Flux: z_frac={:.2}, z={:?}, faces={}, total_q={:?}",
-                frac,
-                z_plane,
-                faces,
-                q_plane
+                "Venturi Slice Flux: z_frac={frac:.2}, z={z_plane:?}, faces={faces}, total_q={q_plane:?}"
             );
         }
 
@@ -973,7 +997,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
     ) -> Result<()> {
         use crate::fem::solver::extract_vertex_indices;
 
-        let mut min_div = std::f64::MAX;
+        let mut min_div = f64::MAX;
         let mut max_div = 0.0_f64;
         let mut sum_div = 0.0_f64;
         let mut count = 0usize;
@@ -981,7 +1005,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
         let mut signed_div_sum = 0.0_f64;
         let mut abs_div_vol_sum = 0.0_f64;
 
-        for cell in mesh.cells.iter() {
+        for cell in &mesh.cells {
             let idxs = extract_vertex_indices(cell, mesh, solution.n_corner_nodes)?;
             if idxs.len() < 4 {
                 continue;
@@ -993,7 +1017,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
             }
 
             let mut div = 0.0_f64;
-            let mut cell_volume = 0.0_f64;
+            let cell_volume: f64;
             if idxs.len() == 10 {
                 let mut tet4 = crate::fem::element::FluidElement::new(idxs[0..4].to_vec());
                 let six_v = tet4.calculate_volume(&local_verts);
@@ -1040,8 +1064,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
                 element.calculate_volume(&local_verts);
                 element.calculate_shape_derivatives(&local_verts);
                 cell_volume = element.volume;
-                for i in 0..4 {
-                    let u = solution.get_velocity(idxs[i]);
+                for (i, &idx) in idxs.iter().enumerate().take(4) {
+                    let u = solution.get_velocity(idx);
                     div += element.shape_derivatives[(0, i)] * u.x
                         + element.shape_derivatives[(1, i)] * u.y
                         + element.shape_derivatives[(2, i)] * u.z;
@@ -1070,14 +1094,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
                 0.0_f64
             };
             println!(
-                "Divergence Stats: min={:?}, max={:?}, avg={:?}, vol_avg={:?}, net={:?} (n={}, vol={:?})",
-                min_div,
-                max_div,
-                avg_div,
-                vol_avg_div,
-                signed_div_sum,
-                count,
-                total_volume
+                "Divergence Stats: min={min_div:?}, max={max_div:?}, avg={avg_div:?}, vol_avg={vol_avg_div:?}, net={signed_div_sum:?} (n={count}, vol={total_volume:?})"
             );
         }
 
@@ -1116,9 +1133,9 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
                         u_avg /= face.vertices.len() as f64;
 
                         let mut n_oriented = face_normal;
-                        if label == "inlet" && n_oriented.z > 0.0_f64 {
-                            n_oriented = -n_oriented;
-                        } else if label == "outlet" && n_oriented.z < 0.0_f64 {
+                        if (label == "inlet" && n_oriented.z > 0.0_f64)
+                            || (label == "outlet" && n_oriented.z < 0.0_f64)
+                        {
                             n_oriented = -n_oriented;
                         }
 
@@ -1134,8 +1151,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
         }
 
         println!(
-            "Venturi Flux: label={}, faces={}, total_q={:?}",
-            label, face_count, total_q
+            "Venturi Flux: label={label}, faces={face_count}, total_q={total_q:?}"
         );
 
         Ok(total_q)
@@ -1229,6 +1245,7 @@ pub struct VenturiSolution3D<T: cfd_mesh::domain::core::Scalar + RealField + Cop
 }
 
 impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy> VenturiSolution3D<T> {
+    /// Create a zero-initialized Venturi solution
     pub fn new() -> Self {
         Self {
             u_inlet: T::zero(),
@@ -1242,5 +1259,11 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy> VenturiSolution3D<T> 
             cp_recovery: T::zero(),
             mass_error: T::zero(),
         }
+    }
+}
+
+impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy> Default for VenturiSolution3D<T> {
+    fn default() -> Self {
+        Self::new()
     }
 }

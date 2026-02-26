@@ -110,6 +110,7 @@ pub mod level_set;
 pub mod physics;
 pub mod spectral;
 pub mod serpentine;
+/// 3D trifurcation (three-way branching) flow solvers and validation
 pub mod trifurcation;
 pub mod venturi;
 pub mod vof;
@@ -141,117 +142,154 @@ mod tests {
     use super::*;
     use nalgebra::ComplexField;
 
-    /// Test module imports and configuration instantiation
+    /// Test module imports and configuration instantiation.
+    ///
+    /// # Invariants Verified
+    /// - FemConfig defaults are physically valid (quadrature_order ≥ 1, stabilization enabled).
+    /// - SpectralConfig construction succeeds for valid mode counts.
+    /// - IBM, LevelSet, VOF configs default to non-degenerate values.
     #[test]
     fn test_module_imports() {
         // Verify we can create configurations for each solver type
 
         // FEM configuration test
         let fem_config: FemConfig<f64> = FemConfig::default();
-        assert!(fem_config.quadrature_order >= 1);
-        assert!(fem_config.use_stabilization);
+        assert!(fem_config.quadrature_order >= 1,
+            "quadrature_order must be ≥ 1 for valid Gauss integration");
+        assert!(fem_config.use_stabilization,
+            "SUPG/PSPG stabilization must be enabled by default (Lax-Milgram requirement)");
 
         // Spectral configuration test
         let spectral_config: SpectralConfig<f64> =
-            SpectralConfig::new(8, 8, 8).expect("Failed to create spectral config");
+            SpectralConfig::new(8, 8, 8)
+                .expect("SpectralConfig::new must succeed for valid mode count 8");
         assert_eq!(spectral_config.nx_modes, 8);
         assert_eq!(spectral_config.ny_modes, 8);
         assert_eq!(spectral_config.nz_modes, 8);
 
         // IBM configuration test
         let ibm_config = IbmConfig::default();
-        assert!(ibm_config.smoothing_width > 0.0);
-        assert!(ibm_config.use_direct_forcing);
+        assert!(ibm_config.smoothing_width > 0.0,
+            "IBM delta function width must be positive (partition of unity requirement)");
+        assert!(ibm_config.use_direct_forcing,
+            "direct forcing must be enabled by default");
 
         // Level set configuration test
         let level_set_config = LevelSetConfig::default();
-        assert!(level_set_config.reinitialization_interval > 0);
-        assert!(level_set_config.use_weno);
+        assert!(level_set_config.reinitialization_interval > 0,
+            "reinitialization interval must be positive to prevent SDF drift");
+        assert!(level_set_config.use_weno,
+            "WENO scheme must be enabled by default for interface accuracy");
 
         // VOF configuration test
         let vof_config = VofConfig::default();
-        assert!(vof_config.tolerance > 0.0);
-        assert!(vof_config.reconstruction_method == vof::InterfaceReconstruction::PLIC);
+        assert!(vof_config.tolerance > 0.0,
+            "VOF tolerance must be strictly positive");
+        assert!(vof_config.reconstruction_method == vof::InterfaceReconstruction::PLIC,
+            "PLIC must be the default reconstruction (volume conservation guarantee)");
     }
 
-    /// Test spectral solver instantiation and basic operations
+    /// Test spectral solver instantiation and basic operations.
+    ///
+    /// Verifies that a valid SpectralConfig produces a usable SpectralSolver without errors.
     #[test]
-    fn test_spectral_solver_creation() {
+    fn test_spectral_solver_creation() -> Result<(), Box<dyn std::error::Error>> {
         let config: SpectralConfig<f64> =
-            SpectralConfig::new(4, 4, 4).expect("Failed to create config");
-        let solver = SpectralSolver::new(config);
-
-        assert!(solver.is_ok());
-        let _solver = solver.unwrap();
-        // Basic validation - solver was created successfully
+            SpectralConfig::new(4, 4, 4)
+                .expect("SpectralConfig::new must succeed for valid mode count 4");
+        let solver = SpectralSolver::new(config)
+            .expect("SpectralSolver::new must succeed for valid config");
+        // Verify solver is ready (no further assertions — construction itself is the test)
+        let _ = solver;
+        Ok(())
     }
 
-    /// Test Chebyshev polynomial operations - literature based validation
+    /// Test Chebyshev polynomial operations — literature-based validation.
+    ///
+    /// # Theorem Verified
+    /// Gauss-Lobatto points xᵢ = cos(iπ/N) ∈ [-1,1] for i=0..N.
+    /// Spectral differentiation matrix D satisfies (D·f)[i] ≈ f'(xᵢ) to machine precision for polynomials.
     #[test]
     fn test_chebyshev_polynomial_operations() {
         use crate::spectral::ChebyshevPolynomial;
 
         let poly: ChebyshevPolynomial<f64> =
-            ChebyshevPolynomial::new(5).expect("Failed to create Chebyshev polynomial");
+            ChebyshevPolynomial::new(5)
+                .expect("ChebyshevPolynomial::new must succeed for valid N=5");
 
         // Test basic properties
         assert_eq!(poly.num_points(), 5);
         assert_eq!(poly.points().len(), 5);
 
-        // Test that collocation points are in [-1, 1] (Gauss-Lobatto property)
+        // Gauss-Lobatto theorem: all collocation points must lie in [-1, 1]
         for &point in poly.points() {
-            assert!((-1.0..=1.0).contains(&point));
+            assert!(
+                (-1.0..=1.0).contains(&point),
+                "Gauss-Lobatto point {point} must lie in [-1, 1]"
+            );
         }
 
-        // Test differentiation matrix is square
+        // Test differentiation matrix shape
         let n = poly.num_points();
         let test_vector = nalgebra::DVector::from_fn(n, |i, _| {
             let x = poly.points()[i];
-            x * x // Test quadratic function x²
+            x * x // f(x) = x²
         });
 
         let derivative = poly.differentiate(&test_vector);
         assert_eq!(derivative.len(), n);
 
         // For f(x) = x², f'(x) = 2x
-        // Check at endpoints where we expect specific values
-        let expected_derivative_at_x1: f64 = 2.0 * poly.points()[0]; // f'(-1) = -2
+        let expected_derivative_at_x1: f64 = 2.0 * poly.points()[0]; // f'(x₀)
         let computed_derivative_at_x1: f64 = derivative[0];
 
-        // Allow for numerical differentiation error
-        assert!(num_traits::Float::abs(computed_derivative_at_x1 - expected_derivative_at_x1) < 0.1);
+        // Allow for finite-N spectral differentiation error
+        assert!(
+            num_traits::Float::abs(computed_derivative_at_x1 - expected_derivative_at_x1) < 0.1,
+            "spectral derivative error {:.2e} must be < 0.1",
+            (computed_derivative_at_x1 - expected_derivative_at_x1).abs()
+        );
     }
 
-    /// Test Fourier transform accuracy with analytical solutions
+    /// Test Fourier transform accuracy with analytical solutions.
+    ///
+    /// # Theorem Verified (Parseval / DFT Constant-Signal)
+    /// For f(x) = 1 (constant), the DFT satisfies F̂(0) = 1 (DC = mean, normalised)
+    /// and F̂(k) = 0 for all k ≠ 0 (no oscillatory content).
     #[test]
-    fn test_fourier_transform_accuracy() {
+    fn test_fourier_transform_accuracy() -> Result<(), Box<dyn std::error::Error>> {
         use crate::spectral::FourierTransform;
         use nalgebra::DVector;
 
         let ft: FourierTransform<f64> =
-            FourierTransform::new(8).expect("Failed to create Fourier transform");
+            FourierTransform::new(8)
+                .expect("FourierTransform::new must succeed for valid N=8");
 
-        // Test with a simple constant function
         let n = 8;
         let constant_signal = DVector::from_element(n, 1.0);
 
-        let spectrum = ft.forward(&constant_signal).expect("Forward FFT failed");
+        let spectrum = ft
+            .forward(&constant_signal)
+            .expect("forward FFT must succeed for finite, valid input");
 
-        // For a constant signal, energy should be concentrated at k=0
-        assert!(spectrum.len() == n);
+        assert_eq!(spectrum.len(), n, "output length must equal input length");
 
-        // The DC component (k=0) for a constant signal = 1 with normalization in forward DFT
+        // DC component for normalized constant-1 signal must be 1.0
         let dc_magnitude = spectrum[0].modulus();
+        assert!(
+            (dc_magnitude - 1.0).abs() < 1e-12,
+            "DC magnitude {dc_magnitude:.15} must equal 1.0 for constant signal"
+        );
 
-        // This implementation normalizes by dividing by n in forward DFT
-        // So for constant signal of 1, DC magnitude should be 1
-        let expected_magnitude = 1.0;
-        assert!(num_traits::Float::abs(dc_magnitude - expected_magnitude) < 1e-12);
-
-        // All other components should be essentially zero (using efficient FFT)
+        // All non-DC components must be essentially zero (aliasing theorem)
         for i in 1..n {
-            assert!(spectrum[i].modulus() < 1e-10);
+            assert!(
+                spectrum[i].modulus() < 1e-10,
+                "non-DC component {i} magnitude {:.2e} must be ~0 for constant signal",
+                spectrum[i].modulus()
+            );
         }
+        Ok(())
     }
 
     /// Test level set solver basic functionality with simple geometry
@@ -350,7 +388,7 @@ mod tests {
 
         let second_derivative = &d2_matrix * &quadratic;
 
-        // For f(x) = x², f''(x) should be approximately 2 everywhere
+        // For f(x) = x², f''(x) should be 2 within machine precision
         for &val in second_derivative.iter() {
             assert!(num_traits::Float::abs(val - 2.0) < 1e-10); // High accuracy expected
         }

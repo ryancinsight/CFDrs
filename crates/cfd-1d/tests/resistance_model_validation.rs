@@ -284,19 +284,20 @@ fn test_rectangular_channel_analytical() -> Result<()> {
 
 /// Test Colebrook-White convergence properties.
 ///
-/// Validates iterative Colebrook-White solver matches explicit Haaland formula
-/// within 2% (Haaland 1983, Table 1)
+/// Validates that the Colebrook-White iterative solver matches the Haaland (1983)
+/// explicit approximation within 2%.
 ///
-/// **Note**: This test is currently ignored because the iterative Colebrook-White
-/// implementation differs from the Haaland approximation by ~15%. This is within
-/// expected range for different solution methods but exceeds the 2% tolerance
-/// specified in Haaland (1983). The implementation appears correct but uses
-/// a different convergence criterion or starting point.
+/// # Haaland (1983) Explicit Formula
+///
+/// ```text
+/// 1/√f ≈ −1.8 · log₁₀[ (ε/(3.7·D))^1.11 + (6.9/Re) ]    [Haaland 1983, Eq. 2]
+/// ```
+///
+/// Accuracy: within ±2% of Colebrook-White for 4000 < Re < 10⁸, 10⁻⁶ < ε/D < 10⁻².
 #[test]
-#[ignore = "Colebrook-White differs from Haaland by ~15%, requires investigation"]
 fn test_colebrook_white_convergence() -> Result<()> {
-    let diameter: f64 = 0.05;
-    let roughness: f64 = 5e-5; // ε/D = 0.001
+    let diameter: f64 = 0.05;       // 5 cm
+    let roughness: f64 = 5e-5;     // ε/D = 0.001 (moderate roughness)
     let model = DarcyWeisbachModel::circular(diameter, 10.0, roughness);
     let fluid = fluid::database::water_20c::<f64>()?;
 
@@ -307,18 +308,27 @@ fn test_colebrook_white_convergence() -> Result<()> {
 
     let resistance = model.calculate_resistance(&fluid, &conditions)?;
 
-    // Calculate Haaland approximation (explicit formula)
-    let relative_roughness: f64 = roughness / diameter;
-    let term: f64 = relative_roughness / 3.7 + 6.9 / reynolds;
-    let f_haaland: f64 = 1.0 / (-1.8_f64 * term.log10()).powi(2);
+    // Haaland (1983), Eq. 2 — correct explicit form:
+    // 1/√f = −1.8 · log₁₀[ (ε/(3.7·D))^1.11  +  (6.9/Re) ]
+    let relative_roughness: f64 = roughness / diameter; // ε/D = 0.001
+    let roughness_term = (relative_roughness / 3.7_f64).powf(1.11);
+    let re_term = 6.9_f64 / reynolds;
+    let inv_sqrt_f = -1.8_f64 * (roughness_term + re_term).log10();
+    let f_haaland = 1.0 / (inv_sqrt_f * inv_sqrt_f);
 
     let area: f64 = std::f64::consts::PI * diameter.powi(2) / 4.0;
     let v: f64 = conditions.velocity.unwrap();
+    // Expected turbulent resistance: k·Q at given velocity
+    // k = f·ρ·L/(2·A²·D), R_eff = k·V·A = f·ρ·L·V/(2·A·D)
     let expected_resistance_haaland: f64 =
         f_haaland * fluid.density * 10.0 * v / (2.0 * area * diameter);
 
     // Colebrook-White should match Haaland within 2%
-    assert_relative_eq!(resistance, expected_resistance_haaland, epsilon = 0.02);
+    assert_relative_eq!(
+        resistance,
+        expected_resistance_haaland,
+        max_relative = 0.02
+    );
 
     Ok(())
 }
@@ -389,9 +399,7 @@ fn test_resistance_scaling_laws() -> Result<()> {
 /// Validates against Idelchik (1994) Handbook of Hydraulic Resistance, §5:
 /// K_entry = 0.5·(1 − A₂/A₁)·(1 + C/Re)  where C = 0.1
 ///
-/// Physical limits:
-/// - A₂/A₁ → 0 (large reservoir → pipe): K → 0.5  (Idelchik §5)
-/// - A₂/A₁ = 1 (no contraction):          K → 0
+/// The quadratic resistance coefficient k = K_entry·ρ/(2·A₂²) [Pa·s²/m⁶].
 #[test]
 fn test_entrance_effects_sudden_contraction() -> Result<()> {
     // Test case: contraction from 4 mm² to 1 mm² (area ratio A₁/A₂ = 4)
@@ -409,19 +417,20 @@ fn test_entrance_effects_sudden_contraction() -> Result<()> {
         let mut conditions = FlowConditions::new(0.1);
         conditions.reynolds_number = Some(re);
 
-        let resistance = model.calculate_resistance(&fluid, &conditions)?;
+        // Use calculate_coefficients which returns the correct (0, k) pair
+        let (r_coeff, k_coeff) = model.calculate_coefficients(&fluid, &conditions)?;
+        assert_relative_eq!(r_coeff, 0.0, epsilon = 1e-30); // linear term must be zero
 
         // Idelchik (1994), §5: K = 0.5·(1 − A₂/A₁)·(1 + C/Re)
-        //   contraction_ratio = 1 − A₂/A₁ = 1 − 1/area_ratio = 1 − 0.25 = 0.75
         let contraction_ratio = 1.0 - 1.0 / area_ratio; // 0.75
         let k_base = 0.5 * contraction_ratio; // 0.5 * 0.75 = 0.375
         let re_correction = 0.1 / re;
-        let k_expected = k_base * (1.0 + re_correction);
+        let k_entry = k_base * (1.0 + re_correction);
 
-        // Convert to resistance: R = K / (2 * A²)
-        let expected_resistance = k_expected / (2.0 * downstream_area * downstream_area);
+        // k = K_entry · ρ / (2 · A₂²)   [Pa·s²/m⁶]
+        let expected_k = k_entry * fluid.density / (2.0 * downstream_area * downstream_area);
 
-        assert_relative_eq!(resistance, expected_resistance, epsilon = 1e-6);
+        assert_relative_eq!(k_coeff, expected_k, epsilon = 1e-6);
     }
 
     Ok(())
@@ -430,7 +439,8 @@ fn test_entrance_effects_sudden_contraction() -> Result<()> {
 /// Test entrance effects for smooth contraction (well-rounded inlet).
 ///
 /// Validates against Blevins (1984) Applied Fluid Dynamics Handbook:
-/// K_entry = 0.05 + 0.19 * (A₁/A₂) for turbulent flow
+/// K_entry = 0.05 + 0.19 * (A₁/A₂) for turbulent flow.
+/// k = K_entry · ρ / (2 · A₂²)   [Pa·s²/m⁶]
 #[test]
 fn test_entrance_effects_smooth_contraction() -> Result<()> {
     // Test case: smooth contraction with area ratio = 2
@@ -445,13 +455,14 @@ fn test_entrance_effects_smooth_contraction() -> Result<()> {
     let mut conditions = FlowConditions::new(0.1);
     conditions.reynolds_number = Some(50000.0); // Turbulent
 
-    let resistance = model.calculate_resistance(&fluid, &conditions)?;
+    let (_, k_coeff) = model.calculate_coefficients(&fluid, &conditions)?;
 
-    // Expected: K = 0.05 + 0.19 * 2.0 = 0.43
-    let k_expected = 0.05 + 0.19 * area_ratio;
-    let expected_resistance = k_expected / (2.0 * downstream_area * downstream_area);
+    // Expected from Blevins (1984): K = 0.05 + 0.19 * 2.0 = 0.43
+    // k = K · ρ / (2 · A₂²)
+    let k_entry = 0.05 + 0.19 * area_ratio;
+    let expected_k = k_entry * fluid.density / (2.0 * downstream_area * downstream_area);
 
-    assert_relative_eq!(resistance, expected_resistance, epsilon = 1e-6);
+    assert_relative_eq!(k_coeff, expected_k, epsilon = 1e-6);
 
     Ok(())
 }
@@ -544,16 +555,19 @@ fn test_entrance_effects_area_ratio_dependence() -> Result<()> {
 
 /// Test dimensional analysis and scaling laws for entrance effects.
 ///
-/// Validates that entrance resistance scales correctly with geometric parameters.
+/// Validates that the quadratic coefficient k = K·ρ/(2·A₂²) scales correctly
+/// with geometric parameters. When both areas are scaled by s², the area ratio
+/// is preserved, K is unchanged, and k scales as 1/(s²)² = 1/s⁴.
 #[test]
 fn test_entrance_effects_dimensional_analysis() -> Result<()> {
     let base_upstream: f64 = 4e-6;
     let base_downstream: f64 = 1e-6;
-    let scale_factor: f64 = 2.0;
+    let scale_factor: f64 = 2.0; // length scale factor
 
     let model_base = EntranceEffectsModel::sudden_contraction(base_upstream, base_downstream);
+    // Scale both areas by s² (areas scale as length²)
     let model_scaled = EntranceEffectsModel::sudden_contraction(
-        base_upstream * scale_factor * scale_factor, // Area scales with L²
+        base_upstream * scale_factor * scale_factor,
         base_downstream * scale_factor * scale_factor,
     );
 
@@ -561,14 +575,84 @@ fn test_entrance_effects_dimensional_analysis() -> Result<()> {
     let mut conditions = FlowConditions::new(0.1);
     conditions.reynolds_number = Some(1000.0);
 
-    let resistance_base = model_base.calculate_resistance(&fluid, &conditions)?;
-    let resistance_scaled = model_scaled.calculate_resistance(&fluid, &conditions)?;
+    let (_, k_base) = model_base.calculate_coefficients(&fluid, &conditions)?;
+    let (_, k_scaled) = model_scaled.calculate_coefficients(&fluid, &conditions)?;
 
-    // Entrance resistance should scale with 1/A² where A is downstream area
-    let expected_ratio = 1.0 / (scale_factor * scale_factor).powi(2);
-    let actual_ratio = resistance_scaled / resistance_base;
+    // k = K·ρ/(2·A₂²) and area ratio is preserved (K unchanged)
+    // k_scaled / k_base = (A₂_base / A₂_scaled)² = (1/s²)² = 1/s⁴
+    let expected_ratio = 1.0 / (scale_factor * scale_factor).powi(2); // 1/16
+    let actual_ratio = k_scaled / k_base;
 
     assert_relative_eq!(actual_ratio, expected_ratio, epsilon = 1e-6);
+
+    Ok(())
+}
+
+/// Test Venturi energy conservation.
+///
+/// Validates that the net pressure drop (contraction - recovery + losses) is >= 0
+/// for a symmetric Venturi. Since the Venturi model returns (0, k) representing
+/// R_eff = k|Q|, if k > 0 then energy is dissipated.
+#[test]
+fn test_venturi_energy_conservation() -> Result<()> {
+    let model = cfd_1d::resistance::models::VenturiModel::symmetric(
+        0.01,
+        0.005,
+        0.05,
+        0.15,
+    );
+    let fluid = fluid::database::water_20c::<f64>()?;
+    let mut conditions = FlowConditions::new(1.0);
+    conditions.reynolds_number = Some(20000.0);
+    
+    let (_, k) = model.calculate_coefficients(&fluid, &conditions)?;
+    assert!(k > 0.0, "Net pressure drop must be positive (energy dissipated)");
+    
+    Ok(())
+}
+
+/// Test serpentine Dean number monotonicity.
+///
+/// Dean number De = Re * sqrt(D_h / (2 * R_c)). As Re increases, De increases,
+/// increasing the curvature enhancement f_c / f_s and secondary losses. We test this 
+/// by comparing the serpentine resistance to an equivalent straight channel.
+#[test]
+fn test_serpentine_dean_number_monotone_in_re() -> Result<()> {
+    use cfd_1d::resistance::models::SerpentineModel;
+    let width = 1e-3;
+    let height = 1e-3;
+    let segment_length = 0.01;
+    let num_segments = 5;
+    let bend_radius = 0.002;
+
+    let model = SerpentineModel::millifluidic_rectangular(
+        width, height, segment_length, num_segments, bend_radius
+    );
+    let straight_model = RectangularChannelModel::new(
+        width, height, segment_length * num_segments as f64
+    );
+
+    let fluid = fluid::database::water_20c::<f64>()?;
+    
+    // Laminar test (De <= 370 validity limit of the White correlation)
+    let re_low = 50.0;
+    let mut cond_low = FlowConditions::new(0.01);
+    cond_low.reynolds_number = Some(re_low);
+    let r_serp_low = model.calculate_resistance(&fluid, &cond_low)?;
+    let r_str_low = straight_model.calculate_resistance(&fluid, &cond_low)?;
+    let enhancement_low = r_serp_low / r_str_low;
+
+    let re_high = 150.0;
+    let mut cond_high = FlowConditions::new(0.03);
+    cond_high.reynolds_number = Some(re_high);
+    let r_serp_high = model.calculate_resistance(&fluid, &cond_high)?;
+    let r_str_high = straight_model.calculate_resistance(&fluid, &cond_high)?;
+    let enhancement_high = r_serp_high / r_str_high;
+
+    assert!(
+        enhancement_high > enhancement_low,
+        "Curvature and bend losses should increase relative to straight pipe with Re"
+    );
 
     Ok(())
 }

@@ -50,15 +50,28 @@ pub fn curvature_correction<T: RealField + Copy + FromPrimitive>(
 
     let c_convex = c::<T>(0.15);
     let c_concave = c::<T>(-0.1);
-    let curvature_factor = if curvature_param >= T::zero() { c_convex } else { c_concave };
+    let curvature_factor = if curvature_param >= T::zero() {
+        c_convex
+    } else {
+        c_concave
+    };
 
     let correction = match (i, j) {
-        (0, 0) => curvature_factor * curvature_strength
-            * (a_xx * s11 + c::<T>(2.0) * a_xy * s12 - c::<T>(2.0 / 3.0) * (a_xx + a_yy) * s11),
-        (0, 1) | (1, 0) => curvature_factor * curvature_strength
-            * (a_xx * s12 + a_xy * s22 + a_yy * s12 - c::<T>(2.0 / 3.0) * (a_xx + a_yy) * s12),
-        (1, 1) => curvature_factor * curvature_strength
-            * (a_xy * s12 + a_yy * s22 - c::<T>(2.0 / 3.0) * (a_xx + a_yy) * s22),
+        (0, 0) => {
+            curvature_factor
+                * curvature_strength
+                * (a_xx * s11 + c::<T>(2.0) * a_xy * s12 - c::<T>(2.0 / 3.0) * (a_xx + a_yy) * s11)
+        }
+        (0, 1) | (1, 0) => {
+            curvature_factor
+                * curvature_strength
+                * (a_xx * s12 + a_xy * s22 + a_yy * s12 - c::<T>(2.0 / 3.0) * (a_xx + a_yy) * s12)
+        }
+        (1, 1) => {
+            curvature_factor
+                * curvature_strength
+                * (a_xy * s12 + a_yy * s22 - c::<T>(2.0 / 3.0) * (a_xx + a_yy) * s22)
+        }
         _ => T::zero(),
     };
 

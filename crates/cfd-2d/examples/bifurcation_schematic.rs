@@ -42,20 +42,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Murray's law: r_parent³ = r_d1³ + r_d2³ → r_d = r_p / 2^(1/3)
     // Using 1 mm parent radius → 0.794 mm daughter radius
-    let r_parent = 1.0_f64;           // mm
+    let r_parent = 1.0_f64; // mm
     let r_daughter = r_parent / 2.0_f64.powf(1.0 / 3.0); // ≈ 0.794 mm
-    let w_parent   = r_parent * 2.0;
+    let w_parent = r_parent * 2.0;
     let w_daughter = r_daughter * 2.0;
 
     // Layout: parent runs left→right, daughters branch up and down at 30°
     // Schematic coordinates in mm
     let angle_deg = 30.0_f64;
     let angle_rad = angle_deg.to_radians();
-    let l_parent   = 4.0_f64;  // mm
-    let l_daughter = 4.0_f64;  // mm
+    let l_parent = 4.0_f64; // mm
+    let l_daughter = 4.0_f64; // mm
 
     let jx = l_parent;
-    let jy = 5.0_f64;  // vertical centre
+    let jy = 5.0_f64; // vertical centre
 
     let d1_end_x = jx + l_daughter * angle_rad.cos();
     let d1_end_y = jy + l_daughter * angle_rad.sin();
@@ -63,16 +63,56 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let d2_end_y = jy - l_daughter * angle_rad.sin();
 
     let nodes: Vec<Node> = vec![
-        Node { id: 0, point: (0.0, jy),       metadata: None }, // inlet
-        Node { id: 1, point: (jx,  jy),       metadata: None }, // junction
-        Node { id: 2, point: (d1_end_x, d1_end_y), metadata: None }, // daughter 1
-        Node { id: 3, point: (d2_end_x, d2_end_y), metadata: None }, // daughter 2
+        Node {
+            id: 0,
+            point: (0.0, jy),
+            metadata: None,
+        }, // inlet
+        Node {
+            id: 1,
+            point: (jx, jy),
+            metadata: None,
+        }, // junction
+        Node {
+            id: 2,
+            point: (d1_end_x, d1_end_y),
+            metadata: None,
+        }, // daughter 1
+        Node {
+            id: 3,
+            point: (d2_end_x, d2_end_y),
+            metadata: None,
+        }, // daughter 2
     ];
 
     let channels: Vec<Channel> = vec![
-        Channel { id: 0, from_node: 0, to_node: 1, width: w_parent,   height: 1.0, channel_type: ChannelType::Straight, metadata: None },
-        Channel { id: 1, from_node: 1, to_node: 2, width: w_daughter, height: 1.0, channel_type: ChannelType::Straight, metadata: None },
-        Channel { id: 2, from_node: 1, to_node: 3, width: w_daughter, height: 1.0, channel_type: ChannelType::Straight, metadata: None },
+        Channel {
+            id: 0,
+            from_node: 0,
+            to_node: 1,
+            width: w_parent,
+            height: 1.0,
+            channel_type: ChannelType::Straight,
+            metadata: None,
+        },
+        Channel {
+            id: 1,
+            from_node: 1,
+            to_node: 2,
+            width: w_daughter,
+            height: 1.0,
+            channel_type: ChannelType::Straight,
+            metadata: None,
+        },
+        Channel {
+            id: 2,
+            from_node: 1,
+            to_node: 3,
+            width: w_daughter,
+            height: 1.0,
+            channel_type: ChannelType::Straight,
+            metadata: None,
+        },
     ];
 
     let system = ChannelSystem {
@@ -96,8 +136,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let schematic_path = out.join("bifurcation_schematic.png");
     renderer.render_system(&system, schematic_path.to_str().unwrap(), &schematic_cfg)?;
     println!("  ✅ Schematic → {}", schematic_path.display());
-    println!("  Murray's law: r_parent={:.3} mm, r_daughter={:.3} mm", r_parent, r_daughter);
-    println!("  Verification: r_p³ = {:.4}, r_d1³+r_d2³ = {:.4}",
+    println!(
+        "  Murray's law: r_parent={:.3} mm, r_daughter={:.3} mm",
+        r_parent, r_daughter
+    );
+    println!(
+        "  Verification: r_p³ = {:.4}, r_d1³+r_d2³ = {:.4}",
         r_parent.powi(3),
         r_daughter.powi(3) * 2.0
     );
@@ -107,11 +151,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Convert mm to metres for the solver
     let geom = BifurcationGeometry::new_symmetric(
-        w_parent   * 1e-3,   // parent width [m]
-        l_parent   * 1e-3,   // parent length [m]
-        w_daughter * 1e-3,   // daughter width [m]
-        l_daughter * 1e-3,   // daughter length [m]
-        angle_rad,           // branch angle [rad]
+        w_parent * 1e-3,   // parent width [m]
+        l_parent * 1e-3,   // parent length [m]
+        w_daughter * 1e-3, // daughter width [m]
+        l_daughter * 1e-3, // daughter length [m]
+        angle_rad,         // branch angle [rad]
     );
 
     // Casson blood model
@@ -138,13 +182,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("  Q_parent    = {:.4e} m²/s", sol.q_parent);
     println!("  Q_daughter1 = {:.4e} m²/s", sol.q_daughter1);
     println!("  Q_daughter2 = {:.4e} m²/s", sol.q_daughter2);
-    println!("  Mass balance error = {:.2e} ({:.2}%)",
+    println!(
+        "  Mass balance error = {:.2e} ({:.2}%)",
         sol.mass_balance_error,
         sol.mass_balance_error * 100.0
     );
 
     let symmetry_err = (sol.q_daughter1 - sol.q_daughter2).abs() / sol.q_parent.abs().max(1e-20);
-    println!("  Symmetry error = {:.2e} ({:.2}%)", symmetry_err, symmetry_err * 100.0);
+    println!(
+        "  Symmetry error = {:.2e} ({:.2}%)",
+        symmetry_err,
+        symmetry_err * 100.0
+    );
 
     // ── Phase 3: Overlay Visualization ───────────────────────────────────────
     println!("\n🎨 Phase 3: Flow Rate Overlay");
@@ -154,7 +203,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         (0, sol.q_parent),
         (1, sol.q_daughter1),
         (2, sol.q_daughter2),
-    ].into_iter().collect();
+    ]
+    .into_iter()
+    .collect();
 
     // Map derived pressure-like quantity to nodes (proportional to flow)
     let node_q: HashMap<usize, f64> = [
@@ -162,7 +213,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         (1, sol.q_parent),
         (2, sol.q_daughter1),
         (3, sol.q_daughter2),
-    ].into_iter().collect();
+    ]
+    .into_iter()
+    .collect();
 
     let overlay = AnalysisOverlay::new(AnalysisField::FlowRate, ColormapKind::Viridis)
         .with_edge_data(edge_q)
@@ -176,7 +229,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     let overlay_path = out.join("bifurcation_flow_overlay.png");
-    renderer.render_analysis(&system, overlay_path.to_str().unwrap(), &overlay_cfg, &overlay)?;
+    renderer.render_analysis(
+        &system,
+        overlay_path.to_str().unwrap(),
+        &overlay_cfg,
+        &overlay,
+    )?;
     println!("  ✅ Flow rate overlay → {}", overlay_path.display());
 
     println!("\n✅ Bifurcation example complete.");

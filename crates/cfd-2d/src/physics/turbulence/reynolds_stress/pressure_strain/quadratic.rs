@@ -44,8 +44,8 @@ pub fn pressure_strain_quadratic<T: RealField + Copy + FromPrimitive>(
             let four_thirds = c::<T>(4.0 / 3.0);
             let slow = -c1 * a_xy;
             let rapid_sym = c1_star * (a_xx * s12 + a_xy * s22);
-            let rapid_cross = c2_star
-                * (a_xy * (s11 - s22) + a_yy * s12 - four_thirds * a_xy * (s11 + s22));
+            let rapid_cross =
+                c2_star * (a_xy * (s11 - s22) + a_yy * s12 - four_thirds * a_xy * (s11 + s22));
             (slow + rapid_sym + rapid_cross) / time_scale
         }
         (1, 1) => {

@@ -2,11 +2,23 @@
 //!
 //! Provides validation for Dean flow physics and mass conservation in
 //! curved serpentine channels.
+//!
+//! # Theorem — Dean Instability Criterion (Dean 1927)
+//!
+//! Secondary (Dean) vortices form when the Dean number exceeds a
+//! critical threshold:
+//!
+//! ```text
+//! De = Re · √(D / 2R) > De_cr ≈ 36
+//! ```
+//!
+//! For $De < De_{cr}$, axial flow remains unidirectional. For $De > De_{cr}$,
+//! a pair of counter-rotating vortices appears in the cross-section. The
+//! transition is validated by checking secondary velocity magnitude.
 
-use super::solver::{SerpentineConfig3D, SerpentineSolution3D, SerpentineSolver3D};
+use super::solver::{SerpentineConfig3D, SerpentineSolution3D};
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::Error;
-use cfd_core::physics::fluid::traits::Fluid as FluidTrait;
 use cfd_mesh::SerpentineMeshBuilder;
 use nalgebra::RealField;
 use num_traits::{Float, FromPrimitive, ToPrimitive};
@@ -16,11 +28,14 @@ use serde::{Deserialize, Serialize};
 // Serpentine Validator
 // ============================================================================
 
+/// Validator for 3D serpentine channel flow results
 pub struct SerpentineValidator3D<T: cfd_mesh::domain::core::Scalar + RealField + Copy + Float> {
+    /// Mesh builder holding serpentine geometry parameters
     pub mesh_builder: SerpentineMeshBuilder<T>,
 }
 
 impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float> SerpentineValidator3D<T> {
+    /// Create a new validator from the serpentine mesh builder
     pub fn new(mesh_builder: SerpentineMeshBuilder<T>) -> Self {
         Self { mesh_builder }
     }
@@ -84,10 +99,12 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
         if !result.validation_passed {
              let mut msg = String::new();
             if !strictly_dissipative { 
-                msg.push_str(&format!("Pressure drop analytically bounded below Straight limit: Actual {:?} vs Minimum {:?}; ", dp_actual, exact_straight_dp)); 
+                use std::fmt::Write;
+                let _ = write!(msg, "Pressure drop analytically bounded below Straight limit: Actual {dp_actual:?} vs Minimum {exact_straight_dp:?}; "); 
             }
             if !de_valid { 
-                msg.push_str(&format!("Dean number analytical deviation failure: Solver {:?} vs Exact Max {:?}; ", de_calc, de_exact_max)); 
+                use std::fmt::Write;
+                let _ = write!(msg, "Dean number analytical deviation failure: Solver {de_calc:?} vs Exact Max {de_exact_max:?}; "); 
             }
             result.error_message = Some(msg);
         }
@@ -96,15 +113,21 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
     }
 }
 
+/// Results of serpentine flow validation against analytical bounds
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SerpentineValidationResult3D<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
+    /// Name of the validation test
     pub test_name: String,
+    /// Analytical straight-pipe pressure drop lower bound [Pa]
     pub dp_straight: Option<T>,
+    /// Whether all validation checks passed
     pub validation_passed: bool,
+    /// Detailed error message when validation fails
     pub error_message: Option<String>,
 }
 
 impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy> SerpentineValidationResult3D<T> {
+    /// Create a new (default-failing) validation result with the given test name
     pub fn new(test_name: String) -> Self {
         Self {
             test_name,
@@ -118,6 +141,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy> SerpentineValidationR
 #[cfg(test)]
 mod tests {
     use super::*;
+    use super::super::solver::SerpentineSolver3D;
     use cfd_core::physics::fluid::traits::Fluid;
 
     #[test]

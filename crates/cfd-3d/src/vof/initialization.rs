@@ -1,4 +1,16 @@
 //! VOF initialization methods
+//!
+//! # Theorem — Signed-Distance VOF Initialisation
+//!
+//! When initialising the volume fraction field from a signed-distance
+//! function $\phi(\mathbf{x})$, the smoothed Heaviside
+//!
+//! ```text
+//! α(x) = H_ε(φ(x)) = ½(1 + φ/ε + sin(πφ/ε)/π)  for |φ| ≤ ε
+//! ```
+//!
+//! with interface thickness $\varepsilon = O(h)$ preserves the enclosed volume
+//! to $O(h^2)$ on a uniform grid of spacing $h$.
 
 use super::config::INTERFACE_THICKNESS;
 use super::solver::VofSolver;

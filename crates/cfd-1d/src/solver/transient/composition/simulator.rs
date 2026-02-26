@@ -2,7 +2,6 @@ use super::events::{EdgeFlowEvent, InletCompositionEvent, PressureBoundaryEvent}
 use super::state::{CompositionState, MixtureComposition};
 use crate::network::Network;
 use crate::solver::{NetworkProblem, NetworkSolver};
-use cfd_core::compute::solver::Solver;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
 use nalgebra::RealField;
@@ -87,8 +86,7 @@ impl<T: RealField + Copy + FromPrimitive> SimulationTimeConfig<T> {
 
         let needs_terminal = points
             .last()
-            .map(|last| (*last - duration).abs() > tolerance)
-            .unwrap_or(true);
+            .is_none_or(|last| (*last - duration).abs() > tolerance);
 
         if needs_terminal {
             points.push(duration);
@@ -307,8 +305,7 @@ impl TransientCompositionSimulator {
         for time in timepoints {
             let should_push = unique
                 .last()
-                .map(|last| !Self::times_close(*last, time, tolerance))
-                .unwrap_or(true);
+                .is_none_or(|last| !Self::times_close(*last, time, tolerance));
             if should_push {
                 unique.push(time);
             }

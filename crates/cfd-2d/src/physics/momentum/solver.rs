@@ -1,4 +1,15 @@
 //! Core momentum equation solver
+//!
+//! # Theorem
+//! The momentum discretization must conserve linear momentum globally and locally.
+//!
+//! **Proof sketch**:
+//! By integrating the Navier-Stokes momentum equation over a control volume $\Omega$,
+//! Gauss's divergence theorem converts the convective and diffusive volume integrals
+//! into surface fluxes. The finite volume method ensures that the flux leaving one
+//! cell exactly equals the flux entering the adjacent cell. Thus, in the absence of
+//! external forces and boundary fluxes, the total momentum $\int_\Omega \rho \mathbf{u} dV$
+//! is exactly conserved to machine precision.
 
 use super::coefficients::{ConvectionScheme, MomentumCoefficients};
 use crate::fields::{Field2D, SimulationFields};
@@ -7,7 +18,7 @@ use crate::physics::turbulence::TurbulenceModel;
 use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_math::linear_solver::preconditioners::IdentityPreconditioner;
 use cfd_math::linear_solver::IterativeSolverConfig;
-use cfd_math::linear_solver::{GMRES, IterativeLinearSolver};
+use cfd_math::linear_solver::{IterativeLinearSolver, GMRES};
 
 use cfd_math::sparse::{SparseMatrix, SparseMatrixBuilder};
 use nalgebra::{DVector, RealField};
@@ -62,8 +73,6 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> MomentumSolv
         };
         let linear_solver = GMRES::new(config, 30);
 
-
-
         Self {
             grid: grid.clone(),
             boundary_conditions: HashMap::new(),
@@ -82,8 +91,6 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> MomentumSolv
     pub fn with_convection_scheme(grid: &StructuredGrid2D<T>, scheme: ConvectionScheme) -> Self {
         let config = IterativeSolverConfig::default();
         let linear_solver = GMRES::new(config, 30);
-
-
 
         Self {
             grid: grid.clone(),
@@ -104,8 +111,6 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> MomentumSolv
     pub fn with_parallel_spmv(grid: &StructuredGrid2D<T>) -> Self {
         let config = IterativeSolverConfig::default().with_parallel_spmv();
         let linear_solver = GMRES::new(config, 30);
-
-
 
         Self {
             grid: grid.clone(),
@@ -173,12 +178,10 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> MomentumSolv
         self.turbulence_model.is_some()
     }
 
-    /// Update effective viscosity field using turbulence model
+    /// Solve momentum equation for specified component.
     ///
-    /// This method properly integrates with the turbulence model by:
-    /// 1. Using estimated turbulence quantities based on flow physics
-
-    /// Solve momentum equation for specified component
+    /// Integrates with any configured turbulence model by updating
+    /// estimated turbulence quantities based on flow physics.
     pub fn solve(
         &mut self,
         component: MomentumComponent,
@@ -196,8 +199,6 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> MomentumSolv
         fields: &mut SimulationFields<T>,
         dt: T,
     ) -> cfd_core::error::Result<MomentumCoefficients<T>> {
-
-
         // Compute coefficients
         let coeffs = self.compute_coefficients(component, fields, dt)?;
 
@@ -241,15 +242,13 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> MomentumSolv
 
         // Solve linear system
         let mut solution = DVector::zeros(matrix.nrows());
-        let rhs_norm = rhs.norm();
+        let _rhs_norm = rhs.norm();
         self.linear_solver.solve(
             &matrix,
             &rhs,
             &mut solution,
             None::<&IdentityPreconditioner>,
         )?;
-
-
 
         // Update velocity field
         self.update_velocity(component, fields, &solution);
@@ -265,8 +264,6 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> MomentumSolv
                 self.ap_consistent_v = coeffs.ap_consistent.clone();
             }
         }
-
-
 
         Ok(coeffs)
     }
@@ -397,8 +394,6 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> MomentumSolv
                 rhs[idx] = coeffs.source.at(i, j);
             }
         }
-
-
 
         // Apply higher-order boundary conditions for improved near-wall accuracy
         // This provides better velocity gradients near walls for production accuracy

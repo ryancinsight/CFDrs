@@ -17,6 +17,10 @@
 //! | Red blood cell (RBC) | 6–8 | 0.85 (very deformable) | Hochmuth (2000) |
 //! | White blood cell (WBC) | 8–12 | 0.45 (moderate) | Lim (2006) |
 //! | Platelet | 2–3 | 0.70 | Hochmuth (2000) |
+//! | Neutrophil | 12–15 | 0.30 (stiff nucleus) | Lim (2006) |
+//! | Monocyte | 15–20 | 0.38 (intermediate) | Lim (2006) |
+//! | Lymphocyte | 7–10 | 0.45 (moderate) | Lim (2006) |
+//! | Neonatal RBC | 8–9 | 0.80 (slightly stiffer than adult) | Linderkamp (1992) |
 //!
 //! Deformability index (DI) is defined as the ratio of the cell's ability to
 //! deform under shear relative to a rigid sphere of the same size.
@@ -136,6 +140,82 @@ impl CellProperties {
             diameter_m: 2.5e-6,
             deformability_index: 0.70,
             density_kg_m3: 1040.0,
+        }
+    }
+
+    /// Neutrophil — dominant WBC in leukapheresis (~50–70% of WBCs), stiff nucleus.
+    ///
+    /// Diameter: 13.5 µm (mean of 12–15 µm range, Lim 2006).
+    /// DI: 0.30 (stiff — multi-lobed nucleus resists deformation).
+    /// Density: 1060 kg/m³.
+    ///
+    /// Neutrophils are the primary target in leukapheresis separations.
+    /// Their stiffness (low DI) enhances inertial lift relative to deformable RBCs.
+    #[must_use]
+    pub fn neutrophil() -> Self {
+        Self {
+            name: "Neutrophil",
+            diameter_m: 13.5e-6,
+            deformability_index: 0.30,
+            density_kg_m3: 1060.0,
+        }
+    }
+
+    /// Monocyte — largest WBC subtype, intermediate stiffness.
+    ///
+    /// Diameter: 17.5 µm (mean of 15–20 µm range, Lim 2006).
+    /// DI: 0.38 (large kidney-shaped nucleus, intermediate deformability).
+    /// Density: 1060 kg/m³.
+    ///
+    /// Monocytes are the easiest WBC subtype to separate inertially due to their
+    /// large size (κ_monocyte ≫ κ_RBC for typical microchannel dimensions).
+    #[must_use]
+    pub fn monocyte() -> Self {
+        Self {
+            name: "Monocyte",
+            diameter_m: 17.5e-6,
+            deformability_index: 0.38,
+            density_kg_m3: 1060.0,
+        }
+    }
+
+    /// Lymphocyte — smallest WBC subtype, close to RBC size.
+    ///
+    /// Diameter: 8.5 µm (mean of 7–10 µm range, Lim 2006).
+    /// DI: 0.45 (moderate; spherical nucleus is stiffer than RBC membrane).
+    /// Density: 1060 kg/m³.
+    ///
+    /// Lymphocytes are the hardest WBC subtype to separate from RBCs due to their
+    /// size overlap.  Cell-cell interaction (CFL model) is essential for this separation.
+    #[must_use]
+    pub fn lymphocyte() -> Self {
+        Self {
+            name: "Lymphocyte",
+            diameter_m: 8.5e-6,
+            deformability_index: 0.45,
+            density_kg_m3: 1060.0,
+        }
+    }
+
+    /// Neonatal red blood cell — slightly larger and stiffer than adult RBC.
+    ///
+    /// Diameter: 8.5 µm (neonatal RBCs are ~1.5 µm larger than adult, Linderkamp 1992).
+    /// DI: 0.80 (still highly deformable, but less so than adult; foetal Hb stiffens membrane).
+    /// Density: 1090 kg/m³.
+    ///
+    /// The larger diameter shifts the RBC confinement ratio κ upward relative to
+    /// adult RBCs, narrowing the separation window with WBCs in neonatal leukapheresis.
+    /// Use [`enhanced_lateral_equilibrium`](crate::cell_separation::enhanced_lateral_equilibrium)
+    /// with physiological neonatal HCT (0.45–0.65) for accurate predictions.
+    ///
+    /// Reference: Linderkamp, O. et al. (1992). *Pediatr. Res.*, 32, 92–96.
+    #[must_use]
+    pub fn neonatal_rbc() -> Self {
+        Self {
+            name: "Neonatal RBC",
+            diameter_m: 8.5e-6,
+            deformability_index: 0.80,
+            density_kg_m3: 1090.0,
         }
     }
 

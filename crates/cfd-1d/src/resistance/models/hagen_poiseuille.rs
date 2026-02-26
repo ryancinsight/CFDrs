@@ -71,8 +71,6 @@ use serde::{Deserialize, Serialize};
 
 // Named constants
 const HAGEN_POISEUILLE_COEFFICIENT: f64 = 128.0;
-#[allow(dead_code)]
-const POWER_FOUR: f64 = 4.0;
 
 /// Hagen-Poiseuille resistance model for circular channels
 #[derive(Debug, Clone, Serialize, Deserialize)]

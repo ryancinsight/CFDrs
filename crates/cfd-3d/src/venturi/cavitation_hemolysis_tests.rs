@@ -17,7 +17,6 @@ mod tests {
     #[test]
     fn test_venturi_cavitation_regime_classification() {
         // Venturi throat conditions: high velocity, low pressure
-        let ambient_pressure = 101325.0; // 1 atm
         let throat_pressure = 2000.0; // Severe cavitation
         let vapor_pressure = 2339.0; // Water at 20°C
 
@@ -183,16 +182,6 @@ mod tests {
             .damage_index(baseline_stress, baseline_time)
             .unwrap();
 
-        // With cavitation: add collapse pressure contribution
-        let bubble_model = RayleighPlesset {
-            initial_radius: 10e-6,
-            liquid_density: 998.0,
-            liquid_viscosity: 1.002e-3,
-            surface_tension: 0.0728,
-            vapor_pressure: 2339.0,
-            polytropic_index: 1.4,
-        };
-
         // Estimate collapse impact pressure
         let collapse_radius = 1e-6; // Collapse to 1 μm
         let liquid_density = 998.0;
@@ -242,7 +231,7 @@ mod tests {
         let ambient_pressure = 101325.0; // Pa
         let ambient_temperature = 293.15; // K
         let collapse_radius = 1e-6; // Collapse to 1 μm
-        let emissivity = 1.0; // Blackbody approximation
+        let emissivity = 1.0; // Blackbody emissivity limit
         let flash_duration = 50e-12; // 50 ps, typical for SBSL
 
         let estimate = bubble_model
@@ -310,8 +299,6 @@ mod tests {
 
         // Test at different velocities (pressure scales as U²)
         let velocities = vec![5.0, 10.0, 20.0]; // m/s
-        let d_throat = 100e-6; // 100 μm
-
         println!("\nCavitation Damage Scaling:");
         for &velocity in &velocities {
             // Dynamic pressure drop scales as 0.5 * ρ * U²

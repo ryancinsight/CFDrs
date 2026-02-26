@@ -40,10 +40,24 @@
 //!               = 0                   (if x̃_healthy ≤ x̃_split)
 //! ```
 //!
+//! ## Theorem: Separation Efficiency Metric
+//!
+//! **Theorem**: The separation efficiency `η = |x̃_target - x̃_background|` satisfies
+//! `η ∈ [0, 1]` for all valid equilibrium positions `x̃ ∈ [0, 1]`.
+//!
+//! **Proof**: Since both `x̃_target, x̃_background ∈ [0, 1]`, we have:
+//! - `η = |x̃_t - x̃_b| ≤ |1 - 0| = 1` (triangle inequality + bounded domain)
+//! - `η ≥ 0` (absolute value is non-negative)
+//!
+//! **Purity bound**: The geometric mean purity `p = √(f_target × f_background)` where
+//! `f_target, f_background ∈ [0, 1]` satisfies `p ∈ [0, 1]` by AM-GM:
+//! `p = √(f_t × f_b) ≤ (f_t + f_b)/2 ≤ 1`. ∎
+//!
 //! # References
 //! - Di Carlo, D. (2009). Inertial microfluidics. *Lab Chip*, 9, 3038–3046.
 //! - Gossett, D. R. & Di Carlo, D. (2009). *Anal. Chem.*, 81, 8459–8465.
 //! - Hur, S. C. et al. (2011). *Lab Chip*, 11, 912–920.
+
 
 use crate::cell_separation::margination::{lateral_equilibrium, EquilibriumResult};
 use crate::cell_separation::properties::CellProperties;
@@ -181,8 +195,11 @@ impl CellSeparationModel {
     /// - `mean_velocity_m_s` — mean channel velocity [m/s]
     ///
     /// # Returns
-    /// `Some(CellSeparationAnalysis)` if at least one cell type focuses
-    /// (κ > 0.07), or `None` if neither cell type will focus in this channel.
+    /// Always `Some(CellSeparationAnalysis)`.  Equilibrium positions are used
+    /// unconditionally — for channels below the inertial-focusing threshold
+    /// (κ < 0.07), the equilibrium solver returns x̃ = 0.5 (dispersed), and
+    /// separation efficiency will be near-zero rather than `None`.
+    /// `None` is never returned; the `Option` wrapper is kept for API stability.
     #[must_use]
     pub fn analyze(
         &self,
@@ -224,44 +241,31 @@ impl CellSeparationModel {
         )
         .unwrap_or_else(make_dispersed);
 
-        // If neither focuses, return None (device does nothing)
-        if !target_eq.will_focus && !background_eq.will_focus {
-            return None;
-        }
-
-        // Separation efficiency:
-        // If both focus: |x_t - x_b|
-        // If one focuses and other is dispersed (x=0.5): |x_t - 0.5|
+        // Separation efficiency: |x̃_target − x̃_background|.
+        // Computed unconditionally — even when neither cell truly focuses
+        // (κ < 0.07), the equilibrium solver returns a best-estimate position
+        // (x̃ = 0.5 for fully-dispersed cells via the `make_dispersed` fallback).
+        // Returning `None` when will_focus = false masks the result for callers
+        // and prevents score functions from using even a partial signal.
         let sep_eff = (target_eq.x_tilde_eq - background_eq.x_tilde_eq).abs();
 
         let split = self.x_tilde_split;
 
-        // Target (cancer) center fraction
-        let target_center = if target_eq.will_focus {
-            if target_eq.x_tilde_eq < split {
-                // Focuses near center
-                (1.0 - target_eq.x_tilde_eq / split).clamp(0.0, 1.0)
-            } else {
-                // Focuses near wall
-                0.0
-            }
+        // Target (cancer) center fraction — position-based, no will_focus gate.
+        // x̃_eq ∈ [0, 1]; 0 = channel center, 1 = wall.
+        // A cell with x̃_eq < split contributes to center-channel collection.
+        let target_center = if target_eq.x_tilde_eq < split {
+            (1.0 - target_eq.x_tilde_eq / split).clamp(0.0, 1.0)
         } else {
-            // Dispersed: fraction in center channel = split width / total width
-            split
+            0.0
         };
 
-        // Background (healthy) peripheral fraction
-        let background_peripheral = if background_eq.will_focus {
-            if background_eq.x_tilde_eq > split {
-                // Focuses near wall
-                ((background_eq.x_tilde_eq - split) / (1.0 - split)).clamp(0.0, 1.0)
-            } else {
-                // Focuses near center
-                0.0
-            }
+        // Background (healthy) peripheral fraction — position-based, no will_focus gate.
+        // A cell with x̃_eq > split contributes to peripheral-channel collection.
+        let background_peripheral = if background_eq.x_tilde_eq > split {
+            ((background_eq.x_tilde_eq - split) / (1.0 - split)).clamp(0.0, 1.0)
         } else {
-            // Dispersed: fraction in peripheral channel = (1 - split)
-            1.0 - split
+            0.0
         };
 
         // Purity: geometric mean of target center and background peripheral fractions

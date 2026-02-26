@@ -1,0 +1,51 @@
+{
+  "generated_at": "2026-02-25",
+  "scope": "targeted-helper-pass",
+  "crate": "cfd-2d",
+  "updated_files": [
+    {
+      "file": "crates/cfd-2d/src/lib.rs",
+      "has_theorem_header": true
+    },
+    {
+      "file": "crates/cfd-2d/src/constants.rs",
+      "has_theorem_header": true
+    },
+    {
+      "file": "crates/cfd-2d/src/error.rs",
+      "has_theorem_header": true
+    },
+    {
+      "file": "crates/cfd-2d/src/fields.rs",
+      "has_theorem_header": true
+    },
+    {
+      "file": "crates/cfd-2d/src/problem.rs",
+      "has_theorem_header": true
+    },
+    {
+      "file": "crates/cfd-2d/src/grid/mod.rs",
+      "has_theorem_header": true
+    },
+    {
+      "file": "crates/cfd-2d/src/grid/traits.rs",
+      "has_theorem_header": true
+    },
+    {
+      "file": "crates/cfd-2d/src/piso_algorithm/config.rs",
+      "has_theorem_header": true
+    },
+    {
+      "file": "crates/cfd-2d/src/simplec_pimple/config.rs",
+      "has_theorem_header": true
+    },
+    {
+      "file": "crates/cfd-2d/src/schemes/mod.rs",
+      "has_theorem_header": true
+    }
+  ],
+  "summary": {
+    "files_updated_in_pass": 10,
+    "files_with_theorem_header_added": 10
+  }
+}

@@ -2,11 +2,27 @@
 //!
 //! Provides mesh convergence studies, error metrics, and validation against
 //! ISO 5167 standards for Venturi tubes.
+//!
+//! # Theorem — Richardson Extrapolation (Richardson 1911)
+//!
+//! Given solutions on three grids with refinement ratio $r$, the observed
+//! order of accuracy is
+//!
+//! ```text
+//! p = ln((φ_3 − φ_2) / (φ_2 − φ_1)) / ln(r)
+//! ```
+//!
+//! and the Grid Convergence Index (Roache 1994) is
+//!
+//! ```text
+//! GCI = F_s |ε| / (r^p − 1)
+//! ```
+//!
+//! with safety factor $F_s = 1.25$ for three-grid studies.
 
-use super::solver::{VenturiConfig3D, VenturiSolution3D, VenturiSolver3D};
+use super::solver::{VenturiConfig3D, VenturiSolution3D};
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::Error;
-use cfd_core::physics::fluid::traits::Fluid as FluidTrait;
 use cfd_mesh::VenturiMeshBuilder;
 use nalgebra::RealField;
 use num_traits::{Float, FromPrimitive, ToPrimitive};
@@ -16,24 +32,29 @@ use serde::{Deserialize, Serialize};
 // ISO 5167 Validation Logic
 // ============================================================================
 
-/// Calculate theoretical discharge coefficient for a classical Venturi tube
-/// based on ISO 5167-4
+/// Discharge coefficient for a classical Venturi tube per ISO 5167-4.
+///
+/// # ISO 5167-4 Specification
+///
+/// For a machined convergent section the standard specifies a constant
+/// C = 0.995 with ±1 % uncertainty, valid when:
+///
+/// - 2 × 10⁵ ≤ Re_D ≤ 10⁶
+/// - 0.4 ≤ β ≤ 0.75
+///
+/// Outside the valid range the function still returns 0.995 but callers
+/// should treat the result with caution (the uncertainty grows).
+///
+/// The `_pipe_roughness` and `_d_inlet` parameters are accepted for
+/// interface compatibility with orifice-plate correlation signatures;
+/// Venturi tubes are insensitive to wall roughness within the standard's
+/// applicability range.
 pub fn iso_discharge_coefficient<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive>(
-    reynolds_d: T,
-    beta: T,
-    pipe_roughness: T,
-    d_inlet: T,
+    _reynolds_d: T,
+    _beta: T,
+    _pipe_roughness: T,
+    _d_inlet: T,
 ) -> T {
-    // For machined convergent section:
-    // C = 0.995 usually
-    // But depends on Re and Beta slightly. 
-    // Simplified model: C ≈ 0.995 for Re_D > 2e5
-    // For lower Re, C decreases.
-    
-    // Using Reader-Harris/Gallagher equation for orifice plates (as placeholder if needed)
-    // but here we use simple constant or lookup for Venturi.
-    // ISO 5167-4 specifies C = 0.995 +/- 1% for 2e5 < Re < 1e6 and 0.4 < beta < 0.75
-    
     <T as FromPrimitive>::from_f64(0.995).unwrap()
 }
 
@@ -41,11 +62,14 @@ pub fn iso_discharge_coefficient<T: cfd_mesh::domain::core::Scalar + RealField +
 // Venturi Validator
 // ============================================================================
 
+/// Validator for 3D Venturi tube flow results
 pub struct VenturiValidator3D<T: cfd_mesh::domain::core::Scalar + RealField + Copy + Float> {
+    /// Mesh builder holding Venturi geometry parameters
     pub mesh_builder: VenturiMeshBuilder<T>,
 }
 
 impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float> VenturiValidator3D<T> {
+    /// Create a new Venturi validator from the mesh builder
     pub fn new(mesh_builder: VenturiMeshBuilder<T>) -> Self {
         Self { mesh_builder }
     }
@@ -87,28 +111,29 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
         // p_in - p_th = 0.5 * rho * u_in^2 * ((A_in/A_th)^2 - 1)
         
         let u_in_avg = config.inlet_flow_rate / a_inlet;
-        let beta = self.mesh_builder.d_throat / self.mesh_builder.d_inlet;
         let area_ratio = a_inlet / a_throat; // > 1
         
         let dp_bernoulli = <T as FromPrimitive>::from_f64(0.5).unwrap() * fluid_density * u_in_avg * u_in_avg * (area_ratio * area_ratio - T::one());
         
         let dp_actual = solution.p_inlet - solution.p_throat;
         
-        // For viscous flow, dp_actual > dp_bernoulli due to friction.
-        // Error shouldn't be negative (dp_actual < dp_bernoulli potential gain?? Impossible)
+        // For viscous flow, dp_actual >= dp_bernoulli in physically admissible solutions.
+        // We allow only a small numerical tolerance from discrete solver residuals.
         let error_dp = (dp_actual - dp_bernoulli) / dp_bernoulli;
+        let numerical_tol = <T as FromPrimitive>::from_f64(5e-3).unwrap();
 
         // 3. Pressure Recovery Check
         // Should recover some pressure. dp_recovery (p_out - p_in) is normally negative (loss).
         let recovery_ok = solution.dp_recovery < T::zero(); 
+        let bernoulli_ok = dp_actual + numerical_tol * num_traits::Float::abs(dp_bernoulli) >= dp_bernoulli;
 
         let mut result = VenturiValidationResult3D::new("Venturi Flow Validation".to_string());
         result.dp_error = Some(error_dp);
-        result.validation_passed = error_dp > <T as FromPrimitive>::from_f64(-0.1).unwrap() && recovery_ok; // Allow 10% tolerance for Bernoulli approximation, must be higher than Bernoulli
+        result.validation_passed = bernoulli_ok && recovery_ok;
 
         if !result.validation_passed {
              let mut msg = String::new();
-            if error_dp <= <T as FromPrimitive>::from_f64(-0.1).unwrap() { msg.push_str(&format!("Pressure drop too low (Bernoulli violation): {:?}; ", error_dp)); }
+            if !bernoulli_ok { use std::fmt::Write; let _ = write!(msg, "Pressure drop below Bernoulli lower bound: {error_dp:?}; "); }
             if !recovery_ok { msg.push_str("Pressure recovery positive (impossible); "); }
             result.error_message = Some(msg);
         }
@@ -117,15 +142,21 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
     }
 }
 
+/// Validation result for 3D Venturi tube flow
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VenturiValidationResult3D<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
+    /// Name of the validation test
     pub test_name: String,
+    /// Relative pressure drop error vs Bernoulli prediction
     pub dp_error: Option<T>,
+    /// Whether all validation checks passed
     pub validation_passed: bool,
+    /// Detailed error message when validation fails
     pub error_message: Option<String>,
 }
 
 impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy> VenturiValidationResult3D<T> {
+    /// Create a new (default-failing) validation result
     pub fn new(test_name: String) -> Self {
         Self {
             test_name,
@@ -139,6 +170,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy> VenturiValidationResu
 #[cfg(test)]
 mod tests {
     use super::*;
+    use super::super::solver::VenturiSolver3D;
     use cfd_core::physics::fluid::traits::Fluid;
 
     #[test]
@@ -153,16 +185,16 @@ mod tests {
         let l_out = 0.01;
         
         let builder = VenturiMeshBuilder::new(d_in, d_th, l_in, l_conv, l_th, l_div, l_out)
-            .with_resolution(40, 6) // Roughly decent
+            .with_resolution(60, 8) // Higher resolution for better convergence
             .with_circular(true);
 
-        // Config
+        // Config — use moderate flow rate for stable numerics
         let mut config = VenturiConfig3D::default();
-        config.inlet_flow_rate = 1e-7; // very slow
-        config.resolution = (40, 6);
+        config.inlet_flow_rate = 1e-6; // 1 mL/s — moderate laminar flow
+        config.resolution = (60, 8);
         config.circular = true;
-        config.max_nonlinear_iterations = 20;
-        config.nonlinear_tolerance = 1e-4;
+        config.max_nonlinear_iterations = 30;
+        config.nonlinear_tolerance = 1e-5;
 
         let solver = VenturiSolver3D::new(builder.clone(), config.clone());
         let fluid = cfd_core::physics::fluid::blood::CassonBlood::normal_blood();
@@ -176,5 +208,80 @@ mod tests {
         println!("DP Error (rel to Bernoulli): {:?}", result.dp_error);
         
         assert!(result.validation_passed, "Validation failed: {:?}", result.error_message);
+    }
+
+    #[test]
+    fn test_venturi_validation_accepts_within_numerical_tolerance() {
+        let d_in = 0.005;
+        let d_th = 0.002;
+        let builder = VenturiMeshBuilder::new(d_in, d_th, 0.01, 0.01, 0.005, 0.01, 0.01)
+            .with_resolution(20, 4)
+            .with_circular(true);
+
+        let mut config = VenturiConfig3D::default();
+        config.circular = true;
+        config.inlet_flow_rate = 1e-6;
+
+        let validator = VenturiValidator3D::new(builder.clone());
+
+        let a_inlet = std::f64::consts::PI * d_in * d_in / 4.0;
+        let a_throat = std::f64::consts::PI * d_th * d_th / 4.0;
+        let u_in_avg = config.inlet_flow_rate / a_inlet;
+        let area_ratio = a_inlet / a_throat;
+        let rho = 1000.0;
+        let dp_bernoulli = 0.5 * rho * u_in_avg * u_in_avg * (area_ratio * area_ratio - 1.0);
+
+        let mut solution = VenturiSolution3D::new();
+        solution.p_inlet = 100_000.0;
+        // 0.4% low is within the 0.5% numerical tolerance margin
+        solution.p_throat = solution.p_inlet - dp_bernoulli * (1.0 - 0.004);
+        solution.dp_recovery = -100.0;
+
+        let result = validator
+            .validate_flow(&solution, &config, rho)
+            .expect("validation should run");
+
+        assert!(result.validation_passed);
+    }
+
+    #[test]
+    fn test_venturi_validation_rejects_below_bernoulli_lower_bound() {
+        let d_in = 0.005;
+        let d_th = 0.002;
+        let builder = VenturiMeshBuilder::new(d_in, d_th, 0.01, 0.01, 0.005, 0.01, 0.01)
+            .with_resolution(20, 4)
+            .with_circular(true);
+
+        let mut config = VenturiConfig3D::default();
+        config.circular = true;
+        config.inlet_flow_rate = 1e-6;
+
+        let validator = VenturiValidator3D::new(builder.clone());
+
+        let a_inlet = std::f64::consts::PI * d_in * d_in / 4.0;
+        let a_throat = std::f64::consts::PI * d_th * d_th / 4.0;
+        let u_in_avg = config.inlet_flow_rate / a_inlet;
+        let area_ratio = a_inlet / a_throat;
+        let rho = 1000.0;
+        let dp_bernoulli = 0.5 * rho * u_in_avg * u_in_avg * (area_ratio * area_ratio - 1.0);
+
+        let mut solution = VenturiSolution3D::new();
+        solution.p_inlet = 100_000.0;
+        // 2% low violates the 0.5% numerical tolerance margin
+        solution.p_throat = solution.p_inlet - dp_bernoulli * (1.0 - 0.02);
+        solution.dp_recovery = -100.0;
+
+        let result = validator
+            .validate_flow(&solution, &config, rho)
+            .expect("validation should run");
+
+        assert!(!result.validation_passed);
+        assert!(
+            result
+                .error_message
+                .as_ref()
+                .map(|msg| msg.contains("Bernoulli lower bound"))
+                .unwrap_or(false)
+        );
     }
 }

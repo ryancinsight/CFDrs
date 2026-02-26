@@ -92,10 +92,10 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + fmt::Disp
         println!("{}", "=".repeat(70));
         println!("Expected convergence order: {}", self.expected_order);
         if let Some(obs_order) = self.observed_order {
-            println!("Observed convergence order: {}", obs_order);
+            println!("Observed convergence order: {obs_order}");
         }
         if let Some(gci) = self.gci_percent {
-            println!("Grid Convergence Index (GCI): {}%", gci);
+            println!("Grid Convergence Index (GCI): {gci}%");
         }
         if let Some(l2) = self.l2_error {
             println!("L2 Error: {:.2e}", l2.to_f64().unwrap_or(f64::NAN));
@@ -115,7 +115,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + fmt::Disp
             }
         );
         if let Some(msg) = &self.error_message {
-            println!("Error: {}", msg);
+            println!("Error: {msg}");
         }
         println!("{}", "=".repeat(70));
     }
@@ -167,13 +167,19 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> BranchingV
     ) -> Result<BranchingValidationResult<T>, String> {
         // Solve on coarse grid
         let solution_coarse = branch_coarse
-            .solve(fluid, self.config.q_parent, self.config.p_parent)
-            .map_err(|e| format!("Coarse solution failed: {}", e))?;
+            .solve(fluid, self.config.q_parent, self.config.p_parent,
+                T::from_f64_or_one(cfd_core::physics::constants::physics::thermo::T_STANDARD),
+                T::from_f64_or_one(cfd_core::physics::constants::physics::thermo::P_ATM),
+            )
+            .map_err(|e| format!("Coarse solution failed: {e}"))?;
 
         // Solve on fine grid
         let solution_fine = branch_fine
-            .solve(fluid, self.config.q_parent, self.config.p_parent)
-            .map_err(|e| format!("Fine solution failed: {}", e))?;
+            .solve(fluid, self.config.q_parent, self.config.p_parent,
+                T::from_f64_or_one(cfd_core::physics::constants::physics::thermo::T_STANDARD),
+                T::from_f64_or_one(cfd_core::physics::constants::physics::thermo::P_ATM),
+            )
+            .map_err(|e| format!("Fine solution failed: {e}"))?;
 
         // Approximate relative error (using Q_1 as representative variable)
         let error_coarse = (solution_coarse.q_1 - solution_fine.q_1).abs()
@@ -231,8 +237,11 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> BranchingV
     ) -> Result<BranchingValidationResult<T>, String> {
         // Solve two-way branch junction
         let solution = branch_junction
-            .solve(fluid, self.config.q_parent, self.config.p_parent)
-            .map_err(|e| format!("Two-way branch solve failed: {}", e))?;
+            .solve(fluid, self.config.q_parent, self.config.p_parent,
+                T::from_f64_or_one(cfd_core::physics::constants::physics::thermo::T_STANDARD),
+                T::from_f64_or_one(cfd_core::physics::constants::physics::thermo::P_ATM),
+            )
+            .map_err(|e| format!("Two-way branch solve failed: {e}"))?;
 
         // For symmetric two-way branch, Q_1 should equal Q_2
         let q_analytical_1 = self.config.q_parent / T::from_f64_or_one(2.0);
@@ -282,8 +291,11 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> BranchingV
         blood: F,
     ) -> Result<BranchingValidationResult<T>, String> {
         let solution = branch_junction
-            .solve(blood, self.config.q_parent, self.config.p_parent)
-            .map_err(|e| format!("Blood flow solve failed: {}", e))?;
+            .solve(blood, self.config.q_parent, self.config.p_parent,
+                T::from_f64_or_one(cfd_core::physics::constants::physics::thermo::T_STANDARD),
+                T::from_f64_or_one(cfd_core::physics::constants::physics::thermo::P_ATM),
+            )
+            .map_err(|e| format!("Blood flow solve failed: {e}"))?;
 
         // Verify shear rates are physiological
         let gamma_min = T::from_f64_or_one(1.0);
@@ -336,8 +348,11 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> BranchingV
         fluid: F,
     ) -> Result<BranchingValidationResult<T>, String> {
         let solution = branch_junction
-            .solve(fluid, self.config.q_parent, self.config.p_parent)
-            .map_err(|e| format!("Three-way branch solve failed: {}", e))?;
+            .solve(fluid, self.config.q_parent, self.config.p_parent,
+                T::from_f64_or_one(cfd_core::physics::constants::physics::thermo::T_STANDARD),
+                T::from_f64_or_one(cfd_core::physics::constants::physics::thermo::P_ATM),
+            )
+            .map_err(|e| format!("Three-way branch solve failed: {e}"))?;
 
         let q_expected = self.config.q_parent / T::from_f64_or_one(3.0);
         let q_err_1 = (solution.q_1 - q_expected).abs() / q_expected.max(T::from_f64_or_one(1e-15));
@@ -384,8 +399,11 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> BranchingV
         blood: F,
     ) -> Result<BranchingValidationResult<T>, String> {
         let solution = branch_junction
-            .solve(blood, self.config.q_parent, self.config.p_parent)
-            .map_err(|e| format!("Three-way blood solve failed: {}", e))?;
+            .solve(blood, self.config.q_parent, self.config.p_parent,
+                T::from_f64_or_one(cfd_core::physics::constants::physics::thermo::T_STANDARD),
+                T::from_f64_or_one(cfd_core::physics::constants::physics::thermo::P_ATM),
+            )
+            .map_err(|e| format!("Three-way blood solve failed: {e}"))?;
 
         let gamma_min = T::from_f64_or_one(1.0);
         let gamma_max = T::from_f64_or_one(100000.0);

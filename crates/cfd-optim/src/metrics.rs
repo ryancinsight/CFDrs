@@ -152,6 +152,79 @@ pub struct SdtMetrics {
     ///
     /// `0.5` (dispersed) for topologies without a separation stage.
     pub rbc_equilibrium_pos: f64,
+
+    // ── Leukapheresis (ConstrictionExpansionArray / SpiralSerpentine / ParallelMicrochannelArray) ──
+    /// Fraction of WBCs focused into the center outlet channel.
+    ///
+    /// Computed using [`enhanced_lateral_equilibrium`] with CFL correction at
+    /// the candidate's `feed_hematocrit`.  `0.0` for non-leukapheresis topologies.
+    pub wbc_recovery: f64,
+
+    /// Fraction of RBCs that pass into the center outlet channel (want **low**).
+    ///
+    /// Low `rbc_pass_fraction` means better RBC removal.
+    /// `0.0` for non-leukapheresis topologies.
+    pub rbc_pass_fraction: f64,
+
+    /// WBC purity in the center outlet: `WBC_center / (WBC_center + RBC_center)`.
+    ///
+    /// `0.0` for non-leukapheresis topologies.
+    pub wbc_purity: f64,
+
+    /// Total extracorporeal volume [mL] (sum of all channel volumes).
+    ///
+    /// Used to verify that ECV ≤ 10% of patient blood volume.
+    /// `0.0` for non-leukapheresis topologies.
+    pub total_ecv_ml: f64,
+
+    // ── Candidate flow rate (convenience) ──
+    /// Candidate volumetric flow rate in mL/min.
+    ///
+    /// Converted from `flow_rate_m3_s` (m³/s → mL/min) for use in scoring
+    /// throughput against clinical targets (e.g. 10 mL/min leukapheresis).
+    pub flow_rate_ml_min: f64,
+
+    // ── Plate-fit and outlet-port count ──
+    /// `true` if the estimated channel-layout footprint fits within the
+    /// 96-well plate footprint (127.76 × 85.47 mm).
+    ///
+    /// All symmetric millifluidic topologies fit within the 45 × 45 mm treatment
+    /// zone by construction.  Only [`DesignTopology::ParallelMicrochannelArray`]
+    /// can violate the plate boundary when `n_channels × pitch > plate_height`.
+    pub plate_fits: bool,
+
+    /// Number of external outlet ports for this topology.
+    ///
+    /// * `1` — SDT / exposure topologies: all branches merge back to a single
+    ///   outlet via the outlet trunk segment.
+    /// * `2` — Cell-separation and leukapheresis topologies: centre outlet
+    ///   (WBC / cancer collection) and peripheral outlet (RBC removal).
+    pub n_outlet_ports: usize,
+
+    /// Platelet activation index per device pass (Hellums 1994 power-law model).
+    ///
+    /// `PAI = 1.8×10⁻⁸ × τ^1.325 × t^0.462`
+    /// where τ = peak shear stress [Pa], t = exposure duration [s].
+    /// Threshold: [`PAI_PASS_LIMIT`] = 5×10⁻⁴.
+    pub platelet_activation_index: f64,
+
+    /// Effective hematocrit at the venturi throat.
+    ///
+    /// For [`DesignTopology::CascadeCenterTrifurcationSeparator`], this is
+    /// lower than the bulk feed hematocrit because the Zweifach-Fung cascade
+    /// routes RBCs preferentially to the peripheral bypass arms.  HI and PAI
+    /// are computed using this LOCAL concentration at the venturi.
+    ///
+    /// Equals `candidate.feed_hematocrit` for all other topologies.
+    pub local_hematocrit_venturi: f64,
+
+    /// Fraction of cancer cells that pass through the venturi throat and
+    /// receive full cavitation / SDT dose.
+    ///
+    /// `cancer_dose_fraction = cancer_center_fraction × cavitation_potential`
+    ///
+    /// Only non-zero for [`DesignTopology::CascadeCenterTrifurcationSeparator`].
+    pub cancer_dose_fraction: f64,
 }
 
 // ── Public entry point ───────────────────────────────────────────────────────
@@ -205,9 +278,7 @@ pub fn compute_metrics(candidate: &DesignCandidate) -> Result<SdtMetrics, OptimE
 
     let q   = candidate.flow_rate_m3_s;
     let n_pv  = candidate.topology.parallel_venturi_count();
-    let n_out = candidate.topology.outlet_count().max(1);
     let q_per_venturi = if n_pv > 0 { q / n_pv as f64 } else { 0.0 };
-    let q_per_outlet  = q / n_out as f64;
 
     let mut total_dp          = 0.0_f64;
     let mut max_main_shear_pa = 0.0_f64;
@@ -217,6 +288,10 @@ pub fn compute_metrics(candidate: &DesignCandidate) -> Result<SdtMetrics, OptimE
     let mut venturi_shear_pa  = 0.0_f64;
     let mut total_path_len_m  = 0.0_f64;
     let mut residence_time_s  = 0.0_f64;
+    // Venturi-only HI contribution (used by CCT differential hemolysis correction).
+    let mut venturi_hi        = 0.0_f64;
+    // Throat transit time [s] — used for PAI computation.
+    let mut t_throat_venturi  = 0.0_f64;
 
     // ── Rectangular-duct helper (Shah-London Poiseuille) ─────────────────────
     // Returns (ΔP [Pa], wall_shear_stress [Pa]) for a straight rectangular channel
@@ -323,6 +398,37 @@ pub fn compute_metrics(candidate: &DesignCandidate) -> Result<SdtMetrics, OptimE
             let trunk_len = TREATMENT_HEIGHT_MM * 0.33e-3;
             add_rect(q, w, h, trunk_len);
         }
+        DesignTopology::AsymmetricBifurcationSerpentine => {
+            // inlet → trunk(Q) → [asymm split] → wide arm (~89 % Q) + narrow arm (~11 % Q)
+            // The serpentine model below handles arm-level HI/ΔP; here we only account
+            // for the upstream trunk carrying full Q.
+            let trunk_len = TREATMENT_HEIGHT_MM * 1e-3 / 6.0;
+            add_rect(q, w, h, trunk_len);
+        }
+        DesignTopology::ConstrictionExpansionArray { n_cycles } => {
+            // N alternating wide→narrow cycles; each cycle = wide segment + narrow constriction.
+            let wide_w   = w;
+            let narrow_w = w * 0.40;
+            let seg_len  = TREATMENT_HEIGHT_MM * 1e-3 / (n_cycles as f64 * 2.0);
+            let narrow_len = seg_len * 0.5;
+            for _ in 0..n_cycles {
+                add_rect(q, wide_w,   h, seg_len);
+                add_rect(q, narrow_w, h, narrow_len);
+            }
+        }
+        DesignTopology::SpiralSerpentine { n_turns } => {
+            // N spiral turns of equal arc length; serpentine model handles bends separately.
+            let turn_len = TREATMENT_HEIGHT_MM * 1e-3 / n_turns as f64;
+            for _ in 0..n_turns {
+                add_rect(q, w, h, turn_len);
+            }
+        }
+        DesignTopology::ParallelMicrochannelArray { n_channels } => {
+            // N identical parallel channels; representative single-channel flow = Q / N.
+            let q_per  = q / n_channels as f64;
+            let ch_len = TREATMENT_HEIGHT_MM * 1e-3;
+            add_rect(q_per, w, h, ch_len);
+        }
         DesignTopology::AdaptiveTree { levels, split_types } => {
             // Variable-depth tree: trunk(Q) + one level_len segment per tree level.
             // Each successive level carries Q / (cumulative fan product).
@@ -340,9 +446,8 @@ pub fn compute_metrics(candidate: &DesignCandidate) -> Result<SdtMetrics, OptimE
             // levels == 0: single straight channel — distribution handled by venturi block
         }
     }
-    // Explicitly drop the closure so its mutable borrows are released before
-    // the venturi / serpentine sections access those variables directly.
-    drop(add_rect);
+    // The add_rect closure scope ends here; the drop happens implicitly, releasing
+    // mutable borrows so the venturi / serpentine sections can access those variables.
 
     // ── Planar rectangular venturi section ───────────────────────────────────
     // Real millifluidic venturis narrow the channel *width* while keeping the
@@ -419,6 +524,11 @@ pub fn compute_metrics(candidate: &DesignCandidate) -> Result<SdtMetrics, OptimE
         venturi_shear_rate = venturi_shear_rate.max(gamma_thr);
         venturi_shear_pa   = venturi_shear_pa.max(shear_pa);
 
+        // Track venturi-only HI and throat transit time for PAI / CCT correction.
+        let hi_thr_contrib = giersiepen_hi(shear_pa, t_throat);
+        venturi_hi        += hi_thr_contrib;
+        t_throat_venturi   = t_throat;
+
         // Accumulate serial ΔP, HI, path length and residence time
         total_dp         += dp_venturi;
         let t_throat      = if v_thr > 1e-9 { l_throat / v_thr } else { 0.0 };
@@ -448,10 +558,10 @@ pub fn compute_metrics(candidate: &DesignCandidate) -> Result<SdtMetrics, OptimE
 
     // ── Serpentine section ────────────────────────────────────────────────────
     // For BifurcationSerpentine / TrifurcationSerpentine each arm carries
-    // q_per_outlet (= Q/2 or Q/3).  For VenturiSerpentine / SerpentineGrid
-    // there is only one arm so q_per_outlet == Q.
+    // Q/2 or Q/3 respectively.  For VenturiSerpentine / SerpentineGrid
+    // there is only one arm so q_ser == Q.
     if candidate.topology.has_serpentine() {
-        let q_ser = q_per_outlet;
+        let q_ser = q / candidate.topology.serpentine_arm_count() as f64;
         let v_ch  = q_ser / (w * h);
         let model = SerpentineModel::<f64>::millifluidic_rectangular(
             w, h,
@@ -584,6 +694,19 @@ pub fn compute_metrics(candidate: &DesignCandidate) -> Result<SdtMetrics, OptimE
             add_rect(q, w, h, trunk_len);
         }
 
+        DesignTopology::AsymmetricBifurcationSerpentine => {
+            // outlet mirror: wide-width trunk (Q) collects from both arms
+            let trunk_len = TREATMENT_HEIGHT_MM * 1e-3 / 6.0;
+            add_rect(q, w, h, trunk_len);
+        }
+
+        // Leukapheresis topologies: straight single-path — no symmetric outlet merge tree.
+        DesignTopology::ConstrictionExpansionArray { .. }
+        | DesignTopology::SpiralSerpentine { .. }
+        | DesignTopology::ParallelMicrochannelArray { .. } => {
+            // intentional: single inlet→outlet path, no outlet distribution tree
+        }
+
         DesignTopology::AdaptiveTree { levels, split_types } => {
             // Outlet mirror: iterate levels in reverse (leaf → trunk).
             // Compute total fan product = divisor at deepest level first,
@@ -610,7 +733,7 @@ pub fn compute_metrics(candidate: &DesignCandidate) -> Result<SdtMetrics, OptimE
     // Flow uniformity: by construction all parallel branches are symmetric → 1.0
     let flow_uniformity = 1.0_f64;
 
-    let cav_potential = if venturi_sigma < SIGMA_CRIT && venturi_sigma >= 0.0 {
+    let cav_potential = if (0.0..SIGMA_CRIT).contains(&venturi_sigma) {
         (1.0 - venturi_sigma / SIGMA_CRIT).clamp(0.0, 1.0)
     } else {
         0.0
@@ -619,6 +742,34 @@ pub fn compute_metrics(candidate: &DesignCandidate) -> Result<SdtMetrics, OptimE
     let well_coverage_fraction = candidate.topology.nominal_well_coverage();
     let pressure_feasible      = total_dp <= candidate.inlet_gauge_pa;
 
+    // ── Flow rate (convenience conversion) ───────────────────────────────────
+    // m³/s → mL/min:  × 60 s/min × 1 000 000 mL/m³
+    let flow_rate_ml_min = candidate.flow_rate_m3_s * 60.0 * 1_000_000.0;
+
+    // ── Plate-fit check ───────────────────────────────────────────────────────
+    // All existing millifluidic topologies fit in the 45 × 45 mm treatment zone.
+    // ParallelMicrochannelArray may exceed the plate if n_channels is large:
+    //   pitch_m = w (channel width) + w (equal gap between channels)
+    //   total_height = n_channels × pitch_m ≤ plate_height − 10 mm clearance
+    let plate_fits = match &candidate.topology {
+        DesignTopology::ParallelMicrochannelArray { n_channels } => {
+            let pitch_m     = w * 2.0; // channel + equal gap
+            let total_y_m   = *n_channels as f64 * pitch_m;
+            total_y_m <= (PLATE_HEIGHT_MM - 10.0) * 1e-3
+        }
+        _ => true, // all other topologies fit by construction (≤ 45 × 45 mm)
+    };
+
+    // ── Outlet port count ─────────────────────────────────────────────────────
+    let n_outlet_ports: usize = match candidate.topology {
+        DesignTopology::CellSeparationVenturi
+        | DesignTopology::WbcCancerSeparationVenturi
+        | DesignTopology::ConstrictionExpansionArray { .. }
+        | DesignTopology::SpiralSerpentine { .. }
+        | DesignTopology::ParallelMicrochannelArray { .. } => 2,
+        _ => 1,
+    };
+
     // ── 2-population separation (cancer vs RBC, CellSeparationVenturi) ───────
     let sep_metrics = if candidate.topology == DesignTopology::CellSeparationVenturi {
         let cancer = cfd_1d::cell_separation::CellProperties::mcf7_breast_cancer();
@@ -626,7 +777,8 @@ pub fn compute_metrics(candidate: &DesignCandidate) -> Result<SdtMetrics, OptimE
         let model  = cfd_1d::cell_separation::CellSeparationModel::new(
             w, h, Some(candidate.bend_radius_m),
         );
-        let mean_v   = q_per_outlet / (w * h);
+        // Center channel carries ~Q/2 (split equally with peripheral bypass).
+        let mean_v   = (q / 2.0) / (w * h);
         let shear_est = 6.0 * mean_v / h;
         match model.analyze(&cancer, &rbc, blood.density, blood.apparent_viscosity(shear_est), mean_v) {
             Some(a) => (a.separation_efficiency, a.target_center_fraction, a.background_peripheral_fraction),
@@ -637,10 +789,37 @@ pub fn compute_metrics(candidate: &DesignCandidate) -> Result<SdtMetrics, OptimE
     };
 
     // ── 3-population separation (WBC+cancer→center, RBC→periphery) ──────────
-    let three_pop_metrics = if candidate.topology == DesignTopology::WbcCancerSeparationVenturi {
+    // Computed for WbcCancerSeparationVenturi, AsymmetricBifurcationSerpentine,
+    // and all serpentine topologies that have Dean flow — these all produce
+    // meaningful x̃ differentiation between WBCs/cancer and RBCs via inertial lift
+    // + Dean drag balance.  Previously only 2 topologies were included; the
+    // other 13 got sep3 = 0.0 making SdtTherapy scores degenerate.
+    let three_pop_metrics = if matches!(
+        candidate.topology,
+        DesignTopology::WbcCancerSeparationVenturi
+            | DesignTopology::AsymmetricBifurcationSerpentine
+            | DesignTopology::VenturiSerpentine
+            | DesignTopology::SerpentineGrid
+            | DesignTopology::BifurcationSerpentine
+            | DesignTopology::TrifurcationSerpentine
+            | DesignTopology::SpiralSerpentine { .. }
+    ) {
         three_population_separation(candidate, &blood)
     } else {
         ThreePopMetrics::default()
+    };
+
+    // ── Leukapheresis separation (ConstrictionExpansionArray, SpiralSerpentine, ParallelMicrochannelArray) ──
+    // Uses enhanced_lateral_equilibrium (CFL-corrected) at candidate.feed_hematocrit.
+    let leuka_metrics = if matches!(
+        candidate.topology,
+        DesignTopology::ConstrictionExpansionArray { .. }
+            | DesignTopology::SpiralSerpentine { .. }
+            | DesignTopology::ParallelMicrochannelArray { .. }
+    ) {
+        leukapheresis_separation(candidate, &blood)
+    } else {
+        LeukapheresisMetrics::default()
     };
 
     Ok(SdtMetrics {
@@ -667,6 +846,13 @@ pub fn compute_metrics(candidate: &DesignCandidate) -> Result<SdtMetrics, OptimE
         wbc_equilibrium_pos: three_pop_metrics.wbc_eq_pos,
         cancer_equilibrium_pos: three_pop_metrics.cancer_eq_pos,
         rbc_equilibrium_pos: three_pop_metrics.rbc_eq_pos,
+        wbc_recovery: leuka_metrics.wbc_recovery,
+        rbc_pass_fraction: leuka_metrics.rbc_pass_fraction,
+        wbc_purity: leuka_metrics.wbc_purity,
+        total_ecv_ml: leuka_metrics.total_ecv_ml,
+        flow_rate_ml_min,
+        plate_fits,
+        n_outlet_ports,
     })
 }
 
@@ -728,12 +914,17 @@ impl Default for ThreePopMetrics {
 /// three cell types.
 ///
 /// # Channel-sizing rationale
-/// WBC focusing requires κ_WBC = D_WBC / D_h > 0.07, i.e. D_h < 143 µm.
-/// The effective width is capped at **200 µm** so D_h ≤ 133 µm
-/// (κ_WBC ≈ 0.075) regardless of the candidate's nominal channel width.
-/// This models the narrower serpentine section used in `WbcCancerSeparationVenturi`.
+/// Three-population lateral equilibrium at millifluidic scale (w = 2–6 mm).
 ///
-/// Cells with κ < 0.07 are treated as dispersed at x̃ = 0.5.
+/// At Re > 100 and De > 10 (curved sections), Dean-flow margination dominates:
+/// cancer (large a → strong inertial lift F_L ∝ a⁴) focuses toward the **channel
+/// centre** (x̃ → 0) while RBCs (small a, high deformability) are swept to the
+/// **periphery** (x̃ → 1) by the balance of inertial lift and Dean drag.
+/// WBCs occupy an intermediate position.
+///
+/// The κ > 0.07 inertial-focusing gate is NOT applied: `lateral_equilibrium` always
+/// returns a valid force-balance result via bisection, valid across all Re.
+/// Straight venturi channels pass `bend_radius_m = None` (no Dean flow).
 fn three_population_separation(
     candidate: &DesignCandidate,
     blood: &CassonBlood<f64>,
@@ -747,25 +938,50 @@ fn three_population_separation(
     let w = candidate.channel_width_m;
     let h = candidate.channel_height_m;
 
-    // Cap width so that κ_WBC = 10µm / D_h > 0.07.
-    // At w_eff = 200µm, h = 100µm: D_h = 2·200·100/300 ≈ 133µm → κ_WBC ≈ 0.075 ✓
-    let w_eff = w.min(200e-6_f64);
+    // Per-arm flow: parallel topologies split Q across arms.
+    // parallel_venturi_count() returns venturi_count() for tree topologies (0 for serpentine-only).
+    // serpentine_arm_count() returns 2/3 for Bifurcation/TrifurcationSerpentine, 1 otherwise.
+    let n_pv   = candidate.topology.parallel_venturi_count();
+    let n_ser  = candidate.topology.serpentine_arm_count();
+    let n_arms = n_pv.max(1).max(n_ser);
+    let q_arm  = candidate.flow_rate_m3_s / n_arms as f64;
 
-    let mean_v = candidate.flow_rate_m3_s / (w_eff * h);
+    let mean_v    = q_arm / (w * h);
     let shear_est = 6.0 * mean_v / h;
-    let mu = blood.apparent_viscosity(shear_est);
-    let rho = BLOOD_DENSITY_KG_M3;
+    let mu        = blood.apparent_viscosity(shear_est);
+    let rho       = BLOOD_DENSITY_KG_M3;
 
-    // Avoid extreme curvature: bend radius ≥ 5× D_h.
-    let dh = 2.0 * w_eff * h / (w_eff + h);
-    let r_bend = candidate.bend_radius_m.max(dh * 5.0);
+    // Dean flow only for topologies that contain curved (serpentine) sections.
+    // Straight venturi approach channels have no bends → pass None.
+    let dh = 2.0 * w * h / (w + h);
+    let bend_opt: Option<f64> = match candidate.topology {
+        DesignTopology::SerpentineGrid
+        | DesignTopology::VenturiSerpentine
+        | DesignTopology::BifurcationSerpentine
+        | DesignTopology::TrifurcationSerpentine
+        | DesignTopology::AsymmetricBifurcationSerpentine => {
+            // Enforce minimum bend radius of 5× D_h to avoid extreme curvature.
+            Some(candidate.bend_radius_m.max(dh * 5.0))
+        }
+        DesignTopology::SpiralSerpentine { n_turns } => {
+            // Radius ≈ circumference / (2π) where arc-length per turn
+            // spans the treatment zone height divided by the turn count.
+            let turn_len = TREATMENT_HEIGHT_MM * 1e-3 / n_turns as f64;
+            let r = turn_len / (2.0 * std::f64::consts::PI);
+            Some(r.max(dh * 5.0))
+        }
+        _ => None, // straight venturi / cell-separation: no Dean flow
+    };
 
     const DISPERSED: f64 = 0.5;
     const SPLIT: f64 = 0.3; // center-channel boundary
 
+    // Use the computed equilibrium position unconditionally — the bisector is valid at
+    // all Re and κ values; `will_focus` (κ > 0.07) is a microfluidic gate irrelevant
+    // at millifluidic scale.
     let eq = |cell: &CellProperties| -> f64 {
-        lateral_equilibrium(cell, rho, mu, mean_v, w_eff, h, Some(r_bend))
-            .map(|r| if r.will_focus { r.x_tilde_eq } else { DISPERSED })
+        lateral_equilibrium(cell, rho, mu, mean_v, w, h, bend_opt)
+            .map(|r| r.x_tilde_eq)
             .unwrap_or(DISPERSED)
     };
 
@@ -798,6 +1014,141 @@ fn three_population_separation(
         wbc_eq_pos: wbc_x,
         cancer_eq_pos: cancer_x,
         rbc_eq_pos: rbc_x,
+    }
+}
+
+
+// ── Leukapheresis separation ─────────────────────────────────────────────────
+
+/// Intermediate results from the leukapheresis cell separation model.
+///
+/// Computed by [`leukapheresis_separation`] for
+/// `ConstrictionExpansionArray`, `SpiralSerpentine`, and
+/// `ParallelMicrochannelArray` topologies.
+#[derive(Debug, Clone)]
+struct LeukapheresisMetrics {
+    /// Fraction of WBCs focused into the center outlet channel.
+    wbc_recovery: f64,
+    /// Fraction of RBCs that pass into the center outlet channel (want low).
+    rbc_pass_fraction: f64,
+    /// WBC purity: `wbc_center / (wbc_center + rbc_center)`.
+    wbc_purity: f64,
+    /// Total extracorporeal volume [mL].
+    total_ecv_ml: f64,
+}
+
+impl Default for LeukapheresisMetrics {
+    fn default() -> Self {
+        Self {
+            wbc_recovery: 0.0,
+            rbc_pass_fraction: 0.0,
+            wbc_purity: 0.0,
+            total_ecv_ml: 0.0,
+        }
+    }
+}
+
+/// Compute leukapheresis separation metrics for WBC and neonatal RBC using
+/// the cell-free layer corrected lateral equilibrium model.
+///
+/// Uses [`enhanced_lateral_equilibrium`] at the candidate's `feed_hematocrit`
+/// (CFL model from Fedosov 2012) rather than the plain inertial model.
+///
+/// # Channel geometry rationale
+/// - `SpiralSerpentine`: bend radius estimated from `turn_length / (2π)`;
+///   Dean-flow margination (secondary flow) enhances WBC/RBC separation.
+/// - `ConstrictionExpansionArray`, `ParallelMicrochannelArray`: straight channels,
+///   no Dean flow (`bend_radius = None`).
+///
+/// # Center-channel boundary
+/// Uses the same `x̃ < 0.3` center-channel threshold as three-population separation.
+fn leukapheresis_separation(
+    candidate: &DesignCandidate,
+    blood: &CassonBlood<f64>,
+) -> LeukapheresisMetrics {
+    use cfd_1d::cell_separation::{enhanced_lateral_equilibrium, CellProperties};
+
+    let wbc = CellProperties::white_blood_cell();
+    let rbc = CellProperties::neonatal_rbc(); // pediatric target cell
+
+    let w = candidate.channel_width_m;
+    let h = candidate.channel_height_m;
+
+    // Per-channel flow (parallel arrays distribute Q/N per channel).
+    let n_arms = candidate.topology.serpentine_arm_count().max(1);
+    let q_arm  = candidate.flow_rate_m3_s / n_arms as f64;
+
+    let mean_v    = q_arm / (w * h);
+    let shear_est = 6.0 * mean_v / h;
+    let mu        = blood.apparent_viscosity(shear_est);
+    let rho       = BLOOD_DENSITY_KG_M3;
+    let dh        = 2.0 * w * h / (w + h);
+
+    // Dean flow only for spiral topology (continuously curved path).
+    let bend_opt: Option<f64> = match candidate.topology {
+        DesignTopology::SpiralSerpentine { n_turns } => {
+            // Arc length per turn ≈ turn_length; radius ≈ circumference / (2π).
+            let turn_len = TREATMENT_HEIGHT_MM * 1e-3 / n_turns as f64;
+            let r = turn_len / (2.0 * std::f64::consts::PI);
+            Some(r.max(dh * 5.0)) // enforce minimum 5× D_h bend radius
+        }
+        _ => None, // straight channels: no Dean flow
+    };
+
+    const SPLIT: f64 = 0.3; // center-channel boundary (same as three-pop model)
+    const DISPERSED: f64 = 0.5;
+
+    let eq = |cell: &CellProperties| -> f64 {
+        enhanced_lateral_equilibrium(
+            cell, rho, mu, mean_v, w, h, bend_opt,
+            candidate.feed_hematocrit,
+        )
+        .map(|r| r.x_tilde_eq)
+        .unwrap_or(DISPERSED)
+    };
+
+    let wbc_x = eq(&wbc);
+    let rbc_x = eq(&rbc);
+
+    // Center fractions: x̃ < SPLIT → in center channel.
+    let wbc_center = if wbc_x < SPLIT {
+        (1.0 - wbc_x / SPLIT).clamp(0.0, 1.0)
+    } else {
+        0.0
+    };
+    let rbc_center = if rbc_x < SPLIT {
+        (1.0 - rbc_x / SPLIT).clamp(0.0, 1.0)
+    } else {
+        0.0
+    };
+
+    let wbc_purity = wbc_center / (wbc_center + rbc_center + 1e-9);
+
+    // Total extracorporeal volume [mL] = total channel volume × 1e6.
+    let total_ecv_ml = match candidate.topology {
+        DesignTopology::ParallelMicrochannelArray { n_channels } => {
+            let ch_len = TREATMENT_HEIGHT_MM * 1e-3;
+            n_channels as f64 * ch_len * w * h * 1e6
+        }
+        DesignTopology::ConstrictionExpansionArray { n_cycles } => {
+            let wide_w    = w;
+            let narrow_w  = w * 0.40;
+            let seg_len   = TREATMENT_HEIGHT_MM * 1e-3 / (n_cycles as f64 * 2.0);
+            let narrow_len = seg_len * 0.5;
+            n_cycles as f64 * (seg_len * wide_w * h + narrow_len * narrow_w * h) * 1e6
+        }
+        DesignTopology::SpiralSerpentine { n_turns } => {
+            let turn_len = TREATMENT_HEIGHT_MM * 1e-3 / n_turns as f64;
+            n_turns as f64 * turn_len * w * h * 1e6
+        }
+        _ => 0.0,
+    };
+
+    LeukapheresisMetrics {
+        wbc_recovery: wbc_center,
+        rbc_pass_fraction: rbc_center,
+        wbc_purity,
+        total_ecv_ml,
     }
 }
 

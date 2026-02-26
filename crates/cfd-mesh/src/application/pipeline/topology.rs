@@ -23,6 +23,15 @@ pub enum TopologyClass {
     /// Venturi chain: linear chain where at least one channel is tagged
     /// `TherapyZone::CancerTarget`.
     VenturiChain,
+    /// N identical parallel channels all connecting a single Inlet to a single Outlet.
+    ///
+    /// Represents a parallel microchannel array for clinical throughput scaling.
+    /// Classification rule: `n_in = 1, n_out = 1, n_junc = 0, n_channels > 1`,
+    /// where every channel connects `inlet → outlet` directly (no intermediate nodes).
+    ParallelArray {
+        /// Number of parallel channels.
+        n_channels: usize,
+    },
     /// Any topology not covered by the above.
     Complex,
 }
@@ -137,6 +146,21 @@ impl<'bp> NetworkTopology<'bp> {
         // Trifurcation: n_in=1, n_out=3, n_junc=1, n_ch=4
         if n_in == 1 && n_out == 3 && n_junc == 1 && n_ch == 4 {
             return TopologyClass::Trifurcation;
+        }
+
+        // ParallelArray: single inlet, single outlet, no junctions, N > 1 channels,
+        // every channel connects inlet → outlet directly.
+        if n_in == 1 && n_out == 1 && n_junc == 0 && n_ch > 1 {
+            let inlet_id  = self.inlet_node_id().unwrap_or("");
+            let outlet_id = self.outlet_node_ids().into_iter().next().unwrap_or("");
+            let all_direct = self
+                .bp
+                .channels
+                .iter()
+                .all(|c| c.from.as_str() == inlet_id && c.to.as_str() == outlet_id);
+            if all_direct {
+                return TopologyClass::ParallelArray { n_channels: n_ch };
+            }
         }
 
         // LinearChain: all junctions have degree 2, linear path exists
@@ -270,6 +294,17 @@ mod tests {
         let bp = serpentine_chain("s", 3, 0.010, 0.004);
         let topo = NetworkTopology::new(&bp);
         assert_eq!(topo.classify(), TopologyClass::LinearChain { n_segments: 3 });
+    }
+
+    #[test]
+    fn parallel_array_classifies_correctly() {
+        use cfd_schematics::interface::presets::parallel_microchannel_array_rect;
+        let bp = parallel_microchannel_array_rect("p", 50, 30e-3, 100e-6, 60e-6);
+        let topo = NetworkTopology::new(&bp);
+        assert_eq!(
+            topo.classify(),
+            TopologyClass::ParallelArray { n_channels: 50 }
+        );
     }
 
     #[test]

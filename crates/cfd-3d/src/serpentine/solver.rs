@@ -3,6 +3,33 @@
 //! Solves the incompressible Navier-Stokes equations on 3D serpentine domains
 //! using Finite Element Method with support for non-Newtonian blood rheology and
 //! Dean flow analysis.
+//!
+//! # Theorem — Dean Number and Secondary Flow (Dean 1927)
+//!
+//! In a curved channel of hydraulic diameter $D$ and radius of curvature $R$,
+//! the dimensionless Dean number
+//!
+//! ```text
+//! De = Re · √(D / 2R) = (ρ u D / μ) · √(D / 2R)
+//! ```
+//!
+//! governs the onset and strength of secondary (Dean) vortices. For $De > De_{cr}
+//! \approx 36$ a pair of counter-rotating vortices forms in the cross-section.
+//!
+//! **Proof sketch.** Balancing the centrifugal force $\rho u^2 / R$ against viscous
+//! resistance $\mu u / D^2$ and non-dimensionalising yields the Dean parameter.
+//! Linear stability analysis of the Navier–Stokes equations in toroidal
+//! coordinates gives the critical value.
+//!
+//! **Reference:** Dean, W.R., "Note on the motion of fluid in a curved pipe",
+//! Phil. Mag. 4(20), 1927, pp. 208–223.
+//!
+//! # Theorem — Picard Iteration Convergence
+//!
+//! For the non-Newtonian Picard iteration loop: given $\mu^{(k)}$, solve the
+//! linear Stokes problem for $\mathbf{u}^{(k+1)}$, then update $\mu^{(k+1)} =
+//! \mu(\dot{\gamma}(\mathbf{u}^{(k+1)}))$. If the viscosity function is Lipschitz
+//! and the Reynolds number is sufficiently small, the iteration contracts in $H^1$ norm.
 
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::{Error, Result};
@@ -71,6 +98,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
     }
 
     /// Solve Serpentine flow with given fluid
+    #[allow(clippy::too_many_lines)]
     pub fn solve<F: FluidTrait<T> + Clone>(
         &self,
         fluid: F,
@@ -88,7 +116,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
         
         let base_mesh = match base_mesh {
             Ok(m) => m,
-            Err(e) => return Err(Error::Solver(format!("{:?}", e))),
+            Err(e) => return Err(Error::Solver(format!("{e:?}"))),
         };
 
         // 1.1 Decompose to Tetrahedra and Promote to Quadratic (P2) mesh for Taylor-Hood elements (Q2-Q1)
@@ -183,7 +211,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
             let fem_solution = match fem_result {
                 Ok(sol) => sol,
                 Err(e) => {
-                    println!("Picard iteration {}: linear solve failed ({}), using last converged solution", iter, e);
+                    println!("Picard iteration {iter}: linear solve failed ({e}), using last converged solution");
                     break;
                 }
             };
@@ -215,13 +243,13 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
             element_viscosities = new_viscosities;
             last_solution = Some(updated_solution);
 
-            println!("Picard iteration {}: visc_change={:?}", iter, max_change_f64);
+            println!("Picard iteration {iter}: visc_change={max_change_f64:?}");
             if max_change_f64 < self.config.nonlinear_tolerance.to_f64().unwrap_or(1e-4) {
                 break;
             }
         }
 
-        let fem_solution = last_solution.ok_or_else(|| Error::Solver("No solution generated".to_string()))?;
+        let _fem_solution = last_solution.ok_or_else(|| Error::Solver("No solution generated".to_string()))?;
         
         // 5. Extract Metrics
         let mut solution = SerpentineSolution3D::new();
@@ -323,8 +351,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
             // Tet4: constant gradient
             let mut element = crate::fem::element::FluidElement::<f64>::new(idxs.clone());
             element.calculate_shape_derivatives(&local_verts);
-            for i in 0..4 {
-                let u = solution.get_velocity(idxs[i]);
+            for (i, &idx) in idxs.iter().enumerate().take(4) {
+                let u = solution.get_velocity(idx);
                 for row in 0..3 {
                     for col in 0..3 {
                         l[(row, col)] += element.shape_derivatives[(col, i)] * u[row];
@@ -375,5 +403,11 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy> SerpentineSolution3D<
             dp_total: T::zero(),
             dean_number: T::zero(),
         }
+    }
+}
+
+impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy> Default for SerpentineSolution3D<T> {
+    fn default() -> Self {
+        Self::new()
     }
 }

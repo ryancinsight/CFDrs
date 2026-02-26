@@ -1,6 +1,19 @@
 //! 3D solver for flow in trifurcations
 //!
 //! Provides simulation for three-way branching vessels with non-Newtonian blood.
+//!
+//! # Theorem — Mass Conservation at Trifurcation
+//!
+//! For incompressible steady-state flow:
+//!
+//! ```text
+//! Q_parent = Q_1 + Q_2 + Q_3
+//! ```
+//!
+//! # Theorem — Generalised Murray’s Law ($N = 3$)
+//!
+//! $D_0^3 = D_1^3 + D_2^3 + D_3^3$ minimises total viscous dissipation
+//! plus metabolic blood-volume maintenance cost.
 
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::{Error, Result};
@@ -14,12 +27,19 @@ use crate::trifurcation::geometry::TrifurcationGeometry3D;
 /// Configuration for 3D trifurcation solver
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TrifurcationConfig3D<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
+    /// Inlet volume flow rate [m³/s]
     pub inlet_flow_rate: T,
+    /// Inlet pressure [Pa]
     pub inlet_pressure: T,
+    /// Outlet pressures for each of the three daughter branches [Pa]
     pub outlet_pressures: [T; 3],
+    /// Maximum Picard/Newton nonlinear iterations
     pub max_nonlinear_iterations: usize,
+    /// Convergence tolerance for nonlinear residual
     pub nonlinear_tolerance: T,
+    /// Maximum Krylov (GMRES/CG) linear iterations per solve
     pub max_linear_iterations: usize,
+    /// Convergence tolerance for the linear solver
     pub linear_tolerance: T,
 }
 
@@ -40,25 +60,34 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
 /// Solution result for 3D trifurcation
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TrifurcationSolution3D<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
-    pub flow_rates: [T; 4], // [parent, d1, d2, d3]
+    /// Volume flow rates [parent, daughter1, daughter2, daughter3] [m³/s]
+    pub flow_rates: [T; 4],
+    /// Cross-section-averaged velocities [parent, d1, d2, d3] [m/s]
     pub mean_velocities: [T; 4],
+    /// Wall shear stresses [parent, d1, d2, d3] [Pa]
     pub wall_shear_stresses: [T; 4],
+    /// Pressure drops [parent, d1, d2, d3] [Pa]
     pub pressure_drops: [T; 4],
+    /// Relative mass conservation error: |Q_in - ΣQ_out| / Q_in
     pub mass_conservation_error: T,
 }
 
 /// 3D Trifurcation flow solver
 pub struct TrifurcationSolver3D<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
+    /// Trifurcation channel geometry
     pub geometry: TrifurcationGeometry3D<T>,
+    /// Solver configuration
     pub config: TrifurcationConfig3D<T>,
 }
 
 impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float + From<f64>> TrifurcationSolver3D<T> {
+    /// Create a new trifurcation solver with the given geometry and config
     pub fn new(geometry: TrifurcationGeometry3D<T>, config: TrifurcationConfig3D<T>) -> Self {
         Self { geometry, config }
     }
 
     /// Solve trifurcation flow
+    #[allow(clippy::too_many_lines)]
     pub fn solve<F: FluidTrait<T> + NonNewtonianFluid<T>>(
         &self,
         fluid: &F,
@@ -79,7 +108,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
         );
         let base_mesh = match mesh_builder.build_surface() {
             Ok(m) => m,
-            Err(e) => return Err(Error::Solver(format!("{:?}", e))),
+            Err(e) => return Err(Error::Solver(format!("{e:?}"))),
         };
         let tet_mesh = cfd_mesh::application::hierarchy::hex_to_tet::HexToTetConverter::convert(&base_mesh);
         let mesh = cfd_mesh::application::hierarchy::hierarchical_mesh::P2MeshConverter::convert_to_p2(&tet_mesh);
@@ -87,7 +116,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
         let stats_vertex_count = mesh.vertex_count();
         let stats_cell_count = mesh.cell_count();
         let stats_boundary_face_count = mesh.boundary_faces().len();
-        println!("Mesh stats: nodes={}, cells={}, boundary_faces={}", stats_vertex_count, stats_cell_count, stats_boundary_face_count);
+        println!("Mesh stats: nodes={stats_vertex_count}, cells={stats_cell_count}, boundary_faces={stats_boundary_face_count}");
         
         let mut label_counts = std::collections::HashMap::new();
         for f_idx in 0..mesh.face_count() {
@@ -95,7 +124,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
                 *label_counts.entry(label.to_string()).or_insert(0) += 1;
             }
         }
-        println!("Boundary label counts: {:?}", label_counts);
+        println!("Boundary label counts: {label_counts:?}");
 
         // 2. Define Boundary Conditions
         let mut boundary_conditions = HashMap::new();
@@ -183,7 +212,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
             let fem_solution = match fem_result {
                 Ok(sol) => sol,
                 Err(e) => {
-                    println!("Picard iteration {}: linear solve failed ({}), using last converged solution", iter, e);
+                    println!("Picard iteration {iter}: linear solve failed ({e}), using last converged solution");
                     break;
                 }
             };
@@ -210,7 +239,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
 
             element_viscosities = new_viscosities;
             last_solution = Some(updated_solution);
-            println!("Picard iteration {}: visc_change={:?}", iter, max_change_f64);
+            println!("Picard iteration {iter}: visc_change={max_change_f64:?}");
             if max_change_f64 < self.config.nonlinear_tolerance.to_f64().unwrap_or(1e-4) { break; }
         }
 
@@ -399,8 +428,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
         } else {
             let mut element = crate::fem::element::FluidElement::<f64>::new(idxs.clone());
             element.calculate_shape_derivatives(&local_verts);
-            for i in 0..4 {
-                let u = solution.get_velocity(idxs[i]);
+            for (i, &idx) in idxs.iter().enumerate().take(4) {
+                let u = solution.get_velocity(idx);
                 for row in 0..3 {
                     for col in 0..3 { l[(row, col)] += element.shape_derivatives[(col, i)] * u[row]; }
                 }

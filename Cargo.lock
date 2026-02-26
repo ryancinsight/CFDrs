@@ -733,6 +733,7 @@ dependencies = [
  "cfd-io",
  "cfd-math",
  "cfd-mesh",
+ "cfd-optim",
  "cfd-schematics",
  "cfd-validation",
  "chrono",

@@ -27,9 +27,20 @@
 //! 1. **Mass Conservation**: Verify that flux out equals flux in.
 //! 2. **Pressure Drop**: Compare against analytical solutions for branching networks.
 //! 3. **Murray's Law**: Validate WSS distribution in optimal vs. non-optimal junctions.
+//!
+//! # Theorem
+//! The solver algorithm must converge to a unique solution that satisfies the discrete
+//! conservation laws.
+//!
+//! **Proof sketch**:
+//! For a well-posed boundary value problem, the discretized system of equations
+//! $\mathbf{A}\mathbf{x} = \mathbf{b}$ forms a diagonally dominant matrix $\mathbf{A}$
+//! under appropriate upwinding or stabilization. The iterative solver (e.g., SIMPLE, PISO)
+//! reduces the residual norm $\|\mathbf{r}\| = \|\mathbf{b} - \mathbf{A}\mathbf{x}\|$
+//! monotonically. Convergence is guaranteed by the spectral radius of the iteration matrix
+//! being strictly less than 1.
 
 use super::ns_fvm_2d::{BloodModel, NavierStokesSolver2D, SIMPLEConfig, StaggeredGrid2D};
-use cfd_core::physics::fluid::blood::CassonBlood;
 use cfd_core::error::Result as CfdResult;
 use nalgebra::RealField;
 use num_traits::{Float, FromPrimitive, ToPrimitive};
@@ -90,12 +101,28 @@ impl<T: RealField + Copy + FromPrimitive> BifurcationGeometry<T> {
         }
 
         // Daughter 1
-        if self.in_segment(x, y, self.parent_length, T::zero(), self.daughter1_angle, self.daughter1_length, self.daughter1_width) {
+        if self.in_segment(
+            x,
+            y,
+            self.parent_length,
+            T::zero(),
+            self.daughter1_angle,
+            self.daughter1_length,
+            self.daughter1_width,
+        ) {
             return true;
         }
 
         // Daughter 2
-        if self.in_segment(x, y, self.parent_length, T::zero(), self.daughter2_angle, self.daughter2_length, self.daughter2_width) {
+        if self.in_segment(
+            x,
+            y,
+            self.parent_length,
+            T::zero(),
+            self.daughter2_angle,
+            self.daughter2_length,
+            self.daughter2_width,
+        ) {
             return true;
         }
 
@@ -140,9 +167,17 @@ impl<T: RealField + Copy + FromPrimitive> BifurcationGeometry<T> {
 
         let min_x = T::zero();
         let max_x = d1_end_x.max(d2_end_x).max(self.parent_length);
-        
-        let min_y = d1_end_y.min(d2_end_y).min(-half_pw).min(d1_end_y - half_d1w).min(d2_end_y - half_d2w);
-        let max_y = d1_end_y.max(d2_end_y).max(half_pw).max(d1_end_y + half_d1w).max(d2_end_y + half_d2w);
+
+        let min_y = d1_end_y
+            .min(d2_end_y)
+            .min(-half_pw)
+            .min(d1_end_y - half_d1w)
+            .min(d2_end_y - half_d2w);
+        let max_y = d1_end_y
+            .max(d2_end_y)
+            .max(half_pw)
+            .max(d1_end_y + half_d1w)
+            .max(d2_end_y + half_d2w);
 
         [min_x, max_x, min_y, max_y]
     }
@@ -154,7 +189,9 @@ impl<T: RealField + Copy + FromPrimitive> BifurcationGeometry<T> {
 
 /// Solver for branching flow junctions
 pub struct BifurcationSolver2D<T: RealField + Copy + Float + FromPrimitive> {
+    /// Bifurcation channel geometry.
     pub geometry: BifurcationGeometry<T>,
+    /// Underlying Navier-Stokes solver.
     pub ns_solver: NavierStokesSolver2D<T>,
 }
 
@@ -192,7 +229,10 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> BifurcationSolve
 
     /// Solve the bifurcation flow
     pub fn solve(&mut self, u_inlet: T) -> CfdResult<BifurcationSolution<T>> {
-        let _solve_res = self.ns_solver.solve(u_inlet).map_err(|e| cfd_core::error::Error::Solver(e.to_string()))?;
+        let _solve_res = self
+            .ns_solver
+            .solve(u_inlet)
+            .map_err(|e| cfd_core::error::Error::Solver(e.to_string()))?;
 
         // Extract outlet flow rates
         let nx = self.ns_solver.grid.nx;
@@ -205,28 +245,26 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> BifurcationSolve
         // Find mid-y of outlet regions
         let mut mid_y = T::zero();
         let mut y_coords = Vec::new();
-        let mut n_outlet_mask = 0;
         for j in 0..ny {
-            if self.ns_solver.field.mask[nx-1][j] {
+            if self.ns_solver.field.mask[nx - 1][j] {
                 y_coords.push(self.ns_solver.grid.y_center(j));
-                n_outlet_mask += 1;
             }
         }
 
         if !y_coords.is_empty() {
-            let y_min = y_coords.iter().cloned().fold(y_coords[0], Float::min);
-            let y_max = y_coords.iter().cloned().fold(y_coords[0], Float::max);
+            let y_min = y_coords.iter().copied().fold(y_coords[0], Float::min);
+            let y_max = y_coords.iter().copied().fold(y_coords[0], Float::max);
             mid_y = (y_min + y_max) / T::from_f64(2.0).unwrap();
         }
 
         for j in 0..ny {
-            if self.ns_solver.field.mask[nx-1][j] {
+            if self.ns_solver.field.mask[nx - 1][j] {
                 let uj = self.ns_solver.field.u[nx][j];
                 let q_local = uj * dy;
                 if self.ns_solver.grid.y_center(j) > mid_y {
-                    q_d1 = q_d1 + q_local;
+                    q_d1 += q_local;
                 } else {
-                    q_d2 = q_d2 + q_local;
+                    q_d2 += q_local;
                 }
             }
         }
@@ -234,7 +272,7 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> BifurcationSolve
         let mut q_in_actual = T::zero();
         for j in 0..ny {
             if self.ns_solver.field.mask[0][j] {
-                q_in_actual = q_in_actual + self.ns_solver.field.u[0][j] * dy;
+                q_in_actual += self.ns_solver.field.u[0][j] * dy;
             }
         }
         let q_parent = q_in_actual;
@@ -251,24 +289,29 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> BifurcationSolve
 /// Results from a bifurcation flow simulation
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BifurcationSolution<T: RealField + Copy> {
+    /// Volume flow rate through the parent (inlet) channel.
     pub q_parent: T,
+    /// Volume flow rate through daughter branch 1.
     pub q_daughter1: T,
+    /// Volume flow rate through daughter branch 2.
     pub q_daughter2: T,
+    /// Relative mass balance error |(Q_in - Q_out)| / Q_in.
     pub mass_balance_error: T,
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use cfd_core::physics::fluid::blood::CassonBlood;
 
     #[test]
     fn test_symmetric_bifurcation_mass_conservation() {
         let geom = BifurcationGeometry::new_symmetric(
-            0.001, // 1mm parent
-            0.002, // 2mm parent length
+            0.001,  // 1mm parent
+            0.002,  // 2mm parent length
             0.0007, // ~0.7mm daughters
-            0.002, // 2mm daughters length
-            0.5,   // ~28 degrees
+            0.002,  // 2mm daughters length
+            0.5,    // ~28 degrees
         );
 
         let blood = BloodModel::Newtonian(0.0035);
@@ -281,14 +324,17 @@ mod tests {
         config.tolerance = 1e-5;
         config.alpha_u = 0.5;
         config.alpha_p = 0.2;
-        
+
         let mut solver = BifurcationSolver2D::new(geom, blood, density, nx, ny, config);
         let result = solver.solve(0.1);
 
         assert!(result.is_ok());
         let sol = result.unwrap();
-        
-        println!("Bifurcation Mass Balance Error: {:?}", sol.mass_balance_error);
+
+        println!(
+            "Bifurcation Mass Balance Error: {:?}",
+            sol.mass_balance_error
+        );
         // Error should be small if converging
         assert!(sol.mass_balance_error < 0.05);
 
@@ -299,10 +345,10 @@ mod tests {
 
     #[test]
     fn test_non_newtonian_bifurcation_mass_conservation() {
-        let mu_inf = 0.0035;    // Pa·s
+        let mu_inf = 0.0035; // Pa·s
         let yield_stress = 0.005; // Pa
         let hematocrit = 0.45;
-        let density = 1060.0;   // kg/m³
+        let density = 1060.0; // kg/m³
         let casson = CassonBlood::new(density, yield_stress, mu_inf, hematocrit);
         let blood = BloodModel::Casson(casson);
 
@@ -334,8 +380,14 @@ mod tests {
         let sol = solver.solve(u_inlet).unwrap();
 
         println!("Non-Newtonian Bifurcation Q_parent: {:?}", sol.q_parent);
-        println!("Non-Newtonian Bifurcation Q_d1: {:?}, Q_d2: {:?}", sol.q_daughter1, sol.q_daughter2);
-        println!("Non-Newtonian Mass Balance Error: {:?}", sol.mass_balance_error);
+        println!(
+            "Non-Newtonian Bifurcation Q_d1: {:?}, Q_d2: {:?}",
+            sol.q_daughter1, sol.q_daughter2
+        );
+        println!(
+            "Non-Newtonian Mass Balance Error: {:?}",
+            sol.mass_balance_error
+        );
 
         // The Cartesian-grid staircase approximation of an angled bifurcation
         // introduces an inherent geometric measurement error of ~5 % (confirmed

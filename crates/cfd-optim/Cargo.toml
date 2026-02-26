@@ -37,3 +37,7 @@ path = "examples/sdt_export.rs"
 [[example]]
 name = "sdt_evo"
 path = "examples/sdt_evo.rs"
+
+[[example]]
+name = "sdt_therapy"
+path = "examples/sdt_therapy.rs"

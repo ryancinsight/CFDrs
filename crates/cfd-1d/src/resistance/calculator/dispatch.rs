@@ -1,7 +1,14 @@
+//! Resistance model dispatch functions.
+//!
+//! Provides convenience free functions that construct and call the appropriate
+//! `ResistanceModel` implementation for each geometry, as well as an
+//! automatic model-selection function (`calculate_auto`) that chooses between
+//! laminar (Hagen-Poiseuille, Rectangular) and turbulent (Darcy-Weisbach)
+//! models based on the computed Reynolds number.
 use crate::resistance::geometry::ChannelGeometry;
 use crate::resistance::models::{
     DarcyWeisbachModel, FlowConditions, HagenPoiseuilleModel, MembranePoreModel,
-    RectangularChannelModel, ResistanceModel, SerpentineModel, VenturiModel,
+    RectangularChannelModel, ResistanceModel, VenturiModel,
 };
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
@@ -96,6 +103,10 @@ where
     }
 }
 
+/// Calculate hydraulic resistance using the Hagen-Poiseuille model for a circular pipe.
+///
+/// # Errors
+/// Returns `Err` if `diameter ≤ 0`, `length ≤ 0`, or if the fluid properties are invalid.
 pub fn calculate_hagen_poiseuille<T, F>(
     diameter: T,
     length: T,
@@ -111,6 +122,13 @@ where
     model.calculate_resistance(fluid, conditions)
 }
 
+/// Calculate hydraulic resistance for a rectangular cross-section channel (laminar flow).
+///
+/// Uses the infinite-series Shah & London correction for the aspect ratio.
+/// Valid only for laminar flow (Re < 2300).
+///
+/// # Errors
+/// Returns `Err` if any dimension is non-positive or if Re ≥ 2300.
 pub fn calculate_rectangular<T, F>(
     width: T,
     height: T,
@@ -131,6 +149,13 @@ where
     model.calculate_resistance(fluid, conditions)
 }
 
+/// Calculate hydraulic resistance using the Darcy-Weisbach model (circular section).
+///
+/// Uses the Colebrook-White / Haaland equation for the friction factor.
+/// Applies to both laminar and turbulent flow regimes.
+///
+/// # Errors
+/// Returns `Err` if `hydraulic_diameter ≤ 0`, `length ≤ 0`, or `roughness < 0`.
 pub fn calculate_darcy_weisbach<T, F>(
     hydraulic_diameter: T,
     length: T,
@@ -147,6 +172,12 @@ where
     model.calculate_resistance(fluid, conditions)
 }
 
+/// Calculate resistance for a circular serpentine channel including Dean flow correction.
+///
+/// Accounts for secondary Dean vortices in curved segments using the Ito (1959) correlation.
+///
+/// # Errors
+/// Returns `Err` if any input dimension is non-positive or `num_segments == 0`.
 pub fn calculate_serpentine_circular<T, F>(
     diameter: T,
     straight_length: T,
@@ -169,6 +200,12 @@ where
     model.calculate_resistance(fluid, conditions)
 }
 
+/// Calculate resistance for a rectangular serpentine channel including Dean flow correction.
+///
+/// Uses the rectangular hydraulic diameter `D_h = 2wh/(w+h)` for the Dean number.
+///
+/// # Errors
+/// Returns `Err` if any dimension is non-positive or `num_segments == 0`.
 pub fn calculate_serpentine_rectangular<T, F>(
     width: T,
     height: T,
@@ -193,6 +230,13 @@ where
     model.calculate_resistance(fluid, conditions)
 }
 
+/// Calculate total hydraulic resistance for a Venturi (converging-diverging) tube.
+///
+/// Includes: convergent pressure recovery, throat viscous friction, and Borda-Carnot
+/// expansion loss in the divergent section (ISO 5167-4 discharge coefficients).
+///
+/// # Errors
+/// Returns `Err` if `throat_diameter ≥ inlet_diameter`, or any length is non-positive.
 pub fn calculate_venturi<T, F>(
     inlet_diameter: T,
     throat_diameter: T,
@@ -215,6 +259,13 @@ where
     model.calculate_resistance(fluid, conditions)
 }
 
+/// Calculate hydraulic resistance through a porous membrane modelled as parallel cylindrical pores.
+///
+/// Uses the Hagen-Poiseuille law per pore: `R_total = R_pore / N_pores`, where
+/// `N_pores = porosity × A_membrane / (π r_pore²)`.
+///
+/// # Errors
+/// Returns `Err` if `pore_radius ≤ 0`, `porosity ∉ (0, 1]`, or any dimension is non-positive.
 pub fn calculate_membrane_porous<T, F>(
     thickness: T,
     width: T,

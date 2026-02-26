@@ -6,6 +6,17 @@
 //! # References
 //! * Leonard, B.P. (1979). "A stable and accurate convective modelling procedure"
 //! * Patankar, S.V. (1980). "Numerical Heat Transfer and Fluid Flow", §5.4.3
+//!
+//! # Theorem
+//! The momentum discretization must conserve linear momentum globally and locally.
+//!
+//! **Proof sketch**:
+//! By integrating the Navier-Stokes momentum equation over a control volume $\Omega$,
+//! Gauss's divergence theorem converts the convective and diffusive volume integrals
+//! into surface fluxes. The finite volume method ensures that the flux leaving one
+//! cell exactly equals the flux entering the adjacent cell. Thus, in the absence of
+//! external forces and boundary fluxes, the total momentum $\int_\Omega \rho \mathbf{u} dV$
+//! is exactly conserved to machine precision.
 
 use crate::discretization::extended_stencil::{ExtendedStencilScheme, QuickScheme};
 use crate::fields::SimulationFields;

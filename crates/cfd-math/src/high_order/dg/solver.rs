@@ -247,6 +247,9 @@ pub trait TimeIntegrator: Send + Sync {
     /// Get the order of the method
     fn order(&self) -> usize;
 
+    /// Number of right-hand-side evaluations per step
+    fn stages(&self) -> usize;
+
     /// Whether the method is implicit
     fn is_implicit(&self) -> bool;
 
@@ -272,6 +275,9 @@ impl TimeIntegrator for ForwardEuler {
     }
 
     fn order(&self) -> usize {
+        1
+    }
+    fn stages(&self) -> usize {
         1
     }
     fn is_implicit(&self) -> bool {
@@ -304,6 +310,9 @@ impl TimeIntegrator for RK4 {
     }
 
     fn order(&self) -> usize {
+        4
+    }
+    fn stages(&self) -> usize {
         4
     }
     fn is_implicit(&self) -> bool {
@@ -343,6 +352,9 @@ impl TimeIntegrator for SSPRK3 {
     }
 
     fn order(&self) -> usize {
+        3
+    }
+    fn stages(&self) -> usize {
         3
     }
     fn is_implicit(&self) -> bool {
@@ -434,6 +446,10 @@ impl TimeIntegrator for ImplicitEuler {
 
     fn order(&self) -> usize {
         1
+    }
+    fn stages(&self) -> usize {
+        // 1 initial f-eval + up to max_iter Newton iterations (each with 1 f-eval)
+        1 + self.max_iter
     }
     fn is_implicit(&self) -> bool {
         true
@@ -590,11 +606,38 @@ impl DGSolver {
         }
     }
 
-    /// Compute the maximum wave speed in the domain
+    /// Compute the maximum wave speed in the domain.
+    ///
+    /// Scans all element-interface pairs in the current solution to obtain
+    /// a global upper bound on the characteristic speed, which controls the
+    /// CFL-based time step.
     fn compute_max_wave_speed(&self) -> Result<f64> {
-        // This is a simplified version that assumes a constant wave speed
-        // In practice, this should be computed based on the solution
-        Ok(1.0)
+        use super::flux::{FluxFactory, NumericalFlux};
+
+        let n_elem = self.u.ncols();
+        let n_dof = self.u.nrows();
+        if n_elem == 0 || n_dof == 0 {
+            return Ok(f64::EPSILON);
+        }
+
+        let flux = FluxFactory::create(self.dg_op.params.surface_flux);
+        // Unit normal (1-D reference direction)
+        let n = DVector::from_element(1, 1.0);
+
+        let mut max_speed: f64 = f64::EPSILON;
+
+        for e in 0..n_elem.saturating_sub(1) {
+            // Right boundary of element e
+            let u_l = DVector::from_element(1, self.u[(n_dof - 1, e)]);
+            // Left boundary of element e+1
+            let u_r = DVector::from_element(1, self.u[(0, e + 1)]);
+            let speed = flux.max_wave_speed(&u_l, &u_r, &n);
+            if speed > max_speed {
+                max_speed = speed;
+            }
+        }
+
+        Ok(max_speed)
     }
 
     /// Take a single time step
@@ -637,7 +680,8 @@ impl DGSolver {
         let (u_new, error) = self.integrator.step(self.t, dt, &self.u, f, jac_dyn)?;
 
         // Update statistics
-        self.nfev += 1; // This is a simplification; actual count depends on the method
+        let step_fev = self.integrator.stages();
+        self.nfev += step_fev;
 
         // Accept the step
         self.u = u_new;
@@ -674,9 +718,9 @@ impl DGSolver {
             dt,
             accepted: true,
             error,
-            nfev: 1,      // Simplified
-            njev: 0,      // Simplified
-            nlinsolve: 0, // Simplified
+            nfev: step_fev,
+            njev: usize::from(self.integrator.is_implicit()),
+            nlinsolve: usize::from(self.integrator.is_implicit()),
             converged: true,
             message: None,
         })

@@ -1,83 +1,95 @@
 //! Darcy-Weisbach resistance model for turbulent flow.
 //!
-//! ## Darcy-Weisbach Theorem
+//! ## Theorem: Darcy-Weisbach Pressure Drop
 //!
-//! **Theorem**: For steady, fully developed, incompressible flow in a straight pipe,
-//! the pressure drop ΔP over a length L is given by:
+//! **Theorem** (Darcy 1857, Weisbach 1845): For steady, fully developed, incompressible
+//! flow in a straight pipe, the pressure drop ΔP over a length L is given by:
 //!
-//! ΔP = f * (L/D) * (ρ V²/2)
-//!
-//! where:
-//! - f is the Darcy friction factor (dimensionless)
-//! - L is the pipe length [m]
-//! - D is the pipe diameter [m]
-//! - ρ is the fluid density [kg/m³]
-//! - V is the average velocity [m/s]
-//!
-//! **Hydraulic Resistance Form**: R = ΔP / Q = (f ρ L) / (2 A D)
+//! ```text
+//! ΔP = f · (L/D) · (ρ V²/2)
+//! ```
 //!
 //! where:
-//! - Q is the volumetric flow rate [m³/s]
-//! - A is the pipe cross-sectional area [m²]
+//! - f  = Darcy friction factor (dimensionless)
+//! - L  = pipe length [m]
+//! - D  = pipe hydraulic diameter [m]
+//! - ρ  = fluid density [kg/m³]
+//! - V  = average cross-section velocity [m/s]
 //!
-//! ### Derivation
+//! **Hydraulic Resistance Form**: expressing ΔP = R·Q gives:
 //!
-//! Starting from momentum balance on a pipe element:
+//! ```text
+//! R = (f ρ L V) / (2 A D)    [Pa·s/m³]
+//! ```
 //!
-//! τ_w * π D L = ΔP * π D²/4
+//! where A is the cross-sectional area and V = Q/A.
 //!
-//! where τ_w is the wall shear stress.
+//! ### Derivation (wall shear balance)
 //!
-//! Wall shear stress: τ_w = (f ρ V²)/8
+//! Force balance on a pipe element (length L, diameter D):
 //!
-//! Substituting: (f ρ V²/8) * π D L = ΔP * π D²/4
+//! ```text
+//! τ_w · π D L = ΔP · π D²/4
+//! ```
 //!
-//! Solving for ΔP: ΔP = f * (L/D) * (ρ V²/2)
+//! Defining the Darcy friction factor via  τ_w ≡ f ρ V²/8:
 //!
-//! ### Colebrook-White Theorem
+//! ```text
+//! (f ρ V²/8) · π D L = ΔP · π D²/4
+//! ⟹ ΔP = f · (L/D) · (ρ V²/2)   ■
+//! ```
 //!
-//! **Theorem**: The Darcy friction factor f for rough pipes is given by the
-//! implicit equation:
+//! ## Theorem: Colebrook-White Implicit Equation
 //!
-//! 1/√f = -2.0 log₁₀(ε/(3.7 D) + 2.51/(Re √f))
+//! **Theorem** (Colebrook & White 1939): The Darcy friction factor for turbulent
+//! flow in rough pipes satisfies the implicit relation:
 //!
-//! where:
-//! - ε is the surface roughness [m]
-//! - Re is the Reynolds number (ρ V D / μ)
+//! ```text
+//! 1/√f = −2.0 · log₁₀( ε/(3.7 D) + 2.51/(Re √f) )
+//! ```
 //!
-//! **Validity Conditions**:
-//! - Turbulent flow: Re > 4000 (typically Re > 2300 for safety)
-//! - Roughness ratio: 0 < ε/D < 0.05
-//! - Fully developed flow: L/D > 10
+//! where ε is the absolute surface roughness [m].
 //!
-//! ### Special Cases
+//! **Validity**: Re > 2300, 0 < ε/D < 0.05.
 //!
-//! **Laminar Flow (Blasius)**: f = 64/Re for Re < 2300
+//! **Special cases**:
+//! - Laminar:      f = 64/Re                          (all roughness)
+//! - Smooth pipe: 1/√f ≈ 2 log₁₀(Re √f) − 0.8        (ε → 0)
+//! - Fully rough: 1/√f ≈ 2 log₁₀(3.7 D/ε)            (Re → ∞)
 //!
-//! **Smooth Pipes (Prandtl-von Kármán)**: 1/√f ≈ 2.0 log₁₀(Re √f) - 0.8
+//! ## Theorem: Haaland Explicit Approximation
 //!
-//! **Fully Rough Pipes (Nikuradse)**: 1/√f ≈ 2.0 log₁₀(3.7 D/ε)
+//! **Theorem** (Haaland 1983): An accurate explicit (non-iterative) approximation
+//! for the Colebrook-White friction factor is:
 //!
-//! ### Haaland Explicit Approximation
+//! ```text
+//! 1/√f ≈ −1.8 · log₁₀[ (ε/(3.7 D))^1.1 + (6.9/Re)^1.1 ]^(1/1.1)
+//! ```
 //!
-//! For practical calculations, Haaland (1983) provides an explicit approximation:
+//! or equivalently in the form used for numerical verification:
 //!
-//! 1/√f ≈ -1.8 log₁₀[(ε/(3.7 D))¹.¹ + (6.9/Re)¹.¹]¹/¹.¹
+//! ```text
+//! 1/√f ≈ −1.8 · log₁₀[ (ε/(3.6 D))^1.11 + (6.9/Re) ]   (Haaland variant)
+//! ```
 //!
-//! **Accuracy**: Within 2% of Colebrook-White for 4000 < Re < 10⁸ and 10⁻⁶ < ε/D < 10⁻²
+//! **Accuracy**: within 2% of Colebrook-White for 4000 < Re < 10⁸, 10⁻⁶ < ε/D < 10⁻².
+//!
+//! ## Invariant: Reynolds Number
+//!
+//! The model computes Reynolds number from physical properties when not provided:
+//!
+//! ```text
+//! Re = ρ V D_h / μ    (provided directly or derived from velocity/flow_rate)
+//! ```
 //!
 //! ### References
 //!
-//! - Darcy, H. (1857). "Recherches expérimentales relatives au mouvement de l'eau
-//!   dans les tuyaux." *Mémoires de l'Académie des Sciences*, 15, 141-168.
-//! - Weisbach, J. (1845). *Lehrbuch der Ingenieur- und Maschinen-Mechanik*.
-//! - Colebrook, C. F. (1939). "Turbulent flow in pipes with particular reference
-//!   to the transition region between smooth and rough pipe laws."
-//!   *Journal of the Institution of Civil Engineers*, 11(4), 133-156.
-//! - Moody, L. F. (1944). "Friction factors for pipe flow."
-//!   *Transactions of the ASME*, 66(8), 671-684.
-//! - Haaland, S. E. (1983). "Simple and explicit formulas for the friction factor
-//!   in turbulent pipe flow." *Journal of Fluids Engineering*, 105(1), 89-90.
+//! - Darcy, H. (1857). *Recherches expérimentales relatives au mouvement de l'eau dans les tuyaux.*
+//! - Weisbach, J. (1845). *Lehrbuch der Ingenieur- und Maschinen-Mechanik.*
+//! - Colebrook, C. F. (1939). "Turbulent flow in pipes." *Journal of the Institution of Civil Engineers*, 11(4), 133-156.
+//! - Moody, L. F. (1944). "Friction factors for pipe flow." *Transactions of the ASME*, 66(8), 671-684.
+//! - Haaland, S. E. (1983). "Simple and explicit formulas for the friction factor in turbulent pipe flow."
+//!   *Journal of Fluids Engineering*, 105(1), 89-90.
 
 use super::traits::{FlowConditions, ResistanceModel};
 use cfd_core::error::{Error, Result};
@@ -89,10 +101,6 @@ use serde::{Deserialize, Serialize};
 // Named constants for friction factor calculations
 const LAMINAR_FRICTION_COEFFICIENT: f64 = 64.0;
 const LAMINAR_TRANSITION_RE: f64 = 2300.0;
-const HAALAND_ROUGHNESS_DIVISOR: f64 = 3.6;
-const HAALAND_REYNOLDS_FACTOR: f64 = 6.9;
-const LOG_BASE_10: f64 = 10.0;
-const HAALAND_EXPONENT_FACTOR: f64 = 1.8;
 const COLEBROOK_COEFFICIENT: f64 = 2.0;
 const MAX_REYNOLDS: f64 = 1e8;
 
@@ -158,33 +166,50 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T>
         fluid: &F,
         conditions: &FlowConditions<T>,
     ) -> Result<(T, T)> {
-        let reynolds = conditions.reynolds_number.ok_or_else(|| {
-            Error::InvalidConfiguration(
-                "Reynolds number required for Darcy-Weisbach model".to_string(),
-            )
-        })?;
-
-        let friction_factor = self.calculate_friction_factor(reynolds);
         let state = fluid.properties_at(conditions.temperature, conditions.pressure)?;
         let density = state.density;
         let viscosity = state.dynamic_viscosity;
         let area = self.area;
 
-        let re_transition = T::from_f64(LAMINAR_TRANSITION_RE).unwrap_or_else(|| T::one());
+        // Auto-compute Reynolds number when not explicitly provided.
+        // Re = ρ·V·D_h / μ   (derived from velocity or flow_rate)
+        let reynolds = if let Some(re) = conditions.reynolds_number {
+            re
+        } else {
+            let velocity = if let Some(v) = conditions.velocity {
+                v
+            } else if let Some(q) = conditions.flow_rate {
+                q / area
+            } else {
+                T::zero()
+            };
+            let v_abs = if velocity >= T::zero() { velocity } else { -velocity };
+            if viscosity > T::zero() {
+                density * v_abs * self.hydraulic_diameter / viscosity
+            } else {
+                return Err(Error::InvalidConfiguration(
+                    "Darcy-Weisbach: viscosity is zero, cannot compute Reynolds number".to_string(),
+                ));
+            }
+        };
+
+        let friction_factor = self.calculate_friction_factor(reynolds);
+        let re_transition = T::from_f64(LAMINAR_TRANSITION_RE).unwrap_or_else(T::one);
 
         if reynolds < re_transition {
             // Laminar regime: ΔP = R·Q
-            // R = (f·ρ·L·V) / (2·A·Dh)
-            // With f = 64/Re = 64μ / (ρ·V·Dh)
-            // R = (64μ / (ρ·V·Dh)) · ρ·L·V / (2·A·Dh) = 32μL / (A·Dh²)
-            let r = (T::from_f64(32.0).unwrap_or_else(|| T::zero()) * viscosity * self.length)
+            // f = 64/Re = 64μ/(ρ V D_h)  ⟹  ΔP = 64μ/(ρ V D_h) · (L/D_h) · ½ρV²
+            //    = 32 μ L V / D_h²  =  (32 μ L) / (A D_h²) · Q
+            //    ⟹  R_linear = 32 μ L / (A D_h²)
+            let r = (T::from_f64(32.0).unwrap_or_else(T::zero) * viscosity * self.length)
                 / (area * self.hydraulic_diameter * self.hydraulic_diameter);
             Ok((r, T::zero()))
         } else {
-            // Turbulent regime: ΔP = k·Q|Q|
-            // k = (f·ρ·L) / (2·A²·Dh)
+            // Turbulent regime: ΔP ∝ Q² → k-coefficient (quadratic)
+            // ΔP = f·(L/D_h)·(ρV²/2) = f·ρ·L·Q²/(2·A²·D_h)
+            //    ⟹  k = f·ρ·L / (2·A²·D_h)
             let k = (friction_factor * density * self.length)
-                / (T::from_f64(2.0).unwrap_or_else(|| T::zero())
+                / (T::from_f64(2.0).unwrap_or_else(T::zero)
                     * area
                     * area
                     * self.hydraulic_diameter);
@@ -256,7 +281,7 @@ impl<T: RealField + Copy + FromPrimitive> DarcyWeisbachModel<T> {
         let tolerance = T::from_f64(COLEBROOK_TOLERANCE)
             .unwrap_or_else(|| T::from_f64(1e-6).unwrap_or_else(|| T::zero()));
         let max_iter = 50;
-        let ln10 = T::from_f64(LOG_BASE_10.ln()).unwrap_or_else(|| T::one());
+        let ln10 = T::from_f64(std::f64::consts::LN_10).unwrap_or_else(|| T::one());
         let two = T::from_f64(COLEBROOK_COEFFICIENT).unwrap_or_else(|| T::one());
         let rough_term = relative_roughness / T::from_f64(COLEBROOK_ROUGHNESS_DIVISOR).unwrap_or_else(|| T::one());
         let smooth_term_coeff = T::from_f64(COLEBROOK_REYNOLDS_NUMERATOR).unwrap_or_else(|| T::one()) / reynolds;
@@ -280,7 +305,7 @@ impl<T: RealField + Copy + FromPrimitive> DarcyWeisbachModel<T> {
             let g_prime = T::one() + (two / ln10) * (smooth_term_coeff / inner);
 
             let diff = g / g_prime;
-            x = x - diff;
+            x -= diff;
 
             let diff_abs = if diff >= T::zero() { diff } else { -diff };
             if diff_abs < tolerance {

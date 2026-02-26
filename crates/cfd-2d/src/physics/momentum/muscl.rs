@@ -9,6 +9,17 @@
 //! - van Leer, B. (1979). "Towards the ultimate conservative difference scheme. V. A second-order sequel to Godunov's method"
 //! - Hirsch, C. (2007). "Numerical Computation of Internal and External Flows: Fundamentals of Computational Fluid Dynamics"
 //! - Barth, T.J. & Jespersen, D.C. (1989). "The design and application of upwind schemes on unstructured meshes"
+//!
+//! # Theorem
+//! The momentum discretization must conserve linear momentum globally and locally.
+//!
+//! **Proof sketch**:
+//! By integrating the Navier-Stokes momentum equation over a control volume $\Omega$,
+//! Gauss's divergence theorem converts the convective and diffusive volume integrals
+//! into surface fluxes. The finite volume method ensures that the flux leaving one
+//! cell exactly equals the flux entering the adjacent cell. Thus, in the absence of
+//! external forces and boundary fluxes, the total momentum $\int_\Omega \rho \mathbf{u} dV$
+//! is exactly conserved to machine precision.
 
 use super::tvd_limiters::TvdLimiter;
 use nalgebra::RealField;

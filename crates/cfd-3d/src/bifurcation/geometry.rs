@@ -5,6 +5,34 @@
 //! - Conical transition zones
 //! - Smooth or abrupt junctions
 //! - Mesh generation capabilities
+//!
+//! # Theorem — Murray’s Cube Law (Murray 1926)
+//!
+//! For a vessel of diameter $D_0$ bifurcating into daughters $D_1, D_2$, the
+//! metabolic cost of blood transport (power for viscous dissipation + metabolic
+//! maintenance of blood volume) is minimised when
+//!
+//! ```text
+//! D₀³ = D₁³ + D₂³
+//! ```
+//!
+//! **Proof sketch.** Model total power as $W = \sum_i (8\mu L_i Q_i^2) / (\pi r_i^4) + k \pi r_i^2 L_i$.
+//! Setting $\partial W / \partial r_i = 0$ at fixed $Q_0 = Q_1 + Q_2$
+//! yields $Q_i \propto r_i^3$, and conservation of flow gives the cube law.
+//!
+//! **Reference:** Murray, C.D., "The Physiological Principle of Minimum Work",
+//! PNAS 12(3), 1926, pp. 207–214.
+//!
+//! # Theorem — Smooth Cone Continuity
+//!
+//! The cosine-interpolated (`RoundedJunction`) transition
+//!
+//! ```text
+//! D(x) = D_d + (D_p − D_d)/2 · (1 + cos(π x/L))
+//! ```
+//!
+//! is $C^\infty$ on $(0, L)$ and $C^1$ at the endpoints $x = 0, L$,
+//! ensuring no slope discontinuity at the junction boundaries.
 
 use cfd_core::conversion::SafeFromF64;
 use nalgebra::{Point3, RealField, Vector3};
@@ -53,7 +81,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
         transition_length: T,
     ) -> T {
         let one = T::one();
-        let x_normalized = (x / transition_length);
+        let x_normalized = x / transition_length;
         
         match self {
             ConicalTransition::SmoothCone { length: _ } => {
@@ -167,15 +195,14 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
     ///
     /// Returns D₀³ - (D₁³ + D₂³), which should be close to 0
     pub fn murray_law_deviation(&self) -> T {
-        let three = T::from_f64_or_one(3.0);
         num_traits::Float::powi(self.d_parent, 3) - (num_traits::Float::powi(self.d_daughter1, 3) + num_traits::Float::powi(self.d_daughter2, 3))
     }
 
     /// Calculate total mathematically exact volume of bifurcation
     ///
-    /// Computes pure analytical cylindrical volumes and performs rigorous 
-    /// numerical integration (Gaussian Quadrature) over the transition domain 
-    /// to remove disconnected geometrical approximation errors.
+    /// Computes pure analytical cylindrical volumes and performs rigorous
+    /// numerical integration (Gaussian Quadrature) over the transition domain
+    /// to remove disconnected geometric integration error.
     pub fn total_volume(&self) -> T {
         let pi = T::from_f64_or_one(std::f64::consts::PI);
         let four = T::from_f64_or_one(4.0);
@@ -299,9 +326,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
     /// Get nodes per element (4 for tet, 8 for hex)
     pub fn nodes_per_element(&self) -> usize {
         match self.element_type {
-            0 => 4, // Tetrahedral
             1 => 8, // Hexahedral
-            _ => 4, // Default to tet
+            _ => 4, // Default: Tetrahedral
         }
     }
 
@@ -317,29 +343,38 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
         let mut count = 0;
 
         for element in &self.elements {
-            // Calculate edge lengths (simplified for tet)
+            // All 6 edges of a tetrahedron
             if element.len() >= 4 {
                 let p0 = self.nodes[element[0]];
                 let p1 = self.nodes[element[1]];
                 let p2 = self.nodes[element[2]];
                 let p3 = self.nodes[element[3]];
 
-                let e01 = (p1 - p0).norm();
-                let e02 = (p2 - p0).norm();
-                let e03 = (p3 - p0).norm();
+                let edges = [
+                    (p1 - p0).norm(),
+                    (p2 - p0).norm(),
+                    (p3 - p0).norm(),
+                    (p2 - p1).norm(),
+                    (p3 - p1).norm(),
+                    (p3 - p2).norm(),
+                ];
 
-                let max_edge = num_traits::Float::max(num_traits::Float::max(e01, e02), e03);
-                let min_edge = num_traits::Float::min(num_traits::Float::min(e01, e02), e03);
+                let mut max_edge = edges[0];
+                let mut min_edge = edges[0];
+                for &e in &edges[1..] {
+                    max_edge = num_traits::Float::max(max_edge, e);
+                    min_edge = num_traits::Float::min(min_edge, e);
+                }
 
                 if min_edge > T::from_f64_or_one(1e-15) {
-                    total_ar = total_ar + max_edge / min_edge;
+                    total_ar += max_edge / min_edge;
                     count += 1;
                 }
             }
         }
 
         if count > 0 {
-            total_ar / T::from_f64_or_one(count as f64)
+            total_ar / T::from_f64_or_one(f64::from(count))
         } else {
             T::one()
         }

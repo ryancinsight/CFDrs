@@ -10,12 +10,15 @@
 //!
 //! The best 5 designs found across all generations are printed and exported.
 //!
+//! # Output
+//!
+//! All exports are written to `cfd-optim/outputs/` (anchored to the crate root via
+//! `env!("CARGO_MANIFEST_DIR")`).
+//!
 //! # Run with
 //! ```bash
 //! cargo run -p cfd-optim --example sdt_evo
 //! ```
-
-use std::path::PathBuf;
 
 use cfd_optim::{
     save_comparison_svg, save_schematic_svg, save_top5_json,
@@ -24,7 +27,7 @@ use cfd_optim::{
 };
 
 fn main() {
-    let out_dir = PathBuf::from("outputs/cfd-optim");
+    let out_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("outputs");
     std::fs::create_dir_all(&out_dir).expect("failed to create output directory");
 
     let weights = SdtWeights::default();

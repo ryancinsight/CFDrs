@@ -1,6 +1,7 @@
 //! Resistance calculator with model selection and validation.
 
 pub mod dispatch;
+/// Resistance and quadratic coefficient calculation dispatch.
 pub mod coefficients;
 
 use super::geometry::ChannelGeometry;

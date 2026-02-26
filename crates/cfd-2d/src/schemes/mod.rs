@@ -2,6 +2,17 @@
 //!
 //! This module provides various discretization schemes for spatial and temporal
 //! derivatives in 2D computational fluid dynamics.
+//!
+//! # Theorem
+//! The numerical scheme must satisfy the Total Variation Diminishing (TVD) property
+//! to prevent spurious oscillations near discontinuities.
+//!
+//! **Proof sketch**:
+//! Harten's theorem states that a scheme is TVD if its total variation
+//! $TV(u) = \sum_i |u_{i+1} - u_i|$ does not increase over time: $TV(u^{n+1}) \le TV(u^n)$.
+//! This is achieved by using non-linear flux limiters $\phi(r)$ that satisfy
+//! $0 \le \phi(r) \le \min(2r, 2)$ and $\phi(1) = 1$. The implemented scheme
+//! enforces these bounds, guaranteeing monotonicity preservation.
 
 use nalgebra::RealField;
 use serde::{Deserialize, Serialize};
@@ -12,11 +23,11 @@ pub mod constants;
 pub mod grid;
 pub mod time;
 pub mod tvd;
+#[cfg(test)]
+pub mod tvd_tests;
 pub mod upwind;
 pub mod weno;
 pub mod weno_constants;
-#[cfg(test)]
-pub mod tvd_tests;
 #[cfg(test)]
 pub mod weno_tests;
 

@@ -6,6 +6,12 @@
 //! - Blood flow with non-Newtonian rheology (Carreau-Yasuda, Casson)
 //! - Complete validation against analytical and ISO 5167 solutions
 //! - Cavitation and hemolysis prediction for biomedical applications
+//!
+//! # Theorem — Venturi Energy Relation
+//!
+//! For incompressible steady flow, continuity and Bernoulli imply a throat
+//! pressure drop linked to area contraction; in viscous realizations,
+//! measured drop is bounded below by the inviscid Bernoulli prediction.
 
 pub mod solver;
 pub mod validation;

@@ -132,6 +132,7 @@
 #![allow(clippy::should_implement_trait)] // CFD-specific trait implementations
 #![allow(clippy::used_underscore_binding)] // Underscore prefixed bindings used for intentional partial use
 
+pub mod diagnostics;
 pub mod differentiation;
 pub mod error;
 pub mod high_order;
@@ -139,7 +140,12 @@ pub mod integration;
 pub mod interpolation;
 pub mod iterators;
 pub mod linear_solver;
-pub mod performance_monitor;
+/// Backward-compatibility shim: all types now live in `diagnostics::performance_monitor`.
+/// Prefer `cfd_math::diagnostics::performance_monitor` for new code.
+#[doc(hidden)]
+pub mod performance_monitor {
+    pub use crate::diagnostics::performance_monitor::*;
+}
 pub mod pressure_velocity;
 pub mod simd;
 pub mod sparse;

@@ -26,6 +26,7 @@ use cfd_core::physics::fluid::FluidTrait;
 /// - the blueprint has no nodes or no channels
 /// - node ID references are inconsistent
 /// - resistance coefficients are invalid (negatives, all-zero)
+#[allow(clippy::too_many_lines)]
 pub fn network_from_blueprint<T, F>(
     blueprint: &NetworkBlueprint,
     fluid: F,

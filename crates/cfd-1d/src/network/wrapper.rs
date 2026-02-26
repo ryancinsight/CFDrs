@@ -331,8 +331,11 @@ impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T>> Network<T, F> {
                 dp / resistance
             } else {
                 // Quadratic case
-                let two = T::from_f64(2.0).expect("Field must support 2.0");
-                let four = T::from_f64(4.0).expect("Field must support 4.0");
+                let two = T::from_f64(2.0).unwrap_or_else(|| T::one() + T::one());
+                let four = T::from_f64(4.0).unwrap_or_else(|| {
+                    let two = T::one() + T::one();
+                    two + two
+                });
 
                 let discriminant = resistance * resistance + four * quad_coeff * dp_abs;
                 let sqrt_disc = discriminant.sqrt();
@@ -491,7 +494,7 @@ impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T>> Network<T, F> {
             // ΔP ≈ (R + 2k|Q_k|)·Q.
             // Thus, effective resistance R_eff = R + 2k|Q_k|.
             // We use 2.0 explicitly; failure to represent 2.0 is a critical system failure.
-            let two = T::from_f64(2.0).expect("Field must support value 2.0");
+            let two = T::from_f64(2.0).unwrap_or_else(|| T::one() + T::one());
             let r_eff = edge_data.resistance + two * edge_data.quad_coeff * q;
             let eps = T::default_epsilon();
             // Conductance is 1/R_eff. We enforce R_eff > ε to avoid division by zero.

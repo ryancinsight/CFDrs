@@ -1,7 +1,37 @@
 //! Element-level operations for FEM
+//!
+//! # Theorem — Tetrahedron Volume (Euler 1752)
+//!
+//! Given a tetrahedron with vertices $\mathbf{v}_0, \mathbf{v}_1, \mathbf{v}_2, \mathbf{v}_3$,
+//! its signed volume is
+//!
+//! ```text
+//! 6V = det(v₁ − v₀, v₂ − v₀, v₃ − v₀)
+//! ```
+//!
+//! The absolute value gives the positive volume $|V|$. A positive determinant
+//! indicates right-hand orientation of the vertex ordering.
+//!
+//! **Proof sketch.** The volume of a parallelepiped spanned by three edge
+//! vectors is the scalar triple product. A tetrahedron occupies exactly
+//! $1/6$ of the parallelepiped, giving the factor of 6.
+//!
+//! # Theorem — Shape Function Gradients via Cofactor Matrix
+//!
+//! For linear (P1) tetrahedral elements, the shape function gradient $\nabla N_i$
+//! is constant over the element and equals the cofactor of the $i$-th row of the
+//! 4×4 coordinate matrix divided by $6V$:
+//!
+//! ```text
+//! ∂N_i/∂x_j = (-1)^{i+j+1} M_{i,j} / (6V)
+//! ```
+//!
+//! where $M_{i,j}$ is the $(i,j)$ minor of the coordinate matrix.
+//!
+//! **Reference:** Zienkiewicz & Taylor, "The Finite Element Method", Vol. 1, 6th Ed., §7.3.
 
 use crate::fem::constants;
-use nalgebra::{DMatrix, DVector, Matrix3, Matrix3x4, RealField, Vector3};
+use nalgebra::{DMatrix, DVector, Matrix3, RealField, Vector3};
 use num_traits::{Float, FromPrimitive};
 
 /// Element matrices for FEM assembly
@@ -50,7 +80,18 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
         }
     }
 
-    /// Calculate element volume (for tetrahedron) using nodal coordinates
+    /// Calculate element volume (for tetrahedron) using nodal coordinates.
+    ///
+    /// # Theorem (Tetrahedron Volume from Jacobian)
+    ///
+    /// For a tetrahedron with vertices $v_0, v_1, v_2, v_3$, the signed volume is
+    ///
+    /// $$V = \frac{1}{6} \det\bigl[\,v_1 - v_0 \;\big|\; v_2 - v_0 \;\big|\; v_3 - v_0\,\bigr]$$
+    ///
+    /// **Proof sketch**: The three edge vectors emanating from $v_0$ form a
+    /// parallelepiped whose volume is $|\det J|$. A tetrahedron occupies exactly
+    /// $1/6$ of this parallelepiped (combinatorial identity for simplices in
+    /// $\mathbb{R}^3$). The sign of $\det J$ encodes orientation.
     pub fn calculate_volume(&mut self, vertices: &[Vector3<T>]) -> T {
         if vertices.len() < 4 {
             return T::zero();
@@ -70,8 +111,24 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
         det_j // Return signed 6V for orientation-correct assembly
     }
 
-    /// Calculate shape function derivatives for tetrahedral element
-    /// Based on Zienkiewicz & Taylor, "The Finite Element Method", Vol. 1, 6th Ed.
+    /// Calculate shape function derivatives for tetrahedral element.
+    ///
+    /// # Theorem (Isoparametric Shape Function Gradients)
+    ///
+    /// For linear tetrahedral (P1) elements, the shape function gradients are
+    /// constant within each element and given by $\nabla N_i = J^{-T} \hat{\nabla} \hat{N}_i$
+    /// where $J$ is the Jacobian of the reference-to-physical mapping. Since
+    /// $\hat{N}_i$ are barycentric coordinates with constant gradients on the
+    /// reference tetrahedron, $\nabla N_i$ is also constant per element.
+    ///
+    /// **Proof sketch**: The affine map $x = v_0 + J\hat{x}$ with
+    /// $J = [v_1 - v_0 | v_2 - v_0 | v_3 - v_0]$ transforms the reference
+    /// simplex to the physical element. Applying the chain rule:
+    /// $\partial N_i / \partial x_j = (J^{-T})_{jk}\,\partial\hat{N}_i / \partial\hat{x}_k$.
+    /// The cofactor formula gives $J^{-T}$ from cross products of edge vectors
+    /// divided by $6V$.
+    ///
+    /// **Reference**: Zienkiewicz & Taylor (2005), *The Finite Element Method*, Vol. 1, 6th Ed., §8.5.
     pub fn calculate_shape_derivatives(&mut self, vertices: &[Vector3<T>]) {
         if vertices.len() < 4 {
             return;

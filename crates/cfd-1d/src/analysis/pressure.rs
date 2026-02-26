@@ -1,4 +1,20 @@
 //! Pressure analysis module for network systems.
+//!
+//! ## Theorem: Pressure Extrema Consistency
+//!
+//! **Theorem**: For any non-empty pressure analysis containing `n` node pressures
+//! `{P_1, …, P_n}`:
+//!
+//! 1. `max_pressure = max{P_i}` and `min_pressure = min{P_i}` are maintained
+//!    exactly by the incremental `add_pressure` method.
+//! 2. `pressure_range = max_pressure - min_pressure ≥ 0`.
+//! 3. For a single-path resistor network with inlet pressure `P_in` and outlet
+//!    `P_out`, `total_pressure_drop = Σ ΔP_i = P_in - P_out = pressure_range`.
+//!
+//! **Proof of invariant (2)**: `add_pressure` updates `max_pressure` only when
+//! `P > max_pressure` and updates `min_pressure` only when `P < min_pressure`.
+//! Both operations preserve `max_pressure ≥ min_pressure` by induction. ∎
+
 
 use nalgebra::RealField;
 use num_traits::FromPrimitive;

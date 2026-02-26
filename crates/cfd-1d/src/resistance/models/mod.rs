@@ -6,7 +6,7 @@ mod hagen_poiseuille;
 mod membrane;
 mod rectangular;
 mod serpentine;
-mod traits;
+pub(crate) mod traits;
 mod venturi;
 
 pub use darcy_weisbach::DarcyWeisbachModel;

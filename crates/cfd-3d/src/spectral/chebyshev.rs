@@ -1,5 +1,27 @@
 //! Chebyshev polynomial operations for spectral methods
 //!
+//! # Theorem — Gauss–Lobatto Exactness (Bernardi & Maday 1997)
+//!
+//! The $(N+1)$-point Chebyshev–Gauss–Lobatto quadrature
+//!
+//! ```text
+//! x_j = cos(π j / N),   j = 0, 1, …, N
+//! ```
+//!
+//! integrates polynomials of degree $\leq 2N - 1$ exactly against the
+//! Chebyshev weight $w(x) = (1 - x^2)^{-1/2}$.
+//!
+//! # Theorem — Spectral Differentiation Convergence (Trefethen 2000)
+//!
+//! For an analytic function $u$, the Chebyshev differentiation matrix $D_N$
+//! satisfies
+//!
+//! ```text
+//! ‖u' − D_N u‖_∞ = O(e^{−cN})
+//! ```
+//!
+//! where $c > 0$ depends on the analyticity strip width of $u$.
+//!
 //! Reference: Trefethen, L.N. (2000). "Spectral Methods in MATLAB"
 
 use cfd_core::error::Result;

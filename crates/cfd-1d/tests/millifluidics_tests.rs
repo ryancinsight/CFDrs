@@ -11,7 +11,11 @@ use cfd_core::error::Result;
 use cfd_core::physics::fluid;
 use std::collections::HashMap;
 
-/// Test micropump component behavior and pressure-flow characteristics  
+/// Test micropump component behavior and pressure-flow characteristics
+///
+/// **Theorem**: A pump is a pressure source, not a negative-resistance element.
+/// `Micropump::resistance()` returns **zero** — its drive is applied as a Neumann
+/// source term in the RHS vector, not as an off-diagonal matrix entry.
 #[test]
 fn test_micropump_characteristics() -> Result<()> {
     // Test syringe pump characteristics (linear pressure-flow relationship)
@@ -22,14 +26,11 @@ fn test_micropump_characteristics() -> Result<()> {
     assert_eq!(pump.max_pressure, 10000.0);
     assert!(pump.is_active());
 
-    // Test resistance (negative for pressure source)
+    // A pump is a pressure SOURCE and must contribute ZERO passive resistance.
+    // Returning negative resistance would corrupt the positive-definite Laplacian.
     let fluid = fluid::database::water_20c::<f64>()?;
     let resistance = pump.resistance(&fluid);
-    assert!(resistance < 0.0);
-
-    // Expected resistance for pump: -pressure/flow_rate
-    let expected_resistance = -pump.max_pressure / pump.max_flow_rate;
-    assert_relative_eq!(resistance, expected_resistance, epsilon = 1e-10);
+    assert_relative_eq!(resistance, 0.0, epsilon = 1e-30);
 
     // Test parameter setting
     pump.set_parameter("efficiency", 0.85)?;
@@ -46,15 +47,20 @@ fn test_micropump_characteristics() -> Result<()> {
 #[test]
 fn test_micromixer_flow_characteristics() -> Result<()> {
     // Test Y-junction mixer for two-fluid mixing
-    let mut mixer = Micromixer::<f64>::new(2, 1e12); // 2 inlets, 1e12 Pa·s/m³ resistance
+    let mut mixer = Micromixer::<f64>::new(
+        MixerType::YJunction,
+        100e-6,  // 100 μm hydraulic diameter
+        1e-3,    // 1 mm length
+        2,       // 2 bends
+    )?;
 
     // Validate mixer properties
-    assert_eq!(mixer.n_inlets, 2);
+    assert_eq!(mixer.n_bends, 2);
     assert!(mixer.efficiency > 0.0 && mixer.efficiency <= 1.0);
 
     let fluid = fluid::database::water_20c::<f64>()?;
     let resistance = mixer.resistance(&fluid);
-    assert_relative_eq!(resistance, 1e12, epsilon = 1e-10);
+    assert!(resistance > 0.0, "Resistance must be positive");
 
     // Test mixing efficiency parameter constraints
     mixer.set_parameter("efficiency", 1.5)?; // Should clamp to 1.0
@@ -71,6 +77,10 @@ fn test_micromixer_flow_characteristics() -> Result<()> {
 }
 
 /// Test microvalve component behavior
+///
+/// **Theorem**: An open valve has zero *linear* resistance (pure quadratic loss via Cv).
+/// `resistance()` returns zero when `opening > 0`; the loss is captured by the `k`
+/// coefficient returned from `coefficients()`. A closed valve returns `R = 1e12` Pa·s/m³.
 #[test]
 fn test_microvalve_characteristics() -> Result<()> {
     // Test microvalve with larger flow coefficient for more realistic behavior
@@ -83,7 +93,8 @@ fn test_microvalve_characteristics() -> Result<()> {
 
     let fluid = fluid::database::water_20c::<f64>()?;
     let resistance_open = valve.resistance(&fluid);
-    assert!(resistance_open > 0.0);
+    // Fully open valve: zero *linear* resistance (losses are pure quadratic via Cv)
+    assert_relative_eq!(resistance_open, 0.0, epsilon = 1e-30);
 
     // Test valve closure - closed valve should have very high resistance
     valve.set_parameter("opening", 0.0)?; // Close valve
@@ -386,11 +397,12 @@ fn test_component_parameter_validation() -> Result<()> {
     assert_relative_eq!(pump.efficiency, 0.9, epsilon = 1e-10);
 
     // Test mixer parameter validation
-    let mut mixer = Micromixer::<f64>::new(3, 1e11);
-
-    // Test resistance modification
-    mixer.set_parameter("resistance", 2e11)?;
-    assert_relative_eq!(mixer.resistance, 2e11, epsilon = 1e-10);
+    let mut mixer = Micromixer::<f64>::new(
+        MixerType::Serpentine,
+        100e-6,  // 100 μm
+        1e-3,    // 1 mm
+        3,       // 3 bends
+    )?;
 
     // Test efficiency clamping
     mixer.set_parameter("efficiency", 2.0)?; // Should clamp to 1.0

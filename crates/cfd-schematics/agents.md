@@ -225,3 +225,10 @@ AnalysisOverlay::from_blueprint(&blueprint)
 - Do not store simulation results in `NodeSpec` / `ChannelSpec` — use `AnalysisOverlay`
 - No mutable shared state in geometry generation — `GeometryGenerator` is pure-functional
 - `NetworkBlueprint` is immutable once built; do not add mutation methods
+
+---
+
+## Output Convention
+
+All examples use `env!("CARGO_MANIFEST_DIR").join("outputs")` — never CWD-relative paths.
+`outputs/` is listed in the root `.gitignore`.

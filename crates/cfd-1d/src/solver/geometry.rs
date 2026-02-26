@@ -1,4 +1,20 @@
 //! Network domain implementation for 1D CFD
+//!
+//! ## Theorem: 1D Discrete Network Domain
+//!
+//! **Theorem**: A microfluidic or vascular network is represented as a directed graph
+//! $\mathcal{G} = (\mathcal{V}, \mathcal{E})$.
+//!
+//! The spatial domain $\Omega \subset \mathbb{R}^3$ is approximated by a set of 1D
+//! segments (edges $e \in \mathcal{E}$) connected at zero-dimensional junctions
+//! (vertices $v \in \mathcal{V}$).
+//!
+//! - **Dimension**: The intrinsic computational dimension is 1 (axial flow).
+//! - **Volume/Measure**: The domain measure is the sum of the characteristic lengths
+//!   of all segments, $\mathcal{L} = \sum_{e \in \mathcal{E}} L_e$.
+//!
+//! This discrete 1D formulation reduces the Navier-Stokes equations to systems of ordinary
+//! differential equations or algebraic equations, neglecting purely transverse momentum transport.
 
 use cfd_core::geometry::Domain;
 use nalgebra::{Point1, RealField};

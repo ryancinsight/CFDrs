@@ -117,8 +117,8 @@ impl<T: RealField + Copy + FromPrimitive> ChannelGeometry<T> {
                     b_n = b_next;
                     c_n = c_next;
                     
-                    sum = sum + power * c_n * c_n;
-                    power = power * two;
+                    sum += power * c_n * c_n;
+                    power *= two;
                     
                     if c_n < tolerance || c_n == T::zero() {
                         break;

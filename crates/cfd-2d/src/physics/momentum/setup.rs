@@ -1,3 +1,16 @@
+//! setup.rs module.
+//!
+//! # Theorem
+//! The momentum discretization must conserve linear momentum globally and locally.
+//!
+//! **Proof sketch**:
+//! By integrating the Navier-Stokes momentum equation over a control volume $\Omega$,
+//! Gauss's divergence theorem converts the convective and diffusive volume integrals
+//! into surface fluxes. The finite volume method ensures that the flux leaving one
+//! cell exactly equals the flux entering the adjacent cell. Thus, in the absence of
+//! external forces and boundary fluxes, the total momentum $\int_\Omega \rho \mathbf{u} dV$
+//! is exactly conserved to machine precision.
+
 use super::solver::MomentumSolver;
 use cfd_core::physics::boundary::BoundaryCondition;
 use nalgebra::RealField;

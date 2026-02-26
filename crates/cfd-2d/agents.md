@@ -220,3 +220,10 @@ MRT variant uses transformation matrix M for improved stability at `Re > 100`.
 - LBM must not exceed `Ma > 0.1` (compressibility errors) — enforce in inlet BC
 - Turbulence models must not be applied at Re < 1000 without explicit justification
 - Rhie-Chow is mandatory for co-located SIMPLE/PISO — do not remove it
+
+---
+
+## Output Convention
+
+All examples use `env!("CARGO_MANIFEST_DIR").join("outputs")` — never CWD-relative paths.
+`outputs/` is listed in the root `.gitignore`.

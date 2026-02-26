@@ -78,7 +78,17 @@ pub trait NumericalFlux {
     fn max_wave_speed(&self, u_l: &DVector<f64>, u_r: &DVector<f64>, n: &DVector<f64>) -> f64;
 }
 
-/// Central flux (average of left and right states)
+/// Central flux (average of left and right states).
+///
+/// # Theorem (Energy Conservation)
+///
+/// The central flux $F^* = \tfrac{1}{2}(u_L + u_R)$ conserves kinetic energy
+/// but introduces no numerical dissipation. It requires explicit stabilisation
+/// (e.g., interior penalty or filtering) for stability.
+///
+/// **Proof sketch**: The symmetric averaging ensures that telescope sums over
+/// element interfaces cancel, yielding a discrete energy identity with no
+/// dissipative remainder term.
 #[derive(Debug, Clone, Copy)]
 pub struct CentralFlux;
 
@@ -96,11 +106,21 @@ impl NumericalFlux for CentralFlux {
     }
 
     fn max_wave_speed(&self, _u_l: &DVector<f64>, _u_r: &DVector<f64>, _n: &DVector<f64>) -> f64 {
-        1.0 // Conservative estimate
+        // Central flux adds no dissipation, so the effective wave speed is zero.
+        0.0
     }
 }
 
-/// Local Lax-Friedrichs flux
+/// Local Lax-Friedrichs (Rusanov) flux.
+///
+/// # Theorem (Entropy Stability)
+///
+/// The Lax-Friedrichs flux $F^* = \tfrac{1}{2}(F(u_L) + F(u_R)) - \tfrac{1}{2}\alpha(u_R - u_L)$
+/// is entropy-stable and monotone for scalar conservation laws when $\alpha \ge \max_{u \in [u_L, u_R]} |f'(u)|$.
+///
+/// **Proof sketch**: Monotonicity follows because $\partial F^*/\partial u_L = \tfrac{1}{2}(f'(u_L) + \alpha) \ge 0$
+/// and $\partial F^*/\partial u_R = \tfrac{1}{2}(f'(u_R) - \alpha) \le 0$ whenever $\alpha \ge |f'|$. By the
+/// Crandall–Majda theorem, monotone fluxes are entropy-stable.
 #[derive(Debug, Clone, Copy)]
 pub struct LaxFriedrichsFlux;
 
@@ -118,15 +138,43 @@ impl NumericalFlux for LaxFriedrichsFlux {
         0.5 * (u_l + u_r) - 0.5 * alpha * (u_r - u_l)
     }
 
-    fn max_wave_speed(&self, u_l: &DVector<f64>, u_r: &DVector<f64>, _n: &DVector<f64>) -> f64 {
-        // For scalar problems, the wave speed is the absolute value of the flux derivative
-        // For systems, this should be the maximum eigenvalue of the flux Jacobian
-        // This is a simplified version for demonstration
-        (u_l.norm() + u_r.norm()) * 0.5
+    fn max_wave_speed(&self, u_l: &DVector<f64>, u_r: &DVector<f64>, n: &DVector<f64>) -> f64 {
+        // Rusanov wave speed estimate: spectral radius of the flux Jacobian
+        // projected onto the interface normal.
+        //
+        // When the state vector and normal have the same dimension (e.g.,
+        // scalar advection or velocity-only formulations), this equals
+        // max(|u_L · n̂|, |u_R · n̂|). For general systems where the state
+        // has more components than the spatial dimension, we fall back to
+        // ||u||∞ · ||n̂|| which upper-bounds the true spectral radius.
+        let n_norm = n.norm();
+        if n_norm < f64::EPSILON {
+            return u_l.amax().max(u_r.amax());
+        }
+        if u_l.len() == n.len() {
+            let n_hat = n / n_norm;
+            let lambda_l = u_l.dot(&n_hat).abs();
+            let lambda_r = u_r.dot(&n_hat).abs();
+            lambda_l.max(lambda_r)
+        } else {
+            // General systems: conservative upper bound
+            u_l.amax().max(u_r.amax()) * n_norm
+        }
     }
 }
 
-/// HLL (Harten-Lax-van Leer) approximate Riemann solver
+/// HLL (Harten-Lax-van Leer) approximate Riemann solver.
+///
+/// # Theorem (Positivity Preservation)
+///
+/// The HLL flux preserves positivity of density/energy for the Euler equations
+/// when the wave speed estimates satisfy $S_L \le \lambda_{\min}$ and
+/// $S_R \ge \lambda_{\max}$ (the true minimum and maximum wave speeds).
+///
+/// **Proof sketch**: The HLL intermediate state
+/// $u^* = (S_R u_R - S_L u_L + F_L - F_R)/(S_R - S_L)$ is a convex combination of the
+/// left and right states weighted by the wave speed bounds, ensuring non-negativity
+/// of conserved quantities when the bound conditions are met.
 #[derive(Debug, Clone, Copy)]
 pub struct HLLFlux;
 
@@ -167,18 +215,42 @@ impl NumericalFlux for HLLFlux {
 }
 
 impl HLLFlux {
-    /// Compute the left-going wave speed
-    fn wave_speed_left(self, u_l: &DVector<f64>, u_r: &DVector<f64>, _n: &DVector<f64>) -> f64 {
-        // Simplified for demonstration
-        // In practice, this should use the minimum eigenvalue of the flux Jacobian
-        u_l.norm() - u_r.norm()
+    /// Compute the left-going wave speed estimate (Davis estimate).
+    ///
+    /// For matching dimensions: $S_L = \min(u_L \cdot \hat{n},\, u_R \cdot \hat{n})$.
+    /// For general systems: uses $-\max(\|u_L\|_\infty, \|u_R\|_\infty)$.
+    fn wave_speed_left(self, u_l: &DVector<f64>, u_r: &DVector<f64>, n: &DVector<f64>) -> f64 {
+        let n_norm = n.norm();
+        if n_norm < f64::EPSILON {
+            return -(u_l.amax().max(u_r.amax()));
+        }
+        if u_l.len() == n.len() {
+            let n_hat = n / n_norm;
+            let v_l = u_l.dot(&n_hat);
+            let v_r = u_r.dot(&n_hat);
+            v_l.min(v_r)
+        } else {
+            -(u_l.amax().max(u_r.amax()) * n_norm)
+        }
     }
 
-    /// Compute the right-going wave speed
-    fn wave_speed_right(self, u_l: &DVector<f64>, u_r: &DVector<f64>, _n: &DVector<f64>) -> f64 {
-        // Simplified for demonstration
-        // In practice, this should use the maximum eigenvalue of the flux Jacobian
-        u_r.norm() + u_l.norm()
+    /// Compute the right-going wave speed estimate (Davis estimate).
+    ///
+    /// For matching dimensions: $S_R = \max(u_L \cdot \hat{n},\, u_R \cdot \hat{n})$.
+    /// For general systems: uses $\max(\|u_L\|_\infty, \|u_R\|_\infty)$.
+    fn wave_speed_right(self, u_l: &DVector<f64>, u_r: &DVector<f64>, n: &DVector<f64>) -> f64 {
+        let n_norm = n.norm();
+        if n_norm < f64::EPSILON {
+            return u_l.amax().max(u_r.amax());
+        }
+        if u_l.len() == n.len() {
+            let n_hat = n / n_norm;
+            let v_l = u_l.dot(&n_hat);
+            let v_r = u_r.dot(&n_hat);
+            v_l.max(v_r)
+        } else {
+            u_l.amax().max(u_r.amax()) * n_norm
+        }
     }
 }
 
@@ -387,18 +459,23 @@ mod tests {
 
         let params = FluxParams::new(FluxType::LaxFriedrichs).with_alpha(1.0);
         let flux = FluxFactory::create(params.flux_type);
-        let _f = flux.compute_flux(&u_l, &u_r, &n, &params);
+        let f2d = flux.compute_flux(&u_l, &u_r, &n, &params);
+        // max_wave_speed: matching dims → max(|u_l·n̂|, |u_r·n̂|) = max(0, 2) = 2
+        // alpha_combined = 2 * 1.0 = 2
+        // f* = 0.5*([0,0]+[2,2]) - 0.5*2*([2,2]-[0,0]) = [1,1] - [2,2] = [-1,-1]
+        assert_relative_eq!(f2d[0], -1.0, epsilon = 1e-10);
+        assert_relative_eq!(f2d[1], -1.0, epsilon = 1e-10);
 
-        // For u_l=[0,0], u_r=[2,2], max_wave_speed = (0 + sqrt(8))/2 = 1.414...
-        // Let's use u_l=[0,0], u_r=[2,0] so max_wave_speed = (0 + 2)/2 = 1.0
+        // 1-D scalar case with matching 1-D normal
         let u_l = DVector::from_vec(vec![0.0]);
         let u_r = DVector::from_vec(vec![2.0]);
-        let f = flux.compute_flux(&u_l, &u_r, &n, &params);
+        let n1 = DVector::from_vec(vec![1.0]);
+        let f = flux.compute_flux(&u_l, &u_r, &n1, &params);
 
-        // For alpha_combined = max_wave_speed * params.alpha = 1.0 * 1.0 = 1.0
-        // f* = 0.5 * (u_l + u_r) - 0.5 * alpha_combined * (u_r - u_l)
-        //    = 0.5 * (0 + 2) - 0.5 * 1.0 * (2 - 0) = 1.0 - 1.0 = 0.0 = u_l
-        assert_relative_eq!(f[0], 0.0, epsilon = 1e-10);
+        // max_wave_speed = max(|0·1|, |2·1|) = 2
+        // alpha_combined = 2 * 1.0 = 2
+        // f* = 0.5*(0+2) - 0.5*2*(2-0) = 1 - 2 = -1
+        assert_relative_eq!(f[0], -1.0, epsilon = 1e-10);
     }
 
     #[test]

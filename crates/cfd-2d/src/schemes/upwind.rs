@@ -66,6 +66,17 @@
 //!   Wiley. Chapter 8: Upwind Schemes.
 //! - LeVeque, R. J. (2002). *Finite Volume Methods for Hyperbolic Problems*.
 //!   Cambridge University Press. Chapter 6: High-Resolution Methods.
+//!
+//! # Theorem
+//! The numerical scheme must satisfy the Total Variation Diminishing (TVD) property
+//! to prevent spurious oscillations near discontinuities.
+//!
+//! **Proof sketch**:
+//! Harten's theorem states that a scheme is TVD if its total variation
+//! $TV(u) = \sum_i |u_{i+1} - u_i|$ does not increase over time: $TV(u^{n+1}) \le TV(u^n)$.
+//! This is achieved by using non-linear flux limiters $\phi(r)$ that satisfy
+//! $0 \le \phi(r) \le \min(2r, 2)$ and $\phi(1) = 1$. The implemented scheme
+//! enforces these bounds, guaranteeing monotonicity preservation.
 
 use super::{FaceReconstruction, Grid2D, SpatialDiscretization};
 use nalgebra::RealField;

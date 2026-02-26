@@ -117,6 +117,19 @@ pub struct VofSolver<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimiti
 }
 
 impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> VofSolver<T> {
+    /// Create VOF solver — convenience alias matching `LevelSetSolver::new` ergonomics.
+    pub fn new(nx: usize, ny: usize, nz: usize, config: VofConfig) -> Result<Self> {
+        if nx == 0 || ny == 0 || nz == 0 {
+            return Err(cfd_core::error::Error::InvalidInput(
+                "VOF grid dimensions must be positive".to_string(),
+            ));
+        }
+        let dx = T::one() / <T as FromPrimitive>::from_usize(nx).unwrap_or(T::one());
+        let dy = T::one() / <T as FromPrimitive>::from_usize(ny).unwrap_or(T::one());
+        let dz = T::one() / <T as FromPrimitive>::from_usize(nz).unwrap_or(T::one());
+        Ok(Self::create(config, nx, ny, nz, dx, dy, dz))
+    }
+
     /// Create VOF solver instance
     pub fn create(config: VofConfig, nx: usize, ny: usize, nz: usize, dx: T, dy: T, dz: T) -> Self {
         let grid_size = nx * ny * nz;
@@ -140,6 +153,50 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> VofSo
     #[inline]
     pub(crate) fn index(&self, i: usize, j: usize, k: usize) -> usize {
         k * self.ny * self.nx + j * self.nx + i
+    }
+
+    /// Get volume fraction field (read-only)
+    pub fn alpha(&self) -> &[T] {
+        &self.alpha
+    }
+
+    /// Get mutable volume fraction field
+    pub fn alpha_mut(&mut self) -> &mut [T] {
+        &mut self.alpha
+    }
+
+    /// Get normals field (read-only)
+    pub fn normals(&self) -> &[Vector3<T>] {
+        &self.normals
+    }
+
+    /// Get curvature field (read-only)
+    pub fn curvature(&self) -> &[T] {
+        &self.curvature
+    }
+
+    /// Convert 3D indices to linear index (public alias)
+    pub fn linear_index(&self, i: usize, j: usize, k: usize) -> usize {
+        self.index(i, j, k)
+    }
+
+    /// Set velocity at a single grid cell index
+    pub fn set_velocity_at(&mut self, idx: usize, vel: Vector3<T>) {
+        if idx < self.velocity.len() {
+            self.velocity[idx] = vel;
+        }
+    }
+
+    /// One-step wrapper mirroring the CavitationVofSolver interface:
+    /// ignores the unused pressure/density slices and delegates to `advance`.
+    pub fn step(
+        &mut self,
+        dt: T,
+        _pressure: &[T],
+        _density: &[T],
+        _extra: &[T],
+    ) -> Result<()> {
+        self.advance(dt)
     }
 
     /// Set velocity field
@@ -242,6 +299,11 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> VofSo
         // Apply compression if enabled
         if self.config.enable_compression {
             advection.apply_compression(self, dt)?;
+        }
+
+        // Enforce physical bounds: α ∈ [0, 1]
+        for a in &mut self.alpha {
+            *a = num_traits::Float::max(T::zero(), num_traits::Float::min(T::one(), *a));
         }
 
         Ok(())

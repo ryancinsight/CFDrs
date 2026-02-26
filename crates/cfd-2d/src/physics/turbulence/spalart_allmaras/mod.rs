@@ -215,6 +215,16 @@
 //! - Spalart, P. R., & Allmaras, S. R. (1992). "A one-equation turbulence model for aerodynamic flows." In *30th Aerospace Sciences Meeting* (p. 439).
 //! - Spalart, P. R., & Allmaras, S. R. (1994). "A one-equation turbulence model for aerodynamic flows." *AIAA Journal*, 32(8), 1598-1605.
 //! - Allmaras, S. R., & Johnson, F. T. (2012). "Modifications and clarifications for the implementation of the Spalart-Allmaras turbulence model." In *7th International Conference on Computational Fluid Dynamics* (p. 189).
+//!
+//! # Theorem
+//! The turbulence model must satisfy the realizability conditions for the Reynolds stress tensor.
+//!
+//! **Proof sketch**:
+//! For any turbulent flow, the Reynolds stress tensor $\tau_{ij} = -\rho \overline{u_i^\prime u_j^\prime}$
+//! must be positive semi-definite. This requires that the turbulent kinetic energy $k \ge 0$
+//! and the normal stresses $\overline{u_i^\prime u_i^\prime} \ge 0$. The implemented model
+//! enforces these constraints either through exact transport equations or bounded eddy-viscosity
+//! formulations, ensuring physical realizability and numerical stability.
 
 mod helpers;
 

@@ -6,21 +6,25 @@
 //!
 //! # Mathematical Foundation
 //!
-//! For a pressure gradient of the form:
-//! ```text
-//! -∂p/∂x = P̂ · e^(iωt)
-//! ```
+//! ## Theorem: Womersley Exact Analytical Solution
 //!
-//! The velocity profile is:
-//! ```text
-//! u(r,t) = Re{ (P̂/(iρω)) · [1 - J₀(α·ξ·i^(3/2)) / J₀(α·i^(3/2))] · e^(iωt) }
-//! ```
+//! **Theorem**: For a fully-developed, axisymmetric, incompressible Newtonian flow
+//! in a rigid circular tube of radius $R$ driven by a purely oscillatory pressure
+//! gradient $-\frac{\partial P}{\partial x} = \hat{P} e^{i \omega t}$, the exact
+//! analytical solution to the linearized Navier-Stokes momentum equation is:
+//!
+//! $$ u(r,t) = \text{Re} \left\{ \frac{\hat{P}}{i \rho \omega} \left[ 1 - \frac{J_0\left(\alpha \frac{r}{R} i^{3/2}\right)}{J_0\left(\alpha i^{3/2}\right)} \right] e^{i \omega t} \right\} $$
 //!
 //! Where:
-//! - ξ = r/R (dimensionless radial position)
-//! - α = R√(ωρ/μ) (Womersley number)
-//! - J₀ = Bessel function of first kind, order zero
-//! - i^(3/2) = e^(i·3π/4) = (-1 + i)/√2
+//! - $r$ is the radial coordinate ($0 \le r \le R$)
+//! - $\alpha = R \sqrt{\frac{\omega \rho}{\mu}}$ is the dimensionless Womersley number
+//! - $J_0(z)$ is the complex Bessel function of the first kind, order zero
+//! - $i^{3/2} = e^{i \cdot 3\pi/4} = \frac{-1 + i}{\sqrt{2}}$ 
+//!
+//! **Proof Outline**: Applying the harmonic ansatz $u(r,t) = \hat{u}(r) e^{i \omega t}$
+//! directly reduces the momentum PDE to a modified Bessel differential equation:
+//! $$ \frac{d^2\hat{u}}{dr^2} + \frac{1}{r}\frac{d\hat{u}}{dr} - \frac{i\omega\rho}{\mu}\hat{u} = -\frac{\hat{P}}{\mu} $$
+//! Enforcing the no-slip boundary condition $\hat{u}(R) = 0$ uniquely resolves the constant terms.
 //!
 //! # Limiting Behavior
 //! - α → 0: Quasi-steady Poiseuille flow
@@ -78,8 +82,8 @@ impl<T: RealField + FromPrimitive + Copy> WomersleyNumber<T> {
 
     /// Create from vessel diameter and heart rate (frequency in Hz)
     pub fn from_heart_rate(diameter: T, heart_rate_hz: T, density: T, viscosity: T) -> Self {
-        let two = T::from_f64(2.0).unwrap();
-        let pi = T::from_f64(PI).unwrap();
+        let two = T::from_f64(2.0).unwrap_or_else(T::one);
+        let pi = T::from_f64(PI).unwrap_or_else(T::one);
         Self {
             radius: diameter / two,
             omega: two * pi * heart_rate_hz,
@@ -94,10 +98,10 @@ impl<T: RealField + FromPrimitive + Copy> WomersleyNumber<T> {
         // Heart rate 72 bpm = 1.2 Hz
         // Blood: ρ = 1060 kg/m³, μ = 0.0035 Pa·s
         Self {
-            radius: T::from_f64(0.0125).unwrap(),
-            omega: T::from_f64(2.0 * PI * 1.2).unwrap(),
-            density: T::from_f64(1060.0).unwrap(),
-            viscosity: T::from_f64(0.0035).unwrap(),
+            radius: T::from_f64(0.0125).unwrap_or_else(T::one),
+            omega: T::from_f64(2.0 * PI * 1.2).unwrap_or_else(T::one),
+            density: T::from_f64(1060.0).unwrap_or_else(T::one),
+            viscosity: T::from_f64(0.0035).unwrap_or_else(T::one),
         }
     }
 
@@ -105,10 +109,10 @@ impl<T: RealField + FromPrimitive + Copy> WomersleyNumber<T> {
     pub fn human_femoral() -> Self {
         // Femoral diameter ~6 mm
         Self {
-            radius: T::from_f64(0.003).unwrap(),
-            omega: T::from_f64(2.0 * PI * 1.2).unwrap(),
-            density: T::from_f64(1060.0).unwrap(),
-            viscosity: T::from_f64(0.0035).unwrap(),
+            radius: T::from_f64(0.003).unwrap_or_else(T::one),
+            omega: T::from_f64(2.0 * PI * 1.2).unwrap_or_else(T::one),
+            density: T::from_f64(1060.0).unwrap_or_else(T::one),
+            viscosity: T::from_f64(0.0035).unwrap_or_else(T::one),
         }
     }
 
@@ -124,7 +128,7 @@ impl<T: RealField + FromPrimitive + Copy> WomersleyNumber<T> {
     /// This is the characteristic length over which viscous effects penetrate
     /// from the wall into the flow during one oscillation cycle.
     pub fn stokes_layer_thickness(&self) -> T {
-        let two = T::from_f64(2.0).unwrap();
+        let two = T::from_f64(2.0).unwrap_or_else(T::one);
         (two * self.viscosity / (self.density * self.omega)).sqrt()
     }
 
@@ -138,9 +142,9 @@ impl<T: RealField + FromPrimitive + Copy> WomersleyNumber<T> {
     /// Classify flow regime based on Womersley number
     pub fn flow_regime(&self) -> FlowRegime {
         let alpha = self.value();
-        let one = T::from_f64(1.0).unwrap();
-        let three = T::from_f64(3.0).unwrap();
-        let ten = T::from_f64(10.0).unwrap();
+        let one = T::from_f64(1.0).unwrap_or_else(T::one);
+        let three = T::from_f64(3.0).unwrap_or_else(T::one);
+        let ten = T::from_f64(10.0).unwrap_or_else(T::one);
 
         if alpha < one {
             FlowRegime::QuasiSteady
@@ -236,7 +240,7 @@ impl<T: RealField + FromPrimitive + Copy> WomersleyProfile<T> {
         };
 
         // i^{3/2} = e^{i 3pi/4} = (-1 + i) / sqrt(2)
-        let sqrt2 = T::from_f64(2.0).unwrap().sqrt();
+        let sqrt2 = T::from_f64(2.0).unwrap_or_else(T::one).sqrt();
         let i_3_2 = Complex::new(-one / sqrt2, one / sqrt2);
 
         // z = i^{3/2} * alpha
@@ -277,7 +281,7 @@ impl<T: RealField + FromPrimitive + Copy> WomersleyProfile<T> {
         let p_hat = self.pressure_amplitude;
         let one = T::one();
 
-        let sqrt2 = T::from_f64(2.0).unwrap().sqrt();
+        let sqrt2 = T::from_f64(2.0).unwrap_or_else(T::one).sqrt();
         let i_3_2 = Complex::new(-one / sqrt2, one / sqrt2);
 
         let z = i_3_2 * alpha;
@@ -308,8 +312,8 @@ impl<T: RealField + FromPrimitive + Copy> WomersleyProfile<T> {
         let omega = self.womersley.omega;
         let p_hat = self.pressure_amplitude;
         let one = T::one();
-        let two = T::from_f64(2.0).unwrap();
-        let pi = T::from_f64(PI).unwrap();
+        let two = T::from_f64(2.0).unwrap_or_else(T::one);
+        let pi = T::from_f64(PI).unwrap_or_else(T::one);
 
         let sqrt2 = two.sqrt();
         let i_3_2 = Complex::new(-one / sqrt2, one / sqrt2);
@@ -399,7 +403,7 @@ impl<T: RealField + FromPrimitive + Copy> WomersleyFlow<T> {
         // Mean (steady) component - Poiseuille
         let r = self.radius;
         let mu = self.viscosity;
-        let four = T::from_f64(4.0).unwrap();
+        let four = T::from_f64(4.0).unwrap_or_else(T::one);
         let u_mean = -self.mean_pressure_gradient * r * r / (four * mu) * (T::one() - xi * xi);
 
         // Pulsatile component
@@ -417,10 +421,10 @@ impl<T: RealField + FromPrimitive + Copy> WomersleyFlow<T> {
         let mu = self.viscosity;
         let rho = self.density;
         let omega = self.omega;
-        let pi = T::from_f64(PI).unwrap();
-        let eight = T::from_f64(8.0).unwrap();
+        let pi = T::from_f64(PI).unwrap_or_else(T::one);
+        let eight = T::from_f64(8.0).unwrap_or_else(T::one);
 
-        if alpha < T::from_f64(1.0).unwrap() {
+        if alpha < T::from_f64(1.0).unwrap_or_else(T::one) {
             // Low α: Z ≈ 8μL/(πR⁴) (Poiseuille resistance dominates)
             eight * mu * self.length / (pi * r.powi(4))
         } else {
@@ -437,6 +441,7 @@ impl<T: RealField + FromPrimitive + Copy> WomersleyFlow<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use approx::assert_relative_eq;
 
     #[test]
     fn test_womersley_number_calculation() {
@@ -569,6 +574,59 @@ mod tests {
         // WSS can range from O(1) to O(100) Pa depending on vessel and conditions
         // For moderate pressure gradients in large arteries, WSS is typically 1-100 Pa
         assert!(tau_w.abs() < 200.0, "WSS {} Pa should be < 200 Pa", tau_w);
+    }
+
+    #[test]
+    fn test_womersley_low_alpha_poiseuille_limit() {
+        // At very low alpha (quasi-steady), Womersley solution approaches Poiseuille
+        // u_max_steady = (P_hat * R^2) / (4 * mu)
+        let alpha = 0.01;
+        let p_hat = 100.0;
+        let rho = 1000.0;
+        let mu = 0.001;
+        let r = 0.01;
+        // alpha = R * sqrt(omega * rho / mu) => omega = (alpha/R)^2 * mu / rho
+        let omega = (alpha / r) * (alpha / r) * mu / rho;
+
+        let wom = WomersleyNumber::<f64>::new(r, omega, rho, mu);
+        let profile = WomersleyProfile::<f64>::new(wom, p_hat);
+
+        // Max magnitude of dynamic centerline velocity
+        let u_womersley = profile.centerline_velocity(0.0).abs();
+        
+        let u_poiseuille = (p_hat * r * r) / (4.0 * mu);
+        
+        assert_relative_eq!(u_womersley, u_poiseuille, max_relative = 0.01);
+    }
+
+    #[test]
+    fn test_womersley_flow_rate_oscillates() {
+        let wom = WomersleyNumber::<f64>::new(0.005, 2.0 * PI, 1000.0, 0.001); // 1 Hz
+        let profile = WomersleyProfile::<f64>::new(wom, 10.0);
+
+        // Integrate flow rate over one complete period (T = 1.0s)
+        let mut net_volume = 0.0;
+        let steps = 1000;
+        let dt = 1.0 / steps as f64;
+        for i in 0..steps {
+            let t = i as f64 * dt;
+            net_volume += profile.flow_rate(t) * dt;
+        }
+
+        // Net volume over one period for a purely oscillatory flow must be exactly zero
+        assert!(net_volume.abs() < 1e-10, "Net volume must sum to zero, got {}", net_volume);
+    }
+
+    #[test]
+    fn test_womersley_wall_bc_satisfied() {
+        let wom = WomersleyNumber::<f64>::human_aorta();
+        let profile = WomersleyProfile::<f64>::new(wom, 120.0);
+
+        // Wall velocity (xi = 1.0) must be identically zero at all times (no-slip condition)
+        for t in [0.0, 0.25, 0.5, 0.75, 1.0] {
+            let u_wall = profile.velocity(1.0, t);
+            assert!(u_wall.abs() < 1e-12, "No-slip violated at t={}: u={}", t, u_wall);
+        }
     }
 }
 

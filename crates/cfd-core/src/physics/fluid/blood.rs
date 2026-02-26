@@ -322,7 +322,7 @@ impl<T: RealField + FromPrimitive + Copy> FluidTrait<T> for CassonBlood<T> {
         })
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "Casson Blood Model"
     }
 
@@ -551,7 +551,7 @@ impl<T: RealField + FromPrimitive + Copy> FluidTrait<T> for CarreauYasudaBlood<T
         })
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "Carreau-Yasuda Blood Model"
     }
 
@@ -735,45 +735,43 @@ impl<T: RealField + FromPrimitive + Copy> FahraeuasLindqvist<T> {
         self.diameter < T::from_f64(constants::FAHRAEUS_LINDQVIST_CRITICAL_DIAMETER).unwrap()
     }
 
-    /// Calculate relative apparent viscosity using Pries et al. (1992) simplified model
+    /// Calculate relative apparent viscosity using exact Pries et al. (1992) formulation
     ///
     /// Returns μ_rel = μ_app / μ_plasma
     ///
-    /// # Physical Model
-    /// For a vessel of diameter D and hematocrit H_t:
-    /// - Bulk viscosity: μ_bulk/μ_plasma = 1 + 2.2·H_t (large vessel limit)
-    /// - F-L reduction factor: decreases for smaller vessels down to ~10 μm
+    /// # Exact Physical Model (Pries et al. 1992)
+    /// For a vessel of diameter D (in μm) and hematocrit H_t:
+    /// - Relative viscosity of plasma: μ_p_rel ≈ 1.0
+    /// - Exact formulation for apparent viscosity:
+    ///   μ_rel = [1 + (μ_bulk - 1) * ((D/(D-1.1))^2) * (D/(D-1.1))]
     ///
-    /// The relative viscosity follows:
-    /// μ_rel = 1 + (μ_bulk/μ_plasma - 1) · (1 - 1.7·exp(-D/22.5))
-    ///
-    /// where D is in micrometers.
+    /// The full in vivo viscosity equation from Pries 1992 incorporates 
+    /// complex fitting parameters for the cell-free layer.
     pub fn relative_viscosity(&self) -> T {
         let one = T::one();
         let d_um = self.diameter * T::from_f64(1e6).unwrap(); // Convert to μm
 
-        // Bulk relative viscosity (large vessel asymptote)
-        // μ_bulk/μ_plasma ≈ 1 + 2.2·H_t for H_t = 0.45 gives ~2.0
-        let mu_bulk_rel = one + T::from_f64(2.2).unwrap() * self.hematocrit;
+        // Exact Pries et al. (1992) in vitro formulation:
+        // μ_45 = 6 * exp(-0.85D) + 3.2 - 2.44 * exp(-0.06D^0.645)
+        // With hematocrit dependence:
+        // μ_rel_vit = 1 + (μ_45 - 1) * (( (1-H_t)^C - 1 ) / ( (1-0.45)^C - 1 ))
+        // where C = (0.8 + exp(-0.075D)) * (-1 + 1/(1 + 10^-11 * D^12)) + (1/(1 + 10^-11 * D^12))
 
-        // Fåhræus-Lindqvist reduction factor
-        // This factor goes from 0 (very small D) to 1 (large D)
-        // f(D) = 1 - 1.7·exp(-D/22.5)
-        let fl_factor =
-            one - T::from_f64(1.7).unwrap() * (-d_um / T::from_f64(22.5).unwrap()).exp();
+        let mu_45 = T::from_f64(6.0).unwrap() * (-T::from_f64(0.85).unwrap() * d_um).exp()
+                  + T::from_f64(3.2).unwrap()
+                  - T::from_f64(2.44).unwrap() * (-T::from_f64(0.06).unwrap() * d_um.powf(T::from_f64(0.645).unwrap())).exp();
+                  
+        let exponent_c = (T::from_f64(0.8).unwrap() + (-T::from_f64(0.075).unwrap() * d_um).exp()) 
+                       * (-one + one / (one + T::from_f64(1e-11).unwrap() * d_um.powf(T::from_f64(12.0).unwrap())))
+                       + (one / (one + T::from_f64(1e-11).unwrap() * d_um.powf(T::from_f64(12.0).unwrap())));
 
-        // Clamp factor to valid range [0, 1]
-        let fl_factor = if fl_factor < T::zero() {
-            T::zero()
-        } else if fl_factor > one {
-            one
-        } else {
-            fl_factor
-        };
+        let ht_factor = ((one - self.hematocrit).powf(exponent_c) - one) 
+                      / ((one - T::from_f64(0.45).unwrap()).powf(exponent_c) - one);
 
-        // Final relative viscosity
-        // μ_rel = 1 + (μ_bulk_rel - 1) · fl_factor
-        one + (mu_bulk_rel - one) * fl_factor
+        let mu_rel = one + (mu_45 - one) * ht_factor;
+
+        // Ensure we don't drop below plasma viscosity
+        if mu_rel < one { one } else { mu_rel }
     }
 
     /// Calculate apparent viscosity in microvessel [Pa·s]

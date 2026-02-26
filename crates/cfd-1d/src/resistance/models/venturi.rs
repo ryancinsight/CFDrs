@@ -521,8 +521,7 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for VenturiModel<T>
         let beta_max = T::from_f64(0.9).unwrap_or_else(T::one);
         if beta < beta_min || beta > beta_max {
             return Err(Error::PhysicsViolation(format!(
-                "Venturi β = D_throat/D_inlet = {:.3} outside recommended range [0.1, 0.9]",
-                beta
+                "Venturi β = D_throat/D_inlet = {beta:.3} outside recommended range [0.1, 0.9]"
             )));
         }
 

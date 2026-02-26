@@ -81,6 +81,42 @@ pub enum OptimMode {
     /// - Cavitation potential (SDT delivery in center channel)
     /// - Low haemolysis index
     ThreePopSeparation,
+
+    /// Combined SDT therapy: cell separation, haemolysis minimisation, cavitation
+    /// potential, and flow uniformity.  Intended as the primary clinical scoring
+    /// mode that balances all therapy-relevant objectives.
+    ///
+    /// Hard constraints: same as `SdtCavitation`.
+    ///
+    /// Soft objectives (fixed weights):
+    /// - 35% three-population separation efficiency
+    /// - 45% haemolysis minimisation (`1 − HI/HI_limit`, clamped to [0, 1])
+    /// - 20% cavitation potential
+    ///
+    /// Note: flow_uniformity is 1.0 by construction for all symmetric topologies;
+    /// its former 15% weight has been folded into haemolysis minimisation.
+    SdtTherapy,
+
+    /// Optimise for **paediatric leukapheresis**:
+    /// WBC recovery + RBC removal + WBC purity + throughput feasibility.
+    ///
+    /// Hard constraints:
+    /// - `pressure_feasible` — device can be driven at the available gauge pressure.
+    /// - Wall shear ≤ 150 Pa (`fda_main_compliant`) — protect fragile neonatal cells.
+    ///
+    /// Soft objectives (fixed weights):
+    /// - 40% WBC recovery (`wbc_recovery`)
+    /// - 30% RBC removal (`1 − rbc_pass_fraction`)
+    /// - 20% WBC purity (`wbc_purity`)
+    /// - 10% throughput feasibility (`min(1.0, Q_total_mL_min / 10.0)`)
+    ///
+    /// Design for neonates: `patient_weight_kg` is stored for downstream ECV
+    /// constraint checking (`ECV ≤ 10% × patient_blood_volume`).
+    /// `patient_blood_volume_ml ≈ patient_weight_kg × 85`.
+    PediatricLeukapheresis {
+        /// Patient weight [kg]; used to check ECV ≤ 10% of total blood volume.
+        patient_weight_kg: f64,
+    },
 }
 
 // ── Scoring weights ──────────────────────────────────────────────────────────
@@ -134,11 +170,13 @@ impl Default for SdtWeights {
             cav_hemolysis: 0.20,
             cav_coverage: 0.20,
 
-            // Exposure: uniformity and coverage are equally important;
-            // residence time is a useful secondary criterion.
-            exp_uniformity: 0.45,
-            exp_coverage: 0.35,
-            exp_residence: 0.20,
+            // Exposure: flow_uniformity is always 1.0 by construction for all
+            // current symmetric topologies (balanced binary trees + serpentines).
+            // Assigning weight to a constant term wastes discriminating power.
+            // Redistribute the 0.45 uniformity weight to coverage and residence.
+            exp_uniformity: 0.0,
+            exp_coverage: 0.55,
+            exp_residence: 0.45,
 
             // Cell Separation: primary goal is separation; cavitation is secondary
             // but still required for therapy.
@@ -164,7 +202,11 @@ impl Default for SdtWeights {
 /// Returns `0.0` for any candidate that violates hard constraints.
 pub fn score_candidate(metrics: &SdtMetrics, mode: OptimMode, weights: &SdtWeights) -> f64 {
     // ── Hard constraints (disqualify) ──────────────────────────────────────
-    if !metrics.pressure_feasible || !metrics.fda_main_compliant {
+    // `plate_fits` rejects ParallelMicrochannelArray candidates whose
+    // n_channels × 2×width footprint exceeds the 96-well plate height (85.47 mm).
+    // This eliminates the degenerate GA solution where n=500 channels at 6 mm width
+    // (500×12 mm = 6000 mm) scores perfectly despite being physically impossible.
+    if !metrics.pressure_feasible || !metrics.fda_main_compliant || !metrics.plate_fits {
         return 0.0;
     }
 
@@ -182,6 +224,10 @@ pub fn score_candidate(metrics: &SdtMetrics, mode: OptimMode, weights: &SdtWeigh
         }
         OptimMode::CellSeparation => score_cell_separation(metrics, weights),
         OptimMode::ThreePopSeparation => score_three_pop_separation(metrics, weights),
+        OptimMode::SdtTherapy => score_sdt_therapy(metrics),
+        OptimMode::PediatricLeukapheresis { patient_weight_kg } => {
+            score_pediatric_leukapheresis(metrics, patient_weight_kg)
+        }
     }
 }
 
@@ -254,6 +300,59 @@ fn score_three_pop_separation(metrics: &SdtMetrics, w: &SdtWeights) -> f64 {
         + w.sep3_hemolysis * hi_factor
 }
 
+/// Score for the combined SDT therapy objective.
+///
+/// Fixed weights: 35% separation, 45% haemolysis, 20% cavitation.
+///
+/// Note: flow_uniformity is 1.0 by construction for all current symmetric
+/// topologies, so its former 15% weight has been folded into haemolysis
+/// (the next most clinically critical differentiating objective).
+fn score_sdt_therapy(metrics: &SdtMetrics) -> f64 {
+    // Three-population separation efficiency: clamp negative (bad mixing) to 0.
+    let sep3 = metrics.three_pop_sep_efficiency.clamp(0.0, 1.0);
+
+    // Haemolysis minimisation: 1 at HI=0, 0 at HI=HI_limit.
+    let hi_score = (1.0 - metrics.hemolysis_index_per_pass / HI_PASS_LIMIT).clamp(0.0, 1.0);
+
+    // Cavitation potential (already in [0, 1]).
+    let cav = metrics.cavitation_potential;
+
+    0.35 * sep3 + 0.45 * hi_score + 0.20 * cav
+}
+
+/// Score for the paediatric leukapheresis objective.
+///
+/// Weights: 40% WBC recovery + 30% RBC removal + 20% WBC purity + 10% throughput.
+/// Additionally penalises designs whose ECV exceeds 10% of the patient's blood volume
+/// (`patient_blood_volume_ml ≈ patient_weight_kg × 85 mL/kg`).
+fn score_pediatric_leukapheresis(metrics: &SdtMetrics, patient_weight_kg: f64) -> f64 {
+    // Primary objectives
+    let wbc_rec = metrics.wbc_recovery.clamp(0.0, 1.0);
+    let rbc_rem = (1.0 - metrics.rbc_pass_fraction).clamp(0.0, 1.0);
+    let purity  = metrics.wbc_purity.clamp(0.0, 1.0);
+
+    // Throughput score: normalised to 10 mL/min clinical leukapheresis target.
+    // flow_rate_ml_min is stored in SdtMetrics (m³/s × 60 × 1e6).
+    // A single chip at 1 mL/min scores 0.1; six chips in parallel reach ~6 mL/min (0.6).
+    // Ten chips at 1 mL/min = 10 mL/min → saturates to 1.0.
+    let throughput_score = (metrics.flow_rate_ml_min / 10.0).min(1.0);
+
+    // ECV penalty: if ECV > 10% of patient blood volume, apply a fractional penalty.
+    let patient_bv_ml = patient_weight_kg * 85.0; // 85 mL/kg neonatal blood volume
+    let max_ecv_ml    = patient_bv_ml * 0.10;
+    let ecv_ok_factor = if metrics.total_ecv_ml > 0.0 && metrics.total_ecv_ml <= max_ecv_ml {
+        1.0
+    } else if metrics.total_ecv_ml > max_ecv_ml {
+        // Graded penalty: score × (max_ecv / actual_ecv)
+        (max_ecv_ml / metrics.total_ecv_ml).clamp(0.0, 1.0)
+    } else {
+        1.0 // total_ecv_ml = 0 means non-leukapheresis topology — no ECV constraint
+    };
+
+    let raw = 0.40 * wbc_rec + 0.30 * rbc_rem + 0.20 * purity + 0.10 * throughput_score;
+    raw * ecv_ok_factor
+}
+
 // ── Utility ──────────────────────────────────────────────────────────────────
 
 /// Return a human-readable summary line for a scored candidate.
@@ -264,5 +363,9 @@ pub fn score_description(mode: OptimMode) -> &'static str {
         OptimMode::Combined { .. } => "Combined (Cavitation + Exposure)",
         OptimMode::CellSeparation => "Cell Separation + SDT",
         OptimMode::ThreePopSeparation => "Three-Pop Separation (WBC+Cancer→Center, RBC→Wall) + SDT",
+        OptimMode::SdtTherapy => "SDT Therapy (Sep + HI + Cav + Uniformity)",
+        OptimMode::PediatricLeukapheresis { .. } => {
+            "Paediatric Leukapheresis (WBC Recovery + RBC Removal + Purity + ECV)"
+        }
     }
 }

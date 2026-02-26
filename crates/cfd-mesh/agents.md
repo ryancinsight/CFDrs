@@ -707,3 +707,10 @@ proptest! {
 *This document is the architecture reference for the `cfd-mesh` rewrite. Implementation
 follows the phases in §11. All new code must satisfy the documentation standards in §9
 and include tests per §10 before merge.*
+
+---
+
+## Output Convention
+
+All examples use `env!("CARGO_MANIFEST_DIR").join("outputs")` — never CWD-relative paths.
+`outputs/` is listed in the root `.gitignore`.

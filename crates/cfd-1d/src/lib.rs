@@ -59,7 +59,6 @@
 //! - **components**: Valves, pumps, filters
 //! - **junctions**: T-junction, Y-junction, bifurcation models
 
-
 #![warn(missing_docs)]
 #![warn(clippy::all)]
 #![warn(clippy::pedantic)]
@@ -101,7 +100,7 @@ pub mod vascular;
 // Export network functionality
 pub use network::{
     BoundaryCondition, ChannelProperties, Edge, EdgeProperties, EdgeType, Network, NetworkBuilder,
-    NetworkGraph, NetworkMetadata, Node, NodeProperties, NodeType,
+    NetworkBuilderSink, NetworkGraph, NetworkMetadata, Node, NodeProperties, NodeType,
 };
 
 // Export solver functionality
@@ -129,7 +128,7 @@ pub use analysis::{
 // Export channel functionality
 pub use channel::{
     Channel, ChannelGeometry, ChannelType, CrossSection, FlowRegime, FlowState,
-    NumericalParameters, SurfaceProperties, Wettability,
+    KN_SLIP_MIN, NumericalParameters, SurfaceProperties, Wettability,
 };
 
 // Export resistance functionality

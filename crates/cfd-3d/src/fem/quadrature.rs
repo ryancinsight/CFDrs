@@ -1,4 +1,21 @@
 //! Quadrature rules for finite elements
+//!
+//! # Theorem — Keast Quadrature Exactness (Keast 1986)
+//!
+//! A degree-$d$ quadrature rule with $n$ points $\{(\mathbf{x}_k, w_k)\}$
+//! integrates all polynomials of total degree $\leq d$ exactly over the
+//! reference tetrahedron:
+//!
+//! ```text
+//! ∫_T p(x) dx = Σ_k w_k p(x_k)    ∀ p ∈ P_d
+//! ```
+//!
+//! The 5-point Keast rule used here has degree 3 (integrates cubics exactly),
+//! which is sufficient for the bilinear forms arising from P2 Lagrange elements
+//! (the integrand $\nabla N_i \cdot \nabla N_j$ is at most degree 2 for P2).
+//!
+//! **Reference:** Keast, P., "Moderate-degree tetrahedral quadrature formulas",
+//! CMAME 55(3), 1986, pp. 339–348.
 
 use nalgebra::{RealField, Vector3};
 use num_traits::FromPrimitive;
@@ -35,6 +52,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Tetra
         Self { points, weights }
     }
 
+    /// Return the quadrature point coordinates
     pub fn points(&self) -> &[Vector3<T>] { &self.points }
+    /// Return the quadrature weights
     pub fn weights(&self) -> &[T] { &self.weights }
 }

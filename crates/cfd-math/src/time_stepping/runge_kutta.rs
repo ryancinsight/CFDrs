@@ -52,6 +52,22 @@ use std::cell::RefCell;
 
 /// Classical 4th-order Runge-Kutta method
 ///
+/// # Theorem (RK4 Order of Accuracy)
+///
+/// The classical RK4 scheme with Butcher coefficients below is **4th-order
+/// accurate**: for a sufficiently smooth ODE $y' = f(t, y)$ the local
+/// truncation error satisfies $\|y(t_{n+1}) - y_{n+1}\| = O(h^5)$.
+///
+/// **Proof sketch**: Expanding $y(t_n + h)$ in a Taylor series to $O(h^5)$
+/// and matching term-by-term with the RK4 update shows that all order
+/// conditions $\sum_i b_i c_i^{q-1} = 1/q$ for $q = 1,2,3,4$ and the
+/// Butcher simplifying assumptions B(4), C(2), D(1) are satisfied by the
+/// tableau below. There are 8 independent conditions for order 4; all 8
+/// hold for the classical weights $(1/6, 1/3, 1/3, 1/6)$.
+///
+/// **Reference**: Butcher (2008), *Numerical Methods for ODEs*, §3.2;
+/// Hairer, Nørsett & Wanner (1993), §II.1.
+///
 /// ## Butcher Tableau
 /// ```text
 /// 0   |
@@ -147,6 +163,17 @@ impl<T: RealField + Copy> TimeStepper<T> for RungeKutta4<T> {
 }
 
 /// 3rd-order Runge-Kutta method (Kutta's method)
+///
+/// # Theorem (RK3 Order of Accuracy)
+///
+/// With the Butcher tableau below, the scheme satisfies all 4 order
+/// conditions for a 3rd-order explicit Runge–Kutta method:
+/// $\sum b_i = 1$, $\sum b_i c_i = 1/2$, $\sum b_i c_i^2 = 1/3$,
+/// $\sum_i b_i \sum_j a_{ij} c_j = 1/6$, giving local truncation
+/// error $O(h^4)$.
+///
+/// **Proof sketch**: Direct substitution of $(b, c, A)$ into the
+/// Butcher order conditions and algebraic verification.
 ///
 /// ## Butcher Tableau
 /// ```text

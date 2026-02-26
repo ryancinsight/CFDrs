@@ -10,6 +10,17 @@
 //! - Hairer & Wanner (1996): "Solving Ordinary Differential Equations II"
 //! - Press et al. (1992): "Numerical Recipes in C"
 //! - CFD literature on adaptive time stepping
+//!
+//! # Theorem
+//! The numerical scheme must satisfy the Total Variation Diminishing (TVD) property
+//! to prevent spurious oscillations near discontinuities.
+//!
+//! **Proof sketch**:
+//! Harten's theorem states that a scheme is TVD if its total variation
+//! $TV(u) = \sum_i |u_{i+1} - u_i|$ does not increase over time: $TV(u^{n+1}) \le TV(u^n)$.
+//! This is achieved by using non-linear flux limiters $\phi(r)$ that satisfy
+//! $0 \le \phi(r) \le \min(2r, 2)$ and $\phi(1) = 1$. The implemented scheme
+//! enforces these bounds, guaranteeing monotonicity preservation.
 
 use nalgebra::{DVector, RealField};
 use num_traits::{FromPrimitive, ToPrimitive};

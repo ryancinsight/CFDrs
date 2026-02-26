@@ -11,7 +11,9 @@
 
 use cfd_2d::fields::SimulationFields;
 use cfd_2d::grid::StructuredGrid2D;
-use cfd_2d::physics::immersed_boundary::{BoundaryPoint, ImmersedBoundaryMethod, ImmersedBoundaryConfig};
+use cfd_2d::physics::immersed_boundary::{
+    BoundaryPoint, ImmersedBoundaryConfig, ImmersedBoundaryMethod,
+};
 use cfd_2d::simplec_pimple::{SimplecPimpleConfig, SimplecPimpleSolver};
 use cfd_core::physics::boundary::{BoundaryCondition, WallType};
 use cfd_core::physics::fluid::non_newtonian::CarreauYasuda;
@@ -46,10 +48,28 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Inlet: Parabolic profile u(y) = 4 * U_max * y/H * (1 - y/H)
     // We implement this by setting fixed values at inlet nodes manually in the loop or using BC
     // Standard BC set for solver:
-    solver.set_boundary("west".to_string(), BoundaryCondition::VelocityInlet { velocity: nalgebra::Vector3::new(0.5, 0.0, 0.0) }); // Average/Max
-    solver.set_boundary("east".to_string(), BoundaryCondition::PressureOutlet { pressure: 0.0 });
-    solver.set_boundary("north".to_string(), BoundaryCondition::Wall { wall_type: WallType::NoSlip });
-    solver.set_boundary("south".to_string(), BoundaryCondition::Wall { wall_type: WallType::NoSlip });
+    solver.set_boundary(
+        "west".to_string(),
+        BoundaryCondition::VelocityInlet {
+            velocity: nalgebra::Vector3::new(0.5, 0.0, 0.0),
+        },
+    ); // Average/Max
+    solver.set_boundary(
+        "east".to_string(),
+        BoundaryCondition::PressureOutlet { pressure: 0.0 },
+    );
+    solver.set_boundary(
+        "north".to_string(),
+        BoundaryCondition::Wall {
+            wall_type: WallType::NoSlip,
+        },
+    );
+    solver.set_boundary(
+        "south".to_string(),
+        BoundaryCondition::Wall {
+            wall_type: WallType::NoSlip,
+        },
+    );
 
     // 4. Setup Immersed Boundary (Venturi Throat)
     let mut ibm = ImmersedBoundaryMethod::new((nx, ny), (length, height));
@@ -69,7 +89,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let num_points = 100;
 
     for i in 0..num_points {
-        let x = x_center - throat_length/2.0 + (throat_length * i as f64 / (num_points as f64 - 1.0));
+        let x =
+            x_center - throat_length / 2.0 + (throat_length * i as f64 / (num_points as f64 - 1.0));
 
         // Cosine constriction
         let phase = 2.0 * std::f64::consts::PI * (x - x_center) / throat_length;
@@ -112,27 +133,37 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut time = 0.0;
 
     println!("Starting simulation...");
-    println!("Grid: {}x{}, Length: {}m, Height: {}m", nx, ny, length, height);
-    println!("Fluid: {}, Viscosity range: {:.4}-{:.4} Pa.s", blood.name(), blood.viscosity_inf, blood.viscosity_zero);
+    println!(
+        "Grid: {}x{}, Length: {}m, Height: {}m",
+        nx, ny, length, height
+    );
+    println!(
+        "Fluid: {}, Viscosity range: {:.4}-{:.4} Pa.s",
+        blood.name(),
+        blood.viscosity_inf,
+        blood.viscosity_zero
+    );
 
     while time < end_time {
         // A. Update Viscosity (Non-Newtonian)
-        for j in 1..ny-1 {
-            for i in 1..nx-1 {
+        for j in 1..ny - 1 {
+            for i in 1..nx - 1 {
                 // Calculate strain rate magnitude: sqrt(2 * S_ij * S_ij)
                 // S_11 = du/dx, S_22 = dv/dy, S_12 = 0.5(du/dy + dv/dx)
-                let du_dx = (fields.u.at(i+1, j) - fields.u.at(i-1, j)) / (2.0 * grid.dx);
-                let dv_dy = (fields.v.at(i, j+1) - fields.v.at(i, j-1)) / (2.0 * grid.dy);
-                let du_dy = (fields.u.at(i, j+1) - fields.u.at(i, j-1)) / (2.0 * grid.dy);
-                let dv_dx = (fields.v.at(i+1, j) - fields.v.at(i-1, j)) / (2.0 * grid.dx);
+                let du_dx = (fields.u.at(i + 1, j) - fields.u.at(i - 1, j)) / (2.0 * grid.dx);
+                let dv_dy = (fields.v.at(i, j + 1) - fields.v.at(i, j - 1)) / (2.0 * grid.dy);
+                let du_dy = (fields.u.at(i, j + 1) - fields.u.at(i, j - 1)) / (2.0 * grid.dy);
+                let dv_dx = (fields.v.at(i + 1, j) - fields.v.at(i - 1, j)) / (2.0 * grid.dx);
 
                 let s11 = du_dx;
                 let s22 = dv_dy;
                 let s12 = 0.5 * (du_dy + dv_dx);
 
-                let strain_rate = (2.0 * (s11*s11 + s22*s22 + 2.0*s12*s12)).sqrt();
+                let strain_rate = (2.0 * (s11 * s11 + s22 * s22 + 2.0 * s12 * s12)).sqrt();
 
-                let mu = blood.viscosity_at_shear(strain_rate, 310.15, 101325.0).unwrap_or(mu_inf);
+                let mu = blood
+                    .viscosity_at_shear(strain_rate, 310.15, 101325.0)
+                    .unwrap_or(mu_inf);
                 fields.viscosity.set(i, j, mu);
             }
         }
@@ -173,14 +204,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         time += dt;
         if (time / dt) as usize % 10 == 0 {
             let u_max = fields.max_velocity_magnitude();
-            println!("Time: {:.3}s, Residual: {:.2e}, Max U: {:.2} m/s", time, residual, u_max);
+            println!(
+                "Time: {:.3}s, Residual: {:.2e}, Max U: {:.2} m/s",
+                time, residual, u_max
+            );
         }
     }
 
     println!("Simulation complete.");
 
     // Sample velocity at throat center
-    let center_u = fields.u.at(nx/2, ny/2);
+    let center_u = fields.u.at(nx / 2, ny / 2);
     println!("Velocity at throat center: {:.2} m/s", center_u);
 
     Ok(())

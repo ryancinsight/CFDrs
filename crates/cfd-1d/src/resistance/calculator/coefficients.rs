@@ -96,6 +96,7 @@ where
     }
 }
 
+/// Calculate linear and quadratic coefficients for a circular Hagen-Poiseuille pipe.
 pub fn calculate_hagen_poiseuille_coefficients<T, F>(
     diameter: T,
     length: T,
@@ -111,6 +112,7 @@ where
     model.calculate_coefficients(fluid, conditions)
 }
 
+/// Calculate linear and quadratic coefficients for a rectangular laminar channel.
 pub fn calculate_rectangular_coefficients<T, F>(
     width: T,
     height: T,
@@ -131,6 +133,7 @@ where
     model.calculate_coefficients(fluid, conditions)
 }
 
+/// Calculate linear and quadratic coefficients for a Darcy-Weisbach turbulent pipe.
 pub fn calculate_darcy_weisbach_coefficients<T, F>(
     hydraulic_diameter: T,
     length: T,
@@ -147,6 +150,7 @@ where
     model.calculate_coefficients(fluid, conditions)
 }
 
+/// Calculate linear and quadratic coefficients for a serpentine channel.
 pub fn calculate_serpentine_coefficients<T, F>(
     model: &SerpentineModel<T>,
     fluid: &F,
@@ -160,6 +164,7 @@ where
     model.calculate_coefficients(fluid, conditions)
 }
 
+/// Calculate linear and quadratic coefficients for a Venturi tube.
 pub fn calculate_venturi_coefficients<T, F>(
     model: &VenturiModel<T>,
     fluid: &F,

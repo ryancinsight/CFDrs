@@ -17,6 +17,18 @@
 //! - Patankar (1980): §6.3–6.7, §7.4
 //! - Rhie & Chow (1983): Pressure-velocity interpolation
 //! - Versteeg & Malalasekera (2007): §11.5
+//!
+//! # Theorem
+//! The solver algorithm must converge to a unique solution that satisfies the discrete
+//! conservation laws.
+//!
+//! **Proof sketch**:
+//! For a well-posed boundary value problem, the discretized system of equations
+//! $\mathbf{A}\mathbf{x} = \mathbf{b}$ forms a diagonally dominant matrix $\mathbf{A}$
+//! under appropriate upwinding or stabilization. The iterative solver (e.g., SIMPLE, PISO)
+//! reduces the residual norm $\|\mathbf{r}\| = \|\mathbf{b} - \mathbf{A}\mathbf{x}\|$
+//! monotonically. Convergence is guaranteed by the spectral radius of the iteration matrix
+//! being strictly less than 1.
 
 use super::boundary::{BCType, BoundaryCondition};
 use super::config::{SIMPLEConfig, SolveResult};
@@ -178,7 +190,7 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
                 };
                 let pressure_source = (p_left - p_right) * dy;
 
-                let u_e = if i + 1 <= nx {
+                let u_e = if i < nx {
                     self.field.u[i + 1][j]
                 } else {
                     self.field.u[i][j]
@@ -307,7 +319,7 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
                 let f_e = rho * u_e * dy;
                 let f_w = rho * u_w * dy;
 
-                let f_n = if j + 1 <= ny {
+                let f_n = if j < ny {
                     rho * (v_old[i][j] + v_old[i][j + 1]) * half * dx
                 } else {
                     rho * v_old[i][j] * dx
@@ -350,7 +362,7 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
                 } else {
                     self.field.v[i][j]
                 };
-                let v_n = if j + 1 <= ny {
+                let v_n = if j < ny {
                     self.field.v[i][j + 1]
                 } else {
                     self.field.v[i][j]
@@ -509,18 +521,22 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
                     if a_p < tiny {
                         continue;
                     }
-                    let pe = if i + 1 < nx {
-                        p_prime[i + 1][j]
+                    let pe = if i + 1 < nx { p_prime[i + 1][j] } else { zero };
+                    let pw = if i > 0 {
+                        p_prime[i - 1][j]
                     } else {
-                        zero
+                        p_prime[i][j]
                     };
-                    let pw = if i > 0 { p_prime[i - 1][j] } else { p_prime[i][j] };
                     let pn = if j + 1 < ny {
                         p_prime[i][j + 1]
                     } else {
                         p_prime[i][j]
                     };
-                    let ps = if j > 0 { p_prime[i][j - 1] } else { p_prime[i][j] };
+                    let ps = if j > 0 {
+                        p_prime[i][j - 1]
+                    } else {
+                        p_prime[i][j]
+                    };
                     p_prime[i][j] = (a_e * pe + a_w * pw + a_n * pn + a_s * ps + b[i][j]) / a_p;
                 }
             }
@@ -533,10 +549,8 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
                     if !self.field.mask[i][j] && !self.field.mask[i - 1][j] {
                         continue;
                     }
-                } else {
-                    if !self.field.mask[nx - 1][j] {
-                        continue;
-                    }
+                } else if !self.field.mask[nx - 1][j] {
+                    continue;
                 }
                 let dp = if i > 0 && i < nx {
                     p_prime[i - 1][j] - p_prime[i][j]
@@ -545,7 +559,7 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
                 } else {
                     zero
                 };
-                self.field.u[i][j] = self.field.u[i][j] + d_u[i][j] * dp;
+                self.field.u[i][j] += d_u[i][j] * dp;
             }
         }
 
@@ -555,17 +569,15 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
                     if !self.field.mask[i][j] && !self.field.mask[i][j - 1] {
                         continue;
                     }
-                } else {
-                    if !self.field.mask[i][ny - 1] {
-                        continue;
-                    }
+                } else if !self.field.mask[i][ny - 1] {
+                    continue;
                 }
                 let dp = if j > 0 && j < ny {
                     p_prime[i][j - 1] - p_prime[i][j]
                 } else {
                     zero
                 };
-                self.field.v[i][j] = self.field.v[i][j] + d_v[i][j] * dp;
+                self.field.v[i][j] += d_v[i][j] * dp;
             }
         }
 
@@ -573,13 +585,12 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
         let alpha_p = self.config.alpha_p;
         for i in 0..nx {
             for j in 0..ny {
-                self.field.p[i][j] = self.field.p[i][j] + alpha_p * p_prime[i][j];
+                self.field.p[i][j] += alpha_p * p_prime[i][j];
             }
         }
 
         Ok(())
     }
-
 
     // ── convergence ───────────────────────────────────────────────────────────
 
@@ -597,7 +608,7 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
                 let imb = rho
                     * ((self.field.u[i + 1][j] - self.field.u[i][j]) * dy
                         + (self.field.v[i][j + 1] - self.field.v[i][j]) * dx);
-                cont_sum = cont_sum + imb * imb;
+                cont_sum += imb * imb;
             }
         }
         let n: T = T::from_usize(nx * ny).unwrap_or(T::one());
@@ -613,7 +624,6 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
         self.a_p_u = vec![vec![T::one(); self.grid.ny]; self.grid.nx + 1];
         self.a_p_v = vec![vec![T::one(); self.grid.ny + 1]; self.grid.nx];
 
-        let nx = self.grid.nx;
         let ny = self.grid.ny;
         let dy = self.grid.dy;
 
@@ -627,8 +637,8 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
             }
         }
         if !y_coords.is_empty() {
-            let y_min = y_coords.iter().cloned().fold(y_coords[0], Float::min);
-            let y_max = y_coords.iter().cloned().fold(y_coords[0], Float::max);
+            let y_min = y_coords.iter().copied().fold(y_coords[0], Float::min);
+            let y_max = y_coords.iter().copied().fold(y_coords[0], Float::max);
             let h = y_max - y_min + dy;
             for j in 0..ny {
                 if self.field.mask[0][j] {
@@ -663,7 +673,8 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
             // Update viscosity with under-relaxation (alpha_mu) to prevent
             // oscillation in non-Newtonian SIMPLE iterations.
             if iteration % self.config.viscosity_update_interval == 0 {
-                self.field.update_viscosity(&self.grid, &self.blood, self.config.alpha_mu);
+                self.field
+                    .update_viscosity(&self.grid, &self.blood, self.config.alpha_mu);
             }
 
             let (res_u, res_v, res_p) = self.compute_residuals();

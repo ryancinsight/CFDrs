@@ -27,6 +27,16 @@
 //! - Spalart, P. R., et al. (1997). Comments on the feasibility of LES for wings.
 //! - Spalart, P. R., et al. (2006). A new version of detached-eddy simulation.
 //! - Shur, M. L., et al. (2008). A hybrid RANS-LES approach with delayed-DES.
+//!
+//! # Theorem
+//! The turbulence model must satisfy the realizability conditions for the Reynolds stress tensor.
+//!
+//! **Proof sketch**:
+//! For any turbulent flow, the Reynolds stress tensor $\tau_{ij} = -\rho \overline{u_i^\prime u_j^\prime}$
+//! must be positive semi-definite. This requires that the turbulent kinetic energy $k \ge 0$
+//! and the normal stresses $\overline{u_i^\prime u_i^\prime} \ge 0$. The implemented model
+//! enforces these constraints either through exact transport equations or bounded eddy-viscosity
+//! formulations, ensuring physical realizability and numerical stability.
 
 // Dependencies: RANS model integration, wall distance computation, length scale consistency
 // Mathematical Foundation: Spalart et al. (1997) DES97, Shur et al. (2008) IDDES

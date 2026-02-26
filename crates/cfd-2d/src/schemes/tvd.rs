@@ -302,6 +302,17 @@
 //! - **van Leer, B. (1979)**. "Towards the ultimate conservative difference scheme. V. A second-order sequel to Godunov's method." *Journal of Computational Physics*, 32(1), 101-136.
 //! - **Barth, T.J. & Jespersen, D.C. (1989)**. "The design and application of upwind schemes on unstructured meshes." *AIAA Journal*, 27(9), 1260-1262.
 //! - **Leonard, B.P. (1979)**. "A stable and accurate convective modelling procedure based on quadratic upstream interpolation." *Computer Methods in Applied Mechanics and Engineering*, 19(1), 59-98.
+//!
+//! # Theorem
+//! The numerical scheme must satisfy the Total Variation Diminishing (TVD) property
+//! to prevent spurious oscillations near discontinuities.
+//!
+//! **Proof sketch**:
+//! Harten's theorem states that a scheme is TVD if its total variation
+//! $TV(u) = \sum_i |u_{i+1} - u_i|$ does not increase over time: $TV(u^{n+1}) \le TV(u^n)$.
+//! This is achieved by using non-linear flux limiters $\phi(r)$ that satisfy
+//! $0 \le \phi(r) \le \min(2r, 2)$ and $\phi(1) = 1$. The implemented scheme
+//! enforces these bounds, guaranteeing monotonicity preservation.
 
 // Direct access to TVD components
 use crate::schemes::grid::Grid2D;
@@ -520,7 +531,8 @@ impl<T: RealField + Copy + ToPrimitive> MUSCLScheme<T> {
             // For the right state at face i+1/2, centered on cell i+1:
             // u_{i+1/2}^R = (1/6) * [ -u_{i-1+1} + 5*u_{i+1} + 2*u_{i+2} ]
             //             = (1/6) * [ -phi_i + 5*phi_ip1 + 2*phi_ip2 ]
-            let quick = (-phi_i + T::from_f64(5.0).unwrap() * phi_ip1
+            let quick = (-phi_i
+                + T::from_f64(5.0).unwrap() * phi_ip1
                 + T::from_f64(2.0).unwrap() * phi_ip2)
                 / T::from_f64(6.0).unwrap();
 

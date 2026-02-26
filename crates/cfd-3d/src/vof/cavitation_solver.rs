@@ -3,6 +3,23 @@
 //! This module provides comprehensive cavitation simulation capabilities
 //! by integrating cavitation physics with the Volume of Fluid (VOF) method.
 //!
+//! # Theorem — Cavitation–VOF Mass Conservation
+//!
+//! The VOF transport equation with cavitation source term
+//!
+//! ```text
+//! ∂α/∂t + ∇·(α u) = R_cav
+//! ```
+//!
+//! conserves the total mass $\int_\Omega (\alpha \rho_l + (1-\alpha)\rho_v) \,d\Omega$
+//! provided the cavitation source $R_{cav}$ satisfies
+//!
+//! ```text
+//! ∫_Ω R_cav (ρ_l − ρ_v) dΩ = d/dt ∫_Ω ρ_v dΩ − d/dt ∫_Ω ρ_v dΩ
+//! ```
+//!
+//! i.e., mass is transferred between phases without creation or destruction.
+//!
 //! ## Mathematical Foundation
 //!
 //! ### Cavitation-VOF Coupling

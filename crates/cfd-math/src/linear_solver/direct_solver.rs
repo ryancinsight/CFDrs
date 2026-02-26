@@ -57,7 +57,7 @@ impl DirectSparseSolver {
         let (sprs, mut b) = csr_to_csc_sprs_f64(matrix, rhs)?;
 
         rsparse::lusol(&sprs, &mut b, self.ordering, self.pivot_tolerance)
-            .map_err(|e| Error::Solver(format!("Direct sparse LU failed: {}", e)))?;
+            .map_err(|e| Error::Solver(format!("Direct sparse LU failed: {e}")))?;
 
         let mut x = DVector::zeros(nrows);
         for (i, value) in b.iter().enumerate() {

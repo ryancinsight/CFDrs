@@ -1,6 +1,35 @@
 //! Channel components for microfluidic networks
+//!
+//! # Hagen-Poiseuille Theorem (Circular Channel)
+//!
+//! For fully-developed laminar flow in a circular pipe (Re < 2300):
+//! ```text
+//! R = 128 μ L / (π D⁴)   [Pa·s/m³]
+//! ```
+//! This is the exact analytical solution to the Stokes equations with no-slip BC.
+//! Derivation: integrate the parabolic velocity profile `u(r)` over the cross-section
+//! to obtain Q, then ΔP = R·Q where R = 8μL/(πr⁴) = 128μL/(πD⁴).
+//!
+//! # Generalised Hydraulic Diameter
+//!
+//! For non-circular sections, the hydraulic diameter is:
+//! ```text
+//! D_h = 4 A / P_wet
+//! ```
+//! where A is the cross-sectional area and P_wet is the wetted perimeter.
+//! For a rectangle (W×H): `D_h = 2WH/(W+H)`.
+//! For a circle: `D_h = D` (exact).
+//!
+//! # Rectangular Shah-London Resistance
+//!
+//! For rectangular ducts the laminar resistance uses the Shah-London (1978) Poiseuille
+//! number Po(α) = f·Re, which depends on the aspect ratio α = min(W,H)/max(W,H):
+//! ```text
+//! R = Po(α) · μ · L / (2 A · D_h²)   [Pa·s/m³]
+//! ```
+//! The `RectangularChannelModel` in `resistance::models` computes Po(α) accurately.
 
-use super::{constants, Component};
+use super::Component;
 use crate::resistance::models::ResistanceModel;
 use cfd_core::error::Result;
 use cfd_core::physics::fluid::Fluid;
@@ -57,23 +86,6 @@ impl<T: RealField + Copy + FromPrimitive> RectangularChannel<T> {
         self.width / self.height
     }
 
-    /// Calculate friction factor for laminar flow
-    #[allow(dead_code)]
-    fn friction_factor_laminar(&self) -> T {
-        let alpha = self.aspect_ratio();
-        let one = T::one();
-        let c1 = T::from_f64(constants::RECT_CHANNEL_C1).unwrap_or_else(T::zero);
-        let c2 = T::from_f64(constants::RECT_CHANNEL_C2).unwrap_or_else(T::zero);
-
-        if alpha >= one {
-            // Wide channel approximation
-            c1
-        } else {
-            // Tall channel (alpha < 1)
-            let inv_alpha = one / alpha;
-            c2 / inv_alpha
-        }
-    }
 }
 
 impl<T: RealField + Copy + FromPrimitive> Component<T> for RectangularChannel<T> {
@@ -160,6 +172,72 @@ impl<T: RealField + Copy + FromPrimitive> CircularChannel<T> {
     /// Get hydraulic diameter (equals diameter for circular channels)
     pub fn hydraulic_diameter(&self) -> T {
         self.diameter
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use approx::assert_relative_eq;
+    use cfd_core::physics::fluid::database::water_20c;
+
+    #[test]
+    fn test_rectangular_channel_resistance_matches_formula() {
+        let fluid = water_20c::<f64>().unwrap();
+        let width = 1e-3;
+        let height = 1e-3;
+        let length = 0.1;
+        let chan = RectangularChannel::new(length, width, height, 0.0);
+        let r = chan.resistance(&fluid);
+
+        // For square channel, Shah-London: Po = 56.91, R = Po*mu*L/(2*A*Dh^2)
+        let mu = fluid.viscosity;
+        let area = width * height;
+        let dh = 2.0 * width * height / (width + height);
+        let r_expected = 56.91 * mu * length / (2.0 * area * dh * dh);
+        assert_relative_eq!(r, r_expected, max_relative = 0.005);
+    }
+
+    #[test]
+    fn test_rectangular_channel_hydraulic_diameter() {
+        let chan = RectangularChannel::<f64>::new(0.1, 2e-3, 1e-3, 0.0);
+        let expected = 2.0 * 2e-3 * 1e-3 / (2e-3 + 1e-3);
+        assert_relative_eq!(chan.hydraulic_diameter(), expected, epsilon = 1e-15);
+    }
+
+    #[test]
+    fn test_rectangular_channel_volume() {
+        let chan = RectangularChannel::<f64>::new(0.05, 1e-3, 5e-4, 0.0);
+        let expected = 0.05 * 1e-3 * 5e-4;
+        assert_relative_eq!(chan.volume().unwrap(), expected, epsilon = 1e-20);
+    }
+
+    #[test]
+    fn test_circular_channel_resistance_matches_hagen_poiseuille() {
+        let fluid = water_20c::<f64>().unwrap();
+        let d = 1e-3;
+        let l = 0.1;
+        let chan = CircularChannel::new(l, d, 0.0);
+        let r = chan.resistance(&fluid);
+
+        // Hagen-Poiseuille: R = 128 mu L / (pi D^4)
+        let expected = 128.0 * fluid.viscosity * l / (std::f64::consts::PI * d.powi(4));
+        assert_relative_eq!(r, expected, epsilon = 1e-6);
+    }
+
+    #[test]
+    fn test_circular_channel_hydraulic_diameter_equals_diameter() {
+        let chan = CircularChannel::<f64>::new(0.1, 2e-3, 0.0);
+        assert_relative_eq!(chan.hydraulic_diameter(), 2e-3, epsilon = 1e-15);
+    }
+
+    #[test]
+    fn test_circular_channel_volume() {
+        let d = 1e-3_f64;
+        let l = 0.1_f64;
+        let chan = CircularChannel::<f64>::new(l, d, 0.0);
+        let expected = l * std::f64::consts::PI * d * d / 4.0;
+        assert_relative_eq!(chan.volume().unwrap(), expected, epsilon = 1e-15);
     }
 }
 

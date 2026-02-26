@@ -50,7 +50,7 @@ impl<T: RealField + Copy + FromPrimitive> From<&ChannelSpec> for Edge<T> {
                      resistance = T::from_f64(1e-6).unwrap_or(T::zero());
                 }
             }
-            _ => {}
+            EdgeKind::Pipe => {}
         }
         
         // Ensure resistance is non-zero for numerical stability (Newton-Raphson at Q=0)

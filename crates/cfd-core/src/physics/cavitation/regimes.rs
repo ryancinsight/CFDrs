@@ -114,9 +114,13 @@ impl<T: RealField + Copy + FromPrimitive> CavitationRegimeClassifier<T> {
                 CavitationRegime::Stable
             }
         } else {
-            // For hydrodynamic cavitation (no acoustic), use ambient pressure
-            // and check if local pressure drops below Blake threshold
-            let sigma = self.cavitation_number(min_pressure);
+            // For hydrodynamic cavitation (no acoustic), use exact cavitation number
+            // If local velocity isn't known, estimate from Bernoulli principle (P_amb - P_min) = 0.5 * rho * v^2
+            let two = T::from_f64(2.0).unwrap_or_else(|| T::one());
+            let v_sq = (self.ambient_pressure - min_pressure) * two / self.bubble_model.liquid_density;
+            let current_velocity = if v_sq > T::zero() { v_sq.sqrt() } else { T::from_f64(1e-6).unwrap_or_else(|| T::one()) };
+            
+            let sigma = self.cavitation_number(min_pressure, current_velocity);
             
             // Empirical thresholds from literature:
             // σ > 1.5: no cavitation
@@ -156,28 +160,16 @@ impl<T: RealField + Copy + FromPrimitive> CavitationRegimeClassifier<T> {
         let sigma = self.bubble_model.surface_tension;
         let p_inf = self.ambient_pressure;
         
-        let term1 = eight * sigma / (three * r0);
-        let term2 = p_inf + two * sigma / r0;
-        
-        (term1 * term2).sqrt()
-    }
-
-    /// Calculate cavitation number
-    pub fn cavitation_number(&self, local_pressure: T) -> T {
-        // σ = (P - P_v) / (0.5 * ρ * U²)
-        // Simplified version using pressure difference only
-        let pressure_diff = local_pressure - self.bubble_model.vapor_pressure;
-        let reference_pressure = self.ambient_pressure - self.bubble_model.vapor_pressure;
-        
-        if reference_pressure > T::zero() {
-            pressure_diff / reference_pressure
+        let inner = (eight * sigma) / (three * r0) * (p_inf + two * sigma / r0);
+        if inner > T::zero() {
+            inner.sqrt()
         } else {
             T::zero()
         }
     }
 
-    /// Estimate maximum bubble radius for given regime
-    pub fn estimate_max_radius(&self, regime: CavitationRegime) -> T {
+    /// Estimate maximum bubble radius for a given cavitation regime
+    fn estimate_max_radius(&self, regime: CavitationRegime) -> T {
         match regime {
             CavitationRegime::None => self.bubble_model.initial_radius,
             CavitationRegime::Stable => {
@@ -194,6 +186,17 @@ impl<T: RealField + Copy + FromPrimitive> CavitationRegimeClassifier<T> {
                 let ten = T::from_f64(10.0).unwrap_or_else(|| T::one());
                 ten * self.bubble_model.initial_radius
             }
+        }
+    }
+
+    /// Calculate cavitation number σ = (P - P_v) / (0.5 ρ v²)
+    fn cavitation_number(&self, local_pressure: T, velocity: T) -> T {
+        let half = T::from_f64(0.5).unwrap_or_else(|| T::one());
+        let dynamic_pressure = half * self.bubble_model.liquid_density * velocity * velocity;
+        if dynamic_pressure > T::default_epsilon() {
+            (local_pressure - self.bubble_model.vapor_pressure) / dynamic_pressure
+        } else {
+            T::from_f64(1e10).unwrap_or_else(|| T::one())
         }
     }
 
@@ -327,7 +330,11 @@ impl<T: RealField + Copy + FromPrimitive> CavitationRegimeClassifier<T> {
             self.ambient_pressure
         };
         
-        let cavitation_number = self.cavitation_number(current_pressure);
+        let two = T::from_f64(2.0).unwrap_or_else(|| T::one());
+        let v_sq = (self.ambient_pressure - current_pressure) * two / self.bubble_model.liquid_density;
+        let current_velocity = if v_sq > T::zero() { v_sq.sqrt() } else { T::from_f64(1e-6).unwrap_or_else(|| T::one()) };
+        
+        let cavitation_number = self.cavitation_number(current_pressure, current_velocity);
         let mechanical_index = self.mechanical_index()?;
         let max_bubble_radius = self.estimate_max_radius(regime);
         let sonoluminescence_probability = self.sonoluminescence_probability();

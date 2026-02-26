@@ -1,4 +1,22 @@
 //! Problem definition for FEM
+//!
+//! # Theorem — Well-Posedness of the Stokes Problem (Lax–Milgram, Brezzi)
+//!
+//! The incompressible Stokes equations: find $(\mathbf{u}, p) \in H^1_0(\Omega)^3 \times L^2_0(\Omega)$
+//! such that
+//!
+//! ```text
+//! μ(∇u, ∇v) − (p, ∇·v) = (f, v)       ∀ v ∈ H¹₀
+//! (∇·u, q)                = 0           ∀ q ∈ L²₀
+//! ```
+//!
+//! admit a unique weak solution provided $\mu > 0$. This follows from the
+//! Brezzi splitting theorem: the bilinear form $a(\mathbf{u}, \mathbf{v})$
+//! is coercive on $\ker(B)$, and $B$ (the divergence operator) satisfies
+//! the continuous inf-sup condition.
+//!
+//! **Reference:** Brezzi & Fortin, "Mixed and Hybrid Finite Element Methods",
+//! Springer, 1991, Chapter II.
 
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::boundary::BoundaryCondition;
@@ -90,11 +108,11 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy> StokesFlowProblem<T> 
     /// - Zienkiewicz & Taylor (2000): The Finite Element Method, Vol 1
     /// - Hughes (2000): The Finite Element Method - boundary topology
     pub fn get_boundary_nodes(&self) -> Vec<usize> {
-        use std::collections::{HashMap, HashSet};
+        use std::collections::HashMap;
 
         // Count how many cells reference each face
         let mut face_cell_count: HashMap<usize, usize> = HashMap::new();
-        for cell in self.mesh.cells.iter() {
+        for cell in &self.mesh.cells {
             for &face_idx in &cell.faces {
                 *face_cell_count.entry(face_idx).or_insert(0) += 1;
             }
@@ -139,8 +157,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy> StokesFlowProblem<T> 
 mod tests {
     use super::*;
     use cfd_mesh::IndexedMesh;
-    use cfd_mesh::domain::core::index::VertexId;
-    use cfd_mesh::domain::topology::{Cell, Face};
+    use cfd_mesh::domain::topology::Cell;
     use nalgebra::Point3;
 
     /// Create a simple tetrahedral mesh for testing
