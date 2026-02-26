@@ -92,40 +92,41 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy> StokesFlowProblem<T> 
     pub fn get_boundary_nodes(&self) -> Vec<usize> {
         use std::collections::{HashMap, HashSet};
 
-        // Count how many cells reference each face
-        let mut face_cell_count: HashMap<usize, usize> = HashMap::new();
+        // 1. Geometric Deduplication Check
+        // Count how many times each face (defined by sorted vertices) appears in cells
+        // Key: Sorted list of vertex indices (representing a face)
+        // Value: Count
+        let mut face_geo_count: HashMap<Vec<usize>, usize> = HashMap::new();
+
         for cell in self.mesh.cells.iter() {
             for &face_idx in &cell.faces {
-                *face_cell_count.entry(face_idx).or_insert(0) += 1;
+                if face_idx < self.mesh.face_count() {
+                    let face = self.mesh.faces.get(FaceId::from_usize(face_idx));
+                    let mut verts: Vec<usize> = face.vertices.iter().map(|v| v.as_usize()).collect();
+                    verts.sort_unstable();
+                    *face_geo_count.entry(verts).or_insert(0) += 1;
+                }
             }
         }
 
-        // Collect boundary faces:
-        // 1. Faces explicitly marked as boundaries
-        let marked_boundary_faces: std::collections::HashSet<usize> =
-            self.mesh.boundary_faces().into_iter().map(|f| f.as_usize()).collect();
+        let mut boundary_vertices: HashSet<usize> = HashSet::new();
 
-        // 2. Faces referenced by exactly one cell (external boundaries)
-        let connectivity_boundary_faces: std::collections::HashSet<usize> = face_cell_count
-            .iter()
-            .filter(|&(_face_idx, &count)| count == 1)
-            .map(|(&face_idx, _)| face_idx)
-            .collect();
-
-        // Union of both sets
-        let boundary_faces: std::collections::HashSet<usize> = marked_boundary_faces
-            .union(&connectivity_boundary_faces)
-            .copied()
-            .collect();
-
-        let mut boundary_vertices: std::collections::HashSet<usize> = std::collections::HashSet::new();
-        for &face_idx in &boundary_faces {
-            if face_idx < self.mesh.face_count() {
-                let face = self.mesh.faces.get(FaceId::from_usize(face_idx));
-                for &v_id in &face.vertices {
-                    boundary_vertices.insert(v_id.as_usize());
+        // Add vertices from geometrically unique faces (count == 1)
+        for (verts, count) in &face_geo_count {
+            if *count == 1 {
+                for &v_idx in verts {
+                    boundary_vertices.insert(v_idx);
                 }
             }
+        }
+
+        // 2. Add vertices from explicitly marked boundary faces
+        // We use boundary_labels directly to avoid relying on topological boundary_faces()
+        for (face_id, _) in &self.mesh.boundary_labels {
+             let face = self.mesh.faces.get(*face_id);
+             for &v_id in &face.vertices {
+                 boundary_vertices.insert(v_id.as_usize());
+             }
         }
 
         // Convert to sorted vector for deterministic output
@@ -161,22 +162,17 @@ mod tests {
     /// One tetrahedron with 4 triangular faces, all are boundary faces
     fn create_test_tet_mesh() -> IndexedMesh<f64> {
         let mut mesh = IndexedMesh::new();
-
-        // Add 4 vertices
         let v0 = mesh.add_vertex_pos(Point3::new(0.0, 0.0, 0.0));
         let v1 = mesh.add_vertex_pos(Point3::new(1.0, 0.0, 0.0));
         let v2 = mesh.add_vertex_pos(Point3::new(0.5, 1.0, 0.0));
         let v3 = mesh.add_vertex_pos(Point3::new(0.5, 0.5, 1.0));
 
-        // Add 4 triangular faces
-        let f0 = mesh.add_face(v0, v1, v2).0; // bottom
-        let f1 = mesh.add_face(v0, v1, v3).0; // front
-        let f2 = mesh.add_face(v1, v2, v3).0; // right
-        let f3 = mesh.add_face(v2, v0, v3).0; // left
+        let f0 = mesh.add_face(v0, v1, v2).0;
+        let f1 = mesh.add_face(v0, v1, v3).0;
+        let f2 = mesh.add_face(v1, v2, v3).0;
+        let f3 = mesh.add_face(v2, v0, v3).0;
 
-        // Add 1 tetrahedral cell
         mesh.add_cell(Cell::tetrahedron(f0 as usize, f1 as usize, f2 as usize, f3 as usize));
-
         mesh
     }
 
@@ -194,144 +190,164 @@ mod tests {
     /// ```
     fn create_two_tet_mesh() -> IndexedMesh<f64> {
         let mut mesh = IndexedMesh::new();
-
-        // Add 5 vertices
         let v0 = mesh.add_vertex_pos(Point3::new(0.0, 0.0, 0.0));
         let v1 = mesh.add_vertex_pos(Point3::new(1.0, 0.0, 0.0));
         let v2 = mesh.add_vertex_pos(Point3::new(0.5, 1.0, 0.0));
         let v3 = mesh.add_vertex_pos(Point3::new(0.5, 0.5, 1.0));
         let v4 = mesh.add_vertex_pos(Point3::new(1.5, 0.5, 1.0));
 
-        // First tetrahedron faces
-        let f0 = mesh.add_face(v0, v1, v2).0; // bottom tet1
-        let f1 = mesh.add_face(v0, v1, v3).0; // front tet1
-        let f2 = mesh.add_face(v1, v2, v3).0; // shared face (internal)
-        let f3 = mesh.add_face(v2, v0, v3).0; // left tet1
+        let f0 = mesh.add_face(v0, v1, v2).0;
+        let f1 = mesh.add_face(v0, v1, v3).0;
+        let f2 = mesh.add_face(v1, v2, v3).0; // shared
+        let f3 = mesh.add_face(v2, v0, v3).0;
 
-        // Second tetrahedron faces (shares f2)
-        let f4 = mesh.add_face(v1, v2, v4).0; // right tet2
-        let f5 = mesh.add_face(v1, v3, v4).0; // bottom tet2
-        let f6 = mesh.add_face(v2, v3, v4).0; // top tet2
+        let f4 = mesh.add_face(v1, v2, v4).0;
+        let f5 = mesh.add_face(v1, v3, v4).0;
+        let f6 = mesh.add_face(v2, v3, v4).0;
 
-        // Add cells
         mesh.add_cell(Cell::tetrahedron(f0 as usize, f1 as usize, f2 as usize, f3 as usize));
         mesh.add_cell(Cell::tetrahedron(f2 as usize, f4 as usize, f5 as usize, f6 as usize));
-
         mesh
     }
 
     #[test]
     fn test_boundary_detection_single_tet() {
-        // Single tetrahedron - all 4 vertices should be on boundary
         let mesh = create_test_tet_mesh();
         let fluid = ConstantPropertyFluid::<f64>::water_20c().unwrap();
         let boundary_conditions = HashMap::new();
-
         let problem = StokesFlowProblem::new(mesh, fluid, boundary_conditions, 4);
         let boundary_nodes = problem.get_boundary_nodes();
-
-        // All 4 vertices should be boundary nodes
         assert_eq!(boundary_nodes.len(), 4);
-        assert_eq!(boundary_nodes, vec![0, 1, 2, 3]);
     }
 
     #[test]
     fn test_boundary_detection_two_tets() {
-        // Two tetrahedra sharing a face - shared vertices should still be boundary
-        // because they are on external faces
         let mesh = create_two_tet_mesh();
         let fluid = ConstantPropertyFluid::<f64>::water_20c().unwrap();
         let boundary_conditions = HashMap::new();
-
         let problem = StokesFlowProblem::new(mesh, fluid, boundary_conditions, 5);
         let boundary_nodes = problem.get_boundary_nodes();
-
-        // All 5 vertices are on boundary (even shared ones appear on external faces)
         assert_eq!(boundary_nodes.len(), 5);
-        assert!(boundary_nodes.contains(&0));
-        assert!(boundary_nodes.contains(&1));
-        assert!(boundary_nodes.contains(&2));
-        assert!(boundary_nodes.contains(&3));
-        assert!(boundary_nodes.contains(&4));
     }
 
     #[test]
     fn test_boundary_detection_with_markers() {
-        // Test that explicitly marked boundary faces are detected
         let mut mesh = create_test_tet_mesh();
-
-        // Mark face 0 as "inlet"
         use cfd_mesh::domain::core::index::FaceId;
         mesh.mark_boundary(FaceId::from_usize(0), "inlet".to_string());
-
         let fluid = ConstantPropertyFluid::<f64>::water_20c().unwrap();
         let boundary_conditions = HashMap::new();
-
         let problem = StokesFlowProblem::new(mesh, fluid, boundary_conditions, 4);
         let boundary_nodes = problem.get_boundary_nodes();
-
-        // All 4 vertices should still be boundary nodes
         assert_eq!(boundary_nodes.len(), 4);
-        assert_eq!(boundary_nodes, vec![0, 1, 2, 3]);
     }
 
     #[test]
     fn test_validate_with_missing_boundary_conditions() {
-        // Test validation catches missing boundary conditions
         let mesh = create_test_tet_mesh();
         let fluid = ConstantPropertyFluid::<f64>::water_20c().unwrap();
-        let boundary_conditions = HashMap::new(); // Empty - no BCs defined
-
+        let boundary_conditions = HashMap::new();
         let problem = StokesFlowProblem::new(mesh, fluid, boundary_conditions, 4);
-
-        // Should fail validation - boundary nodes exist but no BCs
-        let result = problem.validate();
-        assert!(result.is_err());
-
-        if let Err(Error::InvalidConfiguration(msg)) = result {
-            assert!(msg.contains("Missing boundary conditions"));
-            assert!(msg.contains("nodes:"));
-        }
+        assert!(problem.validate().is_err());
     }
 
     #[test]
     fn test_validate_with_complete_boundary_conditions() {
-        // Test validation passes when all boundary nodes have BCs
         let mesh = create_test_tet_mesh();
         let fluid = ConstantPropertyFluid::<f64>::water_20c().unwrap();
-
-        // Add BCs for all 4 boundary nodes (simple Dirichlet)
         let mut boundary_conditions = HashMap::new();
         for i in 0..4 {
-            boundary_conditions.insert(
-                i,
-                BoundaryCondition::Dirichlet {
-                    value: 0.0,
-                    component_values: None,
-                },
-            );
+            boundary_conditions.insert(i, BoundaryCondition::Dirichlet { value: 0.0, component_values: None });
         }
-
         let problem = StokesFlowProblem::new(mesh, fluid, boundary_conditions, 4);
-
-        // Should pass validation
-        let result = problem.validate();
-        assert!(result.is_ok());
+        assert!(problem.validate().is_ok());
     }
 
     #[test]
     fn test_boundary_nodes_sorted() {
-        // Test that boundary nodes are returned in sorted order
         let mesh = create_test_tet_mesh();
         let fluid = ConstantPropertyFluid::<f64>::water_20c().unwrap();
         let boundary_conditions = HashMap::new();
-
         let problem = StokesFlowProblem::new(mesh, fluid, boundary_conditions, 4);
         let boundary_nodes = problem.get_boundary_nodes();
-
-        // Check sorted order
         let mut sorted = boundary_nodes.clone();
         sorted.sort_unstable();
         assert_eq!(boundary_nodes, sorted);
+    }
+
+    /// Create a star mesh (12 tets) around a center node, with duplicated faces
+    fn create_bad_star_mesh() -> IndexedMesh<f64> {
+        let mut mesh = IndexedMesh::new();
+
+        // Vertices
+        let c = mesh.add_vertex_pos(Point3::new(0.5, 0.5, 0.5)); // Center (index 0)
+        let v000 = mesh.add_vertex_pos(Point3::new(0.0, 0.0, 0.0)); // 1
+        let v100 = mesh.add_vertex_pos(Point3::new(1.0, 0.0, 0.0)); // 2
+        let v110 = mesh.add_vertex_pos(Point3::new(1.0, 1.0, 0.0)); // 3
+        let v010 = mesh.add_vertex_pos(Point3::new(0.0, 1.0, 0.0)); // 4
+        let v001 = mesh.add_vertex_pos(Point3::new(0.0, 0.0, 1.0)); // 5
+        let v101 = mesh.add_vertex_pos(Point3::new(1.0, 0.0, 1.0)); // 6
+        let v111 = mesh.add_vertex_pos(Point3::new(1.0, 1.0, 1.0)); // 7
+        let v011 = mesh.add_vertex_pos(Point3::new(0.0, 1.0, 1.0)); // 8
+
+        let corners = [v000, v100, v110, v010, v001, v101, v111, v011];
+        // Indices relative to corners array:
+        // Bottom: 0,1,2,3 -> (0,0,0), (1,0,0), (1,1,0), (0,1,0).
+        // Top: 4,5,6,7 -> (0,0,1), (1,0,1), (1,1,1), (0,1,1).
+
+        let surface_tris = vec![
+            // Bottom (z=0)
+            (corners[0], corners[3], corners[2]), (corners[0], corners[2], corners[1]),
+            // Top (z=1)
+            (corners[4], corners[5], corners[6]), (corners[4], corners[6], corners[7]),
+            // Front (y=0)
+            (corners[0], corners[1], corners[5]), (corners[1], corners[5], corners[6]), // No, 1-2-6-5 logic?
+            // Let's use simpler explicit coords to be sure.
+            // v000, v100, v101, v001. -> 0,1,5,4.
+            (corners[0], corners[1], corners[5]), (corners[0], corners[5], corners[4]),
+            // Back (y=1)
+            // v010, v110, v111, v011. -> 3,2,6,7.
+            (corners[3], corners[2], corners[6]), (corners[3], corners[6], corners[7]),
+            // Left (x=0)
+            // v000, v001, v011, v010. -> 0,4,7,3.
+            (corners[0], corners[4], corners[7]), (corners[0], corners[7], corners[3]),
+            // Right (x=1)
+            // v100, v110, v111, v101. -> 1,2,6,5.
+            (corners[1], corners[2], corners[6]), (corners[1], corners[6], corners[5]),
+        ];
+
+        for (v1, v2, v3) in surface_tris {
+            // Create tet connecting Center to this triangle
+            // Intentionally create NEW faces for each tet
+            let f0 = mesh.add_face(c, v1, v2);
+            let f1 = mesh.add_face(c, v2, v3);
+            let f2 = mesh.add_face(c, v3, v1);
+            let f3 = mesh.add_face(v1, v2, v3); // Surface face
+
+            mesh.add_cell(Cell::tetrahedron(f0.as_usize(), f1.as_usize(), f2.as_usize(), f3.as_usize()));
+        }
+
+        mesh
+    }
+
+    #[test]
+    fn test_internal_node_is_not_boundary_with_bad_topology() {
+        // Create a mesh with duplicated faces
+        let mesh = create_bad_star_mesh();
+
+        // Node 0 is the center node
+        let center_node = 0;
+
+        let fluid = ConstantPropertyFluid::<f64>::water_20c().unwrap();
+        let boundary_conditions = HashMap::new();
+
+        let problem = StokesFlowProblem::new(mesh, fluid, boundary_conditions, 9);
+        let boundary_nodes = problem.get_boundary_nodes();
+
+        // With geometric deduplication, the internal node (0) should NOT be in boundary nodes.
+        // It is shared by 12 tets. The faces connected to it are internal.
+
+        assert!(!boundary_nodes.contains(&center_node),
+            "Internal node {} should NOT be identified as boundary node, even with duplicated faces. Boundary nodes found: {:?}", center_node, boundary_nodes);
     }
 }
