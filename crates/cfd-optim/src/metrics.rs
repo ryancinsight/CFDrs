@@ -524,11 +524,6 @@ pub fn compute_metrics(candidate: &DesignCandidate) -> Result<SdtMetrics, OptimE
         venturi_shear_rate = venturi_shear_rate.max(gamma_thr);
         venturi_shear_pa   = venturi_shear_pa.max(shear_pa);
 
-        // Track venturi-only HI and throat transit time for PAI / CCT correction.
-        let hi_thr_contrib = giersiepen_hi(shear_pa, t_throat);
-        venturi_hi        += hi_thr_contrib;
-        t_throat_venturi   = t_throat;
-
         // Accumulate serial ΔP, HI, path length and residence time
         total_dp         += dp_venturi;
         let t_throat      = if v_thr > 1e-9 { l_throat / v_thr } else { 0.0 };
