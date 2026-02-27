@@ -13,20 +13,22 @@ pub mod material;
 
 pub mod values;
 
-#[allow(missing_docs)]
-pub mod api {
-    pub use super::boundary::{
-        BoundaryCondition, BoundaryConditionManager, BoundaryConditionSet, WallType,
-    };
-    pub use super::constants::{mathematical, physics};
-    pub use super::fluid::{ConstantPropertyFluid, Fluid, FluidProperties};
-    pub use super::fluid_dynamics::{
-        FlowClassifier, FlowField, FlowOperations, FlowRegime, FluidDynamicsService, PressureField,
-        RANSModel, RhieChowInterpolation, ScalarField, TurbulenceModel, VelocityField,
-    };
-    pub use super::hemolysis::{
-        BloodTrauma, BloodTraumaSeverity, HemolysisCalculator, HemolysisModel, PlateletActivation,
-    };
-    pub use super::material::{MaterialDatabase, SolidProperties};
-    pub use super::values::{Pressure, ReynoldsNumber, Temperature, Velocity};
-}
+// Re-export core types for simplified access
+pub use self::boundary::{
+    BoundaryCondition, BoundaryConditionManager, BoundaryConditionSet, WallType,
+};
+pub use self::cavitation::{
+    CavitationDamage, CavitationModel, CavitationNumber, CavitationRegime,
+    CavitationRegimeAnalysis, CavitationRegimeClassifier, RayleighPlesset, VenturiCavitation,
+};
+pub use self::constants::{mathematical, physics};
+pub use self::fluid::{ConstantPropertyFluid, Fluid, FluidProperties};
+pub use self::fluid_dynamics::{
+    FlowClassifier, FlowField, FlowOperations, FlowRegime, FluidDynamicsService, PressureField,
+    RANSModel, RhieChowInterpolation, ScalarField, TurbulenceModel, VelocityField,
+};
+pub use self::hemolysis::{
+    BloodTrauma, BloodTraumaSeverity, HemolysisCalculator, HemolysisModel, PlateletActivation,
+};
+pub use self::material::{MaterialDatabase, SolidProperties};
+pub use self::values::{Pressure, ReynoldsNumber, Temperature, Velocity};

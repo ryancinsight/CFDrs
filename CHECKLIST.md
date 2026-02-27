@@ -48,16 +48,16 @@ A deep audit of the 1D CFD implementation has identified and resolved several ma
     - [x] Consolidate `cfd-math/src/vectorization/` into `cfd-math/src/simd/vectorization.rs` ✅
     - [x] Remove obsolete `vectorization` module from `cfd-math/src/lib.rs` ✅
     - [ ] Audit `cfd-core` for remaining "Potemkin" stubs
-    - [ ] Verify `cfd-math` duplication (WENO)
-- [ ] **Phase 2: Physics Consolidation (REST-001)**
+    - [x] Verify `cfd-math` duplication (WENO) ✅
+- [x] **Phase 2: Physics Consolidation (REST-001)**
     - [x] Verify `fluid`, `material`, `boundary`, `constants` are in `cfd-core/src/physics/` ✅
-    - [ ] Update re-exports and documentation
+    - [x] Update re-exports and documentation ✅
 
 **TODO(MEDIUM): Update physics module re-exports and documentation after consolidation. Dependencies: REST-001 completion. Reference: SOLID principles for clean module boundaries.**
 - [ ] **Phase 3: Geometry Consolidation (REST-002)**
     - [x] Rename `domain` to `geometry` in `cfd-core` ✅
     - [x] Move `rhie_chow.rs` to `physics/fluid_dynamics` and remove `interpolation` ✅
-    - [ ] Update all external references to `cfd_core::domain` to `cfd_core::geometry`
+    - [x] Update all external references to `cfd_core::domain` to `cfd_core::geometry` ✅
 
 **TODO(MEDIUM): Update all external references from cfd_core::domain to cfd_core::geometry post-renaming. Dependencies: REST-002 completion. Mathematical foundation: Maintain API consistency for bounded contexts.**
 - [ ] **Phase 4: Compute Consolidation (REST-003)**
@@ -67,7 +67,7 @@ A deep audit of the 1D CFD implementation has identified and resolved several ma
     - [ ] Migrate `NumericalMethodsService` to appropriate abstraction level
 - [ ] **Phase 6: Duplicate Elimination (REST-005)**
     - [x] Eliminate SIMD duplication in `cfd-math` ✅
-    - [ ] Eliminate WENO duplication in `cfd-math` (src/high_order/weno.rs vs src/spatial/weno.rs)
+    - [x] Eliminate WENO duplication in `cfd-math` (src/high_order/weno.rs vs src/spatial/weno.rs) ✅
 
 **TODO(HIGH): Complete duplicate elimination in cfd-math (WENO, SIMD already done). Dependencies: REST-005. Reference: DRY principle and performance optimization.**
 
