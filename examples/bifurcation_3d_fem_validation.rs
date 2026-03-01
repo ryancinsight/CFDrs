@@ -245,7 +245,7 @@ fn validate_symmetric_bifurcation() -> Vec<ValidationResult> {
     // Solve
     // Debug: check what boundary labels exist in mesh
     println!("\n[Debug] Checking mesh boundary labels...");
-    let mesh_builder = cfd_mesh::geometry::branching::BranchingMeshBuilder::bifurcation(
+    let mesh_builder = cfd_mesh::BranchingMeshBuilder::bifurcation(
         d_parent, length, d_daughter, length, std::f64::consts::PI / 6.0, 8
     );
     let debug_mesh = mesh_builder.build().expect("Mesh build failed");

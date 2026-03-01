@@ -46,7 +46,7 @@
 //! cargo run --example blood_flow_1d_validation --no-default-features
 //! ```
 
-use cfd_1d::bifurcation::junction::{BifurcationJunction, BifurcationSolution};
+use cfd_1d::junctions::branching::{TwoWayBranchJunction as BifurcationJunction, TwoWayBranchSolution as BifurcationSolution};
 use cfd_1d::channel::Channel;
 use cfd_1d::channel::ChannelGeometry;
 use cfd_core::physics::fluid::blood::{

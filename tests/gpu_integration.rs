@@ -6,7 +6,7 @@
 mod gpu_tests {
     use cfd_core::compute::gpu::GpuContext;
     use cfd_core::error::Result;
-    use cfd_suite::compute_unified::{Backend, UnifiedCompute};
+    use cfd_core::compute_unified::{Backend, UnifiedCompute};
 
     #[test]
     fn test_gpu_context_creation() {
