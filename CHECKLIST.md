@@ -57,9 +57,8 @@ A deep audit of the 1D CFD implementation has identified and resolved several ma
 - [ ] **Phase 3: Geometry Consolidation (REST-002)**
     - [x] Rename `domain` to `geometry` in `cfd-core` ✅
     - [x] Move `rhie_chow.rs` to `physics/fluid_dynamics` and remove `interpolation` ✅
-    - [ ] Update all external references to `cfd_core::domain` to `cfd_core::geometry`
+    - [x] Update all external references to `cfd_core::domain` to `cfd_core::geometry`
 
-**TODO(MEDIUM): Update all external references from cfd_core::domain to cfd_core::geometry post-renaming. Dependencies: REST-002 completion. Mathematical foundation: Maintain API consistency for bounded contexts.**
 - [ ] **Phase 4: Compute Consolidation (REST-003)**
     - [x] Move `gpu`, `mpi`, `simd` into `cfd-core/src/compute/` ✅
 - [ ] **Phase 5: Solver Decoupling (REST-004)**
