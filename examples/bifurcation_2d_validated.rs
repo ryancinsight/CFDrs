@@ -11,7 +11,7 @@
 //! - Zamir, M. (1976) "Optimality principles in arterial branching"
 //! - Murray, C.D. (1926) "The physiological principle of minimum work"
 
-use cfd_1d::bifurcation::junction::{BifurcationJunction, BifurcationSolution};
+use cfd_1d::junctions::branching::{TwoWayBranchJunction as BifurcationJunction, TwoWayBranchSolution as BifurcationSolution};
 use cfd_1d::channel::{Channel, ChannelGeometry};
 use cfd_2d::solvers::poiseuille::{PoiseuilleConfig, PoiseuilleFlow2D, BloodModel};
 use cfd_core::physics::fluid::blood::CassonBlood;

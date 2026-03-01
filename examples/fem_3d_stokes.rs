@@ -7,7 +7,7 @@ use cfd_3d::fem::{FemConfig, FemSolver, StokesFlowProblem};
 use cfd_core::geometry::ElementType;
 use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_core::physics::fluid::{ConstantFluid, ConstantPropertyFluid};
-use cfd_mesh::prelude::{Cell, Face, Mesh, Vertex};
+use cfd_mesh::{Cell, Face, IndexedMesh as Mesh, Vertex};
 use nalgebra::{Point3, Vector3};
 use std::collections::HashMap;
 

@@ -8,7 +8,7 @@
 use cfd_3d::fem::{StokesFlowProblem, StokesFlowSolution};
 use cfd_3d::FemConfig;
 use cfd_core::prelude::{BoundaryCondition, Fluid, WallType};
-use cfd_mesh::prelude::{Face, Mesh, Vertex};
+use cfd_mesh::{Face, IndexedMesh as Mesh, Vertex};
 use nalgebra::{Point3, Vector3};
 use std::collections::HashMap;
 use std::f64::consts::PI;
@@ -104,12 +104,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // For now, create an analytical solution directly since FEM solver needs more work
     println!("  Using analytical Hagen-Poiseuille solution for validation...");
 
-    let n_nodes = problem.mesh.vertices().len();
+    let n_nodes = problem.mesh.vertices.len();
     let mut velocity = nalgebra::DVector::zeros(n_nodes * 3);
     let mut pressure = nalgebra::DVector::zeros(n_nodes);
 
     // Apply analytical Hagen-Poiseuille solution
-    for (i, vertex) in problem.mesh.vertices().iter().enumerate() {
+    for (i, vertex) in problem.mesh.vertices.iter().enumerate() {
         let r = (vertex.position.x.powi(2) + vertex.position.y.powi(2)).sqrt();
         let z = vertex.position.z;
 
@@ -241,7 +241,7 @@ fn validate_pipe_flow(
 
         // Check if point is near centerline (r ≈ 0)
         if r < radius * 0.1 && i * 3 + 2 < solution.velocity.len() {
-            let v_z = solution.velocity[i * 3 + 2]; // z-component of velocity
+            let v_z: f64 = solution.velocity[i * 3 + 2]; // z-component of velocity
             centerline_velocities.push((vertex.position.z, v_z));
             if v_z.abs() > max_velocity_numerical {
                 max_velocity_numerical = v_z.abs();

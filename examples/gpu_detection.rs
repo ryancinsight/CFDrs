@@ -5,7 +5,7 @@
 //! - Integrated GPUs (Intel, AMD APU)
 //! - Software fallback (SwiftShader, LLVMpipe)
 
-use cfd_suite::compute_unified::{Backend, UnifiedCompute};
+use cfd_core::compute_unified::{Backend, UnifiedCompute};
 
 fn main() {
     println!("=== GPU/SIMD Detection Test ===\n");

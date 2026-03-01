@@ -41,7 +41,7 @@
 //! - Fung, Y.C. (1993). "Biomechanics: Mechanical Properties of Living Tissues".
 //!   Springer-Verlag, 2nd edition.
 
-use cfd_1d::bifurcation::junction::BifurcationJunction;
+use cfd_1d::junctions::branching::TwoWayBranchJunction as BifurcationJunction;
 use cfd_1d::channel::{Channel, ChannelGeometry};
 use cfd_2d::solvers::venturi_flow::{
     BernoulliVenturi, VenturiGeometry, ViscousVenturi,

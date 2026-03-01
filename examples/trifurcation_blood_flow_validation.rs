@@ -85,7 +85,7 @@
 //! 2. **Asymmetric trifurcation**: Realistic non-equal split
 //! 3. **Cascading trifurcations**: Network of multiple trifurcations (vascular tree)
 
-use cfd_1d::bifurcation::{TrifurcationJunction, TrifurcationSolution};
+use cfd_1d::junctions::branching::{ThreeWayBranchJunction as TrifurcationJunction, ThreeWayBranchSolution as TrifurcationSolution};
 use cfd_1d::channel::{Channel, ChannelGeometry};
 use cfd_core::physics::fluid::blood::{CarreauYasudaBlood, CassonBlood};
 
