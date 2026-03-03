@@ -23,12 +23,13 @@ pub(crate) fn signed_area(poly: &[[Real; 2]]) -> Real {
 
 /// Unsigned area of a 2-D polygon.
 #[inline]
+#[must_use] 
 pub fn polygon_area(poly: &[[Real; 2]]) -> Real {
     signed_area(poly).abs()
 }
 
 /// Test if a simple polygon is convex.
-#[allow(dead_code)]
+#[cfg(test)]
 pub(crate) fn is_convex(poly: &[[Real; 2]]) -> bool {
     let n = poly.len();
     if n < 3 {
@@ -52,7 +53,7 @@ pub(crate) fn is_convex(poly: &[[Real; 2]]) -> bool {
 }
 
 /// Ensure a polygon is in CCW winding order.
-pub(crate) fn ensure_ccw(poly: &mut Vec<[Real; 2]>) {
+pub(crate) fn ensure_ccw(poly: &mut [[Real; 2]]) {
     // We can use signed area for CCW check. Alternatively, any sequence
     // of points gives area orientation. For pure boolean predicates,
     // Shewchuk orient_2d is better but for macroscopic ordering area is fine.
@@ -63,6 +64,23 @@ pub(crate) fn ensure_ccw(poly: &mut Vec<[Real; 2]>) {
 
 /// Segment-segment intersection parameter.
 /// Returns `(t, s)` where `t` is the parameter along `(p1→p2)` and `s` along `(p3→p4)`.
+///
+/// ## Algorithm
+///
+/// 1. Compute direction vectors `d1 = p2-p1`, `d2 = p4-p3`.
+/// 2. Reject only if `d1` and `d2` are exactly parallel via exact
+///    orientation (`orient_2d_arr([0,0], d1, d2) == Degenerate`).
+/// 3. Solve the 2x2 linear system for `(t,s)` by Cramer's rule.
+///
+/// ## Theorem — Parallelism Equivalence
+///
+/// Two 2-D direction vectors are parallel iff the orientation determinant of
+/// `(0, d1, d2)` is exactly zero.
+///
+/// **Proof sketch.**
+/// The orientation determinant is the 2x2 determinant `d1.x*d2.y-d1.y*d2.x`,
+/// which is the signed area of the parallelogram spanned by `d1,d2`.
+/// Zero area is equivalent to linear dependence (parallel vectors). ∎
 pub(crate) fn seg_intersect(
     p1: [Real; 2],
     p2: [Real; 2],
@@ -73,10 +91,12 @@ pub(crate) fn seg_intersect(
     let d1y = p2[1] - p1[1];
     let d2x = p4[0] - p3[0];
     let d2y = p4[1] - p3[1];
-    let denom = d1x * d2y - d1y * d2x;
-    if denom.abs() < 1e-20 {
+
+    if orient_2d_arr([0.0, 0.0], [d1x, d1y], [d2x, d2y]) == Orientation::Degenerate {
         return None;
     }
+
+    let denom = d1x * d2y - d1y * d2x;
     let dx = p3[0] - p1[0];
     let dy = p3[1] - p1[1];
     let t = (dx * d2y - dy * d2x) / denom;
@@ -97,16 +117,14 @@ pub(crate) fn point_in_polygon(px: Real, py: Real, poly: &[[Real; 2]]) -> bool {
         let yi = poly[i][1];
         let yj = poly[j][1];
         if yi <= py {
-            if yj > py {
-                if orient_2d_arr(poly[i], poly[j], p) == Orientation::Positive {
+            if yj > py
+                && orient_2d_arr(poly[i], poly[j], p) == Orientation::Positive {
                     winding += 1;
                 }
-            }
-        } else if yj <= py {
-            if orient_2d_arr(poly[i], poly[j], p) == Orientation::Negative {
+        } else if yj <= py
+            && orient_2d_arr(poly[i], poly[j], p) == Orientation::Negative {
                 winding -= 1;
             }
-        }
     }
     winding != 0
 }
@@ -163,5 +181,26 @@ mod tests {
     fn test_point_in_polygon_outside() {
         let sq = vec![[0.0, 0.0], [2.0, 0.0], [2.0, 2.0], [0.0, 2.0]];
         assert!(!point_in_polygon(3.0, 1.0, &sq));
+    }
+
+    #[test]
+    fn test_seg_intersect_crossing() {
+        let hit = seg_intersect([0.0, 0.0], [1.0, 1.0], [0.0, 1.0], [1.0, 0.0]);
+        assert!(hit.is_some(), "crossing segments must produce parameters");
+    }
+
+    #[test]
+    fn test_seg_intersect_nearly_parallel_not_dropped() {
+        // determinant = 5e-21 (below legacy threshold), but non-zero exactly.
+        let hit = seg_intersect(
+            [0.0, 0.0],
+            [1.0e-10, 1.0e-10],
+            [0.0, 1.0e-10],
+            [2.0e-10, 3.5e-10],
+        );
+        assert!(
+            hit.is_some(),
+            "non-parallel directions must not be rejected by epsilon threshold"
+        );
     }
 }

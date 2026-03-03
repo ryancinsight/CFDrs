@@ -1,38 +1,96 @@
 use crate::application::csg::intersect::SnapSegment;
 use crate::domain::core::scalar::{Point3r, Real, Vector3r};
+use crate::domain::geometry::predicates::{orient_2d_arr, Orientation};
 use crate::infrastructure::storage::face_store::FaceData;
 use crate::infrastructure::storage::vertex_pool::VertexPool;
 use std::collections::HashMap;
-/// Ensure that every seam vertex created by CDT co-refinement is injected into
-/// all faces that share the face edge on which the seam vertex lies.
+
+/// Collinearity tolerance for point-on-edge detection in seam propagation.
 ///
-/// ## Problem Ã¢â‚¬â€ T-junctions at shared edges
+/// A point P is collinear with edge [Va, Vb] if:
+///   `|cross(Vb-Va, P-Va)|² < COLLINEAR_TOL_SQ * |Vb-Va|²`
 ///
-/// When `intersect_triangles` produces a snap-segment endpoint P that lies
-/// on the boundary edge `[Va, Vb]` of a triangle face `f1`, the CDT of `f1`
-/// inserts a Steiner vertex at P and produces sub-edges `VaÃ¢â€ â€™P` and `PÃ¢â€ â€™Vb`.
-/// However, the adjacent face `f2` (which shares the undirected edge `{Va,Vb}`)
-/// has no snap segment touching P, so its CDT leaves edge `VaÃ¢â€ â€™Vb` unsplit.
+/// Equivalently: `sin(angle) < sqrt(COLLINEAR_TOL_SQ) ≈ 1e-3` (0.06°).
 ///
-/// In the final mesh, sub-edge `VaÃ¢â€ â€™P` appears once (from `f1`'s CDT) with no
-/// counterpart from `f2` Ã¢â€ â€™ open boundary edge Ã¢â€ â€™ non-manifold output.
+/// Widened from 1e-8 to 1e-6 to handle shallow-angle sliver faces from
+/// elbow-cylinder junctions where edge_len_sq is very small.  Used by both
+/// `propagate_seam_vertices` and `inject_cap_seam_into_barrels` to ensure
+/// consistent seam vertex detection across the pipeline.
+const COLLINEAR_TOL_SQ: Real = 1e-6;
+
+#[inline]
+fn collinear_3d_exact(a: &Point3r, b: &Point3r, p: &Point3r) -> bool {
+    orient_2d_arr([a.x, a.y], [b.x, b.y], [p.x, p.y]) == Orientation::Degenerate
+        && orient_2d_arr([a.x, a.z], [b.x, b.z], [p.x, p.z]) == Orientation::Degenerate
+        && orient_2d_arr([a.y, a.z], [b.y, b.z], [p.y, p.z]) == Orientation::Degenerate
+}
+
+/// Exact-first point-on-segment parameter.
 ///
 /// ## Algorithm
 ///
-/// 1. Build an undirected edge adjacency map: `{Va, Vb} Ã¢â€ â€™ [face_idx, Ã¢â‚¬Â¦]`.
+/// 1. Verify exact 3-D collinearity by requiring all three projection
+///    orientations (`xy`, `xz`, `yz`) to be degenerate.
+/// 2. Compute segment parameter `t = dot(p-a, b-a)/|b-a|²`.
+/// 3. Accept only strict interior points (`0 < t < 1`).
+///
+/// ## Theorem — 3-D Collinearity by Projection
+///
+/// A point `p` is collinear with segment endpoints `a,b` in 3-D iff the three
+/// independent 2-D projections `(xy, xz, yz)` are all collinear.
+///
+/// **Proof sketch.**
+/// `p-a` and `b-a` are linearly dependent in R³ iff all pairwise 2x2 minors of
+/// the matrix `[b-a, p-a]` vanish. Those minors are exactly the determinants
+/// tested by projected orientation predicates on `xy`, `xz`, and `yz`. ∎
+#[inline]
+fn point_on_segment_exact(a: &Point3r, b: &Point3r, p: &Point3r) -> Option<Real> {
+    if !collinear_3d_exact(a, b, p) {
+        return None;
+    }
+    let edge = *b - *a;
+    let edge_len_sq = edge.dot(&edge);
+    if edge_len_sq <= 0.0 {
+        return None;
+    }
+    let t = (*p - *a).dot(&edge) / edge_len_sq;
+    if t > 0.0 && t < 1.0 {
+        Some(t)
+    } else {
+        None
+    }
+}
+
+/// Ensure that every seam vertex created by CDT co-refinement is injected into
+/// all faces that share the face edge on which the seam vertex lies.
+///
+/// ## Problem — T-junctions at shared edges
+///
+/// When `intersect_triangles` produces a snap-segment endpoint P that lies
+/// on the boundary edge `[Va, Vb]` of a triangle face `f1`, the CDT of `f1`
+/// inserts a Steiner vertex at P and produces sub-edges `Va→P` and `P→Vb`.
+/// However, the adjacent face `f2` (which shares the undirected edge `{Va,Vb}`)
+/// has no snap segment touching P, so its CDT leaves edge `Va→Vb` unsplit.
+///
+/// In the final mesh, sub-edge `Va→P` appears once (from `f1`'s CDT) with no
+/// counterpart from `f2` → open boundary edge → non-manifold output.
+///
+/// ## Algorithm
+///
+/// 1. Build an undirected edge adjacency map: `{Va, Vb} → [face_idx, …]`.
 /// 2. For each face `f` that has snap segments, collect all seam-endpoint
 ///    positions from those segments.
 /// 3. For each endpoint P and each edge `[Va, Vb]` of face `f`, check if P
 ///    lies strictly between Va and Vb (collinearity + parameter check).
-/// 4. If yes, inject snap segments `VaÃ¢â€ â€™P` and `PÃ¢â€ â€™Vb` into every OTHER face
-///    that shares edge `{Va, Vb}` Ã¢â‚¬â€ propagating the Steiner vertex across the
+/// 4. If yes, inject snap segments `Va→P` and `P→Vb` into every OTHER face
+///    that shares edge `{Va, Vb}` — propagating the Steiner vertex across the
 ///    shared edge.
 ///
 /// ## Collinearity threshold
 ///
 /// A point P is considered to lie on edge [Va, Vb] if:
-/// - `|(VbÃ¢Ë†â€™Va) Ãƒâ€” (PÃ¢Ë†â€™Va)|Ã‚Â² / |VbÃ¢Ë†â€™Va|Ã‚Â² < 1e-8` (sub-millimetre in practice)
-/// - parameter `t = (PÃ¢Ë†â€™Va)Ã‚Â·(VbÃ¢Ë†â€™Va) / |VbÃ¢Ë†â€™Va|Ã‚Â² Ã¢Ë†Ë† (1e-7, 1Ã¢Ë†â€™1e-7)`
+/// - `|(Vb−Va) × (P−Va)|² / |Vb−Va|² < COLLINEAR_TOL_SQ` (1e-6; sub-millimetre)
+/// - parameter `t = (P−Va)·(Vb−Va) / |Vb−Va|² ∈ (1e-7, 1−1e-7)`
 pub fn propagate_seam_vertices(
     faces: &[FaceData],
     segs: &mut HashMap<usize, Vec<SnapSegment>>,
@@ -44,7 +102,7 @@ pub fn propagate_seam_vertices(
         return;
     }
 
-    // Build undirected edge Ã¢â€ â€™ face-index adjacency.
+    // Build undirected edge → face-index adjacency.
     type EdgeKey = (VertexId, VertexId);
     let mut edge_to_faces: HashMap<EdgeKey, Vec<usize>> = HashMap::new();
     for (fi, face) in faces.iter().enumerate() {
@@ -97,21 +155,28 @@ pub fn propagate_seam_vertices(
                 continue;
             }
 
-            // Collect t-parameters (on edge [pa,pb], t Ã¢Ë†Ë† (0,1)) for all contacts.
+            // Collect t-parameters (on edge [pa,pb], t ∈ (0,1)) for all contacts.
             let mut t_params: Vec<Real> = Vec::new();
             const MARGIN: Real = 1e-7;
 
             for seg in snap_segs {
                 // (A) Endpoint on edge.
                 for &p in &[seg.start, seg.end] {
-                    let sp: nalgebra::Vector3<f64> = p - pa;
-                    let cross_v = edge_vec.cross(&sp);
-                    if cross_v.norm_squared() > 1e-8 * edge_len_sq {
+                    if let Some(t_exact) = point_on_segment_exact(&pa, &pb, &p) {
+                        if t_exact > MARGIN && t_exact < 1.0 - MARGIN {
+                            t_params.push(t_exact);
+                        }
                         continue;
                     }
-                    let t = sp.dot(&edge_vec) / edge_len_sq;
-                    if t > MARGIN && t < 1.0 - MARGIN {
-                        t_params.push(t);
+
+                    // Fallback: tolerance-based on-edge check for residual drift.
+                    let sp: nalgebra::Vector3<f64> = p - pa;
+                    let cross_v = edge_vec.cross(&sp);
+                    if cross_v.norm_squared() <= COLLINEAR_TOL_SQ * edge_len_sq {
+                        let t = sp.dot(&edge_vec) / edge_len_sq;
+                        if t > MARGIN && t < 1.0 - MARGIN {
+                            t_params.push(t);
+                        }
                     }
                 }
 
@@ -153,7 +218,8 @@ pub fn propagate_seam_vertices(
                 // Verify that the crossing is consistent (lines actually meet).
                 let x_edge = pa + edge_vec * best_t;
                 let x_seg = seg.start + sv * best_s;
-                if nalgebra::distance_squared(&x_edge, &x_seg) > 1e-8 * edge_len_sq {
+                // Widened from 1e-8 to 1e-6 to match WELD_TOL_SQ in corefine.rs.
+                if nalgebra::distance_squared(&x_edge, &x_seg) > 1e-6 * edge_len_sq {
                     continue;
                 }
                 t_params.push(best_t);
@@ -198,7 +264,7 @@ pub fn propagate_seam_vertices(
     }
 }
 
-// Ã¢â€â‚¬Ã¢â€â‚¬ Phase 2d helper: seam vertex injection into barrel rim faces Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+// ══ Phase 2d helper: seam vertex injection into barrel rim faces ═══════════════
 
 /// Inject snap segments into barrel rim faces so they are corefined at every
 /// seam vertex produced by `boolean_coplanar`.
@@ -208,28 +274,29 @@ pub fn propagate_seam_vertices(
 /// `boolean_coplanar` clips cap triangles against each other in 2-D, producing
 /// NEW intersection vertices (e.g., where an A-cap interior edge crosses a B-cap
 /// interior edge).  These vertices appear on the *cap* side of the mesh but NOT
-/// on the adjacent barrel face's rim edge, creating T-junctions Ã¢â€ â€™ boundary edges
+/// on the adjacent barrel face's rim edge, creating T-junctions → boundary edges
 /// in the output.
 ///
 /// ## Algorithm
 ///
-/// For each barrel face with exactly 2 on-plane vertices (the "rim edge" `paÃ¢â€ â€™pb`),
+/// For each barrel face with exactly 2 on-plane vertices (the "rim edge" `pa→pb`),
 /// iterate over every seam position `s` produced by `boolean_coplanar`.  If `s`
 /// lies strictly between `pa` and `pb` on the rim edge (collinearity + parameter
 /// check), inject a `SnapSegment` covering the full rim edge through `s`.
 ///
 /// The injected `SnapSegment`s cause `corefine_face` (Phase 3) to subdivide the
 /// barrel face at exactly the same vertex position as the cap triangle, so both
-/// sides produce matching edges Ã¢â€ â€™ watertight seam.
+/// sides produce matching edges → watertight seam.
 ///
 /// ## Collinearity test
 ///
-/// Point `s` lies on segment `paÃ¢â€ â€™pb` iff the cross-product `(pbÃ¢Ë†â€™pa)Ãƒâ€”(sÃ¢Ë†â€™pa)` is
+/// Point `s` lies on segment `pa→pb` iff the cross-product `(pb−pa)×(s−pa)` is
 /// the zero vector (collinear) and the dot-product parameter
-/// `t = (sÃ¢Ë†â€™pa)Ã‚Â·(pbÃ¢Ë†â€™pa) / |pbÃ¢Ë†â€™pa|Ã‚Â²` lies in `(MARGIN, 1Ã¢Ë†â€™MARGIN)`.
+/// `t = (s−pa)·(pb−pa) / |pb−pa|²` lies in `(MARGIN, 1−MARGIN)`.
 ///
-/// To handle floating-point imprecision from the 2-D clipping step we use a
-/// tolerance of 1e-7 on the cross-product magnitude relative to the edge length.
+/// To handle floating-point imprecision from the 2-D clipping step we use
+/// `COLLINEAR_TOL_SQ` (1e-6 on cross²/edge², i.e., |cross|/|edge| < 1e-3),
+/// matching `propagate_seam_vertices` to ensure consistent seam detection.
 pub fn inject_cap_seam_into_barrels(
     barrel_faces: &[FaceData],
     coplanar_used: &std::collections::HashSet<usize>,
@@ -268,7 +335,7 @@ pub fn inject_cap_seam_into_barrels(
         let on2 = d2.abs() < tol;
 
         // A rim barrel face has exactly 2 on-plane vertices.
-        let on_count = on0 as u8 + on1 as u8 + on2 as u8;
+        let on_count = u8::from(on0) + u8::from(on1) + u8::from(on2);
         if on_count != 2 {
             continue;
         }
@@ -287,7 +354,7 @@ pub fn inject_cap_seam_into_barrels(
             continue;
         }
 
-        // For each seam position, check if it lies strictly on the rim edge paÃ¢â€ â€™pb.
+        // For each seam position, check if it lies strictly on the rim edge pa→pb.
         let mut cut_params: Vec<Real> = Vec::new();
 
         for s in seam_positions {
@@ -297,20 +364,23 @@ pub fn inject_cap_seam_into_barrels(
                 continue;
             }
 
-            // (2) Collinearity: (pbÃ¢Ë†â€™pa) Ãƒâ€” (sÃ¢Ë†â€™pa) must be Ã¢â€°Ë† 0.
-            let sp = *s - pa;
-            let cross = edge.cross(&sp);
-            let cross_len_sq = cross.dot(&cross);
-            // Tolerance relative to edge length squared: |cross|/|edge| < 1e-4
-            // (matches propagate_seam_vertices; accounts for 2-D clip → 3-D lift imprecision)
-            if cross_len_sq > 1e-8 * edge_len_sq {
+            // (2)+(3): exact-first on-segment detection.
+            if let Some(t_exact) = point_on_segment_exact(&pa, &pb, s) {
+                if t_exact > SEG_MARGIN && t_exact < 1.0 - SEG_MARGIN {
+                    cut_params.push(t_exact);
+                }
                 continue;
             }
 
-            // (3) Parameter: t = (sÃ¢Ë†â€™pa)Ã‚Â·(pbÃ¢Ë†â€™pa) / |pbÃ¢Ë†â€™pa|Ã‚Â².
-            let t = sp.dot(&edge) / edge_len_sq;
-            if t > SEG_MARGIN && t < 1.0 - SEG_MARGIN {
-                cut_params.push(t);
+            // Fallback: tolerance-based collinearity + parameter check.
+            let sp = *s - pa;
+            let cross = edge.cross(&sp);
+            let cross_len_sq = cross.dot(&cross);
+            if cross_len_sq <= COLLINEAR_TOL_SQ * edge_len_sq {
+                let t = sp.dot(&edge) / edge_len_sq;
+                if t > SEG_MARGIN && t < 1.0 - SEG_MARGIN {
+                    cut_params.push(t);
+                }
             }
         }
 
@@ -322,7 +392,7 @@ pub fn inject_cap_seam_into_barrels(
         cut_params.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
         cut_params.dedup_by(|a, b| (*a - *b).abs() < 1e-9);
 
-        // Build sub-intervals [0, t0, t1, Ã¢â‚¬Â¦, 1] and emit each as a SnapSegment.
+        // Build sub-intervals [0, t0, t1, …, 1] and emit each as a SnapSegment.
         // corefine_face will insert the interior break-points as constrained CDT
         // vertices, forcing the mesh to split at those positions.
         let mut params: Vec<Real> = Vec::with_capacity(cut_params.len() + 2);
@@ -348,4 +418,33 @@ pub fn inject_cap_seam_into_barrels(
     }
 }
 
-// Ã¢â€â‚¬Ã¢â€â‚¬ Public entry point Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+// ══ Public entry point ═════════════════════════════════════════════════════════
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn p(x: Real, y: Real, z: Real) -> Point3r {
+        Point3r::new(x, y, z)
+    }
+
+    #[test]
+    fn point_on_segment_exact_accepts_true_3d_collinear_point() {
+        let a = p(0.0, 0.0, 0.0);
+        let b = p(1.0, 2.0, 3.0);
+        let mid = p(0.5, 1.0, 1.5);
+        let t = point_on_segment_exact(&a, &b, &mid);
+        assert!(t.is_some(), "true 3D collinear midpoint must be accepted");
+    }
+
+    #[test]
+    fn point_on_segment_exact_rejects_projection_false_positive() {
+        let a = p(0.0, 0.0, 0.0);
+        let b = p(1.0, 1.0, 1.0);
+        let q = p(0.5, 0.5, 0.6); // collinear in XY only
+        assert!(
+            point_on_segment_exact(&a, &b, &q).is_none(),
+            "non-collinear 3D point must be rejected"
+        );
+    }
+}
