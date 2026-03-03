@@ -66,14 +66,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }, // Inlet
         Node {
             id: 1,
-            point: (26.0, 50.0),
+            point: (25.0, 50.0),
             metadata: None,
-        }, // Split Jct (Overshoot for CSG intersections)
+        }, // Split Jct
         Node {
             id: 2,
-            point: (74.0, 50.0),
+            point: (75.0, 50.0),
             metadata: None,
-        }, // Merge Jct (Overshoot for CSG intersections)
+        }, // Merge Jct
         Node {
             id: 3,
             point: (105.0, 50.0),

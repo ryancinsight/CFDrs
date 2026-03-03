@@ -29,7 +29,7 @@ use std::io::Read;
 use std::path::PathBuf;
 
 use cfd_mesh::application::channel::sweep::SweepMesher;
-use cfd_mesh::application::csg::boolean::{csg_boolean_indexed, BooleanOp};
+use cfd_mesh::application::csg::boolean::{csg_boolean_indexed, csg_boolean_indexed_tolerant, BooleanOp};
 use cfd_mesh::domain::core::index::RegionId;
 use cfd_mesh::domain::core::scalar::Point3r;
 use cfd_mesh::domain::geometry::primitives::{Cube, PrimitiveMesh};
@@ -99,25 +99,67 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let bd = bd as f64;
     let half_h = substrate_height / 2.0;
 
+    // Offset slightly so that the X=0 and X=100 boundaries of the substrate
+    // don't perfectly hit the sweep segment boundaries causing CSG degeneracies
+    // when subtracting to form open ports.
     let substrate = Cube {
-        origin: Point3r::new(-5.0, -5.0, -half_h),
-        width: (bw + 10.0) as _,
-        height: (bd + 10.0) as _,
+        origin: Point3r::new(-0.1, 0.0, 0.0),
+        width: (bw + 0.2) as _,
+        height: bd as _,
         depth: substrate_height as _,
     }
     .build()?;
 
-    // ── Sweep channels + CSG subtract ────────────────────────────────────────
-    let mesher = SweepMesher::new();
+    // ── Topology-aware sweep: suppress caps at T/Y-junction nodes ────────────
+    //
+    // When two or more channels share an endpoint (e.g., the split node at X=25),
+    // a capped sweep leaves a flat circular disk coplanar with the junction.
+    // CSG Union at these coplanar seams is numerically ambiguous (GWN ≈ 0.5),
+    // producing phantom "fan" triangles. Solution: detect shared endpoints and
+    // suppress the cap on those ends — open-ended tubes T-intersect cleanly.
+
+    // Collect all path endpoints (first and last point of each channel).
+    let tol = 1e-4_f64;
+    let endpoint_positions: Vec<(Point3r, Point3r)> = schematic3d
+        .channels
+        .iter()
+        .map(|ch| {
+            let pts = ch.path.points();
+            let first = *pts.first().unwrap();
+            let last = *pts.last().unwrap();
+            (first, last)
+        })
+        .collect();
+
+    // A position is a "junction" if it appears as an endpoint more than once.
+    let is_junction = |pt: &Point3r| -> bool {
+        let count = endpoint_positions
+            .iter()
+            .flat_map(|(a, b)| [a, b])
+            .filter(|q| (q.coords - pt.coords).norm() < tol)
+            .count();
+        count > 1
+    };
+
     let mut final_solid = substrate;
-    let mut all_channels = IndexedMesh::new();
+    let mut all_channels: Option<IndexedMesh> = None;
 
     for channel_def in &schematic3d.channels {
         println!("  → sweeping channel {} …", channel_def.id);
 
+        let pts = channel_def.path.points();
+        let first = *pts.first().unwrap();
+        let last = *pts.last().unwrap();
+
+        // Only cap ends that are open ports (not shared with another channel).
+        let cap_start = !is_junction(&first);
+        let cap_end = !is_junction(&last);
+
+        let sweep = SweepMesher { cap_start, cap_end };
+
         let mut current_ch = IndexedMesh::new();
         if let Some(scales) = &channel_def.width_scales {
-            let faces = mesher.sweep_variable(
+            let faces = sweep.sweep_variable(
                 &channel_def.profile,
                 &channel_def.path,
                 scales,
@@ -128,7 +170,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 current_ch.faces.push(face);
             }
         } else {
-            let faces = mesher.sweep(
+            let faces = sweep.sweep(
                 &channel_def.profile,
                 &channel_def.path,
                 &mut current_ch.vertices,
@@ -139,31 +181,69 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
 
-        // Accumulate channels-only mesh (for inspection STL)
-        {
-            let positions: Vec<_> = current_ch.vertices.positions().collect::<Vec<_>>();
-            let mut id_map = Vec::with_capacity(positions.len());
-            for pos in &positions {
-                id_map.push(all_channels.add_vertex_pos(nalgebra::Point3::from(pos.coords)));
-            }
-            for (_, face) in current_ch.faces.iter_enumerated() {
-                let v0 = id_map[face.vertices[0].as_usize()];
-                let v1 = id_map[face.vertices[1].as_usize()];
-                let v2 = id_map[face.vertices[2].as_usize()];
-                all_channels.add_face(v0, v1, v2);
-            }
-        }
+        current_ch.rebuild_edges();
 
-        match csg_boolean_indexed(BooleanOp::Difference, &final_solid, &current_ch) {
-            Ok(m) => final_solid = m,
-            Err(e) => eprintln!("  ⚠  channel {} CSG failed: {}", channel_def.id, e),
+        // Union into accumulated fluid mesh.
+        if let Some(existing) = all_channels.take() {
+            match csg_boolean_indexed(BooleanOp::Union, &existing, &current_ch) {
+                Ok(m) => all_channels = Some(m),
+                Err(_) => {
+                    match csg_boolean_indexed_tolerant(BooleanOp::Union, &existing, &current_ch) {
+                        Ok(m) => all_channels = Some(m),
+                        Err(e) => {
+                            eprintln!("  ⚠ union for channel {} failed: {}", channel_def.id, e);
+                            all_channels = Some(existing);
+                        }
+                    }
+                }
+            }
+        } else {
+            all_channels = Some(current_ch);
         }
     }
 
+    let mut all_channels = all_channels.expect("Must have at least one channel");
+
+    // Repair orientation and clean up floating artifact faces from overlapping Union
+    println!("  → post-processing fluid mesh repairs …");
+    println!("      volume before repair: {}", all_channels.signed_volume());
+    all_channels.orient_outward();
+    all_channels.retain_largest_component();
+    all_channels.rebuild_edges();
+    println!("      volume after repair: {}", all_channels.signed_volume());
+
+    // Single difference: substrate minus the consolidated watertight channel mesh.
+    println!("  → applying boolean difference (substrate − channels)");
+    match csg_boolean_indexed_tolerant(BooleanOp::Difference, &final_solid, &all_channels) {
+        Ok(mut m) => {
+            // Post-difference repair: the Difference can leave phantom seam triangles
+            // at T-junctions (flat caps of channels that intersect the new solid face).
+            // orient_outward() + retain_largest_component() removes disconnected artifacts.
+            m.orient_outward();
+            m.retain_largest_component();
+            m.rebuild_edges();
+            final_solid = m;
+        }
+        Err(e) => eprintln!("  ⚠ final CSG difference failed: {}", e),
+    }
+
+    let solid_vol = final_solid.signed_volume();
+    let channels_vol = all_channels.signed_volume();
+
+    println!("  → [DEBUG] final_solid AABB: {:?}", final_solid.bounding_box());
+    println!("  → [DEBUG] all_channels AABB: {:?}", all_channels.bounding_box());
+
     println!(
-        "✅ Solid: {} vertices / {} faces",
+        "✅ Solid: {:>7} vertices / {:>7} faces, vol = {:>10.3} mm³",
         final_solid.vertices.len(),
-        final_solid.faces.len()
+        final_solid.faces.len(),
+        solid_vol
+    );
+    println!(
+        "✅ Chans: {:>7} vertices / {:>7} faces, vol = {:>10.3} mm³",
+        all_channels.vertices.len(),
+        all_channels.faces.len(),
+        channels_vol
     );
 
     // ── Output directories ────────────────────────────────────────────────────

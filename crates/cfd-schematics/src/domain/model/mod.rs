@@ -4,4 +4,4 @@ mod specs;
 
 pub use blueprint::NetworkBlueprint;
 pub use ids::{EdgeId, NodeId};
-pub use specs::{ChannelSpec, CrossSectionSpec, EdgeKind, NodeKind, NodeSpec};
+pub use specs::{ChannelShape, ChannelSpec, CrossSectionSpec, EdgeKind, NodeKind, NodeSpec};

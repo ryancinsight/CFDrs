@@ -33,7 +33,18 @@ use std::fs;
 use std::io::BufWriter;
 use std::path::Path;
 
+use cfd_mesh::application::channel::path::ChannelPath;
+use cfd_mesh::application::channel::substrate::SubstrateBuilder;
+use cfd_mesh::application::channel::sweep::SweepMesher;
+use cfd_mesh::application::csg::boolean::{
+    csg_boolean_indexed, csg_boolean_indexed_tolerant, BooleanOp,
+};
+use cfd_mesh::application::pipeline::PipelineOutput;
 use cfd_mesh::application::pipeline::{BlueprintMeshPipeline, PipelineConfig};
+use cfd_mesh::domain::core::index::RegionId;
+use cfd_mesh::domain::core::scalar::Real;
+use cfd_mesh::domain::mesh::IndexedMesh;
+use cfd_mesh::infrastructure::io::scheme;
 use cfd_mesh::infrastructure::io::stl;
 
 use cfd_schematics::config::{ChannelTypeConfig, FrustumConfig, GeometryConfig, SerpentineConfig};
@@ -107,6 +118,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let effective_config = design.config_override.as_ref().unwrap_or(&config);
         let mut output = BlueprintMeshPipeline::run(&design.blueprint, effective_config)
             .map_err(|e| format!("{}: pipeline failed — {e}", design.name))?;
+
+        // Serpentine is authored in cfd-schematics as an explicit curved path.
+        // Override the blueprint-derived zigzag with a direct schematic-driven
+        // sweep so 3-D mesh geometry matches the exported 2-D schematic.
+        if design.name == "serpentine_chain" {
+            output = mesh_output_from_channel_system(&design.system, effective_config)
+                .map_err(|e| format!("{}: schematic mesh failed — {e}", design.name))?;
+        }
 
         // Verify watertightness (fast sanity check before writing STL).
         assert!(
@@ -204,6 +223,190 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+/// Build fluid/chip meshes directly from a `cfd-schematics` channel system.
+///
+/// This preserves authored centerlines (e.g., serpentine curves) exactly.
+fn mesh_output_from_channel_system(
+    system: &ChannelSystem,
+    config: &PipelineConfig,
+) -> Result<PipelineOutput, Box<dyn std::error::Error>> {
+    let schematic3d = scheme::from_channel_system(
+        system,
+        config.chip_height_mm as Real,
+        config.circular_segments,
+    )?;
+
+    let mesher = SweepMesher::new();
+    let mut all_channels: Option<IndexedMesh> = None;
+    let mut all_void_channels: Option<IndexedMesh> = None;
+
+    for channel_def in &schematic3d.channels {
+        let profile = circularized_profile(&channel_def.profile, config.circular_segments);
+        let mut current = sweep_channel(
+            &mesher,
+            &profile,
+            &channel_def.path,
+            channel_def.width_scales.as_deref(),
+        );
+        current.rebuild_edges();
+
+        all_channels = Some(if let Some(existing) = all_channels.take() {
+            csg_boolean_indexed_tolerant(BooleanOp::Union, &existing, &current)?
+        } else {
+            current
+        });
+
+        if config.include_chip_body {
+            let extension_mm = profile_radius_mm(&profile).max(0.25);
+            let extended_path = extend_path_ends(&channel_def.path, extension_mm);
+            let mut void_current = sweep_channel(
+                &mesher,
+                &profile,
+                &extended_path,
+                channel_def.width_scales.as_deref(),
+            );
+            void_current.rebuild_edges();
+
+            all_void_channels = Some(if let Some(existing) = all_void_channels.take() {
+                csg_boolean_indexed_tolerant(BooleanOp::Union, &existing, &void_current)?
+            } else {
+                void_current
+            });
+        }
+    }
+
+    let mut fluid_mesh = all_channels.ok_or("no channels produced from schematic")?;
+    fluid_mesh.orient_outward();
+    fluid_mesh.retain_largest_component();
+    fluid_mesh.rebuild_edges();
+
+    let chip_mesh = if config.include_chip_body {
+        let substrate = SubstrateBuilder::well_plate_96(config.chip_height_mm).build_indexed()?;
+        let void_mesh = all_void_channels.as_ref().unwrap_or(&fluid_mesh);
+        let mut chip = csg_boolean_indexed_tolerant(BooleanOp::Difference, &substrate, void_mesh)?;
+
+        chip.orient_outward();
+        chip.retain_largest_component();
+        chip.rebuild_edges();
+
+        if !chip.is_watertight() {
+            chip = csg_boolean_indexed(BooleanOp::Difference, &substrate, void_mesh)?;
+            chip.orient_outward();
+            chip.retain_largest_component();
+            chip.rebuild_edges();
+        }
+
+        if !chip.is_watertight() {
+            return Err("serpentine schematic-driven chip body is not watertight".into());
+        }
+
+        Some(chip)
+    } else {
+        None
+    };
+
+    Ok(PipelineOutput {
+        fluid_mesh,
+        chip_mesh,
+        // Preserve classification from the canonical serpentine preset.
+        topology_class: cfd_mesh::application::pipeline::TopologyClass::LinearChain {
+            n_segments: system.channels.len(),
+        },
+        segment_count: system.channels.len(),
+        layout_segments: Vec::new(),
+    })
+}
+
+fn sweep_channel(
+    mesher: &SweepMesher,
+    profile: &cfd_mesh::application::channel::profile::ChannelProfile,
+    path: &ChannelPath,
+    scales: Option<&[Real]>,
+) -> IndexedMesh {
+    let mut mesh = IndexedMesh::new();
+    let faces = if let Some(scales) = scales {
+        mesher.sweep_variable(profile, path, scales, &mut mesh.vertices, RegionId::new(0))
+    } else {
+        mesher.sweep(profile, path, &mut mesh.vertices, RegionId::new(0))
+    };
+    for face in faces {
+        mesh.faces.push(face);
+    }
+    mesh
+}
+
+fn profile_radius_mm(profile: &cfd_mesh::application::channel::profile::ChannelProfile) -> Real {
+    use cfd_mesh::application::channel::profile::ChannelProfile;
+    match profile {
+        ChannelProfile::Circular { radius, .. } => *radius,
+        ChannelProfile::Rectangular { width, height } => 0.5 * width.min(*height),
+        ChannelProfile::RoundedRectangular { width, height, .. } => 0.5 * width.min(*height),
+    }
+}
+
+fn extend_path_ends(path: &ChannelPath, extension_mm: Real) -> ChannelPath {
+    let pts = path.points();
+    if pts.len() < 2 || extension_mm <= 0.0 {
+        return path.clone();
+    }
+
+    let first_dir = (pts[1] - pts[0]).normalize();
+    let last_dir = (pts[pts.len() - 1] - pts[pts.len() - 2]).normalize();
+
+    let mut out = pts.to_vec();
+    out[0] = pts[0] - first_dir * extension_mm;
+    let n = out.len() - 1;
+    out[n] = pts[n] + last_dir * extension_mm;
+    ChannelPath::new(out)
+}
+
+/// Convert any incoming cross-section profile to a circular profile.
+///
+/// Serpentine mesh export uses this so cylindrical channels match the expected
+/// millifluidic tubing geometry even when schematic interchange is `constant`.
+fn circularized_profile(
+    profile: &cfd_mesh::application::channel::profile::ChannelProfile,
+    segments: usize,
+) -> cfd_mesh::application::channel::profile::ChannelProfile {
+    use cfd_mesh::application::channel::profile::ChannelProfile;
+    use std::f64::consts::PI;
+
+    match profile {
+        ChannelProfile::Circular { radius, .. } => ChannelProfile::Circular {
+            radius: *radius,
+            segments,
+        },
+        ChannelProfile::Rectangular { width, height } => {
+            let d_h = if *width > 0.0 && *height > 0.0 {
+                2.0 * *width * *height / (*width + *height)
+            } else {
+                width.min(*height).max(0.0)
+            };
+            ChannelProfile::Circular {
+                radius: 0.5 * d_h,
+                segments,
+            }
+        }
+        ChannelProfile::RoundedRectangular {
+            width,
+            height,
+            corner_radius,
+            ..
+        } => {
+            let area = (*width * *height - (4.0 - PI) * *corner_radius * *corner_radius).max(0.0);
+            let d_eq = if area > 0.0 {
+                2.0 * (area / PI).sqrt()
+            } else {
+                width.min(*height).max(0.0)
+            };
+            ChannelProfile::Circular {
+                radius: 0.5 * d_eq,
+                segments,
+            }
+        }
+    }
+}
+
 // ── Design catalogue builder ──────────────────────────────────────────────────
 
 /// Assemble all four canonical therapy topologies.
@@ -297,11 +500,12 @@ fn build_designs() -> Vec<Design> {
         //
         // Winding single-channel design: 3 serpentine legs connected by U-bends.
         // Useful for maximising residence time in a compact footprint.
-        // Both ports are on the left face at different Y positions.
+        // Produces exactly one inlet and one outlet port.
         Design {
             name: "serpentine_chain",
-            description: "Serpentine path: inlet → 3 winding rows via U-bends → outlet  \
-                 (Ø 4 mm, both ports on the left face at different Y positions)",
+            description:
+                "Serpentine path from cfd-schematics centerline: inlet → curved wave → outlet  \
+                 (Ø 4 mm, single inlet and single outlet)",
             blueprint: serpentine_chain("sc", 3, 0.010, 0.004),
             system: create_geometry(
                 box_dims,

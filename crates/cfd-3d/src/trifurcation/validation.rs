@@ -36,7 +36,15 @@ pub struct MeshRefinementConfig<T: cfd_mesh::domain::core::Scalar + RealField + 
     pub expected_order: T,
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> Default for MeshRefinementConfig<T> {
+impl<
+        T: cfd_mesh::domain::core::Scalar
+            + RealField
+            + Copy
+            + FromPrimitive
+            + ToPrimitive
+            + SafeFromF64,
+    > Default for MeshRefinementConfig<T>
+{
     fn default() -> Self {
         Self {
             n_levels: 3,
@@ -58,10 +66,23 @@ pub struct TrifurcationValidator3D<T: cfd_mesh::domain::core::Scalar + RealField
     pub mesh_config: MeshRefinementConfig<T>,
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + num_traits::Float + From<f64>> TrifurcationValidator3D<T> {
+impl<
+        T: cfd_mesh::domain::core::Scalar
+            + RealField
+            + Copy
+            + FromPrimitive
+            + ToPrimitive
+            + SafeFromF64
+            + num_traits::Float
+            + From<f64>,
+    > TrifurcationValidator3D<T>
+{
     /// Create a new trifurcation validator
     pub fn new(geometry: TrifurcationGeometry3D<T>, mesh_config: MeshRefinementConfig<T>) -> Self {
-        Self { geometry, mesh_config }
+        Self {
+            geometry,
+            mesh_config,
+        }
     }
 
     /// Validate blood flow results
@@ -78,17 +99,19 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
         // Q_d1 should equal Q_d3 (top and bottom), Q_d2 is middle
         let q_d1 = solution.flow_rates[1];
         let q_d3 = solution.flow_rates[3];
-        
+
         // For symmetric trifurcation, we expect top/bottom symmetry
         // Middle branch might be different
-        let symmetry_error = num_traits::Float::abs(q_d1 - q_d3) / (q_d1 + T::from_f64_or_one(1e-12));
+        let symmetry_error =
+            num_traits::Float::abs(q_d1 - q_d3) / (q_d1 + T::from_f64_or_one(1e-12));
         let symmetry_ok = symmetry_error < T::from_f64_or_one(0.05); // 5% tolerance
 
         // 3. Wall Shear Stress Check
         // Should be positive and within physiological range (0-1000 Pa for blood)
-        let wss_ok = solution.wall_shear_stresses.iter().all(|&wss| {
-            wss >= T::from_f64_or_one(0.0) && wss < T::from_f64_or_one(2000.0)
-        });
+        let wss_ok = solution
+            .wall_shear_stresses
+            .iter()
+            .all(|&wss| wss >= T::from_f64_or_one(0.0) && wss < T::from_f64_or_one(2000.0));
 
         let mut result = TrifurcationValidationResult3D::new("Blood Flow Validation".to_string());
         result.mass_error = Some(mass_error);
@@ -96,10 +119,18 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
         result.validation_passed = mass_ok && symmetry_ok && wss_ok;
 
         if !result.validation_passed {
-             let mut msg = String::new();
-            if !mass_ok { use std::fmt::Write; let _ = write!(msg, "Mass error too high: {mass_error:?}; "); }
-            if !symmetry_ok { use std::fmt::Write; let _ = write!(msg, "Asymmetry detected: {symmetry_error:?}; "); }
-            if !wss_ok { msg.push_str("WSS out of range; "); }
+            let mut msg = String::new();
+            if !mass_ok {
+                use std::fmt::Write;
+                let _ = write!(msg, "Mass error too high: {mass_error:?}; ");
+            }
+            if !symmetry_ok {
+                use std::fmt::Write;
+                let _ = write!(msg, "Asymmetry detected: {symmetry_error:?}; ");
+            }
+            if !wss_ok {
+                msg.push_str("WSS out of range; ");
+            }
             result.error_message = Some(msg);
         }
 
@@ -137,17 +168,17 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy> TrifurcationValidatio
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::solver::{TrifurcationConfig3D, TrifurcationSolver3D};
+    use super::*;
 
     #[test]
     fn test_trifurcation_blood_flow() {
         let geom = TrifurcationGeometry3D::<f64>::symmetric(
-            100e-6, // Parent D
-            80e-6,  // Daughter D
-            500e-6, // Parent L
-            500e-6, // Daughter L
-            50e-6,  // Transition L
+            100e-6,                     // Parent D
+            80e-6,                      // Daughter D
+            500e-6,                     // Parent L
+            500e-6,                     // Daughter L
+            50e-6,                      // Transition L
             std::f64::consts::PI / 4.0, // 45 degrees
         );
         let mesh_config = MeshRefinementConfig::default();
@@ -160,14 +191,20 @@ mod tests {
 
         let solver = TrifurcationSolver3D::new(geom, config);
         let fluid = cfd_core::physics::fluid::blood::CassonBlood::normal_blood();
-        
+
         let solution = solver.solve(&fluid).expect("Solver failed");
-        
-        let result = validator.validate_blood_flow(&solution).expect("Validation failed");
-        
+
+        let result = validator
+            .validate_blood_flow(&solution)
+            .expect("Validation failed");
+
         println!("Mass Error: {:?}", result.mass_error);
         println!("Symmetry Error: {:?}", result.symmetry_error);
-        
-        assert!(result.validation_passed, "Validation failed: {:?}", result.error_message);
+
+        assert!(
+            result.validation_passed,
+            "Validation failed: {:?}",
+            result.error_message
+        );
     }
 }

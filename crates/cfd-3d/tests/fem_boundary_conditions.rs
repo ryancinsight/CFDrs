@@ -1,8 +1,8 @@
 use cfd_3d::fem::{FemConfig, FemSolver, StokesFlowProblem};
 use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
-use cfd_mesh::IndexedMesh;
 use cfd_mesh::domain::topology::Cell;
+use cfd_mesh::IndexedMesh;
 use nalgebra::Point3;
 use std::collections::HashMap;
 
@@ -20,7 +20,12 @@ fn test_robin_bc_assembly() {
     let f2 = mesh.add_face(v1, v2, v3).0;
     let f3 = mesh.add_face(v2, v0, v3).0;
 
-    mesh.add_cell(Cell::tetrahedron(f0 as usize, f1 as usize, f2 as usize, f3 as usize));
+    mesh.add_cell(Cell::tetrahedron(
+        f0 as usize,
+        f1 as usize,
+        f2 as usize,
+        f3 as usize,
+    ));
 
     // Setup Fluid
     let fluid = ConstantPropertyFluid::water_20c().unwrap();

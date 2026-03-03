@@ -92,9 +92,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         width: 1400,
         height: 400,
         title: format!(
-            "Serpentine Mixer — {n_cycles} cycles, w={:.0}μm, L_straight={:.0}μm",
+            "Serpentine Mixer — {n_cycles} cycles, w={:.0}μm, L_straight={:.0}μm, R_turn={:.0}μm",
             w_mm * 1000.0,
-            l_straight_mm * 1000.0
+            l_straight_mm * 1000.0,
+            r_mm * 1000.0,
         ),
         ..Default::default()
     };

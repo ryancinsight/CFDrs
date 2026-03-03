@@ -24,6 +24,7 @@ pub mod grid;
 pub mod time;
 pub mod tvd;
 #[cfg(test)]
+/// TVD scheme regression and theorem-validation tests.
 pub mod tvd_tests;
 pub mod upwind;
 pub mod weno;

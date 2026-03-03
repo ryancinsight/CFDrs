@@ -23,9 +23,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("===============================================\n");
 
     // Serpentine geometry
-    let diameter = 1.0e-3;     // 1 mm channel diameter
-    let amplitude = 2.0e-3;    // 2 mm wave amplitude
-    let wavelength = 8.0e-3;   // 8 mm wavelength
+    let diameter = 1.0e-3; // 1 mm channel diameter
+    let amplitude = 2.0e-3; // 2 mm wave amplitude
+    let wavelength = 8.0e-3; // 8 mm wavelength
 
     let builder = SerpentineMeshBuilder::new(diameter, amplitude, wavelength)
         .with_periods(3)
@@ -39,7 +39,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Solver configuration
     let config = SerpentineConfig3D {
-        inlet_flow_rate: 5e-7,  // 0.5 mL/s
+        inlet_flow_rate: 5e-7, // 0.5 mL/s
         inlet_pressure: 200.0,
         outlet_pressure: 0.0,
         ..SerpentineConfig3D::default()

@@ -15,5 +15,5 @@
 pub mod solver;
 pub mod validation;
 
-pub use solver::{SerpentineSolver3D, SerpentineConfig3D, SerpentineSolution3D};
-pub use validation::{SerpentineValidator3D, SerpentineValidationResult3D};
+pub use solver::{SerpentineConfig3D, SerpentineSolution3D, SerpentineSolver3D};
+pub use validation::{SerpentineValidationResult3D, SerpentineValidator3D};

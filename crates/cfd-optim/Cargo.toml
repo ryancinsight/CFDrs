@@ -39,43 +39,29 @@ anyhow.workspace = true
 proptest.workspace = true
 
 [[example]]
-name = "sdt_export"
-path = "examples/sdt_export.rs"
-
-[[example]]
-name = "sdt_evo"
-path = "examples/sdt_evo.rs"
-
-[[example]]
 name = "sdt_therapy"
 path = "examples/sdt_therapy.rs"
-
-[[example]]
-name = "sdt_random"
-path = "examples/sdt_random.rs"
 
 [[example]]
 name = "sdt_scenario_audit"
 path = "examples/sdt_scenario_audit.rs"
 
 [[example]]
-name = "sdt_pipeline"
-path = "examples/sdt_pipeline.rs"
-required-features = ["mesh-export"]
-
-[[example]]
-name = "sdt_top5_final"
-path = "examples/sdt_top5_final.rs"
-required-features = ["mesh-export"]
-
-[[example]]
-name = "sdt_2d_validation"
-path = "examples/sdt_2d_validation.rs"
+name = "sdt_leukapheresis_infeasibility_audit"
+path = "examples/sdt_leukapheresis_infeasibility_audit.rs"
 
 [[example]]
 name = "optim_pipeline"
 path = "examples/optim_pipeline.rs"
 
 [[example]]
+name = "m12_two_concept_selection"
+path = "examples/m12_two_concept_selection.rs"
+
+[[example]]
 name = "cascade_2d_3d_validation"
 path = "examples/cascade_2d_3d_validation.rs"
+
+[[example]]
+name = "regen_report_schematics"
+path = "examples/regen_report_schematics.rs"

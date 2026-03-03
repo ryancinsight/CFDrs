@@ -31,7 +31,13 @@ mod models;
 mod trauma;
 
 pub use calculator::HemolysisCalculator;
-pub use models::HemolysisModel;
+pub use models::{
+    HemolysisModel,
+    CAVITATION_HI_SLOPE,
+    GIERSIEPEN_MILLIFLUIDIC_C,
+    GIERSIEPEN_MILLIFLUIDIC_STRESS,
+    GIERSIEPEN_MILLIFLUIDIC_TIME,
+};
 pub use trauma::{BloodTrauma, BloodTraumaSeverity, PlateletActivation};
 
 #[cfg(test)]

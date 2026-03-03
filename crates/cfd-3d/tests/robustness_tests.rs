@@ -36,9 +36,7 @@ fn p2_nodes() -> [[f64; 4]; 10] {
 /// ∇L_0 = (-1,-1,-1), ∇L_1 = (1,0,0), ∇L_2 = (0,1,0), ∇L_3 = (0,0,1).
 fn reference_p1_gradients() -> Matrix3x4<f64> {
     Matrix3x4::new(
-        -1.0,  1.0,  0.0,  0.0,
-        -1.0,  0.0,  1.0,  0.0,
-        -1.0,  0.0,  0.0,  1.0,
+        -1.0, 1.0, 0.0, 0.0, -1.0, 0.0, 1.0, 0.0, -1.0, 0.0, 0.0, 1.0,
     )
 }
 
@@ -127,11 +125,7 @@ fn test_quadrature_weights_sum_to_reference_volume() {
 #[test]
 fn test_strain_rate_symmetry() {
     use cfd_3d::fem::stress::strain_rate_tensor;
-    let grad_u = Matrix3::new(
-        1.0, 2.0, 3.0,
-        4.0, 5.0, 6.0,
-        7.0, 8.0, 9.0,
-    );
+    let grad_u = Matrix3::new(1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0);
     let eps = strain_rate_tensor(&grad_u);
     for i in 0..3 {
         for j in 0..3 {
@@ -145,11 +139,7 @@ fn test_strain_rate_symmetry() {
 fn test_strain_rate_zero_for_rigid_rotation() {
     use cfd_3d::fem::stress::strain_rate_tensor;
     // Antisymmetric ∇u → solid-body rotation
-    let grad_u = Matrix3::new(
-        0.0,  1.0, -2.0,
-       -1.0,  0.0,  3.0,
-        2.0, -3.0,  0.0,
-    );
+    let grad_u = Matrix3::new(0.0, 1.0, -2.0, -1.0, 0.0, 3.0, 2.0, -3.0, 0.0);
     let eps = strain_rate_tensor(&grad_u);
     for i in 0..3 {
         for j in 0..3 {
@@ -164,16 +154,10 @@ fn test_stress_trace_is_neg_3p() {
     use cfd_3d::fem::stress::{strain_rate_tensor, stress_tensor};
     use cfd_core::physics::fluid::ConstantPropertyFluid;
 
-    let fluid = ConstantPropertyFluid::new(
-        "test".into(), 1000.0, 0.001, 4186.0, 0.6, 1500.0,
-    );
+    let fluid = ConstantPropertyFluid::new("test".into(), 1000.0, 0.001, 4186.0, 0.6, 1500.0);
 
     // Divergence-free velocity gradient: tr(∇u) = 0.
-    let grad_u = Matrix3::new(
-        1.0, 0.5, 0.0,
-        0.5, -2.0, 0.3,
-        0.0, 0.3, 1.0,
-    );
+    let grad_u = Matrix3::new(1.0, 0.5, 0.0, 0.5, -2.0, 0.3, 0.0, 0.3, 1.0);
     let eps = strain_rate_tensor(&grad_u);
     let pressure = 42.0;
     let sigma = stress_tensor(&fluid, pressure, &eps);
@@ -215,7 +199,10 @@ fn test_element_volume_degenerate_flat_tet() {
         Vector3::new(0.5, 0.5, 0.0),
     ];
     elem.calculate_volume(&verts);
-    assert!(elem.volume.abs() < 1e-20, "flat tet should have ~zero volume");
+    assert!(
+        elem.volume.abs() < 1e-20,
+        "flat tet should have ~zero volume"
+    );
 }
 
 /// Shape derivative identity: Σ ∇N_i = 0 for linear (P1) elements.
@@ -322,21 +309,20 @@ fn test_murray_law_perfect_compliance() {
     // D_parent = 100μm → each daughter = 100/(2^(1/3)) ≈ 79.37μm
     let d_parent = 100e-6;
     let d_daughter = d_parent / 2.0_f64.cbrt();
-    let geom = BifurcationGeometry3D::<f64>::symmetric(
-        d_parent, d_daughter, 1e-3, 1e-3, 1e-4,
-    );
+    let geom = BifurcationGeometry3D::<f64>::symmetric(d_parent, d_daughter, 1e-3, 1e-3, 1e-4);
     let dev = geom.murray_law_deviation();
     // D^3 ≈ 1e-12 so f64 rounding yields ~eps*D^3 ≈ 1e-28
-    assert!(dev.abs() < 1e-25, "Murray-compliant geometry should have near-zero deviation: {dev}");
+    assert!(
+        dev.abs() < 1e-25,
+        "Murray-compliant geometry should have near-zero deviation: {dev}"
+    );
 }
 
 /// Volume and surface-area positivity for valid geometry.
 #[test]
 fn test_bifurcation_volume_and_area_positive() {
     use cfd_3d::bifurcation::BifurcationGeometry3D;
-    let geom = BifurcationGeometry3D::<f64>::symmetric(
-        100e-6, 80e-6, 1e-3, 1e-3, 1e-4,
-    );
+    let geom = BifurcationGeometry3D::<f64>::symmetric(100e-6, 80e-6, 1e-3, 1e-3, 1e-4);
     assert!(geom.total_volume() > 0.0);
     assert!(geom.total_surface_area() > 0.0);
 }
@@ -346,8 +332,12 @@ fn test_bifurcation_volume_and_area_positive() {
 fn test_asymmetric_bifurcation() {
     use cfd_3d::bifurcation::BifurcationGeometry3D;
     let geom = BifurcationGeometry3D::<f64>::asymmetric(
-        100e-6, 90e-6, 60e-6,
-        1e-3, 1e-3, 1e-3,
+        100e-6,
+        90e-6,
+        60e-6,
+        1e-3,
+        1e-3,
+        1e-3,
         1e-4,
         std::f64::consts::PI / 4.0,
     );
@@ -367,12 +357,19 @@ fn test_trifurcation_murray_law() {
     let d_parent = 100e-6;
     let d_daughter = d_parent / 3.0_f64.cbrt();
     let geom = TrifurcationGeometry3D::<f64>::symmetric(
-        d_parent, d_daughter, 1e-3, 1e-3, 1e-4,
+        d_parent,
+        d_daughter,
+        1e-3,
+        1e-3,
+        1e-4,
         std::f64::consts::PI / 6.0,
     );
     let dev = geom.murray_law_deviation();
     // D^3 ≈ 1e-12 so f64 rounding yields ~eps*D^3 ≈ 1e-28
-    assert!(dev.abs() < 1e-25, "Murray-compliant trifurcation should have near-zero deviation: {dev}");
+    assert!(
+        dev.abs() < 1e-25,
+        "Murray-compliant trifurcation should have near-zero deviation: {dev}"
+    );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -584,7 +581,10 @@ fn test_vof_total_volume_consistency() {
     }
 
     let vol = solver.total_volume();
-    assert!(vol > 0.0, "total_volume should be positive when cells are filled");
+    assert!(
+        vol > 0.0,
+        "total_volume should be positive when cells are filled"
+    );
 }
 
 /// Reconstructed normals should have unit magnitude for interface cells.
@@ -641,8 +641,16 @@ fn test_level_set_plane_signed_distance() {
     let n = 20;
     let dx = 1.0 / n as f64;
     let mut solver = LevelSetSolver::<f64>::new(
-        LevelSetConfig { use_weno: true, ..Default::default() },
-        n, n, n, dx, dx, dx,
+        LevelSetConfig {
+            use_weno: true,
+            ..Default::default()
+        },
+        n,
+        n,
+        n,
+        dx,
+        dx,
+        dx,
     );
 
     // Plane φ = x − 0.5
@@ -705,14 +713,18 @@ fn test_level_set_sphere_reinit_preserves_zero() {
 
     // Record cells near the zero level set before advance
     let tol = 2.0 * dx;
-    let near_zero_before: Vec<usize> = solver.phi()
+    let near_zero_before: Vec<usize> = solver
+        .phi()
         .iter()
         .enumerate()
         .filter(|(_, &p)| p.abs() < tol)
         .map(|(i, _)| i)
         .collect();
 
-    assert!(!near_zero_before.is_empty(), "Should have cells near zero level set");
+    assert!(
+        !near_zero_before.is_empty(),
+        "Should have cells near zero level set"
+    );
 
     // Advance with zero velocity (triggers reinitialization)
     let vel = vec![Vector3::zeros(); n * n * n];
@@ -762,7 +774,10 @@ fn test_level_set_narrow_band_correctness() {
     let band = solver.narrow_band();
 
     // Band should be non-empty and smaller than total grid
-    assert!(!band.is_empty(), "Narrow band should be non-empty for sphere");
+    assert!(
+        !band.is_empty(),
+        "Narrow band should be non-empty for sphere"
+    );
     assert!(
         band.len() < n * n * n,
         "Narrow band should be smaller than full grid"
@@ -816,10 +831,7 @@ fn test_level_set_zero_velocity_preserves_phi() {
         for j in 3..n - 3 {
             for i in 3..n - 3 {
                 let idx = solver.index(i, j, k);
-                assert_relative_eq!(
-                    solver.phi()[idx], phi_before[idx],
-                    epsilon = 1e-14,
-                );
+                assert_relative_eq!(solver.phi()[idx], phi_before[idx], epsilon = 1e-14,);
             }
         }
     }
@@ -1090,7 +1102,11 @@ fn test_lagrangian_point_reset_force() {
 fn test_ibm_kernel_continuity_at_support() {
     use cfd_3d::ibm::{DeltaFunction, InterpolationKernel};
 
-    for df in &[DeltaFunction::RomaPeskin3, DeltaFunction::RomaPeskin4, DeltaFunction::Peskin4] {
+    for df in &[
+        DeltaFunction::RomaPeskin3,
+        DeltaFunction::RomaPeskin4,
+        DeltaFunction::Peskin4,
+    ] {
         let kernel = InterpolationKernel::new(df.clone(), 1.5_f64);
         // At support boundary: δ(r) should approach 0
         let r_boundary = 2.5; // well outside support for width=1.5

@@ -19,5 +19,5 @@ pub mod validation;
 #[cfg(test)]
 mod cavitation_hemolysis_tests;
 
-pub use solver::{VenturiSolver3D, VenturiConfig3D, VenturiSolution3D};
-pub use validation::{VenturiValidator3D, VenturiValidationResult3D};
+pub use solver::{VenturiConfig3D, VenturiSolution3D, VenturiSolver3D};
+pub use validation::{VenturiValidationResult3D, VenturiValidator3D};

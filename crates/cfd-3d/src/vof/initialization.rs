@@ -77,9 +77,11 @@ fn initialize_sphere<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimiti
                 let idx = solver.index(i, j, k);
 
                 // Smooth initialization using tanh function
-                let eps = <T as FromPrimitive>::from_f64(INTERFACE_THICKNESS).unwrap_or(T::zero()) * solver.dx;
+                let eps = <T as FromPrimitive>::from_f64(INTERFACE_THICKNESS).unwrap_or(T::zero())
+                    * solver.dx;
                 let arg = (radius - distance) / eps;
-                solver.alpha[idx] = <T as FromPrimitive>::from_f64(0.5).unwrap_or(T::zero()) * (T::one() + <T as num_traits::Float>::tanh(arg));
+                solver.alpha[idx] = <T as FromPrimitive>::from_f64(0.5).unwrap_or(T::zero())
+                    * (T::one() + <T as num_traits::Float>::tanh(arg));
             }
         }
     }
@@ -148,9 +150,11 @@ fn initialize_plane<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitiv
                 let idx = solver.index(i, j, k);
 
                 // Smooth initialization
-                let eps = <T as FromPrimitive>::from_f64(INTERFACE_THICKNESS).unwrap_or(T::zero()) * solver.dx;
+                let eps = <T as FromPrimitive>::from_f64(INTERFACE_THICKNESS).unwrap_or(T::zero())
+                    * solver.dx;
                 let arg = distance / eps;
-                solver.alpha[idx] = <T as FromPrimitive>::from_f64(0.5).unwrap_or(T::zero()) * (T::one() + <T as num_traits::Float>::tanh(arg));
+                solver.alpha[idx] = <T as FromPrimitive>::from_f64(0.5).unwrap_or(T::zero())
+                    * (T::one() + <T as num_traits::Float>::tanh(arg));
             }
         }
     }

@@ -10,7 +10,7 @@
 //! | Property     | Eulerian forces always finite after spreading                    |
 
 use cfd_3d::ibm::{
-    config::IbmConfig, DeltaFunction, InterpolationKernel, IbmSolver, LagrangianPoint,
+    config::IbmConfig, DeltaFunction, IbmSolver, InterpolationKernel, LagrangianPoint,
 };
 use nalgebra::Vector3;
 
@@ -27,11 +27,7 @@ fn default_config() -> IbmConfig {
 
 fn make_solver(nx: usize, ny: usize, nz: usize) -> IbmSolver<f64> {
     let h = 1.0 / nx as f64;
-    IbmSolver::new(
-        default_config(),
-        Vector3::new(h, h, h),
-        (nx, ny, nz),
-    )
+    IbmSolver::new(default_config(), Vector3::new(h, h, h), (nx, ny, nz))
 }
 
 fn make_lagrangian(pos: Vector3<f64>, force: Vector3<f64>) -> LagrangianPoint<f64> {
@@ -56,10 +52,7 @@ fn test_roma_peskin_3_kernel_sums_to_one() {
     let h = 0.1f64;
     let kernel = InterpolationKernel::<f64>::new(DeltaFunction::RomaPeskin3, h);
     // 3-point stencil: r ∈ {-1, 0, 1} in units of h
-    let sum: f64 = [-1.0, 0.0, 1.0]
-        .iter()
-        .map(|&r| kernel.delta(r))
-        .sum();
+    let sum: f64 = [-1.0, 0.0, 1.0].iter().map(|&r| kernel.delta(r)).sum();
     assert!(
         (sum - 1.0).abs() < 1e-12,
         "Roma-Peskin 3-point 1D kernel must sum to 1, got {sum}"
@@ -89,7 +82,10 @@ fn test_kernel_non_negative() {
     for i in -30..=30 {
         let r = i as f64 * 0.1;
         let v = kernel.delta(r);
-        assert!(v >= 0.0, "Kernel must be non-negative, got {v:.6} at r={r:.2}");
+        assert!(
+            v >= 0.0,
+            "Kernel must be non-negative, got {v:.6} at r={r:.2}"
+        );
     }
 }
 
@@ -114,15 +110,9 @@ fn test_empty_lagrangian_zero_force() {
 fn test_spreading_conserves_total_momentum() {
     let nx = 16usize;
     let h = 1.0 / nx as f64;
-    let mut solver = IbmSolver::new(
-        default_config(),
-        Vector3::new(h, h, h),
-        (nx, nx, nx),
-    );
+    let mut solver = IbmSolver::new(default_config(), Vector3::new(h, h, h), (nx, nx, nx));
     let total_force = Vector3::new(1.0, 0.0, 0.0);
-    solver.add_lagrangian_point(
-        make_lagrangian(Vector3::new(0.5, 0.5, 0.5), total_force)
-    );
+    solver.add_lagrangian_point(make_lagrangian(Vector3::new(0.5, 0.5, 0.5), total_force));
 
     let forces = solver.spread_forces().expect("spread_forces failed");
     let sum_x: f64 = forces.iter().map(|f| f.x).sum();
@@ -151,9 +141,10 @@ fn test_stencil_size_correct() {
 #[test]
 fn test_lagrangian_point_on_x_boundary_no_panic() {
     let mut solver = make_solver(10, 10, 10);
-    solver.add_lagrangian_point(
-        make_lagrangian(Vector3::new(0.0, 0.5, 0.5), Vector3::new(1.0, 0.0, 0.0))
-    );
+    solver.add_lagrangian_point(make_lagrangian(
+        Vector3::new(0.0, 0.5, 0.5),
+        Vector3::new(1.0, 0.0, 0.0),
+    ));
     let _ = solver.spread_forces();
 }
 
@@ -161,9 +152,10 @@ fn test_lagrangian_point_on_x_boundary_no_panic() {
 #[test]
 fn test_lagrangian_point_at_max_corner_no_panic() {
     let mut solver = make_solver(10, 10, 10);
-    solver.add_lagrangian_point(
-        make_lagrangian(Vector3::new(1.0, 1.0, 1.0), Vector3::new(0.0, 1.0, 0.0))
-    );
+    solver.add_lagrangian_point(make_lagrangian(
+        Vector3::new(1.0, 1.0, 1.0),
+        Vector3::new(0.0, 1.0, 0.0),
+    ));
     let _ = solver.spread_forces();
 }
 
@@ -173,9 +165,10 @@ fn test_multiple_boundary_points_no_panic() {
     let mut solver = make_solver(12, 12, 12);
     for i in 0..4 {
         let edge = i as f64 * 0.33;
-        solver.add_lagrangian_point(
-            make_lagrangian(Vector3::new(edge, 0.0, 0.5), Vector3::zeros())
-        );
+        solver.add_lagrangian_point(make_lagrangian(
+            Vector3::new(edge, 0.0, 0.5),
+            Vector3::zeros(),
+        ));
     }
     let _ = solver.spread_forces();
 }
@@ -188,9 +181,10 @@ fn test_multiple_boundary_points_no_panic() {
 #[test]
 fn test_lagrangian_point_outside_domain_no_panic() {
     let mut solver = make_solver(10, 10, 10);
-    solver.add_lagrangian_point(
-        make_lagrangian(Vector3::new(5.0, 5.0, 5.0), Vector3::new(1.0, 1.0, 1.0))
-    );
+    solver.add_lagrangian_point(make_lagrangian(
+        Vector3::new(5.0, 5.0, 5.0),
+        Vector3::new(1.0, 1.0, 1.0),
+    ));
     let forces = solver.spread_forces().unwrap_or_default();
     for f in &forces {
         assert!(
@@ -204,9 +198,10 @@ fn test_lagrangian_point_outside_domain_no_panic() {
 #[test]
 fn test_nan_force_no_panic() {
     let mut solver = make_solver(8, 8, 8);
-    solver.add_lagrangian_point(
-        make_lagrangian(Vector3::new(0.5, 0.5, 0.5), Vector3::new(f64::NAN, 0.0, 0.0))
-    );
+    solver.add_lagrangian_point(make_lagrangian(
+        Vector3::new(0.5, 0.5, 0.5),
+        Vector3::new(f64::NAN, 0.0, 0.0),
+    ));
     let _ = solver.spread_forces();
 }
 
@@ -237,12 +232,10 @@ fn test_zero_weight_lagrangian_no_force() {
 fn test_eulerian_forces_always_finite() {
     let mut solver = make_solver(10, 10, 10);
     for i in 0..5 {
-        solver.add_lagrangian_point(
-            make_lagrangian(
-                Vector3::new(0.1 + 0.18 * i as f64, 0.5, 0.5),
-                Vector3::new(1.0, -0.5, 0.3),
-            )
-        );
+        solver.add_lagrangian_point(make_lagrangian(
+            Vector3::new(0.1 + 0.18 * i as f64, 0.5, 0.5),
+            Vector3::new(1.0, -0.5, 0.3),
+        ));
     }
     let forces = solver.spread_forces().expect("spread_forces failed");
     for f in &forces {
@@ -258,9 +251,10 @@ fn test_eulerian_forces_always_finite() {
 fn test_num_points_consistent() {
     let mut solver = make_solver(8, 8, 8);
     for i in 0..7 {
-        solver.add_lagrangian_point(
-            make_lagrangian(Vector3::new(0.1 * i as f64, 0.5, 0.5), Vector3::zeros())
-        );
+        solver.add_lagrangian_point(make_lagrangian(
+            Vector3::new(0.1 * i as f64, 0.5, 0.5),
+            Vector3::zeros(),
+        ));
     }
     assert_eq!(solver.num_points(), 7);
 }

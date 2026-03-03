@@ -49,10 +49,11 @@
 //! guarantees stability and physical realism.
 
 
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, VecDeque};
 
 use cfd_core::error::Result as CfdResult;
 use cfd_core::physics::fluid::BloodModel;
+use cfd_core::physics::hemolysis::HemolysisModel;
 use cfd_schematics::application::ports::GraphSink;
 use cfd_schematics::domain::model::{CrossSectionSpec, NetworkBlueprint, NodeKind};
 use cfd_schematics::domain::therapy_metadata::{TherapyZone, TherapyZoneMetadata};
@@ -62,13 +63,6 @@ use num_traits::{Float, FromPrimitive, ToPrimitive};
 
 use crate::solvers::ns_fvm::{NavierStokesSolver2D, SIMPLEConfig, SolveResult, StaggeredGrid2D};
 use crate::solvers::venturi_flow::VenturiGeometry;
-
-// ── Constants ─────────────────────────────────────────────────────────────────
-
-/// Giersiepen (1990) haemolysis constants: HI = C · t^α · τ^β
-const GIERSIEPEN_C: f64 = 3.62e-5;
-const GIERSIEPEN_ALPHA: f64 = 0.765;
-const GIERSIEPEN_BETA: f64 = 1.991;
 
 // ── Public API types ──────────────────────────────────────────────────────────
 
@@ -177,7 +171,9 @@ where
             // Transit time: t = V / Q = w·h·L / Q
             let t_s = area * entry.length_m / entry.flow_rate_m3_s.max(1e-30);
 
-            let hi = giersiepen_hi(shear_pa, t_s);
+            let hi = HemolysisModel::giersiepen_millifluidic()
+                .damage_index(shear_pa, t_s)
+                .unwrap_or(0.0); // damage_index only errors for negative inputs, never for valid shear/time
             let hi_t = T::from_f64(hi).unwrap_or_else(T::zero);
             total_hi += hi_t;
 
@@ -338,36 +334,53 @@ where
 /// Starting from the inlet node with `q_total`, flow is divided at each junction
 /// proportionally to the conductance (1/R) of each outgoing channel.
 fn distribute_flow(blueprint: &NetworkBlueprint, q_total: f64) -> HashMap<String, f64> {
-    // Build adjacency: node_id → list of channel indices for outgoing edges.
-    let mut outgoing: HashMap<String, Vec<usize>> = HashMap::new();
-    for (i, ch) in blueprint.channels.iter().enumerate() {
-        outgoing.entry(ch.from.as_str().to_owned()).or_default().push(i);
+    let n_nodes = blueprint.nodes.len();
+    if n_nodes == 0 {
+        return HashMap::new();
     }
 
-    // Find the inlet node.
-    let inlet_id = blueprint
+    // Node-id to dense index map (avoids string cloning in BFS state).
+    let mut node_index: HashMap<&str, usize> = HashMap::with_capacity(n_nodes);
+    for (idx, node) in blueprint.nodes.iter().enumerate() {
+        node_index.insert(node.id.as_str(), idx);
+    }
+
+    // Build adjacency by dense node index.
+    let mut outgoing: Vec<Vec<usize>> = vec![Vec::new(); n_nodes];
+    for (ch_idx, ch) in blueprint.channels.iter().enumerate() {
+        if let Some(&from_idx) = node_index.get(ch.from.as_str()) {
+            outgoing[from_idx].push(ch_idx);
+        }
+    }
+
+    // Find inlet node index.
+    let Some(inlet_idx) = blueprint
         .nodes
         .iter()
-        .find(|n| matches!(n.kind, NodeKind::Inlet))
-        .map(|n| n.id.as_str().to_owned())
-        .unwrap_or_default();
+        .enumerate()
+        .find(|(_, n)| matches!(n.kind, NodeKind::Inlet))
+        .map(|(idx, _)| idx)
+    else {
+        return HashMap::new();
+    };
 
-    // BFS traversal: track flow at each node.
-    let mut node_flow: HashMap<String, f64> = HashMap::new();
-    node_flow.insert(inlet_id.clone(), q_total);
+    // BFS traversal on dense node indices.
+    let mut node_flow = vec![0.0_f64; n_nodes];
+    node_flow[inlet_idx] = q_total;
 
-    let mut channel_flow: HashMap<String, f64> = HashMap::new();
-    let mut visited: HashSet<String> = HashSet::new();
-    let mut queue = VecDeque::new();
-    queue.push_back(inlet_id);
+    let mut channel_flow: HashMap<String, f64> = HashMap::with_capacity(blueprint.channels.len());
+    let mut visited = vec![false; n_nodes];
+    let mut queue = VecDeque::with_capacity(n_nodes);
+    queue.push_back(inlet_idx);
 
-    while let Some(node_id) = queue.pop_front() {
-        if !visited.insert(node_id.clone()) {
+    while let Some(node_idx) = queue.pop_front() {
+        if visited[node_idx] {
             continue; // Already processed.
         }
+        visited[node_idx] = true;
 
-        let q_node = node_flow.get(&node_id).copied().unwrap_or(0.0);
-        let channels = outgoing.get(&node_id).cloned().unwrap_or_default();
+        let q_node = node_flow[node_idx];
+        let channels = &outgoing[node_idx];
 
         if channels.is_empty() {
             continue;
@@ -380,17 +393,20 @@ fn distribute_flow(blueprint: &NetworkBlueprint, q_total: f64) -> HashMap<String
             .sum::<f64>()
             .max(1e-30);
 
-        for &ch_idx in &channels {
+        for &ch_idx in channels {
             let ch = &blueprint.channels[ch_idx];
             let cond = 1.0 / ch.resistance.max(1e-30);
             let q_ch = q_node * cond / total_cond;
 
             channel_flow.insert(ch.id.as_str().to_owned(), q_ch);
 
-            // Accumulate flow at the destination node.
-            *node_flow.entry(ch.to.as_str().to_owned()).or_insert(0.0) += q_ch;
-
-            queue.push_back(ch.to.as_str().to_owned());
+            // Accumulate flow at destination node index.
+            if let Some(&to_idx) = node_index.get(ch.to.as_str()) {
+                node_flow[to_idx] += q_ch;
+                if !visited[to_idx] {
+                    queue.push_back(to_idx);
+                }
+            }
         }
     }
 
@@ -398,14 +414,6 @@ fn distribute_flow(blueprint: &NetworkBlueprint, q_total: f64) -> HashMap<String
 }
 
 // ── Physics helpers ───────────────────────────────────────────────────────────
-
-/// Giersiepen (1990) haemolysis index: `HI = C · t^α · τ^β`.
-fn giersiepen_hi(tau_pa: f64, t_s: f64) -> f64 {
-    if tau_pa <= 0.0 || t_s <= 0.0 {
-        return 0.0;
-    }
-    GIERSIEPEN_C * t_s.powf(GIERSIEPEN_ALPHA) * tau_pa.powf(GIERSIEPEN_BETA)
-}
 
 /// Extract a representative dynamic viscosity [Pa·s] from the blood model.
 fn blood_viscosity_f64<T: RealField + Copy + Float + FromPrimitive + ToPrimitive>(

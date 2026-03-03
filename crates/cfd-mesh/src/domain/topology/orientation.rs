@@ -73,36 +73,41 @@ pub fn fix_orientation(face_store: &mut FaceStore, edge_store: &EdgeStore) -> us
     let mut flipped = 0usize;
     let mut queue = std::collections::VecDeque::new();
 
-    // Seed with face 0
-    let seed = FaceId::from_usize(0);
-    queue.push_back(seed);
-    visited.insert(seed);
+    // Traverse every disconnected component. Seeding only face 0 leaves
+    // orientation defects untouched in later components.
+    for seed_idx in 0..n_faces {
+        let seed = FaceId::from_usize(seed_idx);
+        if !visited.insert(seed) {
+            continue;
+        }
+        queue.push_back(seed);
 
-    while let Some(current) = queue.pop_front() {
-        let current_face = *face_store.get(current);
+        while let Some(current) = queue.pop_front() {
+            let current_face = *face_store.get(current);
 
-        // For each edge of the current face, check the neighbor
-        for (ea, eb) in current_face.edges_canonical() {
-            if let Some(eid) = edge_store.find_edge(ea, eb) {
-                let edge = edge_store.get(eid);
-                for &neighbor_fid in &edge.faces {
-                    if neighbor_fid == current || !visited.insert(neighbor_fid) {
-                        continue;
-                    }
-
-                    let dir_current = directed_edge_order(current_face.vertices, ea, eb);
-                    let neighbor_face = face_store.get(neighbor_fid);
-                    let dir_neighbor = directed_edge_order(neighbor_face.vertices, ea, eb);
-
-                    if let (Some(dc), Some(dn)) = (dir_current, dir_neighbor) {
-                        if dc == dn {
-                            // Same direction → flip neighbor
-                            face_store.get_mut(neighbor_fid).flip();
-                            flipped += 1;
+            // For each edge of the current face, check the neighbor
+            for (ea, eb) in current_face.edges_canonical() {
+                if let Some(eid) = edge_store.find_edge(ea, eb) {
+                    let edge = edge_store.get(eid);
+                    for &neighbor_fid in &edge.faces {
+                        if neighbor_fid == current || !visited.insert(neighbor_fid) {
+                            continue;
                         }
-                    }
 
-                    queue.push_back(neighbor_fid);
+                        let dir_current = directed_edge_order(current_face.vertices, ea, eb);
+                        let neighbor_face = face_store.get(neighbor_fid);
+                        let dir_neighbor = directed_edge_order(neighbor_face.vertices, ea, eb);
+
+                        if let (Some(dc), Some(dn)) = (dir_current, dir_neighbor) {
+                            if dc == dn {
+                                // Same direction -> flip neighbor.
+                                face_store.get_mut(neighbor_fid).flip();
+                                flipped += 1;
+                            }
+                        }
+
+                        queue.push_back(neighbor_fid);
+                    }
                 }
             }
         }

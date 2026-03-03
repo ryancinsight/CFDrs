@@ -49,7 +49,9 @@ use serde::{Deserialize, Serialize};
 /// interface compatibility with orifice-plate correlation signatures;
 /// Venturi tubes are insensitive to wall roughness within the standard's
 /// applicability range.
-pub fn iso_discharge_coefficient<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive>(
+pub fn iso_discharge_coefficient<
+    T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive,
+>(
     _reynolds_d: T,
     _beta: T,
     _pipe_roughness: T,
@@ -68,7 +70,16 @@ pub struct VenturiValidator3D<T: cfd_mesh::domain::core::Scalar + RealField + Co
     pub mesh_builder: VenturiMeshBuilder<T>,
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + Float> VenturiValidator3D<T> {
+impl<
+        T: cfd_mesh::domain::core::Scalar
+            + RealField
+            + Copy
+            + FromPrimitive
+            + ToPrimitive
+            + SafeFromF64
+            + Float,
+    > VenturiValidator3D<T>
+{
     /// Create a new Venturi validator from the mesh builder
     pub fn new(mesh_builder: VenturiMeshBuilder<T>) -> Self {
         Self { mesh_builder }
@@ -86,15 +97,19 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
         // But solver doesn't explicitly return Q_out. We can infer it from mass balance error if available,
         // or re-calculate it. FemSolver ensures mass conservation weakly.
         // We'll trust solver.u_inlet * A_in vs solution.u_throat * A_throat vs Q_in
-        
+
         let a_inlet = if config.circular {
-            <T as FromPrimitive>::from_f64(std::f64::consts::PI / 4.0).unwrap() * self.mesh_builder.d_inlet * self.mesh_builder.d_inlet
+            <T as FromPrimitive>::from_f64(std::f64::consts::PI / 4.0).unwrap()
+                * self.mesh_builder.d_inlet
+                * self.mesh_builder.d_inlet
         } else {
             self.mesh_builder.d_inlet * self.mesh_builder.d_inlet
         };
-        
+
         let a_throat = if config.circular {
-            <T as FromPrimitive>::from_f64(std::f64::consts::PI / 4.0).unwrap() * self.mesh_builder.d_throat * self.mesh_builder.d_throat
+            <T as FromPrimitive>::from_f64(std::f64::consts::PI / 4.0).unwrap()
+                * self.mesh_builder.d_throat
+                * self.mesh_builder.d_throat
         } else {
             self.mesh_builder.d_throat * self.mesh_builder.d_throat
         };
@@ -109,14 +124,18 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
         // dp_theoretical = 0.5 * rho * (u_throat^2 - u_inlet^2) / C^2 ?
         // Or Cp_theoretical = 1 - (A_in/A_throat)^2 ? No, pressure drops.
         // p_in - p_th = 0.5 * rho * u_in^2 * ((A_in/A_th)^2 - 1)
-        
+
         let u_in_avg = config.inlet_flow_rate / a_inlet;
         let area_ratio = a_inlet / a_throat; // > 1
-        
-        let dp_bernoulli = <T as FromPrimitive>::from_f64(0.5).unwrap() * fluid_density * u_in_avg * u_in_avg * (area_ratio * area_ratio - T::one());
-        
+
+        let dp_bernoulli = <T as FromPrimitive>::from_f64(0.5).unwrap()
+            * fluid_density
+            * u_in_avg
+            * u_in_avg
+            * (area_ratio * area_ratio - T::one());
+
         let dp_actual = solution.p_inlet - solution.p_throat;
-        
+
         // For viscous flow, dp_actual >= dp_bernoulli in physically admissible solutions.
         // We allow only a small numerical tolerance from discrete solver residuals.
         let error_dp = (dp_actual - dp_bernoulli) / dp_bernoulli;
@@ -124,17 +143,26 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
 
         // 3. Pressure Recovery Check
         // Should recover some pressure. dp_recovery (p_out - p_in) is normally negative (loss).
-        let recovery_ok = solution.dp_recovery < T::zero(); 
-        let bernoulli_ok = dp_actual + numerical_tol * num_traits::Float::abs(dp_bernoulli) >= dp_bernoulli;
+        let recovery_ok = solution.dp_recovery < T::zero();
+        let bernoulli_ok =
+            dp_actual + numerical_tol * num_traits::Float::abs(dp_bernoulli) >= dp_bernoulli;
 
         let mut result = VenturiValidationResult3D::new("Venturi Flow Validation".to_string());
         result.dp_error = Some(error_dp);
         result.validation_passed = bernoulli_ok && recovery_ok;
 
         if !result.validation_passed {
-             let mut msg = String::new();
-            if !bernoulli_ok { use std::fmt::Write; let _ = write!(msg, "Pressure drop below Bernoulli lower bound: {error_dp:?}; "); }
-            if !recovery_ok { msg.push_str("Pressure recovery positive (impossible); "); }
+            let mut msg = String::new();
+            if !bernoulli_ok {
+                use std::fmt::Write;
+                let _ = write!(
+                    msg,
+                    "Pressure drop below Bernoulli lower bound: {error_dp:?}; "
+                );
+            }
+            if !recovery_ok {
+                msg.push_str("Pressure recovery positive (impossible); ");
+            }
             result.error_message = Some(msg);
         }
 
@@ -169,8 +197,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy> VenturiValidationResu
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::solver::VenturiSolver3D;
+    use super::*;
     use cfd_core::physics::fluid::traits::Fluid;
 
     #[test]
@@ -183,7 +211,7 @@ mod tests {
         let l_th = 0.005;
         let l_div = 0.01;
         let l_out = 0.01;
-        
+
         let builder = VenturiMeshBuilder::new(d_in, d_th, l_in, l_conv, l_th, l_div, l_out)
             .with_resolution(60, 8) // Higher resolution for better convergence
             .with_circular(true);
@@ -198,16 +226,22 @@ mod tests {
 
         let solver = VenturiSolver3D::new(builder.clone(), config.clone());
         let fluid = cfd_core::physics::fluid::blood::CassonBlood::normal_blood();
-        
+
         let solution = solver.solve(fluid).expect("Solver failed");
-        
+
         let fluid_props = fluid.properties_at(310.0, 100.0).unwrap();
         let validator = VenturiValidator3D::new(builder);
-        let result = validator.validate_flow(&solution, &config, fluid_props.density).expect("Validation failed");
-        
+        let result = validator
+            .validate_flow(&solution, &config, fluid_props.density)
+            .expect("Validation failed");
+
         println!("DP Error (rel to Bernoulli): {:?}", result.dp_error);
-        
-        assert!(result.validation_passed, "Validation failed: {:?}", result.error_message);
+
+        assert!(
+            result.validation_passed,
+            "Validation failed: {:?}",
+            result.error_message
+        );
     }
 
     #[test]
@@ -276,12 +310,10 @@ mod tests {
             .expect("validation should run");
 
         assert!(!result.validation_passed);
-        assert!(
-            result
-                .error_message
-                .as_ref()
-                .map(|msg| msg.contains("Bernoulli lower bound"))
-                .unwrap_or(false)
-        );
+        assert!(result
+            .error_message
+            .as_ref()
+            .map(|msg| msg.contains("Bernoulli lower bound"))
+            .unwrap_or(false));
     }
 }

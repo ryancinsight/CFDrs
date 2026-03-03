@@ -124,8 +124,8 @@ pub mod fem;
 pub mod ibm;
 pub mod level_set;
 pub mod physics;
-pub mod spectral;
 pub mod serpentine;
+pub mod spectral;
 /// 3D trifurcation (three-way branching) flow solvers and validation
 pub mod trifurcation;
 pub mod venturi;
@@ -170,39 +170,54 @@ mod tests {
 
         // FEM configuration test
         let fem_config: FemConfig<f64> = FemConfig::default();
-        assert!(fem_config.quadrature_order >= 1,
-            "quadrature_order must be ≥ 1 for valid Gauss integration");
-        assert!(fem_config.use_stabilization,
-            "SUPG/PSPG stabilization must be enabled by default (Lax-Milgram requirement)");
+        assert!(
+            fem_config.quadrature_order >= 1,
+            "quadrature_order must be ≥ 1 for valid Gauss integration"
+        );
+        assert!(
+            fem_config.use_stabilization,
+            "SUPG/PSPG stabilization must be enabled by default (Lax-Milgram requirement)"
+        );
 
         // Spectral configuration test
-        let spectral_config: SpectralConfig<f64> =
-            SpectralConfig::new(8, 8, 8)
-                .expect("SpectralConfig::new must succeed for valid mode count 8");
+        let spectral_config: SpectralConfig<f64> = SpectralConfig::new(8, 8, 8)
+            .expect("SpectralConfig::new must succeed for valid mode count 8");
         assert_eq!(spectral_config.nx_modes, 8);
         assert_eq!(spectral_config.ny_modes, 8);
         assert_eq!(spectral_config.nz_modes, 8);
 
         // IBM configuration test
         let ibm_config = IbmConfig::default();
-        assert!(ibm_config.smoothing_width > 0.0,
-            "IBM delta function width must be positive (partition of unity requirement)");
-        assert!(ibm_config.use_direct_forcing,
-            "direct forcing must be enabled by default");
+        assert!(
+            ibm_config.smoothing_width > 0.0,
+            "IBM delta function width must be positive (partition of unity requirement)"
+        );
+        assert!(
+            ibm_config.use_direct_forcing,
+            "direct forcing must be enabled by default"
+        );
 
         // Level set configuration test
         let level_set_config = LevelSetConfig::default();
-        assert!(level_set_config.reinitialization_interval > 0,
-            "reinitialization interval must be positive to prevent SDF drift");
-        assert!(level_set_config.use_weno,
-            "WENO scheme must be enabled by default for interface accuracy");
+        assert!(
+            level_set_config.reinitialization_interval > 0,
+            "reinitialization interval must be positive to prevent SDF drift"
+        );
+        assert!(
+            level_set_config.use_weno,
+            "WENO scheme must be enabled by default for interface accuracy"
+        );
 
         // VOF configuration test
         let vof_config = VofConfig::default();
-        assert!(vof_config.tolerance > 0.0,
-            "VOF tolerance must be strictly positive");
-        assert!(vof_config.reconstruction_method == vof::InterfaceReconstruction::PLIC,
-            "PLIC must be the default reconstruction (volume conservation guarantee)");
+        assert!(
+            vof_config.tolerance > 0.0,
+            "VOF tolerance must be strictly positive"
+        );
+        assert!(
+            vof_config.reconstruction_method == vof::InterfaceReconstruction::PLIC,
+            "PLIC must be the default reconstruction (volume conservation guarantee)"
+        );
     }
 
     /// Test spectral solver instantiation and basic operations.
@@ -210,11 +225,10 @@ mod tests {
     /// Verifies that a valid SpectralConfig produces a usable SpectralSolver without errors.
     #[test]
     fn test_spectral_solver_creation() -> Result<(), Box<dyn std::error::Error>> {
-        let config: SpectralConfig<f64> =
-            SpectralConfig::new(4, 4, 4)
-                .expect("SpectralConfig::new must succeed for valid mode count 4");
-        let solver = SpectralSolver::new(config)
-            .expect("SpectralSolver::new must succeed for valid config");
+        let config: SpectralConfig<f64> = SpectralConfig::new(4, 4, 4)
+            .expect("SpectralConfig::new must succeed for valid mode count 4");
+        let solver =
+            SpectralSolver::new(config).expect("SpectralSolver::new must succeed for valid config");
         // Verify solver is ready (no further assertions — construction itself is the test)
         let _ = solver;
         Ok(())
@@ -229,9 +243,8 @@ mod tests {
     fn test_chebyshev_polynomial_operations() {
         use crate::spectral::ChebyshevPolynomial;
 
-        let poly: ChebyshevPolynomial<f64> =
-            ChebyshevPolynomial::new(5)
-                .expect("ChebyshevPolynomial::new must succeed for valid N=5");
+        let poly: ChebyshevPolynomial<f64> = ChebyshevPolynomial::new(5)
+            .expect("ChebyshevPolynomial::new must succeed for valid N=5");
 
         // Test basic properties
         assert_eq!(poly.num_points(), 5);
@@ -278,8 +291,7 @@ mod tests {
         use nalgebra::DVector;
 
         let ft: FourierTransform<f64> =
-            FourierTransform::new(8)
-                .expect("FourierTransform::new must succeed for valid N=8");
+            FourierTransform::new(8).expect("FourierTransform::new must succeed for valid N=8");
 
         let n = 8;
         let constant_signal = DVector::from_element(n, 1.0);

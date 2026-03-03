@@ -1,6 +1,6 @@
 use cfd_3d::venturi::{VenturiConfig3D, VenturiSolution3D, VenturiSolver3D};
-use cfd_mesh::VenturiMeshBuilder;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
+use cfd_mesh::VenturiMeshBuilder;
 
 fn solve_poiseuille(u_avg: f64, resolution: (usize, usize)) -> VenturiSolution3D<f64> {
     // 1. Geometry: Straight Pipe (L=5D)
@@ -88,12 +88,34 @@ fn validate_poiseuille_flow() {
     println!("  DP/Q high:  {:.3e}", dp_per_q_high);
     println!("  DP/Q ref:   {:.3e}", dp_per_q_analytical);
 
-    assert!(dp_low > 0.0 && dp_high > 0.0, "Pressure drop magnitude should be positive");
-    assert!(high_solution.u_throat > low_solution.u_throat, "Throat velocity should increase with flow rate");
+    assert!(
+        dp_low > 0.0 && dp_high > 0.0,
+        "Pressure drop magnitude should be positive"
+    );
+    assert!(
+        high_solution.u_throat > low_solution.u_throat,
+        "Throat velocity should increase with flow rate"
+    );
 
     // For Stokes flow, dp and velocity should scale linearly with flow rate.
-    assert!(relative_error(dp_ratio, 2.0) < 0.30, "DP scaling deviates from linearity: {:.3}", dp_ratio);
-    assert!(relative_error(u_ratio, 2.0) < 0.30, "Velocity scaling deviates from linearity: {:.3}", u_ratio);
-    assert!(relative_error(dp_per_q_low, dp_per_q_analytical) < 2.80, "DP/Q magnitude deviates from Hagen–Poiseuille: {:.3e}", dp_per_q_low);
-    assert!(relative_error(dp_per_q_high, dp_per_q_analytical) < 2.80, "DP/Q magnitude deviates from Hagen–Poiseuille: {:.3e}", dp_per_q_high);
+    assert!(
+        relative_error(dp_ratio, 2.0) < 0.30,
+        "DP scaling deviates from linearity: {:.3}",
+        dp_ratio
+    );
+    assert!(
+        relative_error(u_ratio, 2.0) < 0.30,
+        "Velocity scaling deviates from linearity: {:.3}",
+        u_ratio
+    );
+    assert!(
+        relative_error(dp_per_q_low, dp_per_q_analytical) < 2.80,
+        "DP/Q magnitude deviates from Hagen–Poiseuille: {:.3e}",
+        dp_per_q_low
+    );
+    assert!(
+        relative_error(dp_per_q_high, dp_per_q_analytical) < 2.80,
+        "DP/Q magnitude deviates from Hagen–Poiseuille: {:.3e}",
+        dp_per_q_high
+    );
 }

@@ -21,14 +21,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("============================================\n");
 
     // Symmetric bifurcation geometry (arteriole scale)
-    let d_parent = 100e-6;   // 100 um
-    let d_daughter = 80e-6;  // 80 um (slightly larger than Murray optimum)
-    let l_parent = 1e-3;     // 1 mm
+    let d_parent = 100e-6; // 100 um
+    let d_daughter = 80e-6; // 80 um (slightly larger than Murray optimum)
+    let l_parent = 1e-3; // 1 mm
     let l_daughter = 1e-3;
     let l_transition = 100e-6;
 
     let geometry = BifurcationGeometry3D::<f64>::symmetric(
-        d_parent, d_daughter, l_parent, l_daughter, l_transition,
+        d_parent,
+        d_daughter,
+        l_parent,
+        l_daughter,
+        l_transition,
     );
 
     // Murray's law analysis
@@ -44,8 +48,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Solver configuration
     let config = BifurcationConfig3D {
-        inlet_flow_rate: 1e-8,   // 10 nL/s
-        inlet_pressure: 100.0,   // 100 Pa gauge
+        inlet_flow_rate: 1e-8, // 10 nL/s
+        inlet_pressure: 100.0, // 100 Pa gauge
         ..BifurcationConfig3D::default()
     };
 
@@ -55,7 +59,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let blood = CassonBlood::<f64>::normal_blood();
     println!("\nFluid: Casson Blood");
     println!("  Yield stress:          {:.4} Pa", blood.yield_stress);
-    println!("  Inf-shear viscosity:   {:.4e} Pa.s", blood.infinite_shear_viscosity);
+    println!(
+        "  Inf-shear viscosity:   {:.4e} Pa.s",
+        blood.infinite_shear_viscosity
+    );
     println!("  Density:               {:.1} kg/m^3", blood.density);
 
     println!("\nSolving...");
@@ -78,20 +85,38 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("  Daughter 2 out:   {:.2} Pa", solution.p_daughter2_outlet);
 
     println!("\nWall Shear Stress:");
-    println!("  Parent:           {:.4} Pa", solution.wall_shear_stress_parent);
-    println!("  Daughter 1:       {:.4} Pa", solution.wall_shear_stress_daughter1);
-    println!("  Daughter 2:       {:.4} Pa", solution.wall_shear_stress_daughter2);
+    println!(
+        "  Parent:           {:.4} Pa",
+        solution.wall_shear_stress_parent
+    );
+    println!(
+        "  Daughter 1:       {:.4} Pa",
+        solution.wall_shear_stress_daughter1
+    );
+    println!(
+        "  Daughter 2:       {:.4} Pa",
+        solution.wall_shear_stress_daughter2
+    );
 
     println!("\nValidation:");
     let mass_ok = solution.is_mass_conserved(1e-6);
-    println!("  Mass conservation error: {:.2e}", solution.mass_conservation_error);
-    println!("  Mass conserved (<1e-6):  {}", if mass_ok { "PASS" } else { "FAIL" });
+    println!(
+        "  Mass conservation error: {:.2e}",
+        solution.mass_conservation_error
+    );
+    println!(
+        "  Mass conserved (<1e-6):  {}",
+        if mass_ok { "PASS" } else { "FAIL" }
+    );
 
     // Flow split ratio
     let q_total_out = solution.q_daughter1 + solution.q_daughter2;
     let split_1 = solution.q_daughter1 / q_total_out * 100.0;
     let split_2 = solution.q_daughter2 / q_total_out * 100.0;
-    println!("  Flow split: {:.1}% / {:.1}% (expect ~50/50 for symmetric)", split_1, split_2);
+    println!(
+        "  Flow split: {:.1}% / {:.1}% (expect ~50/50 for symmetric)",
+        split_1, split_2
+    );
 
     println!("\nBifurcation 3D example completed.");
     Ok(())

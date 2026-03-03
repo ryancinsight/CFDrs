@@ -4,7 +4,7 @@ use cfd_core::error::{Error, Result};
 use nalgebra::{DVector, RealField};
 use nalgebra_sparse::{CooMatrix, CsrMatrix};
 use rayon::prelude::*;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 /// Entry for sparse matrix assembly
 #[derive(Debug, Clone, Copy)]
@@ -33,7 +33,7 @@ pub struct SparseMatrixBuilder<T: RealField + Copy> {
     /// DOFs with strong Dirichlet enforcement: maps DOF index -> (diag_value, prescribed_value).
     /// During build, rows are replaced by `diag_value * I`, and column contributions
     /// from Dirichlet DOFs are eliminated into the RHS vector.
-    dirichlet_dofs: HashMap<usize, (T, T)>,
+    dirichlet_dofs: BTreeMap<usize, (T, T)>,
 }
 
 impl<T: RealField + Copy> SparseMatrixBuilder<T> {
@@ -44,7 +44,7 @@ impl<T: RealField + Copy> SparseMatrixBuilder<T> {
             cols,
             entries: Vec::new(),
             allow_duplicates: false,
-            dirichlet_dofs: HashMap::new(),
+            dirichlet_dofs: BTreeMap::new(),
         }
     }
 
@@ -60,7 +60,7 @@ impl<T: RealField + Copy> SparseMatrixBuilder<T> {
             cols,
             entries: Vec::with_capacity(capacity),
             allow_duplicates: false,
-            dirichlet_dofs: HashMap::new(),
+            dirichlet_dofs: BTreeMap::new(),
         }
     }
 
@@ -132,7 +132,8 @@ impl<T: RealField + Copy> SparseMatrixBuilder<T> {
         let mut coo = CooMatrix::new(self.rows, self.cols);
 
         // Combine duplicate entries and apply Dirichlet enforcement
-        let mut entry_map: HashMap<(usize, usize), T> = HashMap::new();
+        // BTreeMap ensures deterministic iteration order for reproducible matrices.
+        let mut entry_map: BTreeMap<(usize, usize), T> = BTreeMap::new();
 
         for entry in &self.entries {
             let row_is_dirichlet = self.dirichlet_dofs.contains_key(&entry.row);
@@ -183,7 +184,8 @@ impl<T: RealField + Copy> SparseMatrixBuilder<T> {
         let mut coo = CooMatrix::new(self.rows, self.cols);
 
         // Combine duplicate entries manually for better control
-        let mut entry_map: HashMap<(usize, usize), T> = HashMap::new();
+        // BTreeMap ensures deterministic iteration order for reproducible matrices.
+        let mut entry_map: BTreeMap<(usize, usize), T> = BTreeMap::new();
 
         for entry in &self.entries {
             if self.dirichlet_dofs.contains_key(&entry.row) {

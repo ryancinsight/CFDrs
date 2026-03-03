@@ -301,59 +301,148 @@ fn compute_flow_uniformity(topology: DesignTopology, samples: &[ChannelSolveSamp
 /// Estimate additional pressure loss at merge junctions where branching
 /// topologies recombine flow before the outlet.
 ///
-/// Uses the Idelchik (1994) momentum-conserving merge model:
-///   ΔP = K · ½ρv²_combined per merge level
+/// # Per-Junction Physics
 ///
-/// K values are topology-dependent:
-/// - **T-junction merge** (90° perpendicular branch): K = 1.5 (Idelchik §7.23)
-/// - **Y-junction merge** (30–60° angled branch):     K = 0.9 (Idelchik §7.27)
-/// - **Symmetric T-merge** (equal branches):           K = 1.0 (Idelchik §7.20)
+/// For each identified merge node (a node where ≥2 channels converge), the
+/// Idelchik (1994) momentum-conserving merge loss is computed from the **actual
+/// solved flow velocities** at that node:
 ///
-/// For CCT/CIF cascaded topologies each merge level is a T-junction where the
-/// center arm re-joins the main trunk at ~90°.
+/// ```text
+/// ΔP_j = K_j · ½ρv²_combined_at_j
+/// ```
+///
+/// where:
+/// - `v_combined = ΣQ_incoming / A_out` is the velocity in the run channel
+///   downstream of the merge (Idelchik §7.20, combining flow reference branch)
+/// - `K_j` is looked up by junction type:
+///   - T-junction combining (90°): K = 1.5 (Idelchik §7.23)
+///   - Y-junction combining (30–60°): K = 0.9 (Idelchik §7.27)
+///   - Symmetric T-merge: K = 1.0 (Idelchik §7.20)
+///
+/// ## Fallback
+///
+/// When merge junctions cannot be resolved from the solved samples (e.g. simple
+/// in-out topologies), the aggregate fixed-K estimate is used as a lower bound.
 fn compute_remerge_loss(
     topology: DesignTopology,
     samples: &[ChannelSolveSample],
     inlet_flow_m3_s: f64,
 ) -> f64 {
     use crate::constraints::BLOOD_DENSITY_KG_M3;
+    use std::collections::HashMap;
 
-    // (n_merges, k_per_merge) from topology geometry.
-    let (n_merges, k_merge): (usize, f64) = match topology {
-        // CCT cascades: each level has a T-junction merge on the return path.
-        DesignTopology::CascadeCenterTrifurcationSeparator { n_levels } => (n_levels as usize, 1.5),
-        // CIF staged: pre-tri stages + terminal tri + terminal bi → all T-merges.
-        DesignTopology::IncrementalFiltrationTriBiSeparator { n_pretri } => {
-            (n_pretri as usize + 2, 1.5)
+    // ── Step 1: Build a node → (list of incoming Q, list of outgoing Q) map ──
+    // Each channel in `samples` goes from `from_node` to `to_node`.
+    // A merge node is one with ≥2 incoming channels.
+    let mut incoming: HashMap<&str, Vec<f64>> = HashMap::new();
+    let mut outgoing_area: HashMap<&str, f64> = HashMap::new();
+
+    for s in samples {
+        incoming
+            .entry(s.to_node.as_str())
+            .or_default()
+            .push(s.flow_m3_s.abs());
+        // The outgoing area from a node is the area of channels leaving that node.
+        // When multiple channels share a from_node, use the largest (trunk) area.
+        let a = cross_section_area(s.cross_section);
+        let entry = outgoing_area.entry(s.from_node.as_str()).or_insert(0.0);
+        if a > *entry {
+            *entry = a;
         }
-        // Symmetric bifurcation merges: equal-flow T-merge (K ≈ 1.0).
+    }
+
+    // ── Step 2: Classify topology K-factor for merge junctions ──────────────
+    // K = 1.5 → T-junction combining (CCT/CIF cascades, 90° angle)
+    // K = 1.0 → symmetric equal-flow T-merge (bifurcation families)
+    // K = 0.9 → Y-junction combining (30–60°, trifurcation families)
+    let k_merge: f64 = match topology {
+        DesignTopology::CascadeCenterTrifurcationSeparator { .. }
+        | DesignTopology::IncrementalFiltrationTriBiSeparator { .. } => 1.5,
         DesignTopology::BifurcationVenturi
         | DesignTopology::BifurcationSerpentine
-        | DesignTopology::AsymmetricBifurcationSerpentine => (1, 1.0),
-        // Trifurcation families: two merges per level, Y-junction geometry.
+        | DesignTopology::AsymmetricBifurcationSerpentine => 1.0,
         DesignTopology::TrifurcationSerpentine
         | DesignTopology::TrifurcationBifurcationVenturi
         | DesignTopology::TripleTrifurcationVenturi
         | DesignTopology::TrifurcationBifurcationBifurcationVenturi
-        | DesignTopology::QuadTrifurcationVenturi => (2, 0.9),
-        _ => (0, 0.0),
+        | DesignTopology::QuadTrifurcationVenturi => 0.9,
+        _ => 1.0,
     };
 
-    if n_merges == 0 {
-        return 0.0;
+    // ── Step 3: Accumulate per-junction ΔP at merge nodes ───────────────────
+    let mut total_merge_loss_pa = 0.0_f64;
+    let mut merge_count = 0usize;
+
+    for (node_id, q_in_list) in &incoming {
+        if q_in_list.len() < 2 {
+            // Not a merge node — skip.
+            continue;
+        }
+        // Combined flow entering this merge node [m³/s].
+        let q_combined: f64 = q_in_list.iter().sum();
+        if q_combined < 1e-18 {
+            continue;
+        }
+
+        // Area of the outgoing (run) channel from this node.
+        // If node is "outlet" or has no outgoing channel, fall back to
+        // the mean incoming-channel area.
+        let a_out: f64 = outgoing_area
+            .get(node_id)
+            .copied()
+            .filter(|&a| a > 1e-30)
+            .unwrap_or_else(|| {
+                // Mean area of channels arriving at this node.
+                samples
+                    .iter()
+                    .filter(|s| s.to_node.as_str() == *node_id)
+                    .map(|s| cross_section_area(s.cross_section))
+                    .sum::<f64>()
+                    / q_in_list.len() as f64
+            })
+            .max(1e-18);
+
+        let v_combined = q_combined / a_out;
+        let dp = k_merge * 0.5 * BLOOD_DENSITY_KG_M3 * v_combined * v_combined;
+        total_merge_loss_pa += dp;
+        merge_count += 1;
     }
 
-    // Find the outlet trunk area (last channel before outlet).
-    // Fall back to the largest non-throat channel area.
-    let outlet_area = samples
-        .iter()
-        .filter(|s| !s.is_venturi_throat)
-        .map(|s| cross_section_area(s.cross_section))
-        .fold(0.0_f64, f64::max)
-        .max(1e-18);
+    // ── Step 4: Fallback aggregate estimate when no merge nodes found ────────
+    if merge_count == 0 {
+        // Use the original topology-table estimate as a lower bound.
+        let n_merges_fallback: usize = match topology {
+            DesignTopology::CascadeCenterTrifurcationSeparator { n_levels } => n_levels as usize,
+            DesignTopology::IncrementalFiltrationTriBiSeparator { n_pretri } => {
+                n_pretri as usize + 2
+            }
+            DesignTopology::BifurcationVenturi
+            | DesignTopology::BifurcationSerpentine
+            | DesignTopology::AsymmetricBifurcationSerpentine => 1,
+            DesignTopology::TrifurcationSerpentine
+            | DesignTopology::TrifurcationBifurcationVenturi
+            | DesignTopology::TripleTrifurcationVenturi
+            | DesignTopology::TrifurcationBifurcationBifurcationVenturi
+            | DesignTopology::QuadTrifurcationVenturi => 2,
+            _ => 0,
+        };
+        if n_merges_fallback == 0 {
+            return 0.0;
+        }
+        let outlet_area = samples
+            .iter()
+            .filter(|s| !s.is_venturi_throat)
+            .map(|s| cross_section_area(s.cross_section))
+            .fold(0.0_f64, f64::max)
+            .max(1e-18);
+        let v_outlet = inlet_flow_m3_s / outlet_area;
+        return n_merges_fallback as f64
+            * k_merge
+            * 0.5
+            * BLOOD_DENSITY_KG_M3
+            * v_outlet
+            * v_outlet;
+    }
 
-    let v_outlet = inlet_flow_m3_s / outlet_area;
-    let dp_per_merge = k_merge * 0.5 * BLOOD_DENSITY_KG_M3 * v_outlet * v_outlet;
-
-    n_merges as f64 * dp_per_merge
+    total_merge_loss_pa
 }

@@ -155,7 +155,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Fouri
                 let phase =
                     -two_pi * self.wavenumbers[k] * T::from_usize(j).unwrap_or_else(|| T::zero())
                         / T::from_usize(n).unwrap_or_else(|| T::zero());
-                let exp = Complex::new(num_traits::Float::cos(phase), num_traits::Float::sin(phase));
+                let exp =
+                    Complex::new(num_traits::Float::cos(phase), num_traits::Float::sin(phase));
                 sum += exp * Complex::new(u[j], T::zero());
             }
             u_hat[k] = sum;
@@ -200,7 +201,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Fouri
                 let phase =
                     two_pi * self.wavenumbers[k] * T::from_usize(j).unwrap_or_else(|| T::zero())
                         / T::from_usize(n).unwrap_or_else(|| T::zero());
-                let exp = Complex::new(num_traits::Float::cos(phase), num_traits::Float::sin(phase));
+                let exp =
+                    Complex::new(num_traits::Float::cos(phase), num_traits::Float::sin(phase));
                 sum += exp * u_hat[k];
             }
             u[j] = sum.re;

@@ -6,17 +6,15 @@
 
 use cfd_3d::bifurcation::{BifurcationConfig3D, BifurcationGeometry3D, BifurcationSolver3D};
 use cfd_3d::serpentine::{SerpentineConfig3D, SerpentineSolver3D};
-use cfd_3d::spectral::{SpectralConfig, SpectralSolver};
-use cfd_3d::spectral::solver::PoissonProblem;
 use cfd_3d::spectral::poisson::PoissonBoundaryCondition;
-use cfd_3d::trifurcation::{
-    TrifurcationConfig3D, TrifurcationGeometry3D, TrifurcationSolver3D,
-};
+use cfd_3d::spectral::solver::PoissonProblem;
+use cfd_3d::spectral::{SpectralConfig, SpectralSolver};
+use cfd_3d::trifurcation::{TrifurcationConfig3D, TrifurcationGeometry3D, TrifurcationSolver3D};
 use cfd_3d::venturi::{VenturiConfig3D, VenturiSolver3D};
 use cfd_core::physics::fluid::blood::CassonBlood;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
-use cfd_mesh::VenturiMeshBuilder;
 use cfd_mesh::application::channel::serpentine::SerpentineMeshBuilder;
+use cfd_mesh::VenturiMeshBuilder;
 use nalgebra::DVector;
 use std::f64::consts::PI;
 
@@ -26,9 +24,8 @@ use std::f64::consts::PI;
 
 #[test]
 fn venturi_water_mass_conservation() {
-    let builder = VenturiMeshBuilder::new(
-        1.0e-3_f64, 0.5e-3, 2.0e-3, 1.0e-3, 1.0e-3, 1.0e-3, 2.0e-3,
-    );
+    let builder =
+        VenturiMeshBuilder::new(1.0e-3_f64, 0.5e-3, 2.0e-3, 1.0e-3, 1.0e-3, 1.0e-3, 2.0e-3);
     let config = VenturiConfig3D {
         inlet_flow_rate: 1e-7,
         resolution: (30, 5),
@@ -50,9 +47,8 @@ fn venturi_nonzero_pressure_difference() {
     // At coarse P1-P1 resolution the FEM solver may report negative dp
     // due to pressure normalization artifacts. We check that a non-trivial
     // pressure difference exists (it must not be exactly zero).
-    let builder = VenturiMeshBuilder::new(
-        2.0e-3_f64, 1.0e-3, 3.0e-3, 2.0e-3, 1.0e-3, 4.0e-3, 3.0e-3,
-    );
+    let builder =
+        VenturiMeshBuilder::new(2.0e-3_f64, 1.0e-3, 3.0e-3, 2.0e-3, 1.0e-3, 4.0e-3, 3.0e-3);
     let config = VenturiConfig3D {
         inlet_flow_rate: 1e-7,
         inlet_pressure: 200.0,
@@ -65,11 +61,7 @@ fn venturi_nonzero_pressure_difference() {
     let sol = solver.solve(water).unwrap();
 
     let dp = (sol.p_inlet - sol.p_outlet).abs();
-    assert!(
-        dp > 0.0,
-        "Pressure difference must be non-zero, got {}",
-        dp
-    );
+    assert!(dp > 0.0, "Pressure difference must be non-zero, got {}", dp);
     // Throat pressure drop sign depends on convention at coarse resolution
     assert!(
         sol.dp_throat.abs() > 0.0,
@@ -80,9 +72,8 @@ fn venturi_nonzero_pressure_difference() {
 
 #[test]
 fn venturi_throat_acceleration() {
-    let builder = VenturiMeshBuilder::new(
-        2.0e-3_f64, 1.0e-3, 3.0e-3, 2.0e-3, 1.0e-3, 4.0e-3, 3.0e-3,
-    );
+    let builder =
+        VenturiMeshBuilder::new(2.0e-3_f64, 1.0e-3, 3.0e-3, 2.0e-3, 1.0e-3, 4.0e-3, 3.0e-3);
     let config = VenturiConfig3D {
         inlet_flow_rate: 1e-7,
         resolution: (30, 5),
@@ -106,8 +97,7 @@ fn venturi_throat_acceleration() {
 
 #[test]
 fn bifurcation_symmetric_mass_conservation() {
-    let geom =
-        BifurcationGeometry3D::<f64>::symmetric(100e-6, 80e-6, 1e-3, 1e-3, 100e-6);
+    let geom = BifurcationGeometry3D::<f64>::symmetric(100e-6, 80e-6, 1e-3, 1e-3, 100e-6);
     let config = BifurcationConfig3D {
         mesh_resolution: 4,
         ..BifurcationConfig3D::default()
@@ -125,8 +115,7 @@ fn bifurcation_symmetric_mass_conservation() {
 
 #[test]
 fn bifurcation_symmetric_flow_split() {
-    let geom =
-        BifurcationGeometry3D::<f64>::symmetric(100e-6, 80e-6, 1e-3, 1e-3, 100e-6);
+    let geom = BifurcationGeometry3D::<f64>::symmetric(100e-6, 80e-6, 1e-3, 1e-3, 100e-6);
     let config = BifurcationConfig3D {
         mesh_resolution: 8,
         ..BifurcationConfig3D::default()
@@ -152,8 +141,7 @@ fn bifurcation_symmetric_flow_split() {
 
 #[test]
 fn bifurcation_positive_wall_shear() {
-    let geom =
-        BifurcationGeometry3D::<f64>::symmetric(100e-6, 80e-6, 1e-3, 1e-3, 100e-6);
+    let geom = BifurcationGeometry3D::<f64>::symmetric(100e-6, 80e-6, 1e-3, 1e-3, 100e-6);
     let config = BifurcationConfig3D {
         mesh_resolution: 4,
         ..BifurcationConfig3D::default()
@@ -176,8 +164,7 @@ fn bifurcation_positive_wall_shear() {
 
 #[test]
 fn bifurcation_blood_casson() {
-    let geom =
-        BifurcationGeometry3D::<f64>::symmetric(100e-6, 80e-6, 1e-3, 1e-3, 100e-6);
+    let geom = BifurcationGeometry3D::<f64>::symmetric(100e-6, 80e-6, 1e-3, 1e-3, 100e-6);
     let config = BifurcationConfig3D {
         mesh_resolution: 4,
         inlet_flow_rate: 1e-8,
@@ -279,9 +266,8 @@ fn trifurcation_symmetric_mass_conservation() {
 
 #[test]
 fn trifurcation_symmetric_equal_daughters() {
-    let geom = TrifurcationGeometry3D::<f64>::symmetric(
-        120e-6, 80e-6, 1e-3, 1e-3, 100e-6, PI / 4.0,
-    );
+    let geom =
+        TrifurcationGeometry3D::<f64>::symmetric(120e-6, 80e-6, 1e-3, 1e-3, 100e-6, PI / 4.0);
     let config = TrifurcationConfig3D::default();
     let solver = TrifurcationSolver3D::new(geom, config);
     let blood = CassonBlood::<f64>::normal_blood();
@@ -328,8 +314,7 @@ fn build_poisson_source(n: usize) -> DVector<f64> {
                 let y = chebyshev_node(j, n);
                 let z = chebyshev_node(k, n);
                 let idx = k * n * n + j * n + i;
-                source[idx] =
-                    3.0 * PI * PI * (PI * x).sin() * (PI * y).sin() * (PI * z).sin();
+                source[idx] = 3.0 * PI * PI * (PI * x).sin() * (PI * y).sin() * (PI * z).sin();
             }
         }
     }
@@ -426,7 +411,10 @@ fn spectral_poisson_convergence() {
     assert!(
         e1 <= e0 * 1.5, // allow small regression tolerance
         "L2 error should not grow significantly: N={} l2={}, N={} l2={}",
-        n0, e0, n1, e1
+        n0,
+        e0,
+        n1,
+        e1
     );
 }
 

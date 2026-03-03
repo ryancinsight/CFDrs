@@ -2,7 +2,7 @@
 //! spiral, and parallel microchannel array topologies.
 
 use super::{shah_london, BLOOD_MU};
-use crate::domain::model::{ChannelSpec, NetworkBlueprint, NodeKind, NodeSpec};
+use crate::domain::model::{ChannelShape, ChannelSpec, NetworkBlueprint, NodeKind, NodeSpec};
 use crate::domain::therapy_metadata::{TherapyZone, TherapyZoneMetadata};
 use crate::geometry::metadata::{
     AsymmetricTrifurcationParams, CascadeParams, IncrementalFiltrationParams,
@@ -196,8 +196,8 @@ pub fn asymmetric_bifurcation_serpentine_rect(
         } else {
             format!("wide_{}", i + 1)
         };
-        bp.add_channel(
-            ChannelSpec::new_pipe_rect(
+        bp.add_channel({
+            let mut spec = ChannelSpec::new_pipe_rect(
                 format!("wide_seg_{}", i + 1),
                 actual_from,
                 to,
@@ -206,9 +206,13 @@ pub fn asymmetric_bifurcation_serpentine_rect(
                 height_m,
                 shah_london(wide_width_m, height_m, segment_length_m, BLOOD_MU),
                 0.0,
-            )
-            .with_metadata(TherapyZoneMetadata::new(TherapyZone::CancerTarget)),
-        );
+            );
+            spec.channel_shape = ChannelShape::Serpentine {
+                segments,
+                bend_radius_m: wide_width_m * 0.5,
+            };
+            spec.with_metadata(TherapyZoneMetadata::new(TherapyZone::CancerTarget))
+        });
     }
 
     // Narrow arm — carries ~11 % of total flow; RBCs route here.
@@ -223,8 +227,8 @@ pub fn asymmetric_bifurcation_serpentine_rect(
         } else {
             format!("narrow_{}", i + 1)
         };
-        bp.add_channel(
-            ChannelSpec::new_pipe_rect(
+        bp.add_channel({
+            let mut spec = ChannelSpec::new_pipe_rect(
                 format!("narrow_seg_{}", i + 1),
                 actual_from,
                 to,
@@ -233,9 +237,13 @@ pub fn asymmetric_bifurcation_serpentine_rect(
                 height_m,
                 shah_london(narrow_width_m, height_m, segment_length_m, BLOOD_MU),
                 0.0,
-            )
-            .with_metadata(TherapyZoneMetadata::new(TherapyZone::HealthyBypass)),
-        );
+            );
+            spec.channel_shape = ChannelShape::Serpentine {
+                segments,
+                bend_radius_m: narrow_width_m * 0.5,
+            };
+            spec.with_metadata(TherapyZoneMetadata::new(TherapyZone::HealthyBypass))
+        });
     }
 
     // Downstream trunk (wide cross-section)

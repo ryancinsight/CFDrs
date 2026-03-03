@@ -57,11 +57,11 @@ fn build_structured_grid(nx: usize, ny: usize, nz: usize) -> Result<IndexedMesh<
     let mut mesh = IndexedMesh::<f64>::new();
     let mut v_ids = Vec::with_capacity(vnx * vny * vnz);
 
-    // Hash map to ensure face deduplication (critical for 3D volumetrics)
-    let mut face_map: std::collections::HashMap<
+    // BTreeMap for deterministic face deduplication order
+    let mut face_map: std::collections::BTreeMap<
         [crate::domain::core::index::VertexId; 3],
         crate::domain::core::index::FaceId,
-    > = std::collections::HashMap::new();
+    > = std::collections::BTreeMap::new();
 
     let mut add_tri = |v0: crate::domain::core::index::VertexId,
                        v1: crate::domain::core::index::VertexId,

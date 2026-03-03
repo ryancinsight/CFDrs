@@ -61,7 +61,9 @@ pub struct StabilizationParameters<T: cfd_mesh::domain::core::Scalar + RealField
     dt: Option<T>,
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> StabilizationParameters<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy>
+    StabilizationParameters<T>
+{
     /// Create new stabilization parameters
     pub fn new(h: T, nu: T, velocity: Vector3<T>, dt: Option<T>) -> Self {
         let u_mag = velocity.norm();
@@ -120,7 +122,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Stabi
     /// Pe = U*h/(2ν)
     pub fn peclet_number(&self) -> T {
         if self.nu > T::zero() {
-            (self.u_mag * self.h) / (<T as FromPrimitive>::from_f64(TWO).unwrap_or_else(T::zero) * self.nu)
+            (self.u_mag * self.h)
+                / (<T as FromPrimitive>::from_f64(TWO).unwrap_or_else(T::zero) * self.nu)
         } else {
             T::zero()
         }
@@ -157,7 +160,9 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Stabi
 }
 
 /// Calculate element size for different element types
-pub fn calculate_element_size<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy>(
+pub fn calculate_element_size<
+    T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy,
+>(
     vertices: &[Vector3<T>],
     velocity_direction: &Vector3<T>,
 ) -> T {
@@ -174,7 +179,9 @@ pub fn calculate_element_size<T: cfd_mesh::domain::core::Scalar + RealField + Fr
 }
 
 /// Calculate size for tetrahedral element
-fn calculate_tetrahedral_size<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy>(
+fn calculate_tetrahedral_size<
+    T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy,
+>(
     vertices: &[Vector3<T>],
     velocity_direction: &Vector3<T>,
 ) -> T {
@@ -200,7 +207,9 @@ fn calculate_tetrahedral_size<T: cfd_mesh::domain::core::Scalar + RealField + Fr
 }
 
 /// Calculate size for hexahedral element
-fn calculate_hexahedral_size<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy>(
+fn calculate_hexahedral_size<
+    T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy,
+>(
     vertices: &[Vector3<T>],
     velocity_direction: &Vector3<T>,
 ) -> T {
@@ -209,7 +218,9 @@ fn calculate_hexahedral_size<T: cfd_mesh::domain::core::Scalar + RealField + Fro
 }
 
 /// Calculate minimum edge length of element
-fn calculate_min_edge_length<T: cfd_mesh::domain::core::Scalar + RealField + Copy>(vertices: &[Vector3<T>]) -> T {
+fn calculate_min_edge_length<T: cfd_mesh::domain::core::Scalar + RealField + Copy>(
+    vertices: &[Vector3<T>],
+) -> T {
     let mut min_length = <T as RealField>::max_value().unwrap_or_else(T::one);
 
     for i in 0..vertices.len() {

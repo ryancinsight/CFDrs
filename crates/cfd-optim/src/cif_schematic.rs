@@ -100,7 +100,8 @@ pub fn save_design_option1_svg(
         box_w,
         &format!(
             "INLET — W={:.1} mm — Q={:.0} mL/min — HCT={:.0}%",
-            params.parent_width_mm, params.flow_rate_ml_min,
+            params.parent_width_mm,
+            params.flow_rate_ml_min,
             params.feed_hematocrit * 100.0,
         ),
         "stage-box",
@@ -110,6 +111,7 @@ pub fn save_design_option1_svg(
     // Pre-trifurcation stages
     for i in 0..params.n_pretri {
         draw_arrow(&mut svg, arrow_x, y - 20.0, y);
+        draw_junction(&mut svg, arrow_x, y, i as usize, 1.3);
 
         let center_w = current_width_mm * params.pretri_center_frac;
         let periph_w = current_width_mm * (1.0 - params.pretri_center_frac) / 2.0;
@@ -141,6 +143,7 @@ pub fn save_design_option1_svg(
 
     // Terminal trifurcation
     draw_arrow(&mut svg, arrow_x, y - 20.0, y);
+    draw_junction(&mut svg, arrow_x, y, params.n_pretri as usize, 1.3);
     let tri_center_w = current_width_mm * params.terminal_tri_center_frac;
     let tri_periph_w = current_width_mm * (1.0 - params.terminal_tri_center_frac) / 2.0;
     let q_tri_periph = q_center * (1.0 - params.terminal_tri_center_frac);
@@ -171,6 +174,7 @@ pub fn save_design_option1_svg(
 
     // Terminal bifurcation
     draw_arrow(&mut svg, arrow_x, y - 20.0, y);
+    draw_junction(&mut svg, arrow_x, y, params.n_pretri as usize + 1, 1.5);
     let treat_w = tri_center_w * params.terminal_bi_treat_frac;
     let waste_w = tri_center_w * (1.0 - params.terminal_bi_treat_frac);
     let q_waste = q_center * (1.0 - params.terminal_bi_treat_frac);
@@ -283,6 +287,25 @@ fn draw_arrow(svg: &mut String, x: f64, y1: f64, y2: f64) {
     ));
 }
 
+/// Draw a junction indicator circle + K-factor annotation at a channel intersection.
+///
+/// # Arguments
+/// * `stage` — stage index (0-based), used for unique element IDs
+/// * `k_factor` — Idelchik K-factor for this junction type
+fn draw_junction(svg: &mut String, x: f64, y: f64, stage: usize, k_factor: f64) {
+    // Yellow circle with red stroke marks the physical intersection node.
+    svg.push_str(&format!(
+        r#"<circle id="jn_{stage}" cx="{x}" cy="{}" r="8" class="jn-marker"/>"#,
+        y - 10.0,
+    ));
+    // K-factor annotation to the right of the junction circle.
+    svg.push_str(&format!(
+        r#"<text x="{}" y="{}" class="jn-label">K={k_factor:.1} (Idelchik)</text>"#,
+        x + 14.0,
+        y - 5.0,
+    ));
+}
+
 const STYLE: &str = r##"<style>
   text { font-family: 'Segoe UI', sans-serif; }
   .title { font-size: 15px; font-weight: bold; fill: #1a1a2e; }
@@ -295,6 +318,8 @@ const STYLE: &str = r##"<style>
   .us-zone { fill: #f3e5f5; stroke: #9c27b0; rx: 6; ry: 6; stroke-width: 2; stroke-dasharray: 6,3; }
   .summary-box { fill: #e8f4e8; stroke: #4caf50; rx: 6; ry: 6; }
   .arrow { stroke: #666; fill: none; stroke-width: 1.5; marker-end: url(#arrowhead); }
+  .jn-marker { fill: #fff176; stroke: #e53935; stroke-width: 2; }
+  .jn-label { font-size: 9px; fill: #e53935; font-weight: 600; }
 </style>
 <defs><marker id="arrowhead" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#666"/></marker></defs>"##;
 

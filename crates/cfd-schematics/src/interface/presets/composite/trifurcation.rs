@@ -1,7 +1,7 @@
 //! Trifurcation-based composite presets: symmetric 3-branch topologies.
 
 use super::{shah_london, BLOOD_MU};
-use crate::domain::model::{ChannelSpec, NetworkBlueprint, NodeKind, NodeSpec};
+use crate::domain::model::{ChannelShape, ChannelSpec, NetworkBlueprint, NodeKind, NodeSpec};
 use crate::domain::therapy_metadata::{TherapyZone, TherapyZoneMetadata};
 use crate::geometry::metadata::VenturiGeometryMetadata;
 
@@ -190,8 +190,8 @@ pub fn trifurcation_serpentine_rect(
                 2 => format!("arm2_seg_{}", i + 1),
                 _ => format!("arm3_seg_{}", i + 1),
             };
-            bp.add_channel(
-                ChannelSpec::new_pipe_rect(
+            bp.add_channel({
+                let mut spec = ChannelSpec::new_pipe_rect(
                     seg_name,
                     actual_from,
                     to,
@@ -200,9 +200,13 @@ pub fn trifurcation_serpentine_rect(
                     height_m,
                     shah_london(main_width_m, height_m, segment_length_m, BLOOD_MU),
                     0.0,
-                )
-                .with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)),
-            );
+                );
+                spec.channel_shape = ChannelShape::Serpentine {
+                    segments,
+                    bend_radius_m: main_width_m * 0.5,
+                };
+                spec.with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow))
+            });
         }
     }
 

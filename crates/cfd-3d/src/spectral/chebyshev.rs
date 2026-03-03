@@ -66,11 +66,12 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Cheby
 
         for j in 0..n {
             let theta = PI * (j as f64) / n_f64;
-            let x = <T as FromPrimitive>::from_f64(num_traits::Float::cos(theta)).ok_or_else(|| {
-                cfd_core::error::Error::InvalidConfiguration(
-                    "Cannot convert collocation point".into(),
-                )
-            })?;
+            let x =
+                <T as FromPrimitive>::from_f64(num_traits::Float::cos(theta)).ok_or_else(|| {
+                    cfd_core::error::Error::InvalidConfiguration(
+                        "Cannot convert collocation point".into(),
+                    )
+                })?;
             points.push(x);
         }
 
@@ -193,7 +194,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Cheby
 
                 // Last term for even N
                 let last_coef = 1.0 / (big_n_f64 * big_n_f64 - 1.0);
-                let last_term = to_t(last_coef)? * to_t(num_traits::Float::cos(big_n_f64 * theta_j))?;
+                let last_term =
+                    to_t(last_coef)? * to_t(num_traits::Float::cos(big_n_f64 * theta_j))?;
                 sum += last_term;
 
                 *w_j = to_t(2.0 / big_n_f64)? * (one - sum);
@@ -259,7 +261,9 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Cheby
 
         // Check if x matches a grid point
         for (j, &x_j) in self.points.iter().enumerate() {
-            if num_traits::Float::abs(x - x_j) < <T as FromPrimitive>::from_f64(1e-14).unwrap_or_else(T::zero) {
+            if num_traits::Float::abs(x - x_j)
+                < <T as FromPrimitive>::from_f64(1e-14).unwrap_or_else(T::zero)
+            {
                 return Ok(values[j]);
             }
         }

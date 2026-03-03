@@ -2,7 +2,7 @@
 
 use super::{Edge, EdgeProperties, EdgeType, NetworkGraph, Node, NodeType};
 use cfd_core::error::Result;
-use cfd_schematics::domain::model::NetworkBlueprint;
+use cfd_schematics::domain::model::{ChannelShape, NetworkBlueprint};
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 use petgraph::visit::EdgeRef;
@@ -89,6 +89,15 @@ where
             .unwrap_or_else(T::default_epsilon);
         let mut edge = Edge::new(ch_spec.id.as_str().to_string(), ch_spec.kind);
         edge.resistance = seed_r;
+        edge.area = match ch_spec.cross_section {
+            CrossSectionSpec::Circular { diameter_m } => {
+                T::from_f64(std::f64::consts::PI * (diameter_m / 2.0).powi(2))
+                    .unwrap_or(T::zero())
+            }
+            CrossSectionSpec::Rectangular { width_m, height_m } => {
+                T::from_f64(width_m * height_m).unwrap_or(T::zero())
+            }
+        };
 
         let edge_idx = builder.add_edge(from_idx, to_idx, edge);
         edge_specs.push((edge_idx, ch_spec));
@@ -132,8 +141,13 @@ where
             }
         };
 
+        let channel_type = match ch_spec.channel_shape {
+            ChannelShape::Serpentine { segments, .. } => ChannelType::Serpentine { turns: segments.saturating_sub(1) },
+            ChannelShape::Straight => ChannelType::Straight,
+        };
+
         let channel_geometry = ChannelGeometry {
-            channel_type: ChannelType::Straight,
+            channel_type,
             length,
             cross_section,
             surface: SurfaceProperties {
@@ -168,6 +182,203 @@ where
             if let Some(edge) = network.graph.edge_weight_mut(*edge_idx) {
                 edge.resistance = r;
                 edge.quad_coeff = k;
+            }
+        }
+    }
+
+    // ── Junction K-factor post-pass ──────────────────────────────────────────
+    //
+    // After H-P resistances are set, augment the quadratic coefficient on edges
+    // adjacent to internal junction nodes using experimentally-derived K-factors.
+    //
+    // # Theorem — Junction Minor Loss
+    //
+    // ΔP = K · ½ρv² = K · ρQ² / (2A²)
+    //
+    // Adding K·ρ/(2A²) to the edge's quad_coeff models the minor loss as a
+    // quadratic resistance term: ΔP = (R_lin + K·ρ/(2A²)) · Q².
+    //
+    // K-factors (Idelchik 2007):
+    //   - Cross-junction (dividing): K_branch = 1.3, K_run = 0.05
+    //   - Cross-junction (combining): K_branch = 1.2, K_run = 0.05
+    //   - T-junction (dividing): K_branch = 1.0, K_run = 0.05
+    //   - T-junction (combining): K_branch = 1.5, K_run = 0.04
+    //
+    // Only internal nodes (NodeType::Junction) with combined degree ≥ 3 receive
+    // this treatment.  Inlet/outlet nodes are excluded.
+    {
+        use crate::network::NodeType;
+
+        // Collect (node_idx, in_degree, out_degree, total_degree) for internal nodes.
+        let junction_info: Vec<(petgraph::graph::NodeIndex, usize, usize, usize)> = network
+            .graph
+            .node_indices()
+            .filter_map(|idx| {
+                let node = network.graph.node_weight(idx)?;
+                if node.node_type != NodeType::Junction {
+                    return None;
+                }
+                let in_deg = network.graph.edges_directed(idx, petgraph::Direction::Incoming).count();
+                let out_deg = network.graph.edges_directed(idx, petgraph::Direction::Outgoing).count();
+                let total = in_deg + out_deg;
+                if total >= 3 {
+                    Some((idx, in_deg, out_deg, total))
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        // Blood density constant for millifluidic blood flows.
+        let rho_blood: T = T::from_f64(1060.0).unwrap_or_else(T::one);
+        let two: T = T::from_f64(2.0).unwrap_or_else(T::one);
+
+        for (node_idx, in_deg, out_deg, total) in junction_info {
+            // Classify junction type and select K-factors.
+            let (k_branch, k_run): (f64, f64) = if total == 4 && in_deg == 2 && out_deg == 2 {
+                // 90° cross-junction: two streams enter, two leave.
+                (1.3_f64, 0.05_f64)
+            } else if in_deg == 1 && out_deg >= 2 {
+                // Dividing T-junction: one inlet → two+ branches.
+                (1.0_f64, 0.05_f64)
+            } else if in_deg >= 2 && out_deg == 1 {
+                // Combining T-junction: two+ branches → one run.
+                (1.5_f64, 0.04_f64)
+            } else {
+                // Generic branch: use conservative T-dividing value.
+                (1.0_f64, 0.05_f64)
+            };
+
+            let k_branch_t: T = T::from_f64(k_branch).unwrap_or_else(T::one);
+            let k_run_t: T = T::from_f64(k_run).unwrap_or_else(T::zero);
+
+            // Collect all adjacent edge indices and their areas.
+            // The "run" edges are those aligned with the primary flow direction:
+            // for a combining junction the single outgoing edge is the run;
+            // for a dividing junction the single incoming edge is the run.
+            let outgoing: Vec<petgraph::graph::EdgeIndex> = network
+                .graph
+                .edges_directed(node_idx, petgraph::Direction::Outgoing)
+                .map(|e| e.id())
+                .collect();
+            let incoming: Vec<petgraph::graph::EdgeIndex> = network
+                .graph
+                .edges_directed(node_idx, petgraph::Direction::Incoming)
+                .map(|e| e.id())
+                .collect();
+
+            // Determine run vs branch designations.
+            let (run_edges, branch_edges): (Vec<_>, Vec<_>) = if in_deg == 1 {
+                // Dividing: the single incoming edge is the "run".
+                (incoming.clone(), outgoing.clone())
+            } else if out_deg == 1 {
+                // Combining: the single outgoing edge is the "run".
+                (outgoing.clone(), incoming.clone())
+            } else {
+                // Cross or multi-branch: all edges are treated as branches.
+                (vec![], [incoming.clone(), outgoing.clone()].concat())
+            };
+
+            // Apply K_branch to branch edges.
+            for eidx in &branch_edges {
+                if let Some(edge) = network.graph.edge_weight_mut(*eidx) {
+                    let area_sq = edge.area * edge.area;
+                    // Skip degenerate non-positive areas to avoid dividing by zero.
+                    if area_sq > T::zero() {
+                        let k_correction = k_branch_t * rho_blood / (two * area_sq);
+                        edge.quad_coeff = edge.quad_coeff + k_correction;
+                    }
+                }
+            }
+
+            // Apply K_run to run edges (much smaller, mostly viscous).
+            for eidx in &run_edges {
+                if let Some(edge) = network.graph.edge_weight_mut(*eidx) {
+                    let area_sq = edge.area * edge.area;
+                    if area_sq > T::zero() {
+                        let k_correction = k_run_t * rho_blood / (two * area_sq);
+                        edge.quad_coeff = edge.quad_coeff + k_correction;
+                    }
+                }
+            }
+        }
+    }
+
+    // ── Dean-flow correction post-pass ───────────────────────────────────────
+    //
+    // For channels flagged as `ChannelShape::Serpentine`, replace the base
+    // rectangular/circular resistance with the full `SerpentineModel` which
+    // includes:
+    //   1. Shah-London straight-section friction (same as before)
+    //   2. Dean-number curvature enhancement to friction
+    //   3. Bend K-factor minor losses at each 180° U-turn
+    //
+    // This gives physically correct pressure-drop predictions for serpentine
+    // channels instead of treating them as straight ducts.
+    {
+        use crate::resistance::models::{SerpentineModel, SerpentineCrossSection};
+        use crate::resistance::models::FlowConditions as FC;
+        use crate::resistance::models::ResistanceModel as RM;
+
+        for (edge_idx, ch_spec) in &edge_specs {
+            let ChannelShape::Serpentine {
+                segments: total_segments,
+                bend_radius_m,
+            } = ch_spec.channel_shape
+            else {
+                continue;
+            };
+
+            let length_t = T::from_f64(ch_spec.length_m).unwrap_or(T::zero());
+            let bend_r = T::from_f64(bend_radius_m).unwrap_or(T::one());
+
+            let cross_section = match ch_spec.cross_section {
+                CrossSectionSpec::Circular { diameter_m } => {
+                    SerpentineCrossSection::Circular { diameter: diameter_m }
+                }
+                CrossSectionSpec::Rectangular { width_m, height_m } => {
+                    SerpentineCrossSection::Rectangular {
+                        width: width_m,
+                        height: height_m,
+                    }
+                }
+            };
+
+            // Each channel spec is ONE segment; bend count = (total_segments - 1)
+            // distributed evenly across segments. Each segment "owns" the bend
+            // at its downstream end, so segment i sees
+            //   bends_owned = if i < total_segments-1 { 1 } else { 0 }
+            // In aggregate the SerpentineModel with num_segments=1 produces
+            // num_bends=0 for the last segment. To average the bend losses
+            // evenly, we construct a model for ONE segment with a fractional
+            // bend mass: total model = 1 segment, bend losses from
+            // (total_segments - 1) / total_segments bends, scaled by 1 segment.
+            //
+            // Simpler: build a SerpentineModel for the whole serpentine, then
+            // divide per-segment to get the per-channel coefficients.
+
+            let total_length = length_t * T::from_usize(total_segments).unwrap_or(T::one());
+
+            let serp_model = SerpentineModel::new(
+                total_length,
+                total_segments,
+                cross_section,
+                bend_r,
+            );
+
+            let mut conds: FC<T> = FC::new(T::zero());
+            conds.flow_rate = Some(T::from_f64(1e-12).unwrap_or(T::zero()));
+
+            if let Ok((r_total, k_total)) = serp_model.calculate_coefficients(network.fluid(), &conds) {
+                // Per-segment share
+                let n_segs = T::from_usize(total_segments.max(1)).unwrap_or(T::one());
+                let r_seg = r_total / n_segs;
+                let k_seg = k_total / n_segs;
+
+                if let Some(edge) = network.graph.edge_weight_mut(*edge_idx) {
+                    edge.resistance = r_seg;
+                    edge.quad_coeff = k_seg;
+                }
             }
         }
     }

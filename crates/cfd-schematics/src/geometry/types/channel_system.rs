@@ -85,6 +85,26 @@ impl ChannelSystem {
         serde_json::from_str(json)
     }
 
+    /// Detect geometric channel crossings and insert explicit junction nodes.
+    ///
+    /// This is used when a schematic contains overlapping centerlines that
+    /// should be converted into explicit graph nodes before interchange export
+    /// or downstream 1D/3D processing.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use cfd_schematics::geometry::ChannelSystem;
+    ///
+    /// let mut system =
+    ///     ChannelSystem::from_json(r#"{"box_dims":[1.0,1.0],"nodes":[],"channels":[],"box_outline":[]}"#)
+    ///         .expect("json should parse");
+    /// let _ = system.resolve_channel_overlaps();
+    /// ```
+    pub fn resolve_channel_overlaps(&mut self) -> crate::geometry::IntersectionResult {
+        crate::geometry::insert_intersection_nodes(self)
+    }
+
     /// Validate structural integrity for downstream interchange and processing.
     ///
     /// This catches malformed imports before they are consumed by rendering or
@@ -237,26 +257,16 @@ impl ChannelSystem {
     /// ```
     #[must_use]
     pub fn get_lines(&self) -> Vec<(Point2D, Point2D)> {
-        let mut lines = self.box_outline.clone();
+        let channel_segments: usize = self
+            .channels
+            .iter()
+            .map(|channel| self.channel_segment_count(channel))
+            .sum();
+        let mut lines = Vec::with_capacity(self.box_outline.len() + channel_segments);
+        lines.extend_from_slice(&self.box_outline);
+
         for channel in &self.channels {
-            match &channel.channel_type {
-                ChannelType::Straight => {
-                    if let (Some(from), Some(to)) = (
-                        self.nodes.get(channel.from_node),
-                        self.nodes.get(channel.to_node),
-                    ) {
-                        lines.push((from.point, to.point));
-                    }
-                }
-                ChannelType::SmoothStraight { path }
-                | ChannelType::Serpentine { path }
-                | ChannelType::Arc { path }
-                | ChannelType::Frustum { path, .. } => {
-                    for segment in path.windows(2) {
-                        lines.push((segment[0], segment[1]));
-                    }
-                }
-            }
+            self.extend_channel_segments(channel, &mut lines);
         }
         lines
     }
@@ -291,32 +301,23 @@ impl ChannelSystem {
         Vec<(Point2D, Point2D)>,
         HashMap<ChannelTypeCategory, Vec<(Point2D, Point2D)>>,
     ) {
-        let boundary_lines = self.box_outline.clone();
+        let mut segment_counts: HashMap<ChannelTypeCategory, usize> = HashMap::new();
+        for channel in &self.channels {
+            let category = ChannelTypeCategory::from(&channel.channel_type);
+            *segment_counts.entry(category).or_insert(0) += self.channel_segment_count(channel);
+        }
+
+        let boundary_lines = self.box_outline.to_vec();
         let mut channel_lines: HashMap<ChannelTypeCategory, Vec<(Point2D, Point2D)>> =
-            HashMap::new();
+            HashMap::with_capacity(segment_counts.len());
+        for (category, count) in segment_counts {
+            channel_lines.insert(category, Vec::with_capacity(count));
+        }
 
         for channel in &self.channels {
             let category = ChannelTypeCategory::from(&channel.channel_type);
             let lines = channel_lines.entry(category).or_default();
-
-            match &channel.channel_type {
-                ChannelType::Straight => {
-                    if let (Some(from), Some(to)) = (
-                        self.nodes.get(channel.from_node),
-                        self.nodes.get(channel.to_node),
-                    ) {
-                        lines.push((from.point, to.point));
-                    }
-                }
-                ChannelType::SmoothStraight { path }
-                | ChannelType::Serpentine { path }
-                | ChannelType::Arc { path }
-                | ChannelType::Frustum { path, .. } => {
-                    for segment in path.windows(2) {
-                        lines.push((segment[0], segment[1]));
-                    }
-                }
-            }
+            self.extend_channel_segments(channel, lines);
         }
 
         (boundary_lines, channel_lines)
@@ -355,5 +356,41 @@ impl ChannelSystem {
                 ChannelType::Straight => None,
             })
             .collect()
+    }
+
+    #[inline]
+    fn channel_segment_count(&self, channel: &Channel) -> usize {
+        match &channel.channel_type {
+            ChannelType::Straight => usize::from(
+                self.nodes.get(channel.from_node).is_some()
+                    && self.nodes.get(channel.to_node).is_some(),
+            ),
+            ChannelType::SmoothStraight { path }
+            | ChannelType::Serpentine { path }
+            | ChannelType::Arc { path }
+            | ChannelType::Frustum { path, .. } => path.len().saturating_sub(1),
+        }
+    }
+
+    #[inline]
+    fn extend_channel_segments(&self, channel: &Channel, out: &mut Vec<(Point2D, Point2D)>) {
+        match &channel.channel_type {
+            ChannelType::Straight => {
+                if let (Some(from), Some(to)) = (
+                    self.nodes.get(channel.from_node),
+                    self.nodes.get(channel.to_node),
+                ) {
+                    out.push((from.point, to.point));
+                }
+            }
+            ChannelType::SmoothStraight { path }
+            | ChannelType::Serpentine { path }
+            | ChannelType::Arc { path }
+            | ChannelType::Frustum { path, .. } => {
+                for segment in path.windows(2) {
+                    out.push((segment[0], segment[1]));
+                }
+            }
+        }
     }
 }

@@ -91,7 +91,10 @@ impl InterfaceReconstruction {
     }
 
     /// Reconstruct interface normals and curvature
-    pub fn reconstruct<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy>(self, solver: &mut VofSolver<T>) {
+    pub fn reconstruct<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy>(
+        self,
+        solver: &mut VofSolver<T>,
+    ) {
         self.calculate_normals(solver);
         self.calculate_curvature(solver);
     }
@@ -99,7 +102,10 @@ impl InterfaceReconstruction {
     /// Calculate interface normal vectors using gradient of volume fraction.
     ///
     /// Uses cache blocking for improved memory access patterns on 3D grids.
-    fn calculate_normals<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy>(self, solver: &mut VofSolver<T>) {
+    fn calculate_normals<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy>(
+        self,
+        solver: &mut VofSolver<T>,
+    ) {
         for k_block in (1..solver.nz - 1).step_by(CACHE_BLOCK_SIZE_K) {
             for j_block in (1..solver.ny - 1).step_by(CACHE_BLOCK_SIZE_J) {
                 for i_block in (1..solver.nx - 1).step_by(CACHE_BLOCK_SIZE_I) {
@@ -113,21 +119,26 @@ impl InterfaceReconstruction {
                                 let idx = solver.index(i, j, k);
                                 let alpha = solver.alpha[idx];
 
-                                let interface_lower = <T as FromPrimitive>::from_f64(VOF_INTERFACE_LOWER)
-                                    .expect("Failed to represent VOF_INTERFACE_LOWER constant");
-                                let interface_upper = <T as FromPrimitive>::from_f64(VOF_INTERFACE_UPPER)
-                                    .expect("Failed to represent VOF_INTERFACE_UPPER constant");
+                                let interface_lower =
+                                    <T as FromPrimitive>::from_f64(VOF_INTERFACE_LOWER)
+                                        .expect("Failed to represent VOF_INTERFACE_LOWER constant");
+                                let interface_upper =
+                                    <T as FromPrimitive>::from_f64(VOF_INTERFACE_UPPER)
+                                        .expect("Failed to represent VOF_INTERFACE_UPPER constant");
 
                                 if alpha > interface_lower && alpha < interface_upper {
                                     match self {
                                         Self::PLIC => {
-                                            let (normal, _) = self.plic_reconstruction(solver, i, j, k);
+                                            let (normal, _) =
+                                                self.plic_reconstruction(solver, i, j, k);
                                             solver.normals[idx] = normal;
                                         }
                                         Self::Gradient => {
                                             let normal = self.calculate_gradient(solver, i, j, k);
-                                            let epsilon = <T as FromPrimitive>::from_f64(VOF_EPSILON)
-                                                .expect("Failed to represent VOF_EPSILON constant");
+                                            let epsilon = <T as FromPrimitive>::from_f64(
+                                                VOF_EPSILON,
+                                            )
+                                            .expect("Failed to represent VOF_EPSILON constant");
                                             if normal.norm() > epsilon {
                                                 solver.normals[idx] = normal.normalize();
                                             } else {
@@ -202,7 +213,8 @@ impl InterfaceReconstruction {
 
         // 2. Find plane constant that conserves volume
         let target = solver.alpha[solver.index(i, j, k)];
-        let plane_constant = self.find_plane_constant(normal, target, solver.dx, solver.dy, solver.dz);
+        let plane_constant =
+            self.find_plane_constant(normal, target, solver.dx, solver.dy, solver.dz);
 
         (normal, plane_constant)
     }
@@ -224,9 +236,8 @@ impl InterfaceReconstruction {
 
         let cell_volume = dx * dy * dz;
         let mut c_min = T::zero();
-        let mut c_max = Float::abs(normal.x) * dx
-            + Float::abs(normal.y) * dy
-            + Float::abs(normal.z) * dz;
+        let mut c_max =
+            Float::abs(normal.x) * dx + Float::abs(normal.y) * dy + Float::abs(normal.z) * dz;
 
         let tolerance = <T as FromPrimitive>::from_f64(constants::PLIC_TOLERANCE)
             .expect("Failed to represent PLIC_TOLERANCE constant");
@@ -256,7 +267,10 @@ impl InterfaceReconstruction {
     /// `κ = −∇·n̂ = −(∂n̂_x/∂x + ∂n̂_y/∂y + ∂n̂_z/∂z)`
     ///
     /// Uses second-order central differences on the pre-computed normal field.
-    fn calculate_curvature<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy>(self, solver: &mut VofSolver<T>) {
+    fn calculate_curvature<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy>(
+        self,
+        solver: &mut VofSolver<T>,
+    ) {
         let two = <T as FromPrimitive>::from_f64(2.0).expect("Failed to represent constant 2.0");
         let interface_lower = <T as FromPrimitive>::from_f64(VOF_INTERFACE_LOWER)
             .expect("Failed to represent VOF_INTERFACE_LOWER constant");
@@ -284,11 +298,14 @@ impl InterfaceReconstruction {
                                     let idx_zm = solver.index(i, j, k - 1);
                                     let idx_zp = solver.index(i, j, k + 1);
 
-                                    let dnx_dx = (solver.normals[idx_xp].x - solver.normals[idx_xm].x)
+                                    let dnx_dx = (solver.normals[idx_xp].x
+                                        - solver.normals[idx_xm].x)
                                         / (two * solver.dx);
-                                    let dny_dy = (solver.normals[idx_yp].y - solver.normals[idx_ym].y)
+                                    let dny_dy = (solver.normals[idx_yp].y
+                                        - solver.normals[idx_ym].y)
                                         / (two * solver.dy);
-                                    let dnz_dz = (solver.normals[idx_zp].z - solver.normals[idx_zm].z)
+                                    let dnz_dz = (solver.normals[idx_zp].z
+                                        - solver.normals[idx_zm].z)
                                         / (two * solver.dz);
 
                                     solver.curvature[idx] = -(dnx_dx + dny_dy + dnz_dz);

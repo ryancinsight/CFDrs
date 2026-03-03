@@ -30,8 +30,7 @@ mod tests {
         };
 
         // Simulate hydrodynamic cavitation (no acoustic field)
-        let classifier =
-            CavitationRegimeClassifier::new(bubble_model, throat_pressure, None, None);
+        let classifier = CavitationRegimeClassifier::new(bubble_model, throat_pressure, None, None);
 
         let analysis = classifier.analyze().unwrap();
 
@@ -127,7 +126,7 @@ mod tests {
 
         // Wall shear stress estimate
         let shear_stress = 4.0 * mu * velocity / d_throat; // Factor of 4 for parabolic profile
-        // τ ≈ 2800 Pa - extreme shear!
+                                                           // τ ≈ 2800 Pa - extreme shear!
 
         // Exposure time: residence time in throat
         let throat_length = 200e-6; // 200 μm
@@ -201,7 +200,10 @@ mod tests {
 
         println!("\nCavitation-Enhanced Hemolysis:");
         println!("  Baseline damage: {:.2e}", baseline_damage);
-        println!("  Collapse impact pressure: {:.1} MPa", impact_pressure / 1e6);
+        println!(
+            "  Collapse impact pressure: {:.1} MPa",
+            impact_pressure / 1e6
+        );
         println!("  Cavitation-enhanced damage: {:.2e}", cavitation_damage);
         println!(
             "  Enhancement factor: {:.1}×",
@@ -252,10 +254,7 @@ mod tests {
             bubble_model.initial_radius / collapse_radius
         );
         println!("  Peak temperature: {:.0} K", estimate.peak_temperature);
-        println!(
-            "  Peak pressure: {:.1} GPa",
-            estimate.peak_pressure / 1e9
-        );
+        println!("  Peak pressure: {:.1} GPa", estimate.peak_pressure / 1e9);
         println!("  Radiated energy: {:.2e} J", estimate.radiated_energy);
         println!(
             "  Radiated power: {:.2e} W",
@@ -271,10 +270,7 @@ mod tests {
             estimate.peak_pressure > ambient_pressure,
             "Peak pressure should exceed ambient"
         );
-        assert!(
-            estimate.radiated_energy > 0.0,
-            "Must radiate some energy"
-        );
+        assert!(estimate.radiated_energy > 0.0, "Must radiate some energy");
 
         // For strong collapse (50× compression), expect temperatures > 1000 K
         assert!(
@@ -360,8 +356,16 @@ mod tests {
         let throat_pressure = 101325.0 - pressure_drop; // ~ -27 kPa gauge
 
         println!("\nVenturi Device Assessment:");
-        println!("  Inlet: D={} mm, U={} m/s", inlet_diameter * 1e3, inlet_velocity);
-        println!("  Throat: D={} mm, U={:.1} m/s", throat_diameter * 1e3, throat_velocity);
+        println!(
+            "  Inlet: D={} mm, U={} m/s",
+            inlet_diameter * 1e3,
+            inlet_velocity
+        );
+        println!(
+            "  Throat: D={} mm, U={:.1} m/s",
+            throat_diameter * 1e3,
+            throat_velocity
+        );
         println!("  Pressure drop: {:.1} kPa", pressure_drop / 1e3);
         println!("  Throat pressure: {:.1} kPa", throat_pressure / 1e3);
 
@@ -390,7 +394,10 @@ mod tests {
         let throat_length = 1e-3; // 1 mm
         let exposure_time = throat_length / throat_velocity;
 
-        let damage = calc.model().damage_index(shear_stress, exposure_time).unwrap();
+        let damage = calc
+            .model()
+            .damage_index(shear_stress, exposure_time)
+            .unwrap();
         let delta_hb = calc.hemoglobin_release(damage);
 
         let trauma = BloodTrauma {

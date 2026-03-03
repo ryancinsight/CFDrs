@@ -50,7 +50,9 @@ pub fn stress_tensor<T: cfd_mesh::domain::core::Scalar + RealField + Copy>(
 /// Calculate strain rate tensor from velocity gradient.
 ///
 /// $\dot{\epsilon} = 0.5 (\nabla u + (\nabla u)^T)$
-pub fn strain_rate_tensor<T: cfd_mesh::domain::core::Scalar + RealField + Copy>(velocity_gradient: &Matrix3<T>) -> Matrix3<T> {
+pub fn strain_rate_tensor<T: cfd_mesh::domain::core::Scalar + RealField + Copy>(
+    velocity_gradient: &Matrix3<T>,
+) -> Matrix3<T> {
     let half = <T as FromPrimitive>::from_f64(0.5).unwrap_or_else(T::zero);
     (velocity_gradient + velocity_gradient.transpose()) * half
 }

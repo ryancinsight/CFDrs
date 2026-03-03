@@ -55,29 +55,42 @@
 
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::boundary::BoundaryCondition;
-use cfd_math::linear_solver::{ConjugateGradient, GMRES, IdentityPreconditioner, IterativeLinearSolver};
+use cfd_math::linear_solver::{
+    ConjugateGradient, IdentityPreconditioner, IterativeLinearSolver, GMRES,
+};
 use cfd_math::sparse::{SparseMatrix, SparseMatrixBuilder};
 use nalgebra::{DVector, RealField, Vector3};
 use num_traits::{Float, FromPrimitive};
 use std::collections::HashSet;
 
-use cfd_mesh::IndexedMesh;
-use crate::fem::{FemConfig, StokesFlowProblem, StokesFlowSolution};
-use crate::fem::shape_functions::LagrangeTet10;
 use crate::fem::quadrature::TetrahedronQuadrature;
+use crate::fem::shape_functions::LagrangeTet10;
 use crate::fem::solver::extract_vertex_indices;
+use crate::fem::{FemConfig, StokesFlowProblem, StokesFlowSolution};
+use cfd_mesh::IndexedMesh;
 
 /// Pressure projection solver for incompressible Stokes/Navier-Stokes equations
-pub struct ProjectionSolver<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + Float + std::fmt::Debug> {
+pub struct ProjectionSolver<
+    T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + Float + std::fmt::Debug,
+> {
     _config: FemConfig<T>,
     /// Time step for transient simulations
     dt: T,
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> ProjectionSolver<T> {
+impl<
+        T: cfd_mesh::domain::core::Scalar
+            + RealField
+            + FromPrimitive
+            + Copy
+            + Float
+            + std::fmt::Debug
+            + From<f64>,
+    > ProjectionSolver<T>
+{
     /// Create new projection solver with default time step
     pub fn new(config: FemConfig<T>) -> Self {
-        Self { 
+        Self {
             _config: config,
             dt: <T as FromPrimitive>::from_f64(0.001).unwrap_or_else(T::one),
         }
@@ -85,7 +98,10 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
 
     /// Create projection solver with specified time step
     pub fn with_timestep(config: FemConfig<T>, dt: T) -> Self {
-        Self { _config: config, dt }
+        Self {
+            _config: config,
+            dt,
+        }
     }
 
     /// Solve using projection method
@@ -94,7 +110,10 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
         problem: &StokesFlowProblem<T>,
         previous_solution: Option<&StokesFlowSolution<T>>,
     ) -> Result<StokesFlowSolution<T>> {
-        println!("  Starting Chorin's projection method (dt={:?})...", self.dt);
+        println!(
+            "  Starting Chorin's projection method (dt={:?})...",
+            self.dt
+        );
 
         let n_nodes = problem.mesh.vertex_count();
         let n_corner_nodes = problem.n_corner_nodes;
@@ -103,7 +122,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
         // Step 1: Momentum prediction (solve for u*)
         println!("  Step 1: Momentum prediction...");
         let (momentum_matrix, momentum_rhs) = self.assemble_momentum_system(problem)?;
-        
+
         let mut u_star = if let Some(sol) = previous_solution {
             sol.velocity.clone()
         } else {
@@ -116,21 +135,27 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
             tolerance: <T as FromPrimitive>::from_f64(1e-10).unwrap_or_else(T::zero),
             ..cfd_math::linear_solver::IterativeSolverConfig::default()
         };
-        
+
         let momentum_solver = GMRES::new(gmres_config, 100);
-        let monitor = momentum_solver.solve(&momentum_matrix, &momentum_rhs, &mut u_star, None::<&IdentityPreconditioner>)
+        let monitor = momentum_solver
+            .solve(
+                &momentum_matrix,
+                &momentum_rhs,
+                &mut u_star,
+                None::<&IdentityPreconditioner>,
+            )
             .map_err(|e| Error::Solver(format!("Momentum solve failed: {e}")))?;
-        
-        println!("    ✓ Momentum converged in {} iterations (resid={:?})", 
-            monitor.iteration, monitor.residual_history.last());
+
+        println!(
+            "    ✓ Momentum converged in {} iterations (resid={:?})",
+            monitor.iteration,
+            monitor.residual_history.last()
+        );
 
         // Step 2: Pressure Poisson equation
         println!("  Step 2: Pressure Poisson equation...");
-        let (pressure_matrix, pressure_rhs) = self.assemble_pressure_poisson(
-            problem,
-            &u_star,
-        )?;
-        
+        let (pressure_matrix, pressure_rhs) = self.assemble_pressure_poisson(problem, &u_star)?;
+
         let mut pressure = if let Some(sol) = previous_solution {
             sol.pressure.clone()
         } else {
@@ -139,23 +164,37 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
 
         // Use Conjugate Gradient for pressure (symmetric positive definite after pinning)
         let cg_solver = ConjugateGradient::new(gmres_config);
-        let monitor = cg_solver.solve(&pressure_matrix, &pressure_rhs, &mut pressure, None::<&IdentityPreconditioner>)
+        let monitor = cg_solver
+            .solve(
+                &pressure_matrix,
+                &pressure_rhs,
+                &mut pressure,
+                None::<&IdentityPreconditioner>,
+            )
             .map_err(|e| Error::Solver(format!("Pressure solve failed: {e}")))?;
-        
-        println!("    ✓ Pressure converged in {} iterations (resid={:?})", 
-            monitor.iteration, monitor.residual_history.last());
+
+        println!(
+            "    ✓ Pressure converged in {} iterations (resid={:?})",
+            monitor.iteration,
+            monitor.residual_history.last()
+        );
 
         // Step 3: Velocity correction (project onto divergence-free space)
         println!("  Step 3: Velocity correction...");
         let velocity = self.correct_velocity(problem, &u_star, &pressure)?;
-        
+
         // Compute divergence for verification
         let max_div = self.compute_max_divergence(problem, &velocity)?;
         println!("    ✓ Max divergence after correction: {max_div:?}");
-        
+
         println!("  ✓ Projection method complete");
 
-        Ok(StokesFlowSolution::new_with_corners(velocity, pressure, n_nodes, n_corner_nodes))
+        Ok(StokesFlowSolution::new_with_corners(
+            velocity,
+            pressure,
+            n_nodes,
+            n_corner_nodes,
+        ))
     }
 
     /// Assemble momentum system: (ρ/Δt)u* + μ∇²u - ρ(u·∇)u* = f + (ρ/Δt)u^n (without pressure gradient)
@@ -169,27 +208,36 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
         let mut builder = SparseMatrixBuilder::new(n_velocity_dof, n_velocity_dof);
         let mut rhs = DVector::zeros(n_velocity_dof);
 
-        let vertex_positions: Vec<Vector3<T>> = problem.mesh.vertices.iter()
-            .map(|v| v.1.position.coords).collect();
+        let vertex_positions: Vec<Vector3<T>> = problem
+            .mesh
+            .vertices
+            .iter()
+            .map(|v| v.1.position.coords)
+            .collect();
 
-        println!("    Assembling momentum matrix ({} elements)...", problem.mesh.cells.len());
+        println!(
+            "    Assembling momentum matrix ({} elements)...",
+            problem.mesh.cells.len()
+        );
 
         // Assemble viscous + transient terms (no pressure gradient)
         for (i, cell) in problem.mesh.cells.iter().enumerate() {
-            let viscosity = problem.element_viscosities.as_ref().map_or(problem.fluid.viscosity, |v| v[i]);
+            let viscosity = problem
+                .element_viscosities
+                .as_ref()
+                .map_or(problem.fluid.viscosity, |v| v[i]);
             let idxs = extract_vertex_indices(cell, &problem.mesh, problem.n_corner_nodes)?;
-            let positions: Vec<Vector3<T>> = idxs.iter()
-                .map(|&idx| vertex_positions[idx])
-                .collect();
+            let positions: Vec<Vector3<T>> =
+                idxs.iter().map(|&idx| vertex_positions[idx]).collect();
 
             self.assemble_element_momentum(
-                &mut builder, 
-                &mut rhs, 
-                &idxs, 
-                &positions, 
+                &mut builder,
+                &mut rhs,
+                &idxs,
+                &positions,
                 viscosity,
                 problem.fluid.density,
-                n_nodes
+                n_nodes,
             )?;
         }
 
@@ -210,21 +258,24 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
         let mut builder = SparseMatrixBuilder::new(n_corner_nodes, n_corner_nodes);
         let mut rhs = DVector::zeros(n_corner_nodes);
 
-        let vertex_positions: Vec<Vector3<T>> = problem.mesh.vertices.iter()
-            .map(|v| v.1.position.coords).collect();
+        let vertex_positions: Vec<Vector3<T>> = problem
+            .mesh
+            .vertices
+            .iter()
+            .map(|v| v.1.position.coords)
+            .collect();
 
         println!("    Assembling pressure Poisson matrix...");
 
         // Assemble Laplacian for pressure using P1 elements
         for cell in &problem.mesh.cells {
             let idxs = extract_vertex_indices(cell, &problem.mesh, problem.n_corner_nodes)?;
-            let positions: Vec<Vector3<T>> = idxs.iter()
-                .map(|&idx| vertex_positions[idx])
-                .collect();
+            let positions: Vec<Vector3<T>> =
+                idxs.iter().map(|&idx| vertex_positions[idx]).collect();
 
             // Pressure uses only corner nodes (P1 elements)
             let corner_idxs: Vec<usize> = idxs.iter().take(4).copied().collect();
-            
+
             self.assemble_element_pressure_laplacian(
                 &mut builder,
                 &mut rhs,
@@ -236,7 +287,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
         }
 
         let matrix = builder.build_with_rhs(&mut rhs)?;
-        
+
         // Pin one pressure DOF to remove null space
         let (matrix, rhs) = self.pin_pressure_reference(matrix, rhs)?;
 
@@ -250,8 +301,12 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
         u_star: &DVector<T>,
         pressure: &DVector<T>,
     ) -> Result<DVector<T>> {
-        let vertex_positions: Vec<Vector3<T>> = problem.mesh.vertices.iter()
-            .map(|v| v.1.position.coords).collect();
+        let vertex_positions: Vec<Vector3<T>> = problem
+            .mesh
+            .vertices
+            .iter()
+            .map(|v| v.1.position.coords)
+            .collect();
 
         let mut velocity = u_star.clone();
         let dt_over_rho = self.dt / problem.fluid.density;
@@ -259,15 +314,15 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
         // For each element, compute pressure gradient and correct velocity
         for cell in &problem.mesh.cells {
             let idxs = extract_vertex_indices(cell, &problem.mesh, problem.n_corner_nodes)?;
-            let positions: Vec<Vector3<T>> = idxs.iter()
-                .map(|&idx| vertex_positions[idx])
-                .collect();
+            let positions: Vec<Vector3<T>> =
+                idxs.iter().map(|&idx| vertex_positions[idx]).collect();
 
             let corner_idxs: Vec<usize> = idxs.iter().take(4).copied().collect();
-            
+
             // Get pressure gradient at element center (constant for P1 elements)
-            let pressure_grad = self.compute_pressure_gradient(&corner_idxs, &positions, pressure)?;
-            
+            let pressure_grad =
+                self.compute_pressure_gradient(&corner_idxs, &positions, pressure)?;
+
             // Correct velocities at all nodes of the element
             for &node_idx in &idxs {
                 for d in 0..3 {
@@ -284,7 +339,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
     }
 
     /// Assemble element contribution to momentum matrix (viscous + mass terms)
-    /// 
+    ///
     /// For the momentum prediction step:
     /// (ρ/Δt) ∫ N_i N_j dV + μ ∫ ∇N_i · ∇N_j dV
     fn assemble_element_momentum(
@@ -299,24 +354,22 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
     ) -> Result<()> {
         // Use quadrature for accurate integration
         let quad = TetrahedronQuadrature::keast_degree_3();
-        
+
         // Compute element Jacobian transformation
         let v0 = positions[0];
         let v1 = positions[1];
         let v2 = positions[2];
         let v3 = positions[3];
 
-        let j_mat = nalgebra::Matrix3::from_columns(&[
-            v1 - v0,
-            v2 - v0,
-            v3 - v0,
-        ]);
-        
+        let j_mat = nalgebra::Matrix3::from_columns(&[v1 - v0, v2 - v0, v3 - v0]);
+
         let det_j = j_mat.determinant();
         let abs_det = Float::abs(det_j);
-        
+
         if abs_det < <T as FromPrimitive>::from_f64(1e-20).unwrap() {
-            return Err(Error::Solver("Near-zero element volume in momentum assembly".to_string()));
+            return Err(Error::Solver(
+                "Near-zero element volume in momentum assembly".to_string(),
+            ));
         }
 
         let j_inv_t = j_mat
@@ -326,11 +379,20 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
 
         // P1 gradients in reference space
         let grad_ref_p1 = nalgebra::Matrix3x4::new(
-            -T::one(), T::one(), T::zero(), T::zero(),
-            -T::one(), T::zero(), T::one(), T::zero(),
-            -T::one(), T::zero(), T::zero(), T::one(),
+            -T::one(),
+            T::one(),
+            T::zero(),
+            T::zero(),
+            -T::one(),
+            T::zero(),
+            T::one(),
+            T::zero(),
+            -T::one(),
+            T::zero(),
+            T::zero(),
+            T::one(),
         );
-        
+
         // Transform to physical space
         let p1_gradients_phys = j_inv_t * grad_ref_p1;
         let shape = LagrangeTet10::new(p1_gradients_phys);
@@ -342,7 +404,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
         for (qp, &qw) in quad.points().iter().zip(quad.weights().iter()) {
             let weight = qw * abs_det;
             let l = [T::one() - qp.x - qp.y - qp.z, qp.x, qp.y, qp.z];
-            
+
             // P2 shape function values and gradients
             let n_p2 = shape.values(&l);
             let grad_p2 = shape.gradients(&l);
@@ -361,7 +423,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
 
                         // Mass matrix term: (ρ/Δt) N_i N_j
                         let mass_term = mass_coeff * n_p2[i] * n_p2[j] * weight;
-                        
+
                         // Viscous term: μ ∇N_i · ∇N_j
                         let visc_term = viscosity * grad_i.dot(&grad_j) * weight;
 
@@ -375,7 +437,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
     }
 
     /// Assemble element Laplacian for pressure Poisson equation
-    /// 
+    ///
     /// ∫ ∇N_i · ∇N_j dV for pressure (P1 elements)
     /// RHS: (ρ/Δt) ∫ N_i ∇·u* dV
     fn assemble_element_pressure_laplacian(
@@ -393,17 +455,15 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
         let v2 = positions[2];
         let v3 = positions[3];
 
-        let j_mat = nalgebra::Matrix3::from_columns(&[
-            v1 - v0,
-            v2 - v0,
-            v3 - v0,
-        ]);
-        
+        let j_mat = nalgebra::Matrix3::from_columns(&[v1 - v0, v2 - v0, v3 - v0]);
+
         let det_j = j_mat.determinant();
         let abs_det = Float::abs(det_j);
-        
+
         if abs_det < <T as FromPrimitive>::from_f64(1e-20).unwrap() {
-            return Err(Error::Solver("Near-zero element volume in pressure assembly".to_string()));
+            return Err(Error::Solver(
+                "Near-zero element volume in pressure assembly".to_string(),
+            ));
         }
 
         let j_inv_t = j_mat
@@ -413,11 +473,20 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
 
         // P1 gradients in reference space
         let grad_ref_p1 = nalgebra::Matrix3x4::new(
-            -T::one(), T::one(), T::zero(), T::zero(),
-            -T::one(), T::zero(), T::one(), T::zero(),
-            -T::one(), T::zero(), T::zero(), T::one(),
+            -T::one(),
+            T::one(),
+            T::zero(),
+            T::zero(),
+            -T::one(),
+            T::zero(),
+            T::one(),
+            T::zero(),
+            -T::one(),
+            T::zero(),
+            T::zero(),
+            T::one(),
         );
-        
+
         // Transform to physical space (constant for P1)
         let grad_p1_phys = j_inv_t * grad_ref_p1;
 
@@ -425,7 +494,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
         // K_ij = ∫ ∇N_i · ∇N_j dV = (∇N_i · ∇N_j) * V/4
         // Using exact integration for linear elements
         let vol = abs_det / <T as FromPrimitive>::from_f64(6.0).unwrap();
-        
+
         for i in 0..4 {
             let grad_i = grad_p1_phys.column(i);
             for j in 0..4 {
@@ -439,18 +508,15 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
         // For P1, N_i is linear, so we use quadrature
         let quad = TetrahedronQuadrature::keast_degree_3();
         let rho_over_dt = density / self.dt;
-        
+
         for (qp, &qw) in quad.points().iter().zip(quad.weights().iter()) {
             let weight = qw * abs_det;
             let l = [T::one() - qp.x - qp.y - qp.z, qp.x, qp.y, qp.z];
-            
+
             // Compute divergence of u* at this quadrature point
-            let div_u = self.compute_divergence_at_quad_point(
-                corner_indices, 
-                &grad_p1_phys, 
-                u_star
-            );
-            
+            let div_u =
+                self.compute_divergence_at_quad_point(corner_indices, &grad_p1_phys, u_star);
+
             for i in 0..4 {
                 rhs[corner_indices[i]] += rho_over_dt * l[i] * div_u * weight;
             }
@@ -467,31 +533,31 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
         velocity: &DVector<T>,
     ) -> T {
         let mut div = T::zero();
-        
+
         // ∇·u = Σ (∂u_x/∂x + ∂u_y/∂y + ∂u_z/∂z)
         // For P1 interpolation: u = Σ N_i u_i
         // ∇u = Σ u_i ⊗ ∇N_i
         // ∇·u = Σ u_i · ∇N_i (sum over components)
-        
+
         for (i, &node_idx) in corner_indices.iter().enumerate() {
             let grad_n = grad_p1_phys.column(i);
-            
+
             // Get velocity at this node
             let u_x = velocity[node_idx * 3];
             let u_y = velocity[node_idx * 3 + 1];
             let u_z = velocity[node_idx * 3 + 2];
-            
+
             // Contribution to divergence: u · ∇N = u_x * ∂N/∂x + u_y * ∂N/∂y + u_z * ∂N/∂z
             // But we need ∂u_x/∂x + ∂u_y/∂y + ∂u_z/∂z
             // = Σ u_x_i * ∂N_i/∂x + Σ u_y_i * ∂N_i/∂y + Σ u_z_i * ∂N_i/∂z
             div += u_x * grad_n.x + u_y * grad_n.y + u_z * grad_n.z;
         }
-        
+
         div
     }
 
     /// Compute pressure gradient from nodal pressures (P1 elements)
-    /// 
+    ///
     /// For P1 elements, pressure gradient is constant within element:
     /// ∇p = Σ p_i ∇N_i
     fn compute_pressure_gradient(
@@ -505,12 +571,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
         let v2 = positions[2];
         let v3 = positions[3];
 
-        let j_mat = nalgebra::Matrix3::from_columns(&[
-            v1 - v0,
-            v2 - v0,
-            v3 - v0,
-        ]);
-        
+        let j_mat = nalgebra::Matrix3::from_columns(&[v1 - v0, v2 - v0, v3 - v0]);
+
         let j_inv_t = j_mat
             .try_inverse()
             .ok_or_else(|| Error::Solver("Singular Jacobian in pressure gradient".to_string()))?
@@ -518,16 +580,25 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
 
         // P1 gradients in reference space
         let grad_ref_p1 = nalgebra::Matrix3x4::new(
-            -T::one(), T::one(), T::zero(), T::zero(),
-            -T::one(), T::zero(), T::one(), T::zero(),
-            -T::one(), T::zero(), T::zero(), T::one(),
+            -T::one(),
+            T::one(),
+            T::zero(),
+            T::zero(),
+            -T::one(),
+            T::zero(),
+            T::one(),
+            T::zero(),
+            -T::one(),
+            T::zero(),
+            T::zero(),
+            T::one(),
         );
-        
+
         let grad_p1_phys = j_inv_t * grad_ref_p1;
 
         // ∇p = Σ p_i ∇N_i
         let mut grad_p = Vector3::zeros();
-        
+
         for (i, &node_idx) in corner_indices.iter().enumerate() {
             if node_idx < pressure.len() {
                 let p_i = pressure[node_idx];
@@ -548,7 +619,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
     ) -> Result<(SparseMatrix<T>, DVector<T>)> {
         let n_nodes = problem.mesh.vertex_count();
         let v_offset = n_nodes;
-        
+
         // Compute mesh scale for diagonal scaling
         let mesh_scale = compute_mesh_scale(&problem.mesh);
         let diag_scale = problem.fluid.viscosity * mesh_scale;
@@ -578,7 +649,10 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
                         }
                     }
                 }
-                BoundaryCondition::Dirichlet { value, component_values } => {
+                BoundaryCondition::Dirichlet {
+                    value,
+                    component_values,
+                } => {
                     if let Some(comps) = component_values {
                         for d in 0..3 {
                             if let Some(Some(val)) = comps.get(d) {
@@ -619,7 +693,9 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
     ) -> Result<()> {
         for (&node_idx, bc) in &problem.boundary_conditions {
             match bc {
-                BoundaryCondition::VelocityInlet { velocity: inlet_vel } => {
+                BoundaryCondition::VelocityInlet {
+                    velocity: inlet_vel,
+                } => {
                     for d in 0..3 {
                         velocity[node_idx * 3 + d] = inlet_vel[d];
                     }
@@ -629,7 +705,10 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
                         velocity[node_idx * 3 + d] = T::zero();
                     }
                 }
-                BoundaryCondition::Dirichlet { value, component_values } => {
+                BoundaryCondition::Dirichlet {
+                    value,
+                    component_values,
+                } => {
                     if let Some(comps) = component_values {
                         for d in 0..3 {
                             if let Some(Some(val)) = comps.get(d) {
@@ -661,13 +740,13 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
 
         // Compute diagonal scale for pressure DOF
         let diag_scale = T::one();
-        
+
         let mut builder = csr_to_builder(matrix);
-        
+
         // Pin first pressure DOF to zero
         builder.set_dirichlet_row(0, diag_scale, T::zero());
         rhs[0] = T::zero();
-        
+
         println!("    Pinned pressure DOF 0 to zero (reference pressure)");
 
         let matrix = builder.build_with_rhs(&mut rhs)?;
@@ -680,7 +759,10 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
         problem: &StokesFlowProblem<T>,
         velocity: &DVector<T>,
     ) -> Result<T> {
-        let vertex_positions: Vec<Vector3<T>> = problem.mesh.vertices.iter()
+        let vertex_positions: Vec<Vector3<T>> = problem
+            .mesh
+            .vertices
+            .iter()
             .map(|v| v.1.position.coords)
             .collect();
 
@@ -688,9 +770,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
 
         for cell in &problem.mesh.cells {
             let idxs = extract_vertex_indices(cell, &problem.mesh, problem.n_corner_nodes)?;
-            let positions: Vec<Vector3<T>> = idxs.iter()
-                .map(|&idx| vertex_positions[idx])
-                .collect();
+            let positions: Vec<Vector3<T>> =
+                idxs.iter().map(|&idx| vertex_positions[idx]).collect();
 
             let corner_idxs: Vec<usize> = idxs.iter().take(4).copied().collect();
 
@@ -700,12 +781,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
             let v2 = positions[2];
             let v3 = positions[3];
 
-            let j_mat = nalgebra::Matrix3::from_columns(&[
-                v1 - v0,
-                v2 - v0,
-                v3 - v0,
-            ]);
-            
+            let j_mat = nalgebra::Matrix3::from_columns(&[v1 - v0, v2 - v0, v3 - v0]);
+
             let j_inv_t = match j_mat.try_inverse() {
                 Some(inv) => inv.transpose(),
                 None => continue,
@@ -713,15 +790,24 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
 
             // P1 gradients
             let grad_ref_p1 = nalgebra::Matrix3x4::new(
-                -T::one(), T::one(), T::zero(), T::zero(),
-                -T::one(), T::zero(), T::one(), T::zero(),
-                -T::one(), T::zero(), T::zero(), T::one(),
+                -T::one(),
+                T::one(),
+                T::zero(),
+                T::zero(),
+                -T::one(),
+                T::zero(),
+                T::one(),
+                T::zero(),
+                -T::one(),
+                T::zero(),
+                T::zero(),
+                T::one(),
             );
             let grad_p1_phys = j_inv_t * grad_ref_p1;
 
             // Compute divergence at element center
             let div = self.compute_divergence_at_quad_point(&corner_idxs, &grad_p1_phys, velocity);
-            
+
             if Float::abs(div) > max_div {
                 max_div = Float::abs(div);
             }
@@ -732,7 +818,9 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
 }
 
 /// Convert a CsrMatrix into a SparseMatrixBuilder so that Dirichlet BCs can be applied.
-fn csr_to_builder<T: cfd_mesh::domain::core::Scalar + RealField + Copy>(matrix: SparseMatrix<T>) -> SparseMatrixBuilder<T> {
+fn csr_to_builder<T: cfd_mesh::domain::core::Scalar + RealField + Copy>(
+    matrix: SparseMatrix<T>,
+) -> SparseMatrixBuilder<T> {
     let nrows = matrix.nrows();
     let ncols = matrix.ncols();
     let nnz = matrix.nnz();
@@ -750,13 +838,13 @@ fn csr_to_builder<T: cfd_mesh::domain::core::Scalar + RealField + Copy>(matrix: 
     builder
 }
 
-
-
 /// Compute mesh scale for diagonal scaling
-fn compute_mesh_scale<T: cfd_mesh::domain::core::Scalar + RealField + Copy + Float>(mesh: &IndexedMesh<T>) -> T {
+fn compute_mesh_scale<T: cfd_mesh::domain::core::Scalar + RealField + Copy + Float>(
+    mesh: &IndexedMesh<T>,
+) -> T {
     let mut min = Vector3::new(T::infinity(), T::infinity(), T::infinity());
     let mut max = Vector3::new(T::neg_infinity(), T::neg_infinity(), T::neg_infinity());
-    
+
     for v in mesh.vertices.iter() {
         let p = v.1.position.coords;
         min.x = Float::min(min.x, p.x);
@@ -766,7 +854,7 @@ fn compute_mesh_scale<T: cfd_mesh::domain::core::Scalar + RealField + Copy + Flo
         max.y = Float::max(max.y, p.y);
         max.z = Float::max(max.z, p.z);
     }
-    
+
     (max - min).norm()
 }
 

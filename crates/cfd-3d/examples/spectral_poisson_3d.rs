@@ -16,9 +16,9 @@
 //! Canuto, C. et al. (2006). "Spectral Methods: Fundamentals in Single Domains".
 //! Springer. Chapter 3: Spectral approximation on the interval.
 
-use cfd_3d::spectral::{SpectralConfig, SpectralSolver};
 use cfd_3d::spectral::poisson::PoissonBoundaryCondition;
 use cfd_3d::spectral::solver::PoissonProblem;
+use cfd_3d::spectral::{SpectralConfig, SpectralSolver};
 use nalgebra::DVector;
 use std::f64::consts::PI;
 
@@ -36,7 +36,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mode_counts = [4, 6, 8, 10, 12];
 
     println!("\nConvergence Study:");
-    println!("  {:>6} {:>12} {:>12} {:>12}", "N", "L2 Error", "Linf Error", "DOFs");
+    println!(
+        "  {:>6} {:>12} {:>12} {:>12}",
+        "N", "L2 Error", "Linf Error", "DOFs"
+    );
     println!("  {}", "-".repeat(48));
 
     let mut prev_l2 = f64::MAX;
@@ -69,7 +72,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let (l2_err, linf_err) = compute_errors(&solution.u, n);
         let dofs = n * n * n;
 
-        println!("  {:>6} {:>12.4e} {:>12.4e} {:>12}", n, l2_err, linf_err, dofs);
+        println!(
+            "  {:>6} {:>12.4e} {:>12.4e} {:>12}",
+            n, l2_err, linf_err, dofs
+        );
 
         // Verify convergence (error should decrease)
         if n > mode_counts[0] {

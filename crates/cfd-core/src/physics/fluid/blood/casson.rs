@@ -310,7 +310,6 @@ impl<T: RealField + FromPrimitive + Copy> NonNewtonianFluid<T> for CassonBlood<T
 #[cfg(test)]
 mod tests {
     use super::*;
-    use approx::assert_relative_eq;
 
     #[test]
     fn test_casson_normal_blood_creation() {
@@ -447,7 +446,4 @@ mod tests {
         assert!((mu_default - mu_37).abs() < 1e-12);
     }
 
-    // Suppress unused import warning — assert_relative_eq is used in sibling test modules
-    #[allow(unused_imports)]
-    use approx::assert_relative_eq as _assert_rel_eq;
 }

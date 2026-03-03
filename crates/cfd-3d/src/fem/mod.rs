@@ -20,20 +20,22 @@
 //!   A stable Petrov-Galerkin formulation of the Stokes problem accommodating equal-order interpolations"
 //! - Donea, J., Huerta, A. (2003). "Finite Element Methods for Flow Problems"
 
+pub mod boundary_classifier;
 pub mod config;
 pub mod constants;
 pub mod element;
 pub mod fluid;
 pub mod problem;
 pub mod projection_solver;
+pub mod quadrature;
+pub mod shape_functions;
 pub mod solution;
 pub mod solver;
 pub mod stabilization;
 pub mod stress;
-pub mod quadrature;
-pub mod shape_functions;
 
 // Re-export main types for convenience
+pub use boundary_classifier::{AxialBoundaryClassifier, BoundaryFaceSets};
 pub use config::FemConfig;
 pub use element::{ElementMatrices, FluidElement};
 pub use fluid::FluidProperties;

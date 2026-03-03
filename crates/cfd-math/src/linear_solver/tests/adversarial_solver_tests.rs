@@ -14,7 +14,7 @@
 
 use crate::linear_solver::preconditioners::IdentityPreconditioner;
 use crate::linear_solver::traits::IterativeLinearSolver;
-use crate::linear_solver::{BiCGSTAB, ConjugateGradient, GMRES};
+use crate::linear_solver::{BiCGSTAB, ConjugateGradient};
 use crate::linear_solver::IterativeSolverConfig;
 use crate::sparse::SparseMatrixBuilder;
 use nalgebra::DVector;
@@ -45,16 +45,6 @@ fn ill_conditioned_diagonal(n: usize) -> CsrMatrix<f64> {
         // Condition number = 10^14 / 1 = 10^14
         let val = if i == 0 { 1e14_f64 } else { 1.0 };
         coo.push(i, i, val);
-    }
-    CsrMatrix::from(&coo)
-}
-
-/// Build a negative-definite diagonal matrix.
-/// CG cannot converge on indefinite or negative-definite systems.
-fn negative_definite(n: usize) -> CsrMatrix<f64> {
-    let mut coo = CooMatrix::new(n, n);
-    for i in 0..n {
-        coo.push(i, i, -(i as f64 + 1.0));
     }
     CsrMatrix::from(&coo)
 }

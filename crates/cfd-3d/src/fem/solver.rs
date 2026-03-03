@@ -24,27 +24,41 @@
 
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::boundary::BoundaryCondition;
-use cfd_math::linear_solver::{
-    BiCGSTAB, BlockDiagonalPreconditioner, DirectSparseSolver, GMRES, IncompleteLU,
-};
+use cfd_math::linear_solver::{LinearSolverChain, GMRES};
 use cfd_math::sparse::{SparseMatrix, SparseMatrixBuilder};
 use nalgebra::{DVector, RealField, Vector3};
 use num_traits::{Float, FromPrimitive};
 use tracing;
 
-use crate::fem::{FemConfig, StokesFlowProblem, StokesFlowSolution};
-use crate::fem::shape_functions::LagrangeTet10;
 use crate::fem::quadrature::TetrahedronQuadrature;
-use cfd_mesh::IndexedMesh;
+use crate::fem::shape_functions::LagrangeTet10;
+use crate::fem::{FemConfig, StokesFlowProblem, StokesFlowSolution};
 use cfd_mesh::domain::topology::Cell;
+use cfd_mesh::IndexedMesh;
 
 /// Finite Element Method solver for 3D incompressible flow
-pub struct FemSolver<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + num_traits::Float + std::fmt::Debug> {
+pub struct FemSolver<
+    T: cfd_mesh::domain::core::Scalar
+        + RealField
+        + Copy
+        + FromPrimitive
+        + num_traits::Float
+        + std::fmt::Debug,
+> {
     config: FemConfig<T>,
     _linear_solver: GMRES<T>,
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Float + std::fmt::Debug + From<f64>> FemSolver<T> {
+impl<
+        T: cfd_mesh::domain::core::Scalar
+            + RealField
+            + FromPrimitive
+            + Copy
+            + Float
+            + std::fmt::Debug
+            + From<f64>,
+    > FemSolver<T>
+{
     /// Create a new FEM solver with the given configuration
     pub fn new(config: FemConfig<T>) -> Self {
         let solver_config = cfd_math::linear_solver::IterativeSolverConfig {
@@ -53,20 +67,23 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
             ..cfd_math::linear_solver::IterativeSolverConfig::default()
         };
         let linear_solver = GMRES::new(solver_config, 100);
-        Self { _linear_solver: linear_solver, config }
+        Self {
+            _linear_solver: linear_solver,
+            config,
+        }
     }
 
     /// Stokes Flow Problem ($-\mu \nabla^2 \mathbf{u} + \nabla p = \mathbf{f}$, $\nabla \cdot \mathbf{u} = 0$)
-    /// 
+    ///
     /// ### Mathematical Invariants
-    /// 1. **LBB (Babuška-Brezzi) Stability**: 
-    ///    The velocity-pressure space pair $(\mathcal{V}_h, \mathcal{Q}_h)$ must satisfy 
+    /// 1. **LBB (Babuška-Brezzi) Stability**:
+    ///    The velocity-pressure space pair $(\mathcal{V}_h, \mathcal{Q}_h)$ must satisfy
     ///    $\inf_{q \in \mathcal{Q}_h} \sup_{v \in \mathcal{V}_h} \frac{\int q \nabla \cdot v}{\|v\|_{\mathcal{V}}\|q\|_{\mathcal{Q}}} \geq \beta > 0$.
     ///    Ensured here by Taylor-Hood $P_k / P_{k-1}$ elements (Quad/Linear).
     /// 2. **Mass Conservation**:
     ///    $\oint_{\partial \Omega} \mathbf{u} \cdot \mathbf{n} dA = \int_{\Omega} \nabla \cdot \mathbf{u} d\Omega = 0$.
     ///    Monitored via `continuity_residual` during assembly.
-    /// 3. **Force Balance**: 
+    /// 3. **Force Balance**:
     ///    Local momentum residual must vanish in the sense of distributions: $\langle \mathcal{R}, \phi \rangle = 0$.
     #[allow(clippy::too_many_lines)]
     pub fn solve(
@@ -75,149 +92,51 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
         previous_solution: Option<&StokesFlowSolution<T>>,
     ) -> Result<StokesFlowSolution<T>> {
         tracing::info!("Starting Taylor-Hood Stokes solver");
-        
+
         // Strictly enforce mathematical well-posedness (Lax-Milgram requirement)
         // If this fails, the geometric mesh builder missed assigning boundary conditions
         // to some topological boundary nodes (e.g., P2 mid-edge nodes), making the BVP ill-posed.
         problem.validate()?;
 
         let (matrix, rhs) = self.assemble_system(problem, previous_solution)?;
-        
+
         let n_total_dof = rhs.len();
         let n_nodes = problem.mesh.vertex_count();
         let n_corner_nodes = problem.n_corner_nodes;
         let n_velocity_dof = n_nodes * 3;
 
-        let mut x = if let Some(sol) = previous_solution {
-            sol.interleave()
-        } else {
-            DVector::zeros(n_total_dof)
-        };
-
-        let direct_solver = DirectSparseSolver::default();
-        if n_total_dof < 100_000 {
-            println!("  Attempting direct sparse LU solve (rsparse)...");
-            match direct_solver.solve(&matrix, &rhs) {
-                Ok(x_direct) => {
-                    x = x_direct;
-                    let velocity = x.rows(0, n_velocity_dof).into_owned();
-                    let pressure = x.rows(n_velocity_dof, n_corner_nodes).into_owned();
-                    let solution = StokesFlowSolution::new_with_corners(
-                        velocity,
-                        pressure,
-                        n_nodes,
-                        n_corner_nodes,
-                    );
-                    self.print_continuity_residual_stats(problem, &solution)?;
-                    println!("  Direct solve completed successfully.");
-                    return Ok(solution);
-                }
-                Err(err) => {
-                    println!("  Direct solve failed: {err}");
-                    println!("  Falling back to iterative solvers...");
-                }
-            }
-        } else {
-            println!(
-                "  Skipping direct solve: system size {n_total_dof} exceeds limit 100000"
-            );
-        }
-
+        // ── Linear solve: tiered fallback chain (Direct LU → GMRES/block → BiCGSTAB) ──
+        //
+        // # Algorithm — Tiered Linear Solver Fallback (see cfd_math::linear_solver::chain)
+        //
+        // The LinearSolverChain encapsulates the 5-tier fallback strategy that
+        // was previously duplicated across fem/solver.rs and fem/projection_solver.rs.
+        // Tier order: Direct LU → GMRES+BlockDiag → GMRES (unprec) → GMRES+ILU → BiCGSTAB.
         let rel_tol = <T as FromPrimitive>::from_f64(1e-8).unwrap_or_else(T::zero);
-        let abs_tol = Float::max(rel_tol * rhs.norm(), <T as FromPrimitive>::from_f64(1e-14).unwrap_or_else(T::zero));
-        
-        let gmres_config = cfd_math::linear_solver::IterativeSolverConfig {
-            max_iterations: 50000, // Increased for complex 3D problems
+        let abs_tol = Float::max(
+            rel_tol * rhs.norm(),
+            <T as FromPrimitive>::from_f64(1e-14).unwrap_or_else(T::zero),
+        );
+        let solver_config = cfd_math::linear_solver::IterativeSolverConfig {
+            max_iterations: 50_000,
             tolerance: abs_tol,
             ..cfd_math::linear_solver::IterativeSolverConfig::default()
         };
-
-        let restart = std::cmp::min(200, n_total_dof);
-        
-        println!("  FEM Solver: System size {n_total_dof}x{n_total_dof}");
-        println!("  GMRES: restart={}, max_iter={}", restart, gmres_config.max_iterations);
-        
-        // Try block diagonal preconditioner (specialized for saddle-point systems)
-        println!("  Attempting block diagonal preconditioner for saddle-point system...");
-        let block_precond = BlockDiagonalPreconditioner::new(&matrix, n_velocity_dof, n_corner_nodes)
-            .map_err(|e| Error::Solver(format!("Block preconditioner failed: {e}")))?;
-        
-        let solver = GMRES::new(gmres_config, restart);
-        
-        // First attempt with block preconditioner
-        match solver.solve_preconditioned(&matrix, &rhs, &block_precond, &mut x) {
-            Ok(monitor) => {
-                println!("  ✓ Block diagonal preconditioner: Converged in {} iterations, resid={:?}", 
-                    monitor.iteration, monitor.residual_history.last());
-            }
-            Err(block_err) => {
-                let block_err_msg = format!("{block_err}");
-                println!("  ✗ Block diagonal preconditioner failed: {block_err_msg}");
-                println!("  Falling back to unpreconditioned GMRES...");
-
-                // Reset initial guess before each fallback strategy.
-                x.fill(T::zero());
-                match solver.solve_unpreconditioned(&matrix, &rhs, &mut x) {
-                    Ok(monitor) => {
-                        println!(
-                            "  ✓ Unpreconditioned GMRES: Converged in {} iterations, resid={:?}",
-                            monitor.iteration,
-                            monitor.residual_history.last()
-                        );
-                    }
-                    Err(gmres_unprec_err) => {
-                        let gmres_unprec_err_msg = format!("{gmres_unprec_err}");
-                        println!("  ✗ Unpreconditioned GMRES failed: {gmres_unprec_err_msg}");
-                        println!("  Falling back to ILU-preconditioned GMRES...");
-
-                        x.fill(T::zero());
-                        let ilu_result = IncompleteLU::new(&matrix);
-                        let gmres_ilu_result = if let Ok(ilu_preconditioner) = ilu_result {
-                            solver.solve_preconditioned(&matrix, &rhs, &ilu_preconditioner, &mut x)
-                        } else {
-                            Err(cfd_core::error::Error::Solver(
-                                "ILU preconditioner construction failed".to_string(),
-                            ))
-                        };
-
-                        match gmres_ilu_result {
-                            Ok(monitor) => {
-                                println!(
-                                    "  ✓ ILU preconditioned GMRES: Converged in {} iterations, resid={:?}",
-                                    monitor.iteration,
-                                    monitor.residual_history.last()
-                                );
-                            }
-                            Err(gmres_ilu_err) => {
-                                let gmres_ilu_err_msg = format!("{gmres_ilu_err}");
-                                println!("  ✗ ILU-preconditioned GMRES failed: {gmres_ilu_err_msg}");
-                                println!("  Falling back to unpreconditioned BiCGSTAB...");
-
-                                x.fill(T::zero());
-                                let bicg = BiCGSTAB::new(gmres_config);
-                                let monitor = bicg
-                                    .solve_unpreconditioned(&matrix, &rhs, &mut x)
-                                    .map_err(|bicg_err| {
-                                        Error::Solver(format!(
-                                            "All linear solver attempts failed. block={block_err_msg}, gmres_unpreconditioned={gmres_unprec_err_msg}, gmres_ilu={gmres_ilu_err_msg}, bicgstab={bicg_err}"
-                                        ))
-                                    })?;
-
-                                println!(
-                                    "  ✓ Unpreconditioned BiCGSTAB: Converged in {} iterations, resid={:?}",
-                                    monitor.iteration,
-                                    monitor.residual_history.last()
-                                );
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        tracing::info!(
+            n_total_dof,
+            n_velocity_dof,
+            n_corner_nodes,
+            "FemSolver: starting linear solve"
+        );
+        let chain = LinearSolverChain::new(solver_config)
+            .with_direct_threshold(100_000)
+            .with_krylov_restart(std::cmp::min(200, n_total_dof.max(1)));
+        let x = chain.solve(&matrix, &rhs, n_velocity_dof)?;
 
         let velocity = x.rows(0, n_velocity_dof).into_owned();
         let pressure = x.rows(n_velocity_dof, n_corner_nodes).into_owned();
-        let solution = StokesFlowSolution::new_with_corners(velocity, pressure, n_nodes, n_corner_nodes);
+        let solution =
+            StokesFlowSolution::new_with_corners(velocity, pressure, n_nodes, n_corner_nodes);
         self.print_continuity_residual_stats(problem, &solution)?;
 
         Ok(solution)
@@ -238,7 +157,13 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
 
             let verts: Vec<Vector3<T>> = idxs
                 .iter()
-                .map(|&idx| problem.mesh.vertices.position(cfd_mesh::domain::core::index::VertexId::from_usize(idx)).coords)
+                .map(|&idx| {
+                    problem
+                        .mesh
+                        .vertices
+                        .position(cfd_mesh::domain::core::index::VertexId::from_usize(idx))
+                        .coords
+                })
                 .collect();
 
             let j_mat = nalgebra::Matrix3::from_columns(&[
@@ -258,9 +183,18 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
                 .transpose();
 
             let grad_ref_p1 = nalgebra::Matrix3x4::new(
-                -T::one(), T::one(), T::zero(), T::zero(),
-                -T::one(), T::zero(), T::one(), T::zero(),
-                -T::one(), T::zero(), T::zero(), T::one(),
+                -T::one(),
+                T::one(),
+                T::zero(),
+                T::zero(),
+                -T::one(),
+                T::zero(),
+                T::one(),
+                T::zero(),
+                -T::one(),
+                T::zero(),
+                T::zero(),
+                T::one(),
             );
             let p1_gradients_phys = j_inv_t * grad_ref_p1;
             let shape = LagrangeTet10::new(p1_gradients_phys);
@@ -274,10 +208,14 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
                 let mut div_u = T::zero();
                 for i in 0..idxs.len().min(10) {
                     let vel = solution.get_velocity(idxs[i]);
-                    let grad_i = if idxs.len() == 4 { 
-                        Vector3::new(p1_gradients_phys[(0, i)], p1_gradients_phys[(1, i)], p1_gradients_phys[(2, i)]) 
-                    } else { 
-                        Vector3::new(grad_p2[(0, i)], grad_p2[(1, i)], grad_p2[(2, i)]) 
+                    let grad_i = if idxs.len() == 4 {
+                        Vector3::new(
+                            p1_gradients_phys[(0, i)],
+                            p1_gradients_phys[(1, i)],
+                            p1_gradients_phys[(2, i)],
+                        )
+                    } else {
+                        Vector3::new(grad_p2[(0, i)], grad_p2[(1, i)], grad_p2[(2, i)])
                     };
                     div_u += grad_i.x * vel.x + grad_i.y * vel.y + grad_i.z * vel.z;
                 }
@@ -317,7 +255,6 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
         Ok(())
     }
 
-
     fn assemble_system(
         &self,
         problem: &StokesFlowProblem<T>,
@@ -331,34 +268,53 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
         let mut builder = SparseMatrixBuilder::new(n_total_dof, n_total_dof);
         let mut rhs = DVector::zeros(n_total_dof);
 
-        let vertex_positions: Vec<Vector3<T>> = problem.mesh.vertices.iter()
-            .map(|v| v.1.position.coords).collect();
+        let vertex_positions: Vec<Vector3<T>> = problem
+            .mesh
+            .vertices
+            .iter()
+            .map(|v| v.1.position.coords)
+            .collect();
 
         println!("  Assembling {} elements...", problem.mesh.cells.len());
-        
+
         for (i, cell) in problem.mesh.cells.iter().enumerate() {
-            let viscosity = problem.element_viscosities.as_ref().map_or(problem.fluid.viscosity, |v| v[i]);
+            let viscosity = problem
+                .element_viscosities
+                .as_ref()
+                .map_or(problem.fluid.viscosity, |v| v[i]);
             let idxs = extract_vertex_indices(cell, &problem.mesh, problem.n_corner_nodes)?;
-            let local_verts: Vec<Vector3<T>> = idxs.iter().map(|&idx| vertex_positions[idx]).collect();
-            
+            let local_verts: Vec<Vector3<T>> =
+                idxs.iter().map(|&idx| vertex_positions[idx]).collect();
+
             // Check for degenerate elements
             if local_verts.len() >= 4_usize {
                 let v0 = local_verts[0];
                 let v1 = local_verts[1];
                 let v2 = local_verts[2];
                 let v3 = local_verts[3];
-                
-                let vol = ((v1 - v0).cross(&(v2 - v0))).dot(&(v3 - v0)) / <T as FromPrimitive>::from_f64(6.0).unwrap();
-                if Float::abs(vol) < <T as FromPrimitive>::from_f64(1e-22).unwrap() {
+
+                let six = <T as FromPrimitive>::from_f64(6.0).unwrap_or_else(T::one);
+                let vol = ((v1 - v0).cross(&(v2 - v0))).dot(&(v3 - v0)) / six;
+                let vol_tol = <T as FromPrimitive>::from_f64(1e-22).unwrap_or_else(T::zero);
+                if Float::abs(vol) < vol_tol {
                     return Err(Error::Solver(format!(
                         "Element {i} has near-zero volume: {vol:?}. Vertices: {v0:?}, {v1:?}, {v2:?}, {v3:?}"
                     )));
                 }
             }
-            
+
             let u_avg = self.calculate_u_avg(&idxs, previous_solution);
 
-            self.assemble_element_block(&mut builder, &mut rhs, &idxs, &local_verts, viscosity, problem.fluid.density, u_avg, n_nodes)?;
+            self.assemble_element_block(
+                &mut builder,
+                &mut rhs,
+                &idxs,
+                &local_verts,
+                viscosity,
+                problem.fluid.density,
+                u_avg,
+                n_nodes,
+            )?;
         }
 
         println!("  Assembly complete. Applying boundary conditions...");
@@ -367,12 +323,13 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
         // Count Dirichlet DOFs
         let velocity_dofs_constrained = problem.boundary_conditions.len() * 3;
         println!("  Velocity DOFs constrained: {velocity_dofs_constrained} / {n_velocity_dof}");
-        
+
         if velocity_dofs_constrained == n_velocity_dof {
             println!("  WARNING: All velocity DOFs are constrained (may cause incompressibility conflict)");
         }
 
-        let diag_eps = problem.fluid.viscosity * <T as FromPrimitive>::from_f64(1e-12).unwrap();
+        let diag_eps =
+            problem.fluid.viscosity * <T as FromPrimitive>::from_f64(1e-12).unwrap_or_else(T::zero);
         for i in n_velocity_dof..n_total_dof {
             let _ = builder.add_entry(i, i, diag_eps);
         }
@@ -398,18 +355,30 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
         let grad_div_penalty = self.config.grad_div_penalty;
 
         let j_mat = nalgebra::Matrix3::from_columns(&[
-            verts[1]-verts[0],
-            verts[2]-verts[0],
-            verts[3]-verts[0]
+            verts[1] - verts[0],
+            verts[2] - verts[0],
+            verts[3] - verts[0],
         ]);
         let det_j = j_mat.determinant();
         let abs_det = Float::abs(det_j);
-        let j_inv_t = j_mat.try_inverse().ok_or_else(|| Error::Solver("Singular Jacobian".to_string()))?.transpose();
+        let j_inv_t = j_mat
+            .try_inverse()
+            .ok_or_else(|| Error::Solver("Singular Jacobian".to_string()))?
+            .transpose();
 
         let grad_ref_p1 = nalgebra::Matrix3x4::new(
-            -T::one(), T::one(), T::zero(), T::zero(),
-            -T::one(), T::zero(), T::one(), T::zero(),
-            -T::one(), T::zero(), T::zero(), T::one(),
+            -T::one(),
+            T::one(),
+            T::zero(),
+            T::zero(),
+            -T::one(),
+            T::zero(),
+            T::one(),
+            T::zero(),
+            -T::one(),
+            T::zero(),
+            T::zero(),
+            T::one(),
         );
         let p1_gradients_phys = j_inv_t * grad_ref_p1;
         let shape = LagrangeTet10::new(p1_gradients_phys);
@@ -426,10 +395,18 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
 
             for i in 0..idxs.len().min(10) {
                 let gi = idxs[i];
-                let grad_i = if idxs.len() == 4 { 
-                    Vector3::new(p1_gradients_phys[(0, i)], p1_gradients_phys[(1, i)], p1_gradients_phys[(2, i)])
-                } else { 
-                    Vector3::new(grad_p2_mat[(0, i)], grad_p2_mat[(1, i)], grad_p2_mat[(2, i)])
+                let grad_i = if idxs.len() == 4 {
+                    Vector3::new(
+                        p1_gradients_phys[(0, i)],
+                        p1_gradients_phys[(1, i)],
+                        p1_gradients_phys[(2, i)],
+                    )
+                } else {
+                    Vector3::new(
+                        grad_p2_mat[(0, i)],
+                        grad_p2_mat[(1, i)],
+                        grad_p2_mat[(2, i)],
+                    )
                 };
                 let n_i = if idxs.len() == 4 { n_p1[i] } else { n_p2[i] };
 
@@ -438,10 +415,18 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
                     for j in 0..idxs.len().min(10) {
                         let gj = idxs[j];
                         let gv_j = gj + d * v_offset;
-                        let grad_j = if idxs.len() == 4 { 
-                            Vector3::new(p1_gradients_phys[(0, j)], p1_gradients_phys[(1, j)], p1_gradients_phys[(2, j)])
-                        } else { 
-                            Vector3::new(grad_p2_mat[(0, j)], grad_p2_mat[(1, j)], grad_p2_mat[(2, j)])
+                        let grad_j = if idxs.len() == 4 {
+                            Vector3::new(
+                                p1_gradients_phys[(0, j)],
+                                p1_gradients_phys[(1, j)],
+                                p1_gradients_phys[(2, j)],
+                            )
+                        } else {
+                            Vector3::new(
+                                grad_p2_mat[(0, j)],
+                                grad_p2_mat[(1, j)],
+                                grad_p2_mat[(2, j)],
+                            )
                         };
                         let _n_j = if idxs.len() == 4 { n_p1[j] } else { n_p2[j] };
 
@@ -499,9 +484,11 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
         }
 
         if !unconstrained_boundary_nodes.is_empty() {
-            println!("  [WARNING] Boundary Leak: {} boundary nodes have no BCs! First 5: {:?}", 
-                unconstrained_boundary_nodes.len(), 
-                &unconstrained_boundary_nodes[..unconstrained_boundary_nodes.len().min(5)]);
+            println!(
+                "  [WARNING] Boundary Leak: {} boundary nodes have no BCs! First 5: {:?}",
+                unconstrained_boundary_nodes.len(),
+                &unconstrained_boundary_nodes[..unconstrained_boundary_nodes.len().min(5)]
+            );
         }
 
         // Track if any pressure boundary condition is applied
@@ -527,7 +514,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
                         vel_dofs.insert(dof);
                     }
                 }
-                BoundaryCondition::PressureOutlet { pressure } | BoundaryCondition::PressureInlet { pressure, .. } => {
+                BoundaryCondition::PressureOutlet { pressure }
+                | BoundaryCondition::PressureInlet { pressure, .. } => {
                     outlet_nodes += 1;
                     if node_idx < problem.n_corner_nodes {
                         has_pressure_bc = true;
@@ -537,7 +525,10 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
                         p_dofs.insert(dof);
                     }
                 }
-                BoundaryCondition::Dirichlet { value, component_values } => {
+                BoundaryCondition::Dirichlet {
+                    value,
+                    component_values,
+                } => {
                     dirichlet_nodes += 1;
                     if let Some(comps) = component_values {
                         for d in 0..3 {
@@ -572,14 +563,16 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
             }
         }
 
-        // CRITICAL FIX: For incompressible flow without pressure BC, pressure is 
+        // CRITICAL FIX: For incompressible flow without pressure BC, pressure is
         // undetermined up to a constant. Pin first corner node pressure to zero
         // as reference to remove this null space and make the system non-singular.
         if !has_pressure_bc && problem.n_corner_nodes > 0 {
             let reference_pressure_dof = p_offset; // First corner node
             builder.set_dirichlet_row(reference_pressure_dof, diag_scale, T::zero());
             rhs[reference_pressure_dof] = T::zero();
-            println!("  Pinned pressure DOF {reference_pressure_dof} to zero (no pressure BC specified)");
+            println!(
+                "  Pinned pressure DOF {reference_pressure_dof} to zero (no pressure BC specified)"
+            );
         }
 
         println!(
@@ -596,11 +589,21 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
         Ok(())
     }
 
-    fn calculate_u_avg(&self, nodes: &[usize], solution: Option<&StokesFlowSolution<T>>) -> Vector3<T> {
+    fn calculate_u_avg(
+        &self,
+        nodes: &[usize],
+        solution: Option<&StokesFlowSolution<T>>,
+    ) -> Vector3<T> {
         if let Some(sol) = solution {
+            if nodes.is_empty() {
+                return Vector3::zeros();
+            }
             let mut sum = Vector3::zeros();
-            for &n in nodes { sum += sol.get_velocity(n); }
-            sum / T::from_usize(nodes.len()).unwrap()
+            for &n in nodes {
+                sum += sol.get_velocity(n);
+            }
+            // `nodes` is non-empty here; T::from_usize cannot fail for valid lengths.
+            sum / T::from_usize(nodes.len()).unwrap_or_else(T::one)
         } else {
             Vector3::zeros()
         }
@@ -608,17 +611,23 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
 }
 
 /// Extract vertex indices from a cell for element assembly
-pub fn extract_vertex_indices<T: cfd_mesh::domain::core::Scalar + RealField + Copy + Float>(cell: &Cell, mesh: &IndexedMesh<T>, n_corner_nodes: usize) -> Result<Vec<usize>> {
+pub fn extract_vertex_indices<T: cfd_mesh::domain::core::Scalar + RealField + Copy + Float>(
+    cell: &Cell,
+    mesh: &IndexedMesh<T>,
+    n_corner_nodes: usize,
+) -> Result<Vec<usize>> {
     let mut counts = std::collections::HashMap::new();
     for &f_idx in &cell.faces {
         if f_idx < mesh.face_count() {
-            let f = mesh.faces.get(cfd_mesh::domain::core::index::FaceId::from_usize(f_idx));
+            let f = mesh
+                .faces
+                .get(cfd_mesh::domain::core::index::FaceId::from_usize(f_idx));
             for &v_id in &f.vertices {
                 *counts.entry(v_id.as_usize()).or_insert(0) += 1;
             }
         }
     }
-    
+
     // In a tetrahedron, corners are shared by 3 faces, mid-edges by 2.
     let mut corners = Vec::new();
     let mut mid_edges = Vec::new();
@@ -629,26 +638,36 @@ pub fn extract_vertex_indices<T: cfd_mesh::domain::core::Scalar + RealField + Co
             mid_edges.push(v_idx);
         }
     }
-    
+
     if corners.len() == 4 && mid_edges.is_empty() && counts.len() == 4 {
         let ordered = order_tet_corners(&corners, mesh);
-        
+
         if mesh.vertex_count() > n_corner_nodes {
-            // P2 mesh: Face geometry only has corners, missing mid-edges. 
+            // P2 mesh: Face geometry only has corners, missing mid-edges.
             // Recover mid-edges via geometric search over extra nodes.
             let mut final_nodes = ordered.clone();
-            let edges = [(0,1), (1,2), (2,0), (0,3), (1,3), (2,3)];
+            let edges = [(0, 1), (1, 2), (2, 0), (0, 3), (1, 3), (2, 3)];
             for &(i, j) in &edges {
                 let v_i = ordered[i];
                 let v_j = ordered[j];
-                let p_i = mesh.vertices.position(cfd_mesh::domain::core::index::VertexId::from_usize(v_i)).coords;
-                let p_j = mesh.vertices.position(cfd_mesh::domain::core::index::VertexId::from_usize(v_j)).coords;
-                let target = (p_i + p_j) * <T as num_traits::FromPrimitive>::from_f64(0.5).unwrap();
-                
+                let p_i = mesh
+                    .vertices
+                    .position(cfd_mesh::domain::core::index::VertexId::from_usize(v_i))
+                    .coords;
+                let p_j = mesh
+                    .vertices
+                    .position(cfd_mesh::domain::core::index::VertexId::from_usize(v_j))
+                    .coords;
+                let target = (p_i + p_j)
+                    * <T as num_traits::FromPrimitive>::from_f64(0.5).unwrap_or_else(T::one);
+
                 let mut best_m = 0;
                 let mut min_dist_sq = <T as num_traits::Float>::infinity();
                 for m_idx in n_corner_nodes..mesh.vertex_count() {
-                    let pm = mesh.vertices.position(cfd_mesh::domain::core::index::VertexId::from_usize(m_idx)).coords;
+                    let pm = mesh
+                        .vertices
+                        .position(cfd_mesh::domain::core::index::VertexId::from_usize(m_idx))
+                        .coords;
                     let dist_sq = (pm - target).norm_squared();
                     if dist_sq < min_dist_sq {
                         min_dist_sq = dist_sq;
@@ -662,7 +681,7 @@ pub fn extract_vertex_indices<T: cfd_mesh::domain::core::Scalar + RealField + Co
         // P1 Tet
         return Ok(ordered);
     }
-    
+
     if corners.len() == 4 && mid_edges.len() == 6 {
         // P2 Tet
         // We need them in canonical Tet10 order for LagrangeTet10:
@@ -671,17 +690,23 @@ pub fn extract_vertex_indices<T: cfd_mesh::domain::core::Scalar + RealField + Co
         let ordered = order_tet_corners(&corners, mesh);
         let mut final_nodes = ordered.clone();
         let mut used_mid_edges = std::collections::HashSet::new();
-        
-        let edges = [(0,1), (1,2), (2,0), (0,3), (1,3), (2,3)];
+
+        let edges = [(0, 1), (1, 2), (2, 0), (0, 3), (1, 3), (2, 3)];
         for &(i, j) in &edges {
             let v_i = ordered[i];
             let v_j = ordered[j];
             // The mid-node for (v_i, v_j) is the one shared by faces that both contain v_i and v_j.
             // Or simpler: find the mid_edge node that is closest to (v_i + v_j)/2
-            let p_i = mesh.vertices.position(cfd_mesh::domain::core::index::VertexId::from_usize(v_i)).coords;
-            let p_j = mesh.vertices.position(cfd_mesh::domain::core::index::VertexId::from_usize(v_j)).coords;
-            let target = (p_i + p_j) * <T as FromPrimitive>::from_f64(0.5).unwrap();
-            
+            let p_i = mesh
+                .vertices
+                .position(cfd_mesh::domain::core::index::VertexId::from_usize(v_i))
+                .coords;
+            let p_j = mesh
+                .vertices
+                .position(cfd_mesh::domain::core::index::VertexId::from_usize(v_j))
+                .coords;
+            let target = (p_i + p_j) * <T as FromPrimitive>::from_f64(0.5).unwrap_or_else(T::one);
+
             let mut best_node = None;
             let mut min_dist = T::infinity();
 
@@ -689,7 +714,12 @@ pub fn extract_vertex_indices<T: cfd_mesh::domain::core::Scalar + RealField + Co
                 if used_mid_edges.contains(&m_idx) {
                     continue;
                 }
-                let dist = (mesh.vertices.position(cfd_mesh::domain::core::index::VertexId::from_usize(m_idx)).coords - target).norm();
+                let dist = (mesh
+                    .vertices
+                    .position(cfd_mesh::domain::core::index::VertexId::from_usize(m_idx))
+                    .coords
+                    - target)
+                    .norm();
                 if dist < min_dist {
                     min_dist = dist;
                     best_node = Some(m_idx);
@@ -700,9 +730,21 @@ pub fn extract_vertex_indices<T: cfd_mesh::domain::core::Scalar + RealField + Co
                 m_idx
             } else {
                 let mut fallback = mid_edges[0];
-                let mut fallback_dist = (mesh.vertices.position(cfd_mesh::domain::core::index::VertexId::from_usize(fallback)).coords - target).norm();
+                let mut fallback_dist = (mesh
+                    .vertices
+                    .position(cfd_mesh::domain::core::index::VertexId::from_usize(
+                        fallback,
+                    ))
+                    .coords
+                    - target)
+                    .norm();
                 for &m_idx in &mid_edges[1..] {
-                    let dist = (mesh.vertices.position(cfd_mesh::domain::core::index::VertexId::from_usize(m_idx)).coords - target).norm();
+                    let dist = (mesh
+                        .vertices
+                        .position(cfd_mesh::domain::core::index::VertexId::from_usize(m_idx))
+                        .coords
+                        - target)
+                        .norm();
                     if dist < fallback_dist {
                         fallback_dist = dist;
                         fallback = m_idx;
@@ -716,19 +758,42 @@ pub fn extract_vertex_indices<T: cfd_mesh::domain::core::Scalar + RealField + Co
         }
         return Ok(final_nodes);
     }
-    
+
     // Fallback for other elements (e.g. Hex)
     let mut all: Vec<usize> = counts.keys().copied().collect();
     all.sort_unstable();
     Ok(all)
 }
 
-fn order_tet_corners<T: cfd_mesh::domain::core::Scalar + RealField + Copy + Float>(corners: &[usize], mesh: &IndexedMesh<T>) -> Vec<usize> {
+fn order_tet_corners<T: cfd_mesh::domain::core::Scalar + RealField + Copy + Float>(
+    corners: &[usize],
+    mesh: &IndexedMesh<T>,
+) -> Vec<usize> {
     let perms: [[usize; 4]; 24] = [
-        [0, 1, 2, 3], [0, 1, 3, 2], [0, 2, 1, 3], [0, 2, 3, 1], [0, 3, 1, 2], [0, 3, 2, 1],
-        [1, 0, 2, 3], [1, 0, 3, 2], [1, 2, 0, 3], [1, 2, 3, 0], [1, 3, 0, 2], [1, 3, 2, 0],
-        [2, 0, 1, 3], [2, 0, 3, 1], [2, 1, 0, 3], [2, 1, 3, 0], [2, 3, 0, 1], [2, 3, 1, 0],
-        [3, 0, 1, 2], [3, 0, 2, 1], [3, 1, 0, 2], [3, 1, 2, 0], [3, 2, 0, 1], [3, 2, 1, 0],
+        [0, 1, 2, 3],
+        [0, 1, 3, 2],
+        [0, 2, 1, 3],
+        [0, 2, 3, 1],
+        [0, 3, 1, 2],
+        [0, 3, 2, 1],
+        [1, 0, 2, 3],
+        [1, 0, 3, 2],
+        [1, 2, 0, 3],
+        [1, 2, 3, 0],
+        [1, 3, 0, 2],
+        [1, 3, 2, 0],
+        [2, 0, 1, 3],
+        [2, 0, 3, 1],
+        [2, 1, 0, 3],
+        [2, 1, 3, 0],
+        [2, 3, 0, 1],
+        [2, 3, 1, 0],
+        [3, 0, 1, 2],
+        [3, 0, 2, 1],
+        [3, 1, 0, 2],
+        [3, 1, 2, 0],
+        [3, 2, 0, 1],
+        [3, 2, 1, 0],
     ];
 
     let mut best: Option<Vec<usize>> = None;
@@ -740,10 +805,22 @@ fn order_tet_corners<T: cfd_mesh::domain::core::Scalar + RealField + Copy + Floa
         let v2 = corners[perm[2]];
         let v3 = corners[perm[3]];
 
-        let p0 = mesh.vertices.position(cfd_mesh::domain::core::index::VertexId::from_usize(v0)).coords;
-        let p1 = mesh.vertices.position(cfd_mesh::domain::core::index::VertexId::from_usize(v1)).coords;
-        let p2 = mesh.vertices.position(cfd_mesh::domain::core::index::VertexId::from_usize(v2)).coords;
-        let p3 = mesh.vertices.position(cfd_mesh::domain::core::index::VertexId::from_usize(v3)).coords;
+        let p0 = mesh
+            .vertices
+            .position(cfd_mesh::domain::core::index::VertexId::from_usize(v0))
+            .coords;
+        let p1 = mesh
+            .vertices
+            .position(cfd_mesh::domain::core::index::VertexId::from_usize(v1))
+            .coords;
+        let p2 = mesh
+            .vertices
+            .position(cfd_mesh::domain::core::index::VertexId::from_usize(v2))
+            .coords;
+        let p3 = mesh
+            .vertices
+            .position(cfd_mesh::domain::core::index::VertexId::from_usize(v3))
+            .coords;
 
         let det = (p1 - p0).cross(&(p2 - p0)).dot(&(p3 - p0));
         if det > T::zero() {
@@ -765,16 +842,18 @@ fn order_tet_corners<T: cfd_mesh::domain::core::Scalar + RealField + Copy + Floa
     best.unwrap_or_else(|| corners.to_vec())
 }
 
-fn compute_mesh_scale<T: cfd_mesh::domain::core::Scalar + RealField + Copy + Float>(mesh: &IndexedMesh<T>) -> T {
+fn compute_mesh_scale<T: cfd_mesh::domain::core::Scalar + RealField + Copy + Float>(
+    mesh: &IndexedMesh<T>,
+) -> T {
     let mut min = Vector3::new(T::infinity(), T::infinity(), T::infinity());
     let mut max = Vector3::new(T::neg_infinity(), T::neg_infinity(), T::neg_infinity());
     for v in mesh.vertices.iter() {
         let p = v.1.position.coords;
-        min.x = Float::min(min.x, p.x); 
-        min.y = Float::min(min.y, p.y); 
+        min.x = Float::min(min.x, p.x);
+        min.y = Float::min(min.y, p.y);
         min.z = Float::min(min.z, p.z);
-        max.x = Float::max(max.x, p.x); 
-        max.y = Float::max(max.y, p.y); 
+        max.x = Float::max(max.x, p.x);
+        max.y = Float::max(max.y, p.y);
         max.z = Float::max(max.z, p.z);
     }
     (max - min).norm()

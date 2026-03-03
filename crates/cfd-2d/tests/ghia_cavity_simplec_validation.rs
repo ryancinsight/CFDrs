@@ -599,7 +599,7 @@ where
     // Solve pressure correction
     let dt = 1.0;
     let rho = 1.0;
-    let mut fields = cfd_2d::fields::SimulationFields::with_fluid(
+    let fields = cfd_2d::fields::SimulationFields::with_fluid(
         nx,
         ny,
         &cfd_core::physics::fluid::Fluid::new("test".to_string(), 1.0, 0.01, 1.0, 1.0, 1.0),

@@ -120,8 +120,12 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy> StokesFlowProblem<T> 
 
         // Collect boundary faces:
         // 1. Faces explicitly marked as boundaries
-        let marked_boundary_faces: std::collections::HashSet<usize> =
-            self.mesh.boundary_faces().into_iter().map(|f| f.as_usize()).collect();
+        let marked_boundary_faces: std::collections::HashSet<usize> = self
+            .mesh
+            .boundary_faces()
+            .into_iter()
+            .map(|f| f.as_usize())
+            .collect();
 
         // 2. Faces referenced by exactly one cell (external boundaries)
         let connectivity_boundary_faces: std::collections::HashSet<usize> = face_cell_count
@@ -136,7 +140,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy> StokesFlowProblem<T> 
             .copied()
             .collect();
 
-        let mut boundary_vertices: std::collections::HashSet<usize> = std::collections::HashSet::new();
+        let mut boundary_vertices: std::collections::HashSet<usize> =
+            std::collections::HashSet::new();
         for &face_idx in &boundary_faces {
             if face_idx < self.mesh.face_count() {
                 let face = self.mesh.faces.get(FaceId::from_usize(face_idx));
@@ -156,8 +161,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy> StokesFlowProblem<T> 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cfd_mesh::IndexedMesh;
     use cfd_mesh::domain::topology::Cell;
+    use cfd_mesh::IndexedMesh;
     use nalgebra::Point3;
 
     /// Create a simple tetrahedral mesh for testing
@@ -192,7 +197,12 @@ mod tests {
         let f3 = mesh.add_face(v2, v0, v3).0; // left
 
         // Add 1 tetrahedral cell
-        mesh.add_cell(Cell::tetrahedron(f0 as usize, f1 as usize, f2 as usize, f3 as usize));
+        mesh.add_cell(Cell::tetrahedron(
+            f0 as usize,
+            f1 as usize,
+            f2 as usize,
+            f3 as usize,
+        ));
 
         mesh
     }
@@ -231,8 +241,18 @@ mod tests {
         let f6 = mesh.add_face(v2, v3, v4).0; // top tet2
 
         // Add cells
-        mesh.add_cell(Cell::tetrahedron(f0 as usize, f1 as usize, f2 as usize, f3 as usize));
-        mesh.add_cell(Cell::tetrahedron(f2 as usize, f4 as usize, f5 as usize, f6 as usize));
+        mesh.add_cell(Cell::tetrahedron(
+            f0 as usize,
+            f1 as usize,
+            f2 as usize,
+            f3 as usize,
+        ));
+        mesh.add_cell(Cell::tetrahedron(
+            f2 as usize,
+            f4 as usize,
+            f5 as usize,
+            f6 as usize,
+        ));
 
         mesh
     }

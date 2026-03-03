@@ -1,4 +1,4 @@
-use crate::domain::model::{ChannelSpec, NetworkBlueprint, NodeKind, NodeSpec};
+use crate::domain::model::{ChannelShape, ChannelSpec, NetworkBlueprint, NodeKind, NodeSpec};
 
 const BLOOD_MU: f64 = 3.5e-3;
 
@@ -30,7 +30,7 @@ pub fn serpentine_chain(
             format!("turn_{}", i + 1)
         };
 
-        bp.add_channel(ChannelSpec::new_pipe(
+        let mut spec = ChannelSpec::new_pipe(
             format!("segment_{}", i + 1),
             from,
             to,
@@ -38,7 +38,12 @@ pub fn serpentine_chain(
             diameter_m,
             hp_resistance(segment_length_m, diameter_m),
             0.0,
-        ));
+        );
+        spec.channel_shape = ChannelShape::Serpentine {
+            segments,
+            bend_radius_m: diameter_m * 0.5,
+        };
+        bp.add_channel(spec);
     }
 
     bp
@@ -81,7 +86,7 @@ pub fn serpentine_rect(
             format!("turn_{}", i + 1)
         };
 
-        bp.add_channel(ChannelSpec::new_pipe_rect(
+        let mut spec = ChannelSpec::new_pipe_rect(
             format!("segment_{}", i + 1),
             from,
             to,
@@ -90,7 +95,12 @@ pub fn serpentine_rect(
             height_m,
             shah_london_resistance(width_m, height_m, segment_length_m, BLOOD_MU),
             0.0,
-        ));
+        );
+        spec.channel_shape = ChannelShape::Serpentine {
+            segments,
+            bend_radius_m: width_m * 0.5,
+        };
+        bp.add_channel(spec);
     }
 
     bp

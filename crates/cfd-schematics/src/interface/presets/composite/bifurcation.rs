@@ -1,7 +1,7 @@
 //! Bifurcation-based composite presets: symmetric 2-branch split topologies.
 
 use super::{shah_london, BLOOD_MU};
-use crate::domain::model::{ChannelSpec, NetworkBlueprint, NodeKind, NodeSpec};
+use crate::domain::model::{ChannelShape, ChannelSpec, NetworkBlueprint, NodeKind, NodeSpec};
 use crate::domain::therapy_metadata::{TherapyZone, TherapyZoneMetadata};
 
 /// Symmetric bifurcation with a venturi throat in each branch — closed loop.
@@ -210,19 +210,21 @@ pub fn bifurcation_serpentine_rect(
         };
         // Connect split_jn to arm1_0 via the first channel
         let actual_from = if i == 0 { "split_jn".to_string() } else { from };
-        bp.add_channel(
-            ChannelSpec::new_pipe_rect(
-                format!("segment_{}", i + 1),
-                actual_from,
-                to,
-                segment_length_m,
-                main_width_m,
-                height_m,
-                shah_london(main_width_m, height_m, segment_length_m, BLOOD_MU),
-                0.0,
-            )
-            .with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)),
+        let mut spec = ChannelSpec::new_pipe_rect(
+            format!("segment_{}", i + 1),
+            actual_from,
+            to,
+            segment_length_m,
+            main_width_m,
+            height_m,
+            shah_london(main_width_m, height_m, segment_length_m, BLOOD_MU),
+            0.0,
         );
+        spec.channel_shape = ChannelShape::Serpentine {
+            segments,
+            bend_radius_m: main_width_m * 0.5,
+        };
+        bp.add_channel(spec.with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)));
     }
 
     // Arm 2 serpentine
@@ -234,19 +236,21 @@ pub fn bifurcation_serpentine_rect(
             format!("arm2_{}", i + 1)
         };
         let actual_from = if i == 0 { "split_jn".to_string() } else { from };
-        bp.add_channel(
-            ChannelSpec::new_pipe_rect(
-                format!("arm2_seg_{}", i + 1),
-                actual_from,
-                to,
-                segment_length_m,
-                main_width_m,
-                height_m,
-                shah_london(main_width_m, height_m, segment_length_m, BLOOD_MU),
-                0.0,
-            )
-            .with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)),
+        let mut spec = ChannelSpec::new_pipe_rect(
+            format!("arm2_seg_{}", i + 1),
+            actual_from,
+            to,
+            segment_length_m,
+            main_width_m,
+            height_m,
+            shah_london(main_width_m, height_m, segment_length_m, BLOOD_MU),
+            0.0,
         );
+        spec.channel_shape = ChannelShape::Serpentine {
+            segments,
+            bend_radius_m: main_width_m * 0.5,
+        };
+        bp.add_channel(spec.with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)));
     }
 
     bp.add_channel(

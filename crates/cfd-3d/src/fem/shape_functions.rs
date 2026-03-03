@@ -25,7 +25,7 @@
 //!
 //! **Reference:** Brenner & Scott, "Math. Theory of FEM", 3rd Ed., Thm. 4.4.20.
 
-use nalgebra::{Matrix3x4, RealField, DMatrix};
+use nalgebra::{DMatrix, Matrix3x4, RealField};
 use num_traits::{Float, FromPrimitive};
 
 /// Quadratic Lagrange shape functions for 10-node tetrahedra (P2)
@@ -34,7 +34,9 @@ pub struct LagrangeTet10<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     p1_gradients: Matrix3x4<T>,
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Float> LagrangeTet10<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Float>
+    LagrangeTet10<T>
+{
     /// Create new P2 shape functions from elemental P1 gradients
     pub fn new(p1_gradients: Matrix3x4<T>) -> Self {
         Self { p1_gradients }
@@ -85,7 +87,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
         // Mid-edge nodes (4-9): ∇Nij = 4(Li ∇Lj + Lj ∇Li)
         let edges = [(0, 1), (1, 2), (2, 0), (0, 3), (1, 3), (2, 3)];
         for (idx, &(i, j)) in edges.iter().enumerate() {
-            let g_ij = (self.p1_gradients.column(j) * l[i] + self.p1_gradients.column(i) * l[j]) * four;
+            let g_ij =
+                (self.p1_gradients.column(j) * l[i] + self.p1_gradients.column(i) * l[j]) * four;
             grad.set_column(4 + idx, &g_ij);
         }
 

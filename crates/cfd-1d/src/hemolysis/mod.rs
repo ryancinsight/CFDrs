@@ -34,23 +34,40 @@
 //!   HI_amplified = HI_base × (1 + 3 × cav_potential)
 //! ```
 
-// ── Giersiepen model constants ────────────────────────────────────────────────
+// ── Giersiepen model constants (re-exported from cfd-core SSOT) ───────────────
+//
+// These are the single source of truth from cfd-core, aliased here for backward
+// compatibility with existing callers.  All three fidelity levels (1D/2D/3D)
+// now share identical constants, ensuring cross-fidelity HI comparisons are valid.
 
-/// Giersiepen (1990) fit constant C.
-pub const GIERSIEPEN_C: f64 = 3.62e-5;
-/// Giersiepen (1990) time exponent α.
-pub const GIERSIEPEN_ALPHA: f64 = 0.765;
-/// Giersiepen (1990) shear exponent β.
-pub const GIERSIEPEN_BETA: f64 = 1.991;
-/// Conservative cavitation amplification slope (3× at cav_potential = 1).
-pub const CAVITATION_HI_SLOPE: f64 = 3.0;
+/// Giersiepen (1990) fit constant C — from cfd-core SSOT.
+///
+/// See [`cfd_core::physics::hemolysis::GIERSIEPEN_MILLIFLUIDIC_C`].
+pub use cfd_core::physics::hemolysis::GIERSIEPEN_MILLIFLUIDIC_C as GIERSIEPEN_C;
+
+/// Giersiepen (1990) time exponent α — from cfd-core SSOT.
+///
+/// See [`cfd_core::physics::hemolysis::GIERSIEPEN_MILLIFLUIDIC_TIME`].
+pub use cfd_core::physics::hemolysis::GIERSIEPEN_MILLIFLUIDIC_TIME as GIERSIEPEN_ALPHA;
+
+/// Giersiepen (1990) shear exponent β — from cfd-core SSOT.
+///
+/// See [`cfd_core::physics::hemolysis::GIERSIEPEN_MILLIFLUIDIC_STRESS`].
+pub use cfd_core::physics::hemolysis::GIERSIEPEN_MILLIFLUIDIC_STRESS as GIERSIEPEN_BETA;
+
+/// Conservative cavitation amplification slope — from cfd-core SSOT.
+///
+/// See [`cfd_core::physics::hemolysis::CAVITATION_HI_SLOPE`].
+pub use cfd_core::physics::hemolysis::CAVITATION_HI_SLOPE;
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
 /// Giersiepen (1990) haemolysis index: `HI = C · t^α · τ^β`.
 ///
+/// Thin wrapper delegating to [`cfd_core::physics::hemolysis::HemolysisModel::giersiepen_millifluidic`]
+/// so that the single source of truth for all model constants lives in cfd-core.
 /// Returns `0.0` for non-positive inputs (no damage when shear or time is
-/// zero or negative).
+/// zero or negative) and `0.0` on conversion error (never expected in practice).
 ///
 /// # Arguments
 ///
@@ -67,13 +84,15 @@ pub const CAVITATION_HI_SLOPE: f64 = 3.0;
 #[inline]
 #[must_use]
 pub fn giersiepen_hi(shear_pa: f64, duration_s: f64) -> f64 {
-    if shear_pa <= 0.0 || duration_s <= 0.0 {
-        return 0.0;
-    }
-    GIERSIEPEN_C * duration_s.powf(GIERSIEPEN_ALPHA) * shear_pa.powf(GIERSIEPEN_BETA)
+    cfd_core::physics::hemolysis::HemolysisModel::giersiepen_millifluidic()
+        .damage_index(shear_pa, duration_s)
+        .unwrap_or(0.0)
 }
 
 /// Amplify a baseline Giersiepen HI by the local cavitation potential.
+///
+/// Thin wrapper delegating to [`cfd_core::physics::hemolysis::HemolysisModel::cavitation_amplified`]
+/// so that the single source of truth for the amplification slope lives in cfd-core.
 ///
 /// Bubble collapse generates micro-jets (localised shear amplification) and
 /// pressure shockwaves that damage RBC membranes independently of macroscopic
@@ -102,7 +121,7 @@ pub fn giersiepen_hi(shear_pa: f64, duration_s: f64) -> f64 {
 #[inline]
 #[must_use]
 pub fn cavitation_amplified_hi(base_hi: f64, cav_potential: f64) -> f64 {
-    base_hi * (1.0 + CAVITATION_HI_SLOPE * cav_potential.clamp(0.0, 1.0))
+    cfd_core::physics::hemolysis::HemolysisModel::cavitation_amplified(base_hi, cav_potential)
 }
 
 // ── Convenience struct ────────────────────────────────────────────────────────

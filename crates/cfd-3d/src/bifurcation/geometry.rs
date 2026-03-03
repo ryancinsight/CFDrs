@@ -66,7 +66,15 @@ pub enum ConicalTransition<T: cfd_mesh::domain::core::Scalar + RealField + Copy>
     },
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> ConicalTransition<T> {
+impl<
+        T: cfd_mesh::domain::core::Scalar
+            + RealField
+            + Copy
+            + FromPrimitive
+            + ToPrimitive
+            + SafeFromF64,
+    > ConicalTransition<T>
+{
     /// Calculate diameter at position along transition
     ///
     /// For smooth cone:
@@ -82,7 +90,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
     ) -> T {
         let one = T::one();
         let x_normalized = x / transition_length;
-        
+
         match self {
             ConicalTransition::SmoothCone { length: _ } => {
                 d_parent - (d_parent - d_daughter) * x_normalized
@@ -98,7 +106,9 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
                 // Exact C1-continuous cosine interpolation for mathematically smooth interfaces
                 let pi = T::from_f64_or_one(std::f64::consts::PI);
                 let two = T::from_f64_or_one(2.0);
-                d_daughter + (d_parent - d_daughter) / two * (one + num_traits::Float::cos(pi * x_normalized))
+                d_daughter
+                    + (d_parent - d_daughter) / two
+                        * (one + num_traits::Float::cos(pi * x_normalized))
             }
         }
     }
@@ -139,7 +149,15 @@ pub struct BifurcationGeometry3D<T: cfd_mesh::domain::core::Scalar + RealField +
     pub parent_axis: Vector3<T>,
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> BifurcationGeometry3D<T> {
+impl<
+        T: cfd_mesh::domain::core::Scalar
+            + RealField
+            + Copy
+            + FromPrimitive
+            + ToPrimitive
+            + SafeFromF64,
+    > BifurcationGeometry3D<T>
+{
     /// Create symmetric bifurcation (equal daughters)
     pub fn symmetric(
         d_parent: T,
@@ -195,7 +213,9 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
     ///
     /// Returns D₀³ - (D₁³ + D₂³), which should be close to 0
     pub fn murray_law_deviation(&self) -> T {
-        num_traits::Float::powi(self.d_parent, 3) - (num_traits::Float::powi(self.d_daughter1, 3) + num_traits::Float::powi(self.d_daughter2, 3))
+        num_traits::Float::powi(self.d_parent, 3)
+            - (num_traits::Float::powi(self.d_daughter1, 3)
+                + num_traits::Float::powi(self.d_daughter2, 3))
     }
 
     /// Calculate total mathematically exact volume of bifurcation
@@ -236,7 +256,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
         let pi = T::from_f64_or_one(std::f64::consts::PI);
         let nodes = [-0.90617985, -0.53846931, 0.0, 0.53846931, 0.90617985];
         let weights = [0.23692689, 0.47862867, 0.56888889, 0.47862867, 0.23692689];
-        
+
         let mut volume = T::zero();
         let half_l = self.l_transition / T::from_f64_or_one(2.0);
         let four = T::from_f64_or_one(4.0);
@@ -245,8 +265,10 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
             let x_t = T::from_f64_or_one(nodes[i]);
             let w_t = T::from_f64_or_one(weights[i]);
             let x = half_l * (x_t + T::one());
-            
-            let d = self.transition.diameter_at_position(x, d_parent, d_daughter, self.l_transition);
+
+            let d =
+                self.transition
+                    .diameter_at_position(x, d_parent, d_daughter, self.l_transition);
             let area = pi * d * d / four;
             volume += w_t * area * half_l;
         }
@@ -258,7 +280,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
         let pi = T::from_f64_or_one(std::f64::consts::PI);
         let nodes = [-0.90617985, -0.53846931, 0.0, 0.53846931, 0.90617985];
         let weights = [0.23692689, 0.47862867, 0.56888889, 0.47862867, 0.23692689];
-        
+
         let mut surface = T::zero();
         let half_l = self.l_transition / T::from_f64_or_one(2.0);
         let two = T::from_f64_or_one(2.0);
@@ -268,14 +290,26 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
             let x_t = T::from_f64_or_one(nodes[i]);
             let w_t = T::from_f64_or_one(weights[i]);
             let x = half_l * (x_t + T::one());
-            
-            let d = self.transition.diameter_at_position(x, d_parent, d_daughter, self.l_transition);
-            
+
+            let d =
+                self.transition
+                    .diameter_at_position(x, d_parent, d_daughter, self.l_transition);
+
             // Central difference for derivative d'(x) to support any custom analytical transition function
-            let d_plus = self.transition.diameter_at_position(x + epsilon, d_parent, d_daughter, self.l_transition);
-            let d_minus = self.transition.diameter_at_position(x - epsilon, d_parent, d_daughter, self.l_transition);
+            let d_plus = self.transition.diameter_at_position(
+                x + epsilon,
+                d_parent,
+                d_daughter,
+                self.l_transition,
+            );
+            let d_minus = self.transition.diameter_at_position(
+                x - epsilon,
+                d_parent,
+                d_daughter,
+                self.l_transition,
+            );
             let d_prime = (d_plus - d_minus) / (two * epsilon);
-            
+
             let arg = T::one() + (d_prime / two) * (d_prime / two);
             surface += w_t * pi * d * num_traits::Float::sqrt(arg) * half_l;
         }
@@ -302,7 +336,15 @@ pub struct BifurcationMesh<T: cfd_mesh::domain::core::Scalar + RealField + Copy>
     pub boundary_elements: Vec<Vec<usize>>,
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> BifurcationMesh<T> {
+impl<
+        T: cfd_mesh::domain::core::Scalar
+            + RealField
+            + Copy
+            + FromPrimitive
+            + ToPrimitive
+            + SafeFromF64,
+    > BifurcationMesh<T>
+{
     /// Create empty mesh
     pub fn new(element_type: usize) -> Self {
         Self {

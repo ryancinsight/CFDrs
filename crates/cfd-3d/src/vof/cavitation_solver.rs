@@ -574,7 +574,7 @@ impl CavitationVofSolver {
 
     /// Calculate sonoluminescence energy field
     ///
-    /// Estimates the radiated energy during bubble collapse using the 
+    /// Estimates the radiated energy during bubble collapse using the
     /// Rayleigh-Plesset adiabatic compression model and Stefan-Boltzmann law.
     pub fn sonoluminescence_energy_field(
         &self,

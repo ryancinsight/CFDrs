@@ -65,7 +65,6 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Forci
     }
 }
 
-
 /// Feedback forcing method with proportional-integral control
 pub struct FeedbackForcing<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     kp: T, // Proportional gain
@@ -89,7 +88,9 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Feedb
     }
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> ForcingMethod<T> for FeedbackForcing<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> ForcingMethod<T>
+    for FeedbackForcing<T>
+{
     fn calculate_force(
         &self,
         desired_velocity: &Vector3<T>,

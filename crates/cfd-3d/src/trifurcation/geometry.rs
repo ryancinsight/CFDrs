@@ -56,7 +56,15 @@ pub struct TrifurcationGeometry3D<T: cfd_mesh::domain::core::Scalar + RealField 
     pub branching_angles: [T; 3],
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> TrifurcationGeometry3D<T> {
+impl<
+        T: cfd_mesh::domain::core::Scalar
+            + RealField
+            + Copy
+            + FromPrimitive
+            + ToPrimitive
+            + SafeFromF64,
+    > TrifurcationGeometry3D<T>
+{
     /// Create a symmetric 3D trifurcation
     pub fn symmetric(
         d_parent: T,

@@ -2,12 +2,8 @@
 
 use super::candidate::DesignCandidate;
 use super::topology::DesignTopology;
-use crate::constraints::{
-    PLATE_HEIGHT_MM, PLATE_WIDTH_MM, TREATMENT_HEIGHT_MM, TREATMENT_WIDTH_MM, TREATMENT_X_MIN_MM,
-    TREATMENT_Y_MIN_MM,
-};
+use crate::constraints::{PLATE_HEIGHT_MM, PLATE_WIDTH_MM, TREATMENT_HEIGHT_MM};
 use cfd_schematics::{
-    geometry::adaptive_box_dims,
     interface::presets::{
         asymmetric_bifurcation_serpentine_rect, asymmetric_trifurcation_venturi_rect,
         bifurcation_serpentine_rect, bifurcation_trifurcation_venturi_rect,
@@ -417,24 +413,15 @@ impl DesignCandidate {
         let dt_mm = (self.throat_diameter_m * 1e3).max(0.06).min(w_mm * 0.9);
 
         let gc = GeometryConfig {
-            wall_clearance: 2.0,
+            wall_clearance: 4.0,
             channel_width: w_mm,
             channel_height: h_mm,
             ..Default::default()
         };
 
-        // Compute total branches for adaptive footprint scaling.
-        // The geometry generator creates symmetric left/right halves, each
-        // containing `product(split_factors)` terminal channels.  The
-        // vertical extent must accommodate all of them.
-        let total_branches = 2 * self.topology.terminal_branch_count();
-        let box_dims = adaptive_box_dims(
-            TREATMENT_WIDTH_MM,
-            TREATMENT_HEIGHT_MM,
-            total_branches,
-            w_mm,
-            gc.wall_clearance,
-        );
+        // Full-plate layout: use the entire 96-well footprint for schematic
+        // generation rather than constraining topology to the 6x6 center zone.
+        let box_dims = (PLATE_WIDTH_MM, PLATE_HEIGHT_MM);
 
         // ── Wave-shape configs ───────────────────────────────────────────
         // Sine wave — smooth Dean-flow visualisation for tree / venturi topologies.
@@ -630,9 +617,10 @@ impl DesignCandidate {
                 &ChannelTypeConfig::AllSerpentine(sine_wave),
             ),
             DesignTopology::CascadeCenterTrifurcationSeparator { n_levels } => {
-                // Cascade topology: n_levels trifurcation splits with asymmetric
-                // center arm matching the candidate's separation fraction.
-                let splits: Vec<SplitType> = (0..n_levels as usize)
+                // Cascade topology: cap at 3 schematic splits to keep ≤ 27
+                // parallel channels and prevent visual overlap.
+                let schematic_levels = (n_levels as usize).min(3);
+                let splits: Vec<SplitType> = (0..schematic_levels)
                     .map(|_| SplitType::SymmetricTrifurcation {
                         center_ratio: self.trifurcation_center_frac,
                     })
@@ -645,9 +633,13 @@ impl DesignCandidate {
                 )
             }
             DesignTopology::IncrementalFiltrationTriBiSeparator { n_pretri } => {
-                // CIF rendering: pre-trifurcation cascade with width-proportional
-                // center ratios, then terminal tri (center-enriched) → bi.
-                let mut splits: Vec<SplitType> = (0..n_pretri as usize)
+                // CIF schematic: cap pre-tri splits so parallel channels remain
+                // visually distinct.  Full n_pretri can produce 3^(n+1)*2 leaf
+                // channels; at n_pretri=3 that is 162 — far too many for
+                // 85 mm plate height.  Show at most 1 representative pre-tri
+                // to keep the total ≤ 18 parallel paths.
+                let schematic_pretri = n_pretri.min(1);
+                let mut splits: Vec<SplitType> = (0..schematic_pretri as usize)
                     .map(|_| SplitType::SymmetricTrifurcation {
                         center_ratio: self.cif_pretri_center_frac(),
                     })
@@ -708,7 +700,7 @@ impl DesignCandidate {
                 )
             }
         };
-        map_to_plate_coords(system, box_dims)
+        map_to_plate_coords(system, box_dims, w_mm, h_mm)
     }
 
     /// Total approximate channel path length [mm].
@@ -733,22 +725,50 @@ impl DesignCandidate {
 /// Remap a treatment-zone–local `ChannelSystem` into full 96-well plate
 /// coordinates (ANSI/SLAS 1-2004, 127.76 × 85.47 mm).
 ///
-/// The geometry generator produces channels in a local frame `(0,0)…(box_w, box_h)`.
-/// This function shifts every coordinate so the layout sits centred inside the
-/// treatment zone and sets `box_dims` / `box_outline` to the full plate envelope.
+/// The geometry generator produces channels in a coordinate frame matching
+/// `local_dims`.  When `local_dims` already equals the plate envelope the
+/// remap is an identity; only the inlet/outlet trunk insertion is needed.
+///
+/// Previous implementation computed the bounding box from all path points
+/// (including serpentine oscillation extremes) and rescaled the entire
+/// system to fill the plate, which undid the edge-padding that keeps
+/// peripheral channels away from the plate walls.  Now we use `local_dims`
+/// as the authoritative source-of-truth for the coordinate frame.
 fn map_to_plate_coords(
     mut sys: cfd_schematics::geometry::ChannelSystem,
     local_dims: (f64, f64),
+    default_channel_width_mm: f64,
+    default_channel_height_mm: f64,
 ) -> cfd_schematics::geometry::ChannelSystem {
-    use cfd_schematics::geometry::ChannelType;
+    use cfd_schematics::geometry::{Channel, ChannelType, Node};
 
     let (box_w, box_h) = local_dims;
-    let dx = TREATMENT_X_MIN_MM + (TREATMENT_WIDTH_MM - box_w) / 2.0;
-    let dy = TREATMENT_Y_MIN_MM + (TREATMENT_HEIGHT_MM - box_h) / 2.0;
+
+    // Use the generator's own coordinate frame rather than the point
+    // bounding-box so that edge-padding is preserved.
+    let (x_min, x_max) = (0.0, box_w);
+    let (y_min, y_max) = (0.0, box_h);
+
+    let span_x = (x_max - x_min).abs();
+    let span_y = (y_max - y_min).abs();
+    let sx = if span_x > 1e-9 {
+        PLATE_WIDTH_MM / span_x
+    } else {
+        1.0
+    };
+    let sy = if span_y > 1e-9 {
+        PLATE_HEIGHT_MM / span_y
+    } else {
+        1.0
+    };
+
+    let remap_point = |pt: &mut (f64, f64)| {
+        pt.0 = (pt.0 - x_min) * sx;
+        pt.1 = (pt.1 - y_min) * sy;
+    };
 
     for node in &mut sys.nodes {
-        node.point.0 += dx;
-        node.point.1 += dy;
+        remap_point(&mut node.point);
     }
 
     for channel in &mut sys.channels {
@@ -759,8 +779,7 @@ fn map_to_plate_coords(
             | ChannelType::Arc { path }
             | ChannelType::Frustum { path, .. } => {
                 for pt in path.iter_mut() {
-                    pt.0 += dx;
-                    pt.1 += dy;
+                    remap_point(pt);
                 }
             }
         }
@@ -774,5 +793,204 @@ fn map_to_plate_coords(
         ((0.0, PLATE_HEIGHT_MM), (0.0, 0.0)),
     ];
 
+    // Ensure the rendered schematic has explicit plate-edge inlet/outlet
+    // trunks so the flow path connects into and out of the full cuboid.
+    if !sys.channels.is_empty() && !sys.nodes.is_empty() {
+        let mut degree = vec![0usize; sys.nodes.len()];
+        for ch in &sys.channels {
+            if ch.from_node < degree.len() {
+                degree[ch.from_node] += 1;
+            }
+            if ch.to_node < degree.len() {
+                degree[ch.to_node] += 1;
+            }
+        }
+
+        let mut terminals: Vec<usize> = degree
+            .iter()
+            .enumerate()
+            .filter_map(|(idx, d)| if *d == 1 { Some(idx) } else { None })
+            .collect();
+
+        if terminals.len() >= 2 {
+            terminals.sort_by(|a, b| sys.nodes[*a].point.0.total_cmp(&sys.nodes[*b].point.0));
+            let inlet_node = terminals[0];
+            let outlet_node = terminals[terminals.len() - 1];
+            let next_node_id_start = sys.nodes.iter().map(|n| n.id).max().unwrap_or(0) + 1;
+            let next_channel_id_start = sys.channels.iter().map(|c| c.id).max().unwrap_or(0) + 1;
+            let mut next_node_id = next_node_id_start;
+            let mut next_channel_id = next_channel_id_start;
+
+            const EDGE_EPS: f64 = 1e-6;
+
+            let inlet_x = sys.nodes[inlet_node].point.0;
+            let inlet_y = sys.nodes[inlet_node].point.1;
+            if inlet_x > EDGE_EPS {
+                let port_id = next_node_id;
+                next_node_id += 1;
+                sys.nodes.push(Node {
+                    id: port_id,
+                    point: (0.0, inlet_y),
+                    metadata: None,
+                });
+                let (w, h) = sys
+                    .channels
+                    .iter()
+                    .find(|c| c.from_node == inlet_node || c.to_node == inlet_node)
+                    .map_or((default_channel_width_mm, default_channel_height_mm), |c| {
+                        (c.width, c.height)
+                    });
+                sys.channels.push(Channel {
+                    id: next_channel_id,
+                    from_node: port_id,
+                    to_node: inlet_node,
+                    width: w,
+                    height: h,
+                    channel_type: ChannelType::Straight,
+                    metadata: None,
+                });
+                next_channel_id += 1;
+            }
+
+            let outlet_x = sys.nodes[outlet_node].point.0;
+            let outlet_y = sys.nodes[outlet_node].point.1;
+            if outlet_x < PLATE_WIDTH_MM - EDGE_EPS {
+                let port_id = next_node_id;
+                sys.nodes.push(Node {
+                    id: port_id,
+                    point: (PLATE_WIDTH_MM, outlet_y),
+                    metadata: None,
+                });
+                let (w, h) = sys
+                    .channels
+                    .iter()
+                    .find(|c| c.from_node == outlet_node || c.to_node == outlet_node)
+                    .map_or((default_channel_width_mm, default_channel_height_mm), |c| {
+                        (c.width, c.height)
+                    });
+                sys.channels.push(Channel {
+                    id: next_channel_id,
+                    from_node: outlet_node,
+                    to_node: port_id,
+                    width: w,
+                    height: h,
+                    channel_type: ChannelType::Straight,
+                    metadata: None,
+                });
+            }
+        }
+    }
+
     sys
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::design::{CrossSectionShape, DesignCandidate, DesignTopology};
+
+    fn sample_candidate(topology: DesignTopology) -> DesignCandidate {
+        DesignCandidate {
+            id: "sample".to_string(),
+            topology,
+            flow_rate_m3_s: 1.667e-6,
+            inlet_gauge_pa: 100_000.0,
+            throat_diameter_m: 50e-6,
+            inlet_diameter_m: 4e-3,
+            throat_length_m: 250e-6,
+            channel_width_m: 6e-3,
+            channel_height_m: 1e-3,
+            serpentine_segments: 4,
+            segment_length_m: 0.01,
+            bend_radius_m: 0.004,
+            feed_hematocrit: 0.45,
+            trifurcation_center_frac: 1.0 / 3.0,
+            cif_pretri_center_frac: 1.0 / 3.0,
+            cif_terminal_tri_center_frac: 1.0 / 3.0,
+            cif_terminal_bi_treat_frac: 0.68,
+            asymmetric_narrow_frac: 0.5,
+            trifurcation_left_frac: 1.0 / 3.0,
+            cross_section_shape: CrossSectionShape::Rectangular,
+        }
+    }
+
+    #[test]
+    fn channel_system_has_plate_edge_inlet_and_outlet_ports() {
+        let candidate = sample_candidate(DesignTopology::TrifurcationSerpentine);
+        let system = candidate.to_channel_system();
+
+        let has_left_edge_port = system.nodes.iter().any(|n| n.point.0.abs() < 1e-9);
+        let has_right_edge_port = system
+            .nodes
+            .iter()
+            .any(|n| (n.point.0 - PLATE_WIDTH_MM).abs() < 1e-9);
+
+        assert!(has_left_edge_port, "missing left plate-edge inlet trunk");
+        assert!(has_right_edge_port, "missing right plate-edge outlet trunk");
+    }
+
+    #[test]
+    fn channel_system_plate_box_matches_full_plate_dimensions() {
+        let candidate = sample_candidate(DesignTopology::BifurcationVenturi);
+        let system = candidate.to_channel_system();
+        assert!((system.box_dims.0 - PLATE_WIDTH_MM).abs() < 1e-9);
+        assert!((system.box_dims.1 - PLATE_HEIGHT_MM).abs() < 1e-9);
+        assert_eq!(system.box_outline.len(), 4);
+    }
+
+    #[test]
+    fn channel_geometry_is_remapped_to_full_plate_bounds() {
+        use cfd_schematics::geometry::ChannelType;
+
+        let candidate =
+            sample_candidate(DesignTopology::IncrementalFiltrationTriBiSeparator { n_pretri: 2 });
+        let system = candidate.to_channel_system();
+
+        let mut x_min = f64::INFINITY;
+        let mut x_max = f64::NEG_INFINITY;
+        let mut y_min = f64::INFINITY;
+        let mut y_max = f64::NEG_INFINITY;
+
+        let mut include = |x: f64, y: f64| {
+            if x < x_min {
+                x_min = x;
+            }
+            if x > x_max {
+                x_max = x;
+            }
+            if y < y_min {
+                y_min = y;
+            }
+            if y > y_max {
+                y_max = y;
+            }
+        };
+
+        for n in &system.nodes {
+            include(n.point.0, n.point.1);
+        }
+        for ch in &system.channels {
+            match &ch.channel_type {
+                ChannelType::Straight => {}
+                ChannelType::SmoothStraight { path }
+                | ChannelType::Serpentine { path }
+                | ChannelType::Arc { path }
+                | ChannelType::Frustum { path, .. } => {
+                    for &(x, y) in path {
+                        include(x, y);
+                    }
+                }
+            }
+        }
+
+        // X should span full plate (inlet trunk at x=0, outlet trunk at x=PLATE_WIDTH_MM)
+        assert!((x_min - 0.0).abs() < 1e-6, "x_min={x_min}");
+        assert!((x_max - PLATE_WIDTH_MM).abs() < 1e-6, "x_max={x_max}");
+        // Y channels should be within plate bounds but padded away from walls
+        // (edge_padding keeps peripheral channels inward)
+        assert!(y_min >= 0.0, "y_min={y_min} should be >= 0");
+        assert!(y_max <= PLATE_HEIGHT_MM, "y_max={y_max} should be <= {PLATE_HEIGHT_MM}");
+        assert!(y_min < PLATE_HEIGHT_MM / 2.0, "y_min={y_min} should be below center");
+        assert!(y_max > PLATE_HEIGHT_MM / 2.0, "y_max={y_max} should be above center");
+    }
 }

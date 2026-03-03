@@ -23,7 +23,18 @@ use std::fs;
 use std::io::BufWriter;
 use std::path::Path;
 
+use cfd_mesh::application::channel::path::ChannelPath;
+use cfd_mesh::application::channel::substrate::SubstrateBuilder;
+use cfd_mesh::application::channel::sweep::SweepMesher;
+use cfd_mesh::application::csg::boolean::{
+    csg_boolean_indexed, csg_boolean_indexed_tolerant, BooleanOp,
+};
+use cfd_mesh::application::pipeline::PipelineOutput;
 use cfd_mesh::application::pipeline::{BlueprintMeshPipeline, PipelineConfig};
+use cfd_mesh::domain::core::index::RegionId;
+use cfd_mesh::domain::core::scalar::Real;
+use cfd_mesh::domain::mesh::IndexedMesh;
+use cfd_mesh::infrastructure::io::scheme;
 use cfd_mesh::infrastructure::io::stl;
 
 use cfd_schematics::config::{ChannelTypeConfig, FrustumConfig, GeometryConfig, SerpentineConfig};
@@ -80,8 +91,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     for (i, (name, bp)) in designs.iter().enumerate() {
         println!();
+        let system = channel_system_for(name);
+
         let mut out = BlueprintMeshPipeline::run(bp, &config)
             .map_err(|e| format!("{name}: pipeline failed — {e}"))?;
+        if *name == "serpentine_chain" || *name == "serpentine_rect" {
+            let force_circular = *name == "serpentine_chain";
+            out = mesh_output_from_channel_system(&system, &config, force_circular)
+                .map_err(|e| format!("{name}: schematic mesh failed — {e}"))?;
+        }
 
         // ── Fluid mesh ────────────────────────────────────────────────────────
         assert!(
@@ -148,7 +166,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // ── 2-D schematics via cfd-schematics ─────────────────────────────────
         // JSON interchange format (centrelines + profiles), SVG vector layout,
         // and PNG raster layout — all produced by cfd-schematics.
-        let system = channel_system_for(name);
 
         let json_path = out_dir.join(format!("{name}_schematic.json"));
         fs::write(&json_path, system.to_interchange_json()?)?;
@@ -175,6 +192,191 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("  {schema_count} schematic files (JSON + SVG + PNG) written");
     println!("=================================================================");
     Ok(())
+}
+
+/// Build fluid/chip meshes directly from a `cfd-schematics` channel system.
+///
+/// `force_circular` is used for the circular serpentine preset to ensure
+/// cylindrical channels when interchange profile metadata is rectangular.
+fn mesh_output_from_channel_system(
+    system: &ChannelSystem,
+    config: &PipelineConfig,
+    force_circular: bool,
+) -> Result<PipelineOutput, Box<dyn std::error::Error>> {
+    let schematic3d = scheme::from_channel_system(
+        system,
+        config.chip_height_mm as Real,
+        config.circular_segments,
+    )?;
+
+    let mesher = SweepMesher::new();
+    let mut all_channels: Option<IndexedMesh> = None;
+    let mut all_void_channels: Option<IndexedMesh> = None;
+
+    for channel_def in &schematic3d.channels {
+        let profile = if force_circular {
+            circularized_profile(&channel_def.profile, config.circular_segments)
+        } else {
+            channel_def.profile.clone()
+        };
+
+        let mut current = sweep_channel(
+            &mesher,
+            &profile,
+            &channel_def.path,
+            channel_def.width_scales.as_deref(),
+        );
+        current.rebuild_edges();
+
+        all_channels = Some(if let Some(existing) = all_channels.take() {
+            csg_boolean_indexed_tolerant(BooleanOp::Union, &existing, &current)?
+        } else {
+            current
+        });
+
+        if config.include_chip_body {
+            let extension_mm = profile_radius_mm(&profile).max(0.25);
+            let extended_path = extend_path_ends(&channel_def.path, extension_mm);
+            let mut void_current = sweep_channel(
+                &mesher,
+                &profile,
+                &extended_path,
+                channel_def.width_scales.as_deref(),
+            );
+            void_current.rebuild_edges();
+
+            all_void_channels = Some(if let Some(existing) = all_void_channels.take() {
+                csg_boolean_indexed_tolerant(BooleanOp::Union, &existing, &void_current)?
+            } else {
+                void_current
+            });
+        }
+    }
+
+    let mut fluid_mesh = all_channels.ok_or("no channels produced from schematic")?;
+    fluid_mesh.orient_outward();
+    fluid_mesh.retain_largest_component();
+    fluid_mesh.rebuild_edges();
+
+    let chip_mesh = if config.include_chip_body {
+        let substrate = SubstrateBuilder::well_plate_96(config.chip_height_mm).build_indexed()?;
+        let void_mesh = all_void_channels.as_ref().unwrap_or(&fluid_mesh);
+        let mut chip = csg_boolean_indexed_tolerant(BooleanOp::Difference, &substrate, void_mesh)?;
+        chip.orient_outward();
+        chip.retain_largest_component();
+        chip.rebuild_edges();
+
+        if !chip.is_watertight() {
+            chip = csg_boolean_indexed(BooleanOp::Difference, &substrate, void_mesh)?;
+            chip.orient_outward();
+            chip.retain_largest_component();
+            chip.rebuild_edges();
+        }
+
+        if !chip.is_watertight() {
+            return Err("schematic-driven chip body is not watertight".into());
+        }
+
+        Some(chip)
+    } else {
+        None
+    };
+
+    Ok(PipelineOutput {
+        fluid_mesh,
+        chip_mesh,
+        topology_class: cfd_mesh::application::pipeline::TopologyClass::LinearChain {
+            n_segments: system.channels.len(),
+        },
+        segment_count: system.channels.len(),
+        layout_segments: Vec::new(),
+    })
+}
+
+fn sweep_channel(
+    mesher: &SweepMesher,
+    profile: &cfd_mesh::application::channel::profile::ChannelProfile,
+    path: &ChannelPath,
+    scales: Option<&[Real]>,
+) -> IndexedMesh {
+    let mut mesh = IndexedMesh::new();
+    let faces = if let Some(scales) = scales {
+        mesher.sweep_variable(profile, path, scales, &mut mesh.vertices, RegionId::new(0))
+    } else {
+        mesher.sweep(profile, path, &mut mesh.vertices, RegionId::new(0))
+    };
+    for face in faces {
+        mesh.faces.push(face);
+    }
+    mesh
+}
+
+fn profile_radius_mm(profile: &cfd_mesh::application::channel::profile::ChannelProfile) -> Real {
+    use cfd_mesh::application::channel::profile::ChannelProfile;
+    match profile {
+        ChannelProfile::Circular { radius, .. } => *radius,
+        ChannelProfile::Rectangular { width, height } => 0.5 * width.min(*height),
+        ChannelProfile::RoundedRectangular { width, height, .. } => 0.5 * width.min(*height),
+    }
+}
+
+fn extend_path_ends(path: &ChannelPath, extension_mm: Real) -> ChannelPath {
+    let pts = path.points();
+    if pts.len() < 2 || extension_mm <= 0.0 {
+        return path.clone();
+    }
+
+    let first_dir = (pts[1] - pts[0]).normalize();
+    let last_dir = (pts[pts.len() - 1] - pts[pts.len() - 2]).normalize();
+
+    let mut out = pts.to_vec();
+    out[0] = pts[0] - first_dir * extension_mm;
+    let n = out.len() - 1;
+    out[n] = pts[n] + last_dir * extension_mm;
+    ChannelPath::new(out)
+}
+
+fn circularized_profile(
+    profile: &cfd_mesh::application::channel::profile::ChannelProfile,
+    segments: usize,
+) -> cfd_mesh::application::channel::profile::ChannelProfile {
+    use cfd_mesh::application::channel::profile::ChannelProfile;
+    use std::f64::consts::PI;
+
+    match profile {
+        ChannelProfile::Circular { radius, .. } => ChannelProfile::Circular {
+            radius: *radius,
+            segments,
+        },
+        ChannelProfile::Rectangular { width, height } => {
+            let d_h = if *width > 0.0 && *height > 0.0 {
+                2.0 * *width * *height / (*width + *height)
+            } else {
+                width.min(*height).max(0.0)
+            };
+            ChannelProfile::Circular {
+                radius: 0.5 * d_h,
+                segments,
+            }
+        }
+        ChannelProfile::RoundedRectangular {
+            width,
+            height,
+            corner_radius,
+            ..
+        } => {
+            let area = (*width * *height - (4.0 - PI) * *corner_radius * *corner_radius).max(0.0);
+            let d_eq = if area > 0.0 {
+                2.0 * (area / PI).sqrt()
+            } else {
+                width.min(*height).max(0.0)
+            };
+            ChannelProfile::Circular {
+                radius: 0.5 * d_eq,
+                segments,
+            }
+        }
+    }
 }
 
 // ── 2-D schematic geometry ────────────────────────────────────────────────────

@@ -28,7 +28,7 @@ fn test_smagorinsky_turbulent_viscosity() {
     }
 
     let cs = 0.1;
-    let model = SmagorinskyModel::new(cs);
+    let model = SmagorinskyModel::with_filter_width(cs, delta, delta, delta);
     let viscosity = model.turbulent_viscosity(&flow_field);
 
     assert_eq!(viscosity.len(), nx * ny * nz);

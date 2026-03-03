@@ -252,6 +252,23 @@ impl ChannelSystem {
     pub fn to_interchange_json(&self) -> Result<String, serde_json::Error> {
         serde_json::to_string_pretty(&self.to_interchange())
     }
+
+    /// Build interchange payload after resolving geometric channel overlaps.
+    ///
+    /// This is useful when imported or procedurally modified schematics contain
+    /// crossing centerlines that should become explicit junction nodes for
+    /// downstream solver graph construction.
+    #[must_use]
+    pub fn to_interchange_resolved(&self) -> InterchangeChannelSystem {
+        let mut resolved = self.clone();
+        resolved.resolve_channel_overlaps();
+        resolved.to_interchange()
+    }
+
+    /// Export overlap-resolved interchange payload as JSON.
+    pub fn to_interchange_json_resolved(&self) -> Result<String, serde_json::Error> {
+        serde_json::to_string_pretty(&self.to_interchange_resolved())
+    }
 }
 
 // ── Shell Cuboid interchange types ─────────────────────────────────────────────

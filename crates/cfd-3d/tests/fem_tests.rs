@@ -37,11 +37,15 @@ fn all_wall_bcs(mesh: &IndexedMesh<f64>) -> HashMap<usize, BoundaryCondition<f64
     let mut bcs = HashMap::new();
     for node_idx in 0..mesh.vertex_count() {
         let p = mesh.vertices.get(VertexId::from_usize(node_idx)).position;
-        let on_boundary = p.x < 1e-6 || p.x > 0.999
-            || p.y < 1e-6 || p.y > 0.999
-            || p.z < 1e-6 || p.z > 0.999;
+        let on_boundary =
+            p.x < 1e-6 || p.x > 0.999 || p.y < 1e-6 || p.y > 0.999 || p.z < 1e-6 || p.z > 0.999;
         if on_boundary {
-            bcs.insert(node_idx, BoundaryCondition::Wall { wall_type: WallType::NoSlip });
+            bcs.insert(
+                node_idx,
+                BoundaryCondition::Wall {
+                    wall_type: WallType::NoSlip,
+                },
+            );
         }
     }
     bcs
@@ -90,14 +94,17 @@ fn test_lid_driven_cavity_nonzero_velocity() {
     let mut bcs = HashMap::new();
     for node_idx in 0..mesh.vertex_count() {
         let p = mesh.vertices.get(VertexId::from_usize(node_idx)).position;
-        let on_boundary = p.x < 1e-6 || p.x > 0.999
-            || p.y < 1e-6 || p.y > 0.999
-            || p.z < 1e-6 || p.z > 0.999;
+        let on_boundary =
+            p.x < 1e-6 || p.x > 0.999 || p.y < 1e-6 || p.y > 0.999 || p.z < 1e-6 || p.z > 0.999;
         if on_boundary {
             let bc = if p.z > 0.999 {
-                BoundaryCondition::VelocityInlet { velocity: Vector3::new(1e-3, 0.0, 0.0) }
+                BoundaryCondition::VelocityInlet {
+                    velocity: Vector3::new(1e-3, 0.0, 0.0),
+                }
             } else {
-                BoundaryCondition::Wall { wall_type: WallType::NoSlip }
+                BoundaryCondition::Wall {
+                    wall_type: WallType::NoSlip,
+                }
             };
             bcs.insert(node_idx, bc);
         }
@@ -129,13 +136,24 @@ fn test_pressure_driven_channel_positive_x_velocity() {
     for node_idx in 0..mesh.vertex_count() {
         let p = mesh.vertices.get(VertexId::from_usize(node_idx)).position;
         if p.x < 1e-6 {
-            bcs.insert(node_idx, BoundaryCondition::VelocityInlet {
-                velocity: Vector3::new(u_in, 0.0, 0.0),
-            });
+            bcs.insert(
+                node_idx,
+                BoundaryCondition::VelocityInlet {
+                    velocity: Vector3::new(u_in, 0.0, 0.0),
+                },
+            );
         } else if p.x > 0.999 {
-            bcs.insert(node_idx, BoundaryCondition::PressureOutlet { pressure: 0.0 });
+            bcs.insert(
+                node_idx,
+                BoundaryCondition::PressureOutlet { pressure: 0.0 },
+            );
         } else if p.y < 1e-6 || p.y > 0.999 || p.z < 1e-6 || p.z > 0.999 {
-            bcs.insert(node_idx, BoundaryCondition::Wall { wall_type: WallType::NoSlip });
+            bcs.insert(
+                node_idx,
+                BoundaryCondition::Wall {
+                    wall_type: WallType::NoSlip,
+                },
+            );
         }
     }
     let n_nodes = mesh.vertex_count();
@@ -147,7 +165,11 @@ fn test_pressure_driven_channel_positive_x_velocity() {
             // Check any node near centre has positive x-velocity
             let mut found_positive = false;
             for node_idx in 0..problem.mesh.vertex_count() {
-                let p = problem.mesh.vertices.get(VertexId::from_usize(node_idx)).position;
+                let p = problem
+                    .mesh
+                    .vertices
+                    .get(VertexId::from_usize(node_idx))
+                    .position;
                 if (p.x - 0.5).abs() < 0.3 && (p.y - 0.5).abs() < 0.3 && (p.z - 0.5).abs() < 0.3 {
                     if sol.velocity[node_idx * 3] > 0.0 {
                         found_positive = true;
@@ -174,7 +196,10 @@ fn test_validate_rejects_missing_bcs() {
     let mesh = cube_mesh(3, 3, 3);
     let problem = StokesFlowProblem::new(mesh, water(), HashMap::new(), 27);
     let result = problem.validate();
-    assert!(result.is_err(), "validate() must fail when boundary nodes have no BCs");
+    assert!(
+        result.is_err(),
+        "validate() must fail when boundary nodes have no BCs"
+    );
     match result.unwrap_err() {
         Error::InvalidConfiguration(msg) => {
             assert!(
@@ -214,7 +239,10 @@ fn test_degenerate_single_node_mesh() {
     match result {
         Ok(sol) => {
             let max_vel = sol.velocity.iter().map(|v| v.abs()).fold(0.0_f64, f64::max);
-            assert!(max_vel < 1e-10, "All-wall small mesh should have ~zero velocity");
+            assert!(
+                max_vel < 1e-10,
+                "All-wall small mesh should have ~zero velocity"
+            );
         }
         Err(_) => { /* acceptable */ }
     }
@@ -274,8 +302,18 @@ fn test_duplicate_bcs_no_panic() {
     let mesh = cube_mesh(3, 3, 3);
     let mut bcs = all_wall_bcs(&mesh);
     // Override first node with a velocity inlet
-    bcs.insert(0, BoundaryCondition::VelocityInlet { velocity: Vector3::new(1e-3, 0.0, 0.0) });
-    bcs.insert(0, BoundaryCondition::Wall { wall_type: WallType::NoSlip }); // override again
+    bcs.insert(
+        0,
+        BoundaryCondition::VelocityInlet {
+            velocity: Vector3::new(1e-3, 0.0, 0.0),
+        },
+    );
+    bcs.insert(
+        0,
+        BoundaryCondition::Wall {
+            wall_type: WallType::NoSlip,
+        },
+    ); // override again
     let n_nodes = mesh.vertex_count();
     let problem = StokesFlowProblem::new(mesh, water(), bcs, n_nodes);
     let mut solver = ProjectionSolver::with_timestep(FemConfig::default(), 1e-3);
@@ -295,7 +333,10 @@ fn test_boundary_nodes_sorted_unique() {
     let n = nodes.len();
     // Check sorted
     for i in 1..n {
-        assert!(nodes[i] > nodes[i - 1], "boundary nodes must be strictly sorted");
+        assert!(
+            nodes[i] > nodes[i - 1],
+            "boundary nodes must be strictly sorted"
+        );
     }
     // Check all indices are in range
     for &idx in &nodes {
@@ -314,7 +355,8 @@ fn test_solution_velocity_length_consistent() {
     if let Ok(sol) = solver.solve(&problem, None) {
         // velocity is stored as flat DOF vector: 3 components per node
         assert_eq!(
-            sol.velocity.len() % 3, 0,
+            sol.velocity.len() % 3,
+            0,
             "velocity DOF count must be a multiple of 3"
         );
     }

@@ -1,6 +1,9 @@
 //! Integration tests for the NetworkBlueprint → IndexedMesh pipeline.
 
+use std::collections::{HashMap, HashSet};
+
 use cfd_mesh::application::pipeline::{BlueprintMeshPipeline, PipelineConfig, TopologyClass};
+use cfd_mesh::domain::mesh::IndexedMesh;
 use cfd_schematics::interface::presets::{
     asymmetric_bifurcation_serpentine_rect, bifurcation_rect, serpentine_chain, serpentine_rect,
     symmetric_bifurcation, symmetric_trifurcation, trifurcation_rect, venturi_chain, venturi_rect,
@@ -111,6 +114,27 @@ fn chip_body_volume_less_than_substrate() {
         "chip body volume ({chip_vol:.2}) must be less than substrate ({substrate_vol:.2})"
     );
     assert!(chip_vol > 0.0, "chip body volume must be positive");
+}
+
+#[test]
+fn serpentine_chip_body_has_single_port_per_side() {
+    let bp = serpentine_chain("s_ports", 3, 0.010, 0.004);
+    let mut out = BlueprintMeshPipeline::run(&bp, &default_cfg())
+        .expect("serpentine pipeline with chip body failed");
+    let chip = out.chip_mesh.as_mut().expect("chip_mesh should be Some");
+    assert!(chip.is_watertight(), "chip body mesh must be watertight");
+
+    let left_holes = planar_face_hole_count(chip, 0.0, 1e-6);
+    let right_holes = planar_face_hole_count(chip, 127.76, 1e-6);
+
+    assert_eq!(
+        left_holes, 1,
+        "left chip face should have exactly one serpentine port"
+    );
+    assert_eq!(
+        right_holes, 1,
+        "right chip face should have exactly one serpentine port"
+    );
 }
 
 // ── Constraint rejection tests ────────────────────────────────────────────────
@@ -255,4 +279,82 @@ fn cif_complex_topology_produces_mesh() {
         out.fluid_mesh.signed_volume().abs() > 0.0,
         "CIF mesh must have non-zero volume"
     );
+}
+
+fn planar_face_hole_count(mesh: &IndexedMesh, x_plane: f64, tol: f64) -> usize {
+    let mut local_index: HashMap<usize, usize> = HashMap::new();
+    let mut next_local = 0_usize;
+    let mut edges: HashSet<(usize, usize)> = HashSet::new();
+    let mut faces_count = 0_isize;
+
+    for (_, face) in mesh.faces.iter_enumerated() {
+        let vids = face.vertices;
+        let p0 = mesh.vertices.position(vids[0]);
+        let p1 = mesh.vertices.position(vids[1]);
+        let p2 = mesh.vertices.position(vids[2]);
+
+        if !((p0.x - x_plane).abs() <= tol
+            && (p1.x - x_plane).abs() <= tol
+            && (p2.x - x_plane).abs() <= tol)
+        {
+            continue;
+        }
+
+        faces_count += 1;
+
+        let mut tri_local = [0_usize; 3];
+        for (i, vid) in vids.iter().enumerate() {
+            let gid = vid.as_usize();
+            let lid = *local_index.entry(gid).or_insert_with(|| {
+                let idx = next_local;
+                next_local += 1;
+                idx
+            });
+            tri_local[i] = lid;
+        }
+
+        for (a, b) in [(0_usize, 1_usize), (1, 2), (2, 0)] {
+            let (u, v) = if tri_local[a] < tri_local[b] {
+                (tri_local[a], tri_local[b])
+            } else {
+                (tri_local[b], tri_local[a])
+            };
+            edges.insert((u, v));
+        }
+    }
+
+    if faces_count == 0 {
+        return 0;
+    }
+
+    let n_vertices = local_index.len() as isize;
+    let n_edges = edges.len() as isize;
+    let chi = n_vertices - n_edges + faces_count;
+
+    let mut adjacency: HashMap<usize, Vec<usize>> = HashMap::new();
+    for &(u, v) in &edges {
+        adjacency.entry(u).or_default().push(v);
+        adjacency.entry(v).or_default().push(u);
+    }
+
+    let mut visited: HashSet<usize> = HashSet::new();
+    let mut components = 0_isize;
+    for &node in adjacency.keys() {
+        if !visited.insert(node) {
+            continue;
+        }
+        components += 1;
+        let mut stack = vec![node];
+        while let Some(curr) = stack.pop() {
+            if let Some(neigh) = adjacency.get(&curr) {
+                for &n in neigh {
+                    if visited.insert(n) {
+                        stack.push(n);
+                    }
+                }
+            }
+        }
+    }
+
+    (components - chi).max(0) as usize
 }

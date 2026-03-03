@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.9.0] - Schematic Rendering Fixes + Report Update
+
+### Fixed
+- **cfd-schematics splits.rs**: Enforced minimum channel gap between parallel channels to prevent wall/channel overlap; capped edge padding at 25% of available width with guaranteed minimum
+- **cfd-optim blueprint.rs**: Capped CIF split depth (n_pretri ≤ 1, n_levels ≤ 3) for schematic rendering; increased wall_clearance from 2.0 to 4.0 mm
+- **treatment_zone_plate.svg**: Corrected 6×6 treatment zone box dimensions (270→324 px); removed extraneous colored bars and legend
+- **selected_cifx_combined_schematic.svg**: Regenerated with verified non-overlapping parallel channels (9 distinct channels, 1393→385 SVG lines)
+
+### Changed
+- **Milestone 12 Report v1.9**: Updated selected combined SDT+leukapheresis candidate from `405279-CIFX-pt3` to `416809-CIFX-pt3` (score 0.2875, σ=-0.019, WBC recovery 68.4%, throat 40 µm, 300 kPa); regenerated all schematic figures
+
 ## [36.0.0] - Pragmatic Refactoring
 
 ### Changed

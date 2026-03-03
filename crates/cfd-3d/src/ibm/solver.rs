@@ -145,7 +145,9 @@ const DEFAULT_PROPORTIONAL_GAIN: f64 = 10.0;
 const DEFAULT_INTEGRAL_GAIN: f64 = 1.0;
 
 /// IBM solver for 3D flow around immersed boundaries
-pub struct IbmSolver<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + ToPrimitive + Copy> {
+pub struct IbmSolver<
+    T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + ToPrimitive + Copy,
+> {
     /// Configuration
     config: IbmConfig,
     /// Lagrangian points representing the immersed boundary
@@ -160,7 +162,9 @@ pub struct IbmSolver<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimiti
     grid_size: (usize, usize, usize),
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + ToPrimitive + Copy> IbmSolver<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + ToPrimitive + Copy>
+    IbmSolver<T>
+{
     /// Create a new IBM solver
     pub fn new(config: IbmConfig, dx: Vector3<T>, grid_size: (usize, usize, usize)) -> Self {
         let kernel = InterpolationKernel::new(
@@ -245,9 +249,15 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + ToPrimitive
         let stencil = self.kernel.stencil_size();
 
         // Find grid indices and convert to integers
-        let i_int = (num_traits::Float::floor(position.x / self.dx.x)).to_isize().unwrap_or(0);
-        let j_int = (num_traits::Float::floor(position.y / self.dx.y)).to_isize().unwrap_or(0);
-        let k_int = (num_traits::Float::floor(position.z / self.dx.z)).to_isize().unwrap_or(0);
+        let i_int = (num_traits::Float::floor(position.x / self.dx.x))
+            .to_isize()
+            .unwrap_or(0);
+        let j_int = (num_traits::Float::floor(position.y / self.dx.y))
+            .to_isize()
+            .unwrap_or(0);
+        let k_int = (num_traits::Float::floor(position.z / self.dx.z))
+            .to_isize()
+            .unwrap_or(0);
 
         let i_start = i_int - (stencil as isize / 2);
         let j_start = j_int - (stencil as isize / 2);
@@ -264,12 +274,9 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + ToPrimitive
                         let idx =
                             ii + jj * self.grid_size.0 + kk * self.grid_size.0 * self.grid_size.1;
 
-                        let rx = position.x / self.dx.x
-                            - T::from_usize(ii).unwrap_or_else(T::zero);
-                        let ry = position.y / self.dx.y
-                            - T::from_usize(jj).unwrap_or_else(T::zero);
-                        let rz = position.z / self.dx.z
-                            - T::from_usize(kk).unwrap_or_else(T::zero);
+                        let rx = position.x / self.dx.x - T::from_usize(ii).unwrap_or_else(T::zero);
+                        let ry = position.y / self.dx.y - T::from_usize(jj).unwrap_or_else(T::zero);
+                        let rz = position.z / self.dx.z - T::from_usize(kk).unwrap_or_else(T::zero);
 
                         let weight =
                             self.kernel.delta(rx) * self.kernel.delta(ry) * self.kernel.delta(rz);

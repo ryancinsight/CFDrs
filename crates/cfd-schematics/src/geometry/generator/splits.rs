@@ -95,7 +95,6 @@ impl GeometryGenerator {
             lines.push(((current_x, *y), (half_l, *y)));
             line_widths.push(current_widths[i]);
         }
-
         (lines, line_widths)
     }
 
@@ -149,12 +148,34 @@ impl GeometryGenerator {
             // Width-proportional slot allocation: each branch receives vertical
             // space proportional to its channel width, giving wider channels more
             // room and packing narrower peripheral channels tighter together.
+            //
+            // Minimum slot enforcement: each slot must be at least the child's
+            // rendered width so adjacent channel edges do not overlap.  When
+            // the enforced total exceeds usable_range the slots are scaled back
+            // proportionally (which effectively narrows the rendered channels
+            // in the schematic).
             let total_child_width: f64 = child_widths.iter().sum();
+            let min_gap = self.config.wall_clearance;
             let slots: Vec<f64> = if total_child_width > 0.0 {
-                child_widths
+                let ideal: Vec<f64> = child_widths
                     .iter()
                     .map(|w| usable_range * (w / total_child_width))
-                    .collect()
+                    .collect();
+                // Enforce: slot ≥ child_width + min_gap
+                let enforced: Vec<f64> = ideal
+                    .iter()
+                    .zip(&child_widths)
+                    .map(|(&s, &w)| s.max(w + min_gap))
+                    .collect();
+                let enforced_total: f64 = enforced.iter().sum();
+                if enforced_total > usable_range && enforced_total > 0.0 {
+                    enforced
+                        .iter()
+                        .map(|&s| s * usable_range / enforced_total)
+                        .collect()
+                } else {
+                    enforced
+                }
             } else {
                 let uniform = if n_branches > 0 {
                     usable_range / n_branches as f64
@@ -264,7 +285,11 @@ impl GeometryGenerator {
             effective_channel_diameter * 0.5
         };
 
-        curvature_padding.min(y_range * 0.2)
+        // Cap at 25% of y_range, but guarantee at least wall_clearance when
+        // the range is large enough to accommodate it.
+        let max_fraction = y_range * 0.25;
+        let min_usable = self.config.wall_clearance.min(y_range * 0.15);
+        curvature_padding.min(max_fraction).max(min_usable)
     }
 
     fn generate_second_half(&mut self, splits: &[SplitType], _center_widths: &[f64]) {

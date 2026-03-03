@@ -187,7 +187,11 @@ impl<F: FluidTrait<f64> + Clone> CascadeSolver3D<F> {
         let total_dp: f64 = channel_results.iter().map(|r| r.pressure_drop_pa).sum();
         let (max_id, max_tau) = channel_results
             .iter()
-            .max_by(|a, b| a.wall_shear_max_pa.partial_cmp(&b.wall_shear_max_pa).unwrap())
+            .max_by(|a, b| {
+                a.wall_shear_max_pa
+                    .partial_cmp(&b.wall_shear_max_pa)
+                    .unwrap()
+            })
             .map(|r| (r.channel_id.clone(), r.wall_shear_max_pa))
             .unwrap_or_default();
 
@@ -298,7 +302,9 @@ impl<F: FluidTrait<f64> + Clone> CascadeSolver3D<F> {
             };
 
             for &v_id in &face.vertices {
-                boundary_conditions.entry(v_id.as_usize()).or_insert(bc.clone());
+                boundary_conditions
+                    .entry(v_id.as_usize())
+                    .or_insert(bc.clone());
             }
         }
 
@@ -308,9 +314,9 @@ impl<F: FluidTrait<f64> + Clone> CascadeSolver3D<F> {
         // using the Quemada (1978) model: μ_∞ ∝ exp(k·H/(1−H)).
         // This scales all viscosities to reflect the local RBC concentration
         // after upstream Zweifach-Fung cell separation.
-        let hct_viscosity_factor = spec.local_hematocrit.map_or(1.0, |hct_local| {
-            hematocrit_viscosity_ratio(hct_local, 0.45)
-        });
+        let hct_viscosity_factor = spec
+            .local_hematocrit
+            .map_or(1.0, |hct_local| hematocrit_viscosity_ratio(hct_local, 0.45));
 
         let fluid_props = self
             .fluid
@@ -356,8 +362,8 @@ impl<F: FluidTrait<f64> + Clone> CascadeSolver3D<F> {
                     .viscosity_at_shear(gamma_dot, 310.0, 0.0)
                     .unwrap_or(fluid_props.dynamic_viscosity);
                 let mu = mu_base * hct_viscosity_factor;
-                let change = (mu - element_viscosities[i]).abs()
-                    / element_viscosities[i].max(1e-15);
+                let change =
+                    (mu - element_viscosities[i]).abs() / element_viscosities[i].max(1e-15);
                 if change > max_change {
                     max_change = change;
                 }
@@ -374,13 +380,13 @@ impl<F: FluidTrait<f64> + Clone> CascadeSolver3D<F> {
         }
 
         // 6. Extract results from final solution.
-        let solution = last_solution.ok_or_else(|| {
-            Error::Solver("cascade: no solution produced".into())
-        })?;
+        let solution =
+            last_solution.ok_or_else(|| Error::Solver("cascade: no solution produced".into()))?;
 
         let (wall_shear_mean, wall_shear_max) =
             self.extract_wall_shear(&problem.mesh, &solution, &face_cell_count);
-        let pressure_drop = self.extract_pressure_drop(&problem.mesh, &solution, z_min, z_max, z_tol);
+        let pressure_drop =
+            self.extract_pressure_drop(&problem.mesh, &solution, z_min, z_max, z_tol);
         let max_vel = self.extract_max_velocity(&solution);
 
         Ok(ChannelResult3D {
@@ -438,8 +444,7 @@ impl<F: FluidTrait<f64> + Clone> CascadeSolver3D<F> {
                 nalgebra::Point3::new(acc.x + p.x, acc.y + p.y, acc.z + p.z)
             },
         );
-        let centroid =
-            nalgebra::Point3::new(centroid.x / n, centroid.y / n, centroid.z / n);
+        let centroid = nalgebra::Point3::new(centroid.x / n, centroid.y / n, centroid.z / n);
         let h = positions
             .iter()
             .map(|p| (nalgebra::Point3::new(p.x, p.y, p.z) - centroid).norm())
@@ -487,15 +492,12 @@ impl<F: FluidTrait<f64> + Clone> CascadeSolver3D<F> {
                     (lo.min(z), hi.max(z))
                 });
             let z_tol = (z_range.1 - z_range.0) / (self.config.resolution.0 as f64 * 4.0);
-            if (centroid_z - z_range.0).abs() < z_tol
-                || (centroid_z - z_range.1).abs() < z_tol
-            {
+            if (centroid_z - z_range.0).abs() < z_tol || (centroid_z - z_range.1).abs() < z_tol {
                 continue;
             }
 
             // Compute velocity gradient at wall face (du/dn approximation).
-            let face_verts: Vec<usize> =
-                face.vertices.iter().map(|v| v.as_usize()).collect();
+            let face_verts: Vec<usize> = face.vertices.iter().map(|v| v.as_usize()).collect();
             let u_mag: f64 = face_verts
                 .iter()
                 .map(|&vi| solution.get_velocity(vi).norm())
@@ -558,10 +560,7 @@ impl<F: FluidTrait<f64> + Clone> CascadeSolver3D<F> {
     }
 
     /// Maximum velocity magnitude in the domain.
-    fn extract_max_velocity(
-        &self,
-        solution: &crate::fem::StokesFlowSolution<f64>,
-    ) -> f64 {
+    fn extract_max_velocity(&self, solution: &crate::fem::StokesFlowSolution<f64>) -> f64 {
         (0..solution.n_nodes)
             .map(|i| solution.get_velocity(i).norm())
             .fold(0.0_f64, f64::max)

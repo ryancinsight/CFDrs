@@ -30,7 +30,12 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy> StokesFlowSolution<T>
     }
 
     /// Explicit Taylor-Hood constructor
-    pub fn new_with_corners(velocity: DVector<T>, pressure: DVector<T>, n_nodes: usize, n_corners: usize) -> Self {
+    pub fn new_with_corners(
+        velocity: DVector<T>,
+        pressure: DVector<T>,
+        n_nodes: usize,
+        n_corners: usize,
+    ) -> Self {
         Self {
             velocity,
             pressure,
@@ -90,7 +95,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy> StokesFlowSolution<T>
         let n_vel = self.n_nodes * constants::VELOCITY_COMPONENTS;
         let n_pres = self.n_corner_nodes;
         let mut data = DVector::zeros(n_vel + n_pres);
-        
+
         for i in 0..n_vel {
             data[i] = self.velocity[i];
         }

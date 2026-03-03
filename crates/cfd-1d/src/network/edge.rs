@@ -20,6 +20,9 @@ pub struct Edge<T: RealField + Copy> {
     /// direction and preserves monotonic positivity in the effective resistance
     /// linearization: R_eff = R + 2k|Q_k|.
     pub quad_coeff: T,
+    /// Cross-sectional area \[m²\] derived from the channel geometry.
+    /// Used for junction minor-loss K-factor corrections: ΔP = K·ρQ²/(2A²).
+    pub area: T,
 }
 
 use cfd_schematics::domain::model::ChannelSpec;
@@ -59,12 +62,23 @@ impl<T: RealField + Copy + FromPrimitive> From<&ChannelSpec> for Edge<T> {
             resistance = min_r;
         }
 
+        let area = match spec.cross_section {
+            cfd_schematics::domain::model::CrossSectionSpec::Circular { diameter_m } => {
+                T::from_f64(std::f64::consts::PI * (diameter_m / 2.0).powi(2))
+                    .unwrap_or(T::zero())
+            }
+            cfd_schematics::domain::model::CrossSectionSpec::Rectangular { width_m, height_m } => {
+                T::from_f64(width_m * height_m).unwrap_or(T::zero())
+            }
+        };
+
         Self {
             id: spec.id.as_str().to_string(),
             edge_type: spec.kind,
             flow_rate: T::zero(),
             resistance,
             quad_coeff,
+            area,
         }
     }
 }
@@ -79,6 +93,7 @@ impl<T: RealField + Copy> Edge<T> {
             flow_rate: T::zero(),
             resistance: T::one(),
             quad_coeff: T::zero(),
+            area: T::zero(),
         }
     }
 }

@@ -166,7 +166,7 @@ fn test_plic_normal_planar_interface() {
             if n.norm() > 0.1 {
                 let cos_angle = n.x.abs() / n.norm();
                 assert!(
-                    cos_angle > 0.9,   // within ~26° of x-axis (Youngs accuracy)
+                    cos_angle > 0.9, // within ~26° of x-axis (Youngs accuracy)
                     "PLIC normal should align with x-axis, cos_angle = {cos_angle:.3}"
                 );
             }
@@ -257,8 +257,8 @@ fn test_out_of_bounds_alpha_clamped() {
     let mut solver = make_solver(6, 6, 6, default_config());
     {
         let alpha = solver.alpha_mut();
-        alpha[0] = 1.5;   // too large
-        alpha[1] = -0.3;  // negative
+        alpha[0] = 1.5; // too large
+        alpha[1] = -0.3; // negative
     }
     // After one step with zero velocity, values should be clamped to [0,1]
     let _ = solver.step(1e-6, &[], &[], &[]);
@@ -298,7 +298,11 @@ fn test_high_cfl_no_panic() {
 #[test]
 fn test_volume_formula_zero_at_c_equals_zero() {
     use cfd_3d::vof::volume_under_plane_3d;
-    let n = nalgebra::Vector3::new(1.0f64 / 3.0f64.sqrt(), 1.0 / 3.0f64.sqrt(), 1.0 / 3.0f64.sqrt());
+    let n = nalgebra::Vector3::new(
+        1.0f64 / 3.0f64.sqrt(),
+        1.0 / 3.0f64.sqrt(),
+        1.0 / 3.0f64.sqrt(),
+    );
     let v = volume_under_plane_3d(n, 0.0, 1.0, 1.0, 1.0);
     assert!(v.abs() < 1e-14, "V(C=0) must be zero, got {v:.3e}");
 }
@@ -310,7 +314,11 @@ fn test_volume_formula_full_at_c_equals_sum() {
     let dx = 0.1;
     let dy = 0.2;
     let dz = 0.3;
-    let n = nalgebra::Vector3::new(1.0f64 / 3.0f64.sqrt(), 1.0 / 3.0f64.sqrt(), 1.0 / 3.0f64.sqrt());
+    let n = nalgebra::Vector3::new(
+        1.0f64 / 3.0f64.sqrt(),
+        1.0 / 3.0f64.sqrt(),
+        1.0 / 3.0f64.sqrt(),
+    );
     let c_max = n.x.abs() * dx + n.y.abs() * dy + n.z.abs() * dz;
     let v = volume_under_plane_3d(n, c_max, dx, dy, dz);
     let cell_vol = dx * dy * dz;

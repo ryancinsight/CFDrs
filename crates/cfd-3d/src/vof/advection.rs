@@ -32,6 +32,7 @@
 
 use super::config::{VofConfig, VOF_INTERFACE_LOWER, VOF_INTERFACE_UPPER};
 use super::solver::VofSolver;
+use cfd_core::error::Error;
 use cfd_core::error::Result;
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
@@ -50,6 +51,57 @@ pub enum AdvectionMethod {
     Algebraic,
 }
 
+/// Enforce the CFL ≤ 1 stability condition before a VOF advection step.
+///
+/// # Theorem — VOF CFL Stability (Scardovelli & Zaleski 2003)
+///
+/// The operator-split geometric VOF scheme conserves volume if and only if
+///
+/// ```text
+/// CFL = max_{cells} (|u_x|·dt/dx + |u_y|·dt/dy + |u_z|·dt/dz) ≤ 1
+/// ```
+///
+/// **Proof.** In one spatial direction the swept volume fraction flux is
+/// F_{i+1/2} = V_swept / V_cell ≤ |u|·dt/dx = CFL_dir.  If CFL_dir > 1
+/// the swept prism exceeds the donor cell, causing α_new = α_old − ΣF to
+/// fall outside [0, 1], violating the boundedness invariant.
+///
+/// **Reference**: Scardovelli, R. & Zaleski, S. (2003). "Interface
+/// reconstruction with least-square fit and split Eulerian-Lagrangian
+/// advection." *Int. J. Numer. Methods Fluids* 41:251–274.
+///
+/// # Errors
+/// Returns [`Error::InvalidConfiguration`] if CFL > 1.
+fn check_cfl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy>(
+    solver: &VofSolver<T>,
+    dt: T,
+) -> Result<()> {
+    use num_traits::Float;
+    let mut cfl_max = T::zero();
+
+    let dx = solver.dx;
+    let dy = solver.dy;
+    let dz = solver.dz;
+
+    for vel in &solver.velocity {
+        let cfl_cell =
+            Float::abs(vel.x) * dt / dx + Float::abs(vel.y) * dt / dy + Float::abs(vel.z) * dt / dz;
+        if cfl_cell > cfl_max {
+            cfl_max = cfl_cell;
+        }
+    }
+
+    if cfl_max > T::one() {
+        return Err(Error::InvalidConfiguration(
+            "VOF CFL > 1.0: volume conservation violated. \
+             Reduce the time-step dt or refine the grid. \
+             Recommended: target CFL ≤ 0.5 for robust interface tracking."
+                .to_string(),
+        ));
+    }
+    Ok(())
+}
+
 impl AdvectionMethod {
     /// Create advection method based on configuration
     #[must_use]
@@ -59,13 +111,22 @@ impl AdvectionMethod {
 
     /// Advect volume fraction field by one time step `dt`.
     ///
+    /// # CFL Requirement
+    /// Enforces CFL ≤ 1 before advancing (Scardovelli & Zaleski 2003).
+    /// At CFL > 1 the swept PLIC prism exceeds the donor cell, generating
+    /// volume fractions outside [0, 1] and breaking conservation.
+    ///
     /// # Invariant
     /// After this call, `solver.alpha[i] ∈ [0, 1]` for all cells `i`.
+    ///
+    /// # Errors
+    /// Returns [`Error::InvalidConfiguration`] if CFL > 1.
     pub fn advect<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy>(
         self,
         solver: &mut VofSolver<T>,
         dt: T,
     ) -> Result<()> {
+        check_cfl(solver, dt)?;
         match self {
             Self::Geometric => self.geometric_advection(solver, dt),
             Self::Algebraic => self.algebraic_advection(solver, dt),
@@ -144,39 +205,93 @@ impl AdvectionMethod {
                     // ── Geometric PLIC flux for each face ──────────────────────────
                     // +x face: flux > 0 means fluid leaves cell (i,j,k)
                     let flux_xp = self.plic_face_flux(
-                        solver, i, j, k, i + 1, j, k,
-                        vel_xp.x, solver.dy * solver.dz,
-                        solver.dx, dt, 0,
+                        solver,
+                        i,
+                        j,
+                        k,
+                        i + 1,
+                        j,
+                        k,
+                        vel_xp.x,
+                        solver.dy * solver.dz,
+                        solver.dx,
+                        dt,
+                        0,
                     );
                     // −x face: flux > 0 means fluid enters cell (i,j,k)
                     let flux_xm = self.plic_face_flux(
-                        solver, i - 1, j, k, i, j, k,
-                        vel_xm.x, solver.dy * solver.dz,
-                        solver.dx, dt, 0,
+                        solver,
+                        i - 1,
+                        j,
+                        k,
+                        i,
+                        j,
+                        k,
+                        vel_xm.x,
+                        solver.dy * solver.dz,
+                        solver.dx,
+                        dt,
+                        0,
                     );
                     // +y face
                     let flux_yp = self.plic_face_flux(
-                        solver, i, j, k, i, j + 1, k,
-                        vel_yp.y, solver.dx * solver.dz,
-                        solver.dy, dt, 1,
+                        solver,
+                        i,
+                        j,
+                        k,
+                        i,
+                        j + 1,
+                        k,
+                        vel_yp.y,
+                        solver.dx * solver.dz,
+                        solver.dy,
+                        dt,
+                        1,
                     );
                     // −y face
                     let flux_ym = self.plic_face_flux(
-                        solver, i, j - 1, k, i, j, k,
-                        vel_ym.y, solver.dx * solver.dz,
-                        solver.dy, dt, 1,
+                        solver,
+                        i,
+                        j - 1,
+                        k,
+                        i,
+                        j,
+                        k,
+                        vel_ym.y,
+                        solver.dx * solver.dz,
+                        solver.dy,
+                        dt,
+                        1,
                     );
                     // +z face
                     let flux_zp = self.plic_face_flux(
-                        solver, i, j, k, i, j, k + 1,
-                        vel_zp.z, solver.dx * solver.dy,
-                        solver.dz, dt, 2,
+                        solver,
+                        i,
+                        j,
+                        k,
+                        i,
+                        j,
+                        k + 1,
+                        vel_zp.z,
+                        solver.dx * solver.dy,
+                        solver.dz,
+                        dt,
+                        2,
                     );
                     // −z face
                     let flux_zm = self.plic_face_flux(
-                        solver, i, j, k - 1, i, j, k,
-                        vel_zm.z, solver.dx * solver.dy,
-                        solver.dz, dt, 2,
+                        solver,
+                        i,
+                        j,
+                        k - 1,
+                        i,
+                        j,
+                        k,
+                        vel_zm.z,
+                        solver.dx * solver.dy,
+                        solver.dz,
+                        dt,
+                        2,
                     );
 
                     // Volume balance: net outflow from this cell
@@ -219,9 +334,13 @@ impl AdvectionMethod {
         &self,
         solver: &VofSolver<T>,
         // Left/upstream cell index
-        il: usize, jl: usize, kl: usize,
+        il: usize,
+        jl: usize,
+        kl: usize,
         // Right/downstream cell index
-        ir: usize, jr: usize, kr: usize,
+        ir: usize,
+        jr: usize,
+        kr: usize,
         // Face-normal velocity component (signed)
         u_face: T,
         // Face area (Δ_perp1 × Δ_perp2)
@@ -235,7 +354,9 @@ impl AdvectionMethod {
         let zero = T::zero();
         let one = T::one();
 
-        if <T as num_traits::Float>::abs(u_face) < <T as FromPrimitive>::from_f64(1e-300).unwrap_or(zero) {
+        if <T as num_traits::Float>::abs(u_face)
+            < <T as FromPrimitive>::from_f64(1e-300).unwrap_or(zero)
+        {
             return zero;
         }
 
@@ -276,7 +397,9 @@ impl AdvectionMethod {
         let swept_volume = depth * face_area;
         let sign = if u_face > zero { one } else { -one };
 
-        <T as num_traits::Float>::min(<T as num_traits::Float>::max(f, zero), one) * swept_volume * sign
+        <T as num_traits::Float>::min(<T as num_traits::Float>::max(f, zero), one)
+            * swept_volume
+            * sign
     }
 
     /// Algebraic advection (simpler but less accurate, first-order upwind).
@@ -330,7 +453,9 @@ impl AdvectionMethod {
     }
 
     /// Apply artificial compression to sharpen interface.
-    pub fn apply_compression<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy>(
+    pub fn apply_compression<
+        T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy,
+    >(
         self,
         solver: &mut VofSolver<T>,
         dt: T,
@@ -352,16 +477,21 @@ impl AdvectionMethod {
                         continue;
                     }
 
-                    if alpha > <T as FromPrimitive>::from_f64(VOF_INTERFACE_LOWER).unwrap_or(T::zero())
-                        && alpha < <T as FromPrimitive>::from_f64(VOF_INTERFACE_UPPER).unwrap_or(T::one())
+                    if alpha
+                        > <T as FromPrimitive>::from_f64(VOF_INTERFACE_LOWER).unwrap_or(T::zero())
+                        && alpha
+                            < <T as FromPrimitive>::from_f64(VOF_INTERFACE_UPPER)
+                                .unwrap_or(T::one())
                     {
                         let normal = solver.normals[idx];
 
                         if normal.norm() > T::zero() {
-                            let compression_factor = <T as FromPrimitive>::from_f64(0.5).unwrap_or(T::zero());
+                            let compression_factor =
+                                <T as FromPrimitive>::from_f64(0.5).unwrap_or(T::zero());
                             let u_compression = normal * compression_factor;
 
-                            let two = <T as FromPrimitive>::from_f64(2.0).unwrap_or(T::one() + T::one());
+                            let two =
+                                <T as FromPrimitive>::from_f64(2.0).unwrap_or(T::one() + T::one());
                             let dalpha_dx = (solver.alpha[solver.index(i + 1, j, k)]
                                 - solver.alpha[solver.index(i - 1, j, k)])
                                 / (two * solver.dx);
@@ -380,7 +510,10 @@ impl AdvectionMethod {
                                 alpha - dt * compression_term * alpha * (T::one() - alpha);
 
                             solver.alpha_previous[idx] = <T as num_traits::Float>::min(
-                                <T as num_traits::Float>::max(solver.alpha_previous[idx], T::zero()),
+                                <T as num_traits::Float>::max(
+                                    solver.alpha_previous[idx],
+                                    T::zero(),
+                                ),
                                 T::one(),
                             );
                         } else {
@@ -424,7 +557,9 @@ impl AdvectionMethod {
 /// in the (full) donor cell and evaluate what fraction of the *swept prism* is fluid.
 /// Since the PLIC plane is the same, the fraction in the swept prism is the ratio
 /// of the volume below the PLIC plane inside the prism to the total prism volume.
-fn plic_volume_fraction_in_prism<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy>(
+fn plic_volume_fraction_in_prism<
+    T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy,
+>(
     normal: nalgebra::Vector3<T>,
     alpha_donor: T,
     depth: T,
@@ -466,7 +601,9 @@ fn plic_volume_fraction_in_prism<T: cfd_mesh::domain::core::Scalar + RealField +
 /// in `[0,dx]×[0,dy]×[0,dz]` equals `alpha * dx * dy * dz`.
 ///
 /// Uses iterative bisection (tolerance 1e-12 of cell size) per Scardovelli & Zaleski.
-fn find_plic_plane_constant<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy>(
+fn find_plic_plane_constant<
+    T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy,
+>(
     normal: nalgebra::Vector3<T>,
     alpha: T,
     dx: T,
@@ -521,7 +658,9 @@ fn find_plic_plane_constant<T: cfd_mesh::domain::core::Scalar + RealField + From
 /// **Reference**: Scardovelli, R. & Zaleski, S. (2000). "Analytical relations
 ///   connecting linear interfaces and volume fractions in rectangular grids".
 ///   J. Comput. Phys. 164:228–237. (Eqs. 2.34–2.38)
-pub fn volume_under_plane_3d<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy>(
+pub fn volume_under_plane_3d<
+    T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy,
+>(
     normal: nalgebra::Vector3<T>,
     plane_constant: T,
     dx: T,
@@ -570,14 +709,19 @@ pub fn volume_under_plane_3d<T: cfd_mesh::domain::core::Scalar + RealField + Fro
     // m₁ξ + m₂η + m₃ζ = C. Monotonicity follows because dV/dC is the
     // cross-sectional area of the plane–cube intersection, which is ≥ 0.
     let cube_pos = |x: T| -> T {
-        if x <= zero { zero } else { x * x * x }
+        if x <= zero {
+            zero
+        } else {
+            x * x * x
+        }
     };
 
     let denom = six * m1 * m2 * m3;
 
-    let numerator = cube_pos(c)
-        - cube_pos(c - m1) - cube_pos(c - m2) - cube_pos(c - m3)
-        + cube_pos(c - m1 - m2) + cube_pos(c - m1 - m3) + cube_pos(c - m2 - m3)
+    let numerator = cube_pos(c) - cube_pos(c - m1) - cube_pos(c - m2) - cube_pos(c - m3)
+        + cube_pos(c - m1 - m2)
+        + cube_pos(c - m1 - m3)
+        + cube_pos(c - m2 - m3)
         - cube_pos(c - m_sum);
 
     let volume_fraction = numerator / denom;
@@ -589,8 +733,8 @@ pub fn volume_under_plane_3d<T: cfd_mesh::domain::core::Scalar + RealField + Fro
 #[cfg(test)]
 mod tests {
     use super::*;
-    use proptest::prelude::*;
     use nalgebra::Vector3;
+    use proptest::prelude::*;
 
     proptest! {
         #[test]
@@ -606,10 +750,10 @@ mod tests {
             let norm = (nx*nx + ny*ny + nz*nz).sqrt();
             prop_assume!(norm > 1e-6);
             let normal = Vector3::new(nx/norm, ny/norm, nz/norm);
-            
+
             let vol = volume_under_plane_3d(normal, c, dx, dy, dz);
             let cell_vol = dx * dy * dz;
-            
+
             // Volume must be bounded between 0 and cell_volume
             assert!(vol >= 0.0);
             assert!(vol <= cell_vol + 1e-10);
@@ -629,11 +773,11 @@ mod tests {
             let norm = (nx*nx + ny*ny + nz*nz).sqrt();
             prop_assume!(norm > 1e-6);
             let normal = Vector3::new(nx/norm, ny/norm, nz/norm);
-            
+
             let c2 = c1 + dc;
             let vol1 = volume_under_plane_3d(normal, c1, dx, dy, dz);
             let vol2 = volume_under_plane_3d(normal, c2, dx, dy, dz);
-            
+
             // Volume must be monotonically increasing with plane constant
             assert!(vol2 >= vol1 - 1e-10);
         }

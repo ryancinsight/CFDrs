@@ -88,6 +88,6 @@ pub mod geometry;
 pub mod solver;
 pub mod validation;
 
-pub use geometry::{BifurcationGeometry3D, ConicalTransition, BifurcationMesh};
-pub use solver::{BifurcationSolver3D, BifurcationConfig3D};
-pub use validation::{BifurcationValidator3D, BifurcationValidationResult3D, MeshRefinementConfig};
+pub use geometry::{BifurcationGeometry3D, BifurcationMesh, ConicalTransition};
+pub use solver::{BifurcationConfig3D, BifurcationSolver3D};
+pub use validation::{BifurcationValidationResult3D, BifurcationValidator3D, MeshRefinementConfig};

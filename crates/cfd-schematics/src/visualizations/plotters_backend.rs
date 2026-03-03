@@ -185,9 +185,32 @@ impl PlottersRenderer {
             .map_err(|e| VisualizationError::rendering_error(&e.to_string()))?;
 
         // --- Channels colored by overlay edge data ---
+        // Collect distinct channel widths for proportional stroke rendering.
+        // Channels with different physical widths get visually distinct stroke
+        // widths: 1×, 2×, 3×, … of the base stroke width from config.
+        let distinct_widths: Vec<f64> = {
+            let mut ws: Vec<f64> = system
+                .channels
+                .iter()
+                .map(|ch| (ch.width * 1e6).round() / 1e6) // round to µm
+                .collect();
+            ws.sort_by(|a, b| a.total_cmp(b));
+            ws.dedup();
+            ws
+        };
+        let width_multiplier = |w: f64| -> u32 {
+            let rounded = (w * 1e6).round() / 1e6;
+            let rank = distinct_widths
+                .iter()
+                .position(|&dw| (dw - rounded).abs() < 1e-5)
+                .unwrap_or(0);
+            // Multiplier: 1× for smallest, 2× for next, etc.
+            (rank as u32) + 1
+        };
+
         let has_edge_data = !overlay.edge_data.is_empty();
         for channel in &system.channels {
-            let style = if has_edge_data {
+            let base_style = if has_edge_data {
                 // Use analysis color if data is present for this channel
                 let color = overlay
                     .edge_color(channel.id)
@@ -199,6 +222,13 @@ impl PlottersRenderer {
                 config.channel_type_styles.get_style(category).clone()
             };
 
+            // Scale stroke width by channel size rank when multiple sizes exist
+            let stroke = if distinct_widths.len() > 1 {
+                base_style.width as u32 * width_multiplier(channel.width)
+            } else {
+                base_style.width as u32
+            };
+
             let path = crate::geometry::types::centerline_for_channel(channel, &system.nodes);
             if path.len() < 2 {
                 continue;
@@ -207,7 +237,7 @@ impl PlottersRenderer {
             chart
                 .draw_series(std::iter::once(PathElement::new(
                     path,
-                    convert_color(&style.color).stroke_width(style.width as u32),
+                    convert_color(&base_style.color).stroke_width(stroke),
                 )))
                 .map_err(|e| VisualizationError::rendering_error(&e.to_string()))?;
         }

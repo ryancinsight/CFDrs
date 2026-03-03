@@ -183,21 +183,7 @@ impl SdtOptimizer {
 
         let mut evaluated: Vec<RankedDesign> = candidates
             .into_par_iter()
-            .filter_map(|candidate| {
-                match compute_metrics(&candidate) {
-                    Ok(metrics) => {
-                        let score = score_candidate(&metrics, self.mode, &self.weights);
-                        Some(RankedDesign {
-                            rank: 0, // filled in below
-                            candidate,
-                            metrics,
-                            score,
-                        })
-                    }
-                    // Skip candidates with invalid parameters / physics errors
-                    Err(_) => None,
-                }
-            })
+            .filter_map(|candidate| self.evaluate_positive_design(candidate))
             .collect();
 
         if evaluated.is_empty() {
@@ -217,12 +203,10 @@ impl SdtOptimizer {
                 })
         });
 
-        // Count positive-score candidates
-        let positive = evaluated.iter().filter(|d| d.score > 0.0).count();
-        if positive < k {
+        if evaluated.len() < k {
             return Err(OptimError::InsufficientCandidates {
                 requested: k,
-                available: positive,
+                available: evaluated.len(),
             });
         }
 
@@ -235,7 +219,7 @@ impl SdtOptimizer {
         // Falls back to straight score order if fewer than k diverse candidates
         // can be found.
         let mut diverse: Vec<RankedDesign> = Vec::with_capacity(k);
-        'outer: for d in evaluated.into_iter().filter(|d| d.score > 0.0) {
+        'outer: for d in evaluated {
             for prev in &diverse {
                 if d.candidate.topology == prev.candidate.topology
                     && (d.candidate.flow_rate_m3_s - prev.candidate.flow_rate_m3_s).abs() < 0.5e-8
@@ -284,16 +268,7 @@ impl SdtOptimizer {
         let candidates = build_candidate_space();
         let mut nominal_ranked: Vec<RankedDesign> = candidates
             .into_par_iter()
-            .filter_map(|candidate| {
-                let nominal_metrics = compute_metrics(&candidate).ok()?;
-                let nominal_score = score_candidate(&nominal_metrics, self.mode, &self.weights);
-                Some(RankedDesign {
-                    rank: 0,
-                    candidate,
-                    metrics: nominal_metrics,
-                    score: nominal_score,
-                })
-            })
+            .filter_map(|candidate| self.evaluate_positive_design(candidate))
             .collect();
 
         if nominal_ranked.is_empty() {
@@ -322,6 +297,9 @@ impl SdtOptimizer {
             .into_par_iter()
             .filter_map(|nominal| {
                 let stats = self.robust_score_stats(&nominal.candidate, config)?;
+                if stats.robust_score <= 0.0 {
+                    return None;
+                }
                 Some(RankedDesign {
                     rank: 0,
                     candidate: nominal.candidate,
@@ -347,16 +325,15 @@ impl SdtOptimizer {
                 })
         });
 
-        let positive = evaluated.iter().filter(|d| d.score > 0.0).count();
-        if positive < k {
+        if evaluated.len() < k {
             return Err(OptimError::InsufficientCandidates {
                 requested: k,
-                available: positive,
+                available: evaluated.len(),
             });
         }
 
         let mut diverse: Vec<RankedDesign> = Vec::with_capacity(k);
-        'outer: for d in evaluated.into_iter().filter(|d| d.score > 0.0) {
+        'outer: for d in evaluated {
             for prev in &diverse {
                 if d.candidate.topology == prev.candidate.topology
                     && (d.candidate.flow_rate_m3_s - prev.candidate.flow_rate_m3_s).abs() < 0.5e-8
@@ -400,17 +377,7 @@ impl SdtOptimizer {
 
         let mut evaluated: Vec<RankedDesign> = candidates
             .into_par_iter()
-            .filter_map(|candidate| {
-                compute_metrics(&candidate).ok().map(|metrics| {
-                    let score = score_candidate(&metrics, self.mode, &self.weights);
-                    RankedDesign {
-                        rank: 0,
-                        candidate,
-                        metrics,
-                        score,
-                    }
-                })
-            })
+            .filter_map(|candidate| self.evaluate_positive_design(candidate))
             .collect();
 
         if evaluated.is_empty() {
@@ -424,23 +391,17 @@ impl SdtOptimizer {
         });
 
         let total = evaluated.len();
-        let ranked: Vec<RankedDesign> = evaluated
-            .into_iter()
-            .filter(|d| d.score > 0.0)
-            .enumerate()
-            .map(|(i, mut d)| {
-                d.rank = i + 1;
-                d
-            })
-            .collect();
+        for (i, d) in evaluated.iter_mut().enumerate() {
+            d.rank = i + 1;
+        }
 
         eprintln!(
             "[cfd-optim] evaluated {total} / {n} candidates, \
              {} pass hard constraints",
-            ranked.len()
+            evaluated.len()
         );
 
-        Ok(ranked)
+        Ok(evaluated)
     }
 
     /// Compute robust-score diagnostics for one candidate across a stress sweep.
@@ -452,46 +413,53 @@ impl SdtOptimizer {
         candidate: &DesignCandidate,
         config: &RobustSweepConfig,
     ) -> Option<RobustScoreStats> {
+        let flow_scales_default = [1.0];
+        let gauge_scales_default = [1.0];
+        let feed_hcts_default = [candidate.feed_hematocrit];
+        let tri_offsets_default = [0.0];
+        let cif_bi_offsets_default = [0.0];
+        let tri_left_offsets_default = [0.0];
+
         let flow_scales = if config.flow_scales.is_empty() {
-            vec![1.0]
+            &flow_scales_default[..]
         } else {
-            config.flow_scales.clone()
+            &config.flow_scales
         };
         let gauge_scales = if config.gauge_scales.is_empty() {
-            vec![1.0]
+            &gauge_scales_default[..]
         } else {
-            config.gauge_scales.clone()
+            &config.gauge_scales
         };
         let feed_hcts = if config.feed_hematocrit_values.is_empty() {
-            vec![candidate.feed_hematocrit]
+            &feed_hcts_default[..]
         } else {
-            config.feed_hematocrit_values.clone()
+            &config.feed_hematocrit_values
         };
         let tri_offsets = if config.trifurcation_center_offsets.is_empty() {
-            vec![0.0]
+            &tri_offsets_default[..]
         } else {
-            config.trifurcation_center_offsets.clone()
+            &config.trifurcation_center_offsets
         };
         let cif_bi_offsets = if config.cif_bi_treat_offsets.is_empty() {
-            vec![0.0]
+            &cif_bi_offsets_default[..]
         } else {
-            config.cif_bi_treat_offsets.clone()
+            &config.cif_bi_treat_offsets
         };
         let tri_left_offsets = if config.trifurcation_left_offsets.is_empty() {
-            vec![0.0]
+            &tri_left_offsets_default[..]
         } else {
-            config.trifurcation_left_offsets.clone()
+            &config.trifurcation_left_offsets
         };
 
         let mut scenario_scores: Vec<f64> = Vec::new();
         let mut feasible_count = 0usize;
 
-        for &flow_scale in &flow_scales {
-            for &gauge_scale in &gauge_scales {
-                for &feed_hct in &feed_hcts {
-                    for &tri_offset in &tri_offsets {
-                        for &cif_bi_offset in &cif_bi_offsets {
-                            for &tri_left_offset in &tri_left_offsets {
+        for &flow_scale in flow_scales {
+            for &gauge_scale in gauge_scales {
+                for &feed_hct in feed_hcts {
+                    for &tri_offset in tri_offsets {
+                        for &cif_bi_offset in cif_bi_offsets {
+                            for &tri_left_offset in tri_left_offsets {
                                 let mut perturbed = candidate.clone();
                                 perturbed.flow_rate_m3_s =
                                     (candidate.flow_rate_m3_s * flow_scale.max(1e-9)).max(1e-12);
@@ -582,6 +550,20 @@ impl SdtOptimizer {
             best_score,
             feasible_ratio,
             scenarios_evaluated,
+        })
+    }
+
+    fn evaluate_positive_design(&self, candidate: DesignCandidate) -> Option<RankedDesign> {
+        let metrics = compute_metrics(&candidate).ok()?;
+        let score = score_candidate(&metrics, self.mode, &self.weights);
+        if score <= 0.0 {
+            return None;
+        }
+        Some(RankedDesign {
+            rank: 0,
+            candidate,
+            metrics,
+            score,
         })
     }
 }

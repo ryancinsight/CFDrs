@@ -1,5 +1,24 @@
 # Project Checklist
 
+## Sprint 1.95.0: DEEP PHYSICS AUDIT & PIPELINE VALIDATION ✅ COMPLETE
+
+**Status**: ✅ COMPLETE — R-P equation corrected, Smagorinsky test fixed, SDT pipeline validated (425K sweep), mesh-export pipeline verified (5 designs with STL/OpenFOAM/SVG/JSON).
+
+### Physics Fixes
+- [x] `cfd-core`: Rayleigh-Plesset `bubble_acceleration()` — added polytropic gas pressure `p_g0·(R_0/R)^{3κ}`, removed double surface tension
+- [x] `cfd-3d`: Smagorinsky test — use `with_filter_width(cs, Δ, Δ, Δ)` matching grid spacing instead of `new(cs)` (filter_width=1.0)
+
+### Code Quality Scan
+- [x] No `unimplemented!()`, `todo!()`, or placeholder macros in any crate
+- [x] All workspace tests pass (`cargo test --workspace --no-default-features --exclude cfd-python`)
+
+### Pipeline Validation
+- [x] `sdt_therapy` example: 425K candidate sweep, exit 0, top-5 CCT/CIFX designs (σ<0, FDA compliant)
+- [x] `sdt_pipeline --features mesh-export`: 5 designs → STL + OpenFOAM polyMesh + SVG + JSON, exit 0
+- [x] Report figures verified: all 10 referenced figures exist in `report/figures/`
+
+---
+
 ## Sprint 1.90.0: CFD CRATES COMPREHENSIVE AUDIT & ENHANCEMENT ✅ COMPLETE
 
 **Status**: ✅ COMPLETE — All 5 crates audited, theorem-documented, adversarially tested. All tests pass.

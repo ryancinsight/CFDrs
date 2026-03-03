@@ -79,6 +79,40 @@ pub enum EdgeKind {
     Pump,
 }
 
+/// Channel geometry shape — determines which resistance model the 1D solver
+/// dispatches. Defaults to `Straight` for backward compatibility.
+///
+/// # Theorem — Dean Flow Correction
+///
+/// In curved channels the secondary (Dean) flow enhances friction:
+///
+/// `f_curved / f_straight = 1 + 0.033 (log₁₀ De)⁴`  (Mishra & Gupta 1979)
+///
+/// where `De = Re √(D_h / (2 R_c))` is the Dean number.
+///
+/// **Proof sketch**: The centripetal acceleration in a curved duct creates a
+/// pressure gradient ∂p/∂r ≈ ρu²/R that drives counter-rotating Dean vortices,
+/// increasing wall shear stress beyond the Hagen-Poiseuille value.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub enum ChannelShape {
+    /// Regular straight duct — Hagen-Poiseuille / Shah-London resistance only.
+    Straight,
+    /// Serpentine channel with 180° U-turns — triggers Dean flow corrections
+    /// and bend minor-loss K-factors in the 1D solver.
+    Serpentine {
+        /// Number of straight segments between turns.
+        segments: usize,
+        /// Radius of curvature at U-turn bends \[m\].
+        bend_radius_m: f64,
+    },
+}
+
+impl Default for ChannelShape {
+    fn default() -> Self {
+        Self::Straight
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChannelSpec {
     pub id: EdgeId,
@@ -89,6 +123,9 @@ pub struct ChannelSpec {
     /// Physical cross-section geometry — used by `cfd-1d` to compute hydraulic resistance.
     /// Replaces the old `diameter_m` field with a typed, extensible spec.
     pub cross_section: CrossSectionSpec,
+    /// Channel geometry shape — straight vs serpentine w/ Dean corrections.
+    #[serde(default)]
+    pub channel_shape: ChannelShape,
     pub resistance: f64,
     pub quad_coeff: f64,
     // Component properties
@@ -129,6 +166,7 @@ impl ChannelSpec {
             to: NodeId::new(to),
             length_m,
             cross_section: CrossSectionSpec::Circular { diameter_m },
+            channel_shape: ChannelShape::Straight,
             resistance,
             quad_coeff,
             valve_cv: None,
@@ -157,6 +195,7 @@ impl ChannelSpec {
             to: NodeId::new(to),
             length_m,
             cross_section: CrossSectionSpec::Rectangular { width_m, height_m },
+            channel_shape: ChannelShape::Straight,
             resistance,
             quad_coeff,
             valve_cv: None,
@@ -180,6 +219,7 @@ impl ChannelSpec {
             to: NodeId::new(to),
             length_m: 0.0,
             cross_section: CrossSectionSpec::Circular { diameter_m: 0.0 },
+            channel_shape: ChannelShape::Straight,
             resistance: 0.0,
             quad_coeff: 0.0,
             valve_cv: Some(cv),
@@ -204,6 +244,7 @@ impl ChannelSpec {
             to: NodeId::new(to),
             length_m: 0.0,
             cross_section: CrossSectionSpec::Circular { diameter_m: 0.0 },
+            channel_shape: ChannelShape::Straight,
             resistance: 0.0,
             quad_coeff: 0.0,
             valve_cv: None,

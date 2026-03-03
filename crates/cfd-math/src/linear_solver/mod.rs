@@ -21,6 +21,7 @@
 
 mod bicgstab;
 pub mod block_preconditioner;
+pub mod chain;
 mod direct_solver;
 mod config;
 mod conjugate_gradient;
@@ -30,6 +31,7 @@ pub mod operators;
 pub mod preconditioners;
 mod traits;
 
+pub use chain::LinearSolverChain;
 pub use bicgstab::BiCGSTAB;
 pub use config::IterativeSolverConfig;
 pub use conjugate_gradient::ConjugateGradient;

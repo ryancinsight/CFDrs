@@ -50,6 +50,9 @@ use cfd_mesh::domain::core::scalar::{Point3r, Real};
 use cfd_mesh::domain::geometry::primitives::{PrimitiveMesh, UvSphere};
 use cfd_mesh::infrastructure::io::stl;
 use cfd_mesh::{analyze_normals, Cube, IndexedMesh};
+use cfd_mesh::application::watertight::check::check_watertight;
+use cfd_mesh::domain::topology::connectivity::connected_components;
+use cfd_mesh::domain::topology::AdjacencyGraph;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("=================================================================");
@@ -160,18 +163,40 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 fn report(label: &str, mesh: &mut IndexedMesh, expected: f64, tol: f64, ms: u128) {
     let vol = mesh.signed_volume();
-    let is_wt = mesh.is_watertight();
     let n = analyze_normals(mesh);
     let err = (vol - expected).abs() / expected.abs().max(1e-12);
-    let status = if err <= tol { "PASS" } else { "FAIL" };
+    let vol_status = if err <= tol { "PASS" } else { "FAIL" };
+
+    // Topology checks: Euler χ, connected components, boundary/non-manifold edges.
+    mesh.rebuild_edges();
+    let wt = check_watertight(&mesh.vertices, &mesh.faces, mesh.edges_ref().unwrap());
+    let adj = AdjacencyGraph::build(&mesh.faces, mesh.edges_ref().unwrap());
+    let n_comps = connected_components(&mesh.faces, &adj).len();
+
+    let chi_ok = wt.euler_characteristic == Some(2);
+    let comps_ok = n_comps == 1;
+    let norm_ok = n.inward_faces == 0;
+    let any_issue = !wt.is_watertight || !chi_ok || !comps_ok || !norm_ok;
 
     println!("  ── {label} ──");
     println!("    Faces      : {}", mesh.face_count());
     println!("    Volume     : {vol:.4} mm³  (expected {expected:.4})");
-    println!("    Vol error  : {:.2}%  [{status}]", err * 100.0);
-    println!("    Watertight : {is_wt}");
+    println!("    Vol error  : {:.2}%  [{vol_status}]", err * 100.0);
     println!(
-        "    Normals    : outward={}, inward={} ({:.1}%), degen={}",
+        "    Watertight : {}  (boundary={}, non-manifold={})",
+        wt.is_watertight, wt.boundary_edge_count, wt.non_manifold_edge_count
+    );
+    println!(
+        "    Euler χ    : {:?}  (expected 2)  [{}]",
+        wt.euler_characteristic,
+        if chi_ok { "PASS" } else { "WARN" }
+    );
+    println!(
+        "    Components : {n_comps}  [{}]",
+        if comps_ok { "PASS" } else { "WARN phantom islands" }
+    );
+    println!(
+        "    Normals    : outward={}, inward={} ({:.1}%), degen={}  [{}]",
         n.outward_faces,
         n.inward_faces,
         if mesh.face_count() > 0 {
@@ -179,13 +204,44 @@ fn report(label: &str, mesh: &mut IndexedMesh, expected: f64, tol: f64, ms: u128
         } else {
             0.0
         },
-        n.degenerate_faces
+        n.degenerate_faces,
+        if norm_ok { "PASS" } else { "WARN" }
     );
     println!(
         "    Alignment  : mean={:.4}  min={:.4}",
         n.face_vertex_alignment_mean, n.face_vertex_alignment_min
     );
     println!("    Elapsed    : {ms} ms");
+
+    if any_issue {
+        println!("    *** GEOMETRY ISSUES DETECTED ***");
+        if !wt.is_watertight {
+            println!(
+                "       - Not watertight: {} boundary + {} non-manifold edge(s)",
+                wt.boundary_edge_count, wt.non_manifold_edge_count
+            );
+        }
+        if !chi_ok {
+            println!(
+                "       - Euler χ = {:?} (expected 2): phantom islands or non-manifold topology",
+                wt.euler_characteristic
+            );
+        }
+        if !comps_ok {
+            println!(
+                "       - {} connected component(s): {} phantom island(s) present",
+                n_comps,
+                n_comps.saturating_sub(1)
+            );
+        }
+        if !norm_ok {
+            println!(
+                "       - {}/{} face(s) with inward normals: winding order errors",
+                n.inward_faces,
+                mesh.face_count()
+            );
+        }
+    }
 }
 
 fn write_stl(mesh: &IndexedMesh, path: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {

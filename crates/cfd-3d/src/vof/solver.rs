@@ -189,13 +189,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> VofSo
 
     /// One-step wrapper mirroring the CavitationVofSolver interface:
     /// ignores the unused pressure/density slices and delegates to `advance`.
-    pub fn step(
-        &mut self,
-        dt: T,
-        _pressure: &[T],
-        _density: &[T],
-        _extra: &[T],
-    ) -> Result<()> {
+    pub fn step(&mut self, dt: T, _pressure: &[T], _density: &[T], _extra: &[T]) -> Result<()> {
         self.advance(dt)
     }
 
@@ -332,8 +326,12 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> VofSo
         }
 
         if max_velocity > T::zero() {
-            let dx_min = <T as num_traits::Float>::min(<T as num_traits::Float>::min(self.dx, self.dy), self.dz);
-            <T as FromPrimitive>::from_f64(self.config.cfl_number).unwrap_or(<T as FromPrimitive>::from_f64(0.3).unwrap_or(T::one()))
+            let dx_min = <T as num_traits::Float>::min(
+                <T as num_traits::Float>::min(self.dx, self.dy),
+                self.dz,
+            );
+            <T as FromPrimitive>::from_f64(self.config.cfl_number)
+                .unwrap_or(<T as FromPrimitive>::from_f64(0.3).unwrap_or(T::one()))
                 * dx_min
                 / max_velocity
         } else {

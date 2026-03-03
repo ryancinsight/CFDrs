@@ -80,7 +80,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Inter
             // φ₃(r) = (5 - 3r - √(-3(1-r)² + 1)) / 6
             let one_minus_r = one - r;
             let disc = one - three * one_minus_r * one_minus_r;
-            (five - three * r - num_traits::Float::sqrt(num_traits::Float::max(disc, T::zero()))) / six
+            (five - three * r - num_traits::Float::sqrt(num_traits::Float::max(disc, T::zero())))
+                / six
         }
     }
 
@@ -113,11 +114,13 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Inter
         if r <= one {
             // φ₄(r) = (3 - 2r + √(1 + 4r - 4r²)) / 8
             let disc = one + four * r - four * r * r;
-            (three - two * r + num_traits::Float::sqrt(num_traits::Float::max(disc, T::zero()))) / eight
+            (three - two * r + num_traits::Float::sqrt(num_traits::Float::max(disc, T::zero())))
+                / eight
         } else {
             // φ₄(r) = (5 - 2r - √(-7 + 12r - 4r²)) / 8
             let disc = -seven + twelve * r - four * r * r;
-            (five - two * r - num_traits::Float::sqrt(num_traits::Float::max(disc, T::zero()))) / eight
+            (five - two * r - num_traits::Float::sqrt(num_traits::Float::max(disc, T::zero())))
+                / eight
         }
     }
 

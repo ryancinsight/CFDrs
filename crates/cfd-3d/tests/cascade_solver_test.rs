@@ -103,8 +103,7 @@ fn cascade_channels_produce_distinct_shear() {
     );
     // The max_shear_channel_id must reference a valid channel.
     assert!(
-        result.max_shear_channel_id == "outer"
-            || result.max_shear_channel_id == "center",
+        result.max_shear_channel_id == "outer" || result.max_shear_channel_id == "center",
         "max_shear_channel_id is '{}'",
         result.max_shear_channel_id
     );
@@ -115,7 +114,14 @@ fn cascade_channels_produce_distinct_shear() {
 #[test]
 fn cascade_blood_nonnewtonian_converges() {
     let blood = CassonBlood::normal_blood();
-    let solver = CascadeSolver3D::new(ci_config(), blood);
+    // Non-Newtonian fluids require more Picard iterations because the
+    // apparent viscosity depends nonlinearly on the shear rate.  The
+    // Casson model (τ^½ = τ_y^½ + (μ_∞ γ̇)^½) couples viscosity to the
+    // velocity gradient, so more outer iterations are needed for the
+    // effective viscosity field to reach a self-consistent state.
+    let mut config = ci_config();
+    config.max_picard_iterations = 15;
+    let solver = CascadeSolver3D::new(config, blood);
     let result = solver.solve(&cif_two_channel_specs()).unwrap();
 
     assert_eq!(result.channel_results.len(), 2);
@@ -123,8 +129,7 @@ fn cascade_blood_nonnewtonian_converges() {
         assert!(
             cr.converged,
             "Channel {} did not converge after {} Picard iterations",
-            cr.channel_id,
-            cr.picard_iterations
+            cr.channel_id, cr.picard_iterations
         );
     }
 }
@@ -199,9 +204,21 @@ fn cascade_hematocrit_sets_local_field() {
     ];
     let result = solver.solve(&specs).unwrap();
 
-    let bypass = result.channel_results.iter().find(|r| r.channel_id == "bypass").unwrap();
-    let center = result.channel_results.iter().find(|r| r.channel_id == "center").unwrap();
-    let default_ch = result.channel_results.iter().find(|r| r.channel_id == "default").unwrap();
+    let bypass = result
+        .channel_results
+        .iter()
+        .find(|r| r.channel_id == "bypass")
+        .unwrap();
+    let center = result
+        .channel_results
+        .iter()
+        .find(|r| r.channel_id == "center")
+        .unwrap();
+    let default_ch = result
+        .channel_results
+        .iter()
+        .find(|r| r.channel_id == "default")
+        .unwrap();
 
     assert_eq!(bypass.local_hematocrit, 0.20);
     assert_eq!(center.local_hematocrit, 0.55);

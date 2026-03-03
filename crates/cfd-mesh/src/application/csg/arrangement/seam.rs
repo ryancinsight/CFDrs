@@ -102,33 +102,82 @@ fn build_mutual_nearest_merge_map(
     merge_map
 }
 
-/// Legacy O(n^2) greedy nearest merge map used as last-resort fallback when
+/// Grid-accelerated greedy nearest merge map used as last-resort fallback when
 /// MNN finds no pairs.
+///
+/// # Algorithm
+///
+/// 1. Hash boundary vertices into cubic cells of edge
+///    `h = sqrt(max_dist_sq)`.
+/// 2. For each unmerged vertex `vi` (in sorted ID order), search only the 27
+///    neighboring cells for candidate `vj` with `vj > vi` and unmerged.
+/// 3. Pick the nearest such `vj` within threshold and merge `vj -> vi`.
+///
+/// # Theorem — 27-cell candidate completeness
+///
+/// Any candidate with distance `< sqrt(max_dist_sq)` must lie in one of the
+/// 27 neighboring cells when cell size equals that threshold. Therefore the
+/// local-cell query returns exactly the same candidate set as a global scan
+/// under the same distance bound. ∎
 fn build_greedy_nearest_merge_map(
     bnd_verts: &[VertexId],
     max_dist_sq: Real,
     pool: &VertexPool,
 ) -> HashMap<VertexId, VertexId> {
+    if bnd_verts.len() < 2 || max_dist_sq <= 0.0 {
+        return HashMap::new();
+    }
+
+    let cell = max_dist_sq.sqrt().max(1e-12);
+    let inv_cell = 1.0 / cell;
+
+    let mut grid: HashMap<(i64, i64, i64), Vec<VertexId>> = HashMap::new();
+    for &vid in bnd_verts {
+        grid.entry(cell_key(pool.position(vid), inv_cell))
+            .or_default()
+            .push(vid);
+    }
+    for verts in grid.values_mut() {
+        verts.sort_unstable();
+    }
+
     let mut merge_map: HashMap<VertexId, VertexId> = HashMap::new();
-    for (i, &vi) in bnd_verts.iter().enumerate() {
+    for &vi in bnd_verts {
         if merge_map.contains_key(&vi) {
             continue;
         }
+
         let pi = pool.position(vi);
         let mut best_d = max_dist_sq;
         let mut best_j: Option<VertexId> = None;
-        for &vj in bnd_verts.iter().skip(i + 1) {
-            if merge_map.contains_key(&vj) {
-                continue;
-            }
-            let d = (pool.position(vj) - pi).norm_squared();
-            if d < best_d {
-                best_d = d;
-                best_j = Some(vj);
+
+        let (cx, cy, cz) = cell_key(pi, inv_cell);
+        for dx in -1_i64..=1 {
+            for dy in -1_i64..=1 {
+                for dz in -1_i64..=1 {
+                    let key = (cx + dx, cy + dy, cz + dz);
+                    let Some(cands) = grid.get(&key) else {
+                        continue;
+                    };
+                    for &vj in cands {
+                        if vj.raw() <= vi.raw() || merge_map.contains_key(&vj) {
+                            continue;
+                        }
+                        let d = (pool.position(vj) - pi).norm_squared();
+                        if d < best_d
+                            || (d == best_d && best_j.is_some_and(|best| vj.raw() < best.raw()))
+                        {
+                            best_d = d;
+                            best_j = Some(vj);
+                        }
+                    }
+                }
             }
         }
+
         if let Some(vj) = best_j {
-            merge_map.insert(vj, vi); // vi < vj since bnd_verts is sorted.
+            // vj > vi by construction, matching legacy merge direction.
+            merge_map.insert(vj, vi);
         }
     }
     merge_map
@@ -372,6 +421,37 @@ pub(crate) fn stitch_boundary_seams_conservative(faces: &mut Vec<FaceData>, pool
 mod tests {
     use super::*;
     use crate::domain::core::scalar::{Point3r, Vector3r};
+    use proptest::prelude::*;
+
+    fn build_greedy_nearest_merge_map_bruteforce_reference(
+        bnd_verts: &[VertexId],
+        max_dist_sq: Real,
+        pool: &VertexPool,
+    ) -> HashMap<VertexId, VertexId> {
+        let mut merge_map: HashMap<VertexId, VertexId> = HashMap::new();
+        for (i, &vi) in bnd_verts.iter().enumerate() {
+            if merge_map.contains_key(&vi) {
+                continue;
+            }
+            let pi = pool.position(vi);
+            let mut best_d = max_dist_sq;
+            let mut best_j: Option<VertexId> = None;
+            for &vj in bnd_verts.iter().skip(i + 1) {
+                if merge_map.contains_key(&vj) {
+                    continue;
+                }
+                let d = (pool.position(vj) - pi).norm_squared();
+                if d < best_d {
+                    best_d = d;
+                    best_j = Some(vj);
+                }
+            }
+            if let Some(vj) = best_j {
+                merge_map.insert(vj, vi);
+            }
+        }
+        merge_map
+    }
 
     #[test]
     fn mnn_pairs_two_disjoint_close_pairs() {
@@ -405,5 +485,52 @@ mod tests {
             1,
             "MNN should avoid collapsing a fan into the center in one pass"
         );
+    }
+
+    #[test]
+    fn greedy_grid_matches_bruteforce_reference_small_case() {
+        let mut pool = VertexPool::default_millifluidic();
+        let n = Vector3r::new(0.0, 0.0, 1.0);
+        let mut verts = vec![
+            pool.insert_or_weld(Point3r::new(0.000, 0.0, 0.0), n),
+            pool.insert_or_weld(Point3r::new(0.003, 0.0, 0.0), n),
+            pool.insert_or_weld(Point3r::new(0.007, 0.0, 0.0), n),
+            pool.insert_or_weld(Point3r::new(0.100, 0.0, 0.0), n),
+            pool.insert_or_weld(Point3r::new(0.102, 0.0, 0.0), n),
+        ];
+        verts.sort();
+        verts.dedup();
+
+        let max_dist_sq = 0.01 * 0.01;
+        let fast = build_greedy_nearest_merge_map(&verts, max_dist_sq, &pool);
+        let brute = build_greedy_nearest_merge_map_bruteforce_reference(&verts, max_dist_sq, &pool);
+        assert_eq!(fast, brute);
+    }
+
+    proptest! {
+        #[test]
+        fn greedy_grid_matches_bruteforce_reference_property(
+            coords in prop::collection::vec((-50_i16..50_i16, -50_i16..50_i16, -10_i16..10_i16), 4..28),
+            max_step in 1_i16..20_i16
+        ) {
+            let mut pool = VertexPool::default_millifluidic();
+            let n = Vector3r::new(0.0, 0.0, 1.0);
+            let mut verts = Vec::new();
+
+            for (x, y, z) in coords {
+                let p = Point3r::new(x as f64 * 0.01, y as f64 * 0.01, z as f64 * 0.01);
+                verts.push(pool.insert_or_weld(p, n));
+            }
+
+            verts.sort();
+            verts.dedup();
+
+            let max_d = max_step as f64 * 0.01;
+            let max_dist_sq = max_d * max_d;
+
+            let fast = build_greedy_nearest_merge_map(&verts, max_dist_sq, &pool);
+            let brute = build_greedy_nearest_merge_map_bruteforce_reference(&verts, max_dist_sq, &pool);
+            prop_assert_eq!(fast, brute);
+        }
     }
 }

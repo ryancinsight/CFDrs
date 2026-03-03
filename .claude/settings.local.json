@@ -56,7 +56,29 @@
       "Bash(where node)",
       "Bash(where nodejs)",
       "Bash(/d/msys64/ucrt64/bin/python3.exe -c \"import json; data=json.load\\(open\\(r''C:/Users/RyanClanton/.claude/projects/C--Users-RyanClanton-gcli-software-millifluidic-design-CFDrs/f51e10ee-52c7-4b2c-924d-30857953aee7/tool-results/toolu_01Lx46xYS2Y9gsJKAsiEkjuQ.json''\\)\\); print\\(data[0][''text'']\\)\")",
-      "Bash(/d/msys64/ucrt64/bin/python3.exe -c \":*)"
+      "Bash(/d/msys64/ucrt64/bin/python3.exe -c \":*)",
+      "Bash(\"/c/Users/RyanClanton/gcli/software/millifluidic_design/CFDrs/crates/cfd-3d/src/physics/turbulence/wall_functions.rs\":*)",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(\"/c/Users/RyanClanton/gcli/software/millifluidic_design/CFDrs/crates/cfd-3d/src/physics/turbulence/constants.rs\":*)",
+      "Bash(python3.exe --version)",
+      "Bash(py --version)",
+      "Bash(\"/c/Users/RyanClanton/gcli/software/millifluidic_design/CFDrs/crates/cfd-3d/src/physics/turbulence/dynamic_smagorinsky.rs\":*)",
+      "Bash(\"/c/Users/RyanClanton/gcli/software/millifluidic_design/CFDrs/crates/cfd-3d/src/physics/turbulence/sigma.rs\":*)",
+      "Bash(\"/c/Users/RyanClanton/gcli/software/millifluidic_design/CFDrs/crates/cfd-3d/src/physics/turbulence/vreman.rs\":*)",
+      "Bash(/c/Users/RyanClanton/gcli/software/millifluidic_design/CFDrs/crates/cfd-3d/src/physics/turbulence/constants.rs:*)",
+      "Bash(\"/c/Users/RyanClanton/gcli/software/millifluidic_design/CFDrs/crates/cfd-3d/src/physics/turbulence/des.rs\":*)",
+      "Bash(/c/Users/RyanClanton/gcli/software/millifluidic_design/CFDrs/crates/cfd-3d/src/physics/turbulence/k_omega_sst.rs:*)",
+      "Bash(powershell.exe -File \"C:\\\\Users\\\\RyanClanton\\\\AppData\\\\Local\\\\Temp\\\\write_sst.ps1\")",
+      "Bash(echo \"shell:$SHELL\")",
+      "Bash(bash --version)",
+      "Bash(powershell.exe -File \"C:\\\\Users\\\\RyanClanton\\\\AppData\\\\Local\\\\Temp\\\\write_sa2.ps1\")",
+      "Bash(echo \"Deleted turbulence.rs, exit=$?\")",
+      "Bash(powershell.exe -Command \":*)",
+      "Bash(PY=/d/msys64/ucrt64/bin/python3.exe)",
+      "Bash($PY /tmp/sq_test.py)",
+      "Bash(set +H)",
+      "Bash(/d/msys64/ucrt64/bin/python3.exe /tmp/sq_minimal.py)",
+      "Bash($PY /tmp/sq2.py)"
     ]
   }
 }

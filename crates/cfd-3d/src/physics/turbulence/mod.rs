@@ -37,8 +37,17 @@
 //! **Reference:** Smagorinsky, J., "General circulation experiments with the
 //! primitive equations", Mon. Wea. Rev. 91, 1963, pp. 99–164.
 
+pub mod constants;
+pub mod k_omega_sst;
+pub mod spalart_allmaras;
+
+pub mod des;
+pub mod sigma;
+pub mod vreman;
+pub mod wall_functions;
+
 use cfd_core::physics::fluid_dynamics::fields::{FlowField, VelocityField};
-use cfd_core::physics::fluid_dynamics::{rans::RANSModel, turbulence::TurbulenceModel};
+use cfd_core::physics::fluid_dynamics::{RANSModel, TurbulenceModel};
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 
@@ -49,12 +58,62 @@ pub struct SmagorinskyModel<T: cfd_mesh::domain::core::Scalar + RealField + Copy
     pub cs: T,
     /// Base Smagorinsky constant for dynamic model
     pub cs_base: T,
+    /// Physical LES filter width Δ = (dx·dy·dz)^(1/3) [m].
+    ///
+    /// # Theorem — Geometric Mean Filter Width (Deardorff 1970)
+    ///
+    /// For anisotropic Cartesian cells, Deardorff (1970) showed that the
+    /// geometric mean Δ = (δx·δy·δz)^(1/3) minimises aliasing of the
+    /// resolved-to-subgrid energy transfer and correctly represents the
+    /// local smallest resolved scale regardless of cell aspect ratio.
+    ///
+    /// **Proof sketch.** The subgrid-scale stress τ_ij = −2 νₜ S̄ᵢⱼ requires
+    /// the LES filter scale to represent the physical grid cut-off.  For a
+    /// unit cube (Δ = 1), the filter couples the SGS model to cell count
+    /// rather than physical size, making νₜ wrong by orders of magnitude when
+    /// actual grid spacing differs from 1.
+    ///
+    /// **Reference**: Deardorff, J.W. (1970). "A numerical study of three-
+    /// dimensional turbulent channel flow at large Reynolds numbers."
+    /// *J. Fluid Mech.* 41:453–480.
+    pub filter_width: T,
 }
 
 impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> SmagorinskyModel<T> {
-    /// Create a new Smagorinsky model with standard constant
+    /// Create a new Smagorinsky model with standard constant.
+    ///
+    /// Uses `filter_width = T::one()` (unit-cube default).  For physically
+    /// correct LES viscosity, use [`SmagorinskyModel::with_filter_width`]
+    /// and pass the actual cell dimensions.
     pub fn new(cs: T) -> Self {
-        Self { cs, cs_base: cs }
+        Self {
+            cs,
+            cs_base: cs,
+            filter_width: T::one(),
+        }
+    }
+
+    /// Create a Smagorinsky model with the physically correct filter width.
+    ///
+    /// Computes Δ = (dx·dy·dz)^(1/3) per Deardorff (1970).
+    ///
+    /// # Arguments
+    /// * `cs` — Smagorinsky constant (typically 0.10–0.17 for channel flow)
+    /// * `dx`, `dy`, `dz` — physical cell dimensions [m]
+    ///
+    /// # Example
+    /// ```rust,ignore
+    /// // 50 µm × 50 µm × 100 µm cell: Δ ≈ 62.9 µm
+    /// let smag = SmagorinskyModel::with_filter_width(0.1, 50e-6, 50e-6, 100e-6);
+    /// ```
+    pub fn with_filter_width(cs: T, dx: T, dy: T, dz: T) -> Self {
+        let one_third = <T as FromPrimitive>::from_f64(1.0 / 3.0).unwrap_or_else(T::one);
+        let filter_width = num_traits::Float::powf(dx * dy * dz, one_third);
+        Self {
+            cs,
+            cs_base: cs,
+            filter_width,
+        }
     }
 
     /// Calculate strain rate magnitude at a grid point
@@ -162,10 +221,16 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Smago
     }
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> TurbulenceModel<T> for SmagorinskyModel<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> TurbulenceModel<T>
+    for SmagorinskyModel<T>
+{
     fn turbulent_viscosity(&self, flow_field: &FlowField<T>) -> Vec<T> {
         let (nx, ny, nz) = flow_field.velocity.dimensions;
-        let delta = <T as FromPrimitive>::from_f64(1.0 / nx as f64).unwrap_or_else(T::one);
+        // Physically correct filter width Δ = (dx·dy·dz)^(1/3); stored at construction time.
+        // Bug fix: the previous `Δ = 1/nx` used grid count instead of physical cell size,
+        // making νₜ wrong by orders of magnitude for any domain that isn't a unit cube
+        // subdivided into exactly nx uniform cells (Deardorff 1970, Pope 2000 §13.2).
+        let delta = self.filter_width;
         let prefactor = self.cs * self.cs * delta * delta;
 
         let mut viscosity = Vec::with_capacity(nx * ny * nz);
@@ -183,11 +248,11 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Turbu
     }
 
     fn turbulent_kinetic_energy(&self, flow_field: &FlowField<T>) -> Vec<T> {
-        // For Smagorinsky model, estimate TKE from strain rate
-        // k ≈ (Cs * Δ * |S|)²
+        // Estimate SGS TKE from strain rate: k ≈ (Cs · Δ · |S|)²
+        // Uses the physically correct filter width (see turbulent_viscosity bug note).
         let (nx, ny, nz) = flow_field.velocity.dimensions;
-        let delta = <T as FromPrimitive>::from_f64(1.0 / nx as f64).unwrap_or_else(T::one);
-        let cs_delta = self.cs * delta;
+        let delta = self.filter_width;
+        let cs_delta = self.cs * self.filter_width;
 
         let mut tke = Vec::with_capacity(nx * ny * nz);
 
@@ -209,27 +274,83 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Turbu
     }
 }
 
-/// Mixing length turbulence model
+/// Prandtl mixing length turbulence model.
+///
+/// # Theorem — Prandtl Mixing Length Hypothesis (Prandtl 1925)
+///
+/// The turbulent shear stress in wall-bounded flow is modelled as:
+///
+/// ```text
+/// τ = ρ lₘ² |∂u/∂y|²
+/// νₜ = lₘ² |∂u/∂y|
+/// ```
+///
+/// where lₘ is the mixing length.  Near a wall, lₘ = κ y (κ = 0.41, von Kármán
+/// constant), transitioning to a constant value in the outer region.
+///
+/// **Reference**: Prandtl, L. (1925). "Über die ausgebildete Turbulenz."
+/// *Z. Angew. Math. Mech.* 5:136–139.
 #[derive(Debug, Clone)]
 pub struct MixingLengthModel<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
-    /// Mixing length scale
+    /// Mixing length scale lₘ [m]
     pub length_scale: T,
-    /// von Kármán constant
+    /// von Kármán constant κ = 0.41 (dimensionless)
     pub kappa: T,
+    /// Physical finite-difference step for velocity gradient computation [m].
+    ///
+    /// For grid-resolved computations, set to the physical cell spacing
+    /// Δ = (dx·dy·dz)^(1/3) via [`MixingLengthModel::with_filter_width`].
+    /// The default (`new()`) sets this equal to `length_scale`.
+    ///
+    /// **Bug fixed**: the previous implementation used `Δ = 1/nx` (normalised
+    /// grid count) which gives incorrect gradient magnitudes for any domain
+    /// not conforming to a unit-cube assumption.
+    pub filter_width: T,
 }
 
 impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> MixingLengthModel<T> {
-    /// Create a new mixing length model
+    /// Create a new mixing length model.
+    ///
+    /// Sets `filter_width = length_scale` (appropriate when grid spacing and
+    /// mixing length are comparable).  For physically correct gradient
+    /// computation use [`MixingLengthModel::with_filter_width`].
     pub fn new(length_scale: T) -> Self {
-        let kappa = <T as FromPrimitive>::from_f64(cfd_core::physics::constants::physics::fluid::VON_KARMAN)
-            .unwrap_or_else(T::one);
+        let kappa = <T as FromPrimitive>::from_f64(
+            cfd_core::physics::constants::physics::fluid::VON_KARMAN,
+        )
+        .unwrap_or_else(T::one);
         Self {
             length_scale,
             kappa,
+            filter_width: length_scale,
         }
     }
 
-    /// Calculate velocity gradient magnitude
+    /// Create a mixing length model with the physically correct FD step.
+    ///
+    /// Computes Δ = (dx·dy·dz)^(1/3) per Deardorff (1970) as the finite-
+    /// difference spacing used to evaluate velocity gradients.
+    ///
+    /// # Arguments
+    /// * `length_scale` — Prandtl mixing length lₘ [m]
+    /// * `dx`, `dy`, `dz` — physical cell dimensions [m]
+    pub fn with_filter_width(length_scale: T, dx: T, dy: T, dz: T) -> Self {
+        let kappa = <T as FromPrimitive>::from_f64(
+            cfd_core::physics::constants::physics::fluid::VON_KARMAN,
+        )
+        .unwrap_or_else(T::one);
+        let one_third = <T as FromPrimitive>::from_f64(1.0 / 3.0).unwrap_or_else(T::one);
+        let filter_width = num_traits::Float::powf(dx * dy * dz, one_third);
+        Self {
+            length_scale,
+            kappa,
+            filter_width,
+        }
+    }
+
+    /// Calculate velocity gradient magnitude using the stored physical filter width.
+    ///
+    /// Central differences with spacing `self.filter_width` (= physical cell size Δ).
     #[allow(clippy::similar_names)] // CFD derivatives use standard notation
     fn calculate_velocity_gradient(&self, velocity: &VelocityField<T>, idx: usize) -> T {
         let (nx, ny, nz) = velocity.dimensions;
@@ -237,7 +358,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Mixin
         let j = (idx / nx) % ny;
         let k = idx / (nx * ny);
 
-        let delta = <T as FromPrimitive>::from_f64(1.0 / nx as f64).unwrap_or_else(T::one);
+        // Physically correct FD spacing — see filter_width field documentation.
+        let delta = self.filter_width;
         let two = <T as FromPrimitive>::from_f64(2.0).unwrap_or_else(T::one);
 
         let mut grad_u_sq = T::zero();
@@ -282,7 +404,9 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Mixin
     }
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> TurbulenceModel<T> for MixingLengthModel<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> TurbulenceModel<T>
+    for MixingLengthModel<T>
+{
     fn turbulent_viscosity(&self, flow_field: &FlowField<T>) -> Vec<T> {
         // νₜ = l² * |∂u/∂y| (Prandtl's mixing length hypothesis)
         flow_field
@@ -366,12 +490,18 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> KEpsi
     /// Create standard k-epsilon constants
     pub fn standard() -> Self {
         Self {
-            c_mu: <T as FromPrimitive>::from_f64(cfd_core::physics::constants::physics::turbulence::K_EPSILON_C_MU)
-                .unwrap_or_else(T::one),
-            c_1: <T as FromPrimitive>::from_f64(cfd_core::physics::constants::physics::turbulence::K_EPSILON_C1)
-                .unwrap_or_else(T::one),
-            c_2: <T as FromPrimitive>::from_f64(cfd_core::physics::constants::physics::turbulence::K_EPSILON_C2)
-                .unwrap_or_else(T::one),
+            c_mu: <T as FromPrimitive>::from_f64(
+                cfd_core::physics::constants::physics::turbulence::K_EPSILON_C_MU,
+            )
+            .unwrap_or_else(T::one),
+            c_1: <T as FromPrimitive>::from_f64(
+                cfd_core::physics::constants::physics::turbulence::K_EPSILON_C1,
+            )
+            .unwrap_or_else(T::one),
+            c_2: <T as FromPrimitive>::from_f64(
+                cfd_core::physics::constants::physics::turbulence::K_EPSILON_C2,
+            )
+            .unwrap_or_else(T::one),
             sigma_k: <T as FromPrimitive>::from_f64(
                 cfd_core::physics::constants::physics::turbulence::K_EPSILON_SIGMA_K,
             )
@@ -384,7 +514,9 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> KEpsi
     }
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Default for KEpsilonModel<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Default
+    for KEpsilonModel<T>
+{
     fn default() -> Self {
         Self::new()
     }
@@ -436,7 +568,12 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> KEpsi
             <T as FromPrimitive>::from_f64(0.75).unwrap_or_else(T::one),
         );
         for &k in &k_field {
-            let epsilon = c_mu_34 * num_traits::Float::powf(k, <T as FromPrimitive>::from_f64(1.5).unwrap_or_else(T::one)) / mixing_length;
+            let epsilon = c_mu_34
+                * num_traits::Float::powf(
+                    k,
+                    <T as FromPrimitive>::from_f64(1.5).unwrap_or_else(T::one),
+                )
+                / mixing_length;
             epsilon_field.push(epsilon);
         }
 
@@ -452,7 +589,9 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> KEpsi
     }
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> TurbulenceModel<T> for KEpsilonModel<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> TurbulenceModel<T>
+    for KEpsilonModel<T>
+{
     fn turbulent_viscosity(&self, flow_field: &FlowField<T>) -> Vec<T> {
         // νₜ = C_μ * k² / ε
         match &self.state {
@@ -487,7 +626,9 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Turbu
     }
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> RANSModel<T> for KEpsilonModel<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> RANSModel<T>
+    for KEpsilonModel<T>
+{
     fn dissipation_rate(&self, _flow_field: &FlowField<T>) -> Vec<T> {
         match &self.state {
             Some(state) => state.epsilon.clone(),

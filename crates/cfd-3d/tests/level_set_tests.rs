@@ -70,7 +70,12 @@ fn test_zero_velocity_level_set_preserved() {
             use_narrow_band: false,
             ..default_config()
         },
-        nx, nx, nx, h, h, h,
+        nx,
+        nx,
+        nx,
+        h,
+        h,
+        h,
     );
     init_sphere(&mut solver, 0.3);
     let phi0: Vec<f64> = solver.phi().to_vec();
@@ -97,8 +102,16 @@ fn test_reinitialization_restores_unit_gradient() {
     let nx = 20usize;
     let h = 1.0 / nx as f64;
     let mut solver = LevelSetSolver::new(
-        LevelSetConfig { reinitialization_interval: 1, ..default_config() },
-        nx, nx, nx, h, h, h,
+        LevelSetConfig {
+            reinitialization_interval: 1,
+            ..default_config()
+        },
+        nx,
+        nx,
+        nx,
+        h,
+        h,
+        h,
     );
     // Use a perturbed distance function (not exact signed distance)
     {
@@ -165,8 +178,17 @@ fn test_sphere_advection_preserves_radius() {
     let h = 1.0 / nx as f64;
     let r0 = 0.2;
     let mut solver = LevelSetSolver::new(
-        LevelSetConfig { reinitialization_interval: 10, use_narrow_band: false, ..default_config() },
-        nx, nx, nx, h, h, h,
+        LevelSetConfig {
+            reinitialization_interval: 10,
+            use_narrow_band: false,
+            ..default_config()
+        },
+        nx,
+        nx,
+        nx,
+        h,
+        h,
+        h,
     );
     init_sphere(&mut solver, r0);
 
@@ -186,7 +208,10 @@ fn test_sphere_advection_preserves_radius() {
     let phi = solver.phi();
     let has_positive = phi.iter().any(|&v| v > 0.0);
     let has_negative = phi.iter().any(|&v| v < 0.0);
-    assert!(has_positive && has_negative, "Level set must still straddle zero after advection");
+    assert!(
+        has_positive && has_negative,
+        "Level set must still straddle zero after advection"
+    );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -270,7 +295,9 @@ fn test_no_interface_all_positive_phi() {
         solver.phi_mut().fill(1.0); // no zero-crossing
     }
     for _ in 0..5 {
-        solver.advance(1e-3).expect("advance failed with all-positive phi");
+        solver
+            .advance(1e-3)
+            .expect("advance failed with all-positive phi");
     }
 }
 
@@ -288,8 +315,17 @@ fn test_sphere_phi_symmetry() {
     let nx = 20usize;
     let h = 1.0 / nx as f64;
     let mut solver = LevelSetSolver::new(
-        LevelSetConfig { reinitialization_interval: 100, use_narrow_band: false, ..default_config() },
-        nx, nx, nx, h, h, h,
+        LevelSetConfig {
+            reinitialization_interval: 100,
+            use_narrow_band: false,
+            ..default_config()
+        },
+        nx,
+        nx,
+        nx,
+        h,
+        h,
+        h,
     );
     init_sphere(&mut solver, 0.3);
 
@@ -304,7 +340,9 @@ fn test_sphere_phi_symmetry() {
                 let idx1 = k * ny * nx + j * nx + i;
                 let idx2 = (nz - 1 - k) * ny * nx + (ny - 1 - j) * nx + (nx - 1 - i);
                 let asym = (phi[idx1] - phi[idx2]).abs();
-                if asym > max_asym { max_asym = asym; }
+                if asym > max_asym {
+                    max_asym = asym;
+                }
             }
         }
     }

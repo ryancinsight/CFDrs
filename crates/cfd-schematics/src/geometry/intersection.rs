@@ -459,21 +459,45 @@ mod tests {
     fn intersection_detection_finds_manual_crossing() {
         // Manually build a system with two crossing channels.
         let nodes = vec![
-            Node { id: 0, point: (0.0, 0.5), metadata: None },
-            Node { id: 1, point: (1.0, 0.5), metadata: None },
-            Node { id: 2, point: (0.5, 0.0), metadata: None },
-            Node { id: 3, point: (0.5, 1.0), metadata: None },
+            Node {
+                id: 0,
+                point: (0.0, 0.5),
+                metadata: None,
+            },
+            Node {
+                id: 1,
+                point: (1.0, 0.5),
+                metadata: None,
+            },
+            Node {
+                id: 2,
+                point: (0.5, 0.0),
+                metadata: None,
+            },
+            Node {
+                id: 3,
+                point: (0.5, 1.0),
+                metadata: None,
+            },
         ];
         let channels = vec![
             Channel {
-                id: 0, from_node: 0, to_node: 1,
-                width: 0.1, height: 0.05,
-                channel_type: ChannelType::Straight, metadata: None,
+                id: 0,
+                from_node: 0,
+                to_node: 1,
+                width: 0.1,
+                height: 0.05,
+                channel_type: ChannelType::Straight,
+                metadata: None,
             },
             Channel {
-                id: 1, from_node: 2, to_node: 3,
-                width: 0.1, height: 0.05,
-                channel_type: ChannelType::Straight, metadata: None,
+                id: 1,
+                from_node: 2,
+                to_node: 3,
+                width: 0.1,
+                height: 0.05,
+                channel_type: ChannelType::Straight,
+                metadata: None,
             },
         ];
         let mut system = ChannelSystem {
@@ -488,7 +512,11 @@ mod tests {
         assert_eq!(result.junction_node_ids.len(), 1);
 
         // The two original channels should be split into 4 sub-channels.
-        assert_eq!(system.channels.len(), 4, "2 channels × 1 crossing = 4 sub-channels");
+        assert_eq!(
+            system.channels.len(),
+            4,
+            "2 channels × 1 crossing = 4 sub-channels"
+        );
 
         // New junction node at (0.5, 0.5).
         let jn = &system.nodes[result.junction_node_ids[0]];

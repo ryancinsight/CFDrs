@@ -39,8 +39,14 @@ pub struct MeshRefinementConfig<T: cfd_mesh::domain::core::Scalar + RealField + 
     pub expected_order: T,
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> Default
-    for MeshRefinementConfig<T>
+impl<
+        T: cfd_mesh::domain::core::Scalar
+            + RealField
+            + Copy
+            + FromPrimitive
+            + ToPrimitive
+            + SafeFromF64,
+    > Default for MeshRefinementConfig<T>
 {
     fn default() -> Self {
         Self {
@@ -61,7 +67,17 @@ pub struct BifurcationValidator3D<T: cfd_mesh::domain::core::Scalar + RealField 
     mesh_config: MeshRefinementConfig<T>,
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + num_traits::Float + From<f64>> BifurcationValidator3D<T> {
+impl<
+        T: cfd_mesh::domain::core::Scalar
+            + RealField
+            + Copy
+            + FromPrimitive
+            + ToPrimitive
+            + SafeFromF64
+            + num_traits::Float
+            + From<f64>,
+    > BifurcationValidator3D<T>
+{
     /// Create new validator
     pub fn new(geometry: BifurcationGeometry3D<T>, mesh_config: MeshRefinementConfig<T>) -> Self {
         Self {
@@ -95,8 +111,9 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
         let dp_parent_1d = (T::from_f64_or_one(128.0) * mu * q_parent * self.geometry.l_parent)
             / (pi * num_traits::Float::powf(self.geometry.d_parent, T::from_f64_or_one(4.0)));
 
-        let dp_error = num_traits::Float::abs(solution_3d.p_inlet - solution_3d.p_outlet - dp_parent_1d)
-            / (num_traits::Float::abs(dp_parent_1d) + T::from_f64_or_one(1.0));
+        let dp_error =
+            num_traits::Float::abs(solution_3d.p_inlet - solution_3d.p_outlet - dp_parent_1d)
+                / (num_traits::Float::abs(dp_parent_1d) + T::from_f64_or_one(1.0));
 
         // Create result
         let mut result = BifurcationValidationResult3D::new("3D vs 1D".to_string());
@@ -167,21 +184,22 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
             result.gci = Some(T::zero());
             result.validation_passed = true;
             result.error_message = Some(
-                "Inter-level differences are at numerical noise floor; treating as grid-converged".to_string(),
+                "Inter-level differences are at numerical noise floor; treating as grid-converged"
+                    .to_string(),
             );
             return Ok(result);
         }
 
         let p_obs = num_traits::Float::ln(eps10 / eps21) / num_traits::Float::ln(r);
         let rel_error_fine = eps21 / (num_traits::Float::abs(phi_fine) + tiny);
-        let gci = T::from_f64_or_one(1.25) * rel_error_fine / (num_traits::Float::powf(r, p_obs) - T::one());
+        let gci = T::from_f64_or_one(1.25) * rel_error_fine
+            / (num_traits::Float::powf(r, p_obs) - T::one());
 
         let mut result = BifurcationValidationResult3D::new("Mesh Convergence".to_string());
         result.convergence_order = Some(p_obs);
         result.gci = Some(gci);
-        result.validation_passed =
-            gci < T::from_f64_or_one(0.05)
-                && p_obs >= T::from_f64_or_one(0.5) * self.mesh_config.expected_order;
+        result.validation_passed = gci < T::from_f64_or_one(0.05)
+            && p_obs >= T::from_f64_or_one(0.5) * self.mesh_config.expected_order;
 
         Ok(result)
     }
@@ -240,7 +258,9 @@ pub struct BifurcationValidationResult3D<T: cfd_mesh::domain::core::Scalar + Rea
     pub error_message: Option<String>,
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + ToPrimitive> BifurcationValidationResult3D<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + ToPrimitive>
+    BifurcationValidationResult3D<T>
+{
     /// Create new validation result
     pub fn new(test_name: String) -> Self {
         Self {
@@ -323,12 +343,18 @@ mod tests {
         let solution = solver.solve(water).unwrap();
 
         let result = validator.validate_blood_flow(&solution).unwrap();
-        
+
         // Debug output
-        println!("Mass conservation error: {:.2e}", solution.mass_conservation_error);
-        println!("Wall shear stress parent: {:.2e}", solution.wall_shear_stress_parent);
+        println!(
+            "Mass conservation error: {:.2e}",
+            solution.mass_conservation_error
+        );
+        println!(
+            "Wall shear stress parent: {:.2e}",
+            solution.wall_shear_stress_parent
+        );
         println!("Validation message: {:?}", result.error_message);
-        
+
         assert!(result.validation_passed);
     }
 

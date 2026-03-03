@@ -252,27 +252,14 @@ impl BlueprintMeshPipeline {
                 // from pre-unioning all parallel tubes before the Difference step.
                 build_chip_body_sequential(&mesh_layout, config)?
             } else if matches!(&class, TopologyClass::LinearChain { .. }) {
-                // Bent-polyline void for the serpentine chip body has a
-                // fundamental CSG problem: the 90° turn tube's interior rings
-                // are coplanar with (or tangent to) the substrate faces
-                // regardless of how much the turns are inset, because the
-                // SweepMesher places profile rings whose normal direction is
-                // exactly ±X/±Y along the straight turn body — touching the
-                // substrate face at the tube's outer rim.
-                //
-                // Strategy: use one STRAIGHT row void per serpentine row.
-                // Adjacent rows are non-overlapping (row_pitch > 2r), so their
-                // CSG union is trivial (no 90° T-junction CDT issue).  The chip
-                // body has 2·n clean circular through-holes (n per face) and
-                // the turn voids are omitted — the fluid mesh already encodes
-                // the correct serpentine geometry for CFD use.
-                let rows_only: Vec<SegmentLayout> = layout
-                    .iter()
-                    .enumerate()
-                    .filter(|(i, _)| i % 2 == 0) // even indices = row segments
-                    .map(|(_, seg)| seg.clone())
-                    .collect();
-                build_chip_body(&rows_only, config)?
+                // LinearChain (serpentine): subtract the full connected fluid
+                // mesh as the void so the chip body exposes exactly one inlet
+                // and one outlet for a single continuous channel network.
+                csg_boolean_indexed(
+                    BooleanOp::Difference,
+                    &SubstrateBuilder::well_plate_96(config.chip_height_mm).build_indexed()?,
+                    &fluid_mesh,
+                )?
             } else if matches!(&class, TopologyClass::Bifurcation) {
                 // Bifurcation: reuse the already-computed and watertight `fluid_mesh`
                 // as the CSG void for the chip body.  The 2-arm topology produces a
@@ -390,13 +377,16 @@ fn synthesize_layout(
             Ok(layout)
         }
 
-        // Linear (serpentine) chain: zigzag rows spanning the full chip width.
+        // Linear (serpentine) chain: zigzag rows with interior turns.
         //
-        // Each blueprint channel maps to one horizontal row that spans the chip from
-        // x = 0 to x = WIDTH_MM (alternating ±X direction).  Consecutive rows are
-        // separated in Y by `row_pitch = max_diameter × 2.5` and connected by a
-        // short vertical "turn" segment at the row end.  This produces n rows and
-        // (n − 1) turn segments — 2n − 1 segments total.
+        // Each blueprint channel maps to one horizontal row (alternating ±X
+        // direction).  To avoid creating extra side-wall openings, only the
+        // first row start and final row end touch chip faces; all intermediate
+        // turn segments are inset from side walls by one channel radius.
+        //
+        // This produces a single connected serpentine with exactly one inlet
+        // and one outlet while retaining n rows + (n − 1) turns = 2n − 1
+        // synthetic layout segments.
         TopologyClass::LinearChain { .. } => {
             let channels = topo
                 .linear_path_channels()
@@ -411,6 +401,17 @@ fn synthesize_layout(
             let row_pitch = (max_dia_mm * 2.5).max(1.0); // ≥ 1 mm
             let chip_w = SbsWellPlate96::WIDTH_MM;
             let n = channels.len();
+            let turn_inset_x = (max_dia_mm * 0.5).max(1e-3);
+            let x_left = turn_inset_x;
+            let x_right = chip_w - turn_inset_x;
+            if x_right <= x_left {
+                return Err(MeshError::ChannelError {
+                    message: format!(
+                        "serpentine channel diameter {:.3} mm too large for plate width {:.2} mm",
+                        max_dia_mm, chip_w
+                    ),
+                });
+            }
 
             // Row i sits at y = y_center + (i − (n−1)/2) × row_pitch (centred on chip).
             let y_base = y_center - (n as Real - 1.0) / 2.0 * row_pitch;
@@ -419,18 +420,32 @@ fn synthesize_layout(
             let mut layout: Vec<SegmentLayout> = Vec::with_capacity(2 * n);
             for i in 0..n {
                 let y_row = y_base + i as Real * row_pitch;
-                // Even rows go left → right; odd rows go right → left.
-                let (x0, x1) = if i % 2 == 0 {
-                    (0.0, chip_w)
+                // Even rows run +X, odd rows run −X.
+                let x0 = if i == 0 {
+                    0.0 // single inlet port
+                } else if i % 2 == 0 {
+                    x_left
                 } else {
-                    (chip_w, 0.0)
+                    x_right
                 };
+                let x1 = if i + 1 == n {
+                    if i % 2 == 0 {
+                        chip_w // single outlet port on +X face
+                    } else {
+                        0.0 // single outlet port on −X face
+                    }
+                } else if i % 2 == 0 {
+                    x_right
+                } else {
+                    x_left
+                };
+
                 layout.push(SegmentLayout {
                     start: Point3r::new(x0, y_row, z_mid),
                     end: Point3r::new(x1, y_row, z_mid),
                     cross_section: channels[i].cross_section,
                 });
-                // Vertical turn connecting this row to the next.
+                // Vertical turn connecting this row to the next at an inset x.
                 if i + 1 < n {
                     let y_next = y_base + (i + 1) as Real * row_pitch;
                     layout.push(SegmentLayout {
@@ -1492,6 +1507,20 @@ fn build_trifurcation_fluid_mesh(
         );
     }
 
+    if !report.is_watertight && report.is_closed && !report.orientation_consistent {
+        let edge_store =
+            crate::infrastructure::storage::edge_store::EdgeStore::from_face_store(&mesh.faces);
+        let _ = crate::domain::topology::orientation::fix_orientation(&mut mesh.faces, &edge_store);
+        mesh.rebuild_edges();
+        mesh.orient_outward();
+        mesh.rebuild_edges();
+        report = crate::application::watertight::check::check_watertight(
+            &mesh.vertices,
+            &mesh.faces,
+            mesh.edges_ref().expect("edges rebuilt"),
+        );
+    }
+
     if !report.is_watertight
         && report.non_manifold_edge_count == 0
         && report.boundary_edge_count > 0
@@ -1515,6 +1544,20 @@ fn build_trifurcation_fluid_mesh(
                 mesh.edges_ref().expect("edges rebuilt"),
             );
         }
+    }
+
+    if !report.is_watertight && report.is_closed && !report.orientation_consistent {
+        let edge_store =
+            crate::infrastructure::storage::edge_store::EdgeStore::from_face_store(&mesh.faces);
+        let _ = crate::domain::topology::orientation::fix_orientation(&mut mesh.faces, &edge_store);
+        mesh.rebuild_edges();
+        mesh.orient_outward();
+        mesh.rebuild_edges();
+        report = crate::application::watertight::check::check_watertight(
+            &mesh.vertices,
+            &mesh.faces,
+            mesh.edges_ref().expect("edges rebuilt"),
+        );
     }
 
     if !report.is_watertight {

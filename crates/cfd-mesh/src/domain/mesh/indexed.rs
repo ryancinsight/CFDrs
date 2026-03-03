@@ -198,7 +198,7 @@ impl<T: Scalar> IndexedMesh<T> {
         if self.cells.is_empty() {
             return self.faces.iter_enumerated().map(|(id, _)| id).collect();
         }
-        let mut face_cell_count: HashMap<FaceId, usize> = HashMap::new();
+        let mut face_cell_count: std::collections::BTreeMap<FaceId, usize> = std::collections::BTreeMap::new();
         for cell in &self.cells {
             for &fv_idx in &cell.faces {
                 // In IndexedMesh, Cell.faces holds FaceId cast as usize currently ? wait:
@@ -372,20 +372,19 @@ impl<T: Scalar> IndexedMesh<T> {
             return;
         }
 
-        // Per-face normals (None = degenerate) and max-X vertex position.
+        // Per-face normals (None = degenerate) and centroid X.
         // Both are computed from the immutable vertex pool before the later
         // mutable pass.
         let mut face_normals: Vec<Option<Vector3<T>>> = Vec::with_capacity(n_faces);
-        let mut face_max_x: Vec<T> = Vec::with_capacity(n_faces);
+        let mut face_centroid_x: Vec<T> = Vec::with_capacity(n_faces);
         for face in &face_list {
             let a = self.vertices.position(face.vertices[0]);
             let b = self.vertices.position(face.vertices[1]);
             let c = self.vertices.position(face.vertices[2]);
             face_normals.push(triangle_normal(a, b, c));
-            // Use explicit comparison to avoid ambiguity between
-            // nalgebra::RealField::max and num_traits::Float::max.
-            let ab = if a.x > b.x { a.x } else { b.x };
-            face_max_x.push(if ab > c.x { ab } else { c.x });
+            
+            let cx = (a.x + b.x + c.x) / <T as Scalar>::from_f64(3.0);
+            face_centroid_x.push(cx);
         }
 
         // Directed half-edge → face index.
@@ -413,8 +412,8 @@ impl<T: Scalar> IndexedMesh<T> {
                     if orientation[fi].is_some() || face_normals[fi].is_none() {
                         continue;
                     }
-                    if face_max_x[fi] > best_x {
-                        best_x = face_max_x[fi];
+                    if face_centroid_x[fi] > best_x {
+                        best_x = face_centroid_x[fi];
                         best = Some(fi);
                     }
                 }

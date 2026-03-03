@@ -2,5 +2,6 @@
     "python.terminal.shellIntegration.enabled": true,
     "kimi.yoloMode": true,
     "problems.autoReveal": false,
-    "chat.agent.maxRequests": 400
+    "chat.agent.maxRequests": 400,
+    "github.copilot.chat.backgroundCompaction": true
 }

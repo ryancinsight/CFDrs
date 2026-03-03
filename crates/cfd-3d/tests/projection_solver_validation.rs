@@ -12,9 +12,9 @@
 use cfd_3d::fem::{FemConfig, ProjectionSolver, StokesFlowProblem};
 use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
+use cfd_mesh::domain::core::index::VertexId;
 use cfd_mesh::domain::grid::StructuredGridBuilder;
 use cfd_mesh::IndexedMesh;
-use cfd_mesh::domain::core::index::VertexId;
 use nalgebra::Vector3;
 use std::collections::HashMap;
 
@@ -41,32 +41,38 @@ fn test_projection_solver_creation() {
 fn test_stokes_flow_unit_cube() {
     // Create a coarse mesh (3x3x3 nodes)
     let mesh = create_cube_mesh(3, 3, 3);
-    println!("Created mesh with {} vertices and {} cells", 
-        mesh.vertex_count(), mesh.cells().len());
-    
+    println!(
+        "Created mesh with {} vertices and {} cells",
+        mesh.vertex_count(),
+        mesh.cells().len()
+    );
+
     // Fluid properties (water-like)
     let fluid = ConstantPropertyFluid::new(
         "Water".to_string(),
-        1000.0,  // density kg/m³
-        0.001,   // viscosity Pa·s
-        4186.0,  // specific heat J/(kg·K)
-        0.6,     // thermal conductivity W/(m·K)
-        1500.0,  // speed of sound m/s
+        1000.0, // density kg/m³
+        0.001,  // viscosity Pa·s
+        4186.0, // specific heat J/(kg·K)
+        0.6,    // thermal conductivity W/(m·K)
+        1500.0, // speed of sound m/s
     );
-    
+
     // Boundary conditions: lid-driven cavity style
     // Top face (z = 1): u = (0.001, 0, 0) - slow moving lid
     // All other faces: u = (0, 0, 0) - no-slip walls
     let mut boundary_conditions: HashMap<usize, BoundaryCondition<f64>> = HashMap::new();
-    
+
     // Apply boundary conditions to all boundary nodes
     for node_idx in 0..mesh.vertex_count() {
         let vertex = mesh.vertices.get(VertexId::from_usize(node_idx));
         let p = vertex.position;
-        let is_boundary = p.x.abs() < 1e-6 || p.x > 0.999 ||
-                          p.y.abs() < 1e-6 || p.y > 0.999 ||
-                          p.z.abs() < 1e-6 || p.z > 0.999;
-        
+        let is_boundary = p.x.abs() < 1e-6
+            || p.x > 0.999
+            || p.y.abs() < 1e-6
+            || p.y > 0.999
+            || p.z.abs() < 1e-6
+            || p.z > 0.999;
+
         if is_boundary {
             if p.z > 0.999 {
                 // Top face: moving lid
@@ -80,40 +86,39 @@ fn test_stokes_flow_unit_cube() {
                 // All other faces: no-slip wall
                 boundary_conditions.insert(
                     node_idx,
-                    BoundaryCondition::Wall { wall_type: cfd_core::physics::boundary::WallType::NoSlip },
+                    BoundaryCondition::Wall {
+                        wall_type: cfd_core::physics::boundary::WallType::NoSlip,
+                    },
                 );
             }
         }
     }
-    
+
     // Create problem
     let n_corner_nodes = mesh.vertex_count(); // P1 pressure
-    let problem = StokesFlowProblem::new(
-        mesh,
-        fluid,
-        boundary_conditions,
-        n_corner_nodes,
-    );
-    
+    let problem = StokesFlowProblem::new(mesh, fluid, boundary_conditions, n_corner_nodes);
+
     // Create solver with small time step
     let config = FemConfig::<f64>::default();
     let mut solver = ProjectionSolver::with_timestep(config, 0.0001);
-    
+
     // Solve
     let result = solver.solve(&problem, None);
-    
+
     match result {
         Ok(solution) => {
             println!("Solution obtained successfully");
             println!("  Velocity DOFs: {}", solution.velocity.len());
             println!("  Pressure DOFs: {}", solution.pressure.len());
-            
+
             // Check that velocities are non-zero (flow developed)
-            let max_vel = solution.velocity.iter()
+            let max_vel = solution
+                .velocity
+                .iter()
                 .map(|v| v.abs())
                 .fold(0.0_f64, f64::max);
             println!("  Max velocity: {:.6e}", max_vel);
-            
+
             // For a driven cavity, we expect some flow
             assert!(max_vel > 0.0, "Expected non-zero velocity field");
         }
@@ -134,31 +139,34 @@ fn test_pressure_driven_channel_flow() {
     // Create a channel mesh using structured grid
     // Length = 1, Height = 1, Depth = 1 (unit cube for simplicity)
     let mesh = create_cube_mesh(5, 4, 4);
-    println!("Created channel mesh with {} vertices and {} cells",
-        mesh.vertex_count(), mesh.cells().len());
-    
+    println!(
+        "Created channel mesh with {} vertices and {} cells",
+        mesh.vertex_count(),
+        mesh.cells().len()
+    );
+
     // Fluid properties (water-like, low Re)
     let fluid = ConstantPropertyFluid::new(
         "Water".to_string(),
-        1000.0,  // density kg/m³
-        0.001,   // viscosity Pa·s
-        4186.0,  // specific heat J/(kg·K)
-        0.6,     // thermal conductivity W/(m·K)
-        1500.0,  // speed of sound m/s
+        1000.0, // density kg/m³
+        0.001,  // viscosity Pa·s
+        4186.0, // specific heat J/(kg·K)
+        0.6,    // thermal conductivity W/(m·K)
+        1500.0, // speed of sound m/s
     );
-    
+
     // Boundary conditions
     // Inlet (x = 0): u = (u_in, 0, 0)
     // Outlet (x = 1): p = 0 (pressure outlet)
     // Walls (y = 0, y = 1, z = 0, z = 1): u = (0, 0, 0)
     let mut boundary_conditions: HashMap<usize, BoundaryCondition<f64>> = HashMap::new();
-    
+
     let u_in = 0.001; // 1 mm/s inlet velocity
-    
+
     for node_idx in 0..mesh.vertex_count() {
         let vertex = mesh.vertices.get(VertexId::from_usize(node_idx));
         let p = vertex.position;
-        
+
         if p.x.abs() < 1e-6 {
             // Inlet: prescribed velocity
             boundary_conditions.insert(
@@ -177,35 +185,32 @@ fn test_pressure_driven_channel_flow() {
             // Walls: no-slip
             boundary_conditions.insert(
                 node_idx,
-                BoundaryCondition::Wall { wall_type: cfd_core::physics::boundary::WallType::NoSlip },
+                BoundaryCondition::Wall {
+                    wall_type: cfd_core::physics::boundary::WallType::NoSlip,
+                },
             );
         }
     }
-    
+
     // Create problem
     let n_corner_nodes = mesh.vertex_count();
-    let problem = StokesFlowProblem::new(
-        mesh,
-        fluid,
-        boundary_conditions,
-        n_corner_nodes,
-    );
-    
+    let problem = StokesFlowProblem::new(mesh, fluid, boundary_conditions, n_corner_nodes);
+
     // Create solver
     let config = FemConfig::<f64>::default();
     let mut solver = ProjectionSolver::with_timestep(config, 0.001);
-    
+
     // Solve
     let result = solver.solve(&problem, None);
-    
+
     match result {
         Ok(solution) => {
             println!("Channel flow solution obtained");
-            
+
             // Find center node velocity
             let mut center_u = 0.0_f64;
             let mut center_count = 0;
-            
+
             for node_idx in 0..problem.mesh.vertex_count() {
                 let vertex = problem.mesh.vertices.get(VertexId::from_usize(node_idx));
                 let p = vertex.position;
@@ -215,11 +220,11 @@ fn test_pressure_driven_channel_flow() {
                     center_count += 1;
                 }
             }
-            
+
             if center_count > 0 {
                 center_u /= center_count as f64;
                 println!("  Average center x-velocity: {:.6e}", center_u);
-                
+
                 // For pressure-driven flow, we expect x-velocity to be positive
                 assert!(center_u > 0.0, "Expected positive x-velocity at center");
             }
@@ -238,64 +243,62 @@ fn test_pressure_driven_channel_flow() {
 fn test_divergence_free_constraint() {
     // Create a simple mesh
     let mesh = create_cube_mesh(4, 4, 4);
-    
+
     // Fluid properties
-    let fluid = ConstantPropertyFluid::new(
-        "Water".to_string(),
-        1000.0,
-        0.001,
-        4186.0,
-        0.6,
-        1500.0,
-    );
-    
+    let fluid = ConstantPropertyFluid::new("Water".to_string(), 1000.0, 0.001, 4186.0, 0.6, 1500.0);
+
     // Simple boundary conditions - all walls
     let mut boundary_conditions: HashMap<usize, BoundaryCondition<f64>> = HashMap::new();
-    
+
     for node_idx in 0..mesh.vertex_count() {
         let vertex = mesh.vertices.get(VertexId::from_usize(node_idx));
         let p = vertex.position;
-        let is_boundary = p.x.abs() < 1e-6 || p.x > 0.999 ||
-                          p.y.abs() < 1e-6 || p.y > 0.999 ||
-                          p.z.abs() < 1e-6 || p.z > 0.999;
-        
+        let is_boundary = p.x.abs() < 1e-6
+            || p.x > 0.999
+            || p.y.abs() < 1e-6
+            || p.y > 0.999
+            || p.z.abs() < 1e-6
+            || p.z > 0.999;
+
         if is_boundary {
             boundary_conditions.insert(
                 node_idx,
-                BoundaryCondition::Wall { wall_type: cfd_core::physics::boundary::WallType::NoSlip },
+                BoundaryCondition::Wall {
+                    wall_type: cfd_core::physics::boundary::WallType::NoSlip,
+                },
             );
         }
     }
-    
+
     // Create problem
     let n_corner_nodes = mesh.vertex_count();
-    let problem = StokesFlowProblem::new(
-        mesh,
-        fluid,
-        boundary_conditions,
-        n_corner_nodes,
-    );
-    
+    let problem = StokesFlowProblem::new(mesh, fluid, boundary_conditions, n_corner_nodes);
+
     // Create solver
     let config = FemConfig::<f64>::default();
     let mut solver = ProjectionSolver::with_timestep(config, 0.001);
-    
+
     // Solve
     if let Ok(solution) = solver.solve(&problem, None) {
         // The projection method should produce a divergence-free field
         // Check that the max divergence is small
         println!("Solution obtained, checking divergence...");
-        
+
         // For a wall-bounded domain with zero velocity BCs,
         // the solution should be zero velocity everywhere
-        let max_vel = solution.velocity.iter()
+        let max_vel = solution
+            .velocity
+            .iter()
             .map(|v: &f64| v.abs())
             .fold(0.0_f64, f64::max);
-        
+
         println!("  Max velocity in wall-bounded domain: {:.6e}", max_vel);
-        
+
         // With all walls, velocity should be essentially zero
-        assert!(max_vel < 1e-10, "Expected near-zero velocity for wall-bounded domain");
+        assert!(
+            max_vel < 1e-10,
+            "Expected near-zero velocity for wall-bounded domain"
+        );
     }
 }
 
@@ -306,24 +309,17 @@ fn test_divergence_free_constraint() {
 #[test]
 fn test_mass_conservation() {
     let mesh = create_cube_mesh(4, 3, 3);
-    
-    let fluid = ConstantPropertyFluid::new(
-        "Water".to_string(),
-        1000.0,
-        0.001,
-        4186.0,
-        0.6,
-        1500.0,
-    );
-    
+
+    let fluid = ConstantPropertyFluid::new("Water".to_string(), 1000.0, 0.001, 4186.0, 0.6, 1500.0);
+
     let mut boundary_conditions: HashMap<usize, BoundaryCondition<f64>> = HashMap::new();
-    
+
     let u_in = 0.0005; // 0.5 mm/s
-    
+
     for node_idx in 0..mesh.vertex_count() {
         let vertex = mesh.vertices.get(VertexId::from_usize(node_idx));
         let p = vertex.position;
-        
+
         if p.x.abs() < 1e-6 {
             boundary_conditions.insert(
                 node_idx,
@@ -339,33 +335,30 @@ fn test_mass_conservation() {
         } else if p.y.abs() < 1e-6 || p.y > 0.999 || p.z.abs() < 1e-6 || p.z > 0.999 {
             boundary_conditions.insert(
                 node_idx,
-                BoundaryCondition::Wall { wall_type: cfd_core::physics::boundary::WallType::NoSlip },
+                BoundaryCondition::Wall {
+                    wall_type: cfd_core::physics::boundary::WallType::NoSlip,
+                },
             );
         }
     }
-    
+
     let n_corner_nodes = mesh.vertex_count();
-    let problem = StokesFlowProblem::new(
-        mesh,
-        fluid,
-        boundary_conditions,
-        n_corner_nodes,
-    );
-    
+    let problem = StokesFlowProblem::new(mesh, fluid, boundary_conditions, n_corner_nodes);
+
     let config = FemConfig::<f64>::default();
     let mut solver = ProjectionSolver::with_timestep(config, 0.001);
-    
+
     if let Ok(solution) = solver.solve(&problem, None) {
         // Calculate inlet flow rate (sum of x-velocities at inlet)
         let mut inlet_flow = 0.0_f64;
         let mut outlet_flow = 0.0_f64;
         let mut inlet_count = 0;
         let mut outlet_count = 0;
-        
+
         for node_idx in 0..problem.mesh.vertex_count() {
             let vertex = problem.mesh.vertices.get(VertexId::from_usize(node_idx));
             let p = vertex.position;
-            
+
             if p.x.abs() < 1e-6 {
                 inlet_flow += solution.velocity[node_idx * 3];
                 inlet_count += 1;
@@ -374,10 +367,13 @@ fn test_mass_conservation() {
                 outlet_count += 1;
             }
         }
-        
+
         println!("Inlet flow sum: {:.6e} ({} nodes)", inlet_flow, inlet_count);
-        println!("Outlet flow sum: {:.6e} ({} nodes)", outlet_flow, outlet_count);
-        
+        println!(
+            "Outlet flow sum: {:.6e} ({} nodes)",
+            outlet_flow, outlet_count
+        );
+
         // For incompressible flow, these should match
         // Allow some tolerance for numerical errors
         if inlet_flow.abs() > 1e-10 {

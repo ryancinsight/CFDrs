@@ -324,9 +324,9 @@ pub(crate) fn cdt_fill_loop(
         let [a_id, b_id, c_id] = tri.vertices;
         let (ai, bi, ci) = (a_id.idx(), b_id.idx(), c_id.idx());
         if ai >= n || bi >= n || ci >= n {
-            // Steiner insertion would require adding new vertices to the pool,
-            // which this repair path does not do. Fall back to ear clipping.
-            return 0;
+            // Super-structure vertex from CDT triangulation; skip this triangle
+            // rather than aborting the entire fill operation.
+            continue;
         }
         let a2 = pts2d[ai];
         let b2 = pts2d[bi];

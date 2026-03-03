@@ -107,7 +107,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
         let e3 = v3 - v0;
 
         let det_j = e1.dot(&e2.cross(&e3)); // Signed 6V
-        self.volume = num_traits::Float::abs(det_j) / <T as FromPrimitive>::from_f64(6.0).unwrap_or_else(T::one);
+        self.volume = num_traits::Float::abs(det_j)
+            / <T as FromPrimitive>::from_f64(6.0).unwrap_or_else(T::one);
         det_j // Return signed 6V for orientation-correct assembly
     }
 
@@ -145,7 +146,9 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
         let d3_vec = v4 - v1;
         let six_v = d1_vec.dot(&d2_vec.cross(&d3_vec));
 
-        if num_traits::Float::abs(six_v) < <T as FromPrimitive>::from_f64(1e-24).unwrap_or_else(T::zero) {
+        if num_traits::Float::abs(six_v)
+            < <T as FromPrimitive>::from_f64(1e-24).unwrap_or_else(T::zero)
+        {
             self.shape_derivatives = DMatrix::zeros(3, 4);
             return;
         }
@@ -179,11 +182,10 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
             (v1.x * (v4.z - v2.z) + v2.x * (v1.z - v4.z) + v4.x * (v2.z - v1.z)) / six_v,
             (v1.x * (v2.y - v4.y) + v2.x * (v4.y - v1.y) + v4.x * (v1.y - v2.y)) / six_v,
         );
-        
+
         // Sum of gradients is zero: grad_N3 = -(grad_N0 + grad_N1 + grad_N2)
         let grad_n3 = -(grad_n0 + grad_n1 + grad_n2);
-        
-        
+
         // CRITICAL FIX: Columns must correspond to nodes [0, 1, 2, 3]
         let c0 = DVector::from_iterator(3, grad_n0.iter().copied());
         let c1 = DVector::from_iterator(3, grad_n1.iter().copied());

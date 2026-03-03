@@ -145,11 +145,17 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Level
     }
 
     /// Grid x-dimension
-    pub fn nx(&self) -> usize { self.nx }
+    pub fn nx(&self) -> usize {
+        self.nx
+    }
     /// Grid y-dimension
-    pub fn ny(&self) -> usize { self.ny }
+    pub fn ny(&self) -> usize {
+        self.ny
+    }
     /// Grid z-dimension
-    pub fn nz(&self) -> usize { self.nz }
+    pub fn nz(&self) -> usize {
+        self.nz
+    }
 
     /// Get the level set function
     pub fn phi(&self) -> &[T] {
@@ -174,15 +180,13 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Level
     /// Update narrow band indices based on current level set
     pub fn update_narrow_band(&mut self) {
         self.narrow_band.clear();
-        let band_width = <T as FromPrimitive>::from_f64(self.config.band_width).unwrap_or_else(T::zero);
+        let band_width =
+            <T as FromPrimitive>::from_f64(self.config.band_width).unwrap_or_else(T::zero);
 
         for idx in 0..self.phi.len() {
             if num_traits::Float::abs(self.phi[idx])
                 <= band_width
-                    * num_traits::Float::min(
-                        num_traits::Float::min(self.dx, self.dy),
-                        self.dz,
-                    )
+                    * num_traits::Float::min(num_traits::Float::min(self.dx, self.dy), self.dz)
             {
                 self.narrow_band.push(idx);
             }
@@ -195,7 +199,10 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Level
         self.advect_weno5(dt)?;
 
         self.time_step += 1;
-        if self.time_step.is_multiple_of(self.config.reinitialization_interval) {
+        if self
+            .time_step
+            .is_multiple_of(self.config.reinitialization_interval)
+        {
             self.reinitialize()?;
         }
 
@@ -337,13 +344,13 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Level
 
                         // S(φ₀) = φ₀ / √(φ₀² + Δx²)
                         let phi0_val = phi0[idx];
-                        let sign_phi = phi0_val
-                            / Float::sqrt(phi0_val * phi0_val + dx_min * dx_min);
+                        let sign_phi =
+                            phi0_val / Float::sqrt(phi0_val * phi0_val + dx_min * dx_min);
 
                         let grad_mag = self.godunov_gradient_magnitude(i, j, k, sign_phi);
 
-                        self.phi[idx] = self.phi_previous[idx]
-                            - dtau * sign_phi * (grad_mag - T::one());
+                        self.phi[idx] =
+                            self.phi_previous[idx] - dtau * sign_phi * (grad_mag - T::one());
 
                         let err = Float::abs(grad_mag - T::one());
                         if err > max_err {
@@ -467,14 +474,14 @@ fn weno5_derivative<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitiv
     // φ̂⁻_{i+½} from {v[1]..v[5]} = {φ_{i-2},..,φ_{i+2}}
     // φ̂⁻_{i-½} from {v[0]..v[4]} = {φ_{i-3},..,φ_{i+1}}
     let fl_right = weno5_reconstruct_left([v[1], v[2], v[3], v[4], v[5]]);
-    let fl_left  = weno5_reconstruct_left([v[0], v[1], v[2], v[3], v[4]]);
+    let fl_left = weno5_reconstruct_left([v[0], v[1], v[2], v[3], v[4]]);
     let dm = (fl_right - fl_left) / h;
 
     // Right-biased derivative D⁺φ_i = (φ̂⁺_{i+½} - φ̂⁺_{i-½}) / h
     // φ̂⁺_{i+½} from {v[2]..v[6]} = {φ_{i-1},..,φ_{i+3}} (mirrored)
     // φ̂⁺_{i-½} from {v[1]..v[5]} = {φ_{i-2},..,φ_{i+2}} (mirrored)
     let fr_right = weno5_reconstruct_right([v[2], v[3], v[4], v[5], v[6]]);
-    let fr_left  = weno5_reconstruct_right([v[1], v[2], v[3], v[4], v[5]]);
+    let fr_left = weno5_reconstruct_right([v[1], v[2], v[3], v[4], v[5]]);
     let dp = (fr_right - fr_left) / h;
 
     if u > T::zero() {
@@ -523,7 +530,9 @@ fn weno5_reconstruct_left<T: cfd_mesh::domain::core::Scalar + RealField + FromPr
 
     // Nonlinear weights
     let (w0, w1, w2) = nonlinear_weights(
-        b0, b1, b2,
+        b0,
+        b1,
+        b2,
         <T as FromPrimitive>::from_f64(0.1).unwrap_or(one),
         <T as FromPrimitive>::from_f64(0.6).unwrap_or(one),
         <T as FromPrimitive>::from_f64(0.3).unwrap_or(one),
@@ -565,15 +574,16 @@ fn weno5_reconstruct_right<T: cfd_mesh::domain::core::Scalar + RealField + FromP
 /// regions β is O(h⁴), which drives the nonlinear weights toward the ideal values.
 #[inline]
 fn smoothness_indicator<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy>(
-    v0: T, v1: T, v2: T,
+    v0: T,
+    v1: T,
+    v2: T,
 ) -> T {
-    let thirteen_over_twelve =
-        <T as FromPrimitive>::from_f64(13.0 / 12.0).unwrap_or_else(T::one);
+    let thirteen_over_twelve = <T as FromPrimitive>::from_f64(13.0 / 12.0).unwrap_or_else(T::one);
     let quarter = <T as FromPrimitive>::from_f64(0.25).unwrap_or_else(T::one);
     let two = T::one() + T::one();
 
     let diff1 = v0 - two * v1 + v2; // ≈ h² φ''
-    let diff2 = v0 - v2;            // ≈ 2h φ'
+    let diff2 = v0 - v2; // ≈ 2h φ'
     thirteen_over_twelve * diff1 * diff1 + quarter * diff2 * diff2
 }
 
@@ -582,8 +592,12 @@ fn smoothness_indicator<T: cfd_mesh::domain::core::Scalar + RealField + FromPrim
 /// `ω_k = α_k / Σ α_l` where `α_k = d_k / (ε + β_k)²`.
 #[inline]
 fn nonlinear_weights<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy>(
-    b0: T, b1: T, b2: T,
-    d0: T, d1: T, d2: T,
+    b0: T,
+    b1: T,
+    b2: T,
+    d0: T,
+    d1: T,
+    d2: T,
     eps: T,
 ) -> (T, T, T) {
     let a0 = d0 / ((eps + b0) * (eps + b0));
@@ -591,7 +605,11 @@ fn nonlinear_weights<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimiti
     let a2 = d2 / ((eps + b2) * (eps + b2));
     let sum = a0 + a1 + a2;
     if sum < eps {
-        return (d0 / (d0 + d1 + d2), d1 / (d0 + d1 + d2), d2 / (d0 + d1 + d2));
+        return (
+            d0 / (d0 + d1 + d2),
+            d1 / (d0 + d1 + d2),
+            d2 / (d0 + d1 + d2),
+        );
     }
     (a0 / sum, a1 / sum, a2 / sum)
 }
@@ -622,13 +640,13 @@ mod tests {
             let d1 = 0.6;
             let d2 = 0.3;
             let eps = 1e-36;
-            
+
             let (w0, w1, w2) = nonlinear_weights(b0, b1, b2, d0, d1, d2, eps);
             let sum = w0 + w1 + w2;
-            
+
             // Sum of weights must be 1.0 within machine precision
             assert!((sum - 1.0).abs() < 1e-14);
-            
+
             // Weights must be non-negative
             assert!(w0 >= 0.0);
             assert!(w1 >= 0.0);
@@ -636,4 +654,3 @@ mod tests {
         }
     }
 }
-

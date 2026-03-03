@@ -22,16 +22,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("======================================\n");
 
     // Venturi geometry (ISO 5167 like)
-    let d_inlet: f64 = 2.0e-3;     // 2 mm inlet diameter
-    let d_throat: f64 = 1.0e-3;    // 1 mm throat diameter
-    let l_inlet = 3.0e-3;     // 3 mm inlet section
+    let d_inlet: f64 = 2.0e-3; // 2 mm inlet diameter
+    let d_throat: f64 = 1.0e-3; // 1 mm throat diameter
+    let l_inlet = 3.0e-3; // 3 mm inlet section
     let l_convergent = 2.0e-3;
     let l_throat = 1.0e-3;
     let l_divergent = 4.0e-3;
     let l_outlet = 3.0e-3;
 
     let builder = VenturiMeshBuilder::new(
-        d_inlet, d_throat, l_inlet, l_convergent, l_throat, l_divergent, l_outlet,
+        d_inlet,
+        d_throat,
+        l_inlet,
+        l_convergent,
+        l_throat,
+        l_divergent,
+        l_outlet,
     );
 
     println!("Geometry:");
@@ -53,7 +59,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Solve with water
     let water = ConstantPropertyFluid::<f64>::water_20c()?;
     let rho = water.density;
-    println!("\nFluid: water at 20C (rho={:.1} kg/m^3, mu={:.4e} Pa.s)", rho, water.viscosity);
+    println!(
+        "\nFluid: water at 20C (rho={:.1} kg/m^3, mu={:.4e} Pa.s)",
+        rho, water.viscosity
+    );
 
     println!("\nSolving...");
     let solution = solver.solve(water)?;
@@ -75,7 +84,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let dp_bernoulli = 0.5 * rho * (u_throat_bernoulli.powi(2) - solution.u_inlet.powi(2));
 
     println!("\nBernoulli Comparison:");
-    println!("  Analytical throat velocity: {:.4} m/s", u_throat_bernoulli);
+    println!(
+        "  Analytical throat velocity: {:.4} m/s",
+        u_throat_bernoulli
+    );
     println!("  Analytical pressure drop:   {:.2} Pa", dp_bernoulli);
     println!("  Numerical pressure drop:    {:.2} Pa", solution.dp_throat);
 
@@ -85,9 +97,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let sigma_throat = (solution.p_throat - p_vapour) / (0.5 * rho * solution.u_throat.powi(2));
 
     println!("\nCavitation Number Table:");
-    println!("  {:>12} {:>12} {:>12} {:>12}", "Location", "P [Pa]", "u [m/s]", "sigma");
-    println!("  {:>12} {:>12.1} {:>12.4} {:>12.2}", "Inlet", solution.p_inlet, solution.u_inlet, sigma_inlet);
-    println!("  {:>12} {:>12.1} {:>12.4} {:>12.2}", "Throat", solution.p_throat, solution.u_throat, sigma_throat);
+    println!(
+        "  {:>12} {:>12} {:>12} {:>12}",
+        "Location", "P [Pa]", "u [m/s]", "sigma"
+    );
+    println!(
+        "  {:>12} {:>12.1} {:>12.4} {:>12.2}",
+        "Inlet", solution.p_inlet, solution.u_inlet, sigma_inlet
+    );
+    println!(
+        "  {:>12} {:>12.1} {:>12.4} {:>12.2}",
+        "Throat", solution.p_throat, solution.u_throat, sigma_throat
+    );
 
     if sigma_throat < 1.0 {
         println!("\n  CAVITATION PREDICTED at throat (sigma < 1)");
