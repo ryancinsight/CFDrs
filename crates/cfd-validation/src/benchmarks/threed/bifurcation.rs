@@ -49,8 +49,17 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy> BifurcationFlow3D<T> 
     }
 }
 
-impl<T: RealField + Copy + num_traits::Float + num_traits::FromPrimitive +
-    num_traits::ToPrimitive + SafeFromF64 + std::convert::From<f64> + cfd_mesh::domain::core::Scalar> Benchmark<T> for BifurcationFlow3D<T> {
+impl<
+        T: RealField
+            + Copy
+            + num_traits::Float
+            + num_traits::FromPrimitive
+            + num_traits::ToPrimitive
+            + SafeFromF64
+            + std::convert::From<f64>
+            + cfd_mesh::domain::core::Scalar,
+    > Benchmark<T> for BifurcationFlow3D<T>
+{
     fn name(&self) -> &'static str {
         "3D Y-Bifurcation Flow"
     }
@@ -97,20 +106,45 @@ impl<T: RealField + Copy + num_traits::Float + num_traits::FromPrimitive +
         let murray_deviation = num_traits::Float::abs(lhs - rhs) / lhs;
 
         // ── 5. Record metrics ──
-        result.metrics.insert("Murray Deviation".to_string(), murray_deviation);
-        result.metrics.insert("Mass Conservation Error".to_string(), solution.mass_conservation_error);
-        result.metrics.insert("Q Parent".to_string(), solution.q_parent);
-        result.metrics.insert("Q Daughter1".to_string(), solution.q_daughter1);
-        result.metrics.insert("Q Daughter2".to_string(), solution.q_daughter2);
-        result.metrics.insert("Wall Shear Parent (Pa)".to_string(), solution.wall_shear_stress_parent);
-        result.metrics.insert("dp Parent (Pa)".to_string(), solution.dp_parent);
+        result
+            .metrics
+            .insert("Murray Deviation".to_string(), murray_deviation);
+        result.metrics.insert(
+            "Mass Conservation Error".to_string(),
+            solution.mass_conservation_error,
+        );
+        result
+            .metrics
+            .insert("Q Parent".to_string(), solution.q_parent);
+        result
+            .metrics
+            .insert("Q Daughter1".to_string(), solution.q_daughter1);
+        result
+            .metrics
+            .insert("Q Daughter2".to_string(), solution.q_daughter2);
+        result.metrics.insert(
+            "Wall Shear Parent (Pa)".to_string(),
+            solution.wall_shear_stress_parent,
+        );
+        result
+            .metrics
+            .insert("dp Parent (Pa)".to_string(), solution.dp_parent);
 
         println!("Bifurcation 3D Validation:");
         println!("  Murray deviation:        {murray_deviation:?}");
-        println!("  Mass conservation error: {:?}", solution.mass_conservation_error);
+        println!(
+            "  Mass conservation error: {:?}",
+            solution.mass_conservation_error
+        );
         println!("  Q_parent:                {:?}", solution.q_parent);
-        println!("  Q_d1 + Q_d2:             {:?}", solution.q_daughter1 + solution.q_daughter2);
-        println!("  Wall shear (parent, Pa): {:?}", solution.wall_shear_stress_parent);
+        println!(
+            "  Q_d1 + Q_d2:             {:?}",
+            solution.q_daughter1 + solution.q_daughter2
+        );
+        println!(
+            "  Wall shear (parent, Pa): {:?}",
+            solution.wall_shear_stress_parent
+        );
 
         Ok(result)
     }
@@ -118,8 +152,12 @@ impl<T: RealField + Copy + num_traits::Float + num_traits::FromPrimitive +
     fn reference_solution(&self) -> Option<BenchmarkResult<T>> {
         // Reference: purely geometric Murray's law (zero deviation for optimal geometry)
         let mut ref_result = BenchmarkResult::new(self.name());
-        ref_result.metrics.insert("Murray Deviation".to_string(), T::zero());
-        ref_result.metrics.insert("Mass Conservation Error".to_string(), T::zero());
+        ref_result
+            .metrics
+            .insert("Murray Deviation".to_string(), T::zero());
+        ref_result
+            .metrics
+            .insert("Mass Conservation Error".to_string(), T::zero());
         Some(ref_result)
     }
 

@@ -65,11 +65,7 @@ impl AdaptiveMeshRefinement {
     }
 
     /// Vorticity-based indicator for 2D flow
-    pub(super) fn compute_vorticity_indicator(
-        solution: &DMatrix<f64>,
-        i: usize,
-        j: usize,
-    ) -> f64 {
+    pub(super) fn compute_vorticity_indicator(solution: &DMatrix<f64>, i: usize, j: usize) -> f64 {
         let (nx, ny) = solution.shape();
 
         if i == 0 || i >= nx - 1 || j == 0 || j >= ny - 1 {

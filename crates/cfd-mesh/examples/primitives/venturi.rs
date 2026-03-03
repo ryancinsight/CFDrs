@@ -15,8 +15,8 @@
 use std::fs;
 use std::io::BufWriter;
 
-use cfd_mesh::application::watertight::check::check_watertight;
 use cfd_mesh::application::channel::venturi::VenturiMeshBuilder;
+use cfd_mesh::application::watertight::check::check_watertight;
 use cfd_mesh::infrastructure::io::stl;
 use cfd_mesh::infrastructure::storage::edge_store::EdgeStore;
 

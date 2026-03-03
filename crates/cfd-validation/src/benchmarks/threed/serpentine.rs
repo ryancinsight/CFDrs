@@ -1,13 +1,13 @@
 //! 3D Serpentine flow benchmark with Dean vortex validation
 //!
-//! Validates 3D Dean vortices and secondary flow effects in 
+//! Validates 3D Dean vortices and secondary flow effects in
 //! sinuous microchannels with blood rheology.
 
 use super::super::{Benchmark, BenchmarkConfig, BenchmarkResult};
 use crate::geometry::threed::Serpentine3D;
-use cfd_3d::serpentine::{SerpentineSolver3D, SerpentineConfig3D};
-use cfd_mesh::SerpentineMeshBuilder;
+use cfd_3d::serpentine::{SerpentineConfig3D, SerpentineSolver3D};
 use cfd_core::physics::fluid::blood::CarreauYasudaBlood;
+use cfd_mesh::SerpentineMeshBuilder;
 use nalgebra::RealField;
 
 /// 3D Serpentine Flow benchmark
@@ -23,8 +23,17 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy> SerpentineFlow3D<T> {
     }
 }
 
-impl<T: RealField + Copy + num_traits::Float + num_traits::FromPrimitive + 
-    num_traits::ToPrimitive + cfd_core::conversion::SafeFromF64 + std::convert::From<f64> + cfd_mesh::domain::core::Scalar> Benchmark<T> for SerpentineFlow3D<T> {
+impl<
+        T: RealField
+            + Copy
+            + num_traits::Float
+            + num_traits::FromPrimitive
+            + num_traits::ToPrimitive
+            + cfd_core::conversion::SafeFromF64
+            + std::convert::From<f64>
+            + cfd_mesh::domain::core::Scalar,
+    > Benchmark<T> for SerpentineFlow3D<T>
+{
     fn name(&self) -> &'static str {
         "3D Serpentine Micromixer Flow"
     }
@@ -35,7 +44,7 @@ impl<T: RealField + Copy + num_traits::Float + num_traits::FromPrimitive +
 
     fn run(&self, _config: &BenchmarkConfig<T>) -> cfd_core::error::Result<BenchmarkResult<T>> {
         let mut result = BenchmarkResult::new(self.name());
-        
+
         // 1. Setup Mesh Builder
         // Note: Serpentine3D fields might be named differently from SerpentineMeshBuilder
         // I'll check Serpentine3D again.
@@ -43,23 +52,28 @@ impl<T: RealField + Copy + num_traits::Float + num_traits::FromPrimitive +
             self.geometry.diameter,
             self.geometry.amplitude,
             self.geometry.wavelength,
-        ).with_periods(self.geometry.num_periods);
-        
+        )
+        .with_periods(self.geometry.num_periods);
+
         // 2. Setup Solver
         let solver_config = SerpentineConfig3D {
             resolution: (80, 6),
             ..SerpentineConfig3D::default()
         };
-        
+
         let solver = SerpentineSolver3D::new(builder, solver_config);
-        
+
         // 3. Run
         let blood = CarreauYasudaBlood::<T>::normal_blood();
         let solution = solver.solve(blood)?;
-        
-        result.metrics.insert("Total Pressure Drop".to_string(), solution.dp_total);
-        result.metrics.insert("Dean Number".to_string(), solution.dean_number);
-        
+
+        result
+            .metrics
+            .insert("Total Pressure Drop".to_string(), solution.dp_total);
+        result
+            .metrics
+            .insert("Dean Number".to_string(), solution.dean_number);
+
         Ok(result)
     }
 
@@ -90,9 +104,12 @@ mod tests {
         );
         let benchmark = SerpentineFlow3D::new(geometry);
         let config = BenchmarkConfig::default();
-        
+
         let result = benchmark.run(&config).unwrap();
         assert!(benchmark.validate(&result).unwrap());
-        println!("3D Serpentine Results: De = {:?}", result.metrics.get("Dean Number"));
+        println!(
+            "3D Serpentine Results: De = {:?}",
+            result.metrics.get("Dean Number")
+        );
     }
 }

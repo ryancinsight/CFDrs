@@ -12,10 +12,10 @@
 //!
 //! ```sh
 //! # Default: uses mirrored_bifurcation schematic
-//! cargo run -p cfd-mesh --features scheme-io --example schematic_to_3d_mesh
+//! cargo run -p cfd-mesh --example schematic_to_3d_mesh
 //!
 //! # Custom JSON path:
-//! cargo run -p cfd-mesh --features scheme-io --example schematic_to_3d_mesh -- path/to/schematic.json
+//! cargo run -p cfd-mesh --example schematic_to_3d_mesh -- path/to/schematic.json
 //! ```
 //!
 //! If no JSON path is given, the example falls back to the mirrored_bifurcation
@@ -50,8 +50,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .nth(1)
         .map(PathBuf::from)
         .unwrap_or_else(|| {
-            manifest_dir
-                .join("../cfd-schematics/outputs/mirrored_bifurcation/schematic.json")
+            manifest_dir.join("../cfd-schematics/outputs/mirrored_bifurcation/schematic.json")
         });
 
     if !json_path.exists() {
@@ -125,7 +124,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 &mut current_ch.vertices,
                 RegionId::new(0),
             );
-            for face in faces { current_ch.faces.push(face); }
+            for face in faces {
+                current_ch.faces.push(face);
+            }
         } else {
             let faces = mesher.sweep(
                 &channel_def.profile,
@@ -133,7 +134,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 &mut current_ch.vertices,
                 RegionId::new(0),
             );
-            for face in faces { current_ch.faces.push(face); }
+            for face in faces {
+                current_ch.faces.push(face);
+            }
         }
 
         // Accumulate channels-only mesh (for inspection STL)

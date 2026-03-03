@@ -22,10 +22,14 @@
 
 use std::collections::{HashMap, HashSet};
 
+use super::mesh_ops::{boundary_half_edges, dedup_faces_unordered};
 use crate::application::csg::clip::polygon2d::geometry::point_in_polygon;
+#[cfg(test)]
+use crate::application::csg::diagnostics::trace_enabled;
+use crate::application::csg::predicates3d::point_on_segment_exact;
 use crate::application::delaunay::{Cdt, Pslg};
 use crate::domain::core::index::VertexId;
-use crate::domain::core::scalar::{Point3r, Real};
+use crate::domain::core::scalar::Real;
 use crate::domain::geometry::predicates::{orient_2d_arr, Orientation};
 use crate::infrastructure::storage::face_store::FaceData;
 use crate::infrastructure::storage::vertex_pool::VertexPool;
@@ -98,8 +102,10 @@ fn record_triangle(
 /// edges during fill (triangles whose diagonal edges coincide with
 /// existing interior mesh edges are skipped).
 pub(crate) fn fill_boundary_loops(faces: &mut Vec<FaceData>, pool: &VertexPool) {
-    for _iter in 0..MAX_ITERS {
-        let boundary = build_boundary_edges(faces);
+    for iter_idx in 0..MAX_ITERS {
+        #[cfg(not(test))]
+        let _ = iter_idx;
+        let boundary = boundary_half_edges(faces);
         if boundary.is_empty() {
             break;
         }
@@ -128,34 +134,19 @@ pub(crate) fn fill_boundary_loops(faces: &mut Vec<FaceData>, pool: &VertexPool) 
         }
 
         // Remove duplicate faces after adding fill triangles.
-        dedup_faces(faces);
+        dedup_faces_unordered(faces);
 
         #[cfg(test)]
-        eprintln!(
-            "[stitch {}] {} bnd edges, {} loops, {} fill tris",
-            _iter,
-            boundary.len(),
-            loops.len(),
-            added,
-        );
-    }
-}
-
-/// Build directed boundary half-edges: edges appearing exactly once with no
-/// reverse partner.
-fn build_boundary_edges(faces: &[FaceData]) -> Vec<(VertexId, VertexId)> {
-    let mut he: HashMap<(VertexId, VertexId), u32> = HashMap::new();
-    for face in faces {
-        let v = face.vertices;
-        for i in 0..3 {
-            let j = (i + 1) % 3;
-            *he.entry((v[i], v[j])).or_insert(0) += 1;
+        if trace_enabled() {
+            eprintln!(
+                "[stitch {}] {} bnd edges, {} loops, {} fill tris",
+                iter_idx,
+                boundary.len(),
+                loops.len(),
+                added,
+            );
         }
     }
-    he.iter()
-        .filter(|&(&(vi, vj), &c)| vi != vj && c == 1 && !he.contains_key(&(vj, vi)))
-        .map(|(&e, _)| e)
-        .collect()
 }
 
 /// Trace closed boundary loops from directed boundary edges using greedy DFS
@@ -252,7 +243,7 @@ pub(crate) fn cdt_fill_loop(
     valence: &mut HashMap<(VertexId, VertexId), u32>,
 ) -> usize {
     let n = poly.len();
-    if n < 3 || n > MAX_LOOP {
+    if !(3..=MAX_LOOP).contains(&n) {
         return 0;
     }
     if n == 3 {
@@ -639,16 +630,6 @@ fn point_in_triangle(p: &[Real; 2], a: &[Real; 2], b: &[Real; 2], c: &[Real; 2])
     !(has_neg && has_pos)
 }
 
-/// Remove duplicate faces (same 3 vertex IDs in any order).
-fn dedup_faces(faces: &mut Vec<FaceData>) {
-    let mut seen: HashSet<[VertexId; 3]> = HashSet::with_capacity(faces.len());
-    faces.retain(|f| {
-        let mut key = f.vertices;
-        key.sort();
-        seen.insert(key)
-    });
-}
-
 /// Build undirected boundary vertex adjacency from directed boundary edges.
 fn build_boundary_adjacency(boundary: &[(VertexId, VertexId)]) -> HashMap<VertexId, Vec<VertexId>> {
     let mut adj: HashMap<VertexId, Vec<VertexId>> = HashMap::new();
@@ -663,33 +644,64 @@ fn build_boundary_adjacency(boundary: &[(VertexId, VertexId)]) -> HashMap<Vertex
     adj
 }
 
-#[inline]
-fn collinear_3d_exact(pa: &Point3r, pb: &Point3r, pv: &Point3r) -> bool {
-    orient_2d_arr([pa.x, pa.y], [pb.x, pb.y], [pv.x, pv.y]) == Orientation::Degenerate
-        && orient_2d_arr([pa.x, pa.z], [pb.x, pb.z], [pv.x, pv.z]) == Orientation::Degenerate
-        && orient_2d_arr([pa.y, pa.z], [pb.y, pb.z], [pv.y, pv.z]) == Orientation::Degenerate
+type FaceEdgeRef = (usize, VertexId, VertexId);
+
+/// Build an endpoint-to-face-edge index for all current triangle edges.
+///
+/// # Algorithm
+///
+/// For each face edge `(a,b)` in face `fi`, insert `(fi,a,b)` into both
+/// `index[a]` and `index[b]`.
+///
+/// # Theorem — Endpoint Index Completeness for Constrained T-Junction Search
+///
+/// Let `N(v)` be boundary-neighbors of boundary vertex `v`, and let guard
+/// `endpoint_constrained(v,a,b)` be true iff `a∈N(v) or b∈N(v)`.
+///
+/// Any edge `(a,b)` that can pass `endpoint_constrained` must be incident to
+/// at least one vertex in `N(v)`, hence appears in
+/// `⋃_{u∈N(v)} index[u]`. Therefore searching only this union is equivalent to
+/// full-face scanning under the same guard, but with much lower work.
+fn build_endpoint_edge_index(faces: &[FaceData]) -> HashMap<VertexId, Vec<FaceEdgeRef>> {
+    let mut index: HashMap<VertexId, Vec<FaceEdgeRef>> =
+        HashMap::with_capacity(faces.len().saturating_mul(2));
+    for (fi, face) in faces.iter().enumerate() {
+        for edge_idx in 0..3_usize {
+            let a = face.vertices[edge_idx];
+            let b = face.vertices[(edge_idx + 1) % 3];
+            index.entry(a).or_default().push((fi, a, b));
+            index.entry(b).or_default().push((fi, a, b));
+        }
+    }
+    index
 }
 
-/// Exact-predicate interior on-segment check in 3D.
+/// Gather candidate face-edges for boundary vertex `v` using endpoint index.
 ///
-/// Uses exact orientation predicates on all three coordinate-plane projections,
-/// returning `Some(t)` for interior points.
-fn point_on_segment_exact(pa: &Point3r, pb: &Point3r, pv: &Point3r) -> Option<Real> {
-    let ab = pb - pa;
-    let edge_len_sq = ab.norm_squared();
-    if edge_len_sq < 1e-30 {
-        return None;
+/// Returned tuples are `(face_index, edge_a, edge_b)` with de-duplication by
+/// canonical edge per-face key.
+fn candidate_face_edges_for_vertex(
+    v: VertexId,
+    bnd_adj: &HashMap<VertexId, Vec<VertexId>>,
+    endpoint_index: &HashMap<VertexId, Vec<FaceEdgeRef>>,
+) -> Vec<FaceEdgeRef> {
+    let Some(neighbors) = bnd_adj.get(&v) else {
+        return Vec::new();
+    };
+    let mut seen: HashSet<(usize, VertexId, VertexId)> = HashSet::new();
+    let mut out: Vec<FaceEdgeRef> = Vec::new();
+    for &u in neighbors {
+        let Some(edges) = endpoint_index.get(&u) else {
+            continue;
+        };
+        for &(fi, a, b) in edges {
+            let (mn, mx) = if a < b { (a, b) } else { (b, a) };
+            if seen.insert((fi, mn, mx)) {
+                out.push((fi, a, b));
+            }
+        }
     }
-    let av = pv - pa;
-    let t = av.dot(&ab) / edge_len_sq;
-    if t <= SNAP_EDGE_PARAM_EPS || t >= 1.0 - SNAP_EDGE_PARAM_EPS {
-        return None;
-    }
-
-    if !collinear_3d_exact(pa, pb, pv) {
-        return None;
-    }
-    Some(t)
+    out
 }
 
 #[inline]
@@ -738,8 +750,10 @@ const SNAP_EDGE_PARAM_EPS: Real = 5e-3;
 pub(crate) fn snap_round_tjunctions(faces: &mut Vec<FaceData>, pool: &VertexPool) {
     const MAX_SNAP_ITERS: usize = 8;
 
-    for _iter in 0..MAX_SNAP_ITERS {
-        let boundary = build_boundary_edges(faces);
+    for iter_idx in 0..MAX_SNAP_ITERS {
+        #[cfg(not(test))]
+        let _ = iter_idx;
+        let boundary = boundary_half_edges(faces);
         if boundary.is_empty() {
             break;
         }
@@ -750,6 +764,7 @@ pub(crate) fn snap_round_tjunctions(faces: &mut Vec<FaceData>, pool: &VertexPool
         bnd_verts.dedup();
         let bnd_set: HashSet<VertexId> = bnd_verts.iter().copied().collect();
         let bnd_adj = build_boundary_adjacency(&boundary);
+        let endpoint_index = build_endpoint_edge_index(faces);
         // For each face, keep the best constrained split candidate:
         // exact-hit first, then shortest residual distance, then centrality.
         let mut best_split_for_face: HashMap<
@@ -759,88 +774,88 @@ pub(crate) fn snap_round_tjunctions(faces: &mut Vec<FaceData>, pool: &VertexPool
 
         for &v in &bnd_verts {
             let pv = pool.position(v);
-
-            for (fi, face) in faces.iter().enumerate() {
+            for (fi, a, b) in candidate_face_edges_for_vertex(v, &bnd_adj, &endpoint_index) {
+                let Some(face) = faces.get(fi) else {
+                    continue;
+                };
                 // Skip faces that already contain this vertex.
                 if face.vertices.contains(&v) {
                     continue;
                 }
+                if !endpoint_constrained(v, a, b, &bnd_adj) {
+                    continue;
+                }
 
-                for edge_idx in 0..3_usize {
-                    let a = face.vertices[edge_idx];
-                    let b = face.vertices[(edge_idx + 1) % 3];
+                let pa = pool.position(a);
+                let pb = pool.position(b);
+                let ab = pb - pa;
+                let edge_len_sq = ab.norm_squared();
+                if edge_len_sq < 1e-30 {
+                    continue;
+                }
 
-                    let pa = pool.position(a);
-                    let pb = pool.position(b);
-                    if !endpoint_constrained(v, a, b, &bnd_adj) {
+                let mut exact_hit = false;
+                let t;
+                let dist_metric;
+                if let Some(t_exact) = point_on_segment_exact(pa, pb, pv) {
+                    if t_exact <= SNAP_EDGE_PARAM_EPS || t_exact >= 1.0 - SNAP_EDGE_PARAM_EPS {
+                        continue;
+                    }
+                    exact_hit = true;
+                    t = t_exact;
+                    dist_metric = 0.0;
+                } else {
+                    let av = pv - pa;
+
+                    // Projection parameter: t = dot(AV, AB) / |AB|²
+                    t = av.dot(&ab) / edge_len_sq;
+                    // V must be strictly interior to edge (not at endpoints).
+                    if t <= SNAP_EDGE_PARAM_EPS || t >= 1.0 - SNAP_EDGE_PARAM_EPS {
                         continue;
                     }
 
-                    let mut exact_hit = false;
-                    let t;
-                    let dist_metric;
-                    if let Some(t_exact) = point_on_segment_exact(pa, pb, pv) {
-                        exact_hit = true;
-                        t = t_exact;
-                        dist_metric = 0.0;
-                    } else {
-                        let ab = pb - pa;
-                        let av = pv - pa;
-                        let edge_len_sq = ab.norm_squared();
-                        if edge_len_sq < 1e-30 {
-                            continue;
-                        }
-
-                        // Projection parameter: t = dot(AV, AB) / |AB|²
-                        t = av.dot(&ab) / edge_len_sq;
-                        // V must be strictly interior to edge (not at endpoints).
-                        if t <= SNAP_EDGE_PARAM_EPS || t >= 1.0 - SNAP_EDGE_PARAM_EPS {
-                            continue;
-                        }
-
-                        // Perpendicular distance: |cross(AB, AV)|² / |AB|²
-                        let cross = ab.cross(&av);
-                        let dist_sq = cross.norm_squared() / edge_len_sq;
-                        if dist_sq > SNAP_TOL_SQ * edge_len_sq {
-                            continue;
-                        }
-                        dist_metric = dist_sq / edge_len_sq.max(1e-30);
-                    }
-
-                    // Found a T-junction: V lies on edge [A, B] of face fi.
-                    // Keep the historical seam-ribbon guard for tolerance-only
-                    // hits, but allow exact constrained hits through.
-                    if !exact_hit && bnd_set.contains(&a) && bnd_set.contains(&b) {
+                    // Perpendicular distance: |cross(AB, AV)|² / |AB|²
+                    let cross = ab.cross(&av);
+                    let dist_sq = cross.norm_squared() / edge_len_sq;
+                    if dist_sq > SNAP_TOL_SQ * edge_len_sq {
                         continue;
                     }
+                    dist_metric = dist_sq / edge_len_sq.max(1e-30);
+                }
 
-                    let center_bias = (t - 0.5).abs();
-                    let candidate = (exact_hit, dist_metric, center_bias, a, b, v);
-                    match best_split_for_face.get_mut(&fi) {
-                        Some(best) => {
-                            let best_key = (
-                                !best.0,
-                                best.1,
-                                best.2,
-                                best.5.raw(),
-                                best.3.raw(),
-                                best.4.raw(),
-                            );
-                            let cand_key = (
-                                !candidate.0,
-                                candidate.1,
-                                candidate.2,
-                                candidate.5.raw(),
-                                candidate.3.raw(),
-                                candidate.4.raw(),
-                            );
-                            if cand_key < best_key {
-                                *best = candidate;
-                            }
+                // Found a T-junction: V lies on edge [A, B] of face fi.
+                // Keep the historical seam-ribbon guard for tolerance-only
+                // hits, but allow exact constrained hits through.
+                if !exact_hit && bnd_set.contains(&a) && bnd_set.contains(&b) {
+                    continue;
+                }
+
+                let center_bias = (t - 0.5).abs();
+                let candidate = (exact_hit, dist_metric, center_bias, a, b, v);
+                match best_split_for_face.get_mut(&fi) {
+                    Some(best) => {
+                        let best_key = (
+                            !best.0,
+                            best.1,
+                            best.2,
+                            best.5.raw(),
+                            best.3.raw(),
+                            best.4.raw(),
+                        );
+                        let cand_key = (
+                            !candidate.0,
+                            candidate.1,
+                            candidate.2,
+                            candidate.5.raw(),
+                            candidate.3.raw(),
+                            candidate.4.raw(),
+                        );
+                        if cand_key < best_key {
+                            *best = candidate;
                         }
-                        None => {
-                            best_split_for_face.insert(fi, candidate);
-                        }
+                    }
+                    None => {
+                        best_split_for_face.insert(fi, candidate);
                     }
                 }
             }
@@ -855,13 +870,15 @@ pub(crate) fn snap_round_tjunctions(faces: &mut Vec<FaceData>, pool: &VertexPool
         }
 
         #[cfg(test)]
-        eprintln!(
-            "[snap-round {}] {} bnd edges, {} bnd verts, {} splits",
-            _iter,
-            boundary.len(),
-            bnd_verts.len(),
-            splits.len(),
-        );
+        if trace_enabled() {
+            eprintln!(
+                "[snap-round {}] {} bnd edges, {} bnd verts, {} splits",
+                iter_idx,
+                boundary.len(),
+                bnd_verts.len(),
+                splits.len(),
+            );
+        }
 
         // Apply splits: replace each face with two sub-faces.
         // Process in reverse order of face index to avoid invalidating indices.
@@ -912,7 +929,7 @@ pub(crate) fn snap_round_tjunctions(faces: &mut Vec<FaceData>, pool: &VertexPool
                 && f.vertices[1] != f.vertices[2]
                 && f.vertices[2] != f.vertices[0]
         });
-        dedup_faces(faces);
+        dedup_faces_unordered(faces);
     }
 }
 
@@ -1032,27 +1049,62 @@ mod tests {
     }
 
     #[test]
-    fn point_on_segment_exact_accepts_true_3d_collinear_point() {
-        let a = Point3r::new(0.0, 0.0, 0.0);
-        let b = Point3r::new(2.0, 4.0, 6.0);
-        let p = Point3r::new(1.0, 2.0, 3.0); // exact midpoint
-        let t = point_on_segment_exact(&a, &b, &p);
-        assert!(t.is_some(), "midpoint on 3D segment must be accepted");
-        let tv = t.unwrap();
-        assert!(
-            (tv - 0.5).abs() < 1e-12,
-            "expected midpoint t=0.5, got {tv}"
-        );
-    }
+    fn adversarial_endpoint_index_matches_full_scan_candidates() {
+        let mut pool = VertexPool::default_millifluidic();
+        let n = Vector3r::new(0.0, 0.0, 1.0);
+        let ids: Vec<VertexId> = (0..7)
+            .map(|i| pool.insert_or_weld(Point3r::new(Real::from(i), 0.0, 0.0), n))
+            .collect();
+        let [v0, v1, v2, v3, v4, v5, v6] = <[VertexId; 7]>::try_from(ids).expect("7 ids");
 
-    #[test]
-    fn point_on_segment_exact_rejects_projection_false_positive() {
-        let a = Point3r::new(0.0, 0.0, 0.0);
-        let b = Point3r::new(2.0, 0.0, 0.0);
-        let p = Point3r::new(1.0, 0.0, 1.0); // collinear in XY but not in XZ
-        assert!(
-            point_on_segment_exact(&a, &b, &p).is_none(),
-            "point off the 3D line must be rejected"
-        );
+        // Open fan + bridge triangles. This creates vertices with multiple
+        // boundary neighbors and duplicate candidate edges through neighbor
+        // unions, stressing de-duplication.
+        let faces = vec![
+            FaceData::untagged(v0, v1, v2),
+            FaceData::untagged(v0, v2, v3),
+            FaceData::untagged(v0, v3, v4),
+            FaceData::untagged(v0, v4, v1),
+            FaceData::untagged(v2, v5, v4),
+            FaceData::untagged(v4, v5, v6),
+        ];
+
+        let boundary = boundary_half_edges(&faces);
+        let bnd_adj = build_boundary_adjacency(&boundary);
+        let endpoint_index = build_endpoint_edge_index(&faces);
+
+        let mut boundary_vertices: Vec<VertexId> =
+            boundary.iter().flat_map(|&(a, b)| [a, b]).collect();
+        boundary_vertices.sort();
+        boundary_vertices.dedup();
+
+        for v in boundary_vertices {
+            let mut full_scan: HashSet<(usize, VertexId, VertexId)> = HashSet::new();
+            for (fi, face) in faces.iter().enumerate() {
+                for edge_idx in 0..3_usize {
+                    let a = face.vertices[edge_idx];
+                    let b = face.vertices[(edge_idx + 1) % 3];
+                    if !endpoint_constrained(v, a, b, &bnd_adj) {
+                        continue;
+                    }
+                    let (mn, mx) = if a < b { (a, b) } else { (b, a) };
+                    full_scan.insert((fi, mn, mx));
+                }
+            }
+
+            let indexed: HashSet<(usize, VertexId, VertexId)> =
+                candidate_face_edges_for_vertex(v, &bnd_adj, &endpoint_index)
+                    .into_iter()
+                    .map(|(fi, a, b)| {
+                        let (mn, mx) = if a < b { (a, b) } else { (b, a) };
+                        (fi, mn, mx)
+                    })
+                    .collect();
+
+            assert_eq!(
+                indexed, full_scan,
+                "endpoint-index candidate set must match full-scan set"
+            );
+        }
     }
 }

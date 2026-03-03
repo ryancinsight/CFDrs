@@ -3,17 +3,17 @@
 //! Verifies that the complete validation chain (Geometry -> Solver -> Benchmark -> Result)
 //! works correctly for representative 2D and 3D cases.
 
-use cfd_validation::benchmarks::{Benchmark, BenchmarkConfig, LidDrivenCavity, BifurcationFlow3D};
-use cfd_validation::geometry::threed::Bifurcation3D;
-use cfd_core::physics::fluid::blood::CassonBlood;
 use cfd_core::error::Result;
+use cfd_core::physics::fluid::blood::CassonBlood;
+use cfd_validation::benchmarks::{Benchmark, BenchmarkConfig, BifurcationFlow3D, LidDrivenCavity};
+use cfd_validation::geometry::threed::Bifurcation3D;
 use nalgebra::RealField;
 
 #[test]
 fn test_lid_driven_cavity_integration() -> Result<()> {
     let re = 100.0_f64;
     let cavity = LidDrivenCavity::new(1.0_f64, 1.0_f64, re);
-    
+
     let config = BenchmarkConfig {
         resolution: 32,
         tolerance: 1e-4_f64,
@@ -22,13 +22,13 @@ fn test_lid_driven_cavity_integration() -> Result<()> {
         time_step: None,
         parallel: false,
     };
-    
+
     let result = cavity.run(&config)?;
-    
+
     assert_eq!(result.name, "Lid-Driven Cavity");
     assert!(!result.convergence.is_empty());
     assert!(cavity.validate(&result)?);
-    
+
     Ok(())
 }
 
@@ -40,11 +40,12 @@ fn test_3d_bifurcation_integration() -> Result<()> {
     let l_parent = 20.0_f64;
     let l_daughter = 15.0_f64;
     let angle = 0.5_f64; // rad
-    
-    let geom = Bifurcation3D::symmetric(parent_radius, daughter_radius, l_parent, l_daughter, angle);
+
+    let geom =
+        Bifurcation3D::symmetric(parent_radius, daughter_radius, l_parent, l_daughter, angle);
     let fluid = CassonBlood::normal_blood();
     let bench = BifurcationFlow3D::new(geom, fluid);
-    
+
     let config = BenchmarkConfig {
         resolution: 16, // Low res for fast test
         tolerance: 1e-2_f64,
@@ -53,11 +54,11 @@ fn test_3d_bifurcation_integration() -> Result<()> {
         time_step: Some(0.01_f64),
         parallel: false,
     };
-    
+
     let result = bench.run(&config)?;
-    
+
     assert!(result.name.contains("Bifurcation"));
     assert!(result.metrics.contains_key("Murray Deviation"));
-    
+
     Ok(())
 }

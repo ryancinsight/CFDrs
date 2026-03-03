@@ -86,20 +86,20 @@ pub mod revolution_sweep;
 pub mod rounded_cube;
 pub mod schwarz_d_sphere;
 pub mod schwarz_p_sphere;
+pub mod serpentine_tube;
 pub mod sphere;
 pub mod spherical_shell;
 pub mod stadium_prism;
-pub mod serpentine_tube;
 pub mod tetrahedron;
 pub mod torus;
 pub mod truncated_icosahedron;
 // New TPMS sphere primitives
-pub mod neovius_sphere;
-pub mod lidinoid_sphere;
-pub mod iwp_sphere;
-pub mod split_p_sphere;
-pub mod frd_sphere;
 pub mod fischer_koch_cy_sphere;
+pub mod frd_sphere;
+pub mod iwp_sphere;
+pub mod lidinoid_sphere;
+pub mod neovius_sphere;
+pub mod split_p_sphere;
 
 pub use antiprism::Antiprism;
 pub use biconcave_disk::BiconcaveDisk;
@@ -125,20 +125,20 @@ pub use revolution_sweep::RevolutionSweep;
 pub use rounded_cube::RoundedCube;
 pub use schwarz_d_sphere::SchwarzDSphere;
 pub use schwarz_p_sphere::SchwarzPSphere;
+pub use serpentine_tube::SerpentineTube;
 pub use sphere::UvSphere;
 pub use spherical_shell::SphericalShell;
 pub use stadium_prism::StadiumPrism;
-pub use serpentine_tube::SerpentineTube;
 pub use tetrahedron::Tetrahedron;
 pub use torus::Torus;
 pub use truncated_icosahedron::TruncatedIcosahedron;
 // New TPMS sphere primitive re-exports
-pub use neovius_sphere::NeoviusSphere;
-pub use lidinoid_sphere::LidinoidSphere;
-pub use iwp_sphere::IwpSphere;
-pub use split_p_sphere::SplitPSphere;
-pub use frd_sphere::FrdSphere;
 pub use fischer_koch_cy_sphere::FischerKochCySphere;
+pub use frd_sphere::FrdSphere;
+pub use iwp_sphere::IwpSphere;
+pub use lidinoid_sphere::LidinoidSphere;
+pub use neovius_sphere::NeoviusSphere;
+pub use split_p_sphere::SplitPSphere;
 
 use crate::domain::mesh::IndexedMesh;
 

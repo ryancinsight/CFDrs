@@ -91,6 +91,29 @@ const WELD_TOL_SQ: Real = 1e-6;
 /// Exclude snap endpoints that fall exactly at a face corner.
 const EDGE_EPS: Real = 1e-6;
 
+type PointBits3 = [u64; 3];
+
+#[inline]
+fn point_bits3(p: &Point3r) -> PointBits3 {
+    [p.x.to_bits(), p.y.to_bits(), p.z.to_bits()]
+}
+
+/// Canonical exact key for an undirected 3-D snap segment.
+///
+/// Uses raw IEEE-754 bit patterns (no tolerance/quantization), so two segments
+/// deduplicate iff both endpoint coordinates are bit-identical up to endpoint
+/// ordering.
+#[inline]
+fn canonical_segment_key(seg: &SnapSegment) -> (PointBits3, PointBits3) {
+    let a = point_bits3(&seg.start);
+    let b = point_bits3(&seg.end);
+    if a <= b {
+        (a, b)
+    } else {
+        (b, a)
+    }
+}
+
 // ── Main entry point ─────────────────────────────────────────────────────────
 
 /// Co-refine `face` against `snap_segments` using CDT-based 2-D projection.
@@ -115,6 +138,22 @@ pub fn corefine_face(
     let face_n_unit = face_n / face_n.norm();
     let face_pts = [a, b, c];
 
+    // Exact segment canonicalization:
+    // remove degenerate and bit-identical duplicate constraints before O(s²)
+    // crossing detection and PSLG resolve_crossings.
+    let mut dedup_snap_segments: Vec<SnapSegment> = Vec::with_capacity(snap_segments.len());
+    let mut seen_snap_segments: HashSet<(PointBits3, PointBits3)> =
+        HashSet::with_capacity(snap_segments.len());
+    for seg in snap_segments {
+        if (seg.end - seg.start).norm_squared() < 1e-24 {
+            continue;
+        }
+        if seen_snap_segments.insert(canonical_segment_key(seg)) {
+            dedup_snap_segments.push(*seg);
+        }
+    }
+    dedup_snap_segments.sort_unstable_by_key(canonical_segment_key);
+
     // ── Step 0: Choose projection axes ───────────────────────────────────────
     let (axis_u, axis_v) = dominant_normal_axes(face_n_unit);
 
@@ -127,12 +166,12 @@ pub fn corefine_face(
         Vec::with_capacity(4),
     ];
     // seg_vids[i] = [vid_of_start, vid_of_end]; None if not on face boundary.
-    let mut seg_vids: Vec<[Option<VertexId>; 2]> = vec![[None, None]; snap_segments.len()];
+    let mut seg_vids: Vec<[Option<VertexId>; 2]> = vec![[None, None]; dedup_snap_segments.len()];
     // Use a HashSet for O(1) dedup and a Vec to preserve insertion order.
     let mut interior_vid_set: HashSet<VertexId> = HashSet::new();
     let mut interior_vids: Vec<VertexId> = Vec::new();
 
-    for (si, seg) in snap_segments.iter().enumerate() {
+    for (si, seg) in dedup_snap_segments.iter().enumerate() {
         for (ep, &p3d) in [seg.start, seg.end].iter().enumerate() {
             'edge_search: for ei in 0..3_usize {
                 let va = face_pts[ei];
@@ -170,9 +209,7 @@ pub fn corefine_face(
             }
 
             // Interior endpoint fallback
-            if seg_vids[si][ep].is_none()
-                && inside_triangle(p3d, a, b, c, face_n, axis_u, axis_v)
-            {
+            if seg_vids[si][ep].is_none() && inside_triangle(p3d, a, b, c, face_n, axis_u, axis_v) {
                 let vid = pool.insert_or_weld(p3d, face_n_unit);
                 if interior_vid_set.insert(vid) {
                     interior_vids.push(vid);
@@ -183,10 +220,10 @@ pub fn corefine_face(
 
     // ── Step 2: Interior crossing points ─────────────────────────────────────
     let n_sq = face_n.norm_squared();
-    for i in 0..snap_segments.len() {
-        for j in (i + 1)..snap_segments.len() {
-            let s1 = &snap_segments[i];
-            let s2 = &snap_segments[j];
+    for i in 0..dedup_snap_segments.len() {
+        for j in (i + 1)..dedup_snap_segments.len() {
+            let s1 = &dedup_snap_segments[i];
+            let s2 = &dedup_snap_segments[j];
             let d1 = s1.end - s1.start;
             let d2 = s2.end - s2.start;
             let r = s2.start - s1.start;
@@ -272,18 +309,17 @@ pub fn corefine_face(
     // entries.  A `HashMap` with an exact capacity hint is O(face_vertex_count)
     // and avoids the large up-front allocation entirely.
     let register_cap = boundary_vids.len() + interior_vids.len();
-    let mut vid_to_pslg: HashMap<VertexId, PslgVertexId> =
-        HashMap::with_capacity(register_cap);
+    let mut vid_to_pslg: HashMap<VertexId, PslgVertexId> = HashMap::with_capacity(register_cap);
     let mut pslg_to_vid: Vec<VertexId> = Vec::with_capacity(register_cap);
     let mut pslg = Pslg::new();
 
     // Helper: register a VertexId into the PSLG if not already there.
     // Returns the PSLG vertex id.
     let register = |vid: VertexId,
-                        pslg: &mut Pslg,
-                        vid_to_pslg: &mut HashMap<VertexId, PslgVertexId>,
-                        pslg_to_vid: &mut Vec<VertexId>,
-                        pool: &VertexPool|
+                    pslg: &mut Pslg,
+                    vid_to_pslg: &mut HashMap<VertexId, PslgVertexId>,
+                    pslg_to_vid: &mut Vec<VertexId>,
+                    pool: &VertexPool|
      -> PslgVertexId {
         if let Some(&pid) = vid_to_pslg.get(&vid) {
             return pid;
@@ -338,10 +374,7 @@ pub fn corefine_face(
     // Constraint segments from snap-segment endpoints.
     for vids in &seg_vids {
         if let (Some(v0), Some(v1)) = (vids[0], vids[1]) {
-            if let (Some(&p0), Some(&p1)) = (
-                vid_to_pslg.get(&v0),
-                vid_to_pslg.get(&v1),
-            ) {
+            if let (Some(&p0), Some(&p1)) = (vid_to_pslg.get(&v0), vid_to_pslg.get(&v1)) {
                 if p0 != p1 {
                     let pa = unique_pts[p0.idx()];
                     let pb = unique_pts[p1.idx()];
@@ -357,7 +390,9 @@ pub fn corefine_face(
         }
     }
 
-    for (a, b) in pslg_edges {
+    let mut sorted_pslg_edges: Vec<(usize, usize)> = pslg_edges.into_iter().collect();
+    sorted_pslg_edges.sort_unstable();
+    for (a, b) in sorted_pslg_edges {
         let _ = pslg.add_segment(PslgVertexId::from_usize(a), PslgVertexId::from_usize(b));
     }
 
@@ -532,7 +567,6 @@ fn inside_triangle_eps(p: Point3r, a: Point3r, b: Point3r, c: Point3r, face_n: V
     d0 >= -EPS && d1 >= -EPS && d2 >= -EPS
 }
 
-
 /// Sliver-face fallback: build an ordered boundary polygon from all edge
 /// Steiner points and fan-triangulate from the first corner.
 ///
@@ -562,9 +596,8 @@ fn midpoint_subdivide(
     // Build ordered boundary polygon:
     //   corner[0] → steiners[0] → corner[1] → steiners[1] → corner[2] → steiners[2]
     let corners = face.vertices;
-    let mut poly: Vec<VertexId> = Vec::with_capacity(
-        3 + edge_steiners.iter().map(|e| e.len()).sum::<usize>(),
-    );
+    let mut poly: Vec<VertexId> =
+        Vec::with_capacity(3 + edge_steiners.iter().map(|e| e.len()).sum::<usize>());
     for ei in 0..3_usize {
         poly.push(corners[ei]);
         for &(_, sv) in &edge_steiners[ei] {
@@ -651,6 +684,3 @@ mod tests {
         assert!(inside_triangle(inside, a, b, c, n, axis_u, axis_v));
     }
 }
-
-
-

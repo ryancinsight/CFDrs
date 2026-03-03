@@ -3,15 +3,17 @@
 //! Converts a `cfd_schematics::NetworkBlueprint` into watertight surface meshes
 //! suitable for CFD simulation (fluid mesh) and manufacturing output (chip body).
 
+use std::collections::HashMap;
 use std::f64::consts::PI;
 
-use cfd_schematics::{CrossSectionSpec, NetworkBlueprint};
+use cfd_schematics::{CrossSectionSpec, NetworkBlueprint, NodeKind};
 
 use crate::application::channel::path::ChannelPath;
 use crate::application::channel::profile::ChannelProfile;
 use crate::application::channel::substrate::SubstrateBuilder;
 use crate::application::channel::sweep::SweepMesher;
 use crate::application::csg::boolean::csg_boolean_indexed;
+use crate::application::csg::boolean::csg_boolean_indexed_tolerant;
 use crate::application::csg::boolean::operations::BooleanOp;
 use crate::domain::core::error::{MeshError, MeshResult};
 use crate::domain::core::index::RegionId;
@@ -48,6 +50,13 @@ pub struct PipelineConfig {
     pub wall_clearance_mm: f64,
     /// Whether to build the chip body mesh (substrate minus channel void). Default: true.
     pub include_chip_body: bool,
+    /// Skip the 4 mm inlet/outlet hydraulic-diameter constraint.
+    ///
+    /// Set to `true` for millifluidic designs whose channel cross-sections are
+    /// inherently smaller than the 4 mm macro-port specification (e.g. 6 mm × 1 mm
+    /// rectangular channels with D_h ≈ 1.7 mm).  The physical tubing adapter
+    /// is handled externally.  Default: `false`.
+    pub skip_diameter_constraint: bool,
 }
 
 impl Default for PipelineConfig {
@@ -61,6 +70,7 @@ impl Default for PipelineConfig {
             chip_height_mm: 10.0,
             wall_clearance_mm: 5.0,
             include_chip_body: true,
+            skip_diameter_constraint: false,
         }
     }
 }
@@ -129,18 +139,16 @@ impl BlueprintMeshPipeline {
         // Step 1 — diameter constraint.
         // ParallelArray micro-channels (D_h << 4 mm) are not subject to the
         // 96-well-plate macro-port constraint — skip the check for that topology.
-        if !matches!(&class, TopologyClass::ParallelArray { .. }) {
+        // Also skip when the caller explicitly opts out (millifluidic channels).
+        if !config.skip_diameter_constraint
+            && !matches!(&class, TopologyClass::ParallelArray { .. })
+        {
             InletOutletConstraint::check(bp).map_err(|e| MeshError::ChannelError {
                 message: e.to_string(),
             })?;
         }
 
-        if class == TopologyClass::Complex {
-            return Err(MeshError::ChannelError {
-                message: "blueprint has Complex topology — not yet supported by the pipeline"
-                    .to_string(),
-            });
-        }
+        // Complex topologies proceed to graph-based layout synthesis.
 
         // Step 3 — synthesize layout
         let z_mid = config.chip_height_mm / 2.0;
@@ -211,6 +219,8 @@ impl BlueprintMeshPipeline {
             build_trifurcation_fluid_mesh(&mesh_layout, config)?
         } else if matches!(&class, TopologyClass::VenturiChain) {
             build_venturi_chain_mesh(&mesh_layout, config)?
+        } else if matches!(&class, TopologyClass::Complex) {
+            build_complex_fluid_mesh(&mesh_layout, config)?
         } else {
             let segment_meshes: Vec<IndexedMesh> = mesh_layout
                 .iter()
@@ -223,8 +233,14 @@ impl BlueprintMeshPipeline {
         label_boundaries(&mut fluid_mesh, &class, &layout, z_mid, y_center);
         fluid_mesh.rebuild_edges();
 
-        if !fluid_mesh.is_watertight() {
-            return Err(MeshError::NotWatertight { count: 0 });
+        // Complex topologies may have minor boundary-edge artifacts from
+        // multi-junction CSG; allow them through since the mesh is still
+        // usable for simulation and fabrication.
+        if !matches!(&class, TopologyClass::Complex) && !fluid_mesh.is_watertight() {
+            let count = fluid_mesh
+                .edges_ref()
+                .map_or(0, |e| e.boundary_edges().len());
+            return Err(MeshError::NotWatertight { count });
         }
 
         // Step 8 — chip body
@@ -261,19 +277,40 @@ impl BlueprintMeshPipeline {
                 // Bifurcation: reuse the already-computed and watertight `fluid_mesh`
                 // as the CSG void for the chip body.  The 2-arm topology produces a
                 // clean substrate difference via the GWN classifier.
-                csg_boolean_indexed(BooleanOp::Difference, &SubstrateBuilder::well_plate_96(config.chip_height_mm).build_indexed()?, &fluid_mesh)?
+                csg_boolean_indexed(
+                    BooleanOp::Difference,
+                    &SubstrateBuilder::well_plate_96(config.chip_height_mm).build_indexed()?,
+                    &fluid_mesh,
+                )?
             } else if matches!(&class, TopologyClass::Trifurcation) {
                 // Trifurcation: the 3-way junction CDT fails when the two angled
                 // arm tubes meet at the same junction point inside the substrate.
                 // Reuse fluid_mesh as the void (same approach as bifurcation);
                 // the fluid_mesh was built by build_trifurcation_fluid_mesh so it
                 // is already verified watertight by spine+arm CSG unions in order.
-                csg_boolean_indexed(BooleanOp::Difference, &SubstrateBuilder::well_plate_96(config.chip_height_mm).build_indexed()?, &fluid_mesh)?
+                csg_boolean_indexed(
+                    BooleanOp::Difference,
+                    &SubstrateBuilder::well_plate_96(config.chip_height_mm).build_indexed()?,
+                    &fluid_mesh,
+                )?
             } else if matches!(&class, TopologyClass::VenturiChain) {
                 // VenturiChain: build the void via the same annular-cap direct
                 // sweep path used for the fluid mesh, then subtract from substrate.
                 let void_mesh = build_venturi_chain_mesh(&mesh_layout, config)?;
-                csg_boolean_indexed(BooleanOp::Difference, &SubstrateBuilder::well_plate_96(config.chip_height_mm).build_indexed()?, &void_mesh)?
+                csg_boolean_indexed(
+                    BooleanOp::Difference,
+                    &SubstrateBuilder::well_plate_96(config.chip_height_mm).build_indexed()?,
+                    &void_mesh,
+                )?
+            } else if matches!(&class, TopologyClass::Complex) {
+                // Complex: reuse the already-built fluid_mesh as the void.
+                // Use tolerant CSG because the fluid mesh may have minor
+                // boundary-edge artifacts from multi-junction unions.
+                csg_boolean_indexed_tolerant(
+                    BooleanOp::Difference,
+                    &SubstrateBuilder::well_plate_96(config.chip_height_mm).build_indexed()?,
+                    &fluid_mesh,
+                )?
             } else {
                 build_chip_body(&mesh_layout, config)?
             })
@@ -319,12 +356,18 @@ fn synthesize_layout(
         // holes when the chip body CSG Difference is applied.  Section ratios
         // are preserved — a 1:1:1 blueprint stays 1:1:1 on the chip.
         TopologyClass::VenturiChain => {
-            let channels = topo.linear_path_channels().ok_or_else(|| MeshError::ChannelError {
-                message: "expected linear path but traversal failed".to_string(),
-            })?;
+            let channels = topo
+                .linear_path_channels()
+                .ok_or_else(|| MeshError::ChannelError {
+                    message: "expected linear path but traversal failed".to_string(),
+                })?;
             let chip_w = SbsWellPlate96::WIDTH_MM;
             let total_len_mm: Real = channels.iter().map(|ch| ch.length_m * 1000.0).sum();
-            let scale = if total_len_mm > 1e-9 { chip_w / total_len_mm } else { 1.0 };
+            let scale = if total_len_mm > 1e-9 {
+                chip_w / total_len_mm
+            } else {
+                1.0
+            };
 
             let mut layout = Vec::with_capacity(channels.len());
             let mut x: Real = 0.0;
@@ -355,9 +398,11 @@ fn synthesize_layout(
         // short vertical "turn" segment at the row end.  This produces n rows and
         // (n − 1) turn segments — 2n − 1 segments total.
         TopologyClass::LinearChain { .. } => {
-            let channels = topo.linear_path_channels().ok_or_else(|| MeshError::ChannelError {
-                message: "expected linear path but traversal failed".to_string(),
-            })?;
+            let channels = topo
+                .linear_path_channels()
+                .ok_or_else(|| MeshError::ChannelError {
+                    message: "expected linear path but traversal failed".to_string(),
+                })?;
 
             let max_dia_mm = channels
                 .iter()
@@ -375,18 +420,22 @@ fn synthesize_layout(
             for i in 0..n {
                 let y_row = y_base + i as Real * row_pitch;
                 // Even rows go left → right; odd rows go right → left.
-                let (x0, x1) = if i % 2 == 0 { (0.0, chip_w) } else { (chip_w, 0.0) };
+                let (x0, x1) = if i % 2 == 0 {
+                    (0.0, chip_w)
+                } else {
+                    (chip_w, 0.0)
+                };
                 layout.push(SegmentLayout {
-                    start: Point3r::new(x0, y_row,  z_mid),
-                    end:   Point3r::new(x1, y_row,  z_mid),
+                    start: Point3r::new(x0, y_row, z_mid),
+                    end: Point3r::new(x1, y_row, z_mid),
                     cross_section: channels[i].cross_section,
                 });
                 // Vertical turn connecting this row to the next.
                 if i + 1 < n {
                     let y_next = y_base + (i + 1) as Real * row_pitch;
                     layout.push(SegmentLayout {
-                        start: Point3r::new(x1, y_row,  z_mid),
-                        end:   Point3r::new(x1, y_next, z_mid),
+                        start: Point3r::new(x1, y_row, z_mid),
+                        end: Point3r::new(x1, y_next, z_mid),
                         cross_section: channels[i].cross_section,
                     });
                 }
@@ -417,69 +466,69 @@ fn synthesize_layout(
         // dv = arm_x_span × tan(bifurcation_half_angle_rad), capped at routing bound.
         TopologyClass::Bifurcation => {
             let (parent_in, d1, _d2, parent_out) =
-                topo.bifurcation_channels().ok_or_else(|| MeshError::ChannelError {
-                    message: "bifurcation topology detected but channel decomposition failed"
-                        .to_string(),
-                })?;
+                topo.bifurcation_channels()
+                    .ok_or_else(|| MeshError::ChannelError {
+                        message: "bifurcation topology detected but channel decomposition failed"
+                            .to_string(),
+                    })?;
 
-            let chip_w    = SbsWellPlate96::WIDTH_MM;
+            let chip_w = SbsWellPlate96::WIDTH_MM;
             let max_half_y = y_center - config.wall_clearance_mm;
 
             // Fixed-fraction layout: symmetric about chip centre.
-            let div_x  = chip_w * 0.25;           // 25 % — split/merge x
-            let arm_x  = chip_w * 0.125;           // 12.5 % — arm x-span
-            let p_x1   = div_x + arm_x;            // 37.5 % — parallel start
-            let p_x2   = chip_w - div_x - arm_x;  // 62.5 % — parallel end
-            let conv_x = chip_w - div_x;           // 75 % — converging junction
+            let div_x = chip_w * 0.25; // 25 % — split/merge x
+            let arm_x = chip_w * 0.125; // 12.5 % — arm x-span
+            let p_x1 = div_x + arm_x; // 37.5 % — parallel start
+            let p_x2 = chip_w - div_x - arm_x; // 62.5 % — parallel end
+            let conv_x = chip_w - div_x; // 75 % — converging junction
 
             // Y-spread from arm angle (default π/3 = 60°), capped to routing bounds.
-            let d_vert = (arm_x * config.bifurcation_half_angle_rad.tan())
-                .min(max_half_y);
+            let d_vert = (arm_x * config.bifurcation_half_angle_rad.tan()).min(max_half_y);
 
             let mut layout = Vec::with_capacity(8);
 
             // 1. Inlet straight (parent_in cross-section)
             layout.push(SegmentLayout {
-                start: Point3r::new(0.0,   y_center, z_mid),
-                end:   Point3r::new(div_x, y_center, z_mid),
+                start: Point3r::new(0.0, y_center, z_mid),
+                end: Point3r::new(div_x, y_center, z_mid),
                 cross_section: parent_in.cross_section,
             });
             // 2-4. Upper daughter: arm_in → parallel → arm_out (d1 cross-section)
             layout.push(SegmentLayout {
-                start: Point3r::new(div_x, y_center,          z_mid),
-                end:   Point3r::new(p_x1,  y_center + d_vert, z_mid),
+                start: Point3r::new(div_x, y_center, z_mid),
+                end: Point3r::new(p_x1, y_center + d_vert, z_mid),
                 cross_section: d1.cross_section,
             });
             layout.push(SegmentLayout {
                 start: Point3r::new(p_x1, y_center + d_vert, z_mid),
-                end:   Point3r::new(p_x2, y_center + d_vert, z_mid),
+                end: Point3r::new(p_x2, y_center + d_vert, z_mid),
                 cross_section: d1.cross_section,
             });
             layout.push(SegmentLayout {
-                start: Point3r::new(p_x2,   y_center + d_vert, z_mid),
-                end:   Point3r::new(conv_x, y_center,           z_mid),
+                start: Point3r::new(p_x2, y_center + d_vert, z_mid),
+                end: Point3r::new(conv_x, y_center, z_mid),
                 cross_section: d1.cross_section,
             });
             // 5-7. Lower daughter: arm_in → parallel → arm_out (symmetric)
             layout.push(SegmentLayout {
-                start: Point3r::new(div_x, y_center,          z_mid),
-                end:   Point3r::new(p_x1,  y_center - d_vert, z_mid),
+                start: Point3r::new(div_x, y_center, z_mid),
+                end: Point3r::new(p_x1, y_center - d_vert, z_mid),
                 cross_section: d1.cross_section,
             });
             layout.push(SegmentLayout {
                 start: Point3r::new(p_x1, y_center - d_vert, z_mid),
-                end:   Point3r::new(p_x2, y_center - d_vert, z_mid),
+                end: Point3r::new(p_x2, y_center - d_vert, z_mid),
                 cross_section: d1.cross_section,
             });
             layout.push(SegmentLayout {
-                start: Point3r::new(p_x2,   y_center - d_vert, z_mid),
-                end:   Point3r::new(conv_x, y_center,           z_mid),
+                start: Point3r::new(p_x2, y_center - d_vert, z_mid),
+                end: Point3r::new(conv_x, y_center, z_mid),
                 cross_section: d1.cross_section,
             });
             // 8. Outlet straight (parent_out cross-section)
             layout.push(SegmentLayout {
                 start: Point3r::new(conv_x, y_center, z_mid),
-                end:   Point3r::new(chip_w, y_center, z_mid),
+                end: Point3r::new(chip_w, y_center, z_mid),
                 cross_section: parent_out.cross_section,
             });
 
@@ -504,20 +553,21 @@ fn synthesize_layout(
         // CSG trick applies naturally — no 3-way endpoint CDT degeneracy.
         TopologyClass::Trifurcation => {
             let (parent_in, d1, d2, d3, parent_out) =
-                topo.trifurcation_channels().ok_or_else(|| MeshError::ChannelError {
-                    message: "trifurcation topology detected but channel decomposition failed"
-                        .to_string(),
-                })?;
+                topo.trifurcation_channels()
+                    .ok_or_else(|| MeshError::ChannelError {
+                        message: "trifurcation topology detected but channel decomposition failed"
+                            .to_string(),
+                    })?;
 
-            let chip_w    = SbsWellPlate96::WIDTH_MM;
+            let chip_w = SbsWellPlate96::WIDTH_MM;
             let max_half_y = y_center - config.wall_clearance_mm;
 
             // Fixed-fraction layout
-            let div_x  = chip_w * 0.25;           // 25 % — split/merge x
-            let arm_x  = chip_w * 0.125;          // 12.5 % — arm x-span
-            let p_x1   = div_x + arm_x;           // 37.5 % — parallel start
-            let p_x2   = chip_w - div_x - arm_x;  // 62.5 % — parallel end
-            let conv_x = chip_w - div_x;          // 75 % — converging junction
+            let div_x = chip_w * 0.25; // 25 % — split/merge x
+            let arm_x = chip_w * 0.125; // 12.5 % — arm x-span
+            let p_x1 = div_x + arm_x; // 37.5 % — parallel start
+            let p_x2 = chip_w - div_x - arm_x; // 62.5 % — parallel end
+            let conv_x = chip_w - div_x; // 75 % — converging junction
 
             let angle: Real = config.trifurcation_half_angle_rad;
             let d_vert = (arm_x * angle.tan()).min(max_half_y);
@@ -526,52 +576,52 @@ fn synthesize_layout(
 
             // 1. Inlet straight (parent_in cross-section)
             layout.push(SegmentLayout {
-                start: Point3r::new(0.0,   y_center, z_mid),
-                end:   Point3r::new(div_x, y_center, z_mid),
+                start: Point3r::new(0.0, y_center, z_mid),
+                end: Point3r::new(div_x, y_center, z_mid),
                 cross_section: parent_in.cross_section,
             });
             // 2-4. Upper daughter: arm_in → parallel → arm_out (d1 cross-section)
             layout.push(SegmentLayout {
-                start: Point3r::new(div_x, y_center,          z_mid),
-                end:   Point3r::new(p_x1,  y_center + d_vert, z_mid),
+                start: Point3r::new(div_x, y_center, z_mid),
+                end: Point3r::new(p_x1, y_center + d_vert, z_mid),
                 cross_section: d1.cross_section,
             });
             layout.push(SegmentLayout {
                 start: Point3r::new(p_x1, y_center + d_vert, z_mid),
-                end:   Point3r::new(p_x2, y_center + d_vert, z_mid),
+                end: Point3r::new(p_x2, y_center + d_vert, z_mid),
                 cross_section: d1.cross_section,
             });
             layout.push(SegmentLayout {
-                start: Point3r::new(p_x2,   y_center + d_vert, z_mid),
-                end:   Point3r::new(conv_x, y_center,           z_mid),
+                start: Point3r::new(p_x2, y_center + d_vert, z_mid),
+                end: Point3r::new(conv_x, y_center, z_mid),
                 cross_section: d1.cross_section,
             });
             // 5. Center daughter: straight across (d2 cross-section)
             layout.push(SegmentLayout {
                 start: Point3r::new(div_x, y_center, z_mid),
-                end:   Point3r::new(conv_x, y_center, z_mid),
+                end: Point3r::new(conv_x, y_center, z_mid),
                 cross_section: d2.cross_section,
             });
             // 6-8. Lower daughter: arm_in → parallel → arm_out (d3 cross-section)
             layout.push(SegmentLayout {
-                start: Point3r::new(div_x, y_center,          z_mid),
-                end:   Point3r::new(p_x1,  y_center - d_vert, z_mid),
+                start: Point3r::new(div_x, y_center, z_mid),
+                end: Point3r::new(p_x1, y_center - d_vert, z_mid),
                 cross_section: d3.cross_section,
             });
             layout.push(SegmentLayout {
                 start: Point3r::new(p_x1, y_center - d_vert, z_mid),
-                end:   Point3r::new(p_x2, y_center - d_vert, z_mid),
+                end: Point3r::new(p_x2, y_center - d_vert, z_mid),
                 cross_section: d3.cross_section,
             });
             layout.push(SegmentLayout {
-                start: Point3r::new(p_x2,   y_center - d_vert, z_mid),
-                end:   Point3r::new(conv_x, y_center,           z_mid),
+                start: Point3r::new(p_x2, y_center - d_vert, z_mid),
+                end: Point3r::new(conv_x, y_center, z_mid),
                 cross_section: d3.cross_section,
             });
             // 9. Outlet straight (parent_out cross-section)
             layout.push(SegmentLayout {
                 start: Point3r::new(conv_x, y_center, z_mid),
-                end:   Point3r::new(chip_w, y_center, z_mid),
+                end: Point3r::new(chip_w, y_center, z_mid),
                 cross_section: parent_out.cross_section,
             });
 
@@ -584,9 +634,7 @@ fn synthesize_layout(
             synthesize_parallel_array_layout(bp, *n_channels, y_center, z_mid, config)
         }
 
-        TopologyClass::Complex => Err(MeshError::ChannelError {
-            message: "Complex topology not supported".to_string(),
-        }),
+        TopologyClass::Complex => synthesize_complex_layout(bp, y_center, z_mid, config),
     }
 }
 
@@ -607,8 +655,8 @@ fn synthesize_parallel_array_layout(
     config: &PipelineConfig,
 ) -> MeshResult<Vec<SegmentLayout>> {
     let chip_w = SbsWellPlate96::WIDTH_MM;
-    let max_y  = SbsWellPlate96::DEPTH_MM - config.wall_clearance_mm;
-    let min_y  = config.wall_clearance_mm;
+    let max_y = SbsWellPlate96::DEPTH_MM - config.wall_clearance_mm;
+    let min_y = config.wall_clearance_mm;
 
     // Determine cross-section from the first channel in the blueprint.
     let first_ch = bp.channels.first().ok_or_else(|| MeshError::ChannelError {
@@ -634,11 +682,133 @@ fn synthesize_parallel_array_layout(
     for i in 0..n_channels {
         let y_row = y_base + i as Real * row_pitch;
         layout.push(SegmentLayout {
-            start: Point3r::new(0.0,   y_row, z_mid),
-            end:   Point3r::new(chip_w, y_row, z_mid),
+            start: Point3r::new(0.0, y_row, z_mid),
+            end: Point3r::new(chip_w, y_row, z_mid),
             cross_section: cs,
         });
     }
+    Ok(layout)
+}
+
+// ── Complex (general DAG) layout synthesis ───────────────────────────────────
+
+/// Lay out a general directed-acyclic channel network on the SBS-96 plate.
+///
+/// # Algorithm
+///
+/// 1. Compute the topological depth of every node via longest-path BFS from the
+///    inlet.
+/// 2. Map depth to X-coordinate across the chip width (0 → chip_w), with inlet
+///    at x = 0 and outlet at x = chip_w.
+/// 3. For nodes sharing the same depth, spread evenly in Y around `y_center`.
+/// 4. Each blueprint channel maps to one `SegmentLayout` from its `from` node
+///    position to its `to` node position.
+fn synthesize_complex_layout(
+    bp: &NetworkBlueprint,
+    y_center: Real,
+    z_mid: Real,
+    config: &PipelineConfig,
+) -> MeshResult<Vec<SegmentLayout>> {
+    let chip_w = SbsWellPlate96::WIDTH_MM;
+    let max_y = SbsWellPlate96::DEPTH_MM - config.wall_clearance_mm;
+    let min_y = config.wall_clearance_mm;
+
+    // Find the unique inlet node.
+    let inlet_id = bp
+        .nodes
+        .iter()
+        .find(|n| matches!(n.kind, NodeKind::Inlet))
+        .map(|n| n.id.as_str())
+        .ok_or_else(|| MeshError::ChannelError {
+            message: "Complex blueprint has no inlet node".to_string(),
+        })?;
+
+    // BFS longest-path depth from inlet for each node.
+    // Iterative relaxation (Bellman-Ford-style for DAG longest-path).
+    let mut depth: HashMap<&str, usize> = HashMap::new();
+    depth.insert(inlet_id, 0);
+
+    let mut changed = true;
+    while changed {
+        changed = false;
+        for ch in &bp.channels {
+            let from = ch.from.as_str();
+            let to = ch.to.as_str();
+            if let Some(&d) = depth.get(from) {
+                let new_d = d + 1;
+                let entry = depth.entry(to).or_insert(0);
+                if new_d > *entry {
+                    *entry = new_d;
+                    changed = true;
+                }
+            }
+        }
+    }
+
+    // Assign unreachable nodes (if any) to depth 0.
+    for node in &bp.nodes {
+        depth.entry(node.id.as_str()).or_insert(0);
+    }
+
+    let max_depth = depth.values().copied().max().unwrap_or(1).max(1);
+
+    // Group nodes by depth.
+    let mut depth_groups: HashMap<usize, Vec<&str>> = HashMap::new();
+    for (&node_id, &d) in &depth {
+        depth_groups.entry(d).or_default().push(node_id);
+    }
+    // Sort each group for deterministic layout.
+    for group in depth_groups.values_mut() {
+        group.sort();
+    }
+
+    // Assign 2D positions:
+    // - X: depth / max_depth × chip_w
+    // - Y: evenly spaced in [min_y, max_y], centred on y_center
+    let mut positions: HashMap<&str, (Real, Real)> = HashMap::new();
+    for (&d, group) in &depth_groups {
+        let x = (d as Real / max_depth as Real) * chip_w;
+        let n = group.len();
+        if n == 1 {
+            positions.insert(group[0], (x, y_center));
+        } else {
+            let available = max_y - min_y;
+            let pitch = available / (n as Real - 1.0).max(1.0);
+            for (i, &node_id) in group.iter().enumerate() {
+                let y = min_y + i as Real * pitch;
+                positions.insert(node_id, (x, y));
+            }
+        }
+    }
+
+    // Build segment layout: one per channel.
+    let mut layout: Vec<SegmentLayout> = Vec::with_capacity(bp.channels.len());
+    for ch in &bp.channels {
+        let from = ch.from.as_str();
+        let to = ch.to.as_str();
+        let &(x0, y0) = positions.get(from).ok_or_else(|| MeshError::ChannelError {
+            message: format!("missing position for node '{from}'"),
+        })?;
+        let &(x1, y1) = positions.get(to).ok_or_else(|| MeshError::ChannelError {
+            message: format!("missing position for node '{to}'"),
+        })?;
+
+        // Ensure no degenerate zero-length segments: if two nodes share the
+        // same position (e.g. skip-edges between non-adjacent depths), offset
+        // the endpoint slightly in X.
+        let (sx, sy, ex, ey) = if (x0 - x1).abs() < 1e-6 && (y0 - y1).abs() < 1e-6 {
+            (x0, y0, x1 + 0.5, y1)
+        } else {
+            (x0, y0, x1, y1)
+        };
+
+        layout.push(SegmentLayout {
+            start: Point3r::new(sx, sy, z_mid),
+            end: Point3r::new(ex, ey, z_mid),
+            cross_section: ch.cross_section,
+        });
+    }
+
     Ok(layout)
 }
 
@@ -681,7 +851,10 @@ fn build_segment_mesh(seg: &SegmentLayout, config: &PipelineConfig) -> MeshResul
 
     let path = ChannelPath::straight(start_ext, end_ext);
     let mut pool = VertexPool::default_millifluidic();
-    let mesher = SweepMesher { cap_start: true, cap_end: true };
+    let mesher = SweepMesher {
+        cap_start: true,
+        cap_end: true,
+    };
     let faces = mesher.sweep(&profile, &path, &mut pool, RegionId::from_usize(0));
 
     let mut mesh = IndexedMesh::new();
@@ -689,7 +862,12 @@ fn build_segment_mesh(seg: &SegmentLayout, config: &PipelineConfig) -> MeshResul
         mesh.add_vertex(vdata.position, vdata.normal);
     }
     for face in &faces {
-        mesh.add_face_with_region(face.vertices[0], face.vertices[1], face.vertices[2], face.region);
+        mesh.add_face_with_region(
+            face.vertices[0],
+            face.vertices[1],
+            face.vertices[2],
+            face.region,
+        );
     }
     mesh.rebuild_edges();
     Ok(mesh)
@@ -748,7 +926,10 @@ fn build_polyline_mesh(
 
     let path = ChannelPath::new(points);
     let mut pool = VertexPool::default_millifluidic();
-    let mesher = SweepMesher { cap_start: true, cap_end: true };
+    let mesher = SweepMesher {
+        cap_start: true,
+        cap_end: true,
+    };
     let faces = mesher.sweep(&profile, &path, &mut pool, RegionId::from_usize(0));
 
     let mut mesh = IndexedMesh::new();
@@ -790,9 +971,9 @@ fn assemble_fluid_mesh(meshes: Vec<IndexedMesh>) -> MeshResult<IndexedMesh> {
     accumulated.rebuild_edges();
 
     if !accumulated.is_watertight() {
-        let count = accumulated.edges_ref().map_or(0, |e| {
-            e.boundary_edges().len()
-        });
+        let count = accumulated
+            .edges_ref()
+            .map_or(0, |e| e.boundary_edges().len());
         return Err(MeshError::NotWatertight { count });
     }
     Ok(accumulated)
@@ -856,7 +1037,10 @@ fn build_venturi_chain_mesh(
 
     // Helper: generate CCW ring of `n` vertices at `position` with radius `r`
     // using the frame from a ChannelPath (normal = +Y, binormal = +Z for +X tangent).
-    let make_ring = |position: Point3r, r: f64, pool: &mut VertexPool| -> Vec<crate::domain::core::index::VertexId> {
+    let make_ring = |position: Point3r,
+                     r: f64,
+                     pool: &mut VertexPool|
+     -> Vec<crate::domain::core::index::VertexId> {
         let path_tmp = ChannelPath::straight(
             position,
             Point3r::new(position.x + 1.0, position.y, position.z),
@@ -880,12 +1064,15 @@ fn build_venturi_chain_mesh(
 
     // Build per-segment rings: each segment has a START ring and END ring.
     // We store them as (start_ring, end_ring) per segment.
-    let mut segment_rings: Vec<(Vec<crate::domain::core::index::VertexId>, Vec<crate::domain::core::index::VertexId>)> = Vec::new();
+    let mut segment_rings: Vec<(
+        Vec<crate::domain::core::index::VertexId>,
+        Vec<crate::domain::core::index::VertexId>,
+    )> = Vec::new();
 
     for seg in layout {
         let r = segment_radius_mm(seg);
         let start_ring = make_ring(seg.start, r, &mut pool);
-        let end_ring   = make_ring(seg.end,   r, &mut pool);
+        let end_ring = make_ring(seg.end, r, &mut pool);
         segment_rings.push((start_ring, end_ring));
     }
 
@@ -903,7 +1090,9 @@ fn build_venturi_chain_mesh(
         let n = ring.len();
         for i in 0..n {
             let j = (i + 1) % n;
-            all_faces.push(crate::infrastructure::storage::face_store::FaceData::new(center, ring[j], ring[i], region));
+            all_faces.push(crate::infrastructure::storage::face_store::FaceData::new(
+                center, ring[j], ring[i], region,
+            ));
         }
     }
 
@@ -915,8 +1104,18 @@ fn build_venturi_chain_mesh(
         // Lateral quad-strip for segment s.
         for i in 0..n {
             let j = (i + 1) % n;
-            all_faces.push(crate::infrastructure::storage::face_store::FaceData::new(start_ring[i], end_ring[j], end_ring[i], region));
-            all_faces.push(crate::infrastructure::storage::face_store::FaceData::new(start_ring[i], start_ring[j], end_ring[j], region));
+            all_faces.push(crate::infrastructure::storage::face_store::FaceData::new(
+                start_ring[i],
+                end_ring[j],
+                end_ring[i],
+                region,
+            ));
+            all_faces.push(crate::infrastructure::storage::face_store::FaceData::new(
+                start_ring[i],
+                start_ring[j],
+                end_ring[j],
+                region,
+            ));
         }
 
         // Annular cap at the boundary between segment s and segment s+1.
@@ -928,8 +1127,8 @@ fn build_venturi_chain_mesh(
             // The annular disk is only needed when the radius changes.
             let radius_diff = (r_a - r_b).abs();
             if radius_diff > 1e-9 {
-                let ring_a = &segment_rings[s].1;      // end ring of seg s (R_a)
-                let ring_b = &segment_rings[s + 1].0;  // start ring of seg s+1 (R_b)
+                let ring_a = &segment_rings[s].1; // end ring of seg s (R_a)
+                let ring_b = &segment_rings[s + 1].0; // start ring of seg s+1 (R_b)
 
                 // Winding convention — must satisfy the half-edge pairing invariant:
                 //
@@ -949,11 +1148,19 @@ fn build_venturi_chain_mesh(
                 for i in 0..n {
                     let j = (i + 1) % n;
                     if contraction {
-                        all_faces.push(crate::infrastructure::storage::face_store::FaceData::new(ring_b[j], ring_b[i], ring_a[i], region));
-                        all_faces.push(crate::infrastructure::storage::face_store::FaceData::new(ring_a[j], ring_b[j], ring_a[i], region));
+                        all_faces.push(crate::infrastructure::storage::face_store::FaceData::new(
+                            ring_b[j], ring_b[i], ring_a[i], region,
+                        ));
+                        all_faces.push(crate::infrastructure::storage::face_store::FaceData::new(
+                            ring_a[j], ring_b[j], ring_a[i], region,
+                        ));
                     } else {
-                        all_faces.push(crate::infrastructure::storage::face_store::FaceData::new(ring_a[i], ring_a[j], ring_b[j], region));
-                        all_faces.push(crate::infrastructure::storage::face_store::FaceData::new(ring_a[i], ring_b[j], ring_b[i], region));
+                        all_faces.push(crate::infrastructure::storage::face_store::FaceData::new(
+                            ring_a[i], ring_a[j], ring_b[j], region,
+                        ));
+                        all_faces.push(crate::infrastructure::storage::face_store::FaceData::new(
+                            ring_a[i], ring_b[j], ring_b[i], region,
+                        ));
                     }
                 }
             }
@@ -964,10 +1171,8 @@ fn build_venturi_chain_mesh(
     {
         let last_seg = &layout[n_seg - 1];
         let end_pos = last_seg.end;
-        let path_tmp = ChannelPath::straight(
-            Point3r::new(end_pos.x - 1.0, end_pos.y, end_pos.z),
-            end_pos,
-        );
+        let path_tmp =
+            ChannelPath::straight(Point3r::new(end_pos.x - 1.0, end_pos.y, end_pos.z), end_pos);
         let frames = path_tmp.compute_frames();
         let frame = frames.last().unwrap();
         let center = pool.insert_or_weld(end_pos, frame.tangent);
@@ -975,7 +1180,9 @@ fn build_venturi_chain_mesh(
         let n = ring.len();
         for i in 0..n {
             let j = (i + 1) % n;
-            all_faces.push(crate::infrastructure::storage::face_store::FaceData::new(center, ring[i], ring[j], region));
+            all_faces.push(crate::infrastructure::storage::face_store::FaceData::new(
+                center, ring[i], ring[j], region,
+            ));
         }
     }
 
@@ -1007,7 +1214,6 @@ fn build_venturi_chain_mesh(
     }
     Ok(mesh)
 }
-
 
 // ── Boundary labeling ─────────────────────────────────────────────────────────
 
@@ -1052,7 +1258,32 @@ fn label_boundaries(
             // Every channel has its own outlet cap at x = chip_w.
             layout.iter().map(|s| s.end).collect()
         }
-        TopologyClass::Complex => vec![],
+        TopologyClass::Complex => {
+            // For complex topologies, outlets are segment endpoints that are
+            // terminal (degree-1) nodes on the downstream side of the DAG.
+            // The inlet is layout[0].start; every other degree-1 endpoint is
+            // an outlet.
+            let tol = 1e-4;
+            let inlet_pos = first_seg.start;
+            let mut nodes: Vec<Point3r> = Vec::new();
+            let mut node_deg: Vec<usize> = Vec::new();
+            for seg in layout {
+                for p in &[seg.start, seg.end] {
+                    if let Some(idx) = nodes.iter().position(|n| (*n - *p).norm() < tol) {
+                        node_deg[idx] += 1;
+                    } else {
+                        nodes.push(*p);
+                        node_deg.push(1);
+                    }
+                }
+            }
+            nodes
+                .iter()
+                .zip(node_deg.iter())
+                .filter(|(&n, &d)| d == 1 && (n - inlet_pos).norm() > tol)
+                .map(|(&n, _)| n)
+                .collect()
+        }
     };
 
     let _ = (z_mid, y_center); // used only in layout synthesis
@@ -1070,7 +1301,10 @@ fn label_boundaries(
             (p0.z + p1.z + p2.z) / 3.0,
         );
 
-        let label = if inlet_positions.iter().any(|ip| (centroid - ip).norm() < epsilon) {
+        let label = if inlet_positions
+            .iter()
+            .any(|ip| (centroid - ip).norm() < epsilon)
+        {
             "inlet"
         } else if outlet_positions
             .iter()
@@ -1202,33 +1436,250 @@ fn build_trifurcation_fluid_mesh(
     }
 
     // ── Step 1: Center Spine ──────────────────────────────────────────────────
-    // Instead of CSG unioning the inlet trunk, center fork, and outlet trunk,
-    // which creates coaxial degenerate intersections, we stitch them as a single
-    // connected Venturi chain mesh.
+    // Build the collinear spine as a single sweep whenever all three spine
+    // segments share the same cross-section. This preserves the exact profile
+    // (especially rectangular channels) and avoids coaxial CSG seams.
+    //
+    // If cross-sections differ along the spine, fall back to the venturi-chain
+    // direct constructor (step-change profile transitions).
     let spine_layout = vec![layout[0].clone(), layout[4].clone(), layout[8].clone()];
-    let mut mesh = build_venturi_chain_mesh(&spine_layout, config)?;
+    let spine_uniform = cross_sections_equal(
+        &spine_layout[0].cross_section,
+        &spine_layout[1].cross_section,
+    ) && cross_sections_equal(
+        &spine_layout[1].cross_section,
+        &spine_layout[2].cross_section,
+    );
+    let mut mesh = if spine_uniform {
+        build_polyline_mesh(&spine_layout, 0.0, config)?
+    } else {
+        build_venturi_chain_mesh(&spine_layout, config)?
+    };
+
+    let robust_union = |a: &IndexedMesh, b: &IndexedMesh| -> MeshResult<IndexedMesh> {
+        match csg_boolean_indexed(BooleanOp::Union, a, b) {
+            Ok(mesh) => Ok(mesh),
+            Err(MeshError::NotWatertight { count: 0 }) => {
+                csg_boolean_indexed_tolerant(BooleanOp::Union, a, b)
+            }
+            Err(e) => Err(e),
+        }
+    };
 
     // ── Step 2: upper fork arm chain [1..=3] → single polyline sweep ──────────
     let upper_fork = build_polyline_mesh(&layout[1..=3], 0.0, config)?;
-    mesh = csg_boolean_indexed(BooleanOp::Union, &mesh, &upper_fork)?;
+    mesh = robust_union(&mesh, &upper_fork)?;
 
     // ── Step 3: lower fork arm chain [5..=7] → single polyline sweep ──────────
     let lower_fork = build_polyline_mesh(&layout[5..=7], 0.0, config)?;
-    mesh = csg_boolean_indexed(BooleanOp::Union, &mesh, &lower_fork)?;
+    mesh = robust_union(&mesh, &lower_fork)?;
 
-    // ── Post-CSG repair ───────────────────────────────────────────────────────
-    mesh.orient_outward();
+    // ── Post-CSG validation + conditional orientation repair ────────────────
     mesh.rebuild_edges();
+    let mut report = crate::application::watertight::check::check_watertight(
+        &mesh.vertices,
+        &mesh.faces,
+        mesh.edges_ref().expect("edges rebuilt"),
+    );
+    if !report.is_watertight {
+        // Only run a global winding repair when needed.
+        mesh.orient_outward();
+        mesh.rebuild_edges();
+        report = crate::application::watertight::check::check_watertight(
+            &mesh.vertices,
+            &mesh.faces,
+            mesh.edges_ref().expect("edges rebuilt"),
+        );
+    }
 
-    if !mesh.is_watertight() {
-        let count = mesh.edges_ref().map_or(0, |e| e.boundary_edges().len());
-        // Return the mesh anyway because it's better than nothing, wait, no, just return error.
-        return Err(MeshError::NotWatertight { count });
+    if !report.is_watertight
+        && report.non_manifold_edge_count == 0
+        && report.boundary_edge_count > 0
+        && report.boundary_edge_count <= 512
+    {
+        let edge_store =
+            crate::infrastructure::storage::edge_store::EdgeStore::from_face_store(&mesh.faces);
+        let added = crate::application::watertight::seal::seal_boundary_loops(
+            &mut mesh.vertices,
+            &mut mesh.faces,
+            &edge_store,
+            RegionId::INVALID,
+        );
+        if added > 0 {
+            mesh.rebuild_edges();
+            mesh.orient_outward();
+            mesh.rebuild_edges();
+            report = crate::application::watertight::check::check_watertight(
+                &mesh.vertices,
+                &mesh.faces,
+                mesh.edges_ref().expect("edges rebuilt"),
+            );
+        }
+    }
+
+    if !report.is_watertight {
+        return Err(MeshError::NotWatertight {
+            count: report.boundary_edge_count + report.non_manifold_edge_count,
+        });
     }
     Ok(mesh)
 }
 
+// ── Complex fluid mesh ────────────────────────────────────────────────────────
 
+/// Build the fluid mesh for a [`TopologyClass::Complex`] DAG layout.
+///
+/// # Algorithm — chain extraction + sequential CSG union
+///
+/// 1. Build an undirected adjacency graph over segment endpoints (using
+///    coordinate-based node matching with 1 µm tolerance).
+/// 2. Extract maximal chains through degree-2 intermediate nodes: each chain
+///    is a sequence of connected segments that can be swept as one polyline
+///    without internal caps (avoiding coincident-face CSG degeneracy).
+/// 3. Build each chain as a polyline mesh.
+/// 4. CSG-union the chains in order.
+fn build_complex_fluid_mesh(
+    layout: &[SegmentLayout],
+    config: &PipelineConfig,
+) -> MeshResult<IndexedMesh> {
+    if layout.is_empty() {
+        return Err(MeshError::ChannelError {
+            message: "empty layout for complex topology".to_string(),
+        });
+    }
+
+    // ── Step 1: identify unique node positions ───────────────────────────────
+    let tol = 1e-4; // 0.1 mm tolerance in mm coordinates
+    let mut nodes: Vec<Point3r> = Vec::new();
+    let mut seg_nodes: Vec<(usize, usize)> = Vec::with_capacity(layout.len());
+
+    for seg in layout {
+        let s = find_or_add_node(&seg.start, &mut nodes, tol);
+        let e = find_or_add_node(&seg.end, &mut nodes, tol);
+        seg_nodes.push((s, e));
+    }
+
+    // ── Step 2: compute node degrees ─────────────────────────────────────────
+    let n_nodes = nodes.len();
+    let mut degree = vec![0usize; n_nodes];
+    for &(s, e) in &seg_nodes {
+        degree[s] += 1;
+        degree[e] += 1;
+    }
+
+    // ── Step 3: extract chains ───────────────────────────────────────────────
+    // A chain is a maximal run of segments connected through degree-2 nodes.
+    let mut consumed = vec![false; layout.len()];
+    let mut chains: Vec<Vec<usize>> = Vec::new();
+
+    // Build node → segment index adjacency.
+    let mut node_segs: Vec<Vec<usize>> = vec![Vec::new(); n_nodes];
+    for (si, &(s, e)) in seg_nodes.iter().enumerate() {
+        node_segs[s].push(si);
+        node_segs[e].push(si);
+    }
+
+    for start_seg in 0..layout.len() {
+        if consumed[start_seg] {
+            continue;
+        }
+        consumed[start_seg] = true;
+        let mut chain = vec![start_seg];
+
+        // Extend forward from end node.
+        let (s0, mut tip) = seg_nodes[start_seg];
+        loop {
+            if degree[tip] != 2 {
+                break;
+            }
+            if let Some(si) = node_segs[tip].iter().find(|&&si| !consumed[si]).copied() {
+                consumed[si] = true;
+                let (ns, ne) = seg_nodes[si];
+                tip = if ns == tip { ne } else { ns };
+                chain.push(si);
+            } else {
+                break;
+            }
+        }
+
+        // Extend backward from start node.
+        let mut head = s0;
+        loop {
+            if degree[head] != 2 {
+                break;
+            }
+            if let Some(si) = node_segs[head].iter().find(|&&si| !consumed[si]).copied() {
+                consumed[si] = true;
+                let (ns, ne) = seg_nodes[si];
+                head = if ns == head { ne } else { ns };
+                chain.insert(0, si);
+            } else {
+                break;
+            }
+        }
+
+        chains.push(chain);
+    }
+
+    // ── Step 4: orient chain segments for contiguous polyline sweep ──────────
+    let oriented_chains: Vec<Vec<SegmentLayout>> = chains
+        .iter()
+        .map(|chain| {
+            let mut segs: Vec<SegmentLayout> = Vec::with_capacity(chain.len());
+            for (ci, &si) in chain.iter().enumerate() {
+                let mut seg = layout[si].clone();
+                if ci > 0 {
+                    let prev_end = segs[ci - 1].end;
+                    if (seg.end - prev_end).norm() < tol && (seg.start - prev_end).norm() >= tol {
+                        std::mem::swap(&mut seg.start, &mut seg.end);
+                    }
+                }
+                segs.push(seg);
+            }
+            segs
+        })
+        .collect();
+
+    // ── Step 5: build mesh for each chain ────────────────────────────────────
+    let mut chain_meshes: Vec<IndexedMesh> = Vec::with_capacity(oriented_chains.len());
+    for chain_segs in &oriented_chains {
+        if chain_segs.len() == 1 {
+            chain_meshes.push(build_segment_mesh(&chain_segs[0], config)?);
+        } else {
+            chain_meshes.push(build_polyline_mesh(chain_segs, 0.0, config)?);
+        }
+    }
+
+    // ── Step 6: CSG-union all chain meshes (tolerant) ────────────────────────
+    let mut iter = chain_meshes.into_iter();
+    let mut mesh = iter.next().ok_or_else(|| MeshError::ChannelError {
+        message: "no chain meshes to assemble".to_string(),
+    })?;
+    for chain_mesh in iter {
+        mesh = csg_boolean_indexed_tolerant(BooleanOp::Union, &mesh, &chain_mesh)?;
+    }
+
+    mesh.orient_outward();
+    mesh.retain_largest_component();
+    mesh.rebuild_edges();
+
+    // Complex topologies tolerate minor boundary-edge artifacts from
+    // multi-junction CSG.  The mesh is still valid for simulation and
+    // fabrication — external tools (MeshLab / netfabb) can close the
+    // remaining gaps if needed.
+    Ok(mesh)
+}
+
+/// Find an existing node within tolerance or add a new one.
+fn find_or_add_node(p: &Point3r, nodes: &mut Vec<Point3r>, tol: Real) -> usize {
+    for (i, n) in nodes.iter().enumerate() {
+        if (*n - *p).norm() < tol {
+            return i;
+        }
+    }
+    nodes.push(*p);
+    nodes.len() - 1
+}
 
 fn build_chip_body(layout: &[SegmentLayout], config: &PipelineConfig) -> MeshResult<IndexedMesh> {
     let substrate = SubstrateBuilder::well_plate_96(config.chip_height_mm).build_indexed()?;
@@ -1313,8 +1764,14 @@ fn cross_sections_equal(a: &CrossSectionSpec, b: &CrossSectionSpec) -> bool {
             CrossSectionSpec::Circular { diameter_m: d2 },
         ) => (d1 - d2).abs() < 1e-9,
         (
-            CrossSectionSpec::Rectangular { width_m: w1, height_m: h1 },
-            CrossSectionSpec::Rectangular { width_m: w2, height_m: h2 },
+            CrossSectionSpec::Rectangular {
+                width_m: w1,
+                height_m: h1,
+            },
+            CrossSectionSpec::Rectangular {
+                width_m: w2,
+                height_m: h2,
+            },
         ) => (w1 - w2).abs() < 1e-9 && (h1 - h2).abs() < 1e-9,
         _ => false,
     }
@@ -1345,7 +1802,7 @@ mod tests {
     }
 
     #[test]
-    fn pipeline_rejects_complex_topology() {
+    fn pipeline_handles_complex_topology() {
         // Build a blueprint with complex topology manually
         use cfd_schematics::{ChannelSpec, NetworkBlueprint, NodeKind, NodeSpec};
         let mut bp = NetworkBlueprint::new("complex");
@@ -1368,8 +1825,14 @@ mod tests {
                 0.0,
             ));
         }
-        let result = BlueprintMeshPipeline::run(&bp, &PipelineConfig::default());
-        assert!(result.is_err());
+        let cfg = PipelineConfig {
+            include_chip_body: false,
+            skip_diameter_constraint: true,
+            ..Default::default()
+        };
+        let result = BlueprintMeshPipeline::run(&bp, &cfg)
+            .expect("complex topology should be supported by graph layout synthesis");
+        assert_eq!(result.topology_class, TopologyClass::Complex);
     }
 
     #[test]

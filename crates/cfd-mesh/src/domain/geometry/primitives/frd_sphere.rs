@@ -44,16 +44,26 @@ pub struct FrdSphere {
 
 impl Default for FrdSphere {
     fn default() -> Self {
-        Self { radius: 5.0, period: 2.5, resolution: 64, iso_value: 0.0 }
+        Self {
+            radius: 5.0,
+            period: 2.5,
+            resolution: 64,
+            iso_value: 0.0,
+        }
     }
 }
 
 impl PrimitiveMesh for FrdSphere {
     fn build(&self) -> Result<IndexedMesh, PrimitiveError> {
-        build_tpms_sphere(&Frd, &TpmsParams {
-            radius: self.radius, period: self.period,
-            resolution: self.resolution, iso_value: self.iso_value,
-        })
+        build_tpms_sphere(
+            &Frd,
+            &TpmsParams {
+                radius: self.radius,
+                period: self.period,
+                resolution: self.resolution,
+                iso_value: self.iso_value,
+            },
+        )
     }
 }
 
@@ -63,18 +73,32 @@ mod tests {
 
     #[test]
     fn frd_sphere_builds_with_faces() {
-        let mesh = FrdSphere { resolution: 20, ..FrdSphere::default() }
-            .build().expect("FRD sphere");
+        let mesh = FrdSphere {
+            resolution: 20,
+            ..FrdSphere::default()
+        }
+        .build()
+        .expect("FRD sphere");
         assert!(mesh.faces.len() > 0);
     }
 
     #[test]
     fn frd_sphere_invalid_radius_errors() {
-        assert!(FrdSphere { radius: 0.0, ..FrdSphere::default() }.build().is_err());
+        assert!(FrdSphere {
+            radius: 0.0,
+            ..FrdSphere::default()
+        }
+        .build()
+        .is_err());
     }
 
     #[test]
     fn frd_sphere_low_resolution_errors() {
-        assert!(FrdSphere { resolution: 2, ..FrdSphere::default() }.build().is_err());
+        assert!(FrdSphere {
+            resolution: 2,
+            ..FrdSphere::default()
+        }
+        .build()
+        .is_err());
     }
 }

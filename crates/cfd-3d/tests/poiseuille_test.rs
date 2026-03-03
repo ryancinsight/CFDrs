@@ -40,6 +40,7 @@ fn solve_poiseuille(u_avg: f64, resolution: (usize, usize)) -> VenturiSolution3D
         circular: true,
         max_nonlinear_iterations: 20,
         nonlinear_tolerance: 1e-5,
+        rect_height: None,
     };
 
     let solver = VenturiSolver3D::new(builder, config);

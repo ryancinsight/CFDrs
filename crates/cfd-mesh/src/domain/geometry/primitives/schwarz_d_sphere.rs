@@ -85,11 +85,21 @@ mod tests {
 
     #[test]
     fn schwarz_d_sphere_invalid_radius_errors() {
-        assert!(SchwarzDSphere { radius: -5.0, ..SchwarzDSphere::default() }.build().is_err());
+        assert!(SchwarzDSphere {
+            radius: -5.0,
+            ..SchwarzDSphere::default()
+        }
+        .build()
+        .is_err());
     }
 
     #[test]
     fn schwarz_d_sphere_invalid_period_errors() {
-        assert!(SchwarzDSphere { period: -1.0, ..SchwarzDSphere::default() }.build().is_err());
+        assert!(SchwarzDSphere {
+            period: -1.0,
+            ..SchwarzDSphere::default()
+        }
+        .build()
+        .is_err());
     }
 }

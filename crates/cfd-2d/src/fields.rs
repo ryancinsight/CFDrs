@@ -26,7 +26,7 @@ pub mod constants {
     /// Default Reynolds number for laminar flow
     #[must_use]
     pub fn default_reynolds<T: RealField + FromPrimitive>() -> T {
-        T::from_f64(100.0).unwrap_or_else(|| T::from_i32(100).unwrap())
+        T::from_f64(100.0).unwrap_or_else(|| T::from_i32(100).unwrap_or_else(num_traits::Zero::zero))
     }
 
     /// Minimum allowed time step for stability

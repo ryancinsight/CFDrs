@@ -36,7 +36,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("  Surface    : Lidinoid (Lidin & Larsson 1990)");
     println!("  Space group: I4₁32 (#214), genus 3, chiral");
     println!("  Radius     : {} mm", builder.radius);
-    println!("  Period     : {} mm  (lattice unit-cell size)", builder.period);
+    println!(
+        "  Period     : {} mm  (lattice unit-cell size)",
+        builder.period
+    );
     println!("  Resolution : {}  (voxels per axis)", builder.resolution);
     println!("  Building mesh...");
 

@@ -20,4 +20,4 @@ mod sdt_metrics;
 mod separation;
 
 pub use compute::{compute_metrics, giersiepen_hi};
-pub use sdt_metrics::SdtMetrics;
+pub use sdt_metrics::{ChannelHemolysis, SdtMetrics};

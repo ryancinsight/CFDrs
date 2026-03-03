@@ -67,7 +67,7 @@ impl<T: RealField + Copy + Float + FromPrimitive> SerpentineSolver2D<T> {
             diffusion_coeff,
             c_left,
             c_right,
-            T::from_f64(1e-5).unwrap(),
+            T::from_f64(1e-5).unwrap_or_else(num_traits::Zero::zero),
         )
     }
 
@@ -144,7 +144,7 @@ impl<T: RealField + Copy + Float + FromPrimitive> SerpentineSolver2D<T> {
             let var_inlet = half_sq(c_left - c_right);
             mixing_frac = T::one()
                 - Float::sqrt(
-                    variance / num_traits::Float::max(var_inlet, T::from_f64(1e-10).unwrap()),
+                    variance / num_traits::Float::max(var_inlet, T::from_f64(1e-10).unwrap_or_else(num_traits::Zero::zero)),
                 );
         }
 
@@ -184,7 +184,7 @@ impl<T: RealField + Copy + Float + FromPrimitive> SerpentineSolver2D<T> {
 }
 
 fn half_sq<T: RealField + Copy + FromPrimitive>(val: T) -> T {
-    let half = T::from_f64(0.5).unwrap();
+    let half = T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero);
     (val * half) * (val * half)
 }
 

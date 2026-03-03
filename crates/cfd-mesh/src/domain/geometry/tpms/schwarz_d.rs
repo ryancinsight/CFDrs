@@ -13,8 +13,8 @@
 //! (Diamond) surface, which features tetrahedral symmetry and an extremely
 //! high surface area density.
 
-use crate::domain::core::scalar::Vector3r;
 use super::Tpms;
+use crate::domain::core::scalar::Vector3r;
 
 /// Schwarz D (Diamond) TPMS — Schwarz (1890).
 ///

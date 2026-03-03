@@ -54,10 +54,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // Skip designs without a venturi throat.
         if !c.topology.has_venturi() {
-            println!(
-                "{:>4}  {:<42}  (no venturi — skipped)",
-                design.rank, c.id
-            );
+            println!("{:>4}  {:<42}  (no venturi — skipped)", design.rank, c.id);
             continue;
         }
 
@@ -93,7 +90,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Adaptive grid: stretch y-cells toward centre to resolve throat.
         let cr = c.inlet_diameter_m / c.throat_diameter_m.max(1e-12);
         let ny_2d = (4.0 * cr).round().clamp(40.0, 200.0) as usize;
-        let beta_2d = (1.0 - 4.0 * c.throat_diameter_m / c.inlet_diameter_m.max(1e-12)).clamp(0.0, 0.9);
+        let beta_2d =
+            (1.0 - 4.0 * c.throat_diameter_m / c.inlet_diameter_m.max(1e-12)).clamp(0.0, 0.9);
         let mut solver = VenturiSolver2D::new_stretched(geom, blood, RHO, 60, ny_2d, beta_2d);
 
         // Inlet velocity for the 2D solver uses the rectangular cross-section.
@@ -103,10 +101,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let sol = match solver.solve(u_inlet_2d) {
             Ok(s) => s,
             Err(e) => {
-                println!(
-                    "{:>4}  {:<42}  2D solve failed: {}",
-                    design.rank, c.id, e
-                );
+                println!("{:>4}  {:<42}  2D solve failed: {}", design.rank, c.id, e);
                 continue;
             }
         };
@@ -137,7 +132,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         validated += 1;
     }
 
-    println!("\n{validated} / {} designs validated against 2D solver.", top5.len());
+    println!(
+        "\n{validated} / {} designs validated against 2D solver.",
+        top5.len()
+    );
 
     Ok(())
 }

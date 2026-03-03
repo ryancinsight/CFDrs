@@ -1,12 +1,13 @@
 [profile.default]
-# Fail any individual test that exceeds five minutes of wall time.
-test-timeout = "30s"
-
-# Flag tests as slow if they exceed 60s and abort after 3 such intervals.
-slow-timeout = { period = "10s", terminate-after = 3 }
+# Per-test timeout budget (nextest 0.9): terminate after 2 × 15s = 30s.
+slow-timeout = { period = "15s", terminate-after = 2 }
 
 # Surface output immediately on failure to aid debugging hung tests.
 failure-output = "immediate"
 
 # Emit status updates for passing/slow tests to see progress in long suites.
 status-level = "all"
+
+[[profile.default.overrides]]
+filter = "test(=application::csg::arrangement::tests::v_shape_right_branch_64x32_is_watertight)"
+slow-timeout = { period = "10s", terminate-after = 2 }

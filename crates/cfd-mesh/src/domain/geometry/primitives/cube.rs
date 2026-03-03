@@ -36,7 +36,7 @@ pub struct Cube {
 
 impl Cube {
     /// Unit cube `[0, 1]³` at the origin.
-    #[must_use] 
+    #[must_use]
     pub fn unit() -> Self {
         Self {
             origin: Point3r::origin(),
@@ -47,7 +47,7 @@ impl Cube {
     }
 
     /// Cube of side `s` centred at the origin.
-    #[must_use] 
+    #[must_use]
     pub fn centred(s: f64) -> Self {
         let h = s / 2.0;
         Self {

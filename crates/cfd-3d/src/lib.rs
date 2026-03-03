@@ -118,6 +118,8 @@
 #![allow(clippy::duplicated_attributes)]
 
 pub mod bifurcation;
+/// Multi-stage cascade 3D FEM solver for CIF networks.
+pub mod cascade;
 pub mod fem;
 pub mod ibm;
 pub mod level_set;

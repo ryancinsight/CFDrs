@@ -44,7 +44,7 @@ impl<T: nalgebra::RealField + Copy> MultigridSmoother<T> for GaussSeidelSmoother
                     }
                 }
 
-                if diag.abs() > T::from_f64(1e-15).unwrap() {
+                if diag.abs() > T::from_f64(1e-15).unwrap_or_else(num_traits::Zero::zero) {
                     let new_value = (b[i] - sum) / diag;
                     x[i] = x[i] + self.relaxation_factor * (new_value - x[i]);
                 }
@@ -102,7 +102,7 @@ impl<T: nalgebra::RealField + Copy> MultigridSmoother<T> for SymmetricGaussSeide
                     }
                 }
 
-                if diag.abs() > T::from_f64(1e-15).unwrap() {
+                if diag.abs() > T::from_f64(1e-15).unwrap_or_else(num_traits::Zero::zero) {
                     let new_value = (b[i] - sum) / diag;
                     x[i] = x[i] + self.relaxation_factor * (new_value - x[i]);
                 }
@@ -157,7 +157,7 @@ impl<T: nalgebra::RealField + Copy> MultigridSmoother<T> for JacobiSmoother<T> {
                     }
                 }
 
-                if diag.abs() > T::from_f64(1e-15).unwrap() {
+                if diag.abs() > T::from_f64(1e-15).unwrap_or_else(num_traits::Zero::zero) {
                     let new_value = (b[i] - sum) / diag;
                     x[i] = x_old[i] + self.relaxation_factor * (new_value - x_old[i]);
                 }
@@ -210,7 +210,7 @@ impl<T: nalgebra::RealField + Copy> MultigridSmoother<T> for SORSmoother<T> {
                     }
                 }
 
-                if diag.abs() > T::from_f64(1e-15).unwrap() {
+                if diag.abs() > T::from_f64(1e-15).unwrap_or_else(num_traits::Zero::zero) {
                     let new_value = (b[i] - sum) / diag;
                     x[i] = x[i] + self.relaxation_factor * (new_value - x[i]);
                 }
@@ -243,7 +243,7 @@ impl<T: nalgebra::RealField + Copy> ChebyshevSmoother<T> {
 
     /// Estimate eigenvalue bounds using Gershgorin circle theorem
     pub fn estimate_eigenvalues(matrix: &SparseMatrix<T>) -> (T, T) {
-        let mut min_eigen = T::from_f64(1e6).unwrap();
+        let mut min_eigen = T::from_f64(1e6).unwrap_or_else(num_traits::Zero::zero);
         let mut max_eigen = T::zero();
 
         let offsets = matrix.row_offsets();
@@ -269,7 +269,7 @@ impl<T: nalgebra::RealField + Copy> ChebyshevSmoother<T> {
             let lower = if diag > row_sum {
                 diag - row_sum
             } else {
-                T::from_f64(0.1).unwrap()
+                T::from_f64(0.1).unwrap_or_else(num_traits::Zero::zero)
             };
             let upper = diag + row_sum;
 
@@ -278,8 +278,8 @@ impl<T: nalgebra::RealField + Copy> ChebyshevSmoother<T> {
         }
 
         (
-            min_eigen.max(T::from_f64(0.1).unwrap()),
-            max_eigen.max(T::from_f64(1.0).unwrap()),
+            min_eigen.max(T::from_f64(0.1).unwrap_or_else(num_traits::Zero::zero)),
+            max_eigen.max(T::from_f64(1.0).unwrap_or_else(num_traits::Zero::zero)),
         )
     }
 }
@@ -292,9 +292,9 @@ impl<T: nalgebra::RealField + Copy> MultigridSmoother<T> for ChebyshevSmoother<T
         b: &DVector<T>,
         iterations: usize,
     ) {
-        let theta = (self.eigenvalues_max + self.eigenvalues_min) / (T::from_f64(2.0).unwrap());
-        let delta = (self.eigenvalues_max - self.eigenvalues_min) / (T::from_f64(2.0).unwrap());
-        let sigma = if delta.abs() < T::from_f64(1e-10).unwrap() {
+        let theta = (self.eigenvalues_max + self.eigenvalues_min) / (T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero));
+        let delta = (self.eigenvalues_max - self.eigenvalues_min) / (T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero));
+        let sigma = if delta.abs() < T::from_f64(1e-10).unwrap_or_else(num_traits::Zero::zero) {
             T::zero()
         } else {
             theta / delta
@@ -303,16 +303,16 @@ impl<T: nalgebra::RealField + Copy> MultigridSmoother<T> for ChebyshevSmoother<T
         let rho_old = if sigma == T::zero() {
             T::zero()
         } else {
-            T::from_f64(1.0).unwrap() / sigma
+            T::from_f64(1.0).unwrap_or_else(num_traits::Zero::zero) / sigma
         };
 
         // Compute initial residual
         let mut r = b - matrix * &*x;
 
         let alpha = if sigma == T::zero() {
-            T::from_f64(1.0).unwrap() / self.eigenvalues_max
+            T::from_f64(1.0).unwrap_or_else(num_traits::Zero::zero) / self.eigenvalues_max
         } else {
-            let rho_new = T::from_f64(1.0).unwrap() / (T::from_f64(2.0).unwrap() * sigma - rho_old);
+            let rho_new = T::from_f64(1.0).unwrap_or_else(num_traits::Zero::zero) / (T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero) * sigma - rho_old);
             rho_new / rho_old
         };
 
@@ -331,7 +331,7 @@ impl<T: nalgebra::RealField + Copy> MultigridSmoother<T> for ChebyshevSmoother<T
                     }
                 }
 
-                if diag.abs() > T::from_f64(1e-15).unwrap() {
+                if diag.abs() > T::from_f64(1e-15).unwrap_or_else(num_traits::Zero::zero) {
                     x[i] += alpha * r[i] / diag;
                 }
             }

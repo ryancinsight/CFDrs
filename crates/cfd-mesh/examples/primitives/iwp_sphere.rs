@@ -36,7 +36,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("  Surface    : I-WP (Schoen 1970 — I-graph Wrapped Package)");
     println!("  Space group: Im3̄m (#229), genus 4, BCC topology");
     println!("  Radius     : {} mm", builder.radius);
-    println!("  Period     : {} mm  (lattice unit-cell size)", builder.period);
+    println!(
+        "  Period     : {} mm  (lattice unit-cell size)",
+        builder.period
+    );
     println!("  Resolution : {}  (voxels per axis)", builder.resolution);
     println!("  Building mesh...");
 

@@ -26,7 +26,7 @@ pub enum Sign {
 impl Sign {
     /// Convert the exact expansion floating-point result into a strict sign.
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub fn from_exact_f64(v: f64) -> Self {
         if v > 0.0 {
             Sign::Positive
@@ -39,21 +39,21 @@ impl Sign {
 
     /// Returns `true` if the sign is positive (counter-clockwise).
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub fn is_positive(self) -> bool {
         self == Sign::Positive
     }
 
     /// Returns `true` if the sign is negative (clockwise).
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub fn is_negative(self) -> bool {
         self == Sign::Negative
     }
 
     /// Returns `true` if the sign is zero (collinear/coplanar).
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub fn is_zero(self) -> bool {
         self == Sign::Zero
     }
@@ -66,7 +66,7 @@ impl Sign {
 ///
 /// This evaluation is mathematically exact and immune to floating-point epsilon noise.
 #[inline]
-#[must_use] 
+#[must_use]
 pub fn orient3d(a: &Point3r, b: &Point3r, c: &Point3r, d: &Point3r) -> Sign {
     let pa = [a.x, a.y, a.z];
     let pb = [b.x, b.y, b.z];
@@ -82,7 +82,7 @@ pub fn orient3d(a: &Point3r, b: &Point3r, c: &Point3r, d: &Point3r) -> Sign {
 /// Returns whether the point `c` lies strictly left, strictly right, or perfectly
 /// collinear with the directed line from `a` to `b` in the 2D plane (X-Y).
 #[inline]
-#[must_use] 
+#[must_use]
 pub fn orient2d(a: &Point3r, b: &Point3r, c: &Point3r) -> Sign {
     let pa = [a.x, a.y];
     let pb = [b.x, b.y];
@@ -94,7 +94,7 @@ pub fn orient2d(a: &Point3r, b: &Point3r, c: &Point3r) -> Sign {
 
 /// Exact incircle predicate in 2D.
 #[inline]
-#[must_use] 
+#[must_use]
 pub fn incircle2d(a: &Point3r, b: &Point3r, c: &Point3r, d: &Point3r) -> Sign {
     let pa = [a.x, a.y];
     let pb = [b.x, b.y];
@@ -107,7 +107,7 @@ pub fn incircle2d(a: &Point3r, b: &Point3r, c: &Point3r, d: &Point3r) -> Sign {
 
 /// Exact insphere predicate in 3D.
 #[inline]
-#[must_use] 
+#[must_use]
 pub fn insphere3d(a: &Point3r, b: &Point3r, c: &Point3r, d: &Point3r, e: &Point3r) -> Sign {
     let pa = [a.x, a.y, a.z];
     let pb = [b.x, b.y, b.z];

@@ -88,11 +88,11 @@ impl<T: RealField + Copy> ConstantPropertyFluid<T> {
     {
         let fluid = Self::new(
             "Water (20°C)".to_string(),
-            T::from_f64(998.2).unwrap(),     // density [kg/m³]
-            T::from_f64(0.001_002).unwrap(), // viscosity [Pa·s]
-            T::from_f64(4186.0).unwrap(),    // specific heat [J/(kg·K)]
-            T::from_f64(0.599).unwrap(),     // thermal conductivity [W/(m·K)]
-            T::from_f64(1482.0).unwrap(),    // speed of sound [m/s]
+            T::from_f64(998.2).unwrap_or_else(num_traits::Zero::zero),     // density [kg/m³]
+            T::from_f64(0.001_002).unwrap_or_else(num_traits::Zero::zero), // viscosity [Pa·s]
+            T::from_f64(4186.0).unwrap_or_else(num_traits::Zero::zero),    // specific heat [J/(kg·K)]
+            T::from_f64(0.599).unwrap_or_else(num_traits::Zero::zero),     // thermal conductivity [W/(m·K)]
+            T::from_f64(1482.0).unwrap_or_else(num_traits::Zero::zero),    // speed of sound [m/s]
         );
         fluid.validate()?;
         Ok(fluid)
@@ -109,11 +109,11 @@ impl<T: RealField + Copy> ConstantPropertyFluid<T> {
     {
         let fluid = Self::new(
             "Air (20°C)".to_string(),
-            T::from_f64(1.204).unwrap(),    // density [kg/m³]
-            T::from_f64(1.825e-5).unwrap(), // viscosity [Pa·s]
-            T::from_f64(1005.0).unwrap(),   // specific heat [J/(kg·K)]
-            T::from_f64(0.02538).unwrap(),  // thermal conductivity [W/(m·K)]
-            T::from_f64(343.2).unwrap(),    // speed of sound [m/s]
+            T::from_f64(1.204).unwrap_or_else(num_traits::Zero::zero),    // density [kg/m³]
+            T::from_f64(1.825e-5).unwrap_or_else(num_traits::Zero::zero), // viscosity [Pa·s]
+            T::from_f64(1005.0).unwrap_or_else(num_traits::Zero::zero),   // specific heat [J/(kg·K)]
+            T::from_f64(0.02538).unwrap_or_else(num_traits::Zero::zero),  // thermal conductivity [W/(m·K)]
+            T::from_f64(343.2).unwrap_or_else(num_traits::Zero::zero),    // speed of sound [m/s]
         );
         fluid.validate()?;
         Ok(fluid)

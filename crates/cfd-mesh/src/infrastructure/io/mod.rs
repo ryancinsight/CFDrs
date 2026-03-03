@@ -22,5 +22,4 @@ pub mod three_mf;
 #[cfg(feature = "vtk-io")]
 pub mod vtk;
 
-#[cfg(feature = "scheme-io")]
 pub mod scheme;

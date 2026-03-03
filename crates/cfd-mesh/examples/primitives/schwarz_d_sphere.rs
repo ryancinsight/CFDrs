@@ -30,7 +30,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     println!("  Radius     : {} mm", builder.radius);
-    println!("  Period     : {} mm  (lattice unit-cell size)", builder.period);
+    println!(
+        "  Period     : {} mm  (lattice unit-cell size)",
+        builder.period
+    );
     println!("  Resolution : {}  (voxels per axis)", builder.resolution);
     println!("  Building mesh...");
 

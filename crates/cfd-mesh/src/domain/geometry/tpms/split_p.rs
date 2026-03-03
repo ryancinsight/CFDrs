@@ -59,8 +59,8 @@
 //! - Fogden, A. & Hyde, S.T. (1992). *Acta Cryst.* A48, 575–591.
 //! - Schoen, A.H. (1970). *NASA Tech. Rep.* CR-1012, Table 1.
 
-use crate::domain::core::scalar::Vector3r;
 use super::Tpms;
+use crate::domain::core::scalar::Vector3r;
 
 /// Split P TPMS — Fogden & Hyde (1992) tetragonal Bonnet-family minimal surface.
 ///

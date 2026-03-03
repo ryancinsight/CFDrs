@@ -73,7 +73,11 @@ pub(crate) fn point_in_mesh(query: &Point3r, faces: &[FaceData], pool: &VertexPo
 ///    centre of the inner AABB as the sample point.  The AABB centre of a
 ///    convex mesh is strictly interior, so it never lies on a face plane of
 ///    the enclosing mesh.
-pub(crate) fn containment(faces_a: &[FaceData], faces_b: &[FaceData], pool: &VertexPool) -> Containment {
+pub(crate) fn containment(
+    faces_a: &[FaceData],
+    faces_b: &[FaceData],
+    pool: &VertexPool,
+) -> Containment {
     use crate::domain::geometry::aabb::Aabb;
 
     let aabb_of = |faces: &[FaceData]| -> Option<Aabb> {

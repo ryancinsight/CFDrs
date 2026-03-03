@@ -37,15 +37,15 @@ use num_traits::FromPrimitive;
 pub fn bessel_j0<T: RealField + FromPrimitive + Copy>(z: Complex<T>) -> Complex<T> {
     let mut sum = Complex::new(T::one(), T::zero());
     let mut term = Complex::new(T::one(), T::zero());
-    let z_half = z / T::from_f64(2.0).unwrap();
+    let z_half = z / T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
     let z_half_sq = z_half * z_half;
 
     let mut m = 1_u32;
     let max_iter = 150_u32; // Guaranteed convergence for |z| < 30
-    let tolerance = T::from_f64(1e-15).unwrap();
+    let tolerance = T::from_f64(1e-15).unwrap_or_else(num_traits::Zero::zero);
 
     while m < max_iter {
-        let m_t = T::from_u32(m).unwrap();
+        let m_t = T::from_u32(m).unwrap_or_else(num_traits::Zero::zero);
         // term(m) = term(m-1) * (-z^2 / 4) / m^2
         term = term * (-z_half_sq) / (m_t * m_t);
         sum += term;
@@ -63,18 +63,18 @@ pub fn bessel_j0<T: RealField + FromPrimitive + Copy>(z: Complex<T>) -> Complex<
 /// Evaluates the exact infinite series:
 /// $J_1(z) = \sum_{m=0}^\infty \frac{(-1)^m}{m!(m+1)!} \left(\frac{z}{2}\right)^{2m+1}$
 pub fn bessel_j1<T: RealField + FromPrimitive + Copy>(z: Complex<T>) -> Complex<T> {
-    let z_half = z / T::from_f64(2.0).unwrap();
+    let z_half = z / T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
     let mut sum = z_half;
     let mut term = z_half;
     let z_half_sq = z_half * z_half;
 
     let mut m = 1_u32;
     let max_iter = 150_u32;
-    let tolerance = T::from_f64(1e-15).unwrap();
+    let tolerance = T::from_f64(1e-15).unwrap_or_else(num_traits::Zero::zero);
 
     while m < max_iter {
-        let m_t = T::from_u32(m).unwrap();
-        let m_plus_1 = T::from_u32(m + 1).unwrap();
+        let m_t = T::from_u32(m).unwrap_or_else(num_traits::Zero::zero);
+        let m_plus_1 = T::from_u32(m + 1).unwrap_or_else(num_traits::Zero::zero);
         // term(m) = term(m-1) * (-z^2 / 4) / (m * (m+1))
         term = term * (-z_half_sq) / (m_t * m_plus_1);
         sum += term;

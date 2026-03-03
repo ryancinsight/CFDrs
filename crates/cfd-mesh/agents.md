@@ -9,7 +9,7 @@
 ## Verified Audit Snapshot (2026-02-26)
 
 - Verified against `Cargo.toml`, `src/lib.rs`, and the top-level `src/` tree.
-- Cargo features: `csg`, `default`, `millifluidic`, `parallel`, `scheme-io`, `stl-io`, `vtk-io`.
+- Cargo features: `csg`, `default`, `millifluidic`, `parallel`, `scheme-io` (compatibility no-op), `stl-io`, `vtk-io`.
 - `src/lib.rs` public modules: `application`, `domain`, `infrastructure`.
 - Top-level `src/` entries: `application/`, `bin/`, `domain/`, `infrastructure/`, `lib.rs`.
 - Current public surface includes `IndexedMesh`, `MeshBuilder`, patch types (`BoundaryPatch`, `PatchType`), geometry re-exports, channel builders, and quality analysis helpers.
@@ -33,7 +33,8 @@ src/
 - `csg`: Enables Boolean / CSG operations and related examples.
 - `millifluidic`: Enables millifluidic-specific builders/pipelines.
 - `parallel`: Enables rayon-backed parallel mesh operations.
-- `stl-io`, `vtk-io`, `scheme-io`: Format-specific I/O paths.
+- `stl-io`, `vtk-io`: Format-specific I/O paths.
+- `scheme-io`: compatibility no-op; scheme bridge is always compiled.
 - `default`: Current crate default feature set (verify in `Cargo.toml` before changing).
 
 ## Rewrite Architecture Notes (Historical Proposal Context)
@@ -590,7 +591,7 @@ Implementation in watertight/check.rs:
 | STL binary | read + write | preferred for large meshes |
 | VTK legacy ASCII | write | VTK_TRIANGLE cells |
 | OpenFOAM polyMesh | write | maps `PatchType` → OF patch type strings |
-| cfd-schematics JSON | read | feature `scheme-io` |
+| cfd-schematics JSON | read | always available (`scheme-io` retained as compatibility no-op) |
 
 OpenFOAM patch type mapping:
 ```

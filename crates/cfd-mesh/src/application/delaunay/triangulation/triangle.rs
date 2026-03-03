@@ -27,28 +27,28 @@ pub struct TriangleId(pub u32);
 impl TriangleId {
     /// Create from raw `u32`.
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub fn new(raw: u32) -> Self {
         Self(raw)
     }
 
     /// Create from `usize`.
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub fn from_usize(n: usize) -> Self {
         Self(n as u32)
     }
 
     /// Raw index.
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub fn raw(self) -> u32 {
         self.0
     }
 
     /// As `usize`.
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub fn idx(self) -> usize {
         self.0 as usize
     }
@@ -95,7 +95,7 @@ pub struct Triangle {
 
 impl Triangle {
     /// Create a new triangle with the given vertices and no adjacency.
-    #[must_use] 
+    #[must_use]
     pub fn new(v0: PslgVertexId, v1: PslgVertexId, v2: PslgVertexId) -> Self {
         Self {
             vertices: [v0, v1, v2],
@@ -109,14 +109,14 @@ impl Triangle {
     ///
     /// Returns `None` if `v` is not a vertex of this triangle.
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub fn opposite_edge(&self, v: PslgVertexId) -> Option<usize> {
         self.vertices.iter().position(|&vi| vi == v)
     }
 
     /// Return the two vertices of edge `i` (the edge opposite `vertices[i]`).
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub fn edge_vertices(&self, edge: usize) -> (PslgVertexId, PslgVertexId) {
         let a = self.vertices[(edge + 1) % 3];
         let b = self.vertices[(edge + 2) % 3];
@@ -125,21 +125,21 @@ impl Triangle {
 
     /// Check if this triangle contains vertex `v`.
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub fn contains_vertex(&self, v: PslgVertexId) -> bool {
         self.vertices.contains(&v)
     }
 
     /// Return the local index (0, 1, 2) of vertex `v`, or `None`.
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub fn vertex_index(&self, v: PslgVertexId) -> Option<usize> {
         self.vertices.iter().position(|&vi| vi == v)
     }
 
     /// Return the edge index shared with triangle `other_tid`.
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub fn shared_edge(&self, other_tid: TriangleId) -> Option<usize> {
         self.adj.iter().position(|&a| a == other_tid)
     }

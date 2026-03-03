@@ -118,11 +118,11 @@ where
 
                     // QUICK scheme: 6φ_i - 2φ_{i-1} + 8φ_{i+1} - φ_{i+2}) / 12
                     // But with limiter applied to maintain monotonicity
-                    let quick = (T::from_f64(6.0).unwrap() * phi_i
-                        - T::from_f64(2.0).unwrap() * phi_im1
-                        + T::from_f64(8.0).unwrap() * phi_ip1
+                    let quick = (T::from_f64(6.0).unwrap_or_else(num_traits::Zero::zero) * phi_i
+                        - T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero) * phi_im1
+                        + T::from_f64(8.0).unwrap_or_else(num_traits::Zero::zero) * phi_ip1
                         - phi_ip2)
-                        / T::from_f64(12.0).unwrap();
+                        / T::from_f64(12.0).unwrap_or_else(num_traits::Zero::zero);
 
                     // Blend QUICK with MUSCL2 based on limiter
                     let muscl2 = phi_i + slope1 / (T::one() + T::one());
@@ -158,11 +158,11 @@ where
                     let slope2 = self.limited_slope(phi_i, phi_ip1, phi_ip2);
 
                     // Symmetric QUICK for right interface
-                    let quick = (T::from_f64(6.0).unwrap() * phi_ip1
-                               - T::from_f64(2.0).unwrap() * phi_i
-                               + T::from_f64(8.0).unwrap() * phi_ip2
+                    let quick = (T::from_f64(6.0).unwrap_or_else(num_traits::Zero::zero) * phi_ip1
+                               - T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero) * phi_i
+                               + T::from_f64(8.0).unwrap_or_else(num_traits::Zero::zero) * phi_ip2
                                - phi_ip2) // This is approximate, full QUICK would need more points
-                              / T::from_f64(12.0).unwrap();
+                              / T::from_f64(12.0).unwrap_or_else(num_traits::Zero::zero);
 
                     // Blend with MUSCL2
                     let muscl2 = phi_i - slope1 / (T::one() + T::one());

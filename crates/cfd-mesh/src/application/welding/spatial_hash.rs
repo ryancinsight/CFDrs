@@ -21,7 +21,7 @@ pub struct GridCell {
 impl GridCell {
     /// Quantize a point to a grid cell.
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub fn from_point(p: &Point3r, inv_cell_size: Real) -> Self {
         Self {
             x: (p.x * inv_cell_size).floor() as i64,
@@ -56,7 +56,7 @@ impl SpatialHashGrid {
     /// Create a new spatial hash grid.
     ///
     /// `cell_size` should be roughly the search radius for typical queries.
-    #[must_use] 
+    #[must_use]
     pub fn new(cell_size: Real) -> Self {
         assert!(cell_size > 0.0, "cell_size must be positive");
         Self {
@@ -77,7 +77,7 @@ impl SpatialHashGrid {
     /// Query: find all indices within `radius` of `point`.
     ///
     /// Searches the 3×3×3 neighborhood and filters by actual distance.
-    #[must_use] 
+    #[must_use]
     pub fn query_radius(&self, point: &Point3r, radius: Real, positions: &[Point3r]) -> Vec<u32> {
         let cell = GridCell::from_point(point, self.inv_cell_size);
         let radius_sq = radius * radius;
@@ -98,7 +98,7 @@ impl SpatialHashGrid {
     }
 
     /// Find the nearest point within `radius`, if any.
-    #[must_use] 
+    #[must_use]
     pub fn query_nearest(
         &self,
         point: &Point3r,
@@ -113,10 +113,9 @@ impl SpatialHashGrid {
             if let Some(indices) = self.buckets.get(&neighbor) {
                 for &idx in indices {
                     let dist_sq = (positions[idx as usize] - point).norm_squared();
-                    if dist_sq <= radius_sq
-                        && best.is_none_or(|(_, d)| dist_sq < d) {
-                            best = Some((idx, dist_sq));
-                        }
+                    if dist_sq <= radius_sq && best.is_none_or(|(_, d)| dist_sq < d) {
+                        best = Some((idx, dist_sq));
+                    }
                 }
             }
         }

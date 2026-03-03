@@ -53,12 +53,14 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
                 let d_n = if j + 1 < ny {
                     mu_face * dx / self.grid.dy_face(j)
                 } else {
-                    mu_face * dx / dy_j
+                    // Half-cell distance to the north wall (no-slip).
+                    mu_face * dx / (dy_j * half)
                 };
                 let d_s = if j > 0 {
                     mu_face * dx / self.grid.dy_face(j - 1)
                 } else {
-                    mu_face * dx / dy_j
+                    // Half-cell distance to the south wall (no-slip).
+                    mu_face * dx / (dy_j * half)
                 };
 
                 let f_e = if i < nx {
@@ -120,12 +122,14 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
                 let u_n = if j + 1 < ny {
                     self.field.u[i][j + 1]
                 } else {
-                    self.field.u[i][j]
+                    // No-slip wall: u = 0 at the north boundary.
+                    zero
                 };
                 let u_s = if j >= 1 {
                     self.field.u[i][j - 1]
                 } else {
-                    self.field.u[i][j]
+                    // No-slip wall: u = 0 at the south boundary.
+                    zero
                 };
 
                 let is_fluid = if i > 0 && i < nx {

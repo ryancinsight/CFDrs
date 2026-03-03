@@ -67,7 +67,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> MomentumSolv
         // Momentum equations don't need extreme accuracy - they get corrected by pressure
         let config = IterativeSolverConfig {
             max_iterations: 2000, // Reduced for efficiency
-            tolerance: T::from_f64(5e-2).unwrap_or_else(|| T::from_f64(1e-3).unwrap()), // Very relaxed tolerance for SIMPLE
+            tolerance: T::from_f64(5e-2).unwrap_or_else(|| T::from_f64(1e-3).unwrap_or_else(num_traits::Zero::zero)), // Very relaxed tolerance for SIMPLE
             use_preconditioner: true,
             use_parallel_spmv: false,
         };

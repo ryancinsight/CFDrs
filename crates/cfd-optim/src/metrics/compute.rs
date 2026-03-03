@@ -19,6 +19,7 @@ use crate::design::{DesignCandidate, DesignTopology};
 use crate::error::OptimError;
 
 use super::network_solve::{solve_blueprint_network, ChannelSolveSample};
+use super::sdt_metrics::ChannelHemolysis;
 use super::separation::{
     leukapheresis_separation, three_population_separation, LeukapheresisMetrics, ThreePopMetrics,
 };
@@ -78,6 +79,7 @@ pub fn compute_metrics(candidate: &DesignCandidate) -> Result<SdtMetrics, OptimE
     let mut venturi_v_thr = 0.0_f64;
     let mut venturi_v_in = 0.0_f64;
     let mut diffuser_recovery_pa = 0.0_f64;
+    let mut per_channel_hi: Vec<ChannelHemolysis> = Vec::new();
 
     for sample in &solved.channel_samples {
         let q_abs = sample.flow_m3_s.abs();
@@ -100,6 +102,15 @@ pub fn compute_metrics(candidate: &DesignCandidate) -> Result<SdtMetrics, OptimE
 
         expected_path_len_m += weight * sample.length_m;
         bulk_hi += weight * hi_seg;
+
+        per_channel_hi.push(ChannelHemolysis {
+            channel_id: sample.id.clone(),
+            is_venturi_throat: sample.is_venturi_throat,
+            hi_contribution: weight * hi_seg,
+            wall_shear_pa: tau,
+            transit_time_s: t_seg,
+            flow_fraction: weight,
+        });
 
         if sample.is_venturi_throat {
             venturi_hi += weight * hi_seg;
@@ -414,12 +425,14 @@ pub fn compute_metrics(candidate: &DesignCandidate) -> Result<SdtMetrics, OptimE
                     h_main,
                 );
                 cct_stage_qfracs = std::iter::repeat_n(q_model, n_levels as usize).collect();
-                Some(cfd_1d::cell_separation::cascade_junction_separation_cross_junction(
-                    n_levels,
-                    candidate.trifurcation_center_frac,
-                    w_main,
-                    h_main,
-                ))
+                Some(
+                    cfd_1d::cell_separation::cascade_junction_separation_cross_junction(
+                        n_levels,
+                        candidate.trifurcation_center_frac,
+                        w_main,
+                        h_main,
+                    ),
+                )
             }
         } else {
             None
@@ -638,7 +651,38 @@ pub fn compute_metrics(candidate: &DesignCandidate) -> Result<SdtMetrics, OptimE
         if final_wbc_center_three_pop <= 0.0 {
             final_wbc_center_three_pop = wbc_center_frac;
         }
+
+        // Apply HCT correction to per-channel venturi entries.
+        for ch in &mut per_channel_hi {
+            if ch.is_venturi_throat {
+                ch.hi_contribution *= hi_correction;
+                ch.wall_shear_pa = local_tau;
+            }
+        }
     }
+
+    // ── Per-channel hemolysis summary ────────────────────────────────────────
+    let treatment_channel_hi: f64 = per_channel_hi
+        .iter()
+        .filter(|ch| ch.is_venturi_throat)
+        .map(|ch| ch.hi_contribution)
+        .sum();
+    let bypass_entries: Vec<f64> = per_channel_hi
+        .iter()
+        .filter(|ch| !ch.is_venturi_throat && ch.hi_contribution > 0.0)
+        .map(|ch| ch.hi_contribution)
+        .collect();
+    let bypass_channel_hi_mean = if bypass_entries.is_empty() {
+        0.0
+    } else {
+        bypass_entries.iter().sum::<f64>() / bypass_entries.len() as f64
+    };
+    let bypass_channel_hi_max = bypass_entries.iter().copied().fold(0.0_f64, f64::max);
+    per_channel_hi.sort_by(|a, b| {
+        b.hi_contribution
+            .partial_cmp(&a.hi_contribution)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
 
     // ── Cancer-targeting hydrodynamic cavitation metrics ─────────────────────
     let cavitation_intensity: f64 = if candidate.topology.has_venturi() && cav_potential > 0.0 {
@@ -988,6 +1032,10 @@ pub fn compute_metrics(candidate: &DesignCandidate) -> Result<SdtMetrics, OptimE
         acoustic_capture_efficiency,
         specific_cavitation_energy_j_ml,
         hemolysis_index_per_pass_cavitation_amplified: final_hi_cavitation_amplified,
+        treatment_channel_hi,
+        bypass_channel_hi_mean,
+        bypass_channel_hi_max,
+        per_channel_hemolysis: per_channel_hi,
     })
 }
 
@@ -1350,8 +1398,14 @@ mod tests {
         for c in candidates.iter().take(200) {
             let a_in = c.inlet_area_m2();
             let a_th = c.throat_area_m2();
-            assert!(a_in > 0.0 && a_in.is_finite(), "inlet area must be finite positive");
-            assert!(a_th > 0.0 && a_th.is_finite(), "throat area must be finite positive");
+            assert!(
+                a_in > 0.0 && a_in.is_finite(),
+                "inlet area must be finite positive"
+            );
+            assert!(
+                a_th > 0.0 && a_th.is_finite(),
+                "throat area must be finite positive"
+            );
 
             let v_in = c.flow_rate_m3_s / a_in;
             let v_th = c.flow_rate_m3_s / a_th;
@@ -1359,7 +1413,9 @@ mod tests {
             assert!(
                 dp.is_finite(),
                 "dp must be finite for {:?} (a_in={:.2e}, a_th={:.2e})",
-                c.topology, a_in, a_th,
+                c.topology,
+                a_in,
+                a_th,
             );
             // Rectangular area should be larger than circular for same diameter,
             // so dp should be lower (unless height < π/4 * d, which is uncommon).
@@ -1367,7 +1423,8 @@ mod tests {
             assert!(
                 dp.abs() < 1e8,
                 "dp = {:.0} Pa unreasonably large for {:?}",
-                dp, c.topology,
+                dp,
+                c.topology,
             );
         }
     }
@@ -1442,7 +1499,9 @@ mod tests {
 
         // σ just below σ_crit should give small but nonzero potential
         let sigma_incipient = 0.9;
-        let raw2 = (1.0 - sigma_incipient / SIGMA_CRIT).clamp(0.0, 1.0).powf(1.5);
+        let raw2 = (1.0 - sigma_incipient / SIGMA_CRIT)
+            .clamp(0.0, 1.0)
+            .powf(1.5);
         assert!(
             raw2 > 0.0 && raw2 < 0.1,
             "cav_potential for σ={} should be small positive, got {}",
@@ -1452,9 +1511,6 @@ mod tests {
 
         // σ >= σ_crit should give zero
         let sigma_no_cav = 1.5;
-        assert!(
-            sigma_no_cav >= SIGMA_CRIT,
-            "test assumes σ >= σ_crit"
-        );
+        assert!(sigma_no_cav >= SIGMA_CRIT, "test assumes σ >= σ_crit");
     }
 }

@@ -338,15 +338,30 @@ pub const TRI_TABLE: [[i8; 16]; 256] = [
 /// Cube corner offsets: `CORNERS[i]` = `(dx, dy, dz)` for corner `i` of a
 /// unit voxel cube.  Corners are numbered 0-7 in the Lorensen & Cline sense.
 pub const CORNERS: [(i32, i32, i32); 8] = [
-    (0, 0, 0), (1, 0, 0), (1, 1, 0), (0, 1, 0),
-    (0, 0, 1), (1, 0, 1), (1, 1, 1), (0, 1, 1),
+    (0, 0, 0),
+    (1, 0, 0),
+    (1, 1, 0),
+    (0, 1, 0),
+    (0, 0, 1),
+    (1, 0, 1),
+    (1, 1, 1),
+    (0, 1, 1),
 ];
 
 /// Edge endpoints (as corner index pairs).
 pub const EDGES: [[usize; 2]; 12] = [
-    [0, 1], [1, 2], [2, 3], [3, 0],
-    [4, 5], [5, 6], [6, 7], [7, 4],
-    [0, 4], [1, 5], [2, 6], [3, 7],
+    [0, 1],
+    [1, 2],
+    [2, 3],
+    [3, 0],
+    [4, 5],
+    [5, 6],
+    [6, 7],
+    [7, 4],
+    [0, 4],
+    [1, 5],
+    [2, 6],
+    [3, 7],
 ];
 
 // ── Extraction engine ─────────────────────────────────────────────────────────

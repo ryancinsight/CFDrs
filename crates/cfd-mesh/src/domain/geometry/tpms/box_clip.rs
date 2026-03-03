@@ -17,9 +17,9 @@ use crate::domain::geometry::tpms::Tpms;
 use crate::domain::geometry::tpms::Vector3r;
 use crate::domain::mesh::IndexedMesh;
 
-use std::collections::HashMap;
 use crate::domain::core::index::VertexId;
 use crate::domain::core::scalar::Point3r;
+use std::collections::HashMap;
 
 // ── Parameters ────────────────────────────────────────────────────────────────
 
@@ -48,8 +48,12 @@ impl TpmsBoxParams {
     /// bounds, non-positive period, or resolution < 4.
     pub fn validate(&self) -> Result<(), PrimitiveError> {
         let [x0, y0, z0, x1, y1, z1] = self.bounds;
-        if !x0.is_finite() || !y0.is_finite() || !z0.is_finite()
-            || !x1.is_finite() || !y1.is_finite() || !z1.is_finite()
+        if !x0.is_finite()
+            || !y0.is_finite()
+            || !z0.is_finite()
+            || !x1.is_finite()
+            || !y1.is_finite()
+            || !z1.is_finite()
         {
             return Err(PrimitiveError::InvalidParam(
                 "all AABB bounds must be finite".to_string(),
@@ -121,16 +125,16 @@ pub fn build_tpms_box<S: Tpms>(
                 let wx = x0 + (ix as isize - 1) as f64 * dx;
                 let wy = y0 + (iy as isize - 1) as f64 * dy;
                 let wz = z0 + (iz as isize - 1) as f64 * dz;
-                
+
                 let tpms_val = surface.field(wx, wy, wz, k) - iso;
-                
+
                 // Box SDF
                 let qx = (wx - cx).abs() - hx;
                 let qy = (wy - cy).abs() - hy;
                 let qz = (wz - cz).abs() - hz;
-                let box_sdf = qx.max(0.0).hypot(qy.max(0.0)).hypot(qz.max(0.0))
-                            + qx.max(qy).max(qz).min(0.0);
-                
+                let box_sdf =
+                    qx.max(0.0).hypot(qy.max(0.0)).hypot(qz.max(0.0)) + qx.max(qy).max(qz).min(0.0);
+
                 // Solid intersection: max(tpms, box_sdf).
                 // Negative = inside fluid, Positive = outside (wall or blocked).
                 field[idx(ix, iy, iz)] = tpms_val.max(box_sdf);
@@ -148,11 +152,7 @@ pub fn build_tpms_box<S: Tpms>(
                 let mut cube_vals = [0.0_f64; 8];
                 let mut cube_cfg: usize = 0;
                 for (ci, &(cdx, cdy, cdz)) in marching_cubes::CORNERS.iter().enumerate() {
-                    let v = field[idx(
-                        ix + cdx as usize,
-                        iy + cdy as usize,
-                        iz + cdz as usize,
-                    )];
+                    let v = field[idx(ix + cdx as usize, iy + cdy as usize, iz + cdz as usize)];
                     cube_vals[ci] = v;
                     if v < 0.0 {
                         cube_cfg |= 1 << ci;
@@ -188,11 +188,11 @@ pub fn build_tpms_box<S: Tpms>(
                         } else {
                             0.5
                         };
-                        
+
                         let wx = x0 + (ax as f64 * (1.0 - t) + bx as f64 * t - 1.0) * dx;
                         let wy = y0 + (ay as f64 * (1.0 - t) + by as f64 * t - 1.0) * dy;
                         let wz = z0 + (az as f64 * (1.0 - t) + bz as f64 * t - 1.0) * dz;
-                        
+
                         // Because the boundary is defined by the Box SDF max intersection,
                         // surface normals at the exact box boundary should point inwards (from wall).
                         // If it's a TPMS body surface, use TPMS gradient.
@@ -201,22 +201,35 @@ pub fn build_tpms_box<S: Tpms>(
                         let qy = (wy - cy).abs() - hy;
                         let qz = (wz - cz).abs() - hz;
                         let box_sdf = qx.max(0.0).hypot(qy.max(0.0)).hypot(qz.max(0.0))
-                                    + qx.max(qy).max(qz).min(0.0);
-                        
+                            + qx.max(qy).max(qz).min(0.0);
+
                         let normal = if box_sdf.abs() < 1e-5 {
                             // On box boundary, normal points outward of the fluid (into the box wall)
                             // We construct the normal by seeing which face we're on
                             let mut nx = 0.0;
                             let mut ny = 0.0;
                             let mut nz = 0.0;
-                            if (wx - x0).abs() < 1e-5 { nx = -1.0; }
-                            else if (wx - x1).abs() < 1e-5 { nx = 1.0; }
-                            if (wy - y0).abs() < 1e-5 { ny = -1.0; }
-                            else if (wy - y1).abs() < 1e-5 { ny = 1.0; }
-                            if (wz - z0).abs() < 1e-5 { nz = -1.0; }
-                            else if (wz - z1).abs() < 1e-5 { nz = 1.0; }
+                            if (wx - x0).abs() < 1e-5 {
+                                nx = -1.0;
+                            } else if (wx - x1).abs() < 1e-5 {
+                                nx = 1.0;
+                            }
+                            if (wy - y0).abs() < 1e-5 {
+                                ny = -1.0;
+                            } else if (wy - y1).abs() < 1e-5 {
+                                ny = 1.0;
+                            }
+                            if (wz - z0).abs() < 1e-5 {
+                                nz = -1.0;
+                            } else if (wz - z1).abs() < 1e-5 {
+                                nz = 1.0;
+                            }
                             let v = Vector3r::new(nx, ny, nz);
-                            if v.norm_squared() > 1e-6 { v.normalize() } else { surface.gradient(wx, wy, wz, k) }
+                            if v.norm_squared() > 1e-6 {
+                                v.normalize()
+                            } else {
+                                surface.gradient(wx, wy, wz, k)
+                            }
                         } else {
                             surface.gradient(wx, wy, wz, k)
                         };
@@ -252,8 +265,12 @@ pub fn build_tpms_box<S: Tpms>(
 /// graded variant).
 fn validate_box_bounds(bounds: &[f64; 6], resolution: usize) -> Result<(), PrimitiveError> {
     let [x0, y0, z0, x1, y1, z1] = *bounds;
-    if !x0.is_finite() || !y0.is_finite() || !z0.is_finite()
-        || !x1.is_finite() || !y1.is_finite() || !z1.is_finite()
+    if !x0.is_finite()
+        || !y0.is_finite()
+        || !z0.is_finite()
+        || !x1.is_finite()
+        || !y1.is_finite()
+        || !z1.is_finite()
     {
         return Err(PrimitiveError::InvalidParam(
             "all AABB bounds must be finite".to_string(),
@@ -336,9 +353,9 @@ pub fn build_tpms_box_graded<S: Tpms>(
                 let qx = (wx - cx).abs() - hx;
                 let qy = (wy - cy).abs() - hy;
                 let qz = (wz - cz).abs() - hz;
-                let box_sdf = qx.max(0.0).hypot(qy.max(0.0)).hypot(qz.max(0.0))
-                            + qx.max(qy).max(qz).min(0.0);
-                
+                let box_sdf =
+                    qx.max(0.0).hypot(qy.max(0.0)).hypot(qz.max(0.0)) + qx.max(qy).max(qz).min(0.0);
+
                 field[idx(ix, iy, iz)] = tpms_val.max(box_sdf);
             }
         }
@@ -353,11 +370,7 @@ pub fn build_tpms_box_graded<S: Tpms>(
                 let mut cube_vals = [0.0_f64; 8];
                 let mut cube_cfg: usize = 0;
                 for (ci, &(cdx, cdy, cdz)) in marching_cubes::CORNERS.iter().enumerate() {
-                    let v = field[idx(
-                        ix + cdx as usize,
-                        iy + cdy as usize,
-                        iz + cdz as usize,
-                    )];
+                    let v = field[idx(ix + cdx as usize, iy + cdy as usize, iz + cdz as usize)];
                     cube_vals[ci] = v;
                     if v < 0.0 {
                         cube_cfg |= 1 << ci;
@@ -395,28 +408,39 @@ pub fn build_tpms_box_graded<S: Tpms>(
                         let wx = x0 + (ax as f64 * (1.0 - t) + bx as f64 * t - 1.0) * dx;
                         let wy = y0 + (ay as f64 * (1.0 - t) + by as f64 * t - 1.0) * dy;
                         let wz = z0 + (az as f64 * (1.0 - t) + bz as f64 * t - 1.0) * dz;
-                        
+
                         let qx = (wx - cx).abs() - hx;
                         let qy = (wy - cy).abs() - hy;
                         let qz = (wz - cz).abs() - hz;
                         let box_sdf = qx.max(0.0).hypot(qy.max(0.0)).hypot(qz.max(0.0))
-                                    + qx.max(qy).max(qz).min(0.0);
-                        
+                            + qx.max(qy).max(qz).min(0.0);
+
                         let normal = if box_sdf.abs() < 1e-5 {
                             let mut nx = 0.0;
                             let mut ny = 0.0;
                             let mut nz = 0.0;
-                            if (wx - x0).abs() < 1e-5 { nx = -1.0; }
-                            else if (wx - x1).abs() < 1e-5 { nx = 1.0; }
-                            if (wy - y0).abs() < 1e-5 { ny = -1.0; }
-                            else if (wy - y1).abs() < 1e-5 { ny = 1.0; }
-                            if (wz - z0).abs() < 1e-5 { nz = -1.0; }
-                            else if (wz - z1).abs() < 1e-5 { nz = 1.0; }
+                            if (wx - x0).abs() < 1e-5 {
+                                nx = -1.0;
+                            } else if (wx - x1).abs() < 1e-5 {
+                                nx = 1.0;
+                            }
+                            if (wy - y0).abs() < 1e-5 {
+                                ny = -1.0;
+                            } else if (wy - y1).abs() < 1e-5 {
+                                ny = 1.0;
+                            }
+                            if (wz - z0).abs() < 1e-5 {
+                                nz = -1.0;
+                            } else if (wz - z1).abs() < 1e-5 {
+                                nz = 1.0;
+                            }
                             let v = Vector3r::new(nx, ny, nz);
-                            if v.norm_squared() > 1e-6 { v.normalize() } else { 
+                            if v.norm_squared() > 1e-6 {
+                                v.normalize()
+                            } else {
                                 let local_period = period_fn(wx, wy, wz).max(1e-12);
                                 let local_k = std::f64::consts::TAU / local_period;
-                                surface.gradient(wx, wy, wz, local_k) 
+                                surface.gradient(wx, wy, wz, local_k)
                             }
                         } else {
                             // Gradient uses local k at the interpolated position.
@@ -541,14 +565,7 @@ mod tests {
             iso_value: 0.0,
         };
         let uniform = build_tpms_box(&Gyroid, &params).unwrap();
-        let graded = build_tpms_box_graded(
-            &Gyroid,
-            bounds,
-            16,
-            0.0,
-            |_x, _y, _z| period,
-        )
-        .unwrap();
+        let graded = build_tpms_box_graded(&Gyroid, bounds, 16, 0.0, |_x, _y, _z| period).unwrap();
         assert_eq!(
             uniform.face_count(),
             graded.face_count(),
@@ -561,23 +578,14 @@ mod tests {
         // A graded mesh with period varying from 1.5 (walls) to 5.0 (center)
         // should produce a non-empty mesh.
         let bounds = [0.0, 0.0, 0.0, 10.0, 10.0, 5.0];
-        let mesh = build_tpms_box_graded(
-            &Gyroid,
-            bounds,
-            20,
-            0.0,
-            |_x, y, _z| {
-                // Y ranges [0, 10]: center at 5.0
-                let y_frac = y / 10.0;
-                let wall_dist = (2.0 * (y_frac - 0.5)).abs();
-                5.0 * (1.0 - wall_dist) + 1.5 * wall_dist
-            },
-        )
+        let mesh = build_tpms_box_graded(&Gyroid, bounds, 20, 0.0, |_x, y, _z| {
+            // Y ranges [0, 10]: center at 5.0
+            let y_frac = y / 10.0;
+            let wall_dist = (2.0 * (y_frac - 0.5)).abs();
+            5.0 * (1.0 - wall_dist) + 1.5 * wall_dist
+        })
         .unwrap();
-        assert!(
-            mesh.face_count() > 0,
-            "graded gyroid must produce faces"
-        );
+        assert!(mesh.face_count() > 0, "graded gyroid must produce faces");
     }
 
     #[test]

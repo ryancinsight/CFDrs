@@ -68,7 +68,7 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> VenturiSolver2D<
         );
 
         let ly = geometry.w_inlet;
-        let two_pi = T::from_f64(2.0 * std::f64::consts::PI).unwrap();
+        let two_pi = T::from_f64(2.0 * std::f64::consts::PI).unwrap_or_else(num_traits::Zero::zero);
         let mut y_faces = Vec::with_capacity(ny + 1);
         let ny_t = T::from_usize(ny).unwrap();
         for j in 0..=ny {
@@ -87,13 +87,13 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> VenturiSolver2D<
         let dy_min = (0..ny)
             .map(|j| solver.grid.dy_at(j))
             .fold(ly, Float::min);
-        let cr = geometry.w_inlet / Float::max(geometry.w_throat, T::from_f64(1e-12).unwrap());
-        if dy_min > geometry.w_throat / T::from_f64(2.0).unwrap() {
+        let cr = geometry.w_inlet / Float::max(geometry.w_throat, T::from_f64(1e-12).unwrap_or_else(num_traits::Zero::zero));
+        if dy_min > geometry.w_throat / T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero) {
             eprintln!(
                 "[VenturiSolver2D] WARNING: dy_min ({:.2e}) > w_throat/2 ({:.2e}). \
                  CR={:.1}. Consider increasing ny or beta.",
                 dy_min.to_f64().unwrap_or(0.0),
-                (geometry.w_throat / T::from_f64(2.0).unwrap())
+                (geometry.w_throat / T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero))
                     .to_f64()
                     .unwrap_or(0.0),
                 cr.to_f64().unwrap_or(0.0),
@@ -116,7 +116,7 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> VenturiSolver2D<
         nx: usize,
         ny: usize,
     ) {
-        let half_h = geometry.w_inlet / T::from_f64(2.0).unwrap();
+        let half_h = geometry.w_inlet / T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
         for i in 0..nx {
             for j in 0..ny {
                 let x = solver.grid.x_center(i);
@@ -181,8 +181,8 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> VenturiSolver2D<
         let dp_recovery = p_outlet - p_inlet;
 
         let rho = self.solver.density;
-        let q_dyn = T::from_f64(0.5).unwrap() * rho * u_inlet * u_inlet;
-        let one = T::from_f64(1.0).unwrap();
+        let q_dyn = T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero) * rho * u_inlet * u_inlet;
+        let one = T::from_f64(1.0).unwrap_or_else(num_traits::Zero::zero);
         let cp_throat = dp_throat / num_traits::Float::max(q_dyn, one);
         let cp_recovery = dp_recovery / num_traits::Float::max(q_dyn, one);
 

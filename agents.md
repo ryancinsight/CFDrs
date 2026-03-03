@@ -205,7 +205,7 @@ Key theorems already in the codebase:
 | `cfd-mesh: csg/boolean.rs` | Volume identity: `vol(A)+vol(B)=vol(A∪B)+vol(A∩B)` |
 | `cfd-mesh: welding/snap.rs` | Welding idempotency: `snap(snap(p)) = snap(p)` |
 | `cfd-core: physics/cavitation/` | Rayleigh-Plesset bubble dynamics |
-| `cfd-core: physics/hemolysis.rs` | Giersiepen–Wurzinger: HI = 3.62×10⁻⁷·τ^2.416·t^0.785 |
+| `cfd-1d: hemolysis/mod.rs` | Giersiepen (1990): HI = 3.62×10⁻⁵·t^0.765·τ^1.991 |
 | `cfd-math: linear_solver/gmres/` | GMRES minimises ‖r‖ over Kₘ(A, r₀) Krylov subspace |
 | `cfd-math: linear_solver/multigrid/amg.rs` | AMG O(1) convergence for M-matrices |
 | `cfd-math: high_order/weno.rs` | WENO5: 5th-order smooth / 3rd-order near discontinuities |
@@ -260,7 +260,7 @@ Most tests and CI run with `--no-default-features` to avoid the `wgpu` GPU overh
 | OpenFOAM polyMesh | `cfd-mesh` | write |
 | HDF5 | `cfd-io` | read + write |
 | CSV | `cfd-io` | read + write |
-| cfd-schematics JSON | `cfd-mesh` (feature `scheme-io`) | read |
+| cfd-schematics JSON | `cfd-mesh` | read |
 | Python (PyO3) | `cfd-python` | bindings |
 
 OpenFOAM `PatchType` → OF type string mapping (in `io/openfoam.rs`):

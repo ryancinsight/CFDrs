@@ -39,9 +39,9 @@ pub use types::{IntersectionType, SnapSegment};
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::infrastructure::storage::vertex_pool::VertexPool;
-    use crate::infrastructure::storage::face_store::FaceData;
     use crate::domain::core::scalar::Point3r;
+    use crate::infrastructure::storage::face_store::FaceData;
+    use crate::infrastructure::storage::vertex_pool::VertexPool;
 
     fn make_tri(pool: &mut VertexPool, pts: [[f64; 3]; 3]) -> FaceData {
         let n = nalgebra::Vector3::zeros();

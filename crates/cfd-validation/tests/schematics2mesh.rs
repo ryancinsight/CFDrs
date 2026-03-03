@@ -1,9 +1,5 @@
-#[cfg(feature = "scheme-io")]
 #[test]
 fn test_schematics2mesh_stl_output() {
-    use std::fs::File;
-    use std::path::PathBuf;
-    use cfd_mesh::application::channel::profile::ChannelProfile;
     use cfd_mesh::application::channel::sweep::SweepMesher;
     use cfd_mesh::domain::core::index::RegionId;
     use cfd_mesh::domain::mesh::IndexedMesh;
@@ -11,6 +7,8 @@ fn test_schematics2mesh_stl_output() {
     use cfd_mesh::infrastructure::io::stl::write_stl_binary;
     use cfd_schematics::config::{ChannelTypeConfig, GeometryConfig};
     use cfd_schematics::geometry::{generator::create_geometry, SplitType};
+    use std::fs::File;
+    use std::path::PathBuf;
 
     // 1. Generate 2D geometry (a simple symmetric bifurcation)
     let box_dims = (20.0, 10.0);
@@ -69,7 +67,7 @@ fn test_schematics2mesh_stl_output() {
 
     let mut file = File::create(&stl_path).unwrap();
     write_stl_binary(&mut file, &mesh).unwrap();
-    
+
     // Check that STL exists and isn't empty
     let metadata = std::fs::metadata(&stl_path).unwrap();
     assert!(metadata.len() > 84); // Header + triangle count

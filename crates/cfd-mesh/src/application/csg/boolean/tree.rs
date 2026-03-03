@@ -1,12 +1,12 @@
 //! `CsgNode` expression tree
 
-use nalgebra::Isometry3;
+use super::indexed::csg_boolean_indexed;
+use super::operations::BooleanOp;
 use crate::domain::core::error::MeshResult;
 use crate::domain::core::index::RegionId;
 use crate::domain::core::scalar::Real;
 use crate::domain::mesh::IndexedMesh;
-use super::indexed::csg_boolean_indexed;
-use super::operations::BooleanOp;
+use nalgebra::Isometry3;
 
 /// A composable CSG expression tree over [`IndexedMesh`] operands.
 pub enum CsgNode {
@@ -73,7 +73,9 @@ fn transform_mesh(mesh: IndexedMesh, iso: &Isometry3<Real>) -> IndexedMesh {
         let mut new_verts = [VertexId::default(); 3];
         for (k, &vid) in face.vertices.iter().enumerate() {
             let idx = vid.as_usize();
-            let new_id = if let Some(id) = remap[idx] { id } else {
+            let new_id = if let Some(id) = remap[idx] {
+                id
+            } else {
                 let pos = iso * *mesh.vertices.position(vid);
                 let nrm = iso.rotation * *mesh.vertices.normal(vid);
                 let id = new_mesh.add_vertex(pos, nrm);

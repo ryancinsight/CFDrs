@@ -32,10 +32,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         iso_value: 0.0,
     };
 
-    println!(
-        "  Radius     : {} mm",
-        builder.radius
-    );
+    println!("  Radius     : {} mm", builder.radius);
     println!(
         "  Period     : {} mm  (lattice unit-cell size)",
         builder.period

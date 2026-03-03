@@ -5,14 +5,28 @@
 //! This module is a **volume/FEM tool** — intentional `Mesh<T>` usage for
 //! hexahedral/tetrahedral cell topology.
 
-// Volume tool: Mesh<T> is the correct type here.
-#![allow(deprecated)]
-
-use crate::domain::mesh::IndexedMesh;
+use crate::domain::core::index::{FaceId, VertexId};
 use crate::domain::core::scalar::Scalar;
-use crate::domain::core::index::{VertexId, FaceId};
+use crate::domain::mesh::IndexedMesh;
 use crate::domain::topology::{Cell, ElementType};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+
+type TriKey = [VertexId; 3];
+
+/// Canonicalize a triangle vertex triplet for orientation-invariant hashing.
+///
+/// # Theorem — Canonical-Key Equivalence
+///
+/// Two triangles with identical vertex sets but opposite winding map to the same
+/// sorted key; triangles with different vertex sets map to different keys.
+/// Therefore this key is a complete invariant for unoriented triangle identity,
+/// suitable for deduplicating shared faces in hex-to-tet conversion. ∎
+#[inline]
+fn canonical_tri_key(nodes: [VertexId; 3]) -> TriKey {
+    let mut key = nodes;
+    key.sort_unstable_by_key(|vid| vid.as_usize());
+    key
+}
 
 /// Converter for decomposing hexahedral meshes into tetrahedral ones
 pub struct HexToTetConverter;
@@ -26,8 +40,8 @@ impl HexToTetConverter {
         new_mesh.vertices = mesh.vertices.clone();
 
         // 2. Identify boundary faces and map them
-        // Key: sorted triangle vertex triplet, Value: new FaceId
-        let mut face_map: HashMap<Vec<VertexId>, FaceId> = HashMap::new();
+        // Key: canonical triangle vertex triplet, Value: new FaceId
+        let mut face_map: HashMap<TriKey, FaceId> = HashMap::new();
 
         // 3. Process cells
         for c in &mesh.cells {
@@ -115,11 +129,12 @@ impl HexToTetConverter {
 
     fn collect_unique_hex_vertices<T: Scalar>(cell: &Cell, mesh: &IndexedMesh<T>) -> Vec<VertexId> {
         let mut vertices = Vec::with_capacity(8);
+        let mut seen: HashSet<VertexId> = HashSet::with_capacity(8);
         for &f_idx_raw in &cell.faces {
             let f_idx = FaceId::from_usize(f_idx_raw);
             let face = mesh.faces.get(f_idx);
             for &v_idx in &face.vertices {
-                if !vertices.contains(&v_idx) {
+                if seen.insert(v_idx) {
                     vertices.push(v_idx);
                 }
             }
@@ -167,7 +182,7 @@ impl HexToTetConverter {
 
     fn add_tet<T: Scalar>(
         mesh: &mut IndexedMesh<T>,
-        face_map: &mut HashMap<Vec<VertexId>, FaceId>,
+        face_map: &mut HashMap<TriKey, FaceId>,
         nodes: [VertexId; 4],
     ) {
         let f0 = Self::add_tri_face(mesh, face_map, [nodes[0], nodes[1], nodes[2]]).as_usize();
@@ -210,7 +225,13 @@ impl HexToTetConverter {
             }
             let six_v = Self::tet_six_volume(mesh, *nodes);
             min_vol = Some(match min_vol {
-                Some(v) => { if v < six_v { v } else { six_v } },
+                Some(v) => {
+                    if v < six_v {
+                        v
+                    } else {
+                        six_v
+                    }
+                }
                 None => six_v,
             });
         }
@@ -251,7 +272,7 @@ impl HexToTetConverter {
         let b_neighbors = adjacency.get(&b)?;
         let mut candidate = None;
         for &n in a_neighbors {
-            if b_neighbors.contains(&n) && !excluded.contains(&n) {
+            if Self::sorted_contains(b_neighbors, n) && !excluded.contains(&n) {
                 if candidate.is_some() {
                     return None;
                 }
@@ -259,6 +280,21 @@ impl HexToTetConverter {
             }
         }
         candidate
+    }
+
+    /// Membership query on sorted adjacency vectors.
+    ///
+    /// # Theorem — Binary Membership Equivalence
+    ///
+    /// For a sorted deduplicated vector `S`, `binary_search(x).is_ok()` is true
+    /// iff `x ∈ S`, equivalent to linear `contains(x)` with lower asymptotic
+    /// lookup cost. Since adjacency vectors are sorted/deduplicated immediately
+    /// after construction, this predicate is exact. ∎
+    #[inline]
+    fn sorted_contains(sorted: &[VertexId], needle: VertexId) -> bool {
+        sorted
+            .binary_search_by_key(&needle.as_usize(), |vid| vid.as_usize())
+            .is_ok()
     }
 
     fn recover_hex_vertex_order<T: Scalar>(
@@ -341,8 +377,8 @@ impl HexToTetConverter {
 
                 let mut v6_candidate = None;
                 for &n in n2 {
-                    if n5.contains(&n)
-                        && n7.contains(&n)
+                    if Self::sorted_contains(n5, n)
+                        && Self::sorted_contains(n7, n)
                         && n != v0
                         && n != v1
                         && n != v2
@@ -376,7 +412,10 @@ impl HexToTetConverter {
                 let quality = tets
                     .iter()
                     .map(|nodes| Self::tet_six_volume(mesh, *nodes))
-                    .fold(num_traits::Float::max_value(), |a, b| if a < b { a } else { b });
+                    .fold(
+                        num_traits::Float::max_value(),
+                        |a, b| if a < b { a } else { b },
+                    );
 
                 if best_quality.is_none_or(|best| quality > best) {
                     best_quality = Some(quality);
@@ -390,11 +429,10 @@ impl HexToTetConverter {
 
     fn add_tri_face<T: Scalar>(
         mesh: &mut IndexedMesh<T>,
-        map: &mut HashMap<Vec<VertexId>, FaceId>,
+        map: &mut HashMap<TriKey, FaceId>,
         nodes: [VertexId; 3],
     ) -> FaceId {
-        let mut key = nodes.to_vec();
-        key.sort_unstable_by_key(|vid| vid.as_usize());
+        let key = canonical_tri_key(nodes);
         if let Some(&idx) = map.get(&key) {
             idx
         } else {
@@ -404,28 +442,29 @@ impl HexToTetConverter {
         }
     }
 
-    fn get_tri_face_idx(map: &HashMap<Vec<VertexId>, FaceId>, nodes: [VertexId; 3]) -> Option<FaceId> {
-        let mut key = nodes.to_vec();
-        key.sort_unstable_by_key(|vid| vid.as_usize());
-        map.get(&key).copied()
+    fn get_tri_face_idx(map: &HashMap<TriKey, FaceId>, nodes: [VertexId; 3]) -> Option<FaceId> {
+        map.get(&canonical_tri_key(nodes)).copied()
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use super::canonical_tri_key;
     use super::HexToTetConverter;
+    use crate::domain::core::index::FaceId;
+    use crate::domain::core::index::VertexId;
     use crate::domain::grid::StructuredGridBuilder;
     use crate::domain::mesh::IndexedMesh;
     use crate::domain::topology::ElementType;
-    use crate::domain::core::index::FaceId;
 
     fn tet_six_volume(mesh: &IndexedMesh<f64>, cell: &crate::domain::topology::Cell) -> f64 {
         let mut vertices = Vec::new();
+        let mut seen: std::collections::HashSet<_> = std::collections::HashSet::new();
         for &f_idx_raw in &cell.faces {
             let f_idx = FaceId::from_usize(f_idx_raw);
             let face = mesh.faces.get(f_idx);
             for &v_idx in &face.vertices {
-                if !vertices.contains(&v_idx) {
+                if seen.insert(v_idx) {
                     vertices.push(v_idx);
                 }
             }
@@ -484,5 +523,40 @@ mod tests {
 
         assert!(tet_mesh.cell_count() > 0);
         assert_no_degenerate_tets(&tet_mesh);
+    }
+
+    #[test]
+    fn adversarial_canonical_tri_key_is_orientation_invariant() {
+        let a = VertexId::new(10);
+        let b = VertexId::new(2);
+        let c = VertexId::new(7);
+        let k1 = canonical_tri_key([a, b, c]);
+        let k2 = canonical_tri_key([c, b, a]);
+        let k3 = canonical_tri_key([b, a, c]);
+        assert_eq!(k1, k2);
+        assert_eq!(k1, k3);
+    }
+
+    #[test]
+    fn adversarial_sorted_contains_matches_linear_membership() {
+        let mut v = vec![
+            VertexId::new(9),
+            VertexId::new(1),
+            VertexId::new(7),
+            VertexId::new(3),
+            VertexId::new(3),
+            VertexId::new(2),
+        ];
+        v.sort_unstable_by_key(|id| id.as_usize());
+        v.dedup();
+        for probe in 0..12 {
+            let p = VertexId::new(probe);
+            let linear = v.contains(&p);
+            let bsearch = HexToTetConverter::sorted_contains(&v, p);
+            assert_eq!(
+                bsearch, linear,
+                "binary membership must match linear membership for sorted unique vectors"
+            );
+        }
     }
 }

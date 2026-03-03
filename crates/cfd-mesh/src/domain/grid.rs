@@ -6,12 +6,9 @@
 //! This module is a **volume/FEM tool** — it intentionally uses `Mesh<T>` for
 //! hexahedral cell topology and is exempt from the surface-mesh deprecation.
 
-// Volume tool: Mesh<T> is the correct type here.
-#![allow(deprecated)]
-
+use crate::domain::core::index::VertexId;
 use crate::domain::mesh::IndexedMesh;
 use crate::domain::topology::Cell;
-use crate::domain::core::index::VertexId;
 use nalgebra::Point3;
 
 /// Error type for grid building.
@@ -37,7 +34,7 @@ pub struct StructuredGridBuilder {
 
 impl StructuredGridBuilder {
     /// Create a builder with `nx × ny × nz` cells.
-    #[must_use] 
+    #[must_use]
     pub fn new(nx: usize, ny: usize, nz: usize) -> Self {
         Self { nx, ny, nz }
     }
@@ -59,14 +56,23 @@ fn build_structured_grid(nx: usize, ny: usize, nz: usize) -> Result<IndexedMesh<
 
     let mut mesh = IndexedMesh::<f64>::new();
     let mut v_ids = Vec::with_capacity(vnx * vny * vnz);
-    
-    // Hash map to ensure face deduplication (critical for 3D volumetrics)
-    let mut face_map: std::collections::HashMap<[crate::domain::core::index::VertexId; 3], crate::domain::core::index::FaceId> = std::collections::HashMap::new();
 
-    let mut add_tri = |v0: crate::domain::core::index::VertexId, v1: crate::domain::core::index::VertexId, v2: crate::domain::core::index::VertexId, mesh: &mut IndexedMesh<f64>| -> crate::domain::core::index::FaceId {
+    // Hash map to ensure face deduplication (critical for 3D volumetrics)
+    let mut face_map: std::collections::HashMap<
+        [crate::domain::core::index::VertexId; 3],
+        crate::domain::core::index::FaceId,
+    > = std::collections::HashMap::new();
+
+    let mut add_tri = |v0: crate::domain::core::index::VertexId,
+                       v1: crate::domain::core::index::VertexId,
+                       v2: crate::domain::core::index::VertexId,
+                       mesh: &mut IndexedMesh<f64>|
+     -> crate::domain::core::index::FaceId {
         let mut key = [v0, v1, v2];
         key.sort_unstable_by_key(|vid| vid.as_usize());
-        *face_map.entry(key).or_insert_with(|| mesh.add_face(key[0], key[1], key[2]))
+        *face_map
+            .entry(key)
+            .or_insert_with(|| mesh.add_face(key[0], key[1], key[2]))
     };
 
     // Create corner vertices on a regular grid.

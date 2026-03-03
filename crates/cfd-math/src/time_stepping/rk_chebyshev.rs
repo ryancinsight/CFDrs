@@ -60,10 +60,10 @@ impl<T: RealField + Copy + FromPrimitive> Default for RkcConfig<T> {
     fn default() -> Self {
         Self {
             num_stages: 10,
-            damping: T::from_f64(2.0 / 13.0).unwrap(),
-            atol: T::from_f64(1e-8).unwrap(),
-            rtol: T::from_f64(1e-6).unwrap(),
-            safety_factor: T::from_f64(0.9).unwrap(),
+            damping: T::from_f64(2.0 / 13.0).unwrap_or_else(num_traits::Zero::zero),
+            atol: T::from_f64(1e-8).unwrap_or_else(num_traits::Zero::zero),
+            rtol: T::from_f64(1e-6).unwrap_or_else(num_traits::Zero::zero),
+            safety_factor: T::from_f64(0.9).unwrap_or_else(num_traits::Zero::zero),
         }
     }
 }
@@ -118,8 +118,8 @@ impl<T: RealField + Copy + FromPrimitive> RungeKuttaChebyshev<T> {
         }); // Index 0
 
         // w0 = 1 + epsilon / s^2
-        let two = T::from_f64(2.0).unwrap();
-        let four = T::from_f64(4.0).unwrap();
+        let two = T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
+        let four = T::from_f64(4.0).unwrap_or_else(num_traits::Zero::zero);
         let s_t = T::from_usize(s).unwrap();
         let s_sq = s_t * s_t;
         let w0 = T::one() + epsilon / s_sq;
@@ -265,7 +265,7 @@ impl<T: RealField + Copy + FromPrimitive> RungeKuttaChebyshev<T> {
                 }
 
                 let y_full = self.step_raw(rhs, t, &y, dt)?;
-                let dt_half = dt / T::from_f64(2.0).unwrap();
+                let dt_half = dt / T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
                 let y_half = self.step_raw(rhs, t, &y, dt_half)?;
                 let y_half_full = self.step_raw(rhs, t + dt_half, &y_half, dt_half)?;
 
@@ -276,7 +276,7 @@ impl<T: RealField + Copy + FromPrimitive> RungeKuttaChebyshev<T> {
                         self.config.atol + self.config.rtol * y[i].abs().max(y_half_full[i].abs());
                     let denom = if scale > T::zero() { scale } else { T::one() };
                     let diff =
-                        (y_half_full[i] - y_full[i]).abs() / (T::from_f64(3.0).unwrap() * denom);
+                        (y_half_full[i] - y_full[i]).abs() / (T::from_f64(3.0).unwrap_or_else(num_traits::Zero::zero) * denom);
                     err_sum += diff * diff;
                 }
                 let n_t = T::from_usize(n).unwrap();
@@ -286,22 +286,22 @@ impl<T: RealField + Copy + FromPrimitive> RungeKuttaChebyshev<T> {
                     y = y_half_full;
                     t += dt;
                     let factor = if err_norm == T::zero() {
-                        T::from_f64(5.0).unwrap()
+                        T::from_f64(5.0).unwrap_or_else(num_traits::Zero::zero)
                     } else {
-                        let exponent = T::from_f64(1.0 / 3.0).unwrap();
+                        let exponent = T::from_f64(1.0 / 3.0).unwrap_or_else(num_traits::Zero::zero);
                         self.config.safety_factor * err_norm.powf(-exponent)
                     };
                     let factor = factor
-                        .max(T::from_f64(0.1).unwrap())
-                        .min(T::from_f64(5.0).unwrap());
+                        .max(T::from_f64(0.1).unwrap_or_else(num_traits::Zero::zero))
+                        .min(T::from_f64(5.0).unwrap_or_else(num_traits::Zero::zero));
                     dt *= factor;
                     accepted = true;
                 } else {
-                    let exponent = T::from_f64(1.0 / 3.0).unwrap();
+                    let exponent = T::from_f64(1.0 / 3.0).unwrap_or_else(num_traits::Zero::zero);
                     let factor = self.config.safety_factor * err_norm.powf(-exponent);
                     let factor = factor
-                        .max(T::from_f64(0.1).unwrap())
-                        .min(T::from_f64(0.5).unwrap());
+                        .max(T::from_f64(0.1).unwrap_or_else(num_traits::Zero::zero))
+                        .min(T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero));
                     dt *= factor;
                     if t + dt > t_final {
                         dt = t_final - t;

@@ -23,5 +23,6 @@ pub mod operations;
 pub mod tree;
 
 pub use indexed::csg_boolean_indexed;
+pub use indexed::csg_boolean_indexed_tolerant;
 pub use operations::{csg_boolean, BooleanOp};
 pub use tree::CsgNode;

@@ -103,7 +103,7 @@ impl<T: RealField + Copy + FromPrimitive> GeometricMultigrid<T> {
         // Build hierarchy from finest to coarsest
         let mut current_nx = nx;
         let mut current_ny = ny;
-        let mut current_h = T::from_f64(1.0).unwrap() / T::from_usize(nx.max(ny)).unwrap();
+        let mut current_h = T::from_f64(1.0).unwrap_or_else(num_traits::Zero::zero) / T::from_usize(nx.max(ny)).unwrap();
 
         for _level in 0..max_levels {
             grid_sizes.push((current_nx, current_ny));
@@ -120,13 +120,13 @@ impl<T: RealField + Copy + FromPrimitive> GeometricMultigrid<T> {
             // Coarsen grid (simple 2:1 coarsening)
             current_nx = current_nx.div_ceil(2);
             current_ny = current_ny.div_ceil(2);
-            current_h *= T::from_f64(2.0).unwrap();
+            current_h *= T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
         }
 
         Ok(Self {
             grid_sizes,
             matrices,
-            relaxation_param: T::from_f64(0.8).unwrap(), // Weighted Jacobi
+            relaxation_param: T::from_f64(0.8).unwrap_or_else(num_traits::Zero::zero), // Weighted Jacobi
             nu1: 2,                                      // Pre-smoothing iterations
             nu2: 2,                                      // Post-smoothing iterations
         })
@@ -138,7 +138,7 @@ impl<T: RealField + Copy + FromPrimitive> GeometricMultigrid<T> {
         let mut matrix = DMatrix::zeros(n, n);
 
         let h_squared = h * h;
-        let four = T::from_f64(4.0).unwrap();
+        let four = T::from_f64(4.0).unwrap_or_else(num_traits::Zero::zero);
         let minus_one = -T::one();
 
         for i in 0..nx {

@@ -24,7 +24,7 @@ pub struct SubstrateBuilder {
 
 impl SubstrateBuilder {
     /// Create a new substrate builder with the given dimensions.
-    #[must_use] 
+    #[must_use]
     pub fn new(width: Real, depth: Real, height: Real) -> Self {
         Self {
             width,
@@ -35,7 +35,7 @@ impl SubstrateBuilder {
     }
 
     /// Set the origin corner.
-    #[must_use] 
+    #[must_use]
     pub fn with_origin(mut self, origin: Point3r) -> Self {
         self.origin = origin;
         self
@@ -48,7 +48,7 @@ impl SubstrateBuilder {
     ///
     /// Channels should be centered at `y = 42.735 mm` (half of 85.47) and
     /// `z = height_mm / 2.0` so they run through the centre of the block.
-    #[must_use] 
+    #[must_use]
     pub fn well_plate_96(height_mm: Real) -> Self {
         Self::new(127.76, 85.47, height_mm)
     }

@@ -160,16 +160,48 @@ pub use domain::geometry::primitives;
 
 /// Primitive builder re-exports for ergonomic top-level access.
 pub use domain::geometry::{
-    Antiprism, BiconcaveDisk, Capsule, Cone, Cube, Cuboctahedron, Cylinder, Disk, Dodecahedron,
-    Elbow, Ellipsoid, Frustum, GeodesicSphere, GyroidSphere, HelixSweep, Icosahedron, LinearSweep,
-    Octahedron, Pipe, Pyramid, RevolutionSweep, RoundedCube, SchwarzDSphere, SchwarzPSphere,
-    SerpentineTube, SphericalShell, StadiumPrism, Tetrahedron, Torus, TruncatedIcosahedron, UvSphere,
+    Antiprism,
+    BiconcaveDisk,
+    Capsule,
+    Cone,
+    Cube,
+    Cuboctahedron,
+    Cylinder,
+    Disk,
+    Dodecahedron,
+    Elbow,
+    Ellipsoid,
     // TPMS expansion: Neovius, Lidinoid, I-WP, Split P, FRD, Fischer-Koch C(Y)
-    FischerKochCySphere, FrdSphere, IwpSphere, LidinoidSphere, NeoviusSphere, SplitPSphere,
+    FischerKochCySphere,
+    FrdSphere,
+    Frustum,
+    GeodesicSphere,
+    GyroidSphere,
+    HelixSweep,
+    Icosahedron,
+    IwpSphere,
+    LidinoidSphere,
+    LinearSweep,
+    NeoviusSphere,
+    Octahedron,
+    Pipe,
+    Pyramid,
+    RevolutionSweep,
+    RoundedCube,
+    SchwarzDSphere,
+    SchwarzPSphere,
+    SerpentineTube,
+    SphericalShell,
+    SplitPSphere,
+    StadiumPrism,
+    Tetrahedron,
+    Torus,
+    TruncatedIcosahedron,
+    UvSphere,
 };
 
 /// Application-level channel builders.
 pub use application::channel::{
-    ChannelPath, JunctionType, ChannelProfile, SubstrateBuilder, SweepMesher,
-    BranchingMeshBuilder, SerpentineMeshBuilder, VenturiMeshBuilder
+    BranchingMeshBuilder, ChannelPath, ChannelProfile, JunctionType, SerpentineMeshBuilder,
+    SubstrateBuilder, SweepMesher, VenturiMeshBuilder,
 };

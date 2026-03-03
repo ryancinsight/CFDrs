@@ -4,7 +4,6 @@
 
 use std::io::{BufRead, BufReader, Read, Write};
 
-
 use crate::domain::core::error::{MeshError, MeshResult};
 use crate::domain::core::index::RegionId;
 use crate::domain::core::scalar::{Point3r, Real, Vector3r};
@@ -26,8 +25,8 @@ pub fn write_ascii_stl<W: Write>(
         let b = vertex_pool.position(face.vertices[1]);
         let c = vertex_pool.position(face.vertices[2]);
 
-        let normal = crate::domain::geometry::normal::triangle_normal(a, b, c)
-            .unwrap_or_else(Vector3r::z);
+        let normal =
+            crate::domain::geometry::normal::triangle_normal(a, b, c).unwrap_or_else(Vector3r::z);
 
         writeln!(
             writer,
@@ -68,8 +67,8 @@ pub fn write_binary_stl<W: Write>(
         let b = vertex_pool.position(face.vertices[1]);
         let c = vertex_pool.position(face.vertices[2]);
 
-        let normal = crate::domain::geometry::normal::triangle_normal(a, b, c)
-            .unwrap_or_else(Vector3r::z);
+        let normal =
+            crate::domain::geometry::normal::triangle_normal(a, b, c).unwrap_or_else(Vector3r::z);
 
         // Normal (3 × f32)
         write_f32(writer, normal.x as f32)?;
@@ -285,7 +284,6 @@ pub fn fuzz_read_stl(data: &[u8]) -> MeshResult<IndexedMesh> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
 
     // ── ASCII round-trip ──────────────────────────────────────────────────
 

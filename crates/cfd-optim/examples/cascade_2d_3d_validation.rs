@@ -33,23 +33,23 @@ use std::fs;
 use std::path::Path;
 
 // ── cfd-1d ─────────────────────────────────────────────────────────────────────
-use cfd_1d::{NetworkProblem, NetworkSolver, NodeType};
 use cfd_1d::network::network_from_blueprint;
+use cfd_1d::{NetworkProblem, NetworkSolver, NodeType};
 
 // ── cfd-2d ─────────────────────────────────────────────────────────────────────
-use cfd_2d::network::{Network2dBuilderSink, Network2DSolver};
+use cfd_2d::network::{Network2DSolver, Network2dBuilderSink};
 use cfd_schematics::application::ports::GraphSink;
 
 // ── cfd-3d ─────────────────────────────────────────────────────────────────────
 use cfd_3d::{FemConfig, FemSolver, StokesFlowProblem};
 
 // ── cfd-mesh ───────────────────────────────────────────────────────────────────
-use cfd_mesh::domain::grid::StructuredGridBuilder;
 use cfd_mesh::domain::core::index::VertexId;
+use cfd_mesh::domain::grid::StructuredGridBuilder;
 
 // ── cfd-core ───────────────────────────────────────────────────────────────────
-use cfd_core::physics::fluid::{BloodModel, CassonBlood, ConstantPropertyFluid};
 use cfd_core::physics::boundary::BoundaryCondition;
+use cfd_core::physics::fluid::{BloodModel, CassonBlood, ConstantPropertyFluid};
 
 // ── cfd-validation ─────────────────────────────────────────────────────────────
 use cfd_validation::convergence::{GridConvergenceIndex, RichardsonExtrapolation};
@@ -170,7 +170,9 @@ fn solve_1d(
         }
     }
     if inlet_nodes.is_empty() || outlet_nodes.is_empty() {
-        return Err(anyhow::anyhow!("[{design_id}] no inlet/outlet nodes in blueprint"));
+        return Err(anyhow::anyhow!(
+            "[{design_id}] no inlet/outlet nodes in blueprint"
+        ));
     }
 
     let q_per_inlet = INLET_FLOW_M3_S / inlet_nodes.len() as f64;
@@ -200,9 +202,15 @@ fn solve_1d(
     for edge_ref in solved.graph.edge_references() {
         let eid = edge_ref.id();
         let edge = edge_ref.weight();
-        let (from_idx, _) = solved.graph.edge_endpoints(eid)
+        let (from_idx, _) = solved
+            .graph
+            .edge_endpoints(eid)
             .ok_or_else(|| anyhow::anyhow!("[{design_id}] missing edge endpoints"))?;
-        let q = solved.flow_rates.get(&eid).copied().unwrap_or(edge.flow_rate);
+        let q = solved
+            .flow_rates
+            .get(&eid)
+            .copied()
+            .unwrap_or(edge.flow_rate);
         let p = solved.pressures.get(&from_idx).copied().unwrap_or(0.0);
         if edge.id.to_ascii_lowercase().contains("throat") {
             q_venturi_m3_s += q.abs();
@@ -252,7 +260,12 @@ fn solve_2d_level(
         max_wall_shear_pa
     );
 
-    Ok(TwoDLevel { nx, ny, max_wall_shear_pa, converged: converged_all })
+    Ok(TwoDLevel {
+        nx,
+        ny,
+        max_wall_shear_pa,
+        converged: converged_all,
+    })
 }
 
 fn solve_2d(
@@ -479,7 +492,10 @@ fn solve_3d_level(
     let mut n_venturi = 0_usize;
 
     for ch in &blueprint.channels {
-        let q = q_map.get(ch.id.as_str()).copied().unwrap_or(INLET_FLOW_M3_S);
+        let q = q_map
+            .get(ch.id.as_str())
+            .copied()
+            .unwrap_or(INLET_FLOW_M3_S);
         let area = cross_section_area(ch.cross_section);
         let u_in = q.abs() / area.max(1e-18);
 
@@ -508,14 +524,23 @@ fn solve_3d_level(
                 }
             }
             Err(e) => {
-                eprintln!("  3D [{design_id}] channel '{}' failed: {e}", ch.id.as_str());
+                eprintln!(
+                    "  3D [{design_id}] channel '{}' failed: {e}",
+                    ch.id.as_str()
+                );
             }
         }
     }
 
     if n_venturi == 0 {
         // Non-venturi designs: no cavitation number meaningful
-        u_venturi = (INLET_FLOW_M3_S / blueprint.channels.iter().map(|c| cross_section_area(c.cross_section)).fold(f64::MAX, f64::min)).max(0.01);
+        u_venturi = (INLET_FLOW_M3_S
+            / blueprint
+                .channels
+                .iter()
+                .map(|c| cross_section_area(c.cross_section))
+                .fold(f64::MAX, f64::min))
+        .max(0.01);
     }
 
     // Cavitation number σ = (P_ref - P_vapour) / (0.5 ρ u²)
@@ -526,7 +551,13 @@ fn solve_3d_level(
         dp_total, u_venturi, sigma
     );
 
-    Ok(ThreeDLevel { nx, ny_nz, dp_total_pa: dp_total, sigma_venturi: sigma, u_venturi_m_s: u_venturi })
+    Ok(ThreeDLevel {
+        nx,
+        ny_nz,
+        dp_total_pa: dp_total,
+        sigma_venturi: sigma,
+        u_venturi_m_s: u_venturi,
+    })
 }
 
 fn solve_3d(
@@ -628,8 +659,7 @@ fn cross_fidelity_table(
     ));
     s.push_str(&format!(
         "| max wall shear [Pa] | (HP) | {:.2} ± {:.1}% | see dp | \n",
-        r2d.wall_shear_extrap_pa,
-        r2d.gci_fine_pct,
+        r2d.wall_shear_extrap_pa, r2d.gci_fine_pct,
     ));
     s.push_str(&format!(
         "| Q_venturi [µL/min] | {:.2} | — | — |\n",
@@ -637,8 +667,7 @@ fn cross_fidelity_table(
     ));
     s.push_str(&format!(
         "| σ_venturi | (Bernoulli) | — | {:.4} ± {:.1}% |\n",
-        r3d.sigma_extrap,
-        r3d.sigma_gci_fine_pct,
+        r3d.sigma_extrap, r3d.sigma_gci_fine_pct,
     ));
     s.push_str(&format!(
         "| Asymptotic range | — | — | {} |\n",
@@ -695,7 +724,10 @@ fn write_report(
     md.push_str("\n## Part 3 — Complete 1D Network Solution\n\n");
     for r in results_1d {
         md.push_str(&format!("\n### {} — 1D HP Network\n\n", r.design_id));
-        md.push_str(&format!("- Inlet pressure: {:.2} Pa\n", r.inlet_pressure_pa));
+        md.push_str(&format!(
+            "- Inlet pressure: {:.2} Pa\n",
+            r.inlet_pressure_pa
+        ));
         md.push_str(&format!("- Total ΔP: {:.2} Pa\n", r.dp_total_pa));
         md.push_str(&format!(
             "- Q_venturi: {:.4} µL/min\n\n",
@@ -704,11 +736,7 @@ fn write_report(
         md.push_str("| Channel | Q [µL/min] | P_from [Pa] |\n");
         md.push_str("|---------|------------|-------------|\n");
         for (id, q, p) in &r.channels {
-            md.push_str(&format!(
-                "| {id} | {:.4} | {:.2} |\n",
-                q * 1e9 * 60.0,
-                p
-            ));
+            md.push_str(&format!("| {id} | {:.4} | {:.2} |\n", q * 1e9 * 60.0, p));
         }
     }
 
@@ -722,7 +750,9 @@ fn write_report(
             let label = ["Coarse", "Medium", "Fine"][i];
             md.push_str(&format!(
                 "| {label} | {} | {} | {:.4} | {} |\n",
-                lv.nx, lv.ny, lv.max_wall_shear_pa,
+                lv.nx,
+                lv.ny,
+                lv.max_wall_shear_pa,
                 if lv.converged { "YES" } else { "NO" }
             ));
         }
@@ -737,7 +767,10 @@ fn write_report(
     // 3D Richardson results
     md.push_str("\n## Part 5 — 3D Richardson Convergence Study\n\n");
     for r in results_3d {
-        md.push_str(&format!("\n### {} — 3D FEM (StructuredGridBuilder)\n\n", r.design_id));
+        md.push_str(&format!(
+            "\n### {} — 3D FEM (StructuredGridBuilder)\n\n",
+            r.design_id
+        ));
         md.push_str("| Grid | nx | ny=nz | dp [Pa] | σ | u_max [m/s] |\n");
         md.push_str("|------|----|-------|---------|---|-------------|\n");
         for (i, lv) in r.levels.iter().enumerate() {
@@ -751,8 +784,12 @@ fn write_report(
             "\n**dp — Richardson extrapolated**: {:.2} Pa (order={:.2}, GCI={:.2}%)  \n\
              **σ — Richardson extrapolated**: {:.4} (order={:.2}, GCI={:.2}%)  \n\
              **Asymptotic range**: {}\n",
-            r.dp_extrap_pa, r.dp_order, r.dp_gci_fine_pct,
-            r.sigma_extrap, r.sigma_order, r.sigma_gci_fine_pct,
+            r.dp_extrap_pa,
+            r.dp_order,
+            r.dp_gci_fine_pct,
+            r.sigma_extrap,
+            r.sigma_order,
+            r.sigma_gci_fine_pct,
             if r.asymptotic { "YES" } else { "NO" }
         ));
     }
@@ -827,15 +864,16 @@ fn main() -> anyhow::Result<()> {
     let designs = select_top3()?;
     println!("  Selected {} designs:", designs.len());
     for d in &designs {
-        println!("    {} ({:?})  score={:.4}", d.candidate.id, d.candidate.topology, d.score);
+        println!(
+            "    {} ({:?})  score={:.4}",
+            d.candidate.id, d.candidate.topology, d.score
+        );
     }
 
     // Part 2: Extract blueprints
     println!("\nPart 2: Extracting NetworkBlueprints...");
-    let blueprints: Vec<cfd_schematics::NetworkBlueprint> = designs
-        .iter()
-        .map(|d| d.candidate.to_blueprint())
-        .collect();
+    let blueprints: Vec<cfd_schematics::NetworkBlueprint> =
+        designs.iter().map(|d| d.candidate.to_blueprint()).collect();
 
     // Part 3: 1D solve
     println!("\nPart 3: Complete 1D cascade solve...");
@@ -878,12 +916,15 @@ fn main() -> anyhow::Result<()> {
     // Part 7: Cross-fidelity summary (printed to stdout)
     println!("\nPart 7: Cross-fidelity consistency:");
     for i in 0..results_1d.len() {
-        print!("{}", cross_fidelity_table(
-            &results_1d[i].design_id,
-            &results_1d[i],
-            &results_2d[i],
-            &results_3d[i],
-        ));
+        print!(
+            "{}",
+            cross_fidelity_table(
+                &results_1d[i].design_id,
+                &results_1d[i],
+                &results_2d[i],
+                &results_3d[i],
+            )
+        );
     }
 
     // Part 8: Write report

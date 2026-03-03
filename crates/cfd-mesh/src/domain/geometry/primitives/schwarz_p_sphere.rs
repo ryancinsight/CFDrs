@@ -84,11 +84,21 @@ mod tests {
 
     #[test]
     fn schwarz_p_sphere_invalid_radius_errors() {
-        assert!(SchwarzPSphere { radius: 0.0, ..SchwarzPSphere::default() }.build().is_err());
+        assert!(SchwarzPSphere {
+            radius: 0.0,
+            ..SchwarzPSphere::default()
+        }
+        .build()
+        .is_err());
     }
 
     #[test]
     fn schwarz_p_sphere_low_resolution_errors() {
-        assert!(SchwarzPSphere { resolution: 2, ..SchwarzPSphere::default() }.build().is_err());
+        assert!(SchwarzPSphere {
+            resolution: 2,
+            ..SchwarzPSphere::default()
+        }
+        .build()
+        .is_err());
     }
 }

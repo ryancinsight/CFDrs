@@ -269,10 +269,10 @@ impl<T: RealField + FromPrimitive + Copy> BifurcationNetwork<T> {
         Self {
             vessels: Vec::new(),
             junctions: Vec::new(),
-            inlet_pressure: T::from_f64(13_332.0).unwrap(), // 100 mmHg
-            outlet_resistance: T::from_f64(1e9).unwrap(),
-            density: T::from_f64(1060.0).unwrap(),
-            viscosity: T::from_f64(0.0035).unwrap(),
+            inlet_pressure: T::from_f64(13_332.0).unwrap_or_else(num_traits::Zero::zero), // 100 mmHg
+            outlet_resistance: T::from_f64(1e9).unwrap_or_else(num_traits::Zero::zero),
+            density: T::from_f64(1060.0).unwrap_or_else(num_traits::Zero::zero),
+            viscosity: T::from_f64(0.0035).unwrap_or_else(num_traits::Zero::zero),
         }
     }
 
@@ -335,7 +335,7 @@ impl<T: RealField + FromPrimitive + Copy> BifurcationNetwork<T> {
             }
 
             // Create daughters
-            let daughter_radius = murray.symmetric_daughter_diameter(parent_radius * T::from_f64(2.0).unwrap()) / T::from_f64(2.0).unwrap();
+            let daughter_radius = murray.symmetric_daughter_diameter(parent_radius * T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero)) / T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
             let daughter_length = parent_length * length_ratio;
 
             let parent_vessel_id = network.vessels.len() - 1;

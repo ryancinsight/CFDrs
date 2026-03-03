@@ -57,9 +57,9 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float + ToPrimitive> MmsR
     pub fn run_study(&self) -> Result<RichardsonMmsResult<T>> {
         // Default grid sizes for geometric refinement
         let grid_sizes = vec![
-            T::from_f64(0.25).unwrap(),   // coarse
-            T::from_f64(0.125).unwrap(),  // medium
-            T::from_f64(0.0625).unwrap(), // fine
+            T::from_f64(0.25).unwrap_or_else(num_traits::Zero::zero), // coarse
+            T::from_f64(0.125).unwrap_or_else(num_traits::Zero::zero), // medium
+            T::from_f64(0.0625).unwrap_or_else(num_traits::Zero::zero), // fine
         ];
 
         self.run_study_with_grids(&grid_sizes)
@@ -195,14 +195,14 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float + ToPrimitive> MmsR
             let denominator = r_p - T::one();
 
             // Numerical stability protection: prevent division by near-zero
-            let eps = T::from_f64(1e-8).unwrap();
+            let eps = T::from_f64(1e-8).unwrap_or_else(num_traits::Zero::zero);
             let phi_exact = if ComplexField::abs(denominator) > eps {
                 phi_fine + (phi_fine - phi_coarse) / denominator
             } else {
                 // Fallback: use simple average when r^p ≈ 1 (unreliable convergence)
                 // This indicates numerical instability or poor grid refinement
                 println!("Warning: Richardson extrapolation numerically unstable (r^p ≈ 1). Using fallback averaging.");
-                (phi_coarse + phi_fine) / T::from_f64(2.0).unwrap()
+                (phi_coarse + phi_fine) / T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero)
             };
 
             extrapolated_solutions.push(phi_exact);
@@ -214,8 +214,10 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float + ToPrimitive> MmsR
             grid_errors.push(error_fine);
 
             // Convergence rate
-            if ComplexField::abs(error_coarse) > T::from_f64(1e-12).unwrap()
-                && ComplexField::abs(error_fine) > T::from_f64(1e-12).unwrap()
+            if ComplexField::abs(error_coarse)
+                > T::from_f64(1e-12).unwrap_or_else(num_traits::Zero::zero)
+                && ComplexField::abs(error_fine)
+                    > T::from_f64(1e-12).unwrap_or_else(num_traits::Zero::zero)
             {
                 let convergence_rate = ComplexField::ln(ComplexField::abs(error_fine))
                     / ComplexField::ln(ComplexField::abs(error_coarse))
@@ -314,7 +316,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float + ToPrimitive> MmsR
         // Configure Poisson solver with production settings
         use cfd_core::compute::solver::SolverConfig;
         let solver_config = SolverConfig::builder()
-            .tolerance(T::from_f64(1e-12).unwrap())
+            .tolerance(T::from_f64(1e-12).unwrap_or_else(num_traits::Zero::zero))
             .max_iterations(1000)
             .parallel(false)
             .build();
@@ -418,10 +420,12 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float + ToPrimitive> MmsR
                 let numerator = ComplexField::ln((e3 - e2) / (e2 - e1));
                 let denominator = ComplexField::ln(r);
 
-                if ComplexField::abs(denominator) > T::from_f64(1e-12).unwrap() {
+                if ComplexField::abs(denominator)
+                    > T::from_f64(1e-12).unwrap_or_else(num_traits::Zero::zero)
+                {
                     numerator / denominator
                 } else {
-                    T::from_f64(2.0).unwrap() // Default to second order
+                    T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero) // Default to second order
                 }
             } else {
                 // Use two-point estimation if only two points available
@@ -430,16 +434,18 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float + ToPrimitive> MmsR
                 if ratio > T::zero() && r > T::one() {
                     ComplexField::ln(ratio) / ComplexField::ln(r)
                 } else {
-                    T::from_f64(2.0).unwrap() // Default to second order
+                    T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero) // Default to second order
                 }
             };
 
             // Standard GCI formula (FS-based)
             // GCI = Fs * |(e2/e1) / (r^p - 1)|
             let r_p = ComplexField::powf(r, p);
-            let safety_factor = T::from_f64(1.25).unwrap(); // Standard safety factor
+            let safety_factor = T::from_f64(1.25).unwrap_or_else(num_traits::Zero::zero); // Standard safety factor
 
-            if ComplexField::abs(r_p - T::one()) > T::from_f64(1e-8).unwrap() {
+            if ComplexField::abs(r_p - T::one())
+                > T::from_f64(1e-8).unwrap_or_else(num_traits::Zero::zero)
+            {
                 let error_ratio = e2 / e1;
                 let gci = safety_factor * ComplexField::abs(error_ratio)
                     / ComplexField::abs(r_p - T::one());

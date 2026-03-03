@@ -2,7 +2,10 @@
 
 use super::candidate::DesignCandidate;
 use super::topology::DesignTopology;
-use crate::constraints::{TREATMENT_HEIGHT_MM, TREATMENT_WIDTH_MM};
+use crate::constraints::{
+    PLATE_HEIGHT_MM, PLATE_WIDTH_MM, TREATMENT_HEIGHT_MM, TREATMENT_WIDTH_MM, TREATMENT_X_MIN_MM,
+    TREATMENT_Y_MIN_MM,
+};
 use cfd_schematics::{
     geometry::adaptive_box_dims,
     interface::presets::{
@@ -451,7 +454,7 @@ impl DesignCandidate {
         }
         .with_square_wave();
 
-        match self.topology {
+        let system = match self.topology {
             // ── Single venturi: sine wave, no splits ──
             DesignTopology::SingleVenturi | DesignTopology::SerialDoubleVenturi => create_geometry(
                 box_dims,
@@ -704,7 +707,8 @@ impl DesignCandidate {
                     &ChannelTypeConfig::AllSerpentine(sine_wave),
                 )
             }
-        }
+        };
+        map_to_plate_coords(system, box_dims)
     }
 
     /// Total approximate channel path length [mm].
@@ -724,4 +728,51 @@ impl DesignCandidate {
         }
         len
     }
+}
+
+/// Remap a treatment-zone–local `ChannelSystem` into full 96-well plate
+/// coordinates (ANSI/SLAS 1-2004, 127.76 × 85.47 mm).
+///
+/// The geometry generator produces channels in a local frame `(0,0)…(box_w, box_h)`.
+/// This function shifts every coordinate so the layout sits centred inside the
+/// treatment zone and sets `box_dims` / `box_outline` to the full plate envelope.
+fn map_to_plate_coords(
+    mut sys: cfd_schematics::geometry::ChannelSystem,
+    local_dims: (f64, f64),
+) -> cfd_schematics::geometry::ChannelSystem {
+    use cfd_schematics::geometry::ChannelType;
+
+    let (box_w, box_h) = local_dims;
+    let dx = TREATMENT_X_MIN_MM + (TREATMENT_WIDTH_MM - box_w) / 2.0;
+    let dy = TREATMENT_Y_MIN_MM + (TREATMENT_HEIGHT_MM - box_h) / 2.0;
+
+    for node in &mut sys.nodes {
+        node.point.0 += dx;
+        node.point.1 += dy;
+    }
+
+    for channel in &mut sys.channels {
+        match &mut channel.channel_type {
+            ChannelType::Straight => {} // coordinates resolved from nodes
+            ChannelType::SmoothStraight { path }
+            | ChannelType::Serpentine { path }
+            | ChannelType::Arc { path }
+            | ChannelType::Frustum { path, .. } => {
+                for pt in path.iter_mut() {
+                    pt.0 += dx;
+                    pt.1 += dy;
+                }
+            }
+        }
+    }
+
+    sys.box_dims = (PLATE_WIDTH_MM, PLATE_HEIGHT_MM);
+    sys.box_outline = vec![
+        ((0.0, 0.0), (PLATE_WIDTH_MM, 0.0)),
+        ((PLATE_WIDTH_MM, 0.0), (PLATE_WIDTH_MM, PLATE_HEIGHT_MM)),
+        ((PLATE_WIDTH_MM, PLATE_HEIGHT_MM), (0.0, PLATE_HEIGHT_MM)),
+        ((0.0, PLATE_HEIGHT_MM), (0.0, 0.0)),
+    ];
+
+    sys
 }

@@ -84,10 +84,15 @@ impl DesignPipeline {
     /// Create a new pipeline that writes artifacts under `output_root`.
     ///
     /// Each design gets its own sub-directory named after the candidate ID.
+    /// The diameter constraint is skipped by default because millifluidic
+    /// designs have channel cross-sections smaller than the 4 mm macro-port
+    /// spec (physical tubing adapters are external).
     pub fn new(output_root: impl AsRef<Path>) -> Self {
+        let mut config = PipelineConfig::default();
+        config.skip_diameter_constraint = true;
         Self {
             output_root: output_root.as_ref().to_path_buf(),
-            mesh_config: PipelineConfig::default(),
+            mesh_config: config,
         }
     }
 
@@ -131,14 +136,13 @@ impl DesignPipeline {
         // 4. Write fluid STL (binary)
         let fluid_stl_path = design_dir.join("fluid.stl");
         {
-            let mut file = std::io::BufWriter::new(
-                std::fs::File::create(&fluid_stl_path).map_err(|e| {
+            let mut file =
+                std::io::BufWriter::new(std::fs::File::create(&fluid_stl_path).map_err(|e| {
                     OptimError::MeshExportFailed {
                         scenario_id: design_id.clone(),
                         message: format!("failed to create fluid STL file: {e}"),
                     }
-                })?,
-            );
+                })?);
             write_stl_binary(&mut file, &output.fluid_mesh).map_err(|e| {
                 OptimError::MeshExportFailed {
                     scenario_id: design_id.clone(),
@@ -195,12 +199,13 @@ impl DesignPipeline {
         // 7. Save interchange JSON (channel system)
         let schematic_json_path = design_dir.join("schematic.json");
         let channel_system = candidate.to_channel_system();
-        let json = channel_system
-            .to_interchange_json()
-            .map_err(|e| OptimError::MeshExportFailed {
-                scenario_id: design_id.clone(),
-                message: format!("failed to serialize interchange JSON: {e}"),
-            })?;
+        let json =
+            channel_system
+                .to_interchange_json()
+                .map_err(|e| OptimError::MeshExportFailed {
+                    scenario_id: design_id.clone(),
+                    message: format!("failed to serialize interchange JSON: {e}"),
+                })?;
         std::fs::write(&schematic_json_path, json).map_err(|e| OptimError::MeshExportFailed {
             scenario_id: design_id.clone(),
             message: format!("failed to write schematic JSON file: {e}"),

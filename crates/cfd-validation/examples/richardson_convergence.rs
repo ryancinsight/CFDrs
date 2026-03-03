@@ -1,11 +1,11 @@
 //! Richardson Extrapolation for Grid Convergence Study
 //!
-//! Demonstrates the use of Richardson extrapolation to estimate the 
-//! "exact" solution from simulations on multiple grid levels and 
+//! Demonstrates the use of Richardson extrapolation to estimate the
+//! "exact" solution from simulations on multiple grid levels and
 //! calculate the observed order of accuracy.
 
-use cfd_validation::benchmarks::{Benchmark, LidDrivenCavity, BenchmarkConfig};
 use cfd_core::error::Result;
+use cfd_validation::benchmarks::{Benchmark, BenchmarkConfig, LidDrivenCavity};
 
 fn main() -> Result<()> {
     println!("CFD Validation: Richardson Extrapolation Grid Convergence");
@@ -25,7 +25,7 @@ fn main() -> Result<()> {
             reynolds_number: re,
             ..Default::default()
         };
-        
+
         println!("Running resolution {}x{}...", res, res);
         let result = cavity.run(&config)?;
         let sample_value = result.values[result.values.len() / 2];
@@ -37,7 +37,7 @@ fn main() -> Result<()> {
     let f2 = results[1]; // Grid 32
     let f3 = results[0]; // Grid 16
     let r = 2.0_f64; // Refinement ratio
-    
+
     // Observed order of accuracy p
     let p = ((f3 - f2) / (f2 - f1)).abs().ln() / r.ln();
     let f_rich = f1 + (f1 - f2) / (r.powf(p) - 1.0_f64);

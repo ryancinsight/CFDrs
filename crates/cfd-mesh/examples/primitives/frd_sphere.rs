@@ -35,7 +35,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("  Surface    : FRD — Schoen F-RD (1970), Face-centred Rhombic Dodecahedron");
     println!("  Topology   : FCC, two congruent interlocking labyrinths");
     println!("  Radius     : {} mm", builder.radius);
-    println!("  Period     : {} mm  (lattice unit-cell size)", builder.period);
+    println!(
+        "  Period     : {} mm  (lattice unit-cell size)",
+        builder.period
+    );
     println!("  Resolution : {}  (voxels per axis)", builder.resolution);
     println!("  Building mesh...");
 

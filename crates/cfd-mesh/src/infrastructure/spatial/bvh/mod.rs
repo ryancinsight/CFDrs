@@ -101,7 +101,7 @@ impl<'brand> BvhTree<'brand, '_> {
 
     /// Number of internal tree nodes (useful for diagnostics and testing).
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub fn node_count(&self) -> usize {
         self.node_aabbs.len()
     }

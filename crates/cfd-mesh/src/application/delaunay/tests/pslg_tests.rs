@@ -172,8 +172,16 @@ fn resolve_crossings_splits_crossing_pair() {
 
     // The intersection vertex was appended last: index 4.
     let xv = pslg.vertices()[4];
-    assert!((xv.x - 0.5).abs() < 1e-12, "intersection x ≈ 0.5, got {}", xv.x);
-    assert!((xv.y - 0.5).abs() < 1e-12, "intersection y ≈ 0.5, got {}", xv.y);
+    assert!(
+        (xv.x - 0.5).abs() < 1e-12,
+        "intersection x ≈ 0.5, got {}",
+        xv.x
+    );
+    assert!(
+        (xv.y - 0.5).abs() < 1e-12,
+        "intersection y ≈ 0.5, got {}",
+        xv.y
+    );
 }
 
 #[test]

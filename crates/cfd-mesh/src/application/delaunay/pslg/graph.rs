@@ -133,7 +133,7 @@ pub struct Pslg {
 
 impl Pslg {
     /// Create an empty PSLG.
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         Self {
             vertices: Vec::new(),
@@ -143,7 +143,7 @@ impl Pslg {
     }
 
     /// Create with pre-allocated capacity.
-    #[must_use] 
+    #[must_use]
     pub fn with_capacity(num_vertices: usize, num_segments: usize) -> Self {
         Self {
             vertices: Vec::with_capacity(num_vertices),
@@ -170,21 +170,21 @@ impl Pslg {
 
     /// Number of vertices.
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub fn vertex_count(&self) -> usize {
         self.vertices.len()
     }
 
     /// Get vertex by ID.
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub fn vertex(&self, id: PslgVertexId) -> &PslgVertex {
         &self.vertices[id.idx()]
     }
 
     /// Slice of all vertex positions.
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub fn vertices(&self) -> &[PslgVertex] {
         &self.vertices
     }
@@ -209,21 +209,21 @@ impl Pslg {
 
     /// Number of constraint segments.
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub fn segment_count(&self) -> usize {
         self.segments.len()
     }
 
     /// Get segment by ID.
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub fn segment(&self, id: PslgSegmentId) -> &PslgSegment {
         &self.segments[id.idx()]
     }
 
     /// Slice of all segments.
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub fn segments(&self) -> &[PslgSegment] {
         &self.segments
     }
@@ -324,7 +324,7 @@ impl Pslg {
 
     /// Slice of all hole seeds.
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub fn holes(&self) -> &[PslgVertex] {
         &self.holes
     }
@@ -406,8 +406,10 @@ impl Pslg {
                     // Skip adjacent segments — shared endpoints are legal.
                     if !share_endpoint {
                         // b1 lies strictly in the interior of segment A?
-                        if o_b1 == Orientation::Degenerate && on_segment(&a1, &a2, &b1)
-                            && b1 != a1 && b1 != a2
+                        if o_b1 == Orientation::Degenerate
+                            && on_segment(&a1, &a2, &b1)
+                            && b1 != a1
+                            && b1 != a2
                         {
                             let xid = sj.start; // reuse the existing PSLG vertex
                             let (si_s, si_e) = (si.start, si.end);
@@ -417,8 +419,10 @@ impl Pslg {
                             continue 'outer;
                         }
                         // b2 lies strictly in the interior of segment A?
-                        if o_b2 == Orientation::Degenerate && on_segment(&a1, &a2, &b2)
-                            && b2 != a1 && b2 != a2
+                        if o_b2 == Orientation::Degenerate
+                            && on_segment(&a1, &a2, &b2)
+                            && b2 != a1
+                            && b2 != a2
                         {
                             let xid = sj.end;
                             let (si_s, si_e) = (si.start, si.end);
@@ -428,8 +432,10 @@ impl Pslg {
                             continue 'outer;
                         }
                         // a1 lies strictly in the interior of segment B?
-                        if o_a1 == Orientation::Degenerate && on_segment(&b1, &b2, &a1)
-                            && a1 != b1 && a1 != b2
+                        if o_a1 == Orientation::Degenerate
+                            && on_segment(&b1, &b2, &a1)
+                            && a1 != b1
+                            && a1 != b2
                         {
                             let xid = si.start;
                             let (sj_s, sj_e) = (sj.start, sj.end);
@@ -439,8 +445,10 @@ impl Pslg {
                             continue 'outer;
                         }
                         // a2 lies strictly in the interior of segment B?
-                        if o_a2 == Orientation::Degenerate && on_segment(&b1, &b2, &a2)
-                            && a2 != b1 && a2 != b2
+                        if o_a2 == Orientation::Degenerate
+                            && on_segment(&b1, &b2, &a2)
+                            && a2 != b1
+                            && a2 != b2
                         {
                             let xid = si.end;
                             let (sj_s, sj_e) = (sj.start, sj.end);
@@ -468,7 +476,8 @@ impl Pslg {
                             [a1.y, a2.y, b1.y, b2.y]
                         };
                         let mut sorted = coords;
-                        sorted.sort_by(|x, y| x.partial_cmp(y).unwrap_or(std::cmp::Ordering::Equal));
+                        sorted
+                            .sort_by(|x, y| x.partial_cmp(y).unwrap_or(std::cmp::Ordering::Equal));
                         // The two middle values are the overlap boundaries.
                         let lo_val = sorted[1];
                         let hi_val = sorted[2];
@@ -549,7 +558,7 @@ impl Pslg {
     /// Compute the axis-aligned bounding box `(min, max)`.
     ///
     /// Returns `None` if the PSLG has fewer than 1 vertex.
-    #[must_use] 
+    #[must_use]
     pub fn bounding_box(&self) -> Option<(PslgVertex, PslgVertex)> {
         if self.vertices.is_empty() {
             return None;

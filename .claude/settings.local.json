@@ -51,7 +51,12 @@
       "Bash(xargs basename -a)",
       "WebFetch(domain:github.com)",
       "WebFetch(domain:www.cgal.org)",
-      "Bash(xxd crates/cfd-mesh/src/application/csg/arrangement/mod.rs)"
+      "Bash(xxd crates/cfd-mesh/src/application/csg/arrangement/mod.rs)",
+      "Bash(python -c \"import json; data=json.load\\(open\\(r''C:/Users/RyanClanton/.claude/projects/C--Users-RyanClanton-gcli-software-millifluidic-design-CFDrs/f51e10ee-52c7-4b2c-924d-30857953aee7/tool-results/toolu_01Lx46xYS2Y9gsJKAsiEkjuQ.json''\\)\\); print\\(data[0][''text'']\\)\")",
+      "Bash(where node)",
+      "Bash(where nodejs)",
+      "Bash(/d/msys64/ucrt64/bin/python3.exe -c \"import json; data=json.load\\(open\\(r''C:/Users/RyanClanton/.claude/projects/C--Users-RyanClanton-gcli-software-millifluidic-design-CFDrs/f51e10ee-52c7-4b2c-924d-30857953aee7/tool-results/toolu_01Lx46xYS2Y9gsJKAsiEkjuQ.json''\\)\\); print\\(data[0][''text'']\\)\")",
+      "Bash(/d/msys64/ucrt64/bin/python3.exe -c \":*)"
     ]
   }
 }

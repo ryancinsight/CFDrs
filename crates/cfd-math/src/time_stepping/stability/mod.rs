@@ -31,7 +31,7 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
     pub fn new() -> Self {
         Self {
             resolution: 200,
-            max_z: T::from_f64(10.0).unwrap(),
+            max_z: T::from_f64(10.0).unwrap_or_else(num_traits::Zero::zero),
             _phantom: std::marker::PhantomData,
         }
     }
@@ -69,7 +69,7 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
 
         let stability = if cfl_number <= max_cfl {
             StabilityStatus::Stable
-        } else if cfl_number <= max_cfl * T::from_f64(1.5).unwrap() {
+        } else if cfl_number <= max_cfl * T::from_f64(1.5).unwrap_or_else(num_traits::Zero::zero) {
             StabilityStatus::MarginallyStable
         } else {
             StabilityStatus::Unstable
@@ -98,7 +98,7 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
             ));
             recommendations.push("Reduce time step or increase grid resolution".to_string());
             recommendations.push("Consider implicit methods for stiff problems".to_string());
-        } else if cfl > max_cfl * T::from_f64(0.8).unwrap() {
+        } else if cfl > max_cfl * T::from_f64(0.8).unwrap_or_else(num_traits::Zero::zero) {
             recommendations.push(format!(
                 "CFL number ({:.3}) approaching stability limit ({:.3})",
                 cfl.to_f64().unwrap(),
@@ -216,12 +216,12 @@ impl NumericalScheme {
     /// Maximum CFL number for stability
     pub fn max_cfl_number<T: RealField + Copy>(&self) -> T {
         match self {
-            NumericalScheme::RK3 => T::from_f64(1.7).unwrap(),
-            NumericalScheme::RK4 => T::from_f64(2.8).unwrap(),
+            NumericalScheme::RK3 => T::from_f64(1.7).unwrap_or_else(num_traits::Zero::zero),
+            NumericalScheme::RK4 => T::from_f64(2.8).unwrap_or_else(num_traits::Zero::zero),
             NumericalScheme::ForwardEuler
             | NumericalScheme::LaxWendroff
-            | NumericalScheme::Upwind => T::from_f64(1.0).unwrap(),
-            NumericalScheme::CentralDifference => T::from_f64(0.0).unwrap(), // Unstable
+            | NumericalScheme::Upwind => T::from_f64(1.0).unwrap_or_else(num_traits::Zero::zero),
+            NumericalScheme::CentralDifference => T::from_f64(0.0).unwrap_or_else(num_traits::Zero::zero), // Unstable
         }
     }
 }

@@ -18,6 +18,7 @@
 
 use std::path::Path;
 
+use crate::design::DesignTopology;
 use crate::optimizer::RankedDesign;
 use crate::scoring::OptimMode;
 
@@ -239,9 +240,9 @@ pub fn save_comparison_svg(
 
 /// Save a 2D channel schematic SVG for a single design candidate.
 ///
-/// Calls `cfd-schematics`'s `create_geometry` + `plot_geometry` to produce a
-/// spatially-laid-out channel plan with x/y mirror symmetry matching the
-/// existing `cfd-schematics` example outputs.
+/// The schematic is rendered at the ANSI/SLAS 96-well plate footprint
+/// (127.76 × 85.47 mm) with channel geometry positioned within the
+/// treatment zone.
 ///
 /// # Errors
 /// Returns an error if geometry generation or file writing fails.
@@ -251,7 +252,8 @@ pub fn save_schematic_svg(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let system = candidate.to_channel_system();
     let path_str = path.to_str().ok_or("path contains invalid UTF-8")?;
-    cfd_schematics::plot_geometry(&system, path_str)?;
+    let config = cfd_schematics::visualizations::traits::RenderConfig::well_plate_96();
+    cfd_schematics::plot_geometry_with_config(&system, path_str, &config)?;
     Ok(())
 }
 
@@ -410,4 +412,327 @@ fn metric_annotation(d: &RankedDesign, mode: OptimMode) -> String {
             )
         }
     }
+}
+
+// ── Annotated CIF/CCT SVG flow diagram ──────────────────────────────────────
+
+/// Generate an annotated CIF/CCT topology SVG flow diagram.
+///
+/// Produces a purpose-built flow diagram showing:
+/// - Network topology (pre-trifurcation stages, terminal tri/bi junctions)
+/// - Venturi placement on the treatment arm (highlighted)
+/// - Per-arm cell population fractions (cancer, WBC, RBC)
+/// - Per-channel hemolysis contributions
+/// - Flow fractions per arm
+///
+/// # Errors
+/// Returns an error if the file cannot be written.
+pub fn save_annotated_cif_svg(
+    design: &RankedDesign,
+    path: &Path,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let m = &design.metrics;
+    let c = &design.candidate;
+
+    let (topology_label, stage_lines) = match c.topology {
+        DesignTopology::IncrementalFiltrationTriBiSeparator { n_pretri } => {
+            let label = format!("CIF/CIFX (n_pretri={n_pretri})");
+            let mut lines = Vec::new();
+            for i in 0..n_pretri {
+                lines.push(format!(
+                    "Pre-tri stage {}: center → next stage, periphery → bypass",
+                    i + 1
+                ));
+            }
+            lines.push("Terminal trifurcation: center → treatment arm".to_owned());
+            lines.push("Terminal bifurcation: treatment → venturi throat".to_owned());
+            (label, lines)
+        }
+        DesignTopology::CascadeCenterTrifurcationSeparator { n_levels } => {
+            let label = format!("CCT (n_levels={n_levels})");
+            let mut lines = Vec::new();
+            for i in 0..n_levels {
+                lines.push(format!(
+                    "Trifurcation level {}: center → next, L/R → bypass",
+                    i + 1
+                ));
+            }
+            lines.push("Deepest center arm → venturi throat".to_owned());
+            (label, lines)
+        }
+        _ => {
+            let label = format!("{:?}", c.topology);
+            (label, Vec::new())
+        }
+    };
+
+    // ANSI/SLAS 96-well plate footprint at 10× scale.
+    let width: usize = 1278;
+    let row_height = 32;
+    let header_height = 120;
+    let body_height = stage_lines.len() * row_height + 400;
+    let height = header_height + body_height;
+
+    let mut svg = String::with_capacity(8192);
+    svg.push_str(&format!(
+        r#"<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}">"#
+    ));
+    svg.push_str(
+        r##"<style>
+  text { font-family: 'Segoe UI', sans-serif; }
+  .title { font-size: 16px; font-weight: bold; fill: #1a1a2e; }
+  .subtitle { font-size: 12px; fill: #555; }
+  .label { font-size: 11px; fill: #333; }
+  .value { font-size: 11px; fill: #0066cc; font-weight: 600; }
+  .venturi { font-size: 11px; fill: #cc3300; font-weight: bold; }
+  .safe { fill: #228B22; }
+  .warn { fill: #cc6600; }
+  .stage-box { fill: #f0f4f8; stroke: #aab; rx: 4; ry: 4; }
+  .venturi-box { fill: #fff0e0; stroke: #cc6600; rx: 4; ry: 4; stroke-width: 2; }
+  .metric-box { fill: #e8f4e8; stroke: #6b9; rx: 4; ry: 4; }
+  .arrow { stroke: #666; fill: none; stroke-width: 1.5; marker-end: url(#arrowhead); }
+</style>"##,
+    );
+    svg.push_str(r##"<defs><marker id="arrowhead" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#666"/></marker></defs>"##);
+
+    // Header
+    svg.push_str(&format!(
+        r#"<text x="20" y="30" class="title">Annotated CIF Flow Diagram — {}</text>"#,
+        design.candidate.id
+    ));
+    svg.push_str(&format!(
+        r#"<text x="20" y="50" class="subtitle">Topology: {topology_label}   Score: {:.4}   Rank: #{}</text>"#,
+        design.score, design.rank
+    ));
+
+    let sigma_str = if m.cavitation_number.is_finite() {
+        format!("σ={:.3}", m.cavitation_number)
+    } else {
+        "σ=∞".to_owned()
+    };
+    svg.push_str(&format!(
+        r#"<text x="20" y="70" class="subtitle">{sigma_str}   HI/pass={:.2e}   FDA: {}   ΔP={:.1} kPa</text>"#,
+        m.hemolysis_index_per_pass,
+        if m.fda_overall_compliant { "PASS" } else { "FAIL" },
+        m.total_pressure_drop_pa * 1e-3,
+    ));
+
+    // Network stage diagram
+    let mut y = header_height as f64;
+    let x_left = 60.0;
+
+    // Inlet
+    svg.push_str(&format!(
+        r#"<rect x="{}" y="{}" width="200" height="28" class="stage-box"/>"#,
+        x_left,
+        y - 14.0
+    ));
+    svg.push_str(&format!(
+        r#"<text x="{}" y="{}" class="label">INLET  Q={:.1} mL/min  HCT={:.1}%</text>"#,
+        x_left + 8.0,
+        y + 4.0,
+        m.flow_rate_ml_min,
+        c.feed_hematocrit * 100.0,
+    ));
+    y += 40.0;
+
+    // Stage lines
+    for (i, line) in stage_lines.iter().enumerate() {
+        svg.push_str(&format!(
+            r#"<line x1="{}" y1="{}" x2="{}" y2="{}" class="arrow"/>"#,
+            x_left + 100.0,
+            y - 30.0,
+            x_left + 100.0,
+            y - 14.0,
+        ));
+        svg.push_str(&format!(
+            r#"<rect x="{}" y="{}" width="500" height="28" class="stage-box"/>"#,
+            x_left,
+            y - 14.0
+        ));
+        svg.push_str(&format!(
+            r#"<text x="{}" y="{}" class="label">Stage {}: {line}</text>"#,
+            x_left + 8.0,
+            y + 4.0,
+            i + 1,
+        ));
+        y += row_height as f64 + 8.0;
+    }
+
+    // Venturi throat
+    svg.push_str(&format!(
+        r#"<line x1="{}" y1="{}" x2="{}" y2="{}" class="arrow"/>"#,
+        x_left + 100.0,
+        y - 30.0,
+        x_left + 100.0,
+        y - 14.0,
+    ));
+    svg.push_str(&format!(
+        r#"<rect x="{}" y="{}" width="500" height="28" class="venturi-box"/>"#,
+        x_left,
+        y - 14.0
+    ));
+    svg.push_str(&format!(
+        r#"<text x="{}" y="{}" class="venturi">▶ VENTURI THROAT  d={:.0}µm  L={:.0}µm  τ={:.0} Pa  t={:.2e} s</text>"#,
+        x_left + 8.0,
+        y + 4.0,
+        c.throat_diameter_m * 1e6,
+        c.throat_length_m * 1e6,
+        m.throat_shear_pa,
+        m.throat_transit_time_s,
+    ));
+    y += 50.0;
+
+    // Cell population summary
+    svg.push_str(&format!(
+        r#"<rect x="{}" y="{}" width="820" height="120" class="metric-box"/>"#,
+        x_left - 20.0,
+        y - 10.0,
+    ));
+    svg.push_str(&format!(
+        r#"<text x="{}" y="{}" class="title">Cell Population Fractions at Venturi</text>"#,
+        x_left,
+        y + 14.0,
+    ));
+    svg.push_str(&format!(
+        r#"<text x="{}" y="{}" class="value">Cancer center fraction: {:.1}%</text>"#,
+        x_left,
+        y + 34.0,
+        m.cancer_center_fraction * 100.0,
+    ));
+    svg.push_str(&format!(
+        r#"<text x="350" y="{}" class="value">RBC peripheral fraction: {:.1}%</text>"#,
+        y + 34.0,
+        m.rbc_peripheral_fraction * 100.0,
+    ));
+    svg.push_str(&format!(
+        r#"<text x="{}" y="{}" class="value">WBC center fraction: {:.1}%</text>"#,
+        x_left,
+        y + 54.0,
+        m.wbc_center_fraction * 100.0,
+    ));
+    svg.push_str(&format!(
+        r#"<text x="350" y="{}" class="value">Local HCT at venturi: {:.1}%</text>"#,
+        y + 54.0,
+        m.local_hematocrit_venturi * 100.0,
+    ));
+    svg.push_str(&format!(
+        r#"<text x="{}" y="{}" class="value">Venturi flow fraction: {:.1}%</text>"#,
+        x_left,
+        y + 74.0,
+        m.venturi_flow_fraction * 100.0,
+    ));
+    svg.push_str(&format!(
+        r#"<text x="350" y="{}" class="value">RBC venturi exposure: {:.1}%</text>"#,
+        y + 74.0,
+        m.rbc_venturi_exposure_fraction * 100.0,
+    ));
+    y += 140.0;
+
+    // Hemolysis decomposition
+    svg.push_str(&format!(
+        r#"<rect x="{}" y="{}" width="820" height="100" class="metric-box"/>"#,
+        x_left - 20.0,
+        y - 10.0,
+    ));
+    svg.push_str(&format!(
+        r#"<text x="{}" y="{}" class="title">Per-Channel Hemolysis Decomposition</text>"#,
+        x_left,
+        y + 14.0,
+    ));
+    svg.push_str(&format!(
+        r#"<text x="{}" y="{}" class="value">Treatment channel HI: {:.2e}</text>"#,
+        x_left,
+        y + 34.0,
+        m.treatment_channel_hi,
+    ));
+    svg.push_str(&format!(
+        r#"<text x="450" y="{}" class="value">Bulk HI (uncorrected): {:.2e}</text>"#,
+        y + 34.0,
+        m.bulk_hemolysis_index_per_pass,
+    ));
+    svg.push_str(&format!(
+        r#"<text x="{}" y="{}" class="value">Bypass mean HI: {:.2e}</text>"#,
+        x_left,
+        y + 54.0,
+        m.bypass_channel_hi_mean,
+    ));
+    svg.push_str(&format!(
+        r#"<text x="450" y="{}" class="value">Final HI (corrected): {:.2e}</text>"#,
+        y + 54.0,
+        m.hemolysis_index_per_pass,
+    ));
+    svg.push_str(&format!(
+        r#"<text x="{}" y="{}" class="value">Bypass max HI: {:.2e}</text>"#,
+        x_left,
+        y + 74.0,
+        m.bypass_channel_hi_max,
+    ));
+    let hi_reduction_pct = if m.bulk_hemolysis_index_per_pass > 1e-18 {
+        (1.0 - m.hemolysis_index_per_pass / m.bulk_hemolysis_index_per_pass) * 100.0
+    } else {
+        0.0
+    };
+    let class = if hi_reduction_pct > 0.0 {
+        "safe"
+    } else {
+        "warn"
+    };
+    svg.push_str(&format!(
+        r#"<text x="450" y="{}" class="value {class}">HCT correction: {:.1}% reduction</text>"#,
+        y + 74.0,
+        hi_reduction_pct,
+    ));
+
+    // CIF/CCT specific flow fractions
+    y += 120.0;
+    if matches!(
+        c.topology,
+        DesignTopology::IncrementalFiltrationTriBiSeparator { .. }
+    ) {
+        svg.push_str(&format!(
+            r#"<rect x="{}" y="{}" width="820" height="60" class="stage-box"/>"#,
+            x_left - 20.0,
+            y - 10.0,
+        ));
+        svg.push_str(&format!(
+            r#"<text x="{}" y="{}" class="label">CIF model Q_venturi={:.1}%   solved Q_venturi={:.1}%   pretri_qfrac_mean={:.3}   tri_qfrac={:.3}   bi_qfrac={:.3}</text>"#,
+            x_left,
+            y + 14.0,
+            m.cif_model_venturi_flow_fraction * 100.0,
+            m.cif_solved_venturi_flow_fraction * 100.0,
+            m.cif_pretri_qfrac_mean,
+            m.cif_terminal_tri_qfrac,
+            m.cif_terminal_bi_qfrac,
+        ));
+        svg.push_str(&format!(
+            r#"<text x="{}" y="{}" class="label">Outlet tail: {:.1} mm   Remerge proximity: {:.3}   SCDI: {:.4}</text>"#,
+            x_left,
+            y + 36.0,
+            m.cif_outlet_tail_length_mm,
+            m.cif_remerge_proximity_score,
+            m.selective_cavitation_delivery_index,
+        ));
+    } else if matches!(
+        c.topology,
+        DesignTopology::CascadeCenterTrifurcationSeparator { .. }
+    ) {
+        svg.push_str(&format!(
+            r#"<rect x="{}" y="{}" width="820" height="40" class="stage-box"/>"#,
+            x_left - 20.0,
+            y - 10.0,
+        ));
+        svg.push_str(&format!(
+            r#"<text x="{}" y="{}" class="label">CCT model Q_venturi={:.1}%   solved Q_venturi={:.1}%   stage_qfrac_mean={:.3}</text>"#,
+            x_left,
+            y + 14.0,
+            m.cct_model_venturi_flow_fraction * 100.0,
+            m.cct_solved_venturi_flow_fraction * 100.0,
+            m.cct_stage_center_qfrac_mean,
+        ));
+    }
+
+    svg.push_str("</svg>");
+    std::fs::write(path, svg)?;
+    Ok(())
 }

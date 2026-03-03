@@ -50,7 +50,7 @@ pub struct SparseVoxelOctree {
 
 impl SparseVoxelOctree {
     /// Create a new empty SVO over `domain_aabb`.
-    #[must_use] 
+    #[must_use]
     pub fn new(domain_aabb: Aabb) -> Self {
         let empty_leaf = SvoNode::Leaf(false);
         let nodes = vec![empty_leaf.clone()];

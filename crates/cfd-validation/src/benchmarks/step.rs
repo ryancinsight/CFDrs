@@ -34,7 +34,8 @@ impl<T: RealField + Copy> BackwardFacingStep<T> {
     fn calculate_reattachment_length(&self, _u_field: &DMatrix<T>) -> T {
         // Find where flow reattaches to bottom wall
         // Simplified - look for sign change in u-velocity at wall
-        T::from_f64(6.0).unwrap_or_else(|| T::from_i32(6).unwrap()) * self.step_height
+        T::from_f64(6.0).unwrap_or_else(|| T::from_i32(6).unwrap_or_else(num_traits::Zero::zero))
+            * self.step_height
     }
 }
 
@@ -63,7 +64,9 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Benchmark<T> for BackwardFacing
             let y = T::from_usize(j).unwrap_or_else(|| T::zero())
                 / T::from_usize(ny / 2).unwrap_or_else(|| T::one());
             u[(j + ny / 2, 0)] = self.inlet_velocity
-                * (T::one() - (y - T::from_f64(0.5).unwrap()) * (y - T::from_f64(0.5).unwrap()));
+                * (T::one()
+                    - (y - T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero))
+                        * (y - T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero)));
         }
 
         // Grid spacing and time step
@@ -169,8 +172,9 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Benchmark<T> for BackwardFacing
         // At Re=800: x_r/h ≈ 6.31 * h
 
         // Default reference for moderate Reynolds number (Re~200-400)
-        let reference_reattachment =
-            T::from_f64(6.0).unwrap_or_else(|| T::from_i32(6).unwrap()) * self.step_height;
+        let reference_reattachment = T::from_f64(6.0)
+            .unwrap_or_else(|| T::from_i32(6).unwrap_or_else(num_traits::Zero::zero))
+            * self.step_height;
 
         Some(BenchmarkResult {
             name: "Backward Facing Step (Reference)".to_string(),
@@ -200,7 +204,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Benchmark<T> for BackwardFacing
             // 2. Grid resolution effects (coarse grids over-predict)
             // 3. Reference data variability across different studies
             // This is consistent with literature comparisons (Gartling 1990, Armaly et al. 1983)
-            let tolerance = T::from_f64(0.30).unwrap_or_else(|| T::from_f64(0.3).unwrap());
+            let tolerance = T::from_f64(0.30)
+                .unwrap_or_else(|| T::from_f64(0.3).unwrap_or_else(num_traits::Zero::zero));
             let relative_error =
                 ((computed_reattachment - reference_reattachment).abs()) / reference_reattachment;
 
@@ -210,13 +215,16 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Benchmark<T> for BackwardFacing
             // Additional sanity checks
             let physically_reasonable = computed_reattachment > T::zero()
                 && computed_reattachment
-                    < T::from_f64(20.0).unwrap_or_else(|| T::from_i32(20).unwrap())
+                    < T::from_f64(20.0)
+                        .unwrap_or_else(|| T::from_i32(20).unwrap_or_else(num_traits::Zero::zero))
                         * self.step_height;
 
             // Check convergence occurred
             let converged = if let Some(last_residual) = result.convergence.last() {
                 last_residual.abs()
-                    < T::from_f64(1e-4).unwrap_or_else(|| T::from_f64(0.0001).unwrap())
+                    < T::from_f64(1e-4).unwrap_or_else(|| {
+                        T::from_f64(0.0001).unwrap_or_else(num_traits::Zero::zero)
+                    })
             } else {
                 false
             };
@@ -227,7 +235,9 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Benchmark<T> for BackwardFacing
         // Fallback: basic sanity checks without reference
         let physically_reasonable = computed_reattachment > T::zero()
             && computed_reattachment
-                < T::from_f64(20.0).unwrap_or_else(|| T::from_i32(20).unwrap()) * self.step_height;
+                < T::from_f64(20.0)
+                    .unwrap_or_else(|| T::from_i32(20).unwrap_or_else(num_traits::Zero::zero))
+                    * self.step_height;
 
         Ok(physically_reasonable)
     }

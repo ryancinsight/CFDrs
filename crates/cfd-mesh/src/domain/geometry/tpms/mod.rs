@@ -38,32 +38,32 @@
 //! └── fischer_koch_cy.rs  ← FischerKochCY: F = Σcos2·sin·cos (cyclic)
 //! ```
 
-pub mod marching_cubes;
 pub mod box_clip;
-pub mod gyroid;
-pub mod schwarz_p;
-pub mod schwarz_d;
-pub mod neovius;
-pub mod lidinoid;
-pub mod iwp;
-pub mod split_p;
-pub mod frd;
 pub mod fischer_koch_cy;
+pub mod frd;
+pub mod gyroid;
+pub mod iwp;
+pub mod lidinoid;
+pub mod marching_cubes;
+pub mod neovius;
+pub mod schwarz_d;
+pub mod schwarz_p;
+pub mod split_p;
 
-pub use gyroid::Gyroid;
-pub use schwarz_p::SchwarzP;
-pub use schwarz_d::SchwarzD;
-pub use neovius::Neovius;
-pub use lidinoid::Lidinoid;
-pub use iwp::Iwp;
-pub use split_p::SplitP;
-pub use frd::Frd;
-pub use fischer_koch_cy::FischerKochCY;
 pub use box_clip::{build_tpms_box, build_tpms_box_graded, TpmsBoxParams};
+pub use fischer_koch_cy::FischerKochCY;
+pub use frd::Frd;
+pub use gyroid::Gyroid;
+pub use iwp::Iwp;
+pub use lidinoid::Lidinoid;
+pub use neovius::Neovius;
+pub use schwarz_d::SchwarzD;
+pub use schwarz_p::SchwarzP;
+pub use split_p::SplitP;
 
 use crate::domain::core::scalar::Vector3r;
-use crate::domain::mesh::IndexedMesh;
 use crate::domain::geometry::primitives::PrimitiveError;
+use crate::domain::mesh::IndexedMesh;
 
 // ── TPMS trait ────────────────────────────────────────────────────────────────
 

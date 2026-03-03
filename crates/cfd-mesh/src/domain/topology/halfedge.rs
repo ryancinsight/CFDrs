@@ -98,7 +98,7 @@ pub enum PatchType {
 
 impl PatchType {
     /// Returns the `OpenFOAM` boundary type string for this patch.
-    #[must_use] 
+    #[must_use]
     pub fn openfoam_type(&self) -> &str {
         match self {
             PatchType::Wall => "wall",
@@ -224,7 +224,7 @@ impl VertexData {
     /// Create vertex data at `position` with a default half-edge key.
     ///
     /// The `half_edge` field must be updated before any topology traversal.
-    #[must_use] 
+    #[must_use]
     pub fn new(position: Point3<Real>) -> Self {
         // Use a dummy key; the mesh builder overwrites this immediately.
         Self {
@@ -273,7 +273,7 @@ pub struct FaceData {
 
 impl FaceData {
     /// Create face data with a given entry half-edge and precomputed normal.
-    #[must_use] 
+    #[must_use]
     pub fn new(half_edge: HalfEdgeKey, normal: UnitVector3<Real>) -> Self {
         Self {
             half_edge,
@@ -283,7 +283,7 @@ impl FaceData {
     }
 
     /// Create face data with a unit-z normal; call `recompute_normal` after vertices are set.
-    #[must_use] 
+    #[must_use]
     pub fn with_half_edge(half_edge: HalfEdgeKey) -> Self {
         Self {
             half_edge,

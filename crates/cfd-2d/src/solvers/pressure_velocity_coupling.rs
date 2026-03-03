@@ -50,10 +50,10 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::Debug> SimpleAlgorithm<T> {
     /// Create new SIMPLE algorithm with default parameters
     pub fn new() -> Self {
         Self {
-            pressure_relaxation: T::from_f64(0.3).unwrap(), // Standard value
-            velocity_relaxation: T::from_f64(0.7).unwrap(), // Standard value
+            pressure_relaxation: T::from_f64(0.3).unwrap_or_else(num_traits::Zero::zero), // Standard value
+            velocity_relaxation: T::from_f64(0.7).unwrap_or_else(num_traits::Zero::zero), // Standard value
             max_iterations: 50,
-            tolerance: T::from_f64(1e-6).unwrap(),
+            tolerance: T::from_f64(1e-6).unwrap_or_else(num_traits::Zero::zero),
         }
     }
 
@@ -141,7 +141,7 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::Debug> SimpleAlgorithm<T> {
         // Solve using conjugate gradient with ILU preconditioning
         let poisson_matrix = matrix_builder.build()?;
         let cg_config = IterativeSolverConfig {
-            tolerance: T::from_f64(1e-8).unwrap(),
+            tolerance: T::from_f64(1e-8).unwrap_or_else(num_traits::Zero::zero),
             max_iterations: 1000,
             ..Default::default()
         };
@@ -298,7 +298,7 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::Debug> SimpleAlgorithm<T> {
 
         let dx2 = dx * dx;
         let dy2 = dy * dy;
-        let two = T::from_f64(2.0).unwrap();
+        let two = T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
 
         // Build matrix for interior points (Dirichlet boundaries assumed p' = 0)
         for j in 0..ny {

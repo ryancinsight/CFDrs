@@ -43,16 +43,26 @@ pub struct IwpSphere {
 
 impl Default for IwpSphere {
     fn default() -> Self {
-        Self { radius: 5.0, period: 2.5, resolution: 64, iso_value: 0.0 }
+        Self {
+            radius: 5.0,
+            period: 2.5,
+            resolution: 64,
+            iso_value: 0.0,
+        }
     }
 }
 
 impl PrimitiveMesh for IwpSphere {
     fn build(&self) -> Result<IndexedMesh, PrimitiveError> {
-        build_tpms_sphere(&Iwp, &TpmsParams {
-            radius: self.radius, period: self.period,
-            resolution: self.resolution, iso_value: self.iso_value,
-        })
+        build_tpms_sphere(
+            &Iwp,
+            &TpmsParams {
+                radius: self.radius,
+                period: self.period,
+                resolution: self.resolution,
+                iso_value: self.iso_value,
+            },
+        )
     }
 }
 
@@ -62,18 +72,32 @@ mod tests {
 
     #[test]
     fn iwp_sphere_builds_with_faces() {
-        let mesh = IwpSphere { resolution: 20, ..IwpSphere::default() }
-            .build().expect("IWP sphere");
+        let mesh = IwpSphere {
+            resolution: 20,
+            ..IwpSphere::default()
+        }
+        .build()
+        .expect("IWP sphere");
         assert!(mesh.faces.len() > 0);
     }
 
     #[test]
     fn iwp_sphere_invalid_radius_errors() {
-        assert!(IwpSphere { radius: -2.0, ..IwpSphere::default() }.build().is_err());
+        assert!(IwpSphere {
+            radius: -2.0,
+            ..IwpSphere::default()
+        }
+        .build()
+        .is_err());
     }
 
     #[test]
     fn iwp_sphere_low_resolution_errors() {
-        assert!(IwpSphere { resolution: 2, ..IwpSphere::default() }.build().is_err());
+        assert!(IwpSphere {
+            resolution: 2,
+            ..IwpSphere::default()
+        }
+        .build()
+        .is_err());
     }
 }

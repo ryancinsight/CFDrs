@@ -22,7 +22,7 @@ impl SparseVoxelOctree {
     /// Compute the exact boolean operation between `self` (A) and `other` (B).
     ///
     /// Both DAGs must cover the exact same domain AABB.
-    #[must_use] 
+    #[must_use]
     pub fn boolean(&self, other: &Self, op: BooleanOp) -> Self {
         assert_eq!(
             self.root_aabb, other.root_aabb,
@@ -247,9 +247,15 @@ mod tests {
         b.insert_aabb(&target_b, 4);
 
         let merged = a.boolean(&b, BooleanOp::Union);
-        assert!(merged.nodes.len() > 10, "Merged tree should contain dense nodes");
-        
+        assert!(
+            merged.nodes.len() > 10,
+            "Merged tree should contain dense nodes"
+        );
+
         let diff = a.boolean(&b, BooleanOp::Difference);
-        assert!(diff.nodes.len() > 10, "Merged tree should contain dense nodes");
+        assert!(
+            diff.nodes.len() > 10,
+            "Merged tree should contain dense nodes"
+        );
     }
 }

@@ -39,14 +39,14 @@ impl Adjacency {
     ///
     /// Returns `None` if `other` is not adjacent.
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub fn find_edge(triangles: &[Triangle], t: TriangleId, other: TriangleId) -> Option<usize> {
         triangles[t.idx()].adj.iter().position(|&a| a == other)
     }
 
     /// Find the edge index in triangle `t` that is opposite vertex `v`.
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub fn edge_opposite_vertex(
         triangles: &[Triangle],
         t: TriangleId,
@@ -57,14 +57,14 @@ impl Adjacency {
 
     /// Return the triangle across edge `e` of triangle `t`.
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub fn neighbor(triangles: &[Triangle], t: TriangleId, e: usize) -> TriangleId {
         triangles[t.idx()].adj[e]
     }
 
     /// Check whether triangle `t` is on the convex hull boundary
     /// (has at least one `GHOST_TRIANGLE` neighbor).
-    #[must_use] 
+    #[must_use]
     pub fn is_hull_triangle(triangles: &[Triangle], t: TriangleId) -> bool {
         triangles[t.idx()].adj.contains(&GHOST_TRIANGLE)
     }
@@ -73,7 +73,7 @@ impl Adjacency {
     ///
     /// Returns `true` if every adjacency link is symmetric.
     #[cfg(any(test, debug_assertions))]
-    #[must_use] 
+    #[must_use]
     pub fn verify_symmetry(triangles: &[Triangle]) -> bool {
         for (i, tri) in triangles.iter().enumerate() {
             if !tri.alive {

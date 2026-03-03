@@ -155,8 +155,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("  ─── θ = 45°: branch intersection and trunk difference ────────────");
     println!();
 
-    let (trunk_45, branch_up_45, branch_dn_45) =
-        build_y_junction(std::f64::consts::FRAC_PI_4)?;
+    let (trunk_45, branch_up_45, branch_dn_45) = build_y_junction(std::f64::consts::FRAC_PI_4)?;
 
     // ── Intersection B ∩ C ────────────────────────────────────────────────────
     // Both branches are semi-infinite cylinders starting at origin, axes at 90°.
@@ -188,9 +187,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             &result,
             &out_dir.join("cylinder_cylinder_y_junction_branch_intersection_45deg.stl"),
         )?;
-        println!(
-            "  STL: outputs/csg/cylinder_cylinder_y_junction_branch_intersection_45deg.stl"
-        );
+        println!("  STL: outputs/csg/cylinder_cylinder_y_junction_branch_intersection_45deg.stl");
         println!();
     }
 
@@ -200,11 +197,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // reduction from the junction clips.
     {
         let t0_union = Instant::now();
-        let branches_union =
-            csg_boolean_indexed(BooleanOp::Union, &branch_up_45, &branch_dn_45)?;
+        let branches_union = csg_boolean_indexed(BooleanOp::Union, &branch_up_45, &branch_dn_45)?;
         let t0_diff = Instant::now();
-        let mut result =
-            csg_boolean_indexed(BooleanOp::Difference, &trunk_45, &branches_union)?;
+        let mut result = csg_boolean_indexed(BooleanOp::Difference, &trunk_45, &branches_union)?;
         let ms = t0_diff.elapsed().as_millis() + t0_union.elapsed().as_millis();
 
         report(
@@ -259,8 +254,7 @@ fn build_y_junction(
         // (0,0,0) → (H_TRUNK+EPS, 0, 0) along +X.
         // Translate (−H_TRUNK, 0, 0) so the inlet end is at (−H_TRUNK, 0, 0)
         // and the extended tip is at (EPS, 0, 0).
-        let rot =
-            UnitQuaternion::<Real>::from_axis_angle(&Vector3::z_axis(), -FRAC_PI_2);
+        let rot = UnitQuaternion::<Real>::from_axis_angle(&Vector3::z_axis(), -FRAC_PI_2);
         let iso = Isometry3::from_parts(Translation3::new(-H_TRUNK, 0.0, 0.0), rot);
         CsgNode::Transform {
             node: Box::new(CsgNode::Leaf(Box::new(raw))),
@@ -280,10 +274,7 @@ fn build_y_junction(
         .build()?;
         // Rotate (θ − π/2) about Z.  At θ = π/2, no rotation (+Y stays +Y).
         // At θ = 0, rotation = −π/2 (+Y → +X, collinear with trunk — avoid!).
-        let rot = UnitQuaternion::<Real>::from_axis_angle(
-            &Vector3::z_axis(),
-            theta - FRAC_PI_2,
-        );
+        let rot = UnitQuaternion::<Real>::from_axis_angle(&Vector3::z_axis(), theta - FRAC_PI_2);
         let iso = Isometry3::from_parts(Translation3::new(0.0, 0.0, 0.0), rot);
         CsgNode::Transform {
             node: Box::new(CsgNode::Leaf(Box::new(raw))),
@@ -302,10 +293,7 @@ fn build_y_junction(
         }
         .build()?;
         // Rotate (−θ − π/2) about Z.
-        let rot = UnitQuaternion::<Real>::from_axis_angle(
-            &Vector3::z_axis(),
-            -theta - FRAC_PI_2,
-        );
+        let rot = UnitQuaternion::<Real>::from_axis_angle(&Vector3::z_axis(), -theta - FRAC_PI_2);
         let iso = Isometry3::from_parts(Translation3::new(0.0, 0.0, 0.0), rot);
         CsgNode::Transform {
             node: Box::new(CsgNode::Leaf(Box::new(raw))),
@@ -333,9 +321,7 @@ fn report_union(label: &str, mesh: &mut IndexedMesh, v_naive: f64, ms: u128) {
 
     println!("  ── {label} ──");
     println!("    Faces      : {}", mesh.face_count());
-    println!(
-        "    Volume     : {vol:.4} mm³  (naive {v_naive:.4} mm³, overlap {overlap_pct:.1}%)"
-    );
+    println!("    Volume     : {vol:.4} mm³  (naive {v_naive:.4} mm³, overlap {overlap_pct:.1}%)");
     println!(
         "    Bounds     : V > 0 [{}]  V < V_naive [{}]",
         pass(positive),
@@ -363,7 +349,10 @@ fn report_union(label: &str, mesh: &mut IndexedMesh, v_naive: f64, ms: u128) {
 
     assert!(is_wt, "{label}: mesh must be watertight");
     assert!(positive, "{label}: mesh must have positive volume");
-    assert!(below_naive, "{label}: union volume must be less than naive sum");
+    assert!(
+        below_naive,
+        "{label}: union volume must be less than naive sum"
+    );
     assert_eq!(
         n.degenerate_faces, 0,
         "{label}: mesh must have no degenerate faces"
@@ -421,7 +410,11 @@ fn report(label: &str, mesh: &mut IndexedMesh, expected: f64, tol: f64, ms: u128
 }
 
 fn pass(ok: bool) -> &'static str {
-    if ok { "PASS" } else { "FAIL" }
+    if ok {
+        "PASS"
+    } else {
+        "FAIL"
+    }
 }
 
 /// Print connected-component and Euler-characteristic diagnostics.
@@ -465,10 +458,7 @@ fn connectivity_report(label: &str, mesh: &mut IndexedMesh, expected_components:
     );
 }
 
-fn write_stl(
-    mesh: &IndexedMesh,
-    path: &std::path::Path,
-) -> Result<(), Box<dyn std::error::Error>> {
+fn write_stl(mesh: &IndexedMesh, path: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
     let file = fs::File::create(path)?;
     let mut w = BufWriter::new(file);
     stl::write_binary_stl(&mut w, &mesh.vertices, &mesh.faces)?;

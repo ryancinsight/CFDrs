@@ -72,7 +72,7 @@ impl<T: RealField + Copy + FromPrimitive> CrossJunctionGeometry<T> {
     ///
     /// The junction is centred at the origin.
     pub fn contains(&self, x: T, y: T) -> bool {
-        let two = T::from_f64(2.0).unwrap();
+        let two = T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
 
         // Horizontal channel: x ∈ [-L_h/2, L_h/2], y ∈ [-w_h/2, w_h/2]
         let half_h_len = self.horizontal_length / two;
@@ -93,7 +93,7 @@ impl<T: RealField + Copy + FromPrimitive> CrossJunctionGeometry<T> {
 
     /// Return the axis-aligned bounding box `[min_x, max_x, min_y, max_y]`.
     pub fn bounding_box(&self) -> [T; 4] {
-        let two = T::from_f64(2.0).unwrap();
+        let two = T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
         let half_h_len = self.horizontal_length / two;
         let half_v_len = self.vertical_length / two;
         let half_v_w = self.vertical_width / two;
@@ -215,7 +215,7 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> CrossJunctionSol
 
         let q_total_in = q_west;
         let q_total_out = q_east + q_north + q_south;
-        let mass_balance_error = if Float::abs(q_total_in) > T::from_f64(1e-30).unwrap() {
+        let mass_balance_error = if Float::abs(q_total_in) > T::from_f64(1e-30).unwrap_or_else(num_traits::Zero::zero) {
             Float::abs(q_total_in - q_total_out) / Float::abs(q_total_in)
         } else {
             T::zero()

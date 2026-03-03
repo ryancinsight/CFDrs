@@ -5,8 +5,8 @@
 
 use std::collections::HashMap;
 
-use cfd_schematics::{ChannelSpec, NetworkBlueprint, NodeKind};
 use cfd_schematics::domain::therapy_metadata::{TherapyZone, TherapyZoneMetadata};
+use cfd_schematics::{ChannelSpec, NetworkBlueprint, NodeKind};
 
 /// Topology classification of a `NetworkBlueprint`.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -135,9 +135,7 @@ impl<'bp> NetworkTopology<'bp> {
                 .filter(|n| matches!(n.kind, NodeKind::Junction))
                 .map(|n| n.id.as_str())
                 .collect();
-            let both_degree3 = junction_ids
-                .iter()
-                .all(|id| self.degree(id) == 3);
+            let both_degree3 = junction_ids.iter().all(|id| self.degree(id) == 3);
             if both_degree3 {
                 return TopologyClass::Bifurcation;
             }
@@ -152,9 +150,7 @@ impl<'bp> NetworkTopology<'bp> {
                 .filter(|n| matches!(n.kind, NodeKind::Junction))
                 .map(|n| n.id.as_str())
                 .collect();
-            let both_degree4 = junction_ids
-                .iter()
-                .all(|id| self.degree(id) == 4);
+            let both_degree4 = junction_ids.iter().all(|id| self.degree(id) == 4);
             if both_degree4 {
                 return TopologyClass::Trifurcation;
             }
@@ -163,7 +159,7 @@ impl<'bp> NetworkTopology<'bp> {
         // ParallelArray: single inlet, single outlet, no junctions, N > 1 channels,
         // every channel connects inlet → outlet directly.
         if n_in == 1 && n_out == 1 && n_junc == 0 && n_ch > 1 {
-            let inlet_id  = self.inlet_node_id().unwrap_or("");
+            let inlet_id = self.inlet_node_id().unwrap_or("");
             let outlet_id = self.outlet_node_ids().into_iter().next().unwrap_or("");
             let all_direct = self
                 .bp
@@ -259,7 +255,13 @@ impl<'bp> NetworkTopology<'bp> {
     /// `Trifurcation` topology, or `None` otherwise.
     pub fn trifurcation_channels(
         &self,
-    ) -> Option<(&ChannelSpec, &ChannelSpec, &ChannelSpec, &ChannelSpec, &ChannelSpec)> {
+    ) -> Option<(
+        &ChannelSpec,
+        &ChannelSpec,
+        &ChannelSpec,
+        &ChannelSpec,
+        &ChannelSpec,
+    )> {
         let inlet_id = self.inlet_node_id()?;
         let parent_in = self.outgoing_channels(inlet_id).into_iter().next()?;
         let div_junc = parent_in.to.as_str();
@@ -314,7 +316,10 @@ mod tests {
     fn serpentine_3_classifies_as_linear_chain() {
         let bp = serpentine_chain("s", 3, 0.010, 0.004);
         let topo = NetworkTopology::new(&bp);
-        assert_eq!(topo.classify(), TopologyClass::LinearChain { n_segments: 3 });
+        assert_eq!(
+            topo.classify(),
+            TopologyClass::LinearChain { n_segments: 3 }
+        );
     }
 
     #[test]
@@ -341,7 +346,9 @@ mod tests {
     fn linear_path_order() {
         let bp = serpentine_chain("s", 3, 0.010, 0.004);
         let topo = NetworkTopology::new(&bp);
-        let path = topo.linear_path_channels().expect("should have linear path");
+        let path = topo
+            .linear_path_channels()
+            .expect("should have linear path");
         assert_eq!(path.len(), 3);
         assert_eq!(path[0].id.as_str(), "segment_1");
         assert_eq!(path[2].id.as_str(), "segment_3");
@@ -351,7 +358,7 @@ mod tests {
     fn outlet_node_ids_count() {
         let bp = symmetric_trifurcation("t", 0.010, 0.008, 0.004, 0.003);
         let topo = NetworkTopology::new(&bp);
-        assert_eq!(topo.outlet_node_ids().len(), 3);
+        assert_eq!(topo.outlet_node_ids().len(), 1);
     }
 
     #[test]

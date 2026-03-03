@@ -19,12 +19,18 @@ pub fn write_glb<W: Write>(writer: &mut W, mesh: &IndexedMesh) -> MeshResult<()>
     let mut min_pos = [f32::MAX; 3];
     let mut max_pos = [f32::MIN; 3];
 
-    let mut idx = 0u32;
-    for (vid, vdata) in mesh.vertices.iter() {
-        id_to_idx.insert(vid, idx);
-        idx += 1;
-        let p = [vdata.position.x as f32, vdata.position.y as f32, vdata.position.z as f32];
-        let n = [vdata.normal.x as f32, vdata.normal.y as f32, vdata.normal.z as f32];
+    for (idx, (vid, vdata)) in mesh.vertices.iter().enumerate() {
+        id_to_idx.insert(vid, idx as u32);
+        let p = [
+            vdata.position.x as f32,
+            vdata.position.y as f32,
+            vdata.position.z as f32,
+        ];
+        let n = [
+            vdata.normal.x as f32,
+            vdata.normal.y as f32,
+            vdata.normal.z as f32,
+        ];
         for i in 0..3 {
             min_pos[i] = min_pos[i].min(p[i]);
             max_pos[i] = max_pos[i].max(p[i]);
@@ -70,7 +76,7 @@ pub fn write_glb<W: Write>(writer: &mut W, mesh: &IndexedMesh) -> MeshResult<()>
     }
 
     // Pad binary buffer to 4-byte alignment.
-    while bin_buf.len() % 4 != 0 {
+    while !bin_buf.len().is_multiple_of(4) {
         bin_buf.push(0);
     }
     let padded_bin_len = bin_buf.len();
@@ -78,8 +84,12 @@ pub fn write_glb<W: Write>(writer: &mut W, mesh: &IndexedMesh) -> MeshResult<()>
     // Build the JSON string.
     let json_str = format!(
         r#"{{"asset":{{"version":"2.0","generator":"cfd-mesh"}},"scene":0,"scenes":[{{"nodes":[0]}}],"nodes":[{{"mesh":0}}],"meshes":[{{"primitives":[{{"attributes":{{"POSITION":1,"NORMAL":2}},"indices":0}}]}}],"accessors":[{{"bufferView":0,"componentType":5125,"count":{index_count},"type":"SCALAR"}},{{"bufferView":1,"componentType":5126,"count":{vertex_count},"type":"VEC3","min":[{},{},{}],"max":[{},{},{}]}},{{"bufferView":2,"componentType":5126,"count":{vertex_count},"type":"VEC3"}}],"bufferViews":[{{"buffer":0,"byteOffset":0,"byteLength":{indices_byte_len},"target":34963}},{{"buffer":0,"byteOffset":{indices_byte_len},"byteLength":{positions_byte_len},"target":34962}},{{"buffer":0,"byteOffset":{},"byteLength":{normals_byte_len},"target":34962}}],"buffers":[{{"byteLength":{total_buffer_len}}}]}}"#,
-        min_pos[0], min_pos[1], min_pos[2],
-        max_pos[0], max_pos[1], max_pos[2],
+        min_pos[0],
+        min_pos[1],
+        min_pos[2],
+        max_pos[0],
+        max_pos[1],
+        max_pos[2],
         indices_byte_len + positions_byte_len,
     );
 
@@ -96,7 +106,9 @@ pub fn write_glb<W: Write>(writer: &mut W, mesh: &IndexedMesh) -> MeshResult<()>
     // GLB magic
     writer.write_all(b"glTF").map_err(MeshError::Io)?;
     // Version 2
-    writer.write_all(&2u32.to_le_bytes()).map_err(MeshError::Io)?;
+    writer
+        .write_all(&2u32.to_le_bytes())
+        .map_err(MeshError::Io)?;
     // Total file length
     writer
         .write_all(&(total_len as u32).to_le_bytes())

@@ -202,7 +202,7 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for JunctionLossMod
         // Shear rate ≈ 8V/D for circular duct.
         let d = T::from_f64(self.branch_diameter_m)
             .ok_or_else(|| Error::InvalidInput("branch_diameter_m conversion failed".into()))?;
-        let eight = T::from_f64(8.0).unwrap();
+        let eight = T::from_f64(8.0).unwrap_or_else(num_traits::Zero::zero);
         let shear_rate = eight * v / d;
 
         let mu = fluid.viscosity_at_shear(
@@ -217,11 +217,11 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for JunctionLossMod
         // Linear component: Hagen-Poiseuille through the junction length.
         // R_lin = 128 μ L / (π D⁴)  [circular], or 12 μ L / (w h³) [rect]
         let pi = T::from_f64(std::f64::consts::PI).unwrap_or_else(T::one);
-        let r_lin = T::from_f64(128.0).unwrap() * mu * l / (pi * d.powi(4));
+        let r_lin = T::from_f64(128.0).unwrap_or_else(num_traits::Zero::zero) * mu * l / (pi * d.powi(4));
 
         // Quadratic component: K ρ / (2 A²).
         let k_factor = T::from_f64(self.loss_coefficient()).unwrap_or_else(T::one);
-        let two = T::from_f64(2.0).unwrap();
+        let two = T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
         let k_quad = k_factor * density / (two * area * area);
 
         Ok((r_lin, k_quad))

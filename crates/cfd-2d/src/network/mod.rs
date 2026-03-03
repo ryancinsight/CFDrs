@@ -56,10 +56,12 @@ use cfd_core::physics::fluid::BloodModel;
 use cfd_schematics::application::ports::GraphSink;
 use cfd_schematics::domain::model::{CrossSectionSpec, NetworkBlueprint, NodeKind};
 use cfd_schematics::domain::therapy_metadata::{TherapyZone, TherapyZoneMetadata};
+use cfd_schematics::geometry::metadata::VenturiGeometryMetadata;
 use nalgebra::RealField;
 use num_traits::{Float, FromPrimitive, ToPrimitive};
 
 use crate::solvers::ns_fvm::{NavierStokesSolver2D, SIMPLEConfig, SolveResult, StaggeredGrid2D};
+use crate::solvers::venturi_flow::VenturiGeometry;
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -77,10 +79,16 @@ pub struct Channel2dResult<T> {
     pub channel_id: String,
     /// Therapy zone classification.
     pub therapy_zone: TherapyZone,
+    /// Whether this channel contains a venturi throat geometry.
+    pub is_venturi_throat: bool,
     /// SIMPLE solver convergence result.
     pub solve_result: SolveResult<T>,
     /// Estimated wall shear stress (6Q/(w·h²) model) [Pa].
     pub wall_shear_pa: T,
+    /// Maximum wall shear stress extracted from 2D velocity field [Pa].
+    pub field_wall_shear_max_pa: T,
+    /// Mean wall shear stress extracted from 2D velocity field [Pa].
+    pub field_wall_shear_mean_pa: T,
     /// Transit time through the channel [s].
     pub transit_time_s: T,
     /// Giersiepen (1990) haemolysis index contribution (dimensionless).
@@ -102,6 +110,7 @@ pub struct Network2dResult<T> {
 struct Channel2dEntry<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> {
     id: String,
     therapy_zone: TherapyZone,
+    is_venturi_throat: bool,
     /// Flow rate through this channel [m³/s].
     flow_rate_m3_s: f64,
     width_m: f64,
@@ -161,6 +170,10 @@ where
                 / (entry.width_m * entry.height_m * entry.height_m).max(1e-30);
             let shear_pa = entry.viscosity_pa_s * shear_rate;
 
+            // Field-resolved wall shear from the 2D velocity gradients.
+            let (field_max, field_mean) =
+                extract_field_wall_shear(&entry.solver);
+
             // Transit time: t = V / Q = w·h·L / Q
             let t_s = area * entry.length_m / entry.flow_rate_m3_s.max(1e-30);
 
@@ -171,8 +184,11 @@ where
             results.push(Channel2dResult {
                 channel_id: entry.id.clone(),
                 therapy_zone: entry.therapy_zone.clone(),
+                is_venturi_throat: entry.is_venturi_throat,
                 solve_result,
                 wall_shear_pa: T::from_f64(shear_pa).unwrap_or_else(T::zero),
+                field_wall_shear_max_pa: field_max,
+                field_wall_shear_mean_pa: field_mean,
                 transit_time_s: T::from_f64(t_s).unwrap_or_else(T::zero),
                 hemolysis_index: hi_t,
             });
@@ -255,24 +271,55 @@ where
                 .and_then(|m| m.get::<TherapyZoneMetadata>())
                 .map_or(TherapyZone::MixedFlow, |tz| tz.zone.clone());
 
-            // Build 2D staggered grid and NS solver for this channel.
+            // Detect venturi throat from metadata.
+            let venturi_meta = ch
+                .metadata
+                .as_ref()
+                .and_then(|m| m.get::<VenturiGeometryMetadata>());
+            let is_venturi_throat = venturi_meta.is_some();
+
+            // Build 2D staggered grid and NS solver.
+            // For venturi channels the grid spans the full inlet width, not
+            // the narrow throat width, so the converging/diverging mask can
+            // be applied correctly.
             let l = ch.length_m;
             let l_t = T::from_f64(l).unwrap_or_else(T::one);
-            let w_t = T::from_f64(w).unwrap_or_else(T::one);
-            let grid = StaggeredGrid2D::new(self.grid_nx, self.grid_ny, l_t, w_t);
+            let (grid_w, grid_width_m) = if let Some(vm) = venturi_meta {
+                (T::from_f64(vm.inlet_width_m).unwrap_or_else(T::one), vm.inlet_width_m)
+            } else {
+                (T::from_f64(w).unwrap_or_else(T::one), w)
+            };
+            let grid = StaggeredGrid2D::new(self.grid_nx, self.grid_ny, l_t, grid_w);
             let density_t = T::from_f64(self.density).unwrap_or_else(T::one);
-            let solver = NavierStokesSolver2D::new(
+            let mut solver = NavierStokesSolver2D::new(
                 grid,
                 self.blood.clone(),
                 density_t,
                 SIMPLEConfig::default(),
             );
 
+            // For venturi channels, populate the fluid/solid mask from the
+            // converging-throat-diverging geometry.
+            if let Some(vm) = venturi_meta {
+                let converge_l = (l - vm.throat_length_m).max(0.0) / 2.0;
+                let geom = VenturiGeometry::new(
+                    T::from_f64(vm.inlet_width_m).unwrap_or_else(T::one),
+                    T::from_f64(vm.throat_width_m).unwrap_or_else(T::one),
+                    T::zero(),                                       // l_inlet = 0 (throat channel only)
+                    T::from_f64(converge_l).unwrap_or_else(T::one),  // converging taper
+                    T::from_f64(vm.throat_length_m).unwrap_or_else(T::one),
+                    T::from_f64(converge_l).unwrap_or_else(T::one),  // diverging taper
+                    T::from_f64(vm.throat_height_m).unwrap_or_else(T::one),
+                );
+                populate_venturi_mask(&mut solver, &geom, self.grid_nx, self.grid_ny);
+            }
+
             entries.push(Channel2dEntry {
                 id: ch.id.as_str().to_owned(),
                 therapy_zone,
+                is_venturi_throat,
                 flow_rate_m3_s: q_ch,
-                width_m: w,
+                width_m: grid_width_m,
                 height_m: h,
                 length_m: l,
                 viscosity_pa_s: mu,
@@ -369,6 +416,90 @@ fn blood_viscosity_f64<T: RealField + Copy + Float + FromPrimitive + ToPrimitive
     model.viscosity(shear_t).to_f64().unwrap_or(3.5e-3)
 }
 
+// ── Venturi mask ──────────────────────────────────────────────────────────────
+
+/// Populate the solver's fluid/solid mask from a `VenturiGeometry`.
+///
+/// The grid y-coordinate is shifted so that `y=0` maps to the geometry
+/// centreline, matching `VenturiGeometry::contains(x, y)` which tests
+/// `|y| <= w_local/2`.
+fn populate_venturi_mask<T>(
+    solver: &mut NavierStokesSolver2D<T>,
+    geom: &VenturiGeometry<T>,
+    nx: usize,
+    ny: usize,
+) where
+    T: RealField + Copy + Float + FromPrimitive + ToPrimitive + std::fmt::Debug,
+{
+    let half_h = geom.w_inlet / T::from_f64(2.0).unwrap_or_else(T::one);
+    for i in 0..nx {
+        for j in 0..ny {
+            let x = solver.grid.x_center(i);
+            let y = solver.grid.y_center(j) - half_h;
+            solver.field.mask[i][j] = geom.contains(x, y);
+        }
+    }
+}
+
+// ── Field-resolved wall shear ─────────────────────────────────────────────────
+
+/// Extract (max, mean) wall shear stress from the solved 2D velocity field.
+///
+/// Computes `τ = μ · γ̇` on the fly from the converged velocity gradients
+/// (rather than reading the stored `gamma_dot`, which may be stale if the
+/// solver converged between viscosity-update iterations).
+///
+/// Samples the first interior fluid cells adjacent to walls or solid regions.
+fn extract_field_wall_shear<T>(solver: &NavierStokesSolver2D<T>) -> (T, T)
+where
+    T: RealField + Copy + Float + FromPrimitive + ToPrimitive + std::fmt::Debug,
+{
+    let nx = solver.grid.nx;
+    let ny = solver.grid.ny;
+    let dx = solver.grid.dx;
+    let dy = solver.grid.dy;
+    let mut max_tau = T::zero();
+    let mut sum_tau = T::zero();
+    let mut count = 0u64;
+
+    for i in 1..nx.saturating_sub(1) {
+        for j in 1..ny.saturating_sub(1) {
+            if !solver.field.mask[i][j] {
+                continue;
+            }
+            let next_to_wall = !solver.field.mask[i - 1][j]
+                || !solver.field.mask[i + 1][j]
+                || !solver.field.mask[i][j - 1]
+                || !solver.field.mask[i][j + 1]
+                || i == 1
+                || i == nx - 2
+                || j == 1
+                || j == ny - 2;
+
+            if !next_to_wall {
+                continue;
+            }
+
+            // Compute shear rate from the converged velocity field.
+            let gamma = solver.field.compute_shear_rate(i, j, dx, dy);
+            let tau = solver.field.mu[i][j] * gamma;
+            if tau > max_tau {
+                max_tau = tau;
+            }
+            sum_tau += tau;
+            count += 1;
+        }
+    }
+
+    let mean_tau = if count > 0 {
+        sum_tau / T::from_u64(count).unwrap_or_else(T::one)
+    } else {
+        T::zero()
+    };
+
+    (max_tau, mean_tau)
+}
+
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
@@ -383,6 +514,9 @@ mod tests {
         let sink = Network2dBuilderSink::new(blood, 1060.0, 1e-6, 10, 5);
         let net2d = sink.build(&bp).expect("build should succeed");
         assert_eq!(net2d.channels.len(), 3); // inlet, throat, diffuser
+        // The throat channel must be detected as a venturi.
+        let venturi_count = net2d.channels.iter().filter(|c| c.is_venturi_throat).count();
+        assert!(venturi_count >= 1, "expected ≥1 venturi channel, got {venturi_count}");
     }
 
     #[test]
@@ -409,5 +543,35 @@ mod tests {
             (q_out - q_total).abs() < q_total * 0.01,
             "outlet flow {q_out:.3e} != q_total {q_total:.3e}"
         );
+    }
+
+    #[test]
+    fn field_wall_shear_agrees_with_analytical() {
+        // Straight rectangular channel: analytical τ_w = μ · 6Q/(w·h²).
+        let mu = 3.5e-3_f64;
+        let w = 1.0e-3;
+        let h = 1.0e-3;
+        let l = 10.0e-3;
+        let q = 1e-7; // 0.1 µL/s
+        let u_mean = q / (w * h);
+
+        let grid = StaggeredGrid2D::new(80, 20, l, w);
+        let blood = BloodModel::Newtonian(mu);
+        let mut solver = NavierStokesSolver2D::new(grid, blood, 1060.0, SIMPLEConfig::default());
+        let result = solver.solve(u_mean).expect("straight channel solve");
+        assert!(result.converged, "SIMPLE must converge for Poiseuille flow");
+
+        let (max_tau, mean_tau) = extract_field_wall_shear(&solver);
+        let analytical_tau = mu * 6.0 * q / (w * h * h);
+
+        // Field-extracted mean should be within an order of magnitude of the
+        // analytical value on a coarse 80×20 grid.
+        let ratio = mean_tau / analytical_tau;
+        assert!(
+            ratio > 0.1 && ratio < 10.0,
+            "field mean wall shear {mean_tau:.3e} should be within \
+             an order of magnitude of analytical {analytical_tau:.3e}"
+        );
+        assert!(max_tau >= mean_tau, "max >= mean invariant");
     }
 }

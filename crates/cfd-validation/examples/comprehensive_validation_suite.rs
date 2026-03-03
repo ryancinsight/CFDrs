@@ -3,14 +3,14 @@
 //! Executes all implemented 2D and 3D benchmarks and generates a unified
 //! validation report with error metrics and mathematical verification status.
 
-use cfd_validation::benchmarks::{
-    Benchmark, BenchmarkConfig, BenchmarkResult, BenchmarkRunner, 
-    LidDrivenCavity, BifurcationFlow, VenturiFlow, SerpentineFlow, 
-    BifurcationFlow3D, VenturiFlow3D, SerpentineFlow3D
-};
-use cfd_validation::geometry::threed::{Bifurcation3D, Venturi3D, Serpentine3D};
-use cfd_core::physics::fluid::blood::CassonBlood;
 use cfd_core::error::Result;
+use cfd_core::physics::fluid::blood::CassonBlood;
+use cfd_validation::benchmarks::{
+    Benchmark, BenchmarkConfig, BenchmarkResult, BenchmarkRunner, BifurcationFlow,
+    BifurcationFlow3D, LidDrivenCavity, SerpentineFlow, SerpentineFlow3D, VenturiFlow,
+    VenturiFlow3D,
+};
+use cfd_validation::geometry::threed::{Bifurcation3D, Serpentine3D, Venturi3D};
 
 fn main() -> Result<()> {
     println!("CFD Validation: Comprehensive Suite Report");
@@ -46,14 +46,12 @@ fn main() -> Result<()> {
     let benches_3d: Vec<Box<dyn Benchmark<f64>>> = vec![
         Box::new(BifurcationFlow3D::new(
             Bifurcation3D::symmetric(5.0, 4.0, 20.0, 15.0, 0.5),
-            CassonBlood::normal_blood()
+            CassonBlood::normal_blood(),
         )),
-        Box::new(VenturiFlow3D::new(
-            Venturi3D::new(10.0, 5.0, 5.0, 10.0, 5.0, 15.0, 10.0)
-        )),
-        Box::new(SerpentineFlow3D::new(
-            Serpentine3D::new(5.0, 2.5, 10.0, 3)
-        )),
+        Box::new(VenturiFlow3D::new(Venturi3D::new(
+            10.0, 5.0, 5.0, 10.0, 5.0, 15.0, 10.0,
+        ))),
+        Box::new(SerpentineFlow3D::new(Serpentine3D::new(5.0, 2.5, 10.0, 3))),
     ];
 
     for bench in benches_3d {
@@ -65,15 +63,19 @@ fn main() -> Result<()> {
 
     // Generate Report
     let report = BenchmarkRunner::generate_report(&results);
-    
+
     println!("\n{}", "=".repeat(40));
     println!("VALIDATION SUMMARY");
     println!("{}", "=".repeat(40));
     println!("Timestamp: {}", report.timestamp);
     println!("Total Benchmarks: {}", report.benchmarks.len());
-    
+
     for res in &report.benchmarks {
-        let status = if res.convergence.last().map_or(false, |&c| c < config.tolerance) {
+        let status = if res
+            .convergence
+            .last()
+            .map_or(false, |&c| c < config.tolerance)
+        {
             "CONVERGED"
         } else {
             "NON-CONVERGED"

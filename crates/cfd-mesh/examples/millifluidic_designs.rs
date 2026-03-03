@@ -16,7 +16,7 @@
 //!
 //! Run with:
 //! ```sh
-//! cargo run -p cfd-mesh --features scheme-io --example millifluidic_designs
+//! cargo run -p cfd-mesh --example millifluidic_designs
 //! ```
 
 use std::fs;
@@ -59,7 +59,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             symmetric_trifurcation("d3", 0.010, 0.008, 0.004, 0.004),
         ),
         ("serpentine_chain", serpentine_chain("d4", 3, 0.010, 0.004)),
-        ("venturi_rect", venturi_rect("d5", 0.004, 0.002, 0.004, 0.005)),
+        (
+            "venturi_rect",
+            venturi_rect("d5", 0.004, 0.002, 0.004, 0.005),
+        ),
         (
             "serpentine_rect",
             serpentine_rect("d6", 3, 0.010, 0.004, 0.004),
@@ -113,15 +116,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             &out.fluid_mesh.vertices,
             &out.fluid_mesh.faces,
         )?;
-        println!("    -> {}", fluid_path.file_name().unwrap().to_string_lossy());
+        println!(
+            "    -> {}",
+            fluid_path.file_name().unwrap().to_string_lossy()
+        );
         stl_count += 1;
 
         // ── Chip body ─────────────────────────────────────────────────────────
         if let Some(chip) = out.chip_mesh.as_mut() {
-            assert!(
-                chip.is_watertight(),
-                "{name}: chip mesh is not watertight"
-            );
+            assert!(chip.is_watertight(), "{name}: chip mesh is not watertight");
             assert!(
                 chip.signed_volume() > 0.0,
                 "{name}: chip mesh has non-positive volume"
@@ -134,12 +137,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             let chip_path = out_dir.join(format!("{name}_chip.stl"));
             let file = fs::File::create(&chip_path)?;
-            stl::write_binary_stl(
-                &mut BufWriter::new(file),
-                &chip.vertices,
-                &chip.faces,
-            )?;
-            println!("    -> {}", chip_path.file_name().unwrap().to_string_lossy());
+            stl::write_binary_stl(&mut BufWriter::new(file), &chip.vertices, &chip.faces)?;
+            println!(
+                "    -> {}",
+                chip_path.file_name().unwrap().to_string_lossy()
+            );
             stl_count += 1;
         }
 
@@ -150,7 +152,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         let json_path = out_dir.join(format!("{name}_schematic.json"));
         fs::write(&json_path, system.to_interchange_json()?)?;
-        println!("    -> {}", json_path.file_name().unwrap().to_string_lossy());
+        println!(
+            "    -> {}",
+            json_path.file_name().unwrap().to_string_lossy()
+        );
         schema_count += 1;
 
         let svg_path = out_dir.join(format!("{name}_schematic.svg"));
@@ -193,12 +198,17 @@ fn channel_system_for(name: &str) -> ChannelSystem {
         // ── Venturi designs: tapered (frustum) channel, no branching ──────────
         "venturi_chain" | "venturi_rect" => {
             let frustum = FrustumConfig {
-                inlet_width: 4.0,   // mm — matches inlet_diameter_m = 0.004 m
-                throat_width: 2.0,  // mm — matches throat_diameter_m = 0.002 m
+                inlet_width: 4.0,  // mm — matches inlet_diameter_m = 0.004 m
+                throat_width: 2.0, // mm — matches throat_diameter_m = 0.002 m
                 outlet_width: 4.0,
                 ..FrustumConfig::default()
             };
-            create_geometry(box_dims, &[], &geom, &ChannelTypeConfig::AllFrustum(frustum))
+            create_geometry(
+                box_dims,
+                &[],
+                &geom,
+                &ChannelTypeConfig::AllFrustum(frustum),
+            )
         }
 
         // ── Bifurcation: one symmetric Y-split ────────────────────────────────

@@ -37,7 +37,7 @@
 //! ## Run
 //!
 //! ```sh
-//! cargo run -p cfd-mesh --features scheme-io --example schematic_to_openfoam
+//! cargo run -p cfd-mesh --example schematic_to_openfoam
 //! ```
 
 use std::fs;
@@ -76,12 +76,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Six validated millifluidic therapy designs
     let designs: Vec<(&str, cfd_schematics::NetworkBlueprint)> = vec![
-        ("venturi_chain",          venturi_chain("d1", 0.030, 0.004, 0.002)),
-        ("symmetric_bifurcation",  symmetric_bifurcation("d2", 0.010, 0.010, 0.004, 0.003)),
-        ("symmetric_trifurcation", symmetric_trifurcation("d3", 0.010, 0.008, 0.004, 0.004)),
-        ("serpentine_chain",       serpentine_chain("d4", 3, 0.010, 0.004)),
-        ("venturi_rect",           venturi_rect("d5", 0.004, 0.002, 0.004, 0.005)),
-        ("serpentine_rect",        serpentine_rect("d6", 3, 0.010, 0.004, 0.004)),
+        ("venturi_chain", venturi_chain("d1", 0.030, 0.004, 0.002)),
+        (
+            "symmetric_bifurcation",
+            symmetric_bifurcation("d2", 0.010, 0.010, 0.004, 0.003),
+        ),
+        (
+            "symmetric_trifurcation",
+            symmetric_trifurcation("d3", 0.010, 0.008, 0.004, 0.004),
+        ),
+        ("serpentine_chain", serpentine_chain("d4", 3, 0.010, 0.004)),
+        (
+            "venturi_rect",
+            venturi_rect("d5", 0.004, 0.002, 0.004, 0.005),
+        ),
+        (
+            "serpentine_rect",
+            serpentine_rect("d6", 3, 0.010, 0.004, 0.004),
+        ),
     ];
 
     let config = PipelineConfig::default(); // chip_height=10mm, circular_segments=16
@@ -90,8 +102,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut of_count = 0usize;
 
     println!();
-    println!("  Running {} designs with chip_height = {} mm",
-        n, config.chip_height_mm);
+    println!(
+        "  Running {} designs with chip_height = {} mm",
+        n, config.chip_height_mm
+    );
     println!("  Output root: {}", out_root.display());
     println!("{}", "─".repeat(60));
 
@@ -112,10 +126,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
 
         let topo = format!("{:?}", out.topology_class);
-        println!(
-            " {topo:.<22} {} faces",
-            out.fluid_mesh.face_count()
-        );
+        println!(" {topo:.<22} {} faces", out.fluid_mesh.face_count());
 
         let design_dir = out_root.join(name);
         fs::create_dir_all(&design_dir)?;
@@ -124,20 +135,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let fluid_path = design_dir.join(format!("{name}_fluid.stl"));
         let mut f = BufWriter::new(fs::File::create(&fluid_path)?);
         write_stl_binary(&mut f, &out.fluid_mesh)?;
-        println!("         fluid STL  → {} faces", out.fluid_mesh.face_count());
+        println!(
+            "         fluid STL  → {} faces",
+            out.fluid_mesh.face_count()
+        );
         stl_count += 1;
 
         // ── STL: chip body ────────────────────────────────────────────────────
         if let Some(chip) = out.chip_mesh.as_mut() {
-            assert!(chip.is_watertight(),   "{name}: chip mesh must be watertight");
-            assert!(chip.signed_volume() > 0.0, "{name}: chip mesh volume must be positive");
+            assert!(chip.is_watertight(), "{name}: chip mesh must be watertight");
+            assert!(
+                chip.signed_volume() > 0.0,
+                "{name}: chip mesh volume must be positive"
+            );
             let chip_path = design_dir.join(format!("{name}_chip.stl"));
             let mut f = BufWriter::new(fs::File::create(&chip_path)?);
             write_stl_binary(&mut f, chip)?;
-            println!(
-                "         chip  STL  → {} faces",
-                chip.face_count()
-            );
+            println!("         chip  STL  → {} faces", chip.face_count());
             stl_count += 1;
         }
 
@@ -157,15 +171,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             &fluid_for_of,
             &of_dir,
             &[
-                (RegionId::new(REGION_INLET),  "inlet",  PatchType::Inlet),
+                (RegionId::new(REGION_INLET), "inlet", PatchType::Inlet),
                 (RegionId::new(REGION_OUTLET), "outlet", PatchType::Outlet),
-                (RegionId::new(REGION_WALL),   "walls",  PatchType::Wall),
+                (RegionId::new(REGION_WALL), "walls", PatchType::Wall),
             ],
         )?;
-        println!(
-            "         OpenFOAM   → {}/",
-            of_dir.display()
-        );
+        println!("         OpenFOAM   → {}/", of_dir.display());
         of_count += 1;
 
         // ── OpenFOAM: chip body (wall-only surface for snappyHexMesh) ─────────
@@ -176,13 +187,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 &chip_of_dir,
                 &[(RegionId::new(0), "walls", PatchType::Wall)],
             )?;
-            println!(
-                "         chip OF    → {}/",
-                chip_of_dir.display()
-            );
+            println!("         chip OF    → {}/", chip_of_dir.display());
             of_count += 1;
         }
-
     }
 
     println!("{}", "─".repeat(60));
@@ -223,9 +230,9 @@ fn reassign_regions_from_labels(mesh: &mut IndexedMesh) {
         .iter()
         .map(|(&fid, label)| {
             let region = match label.as_str() {
-                "inlet"  => RegionId::new(REGION_INLET),
+                "inlet" => RegionId::new(REGION_INLET),
                 "outlet" => RegionId::new(REGION_OUTLET),
-                _        => RegionId::new(REGION_WALL),
+                _ => RegionId::new(REGION_WALL),
             };
             (fid, region)
         })

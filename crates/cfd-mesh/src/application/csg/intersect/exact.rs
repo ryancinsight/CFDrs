@@ -5,8 +5,8 @@ use crate::domain::geometry::predicates::{orient_3d, Orientation};
 use crate::infrastructure::storage::face_store::FaceData;
 use crate::infrastructure::storage::vertex_pool::VertexPool;
 
-use super::types::IntersectionType;
 use super::segment::compute_segment;
+use super::types::IntersectionType;
 
 /// Test whether two triangles intersect using exact orientation predicates.
 ///
@@ -79,7 +79,7 @@ pub fn intersect_triangles(
 /// least one is `Negative`.  A `Degenerate` (on-plane) vertex counts as
 /// neither side.
 fn not_straddling(signs: &[Orientation; 3]) -> bool {
-    let any_pos = signs.iter().any(|s| *s == Orientation::Positive);
-    let any_neg = signs.iter().any(|s| *s == Orientation::Negative);
+    let any_pos = signs.contains(&Orientation::Positive);
+    let any_neg = signs.contains(&Orientation::Negative);
     !(any_pos && any_neg)
 }

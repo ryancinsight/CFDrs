@@ -78,15 +78,15 @@ impl<T: RealField + FromPrimitive + Copy> CarreauYasuda<T> {
     pub fn blood() -> Self {
         Self::new(
             "Blood".to_string(),
-            T::from_f64(1060.0).unwrap(),
-            T::from_f64(0.056).unwrap(),
-            T::from_f64(0.0035).unwrap(),
-            T::from_f64(3.313).unwrap(),
-            T::from_f64(0.3568).unwrap(),
-            T::from_f64(2.0).unwrap(),
-            T::from_f64(3600.0).unwrap(),
-            T::from_f64(0.5).unwrap(),
-            T::from_f64(1540.0).unwrap(),
+            T::from_f64(1060.0).unwrap_or_else(num_traits::Zero::zero),
+            T::from_f64(0.056).unwrap_or_else(num_traits::Zero::zero),
+            T::from_f64(0.0035).unwrap_or_else(num_traits::Zero::zero),
+            T::from_f64(3.313).unwrap_or_else(num_traits::Zero::zero),
+            T::from_f64(0.3568).unwrap_or_else(num_traits::Zero::zero),
+            T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero),
+            T::from_f64(3600.0).unwrap_or_else(num_traits::Zero::zero),
+            T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero),
+            T::from_f64(1540.0).unwrap_or_else(num_traits::Zero::zero),
         )
     }
 }

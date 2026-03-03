@@ -63,17 +63,17 @@ impl<T: RealField + FromPrimitive + Copy> CarreauYasudaBlood<T> {
     /// - a = 2.0
     pub fn normal_blood() -> Self {
         Self {
-            density: T::from_f64(constants::BLOOD_DENSITY).unwrap(),
-            zero_shear_viscosity: T::from_f64(constants::ZERO_SHEAR_VISCOSITY).unwrap(),
-            infinite_shear_viscosity: T::from_f64(constants::INFINITE_SHEAR_VISCOSITY).unwrap(),
-            relaxation_time: T::from_f64(constants::CARREAU_LAMBDA).unwrap(),
-            power_law_index: T::from_f64(constants::CARREAU_N).unwrap(),
-            transition_parameter: T::from_f64(constants::CARREAU_A).unwrap(),
-            hematocrit: T::from_f64(constants::NORMAL_HEMATOCRIT).unwrap(),
-            specific_heat: T::from_f64(constants::BLOOD_SPECIFIC_HEAT).unwrap(),
-            thermal_conductivity: T::from_f64(constants::BLOOD_THERMAL_CONDUCTIVITY).unwrap(),
-            speed_of_sound: T::from_f64(constants::BLOOD_SPEED_OF_SOUND).unwrap(),
-            reference_shear_rate: T::from_f64(100.0).unwrap(),
+            density: T::from_f64(constants::BLOOD_DENSITY).unwrap_or_else(num_traits::Zero::zero),
+            zero_shear_viscosity: T::from_f64(constants::ZERO_SHEAR_VISCOSITY).unwrap_or_else(num_traits::Zero::zero),
+            infinite_shear_viscosity: T::from_f64(constants::INFINITE_SHEAR_VISCOSITY).unwrap_or_else(num_traits::Zero::zero),
+            relaxation_time: T::from_f64(constants::CARREAU_LAMBDA).unwrap_or_else(num_traits::Zero::zero),
+            power_law_index: T::from_f64(constants::CARREAU_N).unwrap_or_else(num_traits::Zero::zero),
+            transition_parameter: T::from_f64(constants::CARREAU_A).unwrap_or_else(num_traits::Zero::zero),
+            hematocrit: T::from_f64(constants::NORMAL_HEMATOCRIT).unwrap_or_else(num_traits::Zero::zero),
+            specific_heat: T::from_f64(constants::BLOOD_SPECIFIC_HEAT).unwrap_or_else(num_traits::Zero::zero),
+            thermal_conductivity: T::from_f64(constants::BLOOD_THERMAL_CONDUCTIVITY).unwrap_or_else(num_traits::Zero::zero),
+            speed_of_sound: T::from_f64(constants::BLOOD_SPEED_OF_SOUND).unwrap_or_else(num_traits::Zero::zero),
+            reference_shear_rate: T::from_f64(100.0).unwrap_or_else(num_traits::Zero::zero),
         }
     }
 
@@ -96,10 +96,10 @@ impl<T: RealField + FromPrimitive + Copy> CarreauYasudaBlood<T> {
             power_law_index,
             transition_parameter,
             hematocrit,
-            specific_heat: T::from_f64(constants::BLOOD_SPECIFIC_HEAT).unwrap(),
-            thermal_conductivity: T::from_f64(constants::BLOOD_THERMAL_CONDUCTIVITY).unwrap(),
-            speed_of_sound: T::from_f64(constants::BLOOD_SPEED_OF_SOUND).unwrap(),
-            reference_shear_rate: T::from_f64(100.0).unwrap(),
+            specific_heat: T::from_f64(constants::BLOOD_SPECIFIC_HEAT).unwrap_or_else(num_traits::Zero::zero),
+            thermal_conductivity: T::from_f64(constants::BLOOD_THERMAL_CONDUCTIVITY).unwrap_or_else(num_traits::Zero::zero),
+            speed_of_sound: T::from_f64(constants::BLOOD_SPEED_OF_SOUND).unwrap_or_else(num_traits::Zero::zero),
+            reference_shear_rate: T::from_f64(100.0).unwrap_or_else(num_traits::Zero::zero),
         }
     }
 

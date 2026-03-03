@@ -46,7 +46,7 @@ impl<T: RealField + Copy + num_traits::FromPrimitive> LinearOperator<T> for Lapl
 
         let dx2_inv = T::one() / (self.dx * self.dx);
         let dy2_inv = T::one() / (self.dy * self.dy);
-        let two = T::from_f64(2.0).unwrap();
+        let two = T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
 
         let x_slice = x.as_slice();
         let y_slice = y.as_mut_slice();
@@ -111,7 +111,7 @@ impl<T: RealField + Copy + num_traits::FromPrimitive> LinearOperator<T> for Pois
         let dx2_inv = T::one() / (self.dx * self.dx);
         let dy2_inv = T::one() / (self.dy * self.dy);
         let dz2_inv = T::one() / (self.dz * self.dz);
-        let two = T::from_f64(2.0).unwrap();
+        let two = T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
 
         let x_s = x.as_slice();
         let y_s = y.as_mut_slice();

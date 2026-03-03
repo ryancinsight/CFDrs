@@ -33,7 +33,7 @@ use crate::application::delaunay::pslg::vertex::{PslgVertex, PslgVertexId};
 /// # Returns
 ///
 /// A list of triangles (as vertex-index triples) filling the cavity.
-#[must_use] 
+#[must_use]
 pub fn retriangulate_cavity(
     vertices: &[PslgVertex],
     polygon: &[PslgVertexId],

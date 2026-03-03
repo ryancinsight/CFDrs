@@ -15,9 +15,7 @@ pub mod womersley;
 pub use blasius::BlasiusBoundaryLayer;
 pub use couette::CouetteFlow;
 pub use poiseuille::{PoiseuilleFlow, PoiseuilleGeometry};
-pub use poiseuille_2d::{
-    PowerLawPoiseuille, CassonPoiseuille, PowerLawModel, RheologicalModel,
-};
+pub use poiseuille_2d::{CassonPoiseuille, PowerLawModel, PowerLawPoiseuille, RheologicalModel};
 pub use stokes::StokesFlow;
 pub use taylor_green::TaylorGreenVortex;
 pub use utils::{AnalyticalUtils, FlowGeometry};

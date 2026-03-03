@@ -148,15 +148,15 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
             let y_max = y_coords.iter().copied().fold(y_coords[0], Float::max);
             // Channel height = span from first to last fluid centre + half-cells at edges.
             let h = y_max - y_min + (dy_cells[0] + dy_cells[dy_cells.len() - 1])
-                * T::from_f64(0.5).unwrap();
+                * T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero);
             for j in 0..ny {
                 if self.field.mask[0][j] {
                     let dy_j = self.grid.dy_at(j);
                     let y_local =
-                        (self.grid.y_center(j) - y_min) + T::from_f64(0.5).unwrap() * dy_j;
+                        (self.grid.y_center(j) - y_min) + T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero) * dy_j;
                     let y_frac = y_local / h;
                     self.field.u[0][j] =
-                        T::from_f64(6.0).unwrap() * u_inlet * y_frac * (T::one() - y_frac);
+                        T::from_f64(6.0).unwrap_or_else(num_traits::Zero::zero) * u_inlet * y_frac * (T::one() - y_frac);
                 } else {
                     self.field.u[0][j] = T::zero();
                 }

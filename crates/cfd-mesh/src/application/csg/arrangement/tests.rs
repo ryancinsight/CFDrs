@@ -1,6 +1,7 @@
 use super::*;
 use crate::application::csg::boolean::{csg_boolean, csg_boolean_indexed, BooleanOp};
 use crate::application::watertight::check::{check_watertight, WatertightReport};
+use crate::domain::core::scalar::{Point3r, Vector3r};
 use crate::domain::geometry::primitives::UvSphere;
 use crate::domain::mesh::IndexedMesh;
 

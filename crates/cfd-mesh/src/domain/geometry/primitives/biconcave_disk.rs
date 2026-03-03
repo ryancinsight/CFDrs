@@ -74,7 +74,7 @@ impl Default for BiconcaveDisk {
 
 impl BiconcaveDisk {
     /// Convenience constructor with human-RBC defaults and specified diameter.
-    #[must_use] 
+    #[must_use]
     pub fn human_rbc(diameter: f64) -> Self {
         Self {
             diameter,

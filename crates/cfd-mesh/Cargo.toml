@@ -18,7 +18,8 @@ csg = []
 stl-io = []
 vtk-io = []
 three-mf-io = ["dep:zip"]
-scheme-io = ["dep:cfd-schematics"]
+# Scheme bridge is always compiled; keep feature as a no-op compatibility marker.
+scheme-io = []
 
 [dependencies]
 # Math
@@ -49,8 +50,8 @@ rayon = { workspace = true, optional = true }
 # 3MF export (optional)
 zip = { version = "2.0", optional = true }
 
-# Internal crates (optional)
-cfd-schematics = { workspace = true, optional = true }
+# Internal crates
+cfd-schematics = { workspace = true }
 
 # Logging
 tracing = { workspace = true }
@@ -281,31 +282,25 @@ path = "examples/csg_coplanar/disk_disk.rs"
 [[example]]
 name = "millifluidic_designs"
 path = "examples/millifluidic_designs.rs"
-required-features = ["scheme-io"]
 
 [[example]]
 name = "schematic_to_3d_mesh"
 path = "examples/schematic_to_3d_mesh.rs"
-required-features = ["scheme-io"]
 
 [[example]]
 name = "schematic_to_mesh_demo"
 path = "examples/schematic_to_mesh_demo.rs"
-required-features = ["scheme-io"]
 
 [[example]]
 name = "schematic_to_openfoam"
 path = "examples/schematic_to_openfoam.rs"
-required-features = ["scheme-io"]
 
 # ── Millifluidic chip-body STL examples ───────────────────────────────────────
 
 [[example]]
 name = "millifluidic_chip_stl"
 path = "examples/millifluidic/chip_stl.rs"
-required-features = ["scheme-io"]
 
 [[example]]
 name = "millifluidic_shell_tpms"
 path = "examples/millifluidic_shell_tpms.rs"
-required-features = ["scheme-io"]

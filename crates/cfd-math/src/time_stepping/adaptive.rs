@@ -29,9 +29,9 @@ impl<T: RealField + Copy, M: EmbeddedMethod<T>> AdaptiveTimeStepper<T, M> {
         Self {
             method,
             controller: StandardController::new(),
-            safety_factor: T::from_f64(0.9).unwrap(),
-            dt_min: T::from_f64(1e-12).unwrap(),
-            dt_max: T::from_f64(1.0).unwrap(),
+            safety_factor: T::from_f64(0.9).unwrap_or_else(num_traits::Zero::zero),
+            dt_min: T::from_f64(1e-12).unwrap_or_else(num_traits::Zero::zero),
+            dt_max: T::from_f64(1.0).unwrap_or_else(num_traits::Zero::zero),
             _phantom: std::marker::PhantomData,
         }
     }
@@ -80,7 +80,7 @@ impl<T: RealField + Copy, M: EmbeddedMethod<T>> AdaptiveTimeStepper<T, M> {
             dt_safe.max(self.dt_min).min(self.dt_max)
         } else {
             // Reject step, reduce time step
-            dt_current * T::from_f64(0.5).unwrap()
+            dt_current * T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero)
         };
 
         Ok((u_new, dt_new, accepted))
@@ -107,8 +107,8 @@ impl<T: RealField + Copy> StandardController<T> {
     /// Create a new PI controller for adaptive time stepping
     pub fn new() -> Self {
         Self {
-            kp: T::from_f64(0.075).unwrap(),
-            ki: T::from_f64(0.175).unwrap(),
+            kp: T::from_f64(0.075).unwrap_or_else(num_traits::Zero::zero),
+            ki: T::from_f64(0.175).unwrap_or_else(num_traits::Zero::zero),
         }
     }
 }
@@ -116,7 +116,7 @@ impl<T: RealField + Copy> StandardController<T> {
 impl<T: RealField + Copy> TimeStepController<T> for StandardController<T> {
     fn adapt_step(&self, error_estimate: T, current_dt: T, tolerance: T) -> T {
         if error_estimate <= T::zero() {
-            return current_dt * T::from_f64(2.0).unwrap();
+            return current_dt * T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
         }
 
         let error_ratio = tolerance / error_estimate;
@@ -124,7 +124,7 @@ impl<T: RealField + Copy> TimeStepController<T> for StandardController<T> {
         // PI controller: dt_new = dt * error_ratio^(kp + ki * error_ratio)
         // Simplified: dt_new = dt * error_ratio^(0.075 + 0.175 * error_ratio)
         let exponent = self.kp + self.ki * error_ratio;
-        let ratio = if exponent > T::from_f64(1.0).unwrap() {
+        let ratio = if exponent > T::from_f64(1.0).unwrap_or_else(num_traits::Zero::zero) {
             error_ratio.powf(exponent)
         } else {
             error_ratio
@@ -132,8 +132,8 @@ impl<T: RealField + Copy> TimeStepController<T> for StandardController<T> {
 
         current_dt
             * ratio
-                .max(T::from_f64(0.1).unwrap())
-                .min(T::from_f64(5.0).unwrap())
+                .max(T::from_f64(0.1).unwrap_or_else(num_traits::Zero::zero))
+                .min(T::from_f64(5.0).unwrap_or_else(num_traits::Zero::zero))
     }
 }
 
@@ -196,60 +196,60 @@ impl<T: RealField + Copy> EmbeddedMethod<T> for DormandPrince54<T> {
 
         // Dormand-Prince coefficients
         let c = [
-            T::from_f64(0.0).unwrap(),
-            T::from_f64(0.2).unwrap(),
-            T::from_f64(0.3).unwrap(),
-            T::from_f64(0.8).unwrap(),
-            T::from_f64(8.0 / 9.0).unwrap(),
-            T::from_f64(1.0).unwrap(),
-            T::from_f64(1.0).unwrap(),
+            T::from_f64(0.0).unwrap_or_else(num_traits::Zero::zero),
+            T::from_f64(0.2).unwrap_or_else(num_traits::Zero::zero),
+            T::from_f64(0.3).unwrap_or_else(num_traits::Zero::zero),
+            T::from_f64(0.8).unwrap_or_else(num_traits::Zero::zero),
+            T::from_f64(8.0 / 9.0).unwrap_or_else(num_traits::Zero::zero),
+            T::from_f64(1.0).unwrap_or_else(num_traits::Zero::zero),
+            T::from_f64(1.0).unwrap_or_else(num_traits::Zero::zero),
         ];
 
         // Dormand-Prince coefficients (initialize at runtime)
         let mut a = [[T::zero(); 7]; 7];
         // Fill lower triangular part of A matrix
-        a[1][0] = T::from_f64(0.2).unwrap();
-        a[2][0] = T::from_f64(3.0 / 40.0).unwrap();
-        a[2][1] = T::from_f64(9.0 / 40.0).unwrap();
-        a[3][0] = T::from_f64(44.0 / 45.0).unwrap();
-        a[3][1] = T::from_f64(-56.0 / 15.0).unwrap();
-        a[3][2] = T::from_f64(32.0 / 9.0).unwrap();
-        a[4][0] = T::from_f64(19372.0 / 6561.0).unwrap();
-        a[4][1] = T::from_f64(-25360.0 / 2187.0).unwrap();
-        a[4][2] = T::from_f64(64448.0 / 6561.0).unwrap();
-        a[4][3] = T::from_f64(-212.0 / 729.0).unwrap();
-        a[5][0] = T::from_f64(9017.0 / 3168.0).unwrap();
-        a[5][1] = T::from_f64(-355.0 / 33.0).unwrap();
-        a[5][2] = T::from_f64(46732.0 / 5247.0).unwrap();
-        a[5][3] = T::from_f64(49.0 / 176.0).unwrap();
-        a[5][4] = T::from_f64(-5103.0 / 18656.0).unwrap();
-        a[6][0] = T::from_f64(35.0 / 384.0).unwrap();
+        a[1][0] = T::from_f64(0.2).unwrap_or_else(num_traits::Zero::zero);
+        a[2][0] = T::from_f64(3.0 / 40.0).unwrap_or_else(num_traits::Zero::zero);
+        a[2][1] = T::from_f64(9.0 / 40.0).unwrap_or_else(num_traits::Zero::zero);
+        a[3][0] = T::from_f64(44.0 / 45.0).unwrap_or_else(num_traits::Zero::zero);
+        a[3][1] = T::from_f64(-56.0 / 15.0).unwrap_or_else(num_traits::Zero::zero);
+        a[3][2] = T::from_f64(32.0 / 9.0).unwrap_or_else(num_traits::Zero::zero);
+        a[4][0] = T::from_f64(19372.0 / 6561.0).unwrap_or_else(num_traits::Zero::zero);
+        a[4][1] = T::from_f64(-25360.0 / 2187.0).unwrap_or_else(num_traits::Zero::zero);
+        a[4][2] = T::from_f64(64448.0 / 6561.0).unwrap_or_else(num_traits::Zero::zero);
+        a[4][3] = T::from_f64(-212.0 / 729.0).unwrap_or_else(num_traits::Zero::zero);
+        a[5][0] = T::from_f64(9017.0 / 3168.0).unwrap_or_else(num_traits::Zero::zero);
+        a[5][1] = T::from_f64(-355.0 / 33.0).unwrap_or_else(num_traits::Zero::zero);
+        a[5][2] = T::from_f64(46732.0 / 5247.0).unwrap_or_else(num_traits::Zero::zero);
+        a[5][3] = T::from_f64(49.0 / 176.0).unwrap_or_else(num_traits::Zero::zero);
+        a[5][4] = T::from_f64(-5103.0 / 18656.0).unwrap_or_else(num_traits::Zero::zero);
+        a[6][0] = T::from_f64(35.0 / 384.0).unwrap_or_else(num_traits::Zero::zero);
         a[6][1] = T::zero();
-        a[6][2] = T::from_f64(500.0 / 1113.0).unwrap();
-        a[6][3] = T::from_f64(125.0 / 192.0).unwrap();
-        a[6][4] = T::from_f64(-2187.0 / 6784.0).unwrap();
-        a[6][5] = T::from_f64(11.0 / 84.0).unwrap();
+        a[6][2] = T::from_f64(500.0 / 1113.0).unwrap_or_else(num_traits::Zero::zero);
+        a[6][3] = T::from_f64(125.0 / 192.0).unwrap_or_else(num_traits::Zero::zero);
+        a[6][4] = T::from_f64(-2187.0 / 6784.0).unwrap_or_else(num_traits::Zero::zero);
+        a[6][5] = T::from_f64(11.0 / 84.0).unwrap_or_else(num_traits::Zero::zero);
 
         // 4th-order solution coefficients
         let b4 = [
-            T::from_f64(35.0 / 384.0).unwrap(),
-            T::from_f64(0.0).unwrap(),
-            T::from_f64(500.0 / 1113.0).unwrap(),
-            T::from_f64(125.0 / 192.0).unwrap(),
-            T::from_f64(-2187.0 / 6784.0).unwrap(),
-            T::from_f64(11.0 / 84.0).unwrap(),
-            T::from_f64(0.0).unwrap(),
+            T::from_f64(35.0 / 384.0).unwrap_or_else(num_traits::Zero::zero),
+            T::from_f64(0.0).unwrap_or_else(num_traits::Zero::zero),
+            T::from_f64(500.0 / 1113.0).unwrap_or_else(num_traits::Zero::zero),
+            T::from_f64(125.0 / 192.0).unwrap_or_else(num_traits::Zero::zero),
+            T::from_f64(-2187.0 / 6784.0).unwrap_or_else(num_traits::Zero::zero),
+            T::from_f64(11.0 / 84.0).unwrap_or_else(num_traits::Zero::zero),
+            T::from_f64(0.0).unwrap_or_else(num_traits::Zero::zero),
         ];
 
         // 5th-order solution coefficients (for error estimation)
         let b5 = [
-            T::from_f64(5179.0 / 57600.0).unwrap(),
-            T::from_f64(0.0).unwrap(),
-            T::from_f64(7571.0 / 16695.0).unwrap(),
-            T::from_f64(393.0 / 640.0).unwrap(),
-            T::from_f64(-92097.0 / 339200.0).unwrap(),
-            T::from_f64(187.0 / 2100.0).unwrap(),
-            T::from_f64(1.0 / 40.0).unwrap(),
+            T::from_f64(5179.0 / 57600.0).unwrap_or_else(num_traits::Zero::zero),
+            T::from_f64(0.0).unwrap_or_else(num_traits::Zero::zero),
+            T::from_f64(7571.0 / 16695.0).unwrap_or_else(num_traits::Zero::zero),
+            T::from_f64(393.0 / 640.0).unwrap_or_else(num_traits::Zero::zero),
+            T::from_f64(-92097.0 / 339200.0).unwrap_or_else(num_traits::Zero::zero),
+            T::from_f64(187.0 / 2100.0).unwrap_or_else(num_traits::Zero::zero),
+            T::from_f64(1.0 / 40.0).unwrap_or_else(num_traits::Zero::zero),
         ];
 
         // Compute stages

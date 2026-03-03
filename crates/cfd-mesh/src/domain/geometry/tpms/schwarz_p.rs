@@ -26,8 +26,8 @@
 //! ∂F/∂z = −k·sin(k·z)
 //! ```
 
-use crate::domain::core::scalar::Vector3r;
 use super::Tpms;
+use crate::domain::core::scalar::Vector3r;
 
 /// Schwarz P (Primitive) TPMS — Schwarz (1890).
 ///

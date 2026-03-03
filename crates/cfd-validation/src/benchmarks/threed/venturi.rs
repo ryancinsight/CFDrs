@@ -5,9 +5,9 @@
 
 use super::super::{Benchmark, BenchmarkConfig, BenchmarkResult};
 use crate::geometry::threed::Venturi3D;
-use cfd_3d::venturi::{VenturiSolver3D, VenturiConfig3D};
-use cfd_mesh::VenturiMeshBuilder;
+use cfd_3d::venturi::{VenturiConfig3D, VenturiSolver3D};
 use cfd_core::physics::fluid::blood::CarreauYasudaBlood;
+use cfd_mesh::VenturiMeshBuilder;
 use nalgebra::RealField;
 
 /// 3D Venturi Flow benchmark
@@ -23,8 +23,17 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy> VenturiFlow3D<T> {
     }
 }
 
-impl<T: RealField + Copy + num_traits::Float + num_traits::FromPrimitive + 
-    num_traits::ToPrimitive + cfd_core::conversion::SafeFromF64 + std::convert::From<f64> + cfd_mesh::domain::core::Scalar> Benchmark<T> for VenturiFlow3D<T> {
+impl<
+        T: RealField
+            + Copy
+            + num_traits::Float
+            + num_traits::FromPrimitive
+            + num_traits::ToPrimitive
+            + cfd_core::conversion::SafeFromF64
+            + std::convert::From<f64>
+            + cfd_mesh::domain::core::Scalar,
+    > Benchmark<T> for VenturiFlow3D<T>
+{
     fn name(&self) -> &'static str {
         "3D Venturi Tube Flow"
     }
@@ -61,18 +70,28 @@ impl<T: RealField + Copy + num_traits::Float + num_traits::FromPrimitive +
             circular: true,
             ..VenturiConfig3D::default()
         };
-        
+
         let solver = VenturiSolver3D::new(builder, solver_config);
-        
+
         // 3. Run for Newtonian and Non-Newtonian
         let blood = CarreauYasudaBlood::<T>::normal_blood();
         let solution = solver.solve(blood)?;
-        
-        result.metrics.insert("Pressure Drop".to_string(), solution.dp_throat);
-        result.metrics.insert("Recovery Coefficient".to_string(), solution.cp_recovery);
-        result.metrics.insert("Throat Cp".to_string(), solution.cp_throat);
-        result.metrics.insert("u_throat".to_string(), solution.u_throat);
-        result.metrics.insert("u_inlet".to_string(), solution.u_inlet);
+
+        result
+            .metrics
+            .insert("Pressure Drop".to_string(), solution.dp_throat);
+        result
+            .metrics
+            .insert("Recovery Coefficient".to_string(), solution.cp_recovery);
+        result
+            .metrics
+            .insert("Throat Cp".to_string(), solution.cp_throat);
+        result
+            .metrics
+            .insert("u_throat".to_string(), solution.u_throat);
+        result
+            .metrics
+            .insert("u_inlet".to_string(), solution.u_inlet);
 
         println!("Venturi 3D Validation:");
         println!("  u_inlet (FEM): {:?}", solution.u_inlet);
@@ -89,7 +108,9 @@ impl<T: RealField + Copy + num_traits::Float + num_traits::FromPrimitive +
         let mut ref_result = BenchmarkResult::new(self.name());
         let area_ratio = (self.geometry.d_inlet / self.geometry.d_throat)
             * (self.geometry.d_inlet / self.geometry.d_throat);
-        ref_result.metrics.insert("area_ratio".to_string(), area_ratio);
+        ref_result
+            .metrics
+            .insert("area_ratio".to_string(), area_ratio);
         Some(ref_result)
     }
 
@@ -106,7 +127,10 @@ impl<T: RealField + Copy + num_traits::Float + num_traits::FromPrimitive +
         // u_throat / u_inlet ≈ (D_inlet/D_throat)^2 = area_ratio.
         // Accept if u_throat > u_inlet (not requiring the exact ratio,
         // since the Stokes FEM in coarse resolution underestimates peak velocities).
-        let throat_accel_ok = match (result.metrics.get("u_throat"), result.metrics.get("u_inlet")) {
+        let throat_accel_ok = match (
+            result.metrics.get("u_throat"),
+            result.metrics.get("u_inlet"),
+        ) {
             (Some(&u_th), Some(&u_in)) if u_in > T::zero() => u_th > u_in,
             (Some(&u_th), _) => u_th > T::zero(),
             _ => false,

@@ -44,6 +44,7 @@ fn validate_venturi_blood_flow() {
         circular: true,
         max_nonlinear_iterations: 25, // Iterating for viscosity
         nonlinear_tolerance: 1e-4,
+        rect_height: None,
     };
 
     println!("Venturi Test Setup:");

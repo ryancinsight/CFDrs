@@ -78,7 +78,9 @@
 // ── SDT-specific modules ─────────────────────────────────────────────────────
 
 pub mod analysis;
+pub mod cif_schematic;
 pub mod constraints;
+pub mod csv_export;
 pub mod design;
 pub mod error;
 pub mod evo;
@@ -97,8 +99,11 @@ pub use design::{
 };
 pub use error::OptimError;
 pub use evo::{decode_genome, GeneticOptimizer, MillifluidicGenome};
-pub use export::{save_all_modes_json, save_comparison_svg, save_schematic_svg, save_top5_json};
-pub use metrics::{compute_metrics, giersiepen_hi, SdtMetrics};
+pub use export::{
+    save_all_modes_json, save_annotated_cif_svg, save_comparison_svg, save_schematic_svg,
+    save_top5_json,
+};
+pub use metrics::{compute_metrics, giersiepen_hi, ChannelHemolysis, SdtMetrics};
 pub use optimizer::{OptimStats, RankedDesign, RobustScoreStats, RobustSweepConfig, SdtOptimizer};
 pub use scoring::{score_candidate, score_description, OptimMode, SdtWeights};
 
@@ -236,11 +241,12 @@ pub fn generate_mesh_handoff(
         // build a blueprint from it.  NetworkBlueprint does not implement
         // serde::Deserialize, so we parse as InterchangeChannelSystem instead
         // and then fall back to an error (full round-trip is not yet supported).
-        let json_str = std::fs::read_to_string(&scenario.scheme_json_path)
-            .map_err(|err| OptimError::MeshExportFailed {
+        let json_str = std::fs::read_to_string(&scenario.scheme_json_path).map_err(|err| {
+            OptimError::MeshExportFailed {
                 scenario_id: scenario.id.clone(),
                 message: format!("Failed to read scheme JSON: {err}"),
-            })?;
+            }
+        })?;
         let interchange: cfd_schematics::geometry::InterchangeChannelSystem =
             serde_json::from_str(&json_str).map_err(|err| OptimError::MeshExportFailed {
                 scenario_id: scenario.id.clone(),

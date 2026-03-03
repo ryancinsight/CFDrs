@@ -21,8 +21,8 @@
 //! ∂F/∂z = k·(−sin(ky)·sin(kz) + cos(kz)·cos(kx) − sin(kz)·cos(ky))  ← corrected
 //! ```
 
-use crate::domain::core::scalar::Vector3r;
 use super::Tpms;
+use crate::domain::core::scalar::Vector3r;
 
 /// Gyroid TPMS — Schoen (1970) triply periodic minimal surface.
 ///

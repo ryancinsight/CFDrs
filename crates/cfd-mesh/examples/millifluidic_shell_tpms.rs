@@ -10,7 +10,7 @@
 //!
 //! Run with:
 //! ```sh
-//! cargo run -p cfd-mesh --features scheme-io --example millifluidic_shell_tpms
+//! cargo run -p cfd-mesh --example millifluidic_shell_tpms
 //! ```
 
 use std::fs;
@@ -74,13 +74,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Building {} ...", name);
 
     let config = ShellPipelineConfig::default();
-    
-    // Run the pipeline
-    let mut output = ShellMeshPipeline::run(&shell, &config)
-        .map_err(|e| format!("Pipeline failed: {}", e))?;
 
-    assert!(output.fluid_mesh.is_watertight(), "Fluid mesh not watertight!");
-    assert!(output.chip_body_mesh.is_watertight(), "Chip body mesh not watertight!");
+    // Run the pipeline
+    let mut output =
+        ShellMeshPipeline::run(&shell, &config).map_err(|e| format!("Pipeline failed: {}", e))?;
+
+    assert!(
+        output.fluid_mesh.is_watertight(),
+        "Fluid mesh not watertight!"
+    );
+    assert!(
+        output.chip_body_mesh.is_watertight(),
+        "Chip body mesh not watertight!"
+    );
 
     println!(
         "  fluid : {:>7} faces, vol = {:>10.3} mm³ [watertight ✓]",

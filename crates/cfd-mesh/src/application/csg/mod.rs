@@ -6,7 +6,9 @@ pub mod broad_phase;
 pub mod clip;
 pub mod coplanar;
 pub mod corefine;
+pub(crate) mod diagnostics;
 pub mod intersect;
+pub(crate) mod predicates3d;
 pub mod reconstruct;
 
 pub use boolean::{csg_boolean, csg_boolean_indexed, BooleanOp, CsgNode};

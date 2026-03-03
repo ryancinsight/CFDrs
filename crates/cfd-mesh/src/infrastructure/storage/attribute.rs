@@ -19,7 +19,7 @@ pub struct AttributeStore<I: std::hash::Hash + Eq + Copy> {
 
 impl<I: std::hash::Hash + Eq + Copy> AttributeStore<I> {
     /// Create an empty attribute store.
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         Self {
             channels: HashMap::new(),
@@ -42,15 +42,18 @@ impl<I: std::hash::Hash + Eq + Copy> AttributeStore<I> {
     }
 
     /// Check if a channel exists.
-    #[must_use] 
+    #[must_use]
     pub fn has_channel(&self, channel: &str) -> bool {
         self.channels.contains_key(channel)
     }
 
     /// List all channel names.
-    #[must_use] 
+    #[must_use]
     pub fn channel_names(&self) -> Vec<&str> {
-        self.channels.keys().map(std::string::String::as_str).collect()
+        self.channels
+            .keys()
+            .map(std::string::String::as_str)
+            .collect()
     }
 
     /// Remove a channel.
@@ -64,7 +67,7 @@ impl<I: std::hash::Hash + Eq + Copy> AttributeStore<I> {
     }
 
     /// Number of channels.
-    #[must_use] 
+    #[must_use]
     pub fn channel_count(&self) -> usize {
         self.channels.len()
     }

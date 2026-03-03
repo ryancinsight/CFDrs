@@ -21,7 +21,7 @@ use crate::domain::core::scalar::Real;
 /// # Panics
 ///
 /// Returns `None` if the three points are collinear (degenerate triangle).
-#[must_use] 
+#[must_use]
 pub fn circumcenter(a: &PslgVertex, b: &PslgVertex, c: &PslgVertex) -> Option<(Real, Real)> {
     // Using the formula from Shewchuk's "Triangle" library.
     let ax = a.x - c.x;
@@ -54,7 +54,7 @@ pub fn circumcenter(a: &PslgVertex, b: &PslgVertex, c: &PslgVertex) -> Option<(R
 ///
 /// Üngör (2004), "Off-centers: A new type of Steiner points for computing
 /// size-optimal quality-guaranteed Delaunay triangulations."
-#[must_use] 
+#[must_use]
 pub fn off_center(
     a: &PslgVertex,
     b: &PslgVertex,

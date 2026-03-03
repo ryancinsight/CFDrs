@@ -237,8 +237,8 @@ impl<T: RealField + Copy + FromPrimitive + ComplexField> ExponentialRungeKutta4<
     where
         F: Fn(&DVector<T>) -> DVector<T>,
     {
-        let half = T::from_f64(0.5).unwrap();
-        let two = T::from_f64(2.0).unwrap();
+        let half = T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero);
+        let two = T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
 
         // Compute right-hand side at current state
         let f0 = rhs_function(u);
@@ -257,7 +257,7 @@ impl<T: RealField + Copy + FromPrimitive + ComplexField> ExponentialRungeKutta4<
 
         // Combine stages: u_{n+1} = u + (dt/6) * (f0 + 2*f1 + 2*f2 + f3)
         let combined_rhs = &f0 + &(&f1 * two) + &(&f2 * two) + &f3;
-        let u_new = u + &combined_rhs * (dt / T::from_f64(6.0).unwrap());
+        let u_new = u + &combined_rhs * (dt / T::from_f64(6.0).unwrap_or_else(num_traits::Zero::zero));
 
         Ok(u_new)
     }
@@ -293,7 +293,7 @@ impl<T: RealField + Copy + FromPrimitive + ComplexField> ExponentialTimeDifferen
         let exp_av = self.matrix_exponential_vector(matrix, vector, scale)?;
         let av = (matrix * scale) * vector;
 
-        if av.norm() < T::from_f64(1e-14).unwrap() {
+        if av.norm() < T::from_f64(1e-14).unwrap_or_else(num_traits::Zero::zero) {
             // For small z, φ₁(z) ≈ 1
             Ok(vector.clone())
         } else {
@@ -312,9 +312,9 @@ impl<T: RealField + Copy + FromPrimitive + ComplexField> ExponentialTimeDifferen
         let exp_av = self.matrix_exponential_vector(matrix, vector, scale)?;
         let av = (matrix * scale) * vector;
 
-        if av.norm() < T::from_f64(1e-14).unwrap() {
+        if av.norm() < T::from_f64(1e-14).unwrap_or_else(num_traits::Zero::zero) {
             // For small z, φ₂(z) ≈ 1/2
-            Ok(vector * T::from_f64(0.5).unwrap())
+            Ok(vector * T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero))
         } else {
             Ok((exp_av - vector - &av) / (scale * scale))
         }
@@ -339,7 +339,7 @@ impl<T: RealField + Copy + FromPrimitive + ComplexField> ExponentialTimeDifferen
             factorial *= T::from_f64(f64::from(n)).unwrap();
             term = matrix * &term / factorial;
 
-            if term.norm() < T::from_f64(1e-14).unwrap() {
+            if term.norm() < T::from_f64(1e-14).unwrap_or_else(num_traits::Zero::zero) {
                 break;
             }
 

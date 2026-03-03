@@ -30,7 +30,7 @@ use crate::domain::core::scalar::Real;
 ///
 /// A segment is encroached if a vertex (other than `a` or `b`) lies
 /// strictly inside the diametral circle of `(a, b)`.
-#[must_use] 
+#[must_use]
 pub fn is_encroached(dt: &DelaunayTriangulation, a: PslgVertexId, b: PslgVertexId) -> bool {
     encroaching_vertex(dt, a, b).is_some()
 }
@@ -39,7 +39,7 @@ pub fn is_encroached(dt: &DelaunayTriangulation, a: PslgVertexId, b: PslgVertexI
 ///
 /// Returns `Some(vid)` if a vertex is found strictly inside the diametral
 /// circle, or `None` if the segment is unencroached.
-#[must_use] 
+#[must_use]
 pub fn encroaching_vertex(
     dt: &DelaunayTriangulation,
     a: PslgVertexId,
@@ -77,7 +77,7 @@ pub fn encroaching_vertex(
 }
 
 /// Check if a point `(px, py)` encroaches the segment between vertices `a` and `b`.
-#[must_use] 
+#[must_use]
 pub fn point_encroaches_segment(va: &PslgVertex, vb: &PslgVertex, px: Real, py: Real) -> bool {
     let cx = (va.x + vb.x) * 0.5;
     let cy = (va.y + vb.y) * 0.5;

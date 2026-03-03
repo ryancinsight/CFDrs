@@ -56,8 +56,8 @@
 //! - Lidin, S. & Larsson, S. (1990). *J. Chem. Soc. Faraday Trans.* 86, 769–775.
 //! - Fogden, A. & Hyde, S.T. (1999). *Acta Cryst.* A55, 77–96.
 
-use crate::domain::core::scalar::Vector3r;
 use super::Tpms;
+use crate::domain::core::scalar::Vector3r;
 
 /// Lidinoid TPMS — Lidin & Larsson (1990) triply periodic minimal surface.
 ///
@@ -155,7 +155,10 @@ mod tests {
         //   neg = 0.5*(1·1 + 1·1 + 1·1) = 0.5*3 = 1.5
         //   F = 0 - 1.5 + 0.15 = -1.35
         assert!(v.is_finite(), "F(0,0,0) is not finite: {v}");
-        assert!((v - (-1.35)).abs() < 1e-13, "F(0,0,0) = {v}, expected -1.35");
+        assert!(
+            (v - (-1.35)).abs() < 1e-13,
+            "F(0,0,0) = {v}, expected -1.35"
+        );
     }
 
     /// **Invariant**: the field value near a known approximate zero should be
@@ -173,6 +176,9 @@ mod tests {
                 Lidinoid.field(x, y, 0.0, k).abs()
             })
             .fold(f64::INFINITY, f64::min);
-        assert!(min_abs < 0.5, "minimum |F| in slice = {min_abs} — surface not found");
+        assert!(
+            min_abs < 0.5,
+            "minimum |F| in slice = {min_abs} — surface not found"
+        );
     }
 }

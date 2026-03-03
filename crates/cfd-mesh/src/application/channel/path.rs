@@ -11,14 +11,14 @@ pub struct ChannelPath {
 
 impl ChannelPath {
     /// Create a path from a set of waypoints.
-    #[must_use] 
+    #[must_use]
     pub fn new(points: Vec<Point3r>) -> Self {
         assert!(points.len() >= 2, "path must have at least 2 points");
         Self { points }
     }
 
     /// Create a straight-line path between two points.
-    #[must_use] 
+    #[must_use]
     pub fn straight(start: Point3r, end: Point3r) -> Self {
         Self {
             points: vec![start, end],
@@ -26,25 +26,25 @@ impl ChannelPath {
     }
 
     /// Get the waypoints.
-    #[must_use] 
+    #[must_use]
     pub fn points(&self) -> &[Point3r] {
         &self.points
     }
 
     /// Number of segments.
-    #[must_use] 
+    #[must_use]
     pub fn segment_count(&self) -> usize {
         self.points.len() - 1
     }
 
     /// Total path length.
-    #[must_use] 
+    #[must_use]
     pub fn length(&self) -> Real {
         self.points.windows(2).map(|w| (w[1] - w[0]).norm()).sum()
     }
 
     /// Direction at a given segment index (normalized).
-    #[must_use] 
+    #[must_use]
     pub fn segment_direction(&self, segment: usize) -> Vector3r {
         let dir = self.points[segment + 1] - self.points[segment];
         dir.normalize()
@@ -54,7 +54,7 @@ impl ChannelPath {
     ///
     /// Uses averaged tangents for interior points and a fixed up-vector fallback
     /// to keep planar channel sweeps from twisting between segments.
-    #[must_use] 
+    #[must_use]
     pub fn compute_frames(&self) -> Vec<FrenetFrame> {
         let n = self.points.len();
         let mut frames = Vec::with_capacity(n);

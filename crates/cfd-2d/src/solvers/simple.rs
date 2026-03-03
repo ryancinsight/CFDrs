@@ -72,10 +72,10 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Simple
     /// Create new SIMPLE algorithm with default parameters
     pub fn new() -> Self {
         Self {
-            pressure_relaxation: T::from_f64(0.3).unwrap(), // Standard value
-            velocity_relaxation: T::from_f64(0.7).unwrap(), // Standard value
+            pressure_relaxation: T::from_f64(0.3).unwrap_or_else(num_traits::Zero::zero), // Standard value
+            velocity_relaxation: T::from_f64(0.7).unwrap_or_else(num_traits::Zero::zero), // Standard value
             max_iterations: 50,
-            tolerance: T::from_f64(1e-6).unwrap(),
+            tolerance: T::from_f64(1e-6).unwrap_or_else(num_traits::Zero::zero),
         }
     }
 
@@ -142,7 +142,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Simple
         let dy = grid.dy;
 
         // Use a safe threshold for Ap to avoid numerical instability
-        let min_ap = T::from_f64(1e-10).unwrap();
+        let min_ap = T::from_f64(1e-10).unwrap_or_else(num_traits::Zero::zero);
 
         for j in 0..ny {
             for i in 0..nx {
@@ -179,8 +179,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Simple
         let mut matrix_builder = SparseMatrixBuilder::new(n, n);
         let mut rhs = DVector::zeros(n);
 
-        let half = T::from_f64(0.5).unwrap();
-        let two = T::from_f64(2.0).unwrap();
+        let half = T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero);
+        let two = T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
 
         // Max residual for convergence check
         let mut max_residual = T::zero();
@@ -210,7 +210,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Simple
                 let p_s = fields.p.at(i, j - 1);
 
                 // Linear extrapolation for boundaries to maintain second-order accuracy
-                let two_val = T::from_f64(2.0).unwrap();
+                let two_val = T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
                 let p_ee = if i + 2 < nx {
                     fields.p.at(i + 2, j)
                 } else {
@@ -254,7 +254,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Simple
                 // Rhie-Chow velocity at East face
                 // Using a small factor for Rhie-Chow interpolation to provide some pressure-velocity coupling
                 // while maintaining stability. Full factor (1.0) can be unstable with certain BC configurations.
-                let rc_factor = T::from_f64(0.05).unwrap();
+                let rc_factor = T::from_f64(0.05).unwrap_or_else(num_traits::Zero::zero);
                 let u_face_e =
                     (u_p + u_e) * half + d_face_e * (avg_grad_p_e - grad_p_e) * rc_factor;
 

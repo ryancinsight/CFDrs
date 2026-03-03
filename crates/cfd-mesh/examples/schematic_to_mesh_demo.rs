@@ -6,12 +6,11 @@
 //!
 //! Run with: cargo run -p cfd-mesh --example schematic_to_mesh_demo
 
-#[cfg(feature = "scheme-io")]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     use cfd_mesh::application::channel::profile::ChannelProfile;
     use cfd_mesh::infrastructure::io::scheme;
     use cfd_schematics::config::{ChannelTypeConfig, GeometryConfig};
-    use cfd_schematics::geometry::{generator::create_geometry, ChannelType, SplitType};
+    use cfd_schematics::geometry::{generator::create_geometry, ChannelType};
 
     println!("🔌 Schematic to Mesh Integration Demo");
     println!("=====================================");
@@ -35,7 +34,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 2. Add a Frustum (Venturi) channel manually for testing
     // We hack the system to add a second channel that is a Frustum
     use cfd_schematics::config::TaperProfile;
-    use cfd_schematics::geometry::Point2D;
 
     // Frustum from (0, 10) to (10, 10). Inlet=1.0, Throat=0.2, Outlet=1.0
     let frustum_path = vec![(0.0, 10.0), (5.0, 10.0), (10.0, 10.0)];
@@ -133,12 +131,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             // Check bounding box widths if it's the Frustum
             if channel_def.id.contains("99") {
-                let vertices: Vec<_> = faces
-                    .iter()
-                    .flat_map(|f| f.vertices.iter())
-                    .map(|&vid| pool.get(vid).position)
-                    .collect();
-
                 // Find min/max X at start/middle/end?
                 // Easier: check that we have some vertices with small width (throat)
                 // Start X width ~ 1.0. Throat X width ~ 0.2.
@@ -159,12 +151,4 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     Ok(())
-}
-
-#[cfg(not(feature = "scheme-io"))]
-fn main() {
-    println!("This example requires the 'scheme-io' feature.");
-    println!(
-        "Run with: cargo run -p cfd-mesh --features scheme-io --example schematic_to_mesh_demo"
-    );
 }

@@ -93,9 +93,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("  CSG Cylinder–Cylinder (Trifurcation)");
     println!("  Outer branches ±θ  |  Perpendicular centre branch +90°");
     println!("  Union | Trunk Difference");
-    println!(
-        "  r={R} mm  h_trunk={H_TRUNK} mm  h_branch={H_BRANCH} mm  ε={EPS:.3} mm"
-    );
+    println!("  r={R} mm  h_trunk={H_TRUNK} mm  h_branch={H_BRANCH} mm  ε={EPS:.3} mm");
     println!("=================================================================");
     println!();
 
@@ -147,8 +145,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             ms,
         );
 
-        let stl_name =
-            format!("cylinder_cylinder_trifurcation_union_{:.0}deg.stl", theta_deg);
+        let stl_name = format!(
+            "cylinder_cylinder_trifurcation_union_{:.0}deg.stl",
+            theta_deg
+        );
         write_stl(&result, &out_dir.join(&stl_name))?;
         println!("  STL: outputs/csg/{stl_name}");
         println!();
@@ -164,11 +164,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             build_trifurcation(std::f64::consts::FRAC_PI_4)?;
 
         let t0 = Instant::now();
-        let b_up_perp =
-            csg_boolean_indexed(BooleanOp::Union, &b_up_45, &b_perp_45)?;
+        let b_up_perp = csg_boolean_indexed(BooleanOp::Union, &b_up_45, &b_perp_45)?;
         let branches = csg_boolean_indexed(BooleanOp::Union, &b_up_perp, &b_dn_45)?;
-        let mut result =
-            csg_boolean_indexed(BooleanOp::Difference, &trunk_45, &branches)?;
+        let mut result = csg_boolean_indexed(BooleanOp::Difference, &trunk_45, &branches)?;
         let ms = t0.elapsed().as_millis();
 
         // Three branches clip slightly more junction material than the 2-branch
@@ -183,12 +181,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         write_stl(
             &result,
-            &out_dir
-                .join("cylinder_cylinder_trifurcation_trunk_diff_45deg.stl"),
+            &out_dir.join("cylinder_cylinder_trifurcation_trunk_diff_45deg.stl"),
         )?;
-        println!(
-            "  STL: outputs/csg/cylinder_cylinder_trifurcation_trunk_diff_45deg.stl"
-        );
+        println!("  STL: outputs/csg/cylinder_cylinder_trifurcation_trunk_diff_45deg.stl");
         println!();
     }
 
@@ -226,10 +221,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// has genuine material overlap with the trunk barrel.
 fn build_trifurcation(
     theta: f64,
-) -> Result<
-    (IndexedMesh, IndexedMesh, IndexedMesh, IndexedMesh),
-    Box<dyn std::error::Error>,
-> {
+) -> Result<(IndexedMesh, IndexedMesh, IndexedMesh, IndexedMesh), Box<dyn std::error::Error>> {
     // ── Trunk A: (−H_TRUNK, 0, 0) → (EPS, 0, 0) along +X ────────────────────
     let trunk = {
         let raw = Cylinder {
@@ -243,10 +235,8 @@ fn build_trifurcation(
         // After rotation the cylinder spans (0,0,0) → (H_TRUNK+EPS, 0, 0).
         // Translate (−H_TRUNK, 0, 0) so the inlet is at (−H_TRUNK, 0, 0)
         // and the extended tip is at (EPS, 0, 0).
-        let rot =
-            UnitQuaternion::<Real>::from_axis_angle(&Vector3::z_axis(), -FRAC_PI_2);
-        let iso =
-            Isometry3::from_parts(Translation3::new(-H_TRUNK, 0.0, 0.0), rot);
+        let rot = UnitQuaternion::<Real>::from_axis_angle(&Vector3::z_axis(), -FRAC_PI_2);
+        let iso = Isometry3::from_parts(Translation3::new(-H_TRUNK, 0.0, 0.0), rot);
         CsgNode::Transform {
             node: Box::new(CsgNode::Leaf(Box::new(raw))),
             iso,
@@ -278,9 +268,7 @@ fn build_trifurcation(
 ///
 /// The canonical `+Y` cylinder is redirected by rotating `(angle_from_x − π/2)`
 /// about the Z axis, which maps +Y to `(cos angle_from_x, sin angle_from_x, 0)`.
-fn make_branch_planar(
-    angle_from_x: f64,
-) -> Result<IndexedMesh, Box<dyn std::error::Error>> {
+fn make_branch_planar(angle_from_x: f64) -> Result<IndexedMesh, Box<dyn std::error::Error>> {
     let raw = Cylinder {
         base_center: Point3r::new(0.0, 0.0, 0.0),
         radius: R,
@@ -288,10 +276,7 @@ fn make_branch_planar(
         segments: SEGS,
     }
     .build()?;
-    let rot = UnitQuaternion::<Real>::from_axis_angle(
-        &Vector3::z_axis(),
-        angle_from_x - FRAC_PI_2,
-    );
+    let rot = UnitQuaternion::<Real>::from_axis_angle(&Vector3::z_axis(), angle_from_x - FRAC_PI_2);
     let iso = Isometry3::from_parts(Translation3::new(0.0, 0.0, 0.0), rot);
     Ok(CsgNode::Transform {
         node: Box::new(CsgNode::Leaf(Box::new(raw))),
@@ -315,9 +300,7 @@ fn report_union(label: &str, mesh: &mut IndexedMesh, v_naive: f64, ms: u128) {
 
     println!("  ── {label} ──");
     println!("    Faces      : {}", mesh.face_count());
-    println!(
-        "    Volume     : {vol:.4} mm³  (naive {v_naive:.4} mm³, overlap {overlap_pct:.1}%)"
-    );
+    println!("    Volume     : {vol:.4} mm³  (naive {v_naive:.4} mm³, overlap {overlap_pct:.1}%)");
     println!(
         "    Bounds     : V > 0 [{}]  V < V_naive [{}]",
         pass(positive),
@@ -345,7 +328,10 @@ fn report_union(label: &str, mesh: &mut IndexedMesh, v_naive: f64, ms: u128) {
 
     assert!(is_wt, "{label}: mesh must be watertight");
     assert!(positive, "{label}: mesh must have positive volume");
-    assert!(below_naive, "{label}: union volume must be less than naive sum");
+    assert!(
+        below_naive,
+        "{label}: union volume must be less than naive sum"
+    );
     assert_eq!(
         n.degenerate_faces, 0,
         "{label}: mesh must have no degenerate faces"
@@ -403,7 +389,11 @@ fn report(label: &str, mesh: &mut IndexedMesh, expected: f64, tol: f64, ms: u128
 }
 
 fn pass(ok: bool) -> &'static str {
-    if ok { "PASS" } else { "FAIL" }
+    if ok {
+        "PASS"
+    } else {
+        "FAIL"
+    }
 }
 
 /// Print connected-component and Euler-characteristic diagnostics.
@@ -445,10 +435,7 @@ fn connectivity_report(label: &str, mesh: &mut IndexedMesh, expected_components:
     );
 }
 
-fn write_stl(
-    mesh: &IndexedMesh,
-    path: &std::path::Path,
-) -> Result<(), Box<dyn std::error::Error>> {
+fn write_stl(mesh: &IndexedMesh, path: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
     let file = fs::File::create(path)?;
     let mut w = BufWriter::new(file);
     stl::write_binary_stl(&mut w, &mesh.vertices, &mesh.faces)?;

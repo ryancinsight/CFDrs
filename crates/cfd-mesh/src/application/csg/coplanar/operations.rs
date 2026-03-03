@@ -22,14 +22,19 @@
 //! For a circular cross-section with N cap triangles, the number of triangles
 //! that overlap any given fragment AABB is O(1) (adjacent sectors only), so the
 //! total work is O(N) rather than O(N·|remaining|).
+//!
 
+use super::basis::PlaneBasis;
+use super::geometry2d::{
+    aabb2, aabb_overlaps, point_in_tri_2d_exact, point_in_union_2d_exact_indexed,
+};
+use crate::application::csg::boolean::BooleanOp;
+use crate::application::csg::clip::{
+    boolean_clip, clip_polygon_to_triangle, fan_triangulate, ClipOp,
+};
 use crate::domain::core::scalar::{Point3r, Real};
 use crate::infrastructure::storage::face_store::FaceData;
 use crate::infrastructure::storage::vertex_pool::VertexPool;
-use crate::application::csg::boolean::BooleanOp;
-use super::basis::PlaneBasis;
-use super::geometry2d::{aabb2, aabb_overlaps, point_in_tri_2d_exact, point_in_union_2d_exact};
-use crate::application::csg::clip::{boolean_clip, clip_polygon_to_triangle, fan_triangulate, ClipOp};
 
 fn emit_one(
     p0: Point3r,
@@ -82,15 +87,60 @@ fn aabb2_of_poly(poly: &[[Real; 2]]) -> Option<[Real; 4]> {
     let mut max_u = Real::MIN;
     let mut max_v = Real::MIN;
     for &[u, v] in poly {
-        if u < min_u { min_u = u; }
-        if u > max_u { max_u = u; }
-        if v < min_v { min_v = v; }
-        if v > max_v { max_v = v; }
+        if u < min_u {
+            min_u = u;
+        }
+        if u > max_u {
+            max_u = u;
+        }
+        if v < min_v {
+            min_v = v;
+        }
+        if v > max_v {
+            max_v = v;
+        }
     }
     if max_u - min_u < 1e-20 && max_v - min_v < 1e-20 {
         return None; // degenerate point
     }
     Some([min_u, min_v, max_u, max_v])
+}
+
+// ── Broad phase index ────────────────────────────────────────────────────────
+
+/// 2-D sweep-and-prune broad-phase index over triangle AABBs.
+/// Completeness follows from filtering all entries with `min_u <= src.max_u`
+/// using exact `aabb_overlaps` checks.
+struct SweepAabbIndex2d {
+    by_min_u: Vec<usize>,
+}
+
+impl SweepAabbIndex2d {
+    fn build(aabbs: &[[Real; 4]]) -> Self {
+        let mut by_min_u: Vec<usize> = (0..aabbs.len()).collect();
+        by_min_u.sort_unstable_by(|&i, &j| {
+            aabbs[i][0]
+                .partial_cmp(&aabbs[j][0])
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+        Self { by_min_u }
+    }
+
+    /// Query overlapping opposing AABBs into `out` (allocation-free).
+    fn query_overlaps(&self, src_aabb: &[Real; 4], aabbs: &[[Real; 4]], out: &mut Vec<usize>) {
+        out.clear();
+        let max_u = src_aabb[2];
+        let limit = self.by_min_u.partition_point(|&idx| aabbs[idx][0] <= max_u);
+        for &idx in &self.by_min_u[..limit] {
+            let aabb = &aabbs[idx];
+            if aabb[2] < src_aabb[0] {
+                continue;
+            }
+            if aabb_overlaps(src_aabb, aabb) {
+                out.push(idx);
+            }
+        }
+    }
 }
 
 // ── Pre-computed triangle data ─────────────────────────────────────────────────
@@ -130,6 +180,7 @@ fn process_triangle(
     src: &[Real; 6],       // [ax,ay,bx,by,cx,cy] of source in 2-D
     src_3d: &[Point3r; 3], // 3-D positions for fast-path emit
     src_aabb: &[Real; 4],
+    aabb_index: &SweepAabbIndex2d,
     opp: &[TriData],
     opp_tris: &[[Real; 6]], // 2-D coords of ALL opposing triangles
     opp_aabbs: &[[Real; 4]],
@@ -138,13 +189,9 @@ fn process_triangle(
     region: crate::domain::core::index::RegionId,
     result: &mut Vec<FaceData>,
     pool: &mut VertexPool,
+    candidates: &mut Vec<usize>,
 ) {
-    let candidates: Vec<usize> = opp_aabbs
-        .iter()
-        .enumerate()
-        .filter(|(_, ob)| aabb_overlaps(src_aabb, ob))
-        .map(|(i, _)| i)
-        .collect();
+    aabb_index.query_overlaps(src_aabb, opp_aabbs, candidates);
 
     if candidates.is_empty() {
         if !want_inside {
@@ -153,19 +200,17 @@ fn process_triangle(
         return;
     }
 
-    let cand_tris: Vec<[Real; 6]> = candidates.iter().map(|&i| opp_tris[i]).collect();
-
     let [ax, ay, bx, by, cx, cy] = *src;
 
-    let va = point_in_union_2d_exact(ax, ay, &cand_tris);
-    let vb = point_in_union_2d_exact(bx, by, &cand_tris);
-    let vc = point_in_union_2d_exact(cx, cy, &cand_tris);
+    let va = point_in_union_2d_exact_indexed(ax, ay, opp_tris, candidates);
+    let vb = point_in_union_2d_exact_indexed(bx, by, opp_tris, candidates);
+    let vc = point_in_union_2d_exact_indexed(cx, cy, opp_tris, candidates);
 
     let all_in = va && vb && vc;
     let all_out_vertices = !va && !vb && !vc;
     let all_out = all_out_vertices
-        && cand_tris.iter().all(|tri| {
-            let [dx, dy, ex, ey, fx, fy] = *tri;
+        && candidates.iter().all(|&i| {
+            let [dx, dy, ex, ey, fx, fy] = opp_tris[i];
             !point_in_tri_2d_exact(dx, dy, ax, ay, bx, by, cx, cy)
                 && !point_in_tri_2d_exact(ex, ey, ax, ay, bx, by, cx, cy)
                 && !point_in_tri_2d_exact(fx, fy, ax, ay, bx, by, cx, cy)
@@ -184,7 +229,7 @@ fn process_triangle(
     let src_poly: Vec<[Real; 2]> = vec![[ax, ay], [bx, by], [cx, cy]];
 
     if want_inside {
-        for &ci in &candidates {
+        for &ci in candidates.iter() {
             let [dx, dy, ex, ey, fx, fy] = opp[ci].coords2d;
             let inside = clip_polygon_to_triangle(&src_poly, dx, dy, ex, ey, fx, fy);
             if inside.len() >= 3 {
@@ -193,13 +238,11 @@ fn process_triangle(
         }
     } else {
         // ── Difference path: src \ (∪ candidates) ────────────────────────────
-        //
         // Maintain a list of remaining polygon fragments representing the
         // portion of `src` not yet subtracted by any candidate.
         //
-        // **Optimisation — AABB pre-screening per fragment**:
-        // Before calling `boolean_clip` (O(n log n) CDT operation), check
-        // whether the fragment's AABB overlaps the candidate triangle's AABB.
+        // AABB pre-screening: skip `boolean_clip` when fragment/candidate
+        // boxes do not overlap.
         // For a circular cross-section, each fragment only overlaps O(1)
         // adjacent sector triangles, reducing the total work from O(N·|rem|)
         // to O(N) for N candidate triangles.
@@ -208,7 +251,7 @@ fn process_triangle(
         // portion of `src` lying outside all subtracted candidates so far.
         let mut remaining: Vec<Vec<[Real; 2]>> = vec![src_poly];
 
-        for &ci in &candidates {
+        for &ci in candidates.iter() {
             let [dx, dy, ex, ey, fx, fy] = opp[ci].coords2d;
             let cand_aabb = opp_aabbs[ci];
             let b_poly = [[dx, dy], [ex, ey], [fx, fy]];
@@ -219,7 +262,7 @@ fn process_triangle(
                 // AABB guard: if this fragment cannot possibly overlap the
                 // candidate triangle, skip the CDT call entirely.
                 match aabb2_of_poly(&poly) {
-                    None => continue, // degenerate fragment — discard
+                    None => {} // degenerate fragment — discard
                     Some(frag_aabb) if !aabb_overlaps(&frag_aabb, &cand_aabb) => {
                         new_rem.push(poly); // no overlap — fragment unchanged
                     }
@@ -264,6 +307,10 @@ pub(crate) fn boolean_coplanar(
     let a_tris: Vec<[Real; 6]> = a_data.iter().map(|a| a.coords2d).collect();
     let b_aabbs: Vec<[Real; 4]> = b_data.iter().map(|b| b.aabb2d).collect();
     let a_aabbs: Vec<[Real; 4]> = a_data.iter().map(|a| a.aabb2d).collect();
+    let b_index = SweepAabbIndex2d::build(&b_aabbs);
+    let a_index = SweepAabbIndex2d::build(&a_aabbs);
+    let mut candidate_buf_ab: Vec<usize> = Vec::new();
+    let mut candidate_buf_ba: Vec<usize> = Vec::new();
 
     for (ai, fa) in faces_a.iter().enumerate() {
         let src = &a_tris[ai];
@@ -272,14 +319,70 @@ pub(crate) fn boolean_coplanar(
 
         match op {
             BooleanOp::Union => {
-                process_triangle(src, src_3d, aabb, &b_data, &b_tris, &b_aabbs, false, basis, fa.region, &mut result, pool);
-                process_triangle(src, src_3d, aabb, &b_data, &b_tris, &b_aabbs, true, basis, fa.region, &mut result, pool);
+                process_triangle(
+                    src,
+                    src_3d,
+                    aabb,
+                    &b_index,
+                    &b_data,
+                    &b_tris,
+                    &b_aabbs,
+                    false,
+                    basis,
+                    fa.region,
+                    &mut result,
+                    pool,
+                    &mut candidate_buf_ab,
+                );
+                process_triangle(
+                    src,
+                    src_3d,
+                    aabb,
+                    &b_index,
+                    &b_data,
+                    &b_tris,
+                    &b_aabbs,
+                    true,
+                    basis,
+                    fa.region,
+                    &mut result,
+                    pool,
+                    &mut candidate_buf_ab,
+                );
             }
             BooleanOp::Intersection => {
-                process_triangle(src, src_3d, aabb, &b_data, &b_tris, &b_aabbs, true, basis, fa.region, &mut result, pool);
+                process_triangle(
+                    src,
+                    src_3d,
+                    aabb,
+                    &b_index,
+                    &b_data,
+                    &b_tris,
+                    &b_aabbs,
+                    true,
+                    basis,
+                    fa.region,
+                    &mut result,
+                    pool,
+                    &mut candidate_buf_ab,
+                );
             }
             BooleanOp::Difference => {
-                process_triangle(src, src_3d, aabb, &b_data, &b_tris, &b_aabbs, false, basis, fa.region, &mut result, pool);
+                process_triangle(
+                    src,
+                    src_3d,
+                    aabb,
+                    &b_index,
+                    &b_data,
+                    &b_tris,
+                    &b_aabbs,
+                    false,
+                    basis,
+                    fa.region,
+                    &mut result,
+                    pool,
+                    &mut candidate_buf_ab,
+                );
             }
         }
     }
@@ -290,6 +393,7 @@ pub(crate) fn boolean_coplanar(
                 &b_tris[bi],
                 &b_data[bi].verts3d,
                 &b_aabbs[bi],
+                &a_index,
                 &a_data,
                 &a_tris,
                 &a_aabbs,
@@ -298,6 +402,7 @@ pub(crate) fn boolean_coplanar(
                 fb.region,
                 &mut result,
                 pool,
+                &mut candidate_buf_ba,
             );
         }
     }
@@ -307,10 +412,11 @@ pub(crate) fn boolean_coplanar(
 
 #[cfg(test)]
 mod tests {
+    use super::super::geometry2d::polygon_area_2d;
+    use super::{aabb_overlaps, SweepAabbIndex2d};
     use crate::application::csg::boolean::{csg_boolean_indexed, BooleanOp};
     use crate::domain::geometry::primitives::{Disk, PrimitiveMesh};
     use crate::domain::mesh::IndexedMesh;
-    use super::super::geometry2d::polygon_area_2d;
 
     fn area(mesh: &IndexedMesh) -> f64 {
         mesh.faces
@@ -333,6 +439,42 @@ mod tests {
         }
         .build()
         .unwrap()
+    }
+
+    #[test]
+    fn sweep_index_matches_bruteforce_candidates() {
+        let opp_aabbs = vec![
+            [-2.0, -1.0, -1.0, 1.0],
+            [-0.5, -0.5, 0.5, 0.5],
+            [0.25, -1.5, 1.0, -0.25],
+            [1.0, 0.0, 2.0, 2.0],
+            [-1.5, 1.1, -0.2, 2.2],
+        ];
+        let queries = vec![
+            [-3.0, -0.2, -1.2, 0.2],
+            [-0.75, -0.75, 0.75, 0.75],
+            [0.1, -2.0, 1.1, -0.1],
+            [0.8, -0.2, 1.8, 1.8],
+            [-10.0, -10.0, 10.0, 10.0],
+            [2.1, 2.1, 3.0, 3.0],
+        ];
+
+        let index = SweepAabbIndex2d::build(&opp_aabbs);
+        let mut got = Vec::new();
+        for q in queries {
+            index.query_overlaps(&q, &opp_aabbs, &mut got);
+            got.sort_unstable();
+
+            let mut want: Vec<usize> = opp_aabbs
+                .iter()
+                .enumerate()
+                .filter(|(_, b)| aabb_overlaps(&q, b))
+                .map(|(i, _)| i)
+                .collect();
+            want.sort_unstable();
+
+            assert_eq!(got, want, "query={q:?}");
+        }
     }
 
     #[test]

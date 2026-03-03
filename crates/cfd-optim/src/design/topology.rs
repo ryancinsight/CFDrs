@@ -576,20 +576,17 @@ impl DesignTopology {
             | Self::AsymmetricTrifurcationVenturi => 3,
 
             Self::DoubleBifurcationVenturi => 4,
-            Self::BifurcationTrifurcationVenturi
-            | Self::TrifurcationBifurcationVenturi => 6,
+            Self::BifurcationTrifurcationVenturi | Self::TrifurcationBifurcationVenturi => 6,
             Self::TripleBifurcationVenturi => 8,
             Self::DoubleTrifurcationVenturi => 9,
             Self::TrifurcationBifurcationBifurcationVenturi => 12,
-            Self::TriBiTriSelectiveVenturi => 18,  // 3 × 2 × 3
+            Self::TriBiTriSelectiveVenturi => 18, // 3 × 2 × 3
             Self::TripleTrifurcationVenturi => 27,
             Self::QuadTrifurcationVenturi => 81,
 
             Self::ParallelMicrochannelArray { n_channels } => n_channels,
 
-            Self::CascadeCenterTrifurcationSeparator { n_levels } => {
-                3usize.pow(n_levels as u32)
-            }
+            Self::CascadeCenterTrifurcationSeparator { n_levels } => 3usize.pow(n_levels as u32),
             Self::IncrementalFiltrationTriBiSeparator { n_pretri } => {
                 3usize.pow(n_pretri as u32 + 1) * 2
             }

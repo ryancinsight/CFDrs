@@ -123,7 +123,7 @@ impl DelaunayTriangulation {
     /// A triangulation is Delaunay iff for every interior edge shared by
     /// triangles `(a, b, c)` and `(a, c, d)`, point `d` does not lie strictly
     /// inside the circumcircle of `(a, b, c)`.
-    #[must_use] 
+    #[must_use]
     pub fn is_delaunay(&self) -> bool {
         for (tid, tri) in self.all_alive_triangles() {
             for edge in 0..3 {

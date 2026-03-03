@@ -60,7 +60,9 @@ impl InletOutletConstraint {
             let adjacent: Vec<_> = bp
                 .channels
                 .iter()
-                .filter(|c| c.from.as_str() == node.id.as_str() || c.to.as_str() == node.id.as_str())
+                .filter(|c| {
+                    c.from.as_str() == node.id.as_str() || c.to.as_str() == node.id.as_str()
+                })
                 .collect();
 
             if adjacent.is_empty() {
@@ -164,7 +166,9 @@ mod tests {
         let mut bp = cfd_schematics::NetworkBlueprint::new("t");
         bp.add_node(NodeSpec::new("inlet", NodeKind::Inlet));
         bp.add_node(NodeSpec::new("outlet", NodeKind::Outlet));
-        bp.add_channel(ChannelSpec::new_pipe("c", "inlet", "outlet", 0.01, 0.0041, 0.0, 0.0));
+        bp.add_channel(ChannelSpec::new_pipe(
+            "c", "inlet", "outlet", 0.01, 0.0041, 0.0, 0.0,
+        ));
         assert!(InletOutletConstraint::check(&bp).is_ok());
     }
 
@@ -196,7 +200,9 @@ mod tests {
         bp.add_node(NodeSpec::new("inlet", NodeKind::Inlet));
         bp.add_node(NodeSpec::new("outlet", NodeKind::Outlet));
         // 3.9 mm = 4.0 - 0.1 (borderline)
-        bp.add_channel(ChannelSpec::new_pipe("c", "inlet", "outlet", 0.01, 0.0039, 0.0, 0.0));
+        bp.add_channel(ChannelSpec::new_pipe(
+            "c", "inlet", "outlet", 0.01, 0.0039, 0.0, 0.0,
+        ));
         // 3.9 mm is exactly at the boundary (diff = 0.1e-3 = tolerance), should pass
         assert!(InletOutletConstraint::check(&bp).is_ok());
     }

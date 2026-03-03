@@ -177,7 +177,7 @@ impl<T: Scalar> VertexPool<T> {
     /// Sensible defaults for millifluidic meshes (pure snap-rounding).
     ///
     /// - `cell_size = 1e-4 mm` (100 nm) — points in the same cell are welded.
-    #[must_use] 
+    #[must_use]
     pub fn default_millifluidic() -> Self {
         Self::new(<T as Scalar>::from_f64(1e-4))
     }
@@ -190,10 +190,7 @@ impl<T: Scalar> VertexPool<T> {
     /// adjacent faces, preventing T-junction seam gaps in the CSG result.
     #[must_use]
     pub fn for_csg() -> Self {
-        Self::with_tolerance(
-            <T as Scalar>::from_f64(1e-4),
-            <T as Scalar>::from_f64(1e-4),
-        )
+        Self::with_tolerance(<T as Scalar>::from_f64(1e-4), <T as Scalar>::from_f64(1e-4))
     }
 
     /// Create an empty clone with the exact same cell_size and tolerance_sq
@@ -239,7 +236,11 @@ impl<T: Scalar> VertexPool<T> {
             for dz in -1i64..=1 {
                 for dy in -1i64..=1 {
                     for dx in -1i64..=1 {
-                        let nk = CellKey { x: key.x + dx, y: key.y + dy, z: key.z + dz };
+                        let nk = CellKey {
+                            x: key.x + dx,
+                            y: key.y + dy,
+                            z: key.z + dz,
+                        };
                         if let Some(indices) = self.spatial_hash.get(&nk) {
                             for &idx in indices {
                                 let v = &self.vertices[idx as usize];

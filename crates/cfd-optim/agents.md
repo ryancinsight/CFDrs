@@ -266,8 +266,8 @@ Index `24`: `AdaptiveTree { levels: 0, split_types: 0 }` placeholder (genes 8–
 
 ### Haemolysis Index
 
-Giersiepen–Wurzinger 1990: `HI = 3.62×10⁻⁷ · τ^2.416 · t^0.785`
-Implemented via `cfd_core::physics::hemolysis::giersiepen_hi(tau_wall, exposure_time)`.
+Giersiepen (1990): `HI = 3.62×10⁻⁵ · t^0.765 · τ^1.991` (percentage form).
+Implemented via `cfd_1d::hemolysis::giersiepen_hi(shear_pa, duration_s)`, re-exported from `cfd_optim::metrics::compute::giersiepen_hi`.
 
 ### Cavitation Number
 

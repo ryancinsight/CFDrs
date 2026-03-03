@@ -52,7 +52,7 @@ pub enum ClipOp {
 /// This is the only production SPI for general polygon-vs-polygon Boolean
 /// clipping. Internally it uses the CDT-based constrained arrangement backend,
 /// which is robust under shared vertices/edges and other degeneracies.
-#[must_use] 
+#[must_use]
 pub fn boolean_clip(subject: &[[Real; 2]], clip: &[[Real; 2]], op: ClipOp) -> Vec<Vec<[Real; 2]>> {
     cdt_clip(subject, clip, op)
 }
@@ -62,7 +62,7 @@ pub fn boolean_clip(subject: &[[Real; 2]], clip: &[[Real; 2]], op: ClipOp) -> Ve
 /// Clip a 2-D polygon to the inside of a CCW triangle.
 ///
 /// Used by the coplanar CSG pipeline.
-#[must_use] 
+#[must_use]
 pub fn clip_polygon_to_triangle(
     poly: &[[Real; 2]],
     dx: Real,
@@ -94,7 +94,7 @@ pub fn clip_polygon_to_triangle(
 /// Decompose `poly \ triangle(d,e,f)` into disjoint pieces.
 ///
 /// Used by the coplanar CSG pipeline.
-#[must_use] 
+#[must_use]
 pub fn split_polygon_outside_triangle(
     poly: &[[Real; 2]],
     dx: Real,
@@ -235,7 +235,6 @@ mod tests {
             err * 100.0
         );
     }
-
 
     // ── Oracle-comparison regressions for known degeneracies ────────────────
 

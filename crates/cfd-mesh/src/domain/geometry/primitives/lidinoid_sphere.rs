@@ -44,16 +44,26 @@ pub struct LidinoidSphere {
 
 impl Default for LidinoidSphere {
     fn default() -> Self {
-        Self { radius: 5.0, period: 2.5, resolution: 64, iso_value: 0.0 }
+        Self {
+            radius: 5.0,
+            period: 2.5,
+            resolution: 64,
+            iso_value: 0.0,
+        }
     }
 }
 
 impl PrimitiveMesh for LidinoidSphere {
     fn build(&self) -> Result<IndexedMesh, PrimitiveError> {
-        build_tpms_sphere(&Lidinoid, &TpmsParams {
-            radius: self.radius, period: self.period,
-            resolution: self.resolution, iso_value: self.iso_value,
-        })
+        build_tpms_sphere(
+            &Lidinoid,
+            &TpmsParams {
+                radius: self.radius,
+                period: self.period,
+                resolution: self.resolution,
+                iso_value: self.iso_value,
+            },
+        )
     }
 }
 
@@ -63,18 +73,32 @@ mod tests {
 
     #[test]
     fn lidinoid_sphere_builds_with_faces() {
-        let mesh = LidinoidSphere { resolution: 20, ..LidinoidSphere::default() }
-            .build().expect("Lidinoid sphere");
+        let mesh = LidinoidSphere {
+            resolution: 20,
+            ..LidinoidSphere::default()
+        }
+        .build()
+        .expect("Lidinoid sphere");
         assert!(mesh.faces.len() > 0);
     }
 
     #[test]
     fn lidinoid_sphere_invalid_radius_errors() {
-        assert!(LidinoidSphere { radius: 0.0, ..LidinoidSphere::default() }.build().is_err());
+        assert!(LidinoidSphere {
+            radius: 0.0,
+            ..LidinoidSphere::default()
+        }
+        .build()
+        .is_err());
     }
 
     #[test]
     fn lidinoid_sphere_low_resolution_errors() {
-        assert!(LidinoidSphere { resolution: 1, ..LidinoidSphere::default() }.build().is_err());
+        assert!(LidinoidSphere {
+            resolution: 1,
+            ..LidinoidSphere::default()
+        }
+        .build()
+        .is_err());
     }
 }

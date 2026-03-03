@@ -52,10 +52,10 @@ impl<T: RealField + Copy + FromPrimitive> WomersleyFlow<T> {
     /// Typical values for human carotid artery
     pub fn physiological_blood_flow() -> Self {
         Self {
-            radius: T::from_f64_or_one(4.0e-3),              // 4 mm
-            density: T::from_f64_or_one(1060.0),             // Blood density
-            viscosity: T::from_f64_or_one(0.0035),           // Pa·s (apparent)
-            omega: T::from_f64_or_one(2.0 * PI * 1.2),       // ~72 bpm
+            radius: T::from_f64_or_one(4.0e-3),                      // 4 mm
+            density: T::from_f64_or_one(1060.0),                     // Blood density
+            viscosity: T::from_f64_or_one(0.0035),                   // Pa·s (apparent)
+            omega: T::from_f64_or_one(2.0 * PI * 1.2),               // ~72 bpm
             pressure_gradient_amplitude: T::from_f64_or_one(1000.0), // Pa/m
         }
     }
@@ -190,11 +190,11 @@ impl<T: RealField + Copy + FromPrimitive> AnalyticalSolution<T> for WomersleyFlo
         let length = T::from_f64_or_one(100.0) * self.radius; // 100R long pipe
         [
             T::zero(),
-            length,           // x: [0, L]
+            length, // x: [0, L]
             -self.radius,
-            self.radius,      // y: [-R, R]
+            self.radius, // y: [-R, R]
             -self.radius,
-            self.radius,      // z: [-R, R]
+            self.radius, // z: [-R, R]
         ]
     }
 
@@ -217,22 +217,28 @@ mod tests {
         let alpha = flow.womersley_number();
 
         // Physiological Womersley number should be ~3-5 for medium arteries
-        assert!(alpha > 2.0 && alpha < 10.0,
-            "Womersley number {} is outside physiological range", alpha);
+        assert!(
+            alpha > 2.0 && alpha < 10.0,
+            "Womersley number {} is outside physiological range",
+            alpha
+        );
     }
 
     #[test]
     fn test_quasi_steady_limit() {
         // Low frequency flow should be quasi-steady
         let flow = WomersleyFlow::new(
-            1.0e-3,    // 1 mm radius
-            1000.0,    // Water density
-            0.001,     // Water viscosity
-            0.1,       // Very low frequency
+            1.0e-3, // 1 mm radius
+            1000.0, // Water density
+            0.001,  // Water viscosity
+            0.1,    // Very low frequency
             100.0,
         );
 
-        assert!(flow.is_quasi_steady(), "Should be quasi-steady at low frequency");
+        assert!(
+            flow.is_quasi_steady(),
+            "Should be quasi-steady at low frequency"
+        );
     }
 
     #[test]
@@ -245,10 +251,14 @@ mod tests {
         let u_off_center1 = flow.velocity(0.001, t);
         let u_off_center2 = flow.velocity(-0.001, t);
 
-        assert!((u_off_center1 - u_off_center2).abs() < 1e-10,
-            "Velocity profile should be symmetric");
-        assert!(u_center.abs() >= u_off_center1.abs(),
-            "Center velocity should be maximum");
+        assert!(
+            (u_off_center1 - u_off_center2).abs() < 1e-10,
+            "Velocity profile should be symmetric"
+        );
+        assert!(
+            u_center.abs() >= u_off_center1.abs(),
+            "Center velocity should be maximum"
+        );
     }
 
     #[test]
@@ -260,7 +270,9 @@ mod tests {
         let q2 = flow.flow_rate(std::f64::consts::PI / flow.omega);
 
         // Should be approximately opposite phases
-        assert!(q1 * q2 < 0.0 || q2.abs() < 1e-10,
-            "Flow rate should reverse during cycle");
+        assert!(
+            q1 * q2 < 0.0 || q2.abs() < 1e-10,
+            "Flow rate should reverse during cycle"
+        );
     }
 }

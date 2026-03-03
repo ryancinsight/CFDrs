@@ -80,7 +80,7 @@ impl GridCell {
     /// duplicate artifact that occurs with floor-based quantization when a
     /// point lies exactly on a cell wall.
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub fn from_point_round(p: &Point3r, inv_eps: Real) -> Self {
         Self {
             x: (p.x * inv_eps).round() as i64,
@@ -91,7 +91,7 @@ impl GridCell {
 
     /// Reconstruct the canonical snapped position for this cell.
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub fn to_point(self, eps: Real) -> Point3r {
         Point3r::new(
             self.x as Real * eps,
@@ -157,7 +157,7 @@ impl SnappingGrid {
     ///
     /// # Panics
     /// Panics if `eps` is not finite and positive.
-    #[must_use] 
+    #[must_use]
     pub fn new(eps: Real) -> Self {
         assert!(
             eps.is_finite() && eps > 0.0,
@@ -172,35 +172,35 @@ impl SnappingGrid {
     }
 
     /// Create a snapping grid suitable for millifluidic devices (ε = 1 μm).
-    #[must_use] 
+    #[must_use]
     pub fn millifluidic() -> Self {
         Self::new(1e-6)
     }
 
     /// Tolerance ε.
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub fn eps(&self) -> Real {
         self.eps
     }
 
     /// Number of unique vertices stored.
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub fn len(&self) -> usize {
         self.positions.len()
     }
 
     /// Returns `true` if no vertices have been inserted yet.
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.positions.is_empty()
     }
 
     /// Read-only slice of all stored positions.
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub fn positions(&self) -> &[Point3r] {
         &self.positions
     }
@@ -209,7 +209,7 @@ impl SnappingGrid {
     ///
     /// Returns `None` for out-of-range indices.
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub fn position(&self, idx: u32) -> Option<Point3r> {
         self.positions.get(idx as usize).copied()
     }
@@ -267,7 +267,7 @@ impl SnappingGrid {
     /// Query the nearest vertex within ε of `point` without inserting.
     ///
     /// Returns `None` if no vertex is within ε.
-    #[must_use] 
+    #[must_use]
     pub fn query_nearest(&self, point: &Point3r) -> Option<u32> {
         let home = GridCell::from_point_round(point, self.inv_eps);
         let eps_sq = self.eps * self.eps;
@@ -292,7 +292,7 @@ impl SnappingGrid {
     }
 
     /// Query all vertices within ε of `point` without inserting.
-    #[must_use] 
+    #[must_use]
     pub fn query_within_eps(&self, point: &Point3r) -> Vec<u32> {
         let home = GridCell::from_point_round(point, self.inv_eps);
         let eps_sq = self.eps * self.eps;
@@ -335,14 +335,14 @@ pub struct SnapConfig {
 impl SnapConfig {
     /// Snap a scalar to the nearest multiple of `grid_spacing`.
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub fn snap_value(&self, v: Real) -> Real {
         (v / self.grid_spacing).round() * self.grid_spacing
     }
 
     /// Snap a 3-D point to the nearest grid point.
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub fn snap_point(&self, p: &Point3r) -> Point3r {
         Point3r::new(
             self.snap_value(p.x),
@@ -359,7 +359,7 @@ impl SnapConfig {
     }
 
     /// Lift into a full [`SnappingGrid`] with the same tolerance.
-    #[must_use] 
+    #[must_use]
     pub fn into_grid(self) -> SnappingGrid {
         SnappingGrid::new(self.grid_spacing)
     }

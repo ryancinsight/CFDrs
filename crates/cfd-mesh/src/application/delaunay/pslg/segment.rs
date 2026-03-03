@@ -23,7 +23,7 @@ pub struct PslgSegment {
 impl PslgSegment {
     /// Create a new segment from `start` to `end`.
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub fn new(start: PslgVertexId, end: PslgVertexId) -> Self {
         Self { start, end }
     }
@@ -32,7 +32,7 @@ impl PslgSegment {
     ///
     /// `(min(start, end), max(start, end))`.
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub fn canonical(&self) -> (PslgVertexId, PslgVertexId) {
         if self.start <= self.end {
             (self.start, self.end)
@@ -43,7 +43,7 @@ impl PslgSegment {
 
     /// Check if this segment is degenerate (start == end).
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub fn is_degenerate(&self) -> bool {
         self.start == self.end
     }
@@ -56,28 +56,28 @@ pub struct PslgSegmentId(pub u32);
 impl PslgSegmentId {
     /// Create from raw `u32`.
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub fn new(raw: u32) -> Self {
         Self(raw)
     }
 
     /// Create from `usize`.
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub fn from_usize(n: usize) -> Self {
         Self(n as u32)
     }
 
     /// Raw index.
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub fn raw(self) -> u32 {
         self.0
     }
 
     /// As `usize`.
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub fn idx(self) -> usize {
         self.0 as usize
     }

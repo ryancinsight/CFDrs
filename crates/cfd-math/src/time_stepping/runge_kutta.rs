@@ -113,7 +113,7 @@ impl<T: RealField + Copy> TimeStepper<T> for RungeKutta4<T> {
         // k1 = f(t, u)
         let k1 = f(t, u)?;
 
-        let dt_half = dt / T::from_f64(2.0).unwrap();
+        let dt_half = dt / T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
         let t2 = t + dt_half;
 
         // k2 = f(t + dt/2, u + dt/2 * k1)
@@ -138,8 +138,8 @@ impl<T: RealField + Copy> TimeStepper<T> for RungeKutta4<T> {
         let mut u_new = DVector::zeros(n);
         u_new.copy_from(u);
 
-        let coeff = dt / T::from_f64(6.0).unwrap();
-        let coeff_2 = coeff * T::from_f64(2.0).unwrap();
+        let coeff = dt / T::from_f64(6.0).unwrap_or_else(num_traits::Zero::zero);
+        let coeff_2 = coeff * T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
 
         u_new.axpy(coeff, &k1, T::one());
         u_new.axpy(coeff_2, &k2, T::one());
@@ -213,14 +213,14 @@ impl<T: RealField + Copy> TimeStepper<T> for RungeKutta3<T> {
         let k1 = f(t, u)?;
 
         // k2 = f(t + dt/2, u + dt/2 * k1)
-        let t2 = t + dt / T::from_f64(2.0).unwrap();
-        let u2 = u + &k1 * (dt / T::from_f64(2.0).unwrap());
+        let t2 = t + dt / T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
+        let u2 = u + &k1 * (dt / T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero));
         let k2 = f(t2, &u2)?;
 
         // k3 = f(t + dt, u - dt*k1 + 2*dt*k2)
         let t3 = t + dt;
         let mut u3 = DVector::zeros(n);
-        let two = T::from_f64(2.0).unwrap();
+        let two = T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
         for i in 0..n {
             u3[i] = u[i] - dt * k1[i] + two * dt * k2[i];
         }
@@ -228,11 +228,11 @@ impl<T: RealField + Copy> TimeStepper<T> for RungeKutta3<T> {
 
         // u_new = u + dt/6 * (k1 + 4*k2 + k3)
         let mut u_new = DVector::zeros(n);
-        let coeff1 = dt / T::from_f64(6.0).unwrap();
-        let _coeff4 = dt / T::from_f64(1.5).unwrap();
+        let coeff1 = dt / T::from_f64(6.0).unwrap_or_else(num_traits::Zero::zero);
+        let _coeff4 = dt / T::from_f64(1.5).unwrap_or_else(num_traits::Zero::zero);
 
         for i in 0..n {
-            u_new[i] = u[i] + coeff1 * (k1[i] + T::from_f64(4.0).unwrap() * k2[i] + k3[i]);
+            u_new[i] = u[i] + coeff1 * (k1[i] + T::from_f64(4.0).unwrap_or_else(num_traits::Zero::zero) * k2[i] + k3[i]);
         }
 
         Ok(u_new)
@@ -286,27 +286,27 @@ impl<T: RealField + Copy> TimeStepper<T> for LowStorageRK4<T> {
 
         // Coefficients for Carpenter-Kennedy low-storage RK4
         let a = [
-            T::from_f64(0.0).unwrap(),
-            T::from_f64(-0.4178904745).unwrap(),
-            T::from_f64(-1.1921516946).unwrap(),
-            T::from_f64(-1.6977846925).unwrap(),
-            T::from_f64(-1.5141834443).unwrap(),
+            T::from_f64(0.0).unwrap_or_else(num_traits::Zero::zero),
+            T::from_f64(-0.4178904745).unwrap_or_else(num_traits::Zero::zero),
+            T::from_f64(-1.1921516946).unwrap_or_else(num_traits::Zero::zero),
+            T::from_f64(-1.6977846925).unwrap_or_else(num_traits::Zero::zero),
+            T::from_f64(-1.5141834443).unwrap_or_else(num_traits::Zero::zero),
         ];
 
         let b = [
-            T::from_f64(0.1496590219993).unwrap(),
-            T::from_f64(0.3792103129999).unwrap(),
-            T::from_f64(0.8229550293869).unwrap(),
-            T::from_f64(0.6994504559488).unwrap(),
-            T::from_f64(0.1530572479681).unwrap(),
+            T::from_f64(0.1496590219993).unwrap_or_else(num_traits::Zero::zero),
+            T::from_f64(0.3792103129999).unwrap_or_else(num_traits::Zero::zero),
+            T::from_f64(0.8229550293869).unwrap_or_else(num_traits::Zero::zero),
+            T::from_f64(0.6994504559488).unwrap_or_else(num_traits::Zero::zero),
+            T::from_f64(0.1530572479681).unwrap_or_else(num_traits::Zero::zero),
         ];
 
         let c = [
-            T::from_f64(0.0).unwrap(),
-            T::from_f64(0.1496590219993).unwrap(),
-            T::from_f64(0.3704009573644).unwrap(),
-            T::from_f64(0.6222557631345).unwrap(),
-            T::from_f64(0.9582821306784).unwrap(),
+            T::from_f64(0.0).unwrap_or_else(num_traits::Zero::zero),
+            T::from_f64(0.1496590219993).unwrap_or_else(num_traits::Zero::zero),
+            T::from_f64(0.3704009573644).unwrap_or_else(num_traits::Zero::zero),
+            T::from_f64(0.6222557631345).unwrap_or_else(num_traits::Zero::zero),
+            T::from_f64(0.9582821306784).unwrap_or_else(num_traits::Zero::zero),
         ];
 
         for stage in 0..5 {

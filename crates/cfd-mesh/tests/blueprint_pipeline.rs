@@ -1,10 +1,9 @@
 //! Integration tests for the NetworkBlueprint → IndexedMesh pipeline.
-#![cfg(feature = "scheme-io")]
 
 use cfd_mesh::application::pipeline::{BlueprintMeshPipeline, PipelineConfig, TopologyClass};
 use cfd_schematics::interface::presets::{
-    bifurcation_rect, serpentine_chain, serpentine_rect, symmetric_bifurcation,
-    symmetric_trifurcation, trifurcation_rect, venturi_chain, venturi_rect,
+    asymmetric_bifurcation_serpentine_rect, bifurcation_rect, serpentine_chain, serpentine_rect,
+    symmetric_bifurcation, symmetric_trifurcation, trifurcation_rect, venturi_chain, venturi_rect,
 };
 
 fn default_cfg() -> PipelineConfig {
@@ -23,8 +22,8 @@ fn no_chip_cfg() -> PipelineConfig {
 #[test]
 fn venturi_chain_fluid_mesh_watertight() {
     let bp = venturi_chain("v1", 0.030, 0.004, 0.002);
-    let mut out = BlueprintMeshPipeline::run(&bp, &no_chip_cfg())
-        .expect("venturi_chain pipeline failed");
+    let mut out =
+        BlueprintMeshPipeline::run(&bp, &no_chip_cfg()).expect("venturi_chain pipeline failed");
     assert!(
         out.fluid_mesh.is_watertight(),
         "venturi fluid mesh must be watertight"
@@ -36,7 +35,11 @@ fn venturi_chain_fluid_mesh_watertight() {
     assert_eq!(out.topology_class, TopologyClass::VenturiChain);
     assert_eq!(out.segment_count, 3);
     // At least one face labelled "inlet" and one "outlet"
-    let has_inlet = out.fluid_mesh.boundary_labels.values().any(|l| l == "inlet");
+    let has_inlet = out
+        .fluid_mesh
+        .boundary_labels
+        .values()
+        .any(|l| l == "inlet");
     assert!(has_inlet, "venturi fluid mesh must have inlet label");
 }
 
@@ -50,7 +53,11 @@ fn bifurcation_fluid_mesh_watertight() {
         "bifurcation fluid mesh must be watertight"
     );
     assert_eq!(out.topology_class, TopologyClass::Bifurcation);
-    let has_inlet = out.fluid_mesh.boundary_labels.values().any(|l| l == "inlet");
+    let has_inlet = out
+        .fluid_mesh
+        .boundary_labels
+        .values()
+        .any(|l| l == "inlet");
     assert!(has_inlet, "bifurcation fluid mesh must have inlet label");
 }
 
@@ -69,8 +76,8 @@ fn trifurcation_fluid_mesh_watertight() {
 #[test]
 fn serpentine_chain_fluid_mesh_watertight() {
     let bp = serpentine_chain("s1", 3, 0.010, 0.004);
-    let mut out = BlueprintMeshPipeline::run(&bp, &no_chip_cfg())
-        .expect("serpentine_chain pipeline failed");
+    let mut out =
+        BlueprintMeshPipeline::run(&bp, &no_chip_cfg()).expect("serpentine_chain pipeline failed");
     assert!(
         out.fluid_mesh.is_watertight(),
         "serpentine fluid mesh must be watertight"
@@ -87,10 +94,7 @@ fn venturi_chip_body_produced() {
         .expect("venturi_chain pipeline (with chip body) failed");
     assert!(out.chip_mesh.is_some(), "chip_mesh should be Some");
     let chip = out.chip_mesh.as_mut().unwrap();
-    assert!(
-        chip.is_watertight(),
-        "chip body mesh must be watertight"
-    );
+    assert!(chip.is_watertight(), "chip body mesh must be watertight");
 }
 
 #[test]
@@ -175,7 +179,10 @@ fn all_six_designs_watertight_and_positive_volume() {
             symmetric_trifurcation("d3", 0.010, 0.008, 0.004, 0.004),
         ),
         ("serpentine_chain", serpentine_chain("d4", 3, 0.010, 0.004)),
-        ("venturi_rect", venturi_rect("d5", 0.004, 0.002, 0.004, 0.005)),
+        (
+            "venturi_rect",
+            venturi_rect("d5", 0.004, 0.002, 0.004, 0.005),
+        ),
         (
             "serpentine_rect",
             serpentine_rect("d6", 3, 0.010, 0.004, 0.004),
@@ -207,11 +214,45 @@ fn all_six_designs_watertight_and_positive_volume() {
 #[test]
 fn trifurcation_rect_produces_watertight_mesh() {
     let bp = trifurcation_rect("tr1", 0.010, 0.008, 0.004, 0.004, 0.004);
-    let mut out = BlueprintMeshPipeline::run(&bp, &no_chip_cfg())
-        .expect("trifurcation_rect pipeline failed");
+    let mut out =
+        BlueprintMeshPipeline::run(&bp, &no_chip_cfg()).expect("trifurcation_rect pipeline failed");
     assert!(
         out.fluid_mesh.is_watertight(),
         "trifurcation_rect fluid mesh must be watertight"
     );
     assert_eq!(out.topology_class, TopologyClass::Trifurcation);
+}
+
+// ── CIF (Complex) topology test ───────────────────────────────────────────────
+
+#[test]
+fn cif_asymmetric_bifurcation_classifies_as_complex() {
+    use cfd_mesh::application::pipeline::NetworkTopology;
+    let bp = asymmetric_bifurcation_serpentine_rect("cif1", 0.015, 2, 0.0075, 0.002, 0.5, 0.001);
+    let topo = NetworkTopology::new(&bp);
+    assert_eq!(
+        topo.classify(),
+        TopologyClass::Complex,
+        "CIF topology must classify as Complex"
+    );
+}
+
+#[test]
+fn cif_complex_topology_produces_mesh() {
+    let bp = asymmetric_bifurcation_serpentine_rect("cif2", 0.015, 2, 0.0075, 0.002, 0.5, 0.001);
+    let cfg = PipelineConfig {
+        include_chip_body: false,
+        skip_diameter_constraint: true,
+        ..Default::default()
+    };
+    let out = BlueprintMeshPipeline::run(&bp, &cfg).expect("CIF complex topology pipeline failed");
+    assert_eq!(out.topology_class, TopologyClass::Complex);
+    assert!(
+        out.fluid_mesh.vertex_count() > 0,
+        "CIF mesh must have vertices"
+    );
+    assert!(
+        out.fluid_mesh.signed_volume().abs() > 0.0,
+        "CIF mesh must have non-zero volume"
+    );
 }

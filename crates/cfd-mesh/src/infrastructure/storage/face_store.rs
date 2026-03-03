@@ -18,7 +18,7 @@ pub struct FaceData {
 
 impl FaceData {
     /// Create a new face.
-    #[must_use] 
+    #[must_use]
     pub const fn new(v0: VertexId, v1: VertexId, v2: VertexId, region: RegionId) -> Self {
         Self {
             vertices: [v0, v1, v2],
@@ -27,7 +27,7 @@ impl FaceData {
     }
 
     /// Create a face with no region tag.
-    #[must_use] 
+    #[must_use]
     pub const fn untagged(v0: VertexId, v1: VertexId, v2: VertexId) -> Self {
         Self {
             vertices: [v0, v1, v2],
@@ -41,7 +41,7 @@ impl FaceData {
     }
 
     /// Return a flipped copy.
-    #[must_use] 
+    #[must_use]
     pub const fn flipped(&self) -> Self {
         Self {
             vertices: [self.vertices[0], self.vertices[2], self.vertices[1]],
@@ -52,7 +52,7 @@ impl FaceData {
     /// The three edges as ordered vertex-ID pairs `(smaller, larger)`.
     ///
     /// Canonical ordering ensures edge identity regardless of face winding.
-    #[must_use] 
+    #[must_use]
     pub fn edges_canonical(&self) -> [(VertexId, VertexId); 3] {
         let [a, b, c] = self.vertices;
         [
@@ -63,28 +63,31 @@ impl FaceData {
     }
 
     /// The three directed edges (preserving winding).
-    #[must_use] 
+    #[must_use]
     pub fn edges_directed(&self) -> [(VertexId, VertexId); 3] {
         let [a, b, c] = self.vertices;
         [(a, b), (b, c), (c, a)]
     }
 
     /// Check if this face contains a specific vertex.
-    #[must_use] 
+    #[must_use]
     pub fn contains_vertex(&self, v: VertexId) -> bool {
         self.vertices.contains(&v)
     }
 
     /// The vertex opposite to a given edge.
-    #[must_use] 
+    #[must_use]
     pub fn opposite_vertex(&self, edge: (VertexId, VertexId)) -> Option<VertexId> {
-        self.vertices.iter().find(|&&v| v != edge.0 && v != edge.1).copied()
+        self.vertices
+            .iter()
+            .find(|&&v| v != edge.0 && v != edge.1)
+            .copied()
     }
 }
 
 /// Canonical edge: always `(min, max)`.
 #[inline]
-#[must_use] 
+#[must_use]
 pub fn canonical_edge(a: VertexId, b: VertexId) -> (VertexId, VertexId) {
     if a.0 <= b.0 {
         (a, b)
@@ -101,13 +104,13 @@ pub struct FaceStore {
 
 impl FaceStore {
     /// Create an empty face store.
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         Self { faces: Vec::new() }
     }
 
     /// Create with capacity.
-    #[must_use] 
+    #[must_use]
     pub fn with_capacity(cap: usize) -> Self {
         Self {
             faces: Vec::with_capacity(cap),
@@ -116,14 +119,14 @@ impl FaceStore {
 
     /// Number of faces.
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub fn len(&self) -> usize {
         self.faces.len()
     }
 
     /// Is the store empty?
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.faces.is_empty()
     }
@@ -158,7 +161,7 @@ impl FaceStore {
 
     /// Get face data by ID.
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub fn get(&self, id: FaceId) -> &FaceData {
         &self.faces[id.as_usize()]
     }
@@ -196,7 +199,7 @@ impl FaceStore {
     }
 
     /// Get faces belonging to a specific region.
-    #[must_use] 
+    #[must_use]
     pub fn faces_in_region(&self, region: RegionId) -> Vec<FaceId> {
         self.faces
             .iter()
@@ -207,7 +210,7 @@ impl FaceStore {
     }
 
     /// Access the underlying slice.
-    #[must_use] 
+    #[must_use]
     pub fn as_slice(&self) -> &[FaceData] {
         &self.faces
     }

@@ -36,7 +36,7 @@ impl<T: RealField + Copy> Geometry3D<T> for Serpentine3D<T> {
     fn contains(&self, _point: &Point3D<T>) -> bool {
         // Complex helical/serpentine containment check
         // Simplified for validation benchmarks
-        false 
+        false
     }
 
     fn distance_to_boundary(&self, _point: &Point3D<T>) -> T {
@@ -57,10 +57,18 @@ impl<T: RealField + Copy> Geometry3D<T> for Serpentine3D<T> {
 
     fn bounds(&self) -> (Point3D<T>, Point3D<T>) {
         let total_l = self.wavelength * T::from_usize(self.num_periods).unwrap();
-        let half_d = self.diameter / T::from_f64(2.0).unwrap();
+        let half_d = self.diameter / T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
         (
-            Point3D { x: -self.amplitude - half_d, y: -half_d, z: T::zero() },
-            Point3D { x: self.amplitude + half_d, y: half_d, z: total_l }, 
+            Point3D {
+                x: -self.amplitude - half_d,
+                y: -half_d,
+                z: T::zero(),
+            },
+            Point3D {
+                x: self.amplitude + half_d,
+                y: half_d,
+                z: total_l,
+            },
         )
     }
 
@@ -73,9 +81,11 @@ impl<T: RealField + Copy> Geometry3D<T> for Serpentine3D<T> {
     }
 
     fn measure(&self) -> T {
-        let pi = T::from_f64(std::f64::consts::PI).unwrap();
+        let pi = T::from_f64(std::f64::consts::PI).unwrap_or_else(num_traits::Zero::zero);
         let total_l = self.wavelength * T::from_usize(self.num_periods).unwrap();
-        let area = pi * (self.diameter / T::from_f64(2.0).unwrap()).powf(T::from_f64(2.0).unwrap());
+        let area = pi
+            * (self.diameter / T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero))
+                .powf(T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero));
         area * total_l
     }
 }

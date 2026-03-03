@@ -119,7 +119,7 @@ pub struct RuppertRefiner {
 
 impl RuppertRefiner {
     /// Create a new refiner wrapping a CDT.
-    #[must_use] 
+    #[must_use]
     pub fn new(cdt: Cdt) -> Self {
         Self {
             cdt,
@@ -254,10 +254,12 @@ impl RuppertRefiner {
                 // Verify the insertion point is inside the domain
                 // (not in a super-triangle region or outside the boundary).
                 let dt = self.cdt.triangulation();
-                let inside = match locate(dt.vertices(), dt.triangles_slice(), bad.tid, px, py)
-                {
-                    Some(Location::Inside(tid) | Location::OnEdge(tid, _) |
-Location::OnVertex(tid, _)) => {
+                let inside = match locate(dt.vertices(), dt.triangles_slice(), bad.tid, px, py) {
+                    Some(
+                        Location::Inside(tid)
+                        | Location::OnEdge(tid, _)
+                        | Location::OnVertex(tid, _),
+                    ) => {
                         let t = dt.triangle(tid);
                         !t.vertices.iter().any(|v| dt.super_verts.contains(v))
                     }
@@ -366,19 +368,19 @@ Location::OnVertex(tid, _)) => {
     // ── Public accessors ──────────────────────────────────────────────────
 
     /// Access the CDT.
-    #[must_use] 
+    #[must_use]
     pub fn cdt(&self) -> &Cdt {
         &self.cdt
     }
 
     /// Consume the refiner and return the CDT.
-    #[must_use] 
+    #[must_use]
     pub fn into_cdt(self) -> Cdt {
         self.cdt
     }
 
     /// Number of Steiner points inserted.
-    #[must_use] 
+    #[must_use]
     pub fn steiner_count(&self) -> usize {
         self.steiner_count
     }

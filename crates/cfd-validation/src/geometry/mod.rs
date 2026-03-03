@@ -13,19 +13,19 @@ pub mod annular;
 pub mod bifurcation_2d;
 pub mod circular;
 pub mod rectangular;
-pub mod trifurcation_2d;
-pub mod venturi;
 pub mod serpentine_2d;
 pub mod threed;
+pub mod trifurcation_2d;
+pub mod venturi;
 
 // Public API exports
 pub use self::annular::AnnularDomain;
 pub use self::bifurcation_2d::Bifurcation2D;
 pub use self::circular::CircularDomain;
 pub use self::rectangular::RectangularDomain;
+pub use self::serpentine_2d::Serpentine2D;
 pub use self::trifurcation_2d::Trifurcation2D;
 pub use self::venturi::Venturi2D;
-pub use self::serpentine_2d::Serpentine2D;
 
 /// Point in 2D space
 #[derive(Debug, Clone, Copy, PartialEq)]

@@ -6,11 +6,11 @@ use nalgebra::{Point3, Vector3};
 use crate::domain::core::index::{FaceId, RegionId, VertexId};
 use crate::domain::core::scalar::Scalar;
 use crate::domain::geometry::aabb::Aabb;
+use crate::domain::topology::Cell;
 use crate::infrastructure::storage::attribute::AttributeStore;
 use crate::infrastructure::storage::edge_store::EdgeStore;
 use crate::infrastructure::storage::face_store::FaceStore;
 use crate::infrastructure::storage::vertex_pool::VertexPool;
-use crate::domain::topology::Cell;
 use std::collections::HashMap;
 
 /// A deduplicated, indexed triangle surface mesh — generic over scalar `T`.
@@ -48,7 +48,7 @@ pub struct IndexedMesh<T: Scalar = f64> {
 
 impl<T: Scalar> IndexedMesh<T> {
     /// Create an empty mesh with default millifluidic tolerances.
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         Self {
             vertices: VertexPool::with_tolerance(
@@ -157,7 +157,9 @@ impl<T: Scalar> IndexedMesh<T> {
     /// produces consistent *inward* normals, to obtain outward normals.
     pub fn flip_faces(&mut self) {
         self.edges = None;
-        self.faces.iter_mut().for_each(crate::infrastructure::storage::face_store::FaceData::flip);
+        self.faces
+            .iter_mut()
+            .for_each(crate::infrastructure::storage::face_store::FaceData::flip);
     }
 
     // ── Volumetric cell operations ────────────────────────────────────────
@@ -186,7 +188,9 @@ impl<T: Scalar> IndexedMesh<T> {
 
     /// Return the boundary label of a face, if any.
     pub fn boundary_label(&self, face_id: FaceId) -> Option<&str> {
-        self.boundary_labels.get(&face_id).map(std::string::String::as_str)
+        self.boundary_labels
+            .get(&face_id)
+            .map(std::string::String::as_str)
     }
 
     /// Return face IDs on the geometric boundary (faces belonging to exactly one cell).
@@ -356,8 +360,8 @@ impl<T: Scalar> IndexedMesh<T> {
     /// multi-component meshes (e.g. a chip body with separate channel voids)
     /// are handled correctly.
     pub fn orient_outward(&mut self) {
-        use std::collections::{HashMap, VecDeque};
         use crate::domain::geometry::normal::triangle_normal;
+        use std::collections::{HashMap, VecDeque};
 
         // Collect an owned copy of all face data so the immutable borrow ends
         // before the mutable `self.faces.iter_mut()` pass below.
@@ -491,8 +495,8 @@ impl<T: Scalar> IndexedMesh<T> {
     /// # Returns
     /// Number of components discarded (`0` when the mesh was already clean).
     pub fn retain_largest_component(&mut self) -> usize {
-        use crate::domain::topology::AdjacencyGraph;
         use crate::domain::topology::connectivity::connected_components;
+        use crate::domain::topology::AdjacencyGraph;
 
         // Ensure edge adjacency is current.
         self.rebuild_edges();
@@ -535,10 +539,8 @@ impl<T: Scalar> IndexedMesh<T> {
                 for (k, &vid) in fd.vertices.iter().enumerate() {
                     let idx = vid.as_usize();
                     nv[k] = *vertex_remap[idx].get_or_insert_with(|| {
-                        new_mesh.add_vertex(
-                            *self.vertices.position(vid),
-                            *self.vertices.normal(vid),
-                        )
+                        new_mesh
+                            .add_vertex(*self.vertices.position(vid), *self.vertices.normal(vid))
                     });
                 }
                 // Guard: skip any face that collapsed under vertex welding.
@@ -572,17 +574,15 @@ impl<T: Scalar> IndexedMesh<T> {
         let old_labels = std::mem::take(&mut self.boundary_labels);
         new_mesh.boundary_labels = old_labels
             .into_iter()
-            .filter_map(|(old_fid, label)| {
-                face_remap.get(&old_fid).map(|&nf| (nf, label))
-            })
+            .filter_map(|(old_fid, label)| face_remap.get(&old_fid).map(|&nf| (nf, label)))
             .collect();
 
         // Swap stores in-place.
-        self.vertices        = new_mesh.vertices;
-        self.faces           = new_mesh.faces;
-        self.edges           = None;         // stale; lazily rebuilt on next use
-        self.cells           = Vec::new();   // CSG surfaces carry no volumetric cells
-        self.attributes      = new_mesh.attributes;
+        self.vertices = new_mesh.vertices;
+        self.faces = new_mesh.faces;
+        self.edges = None; // stale; lazily rebuilt on next use
+        self.cells = Vec::new(); // CSG surfaces carry no volumetric cells
+        self.attributes = new_mesh.attributes;
         self.boundary_labels = new_mesh.boundary_labels;
 
         tracing::debug!(
@@ -609,7 +609,7 @@ pub struct MeshBuilder<T: Scalar = f64> {
 
 impl<T: Scalar> MeshBuilder<T> {
     /// Start building with default millifluidic tolerances.
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         Self {
             mesh: IndexedMesh::new(),
@@ -676,7 +676,10 @@ mod tests {
         // Check behavior: two points 1e-6 apart should NOT be welded under 1e-8 tolerance.
         let v1 = clone.add_vertex_pos(Point3::new(0.0, 0.0, 0.0));
         let v2 = clone.add_vertex_pos(Point3::new(1e-6, 0.0, 0.0));
-        assert_ne!(v1, v2, "Vertices should not weld under preserved 1e-8 tolerance");
+        assert_ne!(
+            v1, v2,
+            "Vertices should not weld under preserved 1e-8 tolerance"
+        );
         assert_eq!(clone.vertex_count(), 2);
     }
 
@@ -708,6 +711,9 @@ mod tests {
         // Under the preserved 1e-8 tolerance they should remain distinct.
         let n1 = mesh.add_vertex_pos(Point3::new(20.0, 0.0, 0.0));
         let n2 = mesh.add_vertex_pos(Point3::new(20.0 + 1e-6, 0.0, 0.0));
-        assert_ne!(n1, n2, "Tolerance must be preserved after retain_largest_component");
+        assert_ne!(
+            n1, n2,
+            "Tolerance must be preserved after retain_largest_component"
+        );
     }
 }

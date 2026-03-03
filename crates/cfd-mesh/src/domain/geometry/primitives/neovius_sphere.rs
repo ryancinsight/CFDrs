@@ -44,16 +44,26 @@ pub struct NeoviusSphere {
 
 impl Default for NeoviusSphere {
     fn default() -> Self {
-        Self { radius: 5.0, period: 2.5, resolution: 64, iso_value: 0.0 }
+        Self {
+            radius: 5.0,
+            period: 2.5,
+            resolution: 64,
+            iso_value: 0.0,
+        }
     }
 }
 
 impl PrimitiveMesh for NeoviusSphere {
     fn build(&self) -> Result<IndexedMesh, PrimitiveError> {
-        build_tpms_sphere(&Neovius, &TpmsParams {
-            radius: self.radius, period: self.period,
-            resolution: self.resolution, iso_value: self.iso_value,
-        })
+        build_tpms_sphere(
+            &Neovius,
+            &TpmsParams {
+                radius: self.radius,
+                period: self.period,
+                resolution: self.resolution,
+                iso_value: self.iso_value,
+            },
+        )
     }
 }
 
@@ -63,18 +73,32 @@ mod tests {
 
     #[test]
     fn neovius_sphere_builds_with_faces() {
-        let mesh = NeoviusSphere { resolution: 20, ..NeoviusSphere::default() }
-            .build().expect("Neovius sphere");
+        let mesh = NeoviusSphere {
+            resolution: 20,
+            ..NeoviusSphere::default()
+        }
+        .build()
+        .expect("Neovius sphere");
         assert!(mesh.faces.len() > 0);
     }
 
     #[test]
     fn neovius_sphere_invalid_radius_errors() {
-        assert!(NeoviusSphere { radius: -1.0, ..NeoviusSphere::default() }.build().is_err());
+        assert!(NeoviusSphere {
+            radius: -1.0,
+            ..NeoviusSphere::default()
+        }
+        .build()
+        .is_err());
     }
 
     #[test]
     fn neovius_sphere_low_resolution_errors() {
-        assert!(NeoviusSphere { resolution: 3, ..NeoviusSphere::default() }.build().is_err());
+        assert!(NeoviusSphere {
+            resolution: 3,
+            ..NeoviusSphere::default()
+        }
+        .build()
+        .is_err());
     }
 }

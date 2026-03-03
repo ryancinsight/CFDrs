@@ -60,14 +60,30 @@ impl SparseVoxelOctree {
 
         // Unpadded mesh bounding box in f64 (for the early-exit optimisation).
         let mesh_bb = Aabb::new(
-            Point3r::new(to_f(root_aabb_t.min.x), to_f(root_aabb_t.min.y), to_f(root_aabb_t.min.z)),
-            Point3r::new(to_f(root_aabb_t.max.x), to_f(root_aabb_t.max.y), to_f(root_aabb_t.max.z)),
+            Point3r::new(
+                to_f(root_aabb_t.min.x),
+                to_f(root_aabb_t.min.y),
+                to_f(root_aabb_t.min.z),
+            ),
+            Point3r::new(
+                to_f(root_aabb_t.max.x),
+                to_f(root_aabb_t.max.y),
+                to_f(root_aabb_t.max.z),
+            ),
         );
 
         // Padded root domain for the octree.
         let expanded_root = Aabb::new(
-            Point3r::new(to_f(root_aabb_t.min.x) - dx, to_f(root_aabb_t.min.y) - dy, to_f(root_aabb_t.min.z) - dz),
-            Point3r::new(to_f(root_aabb_t.max.x) + dx, to_f(root_aabb_t.max.y) + dy, to_f(root_aabb_t.max.z) + dz),
+            Point3r::new(
+                to_f(root_aabb_t.min.x) - dx,
+                to_f(root_aabb_t.min.y) - dy,
+                to_f(root_aabb_t.min.z) - dz,
+            ),
+            Point3r::new(
+                to_f(root_aabb_t.max.x) + dx,
+                to_f(root_aabb_t.max.y) + dy,
+                to_f(root_aabb_t.max.z) + dz,
+            ),
         );
 
         let mut svo = Self::new(expanded_root);
@@ -150,11 +166,16 @@ mod tests {
         println!("depth=3 node count: {}", svo.nodes.len());
         match &svo.nodes[svo.root_index.0 as usize] {
             SvoNode::Leaf(solid) => {
-                assert!(*solid, "All depth-3 leaf centres are inside the cube → must be solid");
+                assert!(
+                    *solid,
+                    "All depth-3 leaf centres are inside the cube → must be solid"
+                );
             }
             SvoNode::Internal(_) => {
-                panic!("At depth=3 every leaf centre is inside the cube; \
-                        isomorphic compression should yield a single Leaf(true)");
+                panic!(
+                    "At depth=3 every leaf centre is inside the cube; \
+                        isomorphic compression should yield a single Leaf(true)"
+                );
             }
         }
     }
@@ -174,7 +195,11 @@ mod tests {
         println!("depth=6 node count: {}", svo.nodes.len());
         match &svo.nodes[svo.root_index.0 as usize] {
             SvoNode::Internal(children) => {
-                assert_eq!(children.len(), 8, "Internal node must have exactly 8 children");
+                assert_eq!(
+                    children.len(),
+                    8,
+                    "Internal node must have exactly 8 children"
+                );
                 // Verify DAG compression is working: node count must be far below 8^6=262144
                 assert!(
                     svo.nodes.len() < 1000,

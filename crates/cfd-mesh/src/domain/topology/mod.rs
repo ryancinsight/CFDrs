@@ -57,14 +57,14 @@ pub struct Face {
 
 impl Face {
     /// Triangular face.
-    #[must_use] 
+    #[must_use]
     pub fn triangle(v0: usize, v1: usize, v2: usize) -> Self {
         Self {
             vertices: vec![v0, v1, v2],
         }
     }
     /// Quadrilateral face.
-    #[must_use] 
+    #[must_use]
     pub fn quad(v0: usize, v1: usize, v2: usize, v3: usize) -> Self {
         Self {
             vertices: vec![v0, v1, v2, v3],
@@ -85,7 +85,7 @@ pub struct Cell {
 
 impl Cell {
     /// Tetrahedral cell — four triangular faces.
-    #[must_use] 
+    #[must_use]
     pub fn tetrahedron(f0: usize, f1: usize, f2: usize, f3: usize) -> Self {
         Self {
             faces: vec![f0, f1, f2, f3],
@@ -94,7 +94,7 @@ impl Cell {
         }
     }
     /// Hexahedral cell — six quadrilateral faces.
-    #[must_use] 
+    #[must_use]
     pub fn hexahedron(f0: usize, f1: usize, f2: usize, f3: usize, f4: usize, f5: usize) -> Self {
         Self {
             faces: vec![f0, f1, f2, f3, f4, f5],

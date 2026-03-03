@@ -1,9 +1,9 @@
 //! Low-level face-soup boolean operations
 
+use super::containment::{containment, Containment};
 use crate::domain::core::error::{MeshError, MeshResult};
 use crate::infrastructure::storage::face_store::FaceData;
 use crate::infrastructure::storage::vertex_pool::VertexPool;
-use super::containment::{containment, Containment};
 
 /// CSG boolean operation type.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -35,7 +35,8 @@ pub fn csg_boolean(
         crate::application::csg::coplanar::detect_flat_plane(faces_a, pool),
         crate::application::csg::coplanar::detect_flat_plane(faces_b, pool),
     ) {
-        let result = crate::application::csg::coplanar::boolean_coplanar(op, faces_a, faces_b, pool, &basis);
+        let result =
+            crate::application::csg::coplanar::boolean_coplanar(op, faces_a, faces_b, pool, &basis);
         if result.is_empty() {
             return Err(MeshError::EmptyBooleanResult {
                 op: format!("{op:?}"),
@@ -145,9 +146,9 @@ fn boolean_difference(
 
 #[cfg(test)]
 mod tests {
+    use super::super::containment::point_in_mesh;
     use super::*;
     use crate::domain::core::scalar::{Point3r, Vector3r};
-    use super::super::containment::point_in_mesh;
 
     /// Build a closed 2×2×2 axis-aligned cube centred at (1,1,1) with outward CCW faces.
     fn make_unit_cube(pool: &mut VertexPool) -> Vec<FaceData> {
@@ -241,12 +242,12 @@ mod tests {
         let faces_a = make_unit_cube(&mut pool);
         let mut p =
             |x: f64, y: f64, z: f64| pool.insert_or_weld(Point3r::new(x, y, z), Vector3r::zeros());
-         // Tiny cube far away
+        // Tiny cube far away
         let (p0, p1, p2, p3) = (
-             p(10., 10., 10.),
-             p(11., 10., 10.),
-             p(11., 11., 10.),
-             p(10., 11., 10.),
+            p(10., 10., 10.),
+            p(11., 10., 10.),
+            p(11., 11., 10.),
+            p(10., 11., 10.),
         );
         let (p4, p5, p6, p7) = (
             p(10., 10., 11.),

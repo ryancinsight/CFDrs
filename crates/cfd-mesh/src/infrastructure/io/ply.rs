@@ -36,12 +36,10 @@ pub fn write_ply<W: Write>(writer: &mut W, mesh: &IndexedMesh) -> MeshResult<()>
 
     // Build contiguous index map.
     let mut id_to_idx: HashMap<crate::domain::core::index::VertexId, usize> = HashMap::new();
-    let mut idx = 0usize;
 
     // Vertex data
-    for (vid, vdata) in mesh.vertices.iter() {
+    for (idx, (vid, vdata)) in mesh.vertices.iter().enumerate() {
         id_to_idx.insert(vid, idx);
-        idx += 1;
         let p = &vdata.position;
         let n = &vdata.normal;
         writeln!(writer, "{} {} {} {} {} {}", p.x, p.y, p.z, n.x, n.y, n.z)
@@ -107,10 +105,10 @@ pub fn read_ply<R: Read>(reader: R) -> MeshResult<IndexedMesh> {
             in_vertex_props = false;
         }
 
-        if in_vertex_props {
-            if trimmed.contains(" nx") || trimmed.contains(" ny") || trimmed.contains(" nz") {
-                normal_prop_count += 1;
-            }
+        if in_vertex_props
+            && (trimmed.contains(" nx") || trimmed.contains(" ny") || trimmed.contains(" nz"))
+        {
+            normal_prop_count += 1;
         }
     }
 
@@ -122,7 +120,7 @@ pub fn read_ply<R: Read>(reader: R) -> MeshResult<IndexedMesh> {
 
     for _ in 0..vertex_count {
         let line = next_line(&mut lines)?;
-        let parts: Vec<&str> = line.trim().split_whitespace().collect();
+        let parts: Vec<&str> = line.split_whitespace().collect();
         if parts.len() < 3 {
             return Err(MeshError::Other("vertex line too short".to_owned()));
         }
@@ -145,10 +143,7 @@ pub fn read_ply<R: Read>(reader: R) -> MeshResult<IndexedMesh> {
 
     let vertex_ids: Vec<_> = (0..positions.len())
         .map(|i| {
-            let n = normals_vec
-                .get(i)
-                .copied()
-                .unwrap_or_else(Vector3r::zeros);
+            let n = normals_vec.get(i).copied().unwrap_or_else(Vector3r::zeros);
             mesh.add_vertex(positions[i], n)
         })
         .collect();
@@ -156,7 +151,7 @@ pub fn read_ply<R: Read>(reader: R) -> MeshResult<IndexedMesh> {
     // Read face data.
     for _ in 0..face_count {
         let line = next_line(&mut lines)?;
-        let parts: Vec<&str> = line.trim().split_whitespace().collect();
+        let parts: Vec<&str> = line.split_whitespace().collect();
         if parts.is_empty() {
             continue;
         }
@@ -189,9 +184,7 @@ pub fn read_ply<R: Read>(reader: R) -> MeshResult<IndexedMesh> {
     Ok(mesh)
 }
 
-fn next_line(
-    lines: &mut std::io::Lines<BufReader<impl Read>>,
-) -> MeshResult<String> {
+fn next_line(lines: &mut std::io::Lines<BufReader<impl Read>>) -> MeshResult<String> {
     lines
         .next()
         .ok_or_else(|| MeshError::Other("unexpected end of PLY file".to_owned()))?

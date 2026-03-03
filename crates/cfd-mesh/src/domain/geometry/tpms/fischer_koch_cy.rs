@@ -52,8 +52,8 @@
 //! - Fischer, W. & Koch, E. (1989). *Z. Krist.* 187, 107–152.
 //! - Fischer, W. & Koch, E. (1996). *Acta Cryst.* A52, 475–481.
 
-use crate::domain::core::scalar::Vector3r;
 use super::Tpms;
+use crate::domain::core::scalar::Vector3r;
 
 /// Fischer-Koch C(Y) TPMS — Fischer & Koch (1989) cubic minimal surface.
 ///
@@ -72,7 +72,11 @@ impl Tpms for FischerKochCY {
         let (sx, cx) = ((k * x).sin(), (k * x).cos());
         let (sy, cy) = ((k * y).sin(), (k * y).cos());
         let (sz, cz) = ((k * z).sin(), (k * z).cos());
-        let (c2x, c2y, c2z) = ((2.0*k*x).cos(), (2.0*k*y).cos(), (2.0*k*z).cos());
+        let (c2x, c2y, c2z) = (
+            (2.0 * k * x).cos(),
+            (2.0 * k * y).cos(),
+            (2.0 * k * z).cos(),
+        );
 
         c2x * sy * cz + cx * c2y * sz + sx * cy * c2z
     }
@@ -82,19 +86,23 @@ impl Tpms for FischerKochCY {
         let (sx, cx) = ((k * x).sin(), (k * x).cos());
         let (sy, cy) = ((k * y).sin(), (k * y).cos());
         let (sz, cz) = ((k * z).sin(), (k * z).cos());
-        let (s2x, c2x) = ((2.0*k*x).sin(), (2.0*k*x).cos());
-        let (s2y, c2y) = ((2.0*k*y).sin(), (2.0*k*y).cos());
-        let (s2z, c2z) = ((2.0*k*z).sin(), (2.0*k*z).cos());
+        let (s2x, c2x) = ((2.0 * k * x).sin(), (2.0 * k * x).cos());
+        let (s2y, c2y) = ((2.0 * k * y).sin(), (2.0 * k * y).cos());
+        let (s2z, c2z) = ((2.0 * k * z).sin(), (2.0 * k * z).cos());
 
         // ∂F/∂x
-        let gx = -2.0*k * s2x * sy * cz - k * sx * c2y * sz + k * cx * cy * c2z;
+        let gx = -2.0 * k * s2x * sy * cz - k * sx * c2y * sz + k * cx * cy * c2z;
         // ∂F/∂y
-        let gy =  k * c2x * cy * cz - 2.0*k * cx * s2y * sz - k * sx * sy * c2z;
+        let gy = k * c2x * cy * cz - 2.0 * k * cx * s2y * sz - k * sx * sy * c2z;
         // ∂F/∂z
-        let gz = -k * c2x * sy * sz + k * cx * c2y * cz - 2.0*k * sx * cy * s2z;
+        let gz = -k * c2x * sy * sz + k * cx * c2y * cz - 2.0 * k * sx * cy * s2z;
 
-        let len = (gx*gx + gy*gy + gz*gz).sqrt();
-        if len > 1e-20 { Vector3r::new(gx/len, gy/len, gz/len) } else { Vector3r::y() }
+        let len = (gx * gx + gy * gy + gz * gz).sqrt();
+        if len > 1e-20 {
+            Vector3r::new(gx / len, gy / len, gz / len)
+        } else {
+            Vector3r::y()
+        }
     }
 }
 
@@ -117,7 +125,7 @@ mod tests {
     fn fischer_koch_cy_gradient_is_normalised() {
         let k = TAU / 2.5;
         let g = FischerKochCY.gradient(0.5, 1.0, 0.7, k);
-        let len = (g.x*g.x + g.y*g.y + g.z*g.z).sqrt();
+        let len = (g.x * g.x + g.y * g.y + g.z * g.z).sqrt();
         assert!((len - 1.0).abs() < 1e-12, "gradient len = {len}");
     }
 
@@ -126,7 +134,7 @@ mod tests {
     fn fischer_koch_cy_gradient_normalised_second_point() {
         let k = TAU / 2.5;
         let g = FischerKochCY.gradient(1.3, 0.4, 0.8, k);
-        let len = (g.x*g.x + g.y*g.y + g.z*g.z).sqrt();
+        let len = (g.x * g.x + g.y * g.y + g.z * g.z).sqrt();
         assert!((len - 1.0).abs() < 1e-12, "gradient len = {len}");
     }
 
@@ -143,8 +151,10 @@ mod tests {
         let f3 = FischerKochCY.field(z, x, y, k);
         // Sum should equal itself under cyclic permutation — all three equal the same
         // rotated field, so their values may differ but each should be finite.
-        assert!(f1.is_finite() && f2.is_finite() && f3.is_finite(),
-            "non-finite: {f1}, {f2}, {f3}");
+        assert!(
+            f1.is_finite() && f2.is_finite() && f3.is_finite(),
+            "non-finite: {f1}, {f2}, {f3}"
+        );
         // The cyclic sum equals (sum of a cyclic-symmetric function): f1+f2+f3=3*f1 only
         // if fully symmetric; here it equals (cos(2kx)sin(ky)cos(kz)+... cycled) which
         // is not necessarily the same — so just verify finite and not NaN.

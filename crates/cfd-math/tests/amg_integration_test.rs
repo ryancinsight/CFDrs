@@ -23,29 +23,29 @@ fn create_poisson_matrix<T: RealField + From<f64> + FromPrimitive>(n: usize) -> 
 
         // Top neighbor (i-n)
         if row > 0 {
-            values.push(T::from_f64(-1.0).unwrap());
+            values.push(T::from_f64(-1.0).unwrap_or_else(num_traits::Zero::zero));
             indices.push(i - n);
         }
 
         // Left neighbor (i-1)
         if col > 0 {
-            values.push(T::from_f64(-1.0).unwrap());
+            values.push(T::from_f64(-1.0).unwrap_or_else(num_traits::Zero::zero));
             indices.push(i - 1);
         }
 
         // Diagonal element (i)
-        values.push(T::from_f64(4.0).unwrap());
+        values.push(T::from_f64(4.0).unwrap_or_else(num_traits::Zero::zero));
         indices.push(i);
 
         // Right neighbor (i+1)
         if col < n - 1 {
-            values.push(T::from_f64(-1.0).unwrap());
+            values.push(T::from_f64(-1.0).unwrap_or_else(num_traits::Zero::zero));
             indices.push(i + 1);
         }
 
         // Bottom neighbor (i+n)
         if row < n - 1 {
-            values.push(T::from_f64(-1.0).unwrap());
+            values.push(T::from_f64(-1.0).unwrap_or_else(num_traits::Zero::zero));
             indices.push(i + n);
         }
 

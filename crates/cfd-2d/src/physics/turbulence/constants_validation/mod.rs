@@ -43,7 +43,7 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> Default
     fn default() -> Self {
         Self {
             dns_database: DnsChannelFlowDatabase::moser_1999_re590(),
-            tolerance: T::from_f64(0.05).unwrap(),
+            tolerance: T::from_f64(0.05).unwrap_or_else(num_traits::Zero::zero),
         }
     }
 }

@@ -187,9 +187,9 @@ impl<T: RealField + Copy> IMEXTimeStepper<T> {
     /// Ascher, U. M., Ruuth, S. J., & Wetton, B. T. (1997). Implicit-explicit methods
     /// for time-dependent PDEs. SIAM Journal on Numerical Analysis, 32(3), 797-823.
     pub fn ars343() -> Self {
-        let gamma = (T::from_f64(3.0).unwrap() + T::from_f64(3.0).unwrap().sqrt())
-            / T::from_f64(6.0).unwrap();
-        let delta = T::one() - T::one() / (T::from_f64(2.0).unwrap() * gamma);
+        let gamma = (T::from_f64(3.0).unwrap_or_else(num_traits::Zero::zero) + T::from_f64(3.0).unwrap_or_else(num_traits::Zero::zero).sqrt())
+            / T::from_f64(6.0).unwrap_or_else(num_traits::Zero::zero);
+        let delta = T::one() - T::one() / (T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero) * gamma);
 
         let c = vec![T::zero(), gamma, T::one()];
 
@@ -204,7 +204,7 @@ impl<T: RealField + Copy> IMEXTimeStepper<T> {
         let implicit_a = vec![
             vec![],                                                        // Stage 0
             vec![T::zero()],                                               // Stage 1
-            vec![T::zero(), T::one() - T::from_f64(2.0).unwrap() * gamma], // Stage 2
+            vec![T::zero(), T::one() - T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero) * gamma], // Stage 2
         ];
 
         // Implicit diagonals
@@ -216,13 +216,13 @@ impl<T: RealField + Copy> IMEXTimeStepper<T> {
 
         let explicit_b = vec![
             T::zero(),
-            T::from_f64(0.5).unwrap(),
-            T::from_f64(0.5).unwrap(),
+            T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero),
+            T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero),
         ];
         let implicit_b = vec![
             T::zero(),
-            T::from_f64(0.5).unwrap(),
-            T::from_f64(0.5).unwrap(),
+            T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero),
+            T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero),
         ];
 
         Self {

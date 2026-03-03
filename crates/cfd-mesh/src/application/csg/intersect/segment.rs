@@ -1,7 +1,7 @@
 //! Floating-point line intersection math.
 
-use crate::domain::core::scalar::{Point3r, Real};
 use super::types::IntersectionType;
+use crate::domain::core::scalar::{Point3r, Real};
 
 /// Compute the 3-D intersection segment for two triangles known to straddle
 /// each other's planes.

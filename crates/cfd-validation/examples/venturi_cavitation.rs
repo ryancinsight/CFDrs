@@ -36,9 +36,9 @@
 //!   reactors.* AIChE J., 46, 1641-1647. [σ_i = 1.0 for Venturi with area ratio β²=0.25]
 //! - ISO 5167-4:2003 — Venturi tube discharge coefficients for C_d validation.
 
-use cfd_1d::resistance::{FlowConditions, VenturiModel, VenturiGeometry, ExpansionType};
-use cfd_core::physics::fluid::FluidTrait;
+use cfd_1d::resistance::{ExpansionType, FlowConditions, VenturiGeometry, VenturiModel};
 use cfd_core::physics::fluid::non_newtonian::CarreauYasuda;
+use cfd_core::physics::fluid::FluidTrait;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("═══════════════════════════════════════════════════════");
@@ -48,31 +48,41 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ── Geometry: millifluidic Venturi ───────────────────────────────────────
     // Inlet: 1.0 mm, Throat: 0.5 mm (β² = 0.25, area ratio = 4:1)
     // This is a standard microfluidic Venturi used in SDT experiments.
-    let d_inlet  = 1.0e-3_f64; // 1.0 mm
+    let d_inlet = 1.0e-3_f64; // 1.0 mm
     let d_throat = 0.5e-3_f64; // 0.5 mm → β = 0.5
     let l_throat = 2.0e-3_f64; // 2.0 mm throat length
 
     let model = VenturiModel::millifluidic(d_inlet, d_throat, l_throat);
-    println!("Geometry: D_inlet={:.1}mm, D_throat={:.1}mm, β={:.2}, L_throat={:.1}mm",
-        d_inlet*1e3, d_throat*1e3, d_throat/d_inlet, l_throat*1e3);
+    println!(
+        "Geometry: D_inlet={:.1}mm, D_throat={:.1}mm, β={:.2}, L_throat={:.1}mm",
+        d_inlet * 1e3,
+        d_throat * 1e3,
+        d_throat / d_inlet,
+        l_throat * 1e3
+    );
 
     // ── Blood Properties ─────────────────────────────────────────────────────
     // CarreauYasuda blood model. Blood vapor pressure ≈ 3.5 kPa at 37°C.
     let blood = CarreauYasuda::<f64>::blood();
-    let rho = 1060.0_f64;    // blood density, kg/m³
-    let p_v = 3_500.0_f64;   // vapor pressure at 37°C [Pa]
+    let rho = 1060.0_f64; // blood density, kg/m³
+    let p_v = 3_500.0_f64; // vapor pressure at 37°C [Pa]
 
     // ── Area Calculations ─────────────────────────────────────────────────────
-    let a_inlet  = std::f64::consts::PI * d_inlet.powi(2) / 4.0;
+    let a_inlet = std::f64::consts::PI * d_inlet.powi(2) / 4.0;
     let a_throat = std::f64::consts::PI * d_throat.powi(2) / 4.0;
-    let beta_sq  = (d_throat / d_inlet).powi(2); // = 0.25
+    let beta_sq = (d_throat / d_inlet).powi(2); // = 0.25
 
-    println!("β²= {:.4}, A_inlet={:.4e} m², A_throat={:.4e} m²", beta_sq, a_inlet, a_throat);
+    println!(
+        "β²= {:.4}, A_inlet={:.4e} m², A_throat={:.4e} m²",
+        beta_sq, a_inlet, a_throat
+    );
 
     // ── Scan flow rates to find cavitation onset ─────────────────────────────
     println!("\n── Parameter Sweep: Finding Cavitation Onset ──────────");
-    println!("{:>12}{:>15}{:>15}{:>12}{:>12}{:>10}",
-        "Q (mL/min)", "V_throat(m/s)", "P_throat(Pa)", "ΔP_model(Pa)", "σ_throat", "Cavitation?");
+    println!(
+        "{:>12}{:>15}{:>15}{:>12}{:>12}{:>10}",
+        "Q (mL/min)", "V_throat(m/s)", "P_throat(Pa)", "ΔP_model(Pa)", "σ_throat", "Cavitation?"
+    );
     println!("{}", "─".repeat(80));
 
     let mut all_pass = true;
@@ -85,16 +95,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     for &q_ml_min in &flow_rates_ml_min {
         let q = q_ml_min / 60.0e6; // Convert mL/min → m³/s
 
-        let v_inlet  = q / a_inlet;
+        let v_inlet = q / a_inlet;
         let v_throat = q / a_throat; // Continuity
 
         // Conditions at 37°C (physiological) = 310.15 K
         let temperature = 310.15_f64;
-        let p_inlet     = 101_325.0_f64; // atmospheric reference
+        let p_inlet = 101_325.0_f64; // atmospheric reference
 
         let mut conditions = FlowConditions::new(v_inlet);
         conditions.temperature = temperature;
-        conditions.pressure    = p_inlet;
+        conditions.pressure = p_inlet;
 
         // VenturiModel::analyze — full physics (Bernoulli + friction + expansion)
         let analysis = model.analyze(&blood, &conditions)?;
@@ -117,15 +127,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             q_onset = q_ml_min;
         }
 
-        println!("{:>12.1}{:>15.3}{:>15.1}{:>12.1}{:>12.4}{:>10}",
-            q_ml_min, v_throat, p_throat_model, analysis.dp_total,
-            sigma_throat, if cavitating { "YES ⚡" } else { "no" });
+        println!(
+            "{:>12.1}{:>15.3}{:>15.1}{:>12.1}{:>12.4}{:>10}",
+            q_ml_min,
+            v_throat,
+            p_throat_model,
+            analysis.dp_total,
+            sigma_throat,
+            if cavitating { "YES ⚡" } else { "no" }
+        );
 
         // ── Validation Check 1: Throat velocity matches continuity ───────────
         let v_throat_continuity = v_inlet * (a_inlet / a_throat);
         let vel_err = ((v_throat - v_throat_continuity) / v_throat_continuity).abs();
         if vel_err > 1e-9 {
-            eprintln!("  ❌ FAIL: Throat velocity continuity error = {:.2e}", vel_err);
+            eprintln!(
+                "  ❌ FAIL: Throat velocity continuity error = {:.2e}",
+                vel_err
+            );
             all_pass = false;
         }
 
@@ -139,8 +158,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             // At very low Re, viscous correction is large; only check at high Re
             let re_throat = rho * v_throat * d_throat / 3.5e-3;
             if re_throat > 100.0 && bernoulli_err > 0.15 {
-                eprintln!("  ⚠️  WARNING: Bernoulli vs model ΔP deviation = {:.1}% at Re={:.0}",
-                    bernoulli_err * 100.0, re_throat);
+                eprintln!(
+                    "  ⚠️  WARNING: Bernoulli vs model ΔP deviation = {:.1}% at Re={:.0}",
+                    bernoulli_err * 100.0,
+                    re_throat
+                );
                 // Not a hard failure — viscous corrections expected
             }
         }
@@ -176,45 +198,71 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut cond_test = FlowConditions::new(v_in_test);
     cond_test.temperature = 310.15;
-    cond_test.pressure    = 101_325.0;
+    cond_test.pressure = 101_325.0;
     let analysis_test = model.analyze(&blood, &cond_test)?;
 
     // Bernoulli contraction only (no friction) vs model contraction
-    let bernoulli_model_err = (analysis_test.dp_contraction - dp_bernoulli_test).abs()
-        / dp_bernoulli_test * 100.0;
+    let bernoulli_model_err =
+        (analysis_test.dp_contraction - dp_bernoulli_test).abs() / dp_bernoulli_test * 100.0;
 
     println!("  Q_test = 20 mL/min:");
-    println!("    V_throat              = {:.4} m/s (continuity)", v_th_test);
+    println!(
+        "    V_throat              = {:.4} m/s (continuity)",
+        v_th_test
+    );
     println!("    ΔP_Bernoulli(ideal)   = {:.2} Pa", dp_bernoulli_test);
-    println!("    ΔP_contraction(model) = {:.2} Pa", analysis_test.dp_contraction);
+    println!(
+        "    ΔP_contraction(model) = {:.2} Pa",
+        analysis_test.dp_contraction
+    );
     println!("    Deviation             = {:.2}%", bernoulli_model_err);
     println!("    σ (Bernoulli)         = {:.4}", sigma_bernoulli);
-    println!("    C_d used              = {:.4}", analysis_test.discharge_coefficient);
-    println!("    Re_throat             = {:.1}", analysis_test.throat_reynolds);
+    println!(
+        "    C_d used              = {:.4}",
+        analysis_test.discharge_coefficient
+    );
+    println!(
+        "    Re_throat             = {:.1}",
+        analysis_test.throat_reynolds
+    );
 
     // Validate: Bernoulli vs model deviation < 15% (C_d and viscous effects expected)
-    let bernoulli_pass   = bernoulli_model_err < 15.0;
+    let bernoulli_pass = bernoulli_model_err < 15.0;
     // Validate: throat velocity by continuity matches
     let v_err = (analysis_test.throat_velocity - v_th_test).abs() / v_th_test;
-    let vel_pass         = v_err < 1e-9;
+    let vel_pass = v_err < 1e-9;
     // Validate: sigma is physically reasonable (positive at moderate flow)
-    let sigma_pass       = sigma_bernoulli.is_finite();
+    let sigma_pass = sigma_bernoulli.is_finite();
 
     println!("\n── Final Validation ────────────────────────────────────");
-    println!("  [{}] Bernoulli vs model ΔP: {:.2}% < 15%",
-        if bernoulli_pass { "PASS" } else { "FAIL" }, bernoulli_model_err);
-    println!("  [{}] Throat velocity (continuity): V_t = {:.4} m/s (err {:.2e})",
-        if vel_pass { "PASS" } else { "FAIL" }, analysis_test.throat_velocity, v_err);
-    println!("  [{}] Cavitation number σ is finite: σ = {:.4}",
-        if sigma_pass { "PASS" } else { "FAIL" }, sigma_bernoulli);
-    println!("  [{}] dp_total > 0 for all flow rates",
-        if all_pass { "PASS" } else { "FAIL" });
+    println!(
+        "  [{}] Bernoulli vs model ΔP: {:.2}% < 15%",
+        if bernoulli_pass { "PASS" } else { "FAIL" },
+        bernoulli_model_err
+    );
+    println!(
+        "  [{}] Throat velocity (continuity): V_t = {:.4} m/s (err {:.2e})",
+        if vel_pass { "PASS" } else { "FAIL" },
+        analysis_test.throat_velocity,
+        v_err
+    );
+    println!(
+        "  [{}] Cavitation number σ is finite: σ = {:.4}",
+        if sigma_pass { "PASS" } else { "FAIL" },
+        sigma_bernoulli
+    );
+    println!(
+        "  [{}] dp_total > 0 for all flow rates",
+        if all_pass { "PASS" } else { "FAIL" }
+    );
 
     all_pass &= bernoulli_pass && vel_pass && sigma_pass;
 
     println!();
     if all_pass {
-        println!("✅ ALL VALIDATIONS PASSED — Venturi Cavitation model matches Bernoulli reference.");
+        println!(
+            "✅ ALL VALIDATIONS PASSED — Venturi Cavitation model matches Bernoulli reference."
+        );
     } else {
         eprintln!("❌ VALIDATION FAILED — See above for failing criteria.");
         std::process::exit(1);

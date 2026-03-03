@@ -261,7 +261,7 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
         // Basic order conditions checks
         // Order 1: sum b_i = 1
         let sum_b = _b.iter().fold(T::zero(), |acc, &x| acc + x);
-        if (sum_b - T::one()).abs() > T::from_f64(1e-10).unwrap() {
+        if (sum_b - T::one()).abs() > T::from_f64(1e-10).unwrap_or_else(num_traits::Zero::zero) {
             return 0;
         }
 
@@ -270,7 +270,7 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
             .iter()
             .zip(_c.iter())
             .fold(T::zero(), |acc, (&bi, &ci)| acc + bi * ci);
-        if (sum_b_c - T::from_f64(0.5).unwrap()).abs() > T::from_f64(1e-10).unwrap() {
+        if (sum_b_c - T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero)).abs() > T::from_f64(1e-10).unwrap_or_else(num_traits::Zero::zero) {
             return 1;
         }
 
@@ -279,7 +279,7 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
             .iter()
             .zip(_c.iter())
             .fold(T::zero(), |acc, (&bi, &ci)| acc + bi * ci * ci);
-        if (sum_b_c2 - T::from_f64(1.0 / 3.0).unwrap()).abs() > T::from_f64(1e-10).unwrap() {
+        if (sum_b_c2 - T::from_f64(1.0 / 3.0).unwrap_or_else(num_traits::Zero::zero)).abs() > T::from_f64(1e-10).unwrap_or_else(num_traits::Zero::zero) {
             return 2;
         }
 
@@ -333,7 +333,7 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
             }
         }
 
-        let is_stable = max_amplification <= T::from_f64(1.0001).unwrap(); // Allow small numerical errors
+        let is_stable = max_amplification <= T::from_f64(1.0001).unwrap_or_else(num_traits::Zero::zero); // Allow small numerical errors
 
         Ok(VonNeumannAnalysis {
             wave_numbers: wave_numbers.to_vec(),
@@ -341,7 +341,7 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
             max_amplification,
             critical_wave_number,
             is_stable,
-            stability_margin: T::from_f64(1.0).unwrap() - max_amplification,
+            stability_margin: T::from_f64(1.0).unwrap_or_else(num_traits::Zero::zero) - max_amplification,
         })
     }
 
@@ -384,7 +384,7 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
             }
         }
 
-        let is_stable = max_amplification <= T::from_f64(1.0001).unwrap();
+        let is_stable = max_amplification <= T::from_f64(1.0001).unwrap_or_else(num_traits::Zero::zero);
 
         Ok(VonNeumannAnalysis {
             wave_numbers: wave_numbers.to_vec(),
@@ -392,7 +392,7 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
             max_amplification,
             critical_wave_number,
             is_stable,
-            stability_margin: T::from_f64(1.0).unwrap() - max_amplification,
+            stability_margin: T::from_f64(1.0).unwrap_or_else(num_traits::Zero::zero) - max_amplification,
         })
     }
 
@@ -421,28 +421,28 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
                         T::zero(),
                         T::zero(),
                         T::zero(),
-                        T::from_f64(1.0 / 3.0).unwrap(),
+                        T::from_f64(1.0 / 3.0).unwrap_or_else(num_traits::Zero::zero),
                         T::zero(),
                         T::zero(),
                         T::zero(),
-                        T::from_f64(2.0 / 3.0).unwrap(),
+                        T::from_f64(2.0 / 3.0).unwrap_or_else(num_traits::Zero::zero),
                         T::zero(),
                     ],
                 );
                 let b = DVector::from_vec(vec![
-                    T::from_f64(0.25).unwrap(),
+                    T::from_f64(0.25).unwrap_or_else(num_traits::Zero::zero),
                     T::zero(),
-                    T::from_f64(0.75).unwrap(),
+                    T::from_f64(0.75).unwrap_or_else(num_traits::Zero::zero),
                 ]);
                 let c = DVector::from_vec(vec![
                     T::zero(),
-                    T::from_f64(1.0 / 3.0).unwrap(),
-                    T::from_f64(2.0 / 3.0).unwrap(),
+                    T::from_f64(1.0 / 3.0).unwrap_or_else(num_traits::Zero::zero),
+                    T::from_f64(2.0 / 3.0).unwrap_or_else(num_traits::Zero::zero),
                 ]);
                 self.von_neumann_analysis_explicit_rk(&a, &b, &c, spatial_operator, dt, wave_numbers)
             }
             NumericalScheme::RK4 => {
-                let one_half = T::from_f64(0.5).unwrap();
+                let one_half = T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero);
                 let a = DMatrix::from_row_slice(
                     4,
                     4,
@@ -466,10 +466,10 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
                     ],
                 );
                 let b = DVector::from_vec(vec![
-                    T::from_f64(1.0 / 6.0).unwrap(),
-                    T::from_f64(1.0 / 3.0).unwrap(),
-                    T::from_f64(1.0 / 3.0).unwrap(),
-                    T::from_f64(1.0 / 6.0).unwrap(),
+                    T::from_f64(1.0 / 6.0).unwrap_or_else(num_traits::Zero::zero),
+                    T::from_f64(1.0 / 3.0).unwrap_or_else(num_traits::Zero::zero),
+                    T::from_f64(1.0 / 3.0).unwrap_or_else(num_traits::Zero::zero),
+                    T::from_f64(1.0 / 6.0).unwrap_or_else(num_traits::Zero::zero),
                 ]);
                 let c = DVector::from_vec(vec![T::zero(), one_half, one_half, T::one()]);
                 self.von_neumann_analysis_explicit_rk(&a, &b, &c, spatial_operator, dt, wave_numbers)

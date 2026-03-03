@@ -4,11 +4,11 @@
 //! nodes. This is standard 1:4 refinement used for P2 element support
 //! in Taylor-Hood (P2/P1) finite elements.
 
+use crate::domain::core::index::VertexId;
+use crate::domain::core::scalar::Scalar;
 use crate::domain::mesh::IndexedMesh;
 use crate::infrastructure::storage::face_store::FaceData;
 use nalgebra::Point3;
-use crate::domain::core::scalar::Scalar;
-use crate::domain::core::index::VertexId;
 use std::collections::HashMap;
 
 /// Converts a P1 (linear) mesh to a refined mesh by 1:4 triangle subdivision.
@@ -64,7 +64,11 @@ impl P2MeshConverter {
         a: VertexId,
         b: VertexId,
     ) -> VertexId {
-        let key = if a.as_usize() < b.as_usize() { (a, b) } else { (b, a) };
+        let key = if a.as_usize() < b.as_usize() {
+            (a, b)
+        } else {
+            (b, a)
+        };
         *edge_mid.entry(key).or_insert_with(|| {
             let va = mesh.vertices.position(a);
             let vb = mesh.vertices.position(b);

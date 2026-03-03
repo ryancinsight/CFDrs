@@ -21,9 +21,11 @@ pub mod shell_mesh;
 pub mod topology;
 pub mod well_plate;
 
-pub use blueprint_mesh::{BlueprintMeshPipeline, PipelineConfig, PipelineOutput, SegmentCenterline};
-pub use shell_mesh::{ShellMeshPipeline, ShellPipelineConfig, ShellPipelineOutput};
+pub use blueprint_mesh::{
+    BlueprintMeshPipeline, PipelineConfig, PipelineOutput, SegmentCenterline,
+};
 pub use constraint::{DiameterConstraintError, InletOutletConstraint, WallClearanceConstraint};
 pub use region_map::{BoundaryLabelMap, RegionMap};
+pub use shell_mesh::{ShellMeshPipeline, ShellPipelineConfig, ShellPipelineOutput};
 pub use topology::{NetworkTopology, TopologyClass};
 pub use well_plate::SbsWellPlate96;

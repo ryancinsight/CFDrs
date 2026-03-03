@@ -49,7 +49,7 @@ impl<T: RealField + Copy> Geometry3D<T> for Venturi3D<T> {
     fn contains(&self, point: &Point3D<T>) -> bool {
         let z = point.z;
         let r_sq = point.x * point.x + point.y * point.y;
-        
+
         let d = if z < self.l_inlet {
             self.d_inlet
         } else if z < self.l_inlet + self.l_convergent {
@@ -60,7 +60,12 @@ impl<T: RealField + Copy> Geometry3D<T> for Venturi3D<T> {
         } else if z < self.l_inlet + self.l_convergent + self.l_throat + self.l_divergent {
             let s = (z - (self.l_inlet + self.l_convergent + self.l_throat)) / self.l_divergent;
             self.d_throat + (self.d_outlet - self.d_throat) * s
-        } else if z < self.l_inlet + self.l_convergent + self.l_throat + self.l_divergent + self.l_outlet {
+        } else if z < self.l_inlet
+            + self.l_convergent
+            + self.l_throat
+            + self.l_divergent
+            + self.l_outlet
+        {
             self.d_outlet
         } else {
             return false;
@@ -87,11 +92,20 @@ impl<T: RealField + Copy> Geometry3D<T> for Venturi3D<T> {
     }
 
     fn bounds(&self) -> (Point3D<T>, Point3D<T>) {
-        let total_l = self.l_inlet + self.l_convergent + self.l_throat + self.l_divergent + self.l_outlet;
+        let total_l =
+            self.l_inlet + self.l_convergent + self.l_throat + self.l_divergent + self.l_outlet;
         let max_d = self.d_inlet.max(self.d_outlet);
         (
-            Point3D { x: -max_d, y: -max_d, z: T::zero() },
-            Point3D { x: max_d, y: max_d, z: total_l },
+            Point3D {
+                x: -max_d,
+                y: -max_d,
+                z: T::zero(),
+            },
+            Point3D {
+                x: max_d,
+                y: max_d,
+                z: total_l,
+            },
         )
     }
 
@@ -105,6 +119,6 @@ impl<T: RealField + Copy> Geometry3D<T> for Venturi3D<T> {
 
     fn measure(&self) -> T {
         // Volume integration of piecewise cone frustums
-        T::zero() 
+        T::zero()
     }
 }

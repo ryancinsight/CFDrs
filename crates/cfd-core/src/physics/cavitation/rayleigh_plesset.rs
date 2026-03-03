@@ -70,24 +70,54 @@ pub struct SonoluminescenceEstimate<T: RealField + Copy> {
 impl<T: RealField + Copy + FromPrimitive> RayleighPlesset<T> {
     /// Calculate bubble wall acceleration (d²R/dt²)
     ///
-    /// Uses the full Rayleigh-Plesset equation including viscous and surface tension effects
+    /// Implements the full Rayleigh-Plesset equation:
+    ///
+    /// ```text
+    /// R̈ = [p_B(R) − p_∞ − 2σ/R − 4μṘ/R] / (ρ_L R) − (3/2) Ṙ²/R
+    /// ```
+    ///
+    /// where the internal bubble pressure is:
+    ///
+    /// ```text
+    /// p_B(R) = p_v + p_g0 · (R_0/R)^{3κ}
+    /// ```
+    ///
+    /// and the equilibrium gas pressure `p_g0` is determined from the
+    /// initial condition: at `R = R_0` the bubble is stationary (Ṙ = R̈ = 0),
+    /// and the normal-stress balance gives `p_g0 = p_∞ − p_v + 2σ/R_0`.
+    ///
+    /// **References**: Plesset & Prosperetti (1977), Brennen (1995) §2.2.
     pub fn bubble_acceleration(&self, radius: T, velocity: T, ambient_pressure: T) -> T {
         // Avoid division by zero
         if radius < T::from_f64(super::constants::MIN_BUBBLE_RADIUS).unwrap_or_else(|| T::zero()) {
             return T::zero();
         }
 
-        // Pressure inside bubble (including surface tension)
         let two = T::from_f64(2.0).unwrap_or_else(|| T::one() + T::one());
+        let three = T::from_f64(3.0).unwrap_or_else(|| T::one() + T::one() + T::one());
         let four = two * two;
         let three_halves = T::from_f64(1.5).unwrap_or_else(|| T::one());
 
-        let p_bubble = self.vapor_pressure + two * self.surface_tension / radius;
+        // Equilibrium gas pressure from normal-stress balance at R = R_0:
+        //   p_v + p_g0 = p_∞ + 2σ/R_0  →  p_g0 = p_∞ − p_v + 2σ/R_0
+        // Using ambient_pressure as the reference far-field pressure p_∞.
+        let p_g0 = (ambient_pressure - self.vapor_pressure
+            + two * self.surface_tension / self.initial_radius)
+            .max(T::zero());
 
-        // Pressure difference driving bubble motion
+        // Polytropic gas contribution: p_g = p_g0 · (R_0/R)^{3κ}
+        let ratio = self.initial_radius / radius;
+        let exponent = three * self.polytropic_index;
+        let p_gas = p_g0 * ratio.powf(exponent);
+
+        // Internal bubble pressure: p_B(R) = p_v + p_gas
+        let p_bubble = self.vapor_pressure + p_gas;
+
+        // Pressure difference: p_B − p_∞
         let pressure_diff = p_bubble - ambient_pressure;
 
-        // Rayleigh-Plesset equation terms
+        // Rayleigh-Plesset equation terms:
+        //   R̈ = (p_B − p_∞)/(ρR) − (3/2)Ṙ²/R − 4μṘ/(ρR²) − 2σ/(ρR²)
         let term1 = pressure_diff / (self.liquid_density * radius);
         let term2 = -three_halves * velocity * velocity / radius;
         let term3 =

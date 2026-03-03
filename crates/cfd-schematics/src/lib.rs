@@ -136,7 +136,7 @@ pub use state_management::{
     ConfigurableParameter, ConstraintError, ParameterConstraints, ParameterError, ParameterManager,
     ParameterRegistry, StateManagementError, StateManagementResult,
 };
-pub use visualizations::schematic::plot_geometry;
+pub use visualizations::schematic::{plot_geometry, plot_geometry_with_config};
 
 /// Unified network / design API — the single import point for downstream crates.
 pub mod network {

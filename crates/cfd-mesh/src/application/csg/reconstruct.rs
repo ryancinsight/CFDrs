@@ -258,10 +258,7 @@ mod tests {
         // Insert 9994 "noise" vertices that won't appear in any face.
         let zero = z();
         for i in 0..9994_usize {
-            pool.insert_or_weld(
-                Point3r::new(i as f64 + 100.0, 0.0, 0.0),
-                zero,
-            );
+            pool.insert_or_weld(Point3r::new(i as f64 + 100.0, 0.0, 0.0), zero);
         }
         // Only 6 vertices actually used.
         let v0 = pool.insert_or_weld(Point3r::new(0.0, 0.0, 0.0), zero);

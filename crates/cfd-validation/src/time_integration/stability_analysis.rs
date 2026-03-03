@@ -178,7 +178,9 @@ impl<T: RealField + Copy + num_traits::ToPrimitive> StabilityAnalysisRunner<T> {
 
         let region = self.analyzer.compute_rk_stability_region(&a, &b, &c)?;
 
-        let stability_limit = self.analyzer.compute_rk_absolute_stability_limit(&a, &b, &c)?;
+        let stability_limit = self
+            .analyzer
+            .compute_rk_absolute_stability_limit(&a, &b, &c)?;
 
         Ok(RKStabilityResult {
             method_name: "Forward Euler (RK1)".to_string(),
@@ -215,7 +217,9 @@ impl<T: RealField + Copy + num_traits::ToPrimitive> StabilityAnalysisRunner<T> {
         let c = DVector::from_vec(vec![T::zero(), one_third, two_thirds]);
 
         let region = self.analyzer.compute_rk_stability_region(&a, &b, &c)?;
-        let stability_limit = self.analyzer.compute_rk_absolute_stability_limit(&a, &b, &c)?;
+        let stability_limit = self
+            .analyzer
+            .compute_rk_absolute_stability_limit(&a, &b, &c)?;
 
         Ok(RKStabilityResult {
             method_name: "Heun's Method (RK3)".to_string(),
@@ -258,7 +262,9 @@ impl<T: RealField + Copy + num_traits::ToPrimitive> StabilityAnalysisRunner<T> {
         let c = DVector::from_vec(vec![T::zero(), one_half, one_half, T::one()]);
 
         let region = self.analyzer.compute_rk_stability_region(&a, &b, &c)?;
-        let stability_limit = self.analyzer.compute_rk_absolute_stability_limit(&a, &b, &c)?;
+        let stability_limit = self
+            .analyzer
+            .compute_rk_absolute_stability_limit(&a, &b, &c)?;
 
         Ok(RKStabilityResult {
             method_name: "Classic Runge-Kutta 4".to_string(),
@@ -350,7 +356,11 @@ impl<T: RealField + Copy + num_traits::ToPrimitive> StabilityAnalysisRunner<T> {
     fn perform_von_neumann_analysis(&self, report: &mut StabilityAnalysisReport<T>) -> Result<()> {
         println!("\n📊 Von Neumann Stability Analysis");
 
-        let schemes = [NumericalScheme::ForwardEuler, NumericalScheme::RK3, NumericalScheme::RK4];
+        let schemes = [
+            NumericalScheme::ForwardEuler,
+            NumericalScheme::RK3,
+            NumericalScheme::RK4,
+        ];
 
         // Analyze advection equation: ∂u/∂t + a ∂u/∂x = 0
         for scheme in schemes.iter().cloned() {
@@ -403,9 +413,12 @@ impl<T: RealField + Copy + num_traits::ToPrimitive> StabilityAnalysisRunner<T> {
         };
 
         let scheme_label = format!("{scheme:?}");
-        let analysis = self
-            .analyzer
-            .von_neumann_analysis_with_scheme(scheme, spatial_operator, dt, &wave_numbers)?;
+        let analysis = self.analyzer.von_neumann_analysis_with_scheme(
+            scheme,
+            spatial_operator,
+            dt,
+            &wave_numbers,
+        )?;
 
         Ok(VonNeumannResult {
             pde_type: format!("Linear Advection ({scheme_label})"),
@@ -446,9 +459,12 @@ impl<T: RealField + Copy + num_traits::ToPrimitive> StabilityAnalysisRunner<T> {
         };
 
         let scheme_label = format!("{scheme:?}");
-        let analysis = self
-            .analyzer
-            .von_neumann_analysis_with_scheme(scheme, spatial_operator, dt, &wave_numbers)?;
+        let analysis = self.analyzer.von_neumann_analysis_with_scheme(
+            scheme,
+            spatial_operator,
+            dt,
+            &wave_numbers,
+        )?;
 
         Ok(VonNeumannResult {
             pde_type: format!("Diffusion ({scheme_label})"),
@@ -487,9 +503,12 @@ impl<T: RealField + Copy + num_traits::ToPrimitive> StabilityAnalysisRunner<T> {
         };
 
         let scheme_label = format!("{scheme:?}");
-        let analysis = self
-            .analyzer
-            .von_neumann_analysis_with_scheme(scheme, spatial_operator, dt, &wave_numbers)?;
+        let analysis = self.analyzer.von_neumann_analysis_with_scheme(
+            scheme,
+            spatial_operator,
+            dt,
+            &wave_numbers,
+        )?;
 
         Ok(VonNeumannResult {
             pde_type: format!("Burgers' Equation ({scheme_label})"),

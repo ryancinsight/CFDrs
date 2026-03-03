@@ -220,6 +220,22 @@ impl Default for RenderConfig {
     }
 }
 
+impl RenderConfig {
+    /// Preset for ANSI/SLAS 96-well plate (127.76 × 85.47 mm).
+    ///
+    /// Pixel dimensions are 10× the physical plate size to maintain the
+    /// correct aspect ratio (≈ 1.495 : 1).
+    #[must_use]
+    pub fn well_plate_96() -> Self {
+        Self {
+            width: 1278,
+            height: 855,
+            title: "96-Well Plate Schematic (127.76 × 85.47 mm)".to_string(),
+            ..Self::default()
+        }
+    }
+}
+
 /// Supported output formats for schematic rendering
 ///
 /// Different formats have different characteristics:

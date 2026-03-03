@@ -43,15 +43,15 @@ impl<T: RealField + Copy> FluidSolidInterface<T> {
     where
         T: nalgebra::RealField + Copy + num_traits::FromPrimitive,
     {
-        let pi = T::from_f64(std::f64::consts::PI).unwrap();
-        let contact_angle = pi / T::from_f64(2.0).unwrap(); // 90 degrees
+        let pi = T::from_f64(std::f64::consts::PI).unwrap_or_else(num_traits::Zero::zero);
+        let contact_angle = pi / T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero); // 90 degrees
         Self {
-            surface_tension: T::from_f64(0.0728).unwrap(),
+            surface_tension: T::from_f64(0.0728).unwrap_or_else(num_traits::Zero::zero),
             contact_angle,
             wetting: WettingProperties {
                 contact_angle,
-                advancing_angle: pi * T::from_f64(100.0 / 180.0).unwrap(),
-                receding_angle: pi * T::from_f64(80.0 / 180.0).unwrap(),
+                advancing_angle: pi * T::from_f64(100.0 / 180.0).unwrap_or_else(num_traits::Zero::zero),
+                receding_angle: pi * T::from_f64(80.0 / 180.0).unwrap_or_else(num_traits::Zero::zero),
             },
         }
     }

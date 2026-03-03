@@ -34,7 +34,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("  Surface    : F = 3(cos(kx)+cos(ky)+cos(kz)) + 4·cos(kx)cos(ky)cos(kz)");
     println!("  Space group: Im3̄m (#229), genus 9 per cell");
     println!("  Radius     : {} mm", builder.radius);
-    println!("  Period     : {} mm  (lattice unit-cell size)", builder.period);
+    println!(
+        "  Period     : {} mm  (lattice unit-cell size)",
+        builder.period
+    );
     println!("  Resolution : {}  (voxels per axis)", builder.resolution);
     println!("  Building mesh...");
 

@@ -43,16 +43,26 @@ pub struct SplitPSphere {
 
 impl Default for SplitPSphere {
     fn default() -> Self {
-        Self { radius: 5.0, period: 2.5, resolution: 64, iso_value: 0.0 }
+        Self {
+            radius: 5.0,
+            period: 2.5,
+            resolution: 64,
+            iso_value: 0.0,
+        }
     }
 }
 
 impl PrimitiveMesh for SplitPSphere {
     fn build(&self) -> Result<IndexedMesh, PrimitiveError> {
-        build_tpms_sphere(&SplitP, &TpmsParams {
-            radius: self.radius, period: self.period,
-            resolution: self.resolution, iso_value: self.iso_value,
-        })
+        build_tpms_sphere(
+            &SplitP,
+            &TpmsParams {
+                radius: self.radius,
+                period: self.period,
+                resolution: self.resolution,
+                iso_value: self.iso_value,
+            },
+        )
     }
 }
 
@@ -62,18 +72,32 @@ mod tests {
 
     #[test]
     fn split_p_sphere_builds_with_faces() {
-        let mesh = SplitPSphere { resolution: 20, ..SplitPSphere::default() }
-            .build().expect("Split P sphere");
+        let mesh = SplitPSphere {
+            resolution: 20,
+            ..SplitPSphere::default()
+        }
+        .build()
+        .expect("Split P sphere");
         assert!(mesh.faces.len() > 0);
     }
 
     #[test]
     fn split_p_sphere_invalid_radius_errors() {
-        assert!(SplitPSphere { radius: -0.5, ..SplitPSphere::default() }.build().is_err());
+        assert!(SplitPSphere {
+            radius: -0.5,
+            ..SplitPSphere::default()
+        }
+        .build()
+        .is_err());
     }
 
     #[test]
     fn split_p_sphere_low_resolution_errors() {
-        assert!(SplitPSphere { resolution: 3, ..SplitPSphere::default() }.build().is_err());
+        assert!(SplitPSphere {
+            resolution: 3,
+            ..SplitPSphere::default()
+        }
+        .build()
+        .is_err());
     }
 }

@@ -196,9 +196,7 @@ impl DesignCandidate {
     #[inline]
     #[must_use]
     pub fn venturi_flow_fraction(&self) -> f64 {
-        use cfd_1d::cell_separation::{
-            cif_pretri_stage_q_fracs, tri_center_q_frac_cross_junction,
-        };
+        use cfd_1d::cell_separation::{cif_pretri_stage_q_fracs, tri_center_q_frac_cross_junction};
 
         if !self.topology.has_venturi() {
             return 0.0;
@@ -235,13 +233,11 @@ impl DesignCandidate {
                 q_pretri_product * q_terminal_tri * q_bi_treat
             }
             // Asymmetric trifurcation: center arm fraction of flow
-            DesignTopology::AsymmetricTrifurcationVenturi => {
-                tri_center_q_frac_cross_junction(
-                    self.trifurcation_center_frac,
-                    self.channel_width_m,
-                    self.channel_height_m,
-                )
-            }
+            DesignTopology::AsymmetricTrifurcationVenturi => tri_center_q_frac_cross_junction(
+                self.trifurcation_center_frac,
+                self.channel_width_m,
+                self.channel_height_m,
+            ),
             // Tri→Bi→Tri: tri1 × bi × tri3 (tri1 = tri3 = trifurcation_center_frac)
             DesignTopology::TriBiTriSelectiveVenturi => {
                 let q_tri = tri_center_q_frac_cross_junction(

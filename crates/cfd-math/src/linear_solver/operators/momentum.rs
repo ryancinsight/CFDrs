@@ -25,8 +25,8 @@ impl<T: RealField + Copy + num_traits::FromPrimitive> LinearOperator<T> for Mome
 
         let dx_inv = T::one() / self.dx;
         let dx2_inv = T::one() / (self.dx * self.dx);
-        let two = T::from_f64(2.0).unwrap();
-        let half = T::from_f64(0.5).unwrap();
+        let two = T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
+        let half = T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero);
 
         let x_s = x.as_slice();
         let y_s = y.as_mut_slice();
@@ -83,8 +83,8 @@ impl<T: RealField + Copy + num_traits::FromPrimitive> LinearOperator<T> for Mome
         let dy_inv = T::one() / self.dy;
         let dx2_inv = T::one() / (self.dx * self.dx);
         let dy2_inv = T::one() / (self.dy * self.dy);
-        let two = T::from_f64(2.0).unwrap();
-        let half = T::from_f64(0.5).unwrap();
+        let two = T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
+        let half = T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero);
 
         let x_s = x.as_slice();
         let y_s = y.as_mut_slice();
@@ -149,8 +149,8 @@ impl<T: RealField + Copy + num_traits::FromPrimitive> LinearOperator<T> for Ener
         let dy_inv = T::one() / self.dy;
         let dx2_inv = T::one() / (self.dx * self.dx);
         let dy2_inv = T::one() / (self.dy * self.dy);
-        let two = T::from_f64(2.0).unwrap();
-        let half = T::from_f64(0.5).unwrap();
+        let two = T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
+        let half = T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero);
 
         let x_s = x.as_slice();
         let y_s = y.as_mut_slice();

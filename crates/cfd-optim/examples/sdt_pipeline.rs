@@ -39,11 +39,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let c = &design.candidate;
         let m = &design.metrics;
 
-        let id_display = if c.id.len() > 40 {
-            &c.id[..40]
-        } else {
-            &c.id
-        };
+        let id_display = if c.id.len() > 40 { &c.id[..40] } else { &c.id };
         let sigma_str = if m.cavitation_number.is_finite() {
             format!("{:>8.3}", m.cavitation_number)
         } else {
@@ -101,21 +97,34 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("Design #{}: {}", design.rank, design.candidate.id);
         println!("  Score:          {:.4}", design.score);
         println!("  Topology:       {:?}", design.candidate.topology);
-        println!("  Cavitation no.: {}", if m.cavitation_number.is_finite() {
-            format!("{:.3}", m.cavitation_number)
-        } else {
-            "inf (no venturi)".to_string()
-        });
+        println!(
+            "  Cavitation no.: {}",
+            if m.cavitation_number.is_finite() {
+                format!("{:.3}", m.cavitation_number)
+            } else {
+                "inf (no venturi)".to_string()
+            }
+        );
         println!("  Cav potential:  {:.3}", m.cavitation_potential);
-        println!("  Main shear:     {:.1} Pa (FDA: {})", m.max_main_channel_shear_pa, if m.fda_main_compliant { "OK" } else { "FAIL" });
+        println!(
+            "  Main shear:     {:.1} Pa (FDA: {})",
+            m.max_main_channel_shear_pa,
+            if m.fda_main_compliant { "OK" } else { "FAIL" }
+        );
         println!("  HI/pass:        {:.2e}", m.hemolysis_index_per_pass);
         println!("  Cancer dose:    {:.1}%", m.cancer_dose_fraction * 100.0);
         println!("  Well coverage:  {:.0}%", m.well_coverage_fraction * 100.0);
-        println!("  Pressure drop:  {:.0} Pa (feasible: {})", m.total_pressure_drop_pa, m.pressure_feasible);
+        println!(
+            "  Pressure drop:  {:.0} Pa (feasible: {})",
+            m.total_pressure_drop_pa, m.pressure_feasible
+        );
         println!("  Residence time: {:.2} s", m.mean_residence_time_s);
         println!("  Sep3 eff:       {:.4}", m.three_pop_sep_efficiency);
         println!("  Sono proxy:     {:.3}", m.sonoluminescence_proxy);
-        println!("  Mesh:           {} verts, {} faces, watertight: {}", artifacts.vertex_count, artifacts.face_count, artifacts.watertight);
+        println!(
+            "  Mesh:           {} verts, {} faces, watertight: {}",
+            artifacts.vertex_count, artifacts.face_count, artifacts.watertight
+        );
         println!("  Fluid STL:      {}", artifacts.fluid_stl.display());
         if let Some(ref chip) = artifacts.chip_stl {
             println!("  Chip STL:       {}", chip.display());
@@ -126,6 +135,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!();
     }
 
-    println!("=== Pipeline complete. Outputs in: {} ===", out_dir.display());
+    println!(
+        "=== Pipeline complete. Outputs in: {} ===",
+        out_dir.display()
+    );
     Ok(())
 }

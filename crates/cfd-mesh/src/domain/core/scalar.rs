@@ -78,7 +78,7 @@ pub trait Scalar:
 
     /// Squared tolerance — avoids `sqrt` in distance comparisons.
     #[inline]
-    #[must_use] 
+    #[must_use]
     fn tolerance_sq() -> Self {
         let t = Self::tolerance();
         t * t

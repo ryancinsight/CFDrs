@@ -32,8 +32,8 @@
 //! - Schoen, A.H. (1970). *NASA Tech. Rep.* CR-1012. Table 1, entry "F-RD".
 //! - Gandy, P.J.F., Klinowski, J. et al. (1999). *Chem. Phys. Lett.* 314, 543–551.
 
-use crate::domain::core::scalar::Vector3r;
 use super::Tpms;
+use crate::domain::core::scalar::Vector3r;
 
 /// FRD (Schoen F-RD) TPMS — Face-centred Rhombic Dodecahedron minimal surface.
 ///
@@ -49,7 +49,11 @@ impl Tpms for Frd {
     #[inline]
     fn field(&self, x: f64, y: f64, z: f64, k: f64) -> f64 {
         let (cx, cy, cz) = ((k * x).cos(), (k * y).cos(), (k * z).cos());
-        let (c2x, c2y, c2z) = ((2.0*k*x).cos(), (2.0*k*y).cos(), (2.0*k*z).cos());
+        let (c2x, c2y, c2z) = (
+            (2.0 * k * x).cos(),
+            (2.0 * k * y).cos(),
+            (2.0 * k * z).cos(),
+        );
         4.0 * cx * cy * cz - (c2x * c2y + c2y * c2z + c2z * c2x)
     }
 
@@ -58,16 +62,20 @@ impl Tpms for Frd {
         let (sx, cx) = ((k * x).sin(), (k * x).cos());
         let (sy, cy) = ((k * y).sin(), (k * y).cos());
         let (sz, cz) = ((k * z).sin(), (k * z).cos());
-        let (s2x, c2x) = ((2.0*k*x).sin(), (2.0*k*x).cos());
-        let (s2y, c2y) = ((2.0*k*y).sin(), (2.0*k*y).cos());
-        let (s2z, c2z) = ((2.0*k*z).sin(), (2.0*k*z).cos());
+        let (s2x, c2x) = ((2.0 * k * x).sin(), (2.0 * k * x).cos());
+        let (s2y, c2y) = ((2.0 * k * y).sin(), (2.0 * k * y).cos());
+        let (s2z, c2z) = ((2.0 * k * z).sin(), (2.0 * k * z).cos());
 
-        let gx = -4.0*k * sx*cy*cz + 2.0*k * s2x * (c2y + c2z);
-        let gy = -4.0*k * cx*sy*cz + 2.0*k * s2y * (c2x + c2z);
-        let gz = -4.0*k * cx*cy*sz + 2.0*k * s2z * (c2y + c2x);
+        let gx = -4.0 * k * sx * cy * cz + 2.0 * k * s2x * (c2y + c2z);
+        let gy = -4.0 * k * cx * sy * cz + 2.0 * k * s2y * (c2x + c2z);
+        let gz = -4.0 * k * cx * cy * sz + 2.0 * k * s2z * (c2y + c2x);
 
-        let len = (gx*gx + gy*gy + gz*gz).sqrt();
-        if len > 1e-20 { Vector3r::new(gx/len, gy/len, gz/len) } else { Vector3r::y() }
+        let len = (gx * gx + gy * gy + gz * gz).sqrt();
+        if len > 1e-20 {
+            Vector3r::new(gx / len, gy / len, gz / len)
+        } else {
+            Vector3r::y()
+        }
     }
 }
 
@@ -89,7 +97,7 @@ mod tests {
     fn frd_gradient_is_normalised() {
         let k = TAU / 2.5;
         let g = Frd.gradient(0.8, 0.3, 1.5, k);
-        let len = (g.x*g.x + g.y*g.y + g.z*g.z).sqrt();
+        let len = (g.x * g.x + g.y * g.y + g.z * g.z).sqrt();
         assert!((len - 1.0).abs() < 1e-12, "gradient len = {len}");
     }
 
@@ -98,7 +106,7 @@ mod tests {
     fn frd_field_is_even() {
         let k = TAU / 2.5;
         let (x, y, z) = (0.6, 1.0, 0.4);
-        assert!((Frd.field(x,y,z,k) - Frd.field(-x,-y,-z,k)).abs() < 1e-13);
+        assert!((Frd.field(x, y, z, k) - Frd.field(-x, -y, -z, k)).abs() < 1e-13);
     }
 
     /// **Invariant**: surface zero-crossing exists in the domain.
@@ -107,7 +115,10 @@ mod tests {
         let k = TAU / 2.5;
         let min_abs = (0..25_u32)
             .flat_map(|i| (0..25_u32).map(move |j| (i, j)))
-            .map(|(i, j)| Frd.field(-2.5 + i as f64 * 0.2, -2.5 + j as f64 * 0.2, 0.5, k).abs())
+            .map(|(i, j)| {
+                Frd.field(-2.5 + i as f64 * 0.2, -2.5 + j as f64 * 0.2, 0.5, k)
+                    .abs()
+            })
             .fold(f64::INFINITY, f64::min);
         assert!(min_abs < 0.4, "min |F| = {min_abs}");
     }

@@ -140,14 +140,14 @@ pub struct PoiseuilleConfig<T: RealField + Copy> {
 impl<T: RealField + FromPrimitive + Copy> Default for PoiseuilleConfig<T> {
     fn default() -> Self {
         Self {
-            height: T::from_f64(100e-6).unwrap(),            // 100 μm
-            width: T::from_f64(500e-6).unwrap(),             // 500 μm
-            length: T::from_f64(1e-3).unwrap(),              // 1 mm
+            height: T::from_f64(100e-6).unwrap_or_else(num_traits::Zero::zero),            // 100 μm
+            width: T::from_f64(500e-6).unwrap_or_else(num_traits::Zero::zero),             // 500 μm
+            length: T::from_f64(1e-3).unwrap_or_else(num_traits::Zero::zero),              // 1 mm
             ny: 101,                                         // 101 points for 100 intervals
-            pressure_gradient: T::from_f64(1000.0).unwrap(), // 1000 Pa/m
-            tolerance: T::from_f64(1e-6).unwrap(),
+            pressure_gradient: T::from_f64(1000.0).unwrap_or_else(num_traits::Zero::zero), // 1000 Pa/m
+            tolerance: T::from_f64(1e-6).unwrap_or_else(num_traits::Zero::zero),
             max_iterations: 1000,
-            relaxation_factor: T::from_f64(0.7).unwrap(),
+            relaxation_factor: T::from_f64(0.7).unwrap_or_else(num_traits::Zero::zero),
         }
     }
 }
@@ -222,7 +222,7 @@ impl<T: RealField + FromPrimitive + Float + Copy> PoiseuilleFlow2D<T> {
         let shear_rate = vec![T::zero(); ny];
 
         // Initialize viscosity with constant value
-        let mu_init = T::from_f64(0.004).unwrap(); // ~4 cP initial guess
+        let mu_init = T::from_f64(0.004).unwrap_or_else(num_traits::Zero::zero); // ~4 cP initial guess
         let viscosity = vec![mu_init; ny];
 
         Self {
@@ -306,7 +306,7 @@ impl<T: RealField + FromPrimitive + Float + Copy> PoiseuilleFlow2D<T> {
     pub fn analytical_solution(&self, viscosity: T) -> Vec<T> {
         let dp_dx = self.config.pressure_gradient;
         let height = self.config.height;
-        let two = T::from_f64(2.0).unwrap();
+        let two = T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
 
         self.y_coords
             .iter()
@@ -331,7 +331,7 @@ impl<T: RealField + FromPrimitive + Float + Copy> PoiseuilleFlow2D<T> {
     pub fn flow_rate_per_width(&self) -> T {
         let ny = self.config.ny;
         let dy = self.dy;
-        let two = T::from_f64(2.0).unwrap();
+        let two = T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
 
         let mut sum = T::zero();
         for j in 0..ny - 1 {

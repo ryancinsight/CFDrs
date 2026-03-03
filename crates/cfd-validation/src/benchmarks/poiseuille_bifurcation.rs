@@ -148,13 +148,13 @@ impl<T: RealField + Copy + FromPrimitive + Float> BifurcationConfig2D<T> {
     pub fn with_murrays_law(d_parent: T, flow_rate: T, inlet_pressure: T) -> Self {
         // Murray's Law: d_p³ = d₁³ + d₂³
         // For symmetric bifurcation: d₁ = d₂ = d_p / 2^(1/3)
-        let two = T::from_f64(2.0).unwrap();
-        let one_third = T::from_f64(1.0 / 3.0).unwrap();
+        let two = T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
+        let one_third = T::from_f64(1.0 / 3.0).unwrap_or_else(num_traits::Zero::zero);
         let daughter_ratio = Float::powf(two, one_third);
         let d_daughter = d_parent / daughter_ratio;
 
         // Typical vessel length = 50 × diameter (entrance length)
-        let fifty = T::from_f64(50.0).unwrap();
+        let fifty = T::from_f64(50.0).unwrap_or_else(num_traits::Zero::zero);
 
         Self {
             d_parent,
@@ -166,7 +166,7 @@ impl<T: RealField + Copy + FromPrimitive + Float> BifurcationConfig2D<T> {
             flow_rate,
             inlet_pressure,
             ny: 101,
-            tolerance: T::from_f64(1e-8).unwrap(),
+            tolerance: T::from_f64(1e-8).unwrap_or_else(num_traits::Zero::zero),
             max_iterations: 1000,
         }
     }
@@ -295,7 +295,7 @@ pub fn validate_bifurcation<T: RealField + Copy + Float + FromPrimitive>(
     solution: &BifurcationSolution2D<T>,
     config: &BifurcationConfig2D<T>,
 ) -> ValidationResult<T> {
-    let tolerance = T::from_f64(0.05).unwrap(); // 5% tolerance
+    let tolerance = T::from_f64(0.05).unwrap_or_else(num_traits::Zero::zero); // 5% tolerance
 
     // Check 1: Mass conservation
     let mass_error = Float::abs(
@@ -328,7 +328,7 @@ pub fn validate_bifurcation<T: RealField + Copy + Float + FromPrimitive>(
         all_passed: mass_error < tolerance
             && murray_error < tolerance
             && dp_error < tolerance
-            && wss_error < T::from_f64(0.2).unwrap(), // 20% tolerance for WSS
+            && wss_error < T::from_f64(0.2).unwrap_or_else(num_traits::Zero::zero), // 20% tolerance for WSS
     }
 }
 

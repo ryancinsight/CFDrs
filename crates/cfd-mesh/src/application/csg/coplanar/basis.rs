@@ -18,8 +18,8 @@
 //! non-collinear, that span is a unique plane. Therefore all-zero determinants
 //! are equivalent to global coplanarity. ∎
 
+use crate::application::csg::predicates3d::triangle_is_degenerate_exact;
 use crate::domain::core::scalar::{Point3r, Real, Vector3r};
-use crate::domain::geometry::predicates::{orient_2d_arr, Orientation};
 use crate::domain::topology::predicates::{orient3d, Sign};
 use crate::infrastructure::storage::face_store::FaceData;
 use crate::infrastructure::storage::vertex_pool::VertexPool;
@@ -66,13 +66,6 @@ impl PlaneBasis {
     pub(crate) fn lift(&self, u: Real, v: Real) -> Point3r {
         self.origin + self.u * u + self.v * v
     }
-}
-
-#[inline]
-fn triangle_is_degenerate_exact(a: &Point3r, b: &Point3r, c: &Point3r) -> bool {
-    orient_2d_arr([a.x, a.y], [b.x, b.y], [c.x, c.y]) == Orientation::Degenerate
-        && orient_2d_arr([a.x, a.z], [b.x, b.z], [c.x, c.z]) == Orientation::Degenerate
-        && orient_2d_arr([a.y, a.z], [b.y, b.z], [c.y, c.z]) == Orientation::Degenerate
 }
 
 pub(crate) fn detect_flat_plane(faces: &[FaceData], pool: &VertexPool) -> Option<PlaneBasis> {

@@ -9,7 +9,9 @@
 //! of minimality via Weierstrass–Enneper construction and full partial derivatives.
 
 use super::{PrimitiveError, PrimitiveMesh};
-use crate::domain::geometry::tpms::{build_tpms_sphere, fischer_koch_cy::FischerKochCY, TpmsParams};
+use crate::domain::geometry::tpms::{
+    build_tpms_sphere, fischer_koch_cy::FischerKochCY, TpmsParams,
+};
 use crate::domain::mesh::IndexedMesh;
 
 /// Fischer-Koch C(Y) sphere — C(Y) TPMS lattice clipped to a sphere.
@@ -44,16 +46,26 @@ pub struct FischerKochCySphere {
 
 impl Default for FischerKochCySphere {
     fn default() -> Self {
-        Self { radius: 5.0, period: 2.5, resolution: 64, iso_value: 0.0 }
+        Self {
+            radius: 5.0,
+            period: 2.5,
+            resolution: 64,
+            iso_value: 0.0,
+        }
     }
 }
 
 impl PrimitiveMesh for FischerKochCySphere {
     fn build(&self) -> Result<IndexedMesh, PrimitiveError> {
-        build_tpms_sphere(&FischerKochCY, &TpmsParams {
-            radius: self.radius, period: self.period,
-            resolution: self.resolution, iso_value: self.iso_value,
-        })
+        build_tpms_sphere(
+            &FischerKochCY,
+            &TpmsParams {
+                radius: self.radius,
+                period: self.period,
+                resolution: self.resolution,
+                iso_value: self.iso_value,
+            },
+        )
     }
 }
 
@@ -63,18 +75,32 @@ mod tests {
 
     #[test]
     fn fischer_koch_cy_sphere_builds_with_faces() {
-        let mesh = FischerKochCySphere { resolution: 20, ..FischerKochCySphere::default() }
-            .build().expect("Fischer-Koch C(Y) sphere");
+        let mesh = FischerKochCySphere {
+            resolution: 20,
+            ..FischerKochCySphere::default()
+        }
+        .build()
+        .expect("Fischer-Koch C(Y) sphere");
         assert!(mesh.faces.len() > 0);
     }
 
     #[test]
     fn fischer_koch_cy_sphere_invalid_radius_errors() {
-        assert!(FischerKochCySphere { radius: -1.0, ..FischerKochCySphere::default() }.build().is_err());
+        assert!(FischerKochCySphere {
+            radius: -1.0,
+            ..FischerKochCySphere::default()
+        }
+        .build()
+        .is_err());
     }
 
     #[test]
     fn fischer_koch_cy_sphere_low_resolution_errors() {
-        assert!(FischerKochCySphere { resolution: 3, ..FischerKochCySphere::default() }.build().is_err());
+        assert!(FischerKochCySphere {
+            resolution: 3,
+            ..FischerKochCySphere::default()
+        }
+        .build()
+        .is_err());
     }
 }

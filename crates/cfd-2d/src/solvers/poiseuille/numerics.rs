@@ -43,9 +43,9 @@ impl<T: RealField + FromPrimitive + Float + Copy> PoiseuilleFlow2D<T> {
 
         for j in 1..ny - 1 {
             // Viscosity at cell faces (harmonic mean for better stability)
-            let mu_jm12 = T::from_f64(2.0).unwrap()
+            let mu_jm12 = T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero)
                 / (T::one() / self.viscosity[j - 1] + T::one() / self.viscosity[j]);
-            let mu_jp12 = T::from_f64(2.0).unwrap()
+            let mu_jp12 = T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero)
                 / (T::one() / self.viscosity[j] + T::one() / self.viscosity[j + 1]);
 
             // Coefficients for interior stencil
@@ -70,7 +70,7 @@ impl<T: RealField + FromPrimitive + Float + Copy> PoiseuilleFlow2D<T> {
     pub(super) fn calculate_shear_rate(&mut self) {
         let ny = self.config.ny;
         let dy = self.dy;
-        let two = T::from_f64(2.0).unwrap();
+        let two = T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
 
         // Boundaries: use one-sided differences
         self.shear_rate[0] = Float::abs((self.velocity[1] - self.velocity[0]) / dy);
@@ -109,7 +109,7 @@ impl<T: RealField + FromPrimitive + Float + Copy> PoiseuilleFlow2D<T> {
         }
 
         // Relative L2 norm
-        Float::sqrt(sum_sq / (sum_sq_old + T::from_f64(1e-20).unwrap()))
+        Float::sqrt(sum_sq / (sum_sq_old + T::from_f64(1e-20).unwrap_or_else(num_traits::Zero::zero)))
     }
 }
 
@@ -145,7 +145,7 @@ pub(super) fn thomas_algorithm<T: RealField + Copy + Float>(
     for i in 1..n {
         let denom = b[i] - a[i] * c_prime[i - 1];
 
-        if Float::abs(denom) < T::from_f64(1e-14).unwrap() {
+        if Float::abs(denom) < T::from_f64(1e-14).unwrap_or_else(num_traits::Zero::zero) {
             return Err(Error::NumericalInstability(
                 "Near-zero pivot in Thomas algorithm".to_string(),
             ));

@@ -9,7 +9,7 @@ use crate::infrastructure::storage::face_store::FaceStore;
 /// Identify connected components using BFS on face adjacency.
 ///
 /// Returns a list of components, each being a set of face IDs.
-#[must_use] 
+#[must_use]
 pub fn connected_components(
     face_store: &FaceStore,
     adjacency: &AdjacencyGraph,

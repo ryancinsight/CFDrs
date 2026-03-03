@@ -11,11 +11,11 @@ pub mod bifurcation;
 pub mod cavity;
 pub mod cylinder;
 pub mod runner;
+pub mod serpentine;
 pub mod step;
+pub mod threed;
 pub mod trifurcation;
 pub mod venturi;
-pub mod threed;
-pub mod serpentine;
 // NOTE: poiseuille_bifurcation module temporarily disabled due to API compatibility.
 // Awaiting alignment with updated cfd-1d/cfd-2d solver interfaces.
 // pub mod poiseuille_bifurcation;
@@ -24,11 +24,11 @@ pub use bifurcation::BifurcationFlow;
 pub use cavity::LidDrivenCavity;
 pub use cylinder::FlowOverCylinder;
 pub use runner::{BenchmarkRunner, ValidationReport};
+pub use serpentine::SerpentineFlow;
 pub use step::BackwardFacingStep;
+pub use threed::*;
 pub use trifurcation::TrifurcationFlow;
 pub use venturi::VenturiFlow;
-pub use threed::*;
-pub use serpentine::SerpentineFlow;
 // pub use poiseuille_bifurcation::*;
 
 /// Trait for CFD benchmark problems
@@ -104,9 +104,11 @@ impl<T: RealField + Copy> Default for BenchmarkConfig<T> {
     fn default() -> Self {
         Self {
             resolution: 64,
-            tolerance: T::from_f64(1e-6).unwrap_or_else(|| T::from_f64(0.000001).unwrap()),
+            tolerance: T::from_f64(1e-6)
+                .unwrap_or_else(|| T::from_f64(0.000001).unwrap_or_else(num_traits::Zero::zero)),
             max_iterations: 1000,
-            reynolds_number: T::from_f64(100.0).unwrap_or_else(|| T::from_i32(100).unwrap()),
+            reynolds_number: T::from_f64(100.0)
+                .unwrap_or_else(|| T::from_i32(100).unwrap_or_else(num_traits::Zero::zero)),
             time_step: None,
             parallel: true,
         }

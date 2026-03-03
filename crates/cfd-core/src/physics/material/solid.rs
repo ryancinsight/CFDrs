@@ -55,12 +55,12 @@ impl<T: RealField + Copy> ElasticSolid<T> {
         T: nalgebra::RealField + Copy + num_traits::FromPrimitive,
     {
         Self {
-            density: T::from_f64(7850.0).unwrap(),
-            youngs_modulus: T::from_f64(200e9).unwrap(),
-            poissons_ratio: T::from_f64(0.3).unwrap(),
-            thermal_conductivity: T::from_f64(50.0).unwrap(),
-            specific_heat: T::from_f64(460.0).unwrap(),
-            thermal_expansion: T::from_f64(12e-6).unwrap(),
+            density: T::from_f64(7850.0).unwrap_or_else(num_traits::Zero::zero),
+            youngs_modulus: T::from_f64(200e9).unwrap_or_else(num_traits::Zero::zero),
+            poissons_ratio: T::from_f64(0.3).unwrap_or_else(num_traits::Zero::zero),
+            thermal_conductivity: T::from_f64(50.0).unwrap_or_else(num_traits::Zero::zero),
+            specific_heat: T::from_f64(460.0).unwrap_or_else(num_traits::Zero::zero),
+            thermal_expansion: T::from_f64(12e-6).unwrap_or_else(num_traits::Zero::zero),
         }
     }
 
@@ -71,12 +71,12 @@ impl<T: RealField + Copy> ElasticSolid<T> {
         T: nalgebra::RealField + Copy + num_traits::FromPrimitive,
     {
         Self {
-            density: T::from_f64(2700.0).unwrap(),
-            youngs_modulus: T::from_f64(70e9).unwrap(),
-            poissons_ratio: T::from_f64(0.33).unwrap(),
-            thermal_conductivity: T::from_f64(237.0).unwrap(),
-            specific_heat: T::from_f64(900.0).unwrap(),
-            thermal_expansion: T::from_f64(23e-6).unwrap(),
+            density: T::from_f64(2700.0).unwrap_or_else(num_traits::Zero::zero),
+            youngs_modulus: T::from_f64(70e9).unwrap_or_else(num_traits::Zero::zero),
+            poissons_ratio: T::from_f64(0.33).unwrap_or_else(num_traits::Zero::zero),
+            thermal_conductivity: T::from_f64(237.0).unwrap_or_else(num_traits::Zero::zero),
+            specific_heat: T::from_f64(900.0).unwrap_or_else(num_traits::Zero::zero),
+            thermal_expansion: T::from_f64(23e-6).unwrap_or_else(num_traits::Zero::zero),
         }
     }
 }

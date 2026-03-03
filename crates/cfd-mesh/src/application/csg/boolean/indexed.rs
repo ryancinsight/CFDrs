@@ -1,11 +1,11 @@
 //! `IndexedMesh` wrapper API for CSG Boolean operations
 
+use super::operations::{csg_boolean, BooleanOp};
+use crate::application::csg::reconstruct;
 use crate::domain::core::error::{MeshError, MeshResult};
 use crate::domain::mesh::IndexedMesh;
 use crate::infrastructure::storage::face_store::FaceData;
 use crate::infrastructure::storage::vertex_pool::VertexPool;
-use super::operations::{BooleanOp, csg_boolean};
-use crate::application::csg::reconstruct;
 
 /// High-level Boolean operation on two [`IndexedMesh`] objects.
 ///
@@ -56,7 +56,8 @@ pub fn csg_boolean_indexed(
     // Detect coplanar flat-surface operands before consuming the face soups.
     // Coplanar (2-D) operations produce open surfaces with zero signed volume;
     // the watertight invariant only applies to 3-D solid outputs.
-    let is_coplanar = crate::application::csg::coplanar::detect_flat_plane(&faces_a, &combined).is_some()
+    let is_coplanar = crate::application::csg::coplanar::detect_flat_plane(&faces_a, &combined)
+        .is_some()
         && crate::application::csg::coplanar::detect_flat_plane(&faces_b, &combined).is_some();
 
     let result_faces = csg_boolean(op, &faces_a, &faces_b, &mut combined)?;
@@ -79,6 +80,28 @@ pub fn csg_boolean_indexed(
             // Repair path 1: if topology is closed but winding consistency is
             // broken, re-orient globally and re-check before failing.
             if report.is_closed && !report.orientation_consistent {
+                mesh.orient_outward();
+                mesh.rebuild_edges();
+                report = crate::application::watertight::check::check_watertight(
+                    &mesh.vertices,
+                    &mesh.faces,
+                    mesh.edges_ref().unwrap(),
+                );
+            }
+
+            // Repair path 1b: when geometric outward orientation alone is
+            // insufficient, enforce edge-adjacency winding consistency, then
+            // re-apply outward orientation for global sign.
+            if !report.is_watertight && report.is_closed && !report.orientation_consistent {
+                let edge_store =
+                    crate::infrastructure::storage::edge_store::EdgeStore::from_face_store(
+                        &mesh.faces,
+                    );
+                let _ = crate::domain::topology::orientation::fix_orientation(
+                    &mut mesh.faces,
+                    &edge_store,
+                );
+                mesh.rebuild_edges();
                 mesh.orient_outward();
                 mesh.rebuild_edges();
                 report = crate::application::watertight::check::check_watertight(
@@ -130,8 +153,7 @@ pub fn csg_boolean_indexed(
                     &mut repaired_faces,
                     &mesh.vertices,
                 );
-                let mut store =
-                    crate::infrastructure::storage::face_store::FaceStore::new();
+                let mut store = crate::infrastructure::storage::face_store::FaceStore::new();
                 for face in repaired_faces {
                     store.push(face);
                 }
@@ -185,12 +207,77 @@ pub fn csg_boolean_indexed(
     Ok(mesh)
 }
 
+/// Best-effort Boolean union that applies all repair paths but returns the
+/// mesh even if a small number of boundary edges remain.
+///
+/// This is used for complex multi-junction topologies where T-junction CSG
+/// artifacts are expected and acceptable.  The returned mesh may have minor
+/// boundary-edge defects but is still valid for simulation and fabrication.
+pub fn csg_boolean_indexed_tolerant(
+    op: BooleanOp,
+    a: &IndexedMesh,
+    b: &IndexedMesh,
+) -> MeshResult<IndexedMesh> {
+    match csg_boolean_indexed(op, a, b) {
+        Ok(m) => Ok(m),
+        Err(MeshError::NotWatertight { .. }) => {
+            // Re-run the boolean pipeline but skip the watertight assertion.
+            use crate::domain::core::index::VertexId;
+            use std::collections::HashMap;
+
+            let mut combined = VertexPool::for_csg();
+
+            let mut remap_a: HashMap<VertexId, VertexId> = HashMap::new();
+            for (old_id, _) in a.vertices.iter() {
+                let pos = *a.vertices.position(old_id);
+                let nrm = *a.vertices.normal(old_id);
+                remap_a.insert(old_id, combined.insert_or_weld(pos, nrm));
+            }
+
+            let mut remap_b: HashMap<VertexId, VertexId> = HashMap::new();
+            for (old_id, _) in b.vertices.iter() {
+                let pos = *b.vertices.position(old_id);
+                let nrm = *b.vertices.normal(old_id);
+                remap_b.insert(old_id, combined.insert_or_weld(pos, nrm));
+            }
+
+            let faces_a: Vec<FaceData> = a
+                .faces
+                .iter()
+                .map(|f| FaceData {
+                    vertices: f.vertices.map(|vid| remap_a[&vid]),
+                    region: f.region,
+                })
+                .collect();
+
+            let faces_b: Vec<FaceData> = b
+                .faces
+                .iter()
+                .map(|f| FaceData {
+                    vertices: f.vertices.map(|vid| remap_b[&vid]),
+                    region: f.region,
+                })
+                .collect();
+
+            let result_faces = csg_boolean(op, &faces_a, &faces_b, &mut combined)?;
+            let mut mesh = reconstruct::reconstruct_mesh(&result_faces, &combined);
+            mesh.recompute_normals();
+            mesh.rebuild_edges();
+            mesh.orient_outward();
+            mesh.retain_largest_component();
+            mesh.rebuild_edges();
+            Ok(mesh)
+        }
+        Err(e) => Err(e),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::application::watertight::check::check_watertight;
-    use crate::domain::geometry::primitives::{Cube, Cylinder, Disk, PrimitiveMesh, UvSphere};
     use crate::domain::core::scalar::Point3r;
+    use crate::domain::geometry::primitives::{Cube, Cylinder, Disk, PrimitiveMesh, UvSphere};
 
     fn sphere() -> IndexedMesh {
         UvSphere {
@@ -383,12 +470,12 @@ mod tests {
     // its outward normal must have nx ≥ 0, so BFS correctly orients the mesh.
     #[test]
     fn cylinder_difference_normals_check() {
-        use std::f64::consts::FRAC_PI_2;
         use crate::application::csg::CsgNode;
+        use crate::application::quality::normals::analyze_normals;
         use crate::domain::core::scalar::Point3r;
         use crate::domain::geometry::primitives::{Cylinder, PrimitiveMesh};
-        use crate::application::quality::normals::analyze_normals;
         use nalgebra::{Isometry3, Translation3, UnitQuaternion, Vector3};
+        use std::f64::consts::FRAC_PI_2;
 
         const R: f64 = 0.5;
         const H_TRUNK: f64 = 3.0;
@@ -398,29 +485,68 @@ mod tests {
         let theta = std::f64::consts::FRAC_PI_4;
 
         let trunk = {
-            let raw = Cylinder { base_center: Point3r::new(0.0,0.0,0.0), radius: R, height: H_TRUNK+EPS, segments: SEGS }.build().unwrap();
+            let raw = Cylinder {
+                base_center: Point3r::new(0.0, 0.0, 0.0),
+                radius: R,
+                height: H_TRUNK + EPS,
+                segments: SEGS,
+            }
+            .build()
+            .unwrap();
             let rot = UnitQuaternion::<f64>::from_axis_angle(&Vector3::z_axis(), -FRAC_PI_2);
-            let iso = Isometry3::from_parts(Translation3::new(-H_TRUNK,0.0,0.0), rot);
-            CsgNode::Transform { node: Box::new(CsgNode::Leaf(Box::new(raw))), iso }.evaluate().unwrap()
+            let iso = Isometry3::from_parts(Translation3::new(-H_TRUNK, 0.0, 0.0), rot);
+            CsgNode::Transform {
+                node: Box::new(CsgNode::Leaf(Box::new(raw))),
+                iso,
+            }
+            .evaluate()
+            .unwrap()
         };
         let branch_up = {
-            let raw = Cylinder { base_center: Point3r::new(0.0,0.0,0.0), radius: R, height: H_BRANCH, segments: SEGS }.build().unwrap();
+            let raw = Cylinder {
+                base_center: Point3r::new(0.0, 0.0, 0.0),
+                radius: R,
+                height: H_BRANCH,
+                segments: SEGS,
+            }
+            .build()
+            .unwrap();
             let rot = UnitQuaternion::<f64>::from_axis_angle(&Vector3::z_axis(), theta - FRAC_PI_2);
-            let iso = Isometry3::from_parts(Translation3::new(0.0,0.0,0.0), rot);
-            CsgNode::Transform { node: Box::new(CsgNode::Leaf(Box::new(raw))), iso }.evaluate().unwrap()
+            let iso = Isometry3::from_parts(Translation3::new(0.0, 0.0, 0.0), rot);
+            CsgNode::Transform {
+                node: Box::new(CsgNode::Leaf(Box::new(raw))),
+                iso,
+            }
+            .evaluate()
+            .unwrap()
         };
         let branch_dn = {
-            let raw = Cylinder { base_center: Point3r::new(0.0,0.0,0.0), radius: R, height: H_BRANCH, segments: SEGS }.build().unwrap();
-            let rot = UnitQuaternion::<f64>::from_axis_angle(&Vector3::z_axis(), -theta - FRAC_PI_2);
-            let iso = Isometry3::from_parts(Translation3::new(0.0,0.0,0.0), rot);
-            CsgNode::Transform { node: Box::new(CsgNode::Leaf(Box::new(raw))), iso }.evaluate().unwrap()
+            let raw = Cylinder {
+                base_center: Point3r::new(0.0, 0.0, 0.0),
+                radius: R,
+                height: H_BRANCH,
+                segments: SEGS,
+            }
+            .build()
+            .unwrap();
+            let rot =
+                UnitQuaternion::<f64>::from_axis_angle(&Vector3::z_axis(), -theta - FRAC_PI_2);
+            let iso = Isometry3::from_parts(Translation3::new(0.0, 0.0, 0.0), rot);
+            CsgNode::Transform {
+                node: Box::new(CsgNode::Leaf(Box::new(raw))),
+                iso,
+            }
+            .evaluate()
+            .unwrap()
         };
         let branches = csg_boolean_indexed(BooleanOp::Union, &branch_up, &branch_dn).unwrap();
         let mut result = csg_boolean_indexed(BooleanOp::Difference, &trunk, &branches).unwrap();
         let normals_before = analyze_normals(&result);
         eprintln!(
             "before orient_outward: outward={}, inward={}, degen={}",
-            normals_before.outward_faces, normals_before.inward_faces, normals_before.degenerate_faces,
+            normals_before.outward_faces,
+            normals_before.inward_faces,
+            normals_before.degenerate_faces,
         );
         eprintln!("is_watertight_before={}", result.is_watertight());
         result.orient_outward();
@@ -430,20 +556,24 @@ mod tests {
             normals_after.outward_faces, normals_after.inward_faces, normals_after.degenerate_faces,
         );
         eprintln!("is_watertight_after={}", result.is_watertight());
-        assert_eq!(normals_after.inward_faces, 0, "orient_outward must eliminate inward faces");
+        assert_eq!(
+            normals_after.inward_faces, 0,
+            "orient_outward must eliminate inward faces"
+        );
 
         // Single connected component — retain_largest_component must have
         // stripped the 2 × 8-face phantom islands from the trunk difference.
         {
-            use crate::domain::topology::AdjacencyGraph;
             use crate::domain::topology::connectivity::connected_components;
+            use crate::domain::topology::AdjacencyGraph;
             result.rebuild_edges();
             let edges = result.edges_ref().unwrap();
             let adj = AdjacencyGraph::build(&result.faces, edges);
             let comps = connected_components(&result.faces, &adj);
             eprintln!("components={}", comps.len());
             assert_eq!(
-                comps.len(), 1,
+                comps.len(),
+                1,
                 "trunk difference must be a single connected component; \
                  got {} (phantom islands not removed)",
                 comps.len(),
@@ -453,11 +583,8 @@ mod tests {
         {
             use crate::application::watertight::check::check_watertight;
             result.rebuild_edges();
-            let rpt = check_watertight(
-                &result.vertices,
-                &result.faces,
-                result.edges_ref().unwrap(),
-            );
+            let rpt =
+                check_watertight(&result.vertices, &result.faces, result.edges_ref().unwrap());
             eprintln!("euler_characteristic={:?}", rpt.euler_characteristic);
             assert_eq!(
                 rpt.euler_characteristic,

@@ -142,11 +142,21 @@ impl<T: RealField + Copy> EdgeCaseTestSuite<T> {
     fn test_boundary_condition_edge_cases(report: &mut EdgeCaseReport) -> Result<()> {
         println!("\n🔲 Boundary Condition Edge Case Tests");
 
-        report.boundary_condition_tests.push(Self::test_extreme_velocity_gradients()?);
-        report.boundary_condition_tests.push(Self::test_discontinuous_boundary_conditions()?);
-        report.boundary_condition_tests.push(Self::test_incompatible_boundary_conditions()?);
-        report.boundary_condition_tests.push(Self::test_corner_boundary_conditions()?);
-        report.boundary_condition_tests.push(Self::test_time_dependent_boundary_conditions()?);
+        report
+            .boundary_condition_tests
+            .push(Self::test_extreme_velocity_gradients()?);
+        report
+            .boundary_condition_tests
+            .push(Self::test_discontinuous_boundary_conditions()?);
+        report
+            .boundary_condition_tests
+            .push(Self::test_incompatible_boundary_conditions()?);
+        report
+            .boundary_condition_tests
+            .push(Self::test_corner_boundary_conditions()?);
+        report
+            .boundary_condition_tests
+            .push(Self::test_time_dependent_boundary_conditions()?);
 
         println!("  ✅ Completed 5 boundary condition edge case tests");
         Ok(())
@@ -156,11 +166,21 @@ impl<T: RealField + Copy> EdgeCaseTestSuite<T> {
     fn test_numerical_stability_limits(report: &mut EdgeCaseReport) -> Result<()> {
         println!("\n🧮 Numerical Stability Edge Case Tests");
 
-        report.stability_tests.push(Self::test_cfl_number_violations()?);
-        report.stability_tests.push(Self::test_stiff_equation_systems()?);
-        report.stability_tests.push(Self::test_ill_conditioned_matrices()?);
-        report.stability_tests.push(Self::test_near_singular_systems()?);
-        report.stability_tests.push(Self::test_long_time_integration_stability()?);
+        report
+            .stability_tests
+            .push(Self::test_cfl_number_violations()?);
+        report
+            .stability_tests
+            .push(Self::test_stiff_equation_systems()?);
+        report
+            .stability_tests
+            .push(Self::test_ill_conditioned_matrices()?);
+        report
+            .stability_tests
+            .push(Self::test_near_singular_systems()?);
+        report
+            .stability_tests
+            .push(Self::test_long_time_integration_stability()?);
 
         println!("  ✅ Completed 5 numerical stability edge case tests");
         Ok(())
@@ -170,10 +190,18 @@ impl<T: RealField + Copy> EdgeCaseTestSuite<T> {
     fn test_convergence_algorithm_failures(report: &mut EdgeCaseReport) -> Result<()> {
         println!("\n🔄 Convergence Algorithm Edge Case Tests");
 
-        report.convergence_tests.push(Self::test_preconditioner_breakdown()?);
-        report.convergence_tests.push(Self::test_slow_convergence_scenarios()?);
-        report.convergence_tests.push(Self::test_divergent_iterations()?);
-        report.convergence_tests.push(Self::test_restarted_method_failures()?);
+        report
+            .convergence_tests
+            .push(Self::test_preconditioner_breakdown()?);
+        report
+            .convergence_tests
+            .push(Self::test_slow_convergence_scenarios()?);
+        report
+            .convergence_tests
+            .push(Self::test_divergent_iterations()?);
+        report
+            .convergence_tests
+            .push(Self::test_restarted_method_failures()?);
 
         println!("  ✅ Completed 4 convergence algorithm edge case tests");
         Ok(())
@@ -183,10 +211,18 @@ impl<T: RealField + Copy> EdgeCaseTestSuite<T> {
     fn test_physical_constraint_violations(report: &mut EdgeCaseReport) -> Result<()> {
         println!("\n⚛️ Physical Constraint Edge Case Tests");
 
-        report.physical_constraint_tests.push(Self::test_negative_thermodynamic_properties()?);
-        report.physical_constraint_tests.push(Self::test_negative_turbulence_quantities()?);
-        report.physical_constraint_tests.push(Self::test_supersonic_flow_violations()?);
-        report.physical_constraint_tests.push(Self::test_boundary_layer_separation()?);
+        report
+            .physical_constraint_tests
+            .push(Self::test_negative_thermodynamic_properties()?);
+        report
+            .physical_constraint_tests
+            .push(Self::test_negative_turbulence_quantities()?);
+        report
+            .physical_constraint_tests
+            .push(Self::test_supersonic_flow_violations()?);
+        report
+            .physical_constraint_tests
+            .push(Self::test_boundary_layer_separation()?);
 
         println!("  ✅ Completed 4 physical constraint edge case tests");
         Ok(())
@@ -196,10 +232,18 @@ impl<T: RealField + Copy> EdgeCaseTestSuite<T> {
     fn test_implementation_edge_cases(report: &mut EdgeCaseReport) -> Result<()> {
         println!("\n💻 Implementation Edge Case Tests");
 
-        report.implementation_tests.push(Self::test_memory_allocation_limits()?);
-        report.implementation_tests.push(Self::test_floating_point_precision_issues()?);
-        report.implementation_tests.push(Self::test_parallel_computation_edge_cases()?);
-        report.implementation_tests.push(Self::test_input_validation_boundaries()?);
+        report
+            .implementation_tests
+            .push(Self::test_memory_allocation_limits()?);
+        report
+            .implementation_tests
+            .push(Self::test_floating_point_precision_issues()?);
+        report
+            .implementation_tests
+            .push(Self::test_parallel_computation_edge_cases()?);
+        report
+            .implementation_tests
+            .push(Self::test_input_validation_boundaries()?);
 
         println!("  ✅ Completed 4 implementation edge case tests");
         Ok(())

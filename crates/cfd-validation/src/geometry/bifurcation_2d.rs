@@ -47,18 +47,15 @@ impl<T: RealField + Copy> Bifurcation2D<T> {
             daughter2_width: daughter_width,
             daughter2_length: daughter_length,
             daughter2_angle: -angle,
-            junction_center: Point2D { x: length, y: T::zero() },
+            junction_center: Point2D {
+                x: length,
+                y: T::zero(),
+            },
         }
     }
 
     /// Check if a point is inside a specific branch segment
-    fn in_segment(
-        point: &Point2D<T>,
-        start: &Point2D<T>,
-        angle: T,
-        length: T,
-        width: T,
-    ) -> bool {
+    fn in_segment(point: &Point2D<T>, start: &Point2D<T>, angle: T, length: T, width: T) -> bool {
         // Translate point to local coordinates
         let dx = point.x - start.x;
         let dy = point.y - start.y;
@@ -82,18 +79,39 @@ impl<T: RealField + Copy> Geometry2D<T> for Bifurcation2D<T> {
 
     fn contains(&self, point: &Point2D<T>) -> bool {
         // Check parent branch (horizontal from 0 to parent_length)
-        let parent_start = Point2D { x: T::zero(), y: T::zero() };
-        if Self::in_segment(point, &parent_start, T::zero(), self.parent_length, self.parent_width) {
+        let parent_start = Point2D {
+            x: T::zero(),
+            y: T::zero(),
+        };
+        if Self::in_segment(
+            point,
+            &parent_start,
+            T::zero(),
+            self.parent_length,
+            self.parent_width,
+        ) {
             return true;
         }
 
         // Check daughter 1
-        if Self::in_segment(point, &self.junction_center, self.daughter1_angle, self.daughter1_length, self.daughter1_width) {
+        if Self::in_segment(
+            point,
+            &self.junction_center,
+            self.daughter1_angle,
+            self.daughter1_length,
+            self.daughter1_width,
+        ) {
             return true;
         }
 
         // Check daughter 2
-        if Self::in_segment(point, &self.junction_center, self.daughter2_angle, self.daughter2_length, self.daughter2_width) {
+        if Self::in_segment(
+            point,
+            &self.junction_center,
+            self.daughter2_angle,
+            self.daughter2_length,
+            self.daughter2_width,
+        ) {
             return true;
         }
 
@@ -112,19 +130,24 @@ impl<T: RealField + Copy> Geometry2D<T> for Bifurcation2D<T> {
     fn boundary_condition(&self, face: BoundaryFace, _s: T) -> BoundaryCondition<T> {
         match face {
             BoundaryFace::Left => BoundaryCondition::Dirichlet(T::one()), // Inlet
-            _ => BoundaryCondition::Dirichlet(T::zero()), // Walls/Outlets
+            _ => BoundaryCondition::Dirichlet(T::zero()),                 // Walls/Outlets
         }
     }
 
     fn bounds(&self) -> (Point2D<T>, Point2D<T>) {
         // Calculate max bounds based on daughter angles and lengths
-        let x_max = self.parent_length + self.daughter1_length * self.daughter1_angle.cos().max(self.daughter2_angle.cos());
-        let y_max = (self.daughter1_length * self.daughter1_angle.sin()).abs()
+        let x_max = self.parent_length
+            + self.daughter1_length * self.daughter1_angle.cos().max(self.daughter2_angle.cos());
+        let y_max = (self.daughter1_length * self.daughter1_angle.sin())
+            .abs()
             .max((self.daughter2_length * self.daughter2_angle.sin()).abs())
             + self.parent_width;
-        
+
         (
-            Point2D { x: T::zero(), y: -y_max },
+            Point2D {
+                x: T::zero(),
+                y: -y_max,
+            },
             Point2D { x: x_max, y: y_max },
         )
     }
@@ -139,8 +162,8 @@ impl<T: RealField + Copy> Geometry2D<T> for Bifurcation2D<T> {
 
     fn measure(&self) -> T {
         // Area of the branches (ignoring overlap at junction for simplicity)
-        self.parent_width * self.parent_length 
-            + self.daughter1_width * self.daughter1_length 
+        self.parent_width * self.parent_length
+            + self.daughter1_width * self.daughter1_length
             + self.daughter2_width * self.daughter2_length
     }
 }

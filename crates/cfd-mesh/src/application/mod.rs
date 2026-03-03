@@ -10,7 +10,7 @@
 //! |--------|---------------|
 //! | [`csg`] | Complete 5-phase Boolean CSG pipeline (union, intersection, difference) |
 //! | [`channel`] | Millifluidic channel geometry builders (sweep, junction, profile) |
-//! | [`pipeline`] | `NetworkBlueprint → IndexedMesh` pipeline (requires `scheme-io`) |
+//! | [`pipeline`] | `NetworkBlueprint → IndexedMesh` pipeline |
 //! | [`quality`] | Triangle quality metrics and mesh validation reports |
 //! | [`watertight`] | Manifold checking, Euler characteristic, sealing, repair |
 //! | [`welding`] | Vertex deduplication (spatial hash + union-find) |
@@ -20,7 +20,6 @@ pub mod channel;
 pub mod csg;
 pub mod delaunay;
 pub mod hierarchy;
-#[cfg(feature = "scheme-io")]
 pub mod pipeline;
 pub mod quality;
 pub mod watertight;

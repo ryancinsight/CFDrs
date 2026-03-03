@@ -1023,9 +1023,7 @@ fn main() {
     }
     println!("    Candidates with cancer_cav > 0.25 AND lysis_risk < 0.001: {joint_safe_count}");
     println!("    Candidates with clotting_risk_index <= 0.25: {low_clotting_count}");
-    println!(
-        "    Candidates with flow >= 200 mL/min clotting threshold: {flow_compliant_count}"
-    );
+    println!("    Candidates with flow >= 200 mL/min clotting threshold: {flow_compliant_count}");
     println!(
         "    Candidates with flow >= 600 mL/min (10 mL/s sensitivity): {flow_compliant_10mls_count}"
     );
@@ -1491,7 +1489,8 @@ fn scan_low_flow_band(
             let Ok(metrics) = compute_metrics(&cand) else {
                 continue;
             };
-            let cav_ready = metrics.cavitation_number.is_finite() && metrics.cavitation_number < 1.0;
+            let cav_ready =
+                metrics.cavitation_number.is_finite() && metrics.cavitation_number < 1.0;
             cavitation_ready_any |= cav_ready;
 
             // Hard-constraint score in the official combined mode.
@@ -1673,7 +1672,9 @@ fn print_header() {
     println!("{}", "=".repeat(110));
     println!("  Parts: 1=MultiMode(6) 2=Robust 3=DualGA 4=CavEnvelope 5=JointFeasibility");
     println!("         6=XMode(6) 7=HtH 8=Report 9=RBCSafety 10=TreatmentZone");
-    println!("         11=WallShear/Diffuser 12=ParetoFront(3obj) 13=Robustness(±20%) 14=LowFlowBand");
+    println!(
+        "         11=WallShear/Diffuser 12=ParetoFront(3obj) 13=Robustness(±20%) 14=LowFlowBand"
+    );
     println!("  Topologies: full design space including CCT/CIF + GA AdaptiveTree variants");
     println!("{}", "=".repeat(110));
 }
@@ -2055,7 +2056,9 @@ fn write_combined_ranked5_markdown(
     md.push_str("# Combined SDT + Leukapheresis Ranked 5 Millifluidics\n\n");
     md.push_str("Official leaderboard for `OptimMode::CombinedSdtLeukapheresis`.\n\n");
     md.push_str("| Rank | Candidate ID | Topology | Score | cancer_targeted_cavitation | wbc_recovery | rbc_venturi_exposure_fraction | cav_bias_index | cif_remerge_score | selective_delivery_index | clotting_risk_index | clotting_risk_index_10ml_s | Q>=200 | Q>=600 | HI/pass | HI15m(3kg) % | ECV mL |\n");
-    md.push_str("|---:|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|---|---:|---:|---:|\n");
+    md.push_str(
+        "|---:|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|---|---:|---:|---:|\n",
+    );
     if ranked5.is_empty() {
         md.push_str(
             "| - | _No candidate passed leukapheresis filter_ | - | - | - | - | - | - | - | - | - | - |\n\n",
@@ -2439,13 +2442,11 @@ fn write_milestone12_report(
         }
         md.push('\n');
 
-        if let Some(best_cif) = cif_ranked5
-            .iter()
-            .max_by(|a, b| a
-                .metrics
+        if let Some(best_cif) = cif_ranked5.iter().max_by(|a, b| {
+            a.metrics
                 .oncology_selectivity_index
-                .total_cmp(&b.metrics.oncology_selectivity_index))
-        {
+                .total_cmp(&b.metrics.oncology_selectivity_index)
+        }) {
             let sel_idx = best_cif.metrics.oncology_selectivity_index;
             md.push_str("## Section 3.10 — CIF Candidate Recommendation\n\n");
             md.push_str("CIF-first recommendation for selective SDT with staged skimming and near-outlet remerge:\n\n");

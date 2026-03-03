@@ -85,16 +85,31 @@ mod tests {
 
     #[test]
     fn gyroid_sphere_invalid_radius_errors() {
-        assert!(GyroidSphere { radius: -1.0, ..GyroidSphere::default() }.build().is_err());
+        assert!(GyroidSphere {
+            radius: -1.0,
+            ..GyroidSphere::default()
+        }
+        .build()
+        .is_err());
     }
 
     #[test]
     fn gyroid_sphere_invalid_period_errors() {
-        assert!(GyroidSphere { period: 0.0, ..GyroidSphere::default() }.build().is_err());
+        assert!(GyroidSphere {
+            period: 0.0,
+            ..GyroidSphere::default()
+        }
+        .build()
+        .is_err());
     }
 
     #[test]
     fn gyroid_sphere_low_resolution_errors() {
-        assert!(GyroidSphere { resolution: 3, ..GyroidSphere::default() }.build().is_err());
+        assert!(GyroidSphere {
+            resolution: 3,
+            ..GyroidSphere::default()
+        }
+        .build()
+        .is_err());
     }
 }

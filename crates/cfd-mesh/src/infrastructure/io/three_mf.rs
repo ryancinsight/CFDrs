@@ -26,16 +26,14 @@ pub fn write_3mf<W: Write + Seek>(writer: W, mesh: &IndexedMesh) -> MeshResult<(
 
     // _rels/.rels
     zip.start_file("_rels/.rels", options).map_err(io_err)?;
-    zip.write_all(RELS_XML.as_bytes())
-        .map_err(MeshError::Io)?;
+    zip.write_all(RELS_XML.as_bytes()).map_err(MeshError::Io)?;
 
     // 3D/3dmodel.model
     zip.start_file("3D/3dmodel.model", options)
         .map_err(io_err)?;
 
     let model_xml = build_model_xml(mesh);
-    zip.write_all(model_xml.as_bytes())
-        .map_err(MeshError::Io)?;
+    zip.write_all(model_xml.as_bytes()).map_err(MeshError::Io)?;
 
     zip.finish().map_err(io_err)?;
     Ok(())

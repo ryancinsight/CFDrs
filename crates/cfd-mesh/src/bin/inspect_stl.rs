@@ -105,9 +105,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let stats = analyze_mesh(&pool, &faces);
     print_report(&stats);
 
-    let has_issues = stats.open_edges > 0
-        || stats.non_manifold_edges > 0
-        || stats.degenerate_faces > 0;
+    let has_issues =
+        stats.open_edges > 0 || stats.non_manifold_edges > 0 || stats.degenerate_faces > 0;
 
     if has_issues {
         println!("  ✗  Mesh has issues — see report above.");
@@ -220,7 +219,11 @@ fn analyze_mesh(
         let l3 = e3.norm();
         let longest = l1.max(l2).max(l3);
         let shortest = l1.min(l2).min(l3);
-        let ar = if shortest > 1e-20 { longest / shortest } else { Real::MAX };
+        let ar = if shortest > 1e-20 {
+            longest / shortest
+        } else {
+            Real::MAX
+        };
         if ar.is_finite() && ar > stats.max_aspect_ratio {
             stats.max_aspect_ratio = ar;
         }
@@ -280,7 +283,11 @@ fn analyze_mesh(
 
 fn print_report(stats: &StlStats) {
     let watertight = stats.open_edges == 0 && stats.non_manifold_edges == 0;
-    let vol_sign = if stats.volume < 0.0 { " ⚠ INVERTED" } else { "" };
+    let vol_sign = if stats.volume < 0.0 {
+        " ⚠ INVERTED"
+    } else {
+        ""
+    };
     let n_total = stats.triangle_count;
     let inward_pct = if n_total > 0 {
         100.0 * stats.inward_facing_faces as Real / n_total as Real
@@ -322,14 +329,8 @@ fn print_report(stats: &StlStats) {
         "  Inward normals    : {}  ({:.1}%)",
         stats.inward_facing_faces, inward_pct
     );
-    println!(
-        "  Aspect ratio (max): {:.2}",
-        stats.max_aspect_ratio
-    );
-    println!(
-        "  Aspect ratio (avg): {:.2}",
-        stats.mean_aspect_ratio
-    );
+    println!("  Aspect ratio (max): {:.2}", stats.max_aspect_ratio);
+    println!("  Aspect ratio (avg): {:.2}", stats.mean_aspect_ratio);
     println!("═══════════════════════════════════════════════");
     println!();
 }

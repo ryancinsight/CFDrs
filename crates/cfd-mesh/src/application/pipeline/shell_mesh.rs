@@ -8,12 +8,10 @@
 //! and `build_tpms_box_graded`. Co-planar CSG unions seamlessly integrate the
 //! port connection pipes into the bounded cavity.
 
-use std::f64::consts::PI;
-
 use crate::application::csg::boolean::{csg_boolean_indexed, BooleanOp};
+use crate::domain::core::scalar::Vector3r;
 use crate::domain::core::MeshError;
 use crate::domain::core::MeshResult;
-use crate::domain::core::scalar::Vector3r;
 use crate::domain::geometry::primitives::cube::Cube;
 use crate::domain::geometry::primitives::PrimitiveMesh;
 use crate::domain::geometry::tpms::{
@@ -97,8 +95,6 @@ impl ShellMeshPipeline {
         // 1. Build the core cavity (either empty box or TPMS)
         let mut fluid_mesh = if let Some(ref fill) = shell.tpms_fill {
             // TPMS branches. The builders ensure perfect `bounds` capping.
-            let res = fill.resolution;
-            let iso = fill.iso_value;
             match fill.surface {
                 TpmsSurfaceKind::Gyroid => Self::build_tpms(&Gyroid, &bounds, fill)?,
                 TpmsSurfaceKind::SchwarzP => Self::build_tpms(&SchwarzP, &bounds, fill)?,
@@ -125,9 +121,17 @@ impl ShellMeshPipeline {
         // 2. Add port stubs to fluid mesh via Union
         for port in &shell.ports {
             // Port cylinder connects outer wall to cavity wall
-            let p1 = Vector3r::new(port.outer_point_mm.0, port.outer_point_mm.1, config.z_mid_mm);
-            let p2 = Vector3r::new(port.inner_point_mm.0, port.inner_point_mm.1, config.z_mid_mm);
-            
+            let p1 = Vector3r::new(
+                port.outer_point_mm.0,
+                port.outer_point_mm.1,
+                config.z_mid_mm,
+            );
+            let p2 = Vector3r::new(
+                port.inner_point_mm.0,
+                port.inner_point_mm.1,
+                config.z_mid_mm,
+            );
+
             // To ensure robust overlapping, we extend the inner point slightly into the cavity.
             // Port `end` is on the inner wall. Vector goes from start (outer) to end (inner).
             let mut dir = p2 - p1;
@@ -137,7 +141,7 @@ impl ShellMeshPipeline {
             } else {
                 continue;
             }
-            
+
             // Extend slightly inwards by 0.5 mm for a clean CSG union interface.
             let p2_extended = p2 + dir * 0.5;
             // Extend slightly outwards by 0.1 mm to ensure it cuts through the substrate perfectly
@@ -146,12 +150,12 @@ impl ShellMeshPipeline {
             // Port diameter defaults to 4mm to interface with 4mm tubing,
             // or 2mm if cavity is smaller.
             let dia = config.cavity_height_mm.min(4.0);
-            
-            use crate::application::channel::sweep::SweepMesher;
-            use crate::application::channel::profile::ChannelProfile;
+
             use crate::application::channel::path::ChannelPath;
-            use crate::infrastructure::storage::vertex_pool::VertexPool;
+            use crate::application::channel::profile::ChannelProfile;
+            use crate::application::channel::sweep::SweepMesher;
             use crate::domain::core::index::RegionId;
+            use crate::infrastructure::storage::vertex_pool::VertexPool;
 
             let profile = ChannelProfile::Circular {
                 radius: dia / 2.0,
@@ -161,9 +165,12 @@ impl ShellMeshPipeline {
             let end_ext = crate::domain::core::scalar::Point3r::from(p2_extended);
             let path = ChannelPath::straight(start_ext, end_ext);
             let mut pool = VertexPool::default_millifluidic();
-            let mesher = SweepMesher { cap_start: true, cap_end: true };
+            let mesher = SweepMesher {
+                cap_start: true,
+                cap_end: true,
+            };
             let faces = mesher.sweep(&profile, &path, &mut pool, RegionId::new(1));
-            
+
             let mut port_mesh = IndexedMesh::new();
             let mut vmap = std::collections::HashMap::new();
             for (vid, vdata) in pool.iter() {
@@ -175,7 +182,7 @@ impl ShellMeshPipeline {
                     *vmap.get(&face.vertices[0]).unwrap(),
                     *vmap.get(&face.vertices[1]).unwrap(),
                     *vmap.get(&face.vertices[2]).unwrap(),
-                    face.region
+                    face.region,
                 );
             }
             port_mesh.rebuild_edges();
@@ -190,7 +197,8 @@ impl ShellMeshPipeline {
             width: shell.outer_dims_mm.0,
             height: shell.outer_dims_mm.1,
             depth: config.chip_height_mm,
-        }.build()
+        }
+        .build()
         .map_err(|e| MeshError::Other(e.to_string()))?;
 
         // 4. Physical Chip = Substrate \ Fluid
@@ -225,13 +233,9 @@ impl ShellMeshPipeline {
                 grad_clone.period_at(x_frac, y_frac)
             };
 
-            let mesh = build_tpms_box_graded(
-                surface,
-                *bounds,
-                fill.resolution,
-                fill.iso_value,
-                period_fn,
-            ).map_err(|e| MeshError::Other(format!("TPMS grading error: {:?}", e)))?;
+            let mesh =
+                build_tpms_box_graded(surface, *bounds, fill.resolution, fill.iso_value, period_fn)
+                    .map_err(|e| MeshError::Other(format!("TPMS grading error: {:?}", e)))?;
             Ok(mesh)
         } else {
             // Uniform TPMS

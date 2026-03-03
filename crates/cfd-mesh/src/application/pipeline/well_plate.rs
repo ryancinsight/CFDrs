@@ -38,8 +38,7 @@ impl SbsWellPlate96 {
     /// `true` if the straight segment from `(x0, y0)` to `(x1, y1)` (mm) lies
     /// within block bounds minus `clearance_mm` at **both** endpoints.
     pub fn segment_within_bounds(x0: f64, y0: f64, x1: f64, y1: f64, clearance_mm: f64) -> bool {
-        Self::contains_point(x0, y0, clearance_mm)
-            && Self::contains_point(x1, y1, clearance_mm)
+        Self::contains_point(x0, y0, clearance_mm) && Self::contains_point(x1, y1, clearance_mm)
     }
 
     /// `true` if the routing segment stays within the plate for channel layout.
@@ -91,11 +90,7 @@ mod tests {
     fn segment_within_bounds_rejects_out_of_range() {
         // segment starting at x=0 must fail with 5 mm clearance
         assert!(!SbsWellPlate96::segment_within_bounds(
-            0.0,
-            42.735,
-            127.76,
-            42.735,
-            5.0
+            0.0, 42.735, 127.76, 42.735, 5.0
         ));
     }
 }

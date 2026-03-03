@@ -6,6 +6,7 @@
 //! - Convergence studies and error analysis
 //! - Code quality metrics
 
+pub mod fidelity_limits;
 pub mod html;
 pub mod json;
 pub mod markdown;

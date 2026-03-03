@@ -54,20 +54,20 @@ impl Default for TessellationOptions {
 
 impl TessellationOptions {
     /// Create with default settings.
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Set the maximum deviation angle in degrees (builder pattern).
-    #[must_use] 
+    #[must_use]
     pub fn with_max_angle(mut self, deg: Real) -> Self {
         self.max_angle_deg = deg;
         self
     }
 
     /// Set the minimum number of parameter segments (builder pattern).
-    #[must_use] 
+    #[must_use]
     pub fn with_min_segments(mut self, n: usize) -> Self {
         self.min_segments = n.max(1);
         self
@@ -159,7 +159,7 @@ fn subdivide_quad(
 /// let mesh = tessellate_surface(&my_surf, &opts);
 /// assert!(mesh.face_count() > 0);
 /// ```
-#[must_use] 
+#[must_use]
 pub fn tessellate_surface(surf: &NurbsSurface, opts: &TessellationOptions) -> IndexedMesh {
     let ((u0, u1), (v0, v1)) = surf.domain();
     let segs = opts.min_segments.max(1);
@@ -210,7 +210,7 @@ pub fn tessellate_surface(surf: &NurbsSurface, opts: &TessellationOptions) -> In
 /// let pts = tessellate_curve(&my_curve, &TessellationOptions::default());
 /// assert!(pts.len() >= 2);
 /// ```
-#[must_use] 
+#[must_use]
 pub fn tessellate_curve(curve: &NurbsCurve<3>, opts: &TessellationOptions) -> Vec<Point3r> {
     let (t0, t1) = curve.domain();
     let segs = opts.min_segments.max(1);

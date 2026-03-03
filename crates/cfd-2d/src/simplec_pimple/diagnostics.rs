@@ -47,7 +47,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
     /// Uses central-difference approximation of the divergence operator.
     pub(super) fn calculate_continuity_residual(&self, fields: &SimulationFields<T>) -> T {
         let mut max_divergence = T::zero();
-        let two = T::from_f64(2.0).unwrap();
+        let two = T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
 
         for i in 1..self.grid.nx - 1 {
             for j in 1..self.grid.ny - 1 {

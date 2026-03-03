@@ -3,6 +3,32 @@
 
 use serde::{Deserialize, Serialize};
 
+/// Per-channel hemolysis decomposition for a single channel segment.
+///
+/// Each entry records the local Giersiepen HI contribution, shear conditions,
+/// and flow fraction for one channel in the solved 1D network.  This enables
+/// identification of which arm (treatment vs bypass) dominates hemolytic damage.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChannelHemolysis {
+    /// Channel identifier (e.g. `"center_lv0"`, `"L_lv0"`, `"throat"`).
+    pub channel_id: String,
+
+    /// Whether this channel is a venturi throat segment.
+    pub is_venturi_throat: bool,
+
+    /// Flow-weighted Giersiepen HI contribution from this segment.
+    pub hi_contribution: f64,
+
+    /// Wall shear stress in this segment [Pa].
+    pub wall_shear_pa: f64,
+
+    /// Transit time through this segment [s].
+    pub transit_time_s: f64,
+
+    /// Fraction of total inlet flow carried by this channel.
+    pub flow_fraction: f64,
+}
+
 /// All physics-derived metrics for one [`DesignCandidate`](crate::design::DesignCandidate).
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SdtMetrics {
@@ -625,6 +651,33 @@ pub struct SdtMetrics {
     /// For non-venturi topologies equals `hemolysis_index_per_pass`.
     #[serde(default)]
     pub hemolysis_index_per_pass_cavitation_amplified: f64,
+
+    // ── Per-channel hemolysis decomposition ──────────────────────────────────
+    /// HI contribution from venturi/treatment channel(s) only.
+    ///
+    /// After local-hematocrit correction for selective topologies (CCT/CIF).
+    /// Zero for non-venturi topologies.
+    #[serde(default)]
+    pub treatment_channel_hi: f64,
+
+    /// Mean HI contribution across bypass (non-venturi) channels.
+    ///
+    /// Captures the average hemolytic load in peripheral/skimming arms.
+    #[serde(default)]
+    pub bypass_channel_hi_mean: f64,
+
+    /// Maximum HI contribution among bypass (non-venturi) channels.
+    ///
+    /// Identifies the worst-case bypass arm for safety assessment.
+    #[serde(default)]
+    pub bypass_channel_hi_max: f64,
+
+    /// Per-channel hemolysis breakdown for all channels in the solved network.
+    ///
+    /// Enables detailed reporting of which channel segments contribute most
+    /// to cumulative hemolysis.  Sorted by descending HI contribution.
+    #[serde(default)]
+    pub per_channel_hemolysis: Vec<ChannelHemolysis>,
 }
 
 fn default_one() -> f64 {

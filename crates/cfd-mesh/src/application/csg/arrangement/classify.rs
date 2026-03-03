@@ -79,6 +79,63 @@ pub enum FragmentClass {
     CoplanarOpposite,
 }
 
+/// Prepared immutable triangle data for repeated fragment classification.
+///
+/// Stores copied positions plus derived centroid and unnormalised face normal.
+/// This removes repeated `VertexPool` lookups and vector recomputation when
+/// classifying many fragments against the same reference mesh.
+#[derive(Copy, Clone, Debug)]
+pub struct PreparedFace {
+    a: Point3r,
+    b: Point3r,
+    c: Point3r,
+    centroid: Point3r,
+    normal: Vector3r,
+}
+
+/// Build prepared reference-face geometry for repeated classification queries.
+///
+/// # Theorem — Classification Equivalence
+///
+/// Let `F` be a face slice and `P` the shared vertex pool. Replacing on-demand
+/// calls to `pool.position(face.vertices[i])` with copied coordinates from
+/// `PreparedFace` preserves all predicates used by classification:
+/// - van Oosterom solid-angle terms (`gwn`)
+/// - `orient3d` coplanarity tiebreak
+/// - nearest-face signed-distance tiebreak
+///
+/// Because each `PreparedFace` coordinate is copied exactly from `P` and no
+/// arithmetic is changed, `classify_fragment_prepared` is observationally
+/// equivalent to `classify_fragment` for the same inputs. ∎
+#[must_use]
+pub fn prepare_classification_faces(
+    faces: &[FaceData],
+    pool: &VertexPool<f64>,
+) -> Vec<PreparedFace> {
+    let mut prepared = Vec::with_capacity(faces.len());
+    for face in faces {
+        let a = *pool.position(face.vertices[0]);
+        let b = *pool.position(face.vertices[1]);
+        let c = *pool.position(face.vertices[2]);
+        let ab = Vector3r::new(b.x - a.x, b.y - a.y, b.z - a.z);
+        let ac = Vector3r::new(c.x - a.x, c.y - a.y, c.z - a.z);
+        let normal = ab.cross(&ac);
+        let centroid = Point3r::new(
+            (a.x + b.x + c.x) / 3.0,
+            (a.y + b.y + c.y) / 3.0,
+            (a.z + b.z + c.z) / 3.0,
+        );
+        prepared.push(PreparedFace {
+            a,
+            b,
+            c,
+            centroid,
+            normal,
+        });
+    }
+    prepared
+}
+
 // ── Internal fragment record ─────────────────────────────────────────────────
 
 /// One subdivision fragment of a parent face.
@@ -155,6 +212,32 @@ pub fn gwn<T: Scalar>(query: &nalgebra::Point3<T>, faces: &[FaceData], pool: &Ve
         <T as Scalar>::from_f64(-1.0),
         <T as Scalar>::from_f64(1.0),
     )
+}
+
+#[inline]
+fn gwn_prepared(query: &Point3r, faces: &[PreparedFace]) -> f64 {
+    let mut solid_angle_sum = 0.0_f64;
+    for face in faces {
+        let va = nalgebra::Vector3::new(face.a.x - query.x, face.a.y - query.y, face.a.z - query.z);
+        let vb = nalgebra::Vector3::new(face.b.x - query.x, face.b.y - query.y, face.b.z - query.z);
+        let vc = nalgebra::Vector3::new(face.c.x - query.x, face.c.y - query.y, face.c.z - query.z);
+
+        // Same near-vertex guard as gwn().
+        if va.norm_squared() < 1e-40 || vb.norm_squared() < 1e-40 || vc.norm_squared() < 1e-40 {
+            continue;
+        }
+
+        let la = va.norm();
+        let lb = vb.norm();
+        let lc = vc.norm();
+        let num = va.dot(&vb.cross(&vc));
+        let den = la * lb * lc + va.dot(&vb) * lc + vb.dot(&vc) * la + vc.dot(&va) * lb;
+
+        if den.abs() > 1e-30 || num.abs() > 1e-30 {
+            solid_angle_sum += 2.0 * num.atan2(den);
+        }
+    }
+    (solid_angle_sum / (4.0 * std::f64::consts::PI)).clamp(-1.0, 1.0)
 }
 
 /// Classify whether a fragment's centroid is inside the opposing mesh.
@@ -259,13 +342,83 @@ pub fn classify_fragment(
     if best_sign.abs() > 1e-9 {
         if best_sign < 0.0 {
             return FragmentClass::Inside;
-        } else {
-            return FragmentClass::Outside;
         }
+        return FragmentClass::Outside;
     }
 
     // Treat on-boundary (GWN == 0.5, no coplanar votes, no signed dist) as
     // CoplanarSame — conservative: keeps the face in the output.
+    FragmentClass::CoplanarSame
+}
+
+/// Classify whether a fragment's centroid is inside the opposing mesh using
+/// precomputed reference-face geometry.
+///
+/// This is a drop-in equivalent to [`classify_fragment`] for hot loops where
+/// many fragments are tested against the same opposing mesh.
+#[must_use]
+pub fn classify_fragment_prepared(
+    centroid: &Point3r,
+    frag_normal: &Vector3r,
+    other_faces: &[PreparedFace],
+) -> FragmentClass {
+    use crate::domain::topology::predicates::{orient3d, Sign};
+
+    let wn = gwn_prepared(centroid, other_faces);
+    let wn_abs = wn.abs();
+    if wn_abs > 0.65 {
+        return FragmentClass::Inside;
+    }
+    if wn_abs < 0.35 {
+        return FragmentClass::Outside;
+    }
+
+    let mut interior_votes = 0i32;
+    let mut exterior_votes = 0i32;
+
+    for face in other_faces {
+        if orient3d(&face.a, &face.b, &face.c, centroid) != Sign::Zero {
+            continue;
+        }
+        let dot = face.normal.dot(frag_normal);
+        if dot > 0.0 {
+            exterior_votes += 1;
+        } else if dot < 0.0 {
+            interior_votes += 1;
+        }
+    }
+
+    if interior_votes > exterior_votes {
+        return FragmentClass::CoplanarOpposite;
+    }
+    if exterior_votes > interior_votes {
+        return FragmentClass::CoplanarSame;
+    }
+
+    let mut best_dist_sq = f64::MAX;
+    let mut best_sign = 0.0_f64;
+    for face in other_faces {
+        let dx = centroid.x - face.centroid.x;
+        let dy = centroid.y - face.centroid.y;
+        let dz = centroid.z - face.centroid.z;
+        let dist_sq = dx * dx + dy * dy + dz * dz;
+        if dist_sq < best_dist_sq {
+            best_dist_sq = dist_sq;
+            let cp = Vector3r::new(
+                centroid.x - face.a.x,
+                centroid.y - face.a.y,
+                centroid.z - face.a.z,
+            );
+            best_sign = cp.dot(&face.normal);
+        }
+    }
+
+    if best_sign.abs() > 1e-9 {
+        if best_sign < 0.0 {
+            return FragmentClass::Inside;
+        }
+        return FragmentClass::Outside;
+    }
     FragmentClass::CoplanarSame
 }
 
@@ -486,5 +639,27 @@ mod tests {
         ];
         let n = tri_normal(&tri);
         assert!(n.z > 0.0, "CCW XY triangle normal should be +Z, got {n:?}");
+    }
+
+    /// Prepared and non-prepared classification paths are equivalent.
+    #[test]
+    fn classify_prepared_matches_unprepared() {
+        let (pool, faces) = unit_cube_mesh();
+        let prepared = prepare_classification_faces(&faces, &pool);
+        let samples = [
+            (Point3r::new(0.0, 0.0, 0.0), Vector3r::new(0.0, 0.0, 1.0)),
+            (Point3r::new(4.0, 0.0, 0.0), Vector3r::new(1.0, 0.0, 0.0)),
+            (Point3r::new(0.0, 0.0, 0.5), Vector3r::new(0.0, 0.0, 1.0)),
+            (Point3r::new(0.5, 0.0, 0.0), Vector3r::new(1.0, 0.0, 0.0)),
+        ];
+
+        for (c, n) in samples {
+            let a = classify_fragment(&c, &n, &faces, &pool);
+            let b = classify_fragment_prepared(&c, &n, &prepared);
+            assert_eq!(
+                a, b,
+                "prepared classification diverged at centroid={c:?}, normal={n:?}"
+            );
+        }
     }
 }

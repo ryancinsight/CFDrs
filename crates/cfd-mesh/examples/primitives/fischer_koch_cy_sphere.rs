@@ -35,7 +35,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("  Surface    : C(Y) — Fischer & Koch (1989)");
     println!("  Space group: Ia3̄d (#230), genus 6, dual Y-junction labyrinths");
     println!("  Radius     : {} mm", builder.radius);
-    println!("  Period     : {} mm  (lattice unit-cell size)", builder.period);
+    println!(
+        "  Period     : {} mm  (lattice unit-cell size)",
+        builder.period
+    );
     println!("  Resolution : {}  (voxels per axis)", builder.resolution);
     println!("  Building mesh...");
 

@@ -3,8 +3,8 @@
 //! This binary validates all branching flow solvers (bifurcation, trifurcation)
 //! against analytical solutions and conservation laws.
 
-use cfd_1d::{TwoWayBranchJunction, ThreeWayBranchJunction};
 use cfd_1d::channel::{Channel, ChannelGeometry};
+use cfd_1d::{ThreeWayBranchJunction, TwoWayBranchJunction};
 use cfd_core::physics::fluid::blood::CassonBlood;
 
 fn main() {
@@ -32,7 +32,9 @@ fn validate_1d_bifurcation() {
     let daughter2 = Channel::new(ChannelGeometry::<f64>::circular(1e-3, d_daughter, 1e-6));
 
     let junction = TwoWayBranchJunction::new(parent, daughter1, daughter2, 0.5);
-    let result = junction.solve(blood, flow_rate, pressure, 310.15, 101325.0).unwrap();
+    let result = junction
+        .solve(blood, flow_rate, pressure, 310.15, 101325.0)
+        .unwrap();
 
     let q_sum: f64 = result.q_1 + result.q_2;
     let mass_error: f64 = (q_sum - flow_rate).abs() / flow_rate;
@@ -70,10 +72,15 @@ fn validate_1d_trifurcation() {
     let daughter3 = Channel::new(ChannelGeometry::<f64>::circular(1e-3, d_daughter, 1e-6));
 
     let junction = ThreeWayBranchJunction::new(
-        parent, daughter1, daughter2, daughter3,
+        parent,
+        daughter1,
+        daughter2,
+        daughter3,
         (1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0),
     );
-    let result = junction.solve(blood, flow_rate, pressure, 310.15, 101325.0).unwrap();
+    let result = junction
+        .solve(blood, flow_rate, pressure, 310.15, 101325.0)
+        .unwrap();
 
     let q_sum: f64 = result.q_1 + result.q_2 + result.q_3;
     let mass_error: f64 = (q_sum - flow_rate).abs() / flow_rate;

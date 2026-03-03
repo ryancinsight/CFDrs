@@ -54,8 +54,8 @@ impl<T: RealField + Copy + FromPrimitive> CfdSimdOps<T> {
         let mut dudy = vec![T::zero(); nx * ny];
         let mut dudx = vec![T::zero(); nx * ny];
 
-        let dx_inv = T::one() / (T::from_f64(2.0).unwrap() * dx);
-        let dy_inv = T::one() / (T::from_f64(2.0).unwrap() * dy);
+        let dx_inv = T::one() / (T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero) * dx);
+        let dy_inv = T::one() / (T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero) * dy);
 
         // Interior points - use parallel processing for better performance
         let u_slice = &u;
@@ -113,7 +113,7 @@ impl<T: RealField + Copy + FromPrimitive> CfdSimdOps<T> {
             let idx = j * nx;
             let u_right = u[j * nx + 1];
             let u_here = u[idx];
-            dudx[idx] = (u_right - u_here) * dx_inv * T::from_f64(2.0).unwrap();
+            dudx[idx] = (u_right - u_here) * dx_inv * T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
 
             let u_up = u[(j + 1) * nx];
             let u_down = u[(j - 1) * nx];
@@ -125,7 +125,7 @@ impl<T: RealField + Copy + FromPrimitive> CfdSimdOps<T> {
             let idx = j * nx + (nx - 1);
             let u_left = u[j * nx + (nx - 2)];
             let u_here = u[idx];
-            dudx[idx] = (u_here - u_left) * dx_inv * T::from_f64(2.0).unwrap();
+            dudx[idx] = (u_here - u_left) * dx_inv * T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
 
             let u_up = u[(j + 1) * nx + (nx - 1)];
             let u_down = u[(j - 1) * nx + (nx - 1)];
@@ -137,7 +137,7 @@ impl<T: RealField + Copy + FromPrimitive> CfdSimdOps<T> {
             let idx = i;
             let u_up = u[nx + i];
             let u_here = u[idx];
-            dudy[idx] = (u_up - u_here) * dy_inv * T::from_f64(2.0).unwrap();
+            dudy[idx] = (u_up - u_here) * dy_inv * T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
 
             let u_right = u[i + 1];
             let u_left = u[i - 1];
@@ -149,7 +149,7 @@ impl<T: RealField + Copy + FromPrimitive> CfdSimdOps<T> {
             let idx = (ny - 1) * nx + i;
             let u_down = u[(ny - 2) * nx + i];
             let u_here = u[idx];
-            dudy[idx] = (u_here - u_down) * dy_inv * T::from_f64(2.0).unwrap();
+            dudy[idx] = (u_here - u_down) * dy_inv * T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
 
             let u_right = u[(ny - 1) * nx + i + 1];
             let u_left = u[(ny - 1) * nx + i - 1];

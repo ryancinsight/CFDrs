@@ -44,8 +44,8 @@
 //!   NASA Tech. Rep. CR-1012. Table 1, entry "I-WP".
 //! - Gandy, P.J.F., Klinowski, J. et al. (1999). *Chem. Phys. Lett.* 314, 543–551.
 
-use crate::domain::core::scalar::Vector3r;
 use super::Tpms;
+use crate::domain::core::scalar::Vector3r;
 
 /// I-WP TPMS — Schoen (1970) "I-graph Wrapped Package" triply periodic minimal surface.
 ///
@@ -63,7 +63,11 @@ impl Tpms for Iwp {
     #[inline]
     fn field(&self, x: f64, y: f64, z: f64, k: f64) -> f64 {
         let (cx, cy, cz) = ((k * x).cos(), (k * y).cos(), (k * z).cos());
-        let (c2x, c2y, c2z) = ((2.0 * k * x).cos(), (2.0 * k * y).cos(), (2.0 * k * z).cos());
+        let (c2x, c2y, c2z) = (
+            (2.0 * k * x).cos(),
+            (2.0 * k * y).cos(),
+            (2.0 * k * z).cos(),
+        );
 
         2.0 * (cx * cy + cy * cz + cz * cx) - (c2x + c2y + c2z)
     }
@@ -76,7 +80,11 @@ impl Tpms for Iwp {
         let (sx, cx) = ((k * x).sin(), (k * x).cos());
         let (sy, cy) = ((k * y).sin(), (k * y).cos());
         let (sz, cz) = ((k * z).sin(), (k * z).cos());
-        let (s2x, s2y, s2z) = ((2.0 * k * x).sin(), (2.0 * k * y).sin(), (2.0 * k * z).sin());
+        let (s2x, s2y, s2z) = (
+            (2.0 * k * x).sin(),
+            (2.0 * k * y).sin(),
+            (2.0 * k * z).sin(),
+        );
 
         // ∂F/∂x = −2k(sin(kx)·cos(ky) + sin(kx)·cos(kz)) + 2k·sin(2kx)
         let gx = -2.0 * k * (sx * cy + sx * cz) + 2.0 * k * s2x;

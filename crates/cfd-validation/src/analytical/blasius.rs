@@ -130,7 +130,6 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> BlasiusBound
     /// Calculate shape factor H = δ*/θ
     /// For Blasius: H ≈ 2.59
     pub fn shape_factor(&self) -> T {
-        
         T::from_f64_or_one(2.591)
     }
 
@@ -224,7 +223,9 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> BlasiusBound
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> AnalyticalSolution<T> for BlasiusBoundaryLayer<T> {
+impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> AnalyticalSolution<T>
+    for BlasiusBoundaryLayer<T>
+{
     fn evaluate(&self, x: T, y: T, _z: T, _t: T) -> Vector3<T> {
         if x <= T::zero() {
             return Vector3::new(self.u_inf, T::zero(), T::zero());
@@ -255,11 +256,11 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> AnalyticalSo
         let length = T::from_f64_or_one(10.0) * self.x;
         [
             T::zero(),
-            length,           // x: [0, 10x]
+            length, // x: [0, 10x]
             T::zero(),
             delta * T::from_f64_or_one(5.0), // y: [0, 5δ]
             T::zero(),
-            T::zero(),        // z: 0 (2D flow)
+            T::zero(), // z: 0 (2D flow)
         ]
     }
 
@@ -286,7 +287,10 @@ mod tests {
 
         // At infinity (η → ∞): u → U
         let u_inf = blasius.velocity_ratio_at_eta(8.0_f64);
-        assert!((u_inf - 1.0).abs() < 0.001, "Velocity at infinity should be 1.0");
+        assert!(
+            (u_inf - 1.0).abs() < 0.001,
+            "Velocity at infinity should be 1.0"
+        );
     }
 
     #[test]
@@ -299,7 +303,10 @@ mod tests {
         let delta2 = blasius2.boundary_layer_thickness();
 
         let ratio = delta2 / delta1;
-        assert!((ratio - 2.0_f64).abs() < 0.01, "Boundary layer should grow as sqrt(x)");
+        assert!(
+            (ratio - 2.0_f64).abs() < 0.01,
+            "Boundary layer should grow as sqrt(x)"
+        );
     }
 
     #[test]
@@ -312,8 +319,10 @@ mod tests {
         let h_calc = delta_star / theta;
 
         // Should match theoretical value of 2.59
-        assert!((h_calc - 2.591).abs() < 0.01,
-            "Shape factor should be ~2.59 for Blasius");
+        assert!(
+            (h_calc - 2.591).abs() < 0.01,
+            "Shape factor should be ~2.59 for Blasius"
+        );
     }
 
     #[test]

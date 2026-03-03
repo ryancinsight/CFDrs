@@ -273,16 +273,27 @@ impl<T: RealField + Copy> ManufacturedMHD<T> {
 
         // Velocity field components
         let u = self.velocity_amp * spatial_u * temporal;
-        let v = self.velocity_amp * spatial_v * temporal * T::from_f64(0.5).unwrap();
-        let w = self.velocity_amp * spatial_w * temporal * T::from_f64(0.25).unwrap();
+        let v = self.velocity_amp
+            * spatial_v
+            * temporal
+            * T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero);
+        let w = self.velocity_amp
+            * spatial_w
+            * temporal
+            * T::from_f64(0.25).unwrap_or_else(num_traits::Zero::zero);
 
         // Magnetic field components (perpendicular to velocity for interesting dynamics)
         let bx = self.magnetic_amp * spatial_v * temporal;
         let by = self.magnetic_amp * spatial_u * temporal;
-        let bz = self.magnetic_amp * spatial_w * temporal * T::from_f64(0.1).unwrap();
+        let bz = self.magnetic_amp
+            * spatial_w
+            * temporal
+            * T::from_f64(0.1).unwrap_or_else(num_traits::Zero::zero);
 
         // Pressure field (from momentum equation)
-        let pressure = self.density * (u * u + v * v + w * w) * T::from_f64(0.5).unwrap();
+        let pressure = self.density
+            * (u * u + v * v + w * w)
+            * T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero);
 
         // Current density J = σ(E + u × B), assuming E = 0 for simplicity
         let jx = self.sigma * (v * bz - w * by);
@@ -333,7 +344,7 @@ impl<T: RealField + Copy> ManufacturedMHD<T> {
         let (_, fy, _) = fields.lorentz_force;
 
         // Time derivative
-        let dv_dt = -v * T::from_f64(0.5).unwrap();
+        let dv_dt = -v * T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero);
 
         // Convective terms
         let convective = u * self.kx * v + v * self.ky * v + w * self.kx * v;
@@ -356,7 +367,7 @@ impl<T: RealField + Copy> ManufacturedMHD<T> {
         let (_, _, fz) = fields.lorentz_force;
 
         // Time derivative
-        let dw_dt = -w * T::from_f64(0.25).unwrap();
+        let dw_dt = -w * T::from_f64(0.25).unwrap_or_else(num_traits::Zero::zero);
 
         // Convective terms
         let convective = u * self.kx * w + v * self.ky * w + w * self.kx * w;
@@ -387,7 +398,7 @@ impl<T: RealField + Copy> ManufacturedMHD<T> {
         // Time derivatives
         let dbx_dt = -bx;
         let dby_dt = -by;
-        let dbz_dt = -bz * T::from_f64(0.1).unwrap();
+        let dbz_dt = -bz * T::from_f64(0.1).unwrap_or_else(num_traits::Zero::zero);
 
         // Diffusion terms
         let diff_x = magnetic_diffusivity * k_squared * bx;

@@ -369,8 +369,7 @@ mod tests {
 
         let r = st.tube_radius;
         let n_passes = st.n_passes as f64;
-        let l_total =
-            n_passes * st.straight_length + (n_passes - 1.0) * PI * st.bend_radius;
+        let l_total = n_passes * st.straight_length + (n_passes - 1.0) * PI * st.bend_radius;
         let expected = PI * r * r * l_total;
         let error = (report.signed_volume - expected).abs() / expected;
         assert!(

@@ -25,19 +25,14 @@ pub struct Serpentine2D<T: RealField> {
 
 impl<T: RealField + Copy> Serpentine2D<T> {
     /// Create a new sinusoidal serpentine geometry
-    pub fn new(
-        width: T,
-        amplitude: T,
-        period_length: T,
-        periods: usize,
-    ) -> Self {
+    pub fn new(width: T, amplitude: T, period_length: T, periods: usize) -> Self {
         Self {
             width,
             amplitude,
             periods,
             period_length,
-            l_inlet: width * T::from_f64(5.0).unwrap(),
-            l_outlet: width * T::from_f64(10.0).unwrap(),
+            l_inlet: width * T::from_f64(5.0).unwrap_or_else(num_traits::Zero::zero),
+            l_outlet: width * T::from_f64(10.0).unwrap_or_else(num_traits::Zero::zero),
         }
     }
 
@@ -69,16 +64,17 @@ impl<T: RealField + Copy> Serpentine2D<T> {
         if x < self.l_inlet {
             return T::zero();
         }
-        
+
         let serpentine_start = self.l_inlet;
-        let serpentine_end = self.l_inlet + self.period_length * T::from_usize(self.periods).unwrap();
-        
+        let serpentine_end =
+            self.l_inlet + self.period_length * T::from_usize(self.periods).unwrap();
+
         if x > serpentine_end {
             return T::zero();
         }
 
         let local_x = x - serpentine_start;
-        let two_pi = T::from_f64(2.0 * std::f64::consts::PI).unwrap();
+        let two_pi = T::from_f64(2.0 * std::f64::consts::PI).unwrap_or_else(num_traits::Zero::zero);
         self.amplitude * (two_pi * local_x / self.period_length).sin()
     }
 }
@@ -118,8 +114,14 @@ impl<T: RealField + Copy> Geometry2D<T> for Serpentine2D<T> {
     fn bounds(&self) -> (Point2D<T>, Point2D<T>) {
         let y_max = self.amplitude + self.width;
         (
-            Point2D { x: T::zero(), y: -y_max },
-            Point2D { x: self.total_length(), y: y_max },
+            Point2D {
+                x: T::zero(),
+                y: -y_max,
+            },
+            Point2D {
+                x: self.total_length(),
+                y: y_max,
+            },
         )
     }
 
@@ -145,9 +147,9 @@ impl<T: RealField + Copy> Geometry2D<T> for Serpentine2D<T> {
         //
         // Reference: Weisstein, Eric W. "Arc Length." MathWorld.
 
-        let two_pi = T::from_f64(2.0 * std::f64::consts::PI).unwrap();
+        let two_pi = T::from_f64(2.0 * std::f64::consts::PI).unwrap_or_else(num_traits::Zero::zero);
         let k = two_pi / self.period_length; // wave number
-        let ak = self.amplitude * k;          // A·k = A·2π/λ
+        let ak = self.amplitude * k; // A·k = A·2π/λ
 
         // Compute arc length for one period via composite trapezoidal rule
         let n_quad: usize = 512;
@@ -158,7 +160,7 @@ impl<T: RealField + Copy> Geometry2D<T> for Serpentine2D<T> {
             let dydx = ak * (k * x_loc).cos();
             let integrand = (T::one() + dydx * dydx).sqrt();
             let weight = if i == 0 || i == n_quad {
-                T::from_f64(0.5).unwrap()
+                T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero)
             } else {
                 T::one()
             };
@@ -167,9 +169,8 @@ impl<T: RealField + Copy> Geometry2D<T> for Serpentine2D<T> {
 
         // Total arc length = inlet + serpentine periods + outlet
         // Inlet and outlet are straight, so their arc length equals their length.
-        let arc_length_total = self.l_inlet
-            + arc_length_period * T::from_usize(self.periods).unwrap()
-            + self.l_outlet;
+        let arc_length_total =
+            self.l_inlet + arc_length_period * T::from_usize(self.periods).unwrap() + self.l_outlet;
 
         self.width * arc_length_total
     }

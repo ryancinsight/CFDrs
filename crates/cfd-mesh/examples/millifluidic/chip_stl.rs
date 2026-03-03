@@ -26,7 +26,7 @@
 //! ## Usage
 //!
 //! ```sh
-//! cargo run -p cfd-mesh --features scheme-io --example millifluidic_chip_stl
+//! cargo run -p cfd-mesh --example millifluidic_chip_stl
 //! ```
 
 use std::fs;
@@ -54,13 +54,13 @@ const CHIP_D_MM: f64 = 85.47;
 /// One STL export target.
 struct Design {
     /// Filesystem-safe short identifier used for filenames and directories.
-    name:        &'static str,
+    name: &'static str,
     /// Human-readable description printed to stdout.
     description: &'static str,
     /// The [`NetworkBlueprint`] driving the mesh pipeline.
-    blueprint:   cfd_schematics::NetworkBlueprint,
+    blueprint: cfd_schematics::NetworkBlueprint,
     /// The 2-D [`ChannelSystem`] used for schematic JSON/SVG/PNG export.
-    system:      ChannelSystem,
+    system: ChannelSystem,
     /// Per-design pipeline config override.
     ///
     /// Most designs use the shared `config` from `main`.  Designs with known
@@ -159,11 +159,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             let path = out_dir.join(format!("{}_chip.stl", design.name));
             let f = fs::File::create(&path)?;
-            stl::write_binary_stl(
-                &mut BufWriter::new(f),
-                &chip.vertices,
-                &chip.faces,
-            )?;
+            stl::write_binary_stl(&mut BufWriter::new(f), &chip.vertices, &chip.faces)?;
             println!("        → {}", path.file_name().unwrap().to_string_lossy());
             stl_total += 1;
         }
@@ -230,7 +226,7 @@ fn build_designs() -> Vec<Design> {
 
     // Shared geometry config for 2-D schematic rendering.
     let geom_4mm = GeometryConfig {
-        channel_width:  4.0,
+        channel_width: 4.0,
         channel_height: 4.0,
         ..GeometryConfig::default()
     };
@@ -244,16 +240,15 @@ fn build_designs() -> Vec<Design> {
         // and x = chip_width respectively at y_centre = chip_depth/2.
         Design {
             name: "venturi_chain",
-            description:
-                "Single central channel: inlet Ø 4 mm → Ø 2 mm throat → Ø 4 mm → outlet  \
+            description: "Single central channel: inlet Ø 4 mm → Ø 2 mm throat → Ø 4 mm → outlet  \
                  (127.76 mm long, one circular port on each end face)",
             blueprint: venturi_chain("vc", 0.12776, 0.004, 0.002),
-            system:    create_geometry(
+            system: create_geometry(
                 box_dims,
                 &[],
                 &geom_4mm,
                 &ChannelTypeConfig::AllFrustum(FrustumConfig {
-                    inlet_width:  4.0,
+                    inlet_width: 4.0,
                     throat_width: 2.0,
                     outlet_width: 4.0,
                     ..FrustumConfig::default()
@@ -261,7 +256,6 @@ fn build_designs() -> Vec<Design> {
             ),
             config_override: None,
         },
-
         // ── Symmetric bifurcation: mirrored Y-split ───────────────────────────
         //
         // Inlet at x = 0, centre-line.  At 25 % chip length the channel
@@ -270,11 +264,10 @@ fn build_designs() -> Vec<Design> {
         // outlet.  Produces exactly 2 ports: one inlet, one outlet.
         Design {
             name: "symmetric_bifurcation",
-            description:
-                "Mirrored Y-topology: 1 inlet → upper+lower fork arms → 1 outlet  \
+            description: "Mirrored Y-topology: 1 inlet → upper+lower fork arms → 1 outlet  \
                  (parent Ø 4 mm, daughter Ø 4 mm — full-diameter equal fork)",
             blueprint: symmetric_bifurcation("bf", 0.010, 0.010, 0.004, 0.004),
-            system:    create_geometry(
+            system: create_geometry(
                 box_dims,
                 &[SplitType::Bifurcation],
                 &geom_4mm,
@@ -282,7 +275,6 @@ fn build_designs() -> Vec<Design> {
             ),
             config_override: None,
         },
-
         // ── Symmetric trifurcation: 1 inlet → 3 outlets T-split ──────────────
         //
         // Inlet at x = 0, centre-line.  At 25% chip length the channel diverges
@@ -290,11 +282,10 @@ fn build_designs() -> Vec<Design> {
         // the right face.  Produces exactly 4 ports: 1 inlet, 3 outlets.
         Design {
             name: "symmetric_trifurcation",
-            description:
-                "Diamond T-topology: 1 inlet → 3 parallel arms → 1 outlet  \
+            description: "Diamond T-topology: 1 inlet → 3 parallel arms → 1 outlet  \
                  (parent Ø 4 mm, daughter Ø 4 mm)",
             blueprint: symmetric_trifurcation("tf", 0.010, 0.010, 0.004, 0.004),
-            system:    create_geometry(
+            system: create_geometry(
                 box_dims,
                 &[SplitType::Trifurcation],
                 &geom_4mm,
@@ -302,7 +293,6 @@ fn build_designs() -> Vec<Design> {
             ),
             config_override: None,
         },
-
         // ── Serpentine chain: winding single channel ───────────────────────────
         //
         // Winding single-channel design: 3 serpentine legs connected by U-bends.
@@ -310,11 +300,10 @@ fn build_designs() -> Vec<Design> {
         // Both ports are on the left face at different Y positions.
         Design {
             name: "serpentine_chain",
-            description:
-                "Serpentine path: inlet → 3 winding rows via U-bends → outlet  \
+            description: "Serpentine path: inlet → 3 winding rows via U-bends → outlet  \
                  (Ø 4 mm, both ports on the left face at different Y positions)",
             blueprint: serpentine_chain("sc", 3, 0.010, 0.004),
-            system:    create_geometry(
+            system: create_geometry(
                 box_dims,
                 &[],
                 &geom_4mm,
@@ -322,7 +311,6 @@ fn build_designs() -> Vec<Design> {
             ),
             config_override: None,
         },
-
         // ── Venturi rect: rectangular cross-section taper ─────────────────────
         //
         // Venturi with rectangular cross-section channels.  Useful as an
@@ -330,19 +318,18 @@ fn build_designs() -> Vec<Design> {
         // simulations.  Inlet and outlet ports on opposite chip faces.
         Design {
             name: "venturi_rect",
-            description:
-                "Rectangular duct Venturi: inlet 4×5 mm → 2×5 mm throat → outlet  \
+            description: "Rectangular duct Venturi: inlet 4×5 mm → 2×5 mm throat → outlet  \
                  (one rectangular port on each end face)",
             blueprint: {
                 use cfd_schematics::interface::presets::venturi_rect;
                 venturi_rect("vr", 0.004, 0.002, 0.004, 0.005)
             },
-            system:    create_geometry(
+            system: create_geometry(
                 box_dims,
                 &[],
                 &geom_4mm,
                 &ChannelTypeConfig::AllFrustum(FrustumConfig {
-                    inlet_width:  4.0,
+                    inlet_width: 4.0,
                     throat_width: 2.0,
                     outlet_width: 4.0,
                     ..FrustumConfig::default()

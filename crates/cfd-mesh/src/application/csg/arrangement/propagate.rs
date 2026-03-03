@@ -1,6 +1,8 @@
 use crate::application::csg::intersect::SnapSegment;
+use crate::application::csg::predicates3d::{
+    point_on_segment_exact, proper_segment_intersection_params_projected_exact,
+};
 use crate::domain::core::scalar::{Point3r, Real, Vector3r};
-use crate::domain::geometry::predicates::{orient_2d_arr, Orientation};
 use crate::infrastructure::storage::face_store::FaceData;
 use crate::infrastructure::storage::vertex_pool::VertexPool;
 use std::collections::HashMap;
@@ -17,49 +19,6 @@ use std::collections::HashMap;
 /// `propagate_seam_vertices` and `inject_cap_seam_into_barrels` to ensure
 /// consistent seam vertex detection across the pipeline.
 const COLLINEAR_TOL_SQ: Real = 1e-6;
-
-#[inline]
-fn collinear_3d_exact(a: &Point3r, b: &Point3r, p: &Point3r) -> bool {
-    orient_2d_arr([a.x, a.y], [b.x, b.y], [p.x, p.y]) == Orientation::Degenerate
-        && orient_2d_arr([a.x, a.z], [b.x, b.z], [p.x, p.z]) == Orientation::Degenerate
-        && orient_2d_arr([a.y, a.z], [b.y, b.z], [p.y, p.z]) == Orientation::Degenerate
-}
-
-/// Exact-first point-on-segment parameter.
-///
-/// ## Algorithm
-///
-/// 1. Verify exact 3-D collinearity by requiring all three projection
-///    orientations (`xy`, `xz`, `yz`) to be degenerate.
-/// 2. Compute segment parameter `t = dot(p-a, b-a)/|b-a|²`.
-/// 3. Accept only strict interior points (`0 < t < 1`).
-///
-/// ## Theorem — 3-D Collinearity by Projection
-///
-/// A point `p` is collinear with segment endpoints `a,b` in 3-D iff the three
-/// independent 2-D projections `(xy, xz, yz)` are all collinear.
-///
-/// **Proof sketch.**
-/// `p-a` and `b-a` are linearly dependent in R³ iff all pairwise 2x2 minors of
-/// the matrix `[b-a, p-a]` vanish. Those minors are exactly the determinants
-/// tested by projected orientation predicates on `xy`, `xz`, and `yz`. ∎
-#[inline]
-fn point_on_segment_exact(a: &Point3r, b: &Point3r, p: &Point3r) -> Option<Real> {
-    if !collinear_3d_exact(a, b, p) {
-        return None;
-    }
-    let edge = *b - *a;
-    let edge_len_sq = edge.dot(&edge);
-    if edge_len_sq <= 0.0 {
-        return None;
-    }
-    let t = (*p - *a).dot(&edge) / edge_len_sq;
-    if t > 0.0 && t < 1.0 {
-        Some(t)
-    } else {
-        None
-    }
-}
 
 /// Ensure that every seam vertex created by CDT co-refinement is injected into
 /// all faces that share the face edge on which the seam vertex lies.
@@ -123,6 +82,10 @@ pub fn propagate_seam_vertices(
         }
         let face = &faces[fi];
         let v = face.vertices;
+        let p0 = *pool.position(v[0]);
+        let p1 = *pool.position(v[1]);
+        let p2 = *pool.position(v[2]);
+        let face_n = (p1 - p0).cross(&(p2 - p0));
 
         // For each face edge, collect all positions where snap segments touch or cross it.
         // These include:
@@ -190,8 +153,6 @@ pub fn propagate_seam_vertices(
                 let mut best_t = 0.0_f64;
                 let mut best_s = 0.0_f64;
                 for &(ax, ay) in &pairs {
-                    // e[0]*t - sv[0]*s = r[0]
-                    // e[1]*t - sv[1]*s = r[1]
                     let e0 = edge_vec[ax];
                     let e1 = edge_vec[ay];
                     let s0 = sv[ax];
@@ -220,6 +181,11 @@ pub fn propagate_seam_vertices(
                 let x_seg = seg.start + sv * best_s;
                 // Widened from 1e-8 to 1e-6 to match WELD_TOL_SQ in corefine.rs.
                 if nalgebra::distance_squared(&x_edge, &x_seg) > 1e-6 * edge_len_sq {
+                    // Shadow evaluation only: keep exact projected predicate hot
+                    // without changing current seam behavior.
+                    let _ = proper_segment_intersection_params_projected_exact(
+                        &pa, &pb, &seg.start, &seg.end, &face_n,
+                    );
                     continue;
                 }
                 t_params.push(best_t);
@@ -423,28 +389,87 @@ pub fn inject_cap_seam_into_barrels(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::domain::core::scalar::Vector3r;
+    use std::collections::HashMap;
 
-    fn p(x: Real, y: Real, z: Real) -> Point3r {
-        Point3r::new(x, y, z)
+    fn contains_param_split(
+        segs: &[SnapSegment],
+        a: Point3r,
+        b: Point3r,
+        t: Real,
+        tol: Real,
+    ) -> bool {
+        let x = a + (b - a) * t;
+        segs.iter().any(|s| {
+            (nalgebra::distance_squared(&s.start, &a) < tol
+                && nalgebra::distance_squared(&s.end, &x) < tol)
+                || (nalgebra::distance_squared(&s.start, &x) < tol
+                    && nalgebra::distance_squared(&s.end, &b) < tol)
+        })
     }
 
     #[test]
-    fn point_on_segment_exact_accepts_true_3d_collinear_point() {
-        let a = p(0.0, 0.0, 0.0);
-        let b = p(1.0, 2.0, 3.0);
-        let mid = p(0.5, 1.0, 1.5);
-        let t = point_on_segment_exact(&a, &b, &mid);
-        assert!(t.is_some(), "true 3D collinear midpoint must be accepted");
-    }
+    fn propagate_seam_vertices_injects_crossing_split_into_adjacent_face() {
+        let mut pool = VertexPool::default_millifluidic();
+        let n = Vector3r::new(0.0, 0.0, 1.0);
+        let a = pool.insert_or_weld(Point3r::new(0.0, 0.0, 0.0), n);
+        let b = pool.insert_or_weld(Point3r::new(1.0, 0.0, 0.0), n);
+        let c = pool.insert_or_weld(Point3r::new(0.5, 1.0, 0.0), n);
+        let d = pool.insert_or_weld(Point3r::new(0.5, -1.0, 0.0), n);
+        let faces = vec![FaceData::untagged(a, b, c), FaceData::untagged(b, a, d)];
 
-    #[test]
-    fn point_on_segment_exact_rejects_projection_false_positive() {
-        let a = p(0.0, 0.0, 0.0);
-        let b = p(1.0, 1.0, 1.0);
-        let q = p(0.5, 0.5, 0.6); // collinear in XY only
+        let mut segs: HashMap<usize, Vec<SnapSegment>> = HashMap::new();
+        segs.insert(
+            0,
+            vec![SnapSegment {
+                start: Point3r::new(0.25, 0.5, 0.0),
+                end: Point3r::new(0.25, -0.5, 0.0),
+            }],
+        );
+
+        propagate_seam_vertices(&faces, &mut segs, &pool);
+
+        let injected = segs
+            .get(&1)
+            .expect("adjacent face should receive seam splits");
+        let pa = *pool.position(a);
+        let pb = *pool.position(b);
         assert!(
-            point_on_segment_exact(&a, &b, &q).is_none(),
-            "non-collinear 3D point must be rejected"
+            injected.len() >= 2,
+            "crossing split should create at least two sub-segments on shared edge"
+        );
+        assert!(
+            contains_param_split(injected, pa, pb, 0.25, 1e-10),
+            "adjacent face should receive split at crossing parameter t=0.25"
+        );
+    }
+
+    #[test]
+    fn adversarial_near_parallel_crossing_is_propagated() {
+        let mut pool = VertexPool::default_millifluidic();
+        let n = Vector3r::new(0.0, 0.0, 1.0);
+        let a = pool.insert_or_weld(Point3r::new(0.0, 0.0, 0.0), n);
+        let b = pool.insert_or_weld(Point3r::new(1.0, 1.0e-10, 0.0), n);
+        let c = pool.insert_or_weld(Point3r::new(0.2, 1.0, 0.0), n);
+        let d = pool.insert_or_weld(Point3r::new(0.2, -1.0, 0.0), n);
+        let faces = vec![FaceData::untagged(a, b, c), FaceData::untagged(b, a, d)];
+
+        let mut segs: HashMap<usize, Vec<SnapSegment>> = HashMap::new();
+        segs.insert(
+            0,
+            vec![SnapSegment {
+                start: Point3r::new(0.5, -1.0e-10, 0.0),
+                end: Point3r::new(0.5000000001, 1.0e-10, 0.0),
+            }],
+        );
+
+        propagate_seam_vertices(&faces, &mut segs, &pool);
+        let injected = segs
+            .get(&1)
+            .expect("near-parallel proper crossing should still propagate");
+        assert!(
+            !injected.is_empty(),
+            "adjacent face should receive injected segments for near-parallel crossing"
         );
     }
 }

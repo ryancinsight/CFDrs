@@ -23,7 +23,7 @@ pub(crate) fn signed_area(poly: &[[Real; 2]]) -> Real {
 
 /// Unsigned area of a 2-D polygon.
 #[inline]
-#[must_use] 
+#[must_use]
 pub fn polygon_area(poly: &[[Real; 2]]) -> Real {
     signed_area(poly).abs()
 }
@@ -117,14 +117,12 @@ pub(crate) fn point_in_polygon(px: Real, py: Real, poly: &[[Real; 2]]) -> bool {
         let yi = poly[i][1];
         let yj = poly[j][1];
         if yi <= py {
-            if yj > py
-                && orient_2d_arr(poly[i], poly[j], p) == Orientation::Positive {
-                    winding += 1;
-                }
-        } else if yj <= py
-            && orient_2d_arr(poly[i], poly[j], p) == Orientation::Negative {
-                winding -= 1;
+            if yj > py && orient_2d_arr(poly[i], poly[j], p) == Orientation::Positive {
+                winding += 1;
             }
+        } else if yj <= py && orient_2d_arr(poly[i], poly[j], p) == Orientation::Negative {
+            winding -= 1;
+        }
     }
     winding != 0
 }

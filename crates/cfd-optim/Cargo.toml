@@ -27,7 +27,7 @@ cfd-1d.workspace = true
 cfd-math.workspace = true
 cfd-schematics.workspace = true
 
-cfd-mesh = { workspace = true, optional = true, features = ["scheme-io"] }
+cfd-mesh = { workspace = true, optional = true }
 
 [dev-dependencies]
 cfd-2d.workspace = true

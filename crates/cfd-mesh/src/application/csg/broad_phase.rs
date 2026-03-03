@@ -55,13 +55,11 @@ pub struct CandidatePair {
 
 // ── AABB ──────────────────────────────────────────────────────────────────────
 
-
-
 /// Compute the axis-aligned bounding box of a triangle.
 ///
 /// The box is grown by [`AABB_EPSILON`] on each side to guard against
 /// floating-point rounding when comparing AABBs of nearly-touching triangles.
-#[must_use] 
+#[must_use]
 pub fn triangle_aabb(face: &FaceData, pool: &VertexPool) -> Aabb {
     let a = *pool.position(face.vertices[0]);
     let b = *pool.position(face.vertices[1]);
@@ -86,7 +84,7 @@ pub fn triangle_aabb(face: &FaceData, pool: &VertexPool) -> Aabb {
 ///
 /// # Complexity
 /// `O((n + m) log m)` where n = `faces_a.len()`, m = `faces_b.len()`.
-#[must_use] 
+#[must_use]
 pub fn broad_phase_pairs(
     faces_a: &[FaceData],
     pool_a: &VertexPool,

@@ -109,15 +109,15 @@ impl<T: RealField + FromPrimitive + Copy> CassonBlood<T> {
     /// ```
     pub fn normal_blood() -> Self {
         Self {
-            density: T::from_f64(constants::BLOOD_DENSITY).unwrap(),
-            yield_stress: T::from_f64(constants::YIELD_STRESS).unwrap(),
-            infinite_shear_viscosity: T::from_f64(constants::INFINITE_SHEAR_VISCOSITY).unwrap(),
-            hematocrit: T::from_f64(constants::NORMAL_HEMATOCRIT).unwrap(),
-            specific_heat: T::from_f64(constants::BLOOD_SPECIFIC_HEAT).unwrap(),
-            thermal_conductivity: T::from_f64(constants::BLOOD_THERMAL_CONDUCTIVITY).unwrap(),
-            speed_of_sound: T::from_f64(constants::BLOOD_SPEED_OF_SOUND).unwrap(),
-            reference_shear_rate: T::from_f64(100.0).unwrap(),
-            regularization_shear_rate: T::from_f64(0.001).unwrap(),
+            density: T::from_f64(constants::BLOOD_DENSITY).unwrap_or_else(num_traits::Zero::zero),
+            yield_stress: T::from_f64(constants::YIELD_STRESS).unwrap_or_else(num_traits::Zero::zero),
+            infinite_shear_viscosity: T::from_f64(constants::INFINITE_SHEAR_VISCOSITY).unwrap_or_else(num_traits::Zero::zero),
+            hematocrit: T::from_f64(constants::NORMAL_HEMATOCRIT).unwrap_or_else(num_traits::Zero::zero),
+            specific_heat: T::from_f64(constants::BLOOD_SPECIFIC_HEAT).unwrap_or_else(num_traits::Zero::zero),
+            thermal_conductivity: T::from_f64(constants::BLOOD_THERMAL_CONDUCTIVITY).unwrap_or_else(num_traits::Zero::zero),
+            speed_of_sound: T::from_f64(constants::BLOOD_SPEED_OF_SOUND).unwrap_or_else(num_traits::Zero::zero),
+            reference_shear_rate: T::from_f64(100.0).unwrap_or_else(num_traits::Zero::zero),
+            regularization_shear_rate: T::from_f64(0.001).unwrap_or_else(num_traits::Zero::zero),
         }
     }
 
@@ -128,11 +128,11 @@ impl<T: RealField + FromPrimitive + Copy> CassonBlood<T> {
             yield_stress,
             infinite_shear_viscosity,
             hematocrit,
-            specific_heat: T::from_f64(constants::BLOOD_SPECIFIC_HEAT).unwrap(),
-            thermal_conductivity: T::from_f64(constants::BLOOD_THERMAL_CONDUCTIVITY).unwrap(),
-            speed_of_sound: T::from_f64(constants::BLOOD_SPEED_OF_SOUND).unwrap(),
-            reference_shear_rate: T::from_f64(100.0).unwrap(),
-            regularization_shear_rate: T::from_f64(0.001).unwrap(),
+            specific_heat: T::from_f64(constants::BLOOD_SPECIFIC_HEAT).unwrap_or_else(num_traits::Zero::zero),
+            thermal_conductivity: T::from_f64(constants::BLOOD_THERMAL_CONDUCTIVITY).unwrap_or_else(num_traits::Zero::zero),
+            speed_of_sound: T::from_f64(constants::BLOOD_SPEED_OF_SOUND).unwrap_or_else(num_traits::Zero::zero),
+            reference_shear_rate: T::from_f64(100.0).unwrap_or_else(num_traits::Zero::zero),
+            regularization_shear_rate: T::from_f64(0.001).unwrap_or_else(num_traits::Zero::zero),
         }
     }
 
@@ -142,29 +142,29 @@ impl<T: RealField + FromPrimitive + Copy> CassonBlood<T> {
     /// - τ_y(H_t) = τ_y,ref · (H_t / H_t,ref)^3  (Chien 1970)
     /// - μ_∞(H_t) = μ_plasma · exp(k · H_t / (1 - H_t))  (Quemada 1978)
     pub fn with_hematocrit(hematocrit: T) -> Self {
-        let h_ref = T::from_f64(constants::NORMAL_HEMATOCRIT).unwrap();
-        let tau_ref = T::from_f64(constants::YIELD_STRESS).unwrap();
-        let mu_plasma = T::from_f64(constants::PLASMA_VISCOSITY_37C).unwrap();
+        let h_ref = T::from_f64(constants::NORMAL_HEMATOCRIT).unwrap_or_else(num_traits::Zero::zero);
+        let tau_ref = T::from_f64(constants::YIELD_STRESS).unwrap_or_else(num_traits::Zero::zero);
+        let mu_plasma = T::from_f64(constants::PLASMA_VISCOSITY_37C).unwrap_or_else(num_traits::Zero::zero);
 
         // Yield stress scaling with hematocrit (Chien 1970)
         let ratio = hematocrit / h_ref;
         let yield_stress = tau_ref * ratio * ratio * ratio;
 
         // Infinite-shear viscosity from Quemada model
-        let k = T::from_f64(2.5).unwrap(); // Intrinsic viscosity coefficient
+        let k = T::from_f64(2.5).unwrap_or_else(num_traits::Zero::zero); // Intrinsic viscosity coefficient
         let one = T::one();
         let infinite_shear_viscosity = mu_plasma * (k * hematocrit / (one - hematocrit)).exp();
 
         Self {
-            density: T::from_f64(constants::BLOOD_DENSITY).unwrap(),
+            density: T::from_f64(constants::BLOOD_DENSITY).unwrap_or_else(num_traits::Zero::zero),
             yield_stress,
             infinite_shear_viscosity,
             hematocrit,
-            specific_heat: T::from_f64(constants::BLOOD_SPECIFIC_HEAT).unwrap(),
-            thermal_conductivity: T::from_f64(constants::BLOOD_THERMAL_CONDUCTIVITY).unwrap(),
-            speed_of_sound: T::from_f64(constants::BLOOD_SPEED_OF_SOUND).unwrap(),
-            reference_shear_rate: T::from_f64(100.0).unwrap(),
-            regularization_shear_rate: T::from_f64(0.001).unwrap(),
+            specific_heat: T::from_f64(constants::BLOOD_SPECIFIC_HEAT).unwrap_or_else(num_traits::Zero::zero),
+            thermal_conductivity: T::from_f64(constants::BLOOD_THERMAL_CONDUCTIVITY).unwrap_or_else(num_traits::Zero::zero),
+            speed_of_sound: T::from_f64(constants::BLOOD_SPEED_OF_SOUND).unwrap_or_else(num_traits::Zero::zero),
+            reference_shear_rate: T::from_f64(100.0).unwrap_or_else(num_traits::Zero::zero),
+            regularization_shear_rate: T::from_f64(0.001).unwrap_or_else(num_traits::Zero::zero),
         }
     }
 
@@ -227,8 +227,8 @@ impl<T: RealField + FromPrimitive + Copy> CassonBlood<T> {
     /// * `shear_rate` — Wall shear rate [s⁻¹]
     /// * `temp_k`     — Blood temperature [K]; if ≤ 0, defaults to 310 K (37 °C)
     pub fn apparent_viscosity_at_temp(&self, shear_rate: T, temp_k: T) -> T {
-        let t_ref = T::from_f64(310.15).unwrap();
-        let b = T::from_f64(1500.0).unwrap();
+        let t_ref = T::from_f64(310.15).unwrap_or_else(num_traits::Zero::zero);
+        let b = T::from_f64(1500.0).unwrap_or_else(num_traits::Zero::zero);
         let t_eff = if temp_k <= T::zero() { t_ref } else { temp_k };
         // Andrade factor: exp(B × (1/T − 1/T_ref))
         let factor = (b * (T::one() / t_eff - T::one() / t_ref)).exp();

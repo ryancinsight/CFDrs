@@ -23,12 +23,10 @@ pub fn write_obj<W: Write>(writer: &mut W, mesh: &IndexedMesh) -> MeshResult<()>
 
     // Build a contiguous index map: VertexId -> 0-based index.
     let mut id_to_idx: HashMap<crate::domain::core::index::VertexId, usize> = HashMap::new();
-    let mut idx = 0usize;
 
     // Emit vertices and normals in insertion order.
-    for (vid, vdata) in mesh.vertices.iter() {
+    for (idx, (vid, vdata)) in mesh.vertices.iter().enumerate() {
         id_to_idx.insert(vid, idx);
-        idx += 1;
         let p = &vdata.position;
         writeln!(writer, "v {} {} {}", p.x, p.y, p.z).map_err(MeshError::Io)?;
     }

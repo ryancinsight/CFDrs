@@ -41,8 +41,8 @@
 //!   NASA Tech. Rep. CR-1012.
 //! - Gandy, P.J.F., Klinowski, J. et al. (1999). *Chem. Phys. Lett.* 314, 543–551.
 
-use crate::domain::core::scalar::Vector3r;
 use super::Tpms;
+use crate::domain::core::scalar::Vector3r;
 
 /// Neovius TPMS — Neovius (1883) / Schoen (1970) triply periodic minimal surface.
 ///
@@ -122,7 +122,10 @@ mod tests {
         let (x, y, z) = (0.7, 1.1, 0.3);
         let pos = Neovius.field(x, y, z, k);
         let neg = Neovius.field(-x, -y, -z, k);
-        assert!((pos - neg).abs() < 1e-13, "F symmetry: pos={pos}, neg={neg}");
+        assert!(
+            (pos - neg).abs() < 1e-13,
+            "F symmetry: pos={pos}, neg={neg}"
+        );
     }
 
     /// **Invariant**: at `(0,0,0)`: `F = 3·3 + 4·1 = 13`, which is the peak value.

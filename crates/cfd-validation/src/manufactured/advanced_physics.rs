@@ -175,7 +175,7 @@ impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedTCI<T> {
     fn exact_solution(&self, x: T, y: T, _z: T, t: T) -> T {
         // Mixture fraction Z
         let base = ManufacturedFunctions::sinusoidal(x, y, t, self.kx, self.ky);
-        let z = T::from_f64(0.5).unwrap() + self.amplitude * base;
+        let z = T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero) + self.amplitude * base;
 
         // Clamp to [0,1] for physical validity
         z.max(T::zero()).min(T::one())

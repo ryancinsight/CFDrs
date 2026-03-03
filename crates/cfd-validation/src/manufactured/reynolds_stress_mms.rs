@@ -112,19 +112,19 @@ impl<T: RealField + Copy + FromPrimitive> ManufacturedReynoldsStressMMS<T> {
     /// Create a standard test case with reasonable parameters
     pub fn standard_test_case() -> Self {
         Self::new(
-            T::from_f64(2.0 * PI).unwrap(), // kx
-            T::from_f64(2.0 * PI).unwrap(), // ky
-            T::from_f64(0.1).unwrap(),      // alpha (slow decay)
-            T::from_f64(0.1).unwrap(),      // a_uu
-            T::from_f64(0.05).unwrap(),     // a_uv
-            T::from_f64(0.1).unwrap(),      // a_vv
-            T::from_f64(1.0).unwrap(),      // u0_amp
-            T::from_f64(0.5).unwrap(),      // v0_amp
-            T::from_f64(0.15).unwrap(),     // k_amp
-            T::from_f64(0.01).unwrap(),     // eps_amp
+            T::from_f64(2.0 * PI).unwrap_or_else(num_traits::Zero::zero), // kx
+            T::from_f64(2.0 * PI).unwrap_or_else(num_traits::Zero::zero), // ky
+            T::from_f64(0.1).unwrap_or_else(num_traits::Zero::zero),      // alpha (slow decay)
+            T::from_f64(0.1).unwrap_or_else(num_traits::Zero::zero),      // a_uu
+            T::from_f64(0.05).unwrap_or_else(num_traits::Zero::zero),     // a_uv
+            T::from_f64(0.1).unwrap_or_else(num_traits::Zero::zero),      // a_vv
+            T::from_f64(1.0).unwrap_or_else(num_traits::Zero::zero),      // u0_amp
+            T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero),      // v0_amp
+            T::from_f64(0.15).unwrap_or_else(num_traits::Zero::zero),     // k_amp
+            T::from_f64(0.01).unwrap_or_else(num_traits::Zero::zero),     // eps_amp
             PressureStrainModelMMS::Quadratic,
-            T::from_f64(0.01).unwrap(), // nu_t
-            T::from_f64(1e-5).unwrap(), // nu
+            T::from_f64(0.01).unwrap_or_else(num_traits::Zero::zero), // nu_t
+            T::from_f64(1e-5).unwrap_or_else(num_traits::Zero::zero), // nu
         )
     }
 
@@ -136,7 +136,8 @@ impl<T: RealField + Copy + FromPrimitive> ManufacturedReynoldsStressMMS<T> {
         let cos_ky_y = nalgebra::ComplexField::cos(self.ky * y);
         let exp_decay = nalgebra::ComplexField::exp(-self.alpha * t);
 
-        let isotropic_part = self.k_amp * T::from_f64(2.0 / 3.0).unwrap() * exp_decay;
+        let isotropic_part =
+            self.k_amp * T::from_f64(2.0 / 3.0).unwrap_or_else(num_traits::Zero::zero) * exp_decay;
 
         match (i, j) {
             (0, 0) => {
@@ -200,9 +201,9 @@ impl<T: RealField + Copy + FromPrimitive> ManufacturedReynoldsStressMMS<T> {
         let vv = self.exact_reynolds_stress(1, 1, x, y, t);
 
         match (i, j) {
-            (0, 0) => -T::from_f64(2.0).unwrap() * uv * du_dy, // P_xx = -2⟨u'v'⟩∂U/∂y
-            (0, 1) | (1, 0) => -uu * dv_dx - vv * du_dy,       // P_xy = -⟨u'u'⟩∂V/∂x - ⟨v'v'⟩∂U/∂y
-            (1, 1) => -T::from_f64(2.0).unwrap() * uv * dv_dx, // P_yy = -2⟨u'v'⟩∂V/∂x
+            (0, 0) => -T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero) * uv * du_dy, // P_xx = -2⟨u'v'⟩∂U/∂y
+            (0, 1) | (1, 0) => -uu * dv_dx - vv * du_dy, // P_xy = -⟨u'u'⟩∂V/∂x - ⟨v'v'⟩∂U/∂y
+            (1, 1) => -T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero) * uv * dv_dx, // P_yy = -2⟨u'v'⟩∂V/∂x
             _ => T::zero(),
         }
     }
@@ -242,24 +243,24 @@ impl<T: RealField + Copy + FromPrimitive> ManufacturedReynoldsStressMMS<T> {
         let vv = self.exact_reynolds_stress(1, 1, x, y, t);
 
         // Anisotropy tensor components
-        let a_xx = uu / k - T::from_f64(2.0 / 3.0).unwrap();
+        let a_xx = uu / k - T::from_f64(2.0 / 3.0).unwrap_or_else(num_traits::Zero::zero);
         let a_xy = uv / k;
-        let a_yy = vv / k - T::from_f64(2.0 / 3.0).unwrap();
+        let a_yy = vv / k - T::from_f64(2.0 / 3.0).unwrap_or_else(num_traits::Zero::zero);
 
         // Strain rate tensor from mean velocity gradients
         let s11 = self.velocity_gradient(0, 0, x, y, t);
-        let s12 = T::from_f64(0.5).unwrap()
+        let s12 = T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero)
             * (self.velocity_gradient(0, 1, x, y, t) + self.velocity_gradient(1, 0, x, y, t));
         let s22 = self.velocity_gradient(1, 1, x, y, t);
 
         // Rotation rate tensor
-        let w12 = T::from_f64(0.5).unwrap()
+        let w12 = T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero)
             * (self.velocity_gradient(0, 1, x, y, t) - self.velocity_gradient(1, 0, x, y, t));
 
         match self.pressure_strain_model {
             PressureStrainModelMMS::LinearReturnToIsotropy => {
                 // Φ_ij = -C1 ε/k (⟨u_i'u_j'⟩ - (2/3)k δ_ij)
-                let c1 = T::from_f64(1.8).unwrap();
+                let c1 = T::from_f64(1.8).unwrap_or_else(num_traits::Zero::zero);
                 let coeff = -c1 * eps / k;
 
                 match (i, j) {
@@ -294,7 +295,7 @@ impl<T: RealField + Copy + FromPrimitive> ManufacturedReynoldsStressMMS<T> {
         j: usize,
     ) -> T {
         // Slow pressure-strain (return-to-isotropy)
-        let c1 = T::from_f64(1.8).unwrap();
+        let c1 = T::from_f64(1.8).unwrap_or_else(num_traits::Zero::zero);
         let phi_slow_ij = match (i, j) {
             (0, 0) => -c1 * a_xx,
             (0, 1) | (1, 0) => -c1 * a_xy,
@@ -303,10 +304,10 @@ impl<T: RealField + Copy + FromPrimitive> ManufacturedReynoldsStressMMS<T> {
         };
 
         // Rapid pressure-strain (quadratic terms)
-        let c1_star = T::from_f64(1.7).unwrap();
-        let c2_star = T::from_f64(-1.05).unwrap();
-        let two_thirds = T::from_f64(2.0 / 3.0).unwrap();
-        let four_thirds = T::from_f64(4.0 / 3.0).unwrap();
+        let c1_star = T::from_f64(1.7).unwrap_or_else(num_traits::Zero::zero);
+        let c2_star = T::from_f64(-1.05).unwrap_or_else(num_traits::Zero::zero);
+        let two_thirds = T::from_f64(2.0 / 3.0).unwrap_or_else(num_traits::Zero::zero);
+        let four_thirds = T::from_f64(4.0 / 3.0).unwrap_or_else(num_traits::Zero::zero);
 
         let phi_rapid_ij = match (i, j) {
             (0, 0) => {
@@ -340,8 +341,8 @@ impl<T: RealField + Copy + FromPrimitive> ManufacturedReynoldsStressMMS<T> {
         i: usize,
         j: usize,
     ) -> T {
-        let c1 = T::from_f64(1.7).unwrap();
-        let c3 = T::from_f64(0.8).unwrap();
+        let c1 = T::from_f64(1.7).unwrap_or_else(num_traits::Zero::zero);
+        let c3 = T::from_f64(0.8).unwrap_or_else(num_traits::Zero::zero);
 
         let c1_term = -c1 / time_scale;
         let c3_term = c3 / time_scale;
@@ -357,7 +358,7 @@ impl<T: RealField + Copy + FromPrimitive> ManufacturedReynoldsStressMMS<T> {
     /// Compute the dissipation tensor ε_ij
     pub fn dissipation_tensor(&self, i: usize, j: usize, x: T, y: T, t: T) -> T {
         let eps = self.exact_dissipation(x, y, t);
-        let two_thirds = T::from_f64(2.0 / 3.0).unwrap();
+        let two_thirds = T::from_f64(2.0 / 3.0).unwrap_or_else(num_traits::Zero::zero);
 
         // Isotropic dissipation approximation: ε_ij = (2/3)ε δ_ij
         match (i, j) {
@@ -371,7 +372,7 @@ impl<T: RealField + Copy + FromPrimitive> ManufacturedReynoldsStressMMS<T> {
         // Approximate triple correlation transport using gradient-diffusion hypothesis
         // ⟨u_i'u_j'u_k'⟩ ≈ -C_s (k³/ε²) ∂⟨u_i'u_j'⟩/∂x_k
 
-        let c_s = T::from_f64(0.11).unwrap();
+        let c_s = T::from_f64(0.11).unwrap_or_else(num_traits::Zero::zero);
         let k = self.exact_tke(x, y, t);
         let eps = self.exact_dissipation(x, y, t);
 
@@ -388,7 +389,7 @@ impl<T: RealField + Copy + FromPrimitive> ManufacturedReynoldsStressMMS<T> {
             (0, 0) => -diffusion_coeff * stress_gradient[0], // -∂⟨u'u'u'⟩/∂x - ∂⟨u'u'u'⟩/∂y
             (0, 1) | (1, 0) => {
                 -diffusion_coeff
-                    * T::from_f64(0.5).unwrap()
+                    * T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero)
                     * (stress_gradient[0] + stress_gradient[1])
             }
             (1, 1) => -diffusion_coeff * stress_gradient[1], // -∂⟨v'v'v'⟩/∂x - ∂⟨v'v'v'⟩/∂y
@@ -405,13 +406,13 @@ impl<T: RealField + Copy + FromPrimitive> ManufacturedReynoldsStressMMS<T> {
         let exp_decay = nalgebra::ComplexField::exp(-self.alpha * t);
 
         let isotropic_part_grad_x = self.k_amp
-            * T::from_f64(2.0 / 3.0).unwrap()
+            * T::from_f64(2.0 / 3.0).unwrap_or_else(num_traits::Zero::zero)
             * self.kx
             * cos_kx_x
             * sin_ky_y
             * exp_decay;
         let isotropic_part_grad_y = self.k_amp
-            * T::from_f64(2.0 / 3.0).unwrap()
+            * T::from_f64(2.0 / 3.0).unwrap_or_else(num_traits::Zero::zero)
             * self.ky
             * sin_kx_x
             * cos_ky_y
@@ -467,7 +468,7 @@ impl<T: RealField + Copy + FromPrimitive> ManufacturedReynoldsStressMMS<T> {
         let ky_sq = self.ky * self.ky;
 
         let isotropic_part_laplacian = self.k_amp
-            * T::from_f64(2.0 / 3.0).unwrap()
+            * T::from_f64(2.0 / 3.0).unwrap_or_else(num_traits::Zero::zero)
             * (kx_sq + ky_sq)
             * sin_kx_x
             * sin_ky_y

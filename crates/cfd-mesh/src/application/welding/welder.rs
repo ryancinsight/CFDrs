@@ -28,7 +28,7 @@ pub struct MeshWelder {
 
 impl MeshWelder {
     /// Create a new topological welder with the default tolerance.
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         Self {
             tolerance: TOLERANCE,
@@ -36,7 +36,7 @@ impl MeshWelder {
     }
 
     /// Create a topological welder with a custom tolerance.
-    #[must_use] 
+    #[must_use]
     pub fn with_tolerance(tolerance: Real) -> Self {
         Self { tolerance }
     }
@@ -119,7 +119,13 @@ impl MeshWelder {
                 }
 
                 // Attempt to merge c into i.
-                if self.is_safe_to_merge(i, c, &v_faces[i as usize], &v_faces[c as usize], &cur_face_verts) {
+                if self.is_safe_to_merge(
+                    i,
+                    c,
+                    &v_faces[i as usize],
+                    &v_faces[c as usize],
+                    &cur_face_verts,
+                ) {
                     // SAFE! Merge c into i.
                     remap[c as usize] = i;
 
@@ -256,14 +262,22 @@ mod tests {
             p(1e-7, 0.0, 0.0), // very close, should not weld because they share a face
             p(0.0, 1.0, 0.0),
         ];
-        
+
         let mut face_store = FaceStore::new();
-        face_store.push(FaceData::new(VertexId::new(0), VertexId::new(1), VertexId::new(2), RegionId::new(0)));
-        
+        face_store.push(FaceData::new(
+            VertexId::new(0),
+            VertexId::new(1),
+            VertexId::new(2),
+            RegionId::new(0),
+        ));
+
         let welder = MeshWelder::new();
         let result = welder.weld(&positions, &mut face_store);
-        
-        assert_eq!(result.vertices_merged, 0, "Should not weld adjacent vertices on the same face.");
+
+        assert_eq!(
+            result.vertices_merged, 0,
+            "Should not weld adjacent vertices on the same face."
+        );
     }
 
     #[test]
@@ -279,14 +293,30 @@ mod tests {
         ];
 
         let mut face_store = FaceStore::new();
-        face_store.push(FaceData::new(VertexId::new(0), VertexId::new(1), VertexId::new(2), RegionId::new(0)));
-        face_store.push(FaceData::new(VertexId::new(3), VertexId::new(4), VertexId::new(5), RegionId::new(0)));
+        face_store.push(FaceData::new(
+            VertexId::new(0),
+            VertexId::new(1),
+            VertexId::new(2),
+            RegionId::new(0),
+        ));
+        face_store.push(FaceData::new(
+            VertexId::new(3),
+            VertexId::new(4),
+            VertexId::new(5),
+            RegionId::new(0),
+        ));
 
         let welder = MeshWelder::new();
         let result = welder.weld(&positions, &mut face_store);
 
-        assert_eq!(result.vertices_merged, 3, "Should successfully weld fully disconnected faces.");
-        assert_eq!(result.faces_updated, 1, "The second face should be updated to point to the first group.");
+        assert_eq!(
+            result.vertices_merged, 3,
+            "Should successfully weld fully disconnected faces."
+        );
+        assert_eq!(
+            result.faces_updated, 1,
+            "The second face should be updated to point to the first group."
+        );
     }
 
     #[test]
@@ -313,7 +343,7 @@ mod tests {
         // Our welder allows this (it's non-manifold vertex, but edge counts are preserved).
         // What if we weld edge C-D to G-H?
         // They share neighbors, but total faces <= 2. It allows edge merging of boundaries!
-        
+
         // Wait, how do we trigger non-manifold EDGE creation?
         // Sheet 1 connects A-B with 2 faces (interior edge).
         // Sheet 2 connects C-D with 2 faces (interior edge).
@@ -328,24 +358,44 @@ mod tests {
         // EXACTLY! Pinching interior edges is safely blocked.
         let positions = vec![
             // Sheet 1
-            p(0.0, 0.0, 0.0), // 0: A
-            p(1.0, 0.0, 0.0), // 1: B
-            p(0.5, 1.0, 0.0), // 2: C1
-            p(0.5, -1.0, 0.0),// 3: C2
+            p(0.0, 0.0, 0.0),  // 0: A
+            p(1.0, 0.0, 0.0),  // 1: B
+            p(0.5, 1.0, 0.0),  // 2: C1
+            p(0.5, -1.0, 0.0), // 3: C2
             // Sheet 2 (parallel, very close)
-            p(0.0, 0.0, 1e-7), // 4: C (wants to merge with A)
-            p(1.0, 0.0, 1e-7), // 5: D (wants to merge with B)
-            p(0.5, 1.0, 1e-7), // 6: G1
-            p(0.5, -1.0, 1e-7),// 7: G2
+            p(0.0, 0.0, 1e-7),  // 4: C (wants to merge with A)
+            p(1.0, 0.0, 1e-7),  // 5: D (wants to merge with B)
+            p(0.5, 1.0, 1e-7),  // 6: G1
+            p(0.5, -1.0, 1e-7), // 7: G2
         ];
-        
+
         let mut face_store = FaceStore::new();
         // Sheet 1: interior edge (0,1)
-        face_store.push(FaceData::new(VertexId::new(0), VertexId::new(1), VertexId::new(2), RegionId::new(0)));
-        face_store.push(FaceData::new(VertexId::new(1), VertexId::new(0), VertexId::new(3), RegionId::new(0)));
+        face_store.push(FaceData::new(
+            VertexId::new(0),
+            VertexId::new(1),
+            VertexId::new(2),
+            RegionId::new(0),
+        ));
+        face_store.push(FaceData::new(
+            VertexId::new(1),
+            VertexId::new(0),
+            VertexId::new(3),
+            RegionId::new(0),
+        ));
         // Sheet 2: interior edge (4,5)
-        face_store.push(FaceData::new(VertexId::new(4), VertexId::new(5), VertexId::new(6), RegionId::new(0)));
-        face_store.push(FaceData::new(VertexId::new(5), VertexId::new(4), VertexId::new(7), RegionId::new(0)));
+        face_store.push(FaceData::new(
+            VertexId::new(4),
+            VertexId::new(5),
+            VertexId::new(6),
+            RegionId::new(0),
+        ));
+        face_store.push(FaceData::new(
+            VertexId::new(5),
+            VertexId::new(4),
+            VertexId::new(7),
+            RegionId::new(0),
+        ));
 
         let welder = MeshWelder::new();
         let result = welder.weld(&positions, &mut face_store);
@@ -353,10 +403,13 @@ mod tests {
         // A (0) and C (4) share no neighbors initially, so they will weld.
         // Once welded, edge (0, 1) has 2 faces, and edge (0, 5) has 2 faces.
         // Now B (1) and D (5) want to weld. They share neighbor 0.
-        // count(1, 0) = 2. count(5, 0) = 2. Total = 4. 
+        // count(1, 0) = 2. count(5, 0) = 2. Total = 4.
         // Welding B to D is blocked!
         // Also (2) and (6) will weld because they share no neighbors.
         // Let's assert that `faces_updated` is not enough to completely merge the two sheets.
-        assert!(result.vertices_merged < 4, "Should not fully merge two parallel interior sheets");
+        assert!(
+            result.vertices_merged < 4,
+            "Should not fully merge two parallel interior sheets"
+        );
     }
 }

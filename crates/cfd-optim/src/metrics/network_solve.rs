@@ -4,8 +4,8 @@ use std::collections::HashMap;
 
 use cfd_1d::{network::network_from_blueprint, NetworkProblem, NetworkSolver};
 use cfd_core::physics::fluid::blood::CassonBlood;
-use cfd_schematics::geometry::metadata::VenturiGeometryMetadata;
 use cfd_schematics::domain::model::CrossSectionSpec;
+use cfd_schematics::geometry::metadata::VenturiGeometryMetadata;
 use petgraph::visit::EdgeRef;
 
 use crate::design::DesignTopology;
@@ -199,9 +199,11 @@ pub(super) fn solve_blueprint_network(
             .get(ch.id.as_str())
             .copied()
             .unwrap_or((0.0, 0.0));
-        let is_venturi_throat = ch.metadata.as_ref().is_some_and(|meta| {
-            meta.contains::<VenturiGeometryMetadata>()
-        }) || is_venturi_throat_id(ch.id.as_str());
+        let is_venturi_throat = ch
+            .metadata
+            .as_ref()
+            .is_some_and(|meta| meta.contains::<VenturiGeometryMetadata>())
+            || is_venturi_throat_id(ch.id.as_str());
 
         if is_venturi_throat {
             throat_flows.push(q.abs());

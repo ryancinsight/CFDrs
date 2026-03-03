@@ -95,7 +95,7 @@ impl<T: RealField + Copy + FromPrimitive> BifurcationGeometry<T> {
     /// Check if a point (x, y) is within the fluid domain
     pub fn contains(&self, x: T, y: T) -> bool {
         // Parent branch: Horizontal from x=0 to parent_length, centered at y=0
-        let half_pw = self.parent_width / T::from_f64(2.0).unwrap();
+        let half_pw = self.parent_width / T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
         if x >= T::zero() && x <= self.parent_length && y >= -half_pw && y <= half_pw {
             return true;
         }
@@ -149,7 +149,7 @@ impl<T: RealField + Copy + FromPrimitive> BifurcationGeometry<T> {
         let lx = dx * cos_a + dy * sin_a;
         let ly = -dx * sin_a + dy * cos_a;
 
-        let half_w = width / T::from_f64(2.0).unwrap();
+        let half_w = width / T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
 
         lx >= T::zero() && lx <= length && ly >= -half_w && ly <= half_w
     }
@@ -161,9 +161,9 @@ impl<T: RealField + Copy + FromPrimitive> BifurcationGeometry<T> {
         let d2_end_x = self.parent_length + self.daughter2_length * self.daughter2_angle.cos();
         let d2_end_y = self.daughter2_length * self.daughter2_angle.sin();
 
-        let half_pw = self.parent_width / T::from_f64(2.0).unwrap();
-        let half_d1w = self.daughter1_width / T::from_f64(2.0).unwrap();
-        let half_d2w = self.daughter2_width / T::from_f64(2.0).unwrap();
+        let half_pw = self.parent_width / T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
+        let half_d1w = self.daughter1_width / T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
+        let half_d2w = self.daughter2_width / T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
 
         let min_x = T::zero();
         let max_x = d1_end_x.max(d2_end_x).max(self.parent_length);
@@ -254,7 +254,7 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> BifurcationSolve
         if !y_coords.is_empty() {
             let y_min = y_coords.iter().copied().fold(y_coords[0], Float::min);
             let y_max = y_coords.iter().copied().fold(y_coords[0], Float::max);
-            mid_y = (y_min + y_max) / T::from_f64(2.0).unwrap();
+            mid_y = (y_min + y_max) / T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
         }
 
         for j in 0..ny {

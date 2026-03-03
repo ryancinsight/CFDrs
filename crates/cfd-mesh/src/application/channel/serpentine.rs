@@ -7,9 +7,9 @@
 use nalgebra::RealField;
 use num_traits::{Float, FromPrimitive, ToPrimitive};
 
+use crate::application::channel::venturi::BuildError;
 use crate::domain::core::index::RegionId;
 use crate::domain::core::scalar::{Point3r, Vector3r};
-use crate::application::channel::venturi::BuildError;
 use crate::domain::mesh::IndexedMesh;
 
 /// Builds a serpentine channel mesh.

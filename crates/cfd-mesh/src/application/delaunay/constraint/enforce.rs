@@ -496,8 +496,9 @@ impl Cdt {
 
         let loc = locate(self.dt.vertices(), self.dt.triangles_slice(), start, hx, hy);
         let seed_tid = match loc {
-            Some(Location::Inside(tid) | Location::OnEdge(tid, _) |
-Location::OnVertex(tid, _)) => tid,
+            Some(Location::Inside(tid) | Location::OnEdge(tid, _) | Location::OnVertex(tid, _)) => {
+                tid
+            }
             None => return,
         };
 
@@ -516,11 +517,10 @@ Location::OnVertex(tid, _)) => tid,
                     continue; // Don't cross constraint edges.
                 }
                 let nbr = tri.adj[edge];
-                if nbr != GHOST_TRIANGLE && !visited.contains(&nbr)
-                    && self.dt.triangle(nbr).alive {
-                        visited.insert(nbr);
-                        queue.push_back(nbr);
-                    }
+                if nbr != GHOST_TRIANGLE && !visited.contains(&nbr) && self.dt.triangle(nbr).alive {
+                    visited.insert(nbr);
+                    queue.push_back(nbr);
+                }
             }
         }
     }
@@ -528,13 +528,13 @@ Location::OnVertex(tid, _)) => tid,
     // ── Public API ────────────────────────────────────────────────────────
 
     /// Access the underlying triangulation.
-    #[must_use] 
+    #[must_use]
     pub fn triangulation(&self) -> &DelaunayTriangulation {
         &self.dt
     }
 
     /// Consume the CDT, returning the underlying triangulation.
-    #[must_use] 
+    #[must_use]
     pub fn into_triangulation(self) -> DelaunayTriangulation {
         self.dt
     }
@@ -545,14 +545,14 @@ Location::OnVertex(tid, _)) => tid,
     }
 
     /// Check if an edge is constrained.
-    #[must_use] 
+    #[must_use]
     pub fn is_constrained(&self, a: PslgVertexId, b: PslgVertexId) -> bool {
         let canonical = if a <= b { (a, b) } else { (b, a) };
         self.constrained_edges.contains(&canonical)
     }
 
     /// The set of all constrained edges.
-    #[must_use] 
+    #[must_use]
     pub fn constrained_edges(&self) -> &HashSet<(PslgVertexId, PslgVertexId)> {
         &self.constrained_edges
     }

@@ -123,5 +123,3 @@ pub fn assert_watertight<T: Scalar>(
     }
     Ok(report)
 }
-
-

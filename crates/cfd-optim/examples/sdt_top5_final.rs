@@ -38,10 +38,7 @@ fn diverse_modes() -> Vec<(&'static str, OptimMode)> {
     vec![
         ("sdt_cavitation", OptimMode::SdtCavitation),
         ("sdt_therapy", OptimMode::SdtTherapy),
-        (
-            "hydro_cavitation_sdt",
-            OptimMode::HydrodynamicCavitationSDT,
-        ),
+        ("hydro_cavitation_sdt", OptimMode::HydrodynamicCavitationSDT),
         ("rbc_protected_sdt", OptimMode::RbcProtectedSdt),
         (
             "combined_sdt_leuka",
@@ -80,10 +77,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     for (slug, mode) in &modes {
         println!();
         println!("{}", "-".repeat(120));
-        println!(
-            "  Mode: {slug:<25}  ({})",
-            score_description(*mode)
-        );
+        println!("  Mode: {slug:<25}  ({})", score_description(*mode));
         println!("{}", "-".repeat(120));
 
         // Get top-1 for this mode
@@ -172,7 +166,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!();
     println!("{}", "=".repeat(120));
-    println!("  COMPARISON TABLE — Best-in-class from {} modes", results.len());
+    println!(
+        "  COMPARISON TABLE — Best-in-class from {} modes",
+        results.len()
+    );
     println!("{}", "=".repeat(120));
     println!(
         "  {:<25} {:>7} {:>8} {:>8} {:>8} {:>8} {:>8} {:>8} {:>8} {:>8}",

@@ -34,12 +34,20 @@ pub(crate) fn point_in_tri_2d_exact(
     !(neg && pos)
 }
 
-/// Test whether 2-D point is inside the union of a set of triangles
-/// (given as flat `[ax,ay,bx,by,cx,cy]` arrays).
+/// Test whether 2-D point is inside the union of selected triangles.
+///
+/// `indices` refers into `tris`; duplicates are tolerated and behave as a set.
 #[inline]
-pub(crate) fn point_in_union_2d_exact(px: Real, py: Real, tris: &[[Real; 6]]) -> bool {
-    tris.iter()
-        .any(|t| point_in_tri_2d_exact(px, py, t[0], t[1], t[2], t[3], t[4], t[5]))
+pub(crate) fn point_in_union_2d_exact_indexed(
+    px: Real,
+    py: Real,
+    tris: &[[Real; 6]],
+    indices: &[usize],
+) -> bool {
+    indices.iter().any(|&i| {
+        let t = tris[i];
+        point_in_tri_2d_exact(px, py, t[0], t[1], t[2], t[3], t[4], t[5])
+    })
 }
 
 /// 2-D AABB of a triangle: `[min_u, min_v, max_u, max_v]`.

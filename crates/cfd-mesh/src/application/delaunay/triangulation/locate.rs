@@ -60,7 +60,7 @@ pub enum Location {
 /// A [`Location`] describing where the query point lies relative to the
 /// triangulation.  Returns `None` if the point is outside the convex hull
 /// (walked off the boundary).
-#[must_use] 
+#[must_use]
 pub fn locate(
     vertices: &[PslgVertex],
     triangles: &[super::triangle::Triangle],

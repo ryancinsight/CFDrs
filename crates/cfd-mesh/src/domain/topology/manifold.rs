@@ -29,7 +29,7 @@ pub struct ManifoldReport {
 /// Check if the mesh is a closed 2-manifold.
 ///
 /// A closed 2-manifold has every edge shared by exactly 2 faces.
-#[must_use] 
+#[must_use]
 pub fn check_manifold(edge_store: &EdgeStore) -> ManifoldReport {
     let mut manifold_edges = 0usize;
     let mut boundary_edges = 0usize;

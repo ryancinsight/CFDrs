@@ -260,7 +260,7 @@ where
 
     for (&y_comp, &u_comp) in y_computed.iter().zip(computed.iter()) {
         // Convert reference data to T for comparison
-        let y_min = T::from_f64(reference.y[0]).unwrap();
+        let y_min = T::from_f64(reference.y[0]).unwrap_or_else(num_traits::Zero::zero);
         let y_max = T::from_f64(reference.y[reference.y.len() - 1]).unwrap();
 
         if y_comp < y_min || y_comp > y_max {
@@ -278,10 +278,10 @@ where
             Ok(idx) => idx,
             Err(idx) if idx > 0 && idx < reference.y.len() => {
                 // Linear interpolation between reference points
-                let y1 = T::from_f64(reference.y[idx - 1]).unwrap();
-                let y2 = T::from_f64(reference.y[idx]).unwrap();
-                let u1 = T::from_f64(reference.u_centerline[idx - 1]).unwrap();
-                let u2 = T::from_f64(reference.u_centerline[idx]).unwrap();
+                let y1 = T::from_f64(reference.y[idx - 1]).unwrap_or_else(num_traits::Zero::zero);
+                let y2 = T::from_f64(reference.y[idx]).unwrap_or_else(num_traits::Zero::zero);
+                let u1 = T::from_f64(reference.u_centerline[idx - 1]).unwrap_or_else(num_traits::Zero::zero);
+                let u2 = T::from_f64(reference.u_centerline[idx]).unwrap_or_else(num_traits::Zero::zero);
 
                 let u_ref = u1 + (u2 - u1) * (y_comp - y1) / (y2 - y1);
                 let error = u_comp - u_ref;
@@ -292,7 +292,7 @@ where
             _ => continue,
         };
 
-        let u_ref = T::from_f64(reference.u_centerline[idx]).unwrap();
+        let u_ref = T::from_f64(reference.u_centerline[idx]).unwrap_or_else(num_traits::Zero::zero);
         let error = u_comp - u_ref;
         l2_error += error * error;
         count += 1;

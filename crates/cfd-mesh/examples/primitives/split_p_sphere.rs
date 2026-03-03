@@ -19,7 +19,7 @@
 use std::fs;
 use std::io::BufWriter;
 
-use cfd_mesh::domain::geometry::primitives::{SplitPSphere, PrimitiveMesh};
+use cfd_mesh::domain::geometry::primitives::{PrimitiveMesh, SplitPSphere};
 use cfd_mesh::infrastructure::io::stl;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -37,7 +37,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("  Surface    : Split P (Fogden & Hyde 1992, rPD Bonnet family)");
     println!("  Symmetry   : Tetragonal, anisotropic channels");
     println!("  Radius     : {} mm", builder.radius);
-    println!("  Period     : {} mm  (lattice unit-cell size)", builder.period);
+    println!(
+        "  Period     : {} mm  (lattice unit-cell size)",
+        builder.period
+    );
     println!("  Resolution : {}  (voxels per axis)", builder.resolution);
     println!("  Building mesh...");
 

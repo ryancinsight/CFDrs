@@ -67,8 +67,8 @@ impl<T: RealField + FromPrimitive + Copy> Default for SolverConfig<T> {
         Self {
             convergence: ConvergenceConfig {
                 max_iterations: 1000,
-                tolerance: T::from_f64(1e-6).unwrap(),
-                relative_tolerance: T::from_f64(1e-4).unwrap(),
+                tolerance: T::from_f64(1e-6).unwrap_or_else(num_traits::Zero::zero),
+                relative_tolerance: T::from_f64(1e-4).unwrap_or_else(num_traits::Zero::zero),
             },
             execution: ExecutionConfig {
                 parallel: true,
@@ -77,8 +77,8 @@ impl<T: RealField + FromPrimitive + Copy> Default for SolverConfig<T> {
                 save_intermediate: false,
             },
             numerical: NumericalConfig {
-                dt: T::from_f64(0.01).unwrap(),
-                cfl: T::from_f64(0.5).unwrap(),
+                dt: T::from_f64(0.01).unwrap_or_else(num_traits::Zero::zero),
+                cfl: T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero),
                 relaxation: T::one(),
             },
         }
@@ -138,7 +138,7 @@ impl<T: RealField + Copy + num_traits::FromPrimitive> Default for LinearSolverCo
     fn default() -> Self {
         Self {
             max_iterations: 1000,
-            tolerance: T::from_f64(1e-6).unwrap(),
+            tolerance: T::from_f64(1e-6).unwrap_or_else(num_traits::Zero::zero),
             preconditioning: false,
         }
     }
@@ -242,8 +242,8 @@ impl<T: RealField + Copy + FromPrimitive> SolverConfigBuilder<T> {
             config: SolverConfig {
                 convergence: ConvergenceConfig {
                     max_iterations: 1000,
-                    tolerance: T::from_f64(1e-6).unwrap(),
-                    relative_tolerance: T::from_f64(1e-4).unwrap(),
+                    tolerance: T::from_f64(1e-6).unwrap_or_else(num_traits::Zero::zero),
+                    relative_tolerance: T::from_f64(1e-4).unwrap_or_else(num_traits::Zero::zero),
                 },
                 execution: ExecutionConfig {
                     parallel: true,
@@ -252,8 +252,8 @@ impl<T: RealField + Copy + FromPrimitive> SolverConfigBuilder<T> {
                     save_intermediate: false,
                 },
                 numerical: NumericalConfig {
-                    dt: T::from_f64(0.01).unwrap(),
-                    cfl: T::from_f64(0.5).unwrap(),
+                    dt: T::from_f64(0.01).unwrap_or_else(num_traits::Zero::zero),
+                    cfl: T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero),
                     relaxation: T::one(),
                 },
             },

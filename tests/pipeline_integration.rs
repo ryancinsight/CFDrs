@@ -90,11 +90,9 @@ fn candidate_to_blueprint_round_trip() {
 }
 
 // ---------------------------------------------------------------------------
-// Test 3: BlueprintMeshPipeline produces watertight fluid mesh
-//         (requires the `scheme-io` feature on cfd-mesh)
+// Test 3: BlueprintMeshPipeline produces watertight fluid mesh.
 // ---------------------------------------------------------------------------
 
-#[cfg(feature = "scheme-io")]
 #[test]
 fn blueprint_mesh_pipeline_produces_watertight() {
     use cfd_mesh::application::pipeline::blueprint_mesh::{BlueprintMeshPipeline, PipelineConfig};

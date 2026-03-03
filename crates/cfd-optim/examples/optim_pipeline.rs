@@ -128,9 +128,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("      Top-5 designs:");
     for d in &top5 {
-        println!("      {}  score={:.4}  σ={:.3}  HI={:.2e}",
-            d.candidate.id, d.score, d.metrics.cavitation_number,
-            d.metrics.hemolysis_index_per_pass);
+        println!(
+            "      {}  score={:.4}  σ={:.3}  HI={:.2e}",
+            d.candidate.id,
+            d.score,
+            d.metrics.cavitation_number,
+            d.metrics.hemolysis_index_per_pass
+        );
     }
 
     save_top5_json(&top5, &out_dir.join("top5_designs.json"))?;
@@ -202,8 +206,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Adaptive grid: stretch y-cells toward centre to resolve throat.
         let cr = c.inlet_diameter_m / c.throat_diameter_m.max(1e-12);
         let ny_2d = (4.0 * cr).round().clamp(40.0, 200.0) as usize;
-        let beta_2d = (1.0 - 4.0 * c.throat_diameter_m / c.inlet_diameter_m.max(1e-12)).clamp(0.0, 0.9);
-        let mut solver2d = VenturiSolver2D::new_stretched(geom2d, blood_2d, RHO, 60, ny_2d, beta_2d);
+        let beta_2d =
+            (1.0 - 4.0 * c.throat_diameter_m / c.inlet_diameter_m.max(1e-12)).clamp(0.0, 0.9);
+        let mut solver2d =
+            VenturiSolver2D::new_stretched(geom2d, blood_2d, RHO, 60, ny_2d, beta_2d);
 
         // Map volumetric flow to 2D rectangular cross-section velocity.
         let area_2d = c.inlet_diameter_m * c.channel_height_m;
@@ -221,14 +227,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     f64::INFINITY
                 };
                 let dp = -sol.dp_throat; // positive pressure drop
-                (dp, sigma, Some(Venturi2DResult {
-                    u_inlet_m_s: u_inlet_2d,
-                    u_throat_m_s: sol.u_throat,
-                    dp_throat_pa: dp,
-                    dp_recovery_pa: -sol.dp_recovery,
-                    sigma_2d: sigma,
-                    dp_bernoulli_1d_pa: dp_bernoulli,
-                }))
+                (
+                    dp,
+                    sigma,
+                    Some(Venturi2DResult {
+                        u_inlet_m_s: u_inlet_2d,
+                        u_throat_m_s: sol.u_throat,
+                        dp_throat_pa: dp,
+                        dp_recovery_pa: -sol.dp_recovery,
+                        sigma_2d: sigma,
+                        dp_bernoulli_1d_pa: dp_bernoulli,
+                    }),
+                )
             }
             Err(e) => {
                 eprintln!("      [WARN] 2D FVM failed for {id}: {e}");
@@ -239,8 +249,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         if let Some(ref r2d) = result2d_opt {
             let json = serde_json::to_string_pretty(r2d)?;
             std::fs::write(out_dir.join(format!("{id}_2d_venturi.json")), json)?;
-            println!("      {id}: 2D  dp={:.1} Pa  σ={:.3}  (Bernoulli: {:.1} Pa)",
-                r2d.dp_throat_pa, r2d.sigma_2d, dp_bernoulli);
+            println!(
+                "      {id}: 2D  dp={:.1} Pa  σ={:.3}  (Bernoulli: {:.1} Pa)",
+                r2d.dp_throat_pa, r2d.sigma_2d, dp_bernoulli
+            );
         }
 
         // ── Part 4: 3D FEM confirmation ───────────────────────────────────────
@@ -251,11 +263,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let builder3d = VenturiMeshBuilder::<f64>::new(
             d_in,
             d_th,
-            5.0 * d_in,      // l_inlet  (5 inlet-diam approach)
-            3.0 * d_in,      // l_convergent
+            5.0 * d_in, // l_inlet  (5 inlet-diam approach)
+            3.0 * d_in, // l_convergent
             c.throat_length_m,
-            7.0 * d_in,      // l_divergent
-            5.0 * d_in,      // l_outlet
+            7.0 * d_in, // l_divergent
+            5.0 * d_in, // l_outlet
         )
         .with_resolution(res3d.0, res3d.1)
         .with_circular(false);
@@ -275,14 +287,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             Ok(sol) => {
                 let dp = sol.dp_throat.abs();
                 let mass = sol.mass_error.abs();
-                (dp, mass, Some(Venturi3DResult {
-                    u_inlet_m_s: sol.u_inlet,
-                    u_throat_m_s: sol.u_throat,
-                    dp_throat_pa: dp,
-                    dp_recovery_pa: sol.dp_recovery.abs(),
-                    mass_error: mass,
-                    resolution: res3d,
-                }))
+                (
+                    dp,
+                    mass,
+                    Some(Venturi3DResult {
+                        u_inlet_m_s: sol.u_inlet,
+                        u_throat_m_s: sol.u_throat,
+                        dp_throat_pa: dp,
+                        dp_recovery_pa: sol.dp_recovery.abs(),
+                        mass_error: mass,
+                        resolution: res3d,
+                    }),
+                )
             }
             Err(e) => {
                 eprintln!("      [WARN] 3D FEM failed for {id}: {e}");
@@ -293,8 +309,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         if let Some(ref r3d) = result3d_opt {
             let json = serde_json::to_string_pretty(r3d)?;
             std::fs::write(out_dir.join(format!("{id}_3d_result.json")), json)?;
-            println!("      {id}: 3D  dp={:.1} Pa  u_th={:.4} m/s  mass_err={:.2e}",
-                r3d.dp_throat_pa, r3d.u_throat_m_s, r3d.mass_error);
+            println!(
+                "      {id}: 3D  dp={:.1} Pa  u_th={:.4} m/s  mass_err={:.2e}",
+                r3d.dp_throat_pa, r3d.u_throat_m_s, r3d.mass_error
+            );
         }
 
         // ── Part 5: 1D ↔ 2D ↔ 3D consistency ────────────────────────────────
@@ -324,14 +342,28 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // ── Final console table ───────────────────────────────────────────────────
     println!("\n=== 1D ↔ 2D ↔ 3D Consistency Summary ===\n");
-    println!("{:<42} {:>12} {:>12} {:>12} {:>10} {:>10}",
-        "Design ID", "dp_1D [Pa]", "dp_2D [Pa]", "dp_3D [Pa]",
-        "1D-2D [%]", "2D-3D [%]");
+    println!(
+        "{:<42} {:>12} {:>12} {:>12} {:>10} {:>10}",
+        "Design ID", "dp_1D [Pa]", "dp_2D [Pa]", "dp_3D [Pa]", "1D-2D [%]", "2D-3D [%]"
+    );
     println!("{}", "-".repeat(100));
     for row in &validation_rows {
-        let fmt = |v: f64| if v.is_nan() { "  —".to_string() } else { format!("{v:>12.1}") };
-        let fmtp = |v: f64| if v.is_nan() { "  —".to_string() } else { format!("{v:>10.1}") };
-        println!("{:<42} {} {} {} {} {}",
+        let fmt = |v: f64| {
+            if v.is_nan() {
+                "  —".to_string()
+            } else {
+                format!("{v:>12.1}")
+            }
+        };
+        let fmtp = |v: f64| {
+            if v.is_nan() {
+                "  —".to_string()
+            } else {
+                format!("{v:>10.1}")
+            }
+        };
+        println!(
+            "{:<42} {} {} {} {} {}",
             row.id,
             fmt(row.dp_1d_bernoulli_pa),
             fmt(row.dp_2d_fvm_pa),
@@ -356,15 +388,28 @@ fn write_summary(
     let mut md = String::new();
 
     writeln!(md, "# Milestone 12 Multi-Fidelity Pipeline Summary\n")?;
-    writeln!(md, "Generated by `cargo run -p cfd-optim --example optim_pipeline`\n")?;
+    writeln!(
+        md,
+        "Generated by `cargo run -p cfd-optim --example optim_pipeline`\n"
+    )?;
 
     writeln!(md, "## Top-5 Designs (RbcProtectedSdt)\n")?;
-    writeln!(md, "| Rank | Design ID | Score | σ (1D) | HI | FDA | ΔP (Pa) |")?;
-    writeln!(md, "|------|-----------|-------|--------|-----|-----|---------|")?;
+    writeln!(
+        md,
+        "| Rank | Design ID | Score | σ (1D) | HI | FDA | ΔP (Pa) |"
+    )?;
+    writeln!(
+        md,
+        "|------|-----------|-------|--------|-----|-----|---------|"
+    )?;
     for d in designs {
         let m = &d.metrics;
-        writeln!(md, "| {} | `{}` | {:.4} | {:.3} | {:.2e} | {} | {:.0} |",
-            d.rank, d.candidate.id, d.score,
+        writeln!(
+            md,
+            "| {} | `{}` | {:.4} | {:.3} | {:.2e} | {} | {:.0} |",
+            d.rank,
+            d.candidate.id,
+            d.score,
             m.cavitation_number,
             m.hemolysis_index_per_pass,
             if m.fda_main_compliant { "✓" } else { "✗" },
@@ -373,11 +418,25 @@ fn write_summary(
     }
 
     writeln!(md, "\n## 1D ↔ 2D ↔ 3D Pressure-Drop Consistency\n")?;
-    writeln!(md, "| Design ID | dp₁D [Pa] | dp₂D [Pa] | dp₃D [Pa] | 1D–2D [%] | 2D–3D [%] | Mass err [%] |")?;
-    writeln!(md, "|-----------|-----------|-----------|-----------|-----------|-----------|-------------|")?;
+    writeln!(
+        md,
+        "| Design ID | dp₁D [Pa] | dp₂D [Pa] | dp₃D [Pa] | 1D–2D [%] | 2D–3D [%] | Mass err [%] |"
+    )?;
+    writeln!(
+        md,
+        "|-----------|-----------|-----------|-----------|-----------|-----------|-------------|"
+    )?;
     for row in rows {
-        let f = |v: f64| if v.is_nan() { "—".to_string() } else { format!("{v:.1}") };
-        writeln!(md, "| `{}` | {} | {} | {} | {} | {} | {} |",
+        let f = |v: f64| {
+            if v.is_nan() {
+                "—".to_string()
+            } else {
+                format!("{v:.1}")
+            }
+        };
+        writeln!(
+            md,
+            "| `{}` | {} | {} | {} | {} | {} | {} |",
             row.id,
             f(row.dp_1d_bernoulli_pa),
             f(row.dp_2d_fvm_pa),
@@ -392,8 +451,16 @@ fn write_summary(
     writeln!(md, "| Design ID | σ₁D | σ₂D | Δσ [%] |")?;
     writeln!(md, "|-----------|-----|-----|--------|")?;
     for row in rows {
-        let f = |v: f64| if v.is_nan() || !v.is_finite() { "—".to_string() } else { format!("{v:.3}") };
-        writeln!(md, "| `{}` | {} | {} | {} |",
+        let f = |v: f64| {
+            if v.is_nan() || !v.is_finite() {
+                "—".to_string()
+            } else {
+                format!("{v:.3}")
+            }
+        };
+        writeln!(
+            md,
+            "| `{}` | {} | {} | {} |",
             row.id,
             f(row.sigma_1d),
             f(row.sigma_2d),
@@ -403,7 +470,10 @@ fn write_summary(
 
     writeln!(md, "\n## Validation Criteria\n")?;
     writeln!(md, "- **Pressure agreement**: |dp₁D − dp₂D| / dp₁D < 20% (coarse 2D mesh, 2D vs 3D geometry)\n")?;
-    writeln!(md, "- **3D mass conservation**: |Q_in − Q_out| / Q_in < 2%\n")?;
+    writeln!(
+        md,
+        "- **3D mass conservation**: |Q_in − Q_out| / Q_in < 2%\n"
+    )?;
     writeln!(md, "- **σ confirmation**: 2D σ within 30% of 1D σ (viscous effects not captured by Bernoulli)\n")?;
 
     std::fs::write(path, md)?;

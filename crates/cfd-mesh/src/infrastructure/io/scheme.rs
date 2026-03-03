@@ -165,7 +165,7 @@ fn parse_channels(value: &serde_json::Value) -> MeshResult<Vec<ChannelDef>> {
 }
 
 // =========================================================================
-// cfd-schematics bridge (behind `scheme-io` feature)
+// cfd-schematics bridge
 // =========================================================================
 
 /// Convert a `cfd_schematics::ChannelSystem` into a `Schematic`.
@@ -221,8 +221,7 @@ pub fn from_interchange(
 
         let profile = match &ch.profile {
             cfd_schematics::geometry::InterchangeChannelProfile::Circular {
-                diameter_mm,
-                ..
+                diameter_mm, ..
             } => ChannelProfile::Circular {
                 radius: (*diameter_mm as Real) / 2.0,
                 segments: channel_segments,

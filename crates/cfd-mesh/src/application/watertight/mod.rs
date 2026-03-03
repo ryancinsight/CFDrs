@@ -7,8 +7,5 @@ pub mod check;
 pub mod repair;
 pub mod seal;
 
-pub use check::{
-    assert_watertight, check_watertight,
-    WatertightReport,
-};
+pub use check::{assert_watertight, check_watertight, WatertightReport};
 pub use repair::MeshRepair;

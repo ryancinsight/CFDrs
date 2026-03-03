@@ -167,8 +167,8 @@ where
 
         // Initialize scalars
         let mut rho_old = r_hat.dot(&r)?;
-        let mut alpha = T::from_f64(1.0).unwrap();
-        let mut omega = T::from_f64(1.0).unwrap();
+        let mut alpha = T::from_f64(1.0).unwrap_or_else(num_traits::Zero::zero);
+        let mut omega = T::from_f64(1.0).unwrap_or_else(num_traits::Zero::zero);
 
         // Initial search directions
         p.local_data.copy_from_slice(&r.local_data);
