@@ -149,6 +149,7 @@ pub mod performance_monitor {
 pub mod pressure_velocity;
 pub mod simd;
 pub mod sparse;
+pub mod statistics;
 pub mod time_stepping;
 
 // --- Curated Top-Level API ---

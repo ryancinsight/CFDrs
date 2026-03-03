@@ -17,10 +17,12 @@
 pub mod blueprint_mesh;
 pub mod constraint;
 pub mod region_map;
+pub mod shell_mesh;
 pub mod topology;
 pub mod well_plate;
 
 pub use blueprint_mesh::{BlueprintMeshPipeline, PipelineConfig, PipelineOutput, SegmentCenterline};
+pub use shell_mesh::{ShellMeshPipeline, ShellPipelineConfig, ShellPipelineOutput};
 pub use constraint::{DiameterConstraintError, InletOutletConstraint, WallClearanceConstraint};
 pub use region_map::{BoundaryLabelMap, RegionMap};
 pub use topology::{NetworkTopology, TopologyClass};

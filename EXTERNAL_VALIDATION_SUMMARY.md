@@ -29,7 +29,7 @@ external_validation/
 
 #### Main Validation Runner (`validation_runner.py`)
 - Orchestrates all validation tests
-- Compares CFD-rs (via pycfdrs) with analytical solutions
+- Compares CFD-rs (via cfd-python) with analytical solutions
 - Generates JSON reports and plots
 - Exit code indicates pass/fail status
 
@@ -72,7 +72,7 @@ Complete implementation adapted from pmocz/cfd-comparison-python:
 
 ### 4. PyO3 Bindings Enhancement
 
-The existing pycfdrs bindings provide Python access to:
+The existing cfd-python bindings provide Python access to:
 
 #### 1D Solvers
 - `PoiseuilleSolver1D`: Pipe flow with Hagen-Poiseuille
@@ -169,10 +169,10 @@ python scripts/compare_with_reference.py --test all
 
 ### Python API Usage
 ```python
-import pycfdrs
+import cfd-python
 
 # 1D Poiseuille
-solver = pycfdrs.PoiseuilleSolver1D(
+solver = cfd-python.PoiseuilleSolver1D(
     diameter=100e-6,
     length=1e-3,
     viscosity=0.001
@@ -181,7 +181,7 @@ result = solver.solve(delta_p=100.0)
 print(f"Flow rate: {result.flow_rate:.4e} m³/s")
 
 # 2D Bifurcation with blood
-bifurc = pycfdrs.BifurcationSolver(
+bifurc = cfd-python.BifurcationSolver(
     d_parent=100e-6,
     d_daughter1=80e-6,
     d_daughter2=80e-6,
@@ -195,7 +195,7 @@ result = bifurc.solve(
 print(f"Flow split: {result.q_1:.4e}, {result.q_2:.4e}")
 
 # 3D Bifurcation with WSS
-solver3d = pycfdrs.Bifurcation3DSolver(
+solver3d = cfd-python.Bifurcation3DSolver(
     d_parent=100e-6,
     d_daughter1=80e-6,
     d_daughter2=80e-6,
@@ -276,8 +276,8 @@ All implementations are complete with:
 ## Build Instructions
 
 ```bash
-# Build pycfdrs Python bindings
-cd crates/pycfdrs
+# Build cfd-python Python bindings
+cd crates/cfd-python
 maturin develop --release
 
 # Install Python dependencies

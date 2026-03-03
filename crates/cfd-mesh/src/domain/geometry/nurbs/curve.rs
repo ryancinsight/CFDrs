@@ -210,6 +210,7 @@ impl<const D: usize> BSplineCurve<D> {
     ///
     /// # Panics
     /// Panics if `degree == 0` or `control_points.len() < degree + 1`.
+    #[must_use] 
     pub fn clamped(control_points: Vec<SVector<Real, D>>, degree: usize) -> Self {
         assert!(degree >= 1, "degree must be ≥ 1");
         let n = control_points.len() - 1;
@@ -223,16 +224,19 @@ impl<const D: usize> BSplineCurve<D> {
     }
 
     /// The parameter domain `[t_min, t_max]`.
+    #[must_use] 
     pub fn domain(&self) -> (Real, Real) {
         self.knots.domain()
     }
 
     /// Number of control points.
+    #[must_use] 
     pub fn num_control_points(&self) -> usize {
         self.control_points.len()
     }
 
     /// Polynomial degree.
+    #[must_use] 
     pub fn degree(&self) -> usize {
         self.degree
     }
@@ -243,6 +247,7 @@ impl<const D: usize> BSplineCurve<D> {
     ///
     /// # Panics
     /// Panics if `t` is outside the knot domain.
+    #[must_use] 
     pub fn point(&self, t: Real) -> SVector<Real, D> {
         let n = self.control_points.len() - 1;
         let span = self.knots.find_span(t, n);
@@ -261,6 +266,7 @@ impl<const D: usize> BSplineCurve<D> {
     ///
     /// # Panics
     /// Panics if `t` is outside the knot domain.
+    #[must_use] 
     pub fn point_and_tangent(&self, t: Real) -> (SVector<Real, D>, SVector<Real, D>) {
         let n = self.control_points.len() - 1;
         let span = self.knots.find_span(t, n);
@@ -279,6 +285,7 @@ impl<const D: usize> BSplineCurve<D> {
     /// Sample `count` uniformly spaced points on the curve.
     ///
     /// Includes both endpoints.
+    #[must_use] 
     pub fn sample_uniform(&self, count: usize) -> Vec<SVector<Real, D>> {
         assert!(count >= 2, "need at least 2 samples");
         let (lo, hi) = self.domain();
@@ -372,6 +379,7 @@ impl<const D: usize> NurbsCurve<D> {
     }
 
     /// Create a NURBS curve from a B-spline (all weights = 1).
+    #[must_use] 
     pub fn from_bspline(curve: BSplineCurve<D>) -> Self {
         let n = curve.control_points.len();
         let weights = vec![1.0; n];
@@ -384,21 +392,25 @@ impl<const D: usize> NurbsCurve<D> {
     }
 
     /// The parameter domain `[t_min, t_max]`.
+    #[must_use] 
     pub fn domain(&self) -> (Real, Real) {
         self.knots.domain()
     }
 
     /// Number of control points.
+    #[must_use] 
     pub fn num_control_points(&self) -> usize {
         self.control_points.len()
     }
 
     /// Polynomial degree.
+    #[must_use] 
     pub fn degree(&self) -> usize {
         self.degree
     }
 
     /// Weights slice.
+    #[must_use] 
     pub fn weights(&self) -> &[Real] {
         &self.weights
     }
@@ -413,6 +425,7 @@ impl<const D: usize> NurbsCurve<D> {
     ///
     /// # Panics
     /// Panics if `t` is outside the knot domain.
+    #[must_use] 
     pub fn point(&self, t: Real) -> SVector<Real, D> {
         let n = self.control_points.len() - 1;
         let span = self.knots.find_span(t, n);
@@ -444,6 +457,7 @@ impl<const D: usize> NurbsCurve<D> {
     ///
     /// # Panics
     /// Panics if `t` is outside the knot domain.
+    #[must_use] 
     pub fn point_and_tangent(&self, t: Real) -> (SVector<Real, D>, SVector<Real, D>) {
         let n = self.control_points.len() - 1;
         let span = self.knots.find_span(t, n);
@@ -482,6 +496,7 @@ impl<const D: usize> NurbsCurve<D> {
     /// Sample `count` uniformly spaced points on the curve.
     ///
     /// Includes both endpoints.
+    #[must_use] 
     pub fn sample_uniform(&self, count: usize) -> Vec<SVector<Real, D>> {
         assert!(count >= 2, "need at least 2 samples");
         let (lo, hi) = self.domain();
@@ -499,6 +514,7 @@ impl NurbsCurve<3> {
     ///
     /// By the convex hull property of NURBS, the bounding box of the control
     /// points is a conservative bound; this provides a tighter empirical bound.
+    #[must_use] 
     pub fn aabb(&self, resolution: usize) -> crate::domain::geometry::Aabb {
         use crate::domain::core::scalar::Point3r;
         use crate::domain::geometry::Aabb;

@@ -20,6 +20,7 @@ pub struct SweepMesher {
 
 impl SweepMesher {
     /// Create with default settings (both ends capped).
+    #[must_use] 
     pub fn new() -> Self {
         Self {
             cap_start: true,

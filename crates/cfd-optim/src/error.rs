@@ -23,17 +23,19 @@ pub enum OptimError {
     InvalidParameter(String),
 
     // ── Legacy variants (backward compatibility with original API) ──────────
-
     /// Legacy: no scenario results were provided.
     #[error("no scenario results were provided")]
     EmptyInput,
 
-    /// Legacy: invalid top_k value.
+    /// Legacy: invalid `top_k` value.
     #[error("invalid top_k value: {0}")]
     InvalidTopK(usize),
 
     /// Legacy: mesh export failed.
     #[cfg(feature = "mesh-export")]
     #[error("mesh export failed for scenario {scenario_id}: {message}")]
-    MeshExportFailed { scenario_id: String, message: String },
+    MeshExportFailed {
+        scenario_id: String,
+        message: String,
+    },
 }

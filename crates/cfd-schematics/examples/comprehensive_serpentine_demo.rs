@@ -48,7 +48,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
     let sine_output = out.join("serpentine/wave_shapes/sine_wave.png");
     plot_geometry(&sine_system, sine_output.to_str().unwrap())?;
-    println!("   ✓ Sine wave: Smooth, natural curves -> {}", sine_output.display());
+    println!(
+        "   ✓ Sine wave: Smooth, natural curves -> {}",
+        sine_output.display()
+    );
 
     let square_config = base_config.with_square_wave();
     let square_system = create_geometry(
@@ -59,7 +62,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
     let square_output = out.join("serpentine/wave_shapes/square_wave.png");
     plot_geometry(&square_system, square_output.to_str().unwrap())?;
-    println!("   ✓ Square wave: Angular transitions -> {}", square_output.display());
+    println!(
+        "   ✓ Square wave: Angular transitions -> {}",
+        square_output.display()
+    );
 
     println!("\n🔄 Phase Direction Control:");
 
@@ -167,7 +173,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         println!(
             "   ✓ {}: {} (total length: {:.1}mm) -> {}",
-            name, description, total_length, output.display()
+            name,
+            description,
+            total_length,
+            output.display()
         );
     }
 
@@ -202,7 +211,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     println!("\n📊 Feature Summary:");
-    println!("   • Wave Shapes: Sine (smooth) and Square (angular) with 200+ points for smoothness");
+    println!(
+        "   • Wave Shapes: Sine (smooth) and Square (angular) with 200+ points for smoothness"
+    );
     println!("   • Phase Control: Auto-symmetric, inward, and outward phase directions");
     println!("   • Configurations: Default, smooth, high-density, and square wave presets");
     println!("   • Optimization: Fast and thorough optimization profiles for length maximization");
@@ -212,7 +223,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     println!("\n✅ Comprehensive serpentine demonstration complete!");
-    println!("   All outputs organized in {}/serpentine/ subdirectories", out.display());
+    println!(
+        "   All outputs organized in {}/serpentine/ subdirectories",
+        out.display()
+    );
 
     Ok(())
 }

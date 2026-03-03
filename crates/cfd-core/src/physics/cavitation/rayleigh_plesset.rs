@@ -1,4 +1,34 @@
 //! Rayleigh-Plesset bubble dynamics model.
+//!
+//! # Theorem — Rayleigh-Plesset Equation (Rayleigh 1917, Plesset 1949)
+//!
+//! A spherical gas/vapour bubble of radius $R(t)$ in an infinite incompressible
+//! liquid of density $\rho_L$, viscosity $\mu$, and surface tension $\sigma$
+//! satisfies the second-order ODE:
+//!
+//! ```text
+//! ρ_L (R R̈ + 3/2 Ṙ²) = p_B(R) − p_∞(t) − 2σ/R − 4μṘ/R
+//! ```
+//!
+//! where $p_B(R) = p_{v} + p_{g0}(R_0/R)^{3\kappa}$ is the internal bubble
+//! pressure (vapour + polytropic gas), $p_\infty(t)$ is the far-field liquid
+//! pressure, and $\kappa$ is the polytropic index.
+//!
+//! **Proof sketch.** Assume spherical symmetry and incompressibility so that
+//! the radial velocity is $u_r = \dot{R}R^2/r^2$. Substituting into the radial
+//! Navier-Stokes equation and integrating from $r = R$ to $r \to \infty$ gives
+//! the inertial terms on the left. The normal-stress balance at the bubble
+//! surface provides the pressure and surface-tension terms. Viscous dissipation
+//! contributes the $4\mu\dot{R}/R$ term (Plesset & Prosperetti 1977).
+//!
+//! ## References
+//!
+//! - Rayleigh, Lord (1917). "On the pressure developed in a liquid during the
+//!   collapse of a spherical cavity." *Phil. Mag.* 34:94–98.
+//! - Plesset, M. S. (1949). "The dynamics of cavitation bubbles." *J. Appl. Mech.*
+//!   16:277–282.
+//! - Plesset, M. S. & Prosperetti, A. (1977). "Bubble dynamics and cavitation."
+//!   *Ann. Rev. Fluid Mech.* 9:145–185.
 
 use nalgebra::RealField;
 use num_traits::FromPrimitive;

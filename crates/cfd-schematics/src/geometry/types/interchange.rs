@@ -3,10 +3,9 @@
 use crate::config::TaperProfile;
 use serde::{Deserialize, Serialize};
 
-use super::{
-    centerline_for_channel, hydraulic_diameter, polyline_length, ChannelType, Point2D,
-};
 use super::channel_system::ChannelSystem;
+use super::tpms_fill::TpmsFillSpec;
+use super::{centerline_for_channel, hydraulic_diameter, polyline_length, ChannelType, Point2D};
 
 /// Interchange-ready node payload for downstream meshing/CFD tooling.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -148,15 +147,16 @@ impl ChannelSystem {
                 let centerline_length = polyline_length(&centerline);
 
                 let profile = if let ChannelType::Frustum {
-                        widths,
-                        inlet_width,
-                        throat_width,
-                        outlet_width,
-                        taper_profile,
-                        throat_position,
-                        has_venturi_throat,
-                        ..
-                    } = &channel.channel_type {
+                    widths,
+                    inlet_width,
+                    throat_width,
+                    outlet_width,
+                    taper_profile,
+                    throat_position,
+                    has_venturi_throat,
+                    ..
+                } = &channel.channel_type
+                {
                     InterchangeChannelProfile::Frustum {
                         inlet_width_mm: *inlet_width,
                         throat_width_mm: *throat_width,
@@ -168,25 +168,16 @@ impl ChannelSystem {
                         area_profile_mm2: widths.iter().map(|w| w * channel.height).collect(),
                         has_venturi_throat: *has_venturi_throat,
                     }
-                    } else {
-                        let area = channel.width * channel.height;
+                } else {
+                    let area = channel.width * channel.height;
 
-                        if let Some(meta) = &channel.metadata {
-                            if let Some(geom_meta) = meta.get::<crate::geometry::metadata::ChannelGeometryMetadata>() {
-                                InterchangeChannelProfile::Circular {
-                                    diameter_mm: geom_meta.channel_diameter_mm,
-                                    cross_section_area_mm2: area,
-                                }
-                            } else {
-                                InterchangeChannelProfile::Constant {
-                                    width_mm: channel.width,
-                                    height_mm: channel.height,
-                                    cross_section_area_mm2: area,
-                                    hydraulic_diameter_mm: hydraulic_diameter(
-                                        channel.width,
-                                        channel.height,
-                                    ),
-                                }
+                    if let Some(meta) = &channel.metadata {
+                        if let Some(geom_meta) =
+                            meta.get::<crate::geometry::metadata::ChannelGeometryMetadata>()
+                        {
+                            InterchangeChannelProfile::Circular {
+                                diameter_mm: geom_meta.channel_diameter_mm,
+                                cross_section_area_mm2: area,
                             }
                         } else {
                             InterchangeChannelProfile::Constant {
@@ -199,7 +190,18 @@ impl ChannelSystem {
                                 ),
                             }
                         }
-                    };
+                    } else {
+                        InterchangeChannelProfile::Constant {
+                            width_mm: channel.width,
+                            height_mm: channel.height,
+                            cross_section_area_mm2: area,
+                            hydraulic_diameter_mm: hydraulic_diameter(
+                                channel.width,
+                                channel.height,
+                            ),
+                        }
+                    }
+                };
 
                 InterchangeChannel {
                     id: channel.id,
@@ -246,6 +248,110 @@ impl ChannelSystem {
     ///     .to_interchange_json()
     ///     .expect("interchange export should serialize");
     /// assert!(json.contains("\"schema_version\""));
+    /// ```
+    pub fn to_interchange_json(&self) -> Result<String, serde_json::Error> {
+        serde_json::to_string_pretty(&self.to_interchange())
+    }
+}
+
+// ── Shell Cuboid interchange types ─────────────────────────────────────────────
+
+/// Interchange payload describing a single port of a [`ShellCuboid`].
+///
+/// Each port is defined by two points: one on the **outer** wall surface and
+/// one on the **inner** cavity surface, forming a short stub through the shell.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InterchangeShellPort {
+    /// Human-readable port label (`"inlet"` | `"outlet"`).
+    pub label: String,
+    /// Midpoint on the outer wall surface (mm).
+    pub outer_point_mm: Point2D,
+    /// Midpoint on the inner cavity surface (mm).
+    pub inner_point_mm: Point2D,
+}
+
+/// Interchange export payload for a [`ShellCuboid`].
+///
+/// Designed to give downstream mesh/CFD toolchains everything they need to
+/// reconstruct the device geometry without depending on the schematic's visual
+/// representation.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InterchangeShellCuboid {
+    /// Schema version for compatibility checks in downstream tooling.
+    pub schema_version: String,
+    /// Producer identifier including crate version.
+    pub producer: String,
+    /// Length units used by all coordinates and dimensions.
+    pub length_units: String,
+    /// Outer bounding-box dimensions `(width_mm, height_mm)`.
+    pub outer_dims_mm: (f64, f64),
+    /// Inner cavity dimensions `(width_mm, height_mm)`.
+    pub inner_dims_mm: (f64, f64),
+    /// Uniform wall thickness (mm).
+    pub shell_thickness_mm: f64,
+    /// Port stubs `[inlet, outlet]`.
+    pub ports: Vec<InterchangeShellPort>,
+    /// Optional TPMS lattice fill for the inner cavity.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tpms_fill: Option<TpmsFillSpec>,
+}
+
+impl super::shell_cuboid::ShellCuboid {
+    /// Build an explicit interchange payload for mesh/CFD workflows.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use cfd_schematics::geometry::ShellCuboid;
+    ///
+    /// let sc = ShellCuboid::new((80.0, 40.0), 2.0).unwrap();
+    /// let ix = sc.to_interchange();
+    /// assert_eq!(ix.length_units, "mm");
+    /// assert_eq!(ix.ports.len(), 2);
+    /// ```
+    #[must_use]
+    pub fn to_interchange(&self) -> InterchangeShellCuboid {
+        let (w, h) = self.outer_dims;
+        let t = self.shell_thickness_mm;
+
+        let inlet_port = InterchangeShellPort {
+            label: "inlet".to_string(),
+            outer_point_mm: (0.0, h / 2.0),
+            inner_point_mm: (t, h / 2.0),
+        };
+        let outlet_port = InterchangeShellPort {
+            label: "outlet".to_string(),
+            outer_point_mm: (w, h / 2.0),
+            inner_point_mm: (w - t, h / 2.0),
+        };
+
+        InterchangeShellCuboid {
+            schema_version: Self::INTERCHANGE_SCHEMA_VERSION.to_string(),
+            producer: format!(
+                "{}/{}",
+                Self::INTERCHANGE_PRODUCER_PREFIX,
+                env!("CARGO_PKG_VERSION")
+            ),
+            length_units: Self::INTERCHANGE_LENGTH_UNITS.to_string(),
+            outer_dims_mm: self.outer_dims,
+            inner_dims_mm: self.inner_dims,
+            shell_thickness_mm: self.shell_thickness_mm,
+            ports: vec![inlet_port, outlet_port],
+            tpms_fill: self.tpms_fill.clone(),
+        }
+    }
+
+    /// Export the interchange payload as a pretty-printed JSON string.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use cfd_schematics::geometry::ShellCuboid;
+    ///
+    /// let sc = ShellCuboid::new((80.0, 40.0), 2.0).unwrap();
+    /// let json = sc.to_interchange_json().expect("should serialize");
+    /// assert!(json.contains("\"outer_dims_mm\""));
+    /// assert!(json.contains("\"inlet\""));
     /// ```
     pub fn to_interchange_json(&self) -> Result<String, serde_json::Error> {
         serde_json::to_string_pretty(&self.to_interchange())

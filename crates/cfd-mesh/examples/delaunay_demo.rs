@@ -12,7 +12,6 @@
 //! cargo run -p cfd-mesh --example delaunay_demo
 //! ```
 
-use std::f64::consts::PI;
 use std::fs;
 use std::io::BufWriter;
 

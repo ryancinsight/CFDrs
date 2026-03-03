@@ -106,7 +106,7 @@ impl HexToTetConverter {
                 [face.vertices[0], face.vertices[1], face.vertices[2]],
             );
             if let Some(idx) = nf {
-                new_mesh.mark_boundary(idx, label.to_string());
+                new_mesh.mark_boundary(idx, label.clone());
             }
         }
 
@@ -378,7 +378,7 @@ impl HexToTetConverter {
                     .map(|nodes| Self::tet_six_volume(mesh, *nodes))
                     .fold(num_traits::Float::max_value(), |a, b| if a < b { a } else { b });
 
-                if best_quality.map_or(true, |best| quality > best) {
+                if best_quality.is_none_or(|best| quality > best) {
                     best_quality = Some(quality);
                     best_order = Some(order);
                 }

@@ -29,6 +29,7 @@ use crate::domain::mesh::IndexedMesh;
 /// # Returns
 ///
 /// A new `IndexedMesh<f64>` containing the triangulation.
+#[must_use] 
 pub fn to_indexed_mesh(dt: &DelaunayTriangulation) -> IndexedMesh<f64> {
     let mut mesh = IndexedMesh::<f64>::new();
 
@@ -63,6 +64,7 @@ pub fn to_indexed_mesh(dt: &DelaunayTriangulation) -> IndexedMesh<f64> {
 
 /// Convert a `DelaunayTriangulation` into an `IndexedMesh<f64>` with a
 /// prescribed z-coordinate for the embedding plane.
+#[must_use] 
 pub fn to_indexed_mesh_at_z(dt: &DelaunayTriangulation, z: Real) -> IndexedMesh<f64> {
     let mut mesh = IndexedMesh::<f64>::new();
     let normal = Vector3::new(0.0, 0.0, 1.0);

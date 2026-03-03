@@ -2,14 +2,14 @@
 """
 Lid-Driven Cavity Flow Validation against Ghia et al. (1982)
 
-Compares pycfdrs.CavitySolver2D against benchmark data from:
+Compares cfd_python.CavitySolver2D against benchmark data from:
 Ghia, U., Ghia, K. N., & Shin, C. T. (1982). High-Re solutions for
 incompressible flow using the Navier-Stokes equations and a multigrid method.
 Journal of computational physics, 48(3), 387-411.
 """
 
 import numpy as np
-import pycfdrs
+import cfd_python
 import matplotlib.pyplot as plt
 from pathlib import Path
 
@@ -42,8 +42,8 @@ def run_cavity_validation(re: int = 100, nx: int = 129, ny: int = 129):
     print(f"Lid-Driven Cavity Validation: Re = {re}, Grid = {nx}x{ny}")
     print(f"{'='*70}\n")
     
-    # Run pycfdrs solver
-    solver = pycfdrs.CavitySolver2D(
+    # Run cfd_python solver
+    solver = cfd_python.CavitySolver2D(
         nx=nx,
         ny=ny,
         reynolds=float(re),
@@ -63,7 +63,7 @@ def run_cavity_validation(re: int = 100, nx: int = 129, ny: int = 129):
     u_centerline = np.array(result.u_centerline)
     y_centerline = np.array(result.y_coords)
     
-    # Interpolate pycfdrs results to Ghia points
+    # Interpolate cfd_python results to Ghia points
     u_interp = np.interp(y_ghia, y_centerline, u_centerline)
     
     # Compute errors
@@ -86,7 +86,7 @@ def run_cavity_validation(re: int = 100, nx: int = 129, ny: int = 129):
     
     # Plot comparison
     plt.figure(figsize=(10, 6))
-    plt.plot(u_centerline, y_centerline, 'b-', linewidth=2, label='pycfdrs')
+    plt.plot(u_centerline, y_centerline, 'b-', linewidth=2, label='cfd_python')
     plt.plot(u_ghia, y_ghia, 'ro', markersize=6, label='Ghia et al. (1982)')
     plt.xlabel('u-velocity (normalized)', fontsize=12)
     plt.ylabel('y / L', fontsize=12)

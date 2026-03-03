@@ -3,6 +3,7 @@
 mod darcy_weisbach;
 mod entrance;
 mod hagen_poiseuille;
+mod junction_loss;
 mod membrane;
 mod rectangular;
 mod serpentine;
@@ -12,6 +13,7 @@ mod venturi;
 pub use darcy_weisbach::DarcyWeisbachModel;
 pub use entrance::{CombinationMethod, EntranceEffectsModel};
 pub use hagen_poiseuille::HagenPoiseuilleModel;
+pub use junction_loss::{JunctionFlowDirection, JunctionLossModel, JunctionType};
 pub use membrane::MembranePoreModel;
 pub use rectangular::RectangularChannelModel;
 pub use serpentine::{BendType, SerpentineAnalysis, SerpentineCrossSection, SerpentineModel};

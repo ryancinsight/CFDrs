@@ -22,7 +22,7 @@ All implementations follow strict validation requirements:
 - Error vs analytical solution: **0.00%**
 - Murray's Law validation: **0.00% error**
 - Mass conservation: Perfect (machine precision)
-- Python bindings: Working (`pycfdrs.BifurcationSolver`)
+- Python bindings: Working (`cfd-python.BifurcationSolver`)
 
 **Physics**:
 - Hagen-Poiseuille flow in each segment
@@ -38,7 +38,7 @@ All implementations follow strict validation requirements:
 **Results**:
 - Error vs analytical: **0.00%**
 - Mass conservation: Perfect
-- Python bindings: Working (`pycfdrs.TrifurcationSolver`)
+- Python bindings: Working (`cfd-python.TrifurcationSolver`)
 
 ---
 
@@ -74,10 +74,10 @@ All implementations follow strict validation requirements:
 
 **Python Bindings**: ✅ Complete
 ```python
-import pycfdrs
-config = pycfdrs.PoiseuilleConfig2D(height=0.001, width=0.01, ny=101, pressure_gradient=100000)
-solver = pycfdrs.PoiseuilleSolver2D(config)
-blood = pycfdrs.CassonBlood()
+import cfd-python
+config = cfd-python.PoiseuilleConfig2D(height=0.001, width=0.01, ny=101, pressure_gradient=100000)
+solver = cfd-python.PoiseuilleSolver2D(config)
+blood = cfd-python.CassonBlood()
 result = solver.solve(blood)
 print(f"Flow rate: {result.flow_rate:.6e} m³/s")
 print(f"Wall shear stress: {result.wall_shear_stress:.3e} Pa")
@@ -85,7 +85,7 @@ print(f"Wall shear stress: {result.wall_shear_stress:.3e} Pa")
 
 **FEniCS Validation Script**: ✅ Ready
 - Full non-Newtonian implementation in FEniCS
-- Iterative viscosity update matching pycfdrs
+- Iterative viscosity update matching cfd-python
 - Direct profile comparison
 - **Needs FEniCS installed to run**
 
@@ -196,7 +196,7 @@ Parent vessel → Junction → Two daughter vessels
 6. ⚠️ Needs: Serpentine FEniCS comparison
 7. ⚠️ Needs: 3D OpenFOAM comparisons
 
-### Python Bindings (pycfdrs):
+### Python Bindings (cfd-python):
 - ✅ 1D: Bifurcation, Trifurcation
 - ✅ 2D: Poiseuille
 - ⚠️ 2D: Bifurcation, Venturi, Serpentine (needs implementation)
@@ -256,9 +256,9 @@ cargo build --release
 
 ### Build Python bindings:
 ```bash
-cd crates/pycfdrs
+cd crates/cfd-python
 maturin build --release
-pip install ../../target/wheels/pycfdrs-*.whl
+pip install ../../target/wheels/cfd-python-*.whl
 ```
 
 ### Run validations:

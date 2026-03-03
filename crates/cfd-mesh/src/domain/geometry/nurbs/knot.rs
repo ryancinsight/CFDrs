@@ -54,6 +54,7 @@ impl KnotVector {
     /// # Safety (logical, not memory)
     /// Providing a decreasing knot vector leads to incorrect basis evaluation
     /// but not undefined memory behavior.
+    #[must_use] 
     pub fn new_unchecked(knots: Vec<Real>) -> Self {
         Self { knots }
     }
@@ -66,6 +67,7 @@ impl KnotVector {
     ///
     /// # Panics
     /// Panics if `n < p` (not enough control points for the degree).
+    #[must_use] 
     pub fn clamped_uniform(n: usize, p: usize) -> Self {
         assert!(n >= p, "need at least p+1 control points for degree p");
         let m = n + p + 1; // last knot index
@@ -89,23 +91,27 @@ impl KnotVector {
 
     /// Number of knots (= `n + p + 2` for a valid B-spline).
     #[inline]
+    #[must_use] 
     pub fn len(&self) -> usize {
         self.knots.len()
     }
 
     /// Raw slice of knot values.
     #[inline]
+    #[must_use] 
     pub fn as_slice(&self) -> &[Real] {
         &self.knots
     }
 
     /// Get knot value by index.
     #[inline]
+    #[must_use] 
     pub fn get(&self, i: usize) -> Real {
         self.knots[i]
     }
 
     /// The parameter domain: `[knots[0], knots[last]]`.
+    #[must_use] 
     pub fn domain(&self) -> (Real, Real) {
         (*self.knots.first().unwrap(), *self.knots.last().unwrap())
     }
@@ -120,6 +126,7 @@ impl KnotVector {
     ///
     /// # Panics
     /// Panics if `ξ` is outside `[ξ₀, ξₘ]`.
+    #[must_use] 
     pub fn find_span(&self, t: Real, n: usize) -> usize {
         let (lo, hi) = self.domain();
         assert!(
@@ -138,19 +145,20 @@ impl KnotVector {
         // Binary search in knots[0..=n+1]
         let mut low = 0usize;
         let mut high = n + 1;
-        let mut mid = (low + high) / 2;
+        let mut mid = usize::midpoint(low, high);
         while t < self.knots[mid] || t >= self.knots[mid + 1] {
             if t < self.knots[mid] {
                 high = mid;
             } else {
                 low = mid;
             }
-            mid = (low + high) / 2;
+            mid = usize::midpoint(low, high);
         }
         mid
     }
 
     /// Return the multiplicity of knot value `t` (number of times it appears).
+    #[must_use] 
     pub fn multiplicity(&self, t: Real) -> usize {
         self.knots
             .iter()
@@ -160,6 +168,7 @@ impl KnotVector {
 
     /// Return `true` if this is a clamped (open) knot vector for degree `p`:
     /// the first `p+1` entries are equal and the last `p+1` entries are equal.
+    #[must_use] 
     pub fn is_clamped(&self, p: usize) -> bool {
         let m = self.knots.len() - 1;
         if m < 2 * p {
@@ -198,10 +207,10 @@ impl std::fmt::Display for KnotError {
         match self {
             KnotError::Empty => write!(f, "knot vector is empty"),
             KnotError::Decreasing { index } => {
-                write!(f, "knot vector is decreasing at index {}", index)
+                write!(f, "knot vector is decreasing at index {index}")
             }
             KnotError::WrongLength { got, expected } => {
-                write!(f, "knot vector has {} entries; expected {}", got, expected)
+                write!(f, "knot vector has {got} entries; expected {expected}")
             }
         }
     }

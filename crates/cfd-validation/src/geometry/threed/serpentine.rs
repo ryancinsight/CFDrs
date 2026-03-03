@@ -73,7 +73,6 @@ impl<T: RealField + Copy> Geometry3D<T> for Serpentine3D<T> {
     }
 
     fn measure(&self) -> T {
-        let one = T::one();
         let pi = T::from_f64(std::f64::consts::PI).unwrap();
         let total_l = self.wavelength * T::from_usize(self.num_periods).unwrap();
         let area = pi * (self.diameter / T::from_f64(2.0).unwrap()).powf(T::from_f64(2.0).unwrap());

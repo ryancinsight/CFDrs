@@ -295,6 +295,137 @@ impl Metadata for PerformanceMetadata {
     }
 }
 
+// ── Therapy geometry metadata types ─────────────────────────────────────────
+
+/// Geometry parameters for a venturi constriction channel.
+///
+/// Attached to the `throat_section` channel in venturi preset factories so
+/// that downstream consumers (cfd-optim, cfd-mesh) can query exact throat
+/// dimensions without pattern-matching channel IDs.
+#[derive(Debug, Clone, PartialEq)]
+pub struct VenturiGeometryMetadata {
+    /// Throat channel width [m] — the constriction width.
+    pub throat_width_m: f64,
+    /// Throat channel height [m] — same as inlet height for planar chips.
+    pub throat_height_m: f64,
+    /// Throat channel length [m].
+    pub throat_length_m: f64,
+    /// Inlet/outlet channel width [m] upstream and downstream of the throat.
+    pub inlet_width_m: f64,
+}
+
+impl Metadata for VenturiGeometryMetadata {
+    fn metadata_type_name(&self) -> &'static str {
+        "VenturiGeometryMetadata"
+    }
+    fn clone_metadata(&self) -> Box<dyn Metadata> {
+        Box::new(self.clone())
+    }
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+}
+
+/// Parameters for a cascade-center trifurcation separator.
+///
+/// Attached to the inlet junction of CCT blueprints so consumers can
+/// reconstruct the Zweifach-Fung routing fractions without re-parsing
+/// channel names.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CascadeParams {
+    /// Number of trifurcation cascade levels (typically 1–3).
+    pub n_levels: u8,
+    /// Center-arm width fraction ∈ [0.25, 0.65].
+    pub center_frac: f64,
+}
+
+impl Metadata for CascadeParams {
+    fn metadata_type_name(&self) -> &'static str {
+        "CascadeParams"
+    }
+    fn clone_metadata(&self) -> Box<dyn Metadata> {
+        Box::new(self.clone())
+    }
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+}
+
+/// Parameters for an incremental filtration tri-bi separator.
+///
+/// Attached to the inlet junction of CIF blueprints.
+#[derive(Debug, Clone, PartialEq)]
+pub struct IncrementalFiltrationParams {
+    /// Number of pre-trifurcation stages (typically 1–3).
+    pub n_pretri: u8,
+    /// Legacy center-arm width fraction ∈ [0.25, 0.65].
+    ///
+    /// Preserved for backward compatibility with older CIF metadata readers.
+    pub center_frac: f64,
+    /// Pre-trifurcation center-arm width fraction ∈ [0.25, 0.65].
+    pub pretri_center_frac: f64,
+    /// Terminal-trifurcation center-arm width fraction ∈ [0.25, 0.65].
+    pub terminal_tri_center_frac: f64,
+    /// Terminal-bifurcation treatment-arm fraction ∈ [0.50, 0.85].
+    pub bi_treat_frac: f64,
+    /// Outlet-tail channel length from `outlet_merge` to `outlet` [m].
+    ///
+    /// Shorter tails represent "remerge near outlet" layouts where treated and
+    /// bypass streams converge immediately before exiting the device.
+    pub outlet_tail_length_m: f64,
+}
+
+impl Metadata for IncrementalFiltrationParams {
+    fn metadata_type_name(&self) -> &'static str {
+        "IncrementalFiltrationParams"
+    }
+    fn clone_metadata(&self) -> Box<dyn Metadata> {
+        Box::new(self.clone())
+    }
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+}
+
+/// Parameters for an asymmetric 3-stream trifurcation venturi blueprint.
+///
+/// Attached to the inlet junction of asymmetric trifurcation blueprints.
+/// The three arms have independent width fractions; only the center arm
+/// receives a venturi throat for selective SDT treatment.
+#[derive(Debug, Clone, PartialEq)]
+pub struct AsymmetricTrifurcationParams {
+    /// Center arm width fraction ∈ [0.20, 0.60] — receives venturi treatment.
+    pub center_frac: f64,
+    /// Left arm width fraction ∈ [0.15, 0.50] — WBC collection port.
+    pub left_frac: f64,
+    /// Right arm width fraction = 1 - center_frac - left_frac — RBC waste port.
+    pub right_frac: f64,
+}
+
+impl Metadata for AsymmetricTrifurcationParams {
+    fn metadata_type_name(&self) -> &'static str {
+        "AsymmetricTrifurcationParams"
+    }
+    fn clone_metadata(&self) -> Box<dyn Metadata> {
+        Box::new(self.clone())
+    }
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+}
+
 /// Convenience macro for implementing Metadata trait
 #[macro_export]
 macro_rules! impl_metadata {

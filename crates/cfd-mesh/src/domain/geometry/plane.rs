@@ -22,17 +22,19 @@ pub enum PointClassification {
 pub struct Plane {
     /// Unit normal vector.
     pub normal: Vector3r,
-    /// Signed distance from origin (w = -normal · point_on_plane).
+    /// Signed distance from origin (w = -normal · `point_on_plane`).
     pub w: Real,
 }
 
 impl Plane {
     /// Create a plane from a normal and signed distance.
+    #[must_use] 
     pub fn new(normal: Vector3r, w: Real) -> Self {
         Self { normal, w }
     }
 
     /// Create a plane from a normal and a point on the plane.
+    #[must_use] 
     pub fn from_normal_and_point(normal: Vector3r, point: &Point3r) -> Self {
         let n = normal.normalize();
         let w = -n.dot(&point.coords);
@@ -40,6 +42,7 @@ impl Plane {
     }
 
     /// Create a plane from three non-collinear points (CCW winding → outward normal).
+    #[must_use] 
     pub fn from_three_points(a: &Point3r, b: &Point3r, c: &Point3r) -> Option<Self> {
         let ab = b - a;
         let ac = c - a;
@@ -57,18 +60,21 @@ impl Plane {
     ///
     /// Positive = front side, negative = back side, ~0 = coplanar.
     #[inline]
+    #[must_use] 
     pub fn signed_distance(&self, point: &Point3r) -> Real {
         self.normal.dot(&point.coords) + self.w
     }
 
     /// Classify a point relative to this plane (using the default TOLERANCE).
     #[inline]
+    #[must_use] 
     pub fn classify_point(&self, point: &Point3r) -> PointClassification {
         self.classify_point_with_eps(point, TOLERANCE)
     }
 
     /// Classify a point with a custom epsilon (used by BSP operations).
     #[inline]
+    #[must_use] 
     pub fn classify_point_with_eps(&self, point: &Point3r, eps: Real) -> PointClassification {
         let dist = self.signed_distance(point);
         if dist > eps {
@@ -81,6 +87,7 @@ impl Plane {
     }
 
     /// Flip the plane (reverse normal and w).
+    #[must_use] 
     pub fn flip(&self) -> Self {
         Self {
             normal: -self.normal,
@@ -91,11 +98,13 @@ impl Plane {
     /// Compute the intersection parameter `t` along the line segment `a → b`.
     ///
     /// Returns `None` if the segment is parallel to the plane.
+    #[must_use] 
     pub fn intersect_segment(&self, a: &Point3r, b: &Point3r) -> Option<Real> {
         self.intersect_segment_with_eps(a, b, TOLERANCE)
     }
 
     /// Compute the intersection parameter with a custom epsilon.
+    #[must_use] 
     pub fn intersect_segment_with_eps(&self, a: &Point3r, b: &Point3r, eps: Real) -> Option<Real> {
         let da = self.signed_distance(a);
         let db = self.signed_distance(b);

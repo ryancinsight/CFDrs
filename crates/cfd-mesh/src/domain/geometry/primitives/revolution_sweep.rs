@@ -122,8 +122,7 @@ fn build(s: &RevolutionSweep) -> Result<IndexedMesh, PrimitiveError> {
     for &(r, _y) in &s.profile {
         if r < 0.0 {
             return Err(PrimitiveError::InvalidParam(format!(
-                "all radial values must be ≥ 0, got {}",
-                r
+                "all radial values must be ≥ 0, got {r}"
             )));
         }
     }

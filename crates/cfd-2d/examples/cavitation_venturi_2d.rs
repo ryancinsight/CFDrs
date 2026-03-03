@@ -44,6 +44,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let rho = 998.0_f64;
     let mu = 8.9e-4_f64;
     let p_vapor = 3169.0_f64; // vapor pressure at 25 C [Pa]
+    let p_atm = 101_325.0_f64; // atmospheric reference for absolute pressure [Pa]
 
     // -- Frustum configuration: moderate venturi (2:1 contraction) --
     let frustum = FrustumConfig {
@@ -149,10 +150,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .iter()
         .map(|n| n.point.0)
         .fold(f64::NEG_INFINITY, f64::max);
-    let inlet_pressure = sol.dp_throat.abs() * (max_level + 1) as f64 + 2000.0;
+    let inlet_pressure_gauge = sol.dp_throat.abs() * (max_level + 1) as f64 + 2000.0;
     for node in &system.nodes {
         let frac = (node.point.0 - min_x) / (max_x - min_x).max(1e-12);
-        node_pressure.insert(node.id, inlet_pressure * (1.0 - frac));
+        let p_node_gauge = inlet_pressure_gauge * (1.0 - frac);
+        node_pressure.insert(node.id, p_atm + p_node_gauge);
     }
 
     println!("\n   Channel Results:");
@@ -165,7 +167,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let channel_p = node_pressure
             .get(&channel.from_node)
             .copied()
-            .unwrap_or(inlet_pressure);
+            .unwrap_or(p_atm + inlet_pressure_gauge);
 
         // VenturiCavitation analysis
         let venturi = VenturiCavitation {
@@ -280,6 +282,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "density_kg_m3": rho,
             "viscosity_pa_s": mu,
             "vapor_pressure_pa": p_vapor,
+            "pressure_reference_pa": p_atm,
         },
         "solver_2d": {
             "grid": "60 x 30",

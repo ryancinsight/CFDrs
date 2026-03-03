@@ -182,7 +182,7 @@ impl<T: RealField + Copy + FromPrimitive> AnalyticalSolution<T> for WomersleyFlo
         -dpdx * x * (self.omega * t).cos()
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "Womersley Pulsatile Flow"
     }
 

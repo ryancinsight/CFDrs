@@ -12,7 +12,7 @@ crate-type = ["cdylib"]
 [dependencies]
 pyo3 = { version = "0.22", features = ["extension-module"] }
 numpy = "0.22"
-ndarray = "0.15"
+ndarray = "0.16"
 
 # Internal dependencies
 cfd-1d = { path = "../cfd-1d" }
@@ -27,7 +27,3 @@ nalgebra = { version = "0.33", features = ["serde"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 num-traits = "0.2"
-
-[profile.release]
-opt-level = 3
-lto = true

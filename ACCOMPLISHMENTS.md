@@ -7,7 +7,7 @@
 - ✅ **1D Bifurcations/Trifurcations**: 0.00% error (machine precision)
 - ✅ **2D Poiseuille Flow**: 0.72% error vs analytical
 - ✅ **Non-Newtonian Blood**: Casson & Carreau-Yasuda models working
-- ✅ **Python Bindings**: pycfdrs fully functional
+- ✅ **Python Bindings**: cfd-python fully functional
 - ✅ **Validation Framework**: Complete with FEniCS comparison scripts
 
 **This is not just "code that runs" - it is mathematically rigorous, fully documented, and quantitatively validated.**
@@ -22,7 +22,7 @@
 - `crates/cfd-1d/src/bifurcation/junction.rs` (956 lines)
 - `crates/cfd-1d/src/vascular/bifurcation.rs`
 - `validation/validation_analytical.py` (372 lines)
-- `crates/pycfdrs/src/bifurcation.rs` (Python bindings)
+- `crates/cfd-python/src/bifurcation.rs` (Python bindings)
 
 **Validation Results**:
 ```
@@ -49,7 +49,7 @@ These aren't approximations - they are **exact solutions** of the governing equa
 - `crates/cfd-2d/src/solvers/poiseuille.rs` (604 lines, complete)
 - `validation/test_poiseuille_2d.py` (233 lines, analytical validation)
 - `validation/fenics_poiseuille_2d.py` (383 lines, FEniCS comparison)
-- `crates/pycfdrs/src/poiseuille_2d.rs` (281 lines, Python bindings)
+- `crates/cfd-python/src/poiseuille_2d.rs` (281 lines, Python bindings)
 
 **Implementation Features**:
 ```rust
@@ -117,22 +117,22 @@ Validation Checks: 6/6 PASSED
 ### 3. Working Python Bindings ✅
 
 **Files Created**:
-- `crates/pycfdrs/src/lib.rs` (modified)
-- `crates/pycfdrs/src/bifurcation.rs`
-- `crates/pycfdrs/src/blood.rs` (Casson & Carreau-Yasuda)
-- `crates/pycfdrs/src/poiseuille_2d.rs`
-- `crates/pycfdrs/Cargo.toml` (PyO3 configuration)
+- `crates/cfd-python/src/lib.rs` (modified)
+- `crates/cfd-python/src/bifurcation.rs`
+- `crates/cfd-python/src/blood.rs` (Casson & Carreau-Yasuda)
+- `crates/cfd-python/src/poiseuille_2d.rs`
+- `crates/cfd-python/Cargo.toml` (PyO3 configuration)
 
 **Python API**:
 ```python
-import pycfdrs
+import cfd-python
 
 # Blood models
-blood_casson = pycfdrs.CassonBlood()  # Normal blood
-blood_cy = pycfdrs.CarreauYasudaBlood()
+blood_casson = cfd-python.CassonBlood()  # Normal blood
+blood_cy = cfd-python.CarreauYasudaBlood()
 
 # 1D Bifurcation
-solver_1d = pycfdrs.BifurcationSolver(
+solver_1d = cfd-python.BifurcationSolver(
     d_parent=100e-6,
     d_daughter1=80e-6,
     d_daughter2=80e-6
@@ -141,11 +141,11 @@ result_1d = solver_1d.solve(flow_rate=3e-8, pressure=40.0, blood=blood_casson)
 print(f"WSS branch 1: {result_1d.wss_1:.2f} Pa")
 
 # 2D Poiseuille
-config_2d = pycfdrs.PoiseuilleConfig2D(
+config_2d = cfd-python.PoiseuilleConfig2D(
     height=0.001, width=0.01, ny=101,
     pressure_gradient=100000.0
 )
-solver_2d = pycfdrs.PoiseuilleSolver2D(config_2d)
+solver_2d = cfd-python.PoiseuilleSolver2D(config_2d)
 result_2d = solver_2d.solve(blood_casson)
 
 # Access full profiles
@@ -156,9 +156,9 @@ plt.plot(result_2d.y_coords, result_2d.viscosity)
 
 **Build System**:
 ```bash
-cd crates/pycfdrs
+cd crates/cfd-python
 maturin build --release
-pip install ../../target/wheels/pycfdrs-0.1.0-*.whl
+pip install ../../target/wheels/cfd-python-0.1.0-*.whl
 # ✅ Working on Windows, Linux, macOS
 ```
 
@@ -181,10 +181,10 @@ def solve_fenics_poiseuille(H, ny, dP_dx):
     Returns: y, u, γ̇, μ, iterations
     """
     
-def compare_with_pycfdrs():
+def compare_with_cfd-python():
     """
     Direct comparison:
-    - Interpolate FEniCS solution to pycfdrs grid
+    - Interpolate FEniCS solution to cfd-python grid
     - Compute relative errors
     - Generate comparison plots
     - Print validation summary
@@ -320,13 +320,13 @@ Example from `poiseuille.rs`:
 ```bash
 conda create -n fenics -c conda-forge fenics matplotlib
 conda activate fenics
-pip install pycfdrs-*.whl
+pip install cfd-python-*.whl
 python validation/fenics_poiseuille_2d.py
 ```
 
 Expected output:
 ```
-pycfdrs vs FEniCS Comparison:
+cfd-python vs FEniCS Comparison:
   Velocity error: < 5%
   Shear rate error: < 10%
   Viscosity error: < 10%

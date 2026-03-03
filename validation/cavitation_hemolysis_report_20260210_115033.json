@@ -118,14 +118,14 @@
       "timestamp": "2026-02-10T11:50:33.712123"
     },
     {
-      "name": "5.1 pycfdrs VenturiSolver1D: cavitation prediction",
+      "name": "5.1 cfd-python VenturiSolver1D: cavitation prediction",
       "passed": false,
-      "details": "EXCEPTION: VenturiSolver1D.__new__() got an unexpected keyword argument 'inlet_length'\nTraceback (most recent call last):\n  File \"C:\\Users\\RyanClanton\\gcli\\software\\millifluidic_design\\CFDrs\\validation\\validate_cavitation_hemolysis.py\", line 96, in wrapper\n    passed, details = func()\n                      ~~~~^^\n  File \"C:\\Users\\RyanClanton\\gcli\\software\\millifluidic_design\\CFDrs\\validation\\validate_cavitation_hemolysis.py\", line 523, in test_pycfdrs_venturi_cavitation\n    solver = pycfdrs.VenturiSolver1D(\n        inlet_diameter=2e-3,\n    ...<3 lines>...\n        diffuser_length=20e-3\n    )\nTypeError: VenturiSolver1D.__new__() got an unexpected keyword argument 'inlet_length'\n",
+      "details": "EXCEPTION: VenturiSolver1D.__new__() got an unexpected keyword argument 'inlet_length'\nTraceback (most recent call last):\n  File \"C:\\Users\\RyanClanton\\gcli\\software\\millifluidic_design\\CFDrs\\validation\\validate_cavitation_hemolysis.py\", line 96, in wrapper\n    passed, details = func()\n                      ~~~~^^\n  File \"C:\\Users\\RyanClanton\\gcli\\software\\millifluidic_design\\CFDrs\\validation\\validate_cavitation_hemolysis.py\", line 523, in test_cfd-python_venturi_cavitation\n    solver = cfd-python.VenturiSolver1D(\n        inlet_diameter=2e-3,\n    ...<3 lines>...\n        diffuser_length=20e-3\n    )\nTypeError: VenturiSolver1D.__new__() got an unexpected keyword argument 'inlet_length'\n",
       "reference": "Integration",
       "timestamp": "2026-02-10T11:50:33.715956"
     },
     {
-      "name": "5.2 pycfdrs blood rheology under high shear",
+      "name": "5.2 cfd-python blood rheology under high shear",
       "passed": false,
       "details": "\u03b3=1000.0 s\u207b\u00b9: Casson=3.734, CY=3.736, \u03bc_\u221e=3.450 mPa\u00b7s",
       "reference": "Blood flow",

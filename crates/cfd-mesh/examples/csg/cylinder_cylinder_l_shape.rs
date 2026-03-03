@@ -178,7 +178,7 @@ fn run_sharp() -> Result<(), Box<dyn std::error::Error>> {
         // Translate to corner: (0, H, 0).
         let iso = Isometry3::from_parts(Translation3::new(0.0, H, 0.0), rot);
         CsgNode::Transform {
-            node: Box::new(CsgNode::Leaf(raw)),
+            node: Box::new(CsgNode::Leaf(Box::new(raw))),
             iso,
         }
         .evaluate()?
@@ -302,7 +302,7 @@ fn run_rounded() -> Result<(), Box<dyn std::error::Error>> {
         );
         let iso = Isometry3::from_parts(Translation3::new(0.0, straight_len, 0.0), rot);
         CsgNode::Transform {
-            node: Box::new(CsgNode::Leaf(raw)),
+            node: Box::new(CsgNode::Leaf(Box::new(raw))),
             iso,
         }
         .evaluate()?
@@ -327,7 +327,7 @@ fn run_rounded() -> Result<(), Box<dyn std::error::Error>> {
         // Start eps before the elbow outlet so arm base pierces the elbow barrel.
         let iso = Isometry3::from_parts(Translation3::new(R_BEND - eps, arm_y, 0.0), rot);
         CsgNode::Transform {
-            node: Box::new(CsgNode::Leaf(raw)),
+            node: Box::new(CsgNode::Leaf(Box::new(raw))),
             iso,
         }
         .evaluate()?

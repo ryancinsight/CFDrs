@@ -24,6 +24,7 @@ pub mod adaptive_collision;
 pub mod builders;
 pub mod collision_detection;
 pub mod generator;
+pub mod intersection;
 pub mod metadata;
 pub mod optimization;
 pub mod state_integration;
@@ -31,11 +32,15 @@ pub mod strategies;
 pub mod types;
 
 pub use self::{
-    generator::{create_geometry, create_geometry_with_metadata, MetadataConfig},
+    generator::{
+        create_geometry, create_geometry_with_metadata, create_shell_cuboid, MetadataConfig,
+    },
+    intersection::{adaptive_box_dims, insert_intersection_nodes, IntersectionResult},
     types::{
-        Channel, ChannelSystem, ChannelType, ChannelTypeCategory, InterchangeChannel,
-        InterchangeChannelProfile, InterchangeChannelSystem, InterchangeNode, Node, Point2D,
-        SplitType,
+        AdaptiveGradient, Channel, ChannelSystem, ChannelType, ChannelTypeCategory,
+        InterchangeChannel, InterchangeChannelProfile, InterchangeChannelSystem, InterchangeNode,
+        InterchangeShellCuboid, InterchangeShellPort, Node, Point2D, ShellCuboid, SplitType,
+        TpmsFillSpec, TpmsSurfaceKind,
     },
 };
 

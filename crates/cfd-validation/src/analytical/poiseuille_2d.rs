@@ -102,7 +102,7 @@ impl<T: RealField + FromPrimitive + Copy> RheologicalModel<T> for PowerLawModel<
         self.consistency * shear_rate.abs().powf(self.index - T::one())
     }
     
-    fn model_name(&self) -> &str {
+    fn model_name(&self) -> &'static str {
         "Power-Law"
     }
 }
@@ -259,7 +259,7 @@ impl<T: RealField + FromPrimitive + Copy> AnalyticalSolution<T> for PowerLawPois
         -self.pressure_gradient * x
     }
     
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "Power-Law Poiseuille (2D Channel)"
     }
     
@@ -303,7 +303,7 @@ impl<T: RealField + FromPrimitive + Copy> RheologicalModel<T> for CassonBlood<T>
         self.apparent_viscosity(shear_rate.abs())
     }
     
-    fn model_name(&self) -> &str {
+    fn model_name(&self) -> &'static str {
         "Casson"
     }
 }
@@ -425,7 +425,7 @@ impl<T: RealField + FromPrimitive + Copy> CassonPoiseuille<T> {
                 T::from_f64(4.0).unwrap()
             };
             
-            integral = integral + weight * gamma_dot;
+            integral += weight * gamma_dot;
         }
         
         integral * dy / T::from_f64(3.0).unwrap()
@@ -455,7 +455,7 @@ impl<T: RealField + FromPrimitive + Copy> CassonPoiseuille<T> {
                 T::from_f64(4.0).unwrap()
             };
             
-            integral = integral + weight * u;
+            integral += weight * u;
         }
         
         T::from_f64(2.0).unwrap() * integral * dy / T::from_f64(3.0).unwrap()
@@ -472,7 +472,7 @@ impl<T: RealField + FromPrimitive + Copy> AnalyticalSolution<T> for CassonPoiseu
         -self.pressure_gradient * x
     }
     
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "Casson Blood Poiseuille (2D Channel)"
     }
     

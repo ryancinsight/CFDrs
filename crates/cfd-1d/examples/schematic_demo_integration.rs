@@ -11,7 +11,7 @@ use cfd_1d::network::{Edge, Network, NetworkBuilder, Node};
 use cfd_1d::solver::{NetworkProblem, NetworkSolver, SolverConfig};
 use cfd_core::compute::solver::Solver;
 use cfd_core::physics::fluid::database;
-use cfd_schematics::domain::model::{ChannelSpec, EdgeId, NodeId, NodeKind, NodeSpec};
+use cfd_schematics::domain::model::{ChannelSpec, NodeKind, NodeSpec};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("🔌 Schematic Integration Demo");

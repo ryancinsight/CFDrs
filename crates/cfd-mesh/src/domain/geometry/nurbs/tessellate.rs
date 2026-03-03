@@ -2,17 +2,17 @@
 //!
 //! # Surface tessellation algorithm
 //!
-//! 1. Start with a min_segments x min_segments coarse parameter grid.
+//! 1. Start with a `min_segments` x `min_segments` coarse parameter grid.
 //! 2. For each quad cell evaluate the surface normal at all 4 corners.
 //! 3. If the maximum angle between any two corner normals exceeds
 //!    `max_angle_deg`, bisect the longer parameter edge and recurse.
 //! 4. Collect leaf quads; triangulate each into 2 triangles.
 //! 5. Pass every vertex position through `IndexedMesh::add_vertex_pos`, which
-//!    uses the built-in VertexPool spatial-hash to weld coincident vertices.
+//!    uses the built-in `VertexPool` spatial-hash to weld coincident vertices.
 //!
 //! # Curve tessellation algorithm
 //!
-//! 1. Start with min_segments uniform parameter samples.
+//! 1. Start with `min_segments` uniform parameter samples.
 //! 2. For each segment evaluate the tangent at both endpoints.
 //! 3. If the angle between tangents exceeds `max_angle_deg`, insert the
 //!    midpoint and recurse on both halves.
@@ -54,17 +54,20 @@ impl Default for TessellationOptions {
 
 impl TessellationOptions {
     /// Create with default settings.
+    #[must_use] 
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Set the maximum deviation angle in degrees (builder pattern).
+    #[must_use] 
     pub fn with_max_angle(mut self, deg: Real) -> Self {
         self.max_angle_deg = deg;
         self
     }
 
     /// Set the minimum number of parameter segments (builder pattern).
+    #[must_use] 
     pub fn with_min_segments(mut self, n: usize) -> Self {
         self.min_segments = n.max(1);
         self
@@ -156,6 +159,7 @@ fn subdivide_quad(
 /// let mesh = tessellate_surface(&my_surf, &opts);
 /// assert!(mesh.face_count() > 0);
 /// ```
+#[must_use] 
 pub fn tessellate_surface(surf: &NurbsSurface, opts: &TessellationOptions) -> IndexedMesh {
     let ((u0, u1), (v0, v1)) = surf.domain();
     let segs = opts.min_segments.max(1);
@@ -206,6 +210,7 @@ pub fn tessellate_surface(surf: &NurbsSurface, opts: &TessellationOptions) -> In
 /// let pts = tessellate_curve(&my_curve, &TessellationOptions::default());
 /// assert!(pts.len() >= 2);
 /// ```
+#[must_use] 
 pub fn tessellate_curve(curve: &NurbsCurve<3>, opts: &TessellationOptions) -> Vec<Point3r> {
     let (t0, t1) = curve.domain();
     let segs = opts.min_segments.max(1);

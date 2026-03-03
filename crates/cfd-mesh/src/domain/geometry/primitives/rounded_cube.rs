@@ -359,16 +359,14 @@ fn build(rc: &RoundedCube) -> Result<IndexedMesh, PrimitiveError> {
                                 // Natural winding is inward → keep as-is.
                                 mesh.add_face_with_region(v10, v11, v01, region);
                             }
+                        } else if parity_positive {
+                            // Natural outward → reverse for inward.
+                            mesh.add_face_with_region(v00, v01, v11, region);
+                            mesh.add_face_with_region(v00, v11, v10, region);
                         } else {
-                            if parity_positive {
-                                // Natural outward → reverse for inward.
-                                mesh.add_face_with_region(v00, v01, v11, region);
-                                mesh.add_face_with_region(v00, v11, v10, region);
-                            } else {
-                                // Natural inward → keep.
-                                mesh.add_face_with_region(v00, v10, v11, region);
-                                mesh.add_face_with_region(v00, v11, v01, region);
-                            }
+                            // Natural inward → keep.
+                            mesh.add_face_with_region(v00, v10, v11, region);
+                            mesh.add_face_with_region(v00, v11, v01, region);
                         }
                     }
                 }

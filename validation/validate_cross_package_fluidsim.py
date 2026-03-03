@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-Cross-package validation: pycfdrs vs fluidsim (pseudo-spectral NS solver).
+Cross-package validation: cfd_python vs fluidsim (pseudo-spectral NS solver).
 
 Compares both codes against analytical solutions and each other:
   1. Taylor-Green vortex decay energy vs analytical E(t) = E0 * exp(-4*nu*k^2*t)
   2. fluidsim Taylor-Green decay vs analytical (pseudo-spectral, 64x64)
-  3. Poiseuille flow analytical comparison (pycfdrs only -- fluidsim is periodic)
+  3. Poiseuille flow analytical comparison (cfd_python only -- fluidsim is periodic)
   4. Blood rheology vs Merrill (1969)
   5. Dean number consistency
   6. Murray's law verification
@@ -32,11 +32,11 @@ import numpy as np
 from datetime import datetime
 
 try:
-    import pycfdrs
-    HAS_PYCFDRS = True
+    import cfd_python
+    HAS_cfd_python = True
 except ImportError:
-    HAS_PYCFDRS = False
-    print("[SKIP] pycfdrs not installed")
+    HAS_cfd_python = False
+    print("[SKIP] cfd_python not installed")
 
 try:
     from fluidsim import import_simul_class_from_key
@@ -158,7 +158,7 @@ def _fluidsim_advance_to(sim, t_target):
 # -----------------------------------------------------------------------
 
 def validate_analytical_energy_decay():
-    """Test: pycfdrs Poiseuille vs analytical (always passes — baseline)."""
+    """Test: cfd_python Poiseuille vs analytical (always passes — baseline)."""
     print("=" * 60)
     print("Test 1: Analytical Energy Decay (Taylor-Green)")
     print("=" * 60)
@@ -235,14 +235,14 @@ def validate_fluidsim_vs_analytical():
     return True
 
 
-def validate_pycfdrs_poiseuille_analytical():
-    """Test: pycfdrs Poiseuille flow vs Hagen-Poiseuille analytical."""
+def validate_cfd_python_poiseuille_analytical():
+    """Test: cfd_python Poiseuille flow vs Hagen-Poiseuille analytical."""
     print("\n" + "=" * 60)
-    print("Test 3: pycfdrs Poiseuille vs Analytical")
+    print("Test 3: cfd_python Poiseuille vs Analytical")
     print("=" * 60)
     
-    if not HAS_PYCFDRS:
-        print("  [SKIP] pycfdrs not available")
+    if not HAS_cfd_python:
+        print("  [SKIP] cfd_python not available")
         return True
     
     D = 200e-6  # 200 um
@@ -257,39 +257,39 @@ def validate_pycfdrs_poiseuille_analytical():
     R = D / 2
     u_max_analytical = R**2 * dp / (4 * mu * L)
     
-    # pycfdrs Poiseuille3DSolver: input is pressure_drop, output is flow_rate
-    solver = pycfdrs.Poiseuille3DSolver(diameter=D, length=L, nr=4, ntheta=8, nz=10)
+    # cfd_python Poiseuille3DSolver: input is pressure_drop, output is flow_rate
+    solver = cfd_python.Poiseuille3DSolver(diameter=D, length=L, nr=4, ntheta=8, nz=10)
     result = solver.solve(pressure_drop=dp, blood_type="newtonian")
     
-    Q_pycfdrs = abs(result.flow_rate)
-    u_max_pycfdrs = abs(result.max_velocity)
+    Q_cfd_python = abs(result.flow_rate)
+    u_max_cfd_python = abs(result.max_velocity)
     
-    rel_err_Q = abs(Q_pycfdrs - Q_analytical) / Q_analytical if Q_analytical > 0 else 0
-    rel_err_u = abs(u_max_pycfdrs - u_max_analytical) / u_max_analytical if u_max_analytical > 0 else 0
+    rel_err_Q = abs(Q_cfd_python - Q_analytical) / Q_analytical if Q_analytical > 0 else 0
+    rel_err_u = abs(u_max_cfd_python - u_max_analytical) / u_max_analytical if u_max_analytical > 0 else 0
     
     print(f"  D = {D*1e6:.0f} um, L = {L*1e3:.1f} mm, mu = {mu} Pa.s")
     print(f"  dP = {dp:.1f} Pa")
     print(f"  Q (analytical):    {Q_analytical:.6e} m^3/s")
-    print(f"  Q (pycfdrs):       {Q_pycfdrs:.6e} m^3/s  (sign={'+' if result.flow_rate >= 0 else '-'})")
+    print(f"  Q (cfd_python):       {Q_cfd_python:.6e} m^3/s  (sign={'+' if result.flow_rate >= 0 else '-'})")
     print(f"  Q relative error:  {rel_err_Q:.2e}")
     print(f"  u_max (analytical): {u_max_analytical:.6f} m/s")
-    print(f"  u_max (pycfdrs):    {u_max_pycfdrs:.6f} m/s")
+    print(f"  u_max (cfd_python):    {u_max_cfd_python:.6f} m/s")
     print(f"  u_max rel error:    {rel_err_u:.2e}")
     
     # FEM on coarse mesh may not be very accurate; allow generous tolerance
     assert rel_err_Q < 1.0, f"Poiseuille Q mismatch: {rel_err_Q}"
-    print(f"  [PASS] pycfdrs Poiseuille produces physical results")
+    print(f"  [PASS] cfd_python Poiseuille produces physical results")
     return True
 
 
-def validate_pycfdrs_blood_vs_literature():
-    """Test: pycfdrs blood rheology vs published Merrill 1969 values."""
+def validate_cfd_python_blood_vs_literature():
+    """Test: cfd_python blood rheology vs published Merrill 1969 values."""
     print("\n" + "=" * 60)
-    print("Test 4: pycfdrs Blood Rheology vs Merrill (1969)")
+    print("Test 4: cfd_python Blood Rheology vs Merrill (1969)")
     print("=" * 60)
     
-    if not HAS_PYCFDRS:
-        print("  [SKIP] pycfdrs not available")
+    if not HAS_cfd_python:
+        print("  [SKIP] cfd_python not available")
         return True
     
     # Merrill 1969: blood at high shear rates (~200 1/s) has mu ~ 3.5 mPa.s
@@ -300,7 +300,7 @@ def validate_pycfdrs_blood_vs_literature():
     width = 200e-6;  height = 100e-6;  straight = 2e-3
     n_seg = 10;  R_bend = 500e-6;  u = 0.005
     
-    solver = pycfdrs.SerpentineSolver1D(
+    solver = cfd_python.SerpentineSolver1D(
         width=width, height=height, straight_length=straight,
         num_segments=n_seg, bend_radius=R_bend,
     )
@@ -332,19 +332,19 @@ def validate_pycfdrs_blood_vs_literature():
 
 
 def validate_dean_number_consistency():
-    """Test: pycfdrs Dean number vs analytical formula."""
+    """Test: cfd_python Dean number vs analytical formula."""
     print("\n" + "=" * 60)
     print("Test 5: Dean Number Consistency")  
     print("=" * 60)
     
-    if not HAS_PYCFDRS:
-        print("  [SKIP] pycfdrs not available")
+    if not HAS_cfd_python:
+        print("  [SKIP] cfd_python not available")
         return True
     
     width = 200e-6;  height = 100e-6;  straight = 2e-3
     n_seg = 10;  R_bend = 500e-6;  u = 0.01
     
-    solver = pycfdrs.SerpentineSolver1D(
+    solver = cfd_python.SerpentineSolver1D(
         width=width, height=height, straight_length=straight,
         num_segments=n_seg, bend_radius=R_bend,
     )
@@ -366,13 +366,13 @@ def validate_dean_number_consistency():
 
 
 def validate_murray_law_consistency():
-    """Test: Murray's law D_p^3 = sum(D_di^3) verified via pycfdrs."""
+    """Test: Murray's law D_p^3 = sum(D_di^3) verified via cfd_python."""
     print("\n" + "=" * 60)
     print("Test 6: Murray's Law (Bifurcation + Trifurcation)")
     print("=" * 60)
     
-    if not HAS_PYCFDRS:
-        print("  [SKIP] pycfdrs not available")
+    if not HAS_cfd_python:
+        print("  [SKIP] cfd_python not available")
         return True
     
     # Bifurcation: D_p=200um, D_d=158.7um (Murray optimal for n=2)
@@ -400,13 +400,13 @@ def validate_murray_law_consistency():
 
 
 def validate_venturi_bernoulli():
-    """Test: pycfdrs Venturi vs Bernoulli equation."""
+    """Test: cfd_python Venturi vs Bernoulli equation."""
     print("\n" + "=" * 60)
     print("Test 7: Venturi Bernoulli Validation")
     print("=" * 60)
     
-    if not HAS_PYCFDRS:
-        print("  [SKIP] pycfdrs not available")
+    if not HAS_cfd_python:
+        print("  [SKIP] cfd_python not available")
         return True
     
     D_inlet = 200e-6
@@ -422,7 +422,7 @@ def validate_venturi_bernoulli():
     # Bernoulli: dP = 0.5 * rho * (u_throat^2 - u_inlet^2)
     dp_bernoulli = 0.5 * rho * (u_throat**2 - u_inlet**2)
     
-    solver = pycfdrs.VenturiSolver1D(
+    solver = cfd_python.VenturiSolver1D(
         inlet_diameter=D_inlet, throat_diameter=D_throat,
         throat_length=L/2, total_length=3*L,
     )
@@ -430,7 +430,7 @@ def validate_venturi_bernoulli():
     
     print(f"  u_inlet={u_inlet} m/s  u_throat={u_throat:.4f} m/s")
     print(f"  dP (Bernoulli): {dp_bernoulli:.6f} Pa")
-    print(f"  dP (pycfdrs):   {result.pressure_drop:.6f} Pa")
+    print(f"  dP (cfd_python):   {result.pressure_drop:.6f} Pa")
     
     # Venturi solver includes viscous losses, so dP_solver >= dP_bernoulli
     assert result.pressure_drop > 0, "Venturi dP must be positive"
@@ -440,20 +440,20 @@ def validate_venturi_bernoulli():
 
 
 def validate_3d_solvers_convergence():
-    """Test: all pycfdrs 3D solvers converge without errors."""
+    """Test: all cfd_python 3D solvers converge without errors."""
     print("\n" + "=" * 60)
     print("Test 8: 3D FEM Solver Convergence")
     print("=" * 60)
     
-    if not HAS_PYCFDRS:
-        print("  [SKIP] pycfdrs not available")
+    if not HAS_cfd_python:
+        print("  [SKIP] cfd_python not available")
         return True
     
     passed = True
     
     # Bifurcation 3D
     try:
-        solver = pycfdrs.Bifurcation3DSolver(
+        solver = cfd_python.Bifurcation3DSolver(
             d_parent=200e-6, d_daughter1=158e-6, d_daughter2=158e-6,
             angle=30.0, length=1e-3,
         )
@@ -466,7 +466,7 @@ def validate_3d_solvers_convergence():
     
     # Trifurcation 3D
     try:
-        solver = pycfdrs.Trifurcation3DSolver(
+        solver = cfd_python.Trifurcation3DSolver(
             d_parent=200e-6, d_daughter=140e-6, length=1e-3,
         )
         result = solver.solve(flow_rate=6e-9, blood_type="newtonian")
@@ -478,7 +478,7 @@ def validate_3d_solvers_convergence():
     
     # Serpentine 3D
     try:
-        solver = pycfdrs.Serpentine3DSolver(
+        solver = cfd_python.Serpentine3DSolver(
             diameter=200e-6, wavelength=2e-3, amplitude=500e-6,
             cycles=1, circular=True,
         )
@@ -643,8 +643,8 @@ def main():
     tests = [
         ("Analytical Energy Decay", validate_analytical_energy_decay),
         ("fluidsim vs Analytical", validate_fluidsim_vs_analytical),
-        ("pycfdrs Poiseuille", validate_pycfdrs_poiseuille_analytical),
-        ("Blood Rheology Literature", validate_pycfdrs_blood_vs_literature),
+        ("cfd_python Poiseuille", validate_cfd_python_poiseuille_analytical),
+        ("Blood Rheology Literature", validate_cfd_python_blood_vs_literature),
         ("Dean Number", validate_dean_number_consistency),
         ("Murray's Law", validate_murray_law_consistency),
         ("Venturi Bernoulli", validate_venturi_bernoulli),
@@ -690,7 +690,7 @@ def main():
         'results': results,
         'all_passed': all_pass,
         'packages': {
-            'pycfdrs': HAS_PYCFDRS,
+            'cfd_python': HAS_cfd_python,
             'fluidsim': HAS_FLUIDSIM,
         }
     }

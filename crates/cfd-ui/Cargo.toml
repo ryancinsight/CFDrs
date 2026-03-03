@@ -1,0 +1,64 @@
+[package]
+name = "cfd-ui"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "CAD-like GUI for millifluidic CFD simulation"
+
+[features]
+default = ["gpu"]
+gpu = ["dep:wgpu"]
+gpui-window = ["dep:gpui"]
+
+[dependencies]
+# Internal crates
+cfd-core = { workspace = true }
+cfd-math = { workspace = true }
+cfd-mesh = { workspace = true }
+cfd-io = { workspace = true }
+cfd-schematics = { workspace = true }
+cfd-1d = { workspace = true }
+cfd-2d = { workspace = true }
+cfd-3d = { workspace = true }
+
+# GPU rendering (matches workspace wgpu 0.19)
+wgpu = { workspace = true, optional = true }
+bytemuck = { workspace = true }
+pollster = { workspace = true }
+
+# Math
+nalgebra = { workspace = true }
+num-traits = { workspace = true }
+
+# Image handling (for texture readback -> gpui image)
+image = { version = "0.25", default-features = false, features = ["png"] }
+smallvec = "1.13"
+
+# SVG engineering drawing export
+svg = "0.18"
+
+# Error handling
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+# GUI framework
+gpui = { version = "0.2.2", optional = true }
+
+# File dialogs
+rfd = "0.15"
+
+# Serialization (project files)
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Parallelism
+rayon = { workspace = true }
+
+[dev-dependencies]
+proptest = { workspace = true }
+approx = { workspace = true }

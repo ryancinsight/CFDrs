@@ -1,5 +1,5 @@
 """Diagnostic: Run cavity solver for minimal steps and check if flow develops."""
-import pycfdrs
+import cfd_python
 import time
 
 print("=" * 60)
@@ -9,7 +9,7 @@ print("=" * 60)
 # Very small grid for fast diagnosis
 nx = 9
 print(f"\nGrid: {nx}x{nx}, Re=100")
-solver = pycfdrs.CavitySolver2D(
+solver = cfd_python.CavitySolver2D(
     reynolds=100.0,
     nx=nx,
     ny=nx,

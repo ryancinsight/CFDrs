@@ -10,7 +10,6 @@ use crate::state_management::{
         ArcParameterManager, CollisionParameterManager, GeometryParameterManager, ParameterManager,
         SerpentineParameterManager, SymmetryParameterManager,
     },
-    validation::ValidationRuleSet,
 };
 use std::collections::HashMap;
 
@@ -94,10 +93,6 @@ pub struct ParameterRegistry {
     /// Symmetry parameter manager
     symmetry_manager: SymmetryParameterManager,
 
-    /// Global validation rules
-    #[allow(dead_code)] // Part of comprehensive parameter registry framework
-    global_validation_rules: ValidationRuleSet,
-
     /// Whether validation is enabled
     validation_enabled: bool,
 
@@ -117,7 +112,6 @@ impl ParameterRegistry {
             geometry_manager: GeometryParameterManager::new(),
             collision_manager: CollisionParameterManager::new(),
             symmetry_manager: SymmetryParameterManager::new(),
-            global_validation_rules: ValidationRuleSet::new(),
             validation_enabled: true,
             is_locked: false,
             version: 0,
@@ -413,7 +407,6 @@ impl Default for ParameterRegistry {
                 geometry_manager: GeometryParameterManager::new(),
                 collision_manager: CollisionParameterManager::new(),
                 symmetry_manager: SymmetryParameterManager::new(),
-                global_validation_rules: ValidationRuleSet::new(),
                 validation_enabled: true,
                 is_locked: false,
                 version: 0,

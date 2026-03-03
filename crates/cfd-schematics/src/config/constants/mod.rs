@@ -219,60 +219,163 @@ impl ConstantsRegistry {
     }
 
     // --- Adaptive Collision ---
-    pub fn get_max_adjustment_factor(&self) -> f64 { primitives::DEFAULT_MAX_ADJUSTMENT_FACTOR }
-    pub fn get_min_channel_distance(&self) -> f64 { primitives::DEFAULT_MIN_CHANNEL_DISTANCE }
-    pub fn get_min_wall_distance(&self) -> f64 { *self.geometry.default_wall_clearance.get_raw_value() }
-    pub fn get_safety_margin_factor(&self) -> f64 { primitives::DEFAULT_SAFETY_MARGIN_FACTOR }
-    pub fn get_max_reduction_factor(&self) -> f64 { primitives::DEFAULT_MAX_REDUCTION_FACTOR }
-    pub fn get_detection_sensitivity(&self) -> f64 { primitives::DEFAULT_DETECTION_SENSITIVITY }
-    pub fn get_proximity_divisor(&self) -> f64 { primitives::DEFAULT_PROXIMITY_DIVISOR }
-    pub fn get_min_proximity_factor(&self) -> f64 { primitives::DEFAULT_MIN_PROXIMITY_FACTOR }
-    pub fn get_max_proximity_factor(&self) -> f64 { primitives::DEFAULT_MAX_PROXIMITY_FACTOR }
-    pub fn get_branch_factor_exponent(&self) -> f64 { *self.optimization.branch_factor_exponent.get_raw_value() }
-    pub fn get_branch_adjustment_divisor(&self) -> f64 { primitives::DEFAULT_BRANCH_ADJUSTMENT_DIVISOR }
-    pub fn get_max_sensitivity_multiplier(&self) -> f64 { primitives::DEFAULT_MAX_SENSITIVITY_MULTIPLIER }
-    pub fn get_long_channel_threshold(&self) -> f64 { *self.geometry.long_horizontal_threshold.get_raw_value() }
-    pub fn get_long_channel_reduction_multiplier(&self) -> f64 { primitives::DEFAULT_LONG_CHANNEL_REDUCTION_MULTIPLIER }
-    pub fn get_max_reduction_limit(&self) -> f64 { primitives::DEFAULT_MAX_REDUCTION_LIMIT }
+    pub fn get_max_adjustment_factor(&self) -> f64 {
+        primitives::DEFAULT_MAX_ADJUSTMENT_FACTOR
+    }
+    pub fn get_min_channel_distance(&self) -> f64 {
+        primitives::DEFAULT_MIN_CHANNEL_DISTANCE
+    }
+    pub fn get_min_wall_distance(&self) -> f64 {
+        *self.geometry.default_wall_clearance.get_raw_value()
+    }
+    pub fn get_safety_margin_factor(&self) -> f64 {
+        primitives::DEFAULT_SAFETY_MARGIN_FACTOR
+    }
+    pub fn get_max_reduction_factor(&self) -> f64 {
+        primitives::DEFAULT_MAX_REDUCTION_FACTOR
+    }
+    pub fn get_detection_sensitivity(&self) -> f64 {
+        primitives::DEFAULT_DETECTION_SENSITIVITY
+    }
+    pub fn get_proximity_divisor(&self) -> f64 {
+        primitives::DEFAULT_PROXIMITY_DIVISOR
+    }
+    pub fn get_min_proximity_factor(&self) -> f64 {
+        primitives::DEFAULT_MIN_PROXIMITY_FACTOR
+    }
+    pub fn get_max_proximity_factor(&self) -> f64 {
+        primitives::DEFAULT_MAX_PROXIMITY_FACTOR
+    }
+    pub fn get_branch_factor_exponent(&self) -> f64 {
+        *self.optimization.branch_factor_exponent.get_raw_value()
+    }
+    pub fn get_branch_adjustment_divisor(&self) -> f64 {
+        primitives::DEFAULT_BRANCH_ADJUSTMENT_DIVISOR
+    }
+    pub fn get_max_sensitivity_multiplier(&self) -> f64 {
+        primitives::DEFAULT_MAX_SENSITIVITY_MULTIPLIER
+    }
+    pub fn get_long_channel_threshold(&self) -> f64 {
+        *self.geometry.long_horizontal_threshold.get_raw_value()
+    }
+    pub fn get_long_channel_reduction_multiplier(&self) -> f64 {
+        primitives::DEFAULT_LONG_CHANNEL_REDUCTION_MULTIPLIER
+    }
+    pub fn get_max_reduction_limit(&self) -> f64 {
+        primitives::DEFAULT_MAX_REDUCTION_LIMIT
+    }
 
     // --- Optimization ---
-    pub fn get_max_optimization_iterations(&self) -> usize { *self.optimization.max_optimization_iterations.get_raw_value() }
-    pub fn get_optimization_tolerance(&self) -> f64 { *self.optimization.convergence_tolerance.get_raw_value() }
-    pub fn get_fast_wavelength_factors(&self) -> Vec<f64> { self.optimization.fast_wavelength_factors.get_raw_value().clone() }
-    pub fn get_fast_wave_density_factors(&self) -> Vec<f64> { self.optimization.fast_wave_density_factors.get_raw_value().clone() }
-    pub fn get_fast_fill_factors(&self) -> Vec<f64> { self.optimization.fast_fill_factors.get_raw_value().clone() }
+    pub fn get_max_optimization_iterations(&self) -> usize {
+        *self
+            .optimization
+            .max_optimization_iterations
+            .get_raw_value()
+    }
+    pub fn get_optimization_tolerance(&self) -> f64 {
+        *self.optimization.convergence_tolerance.get_raw_value()
+    }
+    pub fn get_fast_wavelength_factors(&self) -> Vec<f64> {
+        self.optimization
+            .fast_wavelength_factors
+            .get_raw_value()
+            .clone()
+    }
+    pub fn get_fast_wave_density_factors(&self) -> Vec<f64> {
+        self.optimization
+            .fast_wave_density_factors
+            .get_raw_value()
+            .clone()
+    }
+    pub fn get_fast_fill_factors(&self) -> Vec<f64> {
+        self.optimization.fast_fill_factors.get_raw_value().clone()
+    }
 
     // --- Wave Generation ---
-    pub fn get_smooth_endpoint_start_threshold(&self) -> f64 { *self.waves.smooth_endpoint_start_threshold.get_raw_value() }
-    pub fn get_smooth_endpoint_end_threshold(&self) -> f64 { *self.waves.smooth_endpoint_end_threshold.get_raw_value() }
-    pub fn get_default_transition_length_factor(&self) -> f64 { *self.waves.default_transition_length_factor.get_raw_value() }
-    pub fn get_default_transition_amplitude_factor(&self) -> f64 { *self.waves.default_transition_amplitude_factor.get_raw_value() }
-    pub fn get_default_transition_smoothness(&self) -> usize { *self.waves.default_transition_smoothness.get_raw_value() }
-    pub fn get_default_wave_multiplier(&self) -> f64 { *self.waves.default_wave_multiplier.get_raw_value() }
-    pub fn get_square_wave_sharpness(&self) -> f64 { *self.waves.square_wave_sharpness.get_raw_value() }
-    pub fn get_neighbor_scale_factor(&self) -> f64 { *self.waves.neighbor_avoidance_scaling_factor.get_raw_value() }
-    pub fn get_transition_zone_factor(&self) -> f64 { *self.waves.transition_zone_factor.get_raw_value() }
+    pub fn get_smooth_endpoint_start_threshold(&self) -> f64 {
+        *self.waves.smooth_endpoint_start_threshold.get_raw_value()
+    }
+    pub fn get_smooth_endpoint_end_threshold(&self) -> f64 {
+        *self.waves.smooth_endpoint_end_threshold.get_raw_value()
+    }
+    pub fn get_default_transition_length_factor(&self) -> f64 {
+        *self.waves.default_transition_length_factor.get_raw_value()
+    }
+    pub fn get_default_transition_amplitude_factor(&self) -> f64 {
+        *self
+            .waves
+            .default_transition_amplitude_factor
+            .get_raw_value()
+    }
+    pub fn get_default_transition_smoothness(&self) -> usize {
+        *self.waves.default_transition_smoothness.get_raw_value()
+    }
+    pub fn get_default_wave_multiplier(&self) -> f64 {
+        *self.waves.default_wave_multiplier.get_raw_value()
+    }
+    pub fn get_square_wave_sharpness(&self) -> f64 {
+        *self.waves.square_wave_sharpness.get_raw_value()
+    }
+    pub fn get_neighbor_scale_factor(&self) -> f64 {
+        *self.waves.neighbor_avoidance_scaling_factor.get_raw_value()
+    }
+    pub fn get_transition_zone_factor(&self) -> f64 {
+        *self.waves.transition_zone_factor.get_raw_value()
+    }
 
     // --- Geometry ---
-    pub fn get_short_channel_width_multiplier(&self) -> f64 { *self.geometry.short_channel_width_multiplier.get_raw_value() }
-    pub fn get_geometric_tolerance(&self) -> f64 { *self.waves.geometric_tolerance.get_raw_value() }
-    pub fn get_max_curvature_reduction_factor(&self) -> f64 { *self.geometry.max_curvature_reduction_factor.get_raw_value() }
-    pub fn get_min_curvature_factor(&self) -> f64 { *self.geometry.min_curvature_factor.get_raw_value() }
-    pub fn get_min_distance_threshold(&self) -> f64 { *self.waves.geometric_tolerance.get_raw_value() }
+    pub fn get_short_channel_width_multiplier(&self) -> f64 {
+        *self.geometry.short_channel_width_multiplier.get_raw_value()
+    }
+    pub fn get_geometric_tolerance(&self) -> f64 {
+        *self.waves.geometric_tolerance.get_raw_value()
+    }
+    pub fn get_max_curvature_reduction_factor(&self) -> f64 {
+        *self.geometry.max_curvature_reduction_factor.get_raw_value()
+    }
+    pub fn get_min_curvature_factor(&self) -> f64 {
+        *self.geometry.min_curvature_factor.get_raw_value()
+    }
+    pub fn get_min_distance_threshold(&self) -> f64 {
+        *self.waves.geometric_tolerance.get_raw_value()
+    }
 
     // --- Strategies ---
-    pub fn get_long_horizontal_threshold(&self) -> f64 { *self.geometry.long_horizontal_threshold.get_raw_value() }
-    pub fn get_horizontal_angle_threshold(&self) -> f64 { *self.geometry.horizontal_angle_threshold.get_raw_value() }
-    pub fn get_frustum_min_length_threshold(&self) -> f64 { *self.strategies.frustum_min_length_threshold.get_raw_value() }
-    pub fn get_frustum_max_length_threshold(&self) -> f64 { *self.strategies.frustum_max_length_threshold.get_raw_value() }
-    pub fn get_frustum_angle_threshold(&self) -> f64 { *self.strategies.frustum_angle_threshold.get_raw_value() }
-    pub fn get_min_arc_length_threshold(&self) -> f64 { *self.geometry.min_arc_length_threshold.get_raw_value() }
+    pub fn get_long_horizontal_threshold(&self) -> f64 {
+        *self.geometry.long_horizontal_threshold.get_raw_value()
+    }
+    pub fn get_horizontal_angle_threshold(&self) -> f64 {
+        *self.geometry.horizontal_angle_threshold.get_raw_value()
+    }
+    pub fn get_frustum_min_length_threshold(&self) -> f64 {
+        *self.strategies.frustum_min_length_threshold.get_raw_value()
+    }
+    pub fn get_frustum_max_length_threshold(&self) -> f64 {
+        *self.strategies.frustum_max_length_threshold.get_raw_value()
+    }
+    pub fn get_frustum_angle_threshold(&self) -> f64 {
+        *self.strategies.frustum_angle_threshold.get_raw_value()
+    }
+    pub fn get_min_arc_length_threshold(&self) -> f64 {
+        *self.geometry.min_arc_length_threshold.get_raw_value()
+    }
 
     // --- Visualization ---
-    pub fn get_default_chart_margin(&self) -> u32 { *self.visualization.default_chart_margin.get_raw_value() }
-    pub fn get_default_chart_right_margin(&self) -> u32 { *self.visualization.default_chart_right_margin.get_raw_value() }
-    pub fn get_default_x_label_area_size(&self) -> u32 { *self.visualization.default_x_label_area_size.get_raw_value() }
-    pub fn get_default_y_label_area_size(&self) -> u32 { *self.visualization.default_y_label_area_size.get_raw_value() }
+    pub fn get_default_chart_margin(&self) -> u32 {
+        *self.visualization.default_chart_margin.get_raw_value()
+    }
+    pub fn get_default_chart_right_margin(&self) -> u32 {
+        *self
+            .visualization
+            .default_chart_right_margin
+            .get_raw_value()
+    }
+    pub fn get_default_x_label_area_size(&self) -> u32 {
+        *self.visualization.default_x_label_area_size.get_raw_value()
+    }
+    pub fn get_default_y_label_area_size(&self) -> u32 {
+        *self.visualization.default_y_label_area_size.get_raw_value()
+    }
 }
 
 impl Default for ConstantsRegistry {

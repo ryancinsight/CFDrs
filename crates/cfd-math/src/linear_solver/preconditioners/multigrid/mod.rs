@@ -16,42 +16,51 @@
 //! - **Smoothers**: Relaxation methods on each level
 //! - **Cycle Algorithms**: V-cycle, W-cycle, F-cycle patterns
 //!
-//! ## Convergence Theory
+//! # Theorem — Two-Grid Convergence
 //!
-//! ### Two-Grid Convergence Analysis
+//! For a symmetric positive definite operator $A_h$ with smoothing iteration
+//! $M_h$ satisfying $\|I - M_h A_h\| \leq \eta < 1$, and approximation
+//! property $\|A_h - P_h A_{2h} R_h\| \leq C h^\alpha$, the two-grid method
+//! converges with factor:
 //!
-//! The two-grid convergence factor ρ₂ satisfies ρ₂ < 1 under the smoothing and approximation properties:
+//! ```text
+//! ρ₂ ≤ η + C(1−η)² / (1 + C(1−η))
+//! ```
 //!
-//! **Theorem (Two-Grid Convergence)**: For a symmetric positive definite operator A_h with
-//! smoothing iteration M_h satisfying ||I - M_h A_h|| ≤ η < 1, and approximation property
-//! ||A_h - P_h A_2h R_h|| ≤ C h^α, the two-grid method converges with factor:
+//! **Proof sketch.** The two-grid error propagation operator is
+//! $E_{2G} = S^{\nu_2} (I - P A_c^{-1} R A) S^{\nu_1}$ where $S = I - M^{-1}A$
+//! is the smoothing iteration. The smoothing property bounds
+//! $\|A S^\nu\| \leq C_S / \nu$ (Hackbusch 1985), and the approximation
+//! property gives $\|(I - P A_c^{-1} R) v\|^2 \leq C_A \langle A v, v \rangle$.
+//! Combining via the Cauchy-Schwarz inequality yields the stated bound.
 //!
-//! ρ₂ ≤ η + C(1-η)² / (1 + C(1-η))
+//! # Theorem — Multigrid Convergence (V-Cycle and W-Cycle)
 //!
-//! **Proof**: The two-grid error propagation operator is:
-//! E_2G = (I - M_h A_h) + P_h (I - M_2h A_2h) (A_2h)^{-1} A_h (I - M_h A_h)
+//! For $\gamma$-cycle multigrid with $\gamma \geq 2$ coarse-grid corrections:
 //!
-//! Under the approximation property, ||(A_2h)^{-1} A_h - R_h P_h|| ≤ C h^α.
-//! For η < 1 and C finite, ρ₂ < 1.
+//! ```text
+//! ρ_MG ≤ 1 − C / (1 + (γ−1) η_γ)
+//! ```
 //!
-//! ### Multigrid Convergence
+//! W-cycles ($\gamma = 2$) improve convergence for anisotropic problems:
+//! $\rho_W \leq \eta^2 + C(1-\eta^2)^2 / (1 + C(1-\eta^2))$.
 //!
-//! **Theorem (Multigrid Convergence)**: For γ-grid cycles with γ ≥ 2, the convergence factor satisfies:
+//! **Proof sketch.** Recursive application of the two-grid bound with
+//! induction on the number of levels. The W-cycle applies the coarse
+//! correction twice, squaring the smoothing factor (Bramble 1993, Thm 4.1).
 //!
-//! ρ_MG ≤ 1 - C / (1 + (γ-1)η_γ)
+//! # Theorem — AMG Practical Convergence (Stüben 2001)
 //!
-//! where η_γ is the smoothing factor after γ pre- and post-smoothing steps.
+//! For AMG with Ruge-Stüben coarsening applied to CFD matrices from
+//! second-order elliptic discretisations, the two-grid convergence factor
+//! satisfies $\rho < 0.3$ when the coarsening ratio is sufficiently large
+//! and the number of smoothing steps $\nu \geq 2$.
 //!
-//! **V-Cycle Convergence**: For symmetric V-cycles, ρ_V ≤ η + C(1-η)² / (1 + C(1-η))
+//! ## References
 //!
-//! **W-Cycle Improvement**: W-cycles provide better convergence for difficult problems:
-//! ρ_W ≤ η² + C(1-η²)² / (1 + C(1-η²))
-//!
-//! **Theorem (Stüben, 2001)**: For AMG applied to CFD matrices, the two-grid convergence factor satisfies:
-//!
-//! ρ < 0.3
-//!
-//! This bound holds when the coarsening ratio is sufficiently large and smoothing is adequate.
+//! - Hackbusch, W. (1985). *Multi-Grid Methods and Applications.* Springer.
+//! - Bramble, J. H. (1993). *Multigrid Methods.* Pitman Research Notes.
+//! - Stüben, K. (2001). "A review of algebraic multigrid." *JCAM* 128:281–309.
 //!
 //! ### Interpolation Operator Construction
 //!

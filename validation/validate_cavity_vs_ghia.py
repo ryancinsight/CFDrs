@@ -2,7 +2,7 @@
 """
 Lid-Driven Cavity Validation vs Ghia et al. (1982)
 
-This script validates the pycfdrs CavitySolver2D against the classical
+This script validates the cfd_python CavitySolver2D against the classical
 Ghia et al. (1982) benchmark for lid-driven cavity flow at Re=100.
 
 Reference:
@@ -16,7 +16,7 @@ Acceptance Criteria:
 
 Usage:
     .\.venv\Scripts\Activate.ps1
-    maturin develop --manifest-path crates/pycfdrs/Cargo.toml
+    maturin develop --manifest-path crates/cfd-python/Cargo.toml
     python validation/validate_cavity_vs_ghia.py
 """
 
@@ -27,11 +27,11 @@ from dataclasses import dataclass
 from typing import Tuple
 
 try:
-    import pycfdrs
-    from pycfdrs import CavitySolver2D
-    HAS_PYCFDRS = True
+    import cfd_python
+    from cfd_python import CavitySolver2D
+    HAS_cfd_python = True
 except ImportError:
-    HAS_PYCFDRS = False
+    HAS_cfd_python = False
 
 
 @dataclass
@@ -63,15 +63,15 @@ def validate_cavity_re100() -> ValidationResult:
     print("LID-DRIVEN CAVITY VALIDATION: Re=100 vs Ghia et al. (1982)")
     print("="*70)
     
-    if not HAS_PYCFDRS:
-        print("ERROR: pycfdrs not available")
-        print("Build with: maturin develop --manifest-path crates/pycfdrs/Cargo.toml")
+    if not HAS_cfd_python:
+        print("ERROR: cfd_python not available")
+        print("Build with: maturin develop --manifest-path crates/cfd-python/Cargo.toml")
         return ValidationResult(
             name="Ghia Cavity Re=100",
             l2_error=1.0,
             tolerance=0.01,
             passed=False,
-            details="pycfdrs not available"
+            details="cfd_python not available"
         )
     
     # Create solver with Ghia benchmark parameters
@@ -105,7 +105,7 @@ def validate_cavity_re100() -> ValidationResult:
     # U-velocity along vertical centerline
     ax = axes[0]
     ax.plot(ghia_u[:, 1], ghia_u[:, 0], 'ko', markersize=8, label='Ghia et al. (1982)')
-    ax.plot(result.u_centerline, result.y_coords, 'b-', linewidth=2, label='pycfdrs (SIMPLEC)')
+    ax.plot(result.u_centerline, result.y_coords, 'b-', linewidth=2, label='cfd_python (SIMPLEC)')
     ax.set_xlabel('U-velocity (normalized)')
     ax.set_ylabel('Y position')
     ax.set_title(f'U-velocity at x=0.5 (Re={solver.reynolds:.0f})')
@@ -115,7 +115,7 @@ def validate_cavity_re100() -> ValidationResult:
     # V-velocity along horizontal centerline
     ax = axes[1]
     ax.plot(ghia_v[:, 0], ghia_v[:, 1], 'ko', markersize=8, label='Ghia et al. (1982)')
-    ax.plot(result.x_coords, result.v_centerline, 'b-', linewidth=2, label='pycfdrs (SIMPLEC)')
+    ax.plot(result.x_coords, result.v_centerline, 'b-', linewidth=2, label='cfd_python (SIMPLEC)')
     ax.set_xlabel('X position')
     ax.set_ylabel('V-velocity (normalized)')
     ax.set_title(f'V-velocity at y=0.5 (Re={solver.reynolds:.0f})')
@@ -158,13 +158,13 @@ def validate_cavity_grid_convergence() -> ValidationResult:
     print("GRID CONVERGENCE STUDY: Lid-Driven Cavity Re=100")
     print("="*70)
     
-    if not HAS_PYCFDRS:
+    if not HAS_cfd_python:
         return ValidationResult(
             name="Grid Convergence",
             l2_error=1.0,
             tolerance=0.1,
             passed=False,
-            details="pycfdrs not available"
+            details="cfd_python not available"
         )
     
     grid_sizes = [17, 33, 65]
@@ -194,7 +194,7 @@ def main():
     """Run complete cavity validation suite"""
     print("\n" + "╔" + "═"*68 + "╗")
     print("║" + " "*15 + "GHIA CAVITY BENCHMARK VALIDATION" + " "*20 + "║")
-    print("║" + " "*10 + "pycfdrs vs Ghia et al. (1982)" + " "*28 + "║")
+    print("║" + " "*10 + "cfd_python vs Ghia et al. (1982)" + " "*28 + "║")
     print("╚" + "═"*68 + "╝")
     
     results = []
@@ -219,7 +219,7 @@ def main():
     print("="*70)
     if all_passed:
         print("✓ ALL VALIDATIONS PASSED")
-        print("  pycfdrs cavity solver matches Ghia et al. (1982) benchmark.")
+        print("  cfd_python cavity solver matches Ghia et al. (1982) benchmark.")
     else:
         print("✗ SOME VALIDATIONS FAILED")
         print("  Review implementation for failed tests.")

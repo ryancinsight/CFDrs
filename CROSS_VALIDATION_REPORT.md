@@ -1,6 +1,6 @@
 # Cross-Package Validation Report
 **Date**: February 11, 2026  
-**System**: CFD-RS (Rust) + pycfdrs (Python bindings)  
+**System**: CFD-RS (Rust) + cfd-python (Python bindings)  
 **Validation Methodology**: Independent verification against analytical solutions and external CFD implementations
 
 ---
@@ -127,7 +127,7 @@ Created `external_cavity_reference.py`:
 
 **Test Configuration**:
 - Method 1: D2Q9 Lattice Boltzmann (Python_CFD tutorial, Philip Mocz)
-- Method 2: Finite Difference Navier-Stokes (pycfdrs)
+- Method 2: Finite Difference Navier-Stokes (cfd-python)
 - Method 3: Analytical Hagen-Poiseuille
 - Grid: 400 × 100 (LBM), 51 × 101 (FD)
 - Time steps: 4000 (LBM), steady-state (FD)
@@ -135,12 +135,12 @@ Created `external_cavity_reference.py`:
 **Results**:
 ```
 LBM vs Analytical:      L2 error = 0.4123 (41.2%)
-pycfdrs vs Analytical:  L2 error = 0.0000 (<0.01%)
-LBM vs pycfdrs:         L2 error = 0.4123
+cfd-python vs Analytical:  L2 error = 0.0000 (<0.01%)
+LBM vs cfd-python:         L2 error = 0.4123
 ```
 
 **Analysis**:
-- ✅ **pycfdrs perfectly matches analytical** (machine precision)
+- ✅ **cfd-python perfectly matches analytical** (machine precision)
 - ⚠️ LBM shows larger deviation due to:
   - Compressible LBM vs incompressible NS assumption
   - Bounce-back boundary conditions vs no-slip
@@ -154,7 +154,7 @@ LBM vs pycfdrs:         L2 error = 0.4123
 
 ### 3.4 Cavity Flow Comparison (Pending)
 
-**Target**: Compare pycfdrs cavity solver vs `external_cavity_reference.py`
+**Target**: Compare cfd-python cavity solver vs `external_cavity_reference.py`
 
 **Test case**: Lid-driven cavity at Re=100
 - Grid: 65 × 65
@@ -162,7 +162,7 @@ LBM vs pycfdrs:         L2 error = 0.4123
 - Metrics: U/V centerlines, vortex center location, pressure field
 
 **Status**: ⏳ Framework created (`compare_cavity_external.py`) but requires:
-1. Cavity solver implementation in pycfdrs (currently missing `CavitySolver2D`)
+1. Cavity solver implementation in cfd-python (currently missing `CavitySolver2D`)
 2. Or optimization of reference solver (currently ~20,000 iterations)
 
 ---
@@ -309,8 +309,8 @@ Total Validations: 21 tests, 20 PASSED, 1 EXPECTED DEVIATION
 
 ### Immediate Actions
 1. ✅ **Complete Poiseuille analytical validation** → DONE
-2. ⏳ **Run Python_CFD cavity notebook** → Compare with pycfdrs
-3. ⏳ **Implement CavitySolver2D in pycfdrs** → Enable cavity validation
+2. ⏳ **Run Python_CFD cavity notebook** → Compare with cfd-python
+3. ⏳ **Implement CavitySolver2D in cfd-python** → Enable cavity validation
 4. ⏳ **Fix 3D solver integration issues** → Enable FEM validation
 
 ### Future Validations

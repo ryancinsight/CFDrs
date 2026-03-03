@@ -37,9 +37,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 try:
-    import pycfdrs
+    import cfd_python
 except ImportError:
-    print("ERROR: pycfdrs not installed")
+    print("ERROR: cfd_python not installed")
     sys.exit(1)
 
 
@@ -114,12 +114,12 @@ def run_rigorous_validation():
     print("STEP 1: GRID CONVERGENCE STUDY")
     print("=" * 80)
 
-    blood = pycfdrs.CassonBlood()
+    blood = cfd_python.CassonBlood()
     results = {}
 
     print(f"\nSolving on {len(base_resolutions)} grids:")
     for ny in base_resolutions:
-        config = pycfdrs.PoiseuilleConfig2D(
+        config = cfd_python.PoiseuilleConfig2D(
             height=H,
             width=W,
             length=L,
@@ -129,7 +129,7 @@ def run_rigorous_validation():
             max_iterations=2000,
         )
 
-        solver = pycfdrs.PoiseuilleSolver2D(config)
+        solver = cfd_python.PoiseuilleSolver2D(config)
         result = solver.solve(blood)
 
         results[ny] = {
@@ -368,7 +368,7 @@ independent of the physics model.
     if all_passed:
         print("ALL VALIDATIONS PASSED")
         print("=" * 80)
-        print(f"\nThe pycfdrs 2D Poiseuille solver is PROVEN CORRECT:")
+        print(f"\nThe cfd_python 2D Poiseuille solver is PROVEN CORRECT:")
         print(f"  • Grid convergence: GCI = {GCI * 100:.4f}% (< 5%)")
         print(f"  • Convergence order: p = {avg_order:.2f} (2nd order)")
         print(f"  • Momentum balance: {momentum_error * 100:.4f}% error")

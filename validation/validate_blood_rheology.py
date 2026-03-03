@@ -2,12 +2,12 @@
 """
 Blood Rheology Validation
 
-Validates pycfdrs blood rheology models (Casson, Cross, Carreau-Yasuda)
+Validates cfd_python blood rheology models (Casson, Cross, Carreau-Yasuda)
 against expected shear-thinning behavior and literature parameters.
 """
 
 import numpy as np
-import pycfdrs
+import cfd_python
 import matplotlib.pyplot as plt
 from pathlib import Path
 
@@ -17,7 +17,7 @@ def validate_casson_blood():
     print(f"Casson Blood Model Validation")
     print(f"{'='*70}\n")
     
-    blood = pycfdrs.CassonBlood()
+    blood = cfd_python.CassonBlood()
     
     # Shear rate range (typical for blood flow: 1-1000 s⁻¹)
     gamma_dot = np.logspace(0, 3, 100)  # 1 to 1000 s⁻¹
@@ -73,7 +73,7 @@ def validate_cross_blood():
     print(f"Cross Blood Model Validation")
     print(f"{'='*70}\n")
     
-    blood = pycfdrs.CrossBlood()
+    blood = cfd_python.CrossBlood()
     
     gamma_dot = np.logspace(-1, 3, 100)
     mu = np.array([blood.apparent_viscosity(g) for g in gamma_dot])
@@ -107,9 +107,9 @@ def compare_models():
     
     gamma_dot = np.logspace(0, 3, 100)
     
-    casson = pycfdrs.CassonBlood()
-    cross = pycfdrs.CrossBlood()
-    carreau = pycfdrs.CarreauYasudaBlood()
+    casson = cfd_python.CassonBlood()
+    cross = cfd_python.CrossBlood()
+    carreau = cfd_python.CarreauYasudaBlood()
     
     mu_casson = np.array([casson.apparent_viscosity(g) for g in gamma_dot])
     mu_cross = np.array([cross.apparent_viscosity(g) for g in gamma_dot])

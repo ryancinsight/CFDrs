@@ -329,7 +329,10 @@ fn calculate_improved_envelope_for_optimization(
             / serpentine_config
                 .adaptive_config
                 .node_distance_normalization)
-            .clamp(constants::MIN_DISTANCE_NORMALIZATION, constants::MAX_DISTANCE_NORMALIZATION)
+            .clamp(
+                constants::MIN_DISTANCE_NORMALIZATION,
+                constants::MAX_DISTANCE_NORMALIZATION,
+            )
     } else {
         constants::MAX_DISTANCE_NORMALIZATION // No distance-based scaling when disabled
     };

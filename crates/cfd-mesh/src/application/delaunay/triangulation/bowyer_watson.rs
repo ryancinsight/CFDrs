@@ -67,6 +67,7 @@ impl DelaunayTriangulation {
     /// Build a Delaunay triangulation from a set of 2-D points.
     ///
     /// The points are inserted incrementally via Bowyer-Watson.
+    #[must_use] 
     pub fn from_points(points: &[(Real, Real)]) -> Self {
         let vertices: Vec<PslgVertex> =
             points.iter().map(|&(x, y)| PslgVertex::new(x, y)).collect();
@@ -79,6 +80,7 @@ impl DelaunayTriangulation {
     /// insertion performance.  By sorting vertices along a space-filling
     /// curve, consecutive insertions are spatially adjacent, reducing the
     /// Lawson walk distance from O(√n) to near-O(1) per insertion.
+    #[must_use] 
     pub fn from_vertices(real_vertices: Vec<PslgVertex>) -> Self {
         let n = real_vertices.len();
         let mut dt = Self::init_with_super_triangle(&real_vertices);
@@ -178,34 +180,29 @@ impl DelaunayTriangulation {
         let v = self.vertices[vid.idx()];
 
         // 1. Locate the containing triangle.
-        let loc = match locate(
+        let loc = if let Some(l) = locate(
             &self.vertices,
             &self.triangles,
             self.last_triangle,
             v.x,
             v.y,
-        ) {
-            Some(l) => l,
-            None => {
-                // Fallback: linear scan for a valid starting triangle.
-                let start = self
-                    .triangles
-                    .iter()
-                    .position(|t| t.alive)
-                    .map(TriangleId::from_usize)
-                    .unwrap_or(TriangleId::new(0));
+        ) { l } else {
+            // Fallback: linear scan for a valid starting triangle.
+            let start = self
+                .triangles
+                .iter()
+                .position(|t| t.alive)
+                .map_or(TriangleId::new(0), TriangleId::from_usize);
 
-                match locate(&self.vertices, &self.triangles, start, v.x, v.y) {
-                    Some(l) => l,
-                    None => return, // Point outside super-triangle — skip.
-                }
+            match locate(&self.vertices, &self.triangles, start, v.x, v.y) {
+                Some(l) => l,
+                None => return, // Point outside super-triangle — skip.
             }
         };
 
         match loc {
             Location::OnVertex(_, _) => {
                 // Duplicate point — skip insertion.
-                return;
             }
             Location::Inside(tid) => {
                 self.insert_in_triangle(vid, tid);
@@ -518,16 +515,19 @@ impl DelaunayTriangulation {
     // ── Public query API ──────────────────────────────────────────────────
 
     /// Number of real (non-super-triangle) vertices.
+    #[must_use] 
     pub fn vertex_count(&self) -> usize {
         self.num_real_vertices
     }
 
     /// Number of alive triangles (including those incident to super-triangle vertices).
+    #[must_use] 
     pub fn triangle_count_raw(&self) -> usize {
         self.triangles.iter().filter(|t| t.alive).count()
     }
 
     /// Number of interior triangles (excluding those touching super-triangle vertices).
+    #[must_use] 
     pub fn triangle_count(&self) -> usize {
         self.triangles
             .iter()
@@ -560,12 +560,14 @@ impl DelaunayTriangulation {
 
     /// Access a vertex by ID.
     #[inline]
+    #[must_use] 
     pub fn vertex(&self, id: PslgVertexId) -> &PslgVertex {
         &self.vertices[id.idx()]
     }
 
     /// Access a triangle by ID.
     #[inline]
+    #[must_use] 
     pub fn triangle(&self, id: TriangleId) -> &Triangle {
         &self.triangles[id.idx()]
     }
@@ -577,11 +579,13 @@ impl DelaunayTriangulation {
     }
 
     /// Access the full vertex slice.
+    #[must_use] 
     pub fn vertices(&self) -> &[PslgVertex] {
         &self.vertices
     }
 
     /// Access the full triangle slice.
+    #[must_use] 
     pub fn triangles_slice(&self) -> &[Triangle] {
         &self.triangles
     }

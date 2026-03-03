@@ -102,12 +102,14 @@ pub struct LinearSweep {
 
 impl LinearSweep {
     /// Convenience constructor for a profile point (x, z).
+    #[must_use] 
     pub fn pt(x: f64, z: f64) -> Point2 {
         Point2::new(x, z)
     }
 
     /// Build a regular n-gon (convex polygon) profile of the given radius.
     /// The first vertex is at angle 0 (i.e. `(radius, 0)` in XZ).
+    #[must_use] 
     pub fn regular_polygon(n: usize, radius: f64) -> Vec<Point2> {
         (0..n)
             .map(|i| {
@@ -120,6 +122,7 @@ impl LinearSweep {
     /// Compute the signed area of the profile polygon.
     ///
     /// Positive → CCW in XZ plane (correct winding for outward bottom normal).
+    #[must_use] 
     pub fn signed_area(profile: &[Point2]) -> f64 {
         let n = profile.len();
         let mut area = 0.0_f64;
@@ -167,8 +170,7 @@ fn build(s: &LinearSweep) -> Result<IndexedMesh, PrimitiveError> {
     let area = LinearSweep::signed_area(&s.profile);
     if area <= 0.0 {
         return Err(PrimitiveError::InvalidParam(format!(
-            "profile signed area must be > 0 (CCW winding), got {:.6}",
-            area
+            "profile signed area must be > 0 (CCW winding), got {area:.6}"
         )));
     }
 

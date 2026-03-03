@@ -17,6 +17,7 @@ pub struct PermissionedArena<'brand, T> {
 
 impl<'brand, T> PermissionedArena<'brand, T> {
     /// Create an empty arena.
+    #[must_use] 
     pub fn new() -> Self {
         Self {
             elements: Vec::new(),
@@ -24,6 +25,7 @@ impl<'brand, T> PermissionedArena<'brand, T> {
     }
 
     /// Create an arena with pre-allocated capacity.
+    #[must_use] 
     pub fn with_capacity(cap: usize) -> Self {
         Self {
             elements: Vec::with_capacity(cap),
@@ -32,12 +34,14 @@ impl<'brand, T> PermissionedArena<'brand, T> {
 
     /// Number of elements.
     #[inline]
+    #[must_use] 
     pub fn len(&self) -> usize {
         self.elements.len()
     }
 
     /// Is the arena empty?
     #[inline]
+    #[must_use] 
     pub fn is_empty(&self) -> bool {
         self.elements.is_empty()
     }
@@ -54,6 +58,7 @@ impl<'brand, T> PermissionedArena<'brand, T> {
     /// # Panics
     /// Panics if `index >= len()`.
     #[inline]
+    #[must_use] 
     pub fn get<'a>(&'a self, index: usize, token: &'a GhostToken<'brand>) -> &'a T {
         self.elements[index].borrow(token)
     }
@@ -69,6 +74,7 @@ impl<'brand, T> PermissionedArena<'brand, T> {
 
     /// Try to borrow element at `index` immutably.
     #[inline]
+    #[must_use] 
     pub fn try_get<'a>(&'a self, index: usize, token: &'a GhostToken<'brand>) -> Option<&'a T> {
         self.elements.get(index).map(|c| c.borrow(token))
     }
@@ -103,7 +109,7 @@ impl<'brand, T> PermissionedArena<'brand, T> {
     }
 }
 
-impl<'brand, T> Default for PermissionedArena<'brand, T> {
+impl<T> Default for PermissionedArena<'_, T> {
     fn default() -> Self {
         Self::new()
     }

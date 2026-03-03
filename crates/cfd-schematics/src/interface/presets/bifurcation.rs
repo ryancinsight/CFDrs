@@ -147,10 +147,7 @@ pub fn bifurcation_rect(
 fn shah_london_resistance(width_m: f64, height_m: f64, length_m: f64, mu: f64) -> f64 {
     let alpha = height_m.min(width_m) / height_m.max(width_m);
     let po = 96.0
-        * (1.0
-            - 1.3553 * alpha
-            + 1.9467 * alpha * alpha
-            - 1.7012 * alpha.powi(3)
+        * (1.0 - 1.3553 * alpha + 1.9467 * alpha * alpha - 1.7012 * alpha.powi(3)
             + 0.9564 * alpha.powi(4)
             - 0.2537 * alpha.powi(5));
     let d_h = 2.0 * width_m * height_m / (width_m + height_m);

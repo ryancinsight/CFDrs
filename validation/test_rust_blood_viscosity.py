@@ -3,7 +3,7 @@
 Direct Rust vs Python blood viscosity comparison
 """
 
-import pycfdrs
+import cfd_python
 
 # Carreau-Yasuda parameters (Cho & Kensey 1991)
 mu_0 = 0.056  # Pa·s
@@ -19,7 +19,7 @@ def carreau_yasuda_python(shear_rate):
     return mu_inf + (mu_0 - mu_inf) * (term ** exponent)
 
 # Create Rust blood model
-blood_rust = pycfdrs.CarreauYasudaBlood()
+blood_rust = cfd_python.CarreauYasudaBlood()
 
 print("="*70)
 print("RUST vs PYTHON: Carreau-Yasuda Blood Viscosity")

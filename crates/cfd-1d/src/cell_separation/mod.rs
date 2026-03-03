@@ -52,10 +52,137 @@ pub mod margination;
 pub mod properties;
 pub mod separation_model;
 
-pub use cascade_junction::{cascade_junction_separation, tri_center_q_frac, CascadeJunctionResult};
+pub use cascade_junction::{
+    cascade_junction_separation, cascade_junction_separation_cross_junction,
+    cascade_junction_separation_from_qfracs,
+    cif_pretri_stage_center_fracs, cif_pretri_stage_q_fracs,
+    incremental_filtration_separation, incremental_filtration_separation_cross_junction,
+    incremental_filtration_separation_from_qfracs,
+    incremental_filtration_separation_staged, tri_center_q_frac,
+    tri_center_q_frac_cross_junction, CascadeJunctionResult,
+    IncrementalFiltrationResult,
+};
 pub use cell_interaction::enhanced_lateral_equilibrium;
 pub use margination::{
     dean_drag_force_n, dean_number, inertial_lift_force_n, lateral_equilibrium, EquilibriumResult,
 };
 pub use properties::CellProperties;
 pub use separation_model::{CellSeparationAnalysis, CellSeparationModel};
+
+// ── Three-population simultaneous model ─────────────────────────────────────
+
+/// Simultaneously-computed lateral equilibrium positions for three cell populations.
+///
+/// All positions are derived from identical flow conditions: same channel geometry,
+/// flow rate, fluid properties, and curvature — ensuring self-consistent metrics.
+#[derive(Debug, Clone)]
+pub struct ThreePopEquilibria {
+    /// Normalised equilibrium position of MCF-7 cancer cells [0 = center, 1 = wall].
+    pub cancer_eq: f64,
+    /// Normalised equilibrium position of WBCs, CFL-corrected at `hematocrit` [0 = center, 1 = wall].
+    pub wbc_eq: f64,
+    /// Normalised equilibrium position of RBCs [0 = center, 1 = wall].
+    pub rbc_eq: f64,
+    /// Absolute cancer/WBC separation: `|x̃_cancer − x̃_wbc|`.
+    pub cancer_wbc_sep: f64,
+    /// RBC vs centre separation: `x̃_rbc − max(x̃_cancer, x̃_wbc)`, clamped to [−1, 1].
+    pub rbc_vs_center_sep: f64,
+    /// Fraction of cancer cells in the centre channel (`x̃ < 0.3`).
+    pub cancer_center_fraction: f64,
+    /// Fraction of WBCs in the centre channel (`x̃ < 0.3`).
+    pub wbc_center_fraction: f64,
+    /// Fraction of RBCs in the peripheral channels (`x̃ > 0.3`).
+    pub rbc_peripheral_fraction: f64,
+}
+
+/// Compute three-population inertial focusing equilibria simultaneously under
+/// identical flow conditions.
+///
+/// Cancer cells and RBCs use the plain inertial lift model
+/// ([`margination::lateral_equilibrium`]).  WBCs additionally receive the
+/// empirical CFL correction ([`cell_interaction::enhanced_lateral_equilibrium`])
+/// because nucleated cells marginate toward the RBC-depleted layer at
+/// physiological haematocrit (Fedosov 2012).
+///
+/// All three populations are evaluated at the **same** mean velocity, viscosity,
+/// and Dean number — avoiding the inconsistency of two separate pairwise calls
+/// with potentially different flow conditions.
+///
+/// # Arguments
+/// - `width_m` — channel width (wider dimension) [m]
+/// - `height_m` — channel height (shorter dimension) [m]
+/// - `flow_rate_m3_s` — volumetric flow rate [m³/s]
+/// - `blood_density` — fluid density [kg/m³]
+/// - `viscosity` — dynamic viscosity [Pa·s]
+/// - `hematocrit` — volumetric RBC fraction (0.0–0.45); used for WBC CFL correction
+/// - `bend_radius_m` — radius of curvature [m], or `None` for straight channel
+///
+/// # Equilibrium convention
+/// `x̃ = 0` → channel centre; `x̃ = 1` → channel wall.
+/// Centre fraction: cells with `x̃ < 0.3` are in the centre stream.
+/// Peripheral fraction: cells with `x̃ > 0.3` are in the peripheral streams.
+#[must_use]
+pub fn three_population_equilibria(
+    width_m: f64,
+    height_m: f64,
+    flow_rate_m3_s: f64,
+    blood_density: f64,
+    viscosity: f64,
+    hematocrit: f64,
+    bend_radius_m: Option<f64>,
+) -> ThreePopEquilibria {
+    use cell_interaction::enhanced_lateral_equilibrium;
+
+    let cancer = CellProperties::mcf7_breast_cancer();
+    let wbc    = CellProperties::white_blood_cell();
+    let rbc    = CellProperties::red_blood_cell();
+
+    let area   = (width_m * height_m).max(1e-18);
+    let mean_v = flow_rate_m3_s / area;
+
+    const DISPERSED: f64 = 0.5;
+    const SPLIT: f64 = 0.3;
+
+    let cancer_x = margination::lateral_equilibrium(
+        &cancer, blood_density, viscosity, mean_v, width_m, height_m, bend_radius_m,
+    ).map_or(DISPERSED, |r| r.x_tilde_eq);
+
+    let wbc_x = enhanced_lateral_equilibrium(
+        &wbc, blood_density, viscosity, mean_v, width_m, height_m, bend_radius_m, hematocrit,
+    ).map_or(DISPERSED, |r| r.x_tilde_eq);
+
+    let rbc_x = margination::lateral_equilibrium(
+        &rbc, blood_density, viscosity, mean_v, width_m, height_m, bend_radius_m,
+    ).map_or(DISPERSED, |r| r.x_tilde_eq);
+
+    let cancer_wbc_sep    = (cancer_x - wbc_x).abs();
+    let max_central_x     = cancer_x.max(wbc_x);
+    let rbc_vs_center_sep = (rbc_x - max_central_x).clamp(-1.0, 1.0);
+
+    let cancer_center_fraction = if cancer_x < SPLIT {
+        (1.0 - cancer_x / SPLIT).clamp(0.0, 1.0)
+    } else {
+        0.0
+    };
+    let wbc_center_fraction = if wbc_x < SPLIT {
+        (1.0 - wbc_x / SPLIT).clamp(0.0, 1.0)
+    } else {
+        0.0
+    };
+    let rbc_peripheral_fraction = if rbc_x > SPLIT {
+        ((rbc_x - SPLIT) / (1.0 - SPLIT)).clamp(0.0, 1.0)
+    } else {
+        0.0
+    };
+
+    ThreePopEquilibria {
+        cancer_eq: cancer_x,
+        wbc_eq:    wbc_x,
+        rbc_eq:    rbc_x,
+        cancer_wbc_sep,
+        rbc_vs_center_sep,
+        cancer_center_fraction,
+        wbc_center_fraction,
+        rbc_peripheral_fraction,
+    }
+}

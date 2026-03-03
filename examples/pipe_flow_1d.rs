@@ -1,18 +1,19 @@
 //! Pipe Flow 1D Example - Ergonomic API Design
 //!
 //! This example demonstrates the 1D CFD API with:
-//! - Error-free builder pattern (single point of failure in .build())
-//! - Topology generation via cfd-schematics (single source of truth)
-//! - Clear method naming (.build() instead of .build_network())
-//! - Standard library usage (windows() instead of custom windowed_operation)
-//! - Cohesive workflow connecting simulation results to analysis
+//! - Blueprint-driven topology via cfd-schematics
+//! - NetworkBuilderSink bridge to cfd-1d solver
+//! - Boundary condition setup and Kirchhoff solve
+//! - Derived quantity computation (Re, velocity)
 
 use cfd_1d::network::Network;
 use cfd_1d::solver::{NetworkProblem, NetworkSolver};
+use cfd_1d::NetworkBuilderSink;
 use cfd_core::compute::solver::Solver;
 use cfd_core::error::Result;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
-use cfd_schematics::{serpentine_chain, FluidicDesigner};
+use cfd_schematics::application::use_cases::NetworkGenerationService;
+use cfd_schematics::serpentine_chain;
 use std::f64::consts::PI;
 
 fn main() -> Result<()> {
@@ -21,32 +22,49 @@ fn main() -> Result<()> {
 
     // Create fluid using proper constructor
     let water = ConstantPropertyFluid::new(
-        "Water (20°C)".to_string(),
-        998.2,    // density [kg/m³]
-        0.001002, // viscosity [Pa·s]
-        4186.0,   // specific heat [J/(kg·K)]
-        0.599,    // thermal conductivity [W/(m·K)]
+        "Water (20C)".to_string(),
+        998.2,    // density [kg/m^3]
+        0.001002, // viscosity [Pa.s]
+        4186.0,   // specific heat [J/(kg.K)]
+        0.599,    // thermal conductivity [W/(m.K)]
         1482.0,   // speed of sound [m/s]
     );
 
     println!("Fluid Properties:");
-    println!("  Density: {} kg/m³", water.density);
-    println!("  Viscosity: {} Pa·s", water.viscosity);
+    println!("  Density: {} kg/m^3", water.density);
+    println!("  Viscosity: {} Pa.s", water.viscosity);
 
-    // Build network via cfd-schematics design/generation crate
-    let designer = FluidicDesigner::new();
-    let blueprint = serpentine_chain("main_pipe_1d", 1, 1.0, 0.01);
-    let graph = designer.generate(&blueprint)?;
-    let network = Network::new(graph, water);
+    // Build network via cfd-schematics blueprint + NetworkBuilderSink bridge
+    let pipe_diameter = 0.01; // 1 cm diameter
+    let blueprint = serpentine_chain("main_pipe_1d", 1, 1.0, pipe_diameter);
+
+    let sink = NetworkBuilderSink::<f64, _>::new(water.clone());
+    let service = NetworkGenerationService::new(sink);
+    let mut network: Network<f64, ConstantPropertyFluid<f64>> = service.generate(&blueprint)?;
 
     println!("\nNetwork created with {} nodes", network.node_count());
-    println!("✓ Nodes and edges configured");
+
+    // Find inlet and outlet nodes
+    let inlet = network
+        .graph
+        .node_indices()
+        .find(|idx| network.graph[*idx].id == "inlet")
+        .expect("inlet node");
+    let outlet = network
+        .graph
+        .node_indices()
+        .find(|idx| network.graph[*idx].id == "outlet")
+        .expect("outlet node");
+
+    // Set boundary pressures
+    network.set_pressure(inlet, 1000.0);
+    network.set_pressure(outlet, 0.0);
 
     // Store fluid properties before moving network
-    let fluid_density = network.fluid().density;
-    let fluid_viscosity = network.fluid().viscosity;
+    let fluid_density = water.density;
+    let fluid_viscosity = water.viscosity;
 
-    // Create solver
+    // Solve
     let solver = NetworkSolver::new();
     let problem = NetworkProblem::new(network);
     let solution = solver.solve(&problem)?;
@@ -67,38 +85,24 @@ fn main() -> Result<()> {
     println!("\nFlow Rate Results:");
     for (edge_idx, flow_rate) in flow_rates {
         let flow_rate: f64 = *flow_rate;
-        println!("  Edge {}: {:.6} m³/s", edge_idx.index(), flow_rate);
+        println!("  Edge {}: {:.6} m^3/s", edge_idx.index(), flow_rate);
     }
 
     // Calculate derived quantities for validation
-    if let Some((&first_pressure, &second_pressure)) = pressures
-        .values()
-        .take(2)
-        .collect::<Vec<_>>()
-        .iter()
-        .zip(pressures.values().skip(1))
-        .next()
-    {
-        let pressure_drop = first_pressure - second_pressure;
+    if let Some((&_edge_idx, &flow_rate)) = flow_rates.iter().next() {
+        let pipe_area = PI * (pipe_diameter / 2.0).powi(2);
+        let velocity = flow_rate.abs() / pipe_area;
+        let reynolds = fluid_density * velocity * pipe_diameter / fluid_viscosity;
+
         println!("\nDerived Quantities:");
-        println!("  Pressure drop: {:.2} Pa", pressure_drop);
+        println!("  Volumetric flow rate: {:.6} m^3/s", flow_rate);
+        println!("  Average velocity: {:.4} m/s", velocity);
+        println!("  Reynolds number: {:.2}", reynolds);
 
-        if let Some(&flow_rate) = flow_rates.values().next() {
-            println!("  Volumetric flow rate: {:.6} m³/s", flow_rate);
-
-            let pipe_diameter: f64 = 0.01; // 1 cm diameter
-            let pipe_area = PI * (pipe_diameter / 2.0).powi(2);
-            let velocity = flow_rate / pipe_area;
-            let reynolds = fluid_density * velocity * pipe_diameter / fluid_viscosity;
-
-            println!("  Average velocity: {:.4} m/s", velocity);
-            println!("  Reynolds number: {:.2}", reynolds);
-
-            if reynolds < 2300.0 {
-                println!("  ✓ Flow regime: Laminar (Re < 2300)");
-            } else {
-                println!("  ⚠ Flow regime: Transitional/Turbulent (Re ≥ 2300)");
-            }
+        if reynolds < 2300.0 {
+            println!("  Flow regime: Laminar (Re < 2300)");
+        } else {
+            println!("  Flow regime: Transitional/Turbulent (Re >= 2300)");
         }
     }
 
@@ -120,10 +124,7 @@ fn main() -> Result<()> {
         println!("  Pressure range: {:.2} Pa", max_p - min_p);
     }
 
-    println!("\n✓ Example completed successfully");
-    println!("✓ Demonstrates proper 1D CFD API usage");
-    println!("✓ Shows cfd-schematics generation for network construction");
-    println!("✓ Includes physics validation metrics");
+    println!("\nExample completed successfully");
 
     Ok(())
 }

@@ -41,7 +41,7 @@ mod private {
 ///
 /// | Precision | Tolerance | Use case |
 /// |-----------|-----------|----------|
-/// | `f64` (default) | 1 nm | High-fidelity CFD, validation, export to OpenFOAM |
+/// | `f64` (default) | 1 nm | High-fidelity CFD, validation, export to `OpenFOAM` |
 /// | `f32` | 10 µm | GPU-side geometry staging where bandwidth matters |
 ///
 /// # Example
@@ -78,6 +78,7 @@ pub trait Scalar:
 
     /// Squared tolerance — avoids `sqrt` in distance comparisons.
     #[inline]
+    #[must_use] 
     fn tolerance_sq() -> Self {
         let t = Self::tolerance();
         t * t

@@ -22,36 +22,40 @@ use std::fmt::Debug;
 /// 3. Givens rotations: Solve least-squares problem incrementally
 /// 4. Restart: If not converged after m iterations, restart with updated solution
 ///
-/// # Convergence Theory
+/// # Theorem — GMRES Krylov Optimality (Saad & Schultz 1986)
 ///
-/// ## Field of Values Convergence Bound (Saad & Schultz, 1986)
+/// GMRES finds the iterate $x_m \in x_0 + K_m(A, r_0)$ that minimises the
+/// 2-norm of the residual over the $m$-th Krylov subspace:
 ///
-/// GMRES convergence is governed by the field of values (numerical range) of the matrix A.
-/// The residual norm satisfies:
-/// ||r_k|| ≤ κ(V_k) * inf_{p∈Π_k} max_{z∈W(A)} |p(z)| / min_{z∈W(A)} |p(z)|
+/// ```text
+/// x_m = x_0 + argmin_{y ∈ K_m(A, r_0)} ‖r_0 − A y‖_2
+/// ```
 ///
-/// where:
-/// - Π_k is the set of polynomials of degree ≤ k
-/// - W(A) is the field of values of A
-/// - κ(V_k) is the condition number of the Vandermonde matrix
+/// The residual satisfies the polynomial bound:
 ///
-/// **Theorem (Saad & Schultz, 1986)**: For any matrix A, the GMRES residual satisfies:
-/// ||r_m|| / ||r0|| ≤ inf_{p∈Π_m, p(0)=1} max_{λ∈σ(A)} |p(λ)|
+/// ```text
+/// ‖r_m‖ / ‖r_0‖ ≤ inf_{p ∈ Π_m, p(0)=1} max_{λ ∈ σ(A)} |p(λ)|
+/// ```
 ///
-/// where σ(A) is the spectrum of A. For normal matrices, W(A) = σ(A).
+/// where $\sigma(A)$ is the spectrum of $A$. For normal matrices the field of
+/// values $W(A) = \text{conv}(\sigma(A))$, tightening the bound. For SPD matrices
+/// convergence is guaranteed in at most $n$ steps.
 ///
-/// For symmetric positive definite matrices, convergence is guaranteed in at most n steps.
+/// **Proof sketch.** The Arnoldi process builds an orthonormal basis
+/// $V_m$ of $K_m(A, r_0)$, satisfying $A V_m = V_{m+1} \bar{H}_m$ where
+/// $\bar{H}_m$ is an $(m+1) \times m$ upper Hessenberg matrix. The least-squares
+/// minimisation reduces to $\min_y \|\beta e_1 - \bar{H}_m y\|_2$, solved via
+/// Givens rotations in $O(m^2)$ work. The polynomial bound follows because
+/// the residual polynomial $p_m(A) r_0$ with $p_m(0) = 1$ is the optimal
+/// approximation over $\sigma(A)$ in Chebyshev sense (Saad 2003, Thm 6.10).
 ///
-/// ## Optimal Polynomial Approximation
+/// ## References
 ///
-/// GMRES finds the vector in K_m(A,r0) that minimizes the residual norm:
-/// x_m = x0 + argmin_{y∈K_m} ||r0 - A*y||
-///
-/// This corresponds to finding the polynomial p_m(z) = 1 - z * q_{m-1}(z) where q_{m-1}
-/// minimizes the maximum of |p_m(z)| over the field of values W(A).
-///
-/// The convergence factor satisfies:
-/// ||r_m|| / ||r0|| ≤ inf_{p∈Π_m, p(0)=1} max_{z∈W(A)} |p(z)|
+/// - Saad, Y. & Schultz, M. H. (1986). "GMRES: A generalized minimal residual
+///   algorithm for solving nonsymmetric linear systems." *SIAM J. Sci. Stat.
+///   Comput.* 7(3):856–869.
+/// - Saad, Y. (2003). *Iterative Methods for Sparse Linear Systems* (2nd ed.).
+///   SIAM. Chapter 6.
 ///
 /// ## Restart Parameter Justification
 ///

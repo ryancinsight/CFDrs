@@ -1,4 +1,4 @@
-//! IndexedMesh wrapper API for CSG Boolean operations
+//! `IndexedMesh` wrapper API for CSG Boolean operations
 
 use crate::domain::core::error::{MeshError, MeshResult};
 use crate::domain::mesh::IndexedMesh;
@@ -19,7 +19,7 @@ pub fn csg_boolean_indexed(
     use crate::domain::core::index::VertexId;
     use std::collections::HashMap;
 
-    let mut combined = VertexPool::default_millifluidic();
+    let mut combined = VertexPool::for_csg();
 
     let mut remap_a: HashMap<VertexId, VertexId> = HashMap::new();
     for (old_id, _) in mesh_a.vertices.iter() {
@@ -70,22 +70,111 @@ pub fn csg_boolean_indexed(
 
     if !is_coplanar {
         mesh.rebuild_edges();
-        let report = crate::application::watertight::check::check_watertight(
+        let mut report = crate::application::watertight::check::check_watertight(
             &mesh.vertices,
             &mesh.faces,
             mesh.edges_ref().unwrap(),
         );
         if !report.is_watertight {
-            return Err(MeshError::NotWatertight {
-                count: report.boundary_edge_count + report.non_manifold_edge_count,
-            });
+            // Repair path 1: if topology is closed but winding consistency is
+            // broken, re-orient globally and re-check before failing.
+            if report.is_closed && !report.orientation_consistent {
+                mesh.orient_outward();
+                mesh.rebuild_edges();
+                report = crate::application::watertight::check::check_watertight(
+                    &mesh.vertices,
+                    &mesh.faces,
+                    mesh.edges_ref().unwrap(),
+                );
+            }
+
+            // Repair path 2: boundary-only defects (no non-manifold edges).
+            // Seal residual boundary loops, then re-orient and re-check.
+            if !report.is_watertight
+                && report.non_manifold_edge_count == 0
+                && report.boundary_edge_count > 0
+                && report.boundary_edge_count <= 512
+            {
+                let edge_store =
+                    crate::infrastructure::storage::edge_store::EdgeStore::from_face_store(
+                        &mesh.faces,
+                    );
+                let added = crate::application::watertight::seal::seal_boundary_loops(
+                    &mut mesh.vertices,
+                    &mut mesh.faces,
+                    &edge_store,
+                    crate::domain::core::index::RegionId::INVALID,
+                );
+                if added > 0 {
+                    mesh.rebuild_edges();
+                    mesh.orient_outward();
+                    mesh.rebuild_edges();
+                    report = crate::application::watertight::check::check_watertight(
+                        &mesh.vertices,
+                        &mesh.faces,
+                        mesh.edges_ref().unwrap(),
+                    );
+                }
+            }
+
+            // Repair path 3: run arrangement seam repair on reconstructed faces.
+            // This targets residual T-junctions and open loops that survive
+            // reconstruction-level checks in complex branch seams.
+            if !report.is_watertight && report.boundary_edge_count > 0 {
+                let mut repaired_faces: Vec<FaceData> = mesh.faces.iter().copied().collect();
+                crate::application::csg::arrangement::stitch::snap_round_tjunctions(
+                    &mut repaired_faces,
+                    &mesh.vertices,
+                );
+                crate::application::csg::arrangement::stitch::fill_boundary_loops(
+                    &mut repaired_faces,
+                    &mesh.vertices,
+                );
+                let mut store =
+                    crate::infrastructure::storage::face_store::FaceStore::new();
+                for face in repaired_faces {
+                    store.push(face);
+                }
+                mesh.faces = store;
+                mesh.rebuild_edges();
+                mesh.orient_outward();
+                mesh.rebuild_edges();
+                report = crate::application::watertight::check::check_watertight(
+                    &mesh.vertices,
+                    &mesh.faces,
+                    mesh.edges_ref().unwrap(),
+                );
+            }
+
+            if !report.is_watertight {
+                return Err(MeshError::NotWatertight {
+                    count: report.boundary_edge_count + report.non_manifold_edge_count,
+                });
+            }
         }
         // Discard phantom closed islands produced by Phase-4 GWN seam
         // classification.  Each island is locally manifold (passes the
         // watertight check above) but inflates Euler χ beyond 2 and corrupts
-        // signed volume.  Runs AFTER the check (validate first) and BEFORE
-        // orient_outward (orient only the clean single-body mesh).
-        mesh.retain_largest_component();
+        // signed volume.  GUARD: only apply if the result is STILL watertight —
+        // at T-junction seams (e.g., bifurcation arm joints) the "phantom"
+        // component may in fact be a seam-bridging fragment; discarding it
+        // converts a manifold mesh into a 5-edge boundary-hole mesh.
+        {
+            let mut candidate = mesh.clone();
+            candidate.retain_largest_component();
+            candidate.rebuild_edges();
+            let post_report = crate::application::watertight::check::check_watertight(
+                &candidate.vertices,
+                &candidate.faces,
+                candidate.edges_ref().unwrap(),
+            );
+            if post_report.is_watertight {
+                mesh = candidate;
+            }
+            // If retain_largest_component would break watertightness, keep
+            // the full mesh (with potentially non-zero Euler surplus from extra
+            // islands).  The caller will handle Euler normalization if needed.
+        }
 
         // Fix any globally-inverted face islands left by Phase-4 GWN
         // classification.  Seeds from the extremal (Jordan-Brouwer) face
@@ -228,6 +317,44 @@ mod tests {
         assert_3d_watertight(result);
     }
 
+    // ── cube × cylinder coplanar (caps flush with cube walls) ──────────────────
+
+    fn cylinder_coplanar() -> IndexedMesh {
+        Cylinder {
+            base_center: Point3r::new(0.0, -1.0, 0.0),
+            radius: 0.4,
+            height: 2.0,
+            segments: 16,
+        }
+        .build()
+        .expect("cylinder_coplanar build")
+    }
+
+    /// Difference of cube minus a coplanar cylinder must be watertight.
+    /// The cylinder end caps are coplanar with the cube's top and bottom walls.
+    /// The 2-D coplanar pipeline must subtract circular discs from the square
+    /// walls, producing annular rings (tunnel openings).
+    #[test]
+    fn cube_cylinder_coplanar_difference_is_watertight() {
+        let result = csg_boolean_indexed(BooleanOp::Difference, &cube_a(), &cylinder_coplanar())
+            .expect("cube \\\\ cylinder_coplanar");
+        assert_3d_watertight(result);
+    }
+
+    #[test]
+    fn cube_cylinder_coplanar_union_is_watertight() {
+        let result = csg_boolean_indexed(BooleanOp::Union, &cube_a(), &cylinder_coplanar())
+            .expect("cube ∪ cylinder_coplanar");
+        assert_3d_watertight(result);
+    }
+
+    #[test]
+    fn cube_cylinder_coplanar_intersection_is_watertight() {
+        let result = csg_boolean_indexed(BooleanOp::Intersection, &cube_a(), &cylinder_coplanar())
+            .expect("cube ∩ cylinder_coplanar");
+        assert_3d_watertight(result);
+    }
+
     // ── disk × disk (coplanar — 2-D Sutherland-Hodgman pipeline) ───────────────
     // Disk operands are open surfaces; the coplanar path produces an open
     // surface result.  Only assert the operation completes without error.
@@ -274,19 +401,19 @@ mod tests {
             let raw = Cylinder { base_center: Point3r::new(0.0,0.0,0.0), radius: R, height: H_TRUNK+EPS, segments: SEGS }.build().unwrap();
             let rot = UnitQuaternion::<f64>::from_axis_angle(&Vector3::z_axis(), -FRAC_PI_2);
             let iso = Isometry3::from_parts(Translation3::new(-H_TRUNK,0.0,0.0), rot);
-            CsgNode::Transform { node: Box::new(CsgNode::Leaf(raw)), iso }.evaluate().unwrap()
+            CsgNode::Transform { node: Box::new(CsgNode::Leaf(Box::new(raw))), iso }.evaluate().unwrap()
         };
         let branch_up = {
             let raw = Cylinder { base_center: Point3r::new(0.0,0.0,0.0), radius: R, height: H_BRANCH, segments: SEGS }.build().unwrap();
             let rot = UnitQuaternion::<f64>::from_axis_angle(&Vector3::z_axis(), theta - FRAC_PI_2);
             let iso = Isometry3::from_parts(Translation3::new(0.0,0.0,0.0), rot);
-            CsgNode::Transform { node: Box::new(CsgNode::Leaf(raw)), iso }.evaluate().unwrap()
+            CsgNode::Transform { node: Box::new(CsgNode::Leaf(Box::new(raw))), iso }.evaluate().unwrap()
         };
         let branch_dn = {
             let raw = Cylinder { base_center: Point3r::new(0.0,0.0,0.0), radius: R, height: H_BRANCH, segments: SEGS }.build().unwrap();
             let rot = UnitQuaternion::<f64>::from_axis_angle(&Vector3::z_axis(), -theta - FRAC_PI_2);
             let iso = Isometry3::from_parts(Translation3::new(0.0,0.0,0.0), rot);
-            CsgNode::Transform { node: Box::new(CsgNode::Leaf(raw)), iso }.evaluate().unwrap()
+            CsgNode::Transform { node: Box::new(CsgNode::Leaf(Box::new(raw))), iso }.evaluate().unwrap()
         };
         let branches = csg_boolean_indexed(BooleanOp::Union, &branch_up, &branch_dn).unwrap();
         let mut result = csg_boolean_indexed(BooleanOp::Difference, &trunk, &branches).unwrap();

@@ -18,7 +18,7 @@ pub enum TopologyClass {
     },
     /// Symmetric bifurcation: inlet → parent → (d1, d2) → parent_out → outlet.
     Bifurcation,
-    /// Symmetric trifurcation: inlet → parent → (d1, d2, d3) → outlets.
+    /// Symmetric trifurcation: inlet → parent → (d1, d2, d3) → parent_out → outlet.
     Trifurcation,
     /// Venturi chain: linear chain where at least one channel is tagged
     /// `TherapyZone::CancerTarget`.
@@ -143,9 +143,21 @@ impl<'bp> NetworkTopology<'bp> {
             }
         }
 
-        // Trifurcation: n_in=1, n_out=3, n_junc=1, n_ch=4
-        if n_in == 1 && n_out == 3 && n_junc == 1 && n_ch == 4 {
-            return TopologyClass::Trifurcation;
+        // Trifurcation: n_in=1, n_out=1, n_junc=2, n_ch=5
+        if n_in == 1 && n_out == 1 && n_junc == 2 && n_ch == 5 {
+            let junction_ids: Vec<_> = self
+                .bp
+                .nodes
+                .iter()
+                .filter(|n| matches!(n.kind, NodeKind::Junction))
+                .map(|n| n.id.as_str())
+                .collect();
+            let both_degree4 = junction_ids
+                .iter()
+                .all(|id| self.degree(id) == 4);
+            if both_degree4 {
+                return TopologyClass::Trifurcation;
+            }
         }
 
         // ParallelArray: single inlet, single outlet, no junctions, N > 1 channels,
@@ -243,20 +255,29 @@ impl<'bp> NetworkTopology<'bp> {
         Some((parent_in, d1, d2, parent_out))
     }
 
-    /// Return `(parent, daughter_1, daughter_2, daughter_3)` channels for a
+    /// Return `(parent, daughter_1, daughter_2, daughter_3, parent_out)` channels for a
     /// `Trifurcation` topology, or `None` otherwise.
     pub fn trifurcation_channels(
         &self,
-    ) -> Option<(&ChannelSpec, &ChannelSpec, &ChannelSpec, &ChannelSpec)> {
+    ) -> Option<(&ChannelSpec, &ChannelSpec, &ChannelSpec, &ChannelSpec, &ChannelSpec)> {
         let inlet_id = self.inlet_node_id()?;
-        let parent = self.outgoing_channels(inlet_id).into_iter().next()?;
-        let junc = parent.to.as_str();
-        let mut daughters: Vec<&ChannelSpec> = self.outgoing_channels(junc);
+        let parent_in = self.outgoing_channels(inlet_id).into_iter().next()?;
+        let div_junc = parent_in.to.as_str();
+
+        let mut daughters: Vec<&ChannelSpec> = self.outgoing_channels(div_junc);
         if daughters.len() != 3 {
             return None;
         }
         daughters.sort_by(|a, b| a.id.as_str().cmp(b.id.as_str()));
-        Some((parent, daughters[0], daughters[1], daughters[2]))
+        let (d1, d2, d3) = (daughters[0], daughters[1], daughters[2]);
+
+        let conv_junc = d1.to.as_str();
+        if d2.to.as_str() != conv_junc || d3.to.as_str() != conv_junc {
+            return None;
+        }
+
+        let parent_out = self.outgoing_channels(conv_junc).into_iter().next()?;
+        Some((parent_in, d1, d2, d3, parent_out))
     }
 }
 

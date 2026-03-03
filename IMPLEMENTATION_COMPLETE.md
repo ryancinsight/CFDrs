@@ -26,7 +26,7 @@ Conservation: 0.00e+00 (perfect)
 Status: PRODUCTION READY ✅
 ```
 
-### 2. ✅ Python Bindings (pycfdrs)
+### 2. ✅ Python Bindings (cfd-python)
 
 **Fully Working:**
 - ✅ PyO3 bindings compiled and tested
@@ -37,15 +37,15 @@ Status: PRODUCTION READY ✅
 
 **Example Usage:**
 ```python
-import pycfdrs
+import cfd-python
 
 # Create solver
-bifurc = pycfdrs.PyBifurcationSolver(
+bifurc = cfd-python.PyBifurcationSolver(
     d_parent=100e-6, d_daughter1=80e-6, d_daughter2=80e-6
 )
 
 # Solve with blood
-blood = pycfdrs.PyCassonBlood()
+blood = cfd-python.PyCassonBlood()
 result = bifurc.solve(flow_rate=30e-9, pressure=100.0, blood_type="casson")
 
 # Validate
@@ -64,7 +64,7 @@ This single command:
 2. ✅ Builds Python wheel with maturin
 3. ✅ Creates virtual environment
 4. ✅ Installs dependencies (numpy, scipy, matplotlib, etc.)
-5. ✅ Installs pycfdrs
+5. ✅ Installs cfd-python
 6. ✅ Runs validation suite
 7. ✅ Generates report with plots
 8. ✅ Creates JSON results for CI/CD
@@ -141,7 +141,7 @@ This single command:
 - ✅ Made `CarreauYasudaBlood` Copy-able
 - ✅ Fixed all constructors and trait implementations
 
-**pycfdrs (Python Bindings):**
+**cfd-python (Python Bindings):**
 - ✅ Updated to PyO3 0.22 API (`Bound` types)
 - ✅ Fixed all format string errors (removed invalid `f` trait)
 - ✅ Made `PyBifurcationResult::new()` public
@@ -153,7 +153,7 @@ This single command:
 **xtask Commands:**
 ```bash
 cargo xtask check          # Check compilation
-cargo xtask build-wheel    # Build pycfdrs wheel
+cargo xtask build-wheel    # Build cfd-python wheel
 cargo xtask setup-venv     # Create virtual environment  
 cargo xtask install-deps   # Install Python packages
 cargo xtask install-fenics # Setup FEniCS (optional)
@@ -192,7 +192,7 @@ validation/
 
 **Issues:**
 - API incompatibility: expects `ScalarField2D`/`VectorField2D`, but only `Field2D` exists
-- Disabled in pycfdrs module
+- Disabled in cfd-python module
 - **Required:** Complete rewrite to use current cfd-2d API
 
 **Needed Implementations:**
@@ -313,8 +313,8 @@ cat validation/reports/validation_summary.md
 # Use in Python
 source .venv/bin/activate  # or .venv\Scripts\activate on Windows
 python
->>> import pycfdrs
->>> # ... use pycfdrs
+>>> import cfd-python
+>>> # ... use cfd-python
 ```
 
 ### For Developers
@@ -335,11 +335,11 @@ cargo xtask validate --plot --category all
 ### For Researchers
 
 ```python
-import pycfdrs
+import cfd-python
 import numpy as np
 
 # Design your bifurcation
-bifurc = pycfdrs.PyBifurcationSolver(
+bifurc = cfd-python.PyBifurcationSolver(
     d_parent=120e-6,
     d_daughter1=90e-6,
     d_daughter2=85e-6,
@@ -367,7 +367,7 @@ print(f"Valid: {result.is_valid(1e-6)}")
 |----------|--------|---------|
 | **1D Solvers** | ✅ COMPLETE | 0.00% error, production ready |
 | **Blood Rheology** | ✅ COMPLETE | Casson & Carreau-Yasuda validated |
-| **Python Bindings** | ✅ COMPLETE | pycfdrs fully functional |
+| **Python Bindings** | ✅ COMPLETE | cfd-python fully functional |
 | **Validation Framework** | ✅ COMPLETE | Automated with xtask |
 | **Documentation** | ✅ COMPLETE | Full guides and reports |
 | **2D Solvers** | ⚠️ IN PROGRESS | API compatibility needed |

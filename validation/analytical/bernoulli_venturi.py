@@ -59,12 +59,12 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 try:
-    import cfd_python as pycfdrs
+    import cfd_python as cfd_python
 
-    PYCFDRS_AVAILABLE = True
+    cfd_python_AVAILABLE = True
 except ImportError:
     print("WARNING: cfd_python not available. Please build with 'maturin develop'")
-    PYCFDRS_AVAILABLE = False
+    cfd_python_AVAILABLE = False
 
 
 class VenturiBernoulli:
@@ -220,12 +220,12 @@ def validate_venturi_flow(
     print(f"  Loss factor:       {viscous_loss_factor * 100:.0f}%")
     print()
 
-    if PYCFDRS_AVAILABLE:
+    if cfd_python_AVAILABLE:
         print("RUNNING CFD-RS SIMULATION...")
 
         # Placeholder for actual CFD-rs simulation
         # In production, this would call:
-        # solver = pycfdrs.VenturiSolver2D(
+        # solver = cfd_python.VenturiSolver2D(
         #     d_inlet, d_throat, l_inlet, l_converge, l_throat, l_diverge, nx, ny
         # )
         # result = solver.solve(u_inlet, viscosity, density)

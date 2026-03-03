@@ -1,9 +1,9 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 Comprehensive Microfluidic Blood Validation Suite
 ==================================================
 
-Validates pycfdrs blood rheology models and pulsatile flow against:
+Validates cfd_python blood rheology models and pulsatile flow against:
   - Published empirical data (Pries 1992, Merrill 1969, Cho & Kensey 1991)
   - Analytical solutions (Hagen-Poiseuille, Womersley 1955)
   - Physical laws (Murray's law, mass conservation, energy dissipation)
@@ -32,7 +32,7 @@ import json
 import traceback
 from datetime import datetime
 
-# Ensure pycfdrs is importable
+# Ensure cfd_python is importable
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import numpy as np
@@ -80,13 +80,13 @@ print("=" * 72)
 print("MICROFLUIDIC BLOOD VALIDATION SUITE")
 print("=" * 72)
 
-import pycfdrs
+import cfd_python
 
 # --- 1.1 Casson model parameter verification (Merrill 1969) ---
 
 @test("1.1 Casson yield stress = 0.0056 Pa (Merrill 1969)", "Merrill et al. 1969")
 def test_casson_yield_stress():
-    b = pycfdrs.CassonBlood()
+    b = cfd_python.CassonBlood()
     tau_y = b.yield_stress()
     expected = 0.0056  # Pa, Merrill 1969
     err = abs(tau_y - expected) / expected
@@ -94,7 +94,7 @@ def test_casson_yield_stress():
 
 @test("1.2 Casson mu_inf = 0.00345 Pa.s (Merrill 1969)", "Merrill et al. 1969")
 def test_casson_mu_inf():
-    b = pycfdrs.CassonBlood()
+    b = cfd_python.CassonBlood()
     mu_inf = b.viscosity_high_shear()
     expected = 0.00345
     err = abs(mu_inf - expected) / expected
@@ -102,7 +102,7 @@ def test_casson_mu_inf():
 
 @test("1.3 Casson density = 1060 kg/m^3 (Fung 1993)", "Fung 1993")
 def test_casson_density():
-    b = pycfdrs.CassonBlood()
+    b = cfd_python.CassonBlood()
     rho = b.density()
     return abs(rho - 1060.0) < 1e-10, f"rho = {rho:.1f} kg/m^3"
 
@@ -110,7 +110,7 @@ def test_casson_density():
 
 @test("1.4 Casson mu(100 s^-1) ~ 4 mPa.s (Merrill 1969 Fig. 5)", "Merrill et al. 1969")
 def test_casson_viscosity_100():
-    b = pycfdrs.CassonBlood()
+    b = cfd_python.CassonBlood()
     mu = b.viscosity(100.0)
     # Literature: ~3.5-5.0 mPa.s at 100 s^-1 for Ht=45%
     ok = 0.0030 < mu < 0.0060
@@ -120,14 +120,14 @@ def test_casson_viscosity_100():
 
 @test("1.5 Casson constitutive: mu_app = (sqrt(tau_y)/sqrt(gamma) + sqrt(mu_inf))^2", "Casson 1959")
 def test_casson_constitutive():
-    b = pycfdrs.CassonBlood()
+    b = cfd_python.CassonBlood()
     tau_y = b.yield_stress()
     mu_inf = b.viscosity_high_shear()
     max_err = 0.0
     for gamma in [1.0, 10.0, 50.0, 100.0, 500.0, 1000.0, 5000.0]:
-        mu_pycfdrs = b.viscosity(gamma)
+        mu_cfd_python = b.viscosity(gamma)
         mu_analytical = (math.sqrt(tau_y) / math.sqrt(gamma) + math.sqrt(mu_inf)) ** 2
-        err = abs(mu_pycfdrs - mu_analytical) / mu_analytical
+        err = abs(mu_cfd_python - mu_analytical) / mu_analytical
         max_err = max(max_err, err)
     return max_err < 1e-12, f"max relative error = {max_err:.2e} across gamma = [1, 5000] s^-1"
 
@@ -135,7 +135,7 @@ def test_casson_constitutive():
 
 @test("1.6 Casson shear-thinning: mu strictly decreasing with gamma", "Rheology")
 def test_casson_shear_thinning():
-    b = pycfdrs.CassonBlood()
+    b = cfd_python.CassonBlood()
     gammas = np.logspace(-1, 4, 100)
     mus = [b.viscosity(g) for g in gammas]
     violations = sum(1 for i in range(1, len(mus)) if mus[i] >= mus[i-1])
@@ -145,7 +145,7 @@ def test_casson_shear_thinning():
 
 @test("1.7 Carreau-Yasuda limits: mu_0=0.056, mu_inf=0.00345 Pa.s", "Cho & Kensey 1991")
 def test_carreau_limits():
-    cy = pycfdrs.CarreauYasudaBlood()
+    cy = cfd_python.CarreauYasudaBlood()
     mu_0 = cy.viscosity_zero_shear()
     mu_inf = cy.viscosity_high_shear()
     err_0 = abs(mu_0 - 0.056) / 0.056
@@ -155,7 +155,7 @@ def test_carreau_limits():
 
 @test("1.8 Carreau-Yasuda zero-shear limit: mu(0) -> mu_0", "Cho & Kensey 1991")
 def test_carreau_zero_shear():
-    cy = pycfdrs.CarreauYasudaBlood()
+    cy = cfd_python.CarreauYasudaBlood()
     mu_at_zero = cy.viscosity(1e-10)
     mu_0 = cy.viscosity_zero_shear()
     err = abs(mu_at_zero - mu_0) / mu_0
@@ -163,7 +163,7 @@ def test_carreau_zero_shear():
 
 @test("1.9 Carreau-Yasuda high-shear limit: mu(1e5) -> mu_inf", "Cho & Kensey 1991")
 def test_carreau_high_shear():
-    cy = pycfdrs.CarreauYasudaBlood()
+    cy = cfd_python.CarreauYasudaBlood()
     mu_high = cy.viscosity(1e5)
     mu_inf = cy.viscosity_high_shear()
     err = abs(mu_high - mu_inf) / mu_inf
@@ -174,7 +174,7 @@ def test_carreau_high_shear():
 @test("1.10 Carreau-Yasuda constitutive equation verification", "Cho & Kensey 1991")
 def test_carreau_constitutive():
     """mu = mu_inf + (mu_0 - mu_inf) * [1 + (lambda*gamma)^a]^((n-1)/a)"""
-    cy = pycfdrs.CarreauYasudaBlood()
+    cy = cfd_python.CarreauYasudaBlood()
     mu_0 = 0.056
     mu_inf = 0.00345
     lam = 3.313
@@ -182,11 +182,11 @@ def test_carreau_constitutive():
     a = 2.0
     max_err = 0.0
     for gamma in [0.01, 0.1, 1.0, 10.0, 100.0, 1000.0, 10000.0]:
-        mu_pycfdrs = cy.viscosity(gamma)
+        mu_cfd_python = cy.viscosity(gamma)
         bracketed = 1.0 + (lam * gamma) ** a
         exponent = (n - 1.0) / a
         mu_analytical = mu_inf + (mu_0 - mu_inf) * bracketed ** exponent
-        err = abs(mu_pycfdrs - mu_analytical) / mu_analytical
+        err = abs(mu_cfd_python - mu_analytical) / mu_analytical
         max_err = max(max_err, err)
     return max_err < 1e-12, f"max rel err = {max_err:.2e} across gamma = [0.01, 10000] s^-1"
 
@@ -194,16 +194,16 @@ def test_carreau_constitutive():
 
 @test("1.11 Cross model constitutive: mu = mu_inf + (mu_0-mu_inf)/(1+(K*gamma)^n)", "Cross 1965")
 def test_cross_constitutive():
-    c = pycfdrs.CrossBlood()
+    c = cfd_python.CrossBlood()
     mu_0 = c.viscosity_zero_shear()
     mu_inf = c.viscosity_high_shear()
     K = c.time_constant()
     n = c.rate_index()
     max_err = 0.0
     for gamma in [0.01, 0.1, 1.0, 10.0, 100.0, 1000.0, 10000.0]:
-        mu_pycfdrs = c.viscosity(gamma)
+        mu_cfd_python = c.viscosity(gamma)
         mu_analytical = mu_inf + (mu_0 - mu_inf) / (1.0 + (K * gamma) ** n)
-        err = abs(mu_pycfdrs - mu_analytical) / mu_analytical
+        err = abs(mu_cfd_python - mu_analytical) / mu_analytical
         max_err = max(max_err, err)
     return max_err < 1e-12, f"max rel err = {max_err:.2e}"
 
@@ -211,9 +211,9 @@ def test_cross_constitutive():
 
 @test("1.12 All 3 models agree within 2x at gamma=100 s^-1 (arterial)", "Rheology consensus")
 def test_model_agreement():
-    casson = pycfdrs.CassonBlood()
-    cy = pycfdrs.CarreauYasudaBlood()
-    cross = pycfdrs.CrossBlood()
+    casson = cfd_python.CassonBlood()
+    cy = cfd_python.CarreauYasudaBlood()
+    cross = cfd_python.CrossBlood()
     gamma = 100.0
     mu_c = casson.viscosity(gamma)
     mu_cy = cy.viscosity(gamma)
@@ -231,9 +231,9 @@ def test_model_agreement():
 @test("1.13 All models converge to mu_inf at gamma=10000 s^-1", "Rheology")
 def test_high_shear_convergence():
     models = [
-        ("Casson", pycfdrs.CassonBlood()),
-        ("Carreau-Yasuda", pycfdrs.CarreauYasudaBlood()),
-        ("Cross", pycfdrs.CrossBlood()),
+        ("Casson", cfd_python.CassonBlood()),
+        ("Carreau-Yasuda", cfd_python.CarreauYasudaBlood()),
+        ("Cross", cfd_python.CrossBlood()),
     ]
     mu_inf = 0.00345  # All use same mu_inf
     max_err = 0.0
@@ -257,11 +257,11 @@ print("-" * 72)
 
 @test("2.1 F-L effect significant for D < 300 um", "Pries et al. 1992")
 def test_fl_significance():
-    sig_50 = pycfdrs.FahraeuasLindqvist(50e-6).is_significant()
-    sig_100 = pycfdrs.FahraeuasLindqvist(100e-6).is_significant()
-    sig_200 = pycfdrs.FahraeuasLindqvist(200e-6).is_significant()
-    not_sig_500 = not pycfdrs.FahraeuasLindqvist(500e-6).is_significant()
-    not_sig_1mm = not pycfdrs.FahraeuasLindqvist(1e-3).is_significant()
+    sig_50 = cfd_python.FahraeuasLindqvist(50e-6).is_significant()
+    sig_100 = cfd_python.FahraeuasLindqvist(100e-6).is_significant()
+    sig_200 = cfd_python.FahraeuasLindqvist(200e-6).is_significant()
+    not_sig_500 = not cfd_python.FahraeuasLindqvist(500e-6).is_significant()
+    not_sig_1mm = not cfd_python.FahraeuasLindqvist(1e-3).is_significant()
     ok = sig_50 and sig_100 and sig_200 and not_sig_500 and not_sig_1mm
     return ok, f"50um={sig_50}, 100um={sig_100}, 200um={sig_200}, 500um={not not_sig_500}, 1mm={not not_sig_1mm}"
 
@@ -271,7 +271,7 @@ def test_fl_viscosity_decreases():
     prevmu = float('inf')
     details = []
     for d_um in diameters_um:
-        fl = pycfdrs.FahraeuasLindqvist(d_um * 1e-6)
+        fl = cfd_python.FahraeuasLindqvist(d_um * 1e-6)
         mu = fl.relative_viscosity()
         details.append(f"D={d_um}um: mu_rel={mu:.4f}")
         if mu >= prevmu:
@@ -282,7 +282,7 @@ def test_fl_viscosity_decreases():
 @test("2.3 F-L: large-vessel limit mu_rel -> 1 + 2.2*Ht", "Pries et al. 1992")
 def test_fl_large_vessel():
     """For D >> 300um, relative viscosity should approach bulk value."""
-    fl_large = pycfdrs.FahraeuasLindqvist(5e-3)  # 5 mm
+    fl_large = cfd_python.FahraeuasLindqvist(5e-3)  # 5 mm
     mu_rel = fl_large.relative_viscosity()
     # Expected: 1 + 2.2 * 0.45 = 1.99
     # f(D) = 1 - 1.7*exp(-D_um/22.5) at D=5000um -> ~1.0
@@ -296,13 +296,13 @@ def test_fl_formula():
     Ht = 0.45
     max_err = 0.0
     for D_um in [10, 20, 50, 100, 200, 500, 1000]:
-        fl = pycfdrs.FahraeuasLindqvist(D_um * 1e-6, Ht)
-        mu_pycfdrs = fl.relative_viscosity()
+        fl = cfd_python.FahraeuasLindqvist(D_um * 1e-6, Ht)
+        mu_cfd_python = fl.relative_viscosity()
         f_D = 1.0 - 1.7 * math.exp(-D_um / 22.5)
         f_D = max(0.0, min(1.0, f_D))
         mu_analytical = 1.0 + 2.2 * Ht * f_D
         if mu_analytical > 0:
-            err = abs(mu_pycfdrs - mu_analytical) / mu_analytical
+            err = abs(mu_cfd_python - mu_analytical) / mu_analytical
             max_err = max(max_err, err)
     return max_err < 1e-12, f"max rel err = {max_err:.2e}"
 
@@ -310,22 +310,22 @@ def test_fl_formula():
 def test_fl_hematocrit():
     """Higher Ht should give higher relative viscosity."""
     D = 100e-6
-    mu_30 = pycfdrs.FahraeuasLindqvist(D, 0.30).relative_viscosity()
-    mu_45 = pycfdrs.FahraeuasLindqvist(D, 0.45).relative_viscosity()
-    mu_60 = pycfdrs.FahraeuasLindqvist(D, 0.60).relative_viscosity()
+    mu_30 = cfd_python.FahraeuasLindqvist(D, 0.30).relative_viscosity()
+    mu_45 = cfd_python.FahraeuasLindqvist(D, 0.45).relative_viscosity()
+    mu_60 = cfd_python.FahraeuasLindqvist(D, 0.60).relative_viscosity()
     ok = mu_30 < mu_45 < mu_60
     return ok, f"Ht=0.30: {mu_30:.4f}, Ht=0.45: {mu_45:.4f}, Ht=0.60: {mu_60:.4f}"
 
 @test("2.6 F-L: tube hematocrit < feed hematocrit (Fahraeus effect)", "Fahraeus 1929")
 def test_fl_tube_hematocrit():
     """Tube Ht < feed Ht in microvessels due to cell-free layer."""
-    fl = pycfdrs.FahraeuasLindqvist(50e-6, 0.45)
+    fl = cfd_python.FahraeuasLindqvist(50e-6, 0.45)
     Ht_tube = fl.tube_hematocrit()
     return Ht_tube < 0.45, f"Ht_tube = {Ht_tube:.4f} < Ht_feed = 0.45"
 
 @test("2.7 F-L: apparent viscosity = plasma_viscosity * mu_rel", "Definition")
 def test_fl_apparent_viscosity():
-    fl = pycfdrs.FahraeuasLindqvist(100e-6, 0.45)
+    fl = cfd_python.FahraeuasLindqvist(100e-6, 0.45)
     mu_app = fl.apparent_viscosity()
     mu_rel = fl.relative_viscosity()
     mu_plasma = fl.plasma_viscosity()
@@ -349,7 +349,7 @@ def test_womersley_number():
     omega = 10.0  # rad/s
     rho = 1060.0
     mu = 0.0035
-    w = pycfdrs.WomersleyNumber(R, omega, rho, mu)
+    w = cfd_python.WomersleyNumber(R, omega, rho, mu)
     alpha = w.value()
     expected = R * math.sqrt(omega * rho / mu)
     err = abs(alpha - expected) / expected
@@ -357,7 +357,7 @@ def test_womersley_number():
 
 @test("3.2 Human aorta: alpha ~ 18 (R=12.5mm, 72bpm)", "Fung 1997")
 def test_womersley_aorta():
-    w = pycfdrs.WomersleyNumber.human_aorta()
+    w = cfd_python.WomersleyNumber.human_aorta()
     alpha = w.value()
     # Aorta: R=12.5mm, omega=2*pi*1.2, rho=1060, mu=0.0035
     expected = 0.0125 * math.sqrt(2 * math.pi * 1.2 * 1060.0 / 0.0035)
@@ -367,7 +367,7 @@ def test_womersley_aorta():
 
 @test("3.3 Human femoral: alpha ~ 4 (R=3mm, 72bpm)", "Fung 1997")
 def test_womersley_femoral():
-    w = pycfdrs.WomersleyNumber.human_femoral()
+    w = cfd_python.WomersleyNumber.human_femoral()
     alpha = w.value()
     expected = 0.003 * math.sqrt(2 * math.pi * 1.2 * 1060.0 / 0.0035)
     ok = 2 < alpha < 6
@@ -376,7 +376,7 @@ def test_womersley_femoral():
 @test("3.4 Arteriole: alpha < 1 (quasi-steady)", "Fung 1997")
 def test_womersley_arteriole():
     # Arteriole: D ~ 50 um -> R = 25 um
-    w = pycfdrs.WomersleyNumber(25e-6, 2*math.pi*1.2, 1060.0, 0.0035)
+    w = cfd_python.WomersleyNumber(25e-6, 2*math.pi*1.2, 1060.0, 0.0035)
     alpha = w.value()
     regime = w.flow_regime()
     return alpha < 1.0, f"alpha_arteriole = {alpha:.6f}, regime = {regime}"
@@ -387,7 +387,7 @@ def test_stokes_layer():
     omega = 10.0
     rho = 1060.0
     mu = 0.0035
-    w = pycfdrs.WomersleyNumber(R, omega, rho, mu)
+    w = cfd_python.WomersleyNumber(R, omega, rho, mu)
     delta = w.stokes_layer_thickness()
     expected = math.sqrt(2 * mu / (rho * omega))
     err = abs(delta - expected) / expected
@@ -396,13 +396,13 @@ def test_stokes_layer():
 @test("3.6 Flow regime classification", "Womersley 1955")
 def test_regime_classification():
     # alpha < 1 -> QuasiSteady
-    w1 = pycfdrs.WomersleyNumber(25e-6, 7.54, 1060.0, 0.0035)
+    w1 = cfd_python.WomersleyNumber(25e-6, 7.54, 1060.0, 0.0035)
     # alpha ~ 2 -> Transitional
-    w2 = pycfdrs.WomersleyNumber(0.001, 7.54, 1060.0, 0.0035)
+    w2 = cfd_python.WomersleyNumber(0.001, 7.54, 1060.0, 0.0035)
     # alpha ~ 5 -> Inertial
-    w3 = pycfdrs.WomersleyNumber(0.003, 7.54, 1060.0, 0.0035)
+    w3 = cfd_python.WomersleyNumber(0.003, 7.54, 1060.0, 0.0035)
     # alpha > 10 -> PlugFlow
-    w4 = pycfdrs.WomersleyNumber.human_aorta()
+    w4 = cfd_python.WomersleyNumber.human_aorta()
     
     r1 = w1.flow_regime()
     r2 = w2.flow_regime()
@@ -420,7 +420,7 @@ def test_regime_classification():
 @test("3.7 Womersley no-slip: u(r=R, t) = 0 for all t", "Womersley 1955")
 def test_womersley_noslip():
     # Use femoral artery parameters (intermediate alpha)
-    wp = pycfdrs.WomersleyProfile(0.003, 7.54, 1060.0, 0.0035, 500.0)
+    wp = cfd_python.WomersleyProfile(0.003, 7.54, 1060.0, 0.0035, 500.0)
     max_wall_vel = 0.0
     for t in np.linspace(0, 2*math.pi/7.54, 100):
         u_wall = abs(wp.velocity(1.0, t))
@@ -438,7 +438,7 @@ def test_womersley_low_alpha_poiseuille():
     mu = 0.0035
     P_hat = 1000.0  # Pa/m
     
-    wp = pycfdrs.WomersleyProfile(R, omega, rho, mu, P_hat)
+    wp = cfd_python.WomersleyProfile(R, omega, rho, mu, P_hat)
     
     # At t=0, low-alpha formula: u = (P_hat*R^2/(4*mu)) * (1-xi^2) * cos(-phi)
     # phi ~ alpha^2/8 ~ 0 for alpha << 1
@@ -454,9 +454,9 @@ def test_womersley_low_alpha_poiseuille():
     max_shape_err = 0.0
     u_center = wp.velocity(0.0, t)
     for xi in xi_vals:
-        u_pycfdrs = wp.velocity(xi, t)
+        u_cfd_python = wp.velocity(xi, t)
         if abs(u_center) > 1e-15:
-            u_ratio = u_pycfdrs / u_center
+            u_ratio = u_cfd_python / u_center
             expected_ratio = 1.0 - xi**2
             err = abs(u_ratio - expected_ratio)
             max_shape_err = max(max_shape_err, err)
@@ -477,7 +477,7 @@ def test_womersley_low_alpha_wss():
     mu = 0.0035
     P_hat = 1000.0
     
-    wp = pycfdrs.WomersleyProfile(R, omega, rho, mu, P_hat)
+    wp = cfd_python.WomersleyProfile(R, omega, rho, mu, P_hat)
     tau_w = wp.wall_shear_stress(0.0)
     expected = P_hat * R / 2.0  # At t=0, cos(0)=1
     err = abs(tau_w - expected) / expected if expected > 0 else abs(tau_w)
@@ -495,7 +495,7 @@ def test_womersley_low_alpha_Q():
     mu = 0.0035
     P_hat = 1000.0
     
-    wp = pycfdrs.WomersleyProfile(R, omega, rho, mu, P_hat)
+    wp = cfd_python.WomersleyProfile(R, omega, rho, mu, P_hat)
     Q = wp.flow_rate(0.0)
     expected = math.pi * R**4 * P_hat / (8 * mu)
     err = abs(Q - expected) / expected if expected > 0 else abs(Q)
@@ -513,14 +513,14 @@ def test_womersley_flow_mean():
     omega = 7.54
     dp_dx_mean = -1000.0  # Pa/m
     
-    wf = pycfdrs.WomersleyFlow(R, L, rho, mu, omega, 0.0, dp_dx_mean)  # zero pulsatile
+    wf = cfd_python.WomersleyFlow(R, L, rho, mu, omega, 0.0, dp_dx_mean)  # zero pulsatile
     
     # Poiseuille: u(xi) = -dp_dx * R^2 / (4*mu) * (1 - xi^2)
-    u_center_pycfdrs = wf.velocity(0.0, 0.0)
+    u_center_cfd_python = wf.velocity(0.0, 0.0)
     u_center_poiseuille = -dp_dx_mean * R**2 / (4 * mu)
     
-    err = abs(u_center_pycfdrs - u_center_poiseuille) / abs(u_center_poiseuille) if abs(u_center_poiseuille) > 0 else 0
-    return err < 1e-12, f"u_center = {u_center_pycfdrs:.6f} m/s, Poiseuille = {u_center_poiseuille:.6f} m/s, err = {err:.2e}"
+    err = abs(u_center_cfd_python - u_center_poiseuille) / abs(u_center_poiseuille) if abs(u_center_poiseuille) > 0 else 0
+    return err < 1e-12, f"u_center = {u_center_cfd_python:.6f} m/s, Poiseuille = {u_center_poiseuille:.6f} m/s, err = {err:.2e}"
 
 # --- 3.12 WomersleyFlow impedance at low alpha ---
 
@@ -532,7 +532,7 @@ def test_impedance_low_alpha():
     mu = 0.0035
     omega = 7.54
     
-    wf = pycfdrs.WomersleyFlow(R, L, rho, mu, omega, 100.0, -1000.0)
+    wf = cfd_python.WomersleyFlow(R, L, rho, mu, omega, 100.0, -1000.0)
     alpha = wf.womersley_number()
     Z = wf.impedance_magnitude()
     R_poiseuille = 8 * mu * L / (math.pi * R**4)
@@ -669,19 +669,19 @@ def test_microfluidic_pressure_drop():
 
 
 # ============================================================================
-# SECTION 5: Cross-Validation: pycfdrs vs fluidsim
+# SECTION 5: Cross-Validation: cfd_python vs fluidsim
 # ============================================================================
 
 print()
 print("-" * 72)
-print("SECTION 5: Cross-Validation: pycfdrs vs fluidsim")
+print("SECTION 5: Cross-Validation: cfd_python vs fluidsim")
 print("-" * 72)
 
 @test("5.1 fluidsim vs analytical: Taylor-Green energy decay validates fluidsim", "fluidsim baseline")
 def test_fluidsim_taylor_green_baseline():
     """Establish fluidsim is correct by comparing Taylor-Green energy decay vs analytical.
     This baseline test proves fluidsim computes correct NS solutions, which we can then
-    use to validate pycfdrs in subsequent tests."""
+    use to validate cfd_python in subsequent tests."""
     os.environ['FLUIDSIM_PATH'] = os.path.join(
         os.path.dirname(os.path.abspath(__file__)), 'fluidsim_output')
     os.makedirs(os.environ['FLUIDSIM_PATH'], exist_ok=True)
@@ -735,12 +735,12 @@ def test_fluidsim_taylor_green_baseline():
     err = abs(E_num - E_ana) / E_ana
     return err < 1e-5, f"fluidsim E={E_num:.8f}, analytical E={E_ana:.8f}, err={err:.2e} [proves fluidsim correct]"
 
-@test("5.2 pycfdrs Poiseuille3D vs fluidsim 2D channel: Reynolds number match", "Cross-package")
-def test_pycfdrs_vs_fluidsim_reynolds():
-    """Compare Reynolds number computed by pycfdrs 3D Poiseuille vs expected from
+@test("5.2 cfd_python Poiseuille3D vs fluidsim 2D channel: Reynolds number match", "Cross-package")
+def test_cfd_python_vs_fluidsim_reynolds():
+    """Compare Reynolds number computed by cfd_python 3D Poiseuille vs expected from
     flow parameters. fluidsim doesn't directly support Poiseuille (it's periodic),
-    but we can verify pycfdrs gives physical Re."""
-    solver = pycfdrs.Poiseuille3DSolver(0.002, 0.01, 8, 6, 20)
+    but we can verify cfd_python gives physical Re."""
+    solver = cfd_python.Poiseuille3DSolver(0.002, 0.01, 8, 6, 20)
     dp = 100.0  # Pa
     mu = 0.003  # Pa·s, Newtonian
     result = solver.solve(dp, "newtonian")
@@ -752,7 +752,7 @@ def test_pycfdrs_vs_fluidsim_reynolds():
     re_match = re.search(r'Re=([-\d.e+]+)', result_str)
     if not re_match:
         return False, f"Could not parse Re from: {result_str}"
-    Re_pycfdrs = abs(float(re_match.group(1)))
+    Re_cfd_python = abs(float(re_match.group(1)))
     
     # Analytical Re = rho * u_mean * D / mu
     R = 0.001  # radius 1 mm
@@ -765,22 +765,22 @@ def test_pycfdrs_vs_fluidsim_reynolds():
     u_mean = u_max_analytical / 2
     Re_analytical = rho * u_mean * D / mu
     
-    err = abs(Re_pycfdrs - Re_analytical) / max(Re_analytical, 1e-10)
-    return err < 0.15, f"pycfdrs Re={Re_pycfdrs:.1f}, analytical Re={Re_analytical:.1f}, err={err*100:.1f}% [pycfdrs matches theory]"
+    err = abs(Re_cfd_python - Re_analytical) / max(Re_analytical, 1e-10)
+    return err < 0.15, f"cfd_python Re={Re_cfd_python:.1f}, analytical Re={Re_analytical:.1f}, err={err*100:.1f}% [cfd_python matches theory]"
 
-@test("5.3 pycfdrs blood models vs fluidsim effective viscosity: dissipation rate", "Cross-package")
-def test_pycfdrs_blood_vs_fluidsim_dissipation():
+@test("5.3 cfd_python blood models vs fluidsim effective viscosity: dissipation rate", "Cross-package")
+def test_cfd_python_blood_vs_fluidsim_dissipation():
     """For Newtonian flow, dissipation rate epsilon = 2*mu*E_ij*E_ij where E_ij is
-    strain rate tensor. Compare pycfdrs blood viscosity predictions vs what fluidsim
+    strain rate tensor. Compare cfd_python blood viscosity predictions vs what fluidsim
     would need to match observed dissipation."""
     
     # Scenario: microfluidic channel, gamma ~ 100 s^-1
     gamma = 100.0
     
-    # pycfdrs blood models
-    casson = pycfdrs.CassonBlood()
-    cy = pycfdrs.CarreauYasudaBlood()
-    cross = pycfdrs.CrossBlood()
+    # cfd_python blood models
+    casson = cfd_python.CassonBlood()
+    cy = cfd_python.CarreauYasudaBlood()
+    cross = cfd_python.CrossBlood()
     
     mu_casson = casson.viscosity(gamma)
     mu_cy = cy.viscosity(gamma)
@@ -851,17 +851,17 @@ def test_fluidsim_cfl():
 
 
 # ============================================================================
-# SECTION 6: Cross-Validation: pycfdrs 3D Poiseuille vs Analytical
+# SECTION 6: Cross-Validation: cfd_python 3D Poiseuille vs Analytical
 # ============================================================================
 
 print()
 print("-" * 72)
-print("SECTION 6: pycfdrs 3D Solver Cross-Validation")
+print("SECTION 6: cfd_python 3D Solver Cross-Validation")
 print("-" * 72)
 
 @test("6.1 Poiseuille3D: u_max error < 10% vs analytical", "Poiseuille")
 def test_poiseuille_3d():
-    solver = pycfdrs.Poiseuille3DSolver(0.002, 0.01, 8, 6, 20)
+    solver = cfd_python.Poiseuille3DSolver(0.002, 0.01, 8, 6, 20)
     dp = 100.0  # Pa
     mu = 0.003
     result = solver.solve(dp, "newtonian")
@@ -879,9 +879,9 @@ def test_poiseuille_3d():
 @test("6.2 Blood rheology models give different viscosity at low shear", "Physics")
 def test_blood_low_shear_divergence():
     """At low shear rates, Casson diverges (yield stress) while CY/Cross plateau."""
-    casson = pycfdrs.CassonBlood()
-    cy = pycfdrs.CarreauYasudaBlood()
-    cross = pycfdrs.CrossBlood()
+    casson = cfd_python.CassonBlood()
+    cy = cfd_python.CarreauYasudaBlood()
+    cross = cfd_python.CrossBlood()
     
     gamma = 0.1  # very low shear
     mu_c = casson.viscosity(gamma)
@@ -954,7 +954,7 @@ def test_wall_shear_rate():
     
     # For 100 um channel at 1 cm/s: gamma ~ 800 s^-1
     # Blood is nearly Newtonian at this shear rate
-    blood = pycfdrs.CarreauYasudaBlood()
+    blood = cfd_python.CarreauYasudaBlood()
     mu_at_gamma = blood.viscosity(gamma_wall_circular)
     mu_inf = blood.viscosity_high_shear()
     

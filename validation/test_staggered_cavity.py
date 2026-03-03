@@ -22,11 +22,11 @@ ghia_v   = [0.0000, 0.09233, 0.10091, 0.10890, 0.12317, 0.16077,
             0.17507, 0.17527, 0.05454, -0.24533, -0.22445, -0.16914,
             -0.10313, -0.08864, -0.07391, -0.05906, 0.00000]
 
-import pycfdrs
+import cfd_python
 
 for nx in [32, 64, 128]:
     print(f"\n--- Grid {nx}x{nx} ---")
-    solver = pycfdrs.CavitySolver2D(reynolds=100.0, nx=nx, ny=nx)
+    solver = cfd_python.CavitySolver2D(reynolds=100.0, nx=nx, ny=nx)
     result = solver.solve()
     
     y = np.array(result.y_coords)

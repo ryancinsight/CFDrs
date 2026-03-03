@@ -1,4 +1,37 @@
 //! Algebraic Multigrid (AMG) preconditioner implementation
+//!
+//! # Theorem — AMG Mesh-Independent Convergence (Ruge & Stüben 1987)
+//!
+//! For an SPD M-matrix $A$ arising from the discretisation of a second-order
+//! elliptic PDE, the AMG V-cycle preconditioner achieves a convergence factor
+//! $\rho_{AMG}$ that is bounded independently of the mesh size $h$:
+//!
+//! ```text
+//! ρ_AMG ≤ γ < 1     (independent of h)
+//! ```
+//!
+//! provided the coarsening strategy satisfies the strong-connection heuristic
+//! and the interpolation operator reproduces constant vectors exactly.
+//!
+//! **Proof sketch.** The two-grid convergence analysis requires two properties:
+//! (1) a *smoothing property* — the smoother (e.g. Gauss-Seidel) reduces
+//! high-frequency error components by a factor $\eta < 1$ per sweep; and
+//! (2) an *approximation property* — the coarse-grid correction captures
+//! low-frequency error, i.e.
+//! $\|e_h - P_h e_{2h}\|_A \leq C \|A_h e_h\|$.
+//! Combining these gives $\rho_{2G} \leq \eta + C(1-\eta)^2 / (1 + C(1-\eta)) < 1$.
+//! The multi-level extension follows by recursive application (Bramble 1993,
+//! Thm 4.1). For M-matrices the strong-connection coarsening of Ruge & Stüben
+//! guarantees the approximation property holds uniformly in $h$.
+//!
+//! ## References
+//!
+//! - Ruge, J. W. & Stüben, K. (1987). "Algebraic multigrid." In *Multigrid
+//!   Methods* (ed. McCormick), SIAM, pp. 73–130.
+//! - Stüben, K. (2001). "A review of algebraic multigrid." *J. Comput. Appl.
+//!   Math.* 128:281–309.
+//! - Bramble, J. H. (1993). *Multigrid Methods.* Pitman Research Notes in
+//!   Mathematics, Longman.
 
 use super::coarsening::{
     aggregation_coarsening, falgout_coarsening, hmis_coarsening, hybrid_coarsening,

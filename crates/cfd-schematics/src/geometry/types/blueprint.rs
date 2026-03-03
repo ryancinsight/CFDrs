@@ -3,8 +3,8 @@
 use crate::error::{GeometryError, GeometryResult};
 use std::collections::HashSet;
 
-use super::{centerline_for_channel, polyline_length, ChannelType};
 use super::channel_system::ChannelSystem;
+use super::{centerline_for_channel, polyline_length, ChannelType};
 
 impl ChannelSystem {
     /// Convert this 2D schematic layout into a [`NetworkBlueprint`] for the 1D solver.
@@ -75,8 +75,7 @@ impl ChannelSystem {
         // ── build blueprint ───────────────────────────────────────────────
         let mut blueprint = NetworkBlueprint::new(format!(
             "from_channel_system_{}x{}",
-            self.box_dims.0 as u64,
-            self.box_dims.1 as u64
+            self.box_dims.0 as u64, self.box_dims.1 as u64
         ));
 
         let has_inlet = self

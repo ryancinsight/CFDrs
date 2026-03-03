@@ -13,15 +13,14 @@ pub fn symmetric_trifurcation(
     let mut bp = NetworkBlueprint::new(name);
 
     bp.add_node(NodeSpec::new("inlet", NodeKind::Inlet));
-    bp.add_node(NodeSpec::new("junction", NodeKind::Junction));
-    bp.add_node(NodeSpec::new("outlet_1", NodeKind::Outlet));
-    bp.add_node(NodeSpec::new("outlet_2", NodeKind::Outlet));
-    bp.add_node(NodeSpec::new("outlet_3", NodeKind::Outlet));
+    bp.add_node(NodeSpec::new("diverging_junction", NodeKind::Junction));
+    bp.add_node(NodeSpec::new("converging_junction", NodeKind::Junction));
+    bp.add_node(NodeSpec::new("outlet", NodeKind::Outlet));
 
     bp.add_channel(ChannelSpec::new_pipe(
-        "parent",
+        "parent_in",
         "inlet",
-        "junction",
+        "diverging_junction",
         parent_length_m,
         parent_diameter_m,
         hp_resistance(parent_length_m, parent_diameter_m),
@@ -31,14 +30,24 @@ pub fn symmetric_trifurcation(
     for i in 1..=3 {
         bp.add_channel(ChannelSpec::new_pipe(
             format!("daughter_{i}"),
-            "junction",
-            format!("outlet_{i}"),
+            "diverging_junction",
+            "converging_junction",
             daughter_length_m,
             daughter_diameter_m,
             hp_resistance(daughter_length_m, daughter_diameter_m),
             0.0,
         ));
     }
+
+    bp.add_channel(ChannelSpec::new_pipe(
+        "parent_out",
+        "converging_junction",
+        "outlet",
+        parent_length_m,
+        parent_diameter_m,
+        hp_resistance(parent_length_m, parent_diameter_m),
+        0.0,
+    ));
 
     bp
 }
@@ -63,15 +72,14 @@ pub fn trifurcation_rect(
     let mut bp = NetworkBlueprint::new(name);
 
     bp.add_node(NodeSpec::new("inlet", NodeKind::Inlet));
-    bp.add_node(NodeSpec::new("junction", NodeKind::Junction));
-    bp.add_node(NodeSpec::new("outlet_1", NodeKind::Outlet));
-    bp.add_node(NodeSpec::new("outlet_2", NodeKind::Outlet));
-    bp.add_node(NodeSpec::new("outlet_3", NodeKind::Outlet));
+    bp.add_node(NodeSpec::new("diverging_junction", NodeKind::Junction));
+    bp.add_node(NodeSpec::new("converging_junction", NodeKind::Junction));
+    bp.add_node(NodeSpec::new("outlet", NodeKind::Outlet));
 
     bp.add_channel(ChannelSpec::new_pipe_rect(
-        "parent",
+        "parent_in",
         "inlet",
-        "junction",
+        "diverging_junction",
         parent_length_m,
         parent_width_m,
         height_m,
@@ -82,8 +90,8 @@ pub fn trifurcation_rect(
     for i in 1..=3 {
         bp.add_channel(ChannelSpec::new_pipe_rect(
             format!("daughter_{i}"),
-            "junction",
-            format!("outlet_{i}"),
+            "diverging_junction",
+            "converging_junction",
             daughter_length_m,
             daughter_width_m,
             height_m,
@@ -92,6 +100,17 @@ pub fn trifurcation_rect(
         ));
     }
 
+    bp.add_channel(ChannelSpec::new_pipe_rect(
+        "parent_out",
+        "converging_junction",
+        "outlet",
+        parent_length_m,
+        parent_width_m,
+        height_m,
+        shah_london_resistance(parent_width_m, height_m, parent_length_m, BLOOD_MU),
+        0.0,
+    ));
+
     bp
 }
 
@@ -99,10 +118,7 @@ pub fn trifurcation_rect(
 fn shah_london_resistance(width_m: f64, height_m: f64, length_m: f64, mu: f64) -> f64 {
     let alpha = height_m.min(width_m) / height_m.max(width_m);
     let po = 96.0
-        * (1.0
-            - 1.3553 * alpha
-            + 1.9467 * alpha * alpha
-            - 1.7012 * alpha.powi(3)
+        * (1.0 - 1.3553 * alpha + 1.9467 * alpha * alpha - 1.7012 * alpha.powi(3)
             + 0.9564 * alpha.powi(4)
             - 0.2537 * alpha.powi(5));
     let d_h = 2.0 * width_m * height_m / (width_m + height_m);

@@ -1,4 +1,4 @@
-//! PyO3 Python bindings for CFD-rs solvers
+//! `PyO3` Python bindings for CFD-rs solvers
 //!
 //! This crate exposes the Rust CFD solvers to Python for easy validation,
 //! comparison with other CFD codes, and interactive analysis.
@@ -26,6 +26,49 @@
 //! print(f"Wall shear rate 1: {result.gamma_1} s^-1")
 //! ```
 
+#![warn(clippy::all)]
+#![warn(clippy::pedantic)]
+// PyO3 bindings require specific patterns that trigger pedantic lints.
+#![allow(clippy::cast_precision_loss)]
+#![allow(clippy::cast_possible_truncation)]
+#![allow(clippy::cast_sign_loss)]
+#![allow(clippy::similar_names)]
+#![allow(clippy::many_single_char_names)]
+#![allow(clippy::too_many_arguments)]
+#![allow(clippy::too_many_lines)]
+#![allow(clippy::module_name_repetitions)]
+#![allow(clippy::missing_errors_doc)]
+#![allow(clippy::missing_panics_doc)]
+#![allow(clippy::must_use_candidate)]
+#![allow(clippy::needless_pass_by_value)]
+#![allow(clippy::redundant_closure_for_method_calls)]
+#![allow(clippy::doc_markdown)]
+#![allow(clippy::unreadable_literal)]
+#![allow(clippy::used_underscore_binding)]
+// PyO3 getters/setters don't follow Rust naming conventions.
+#![allow(clippy::unused_self)]
+#![allow(clippy::manual_let_else)]
+#![allow(clippy::unnecessary_wraps)]
+#![allow(clippy::match_same_arms)]
+#![allow(clippy::useless_conversion)]
+#![allow(clippy::inline_always)]
+#![allow(clippy::needless_range_loop)]
+#![allow(clippy::implicit_hasher)]
+#![allow(clippy::new_without_default)]
+#![allow(clippy::trivially_copy_pass_by_ref)]
+#![allow(clippy::ptr_arg)]
+#![allow(clippy::format_push_string)]
+#![allow(clippy::field_reassign_with_default)]
+#![allow(clippy::empty_line_after_doc_comments)]
+#![allow(clippy::len_without_is_empty)]
+#![allow(clippy::new_ret_no_self)]
+#![allow(clippy::items_after_statements)]
+#![allow(clippy::float_cmp)]
+#![allow(clippy::return_self_not_must_use)]
+#![allow(clippy::cast_possible_wrap)]
+#![allow(clippy::doc_overindented_list_items)]
+#![allow(clippy::same_item_push)]
+
 use pyo3::prelude::*;
 
 mod bifurcation;
@@ -44,7 +87,7 @@ pub use result_types::PyBifurcationResult;
 pub use solver_2d::*;
 pub use solver_3d::*;
 
-/// PyO3 module for CFD-rs Python bindings
+/// `PyO3` module for CFD-rs Python bindings
 #[pymodule]
 fn cfd_python(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add("__version__", "0.1.0")?;

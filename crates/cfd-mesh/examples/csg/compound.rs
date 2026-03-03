@@ -64,8 +64,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let cube_c = Cube { origin: Point3r::new(2.0, 1.0, 1.0), width: 2.0, height: 2.0, depth: 2.0 }.build()?;
 
         let tree = CsgNode::Difference {
-            left:  Box::new(CsgNode::Leaf(union_ab)),
-            right: Box::new(CsgNode::Leaf(cube_c)),
+            left:  Box::new(CsgNode::Leaf(Box::new(union_ab))),
+            right: Box::new(CsgNode::Leaf(Box::new(cube_c))),
         };
         let mut mesh = tree.evaluate()?;
 
@@ -91,8 +91,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let union_bc = csg_boolean_indexed(BooleanOp::Union, &cube_b, &cube_c)?;
 
         let tree = CsgNode::Difference {
-            left:  Box::new(CsgNode::Leaf(cube_a)),
-            right: Box::new(CsgNode::Leaf(union_bc)),
+            left:  Box::new(CsgNode::Leaf(Box::new(cube_a))),
+            right: Box::new(CsgNode::Leaf(Box::new(union_bc))),
         };
         let mut mesh = tree.evaluate()?;
 

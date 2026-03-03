@@ -325,7 +325,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // ── Section 5: Scheme simulation of the equal-width bifurcation ───────
     println!("Scheme Simulation — Straight equal-width bifurcation chip:");
-    let geometry_config = GeometryConfig::new(0.5, 1.0, 0.5, GeometryGenerationConfig::default())?
+    let geometry_config = GeometryConfig::new(0.5, 1.0, 0.5, GeometryGenerationConfig::default())?;
     let system = create_geometry(
         (CHIP_LEN, CHIP_WID),
         &[SplitType::Bifurcation],

@@ -38,7 +38,7 @@ impl SparseVoxelOctree {
     /// # Arguments
     ///
     /// * `mesh`      — The boundary-representation surface mesh to rasterize.
-    /// * `max_depth` — Maximum octree depth.  Leaf voxel edge length ≈ mesh_extent / 2^max_depth.
+    /// * `max_depth` — Maximum octree depth.  Leaf voxel edge length ≈ `mesh_extent` / `2^max_depth`.
     pub fn from_mesh<T: Scalar>(mesh: &IndexedMesh<T>, max_depth: u8) -> Self {
         // Degenerate mesh guard.
         let root_aabb_t = mesh.bounding_box();
@@ -70,7 +70,7 @@ impl SparseVoxelOctree {
             Point3r::new(to_f(root_aabb_t.max.x) + dx, to_f(root_aabb_t.max.y) + dy, to_f(root_aabb_t.max.z) + dz),
         );
 
-        let mut svo = Self::new(expanded_root.clone());
+        let mut svo = Self::new(expanded_root);
         let new_root = svo.rasterize_recursive(mesh, &expanded_root, &mesh_bb, 0, max_depth);
         svo.root_index = new_root;
         svo

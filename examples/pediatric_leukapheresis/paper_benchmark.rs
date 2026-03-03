@@ -11,7 +11,7 @@
 //! | Nivedita 2017 | Inertial spiral | 133 µm | 1.8 mL/min | 2 % |
 //! | Wu Z. 2019 | Constriction-expansion | 75 µm | 150 µL/min | 0.1 % |
 
-use cfd_optim::{DesignCandidate, DesignTopology};
+use cfd_optim::{CrossSectionShape, DesignCandidate, DesignTopology};
 
 // ── Nivedita et al. (2017) — inertial spiral ─────────────────────────────────
 
@@ -50,6 +50,13 @@ pub fn nivedita_spiral() -> DesignCandidate {
         segment_length_m:       2.0 * std::f64::consts::PI * NIVEDITA_BEND_M,
         bend_radius_m:          NIVEDITA_BEND_M,
         feed_hematocrit:        NIVEDITA_HCT,
+        trifurcation_center_frac: 1.0 / 3.0,
+        cif_pretri_center_frac: 1.0 / 3.0,
+        cif_terminal_tri_center_frac: 1.0 / 3.0,
+        cif_terminal_bi_treat_frac: 0.68,
+        asymmetric_narrow_frac: 0.5,
+        trifurcation_left_frac: 1.0 / 3.0,
+        cross_section_shape: CrossSectionShape::Rectangular,
     }
 }
 
@@ -88,5 +95,12 @@ pub fn wu_constriction() -> DesignCandidate {
         segment_length_m:       5e-3,       // ~5 mm per half-cycle
         bend_radius_m:          0.0,        // straight channel; no bends
         feed_hematocrit:        WU_HCT,
+        trifurcation_center_frac: 1.0 / 3.0,
+        cif_pretri_center_frac: 1.0 / 3.0,
+        cif_terminal_tri_center_frac: 1.0 / 3.0,
+        cif_terminal_bi_treat_frac: 0.68,
+        asymmetric_narrow_frac: 0.5,
+        trifurcation_left_frac: 1.0 / 3.0,
+        cross_section_shape: CrossSectionShape::Rectangular,
     }
 }

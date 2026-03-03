@@ -297,7 +297,7 @@ Validation:
 3. **Physically Validated**: Match analytical solutions and conservation laws
 4. **Well-Documented**: Every file has complete physics documentation
 5. **Performance Tested**: Converge in 25-70 iterations
-6. **Python-Accessible**: Full PyO3 bindings in pycfdrs
+6. **Python-Accessible**: Full PyO3 bindings in cfd-python
 
 ### Applications Ready For:
 
@@ -317,7 +317,7 @@ Validation:
 
 ```bash
 # Build Python bindings
-cd crates/pycfdrs
+cd crates/cfd-python
 maturin develop --release
 
 # Run all validations

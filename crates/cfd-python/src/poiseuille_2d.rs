@@ -107,7 +107,7 @@ pub struct PyPoiseuilleResult {
     pub viscosity: Vec<f64>,
     /// Flow rate Q [m³/s]
     pub flow_rate: f64,
-    /// Wall shear stress τ_w [Pa]
+    /// Wall shear stress `τ_w` [Pa]
     pub wall_shear_stress: f64,
     /// Number of iterations to converge
     pub iterations: usize,
@@ -198,7 +198,7 @@ impl PyPoiseuilleSolver {
     ///
     /// # Returns
     ///
-    /// PoiseuilleResult2D with velocity, shear rate, viscosity profiles and flow rate
+    /// `PoiseuilleResult2D` with velocity, shear rate, viscosity profiles and flow rate
     ///
     /// # Example
     ///
@@ -247,7 +247,7 @@ impl PyPoiseuilleSolver {
         let mut solver = PoiseuilleFlow2D::new(rust_config, rust_blood_model);
 
         let iterations = solver.solve().map_err(|e| {
-            pyo3::exceptions::PyRuntimeError::new_err(format!("Solver failed: {}", e))
+            pyo3::exceptions::PyRuntimeError::new_err(format!("Solver failed: {e}"))
         })?;
 
         // Extract results

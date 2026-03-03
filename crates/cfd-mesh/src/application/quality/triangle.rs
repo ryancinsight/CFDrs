@@ -3,7 +3,7 @@
 use crate::domain::core::constants;
 use crate::domain::core::scalar::{Point3r, Real};
 
-/// Triangle aspect ratio: longest_edge / shortest_altitude.
+/// Triangle aspect ratio: `longest_edge` / `shortest_altitude`.
 ///
 /// A perfect equilateral triangle has aspect ratio ~1.155.
 /// CFD meshes typically want aspect ratio < 5.
@@ -21,6 +21,7 @@ pub fn aspect_ratio(a: &Point3r, b: &Point3r, c: &Point3r) -> Real {
 }
 
 /// Minimum interior angle of a triangle (in radians).
+#[must_use] 
 pub fn min_angle(a: &Point3r, b: &Point3r, c: &Point3r) -> Real {
     let ab = (b - a).normalize();
     let ac = (c - a).normalize();
@@ -37,6 +38,7 @@ pub fn min_angle(a: &Point3r, b: &Point3r, c: &Point3r) -> Real {
 }
 
 /// Maximum interior angle of a triangle (in radians).
+#[must_use] 
 pub fn max_angle(a: &Point3r, b: &Point3r, c: &Point3r) -> Real {
     let ab = (b - a).normalize();
     let ac = (c - a).normalize();
@@ -55,6 +57,7 @@ pub fn max_angle(a: &Point3r, b: &Point3r, c: &Point3r) -> Real {
 /// Equiangle skewness: measures deviation from equilateral.
 ///
 /// 0 = equilateral, 1 = degenerate.
+#[must_use] 
 pub fn equiangle_skewness(a: &Point3r, b: &Point3r, c: &Point3r) -> Real {
     let ideal = constants::PI / 3.0; // 60° for equilateral triangle
     let max_a = max_angle(a, b, c);
@@ -66,7 +69,7 @@ pub fn equiangle_skewness(a: &Point3r, b: &Point3r, c: &Point3r) -> Real {
     skew_max.max(skew_min)
 }
 
-/// Edge length ratio: shortest_edge / longest_edge.
+/// Edge length ratio: `shortest_edge` / `longest_edge`.
 ///
 /// 1.0 = all edges equal, approaching 0 = bad quality.
 pub fn edge_length_ratio(a: &Point3r, b: &Point3r, c: &Point3r) -> Real {

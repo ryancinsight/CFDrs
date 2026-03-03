@@ -11,7 +11,7 @@ The CFDrs CFD library has been validated against external Python CFD packages an
 
 ### 1. Cross-Package Comparison (Poiseuille Flow)
 
-| Metric | Analytical | pycfdrs | Error |
+| Metric | Analytical | cfd-python | Error |
 |--------|-----------|---------|-------|
 | Max Velocity | 0.3571 m/s | 0.3571 m/s | 0.00% |
 

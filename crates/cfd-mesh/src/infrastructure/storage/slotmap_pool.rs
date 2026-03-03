@@ -8,7 +8,7 @@
 //! - **Generational safety** — stale keys return `None`, never silently alias
 //!   a newly-allocated slot.
 //! - **O(1) keyed access** — insertion, removal, and lookup are all O(1).
-//! - **Zero-cost with GhostCell** — wrapping values in
+//! - **Zero-cost with `GhostCell`** — wrapping values in
 //!   [`GhostCell<'id, T>`][crate::infrastructure::permission::GhostCell] costs no memory or
 //!   runtime overhead beyond the `UnsafeCell` that `GhostCell` wraps.
 //!
@@ -26,7 +26,7 @@
 //!   └──────────────────────────────────┘
 //! ```
 //!
-//! ## GhostCell variant
+//! ## `GhostCell` variant
 //!
 //! For the half-edge mesh, all slot values are wrapped in
 //! `GhostCell<'id, T>`.  The [`GhostSlotPool`] type alias captures this
@@ -56,6 +56,7 @@ pub struct SlotPool<K: Key, V> {
 
 impl<K: Key, V> SlotPool<K, V> {
     /// Create an empty pool.
+    #[must_use] 
     pub fn new() -> Self {
         Self {
             inner: SlotMap::with_key(),
@@ -63,6 +64,7 @@ impl<K: Key, V> SlotPool<K, V> {
     }
 
     /// Create with a pre-allocated capacity.
+    #[must_use] 
     pub fn with_capacity(cap: usize) -> Self {
         Self {
             inner: SlotMap::with_capacity_and_key(cap),
@@ -101,12 +103,14 @@ impl<K: Key, V> SlotPool<K, V> {
 
     /// Number of live slots.
     #[inline]
+    #[must_use] 
     pub fn len(&self) -> usize {
         self.inner.len()
     }
 
     /// Returns `true` if empty.
     #[inline]
+    #[must_use] 
     pub fn is_empty(&self) -> bool {
         self.inner.is_empty()
     }
@@ -142,6 +146,7 @@ impl<K: Key, V> SlotPool<K, V> {
 
     /// Provide access to the underlying [`SlotMap`].
     #[inline]
+    #[must_use] 
     pub fn as_slotmap(&self) -> &SlotMap<K, V> {
         &self.inner
     }

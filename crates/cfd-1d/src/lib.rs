@@ -89,6 +89,7 @@
 pub mod analysis;
 pub mod channel;
 pub mod components;
+pub mod hemolysis;
 pub mod junctions;
 pub mod network;
 pub mod resistance;
@@ -96,6 +97,25 @@ pub mod resistance;
 pub mod cell_separation;
 pub mod solver;
 pub mod vascular;
+
+// Export haemolysis models
+pub use hemolysis::{
+    cavitation_amplified_hi, giersiepen_hi, HemolysisExposure,
+    CAVITATION_HI_SLOPE, GIERSIEPEN_ALPHA, GIERSIEPEN_BETA, GIERSIEPEN_C,
+};
+
+// Export three-population inertial focusing model
+pub use cell_separation::{three_population_equilibria, ThreePopEquilibria};
+pub use cell_separation::{
+    cascade_junction_separation, cascade_junction_separation_cross_junction,
+    cascade_junction_separation_from_qfracs,
+    cif_pretri_stage_center_fracs, cif_pretri_stage_q_fracs,
+    incremental_filtration_separation, incremental_filtration_separation_cross_junction,
+    incremental_filtration_separation_from_qfracs,
+    incremental_filtration_separation_staged, tri_center_q_frac,
+    tri_center_q_frac_cross_junction, CascadeJunctionResult,
+    IncrementalFiltrationResult,
+};
 
 // Export network functionality
 pub use network::{
@@ -135,9 +155,10 @@ pub use channel::{
 pub use resistance::{
     BendType, ChannelGeometry as ResistanceChannelGeometry, CombinationMethod,
     DarcyWeisbachModel, ExpansionType, FlowConditions, HagenPoiseuilleModel,
-    MembranePoreModel, RectangularChannelModel, ResistanceCalculator, ResistanceModel,
-    ResistanceModelFactory, SerpentineAnalysis, SerpentineCrossSection, SerpentineModel,
-    VenturiAnalysis, VenturiGeometry, VenturiModel,
+    JunctionFlowDirection, JunctionLossModel, JunctionType, MembranePoreModel,
+    RectangularChannelModel, ResistanceCalculator, ResistanceModel, ResistanceModelFactory,
+    SerpentineAnalysis, SerpentineCrossSection, SerpentineModel, VenturiAnalysis,
+    VenturiGeometry, VenturiModel,
 };
 
 // Export hierarchical junction functionality

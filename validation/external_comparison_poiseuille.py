@@ -2,7 +2,7 @@
 """
 EXTERNAL VALIDATION: 2D Poiseuille Flow Comparison
 
-This script validates our pycfdrs 2D Poiseuille solver against:
+This script validates our cfd_python 2D Poiseuille solver against:
 1. Analytical solution (exact)
 2. Simple finite difference implementation (independent verification)
 3. Published benchmark results
@@ -38,10 +38,10 @@ import numpy as np
 from scipy.linalg import solve_banded
 
 try:
-    import pycfdrs
+    import cfd_python
 except ImportError:
-    print("ERROR: pycfdrs not installed. Run:")
-    print("  pip install target/wheels/pycfdrs-*.whl")
+    print("ERROR: cfd_python not installed. Run:")
+    print("  pip install target/wheels/cfd_python-*.whl")
     sys.exit(1)
 
 
@@ -70,7 +70,7 @@ def simple_fdm_poiseuille_newtonian(ny, H, mu, dp_dx):
     Uses central differences on uniform grid:
     μ(u_{j+1} - 2u_j + u_{j-1})/dy² = dP/dx
 
-    This is an INDEPENDENT implementation to verify pycfdrs results.
+    This is an INDEPENDENT implementation to verify cfd_python results.
 
     Args:
         ny: number of grid points
@@ -150,7 +150,7 @@ def run_external_validation():
 
     print("=" * 80)
     print("EXTERNAL VALIDATION: 2D POISEUILLE FLOW")
-    print("Comparing pycfdrs vs Analytical vs Independent FDM Implementation")
+    print("Comparing cfd_python vs Analytical vs Independent FDM Implementation")
     print("=" * 80)
 
     # Problem setup - use high shear rate to approximate Newtonian behavior
@@ -243,10 +243,10 @@ def run_external_validation():
         )
 
     print(f"\n{'=' * 80}")
-    print("METHOD 3: PYCFDRS SOLVER (OUR IMPLEMENTATION)")
+    print("METHOD 3: cfd_python SOLVER (OUR IMPLEMENTATION)")
     print("=" * 80)
 
-    print(f"\npycfdrs 2D Poiseuille solver:")
+    print(f"\ncfd_python 2D Poiseuille solver:")
 
     # Create Newtonian "blood" model with constant viscosity
     # We'll use Casson but with very low yield stress to approximate Newtonian
@@ -256,9 +256,9 @@ def run_external_validation():
         def __init__(self, mu):
             self.mu = mu
 
-    pycfdrs_results = {}
+    cfd_python_results = {}
     for ny in resolutions:
-        config = pycfdrs.PoiseuilleConfig2D(
+        config = cfd_python.PoiseuilleConfig2D(
             height=H,
             width=W,
             length=L,
@@ -268,31 +268,31 @@ def run_external_validation():
             max_iterations=1000,
         )
 
-        solver = pycfdrs.PoiseuilleSolver2D(config)
+        solver = cfd_python.PoiseuilleSolver2D(config)
 
         # Use Casson blood (will behave nearly Newtonian for this case)
-        blood = pycfdrs.CassonBlood()
+        blood = cfd_python.CassonBlood()
         result = solver.solve(blood)
 
         # Get results
-        y_pycfdrs = np.array(result.y_coords)
-        u_pycfdrs = np.array(result.velocity)
-        q_pycfdrs = result.flow_rate
+        y_cfd_python = np.array(result.y_coords)
+        u_cfd_python = np.array(result.velocity)
+        q_cfd_python = result.flow_rate
 
-        # Interpolate analytical solution to pycfdrs grid
-        u_exact_pycfdrs = analytical_poiseuille_newtonian(y_pycfdrs, H, mu, dp_dx)
+        # Interpolate analytical solution to cfd_python grid
+        u_exact_cfd_python = analytical_poiseuille_newtonian(y_cfd_python, H, mu, dp_dx)
 
         # Calculate errors
-        L1, L2, Linf, rel = calculate_errors(u_pycfdrs, u_exact_pycfdrs)
+        L1, L2, Linf, rel = calculate_errors(u_cfd_python, u_exact_cfd_python)
 
-        q_error = abs(q_pycfdrs - q_analytical) / q_analytical * 100
+        q_error = abs(q_cfd_python - q_analytical) / q_analytical * 100
 
-        pycfdrs_results[ny] = {
-            "y": y_pycfdrs,
-            "u": u_pycfdrs,
+        cfd_python_results[ny] = {
+            "y": y_cfd_python,
+            "u": u_cfd_python,
             "L2": L2,
             "rel": rel,
-            "q": q_pycfdrs,
+            "q": q_cfd_python,
             "q_error": q_error,
             "iterations": result.iterations,
         }
@@ -302,10 +302,10 @@ def run_external_validation():
         )
 
     # Check convergence order
-    print(f"\nConvergence analysis (pycfdrs):")
+    print(f"\nConvergence analysis (cfd_python):")
     for i in range(len(resolutions) - 1):
         ny1, ny2 = resolutions[i], resolutions[i + 1]
-        e1, e2 = pycfdrs_results[ny1]["L2"], pycfdrs_results[ny2]["L2"]
+        e1, e2 = cfd_python_results[ny1]["L2"], cfd_python_results[ny2]["L2"]
         order = np.log(e1 / e2) / np.log(ny2 / ny1)
         print(
             f"  {ny1} → {ny2}: Order = {order:.2f} (should be ~2 for 2nd order method)"
@@ -321,14 +321,14 @@ def run_external_validation():
     y_fdm = fdm_results[ny_test]["y"]
     u_fdm = fdm_results[ny_test]["u"]
 
-    y_pycfdrs = pycfdrs_results[ny_test]["y"]
-    u_pycfdrs = pycfdrs_results[ny_test]["u"]
+    y_cfd_python = cfd_python_results[ny_test]["y"]
+    u_cfd_python = cfd_python_results[ny_test]["u"]
 
     # Interpolate analytical to both grids for comparison
     u_exact_fdm = analytical_poiseuille_newtonian(y_fdm, H, mu, dp_dx)
-    u_exact_pycfdrs = analytical_poiseuille_newtonian(y_pycfdrs, H, mu, dp_dx)
+    u_exact_cfd_python = analytical_poiseuille_newtonian(y_cfd_python, H, mu, dp_dx)
 
-    # Compare FDM vs pycfdrs (both should match analytical)
+    # Compare FDM vs cfd_python (both should match analytical)
     print(f"\nAt ny={ny_test}:")
     print(f"\n  Method          | Max u [m/s]  | Q [m³/s]     | Q Error [%]")
     print(f"  " + "-" * 65)
@@ -339,7 +339,7 @@ def run_external_validation():
         f"  Simple FDM      | {np.max(u_fdm):.6e} | {fdm_results[ny_test]['q']:.6e} | {fdm_results[ny_test]['q_error']:.4f}"
     )
     print(
-        f"  pycfdrs         | {np.max(u_pycfdrs):.6e} | {pycfdrs_results[ny_test]['q']:.6e} | {pycfdrs_results[ny_test]['q_error']:.4f}"
+        f"  cfd_python         | {np.max(u_cfd_python):.6e} | {cfd_python_results[ny_test]['q']:.6e} | {cfd_python_results[ny_test]['q_error']:.4f}"
     )
 
     # Final validation checks
@@ -351,7 +351,7 @@ def run_external_validation():
     tol_percentage = 1.0  # 1% tolerance
 
     fdm_ok = fdm_results[ny_test]["q_error"] < tol_percentage
-    pycfdrs_ok = pycfdrs_results[ny_test]["q_error"] < tol_percentage
+    cfd_python_ok = cfd_python_results[ny_test]["q_error"] < tol_percentage
 
     print(f"\n1. Simple FDM vs Analytical:")
     print(f"   Flow rate error: {fdm_results[ny_test]['q_error']:.4f}%")
@@ -360,9 +360,9 @@ def run_external_validation():
     else:
         print(f"   ✗ FAILED (> {tol_percentage}%)")
 
-    print(f"\n2. pycfdrs vs Analytical:")
-    print(f"   Flow rate error: {pycfdrs_results[ny_test]['q_error']:.4f}%")
-    if pycfdrs_ok:
+    print(f"\n2. cfd_python vs Analytical:")
+    print(f"   Flow rate error: {cfd_python_results[ny_test]['q_error']:.4f}%")
+    if cfd_python_ok:
         print(f"   ✓ PASSED (< {tol_percentage}%)")
     else:
         print(f"   ✗ FAILED (> {tol_percentage}%)")
@@ -370,7 +370,7 @@ def run_external_validation():
     print(f"\n3. Convergence Order:")
     # Check that both methods show 2nd order convergence
     fdm_orders = []
-    pycfdrs_orders = []
+    cfd_python_orders = []
     for i in range(len(resolutions) - 1):
         ny1, ny2 = resolutions[i], resolutions[i + 1]
 
@@ -378,17 +378,17 @@ def run_external_validation():
         order_fdm = np.log(e1_fdm / e2_fdm) / np.log(ny2 / ny1)
         fdm_orders.append(order_fdm)
 
-        e1_pyc, e2_pyc = pycfdrs_results[ny1]["L2"], pycfdrs_results[ny2]["L2"]
+        e1_pyc, e2_pyc = cfd_python_results[ny1]["L2"], cfd_python_results[ny2]["L2"]
         order_pyc = np.log(e1_pyc / e2_pyc) / np.log(ny2 / ny1)
-        pycfdrs_orders.append(order_pyc)
+        cfd_python_orders.append(order_pyc)
 
     avg_order_fdm = np.mean(fdm_orders)
-    avg_order_pycfdrs = np.mean(pycfdrs_orders)
+    avg_order_cfd_python = np.mean(cfd_python_orders)
 
     print(f"   Simple FDM average order: {avg_order_fdm:.2f}")
-    print(f"   pycfdrs average order: {avg_order_pycfdrs:.2f}")
+    print(f"   cfd_python average order: {avg_order_cfd_python:.2f}")
 
-    convergence_ok = (1.8 < avg_order_fdm < 2.2) and (1.8 < avg_order_pycfdrs < 2.2)
+    convergence_ok = (1.8 < avg_order_fdm < 2.2) and (1.8 < avg_order_cfd_python < 2.2)
     if convergence_ok:
         print(f"   ✓ PASSED (both ~2nd order)")
     else:
@@ -415,11 +415,11 @@ def run_external_validation():
         alpha=0.7,
     )
     ax1.plot(
-        y_pycfdrs * 1e3,
-        u_pycfdrs,
+        y_cfd_python * 1e3,
+        u_cfd_python,
         "r^",
         markersize=4,
-        label=f"pycfdrs (ny={ny_test})",
+        label=f"cfd_python (ny={ny_test})",
         alpha=0.7,
     )
     ax1.set_xlabel("y [mm]")
@@ -431,11 +431,11 @@ def run_external_validation():
     # Plot 2: Error vs analytical
     ax2.plot(y_fdm * 1e3, (u_fdm - u_exact_fdm) * 1e3, "b-", lw=2, label="FDM Error")
     ax2.plot(
-        y_pycfdrs * 1e3,
-        (u_pycfdrs - u_exact_pycfdrs) * 1e3,
+        y_cfd_python * 1e3,
+        (u_cfd_python - u_exact_cfd_python) * 1e3,
         "r--",
         lw=2,
-        label="pycfdrs Error",
+        label="cfd_python Error",
     )
     ax2.set_xlabel("y [mm]")
     ax2.set_ylabel("Error [mm/s]")
@@ -448,10 +448,10 @@ def run_external_validation():
     nx_vals = np.array(resolutions)
 
     fdm_errors = [fdm_results[ny]["L2"] for ny in resolutions]
-    pycfdrs_errors = [pycfdrs_results[ny]["L2"] for ny in resolutions]
+    cfd_python_errors = [cfd_python_results[ny]["L2"] for ny in resolutions]
 
     ax3.loglog(nx_vals, fdm_errors, "bo-", lw=2, markersize=8, label="Simple FDM")
-    ax3.loglog(nx_vals, pycfdrs_errors, "r^-", lw=2, markersize=8, label="pycfdrs")
+    ax3.loglog(nx_vals, cfd_python_errors, "r^-", lw=2, markersize=8, label="cfd_python")
 
     # Add reference line for 2nd order
     ref_line = fdm_errors[0] * (nx_vals[0] / nx_vals) ** 2
@@ -464,11 +464,11 @@ def run_external_validation():
     ax3.grid(True, alpha=0.3, which="both")
 
     # Plot 4: Flow rate comparison
-    methods = ["Analytical", "FDM", "pycfdrs"]
+    methods = ["Analytical", "FDM", "cfd_python"]
     q_values = [
         q_analytical * 1e12,  # Convert to pL/s for better display
         fdm_results[ny_test]["q"] * 1e12,
-        pycfdrs_results[ny_test]["q"] * 1e12,
+        cfd_python_results[ny_test]["q"] * 1e12,
     ]
     colors = ["black", "blue", "red"]
 
@@ -498,17 +498,17 @@ def run_external_validation():
 
     # Final summary
     print(f"\n{'=' * 80}")
-    if fdm_ok and pycfdrs_ok and convergence_ok:
+    if fdm_ok and cfd_python_ok and convergence_ok:
         print("ALL VALIDATIONS PASSED")
         print("=" * 80)
-        print(f"\npycfdrs 2D Poiseuille solver is PROVEN CORRECT by:")
+        print(f"\ncfd_python 2D Poiseuille solver is PROVEN CORRECT by:")
         print(
-            f"  1. Analytical comparison: {pycfdrs_results[ny_test]['q_error']:.4f}% error"
+            f"  1. Analytical comparison: {cfd_python_results[ny_test]['q_error']:.4f}% error"
         )
         print(f"  2. Independent FDM verification: both methods agree")
-        print(f"  3. Convergence order: {avg_order_pycfdrs:.2f} (2nd order accurate)")
+        print(f"  3. Convergence order: {avg_order_cfd_python:.2f} (2nd order accurate)")
         print(f"\nThis is INDEPENDENT VERIFICATION - three different implementations")
-        print(f"(analytical, simple FDM, pycfdrs) all agree to < 1% error.")
+        print(f"(analytical, simple FDM, cfd_python) all agree to < 1% error.")
         print(f"=" * 80)
         return True
     else:

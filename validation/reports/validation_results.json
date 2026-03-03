@@ -1,6 +1,6 @@
 {
   "timestamp": "2026-02-04T22:11:46.410314",
-  "pycfdrs_version": "0.1.0",
+  "cfd-python_version": "0.1.0",
   "tests": {
     "1D Poiseuille Flow": {
       "status": "not_implemented",

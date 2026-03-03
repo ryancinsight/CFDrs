@@ -1,10 +1,21 @@
 # cfd-2d — Agent Reference
 
 > **Role**: Full 2D incompressible Navier–Stokes solver suite.  
-> **Depends on**: `cfd-core`, `cfd-math`, `cfd-schematics`, `cfd-io`
+> **Direct internal deps**: `cfd-core`, `cfd-io`, `cfd-math`, `cfd-mesh`, `cfd-schematics`
 
 ---
 
+
+<!-- AGENT-AUDIT-SNAPSHOT:START -->
+## Verified Audit Snapshot (2026-02-26)
+
+- Verified against `Cargo.toml`, `src/lib.rs`, and the top-level `src/` tree.
+- Direct internal crate dependencies (`cargo metadata`): `cfd-core`, `cfd-io`, `cfd-math`, `cfd-mesh`, `cfd-schematics`.
+- Cargo features: `gpu`.
+- `src/lib.rs` module surface: `constants`, `discretization`, `error`, `fields`, `grid`, `physics`, `piso_algorithm`, `pressure_velocity`, `problem`, `schemes`, `simplec_pimple`, `solvers`, `stability`.
+- Top-level `src/` entries: `constants`, `constants.rs`, `discretization`, `error.rs`, `fields.rs`, `grid`, `lib.rs`, `network`, `physics`, `piso_algorithm`, `pressure_velocity`, `problem.rs`, `schemes`, `simplec_pimple`, `solvers`, `stability`.
+
+<!-- AGENT-AUDIT-SNAPSHOT:END -->
 ## Purpose
 
 `cfd-2d` implements steady and unsteady incompressible Navier–Stokes in 2D on
@@ -227,3 +238,6 @@ MRT variant uses transformation matrix M for improved stability at `Re > 100`.
 
 All examples use `env!("CARGO_MANIFEST_DIR").join("outputs")` — never CWD-relative paths.
 `outputs/` is listed in the root `.gitignore`.
+
+
+

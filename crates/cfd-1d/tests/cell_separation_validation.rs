@@ -59,7 +59,7 @@ fn test_segre_silberberg_equilibrium_cancer_vs_rbc() {
 
     // Confinement ratios
     let kappa_cancer = cancer.confinement_ratio(dh);
-    let kappa_rbc = rbc.confinement_ratio(dh);
+    let _kappa_rbc = rbc.confinement_ratio(dh);
 
     // Cancer should focus
     assert!(

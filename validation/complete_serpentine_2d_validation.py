@@ -54,10 +54,10 @@ if sys.platform == "win32":
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8")
 
 try:
-    import pycfdrs
+    import cfd_python
 except ImportError:
-    print("ERROR: pycfdrs not installed. Run:")
-    print("  pip install target/wheels/pycfdrs-*.whl")
+    print("ERROR: cfd_python not installed. Run:")
+    print("  pip install target/wheels/cfd_python-*.whl")
     sys.exit(1)
 
 
@@ -123,14 +123,14 @@ def solve_complete_serpentine_2d():
     print(f"\nEstimated dP/dx: {dp_dx_estimate:.1f} Pa/m")
 
     # Create blood model
-    blood = pycfdrs.CassonBlood()
+    blood = cfd_python.CassonBlood()
 
     # Solve each segment
     segments = []
     for i in range(n_segments):
         print(f"\n--- Segment {i + 1} ---")
 
-        config = pycfdrs.PoiseuilleConfig2D(
+        config = cfd_python.PoiseuilleConfig2D(
             height=height,
             width=width,
             length=segment_length,
@@ -139,7 +139,7 @@ def solve_complete_serpentine_2d():
             tolerance=1e-8,
         )
 
-        solver = pycfdrs.PoiseuilleSolver2D_Legacy(config)
+        solver = cfd_python.PoiseuilleSolver2D_Legacy(config)
         result = solver.solve(blood)
 
         print(f"  Converged: {result.iterations} iterations")

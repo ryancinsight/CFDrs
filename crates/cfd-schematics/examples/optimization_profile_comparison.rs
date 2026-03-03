@@ -32,7 +32,9 @@ fn main() {
 
     plot_geometry(
         &standard_system,
-        out.join("optimization/profile_standard.png").to_str().unwrap(),
+        out.join("optimization/profile_standard.png")
+            .to_str()
+            .unwrap(),
     )
     .unwrap();
     println!("   Generation time: {:?}", standard_time);
@@ -53,7 +55,11 @@ fn main() {
     let fast_length = calculate_total_length(&fast_system);
     let fast_improvement = ((fast_length - standard_length) / standard_length) * 100.0;
 
-    plot_geometry(&fast_system, out.join("optimization/profile_fast.png").to_str().unwrap()).unwrap();
+    plot_geometry(
+        &fast_system,
+        out.join("optimization/profile_fast.png").to_str().unwrap(),
+    )
+    .unwrap();
     println!("   Generation time: {:?}", fast_time);
     println!("   Total length:    {:.2} mm", fast_length);
     println!("   Improvement:     {:.1}%", fast_improvement);
@@ -79,7 +85,9 @@ fn main() {
 
     plot_geometry(
         &balanced_system,
-        out.join("optimization/profile_balanced.png").to_str().unwrap(),
+        out.join("optimization/profile_balanced.png")
+            .to_str()
+            .unwrap(),
     )
     .unwrap();
     println!("   Generation time: {:?}", balanced_time);
@@ -107,7 +115,9 @@ fn main() {
 
     plot_geometry(
         &thorough_system,
-        out.join("optimization/profile_thorough.png").to_str().unwrap(),
+        out.join("optimization/profile_thorough.png")
+            .to_str()
+            .unwrap(),
     )
     .unwrap();
     println!("   Generation time: {:?}", thorough_time);
@@ -143,7 +153,13 @@ fn main() {
     let custom_length = calculate_total_length(&custom_system);
     let custom_improvement = ((custom_length - standard_length) / standard_length) * 100.0;
 
-    plot_geometry(&custom_system, out.join("optimization/profile_custom.png").to_str().unwrap()).unwrap();
+    plot_geometry(
+        &custom_system,
+        out.join("optimization/profile_custom.png")
+            .to_str()
+            .unwrap(),
+    )
+    .unwrap();
     println!("   Generation time: {:?}", custom_time);
     println!("   Total length:    {:.2} mm", custom_length);
     println!("   Improvement:     {:.1}%", custom_improvement);

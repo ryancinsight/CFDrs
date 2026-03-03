@@ -212,7 +212,7 @@ fn build(y: &YJunction) -> Result<IndexedMesh, PrimitiveError> {
     // Tolerance: tight enough to weld pole vertices (all rings share exact positions at poles).
     let min_spacing = TAU * r / ns as f64;
     let tol = (min_spacing / 20.0).max(1e-10);
-    let mut mesh = IndexedMesh::with_tolerance(tol * 4.0, tol);
+    let mut mesh = IndexedMesh::with_cell_size(tol);
 
     // Arm tangent unit vectors.
     let t_in    = Vector3r::new( 0.0,  1.0,  0.0);

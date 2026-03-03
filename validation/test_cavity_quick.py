@@ -1,5 +1,5 @@
 """Quick cavity solver test to check if SIMPLEC now converges."""
-import pycfdrs
+import cfd_python
 import time
 
 print("=" * 60)
@@ -9,7 +9,7 @@ print("=" * 60)
 # Small grid first (17x17) to test convergence quickly
 for nx in [17, 33]:
     print(f"\n--- Grid: {nx}x{nx}, Re=100 ---")
-    solver = pycfdrs.CavitySolver2D(
+    solver = cfd_python.CavitySolver2D(
         reynolds=100.0,
         nx=nx,
         ny=nx,

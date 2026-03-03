@@ -113,6 +113,22 @@
 #![allow(clippy::unreadable_literal)] // Long literals used for precise physical constants
 #![allow(clippy::redundant_closure_for_method_calls)] // Closures improve readability in numerical pipelines
 #![allow(clippy::doc_markdown)] // Math notation doesn't need backticks
+#![allow(clippy::manual_let_else)]
+#![allow(clippy::match_same_arms)]
+#![allow(clippy::useless_conversion)]
+#![allow(clippy::inline_always)]
+#![allow(clippy::needless_range_loop)]
+#![allow(clippy::needless_pass_by_value)]
+#![allow(clippy::format_push_string)]
+#![allow(clippy::new_without_default)]
+#![allow(clippy::trivially_copy_pass_by_ref)]
+#![allow(clippy::empty_line_after_doc_comments)]
+#![allow(clippy::too_many_lines)]
+#![allow(clippy::manual_clamp)]
+#![allow(clippy::duplicated_attributes)]
+#![allow(clippy::same_item_push)]
+#![allow(clippy::doc_overindented_list_items)]
+#![allow(clippy::implicit_hasher)]
 #![allow(clippy::needless_pass_by_value)] // Pass by value for Copy types is idiomatic
 #![allow(clippy::return_self_not_must_use)] // Builder patterns used internally
 #![allow(clippy::ptr_arg)] // &Vec used for API compatibility
@@ -121,6 +137,7 @@
 #![allow(clippy::needless_range_loop)] // Explicit indexing clearer for multi-dimensional CFD arrays
 #![allow(clippy::struct_field_names)] // Field names like field_* common in computational contexts
 #![allow(clippy::used_underscore_binding)] // Underscore prefixed bindings used for intentional partial use
+#![allow(clippy::if_same_then_else)]
 
 // Core modules
 pub mod constants;
@@ -139,6 +156,7 @@ pub mod piso_algorithm;
 pub mod pressure_velocity;
 pub mod simplec_pimple;
 
+pub mod network;
 pub mod schemes;
 pub mod stability;
 

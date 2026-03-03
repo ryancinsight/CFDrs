@@ -1,7 +1,7 @@
+use crate::config::adaptive::AdaptiveSerpentineConfig;
 use crate::config::channel::arc::ArcConfig;
 use crate::config::channel::serpentine::{OptimizationProfile, SerpentineConfig, WaveShape};
 use crate::config::constants::primitives as constants;
-use crate::config::adaptive::AdaptiveSerpentineConfig;
 use crate::config::geometry::{GeometryConfig, GeometryGenerationConfig};
 
 /// Preset for microfluidic devices with fine features
@@ -40,8 +40,8 @@ pub fn high_density_serpentine() -> SerpentineConfig {
         wavelength_factor: 2.0,
         gaussian_width_factor: 8.0,
         wave_density_factor: 4.0,
-        wave_phase_direction: 0.0,        // Auto-symmetric
-        wave_shape: WaveShape::Sine,      // Default to sine wave
+        wave_phase_direction: 0.0,   // Auto-symmetric
+        wave_shape: WaveShape::Sine, // Default to sine wave
         optimization_enabled: false,
         target_fill_ratio: 0.9,
         optimization_profile: OptimizationProfile::Balanced,
@@ -74,8 +74,8 @@ pub fn inward_serpentines() -> SerpentineConfig {
         wavelength_factor: 3.0,
         gaussian_width_factor: 6.0,
         wave_density_factor: 2.0,
-        wave_phase_direction: -1.0,       // Force inward phase
-        wave_shape: WaveShape::Sine,      // Default to sine wave
+        wave_phase_direction: -1.0,  // Force inward phase
+        wave_shape: WaveShape::Sine, // Default to sine wave
         optimization_enabled: false,
         target_fill_ratio: 0.9,
         optimization_profile: OptimizationProfile::Balanced,
@@ -91,8 +91,8 @@ pub fn outward_serpentines() -> SerpentineConfig {
         wavelength_factor: 3.0,
         gaussian_width_factor: 6.0,
         wave_density_factor: 2.0,
-        wave_phase_direction: 1.0,        // Force outward phase
-        wave_shape: WaveShape::Sine,      // Default to sine wave
+        wave_phase_direction: 1.0,   // Force outward phase
+        wave_shape: WaveShape::Sine, // Default to sine wave
         optimization_enabled: false,
         target_fill_ratio: 0.9,
         optimization_profile: OptimizationProfile::Balanced,
@@ -108,8 +108,8 @@ pub fn optimized_serpentine() -> SerpentineConfig {
         wavelength_factor: 3.0,
         gaussian_width_factor: 6.0,
         wave_density_factor: 2.0,
-        wave_phase_direction: 0.0,        // Auto-symmetric
-        wave_shape: WaveShape::Sine,      // Default to sine wave
+        wave_phase_direction: 0.0,   // Auto-symmetric
+        wave_shape: WaveShape::Sine, // Default to sine wave
         optimization_enabled: true,
         target_fill_ratio: 0.95, // Aggressive optimization target
         optimization_profile: OptimizationProfile::Balanced,
@@ -125,8 +125,8 @@ pub fn fast_optimized_serpentine() -> SerpentineConfig {
         wavelength_factor: 3.0,
         gaussian_width_factor: 6.0,
         wave_density_factor: 2.0,
-        wave_phase_direction: 0.0,        // Auto-symmetric
-        wave_shape: WaveShape::Sine,      // Default to sine wave
+        wave_phase_direction: 0.0,   // Auto-symmetric
+        wave_shape: WaveShape::Sine, // Default to sine wave
         optimization_enabled: true,
         target_fill_ratio: 0.9, // Moderate optimization target
         optimization_profile: OptimizationProfile::Fast,
@@ -142,8 +142,8 @@ pub fn thorough_optimized_serpentine() -> SerpentineConfig {
         wavelength_factor: 3.0,
         gaussian_width_factor: 6.0,
         wave_density_factor: 2.0,
-        wave_phase_direction: 0.0,        // Auto-symmetric
-        wave_shape: WaveShape::Sine,      // Default to sine wave
+        wave_phase_direction: 0.0,   // Auto-symmetric
+        wave_shape: WaveShape::Sine, // Default to sine wave
         optimization_enabled: true,
         target_fill_ratio: 0.98, // Very aggressive optimization target
         optimization_profile: OptimizationProfile::Thorough,

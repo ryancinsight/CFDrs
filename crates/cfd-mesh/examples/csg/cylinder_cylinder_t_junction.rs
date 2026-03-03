@@ -136,7 +136,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let iso = Isometry3::from_parts(translation, rot);
 
         CsgNode::Transform {
-            node: Box::new(CsgNode::Leaf(raw)),
+            node: Box::new(CsgNode::Leaf(Box::new(raw))),
             iso,
         }
         .evaluate()?

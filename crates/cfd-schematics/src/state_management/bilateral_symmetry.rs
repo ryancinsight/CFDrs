@@ -212,7 +212,10 @@ impl BilateralPhaseDirectionCalculator {
     /// Create a new phase direction calculator with custom configuration
     #[must_use]
     pub fn new(config: BilateralSymmetryConfig) -> Self {
-        Self { config, ..Default::default() }
+        Self {
+            config,
+            ..Default::default()
+        }
     }
 
     /// Calculate phase direction for perfect bilateral symmetry

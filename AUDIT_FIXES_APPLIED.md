@@ -90,7 +90,7 @@ D2 = C * tau2**alpha * t2**beta  # Should equal D1
 
 ---
 
-### 4. ✅ pycfdrs VenturiSolver1D API (P1 - HIGH)
+### 4. ✅ cfd-python VenturiSolver1D API (P1 - HIGH)
 
 **Issue:** Test called `VenturiSolver1D(inlet_length=..., diffuser_length=...)` but API doesn't support these parameters  
 **Root Cause:** Python binding uses simplified API with symmetric geometry  
@@ -100,7 +100,7 @@ D2 = C * tau2**alpha * t2**beta  # Should equal D1
 **Change:**
 ```python
 # OLD:
-solver = pycfdrs.VenturiSolver1D(
+solver = cfd-python.VenturiSolver1D(
     inlet_diameter=2e-3,
     throat_diameter=0.5e-3,
     inlet_length=10e-3,        # ← doesn't exist
@@ -109,7 +109,7 @@ solver = pycfdrs.VenturiSolver1D(
 )
 
 # NEW:
-solver = pycfdrs.VenturiSolver1D(
+solver = cfd-python.VenturiSolver1D(
     inlet_diameter=2e-3,
     throat_diameter=0.5e-3,
     throat_length=2e-3,
@@ -157,8 +157,8 @@ solver = pycfdrs.VenturiSolver1D(
 | 4.1 SBSL temperature | ✅ PASS | ✅ PASS | 4,646 K |
 | 4.2 Sonoluminescence energy | ❌ FAIL | ✅ PASS | Widened bounds + note |
 | 4.3 MBSL vs SBSL | ✅ PASS | ✅ PASS | 50× ratio correct |
-| 5.1 pycfdrs Venturi | ❌ FAIL | ✅ PASS | Fixed API call |
-| 5.2 pycfdrs blood rheology | ❌ FAIL | ✅ PASS | Relaxed tolerance |
+| 5.1 cfd-python Venturi | ❌ FAIL | ✅ PASS | Fixed API call |
+| 5.2 cfd-python blood rheology | ❌ FAIL | ✅ PASS | Relaxed tolerance |
 
 **Improvement:** 12/17 (70.6%) → 17/17 (100%)
 
@@ -197,7 +197,7 @@ All physics models now validated against literature:
 
 **P2 - Short Term:**
 - [ ] Fix 3D venturi FEM solver (negative ΔP bug) - 1 test quarantined
-- [ ] Create API migration guide for pycfdrs users
+- [ ] Create API migration guide for cfd-python users
 - [ ] Add usage examples directory
 
 **P3 - Nice to Have:**

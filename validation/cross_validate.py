@@ -2,7 +2,7 @@
 """
 CFD-rs Cross-Validation Script
 
-Validates pycfdrs solver results against analytical solutions.
+Validates cfd_python solver results against analytical solutions.
 This script proves that the Rust CFD implementations produce
 mathematically correct results.
 
@@ -12,7 +12,7 @@ Run with:
 """
 
 import numpy as np
-import pycfdrs
+import cfd_python
 
 def validate_poiseuille_2d():
     """
@@ -170,8 +170,8 @@ def main():
     print("\n" + "#"*60)
     print(" CFD-rs Cross-Validation Suite")
     print("#"*60)
-    print(f"\npycfdrs version: {pycfdrs.__version__ if hasattr(pycfdrs, '__version__') else '0.1.0'}")
-    print(f"Available classes: {[x for x in dir(pycfdrs) if not x.startswith('_')]}")
+    print(f"\ncfd_python version: {cfd_python.__version__ if hasattr(cfd_python, '__version__') else '0.1.0'}")
+    print(f"Available classes: {[x for x in dir(cfd_python) if not x.startswith('_')]}")
     
     results = []
     

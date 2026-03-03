@@ -57,7 +57,7 @@ impl PrimitiveMesh for Icosahedron {
 /// Compute the 12 scaled icosahedron vertices for the given circumradius,
 /// centered at the origin (caller offsets by center).
 pub(crate) fn icosahedron_vertices(radius: f64) -> [[f64; 3]; 12] {
-    let phi = (1.0_f64 + 5.0_f64.sqrt()) / 2.0;
+    let phi = f64::midpoint(1.0_f64, 5.0_f64.sqrt());
     // Circumradius of the unit icosahedron (vertices at (0,±1,±φ)):
     let unit_r = (1.0_f64 + phi * phi).sqrt();
     let scale = radius / unit_r;

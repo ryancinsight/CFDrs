@@ -20,6 +20,7 @@ pub struct AdjacencyGraph {
 
 impl AdjacencyGraph {
     /// Build the adjacency graph from edge and face stores.
+    #[must_use] 
     pub fn build(face_store: &FaceStore, edge_store: &EdgeStore) -> Self {
         let mut vertex_neighbors: HashMap<VertexId, Vec<VertexId>> = HashMap::new();
         let mut vertex_faces: HashMap<VertexId, Vec<FaceId>> = HashMap::new();
@@ -67,30 +68,31 @@ impl AdjacencyGraph {
     }
 
     /// Get the 1-ring vertex neighborhood.
+    #[must_use] 
     pub fn vertex_neighbors(&self, v: VertexId) -> &[VertexId] {
         self.vertex_neighbors
             .get(&v)
-            .map(|v| v.as_slice())
-            .unwrap_or(&[])
+            .map_or(&[], std::vec::Vec::as_slice)
     }
 
     /// Get faces incident to a vertex.
+    #[must_use] 
     pub fn vertex_faces(&self, v: VertexId) -> &[FaceId] {
         self.vertex_faces
             .get(&v)
-            .map(|v| v.as_slice())
-            .unwrap_or(&[])
+            .map_or(&[], std::vec::Vec::as_slice)
     }
 
     /// Get faces neighboring a given face (sharing an edge).
+    #[must_use] 
     pub fn face_neighbors(&self, f: FaceId) -> &[FaceId] {
         self.face_neighbors
             .get(&f)
-            .map(|v| v.as_slice())
-            .unwrap_or(&[])
+            .map_or(&[], std::vec::Vec::as_slice)
     }
 
     /// Vertex valence (number of adjacent vertices).
+    #[must_use] 
     pub fn vertex_valence(&self, v: VertexId) -> usize {
         self.vertex_neighbors(v).len()
     }

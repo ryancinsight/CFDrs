@@ -74,20 +74,16 @@ pub enum ColormapKind {
 pub fn colorize(t: f64, colormap: ColormapKind) -> Color {
     let t = t.clamp(0.0, 1.0);
     match colormap {
-        ColormapKind::BlueRed => Color::rgb(
-            (255.0 * t) as u8,
-            0,
-            (255.0 * (1.0 - t)) as u8,
-        ),
+        ColormapKind::BlueRed => Color::rgb((255.0 * t) as u8, 0, (255.0 * (1.0 - t)) as u8),
         ColormapKind::Viridis => {
             // 5-point piecewise linear approximation of Viridis
             // Control points: t=0.0, 0.25, 0.5, 0.75, 1.0
             const STOPS: &[(f64, u8, u8, u8)] = &[
-                (0.00,  68,   1, 84),
-                (0.25,  59,  82, 139),
-                (0.50,  33, 145, 140),
-                (0.75,  94, 201,  98),
-                (1.00, 253, 231,  37),
+                (0.00, 68, 1, 84),
+                (0.25, 59, 82, 139),
+                (0.50, 33, 145, 140),
+                (0.75, 94, 201, 98),
+                (1.00, 253, 231, 37),
             ];
             // Find surrounding stops
             let mut lo = STOPS[0];
@@ -101,9 +97,8 @@ pub fn colorize(t: f64, colormap: ColormapKind) -> Color {
             }
             let span = hi.0 - lo.0;
             let s = if span > 0.0 { (t - lo.0) / span } else { 0.0 };
-            let lerp = |a: u8, b: u8| -> u8 {
-                (f64::from(a) + s * (f64::from(b) - f64::from(a))) as u8
-            };
+            let lerp =
+                |a: u8, b: u8| -> u8 { (f64::from(a) + s * (f64::from(b) - f64::from(a))) as u8 };
             Color::rgb(lerp(lo.1, hi.1), lerp(lo.2, hi.2), lerp(lo.3, hi.3))
         }
         ColormapKind::Grayscale => {

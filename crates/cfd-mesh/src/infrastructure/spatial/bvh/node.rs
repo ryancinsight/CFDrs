@@ -10,7 +10,7 @@ pub(super) const SAH_TRAVERSAL_COST: f64 = 1.2;
 ///
 /// log₂(2^63) = 63; 64 guards against any conceivable input.  The forced
 /// median-split fallback in `build_recursive` ensures depth ≤
-/// ⌈log₂(N / MAX_LEAF_PRIMITIVES)⌉ + 1.
+/// ⌈log₂(N / `MAX_LEAF_PRIMITIVES`)⌉ + 1.
 pub(super) const MAX_STACK_DEPTH: usize = 64;
 
 /// Discriminates leaf nodes from inner nodes in the BVH arena.

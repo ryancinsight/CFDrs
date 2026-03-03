@@ -84,9 +84,9 @@ pub use geometry::ChannelGeometry;
 pub use models::CombinationMethod;
 pub use models::{
     BendType, DarcyWeisbachModel, EntranceEffectsModel, ExpansionType, FlowConditions,
-    HagenPoiseuilleModel, MembranePoreModel, RectangularChannelModel, ResistanceModel,
-    SerpentineAnalysis, SerpentineCrossSection, SerpentineModel, VenturiAnalysis,
-    VenturiGeometry, VenturiModel,
+    HagenPoiseuilleModel, JunctionFlowDirection, JunctionLossModel, JunctionType,
+    MembranePoreModel, RectangularChannelModel, ResistanceModel, SerpentineAnalysis,
+    SerpentineCrossSection, SerpentineModel, VenturiAnalysis, VenturiGeometry, VenturiModel,
 };
 
 // Convenience re-export of the traits facade

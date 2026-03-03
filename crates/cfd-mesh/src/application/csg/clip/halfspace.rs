@@ -74,6 +74,7 @@ use crate::domain::geometry::predicates::{orient_3d, Orientation};
 /// // All four square vertices lie in z=0 (Degenerate = inside) → fully kept.
 /// assert_eq!(clipped.len(), 4);
 /// ```
+#[must_use] 
 pub fn clip_polygon_to_halfplane(
     polygon: &[Point3r],
     pa: &Point3r,
@@ -136,6 +137,7 @@ pub fn clip_polygon_to_halfplane(
 ///
 /// Returns the sub-triangles that lie inside the half-space, or an empty
 /// `Vec` if the triangle is fully clipped.
+#[must_use] 
 pub fn clip_triangle_to_halfplane(
     a: &Point3r,
     b: &Point3r,
@@ -158,9 +160,10 @@ pub fn clip_triangle_to_halfplane(
 ///
 /// # Theorem: Fan Triangulation is valid for Convex Polygons
 /// For a convex n-gon with vertices V0 … V_{n-1}, the triangles
-/// (V0, V_i, V_{i+1}) for i = 1 … n−2 are non-overlapping and cover the
-/// polygon exactly.  All edges V0–V_i lie strictly inside (or on the boundary
+/// (V0, `V_i`, V_{i+1}) for i = 1 … n−2 are non-overlapping and cover the
+/// polygon exactly.  All edges `V0–V_i` lie strictly inside (or on the boundary
 /// of) the polygon by convexity. ∎
+#[must_use] 
 pub fn fan_triangulate(polygon: &[Point3r]) -> Vec<[Point3r; 3]> {
     if polygon.len() < 3 {
         return Vec::new();
@@ -255,15 +258,12 @@ pub fn fan_triangulate(polygon: &[Point3r]) -> Vec<[Point3r; 3]> {
         }
     }
 
-    let cdt = match crate::application::delaunay::Cdt::try_from_pslg(&pslg) {
-        Ok(c) => c,
-        Err(_) => {
-            // Fallback to naive fan triangulation if exact bounds shatter fails
-            let root = deduplicated[0];
-            return (1..deduplicated.len() - 1)
-                .map(|i| [root, deduplicated[i], deduplicated[i + 1]])
-                .collect();
-        }
+    let cdt = if let Ok(c) = crate::application::delaunay::Cdt::try_from_pslg(&pslg) { c } else {
+        // Fallback to naive fan triangulation if exact bounds shatter fails
+        let root = deduplicated[0];
+        return (1..deduplicated.len() - 1)
+            .map(|i| [root, deduplicated[i], deduplicated[i + 1]])
+            .collect();
     };
     let dt = cdt.triangulation();
     let mut faces = Vec::new();

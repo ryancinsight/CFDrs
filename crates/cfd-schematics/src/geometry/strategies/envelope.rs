@@ -89,8 +89,7 @@ impl EnvelopeCalculator for AdaptiveGaussianEnvelopeCalculator {
 
         // Distance-based normalization
         let distance_normalization = if context.adaptive_config.enable_distance_based_scaling {
-            (node_distance / context.adaptive_config.node_distance_normalization)
-                .clamp(0.1, 1.0)
+            (node_distance / context.adaptive_config.node_distance_normalization).clamp(0.1, 1.0)
         } else {
             1.0
         };

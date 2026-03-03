@@ -38,7 +38,7 @@ pub fn csg_boolean(
         let result = crate::application::csg::coplanar::boolean_coplanar(op, faces_a, faces_b, pool, &basis);
         if result.is_empty() {
             return Err(MeshError::EmptyBooleanResult {
-                op: format!("{:?}", op),
+                op: format!("{op:?}"),
             });
         }
         return Ok(result);
@@ -52,23 +52,11 @@ pub fn csg_boolean(
 
     if result.is_empty() {
         return Err(MeshError::EmptyBooleanResult {
-            op: format!("{:?}", op),
+            op: format!("{op:?}"),
         });
     }
 
     Ok(result)
-}
-
-/// Reverse the winding of every face (flips the surface normal direction).
-fn flip_faces(faces: &[FaceData]) -> Vec<FaceData> {
-    faces
-        .iter()
-        .map(|f| {
-            let mut ff = *f;
-            ff.flip();
-            ff
-        })
-        .collect()
 }
 
 /// A ∪ B — union of two face soups.
@@ -129,10 +117,16 @@ fn boolean_difference(
 ) -> Vec<FaceData> {
     match containment(faces_a, faces_b, pool) {
         Containment::BInsideA => {
-            // B is a cavity inside A: keep A's outer surface + B's surface flipped inward.
-            let mut r = faces_a.to_vec();
-            r.extend(flip_faces(faces_b));
-            r
+            // B is inside A, but they may share boundary faces (e.g. a tube port hole).
+            // A naive fast-path (faces_a + flipped faces_b) fails to cut open holes for these shared coplanar faces.
+            // Dispatch to the robust intersecting pipeline so that our exact CoplanarSame/CoplanarOpposite
+            // logic can mathematically subtract the faces and guarantee a watertight corefined mesh.
+            crate::application::csg::arrangement::boolean_intersecting_arrangement(
+                BooleanOp::Difference,
+                faces_a,
+                faces_b,
+                pool,
+            )
         }
         Containment::AInsideB => Vec::new(), // A is swallowed by B → empty
         Containment::Disjoint => faces_a.to_vec(), // B doesn't touch A → A unchanged

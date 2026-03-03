@@ -35,12 +35,21 @@
 //! | [`Antiprism`] | n-gon antiprism | varies |
 //! | [`TruncatedIcosahedron`] | Soccer ball / C₆₀ | varies |
 //! | [`SerpentineTube`] | Multi-pass serpentine channel | `π r²·(n·L + (n−1)·π·R)` |
+//! | [`GyroidSphere`] | Gyroid TPMS, sphere-clipped | open mid-surface |
+//! | [`SchwarzPSphere`] | Schwarz P TPMS, sphere-clipped | open mid-surface |
+//! | [`SchwarzDSphere`] | Schwarz D TPMS, sphere-clipped | open mid-surface |
+//! | [`NeoviusSphere`] | Neovius TPMS, sphere-clipped | open mid-surface |
+//! | [`LidinoidSphere`] | Lidinoid TPMS, sphere-clipped | open mid-surface |
+//! | [`IwpSphere`] | I-WP TPMS, sphere-clipped | open mid-surface |
+//! | [`SplitPSphere`] | Split P TPMS, sphere-clipped | open mid-surface |
+//! | [`FrdSphere`] | FRD TPMS, sphere-clipped | open mid-surface |
+//! | [`FischerKochCySphere`] | Fischer-Koch C(Y) TPMS, sphere-clipped | open mid-surface |
 //!
 //! ## Winding convention
 //!
 //! All primitives use **outward CCW** face winding: when viewed from outside
 //! the solid, vertices go counter-clockwise. The right-hand rule gives the
-//! outward surface normal. `signed_volume > 0` for all primitives.
+//! outward surface normal. `signed_volume > 0` for all closed primitives.
 //!
 //! ## Example
 //!
@@ -66,6 +75,7 @@ pub mod elbow;
 pub mod ellipsoid;
 pub mod frustum;
 pub mod geodesic_sphere;
+pub mod gyroid_sphere;
 pub mod helix_sweep;
 pub mod icosahedron;
 pub mod linear_sweep;
@@ -74,6 +84,8 @@ pub mod pipe;
 pub mod pyramid;
 pub mod revolution_sweep;
 pub mod rounded_cube;
+pub mod schwarz_d_sphere;
+pub mod schwarz_p_sphere;
 pub mod sphere;
 pub mod spherical_shell;
 pub mod stadium_prism;
@@ -81,6 +93,13 @@ pub mod serpentine_tube;
 pub mod tetrahedron;
 pub mod torus;
 pub mod truncated_icosahedron;
+// New TPMS sphere primitives
+pub mod neovius_sphere;
+pub mod lidinoid_sphere;
+pub mod iwp_sphere;
+pub mod split_p_sphere;
+pub mod frd_sphere;
+pub mod fischer_koch_cy_sphere;
 
 pub use antiprism::Antiprism;
 pub use biconcave_disk::BiconcaveDisk;
@@ -95,6 +114,7 @@ pub use elbow::Elbow;
 pub use ellipsoid::Ellipsoid;
 pub use frustum::Frustum;
 pub use geodesic_sphere::GeodesicSphere;
+pub use gyroid_sphere::GyroidSphere;
 pub use helix_sweep::HelixSweep;
 pub use icosahedron::Icosahedron;
 pub use linear_sweep::LinearSweep;
@@ -103,6 +123,8 @@ pub use pipe::Pipe;
 pub use pyramid::Pyramid;
 pub use revolution_sweep::RevolutionSweep;
 pub use rounded_cube::RoundedCube;
+pub use schwarz_d_sphere::SchwarzDSphere;
+pub use schwarz_p_sphere::SchwarzPSphere;
 pub use sphere::UvSphere;
 pub use spherical_shell::SphericalShell;
 pub use stadium_prism::StadiumPrism;
@@ -110,6 +132,13 @@ pub use serpentine_tube::SerpentineTube;
 pub use tetrahedron::Tetrahedron;
 pub use torus::Torus;
 pub use truncated_icosahedron::TruncatedIcosahedron;
+// New TPMS sphere primitive re-exports
+pub use neovius_sphere::NeoviusSphere;
+pub use lidinoid_sphere::LidinoidSphere;
+pub use iwp_sphere::IwpSphere;
+pub use split_p_sphere::SplitPSphere;
+pub use frd_sphere::FrdSphere;
+pub use fischer_koch_cy_sphere::FischerKochCySphere;
 
 use crate::domain::mesh::IndexedMesh;
 
@@ -120,7 +149,7 @@ pub enum PrimitiveError {
     #[error("invalid parameter: {0}")]
     InvalidParam(String),
     /// Fewer than 3 angular segments were requested.
-    #[error("segments must be ≥ 3, got {0}")]
+    #[error("segments must be >= 3, got {0}")]
     TooFewSegments(usize),
     /// The resulting mesh is not watertight (internal consistency failure).
     #[error("internal mesh error: {0}")]

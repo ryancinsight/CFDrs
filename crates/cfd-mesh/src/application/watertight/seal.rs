@@ -86,39 +86,79 @@ pub fn seal_boundary_loops(
 
 /// Extract connected loops from a set of directed edges.
 fn extract_boundary_loops(edges: &[(VertexId, VertexId)]) -> Vec<Vec<VertexId>> {
-    use hashbrown::HashMap;
+    use hashbrown::{HashMap, HashSet};
 
-    let mut next_map: HashMap<VertexId, VertexId> = HashMap::new();
+    // Build adjacency that preserves all outgoing boundary links.
+    let mut adj: HashMap<VertexId, Vec<VertexId>> = HashMap::new();
     for &(a, b) in edges {
-        next_map.insert(a, b);
+        adj.entry(a).or_default().push(b);
+    }
+    for nexts in adj.values_mut() {
+        nexts.sort();
     }
 
+    let mut used: HashSet<(VertexId, VertexId)> = HashSet::new();
     let mut loops = Vec::new();
-    let mut visited = hashbrown::HashSet::new();
+    let mut starts: Vec<VertexId> = adj.keys().copied().collect();
+    starts.sort();
 
-    for &(start, _) in edges {
-        if visited.contains(&start) {
-            continue;
-        }
-
-        let mut loop_verts = Vec::new();
-        let mut current = start;
-
-        loop {
-            if visited.contains(&current) {
-                break;
+    for start in starts {
+        let successors = match adj.get(&start) {
+            Some(s) => s.clone(),
+            None => continue,
+        };
+        for first_next in successors {
+            if used.contains(&(start, first_next)) {
+                continue;
             }
-            visited.insert(current);
-            loop_verts.push(current);
+            let mut path: Vec<VertexId> = vec![start, first_next];
+            used.insert((start, first_next));
+            let mut cur = first_next;
+            let mut closed = false;
 
-            match next_map.get(&current) {
-                Some(&next) => current = next,
-                None => break,
+            loop {
+                if path.len() > 4096 {
+                    break;
+                }
+                let nexts = match adj.get(&cur) {
+                    Some(s) => s,
+                    None => break,
+                };
+                let mut found = false;
+                for &n in nexts {
+                    if used.contains(&(cur, n)) {
+                        continue;
+                    }
+                    used.insert((cur, n));
+                    if n == start {
+                        closed = true;
+                        found = true;
+                        break;
+                    }
+                    // Split figure-8 style inner cycles into separate simple loops.
+                    if let Some(pos) = path.iter().position(|&v| v == n) {
+                        let inner = path[pos..].to_vec();
+                        if inner.len() >= 3 {
+                            loops.push(inner);
+                        }
+                        path.truncate(pos + 1);
+                        cur = n;
+                        found = true;
+                        break;
+                    }
+                    path.push(n);
+                    cur = n;
+                    found = true;
+                    break;
+                }
+                if !found || closed {
+                    break;
+                }
             }
-        }
 
-        if loop_verts.len() >= 3 {
-            loops.push(loop_verts);
+            if closed && path.len() >= 3 {
+                loops.push(path);
+            }
         }
     }
 

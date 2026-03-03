@@ -6,7 +6,7 @@ This repository provides **provably correct** CFD implementations for blood flow
 - ✅ Complete mathematical documentation with governing equations
 - ✅ No placeholders or simplifications
 - ✅ Quantitative validation vs analytical solutions and/or FEniCS/OpenFOAM
-- ✅ Python bindings (pycfdrs) for easy validation and comparison
+- ✅ Python bindings (cfd-python) for easy validation and comparison
 
 ## Validation Status
 
@@ -37,9 +37,9 @@ cargo build --release
 cargo test
 
 # Build Python bindings
-cd crates/pycfdrs
+cd crates/cfd-python
 maturin build --release
-pip install ../../target/wheels/pycfdrs-*.whl
+pip install ../../target/wheels/cfd-python-*.whl
 
 # Run validation
 cd ../../validation
@@ -50,28 +50,28 @@ python test_poiseuille_2d.py       # 2D Poiseuille: 0.72% error
 ### 2. Use Python Bindings
 
 ```python
-import pycfdrs
+import cfd-python
 import numpy as np
 
 # 1D Bifurcation
-solver = pycfdrs.BifurcationSolver(
+solver = cfd-python.BifurcationSolver(
     d_parent=100e-6,    # 100 μm
     d_daughter1=80e-6,  # Murray's Law optimal
     d_daughter2=80e-6
 )
-blood = pycfdrs.CassonBlood()  # Normal blood rheology
+blood = cfd-python.CassonBlood()  # Normal blood rheology
 result = solver.solve(flow_rate=3e-8, pressure=40.0, blood=blood)
 print(f"Pressure drop branch 1: {result.dp_1:.2f} Pa")
 print(f"Wall shear stress: {result.wss_1:.2f} Pa")
 
 # 2D Poiseuille
-config = pycfdrs.PoiseuilleConfig2D(
+config = cfd-python.PoiseuilleConfig2D(
     height=0.001,  # 1 mm channel
     width=0.01,
     ny=101,
     pressure_gradient=100000.0  # Pa/m
 )
-solver = pycfdrs.PoiseuilleSolver2D(config)
+solver = cfd-python.PoiseuilleSolver2D(config)
 result = solver.solve(blood)
 print(f"Flow rate: {result.flow_rate:.6e} m³/s")
 
@@ -131,13 +131,13 @@ Validation vs Analytical:
 # Install FEniCS
 conda create -n fenics -c conda-forge fenics matplotlib
 conda activate fenics
-pip install pycfdrs-*.whl
+pip install cfd-python-*.whl
 
 # Run comparison
 python validation/fenics_poiseuille_2d.py
 
 # Expected output:
-#   pycfdrs vs FEniCS comparison:
+#   cfd-python vs FEniCS comparison:
 #   Velocity error: < 5%
 #   Shear rate error: < 10%
 #   Viscosity error: < 10%
@@ -214,7 +214,7 @@ CFDrs/
 │   │       └── serpentine_flow.rs  (⚠️ Partial)
 │   ├── cfd-3d/          # 3D solvers
 │   │   └── src/         (⏳ Requires FEM)
-│   └── pycfdrs/         # Python bindings
+│   └── cfd-python/         # Python bindings
 │       └── src/
 │           ├── bifurcation.rs      (✅ Working)
 │           ├── blood.rs            (✅ Working)

@@ -1,4 +1,27 @@
 //! Coplanar Boolean Operations Kernel
+//!
+//! ## Algorithmic Invariants
+//!
+//! ### `process_triangle` Complexity
+//!
+//! For **Intersection** (`want_inside = true`), complexity is O(n) in the number
+//! of candidate opposing triangles — each emits at most one clipped polygon piece.
+//!
+//! For **Difference** (`want_inside = false`), the naive approach accumulates a
+//! `remaining` fragment list that can grow as each opposing triangle is subtracted.
+//! The fix uses per-fragment AABB pre-screening:
+//!
+//! ```text
+//! For each candidate ci:
+//!   aabb_ci = candidate triangle AABB
+//!   For each remaining fragment frag:
+//!     if aabb_of(frag) ∩ aabb_ci = ∅ → skip (O(1) guard)
+//!     else → boolean_clip(Difference)
+//! ```
+//!
+//! For a circular cross-section with N cap triangles, the number of triangles
+//! that overlap any given fragment AABB is O(1) (adjacent sectors only), so the
+//! total work is O(N) rather than O(N·|remaining|).
 
 use crate::domain::core::scalar::{Point3r, Real};
 use crate::infrastructure::storage::face_store::FaceData;
@@ -6,7 +29,7 @@ use crate::infrastructure::storage::vertex_pool::VertexPool;
 use crate::application::csg::boolean::BooleanOp;
 use super::basis::PlaneBasis;
 use super::geometry2d::{aabb2, aabb_overlaps, point_in_tri_2d_exact, point_in_union_2d_exact};
-use crate::application::csg::clip::{clip_polygon_to_triangle, fan_triangulate, split_polygon_outside_triangle};
+use crate::application::csg::clip::{boolean_clip, clip_polygon_to_triangle, fan_triangulate, ClipOp};
 
 fn emit_one(
     p0: Point3r,
@@ -44,6 +67,30 @@ fn emit_poly2d(
     for [t0, t1, t2] in fan_triangulate(&poly3d) {
         emit_one(t0, t1, t2, basis, region, result, pool);
     }
+}
+
+/// Compute the 2-D AABB `[min_u, min_v, max_u, max_v]` of an arbitrary polygon.
+///
+/// Returns `None` for degenerate (empty/point/degenerate) input.
+#[inline]
+fn aabb2_of_poly(poly: &[[Real; 2]]) -> Option<[Real; 4]> {
+    if poly.len() < 3 {
+        return None;
+    }
+    let mut min_u = Real::MAX;
+    let mut min_v = Real::MAX;
+    let mut max_u = Real::MIN;
+    let mut max_v = Real::MIN;
+    for &[u, v] in poly {
+        if u < min_u { min_u = u; }
+        if u > max_u { max_u = u; }
+        if v < min_v { min_v = v; }
+        if v > max_v { max_v = v; }
+    }
+    if max_u - min_u < 1e-20 && max_v - min_v < 1e-20 {
+        return None; // degenerate point
+    }
+    Some([min_u, min_v, max_u, max_v])
 }
 
 // ── Pre-computed triangle data ─────────────────────────────────────────────────
@@ -145,23 +192,54 @@ fn process_triangle(
             }
         }
     } else {
+        // ── Difference path: src \ (∪ candidates) ────────────────────────────
+        //
+        // Maintain a list of remaining polygon fragments representing the
+        // portion of `src` not yet subtracted by any candidate.
+        //
+        // **Optimisation — AABB pre-screening per fragment**:
+        // Before calling `boolean_clip` (O(n log n) CDT operation), check
+        // whether the fragment's AABB overlaps the candidate triangle's AABB.
+        // For a circular cross-section, each fragment only overlaps O(1)
+        // adjacent sector triangles, reducing the total work from O(N·|rem|)
+        // to O(N) for N candidate triangles.
+        //
+        // **Invariant**: at all times, `remaining` exactly partitions the
+        // portion of `src` lying outside all subtracted candidates so far.
         let mut remaining: Vec<Vec<[Real; 2]>> = vec![src_poly];
 
         for &ci in &candidates {
             let [dx, dy, ex, ey, fx, fy] = opp[ci].coords2d;
-            let mut new_rem: Vec<Vec<[Real; 2]>> = Vec::new();
+            let cand_aabb = opp_aabbs[ci];
+            let b_poly = [[dx, dy], [ex, ey], [fx, fy]];
 
-            for poly in &remaining {
-                let inside = clip_polygon_to_triangle(poly, dx, dy, ex, ey, fx, fy);
-                if inside.len() < 3 {
-                    new_rem.push(poly.clone());
-                    continue;
-                }
-                for piece in split_polygon_outside_triangle(poly, dx, dy, ex, ey, fx, fy) {
-                    new_rem.push(piece);
+            let mut new_rem: Vec<Vec<[Real; 2]>> = Vec::with_capacity(remaining.len());
+
+            for poly in remaining {
+                // AABB guard: if this fragment cannot possibly overlap the
+                // candidate triangle, skip the CDT call entirely.
+                match aabb2_of_poly(&poly) {
+                    None => continue, // degenerate fragment — discard
+                    Some(frag_aabb) if !aabb_overlaps(&frag_aabb, &cand_aabb) => {
+                        new_rem.push(poly); // no overlap — fragment unchanged
+                    }
+                    Some(_) => {
+                        // Actual clip: fragment minus candidate triangle.
+                        let pieces = boolean_clip(&poly, &b_poly, ClipOp::Difference);
+                        for piece in pieces {
+                            if piece.len() >= 3 {
+                                new_rem.push(piece);
+                            }
+                        }
+                    }
                 }
             }
             remaining = new_rem;
+
+            // Early exit: nothing left to subtract from.
+            if remaining.is_empty() {
+                return;
+            }
         }
 
         for poly in &remaining {

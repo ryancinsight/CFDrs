@@ -35,12 +35,17 @@ use cfd_optim::{compute_metrics, evo::GeneticOptimizer, save_comparison_svg, Opt
 
 use pediatric_blood::{
     CLINICAL_FLOW_ML_MIN,
+    DILUTED_BLOOD_VISCOSITY_PAS,
+    DILUTED_HCT,
+    NEONATAL_RBC_DIAMETER_M,
     NEONATE_3KG_ECV_BUDGET_ML,
     NEONATE_3KG_WEIGHT_KG,
     NIVEDITA_RBC_REMOVAL,
     NIVEDITA_WBC_RECOVERY,
     TBV_PER_KG_ML,
     MAX_ECV_FRACTION,
+    WHOLE_BLOOD_HCT,
+    WBC_DIAMETER_M,
     WU_WBC_PURITY,
     WU_WBC_RECOVERY,
 };
@@ -114,7 +119,19 @@ fn main() {
         "   - Nivedita spiral: D_h = {:.0} um; \
          kappa_WBC = a_WBC/D_h ~{:.3} (marginal if kappa < 0.15)",
         dh_nivedita * 1e6,
-        pediatric_blood::WBC_DIAMETER_M / dh_nivedita,
+        WBC_DIAMETER_M / dh_nivedita,
+    );
+    println!(
+        "   - Model blood assumptions: diluted HCT {:.0}% (vs whole-blood {:.0}%), \
+         mu_diluted ≈ {:.2} mPa.s",
+        DILUTED_HCT * 100.0,
+        WHOLE_BLOOD_HCT * 100.0,
+        DILUTED_BLOOD_VISCOSITY_PAS * 1e3,
+    );
+    println!(
+        "   - Cell sizes: WBC {:.1} um, neonatal RBC {:.1} um",
+        WBC_DIAMETER_M * 1e6,
+        NEONATAL_RBC_DIAMETER_M * 1e6,
     );
     println!(
         "   - CFL correction is weak at HCT = {:.0}% — inertial term dominates",
@@ -142,6 +159,8 @@ fn main() {
         CLINICAL_FLOW_ML_MIN,
     );
     scaling.print(CLINICAL_FLOW_ML_MIN);
+    let parallel_nivedita = chip_model::make_parallel_candidate(&nivedita, scaling.n_parallel);
+    println!("  Parallel assembly candidate ID: {}", parallel_nivedita.id);
 
     // Per-chip performance is unchanged by parallelisation — report from Phase 1.
     println!();
@@ -175,24 +194,25 @@ fn main() {
         .with_max_generations(150)
         .with_top_k(5);
 
-    let ga_top5 = match ga_optimizer.run() {
+    let ga_result = match ga_optimizer.run() {
         Ok(d)  => d,
         Err(e) => { eprintln!("  ERROR (GA): {e}"); return; }
     };
+    let ga_top5 = &ga_result.top_designs;
 
     metrics_report::print_leuka_table_header();
-    for d in &ga_top5 {
+    for d in ga_top5 {
         metrics_report::print_leuka_row(d);
     }
 
     println!("\n  -- Detailed breakdown (GA top-5) --");
-    for d in &ga_top5 {
+    for d in ga_top5 {
         println!();
         print_leuka_detailed(d, patient_weight_kg);
     }
 
     // Save GA outputs.
-    metrics_report::save_leuka_results(&ga_top5, "optimized", &out_dir, patient_weight_kg);
+    metrics_report::save_leuka_results(ga_top5, "optimized", &out_dir, patient_weight_kg);
 
     // Head-to-head top-2 comparison SVG.
     if ga_top5.len() >= 2 {

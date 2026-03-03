@@ -1,3 +1,4 @@
+#[cfg(feature = "scheme-io")]
 #[test]
 fn test_schematics2mesh_stl_output() {
     use std::fs::File;

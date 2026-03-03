@@ -20,6 +20,7 @@ impl MeshRepair {
     /// Remove degenerate faces (zero-area triangles or faces with duplicate vertices).
     ///
     /// Returns the IDs of removed faces.
+    #[must_use] 
     pub fn remove_degenerate_faces(
         face_store: &FaceStore,
         vertex_pool: &VertexPool,

@@ -245,28 +245,33 @@ fn validate_symmetric_bifurcation() -> Vec<ValidationResult> {
     // Solve
     // Debug: check what boundary labels exist in mesh
     println!("\n[Debug] Checking mesh boundary labels...");
-    let mesh_builder = cfd_mesh::geometry::branching::BranchingMeshBuilder::bifurcation(
+    let mesh_builder = cfd_mesh::BranchingMeshBuilder::bifurcation(
         d_parent, length, d_daughter, length, std::f64::consts::PI / 6.0, 8
     );
-    let debug_mesh = mesh_builder.build().expect("Mesh build failed");
+    let debug_mesh = mesh_builder.build_surface().expect("Mesh build failed");
     println!("  Total faces: {}", debug_mesh.face_count());
     println!("  Boundary faces: {}", debug_mesh.boundary_faces().len());
-    
+
     // Show inlet/outlet face positions
     for f_idx in debug_mesh.boundary_faces() {
         if let Some(label) = debug_mesh.boundary_label(f_idx) {
-            if let Some(face) = debug_mesh.face(f_idx) {
-                // Compute face centroid
-                let mut centroid = nalgebra::Point3::origin();
-                for &v_idx in &face.vertices {
-                    if let Some(v) = debug_mesh.vertex(v_idx) {
-                        centroid += v.position.coords;
-                    }
-                }
-                centroid /= face.vertices.len() as f64;
-                println!("    Face {}: label = '{:10}' at ({:.3e}, {:.3e}, {:.3e})", 
-                         f_idx, label, centroid.x, centroid.y, centroid.z);
+            let face = debug_mesh.faces.get(f_idx);
+            // Compute face centroid from vertex positions
+            let mut cx = 0.0_f64;
+            let mut cy = 0.0_f64;
+            let mut cz = 0.0_f64;
+            for &v_id in &face.vertices {
+                let pos = debug_mesh.vertices.position(v_id);
+                cx += pos.x;
+                cy += pos.y;
+                cz += pos.z;
             }
+            let n = face.vertices.len() as f64;
+            cx /= n;
+            cy /= n;
+            cz /= n;
+            println!("    Face {:?}: label = '{:10}' at ({:.3e}, {:.3e}, {:.3e})",
+                     f_idx, label, cx, cy, cz);
         }
     }
     

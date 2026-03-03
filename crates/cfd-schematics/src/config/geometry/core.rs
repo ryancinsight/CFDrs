@@ -1,6 +1,6 @@
+use super::generation::GeometryGenerationConfig;
 use crate::config::constants::primitives as constants;
 use crate::error::{ConfigurationError, ConfigurationResult};
-use super::generation::GeometryGenerationConfig;
 
 /// Main configuration for converting schematics to geometry
 ///

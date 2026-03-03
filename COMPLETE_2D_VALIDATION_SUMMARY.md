@@ -156,25 +156,25 @@ Reference: White, F.M. (2011) "Fluid Mechanics" 7th Ed.
 
 ## Software Architecture
 
-### Python Bindings (pycfdrs)
-All solvers are accessible through the `pycfdrs` Python package (PyO3 bindings):
+### Python Bindings (cfd-python)
+All solvers are accessible through the `cfd-python` Python package (PyO3 bindings):
 
 ```python
-import pycfdrs
+import cfd-python
 
 # 1D Bifurcation
-solver_1d = pycfdrs.PyBifurcationSolver(d_parent=100e-6, d_daughter1=80e-6, d_daughter2=80e-6)
+solver_1d = cfd-python.PyBifurcationSolver(d_parent=100e-6, d_daughter1=80e-6, d_daughter2=80e-6)
 result = solver_1d.solve(flow_rate=30e-9, pressure=100.0, blood_type="casson")
 
 # 2D Poiseuille
-config = pycfdrs.PoiseuilleConfig2D(height=100e-6, width=100e-6, length=5e-3, 
+config = cfd-python.PoiseuilleConfig2D(height=100e-6, width=100e-6, length=5e-3, 
                                      ny=101, pressure_gradient=10000.0)
-solver_2d = pycfdrs.PoiseuilleSolver2D(config)
-result_2d = solver_2d.solve(pycfdrs.CassonBlood())
+solver_2d = cfd-python.PoiseuilleSolver2D(config)
+result_2d = solver_2d.solve(cfd-python.CassonBlood())
 
 # Blood models
-blood_casson = pycfdrs.CassonBlood()  # Normal blood
-blood_carreau = pycfdrs.CarreauYasudaBlood()  # Alternative model
+blood_casson = cfd-python.CassonBlood()  # Normal blood
+blood_carreau = cfd-python.CarreauYasudaBlood()  # Alternative model
 ```
 
 ### Rust Core Implementation
@@ -259,7 +259,7 @@ All results are **reproducible** by running the validation scripts in `validatio
 
 ```bash
 # Build Python bindings
-cd crates/pycfdrs
+cd crates/cfd-python
 maturin develop --release
 
 # Run validations

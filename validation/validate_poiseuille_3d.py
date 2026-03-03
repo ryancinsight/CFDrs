@@ -2,7 +2,7 @@
 """
 3D Poiseuille Flow Validation against Analytical Solution
 
-Validates pycfdrs.Poiseuille3DSolver against the exact parabolic velocity profile
+Validates cfd_python.Poiseuille3DSolver against the exact parabolic velocity profile
 for fully developed laminar pipe flow:
 
     u(r) = u_max * (1 - (r/R)²)
@@ -11,7 +11,7 @@ where u_max = ΔP·R² / (4μL)
 """
 
 import numpy as np
-import pycfdrs
+import cfd_python
 import matplotlib.pyplot as plt
 from pathlib import Path
 
@@ -24,7 +24,7 @@ def analytical_poiseuille(r: np.ndarray, R: float, dp: float, mu: float, L: floa
 def run_poiseuille_3d_validation():
     """Run 3D Poiseuille flow validation."""
     print(f"\n{'='*70}")
-    print(f"3D Poiseuille Flow Validation: Analytical vs pycfdrs")
+    print(f"3D Poiseuille Flow Validation: Analytical vs cfd_python")
     print(f"{'='*70}\n")
     
     # Physical parameters
@@ -35,7 +35,7 @@ def run_poiseuille_3d_validation():
     rho = 1060.0  # Blood density (kg/m³)
     
     # Run solver
-    solver = pycfdrs.Poiseuille3DSolver(
+    solver = cfd_python.Poiseuille3DSolver(
         diameter=2*R,
         length=L,
         nr=10,
@@ -89,7 +89,7 @@ def run_poiseuille_3d_validation():
     if hasattr(result, 'radial_coords') and hasattr(result, 'radial_velocities'):
         r_numerical = np.array(result.radial_coords)
         u_numerical = np.array(result.radial_velocities)
-        plt.plot(r_numerical * 1e3, u_numerical, 'ro', markersize=8, label='pycfdrs (P2)')
+        plt.plot(r_numerical * 1e3, u_numerical, 'ro', markersize=8, label='cfd_python (P2)')
     
     plt.xlabel('Radial Position r (mm)', fontsize=12)
     plt.ylabel('Axial Velocity u (m/s)', fontsize=12)

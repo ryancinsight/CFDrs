@@ -14,7 +14,7 @@ References:
 import numpy as np
 from scipy.sparse import diags
 from scipy.sparse.linalg import spsolve
-import pycfdrs
+import cfd_python
 
 
 def solve_poiseuille_fd(nx, ny, L, H, mu, dP):
@@ -79,10 +79,10 @@ def solve_poiseuille_fd(nx, ny, L, H, mu, dP):
     }
 
 
-def compare_with_pycfdrs():
-    """Compare finite-difference solver with pycfdrs results."""
+def compare_with_cfd_python():
+    """Compare finite-difference solver with cfd_python results."""
     print("\n" + "="*70)
-    print(" Finite-Difference Reference vs pycfdrs Cross-Validation")
+    print(" Finite-Difference Reference vs cfd_python Cross-Validation")
     print("="*70)
     
     # Problem parameters
@@ -106,25 +106,25 @@ def compare_with_pycfdrs():
     print(f"    FD numerical u_max: {fd_result['u_max_numerical']*1e3:.4f} mm/s")
     print(f"    FD L2 error vs analytical: {fd_result['l2_error']*100:.6f}%")
     
-    # pycfdrs result from blood_poiseuille_2d example
-    pycfdrs_l2_error = 0.0024
-    print(f"\n[2] pycfdrs result (from blood_poiseuille_2d):")
-    print(f"    pycfdrs L2 error vs analytical: {pycfdrs_l2_error*100:.4f}%")
+    # cfd_python result from blood_poiseuille_2d example
+    cfd_python_l2_error = 0.0024
+    print(f"\n[2] cfd_python result (from blood_poiseuille_2d):")
+    print(f"    cfd_python L2 error vs analytical: {cfd_python_l2_error*100:.4f}%")
     
     print("\n[3] Cross-Validation Results:")
     print(f"    FD Reference L2 error:  {fd_result['l2_error']*100:.6f}%")
-    print(f"    pycfdrs L2 error:       {pycfdrs_l2_error*100:.4f}%")
+    print(f"    cfd_python L2 error:       {cfd_python_l2_error*100:.4f}%")
     
     fd_passed = fd_result['l2_error'] < 0.01
-    pycfdrs_passed = pycfdrs_l2_error < 0.01
+    cfd_python_passed = cfd_python_l2_error < 0.01
     
     print("\n" + "-"*70)
     print("VALIDATION RESULT:")
     print("-"*70)
     
-    if fd_passed and pycfdrs_passed:
+    if fd_passed and cfd_python_passed:
         print("[PASS] FD Reference achieves L2 error < 1% vs analytical")
-        print("[PASS] pycfdrs achieves L2 error < 1% vs analytical")
+        print("[PASS] cfd_python achieves L2 error < 1% vs analytical")
         print("\n[PASS] CROSS-VALIDATION PASSED")
         return True
     else:
@@ -166,7 +166,7 @@ def main():
     print("#"*70)
     
     results = []
-    results.append(compare_with_pycfdrs())
+    results.append(compare_with_cfd_python())
     results.append(validate_blood_rheology())
     
     print("\n" + "="*70)
@@ -175,7 +175,7 @@ def main():
     
     if all(results):
         print("[PASS] ALL CROSS-VALIDATION TESTS PASSED")
-        print("\nThe pycfdrs solver produces results consistent with:")
+        print("\nThe cfd_python solver produces results consistent with:")
         print("  - Analytical Poiseuille solution (L2 error: 0.24%)")
         print("  - Finite-difference reference solver")
         print("  - Blood rheology validation (Casson model)")

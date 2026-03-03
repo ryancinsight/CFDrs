@@ -2,7 +2,7 @@
 """
 Comprehensive Cross-Package CFD Validation for CFDrs
 
-This script validates the Rust CFD library (pycfdrs) against:
+This script validates the Rust CFD library (cfd_python) against:
 1. Analytical solutions (Poiseuille, Couette flow)
 2. Literature benchmarks (Ghia et al. 1982 cavity flow)
 3. External Python CFD packages when available
@@ -18,14 +18,14 @@ from typing import Dict, List, Optional, Tuple
 import json
 from datetime import datetime
 
-# Try to import pycfdrs
+# Try to import cfd_python
 try:
-    import pycfdrs
-    HAS_PYCFDRS = True
-    print("[OK] pycfdrs (Rust CFD) available")
+    import cfd_python
+    HAS_cfd_python = True
+    print("[OK] cfd_python (Rust CFD) available")
 except ImportError:
-    HAS_PYCFDRS = False
-    print("[SKIP] pycfdrs not available - build with: cd crates/pycfdrs && maturin develop")
+    HAS_cfd_python = False
+    print("[SKIP] cfd_python not available - build with: cd crates/cfd-python && maturin develop")
 
 # =============================================================================
 # Analytical Solutions
@@ -126,10 +126,10 @@ def validate_poiseuille_analytical() -> ValidationResult:
     u_analytical = poiseuille_analytical(y, h, dp_dx, mu)
     u_max_analytical = np.max(u_analytical)
     
-    if HAS_PYCFDRS:
+    if HAS_cfd_python:
         try:
-            # Create pycfdrs solver - use direct constructor arguments
-            solver = pycfdrs.Poiseuille2DSolver(
+            # Create cfd_python solver - use direct constructor arguments
+            solver = cfd_python.Poiseuille2DSolver(
                 height=h,
                 width=0.01,
                 length=0.01,
@@ -159,7 +159,7 @@ def validate_poiseuille_analytical() -> ValidationResult:
                 expected=abs(u_max_analytical),
                 actual=0.0,
                 tolerance=5.0,
-                details=f"pycfdrs error: {e}"
+                details=f"cfd_python error: {e}"
             )
     else:
         # Just verify analytical solution is self-consistent
@@ -173,7 +173,7 @@ def validate_poiseuille_analytical() -> ValidationResult:
             expected=u_max_theory,
             actual=u_max_analytical,
             tolerance=0.01,
-            details="pycfdrs not available - analytical self-check only"
+            details="cfd_python not available - analytical self-check only"
         )
 
 
@@ -229,7 +229,7 @@ def validate_murray_law() -> ValidationResult:
 
 def validate_mass_conservation() -> ValidationResult:
     """Validate mass conservation in bifurcation"""
-    if not HAS_PYCFDRS:
+    if not HAS_cfd_python:
         return ValidationResult(
             test_name="Mass Conservation (Bifurcation)",
             passed=True,
@@ -237,7 +237,7 @@ def validate_mass_conservation() -> ValidationResult:
             expected=0.0,
             actual=0.0,
             tolerance=1.0,
-            details="pycfdrs not available - skipped"
+            details="cfd_python not available - skipped"
         )
     
     try:
@@ -269,7 +269,7 @@ def validate_mass_conservation() -> ValidationResult:
 
 def validate_blood_rheology() -> ValidationResult:
     """Validate Casson blood model"""
-    if not HAS_PYCFDRS:
+    if not HAS_cfd_python:
         return ValidationResult(
             test_name="Blood Rheology (Casson Model)",
             passed=True,
@@ -277,12 +277,12 @@ def validate_blood_rheology() -> ValidationResult:
             expected=0.0,
             actual=0.0,
             tolerance=5.0,
-            details="pycfdrs not available - skipped"
+            details="cfd_python not available - skipped"
         )
     
     try:
         # Create Casson blood model
-        blood = pycfdrs.CassonBlood()
+        blood = cfd_python.CassonBlood()
         
         # At high shear rate, viscosity should approach mu_inf
         # This is validated in the Rust tests
@@ -329,7 +329,7 @@ GHIA_Y_RE100 = np.array([
 
 def validate_cavity_benchmark() -> ValidationResult:
     """Validate against Ghia et al. (1982) lid-driven cavity benchmark"""
-    # This would require the cavity solver to be exposed in pycfdrs
+    # This would require the cavity solver to be exposed in cfd_python
     # For now, we document the benchmark data
     
     return ValidationResult(
@@ -387,7 +387,7 @@ def run_all_validations() -> Dict:
     # Create report
     report = {
         "timestamp": datetime.now().isoformat(),
-        "pycfdrs_available": HAS_PYCFDRS,
+        "cfd_python_available": HAS_cfd_python,
         "total_tests": total,
         "passed": passed,
         "failed": total - passed,

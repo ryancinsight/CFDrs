@@ -2,7 +2,7 @@
 """
 Cross-package validation: Compare CFD-RS cavity flow with external reference.
 
-Validates pycfdrs 2D Navier-Stokes solver against:
+Validates cfd_python 2D Navier-Stokes solver against:
 1. Pure Python finite difference implementation (external_cavity_reference.py)
 2. Ghia et al. (1982) benchmark data
 3. Python_CFD notebook results
@@ -20,16 +20,16 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 try:
-    import pycfdrs
+    import cfd_python
 except ImportError:
-    print("ERROR: pycfdrs not installed. Build with: cd crates/pycfdrs && maturin develop")
+    print("ERROR: cfd_python not installed. Build with: cd crates/cfd-python && maturin develop")
     sys.exit(1)
 
 # Import external reference
 from external_cavity_reference import CavityFlowSolver, run_cavity_validation
 
 
-def run_pycfdrs_cavity(Re: float = 100, nx: int = 65, ny: int = 65):
+def run_cfd_python_cavity(Re: float = 100, nx: int = 65, ny: int = 65):
     """
     Run CFD-RS cavity flow solver.
     
@@ -41,13 +41,13 @@ def run_pycfdrs_cavity(Re: float = 100, nx: int = 65, ny: int = 65):
         Solution dictionary with fields and centerlines
     """
     print(f"\n{'='*70}")
-    print(f"PYCFDRS CAVITY FLOW (Re={Re})")
+    print(f"cfd_python CAVITY FLOW (Re={Re})")
     print(f"{'='*70}")
    
     try:
-        # Check if pycfdrs has cavity solver
-        if hasattr(pycfdrs, 'CavitySolver2D'):
-            solver = pycfdrs.CavitySolver2D(
+        # Check if cfd_python has cavity solver
+        if hasattr(cfd_python, 'CavitySolver2D'):
+            solver = cfd_python.CavitySolver2D(
                 nx=nx, ny=ny,
                 Re=Re,
                 tolerance=1e-6,
@@ -68,21 +68,21 @@ def run_pycfdrs_cavity(Re: float = 100, nx: int = 65, ny: int = 65):
                 "residual": result.residual
             }
         else:
-            print("WARN: CavitySolver2D not found in pycfdrs - using placeholder")
+            print("WARN: CavitySolver2D not found in cfd_python - using placeholder")
             # Return dummy data matching external reference dimensions
             return None
             
     except Exception as e:
-        print(f"ERROR: pycfdrs cavity solver failed: {e}")
+        print(f"ERROR: cfd_python cavity solver failed: {e}")
         return None
 
 
-def compare_solutions(pycfdrs_result, external_result, Re: float):
+def compare_solutions(cfd_python_result, external_result, Re: float):
     """
-    Compare pycfdrs and external reference solutions.
+    Compare cfd_python and external reference solutions.
     
     Args:
-        pycfdrs_result: Solution from pycfdrs
+        cfd_python_result: Solution from cfd_python
         external_result: Solution from external_cavity_reference
         Re: Reynolds number
     
@@ -93,8 +93,8 @@ def compare_solutions(pycfdrs_result, external_result, Re: float):
     print(f"CROSS-PACKAGE COMPARISON (Re={Re})")
     print(f"{'='*70}")
     
-    if pycfdrs_result is None:
-        print("SKIP: pycfdrs result not available")
+    if cfd_python_result is None:
+        print("SKIP: cfd_python result not available")
         return None
     
     # Extract external data
@@ -102,15 +102,15 @@ def compare_solutions(pycfdrs_result, external_result, Re: float):
     ext_solver = external_result["solver"]
     
     # Ensure same grid size
-    if pycfdrs_result["u"].shape != ext_sol["u"].shape:
-        print(f"WARN: Grid size mismatch: pycfdrs {pycfdrs_result['u'].shape} vs external {ext_sol['u'].shape}")
+    if cfd_python_result["u"].shape != ext_sol["u"].shape:
+        print(f"WARN: Grid size mismatch: cfd_python {cfd_python_result['u'].shape} vs external {ext_sol['u'].shape}")
         # TODO: Interpolate if needed
         return None
     
     # Compute L2 errors
-    u_diff = pycfdrs_result["u"] - ext_sol["u"]
-    v_diff = pycfdrs_result["v"] - ext_sol["v"]
-    p_diff = pycfdrs_result["p"] - ext_sol["p"]
+    u_diff = cfd_python_result["u"] - ext_sol["u"]
+    v_diff = cfd_python_result["v"] - ext_sol["v"]
+    p_diff = cfd_python_result["p"] - ext_sol["p"]
     
     u_l2_error = np.sqrt(np.mean(u_diff**2))
     v_l2_error = np.sqrt(np.mean(v_diff**2))
@@ -121,16 +121,16 @@ def compare_solutions(pycfdrs_result, external_result, Re: float):
     v_rel_error = v_l2_error / (np.sqrt(np.mean(ext_sol["v"]**2)) + 1e-10)
     
     # Centerline errors
-    u_centerline_error = np.max(np.abs(pycfdrs_result["u_centerline"] - ext_sol["u_centerline"]))
-    v_centerline_error = np.max(np.abs(pycfdrs_result["v_centerline"] - ext_sol["v_centerline"]))
+    u_centerline_error = np.max(np.abs(cfd_python_result["u_centerline"] - ext_sol["u_centerline"]))
+    v_centerline_error = np.max(np.abs(cfd_python_result["v_centerline"] - ext_sol["v_centerline"]))
     
     # Vortex center comparison
-    pycfdrs_vortex_idx = np.unravel_index(np.argmin(pycfdrs_result["p"]), pycfdrs_result["p"].shape)
-    pycfdrs_vortex = (pycfdrs_result["x"][pycfdrs_vortex_idx[1]], pycfdrs_result["y"][pycfdrs_vortex_idx[0]])
+    cfd_python_vortex_idx = np.unravel_index(np.argmin(cfd_python_result["p"]), cfd_python_result["p"].shape)
+    cfd_python_vortex = (cfd_python_result["x"][cfd_python_vortex_idx[1]], cfd_python_result["y"][cfd_python_vortex_idx[0]])
     external_vortex = ext_sol["vortex_center"]
     
-    vortex_distance = np.sqrt((pycfdrs_vortex[0] - external_vortex[0])**2 + 
-                              (pycfdrs_vortex[1] - external_vortex[1])**2)
+    vortex_distance = np.sqrt((cfd_python_vortex[0] - external_vortex[0])**2 + 
+                              (cfd_python_vortex[1] - external_vortex[1])**2)
     
     print(f"\nL2 Errors:")
     print(f"  U velocity:  {u_l2_error:.6e} (relative: {u_rel_error*100:.4f}%)")
@@ -142,12 +142,12 @@ def compare_solutions(pycfdrs_result, external_result, Re: float):
     print(f"  V (horizontal):  {v_centerline_error:.6e}")
     
     print(f"\nVortex Center:")
-    print(f"  pycfdrs:   ({pycfdrs_vortex[0]:.4f}, {pycfdrs_vortex[1]:.4f})")
+    print(f"  cfd_python:   ({cfd_python_vortex[0]:.4f}, {cfd_python_vortex[1]:.4f})")
     print(f"  external:  ({external_vortex[0]:.4f}, {external_vortex[1]:.4f})")
     print(f"  distance:  {vortex_distance:.6f}")
     
     print(f"\nConvergence:")
-    print(f"  pycfdrs:   {pycfdrs_result['iterations']} iterations (residual: {pycfdrs_result['residual']:.6e})")
+    print(f"  cfd_python:   {cfd_python_result['iterations']} iterations (residual: {cfd_python_result['residual']:.6e})")
     print(f"  external:  {ext_sol['steps']} iterations (residual: {ext_sol['residual']:.6e})")
     
     # Validation criteria
@@ -185,12 +185,12 @@ def compare_solutions(pycfdrs_result, external_result, Re: float):
     }
 
 
-def plot_comparison(pycfdrs_result, external_result, comparison, Re: float):
+def plot_comparison(cfd_python_result, external_result, comparison, Re: float):
     """
     Generate comparison plots.
     """
-    if pycfdrs_result is None:
-        print("SKIP: Cannot plot without pycfdrs result")
+    if cfd_python_result is None:
+        print("SKIP: Cannot plot without cfd_python result")
         return
     
     fig, axes = plt.subplots(3, 3, figsize=(15, 14))
@@ -198,24 +198,24 @@ def plot_comparison(pycfdrs_result, external_result, comparison, Re: float):
     ext_sol = external_result["solution"]
     ext_solver = external_result["solver"]
     
-    # Row 1: pycfdrs fields
-    U_mag_pycfdrs = np.sqrt(pycfdrs_result["u"]**2 + pycfdrs_result["v"]**2)
-    X_pycfdrs, Y_pycfdrs = np.meshgrid(pycfdrs_result["x"], pycfdrs_result["y"])
+    # Row 1: cfd_python fields
+    U_mag_cfd_python = np.sqrt(cfd_python_result["u"]**2 + cfd_python_result["v"]**2)
+    X_cfd_python, Y_cfd_python = np.meshgrid(cfd_python_result["x"], cfd_python_result["y"])
     
-    im00 = axes[0, 0].contourf(X_pycfdrs, Y_pycfdrs, U_mag_pycfdrs, levels=20, cmap='viridis')
-    axes[0, 0].set_title('pycfdrs: Velocity Magnitude')
+    im00 = axes[0, 0].contourf(X_cfd_python, Y_cfd_python, U_mag_cfd_python, levels=20, cmap='viridis')
+    axes[0, 0].set_title('cfd_python: Velocity Magnitude')
     axes[0, 0].set_xlabel('x')
     axes[0, 0].set_ylabel('y')
     plt.colorbar(im00, ax=axes[0, 0])
     
-    im01 = axes[0, 1].contourf(X_pycfdrs, Y_pycfdrs, pycfdrs_result["u"], levels=20, cmap='RdBu_r')
-    axes[0, 1].set_title('pycfdrs: U Velocity')
+    im01 = axes[0, 1].contourf(X_cfd_python, Y_cfd_python, cfd_python_result["u"], levels=20, cmap='RdBu_r')
+    axes[0, 1].set_title('cfd_python: U Velocity')
     axes[0, 1].set_xlabel('x')
     axes[0, 1].set_ylabel('y')
     plt.colorbar(im01, ax=axes[0, 1])
     
-    im02 = axes[0, 2].contourf(X_pycfdrs, Y_pycfdrs, pycfdrs_result["p"], levels=20, cmap='coolwarm')
-    axes[0, 2].set_title('pycfdrs: Pressure')
+    im02 = axes[0, 2].contourf(X_cfd_python, Y_cfd_python, cfd_python_result["p"], levels=20, cmap='coolwarm')
+    axes[0, 2].set_title('cfd_python: Pressure')
     axes[0, 2].set_xlabel('x')
     axes[0, 2].set_ylabel('y')
     plt.colorbar(im02, ax=axes[0, 2])
@@ -242,18 +242,18 @@ def plot_comparison(pycfdrs_result, external_result, comparison, Re: float):
     plt.colorbar(im12, ax=axes[1, 2])
     
     # Row 3: Differences and centerline comparison
-    u_diff = pycfdrs_result["u"] - ext_sol["u"]
-    v_diff = pycfdrs_result["v"] - ext_sol["v"]
+    u_diff = cfd_python_result["u"] - ext_sol["u"]
+    v_diff = cfd_python_result["v"] - ext_sol["v"]
     vel_diff = np.sqrt(u_diff**2 + v_diff**2)
     
-    im20 = axes[2, 0].contourf(X_pycfdrs, Y_pycfdrs, vel_diff, levels=20, cmap='hot')
+    im20 = axes[2, 0].contourf(X_cfd_python, Y_cfd_python, vel_diff, levels=20, cmap='hot')
     axes[2, 0].set_title('Velocity Difference')
     axes[2, 0].set_xlabel('x')
     axes[2, 0].set_ylabel('y')
     plt.colorbar(im20, ax=axes[2, 0])
     
     # U centerline comparison
-    axes[2, 1].plot(pycfdrs_result["u_centerline"], pycfdrs_result["y"], 'b-', label='pycfdrs', linewidth=2)
+    axes[2, 1].plot(cfd_python_result["u_centerline"], cfd_python_result["y"], 'b-', label='cfd_python', linewidth=2)
     axes[2, 1].plot(ext_sol["u_centerline"], ext_solver.y, 'r--', label='External', linewidth=2)
     if external_result["validation"]["u_error"] is not None:
         axes[2, 1].plot(external_result["validation"]["ghia_u"]["u"], 
@@ -266,7 +266,7 @@ def plot_comparison(pycfdrs_result, external_result, comparison, Re: float):
     axes[2, 1].grid(True, alpha=0.3)
     
     # V centerline comparison
-    axes[2, 2].plot(pycfdrs_result["x"], pycfdrs_result["v_centerline"], 'b-', label='pycfdrs', linewidth=2)
+    axes[2, 2].plot(cfd_python_result["x"], cfd_python_result["v_centerline"], 'b-', label='cfd_python', linewidth=2)
     axes[2, 2].plot(ext_solver.x, ext_sol["v_centerline"], 'r--', label='External', linewidth=2)
     if external_result["validation"]["v_error"] is not None:
         axes[2, 2].plot(external_result["validation"]["ghia_v"]["x"], 
@@ -278,7 +278,7 @@ def plot_comparison(pycfdrs_result, external_result, comparison, Re: float):
     axes[2, 2].legend()
     axes[2, 2].grid(True, alpha=0.3)
     
-    plt.suptitle(f'Cross-Package Validation: pycfdrs vs External Reference (Re={Re})', fontsize=14, fontweight='bold')
+    plt.suptitle(f'Cross-Package Validation: cfd_python vs External Reference (Re={Re})', fontsize=14, fontweight='bold')
     plt.tight_layout()
     plt.savefig('cross_validation_cavity_comparison.png', dpi=150, bbox_inches='tight')
     print(f"\nComparison plot saved: cross_validation_cavity_comparison.png")
@@ -291,7 +291,7 @@ def main():
     print("="*70)
     print("CROSS-PACKAGE VALIDATION: CAVITY FLOW")
     print("="*70)
-    print("\nComparing pycfdrs against:")
+    print("\nComparing cfd_python against:")
     print("  1. Pure Python finite difference reference")
     print("  2. Ghia et al. (1982) benchmark data")
     print("="*70)
@@ -313,23 +313,23 @@ def main():
         print(f"  U centerline error: {external_result['validation']['u_error']:.6f}")
         print(f"  V centerline error: {external_result['validation']['v_error']:.6f}")
     
-    # Run pycfdrs
-    print("\n[2/2] Running pycfdrs implementation...")
-    pycfdrs_result = run_pycfdrs_cavity(Re=Re, nx=nx, ny=ny)
+    # Run cfd_python
+    print("\n[2/2] Running cfd_python implementation...")
+    cfd_python_result = run_cfd_python_cavity(Re=Re, nx=nx, ny=ny)
     
-    if pycfdrs_result is not None:
+    if cfd_python_result is not None:
         # Compare solutions
-        comparison = compare_solutions(pycfdrs_result, external_result, Re)
+        comparison = compare_solutions(cfd_python_result, external_result, Re)
         
         # Plot comparison
         if comparison is not None:
-            plot_comparison(pycfdrs_result, external_result, comparison, Re)
+            plot_comparison(cfd_python_result, external_result, comparison, Re)
             
             # Final verdict
             print(f"\n{'='*70}")
             if comparison["passed"]:
                 print("✓ CROSS-VALIDATION PASSED")
-                print(f"  pycfdrs matches external reference within {comparison['u_rel_error']*100:.4f}% relative error")
+                print(f"  cfd_python matches external reference within {comparison['u_rel_error']*100:.4f}% relative error")
             else:
                 print("✗ CROSS-VALIDATION FAILED")
                 print(f"  Errors exceed tolerance thresholds")
@@ -337,8 +337,8 @@ def main():
             
             return 0 if comparison["passed"] else 1
     else:
-        print("\nWARN: pycfdrs cavity solver not available - validation skipped")
-        print("      Implementation needed: CavitySolver2D in pycfdrs module")
+        print("\nWARN: cfd_python cavity solver not available - validation skipped")
+        print("      Implementation needed: CavitySolver2D in cfd_python module")
     
     return 0
 

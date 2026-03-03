@@ -95,7 +95,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> LiteratureValidation<T> 
             let r_init = T::from_f64(128.0).unwrap() * mu * l / (pi * d.powi(4));
 
             EdgeProperties {
-                id: "".to_string(), // Overwritten by network map
+                id: String::new(), // Overwritten by network map
                 component_type: ComponentType::Pipe,
                 length: l,
                 area,
@@ -146,8 +146,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> LiteratureValidation<T> 
         let q3 = solution.flow_rates.get(&e3).copied().unwrap_or(T::zero()).abs();
         let q_err = (q1 - q3).abs();
 
-        let dp1 = (solution.pressures.get(&n_inlet).unwrap().clone() - solution.pressures.get(&n1).unwrap().clone()).abs();
-        let dp3 = (solution.pressures.get(&n2).unwrap().clone() - solution.pressures.get(&n3).unwrap().clone()).abs();
+        let dp1 = (*solution.pressures.get(&n_inlet).unwrap() - *solution.pressures.get(&n1).unwrap()).abs();
+        let dp3 = (*solution.pressures.get(&n2).unwrap() - *solution.pressures.get(&n3).unwrap()).abs();
 
         let grad1 = dp1 / l_wide;
         let grad3 = dp3 / l_narrow;
@@ -189,7 +189,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> LiteratureValidation<T> 
         })
     }
 
-    fn citation(&self) -> &str {
+    fn citation(&self) -> &'static str {
         "Ku, D. N. (1997). Blood flow in arteries."
     }
 
@@ -249,7 +249,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> LiteratureValidation<T> 
             let r_init = T::from_f64(128.0).unwrap() * mu * l / (pi * d.powi(4));
 
             EdgeProperties {
-                id: "".to_string(),
+                id: String::new(),
                 component_type: ComponentType::Pipe,
                 length: l,
                 area,
@@ -330,7 +330,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> LiteratureValidation<T> 
         })
     }
 
-    fn citation(&self) -> &str {
+    fn citation(&self) -> &'static str {
         "Standard Fluid Dynamics - Bifurcation"
     }
 

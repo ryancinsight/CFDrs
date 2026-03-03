@@ -27,12 +27,14 @@ pub struct PslgVertex {
 impl PslgVertex {
     /// Create a new vertex at `(x, y)`.
     #[inline]
+    #[must_use] 
     pub fn new(x: Real, y: Real) -> Self {
         Self { x, y }
     }
 
     /// Squared Euclidean distance to another vertex.
     #[inline]
+    #[must_use] 
     pub fn dist_sq(&self, other: &Self) -> Real {
         let dx = self.x - other.x;
         let dy = self.y - other.y;
@@ -41,12 +43,14 @@ impl PslgVertex {
 
     /// Euclidean distance to another vertex.
     #[inline]
+    #[must_use] 
     pub fn dist(&self, other: &Self) -> Real {
         self.dist_sq(other).sqrt()
     }
 
     /// Midpoint between `self` and `other`.
     #[inline]
+    #[must_use] 
     pub fn midpoint(&self, other: &Self) -> Self {
         Self {
             x: 0.5 * (self.x + other.x),
@@ -56,6 +60,7 @@ impl PslgVertex {
 
     /// Convert to a `nalgebra::Point2<Real>` for predicate calls.
     #[inline]
+    #[must_use] 
     pub fn to_point2(&self) -> nalgebra::Point2<Real> {
         nalgebra::Point2::new(self.x, self.y)
     }
@@ -87,24 +92,28 @@ pub struct PslgVertexId(pub u32);
 impl PslgVertexId {
     /// Create from a raw `u32`.
     #[inline]
+    #[must_use] 
     pub fn new(raw: u32) -> Self {
         Self(raw)
     }
 
     /// Create from `usize`.
     #[inline]
+    #[must_use] 
     pub fn from_usize(n: usize) -> Self {
         Self(n as u32)
     }
 
     /// Raw `u32` index.
     #[inline]
+    #[must_use] 
     pub fn raw(self) -> u32 {
         self.0
     }
 
     /// As `usize`.
     #[inline]
+    #[must_use] 
     pub fn idx(self) -> usize {
         self.0 as usize
     }

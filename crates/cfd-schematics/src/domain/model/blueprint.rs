@@ -29,31 +29,83 @@ impl NetworkBlueprint {
     /// Count nodes by kind.
     #[must_use]
     pub fn inlet_count(&self) -> usize {
-        self.nodes.iter().filter(|n| matches!(n.kind, NodeKind::Inlet)).count()
+        self.nodes
+            .iter()
+            .filter(|n| matches!(n.kind, NodeKind::Inlet))
+            .count()
     }
 
     /// Count outlet nodes.
     #[must_use]
     pub fn outlet_count(&self) -> usize {
-        self.nodes.iter().filter(|n| matches!(n.kind, NodeKind::Outlet)).count()
+        self.nodes
+            .iter()
+            .filter(|n| matches!(n.kind, NodeKind::Outlet))
+            .count()
     }
 
     /// Count junction nodes.
     #[must_use]
     pub fn junction_count(&self) -> usize {
-        self.nodes.iter().filter(|n| matches!(n.kind, NodeKind::Junction)).count()
+        self.nodes
+            .iter()
+            .filter(|n| matches!(n.kind, NodeKind::Junction))
+            .count()
     }
 
     /// Count pipe channels.
     #[must_use]
     pub fn pipe_count(&self) -> usize {
-        self.channels.iter().filter(|c| matches!(c.kind, EdgeKind::Pipe)).count()
+        self.channels
+            .iter()
+            .filter(|c| matches!(c.kind, EdgeKind::Pipe))
+            .count()
     }
 
     /// Total path length across all channels [m].
     #[must_use]
     pub fn total_length_m(&self) -> f64 {
         self.channels.iter().map(|c| c.length_m).sum()
+    }
+
+    // ── Therapy-zone helpers ─────────────────────────────────────────────────
+
+    /// Total channel length [m] in channels tagged with the given therapy zone.
+    ///
+    /// Returns `0.0` if no channels carry [`TherapyZoneMetadata`] for that zone.
+    /// Channels without metadata are not counted.
+    #[must_use]
+    pub fn length_in_zone(&self, zone: crate::domain::therapy_metadata::TherapyZone) -> f64 {
+        use crate::domain::therapy_metadata::TherapyZoneMetadata;
+        self.channels
+            .iter()
+            .filter(|c| {
+                c.metadata
+                    .as_ref()
+                    .and_then(|m| m.get::<TherapyZoneMetadata>())
+                    .is_some_and(|tz| tz.zone == zone)
+            })
+            .map(|c| c.length_m)
+            .sum()
+    }
+
+    /// All channels tagged with [`VenturiGeometryMetadata`].
+    ///
+    /// Returns all channels in the blueprint that carry explicit venturi
+    /// throat geometry parameters, as set by the venturi preset factories.
+    #[must_use]
+    pub fn venturi_channels(&self) -> Vec<&ChannelSpec> {
+        use crate::geometry::metadata::VenturiGeometryMetadata;
+        self.channels
+            .iter()
+            .filter(|c| {
+                c.metadata
+                    .as_ref()
+                    .is_some_and(crate::geometry::metadata::MetadataContainer::contains::<
+                        VenturiGeometryMetadata,
+                    >)
+            })
+            .collect()
     }
 
     /// Return a human-readable summary of this blueprint (replaces `ConversionSummary`).
@@ -82,4 +134,3 @@ impl fmt::Display for NetworkBlueprint {
         f.write_str(&self.describe())
     }
 }
-

@@ -130,7 +130,7 @@ fn build(g: &GeodesicSphere) -> Result<IndexedMesh, PrimitiveError> {
                 mesh.add_face_with_region(v0, v1, v2, region);
 
                 // Down triangle (only when there is room)
-                if si + 1 + sj + 1 <= f {
+                if si + 1 + sj < f {
                     let (p3, n3) = sub_pt(si + 1, sj + 1);
                     let v3 = mesh.add_vertex(p3, n3);
                     // Down triangle: (i+1,j) → (i+1,j+1) → (i,j+1) — same CCW sense

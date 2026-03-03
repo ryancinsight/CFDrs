@@ -2,8 +2,6 @@ use cfd_1d::{Network, NetworkBuilder, NetworkProblem, NetworkSolver};
 use cfd_1d::components::channels::CircularChannel;
 use cfd_1d::components::Component;
 use cfd_core::physics::fluid::database::water_20c;
-use nalgebra::DVector;
-use petgraph::visit::EdgeRef;
 use proptest::prelude::*;
 
 fn water() -> cfd_core::physics::fluid::ConstantPropertyFluid<f64> {
@@ -155,7 +153,7 @@ proptest! {
         let r2 = CircularChannel::new(0.05, 0.0005, 0.0).resistance(&fluid);
         let r3 = CircularChannel::new(0.02, 0.0008, 0.0).resistance(&fluid);
         
-        let mut edges = graph.edge_indices().collect::<Vec<_>>();
+        let edges = graph.edge_indices().collect::<Vec<_>>();
         
         if let Some(e) = graph.edge_weight_mut(edges[0]) { e.resistance = r1; }
         if let Some(e) = graph.edge_weight_mut(edges[1]) { e.resistance = r2; }

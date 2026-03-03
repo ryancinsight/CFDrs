@@ -80,11 +80,10 @@ impl core::fmt::Display for PslgValidationError {
                 vertex_count,
             } => write!(
                 f,
-                "segment {} references out-of-range vertex ids ({}, {}) with vertex_count={}",
-                segment, start, end, vertex_count,
+                "segment {segment} references out-of-range vertex ids ({start}, {end}) with vertex_count={vertex_count}",
             ),
             Self::DegenerateSegment { segment, vertex } => {
-                write!(f, "segment {} is degenerate at vertex {}", segment, vertex)
+                write!(f, "segment {segment} is degenerate at vertex {vertex}")
             }
             Self::DuplicateSegment {
                 first,
@@ -93,14 +92,12 @@ impl core::fmt::Display for PslgValidationError {
                 b,
             } => write!(
                 f,
-                "segments {} and {} are duplicates of edge ({}, {})",
-                first, second, a, b,
+                "segments {first} and {second} are duplicates of edge ({a}, {b})",
             ),
             Self::IntersectingSegments { first, second } => {
                 write!(
                     f,
-                    "segments {} and {} intersect in their interiors",
-                    first, second
+                    "segments {first} and {second} intersect in their interiors"
                 )
             }
         }
@@ -136,6 +133,7 @@ pub struct Pslg {
 
 impl Pslg {
     /// Create an empty PSLG.
+    #[must_use] 
     pub fn new() -> Self {
         Self {
             vertices: Vec::new(),
@@ -145,6 +143,7 @@ impl Pslg {
     }
 
     /// Create with pre-allocated capacity.
+    #[must_use] 
     pub fn with_capacity(num_vertices: usize, num_segments: usize) -> Self {
         Self {
             vertices: Vec::with_capacity(num_vertices),
@@ -171,18 +170,21 @@ impl Pslg {
 
     /// Number of vertices.
     #[inline]
+    #[must_use] 
     pub fn vertex_count(&self) -> usize {
         self.vertices.len()
     }
 
     /// Get vertex by ID.
     #[inline]
+    #[must_use] 
     pub fn vertex(&self, id: PslgVertexId) -> &PslgVertex {
         &self.vertices[id.idx()]
     }
 
     /// Slice of all vertex positions.
     #[inline]
+    #[must_use] 
     pub fn vertices(&self) -> &[PslgVertex] {
         &self.vertices
     }
@@ -207,18 +209,21 @@ impl Pslg {
 
     /// Number of constraint segments.
     #[inline]
+    #[must_use] 
     pub fn segment_count(&self) -> usize {
         self.segments.len()
     }
 
     /// Get segment by ID.
     #[inline]
+    #[must_use] 
     pub fn segment(&self, id: PslgSegmentId) -> &PslgSegment {
         &self.segments[id.idx()]
     }
 
     /// Slice of all segments.
     #[inline]
+    #[must_use] 
     pub fn segments(&self) -> &[PslgSegment] {
         &self.segments
     }
@@ -319,88 +324,232 @@ impl Pslg {
 
     /// Slice of all hole seeds.
     #[inline]
+    #[must_use] 
     pub fn holes(&self) -> &[PslgVertex] {
         &self.holes
     }
 
     // ── Bounding box ──────────────────────────────────────────────────────
 
-    /// Resolve any interior-crossing segment pairs by iteratively finding a
-    /// crossing pair, inserting their 2-D intersection as a new vertex, and
-    /// replacing each crossing segment with two sub-segments that share the
-    /// new vertex.  Repeats until no interior crossings remain.
+    /// Resolve *all* illegal constraint pairs so that [`Self::validate`] passes.
+    ///
+    /// Three classes of illegality are handled:
+    ///
+    /// 1. **Proper interior crossings** — `orient_2d` shows both endpoints of
+    ///    each segment on opposite sides of the other.  Split both at their
+    ///    intersection point.
+    ///
+    /// 2. **T-intersections** — an endpoint of segment B lies strictly in the
+    ///    interior of segment A (`orient_2d` = Degenerate for that endpoint).
+    ///    Split A at B's endpoint.
+    ///
+    /// 3. **Collinear overlaps** — both segments are collinear *and* their
+    ///    interiors share an interval.  Split at both overlap boundary points
+    ///    so every collinear subsegment covers only one canonical interval.
+    ///
+    /// Repeats until no illegal pair remains.  For CSG corefine inputs (k = 0–3
+    /// crossings) the total work is O(k · n²).
     ///
     /// After this call [`Self::validate`] will not return
-    /// [`PslgValidationError::IntersectingSegments`] for proper interior
-    /// crossings.  Collinear-overlap errors, if any, are left unmodified.
-    ///
-    /// # Complexity
-    ///
-    /// O(k · n²) where k is the number of crossing pairs in the original
-    /// PSLG.  For the CSG corefine use-case k is typically 0–3.
+    /// [`PslgValidationError::IntersectingSegments`] for any geometrically
+    /// representable input.  Duplicate-segment errors (produced when two
+    /// previously distinct segments resolve to the same subsegment) are
+    /// removed by deduplication after each restart.
     pub fn resolve_crossings(&mut self) {
         'outer: loop {
             let n_seg = self.segments.len();
 
-            // Scan for proper interior-crossing pairs — compute intersection
-            // vertex and split both crossing segments into halves.
             for i in 0..n_seg {
                 for j in (i + 1)..n_seg {
                     let si = self.segments[i];
                     let sj = self.segments[j];
 
-                    // Adjacent segments (shared endpoint) are always valid.
-                    if si.start == sj.start
+                    // Endpoints shared — adjacency is always valid for CDT.
+                    let share_endpoint = si.start == sj.start
                         || si.start == sj.end
                         || si.end == sj.start
-                        || si.end == sj.end
-                    {
-                        continue;
-                    }
+                        || si.end == sj.end;
 
                     let a1 = self.vertices[si.start.idx()].to_point2();
                     let a2 = self.vertices[si.end.idx()].to_point2();
                     let b1 = self.vertices[sj.start.idx()].to_point2();
                     let b2 = self.vertices[sj.end.idx()].to_point2();
 
-                    if !segments_cross_interior(&a1, &a2, &b1, &b2) {
-                        continue;
+                    let o_b1 = orient_2d(&a1, &a2, &b1);
+                    let o_b2 = orient_2d(&a1, &a2, &b2);
+                    let o_a1 = orient_2d(&b1, &b2, &a1);
+                    let o_a2 = orient_2d(&b1, &b2, &a2);
+
+                    // ── Case 1: Proper interior crossing ──────────────────────
+                    if o_b1 != Orientation::Degenerate
+                        && o_b2 != Orientation::Degenerate
+                        && o_a1 != Orientation::Degenerate
+                        && o_a2 != Orientation::Degenerate
+                        && o_b1 != o_b2
+                        && o_a1 != o_a2
+                    {
+                        if let Some((px, py)) = segment_cross_point(&a1, &a2, &b1, &b2) {
+                            let xid = self.add_vertex(px, py);
+                            let (si_s, si_e) = (si.start, si.end);
+                            let (sj_s, sj_e) = (sj.start, sj.end);
+                            self.segments.swap_remove(j);
+                            self.segments.swap_remove(i);
+                            self.add_segment(si_s, xid);
+                            self.add_segment(xid, si_e);
+                            self.add_segment(sj_s, xid);
+                            self.add_segment(xid, sj_e);
+                            continue 'outer;
+                        }
                     }
 
-                    let (px, py) = match segment_cross_point(&a1, &a2, &b1, &b2) {
-                        Some(p) => p,
-                        // orient_2d says crossing but formula says parallel —
-                        // geometrically impossible; skip defensively.
-                        None => continue,
-                    };
+                    // ── Case 2: T-intersection (endpoint on interior) ──────────
+                    // Skip adjacent segments — shared endpoints are legal.
+                    if !share_endpoint {
+                        // b1 lies strictly in the interior of segment A?
+                        if o_b1 == Orientation::Degenerate && on_segment(&a1, &a2, &b1)
+                            && b1 != a1 && b1 != a2
+                        {
+                            let xid = sj.start; // reuse the existing PSLG vertex
+                            let (si_s, si_e) = (si.start, si.end);
+                            self.segments.swap_remove(i);
+                            self.add_segment(si_s, xid);
+                            self.add_segment(xid, si_e);
+                            continue 'outer;
+                        }
+                        // b2 lies strictly in the interior of segment A?
+                        if o_b2 == Orientation::Degenerate && on_segment(&a1, &a2, &b2)
+                            && b2 != a1 && b2 != a2
+                        {
+                            let xid = sj.end;
+                            let (si_s, si_e) = (si.start, si.end);
+                            self.segments.swap_remove(i);
+                            self.add_segment(si_s, xid);
+                            self.add_segment(xid, si_e);
+                            continue 'outer;
+                        }
+                        // a1 lies strictly in the interior of segment B?
+                        if o_a1 == Orientation::Degenerate && on_segment(&b1, &b2, &a1)
+                            && a1 != b1 && a1 != b2
+                        {
+                            let xid = si.start;
+                            let (sj_s, sj_e) = (sj.start, sj.end);
+                            self.segments.swap_remove(j);
+                            self.add_segment(sj_s, xid);
+                            self.add_segment(xid, sj_e);
+                            continue 'outer;
+                        }
+                        // a2 lies strictly in the interior of segment B?
+                        if o_a2 == Orientation::Degenerate && on_segment(&b1, &b2, &a2)
+                            && a2 != b1 && a2 != b2
+                        {
+                            let xid = si.end;
+                            let (sj_s, sj_e) = (sj.start, sj.end);
+                            self.segments.swap_remove(j);
+                            self.add_segment(sj_s, xid);
+                            self.add_segment(xid, sj_e);
+                            continue 'outer;
+                        }
+                    }
 
-                    let xid = self.add_vertex(px, py);
+                    // ── Case 3: Collinear overlap ──────────────────────────────
+                    // All four orientations are Degenerate → segments are collinear.
+                    if o_b1 == Orientation::Degenerate
+                        && o_b2 == Orientation::Degenerate
+                        && o_a1 == Orientation::Degenerate
+                        && o_a2 == Orientation::Degenerate
+                        && collinear_overlap_interior(&a1, &a2, &b1, &b2)
+                    {
+                        // Project onto the dominant axis to compute overlap interval.
+                        let use_x = (a2.x - a1.x).abs() >= (a2.y - a1.y).abs();
+                        // Collect all four coordinates and sort them.
+                        let coords: [Real; 4] = if use_x {
+                            [a1.x, a2.x, b1.x, b2.x]
+                        } else {
+                            [a1.y, a2.y, b1.y, b2.y]
+                        };
+                        let mut sorted = coords;
+                        sorted.sort_by(|x, y| x.partial_cmp(y).unwrap_or(std::cmp::Ordering::Equal));
+                        // The two middle values are the overlap boundaries.
+                        let lo_val = sorted[1];
+                        let hi_val = sorted[2];
+                        if (hi_val - lo_val).abs() < 1e-30 {
+                            // Degenerate overlap (a single point) — not a true overlap.
+                            continue;
+                        }
+                        // Find or create PSLG vertices at lo_val and hi_val.
+                        let lo_pt = if use_x {
+                            // x = lo_val, lerp y from segment A
+                            let t = (lo_val - a1.x) / (a2.x - a1.x);
+                            (lo_val, a1.y + t * (a2.y - a1.y))
+                        } else {
+                            let t = (lo_val - a1.y) / (a2.y - a1.y);
+                            (a1.x + t * (a2.x - a1.x), lo_val)
+                        };
+                        let hi_pt = if use_x {
+                            let t = (hi_val - a1.x) / (a2.x - a1.x);
+                            (hi_val, a1.y + t * (a2.y - a1.y))
+                        } else {
+                            let t = (hi_val - a1.y) / (a2.y - a1.y);
+                            (a1.x + t * (a2.x - a1.x), hi_val)
+                        };
+                        // Insert or reuse vertices for lo / hi overlap boundaries.
+                        let find_or_add = |pslg: &mut Pslg, px: Real, py: Real| -> PslgVertexId {
+                            // Check all existing vertices for a match.
+                            for (idx, v) in pslg.vertices.iter().enumerate() {
+                                let dx = v.x - px;
+                                let dy = v.y - py;
+                                if dx * dx + dy * dy < 1e-30 {
+                                    return PslgVertexId::from_usize(idx);
+                                }
+                            }
+                            pslg.add_vertex(px, py)
+                        };
+                        let lo_id = find_or_add(self, lo_pt.0, lo_pt.1);
+                        let hi_id = find_or_add(self, hi_pt.0, hi_pt.1);
+                        // Gather endpoints before removal.
+                        let (si_s, si_e) = (si.start, si.end);
+                        let (sj_s, sj_e) = (sj.start, sj.end);
+                        self.segments.swap_remove(j);
+                        self.segments.swap_remove(i);
 
-                    // Record endpoints before swap_removes invalidate the copies.
-                    let (si_s, si_e) = (si.start, si.end);
-                    let (sj_s, sj_e) = (sj.start, sj.end);
+                        // Helper to shatter a segment along the dominant axis.
+                        let mut add_shattered = |s_start: PslgVertexId, s_end: PslgVertexId| {
+                            let mut verts = [s_start, s_end, lo_id, hi_id];
+                            verts.sort_by(|&v1, &v2| {
+                                let p1 = self.vertices[v1.idx()];
+                                let p2 = self.vertices[v2.idx()];
+                                let val1 = if use_x { p1.x } else { p1.y };
+                                let val2 = if use_x { p2.x } else { p2.y };
+                                val1.partial_cmp(&val2).unwrap_or(std::cmp::Ordering::Equal)
+                            });
+                            for k in 0..3 {
+                                let p = verts[k];
+                                let q = verts[k + 1];
+                                if p != q {
+                                    let canonical = (p.min(q), p.max(q));
+                                    if !self.segments.iter().any(|s| s.canonical() == canonical) {
+                                        let _ = self.add_segment(p, q);
+                                    }
+                                }
+                            }
+                        };
 
-                    // Remove higher index first so lower index stays valid.
-                    self.segments.swap_remove(j);
-                    self.segments.swap_remove(i);
-
-                    // Four sub-segments sharing the new intersection vertex.
-                    self.add_segment(si_s, xid);
-                    self.add_segment(xid, si_e);
-                    self.add_segment(sj_s, xid);
-                    self.add_segment(xid, sj_e);
-
-                    continue 'outer; // restart with updated segment list
+                        // Reconstruct non-degenerate sub-segments for A and B.
+                        add_shattered(si_s, si_e);
+                        add_shattered(sj_s, sj_e);
+                        continue 'outer;
+                    }
                 }
             }
 
-            break; // no interior crossings remain
+            break; // no illegal pairs remain
         }
     }
 
     /// Compute the axis-aligned bounding box `(min, max)`.
     ///
     /// Returns `None` if the PSLG has fewer than 1 vertex.
+    #[must_use] 
     pub fn bounding_box(&self) -> Option<(PslgVertex, PslgVertex)> {
         if self.vertices.is_empty() {
             return None;
@@ -504,33 +653,6 @@ fn collinear_overlap_interior(
 
     let overlap = a_hi.min(b_hi) - a_lo.max(b_lo);
     overlap > 0.0
-}
-
-/// Strict proper-interior crossing test — does **not** report endpoint
-/// touches or collinear overlaps.  The caller must already have filtered out
-/// segment pairs that share an endpoint.
-fn segments_cross_interior(
-    a1: &Point2<Real>,
-    a2: &Point2<Real>,
-    b1: &Point2<Real>,
-    b2: &Point2<Real>,
-) -> bool {
-    let o1 = orient_2d(a1, a2, b1);
-    let o2 = orient_2d(a1, a2, b2);
-    let o3 = orient_2d(b1, b2, a1);
-    let o4 = orient_2d(b1, b2, a2);
-
-    // Any degenerate orientation means at least one endpoint is collinear
-    // with the opposite segment — not a proper interior crossing.
-    if o1 == Orientation::Degenerate
-        || o2 == Orientation::Degenerate
-        || o3 == Orientation::Degenerate
-        || o4 == Orientation::Degenerate
-    {
-        return false;
-    }
-
-    o1 != o2 && o3 != o4
 }
 
 /// Compute the f64 parametric crossing point of two non-parallel line segments.

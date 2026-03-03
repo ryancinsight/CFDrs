@@ -102,7 +102,7 @@ fn test_1d_bifurcation_blood(results: &mut ValidationResults) {
     // Use Casson blood model (implements Copy)
     let blood = CassonBlood::<f64>::normal_blood();
 
-    match bifurcation.solve(blood, 1e-6, 1000.0) {
+    match bifurcation.solve(blood, 1e-6, 1000.0, 310.15, 101325.0) {
         Ok(solution) => {
             println!("\nResults:");
             println!("  Mass conservation error: {:.2e}", solution.mass_conservation_error);
@@ -146,7 +146,7 @@ fn test_1d_bifurcation_microvasculature(results: &mut ValidationResults) {
     println!("  Parent diameter: {:.1e} m (100 μm)", bifurcation.parent.geometry.hydraulic_diameter());
     println!("  Daughter diameter: {:.1e} m (80 μm)", bifurcation.daughter1.geometry.hydraulic_diameter());
 
-    match bifurcation.solve(blood, 1e-8, 100.0) {
+    match bifurcation.solve(blood, 1e-8, 100.0, 310.15, 101325.0) {
         Ok(solution) => {
             println!("\nResults:");
             println!("  Daughter 1 shear rate: {:.1} s⁻¹", solution.gamma_1);

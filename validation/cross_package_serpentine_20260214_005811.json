@@ -2,7 +2,7 @@
   "timestamp_utc": "2026-02-14T00:58:11.318826+00:00",
   "validation_type": "cross_package_serpentine",
   "packages_compared": [
-    "pycfdrs",
+    "cfd-python",
     "scipy"
   ],
   "geometry": {
@@ -23,7 +23,7 @@
     "density_kg_m3": 1060.0
   },
   "results": {
-    "pycfdrs": {
+    "cfd-python": {
       "flow_rate_m3_s": 3.800757794710466e-11,
       "velocity_avg_m_s": 0.001900378897355233,
       "velocity_max_m_s": 0.0028505683460328494,

@@ -25,15 +25,15 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy> SerpentineFlow3D<T> {
 
 impl<T: RealField + Copy + num_traits::Float + num_traits::FromPrimitive + 
     num_traits::ToPrimitive + cfd_core::conversion::SafeFromF64 + std::convert::From<f64> + cfd_mesh::domain::core::Scalar> Benchmark<T> for SerpentineFlow3D<T> {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "3D Serpentine Micromixer Flow"
     }
 
-    fn description(&self) -> &str {
+    fn description(&self) -> &'static str {
         "3D Serpentine Micromixer flow with Dean vortices and blood rheology. Validates Dean number effects and pressure gradients."
     }
 
-    fn run(&self, config: &BenchmarkConfig<T>) -> cfd_core::error::Result<BenchmarkResult<T>> {
+    fn run(&self, _config: &BenchmarkConfig<T>) -> cfd_core::error::Result<BenchmarkResult<T>> {
         let mut result = BenchmarkResult::new(self.name());
         
         // 1. Setup Mesh Builder

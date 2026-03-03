@@ -1,12 +1,12 @@
 # xtask - CFD-rs Build Automation
 
-Automated build and validation system for CFD-rs Python bindings (pycfdrs).
+Automated build and validation system for CFD-rs Python bindings (cfd-python).
 
 ## Overview
 
 The xtask system automates the complete workflow for building, testing, and validating CFD-rs:
 
-1. **Build** pycfdrs wheels with maturin
+1. **Build** cfd-python wheels with maturin
 2. **Setup** Python virtual environment
 3. **Install** dependencies (numpy, scipy, matplotlib, FEniCS)
 4. **Validate** CFD implementations against analytical solutions and Python packages
@@ -23,7 +23,7 @@ cargo xtask all --plot
 
 This will:
 - ✅ Check for compilation errors
-- ✅ Build pycfdrs wheel (release mode)
+- ✅ Build cfd-python wheel (release mode)
 - ✅ Create Python virtual environment (.venv)
 - ✅ Install all dependencies
 - ✅ Run analytical validations
@@ -35,13 +35,13 @@ This will:
 # 1. Check for compilation errors
 cargo xtask check
 
-# 2. Build pycfdrs wheel
+# 2. Build cfd-python wheel
 cargo xtask build-wheel --release
 
 # 3. Setup virtual environment
 cargo xtask setup-venv
 
-# 4. Install dependencies and pycfdrs
+# 4. Install dependencies and cfd-python
 cargo xtask install-deps
 
 # 5. Run validations
@@ -68,12 +68,12 @@ cargo xtask check
 🔍 Checking for compilation errors...
 
 ✅ No compilation errors found!
-Ready to build pycfdrs wheels.
+Ready to build cfd-python wheels.
 ```
 
 ### `cargo xtask build-wheel`
 
-Build pycfdrs Python wheel with maturin.
+Build cfd-python Python wheel with maturin.
 
 ```bash
 # Release build (optimized)
@@ -86,19 +86,19 @@ cargo xtask build-wheel --no-release
 **What it does:**
 - Checks compilation first
 - Installs maturin if needed
-- Builds wheel in `crates/pycfdrs/target/wheels/`
+- Builds wheel in `crates/cfd-python/target/wheels/`
 - Lists available wheels
 
 **Output:**
 ```
-🔨 Building pycfdrs wheel...
+🔨 Building cfd-python wheel...
 
 Building release wheel...
 ✅ Wheel built successfully!
-Location: crates/pycfdrs/target/wheels
+Location: crates/cfd-python/target/wheels
 
 Available wheels:
-  - pycfdrs-0.1.0-cp311-cp311-win_amd64.whl
+  - cfd-python-0.1.0-cp311-cp311-win_amd64.whl
 ```
 
 ### `cargo xtask setup-venv`
@@ -135,7 +135,7 @@ Activate with:
 
 ### `cargo xtask install-deps`
 
-Install Python dependencies and pycfdrs.
+Install Python dependencies and cfd-python.
 
 ```bash
 # Install all dependencies
@@ -156,7 +156,7 @@ cargo xtask install-deps --with-fenics
   - seaborn, plotly (visualization)
   - pytest (testing)
   - tabulate (reports)
-- Installs pycfdrs wheel if available
+- Installs cfd-python wheel if available
 - Shows FEniCS installation instructions
 
 **Output:**
@@ -166,8 +166,8 @@ cargo xtask install-deps --with-fenics
 Upgrading pip...
 Installing maturin...
 Installing validation dependencies...
-Installing pycfdrs...
-✅ pycfdrs installed!
+Installing cfd-python...
+✅ cfd-python installed!
 
 ✅ Dependencies installed!
 ```
@@ -206,7 +206,7 @@ This may take several minutes...
 Activate with:
   conda activate cfdrs-validation
 
-Then install pycfdrs:
+Then install cfd-python:
   cargo xtask install-deps --venv $(conda info --base)/envs/cfdrs-validation
 ```
 
@@ -237,7 +237,7 @@ cargo xtask validate --venv my-venv
 ```
 
 **What it does:**
-- Checks if pycfdrs is installed
+- Checks if cfd-python is installed
 - Runs validation scripts:
   - `analytical/poiseuille_2d.py` - 2D channel flow
   - `analytical/bernoulli_venturi.py` - Venturi validation
@@ -291,7 +291,7 @@ cargo xtask all --with-fenics --plot
 🚀 Running complete validation workflow...
 
 Step 1/6: Checking compilation...
-Step 2/6: Building pycfdrs wheel...
+Step 2/6: Building cfd-python wheel...
 Step 3/6: Setting up virtual environment...
 Step 4/6: Installing dependencies...
 Step 5/6: Skipping FEniCS installation (use --with-fenics to enable)
@@ -315,7 +315,7 @@ cargo xtask clean
 
 **What it does:**
 - Runs `cargo clean`
-- Removes `crates/pycfdrs/target/wheels/`
+- Removes `crates/cfd-python/target/wheels/`
 - Removes `.venv/`
 - Removes `validation/reports/`
 
@@ -324,7 +324,7 @@ cargo xtask clean
 🧹 Cleaning build artifacts...
 
 Cleaning Rust build artifacts...
-Removing pycfdrs wheels...
+Removing cfd-python wheels...
 Removing virtual environment...
 Removing validation reports...
 
@@ -369,7 +369,7 @@ cargo xtask validate --category analytical --plot
 **Requirements:**
 - Python 3.11+
 - numpy, scipy, matplotlib
-- pycfdrs wheel
+- cfd-python wheel
 
 **Time:** ~2-5 minutes
 
@@ -394,7 +394,7 @@ cargo xtask validate --category fenics --plot
 
 **Requirements:**
 - FEniCS installed via conda
-- pycfdrs wheel
+- cfd-python wheel
 - ~1GB disk space
 
 **Time:** ~10-20 minutes (FEniCS install) + ~5-10 minutes (validation)
@@ -454,10 +454,10 @@ error: the configured Python interpreter version (3.13) is newer than PyO3's max
 - Use Python 3.11 or 3.12
 - Or set: `PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1`
 
-### Issue: pycfdrs import fails
+### Issue: cfd-python import fails
 
 ```python
-ImportError: DLL load failed while importing pycfdrs
+ImportError: DLL load failed while importing cfd-python
 ```
 
 **Solution:**
@@ -505,7 +505,7 @@ CFDrs/
 │   ├── src/
 │   │   └── main.rs          # Build automation
 │   └── README.md            # This file
-├── crates/pycfdrs/
+├── crates/cfd-python/
 │   ├── src/                 # Python bindings
 │   ├── target/wheels/       # Built wheels (generated)
 │   └── Cargo.toml

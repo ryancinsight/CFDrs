@@ -1,0 +1,115 @@
+{
+  "timestamp": "2026-03-01T14:31:19.449218",
+  "total_tests": 9,
+  "passed_tests": 5,
+  "cases": [
+    {
+      "name": "Poiseuille Flow (Casson)",
+      "dimension": "1D",
+      "test_type": "Analytical",
+      "passed": true,
+      "error_metric": 0.0,
+      "tolerance": 0.01,
+      "rust_value": 299.90096026847385,
+      "reference_value": 299.90096026847385,
+      "literature_source": "Merrill et al. (1969)",
+      "details": "\u03b3\u0307=7.96e+02 1/s, \u03bc=3.7687e-03 Pa\u00b7s"
+    },
+    {
+      "name": "Murray's Law",
+      "dimension": "1D",
+      "test_type": "Analytical",
+      "passed": true,
+      "error_metric": 4.99999930347883e-10,
+      "tolerance": 0.05,
+      "rust_value": 0.0015874010519599999,
+      "reference_value": 0.0015874010519681995,
+      "literature_source": "Murray (1926)",
+      "details": "D\u2080=2.00 mm, D\u2081=1.59 mm"
+    },
+    {
+      "name": "Carreau-Yasuda Model",
+      "dimension": "1D",
+      "test_type": "Literature",
+      "passed": true,
+      "error_metric": 0.0,
+      "tolerance": 0.1,
+      "rust_value": 0.056,
+      "reference_value": 0.056,
+      "literature_source": "Cho & Kensey (1991)",
+      "details": "\u03bc\u2080=5.6000e-02, \u03bc\u221e=3.4500e-03"
+    },
+    {
+      "name": "2D Poiseuille Flow",
+      "dimension": "2D",
+      "test_type": "Analytical",
+      "passed": false,
+      "error_metric": 0.7142857142857143,
+      "tolerance": 0.05,
+      "rust_value": 0.03571428571428571,
+      "reference_value": 0.125,
+      "literature_source": "Hagen-Poiseuille",
+      "details": "H=100 \u03bcm, \u0394P=100.0 Pa"
+    },
+    {
+      "name": "Venturi (Bernoulli)",
+      "dimension": "2D",
+      "test_type": "Analytical",
+      "passed": true,
+      "error_metric": 0.07489205509906953,
+      "tolerance": 0.1,
+      "rust_value": -1.07554148602849,
+      "reference_value": -1.0006041824631038,
+      "literature_source": "ISO 5167-1:2003",
+      "details": "\u03b2=0.707, Cp=-1.001"
+    },
+    {
+      "name": "Bifurcation Flow Split",
+      "dimension": "2D",
+      "test_type": "Cross-dimensional",
+      "passed": true,
+      "error_metric": 0.007804878048780495,
+      "tolerance": 0.05,
+      "rust_value": 0.38243902439024396,
+      "reference_value": 0.39024390243902446,
+      "literature_source": "1D-2D Comparison",
+      "details": "D\u2080=100 \u03bcm, split=0.382"
+    },
+    {
+      "name": "3D Pipe Flow",
+      "dimension": "3D",
+      "test_type": "Analytical",
+      "passed": false,
+      "error_metric": 1.9121818707305116,
+      "tolerance": 0.1,
+      "rust_value": -1.4328519319123852e-06,
+      "reference_value": 1.5707963267948969e-06,
+      "literature_source": "Hagen-Poiseuille",
+      "details": "D=4.0 mm, Q=-1.433 mL/s"
+    },
+    {
+      "name": "3D Bifurcation WSS",
+      "dimension": "3D",
+      "test_type": "Physiological",
+      "passed": false,
+      "error_metric": 0.26915159349442735,
+      "tolerance": 0.2,
+      "rust_value": 3.8617621333337335,
+      "reference_value": 5.283944110650925,
+      "literature_source": "Fung (1993)",
+      "details": "\u03c4_w=3.86 Pa (physiological: 1-5 Pa)"
+    },
+    {
+      "name": "3D Mass Conservation",
+      "dimension": "3D",
+      "test_type": "Conservation",
+      "passed": false,
+      "error_metric": 1.2732395447351598e-06,
+      "tolerance": 1e-06,
+      "rust_value": 1.2732395447351598e-06,
+      "reference_value": 0.0,
+      "literature_source": "Numerical",
+      "details": "Error=1.27e-06"
+    }
+  ]
+}

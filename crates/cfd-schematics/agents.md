@@ -2,10 +2,21 @@
 
 > **Role**: Single authoritative source for microfluidic network topology, geometry generation,
 > and 2D schematic visualisation. **Design-time only — no PDEs solved here.**  
-> **Depends on**: `cfd-core`, `petgraph`, `plotters`
+> **Direct internal deps**: `cfd-core`
 
 ---
 
+
+<!-- AGENT-AUDIT-SNAPSHOT:START -->
+## Verified Audit Snapshot (2026-02-26)
+
+- Verified against `Cargo.toml`, `src/lib.rs`, and the top-level `src/` tree.
+- Direct internal crate dependencies (`cargo metadata`): `cfd-core`.
+- Cargo features: `default`.
+- `src/lib.rs` module surface: `application`, `config`, `domain`, `error`, `geometry`, `infrastructure`, `interface`, `state_management`, `visualizations`.
+- Top-level `src/` entries: `application`, `config`, `domain`, `error.rs`, `geometry`, `infrastructure`, `interface`, `lib.rs`, `state_management`, `visualizations`.
+
+<!-- AGENT-AUDIT-SNAPSHOT:END -->
 ## Purpose
 
 `cfd-schematics` is the **topology and geometry authority** for the CFDrs pipeline:
@@ -232,3 +243,6 @@ AnalysisOverlay::from_blueprint(&blueprint)
 
 All examples use `env!("CARGO_MANIFEST_DIR").join("outputs")` — never CWD-relative paths.
 `outputs/` is listed in the root `.gitignore`.
+
+
+

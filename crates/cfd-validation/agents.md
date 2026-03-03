@@ -1,10 +1,21 @@
 # cfd-validation — Agent Reference
 
 > **Role**: Verification & Validation (V&V) framework per ASME V&V 20-2009.  
-> **Depends on**: `cfd-core`, `cfd-math`, `cfd-1d`, `cfd-2d`, `cfd-3d`
+> **Direct internal deps**: `cfd-1d`, `cfd-2d`, `cfd-3d`, `cfd-core`, `cfd-io`, `cfd-math`, `cfd-mesh`, `cfd-schematics`
 
 ---
 
+
+<!-- AGENT-AUDIT-SNAPSHOT:START -->
+## Verified Audit Snapshot (2026-02-26)
+
+- Verified against `Cargo.toml`, `src/lib.rs`, and the top-level `src/` tree.
+- Direct internal crate dependencies (`cargo metadata`): `cfd-1d`, `cfd-2d`, `cfd-3d`, `cfd-core`, `cfd-io`, `cfd-math`, `cfd-mesh`, `cfd-schematics`.
+- Cargo features: (none).
+- `src/lib.rs` module surface: `adaptive_mesh`, `algorithm_complexity`, `analytical`, `analytical_benchmarks`, `benchmarking`, `benchmarks`, `conservation`, `convergence`, `edge_case_testing`, `error_metrics`, `geometry`, `literature`, `manufactured`, `numerical`, `reporting`, `solutions`, `time_integration`.
+- Top-level `src/` entries: `adaptive_mesh.rs`, `algorithm_complexity.rs`, `analytical`, `analytical_benchmarks.rs`, `benchmarking`, `benchmarks`, `conservation`, `convergence`, `edge_case_testing.rs`, `error_metrics`, `geometry`, `lib.rs`, `literature`, `manufactured`, `numerical`, `reporting`, `solutions`, `time_integration`.
+
+<!-- AGENT-AUDIT-SNAPSHOT:END -->
 ## Purpose
 
 `cfd-validation` provides systematic evidence that CFDrs solvers are:
@@ -225,3 +236,6 @@ HtmlReporter::write(&report, "validation/ghia_re100.html")?;
 - GCI must use `F_s = 1.25` (ASME) — do not lower the safety factor
 - MMS source terms must be derived analytically, not numerically differenced
 - Conservation checks must use surface integrals, not volume-averaged residuals
+
+
+

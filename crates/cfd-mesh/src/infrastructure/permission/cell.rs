@@ -1,4 +1,4 @@
-//! GhostCell — zero-cost interior mutability gated by a branded token.
+//! `GhostCell` — zero-cost interior mutability gated by a branded token.
 //!
 //! The `GhostCell<'brand, T>` wrapper stores data that can only be accessed
 //! through a matching `GhostToken<'brand>`.
@@ -35,13 +35,13 @@ pub struct GhostCell<'brand, T: ?Sized> {
 // exclusive mutable access through the borrow checker. When T: Send,
 // ownership transfer across threads is safe because, at any point,
 // only one thread can hold &mut GhostToken.
-unsafe impl<'brand, T: ?Sized + Send> Send for GhostCell<'brand, T> {}
+unsafe impl<T: ?Sized + Send> Send for GhostCell<'_, T> {}
 
 // SAFETY: Shared references (&GhostCell) can exist on multiple threads,
 // but reading requires &GhostToken (which is !Sync by construction of the
 // invariant lifetime brand in PhantomData). Writing requires
 // &mut GhostToken. The borrow checker prevents data races.
-unsafe impl<'brand, T: ?Sized + Send + Sync> Sync for GhostCell<'brand, T> {}
+unsafe impl<T: ?Sized + Send + Sync> Sync for GhostCell<'_, T> {}
 
 impl<'brand, T> GhostCell<'brand, T> {
     /// Wrap a value in a `GhostCell`.
@@ -85,7 +85,7 @@ impl<'brand, T: Clone> GhostCell<'brand, T> {
     }
 }
 
-impl<'brand, T: Default> Default for GhostCell<'brand, T> {
+impl<T: Default> Default for GhostCell<'_, T> {
     fn default() -> Self {
         Self::new(T::default())
     }

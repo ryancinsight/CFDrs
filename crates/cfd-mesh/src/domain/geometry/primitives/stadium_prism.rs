@@ -19,7 +19,7 @@ use crate::domain::mesh::IndexedMesh;
 ///
 /// The cross-section in the XZ plane consists of:
 /// - Two straight edges of length `flat_length = width − 2·corner_radius`
-///   parallel to X, at Z = ±corner_radius.
+///   parallel to X, at Z = ±`corner_radius`.
 /// - Two semicircles of radius `corner_radius` centred at
 ///   `(0, ±corner_radius)` (in the Z direction).
 ///
@@ -47,7 +47,7 @@ use crate::domain::mesh::IndexedMesh;
 pub struct StadiumPrism {
     /// Centre of the base face.
     pub base_center: Point3r,
-    /// Total width of the stadium cross-section [mm] (= 2 · corner_radius).
+    /// Total width of the stadium cross-section [mm] (= 2 · `corner_radius`).
     pub width: f64,
     /// Extrusion height along +Y [mm].
     pub height: f64,

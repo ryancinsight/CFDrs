@@ -25,7 +25,7 @@ use crate::domain::mesh::IndexedMesh;
 ///
 /// ## Region IDs
 ///
-/// | RegionId | Surface |
+/// | `RegionId` | Surface |
 /// |----------|---------|
 /// | 1 | Upper lobe (+Y) |
 /// | 2 | Lower lobe (−Y) |
@@ -74,6 +74,7 @@ impl Default for BiconcaveDisk {
 
 impl BiconcaveDisk {
     /// Convenience constructor with human-RBC defaults and specified diameter.
+    #[must_use] 
     pub fn human_rbc(diameter: f64) -> Self {
         Self {
             diameter,
@@ -121,8 +122,7 @@ fn build(bd: &BiconcaveDisk) -> Result<IndexedMesh, PrimitiveError> {
     // caused incorrect welding of innermost-ring vertices at that scale.
     let min_ring_spacing = std::f64::consts::TAU * r / (bd.rings as f64 * bd.segments as f64);
     let tol = (min_ring_spacing / 10.0).max(1e-10); // never go below 1 pm
-    let cell = tol * 4.0; // cell ≥ 2× tolerance for 26-neighbour check
-    let mut mesh = IndexedMesh::with_tolerance(cell, tol);
+    let mut mesh = IndexedMesh::with_cell_size(tol);
     let cx = bd.center.x;
     let cy = bd.center.y;
     let cz = bd.center.z;

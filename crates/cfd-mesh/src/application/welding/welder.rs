@@ -28,13 +28,15 @@ pub struct MeshWelder {
 
 impl MeshWelder {
     /// Create a new topological welder with the default tolerance.
+    #[must_use] 
     pub fn new() -> Self {
         Self {
-            tolerance: TOLERANCE.sqrt(),
+            tolerance: TOLERANCE,
         }
     }
 
     /// Create a topological welder with a custom tolerance.
+    #[must_use] 
     pub fn with_tolerance(tolerance: Real) -> Self {
         Self { tolerance }
     }
@@ -249,7 +251,7 @@ mod tests {
 
     #[test]
     fn topological_weld_prevents_degenerate_face() {
-        let mut positions = vec![
+        let positions = vec![
             p(0.0, 0.0, 0.0),
             p(1e-7, 0.0, 0.0), // very close, should not weld because they share a face
             p(0.0, 1.0, 0.0),
@@ -266,14 +268,14 @@ mod tests {
 
     #[test]
     fn topological_weld_allows_disconnected_merge() {
-        let mut positions = vec![
+        let positions = vec![
             p(0.0, 0.0, 0.0),
             p(1.0, 0.0, 0.0),
             p(0.0, 1.0, 0.0),
             // Disconnected copy of the same points
-            p(0.0, 1e-7, 0.0), // Merges to 0
-            p(1.0, 0.0, 0.0),  // Merges to 1
-            p(0.0, 1.0, 0.0),  // Merges to 2
+            p(0.0, 1e-10, 0.0), // Within TOLERANCE (1e-9) → merges to 0
+            p(1.0, 0.0, 0.0),   // Exact match → merges to 1
+            p(0.0, 1.0, 0.0),   // Exact match → merges to 2
         ];
 
         let mut face_store = FaceStore::new();
@@ -324,7 +326,7 @@ mod tests {
         // If we weld B to D, the shared neighbor A/C will have 2 + 2 = 4 faces.
         // Our check: `count_src + count_dst > 2`. 2 + 2 = 4 > 2. So it FAILS!
         // EXACTLY! Pinching interior edges is safely blocked.
-        let mut positions = vec![
+        let positions = vec![
             // Sheet 1
             p(0.0, 0.0, 0.0), // 0: A
             p(1.0, 0.0, 0.0), // 1: B

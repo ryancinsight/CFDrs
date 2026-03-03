@@ -42,9 +42,7 @@ impl CrossSectionSpec {
     #[must_use]
     pub fn area(&self) -> f64 {
         match self {
-            Self::Circular { diameter_m } => {
-                std::f64::consts::PI * (diameter_m / 2.0).powi(2)
-            }
+            Self::Circular { diameter_m } => std::f64::consts::PI * (diameter_m / 2.0).powi(2),
             Self::Rectangular { width_m, height_m } => width_m * height_m,
         }
     }
@@ -57,7 +55,6 @@ pub enum NodeKind {
     Reservoir,
     Junction,
 }
-
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NodeSpec {
@@ -103,7 +100,10 @@ pub struct ChannelSpec {
 }
 
 impl ChannelSpec {
-    pub fn with_metadata<T: crate::geometry::metadata::Metadata + Clone + 'static>(mut self, meta: T) -> Self {
+    pub fn with_metadata<T: crate::geometry::metadata::Metadata + Clone + 'static>(
+        mut self,
+        meta: T,
+    ) -> Self {
         if self.metadata.is_none() {
             self.metadata = Some(crate::geometry::metadata::MetadataContainer::new());
         }

@@ -81,7 +81,7 @@ Complete reference implementation from pmocz/cfd-comparison-python:
 
 ### 4. PyO3 Bindings Verification ✓
 
-Existing pycfdrs bindings provide complete Python API:
+Existing cfd-python bindings provide complete Python API:
 
 #### 1D Solvers
 ```rust
@@ -179,7 +179,7 @@ Every test produces:
 ### Quick Start
 ```bash
 # Build Python bindings
-cd crates/pycfdrs
+cd crates/cfd-python
 maturin develop --release
 
 # Run all validations
@@ -192,17 +192,17 @@ python external_validation/scripts/validation_runner.py --test cavity
 
 ### Python API
 ```python
-import pycfdrs
+import cfd-python
 
 # 1D Poiseuille
-solver = pycfdrs.PoiseuilleSolver1D(
+solver = cfd-python.PoiseuilleSolver1D(
     diameter=100e-6, length=1e-3, viscosity=0.001
 )
 result = solver.solve(delta_p=100.0)
 print(f"Flow rate: {result.flow_rate:.4e} m³/s")
 
 # 2D Bifurcation with blood
-bifurc = pycfdrs.BifurcationSolver(
+bifurc = cfd-python.BifurcationSolver(
     d_parent=100e-6, d_daughter1=80e-6, d_daughter2=80e-6
 )
 result = bifurc.solve(
@@ -210,7 +210,7 @@ result = bifurc.solve(
 )
 
 # 3D with wall shear stress
-solver3d = pycfdrs.Bifurcation3DSolver(
+solver3d = cfd-python.Bifurcation3DSolver(
     d_parent=100e-6, d_daughter1=80e-6, d_daughter2=80e-6,
     nx=30, ny=30, nz=30
 )
@@ -273,7 +273,7 @@ The external validation framework provides:
 2. ✓ **Reference implementations** (FVM from pmocz)
 3. ✓ **Quantitative metrics** (errors, tolerances, pass/fail)
 4. ✓ **Literature validation** (Ghia, Murray, Bernoulli)
-5. ✓ **Python API** (via pycfdrs)
+5. ✓ **Python API** (via cfd-python)
 6. ✓ **Complete documentation** (8.5 KB README + 10 KB summary)
 7. ✓ **No placeholders** (all implementations are complete)
 

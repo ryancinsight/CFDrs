@@ -46,15 +46,15 @@ from typing import Tuple, Dict
 import sys
 from pathlib import Path
 
-# Add parent directory to path to import pycfdrs
+# Add parent directory to path to import cfd_python
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 try:
-    import pycfdrs
-    PYCFDRS_AVAILABLE = True
+    import cfd_python
+    cfd_python_AVAILABLE = True
 except ImportError:
-    print("WARNING: pycfdrs not available. Please build with 'maturin develop'")
-    PYCFDRS_AVAILABLE = False
+    print("WARNING: cfd_python not available. Please build with 'maturin develop'")
+    cfd_python_AVAILABLE = False
 
 
 class PoiseuilleAnalytical:
@@ -212,14 +212,14 @@ def validate_poiseuille_2d(
     y = np.linspace(0, height, ny)
     u_analytical_profile = analytical.velocity_profile(y)
 
-    # If pycfdrs is available, run numerical simulation
-    if PYCFDRS_AVAILABLE:
+    # If cfd_python is available, run numerical simulation
+    if cfd_python_AVAILABLE:
         print("RUNNING CFD-RS SIMULATION...")
 
         # Note: This is a placeholder - actual solver implementation needed
         # For now, we'll use the analytical solution as a proxy
         # In production, this would call:
-        # solver = pycfdrs.Poiseuille2DSolver(height, length/10, length, nx, ny)
+        # solver = cfd_python.Poiseuille2DSolver(height, length/10, length, nx, ny)
         # result = solver.solve(pressure_drop, viscosity, density)
 
         # Placeholder: Use analytical solution + small perturbation
@@ -317,7 +317,7 @@ def validate_poiseuille_2d(
             'Re': Re_analytical,
         }
     else:
-        print("Skipping numerical simulation (pycfdrs not available)")
+        print("Skipping numerical simulation (cfd_python not available)")
         return {
             'passed': False,
             'u_max_analytical': u_max_analytical,

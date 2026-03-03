@@ -50,9 +50,9 @@ except ImportError as e:
     sys.exit(1)
 
 try:
-    import pycfdrs
+    import cfd_python
 except ImportError:
-    print("❌ pycfdrs not installed!")
+    print("❌ cfd_python not installed!")
     print("\nBuild and install with:")
     print("  cargo xtask build-wheel")
     print("  cargo xtask install-deps")
@@ -66,7 +66,7 @@ class ValidationRunner:
         self.args = args
         self.results = {
             "timestamp": datetime.now().isoformat(),
-            "pycfdrs_version": pycfdrs.__version__,
+            "cfd_python_version": cfd_python.__version__,
             "tests": {},
         }
         self.report_dir = PROJECT_ROOT / "validation" / "reports"
@@ -270,7 +270,7 @@ class ValidationRunner:
         with open(report_path, "w", encoding="utf-8") as f:
             f.write(f"# CFD-RS Validation Report\n\n")
             f.write(f"**Generated:** {self.results['timestamp']}  \n")
-            f.write(f"**pycfdrs Version:** {self.results['pycfdrs_version']}  \n")
+            f.write(f"**cfd_python Version:** {self.results['cfd_python_version']}  \n")
             f.write(f"**Category:** {self.args.category}  \n")
             f.write(f"**Mode:** {'Quick' if self.args.quick else 'Full'}  \n\n")
 

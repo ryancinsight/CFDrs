@@ -11,7 +11,7 @@
 //! └── geo.rs    — surface_area, axis helpers, longest_axis
 //! ```
 //!
-//! # GhostCell Integration
+//! # `GhostCell` Integration
 //!
 //! Tree connectivity lives in a
 //! [`PermissionedArena<'brand, BvhNodeKind>`][`crate::infrastructure::permission::PermissionedArena`],
@@ -62,7 +62,7 @@ use node::BvhNodeKind;
 
 /// Flat-arena SAH-BVH branded with `'brand`.
 ///
-/// - `'brand` — the GhostCell brand gating connectivity reads.
+/// - `'brand` — the `GhostCell` brand gating connectivity reads.
 /// - `'aabbs` — lifetime of the source AABB slice (no copy of input data).
 ///
 /// Construct via [`with_bvh`]; query via [`BvhTree::query_overlapping`].
@@ -77,7 +77,7 @@ pub struct BvhTree<'brand, 'aabbs> {
     prim_aabbs: &'aabbs [Aabb],
 }
 
-impl<'brand, 'aabbs> BvhTree<'brand, 'aabbs> {
+impl<'brand> BvhTree<'brand, '_> {
     /// Query all primitive indices whose AABB overlaps `query`.
     ///
     /// Uses an iterative `[u32; 64]` stack — no recursion, no heap allocation
@@ -101,6 +101,7 @@ impl<'brand, 'aabbs> BvhTree<'brand, 'aabbs> {
 
     /// Number of internal tree nodes (useful for diagnostics and testing).
     #[inline]
+    #[must_use] 
     pub fn node_count(&self) -> usize {
         self.node_aabbs.len()
     }

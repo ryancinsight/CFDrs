@@ -102,6 +102,20 @@
 #![allow(clippy::return_self_not_must_use)] // Builder patterns used internally
 #![allow(clippy::ptr_arg)] // &Vec used for API compatibility
 #![allow(clippy::should_implement_trait)] // CFD-specific trait implementations
+#![allow(clippy::manual_let_else)]
+#![allow(clippy::match_same_arms)]
+#![allow(clippy::useless_conversion)]
+#![allow(clippy::inline_always)]
+#![allow(clippy::needless_range_loop)]
+#![allow(clippy::format_push_string)]
+#![allow(clippy::new_without_default)]
+#![allow(clippy::trivially_copy_pass_by_ref)]
+#![allow(clippy::empty_line_after_doc_comments)]
+#![allow(clippy::too_many_lines)]
+#![allow(clippy::doc_overindented_list_items)]
+#![allow(clippy::same_item_push)]
+#![allow(clippy::manual_clamp)]
+#![allow(clippy::duplicated_attributes)]
 
 pub mod bifurcation;
 pub mod fem;

@@ -1,7 +1,7 @@
 //! Per-element attribute storage.
 //!
 //! Attributes (scalar fields, region tags, boundary conditions) are stored
-//! separately from mesh topology. This follows SoC: the mesh topology module
+//! separately from mesh topology. This follows `SoC`: the mesh topology module
 //! doesn't know about attribute semantics, and attribute storage doesn't
 //! know about topology.
 
@@ -9,7 +9,7 @@ use std::collections::HashMap;
 
 /// A named collection of per-element scalar attributes.
 ///
-/// Generic over the index type `I` (VertexId, FaceId, etc.) so the same
+/// Generic over the index type `I` (`VertexId`, `FaceId`, etc.) so the same
 /// mechanism works for vertex attributes, face attributes, and edge attributes.
 #[derive(Clone)]
 pub struct AttributeStore<I: std::hash::Hash + Eq + Copy> {
@@ -19,6 +19,7 @@ pub struct AttributeStore<I: std::hash::Hash + Eq + Copy> {
 
 impl<I: std::hash::Hash + Eq + Copy> AttributeStore<I> {
     /// Create an empty attribute store.
+    #[must_use] 
     pub fn new() -> Self {
         Self {
             channels: HashMap::new(),
@@ -41,13 +42,15 @@ impl<I: std::hash::Hash + Eq + Copy> AttributeStore<I> {
     }
 
     /// Check if a channel exists.
+    #[must_use] 
     pub fn has_channel(&self, channel: &str) -> bool {
         self.channels.contains_key(channel)
     }
 
     /// List all channel names.
+    #[must_use] 
     pub fn channel_names(&self) -> Vec<&str> {
-        self.channels.keys().map(|s| s.as_str()).collect()
+        self.channels.keys().map(std::string::String::as_str).collect()
     }
 
     /// Remove a channel.
@@ -61,6 +64,7 @@ impl<I: std::hash::Hash + Eq + Copy> AttributeStore<I> {
     }
 
     /// Number of channels.
+    #[must_use] 
     pub fn channel_count(&self) -> usize {
         self.channels.len()
     }

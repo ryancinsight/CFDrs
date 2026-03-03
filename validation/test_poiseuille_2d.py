@@ -13,14 +13,14 @@ import sys
 import matplotlib.pyplot as plt
 import numpy as np
 
-# Try to import pycfdrs
+# Try to import cfd_python
 try:
-    import pycfdrs
+    import cfd_python
 except ImportError:
-    print("ERROR: pycfdrs not installed. Install with:")
+    print("ERROR: cfd_python not installed. Install with:")
     print("  maturin develop --release")
     print("  or")
-    print("  pip install target/wheels/pycfdrs-*.whl")
+    print("  pip install target/wheels/cfd_python-*.whl")
     sys.exit(1)
 
 
@@ -63,7 +63,7 @@ def test_poiseuille_2d():
     print(f"  Pressure gradient: {pressure_gradient:.2e} Pa/m")
 
     # Create configuration
-    config = pycfdrs.PoiseuilleConfig2D(
+    config = cfd_python.PoiseuilleConfig2D(
         height=height,
         width=width,
         length=length,
@@ -77,11 +77,11 @@ def test_poiseuille_2d():
     print(f"\nSolver config: {config}")
 
     # Create solver
-    solver = pycfdrs.PoiseuilleSolver2D_Legacy(config)
+    solver = cfd_python.PoiseuilleSolver2D_Legacy(config)
     print(f"Solver: {solver}")
 
     # Create Casson blood model
-    blood = pycfdrs.CassonBlood()
+    blood = cfd_python.CassonBlood()
     print(f"\nBlood model: {blood}")
 
     # Solve

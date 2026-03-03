@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Comprehensive CFD Validation Suite — pycfdrs vs Analytical & Literature
+Comprehensive CFD Validation Suite — cfd_python vs Analytical & Literature
 
-Validates ALL pycfdrs solvers against analytical solutions and published
+Validates ALL cfd_python solvers against analytical solutions and published
 literature data with a MAXIMUM ACCEPTABLE ERROR of 2%.
 
 Covers:
@@ -22,7 +22,7 @@ References:
 
 Usage:
     .venv/Scripts/Activate.ps1
-    maturin develop --manifest-path crates/pycfdrs/Cargo.toml
+    maturin develop --manifest-path crates/cfd-python/Cargo.toml
     python validation/comprehensive_validation.py
 """
 
@@ -33,12 +33,12 @@ from dataclasses import dataclass, field
 from typing import List, Tuple, Optional
 
 try:
-    import pycfdrs
-    HAS_PYCFDRS = True
+    import cfd_python
+    HAS_cfd_python = True
 except ImportError:
-    HAS_PYCFDRS = False
-    print("FATAL: pycfdrs not available.")
-    print("Build with: maturin develop --manifest-path crates/pycfdrs/Cargo.toml")
+    HAS_cfd_python = False
+    print("FATAL: cfd_python not available.")
+    print("Build with: maturin develop --manifest-path crates/cfd-python/Cargo.toml")
     sys.exit(1)
 
 
@@ -124,7 +124,7 @@ def validate_poiseuille_2d():
     print("═"*70)
 
     # --- Parameters (microfluidic scale) ---
-    # NOTE: pycfdrs Poiseuille2DSolver uses mu=0.0035 Pa·s and rho=1060 kg/m³
+    # NOTE: cfd_python Poiseuille2DSolver uses mu=0.0035 Pa·s and rho=1060 kg/m³
     # for the default ("water") case — this is actually blood-like Newtonian
     H = 100e-6       # Channel height 100 μm
     W = 200e-6       # Channel width  200 μm
@@ -138,8 +138,8 @@ def validate_poiseuille_2d():
     # ----- 1a: Analytical max velocity (using solver's default mu) -----
     u_max_analytical = (H**2 / (8 * mu_default)) * dp_dx
 
-    solver_w = pycfdrs.Poiseuille2DSolver(height=H, width=W, length=L, nx=80, ny=40)
-    # pycfdrs analytical_max_velocity takes negative pressure_gradient
+    solver_w = cfd_python.Poiseuille2DSolver(height=H, width=W, length=L, nx=80, ny=40)
+    # cfd_python analytical_max_velocity takes negative pressure_gradient
     u_max_solver = abs(solver_w.analytical_max_velocity(-dp_dx, mu_default))
     check("u_max analytical fn", "Poiseuille2D",
           u_max_analytical, u_max_solver, tolerance=1e-8)
@@ -167,7 +167,7 @@ def validate_poiseuille_2d():
           details="Re = rho*u_max*H/mu")
 
     # ----- 1f: Blood (Casson) solve -----
-    solver_b = pycfdrs.Poiseuille2DSolver(height=H, width=W, length=L, nx=80, ny=40)
+    solver_b = cfd_python.Poiseuille2DSolver(height=H, width=W, length=L, nx=80, ny=40)
     result_b = solver_b.solve(dP, "casson")
     # Blood (Casson) max velocity should be lower than or equal to default
     # because Casson at high shear ~ 3.5 mPa.s (same as default)
@@ -205,7 +205,7 @@ def validate_cavity():
 
     # Use 17x17 grid — minimal viable for cavity validation
     # The SIMPLEC solver is expensive (max_inner_iterations=150, n_outer_correctors=50)
-    solver = pycfdrs.CavitySolver2D(
+    solver = cfd_python.CavitySolver2D(
         reynolds=100.0, nx=17, ny=17,
         lid_velocity=1.0, cavity_size=1.0
     )
@@ -228,7 +228,7 @@ def validate_cavity():
     errors = []
     for n in [9, 13, 17]:
         try:
-            s = pycfdrs.CavitySolver2D(reynolds=100.0, nx=n, ny=n)
+            s = cfd_python.CavitySolver2D(reynolds=100.0, nx=n, ny=n)
             r = s.solve()
             errors.append(r.l2_error)
             print(f"    {n}x{n}: L2 error = {r.l2_error:.6f}")
@@ -258,8 +258,8 @@ def validate_blood_rheology():
     print("  3. BLOOD RHEOLOGY — vs Merrill (1969) & Chien (1970)")
     print("═"*70)
 
-    casson = pycfdrs.CassonBlood()
-    carreau = pycfdrs.CarreauYasudaBlood()
+    casson = cfd_python.CassonBlood()
+    carreau = cfd_python.CarreauYasudaBlood()
 
     # 3a: Casson asymptotic viscosity
     mu_inf_casson = casson.viscosity_high_shear() * 1000  # mPa·s
@@ -331,7 +331,7 @@ def validate_venturi():
     # --- Standard geometry ---
     w_inlet = 200e-6
     w_throat = 100e-6
-    solver = pycfdrs.VenturiSolver2D(
+    solver = cfd_python.VenturiSolver2D(
         w_inlet=w_inlet, w_throat=w_throat,
         l_inlet=200e-6, l_converge=100e-6,
         l_throat=200e-6, l_diverge=200e-6,
@@ -361,7 +361,7 @@ def validate_venturi():
           vel_ratio_expected, result.velocity_ratio, tolerance=0.02)
 
     # 4e: ISO 5167 standard Venturi
-    iso = pycfdrs.VenturiSolver2D.iso_5167_standard(200, 100)
+    iso = cfd_python.VenturiSolver2D.iso_5167_standard(200, 100)
     iso_beta = iso.area_ratio()
     iso_cp = iso.pressure_coefficient_analytical()
     iso_cp_expected = 1.0 - iso_beta**2
@@ -397,7 +397,7 @@ def validate_bifurcation():
 
     # 5b: Create bifurcation solver and solve
     try:
-        solver = pycfdrs.BifurcationSolver(
+        solver = cfd_python.BifurcationSolver(
             d_parent=d_parent,
             d_daughter1=d_daughter,
             d_daughter2=d_daughter,
@@ -465,7 +465,7 @@ def validate_poiseuille_3d():
     Q_analytical = (np.pi * R**4 / (8.0 * mu)) * dp_dx
 
     try:
-        solver = pycfdrs.Poiseuille3DSolver(
+        solver = cfd_python.Poiseuille3DSolver(
             diameter=D, length=L,
             nr=20, ntheta=16, nz=20
         )
@@ -484,7 +484,7 @@ def validate_poiseuille_3d():
 
         # 6c: Numerical solve (uses CassonBlood internally for all blood types)
         # Get the effective viscosity used by the solver
-        casson_mu = pycfdrs.CassonBlood().apparent_viscosity(100.0)
+        casson_mu = cfd_python.CassonBlood().apparent_viscosity(100.0)
         u_max_casson = (R**2 / (4.0 * casson_mu)) * dp_dx
         result = solver.solve(dP, "water")
         # solve() passes positive dp_dx which gives negative u_max, take abs
@@ -516,7 +516,7 @@ def validate_blood_poiseuille():
     L = 500e-6
     dP = 500.0
 
-    solver = pycfdrs.Poiseuille2DSolver(height=H, width=W, length=L, nx=60, ny=30)
+    solver = cfd_python.Poiseuille2DSolver(height=H, width=W, length=L, nx=60, ny=30)
 
     result_water = solver.solve(dP, "water")
     result_casson = solver.solve(dP, "casson")
@@ -583,7 +583,7 @@ def print_summary():
 
     if total_fail == 0:
         print("\n  ALL VALIDATIONS PASSED")
-        print("  pycfdrs solvers match analytical solutions and literature")
+        print("  cfd_python solvers match analytical solutions and literature")
         print("  within the 2% error threshold.")
     else:
         print(f"\n  {total_fail} VALIDATION(S) FAILED")
@@ -595,7 +595,7 @@ def print_summary():
 
 def main():
     print("\n╔" + "═"*68 + "╗")
-    print("║   COMPREHENSIVE CFD VALIDATION — pycfdrs vs Analytical/Literature   ║")
+    print("║   COMPREHENSIVE CFD VALIDATION — cfd_python vs Analytical/Literature   ║")
     print("║   Max acceptable error: 2%                                          ║")
     print("╚" + "═"*68 + "╝")
 

@@ -221,8 +221,7 @@ pub struct SpectralFilter {
     /// Filter coefficients
     filter_coeffs: DVector<f64>,
     /// Filter order
-    #[allow(dead_code)]
-    order: usize,
+    _order: usize,
 }
 
 impl SpectralFilter {
@@ -239,7 +238,7 @@ impl SpectralFilter {
 
         Self {
             filter_coeffs: sigma,
-            order,
+            _order: order,
         }
     }
 

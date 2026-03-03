@@ -1,4 +1,4 @@
-//! CsgNode expression tree
+//! `CsgNode` expression tree
 
 use nalgebra::Isometry3;
 use crate::domain::core::error::MeshResult;
@@ -11,7 +11,7 @@ use super::operations::BooleanOp;
 /// A composable CSG expression tree over [`IndexedMesh`] operands.
 pub enum CsgNode {
     /// A terminal mesh operand.
-    Leaf(IndexedMesh),
+    Leaf(Box<IndexedMesh>),
     /// A ∪ B — mesh union.
     Union {
         /// Left operand.
@@ -46,7 +46,7 @@ impl CsgNode {
     /// Evaluate the expression tree, consuming `self`.
     pub fn evaluate(self) -> MeshResult<IndexedMesh> {
         match self {
-            CsgNode::Leaf(mesh) => Ok(mesh),
+            CsgNode::Leaf(mesh) => Ok(*mesh),
             CsgNode::Union { left, right } => {
                 csg_boolean_indexed(BooleanOp::Union, &left.evaluate()?, &right.evaluate()?)
             }
@@ -73,15 +73,12 @@ fn transform_mesh(mesh: IndexedMesh, iso: &Isometry3<Real>) -> IndexedMesh {
         let mut new_verts = [VertexId::default(); 3];
         for (k, &vid) in face.vertices.iter().enumerate() {
             let idx = vid.as_usize();
-            let new_id = match remap[idx] {
-                Some(id) => id,
-                None => {
-                    let pos = iso * *mesh.vertices.position(vid);
-                    let nrm = iso.rotation * *mesh.vertices.normal(vid);
-                    let id = new_mesh.add_vertex(pos, nrm);
-                    remap[idx] = Some(id);
-                    id
-                }
+            let new_id = if let Some(id) = remap[idx] { id } else {
+                let pos = iso * *mesh.vertices.position(vid);
+                let nrm = iso.rotation * *mesh.vertices.normal(vid);
+                let id = new_mesh.add_vertex(pos, nrm);
+                remap[idx] = Some(id);
+                id
             };
             new_verts[k] = new_id;
         }

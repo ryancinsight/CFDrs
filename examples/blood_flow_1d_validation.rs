@@ -46,7 +46,7 @@
 //! cargo run --example blood_flow_1d_validation --no-default-features
 //! ```
 
-use cfd_1d::bifurcation::junction::{BifurcationJunction, BifurcationSolution};
+use cfd_1d::junctions::branching::TwoWayBranchJunction;
 use cfd_1d::channel::Channel;
 use cfd_1d::channel::ChannelGeometry;
 use cfd_core::physics::fluid::blood::{
@@ -98,7 +98,7 @@ fn validate_poiseuille_casson() -> ValidationReport {
     let blood = CassonBlood::<f64>::normal_blood();
 
     // Calculate pressure drop using solver
-    let dp_solver = BifurcationJunction::<f64>::pressure_drop(&blood, q, &channel);
+    let dp_solver = TwoWayBranchJunction::<f64>::pressure_drop(&blood, q, &channel, 310.15, 101325.0);
 
     // Analytical solution (Casson model approximation)
     // For high shear rates, Casson approaches Newtonian with μ_∞
@@ -173,7 +173,7 @@ fn validate_murray_symmetric() -> ValidationReport {
     let d2 = Channel::new(d2_geom);
 
     // Create bifurcation with equal flow split
-    let bifurcation = BifurcationJunction::new(parent, d1, d2, 0.5);
+    let bifurcation = TwoWayBranchJunction::new(parent, d1, d2, 0.5);
 
     // Check Murray's law
     let murray_deviation: f64 = bifurcation.murray_law_deviation();
@@ -188,7 +188,7 @@ fn validate_murray_symmetric() -> ValidationReport {
     let q_parent = 1.0e-6; // 1 mL/s
     let p_parent = 100.0; // 100 Pa
 
-    let solution = bifurcation.solve(blood, q_parent, p_parent).unwrap();
+    let solution = bifurcation.solve(blood, q_parent, p_parent, 310.15, 101325.0).unwrap();
 
     // Check mass conservation
     let q_sum = solution.q_1 + solution.q_2;
@@ -272,14 +272,14 @@ fn validate_asymmetric_bifurcation() -> ValidationReport {
     println!("Area ratio (d1/d2): {:.2}", area_ratio);
     println!("Expected flow split (d1): {:.2}%", split_ratio * 100.0);
 
-    let bifurcation = BifurcationJunction::new(parent, d1, d2, split_ratio);
+    let bifurcation = TwoWayBranchJunction::new(parent, d1, d2, split_ratio);
 
     // Solve with Carreau-Yasuda blood model
     let blood = CarreauYasudaBlood::<f64>::normal_blood();
     let q_parent = 1.0e-6;
     let p_parent = 100.0;
 
-    let solution = bifurcation.solve(blood, q_parent, p_parent).unwrap();
+    let solution = bifurcation.solve(blood, q_parent, p_parent, 310.15, 101325.0).unwrap();
 
     let actual_split = solution.q_1 / (solution.q_1 + solution.q_2);
     let split_error = (actual_split - split_ratio).abs() / split_ratio;

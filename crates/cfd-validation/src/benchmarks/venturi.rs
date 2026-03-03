@@ -43,7 +43,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp + st
         &self.name
     }
 
-    fn description(&self) -> &str {
+    fn description(&self) -> &'static str {
         "2D Venturi flow with Casson blood. Validates pressure-velocity relationship against Bernoulli and cavitation number at the throat."
     }
 

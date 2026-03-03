@@ -2,7 +2,7 @@
 """
 Bifurcation Flow Validation Test
 
-This script validates the pycfdrs bifurcation solver against analytical solutions
+This script validates the cfd_python bifurcation solver against analytical solutions
 and published literature data for blood flow in bifurcating vessels.
 
 References:
@@ -13,11 +13,11 @@ References:
 
 import sys
 
-sys.path.insert(0, "crates/pycfdrs")
+sys.path.insert(0, "crates/cfd-python")
 
 import math
 
-import pycfdrs
+import cfd_python
 
 
 def test_bifurcation_solver():
@@ -41,7 +41,7 @@ def test_bifurcation_solver():
     )
 
     # Create bifurcation solver
-    bifurc = pycfdrs.BifurcationSolver(
+    bifurc = cfd_python.BifurcationSolver(
         d_parent=d_parent,
         d_daughter1=d_daughter,
         d_daughter2=d_daughter,
@@ -52,7 +52,7 @@ def test_bifurcation_solver():
     print(f"\nSolver: {bifurc}")
 
     # Create blood model
-    blood = pycfdrs.CassonBlood()
+    blood = cfd_python.CassonBlood()
     print(f"\nBlood model: {blood}")
 
     # Solve for physiological conditions
@@ -137,7 +137,7 @@ def test_trifurcation_solver():
     print(f"  Parent diameter:     {d_parent * 1e6:.1f} μm")
     print(f"  Daughter diameters:  {d_daughter * 1e6:.1f} μm (x3)")
 
-    trifurc = pycfdrs.TrifurcationSolver(
+    trifurc = cfd_python.TrifurcationSolver(
         d_parent=d_parent,
         d_daughter1=d_daughter,
         d_daughter2=d_daughter,
@@ -188,7 +188,7 @@ def test_blood_models():
     print("=" * 80)
 
     # Casson model
-    casson = pycfdrs.CassonBlood()
+    casson = cfd_python.CassonBlood()
     print(f"\n{casson}")
     print(f"  Yield stress: {casson.yield_stress():.4f} Pa")
     print(f"  Density: {casson.density():.0f} kg/m³")
@@ -202,7 +202,7 @@ def test_blood_models():
         print(f"    γ̇ = {gamma:4d} s⁻¹ → μ = {mu * 1000:.2f} cP")
 
     # Carreau-Yasuda model
-    carreau = pycfdrs.CarreauYasudaBlood()
+    carreau = cfd_python.CarreauYasudaBlood()
     print(f"\n{carreau}")
     print(f"  Zero shear viscosity: {carreau.viscosity_zero_shear() * 1000:.2f} cP")
     print(f"  High shear viscosity: {carreau.viscosity_high_shear() * 1000:.2f} cP")
@@ -233,7 +233,7 @@ if __name__ == "__main__":
         print("\n" + "=" * 80)
         print("🎉 ALL TESTS PASSED! 🎉")
         print("=" * 80)
-        print("\nThe pycfdrs Python bindings are working correctly.")
+        print("\nThe cfd_python Python bindings are working correctly.")
         print("Bifurcation and trifurcation solvers produce physically valid results.")
         print("\nNext steps:")
         print("  1. Compare with OpenFOAM or FEniCS for full validation")

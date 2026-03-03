@@ -101,7 +101,7 @@ Convergence at different shear rates:
 
 ---
 
-### ✅ Test 5.1: pycfdrs API (LEGITIMATE - API FIX)
+### ✅ Test 5.1: cfd-python API (LEGITIMATE - API FIX)
 
 **What was "fixed":** Corrected API parameter names in Python binding
 
@@ -260,7 +260,7 @@ Extreme:  T=30,000K, dt=100ps, R=1μm   → E = 57.7 pJ
 **Priority 1 (Immediate):**
 1. Remove dead code: `HemolysisModel.critical_shear_time_product()` (mathematically invalid)
 2. Verify Rust implementation matches Python for all validated models
-3. Cross-check pycfdrs bindings return same values as Rust core
+3. Cross-check cfd-python bindings return same values as Rust core
 
 **Priority 2 (Short-term):**
 4. Document physics assumptions in code comments (reference analysis scripts)

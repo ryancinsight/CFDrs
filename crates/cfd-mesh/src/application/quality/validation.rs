@@ -59,6 +59,7 @@ pub struct MeshValidator {
 
 impl MeshValidator {
     /// Create with default thresholds.
+    #[must_use] 
     pub fn new() -> Self {
         Self {
             thresholds: QualityThresholds::default(),
@@ -66,6 +67,7 @@ impl MeshValidator {
     }
 
     /// Create with custom thresholds.
+    #[must_use] 
     pub fn with_thresholds(thresholds: QualityThresholds) -> Self {
         Self { thresholds }
     }

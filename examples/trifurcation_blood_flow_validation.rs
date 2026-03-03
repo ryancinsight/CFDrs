@@ -85,7 +85,7 @@
 //! 2. **Asymmetric trifurcation**: Realistic non-equal split
 //! 3. **Cascading trifurcations**: Network of multiple trifurcations (vascular tree)
 
-use cfd_1d::bifurcation::{TrifurcationJunction, TrifurcationSolution};
+use cfd_1d::{ThreeWayBranchJunction, ThreeWayBranchSolution};
 use cfd_1d::channel::{Channel, ChannelGeometry};
 use cfd_core::physics::fluid::blood::{CarreauYasudaBlood, CassonBlood};
 
@@ -118,7 +118,7 @@ fn validate_symmetric_trifurcation() {
     // Equal flow split (1/3 each for symmetric geometry)
     let flow_split = (1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0);
 
-    let trifurcation = TrifurcationJunction::new(parent, daughter1, daughter2, daughter3, flow_split);
+    let trifurcation = ThreeWayBranchJunction::new(parent, daughter1, daughter2, daughter3, flow_split);
 
     println!("\nGeometry:");
     println!("  Parent: 50 um diameter");
@@ -137,7 +137,7 @@ fn validate_symmetric_trifurcation() {
     println!("  Yield stress: {:.4} Pa", blood.yield_stress);
     println!("  Viscosity (high shear): {:.6} Pa·s", blood.infinite_shear_viscosity);
 
-    match trifurcation.solve(blood, parent_flow, inlet_pressure) {
+    match trifurcation.solve(blood, parent_flow, inlet_pressure, 310.15, 101325.0) {
         Ok(solution) => {
             println!("\n✓ SOLUTION CONVERGED");
             print_trifurcation_solution(&solution);
@@ -216,7 +216,7 @@ fn validate_symmetric_trifurcation() {
     println!("\n[Comparison: Carreau-Yasuda Blood Model]");
     let blood_cy = CarreauYasudaBlood::<f64>::normal_blood();
 
-    match trifurcation.solve(blood_cy, parent_flow, inlet_pressure) {
+    match trifurcation.solve(blood_cy, parent_flow, inlet_pressure, 310.15, 101325.0) {
         Ok(solution) => {
             println!("  Wall shear rates and viscosities:");
             println!("    D1: gamma = {:.1} s⁻¹, mu = {:.6} Pa·s", solution.gamma_1, solution.mu_1);
@@ -253,7 +253,7 @@ fn validate_asymmetric_trifurcation() {
     // Asymmetric flow split (40%, 35%, 25%)
     let flow_split = (0.40, 0.35, 0.25);
 
-    let trifurcation = TrifurcationJunction::new(parent, daughter1, daughter2, daughter3, flow_split);
+    let trifurcation = ThreeWayBranchJunction::new(parent, daughter1, daughter2, daughter3, flow_split);
 
     println!("\nGeometry (Murray's Law Check):");
     println!("  Parent: 60 um");
@@ -275,7 +275,7 @@ fn validate_asymmetric_trifurcation() {
     let parent_flow: f64 = 5e-8; // 50 nL/s
     let inlet_pressure: f64 = 35.0; // 35 Pa
 
-    match trifurcation.solve(blood, parent_flow, inlet_pressure) {
+    match trifurcation.solve(blood, parent_flow, inlet_pressure, 310.15, 101325.0) {
         Ok(solution) => {
             println!("\n✓ SOLUTION CONVERGED");
             print_trifurcation_solution(&solution);
@@ -350,7 +350,7 @@ fn validate_cascading_trifurcations() {
     );
 
     // Create level 1 trifurcation
-    let l1_trifurcation = TrifurcationJunction::new(
+    let l1_trifurcation = ThreeWayBranchJunction::new(
         l0_parent.clone(),
         l1_1.clone(),
         l1_2.clone(),
@@ -365,7 +365,7 @@ fn validate_cascading_trifurcations() {
     let l0_flow: f64 = 1e-7; // 100 nL/s (physiological feeding flow)
     let l0_pressure: f64 = 50.0; // 50 Pa
 
-    match l1_trifurcation.solve(blood, l0_flow, l0_pressure) {
+    match l1_trifurcation.solve(blood, l0_flow, l0_pressure, 310.15, 101325.0) {
         Ok(l1_solution) => {
             println!("\n✓ Level 1 Solution:");
             println!("  Q_parent: {:.2e} m³/s", l1_solution.q_parent);
@@ -393,7 +393,7 @@ fn validate_cascading_trifurcations() {
                 ChannelGeometry::<f64>::circular(1e-3, 63.5e-6, 1e-6),
             );
 
-            let l2_trifurcation = TrifurcationJunction::new(
+            let l2_trifurcation = ThreeWayBranchJunction::new(
                 l2_parent,
                 l2_1,
                 l2_2,
@@ -402,7 +402,7 @@ fn validate_cascading_trifurcations() {
             );
 
             // L1-1 carries 1/3 of the parent flow
-            match l2_trifurcation.solve(blood, l1_solution.q_1, l1_solution.p_1) {
+            match l2_trifurcation.solve(blood, l1_solution.q_1, l1_solution.p_1, 310.15, 101325.0) {
                 Ok(l2_solution) => {
                     println!("\n✓ Level 2 Solution (from L1-1 branch):");
                     println!("  Q_parent: {:.2e} m³/s", l2_solution.q_parent);
@@ -433,7 +433,7 @@ fn validate_cascading_trifurcations() {
 // HELPER FUNCTION: PRINT TRIFURCATION SOLUTION
 // ============================================================================
 
-fn print_trifurcation_solution(solution: &TrifurcationSolution<f64>) {
+fn print_trifurcation_solution(solution: &ThreeWayBranchSolution<f64>) {
     println!("\nFlow Rates:");
     println!("  Q_parent: {:.4e}", solution.q_parent);
     println!("  Q_1:      {:.4e}", solution.q_1);

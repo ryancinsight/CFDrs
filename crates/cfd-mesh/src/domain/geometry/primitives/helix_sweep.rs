@@ -28,7 +28,7 @@ use crate::domain::mesh::IndexedMesh;
 ///
 /// ## Region IDs
 ///
-/// | RegionId | Surface |
+/// | `RegionId` | Surface |
 /// |----------|---------|
 /// | 1 | Tube wall |
 /// | 2 | Inlet cap  (θ = 0)            |

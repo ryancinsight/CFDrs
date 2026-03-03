@@ -2,7 +2,7 @@
 """
 Cross-Package CFD Comparison for cfd-rs
 
-This script compares Rust CFD (pycfdrs) against established Python CFD packages:
+This script compares Rust CFD (cfd_python) against established Python CFD packages:
 - DrZGan/Python_CFD: Classic CFD teaching codes
 - pmocz/cfd-comparison-python: CFD comparison benchmark
 - fluidsim: Spectral fluid simulation framework
@@ -26,12 +26,12 @@ import warnings
 
 # Try to import various Python CFD packages
 try:
-    import pycfdrs
-    HAS_PYCFDRS = True
-    print("✓ pycfdrs (Rust CFD) available")
+    import cfd_python
+    HAS_cfd_python = True
+    print("✓ cfd_python (Rust CFD) available")
 except ImportError:
-    HAS_PYCFDRS = False
-    print("✗ pycfdrs not available (build with: cd crates/pycfdrs && maturin develop)")
+    HAS_cfd_python = False
+    print("✗ cfd_python not available (build with: cd crates/cfd-python && maturin develop)")
 
 try:
     from fluidsim.solvers.ns2d.solver import Simul
@@ -116,16 +116,16 @@ class LidDrivenCavityComparison:
         self.nx = nx
         self.ny = nx
         
-    def run_pycfdrs(self) -> Optional[CavityResult]:
-        """Run simulation using Rust CFD via pycfdrs"""
-        if not HAS_PYCFDRS:
+    def run_cfd_python(self) -> Optional[CavityResult]:
+        """Run simulation using Rust CFD via cfd_python"""
+        if not HAS_cfd_python:
             return None
             
-        print(f"  Running pycfdrs (Re={self.re}, {self.nx}×{self.ny})...")
+        print(f"  Running cfd_python (Re={self.re}, {self.nx}×{self.ny})...")
         
         try:
             # Create and run solver
-            solver = pycfdrs.CavitySolver2D(
+            solver = cfd_python.CavitySolver2D(
                 reynolds=self.re,
                 nx=self.nx,
                 ny=self.ny,
@@ -144,7 +144,7 @@ class LidDrivenCavityComparison:
                 x_coords=np.array(result.x_coords)
             )
         except Exception as e:
-            print(f"    pycfdrs error: {e}")
+            print(f"    cfd_python error: {e}")
             return None
 
     
@@ -196,10 +196,10 @@ class LidDrivenCavityComparison:
         
         results = {}
         
-        # Run pycfdrs
-        pycfdrs_result = self.run_pycfdrs()
-        if pycfdrs_result:
-            results['pycfdrs'] = pycfdrs_result
+        # Run cfd_python
+        cfd_python_result = self.run_cfd_python()
+        if cfd_python_result:
+            results['cfd_python'] = cfd_python_result
         
         # Run fluidsim
         fluidsim_result = self.run_fluidsim()
@@ -207,11 +207,11 @@ class LidDrivenCavityComparison:
             results['fluidsim'] = fluidsim_result
         
         # Compare with Ghia benchmark
-        if 'pycfdrs' in results:
+        if 'cfd_python' in results:
             self._plot_comparison(results)
             
             # Calculate L2 error vs Ghia
-            error = self._calculate_ghia_error(results['pycfdrs'])
+            error = self._calculate_ghia_error(results['cfd_python'])
             print(f"  L2 error vs Ghia (1982): {error:.4f}")
             results['ghia_error'] = error
         
@@ -305,8 +305,8 @@ class PoiseuilleFlowComparison:
         """Compute analytical velocity profile"""
         return (-self.pressure_gradient / (2.0 * self.viscosity)) * y * (self.height - y)
     
-    def compare_pycfdrs(self, nx: int = 50, ny: int = 25) -> Dict[str, float]:
-        """Compare pycfdrs against analytical solution"""
+    def compare_cfd_python(self, nx: int = 50, ny: int = 25) -> Dict[str, float]:
+        """Compare cfd_python against analytical solution"""
         print(f"\nPoiseuille Flow Comparison")
         print("="*70)
         print(f"Geometry: H={self.height*1e3:.1f} mm, L={self.length*1e3:.1f} mm")
@@ -314,13 +314,13 @@ class PoiseuilleFlowComparison:
         print(f"Viscosity: {self.viscosity*1e3:.3f} mPa·s")
         print(f"Grid: {nx}×{ny}")
         
-        if not HAS_PYCFDRS:
-            print("  pycfdrs not available")
+        if not HAS_cfd_python:
+            print("  cfd_python not available")
             return {}
         
-        # Run pycfdrs simulation
-        print("  Running pycfdrs...")
-        solver = pycfdrs.Poiseuille2DSolver(
+        # Run cfd_python simulation
+        print("  Running cfd_python...")
+        solver = cfd_python.Poiseuille2DSolver(
             height=self.height,
             width=self.height * 2,  # Aspect ratio 2:1
             length=self.length,
@@ -335,7 +335,7 @@ class PoiseuilleFlowComparison:
         
         print(f"\nResults:")
         print(f"  Max velocity (analytical): {self.u_max_analytical:.6e} m/s")
-        print(f"  Max velocity (pycfdrs):    {result.max_velocity:.6e} m/s")
+        print(f"  Max velocity (cfd_python):    {result.max_velocity:.6e} m/s")
         
         # Calculate errors
         error_max = abs(result.max_velocity - self.u_max_analytical) / self.u_max_analytical
@@ -366,7 +366,7 @@ class PoiseuilleFlowComparison:
         plt.plot(u_analytical / self.u_max_analytical, y_analytical / self.height,
                 'k-', label='Analytical', linewidth=2)
         plt.plot(u_numerical / self.u_max_analytical, y_numerical / self.height,
-                'r--', label='pycfdrs (Rust CFD)', linewidth=2)
+                'r--', label='cfd_python (Rust CFD)', linewidth=2)
 
         
         plt.xlabel('Normalized velocity u/u_max')
@@ -404,7 +404,7 @@ def main():
         pressure_drop=1000.0,  # 1000 Pa
         viscosity=0.0035  # Blood-like viscosity
     )
-    results['poiseuille'] = poiseuille.compare_pycfdrs(nx=50, ny=25)
+    results['poiseuille'] = poiseuille.compare_cfd_python(nx=50, ny=25)
     
     # Test 2: Lid-driven cavity (literature benchmark)
     # NOTE: SIMPLEC cavity solver has known convergence issues (residual doesn't

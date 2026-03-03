@@ -3,7 +3,7 @@
   "suite": "trifurcation_cross_package_validation",
   "all_passed": true,
   "packages": {
-    "pycfdrs": true,
+    "cfd-python": true,
     "scipy": true
   },
   "results": [

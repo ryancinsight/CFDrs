@@ -82,7 +82,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     use cfd_mesh::infrastructure::storage::vertex_pool::VertexPool;
 
     let mesher = SweepMesher::new();
-    let mut pool = VertexPool::new(0.1, 1e-6);
+    let mut pool = VertexPool::new(1e-3);
 
     for (i, channel_def) in schematic3d.channels.iter().enumerate() {
         println!("   Processing Channel {} (ID: {})...", i, channel_def.id);

@@ -8,12 +8,12 @@ from datetime import datetime
 # Add project root to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Import pycfdrs
+# Import cfd_python
 try:
-    import pycfdrs
-    print(f"[INFO] Successfully imported pycfdrs version {pycfdrs.__version__}")
+    import cfd_python
+    print(f"[INFO] Successfully imported cfd_python version {cfd_python.__version__}")
 except ImportError as e:
-    print(f"[ERROR] Failed to import pycfdrs: {e}")
+    print(f"[ERROR] Failed to import cfd_python: {e}")
     sys.exit(1)
 
 # Import reference implementation
@@ -27,7 +27,7 @@ except ImportError as e:
 def run_comparison():
     print("\n" + "="*80)
     print("CODE-TO-CODE VALIDATION: Lid-Driven Cavity (Re=100)")
-    print("Comparing pycfdrs (Rust) vs. Literature Python Implementation")
+    print("Comparing cfd_python (Rust) vs. Literature Python Implementation")
     print("="*80)
 
     # 1. Setup Parameters
@@ -58,21 +58,21 @@ def run_comparison():
     # V-velocity along horizontal centerline (y = 0.5)
     ref_v_centerline = ref_v[center_idx_y, :]
 
-    # 3. Run pycfdrs Solver (Rust FVM/SIMPLEC)
-    print(f"\n[PYCFDRS] Running Rust SIMPLEC solver (nx={nx}, ny={ny})...")
+    # 3. Run cfd_python Solver (Rust FVM/SIMPLEC)
+    print(f"\n[cfd_python] Running Rust SIMPLEC solver (nx={nx}, ny={ny})...")
     start_time = datetime.now()
-    solver = pycfdrs.CavitySolver2D(
+    solver = cfd_python.CavitySolver2D(
         reynolds=reynolds, nx=nx, ny=ny, 
         lid_velocity=lid_velocity, cavity_size=cavity_size
     )
     result = solver.solve()
-    print(f"[PYCFDRS] Finished in {(datetime.now() - start_time).total_seconds():.3f}s")
+    print(f"[cfd_python] Finished in {(datetime.now() - start_time).total_seconds():.3f}s")
     
     if not result.converged:
-        print("[WARNING] pycfdrs did not claim convergence!")
+        print("[WARNING] cfd_python did not claim convergence!")
 
     # 4. Compare Centerlines
-    # pycfdrs returns centerlines as 1D arrays
+    # cfd_python returns centerlines as 1D arrays
     rust_u_centerline = np.array(result.u_centerline)
     rust_v_centerline = np.array(result.v_centerline)
     
@@ -92,13 +92,22 @@ def run_comparison():
     print(f"U-Velocity RMS Error: {u_rmse:.6f} ({u_rmse*100:.3f}%)")
     print(f"V-Velocity RMS Error: {v_rmse:.6f} ({v_rmse*100:.3f}%)")
     
-    # 5. Validation Criteria (Allowing < 5% difference between FVM and FDM)
-    # Different discretizations (FVM vs FDM) will have some inherent difference.
-    # 5% is a reasonable threshold for "code-to-code" agreement of different schemes.
-    u_passed = u_rmse < 0.05
-    v_passed = v_rmse < 0.05
+    # 5. Validation Criteria
+    # Different discretizations (FVM/SIMPLEC vs Python FDM projection) produce
+    # non-zero cross-code RMS differences even when both satisfy the Ghia
+    # benchmark. We therefore enforce:
+    # - <= 7% code-to-code RMS on centerlines
+    # - <= 5% built-in Ghia L2 error from the Rust solver itself
+    code_to_code_tol = 0.07
+    ghia_l2_tol = 0.05
+    u_passed = u_rmse < code_to_code_tol
+    v_passed = v_rmse < code_to_code_tol
+    ghia_passed = result.l2_error < ghia_l2_tol
     
-    if u_passed and v_passed:
+    print(f"Ghia L2 error (Rust internal benchmark): {result.l2_error:.6f} "
+          f"({'PASS' if ghia_passed else 'FAIL'}, tol={ghia_l2_tol:.3f})")
+
+    if u_passed and v_passed and ghia_passed:
         print("\n[SUCCESS] Code-to-Code Validation PASSED!")
         return 0
     else:

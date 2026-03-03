@@ -1,6 +1,6 @@
-//! OpenFOAM polyMesh writer.
+//! `OpenFOAM` polyMesh writer.
 //!
-//! Converts an [`IndexedMesh`] or [`HalfEdgeMesh`] into an OpenFOAM
+//! Converts an [`IndexedMesh`] or [`HalfEdgeMesh`] into an `OpenFOAM`
 //! `constant/polyMesh` directory that can be used directly with
 //! `simpleFoam`, `icoFoam`, or `snappyHexMesh`.
 //!
@@ -21,7 +21,7 @@
 //! the degenerate 2D sense).  This format is accepted directly by
 //! `snappyHexMesh` as the surface geometry input.
 //!
-//! ## PatchType → OpenFOAM mapping
+//! ## `PatchType` → `OpenFOAM` mapping
 //!
 //! | [`PatchType`] variant | OF `type` string | typical BC |
 //! |----------------------|-----------------|------------|
@@ -63,7 +63,7 @@ use crate::domain::topology::halfedge::PatchType;
 
 // ── FoamFile header helper ────────────────────────────────────────────────────
 
-/// Write the standard FoamFile header block.
+/// Write the standard `FoamFile` header block.
 fn write_foam_header(
     w: &mut impl Write,
     class: &str,
@@ -116,7 +116,7 @@ fn write_foam_header(
 
 // ── Patch descriptor ──────────────────────────────────────────────────────────
 
-/// A single OpenFOAM boundary patch specification.
+/// A single `OpenFOAM` boundary patch specification.
 ///
 /// Groups a contiguous range of faces under a named boundary with an
 /// associated [`PatchType`].  One `PatchSpec` is written per entry in the
@@ -136,7 +136,7 @@ pub struct PatchSpec {
 
 // ── Public API — IndexedMesh ──────────────────────────────────────────────────
 
-/// Write an [`IndexedMesh`] as an OpenFOAM `constant/polyMesh` directory.
+/// Write an [`IndexedMesh`] as an `OpenFOAM` `constant/polyMesh` directory.
 ///
 /// The files `points`, `faces`, `owner`, `neighbour`, and `boundary` are
 /// written directly into `dir`.  The directory is created automatically if it
@@ -144,7 +144,7 @@ pub struct PatchSpec {
 ///
 /// Faces are re-sorted so that all faces belonging to the same patch are
 /// contiguous in the output `faces` / `owner` lists; this is required by
-/// the OpenFOAM format specification.
+/// the `OpenFOAM` format specification.
 ///
 /// # Arguments
 ///

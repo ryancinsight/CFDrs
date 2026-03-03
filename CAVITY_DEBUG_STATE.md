@@ -4,7 +4,7 @@
 ## WORKSPACE
 - Path: c:\Users\RyanClanton\gcli\software\millifluidic_design\CFDrs
 - Python: .\.venv\Scripts\python.exe
-- Build: maturin develop --manifest-path crates/pycfdrs/Cargo.toml (add --release for opt builds)
+- Build: maturin develop --manifest-path crates/cfd-python/Cargo.toml (add --release for opt builds)
 
 ## ALL OTHER VALIDATIONS PASS
 - external_reference_comparison.py: 6/6 PASSED
@@ -39,7 +39,7 @@ The sign (u_bar - u_bar_old vs u_bar_old - u_bar) and the factor (dt/2 vs d_face
 
 ### Issue 3: Debug Build Performance
 - Need --release flag for maturin build; debug is 10-100x slower
-- Command: maturin develop --release --manifest-path crates/pycfdrs/Cargo.toml
+- Command: maturin develop --release --manifest-path crates/cfd-python/Cargo.toml
 
 ## RECOMMENDED APPROACH: Python Reference Solver
 Instead of continuing to debug the complex Rust SIMPLEC in blind, write a standalone
@@ -47,15 +47,15 @@ Python SIMPLE solver (50-100 lines with NumPy) for the lid-driven cavity problem
 This provides:
 1. A known-working reference to compare against
 2. Ability to print intermediate values for debugging
-3. Step-by-step comparison of what pycfdrs computes vs what Python computes
+3. Step-by-step comparison of what cfd-python computes vs what Python computes
 
 ### Python Reference Solver Plan:
-- Grid: 33x33 (matching pycfdrs)
+- Grid: 33x33 (matching cfd-python)
 - Algorithm: Basic SIMPLE (not SIMPLEC) with staggered grid layout
 - BCs: lid velocity 1.0 at top, no-slip elsewhere
 - Re=100 (rho=1, mu=0.01, L=1, U=1)
 - Compare centerline velocity profiles with Ghia et al. (1982)
-- If Python SIMPLE converges correctly, compare step-by-step with pycfdrs
+- If Python SIMPLE converges correctly, compare step-by-step with cfd-python
 
 ### Alternative: Disable Rhie-Chow and Use Staggered-like Approach
 The Rhie-Chow interpolation adds complexity. Could try:
@@ -69,7 +69,7 @@ The Rhie-Chow interpolation adds complexity. Could try:
 - crates/cfd-2d/src/physics/momentum/solver.rs (570 lines) - MomentumSolver
 - crates/cfd-2d/src/pressure_velocity/pressure.rs (608 lines) - Pressure correction
 - crates/cfd-2d/src/pressure_velocity/rhie_chow.rs - Rhie-Chow interpolation
-- crates/pycfdrs/src/solver_2d.rs (740 lines) - Python bindings
+- crates/cfd-python/src/solver_2d.rs (740 lines) - Python bindings
 
 ## GHIA BENCHMARK DATA (Re=100)
 # U-velocity along vertical centerline at x=0.5:

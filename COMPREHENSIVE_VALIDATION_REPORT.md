@@ -76,7 +76,7 @@ test spectral::chebyshev::tests::test_differentiation_sin_function ... ok
 
 ---
 
-## 2. Python Integration Validation (pycfdrs)
+## 2. Python Integration Validation (cfd-python)
 
 ### Test Results (10/10 Passed)
 
@@ -287,5 +287,5 @@ cargo test --package cfd-1d --package cfd-2d --package cfd-core
 python external_validation/scripts/run_actual_validation.py
 
 # Build Python bindings
-cd crates/pycfdrs && maturin develop --release
+cd crates/cfd-python && maturin develop --release
 ```

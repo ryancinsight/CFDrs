@@ -17,12 +17,12 @@
 //!    inside → emit (inside) or skip (outside); if unanimous outside → skip
 //!    (inside) or emit (outside).
 //! 4. **Exact boundary clipping**: for each AABB-overlapping opposing triangle
-//!    B_i, compute `clip_polygon_to_triangle(T, B_i)` via the `clip` module's
+//!    `B_i`, compute `clip_polygon_to_triangle(T, B_i)` via the `clip` module's
 //!    canonical CDT-backed pipeline plus specialized convex helpers.
 //!    - **Intersection**: emit each `T ∩ B_i` fragment (disjoint since B-tris
 //!      tile the disk without interior overlap).
 //!    - **Outside**: progressive subtraction — start with `remaining = {T}`;
-//!      for each B_i remove `inside(B_i)` pieces from every remaining poly.
+//!      for each `B_i` remove `inside(B_i)` pieces from every remaining poly.
 //!
 //! ## Why 2-D clipping is necessary
 //!

@@ -22,13 +22,14 @@ impl SparseVoxelOctree {
     /// Compute the exact boolean operation between `self` (A) and `other` (B).
     ///
     /// Both DAGs must cover the exact same domain AABB.
+    #[must_use] 
     pub fn boolean(&self, other: &Self, op: BooleanOp) -> Self {
         assert_eq!(
             self.root_aabb, other.root_aabb,
             "SSVDAG Booleans require identical initial domain AABBs to preserve spatial consistency"
         );
 
-        let mut result = SparseVoxelOctree::new(self.root_aabb.clone());
+        let mut result = SparseVoxelOctree::new(self.root_aabb);
 
         let mut ctx = MergeContext {
             a: self,
@@ -64,7 +65,7 @@ struct MergeContext<'a> {
     op: BooleanOp,
 }
 
-impl<'a> MergeContext<'a> {
+impl MergeContext<'_> {
     fn map_subtree_a(&mut self, root: DagIndex) -> DagIndex {
         if let Some(&cached) = self.memo_map_a.get(&root) {
             return cached;

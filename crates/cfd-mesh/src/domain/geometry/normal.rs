@@ -95,6 +95,7 @@ pub fn angle_weighted_normal<T: Scalar>(
 
 /// Convenience alias for `triangle_normal::<f64>`.
 #[inline]
+#[must_use] 
 pub fn triangle_normal_f64(
     a: &crate::domain::core::scalar::Point3r,
     b: &crate::domain::core::scalar::Point3r,

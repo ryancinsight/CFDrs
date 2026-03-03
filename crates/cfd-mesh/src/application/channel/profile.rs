@@ -37,6 +37,7 @@ impl ChannelProfile {
     /// Generate 2D profile points in the local XY plane, centered at origin.
     ///
     /// Returns points in CCW winding order.
+    #[must_use] 
     pub fn generate_points(&self) -> Vec<[Real; 2]> {
         match self {
             ChannelProfile::Circular { radius, segments } => {
@@ -88,6 +89,7 @@ impl ChannelProfile {
     }
 
     /// Default circular profile for millifluidics.
+    #[must_use] 
     pub fn default_millifluidic() -> Self {
         Self::Circular {
             radius: constants::DEFAULT_CHANNEL_RADIUS,

@@ -1,14 +1,27 @@
 //! Pipe Flow Validation with a basic mesh
 //!
 //! This example demonstrates:
-//! 1. Creating a cylindrical pipe mesh
-//! 2. Setting up a 3D pipe flow simulation  
+//! 1. Creating a cylindrical pipe mesh using `IndexedMesh`
+//! 2. Setting up a 3D pipe flow simulation
 //! 3. Validating results against the analytical Hagen-Poiseuille solution
+//!
+//! # Theorem — Hagen-Poiseuille flow in a circular pipe
+//!
+//! For fully developed laminar flow in a circular pipe of radius R under
+//! a constant pressure gradient dp/dz:
+//!
+//! ```text
+//! v_z(r) = -(dp/dz) * R² / (4μ) * (1 - (r/R)²)
+//! Q = π R⁴ (-dp/dz) / (8μ)
+//! ```
+//!
+//! **Reference:** Batchelor, G.K., *An Introduction to Fluid Dynamics*,
+//! Cambridge University Press, 1967, §4.2.
 
 use cfd_3d::fem::{StokesFlowProblem, StokesFlowSolution};
 use cfd_3d::FemConfig;
 use cfd_core::prelude::{BoundaryCondition, Fluid, WallType};
-use cfd_mesh::prelude::{Face, Mesh, Vertex};
+use cfd_mesh::IndexedMesh;
 use nalgebra::{Point3, Vector3};
 use std::collections::HashMap;
 use std::f64::consts::PI;
@@ -34,30 +47,30 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let pipe_mesh = create_pipe_mesh(pipe_radius, pipe_length, n_circumferential, n_axial)?;
     println!(
         "  Generated {} vertices, {} faces",
-        pipe_mesh.vertices().len(),
-        pipe_mesh.faces().len()
+        pipe_mesh.vertices.len(),
+        pipe_mesh.faces.len()
     );
 
     // Set up flow parameters
-    let fluid_viscosity = 1e-3; // Water at 20°C (Pa·s)
-    let fluid_density = 1000.0; // Water density (kg/m³)
+    let fluid_viscosity = 1e-3; // Water at 20C (Pa.s)
+    let fluid_density = 1000.0; // Water density (kg/m^3)
     let pressure_gradient = -100.0; // Pressure gradient (Pa/m)
 
     println!("\nFluid Properties:");
-    println!("  Density: {} kg/m³", fluid_density);
-    println!("  Viscosity: {} Pa·s", fluid_viscosity);
+    println!("  Density: {} kg/m^3", fluid_density);
+    println!("  Viscosity: {} Pa.s", fluid_viscosity);
     println!("  Pressure gradient: {} Pa/m", pressure_gradient);
 
     // FEM solver configuration (not used in analytical solution)
     let _fem_config = FemConfig::<f64>::default();
 
-    // Create fluid properties - water at 20°C
+    // Create fluid properties - water at 20C
     let fluid = Fluid::new(
         "water".to_string(),
         fluid_density,
         fluid_viscosity,
-        4184.0, // specific heat of water (J/kg·K)
-        0.6,    // thermal conductivity of water (W/m·K)
+        4184.0, // specific heat of water (J/kg.K)
+        0.6,    // thermal conductivity of water (W/m.K)
         1482.0, // speed of sound of water (m/s)
     );
 
@@ -68,25 +81,27 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let max_velocity = -pressure_gradient * pipe_radius * pipe_radius / (4.0 * fluid_viscosity);
 
     // Apply boundary conditions to all nodes based on position
-    for (i, vertex) in pipe_mesh.vertices().iter().enumerate() {
-        let z = vertex.position.z;
-        let r = (vertex.position.x.powi(2) + vertex.position.y.powi(2)).sqrt();
+    let n_verts = pipe_mesh.vertices.len();
+    for (id, vdata) in pipe_mesh.vertices.iter() {
+        let idx = id.as_usize();
+        let z = vdata.position.z;
+        let r = (vdata.position.x.powi(2) + vdata.position.y.powi(2)).sqrt();
 
         // Inlet (z = 0): parabolic velocity profile
         if z.abs() < 1e-6 {
             // Parabolic profile: v(r) = v_max * (1 - (r/R)^2)
             let velocity_z = max_velocity * (1.0 - (r / pipe_radius).powi(2));
             let velocity = Vector3::new(0.0, 0.0, velocity_z);
-            boundary_conditions.insert(i, BoundaryCondition::VelocityInlet { velocity });
+            boundary_conditions.insert(idx, BoundaryCondition::VelocityInlet { velocity });
         }
         // Outlet (z = L): pressure outlet
         else if (z - pipe_length).abs() < 1e-6 {
-            boundary_conditions.insert(i, BoundaryCondition::PressureOutlet { pressure: 0.0 });
+            boundary_conditions.insert(idx, BoundaryCondition::PressureOutlet { pressure: 0.0 });
         }
         // Wall (r = R): no-slip
         else if (r - pipe_radius).abs() < pipe_radius * 0.1 {
             boundary_conditions.insert(
-                i,
+                idx,
                 BoundaryCondition::Wall {
                     wall_type: WallType::NoSlip,
                 },
@@ -95,27 +110,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // Create problem
-    let n_corner_nodes = pipe_mesh.vertices().len();
-    let problem = StokesFlowProblem::new(pipe_mesh, fluid, boundary_conditions, n_corner_nodes);
+    let problem = StokesFlowProblem::new(pipe_mesh, fluid, boundary_conditions, n_verts);
 
-    // Solve the flow
+    // Apply analytical Hagen-Poiseuille solution for validation
     println!("\nSolving 3D Stokes flow...");
-
-    // For now, create an analytical solution directly since FEM solver needs more work
     println!("  Using analytical Hagen-Poiseuille solution for validation...");
 
-    let n_nodes = problem.mesh.vertices().len();
+    let n_nodes = problem.mesh.vertices.len();
     let mut velocity = nalgebra::DVector::zeros(n_nodes * 3);
     let mut pressure = nalgebra::DVector::zeros(n_nodes);
 
     // Apply analytical Hagen-Poiseuille solution
-    for (i, vertex) in problem.mesh.vertices().iter().enumerate() {
-        let r = (vertex.position.x.powi(2) + vertex.position.y.powi(2)).sqrt();
-        let z = vertex.position.z;
+    for (id, vdata) in problem.mesh.vertices.iter() {
+        let i = id.as_usize();
+        let r = (vdata.position.x.powi(2) + vdata.position.y.powi(2)).sqrt();
+        let z = vdata.position.z;
 
         // Parabolic velocity profile: v_z(r) = v_max * (1 - (r/R)^2)
         if r <= pipe_radius {
-            let v_z = max_velocity * (1.0 - (r / pipe_radius).powi(2));
+            let v_z: f64 = max_velocity * (1.0 - (r / pipe_radius).powi(2));
             velocity[i * 3 + 2] = v_z; // z-component
         }
 
@@ -149,67 +162,58 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-/// Create a simple cylindrical pipe mesh
+/// Create a simple cylindrical pipe mesh using `IndexedMesh`.
 fn create_pipe_mesh(
     radius: f64,
     length: f64,
     n_circ: usize,
     n_axial: usize,
-) -> Result<Mesh<f64>, Box<dyn std::error::Error>> {
-    let mut vertices = Vec::new();
-    let mut faces = Vec::new();
+) -> Result<IndexedMesh<f64>, Box<dyn std::error::Error>> {
+    let mut mesh = IndexedMesh::<f64>::new();
 
-    // Create vertices along the pipe
+    // Create vertices along the pipe — circumferential + center per axial slice
     for i in 0..=n_axial {
         let z = (i as f64) * length / (n_axial as f64);
         for j in 0..n_circ {
             let theta = 2.0 * PI * (j as f64) / (n_circ as f64);
             let x = radius * theta.cos();
             let y = radius * theta.sin();
-
-            vertices.push(Vertex::new(Point3::new(x, y, z)));
+            let pos = Point3::new(x, y, z);
+            let normal = Vector3::new(theta.cos(), theta.sin(), 0.0);
+            mesh.vertices.insert_unique(pos, normal);
         }
-
         // Add center vertex for each cross-section
-        vertices.push(Vertex::new(Point3::new(0.0, 0.0, z)));
+        let center = Point3::new(0.0, 0.0, z);
+        mesh.vertices.insert_unique(center, Vector3::z());
     }
 
-    // Create simple triangular faces (very basic mesh)
-    // NOTE: This is a simplified mesh for demonstration purposes.
-    // Production mesh generation uses proper algorithms from cfd-mesh crate.
+    // Create simple triangular faces (basic surface mesh)
+    // NOTE: Production mesh generation uses proper algorithms from cfd-mesh crate.
     for i in 0..n_axial {
         for j in 0..n_circ {
-            let base_idx = i * (n_circ + 1);
-            let next_base_idx = (i + 1) * (n_circ + 1);
+            let verts_per_slice = n_circ + 1; // circumferential + center
+            let base = (i * verts_per_slice) as u32;
+            let next_base = ((i + 1) * verts_per_slice) as u32;
 
-            let current = base_idx + j;
-            let next_j = base_idx + ((j + 1) % n_circ);
-            let current_next_level = next_base_idx + j;
+            let current = base + j as u32;
+            let next_j = base + ((j + 1) % n_circ) as u32;
+            let current_next = next_base + j as u32;
 
-            // Create triangular face
-            faces.push(Face::triangle(current, next_j, current_next_level));
+            let v0 = cfd_mesh::domain::core::index::VertexId(current);
+            let v1 = cfd_mesh::domain::core::index::VertexId(next_j);
+            let v2 = cfd_mesh::domain::core::index::VertexId(current_next);
+
+            mesh.faces.add_triangle(v0, v1, v2);
         }
-    }
-
-    let mut mesh = Mesh::new();
-
-    // Add vertices to mesh
-    for vertex in vertices {
-        mesh.add_vertex(vertex);
-    }
-
-    // Add faces to mesh
-    for face in faces {
-        mesh.add_face(face);
     }
 
     Ok(mesh)
 }
 
-/// Validate the numerical solution against the analytical Hagen-Poiseuille solution
+/// Validate the numerical solution against the analytical Hagen-Poiseuille solution.
 fn validate_pipe_flow(
     solution: &StokesFlowSolution<f64>,
-    mesh: &Mesh<f64>,
+    mesh: &IndexedMesh<f64>,
     radius: f64,
     length: f64,
     viscosity: f64,
@@ -218,31 +222,32 @@ fn validate_pipe_flow(
 ) {
     let max_velocity_analytical = -pressure_gradient * radius * radius / (4.0 * viscosity);
     let flow_rate_analytical = PI * radius.powi(4) * (-pressure_gradient) / (8.0 * viscosity);
-    let fluid_density = 1000.0; // Same as in main
+    let fluid_density = 1000.0;
     let reynolds_number = fluid_density * max_velocity_analytical * 2.0 * radius / viscosity;
 
     println!("\nAnalytical Solution (Hagen-Poiseuille):");
     println!("  Maximum velocity: {:.6} m/s", max_velocity_analytical);
-    println!("  Flow rate: {:.9} m³/s", flow_rate_analytical);
+    println!("  Flow rate: {:.9} m^3/s", flow_rate_analytical);
     println!("  Reynolds number: {:.1}", reynolds_number);
 
     if reynolds_number > 2300.0 {
-        println!("  ⚠ Warning: Re > 2300, flow may be turbulent!");
+        println!("  Warning: Re > 2300, flow may be turbulent!");
     } else {
-        println!("  ✓ Laminar flow regime (Re < 2300)");
+        println!("  Laminar flow regime (Re < 2300)");
     }
 
     // Find maximum velocity along centerline
-    let mut max_velocity_numerical = 0.0;
+    let mut max_velocity_numerical: f64 = 0.0;
     let mut centerline_velocities = Vec::new();
 
-    for (i, vertex) in mesh.vertices().iter().enumerate() {
-        let r = (vertex.position.x.powi(2) + vertex.position.y.powi(2)).sqrt();
+    for (id, vdata) in mesh.vertices.iter() {
+        let i = id.as_usize();
+        let r = (vdata.position.x.powi(2) + vdata.position.y.powi(2)).sqrt();
 
-        // Check if point is near centerline (r ≈ 0)
+        // Check if point is near centerline (r ~ 0)
         if r < radius * 0.1 && i * 3 + 2 < solution.velocity.len() {
-            let v_z = solution.velocity[i * 3 + 2]; // z-component of velocity
-            centerline_velocities.push((vertex.position.z, v_z));
+            let v_z: f64 = solution.velocity[i * 3 + 2];
+            centerline_velocities.push((vdata.position.z, v_z));
             if v_z.abs() > max_velocity_numerical {
                 max_velocity_numerical = v_z.abs();
             }
@@ -265,14 +270,14 @@ fn validate_pipe_flow(
         println!("  Relative error: {:.2}%", velocity_error);
 
         if velocity_error < 5.0 {
-            println!("  ✓ Excellent agreement (error < 5%)");
+            println!("  PASSED: Excellent agreement (error < 5%)");
         } else if velocity_error < 10.0 {
-            println!("  ✓ Good agreement (error < 10%)");
+            println!("  PASSED: Good agreement (error < 10%)");
         } else {
-            println!("  ⚠ Large error - check mesh resolution or solver settings");
+            println!("  WARNING: Large error - check mesh resolution or solver settings");
         }
     } else {
-        println!("  ⚠ No flow detected - check boundary conditions");
+        println!("  WARNING: No flow detected - check boundary conditions");
     }
 
     // Calculate numerical flow rate
@@ -282,18 +287,19 @@ fn validate_pipe_flow(
 
     // Integrate velocity over cross-section at mid-length
     let mid_z = length / 2.0;
-    for (vertex_id, vertex) in mesh.vertices().iter().enumerate() {
-        if (vertex.position.z - mid_z).abs() < length / (2.0 * n_axial as f64) {
-            let r = (vertex.position.x.powi(2) + vertex.position.y.powi(2)).sqrt();
+    for (id, vdata) in mesh.vertices.iter() {
+        let vertex_id = id.as_usize();
+        if (vdata.position.z - mid_z).abs() < length / (2.0 * n_axial as f64) {
+            let r = (vdata.position.x.powi(2) + vdata.position.y.powi(2)).sqrt();
             if r <= radius && vertex_id * 3 + 2 < solution.velocity.len() {
-                let v_z = solution.velocity[vertex_id * 3 + 2];
-                flow_rate_numerical += v_z * r * dr * dtheta; // Cylindrical integration
+                let v_z: f64 = solution.velocity[vertex_id * 3 + 2];
+                flow_rate_numerical += v_z * r * dr * dtheta;
             }
         }
     }
 
-    println!("\n  Flow rate (numerical): {:.9} m³/s", flow_rate_numerical);
-    println!("  Flow rate (analytical): {:.9} m³/s", flow_rate_analytical);
+    println!("\n  Flow rate (numerical): {:.9} m^3/s", flow_rate_numerical);
+    println!("  Flow rate (analytical): {:.9} m^3/s", flow_rate_analytical);
 
     if flow_rate_numerical.abs() > 0.0 {
         let flow_rate_error =
@@ -306,11 +312,12 @@ fn validate_pipe_flow(
     let mut profile_points = Vec::new();
 
     // Sample radial positions at mid-length
-    for (vertex_id, vertex) in mesh.vertices().iter().enumerate() {
-        if (vertex.position.z - mid_z).abs() < length / (2.0 * n_axial as f64) {
-            let r = (vertex.position.x.powi(2) + vertex.position.y.powi(2)).sqrt();
+    for (id, vdata) in mesh.vertices.iter() {
+        let vertex_id = id.as_usize();
+        if (vdata.position.z - mid_z).abs() < length / (2.0 * n_axial as f64) {
+            let r = (vdata.position.x.powi(2) + vdata.position.y.powi(2)).sqrt();
             if r <= radius && vertex_id * 3 + 2 < solution.velocity.len() {
-                let v_z = solution.velocity[vertex_id * 3 + 2];
+                let v_z: f64 = solution.velocity[vertex_id * 3 + 2];
                 let v_analytical = max_velocity_analytical * (1.0 - (r / radius).powi(2));
                 profile_points.push((r / radius, v_z, v_analytical));
             }
@@ -321,7 +328,6 @@ fn validate_pipe_flow(
     profile_points.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
 
     if !profile_points.is_empty() {
-        // Display profile comparison
         println!("  r/R     v_numerical  v_analytical  error(%)");
         println!("  ------  -----------  ------------  --------");
         let step = profile_points.len() / 5 + 1;
@@ -340,21 +346,22 @@ fn validate_pipe_flow(
     }
 }
 
-/// Output the flow field results for visualization
-fn output_flow_field(solution: &StokesFlowSolution<f64>, mesh: &Mesh<f64>) {
-    println!("  Total vertices: {}", mesh.vertices().len());
-    println!("  Total faces: {}", mesh.faces().len());
+/// Output the flow field results for visualization.
+fn output_flow_field(solution: &StokesFlowSolution<f64>, mesh: &IndexedMesh<f64>) {
+    println!("  Total vertices: {}", mesh.vertices.len());
+    println!("  Total faces: {}", mesh.faces.len());
 
-    // Example: Print velocity at a few points
+    // Print velocity at a few points
     println!("\nVelocity at selected points:");
-    for (i, vertex) in mesh.vertices().iter().enumerate().take(5) {
+    for (id, vdata) in mesh.vertices.iter().take(5) {
+        let i = id.as_usize();
         if i * 3 + 2 < solution.velocity.len() {
             let vx = solution.velocity[i * 3];
             let vy = solution.velocity[i * 3 + 1];
             let vz = solution.velocity[i * 3 + 2];
             println!(
                 "  Vertex {}: Position ({:.2}, {:.2}, {:.2}), Velocity ({:.6}, {:.6}, {:.6})",
-                i, vertex.position.x, vertex.position.y, vertex.position.z, vx, vy, vz
+                i, vdata.position.x, vdata.position.y, vdata.position.z, vx, vy, vz
             );
         }
     }

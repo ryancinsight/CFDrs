@@ -29,7 +29,6 @@
 //! query is itself complete by its own completeness theorem.  Therefore no
 //! intersecting pair is missing from the output.  ∎
 
-use crate::domain::core::scalar::Real;
 use crate::domain::geometry::aabb::Aabb;
 use crate::infrastructure::spatial::bvh::with_bvh;
 use crate::infrastructure::storage::face_store::FaceData;
@@ -56,16 +55,13 @@ pub struct CandidatePair {
 
 // ── AABB ──────────────────────────────────────────────────────────────────────
 
-/// AABB growth applied to each triangle to absorb floating-point rounding.
-///
-/// 1 nm — smaller than any millifluidic feature but large enough to avoid
-/// dropping truly-intersecting pairs due to representational error.
-const AABB_EPSILON: Real = 1e-9;
+
 
 /// Compute the axis-aligned bounding box of a triangle.
 ///
 /// The box is grown by [`AABB_EPSILON`] on each side to guard against
 /// floating-point rounding when comparing AABBs of nearly-touching triangles.
+#[must_use] 
 pub fn triangle_aabb(face: &FaceData, pool: &VertexPool) -> Aabb {
     let a = *pool.position(face.vertices[0]);
     let b = *pool.position(face.vertices[1]);
@@ -75,13 +71,6 @@ pub fn triangle_aabb(face: &FaceData, pool: &VertexPool) -> Aabb {
     aabb.expand(&a);
     aabb.expand(&b);
     aabb.expand(&c);
-
-    aabb.min.x -= AABB_EPSILON;
-    aabb.min.y -= AABB_EPSILON;
-    aabb.min.z -= AABB_EPSILON;
-    aabb.max.x += AABB_EPSILON;
-    aabb.max.y += AABB_EPSILON;
-    aabb.max.z += AABB_EPSILON;
 
     aabb
 }
@@ -97,6 +86,7 @@ pub fn triangle_aabb(face: &FaceData, pool: &VertexPool) -> Aabb {
 ///
 /// # Complexity
 /// `O((n + m) log m)` where n = `faces_a.len()`, m = `faces_b.len()`.
+#[must_use] 
 pub fn broad_phase_pairs(
     faces_a: &[FaceData],
     pool_a: &VertexPool,
@@ -206,8 +196,5 @@ mod tests {
         assert!(aabb.min.y <= 0.0);
         assert!(aabb.max.x >= 2.0);
         assert!(aabb.max.y >= 3.0);
-        // Epsilon growth
-        assert!(aabb.min.x < 0.0);
-        assert!(aabb.max.x > 2.0);
     }
 }

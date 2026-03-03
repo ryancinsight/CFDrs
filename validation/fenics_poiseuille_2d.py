@@ -2,7 +2,7 @@
 """
 FEniCS validation of 2D Poiseuille flow with non-Newtonian blood
 
-Solves the same problem in FEniCS and compares with pycfdrs to prove correctness.
+Solves the same problem in FEniCS and compares with cfd_python to prove correctness.
 
 This implements:
 - Steady-state Navier-Stokes with non-Newtonian viscosity
@@ -28,11 +28,11 @@ except ImportError:
     print("  pip install fenics-dolfinx")
     sys.exit(1)
 
-# Check for pycfdrs
+# Check for cfd_python
 try:
-    import pycfdrs
+    import cfd_python
 except ImportError:
-    print("ERROR: pycfdrs not installed")
+    print("ERROR: cfd_python not installed")
     sys.exit(1)
 
 
@@ -186,11 +186,11 @@ def solve_fenics_poiseuille(H, ny, dP_dx, tolerance=1e-8, max_iter=1000):
     return y_coords, velocity, shear_rate, viscosity, iteration + 1
 
 
-def compare_with_pycfdrs():
-    """Compare FEniCS solution with pycfdrs"""
+def compare_with_cfd_python():
+    """Compare FEniCS solution with cfd_python"""
 
     print("\n" + "=" * 80)
-    print("FEniCS vs pycfdrs Validation for 2D Poiseuille Flow")
+    print("FEniCS vs cfd_python Validation for 2D Poiseuille Flow")
     print("=" * 80)
 
     # Configuration
@@ -209,12 +209,12 @@ def compare_with_pycfdrs():
         height, ny, pressure_gradient
     )
 
-    # Solve with pycfdrs
+    # Solve with cfd_python
     print("\n" + "=" * 80)
-    print("pycfdrs Solution")
+    print("cfd_python Solution")
     print("=" * 80)
 
-    config = pycfdrs.PoiseuilleConfig2D(
+    config = cfd_python.PoiseuilleConfig2D(
         height=height,
         width=width,
         length=0.05,
@@ -225,43 +225,43 @@ def compare_with_pycfdrs():
         relaxation_factor=0.5,
     )
 
-    solver = pycfdrs.PoiseuilleSolver2D(config)
-    blood = pycfdrs.CassonBlood()
+    solver = cfd_python.PoiseuilleSolver2D(config)
+    blood = cfd_python.CassonBlood()
     result = solver.solve(blood)
 
-    y_pycfdrs = np.array(result.y_coords)
-    u_pycfdrs = np.array(result.velocity)
-    gamma_pycfdrs = np.array(result.shear_rate)
-    mu_pycfdrs = np.array(result.viscosity)
+    y_cfd_python = np.array(result.y_coords)
+    u_cfd_python = np.array(result.velocity)
+    gamma_cfd_python = np.array(result.shear_rate)
+    mu_cfd_python = np.array(result.viscosity)
 
     print(f"Converged in {result.iterations} iterations")
-    print(f"\npycfdrs Results:")
+    print(f"\ncfd_python Results:")
     print(f"  Flow rate (per unit width): {result.flow_rate / width:.6e} m²/s")
     print(f"  Wall shear stress: {result.wall_shear_stress:.3e} Pa")
-    print(f"  Max velocity: {u_pycfdrs.max():.6e} m/s")
-    print(f"  Max shear rate: {gamma_pycfdrs.max():.3e} s⁻¹")
-    print(f"  Min viscosity: {mu_pycfdrs.min():.6e} Pa·s")
+    print(f"  Max velocity: {u_cfd_python.max():.6e} m/s")
+    print(f"  Max shear rate: {gamma_cfd_python.max():.3e} s⁻¹")
+    print(f"  Min viscosity: {mu_cfd_python.min():.6e} Pa·s")
 
-    # Interpolate FEniCS solution to pycfdrs grid for comparison
-    u_fenics_interp = np.interp(y_pycfdrs, y_fenics, u_fenics)
-    gamma_fenics_interp = np.interp(y_pycfdrs, y_fenics, gamma_fenics)
-    mu_fenics_interp = np.interp(y_pycfdrs, y_fenics, mu_fenics)
+    # Interpolate FEniCS solution to cfd_python grid for comparison
+    u_fenics_interp = np.interp(y_cfd_python, y_fenics, u_fenics)
+    gamma_fenics_interp = np.interp(y_cfd_python, y_fenics, gamma_fenics)
+    mu_fenics_interp = np.interp(y_cfd_python, y_fenics, mu_fenics)
 
     # Compute errors (skip boundaries)
     interior = slice(1, -1)
 
-    u_error = np.abs(u_pycfdrs[interior] - u_fenics_interp[interior]) / (
+    u_error = np.abs(u_cfd_python[interior] - u_fenics_interp[interior]) / (
         np.abs(u_fenics_interp[interior]) + 1e-10
     )
-    gamma_error = np.abs(gamma_pycfdrs[interior] - gamma_fenics_interp[interior]) / (
+    gamma_error = np.abs(gamma_cfd_python[interior] - gamma_fenics_interp[interior]) / (
         np.abs(gamma_fenics_interp[interior]) + 1e-10
     )
-    mu_error = np.abs(mu_pycfdrs[interior] - mu_fenics_interp[interior]) / (
+    mu_error = np.abs(mu_cfd_python[interior] - mu_fenics_interp[interior]) / (
         np.abs(mu_fenics_interp[interior]) + 1e-10
     )
 
     print("\n" + "=" * 80)
-    print("Comparison: pycfdrs vs FEniCS")
+    print("Comparison: cfd_python vs FEniCS")
     print("=" * 80)
     print(f"Velocity:")
     print(f"  Max relative error: {u_error.max() * 100:.3f}%")
@@ -296,7 +296,7 @@ def compare_with_pycfdrs():
     checks_total += 1
     if result.iterations < 1000 and iter_fenics < 1000:
         print(
-            f"✓ Both solvers converged (pycfdrs: {result.iterations}, FEniCS: {iter_fenics})"
+            f"✓ Both solvers converged (cfd_python: {result.iterations}, FEniCS: {iter_fenics})"
         )
         checks_passed += 1
     else:
@@ -305,8 +305,8 @@ def compare_with_pycfdrs():
     # Check 3: Flow rates match within 5%
     checks_total += 1
     q_fenics = np.trapz(u_fenics, y_fenics)
-    q_pycfdrs = result.flow_rate / width
-    q_error = abs(q_fenics - q_pycfdrs) / q_fenics
+    q_cfd_python = result.flow_rate / width
+    q_error = abs(q_fenics - q_cfd_python) / q_fenics
     if q_error < 0.05:
         print(f"✓ Flow rates match ({q_error * 100:.3f}% < 5%)")
         checks_passed += 1
@@ -315,7 +315,7 @@ def compare_with_pycfdrs():
 
     # Check 4: Shear-thinning behavior in both
     checks_total += 1
-    if mu_pycfdrs.max() > mu_pycfdrs.min() and mu_fenics.max() > mu_fenics.min():
+    if mu_cfd_python.max() > mu_cfd_python.min() and mu_fenics.max() > mu_fenics.min():
         print(f"✓ Both show shear-thinning behavior")
         checks_passed += 1
     else:
@@ -330,7 +330,7 @@ def compare_with_pycfdrs():
 
     # Velocity comparison
     ax1.plot(y_fenics * 1e3, u_fenics, "b-", linewidth=2, label="FEniCS")
-    ax1.plot(y_pycfdrs * 1e3, u_pycfdrs, "r--", linewidth=1.5, label="pycfdrs")
+    ax1.plot(y_cfd_python * 1e3, u_cfd_python, "r--", linewidth=1.5, label="cfd_python")
     ax1.set_xlabel("y [mm]")
     ax1.set_ylabel("Velocity [m/s]")
     ax1.set_title("Velocity Profile Comparison")
@@ -338,7 +338,7 @@ def compare_with_pycfdrs():
     ax1.grid(True, alpha=0.3)
 
     # Velocity error
-    ax2.plot(y_pycfdrs[interior] * 1e3, u_error * 100, "k-", linewidth=2)
+    ax2.plot(y_cfd_python[interior] * 1e3, u_error * 100, "k-", linewidth=2)
     ax2.set_xlabel("y [mm]")
     ax2.set_ylabel("Relative Error [%]")
     ax2.set_title(f"Velocity Error (max={u_error.max() * 100:.3f}%)")
@@ -346,7 +346,7 @@ def compare_with_pycfdrs():
 
     # Viscosity comparison
     ax3.plot(y_fenics * 1e3, mu_fenics * 1e3, "b-", linewidth=2, label="FEniCS")
-    ax3.plot(y_pycfdrs * 1e3, mu_pycfdrs * 1e3, "r--", linewidth=1.5, label="pycfdrs")
+    ax3.plot(y_cfd_python * 1e3, mu_cfd_python * 1e3, "r--", linewidth=1.5, label="cfd_python")
     ax3.set_xlabel("y [mm]")
     ax3.set_ylabel("Viscosity [cP]")
     ax3.set_title("Viscosity Profile Comparison")
@@ -356,7 +356,7 @@ def compare_with_pycfdrs():
 
     # Shear rate comparison
     ax4.plot(y_fenics * 1e3, gamma_fenics, "b-", linewidth=2, label="FEniCS")
-    ax4.plot(y_pycfdrs * 1e3, gamma_pycfdrs, "r--", linewidth=1.5, label="pycfdrs")
+    ax4.plot(y_cfd_python * 1e3, gamma_cfd_python, "r--", linewidth=1.5, label="cfd_python")
     ax4.set_xlabel("y [mm]")
     ax4.set_ylabel("Shear Rate [s⁻¹]")
     ax4.set_title("Shear Rate Comparison")
@@ -364,12 +364,12 @@ def compare_with_pycfdrs():
     ax4.grid(True, alpha=0.3)
 
     plt.tight_layout()
-    plt.savefig("fenics_pycfdrs_comparison.png", dpi=150, bbox_inches="tight")
-    print(f"\nComparison plot saved: fenics_pycfdrs_comparison.png")
+    plt.savefig("fenics_cfd_python_comparison.png", dpi=150, bbox_inches="tight")
+    print(f"\nComparison plot saved: fenics_cfd_python_comparison.png")
 
     return checks_passed == checks_total
 
 
 if __name__ == "__main__":
-    success = compare_with_pycfdrs()
+    success = compare_with_cfd_python()
     sys.exit(0 if success else 1)

@@ -1,10 +1,21 @@
 # cfd-io — Agent Reference
 
 > **Role**: All file I/O for simulation data. No solver logic.  
-> **Depends on**: `cfd-core` only.
+> **Direct internal deps**: `cfd-core`, `cfd-math`
 
 ---
 
+
+<!-- AGENT-AUDIT-SNAPSHOT:START -->
+## Verified Audit Snapshot (2026-02-26)
+
+- Verified against `Cargo.toml`, `src/lib.rs`, and the top-level `src/` tree.
+- Direct internal crate dependencies (`cargo metadata`): `cfd-core`, `cfd-math`.
+- Cargo features: `default`, `mpi`.
+- `src/lib.rs` module surface: `binary`, `checkpoint`, `csv`, `vtk`.
+- Top-level `src/` entries: `binary.rs`, `checkpoint`, `csv`, `error.rs`, `formats.rs`, `hdf5_module`, `json.rs`, `lib.rs`, `vtk`.
+
+<!-- AGENT-AUDIT-SNAPSHOT:END -->
 ## Purpose
 
 `cfd-io` owns every read/write path for simulation data:
@@ -123,3 +134,6 @@ stream.write_row(&[step.to_string(), residual.to_string()])?;
 - No physics computations — strip data from solver state before writing
 - No in-memory caching of field data (fields are large; stream through)
 - No direct dependency on `cfd-mesh`, `cfd-math`, `cfd-2d`, `cfd-3d` (one-way: solvers call cfd-io)
+
+
+

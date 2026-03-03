@@ -127,13 +127,18 @@ fn pipeline_rejects_wrong_diameter() {
 
 #[test]
 fn pipeline_rejects_channels_outside_plate() {
-    // Channel longer than plate (127.76 mm) will violate wall clearance
-    // total_length = 200 mm + 200 mm + 200 mm > 127.76 mm plate
-    let bp = venturi_chain("long", 0.600, 0.004, 0.002); // 600 mm total
-    let result = BlueprintMeshPipeline::run(&bp, &default_cfg());
+    // VenturiChain is auto-rescaled to chip width — no X-direction rejection.
+    // Verify that a serpentine with too many rows violates the Y side-wall
+    // clearance guard: 12 rows × 10 mm pitch = 120 mm > 85.47 mm plate depth.
+    let bp = serpentine_chain("tall", 12, 0.010, 0.004);
+    let cfg = PipelineConfig {
+        wall_clearance_mm: 5.0,
+        ..PipelineConfig::default()
+    };
+    let result = BlueprintMeshPipeline::run(&bp, &cfg);
     assert!(
         result.is_err(),
-        "channels extending past plate should be rejected"
+        "serpentine rows exceeding plate depth should be rejected"
     );
 }
 

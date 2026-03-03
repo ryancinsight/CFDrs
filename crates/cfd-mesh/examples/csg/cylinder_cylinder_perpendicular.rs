@@ -110,7 +110,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             -std::f64::consts::FRAC_PI_2, // +Y → +X
         );
         CsgNode::Transform {
-            node: Box::new(CsgNode::Leaf(raw)),
+            node: Box::new(CsgNode::Leaf(Box::new(raw))),
             iso: Isometry3::from_parts(nalgebra::Translation3::identity(), rot),
         }
         .evaluate()?

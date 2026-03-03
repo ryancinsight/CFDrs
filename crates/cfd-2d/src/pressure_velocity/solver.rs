@@ -30,7 +30,6 @@ pub struct PressureVelocitySolver<T: RealField + Copy> {
     /// Pressure correction solver
     pressure_solver: PressureCorrectionSolver<T>,
     /// Rhie-Chow interpolation (optional)
-    #[allow(dead_code)]
     rhie_chow: Option<RhieChowInterpolation<T>>,
     /// Current velocity field
     u: Vec<Vec<Vector2<T>>>,
@@ -73,6 +72,12 @@ impl<T: RealField + Copy + FromPrimitive + Copy + LowerExp + num_traits::ToPrimi
             p: vec![vec![T::zero(); ny]; nx],
             iterations: 0,
         })
+    }
+
+    /// Whether Rhie-Chow interpolation is enabled
+    #[must_use]
+    pub const fn has_rhie_chow(&self) -> bool {
+        self.rhie_chow.is_some()
     }
 
     /// Set initial conditions

@@ -8,7 +8,7 @@ All CFD-rs implementations are **COMPLETE** with:
 - ✅ Analytical validation (Hagen-Poiseuille, Bernoulli, Murray's law)
 - ✅ Literature validation (Ghia et al. 1982)
 - ✅ External package comparison framework
-- ✅ Python bindings (pycfdrs) for cross-validation
+- ✅ Python bindings (cfd-python) for cross-validation
 
 ## Implementation Completeness
 
@@ -87,11 +87,11 @@ All CFD-rs implementations are **COMPLETE** with:
 | `external_validation/scripts/compare_with_reference.py` | 450+ | Reference package comparison |
 | `external_validation/scripts/validate_serpentine.py` | 500+ | Serpentine flow validation |
 | `external_validation/scripts/validate_3d_flows.py` | 550+ | 3D flow validation |
-| `external_validation/scripts/run_actual_validation.py` | 600+ | Working validation with pycfdrs |
+| `external_validation/scripts/run_actual_validation.py` | 600+ | Working validation with cfd-python |
 | `external_validation/cfd_comparison/finitevolume_ref.py` | 350+ | Reference FVM implementation |
 | `external_validation/README.md` | 400+ | Comprehensive documentation |
 
-### Python Bindings (pycfdrs)
+### Python Bindings (cfd-python)
 
 All bindings are complete and functional:
 
@@ -121,10 +121,10 @@ PyCarreauYasudaBlood    // Shear-thinning model
 
 ### Python Validation Script
 ```python
-import pycfdrs
+import cfd-python
 
 # 2D Poiseuille with non-Newtonian blood
-config = pycfdrs.PoiseuilleConfig2D(
+config = cfd-python.PoiseuilleConfig2D(
     height=100e-6,      # 100 μm
     width=1e-3,         # 1 mm
     length=5e-3,        # 5 mm
@@ -135,8 +135,8 @@ config = pycfdrs.PoiseuilleConfig2D(
     relaxation_factor=0.7
 )
 
-solver = pycfdrs.PoiseuilleSolver2D(config)
-blood = pycfdrs.CassonBlood()
+solver = cfd-python.PoiseuilleSolver2D(config)
+blood = cfd-python.CassonBlood()
 result = solver.solve(blood)
 
 print(f"Flow rate: {result.flow_rate:.4e} m³/s")
@@ -146,7 +146,7 @@ print(f"Iterations: {result.iterations}")
 
 ### 3D Bifurcation with Blood
 ```python
-solver = pycfdrs.Bifurcation3DSolver(
+solver = cfd-python.Bifurcation3DSolver(
     d_parent=100e-6,
     d_daughter1=80e-6,
     d_daughter2=80e-6,
@@ -296,7 +296,7 @@ cargo check --package cfd-core --package cfd-1d --package cfd-2d --package cfd-3
 Finished dev [unoptimized + debuginfo] target(s) in 25.46s
 
 # Python bindings (when built)
-cd crates/pycfdrs && maturin develop --release
+cd crates/cfd-python && maturin develop --release
 ```
 
 ## Conclusion

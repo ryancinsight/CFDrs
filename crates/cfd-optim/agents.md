@@ -1,10 +1,21 @@
 # cfd-optim — Agent Reference
 
-> **Role**: SDT millifluidic design optimiser — parametric sweep + genetic algorithm → top-k ranked candidates.
-> **Depends on**: `cfd-core`, `cfd-1d`, `cfd-schematics`, `cfd-mesh`
+> **Role**: SDT millifluidic design optimiser — parametric sweep + genetic algorithm → top-k ranked candidates (optional mesh handoff via feature-gated `cfd-mesh` export).
+> **Direct internal deps**: `cfd-1d`, `cfd-core`, `cfd-schematics` (+ `cfd-mesh` behind `mesh-export` feature)
 
 ---
 
+
+<!-- AGENT-AUDIT-SNAPSHOT:START -->
+## Verified Audit Snapshot (2026-02-26)
+
+- Verified against `Cargo.toml`, `src/lib.rs`, and the top-level `src/` tree.
+- Direct internal crate dependencies (`cargo metadata`): `cfd-1d`, `cfd-core`, `cfd-schematics`.
+- Cargo features: `default`, `mesh-export`.
+- `src/lib.rs` module surface: `constraints`, `design`, `error`, `evo`, `export`, `metrics`, `optimizer`, `scoring`.
+- Top-level `src/` entries: `constraints.rs`, `design.rs`, `error.rs`, `evo.rs`, `export.rs`, `lib.rs`, `metrics.rs`, `optimizer.rs`, `scoring.rs`.
+
+<!-- AGENT-AUDIT-SNAPSHOT:END -->
 ## Purpose
 
 `cfd-optim` generates and ranks millifluidic device designs for **Sonodynamic Therapy (SDT)**
@@ -12,10 +23,11 @@ and **Pediatric Leukapheresis** applications constrained to a 96-well plate foot
 (ANSI/SLAS 1-2004, 127.76 × 85.47 mm).
 
 Two search strategies:
-1. **Parametric sweep** (`SdtOptimizer`) — exhaustive grid over 14 fixed topology families + all
-   parameter combinations; returns top-k ranked by multi-objective score.
+1. **Parametric sweep** (`SdtOptimizer`) — exhaustive grid over base topology families plus
+   dedicated deep CCT/CIF staged-control grids; returns top-k ranked by multi-objective score.
 2. **Genetic algorithm** (`GeneticOptimizer`) — real-coded GA (SBX + polynomial mutation) searching
-   all 19 topology families including `AdaptiveTree`; returns top-k from any generation.
+   all 24 current `DesignTopology` variants (including GA-only `AdaptiveTree` and cascade separators);
+   returns top-k from any generation.
 
 Public entry points:
 
@@ -41,12 +53,13 @@ src/
   lib.rs             pub re-exports + legacy compatibility API
   error.rs           OptimError: SolverFailure, ConstraintViolation, InvalidTopology
   constraints.rs     Hard constraints: footprint, haemolysis limit, manufacturing limits
-  design.rs          DesignTopology (19 variants), DesignCandidate, parameter sweeps
-  metrics.rs         SdtMetrics computation (39 fields): cavitation, HI, pressure, cell separation
+  design.rs          DesignTopology (24 current enum variants), DesignCandidate, parameter sweeps
+  metrics.rs         SdtMetrics computation (33 fields): cavitation, HI, pressure, cell separation
   scoring.rs         OptimMode (7 variants), score_candidate(), score_description()
   optimizer.rs       SdtOptimizer, top_5(), top_k(), OptimStats, RankedDesign
   export.rs          save_top5_json(), save_comparison_svg(), save_schematic_svg()
-  evo.rs             GeneticOptimizer, MillifluidicGenome (13 genes), decode_genome()
+  evo.rs             GeneticOptimizer, MillifluidicGenome (16 genes), decode_genome()
+  pipeline.rs        DesignPipeline, DesignArtifacts — end-to-end design-to-mesh export (feature `mesh-export`, uses cfd-mesh)
 ```
 
 ---
@@ -68,7 +81,11 @@ reaches the scoring phase.
 
 ## Key Types
 
-### `DesignTopology` (19 variants, `design.rs`)
+### `DesignTopology` (`design.rs`, 24 current enum variants)
+
+Audit note: the table below is a compact historical/core subset view (indices `0..18`) kept
+for quick scanning. The current enum in `crates/cfd-optim/src/design.rs` contains 24 variants,
+including additional trifurcation/cascade separators and GA-only adaptive forms.
 
 | Index | Variant | Short | Venturi count | Notes |
 |-------|---------|-------|---------------|-------|
@@ -122,7 +139,7 @@ pub struct DesignCandidate {
 Derived methods: `inlet_pressure_pa()`, `channel_velocity_m_s()`, `per_venturi_flow()`,
 `to_blueprint()` → `NetworkBlueprint`, `to_channel_system()` → `ChannelSystem`.
 
-### `SdtMetrics` (`metrics.rs`, 39 fields)
+### `SdtMetrics` (`metrics.rs`, 33 fields)
 
 | Group | Fields |
 |-------|--------|
@@ -170,7 +187,7 @@ pub struct RankedDesign {
 ## Parametric Optimisation Loop (`optimizer.rs`)
 
 ```
-for topology in 14 fixed topologies {
+for topology in topology_grid() {
     for (Q, P_gauge, d_throat, w_ch, n_segs) in parameter_sweep(topology) {
         let candidate = DesignCandidate { topology, ... };
         if constraints::check(&candidate).is_err() { continue; }
@@ -192,11 +209,11 @@ candidates.sort_by(|a, b| b.score.partial_cmp(&a.score));
 
 ### Genome
 
-`MillifluidicGenome` has **13 normalised genes** (all ∈ [0, 1]):
+`MillifluidicGenome` has **16 normalised genes** (all ∈ [0, 1]):
 
 | Gene | Parameter | Decode |
 |------|-----------|--------|
-| 0 | Topology index | `ALL_EVO_TOPOLOGIES[(gene × 18.0) as usize]` (0-18) |
+| 0 | Topology index | decoded by scaled/floor/clamp into `ALL_EVO_TOPOLOGIES` (current indices 0-23) |
 | 1 | Flow rate | log-linear between `Q_MIN` and `Q_MAX` |
 | 2 | Inlet gauge pressure | linear between `GAUGE_MIN` and `GAUGE_MAX` |
 | 3 | Throat diameter | linear between `THROAT_MIN` and `THROAT_MAX` (venturi only) |
@@ -206,27 +223,42 @@ candidates.sort_by(|a, b| b.score.partial_cmp(&a.score));
 | 7 | Bend radius fraction | 0.05–0.25 × channel_width |
 | 8 | n_cycles / n_turns / n_channels | topology-specific decode (see below) |
 | 9–12 | AdaptiveTree per-level split types | bit `i` of `split_types` = 0 → Bi, 1 → Tri |
+| 13 | `trifurcation_center_frac` / CIF pretri center frac | trifurcation-family width split fraction (0.25–0.65 mapped) |
+| 14 | CIF terminal-trifurcation center frac | mapped to 0.25–0.65 |
+| 15 | CIF terminal-bifurcation treatment frac | mapped to 0.50–0.85 |
 
 Gene 8 topology-specific decode:
 - `ConstrictionExpansionArray`: `(gene × 18.0 + 2.0) as usize` → n_cycles ∈ [2, 20]
 - `SpiralSerpentine`: `(gene × 18.0 + 2.0) as usize` → n_turns ∈ [2, 20]
 - `ParallelMicrochannelArray`: `(gene × 490.0 + 10.0) as usize` → n_channels ∈ [10, 500]
+- `CascadeCenterTrifurcationSeparator`: cascade depth `n_levels ∈ [1, 3]`
+- `AdaptiveTree`: depth `levels ∈ [0, 4]` (fabrication-constrained by minimum leaf width)
 
-### `ALL_EVO_TOPOLOGIES` (19 entries)
+### `ALL_EVO_TOPOLOGIES` (25 entries)
 
-Indices 0–14: same as fixed parametric topologies (excluding AdaptiveTree).
-Index 15: `ConstrictionExpansionArray { n_cycles: 10 }`
-Index 16: `SpiralSerpentine { n_turns: 8 }`
-Index 17: `ParallelMicrochannelArray { n_channels: 100 }`
-Index 18: `AdaptiveTree { levels: 0, split_types: 0 }` (decoded from genes 9–12)
+Indices `0..14`: fixed SDT / serpentine families used by parametric search.
+Indices `15..17`: leukapheresis topologies with gene-8 discrete parameters.
+Indices `18..21`: width-scaled trifurcation tree families.
+Index `22`: `CascadeCenterTrifurcationSeparator { n_levels: 2 }` placeholder (gene 8 + gene 13 decoded).
+Index `23`: `IncrementalFiltrationTriBiSeparator { n_pretri: 2 }` placeholder (genes 8 + 13–15 decoded).
+Index `24`: `AdaptiveTree { levels: 0, split_types: 0 }` placeholder (genes 8–13 decoded).
 
 ### GA Operators
 
 - **Selection**: Tournament (k = 3)
 - **Crossover**: Simulated Binary Crossover (SBX, η = 2)
-- **Mutation**: Polynomial (η_m = 20, p_m = 1/n_genes)
+- **Mutation**: Polynomial (η_m = 10, p_m = 1/n_genes)
 - **Elitism**: Top 10% preserved each generation
 - **Default**: pop = 60, generations = 120, top_k = 5
+
+### `EvolutionResult` (run output)
+
+`GeneticOptimizer::run()` returns:
+- `top_designs`: diverse top-k ranked candidates
+- `best_per_gen`: best feasible score per generation
+- `mean_per_gen`: mean feasible score per generation
+- `feasible_per_gen`: feasible candidate count per generation
+- `topology_diversity_per_gen`: number of distinct topology indices in population per generation
 
 ---
 
@@ -283,6 +315,15 @@ All examples anchor outputs to the crate directory using `env!("CARGO_MANIFEST_D
 | `sdt_therapy` | `cfd-optim/outputs/sdt_therapy/` |
 | `sdt_export` | `cfd-optim/outputs/` |
 | `sdt_evo` | `cfd-optim/outputs/` |
+| `sdt_pipeline` | `cfd-optim/outputs/` |
+| `sdt_top5_final` | `cfd-optim/outputs/` |
+| `sdt_2d_validation` | `cfd-optim/outputs/` |
+
+### Integration Tests
+
+| Test file | Description |
+|-----------|-------------|
+| `tests/optimizer_integration.rs` | End-to-end optimizer pipeline: sweep, rank, export, and validate outputs |
 
 ---
 
@@ -293,7 +334,7 @@ All examples anchor outputs to the crate directory using `env!("CARGO_MANIFEST_D
 | `cfd-1d` | All network flow physics via Hagen-Poiseuille + Casson blood solver |
 | `cfd-schematics` | `to_blueprint()` calls composite presets; `to_channel_system()` for SVG |
 | `cfd-core` | `ConstantPropertyFluid`, `Pressure`, haemolysis module, cell_interaction |
-| `cfd-mesh` | Top-5 designs forwarded via `save_schematic_svg → BlueprintMeshPipeline` for 3D mesh export |
+| `cfd-mesh` (feature `mesh-export`) | Mesh-generation/export from top-k designs to STL/OpenFOAM via `DesignPipeline` |
 
 ---
 
@@ -312,3 +353,6 @@ All examples anchor outputs to the crate directory using `env!("CARGO_MANIFEST_D
 
 All examples use `env!("CARGO_MANIFEST_DIR").join("outputs")` — never CWD-relative paths.
 `outputs/` is listed in the root `.gitignore`.
+
+
+

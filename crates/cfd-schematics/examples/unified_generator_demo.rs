@@ -95,11 +95,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!();
 
     println!("4. Generating Visualizations");
-    plot_geometry(&standard_system, out.join("unified/standard_system.png").to_str().unwrap())?;
-    println!("   ✓ Standard system: {}", out.join("unified/standard_system.png").display());
+    plot_geometry(
+        &standard_system,
+        out.join("unified/standard_system.png").to_str().unwrap(),
+    )?;
+    println!(
+        "   ✓ Standard system: {}",
+        out.join("unified/standard_system.png").display()
+    );
 
-    plot_geometry(&metadata_system, out.join("unified/metadata_system.png").to_str().unwrap())?;
-    println!("   ✓ Metadata system: {}", out.join("unified/metadata_system.png").display());
+    plot_geometry(
+        &metadata_system,
+        out.join("unified/metadata_system.png").to_str().unwrap(),
+    )?;
+    println!(
+        "   ✓ Metadata system: {}",
+        out.join("unified/metadata_system.png").display()
+    );
     println!();
 
     println!("5. Unified Generator API Summary");

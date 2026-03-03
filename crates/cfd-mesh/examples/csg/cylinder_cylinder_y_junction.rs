@@ -263,7 +263,7 @@ fn build_y_junction(
             UnitQuaternion::<Real>::from_axis_angle(&Vector3::z_axis(), -FRAC_PI_2);
         let iso = Isometry3::from_parts(Translation3::new(-H_TRUNK, 0.0, 0.0), rot);
         CsgNode::Transform {
-            node: Box::new(CsgNode::Leaf(raw)),
+            node: Box::new(CsgNode::Leaf(Box::new(raw))),
             iso,
         }
         .evaluate()?
@@ -286,7 +286,7 @@ fn build_y_junction(
         );
         let iso = Isometry3::from_parts(Translation3::new(0.0, 0.0, 0.0), rot);
         CsgNode::Transform {
-            node: Box::new(CsgNode::Leaf(raw)),
+            node: Box::new(CsgNode::Leaf(Box::new(raw))),
             iso,
         }
         .evaluate()?
@@ -308,7 +308,7 @@ fn build_y_junction(
         );
         let iso = Isometry3::from_parts(Translation3::new(0.0, 0.0, 0.0), rot);
         CsgNode::Transform {
-            node: Box::new(CsgNode::Leaf(raw)),
+            node: Box::new(CsgNode::Leaf(Box::new(raw))),
             iso,
         }
         .evaluate()?

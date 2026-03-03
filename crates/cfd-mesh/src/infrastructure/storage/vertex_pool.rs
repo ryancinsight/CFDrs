@@ -1,5 +1,35 @@
 //! Vertex pool with spatial-hash deduplication — generic over scalar precision.
 //!
+//! ## Architecture
+//!
+//! ```text
+//! insert_or_weld(point p)
+//!         │
+//!  ┌──────▼─────────────────────────────────────────┐
+//!  │  Snap-rounding mode (tolerance_sq = None):       │
+//!  │  key = floor(p / cell_size)                      │
+//!  │  if spatial_hash[key] exists → return first id   │
+//!  │  else → insert new vertex                        │
+//!  └──────┬─────────────────────────────────────────┘
+//!         │ OR
+//!  ┌──────▼─────────────────────────────────────────┐
+//!  │  Tolerance-based mode (tolerance_sq = Some(ε²)): │
+//!  │  search 3×3×3 = 27 neighbouring cells            │
+//!  │  return closest existing vertex within ε         │
+//!  │  else → insert new vertex                        │
+//!  └────────────────────────────────────────────────┘
+//! ```
+//!
+//! ## Theorem — 27-Neighbour Search Completeness
+//!
+//! For `tolerance ≤ cell_size`, any point p' within distance `tolerance` of p
+//! must lie in one of the 27 cells surrounding p's cell.  Proof: the maximum
+//! distance from p to any corner of its cell is `cell_size · √3`.  A sphere of
+//! radius `tolerance ≤ cell_size` around p is contained within the 27-cell
+//! neighbourhood since each adjacent cell is at most one `cell_size` away
+//! (Chebyshev distance ≤ 1).  Therefore the 27-cell scan never misses a valid
+//! weld candidate.  ∎
+//!
 //! Unlike O(n²) linear-scan vertex matching, a spatial hash grid provides
 //! O(1) amortised dedup lookups. Critical for vertex welding during CSG
 //! operations and cross-region stitching.
@@ -7,6 +37,15 @@
 //! The pool is generic over `T: Scalar` so that both `VertexPool<f64>` (the
 //! default) and `VertexPool<f32>` (GPU staging) compile to zero-overhead
 //! monomorphised code.
+//!
+//! ## Exactness Mandate
+//!
+//! **Snap-rounding mode** uses pure integer grid-cell comparison — no
+//! floating-point distance tolerances or epsilon spheres.  Points are
+//! deterministically quantized to the nearest grid intersection via
+//! `floor(p · inv_cell_size)`.  Two points in the same cell are always welded;
+//! two points in different cells are never welded (regardless of geometric
+//! proximity).  This gives reproducible, order-independent results.
 
 use crate::domain::core::index::VertexId;
 use crate::domain::core::scalar::Scalar;
@@ -85,41 +124,89 @@ impl CellKey {
 ///
 /// Generic over scalar precision `T`.  The default `T = f64` keeps all
 /// existing call-sites unchanged.
+///
+/// # Welding Modes
+///
+/// - **Snap-rounding mode** (`tolerance_sq = None`): pure grid cell hash lookup.
+///   Vertices in the same `cell_size`-grid cell are welded unconditionally.  Used
+///   for primitive building where grid placement is exact and no distance drift
+///   occurs between adjacent vertices.
+///
+/// - **Tolerance-based mode** (`tolerance_sq = Some(tol_sq)`): checks all 27
+///   neighbouring grid cells for any existing vertex within distance `√tol_sq`.
+///   Used for CSG operations where Steiner points computed by adjacent faces via
+///   different numerical paths may differ by a small floating-point epsilon.
 #[derive(Clone)]
 pub struct VertexPool<T: Scalar = f64> {
     /// Contiguous vertex storage.
     vertices: Vec<VertexData<T>>,
     /// Spatial hash: grid cell → list of vertex indices in that cell.
     spatial_hash: HashMap<CellKey, Vec<u32>>,
-    /// `1 / cell_size` — used to quantise positions into cells.
+    /// Inverse of the quantization cell size (1 / `cell_size`).
     inv_cell_size: T,
-    /// Squared welding tolerance — avoids `sqrt` in distance checks.
-    tolerance_sq: T,
+    /// When `Some(tol_sq)`, `insert_or_weld` performs a distance check in the
+    /// 27-neighbour cell neighbourhood instead of a single-cell hash lookup.
+    tolerance_sq: Option<T>,
 }
 
 impl<T: Scalar> VertexPool<T> {
-    /// Create a new vertex pool.
-    ///
-    /// - `cell_size`  — spatial hash grid cell size (should be ≥ weld tolerance).
-    /// - `tolerance`  — welding radius; vertices closer than this are merged.
-    pub fn new(cell_size: T, tolerance: T) -> Self {
-        assert!(cell_size > T::zero(), "cell_size must be positive");
+    /// Create a new vertex pool in pure snap-rounding mode.
+    pub fn new(cell_size: T) -> Self {
         Self {
             vertices: Vec::new(),
             spatial_hash: HashMap::new(),
             inv_cell_size: T::one() / cell_size,
-            tolerance_sq: tolerance * tolerance,
+            tolerance_sq: None,
         }
     }
 
-    /// Sensible defaults for millifluidic meshes.
+    /// Create a new vertex pool in tolerance-based welding mode.
     ///
-    /// - `cell_size = 0.01 mm` — spatial hash cell.
-    /// - `tolerance = 1e-4 mm` (100 nm) — tight enough to preserve geometry,
-    ///   loose enough to weld CSG intersection vertices that drift by
-    ///   accumulated floating-point error.
+    /// Points within `tolerance` mm of an existing vertex are welded to it.
+    /// Internally uses a spatial hash grid with `cell_size = tolerance` and
+    /// checks all 27 neighbouring cells for a distance match.
+    pub fn with_tolerance(cell_size: T, tolerance: T) -> Self {
+        Self {
+            vertices: Vec::new(),
+            spatial_hash: HashMap::new(),
+            inv_cell_size: T::one() / cell_size,
+            tolerance_sq: Some(tolerance * tolerance),
+        }
+    }
+
+    /// Sensible defaults for millifluidic meshes (pure snap-rounding).
+    ///
+    /// - `cell_size = 1e-4 mm` (100 nm) — points in the same cell are welded.
+    #[must_use] 
     pub fn default_millifluidic() -> Self {
-        Self::new(<T as Scalar>::from_f64(0.01), <T as Scalar>::from_f64(1e-4))
+        Self::new(<T as Scalar>::from_f64(1e-4))
+    }
+
+    /// Pool for CSG boolean operations (tolerance-based welding).
+    ///
+    /// Uses a `1e-4 mm` grid cell with `1e-4 mm` distance-squared tolerance.
+    /// This welds Steiner points whose floating-point positions differ by up to
+    /// `1e-4 mm` (100 nm) due to different numerical computation paths across
+    /// adjacent faces, preventing T-junction seam gaps in the CSG result.
+    #[must_use]
+    pub fn for_csg() -> Self {
+        Self::with_tolerance(
+            <T as Scalar>::from_f64(1e-4),
+            <T as Scalar>::from_f64(1e-4),
+        )
+    }
+
+    /// Create an empty clone with the exact same cell_size and tolerance_sq
+    /// settings as this pool. Useful for reconstructing a mesh without regressing
+    /// to default scalar tolerances.
+    #[must_use]
+    pub fn empty_clone(&self) -> Self {
+        Self {
+            vertices: Vec::new(),
+            spatial_hash: HashMap::new(),
+            inv_cell_size: self.inv_cell_size,
+            tolerance_sq: self.tolerance_sq,
+        }
     }
 
     /// Number of unique vertices.
@@ -134,32 +221,45 @@ impl<T: Scalar> VertexPool<T> {
         self.vertices.is_empty()
     }
 
-    /// Insert a vertex, deduplicating against existing vertices within tolerance.
+    /// Insert a vertex, welding if an existing vertex is nearby.
     ///
-    /// Returns the [`VertexId`] of the existing or newly-created vertex.
+    /// In **snap-rounding mode** (`tolerance_sq = None`): welds unconditionally
+    /// to the first vertex in the same grid cell.
+    ///
+    /// In **tolerance-based mode** (`tolerance_sq = Some(tol_sq)`): searches all
+    /// 27 neighbouring cells and returns the closest existing vertex whose
+    /// distance-squared is ≤ `tol_sq`. If none found, inserts a new vertex.
     pub fn insert_or_weld(&mut self, position: Point3<T>, normal: Vector3<T>) -> VertexId {
         let key = CellKey::from_point(&position, self.inv_cell_size);
 
-        // Check 3×3×3 neighbourhood for an existing vertex within tolerance.
-        for dz in -1i64..=1 {
-            for dy in -1i64..=1 {
-                for dx in -1i64..=1 {
-                    let neighbour = CellKey {
-                        x: key.x + dx,
-                        y: key.y + dy,
-                        z: key.z + dz,
-                    };
-                    if let Some(indices) = self.spatial_hash.get(&neighbour) {
-                        for &idx in indices {
-                            let dist_sq =
-                                (self.vertices[idx as usize].position - position).norm_squared();
-                            if dist_sq <= self.tolerance_sq {
-                                // Weld: first-come-wins for position; normals averaged.
-                                return VertexId::new(idx);
+        if let Some(tol_sq) = self.tolerance_sq {
+            // Tolerance-based mode: search 27-neighbour cells.
+            let mut best_id: Option<u32> = None;
+            let mut best_dist_sq = tol_sq;
+            for dz in -1i64..=1 {
+                for dy in -1i64..=1 {
+                    for dx in -1i64..=1 {
+                        let nk = CellKey { x: key.x + dx, y: key.y + dy, z: key.z + dz };
+                        if let Some(indices) = self.spatial_hash.get(&nk) {
+                            for &idx in indices {
+                                let v = &self.vertices[idx as usize];
+                                let d = (v.position - position).norm_squared();
+                                if d <= best_dist_sq {
+                                    best_dist_sq = d;
+                                    best_id = Some(idx);
+                                }
                             }
                         }
                     }
                 }
+            }
+            if let Some(idx) = best_id {
+                return VertexId::new(idx);
+            }
+        } else {
+            // Snap-rounding mode: single cell lookup.
+            if let Some(indices) = self.spatial_hash.get(&key) {
+                return VertexId::new(indices[0]);
             }
         }
 

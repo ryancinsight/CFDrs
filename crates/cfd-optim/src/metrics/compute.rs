@@ -1,0 +1,1460 @@
+//! Core `compute_metrics` entry point and the Giersiepen haemolysis helper.
+
+use cfd_1d::hemolysis::cavitation_amplified_hi;
+use cfd_core::physics::fluid::blood::CassonBlood;
+use cfd_schematics::domain::model::CrossSectionSpec;
+
+use crate::constraints::{
+    BLOOD_ATTENUATION_405NM_INV_M, BLOOD_DENSITY_KG_M3, BLOOD_VAPOR_PRESSURE_PA,
+    BLOOD_VISCOSITY_PA_S, BUBBLE_GAMMA, CLOTTING_BFR_CAUTION_ML_MIN, CLOTTING_BFR_HIGH_RISK_ML_MIN,
+    CLOTTING_BFR_LOW_RISK_ML_MIN, CLOTTING_BFR_STRICT_10MLS_ML_MIN, CLOTTING_RESIDENCE_HIGH_RISK_S,
+    CLOTTING_RESIDENCE_LOW_RISK_S, CLOTTING_SHEAR_HIGH_RISK_INV_S, CLOTTING_SHEAR_LOW_RISK_INV_S,
+    DIFFUSER_DISCHARGE_COEFF, FDA_MAX_WALL_SHEAR_PA, FDA_TRANSIENT_SHEAR_PA, FDA_TRANSIENT_TIME_S,
+    GIERSIEPEN_ALPHA, MILESTONE_TREATMENT_DURATION_MIN, PATIENT_BLOOD_VOLUME_ML,
+    PEDIATRIC_BLOOD_VOLUME_ML_PER_KG, PEDIATRIC_REFERENCE_WEIGHT_KG, PLATE_HEIGHT_MM, P_ATM_PA,
+    RAYLEIGH_COLLAPSE_FACTOR, R_BUBBLE_EQ_M, SIGMA_CRIT, SONO_REF_P_ABS_PA, THERAPEUTIC_WINDOW_REF,
+    TREATMENT_HEIGHT_MM, VENTURI_CC, VENTURI_VEL_RATIO_REF,
+};
+use crate::design::{DesignCandidate, DesignTopology};
+use crate::error::OptimError;
+
+use super::network_solve::{solve_blueprint_network, ChannelSolveSample};
+use super::separation::{
+    leukapheresis_separation, three_population_separation, LeukapheresisMetrics, ThreePopMetrics,
+};
+use super::SdtMetrics;
+
+// ── Giersiepen haemolysis model ───────────────────────────────────────────────
+
+/// Giersiepen (1990) haemolysis index: `HI = C · t^α · τ^β`.
+///
+/// Re-exported from [`cfd_1d::hemolysis`] as the canonical implementation.
+/// Returns 0 for non-positive inputs.
+pub use cfd_1d::hemolysis::giersiepen_hi;
+
+// ── Main entry ───────────────────────────────────────────────────────────────
+
+/// Compute all physics-derived metrics for a single [`DesignCandidate`].
+///
+/// The function builds and solves the full 1D channel network, then extracts
+/// per-channel solved flows/pressures to derive pressure drop, flow uniformity,
+/// venturi selectivity, shear, cavitation, residence, and haemolysis metrics.
+pub fn compute_metrics(candidate: &DesignCandidate) -> Result<SdtMetrics, OptimError> {
+    let blood = CassonBlood::<f64>::normal_blood();
+    let q_inlet = candidate.flow_rate_m3_s;
+
+    let bp = candidate.to_blueprint();
+    let solved = solve_blueprint_network(&candidate.id, candidate.topology, &bp, &blood, q_inlet)?;
+
+    let main_cs = bp
+        .channels
+        .iter()
+        .find(|c| {
+            let id = c.id.as_str();
+            id == "inlet_section" || id == "parent" || id.starts_with("segment_")
+        })
+        .map_or(
+            CrossSectionSpec::Rectangular {
+                width_m: candidate.channel_width_m,
+                height_m: candidate.channel_height_m,
+            },
+            |c| c.cross_section,
+        );
+    let (w_main, h_main) = cross_section_dims(main_cs);
+
+    // ── Solved-flow derived hydraulic metrics ───────────────────────────────
+    let q_ref = solved.inlet_flow_m3_s.max(1e-12);
+
+    let mut max_main_shear_pa = 0.0_f64;
+    let mut bulk_hi = 0.0_f64;
+    let mut venturi_hi = 0.0_f64;
+    let mut expected_path_len_m = 0.0_f64;
+    let mut all_channel_shears: Vec<f64> = Vec::new();
+
+    let mut venturi_sigma = f64::INFINITY;
+    let mut venturi_shear_rate = 0.0_f64;
+    let mut venturi_shear_pa = 0.0_f64;
+    let mut t_throat_venturi = 0.0_f64;
+    let mut venturi_v_thr = 0.0_f64;
+    let mut venturi_v_in = 0.0_f64;
+    let mut diffuser_recovery_pa = 0.0_f64;
+
+    for sample in &solved.channel_samples {
+        let q_abs = sample.flow_m3_s.abs();
+        if q_abs <= 1e-18 {
+            continue;
+        }
+
+        let area = cross_section_area(sample.cross_section).max(1e-18);
+        let v = q_abs / area;
+        let gamma_fd = shear_rate_for(sample.cross_section, v);
+        // Entrance-length correction: developing flow has ~1.5× the wall shear
+        // of fully-developed flow (Shah & London 1978).
+        let elf = entrance_length_shear_factor(sample.cross_section, v, sample.length_m);
+        let gamma = gamma_fd * elf;
+        let mu = blood.apparent_viscosity(gamma);
+        let tau = (mu * gamma).max(0.0);
+        let t_seg = if v > 1e-12 { sample.length_m / v } else { 0.0 };
+        let hi_seg = giersiepen_hi(tau, t_seg);
+        let weight = q_abs / q_ref;
+
+        expected_path_len_m += weight * sample.length_m;
+        bulk_hi += weight * hi_seg;
+
+        if sample.is_venturi_throat {
+            venturi_hi += weight * hi_seg;
+            venturi_shear_rate = venturi_shear_rate.max(gamma);
+            venturi_shear_pa = venturi_shear_pa.max(tau);
+            t_throat_venturi = t_throat_venturi.max(t_seg);
+            venturi_v_thr = venturi_v_thr.max(v);
+
+            // Bernoulli-corrected σ: compute static pressure at the throat
+            // vena contracta by subtracting the dynamic pressure gain from
+            // the upstream node pressure.
+            //
+            // P_static,throat = P_upstream + P_atm
+            //                 - ½ρ(v_throat² − v_upstream²)
+            //
+            // The vena contracta coefficient Cc accounts for the flow
+            // contraction beyond the geometric throat (Cc ≈ 0.61 for sharp
+            // orifice; 0.95 for well-rounded contraction).
+            let upstream_v_local = solved
+                .channel_samples
+                .iter()
+                .find(|other| other.to_node == sample.from_node && !other.is_venturi_throat)
+                .map_or_else(
+                    || q_abs / (w_main * h_main).max(1e-18),
+                    |other| {
+                        let up_area = cross_section_area(other.cross_section).max(1e-18);
+                        other.flow_m3_s.abs() / up_area
+                    },
+                );
+            venturi_v_in = venturi_v_in.max(upstream_v_local);
+
+            // Apply vena contracta coefficient: the jet contracts beyond
+            // the geometric throat, so the effective velocity at the vena
+            // contracta is v_eff = v_geom / Cc (VENTURI_CC ≈ 0.85 for
+            // smooth millifluidic contractions; Idelchik Diagram 4-9).
+            let v_eff = v / VENTURI_CC;
+            let p_gauge_upstream = sample.from_pressure_pa.max(0.0);
+            let bernoulli_drop =
+                0.5 * BLOOD_DENSITY_KG_M3 * (v_eff * v_eff - upstream_v_local * upstream_v_local);
+
+            // Throat skin-friction loss: Darcy-Weisbach ΔP_f = f·(L/D_h)·½ρv²
+            // where f = 64/Re for laminar flow (Re < 2300) in the developing
+            // throat (Shah & London 1978).  This additional pressure drop
+            // further reduces p_static at the vena contracta, promoting
+            // cavitation inception in long/narrow throats.
+            let d_h_throat = hydraulic_diameter(sample.cross_section);
+            let re_throat =
+                BLOOD_DENSITY_KG_M3 * v_eff * d_h_throat / BLOOD_VISCOSITY_PA_S.max(1e-18);
+            let f_darcy = if re_throat > 1.0 {
+                64.0 / re_throat
+            } else {
+                64.0
+            };
+            let friction_drop = f_darcy
+                * (sample.length_m / d_h_throat.max(1e-18))
+                * 0.5
+                * BLOOD_DENSITY_KG_M3
+                * v_eff
+                * v_eff;
+
+            let p_static_throat =
+                (p_gauge_upstream + P_ATM_PA - bernoulli_drop - friction_drop).max(0.0);
+            let dyn_p = 0.5 * BLOOD_DENSITY_KG_M3 * v_eff * v_eff;
+            let sigma = if dyn_p > 1e-12 {
+                (p_static_throat - BLOOD_VAPOR_PRESSURE_PA) / dyn_p
+            } else {
+                f64::INFINITY
+            };
+            venturi_sigma = venturi_sigma.min(sigma);
+
+            // Diffuser pressure recovery: the gradual expansion downstream of
+            // the venturi throat converts a fraction of the throat dynamic
+            // pressure back to static pressure.  This partially compensates
+            // the Bernoulli drop, improving the net pressure budget.
+            // ΔP_recovery = C_D × ½ρ(v_throat² − v_upstream²)
+            // (Idelchik 1994, Handbook of Hydraulic Resistance, Diagram 6-21)
+            let dp_recovery = DIFFUSER_DISCHARGE_COEFF
+                * 0.5
+                * BLOOD_DENSITY_KG_M3
+                * (v_eff * v_eff - upstream_v_local * upstream_v_local).max(0.0);
+            diffuser_recovery_pa = diffuser_recovery_pa.max(dp_recovery);
+        } else {
+            max_main_shear_pa = max_main_shear_pa.max(tau);
+            if tau > 0.0 {
+                all_channel_shears.push(tau);
+            }
+        }
+    }
+
+    let total_pressure_drop_pa = (solved.inlet_pressure_pa.max(0.0) + solved.remerge_loss_pa
+        - diffuser_recovery_pa)
+        .max(0.0);
+    let pressure_feasible = total_pressure_drop_pa <= candidate.inlet_gauge_pa;
+
+    // ── Wall shear percentile statistics ─────────────────────────────────
+    let (wall_shear_p95_pa, wall_shear_p99_pa, wall_shear_mean_pa, wall_shear_cv) =
+        compute_shear_percentiles(&mut all_channel_shears);
+    let fda_shear_percentile_compliant =
+        wall_shear_p95_pa <= FDA_MAX_WALL_SHEAR_PA && wall_shear_p99_pa <= FDA_TRANSIENT_SHEAR_PA;
+
+    let mut flow_uniformity = solved.flow_uniformity;
+    if !flow_uniformity.is_finite() || flow_uniformity <= 1e-9 {
+        flow_uniformity = fallback_uniformity(candidate.topology);
+    }
+    flow_uniformity = flow_uniformity.clamp(0.0, 1.0);
+
+    let modeled_venturi_flow_fraction = candidate.venturi_flow_fraction();
+    let mut venturi_flow_fraction = solved.venturi_flow_fraction.clamp(0.0, 1.0);
+    if candidate.topology.has_venturi() && venturi_flow_fraction <= 1e-9 {
+        venturi_flow_fraction = modeled_venturi_flow_fraction;
+    }
+    if !candidate.topology.has_venturi() {
+        venturi_flow_fraction = 0.0;
+    }
+
+    // If throat-resolved extraction collapses (e.g. stiff selective trees),
+    // recover venturi local quantities from the model-based throat flow share.
+    if candidate.topology.has_venturi() && venturi_v_thr <= 1e-12 && venturi_flow_fraction > 0.0 {
+        let n_parallel = candidate.topology.parallel_venturi_count().max(1) as f64;
+        let q_per_throat = q_inlet * venturi_flow_fraction / n_parallel;
+        let throat_area = (candidate.throat_diameter_m * candidate.channel_height_m).max(1e-18);
+        let inlet_area = (candidate.channel_width_m * candidate.channel_height_m).max(1e-18);
+        let v_thr = q_per_throat / throat_area;
+        let v_in = q_per_throat / inlet_area;
+        let gamma_fd = 6.0 * v_thr / candidate.channel_height_m.max(1e-18);
+        // Entrance-length correction for the venturi throat.
+        let throat_cs = CrossSectionSpec::Rectangular {
+            width_m: candidate.throat_diameter_m,
+            height_m: candidate.channel_height_m,
+        };
+        let elf = entrance_length_shear_factor(throat_cs, v_thr, candidate.throat_length_m);
+        let gamma = gamma_fd * elf;
+        let mu = blood.apparent_viscosity(gamma);
+        let tau = (mu * gamma).max(0.0);
+        let t_thr = if v_thr > 1e-12 {
+            candidate.throat_length_m / v_thr
+        } else {
+            0.0
+        };
+
+        venturi_v_thr = v_thr;
+        venturi_v_in = v_in;
+        venturi_shear_rate = venturi_shear_rate.max(gamma);
+        venturi_shear_pa = venturi_shear_pa.max(tau);
+        t_throat_venturi = t_throat_venturi.max(t_thr);
+
+        // Bernoulli-corrected fallback σ with Cc: v_eff = v_thr / Cc
+        let v_thr_eff = v_thr / VENTURI_CC;
+        let p_abs_local = candidate.inlet_pressure_pa();
+        let bernoulli_drop = 0.5 * BLOOD_DENSITY_KG_M3 * (v_thr_eff * v_thr_eff - v_in * v_in);
+
+        // Throat skin-friction loss (fallback path): same Darcy-Weisbach model
+        // as the resolved-flow path above.
+        let d_h_fb = hydraulic_diameter(throat_cs);
+        let re_fb = BLOOD_DENSITY_KG_M3 * v_thr_eff * d_h_fb / BLOOD_VISCOSITY_PA_S.max(1e-18);
+        let f_darcy_fb = if re_fb > 1.0 { 64.0 / re_fb } else { 64.0 };
+        let friction_drop_fb = f_darcy_fb
+            * (candidate.throat_length_m / d_h_fb.max(1e-18))
+            * 0.5
+            * BLOOD_DENSITY_KG_M3
+            * v_thr_eff
+            * v_thr_eff;
+
+        let p_static_throat = (p_abs_local - bernoulli_drop - friction_drop_fb).max(0.0);
+        let dyn_p = 0.5 * BLOOD_DENSITY_KG_M3 * v_thr_eff * v_thr_eff;
+        if dyn_p > 1e-12 {
+            let sigma = (p_static_throat - BLOOD_VAPOR_PRESSURE_PA) / dyn_p;
+            venturi_sigma = venturi_sigma.min(sigma);
+        }
+
+        // Fallback diffuser recovery (same Idelchik Diagram 6-21 model)
+        let dp_recovery_fb = DIFFUSER_DISCHARGE_COEFF
+            * 0.5
+            * BLOOD_DENSITY_KG_M3
+            * (v_thr_eff * v_thr_eff - v_in * v_in).max(0.0);
+        diffuser_recovery_pa = diffuser_recovery_pa.max(dp_recovery_fb);
+    }
+
+    // ── Derived / summary metrics ────────────────────────────────────────────
+    // Nonlinear cavitation potential: bubble number density scales as
+    // (1 − σ/σ_crit)^m with m ≈ 1.5 in the incipient regime (Brennen 1995,
+    // _Cavitation and Bubble Dynamics_, §1.6).  The linear (1−σ) model
+    // over-predicts cavitation at σ just below σ_crit and under-predicts
+    // at σ ≪ σ_crit.
+    let cav_potential_raw = if venturi_sigma < SIGMA_CRIT {
+        // σ < 0 (p_static < p_vapor) → very strong cavitation → clamped to 1.0
+        // σ ∈ [0, σ_crit) → incipient cavitation → Brennen nonlinear scaling
+        (1.0 - venturi_sigma / SIGMA_CRIT).clamp(0.0, 1.0).powf(1.5)
+    } else {
+        0.0 // σ ≥ σ_crit → no cavitation
+    };
+
+    // Rayleigh-Plesset growth-time gate: a vapour bubble of equilibrium
+    // radius R₀ needs at least t_Rayleigh = 0.915 · R₀ · √(ρ / ΔP) to grow
+    // to maximum radius before collapse (Rayleigh 1917; Brennen 1995 §2.3).
+    // If the throat transit time is shorter than this, cavitation cannot
+    // fully develop → derate the potential proportionally.
+    let cav_potential = if cav_potential_raw > 0.0 && t_throat_venturi > 0.0 {
+        let dp_driving = (P_ATM_PA - BLOOD_VAPOR_PRESSURE_PA).max(1.0);
+        let t_rayleigh =
+            RAYLEIGH_COLLAPSE_FACTOR * R_BUBBLE_EQ_M * (BLOOD_DENSITY_KG_M3 / dp_driving).sqrt();
+        // t_growth ≈ t_rayleigh (symmetric for inertial growth phase).
+        // Derating: if t_throat < t_growth, scale linearly.
+        let growth_ratio = (t_throat_venturi / t_rayleigh.max(1e-18)).min(1.0);
+        cav_potential_raw * growth_ratio
+    } else {
+        cav_potential_raw
+    };
+
+    let well_coverage_fraction = candidate.topology.nominal_well_coverage();
+    let flow_rate_ml_min = candidate.flow_rate_m3_s * 60.0 * 1_000_000.0;
+
+    let plate_fits = match &candidate.topology {
+        DesignTopology::ParallelMicrochannelArray { n_channels } => {
+            let pitch_m = w_main * 2.0;
+            let total_y_m = *n_channels as f64 * pitch_m;
+            total_y_m <= (PLATE_HEIGHT_MM - 10.0) * 1e-3
+        }
+        DesignTopology::QuadTrifurcationVenturi => {
+            let w_leaf = candidate.channel_width_m * candidate.trifurcation_center_frac.powi(4);
+            let pitch = (w_leaf * 4.0).max(200e-6);
+            let side = 9.0 * pitch;
+            side <= (TREATMENT_HEIGHT_MM + 10.0) * 1e-3
+        }
+        _ => true,
+    };
+
+    let n_outlet_ports: usize = candidate.topology.outlet_count();
+
+    // ── 2-population separation ──────────────────────────────────────────────
+    let sep_metrics = if candidate.topology == DesignTopology::CellSeparationVenturi {
+        let cancer = cfd_1d::cell_separation::CellProperties::mcf7_breast_cancer();
+        let rbc = cfd_1d::cell_separation::CellProperties::red_blood_cell();
+        let model = cfd_1d::cell_separation::CellSeparationModel::new(
+            w_main,
+            h_main,
+            Some(candidate.bend_radius_m),
+        );
+        let q_center = (q_inlet * venturi_flow_fraction).max(1e-12);
+        let mean_v = q_center / (w_main * h_main).max(1e-18);
+        let shear_est = 6.0 * mean_v / h_main.max(1e-18);
+        match model.analyze(
+            &cancer,
+            &rbc,
+            blood.density,
+            blood.apparent_viscosity(shear_est),
+            mean_v,
+        ) {
+            Some(a) => (
+                a.separation_efficiency,
+                a.target_center_fraction,
+                a.background_peripheral_fraction,
+            ),
+            None => (0.0, 0.0, 0.0),
+        }
+    } else {
+        (0.0, 0.0, 0.0)
+    };
+
+    // ── 3-population separation ──────────────────────────────────────────────
+    let three_pop_metrics = if matches!(
+        candidate.topology,
+        DesignTopology::WbcCancerSeparationVenturi
+            | DesignTopology::AsymmetricBifurcationSerpentine
+            | DesignTopology::VenturiSerpentine
+            | DesignTopology::SerpentineGrid
+            | DesignTopology::BifurcationSerpentine
+            | DesignTopology::TrifurcationSerpentine
+            | DesignTopology::SpiralSerpentine { .. }
+            | DesignTopology::TrifurcationBifurcationVenturi
+            | DesignTopology::TripleTrifurcationVenturi
+            | DesignTopology::TrifurcationBifurcationBifurcationVenturi
+            | DesignTopology::QuadTrifurcationVenturi
+            | DesignTopology::CascadeCenterTrifurcationSeparator { .. }
+            | DesignTopology::IncrementalFiltrationTriBiSeparator { .. }
+    ) {
+        three_population_separation(candidate, &blood)
+    } else {
+        ThreePopMetrics::default()
+    };
+
+    // ── Leukapheresis separation ─────────────────────────────────────────────
+    let leuka_metrics = if matches!(
+        candidate.topology,
+        DesignTopology::ConstrictionExpansionArray { .. }
+            | DesignTopology::SpiralSerpentine { .. }
+            | DesignTopology::ParallelMicrochannelArray { .. }
+    ) {
+        leukapheresis_separation(candidate, &blood)
+    } else {
+        LeukapheresisMetrics::default()
+    };
+
+    // ── CCT and CIF staged routing models ───────────────────────────────────
+    let mut cct_stage_qfracs: Vec<f64> = Vec::new();
+    let mut cif_pretri_stage_qfracs: Vec<f64> = Vec::new();
+    let mut cif_terminal_tri_qfrac: Option<f64> = None;
+    let mut cif_terminal_bi_qfrac: Option<f64> = None;
+
+    let cascade_res: Option<cfd_1d::cell_separation::CascadeJunctionResult> =
+        if let DesignTopology::CascadeCenterTrifurcationSeparator { n_levels } = candidate.topology
+        {
+            let solved_q = extract_cct_stage_qfracs(&solved.channel_samples, n_levels);
+            let use_solved = solved_q.len() == n_levels as usize;
+            if use_solved {
+                cct_stage_qfracs = solved_q.clone();
+                Some(cfd_1d::cell_separation::cascade_junction_separation_from_qfracs(&solved_q))
+            } else {
+                let q_model = cfd_1d::cell_separation::tri_center_q_frac_cross_junction(
+                    candidate.trifurcation_center_frac,
+                    w_main,
+                    h_main,
+                );
+                cct_stage_qfracs = std::iter::repeat_n(q_model, n_levels as usize).collect();
+                Some(cfd_1d::cell_separation::cascade_junction_separation_cross_junction(
+                    n_levels,
+                    candidate.trifurcation_center_frac,
+                    w_main,
+                    h_main,
+                ))
+            }
+        } else {
+            None
+        };
+
+    let cif_res: Option<cfd_1d::cell_separation::IncrementalFiltrationResult> =
+        if let DesignTopology::IncrementalFiltrationTriBiSeparator { n_pretri } = candidate.topology
+        {
+            let (pretri_q, tri_q_opt, bi_q_opt) =
+                extract_cif_stage_qfracs(&solved.channel_samples, n_pretri);
+            let use_solved = pretri_q.len() == n_pretri as usize;
+            if use_solved {
+                cif_pretri_stage_qfracs = pretri_q.clone();
+                let tri_q = tri_q_opt.unwrap_or_else(|| {
+                    cfd_1d::cell_separation::tri_center_q_frac(
+                        candidate.cif_terminal_tri_center_frac(),
+                    )
+                });
+                let bi_q = bi_q_opt.unwrap_or_else(|| candidate.cif_terminal_bi_treat_frac());
+                cif_terminal_tri_qfrac = Some(tri_q);
+                cif_terminal_bi_qfrac = Some(bi_q);
+                Some(
+                    cfd_1d::cell_separation::incremental_filtration_separation_from_qfracs(
+                        &pretri_q, tri_q, bi_q,
+                    ),
+                )
+            } else {
+                let staged_pretri_q = cfd_1d::cell_separation::cif_pretri_stage_q_fracs(
+                    n_pretri,
+                    candidate.cif_pretri_center_frac(),
+                    candidate.cif_terminal_tri_center_frac(),
+                );
+                let q_tri = cfd_1d::cell_separation::tri_center_q_frac_cross_junction(
+                    candidate.cif_terminal_tri_center_frac(),
+                    w_main,
+                    h_main,
+                );
+                let q_bi = candidate.cif_terminal_bi_treat_frac();
+                cif_pretri_stage_qfracs = staged_pretri_q.clone();
+                cif_terminal_tri_qfrac = Some(q_tri);
+                cif_terminal_bi_qfrac = Some(q_bi);
+                Some(
+                    cfd_1d::cell_separation::incremental_filtration_separation_cross_junction(
+                        n_pretri,
+                        candidate.cif_pretri_center_frac(),
+                        candidate.cif_terminal_tri_center_frac(),
+                        q_bi,
+                        w_main,
+                        h_main,
+                    ),
+                )
+            }
+        } else {
+            None
+        };
+
+    // ── PAI baseline (Hellums 1994) ──────────────────────────────────────────
+    let pai_tau = if venturi_shear_pa > 0.0 {
+        venturi_shear_pa
+    } else {
+        max_main_shear_pa
+    };
+    let pai_t = if t_throat_venturi > 0.0 {
+        t_throat_venturi
+    } else {
+        solved.mean_residence_time_s
+    };
+    let pai_base = if pai_tau > 0.0 && pai_t > 0.0 {
+        1.8e-8 * pai_tau.powf(1.325) * pai_t.powf(0.462)
+    } else {
+        0.0
+    };
+
+    // ── Final metric values (selective venturi composition correction) ──────
+    let mut final_hi = bulk_hi;
+    let mut final_pai = pai_base;
+    let mut final_local_hct = candidate.feed_hematocrit;
+    let mut final_cancer_dose = 0.0_f64;
+
+    let mut final_sep_eff = sep_metrics.0;
+    let mut final_cancer_frac = sep_metrics.1;
+    let mut final_rbc_periph = sep_metrics.2;
+    let mut final_three_pop_sep = three_pop_metrics.sep_efficiency;
+    let mut final_wbc_center_three_pop = three_pop_metrics.wbc_center_fraction;
+    let mut final_rbc_periph_three_pop = three_pop_metrics.rbc_peripheral_fraction;
+    let mut final_wbc_recovery = leuka_metrics.wbc_recovery;
+    let mut final_rbc_pass_fraction = leuka_metrics.rbc_pass_fraction;
+    let mut final_wbc_purity = leuka_metrics.wbc_purity;
+    let mut final_total_ecv_ml = leuka_metrics.total_ecv_ml;
+
+    let mut final_rbc_venturi_exposure = 1.0_f64;
+    let final_venturi_flow_fraction = venturi_flow_fraction;
+
+    let mut rbc_center_frac = 1.0_f64;
+    let mut cancer_center_frac = 0.0_f64;
+    let mut wbc_center_frac = 0.0_f64;
+
+    match candidate.topology {
+        DesignTopology::CellSeparationVenturi => {
+            final_sep_eff = sep_metrics.0;
+            final_cancer_frac = sep_metrics.1;
+            final_rbc_periph = sep_metrics.2;
+            final_three_pop_sep = sep_metrics.0;
+            final_rbc_periph_three_pop = sep_metrics.2;
+
+            rbc_center_frac = (1.0 - sep_metrics.2).clamp(0.0, 1.0);
+            cancer_center_frac = sep_metrics.1.clamp(0.0, 1.0);
+            wbc_center_frac = 0.0;
+        }
+        DesignTopology::WbcCancerSeparationVenturi => {
+            let rbc_periph = three_pop_metrics.rbc_peripheral_fraction.clamp(0.0, 1.0);
+            final_three_pop_sep = three_pop_metrics.sep_efficiency;
+            final_wbc_center_three_pop = three_pop_metrics.wbc_center_fraction;
+            final_rbc_periph_three_pop = rbc_periph;
+
+            final_sep_eff = three_pop_metrics.sep_efficiency;
+            final_cancer_frac = three_pop_metrics.cancer_center_fraction;
+            final_rbc_periph = rbc_periph;
+
+            rbc_center_frac = 1.0 - rbc_periph;
+            cancer_center_frac = three_pop_metrics.cancer_center_fraction.clamp(0.0, 1.0);
+            wbc_center_frac = three_pop_metrics.wbc_center_fraction.clamp(0.0, 1.0);
+        }
+        DesignTopology::CascadeCenterTrifurcationSeparator { .. } => {
+            if let Some(cct) = cascade_res {
+                final_sep_eff = cct.separation_efficiency;
+                final_cancer_frac = cct.cancer_center_fraction;
+                final_rbc_periph = cct.rbc_peripheral_fraction;
+                final_three_pop_sep = cct.separation_efficiency;
+                final_wbc_center_three_pop = cct.wbc_center_fraction;
+                final_rbc_periph_three_pop = cct.rbc_peripheral_fraction;
+
+                rbc_center_frac = (1.0 - cct.rbc_peripheral_fraction).clamp(0.0, 1.0);
+                cancer_center_frac = cct.cancer_center_fraction.clamp(0.0, 1.0);
+                wbc_center_frac = cct.wbc_center_fraction.clamp(0.0, 1.0);
+            }
+        }
+        DesignTopology::IncrementalFiltrationTriBiSeparator { .. } => {
+            if let Some(cif) = cif_res {
+                final_sep_eff = cif.separation_efficiency;
+                final_cancer_frac = cif.cancer_center_fraction;
+                final_rbc_periph = cif.rbc_peripheral_fraction;
+                final_three_pop_sep = cif.separation_efficiency;
+                final_wbc_center_three_pop = cif.wbc_center_fraction;
+                final_rbc_periph_three_pop = cif.rbc_peripheral_fraction;
+
+                rbc_center_frac = cif.rbc_center_fraction.clamp(0.0, 1.0);
+                cancer_center_frac = cif.cancer_center_fraction.clamp(0.0, 1.0);
+                wbc_center_frac = cif.wbc_center_fraction.clamp(0.0, 1.0);
+            }
+        }
+        _ => {}
+    }
+
+    if matches!(
+        candidate.topology,
+        DesignTopology::CascadeCenterTrifurcationSeparator { .. }
+            | DesignTopology::IncrementalFiltrationTriBiSeparator { .. }
+    ) {
+        final_wbc_recovery = wbc_center_frac.clamp(0.0, 1.0);
+        final_rbc_pass_fraction = rbc_center_frac.clamp(0.0, 1.0);
+        let center_capture = final_wbc_recovery + final_rbc_pass_fraction;
+        final_wbc_purity = if center_capture > 1e-12 {
+            (final_wbc_recovery / center_capture).clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
+        final_total_ecv_ml = (solved.mean_residence_time_s * solved.inlet_flow_m3_s).max(0.0) * 1e6;
+    }
+
+    if candidate.topology.has_venturi() && final_venturi_flow_fraction > 0.0 {
+        // Use cascade-specific hematocrit ratio when available (more
+        // physically accurate — accounts for per-level Zweifach-Fung routing).
+        let cascade_hct_ratio = match (&cascade_res, &cif_res) {
+            (Some(cct), _) => cct.center_hematocrit_ratio,
+            (_, Some(cif)) => cif.center_hematocrit_ratio,
+            _ => rbc_center_frac / final_venturi_flow_fraction.max(1e-9),
+        };
+        let hct_venturi = (candidate.feed_hematocrit * cascade_hct_ratio).clamp(0.01, 0.70);
+
+        // Re-derive venturi shear using a local Casson blood model with
+        // the venturi-specific hematocrit (Chien 1970 yield stress + Quemada
+        // 1978 viscosity scaling).  Lower HCT → lower yield stress → lower
+        // apparent viscosity → lower wall shear → less hemolysis.
+        //
+        // Scale the flow-weighted venturi_hi by the Giersiepen viscosity
+        // ratio: since HI ∝ τ^α = (μ·γ)^α, and γ is unchanged, the
+        // HI correction factor is (μ_local / μ_bulk)^α.
+        let local_blood = CassonBlood::<f64>::with_hematocrit(hct_venturi);
+        let local_mu = local_blood.apparent_viscosity(venturi_shear_rate);
+        let bulk_mu = blood.apparent_viscosity(venturi_shear_rate);
+        let mu_ratio = if bulk_mu > 1e-18 {
+            (local_mu / bulk_mu).min(1.0) // always ≤ 1 since HCT_local ≤ HCT_feed
+        } else {
+            1.0
+        };
+        let hi_correction = mu_ratio.powf(GIERSIEPEN_ALPHA);
+        let corrected_venturi_hi = venturi_hi * hi_correction;
+        let local_tau = (local_mu * venturi_shear_rate).max(0.0);
+        let local_venturi_pai = if local_tau > 0.0 && t_throat_venturi > 0.0 {
+            1.8e-8 * local_tau.powf(1.325) * t_throat_venturi.powf(0.462)
+        } else {
+            0.0
+        };
+
+        // Replace the venturi portion of bulk HI with the HCT-corrected value.
+        final_hi = (bulk_hi - venturi_hi).max(0.0) + corrected_venturi_hi;
+        final_pai = local_venturi_pai;
+        final_local_hct = hct_venturi;
+        final_cancer_dose = cancer_center_frac * cav_potential;
+        final_rbc_venturi_exposure = rbc_center_frac;
+
+        // Update venturi shear with local-HCT-corrected values
+        venturi_shear_pa = local_tau;
+
+        if final_wbc_center_three_pop <= 0.0 {
+            final_wbc_center_three_pop = wbc_center_frac;
+        }
+    }
+
+    // ── Cancer-targeting hydrodynamic cavitation metrics ─────────────────────
+    let cavitation_intensity: f64 = if candidate.topology.has_venturi() && cav_potential > 0.0 {
+        let constriction = if venturi_v_in > 1e-9 {
+            let ratio = (venturi_v_thr / venturi_v_in).max(1.0);
+            (ratio.ln() / VENTURI_VEL_RATIO_REF.ln()).clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
+        (cav_potential * (0.5 + 0.5 * constriction)).clamp(0.0, 1.0)
+    } else {
+        0.0
+    };
+
+    let cancer_targeted_cavitation = (cancer_center_frac * cavitation_intensity).clamp(0.0, 1.0);
+    let wbc_targeted_cavitation = (wbc_center_frac * cavitation_intensity).clamp(0.0, 1.0);
+    let rbc_venturi_protection = (final_rbc_periph_three_pop
+        * (1.0 - cavitation_intensity * final_rbc_venturi_exposure))
+        .clamp(0.0, 1.0);
+
+    let sonoluminescence_proxy: f64 = if candidate.topology.has_venturi() && cav_potential > 0.0 {
+        let p_abs = candidate.inlet_gauge_pa + P_ATM_PA;
+        let exponent = (BUBBLE_GAMMA - 1.0) / BUBBLE_GAMMA;
+        let t_ratio = (p_abs / BLOOD_VAPOR_PRESSURE_PA.max(1.0)).powf(exponent);
+        let ref_t_ratio = (SONO_REF_P_ABS_PA / BLOOD_VAPOR_PRESSURE_PA.max(1.0)).powf(exponent);
+        (cav_potential * t_ratio / ref_t_ratio.max(1.0)).clamp(0.0, 1.0)
+    } else {
+        0.0
+    };
+
+    // ── RBC safety / therapeutic-window metrics ──────────────────────────────
+    let throat_transit_time_s = t_throat_venturi;
+
+    let fda_main_ok = max_main_shear_pa <= FDA_MAX_WALL_SHEAR_PA;
+    // Transit-time exception: throat high-shear is acceptable when the exposure
+    // is sufficiently brief AND shear stays below the extended transient limit.
+    let throat_transit_exception =
+        venturi_shear_pa <= FDA_TRANSIENT_SHEAR_PA && t_throat_venturi < FDA_TRANSIENT_TIME_S;
+    let fda_overall_compliant = fda_main_ok
+        && (!candidate.topology.has_venturi()
+            || venturi_shear_pa <= FDA_MAX_WALL_SHEAR_PA
+            || throat_transit_exception);
+
+    // Composite lysis risk: amplify HI by RBC presence in the cavitating venturi.
+    // Cavitation collapse delivers ~5× the shear-only haemolytic stress per
+    // RBC-venturi co-exposure unit (conservative bubble-interaction estimate).
+    let lysis_risk_index =
+        (final_hi * (1.0 + 5.0 * final_rbc_venturi_exposure * final_local_hct)).clamp(0.0, 1.0);
+
+    let therapeutic_window_score =
+        (cancer_targeted_cavitation / (1e-6 + lysis_risk_index) / THERAPEUTIC_WINDOW_REF)
+            .clamp(0.0, 1.0);
+    let oncology_selectivity_index = (cancer_targeted_cavitation
+        * (1.0 - final_rbc_venturi_exposure).clamp(0.0, 1.0)
+        * (0.5 + 0.5 * final_cancer_frac.clamp(0.0, 1.0)))
+    .clamp(0.0, 1.0);
+    let cancer_rbc_cavitation_bias_index =
+        if candidate.topology.has_venturi() && cavitation_intensity > 0.0 {
+            let cancer_load = cancer_targeted_cavitation.clamp(0.0, 1.0);
+            let rbc_load = (final_rbc_venturi_exposure * final_local_hct * cavitation_intensity)
+                .clamp(0.0, 1.0);
+            let total_load = cancer_load + rbc_load;
+            if total_load > 1.0e-12 {
+                (cancer_load / total_load).clamp(0.0, 1.0)
+            } else {
+                0.0
+            }
+        } else {
+            0.0
+        };
+
+    // Project steady-state lysis rate [% Hb/h] at operating flow into a 5 L patient.
+    let rbc_lysis_rate_pct_per_h =
+        final_hi * flow_rate_ml_min * 60.0 / PATIENT_BLOOD_VOLUME_ML * 100.0;
+
+    // Cancer cells in the active therapy (venturi) stream.
+    let cancer_therapy_zone_fraction =
+        (final_cancer_frac * final_venturi_flow_fraction).clamp(0.0, 1.0);
+
+    // Relative 405 nm blue-light delivery proxy.
+    // Blue light penetration in blood is limited; thinner channels and lower
+    // local hematocrit improve photon delivery to circulating cells.
+    let optical_path_length_405_m = h_main.max(1e-6);
+    let hematocrit_scale_405 = (final_local_hct / 0.45).clamp(0.25, 1.75);
+    let blue_light_delivery_index_405nm =
+        (-BLOOD_ATTENUATION_405NM_INV_M * optical_path_length_405_m * hematocrit_scale_405)
+            .exp()
+            .clamp(0.0, 1.0);
+
+    // Headroom to the 150 Pa FDA main-channel limit [Pa].
+    let safety_margin_pa = FDA_MAX_WALL_SHEAR_PA - max_main_shear_pa;
+
+    // ── Low-flow clotting / stasis risk metrics ─────────────────────────────
+    // Estimate main-channel shear rate using reference blood viscosity.
+    let main_channel_shear_rate_inv_s = max_main_shear_pa / BLOOD_VISCOSITY_PA_S.max(1e-12);
+
+    // Stasis risk increases as flow falls below extracorporeal operating bands.
+    let low_flow_stasis_risk = descending_linear_risk(
+        flow_rate_ml_min,
+        CLOTTING_BFR_LOW_RISK_ML_MIN,
+        CLOTTING_BFR_HIGH_RISK_ML_MIN,
+    );
+    let low_shear_stasis_risk = descending_linear_risk(
+        main_channel_shear_rate_inv_s,
+        CLOTTING_SHEAR_LOW_RISK_INV_S,
+        CLOTTING_SHEAR_HIGH_RISK_INV_S,
+    );
+    let residence_stasis_risk = ascending_linear_risk(
+        solved.mean_residence_time_s,
+        CLOTTING_RESIDENCE_LOW_RISK_S,
+        CLOTTING_RESIDENCE_HIGH_RISK_S,
+    );
+    let clotting_risk_index =
+        (0.60 * low_flow_stasis_risk + 0.25 * low_shear_stasis_risk + 0.15 * residence_stasis_risk)
+            .clamp(0.0, 1.0);
+    let clotting_flow_compliant = flow_rate_ml_min >= CLOTTING_BFR_CAUTION_ML_MIN;
+    let low_flow_stasis_risk_10ml_s = descending_linear_risk(
+        flow_rate_ml_min,
+        CLOTTING_BFR_STRICT_10MLS_ML_MIN,
+        CLOTTING_BFR_CAUTION_ML_MIN,
+    );
+    let clotting_risk_index_10ml_s = (0.60 * low_flow_stasis_risk_10ml_s
+        + 0.25 * low_shear_stasis_risk
+        + 0.15 * residence_stasis_risk)
+        .clamp(0.0, 1.0);
+    let clotting_flow_compliant_10ml_s = flow_rate_ml_min >= CLOTTING_BFR_STRICT_10MLS_ML_MIN;
+
+    // Fraction of total chip channel path in the active therapy zone (model-based).
+    let therapy_channel_fraction = candidate.therapy_channel_fraction();
+
+    // ── CCT/CIF staged-flow diagnostics ─────────────────────────────────────
+    let cct_model_venturi_flow_fraction =
+        if let DesignTopology::CascadeCenterTrifurcationSeparator { n_levels } = candidate.topology
+        {
+            let q = cfd_1d::cell_separation::tri_center_q_frac(candidate.trifurcation_center_frac);
+            q.powi(i32::from(n_levels)).clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
+    let cct_solved_venturi_flow_fraction = if matches!(
+        candidate.topology,
+        DesignTopology::CascadeCenterTrifurcationSeparator { .. }
+    ) {
+        final_venturi_flow_fraction
+    } else {
+        0.0
+    };
+    let cct_stage_center_qfrac_mean = if cct_stage_qfracs.is_empty() {
+        0.0
+    } else {
+        cct_stage_qfracs.iter().sum::<f64>() / cct_stage_qfracs.len() as f64
+    };
+
+    let cif_model_venturi_flow_fraction =
+        if let DesignTopology::IncrementalFiltrationTriBiSeparator { n_pretri } = candidate.topology
+        {
+            let q_pretri_product = cfd_1d::cell_separation::cif_pretri_stage_q_fracs(
+                n_pretri,
+                candidate.cif_pretri_center_frac(),
+                candidate.cif_terminal_tri_center_frac(),
+            )
+            .into_iter()
+            .product::<f64>();
+            let q_tri = cfd_1d::cell_separation::tri_center_q_frac(
+                candidate.cif_terminal_tri_center_frac(),
+            );
+            let q_bi = candidate.cif_terminal_bi_treat_frac();
+            (q_pretri_product * q_tri * q_bi).clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
+    let cif_solved_venturi_flow_fraction = if matches!(
+        candidate.topology,
+        DesignTopology::IncrementalFiltrationTriBiSeparator { .. }
+    ) {
+        final_venturi_flow_fraction
+    } else {
+        0.0
+    };
+    let cif_pretri_qfrac_mean = if cif_pretri_stage_qfracs.is_empty() {
+        0.0
+    } else {
+        cif_pretri_stage_qfracs.iter().sum::<f64>() / cif_pretri_stage_qfracs.len() as f64
+    };
+    let cif_terminal_tri_qfrac_value = cif_terminal_tri_qfrac.unwrap_or(0.0);
+    let cif_terminal_bi_qfrac_value = cif_terminal_bi_qfrac.unwrap_or(0.0);
+    let cif_outlet_tail_length_mm = if matches!(
+        candidate.topology,
+        DesignTopology::IncrementalFiltrationTriBiSeparator { .. }
+    ) {
+        solved
+            .channel_samples
+            .iter()
+            .find(|sample| sample.id == "trunk_out")
+            .map_or(0.0, |sample| sample.length_m * 1000.0)
+    } else {
+        0.0
+    };
+    let cif_remerge_proximity_score = if matches!(
+        candidate.topology,
+        DesignTopology::IncrementalFiltrationTriBiSeparator { .. }
+    ) {
+        (1.0 - ascending_linear_risk(cif_outlet_tail_length_mm, 0.5, 6.0)).clamp(0.0, 1.0)
+    } else {
+        0.0
+    };
+    let selective_cavitation_delivery_index = {
+        let remerge_bonus = if cif_remerge_proximity_score > 0.0 {
+            0.5 + 0.5 * cif_remerge_proximity_score
+        } else {
+            1.0
+        };
+        (oncology_selectivity_index * cancer_rbc_cavitation_bias_index * remerge_bonus)
+            .clamp(0.0, 1.0)
+    };
+
+    // ── Multi-pass hemolysis projection (15 min therapy window) ─────────────
+    let hi_per_pass = final_hi.clamp(0.0, 0.999_999);
+    let processed_15min_ml = flow_rate_ml_min * MILESTONE_TREATMENT_DURATION_MIN.max(0.0);
+    let pediatric_blood_volume_ml =
+        PEDIATRIC_REFERENCE_WEIGHT_KG * PEDIATRIC_BLOOD_VOLUME_ML_PER_KG;
+    let projected_passes_15min_pediatric_3kg = if pediatric_blood_volume_ml > 1e-12 {
+        processed_15min_ml / pediatric_blood_volume_ml
+    } else {
+        0.0
+    };
+    let projected_hemolysis_15min_pediatric_3kg = (1.0
+        - (1.0 - hi_per_pass).powf(projected_passes_15min_pediatric_3kg.max(0.0)))
+    .clamp(0.0, 1.0);
+    let projected_passes_15min_adult = processed_15min_ml / PATIENT_BLOOD_VOLUME_ML.max(1e-12);
+    let projected_hemolysis_15min_adult =
+        (1.0 - (1.0 - hi_per_pass).powf(projected_passes_15min_adult.max(0.0))).clamp(0.0, 1.0);
+
+    // ── Acoustic energy budget ────────────────────────────────────────────────
+    // mechanical_power_w: total hydraulic power input (ΔP × Q) [W]
+    let mechanical_power_w = total_pressure_drop_pa * q_inlet;
+
+    // acoustic_capture_efficiency: dimensionless proxy for fraction of mechanical
+    // power that drives cavitation events at the venturi throat.
+    // = cavitation_potential × (venturi_shear_pa / P_atm), capped at 1.
+    // Zero for non-venturi topologies (cav_potential = 0).
+    let acoustic_capture_efficiency = if candidate.topology.has_venturi() {
+        (cav_potential * (venturi_shear_pa / P_ATM_PA)).clamp(0.0, 1.0)
+    } else {
+        0.0
+    };
+
+    // specific_cavitation_energy_j_ml: acoustic energy delivered per mL of
+    // blood processed [mJ/mL]. Normalised by flow rate and residence time.
+    let flow_rate_ml_s = flow_rate_ml_min / 60.0;
+    let specific_cavitation_energy_j_ml = if flow_rate_ml_s > 1e-12 {
+        acoustic_capture_efficiency * mechanical_power_w * solved.mean_residence_time_s
+            / flow_rate_ml_s
+            * 1000.0 // W·s / (mL/s) × 1000 = mJ/mL
+    } else {
+        0.0
+    };
+
+    // Cavitation-amplified haemolysis for venturi designs (bubble micro-jets
+    // + shockwaves contribute independent lysis beyond steady shear).
+    // Use cfd_1d::hemolysis::cavitation_amplified_hi for the final HI.
+    let final_hi_cavitation_amplified = cavitation_amplified_hi(final_hi, cav_potential);
+
+    Ok(SdtMetrics {
+        cavitation_number: venturi_sigma,
+        cavitation_potential: cav_potential,
+        throat_shear_rate_inv_s: venturi_shear_rate,
+        throat_shear_pa: venturi_shear_pa,
+        throat_exceeds_fda: venturi_shear_pa > FDA_MAX_WALL_SHEAR_PA,
+        max_main_channel_shear_pa: max_main_shear_pa,
+        fda_main_compliant: max_main_shear_pa <= FDA_MAX_WALL_SHEAR_PA,
+        bulk_hemolysis_index_per_pass: bulk_hi,
+        hemolysis_index_per_pass: final_hi,
+        flow_uniformity,
+        well_coverage_fraction,
+        mean_residence_time_s: solved.mean_residence_time_s,
+        total_pressure_drop_pa,
+        total_path_length_mm: expected_path_len_m * 1000.0,
+        pressure_feasible,
+        cell_separation_efficiency: final_sep_eff,
+        cancer_center_fraction: final_cancer_frac,
+        rbc_peripheral_fraction: final_rbc_periph,
+        three_pop_sep_efficiency: final_three_pop_sep,
+        wbc_center_fraction: final_wbc_center_three_pop,
+        rbc_peripheral_fraction_three_pop: final_rbc_periph_three_pop,
+        wbc_equilibrium_pos: three_pop_metrics.wbc_eq_pos,
+        cancer_equilibrium_pos: three_pop_metrics.cancer_eq_pos,
+        rbc_equilibrium_pos: three_pop_metrics.rbc_eq_pos,
+        wbc_recovery: final_wbc_recovery,
+        rbc_pass_fraction: final_rbc_pass_fraction,
+        wbc_purity: final_wbc_purity,
+        total_ecv_ml: final_total_ecv_ml,
+        flow_rate_ml_min,
+        plate_fits,
+        n_outlet_ports,
+        platelet_activation_index: final_pai,
+        main_channel_shear_rate_inv_s,
+        low_flow_stasis_risk,
+        low_shear_stasis_risk,
+        residence_stasis_risk,
+        clotting_risk_index,
+        clotting_flow_compliant,
+        clotting_risk_index_10ml_s,
+        clotting_flow_compliant_10ml_s,
+        venturi_flow_fraction: final_venturi_flow_fraction,
+        cct_model_venturi_flow_fraction,
+        cct_solved_venturi_flow_fraction,
+        cct_stage_center_qfrac_mean,
+        cif_model_venturi_flow_fraction,
+        cif_solved_venturi_flow_fraction,
+        cif_pretri_qfrac_mean,
+        cif_terminal_tri_qfrac: cif_terminal_tri_qfrac_value,
+        cif_terminal_bi_qfrac: cif_terminal_bi_qfrac_value,
+        cif_outlet_tail_length_mm,
+        rbc_venturi_exposure_fraction: final_rbc_venturi_exposure,
+        local_hematocrit_venturi: final_local_hct,
+        cancer_dose_fraction: final_cancer_dose,
+        cavitation_intensity,
+        cancer_targeted_cavitation,
+        wbc_targeted_cavitation,
+        rbc_venturi_protection,
+        sonoluminescence_proxy,
+        throat_transit_time_s,
+        fda_overall_compliant,
+        lysis_risk_index,
+        therapeutic_window_score,
+        oncology_selectivity_index,
+        cancer_rbc_cavitation_bias_index,
+        cif_remerge_proximity_score,
+        selective_cavitation_delivery_index,
+        rbc_lysis_rate_pct_per_h,
+        projected_passes_15min_pediatric_3kg,
+        projected_hemolysis_15min_pediatric_3kg,
+        projected_hemolysis_15min_adult,
+        cancer_therapy_zone_fraction,
+        optical_path_length_405_m,
+        blue_light_delivery_index_405nm,
+        safety_margin_pa,
+        therapy_channel_fraction,
+        wall_shear_p95_pa,
+        wall_shear_p99_pa,
+        wall_shear_mean_pa,
+        wall_shear_cv,
+        fda_shear_percentile_compliant,
+        diffuser_recovery_pa,
+        mechanical_power_w,
+        acoustic_capture_efficiency,
+        specific_cavitation_energy_j_ml,
+        hemolysis_index_per_pass_cavitation_amplified: final_hi_cavitation_amplified,
+    })
+}
+
+fn cross_section_area(cs: CrossSectionSpec) -> f64 {
+    match cs {
+        CrossSectionSpec::Rectangular { width_m, height_m } => width_m * height_m,
+        CrossSectionSpec::Circular { diameter_m } => {
+            std::f64::consts::PI * 0.25 * diameter_m * diameter_m
+        }
+    }
+}
+
+fn cross_section_dims(cs: CrossSectionSpec) -> (f64, f64) {
+    match cs {
+        CrossSectionSpec::Rectangular { width_m, height_m } => (width_m, height_m),
+        CrossSectionSpec::Circular { diameter_m } => (diameter_m, diameter_m),
+    }
+}
+
+fn shear_rate_for(cs: CrossSectionSpec, velocity_m_s: f64) -> f64 {
+    match cs {
+        CrossSectionSpec::Rectangular { height_m, .. } => 6.0 * velocity_m_s / height_m.max(1e-18),
+        CrossSectionSpec::Circular { diameter_m } => 8.0 * velocity_m_s / diameter_m.max(1e-18),
+    }
+}
+
+/// Hydraulic diameter for a cross-section.
+fn hydraulic_diameter(cs: CrossSectionSpec) -> f64 {
+    match cs {
+        CrossSectionSpec::Rectangular { width_m, height_m } => {
+            2.0 * width_m * height_m / (width_m + height_m).max(1e-18)
+        }
+        CrossSectionSpec::Circular { diameter_m } => diameter_m,
+    }
+}
+
+/// Entrance-length correction factor for wall shear stress.
+///
+/// In a channel of length `L` with hydraulic diameter `D_h`, fully-developed
+/// Poiseuille flow requires an entrance length `L_e = 0.06 · Re · D_h`
+/// (Shah & London 1978).  Within the developing region the wall shear stress
+/// is approximately 1.5× the fully-developed value.  The length-averaged
+/// correction factor is:
+///
+/// ```text
+/// f = 1 + 0.5 · min(L_e / L, 1)
+/// ```
+///
+/// This returns a multiplier ≥ 1.0 that should scale the fully-developed
+/// shear rate to account for the developing region.
+fn entrance_length_shear_factor(
+    cs: CrossSectionSpec,
+    velocity_m_s: f64,
+    channel_length_m: f64,
+) -> f64 {
+    let d_h = hydraulic_diameter(cs);
+    let re = BLOOD_DENSITY_KG_M3 * velocity_m_s * d_h / BLOOD_VISCOSITY_PA_S;
+    let l_e = 0.06 * re * d_h;
+    let frac_developing = (l_e / channel_length_m.max(1e-18)).min(1.0);
+    1.0 + 0.5 * frac_developing
+}
+
+fn fallback_uniformity(topology: DesignTopology) -> f64 {
+    match topology {
+        DesignTopology::AsymmetricBifurcationSerpentine => 0.60,
+        DesignTopology::CellSeparationVenturi
+        | DesignTopology::WbcCancerSeparationVenturi
+        | DesignTopology::CascadeCenterTrifurcationSeparator { .. }
+        | DesignTopology::IncrementalFiltrationTriBiSeparator { .. } => 0.75,
+        _ => 1.0,
+    }
+}
+
+fn channel_flow_abs(samples: &[ChannelSolveSample], id: &str) -> Option<f64> {
+    samples
+        .iter()
+        .find(|sample| sample.id == id)
+        .map(|sample| sample.flow_m3_s.abs())
+}
+
+fn tri_center_flow_frac(
+    samples: &[ChannelSolveSample],
+    center_id: &str,
+    left_id: &str,
+    right_id: &str,
+) -> Option<f64> {
+    let q_center = channel_flow_abs(samples, center_id)?;
+    let q_left = channel_flow_abs(samples, left_id)?;
+    let q_right = channel_flow_abs(samples, right_id)?;
+    let q_total = q_center + q_left + q_right;
+    (q_total > 1.0e-12).then(|| (q_center / q_total).clamp(0.0, 1.0))
+}
+
+fn bi_treat_flow_frac(
+    samples: &[ChannelSolveSample],
+    treat_id: &str,
+    bypass_id: &str,
+) -> Option<f64> {
+    let q_treat = channel_flow_abs(samples, treat_id)?;
+    let q_bypass = channel_flow_abs(samples, bypass_id)?;
+    let q_total = q_treat + q_bypass;
+    (q_total > 1.0e-12).then(|| (q_treat / q_total).clamp(0.0, 1.0))
+}
+
+fn extract_cct_stage_qfracs(samples: &[ChannelSolveSample], n_levels: u8) -> Vec<f64> {
+    let mut q_fracs = Vec::with_capacity(n_levels as usize);
+    for lv in 0..n_levels {
+        let center_id = format!("center_lv{lv}");
+        let left_id = format!("L_lv{lv}");
+        let right_id = format!("R_lv{lv}");
+        let Some(q) = tri_center_flow_frac(samples, &center_id, &left_id, &right_id) else {
+            break;
+        };
+        q_fracs.push(q);
+    }
+    q_fracs
+}
+
+fn extract_cif_stage_qfracs(
+    samples: &[ChannelSolveSample],
+    n_pretri: u8,
+) -> (Vec<f64>, Option<f64>, Option<f64>) {
+    let mut pretri = Vec::with_capacity(n_pretri as usize);
+    for lv in 0..n_pretri {
+        let center_id = format!("center_lv{lv}");
+        let left_id = format!("L_lv{lv}");
+        let right_id = format!("R_lv{lv}");
+        let Some(q) = tri_center_flow_frac(samples, &center_id, &left_id, &right_id) else {
+            break;
+        };
+        pretri.push(q);
+    }
+
+    let tri_q = tri_center_flow_frac(samples, "hy_tri_center", "hy_tri_L", "hy_tri_R");
+    let bi_q = bi_treat_flow_frac(samples, "hy_bi_treat", "hy_bi_bypass");
+    (pretri, tri_q, bi_q)
+}
+
+/// Compute wall-shear percentile statistics from collected channel shear values.
+///
+/// Returns `(P95, P99, mean, CV)`.  All zeros when the input is empty.
+fn compute_shear_percentiles(shears: &mut Vec<f64>) -> (f64, f64, f64, f64) {
+    if shears.is_empty() {
+        return (0.0, 0.0, 0.0, 0.0);
+    }
+    shears.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    let n = shears.len();
+    let mean = shears.iter().sum::<f64>() / n as f64;
+
+    let p95 = percentile_sorted(shears, 0.95);
+    let p99 = percentile_sorted(shears, 0.99);
+
+    let variance = shears.iter().map(|&x| (x - mean).powi(2)).sum::<f64>() / n as f64;
+    let cv = if mean > 1e-18 {
+        variance.sqrt() / mean
+    } else {
+        0.0
+    };
+    (p95, p99, mean, cv)
+}
+
+/// Nearest-rank percentile from a pre-sorted slice.
+fn percentile_sorted(sorted: &[f64], p: f64) -> f64 {
+    let n = sorted.len();
+    if n == 0 {
+        return 0.0;
+    }
+    let rank = (p * n as f64).ceil() as usize;
+    sorted[rank.min(n) - 1]
+}
+
+/// Risk ramp where higher `value` means lower risk.
+///
+/// Returns:
+/// - `0.0` when `value >= low_risk_value`
+/// - `1.0` when `value <= high_risk_value`
+/// - linear interpolation in between.
+fn descending_linear_risk(value: f64, low_risk_value: f64, high_risk_value: f64) -> f64 {
+    if value >= low_risk_value {
+        0.0
+    } else if value <= high_risk_value {
+        1.0
+    } else {
+        ((low_risk_value - value) / (low_risk_value - high_risk_value)).clamp(0.0, 1.0)
+    }
+}
+
+/// Risk ramp where higher `value` means higher risk.
+///
+/// Returns:
+/// - `0.0` when `value <= low_risk_value`
+/// - `1.0` when `value >= high_risk_value`
+/// - linear interpolation in between.
+fn ascending_linear_risk(value: f64, low_risk_value: f64, high_risk_value: f64) -> f64 {
+    if value <= low_risk_value {
+        0.0
+    } else if value >= high_risk_value {
+        1.0
+    } else {
+        ((value - low_risk_value) / (high_risk_value - low_risk_value)).clamp(0.0, 1.0)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::design::{build_candidate_space, DesignTopology};
+
+    fn near(a: f64, b: f64) -> bool {
+        (a - b).abs() < 1e-12
+    }
+
+    fn find_candidate<P>(predicate: P) -> DesignCandidate
+    where
+        P: Fn(&DesignCandidate) -> bool,
+    {
+        build_candidate_space()
+            .into_iter()
+            .find(predicate)
+            .expect("expected candidate in parametric space")
+    }
+
+    fn first_candidate_with_metrics<P>(predicate: P) -> (DesignCandidate, SdtMetrics)
+    where
+        P: Fn(&DesignCandidate) -> bool,
+    {
+        build_candidate_space()
+            .into_iter()
+            .filter(predicate)
+            .find_map(|candidate| {
+                compute_metrics(&candidate)
+                    .ok()
+                    .map(|metrics| (candidate, metrics))
+            })
+            .expect("expected at least one candidate with successful metric evaluation")
+    }
+
+    #[test]
+    fn symmetric_bifurcation_venturi_has_high_flow_uniformity() {
+        let (_, metrics) =
+            first_candidate_with_metrics(|c| c.topology == DesignTopology::BifurcationVenturi);
+        assert!(
+            metrics.flow_uniformity > 0.95,
+            "symmetric venturi branches should have near-equal flow"
+        );
+    }
+
+    #[test]
+    fn asymmetric_serpentine_is_not_unity_uniformity() {
+        let (_, metrics) = first_candidate_with_metrics(|c| {
+            c.topology == DesignTopology::AsymmetricBifurcationSerpentine
+        });
+        assert!(
+            metrics.flow_uniformity < 0.999,
+            "asymmetric serpentine must not collapse to fixed 1.0 uniformity"
+        );
+    }
+
+    #[test]
+    fn tree_venturi_fraction_is_near_unity_for_full_flow_trees() {
+        let (_, metrics) =
+            first_candidate_with_metrics(|c| c.topology == DesignTopology::TrifurcationVenturi);
+        assert!(
+            metrics.venturi_flow_fraction > 0.95,
+            "full-flow venturi trees should send most flow through throats"
+        );
+    }
+
+    #[test]
+    fn cct_selective_venturi_reduces_hemolysis_vs_bulk() {
+        let candidate = find_candidate(|c| {
+            matches!(
+                c.topology,
+                DesignTopology::CascadeCenterTrifurcationSeparator { n_levels: 1 }
+            ) && near(c.trifurcation_center_frac, 0.55)
+                && near(c.channel_width_m, 6.0e-3)
+                && near(c.throat_diameter_m, 100e-6)
+                && near(c.inlet_gauge_pa, 300_000.0)
+                && near(c.flow_rate_m3_s, 1.667e-6)
+        });
+        let metrics = compute_metrics(&candidate).unwrap_or_else(|e| {
+            panic!(
+                "metrics should compute for CCT candidate {}: {e:?}",
+                candidate.id
+            )
+        });
+
+        assert!(
+            metrics.venturi_flow_fraction < 1.0,
+            "CCT must route only a subset of flow through venturi"
+        );
+        assert!(
+            metrics.rbc_venturi_exposure_fraction < 1.0,
+            "CCT must reduce RBC venturi exposure fraction"
+        );
+        assert!(
+            metrics.local_hematocrit_venturi <= candidate.feed_hematocrit + 1e-12,
+            "local venturi hematocrit should not exceed feed hematocrit for CCT"
+        );
+        assert!(
+            metrics.hemolysis_index_per_pass <= metrics.bulk_hemolysis_index_per_pass + 1e-16,
+            "selective venturi correction should not increase HI for CCT"
+        );
+        assert!(
+            metrics.wbc_recovery > 0.0 && metrics.total_ecv_ml > 0.0,
+            "CCT should populate leukapheresis-compatible WBC/ECV metrics"
+        );
+    }
+
+    #[test]
+    fn cif_selective_venturi_reduces_hemolysis_vs_bulk() {
+        let candidate = find_candidate(|c| {
+            matches!(
+                c.topology,
+                DesignTopology::IncrementalFiltrationTriBiSeparator { n_pretri: 1 }
+            ) && near(c.cif_pretri_center_frac, 0.55)
+                && near(c.cif_terminal_tri_center_frac, 0.55)
+                && near(c.cif_terminal_bi_treat_frac, 0.76)
+                && near(c.channel_width_m, 6.0e-3)
+                && near(c.throat_diameter_m, 100e-6)
+                && near(c.inlet_gauge_pa, 300_000.0)
+                && near(c.flow_rate_m3_s, 1.667e-6)
+        });
+        let metrics = compute_metrics(&candidate).unwrap_or_else(|e| {
+            panic!(
+                "metrics should compute for CIF candidate {}: {e:?}",
+                candidate.id
+            )
+        });
+
+        assert!(
+            metrics.venturi_flow_fraction < 1.0,
+            "CIF must route only treatment arm flow through venturi"
+        );
+        assert!(
+            metrics.rbc_venturi_exposure_fraction < 1.0,
+            "CIF must reduce RBC venturi exposure fraction"
+        );
+        assert!(
+            metrics.local_hematocrit_venturi <= candidate.feed_hematocrit + 1e-12,
+            "local venturi hematocrit should not exceed feed hematocrit for CIF"
+        );
+        assert!(
+            metrics.hemolysis_index_per_pass <= metrics.bulk_hemolysis_index_per_pass + 1e-16,
+            "selective venturi correction should not increase HI for CIF"
+        );
+        assert!(
+            metrics.wbc_recovery > 0.0 && metrics.total_ecv_ml > 0.0,
+            "CIF should populate leukapheresis-compatible WBC/ECV metrics"
+        );
+    }
+
+    // ── Safety tests ────────────────────────────────────────────────────────
+
+    #[test]
+    fn bernoulli_dp_is_finite_and_uses_rectangular_area() {
+        // Verify that Bernoulli dp uses the rectangular area (not circular),
+        // producing finite values for all candidates in the design space.
+        let candidates = build_candidate_space();
+        for c in candidates.iter().take(200) {
+            let a_in = c.inlet_area_m2();
+            let a_th = c.throat_area_m2();
+            assert!(a_in > 0.0 && a_in.is_finite(), "inlet area must be finite positive");
+            assert!(a_th > 0.0 && a_th.is_finite(), "throat area must be finite positive");
+
+            let v_in = c.flow_rate_m3_s / a_in;
+            let v_th = c.flow_rate_m3_s / a_th;
+            let dp = 0.5 * BLOOD_DENSITY_KG_M3 * (v_th * v_th - v_in * v_in);
+            assert!(
+                dp.is_finite(),
+                "dp must be finite for {:?} (a_in={:.2e}, a_th={:.2e})",
+                c.topology, a_in, a_th,
+            );
+            // Rectangular area should be larger than circular for same diameter,
+            // so dp should be lower (unless height < π/4 * d, which is uncommon).
+            // Just verify it's not astronomical (< 100 MPa even for extreme designs).
+            assert!(
+                dp.abs() < 1e8,
+                "dp = {:.0} Pa unreasonably large for {:?}",
+                dp, c.topology,
+            );
+        }
+    }
+
+    #[test]
+    fn sigma_within_physical_range_for_all_candidates() {
+        let candidates = build_candidate_space();
+        for c in candidates.iter().take(500) {
+            let a_th = c.throat_area_m2();
+            if a_th < 1e-15 {
+                continue;
+            }
+            let v_th = c.flow_rate_m3_s / a_th;
+            let dyn_p = 0.5 * BLOOD_DENSITY_KG_M3 * v_th * v_th;
+            if dyn_p < 1e-12 {
+                continue;
+            }
+            let p_abs_throat = (P_ATM_PA + c.inlet_gauge_pa) - dyn_p;
+            let sigma = (p_abs_throat - BLOOD_VAPOR_PRESSURE_PA) / dyn_p;
+            assert!(
+                sigma > -10.0 && sigma < 10_000.0,
+                "σ = {:.2} out of range for {:?}",
+                sigma,
+                c.topology,
+            );
+        }
+    }
+
+    #[test]
+    fn cross_section_area_matches_dimensions() {
+        use crate::design::CrossSectionShape;
+        let candidates = build_candidate_space();
+        for c in &candidates {
+            match c.cross_section_shape {
+                CrossSectionShape::Rectangular => {
+                    let expected = c.inlet_diameter_m * c.channel_height_m;
+                    assert!(
+                        (c.inlet_area_m2() - expected).abs() < 1e-18,
+                        "inlet_area_m2 mismatch for {:?}",
+                        c.topology
+                    );
+                    let expected_th = c.throat_diameter_m * c.channel_height_m;
+                    assert!(
+                        (c.throat_area_m2() - expected_th).abs() < 1e-18,
+                        "throat_area_m2 mismatch for {:?}",
+                        c.topology
+                    );
+                }
+                CrossSectionShape::Circular => {
+                    let expected =
+                        std::f64::consts::FRAC_PI_4 * c.inlet_diameter_m * c.inlet_diameter_m;
+                    assert!(
+                        (c.inlet_area_m2() - expected).abs() < 1e-18,
+                        "circular inlet_area_m2 mismatch"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn cav_potential_nonzero_for_negative_sigma() {
+        // σ < 0 (very strong cavitation) must produce maximum potential
+        let sigma_neg = -0.1;
+        let raw = (1.0 - sigma_neg / SIGMA_CRIT).clamp(0.0, 1.0).powf(1.5);
+        assert!(
+            (raw - 1.0).abs() < 1e-10,
+            "cav_potential for σ={} should be 1.0, got {}",
+            sigma_neg,
+            raw
+        );
+
+        // σ just below σ_crit should give small but nonzero potential
+        let sigma_incipient = 0.9;
+        let raw2 = (1.0 - sigma_incipient / SIGMA_CRIT).clamp(0.0, 1.0).powf(1.5);
+        assert!(
+            raw2 > 0.0 && raw2 < 0.1,
+            "cav_potential for σ={} should be small positive, got {}",
+            sigma_incipient,
+            raw2
+        );
+
+        // σ >= σ_crit should give zero
+        let sigma_no_cav = 1.5;
+        assert!(
+            sigma_no_cav >= SIGMA_CRIT,
+            "test assumes σ >= σ_crit"
+        );
+    }
+}

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Poiseuille Flow Validation: pycfdrs vs Analytical Solutions
+Poiseuille Flow Validation: cfd_python vs Analytical Solutions
 
 This script validates the 2D Poiseuille flow solver against:
 1. Newtonian analytical solution
@@ -13,8 +13,8 @@ Run with:
 
 import numpy as np
 import sys
-sys.path.insert(0, "crates/pycfdrs")
-import pycfdrs
+sys.path.insert(0, "crates/cfd-python")
+import cfd_python
 
 
 def analytical_max_velocity(H, L, dP, mu):
@@ -50,10 +50,10 @@ def validate_analytical():
     dP_dx = dP / L  # Positive pressure gradient for flow in +x direction
     
     # Create solver
-    solver = pycfdrs.Poiseuille2DSolver(height=H, width=W, length=L, nx=50, ny=50)
+    solver = cfd_python.Poiseuille2DSolver(height=H, width=W, length=L, nx=50, ny=50)
     
     # Test analytical maximum velocity
-    # pycfdrs uses formula: u_max = (-dP_dx / (8*mu)) * H^2
+    # cfd_python uses formula: u_max = (-dP_dx / (8*mu)) * H^2
     # For positive dP (pressure drop), the pressure gradient is negative: dP_dx = -dP/L
     u_max_expected = analytical_max_velocity(H, L, dP, mu)
     u_max_solver = abs(solver.analytical_max_velocity(-dP_dx, mu))
@@ -87,7 +87,7 @@ def validate_wss():
     wss_analytical = analytical_wss(H, L, dP)
     
     # Solve numerically
-    solver = pycfdrs.Poiseuille2DSolver(height=H, width=W, length=L, nx=100, ny=50)
+    solver = cfd_python.Poiseuille2DSolver(height=H, width=W, length=L, nx=100, ny=50)
     result = solver.solve(dP, "newtonian")
     
     wss_error = abs(result.wall_shear_stress - wss_analytical) / wss_analytical
@@ -108,8 +108,8 @@ def validate_casson_blood():
     print("="*70)
     
     # Create blood models
-    casson = pycfdrs.CassonBlood()
-    carreau = pycfdrs.CarreauYasudaBlood()
+    casson = cfd_python.CassonBlood()
+    carreau = cfd_python.CarreauYasudaBlood()
     
     print(f"\n  Created blood models")
     print(f"    Casson yield stress: {casson.yield_stress():.4f} Pa")
@@ -178,7 +178,7 @@ def validate_murrays_law():
 def main():
     print("\n" + "#"*70)
     print(" POISEUILLE FLOW VALIDATION SUITE")
-    print(" pycfdrs vs Analytical Solutions")
+    print(" cfd_python vs Analytical Solutions")
     print("#"*70)
     
     results = []

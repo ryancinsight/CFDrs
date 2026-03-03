@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """Test blood type fix in Poiseuille3DSolver"""
 
-import pycfdrs
+import cfd_python
 import math
 
 D = 100e-6  # 100 μm
 L = 10e-3   # 10 mm
 dP = -4000  # Pa (negative for forward flow)
 
-solver = pycfdrs.Poiseuille3DSolver(D, L, 20, 16, 30)
+solver = cfd_python.Poiseuille3DSolver(D, L, 20, 16, 30)
 
 print("Testing blood type implementations:")
 print("="*60)

@@ -178,19 +178,6 @@ impl<T: RealField + Copy> ConvergenceMonitor<T> {
         T::from_f64_or(factor, T::one())
     }
 
-    /// Get theoretical GMRES convergence bound (approximate)
-    #[allow(dead_code)]
-    pub fn gmres_theoretical_bound(&self, kappa: f64) -> Option<T> {
-        use cfd_core::conversion::SafeFromF64;
-        if !kappa.is_finite() || kappa < 1.0 {
-            return None;
-        }
-
-        let sqrt_kappa = kappa.sqrt();
-        let factor = (sqrt_kappa - 1.0) / (sqrt_kappa + 1.0);
-        Some(T::from_f64_or(factor, T::one()))
-    }
-
     /// Check if convergence is within theoretical expectations
     pub fn validate_convergence(&self) -> cfd_core::error::Result<()> {
         use cfd_core::conversion::SafeFromF64;

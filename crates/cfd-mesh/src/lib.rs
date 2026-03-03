@@ -79,6 +79,57 @@
 // have documentation. Internal modules (channel, grid, hierarchy, io internals,
 // permission internals) suppress the lint with targeted #[allow(missing_docs)].
 #![warn(missing_docs)]
+#![warn(clippy::all)]
+#![warn(clippy::pedantic)]
+// Mesh geometry code routinely casts index→float for vertex positions.
+#![allow(clippy::cast_precision_loss)]
+#![allow(clippy::cast_possible_truncation)]
+#![allow(clippy::cast_sign_loss)]
+#![allow(clippy::cast_possible_wrap)]
+// Mathematical variable names (i,j,k,x,y,z,n,t,u,v) are standard.
+#![allow(clippy::similar_names)]
+#![allow(clippy::many_single_char_names)]
+// Mesh/geometry functions often need many geometric parameters.
+#![allow(clippy::too_many_arguments)]
+#![allow(clippy::too_many_lines)]
+// Numeric closures improve readability in computational pipelines.
+#![allow(clippy::redundant_closure_for_method_calls)]
+// Internal helper definitions placed near their call site.
+#![allow(clippy::items_after_statements)]
+// Domain-specific naming matches geometric convention.
+#![allow(clippy::module_name_repetitions)]
+#![allow(clippy::doc_markdown)]
+// Error/panic doc sections deferred for internal mesh operations.
+#![allow(clippy::missing_errors_doc)]
+#![allow(clippy::missing_panics_doc)]
+// Mesh builder patterns return Self.
+#![allow(clippy::return_self_not_must_use)]
+#![allow(clippy::must_use_candidate)]
+// Exact floating-point comparisons used in topology classification.
+#![allow(clippy::float_cmp)]
+#![allow(clippy::needless_pass_by_value)]
+#![allow(clippy::unreadable_literal)]
+#![allow(clippy::manual_let_else)]
+#![allow(clippy::unnecessary_wraps)]
+#![allow(clippy::match_same_arms)]
+#![allow(clippy::useless_conversion)]
+#![allow(clippy::inline_always)]
+#![allow(clippy::needless_range_loop)]
+#![allow(clippy::implicit_hasher)]
+#![allow(clippy::new_without_default)]
+#![allow(clippy::trivially_copy_pass_by_ref)]
+#![allow(clippy::ptr_arg)]
+#![allow(clippy::format_push_string)]
+#![allow(clippy::field_reassign_with_default)]
+#![allow(clippy::empty_line_after_doc_comments)]
+#![allow(clippy::len_without_is_empty)]
+#![allow(clippy::new_ret_no_self)]
+#![allow(clippy::unused_self)]
+#![allow(clippy::cast_possible_wrap)]
+#![allow(clippy::manual_clamp)]
+#![allow(clippy::duplicated_attributes)]
+#![allow(clippy::same_item_push)]
+#![allow(clippy::doc_overindented_list_items)]
 
 pub mod application;
 pub mod domain;
@@ -110,9 +161,11 @@ pub use domain::geometry::primitives;
 /// Primitive builder re-exports for ergonomic top-level access.
 pub use domain::geometry::{
     Antiprism, BiconcaveDisk, Capsule, Cone, Cube, Cuboctahedron, Cylinder, Disk, Dodecahedron,
-    Elbow, Ellipsoid, Frustum, GeodesicSphere, HelixSweep, Icosahedron, LinearSweep, Octahedron,
-    Pipe, Pyramid, RevolutionSweep, RoundedCube, SphericalShell, StadiumPrism, Tetrahedron, Torus,
-    TruncatedIcosahedron, UvSphere,
+    Elbow, Ellipsoid, Frustum, GeodesicSphere, GyroidSphere, HelixSweep, Icosahedron, LinearSweep,
+    Octahedron, Pipe, Pyramid, RevolutionSweep, RoundedCube, SchwarzDSphere, SchwarzPSphere,
+    SerpentineTube, SphericalShell, StadiumPrism, Tetrahedron, Torus, TruncatedIcosahedron, UvSphere,
+    // TPMS expansion: Neovius, Lidinoid, I-WP, Split P, FRD, Fischer-Koch C(Y)
+    FischerKochCySphere, FrdSphere, IwpSphere, LidinoidSphere, NeoviusSphere, SplitPSphere,
 };
 
 /// Application-level channel builders.

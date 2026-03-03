@@ -95,9 +95,6 @@ pub struct StandardController<T: RealField + Copy> {
     kp: T,
     /// Controller gain for integral term
     ki: T,
-    /// Previous error ratio (for integral term)
-    #[allow(dead_code)]
-    prev_error_ratio: Option<T>,
 }
 
 impl<T: RealField + Copy> Default for StandardController<T> {
@@ -112,7 +109,6 @@ impl<T: RealField + Copy> StandardController<T> {
         Self {
             kp: T::from_f64(0.075).unwrap(),
             ki: T::from_f64(0.175).unwrap(),
-            prev_error_ratio: None,
         }
     }
 }

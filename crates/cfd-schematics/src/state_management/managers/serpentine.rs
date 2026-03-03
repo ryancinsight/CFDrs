@@ -112,14 +112,14 @@ impl SerpentineParameterManager {
         );
 
         let gaussian_width_factor = ConfigurableParameter::new(
-            0.3,
+            6.0,
             ParameterConstraints::all(vec![
                 ParameterConstraints::<f64>::positive(),
-                ParameterConstraints::range(0.1, 1.0),
+                ParameterConstraints::range(2.0, 20.0),
             ]),
             ParameterMetadata::new(
                 "gaussian_width_factor",
-                "Factor for Gaussian envelope width calculation",
+                "Controls width of Gaussian envelope - sigma = length / factor",
                 "envelope_parameters",
             ),
         );
@@ -321,6 +321,41 @@ impl ParameterManager for SerpentineParameterManager {
             "fill_factor" => {
                 if let Some(val) = value.downcast_ref::<f64>() {
                     self.fill_factor.set_value(*val, reason)
+                } else {
+                    Err(ParameterError::type_mismatch(name, "f64", "unknown"))
+                }
+            }
+            "wave_density_factor" => {
+                if let Some(val) = value.downcast_ref::<f64>() {
+                    self.wave_density_factor.set_value(*val, reason)
+                } else {
+                    Err(ParameterError::type_mismatch(name, "f64", "unknown"))
+                }
+            }
+            "gaussian_width_factor" => {
+                if let Some(val) = value.downcast_ref::<f64>() {
+                    self.gaussian_width_factor.set_value(*val, reason)
+                } else {
+                    Err(ParameterError::type_mismatch(name, "f64", "unknown"))
+                }
+            }
+            "frequency_multiplier" => {
+                if let Some(val) = value.downcast_ref::<f64>() {
+                    self.frequency_multiplier.set_value(*val, reason)
+                } else {
+                    Err(ParameterError::type_mismatch(name, "f64", "unknown"))
+                }
+            }
+            "phase_offset" => {
+                if let Some(val) = value.downcast_ref::<f64>() {
+                    self.phase_offset.set_value(*val, reason)
+                } else {
+                    Err(ParameterError::type_mismatch(name, "f64", "unknown"))
+                }
+            }
+            "target_fill_ratio" => {
+                if let Some(val) = value.downcast_ref::<f64>() {
+                    self.target_fill_ratio.set_value(*val, reason)
                 } else {
                     Err(ParameterError::type_mismatch(name, "f64", "unknown"))
                 }

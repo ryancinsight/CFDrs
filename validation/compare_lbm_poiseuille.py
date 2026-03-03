@@ -2,7 +2,7 @@
 """
 Cross-package validation: CFD-RS vs Lattice Boltzmann Method (LBM) for Poiseuille Flow
 
-Compares pycfdrs Finite Difference/Finite Volume Navier-Stokes solver against
+Compares cfd_python Finite Difference/Finite Volume Navier-Stokes solver against
 Lattice Boltzmann Method from Python_CFD tutorial (Philip Mocz implementation).
 
 Physics:
@@ -10,7 +10,7 @@ Physics:
     Analytical solution: u(y) = (dP/dx / 2μ) × y(H - y)
     
 Methods Compared:
-    1. pycfdrs: Finite difference momentum equations + pressure Poisson
+    1. cfd_python: Finite difference momentum equations + pressure Poisson
     2. LBM: Boltzmann transport equation with BGK collision operator
     
 This validates that CFD-RS produces correct results across different
@@ -22,13 +22,20 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 
+# Ensure Unicode symbols are printable on Windows terminals.
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
 # Add validation directory to path
 sys.path.insert(0, str(Path(__file__).parent))
 
 try:
-    import pycfdrs
+    import cfd_python
 except ImportError:
-    print("ERROR: pycfdrs not installed. Build with: cd crates/pycfdrs && maturin develop")
+    print("ERROR: cfd_python not installed. Build with: cd crates/cfd-python && maturin develop")
     sys.exit(1)
 
 
@@ -155,9 +162,9 @@ def run_lbm_poiseuille(Nx: int = 400, Ny: int = 100, tau: float = 0.6,
     }
 
 
-def compare_with_pycfdrs_and_analytical(lbm_result):
+def compare_with_cfd_python_and_analytical(lbm_result):
     """
-    Compare LBM results with pycfdrs and analytical solution.
+    Compare LBM results with cfd_python and analytical solution.
     
     Args:
         lbm_result: Dictionary from run_lbm_poiseuille
@@ -192,7 +199,7 @@ def compare_with_pycfdrs_and_analytical(lbm_result):
     # Analytical solution (using LBM parameters)
     u_analytical = analytical_poiseuille(y, H, dp_dx_est, nu_lbm)
     
-    # pycfdrs solution (using dimensional parameters matching LBM)
+    # cfd_python solution (using dimensional parameters matching LBM)
     H_dim = 100e-6  # 100 μm
     L_dim = 1e-3    # 1 mm
     mu_dim = nu_lbm * 1060  # Dynamic viscosity (assuming blood density)
@@ -200,7 +207,7 @@ def compare_with_pycfdrs_and_analytical(lbm_result):
     
     try:
         ny_cfdrs = 101
-        solver = pycfdrs.Poiseuille2DSolver(
+        solver = cfd_python.Poiseuille2DSolver(
             height=H_dim,
             width=1.0,
             length=L_dim,
@@ -211,7 +218,7 @@ def compare_with_pycfdrs_and_analytical(lbm_result):
         u_cfdrs = u_field_cfdrs[:, 25]  # Centerline
         y_cfdrs = np.linspace(0, H, ny_cfdrs)
         
-        # Interpolate pycfdrs to LBM grid
+        # Interpolate cfd_python to LBM grid
         u_cfdrs_interp = np.interp(y, y_cfdrs, u_cfdrs)
         
         # Normalize both to compare shapes
@@ -237,11 +244,11 @@ def compare_with_pycfdrs_and_analytical(lbm_result):
         print(f"  Max error:  {max_err_lbm:.6f}")
         print(f"  L2 error:   {l2_err_lbm:.6f}")
         
-        print(f"\npycfdrs vs Analytical:")
+        print(f"\ncfd_python vs Analytical:")
         print(f"  Max error:  {max_err_cfdrs:.6f}")
         print(f"  L2 error:   {l2_err_cfdrs:.6f}")
         
-        print(f"\nLBM vs pycfdrs (Cross-Method):")
+        print(f"\nLBM vs cfd_python (Cross-Method):")
         print(f"  Max error:  {max_err_cross:.6f}")
         print(f"  L2 error:   {l2_err_cross:.6f}")
         
@@ -255,15 +262,15 @@ def compare_with_pycfdrs_and_analytical(lbm_result):
             print(f"\n[PASS] LBM matches analytical within {l2_err_lbm:.4f}")
         
         if l2_err_cfdrs > tolerance:
-            print(f"[FAIL] pycfdrs L2 error {l2_err_cfdrs:.4f} exceeds {tolerance:.2f}")
+            print(f"[FAIL] cfd_python L2 error {l2_err_cfdrs:.4f} exceeds {tolerance:.2f}")
             PASS = False
         else:
-            print(f"[PASS] pycfdrs matches analytical within {l2_err_cfdrs:.4f}")
+            print(f"[PASS] cfd_python matches analytical within {l2_err_cfdrs:.4f}")
         
         if l2_err_cross > tolerance:
             print(f"[WARN] Cross-method error {l2_err_cross:.4f} exceeds {tolerance:.2f} (different discretizations)")
         else:
-            print(f"[PASS] LBM and pycfdrs agree within {l2_err_cross:.4f}")
+            print(f"[PASS] LBM and cfd_python agree within {l2_err_cross:.4f}")
         
         return {
             "u_lbm": u_lbm_norm,
@@ -278,7 +285,7 @@ def compare_with_pycfdrs_and_analytical(lbm_result):
         }
         
     except Exception as e:
-        print(f"\nWARN: pycfdrs comparison failed: {e}")
+        print(f"\nWARN: cfd_python comparison failed: {e}")
         
         # LBM vs analytical only
         lbm_vs_analytical = np.abs(u_lbm - u_analytical)
@@ -317,7 +324,7 @@ def plot_comparison(lbm_result, comparison):
                     label='LBM (D2Q9)', markersize=3, markerfacecolor='none')
     if comparison["has_cfdrs"]:
         axes[0, 1].plot(comparison["u_cfdrs"], comparison["y"], 'r^-', 
-                        label='pycfdrs (Finite Difference)', markersize=3, markerfacecolor='none')
+                        label='cfd_python (Finite Difference)', markersize=3, markerfacecolor='none')
     axes[0, 1].set_xlabel('Normalized Velocity')
     axes[0, 1].set_ylabel('y (lattice units)')
     axes[0, 1].set_title('Velocity Profile Comparison')
@@ -329,7 +336,7 @@ def plot_comparison(lbm_result, comparison):
     axes[1, 0].plot(lbm_err, comparison["y"], 'b-', linewidth=2, label='LBM error')
     if comparison["has_cfdrs"]:
         cfdrs_err = np.abs(comparison["u_cfdrs"] - comparison["u_analytical"])
-        axes[1, 0].plot(cfdrs_err, comparison["y"], 'r-', linewidth=2, label='pycfdrs error')
+        axes[1, 0].plot(cfdrs_err, comparison["y"], 'r-', linewidth=2, label='cfd_python error')
     axes[1, 0].set_xlabel('Absolute Error')
     axes[1, 0].set_ylabel('y (lattice units)')
     axes[1, 0].set_title('Error Distribution')
@@ -340,7 +347,7 @@ def plot_comparison(lbm_result, comparison):
     methods = ['LBM']
     errors = [comparison["lbm_error"]]
     if comparison["has_cfdrs"]:
-        methods.extend(['pycfdrs', 'LBM vs pycfdrs'])
+        methods.extend(['cfd_python', 'LBM vs cfd_python'])
         errors.extend([comparison["cfdrs_error"], comparison["cross_error"]])
     
     axes[1, 1].bar(methods, errors, color=['blue', 'red', 'green'][:len(methods)])
@@ -366,15 +373,15 @@ def main():
     print("="*70)
     print("\nComparing three implementations:")
     print("  1. Lattice Boltzmann Method (Python_CFD/Philip Mocz)")
-    print("  2. Finite Difference Navier-Stokes (pycfdrs)")
+    print("  2. Finite Difference Navier-Stokes (cfd_python)")
     print("  3. Analytical Hagen-Poiseuille solution")
     print("="*70)
     
     # Run LBM simulation
     lbm_result = run_lbm_poiseuille(Nx=400, Ny=100, tau=0.6, Nt=4000, force_x=1e-5)
     
-    # Compare with pycfdrs and analytical
-    comparison = compare_with_pycfdrs_and_analytical(lbm_result)
+    # Compare with cfd_python and analytical
+    comparison = compare_with_cfd_python_and_analytical(lbm_result)
     
     # Plot
     plot_comparison(lbm_result, comparison)

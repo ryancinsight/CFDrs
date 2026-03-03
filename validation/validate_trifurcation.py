@@ -2,7 +2,7 @@
 """
 Trifurcation flow validation against analytical solutions and literature.
 
-Validates pycfdrs TrifurcationSolver (1D) and Trifurcation3DSolver against:
+Validates cfd_python TrifurcationSolver (1D) and Trifurcation3DSolver against:
   1. Hagen-Poiseuille analytical pressure drop
   2. Murray's Law for 3-daughter branching (D_p^3 = D_1^3 + D_2^3 + D_3^3)
   3. Mass conservation (Q_parent = Q_d1 + Q_d2 + Q_d3)
@@ -22,11 +22,11 @@ from datetime import datetime, UTC
 from pathlib import Path
 
 try:
-    import pycfdrs
-    HAS_PYCFDRS = True
+    import cfd_python
+    HAS_cfd_python = True
 except ImportError:
-    HAS_PYCFDRS = False
-    print("[SKIP] pycfdrs not installed -- run 'maturin develop' first")
+    HAS_cfd_python = False
+    print("[SKIP] cfd_python not installed -- run 'maturin develop' first")
 
 
 def hagen_poiseuille_dp(Q, mu, L, D):
@@ -52,7 +52,7 @@ def validate_1d_trifurcation():
     D_p = 200e-6;  D_d = 140e-6;  L = 1e-3
     Q = 6e-9;  P_in = 100.0;  mu = 0.0035
 
-    solver = pycfdrs.TrifurcationSolver(
+    solver = cfd_python.TrifurcationSolver(
         d_parent=D_p, d_daughter1=D_d, d_daughter2=D_d, d_daughter3=D_d,
         length=L,
     )
@@ -107,7 +107,7 @@ def validate_1d_trifurcation_blood():
     D_p = 200e-6;  D_d = 140e-6;  L = 1e-3
     Q = 6e-9;  P_in = 100.0
 
-    solver = pycfdrs.TrifurcationSolver(
+    solver = cfd_python.TrifurcationSolver(
         d_parent=D_p, d_daughter1=D_d, d_daughter2=D_d, d_daughter3=D_d,
         length=L,
     )
@@ -133,7 +133,7 @@ def validate_3d_trifurcation():
     print("3D Trifurcation Solver Validation")
     print("=" * 60)
 
-    solver = pycfdrs.Trifurcation3DSolver(
+    solver = cfd_python.Trifurcation3DSolver(
         d_parent=200e-6, d_daughter=140e-6, length=1e-3,
     )
     try:
@@ -153,7 +153,7 @@ def validate_3d_trifurcation():
 
 def scipy_cross_validate():
     print("=" * 60)
-    print("Cross-validation: pycfdrs vs Poiseuille network (scipy)")
+    print("Cross-validation: cfd_python vs Poiseuille network (scipy)")
     print("=" * 60)
     try:
         from scipy.sparse import lil_matrix
@@ -178,8 +178,8 @@ def scipy_cross_validate():
     P0 = P1 + R_p * Q
     dp_total = P0
 
-    # Compare with pycfdrs
-    solver = pycfdrs.TrifurcationSolver(
+    # Compare with cfd_python
+    solver = cfd_python.TrifurcationSolver(
         d_parent=D_p, d_daughter1=D_d, d_daughter2=D_d, d_daughter3=D_d,
         length=L,
     )
@@ -191,7 +191,7 @@ def scipy_cross_validate():
 
 
 def main():
-    if not HAS_PYCFDRS:
+    if not HAS_cfd_python:
         sys.exit(0)
 
     ok = True
@@ -215,7 +215,7 @@ def main():
         "suite": "trifurcation_cross_package_validation",
         "all_passed": ok,
         "packages": {
-            "pycfdrs": HAS_PYCFDRS,
+            "cfd_python": HAS_cfd_python,
             "scipy": any(r["name"] == "scipy_cross_validate" and r["passed"] for r in validation_records),
         },
         "results": validation_records,

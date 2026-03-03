@@ -92,7 +92,7 @@ fn validate_bifurcation_blood_flow() {
     let flow_rate: f64 = 1e-8; // 10 nL/s (physiological)
     let inlet_pressure: f64 = 100.0; // 100 Pa gauge
 
-    match bifurcation.solve(blood, flow_rate, inlet_pressure) {
+    match bifurcation.solve(blood, flow_rate, inlet_pressure, 310.15, 101325.0) {
         Ok(solution) => {
             println!("\nBifurcation Solution (Casson Blood):");
             println!("  Inlet flow: {:.2e} m³/s", solution.q_parent);
@@ -147,7 +147,7 @@ fn validate_bifurcation_blood_flow() {
     println!("\n\nBifurcation Solution (Carreau-Yasuda Blood):");
     let blood_cy = CarreauYasudaBlood::<f64>::normal_blood();
 
-    match bifurcation.solve(blood_cy, flow_rate, inlet_pressure) {
+    match bifurcation.solve(blood_cy, flow_rate, inlet_pressure, 310.15, 101325.0) {
         Ok(solution) => {
             println!("  Wall shear rates:");
             println!("    Daughter 1: {:.1} s⁻¹", solution.gamma_1);

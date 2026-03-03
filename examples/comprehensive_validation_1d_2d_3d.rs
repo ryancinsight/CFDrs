@@ -41,7 +41,7 @@
 //! - Fung, Y.C. (1993). "Biomechanics: Mechanical Properties of Living Tissues".
 //!   Springer-Verlag, 2nd edition.
 
-use cfd_1d::bifurcation::junction::BifurcationJunction;
+use cfd_1d::TwoWayBranchJunction;
 use cfd_1d::channel::{Channel, ChannelGeometry};
 use cfd_2d::solvers::venturi_flow::{
     BernoulliVenturi, VenturiGeometry, ViscousVenturi,
@@ -206,9 +206,9 @@ fn validate_1d_poiseuille_casson() -> ValidationResult {
     let d1 = Channel::new(d_geom.clone());
     let d2 = Channel::new(d_geom);
 
-    let bifurcation = BifurcationJunction::new(parent, d1, d2, 0.5_f64);
+    let bifurcation = TwoWayBranchJunction::new(parent, d1, d2, 0.5_f64);
 
-    let dp_solver = BifurcationJunction::pressure_drop(&blood, flow_rate, &bifurcation.parent);
+    let dp_solver = TwoWayBranchJunction::pressure_drop(&blood, flow_rate, &bifurcation.parent, 310.15, 101325.0);
 
     let error = (dp_solver - dp_analytical).abs() / dp_analytical;
 
@@ -247,10 +247,10 @@ fn validate_1d_murray_law() -> ValidationResult {
     let d1 = Channel::new(d1_geom.clone());
     let d2 = Channel::new(d1_geom);
 
-    let bifurcation = BifurcationJunction::new(parent, d1, d2, 0.5_f64);
+    let bifurcation = TwoWayBranchJunction::new(parent, d1, d2, 0.5_f64);
     let blood = CassonBlood::<f64>::normal_blood();
 
-    let solution = bifurcation.solve(blood, 1e-6_f64, 100.0_f64).unwrap();
+    let solution = bifurcation.solve(blood, 1e-6_f64, 100.0_f64, 310.15, 101325.0).unwrap();
     let flow_split_error = ((solution.q_1 / 1e-6_f64) - 0.5_f64).abs();
 
     let error = murray_deviation.max(flow_split_error);

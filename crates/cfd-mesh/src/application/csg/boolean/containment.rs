@@ -1,9 +1,37 @@
-//! Containment detection
+//! Containment detection — spatial relationship between two face soups.
 //!
-//! A pure BSP-only approach fails when one mesh is entirely enclosed within the
-//! other (no surface intersection exists), because no splitting plane from one
-//! mesh ever splits the other's triangles. The functions here detect this case
-//! via exact Generalized Winding Number (GWN) containment (`point_in_mesh`) and handle it analytically:
+//! ## Decision Logic
+//!
+//! ```text
+//!  containment(A, B)
+//!       │
+//!  ┌────▼───────────────────────────────────────┐
+//!  │ aabb_a ∩ aabb_b = ∅ ?                      │──YES──▶ Disjoint
+//!  └────┬────────────────────────────────────────┘
+//!       │ NO
+//!  ┌────▼───────────────────────────────────────┐
+//!  │ aabb_b ⊂ aabb_a  OR  aabb_a ⊂ aabb_b ?    │──NO───▶ Intersecting
+//!  └────┬────────────────────────────────────────┘
+//!       │ YES (one contained in the other)
+//!  ┌────▼───────────────────────────────────────┐
+//!  │ GWN(center_b, A) > 0.5  ?                  │──YES──▶ BInsideA
+//!  │  [or GWN(center_a, B) > 0.5 for AInsideB]  │──NO───▶ Intersecting
+//!  └────────────────────────────────────────────┘
+//! ```
+//!
+//! ## Theorem — GWN Sample Point Validity
+//!
+//! The AABB centre of a convex mesh is strictly interior to that mesh.
+//! Therefore GWN evaluated at the AABB centre of the inner mesh never lies
+//! exactly on a face plane of the outer mesh, making the GWN result sharp
+//! (≈ 0.0 or ≈ 1.0) without needing arbitrary ray-cast nudges. ∎
+//!
+//! ## BInsideA Dispatch Note
+//!
+//! When containment returns `BInsideA`, `boolean_difference` dispatches to
+//! `boolean_intersecting_arrangement` — NOT a naive fast-path.  The arrangement
+//! pipeline's Phase 2c detects coplanar cap-vs-wall triangle pairs and runs the
+//! 2-D Boolean subtraction, correctly producing annular rings for coplanar faces.
 
 use crate::domain::core::scalar::Point3r;
 use crate::infrastructure::storage::face_store::FaceData;
@@ -91,6 +119,12 @@ pub(crate) fn containment(faces_a: &[FaceData], faces_b: &[FaceData], pool: &Ver
     // One AABB is inside the other.  Ray-cast using the inner AABB's centre:
     // it is guaranteed strictly interior to any convex mesh whose AABB contains it,
     // so it will never sit exactly on a face plane of the outer mesh.
+    //
+    // Note: when B is inside A with coplanar boundary faces (e.g. cylinder caps
+    // flush with cube walls), `boolean_difference` already dispatches to
+    // `boolean_intersecting_arrangement` which correctly detects the coplanar
+    // groups via `intersect_triangles → Coplanar` and runs the 2-D Boolean
+    // subtraction in Phase 2c.  No need to force `Intersecting` here.
     if b_in_aabb_a {
         let b_sample = aabb_b.center();
         if point_in_mesh(&b_sample, faces_a, pool) {

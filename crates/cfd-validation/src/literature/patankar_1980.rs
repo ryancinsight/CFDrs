@@ -10,19 +10,19 @@ use num_traits::{FromPrimitive, ToPrimitive};
 
 /// Patankar's lid-driven cavity test case
 pub struct PatankarLidDrivenCavity<T: RealField + Copy> {
-    /// Reynolds number
-    #[allow(dead_code)]
-    reynolds: T,
     /// Grid size
     grid_size: usize,
+    /// Reynolds number marker
+    _marker: core::marker::PhantomData<T>,
 }
 
 impl<T: RealField + Copy + FromPrimitive + ToPrimitive> PatankarLidDrivenCavity<T> {
     /// Create new test case
     pub fn new(reynolds: T, grid_size: usize) -> Self {
+        let _ = reynolds;
         Self {
-            reynolds,
             grid_size,
+            _marker: core::marker::PhantomData,
         }
     }
 

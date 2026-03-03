@@ -1,4 +1,4 @@
-//! Bifurcation solver PyO3 wrapper
+//! Bifurcation solver `PyO3` wrapper
 //!
 //! Provides Python interface to the 1D bifurcation solver with non-Newtonian blood flow.
 
@@ -18,7 +18,7 @@ use crate::result_types::PyBifurcationResult;
 /// # Physics
 ///
 /// The bifurcation satisfies:
-/// - Mass conservation: Q_parent = Q_1 + Q_2
+/// - Mass conservation: `Q_parent` = `Q_1` + `Q_2`
 /// - Pressure-flow relationship: ΔP = (128μQL)/(πD⁴)
 /// - Non-Newtonian viscosity: μ(γ̇) from blood model
 /// - Wall shear rate: γ̇ = 32Q/(πD³)
@@ -26,10 +26,10 @@ use crate::result_types::PyBifurcationResult;
 /// # Example
 ///
 /// ```python
-/// import pycfdrs
+/// import cfd_python
 ///
 /// # Create symmetric bifurcation
-/// bifurc = pycfdrs.BifurcationSolver(
+/// bifurc = cfd_python.BifurcationSolver(
 ///     d_parent=100e-6,  # 100 μm
 ///     d_daughter1=80e-6,
 ///     d_daughter2=80e-6,
@@ -37,7 +37,7 @@ use crate::result_types::PyBifurcationResult;
 /// )
 ///
 /// # Create blood model
-/// blood = pycfdrs.CassonBlood()
+/// blood = cfd_python.CassonBlood()
 ///
 /// # Solve
 /// result = bifurc.solve(
@@ -72,7 +72,7 @@ impl PyBifurcationSolver {
     /// - `d_daughter1`: Daughter 1 vessel diameter [m]
     /// - `d_daughter2`: Daughter 2 vessel diameter [m]
     /// - `length`: Vessel length [m] (default: 1e-3)
-    /// - `flow_split_ratio`: Flow distribution ratio Q_1/(Q_1+Q_2) (default: 0.5)
+    /// - `flow_split_ratio`: Flow distribution ratio `Q_1/(Q_1+Q_2)` (default: 0.5)
     #[new]
     #[pyo3(signature = (d_parent, d_daughter1, d_daughter2, length=1e-3, flow_split_ratio=0.5))]
     fn new(
@@ -96,14 +96,14 @@ impl PyBifurcationSolver {
     /// # Arguments
     /// - `flow_rate`: Parent inlet flow rate [m³/s]
     /// - `pressure`: Parent inlet pressure [Pa]
-    /// - `blood`: Blood model (CassonBlood or CarreauYasudaBlood)
+    /// - `blood`: Blood model (`CassonBlood` or `CarreauYasudaBlood`)
     ///
     /// # Returns
-    /// - BifurcationResult containing all flow and pressure data
+    /// - `BifurcationResult` containing all flow and pressure data
     ///
     /// # Raises
-    /// - PyTypeError if blood model is not recognized
-    /// - RuntimeError if solver fails to converge
+    /// - `PyTypeError` if blood model is not recognized
+    /// - `RuntimeError` if solver fails to converge
     fn solve(
         &self,
         flow_rate: f64,
@@ -121,13 +121,14 @@ impl PyBifurcationSolver {
         let d2 = Channel::new(d2_geom);
 
         let bifurc = TwoWayBranchJunction::new(parent, d1, d2, self.flow_split_ratio);
+        let temperature_k = 310.0_f64;
 
         match blood_type {
             "casson" => {
                 let blood = CassonBlood::<f64>::normal_blood();
                 // Clone to satisfy Copy bound - blood models can't be Copy due to String field
-                let blood_copy = blood.clone();
-                match bifurc.solve(blood_copy, flow_rate, pressure) {
+                let blood_copy = blood;
+                match bifurc.solve(blood_copy, flow_rate, pressure, temperature_k, pressure) {
                     Ok(solution) => {
                         let wss_1 = (4.0 * solution.mu_1 * solution.q_1)
                             / (std::f64::consts::PI * self.d_daughter1.powi(3));
@@ -153,12 +154,12 @@ impl PyBifurcationSolver {
                             solution.junction_pressure_error,
                         ))
                     }
-                    Err(e) => Err(PyTypeError::new_err(format!("Solver failed: {}", e))),
+                    Err(e) => Err(PyTypeError::new_err(format!("Solver failed: {e}"))),
                 }
             }
             "carreau_yasuda" => {
                 let blood = CarreauYasudaBlood::<f64>::normal_blood();
-                match bifurc.solve(blood, flow_rate, pressure) {
+                match bifurc.solve(blood, flow_rate, pressure, temperature_k, pressure) {
                     Ok(solution) => {
                         let wss_1 = (4.0 * solution.mu_1 * solution.q_1)
                             / (std::f64::consts::PI * self.d_daughter1.powi(3));
@@ -184,7 +185,7 @@ impl PyBifurcationSolver {
                             solution.junction_pressure_error,
                         ))
                     }
-                    Err(e) => Err(PyTypeError::new_err(format!("Solver failed: {}", e))),
+                    Err(e) => Err(PyTypeError::new_err(format!("Solver failed: {e}"))),
                 }
             }
             _ => Err(PyTypeError::new_err(
@@ -195,7 +196,7 @@ impl PyBifurcationSolver {
 
     /// Calculate Murray's law deviation
     ///
-    /// Returns: |D_parent³ - (D_1³ + D_2³)| / D_parent³
+    /// Returns: |`D_parent³` - (`D_1³` + `D_2³`)| / `D_parent³`
     fn murray_law_deviation(&self) -> f64 {
         let d0_cubed = self.d_parent.powi(3);
         let daughters_cubed = self.d_daughter1.powi(3) + self.d_daughter2.powi(3);
@@ -204,7 +205,7 @@ impl PyBifurcationSolver {
 
     /// Get vessel area ratios
     ///
-    /// Returns: (A_parent, A_daughter1, A_daughter2)
+    /// Returns: (`A_parent`, `A_daughter1`, `A_daughter2`)
     fn areas(&self) -> (f64, f64, f64) {
         let pi = std::f64::consts::PI;
         let a_parent = pi * (self.d_parent / 2.0).powi(2);
@@ -285,7 +286,8 @@ impl PyTrifurcationSolver {
             ThreeWayBranchJunction::new(parent, d1, d2, d3, (1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0));
         let blood = CassonBlood::<f64>::normal_blood();
 
-        match trifurc.solve(blood, flow_rate, pressure) {
+        let temperature_k = 310.0_f64;
+        match trifurc.solve(blood, flow_rate, pressure, temperature_k, pressure) {
             Ok(solution) => Ok(PyTrifurcationResult {
                 q_parent: solution.q_parent,
                 q_daughters: [solution.q_1, solution.q_2, solution.q_3],
@@ -294,8 +296,7 @@ impl PyTrifurcationSolver {
                 mass_conservation_error: solution.mass_conservation_error,
             }),
             Err(e) => Err(pyo3::exceptions::PyRuntimeError::new_err(format!(
-                "Solver failed: {}",
-                e
+                "Solver failed: {e}"
             ))),
         }
     }

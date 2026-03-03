@@ -2,7 +2,7 @@
 """
 Serpentine micro-channel flow validation.
 
-Validates pycfdrs SerpentineSolver1D and Serpentine3DSolver against:
+Validates cfd_python SerpentineSolver1D and Serpentine3DSolver against:
   1. Dean number theory:  De = Re * sqrt(D_h / (2 * R_c))
   2. Straight-pipe Hagen-Poiseuille reference pressure drop
   3. Mass conservation
@@ -23,11 +23,11 @@ import math
 import numpy as np
 
 try:
-    import pycfdrs
-    HAS_PYCFDRS = True
+    import cfd_python
+    HAS_cfd_python = True
 except ImportError:
-    HAS_PYCFDRS = False
-    print("[SKIP] pycfdrs not installed -- run 'maturin develop' first")
+    HAS_cfd_python = False
+    print("[SKIP] cfd_python not installed -- run 'maturin develop' first")
 
 
 def hagen_poiseuille_dp(Q, mu, L, D):
@@ -64,7 +64,7 @@ def validate_1d_serpentine():
     width = 200e-6;  height = 100e-6;  straight = 2e-3
     n_seg = 10;  R_bend = 500e-6;  u = 0.01;  mu = 0.0035
 
-    solver = pycfdrs.SerpentineSolver1D(
+    solver = cfd_python.SerpentineSolver1D(
         width=width, height=height, straight_length=straight,
         num_segments=n_seg, bend_radius=R_bend,
     )
@@ -114,7 +114,7 @@ def validate_1d_serpentine_scaling():
 
     dps = []
     for n in [5, 10, 20]:
-        s = pycfdrs.SerpentineSolver1D(
+        s = cfd_python.SerpentineSolver1D(
             width=width, height=height, straight_length=straight,
             num_segments=n, bend_radius=R_bend,
         )
@@ -139,7 +139,7 @@ def validate_1d_serpentine_blood():
     width = 200e-6;  height = 100e-6;  straight = 2e-3
     n_seg = 10;  R_bend = 500e-6;  u = 0.005
 
-    solver = pycfdrs.SerpentineSolver1D(
+    solver = cfd_python.SerpentineSolver1D(
         width=width, height=height, straight_length=straight,
         num_segments=n_seg, bend_radius=R_bend,
     )
@@ -167,7 +167,7 @@ def validate_3d_serpentine():
     print("3D Serpentine Solver Validation")
     print("=" * 60)
 
-    solver = pycfdrs.Serpentine3DSolver(
+    solver = cfd_python.Serpentine3DSolver(
         diameter=200e-6, wavelength=2e-3, amplitude=500e-6,
         cycles=1, circular=True,  # Use 1 cycle to keep DOF count small
     )
@@ -194,7 +194,7 @@ def compare_with_straight_pipe():
     width = 200e-6;  height = 100e-6;  straight = 2e-3
     n_seg = 10;  R_bend = 500e-6;  u = 0.01;  mu = 0.0035
 
-    solver = pycfdrs.SerpentineSolver1D(
+    solver = cfd_python.SerpentineSolver1D(
         width=width, height=height, straight_length=straight,
         num_segments=n_seg, bend_radius=R_bend,
     )
@@ -217,7 +217,7 @@ def compare_with_straight_pipe():
 
 
 def main():
-    if not HAS_PYCFDRS:
+    if not HAS_cfd_python:
         sys.exit(0)
 
     ok = True

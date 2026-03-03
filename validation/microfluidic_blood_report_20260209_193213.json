@@ -246,13 +246,13 @@
       "reference": "fluidsim baseline"
     },
     {
-      "name": "5.2 pycfdrs Poiseuille3D vs fluidsim 2D channel: Reynolds number match",
+      "name": "5.2 cfd-python Poiseuille3D vs fluidsim 2D channel: Reynolds number match",
       "passed": true,
-      "details": "pycfdrs Re=275.6, analytical Re=294.4, err=6.4% [pycfdrs matches theory]",
+      "details": "cfd-python Re=275.6, analytical Re=294.4, err=6.4% [cfd-python matches theory]",
       "reference": "Cross-package"
     },
     {
-      "name": "5.3 pycfdrs blood models vs fluidsim effective viscosity: dissipation rate",
+      "name": "5.3 cfd-python blood models vs fluidsim effective viscosity: dissipation rate",
       "passed": true,
       "details": "gamma=100.0 s^-1: eps spread=9.9%, Casson=43.9, CY=47.1, Cross=39.0 W/m\u00b3",
       "reference": "Cross-package"

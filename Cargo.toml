@@ -13,6 +13,9 @@ members = [
     "crates/cfd-python",
     "xtask",
 ]
+exclude = [
+    "crates/cfd-ui",
+]
 resolver = "2"
 
 [workspace.package]
@@ -107,7 +110,7 @@ opt-level = 0
 opt-level = 2
 
 # PyO3 extension building
-[profile.release.package.pycfdrs]
+[profile.release.package."cfd-python"]
 opt-level = 3
 
 # Root package for examples
@@ -131,6 +134,7 @@ csg = ["cfd-mesh/csg", "cfd-3d/csg"]
 mpi = ["cfd-core/mpi", "dep:mpi"]
 simd = ["cfd-core/simd"]
 millifluidic = ["cfd-mesh/millifluidic"]
+scheme-io = ["cfd-mesh/scheme-io"]
 
 [dependencies]
 cfd-core.workspace = true

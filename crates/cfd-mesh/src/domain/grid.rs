@@ -37,6 +37,7 @@ pub struct StructuredGridBuilder {
 
 impl StructuredGridBuilder {
     /// Create a builder with `nx × ny × nz` cells.
+    #[must_use] 
     pub fn new(nx: usize, ny: usize, nz: usize) -> Self {
         Self { nx, ny, nz }
     }

@@ -61,7 +61,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         plot_geometry(&system, output.to_str().unwrap())?;
         println!(
             "   ✓ {}: {} (factor: {}) -> {}",
-            name, description, factor, output.display()
+            name,
+            description,
+            factor,
+            output.display()
         );
     }
 
@@ -285,7 +288,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("   • Performance Optimized: Efficient generation for all smoothness levels");
 
     println!("\n✅ Comprehensive arc demonstration complete!");
-    println!("   All outputs organized in {}/arcs/ and {}/mixed/ subdirectories", out.display(), out.display());
+    println!(
+        "   All outputs organized in {}/arcs/ and {}/mixed/ subdirectories",
+        out.display(),
+        out.display()
+    );
 
     Ok(())
 }

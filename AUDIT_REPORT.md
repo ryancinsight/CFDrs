@@ -160,7 +160,7 @@ Some validations FAILED.
 ### ✅ LBM Cross-Validation
 
 **Claim**:
-> "pycfdrs vs Analytical: <0.01% error"  
+> "cfd-python vs Analytical: <0.01% error"  
 > "LBM vs Analytical: 41.2% error (expected for LBM)"
 
 **Verification** (re-execution of `compare_lbm_poiseuille.py`):
@@ -170,11 +170,11 @@ Error Analysis (Normalized Velocity Profiles):
 LBM vs Analytical:
   L2 error: 0.412327
 
-pycfdrs vs Analytical:
+cfd-python vs Analytical:
   Max error: 0.000000
   L2 error: 0.000000
 
-[PASS] pycfdrs matches analytical within 0.0000
+[PASS] cfd-python matches analytical within 0.0000
 [WARN] LBM L2 error 0.4123 exceeds 0.05 (expected for LBM)
 
 ✓ CROSS-PACKAGE VALIDATION PASSED

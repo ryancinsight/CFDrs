@@ -68,6 +68,13 @@ pub struct VenturiConfig3D<T: cfd_mesh::domain::core::Scalar + RealField + Copy>
     pub resolution: (usize, usize),
     /// Whether the Venturi is circular or rectangular
     pub circular: bool,
+    /// Channel height [m] for rectangular cross-sections.
+    ///
+    /// When `circular = false`, the cross-section is `width × height` where
+    /// `width` varies axially (inlet → throat → outlet) and `height` is
+    /// constant.  When `None`, falls back to `width × width` (square).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rect_height: Option<T>,
 }
 
 impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> Default
@@ -82,6 +89,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
             nonlinear_tolerance: T::from_f64_or_one(1e-4),
             resolution: (60, 10),
             circular: false,
+            rect_height: None,
         }
     }
 }
@@ -148,6 +156,14 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
         };
 
         let is_circular = self.config.circular;
+        // For rectangular cross-sections, use constant half-height for the
+        // y-dimension so the venturi narrows only in x (width) while height
+        // stays constant — matching real millifluidic chip geometry.
+        let half_height: Option<f64> = if !is_circular {
+            self.config.rect_height.map(|h| h.to_f64().unwrap() / 2.0)
+        } else {
+            None
+        };
         for i in 0..base_mesh.vertex_count() {
             use cfd_mesh::domain::core::index::VertexId;
             let vid = VertexId::from_usize(i);
@@ -164,7 +180,9 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
                 let y_d = v * (1.0 - u * u / 2.0).sqrt();
                 (x_d * r, y_d * r)
             } else {
-                (u * r, v * r)
+                // Width narrows at the throat; height is constant.
+                let hy = half_height.unwrap_or(r);
+                (u * r, v * hy)
             };
 
             let v_mut = base_mesh.vertices.get_mut(vid);
@@ -302,7 +320,9 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
         let area_inlet = if self.config.circular {
             T::from_f64_or_one(std::f64::consts::PI / 4.0) * self.builder.d_inlet * self.builder.d_inlet
         } else {
-            self.builder.d_inlet * self.builder.d_inlet // Square
+            // Rectangular: width × height (height may differ from width)
+            let h = self.config.rect_height.unwrap_or(self.builder.d_inlet);
+            self.builder.d_inlet * h
         };
         let u_inlet = self.config.inlet_flow_rate / area_inlet;
 
@@ -893,7 +913,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPr
         let area_throat = if self.config.circular {
             T::from_f64_or_one(std::f64::consts::PI / 4.0) * self.builder.d_throat * self.builder.d_throat
         } else {
-            self.builder.d_throat * self.builder.d_throat
+            let h = self.config.rect_height.unwrap_or(self.builder.d_throat);
+            self.builder.d_throat * h
         };
         let q_in = u_in_sol_avg * area_inlet;
         let q_th = u_throat_avg * area_throat;

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Venturi Flow Validation: pycfdrs vs Bernoulli Equation
+Venturi Flow Validation: cfd_python vs Bernoulli Equation
 
 This script validates the 2D Venturi flow solver against:
 1. Bernoulli equation pressure drop: P_throat = P_inlet - 0.5*rho*(v_throat^2 - v_inlet^2)
@@ -17,8 +17,8 @@ Run with:
 
 import numpy as np
 import sys
-sys.path.insert(0, "crates/pycfdrs")
-import pycfdrs
+sys.path.insert(0, "crates/cfd-python")
+import cfd_python
 
 
 def bernoulli_throat_pressure(P_inlet, rho, v_inlet, v_throat):
@@ -107,7 +107,7 @@ def validate_area_ratio():
     l_throat = 100e-6
     l_diverge = 100e-6
     
-    solver = pycfdrs.VenturiSolver2D(
+    solver = cfd_python.VenturiSolver2D(
         w_inlet=w_inlet,
         w_throat=w_throat,
         l_inlet=l_inlet,
@@ -154,7 +154,7 @@ def validate_discharge_coefficient():
     print("="*70)
     
     # Create ISO 5167 standard Venturi
-    solver = pycfdrs.VenturiSolver2D.iso_5167_standard(200, 100)
+    solver = cfd_python.VenturiSolver2D.iso_5167_standard(200, 100)
     
     beta = solver.area_ratio()
     cp_analytical = solver.pressure_coefficient_analytical()
@@ -196,7 +196,7 @@ def validate_continuity():
     # Create Venturi solver at millifluidic scale
     w_inlet = 200e-6     # 200 um
     w_throat = 100e-6    # 100 um
-    solver = pycfdrs.VenturiSolver2D(
+    solver = cfd_python.VenturiSolver2D(
         w_inlet=w_inlet,
         w_throat=w_throat,
         l_inlet=200e-6,
@@ -245,7 +245,7 @@ def validate_continuity():
 def main():
     print("\n" + "#"*70)
     print(" VENTURI FLOW VALIDATION SUITE")
-    print(" pycfdrs vs Bernoulli Equation")
+    print(" cfd_python vs Bernoulli Equation")
     print("#"*70)
     
     results = []

@@ -15,9 +15,11 @@ pub mod nurbs;
 pub use nurbs::{NurbsCurve, NurbsSurface, TessellationOptions};
 
 pub mod primitives;
+pub mod tpms;
 pub use primitives::{
     Antiprism, BiconcaveDisk, Capsule, Cone, Cube, Cuboctahedron, Cylinder, Disk, Dodecahedron,
-    Elbow, Ellipsoid, Frustum, GeodesicSphere, HelixSweep, Icosahedron, LinearSweep, Octahedron,
-    Pipe, Pyramid, RevolutionSweep, RoundedCube, SerpentineTube, SphericalShell, StadiumPrism,
-    Tetrahedron, Torus, TruncatedIcosahedron, UvSphere,
+    Elbow, Ellipsoid, Frustum, GeodesicSphere, GyroidSphere, HelixSweep, Icosahedron, LinearSweep,
+    Octahedron, Pipe, Pyramid, RevolutionSweep, RoundedCube, SchwarzDSphere, SchwarzPSphere,
+    SerpentineTube, SphericalShell, StadiumPrism, Tetrahedron, Torus, TruncatedIcosahedron, UvSphere,
+    NeoviusSphere, LidinoidSphere, IwpSphere, SplitPSphere, FrdSphere, FischerKochCySphere,
 };

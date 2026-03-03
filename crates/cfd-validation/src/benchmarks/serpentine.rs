@@ -12,7 +12,7 @@ use cfd_2d::simplec_pimple::solver::SimplecPimpleSolver;
 use cfd_core::error::Result;
 use cfd_core::physics::fluid::blood::CarreauYasudaBlood;
 use cfd_core::physics::fluid::traits::Fluid as FluidTrait;
-use nalgebra::{RealField, Vector2};
+use nalgebra::RealField;
 use num_traits::{Float, FromPrimitive, ToPrimitive};
 
 /// 2D Serpentine Flow benchmark
@@ -36,7 +36,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + Float + std::fmt::Lower
         &self.name
     }
 
-    fn description(&self) -> &str {
+    fn description(&self) -> &'static str {
         "2D Serpentine flow with Carreau-Yasuda blood. Validates secondary flow development and Dean number relationships."
     }
 
@@ -101,11 +101,11 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + Float + std::fmt::Lower
         
         // Calculate metrics
         let props = FluidTrait::properties_at(&blood, T::from_f64(310.0).unwrap(), T::from_f64(101325.0).unwrap())?;
-        let mu_avg = props.dynamic_viscosity;
+        // dynamic_viscosity available via props if needed downstream
+        let _ = props.dynamic_viscosity;
         
         // Characteristic velocity from Re
         let re_target = config.reynolds_number;
-        let u_mean = re_target * mu_avg / (rho * self.geometry.width);
         
         // For serpentine, radius of curvature R can be estimated from amplitude and period
         // R approx P^2 / (4 * pi^2 * A) at the peak

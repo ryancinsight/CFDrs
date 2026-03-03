@@ -20,7 +20,7 @@ cargo xtask all --plot
 
 This will:
 1. ✅ Check for compilation errors
-2. ✅ Build pycfdrs Python package
+2. ✅ Build cfd-python Python package
 3. ✅ Setup virtual environment
 4. ✅ Install all dependencies
 5. ✅ Run analytical validations
@@ -75,12 +75,12 @@ cargo xtask build-wheel --release
 
 **Expected output:**
 ```
-🔨 Building pycfdrs wheel...
+🔨 Building cfd-python wheel...
 ✅ Wheel built successfully!
-Location: crates/pycfdrs/target/wheels
+Location: crates/cfd-python/target/wheels
 
 Available wheels:
-  - pycfdrs-0.1.0-cp311-cp311-win_amd64.whl
+  - cfd-python-0.1.0-cp311-cp311-win_amd64.whl
 ```
 
 **Time:** ~3-5 minutes
@@ -112,8 +112,8 @@ cargo xtask install-deps
 **Expected output:**
 ```
 📦 Installing Python dependencies...
-Installing pycfdrs...
-✅ pycfdrs installed!
+Installing cfd-python...
+✅ cfd-python installed!
 ✅ Dependencies installed!
 ```
 
@@ -222,8 +222,8 @@ cargo xtask install-fenics --use-conda
 # Activate FEniCS environment
 conda activate cfdrs-validation
 
-# Install pycfdrs in conda env
-pip install crates/pycfdrs/target/wheels/*.whl
+# Install cfd-python in conda env
+pip install crates/cfd-python/target/wheels/*.whl
 
 # Run comparison
 python validation/fenics_comparison/poiseuille_fenics.py
@@ -293,11 +293,11 @@ cargo xtask clean
 cargo xtask all --plot
 ```
 
-### Problem: pycfdrs import fails in Python
+### Problem: cfd-python import fails in Python
 
 **Error in Python:**
 ```python
->>> import pycfdrs
+>>> import cfd-python
 ImportError: DLL load failed
 ```
 
@@ -454,7 +454,7 @@ cargo xtask --help
 cargo xtask validate --help
 
 # Check what's installed
-.venv/Scripts/python -c "import pycfdrs; print(pycfdrs.__version__)"
+.venv/Scripts/python -c "import cfd-python; print(cfd-python.__version__)"
 
 # Run specific validation
 .venv/Scripts/python validation/analytical/poiseuille_2d.py

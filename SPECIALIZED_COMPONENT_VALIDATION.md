@@ -148,7 +148,7 @@ Mechanical Index: MI = P_ac / sqrt(f_MHz)
 - ✅ **4.3** MBSL vs SBSL: 50× power ratio (matches literature)
 - ⚠️ **4.2** Radiated energy (refinement needed)
 
-#### Section 5: pycfdrs Integration
+#### Section 5: cfd-python Integration
 - ⚠️ **5.1-5.2** API mismatch (resolver issue, not physics)
 
 ### 2.2 Rust Unit Tests
@@ -253,7 +253,7 @@ U = 20 m/s → Damage potential: 1.00 (critical)
 1. Blake threshold calculation needs coefficient adjustment
 2. Critical shear-time product model needs recalibration
 3. Radiated energy threshold requires literature survey refinement
-4. pycfdrs API parameter names need alignment
+4. cfd-python API parameter names need alignment
 5. Blood viscosity convergence tolerance may be too strict
 
 **Impact:** Low - core physics validated, only numerical details need tuning

@@ -17,7 +17,7 @@ pub struct GhostToken<'brand> {
     _brand: PhantomData<fn(&'brand ()) -> &'brand ()>,
 }
 
-impl<'brand> GhostToken<'brand> {
+impl GhostToken<'_> {
     /// Create a new branded token and pass it to the closure.
     ///
     /// The brand lifetime is **invariant** — it cannot be widened or narrowed —

@@ -62,13 +62,13 @@ This document summarizes the completion of CFD algorithms for 1D, 2D, and 3D blo
 4. ✅ `serpentine_comprehensive_validation.rs` - Dean flow
 5. ✅ `external_cfd_comparison.rs` - Python_CFD comparison
 
-### Python Bindings (pycfdrs)
+### Python Bindings (cfd-python)
 - ✅ Bifurcation solver with Casson/Carreau-Yasuda blood
 - ✅ Trifurcation solver
 - ✅ 2D Poiseuille flow
 - ✅ 2D Venturi flow
 - ✅ 3D solvers (Bifurcation, Trifurcation, Poiseuille)
-- ✅ Validation script: `validate_pycfdrs_external.py`
+- ✅ Validation script: `validate_cfd-python_external.py`
 
 ## 4. External CFD Comparisons
 
@@ -120,9 +120,9 @@ cargo run --example external_cfd_comparison --release
 
 ### Python Validation
 ```bash
-cd crates/pycfdrs
+cd crates/cfd-python
 maturin develop --release
-python ../../examples/validate_pycfdrs_external.py
+python ../../examples/validate_cfd-python_external.py
 ```
 
 ### Full Test Suite

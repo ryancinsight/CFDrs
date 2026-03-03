@@ -24,10 +24,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 try:
-    import pycfdrs
+    import cfd_python
 except ImportError:
-    print("ERROR: pycfdrs not installed. Run:")
-    print("  pip install target/wheels/pycfdrs-*.whl")
+    print("ERROR: cfd_python not installed. Run:")
+    print("  pip install target/wheels/cfd_python-*.whl")
     sys.exit(1)
 
 
@@ -81,11 +81,11 @@ def solve_complete_bifurcation_2d():
     print("STEP 1: 1D NETWORK SOLUTION (Previously validated to 0.00% error)")
     print("=" * 80)
 
-    solver_1d = pycfdrs.BifurcationSolver(
+    solver_1d = cfd_python.BifurcationSolver(
         d_parent=d_parent, d_daughter1=d_daughter, d_daughter2=d_daughter
     )
 
-    blood = pycfdrs.CassonBlood()  # For 2D solver
+    blood = cfd_python.CassonBlood()  # For 2D solver
     result_1d = solver_1d.solve(
         flow_rate=flow_rate, pressure=inlet_p, blood_type="casson"
     )
@@ -124,7 +124,7 @@ def solve_complete_bifurcation_2d():
     print("STEP 2: 2D POISEUILLE IN PARENT VESSEL (Previously validated to 0.72%)")
     print("=" * 80)
 
-    config_parent = pycfdrs.PoiseuilleConfig2D(
+    config_parent = cfd_python.PoiseuilleConfig2D(
         height=h_parent,
         width=h_parent,
         length=l_parent,
@@ -133,7 +133,7 @@ def solve_complete_bifurcation_2d():
         tolerance=1e-8,
     )
 
-    solver_parent = pycfdrs.PoiseuilleSolver2D_Legacy(config_parent)
+    solver_parent = cfd_python.PoiseuilleSolver2D_Legacy(config_parent)
     result_parent = solver_parent.solve(blood)
 
     print(f"\nParent Vessel Results:")
@@ -153,7 +153,7 @@ def solve_complete_bifurcation_2d():
     print("STEP 3: 2D POISEUILLE IN DAUGHTER VESSELS")
     print("=" * 80)
 
-    config_d1 = pycfdrs.PoiseuilleConfig2D(
+    config_d1 = cfd_python.PoiseuilleConfig2D(
         height=h_daughter,
         width=h_daughter,
         length=l_daughter,
@@ -162,10 +162,10 @@ def solve_complete_bifurcation_2d():
         tolerance=1e-8,
     )
 
-    solver_d1 = pycfdrs.PoiseuilleSolver2D_Legacy(config_d1)
+    solver_d1 = cfd_python.PoiseuilleSolver2D_Legacy(config_d1)
     result_d1 = solver_d1.solve(blood)
 
-    config_d2 = pycfdrs.PoiseuilleConfig2D(
+    config_d2 = cfd_python.PoiseuilleConfig2D(
         height=h_daughter,
         width=h_daughter,
         length=l_daughter,
@@ -174,7 +174,7 @@ def solve_complete_bifurcation_2d():
         tolerance=1e-8,
     )
 
-    solver_d2 = pycfdrs.PoiseuilleSolver2D_Legacy(config_d2)
+    solver_d2 = cfd_python.PoiseuilleSolver2D_Legacy(config_d2)
     result_d2 = solver_d2.solve(blood)
 
     print(f"\nDaughter 1 Results:")

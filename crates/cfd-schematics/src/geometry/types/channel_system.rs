@@ -5,8 +5,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 use super::{
-    is_finite_point, validate_path, Channel, ChannelType,
-    ChannelTypeCategory, Node, Point2D,
+    is_finite_point, validate_path, Channel, ChannelType, ChannelTypeCategory, Node, Point2D,
 };
 
 /// Represents a complete microfluidic channel system

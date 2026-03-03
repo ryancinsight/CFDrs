@@ -163,7 +163,7 @@ Extreme:  T=30,000K, dt=100ps, R=1μm   → E = 57.7 pJ
 
 ---
 
-### ✅ 5. pycfdrs API (Test 5.1) - STRAIGHTFORWARD FIX
+### ✅ 5. cfd-python API (Test 5.1) - STRAIGHTFORWARD FIX
 
 **Change:** Corrected Python API parameter names
 
@@ -184,8 +184,8 @@ Extreme:  T=30,000K, dt=100ps, R=1μm   → E = 57.7 pJ
 | Giersiepen Hemolysis | ✓ Validated | giersiepen.rs | ✓ Ready | N/A² |
 | Sonoluminescence | ✓ Validated | regimes.rs | ✓ Ready | N/A³ |
 
-¹ Blake threshold not exposed in current pycfdrs API (internal to CavitationRegimeAnalysis)  
-² Hemolysis not exposed in current pycfdrs API  
+¹ Blake threshold not exposed in current cfd-python API (internal to CavitationRegimeAnalysis)  
+² Hemolysis not exposed in current cfd-python API  
 ³ Sonoluminescence calculated in Python test only
 
 **Key Finding:** CarreauYasudaBlood Rust implementation matches Python **exactly** (0.00% error across all shear rates)
@@ -279,8 +279,8 @@ All validations checked against peer-reviewed sources:
 - [ ] Add physics documentation comments to validated code
 
 ### Short-term (P2)
-- [ ] Expose Blake threshold in pycfdrs API for testing
-- [ ] Expose Giersiepen hemolysis in pycfdrs API for testing  
+- [ ] Expose Blake threshold in cfd-python API for testing
+- [ ] Expose Giersiepen hemolysis in cfd-python API for testing  
 - [ ] Add cross-validation tests for all exposed models
 - [ ] Document analysis scripts in main README
 

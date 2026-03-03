@@ -4,7 +4,7 @@ This directory contains validation scripts for the 3D CFD solvers.
 
 ## Prerequisites
 
-- `pycfdrs` installed (`maturin develop` in project root)
+- `cfd-python` installed (`maturin develop` in project root)
 - `numpy`
 - `scipy` (optional, for analytical comparisons)
 

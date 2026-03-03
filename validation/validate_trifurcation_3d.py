@@ -1,4 +1,4 @@
-from pycfdrs import Trifurcation3DSolver
+from cfd_python import Trifurcation3DSolver
 
 def validate_trifurcation():
     print("\n" + "="*70)

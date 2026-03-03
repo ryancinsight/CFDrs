@@ -1,10 +1,21 @@
 # cfd-math — Agent Reference
 
 > **Role**: Numerical-methods library. All PDE solvers depend on this crate.  
-> **Depends on**: `cfd-core` only.
+> **Direct internal deps**: `cfd-core`
 
 ---
 
+
+<!-- AGENT-AUDIT-SNAPSHOT:START -->
+## Verified Audit Snapshot (2026-02-26)
+
+- Verified against `Cargo.toml`, `src/lib.rs`, and the top-level `src/` tree.
+- Direct internal crate dependencies (`cargo metadata`): `cfd-core`.
+- Cargo features: `default`, `gpu`, `mpi`.
+- `src/lib.rs` module surface: `diagnostics`, `differentiation`, `error`, `high_order`, `integration`, `interpolation`, `iterators`, `linear_solver`, `pressure_velocity`, `simd`, `sparse`, `time_stepping`.
+- Top-level `src/` entries: `diagnostics`, `differentiation`, `error.rs`, `high_order`, `integration`, `interpolation`, `iterators`, `lib.rs`, `linear_solver`, `performance_monitor.rs`, `pressure_velocity`, `shaders`, `simd`, `sparse`, `time_stepping`, `vectorization`.
+
+<!-- AGENT-AUDIT-SNAPSHOT:END -->
 ## Purpose
 
 `cfd-math` provides the complete numerical backbone:
@@ -265,3 +276,6 @@ default; do NOT enable it expecting performance gains on CSR problems.
 - No file I/O — use `cfd-io`
 - Avoid introducing new SIMD SpMV paths without benchmark justification
 - AMG must remain M-matrix-safe; do not relax coarsening thresholds without proof
+
+
+

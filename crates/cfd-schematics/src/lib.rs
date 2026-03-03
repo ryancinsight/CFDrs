@@ -104,11 +104,11 @@
 //! - **infrastructure**: `PetgraphGraphSink`, `DesignGraph` adapters
 //! - **interface**: Preset factories (bifurcation, trifurcation, serpentine, venturi)
 
-
 // ── Geometry & visualisation layer (inlined from former `scheme` crate) ──────
 pub mod config;
 pub mod error;
 pub mod geometry;
+pub mod heatmap;
 pub mod state_management;
 pub mod visualizations;
 
@@ -120,19 +120,21 @@ pub mod interface;
 
 // ── Flat convenience re-exports ───────────────────────────────────────────────
 pub use application::use_cases::NetworkGenerationService;
-pub use domain::model::{ChannelSpec, CrossSectionSpec, EdgeKind, NetworkBlueprint, NodeKind, NodeSpec};
-pub use error::{
-    ConfigurationError, GeometryError, SchemeError, SchemeResult, StrategyError,
-    VisualizationError,
+pub use domain::model::{
+    ChannelSpec, CrossSectionSpec, EdgeKind, NetworkBlueprint, NodeKind, NodeSpec,
 };
+pub use error::{
+    ConfigurationError, GeometryError, SchemeError, SchemeResult, StrategyError, VisualizationError,
+};
+pub use heatmap::{write_well_plate_diagram_svg, CandidateZoneData};
 pub use infrastructure::adapters::{build_design_graph, DesignGraph, PetgraphGraphSink};
 pub use interface::presets::{
     bifurcation_rect, serpentine_chain, serpentine_rect, symmetric_bifurcation,
     symmetric_trifurcation, trifurcation_rect, venturi_chain, venturi_rect,
 };
 pub use state_management::{
-    ConfigurableParameter, ConstraintError, ParameterConstraints, ParameterError,
-    ParameterManager, ParameterRegistry, StateManagementError, StateManagementResult,
+    ConfigurableParameter, ConstraintError, ParameterConstraints, ParameterError, ParameterManager,
+    ParameterRegistry, StateManagementError, StateManagementResult,
 };
 pub use visualizations::schematic::plot_geometry;
 
@@ -144,9 +146,7 @@ pub mod network {
         ChannelSpec, EdgeId, EdgeKind, NetworkBlueprint, NodeId, NodeKind, NodeSpec,
     };
     pub use crate::domain::rules::BlueprintValidator;
-    pub use crate::infrastructure::adapters::{
-        build_design_graph, DesignGraph, PetgraphGraphSink,
-    };
+    pub use crate::infrastructure::adapters::{build_design_graph, DesignGraph, PetgraphGraphSink};
     pub use crate::interface::presets::{
         bifurcation_rect, serpentine_chain, serpentine_rect, symmetric_bifurcation,
         symmetric_trifurcation, trifurcation_rect, venturi_chain, venturi_rect,

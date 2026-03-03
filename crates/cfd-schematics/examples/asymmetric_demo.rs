@@ -1,23 +1,21 @@
+use cfd_schematics::config::{ChannelTypeConfig, GeometryConfig};
 use cfd_schematics::geometry::{create_geometry, SplitType};
-use cfd_schematics::config::{GeometryConfig, ChannelTypeConfig};
 
 fn main() {
     println!("Asymmetric Bifurcation Demo");
     println!("---------------------------");
 
-    let splits = [
-        SplitType::AsymmetricBifurcation { ratio: 0.7 }
-    ];
-    
+    let splits = [SplitType::AsymmetricBifurcation { ratio: 0.7 }];
+
     // Default config has channel_width = 1.0
-    let config = GeometryConfig::default(); 
-    
+    let config = GeometryConfig::default();
+
     println!("Generating geometry with AsymmetricBifurcation (ratio=0.7)...");
     let system = create_geometry(
-        (100.0, 50.0), 
-        &splits, 
-        &config, 
-        &ChannelTypeConfig::AllStraight
+        (100.0, 50.0),
+        &splits,
+        &config,
+        &ChannelTypeConfig::AllStraight,
     );
 
     println!("Generated {} channels", system.channels.len());
@@ -29,8 +27,11 @@ fn main() {
     let mut narrow_branch_found = false;
 
     for ch in &system.channels {
-        println!("Channel ID {}: Width = {:.3} mm, Type = {:?}", ch.id, ch.width, ch.channel_type);
-        
+        println!(
+            "Channel ID {}: Width = {:.3} mm, Type = {:?}",
+            ch.id, ch.width, ch.channel_type
+        );
+
         // Simple heuristic verification
         if (ch.width - 1.0).abs() < 0.001 {
             inlet_found = true;
@@ -44,10 +45,10 @@ fn main() {
             // Merge channels might have average width?
             // (1.4 + 0.6) / 2 = 1.0. So outlet/merge channels should be 1.0.
             if (ch.width - 1.0).abs() < 0.001 {
-                 println!("  -> Found expected merged/outlet branch (1.0mm)");
+                println!("  -> Found expected merged/outlet branch (1.0mm)");
             } else {
-                 println!("  -> Unexpected width!");
-                 passed = false;
+                println!("  -> Unexpected width!");
+                passed = false;
             }
         }
     }

@@ -4,16 +4,20 @@
 //! 1. Build cfd-python wheels with maturin
 //! 2. Setup Python virtual environment
 //! 3. Install cfd-python and validation dependencies
-//! 4. Install FEniCS or alternative CFD packages
+//! 4. Install `FEniCS` or alternative CFD packages
 //! 5. Run validation suite
 //!
 //! Usage:
 //!   cargo xtask build-wheel       # Build cfd-python wheel
 //!   cargo xtask setup-venv        # Create virtual environment
 //!   cargo xtask install-deps      # Install Python dependencies
-//!   cargo xtask install-fenics    # Install FEniCS for validation
+//!   cargo xtask install-fenics    # Install `FEniCS` for validation
 //!   cargo xtask validate          # Run validation suite
 //!   cargo xtask all               # Complete workflow
+
+#![allow(clippy::redundant_pattern_matching)]
+#![allow(clippy::manual_let_else)]
+#![allow(clippy::unnecessary_wraps)]
 
 use anyhow::{bail, Context, Result};
 use clap::{Parser, Subcommand};
@@ -55,12 +59,12 @@ enum Commands {
         #[arg(long, default_value = ".venv")]
         venv: PathBuf,
 
-        /// Include FEniCS
+        /// Include `FEniCS`
         #[arg(long)]
         with_fenics: bool,
     },
 
-    /// Install FEniCS via conda (recommended)
+    /// Install `FEniCS` via conda (recommended)
     InstallFenics {
         /// Use conda instead of pip
         #[arg(long, default_value_t = true)]
@@ -88,7 +92,7 @@ enum Commands {
 
     /// Complete workflow: build, setup, install, validate
     All {
-        /// Use conda for FEniCS
+        /// Use conda for `FEniCS`
         #[arg(long)]
         with_fenics: bool,
 
@@ -145,21 +149,18 @@ fn check_compilation(sh: &Shell) -> Result<()> {
         .ignore_status()
         .run();
 
-    match result {
-        Ok(_) => {
-            println!("✅ No compilation errors found!");
-            println!("Ready to build cfd-python wheels.");
-            Ok(())
-        }
-        Err(_) => {
-            println!("❌ Compilation errors detected!");
-            println!("\nCommon issues:");
-            println!("  - Missing ToPrimitive trait bounds in cfd-1d/cfd-3d");
-            println!("  - Type conversion issues in generic implementations");
-            println!("\nFix these errors before building cfd-python:");
-            println!("  cargo build --workspace --all-features");
-            bail!("Compilation failed")
-        }
+    if let Ok(()) = result {
+        println!("✅ No compilation errors found!");
+        println!("Ready to build cfd-python wheels.");
+        Ok(())
+    } else {
+        println!("❌ Compilation errors detected!");
+        println!("\nCommon issues:");
+        println!("  - Missing ToPrimitive trait bounds in cfd-1d/cfd-3d");
+        println!("  - Type conversion issues in generic implementations");
+        println!("\nFix these errors before building cfd-python:");
+        println!("  cargo build --workspace --all-features");
+        bail!("Compilation failed")
     }
 }
 
@@ -231,7 +232,7 @@ fn setup_venv(sh: &Shell, python: &str, venv_path: &Path) -> Result<()> {
     // Check Python version
     println!("Checking Python version...");
     let version_output = cmd!(sh, "{python} --version").read()?;
-    println!("Using: {}", version_output);
+    println!("Using: {version_output}");
 
     // Create virtual environment
     println!("\nCreating virtual environment...");
@@ -315,7 +316,7 @@ fn install_deps(sh: &Shell, venv_path: &Path, with_fenics: bool) -> Result<()> {
     Ok(())
 }
 
-/// Install FEniCS for validation
+/// Install `FEniCS` for validation
 fn install_fenics(sh: &Shell, use_conda: bool) -> Result<()> {
     println!("🧮 Installing FEniCS for validation...\n");
 
@@ -341,22 +342,19 @@ fn install_fenics(sh: &Shell, use_conda: bool) -> Result<()> {
         .ignore_status()
         .run();
 
-        match result {
-            Ok(_) => {
-                println!("\n✅ FEniCS installed in conda environment!");
-                println!("\nActivate with:");
-                println!("  conda activate cfdrs-validation");
-                println!("\nThen install cfd-python:");
-                println!(
-                    "  cargo xtask install-deps --venv $(conda info --base)/envs/cfdrs-validation"
-                );
-            }
-            Err(_) => {
-                println!("⚠️  Conda installation failed or environment already exists.");
-                println!("To recreate:");
-                println!("  conda env remove -n cfdrs-validation");
-                println!("  cargo xtask install-fenics");
-            }
+        if let Ok(()) = result {
+            println!("\n✅ FEniCS installed in conda environment!");
+            println!("\nActivate with:");
+            println!("  conda activate cfdrs-validation");
+            println!("\nThen install cfd-python:");
+            println!(
+                "  cargo xtask install-deps --venv $(conda info --base)/envs/cfdrs-validation"
+            );
+        } else {
+            println!("⚠️  Conda installation failed or environment already exists.");
+            println!("To recreate:");
+            println!("  conda env remove -n cfdrs-validation");
+            println!("  cargo xtask install-fenics");
         }
     } else {
         println!("⚠️  FEniCS pip installation is experimental and may not work.");
@@ -445,10 +443,10 @@ fn run_all(sh: &Shell, with_fenics: bool, plot: bool) -> Result<()> {
     // 3. Setup venv
     println!("Step 3/6: Setting up virtual environment...");
     let venv_path = PathBuf::from(".venv");
-    if !venv_path.exists() {
-        setup_venv(sh, "python", &venv_path)?;
-    } else {
+    if venv_path.exists() {
         println!("Virtual environment already exists.");
+    } else {
+        setup_venv(sh, "python", &venv_path)?;
     }
     println!();
 

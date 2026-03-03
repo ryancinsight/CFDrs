@@ -16,14 +16,14 @@ print("="*80)
 print("RUST vs PYTHON PHYSICS VALIDATION")
 print("="*80)
 
-# Try to import pycfdrs
+# Try to import cfd_python
 try:
-    import pycfdrs
-    has_pycfdrs = True
-    print("\n✓ pycfdrs module loaded successfully\n")
+    import cfd_python
+    has_cfd_python = True
+    print("\n✓ cfd_python module loaded successfully\n")
 except ImportError:
-    has_pycfdrs = False
-    print("\n✗ pycfdrs not available - will compare Python calculations only\n")
+    has_cfd_python = False
+    print("\n✗ cfd_python not available - will compare Python calculations only\n")
     print("Run: maturin develop --release\n")
 
 # Physical constants (match validation scripts)
@@ -53,15 +53,15 @@ print(f"\nPython calculation:")
 print(f"  R_c = {R_c_python*1e6:.4f} μm")
 print(f"  P_Blake = {P_Blake_python:.2f} Pa = {P_Blake_python/1000:.2f} kPa")
 
-if has_pycfdrs:
-    # TODO: Check if pycfdrs exposes Blake threshold calculation
+if has_cfd_python:
+    # TODO: Check if cfd_python exposes Blake threshold calculation
     # For now, document that Rust implementation is in regimes.rs
     print(f"\nRust implementation:")
     print(f"  Located in: crates/cfd-core/src/physics/cavitation/regimes.rs")
     print(f"  Method: blake_threshold() and blake_critical_radius()")
     print(f"  Formula matches Python implementation ✓")
 else:
-    print(f"\nRust verification skipped (pycfdrs not available)")
+    print(f"\nRust verification skipped (cfd_python not available)")
 
 print("\n" + "="*80)
 print("TEST 2: Blood Viscosity (Carreau-Yasuda)")
@@ -98,17 +98,17 @@ for gamma_dot in test_shear_rates:
     error_pct = abs(mu_python - mu_inf) / mu_inf * 100
     print(f"{gamma_dot:20.0f} {mu_python*1000:15.4f} {error_pct:14.2f}%")
 
-if has_pycfdrs:
+if has_cfd_python:
     print(f"\nRust implementation:")
     print(f"  Located in: crates/cfd-core/src/physics/fluid/blood.rs")
     print(f"  Type: CarreauYasudaBlood")
     print(f"  Method: apparent_viscosity(shear_rate)")
     
     # Try to test if we can create a blood model
-    # Note: This depends on pycfdrs API structure
-    print(f"\n  TODO: Add pycfdrs API test if blood model is exposed")
+    # Note: This depends on cfd_python API structure
+    print(f"\n  TODO: Add cfd_python API test if blood model is exposed")
 else:
-    print(f"\nRust verification skipped (pycfdrs not available)")
+    print(f"\nRust verification skipped (cfd_python not available)")
 
 print("\n" + "="*80)
 print("TEST 3: Giersiepen Hemolysis Model")
@@ -143,19 +143,19 @@ for tau, t in test_cases:
     damage = giersiepen_python(tau, t)
     print(f"{tau:12.1f} {t:12.2f} {damage:15.6f}")
 
-if has_pycfdrs:
+if has_cfd_python:
     print(f"\nRust implementation:")
     print(f"  Located in: crates/cfd-core/src/physics/hemolysis/giersiepen.rs")
     print(f"  Method: calculate_damage(shear_stress, exposure_time)")
-    print(f"\n  TODO: Add pycfdrs API test if hemolysis model is exposed")
+    print(f"\n  TODO: Add cfd_python API test if hemolysis model is exposed")
 else:
-    print(f"\nRust verification skipped (pycfdrs not available)")
+    print(f"\nRust verification skipped (cfd_python not available)")
 
 print("\n" + "="*80)
 print("SUMMARY")
 print("="*80)
 
-if has_pycfdrs:
+if has_cfd_python:
     print(f"""
 All three validated models have corresponding Rust implementations:
 
@@ -175,7 +175,7 @@ All three validated models have corresponding Rust implementations:
    - Formula: D = C×τ^α×t^β
 
 NEXT STEP: Add explicit cross-validation tests that:
-  - Call Rust via pycfdrs with same inputs
+  - Call Rust via cfd_python with same inputs
   - Compare outputs to Python calculations
   - Assert < 0.01% difference
 """)
@@ -184,7 +184,7 @@ else:
 Python implementations validated against literature.
 
 To complete Rust validation:
-1. Build pycfdrs: maturin develop --release
+1. Build cfd_python: maturin develop --release
 2. Expose required methods in Python bindings
 3. Re-run this script to cross-check values
 
@@ -203,19 +203,19 @@ validation_status = {
         "Physics": "✓ VALIDATED (against Brennen 1995)",
         "Python": "✓ CORRECT (R_c formulation)",
         "Rust": "✓ IMPLEMENTED (regimes.rs)",
-        "Cross-check": "⚠ PENDING" if not has_pycfdrs else "✓ READY"
+        "Cross-check": "⚠ PENDING" if not has_cfd_python else "✓ READY"
     },
     "Blood Viscosity": {
         "Physics": "✓ VALIDATED (against Cho & Kensey 1991)",
         "Python": "✓ CORRECT (λ=3.313s convergence)",
         "Rust": "✓ IMPLEMENTED (blood.rs)",
-        "Cross-check": "⚠ PENDING" if not has_pycfdrs else "✓ READY"
+        "Cross-check": "⚠ PENDING" if not has_cfd_python else "✓ READY"
     },
     "Hemolysis Model": {
         "Physics": "✓ VALIDATED (against Giersiepen 1990)",
         "Python": "✓ CORRECT (iso-damage curves)",
         "Rust": "✓ IMPLEMENTED (giersiepen.rs)",
-        "Cross-check": "⚠ PENDING" if not has_pycfdrs else "✓ READY"
+        "Cross-check": "⚠ PENDING" if not has_cfd_python else "✓ READY"
     }
 }
 

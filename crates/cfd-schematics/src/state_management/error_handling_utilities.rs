@@ -294,7 +294,7 @@ impl ErrorRecovery {
     pub fn recover_parameter_error<T>(
         error: &ParameterError,
         default_value: T,
-        parameter_name: &str,
+        _parameter_name: &str,
     ) -> Result<T, ParameterError>
     where
         T: Clone + Debug,
@@ -302,12 +302,14 @@ impl ErrorRecovery {
         match error {
             ParameterError::NotFound { .. } => {
                 #[cfg(debug_assertions)]
-                eprintln!("Warning: Parameter '{parameter_name}' not found, using default value");
+                eprintln!("Warning: Parameter '{_parameter_name}' not found, using default value");
                 Ok(default_value)
             }
             ParameterError::InvalidValue { .. } => {
                 #[cfg(debug_assertions)]
-                eprintln!("Warning: Parameter '{parameter_name}' has invalid value, using default");
+                eprintln!(
+                    "Warning: Parameter '{_parameter_name}' has invalid value, using default"
+                );
                 Ok(default_value)
             }
             ParameterError::ReadOnly { .. } => {
@@ -318,7 +320,7 @@ impl ErrorRecovery {
                 // For other errors, try using default
                 #[cfg(debug_assertions)]
                 eprintln!(
-                    "Warning: Parameter '{parameter_name}' error, attempting recovery with default"
+                    "Warning: Parameter '{_parameter_name}' error, attempting recovery with default"
                 );
                 Ok(default_value)
             }
@@ -329,7 +331,7 @@ impl ErrorRecovery {
     pub fn recover_adaptation_error<T>(
         error: &AdaptationError,
         base_value: T,
-        parameter_name: &str,
+        _parameter_name: &str,
     ) -> Result<T, AdaptationError>
     where
         T: Clone + Debug,
@@ -337,7 +339,7 @@ impl ErrorRecovery {
         match error {
             AdaptationError::InvalidContext { .. } | AdaptationError::DependencyMissing { .. } => {
                 #[cfg(debug_assertions)]
-                eprintln!("Warning: Adaptation failed for '{parameter_name}', using base value");
+                eprintln!("Warning: Adaptation failed for '{_parameter_name}', using base value");
                 Ok(base_value)
             }
             AdaptationError::CalculationFailed { .. } | AdaptationError::InvalidResult { .. } => {
@@ -390,8 +392,9 @@ impl ErrorReporter {
     }
 
     /// Log error with appropriate level based on severity
-    pub fn log_error(error: &StateManagementError, context: Option<&ParameterErrorContext>) {
-        let report = Self::generate_error_report(error, context);
+    pub fn log_error(error: &StateManagementError, _context: Option<&ParameterErrorContext>) {
+        #[cfg(debug_assertions)]
+        let report = Self::generate_error_report(error, _context);
 
         match error {
             StateManagementError::Parameter(ParameterError::ReadOnly { .. })

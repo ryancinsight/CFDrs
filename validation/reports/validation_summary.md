@@ -1,7 +1,7 @@
 # CFD-RS Validation Report
 
 **Generated:** 2026-02-04T22:11:46.410314  
-**pycfdrs Version:** 0.1.0  
+**cfd-python Version:** 0.1.0  
 **Category:** analytical  
 **Mode:** Full  
 

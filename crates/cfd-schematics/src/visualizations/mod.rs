@@ -29,7 +29,7 @@ pub mod traits;
 
 pub use analysis_field::{colorize, AnalysisField, AnalysisOverlay, ColormapKind};
 pub use plotters_backend::{
-    create_plotters_renderer, plot_geometry_with_plotters, PlottersRenderer,
+    create_plotters_renderer, plot_geometry_with_plotters, plot_shell_cuboid, PlottersRenderer,
 };
 pub use schematic::plot_geometry;
 pub use traits::{

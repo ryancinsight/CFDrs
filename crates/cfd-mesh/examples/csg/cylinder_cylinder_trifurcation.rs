@@ -248,7 +248,7 @@ fn build_trifurcation(
         let iso =
             Isometry3::from_parts(Translation3::new(-H_TRUNK, 0.0, 0.0), rot);
         CsgNode::Transform {
-            node: Box::new(CsgNode::Leaf(raw)),
+            node: Box::new(CsgNode::Leaf(Box::new(raw))),
             iso,
         }
         .evaluate()?
@@ -294,7 +294,7 @@ fn make_branch_planar(
     );
     let iso = Isometry3::from_parts(Translation3::new(0.0, 0.0, 0.0), rot);
     Ok(CsgNode::Transform {
-        node: Box::new(CsgNode::Leaf(raw)),
+        node: Box::new(CsgNode::Leaf(Box::new(raw))),
         iso,
     }
     .evaluate()?)

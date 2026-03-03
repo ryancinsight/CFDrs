@@ -2,12 +2,12 @@
 """
 Cross-Package Validation: Serpentine Channel Flow
 
-Validates pycfdrs serpentine implementation against:
+Validates cfd_python serpentine implementation against:
 1. Scipy-based sequential Poiseuille segments
 2. Analytical pressure drop accumulation
 3. Conservation laws (mass, momentum)
 
-Proves: pycfdrs matches independent package implementations
+Proves: cfd_python matches independent package implementations
 """
 
 import sys
@@ -17,9 +17,9 @@ from datetime import datetime, UTC
 from pathlib import Path
 
 try:
-    import pycfdrs
+    import cfd_python
 except ImportError:
-    print("ERROR: pycfdrs not installed")
+    print("ERROR: cfd_python not installed")
     sys.exit(1)
 
 try:
@@ -91,7 +91,7 @@ def scipy_serpentine_network(inlet_pressure, outlet_pressure, mu, n_segments,
 
 def validate_serpentine_cross_package():
     """
-    Cross-validate serpentine flow: pycfdrs vs scipy
+    Cross-validate serpentine flow: cfd_python vs scipy
     """
     header("Cross-Package Validation: Serpentine Channel")
     
@@ -108,7 +108,7 @@ def validate_serpentine_cross_package():
     
     # Blood properties (Casson at moderate shear)
     rho = 1060.0
-    casson = pycfdrs.CassonBlood()
+    casson = cfd_python.CassonBlood()
     mu_eff = casson.apparent_viscosity(100.0)  # ~4.4 mPa·s at 100 s⁻¹
     
     print(f"\nGeometry:")
@@ -145,9 +145,9 @@ def validate_serpentine_cross_package():
     print(f"  Segment ΔP uniformity: {dp_spread*100:.6f}% variation")
     
     # =========================================================================
-    # pycfdrs: Segment-by-segment simulation
+    # cfd_python: Segment-by-segment simulation
     # =========================================================================
-    print(f"\n--- pycfdrs (Sequential Poiseuille Segments) ---")
+    print(f"\n--- cfd_python (Sequential Poiseuille Segments) ---")
     
     # Simulate each segment with 2D Poiseuille solver
     # (this is what complete_serpentine_2d_validation.py does)
@@ -158,14 +158,14 @@ def validate_serpentine_cross_package():
     # Grid resolution
     ny = 25
     
-    Q_pycfdrs_segments = []
+    Q_cfd_python_segments = []
     u_max_segments = []
     wss_segments = []
     
     for i in range(n_segments):
         # Create Poiseuille solver for this segment
         # Use parameter-based interface (Poiseuille2DSolver)
-        solver = pycfdrs.Poiseuille2DSolver(
+        solver = cfd_python.Poiseuille2DSolver(
             height=height,
             width=width,
             length=segment_length,
@@ -176,54 +176,54 @@ def validate_serpentine_cross_package():
         # Solve with target pressure drop and Casson blood model
         result = solver.solve(dp_per_segment_target, "casson")
         
-        Q_pycfdrs_segments.append(result.flow_rate)
+        Q_cfd_python_segments.append(result.flow_rate)
         u_max_segments.append(result.max_velocity)
         wss_segments.append(result.wall_shear_stress)
     
-    Q_pycfdrs = np.mean(Q_pycfdrs_segments)  # Should be identical all segments
-    u_max_pycfdrs = np.mean(u_max_segments)
-    wss_pycfdrs = np.mean(wss_segments)
+    Q_cfd_python = np.mean(Q_cfd_python_segments)  # Should be identical all segments
+    u_max_cfd_python = np.mean(u_max_segments)
+    wss_cfd_python = np.mean(wss_segments)
     
     # Check mass conservation across segments
-    Q_variation = np.std(Q_pycfdrs_segments) / Q_pycfdrs
+    Q_variation = np.std(Q_cfd_python_segments) / Q_cfd_python
     
-    print(f"  Flow rate per segment: {[f'{Q*1e9:.4f}' for Q in Q_pycfdrs_segments]} nL/s")
-    print(f"  Mean flow rate: {Q_pycfdrs*1e9:.4f} nL/s")
+    print(f"  Flow rate per segment: {[f'{Q*1e9:.4f}' for Q in Q_cfd_python_segments]} nL/s")
+    print(f"  Mean flow rate: {Q_cfd_python*1e9:.4f} nL/s")
     print(f"  Flow rate variation: {Q_variation*100:.6f}%")
-    print(f"  Max velocity: {u_max_pycfdrs*1e3:.4f} mm/s")
-    print(f"  Wall shear stress: {wss_pycfdrs:.4f} Pa")
+    print(f"  Max velocity: {u_max_cfd_python*1e3:.4f} mm/s")
+    print(f"  Wall shear stress: {wss_cfd_python:.4f} Pa")
     print(f"  Reynolds number: {result.reynolds_number:.4f}")
     
     # =========================================================================
-    # Comparison: pycfdrs vs scipy
+    # Comparison: cfd_python vs scipy
     # =========================================================================
     print(f"\n--- Cross-Package Comparison ---")
     
     # Flow rate error
-    Q_error = abs(Q_pycfdrs - Q_scipy) / Q_scipy
+    Q_error = abs(Q_cfd_python - Q_scipy) / Q_scipy
     Q_status = "PASS" if Q_error < 0.01 else "FAIL"
     print(f"  Flow rate error: {Q_error*100:.4f}% [{Q_status}]")
-    print(f"    pycfdrs: {Q_pycfdrs*1e9:.4f} nL/s")
+    print(f"    cfd_python: {Q_cfd_python*1e9:.4f} nL/s")
     print(f"    scipy:   {Q_scipy*1e9:.4f} nL/s")
     
     # Velocity comparison (u_avg = Q/A, u_max ≈ 1.5*u_avg for Poiseuille)
     A_cross = width * height
     u_avg_scipy = Q_scipy / A_cross
-    u_avg_pycfdrs = Q_pycfdrs / A_cross
-    u_error = abs(u_avg_pycfdrs - u_avg_scipy) / u_avg_scipy
+    u_avg_cfd_python = Q_cfd_python / A_cross
+    u_error = abs(u_avg_cfd_python - u_avg_scipy) / u_avg_scipy
     u_status = "PASS" if u_error < 0.01 else "FAIL"
     print(f"\n  Velocity error: {u_error*100:.4f}% [{u_status}]")
-    print(f"    pycfdrs avg: {u_avg_pycfdrs*1e3:.4f} mm/s")
+    print(f"    cfd_python avg: {u_avg_cfd_python*1e3:.4f} mm/s")
     print(f"    scipy avg:   {u_avg_scipy*1e3:.4f} mm/s")
-    print(f"    u_max/u_avg: {u_max_pycfdrs/u_avg_pycfdrs:.4f} (expected ~1.5)")
+    print(f"    u_max/u_avg: {u_max_cfd_python/u_avg_cfd_python:.4f} (expected ~1.5)")
     
     # Pressure drop comparison
-    dp_total_pycfdrs = dp_per_segment_target * n_segments
+    dp_total_cfd_python = dp_per_segment_target * n_segments
     dp_total_scipy = np.sum(dp_scipy)
-    dp_error = abs(dp_total_pycfdrs - dp_total_scipy) / dp_total_scipy
+    dp_error = abs(dp_total_cfd_python - dp_total_scipy) / dp_total_scipy
     dp_status = "PASS" if dp_error < 0.01 else "FAIL"
     print(f"\n  Total pressure drop error: {dp_error*100:.4f}% [{dp_status}]")
-    print(f"    pycfdrs: {dp_total_pycfdrs:.4f} Pa")
+    print(f"    cfd_python: {dp_total_cfd_python:.4f} Pa")
     print(f"    scipy:   {dp_total_scipy:.4f} Pa")
     
     # Mass conservation
@@ -238,7 +238,7 @@ def validate_serpentine_cross_package():
     
     print(f"\n{'='*72}")
     if all_passed:
-        print("  ✓ VALIDATION PASSED: pycfdrs matches scipy for serpentine flow")
+        print("  ✓ VALIDATION PASSED: cfd_python matches scipy for serpentine flow")
     else:
         print("  ✗ VALIDATION FAILED: Review errors above")
     print(f"{'='*72}")
@@ -247,7 +247,7 @@ def validate_serpentine_cross_package():
     report = {
         "timestamp_utc": datetime.now(UTC).isoformat(),
         "validation_type": "cross_package_serpentine",
-        "packages_compared": ["pycfdrs", "scipy"],
+        "packages_compared": ["cfd_python", "scipy"],
         "geometry": {
             "n_segments": n_segments,
             "width_m": width,
@@ -266,13 +266,13 @@ def validate_serpentine_cross_package():
             "density_kg_m3": rho
         },
         "results": {
-            "pycfdrs": {
-                "flow_rate_m3_s": float(Q_pycfdrs),
-                "velocity_avg_m_s": float(u_avg_pycfdrs),
-                "velocity_max_m_s": float(u_max_pycfdrs),
-                "total_pressure_drop_pa": float(dp_total_pycfdrs),
+            "cfd_python": {
+                "flow_rate_m3_s": float(Q_cfd_python),
+                "velocity_avg_m_s": float(u_avg_cfd_python),
+                "velocity_max_m_s": float(u_max_cfd_python),
+                "total_pressure_drop_pa": float(dp_total_cfd_python),
                 "reynolds_number": float(result.reynolds_number),
-                "wall_shear_stress_pa": float(wss_pycfdrs),
+                "wall_shear_stress_pa": float(wss_cfd_python),
                 "segment_flow_variation": float(Q_variation)
             },
             "scipy": {

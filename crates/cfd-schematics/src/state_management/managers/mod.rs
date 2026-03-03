@@ -17,9 +17,7 @@ pub use self::serpentine::SerpentineParameterManager;
 pub use self::symmetry::SymmetryParameterManager;
 
 use crate::state_management::{
-    errors::ParameterResult,
-    parameters::ParameterMetadata,
-    validation::ValidationRuleSet,
+    errors::ParameterResult, parameters::ParameterMetadata, validation::ValidationRuleSet,
 };
 use std::fmt::Debug;
 

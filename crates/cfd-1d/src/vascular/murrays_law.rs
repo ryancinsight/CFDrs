@@ -240,6 +240,20 @@ pub struct OptimalBifurcation<T: RealField + Copy> {
 impl<T: RealField + FromPrimitive + Copy> OptimalBifurcation<T> {
     /// Create symmetric bifurcation following Murray's Law
     ///
+    /// # Theorem: Optimal Symmetric Branching Angle
+    ///
+    /// For a symmetric bifurcation (r₁ = r₂ = r₀ / 2^(1/3)), the optimal
+    /// half-angle θ that minimises total power dissipation satisfies:
+    ///
+    /// ```text
+    /// cos(θ) = (r₀⁴ + r₁⁴ − r₂⁴) / (2·r₀²·r₁²)
+    /// ```
+    ///
+    /// Since r₁ = r₂ this simplifies to cos(θ) = r₀² / (2·r₁²) = 2^(−1/3).
+    ///
+    /// **Proof sketch**: substitute r₁ = r₂ into the general angle formula,
+    /// cancelling the r₂⁴ terms, yielding cos(θ) = 2^(2/3) / 2 = 2^(−1/3).
+    ///
     /// # Arguments
     /// * `parent_diameter` - Parent vessel diameter [m]
     /// * `parent_flow` - Parent vessel flow rate [m³/s]
@@ -251,11 +265,13 @@ impl<T: RealField + FromPrimitive + Copy> OptimalBifurcation<T> {
         let two = T::from_f64(2.0).unwrap_or_else(T::one);
         let daughter_flow = parent_flow / two;
 
-        // Optimal angle for symmetric bifurcation: θ = 37.5°
-        // cos(θ) = r₁/r₀ for symmetric case
-        // Actually: cos(θ) = (2^(1/3) - 1) / 2^(1/3) ... complex formula
-        // Simplified: θ ≈ 37.5° = 0.654 rad for k=3
-        let angle = T::from_f64(37.5 * PI / 180.0).unwrap_or_else(T::one);
+        // Optimal symmetric angle: cos(θ) = 2^(−1/3)
+        // Derived from the general branching angle formula
+        // cos(θ₁) = (r₀⁴ + r₁⁴ − r₂⁴) / (2·r₀²·r₁²)
+        // with r₁ = r₂ → cos(θ) = r₀² / (2·r₁²) = 2^(2/3)/2 = 2^(−1/3)
+        let one_third = T::one() / T::from_f64(3.0).unwrap_or_else(T::one);
+        let cos_theta = two.powf(-one_third);
+        let angle = cos_theta.acos();
 
         Self {
             parent_diameter,
@@ -271,6 +287,20 @@ impl<T: RealField + FromPrimitive + Copy> OptimalBifurcation<T> {
 
     /// Create asymmetric bifurcation with specified flow split ratio
     ///
+    /// # Theorem: Optimal Asymmetric Branching Angle
+    ///
+    /// For an asymmetric bifurcation with daughter radii r₁, r₂, the optimal
+    /// half-angles θ₁, θ₂ that minimise total pumping power satisfy:
+    ///
+    /// ```text
+    /// cos(θ₁) = (r₀⁴ + r₁⁴ − r₂⁴) / (2·r₀²·r₁²)
+    /// cos(θ₂) = (r₀⁴ + r₂⁴ − r₁⁴) / (2·r₀²·r₂²)
+    /// ```
+    ///
+    /// This is the generalised "law of cosines" for branching networks derived
+    /// by Zamir (1978) from the Lagrange multiplier optimisation of Poiseuille
+    /// dissipation over junction geometry.
+    ///
     /// # Arguments
     /// * `parent_diameter` - Parent vessel diameter [m]
     /// * `parent_flow` - Parent vessel flow rate [m³/s]
@@ -282,21 +312,31 @@ impl<T: RealField + FromPrimitive + Copy> OptimalBifurcation<T> {
         let q1 = parent_flow * flow_ratio;
         let q2 = parent_flow * (one - flow_ratio);
 
-        // For Poiseuille flow: Q ∝ D⁴, so D ∝ Q^(1/4)
-        // Under Murray's Law: D₁³ = D₀³ · (Q₁/Q₀), D₂³ = D₀³ · (Q₂/Q₀)
-        // Therefore: D₁ = D₀ · (Q₁/Q₀)^(1/3)
-        let d1 = parent_diameter * (flow_ratio).powf(T::one() / T::from_f64(3.0).unwrap_or_else(T::one));
-        let d2 = parent_diameter * (one - flow_ratio).powf(T::one() / T::from_f64(3.0).unwrap_or_else(T::one));
+        // Under Murray's Law: D₁ = D₀ · (Q₁/Q₀)^(1/3), D₂ = D₀ · (Q₂/Q₀)^(1/3)
+        let one_third = one / T::from_f64(3.0).unwrap_or_else(T::one);
+        let d1 = parent_diameter * flow_ratio.powf(one_third);
+        let d2 = parent_diameter * (one - flow_ratio).powf(one_third);
 
-        // Branching angles from optimization (simplified)
-        // For asymmetric bifurcation, angles relate to radius ratios
-        let r_ratio_1 = d1 / parent_diameter;
-        let r_ratio_2 = d2 / parent_diameter;
+        // General branching angle formula (Zamir 1978):
+        // cos(θ₁) = (D₀⁴ + D₁⁴ − D₂⁴) / (2·D₀²·D₁²)
+        // cos(θ₂) = (D₀⁴ + D₂⁴ − D₁⁴) / (2·D₀²·D₂²)
+        let d0_sq = parent_diameter * parent_diameter;
+        let d1_sq = d1 * d1;
+        let d2_sq = d2 * d2;
+        let d0_4 = d0_sq * d0_sq;
+        let d1_4 = d1_sq * d1_sq;
+        let d2_4 = d2_sq * d2_sq;
+        let two = T::from_f64(2.0).unwrap_or_else(T::one);
 
-        // Approximate optimal angles using empirical formula
-        // θ ≈ arccos(r_daughter/r_parent) * scaling_factor
-        let angle1 = (one - r_ratio_1 * r_ratio_1).sqrt().atan2(r_ratio_1);
-        let angle2 = (one - r_ratio_2 * r_ratio_2).sqrt().atan2(r_ratio_2);
+        let cos_theta1 = (d0_4 + d1_4 - d2_4) / (two * d0_sq * d1_sq);
+        let cos_theta2 = (d0_4 + d2_4 - d1_4) / (two * d0_sq * d2_sq);
+
+        // Clamp to [-1, 1] for numerical safety near degenerate ratios
+        let cos_theta1 = cos_theta1.clamp(-one, one);
+        let cos_theta2 = cos_theta2.clamp(-one, one);
+
+        let angle1 = cos_theta1.acos();
+        let angle2 = cos_theta2.acos();
 
         Self {
             parent_diameter,

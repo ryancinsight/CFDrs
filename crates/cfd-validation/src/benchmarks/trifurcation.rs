@@ -40,7 +40,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp + st
         &self.name
     }
 
-    fn description(&self) -> &str {
+    fn description(&self) -> &'static str {
         "Symmetric 2D trifurcation flow with Casson blood. Validates distribution across three branches and junction pressure stability."
     }
 

@@ -139,8 +139,6 @@ impl SpectralElement {
 pub struct SpectralMesh1D {
     elements: Vec<SpectralElement>,
     num_elements: usize,
-    #[allow(dead_code)]
-    element_order: usize,
     global_nodes: Vec<f64>,
     element_connectivity: Vec<Vec<usize>>,
 }
@@ -196,7 +194,6 @@ impl SpectralMesh1D {
         Ok(Self {
             elements,
             num_elements,
-            element_order,
             global_nodes,
             element_connectivity,
         })

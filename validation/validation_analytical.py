@@ -22,11 +22,11 @@ References:
 
 import sys
 
-sys.path.insert(0, "crates/pycfdrs")
+sys.path.insert(0, "crates/cfd-python")
 
 import matplotlib.pyplot as plt
 import numpy as np
-import pycfdrs
+import cfd_python
 from scipy.optimize import fsolve
 
 
@@ -219,9 +219,9 @@ def validate_1d_poiseuille():
     print(f"  Apparent viscosity: {mu_analytical * 1000:.3f} cP")
     print(f"  Wall shear stress: {tau_analytical:.3f} Pa")
 
-    # Note: We don't have a direct 1D Poiseuille solver in pycfdrs yet
+    # Note: We don't have a direct 1D Poiseuille solver in cfd_python yet
     # This would require implementation in solver_1d module
-    print(f"\n⚠️  1D Poiseuille solver not yet implemented in pycfdrs")
+    print(f"\n⚠️  1D Poiseuille solver not yet implemented in cfd_python")
     print(f"    Would need to add solver_1d module with Poiseuille class")
 
     return {
@@ -292,9 +292,9 @@ def validate_1d_bifurcation():
     print(f"    Daughter 2: {dP2_analytical:.2f} Pa")
     print(f"    Balance: {abs(dP1_analytical - dP2_analytical):.2e} Pa")
 
-    # Compare with pycfdrs solver
-    print(f"\nPyCFDrs solution:")
-    bifurc = pycfdrs.BifurcationSolver(
+    # Compare with cfd_python solver
+    print(f"\ncfd_python solution:")
+    bifurc = cfd_python.BifurcationSolver(
         d_parent=d_parent,
         d_daughter1=d_daughter,
         d_daughter2=d_daughter,
@@ -324,7 +324,7 @@ def validate_1d_bifurcation():
     print(f"    Daughter 2: {result.dp_2:.2f} Pa")
 
     # Validation
-    print(f"\nValidation (pycfdrs vs analytical):")
+    print(f"\nValidation (cfd_python vs analytical):")
     Q1_error = abs(result.q_1 - Q1_analytical) / Q1_analytical * 100
     Q2_error = abs(result.q_2 - Q2_analytical) / Q2_analytical * 100
     gamma1_error = abs(result.gamma_1 - gamma1_analytical) / gamma1_analytical * 100
@@ -411,9 +411,9 @@ def validate_1d_trifurcation():
     print(f"  Apparent viscosity: {mu_analytical * 1000:.3f} cP")
     print(f"  Pressure drop: {dP_analytical:.2f} Pa")
 
-    # Compare with pycfdrs
-    print(f"\nPyCFDrs solution:")
-    trifurc = pycfdrs.TrifurcationSolver(
+    # Compare with cfd_python
+    print(f"\ncfd_python solution:")
+    trifurc = cfd_python.TrifurcationSolver(
         d_parent=d_parent,
         d_daughter1=d_daughter,
         d_daughter2=d_daughter,
@@ -457,9 +457,9 @@ def plot_casson_rheology():
         AnalyticalSolutions.casson_viscosity(g) * 1000 for g in shear_rates
     ]
 
-    # Get pycfdrs values
-    blood = pycfdrs.CassonBlood()
-    viscosities_pycfdrs = [blood.viscosity(g) * 1000 for g in shear_rates]
+    # Get cfd_python values
+    blood = cfd_python.CassonBlood()
+    viscosities_cfd_python = [blood.viscosity(g) * 1000 for g in shear_rates]
 
     # Plot
     plt.figure(figsize=(10, 6))
@@ -470,11 +470,11 @@ def plot_casson_rheology():
         linewidth=2,
         label="Analytical (Casson)",
     )
-    plt.loglog(shear_rates, viscosities_pycfdrs, "r--", linewidth=2, label="pycfdrs")
+    plt.loglog(shear_rates, viscosities_cfd_python, "r--", linewidth=2, label="cfd_python")
     plt.xlabel("Shear Rate [s⁻¹]", fontsize=12)
     plt.ylabel("Apparent Viscosity [cP]", fontsize=12)
     plt.title(
-        "Casson Blood Rheology: pycfdrs vs Analytical", fontsize=14, fontweight="bold"
+        "Casson Blood Rheology: cfd_python vs Analytical", fontsize=14, fontweight="bold"
     )
     plt.grid(True, alpha=0.3)
     plt.legend(fontsize=11)
@@ -484,8 +484,8 @@ def plot_casson_rheology():
 
     # Calculate errors
     errors = [
-        abs(v_pycfdrs - v_analytical) / v_analytical * 100
-        for v_pycfdrs, v_analytical in zip(viscosities_pycfdrs, viscosities_analytical)
+        abs(v_cfd_python - v_analytical) / v_analytical * 100
+        for v_cfd_python, v_analytical in zip(viscosities_cfd_python, viscosities_analytical)
     ]
     max_error = max(errors)
     mean_error = np.mean(errors)

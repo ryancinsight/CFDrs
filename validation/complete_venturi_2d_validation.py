@@ -55,10 +55,10 @@ if sys.platform == "win32":
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8")
 
 try:
-    import pycfdrs
+    import cfd_python
 except ImportError:
-    print("ERROR: pycfdrs not installed. Run:")
-    print("  pip install target/wheels/pycfdrs-*.whl")
+    print("ERROR: cfd_python not installed. Run:")
+    print("  pip install target/wheels/cfd_python-*.whl")
     sys.exit(1)
 
 
@@ -188,7 +188,7 @@ def solve_complete_venturi_2d():
     print(f"  Width: {w_inlet * 1e3:.1f} mm")
     print(f"  Estimated dP/dx: {dp_dx_inlet:.1f} Pa/m")
 
-    config_inlet = pycfdrs.PoiseuilleConfig2D(
+    config_inlet = cfd_python.PoiseuilleConfig2D(
         height=height,
         width=w_inlet,
         length=l_inlet,
@@ -197,8 +197,8 @@ def solve_complete_venturi_2d():
         tolerance=1e-8,
     )
 
-    blood = pycfdrs.CassonBlood()
-    solver_inlet = pycfdrs.PoiseuilleSolver2D_Legacy(config_inlet)
+    blood = cfd_python.CassonBlood()
+    solver_inlet = cfd_python.PoiseuilleSolver2D_Legacy(config_inlet)
     result_inlet = solver_inlet.solve(blood)
 
     print(f"  Converged: {result_inlet.iterations} iterations")
@@ -215,7 +215,7 @@ def solve_complete_venturi_2d():
     print(f"  Width: {w_throat * 1e3:.2f} mm")
     print(f"  Estimated dP/dx: {dp_dx_throat:.1f} Pa/m (from continuity)")
 
-    config_throat = pycfdrs.PoiseuilleConfig2D(
+    config_throat = cfd_python.PoiseuilleConfig2D(
         height=height,
         width=w_throat,
         length=l_throat,
@@ -224,7 +224,7 @@ def solve_complete_venturi_2d():
         tolerance=1e-8,
     )
 
-    solver_throat = pycfdrs.PoiseuilleSolver2D_Legacy(config_throat)
+    solver_throat = cfd_python.PoiseuilleSolver2D_Legacy(config_throat)
     result_throat = solver_throat.solve(blood)
 
     print(f"  Converged: {result_throat.iterations} iterations")

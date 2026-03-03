@@ -77,6 +77,7 @@ pub struct NormalAnalysis {
 impl NormalAnalysis {
     /// Total number of faces inspected (degenerate faces included).
     #[inline]
+    #[must_use] 
     pub fn total_faces(&self) -> usize {
         self.outward_faces + self.inward_faces + self.degenerate_faces
     }
@@ -85,6 +86,7 @@ impl NormalAnalysis {
     ///
     /// Returns `0.0` when the mesh is empty.
     #[inline]
+    #[must_use] 
     pub fn inward_fraction(&self) -> Real {
         let n = (self.outward_faces + self.inward_faces) as Real;
         if n > 0.0 {
@@ -96,6 +98,7 @@ impl NormalAnalysis {
 
     /// Returns `true` when every non-degenerate face is outward-facing.
     #[inline]
+    #[must_use] 
     pub fn all_outward(&self) -> bool {
         self.inward_faces == 0
     }
@@ -130,6 +133,7 @@ impl NormalAnalysis {
 /// let report = analyze_normals(&sphere);
 /// assert_eq!(report.inward_faces, 0, "sphere should be all-outward");
 /// ```
+#[must_use] 
 pub fn analyze_normals(mesh: &IndexedMesh) -> NormalAnalysis {
     // ── Step 1: collect face normals and detect degenerates ──────────────────
     let face_list: Vec<_> = mesh.faces.iter().collect();

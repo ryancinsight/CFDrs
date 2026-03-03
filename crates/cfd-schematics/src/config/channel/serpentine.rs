@@ -1,6 +1,6 @@
+use crate::config::adaptive::AdaptiveSerpentineConfig;
 use crate::config::constants::primitives as constants;
 use crate::error::{ConfigurationError, ConfigurationResult};
-use crate::config::adaptive::AdaptiveSerpentineConfig;
 
 /// Optimization profile for serpentine channel optimization
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd)]

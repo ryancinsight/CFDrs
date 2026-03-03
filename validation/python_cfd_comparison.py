@@ -1,8 +1,8 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 Python CFD Validation Suite for cfd-rs
 
-This script compares Rust CFD results (via pycfdrs) with:
+This script compares Rust CFD results (via cfd_python) with:
 1. Analytical solutions (Poiseuille, Bernoulli)
 2. Literature data (Merrill 1969, Murray 1926, ISO 5167)
 3. Other Python CFD packages for cross-validation
@@ -16,7 +16,7 @@ Usage:
     python validation/python_cfd_comparison.py
 
 Requirements:
-    pip install pycfdrs numpy matplotlib scipy
+    pip install cfd_python numpy matplotlib scipy
 """
 
 import numpy as np
@@ -29,9 +29,9 @@ from dataclasses import dataclass, asdict
 from typing import Dict, List, Tuple, Optional
 
 # Import Rust CFD via PyO3
-import pycfdrs
-from pycfdrs import CassonBlood, CarreauYasudaBlood, BifurcationSolver
-from pycfdrs import Poiseuille2DSolver, VenturiSolver2D
+import cfd_python
+from cfd_python import CassonBlood, CarreauYasudaBlood, BifurcationSolver
+from cfd_python import Poiseuille2DSolver, VenturiSolver2D
 
 # =============================================================================
 # Validation Report Structure
@@ -126,7 +126,7 @@ def validate_1d_poiseuille_casson() -> ValidationCase:
     print(f"Pressure drop (analytical): {dp_analytical:.2f} Pa")
     
     # Create 2D Poiseuille solver to get numerical pressure drop
-    solver = pycfdrs.Poiseuille2DSolver(
+    solver = cfd_python.Poiseuille2DSolver(
         height=diameter,
         width=diameter,
         length=length,
@@ -581,7 +581,7 @@ def validate_2d_serpentine_mixing() -> ValidationCase:
     diffusion_coeff = 1e-9  # m^2/s (typical for small molecules in water)
     
     # Create solver
-    solver = pycfdrs.SerpentineSolver1D(
+    solver = cfd_python.SerpentineSolver1D(
         width=width,
         height=height,
         straight_length=straight_length,
@@ -714,14 +714,14 @@ def print_summary(report: ValidationReport):
 def main():
     """Main entry point"""
     
-    # Check if pycfdrs is available
+    # Check if cfd_python is available
     try:
-        import pycfdrs
-        print("[OK] pycfdrs module loaded successfully")
+        import cfd_python
+        print("[OK] cfd_python module loaded successfully")
     except ImportError as e:
-        print(f"[ERROR] Failed to import pycfdrs: {e}")
-        print("  Please build and install pycfdrs first:")
-        print("    cd crates/pycfdrs && maturin develop")
+        print(f"[ERROR] Failed to import cfd_python: {e}")
+        print("  Please build and install cfd_python first:")
+        print("    cd crates/cfd-python && maturin develop")
         sys.exit(1)
     
     # Run validations

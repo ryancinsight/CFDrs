@@ -22,7 +22,7 @@ The cfd-rs library provides validated CFD solvers for 1D, 2D, and 3D blood flow 
 
 **Validation Files:**
 - `examples/external_cfd_comparison.rs` - Rust validation
-- `examples/validate_pycfdrs_external.py` - Python comparison script
+- `examples/validate_cfd-python_external.py` - Python comparison script
 
 **Results:**
 - Poiseuille flow: < 1% error vs analytical solution
@@ -108,7 +108,7 @@ The cfd-rs library provides validated CFD solvers for 1D, 2D, and 3D blood flow 
   - Centerline velocities match Ghia et al.
   - Primary vortex location within 5%
 - **References:**
-  - `crates/pycfdrs/src/solver_2d.rs` (CavitySolver2D)
+  - `crates/cfd-python/src/solver_2d.rs` (CavitySolver2D)
   - Ghia, U.K.N.G. et al. J. Comput. Phys. 48:387 (1982)
 
 ## Solver Validation Examples
@@ -165,17 +165,17 @@ cargo run --example bifurcation_3d_fem_validation
 - Wall shear stress distribution
 - Flow splitting behavior
 
-## Python Bindings (pycfdrs)
+## Python Bindings (cfd-python)
 
 ### Installation
 ```bash
-cd crates/pycfdrs
+cd crates/cfd-python
 maturin develop --release
 ```
 
 ### Validation Script
 ```bash
-python examples/validate_pycfdrs_external.py
+python examples/validate_cfd-python_external.py
 ```
 
 **Tests:**
@@ -239,11 +239,11 @@ cargo run --example external_cfd_comparison
 
 ### Python Validation
 ```bash
-# Requires pycfdrs built and installed
-python examples/validate_pycfdrs_external.py
+# Requires cfd-python built and installed
+python examples/validate_cfd-python_external.py
 
 # Generate validation report
-cat pycfdrs_validation_report.json
+cat cfd-python_validation_report.json
 ```
 
 ### Full Test Suite
@@ -272,7 +272,7 @@ cargo test -p cfd-validation
 1. Add more literature benchmarks (backward-facing step, flow over cylinder)
 2. Implement additional blood damage models (hemolysis indices)
 3. Add patient-specific geometry import (STL, VTK)
-4. Extend pycfdrs with numpy array integration for field data
+4. Extend cfd-python with numpy array integration for field data
 
 ## References
 

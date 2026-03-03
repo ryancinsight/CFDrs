@@ -38,7 +38,7 @@ impl<T: RealField + Copy + num_traits::FromPrimitive + num_traits::ToPrimitive +
         &self.name
     }
 
-    fn description(&self) -> &str {
+    fn description(&self) -> &'static str {
         "Symmetric 2D bifurcation flow using Casson blood model. Validates mass conservation, pressure drops, and flow distribution at the junction."
     }
 

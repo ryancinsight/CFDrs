@@ -24,7 +24,7 @@ from dataclasses import dataclass
 from typing import List, Callable, Tuple
 
 # Import Rust CFD
-import pycfdrs
+import cfd_python
 
 # =============================================================================
 # Validation Framework
@@ -96,8 +96,8 @@ def validate_poiseuille_flow() -> List[ValidationResult]:
     print(f"\nAnalytical u_max: {u_max_analytical:.4e} m/s")
     print(f"Analytical Q (per unit width): {Q_analytical:.4e} m^2/s")
     
-    # Validate with pycfdrs
-    solver = pycfdrs.Poiseuille2DSolver(
+    # Validate with cfd_python
+    solver = cfd_python.Poiseuille2DSolver(
         height=H,
         width=H,  # Square for simplicity
         length=L,
@@ -201,7 +201,7 @@ def validate_cavity_benchmark() -> List[ValidationResult]:
     print(f"Grid: {nx} x {ny}")
     
     # Create cavity solver
-    solver = pycfdrs.CavitySolver2D(reynolds=Re, nx=nx, ny=ny)
+    solver = cfd_python.CavitySolver2D(reynolds=Re, nx=nx, ny=ny)
     
     # Solve
     result = solver.solve()
@@ -295,7 +295,7 @@ def validate_grid_convergence() -> List[ValidationResult]:
     print("-" * 40)
     
     for nx, ny in grids:
-        solver = pycfdrs.Poiseuille2DSolver(
+        solver = cfd_python.Poiseuille2DSolver(
             height=H,
             width=H,
             length=L,
@@ -403,7 +403,7 @@ def validate_advection_diffusion() -> List[ValidationResult]:
     print(f"Mixing time: {t_mix*1e3:.2f} ms")
     
     # Validate with serpentine solver
-    solver = pycfdrs.SerpentineSolver1D(
+    solver = cfd_python.SerpentineSolver1D(
         width=width,
         height=height,
         straight_length=500e-6,
@@ -494,7 +494,7 @@ def validate_dean_flow() -> List[ValidationResult]:
     print(f"Dean number: {De:.2f}")
     
     # Check Dean number calculation
-    solver = pycfdrs.SerpentineSolver1D(
+    solver = cfd_python.SerpentineSolver1D(
         width=width,
         height=height,
         straight_length=500e-6,
@@ -582,12 +582,12 @@ def main():
     print(" " * 10 + "Comparison with Python CFD and Literature Benchmarks")
     print("="*70)
     
-    # Check pycfdrs
+    # Check cfd_python
     try:
-        import pycfdrs
-        print("\n[OK] pycfdrs module loaded successfully")
+        import cfd_python
+        print("\n[OK] cfd_python module loaded successfully")
     except ImportError as e:
-        print(f"\n[ERROR] Failed to import pycfdrs: {e}")
+        print(f"\n[ERROR] Failed to import cfd_python: {e}")
         sys.exit(1)
     
     # Run validations

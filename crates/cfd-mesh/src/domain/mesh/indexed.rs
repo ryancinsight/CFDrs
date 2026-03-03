@@ -42,15 +42,19 @@ pub struct IndexedMesh<T: Scalar = f64> {
     pub attributes: AttributeStore<FaceId>,
     /// Volumetric cells (for CFD support).
     pub cells: Vec<Cell>,
-    /// Boundary patch names tagged by FaceId.
+    /// Boundary patch names tagged by `FaceId`.
     pub boundary_labels: HashMap<FaceId, String>,
 }
 
 impl<T: Scalar> IndexedMesh<T> {
     /// Create an empty mesh with default millifluidic tolerances.
+    #[must_use] 
     pub fn new() -> Self {
         Self {
-            vertices: VertexPool::default_millifluidic(),
+            vertices: VertexPool::with_tolerance(
+                <T as crate::domain::core::scalar::Scalar>::from_f64(1e-4),
+                <T as crate::domain::core::scalar::Scalar>::from_f64(1e-4),
+            ),
             faces: FaceStore::new(),
             edges: None,
             attributes: AttributeStore::new(),
@@ -59,10 +63,41 @@ impl<T: Scalar> IndexedMesh<T> {
         }
     }
 
-    /// Create with explicit welding tolerance.
+    /// Create with explicit exact grid cell size.
+    pub fn with_cell_size(cell_size: T) -> Self {
+        Self {
+            vertices: VertexPool::new(cell_size),
+            faces: FaceStore::new(),
+            edges: None,
+            attributes: AttributeStore::new(),
+            cells: Vec::new(),
+            boundary_labels: HashMap::new(),
+        }
+    }
+
+    /// Create with explicit cell size and tolerance-based welding.
+    ///
+    /// Vertices within `tolerance` of an existing vertex are welded to it.
+    /// Useful for CSG reconstruction where near-duplicate seam vertices
+    /// need to be merged at a wider tolerance than the default 1e-4.
     pub fn with_tolerance(cell_size: T, tolerance: T) -> Self {
         Self {
-            vertices: VertexPool::new(cell_size, tolerance),
+            vertices: VertexPool::with_tolerance(cell_size, tolerance),
+            faces: FaceStore::new(),
+            edges: None,
+            attributes: AttributeStore::new(),
+            cells: Vec::new(),
+            boundary_labels: HashMap::new(),
+        }
+    }
+
+    /// Create an empty clone of this mesh that preserves exactly the same
+    /// `VertexPool` scalar tolerances (`inv_cell_size` and `tolerance_sq`),
+    /// but drops all vertices, faces, and attributes.
+    #[must_use]
+    pub fn empty_clone(&self) -> Self {
+        Self {
+            vertices: self.vertices.empty_clone(),
             faces: FaceStore::new(),
             edges: None,
             attributes: AttributeStore::new(),
@@ -122,7 +157,7 @@ impl<T: Scalar> IndexedMesh<T> {
     /// produces consistent *inward* normals, to obtain outward normals.
     pub fn flip_faces(&mut self) {
         self.edges = None;
-        self.faces.iter_mut().for_each(|f| f.flip());
+        self.faces.iter_mut().for_each(crate::infrastructure::storage::face_store::FaceData::flip);
     }
 
     // ── Volumetric cell operations ────────────────────────────────────────
@@ -151,7 +186,7 @@ impl<T: Scalar> IndexedMesh<T> {
 
     /// Return the boundary label of a face, if any.
     pub fn boundary_label(&self, face_id: FaceId) -> Option<&str> {
-        self.boundary_labels.get(&face_id).map(|s| s.as_str())
+        self.boundary_labels.get(&face_id).map(std::string::String::as_str)
     }
 
     /// Return face IDs on the geometric boundary (faces belonging to exactly one cell).
@@ -418,12 +453,10 @@ impl<T: Scalar> IndexedMesh<T> {
         }
 
         // Flip inward faces in-place (swap v1 ↔ v2).
-        let mut fi = 0usize;
-        for face in self.faces.iter_mut() {
+        for (fi, face) in self.faces.iter_mut().enumerate() {
             if orientation[fi] == Some(false) {
                 face.flip();
             }
-            fi += 1;
         }
         self.edges = None;
 
@@ -473,12 +506,12 @@ impl<T: Scalar> IndexedMesh<T> {
             return 0;
         }
 
-        let largest_size = components.iter().map(|c| c.len()).max().unwrap_or(0);
+        let largest_size = components.iter().map(std::vec::Vec::len).max().unwrap_or(0);
         // Discard if face_count < max(4, largest * 0.05).
         let min_keep = ((largest_size as f64 * 0.05).ceil() as usize).max(4);
 
         // Single-pass over components: build a fresh mesh from kept faces only.
-        let mut new_mesh = IndexedMesh::<T>::new();
+        let mut new_mesh = self.empty_clone();
         // Map old VertexId → new VertexId (None = not yet seen).
         let mut vertex_remap: Vec<Option<VertexId>> = vec![None; self.vertices.len()];
         // Map old FaceId → new FaceId for attribute/label remapping.
@@ -526,7 +559,7 @@ impl<T: Scalar> IndexedMesh<T> {
         }
 
         // Remap per-face scalar attributes.
-        let old_attrs = std::mem::replace(&mut self.attributes, AttributeStore::new());
+        let old_attrs = std::mem::take(&mut self.attributes);
         for channel in old_attrs.channel_names() {
             for (&old_fid, &new_fid) in &face_remap {
                 if let Some(val) = old_attrs.get(channel, old_fid) {
@@ -536,7 +569,7 @@ impl<T: Scalar> IndexedMesh<T> {
         }
 
         // Remap boundary labels.
-        let old_labels = std::mem::replace(&mut self.boundary_labels, HashMap::new());
+        let old_labels = std::mem::take(&mut self.boundary_labels);
         new_mesh.boundary_labels = old_labels
             .into_iter()
             .filter_map(|(old_fid, label)| {
@@ -576,16 +609,17 @@ pub struct MeshBuilder<T: Scalar = f64> {
 
 impl<T: Scalar> MeshBuilder<T> {
     /// Start building with default millifluidic tolerances.
+    #[must_use] 
     pub fn new() -> Self {
         Self {
             mesh: IndexedMesh::new(),
         }
     }
 
-    /// Start building with custom tolerances.
-    pub fn with_tolerance(cell_size: T, tolerance: T) -> Self {
+    /// Start building with a custom exact cell grid sizing.
+    pub fn with_cell_size(cell_size: T) -> Self {
         Self {
-            mesh: IndexedMesh::with_tolerance(cell_size, tolerance),
+            mesh: IndexedMesh::with_cell_size(cell_size),
         }
     }
 
@@ -622,3 +656,58 @@ impl<T: Scalar> Default for MeshBuilder<T> {
     }
 }
 
+// ── Tests ─────────────────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn empty_clone_preserves_custom_tolerance() {
+        // Create a mesh with a very tight custom tolerance
+        let mut mesh: IndexedMesh<f64> = IndexedMesh::with_cell_size(1e-8);
+        mesh.add_vertex_pos(Point3::new(1.0, 1.0, 1.0));
+        assert_eq!(mesh.vertex_count(), 1);
+
+        // Clone it
+        let mut clone = mesh.empty_clone();
+        assert_eq!(clone.vertex_count(), 0);
+
+        // Check behavior: two points 1e-6 apart should NOT be welded under 1e-8 tolerance.
+        let v1 = clone.add_vertex_pos(Point3::new(0.0, 0.0, 0.0));
+        let v2 = clone.add_vertex_pos(Point3::new(1e-6, 0.0, 0.0));
+        assert_ne!(v1, v2, "Vertices should not weld under preserved 1e-8 tolerance");
+        assert_eq!(clone.vertex_count(), 2);
+    }
+
+    #[test]
+    fn retain_largest_component_preserves_tolerance() {
+        let mut mesh: IndexedMesh<f64> = IndexedMesh::with_cell_size(1e-8);
+        // Component 1 (Largest) - 4 faces
+        let v0 = mesh.add_vertex_pos(Point3::new(0.0, 0.0, 0.0));
+        let v1 = mesh.add_vertex_pos(Point3::new(1.0, 0.0, 0.0));
+        let v2 = mesh.add_vertex_pos(Point3::new(0.0, 1.0, 0.0));
+        let v3 = mesh.add_vertex_pos(Point3::new(0.0, 0.0, 1.0));
+        mesh.add_face(v0, v1, v2);
+        mesh.add_face(v0, v2, v3);
+        mesh.add_face(v0, v3, v1);
+        mesh.add_face(v1, v3, v2); // closed tet
+
+        // Component 2 (Phantom island, 1 face)
+        let v4 = mesh.add_vertex_pos(Point3::new(10.0, 0.0, 0.0));
+        let v5 = mesh.add_vertex_pos(Point3::new(11.0, 0.0, 0.0));
+        let v6 = mesh.add_vertex_pos(Point3::new(10.0, 1.0, 0.0));
+        mesh.add_face(v4, v5, v6);
+
+        // Run filter
+        let discarded = mesh.retain_largest_component();
+        assert_eq!(discarded, 1);
+        assert_eq!(mesh.face_count(), 4);
+
+        // Add points 1e-6 apart; under the default 1e-4 tolerance they would weld.
+        // Under the preserved 1e-8 tolerance they should remain distinct.
+        let n1 = mesh.add_vertex_pos(Point3::new(20.0, 0.0, 0.0));
+        let n2 = mesh.add_vertex_pos(Point3::new(20.0 + 1e-6, 0.0, 0.0));
+        assert_ne!(n1, n2, "Tolerance must be preserved after retain_largest_component");
+    }
+}

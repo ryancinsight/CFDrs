@@ -44,14 +44,14 @@ except ImportError:
     print("  conda install -c conda-forge fenics")
     FENICS_AVAILABLE = False
 
-# Try to import pycfdrs
+# Try to import cfd_python
 try:
-    import pycfdrs
+    import cfd_python
 
-    PYCFDRS_AVAILABLE = True
+    cfd_python_AVAILABLE = True
 except ImportError:
-    print("WARNING: pycfdrs not available. Build with 'maturin develop'")
-    PYCFDRS_AVAILABLE = False
+    print("WARNING: cfd_python not available. Build with 'maturin develop'")
+    cfd_python_AVAILABLE = False
 
 
 def solve_poiseuille_fenics(
@@ -221,9 +221,9 @@ def compare_fenics_cfdrs(
     print()
 
     # If CFD-rs available, compare
-    if PYCFDRS_AVAILABLE:
+    if cfd_python_AVAILABLE:
         print("Note: CFD-rs 2D solver integration pending")
-        print("Comparison will be enabled once pycfdrs 2D bindings are complete")
+        print("Comparison will be enabled once cfd_python 2D bindings are complete")
         print()
 
     # Validation: Compare FEniCS against analytical

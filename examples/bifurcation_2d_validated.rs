@@ -11,7 +11,7 @@
 //! - Zamir, M. (1976) "Optimality principles in arterial branching"
 //! - Murray, C.D. (1926) "The physiological principle of minimum work"
 
-use cfd_1d::bifurcation::junction::{BifurcationJunction, BifurcationSolution};
+use cfd_1d::junctions::branching::{TwoWayBranchJunction, TwoWayBranchSolution};
 use cfd_1d::channel::{Channel, ChannelGeometry};
 use cfd_2d::solvers::poiseuille::{PoiseuilleConfig, PoiseuilleFlow2D, BloodModel};
 use cfd_core::physics::fluid::blood::CassonBlood;
@@ -61,14 +61,14 @@ fn main() {
     let daughter2_geom = ChannelGeometry::<f64>::circular(l_daughter, d_daughter, 1e-6);
     let daughter2_channel = Channel::new(daughter2_geom);
 
-    let junction = BifurcationJunction::new(
+    let junction = TwoWayBranchJunction::new(
         parent_channel,
         daughter1_channel,
         daughter2_channel,
         0.5, // Equal flow split for symmetric bifurcation
     );
 
-    let solution_1d: BifurcationSolution<f64> = junction.solve(blood, flow_rate, inlet_pressure)
+    let solution_1d: TwoWayBranchSolution<f64> = junction.solve(blood, flow_rate, inlet_pressure, 310.15, 101325.0)
         .expect("1D solution failed");
 
     println!("  Flow distribution:");

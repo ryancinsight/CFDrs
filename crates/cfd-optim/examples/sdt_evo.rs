@@ -1,4 +1,4 @@
-//! Evolutionary genetic algorithm search across all 14 millifluidic topology
+//! Evolutionary genetic algorithm search across all 24 millifluidic topology
 //! families optimised for SDT cavitation and uniform exposure.
 //!
 //! Demonstrates the [`GeneticOptimizer`] which searches the continuous design
@@ -6,9 +6,12 @@
 //!
 //! - Tournament selection (k = 3)
 //! - Simulated Binary Crossover (SBX, η = 2)
-//! - Polynomial mutation (η_m = 20)
+//! - Polynomial mutation (η_m = 10)
+//! - Smooth constraint penalty (sigmoid ramp near feasibility boundary)
+//! - Diversity-preserving top-k selection
 //!
 //! The best 5 designs found across all generations are printed and exported.
+//! Per-generation convergence statistics are shown after each run.
 //!
 //! # Output
 //!
@@ -21,9 +24,8 @@
 //! ```
 
 use cfd_optim::{
-    save_comparison_svg, save_schematic_svg, save_top5_json,
-    evo::GeneticOptimizer,
-    OptimMode, SdtWeights,
+    evo::GeneticOptimizer, save_comparison_svg, save_schematic_svg, save_top5_json, OptimMode,
+    SdtWeights,
 };
 
 fn main() {
@@ -35,43 +37,53 @@ fn main() {
     println!("{}", "=".repeat(100));
     println!("  cfd-optim  |  Evolutionary Optimizer  |  Single-inlet / single-outlet designs");
     println!("{}", "=".repeat(100));
-    println!("  Topologies searched: all 14 families (SingleVenturi … TrifurcationSerpentine)");
+    println!("  Topologies searched: all 24 families (SingleVenturi … AdaptiveTree)");
     println!("  Algorithm: real-coded GA with SBX crossover + polynomial mutation");
-    println!("  Genome: 8 continuous genes (topology, Q, P_gauge, d_throat, w_ch, n_segs, L_seg, R_bend)");
+    println!("  Genome: 16 genes (topology, Q, P_gauge, d_throat, w_ch, n_segs,");
+    println!(
+        "          L_seg, R_bend, discrete_param, AT_splits[4], center_frac, CIF tcf, CIF btf)"
+    );
     println!("{}", "-".repeat(100));
 
+    const N_GEN: usize = 100;
+    const N_POP: usize = 60;
+
     let modes: &[(&str, OptimMode)] = &[
-        ("evo_cavitation",  OptimMode::SdtCavitation),
-        ("evo_exposure",    OptimMode::UniformExposure),
+        ("evo_cavitation", OptimMode::SdtCavitation),
+        ("evo_exposure", OptimMode::UniformExposure),
+        ("evo_sdt_therapy", OptimMode::SdtTherapy),
     ];
 
     for (slug, mode) in modes {
         println!("\n── Evolutionary search: {} ──", slug);
 
         let optimizer = GeneticOptimizer::new(*mode, weights)
-            .with_population(60)
-            .with_max_generations(100)
+            .with_population(N_POP)
+            .with_max_generations(N_GEN)
             .with_top_k(5);
 
         match optimizer.run() {
-            Ok(designs) => {
+            Ok(result) => {
+                let designs = &result.top_designs;
+
                 println!(
                     "  {:>4}  {:<42}  {:>7}  {:>9}  {:>8}  {:>6}",
-                    "#", "Candidate ID", "Score", "σ / Unif", "HI/pass", "Cov%"
+                    "#", "Candidate ID", "Score", "σ/Unif/Sep3", "HI/pass", "Cov%"
                 );
                 println!("{}", "-".repeat(100));
 
-                for d in &designs {
+                for d in designs {
                     let m = &d.metrics;
                     let metric_col = match mode {
-                        OptimMode::SdtCavitation =>
+                        OptimMode::SdtCavitation => {
                             if m.cavitation_number.is_finite() {
                                 format!("{:>9.3}", m.cavitation_number)
                             } else {
                                 format!("{:>9}", "∞")
-                            },
-                        OptimMode::UniformExposure =>
-                            format!("{:>9.4}", m.flow_uniformity),
+                            }
+                        }
+                        OptimMode::UniformExposure => format!("{:>9.4}", m.flow_uniformity),
+                        OptimMode::SdtTherapy => format!("{:>9.4}", m.three_pop_sep_efficiency),
                         _ => format!("{:>9}", "—"),
                     };
                     let id_trunc = if d.candidate.id.len() > 42 {
@@ -81,7 +93,10 @@ fn main() {
                     };
                     println!(
                         "  {:>4}  {:<42}  {:>7.4}  {}  {:>8.2e}  {:>5.0}%",
-                        d.rank, id_trunc, d.score, metric_col,
+                        d.rank,
+                        id_trunc,
+                        d.score,
+                        metric_col,
                         m.hemolysis_index_per_pass,
                         m.well_coverage_fraction * 100.0,
                     );
@@ -94,34 +109,87 @@ fn main() {
                     println!("\n  ── Winner detail ──");
                     println!("    ID         : {}", c.id);
                     println!("    Topology   : {}", c.topology.name());
-                    println!("    Flow rate  : {:.2} mL/min  ({:.3e} m³/s)",
-                        c.flow_rate_m3_s * 6e7, c.flow_rate_m3_s);
+                    println!(
+                        "    Flow rate  : {:.2} mL/min  ({:.3e} m³/s)",
+                        c.flow_rate_m3_s * 6e7,
+                        c.flow_rate_m3_s
+                    );
                     println!("    Inlet gauge: {:.0} kPa", c.inlet_gauge_pa * 1e-3);
                     if c.topology.has_venturi() {
-                        println!("    Throat Ø   : {:.0} µm  (L = {:.0} µm)",
-                            c.throat_diameter_m * 1e6, c.throat_length_m * 1e6);
-                        println!("    σ          : {:.4}  (cavitation if < 1)",
-                            m.cavitation_number);
+                        println!(
+                            "    Throat Ø   : {:.0} µm  (L = {:.0} µm)",
+                            c.throat_diameter_m * 1e6,
+                            c.throat_length_m * 1e6
+                        );
+                        println!(
+                            "    σ          : {:.4}  (cavitation if < 1)",
+                            m.cavitation_number
+                        );
                     }
-                    println!("    Channel    : {:.0} × {:.0} µm",
-                        c.channel_width_m * 1e6, c.channel_height_m * 1e6);
-                    println!("    Segments   : {}  ×  {:.1} mm",
-                        c.serpentine_segments, c.segment_length_m * 1e3);
-                    println!("    Main shear : {:.1} Pa  (FDA ≤ 150 Pa: {})",
+                    println!(
+                        "    Channel    : {:.0} × {:.0} µm",
+                        c.channel_width_m * 1e6,
+                        c.channel_height_m * 1e6
+                    );
+                    println!(
+                        "    Segments   : {}  ×  {:.1} mm",
+                        c.serpentine_segments,
+                        c.segment_length_m * 1e3
+                    );
+                    println!(
+                        "    Main shear : {:.1} Pa  (FDA ≤ 150 Pa: {})",
                         m.max_main_channel_shear_pa,
-                        if m.fda_main_compliant { "PASS" } else { "FAIL" });
+                        if m.fda_main_compliant { "PASS" } else { "FAIL" }
+                    );
+                    println!(
+                        "    PAI/pass   : {:.2e}  (limit 5e-4: {})",
+                        m.platelet_activation_index,
+                        if m.platelet_activation_index <= 5e-4 {
+                            "PASS"
+                        } else {
+                            "WARN"
+                        }
+                    );
                     println!("    Score      : {:.4}", winner.score);
+                }
+
+                // ── Convergence summary ────────────────────────────────────
+                println!(
+                    "\n  ── Convergence ({slug}, {} generations, pop={}) ──",
+                    N_GEN, N_POP
+                );
+                println!(
+                    "  {:>5}  {:>8}  {:>8}  {:>10}  {:>5}",
+                    "Gen", "Best", "Mean", "Feasible", "Topos"
+                );
+                println!("  {}", "-".repeat(44));
+                // Print every 10th generation (plus the final one)
+                let total_gens = result.best_per_gen.len();
+                for g in (0..total_gens).filter(|&g| g % 10 == 9 || g + 1 == total_gens) {
+                    println!(
+                        "  {:>5}  {:>8.4}  {:>8.4}  {:>5}/{:<4}  {:>5}",
+                        g + 1,
+                        result.best_per_gen[g],
+                        result.mean_per_gen[g],
+                        result.feasible_per_gen[g],
+                        N_POP,
+                        result
+                            .topology_diversity_per_gen
+                            .get(g)
+                            .copied()
+                            .unwrap_or(0),
+                    );
                 }
 
                 // Export
                 let json_path = out_dir.join(format!("{slug}.json"));
-                let svg_path  = out_dir.join(format!("{slug}.svg"));
-                if let Err(e) = save_top5_json(&designs, &json_path) {
+                let svg_path = out_dir.join(format!("{slug}.svg"));
+                if let Err(e) = save_top5_json(designs, &json_path) {
                     eprintln!("  JSON export failed: {e}");
                 } else {
                     println!("\n  JSON → {}", json_path.display());
                 }
-                if let Err(e) = save_comparison_svg(&designs, &svg_path, *mode) {
+                if let Err(e) = save_comparison_svg(designs, &svg_path, *mode) {
                     eprintln!("  SVG export failed: {e}");
                 } else {
                     println!("  SVG  → {}", svg_path.display());
@@ -130,7 +198,7 @@ fn main() {
                 // Per-design 2D channel schematics
                 let sch_dir = out_dir.join(slug);
                 std::fs::create_dir_all(&sch_dir).expect("create schematic subdir");
-                for d in &designs {
+                for d in designs {
                     let sch_path = sch_dir.join(format!(
                         "rank{:02}_{}.svg",
                         d.rank,

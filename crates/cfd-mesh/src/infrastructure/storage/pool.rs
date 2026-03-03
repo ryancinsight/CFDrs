@@ -15,6 +15,7 @@ where
     I: From<usize> + Copy,
 {
     /// Create an empty pool.
+    #[must_use] 
     pub fn new() -> Self {
         Self {
             data: Vec::new(),
@@ -23,6 +24,7 @@ where
     }
 
     /// Create a pool with pre-allocated capacity.
+    #[must_use] 
     pub fn with_capacity(cap: usize) -> Self {
         Self {
             data: Vec::with_capacity(cap),
@@ -32,12 +34,14 @@ where
 
     /// Number of elements.
     #[inline]
+    #[must_use] 
     pub fn len(&self) -> usize {
         self.data.len()
     }
 
     /// Is the pool empty?
     #[inline]
+    #[must_use] 
     pub fn is_empty(&self) -> bool {
         self.data.is_empty()
     }
@@ -51,6 +55,7 @@ where
 
     /// Access the underlying slice.
     #[inline]
+    #[must_use] 
     pub fn as_slice(&self) -> &[T] {
         &self.data
     }
@@ -103,7 +108,7 @@ pub trait TypedIndex: From<usize> + Copy {
 }
 
 // Implement for all our index types via a macro in the index module.
-// For now, use a blanket approach — each index type's `as_usize` is available.
+// Each index type's `as_usize` is provided via the `TypedIndex` trait.
 
 impl<I: TypedIndex, T> std::ops::Index<I> for Pool<I, T> {
     type Output = T;

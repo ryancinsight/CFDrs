@@ -11,11 +11,16 @@
 mod blueprint;
 mod channel_system;
 mod interchange;
+mod shell_cuboid;
+mod tpms_fill;
 
 pub use self::channel_system::ChannelSystem;
 pub use self::interchange::{
     InterchangeChannel, InterchangeChannelProfile, InterchangeChannelSystem, InterchangeNode,
+    InterchangeShellCuboid, InterchangeShellPort,
 };
+pub use self::shell_cuboid::ShellCuboid;
+pub use self::tpms_fill::{AdaptiveGradient, TpmsFillSpec, TpmsSurfaceKind};
 
 use crate::config::TaperProfile;
 use crate::error::{GeometryError, GeometryResult};

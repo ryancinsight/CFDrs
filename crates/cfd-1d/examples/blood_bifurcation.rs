@@ -23,11 +23,6 @@ use cfd_core::compute::solver::Solver;
 use cfd_core::physics::fluid::non_newtonian::CarreauYasuda;
 use cfd_core::physics::fluid::FluidTrait;
 use cfd_schematics::domain::model::{ChannelSpec, NodeKind, NodeSpec};
-use cfd_schematics::visualizations::{
-    analysis_field::{AnalysisField, AnalysisOverlay, ColormapKind},
-    traits::{RenderConfig, SchematicRenderer},
-    PlottersRenderer,
-};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ── 1. Fluid Properties ──────────────────────────────────────────────────

@@ -59,25 +59,6 @@ fn legendre_poly(n: usize, x: f64) -> f64 {
     }
 }
 
-/// Derivative of Legendre polynomial
-#[allow(dead_code)]
-fn legendre_poly_deriv(n: usize, x: f64) -> f64 {
-    if n == 0 {
-        return 0.0;
-    }
-
-    // Handle endpoints to avoid division by zero
-    if (x - 1.0).abs() < 1e-15 {
-        return (n * (n + 1)) as f64 / 2.0;
-    }
-    if (x + 1.0).abs() < 1e-15 {
-        let val = (n * (n + 1)) as f64 / 2.0;
-        return if (n - 1).is_multiple_of(2) { val } else { -val };
-    }
-
-    (n as f64 / (1.0 - x * x)) * (legendre_poly(n - 1, x) - x * legendre_poly(n, x))
-}
-
 /// Compute Legendre-Gauss-Lobatto nodes using Newton's method
 fn compute_lgl_nodes(n: usize) -> Result<Vec<f64>> {
     if n < 1 {

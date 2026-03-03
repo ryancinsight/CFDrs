@@ -14,7 +14,7 @@
 //! a Directed Acyclic Graph (DAG).
 //!
 //! ### Theorem: Isomorphic Subtree Compression
-//! Two subtrees $T_1 = T_2$ structurally and by value if and only if their
+//! Two subtrees $`T_1` = `T_2`$ structurally and by value if and only if their
 //! child pointers map to identical DAG indices. Uniqueness is guaranteed by
 //! bottom-up hashing.
 
@@ -50,6 +50,7 @@ pub struct SparseVoxelOctree {
 
 impl SparseVoxelOctree {
     /// Create a new empty SVO over `domain_aabb`.
+    #[must_use] 
     pub fn new(domain_aabb: Aabb) -> Self {
         let empty_leaf = SvoNode::Leaf(false);
         let nodes = vec![empty_leaf.clone()];
@@ -112,7 +113,7 @@ impl SparseVoxelOctree {
 
     /// Rasterize an explicit AABB into the SVO DAG up to `max_depth`.
     pub fn insert_aabb(&mut self, target: &Aabb, max_depth: u8) {
-        let root = self.root_aabb.clone();
+        let root = self.root_aabb;
         let current_root = self.root_index;
         self.root_index = self.insert_recursive(current_root, &root, target, 0, max_depth);
     }

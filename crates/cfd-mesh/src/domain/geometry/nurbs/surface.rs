@@ -39,6 +39,7 @@ impl ControlGrid {
     ///
     /// # Panics
     /// Panics if `data.len() != n_rows * n_cols`.
+    #[must_use] 
     pub fn new(data: Vec<Pt3>, n_rows: usize, n_cols: usize) -> Self {
         assert_eq!(
             data.len(),
@@ -53,17 +54,20 @@ impl ControlGrid {
     }
 
     /// Number of rows (u direction).
+    #[must_use] 
     pub fn n_rows(&self) -> usize {
         self.n_rows
     }
 
     /// Number of columns (v direction).
+    #[must_use] 
     pub fn n_cols(&self) -> usize {
         self.n_cols
     }
 
     /// Access control point at `(row, col)`.
     #[inline]
+    #[must_use] 
     pub fn get(&self, i: usize, j: usize) -> Pt3 {
         self.data[i * self.n_cols + j]
     }
@@ -83,6 +87,7 @@ pub struct WeightGrid {
 
 impl WeightGrid {
     /// All-ones weight grid (equivalent to B-spline).
+    #[must_use] 
     pub fn uniform(n_rows: usize, n_cols: usize) -> Self {
         Self {
             data: vec![1.0; n_rows * n_cols],
@@ -95,10 +100,11 @@ impl WeightGrid {
     ///
     /// # Panics
     /// Panics if any weight <= 0 or length mismatch.
+    #[must_use] 
     pub fn new(data: Vec<Real>, n_rows: usize, n_cols: usize) -> Self {
         assert_eq!(data.len(), n_rows * n_cols);
         for (i, &w) in data.iter().enumerate() {
-            assert!(w > 0.0, "weight[{}] = {} is not positive", i, w);
+            assert!(w > 0.0, "weight[{i}] = {w} is not positive");
         }
         Self {
             data,
@@ -109,15 +115,18 @@ impl WeightGrid {
 
     /// Access weight at `(row, col)`.
     #[inline]
+    #[must_use] 
     pub fn get(&self, i: usize, j: usize) -> Real {
         self.data[i * self.n_cols + j]
     }
 
     /// Dimensions.
+    #[must_use] 
     pub fn n_rows(&self) -> usize {
         self.n_rows
     }
     /// Dimensions.
+    #[must_use] 
     pub fn n_cols(&self) -> usize {
         self.n_cols
     }
@@ -155,7 +164,7 @@ impl std::fmt::Display for SurfaceError {
         match self {
             SurfaceError::EmptyControlGrid => write!(f, "control grid is empty"),
             SurfaceError::ZeroDegree { direction } => {
-                write!(f, "degree in {} direction must be >= 1", direction)
+                write!(f, "degree in {direction} direction must be >= 1")
             }
             SurfaceError::KnotCountMismatch {
                 direction,
@@ -164,8 +173,7 @@ impl std::fmt::Display for SurfaceError {
             } => {
                 write!(
                     f,
-                    "knot-{}: expected {} knots, got {}",
-                    direction, expected, got
+                    "knot-{direction}: expected {expected} knots, got {got}"
                 )
             }
             SurfaceError::WeightGridMismatch => {
@@ -184,7 +192,7 @@ impl std::error::Error for SurfaceError {}
 /// A non-rational tensor-product B-spline surface.
 ///
 /// Evaluation:
-///   S(u, v) = sum_i sum_j  N_{i,p}(u) * N_{j,q}(v) * P_{ij}
+///   S(u, v) = `sum_i` `sum_j`  N_{i,p}(u) * N_{j,q}(v) * P_{ij}
 ///
 /// where N_{i,p} and N_{j,q} are B-spline basis functions computed by
 /// Cox-de Boor recursion.
@@ -265,11 +273,13 @@ impl BSplineSurface {
     }
 
     /// Parameter domain `((u_min, u_max), (v_min, v_max))`.
+    #[must_use] 
     pub fn domain(&self) -> ((Real, Real), (Real, Real)) {
         (self.knots_u.domain(), self.knots_v.domain())
     }
 
     /// Evaluate the surface at `(u, v)`.
+    #[must_use] 
     pub fn point(&self, u: Real, v: Real) -> Pt3 {
         let n_u = self.control_grid.n_cols() - 1; // u = cols
         let n_v = self.control_grid.n_rows() - 1; // v = rows
@@ -291,6 +301,7 @@ impl BSplineSurface {
     }
 
     /// Evaluate surface point and partial derivatives `(S, dS/du, dS/dv)`.
+    #[must_use] 
     pub fn point_and_derivs(&self, u: Real, v: Real) -> (Pt3, Vec3, Vec3) {
         let n_u = self.control_grid.n_cols() - 1; // u = cols
         let n_v = self.control_grid.n_rows() - 1; // v = rows
@@ -318,6 +329,7 @@ impl BSplineSurface {
 
     /// Unit surface normal at `(u, v)` = normalize(dS/du cross dS/dv).
     /// Returns `None` if the surface is degenerate at `(u, v)`.
+    #[must_use] 
     pub fn normal(&self, u: Real, v: Real) -> Option<UnitVector3<Real>> {
         let (_, du, dv) = self.point_and_derivs(u, v);
         UnitVector3::try_new(du.cross(&dv), 1e-15)
@@ -331,8 +343,8 @@ impl BSplineSurface {
 /// A rational tensor-product NURBS surface.
 ///
 /// Evaluation (rational):
-///   S(u,v) = (sum_ij N_i(u) * N_j(v) * w_ij * P_ij)
-///           / (sum_ij N_i(u) * N_j(v) * w_ij)
+///   S(u,v) = (`sum_ij` `N_i(u)` * `N_j(v)` * `w_ij` * `P_ij`)
+///           / (`sum_ij` `N_i(u)` * `N_j(v)` * `w_ij`)
 ///
 /// Exact conics (spheres, cylinders) arise from specific weight configurations.
 #[derive(Clone, Debug)]
@@ -383,6 +395,7 @@ impl NurbsSurface {
     }
 
     /// Create a NURBS surface from a B-spline (all weights = 1).
+    #[must_use] 
     pub fn from_bspline(s: BSplineSurface) -> Self {
         let w = WeightGrid::uniform(s.control_grid.n_rows(), s.control_grid.n_cols());
         Self {
@@ -406,11 +419,13 @@ impl NurbsSurface {
     }
 
     /// Parameter domain `((u_min, u_max), (v_min, v_max))`.
+    #[must_use] 
     pub fn domain(&self) -> ((Real, Real), (Real, Real)) {
         (self.knots_u.domain(), self.knots_v.domain())
     }
 
     /// Evaluate the NURBS surface at `(u, v)`.
+    #[must_use] 
     pub fn point(&self, u: Real, v: Real) -> Pt3 {
         let (num, den) = self.rational_eval(u, v);
         if den.abs() < 1e-15 {
@@ -423,7 +438,8 @@ impl NurbsSurface {
     ///
     /// Uses the quotient rule:
     ///   dS/du = (dA/du * W - A * dW/du) / W^2
-    /// where A = sum N_i(u) N_j(v) w_ij P_ij and W = sum N_i N_j w_ij.
+    /// where A = sum `N_i(u)` `N_j(v)` `w_ij` `P_ij` and W = sum `N_i` `N_j` `w_ij`.
+    #[must_use] 
     pub fn point_and_derivs(&self, u: Real, v: Real) -> (Pt3, Vec3, Vec3) {
         let n_u = self.control_grid.n_cols() - 1; // u = cols
         let n_v = self.control_grid.n_rows() - 1; // v = rows
@@ -468,12 +484,14 @@ impl NurbsSurface {
 
     /// Unit surface normal at `(u, v)`.
     /// Returns `None` if degenerate (zero cross product).
+    #[must_use] 
     pub fn normal(&self, u: Real, v: Real) -> Option<UnitVector3<Real>> {
         let (_, du, dv) = self.point_and_derivs(u, v);
         UnitVector3::try_new(du.cross(&dv), 1e-15)
     }
 
     /// Axis-aligned bounding box from a resolution x resolution sample grid.
+    #[must_use] 
     pub fn aabb(&self, resolution: usize) -> crate::domain::geometry::Aabb {
         use crate::domain::geometry::Aabb;
         let mut aabb = Aabb::empty();

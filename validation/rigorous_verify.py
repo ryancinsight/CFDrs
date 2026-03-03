@@ -11,12 +11,12 @@ Validated Components:
 4. 2D Venturi Throat (Pressure Coefficient)
 
 Requirements:
-- pycfdrs (built via maturin develop)
+- cfd_python (built via maturin develop)
 - numpy
 - matplotlib (optional, for visualization)
 """
 
-import pycfdrs
+import cfd_python
 import numpy as np
 import sys
 
@@ -29,7 +29,7 @@ def verify_1d_bifurcation():
     print_header("1D Vascular Bifurcation (Casson Blood)")
     
     # 100um parent, 80um daughters (Murray's law deviation ~1.6%)
-    solver = pycfdrs.BifurcationSolver(
+    solver = cfd_python.BifurcationSolver(
         d_parent=100e-6, 
         d_daughter1=80e-6, 
         d_daughter2=80e-6,
@@ -54,7 +54,7 @@ def verify_3d_bifurcation():
     print_header("3D FEM Bifurcation (Casson Blood)")
     
     # Using the same parameters to compare 3D vs 1D
-    solver = pycfdrs.Bifurcation3DSolver(
+    solver = cfd_python.Bifurcation3DSolver(
         d_parent=100e-6,
         d_daughter1=80e-6,
         d_daughter2=80e-6,
@@ -88,7 +88,7 @@ def verify_2d_poiseuille_blood():
     print_header("2D Channel Flow (Blood Rheology)")
     
     # 200um height, 1mm length
-    solver = pycfdrs.Poiseuille2DSolver(
+    solver = cfd_python.Poiseuille2DSolver(
         height=200e-6,
         width=1.0,
         length=1e-3,
@@ -130,7 +130,7 @@ def verify_3d_trifurcation():
     # D_parent = 100um, D_daughter = 69.3um satisfies D0^3 = 3 * Dd^3
     d_d = 100e-6 * (1/3)**(1/3) # ~69.33 um
     
-    solver = pycfdrs.Trifurcation3DSolver(
+    solver = cfd_python.Trifurcation3DSolver(
         d_parent=100e-6,
         d_daughter=d_d,
         length=1e-3

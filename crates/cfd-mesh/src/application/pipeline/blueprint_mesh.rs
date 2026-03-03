@@ -200,15 +200,18 @@ impl BlueprintMeshPipeline {
         // Bifurcation (diamond): build upper route as a polyline, then union the lower
         // fork tubes individually — avoids 3-way endpoint CDT failures at the two
         // T-junctions (see `build_bifurcation_fluid_mesh` for details).
-        // All other topologies: per-segment mesh + iterative CSG union.
+        // VenturiChain / Trifurcation / ParallelArray: per-segment meshes + iterative
+        // CSG union.  ParallelArray channels are non-overlapping (different Y rows)
+        // so no T-junction degeneracy arises.
         let mut fluid_mesh = if matches!(&class, TopologyClass::LinearChain { .. }) {
             build_polyline_mesh(&layout, 0.0, config)?
         } else if matches!(&class, TopologyClass::Bifurcation) {
             build_bifurcation_fluid_mesh(&mesh_layout, config)?
+        } else if matches!(&class, TopologyClass::Trifurcation) {
+            build_trifurcation_fluid_mesh(&mesh_layout, config)?
+        } else if matches!(&class, TopologyClass::VenturiChain) {
+            build_venturi_chain_mesh(&mesh_layout, config)?
         } else {
-            // VenturiChain, Trifurcation, ParallelArray: per-segment meshes + iterative
-            // CSG union.  ParallelArray channels are non-overlapping (different Y rows)
-            // so no T-junction degeneracy arises.
             let segment_meshes: Vec<IndexedMesh> = mesh_layout
                 .iter()
                 .map(|seg| build_segment_mesh(seg, config))
@@ -241,7 +244,7 @@ impl BlueprintMeshPipeline {
                 // exactly ±X/±Y along the straight turn body — touching the
                 // substrate face at the tube's outer rim.
                 //
-                // Workaround: use one STRAIGHT row void per serpentine row.
+                // Strategy: use one STRAIGHT row void per serpentine row.
                 // Adjacent rows are non-overlapping (row_pitch > 2r), so their
                 // CSG union is trivial (no 90° T-junction CDT issue).  The chip
                 // body has 2·n clean circular through-holes (n per face) and
@@ -254,18 +257,23 @@ impl BlueprintMeshPipeline {
                     .map(|(_, seg)| seg.clone())
                     .collect();
                 build_chip_body(&rows_only, config)?
-            } else if matches!(
-                &class,
-                TopologyClass::Trifurcation | TopologyClass::Bifurcation
-            ) {
-                // Pre-unioning void tubes before the Difference step causes a CDT
-                // panic in corefine_face for any branching topology: the complex
-                // junction faces of the multi-tube void union produce overlapping
-                // constraint segments in the 2-D PSLG projection.  Sequential
-                // subtraction keeps each void operand as a simple single-cylinder
-                // mesh with clean cap geometry, avoiding the problematic junction
-                // faces entirely.
-                build_chip_body_sequential(&mesh_layout, config)?
+            } else if matches!(&class, TopologyClass::Bifurcation) {
+                // Bifurcation: reuse the already-computed and watertight `fluid_mesh`
+                // as the CSG void for the chip body.  The 2-arm topology produces a
+                // clean substrate difference via the GWN classifier.
+                csg_boolean_indexed(BooleanOp::Difference, &SubstrateBuilder::well_plate_96(config.chip_height_mm).build_indexed()?, &fluid_mesh)?
+            } else if matches!(&class, TopologyClass::Trifurcation) {
+                // Trifurcation: the 3-way junction CDT fails when the two angled
+                // arm tubes meet at the same junction point inside the substrate.
+                // Reuse fluid_mesh as the void (same approach as bifurcation);
+                // the fluid_mesh was built by build_trifurcation_fluid_mesh so it
+                // is already verified watertight by spine+arm CSG unions in order.
+                csg_boolean_indexed(BooleanOp::Difference, &SubstrateBuilder::well_plate_96(config.chip_height_mm).build_indexed()?, &fluid_mesh)?
+            } else if matches!(&class, TopologyClass::VenturiChain) {
+                // VenturiChain: build the void via the same annular-cap direct
+                // sweep path used for the fluid mesh, then subtract from substrate.
+                let void_mesh = build_venturi_chain_mesh(&mesh_layout, config)?;
+                csg_boolean_indexed(BooleanOp::Difference, &SubstrateBuilder::well_plate_96(config.chip_height_mm).build_indexed()?, &void_mesh)?
             } else {
                 build_chip_body(&mesh_layout, config)?
             })
@@ -304,23 +312,37 @@ fn synthesize_layout(
 ) -> MeshResult<Vec<SegmentLayout>> {
     match class {
         // Venturi chain: straight X-axis layout (varying cross-section along one axis).
+        //
+        // Blueprint channel lengths are rescaled proportionally so the total
+        // X span equals the full chip width (0 → chip_w).  This guarantees
+        // inlet/outlet caps touch the chip faces, producing clean circular port
+        // holes when the chip body CSG Difference is applied.  Section ratios
+        // are preserved — a 1:1:1 blueprint stays 1:1:1 on the chip.
         TopologyClass::VenturiChain => {
             let channels = topo.linear_path_channels().ok_or_else(|| MeshError::ChannelError {
                 message: "expected linear path but traversal failed".to_string(),
             })?;
+            let chip_w = SbsWellPlate96::WIDTH_MM;
+            let total_len_mm: Real = channels.iter().map(|ch| ch.length_m * 1000.0).sum();
+            let scale = if total_len_mm > 1e-9 { chip_w / total_len_mm } else { 1.0 };
 
             let mut layout = Vec::with_capacity(channels.len());
             let mut x: Real = 0.0;
-            for ch in &channels {
-                let seg_len = ch.length_m * 1000.0; // m → mm
+            let n = channels.len();
+            for (i, ch) in channels.iter().enumerate() {
+                let seg_len = ch.length_m * 1000.0 * scale;
                 let start = Point3r::new(x, y_center, z_mid);
-                let end = Point3r::new(x + seg_len, y_center, z_mid);
+                // Clamp the final endpoint to chip_w exactly to prevent
+                // floating-point accumulation from overshooting the routing
+                // bounds check (e.g. 127.760000000000002 > 127.76).
+                let x_end = if i + 1 == n { chip_w } else { x + seg_len };
+                let end = Point3r::new(x_end, y_center, z_mid);
                 layout.push(SegmentLayout {
                     start,
                     end,
                     cross_section: ch.cross_section,
                 });
-                x += seg_len;
+                x = x_end;
             }
             Ok(layout)
         }
@@ -481,37 +503,78 @@ fn synthesize_layout(
         // surface (at x = chip_w/2, which is well before chip_w), so the V-fork
         // CSG trick applies naturally — no 3-way endpoint CDT degeneracy.
         TopologyClass::Trifurcation => {
-            let (parent, d1, _d2, d3) =
+            let (parent_in, d1, d2, d3, parent_out) =
                 topo.trifurcation_channels().ok_or_else(|| MeshError::ChannelError {
                     message: "trifurcation topology detected but channel decomposition failed"
                         .to_string(),
                 })?;
 
             let chip_w    = SbsWellPlate96::WIDTH_MM;
-            let junction_x = chip_w / 2.0;
-
-            // Y-spread of the outer daughters, capped to stay within routing
-            // bounds (y ∈ [wall_clearance, DEPTH_MM − wall_clearance]).
             let max_half_y = y_center - config.wall_clearance_mm;
-            let angle: Real = config.trifurcation_half_angle_rad;
-            let d_vert = (junction_x * angle.tan()).min(max_half_y);
 
-            let mut layout = Vec::with_capacity(3);
-            // Merged straight: inlet face → right face (full chip width).
-            // The center outlet is the end cap of this segment at (chip_w, y_center).
+            // Fixed-fraction layout
+            let div_x  = chip_w * 0.25;           // 25 % — split/merge x
+            let arm_x  = chip_w * 0.125;          // 12.5 % — arm x-span
+            let p_x1   = div_x + arm_x;           // 37.5 % — parallel start
+            let p_x2   = chip_w - div_x - arm_x;  // 62.5 % — parallel end
+            let conv_x = chip_w - div_x;          // 75 % — converging junction
+
+            let angle: Real = config.trifurcation_half_angle_rad;
+            let d_vert = (arm_x * angle.tan()).min(max_half_y);
+
+            let mut layout = Vec::with_capacity(9);
+
+            // 1. Inlet straight (parent_in cross-section)
             layout.push(SegmentLayout {
-                start: Point3r::new(0.0, y_center, z_mid),
-                end:   Point3r::new(chip_w, y_center, z_mid),
-                cross_section: parent.cross_section,
+                start: Point3r::new(0.0,   y_center, z_mid),
+                end:   Point3r::new(div_x, y_center, z_mid),
+                cross_section: parent_in.cross_section,
             });
-            // Outer daughters from junction to right face, spread ± d_vert in Y.
-            for (d, vert) in [(d1, d_vert), (d3, -d_vert)] {
-                layout.push(SegmentLayout {
-                    start: Point3r::new(junction_x, y_center, z_mid),
-                    end:   Point3r::new(chip_w, y_center + vert, z_mid),
-                    cross_section: d.cross_section,
-                });
-            }
+            // 2-4. Upper daughter: arm_in → parallel → arm_out (d1 cross-section)
+            layout.push(SegmentLayout {
+                start: Point3r::new(div_x, y_center,          z_mid),
+                end:   Point3r::new(p_x1,  y_center + d_vert, z_mid),
+                cross_section: d1.cross_section,
+            });
+            layout.push(SegmentLayout {
+                start: Point3r::new(p_x1, y_center + d_vert, z_mid),
+                end:   Point3r::new(p_x2, y_center + d_vert, z_mid),
+                cross_section: d1.cross_section,
+            });
+            layout.push(SegmentLayout {
+                start: Point3r::new(p_x2,   y_center + d_vert, z_mid),
+                end:   Point3r::new(conv_x, y_center,           z_mid),
+                cross_section: d1.cross_section,
+            });
+            // 5. Center daughter: straight across (d2 cross-section)
+            layout.push(SegmentLayout {
+                start: Point3r::new(div_x, y_center, z_mid),
+                end:   Point3r::new(conv_x, y_center, z_mid),
+                cross_section: d2.cross_section,
+            });
+            // 6-8. Lower daughter: arm_in → parallel → arm_out (d3 cross-section)
+            layout.push(SegmentLayout {
+                start: Point3r::new(div_x, y_center,          z_mid),
+                end:   Point3r::new(p_x1,  y_center - d_vert, z_mid),
+                cross_section: d3.cross_section,
+            });
+            layout.push(SegmentLayout {
+                start: Point3r::new(p_x1, y_center - d_vert, z_mid),
+                end:   Point3r::new(p_x2, y_center - d_vert, z_mid),
+                cross_section: d3.cross_section,
+            });
+            layout.push(SegmentLayout {
+                start: Point3r::new(p_x2,   y_center - d_vert, z_mid),
+                end:   Point3r::new(conv_x, y_center,           z_mid),
+                cross_section: d3.cross_section,
+            });
+            // 9. Outlet straight (parent_out cross-section)
+            layout.push(SegmentLayout {
+                start: Point3r::new(conv_x, y_center, z_mid),
+                end:   Point3r::new(chip_w, y_center, z_mid),
+                cross_section: parent_out.cross_section,
+            });
+
             Ok(layout)
         }
 
@@ -715,8 +778,236 @@ fn assemble_fluid_mesh(meshes: Vec<IndexedMesh>) -> MeshResult<IndexedMesh> {
     for mesh in iter {
         accumulated = csg_boolean_indexed(BooleanOp::Union, &accumulated, &mesh)?;
     }
+
+    // Post-CSG repair: the iterative union can leave a small number of
+    // misoriented faces (winding flips at T-junction seams) and phantom
+    // disconnected triangles.  orient_outward() corrects the winding via
+    // BFS flood-fill, and retain_largest_component() removes any floating
+    // island faces that individually pass watertight=true but corrupt the
+    // Euler characteristic of the whole mesh.
+    accumulated.orient_outward();
+    accumulated.retain_largest_component();
+    accumulated.rebuild_edges();
+
+    if !accumulated.is_watertight() {
+        let count = accumulated.edges_ref().map_or(0, |e| {
+            e.boundary_edges().len()
+        });
+        return Err(MeshError::NotWatertight { count });
+    }
     Ok(accumulated)
 }
+
+// ── Venturi chain concatenated sweep (no CSG) ─────────────────────────────────
+
+/// Build the fluid mesh for a VenturiChain topology — NO CSG union required.
+///
+/// ## Algorithm
+///
+/// For a venturi with segments `[seg_0 (R_in), seg_1 (R_throat), seg_2 (R_in)]`, the
+/// assembled mesh consists of:
+///
+/// 1. **Start cap** — outward-facing fan for `seg_0`.
+/// 2. **Lateral surface** per segment — quad-strip connecting adjacent rings.
+/// 3. **Annular cap** at each cross-section change — connects the outer ring
+///    (`R_large`) to the inner ring (`R_small`) at the same axial position.
+///    This ring-pair forms a closed annular disk.
+/// 4. **End cap** — outward-facing fan for the last segment.
+///
+/// ## Why not CSG union?
+///
+/// CSG union of two coaxial circular tubes with different radii places their
+/// shared intersection circle exactly on the boundary of both meshes.  The GWN
+/// classifier returns `wn ≈ 0.5` for all seam fragments at that circle, and the
+/// exact-predicate tiebreaker fails to close the resulting 6-edge hole.  The
+/// boundary-hole patcher cannot fix this because the open chain does not form a
+/// simple closed polygon.  Direct construction is the only correct approach for
+/// step-change cross-section venturis.
+fn build_venturi_chain_mesh(
+    layout: &[SegmentLayout],
+    config: &PipelineConfig,
+) -> MeshResult<IndexedMesh> {
+    use crate::domain::core::scalar::Point3r;
+
+    if layout.is_empty() {
+        return Err(MeshError::ChannelError {
+            message: "empty layout for venturi chain mesh".to_string(),
+        });
+    }
+
+    let n_seg = layout.len();
+
+    // Helper: extract numeric radius [mm] from cross-section spec.
+    fn segment_radius_mm(seg: &SegmentLayout) -> f64 {
+        match seg.cross_section {
+            cfd_schematics::CrossSectionSpec::Circular { diameter_m } => diameter_m / 2.0 * 1000.0,
+            cfd_schematics::CrossSectionSpec::Rectangular { width_m, height_m } => {
+                // Use half-diagonal as effective radius for rectangular profiles.
+                0.5 * (width_m * width_m + height_m * height_m).sqrt() * 1000.0
+            }
+        }
+    }
+
+    let n_seg_pts = config.circular_segments;
+
+    // Build all faces directly into a shared pool to avoid CSG.
+    let mut pool = VertexPool::for_csg();
+    let mut all_faces: Vec<crate::infrastructure::storage::face_store::FaceData> = Vec::new();
+
+    // Helper: generate CCW ring of `n` vertices at `position` with radius `r`
+    // using the frame from a ChannelPath (normal = +Y, binormal = +Z for +X tangent).
+    let make_ring = |position: Point3r, r: f64, pool: &mut VertexPool| -> Vec<crate::domain::core::index::VertexId> {
+        let path_tmp = ChannelPath::straight(
+            position,
+            Point3r::new(position.x + 1.0, position.y, position.z),
+        );
+        let frame = &path_tmp.compute_frames()[0];
+        let n = n_seg_pts;
+        let two_pi = 2.0 * std::f64::consts::PI;
+        (0..n)
+            .map(|k| {
+                let theta = two_pi * k as f64 / n as f64;
+                let x = theta.cos() * r;
+                let y = theta.sin() * r;
+                let pos = frame.position + frame.normal * x + frame.binormal * y;
+                let outward = (pos - frame.position).normalize();
+                pool.insert_or_weld(pos, outward)
+            })
+            .collect()
+    };
+
+    let region = RegionId::from_usize(0);
+
+    // Build per-segment rings: each segment has a START ring and END ring.
+    // We store them as (start_ring, end_ring) per segment.
+    let mut segment_rings: Vec<(Vec<crate::domain::core::index::VertexId>, Vec<crate::domain::core::index::VertexId>)> = Vec::new();
+
+    for seg in layout {
+        let r = segment_radius_mm(seg);
+        let start_ring = make_ring(seg.start, r, &mut pool);
+        let end_ring   = make_ring(seg.end,   r, &mut pool);
+        segment_rings.push((start_ring, end_ring));
+    }
+
+    // ── Start cap (outward = -X because inlet faces towards -X) ──────────────
+    {
+        let first_seg = &layout[0];
+        let start_pos = first_seg.start;
+        let path_tmp = ChannelPath::straight(
+            start_pos,
+            Point3r::new(start_pos.x + 1.0, start_pos.y, start_pos.z),
+        );
+        let frame = &path_tmp.compute_frames()[0];
+        let center = pool.insert_or_weld(start_pos, -frame.tangent);
+        let ring = &segment_rings[0].0;
+        let n = ring.len();
+        for i in 0..n {
+            let j = (i + 1) % n;
+            all_faces.push(crate::infrastructure::storage::face_store::FaceData::new(center, ring[j], ring[i], region));
+        }
+    }
+
+    // ── Lateral strips + annular junction caps ────────────────────────────────
+    for s in 0..n_seg {
+        let (ref start_ring, ref end_ring) = segment_rings[s];
+        let n = start_ring.len();
+
+        // Lateral quad-strip for segment s.
+        for i in 0..n {
+            let j = (i + 1) % n;
+            all_faces.push(crate::infrastructure::storage::face_store::FaceData::new(start_ring[i], end_ring[j], end_ring[i], region));
+            all_faces.push(crate::infrastructure::storage::face_store::FaceData::new(start_ring[i], start_ring[j], end_ring[j], region));
+        }
+
+        // Annular cap at the boundary between segment s and segment s+1.
+        if s + 1 < n_seg {
+            let r_a = segment_radius_mm(&layout[s]);
+            let r_b = segment_radius_mm(&layout[s + 1]);
+
+            // If cross-section changes, emit an annular disk between ring_a (R_a) and ring_b (R_b).
+            // The annular disk is only needed when the radius changes.
+            let radius_diff = (r_a - r_b).abs();
+            if radius_diff > 1e-9 {
+                let ring_a = &segment_rings[s].1;      // end ring of seg s (R_a)
+                let ring_b = &segment_rings[s + 1].0;  // start ring of seg s+1 (R_b)
+
+                // Winding convention — must satisfy the half-edge pairing invariant:
+                //
+                //   • The lateral strip for seg s (face1) produces half-edge ring_a[j]→ring_a[i].
+                //     The annular cap must produce the REVERSE ring_a[i]→ring_a[j].
+                //   • The lateral strip for seg s+1 (face2) produces ring_b[i]→ring_b[j].
+                //     The annular cap must produce the REVERSE ring_b[j]→ring_b[i].
+                //
+                // For a contraction (r_a > r_b), the shoulder face normal = +X (away from inlet):
+                //   F1: [ring_b[j], ring_b[i], ring_a[i]]  → ring_b[j]→ring_b[i], ring_b[i]→ring_a[i], ring_a[i]→ring_b[j]
+                //   F2: [ring_a[j], ring_b[j], ring_a[i]]  → ring_a[j]→ring_b[j], ring_b[j]→ring_a[i], ring_a[i]→ring_a[j]
+                // For an expansion (r_b > r_a), normal = -X (away from outlet):
+                //   F1: [ring_a[i], ring_a[j], ring_b[j]]  → ring_a[i]→ring_a[j], ring_a[j]→ring_b[j], ring_b[j]→ring_a[i]
+                //   F2: [ring_a[i], ring_b[j], ring_b[i]]  → ring_a[i]→ring_b[j], ring_b[j]→ring_b[i], ring_b[i]→ring_a[i]
+                let contraction = r_a > r_b;
+                let n = ring_a.len().min(ring_b.len());
+                for i in 0..n {
+                    let j = (i + 1) % n;
+                    if contraction {
+                        all_faces.push(crate::infrastructure::storage::face_store::FaceData::new(ring_b[j], ring_b[i], ring_a[i], region));
+                        all_faces.push(crate::infrastructure::storage::face_store::FaceData::new(ring_a[j], ring_b[j], ring_a[i], region));
+                    } else {
+                        all_faces.push(crate::infrastructure::storage::face_store::FaceData::new(ring_a[i], ring_a[j], ring_b[j], region));
+                        all_faces.push(crate::infrastructure::storage::face_store::FaceData::new(ring_a[i], ring_b[j], ring_b[i], region));
+                    }
+                }
+            }
+        }
+    }
+
+    // ── End cap ───────────────────────────────────────────────────────────────
+    {
+        let last_seg = &layout[n_seg - 1];
+        let end_pos = last_seg.end;
+        let path_tmp = ChannelPath::straight(
+            Point3r::new(end_pos.x - 1.0, end_pos.y, end_pos.z),
+            end_pos,
+        );
+        let frames = path_tmp.compute_frames();
+        let frame = frames.last().unwrap();
+        let center = pool.insert_or_weld(end_pos, frame.tangent);
+        let ring = &segment_rings[n_seg - 1].1;
+        let n = ring.len();
+        for i in 0..n {
+            let j = (i + 1) % n;
+            all_faces.push(crate::infrastructure::storage::face_store::FaceData::new(center, ring[i], ring[j], region));
+        }
+    }
+
+    // ── Reconstruct IndexedMesh with explicit vertex remap ────────────────────
+    //
+    // `IndexedMesh::add_vertex` uses the mesh's own internal `insert_or_weld`
+    // which may return IDs that differ from the pool's sequential indices.
+    // Capture the explicit pool → mesh remap.
+    let mut mesh = IndexedMesh::new();
+    let mut vertex_remap: Vec<crate::domain::core::index::VertexId> =
+        Vec::with_capacity(pool.len());
+    for (_, vdata) in pool.iter() {
+        let mesh_vid = mesh.add_vertex(vdata.position, vdata.normal);
+        vertex_remap.push(mesh_vid);
+    }
+    for face in &all_faces {
+        mesh.add_face_with_region(
+            vertex_remap[face.vertices[0].as_usize()],
+            vertex_remap[face.vertices[1].as_usize()],
+            vertex_remap[face.vertices[2].as_usize()],
+            face.region,
+        );
+    }
+    mesh.recompute_normals();
+    mesh.rebuild_edges();
+    if !mesh.is_watertight() {
+        let count = mesh.edges_ref().map_or(0, |e| e.boundary_edges().len());
+        return Err(MeshError::NotWatertight { count });
+    }
+    Ok(mesh)
+}
+
 
 // ── Boundary labeling ─────────────────────────────────────────────────────────
 
@@ -754,9 +1045,8 @@ fn label_boundaries(
             vec![layout.last().unwrap().end]
         }
         TopologyClass::Trifurcation => {
-            // Layout has 3 segments: [merged_straight, d1_angled, d3_angled].
-            // All three ends are outlet faces.
-            layout.iter().map(|s| s.end).collect()
+            // Diamond layout: [0]=inlet_straight … [8]=outlet_straight.
+            vec![layout.last().unwrap().end]
         }
         TopologyClass::ParallelArray { .. } => {
             // Every channel has its own outlet cap at x = chip_w.
@@ -819,47 +1109,33 @@ fn cross_section_diameter_mm(cs: &CrossSectionSpec) -> Real {
 
 /// Build the fluid mesh for a [`TopologyClass::Bifurcation`] diamond layout.
 ///
-/// # Why spine + individual segments in interleaved order?
+/// ## Algorithm — two-fork polyline approach
 ///
-/// The 8-segment diamond has two T-junctions (diverging at 25 % and converging
-/// at 75 % chip width) where three tube axes meet at the same spine point.
+/// The 8-segment diamond layout is:
+/// ```text
+/// [0] inlet_straight   – spine segment at y_center  (parent diameter)
+/// [1] upper_arm_in     – diagonal (div_x, y_center) → (div_x, y_upper)
+/// [2] upper_parallel   – horizontal at y_upper
+/// [3] upper_arm_out    – diagonal (conv_x, y_upper) → (conv_x, y_center)
+/// [4] lower_arm_in     – diagonal (div_x, y_center) → (div_x, y_lower)
+/// [5] lower_parallel   – horizontal at y_lower
+/// [6] lower_arm_out    – diagonal (conv_x, y_lower) → (conv_x, y_center)
+/// [7] outlet_straight  – spine segment at y_center  (parent diameter)
+/// ```
 ///
-/// **Naïve sequential CSG of 8 segments** — the inlet ends at (div_x, y_c), so
-/// after `inlet ∪ upper_arm_in` the point (div_x, y_c) is an interior bend.
-/// Adding `lower_arm_in` there creates a 3-way bend-point junction that triggers
-/// a CDT PSLG panic.
+/// **Root cause of prior failure**: adding `upper_parallel` (seg [2]) onto the
+/// accumulated mesh containing `upper_arm_in` (seg [1]) via CSG union creates a
+/// coaxial same-diameter end-to-end connection.  This is geometrically identical
+/// to the VenturiChain coaxial seam problem: the shared circular cap faces are
+/// exactly coincident, making GWN classification assign wn ≈ 0.5 to all seam
+/// fragments, leaving 5 unstitched boundary edges.
 ///
-/// **Fork-polyline approach** — using `build_polyline_mesh` for each full fork
-/// (arm_in + parallel + arm_out) avoids the arm–parallel bend issue, but the
-/// polyline spans *both* junction points (div_x and conv_x) simultaneously.  The
-/// second CSG step `result ∪ lower_fork` therefore has *two disconnected*
-/// intersection curves (one at div_x, one at conv_x), which causes 17 open
-/// boundary edges for the equal-diameter case.
-///
-/// # Solution — spine + per-segment interleaved unions
-///
-/// 1. **Spine**: a single straight segment from the inlet face `(0, y_c)` to
-///    the outlet face `(chip_w, y_c)`.  Both junction points `(div_x, y_c)` and
-///    `(conv_x, y_c)` are genuine **interior** points of this straight cylinder
-///    — smooth surface where forks branch off, identical to the trifurcation axle.
-///
-/// 2. **Six fork segments added individually** using `build_segment_mesh`, in
-///    interleaved (upper/lower) order:
-///
-///    ```text
-///    [1] upper_arm_in   → spine at div_x, lower side   (trifurcation pattern)
-///    [4] lower_arm_in   → spine at div_x, upper side   (opposite side — works)
-///    [2] upper_parallel → end-to-end from upper_arm_in  (single junction)
-///    [5] lower_parallel → end-to-end from lower_arm_in  (single junction)
-///    [3] upper_arm_out  → spine at conv_x, lower side  (clean spine surface)
-///    [6] lower_arm_out  → spine at conv_x, upper side  (opposite side — works)
-///    ```
-///
-///    Each step creates **exactly one** T-junction region with the accumulated
-///    result.  The interleaved order ensures that when the *second* arm is added
-///    at each junction (div_x or conv_x), the first arm already modified the
-///    *opposite* side of the spine — identical to how trifurcation outer daughters
-///    work.  This is valid for all diameter ratios including equal diameters.
+/// **Fix**: build each fork arm chain [1,2,3] and [4,5,6] as a single polyline
+/// sweep using `build_polyline_mesh`.  This produces a clean single-body mesh
+/// with no internal seams.  Then CSG-union the spine with the two fork meshes
+/// — exactly two T-junction operations where the diagonal arm meets the spine
+/// surface.  T-junctions between cylinders of different diameters at an angle
+/// are well-handled by the CSG arrangement pipeline.
 fn build_bifurcation_fluid_mesh(
     layout: &[SegmentLayout],
     config: &PipelineConfig,
@@ -873,38 +1149,86 @@ fn build_bifurcation_fluid_mesh(
         });
     }
 
-    // ── Step 1: full-width straight spine ────────────────────────────────────
+    // ── Step 1: inlet trunk segment (layout[0]) ───────────────────────────────
     //
-    // Merges inlet_straight (layout[0]) and outlet_straight (layout[7]) into
-    // one straight cylinder at y_center.  Both junction X positions (div_x and
-    // conv_x) are interior points of this smooth cylinder — no bends.
-    let spine = SegmentLayout {
-        start:         layout[0].start,            // (0.0, y_center, z_mid)
-        end:           layout[7].end,              // (chip_w, y_center, z_mid)
-        cross_section: layout[0].cross_section,    // parent_in diameter
-    };
-    let mut mesh = build_segment_mesh(&spine, config)?;
+    // Layout:
+    //   [0]   inlet trunk:   (0, y_center) → (div_x, y_center)
+    //   [1-3] upper fork:    arm_in → parallel → arm_out    (upper diamond)
+    //   [4-6] lower fork:    arm_in → parallel → arm_out    (lower diamond)
+    //   [7]   outlet trunk:  (conv_x, y_center) → (chip_w, y_center)
+    //
+    // WRONG pattern (previous): build a full-width spine (0→chip_w) then add
+    //   forks on top.  This produced a T-junction shape (looks like trifurcation).
+    //
+    // CORRECT pattern: build each trunk segment independently then CSG-union
+    //   each fork into the assembly.  Result is a proper diamond with two T-junctions
+    //   (one at the diverging junction, one at the converging junction).
+    let mut mesh = build_segment_mesh(&layout[0], config)?;
 
-    // ── Steps 2–7: fork segments in interleaved order ─────────────────────────
-    //
-    // Indices into `layout`:
-    //   [1] upper_arm_in, [4] lower_arm_in  — T-junctions at div_x
-    //   [2] upper_parallel, [5] lower_parallel — end-to-end connections
-    //   [3] upper_arm_out, [6] lower_arm_out — T-junctions at conv_x
-    //
-    // Interleaving upper/lower at each stage ensures the second arm at each
-    // junction enters from the OPPOSITE side of the spine axis — same geometry
-    // as trifurcation outer daughters, which is known-good for all diameter
-    // ratios including r_daughter = r_spine.
-    for seg_idx in [1_usize, 4, 2, 5, 3, 6] {
-        let seg_mesh = build_segment_mesh(&layout[seg_idx], config)?;
-        mesh = csg_boolean_indexed(BooleanOp::Union, &mesh, &seg_mesh)?;
+    // ── Step 2: upper fork arm chain [1,2,3] → single polyline sweep ──────────
+    let upper_fork = build_polyline_mesh(&layout[1..=3], 0.0, config)?;
+    mesh = csg_boolean_indexed(BooleanOp::Union, &mesh, &upper_fork)?;
+
+    // ── Step 3: lower fork arm chain [4,5,6] → single polyline sweep ──────────
+    let lower_fork = build_polyline_mesh(&layout[4..=6], 0.0, config)?;
+    mesh = csg_boolean_indexed(BooleanOp::Union, &mesh, &lower_fork)?;
+
+    // ── Step 4: outlet trunk segment (layout[7]) ──────────────────────────────
+    let outlet_trunk = build_segment_mesh(&layout[7], config)?;
+    mesh = csg_boolean_indexed(BooleanOp::Union, &mesh, &outlet_trunk)?;
+
+    // ── Post-CSG repair ───────────────────────────────────────────────────────
+    mesh.orient_outward();
+    mesh.rebuild_edges();
+
+    if !mesh.is_watertight() {
+        let count = mesh.edges_ref().map_or(0, |e| e.boundary_edges().len());
+        return Err(MeshError::NotWatertight { count });
     }
-
     Ok(mesh)
 }
 
-// ── Chip body ─────────────────────────────────────────────────────────────────
+fn build_trifurcation_fluid_mesh(
+    layout: &[SegmentLayout],
+    config: &PipelineConfig,
+) -> MeshResult<IndexedMesh> {
+    if layout.len() != 9 {
+        return Err(MeshError::ChannelError {
+            message: format!(
+                "diamond trifurcation expects 9 layout segments, got {}",
+                layout.len()
+            ),
+        });
+    }
+
+    // ── Step 1: Center Spine ──────────────────────────────────────────────────
+    // Instead of CSG unioning the inlet trunk, center fork, and outlet trunk,
+    // which creates coaxial degenerate intersections, we stitch them as a single
+    // connected Venturi chain mesh.
+    let spine_layout = vec![layout[0].clone(), layout[4].clone(), layout[8].clone()];
+    let mut mesh = build_venturi_chain_mesh(&spine_layout, config)?;
+
+    // ── Step 2: upper fork arm chain [1..=3] → single polyline sweep ──────────
+    let upper_fork = build_polyline_mesh(&layout[1..=3], 0.0, config)?;
+    mesh = csg_boolean_indexed(BooleanOp::Union, &mesh, &upper_fork)?;
+
+    // ── Step 3: lower fork arm chain [5..=7] → single polyline sweep ──────────
+    let lower_fork = build_polyline_mesh(&layout[5..=7], 0.0, config)?;
+    mesh = csg_boolean_indexed(BooleanOp::Union, &mesh, &lower_fork)?;
+
+    // ── Post-CSG repair ───────────────────────────────────────────────────────
+    mesh.orient_outward();
+    mesh.rebuild_edges();
+
+    if !mesh.is_watertight() {
+        let count = mesh.edges_ref().map_or(0, |e| e.boundary_edges().len());
+        // Return the mesh anyway because it's better than nothing, wait, no, just return error.
+        return Err(MeshError::NotWatertight { count });
+    }
+    Ok(mesh)
+}
+
+
 
 fn build_chip_body(layout: &[SegmentLayout], config: &PipelineConfig) -> MeshResult<IndexedMesh> {
     let substrate = SubstrateBuilder::well_plate_96(config.chip_height_mm).build_indexed()?;

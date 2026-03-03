@@ -86,6 +86,7 @@
 pub mod accelerated;
 pub mod bifurcation_flow;
 pub mod cavity_solver;
+pub mod cross_junction_flow;
 pub mod fdm;
 pub mod fvm;
 pub mod lbm;
@@ -100,6 +101,7 @@ pub mod venturi_flow;
 
 // Re-export main solver types
 pub use bifurcation_flow::{BifurcationGeometry, BifurcationSolver2D};
+pub use cross_junction_flow::{CrossJunctionGeometry, CrossJunctionSolver2D};
 pub use fdm::{AdvectionDiffusionSolver, DiffusionSolver, FdmConfig, PoissonSolver};
 pub use fvm::{FluxScheme, FvmConfig, FvmSolver};
 pub use lbm::{LbmConfig, LbmSolver, D2Q9};

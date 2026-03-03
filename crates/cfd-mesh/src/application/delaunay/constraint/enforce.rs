@@ -87,6 +87,14 @@ impl Cdt {
     /// 1. Inserts all PSLG vertices into a Delaunay triangulation.
     /// 2. Enforces all constraint segments.
     /// 3. Removes triangles in hole regions.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the PSLG contains degenerate/duplicate segments,
+    /// out-of-range endpoints, or segment intersections. Use
+    /// [`try_from_pslg`](Self::try_from_pslg) for fallible construction.
+    #[must_use]
+    #[track_caller]
     pub fn from_pslg(pslg: &Pslg) -> Self {
         Self::try_from_pslg(pslg)
             .unwrap_or_else(|err| panic!("Invalid PSLG for CDT construction: {err}"))
@@ -488,9 +496,8 @@ impl Cdt {
 
         let loc = locate(self.dt.vertices(), self.dt.triangles_slice(), start, hx, hy);
         let seed_tid = match loc {
-            Some(Location::Inside(tid))
-            | Some(Location::OnEdge(tid, _))
-            | Some(Location::OnVertex(tid, _)) => tid,
+            Some(Location::Inside(tid) | Location::OnEdge(tid, _) |
+Location::OnVertex(tid, _)) => tid,
             None => return,
         };
 
@@ -509,12 +516,11 @@ impl Cdt {
                     continue; // Don't cross constraint edges.
                 }
                 let nbr = tri.adj[edge];
-                if nbr != GHOST_TRIANGLE && !visited.contains(&nbr) {
-                    if self.dt.triangle(nbr).alive {
+                if nbr != GHOST_TRIANGLE && !visited.contains(&nbr)
+                    && self.dt.triangle(nbr).alive {
                         visited.insert(nbr);
                         queue.push_back(nbr);
                     }
-                }
             }
         }
     }
@@ -522,11 +528,13 @@ impl Cdt {
     // ── Public API ────────────────────────────────────────────────────────
 
     /// Access the underlying triangulation.
+    #[must_use] 
     pub fn triangulation(&self) -> &DelaunayTriangulation {
         &self.dt
     }
 
     /// Consume the CDT, returning the underlying triangulation.
+    #[must_use] 
     pub fn into_triangulation(self) -> DelaunayTriangulation {
         self.dt
     }
@@ -537,12 +545,14 @@ impl Cdt {
     }
 
     /// Check if an edge is constrained.
+    #[must_use] 
     pub fn is_constrained(&self, a: PslgVertexId, b: PslgVertexId) -> bool {
         let canonical = if a <= b { (a, b) } else { (b, a) };
         self.constrained_edges.contains(&canonical)
     }
 
     /// The set of all constrained edges.
+    #[must_use] 
     pub fn constrained_edges(&self) -> &HashSet<(PslgVertexId, PslgVertexId)> {
         &self.constrained_edges
     }

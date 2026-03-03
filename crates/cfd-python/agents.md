@@ -1,11 +1,22 @@
 # cfd-python — Agent Reference
 
-> **Role**: Python bindings for CFDrs via PyO3. Exposes Rust solvers as a `pycfdrs` Python wheel.  
+> **Role**: Python bindings for CFDrs via PyO3. Exposes Rust solvers as a `cfd-python` Python wheel.  
 > **Build tool**: `maturin develop` (`.venv`) / `maturin build --release`  
-> **Depends on**: all solver crates (`cfd-1d`, `cfd-2d`, `cfd-3d`, `cfd-core`, `cfd-validation`)
+> **Direct internal deps**: `cfd-1d`, `cfd-2d`, `cfd-3d`, `cfd-core`, `cfd-mesh`, `cfd-validation`
 
 ---
 
+
+<!-- AGENT-AUDIT-SNAPSHOT:START -->
+## Verified Audit Snapshot (2026-02-26)
+
+- Verified against `Cargo.toml`, `src/lib.rs`, and the top-level `src/` tree.
+- Direct internal crate dependencies (`cargo metadata`): `cfd-1d`, `cfd-2d`, `cfd-3d`, `cfd-core`, `cfd-mesh`, `cfd-validation`.
+- Cargo features: (none).
+- `src/lib.rs` module surface: (private modules in `src/lib.rs`: `bifurcation`, `blood`, `poiseuille_2d`, `result_types`, `solver_2d`, `solver_3d`, `womersley`).
+- Top-level `src/` entries: `bifurcation.rs`, `blood.rs`, `lib.rs`, `poiseuille_2d.rs`, `result_types.rs`, `solver_2d.rs`, `solver_3d.rs`, `womersley.rs`.
+
+<!-- AGENT-AUDIT-SNAPSHOT:END -->
 ## Purpose
 
 `cfd-python` makes CFDrs accessible from Python for:
@@ -23,7 +34,7 @@ All computation happens in Rust; Python sees zero-copy results via `pyo3`.
 
 ```
 src/
-  lib.rs                   #[pymodule] pycfdrs: registers all submodules
+  lib.rs                   #[pymodule] cfd-python: registers all submodules
   bifurcation.rs           PyBifurcationSolver, PyBifurcationSolver2D, PyBifurcation3DSolver
   blood.rs                 PyCassonBlood, PyCarreauYasudaBlood, PyCrossBlood, PyFahraeusLindqvist
   poiseuille_2d.rs         PyPoiseuilleSolver (2D), PyPoiseuille2DSolver
@@ -96,10 +107,10 @@ Additional bindings in `lib.rs`:
 ## Example Usage
 
 ```python
-import pycfdrs
+import cfd-python
 
 # 1D bifurcation
-solver = pycfdrs.BifurcationSolver(
+solver = cfd-python.BifurcationSolver(
     inlet_pressure_pa=200.0,
     outlet_pressure_pa=0.0,
     parent_diameter_m=200e-6,
@@ -110,17 +121,20 @@ print(f"Flow rate: {result.flow_rate_m3s * 1e9 * 60:.3f} µL/min")
 print(f"Pressure drop: {result.pressure_drop_pa:.1f} Pa")
 
 # Casson blood model
-blood = pycfdrs.CassonBlood(yield_stress_pa=0.0015, viscosity_pa_s=0.0035)
+blood = cfd-python.CassonBlood(yield_stress_pa=0.0015, viscosity_pa_s=0.0035)
 viscosity = blood.effective_viscosity(shear_rate_s1=100.0)
 
 # Womersley pulsatile profile
-womersley = pycfdrs.WomersleyFlow(radius_m=100e-6, frequency_hz=1.2, nu=3.5e-6)
+womersley = cfd-python.WomersleyFlow(radius_m=100e-6, frequency_hz=1.2, nu=3.5e-6)
 profile = womersley.velocity_profile(r_points=64, t=0.25)
 ```
 
 ---
 
 ## Build Instructions
+
+`cfd-python` is a workspace member. Build profile settings live in the workspace
+root `Cargo.toml` (not in `crates/cfd-python/Cargo.toml`).
 
 ```sh
 # Development install (editable wheel in .venv)
@@ -131,8 +145,8 @@ maturin develop
 maturin build --release
 
 # Run Python validation suite
-python -c "import pycfdrs; print(pycfdrs.__version__)"
-python tests/validate_pycfdrs.py
+python -c "import cfd-python; print(cfd-python.__version__)"
+python tests/validate_cfd-python.py
 ```
 
 ---
@@ -167,7 +181,7 @@ result.pass                 # bool — passes tolerance check
 |------------|-----------|
 | `#[pyclass(name = "NameWithout Py")]` | Python sees `BifurcationSolver`, not `PyBifurcationSolver` |
 | All methods return `PyResult<T>` | Python exceptions map to Rust `OptimError` / `SolverError` |
-| No Python sate mutation via `&mut self` — return new objects | Immutability; thread-safe from Python |
+| No Python state mutation via `&mut self` — return new objects | Immutability; thread-safe from Python |
 | NumPy arrays via `pyo3-numpy` | Zero-copy field arrays for profile outputs |
 | SI units everywhere | No unit duality at the binding layer |
 
@@ -179,3 +193,6 @@ result.pass                 # bool — passes tolerance check
 - Never expose internal Rust types (`SlotMap` keys, mesh handles) to Python — create wrapper value types
 - Python class names must match their conceptual Rust solver without the `Py` prefix
 - Do not add Python-only convenience methods — keep the binding thin; add logic to the Rust crate
+
+
+

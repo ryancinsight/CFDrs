@@ -118,14 +118,14 @@
       "timestamp": "2026-02-10T17:32:11.461850"
     },
     {
-      "name": "5.1 pycfdrs VenturiSolver1D: cavitation prediction",
+      "name": "5.1 cfd-python VenturiSolver1D: cavitation prediction",
       "passed": true,
       "details": "Solver executed: True",
       "reference": "Integration",
       "timestamp": "2026-02-10T17:32:11.462103"
     },
     {
-      "name": "5.2 pycfdrs blood rheology under high shear",
+      "name": "5.2 cfd-python blood rheology under high shear",
       "passed": true,
       "details": "\u03b3=1000.0 s\u207b\u00b9: Casson=3.734, CY=3.736, \u03bc_\u221e=3.450 mPa\u00b7s",
       "reference": "Blood flow",

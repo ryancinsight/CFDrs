@@ -91,8 +91,8 @@ fn xy_to_hilbert(gx: u32, gy: u32, order: u32) -> u64 {
 
     let mut half = grid >> 1;
     while half > 0 {
-        rot_x = if (tx & half) > 0 { 1 } else { 0 };
-        rot_y = if (ty & half) > 0 { 1 } else { 0 };
+        rot_x = u32::from((tx & half) > 0);
+        rot_y = u32::from((ty & half) > 0);
         dist += u64::from(half) * u64::from(half) * u64::from((3 * rot_x) ^ rot_y);
         // Rotate quadrant.
         if rot_y == 0 {

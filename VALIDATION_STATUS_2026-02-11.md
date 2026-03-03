@@ -24,7 +24,7 @@
 ### Key Achievements
 
 1. ✅ **Build System Fixed**: All compilation errors resolved, project builds successfully
-2. ✅ **Python Bindings Working**: pycfdrs package builds and installs correctly  
+2. ✅ **Python Bindings Working**: cfd-python package builds and installs correctly  
 3. ✅ **1D Validations**: Machine precision accuracy (0.00% error) on all analytical tests
 4. ✅ **2D Validations**: Bernoulli equation, ISO 5167 standards, mass conservation all validated
 5. ✅ **Blood Rheology**: Casson and Carreau-Yasuda models working correctly
@@ -37,7 +37,7 @@
 ### 1. 1D Bifurcation Junction
 
 **File**: `crates/cfd-1d/src/bifurcation/junction.rs`  
-**Python Binding**: ` pycfdrs.BifurcationSolver`  
+**Python Binding**: ` cfd-python.BifurcationSolver`  
 **Validation Script**: `validation/test_bifurcation_validation.py`
 
 #### Physics Validated
@@ -71,7 +71,7 @@ Bifurcation Validation:
 ### 2. 1D Trifurcation Junction
 
 **File**: `crates/cfd-1d/src/bifurcation/junction.rs`  
-**Python Binding**: `pycfdrs.TrifurcationSolver`  
+**Python Binding**: `cfd-python.TrifurcationSolver`  
 **Validation Script**: `validation/test_bifurcation_validation.py`
 
 #### Physics Validated
@@ -102,7 +102,7 @@ Trifurcation Validation:
 ### 3. 2D Poiseuille Flow
 
 **File**: `crates/cfd-2d/src/solvers/poiseuille.rs`  
-**Python Binding**: `pycfdrs.PoiseuilleSolver2D`  
+**Python Binding**: `cfd-python.PoiseuilleSolver2D`  
 **Validation Script**: `validation/validate_poiseuille.py`
 
 #### Physics Validated
@@ -141,7 +141,7 @@ Blood Rheology Validation:
 ### 4. 2D Venturi Throat
 
 **File**: `crates/cfd-2d/src/solvers/venturi_flow.rs`  
-**Python Binding**: `pycfdrs.VenturiSolver2D`  
+**Python Binding**: `cfd-python.VenturiSolver2D`  
 **Validation Script**: `validation/validate_venturi.py`
 
 #### Physics Validated
@@ -182,7 +182,7 @@ Mass Conservation Test:
 ### 5. 1D Serpentine Mixer
 
 **File**: `crates/cfd-1d/src/serpentine/`  
-**Python Binding**: `pycfdrs.SerpentineSolver1D`  
+**Python Binding**: `cfd-python.SerpentineSolver1D`  
 **Validation Script**: `validation/validate_serpentine.py`
 
 #### Physics Validated
@@ -267,28 +267,28 @@ Blood Rheology:
 
 ---
 
-## Python API (pycfdrs)
+## Python API (cfd-python)
 
 ### Successfully Built
 ```bash
 maturin build --release
-pip install target/wheels/pycfdrs-0.1.0-cp313-cp313-win_amd64.whl
+pip install target/wheels/cfd-python-0.1.0-cp313-cp313-win_amd64.whl
 ```
 
 ### Available Classes
 ```python
-import pycfdrs
+import cfd-python
 
 # Blood models
-blood_casson = pycfdrs.CassonBlood()
-blood_cy = pycfdrs.CarreauYasudaBlood()
+blood_casson = cfd-python.CassonBlood()
+blood_cy = cfd-python.CarreauYasudaBlood()
 
 # 1D solvers
-bifurc = pycfdrs.BifurcationSolver(d_parent=100e-6, d_daughter1=80e-6, d_daughter2=80e-6)
+bifurc = cfd-python.BifurcationSolver(d_parent=100e-6, d_daughter1=80e-6, d_daughter2=80e-6)
 result = bifurc.solve(flow_rate=3e-8, pressure=40.0, blood=blood_casson)
 
 # 2D solvers
-venturi = pycfdrs.VenturiSolver2D(w_inlet=0.002, w_throat=0.001, ...)
+venturi = cfd-python.VenturiSolver2D(w_inlet=0.002, w_throat=0.001, ...)
 result = venturi.solve(inlet_velocity=0.1, blood_type="casson")
 ```
 
@@ -361,7 +361,7 @@ result = venturi.solve(inlet_velocity=0.1, blood_type="casson")
 - Blood rheology models (matches literature)
 
 ### What's Working 🔧
-- Python bindings (pycfdrs)
+- Python bindings (cfd-python)
 - Build system (compiles without errors)
 - Validation framework (automated tests)
 
@@ -378,5 +378,5 @@ result = venturi.solve(inlet_velocity=0.1, blood_type="casson")
 ---
 
 **Report Generated**: February 11, 2026  
-**Last Commit**: Build  fixes + pycfdrs validation  
+**Last Commit**: Build  fixes + cfd-python validation  
 **Repository**: ryancinsight/CFDrs (main branch)

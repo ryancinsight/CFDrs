@@ -1,40 +1,55 @@
 //! 2D Poiseuille flow validation with Casson blood rheology
 //!
-//! This example demonstrates the velocity profile of a non-Newtonian
-//! fluid (blood) in a 2D channel and compares it with analytical limits.
+//! Solves steady non-Newtonian Poiseuille flow in a 2D channel with Casson
+//! blood model and prints the velocity profile, comparing against the
+//! Newtonian analytical solution for the same pressure gradient.
 
-use cfd_validation::benchmarks::{Benchmark, BenchmarkConfig, VenturiFlow};
-use cfd_core::error::Result;
-use nalgebra::RealField;
+use cfd_2d::solvers::{BloodModel, PoiseuilleConfig, PoiseuilleFlow2D};
+use cfd_core::physics::fluid::blood::CassonBlood;
 
-fn main() -> Result<()> {
+fn main() {
     println!("CFD Validation: 2D Poiseuille Flow with Casson Blood");
-    println!("====================================================");
+    println!("====================================================\n");
 
-    // Using Poiseuille flow (modeled implicitly by a long channel in benchmarks if available, 
-    // or using a specific Poiseuille benchmark if we implemented one).
-    // For now, let's use the LidDrivenCavity as a proxy for solver check, 
-    // but ideally we want a channel flow.
-    
-    // Note: implementation_plan.md mentioned blood_poiseuille_2d.rs
-    // Let's implement a standalone validation runner here.
-    
-    let re = 100.0_f64;
-    let config = BenchmarkConfig {
-        resolution: 64,
-        tolerance: 1e-6,
-        max_iterations: 1000,
-        reynolds_number: re,
-        time_step: None,
-        parallel: true,
-    };
+    // Channel geometry: 200 µm height, 1 mm length
+    let mut config = PoiseuilleConfig::<f64>::default();
+    config.height = 200e-6;
+    config.width = 200e-6;
+    config.length = 1e-3;
+    config.ny = 64;
+    config.pressure_gradient = 500.0; // Pa/m
+    config.tolerance = 1e-8;
+    config.max_iterations = 200;
 
-    println!("Running Poiseuille 2D with Casson rheology...");
-    // Since we don't have a direct "Poiseuille" benchmark struct yet, 
-    // let's use the logic from our analytical solutions.
-    
-    println!("Simulation complete. (Placeholder for full integration)");
-    println!("L2 Error vs Analytical: 0.24% (Verified)");
-    
-    Ok(())
+    let blood = BloodModel::Casson(CassonBlood::normal_blood());
+
+    let mut solver = PoiseuilleFlow2D::new(config, blood);
+    let iterations = solver.solve().expect("Poiseuille solve failed");
+    println!("Converged in {iterations} iterations");
+
+    // Newtonian reference viscosity for analytical comparison (blood ~3.5 mPa.s)
+    let mu_newtonian: f64 = 3.5e-3;
+    let analytical_profile = solver.analytical_solution(mu_newtonian);
+    let u_max_analytical = analytical_profile
+        .iter()
+        .cloned()
+        .fold(0.0_f64, f64::max);
+    let u_max_numerical = solver.max_velocity();
+
+    println!("Max velocity (numerical) : {u_max_numerical:.6e} m/s");
+    println!("Max velocity (Newtonian) : {u_max_analytical:.6e} m/s");
+
+    // Non-Newtonian Casson model produces a blunted profile compared to the
+    // Newtonian parabola, so a non-zero L2 difference is expected.
+    let profile = solver.velocity_profile();
+    let mut err_sq = 0.0;
+    let mut norm_sq = 0.0;
+    for (i, &u_num) in profile.iter().enumerate() {
+        let u_ana = analytical_profile[i];
+        err_sq += (u_num - u_ana).powi(2);
+        norm_sq += u_ana.powi(2);
+    }
+    let l2_error = (err_sq / norm_sq).sqrt();
+
+    println!("Relative L2 error vs Newtonian analytical: {l2_error:.4e}");
 }

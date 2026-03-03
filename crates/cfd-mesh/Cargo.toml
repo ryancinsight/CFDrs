@@ -17,6 +17,7 @@ parallel = ["dep:rayon"]
 csg = []
 stl-io = []
 vtk-io = []
+three-mf-io = ["dep:zip"]
 scheme-io = ["dep:cfd-schematics"]
 
 [dependencies]
@@ -45,6 +46,9 @@ hashbrown = "0.15"
 # Parallelism (optional)
 rayon = { workspace = true, optional = true }
 
+# 3MF export (optional)
+zip = { version = "2.0", optional = true }
+
 # Internal crates (optional)
 cfd-schematics = { workspace = true, optional = true }
 
@@ -58,6 +62,7 @@ aquamarine = { workspace = true }
 approx = { workspace = true }
 proptest = { workspace = true }
 criterion = { workspace = true }
+cfd-schematics.workspace = true
 
 # ── Primitive validation examples ─────────────────────────────────────────────
 
@@ -72,6 +77,18 @@ path = "examples/primitives/cube.rs"
 [[example]]
 name = "primitives_sphere"
 path = "examples/primitives/sphere.rs"
+
+[[example]]
+name = "primitives_gyroid_sphere"
+path = "examples/primitives/gyroid_sphere.rs"
+
+[[example]]
+name = "primitives_schwarz_p_sphere"
+path = "examples/primitives/schwarz_p_sphere.rs"
+
+[[example]]
+name = "primitives_schwarz_d_sphere"
+path = "examples/primitives/schwarz_d_sphere.rs"
 
 [[example]]
 name = "primitives_cylinder"
@@ -173,6 +190,30 @@ path = "examples/primitives/truncated_icosahedron.rs"
 name = "primitives_disk"
 path = "examples/primitives/disk.rs"
 
+[[example]]
+name = "primitives_neovius_sphere"
+path = "examples/primitives/neovius_sphere.rs"
+
+[[example]]
+name = "primitives_lidinoid_sphere"
+path = "examples/primitives/lidinoid_sphere.rs"
+
+[[example]]
+name = "primitives_iwp_sphere"
+path = "examples/primitives/iwp_sphere.rs"
+
+[[example]]
+name = "primitives_split_p_sphere"
+path = "examples/primitives/split_p_sphere.rs"
+
+[[example]]
+name = "primitives_frd_sphere"
+path = "examples/primitives/frd_sphere.rs"
+
+[[example]]
+name = "primitives_fischer_koch_cy_sphere"
+path = "examples/primitives/fischer_koch_cy_sphere.rs"
+
 # ── CSG boolean operation examples ────────────────────────────────────────────
 
 [[example]]
@@ -186,6 +227,10 @@ path = "examples/csg/cube_sphere.rs"
 [[example]]
 name = "csg_cube_cylinder"
 path = "examples/csg/cube_cylinder.rs"
+
+[[example]]
+name = "csg_cube_cylinder_coplanar"
+path = "examples/csg/cube_cylinder_coplanar.rs"
 
 [[example]]
 name = "csg_sphere_cylinder"
@@ -220,10 +265,6 @@ name = "csg_cylinder_cylinder_t_junction"
 path = "examples/csg/cylinder_cylinder_t_junction.rs"
 
 [[example]]
-name = "csg_cylinder_cylinder_v_shape"
-path = "examples/csg/cylinder_cylinder_v_shape.rs"
-
-[[example]]
 name = "csg_cylinder_cylinder_y_junction"
 path = "examples/csg/cylinder_cylinder_y_junction.rs"
 
@@ -237,3 +278,34 @@ path = "examples/csg/cylinder_cylinder_trifurcation.rs"
 name = "csg_coplanar_disk_disk"
 path = "examples/csg_coplanar/disk_disk.rs"
 
+[[example]]
+name = "millifluidic_designs"
+path = "examples/millifluidic_designs.rs"
+required-features = ["scheme-io"]
+
+[[example]]
+name = "schematic_to_3d_mesh"
+path = "examples/schematic_to_3d_mesh.rs"
+required-features = ["scheme-io"]
+
+[[example]]
+name = "schematic_to_mesh_demo"
+path = "examples/schematic_to_mesh_demo.rs"
+required-features = ["scheme-io"]
+
+[[example]]
+name = "schematic_to_openfoam"
+path = "examples/schematic_to_openfoam.rs"
+required-features = ["scheme-io"]
+
+# ── Millifluidic chip-body STL examples ───────────────────────────────────────
+
+[[example]]
+name = "millifluidic_chip_stl"
+path = "examples/millifluidic/chip_stl.rs"
+required-features = ["scheme-io"]
+
+[[example]]
+name = "millifluidic_shell_tpms"
+path = "examples/millifluidic_shell_tpms.rs"
+required-features = ["scheme-io"]

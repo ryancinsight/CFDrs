@@ -26,6 +26,7 @@ pub enum Sign {
 impl Sign {
     /// Convert the exact expansion floating-point result into a strict sign.
     #[inline]
+    #[must_use] 
     pub fn from_exact_f64(v: f64) -> Self {
         if v > 0.0 {
             Sign::Positive
@@ -38,18 +39,21 @@ impl Sign {
 
     /// Returns `true` if the sign is positive (counter-clockwise).
     #[inline]
+    #[must_use] 
     pub fn is_positive(self) -> bool {
         self == Sign::Positive
     }
 
     /// Returns `true` if the sign is negative (clockwise).
     #[inline]
+    #[must_use] 
     pub fn is_negative(self) -> bool {
         self == Sign::Negative
     }
 
     /// Returns `true` if the sign is zero (collinear/coplanar).
     #[inline]
+    #[must_use] 
     pub fn is_zero(self) -> bool {
         self == Sign::Zero
     }
@@ -62,11 +66,12 @@ impl Sign {
 ///
 /// This evaluation is mathematically exact and immune to floating-point epsilon noise.
 #[inline]
+#[must_use] 
 pub fn orient3d(a: &Point3r, b: &Point3r, c: &Point3r, d: &Point3r) -> Sign {
-    let pa = [a.x as f64, a.y as f64, a.z as f64];
-    let pb = [b.x as f64, b.y as f64, b.z as f64];
-    let pc = [c.x as f64, c.y as f64, c.z as f64];
-    let pd = [d.x as f64, d.y as f64, d.z as f64];
+    let pa = [a.x, a.y, a.z];
+    let pb = [b.x, b.y, b.z];
+    let pc = [c.x, c.y, c.z];
+    let pd = [d.x, d.y, d.z];
 
     let det = geometry_predicates::orient3d(pa, pb, pc, pd);
     Sign::from_exact_f64(det)
@@ -77,10 +82,11 @@ pub fn orient3d(a: &Point3r, b: &Point3r, c: &Point3r, d: &Point3r) -> Sign {
 /// Returns whether the point `c` lies strictly left, strictly right, or perfectly
 /// collinear with the directed line from `a` to `b` in the 2D plane (X-Y).
 #[inline]
+#[must_use] 
 pub fn orient2d(a: &Point3r, b: &Point3r, c: &Point3r) -> Sign {
-    let pa = [a.x as f64, a.y as f64];
-    let pb = [b.x as f64, b.y as f64];
-    let pc = [c.x as f64, c.y as f64];
+    let pa = [a.x, a.y];
+    let pb = [b.x, b.y];
+    let pc = [c.x, c.y];
 
     let det = geometry_predicates::orient2d(pa, pb, pc);
     Sign::from_exact_f64(det)
@@ -88,11 +94,12 @@ pub fn orient2d(a: &Point3r, b: &Point3r, c: &Point3r) -> Sign {
 
 /// Exact incircle predicate in 2D.
 #[inline]
+#[must_use] 
 pub fn incircle2d(a: &Point3r, b: &Point3r, c: &Point3r, d: &Point3r) -> Sign {
-    let pa = [a.x as f64, a.y as f64];
-    let pb = [b.x as f64, b.y as f64];
-    let pc = [c.x as f64, c.y as f64];
-    let pd = [d.x as f64, d.y as f64];
+    let pa = [a.x, a.y];
+    let pb = [b.x, b.y];
+    let pc = [c.x, c.y];
+    let pd = [d.x, d.y];
 
     let det = geometry_predicates::incircle(pa, pb, pc, pd);
     Sign::from_exact_f64(det)
@@ -100,12 +107,13 @@ pub fn incircle2d(a: &Point3r, b: &Point3r, c: &Point3r, d: &Point3r) -> Sign {
 
 /// Exact insphere predicate in 3D.
 #[inline]
+#[must_use] 
 pub fn insphere3d(a: &Point3r, b: &Point3r, c: &Point3r, d: &Point3r, e: &Point3r) -> Sign {
-    let pa = [a.x as f64, a.y as f64, a.z as f64];
-    let pb = [b.x as f64, b.y as f64, b.z as f64];
-    let pc = [c.x as f64, c.y as f64, c.z as f64];
-    let pd = [d.x as f64, d.y as f64, d.z as f64];
-    let pe = [e.x as f64, e.y as f64, e.z as f64];
+    let pa = [a.x, a.y, a.z];
+    let pb = [b.x, b.y, b.z];
+    let pc = [c.x, c.y, c.z];
+    let pd = [d.x, d.y, d.z];
+    let pe = [e.x, e.y, e.z];
 
     let det = geometry_predicates::insphere(pa, pb, pc, pd, pe);
     Sign::from_exact_f64(det)

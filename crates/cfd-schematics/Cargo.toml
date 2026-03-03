@@ -43,4 +43,6 @@ path = "examples/unified_generator_demo.rs"
 name = "optimization_profile_comparison"
 path = "examples/optimization_profile_comparison.rs"
 
-
+[[example]]
+name = "shell_cuboid_demo"
+path = "examples/shell_cuboid_demo.rs"

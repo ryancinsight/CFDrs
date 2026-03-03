@@ -1,11 +1,48 @@
-# cfd-mesh: Architecture & Implementation Proposal
+# cfd-mesh — Agent Reference (Hybrid: Current Status + Rewrite Architecture Notes)
 
-> **Status**: Active rewrite — replacing all internals while preserving the public API.
-> Last updated: Phase 7 complete. Phases 1–7 done; 8–9 in backlog.
+> **Role**: Mesh geometry/topology crate for CFDrs — half-edge topology, welding, validation, CSG, and mesh I/O (STL/VTK/OpenFOAM).
+> **Direct internal deps**: `cfd-schematics`
+> **Rewrite status**: Phase 10 complete (OpenFOAM polyMesh writers + patch APIs); Phase 11 candidates tracked in `backlog.md`.
 
 ---
 
-## Table of Contents
+## Verified Audit Snapshot (2026-02-26)
+
+- Verified against `Cargo.toml`, `src/lib.rs`, and the top-level `src/` tree.
+- Cargo features: `csg`, `default`, `millifluidic`, `parallel`, `scheme-io`, `stl-io`, `vtk-io`.
+- `src/lib.rs` public modules: `application`, `domain`, `infrastructure`.
+- Top-level `src/` entries: `application/`, `bin/`, `domain/`, `infrastructure/`, `lib.rs`.
+- Current public surface includes `IndexedMesh`, `MeshBuilder`, patch types (`BoundaryPatch`, `PatchType`), geometry re-exports, channel builders, and quality analysis helpers.
+- OpenFOAM support is current (Phase 10 complete): `infrastructure/io/openfoam.rs` plus `HalfEdgeMesh` patch accessors documented in the implementation-phase log below.
+
+## Current Implementation Snapshot
+
+### Module Structure (Current)
+
+```text
+src/
+  lib.rs                      public re-exports (IndexedMesh, MeshBuilder, geometry/channel APIs)
+  application/                channel builders, CSG pipeline, welding, watertight checks, quality, pipeline
+  domain/                     core types, geometry (predicates/NURBS/primitives), mesh, topology
+  infrastructure/             I/O (STL/VTK/OpenFOAM/scheme), permission (GhostCell), spatial, storage
+  bin/                        utility binaries (e.g., STL inspection)
+```
+
+### Feature Flags
+
+- `csg`: Enables Boolean / CSG operations and related examples.
+- `millifluidic`: Enables millifluidic-specific builders/pipelines.
+- `parallel`: Enables rayon-backed parallel mesh operations.
+- `stl-io`, `vtk-io`, `scheme-io`: Format-specific I/O paths.
+- `default`: Current crate default feature set (verify in `Cargo.toml` before changing).
+
+## Rewrite Architecture Notes (Historical Proposal Context)
+
+The numbered sections below preserve the rewrite proposal/history and implementation-phase log.
+They remain useful for theorem/test rationale and architectural intent, but early sections (especially
+"Project Vision" problem statements) describe pre-Phase-10 rewrite context.
+
+## Historical Proposal Table of Contents
 
 1. [Project Vision](#1-project-vision)
 2. [Architecture Overview](#2-architecture-overview)

@@ -153,9 +153,9 @@ fn sah_split(
 
             let split_k = k - 1;
             let l_sa = prefix_sa[split_k];
-            let l_cnt = prefix_cnt[split_k] as f64;
+            let l_cnt = f64::from(prefix_cnt[split_k]);
             let r_sa = surface_area(&right_aabb);
-            let r_cnt = right_count as f64;
+            let r_cnt = f64::from(right_count);
 
             if l_cnt == 0.0 || r_cnt == 0.0 {
                 continue;

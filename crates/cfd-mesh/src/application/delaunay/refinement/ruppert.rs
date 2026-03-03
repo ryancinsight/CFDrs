@@ -119,6 +119,7 @@ pub struct RuppertRefiner {
 
 impl RuppertRefiner {
     /// Create a new refiner wrapping a CDT.
+    #[must_use] 
     pub fn new(cdt: Cdt) -> Self {
         Self {
             cdt,
@@ -246,34 +247,30 @@ impl RuppertRefiner {
             // Check if the insertion point encroaches any constraint segment.
             let encroached_seg = self.check_encroachment(px, py);
 
-            match encroached_seg {
-                Some((sa, sb)) => {
-                    // Split the encroached segment instead.
-                    self.split_segment(sa, sb);
-                }
-                None => {
-                    // Verify the insertion point is inside the domain
-                    // (not in a super-triangle region or outside the boundary).
-                    let dt = self.cdt.triangulation();
-                    let inside = match locate(dt.vertices(), dt.triangles_slice(), bad.tid, px, py)
-                    {
-                        Some(Location::Inside(tid))
-                        | Some(Location::OnEdge(tid, _))
-                        | Some(Location::OnVertex(tid, _)) => {
-                            let t = dt.triangle(tid);
-                            !t.vertices.iter().any(|v| dt.super_verts.contains(v))
-                        }
-                        _ => false,
-                    };
-
-                    if !inside {
-                        continue;
+            if let Some((sa, sb)) = encroached_seg {
+                // Split the encroached segment instead.
+                self.split_segment(sa, sb);
+            } else {
+                // Verify the insertion point is inside the domain
+                // (not in a super-triangle region or outside the boundary).
+                let dt = self.cdt.triangulation();
+                let inside = match locate(dt.vertices(), dt.triangles_slice(), bad.tid, px, py)
+                {
+                    Some(Location::Inside(tid) | Location::OnEdge(tid, _) |
+Location::OnVertex(tid, _)) => {
+                        let t = dt.triangle(tid);
+                        !t.vertices.iter().any(|v| dt.super_verts.contains(v))
                     }
+                    _ => false,
+                };
 
-                    // Insert the circumcenter/off-center.
-                    self.cdt.triangulation_mut().insert_steiner(px, py);
-                    self.steiner_count += 1;
+                if !inside {
+                    continue;
                 }
+
+                // Insert the circumcenter/off-center.
+                self.cdt.triangulation_mut().insert_steiner(px, py);
+                self.steiner_count += 1;
             }
 
             // Re-scan for new bad triangles near the insertion.
@@ -369,16 +366,19 @@ impl RuppertRefiner {
     // ── Public accessors ──────────────────────────────────────────────────
 
     /// Access the CDT.
+    #[must_use] 
     pub fn cdt(&self) -> &Cdt {
         &self.cdt
     }
 
     /// Consume the refiner and return the CDT.
+    #[must_use] 
     pub fn into_cdt(self) -> Cdt {
         self.cdt
     }
 
     /// Number of Steiner points inserted.
+    #[must_use] 
     pub fn steiner_count(&self) -> usize {
         self.steiner_count
     }

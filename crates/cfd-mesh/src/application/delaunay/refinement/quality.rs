@@ -52,6 +52,7 @@ pub struct TriangleQuality {
 
 impl TriangleQuality {
     /// Compute quality metrics for the triangle `(a, b, c)`.
+    #[must_use] 
     pub fn compute(a: &PslgVertex, b: &PslgVertex, c: &PslgVertex) -> Self {
         let (abx, aby) = (b.x - a.x, b.y - a.y);
         let (bcx, bcy) = (c.x - b.x, c.y - b.y);
@@ -93,11 +94,13 @@ impl TriangleQuality {
     }
 
     /// Check if the triangle quality satisfies the given radius-edge ratio bound.
+    #[must_use] 
     pub fn is_good(&self, max_ratio: Real) -> bool {
         self.radius_edge_ratio <= max_ratio
     }
 
     /// Minimum angle in degrees.
+    #[must_use] 
     pub fn min_angle_deg(&self) -> Real {
         self.min_angle_rad.to_degrees()
     }

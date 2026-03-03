@@ -1,5 +1,6 @@
 use crate::domain::model::{ChannelSpec, NetworkBlueprint, NodeKind, NodeSpec};
 use crate::domain::therapy_metadata::{TherapyZone, TherapyZoneMetadata};
+use crate::geometry::metadata::VenturiGeometryMetadata;
 
 const BLOOD_MU: f64 = 3.5e-3;
 
@@ -119,7 +120,13 @@ pub fn venturi_rect(
             shah_london_resistance(throat_width_m, height_m, l_throat, BLOOD_MU),
             0.0,
         )
-        .with_metadata(TherapyZoneMetadata::new(TherapyZone::CancerTarget)),
+        .with_metadata(TherapyZoneMetadata::new(TherapyZone::CancerTarget))
+        .with_metadata(VenturiGeometryMetadata {
+            throat_width_m,
+            throat_height_m: height_m,
+            throat_length_m: l_throat,
+            inlet_width_m,
+        }),
     );
     bp.add_channel(
         ChannelSpec::new_pipe_rect(
@@ -142,10 +149,7 @@ pub fn venturi_rect(
 fn shah_london_resistance(width_m: f64, height_m: f64, length_m: f64, mu: f64) -> f64 {
     let alpha = height_m.min(width_m) / height_m.max(width_m);
     let po = 96.0
-        * (1.0
-            - 1.3553 * alpha
-            + 1.9467 * alpha * alpha
-            - 1.7012 * alpha.powi(3)
+        * (1.0 - 1.3553 * alpha + 1.9467 * alpha * alpha - 1.7012 * alpha.powi(3)
             + 0.9564 * alpha.powi(4)
             - 0.2537 * alpha.powi(5));
     let d_h = 2.0 * width_m * height_m / (width_m + height_m);

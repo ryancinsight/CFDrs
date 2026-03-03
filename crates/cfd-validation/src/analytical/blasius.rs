@@ -130,8 +130,8 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> BlasiusBound
     /// Calculate shape factor H = δ*/θ
     /// For Blasius: H ≈ 2.59
     pub fn shape_factor(&self) -> T {
-        let h_blasius = T::from_f64_or_one(2.591);
-        h_blasius
+        
+        T::from_f64_or_one(2.591)
     }
 
     /// Calculate wall shear stress
@@ -246,7 +246,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> AnalyticalSo
         T::zero()
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "Blasius Boundary Layer"
     }
 

@@ -1,4 +1,4 @@
-//! Result data structures for PyO3 bindings
+//! Result data structures for `PyO3` bindings
 //!
 //! These structures wrap Rust solver results into Python-friendly classes.
 
@@ -59,10 +59,10 @@ pub struct PyBifurcationResult {
     #[pyo3(get)]
     pub wss_2: f64,
 
-    /// Mass conservation error |Q_1 + Q_2 - Q_parent| / Q_parent
+    /// Mass conservation error |`Q_1` + `Q_2` - `Q_parent`| / `Q_parent`
     #[pyo3(get)]
     pub mass_conservation_error: f64,
-    /// Pressure continuity error |P_1 - P_2| / P_parent
+    /// Pressure continuity error |`P_1` - `P_2`| / `P_parent`
     #[pyo3(get)]
     pub pressure_continuity_error: f64,
 }
@@ -71,6 +71,7 @@ pub struct PyBifurcationResult {
 impl PyBifurcationResult {
     /// Create new bifurcation result
     #[new]
+    #[must_use] 
     pub fn new(
         q_parent: f64,
         q_1: f64,
@@ -109,7 +110,7 @@ impl PyBifurcationResult {
         }
     }
 
-    /// Get flow split ratio Q_1 / Q_parent
+    /// Get flow split ratio `Q_1` / `Q_parent`
     fn flow_split_ratio(&self) -> f64 {
         self.q_1 / (self.q_parent + 1e-15)
     }

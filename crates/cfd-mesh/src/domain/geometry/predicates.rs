@@ -62,6 +62,7 @@ pub enum Orientation {
 impl Orientation {
     /// Convert a raw determinant value to an `Orientation`.
     #[inline]
+    #[must_use] 
     pub fn from_det(d: f64) -> Self {
         if d > 0.0 {
             Orientation::Positive
@@ -74,18 +75,21 @@ impl Orientation {
 
     /// Returns `true` if the orientation is [`Positive`](Orientation::Positive).
     #[inline]
+    #[must_use] 
     pub fn is_positive(self) -> bool {
         self == Orientation::Positive
     }
 
     /// Returns `true` if the orientation is [`Negative`](Orientation::Negative).
     #[inline]
+    #[must_use] 
     pub fn is_negative(self) -> bool {
         self == Orientation::Negative
     }
 
     /// Returns `true` for a degenerate (zero) determinant.
     #[inline]
+    #[must_use] 
     pub fn is_degenerate(self) -> bool {
         self == Orientation::Degenerate
     }
@@ -100,7 +104,7 @@ impl Orientation {
 /// `f64`'s representable values.
 #[inline]
 fn r(v: Real) -> f64 {
-    v as f64
+    v
 }
 
 // ── 2-D predicates ────────────────────────────────────────────────────────────
@@ -128,6 +132,7 @@ fn r(v: Real) -> f64 {
 /// let c = Point2::new(0.0, 1.0);
 /// assert_eq!(orient_2d(&a, &b, &c), Orientation::Positive); // CCW
 /// ```
+#[must_use] 
 pub fn orient_2d(a: &Point2<Real>, b: &Point2<Real>, c: &Point2<Real>) -> Orientation {
     let det = gp::orient2d([r(a.x), r(a.y)], [r(b.x), r(b.y)], [r(c.x), r(c.y)]);
     Orientation::from_det(det)
@@ -137,6 +142,7 @@ pub fn orient_2d(a: &Point2<Real>, b: &Point2<Real>, c: &Point2<Real>) -> Orient
 ///
 /// Convenience overload accepting `[Real; 2]` arrays.
 #[inline]
+#[must_use] 
 pub fn orient_2d_arr(a: [Real; 2], b: [Real; 2], c: [Real; 2]) -> Orientation {
     let det = gp::orient2d([r(a[0]), r(a[1])], [r(b[0]), r(b[1])], [r(c[0]), r(c[1])]);
     Orientation::from_det(det)
@@ -167,6 +173,7 @@ pub fn orient_2d_arr(a: [Real; 2], b: [Real; 2], c: [Real; 2]) -> Orientation {
 /// let ez = [0.0, 0.0, 1.0];
 /// assert_eq!(orient_3d(o, ex, ey, ez), Orientation::Positive);
 /// ```
+#[must_use] 
 pub fn orient_3d(a: [Real; 3], b: [Real; 3], c: [Real; 3], d: [Real; 3]) -> Orientation {
     let to64 = |v: [Real; 3]| [r(v[0]), r(v[1]), r(v[2])];
     // gp::orient3d returns positive when d is *below* the abc plane (Shewchuk
@@ -177,6 +184,7 @@ pub fn orient_3d(a: [Real; 3], b: [Real; 3], c: [Real; 3], d: [Real; 3]) -> Orie
 }
 
 /// Convenience wrapper: accept `nalgebra::Point3<Real>`.
+#[must_use] 
 pub fn orient_3d_pts(
     a: &nalgebra::Point3<Real>,
     b: &nalgebra::Point3<Real>,
@@ -210,6 +218,7 @@ pub fn orient_3d_pts(
 /// - [`Degenerate`][Orientation::Degenerate] — `d` lies exactly on the circle.
 ///
 /// Used in Delaunay mesh refinement to enforce the empty-circumcircle property.
+#[must_use] 
 pub fn incircle(
     a: &Point2<Real>,
     b: &Point2<Real>,
@@ -236,6 +245,7 @@ pub fn incircle(
 /// - [`Degenerate`][Orientation::Degenerate] — `e` lies on the sphere.
 ///
 /// Used in 3-D Delaunay mesh generation to enforce the Delaunay property.
+#[must_use] 
 pub fn insphere(
     a: [Real; 3],
     b: [Real; 3],

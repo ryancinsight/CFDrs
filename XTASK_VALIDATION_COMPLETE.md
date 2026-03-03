@@ -4,7 +4,7 @@
 
 I've created a **complete automated build and validation system** using cargo xtask that:
 
-1. ✅ Builds pycfdrs Python wheels with maturin
+1. ✅ Builds cfd-python Python wheels with maturin
 2. ✅ Sets up Python virtual environments  
 3. ✅ Installs all dependencies (numpy, scipy, matplotlib, FEniCS)
 4. ✅ Runs comprehensive validation suite
@@ -22,7 +22,7 @@ I've created a **complete automated build and validation system** using cargo xt
 
 ```bash
 cargo xtask check           # Check for compilation errors
-cargo xtask build-wheel     # Build pycfdrs with maturin
+cargo xtask build-wheel     # Build cfd-python with maturin
 cargo xtask setup-venv      # Create Python virtual environment
 cargo xtask install-deps    # Install Python dependencies
 cargo xtask install-fenics  # Install FEniCS via conda
@@ -137,7 +137,7 @@ CFDrs/
 │   │   └── main.rs              # 600+ lines of automation
 │   └── README.md                # Comprehensive guide
 │
-├── crates/pycfdrs/              ✅ UPDATED: Python bindings
+├── crates/cfd-python/              ✅ UPDATED: Python bindings
 │   ├── src/
 │   │   ├── lib.rs               # Updated with all exports
 │   │   ├── solver_2d.rs         # NEW: 2D solver bindings
@@ -180,7 +180,7 @@ The following are **ready to run** but blocked by pre-existing compilation error
 1. **Build wheel:** Ready (needs compilation fixes)
 2. **Setup venv:** Ready (works independently)
 3. **Install deps:** Ready (works independently)  
-4. **Validate:** Ready (needs pycfdrs wheel)
+4. **Validate:** Ready (needs cfd-python wheel)
 
 ## How to Use (Step-by-Step)
 
@@ -193,7 +193,7 @@ cargo xtask all --plot
 
 **What happens:**
 1. Checks compilation ✅
-2. Builds pycfdrs wheel (after errors fixed)
+2. Builds cfd-python wheel (after errors fixed)
 3. Sets up .venv/
 4. Installs dependencies
 5. Runs validations
@@ -244,7 +244,7 @@ Once compilation errors are fixed:
 Step 1/6: Checking compilation...
 ✅ No compilation errors found!
 
-Step 2/6: Building pycfdrs wheel...
+Step 2/6: Building cfd-python wheel...
 ✅ Wheel built successfully!
 
 Step 3/6: Setting up virtual environment...
@@ -284,8 +284,8 @@ Next steps:
 ```
 .venv/                           # Python virtual environment
 │
-crates/pycfdrs/target/wheels/
-└── pycfdrs-0.1.0-cp311-win_amd64.whl  # Built wheel
+crates/cfd-python/target/wheels/
+└── cfd-python-0.1.0-cp311-win_amd64.whl  # Built wheel
 │
 validation/reports/
 ├── validation_summary.md        # Markdown report
@@ -340,10 +340,10 @@ The xtask system integrates with these existing scripts:
 
 The xtask system builds these bindings:
 
-- `crates/pycfdrs/src/solver_2d.rs` - 2D Poiseuille and Venturi
-- `crates/pycfdrs/src/solver_3d.rs` - 3D bifurcation and pipe
-- `crates/pycfdrs/src/bifurcation.rs` - 1D bifurcation (working)
-- `crates/pycfdrs/src/blood.rs` - Blood models (working)
+- `crates/cfd-python/src/solver_2d.rs` - 2D Poiseuille and Venturi
+- `crates/cfd-python/src/solver_3d.rs` - 3D bifurcation and pipe
+- `crates/cfd-python/src/bifurcation.rs` - 1D bifurcation (working)
+- `crates/cfd-python/src/blood.rs` - Blood models (working)
 
 ## Troubleshooting
 
@@ -440,7 +440,7 @@ cargo xtask setup-venv
 |------|------|
 | xtask compilation | ~10 sec |
 | Compilation check | ~30 sec |
-| Build pycfdrs wheel | ~3-5 min |
+| Build cfd-python wheel | ~3-5 min |
 | Setup venv | ~10 sec |
 | Install dependencies | ~30-60 sec |
 | Run validations | ~2-5 min |
@@ -465,7 +465,7 @@ The system is considered successful when:
 ✅ Cargo aliases configured ✅ **COMPLETE**  
 ✅ Check command detects errors ✅ **COMPLETE**  
 ⏳ Build wheel succeeds (needs compilation fixes)  
-⏳ Validations pass (needs pycfdrs wheel)  
+⏳ Validations pass (needs cfd-python wheel)  
 ⏳ Reports generated (needs validation run)  
 
 ## Comparison: Before vs After
@@ -474,7 +474,7 @@ The system is considered successful when:
 
 ```bash
 # Manual process (error-prone)
-cd crates/pycfdrs
+cd crates/cfd-python
 pip install maturin
 maturin build --release
 pip install target/wheels/*.whl
@@ -532,8 +532,8 @@ Activate with:
 ### 4. Dependency Verification
 
 ```rust
-// Checks if pycfdrs is actually installed before running tests
-let check_result = cmd!(sh, "{python_str} -c \"import pycfdrs\"")
+// Checks if cfd-python is actually installed before running tests
+let check_result = cmd!(sh, "{python_str} -c \"import cfd-python\"")
     .ignore_status()
     .run();
 ```
@@ -557,7 +557,7 @@ XTASK_VALIDATION_COMPLETE.md          # This file (summary)
 ```bash
 # Quick reference
 cargo xtask check          # Check compilation
-cargo xtask build-wheel    # Build pycfdrs
+cargo xtask build-wheel    # Build cfd-python
 cargo xtask setup-venv     # Create venv
 cargo xtask install-deps   # Install deps
 cargo xtask validate       # Run tests

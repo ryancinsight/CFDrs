@@ -15,50 +15,38 @@
 //! tensor emerges, yielding the weakly compressible Navier-Stokes equations.
 //! The kinematic viscosity is related to the relaxation time $\tau$ by $\nu = c_s^2 (\tau - 0.5)\Delta t$.
 
-#![allow(dead_code)]
-
 use super::traits::CollisionOperator;
 use crate::solvers::lbm::lattice::D2Q9;
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 
-// Physical constants from Lallemand & Luo (2000)
-#[allow(dead_code)]
+/// Lattice sound speed squared: $c_s^2 = 1/3$ for D2Q9
 const LATTICE_SOUND_SPEED_SQUARED: f64 = 1.0 / 3.0;
-#[allow(dead_code)]
+
+/// Relaxation time offset: $\tau - 0.5$ relates viscosity to relaxation
 const RELAXATION_TIME_OFFSET: f64 = 0.5;
 
 // MRT transformation matrix rows (D2Q9 moments)
 // Row 0: Density ρ
-#[allow(dead_code)]
 const M_ROW_0: [f64; 9] = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0];
 // Row 1: Energy e
-#[allow(dead_code)]
 const M_ROW_1: [f64; 9] = [-4.0, -1.0, -1.0, -1.0, -1.0, 2.0, 2.0, 2.0, 2.0];
 // Row 2: Energy squared ε
-#[allow(dead_code)]
 const M_ROW_2: [f64; 9] = [4.0, -2.0, -2.0, -2.0, -2.0, 1.0, 1.0, 1.0, 1.0];
 // Row 3: Momentum j_x
-#[allow(dead_code)]
 const M_ROW_3: [f64; 9] = [0.0, 1.0, 0.0, -1.0, 0.0, 1.0, -1.0, -1.0, 1.0];
 // Row 4: Energy flux q_x
-#[allow(dead_code)]
 const M_ROW_4: [f64; 9] = [0.0, -2.0, 0.0, 2.0, 0.0, 1.0, -1.0, -1.0, 1.0];
 // Row 5: Momentum j_y
-#[allow(dead_code)]
 const M_ROW_5: [f64; 9] = [0.0, 0.0, 1.0, 0.0, -1.0, 1.0, 1.0, -1.0, -1.0];
 // Row 6: Energy flux q_y
-#[allow(dead_code)]
 const M_ROW_6: [f64; 9] = [0.0, 0.0, -2.0, 0.0, 2.0, 1.0, 1.0, -1.0, -1.0];
 // Row 7: Stress tensor p_xx - p_yy
-#[allow(dead_code)]
 const M_ROW_7: [f64; 9] = [0.0, 1.0, -1.0, 1.0, -1.0, 0.0, 0.0, 0.0, 0.0];
 // Row 8: Stress tensor p_xy
-#[allow(dead_code)]
 const M_ROW_8: [f64; 9] = [0.0, 0.0, 0.0, 0.0, 0.0, 1.0, -1.0, 1.0, -1.0];
 
 /// Relaxation matrix for MRT
-#[allow(dead_code)]
 pub struct RelaxationMatrix<T: RealField + Copy> {
     /// Relaxation rates for each moment
     pub s: [T; 9],
@@ -66,7 +54,6 @@ pub struct RelaxationMatrix<T: RealField + Copy> {
 
 impl<T: RealField + Copy + FromPrimitive> RelaxationMatrix<T> {
     /// Create default relaxation matrix
-    #[allow(dead_code)]
     pub fn default_d2q9(tau: T) -> Self {
         let omega = T::one() / tau;
 
@@ -93,7 +80,6 @@ impl<T: RealField + Copy + FromPrimitive> RelaxationMatrix<T> {
 }
 
 /// MRT collision operator
-#[allow(dead_code)]
 pub struct MrtCollision<T: RealField + Copy> {
     /// Transformation matrix to moment space (9x9)
     m: [[T; 9]; 9],

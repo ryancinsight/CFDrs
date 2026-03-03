@@ -33,15 +33,15 @@ import numpy as np
 from datetime import datetime
 from typing import Dict, List, Tuple
 
-# Ensure pycfdrs is importable
+# Ensure cfd_python is importable
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 try:
-    import pycfdrs
-    HAS_PYCFDRS = True
+    import cfd_python
+    HAS_cfd_python = True
 except ImportError:
-    print("WARNING: pycfdrs not available, some tests will be skipped")
-    HAS_PYCFDRS = False
+    print("WARNING: cfd_python not available, some tests will be skipped")
+    HAS_cfd_python = False
 
 # ============================================================================
 # Physical Constants
@@ -515,20 +515,20 @@ def test_mbsl_vs_sbsl():
     return ok, f"P_SBSL = {power_sbsl*1e6:.2f} μW, P_MBSL = {power_mbsl*1e6:.2f} μW (ratio: {power_mbsl/power_sbsl:.1f}×)"
 
 # ============================================================================
-# SECTION 5: pycfdrs Integration Tests
+# SECTION 5: cfd_python Integration Tests
 # ============================================================================
 
-if HAS_PYCFDRS:
+if HAS_cfd_python:
     print()
     print("-" * 80)
-    print("SECTION 5: pycfdrs Integration Tests")
+    print("SECTION 5: cfd_python Integration Tests")
     print("-" * 80)
     
-    @test("5.1 pycfdrs VenturiSolver1D: cavitation prediction", "Integration")
-    def test_pycfdrs_venturi_cavitation():
+    @test("5.1 cfd_python VenturiSolver1D: cavitation prediction", "Integration")
+    def test_cfd_python_venturi_cavitation():
         # Create venturi solver (symmetric geometry)
         # Parameters: inlet_diameter, throat_diameter, throat_length, total_length
-        solver = pycfdrs.VenturiSolver1D(
+        solver = cfd_python.VenturiSolver1D(
             inlet_diameter=2e-3,
             throat_diameter=0.5e-3,
             throat_length=2e-3,
@@ -546,11 +546,11 @@ if HAS_PYCFDRS:
         details = f"Solver executed: {ok}"
         return ok, details
     
-    @test("5.2 pycfdrs blood rheology under high shear", "Blood flow")
-    def test_pycfdrs_blood_high_shear():
+    @test("5.2 cfd_python blood rheology under high shear", "Blood flow")
+    def test_cfd_python_blood_high_shear():
         # High shear rate in venturi throat
-        casson = pycfdrs.CassonBlood()
-        cy = pycfdrs.CarreauYasudaBlood()
+        casson = cfd_python.CassonBlood()
+        cy = cfd_python.CarreauYasudaBlood()
         
         gamma = 1000.0  # s^-1 (venturi throat)
         mu_casson = casson.viscosity(gamma)

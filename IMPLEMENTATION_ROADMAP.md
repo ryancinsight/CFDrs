@@ -257,8 +257,8 @@ Each solver needs:
 conda create -n fenics -c conda-forge fenics matplotlib numpy scipy
 conda activate fenics
 
-# Install pycfdrs in FEniCS environment
-pip install /path/to/pycfdrs-*.whl
+# Install cfd-python in FEniCS environment
+pip install /path/to/cfd-python-*.whl
 ```
 
 ### Validation Scripts Needed:

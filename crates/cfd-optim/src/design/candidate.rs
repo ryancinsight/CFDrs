@@ -1,0 +1,384 @@
+//! `DesignCandidate` struct — a fully-specified design in the parameter sweep.
+
+use super::DesignTopology;
+use crate::constraints::P_ATM_PA;
+use serde::{Deserialize, Serialize};
+
+// ── Cross-section shape ─────────────────────────────────────────────────────
+
+/// Cross-section shape for the venturi inlet/throat channels.
+///
+/// All `*_rect` blueprint presets (used by all current topologies) produce
+/// rectangular channels with `CrossSectionSpec::Rectangular { width_m, height_m }`.
+/// Circular is retained for potential future use (e.g. capillary tubing).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum CrossSectionShape {
+    /// Rectangular cross-section: area = width × height.
+    Rectangular,
+    /// Circular cross-section: area = π/4 × d².
+    Circular,
+}
+
+impl Default for CrossSectionShape {
+    fn default() -> Self {
+        Self::Rectangular
+    }
+}
+
+// ── Design candidate ────────────────────────────────────────────────────────
+
+/// A single fully-specified design candidate in the parameter sweep.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DesignCandidate {
+    /// Unique sequential identifier (e.g. `"0001-SV"`).
+    pub id: String,
+    /// Topology family.
+    pub topology: DesignTopology,
+    /// Total volumetric inlet flow rate [m³/s].
+    pub flow_rate_m3_s: f64,
+    /// Gauge inlet pressure above atmospheric [Pa].
+    /// Absolute inlet pressure = `P_ATM_PA + inlet_gauge_pa`.
+    pub inlet_gauge_pa: f64,
+    /// Venturi throat diameter [m].  Zero / ignored if `!topology.has_venturi()`.
+    pub throat_diameter_m: f64,
+    /// Venturi inlet (upstream) channel diameter [m].
+    pub inlet_diameter_m: f64,
+    /// Venturi throat length [m]  (≈ 2× throat diameter).
+    pub throat_length_m: f64,
+    /// Width of rectangular main / serpentine channels [m].
+    pub channel_width_m: f64,
+    /// Height of rectangular main / serpentine channels [m].
+    pub channel_height_m: f64,
+    /// Number of straight segments in the serpentine section.
+    pub serpentine_segments: usize,
+    /// Length of each serpentine straight segment [m].
+    pub segment_length_m: f64,
+    /// Radius of serpentine 180° bends [m].
+    pub bend_radius_m: f64,
+    /// Feed hematocrit (RBC volume fraction) at device inlet [0.0–0.45].
+    ///
+    /// Used by the cell-cell interaction model for leukapheresis topologies
+    /// (`ConstrictionExpansionArray`, `SpiralSerpentine`, `ParallelMicrochannelArray`).
+    /// Default for SDT / cancer separation: `0.45` (whole blood).
+    /// Post-dilution leukapheresis: typically `0.01–0.10`.
+    pub feed_hematocrit: f64,
+
+    /// Fraction of the parent-arm width allocated to the **center arm** at each
+    /// trifurcation split.  Each peripheral arm receives `(1 − frac) / 2`.
+    ///
+    /// - `1.0 / 3.0` (default) → symmetric split, all arms equal width.
+    /// - `> 1/3` → center-biased: larger center flow fraction for stronger
+    ///   Zweifach-Fung routing of large/stiff cells (cancer, WBC) toward center.
+    ///
+    /// Applies to `TripleTrifurcationVenturi`, `TrifurcationBifurcationBifurcationVenturi`,
+    /// `QuadTrifurcationVenturi`, `CascadeCenterTrifurcationSeparator`, and all existing
+    /// trifurcation-bearing topologies.  Ignored by bifurcation-only and serpentine topologies.
+    #[serde(default = "default_tri_frac")]
+    pub trifurcation_center_frac: f64,
+    /// CIF pre-trifurcation center-arm width fraction.
+    ///
+    /// Used only by `IncrementalFiltrationTriBiSeparator`.
+    #[serde(default = "default_cif_tri_frac")]
+    pub cif_pretri_center_frac: f64,
+    /// CIF terminal-trifurcation center-arm width fraction.
+    ///
+    /// Used only by `IncrementalFiltrationTriBiSeparator`.
+    #[serde(default = "default_cif_tri_frac")]
+    pub cif_terminal_tri_center_frac: f64,
+    /// CIF terminal-bifurcation treatment-arm fraction.
+    ///
+    /// Used only by `IncrementalFiltrationTriBiSeparator` and `TriBiTriSelectiveVenturi`.
+    #[serde(default = "default_cif_bi_treat_frac")]
+    pub cif_terminal_bi_treat_frac: f64,
+
+    /// Narrow-arm width as a fraction of the wide arm for `AsymmetricBifurcationSerpentine`.
+    ///
+    /// - `0.50` (default): 2:1 wide-to-narrow ratio (original)
+    /// - `0.25–0.65`: exploits Zweifach-Fung routing at varying enrichment levels
+    ///
+    /// Ignored by all other topologies.
+    #[serde(default = "default_asymm_narrow_frac")]
+    pub asymmetric_narrow_frac: f64,
+
+    /// Left arm width fraction for `AsymmetricTrifurcationVenturi` (WBC collection arm).
+    ///
+    /// Right arm fraction is derived: `right_frac = 1 − center_frac − left_frac`.
+    /// Default `1/3` (equal peripheral arms — symmetric).
+    ///
+    /// Ignored by all other topologies.
+    #[serde(default = "default_tri_left_frac")]
+    pub trifurcation_left_frac: f64,
+
+    /// Cross-section shape for inlet/throat geometry calculations.
+    ///
+    /// All current topologies use rectangular channels (`*_rect` blueprint
+    /// presets).  This field controls how `inlet_area_m2()` and
+    /// `throat_area_m2()` compute cross-sectional areas.
+    #[serde(default)]
+    pub cross_section_shape: CrossSectionShape,
+}
+
+fn default_tri_frac() -> f64 {
+    1.0 / 3.0
+}
+
+fn default_cif_tri_frac() -> f64 {
+    1.0 / 3.0
+}
+
+fn default_cif_bi_treat_frac() -> f64 {
+    0.68
+}
+
+fn default_asymm_narrow_frac() -> f64 {
+    0.5
+}
+
+fn default_tri_left_frac() -> f64 {
+    1.0 / 3.0
+}
+
+impl DesignCandidate {
+    /// Absolute inlet pressure [Pa].
+    #[inline]
+    #[must_use]
+    pub fn inlet_pressure_pa(&self) -> f64 {
+        P_ATM_PA + self.inlet_gauge_pa
+    }
+
+    /// Cross-sectional area of the venturi inlet channel [m²].
+    ///
+    /// Dispatches on [`CrossSectionShape`]:
+    /// - **Rectangular** (default): `inlet_diameter_m × channel_height_m`
+    /// - **Circular**: `π/4 × inlet_diameter_m²`
+    #[inline]
+    #[must_use]
+    pub fn inlet_area_m2(&self) -> f64 {
+        match self.cross_section_shape {
+            CrossSectionShape::Rectangular => self.inlet_diameter_m * self.channel_height_m,
+            CrossSectionShape::Circular => {
+                std::f64::consts::FRAC_PI_4 * self.inlet_diameter_m * self.inlet_diameter_m
+            }
+        }
+    }
+
+    /// Cross-sectional area of the venturi throat [m²].
+    ///
+    /// Dispatches on [`CrossSectionShape`]:
+    /// - **Rectangular** (default): `throat_diameter_m × channel_height_m`
+    /// - **Circular**: `π/4 × throat_diameter_m²`
+    #[inline]
+    #[must_use]
+    pub fn throat_area_m2(&self) -> f64 {
+        match self.cross_section_shape {
+            CrossSectionShape::Rectangular => self.throat_diameter_m * self.channel_height_m,
+            CrossSectionShape::Circular => {
+                std::f64::consts::FRAC_PI_4 * self.throat_diameter_m * self.throat_diameter_m
+            }
+        }
+    }
+
+    /// Mean velocity at the venturi inlet [m/s] for the *per-venturi* share of flow.
+    #[inline]
+    #[must_use]
+    pub fn inlet_velocity_m_s(&self) -> f64 {
+        let q_per = self.per_venturi_flow();
+        q_per / self.inlet_area_m2()
+    }
+
+    /// Fraction of total inlet flow that traverses venturi throat sections.
+    ///
+    /// For most venturi-bearing topologies this is `1.0` (all flow passes through
+    /// one or more throats).  For selective-separation layouts with bypass arms
+    /// (`CellSeparationVenturi`, `WbcCancerSeparationVenturi`,
+    /// `CascadeCenterTrifurcationSeparator`, `IncrementalFiltrationTriBiSeparator`)
+    /// only a subset of the flow reaches the treatment venturi.
+    #[inline]
+    #[must_use]
+    pub fn venturi_flow_fraction(&self) -> f64 {
+        use cfd_1d::cell_separation::{
+            cif_pretri_stage_q_fracs, tri_center_q_frac_cross_junction,
+        };
+
+        if !self.topology.has_venturi() {
+            return 0.0;
+        }
+
+        let frac = match self.topology {
+            // center channel (w) vs two peripheral channels (0.5w each):
+            // Q_center ∝ w^3, Q_periph ∝ (0.5w)^3 -> Q_center/(Q_total)=1/(1+0.125+0.125)=0.8
+            DesignTopology::CellSeparationVenturi | DesignTopology::WbcCancerSeparationVenturi => {
+                0.80
+            }
+            DesignTopology::CascadeCenterTrifurcationSeparator { n_levels } => {
+                let q_tri = tri_center_q_frac_cross_junction(
+                    self.trifurcation_center_frac,
+                    self.channel_width_m,
+                    self.channel_height_m,
+                );
+                q_tri.powi(i32::from(n_levels))
+            }
+            DesignTopology::IncrementalFiltrationTriBiSeparator { n_pretri } => {
+                let q_pretri_product = cif_pretri_stage_q_fracs(
+                    n_pretri,
+                    self.cif_pretri_center_frac(),
+                    self.cif_terminal_tri_center_frac(),
+                )
+                .into_iter()
+                .product::<f64>();
+                let q_terminal_tri = tri_center_q_frac_cross_junction(
+                    self.cif_terminal_tri_center_frac(),
+                    self.channel_width_m,
+                    self.channel_height_m,
+                );
+                let q_bi_treat = self.cif_terminal_bi_treat_frac();
+                q_pretri_product * q_terminal_tri * q_bi_treat
+            }
+            // Asymmetric trifurcation: center arm fraction of flow
+            DesignTopology::AsymmetricTrifurcationVenturi => {
+                tri_center_q_frac_cross_junction(
+                    self.trifurcation_center_frac,
+                    self.channel_width_m,
+                    self.channel_height_m,
+                )
+            }
+            // Tri→Bi→Tri: tri1 × bi × tri3 (tri1 = tri3 = trifurcation_center_frac)
+            DesignTopology::TriBiTriSelectiveVenturi => {
+                let q_tri = tri_center_q_frac_cross_junction(
+                    self.trifurcation_center_frac,
+                    self.channel_width_m,
+                    self.channel_height_m,
+                );
+                let q_bi = self.cif_terminal_bi_treat_frac();
+                q_tri * q_bi * q_tri
+            }
+            _ => 1.0,
+        };
+
+        frac.clamp(0.0, 1.0)
+    }
+
+    /// Fraction of total channel path length in the active therapy zone.
+    ///
+    /// Model-based approximation of what fraction of the chip's channel network
+    /// is doing therapeutic work (tagged as CancerTarget or VenturiThroat),
+    /// as opposed to bypass plumbing or healthy-cell routing.
+    ///
+    /// - **All-flow venturi topologies** (single/double venturi, serpentine with
+    ///   venturi, etc.): `1.0` — the entire channel path is the treatment zone.
+    /// - **AsymmetricBifurcationSerpentine**: wide arm is CancerTarget; narrow
+    ///   arm is HealthyBypass.  Fraction = `1 / (1 + narrow_frac)`.
+    /// - **CascadeCenterTrifurcationSeparator**: only the center arm at each
+    ///   split carries cancer-enriched flow.  Fraction ≈ `tri_center_q_frac`.
+    /// - **AsymmetricTrifurcationVenturi**: center arm only.
+    /// - **TriBiTriSelectiveVenturi**: product of three center fractions.
+    /// - **IncrementalFiltrationTriBiSeparator**: product of staged fractions.
+    /// - **Non-venturi / leukapheresis**: `0.0`.
+    #[inline]
+    #[must_use]
+    pub fn therapy_channel_fraction(&self) -> f64 {
+        use cfd_1d::cell_separation::{cif_pretri_stage_q_fracs, tri_center_q_frac};
+
+        if !self.topology.has_venturi() {
+            return 0.0;
+        }
+
+        let frac = match self.topology {
+            DesignTopology::AsymmetricBifurcationSerpentine => {
+                // Wide (CancerTarget) arm vs narrow (HealthyBypass) arm.
+                // Path length is equal in both arms; therapy fraction = 1/(1+narrow_frac).
+                1.0 / (1.0 + self.asymmetric_narrow_frac.clamp(0.10, 0.90))
+            }
+            DesignTopology::CascadeCenterTrifurcationSeparator { .. } => {
+                // Each cascade level routes only center_frac flow to therapy.
+                tri_center_q_frac(self.trifurcation_center_frac)
+            }
+            DesignTopology::AsymmetricTrifurcationVenturi => {
+                // Center arm carries cancer-enriched stream to venturi.
+                tri_center_q_frac(self.trifurcation_center_frac)
+            }
+            DesignTopology::TriBiTriSelectiveVenturi => {
+                // Three selective stages: Tri → Bi → Tri (center only at each).
+                let q_tri = tri_center_q_frac(self.trifurcation_center_frac);
+                let q_bi = self.cif_terminal_bi_treat_frac();
+                q_tri * q_bi * q_tri
+            }
+            DesignTopology::IncrementalFiltrationTriBiSeparator { n_pretri } => {
+                // Pre-trifurcation cascade + terminal tri + terminal bi.
+                let q_pretri_product = cif_pretri_stage_q_fracs(
+                    n_pretri,
+                    self.cif_pretri_center_frac(),
+                    self.cif_terminal_tri_center_frac(),
+                )
+                .into_iter()
+                .product::<f64>();
+                let q_tri = tri_center_q_frac(self.cif_terminal_tri_center_frac());
+                let q_bi = self.cif_terminal_bi_treat_frac();
+                q_pretri_product * q_tri * q_bi
+            }
+            // All remaining venturi topologies route the full flow through
+            // the treatment zone.
+            _ => 1.0,
+        };
+
+        frac.clamp(0.0, 1.0)
+    }
+
+    /// Flow rate allocated to **one** venturi stage [m³/s].
+    ///
+    /// For series topologies the full inlet flow passes through each stage;
+    /// for tree (parallel) topologies the flow splits across branches.
+    #[inline]
+    #[must_use]
+    pub fn per_venturi_flow(&self) -> f64 {
+        if !self.topology.has_venturi() {
+            return 0.0;
+        }
+        let n = self.topology.parallel_venturi_count().max(1);
+        self.flow_rate_m3_s * self.venturi_flow_fraction() / n as f64
+    }
+
+    /// Mean velocity in the rectangular main channel [m/s].
+    ///
+    /// For serpentine topologies this is the per-arm velocity (each arm carries
+    /// `Q / serpentine_arm_count()`).  For all other topologies it is the inlet
+    /// trunk velocity.
+    #[inline]
+    #[must_use]
+    pub fn channel_velocity_m_s(&self) -> f64 {
+        let n_arms = self.topology.serpentine_arm_count().max(1);
+        let q_per = self.flow_rate_m3_s / n_arms as f64;
+        q_per / (self.channel_width_m * self.channel_height_m)
+    }
+
+    /// Effective CIF pre-trifurcation center fraction (clamped to physical range).
+    #[must_use]
+    pub fn cif_pretri_center_frac(&self) -> f64 {
+        self.cif_pretri_center_frac.clamp(0.20, 0.70)
+    }
+
+    /// Effective CIF terminal-trifurcation center fraction (clamped to physical range).
+    #[must_use]
+    pub fn cif_terminal_tri_center_frac(&self) -> f64 {
+        self.cif_terminal_tri_center_frac.clamp(0.20, 0.70)
+    }
+
+    /// Effective CIF terminal-bifurcation treatment fraction (clamped to physical range).
+    #[must_use]
+    pub fn cif_terminal_bi_treat_frac(&self) -> f64 {
+        self.cif_terminal_bi_treat_frac.clamp(0.50, 0.85)
+    }
+
+    /// Stage-wise pre-trifurcation center-arm fractions for CIF.
+    ///
+    /// The returned vector has length `n_pretri.clamp(1, 3)` and is used by
+    /// staged-CIF geometry and routing calculations.
+    #[must_use]
+    pub fn cif_pretri_stage_center_fracs(&self, n_pretri: u8) -> Vec<f64> {
+        cfd_1d::cell_separation::cif_pretri_stage_center_fracs(
+            n_pretri,
+            self.cif_pretri_center_frac(),
+            self.cif_terminal_tri_center_frac(),
+        )
+    }
+}

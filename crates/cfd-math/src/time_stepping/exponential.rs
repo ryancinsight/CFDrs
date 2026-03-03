@@ -113,8 +113,6 @@ impl Default for ExponentialConfig {
 
 /// Exponential Time Differencing (ETD) schemes
 pub struct ExponentialTimeDifferencing<T: RealField + Copy> {
-    #[allow(dead_code)]
-    config: ExponentialConfig,
     _phantom: std::marker::PhantomData<T>,
 }
 
@@ -130,15 +128,13 @@ impl<T: RealField + Copy + FromPrimitive + ComplexField> ExponentialTimeDifferen
     /// Create new ETD integrator
     pub fn new() -> Self {
         Self {
-            config: ExponentialConfig::default(),
             _phantom: std::marker::PhantomData,
         }
     }
 
     /// Create ETD integrator with custom configuration
-    pub fn with_config(config: ExponentialConfig) -> Self {
+    pub fn with_config(_config: ExponentialConfig) -> Self {
         Self {
-            config,
             _phantom: std::marker::PhantomData,
         }
     }
@@ -210,8 +206,6 @@ impl<T: RealField + Copy + FromPrimitive + ComplexField> ExponentialTimeDifferen
 
 /// Exponential Runge-Kutta methods
 pub struct ExponentialRungeKutta4<T: RealField + Copy> {
-    #[allow(dead_code)]
-    config: ExponentialConfig,
     _phantom: std::marker::PhantomData<T>,
 }
 
@@ -225,15 +219,13 @@ impl<T: RealField + Copy + FromPrimitive + ComplexField> ExponentialRungeKutta4<
     /// Create new exponential RK4 integrator
     pub fn new() -> Self {
         Self {
-            config: ExponentialConfig::default(),
             _phantom: std::marker::PhantomData,
         }
     }
 
     /// Create ERK4 integrator with custom configuration
-    pub fn with_config(config: ExponentialConfig) -> Self {
+    pub fn with_config(_config: ExponentialConfig) -> Self {
         Self {
-            config,
             _phantom: std::marker::PhantomData,
         }
     }

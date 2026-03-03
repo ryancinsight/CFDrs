@@ -23,10 +23,10 @@
 //!
 //! `pitch = 2 · bend_radius` (centre-to-centre X between adjacent legs).
 //!
-//! **Straight leg `k`** (k = 0 … n_passes−1):
+//! **Straight leg `k`** (k = 0 … `n_passes−1)`:
 //! - x = `k · pitch`
-//! - even k: travels +Z (z: 0 → straight_length)
-//! - odd k: travels −Z (z: straight_length → 0)
+//! - even k: travels +Z (z: 0 → `straight_length`)
+//! - odd k: travels −Z (z: `straight_length` → 0)
 //!
 //! **U-turn bend `k`** (after leg k, ψ ∈ [0, π]):
 //!
@@ -55,17 +55,17 @@
 //!
 //! | Section                   | T         | N          |
 //! |---------------------------|-----------|------------|
-//! | going_up straight         | (0,0,+1)  | (+1,0,0)   |
+//! | `going_up` straight         | (0,0,+1)  | (+1,0,0)   |
 //! | top bend ψ=0              | (0,0,+1)  | (+1,0,0) ✓ |
 //! | top bend ψ=π              | (0,0,−1)  | (−1,0,0)   |
-//! | going_down straight       | (0,0,−1)  | (−1,0,0) ✓ |
+//! | `going_down` straight       | (0,0,−1)  | (−1,0,0) ✓ |
 //! | bottom bend ψ=0           | (0,0,−1)  | (−1,0,0) ✓ |
 //! | bottom bend ψ=π           | (0,0,+1)  | (+1,0,0)   |
-//! | going_up straight (next)  | (0,0,+1)  | (+1,0,0) ✓ |
+//! | `going_up` straight (next)  | (0,0,+1)  | (+1,0,0) ✓ |
 //!
 //! ## Region IDs
 //!
-//! | RegionId | Surface                               |
+//! | `RegionId` | Surface                               |
 //! |----------|---------------------------------------|
 //! | 1        | Tube wall (all straight + bend walls) |
 //! | 2        | Inlet cap (end of leg 0, Z = 0)       |
@@ -231,7 +231,7 @@ fn build(st: &SerpentineTube) -> Result<IndexedMesh, PrimitiveError> {
         let z_start = if going_up { 0.0 } else { sl };
         let z_end = if going_up { sl } else { 0.0 };
 
-        let k_start = if pass == 0 { 0 } else { 1 };
+        let k_start = usize::from(pass != 0);
         for k in k_start..=n_straight {
             let t = k as f64 / n_straight as f64;
             all_stations.push(Station {

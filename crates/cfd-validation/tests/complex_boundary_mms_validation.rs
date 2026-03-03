@@ -10,13 +10,11 @@ use nalgebra::Vector3;
 use num_traits::FromPrimitive;
 
 /// Helper function to compute x coordinate at grid index
-#[allow(dead_code)]
 fn x_at<T: nalgebra::RealField + FromPrimitive + Copy>(grid: &StructuredGrid2D<T>, i: usize) -> T {
     grid.bounds.0 + T::from_usize(i).unwrap_or_else(T::zero) * grid.dx
 }
 
 /// Helper function to compute y coordinate at grid index
-#[allow(dead_code)]
 fn y_at<T: nalgebra::RealField + FromPrimitive + Copy>(grid: &StructuredGrid2D<T>, j: usize) -> T {
     grid.bounds.2 + T::from_usize(j).unwrap_or_else(T::zero) * grid.dy
 }

@@ -26,8 +26,8 @@ pub fn write_ascii_stl<W: Write>(
         let b = vertex_pool.position(face.vertices[1]);
         let c = vertex_pool.position(face.vertices[2]);
 
-        let normal = crate::domain::geometry::normal::triangle_normal(&a, &b, &c)
-            .unwrap_or_else(|| Vector3r::z());
+        let normal = crate::domain::geometry::normal::triangle_normal(a, b, c)
+            .unwrap_or_else(Vector3r::z);
 
         writeln!(
             writer,
@@ -68,8 +68,8 @@ pub fn write_binary_stl<W: Write>(
         let b = vertex_pool.position(face.vertices[1]);
         let c = vertex_pool.position(face.vertices[2]);
 
-        let normal = crate::domain::geometry::normal::triangle_normal(&a, &b, &c)
-            .unwrap_or_else(|| Vector3r::z());
+        let normal = crate::domain::geometry::normal::triangle_normal(a, b, c)
+            .unwrap_or_else(Vector3r::z);
 
         // Normal (3 × f32)
         write_f32(writer, normal.x as f32)?;
@@ -126,7 +126,7 @@ pub fn read_ascii_stl<R: Read>(
         if trimmed.starts_with("endfacet") && verts.len() == 3 {
             let normal =
                 crate::domain::geometry::normal::triangle_normal(&verts[0], &verts[1], &verts[2])
-                    .unwrap_or_else(|| Vector3r::z());
+                    .unwrap_or_else(Vector3r::z);
 
             let v0 = vertex_pool.insert_or_weld(verts[0], normal);
             let v1 = vertex_pool.insert_or_weld(verts[1], normal);
@@ -182,9 +182,9 @@ pub fn read_binary_stl<R: Read>(
         for vert in &mut verts {
             let mut vbuf = [0u8; 12];
             r.read_exact(&mut vbuf).map_err(MeshError::Io)?;
-            let x = f32::from_le_bytes([vbuf[0], vbuf[1], vbuf[2], vbuf[3]]) as Real;
-            let y = f32::from_le_bytes([vbuf[4], vbuf[5], vbuf[6], vbuf[7]]) as Real;
-            let z = f32::from_le_bytes([vbuf[8], vbuf[9], vbuf[10], vbuf[11]]) as Real;
+            let x = Real::from(f32::from_le_bytes([vbuf[0], vbuf[1], vbuf[2], vbuf[3]]));
+            let y = Real::from(f32::from_le_bytes([vbuf[4], vbuf[5], vbuf[6], vbuf[7]]));
+            let z = Real::from(f32::from_le_bytes([vbuf[8], vbuf[9], vbuf[10], vbuf[11]]));
             *vert = Point3r::new(x, y, z);
         }
         // Skip attribute byte count (2 bytes).
@@ -193,7 +193,7 @@ pub fn read_binary_stl<R: Read>(
 
         let normal =
             crate::domain::geometry::normal::triangle_normal(&verts[0], &verts[1], &verts[2])
-                .unwrap_or_else(|| Vector3r::z());
+                .unwrap_or_else(Vector3r::z);
         let v0 = vertex_pool.insert_or_weld(verts[0], normal);
         let v1 = vertex_pool.insert_or_weld(verts[1], normal);
         let v2 = vertex_pool.insert_or_weld(verts[2], normal);

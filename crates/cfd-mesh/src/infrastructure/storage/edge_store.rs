@@ -21,24 +21,28 @@ pub struct EdgeData {
 impl EdgeData {
     /// Is this a boundary edge (shared by exactly 1 face)?
     #[inline]
+    #[must_use] 
     pub fn is_boundary(&self) -> bool {
         self.faces.len() == 1
     }
 
     /// Is this a manifold interior edge (shared by exactly 2 faces)?
     #[inline]
+    #[must_use] 
     pub fn is_manifold(&self) -> bool {
         self.faces.len() == 2
     }
 
     /// Is this a non-manifold edge (shared by >2 faces)?
     #[inline]
+    #[must_use] 
     pub fn is_non_manifold(&self) -> bool {
         self.faces.len() > 2
     }
 
     /// Valence: number of adjacent faces.
     #[inline]
+    #[must_use] 
     pub fn valence(&self) -> usize {
         self.faces.len()
     }
@@ -57,6 +61,7 @@ pub struct EdgeStore {
 
 impl EdgeStore {
     /// Create an empty edge store.
+    #[must_use] 
     pub fn new() -> Self {
         Self {
             edges: Vec::new(),
@@ -68,6 +73,7 @@ impl EdgeStore {
     ///
     /// This scans all face edges and constructs the edge adjacency in O(F)
     /// where F = number of faces.
+    #[must_use] 
     pub fn from_faces(faces: &[(FaceId, &FaceData)]) -> Self {
         let mut store = Self::new();
         store.edges.reserve(faces.len() * 2); // heuristic: E ≈ 1.5F for manifold
@@ -82,6 +88,7 @@ impl EdgeStore {
     }
 
     /// Build from a face store directly.
+    #[must_use] 
     pub fn from_face_store(
         face_store: &crate::infrastructure::storage::face_store::FaceStore,
     ) -> Self {
@@ -107,23 +114,27 @@ impl EdgeStore {
 
     /// Number of edges.
     #[inline]
+    #[must_use] 
     pub fn len(&self) -> usize {
         self.edges.len()
     }
 
     /// Is the store empty?
     #[inline]
+    #[must_use] 
     pub fn is_empty(&self) -> bool {
         self.edges.is_empty()
     }
 
     /// Get edge data by ID.
     #[inline]
+    #[must_use] 
     pub fn get(&self, id: EdgeId) -> &EdgeData {
         &self.edges[id.as_usize()]
     }
 
     /// Look up an edge by its canonical vertex pair.
+    #[must_use] 
     pub fn find_edge(&self, a: VertexId, b: VertexId) -> Option<EdgeId> {
         let key = if a.0 <= b.0 { (a, b) } else { (b, a) };
         self.edge_map.get(&key).copied()
@@ -143,6 +154,7 @@ impl EdgeStore {
     }
 
     /// All boundary edges (valence == 1).
+    #[must_use] 
     pub fn boundary_edges(&self) -> Vec<EdgeId> {
         self.edges
             .iter()
@@ -153,6 +165,7 @@ impl EdgeStore {
     }
 
     /// All non-manifold edges (valence > 2).
+    #[must_use] 
     pub fn non_manifold_edges(&self) -> Vec<EdgeId> {
         self.edges
             .iter()
@@ -163,6 +176,7 @@ impl EdgeStore {
     }
 
     /// Count boundary edges.
+    #[must_use] 
     pub fn boundary_edge_count(&self) -> usize {
         self.edges.iter().filter(|e| e.is_boundary()).count()
     }

@@ -33,6 +33,7 @@ impl QualityMetric {
     }
 
     /// Number of elements below a threshold.
+    #[must_use] 
     pub fn count_below(values: &[Real], threshold: Real) -> usize {
         values.iter().filter(|&&v| v < threshold).count()
     }

@@ -2,7 +2,7 @@
 """
 External Reference Comparison for CFD-rs
 
-Validates pycfdrs against independent NumPy-based reference implementations
+Validates cfd_python against independent NumPy-based reference implementations
 following the same approaches used in:
 
 1. DrZGan/Python_CFD: Classic finite-difference CFD teaching codes
@@ -28,10 +28,10 @@ import sys
 import time
 
 try:
-    import pycfdrs
-    HAS_PYCFDRS = True
+    import cfd_python
+    HAS_cfd_python = True
 except ImportError:
-    print("ERROR: pycfdrs not available")
+    print("ERROR: cfd_python not available")
     sys.exit(1)
 
 
@@ -148,11 +148,11 @@ def numpy_poiseuille_fd(H, L, dp, mu, ny=51, max_iter=50000, tol=1e-8):
 
 def validate_poiseuille_vs_reference():
     """
-    Compare pycfdrs Poiseuille solver against:
+    Compare cfd_python Poiseuille solver against:
     1. Analytical solution (exact)
     2. NumPy finite-difference solver (Python_CFD style)
     """
-    header("TEST 1: Poiseuille Flow — pycfdrs vs Analytical vs NumPy FD")
+    header("TEST 1: Poiseuille Flow — cfd_python vs Analytical vs NumPy FD")
 
     # Millifluidic parameters
     H = 100e-6   # 100 um channel height
@@ -180,9 +180,9 @@ def validate_poiseuille_vs_reference():
     print(f"    Q     = {Q_fd:.6e} m²/s")
     print(f"    tau_w = {tau_fd:.6e} Pa")
 
-    # 3. pycfdrs solver
-    subheader("pycfdrs Solver")
-    solver = pycfdrs.Poiseuille2DSolver(
+    # 3. cfd_python solver
+    subheader("cfd_python Solver")
+    solver = cfd_python.Poiseuille2DSolver(
         height=H, width=W, length=L, nx=100, ny=50
     )
     result = solver.solve(dp, "water")
@@ -194,12 +194,12 @@ def validate_poiseuille_vs_reference():
     subheader("Three-Way Comparison")
     passed = []
 
-    # u_max: pycfdrs vs analytical
-    passed.append(result_line("u_max (pycfdrs vs analytical)",
+    # u_max: cfd_python vs analytical
+    passed.append(result_line("u_max (cfd_python vs analytical)",
                               result.max_velocity, u_max_a, "m/s", tol=0.001))
 
-    # u_max: pycfdrs vs FD
-    passed.append(result_line("u_max (pycfdrs vs NumPy FD)",
+    # u_max: cfd_python vs FD
+    passed.append(result_line("u_max (cfd_python vs NumPy FD)",
                               result.max_velocity, u_max_fd, "m/s", tol=0.01))
 
     # u_max: FD vs analytical
@@ -207,11 +207,11 @@ def validate_poiseuille_vs_reference():
                               u_max_fd, u_max_a, "m/s", tol=0.001))
 
     # Wall shear stress
-    passed.append(result_line("tau_w (pycfdrs vs analytical)",
+    passed.append(result_line("tau_w (cfd_python vs analytical)",
                               result.wall_shear_stress, tau_a, "Pa", tol=0.001))
 
-    # Flow rate comparison (Q from pycfdrs is m³/s, Q_a is m²/s per unit width)
-    # pycfdrs Poiseuille uses width in its calculation
+    # Flow rate comparison (Q from cfd_python is m³/s, Q_a is m²/s per unit width)
+    # cfd_python Poiseuille uses width in its calculation
     # Check u_max profile agreement via centerline
     # Analytical: u_centerline should follow parabolic profile
     u_cl = np.array(result.u_centerline)
@@ -221,7 +221,7 @@ def validate_poiseuille_vs_reference():
     l2_profile = np.sqrt(np.mean((u_cl - u_a_at_grid)**2))
     l2_norm = np.sqrt(np.mean(u_a_at_grid**2))
     rel_l2 = l2_profile / l2_norm if l2_norm > 0 else 0
-    print(f"    {'Profile L2 error (pycfdrs vs analytical)':35s}: {rel_l2:.4e}  "
+    print(f"    {'Profile L2 error (cfd_python vs analytical)':35s}: {rel_l2:.4e}  "
           f"[{'PASS' if rel_l2 < 0.01 else 'FAIL'}]")
     passed.append(rel_l2 < 0.01)
 
@@ -273,10 +273,10 @@ def numpy_bernoulli_venturi(A_inlet, A_throat, u_inlet, rho=1060.0):
 
 def validate_venturi_vs_reference():
     """
-    Compare pycfdrs Venturi solver against Bernoulli reference.
+    Compare cfd_python Venturi solver against Bernoulli reference.
     Follows pmocz/cfd-comparison-python approach of conservation law verification.
     """
-    header("TEST 2: Venturi Flow — pycfdrs vs Bernoulli Reference")
+    header("TEST 2: Venturi Flow — cfd_python vs Bernoulli Reference")
 
     # Millifluidic venturi parameters
     w_inlet = 200e-6   # 200 um inlet width
@@ -302,9 +302,9 @@ def validate_venturi_vs_reference():
     print(f"    Cp         = {Cp_ref:.6f}")
     print(f"    Mass flux conservation: {abs(mf_in - mf_th):.2e}")
 
-    # 2. pycfdrs Venturi solver
-    subheader("pycfdrs Venturi Solver")
-    solver = pycfdrs.VenturiSolver2D(
+    # 2. cfd_python Venturi solver
+    subheader("cfd_python Venturi Solver")
+    solver = cfd_python.VenturiSolver2D(
         w_inlet=w_inlet,
         w_throat=w_throat,
         l_inlet=500e-6,
@@ -331,16 +331,16 @@ def validate_venturi_vs_reference():
     passed = []
 
     # Area ratio
-    passed.append(result_line("area_ratio (pycfdrs vs expected)",
+    passed.append(result_line("area_ratio (cfd_python vs expected)",
                               ar, A_ratio, "", tol=0.001))
 
     # Pressure coefficient
-    # pycfdrs uses Cp = 1 - beta² (venturi recovery definition, ISO convention)
+    # cfd_python uses Cp = 1 - beta² (venturi recovery definition, ISO convention)
     # Bernoulli standard: Cp_standard = 1 - (1/beta)² = -3.0
     # Both are physically correct — different conventions.
-    # We verify pycfdrs matches its own definition: Cp = 1 - (A_throat/A_inlet)²
+    # We verify cfd_python matches its own definition: Cp = 1 - (A_throat/A_inlet)²
     Cp_expected = 1.0 - A_ratio**2  # = 1 - (A_th/A_in)² = 1 - 0.25 = 0.75
-    passed.append(result_line("Cp (pycfdrs vs 1-beta^2)",
+    passed.append(result_line("Cp (cfd_python vs 1-beta^2)",
                               Cp_solver, Cp_expected, "", tol=0.001))
 
     # Also verify the Bernoulli-standard Cp
@@ -352,7 +352,7 @@ def validate_venturi_vs_reference():
 
     # Velocity ratio: u_throat/u_inlet = A_inlet/A_throat
     vel_ratio_expected = w_inlet / w_throat
-    passed.append(result_line("vel_ratio (pycfdrs vs continuity)",
+    passed.append(result_line("vel_ratio (cfd_python vs continuity)",
                               result.velocity_ratio, vel_ratio_expected, "", tol=0.001))
 
     # Mass conservation
@@ -366,7 +366,7 @@ def validate_venturi_vs_reference():
 # =============================================================================
 # Reference 3: Blood Rheology (Literature comparison)
 # =============================================================================
-# Comparing pycfdrs blood models against published experimental data.
+# Comparing cfd_python blood models against published experimental data.
 # References:
 #   - Merrill (1969): Casson model parameters for normal human blood
 #   - Cho & Kensey (1991): Carreau-Yasuda model for blood
@@ -415,20 +415,20 @@ def numpy_carreau_yasuda_viscosity(gamma_dot, mu_0=0.056, mu_inf=0.00345,
 
 def validate_blood_rheology_vs_reference():
     """
-    Compare pycfdrs blood models against NumPy reference implementations.
+    Compare cfd_python blood models against NumPy reference implementations.
     """
-    header("TEST 3: Blood Rheology — pycfdrs vs NumPy Reference vs Literature")
+    header("TEST 3: Blood Rheology — cfd_python vs NumPy Reference vs Literature")
 
     # Test shear rates spanning physiological range
     gamma_dots = [0.1, 1.0, 10.0, 100.0, 1000.0]
 
-    # Create pycfdrs blood models
-    casson = pycfdrs.CassonBlood()
-    carreau = pycfdrs.CarreauYasudaBlood()
+    # Create cfd_python blood models
+    casson = cfd_python.CassonBlood()
+    carreau = cfd_python.CarreauYasudaBlood()
 
     # 1. Casson model comparison
     subheader("Casson Model")
-    print(f"    {'gamma [s^-1]':>12s}  {'pycfdrs [mPa.s]':>15s}  {'NumPy [mPa.s]':>14s}  {'Error':>10s}")
+    print(f"    {'gamma [s^-1]':>12s}  {'cfd_python [mPa.s]':>15s}  {'NumPy [mPa.s]':>14s}  {'Error':>10s}")
     print(f"    {'-'*60}")
 
     passed = []
@@ -442,7 +442,7 @@ def validate_blood_rheology_vs_reference():
 
     # 2. Carreau-Yasuda model comparison
     subheader("Carreau-Yasuda Model")
-    print(f"    {'gamma [s^-1]':>12s}  {'pycfdrs [mPa.s]':>15s}  {'NumPy [mPa.s]':>14s}  {'Error':>10s}")
+    print(f"    {'gamma [s^-1]':>12s}  {'cfd_python [mPa.s]':>15s}  {'NumPy [mPa.s]':>14s}  {'Error':>10s}")
     print(f"    {'-'*60}")
 
     for g in gamma_dots:
@@ -530,9 +530,9 @@ def numpy_hagen_poiseuille(D, L, dp, mu):
 
 def validate_3d_poiseuille_vs_reference():
     """
-    Compare pycfdrs 3D Poiseuille solver against Hagen-Poiseuille analytical.
+    Compare cfd_python 3D Poiseuille solver against Hagen-Poiseuille analytical.
     """
-    header("TEST 4: Hagen-Poiseuille 3D — pycfdrs vs Analytical Reference")
+    header("TEST 4: Hagen-Poiseuille 3D — cfd_python vs Analytical Reference")
 
     # Millifluidic tube parameters
     D = 100e-6   # 100 um diameter
@@ -542,7 +542,7 @@ def validate_3d_poiseuille_vs_reference():
 
     # Use Casson apparent viscosity at a representative shear rate
     # For a 100um tube at moderate flow, gamma ~ 100 s^-1
-    casson = pycfdrs.CassonBlood()
+    casson = cfd_python.CassonBlood()
     mu_casson = casson.apparent_viscosity(100.0)
 
     print(f"  Parameters:")
@@ -557,9 +557,9 @@ def validate_3d_poiseuille_vs_reference():
     print(f"    Q     = {Q_a:.6e} m³/s")
     print(f"    tau_w = {tau_a:.6e} Pa")
 
-    # 2. pycfdrs 3D Poiseuille solver
-    subheader("pycfdrs Poiseuille3DSolver")
-    solver = pycfdrs.Poiseuille3DSolver(
+    # 2. cfd_python 3D Poiseuille solver
+    subheader("cfd_python Poiseuille3DSolver")
+    solver = cfd_python.Poiseuille3DSolver(
         diameter=D, length=L, nr=20, ntheta=16, nz=50
     )
 
@@ -581,17 +581,17 @@ def validate_3d_poiseuille_vs_reference():
     subheader("Comparison")
     passed = []
 
-    passed.append(result_line("u_max (pycfdrs analytical vs NumPy)",
+    passed.append(result_line("u_max (cfd_python analytical vs NumPy)",
                               u_max_pcfd, u_max_a, "m/s", tol=0.001))
 
-    passed.append(result_line("Q (pycfdrs analytical vs NumPy)",
+    passed.append(result_line("Q (cfd_python analytical vs NumPy)",
                               Q_pcfd, Q_a, "m^3/s", tol=0.001))
 
     # Full solve comparison (may differ since solve uses Casson internally)
-    passed.append(result_line("u_max (pycfdrs solve vs analytical)",
+    passed.append(result_line("u_max (cfd_python solve vs analytical)",
                               abs(result.max_velocity), u_max_a, "m/s", tol=0.02))
 
-    passed.append(result_line("Q (pycfdrs solve vs analytical)",
+    passed.append(result_line("Q (cfd_python solve vs analytical)",
                               abs(result.flow_rate), Q_a, "m^3/s", tol=0.02))
 
     return all(passed)
@@ -633,9 +633,9 @@ def numpy_poiseuille_resistance(D, L, mu):
 
 def validate_bifurcation_vs_reference():
     """
-    Compare pycfdrs Bifurcation solver against analytical predictions.
+    Compare cfd_python Bifurcation solver against analytical predictions.
     """
-    header("TEST 5: Vascular Bifurcation — pycfdrs vs Murray's Law & Analytical")
+    header("TEST 5: Vascular Bifurcation — cfd_python vs Murray's Law & Analytical")
 
     # Murray's law optimal bifurcation
     D_p = 100e-6   # 100 um parent
@@ -651,7 +651,7 @@ def validate_bifurcation_vs_reference():
     D_d_rounded = round(D_d * 1e6, 1) * 1e-6  # round to 0.1 um
 
     # Casson viscosity at representative shear rate
-    casson = pycfdrs.CassonBlood()
+    casson = cfd_python.CassonBlood()
     mu = casson.apparent_viscosity(100.0)
 
     # Analytical pressure drop: dp = R * Q (Poiseuille resistance)
@@ -670,9 +670,9 @@ def validate_bifurcation_vs_reference():
     print(f"    dp_parent  = {dp_parent:.4f} Pa")
     print(f"    dp_daughter = {dp_daughter:.4f} Pa")
 
-    # pycfdrs solver
-    subheader("pycfdrs Bifurcation Solver")
-    solver = pycfdrs.BifurcationSolver(
+    # cfd_python solver
+    subheader("cfd_python Bifurcation Solver")
+    solver = cfd_python.BifurcationSolver(
         d_parent=D_p,
         d_daughter1=D_d_rounded,
         d_daughter2=D_d_rounded,
@@ -702,7 +702,7 @@ def validate_bifurcation_vs_reference():
 
     # Symmetric flow split (exact for equal daughters)
     split = result.q_1 / result.q_parent
-    passed.append(result_line("flow_split (pycfdrs vs expected 0.5)",
+    passed.append(result_line("flow_split (cfd_python vs expected 0.5)",
                               split, 0.5, "", tol=0.001))
 
     # Symmetric pressure drops (should be equal)
@@ -747,12 +747,12 @@ def validate_dimensionless_numbers():
     """
     Validate dimensionless number calculations for millifluidic flows.
     """
-    header("TEST 6: Dimensionless Numbers — pycfdrs vs Analytical")
+    header("TEST 6: Dimensionless Numbers — cfd_python vs Analytical")
 
     D = 100e-6   # 100 um
     L = 1e-3     # 1 mm
     rho = 1060.0
-    casson = pycfdrs.CassonBlood()
+    casson = cfd_python.CassonBlood()
     mu = casson.apparent_viscosity(100.0)  # at 100 s^-1
 
     # Various flow rates typical in millifluidics
@@ -784,9 +784,9 @@ def validate_dimensionless_numbers():
         print(f"    Quasi-steady at 1 Hz: {'Yes' if is_quasi_steady else 'No'} (Wo < 1)")
         passed.append(is_quasi_steady)
 
-    # pycfdrs Reynolds number check (from Poiseuille solver)
-    subheader("pycfdrs Reynolds Number Verification")
-    solver = pycfdrs.Poiseuille2DSolver(
+    # cfd_python Reynolds number check (from Poiseuille solver)
+    subheader("cfd_python Reynolds Number Verification")
+    solver = cfd_python.Poiseuille2DSolver(
         height=D, width=1.0, length=L, nx=50, ny=25
     )
     result = solver.solve(100.0, "casson")
@@ -797,7 +797,7 @@ def validate_dimensionless_numbers():
     u_mean_approx = u_max_expected * 2.0/3.0  # for parabolic profile
     Re_check = rho * u_mean_approx * D / mu
 
-    print(f"    pycfdrs Re     = {Re_solver:.4f}")
+    print(f"    cfd_python Re     = {Re_solver:.4f}")
     print(f"    Expected Re    = {Re_check:.4f}")
     # Just check both are in laminar regime
     passed.append(Re_solver < 2300)
@@ -813,7 +813,7 @@ def main():
     print()
     print("=" * 72)
     print("  EXTERNAL REFERENCE COMPARISON FOR CFD-RS")
-    print("  pycfdrs vs Independent NumPy Implementations")
+    print("  cfd_python vs Independent NumPy Implementations")
     print("  Following approaches from:")
     print("    - DrZGan/Python_CFD (FD Navier-Stokes)")
     print("    - pmocz/cfd-comparison-python (conservation laws)")
@@ -866,7 +866,7 @@ def main():
     if all_passed:
         print()
         print("  ALL EXTERNAL REFERENCE COMPARISONS PASSED")
-        print("  pycfdrs results match independent implementations to <2% error.")
+        print("  cfd_python results match independent implementations to <2% error.")
         print()
         return 0
     else:

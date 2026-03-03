@@ -1,4 +1,4 @@
-//! Blood rheology model wrappers for PyO3
+//! Blood rheology model wrappers for `PyO3`
 
 use cfd_core::physics::fluid::blood::{
     CarreauYasudaBlood as RustCarreauYasudaBlood, CassonBlood as RustCassonBlood,
@@ -16,7 +16,7 @@ use pyo3::prelude::*;
 /// ```
 ///
 /// Where:
-/// - τ_y: Yield stress (~0.5 Pa for normal blood)
+/// - `τ_y`: Yield stress (~0.5 Pa for normal blood)
 /// - μ_∞: Viscosity at high shear (~0.003 Pa·s)
 /// - γ̇: Shear rate [s⁻¹]
 ///
@@ -101,7 +101,7 @@ impl PyCassonBlood {
 /// ```
 ///
 /// Where:
-/// - μ_0: Viscosity at zero shear
+/// - `μ_0`: Viscosity at zero shear
 /// - μ_∞: Viscosity at infinite shear
 /// - λ: Relaxation time
 /// - n: Power law index
@@ -203,7 +203,7 @@ impl PyCrossBlood {
         self.inner.apparent_viscosity(gamma)
     }
 
-    /// Alias for apparent_viscosity
+    /// Alias for `apparent_viscosity`
     fn viscosity(&self, gamma: f64) -> f64 {
         self.inner.apparent_viscosity(gamma)
     }
@@ -287,7 +287,7 @@ impl PyFahraeuasLindqvist {
         self.inner.is_significant()
     }
 
-    /// Calculate relative apparent viscosity mu_app / mu_plasma [-]
+    /// Calculate relative apparent viscosity `mu_app` / `mu_plasma` [-]
     fn relative_viscosity(&self) -> f64 {
         self.inner.relative_viscosity()
     }

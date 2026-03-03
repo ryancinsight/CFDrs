@@ -33,6 +33,7 @@ use crate::application::delaunay::pslg::vertex::{PslgVertex, PslgVertexId};
 /// # Returns
 ///
 /// A list of triangles (as vertex-index triples) filling the cavity.
+#[must_use] 
 pub fn retriangulate_cavity(
     vertices: &[PslgVertex],
     polygon: &[PslgVertexId],
@@ -117,22 +118,19 @@ pub fn retriangulate_cavity(
             }
         }
 
-        match best_ear {
-            Some(i) => {
-                let ia = remaining[(i + remaining.len() - 1) % remaining.len()];
-                let ib = remaining[i];
-                let ic = remaining[(i + 1) % remaining.len()];
-                result.push([polygon[ia], polygon[ib], polygon[ic]]);
-                remaining.remove(i);
-            }
-            None => {
-                // Fallback: force the first ear even if not perfectly valid.
-                let ia = remaining[0];
-                let ib = remaining[1];
-                let ic = remaining[2];
-                result.push([polygon[ia], polygon[ib], polygon[ic]]);
-                remaining.remove(1);
-            }
+        if let Some(i) = best_ear {
+            let ia = remaining[(i + remaining.len() - 1) % remaining.len()];
+            let ib = remaining[i];
+            let ic = remaining[(i + 1) % remaining.len()];
+            result.push([polygon[ia], polygon[ib], polygon[ic]]);
+            remaining.remove(i);
+        } else {
+            // Fallback: force the first ear even if not perfectly valid.
+            let ia = remaining[0];
+            let ib = remaining[1];
+            let ic = remaining[2];
+            result.push([polygon[ia], polygon[ib], polygon[ic]]);
+            remaining.remove(1);
         }
     }
 

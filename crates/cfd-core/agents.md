@@ -5,6 +5,17 @@
 
 ---
 
+
+<!-- AGENT-AUDIT-SNAPSHOT:START -->
+## Verified Audit Snapshot (2026-02-26)
+
+- Verified against `Cargo.toml`, `src/lib.rs`, and the top-level `src/` tree.
+- Direct internal crate dependencies (`cargo metadata`): (none; foundation crate).
+- Cargo features: `default`, `experimental`, `gpu`, `mpi`, `simd`.
+- `src/lib.rs` module surface: `abstractions`, `compute`, `error`, `geometry`, `management`, `physics`.
+- Top-level `src/` entries: `abstractions`, `compute`, `error`, `error.rs`, `geometry`, `interpolation`, `lib.rs`, `management`, `physics`.
+
+<!-- AGENT-AUDIT-SNAPSHOT:END -->
 ## Purpose
 
 `cfd-core` provides:
@@ -225,3 +236,6 @@ Flags that affect this crate:
 - `physics/` subsystems must not import from `compute/` (domain must stay pure)
 - GPU kernel code must remain in `compute/gpu/kernels/` — no physics logic in shaders
 - `management/plugin/` is the only layer allowed to import from both `physics/` and `compute/`
+
+
+

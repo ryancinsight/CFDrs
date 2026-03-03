@@ -24,9 +24,7 @@ use num_traits::FromPrimitive;
 /// Finite Volume Method solver for 2D problems
 pub struct FvmSolver<T: RealField + Copy> {
     config: FvmConfig<T>,
-    #[allow(dead_code)]
     grid: StructuredGrid2D<T>,
-    #[allow(dead_code)]
     faces: Vec<Face<T>>,
     flux_scheme: FluxScheme,
 }
@@ -114,16 +112,19 @@ impl<T: RealField + Copy + FromPrimitive> FvmSolver<T> {
                 .unwrap_or(1e-3),
         );
 
-        let dx = T::from_f64(1.0 / self.config.nx as f64).unwrap_or_else(T::one);
-        let dy = T::from_f64(1.0 / self.config.ny as f64).unwrap_or_else(T::one);
+        let dx = self.grid.dx;
+        let dy = self.grid.dy;
+        let nx = self.grid.nx;
+        let ny = self.grid.ny;
+        debug_assert!(!self.faces.is_empty(), "face list must be populated");
 
         // Iterative solution using proper FVM discretization
         for _iter in 0..self.config.max_iterations {
             let mut residual = T::zero();
 
             // Update each interior cell using FVM discretization
-            for j in 1..self.config.ny - 1 {
-                for i in 1..self.config.nx - 1 {
+            for j in 1..ny - 1 {
+                for i in 1..nx - 1 {
                     let phi_p = phi.at(i, j);
                     let phi_e = phi.at(i + 1, j);
                     let phi_w = phi.at(i - 1, j);

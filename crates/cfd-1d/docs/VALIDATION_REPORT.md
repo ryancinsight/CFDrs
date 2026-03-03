@@ -19,7 +19,7 @@
 
 ## Cross-Package Comparison Workflow
 - Python trifurcation cross-validation script: `validation/validate_trifurcation.py`.
-- Compares `pycfdrs` trifurcation outputs against:
+- Compares `cfd-python` trifurcation outputs against:
 	- analytical Poiseuille resistance network equations,
 	- Murray-law geometry constraints,
 	- optional SciPy-based linear resistance solve.

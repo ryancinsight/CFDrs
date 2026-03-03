@@ -1,6 +1,6 @@
 """Test Rust cavity solver output and compare with Python reference."""
 import numpy as np
-import pycfdrs
+import cfd_python
 import sys
 sys.path.insert(0, 'validation')
 from reference_cavity_psiomega import solve_cavity_psi_omega, ghia_data_re100
@@ -11,7 +11,7 @@ print("=" * 70)
 
 # Test at 33x33 (matching Python reference at N=33)
 print("\n--- Rust SIMPLEC solver (33x33) ---")
-solver = pycfdrs.CavitySolver2D(reynolds=100.0, nx=33, ny=33)
+solver = cfd_python.CavitySolver2D(reynolds=100.0, nx=33, ny=33)
 result = solver.solve()
 print(f"  converged={result.converged}, L2_error={result.l2_error:.4e}")
 print(f"  u_centerline: len={len(result.u_centerline)}, range=[{min(result.u_centerline):.4f}, {max(result.u_centerline):.4f}]")

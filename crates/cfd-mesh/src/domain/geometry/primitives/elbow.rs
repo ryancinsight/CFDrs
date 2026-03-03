@@ -34,11 +34,11 @@ use crate::domain::mesh::IndexedMesh;
 ///
 /// ## Region IDs
 ///
-/// | RegionId | Surface |
+/// | `RegionId` | Surface |
 /// |----------|---------|
 /// | 1 | Outer tube wall |
 /// | 2 | Inlet cap (α = 0) |
-/// | 3 | Outlet cap (α = bend_angle) |
+/// | 3 | Outlet cap (α = `bend_angle`) |
 ///
 /// ## Uses
 ///

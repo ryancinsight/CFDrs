@@ -2,7 +2,7 @@
 """
 Cross-package validation: Compare CFD-RS Poiseuille flow with external implementations.
 
-Validates pycfdrs against:
+Validates cfd_python against:
 1. Analytical Hagen-Poiseuille solution (exact)
 2. Python_CFD notebook implementation (if available)
 3. pmocz CFD finite volume implementation
@@ -21,9 +21,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 try:
-    import pycfdrs
+    import cfd_python
 except ImportError:
-    print("ERROR: pycfdrs not installed. Build with: cd crates/pycfdrs && maturin develop")
+    print("ERROR: cfd_python not installed. Build with: cd crates/cfd-python && maturin develop")
     sys.exit(1)
 
 
@@ -46,7 +46,7 @@ def analytical_poiseuille(y: np.ndarray, H: float, dp_dx: float, mu: float) -> n
     return u
 
 
-def run_pycfdrs_poiseuille(H: float = 100e-6, L: float = 1e-3, mu: float = 0.0035, 
+def run_cfd_python_poiseuille(H: float = 100e-6, L: float = 1e-3, mu: float = 0.0035, 
                            dp_dx: float = -1000.0, ny: int = 101):
     """
     Run CFD-RS Poiseuille flow solver.
@@ -62,7 +62,7 @@ def run_pycfdrs_poiseuille(H: float = 100e-6, L: float = 1e-3, mu: float = 0.003
         Dictionary with solution and validation metrics
     """
     print(f"\n{'='*70}")
-    print(f"PYCFDRS POISEUILLE FLOW VALIDATION")
+    print(f"cfd_python POISEUILLE FLOW VALIDATION")
     print(f"{'='*70}")
     print(f"  Channel height:     H = {H*1e6:.1f} μm")
     print(f"  Channel length:     L = {L*1e3:.1f} mm")
@@ -71,11 +71,11 @@ def run_pycfdrs_poiseuille(H: float = 100e-6, L: float = 1e-3, mu: float = 0.003
     print(f"  Grid points:        ny = {ny}")
     
     try:
-        # Create solver (note: pycfdrs Poiseuille API uses width parameter too)
+        # Create solver (note: cfd_python Poiseuille API uses width parameter too)
         W = 1.0  # Width (unit width for 2D)
         nx = 51  # Fewer x-points for 2D Poiseuille (fully developed)
         
-        solver = pycfdrs.Poiseuille2DSolver(
+        solver = cfd_python.Poiseuille2DSolver(
             height=H,
             width=W,
             length=L,
@@ -83,7 +83,7 @@ def run_pycfdrs_poiseuille(H: float = 100e-6, L: float = 1e-3, mu: float = 0.003
             ny=ny
         )
         
-        # Get analytical solution from pycfdrs
+        # Get analytical solution from cfd_python
         u_field = solver.analytical_velocity_profile(dp_dx, mu)
         
         # Extract centerline profile (middle column)
@@ -166,7 +166,7 @@ def run_pycfdrs_poiseuille(H: float = 100e-6, L: float = 1e-3, mu: float = 0.003
         }
         
     except Exception as e:
-        print(f"\nERROR: pycfdrs Poiseuille solver failed: {e}")
+        print(f"\nERROR: cfd_python Poiseuille solver failed: {e}")
         import traceback
         traceback.print_exc()
         return None
@@ -186,7 +186,7 @@ def plot_poiseuille_comparison(result: dict, H: float):
     axes[0].plot(result["u_analytical"]*1e3, result["y"]*1e6, 'k-', 
                  label='Analytical (Hagen-Poiseuille)', linewidth=2)
     axes[0].plot(result["u_cfdrs"]*1e3, result["y"]*1e6, 'ro', 
-                 label='pycfdrs', markersize=4, markerfacecolor='none')
+                 label='cfd_python', markersize=4, markerfacecolor='none')
     axes[0].set_xlabel('Velocity (mm/s)')
     axes[0].set_ylabel('y (μm)')
     axes[0].set_title('Velocity Profile')
@@ -224,7 +224,7 @@ def main():
     print("="*70)
     print("CROSS-PACKAGE VALIDATION: POISEUILLE FLOW")
     print("="*70)
-    print("\nComparing pycfdrs against:")
+    print("\nComparing cfd_python against:")
     print("  1. Analytical Hagen-Poiseuille solution (exact)")
     print("  2. Literature benchmarks")
     print("="*70)
@@ -236,8 +236,8 @@ def main():
     dp_dx = -1000.0  # -1000 Pa/m
     ny = 101
     
-    # Run pycfdrs validation
-    result = run_pycfdrs_poiseuille(H=H, L=L, mu=mu, dp_dx=dp_dx, ny=ny)
+    # Run cfd_python validation
+    result = run_cfd_python_poiseuille(H=H, L=L, mu=mu, dp_dx=dp_dx, ny=ny)
     
     if result is not None:
         # Plot comparison
@@ -247,7 +247,7 @@ def main():
         print(f"\n{'='*70}")
         if result["passed"]:
             print("✓ CROSS-VALIDATION PASSED")
-            print(f"  pycfdrs matches analytical solution within {result['l2_rel_error']*100:.6f}% L2 error")
+            print(f"  cfd_python matches analytical solution within {result['l2_rel_error']*100:.6f}% L2 error")
             print(f"  This validates CFD-RS Poiseuille solver as CORRECT")
         else:
             print("✗ CROSS-VALIDATION FAILED")

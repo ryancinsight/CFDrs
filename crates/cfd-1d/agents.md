@@ -1,10 +1,21 @@
 # cfd-1d — Agent Reference
 
 > **Role**: 1D lumped-network solver for microfluidic channel networks.  
-> **Depends on**: `cfd-core`, `cfd-schematics`, `cfd-math`, `petgraph`
+> **Direct internal deps**: `cfd-core`, `cfd-math`, `cfd-schematics`
 
 ---
 
+
+<!-- AGENT-AUDIT-SNAPSHOT:START -->
+## Verified Audit Snapshot (2026-02-26)
+
+- Verified against `Cargo.toml`, `src/lib.rs`, and the top-level `src/` tree.
+- Direct internal crate dependencies (`cargo metadata`): `cfd-core`, `cfd-math`, `cfd-schematics`.
+- Cargo features: `default`.
+- `src/lib.rs` module surface: `analysis`, `cell_separation`, `channel`, `components`, `junctions`, `network`, `resistance`, `solver`, `vascular`.
+- Top-level `src/` entries: `analysis`, `cell_separation`, `channel`, `components`, `junctions`, `lib.rs`, `network`, `resistance`, `solver`, `vascular`.
+
+<!-- AGENT-AUDIT-SNAPSHOT:END -->
 ## Purpose
 
 `cfd-1d` solves pressure-driven flow in microfluidic channel networks using the
@@ -204,3 +215,6 @@ let safe = BloodShearLimits::check(&state);
 - No schematic coordinate geometry — `cfd-schematics` owns x/y positions; `cfd-1d` only sees `length_m`
 - No turbulence models — at Re ≪ 1, flow is always laminar
 - `NetworkProblem` must be fully specified (no partial boundary conditions at solve time)
+
+
+

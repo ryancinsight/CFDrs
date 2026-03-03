@@ -2,7 +2,7 @@
 //!
 //! Two independent index systems coexist:
 //!
-//! ## New: SlotMap generational keys (`*Key` types)
+//! ## New: `SlotMap` generational keys (`*Key` types)
 //!
 //! Used by [`crate::domain::mesh::HalfEdgeMesh`] and [`crate::domain::mesh::with_mesh`].
 //! Each key is an 8-byte generational index; stale keys (after element
@@ -77,21 +77,25 @@ pub struct VertexId(pub u32);
 impl VertexId {
     /// Create from a raw `u32` index.
     #[inline]
+    #[must_use] 
     pub fn new(raw: u32) -> Self {
         VertexId(raw)
     }
     /// Create from a `usize` index (panics on overflow in debug builds).
     #[inline]
+    #[must_use] 
     pub fn from_usize(n: usize) -> Self {
         VertexId(n as u32)
     }
     /// Return the raw `u32` index.
     #[inline]
+    #[must_use] 
     pub fn raw(self) -> u32 {
         self.0
     }
     /// Return as `usize`.
     #[inline]
+    #[must_use] 
     pub fn as_usize(self) -> usize {
         self.0 as usize
     }
@@ -117,11 +121,13 @@ pub struct FaceId(pub u32);
 impl FaceId {
     /// Create from a `usize` index.
     #[inline]
+    #[must_use] 
     pub fn from_usize(n: usize) -> Self {
         FaceId(n as u32)
     }
     /// Return as `usize`.
     #[inline]
+    #[must_use] 
     pub fn as_usize(self) -> usize {
         self.0 as usize
     }
@@ -150,11 +156,13 @@ pub struct EdgeId(pub u32);
 impl EdgeId {
     /// Create from a `usize` index.
     #[inline]
+    #[must_use] 
     pub fn from_usize(n: usize) -> Self {
         EdgeId(n as u32)
     }
     /// Return as `usize`.
     #[inline]
+    #[must_use] 
     pub fn as_usize(self) -> usize {
         self.0 as usize
     }
@@ -182,16 +190,19 @@ impl RegionId {
     pub const INVALID: Self = Self(u32::MAX);
     /// Create from a raw `u32` index.
     #[inline]
+    #[must_use] 
     pub fn new(raw: u32) -> Self {
         RegionId(raw)
     }
     /// Create from a `usize` index.
     #[inline]
+    #[must_use] 
     pub fn from_usize(n: usize) -> Self {
         RegionId(n as u32)
     }
     /// Return as `usize`.
     #[inline]
+    #[must_use] 
     pub fn as_usize(self) -> usize {
         self.0 as usize
     }

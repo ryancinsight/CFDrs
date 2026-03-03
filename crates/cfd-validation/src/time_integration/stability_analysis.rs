@@ -402,13 +402,13 @@ impl<T: RealField + Copy + num_traits::ToPrimitive> StabilityAnalysisRunner<T> {
                     - (-num_complex::Complex::new(0.0, k.im * delta_x)).exp())
         };
 
-        let scheme_label = format!("{:?}", scheme);
+        let scheme_label = format!("{scheme:?}");
         let analysis = self
             .analyzer
             .von_neumann_analysis_with_scheme(scheme, spatial_operator, dt, &wave_numbers)?;
 
         Ok(VonNeumannResult {
-            pde_type: format!("Linear Advection ({})", scheme_label),
+            pde_type: format!("Linear Advection ({scheme_label})"),
             max_amplification: analysis.max_amplification,
             critical_wave_number: analysis.critical_wave_number,
             is_stable: analysis.is_stable,
@@ -445,13 +445,13 @@ impl<T: RealField + Copy + num_traits::ToPrimitive> StabilityAnalysisRunner<T> {
                     - (num_complex::Complex::new(0.0, k.im * delta_x)).cos())
         };
 
-        let scheme_label = format!("{:?}", scheme);
+        let scheme_label = format!("{scheme:?}");
         let analysis = self
             .analyzer
             .von_neumann_analysis_with_scheme(scheme, spatial_operator, dt, &wave_numbers)?;
 
         Ok(VonNeumannResult {
-            pde_type: format!("Diffusion ({})", scheme_label),
+            pde_type: format!("Diffusion ({scheme_label})"),
             max_amplification: analysis.max_amplification,
             critical_wave_number: analysis.critical_wave_number,
             is_stable: analysis.is_stable,
@@ -486,13 +486,13 @@ impl<T: RealField + Copy + num_traits::ToPrimitive> StabilityAnalysisRunner<T> {
                 - num_complex::Complex::new(nu_f64 * k.im * k.im, 0.0)
         };
 
-        let scheme_label = format!("{:?}", scheme);
+        let scheme_label = format!("{scheme:?}");
         let analysis = self
             .analyzer
             .von_neumann_analysis_with_scheme(scheme, spatial_operator, dt, &wave_numbers)?;
 
         Ok(VonNeumannResult {
-            pde_type: format!("Burgers' Equation ({})", scheme_label),
+            pde_type: format!("Burgers' Equation ({scheme_label})"),
             max_amplification: analysis.max_amplification,
             critical_wave_number: analysis.critical_wave_number,
             is_stable: analysis.is_stable,

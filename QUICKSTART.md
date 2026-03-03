@@ -15,7 +15,7 @@ cargo xtask all --plot
 
 This will:
 1. ✅ Check for compilation errors
-2. ✅ Build pycfdrs Python wheel
+2. ✅ Build cfd-python Python wheel
 3. ✅ Create Python virtual environment
 4. ✅ Install dependencies
 5. ✅ Run analytical validation suite
@@ -114,20 +114,20 @@ cargo xtask clean
 
 **See:** `VALIDATION_STATUS.md` for detailed implementation roadmap
 
-## Using pycfdrs in Python
+## Using cfd-python in Python
 
-After running `cargo xtask all`, you can use pycfdrs:
+After running `cargo xtask all`, you can use cfd-python:
 
 ```python
 # Activate virtual environment
 # Windows: .venv\Scripts\activate
 # Linux/Mac: source .venv/bin/activate
 
-import pycfdrs
+import cfd-python
 import numpy as np
 
 # Create bifurcation solver
-bifurc = pycfdrs.PyBifurcationSolver(
+bifurc = cfd-python.PyBifurcationSolver(
     d_parent=100e-6,    # 100 μm
     d_daughter1=80e-6,   # 80 μm
     d_daughter2=80e-6,   # 80 μm
@@ -136,7 +136,7 @@ bifurc = pycfdrs.PyBifurcationSolver(
 )
 
 # Create blood model
-blood = pycfdrs.PyCassonBlood()
+blood = cfd-python.PyCassonBlood()
 
 # Solve
 result = bifurc.solve(
@@ -175,7 +175,7 @@ ls validation/reports/figures/
 ### Making Changes to Rust Code
 
 ```bash
-# 1. Make changes to crates/cfd-1d, cfd-2d, cfd-3d, or pycfdrs
+# 1. Make changes to crates/cfd-1d, cfd-2d, cfd-3d, or cfd-python
 
 # 2. Check compilation
 cargo xtask check
@@ -210,7 +210,7 @@ cargo xtask validate --plot --category all
 
 def run_validation(plot=False, quick=False, output_dir=None):
     """Validate 2D Poiseuille flow"""
-    import pycfdrs
+    import cfd-python
     import numpy as np
     
     # Your validation logic here
@@ -232,7 +232,7 @@ def run_validation(plot=False, quick=False, output_dir=None):
 
 Run `cargo build --workspace` to see detailed errors, then fix them before running xtask.
 
-### "pycfdrs not installed"
+### "cfd-python not installed"
 
 ```bash
 cargo xtask build-wheel

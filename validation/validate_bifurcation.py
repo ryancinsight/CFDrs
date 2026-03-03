@@ -2,7 +2,7 @@
 """
 Bifurcation flow validation against analytical solutions and literature.
 
-Validates pycfdrs BifurcationSolver (1D), BifurcationSolver2D, and
+Validates cfd_python BifurcationSolver (1D), BifurcationSolver2D, and
 Bifurcation3DSolver against:
   1. Hagen-Poiseuille analytical pressure drop
   2. Murray's Law optimal branching (Murray 1926)
@@ -21,11 +21,11 @@ import sys
 import numpy as np
 
 try:
-    import pycfdrs
-    HAS_PYCFDRS = True
+    import cfd_python
+    HAS_cfd_python = True
 except ImportError:
-    HAS_PYCFDRS = False
-    print("[SKIP] pycfdrs not installed -- run 'maturin develop' first")
+    HAS_cfd_python = False
+    print("[SKIP] cfd_python not installed -- run 'maturin develop' first")
 
 
 def hagen_poiseuille_dp(Q, mu, L, D):
@@ -58,7 +58,7 @@ def validate_1d_bifurcation():
     D_p = 200e-6;  D_d = 160e-6;  L = 1e-3
     Q = 5e-9;  P_in = 100.0;  mu = 0.0035
 
-    solver = pycfdrs.BifurcationSolver(
+    solver = cfd_python.BifurcationSolver(
         d_parent=D_p, d_daughter1=D_d, d_daughter2=D_d,
         length=L, flow_split_ratio=0.5,
     )
@@ -100,7 +100,7 @@ def validate_2d_bifurcation():
     print("2D Bifurcation Solver Validation")
     print("=" * 60)
 
-    solver = pycfdrs.BifurcationSolver2D(
+    solver = cfd_python.BifurcationSolver2D(
         parent_width=200e-6, parent_length=500e-6,
         daughter_width=160e-6, daughter_length=500e-6,
         angle=0.5, nx=40, ny=20,
@@ -122,7 +122,7 @@ def validate_3d_bifurcation():
     print("3D Bifurcation Solver Validation")
     print("=" * 60)
 
-    solver = pycfdrs.Bifurcation3DSolver(
+    solver = cfd_python.Bifurcation3DSolver(
         d_parent=200e-6, d_daughter1=160e-6, d_daughter2=160e-6,
         angle=45.0, length=1e-3, nx=8, ny=8, nz=8,
     )
@@ -139,7 +139,7 @@ def validate_3d_bifurcation():
 
 def scipy_cross_validate():
     print("=" * 60)
-    print("Cross-validation: pycfdrs vs scipy resistance network")
+    print("Cross-validation: cfd_python vs scipy resistance network")
     print("=" * 60)
     try:
         import scipy  # noqa: F401
@@ -153,7 +153,7 @@ def scipy_cross_validate():
     R_total = R_p + R_d / 2.0
     dp_scipy = R_total * Q
 
-    solver = pycfdrs.BifurcationSolver(
+    solver = cfd_python.BifurcationSolver(
         d_parent=D_p, d_daughter1=D_d, d_daughter2=D_d,
         length=L, flow_split_ratio=0.5,
     )
@@ -169,7 +169,7 @@ def scipy_cross_validate():
 
 
 def main():
-    if not HAS_PYCFDRS:
+    if not HAS_cfd_python:
         sys.exit(0)
 
     ok = True

@@ -11,12 +11,14 @@ pub struct ChannelPath {
 
 impl ChannelPath {
     /// Create a path from a set of waypoints.
+    #[must_use] 
     pub fn new(points: Vec<Point3r>) -> Self {
         assert!(points.len() >= 2, "path must have at least 2 points");
         Self { points }
     }
 
     /// Create a straight-line path between two points.
+    #[must_use] 
     pub fn straight(start: Point3r, end: Point3r) -> Self {
         Self {
             points: vec![start, end],
@@ -24,26 +26,35 @@ impl ChannelPath {
     }
 
     /// Get the waypoints.
+    #[must_use] 
     pub fn points(&self) -> &[Point3r] {
         &self.points
     }
 
     /// Number of segments.
+    #[must_use] 
     pub fn segment_count(&self) -> usize {
         self.points.len() - 1
     }
 
     /// Total path length.
+    #[must_use] 
     pub fn length(&self) -> Real {
         self.points.windows(2).map(|w| (w[1] - w[0]).norm()).sum()
     }
 
     /// Direction at a given segment index (normalized).
+    #[must_use] 
     pub fn segment_direction(&self, segment: usize) -> Vector3r {
         let dir = self.points[segment + 1] - self.points[segment];
         dir.normalize()
     }
 
+    /// Compute a stable local frame at each waypoint.
+    ///
+    /// Uses averaged tangents for interior points and a fixed up-vector fallback
+    /// to keep planar channel sweeps from twisting between segments.
+    #[must_use] 
     pub fn compute_frames(&self) -> Vec<FrenetFrame> {
         let n = self.points.len();
         let mut frames = Vec::with_capacity(n);
@@ -62,12 +73,12 @@ impl ChannelPath {
             // Use a consistent Up vector (Z-axis) to prevent twisting and guarantee perfectly
             // aligned seams across distinct channel segments in planar schematics.
             let mut up = Vector3r::new(0.0, 0.0, 1.0);
-            
+
             // If tangent is parallel to Z-axis, fallback to X-axis as up
             if tangent.z.abs() > 0.999 {
                 up = Vector3r::new(1.0, 0.0, 0.0);
             }
-            
+
             // local X (normal) is perpendicular to tangent and up
             let normal = up.cross(&tangent).normalize();
             // local Y (binormal) is perpendicular to normal and tangent, pointing "up"

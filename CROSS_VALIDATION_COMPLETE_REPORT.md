@@ -41,13 +41,13 @@ This report demonstrates that **CFD-rs produces results matching external Python
 | Method | u_max [m/s] | Q [m³/s] | τ_wall [Pa] |
 |--------|-------------|----------|-------------|
 | **Analytical (exact)** | 0.03571 | 2.381e-06 | 5.000 |
-| **pycfdrs (Rust+PyO3)** | 0.03571 | 2.381e-06 | 5.000 |
+| **cfd-python (Rust+PyO3)** | 0.03571 | 2.381e-06 | 5.000 |
 | **NumPy FD (independent)** | 0.03569 | 2.379e-06 | 4.948 |
 
 ### Error Metrics
 ```
-pycfdrs vs analytical:  0.0000%  (machine precision)
-pycfdrs vs NumPy FD:    0.0567%  (different discretization)
+cfd-python vs analytical:  0.0000%  (machine precision)
+cfd-python vs NumPy FD:    0.0567%  (different discretization)
 NumPy FD vs analytical: 0.0567%  (iterative convergence)
 ```
 
@@ -67,7 +67,7 @@ NumPy FD vs analytical: 0.0567%  (iterative convergence)
 
 ### Cross-Package Comparison
 
-| Metric | pycfdrs | scipy (analytical) | Error |
+| Metric | cfd-python | scipy (analytical) | Error |
 |--------|---------|-------------------|-------|
 | **Q_parent** | 1.0000 nL/s | 1.0000 nL/s | 0.00% |
 | **Q_daughter1** | 0.5000 nL/s | 0.5000 nL/s | 0.00% |
@@ -76,7 +76,7 @@ NumPy FD vs analytical: 0.0567%  (iterative convergence)
 | **ΔP_2** | 1813.30 Pa | 2247.64 Pa* | - |
 | **Mass conservation** | 0.00e+00 | - | Machine ε |
 
-*Note: Scipy analytical uses Hagen-Poiseuille for circular tubes; pycfdrs uses rectangular channel geometry. Flow split and mass conservation are exact.
+*Note: Scipy analytical uses Hagen-Poiseuille for circular tubes; cfd-python uses rectangular channel geometry. Flow split and mass conservation are exact.
 
 **Validation Status:** ✅ **PASS** - Perfect mass conservation, symmetric flow split
 
@@ -94,7 +94,7 @@ NumPy FD vs analytical: 0.0567%  (iterative convergence)
 
 ### Cross-Package Comparison (1D)
 
-| Metric | pycfdrs | scipy | Error |
+| Metric | cfd-python | scipy | Error |
 |--------|---------|-------|-------|
 | **Q_total** | 6.000 nL/s | 6.000 nL/s | 0.00% |
 | **Q_d1 + Q_d2 + Q_d3** | 6.000 nL/s | 6.000 nL/s | 1.38e-16 |
@@ -103,7 +103,7 @@ NumPy FD vs analytical: 0.0567%  (iterative convergence)
 
 ### 3D FEM Validation
 
-| Metric | pycfdrs (FEM) | Expected | Status |
+| Metric | cfd-python (FEM) | Expected | Status |
 |--------|---------------|----------|--------|
 | **Mass conservation** | 7.64e-09 | < 1e-6 | ✅ PASS |
 | **Max WSS** | 1.40 Pa | ~ physiological | ✅ PASS |
@@ -127,7 +127,7 @@ NumPy FD vs analytical: 0.0567%  (iterative convergence)
 
 ### Cross-Package Comparison
 
-| Metric | pycfdrs | scipy (analytical) | Error |
+| Metric | cfd-python | scipy (analytical) | Error |
 |--------|---------|-------------------|-------|
 | **Flow rate** | 0.0380 nL/s | 0.0380 nL/s | **0.0000%** |
 | **Velocity (avg)** | 1.9004 mm/s | 1.9004 mm/s | **0.0000%** |
@@ -163,14 +163,14 @@ Variation: 0.000000%  [PASS]
 
 ### Cross-Package Comparison
 
-| Metric | pycfdrs | NumPy (Bernoulli) | Notes |
+| Metric | cfd-python | NumPy (Bernoulli) | Notes |
 |--------|---------|-------------------|-------|
 | **Area ratio** | 0.5000 | 0.5000 | ✓ Exact |
 | **Pressure coefficient (Cp)** | 0.7500 | 0.7500 | ISO 5167 convention |
 | **Mass conservation** | 0.00e+00 | 4.34e-19 | ✅ Perfect |
 | **Velocity ratio** | 1.507 | 2.000* | Different physics |
 
-*Note: NumPy reference uses inviscid Bernoulli (u_throat = u_inlet × β⁻¹). pycfdrs includes viscous effects via 2D Poiseuille solver, accounting for boundary layers.
+*Note: NumPy reference uses inviscid Bernoulli (u_throat = u_inlet × β⁻¹). cfd-python includes viscous effects via 2D Poiseuille solver, accounting for boundary layers.
 
 **Mass conservation:** ✅ **PASS** (0.00% error)  
 **Pressure coefficient:** ✅ **PASS** (matches ISO 5167)  
@@ -187,7 +187,7 @@ Parameters:
 - Yield stress: τ_y = 0.0056 Pa
 - Infinite-shear viscosity: μ_∞ = 0.00345 Pa·s
 
-| Shear Rate [s⁻¹] | pycfdrs [mPa·s] | NumPy [mPa·s] | Error |
+| Shear Rate [s⁻¹] | cfd-python [mPa·s] | NumPy [mPa·s] | Error |
 |------------------|-----------------|---------------|-------|
 | 0.1 | 87.2493 | 87.2493 | **3.18e-16** |
 | 1.0 | 17.8409 | 17.8409 | **0.00e+00** |
@@ -200,7 +200,7 @@ Parameters:
 - μ₀ = 0.056 Pa·s, μ_∞ = 0.00345 Pa·s
 - λ = 3.313 s, n = 0.357, a = 1.45
 
-| Shear Rate [s⁻¹] | pycfdrs [mPa·s] | NumPy [mPa·s] | Error |
+| Shear Rate [s⁻¹] | cfd-python [mPa·s] | NumPy [mPa·s] | Error |
 |------------------|-----------------|---------------|-------|
 | 0.1 | 54.2691 | 54.2691 | **0.00e+00** |
 | 1.0 | 27.0977 | 27.0977 | **0.00e+00** |
@@ -209,7 +209,7 @@ Parameters:
 | 1000.0 | 3.7360 | 3.7360 | **0.00e+00** |
 
 ### Literature Comparison
-| Property | pycfdrs | Literature | Reference | Error |
+| Property | cfd-python | Literature | Reference | Error |
 |----------|---------|------------|-----------|-------|
 | **μ_∞ (Casson)** | 3.45 mPa·s | 3.50 mPa·s | Merrill 1969 | 1.43% |
 | **μ_∞ (Carreau)** | 3.45 mPa·s | 3.50 mPa·s | Cho & Kensey 1991 | 1.43% |
@@ -321,9 +321,9 @@ All tests passed: 6/6 suites
 
 ### Error Calculation
 ```rust
-relative_error = |pycfdrs - reference| / |reference|
-absolute_error = |pycfdrs - reference|
-L2_error = sqrt(Σ(pycfdrs_i - reference_i)² / Σ(reference_i)²)
+relative_error = |cfd-python - reference| / |reference|
+absolute_error = |cfd-python - reference|
+L2_error = sqrt(Σ(cfd-python_i - reference_i)² / Σ(reference_i)²)
 ```
 
 ### Validation Thresholds
@@ -346,7 +346,7 @@ L2_error = sqrt(Σ(pycfdrs_i - reference_i)² / Σ(reference_i)²)
 
 ### Key Findings
 
-1. **✅ All 6 test suites passed** - pycfdrs matches external packages within tolerance
+1. **✅ All 6 test suites passed** - cfd-python matches external packages within tolerance
 2. **✅ Machine precision achieved** - 5/6 tests show < 1e-12 error vs analytical
 3. **✅ Cross-package agreement** - scipy, NumPy, LBM all consistent
 4. **✅ Literature validation** - 6 papers validated (blood rheology, Murray's Law, ISO standards)

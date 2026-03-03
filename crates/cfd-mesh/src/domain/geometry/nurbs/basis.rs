@@ -48,6 +48,7 @@ use crate::domain::core::scalar::Real;
 ///
 /// # Returns
 /// `N[0..=p]` where `N[j] = N_{span-p+j, p}(t)`.
+#[must_use] 
 pub fn eval_basis(span: usize, t: Real, p: usize, knots: &KnotVector) -> Vec<Real> {
     let mut n = vec![0.0 as Real; p + 1];
     let mut left = vec![0.0 as Real; p + 1];
@@ -84,6 +85,7 @@ pub fn eval_basis(span: usize, t: Real, p: usize, knots: &KnotVector) -> Vec<Rea
 /// N'_{i,p}(t) = p * (N_{i,p-1}(t)     / (ξᵢ₊ₚ   − ξᵢ)
 ///                  − N_{i+1,p-1}(t)   / (ξᵢ₊ₚ₊₁ − ξᵢ₊₁))
 /// ```
+#[must_use] 
 pub fn eval_basis_and_deriv(
     span: usize,
     t: Real,
@@ -113,7 +115,7 @@ pub fn eval_basis_and_deriv(
         ndu[j][j] = saved;
     }
 
-    let n: Vec<Real> = ndu[p].to_vec();
+    let n: Vec<Real> = ndu[p].clone();
 
     // Compute first-order derivatives
     let mut dn = vec![0.0 as Real; p + 1];
@@ -147,7 +149,7 @@ pub fn eval_basis_and_deriv(
     }
     // Multiply by p
     let pp = p as Real;
-    for d in dn.iter_mut() {
+    for d in &mut dn {
         *d *= pp;
     }
 

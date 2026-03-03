@@ -1,10 +1,21 @@
 # cfd-3d — Agent Reference
 
 > **Role**: High-fidelity 3D CFD — FEM, IBM, Level-Set, VOF multiphase, spectral, and domain-specific solvers.  
-> **Depends on**: `cfd-core`, `cfd-math`, `cfd-2d` (turbulence models shared), `cfd-io`
+> **Direct internal deps**: `cfd-core`, `cfd-io`, `cfd-math`, `cfd-mesh`
 
 ---
 
+
+<!-- AGENT-AUDIT-SNAPSHOT:START -->
+## Verified Audit Snapshot (2026-02-26)
+
+- Verified against `Cargo.toml`, `src/lib.rs`, and the top-level `src/` tree.
+- Direct internal crate dependencies (`cargo metadata`): `cfd-core`, `cfd-io`, `cfd-math`, `cfd-mesh`.
+- Cargo features: `csg`, `default`.
+- `src/lib.rs` module surface: `bifurcation`, `fem`, `ibm`, `level_set`, `physics`, `serpentine`, `spectral`, `trifurcation`, `venturi`, `vof`.
+- Top-level `src/` entries: `bifurcation`, `fem`, `ibm`, `level_set`, `lib.rs`, `physics`, `serpentine`, `spectral`, `tests`, `trifurcation`, `venturi`, `vof`.
+
+<!-- AGENT-AUDIT-SNAPSHOT:END -->
 ## Purpose
 
 `cfd-3d` extends the 2D capability to full three-dimensional simulations:
@@ -193,3 +204,18 @@ Solved in O(N log N) via FFT. Valid for periodic domains.
 - Level-Set redistancing must run every 5–10 time steps, not every step (cost)
 - VOF surface tension via CSF requires smoothed curvature; raw `∇F` is too noisy — always smooth
 - Spectral methods are only valid on periodic or Chebyshev collocation domains; do not apply to non-periodic BCs without Galerkin basis transformation
+
+---
+
+## Examples & Integration Tests (Phases 1–2)
+
+| File | Description |
+|------|-------------|
+| `examples/venturi_3d_cavitation.rs` | 3D venturi with cavitation detection via Rayleigh-Plesset coupled VOF |
+| `examples/bifurcation_3d_blood.rs` | 3D Y-bifurcation with Casson blood rheology |
+| `examples/serpentine_3d_dean.rs` | 3D serpentine channel with Dean vortex validation |
+| `examples/spectral_poisson_3d.rs` | Spectral Poisson solver convergence verification in 3D |
+| `tests/domain_solver_validation.rs` | Integration test validating all four domain solvers against analytical baselines |
+
+
+
