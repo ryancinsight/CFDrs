@@ -16,7 +16,7 @@ use super::{MillifluidicGenome, ALL_EVO_TOPOLOGIES, MIN_ADAPTIVE_CH_M};
 /// Continuous gene 0 is rounded to select the topology.
 /// Gene 5 is rounded to select the segment count.
 /// Gene 8 encodes topology-specific discrete parameters for leukapheresis and
-/// staged-separation variants (indices 15–17, 22–24).
+/// staged-separation variants.
 #[must_use]
 pub fn decode_genome(g: &MillifluidicGenome, id_prefix: &str) -> DesignCandidate {
     let genes = &g.genes;
@@ -26,10 +26,14 @@ pub fn decode_genome(g: &MillifluidicGenome, id_prefix: &str) -> DesignCandidate
         .floor()
         .clamp(0.0, (ALL_EVO_TOPOLOGIES.len() - 1) as f64) as usize;
 
-    let n_topos = ALL_EVO_TOPOLOGIES.len();
+    let topo_template = ALL_EVO_TOPOLOGIES[topo_idx];
 
-    // Leukapheresis topologies (indices 15–17) require micro-scale channels.
-    let is_leuka = topo_idx == 15 || topo_idx == 16 || topo_idx == 17;
+    let is_leuka = matches!(
+        topo_template,
+        DesignTopology::ConstrictionExpansionArray { .. }
+            | DesignTopology::SpiralSerpentine { .. }
+            | DesignTopology::ParallelMicrochannelArray { .. }
+    );
 
     // Gene 4: channel width — micro-scale for leuka, millifluidic for others.
     let w_ch = if is_leuka {
@@ -42,61 +46,72 @@ pub fn decode_genome(g: &MillifluidicGenome, id_prefix: &str) -> DesignCandidate
     };
 
     // Decode topology variant from gene 8 + genes 9–12 when needed.
-    let topology = if topo_idx == n_topos - 1 {
-        // ── AdaptiveTree: gene 8 → depth, genes 9–12 → split_types ───────
-        let max_depth = {
-            let mut d = 0u8;
-            let mut w = w_ch;
-            while d < 4 {
-                w /= 2.0;
-                if w < MIN_ADAPTIVE_CH_M {
-                    break;
+    let topology = match topo_template {
+        DesignTopology::AdaptiveTree { .. } => {
+            let max_depth = {
+                let mut d = 0u8;
+                let mut w = w_ch;
+                while d < 4 {
+                    w /= 2.0;
+                    if w < MIN_ADAPTIVE_CH_M {
+                        break;
+                    }
+                    d += 1;
                 }
-                d += 1;
+                d
+            };
+            let depth = if max_depth == 0 {
+                0u8
+            } else {
+                ((genes[8] * (f64::from(max_depth) + 1.0)).floor() as u8).min(max_depth)
+            };
+            let mut split_types = 0u8;
+            for i in 0..4usize {
+                if genes[9 + i] > 0.5 {
+                    split_types |= 1u8 << i;
+                }
             }
-            d
-        };
-        let depth = if max_depth == 0 {
-            0u8
-        } else {
-            ((genes[8] * (f64::from(max_depth) + 1.0)).floor() as u8).min(max_depth)
-        };
-        let mut split_types = 0u8;
-        for i in 0..4usize {
-            if genes[9 + i] > 0.5 {
-                split_types |= 1u8 << i;
+            let mask = if depth == 0 {
+                0u8
+            } else {
+                (1u8 << depth).wrapping_sub(1)
+            };
+            split_types &= mask;
+            DesignTopology::AdaptiveTree {
+                levels: depth,
+                split_types,
             }
         }
-        let mask = if depth == 0 {
-            0u8
-        } else {
-            (1u8 << depth).wrapping_sub(1)
-        };
-        split_types &= mask;
-        DesignTopology::AdaptiveTree {
-            levels: depth,
-            split_types,
+        DesignTopology::ConstrictionExpansionArray { .. } => {
+            let n_cycles = (2.0 + genes[8] * 18.0).round() as usize;
+            DesignTopology::ConstrictionExpansionArray { n_cycles }
         }
-    } else if topo_idx == 15 {
-        let n_cycles = (2.0 + genes[8] * 18.0).round() as usize;
-        DesignTopology::ConstrictionExpansionArray { n_cycles }
-    } else if topo_idx == 16 {
-        let n_turns = (2.0 + genes[8] * 18.0).round() as usize;
-        DesignTopology::SpiralSerpentine { n_turns }
-    } else if topo_idx == 17 {
-        let raw_n = (10.0 + genes[8] * 490.0).round() as usize;
-        let pitch_m = w_ch * 2.0;
-        let max_n = ((PLATE_HEIGHT_MM - 10.0) * 1e-3 / pitch_m).floor() as usize;
-        let n_channels = raw_n.min(max_n).max(1);
-        DesignTopology::ParallelMicrochannelArray { n_channels }
-    } else if topo_idx == 22 {
-        let n_levels = (1.0 + genes[8] * 2.0).round().clamp(1.0, 3.0) as u8;
-        DesignTopology::CascadeCenterTrifurcationSeparator { n_levels }
-    } else if topo_idx == 23 {
-        let n_pretri = (1.0 + genes[8] * 2.0).round().clamp(1.0, 3.0) as u8;
-        DesignTopology::IncrementalFiltrationTriBiSeparator { n_pretri }
-    } else {
-        ALL_EVO_TOPOLOGIES[topo_idx]
+        DesignTopology::SpiralSerpentine { .. } => {
+            let n_turns = (2.0 + genes[8] * 18.0).round() as usize;
+            DesignTopology::SpiralSerpentine { n_turns }
+        }
+        DesignTopology::ParallelMicrochannelArray { .. } => {
+            let raw_n = (10.0 + genes[8] * 490.0).round() as usize;
+            let pitch_m = w_ch * 2.0;
+            let max_n = ((PLATE_HEIGHT_MM - 10.0) * 1e-3 / pitch_m).floor() as usize;
+            let n_channels = raw_n.min(max_n).max(1);
+            DesignTopology::ParallelMicrochannelArray { n_channels }
+        }
+        DesignTopology::CascadeCenterTrifurcationSeparator { .. } => {
+            let n_levels = (1.0 + genes[8] * 2.0).round().clamp(1.0, 3.0) as u8;
+            DesignTopology::CascadeCenterTrifurcationSeparator { n_levels }
+        }
+        DesignTopology::IncrementalFiltrationTriBiSeparator { .. } => {
+            let n_pretri = (1.0 + genes[8] * 2.0).round().clamp(1.0, 3.0) as u8;
+            DesignTopology::IncrementalFiltrationTriBiSeparator { n_pretri }
+        }
+        DesignTopology::DoubleTrifurcationCIFVenturi { .. } => {
+            let center_throat_count = (1.0 + (genes[8] * 3.999).floor()) as u8;
+            DesignTopology::DoubleTrifurcationCIFVenturi {
+                center_throat_count,
+            }
+        }
+        other => other,
     };
 
     // Feed hematocrit: leukapheresis topologies use diluted blood.
@@ -170,6 +185,7 @@ pub fn decode_genome(g: &MillifluidicGenome, id_prefix: &str) -> DesignCandidate
             | DesignTopology::QuadTrifurcationVenturi
             | DesignTopology::CascadeCenterTrifurcationSeparator { .. }
             | DesignTopology::IncrementalFiltrationTriBiSeparator { .. }
+            | DesignTopology::DoubleTrifurcationCIFVenturi { .. }
             | DesignTopology::AsymmetricTrifurcationVenturi
             | DesignTopology::TriBiTriSelectiveVenturi
     ) {
@@ -181,6 +197,7 @@ pub fn decode_genome(g: &MillifluidicGenome, id_prefix: &str) -> DesignCandidate
     let (cif_pretri_center_frac, cif_terminal_tri_center_frac, cif_terminal_bi_treat_frac) = if matches!(
         topology,
         DesignTopology::IncrementalFiltrationTriBiSeparator { .. }
+            | DesignTopology::DoubleTrifurcationCIFVenturi { .. }
             | DesignTopology::TriBiTriSelectiveVenturi
     ) {
         (
@@ -219,18 +236,19 @@ pub fn decode_genome(g: &MillifluidicGenome, id_prefix: &str) -> DesignCandidate
 
     // Gene 12: centerline venturi throat count for selective centerline topologies.
     // Reuses one AdaptiveTree split-type gene for non-Adaptive topologies.
-    let centerline_venturi_throat_count = if matches!(
-        topology,
+    let centerline_venturi_throat_count = match topology {
+        DesignTopology::DoubleTrifurcationCIFVenturi {
+            center_throat_count,
+        } => center_throat_count,
         DesignTopology::CascadeCenterTrifurcationSeparator { .. }
-            | DesignTopology::IncrementalFiltrationTriBiSeparator { .. }
-            | DesignTopology::AsymmetricTrifurcationVenturi
-            | DesignTopology::TriBiTriSelectiveVenturi
-            | DesignTopology::CellSeparationVenturi
-            | DesignTopology::WbcCancerSeparationVenturi
-    ) {
-        (1.0 + (genes[12] * 1.999).floor()) as u8
-    } else {
-        1
+        | DesignTopology::IncrementalFiltrationTriBiSeparator { .. }
+        | DesignTopology::AsymmetricTrifurcationVenturi
+        | DesignTopology::TriBiTriSelectiveVenturi
+        | DesignTopology::CellSeparationVenturi
+        | DesignTopology::WbcCancerSeparationVenturi => {
+            (1.0 + (genes[12] * 3.999).floor()) as u8
+        }
+        _ => 1,
     };
 
     let treatment_zone_mode = if topology.has_venturi() {
@@ -269,6 +287,16 @@ pub fn decode_genome(g: &MillifluidicGenome, id_prefix: &str) -> DesignCandidate
                 centerline_venturi_throat_count,
             )
         }
+        DesignTopology::DoubleTrifurcationCIFVenturi {
+            center_throat_count,
+        } => {
+            format!(
+                "DTCV-s1cf{}-s2cf{}-ct{}",
+                (cif_pretri_center_frac * 1000.0).round() as u32,
+                (cif_terminal_tri_center_frac * 1000.0).round() as u32,
+                center_throat_count,
+            )
+        }
         DesignTopology::AsymmetricTrifurcationVenturi => {
             format!(
                 "ATV-cf{}-lf{}-vt{}",
@@ -289,13 +317,14 @@ pub fn decode_genome(g: &MillifluidicGenome, id_prefix: &str) -> DesignCandidate
     };
 
     let id = format!(
-        "{}-EVO-{}-q{:.0}-g{:.0}-d{:.0}-w{:.0}-n{}",
+        "{}-EVO-{}-q{:.0}-g{:.0}-d{:.0}-w{:.0}-h{:.0}-n{}",
         id_prefix,
         topo_tag,
         q * 6e7,
         gauge * 1e-3,
         d_throat * 1e6,
         w_ch * 1e6,
+        h_ch * 1e6,
         n_segs,
     );
 
@@ -425,6 +454,9 @@ pub fn candidate_to_genome(c: &DesignCandidate) -> MillifluidicGenome {
         DesignTopology::IncrementalFiltrationTriBiSeparator { n_pretri } => {
             ((n_pretri as f64 - 1.0) / 2.0).clamp(0.0, 1.0)
         }
+        DesignTopology::DoubleTrifurcationCIFVenturi {
+            center_throat_count,
+        } => ((center_throat_count as f64 - 1.0) / 3.0).clamp(0.0, 1.0),
         _ => 0.5,
     };
 
@@ -451,9 +483,10 @@ pub fn candidate_to_genome(c: &DesignCandidate) -> MillifluidicGenome {
             | DesignTopology::TriBiTriSelectiveVenturi
             | DesignTopology::CellSeparationVenturi
             | DesignTopology::WbcCancerSeparationVenturi
+            | DesignTopology::DoubleTrifurcationCIFVenturi { .. }
     ) {
-        let stages = c.centerline_venturi_throat_count.clamp(1, 2);
-        genes_9_12[3] = if stages <= 1 { 0.0 } else { 1.0 };
+        let stages = c.centerline_venturi_throat_count.clamp(1, 4);
+        genes_9_12[3] = (f64::from(stages) - 1.0) / 3.0;
     }
 
     // Gene 13: trifurcation center frac [0.25, 0.65]
@@ -521,6 +554,10 @@ fn topology_matches(slot: &DesignTopology, candidate: &DesignTopology) -> bool {
         (
             DesignTopology::IncrementalFiltrationTriBiSeparator { .. },
             DesignTopology::IncrementalFiltrationTriBiSeparator { .. },
+        ) => true,
+        (
+            DesignTopology::DoubleTrifurcationCIFVenturi { .. },
+            DesignTopology::DoubleTrifurcationCIFVenturi { .. },
         ) => true,
         (
             DesignTopology::ConstrictionExpansionArray { .. },

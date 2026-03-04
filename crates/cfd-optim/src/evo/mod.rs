@@ -5,9 +5,9 @@
 //! and polynomial mutation.
 //!
 //! Each individual is a [`MillifluidicGenome`] — a 20-gene real-valued vector
-//! encoding one fully-specified [`DesignCandidate`].  The optimizer covers
-//! **all 26 fixed topology families** plus the GA-only `AdaptiveTree`
-//! (variable-depth split tree), giving **27 searchable families**.
+//! encoding one fully-specified [`DesignCandidate`].  The optimizer covers all
+//! fixed topology families plus the GA-only `AdaptiveTree`
+//! (variable-depth split tree).
 //!
 //! # Submodules
 //!
@@ -34,7 +34,7 @@ use crate::design::DesignTopology;
 
 // ── All topology families available to the genetic search ───────────────────
 
-pub(super) const ALL_EVO_TOPOLOGIES: [DesignTopology; 28] = [
+pub(super) const ALL_EVO_TOPOLOGIES: [DesignTopology; 29] = [
     DesignTopology::SingleVenturi,                                      // 0
     DesignTopology::BifurcationVenturi,                                 // 1
     DesignTopology::TrifurcationVenturi,                                // 2
@@ -59,13 +59,16 @@ pub(super) const ALL_EVO_TOPOLOGIES: [DesignTopology; 28] = [
     DesignTopology::QuadTrifurcationVenturi,                            // 21
     DesignTopology::CascadeCenterTrifurcationSeparator { n_levels: 2 }, // 22
     DesignTopology::IncrementalFiltrationTriBiSeparator { n_pretri: 2 }, // 23
-    DesignTopology::AsymmetricTrifurcationVenturi,                      // 24
-    DesignTopology::TriBiTriSelectiveVenturi,                           // 25
+    DesignTopology::DoubleTrifurcationCIFVenturi {
+        center_throat_count: 2,
+    }, // 24
+    DesignTopology::AsymmetricTrifurcationVenturi, // 25
+    DesignTopology::TriBiTriSelectiveVenturi,      // 26
     DesignTopology::AdaptiveTree {
         levels: 0,
         split_types: 0,
-    }, // 26
-    DesignTopology::DoubleBifurcationSerpentine,                        // 27
+    }, // 27
+    DesignTopology::DoubleBifurcationSerpentine, // 28
 ];
 
 // ── Genome definition ─────────────────────────────────────────────────────────
@@ -84,8 +87,8 @@ pub(super) const ALL_EVO_TOPOLOGIES: [DesignTopology; 28] = [
 /// | 5  | Serpentine segment count |
 /// | 6  | Segment length fraction |
 /// | 7  | Bend radius fraction |
-/// | 8  | Discrete topology parameter (indices 15–17, 22–24) |
-/// | 9–12 | AdaptiveTree per-level split type (0 = Bi, 1 = Tri); for non-Adaptive topologies gene 12 encodes selective centerline venturi throat count (1 or 2) |
+/// | 8  | Discrete topology parameter (variant-dependent) |
+/// | 9–12 | AdaptiveTree per-level split type (0 = Bi, 1 = Tri); for non-Adaptive topologies gene 12 encodes selective centerline venturi throat count (1..4) |
 /// | 13 | `trifurcation_center_frac` / CIF pretri center frac ∈ [0.25, 0.65] |
 /// | 14 | CIF terminal tri center frac ∈ [0.25, 0.65] |
 /// | 15 | CIF terminal bifurcation treat frac / TBT bi frac ∈ [0.50, 0.85] |

@@ -598,11 +598,21 @@ impl<
             },
         );
 
+        let mut stagnation_count = 0usize;
+        let mut prev_vel_change = f64::MAX;
+
         for iter in 0..self.config.max_nonlinear_iterations {
+            let iter_start = std::time::Instant::now();
+
             if problem.element_viscosities.is_none() {
                 problem.element_viscosities = Some(element_viscosities);
             }
-            let fem_result = solver.solve(&problem, last_solution.as_ref());
+            let fem_result = solver.solve_picard(
+                &problem,
+                last_solution.as_ref(),
+                iter,
+                self.config.max_nonlinear_iterations,
+            );
 
             // If the linear solver fails (e.g. GMRES stagnation on the
             // non-Newtonian saddle-point system), use the last converged
@@ -640,6 +650,10 @@ impl<
             next_viscosities.clear();
             let current_viscosities = problem.element_viscosities.as_ref().unwrap();
 
+            // Under-relax viscosity for Picard stability:
+            // α ramps from 0.5 (iter 0) to 1.0 (iter ≥ 3)
+            let relax_alpha = (0.5 + (iter as f64) / 6.0).min(1.0);
+
             for (i, cell) in problem.mesh.cells.iter().enumerate() {
                 // Handle hex-to-tet averaging for shear rate
                 let shear_rate_f64 =
@@ -670,12 +684,13 @@ impl<
                     new_visc = problem.fluid.viscosity;
                 }
 
-                let change = num_traits::Float::abs(new_visc - current_viscosities[i])
+                let relaxed_visc = relax_alpha * new_visc + (1.0 - relax_alpha) * current_viscosities[i];
+                let change = num_traits::Float::abs(relaxed_visc - current_viscosities[i])
                     / current_viscosities[i];
                 if change > max_change_f64 {
                     max_change_f64 = change;
                 }
-                next_viscosities.push(new_visc);
+                next_viscosities.push(relaxed_visc);
             }
             if n_elements > 0 {
                 let shear_avg = shear_sum_f64 / (n_elements as f64);
@@ -699,10 +714,27 @@ impl<
             
             last_solution = Some(updated_solution);
 
-            // Log non-linear progress
+            // Log non-linear progress with timing
+            let iter_elapsed = iter_start.elapsed();
             println!(
-                "Picard Iteration: vel_change={vel_change_f64:?}, visc_change={max_change_f64:?}"
+                "Picard Iteration {}: vel_change={vel_change_f64:?}, visc_change={max_change_f64:?}, elapsed={:.1}s",
+                iter,
+                iter_elapsed.as_secs_f64()
             );
+
+            // Stagnation detection: if velocity change hasn't decreased
+            // by at least 5% for 3 consecutive iterations, abort early.
+            if vel_change_f64 >= prev_vel_change * 0.95 {
+                stagnation_count += 1;
+            } else {
+                stagnation_count = 0;
+            }
+            prev_vel_change = vel_change_f64;
+
+            if stagnation_count >= 3 {
+                println!("Picard: Stagnation detected after {} iterations — aborting", iter + 1);
+                break;
+            }
 
             let tol_f64 = self.config.nonlinear_tolerance.to_f64().unwrap_or(1e-4);
             if vel_change_f64 < tol_f64 && max_change_f64 < tol_f64 {

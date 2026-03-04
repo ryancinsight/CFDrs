@@ -211,7 +211,6 @@ impl DesignCandidate {
             } => {
                 let trunk_len = TREATMENT_HEIGHT_MM * 0.20e-3;
                 let branch_len = TREATMENT_HEIGHT_MM * 0.15e-3;
-                let frac = self.trifurcation_center_frac;
                 // Inter-throat spacing: 10× hydraulic diameter of throat for full
                 // flow re-development between serial Rayleigh-collapse events
                 // (Shah & London 1978, §2-3).
@@ -222,7 +221,8 @@ impl DesignCandidate {
                     trunk_len,
                     branch_len,
                     w,
-                    frac,
+                    self.cif_pretri_center_frac(),
+                    self.cif_terminal_tri_center_frac(),
                     dt,
                     tl,
                     inter_spacing,

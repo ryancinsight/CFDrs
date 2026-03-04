@@ -145,6 +145,114 @@ impl<
         Ok(solution)
     }
 
+    /// Picard-optimized solve with warm-start and adaptive linear tolerance.
+    ///
+    /// # Optimizations over [`Self::solve`]
+    ///
+    /// 1. **Warm-start**: Uses the previous Picard solution as GMRES initial
+    ///    guess, dramatically reducing iteration counts on subsequent iterations.
+    /// 2. **Adaptive tolerance**: Early Picard iterations use 100× looser
+    ///    linear solve tolerance (inexact Picard, cf. Eisenstat–Walker 1996),
+    ///    since the viscosity field is still changing significantly.
+    /// 3. **Reduced iteration budget**: 10K max linear iterations (vs 50K in
+    ///    [`Self::solve`]) — with warm-starting, convergence should occur in
+    ///    hundreds of iterations, not tens of thousands.
+    /// 4. **Smart tier progression**: Skips unpreconditioned GMRES tier for
+    ///    saddle-point systems when block-preconditioned GMRES stagnates.
+    /// 5. **Timing diagnostics**: Logs assembly and linear solve wall-clock
+    ///    time for performance monitoring.
+    pub fn solve_picard(
+        &mut self,
+        problem: &StokesFlowProblem<T>,
+        previous_solution: Option<&StokesFlowSolution<T>>,
+        picard_iteration: usize,
+        max_picard_iterations: usize,
+    ) -> Result<StokesFlowSolution<T>> {
+        tracing::info!(picard_iteration, "Starting Taylor-Hood Stokes solver (Picard mode)");
+
+        problem.validate()?;
+
+        let assembly_start = std::time::Instant::now();
+        let (matrix, rhs) = self.assemble_system(problem, previous_solution)?;
+        let assembly_elapsed = assembly_start.elapsed();
+
+        let n_total_dof = rhs.len();
+        let n_nodes = problem.mesh.vertex_count();
+        let n_corner_nodes = problem.n_corner_nodes;
+        let n_velocity_dof = n_nodes * 3;
+
+        // Adaptive tolerance (inexact Picard / Eisenstat–Walker strategy):
+        // Early iterations use 100× looser tolerance since viscosity is still changing.
+        let base_tol = 1e-8_f64;
+        let adaptive_factor = if picard_iteration < max_picard_iterations / 2 {
+            100.0_f64
+        } else {
+            1.0_f64
+        };
+        let rel_tol = <T as FromPrimitive>::from_f64(base_tol * adaptive_factor)
+            .unwrap_or_else(T::zero);
+        let abs_tol = Float::max(
+            rel_tol * rhs.norm(),
+            <T as FromPrimitive>::from_f64(1e-14).unwrap_or_else(T::zero),
+        );
+
+        // Reduced iteration budget: 10K is sufficient with warm-starting.
+        let solver_config = cfd_math::linear_solver::IterativeSolverConfig {
+            max_iterations: 10_000,
+            tolerance: abs_tol,
+            ..cfd_math::linear_solver::IterativeSolverConfig::default()
+        };
+
+        let chain = LinearSolverChain::new(solver_config)
+            .with_direct_threshold(100_000)
+            .with_krylov_restart(std::cmp::min(200, n_total_dof.max(1)));
+
+        // Warm-start: reconstruct DOF vector from previous Picard solution.
+        let initial_guess = previous_solution.map(|prev| {
+            let mut x0 = DVector::zeros(n_total_dof);
+            let vel_len = n_velocity_dof.min(prev.velocity.len());
+            let pres_len = n_corner_nodes.min(prev.pressure.len());
+            x0.rows_mut(0, vel_len)
+                .copy_from(&prev.velocity.rows(0, vel_len));
+            x0.rows_mut(n_velocity_dof, pres_len)
+                .copy_from(&prev.pressure.rows(0, pres_len));
+            x0
+        });
+
+        tracing::info!(
+            n_total_dof,
+            n_velocity_dof,
+            picard_iteration,
+            ?abs_tol,
+            assembly_secs = assembly_elapsed.as_secs_f64(),
+            "FemSolver: starting linear solve (Picard mode)"
+        );
+
+        println!(
+            "  Assembly: {:.2}s | Linear solve config: tol={abs_tol:?}, max_iter=10000, restart={}",
+            assembly_elapsed.as_secs_f64(),
+            std::cmp::min(200, n_total_dof.max(1))
+        );
+
+        let solve_start = std::time::Instant::now();
+        let x = chain.solve_with_guess(&matrix, &rhs, n_velocity_dof, initial_guess.as_ref())?;
+        let solve_elapsed = solve_start.elapsed();
+
+        println!(
+            "  Linear solve: {:.2}s (n_dof={})",
+            solve_elapsed.as_secs_f64(),
+            n_total_dof
+        );
+
+        let velocity = x.rows(0, n_velocity_dof).into_owned();
+        let pressure = x.rows(n_velocity_dof, n_corner_nodes).into_owned();
+        let solution =
+            StokesFlowSolution::new_with_corners(velocity, pressure, n_nodes, n_corner_nodes);
+        self.print_continuity_residual_stats(problem, &solution)?;
+
+        Ok(solution)
+    }
+
     /// Compute and log continuity residual (∇·u) statistics.
     ///
     /// # Parallelization (GAP-PERF-008)

@@ -305,6 +305,15 @@ impl DesignCandidate {
             DesignTopology::CellSeparationVenturi | DesignTopology::WbcCancerSeparationVenturi => {
                 0.80
             }
+            DesignTopology::DoubleTrifurcationCIFVenturi { .. } => {
+                // DTCV routes only the first-split center arm into the treatment
+                // zone; second-split subchannels all remain in-zone.
+                tri_center_q_frac_cross_junction(
+                    self.cif_pretri_center_frac(),
+                    self.channel_width_m,
+                    self.channel_height_m,
+                )
+            }
             DesignTopology::CascadeCenterTrifurcationSeparator { n_levels } => {
                 let q_tri = tri_center_q_frac_cross_junction(
                     self.trifurcation_center_frac,
@@ -381,6 +390,11 @@ impl DesignCandidate {
                 // Wide (CancerTarget) arm vs narrow (HealthyBypass) arm.
                 // Path length is equal in both arms; therapy fraction = 1/(1+narrow_frac).
                 1.0 / (1.0 + self.asymmetric_narrow_frac.clamp(0.10, 0.90))
+            }
+            DesignTopology::DoubleTrifurcationCIFVenturi { .. } => {
+                // DTCV: only the first-split center arm enters the sonication
+                // region; all outer arms bypass.
+                tri_center_q_frac(self.cif_pretri_center_frac())
             }
             DesignTopology::CascadeCenterTrifurcationSeparator { .. } => {
                 // Each cascade level routes only center_frac flow to therapy.

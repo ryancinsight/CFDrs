@@ -553,6 +553,87 @@ pub fn build_candidate_space() -> Vec<DesignCandidate> {
         }
     }
 
+    // Double-trifurcation CIF venturi grid (DTCV).
+    //
+    // Targeted multilevel expansion:
+    // - split1_center_frac controls first-stage center enrichment/bypass.
+    // - split2_center_frac controls second-stage center-line concentration.
+    // - center_throat_count controls serial venturi dose per center channel.
+    const DTCV_SPLIT1_CENTER_FRACS: [f64; 3] = [0.45, 0.55, 0.62];
+    const DTCV_SPLIT2_CENTER_FRACS: [f64; 3] = [0.33, 0.45, 0.55];
+    const DTCV_CENTER_THROAT_COUNTS: [u8; 4] = [1, 2, 3, 4];
+    const DTCV_FLOWS: [f64; 5] = [1.333e-6, 1.667e-6, 2.000e-6, 3.333e-6, 4.167e-6];
+    const DTCV_GAUGES: [f64; 6] = [25_000.0, 50_000.0, 100_000.0, 150_000.0, 300_000.0, 400_000.0];
+    const DTCV_THROATS: [f64; 4] = [35e-6, 45e-6, 55e-6, 70e-6];
+    const DTCV_TL_FACTORS: [f64; 3] = [2.0, 3.0, 5.0];
+    const DTCV_WIDTHS: [f64; 3] = [4.0e-3, 5.0e-3, 6.0e-3];
+    const DTCV_HEIGHTS: [f64; 3] = [1.0e-3, 1.5e-3, 2.5e-3];
+    for &split1_center_frac in &DTCV_SPLIT1_CENTER_FRACS {
+        for &split2_center_frac in &DTCV_SPLIT2_CENTER_FRACS {
+            for &center_throat_count in &DTCV_CENTER_THROAT_COUNTS {
+                let s1_tag = (split1_center_frac * 1000.0).round() as u32;
+                let s2_tag = (split2_center_frac * 1000.0).round() as u32;
+                for &q in &DTCV_FLOWS {
+                    for &gauge in &DTCV_GAUGES {
+                        for &d_throat in &DTCV_THROATS {
+                            for &tl_factor in &DTCV_TL_FACTORS {
+                                for &w_ch in &DTCV_WIDTHS {
+                                    for &h_ch in &DTCV_HEIGHTS {
+                                        idx += 1;
+                                        let throat_len = d_throat * tl_factor;
+                                        let id = format!(
+                                            "{:04}-DTCV-s1cf{}-s2cf{}-ct{}-q{:.0}ml-g{:.0}kPa-dt{:.0}um-tl{}-w{:.0}um-h{}",
+                                            idx,
+                                            s1_tag,
+                                            s2_tag,
+                                            center_throat_count,
+                                            q * 6e7,
+                                            gauge * 1e-3,
+                                            d_throat * 1e6,
+                                            tl_factor as u32,
+                                            w_ch * 1e6,
+                                            (h_ch * 1e6) as u32,
+                                        );
+                                        candidates.push(DesignCandidate {
+                                            id,
+                                            topology: DesignTopology::DoubleTrifurcationCIFVenturi {
+                                                center_throat_count,
+                                            },
+                                            flow_rate_m3_s: q,
+                                            inlet_gauge_pa: gauge,
+                                            throat_diameter_m: d_throat,
+                                            inlet_diameter_m: VENTURI_INLET_DIAM_M,
+                                            throat_length_m: throat_len,
+                                            channel_width_m: w_ch,
+                                            channel_height_m: h_ch,
+                                            serpentine_segments: 1,
+                                            segment_length_m: TREATMENT_WIDTH_MM * 1e-3,
+                                            bend_radius_m: SERPENTINE_BEND_RADIUS_M,
+                                            feed_hematocrit: 0.45,
+                                            trifurcation_center_frac: split1_center_frac,
+                                            cif_pretri_center_frac: split1_center_frac,
+                                            cif_terminal_tri_center_frac: split2_center_frac,
+                                            cif_terminal_bi_treat_frac: 0.68,
+                                            asymmetric_narrow_frac: 0.5,
+                                            trifurcation_left_frac: 1.0 / 3.0,
+                                            cross_section_shape: CrossSectionShape::Rectangular,
+                                            treatment_zone_mode: treatment_mode_for(
+                                                DesignTopology::DoubleTrifurcationCIFVenturi {
+                                                    center_throat_count,
+                                                },
+                                            ),
+                                            centerline_venturi_throat_count: center_throat_count,
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     // Oncology-focused CIF refinement sweep.
     //
     // Purpose: add a focused high-performing band around SDT-selective operating
@@ -797,7 +878,7 @@ pub fn build_candidate_space() -> Vec<DesignCandidate> {
 /// | trifurcation_center_frac | \[0.25, 0.65\] | — |
 pub fn sample_random_candidates(n: usize, rng: &mut impl Rng) -> Vec<DesignCandidate> {
     // All topology templates (same order as ALL_EVO_TOPOLOGIES in evo.rs)
-    const N_TOPOS: usize = 28;
+    const N_TOPOS: usize = 29;
     let topo_templates: [DesignTopology; N_TOPOS] = [
         DesignTopology::SingleVenturi,
         DesignTopology::BifurcationVenturi,
@@ -824,6 +905,9 @@ pub fn sample_random_candidates(n: usize, rng: &mut impl Rng) -> Vec<DesignCandi
         DesignTopology::QuadTrifurcationVenturi,
         DesignTopology::CascadeCenterTrifurcationSeparator { n_levels: 2 },
         DesignTopology::IncrementalFiltrationTriBiSeparator { n_pretri: 2 },
+        DesignTopology::DoubleTrifurcationCIFVenturi {
+            center_throat_count: 2,
+        },
         DesignTopology::AsymmetricTrifurcationVenturi,
         DesignTopology::TriBiTriSelectiveVenturi,
         DesignTopology::AdaptiveTree {
@@ -858,6 +942,11 @@ pub fn sample_random_candidates(n: usize, rng: &mut impl Rng) -> Vec<DesignCandi
                 DesignTopology::IncrementalFiltrationTriBiSeparator { .. } => {
                     DesignTopology::IncrementalFiltrationTriBiSeparator {
                         n_pretri: rng.gen_range(1u8..=3u8),
+                    }
+                }
+                DesignTopology::DoubleTrifurcationCIFVenturi { .. } => {
+                    DesignTopology::DoubleTrifurcationCIFVenturi {
+                        center_throat_count: rng.gen_range(1u8..=4u8),
                     }
                 }
                 DesignTopology::AdaptiveTree { .. } => DesignTopology::AdaptiveTree {
@@ -930,6 +1019,7 @@ pub fn sample_random_candidates(n: usize, rng: &mut impl Rng) -> Vec<DesignCandi
                     | DesignTopology::QuadTrifurcationVenturi
                     | DesignTopology::CascadeCenterTrifurcationSeparator { .. }
                     | DesignTopology::IncrementalFiltrationTriBiSeparator { .. }
+                    | DesignTopology::DoubleTrifurcationCIFVenturi { .. }
                     | DesignTopology::AsymmetricTrifurcationVenturi
                     | DesignTopology::TriBiTriSelectiveVenturi
             ) {
@@ -941,6 +1031,7 @@ pub fn sample_random_candidates(n: usize, rng: &mut impl Rng) -> Vec<DesignCandi
                 if matches!(
                     topology,
                     DesignTopology::IncrementalFiltrationTriBiSeparator { .. }
+                        | DesignTopology::DoubleTrifurcationCIFVenturi { .. }
                         | DesignTopology::TriBiTriSelectiveVenturi
                 ) {
                     (
@@ -965,25 +1056,22 @@ pub fn sample_random_candidates(n: usize, rng: &mut impl Rng) -> Vec<DesignCandi
                 } else {
                     1.0 / 3.0
                 };
-            let centerline_venturi_throat_count = if matches!(
-                topology,
+            let centerline_venturi_throat_count = match topology {
+                DesignTopology::DoubleTrifurcationCIFVenturi {
+                    center_throat_count,
+                } => center_throat_count,
                 DesignTopology::CascadeCenterTrifurcationSeparator { .. }
-                    | DesignTopology::IncrementalFiltrationTriBiSeparator { .. }
-                    | DesignTopology::AsymmetricTrifurcationVenturi
-                    | DesignTopology::TriBiTriSelectiveVenturi
-                    | DesignTopology::CellSeparationVenturi
-                    | DesignTopology::WbcCancerSeparationVenturi
-            ) {
-                rng.gen_range(1u8..=2u8)
-            } else {
-                1
+                | DesignTopology::IncrementalFiltrationTriBiSeparator { .. }
+                | DesignTopology::AsymmetricTrifurcationVenturi
+                | DesignTopology::TriBiTriSelectiveVenturi
+                | DesignTopology::CellSeparationVenturi
+                | DesignTopology::WbcCancerSeparationVenturi => rng.gen_range(1u8..=4u8),
+                _ => 1,
             };
             let feed_hematocrit = if is_leuka { 0.04 } else { 0.45 };
-            let id = if let DesignTopology::IncrementalFiltrationTriBiSeparator { n_pretri } =
-                topology
-            {
-                format!(
-                    "RND{:05}-CIF-pt{}-pcf{}-tcf{}-btf{}-vt{}-q{:.0}-g{:.0}-d{:.0}-w{:.0}",
+            let id = match topology {
+                DesignTopology::IncrementalFiltrationTriBiSeparator { n_pretri } => format!(
+                    "RND{:05}-CIF-pt{}-pcf{}-tcf{}-btf{}-vt{}-q{:.0}-g{:.0}-d{:.0}-w{:.0}-h{:.0}",
                     i,
                     n_pretri,
                     (cif_pretri_center_frac * 1000.0).round() as u32,
@@ -994,17 +1082,32 @@ pub fn sample_random_candidates(n: usize, rng: &mut impl Rng) -> Vec<DesignCandi
                     gauge * 1e-3,
                     d_throat * 1e6,
                     w_ch * 1e6,
-                )
-            } else {
-                format!(
-                    "RND{:05}-{}-q{:.0}-g{:.0}-d{:.0}-w{:.0}",
+                    h_ch * 1e6,
+                ),
+                DesignTopology::DoubleTrifurcationCIFVenturi {
+                    center_throat_count,
+                } => format!(
+                    "RND{:05}-DTCV-s1cf{}-s2cf{}-ct{}-q{:.0}-g{:.0}-d{:.0}-w{:.0}-h{:.0}",
+                    i,
+                    (cif_pretri_center_frac * 1000.0).round() as u32,
+                    (cif_terminal_tri_center_frac * 1000.0).round() as u32,
+                    center_throat_count,
+                    q * 6e7,
+                    gauge * 1e-3,
+                    d_throat * 1e6,
+                    w_ch * 1e6,
+                    h_ch * 1e6,
+                ),
+                _ => format!(
+                    "RND{:05}-{}-q{:.0}-g{:.0}-d{:.0}-w{:.0}-h{:.0}",
                     i,
                     topology.short(),
                     q * 6e7,
                     gauge * 1e-3,
                     d_throat * 1e6,
                     w_ch * 1e6,
-                )
+                    h_ch * 1e6,
+                ),
             };
             DesignCandidate {
                 id,

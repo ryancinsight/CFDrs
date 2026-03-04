@@ -144,7 +144,7 @@ impl<T: RealField + Copy + Float + FromPrimitive + Debug> LinearSolverChain<T> {
         }
 
         let restart = std::cmp::min(self.krylov_restart, n_total_dof.max(1));
-        let solver = GMRES::new(self.config.clone(), restart);
+        let solver = GMRES::new(self.config, restart);
 
         // ── Tier 2: GMRES + BlockDiagonal preconditioner (saddle-point) ───────
         match BlockDiagonalPreconditioner::new(matrix, n_velocity_dof, n_pressure_dof) {
@@ -204,7 +204,7 @@ impl<T: RealField + Copy + Float + FromPrimitive + Debug> LinearSolverChain<T> {
 
         // ── Tier 5: BiCGSTAB (last resort) ────────────────────────────────────
         x.fill(T::zero());
-        let bicg = BiCGSTAB::new(self.config.clone());
+        let bicg = BiCGSTAB::new(self.config);
         bicg.solve_unpreconditioned(matrix, rhs, &mut x)
             .map_err(|e| {
                 Error::Solver(
@@ -216,6 +216,133 @@ impl<T: RealField + Copy + Float + FromPrimitive + Debug> LinearSolverChain<T> {
             })?;
 
         tracing::debug!("LinearSolverChain: BiCGSTAB (last resort) converged");
+        Ok(x)
+    }
+
+    /// Solve with optional warm-start initial guess for Picard/continuation methods.
+    ///
+    /// When `initial_guess` is `Some`, iterative solvers begin from that vector
+    /// rather than zero, dramatically reducing iteration counts for successive
+    /// solves on slowly-varying systems (e.g., Picard viscosity updates).
+    ///
+    /// Additional optimizations over [`Self::solve`]:
+    /// - On tier failure, resets to `initial_guess` (not zero) before next tier.
+    /// - Skips unpreconditioned GMRES (Tier 3) when block preconditioning was
+    ///   constructed but GMRES stagnated — for saddle-point systems unpreconditioned
+    ///   is strictly worse.
+    pub fn solve_with_guess(
+        &self,
+        matrix: &SparseMatrix<T>,
+        rhs: &DVector<T>,
+        n_velocity_dof: usize,
+        initial_guess: Option<&DVector<T>>,
+    ) -> Result<DVector<T>> {
+        let n_total_dof = rhs.len();
+        let n_pressure_dof = n_total_dof.saturating_sub(n_velocity_dof);
+        let mut x = initial_guess.cloned().unwrap_or_else(|| DVector::zeros(n_total_dof));
+
+        let reset = |x: &mut DVector<T>| {
+            if let Some(guess) = initial_guess {
+                x.copy_from(guess);
+            } else {
+                x.fill(T::zero());
+            }
+        };
+
+        // ── Tier 1: Direct sparse LU ──────────────────────────────────────────
+        if n_total_dof < self.direct_threshold {
+            let direct = DirectSparseSolver::default();
+            match direct.solve(matrix, rhs) {
+                Ok(x_direct) => {
+                    tracing::debug!("LinearSolverChain: direct LU succeeded (n={n_total_dof})");
+                    return Ok(x_direct);
+                }
+                Err(e) => {
+                    tracing::warn!("LinearSolverChain: direct LU failed ({e}); trying iterative");
+                }
+            }
+        }
+
+        let restart = std::cmp::min(self.krylov_restart, n_total_dof.max(1));
+        let solver = GMRES::new(self.config, restart);
+        let mut block_precond_constructed = false;
+
+        // ── Tier 2: GMRES + BlockDiagonal preconditioner ──────────────────────
+        match BlockDiagonalPreconditioner::new(matrix, n_velocity_dof, n_pressure_dof) {
+            Ok(block_precond) => {
+                block_precond_constructed = true;
+                match solver.solve_preconditioned(matrix, rhs, &block_precond, &mut x) {
+                    Ok(monitor) => {
+                        tracing::debug!(
+                            "LinearSolverChain(warm): GMRES+BlockDiag converged in {} iters",
+                            monitor.iteration
+                        );
+                        return Ok(x);
+                    }
+                    Err(e) => {
+                        tracing::warn!("LinearSolverChain(warm): GMRES+BlockDiag failed ({e})");
+                        reset(&mut x);
+                    }
+                }
+            }
+            Err(e) => {
+                tracing::warn!("LinearSolverChain(warm): BlockDiag construction failed ({e})");
+            }
+        }
+
+        // ── Tier 3: GMRES unpreconditioned ────────────────────────────────────
+        // Skip if block preconditioner was built but GMRES stagnated — for
+        // saddle-point systems, unpreconditioned will be strictly worse.
+        if !block_precond_constructed {
+            match solver.solve_unpreconditioned(matrix, rhs, &mut x) {
+                Ok(monitor) => {
+                    tracing::debug!(
+                        "LinearSolverChain(warm): GMRES unpreconditioned converged in {} iters",
+                        monitor.iteration
+                    );
+                    return Ok(x);
+                }
+                Err(e) => {
+                    tracing::warn!("LinearSolverChain(warm): GMRES unpreconditioned failed ({e})");
+                    reset(&mut x);
+                }
+            }
+        }
+
+        // ── Tier 4: GMRES + ILU preconditioner ───────────────────────────────
+        reset(&mut x);
+        match IncompleteLU::new(matrix) {
+            Ok(ilu) => match solver.solve_preconditioned(matrix, rhs, &ilu, &mut x) {
+                Ok(monitor) => {
+                    tracing::debug!(
+                        "LinearSolverChain(warm): GMRES+ILU converged in {} iters",
+                        monitor.iteration
+                    );
+                    return Ok(x);
+                }
+                Err(e) => {
+                    tracing::warn!("LinearSolverChain(warm): GMRES+ILU failed ({e})");
+                }
+            },
+            Err(e) => {
+                tracing::warn!("LinearSolverChain(warm): ILU construction failed ({e})");
+            }
+        }
+
+        // ── Tier 5: BiCGSTAB (last resort) ────────────────────────────────────
+        reset(&mut x);
+        let bicg = BiCGSTAB::new(self.config);
+        bicg.solve_unpreconditioned(matrix, rhs, &mut x)
+            .map_err(|e| {
+                Error::Solver(
+                    format!(
+                        "LinearSolverChain: all solver tiers failed. \
+                         Final BiCGSTAB error: {e}"
+                    )
+                )
+            })?;
+
+        tracing::debug!("LinearSolverChain(warm): BiCGSTAB (last resort) converged");
         Ok(x)
     }
 }

@@ -494,6 +494,10 @@ pub fn compute_metrics(candidate: &DesignCandidate) -> Result<SdtMetrics, OptimE
             | DesignTopology::QuadTrifurcationVenturi
             | DesignTopology::CascadeCenterTrifurcationSeparator { .. }
             | DesignTopology::IncrementalFiltrationTriBiSeparator { .. }
+            | DesignTopology::DoubleTrifurcationCIFVenturi { .. }
+            | DesignTopology::AsymmetricTrifurcationVenturi
+            | DesignTopology::TriBiTriSelectiveVenturi
+            | DesignTopology::DoubleTrifurcationVenturi
     ) {
         three_population_separation(candidate, &blood)
     } else {
@@ -517,6 +521,38 @@ pub fn compute_metrics(candidate: &DesignCandidate) -> Result<SdtMetrics, OptimE
     let mut cif_pretri_stage_qfracs: Vec<f64> = Vec::new();
     let mut cif_terminal_tri_qfrac: Option<f64> = None;
     let mut cif_terminal_bi_qfrac: Option<f64> = None;
+
+    // ── DTCV (DoubleTrifurcationCIFVenturi) cascade routing ─────────────────
+    // DTCV uses a 2-level asymmetric trifurcation cascade (split1 → split2)
+    // where the first split routes cancer/WBC-enriched flow to the center arm,
+    // and the second split further subdivides into 3 CTC-enriched center
+    // sub-channels with serial venturi throats.  The outer bypass channels
+    // (6 total: 3 from split1 periphery, 3 from split2 periphery of the center
+    // trunk) carry RBC-enriched flow with zero venturi exposure.
+    //
+    // The Zweifach-Fung routing at each trifurcation junction progressively
+    // enriches stiff cancer cells (β=1.70) in the center arm while deformable
+    // RBCs (β=1.00) distribute more uniformly — exactly the mechanism that
+    // makes deeper cascades (tri-tri > tri) produce better separation.
+    let dtcv_cascade_res: Option<cfd_1d::cell_separation::CascadeJunctionResult> =
+        if let DesignTopology::DoubleTrifurcationCIFVenturi { .. } = candidate.topology {
+            // DTCV is a 2-level cascade: split1 uses cif_pretri_center_frac,
+            // split2 uses cif_terminal_tri_center_frac.  Each level has its
+            // own width fraction, so we compute per-stage q_fracs individually.
+            let q1 = cfd_1d::cell_separation::tri_center_q_frac_cross_junction(
+                candidate.cif_pretri_center_frac(),
+                w_main,
+                h_main,
+            );
+            let q2 = cfd_1d::cell_separation::tri_center_q_frac_cross_junction(
+                candidate.cif_terminal_tri_center_frac(),
+                w_main * candidate.cif_pretri_center_frac(),
+                h_main,
+            );
+            Some(cfd_1d::cell_separation::cascade_junction_separation_from_qfracs(&[q1, q2]))
+        } else {
+            None
+        };
 
     let cascade_res: Option<cfd_1d::cell_separation::CascadeJunctionResult> =
         if let DesignTopology::CascadeCenterTrifurcationSeparator { n_levels } = candidate.topology
@@ -692,6 +728,68 @@ pub fn compute_metrics(candidate: &DesignCandidate) -> Result<SdtMetrics, OptimE
                 wbc_center_frac = cif.wbc_center_fraction.clamp(0.0, 1.0);
             }
         }
+        DesignTopology::DoubleTrifurcationCIFVenturi { .. } => {
+            if let Some(dtcv) = &dtcv_cascade_res {
+                final_sep_eff = dtcv.separation_efficiency;
+                final_cancer_frac = dtcv.cancer_center_fraction;
+                final_rbc_periph = dtcv.rbc_peripheral_fraction;
+                final_three_pop_sep = dtcv.separation_efficiency;
+                final_wbc_center_three_pop = dtcv.wbc_center_fraction;
+                final_rbc_periph_three_pop = dtcv.rbc_peripheral_fraction;
+
+                rbc_center_frac = (1.0 - dtcv.rbc_peripheral_fraction).clamp(0.0, 1.0);
+                cancer_center_frac = dtcv.cancer_center_fraction.clamp(0.0, 1.0);
+                wbc_center_frac = dtcv.wbc_center_fraction.clamp(0.0, 1.0);
+            }
+        }
+        DesignTopology::AsymmetricTrifurcationVenturi => {
+            // Single asymmetric trifurcation: use three-pop inertial model
+            // combined with Zweifach-Fung 1-level routing for the center arm.
+            let q_center = cfd_1d::cell_separation::tri_center_q_frac_cross_junction(
+                candidate.trifurcation_center_frac,
+                w_main,
+                h_main,
+            );
+            let atv_cct =
+                cfd_1d::cell_separation::cascade_junction_separation_from_qfracs(&[q_center]);
+            final_sep_eff = atv_cct.separation_efficiency;
+            final_cancer_frac = atv_cct.cancer_center_fraction;
+            final_rbc_periph = atv_cct.rbc_peripheral_fraction;
+            final_three_pop_sep = atv_cct.separation_efficiency;
+            final_wbc_center_three_pop = atv_cct.wbc_center_fraction;
+            final_rbc_periph_three_pop = atv_cct.rbc_peripheral_fraction;
+
+            rbc_center_frac = (1.0 - atv_cct.rbc_peripheral_fraction).clamp(0.0, 1.0);
+            cancer_center_frac = atv_cct.cancer_center_fraction.clamp(0.0, 1.0);
+            wbc_center_frac = atv_cct.wbc_center_fraction.clamp(0.0, 1.0);
+        }
+        DesignTopology::TriBiTriSelectiveVenturi => {
+            // Tri→Bi→Tri: three progressive focusing stages.
+            // Stage 1 & 3: trifurcation at trifurcation_center_frac.
+            // Stage 2: bifurcation at cif_terminal_bi_treat_frac.
+            let q_tri = cfd_1d::cell_separation::tri_center_q_frac_cross_junction(
+                candidate.trifurcation_center_frac,
+                w_main,
+                h_main,
+            );
+            let q_bi = candidate.cif_terminal_bi_treat_frac();
+            // Model as: tri stage → bi stage → tri stage (3 multiplicative stages)
+            let tbt_cif = cfd_1d::cell_separation::incremental_filtration_separation_from_qfracs(
+                &[q_tri], // 1 pre-tri stage
+                q_tri,    // terminal tri (same frac)
+                q_bi,     // terminal bi
+            );
+            final_sep_eff = tbt_cif.separation_efficiency;
+            final_cancer_frac = tbt_cif.cancer_center_fraction;
+            final_rbc_periph = tbt_cif.rbc_peripheral_fraction;
+            final_three_pop_sep = tbt_cif.separation_efficiency;
+            final_wbc_center_three_pop = tbt_cif.wbc_center_fraction;
+            final_rbc_periph_three_pop = tbt_cif.rbc_peripheral_fraction;
+
+            rbc_center_frac = tbt_cif.rbc_center_fraction.clamp(0.0, 1.0);
+            cancer_center_frac = tbt_cif.cancer_center_fraction.clamp(0.0, 1.0);
+            wbc_center_frac = tbt_cif.wbc_center_fraction.clamp(0.0, 1.0);
+        }
         _ => {}
     }
 
@@ -699,6 +797,9 @@ pub fn compute_metrics(candidate: &DesignCandidate) -> Result<SdtMetrics, OptimE
         candidate.topology,
         DesignTopology::CascadeCenterTrifurcationSeparator { .. }
             | DesignTopology::IncrementalFiltrationTriBiSeparator { .. }
+            | DesignTopology::DoubleTrifurcationCIFVenturi { .. }
+            | DesignTopology::AsymmetricTrifurcationVenturi
+            | DesignTopology::TriBiTriSelectiveVenturi
     ) {
         final_wbc_recovery = wbc_center_frac.clamp(0.0, 1.0);
         final_rbc_pass_fraction = rbc_center_frac.clamp(0.0, 1.0);
@@ -714,9 +815,10 @@ pub fn compute_metrics(candidate: &DesignCandidate) -> Result<SdtMetrics, OptimE
     if venturi_treatment_enabled && final_venturi_flow_fraction > 0.0 {
         // Use cascade-specific hematocrit ratio when available (more
         // physically accurate — accounts for per-level Zweifach-Fung routing).
-        let cascade_hct_ratio = match (&cascade_res, &cif_res) {
-            (Some(cct), _) => cct.center_hematocrit_ratio,
-            (_, Some(cif)) => cif.center_hematocrit_ratio,
+        let cascade_hct_ratio = match (&dtcv_cascade_res, &cascade_res, &cif_res) {
+            (Some(dtcv), _, _) => dtcv.center_hematocrit_ratio,
+            (_, Some(cct), _) => cct.center_hematocrit_ratio,
+            (_, _, Some(cif)) => cif.center_hematocrit_ratio,
             _ => rbc_center_frac / final_venturi_flow_fraction.max(1e-9),
         };
         let hct_venturi = (candidate.feed_hematocrit * cascade_hct_ratio).clamp(0.01, 0.70);
@@ -1619,6 +1721,251 @@ mod tests {
     /// 3. `flow_uniformity` ∈ (0, 1]
     /// 4. `hemolysis_index_per_pass` is finite and non-negative
     /// 5. `mean_residence_time_s` is finite and positive
+    ///
+    /// ## Theorem: Monotonic separation improvement with cascade depth
+    ///
+    /// For a cascade of N asymmetric trifurcation junctions with center-arm
+    /// width fraction `f > 1/3` and Zweifach-Fung stiffness exponents
+    /// `β_cancer > β_RBC = 1.0`:
+    ///
+    /// ```text
+    /// sep_eff(N) = |cancer_center(N) − rbc_center(N)| is monotone increasing in N
+    /// ```
+    ///
+    /// **Proof sketch:**
+    /// At each junction, `P_center(cell) = q^β / (q^β + 2·q_p^β)` where
+    /// `q > 1/3` (asymmetric).  For β > 1 (cancer), `P_center > q` (super-linear
+    /// bias toward center).  For β = 1 (RBC), `P_center = q` (linear, follows
+    /// flow fraction).  After N stages:
+    /// - `cancer_center(N) = ∏ P_center(q, 1.70)` — decays slowly (each factor > q)
+    /// - `rbc_center(N) = q^N` — decays geometrically
+    /// Since `P_center(q, 1.70) > q` for all q > 1/3, the ratio
+    /// `cancer_center(N) / rbc_center(N)` grows with N, and the absolute gap
+    /// `|cancer − rbc|` increases until cancer_center itself becomes small.
+    /// The RBC peripheral fraction `1 − q^N` is strictly increasing in N.  ∎
+
+    #[test]
+    fn cct_deeper_cascade_improves_separation_monotonically() {
+        // Validate the mathematical theorem: each added trifurcation level
+        // increases RBC peripheral fraction and separation efficiency.
+        //
+        // Uses the cfd-1d Zweifach-Fung model directly, then verifies that
+        // cfd-optim's compute_metrics propagates the same monotonic ordering
+        // through to the final SdtMetrics for CCT topologies.
+
+        // Part 1: Direct model verification (cfd-1d)
+        let center_frac = 0.45_f64;
+        let parent_w = 6.0e-3_f64;
+        let h = 1.5e-3_f64;
+
+        let mut prev_sep = 0.0_f64;
+        let mut prev_rbc_periph = 0.0_f64;
+
+        for n_levels in 1u8..=3 {
+            let result = cfd_1d::cell_separation::cascade_junction_separation_cross_junction(
+                n_levels,
+                center_frac,
+                parent_w,
+                h,
+            );
+
+            assert!(
+                result.separation_efficiency >= prev_sep - 1e-12,
+                "CCT depth {n_levels}: separation efficiency {:.4} must be >= previous {:.4}",
+                result.separation_efficiency,
+                prev_sep,
+            );
+            assert!(
+                result.rbc_peripheral_fraction >= prev_rbc_periph - 1e-12,
+                "CCT depth {n_levels}: RBC peripheral {:.4} must be >= previous {:.4}",
+                result.rbc_peripheral_fraction,
+                prev_rbc_periph,
+            );
+            assert!(
+                result.cancer_center_fraction > result.rbc_peripheral_fraction * 0.0,
+                "CCT depth {n_levels}: cancer should be focused to center",
+            );
+            // Cancer enrichment over RBC: cancer_center > rbc_center
+            let rbc_center = 1.0 - result.rbc_peripheral_fraction;
+            assert!(
+                result.cancer_center_fraction > rbc_center,
+                "CCT depth {n_levels}: cancer_center={:.4} must exceed rbc_center={:.4}",
+                result.cancer_center_fraction,
+                rbc_center,
+            );
+
+            prev_sep = result.separation_efficiency;
+            prev_rbc_periph = result.rbc_peripheral_fraction;
+        }
+
+        // Part 2: Verify cfd-optim propagates monotonic ordering through metrics.
+        // Find CCT candidates at increasing depths with matched parameters.
+        let mut metrics_by_depth: Vec<(u8, SdtMetrics)> = Vec::new();
+        let candidates = build_candidate_space();
+        for n_levels in 1u8..=3 {
+            if let Some(candidate) = candidates.iter().find(|c| {
+                matches!(
+                    c.topology,
+                    DesignTopology::CascadeCenterTrifurcationSeparator { n_levels: nl } if nl == n_levels
+                ) && near(c.trifurcation_center_frac, 0.45)
+                    && near(c.channel_width_m, 6.0e-3)
+                    && near(c.channel_height_m, 1.5e-3)
+            }) {
+                if let Ok(m) = compute_metrics(candidate) {
+                    metrics_by_depth.push((n_levels, m));
+                }
+            }
+        }
+
+        // Verify monotonic ordering in the computed metrics.
+        for window in metrics_by_depth.windows(2) {
+            let (d1, m1) = &window[0];
+            let (d2, m2) = &window[1];
+            assert!(
+                m2.rbc_peripheral_fraction_three_pop >= m1.rbc_peripheral_fraction_three_pop - 0.01,
+                "CCT depth {d2} rbc_periph {:.4} should >= depth {d1} rbc_periph {:.4} in computed metrics",
+                m2.rbc_peripheral_fraction_three_pop, m1.rbc_peripheral_fraction_three_pop,
+            );
+        }
+    }
+
+    #[test]
+    fn cif_deeper_pretri_cascade_improves_separation() {
+        // CIF (Controlled Incremental Filtration) uses pre-trifurcation levels
+        // followed by a terminal trifurcation + bifurcation.  More pre-tri levels
+        // should push more RBCs to periphery and increase separation efficiency.
+        let mut prev_rbc_periph = 0.0_f64;
+        let mut prev_sep = 0.0_f64;
+
+        for n_pretri in 1u8..=3 {
+            let result = cfd_1d::cell_separation::incremental_filtration_separation_cross_junction(
+                n_pretri, 0.45,   // pretri_center_frac
+                0.50,   // terminal_tri_center_frac
+                0.68,   // bi_treat_frac
+                6.0e-3, // parent_width_m
+                1.5e-3, // channel_height_m
+            );
+
+            assert!(
+                result.rbc_peripheral_fraction >= prev_rbc_periph - 1e-12,
+                "CIF n_pretri={n_pretri}: RBC peripheral {:.4} must be >= previous {:.4}",
+                result.rbc_peripheral_fraction,
+                prev_rbc_periph,
+            );
+            assert!(
+                result.separation_efficiency >= prev_sep - 1e-12,
+                "CIF n_pretri={n_pretri}: separation efficiency {:.4} must be >= previous {:.4}",
+                result.separation_efficiency,
+                prev_sep,
+            );
+            assert!(
+                result.cancer_center_fraction > result.rbc_center_fraction,
+                "CIF n_pretri={n_pretri}: cancer_center={:.4} must exceed rbc_center={:.4}",
+                result.cancer_center_fraction,
+                result.rbc_center_fraction,
+            );
+
+            prev_rbc_periph = result.rbc_peripheral_fraction;
+            prev_sep = result.separation_efficiency;
+        }
+    }
+
+    #[test]
+    fn dtcv_has_selective_venturi_metrics() {
+        // DoubleTrifurcationCIFVenturi should now produce non-zero separation
+        // metrics via the DTCV cascade routing model, and selective venturi
+        // correction should reduce hemolysis vs bulk.
+        let candidate = build_candidate_space()
+            .into_iter()
+            .find(|c| {
+                matches!(
+                    c.topology,
+                    DesignTopology::DoubleTrifurcationCIFVenturi { .. }
+                )
+            })
+            .expect("DTCV candidates must exist in design space");
+
+        let metrics = compute_metrics(&candidate).unwrap_or_else(|e| {
+            panic!(
+                "metrics should compute for DTCV candidate {}: {e:?}",
+                candidate.id
+            )
+        });
+
+        // DTCV is a 2-level cascade — separation metrics must be populated.
+        assert!(
+            metrics.cell_separation_efficiency > 0.0,
+            "DTCV separation_efficiency={:.4} must be > 0 (2-level cascade routing)",
+            metrics.cell_separation_efficiency,
+        );
+        assert!(
+            metrics.cancer_center_fraction > 0.0,
+            "DTCV cancer_center_fraction={:.4} must be > 0",
+            metrics.cancer_center_fraction,
+        );
+        assert!(
+            metrics.rbc_peripheral_fraction_three_pop > 0.0,
+            "DTCV rbc_peripheral_fraction={:.4} must be > 0",
+            metrics.rbc_peripheral_fraction_three_pop,
+        );
+
+        // Selective venturi: only center-arm flow passes through throats.
+        assert!(
+            metrics.venturi_flow_fraction < 1.0,
+            "DTCV venturi_flow_fraction={:.4} must be < 1.0 (center arm only)",
+            metrics.venturi_flow_fraction,
+        );
+        assert!(
+            metrics.rbc_venturi_exposure_fraction < 1.0,
+            "DTCV rbc_venturi_exposure={:.4} must be < 1.0 (RBCs routed to bypass)",
+            metrics.rbc_venturi_exposure_fraction,
+        );
+    }
+
+    #[test]
+    fn asymmetric_width_controls_separation_nonlinearly() {
+        // Symmetric trifurcation (center_frac = 1/3) should produce near-zero
+        // separation, while asymmetric splits should produce progressively
+        // better separation up to an optimal point.
+        //
+        // This validates that the Zweifach-Fung nonlinearity (β > 1 for stiff
+        // cells) is the mechanism for separation, not merely flow splitting.
+        let symmetric = cfd_1d::cell_separation::cascade_junction_separation_cross_junction(
+            2,
+            1.0 / 3.0,
+            6.0e-3,
+            1.5e-3,
+        );
+        let asymmetric = cfd_1d::cell_separation::cascade_junction_separation_cross_junction(
+            2, 0.45, 6.0e-3, 1.5e-3,
+        );
+
+        // Symmetric: all cell types distribute nearly identically by flow fraction.
+        assert!(
+            symmetric.separation_efficiency < 0.02,
+            "Symmetric trifurcation (cf=1/3) should have near-zero separation, got {:.4}",
+            symmetric.separation_efficiency,
+        );
+
+        // Asymmetric: stiffness-dependent routing creates separation.
+        assert!(
+            asymmetric.separation_efficiency > 0.10,
+            "Asymmetric trifurcation (cf=0.45) should have meaningful separation, got {:.4}",
+            asymmetric.separation_efficiency,
+        );
+
+        // The separation improvement must come from the nonlinear β exponent,
+        // not just from geometric asymmetry.  Verify that cancer enrichment
+        // exceeds what a β=1.0 (flow-fraction-proportional) model would give.
+        assert!(
+            asymmetric.cancer_center_fraction > (1.0 - asymmetric.rbc_peripheral_fraction),
+            "Cancer center fraction ({:.4}) should exceed RBC center fraction ({:.4}) \
+             due to stiffness exponent β_cancer=1.70 > β_RBC=1.00",
+            asymmetric.cancer_center_fraction,
+            1.0 - asymmetric.rbc_peripheral_fraction,
+        );
+    }
+
     #[test]
     fn all_topology_families_produce_valid_metrics() {
         use std::collections::{HashMap, HashSet};

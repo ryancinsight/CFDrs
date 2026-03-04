@@ -1505,7 +1505,8 @@ pub fn cascade_tri_bi_tri_selective_rect(
 ///
 /// # Parameters
 ///
-/// - `center_frac`          — center-arm width fraction at both trifurcations ∈ [0.25, 0.65].
+/// - `split1_center_frac`   — center-arm width fraction at the first trifurcation ∈ [0.25, 0.65].
+/// - `split2_center_frac`   — center-arm width fraction at the second trifurcation ∈ [0.25, 0.65].
 /// - `center_throat_count`  — serial venturi throats per center channel (1–4).
 /// - `throat_width_m`       — throat constriction width [m].
 /// - `throat_length_m`      — length of each throat segment [m].
@@ -1518,7 +1519,8 @@ pub fn double_trifurcation_cif_venturi_rect(
     trunk_length_m: f64,
     branch_length_m: f64,
     main_width_m: f64,
-    center_frac: f64,
+    split1_center_frac: f64,
+    split2_center_frac: f64,
     throat_width_m: f64,
     throat_length_m: f64,
     inter_throat_spacing_m: f64,
@@ -1527,21 +1529,24 @@ pub fn double_trifurcation_cif_venturi_rect(
 ) -> NetworkBlueprint {
     use crate::geometry::metadata::ChannelVenturiSpec;
 
-    let center_frac = center_frac.clamp(0.25, 0.65);
-    let periph_frac = (1.0 - center_frac) * 0.5;
+    let split1_center_frac = split1_center_frac.clamp(0.25, 0.65);
+    let split2_center_frac = split2_center_frac.clamp(0.25, 0.65);
+    let split1_periph_frac = (1.0 - split1_center_frac) * 0.5;
+    let split2_periph_frac = (1.0 - split2_center_frac) * 0.5;
     let center_throat_count = center_throat_count.clamp(1, 4);
     let l_throat = throat_length_m.max(2.0 * throat_width_m);
     // Inter-throat spacing: must satisfy re-development criterion D_h * 10.
     let d_h_throat = 2.0 * throat_width_m * height_m / (throat_width_m + height_m).max(1e-18);
     let l_spacing = inter_throat_spacing_m.max(10.0 * d_h_throat);
-    let l_taper = 5.0 * (main_width_m * center_frac + throat_width_m) * 0.5;
+    let l_taper = 5.0 * (main_width_m * split1_center_frac + throat_width_m) * 0.5;
     let width_floor = throat_width_m.max(50e-6);
 
     // Channel widths at each level.
-    let w_outer = (main_width_m * periph_frac).max(width_floor);
-    let w_center_trunk = (main_width_m * center_frac).max(width_floor);
-    // Second trifurcation splits the center trunk into 3 equal sub-channels.
-    let w_center_sub = (w_center_trunk / 3.0).max(width_floor);
+    let w_outer = (main_width_m * split1_periph_frac).max(width_floor);
+    let w_center_trunk = (main_width_m * split1_center_frac).max(width_floor);
+    let w_center_left = (w_center_trunk * split2_periph_frac).max(width_floor);
+    let w_center_center = (w_center_trunk * split2_center_frac).max(width_floor);
+    let w_center_right = (w_center_trunk * split2_periph_frac).max(width_floor);
 
     let mut bp = NetworkBlueprint::new(name);
 
@@ -1609,12 +1614,17 @@ pub fn double_trifurcation_cif_venturi_rect(
         .with_metadata(TherapyZoneMetadata::new(TherapyZone::CancerTarget))
         .with_metadata(CascadeParams {
             n_levels: 2,
-            center_frac,
+            center_frac: split1_center_frac,
         }),
     );
 
     // ── Center sub-channels: split2 → merge_center, each with N throats ──
-    for (sub_idx, sub_name) in ["center_L", "center_C", "center_R"].iter().enumerate() {
+    let center_subchannels = [
+        ("center_L", w_center_left),
+        ("center_C", w_center_center),
+        ("center_R", w_center_right),
+    ];
+    for (sub_idx, (sub_name, sub_width_m)) in center_subchannels.iter().enumerate() {
         // Build a single contiguous channel node chain for N serial throats.
         // Each throat segment is separated by a re-development straight.
         // Node naming: {sub_name}_in, {sub_name}_t{k}_in, {sub_name}_t{k}_out, ...
@@ -1637,9 +1647,9 @@ pub fn double_trifurcation_cif_venturi_rect(
                 from_node,
                 sub_in_node.clone(),
                 l_taper,
-                w_center_sub,
+                *sub_width_m,
                 height_m,
-                shah_london(w_center_sub, height_m, l_taper, BLOOD_MU),
+                shah_london(*sub_width_m, height_m, l_taper, BLOOD_MU),
                 0.0,
             )
             .with_metadata(TherapyZoneMetadata::new(TherapyZone::CancerTarget))
@@ -1678,7 +1688,7 @@ pub fn double_trifurcation_cif_venturi_rect(
                     throat_width_m,
                     throat_height_m: height_m,
                     throat_length_m: l_throat,
-                    inlet_width_m: w_center_sub,
+                    inlet_width_m: *sub_width_m,
                 })
                 .with_metadata(ChannelVenturiSpec {
                     n_throats: 1, // each segment is one physical throat
@@ -1696,9 +1706,9 @@ pub fn double_trifurcation_cif_venturi_rect(
                     prev_node.clone(),
                     t_in_node,
                     l_taper,
-                    w_center_sub,
+                    *sub_width_m,
                     height_m,
-                    shah_london(w_center_sub, height_m, l_taper, BLOOD_MU),
+                    shah_london(*sub_width_m, height_m, l_taper, BLOOD_MU),
                     0.0,
                 )
                 .with_metadata(TherapyZoneMetadata::new(TherapyZone::CancerTarget)),
@@ -1714,9 +1724,9 @@ pub fn double_trifurcation_cif_venturi_rect(
                         t_out_node.clone(),
                         redevel_node.clone(),
                         l_spacing,
-                        w_center_sub,
+                        *sub_width_m,
                         height_m,
-                        shah_london(w_center_sub, height_m, l_spacing, BLOOD_MU),
+                        shah_london(*sub_width_m, height_m, l_spacing, BLOOD_MU),
                         0.0,
                     )
                     .with_metadata(TherapyZoneMetadata::new(TherapyZone::CancerTarget)),
@@ -1734,9 +1744,9 @@ pub fn double_trifurcation_cif_venturi_rect(
                 prev_node,
                 "merge_center",
                 l_taper,
-                w_center_sub,
+                *sub_width_m,
                 height_m,
-                shah_london(w_center_sub, height_m, l_taper, BLOOD_MU),
+                shah_london(*sub_width_m, height_m, l_taper, BLOOD_MU),
                 0.0,
             )
             .with_metadata(TherapyZoneMetadata::new(TherapyZone::CancerTarget))
@@ -1757,10 +1767,10 @@ pub fn double_trifurcation_cif_venturi_rect(
             "merge_bypass",
             "merge_out",
             trunk_length_m,
-            main_width_m * (1.0 - center_frac),
+            main_width_m * (1.0 - split1_center_frac),
             height_m,
             shah_london(
-                main_width_m * (1.0 - center_frac),
+                main_width_m * (1.0 - split1_center_frac),
                 height_m,
                 trunk_length_m,
                 BLOOD_MU,
