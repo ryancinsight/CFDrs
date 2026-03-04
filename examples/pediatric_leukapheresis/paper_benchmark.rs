@@ -11,7 +11,7 @@
 //! | Nivedita 2017 | Inertial spiral | 133 µm | 1.8 mL/min | 2 % |
 //! | Wu Z. 2019 | Constriction-expansion | 75 µm | 150 µL/min | 0.1 % |
 
-use cfd_optim::{CrossSectionShape, DesignCandidate, DesignTopology};
+use cfd_optim::{CrossSectionShape, DesignCandidate, DesignTopology, TreatmentZoneMode};
 
 // ── Nivedita et al. (2017) — inertial spiral ─────────────────────────────────
 
@@ -37,19 +37,21 @@ pub fn nivedita_spiral() -> DesignCandidate {
     let h = NIVEDITA_HEIGHT_M;
     DesignCandidate {
         id: "nivedita_spiral_2017".to_owned(),
-        topology: DesignTopology::SpiralSerpentine { n_turns: NIVEDITA_N_TURNS },
-        inlet_gauge_pa:         50_000.0,   // ~0.5 bar, typical syringe-pump outlet
-        flow_rate_m3_s:         NIVEDITA_FLOW_M3S,
-        throat_diameter_m:      w,          // not a venturi; set to channel width
-        inlet_diameter_m:       w,
-        throat_length_m:        1e-6,       // unused; set to negligible positive value
-        channel_width_m:        w,
-        channel_height_m:       h,
-        serpentine_segments:    NIVEDITA_N_TURNS,
+        topology: DesignTopology::SpiralSerpentine {
+            n_turns: NIVEDITA_N_TURNS,
+        },
+        inlet_gauge_pa: 50_000.0, // ~0.5 bar, typical syringe-pump outlet
+        flow_rate_m3_s: NIVEDITA_FLOW_M3S,
+        throat_diameter_m: w, // not a venturi; set to channel width
+        inlet_diameter_m: w,
+        throat_length_m: 1e-6, // unused; set to negligible positive value
+        channel_width_m: w,
+        channel_height_m: h,
+        serpentine_segments: NIVEDITA_N_TURNS,
         // Arc length of one 360° turn at the mean bend radius.
-        segment_length_m:       2.0 * std::f64::consts::PI * NIVEDITA_BEND_M,
-        bend_radius_m:          NIVEDITA_BEND_M,
-        feed_hematocrit:        NIVEDITA_HCT,
+        segment_length_m: 2.0 * std::f64::consts::PI * NIVEDITA_BEND_M,
+        bend_radius_m: NIVEDITA_BEND_M,
+        feed_hematocrit: NIVEDITA_HCT,
         trifurcation_center_frac: 1.0 / 3.0,
         cif_pretri_center_frac: 1.0 / 3.0,
         cif_terminal_tri_center_frac: 1.0 / 3.0,
@@ -57,6 +59,8 @@ pub fn nivedita_spiral() -> DesignCandidate {
         asymmetric_narrow_frac: 0.5,
         trifurcation_left_frac: 1.0 / 3.0,
         cross_section_shape: CrossSectionShape::Rectangular,
+        treatment_zone_mode: TreatmentZoneMode::UltrasoundOnly,
+        centerline_venturi_throat_count: 1,
     }
 }
 
@@ -82,19 +86,21 @@ pub fn wu_constriction() -> DesignCandidate {
     let h = WU_HEIGHT_M;
     DesignCandidate {
         id: "wu_constriction_2019".to_owned(),
-        topology: DesignTopology::ConstrictionExpansionArray { n_cycles: WU_N_CYCLES },
-        inlet_gauge_pa:         30_000.0,   // ~0.3 bar, syringe pump
-        flow_rate_m3_s:         WU_FLOW_M3S,
-        throat_diameter_m:      w * 0.50,   // narrow constriction width
-        inlet_diameter_m:       w,
-        throat_length_m:        250e-6,     // approximate narrow-section length
-        channel_width_m:        w,
-        channel_height_m:       h,
-        serpentine_segments:    WU_N_CYCLES,
+        topology: DesignTopology::ConstrictionExpansionArray {
+            n_cycles: WU_N_CYCLES,
+        },
+        inlet_gauge_pa: 30_000.0, // ~0.3 bar, syringe pump
+        flow_rate_m3_s: WU_FLOW_M3S,
+        throat_diameter_m: w * 0.50, // narrow constriction width
+        inlet_diameter_m: w,
+        throat_length_m: 250e-6, // approximate narrow-section length
+        channel_width_m: w,
+        channel_height_m: h,
+        serpentine_segments: WU_N_CYCLES,
         // Approximate straight-segment length: total device length / (2 × n_cycles).
-        segment_length_m:       5e-3,       // ~5 mm per half-cycle
-        bend_radius_m:          0.0,        // straight channel; no bends
-        feed_hematocrit:        WU_HCT,
+        segment_length_m: 5e-3, // ~5 mm per half-cycle
+        bend_radius_m: 0.0,     // straight channel; no bends
+        feed_hematocrit: WU_HCT,
         trifurcation_center_frac: 1.0 / 3.0,
         cif_pretri_center_frac: 1.0 / 3.0,
         cif_terminal_tri_center_frac: 1.0 / 3.0,
@@ -102,5 +108,7 @@ pub fn wu_constriction() -> DesignCandidate {
         asymmetric_narrow_frac: 0.5,
         trifurcation_left_frac: 1.0 / 3.0,
         cross_section_shape: CrossSectionShape::Rectangular,
+        treatment_zone_mode: TreatmentZoneMode::UltrasoundOnly,
+        centerline_venturi_throat_count: 1,
     }
 }

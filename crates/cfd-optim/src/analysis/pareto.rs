@@ -17,7 +17,7 @@
 
 use cfd_math::statistics::{crowding_distances, pareto_front_nd};
 
-use crate::optimizer::RankedDesign;
+use crate::orchestration::RankedDesign;
 
 // ── Output types ──────────────────────────────────────────────────────────────
 
@@ -167,7 +167,7 @@ pub fn compute_sdt_pareto_front(feasible: &[RankedDesign]) -> SdtParetoFront {
 mod tests {
     use super::*;
     use crate::{
-        design::{CrossSectionShape, DesignCandidate, DesignTopology},
+        design::{CrossSectionShape, DesignCandidate, DesignTopology, TreatmentZoneMode},
         metrics::SdtMetrics,
     };
 
@@ -203,6 +203,8 @@ mod tests {
                 asymmetric_narrow_frac: 0.5,
                 trifurcation_left_frac: 1.0 / 3.0,
                 cross_section_shape: CrossSectionShape::Rectangular,
+                treatment_zone_mode: TreatmentZoneMode::VenturiThroats,
+                centerline_venturi_throat_count: 1,
             },
             metrics,
             score: 0.5,

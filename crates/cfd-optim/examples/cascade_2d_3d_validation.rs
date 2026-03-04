@@ -496,7 +496,7 @@ fn solve_3d_level(
             .get(ch.id.as_str())
             .copied()
             .unwrap_or(INLET_FLOW_M3_S);
-        let area = cross_section_area(ch.cross_section);
+        let area = ch.cross_section.area();
         let u_in = q.abs() / area.max(1e-18);
 
         match solve_channel_3d(ch, u_in, nx, ny_nz) {
@@ -538,7 +538,7 @@ fn solve_3d_level(
             / blueprint
                 .channels
                 .iter()
-                .map(|c| cross_section_area(c.cross_section))
+                .map(|c| c.cross_section.area())
                 .fold(f64::MAX, f64::min))
         .max(0.01);
     }
@@ -680,16 +680,7 @@ fn cross_fidelity_table(
 // Cross-section area helper
 // ─────────────────────────────────────────────────────────────────────────────
 
-fn cross_section_area(cs: cfd_schematics::domain::model::CrossSectionSpec) -> f64 {
-    match cs {
-        cfd_schematics::domain::model::CrossSectionSpec::Rectangular { width_m, height_m } => {
-            width_m * height_m
-        }
-        cfd_schematics::domain::model::CrossSectionSpec::Circular { diameter_m } => {
-            std::f64::consts::PI * 0.25 * diameter_m * diameter_m
-        }
-    }
-}
+// SSOT: use CrossSectionSpec::area() instead of local duplicate.
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Part 8: Report writer

@@ -5,28 +5,48 @@ use std::collections::HashMap;
 use cfd_1d::{network::network_from_blueprint, NetworkProblem, NetworkSolver};
 use cfd_core::physics::fluid::blood::CassonBlood;
 use cfd_schematics::domain::model::CrossSectionSpec;
-use cfd_schematics::geometry::metadata::VenturiGeometryMetadata;
+use cfd_schematics::geometry::metadata::{ChannelVenturiSpec, VenturiGeometryMetadata};
 use petgraph::visit::EdgeRef;
 
 use crate::design::DesignTopology;
 use crate::error::OptimError;
 
 /// Per-channel solved-flow sample with local node pressures.
+///
+/// String fields borrow from the [`NetworkBlueprint`] passed to
+/// [`solve_blueprint_network`] to avoid per-channel heap allocation on every
+/// evaluation (≈4.5 M avoided across a 150 000-candidate GA run).
 #[derive(Debug, Clone)]
-pub(super) struct ChannelSolveSample {
-    pub id: String,
-    pub from_node: String,
-    pub to_node: String,
+pub(super) struct ChannelSolveSample<'a> {
+    pub id: &'a str,
+    pub from_node: &'a str,
+    pub to_node: &'a str,
     pub length_m: f64,
     pub cross_section: CrossSectionSpec,
+    /// True when this channel segment is a venturi throat (carries cavitation HI).
     pub is_venturi_throat: bool,
+    /// True when this channel segment is a bypass arm (RBC/WBC fraction,
+    /// no cavitation contribution; shear-only hemolysis applies).
+    ///
+    /// Populated from [`ChannelVenturiSpec::is_ctc_stream`] metadata:
+    /// `is_bypass = spec.n_throats == 0 && !spec.is_ctc_stream`.
+    /// For channels without metadata, defaults to `false` (conservative: treat as
+    /// full-flow channel rather than silently ignoring potential HI).
+    pub is_bypass_channel: bool,
+    /// Number of serial venturi throats on this specific channel segment.
+    ///
+    /// For standard single-throat channels this is `1` (or `0` for non-venturi).
+    /// For multi-throat center CTC channels in `DoubleTrifurcationCIFVenturi`
+    /// this equals `center_throat_count`, enabling per-channel cumulative
+    /// cavitation dose calculation in `compute_metrics`.
+    pub per_channel_throat_count: u8,
     pub flow_m3_s: f64,
     pub from_pressure_pa: f64,
 }
 
 /// Solved-network summary used by metric computation.
 #[derive(Debug, Clone)]
-pub(super) struct NetworkSolveSummary {
+pub(super) struct NetworkSolveSummary<'a> {
     pub inlet_pressure_pa: f64,
     pub inlet_flow_m3_s: f64,
     pub flow_uniformity: f64,
@@ -36,16 +56,16 @@ pub(super) struct NetworkSolveSummary {
     /// flows recombine pre-outlet [Pa]. Uses momentum-conserving T/Y-junction
     /// model: ΔP_merge = K_merge · ½ρv²_combined, K_merge ∈ [0.5, 1.5].
     pub remerge_loss_pa: f64,
-    pub channel_samples: Vec<ChannelSolveSample>,
+    pub channel_samples: Vec<ChannelSolveSample<'a>>,
 }
 
-pub(super) fn solve_blueprint_network(
+pub(super) fn solve_blueprint_network<'bp>(
     candidate_id: &str,
     topology: DesignTopology,
-    blueprint: &cfd_schematics::NetworkBlueprint,
+    blueprint: &'bp cfd_schematics::NetworkBlueprint,
     blood: &CassonBlood<f64>,
     inlet_flow_m3_s: f64,
-) -> Result<NetworkSolveSummary, OptimError> {
+) -> Result<NetworkSolveSummary<'bp>, OptimError> {
     let mut network =
         network_from_blueprint(blueprint, *blood).map_err(|e| OptimError::PhysicsError {
             id: candidate_id.to_string(),
@@ -205,17 +225,36 @@ pub(super) fn solve_blueprint_network(
             .is_some_and(|meta| meta.contains::<VenturiGeometryMetadata>())
             || is_venturi_throat_id(ch.id.as_str());
 
+        // Extract per-channel differential venturi spec when present.
+        // ChannelVenturiSpec encodes the number of serial throats and whether
+        // the channel is in the CTC-enriched bypass-protected treatment stream.
+        let (is_bypass_channel, per_channel_throat_count) = ch
+            .metadata
+            .as_ref()
+            .and_then(|meta| meta.get::<ChannelVenturiSpec>())
+            .map(|spec| {
+                let is_bypass = spec.n_throats == 0 && !spec.is_ctc_stream;
+                // A throat segment counted in ChannelVenturiSpec uses n_throats=1
+                // per physical throat node; the caller knows the serial count from
+                // the topology-level centerline_venturi_throat_count. Expose the
+                // segment-level count for fine-grained per-segment HI accounting.
+                (is_bypass, spec.n_throats)
+            })
+            .unwrap_or((false, u8::from(is_venturi_throat)));
+
         if is_venturi_throat {
             throat_flows.push(q.abs());
         }
-        total_volume_m3 += ch.length_m * cross_section_area(ch.cross_section);
+        total_volume_m3 += ch.length_m * ch.cross_section.area();
         channel_samples.push(ChannelSolveSample {
-            id: ch.id.as_str().to_string(),
-            from_node: ch.from.as_str().to_string(),
-            to_node: ch.to.as_str().to_string(),
+            id: ch.id.as_str(),
+            from_node: ch.from.as_str(),
+            to_node: ch.to.as_str(),
             length_m: ch.length_m,
             cross_section: ch.cross_section,
             is_venturi_throat,
+            is_bypass_channel,
+            per_channel_throat_count,
             flow_m3_s: q,
             from_pressure_pa: from_p,
         });
@@ -249,16 +288,10 @@ fn is_venturi_throat_id(id: &str) -> bool {
         .any(|window| window.eq_ignore_ascii_case(b"throat"))
 }
 
-fn cross_section_area(cs: CrossSectionSpec) -> f64 {
-    match cs {
-        CrossSectionSpec::Rectangular { width_m, height_m } => width_m * height_m,
-        CrossSectionSpec::Circular { diameter_m } => {
-            std::f64::consts::PI * 0.25 * diameter_m * diameter_m
-        }
-    }
-}
+// SSOT: cross_section_area is now CrossSectionSpec::area()
+// (cfd_schematics::domain::model::specs). Removed duplicate free function.
 
-fn compute_flow_uniformity(topology: DesignTopology, samples: &[ChannelSolveSample]) -> f64 {
+fn compute_flow_uniformity(topology: DesignTopology, samples: &[ChannelSolveSample<'_>]) -> f64 {
     let mut selected = Vec::new();
 
     if topology.has_venturi() {
@@ -269,7 +302,7 @@ fn compute_flow_uniformity(topology: DesignTopology, samples: &[ChannelSolveSamp
         }
     } else {
         for sample in samples {
-            let id = sample.id.as_str();
+            let id = sample.id;
             if id == "segment_1"
                 || id == "arm2_seg_1"
                 || id == "arm3_seg_1"
@@ -325,7 +358,7 @@ fn compute_flow_uniformity(topology: DesignTopology, samples: &[ChannelSolveSamp
 /// in-out topologies), the aggregate fixed-K estimate is used as a lower bound.
 fn compute_remerge_loss(
     topology: DesignTopology,
-    samples: &[ChannelSolveSample],
+    samples: &[ChannelSolveSample<'_>],
     inlet_flow_m3_s: f64,
 ) -> f64 {
     use crate::constraints::BLOOD_DENSITY_KG_M3;
@@ -339,13 +372,13 @@ fn compute_remerge_loss(
 
     for s in samples {
         incoming
-            .entry(s.to_node.as_str())
+            .entry(s.to_node)
             .or_default()
             .push(s.flow_m3_s.abs());
         // The outgoing area from a node is the area of channels leaving that node.
         // When multiple channels share a from_node, use the largest (trunk) area.
-        let a = cross_section_area(s.cross_section);
-        let entry = outgoing_area.entry(s.from_node.as_str()).or_insert(0.0);
+        let a = s.cross_section.area();
+        let entry = outgoing_area.entry(s.from_node).or_insert(0.0);
         if a > *entry {
             *entry = a;
         }
@@ -395,8 +428,8 @@ fn compute_remerge_loss(
                 // Mean area of channels arriving at this node.
                 samples
                     .iter()
-                    .filter(|s| s.to_node.as_str() == *node_id)
-                    .map(|s| cross_section_area(s.cross_section))
+                    .filter(|s| s.to_node == *node_id)
+                    .map(|s| s.cross_section.area())
                     .sum::<f64>()
                     / q_in_list.len() as f64
             })
@@ -432,7 +465,7 @@ fn compute_remerge_loss(
         let outlet_area = samples
             .iter()
             .filter(|s| !s.is_venturi_throat)
-            .map(|s| cross_section_area(s.cross_section))
+            .map(|s| s.cross_section.area())
             .fold(0.0_f64, f64::max)
             .max(1e-18);
         let v_outlet = inlet_flow_m3_s / outlet_area;

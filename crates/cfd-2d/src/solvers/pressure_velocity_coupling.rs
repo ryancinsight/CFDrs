@@ -81,156 +81,6 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::Debug> SimpleAlgorithm<T> {
         self
     }
 
-    /// Execute one SIMPLE iteration
-    ///
-    /// Returns the maximum residual and whether convergence was achieved
-    pub fn simple_iteration(
-        &self,
-        momentum_solver: &mut MomentumSolver<T>,
-        poisson_solver: &mut PoissonSolver<T>,
-        fields: &mut SimulationFields<T>,
-        dt: T,
-        grid: &StructuredGrid2D<T>,
-        boundary_conditions: &HashMap<String, BoundaryCondition<T>>,
-    ) -> Result<(T, bool)> {
-        let nx = grid.nx;
-        let ny = grid.ny;
-
-        // Store old velocities for under-relaxation
-        let u_old = fields.u.clone();
-        let v_old = fields.v.clone();
-        let p_old = fields.p.clone();
-
-        // 1. MOMENTUM PREDICTION STEP
-        // Solve momentum equations with current pressure guess
-
-        // Solve U-momentum equation
-        let mut coeffs_u = momentum_solver.solve_with_coefficients(
-            crate::physics::momentum::MomentumComponent::U,
-            fields,
-            dt,
-        )?;
-
-        // Solve V-momentum equation
-        let mut coeffs_v = momentum_solver.solve_with_coefficients(
-            crate::physics::momentum::MomentumComponent::V,
-            fields,
-            dt,
-        )?;
-
-        // Extract predicted velocities from momentum solver
-        // (In practice, these would be extracted from the linear system solution)
-        let u_star = fields.u.clone(); // Predicted U-velocity
-        let v_star = fields.v.clone(); // Predicted V-velocity
-
-        // 2. PRESSURE CORRECTION STEP
-        // Solve pressure Poisson equation: ∇²p' = ∇·u*
-
-        let mut pressure_correction = DVector::zeros(nx * ny);
-
-        // Construct pressure correction equation
-        self.construct_pressure_correction_equation(
-            &u_star, &v_star, &mut pressure_correction,
-            fields, grid, dt,
-        )?;
-
-        // Build sparse matrix for pressure Poisson equation: ∇²p' = rhs
-        let mut matrix_builder = SparseMatrixBuilder::new(nx * ny, nx * ny);
-        self.build_pressure_poisson_matrix(&mut matrix_builder, grid)?;
-
-        // Solve using conjugate gradient with ILU preconditioning
-        let poisson_matrix = matrix_builder.build()?;
-        let cg_config = IterativeSolverConfig {
-            tolerance: T::from_f64(1e-8).unwrap_or_else(num_traits::Zero::zero),
-            max_iterations: 1000,
-            ..Default::default()
-        };
-        let cg_solver = ConjugateGradient::new(cg_config);
-        let ilu_preconditioner = IncompleteLU::new(&poisson_matrix)?;
-
-        // Solve ∇²p' = rhs for pressure correction p'
-        let p_prime_vec = cg_solver.solve_preconditioned(
-            &poisson_matrix,
-            &pressure_correction,
-            &ilu_preconditioner,
-            None,
-        )?;
-
-        // Convert solution vector back to grid format
-        let mut p_prime = fields.p.clone();
-        for j in 0..ny {
-            for i in 0..nx {
-                let idx = j * nx + i;
-                p_prime[(i, j)] = p_prime_vec[idx];
-            }
-        }
-
-        // Apply pressure under-relaxation
-        for i in 0..nx {
-            for j in 0..ny {
-                let idx = j * nx + i;
-                fields.p[(i, j)] = p_old[(i, j)] + self.pressure_relaxation * p_prime[(i, j)];
-            }
-        }
-
-        // 3. VELOCITY CORRECTION STEP
-        // Correct velocities using Rhie–Chow corrected prediction as base:
-        // u = u_RC* - (dt/ρ)∇p'
-
-        let rho = fields.density.at(0, 0); // Assume constant density
-        let correction_factor = dt / rho;
-
-        for i in 0..nx {
-            for j in 0..ny {
-                // Compute pressure gradient
-                let dp_dx = if i > 0 && i < (nx as usize) - 1 {
-                    (fields.p[(i + 1, j)] - fields.p[(i - 1, j)]) / (grid.dx + grid.dx)
-                } else {
-                    T::zero()
-                };
-
-                let dp_dy = if j > 0 && j < (ny as usize) - 1 {
-                    (fields.p[(i, j + 1)] - fields.p[(i, j - 1)]) / (grid.dy + grid.dy)
-                } else {
-                    T::zero()
-                };
-
-                // Correct velocities on top of Rhie–Chow interpolated prediction
-                let base_u = fields.u[(i, j)];
-                let base_v = fields.v[(i, j)];
-                fields.u[(i, j)] = base_u - correction_factor * dp_dx;
-                fields.v[(i, j)] = base_v - correction_factor * dp_dy;
-            }
-        }
-
-        // Apply velocity under-relaxation
-        for i in 0..nx {
-            for j in 0..ny {
-                fields.u[(i, j)] = self.velocity_relaxation * fields.u[(i, j)] +
-                                  (T::one() - self.velocity_relaxation) * u_old[(i, j)];
-                fields.v[(i, j)] = self.velocity_relaxation * fields.v[(i, j)] +
-                                  (T::one() - self.velocity_relaxation) * v_old[(i, j)];
-            }
-        }
-
-        // 4. CHECK CONVERGENCE
-        // Compute maximum residual of continuity equation
-        let mut max_residual = T::zero();
-        for i in 0..nx {
-            for j in 0..ny {
-                let residual = self.compute_continuity_residual(i, j, fields, grid);
-                let abs_residual = if residual >= T::zero() { residual } else { -residual };
-                if abs_residual > max_residual {
-                    max_residual = abs_residual;
-                }
-            }
-        }
-
-        let converged = max_residual < self.tolerance;
-
-        Ok((max_residual, converged))
-    }
-
 
 
     /// Construct the pressure correction equation RHS
@@ -381,28 +231,121 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::Debug> SimpleAlgorithm<T> {
         grid: &StructuredGrid2D<T>,
         boundary_conditions: &HashMap<String, BoundaryCondition<T>>,
     ) -> Result<usize> {
+        let nx = grid.nx;
+        let ny = grid.ny;
+
+        // Workspace
+        let mut u_old = fields.u.clone();
+        let mut v_old = fields.v.clone();
+        let mut p_old = fields.p.clone();
+        let mut pressure_correction = DVector::zeros(nx * ny);
+
+        // Precompute Sparse Matrix
+        let mut matrix_builder = SparseMatrixBuilder::new(nx * ny, nx * ny);
+        self.build_pressure_poisson_matrix(&mut matrix_builder, grid)?;
+        let poisson_matrix = matrix_builder.build()?;
+        let cg_config = IterativeSolverConfig {
+            tolerance: T::from_f64(1e-8).unwrap_or_else(num_traits::Zero::zero),
+            max_iterations: 1000,
+            ..Default::default()
+        };
+        let cg_solver = ConjugateGradient::new(cg_config);
+        let ilu_preconditioner = IncompleteLU::new(&poisson_matrix)?;
+
         let mut iteration = 0;
         let mut converged = false;
 
         while iteration < self.max_iterations && !converged {
-            let (residual, conv) = self.simple_iteration(
-                momentum_solver,
-                poisson_solver,
+            // Save state
+            for i in 0..nx {
+                for j in 0..ny {
+                    u_old[(i, j)] = fields.u[(i, j)];
+                    v_old[(i, j)] = fields.v[(i, j)];
+                    p_old[(i, j)] = fields.p[(i, j)];
+                }
+            }
+
+            // Momentum solve
+            let _coeffs_u = momentum_solver.solve_with_coefficients(
+                crate::physics::momentum::MomentumComponent::U,
                 fields,
                 dt,
-                grid,
-                boundary_conditions,
+            )?;
+            let _coeffs_v = momentum_solver.solve_with_coefficients(
+                crate::physics::momentum::MomentumComponent::V,
+                fields,
+                dt,
             )?;
 
-            converged = conv;
+            // Pressure correction eqn
+            self.construct_pressure_correction_equation(
+                &fields.u, &fields.v, &mut pressure_correction,
+                fields, grid, dt,
+            )?;
+
+            // CG Solve
+            let p_prime_vec = cg_solver.solve_preconditioned(
+                &poisson_matrix,
+                &pressure_correction,
+                &ilu_preconditioner,
+                None,
+            )?;
+
+            let rho = fields.density.at(0, 0); 
+            let correction_factor = dt / rho;
+
+            for j in 0..ny {
+                for i in 0..nx {
+                    let idx = j * nx + i;
+                    let p_prime_val = p_prime_vec[idx];
+                    fields.p[(i, j)] = p_old[(i, j)] + self.pressure_relaxation * p_prime_val;
+
+                    let dp_dx = if i > 0 && i < nx - 1 {
+                        (p_prime_vec[idx + 1] - p_prime_vec[idx - 1]) / (grid.dx + grid.dx)
+                    } else {
+                        T::zero()
+                    };
+                    let dp_dy = if j > 0 && j < ny - 1 {
+                        (p_prime_vec[idx + nx] - p_prime_vec[idx - nx]) / (grid.dy + grid.dy)
+                    } else {
+                        T::zero()
+                    };
+
+                    let base_u = fields.u[(i, j)];
+                    let base_v = fields.v[(i, j)];
+                    fields.u[(i, j)] = base_u - correction_factor * dp_dx;
+                    fields.v[(i, j)] = base_v - correction_factor * dp_dy;
+                }
+            }
+
+            for j in 0..ny {
+                for i in 0..nx {
+                    fields.u[(i, j)] = self.velocity_relaxation * fields.u[(i, j)] +
+                                      (T::one() - self.velocity_relaxation) * u_old[(i, j)];
+                    fields.v[(i, j)] = self.velocity_relaxation * fields.v[(i, j)] +
+                                      (T::one() - self.velocity_relaxation) * v_old[(i, j)];
+                }
+            }
+
+            let mut max_residual = T::zero();
+            for j in 0..ny {
+                for i in 0..nx {
+                    let residual = self.compute_continuity_residual(i, j, fields, grid);
+                    let abs_residual = if residual >= T::zero() { residual } else { -residual };
+                    if abs_residual > max_residual {
+                        max_residual = abs_residual;
+                    }
+                }
+            }
+
+            converged = max_residual < self.tolerance;
             iteration += 1;
 
-            // Log progress (in debug builds)
             #[cfg(debug_assertions)]
             tracing::debug!(
                 "SIMPLE iteration {}: residual = {:?}, converged = {}",
                 iteration,
-                residual,
+                max_residual,
                 converged
             );
         }

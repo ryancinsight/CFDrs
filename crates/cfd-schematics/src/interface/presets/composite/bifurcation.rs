@@ -269,3 +269,155 @@ pub fn bifurcation_serpentine_rect(
 
     bp
 }
+
+/// Double-level symmetric bifurcation with 4 parallel serpentine arms — closed loop.
+///
+/// **Topology**:
+/// `inlet → inlet_section → split_1 → [split_2a → {arm1, arm2} → merge_2a,`
+/// `                                    split_2b → {arm3, arm4} → merge_2b]`
+/// `                               → merge_1 → trunk_out → outlet`
+///
+/// Four parallel serpentine arms (Q/4 each) provide superior flow uniformity
+/// and well-plate coverage compared to a single-level bifurcation.  Power-of-2
+/// branching gives exact equal flow splitting at every junction.
+///
+/// # Channel names
+/// - `"inlet_section"` — upstream trunk
+/// - `"branch_a_in"`, `"branch_b_in"` — level-1 to level-2 connectors
+/// - `"arm1_seg_1"` … `"arm1_seg_n"` — arm-1 serpentine segments
+/// - `"arm2_seg_1"` … `"arm2_seg_n"` — arm-2 serpentine segments
+/// - `"arm3_seg_1"` … `"arm3_seg_n"` — arm-3 serpentine segments
+/// - `"arm4_seg_1"` … `"arm4_seg_n"` — arm-4 serpentine segments
+/// - `"branch_a_out"`, `"branch_b_out"` — level-2 to level-1 merge connectors
+/// - `"trunk_out"` — downstream trunk
+#[must_use]
+pub fn double_bifurcation_serpentine_rect(
+    name: impl Into<String>,
+    trunk_length_m: f64,
+    segments: usize,
+    segment_length_m: f64,
+    main_width_m: f64,
+    height_m: f64,
+) -> NetworkBlueprint {
+    let sub_trunk = trunk_length_m * 0.5;
+    let mut bp = NetworkBlueprint::new(name);
+
+    // ── Nodes ──
+    bp.add_node(NodeSpec::new("inlet", NodeKind::Inlet));
+    bp.add_node(NodeSpec::new("split_1", NodeKind::Junction));
+    bp.add_node(NodeSpec::new("split_2a", NodeKind::Junction));
+    bp.add_node(NodeSpec::new("split_2b", NodeKind::Junction));
+    bp.add_node(NodeSpec::new("merge_2a", NodeKind::Junction));
+    bp.add_node(NodeSpec::new("merge_2b", NodeKind::Junction));
+    bp.add_node(NodeSpec::new("merge_1", NodeKind::Junction));
+    bp.add_node(NodeSpec::new("outlet", NodeKind::Outlet));
+    for i in 1..segments {
+        bp.add_node(NodeSpec::new(format!("arm1_{i}"), NodeKind::Junction));
+        bp.add_node(NodeSpec::new(format!("arm2_{i}"), NodeKind::Junction));
+        bp.add_node(NodeSpec::new(format!("arm3_{i}"), NodeKind::Junction));
+        bp.add_node(NodeSpec::new(format!("arm4_{i}"), NodeKind::Junction));
+    }
+
+    // ── Inlet trunk ──
+    bp.add_channel(
+        ChannelSpec::new_pipe_rect(
+            "inlet_section",
+            "inlet",
+            "split_1",
+            trunk_length_m,
+            main_width_m,
+            height_m,
+            shah_london(main_width_m, height_m, trunk_length_m, BLOOD_MU),
+            0.0,
+        )
+        .with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)),
+    );
+
+    // ── Level-1 → level-2 connectors ──
+    for (name_ch, to) in [("branch_a_in", "split_2a"), ("branch_b_in", "split_2b")] {
+        bp.add_channel(
+            ChannelSpec::new_pipe_rect(
+                name_ch,
+                "split_1",
+                to,
+                sub_trunk,
+                main_width_m,
+                height_m,
+                shah_london(main_width_m, height_m, sub_trunk, BLOOD_MU),
+                0.0,
+            )
+            .with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)),
+        );
+    }
+
+    // ── Four serpentine arms ──
+    let arm_defs: [(&str, &str, &str, &str); 4] = [
+        ("split_2a", "merge_2a", "arm1", "arm1_seg"),
+        ("split_2a", "merge_2a", "arm2", "arm2_seg"),
+        ("split_2b", "merge_2b", "arm3", "arm3_seg"),
+        ("split_2b", "merge_2b", "arm4", "arm4_seg"),
+    ];
+    for (split_node, merge_node, node_prefix, seg_prefix) in arm_defs {
+        for i in 0..segments {
+            let actual_from = if i == 0 {
+                split_node.to_string()
+            } else {
+                format!("{node_prefix}_{i}")
+            };
+            let to = if i + 1 == segments {
+                merge_node.to_string()
+            } else {
+                format!("{node_prefix}_{}", i + 1)
+            };
+            let mut spec = ChannelSpec::new_pipe_rect(
+                format!("{seg_prefix}_{}", i + 1),
+                actual_from,
+                to,
+                segment_length_m,
+                main_width_m,
+                height_m,
+                shah_london(main_width_m, height_m, segment_length_m, BLOOD_MU),
+                0.0,
+            );
+            spec.channel_shape = ChannelShape::Serpentine {
+                segments,
+                bend_radius_m: main_width_m * 0.5,
+            };
+            bp.add_channel(spec.with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)));
+        }
+    }
+
+    // ── Level-2 merge → level-1 merge connectors ──
+    for (from, name_ch) in [("merge_2a", "branch_a_out"), ("merge_2b", "branch_b_out")] {
+        bp.add_channel(
+            ChannelSpec::new_pipe_rect(
+                name_ch,
+                from,
+                "merge_1",
+                sub_trunk,
+                main_width_m,
+                height_m,
+                shah_london(main_width_m, height_m, sub_trunk, BLOOD_MU),
+                0.0,
+            )
+            .with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)),
+        );
+    }
+
+    // ── Outlet trunk ──
+    bp.add_channel(
+        ChannelSpec::new_pipe_rect(
+            "trunk_out",
+            "merge_1",
+            "outlet",
+            trunk_length_m,
+            main_width_m,
+            height_m,
+            shah_london(main_width_m, height_m, trunk_length_m, BLOOD_MU),
+            0.0,
+        )
+        .with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)),
+    );
+
+    bp
+}

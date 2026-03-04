@@ -142,8 +142,9 @@ pub const FLOW_RATES_M3_S: [f64; 7] = [
 pub const INLET_GAUGES_PA: [f64; 5] = [100_000.0, 200_000.0, 300_000.0, 400_000.0, 500_000.0];
 
 /// Venturi throat diameters [m]  (30 – 200 μm — extreme cavitation to moderate constriction)
-pub const THROAT_DIAMETERS_M: [f64; 6] = [
-    30e-6,  // 30 μm — extreme cavitation; σ < 1 at moderate flow (NEW)
+pub const THROAT_DIAMETERS_M: [f64; 7] = [
+    30e-6,  // 30 μm — extreme cavitation; σ < 1 at moderate flow
+    40e-6,  // 40 μm — onset-of-cavitation regime; acoustically relevant gap
     50e-6,  // 50 μm — strong cavitation
     75e-6,  // 75 μm — moderate-strong cavitation
     100e-6, // 100 μm — moderate cavitation
@@ -163,10 +164,13 @@ pub const CHANNEL_HEIGHT_M: f64 = 1.0e-3; // 1 mm — dialysis-compatible millif
 /// Fixed inlet/outlet port diameter for all venturi stages [m]  (4 mm port as specified)
 pub const VENTURI_INLET_DIAM_M: f64 = 4.0e-3; // 4 mm
 
-/// Serpentine segment lengths to sweep [m]  (one pass = full treatment width; 45 mm)
+/// Serpentine segment lengths to sweep [m]
+///
+/// Two distinct values allow the sweep to explore both compact (one-row) and
+/// extended (one-and-a-half-row) segment lengths, increasing residence-time range.
 pub const SERPENTINE_SEG_LENGTHS_M: [f64; 2] = [
-    TREATMENT_WIDTH_MM * 1e-3, // 0.045 m — one row sweep
-    TREATMENT_WIDTH_MM * 1e-3, // same length; pairs with different segment counts
+    TREATMENT_WIDTH_MM * 1e-3,   // 0.045 m — one treatment-row sweep
+    TREATMENT_WIDTH_MM * 1.5e-3, // 0.0675 m — 1.5× row; longer dwell per segment
 ];
 
 /// Serpentine segment counts to sweep (6 = single pass; 12 = double; 18 = triple — maximises dwell)
@@ -380,3 +384,12 @@ pub const DIFFUSER_DISCHARGE_COEFF: f64 = 0.80;
 ///
 /// (Lord Rayleigh 1917; Brennen 1995 _Cavitation and Bubble Dynamics_ §2.3).
 pub const RAYLEIGH_COLLAPSE_FACTOR: f64 = 0.915;
+
+// ── Milestone 12 reproducibility ─────────────────────────────────────────────
+
+/// Deterministic RNG seed for the Milestone 12 HydrodynamicCavitationSDT GA.
+///
+/// All results in `report/milestone12_results.md` were produced with this seed
+/// (population 80, 120 generations, top-150 parametric warm-start).
+/// Fixing the seed makes the GA path bit-exact across machines.
+pub const M12_GA_HYDRO_SEED: u64 = 1_200_032;

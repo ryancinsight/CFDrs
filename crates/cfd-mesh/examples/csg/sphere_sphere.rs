@@ -27,13 +27,13 @@ use std::io::BufWriter;
 use std::time::Instant;
 
 use cfd_mesh::application::csg::boolean::{csg_boolean_indexed, BooleanOp};
+use cfd_mesh::application::watertight::check::check_watertight;
 use cfd_mesh::domain::core::scalar::{Point3r, Real};
 use cfd_mesh::domain::geometry::primitives::{PrimitiveMesh, UvSphere};
-use cfd_mesh::infrastructure::io::stl;
-use cfd_mesh::{analyze_normals, IndexedMesh};
-use cfd_mesh::application::watertight::check::check_watertight;
 use cfd_mesh::domain::topology::connectivity::connected_components;
 use cfd_mesh::domain::topology::AdjacencyGraph;
+use cfd_mesh::infrastructure::io::stl;
+use cfd_mesh::{analyze_normals, IndexedMesh};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("=================================================================");
@@ -159,7 +159,11 @@ fn report(label: &str, mesh: &mut IndexedMesh, expected: f64, tol: f64, ms: u128
     );
     println!(
         "    Components : {n_comps}  [{}]",
-        if comps_ok { "PASS" } else { "WARN phantom islands" }
+        if comps_ok {
+            "PASS"
+        } else {
+            "WARN phantom islands"
+        }
     );
     println!(
         "    Normals    : outward={}, inward={} ({:.1}%), degen={}  [{}]",

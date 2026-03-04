@@ -8,7 +8,7 @@
 //! # Example
 //!
 //! ```rust,ignore
-//! use cfd_optim::pipeline::DesignPipeline;
+//! use cfd_optim::delivery::pipeline::DesignPipeline;
 //! use cfd_optim::{SdtOptimizer, OptimMode, SdtWeights};
 //!
 //! let top5 = SdtOptimizer::new(OptimMode::SdtCavitation, SdtWeights::default())
@@ -30,8 +30,8 @@ use cfd_mesh::domain::topology::halfedge::PatchType;
 use cfd_mesh::infrastructure::io::openfoam::write_openfoam_polymesh;
 use cfd_mesh::infrastructure::io::stl::write_stl_binary;
 
-use crate::optimizer::RankedDesign;
 use crate::OptimError;
+use crate::RankedDesign;
 
 // ── Output type ──────────────────────────────────────────────────────────────
 
@@ -189,7 +189,7 @@ impl DesignPipeline {
 
         // 6. Save schematic SVG
         let schematic_svg_path = design_dir.join("schematic.svg");
-        crate::export::save_schematic_svg(candidate, &schematic_svg_path).map_err(|e| {
+        super::export::save_schematic_svg(candidate, &schematic_svg_path).map_err(|e| {
             OptimError::MeshExportFailed {
                 scenario_id: design_id.clone(),
                 message: format!("failed to save schematic SVG: {e}"),

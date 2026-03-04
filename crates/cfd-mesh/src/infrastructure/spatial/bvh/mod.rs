@@ -55,7 +55,7 @@ mod query;
 
 use crate::domain::geometry::aabb::Aabb;
 use crate::infrastructure::permission::{GhostToken, PermissionedArena};
-use build::build_recursive;
+use build::{build_centroids, build_recursive};
 use node::BvhNodeKind;
 
 // ── BvhTree ───────────────────────────────────────────────────────────────────
@@ -160,9 +160,18 @@ fn build_tree<'brand, 'a>(aabbs: &'a [Aabb]) -> BvhTree<'brand, 'a> {
     let mut node_aabbs: Vec<Aabb> = Vec::with_capacity(cap);
     let mut raw_kinds: Vec<BvhNodeKind> = Vec::with_capacity(cap);
     let mut indices: Vec<usize> = (0..aabbs.len()).collect();
+    let centroids = build_centroids(aabbs);
     let n = indices.len();
 
-    build_recursive(aabbs, &mut indices, 0, n, &mut node_aabbs, &mut raw_kinds);
+    build_recursive(
+        aabbs,
+        &centroids,
+        &mut indices,
+        0,
+        n,
+        &mut node_aabbs,
+        &mut raw_kinds,
+    );
 
     // Transfer into PermissionedArena — one allocation, no per-element overhead.
     let mut node_kinds: PermissionedArena<'brand, BvhNodeKind> =

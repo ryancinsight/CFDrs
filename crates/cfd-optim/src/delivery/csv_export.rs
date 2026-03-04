@@ -7,7 +7,7 @@
 use std::io::Write;
 use std::path::Path;
 
-use crate::optimizer::RankedDesign;
+use crate::RankedDesign;
 
 /// Write per-channel hemolysis data for a set of ranked designs to a CSV file.
 ///
@@ -61,6 +61,7 @@ mod tests {
     use super::*;
     use crate::design::DesignCandidate;
     use crate::design::DesignTopology;
+    use crate::design::TreatmentZoneMode;
     use crate::metrics::{ChannelHemolysis, SdtMetrics};
 
     fn test_candidate(id: &str) -> DesignCandidate {
@@ -85,6 +86,8 @@ mod tests {
             asymmetric_narrow_frac: 0.5,
             trifurcation_left_frac: 1.0 / 3.0,
             cross_section_shape: Default::default(),
+            treatment_zone_mode: TreatmentZoneMode::VenturiThroats,
+            centerline_venturi_throat_count: 1,
         }
     }
 

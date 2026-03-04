@@ -129,7 +129,7 @@ impl<
     /// Solve Venturi flow with given fluid (Newtonian or blood)
     #[allow(clippy::too_many_lines)]
     pub fn solve<F: FluidTrait<T> + Clone>(&self, fluid: F) -> Result<VenturiSolution3D<T>> {
-        use crate::fem::{FemConfig, FemSolver, StokesFlowProblem};
+        use crate::fem::StokesFlowProblem;
         use cfd_core::physics::boundary::BoundaryCondition;
         use std::collections::HashMap;
 
@@ -426,44 +426,27 @@ impl<
             }
         }
 
-        // Pass 2: Assign a single outlet pressure reference (gauge) on a corner node.
-        // Applying pressure Dirichlet on many outlet pressure DOFs over-constrains the
-        // mixed system and removes too many continuity equations.
-        let mut outlet_corner_nodes = std::collections::HashSet::new();
+        // Pass 2: Apply outlet pressure Dirichlet to all corner nodes on
+        // the outlet face.  For incompressible velocity-inlet / pressure-outlet
+        // flow, prescribing p at the outlet anchors the pressure field while
+        // the velocity there adjusts via the natural (traction-free) weak-form
+        // condition.  The FEM solver only applies PressureOutlet to corner
+        // nodes (those carrying a pressure DOF); mid-edge nodes are marked
+        // Outflow so they are not flagged as unconstrained by diagnostics.
+        let outlet_pressure_f64 = self.config.outlet_pressure.to_f64().unwrap_or(0.0);
+        let mut outlet_corner_count = 0usize;
         for &v_idx in &outlet_nodes {
             if v_idx < tet_mesh.vertex_count() {
-                outlet_corner_nodes.insert(v_idx);
+                boundary_conditions.insert(
+                    v_idx,
+                    BoundaryCondition::PressureOutlet {
+                        pressure: outlet_pressure_f64,
+                    },
+                );
+                outlet_corner_count += 1;
+            } else {
+                boundary_conditions.insert(v_idx, BoundaryCondition::Outflow);
             }
-        }
-
-        let mut p_ref_node = None;
-        let mut best_r2 = <T as RealField>::max_value().unwrap_or_else(T::one);
-        for &v_idx in &outlet_corner_nodes {
-            let v = mesh.vertices.get(VertexId::from_usize(v_idx));
-            let r2 =
-                <T as From<f64>>::from(v.position.x * v.position.x + v.position.y * v.position.y);
-            if r2 < best_r2 {
-                best_r2 = r2;
-                p_ref_node = Some(v_idx);
-            }
-        }
-
-        if let Some(p_ref_node) = p_ref_node {
-            boundary_conditions.insert(
-                p_ref_node,
-                BoundaryCondition::PressureOutlet {
-                    pressure: self.config.outlet_pressure.to_f64().unwrap_or(0.0),
-                },
-            );
-        }
-
-        // Mark remaining outlet nodes as explicit natural outflow BCs so they are
-        // not treated as unconstrained boundary leaks by generic diagnostics.
-        for &v_idx in &outlet_nodes {
-            if boundary_conditions.contains_key(&v_idx) {
-                continue;
-            }
-            boundary_conditions.insert(v_idx, BoundaryCondition::Outflow);
         }
 
         // Pass 3: Assign wall (no-slip) BCs to wall nodes EXCEPT those on the inlet or outlet.
@@ -571,9 +554,7 @@ impl<
         }
 
         println!(
-            "Venturi Outlet Corner BC: corner_nodes={}, pressure_ref_applied={}",
-            outlet_corner_nodes.len(),
-            i32::from(!outlet_corner_nodes.is_empty())
+            "Venturi Outlet Corner BC: corner_nodes={outlet_corner_count}, pressure_outlet_applied={outlet_corner_count}"
         );
         println!(
             "Venturi Inlet/Wall Compatibility: inlet_nodes={}, wall_nodes={}, rim_nodes={}",
@@ -602,14 +583,25 @@ impl<
         let n_elements = problem.mesh.cell_count();
         let mut element_viscosities =
             vec![fluid_props.dynamic_viscosity.to_f64().unwrap_or(0.0); n_elements];
+        let mut next_viscosities = Vec::with_capacity(n_elements);
 
         // 4. Picard Iteration Loop
-        let fem_config = FemConfig::<f64>::default();
-        let mut solver = FemSolver::new(fem_config);
-        let mut last_solution = None;
+        let fem_config = crate::fem::FemConfig::<f64>::default();
+        let mut solver = crate::fem::FemSolver::new(fem_config);
+        let mut last_solution: Option<crate::fem::StokesFlowSolution<f64>> = None;
+        let mut anderson_accelerator = cfd_math::nonlinear_solver::AndersonAccelerator::<f64>::new(
+            cfd_math::nonlinear_solver::AndersonConfig {
+                history_depth: 5,
+                relaxation: 1.0_f64,
+                drop_tolerance: 1e-12_f64,
+                method: cfd_math::nonlinear_solver::AndersonMethod::QR,
+            },
+        );
 
         for iter in 0..self.config.max_nonlinear_iterations {
-            problem.element_viscosities = Some(element_viscosities.clone());
+            if problem.element_viscosities.is_none() {
+                problem.element_viscosities = Some(element_viscosities);
+            }
             let fem_result = solver.solve(&problem, last_solution.as_ref());
 
             // If the linear solver fails (e.g. GMRES stagnation on the
@@ -629,20 +621,24 @@ impl<
                 }
             };
 
-            // Apply Picard relaxation (damping)
+            // Apply Anderson Acceleration
             let updated_solution = if let Some(ref prev) = last_solution {
-                let omega = 0.5_f64;
-                fem_solution.blend(prev, omega)
+                let acc_velocity =
+                    anderson_accelerator.compute_next(&prev.velocity, &fem_solution.velocity);
+                let mut acc_sol = fem_solution;
+                acc_sol.velocity = acc_velocity;
+                acc_sol
             } else {
                 fem_solution
             };
 
             let mut max_change_f64 = 0.0_f64;
-            let mut new_viscosities = Vec::with_capacity(n_elements);
-
             let mut shear_min_f64 = f64::MAX;
             let mut shear_max_f64 = f64::MIN;
             let mut shear_sum_f64 = 0.0_f64;
+
+            next_viscosities.clear();
+            let current_viscosities = problem.element_viscosities.as_ref().unwrap();
 
             for (i, cell) in problem.mesh.cells.iter().enumerate() {
                 // Handle hex-to-tet averaging for shear rate
@@ -674,12 +670,12 @@ impl<
                     new_visc = problem.fluid.viscosity;
                 }
 
-                let change = num_traits::Float::abs(new_visc - element_viscosities[i])
-                    / element_viscosities[i];
+                let change = num_traits::Float::abs(new_visc - current_viscosities[i])
+                    / current_viscosities[i];
                 if change > max_change_f64 {
                     max_change_f64 = change;
                 }
-                new_viscosities.push(new_visc);
+                next_viscosities.push(new_visc);
             }
             if n_elements > 0 {
                 let shear_avg = shear_sum_f64 / (n_elements as f64);
@@ -698,7 +694,9 @@ impl<
                 vel_change_f64 = 1.0_f64;
             }
 
-            element_viscosities = new_viscosities;
+            element_viscosities = problem.element_viscosities.take().unwrap();
+            std::mem::swap(&mut element_viscosities, &mut next_viscosities);
+            
             last_solution = Some(updated_solution);
 
             // Log non-linear progress
@@ -807,8 +805,8 @@ impl<
                 p_in_sum += <T as From<f64>>::from(fem_solution.get_pressure(v_idx));
                 p_in_count += 1;
             }
-            // Use norm for general velocity magnitude
-            u_in_sol_sum += <T as From<f64>>::from(fem_solution.get_velocity(v_idx).norm());
+            // Use axial (z) component for mass-flux diagnostic
+            u_in_sol_sum += <T as From<f64>>::from(fem_solution.get_velocity(v_idx).z);
             count_in += 1;
         }
 
@@ -897,7 +895,7 @@ impl<
                 p_out_sum += <T as From<f64>>::from(fem_solution.get_pressure(v_idx));
                 p_out_count += 1;
             }
-            u_out_sum += <T as From<f64>>::from(fem_solution.get_velocity(v_idx).norm());
+            u_out_sum += <T as From<f64>>::from(fem_solution.get_velocity(v_idx).z);
             count_out += 1;
         }
 
@@ -1056,6 +1054,7 @@ impl<
         };
         let q_in = u_in_sol_avg * area_inlet;
         let q_th = u_throat_avg * area_throat;
+        solution.q_in_face = <T as From<f64>>::from(q_in_face);
         solution.mass_error = if q_in_face > 1e-12_f64 {
             <T as From<f64>>::from((q_in_face - q_out_face) / q_in_face)
         } else {
@@ -1093,7 +1092,25 @@ impl<
 
         let mut l = nalgebra::Matrix3::zeros();
 
-        if idxs.len() == 10 {
+        if idxs.len() == 4 {
+            // Tet4 (P1): constant velocity gradient within the element.
+            // L_ij = Σ_k u_k_i · ∂N_k/∂x_j
+            let mut tet4 = crate::fem::element::FluidElement::<f64>::new(idxs.to_vec());
+            let six_v = tet4.calculate_volume(&local_verts);
+            if six_v.abs() < 1e-24_f64 {
+                return Ok(0.0_f64);
+            }
+            tet4.calculate_shape_derivatives(&local_verts[0..4]);
+
+            for k in 0..4 {
+                let u = solution.get_velocity(idxs[k]);
+                for row in 0..3 {
+                    for col in 0..3 {
+                        l[(row, col)] += u[row] * tet4.shape_derivatives[(col, k)];
+                    }
+                }
+            }
+        } else if idxs.len() == 10 {
             // Tet10 (P2): Evaluate gradient at centroid (L = [0.25, 0.25, 0.25, 0.25])
             use crate::fem::shape_functions::LagrangeTet10;
 
@@ -1401,6 +1418,8 @@ pub struct VenturiSolution3D<T: cfd_mesh::domain::core::Scalar + RealField + Cop
     pub cp_recovery: T,
     /// Mass balance error (relative)
     pub mass_error: T,
+    /// Face-integrated inlet volumetric flow rate [m³/s]
+    pub q_in_face: T,
 }
 
 impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy> VenturiSolution3D<T> {
@@ -1417,6 +1436,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy> VenturiSolution3D<T> 
             cp_throat: T::zero(),
             cp_recovery: T::zero(),
             mass_error: T::zero(),
+            q_in_face: T::zero(),
         }
     }
 }

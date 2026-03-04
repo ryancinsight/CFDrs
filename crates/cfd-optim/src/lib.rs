@@ -31,12 +31,15 @@
 //!
 //! | Module | Purpose |
 //! |--------|---------|
-//! [`constraints`] | 96-well plate geometry, blood properties, FDA limits |
-//! [`design`]      | Topology families, candidate struct, parameter sweep |
-//! [`metrics`]     | Physics-based metric computation (cfd-1d + Casson blood) |
-//! [`scoring`]     | Multi-objective scoring functions |
-//! [`optimizer`]   | Parametric sweep + ranking engine |
-//! [`error`]       | Error types |
+//! [`constraints`]    | 96-well plate geometry, blood properties, FDA limits |
+//! [`design`]         | Topology families, candidate struct, parameter sweep |
+//! [`metrics`]        | Physics-based metric computation (cfd-1d + Casson blood) |
+//! [`scoring`]        | Multi-objective scoring functions |
+//! [`orchestration`]  | Parametric sweep + ranking engine (`SdtOptimizer`) |
+//! [`evo`]            | Genetic algorithm (`GeneticOptimizer`) |
+//! [`delivery`]       | JSON/SVG export and mesh pipeline |
+//! [`reporting`]      | Deterministic ranking helpers and canonical markdown writer |
+//! [`error`]          | Error types |
 
 #![warn(clippy::all)]
 #![warn(clippy::pedantic)]
@@ -78,37 +81,36 @@
 // ── SDT-specific modules ─────────────────────────────────────────────────────
 
 pub mod analysis;
-pub mod cif_schematic;
 pub mod constraints;
-pub mod csv_export;
+pub mod delivery;
 pub mod design;
 pub mod error;
 pub mod evo;
-pub mod export;
 pub mod metrics;
-pub mod optimizer;
-#[cfg(feature = "mesh-export")]
-pub mod pipeline;
+pub mod orchestration;
+pub mod reporting;
 pub mod scoring;
 
 // ── Top-level re-exports ─────────────────────────────────────────────────────
 
-pub use design::{
-    build_candidate_space, sample_random_candidates, CrossSectionShape, DesignCandidate,
-    DesignTopology,
-};
-pub use error::OptimError;
-pub use evo::{decode_genome, GeneticOptimizer, MillifluidicGenome};
-pub use export::{
+pub use delivery::{
     save_all_modes_json, save_annotated_cif_svg, save_comparison_svg, save_schematic_svg,
     save_top5_json,
 };
+pub use design::{
+    build_candidate_space, sample_random_candidates, CrossSectionShape, DesignCandidate,
+    DesignTopology, TreatmentZoneMode,
+};
+pub use error::OptimError;
+pub use evo::{candidate_to_genome, decode_genome, GeneticOptimizer, MillifluidicGenome};
 pub use metrics::{compute_metrics, giersiepen_hi, ChannelHemolysis, SdtMetrics};
-pub use optimizer::{OptimStats, RankedDesign, RobustScoreStats, RobustSweepConfig, SdtOptimizer};
+pub use orchestration::{
+    OptimStats, RankedDesign, RobustScoreStats, RobustSweepConfig, SdtOptimizer,
+};
 pub use scoring::{score_candidate, score_description, OptimMode, SdtWeights};
 
 #[cfg(feature = "mesh-export")]
-pub use pipeline::{DesignArtifacts, DesignPipeline};
+pub use delivery::{DesignArtifacts, DesignPipeline};
 
 // ── Legacy API (backward compatibility) ──────────────────────────────────────
 //

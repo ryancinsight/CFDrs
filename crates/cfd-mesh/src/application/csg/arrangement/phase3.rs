@@ -17,7 +17,8 @@ use crate::infrastructure::storage::vertex_pool::VertexPool;
 /// 2. For each probe vertex in the larger partition, search 27 neighboring
 ///    cells and collect near-duplicate A/B pairs within `tol_sq`.
 /// 3. Union these pairs in a dense indexed DSU; unions are directed `B -> A`
-///    to preserve canonical A-side roots.
+///    to preserve canonical A-side roots. Positions are cached into contiguous
+///    arrays to avoid repeated `VertexPool` lookups in the hot inner loop.
 /// 4. Emit `vid -> root_vid` substitutions for non-root vertices.
 ///
 /// # Theorem — Indexed-DSU Equivalence
@@ -26,6 +27,13 @@ use crate::infrastructure::storage::vertex_pool::VertexPool;
 /// index-addressed DSU over a bijection `VertexId <-> index` preserves the
 /// partition relation exactly because `find`/`union` are performed over the
 /// same pair sequence under an isomorphic state encoding. ∎
+///
+/// # Theorem — Position-Cache Equivalence
+///
+/// Replacing repeated `pool.position(vid)` reads with a one-time cached copy
+/// of each participating vertex position preserves all union decisions because
+/// each cached point is value-identical to its source pool position. Thus every
+/// distance predicate `||p_a - p_b||² < tol_sq` evaluates identically. ∎
 ///
 /// # Theorem — A-Root Invariant
 ///
@@ -49,29 +57,32 @@ fn build_cross_mesh_merge_map(
     }
     let inv_cell = 1.0 / tol;
     let grid_on_a = pure_a.len() <= pure_b.len();
-    let (grid_source, probe_source): (&[VertexId], &[VertexId]) = if grid_on_a {
-        (pure_a, pure_b)
+
+    let a_positions: Vec<_> = pure_a.iter().map(|&vid| *pool.position(vid)).collect();
+    let b_positions: Vec<_> = pure_b.iter().map(|&vid| *pool.position(vid)).collect();
+
+    let mut grid: HashMap<(i64, i64, i64), Vec<usize>> =
+        HashMap::with_capacity(usize::min(a_positions.len(), b_positions.len()));
+
+    if grid_on_a {
+        for (i, p) in a_positions.iter().enumerate() {
+            let ix = (p.x * inv_cell).floor() as i64;
+            let iy = (p.y * inv_cell).floor() as i64;
+            let iz = (p.z * inv_cell).floor() as i64;
+            grid.entry((ix, iy, iz)).or_default().push(i);
+        }
     } else {
-        (pure_b, pure_a)
-    };
-
-    let mut grid: HashMap<(i64, i64, i64), Vec<VertexId>> =
-        HashMap::with_capacity(grid_source.len());
-    for &vid in grid_source {
-        let p = pool.position(vid);
-        let ix = (p.x * inv_cell).floor() as i64;
-        let iy = (p.y * inv_cell).floor() as i64;
-        let iz = (p.z * inv_cell).floor() as i64;
-        grid.entry((ix, iy, iz)).or_default().push(vid);
+        for (i, p) in b_positions.iter().enumerate() {
+            let ix = (p.x * inv_cell).floor() as i64;
+            let iy = (p.y * inv_cell).floor() as i64;
+            let iz = (p.z * inv_cell).floor() as i64;
+            grid.entry((ix, iy, iz)).or_default().push(i);
+        }
     }
 
-    let all_merge_vids: Vec<VertexId> = pure_a.iter().chain(pure_b.iter()).copied().collect();
-    let mut index_of: HashMap<VertexId, usize> = HashMap::with_capacity(all_merge_vids.len());
-    for (i, &vid) in all_merge_vids.iter().enumerate() {
-        index_of.insert(vid, i);
-    }
-
-    let mut parent: Vec<usize> = (0..all_merge_vids.len()).collect();
+    let na = pure_a.len();
+    let nb = pure_b.len();
+    let mut parent: Vec<usize> = (0..(na + nb)).collect();
 
     fn find_root(parent: &mut [usize], mut x: usize) -> usize {
         while parent[x] != x {
@@ -83,31 +94,61 @@ fn build_cross_mesh_merge_map(
         x
     }
 
-    for &probe in probe_source {
-        let probe_p = pool.position(probe);
-        let ix = (probe_p.x * inv_cell).floor() as i64;
-        let iy = (probe_p.y * inv_cell).floor() as i64;
-        let iz = (probe_p.z * inv_cell).floor() as i64;
-        for dx in -1_i64..=1 {
-            for dy in -1_i64..=1 {
-                for dz in -1_i64..=1 {
-                    if let Some(cands) = grid.get(&(ix + dx, iy + dy, iz + dz)) {
-                        for &cand in cands {
-                            let (va, vb, pa, pb) = if grid_on_a {
-                                // cand from A grid, probe from B set
-                                (cand, probe, pool.position(cand), probe_p)
-                            } else {
-                                // probe from A set, cand from B grid
-                                (probe, cand, probe_p, pool.position(cand))
-                            };
-                            if (pb - pa).norm_squared() < tol_sq {
-                                let ia = index_of[&va];
-                                let ib = index_of[&vb];
-                                let ra = find_root(&mut parent, ia);
-                                let rb = find_root(&mut parent, ib);
-                                if ra != rb {
-                                    // A-root invariant: attach B-root under A-root.
-                                    parent[rb] = ra;
+    if grid_on_a {
+        // Grid on A, probe B.
+        for (b_idx, probe_p) in b_positions.iter().enumerate() {
+            let ix = (probe_p.x * inv_cell).floor() as i64;
+            let iy = (probe_p.y * inv_cell).floor() as i64;
+            let iz = (probe_p.z * inv_cell).floor() as i64;
+            for dx in -1_i64..=1 {
+                for dy in -1_i64..=1 {
+                    for dz in -1_i64..=1 {
+                        if let Some(cands) = grid.get(&(ix + dx, iy + dy, iz + dz)) {
+                            for &a_idx in cands {
+                                let pa = a_positions[a_idx];
+                                let ddx = probe_p.x - pa.x;
+                                let ddy = probe_p.y - pa.y;
+                                let ddz = probe_p.z - pa.z;
+                                if ddx * ddx + ddy * ddy + ddz * ddz < tol_sq {
+                                    let ia = a_idx;
+                                    let ib = na + b_idx;
+                                    let ra = find_root(&mut parent, ia);
+                                    let rb = find_root(&mut parent, ib);
+                                    if ra != rb {
+                                        // A-root invariant: attach B-root under A-root.
+                                        parent[rb] = ra;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    } else {
+        // Grid on B, probe A.
+        for (a_idx, probe_p) in a_positions.iter().enumerate() {
+            let ix = (probe_p.x * inv_cell).floor() as i64;
+            let iy = (probe_p.y * inv_cell).floor() as i64;
+            let iz = (probe_p.z * inv_cell).floor() as i64;
+            for dx in -1_i64..=1 {
+                for dy in -1_i64..=1 {
+                    for dz in -1_i64..=1 {
+                        if let Some(cands) = grid.get(&(ix + dx, iy + dy, iz + dz)) {
+                            for &b_idx in cands {
+                                let pb = b_positions[b_idx];
+                                let ddx = pb.x - probe_p.x;
+                                let ddy = pb.y - probe_p.y;
+                                let ddz = pb.z - probe_p.z;
+                                if ddx * ddx + ddy * ddy + ddz * ddz < tol_sq {
+                                    let ia = a_idx;
+                                    let ib = na + b_idx;
+                                    let ra = find_root(&mut parent, ia);
+                                    let rb = find_root(&mut parent, ib);
+                                    if ra != rb {
+                                        // A-root invariant: attach B-root under A-root.
+                                        parent[rb] = ra;
+                                    }
                                 }
                             }
                         }
@@ -117,12 +158,17 @@ fn build_cross_mesh_merge_map(
         }
     }
 
-    let mut merge_map: HashMap<VertexId, VertexId> = HashMap::new();
-    for &vid in &all_merge_vids {
-        let i = index_of[&vid];
+    let mut merge_map: HashMap<VertexId, VertexId> =
+        HashMap::with_capacity((na + nb).saturating_div(2));
+    for i in 0..(na + nb) {
         let root_i = find_root(&mut parent, i);
-        let root = all_merge_vids[root_i];
-        if root != vid {
+        if root_i != i {
+            let vid = if i < na { pure_a[i] } else { pure_b[i - na] };
+            let root = if root_i < na {
+                pure_a[root_i]
+            } else {
+                pure_b[root_i - na]
+            };
             merge_map.insert(vid, root);
         }
     }
@@ -187,6 +233,143 @@ pub(crate) fn consolidate_cross_mesh_vertices(frags: &mut Vec<FragRecord>, pool:
 mod tests {
     use super::*;
     use crate::domain::core::scalar::{Point3r, Vector3r};
+    use proptest::prelude::*;
+
+    fn build_cross_mesh_merge_map_reference(
+        pure_a: &[VertexId],
+        pure_b: &[VertexId],
+        pool: &VertexPool,
+        tol_sq: Real,
+    ) -> HashMap<VertexId, VertexId> {
+        if pure_a.is_empty() || pure_b.is_empty() {
+            return HashMap::new();
+        }
+
+        let tol = tol_sq.sqrt();
+        if tol <= 0.0 {
+            return HashMap::new();
+        }
+        let inv_cell = 1.0 / tol;
+        let grid_on_a = pure_a.len() <= pure_b.len();
+        let (grid_source, probe_source): (&[VertexId], &[VertexId]) = if grid_on_a {
+            (pure_a, pure_b)
+        } else {
+            (pure_b, pure_a)
+        };
+
+        let mut grid: HashMap<(i64, i64, i64), Vec<VertexId>> =
+            HashMap::with_capacity(grid_source.len());
+        for &vid in grid_source {
+            let p = pool.position(vid);
+            let ix = (p.x * inv_cell).floor() as i64;
+            let iy = (p.y * inv_cell).floor() as i64;
+            let iz = (p.z * inv_cell).floor() as i64;
+            grid.entry((ix, iy, iz)).or_default().push(vid);
+        }
+
+        let all_merge_vids: Vec<VertexId> = pure_a.iter().chain(pure_b.iter()).copied().collect();
+        let mut index_of: HashMap<VertexId, usize> = HashMap::with_capacity(all_merge_vids.len());
+        for (i, &vid) in all_merge_vids.iter().enumerate() {
+            index_of.insert(vid, i);
+        }
+
+        let mut parent: Vec<usize> = (0..all_merge_vids.len()).collect();
+
+        fn find_root(parent: &mut [usize], mut x: usize) -> usize {
+            while parent[x] != x {
+                let p = parent[x];
+                let gp = parent[p];
+                parent[x] = gp;
+                x = gp;
+            }
+            x
+        }
+
+        for &probe in probe_source {
+            let probe_p = pool.position(probe);
+            let ix = (probe_p.x * inv_cell).floor() as i64;
+            let iy = (probe_p.y * inv_cell).floor() as i64;
+            let iz = (probe_p.z * inv_cell).floor() as i64;
+            for dx in -1_i64..=1 {
+                for dy in -1_i64..=1 {
+                    for dz in -1_i64..=1 {
+                        if let Some(cands) = grid.get(&(ix + dx, iy + dy, iz + dz)) {
+                            for &cand in cands {
+                                let (va, vb, pa, pb) = if grid_on_a {
+                                    (cand, probe, pool.position(cand), probe_p)
+                                } else {
+                                    (probe, cand, probe_p, pool.position(cand))
+                                };
+                                if (pb - pa).norm_squared() < tol_sq {
+                                    let ia = index_of[&va];
+                                    let ib = index_of[&vb];
+                                    let ra = find_root(&mut parent, ia);
+                                    let rb = find_root(&mut parent, ib);
+                                    if ra != rb {
+                                        parent[rb] = ra;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        let mut merge_map: HashMap<VertexId, VertexId> = HashMap::new();
+        for &vid in &all_merge_vids {
+            let i = index_of[&vid];
+            let root_i = find_root(&mut parent, i);
+            let root = all_merge_vids[root_i];
+            if root != vid {
+                merge_map.insert(vid, root);
+            }
+        }
+        merge_map
+    }
+
+    proptest! {
+        #[test]
+        fn dense_cache_merge_map_matches_reference(
+            a_pts in prop::collection::vec(prop::array::uniform3(-40_i16..40_i16), 0..24),
+            b_pts in prop::collection::vec(prop::array::uniform3(-40_i16..40_i16), 0..24),
+        ) {
+            let mut pool = VertexPool::default_millifluidic();
+            let n = Vector3r::new(0.0, 0.0, 1.0);
+
+            let pure_a: Vec<VertexId> = a_pts
+                .into_iter()
+                .map(|p| {
+                    pool.insert_unique(
+                        Point3r::new(
+                            f64::from(p[0]) * 1e-2,
+                            f64::from(p[1]) * 1e-2,
+                            f64::from(p[2]) * 1e-2,
+                        ),
+                        n,
+                    )
+                })
+                .collect();
+            let pure_b: Vec<VertexId> = b_pts
+                .into_iter()
+                .map(|p| {
+                    pool.insert_unique(
+                        Point3r::new(
+                            f64::from(p[0]) * 1e-2,
+                            f64::from(p[1]) * 1e-2,
+                            f64::from(p[2]) * 1e-2,
+                        ),
+                        n,
+                    )
+                })
+                .collect();
+
+            let tol_sq = 4.0e-4_f64;
+            let got = build_cross_mesh_merge_map(&pure_a, &pure_b, &pool, tol_sq);
+            let reference = build_cross_mesh_merge_map_reference(&pure_a, &pure_b, &pool, tol_sq);
+            prop_assert_eq!(got, reference);
+        }
+    }
 
     #[test]
     fn merge_map_prefers_a_side_root() {

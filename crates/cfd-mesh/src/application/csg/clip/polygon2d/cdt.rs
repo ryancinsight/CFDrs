@@ -9,8 +9,8 @@
 use super::geometry::{ensure_ccw, point_in_polygon, seg_intersect};
 use super::ClipOp;
 use crate::application::csg::arrangement::planar::{
-    build_pslg_from_points_and_edges, collect_points_on_segment_interior,
-    insert_shattered_subedges, PlanarEdgeKey,
+    build_pslg_from_points_and_edges, collect_points_on_segment_interior_indexed,
+    insert_shattered_subedges, PlanarEdgeKey, PlanarPointGridIndex,
 };
 use crate::domain::core::scalar::Real;
 use std::collections::{HashMap, HashSet};
@@ -242,9 +242,10 @@ pub fn cdt_clip(subject: &[[Real; 2]], clip: &[[Real; 2]], op: ClipOp) -> Vec<Ve
         return Vec::new();
     }
 
+    let point_index = PlanarPointGridIndex::new(&unique, WELD_TOL);
     let mut pslg_edges = HashSet::<PlanarEdgeKey>::new();
-    add_shattered_edges(&subj, &subj_indices, &unique, &mut pslg_edges);
-    add_shattered_edges(&clp, &clip_indices, &unique, &mut pslg_edges);
+    add_shattered_edges(&subj, &subj_indices, &unique, &point_index, &mut pslg_edges);
+    add_shattered_edges(&clp, &clip_indices, &unique, &point_index, &mut pslg_edges);
 
     let pslg = build_pslg_from_points_and_edges(&unique, &pslg_edges);
 
@@ -284,9 +285,11 @@ fn add_shattered_edges(
     poly: &[[Real; 2]],
     indices: &[usize],
     unique: &[[Real; 2]],
+    point_index: &PlanarPointGridIndex,
     pslg_edges: &mut HashSet<PlanarEdgeKey>,
 ) {
     let n = poly.len();
+    let mut candidates: Vec<usize> = Vec::new();
     for i in 0..n {
         let j = (i + 1) % n;
         let ri = indices[i];
@@ -294,8 +297,16 @@ fn add_shattered_edges(
         if ri == rj {
             continue;
         }
-        let on_edge =
-            collect_points_on_segment_interior(unique, poly[i], poly[j], (ri, rj), 1e-8, 1e-12);
+        let on_edge = collect_points_on_segment_interior_indexed(
+            unique,
+            point_index,
+            poly[i],
+            poly[j],
+            (ri, rj),
+            1e-8,
+            1e-12,
+            &mut candidates,
+        );
         insert_shattered_subedges(on_edge, pslg_edges);
     }
 }

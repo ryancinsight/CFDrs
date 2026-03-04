@@ -89,17 +89,20 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> DESMo
     }
 
     /// Create a DES model with per-point wall distances and delta_max values.
-    pub fn with_wall_distances(
-        wall_distances: Vec<T>,
-        delta_max: Vec<T>,
-        cs: T,
-    ) -> Self {
+    pub fn with_wall_distances(wall_distances: Vec<T>, delta_max: Vec<T>, cs: T) -> Self {
         let c_des = <T as FromPrimitive>::from_f64(DES_C_DES).unwrap_or_else(T::one);
-        Self { c_des, wall_distances, delta_max, cs }
+        Self {
+            c_des,
+            wall_distances,
+            delta_max,
+            cs,
+        }
     }
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> TurbulenceModel<T> for DESModel<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> TurbulenceModel<T>
+    for DESModel<T>
+{
     /// Compute DES eddy viscosity.
     ///
     /// At each grid point, uses l_DES = min(d, C_DES·Δ_max) as the effective
@@ -111,8 +114,16 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Turbu
         let two = <T as FromPrimitive>::from_f64(2.0).unwrap_or_else(T::one);
 
         for idx in 0..n {
-            let d = if idx < self.wall_distances.len() { self.wall_distances[idx] } else { T::one() };
-            let delta = if idx < self.delta_max.len() { self.delta_max[idx] } else { T::one() };
+            let d = if idx < self.wall_distances.len() {
+                self.wall_distances[idx]
+            } else {
+                T::one()
+            };
+            let delta = if idx < self.delta_max.len() {
+                self.delta_max[idx]
+            } else {
+                T::one()
+            };
 
             // l_DES = min(d, C_DES · Δ_max)
             let l_des = num_traits::Float::min(d, self.c_des * delta);
@@ -124,19 +135,28 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Turbu
             // Compute strain rate magnitude at (i,j,k) using central differences with spacing l_des.
             let mut s_sq = T::zero();
             if i > 0 && i < nx - 1 {
-                if let (Some(vp), Some(vm)) = (flow_field.velocity.get(i+1,j,k), flow_field.velocity.get(i-1,j,k)) {
+                if let (Some(vp), Some(vm)) = (
+                    flow_field.velocity.get(i + 1, j, k),
+                    flow_field.velocity.get(i - 1, j, k),
+                ) {
                     let s11 = (vp.x - vm.x) / (two * l_des);
                     s_sq = s_sq + s11 * s11;
                 }
             }
             if j > 0 && j < ny - 1 {
-                if let (Some(vp), Some(vm)) = (flow_field.velocity.get(i,j+1,k), flow_field.velocity.get(i,j-1,k)) {
+                if let (Some(vp), Some(vm)) = (
+                    flow_field.velocity.get(i, j + 1, k),
+                    flow_field.velocity.get(i, j - 1, k),
+                ) {
                     let s22 = (vp.y - vm.y) / (two * l_des);
                     s_sq = s_sq + s22 * s22;
                 }
             }
             if k > 0 && k < nz - 1 {
-                if let (Some(vp), Some(vm)) = (flow_field.velocity.get(i,j,k+1), flow_field.velocity.get(i,j,k-1)) {
+                if let (Some(vp), Some(vm)) = (
+                    flow_field.velocity.get(i, j, k + 1),
+                    flow_field.velocity.get(i, j, k - 1),
+                ) {
                     let s33 = (vp.z - vm.z) / (two * l_des);
                     s_sq = s_sq + s33 * s33;
                 }
@@ -151,5 +171,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Turbu
         self.turbulent_viscosity(flow_field)
     }
 
-    fn name(&self) -> &'static str { "DES" }
+    fn name(&self) -> &'static str {
+        "DES"
+    }
 }

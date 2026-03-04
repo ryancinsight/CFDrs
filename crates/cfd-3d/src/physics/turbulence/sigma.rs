@@ -77,11 +77,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Sigma
     /// Approximates singular values of g = ∇u using the diagonal + cross
     /// components of the rate-of-strain tensor (compact approximation
     /// when full SVD is not available).
-    fn sigma_viscosity_at(
-        &self,
-        flow: &FlowField<T>,
-        i: usize, j: usize, k: usize,
-    ) -> T {
+    fn sigma_viscosity_at(&self, flow: &FlowField<T>, i: usize, j: usize, k: usize) -> T {
         let (nx, ny, nz) = flow.velocity.dimensions;
         let delta = self.filter_width;
         let two = <T as FromPrimitive>::from_f64(2.0).unwrap_or_else(T::one);
@@ -92,21 +88,30 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Sigma
 
         // ∂u/∂x, ∂u/∂y, ∂u/∂z
         if i > 0 && i < nx - 1 {
-            if let (Some(vp), Some(vm)) = (flow.velocity.get(i+1,j,k), flow.velocity.get(i-1,j,k)) {
+            if let (Some(vp), Some(vm)) = (
+                flow.velocity.get(i + 1, j, k),
+                flow.velocity.get(i - 1, j, k),
+            ) {
                 g[0][0] = (vp.x - vm.x) / (two * delta);
                 g[1][0] = (vp.y - vm.y) / (two * delta);
                 g[2][0] = (vp.z - vm.z) / (two * delta);
             }
         }
         if j > 0 && j < ny - 1 {
-            if let (Some(vp), Some(vm)) = (flow.velocity.get(i,j+1,k), flow.velocity.get(i,j-1,k)) {
+            if let (Some(vp), Some(vm)) = (
+                flow.velocity.get(i, j + 1, k),
+                flow.velocity.get(i, j - 1, k),
+            ) {
                 g[0][1] = (vp.x - vm.x) / (two * delta);
                 g[1][1] = (vp.y - vm.y) / (two * delta);
                 g[2][1] = (vp.z - vm.z) / (two * delta);
             }
         }
         if k > 0 && k < nz - 1 {
-            if let (Some(vp), Some(vm)) = (flow.velocity.get(i,j,k+1), flow.velocity.get(i,j,k-1)) {
+            if let (Some(vp), Some(vm)) = (
+                flow.velocity.get(i, j, k + 1),
+                flow.velocity.get(i, j, k - 1),
+            ) {
                 g[0][2] = (vp.x - vm.x) / (two * delta);
                 g[1][2] = (vp.y - vm.y) / (two * delta);
                 g[2][2] = (vp.z - vm.z) / (two * delta);
@@ -130,12 +135,14 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Sigma
         let i3_det = {
             // 3×3 determinant via cofactor expansion
             gtg[0][0] * (gtg[1][1] * gtg[2][2] - gtg[1][2] * gtg[2][1])
-            - gtg[0][1] * (gtg[1][0] * gtg[2][2] - gtg[1][2] * gtg[2][0])
-            + gtg[0][2] * (gtg[1][0] * gtg[2][1] - gtg[1][1] * gtg[2][0])
+                - gtg[0][1] * (gtg[1][0] * gtg[2][2] - gtg[1][2] * gtg[2][0])
+                + gtg[0][2] * (gtg[1][0] * gtg[2][1] - gtg[1][1] * gtg[2][0])
         };
         let i2 = {
-            let tr_sq = gtg[0][0]*gtg[1][1] + gtg[1][1]*gtg[2][2] + gtg[0][0]*gtg[2][2]
-                - gtg[0][1]*gtg[1][0] - gtg[1][2]*gtg[2][1] - gtg[0][2]*gtg[2][0];
+            let tr_sq = gtg[0][0] * gtg[1][1] + gtg[1][1] * gtg[2][2] + gtg[0][0] * gtg[2][2]
+                - gtg[0][1] * gtg[1][0]
+                - gtg[1][2] * gtg[2][1]
+                - gtg[0][2] * gtg[2][0];
             tr_sq
         };
 
@@ -165,13 +172,17 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Sigma
     }
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Default for SigmaModel<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Default
+    for SigmaModel<T>
+{
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> TurbulenceModel<T> for SigmaModel<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> TurbulenceModel<T>
+    for SigmaModel<T>
+{
     fn turbulent_viscosity(&self, flow_field: &FlowField<T>) -> Vec<T> {
         let (nx, ny, nz) = flow_field.velocity.dimensions;
         let mut viscosity = Vec::with_capacity(nx * ny * nz);
@@ -190,5 +201,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Turbu
         self.turbulent_viscosity(flow_field)
     }
 
-    fn name(&self) -> &'static str { "Sigma" }
+    fn name(&self) -> &'static str {
+        "Sigma"
+    }
 }

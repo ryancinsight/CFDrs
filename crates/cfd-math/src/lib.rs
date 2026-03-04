@@ -140,6 +140,7 @@ pub mod integration;
 pub mod interpolation;
 pub mod iterators;
 pub mod linear_solver;
+pub mod nonlinear_solver;
 /// Backward-compatibility shim: all types now live in `diagnostics::performance_monitor`.
 /// Prefer `cfd_math::diagnostics::performance_monitor` for new code.
 #[doc(hidden)]

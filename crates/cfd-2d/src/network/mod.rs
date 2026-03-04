@@ -55,7 +55,7 @@ use cfd_core::error::Result as CfdResult;
 use cfd_core::physics::fluid::BloodModel;
 use cfd_core::physics::hemolysis::HemolysisModel;
 use cfd_schematics::application::ports::GraphSink;
-use cfd_schematics::domain::model::{CrossSectionSpec, NetworkBlueprint, NodeKind};
+use cfd_schematics::domain::model::{NetworkBlueprint, NodeKind};
 use cfd_schematics::domain::therapy_metadata::{TherapyZone, TherapyZoneMetadata};
 use cfd_schematics::geometry::metadata::VenturiGeometryMetadata;
 use nalgebra::RealField;
@@ -126,7 +126,21 @@ impl<T> Network2DSolver<T>
 where
     T: RealField + Copy + Float + FromPrimitive + ToPrimitive + std::fmt::Debug,
 {
-    /// Solve every channel domain and return per-channel results.
+    /// Solve every channel domain **in parallel** and return per-channel results.
+    ///
+    /// ## Theorem: Independence of Channel Solves
+    ///
+    /// Each channel in the `NetworkBlueprint` is a straight rectangular duct with
+    /// prescribed inlet flow rate. The 2D Navier-Stokes equations are solved
+    /// independently per channel (no cross-channel coupling), so the solves are
+    /// embarrassingly parallel.
+    ///
+    /// ## Performance
+    ///
+    /// For an n-channel network on p threads, the wall-clock time is approximately
+    /// `max_i(T_i)` where `T_i` is the solve time for channel `i`, versus
+    /// `Σ_i T_i` for the sequential baseline. For symmetric bifurcation networks
+    /// where all channels have similar geometry, this approaches `T_single × ceil(n/p)`.
     ///
     /// # Parameters
     /// - `tolerance`: SIMPLE iteration convergence tolerance.
@@ -134,60 +148,72 @@ where
     /// # Errors
     /// Returns an error if the 2D solver fails for any channel.
     pub fn solve_all(&mut self, tolerance: f64) -> CfdResult<Network2dResult<T>> {
+        use rayon::prelude::*;
+
         let tol_t = T::from_f64(tolerance).unwrap_or_else(T::one);
-        let mut results = Vec::with_capacity(self.channels.len());
+
+        // Parallel map: each channel solves independently on its own thread.
+        let per_channel: Vec<CfdResult<Channel2dResult<T>>> = self
+            .channels
+            .par_iter_mut()
+            .map(|entry| {
+                let area = entry.width_m * entry.height_m;
+                let u_inlet =
+                    T::from_f64(entry.flow_rate_m3_s / area.max(1e-18)).unwrap_or_else(T::one);
+
+                // Update SIMPLE config tolerance.
+                entry.solver.config.tolerance = tol_t;
+
+                // Run 2D NS solve (SIMPLE loop).
+                let solve_result = entry.solver.solve(u_inlet).map_err(|e| {
+                    cfd_core::error::Error::InvalidInput(format!(
+                        "Network2DSolver: channel '{}' failed: {e}",
+                        entry.id
+                    ))
+                })?;
+
+                // Wall shear stress estimate: τ = μ · 6Q / (w · h²)
+                let shear_rate = 6.0 * entry.flow_rate_m3_s
+                    / (entry.width_m * entry.height_m * entry.height_m).max(1e-30);
+                let shear_pa = entry.viscosity_pa_s * shear_rate;
+
+                // Field-resolved wall shear from the 2D velocity gradients.
+                let (field_max, field_mean) = extract_field_wall_shear(&entry.solver);
+
+                // Transit time: t = V / Q = w·h·L / Q
+                let t_s = area * entry.length_m / entry.flow_rate_m3_s.max(1e-30);
+
+                let hi = HemolysisModel::giersiepen_millifluidic()
+                    .damage_index(shear_pa, t_s)
+                    .unwrap_or(0.0);
+                let hi_t = T::from_f64(hi).unwrap_or_else(T::zero);
+
+                Ok(Channel2dResult {
+                    channel_id: entry.id.clone(),
+                    therapy_zone: entry.therapy_zone.clone(),
+                    is_venturi_throat: entry.is_venturi_throat,
+                    solve_result,
+                    wall_shear_pa: T::from_f64(shear_pa).unwrap_or_else(T::zero),
+                    field_wall_shear_max_pa: field_max,
+                    field_wall_shear_mean_pa: field_mean,
+                    transit_time_s: T::from_f64(t_s).unwrap_or_else(T::zero),
+                    hemolysis_index: hi_t,
+                })
+            })
+            .collect();
+
+        // Sequential reduce: collect results, propagate first error, aggregate totals.
+        let mut results = Vec::with_capacity(per_channel.len());
         let mut total_hi = T::zero();
         let mut converged_count = 0usize;
 
-        for entry in &mut self.channels {
-            let area = entry.width_m * entry.height_m;
-            let u_inlet =
-                T::from_f64(entry.flow_rate_m3_s / area.max(1e-18)).unwrap_or_else(T::one);
-
-            // Update SIMPLE config tolerance.
-            entry.solver.config.tolerance = tol_t;
-
-            // Run 2D NS solve (SIMPLE loop).
-            let solve_result = entry.solver.solve(u_inlet).map_err(|e| {
-                cfd_core::error::Error::InvalidInput(format!(
-                    "Network2DSolver: channel '{}' failed: {e}",
-                    entry.id
-                ))
-            })?;
-
-            if solve_result.converged {
+        for r in per_channel {
+            let ch = r?;
+            if ch.solve_result.converged {
                 converged_count += 1;
             }
-
-            // Wall shear stress estimate: τ = μ · 6Q / (w · h²)
-            let shear_rate = 6.0 * entry.flow_rate_m3_s
-                / (entry.width_m * entry.height_m * entry.height_m).max(1e-30);
-            let shear_pa = entry.viscosity_pa_s * shear_rate;
-
-            // Field-resolved wall shear from the 2D velocity gradients.
-            let (field_max, field_mean) =
-                extract_field_wall_shear(&entry.solver);
-
-            // Transit time: t = V / Q = w·h·L / Q
-            let t_s = area * entry.length_m / entry.flow_rate_m3_s.max(1e-30);
-
-            let hi = HemolysisModel::giersiepen_millifluidic()
-                .damage_index(shear_pa, t_s)
-                .unwrap_or(0.0); // damage_index only errors for negative inputs, never for valid shear/time
-            let hi_t = T::from_f64(hi).unwrap_or_else(T::zero);
-            total_hi += hi_t;
-
-            results.push(Channel2dResult {
-                channel_id: entry.id.clone(),
-                therapy_zone: entry.therapy_zone.clone(),
-                is_venturi_throat: entry.is_venturi_throat,
-                solve_result,
-                wall_shear_pa: T::from_f64(shear_pa).unwrap_or_else(T::zero),
-                field_wall_shear_max_pa: field_max,
-                field_wall_shear_mean_pa: field_mean,
-                transit_time_s: T::from_f64(t_s).unwrap_or_else(T::zero),
-                hemolysis_index: hi_t,
-            });
+            total_hi += ch.hemolysis_index;
+            results.push(ch);
         }
 
         Ok(Network2dResult {
@@ -254,11 +280,8 @@ where
         for ch in &blueprint.channels {
             let q_ch = flow_rates.get(ch.id.as_str()).copied().unwrap_or(0.0);
 
-            // Cross-section dimensions.
-            let (w, h) = match ch.cross_section {
-                CrossSectionSpec::Rectangular { width_m, height_m } => (width_m, height_m),
-                CrossSectionSpec::Circular { diameter_m } => (diameter_m, diameter_m),
-            };
+            // Cross-section dimensions via canonical SSOT method.
+            let (w, h) = ch.cross_section.dims();
 
             // TherapyZone from metadata (default MixedFlow).
             let therapy_zone = ch

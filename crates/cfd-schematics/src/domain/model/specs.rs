@@ -46,6 +46,38 @@ impl CrossSectionSpec {
             Self::Rectangular { width_m, height_m } => width_m * height_m,
         }
     }
+
+    /// Bounding-box dimensions `(width, height)` [m].
+    ///
+    /// - Circular: `(d, d)`
+    /// - Rectangular: `(w, h)`
+    #[must_use]
+    pub fn dims(&self) -> (f64, f64) {
+        match self {
+            Self::Circular { diameter_m } => (*diameter_m, *diameter_m),
+            Self::Rectangular { width_m, height_m } => (*width_m, *height_m),
+        }
+    }
+
+    /// Fully-developed Poiseuille wall shear rate [1/s] for a given
+    /// mean velocity `u_mean` [m/s].
+    ///
+    /// ## Theorem — Analytical Wall Shear Rate
+    ///
+    /// For fully-developed Poiseuille flow in a straight duct:
+    ///
+    /// - **Rectangular** (Boussinesq 1868): `γ̇_w = 6 u_mean / h`
+    ///   where `h` = channel height (smallest dimension governs shear).
+    ///
+    /// - **Circular** (Hagen-Poiseuille): `γ̇_w = 8 u_mean / d`
+    ///   derived from `τ_w = μ · 8V/(πR³·A) = μ · 8u/d`.
+    #[must_use]
+    pub fn wall_shear_rate(&self, u_mean: f64) -> f64 {
+        match self {
+            Self::Rectangular { height_m, .. } => 6.0 * u_mean / height_m.max(1e-18),
+            Self::Circular { diameter_m } => 8.0 * u_mean / diameter_m.max(1e-18),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

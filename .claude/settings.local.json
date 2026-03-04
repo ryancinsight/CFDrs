@@ -78,7 +78,13 @@
       "Bash($PY /tmp/sq_test.py)",
       "Bash(set +H)",
       "Bash(/d/msys64/ucrt64/bin/python3.exe /tmp/sq_minimal.py)",
-      "Bash($PY /tmp/sq2.py)"
+      "Bash($PY /tmp/sq2.py)",
+      "Bash(git -C \"C:/Users/RyanClanton/gcli/software/millifluidic_design/CFDrs\" log --oneline -10)",
+      "Bash(git -C \"C:/Users/RyanClanton/gcli/software/millifluidic_design/CFDrs\" diff HEAD -- crates/cfd-optim/src/metrics/compute.rs)",
+      "Bash(git -C \"C:/Users/RyanClanton/gcli/software/millifluidic_design/CFDrs\" diff HEAD -- crates/cfd-optim/src/constraints.rs)",
+      "Bash(git -C \"C:/Users/RyanClanton/gcli/software/millifluidic_design/CFDrs\" stash list)",
+      "Bash(git -C \"C:/Users/RyanClanton/gcli/software/millifluidic_design/CFDrs\" show HEAD:crates/cfd-optim/src/constraints.rs)",
+      "Bash(git -C \"C:/Users/RyanClanton/gcli/software/millifluidic_design/CFDrs\" show HEAD:crates/cfd-optim/src/metrics/compute.rs)"
     ]
   }
 }

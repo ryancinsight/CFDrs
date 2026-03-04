@@ -198,7 +198,8 @@ impl<T: Scalar> IndexedMesh<T> {
         if self.cells.is_empty() {
             return self.faces.iter_enumerated().map(|(id, _)| id).collect();
         }
-        let mut face_cell_count: std::collections::BTreeMap<FaceId, usize> = std::collections::BTreeMap::new();
+        let mut face_cell_count: std::collections::BTreeMap<FaceId, usize> =
+            std::collections::BTreeMap::new();
         for cell in &self.cells {
             for &fv_idx in &cell.faces {
                 // In IndexedMesh, Cell.faces holds FaceId cast as usize currently ? wait:
@@ -382,7 +383,7 @@ impl<T: Scalar> IndexedMesh<T> {
             let b = self.vertices.position(face.vertices[1]);
             let c = self.vertices.position(face.vertices[2]);
             face_normals.push(triangle_normal(a, b, c));
-            
+
             let cx = (a.x + b.x + c.x) / <T as Scalar>::from_f64(3.0);
             face_centroid_x.push(cx);
         }

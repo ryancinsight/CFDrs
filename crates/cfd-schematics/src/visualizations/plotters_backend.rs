@@ -186,26 +186,32 @@ impl PlottersRenderer {
 
         // --- Channels colored by overlay edge data ---
         // Collect distinct channel widths for proportional stroke rendering.
-        // Channels with different physical widths get visually distinct stroke
-        // widths: 1×, 2×, 3×, … of the base stroke width from config.
-        let distinct_widths: Vec<f64> = {
-            let mut ws: Vec<f64> = system
-                .channels
-                .iter()
-                .map(|ch| (ch.width * 1e6).round() / 1e6) // round to µm
-                .collect();
-            ws.sort_by(|a, b| a.total_cmp(b));
-            ws.dedup();
-            ws
+        // Channel physical width is mapped linearly to a stroke multiplier
+        // in [1, MAX_STROKE_MULT], making wider channels visually thicker.
+        let (min_width, max_width) = {
+            let mut lo = f64::INFINITY;
+            let mut hi = f64::NEG_INFINITY;
+            for ch in &system.channels {
+                let w = (ch.width * 1e6).round() / 1e6;
+                if w < lo {
+                    lo = w;
+                }
+                if w > hi {
+                    hi = w;
+                }
+            }
+            (lo, hi)
         };
+        const MAX_STROKE_MULT: u32 = 3;
         let width_multiplier = |w: f64| -> u32 {
+            if max_width <= min_width {
+                return 1;
+            }
             let rounded = (w * 1e6).round() / 1e6;
-            let rank = distinct_widths
-                .iter()
-                .position(|&dw| (dw - rounded).abs() < 1e-5)
-                .unwrap_or(0);
-            // Multiplier: 1× for smallest, 2× for next, etc.
-            (rank as u32) + 1
+            let ratio = (rounded - min_width) / (max_width - min_width);
+            // Linear map [0, 1] → [1, MAX_STROKE_MULT]
+            let mult = ratio.mul_add((MAX_STROKE_MULT - 1) as f64, 1.0);
+            (mult.round() as u32).clamp(1, MAX_STROKE_MULT)
         };
 
         let has_edge_data = !overlay.edge_data.is_empty();
@@ -222,8 +228,8 @@ impl PlottersRenderer {
                 config.channel_type_styles.get_style(category).clone()
             };
 
-            // Scale stroke width by channel size rank when multiple sizes exist
-            let stroke = if distinct_widths.len() > 1 {
+            // Scale stroke width by proportional size when width range exists
+            let stroke = if max_width > min_width {
                 base_style.width as u32 * width_multiplier(channel.width)
             } else {
                 base_style.width as u32

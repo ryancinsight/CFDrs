@@ -2,17 +2,17 @@
 
 use std::collections::HashMap;
 
-use rand::Rng;
+use rand::{Rng, SeedableRng};
 
 use crate::{
     error::OptimError,
     metrics::compute_metrics,
-    optimizer::RankedDesign,
+    orchestration::RankedDesign,
     scoring::{score_candidate_ga, OptimMode, SdtWeights},
 };
 
 use super::{
-    decode::decode_genome,
+    decode::{candidate_to_genome, decode_genome},
     operators::{apply_topology_jump, polynomial_mutation, sbx_crossover, tournament_select},
     MillifluidicGenome, ALL_EVO_TOPOLOGIES, N_GENES,
 };
@@ -41,22 +41,51 @@ pub struct GeneticOptimizer {
     pop_size: usize,
     max_generations: usize,
     top_k: usize,
+    /// Optional warm-start seeds converted from known-good parametric candidates.
+    seeds: Vec<crate::design::DesignCandidate>,
+    /// Optional deterministic RNG seed for reproducible GA runs.
+    rng_seed: Option<u64>,
 }
 
 impl GeneticOptimizer {
     /// Construct a new optimizer for the given mode and weights.
     ///
-    /// Default population: **120** individuals (≥ 1 pinned per topology + extras).
-    /// Default generations: **200** (sufficient for convergence across 25 topologies).
+    /// Default population: **300** individuals (≥ 10 pinned per topology for 27 families).
+    /// Default generations: **500** (enables convergence then fine-tuning across all topologies).
+    ///
+    /// The SBX distribution parameter η_c starts at 2.0 (broad exploration) and
+    /// ramps linearly to 15.0 by 75% of generations, then holds for exploitation.
     #[must_use]
     pub fn new(mode: OptimMode, weights: SdtWeights) -> Self {
         Self {
             mode,
             weights,
-            pop_size: 120,
-            max_generations: 200,
+            pop_size: 300,
+            max_generations: 500,
             top_k: 5,
+            seeds: Vec::new(),
+            rng_seed: None,
         }
+    }
+
+    /// Warm-start the GA from a set of known-good [`DesignCandidate`]s.
+    ///
+    /// Up to `pop_size / 2` seed candidates are encoded into genomes and placed
+    /// at the front of the initial population.  Remaining slots are filled with
+    /// random individuals (with pinned topology diversity).  This lets the GA
+    /// refine parametric-sweep winners rather than searching from scratch.
+    ///
+    /// # Example
+    /// ```ignore
+    /// let parametric = build_candidate_space();
+    /// // score + filter for feasibles …
+    /// let seeds: Vec<_> = top_100_feasible_candidates;
+    /// let result = GeneticOptimizer::new(mode, weights).with_seeds(seeds).run()?;
+    /// ```
+    #[must_use]
+    pub fn with_seeds(mut self, seeds: Vec<crate::design::DesignCandidate>) -> Self {
+        self.seeds = seeds;
+        self
     }
 
     /// Override the population size (default: 120).
@@ -80,6 +109,13 @@ impl GeneticOptimizer {
         self
     }
 
+    /// Set a deterministic RNG seed for reproducible GA runs.
+    #[must_use]
+    pub fn with_rng_seed(mut self, seed: u64) -> Self {
+        self.rng_seed = Some(seed);
+        self
+    }
+
     /// Run the evolutionary search and return an [`EvolutionResult`].
     ///
     /// Uses smooth-penalty fitness for GA navigation (sigmoid ramp near constraint
@@ -90,96 +126,137 @@ impl GeneticOptimizer {
     /// Returns [`OptimError::InsufficientCandidates`] if fewer than `top_k`
     /// feasible designs are found after the full search.
     pub fn run(&self) -> Result<EvolutionResult, OptimError> {
-        let mut rng = rand::thread_rng();
+        let seed = self.rng_seed.unwrap_or_else(|| rand::random::<u64>());
+        let mut rng = rand::rngs::StdRng::seed_from_u64(seed);
 
-        let n_topos = ALL_EVO_TOPOLOGIES.len(); // 25
+        let n_topos = ALL_EVO_TOPOLOGIES.len();
 
         // ── Initialise population with guaranteed topology diversity ───────
         let mut population: Vec<MillifluidicGenome> = {
-            let n_pinned = n_topos.min(self.pop_size);
-            let mut seeds = Vec::with_capacity(self.pop_size);
+            let mut init = Vec::with_capacity(self.pop_size);
+
+            // Phase A: encode warm-start seeds (up to half the population).
+            let n_seeds = self.seeds.len().min(self.pop_size / 2);
+            for cand in self.seeds.iter().take(n_seeds) {
+                init.push(candidate_to_genome(cand));
+            }
+
+            // Phase B: pin one random individual per topology to maintain diversity.
+            let n_pinned = n_topos.min(self.pop_size - n_seeds);
             for t in 0..n_pinned {
-                let mut genes: Vec<f64> = (0..N_GENES).map(|_| rng.gen::<f64>()).collect();
+                let mut genes = [0.0f64; N_GENES];
+                for g in &mut genes {
+                    *g = rng.gen::<f64>();
+                }
                 genes[0] = (t as f64 + 0.5) / n_topos as f64;
-                seeds.push(MillifluidicGenome { genes });
+                init.push(MillifluidicGenome { genes });
             }
-            for _ in n_pinned..self.pop_size {
-                seeds.push(MillifluidicGenome {
-                    genes: (0..N_GENES).map(|_| rng.gen::<f64>()).collect(),
-                });
+
+            // Phase C: fill remaining slots with fully random individuals.
+            while init.len() < self.pop_size {
+                let mut genes = [0.0f64; N_GENES];
+                for g in &mut genes {
+                    *g = rng.gen::<f64>();
+                }
+                init.push(MillifluidicGenome { genes });
             }
-            seeds
+            init
         };
 
         let p_m = 1.0 / N_GENES as f64;
-        const ETA_SBX: f64 = 2.0;
+        // Adaptive SBX η: ramp from broad-exploration (2.0) to fine-tuning (15.0)
+        // over the first 75% of generations, then hold at the exploitation value.
+        const ETA_SBX_MIN: f64 = 2.0;
+        const ETA_SBX_MAX: f64 = 15.0;
         const ETA_MUT: f64 = 10.0;
         const TOURNAMENT_K: usize = 3;
 
         let mut all_feasible: Vec<(f64, crate::design::DesignCandidate)> = Vec::new();
         let mut topo_hall: HashMap<String, (f64, crate::design::DesignCandidate)> = HashMap::new();
+        // Bounded archive capacity: retain only the top candidates to avoid
+        // unbounded memory growth across generations.
+        let archive_cap = self.top_k * 20;
 
         let mut best_per_gen: Vec<f64> = Vec::with_capacity(self.max_generations);
         let mut mean_per_gen: Vec<f64> = Vec::with_capacity(self.max_generations);
         let mut feasible_per_gen: Vec<usize> = Vec::with_capacity(self.max_generations);
         let mut topology_diversity_per_gen: Vec<usize> = Vec::with_capacity(self.max_generations);
 
+        // Pre-allocated format buffer to avoid per-candidate String allocation.
+        let mut id_buf = String::with_capacity(32);
+
         // ── Main loop ──────────────────────────────────────────────────────
         for gen in 0..self.max_generations {
-            let fitness: Vec<f64> = population
-                .iter()
-                .enumerate()
-                .map(|(i, genome)| {
-                    let cand = decode_genome(genome, &format!("g{gen:03}i{i:03}"));
-                    match compute_metrics(&cand) {
-                        Ok(m) => {
-                            let s = score_candidate_ga(
-                                &m,
-                                self.mode,
-                                &self.weights,
-                                cand.inlet_gauge_pa,
-                            );
-                            if s > 0.0 {
-                                let tag = cand.topology.short().to_string();
-                                let entry = topo_hall.entry(tag).or_insert((0.0, cand.clone()));
-                                if s > entry.0 {
-                                    *entry = (s, cand.clone());
+            let mut fitness: Vec<f64> = Vec::with_capacity(self.pop_size);
+            for (i, genome) in population.iter().enumerate() {
+                use std::fmt::Write;
+                id_buf.clear();
+                let _ = write!(id_buf, "g{gen:03}i{i:03}");
+                let cand = decode_genome(genome, &id_buf);
+                let s = match compute_metrics(&cand) {
+                    Ok(m) => {
+                        let score =
+                            score_candidate_ga(&m, self.mode, &self.weights, cand.inlet_gauge_pa);
+                        if score > 0.0 {
+                            let tag = cand.topology.short().to_string();
+                            match topo_hall.entry(tag) {
+                                std::collections::hash_map::Entry::Vacant(v) => {
+                                    v.insert((score, cand.clone()));
                                 }
-                                all_feasible.push((s, cand));
+                                std::collections::hash_map::Entry::Occupied(mut o) => {
+                                    if score > o.get().0 {
+                                        o.insert((score, cand.clone()));
+                                    }
+                                }
                             }
-                            s
+                            all_feasible.push((score, cand));
                         }
-                        Err(_) => 0.0,
+                        score
                     }
-                })
-                .collect();
+                    Err(_) => 0.0,
+                };
+                fitness.push(s);
+            }
+
+            // Prune the feasible archive periodically to bound memory usage.
+            if all_feasible.len() > archive_cap * 2 {
+                all_feasible.sort_by(|a, b| b.0.total_cmp(&a.0));
+                all_feasible.truncate(archive_cap);
+            }
 
             // ── Per-generation convergence tracking ────────────────────────
-            let gen_feasible_scores: Vec<f64> =
-                fitness.iter().copied().filter(|&s| s > 0.0).collect();
-            let n_feasible = gen_feasible_scores.len();
-            let best_this_gen = gen_feasible_scores.iter().copied().fold(0.0_f64, f64::max);
+            let mut n_feasible = 0usize;
+            let mut best_this_gen = 0.0_f64;
+            let mut sum_feasible = 0.0_f64;
+            for &s in &fitness {
+                if s > 0.0 {
+                    n_feasible += 1;
+                    sum_feasible += s;
+                    if s > best_this_gen {
+                        best_this_gen = s;
+                    }
+                }
+            }
             let mean_this_gen = if n_feasible == 0 {
                 0.0
             } else {
-                gen_feasible_scores.iter().sum::<f64>() / n_feasible as f64
+                sum_feasible / n_feasible as f64
             };
             best_per_gen.push(best_this_gen);
             mean_per_gen.push(mean_this_gen);
             feasible_per_gen.push(n_feasible);
 
             let n_distinct_topos = {
-                let mut topo_set: Vec<usize> = population
-                    .iter()
-                    .map(|g| {
-                        (g.genes[0] * (n_topos as f64 - 1e-9))
-                            .floor()
-                            .clamp(0.0, (n_topos - 1) as f64) as usize
-                    })
-                    .collect();
-                topo_set.sort_unstable();
-                topo_set.dedup();
-                topo_set.len()
+                let mut seen = [false; 32]; // 28 topologies fit in a fixed-size array
+                for g in &population {
+                    let idx = (g.genes[0] * (n_topos as f64 - 1e-9))
+                        .floor()
+                        .clamp(0.0, (n_topos - 1) as f64) as usize;
+                    if idx < seen.len() {
+                        seen[idx] = true;
+                    }
+                }
+                seen.iter().filter(|&&b| b).count()
             };
             topology_diversity_per_gen.push(n_distinct_topos);
 
@@ -188,13 +265,22 @@ impl GeneticOptimizer {
             indexed.sort_by(|a, b| b.1.total_cmp(&a.1));
 
             let n_elites = (self.pop_size / 10).max(1);
-            let elites: Vec<MillifluidicGenome> = indexed[..n_elites]
-                .iter()
-                .map(|(idx, _)| population[*idx].clone())
-                .collect();
+
+            // ── Adaptive η_c: linear ramp during exploration phase ─────────
+            let eta_sbx = {
+                let explore_end = (self.max_generations * 3) / 4;
+                if gen < explore_end {
+                    ETA_SBX_MIN + (ETA_SBX_MAX - ETA_SBX_MIN) * (gen as f64 / explore_end as f64)
+                } else {
+                    ETA_SBX_MAX
+                }
+            };
 
             // ── Generate offspring ─────────────────────────────────────────
-            let mut offspring: Vec<MillifluidicGenome> = elites.clone();
+            let mut offspring: Vec<MillifluidicGenome> = Vec::with_capacity(self.pop_size);
+            for &(idx, _) in indexed[..n_elites].iter() {
+                offspring.push(population[idx]);
+            }
 
             while offspring.len() < self.pop_size {
                 let p1_idx = tournament_select(&fitness, TOURNAMENT_K, &mut rng);
@@ -202,7 +288,7 @@ impl GeneticOptimizer {
                 let (mut c1_genes, mut c2_genes) = sbx_crossover(
                     &population[p1_idx].genes,
                     &population[p2_idx].genes,
-                    ETA_SBX,
+                    eta_sbx,
                     &mut rng,
                 );
                 polynomial_mutation(&mut c1_genes, ETA_MUT, p_m, &mut rng);
@@ -230,8 +316,11 @@ impl GeneticOptimizer {
             Vec::with_capacity(self.top_k);
         'outer: for (s, cand) in &all_feasible {
             for (_, prev) in &diverse_top {
+                // Tighter dedup: same topology with nearly identical flow AND width
+                // is treated as a duplicate.  Tighter flow threshold (0.1e-8 vs 0.5e-8)
+                // preserves more diversity in the top-k output.
                 if cand.topology == prev.topology
-                    && (cand.flow_rate_m3_s - prev.flow_rate_m3_s).abs() < 0.5e-8
+                    && (cand.flow_rate_m3_s - prev.flow_rate_m3_s).abs() < 0.1e-8
                     && (cand.channel_width_m - prev.channel_width_m).abs() < 0.5e-3
                 {
                     continue 'outer;

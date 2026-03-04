@@ -136,7 +136,7 @@ impl<T: RealField + Copy + Float + FromPrimitive> SerpentineSolver2D<T> {
 
         let mut mixing_frac = T::zero();
         if count > 0 {
-            let n = T::from_usize(count).unwrap();
+            let n = T::from_usize(count).unwrap_or_else(T::one);
             let c_mean = sum_c / n;
             let variance = (sum_c_sq / n) - (c_mean * c_mean);
 
@@ -167,8 +167,8 @@ impl<T: RealField + Copy + Float + FromPrimitive> SerpentineSolver2D<T> {
 
         let mut pressure_drop = T::zero();
         if count_in > 0 && count_out > 0 {
-            pressure_drop = (p_in / T::from_usize(count_in).unwrap())
-                - (p_out / T::from_usize(count_out).unwrap());
+            pressure_drop = (p_in / T::from_usize(count_in).unwrap_or_else(T::one))
+                - (p_out / T::from_usize(count_out).unwrap_or_else(T::one));
         }
 
         Ok(SerpentineMixingSolution {

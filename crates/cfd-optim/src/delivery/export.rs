@@ -19,8 +19,8 @@
 use std::path::Path;
 
 use crate::design::DesignTopology;
-use crate::optimizer::RankedDesign;
 use crate::scoring::OptimMode;
+use crate::RankedDesign;
 
 // ── JSON export ───────────────────────────────────────────────────────────────
 

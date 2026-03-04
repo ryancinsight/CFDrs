@@ -366,7 +366,7 @@ impl<
         let det_j = j_mat.determinant();
         let abs_det = Float::abs(det_j);
 
-        if abs_det < <T as FromPrimitive>::from_f64(1e-20).unwrap() {
+        if abs_det < <T as FromPrimitive>::from_f64(1e-20).unwrap_or_else(T::one) {
             return Err(Error::Solver(
                 "Near-zero element volume in momentum assembly".to_string(),
             ));
@@ -460,7 +460,7 @@ impl<
         let det_j = j_mat.determinant();
         let abs_det = Float::abs(det_j);
 
-        if abs_det < <T as FromPrimitive>::from_f64(1e-20).unwrap() {
+        if abs_det < <T as FromPrimitive>::from_f64(1e-20).unwrap_or_else(T::one) {
             return Err(Error::Solver(
                 "Near-zero element volume in pressure assembly".to_string(),
             ));
@@ -493,7 +493,7 @@ impl<
         // For P1 elements, the Laplacian matrix is constant over the element
         // K_ij = ∫ ∇N_i · ∇N_j dV = (∇N_i · ∇N_j) * V/4
         // Using exact integration for linear elements
-        let vol = abs_det / <T as FromPrimitive>::from_f64(6.0).unwrap();
+        let vol = abs_det / <T as FromPrimitive>::from_f64(6.0).unwrap_or_else(T::one);
 
         for i in 0..4 {
             let grad_i = grad_p1_phys.column(i);

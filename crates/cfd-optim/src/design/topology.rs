@@ -163,6 +163,51 @@ pub enum DesignTopology {
         n_pretri: u8,
     },
 
+    /// Double trifurcation with differential venturi throat counts per channel.
+    ///
+    /// Implements the SDT Millifluidic Device layout shown in the
+    /// `treatment_zone_plate_trifurcation` figure:
+    ///
+    /// ```text
+    /// Inlet → 1st trifurcation → [outer bypass ch 1–3, 7–9] + [center 3 channels]
+    ///         2nd trifurcation (CIF) → center sub-channels 4–6 → sonication zone
+    /// ```
+    ///
+    /// **Channel topology**:
+    /// - Outer channels (RBC bypass, ch 1–3 and ch 7–9): 0 venturi throats —
+    ///   bypass the sonication zone entirely; hemolysis is shear-only.
+    /// - Center channels (CTC-enriched, ch 4–6): `center_throat_count` serial
+    ///   venturi throats in the sonication zone — maximised cavitation dose.
+    ///
+    /// The asymmetry is the physically correct model for the figure:
+    /// RBCs and WBCs are temporarily separated to the periphery to focus
+    /// ultrasound/hydrodynamic cavitation on the CTC-enriched center stream.
+    /// After treatment, all streams re-merge at the outlet junction.
+    ///
+    /// # Physics
+    ///
+    /// Zweifach-Fung routing at the first trifurcation concentrates large/stiff
+    /// cancer cells (MCF-7, ~17.5 µm) into the center arm.  The second
+    /// trifurcation (CIF stage) further enriches the center sub-channels.
+    /// `center_throat_count` serial throats deliver cumulative SDT dose:
+    ///
+    /// ```text
+    /// dose = 1 − (1 − σ_cav_potential)^{center_throat_count}
+    /// ```
+    ///
+    /// FDA compliance requires each individual throat to satisfy σ < σ_crit
+    /// AND the Bernoulli pressure drop at each throat to keep the equivalent
+    /// mechanical index below 1.9 (FDA 510(k) guidance, 2019).
+    DoubleTrifurcationCIFVenturi {
+        /// Number of serial venturi throats on each CTC-enriched center channel.
+        ///
+        /// - `1` → single throat per center channel (baseline SDT).
+        /// - `2–4` → multi-throat for enhanced cumulative cavitation dose.
+        ///
+        /// Outer bypass channels always have 0 throats.
+        center_throat_count: u8,
+    },
+
     // ── Serial venturis ──────────────────────────────────────────────────────
     /// 2 venturi throats in series on the same flow path.
     ///
@@ -180,6 +225,14 @@ pub enum DesignTopology {
     /// (Q/2 per branch).  Ideal for photopheresis-like uniform exposure
     /// with conservative FDA margins.
     BifurcationSerpentine,
+
+    /// Double-level symmetric bifurcation → 4 parallel serpentine arms.
+    ///
+    /// inlet → split_1 → [split_2a → {arm1, arm2}, split_2b → {arm3, arm4}] → merge_1 → outlet.
+    /// Power-of-2 branching gives exact equal flow splits (Q/4 per arm).
+    /// Superior well-plate uniformity vs single-level bifurcation; lower per-arm
+    /// shear than `TrifurcationSerpentine` at the same total flow rate.
+    DoubleBifurcationSerpentine,
 
     /// Symmetric trifurcation → 3 parallel serpentine arms.
     ///
@@ -299,6 +352,13 @@ impl DesignTopology {
     #[must_use]
     pub fn name(self) -> &'static str {
         match self {
+            Self::DoubleTrifurcationCIFVenturi {
+                center_throat_count,
+            } => {
+                // Static name; count encoded in `short()` for candidate IDs.
+                let _ = center_throat_count;
+                "Double Trifurcation CIF + Differential Venturi (Center CTC Treatment)"
+            }
             Self::SingleVenturi => "Single Venturi",
             Self::BifurcationVenturi => "Bifurcation + Venturi",
             Self::TrifurcationVenturi => "Trifurcation + Venturi",
@@ -324,6 +384,7 @@ impl DesignTopology {
             }
             Self::SerialDoubleVenturi => "Serial Double Venturi",
             Self::BifurcationSerpentine => "Bifurcation → 2× Serpentine",
+            Self::DoubleBifurcationSerpentine => "Double Bifurcation [Bi,Bi] → 4× Serpentine",
             Self::TrifurcationSerpentine => "Trifurcation → 3× Serpentine",
             Self::AsymmetricBifurcationSerpentine => "Asymmetric Bifurcation → Serpentine",
             Self::AsymmetricTrifurcationVenturi => {
@@ -337,10 +398,11 @@ impl DesignTopology {
         }
     }
 
-    /// Short (≤3 char) topology code for candidate IDs.
+    /// Short (≤5 char) topology code for candidate IDs.
     #[must_use]
     pub fn short(self) -> &'static str {
         match self {
+            Self::DoubleTrifurcationCIFVenturi { .. } => "DTCV",
             Self::SingleVenturi => "SV",
             Self::BifurcationVenturi => "BV",
             Self::TrifurcationVenturi => "TV",
@@ -360,6 +422,7 @@ impl DesignTopology {
             Self::IncrementalFiltrationTriBiSeparator { .. } => "CIF",
             Self::SerialDoubleVenturi => "S2",
             Self::BifurcationSerpentine => "BS",
+            Self::DoubleBifurcationSerpentine => "D4S",
             Self::TrifurcationSerpentine => "TS",
             Self::AsymmetricBifurcationSerpentine => "AB",
             Self::AsymmetricTrifurcationVenturi => "ATV",
@@ -378,7 +441,8 @@ impl DesignTopology {
     pub fn has_venturi(self) -> bool {
         matches!(
             self,
-            Self::SingleVenturi
+            Self::DoubleTrifurcationCIFVenturi { .. }
+                | Self::SingleVenturi
                 | Self::BifurcationVenturi
                 | Self::TrifurcationVenturi
                 | Self::VenturiSerpentine
@@ -409,7 +473,8 @@ impl DesignTopology {
     #[must_use]
     pub fn has_distribution(self) -> bool {
         match self {
-            Self::BifurcationVenturi
+            Self::DoubleTrifurcationCIFVenturi { .. }
+            | Self::BifurcationVenturi
             | Self::TrifurcationVenturi
             | Self::VenturiSerpentine
             | Self::SerpentineGrid
@@ -428,6 +493,7 @@ impl DesignTopology {
             | Self::AsymmetricTrifurcationVenturi
             | Self::TriBiTriSelectiveVenturi
             | Self::BifurcationSerpentine
+            | Self::DoubleBifurcationSerpentine
             | Self::TrifurcationSerpentine
             | Self::ConstrictionExpansionArray { .. }
             | Self::SpiralSerpentine { .. }
@@ -445,6 +511,7 @@ impl DesignTopology {
             Self::VenturiSerpentine
                 | Self::SerpentineGrid
                 | Self::BifurcationSerpentine
+                | Self::DoubleBifurcationSerpentine
                 | Self::TrifurcationSerpentine
                 | Self::AsymmetricBifurcationSerpentine
                 | Self::ConstrictionExpansionArray { .. }
@@ -457,6 +524,10 @@ impl DesignTopology {
     #[must_use]
     pub fn venturi_count(self) -> usize {
         match self {
+            // 3 center channels × center_throat_count serial throats each
+            Self::DoubleTrifurcationCIFVenturi {
+                center_throat_count,
+            } => 3 * usize::from(center_throat_count),
             Self::SingleVenturi => 1,
             Self::BifurcationVenturi => 2,
             Self::TrifurcationVenturi => 3,
@@ -479,6 +550,7 @@ impl DesignTopology {
             // Serial: 2 in series on one path
             Self::SerialDoubleVenturi => 2,
             Self::BifurcationSerpentine => 0,
+            Self::DoubleBifurcationSerpentine => 0,
             Self::TrifurcationSerpentine => 0,
             Self::AsymmetricBifurcationSerpentine => 0,
             Self::ConstrictionExpansionArray { .. } => 0,
@@ -506,6 +578,8 @@ impl DesignTopology {
     #[must_use]
     pub fn parallel_venturi_count(self) -> usize {
         match self {
+            // 3 center channels are parallel; each has serial throats.
+            Self::DoubleTrifurcationCIFVenturi { .. } => 3,
             Self::SerialDoubleVenturi => 1, // full Q through each stage in series
             _ => self.venturi_count(),
         }
@@ -513,10 +587,14 @@ impl DesignTopology {
 
     /// Number of serial venturi stages on one flow path.
     ///
-    /// `1` for all topologies except `SerialDoubleVenturi` which has `2`.
+    /// `1` for all topologies except `SerialDoubleVenturi` (2) and
+    /// `DoubleTrifurcationCIFVenturi` which uses `center_throat_count`.
     #[must_use]
     pub fn serial_venturi_stages(self) -> usize {
         match self {
+            Self::DoubleTrifurcationCIFVenturi {
+                center_throat_count,
+            } => usize::from(center_throat_count),
             Self::SerialDoubleVenturi => 2,
             _ if self.has_venturi() => 1,
             _ => 0,
@@ -542,6 +620,7 @@ impl DesignTopology {
     pub fn serpentine_arm_count(self) -> usize {
         match self {
             Self::BifurcationSerpentine => 2,
+            Self::DoubleBifurcationSerpentine => 4,
             Self::TrifurcationSerpentine => 3,
             Self::AsymmetricBifurcationSerpentine => 2, // wide + narrow arms
             Self::ParallelMicrochannelArray { n_channels } => n_channels,
@@ -558,6 +637,8 @@ impl DesignTopology {
     #[must_use]
     pub fn terminal_branch_count(self) -> usize {
         match self {
+            // 9 total channels: 3 center (CTC-enriched) + 6 bypass (RBC/WBC)
+            Self::DoubleTrifurcationCIFVenturi { .. } => 9,
             Self::SingleVenturi
             | Self::SerialDoubleVenturi
             | Self::VenturiSerpentine
@@ -570,6 +651,8 @@ impl DesignTopology {
             | Self::AsymmetricBifurcationSerpentine
             | Self::CellSeparationVenturi
             | Self::WbcCancerSeparationVenturi => 2,
+
+            Self::DoubleBifurcationSerpentine => 4,
 
             Self::TrifurcationVenturi
             | Self::TrifurcationSerpentine
@@ -610,6 +693,9 @@ impl DesignTopology {
     #[must_use]
     pub fn nominal_well_coverage(self) -> f64 {
         match self {
+            // Center 3 channels traverse the full sonication zone (all 36 wells);
+            // outer 6 bypass channels are routed around the zone.
+            Self::DoubleTrifurcationCIFVenturi { .. } => 1.0,
             // Single-point cavitation: covers ~1 well
             Self::SingleVenturi | Self::SerialDoubleVenturi => 1.0 / TREATMENT_WELL_COUNT as f64,
             // 2 venturis spanning 2 half-plate zones → full 6×6
@@ -620,6 +706,7 @@ impl DesignTopology {
             Self::VenturiSerpentine
             | Self::SerpentineGrid
             | Self::BifurcationSerpentine
+            | Self::DoubleBifurcationSerpentine
             | Self::TrifurcationSerpentine
             | Self::AsymmetricBifurcationSerpentine => 1.0,
             // Center channel covers cancer cell treatment wells (≈ half the plate)

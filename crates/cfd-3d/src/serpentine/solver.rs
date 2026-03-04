@@ -207,14 +207,25 @@ impl<
         let n_elements = problem.mesh.cell_count();
         let mut element_viscosities =
             vec![fluid_props.dynamic_viscosity.to_f64().unwrap_or(0.0); n_elements];
+        let mut next_viscosities = Vec::with_capacity(n_elements);
 
         // 4. Picard Iteration Loop
         let fem_config = FemConfig::<f64>::default();
         let mut solver = FemSolver::new(fem_config);
-        let mut last_solution = None;
+        let mut last_solution: Option<crate::fem::StokesFlowSolution<f64>> = None;
+        let mut anderson_accelerator = cfd_math::nonlinear_solver::AndersonAccelerator::<f64>::new(
+            cfd_math::nonlinear_solver::AndersonConfig {
+                history_depth: 5,
+                relaxation: 1.0_f64,
+                drop_tolerance: 1e-12_f64,
+                method: cfd_math::nonlinear_solver::AndersonMethod::QR,
+            },
+        );
 
         for iter in 0..self.config.max_nonlinear_iterations {
-            problem.element_viscosities = Some(element_viscosities.clone());
+            if problem.element_viscosities.is_none() {
+                problem.element_viscosities = Some(element_viscosities);
+            }
             let fem_result = solver.solve(&problem, last_solution.as_ref());
 
             // If the linear solver fails (e.g. GMRES stagnation on the
@@ -228,16 +239,20 @@ impl<
                 }
             };
 
-            // Apply Picard relaxation (damping)
+            // Apply Anderson Acceleration
             let updated_solution = if let Some(ref prev) = last_solution {
-                let omega = 0.5_f64;
-                fem_solution.blend(prev, omega)
+                let acc_velocity =
+                    anderson_accelerator.compute_next(&prev.velocity, &fem_solution.velocity);
+                let mut acc_sol = fem_solution;
+                acc_sol.velocity = acc_velocity;
+                acc_sol
             } else {
                 fem_solution
             };
 
             let mut max_change_f64 = 0.0_f64;
-            let mut new_viscosities = Vec::with_capacity(n_elements);
+            next_viscosities.clear();
+            let current_viscosities = problem.element_viscosities.as_ref().unwrap();
 
             for (i, cell) in problem.mesh.cells.iter().enumerate() {
                 let shear_rate_f64 =
@@ -250,14 +265,15 @@ impl<
                 )?;
                 let new_visc = new_visc_t.to_f64().unwrap_or(0.0);
 
-                let change = Float::abs(new_visc - element_viscosities[i]) / element_viscosities[i];
+                let change = Float::abs(new_visc - current_viscosities[i]) / current_viscosities[i];
                 if change > max_change_f64 {
                     max_change_f64 = change;
                 }
-                new_viscosities.push(new_visc);
+                next_viscosities.push(new_visc);
             }
 
-            element_viscosities = new_viscosities;
+            element_viscosities = problem.element_viscosities.take().unwrap();
+            std::mem::swap(&mut element_viscosities, &mut next_viscosities);
             last_solution = Some(updated_solution);
 
             println!("Picard iteration {iter}: visc_change={max_change_f64:?}");

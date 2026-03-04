@@ -29,7 +29,9 @@ use std::io::Read;
 use std::path::PathBuf;
 
 use cfd_mesh::application::channel::sweep::SweepMesher;
-use cfd_mesh::application::csg::boolean::{csg_boolean_indexed, csg_boolean_indexed_tolerant, BooleanOp};
+use cfd_mesh::application::csg::boolean::{
+    csg_boolean_indexed, csg_boolean_indexed_tolerant, BooleanOp,
+};
 use cfd_mesh::domain::core::index::RegionId;
 use cfd_mesh::domain::core::scalar::Point3r;
 use cfd_mesh::domain::geometry::primitives::{Cube, PrimitiveMesh};
@@ -97,7 +99,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (bw, bd) = interchange.box_dims_mm;
     let bw = bw as f64;
     let bd = bd as f64;
-    let half_h = substrate_height / 2.0;
+    let _half_h = substrate_height / 2.0;
 
     // Offset slightly so that the X=0 and X=100 boundaries of the substrate
     // don't perfectly hit the sweep segment boundaries causing CSG degeneracies
@@ -206,11 +208,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Repair orientation and clean up floating artifact faces from overlapping Union
     println!("  → post-processing fluid mesh repairs …");
-    println!("      volume before repair: {}", all_channels.signed_volume());
+    println!(
+        "      volume before repair: {}",
+        all_channels.signed_volume()
+    );
     all_channels.orient_outward();
     all_channels.retain_largest_component();
     all_channels.rebuild_edges();
-    println!("      volume after repair: {}", all_channels.signed_volume());
+    println!(
+        "      volume after repair: {}",
+        all_channels.signed_volume()
+    );
 
     // Single difference: substrate minus the consolidated watertight channel mesh.
     println!("  → applying boolean difference (substrate − channels)");
@@ -230,8 +238,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let solid_vol = final_solid.signed_volume();
     let channels_vol = all_channels.signed_volume();
 
-    println!("  → [DEBUG] final_solid AABB: {:?}", final_solid.bounding_box());
-    println!("  → [DEBUG] all_channels AABB: {:?}", all_channels.bounding_box());
+    println!(
+        "  → [DEBUG] final_solid AABB: {:?}",
+        final_solid.bounding_box()
+    );
+    println!(
+        "  → [DEBUG] all_channels AABB: {:?}",
+        all_channels.bounding_box()
+    );
 
     println!(
         "✅ Solid: {:>7} vertices / {:>7} faces, vol = {:>10.3} mm³",

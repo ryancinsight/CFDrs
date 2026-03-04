@@ -267,6 +267,24 @@ pub struct SdtMetrics {
     #[serde(default)]
     pub clotting_flow_compliant_10ml_s: bool,
 
+    /// True when the treatment zone uses venturi throats (hydrodynamic SDT).
+    #[serde(default)]
+    pub venturi_treatment_enabled: bool,
+
+    /// Human-readable treatment-zone actuation mode.
+    ///
+    /// Values: `"UltrasoundOnly"` or `"VenturiThroats"`.
+    #[serde(default)]
+    pub treatment_zone_mode: String,
+
+    /// Total active venturi throat count across the device.
+    #[serde(default)]
+    pub active_venturi_throat_count: usize,
+
+    /// Number of serial venturi throats per treatment path.
+    #[serde(default)]
+    pub serial_venturi_stages_per_path: usize,
+
     /// Fraction of total inlet flow that traverses venturi throat sections.
     ///
     /// Usually `1.0`; less than `1.0` for selective-separation topologies with

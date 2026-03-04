@@ -155,7 +155,7 @@ pub fn robustness_sweep(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::design::{CrossSectionShape, DesignCandidate, DesignTopology};
+    use crate::design::{CrossSectionShape, DesignCandidate, DesignTopology, TreatmentZoneMode};
     use crate::scoring::{OptimMode, SdtWeights};
 
     /// Minimal candidate with a venturi — used to verify perturbation logic.
@@ -181,6 +181,8 @@ mod tests {
             asymmetric_narrow_frac: 0.5,
             trifurcation_left_frac: 1.0 / 3.0,
             cross_section_shape: CrossSectionShape::Rectangular,
+            treatment_zone_mode: TreatmentZoneMode::VenturiThroats,
+            centerline_venturi_throat_count: 1,
         }
     }
 

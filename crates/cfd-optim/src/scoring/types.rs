@@ -257,9 +257,9 @@ impl Default for SdtWeights {
             cav_hemolysis: 0.20,
             cav_coverage: 0.20,
 
-            exp_uniformity: 0.0,
-            exp_coverage: 0.55,
-            exp_residence: 0.45,
+            exp_uniformity: 0.20,
+            exp_coverage: 0.45,
+            exp_residence: 0.35,
 
             sep_efficiency: 0.50,
             sep_cavitation: 0.30,

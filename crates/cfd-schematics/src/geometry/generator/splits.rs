@@ -27,12 +27,23 @@ impl GeometryGenerator {
             .map(|(p1, p2)| f64::midpoint(p1.1, p2.1))
             .collect();
 
+        // Apply Gaussian width modulation — channels closer to the plate
+        // y-center are wider, ensuring symmetric y-axis width distribution.
+        let modulated_first_widths: Vec<f64> = first_half_lines
+            .iter()
+            .zip(first_half_widths.iter())
+            .map(|((p1, p2), &w)| {
+                let y_mid = f64::midpoint(p1.1, p2.1);
+                w * self.gaussian_width_scale(y_mid)
+            })
+            .collect();
+
         for (i, (p1, p2)) in first_half_lines.iter().enumerate() {
             self.add_channel_with_neighbors(
                 *p1,
                 *p2,
                 &y_coords_for_amplitude,
-                Some(first_half_widths[i]),
+                Some(modulated_first_widths[i]),
             );
         }
 
@@ -274,6 +285,31 @@ impl GeometryGenerator {
         )
     }
 
+    /// Gaussian scale factor for channel width at a given y-position.
+    ///
+    /// Returns a value in `[0.5, 1.0]` where `1.0` is at the plate y-center
+    /// and `0.5` at the bounding-box edges.  The Gaussian envelope produces
+    /// a symmetric width distribution about the plate midline.
+    ///
+    /// # Theorem
+    ///
+    /// G(μ + Δ) = G(μ − Δ) ∀ Δ ∈ ℝ, guaranteeing bilateral symmetry.
+    ///
+    /// **Proof sketch**: G(y) = exp(−(y − μ)² / 2σ²) depends only on |y − μ|.  ∎
+    fn gaussian_width_scale(&self, y: f64) -> f64 {
+        let (_length, height) = self.box_dims;
+        let y_center = height / 2.0;
+        let effective_height = (-2.0f64).mul_add(self.config.wall_clearance, height);
+        // σ = effective_height / 6  →  ~28% reduction at single-trifurcation
+        // peripherals, ~50% at plate edges.  Provides visible but physically
+        // reasonable differentiation across branching topologies.
+        let sigma = effective_height / 6.0;
+        let min_scale = 0.5;
+        let dy = y - y_center;
+        let gaussian = (-dy * dy / (2.0 * sigma * sigma)).exp();
+        min_scale + (1.0 - min_scale) * gaussian
+    }
+
     /// Compute edge padding inside a split range to keep branches away from
     /// local boundaries and preserve room for curved channels.
     fn calculate_edge_padding(&self, y_range: f64) -> f64 {
@@ -383,13 +419,22 @@ impl GeometryGenerator {
             y_coords_for_amplitude.push(f64::midpoint(p1.1, p2.1));
         }
 
-        // Add all the second half channels
+        // Apply Gaussian width modulation (mirrors first-half distribution)
+        let modulated_widths: Vec<f64> = lines
+            .iter()
+            .zip(line_widths.iter())
+            .map(|((p1, p2), &w)| {
+                let y_mid = f64::midpoint(p1.1, p2.1);
+                w * self.gaussian_width_scale(y_mid)
+            })
+            .collect();
+
         for (i, (p1, p2)) in lines.iter().enumerate() {
             self.add_channel_with_neighbors(
                 *p1,
                 *p2,
                 &y_coords_for_amplitude,
-                Some(line_widths[i]),
+                Some(modulated_widths[i]),
             );
         }
     }

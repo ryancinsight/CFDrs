@@ -39,29 +39,26 @@ anyhow.workspace = true
 proptest.workspace = true
 
 [[example]]
-name = "sdt_therapy"
-path = "examples/sdt_therapy.rs"
+name = "milestone12_report"
+path = "examples/milestone12_report.rs"
 
 [[example]]
-name = "sdt_scenario_audit"
-path = "examples/sdt_scenario_audit.rs"
+name = "milestone12_analysis"
+path = "examples/milestone12_analysis.rs"
 
 [[example]]
-name = "sdt_leukapheresis_infeasibility_audit"
-path = "examples/sdt_leukapheresis_infeasibility_audit.rs"
-
-[[example]]
-name = "optim_pipeline"
-path = "examples/optim_pipeline.rs"
-
-[[example]]
-name = "m12_two_concept_selection"
-path = "examples/m12_two_concept_selection.rs"
+name = "audit"
+path = "examples/audit.rs"
 
 [[example]]
 name = "cascade_2d_3d_validation"
 path = "examples/cascade_2d_3d_validation.rs"
 
 [[example]]
-name = "regen_report_schematics"
-path = "examples/regen_report_schematics.rs"
+name = "sdt_cif_separation"
+path = "examples/sdt_cif_separation.rs"
+
+[[example]]
+name = "sdt_cif_mesh"
+path = "examples/sdt_cif_mesh.rs"
+required-features = ["mesh-export"]

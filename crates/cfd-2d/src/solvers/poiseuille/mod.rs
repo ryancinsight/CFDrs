@@ -212,10 +212,10 @@ impl<T: RealField + FromPrimitive + Float + Copy> PoiseuilleFlow2D<T> {
     /// ```
     pub fn new(config: PoiseuilleConfig<T>, blood_model: BloodModel<T>) -> Self {
         let ny = config.ny;
-        let dy = config.height / T::from_usize(ny - 1).unwrap();
+        let dy = config.height / T::from_usize(ny - 1).unwrap_or_else(T::one);
 
         // Create grid points
-        let y_coords: Vec<T> = (0..ny).map(|j| T::from_usize(j).unwrap() * dy).collect();
+        let y_coords: Vec<T> = (0..ny).map(|j| T::from_usize(j).unwrap_or_else(T::one) * dy).collect();
 
         // Initialize fields
         let velocity = vec![T::zero(); ny];
@@ -294,7 +294,7 @@ impl<T: RealField + FromPrimitive + Float + Copy> PoiseuilleFlow2D<T> {
                 .copied()
                 .unwrap_or(T::zero())
                 .to_f64()
-                .unwrap(),
+                .unwrap_or(f64::NAN),
         })
     }
 

@@ -89,6 +89,25 @@ pub fn triangle_aabb(face: &FaceData, pool: &VertexPool) -> Aabb {
 ///
 /// # Complexity
 /// `O((n + m) log(min(n,m)))` where n = `faces_a.len()`, m = `faces_b.len()`.
+///
+/// ## Theorem: AABB Precompute Equivalence
+/// Let `aabb_i` be `triangle_aabb(faces[i], pool)`. Querying with `aabb_i`
+/// computed on-demand or read from a precomputed `Vec<Aabb>` yields identical
+/// overlap decisions because each query references the same deterministic AABB
+/// value for index `i`. Therefore pair correctness is unchanged by precompute. ∎
+///
+/// ## Theorem: Deterministic Bucketed Emission Equivalence
+/// Emitting candidate pairs via:
+/// 1) sorted per-query hit lists (when iterating `face_a`), or
+/// 2) `face_a` buckets populated while iterating `face_b` in ascending order,
+///    yields the same candidate pair set as global sort of all discovered pairs.
+///
+/// **Proof sketch**: both strategies emit exactly the pairs discovered by BVH
+/// overlap queries; only ordering changes. Strategy (1) emits lexicographically
+/// by `(face_a, face_b)` directly. Strategy (2) appends `face_b` in ascending
+/// order to each fixed `face_a` bucket and then emits buckets in ascending
+/// `face_a`, producing the same lexicographic order as a global sort. Since no
+/// discovered pair is removed or altered, set equivalence holds. ∎
 #[must_use]
 pub fn broad_phase_pairs(
     faces_a: &[FaceData],
@@ -100,19 +119,23 @@ pub fn broad_phase_pairs(
         return Vec::new();
     }
 
-    let mut pairs = Vec::new();
+    // Precompute both AABB streams once. This avoids repeated triangle AABB
+    // recomputation in query loops and improves cache locality.
+    let aabbs_a: Vec<Aabb> = faces_a.iter().map(|f| triangle_aabb(f, pool_a)).collect();
+    let aabbs_b: Vec<Aabb> = faces_b.iter().map(|f| triangle_aabb(f, pool_b)).collect();
+
+    let mut pairs = Vec::with_capacity(usize::midpoint(faces_a.len(), faces_b.len()));
 
     if faces_b.len() <= faces_a.len() {
         // Build BVH on B and query A.
-        let aabbs_b: Vec<Aabb> = faces_b.iter().map(|f| triangle_aabb(f, pool_b)).collect();
         with_bvh(
             &aabbs_b,
             |tree: crate::infrastructure::spatial::bvh::BvhTree<'_, '_>, token| {
                 let mut hits = Vec::new();
-                for (i, fa) in faces_a.iter().enumerate() {
-                    let aabb_a = triangle_aabb(fa, pool_a);
+                for (i, aabb_a) in aabbs_a.iter().enumerate() {
                     hits.clear();
-                    tree.query_overlapping(&aabb_a, &token, &mut hits);
+                    tree.query_overlapping(aabb_a, &token, &mut hits);
+                    hits.sort_unstable();
                     for &j in &hits {
                         pairs.push(CandidatePair {
                             face_a: i,
@@ -123,30 +146,32 @@ pub fn broad_phase_pairs(
             },
         );
     } else {
-        // Build BVH on A and query B, then remap to (face_a, face_b).
-        let aabbs_a: Vec<Aabb> = faces_a.iter().map(|f| triangle_aabb(f, pool_a)).collect();
+        // Build BVH on A and query B.
+        // Emit lexicographically by buffering `face_b` indices per `face_a`.
+        let mut b_hits_per_a: Vec<Vec<usize>> = vec![Vec::new(); faces_a.len()];
         with_bvh(
             &aabbs_a,
             |tree: crate::infrastructure::spatial::bvh::BvhTree<'_, '_>, token| {
                 let mut hits = Vec::new();
-                for (j, fb) in faces_b.iter().enumerate() {
-                    let aabb_b = triangle_aabb(fb, pool_b);
+                for (j, aabb_b) in aabbs_b.iter().enumerate() {
                     hits.clear();
-                    tree.query_overlapping(&aabb_b, &token, &mut hits);
+                    tree.query_overlapping(aabb_b, &token, &mut hits);
                     for &i in &hits {
-                        pairs.push(CandidatePair {
-                            face_a: i,
-                            face_b: j,
-                        });
+                        b_hits_per_a[i].push(j);
                     }
                 }
             },
         );
+        for (i, js) in b_hits_per_a.iter().enumerate() {
+            for &j in js {
+                pairs.push(CandidatePair {
+                    face_a: i,
+                    face_b: j,
+                });
+            }
+        }
     }
 
-    // Preserve deterministic processing order for downstream arrangement stages.
-    // The set of pairs is unchanged; we sort only by indices.
-    pairs.sort_unstable_by_key(|p| (p.face_a, p.face_b));
     pairs
 }
 
@@ -251,6 +276,25 @@ mod tests {
         (pool, faces)
     }
 
+    fn brute_force_pairs(
+        faces_a: &[FaceData],
+        pool_a: &VertexPool,
+        faces_b: &[FaceData],
+        pool_b: &VertexPool,
+    ) -> BTreeSet<(usize, usize)> {
+        let aabbs_a: Vec<Aabb> = faces_a.iter().map(|f| triangle_aabb(f, pool_a)).collect();
+        let aabbs_b: Vec<Aabb> = faces_b.iter().map(|f| triangle_aabb(f, pool_b)).collect();
+        let mut out = BTreeSet::new();
+        for (i, a) in aabbs_a.iter().enumerate() {
+            for (j, b) in aabbs_b.iter().enumerate() {
+                if a.intersects(b) {
+                    out.insert((i, j));
+                }
+            }
+        }
+        out
+    }
+
     proptest! {
         #[test]
         fn adaptive_side_selection_is_symmetric(
@@ -269,6 +313,38 @@ mod tests {
                 ba.into_iter().map(|p| (p.face_b, p.face_a)).collect();
 
             prop_assert_eq!(set_ab, set_ba_flipped);
+        }
+
+        #[test]
+        fn broad_phase_matches_bruteforce_aabb_overlap(
+            a_raw in prop::collection::vec(prop::array::uniform9(-20_i16..20_i16), 0..14),
+            b_raw in prop::collection::vec(prop::array::uniform9(-20_i16..20_i16), 0..14),
+        ) {
+            let (pool_a, faces_a) = make_faces_from_raw(&a_raw);
+            let (pool_b, faces_b) = make_faces_from_raw(&b_raw);
+
+            let got: BTreeSet<(usize, usize)> = broad_phase_pairs(&faces_a, &pool_a, &faces_b, &pool_b)
+                .into_iter()
+                .map(|p| (p.face_a, p.face_b))
+                .collect();
+
+            let expected = brute_force_pairs(&faces_a, &pool_a, &faces_b, &pool_b);
+            prop_assert_eq!(got, expected);
+        }
+
+        #[test]
+        fn broad_phase_output_is_lexicographically_sorted(
+            a_raw in prop::collection::vec(prop::array::uniform9(-20_i16..20_i16), 0..14),
+            b_raw in prop::collection::vec(prop::array::uniform9(-20_i16..20_i16), 0..14),
+        ) {
+            let (pool_a, faces_a) = make_faces_from_raw(&a_raw);
+            let (pool_b, faces_b) = make_faces_from_raw(&b_raw);
+            let out = broad_phase_pairs(&faces_a, &pool_a, &faces_b, &pool_b);
+            for w in out.windows(2) {
+                let lhs = (w[0].face_a, w[0].face_b);
+                let rhs = (w[1].face_a, w[1].face_b);
+                prop_assert!(lhs <= rhs);
+            }
         }
     }
 }

@@ -70,9 +70,9 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> VenturiSolver2D<
         let ly = geometry.w_inlet;
         let two_pi = T::from_f64(2.0 * std::f64::consts::PI).unwrap_or_else(num_traits::Zero::zero);
         let mut y_faces = Vec::with_capacity(ny + 1);
-        let ny_t = T::from_usize(ny).unwrap();
+        let ny_t = T::from_usize(ny).unwrap_or_else(T::one);
         for j in 0..=ny {
-            let eta = T::from_usize(j).unwrap() / ny_t;
+            let eta = T::from_usize(j).unwrap_or_else(T::one) / ny_t;
             let s = eta + beta * Float::sin(two_pi * eta) / two_pi;
             y_faces.push(ly * s);
         }
@@ -147,7 +147,7 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> VenturiSolver2D<
             }
         }
         if count_inlet > 0 {
-            u_inlet_sim /= T::from_usize(count_inlet).unwrap();
+            u_inlet_sim /= T::from_usize(count_inlet).unwrap_or_else(T::one);
         }
 
         // Find throat section (max velocity)
@@ -172,7 +172,7 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> VenturiSolver2D<
             }
         }
         if count_outlet > 0 {
-            p_outlet /= T::from_usize(count_outlet).unwrap();
+            p_outlet /= T::from_usize(count_outlet).unwrap_or_else(T::one);
         }
 
         let p_inlet = self.solver.field.p[0][ny / 2]; // Reference inlet pressure

@@ -70,12 +70,13 @@ impl WallFunctions {
     /// # Returns
     /// Dimensionless velocity u⁺ (≥ 0)
     pub fn u_plus<T: RealField + Copy + FromPrimitive + num_traits::Float>(y_plus: T) -> T {
-        let y_plus_tr = <T as FromPrimitive>::from_f64(WALL_Y_PLUS_TRANSITION).unwrap_or_else(T::one);
+        let y_plus_tr =
+            <T as FromPrimitive>::from_f64(WALL_Y_PLUS_TRANSITION).unwrap_or_else(T::one);
         if y_plus < y_plus_tr {
             y_plus // viscous sublayer
         } else {
             let kappa = <T as FromPrimitive>::from_f64(WALL_KAPPA).unwrap_or_else(T::one);
-            let b     = <T as FromPrimitive>::from_f64(WALL_B    ).unwrap_or_else(T::zero);
+            let b = <T as FromPrimitive>::from_f64(WALL_B).unwrap_or_else(T::zero);
             num_traits::Float::ln(y_plus) / kappa + b
         }
     }
@@ -123,7 +124,9 @@ impl WallFunctions {
             u_tau = u_tau - half * du_tau;
             u_tau = num_traits::Float::max(u_tau, eps);
 
-            if num_traits::Float::abs(du_tau) < eps * u_tau { break; }
+            if num_traits::Float::abs(du_tau) < eps * u_tau {
+                break;
+            }
         }
         u_tau
     }
@@ -150,8 +153,10 @@ impl WallFunctions {
     ///
     /// Wall functions are **not** appropriate in the viscous sublayer (y⁺ < 11.53)
     /// or the outer layer (y⁺ > 300) where the log-law breaks down.
-    pub fn in_log_law_region<T: RealField + Copy + FromPrimitive + num_traits::Float>(y_plus: T) -> bool {
-        let y_tr  = <T as FromPrimitive>::from_f64(WALL_Y_PLUS_TRANSITION).unwrap_or_else(T::one);
+    pub fn in_log_law_region<T: RealField + Copy + FromPrimitive + num_traits::Float>(
+        y_plus: T,
+    ) -> bool {
+        let y_tr = <T as FromPrimitive>::from_f64(WALL_Y_PLUS_TRANSITION).unwrap_or_else(T::one);
         let y_max = <T as FromPrimitive>::from_f64(300.0).unwrap_or_else(T::one);
         y_plus >= y_tr && y_plus <= y_max
     }
@@ -165,7 +170,10 @@ mod tests {
     fn test_viscous_sublayer() {
         // At y⁺ = 5 (viscous sublayer): u⁺ = y⁺ = 5.0
         let u_plus: f64 = WallFunctions::u_plus(5.0_f64);
-        assert!((u_plus - 5.0).abs() < 1e-10, "Viscous sublayer: u⁺={u_plus:.4}, expected 5.0");
+        assert!(
+            (u_plus - 5.0).abs() < 1e-10,
+            "Viscous sublayer: u⁺={u_plus:.4}, expected 5.0"
+        );
     }
 
     #[test]
@@ -173,21 +181,26 @@ mod tests {
         // At y⁺ = 100: u⁺ = (1/0.41) ln(100) + 5.2 ≈ 18.44
         let u_plus: f64 = WallFunctions::u_plus(100.0_f64);
         let expected = f64::ln(100.0) / WALL_KAPPA + WALL_B;
-        assert!((u_plus - expected).abs() < 1e-10, "Log law: u⁺={u_plus:.4}, expected {expected:.4}");
+        assert!(
+            (u_plus - expected).abs() < 1e-10,
+            "Log law: u⁺={u_plus:.4}, expected {expected:.4}"
+        );
     }
 
     #[test]
     fn test_friction_velocity_round_trip() {
         // u_τ = 0.05 m/s, y = 0.001 m, ν = 1e-6 m²/s
         let nu = 1e-6_f64;
-        let y  = 1e-3_f64;
+        let y = 1e-3_f64;
         let u_tau_true = 0.05_f64;
         let y_plus_true = WallFunctions::y_plus(y, u_tau_true, nu);
         let u_plus_true = WallFunctions::u_plus(y_plus_true);
         let u_wall = u_tau_true * u_plus_true;
 
         let u_tau_est = WallFunctions::friction_velocity(u_wall, y, nu);
-        assert!((u_tau_est - u_tau_true).abs() / u_tau_true < 1e-4,
-            "u_τ round-trip: estimated={u_tau_est:.6}, true={u_tau_true}");
+        assert!(
+            (u_tau_est - u_tau_true).abs() / u_tau_true < 1e-4,
+            "u_τ round-trip: estimated={u_tau_est:.6}, true={u_tau_true}"
+        );
     }
 }

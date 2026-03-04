@@ -1,6 +1,6 @@
 //! Parametric sweep and random sampling of `DesignCandidate` objects.
 
-use super::candidate::{CrossSectionShape, DesignCandidate};
+use super::candidate::{CrossSectionShape, DesignCandidate, TreatmentZoneMode};
 use super::topology::DesignTopology;
 use crate::constraints::{
     BIFURCATION_ARM_RATIOS, CHANNEL_HEIGHTS_M, CHANNEL_HEIGHT_M, CHANNEL_WIDTHS_M, FLOW_RATES_M3_S,
@@ -9,6 +9,15 @@ use crate::constraints::{
     TREATMENT_WIDTH_MM, TRIFURCATION_CENTER_FRACS, TRIFURCATION_LEFT_FRACS, VENTURI_INLET_DIAM_M,
 };
 use rand::Rng;
+
+#[inline]
+fn treatment_mode_for(topology: DesignTopology) -> TreatmentZoneMode {
+    if topology.has_venturi() {
+        TreatmentZoneMode::VenturiThroats
+    } else {
+        TreatmentZoneMode::UltrasoundOnly
+    }
+}
 
 /// Build the complete parametric sweep over all topology families.
 ///
@@ -34,6 +43,7 @@ pub fn build_candidate_space() -> Vec<DesignCandidate> {
         DesignTopology::BifurcationTrifurcationVenturi,
         DesignTopology::SerialDoubleVenturi,
         DesignTopology::BifurcationSerpentine,
+        DesignTopology::DoubleBifurcationSerpentine,
         DesignTopology::TrifurcationSerpentine,
     ];
 
@@ -42,7 +52,10 @@ pub fn build_candidate_space() -> Vec<DesignCandidate> {
     // throat_length_factor = 1 sentinel for topologies without venturi
     let tl_factor_none: [f64; 1] = [2.0];
 
-    let mut candidates = Vec::with_capacity(2048);
+    // Pre-allocate for ~1.8M+ candidates across all topology blocks.
+    // Avoids >10 doublings from the default small capacity; Rust will realloc
+    // once more if the true count slightly exceeds this estimate.
+    let mut candidates = Vec::with_capacity(2_000_000);
     let mut idx: u32 = 0;
 
     for &topology in &topologies {
@@ -115,6 +128,8 @@ pub fn build_candidate_space() -> Vec<DesignCandidate> {
                                         asymmetric_narrow_frac: 0.5,
                                         trifurcation_left_frac: 1.0 / 3.0,
                                         cross_section_shape: CrossSectionShape::Rectangular,
+                                        treatment_zone_mode: treatment_mode_for(topology),
+                                        centerline_venturi_throat_count: 1,
                                     });
                                 }
                             }
@@ -166,6 +181,10 @@ pub fn build_candidate_space() -> Vec<DesignCandidate> {
                                 asymmetric_narrow_frac: narrow_frac,
                                 trifurcation_left_frac: 1.0 / 3.0,
                                 cross_section_shape: CrossSectionShape::Rectangular,
+                                treatment_zone_mode: treatment_mode_for(
+                                    DesignTopology::AsymmetricBifurcationSerpentine,
+                                ),
+                                centerline_venturi_throat_count: 1,
                             });
                         }
                     }
@@ -234,6 +253,8 @@ pub fn build_candidate_space() -> Vec<DesignCandidate> {
                         asymmetric_narrow_frac: 0.5,
                         trifurcation_left_frac: 1.0 / 3.0,
                         cross_section_shape: CrossSectionShape::Rectangular,
+                        treatment_zone_mode: treatment_mode_for(topology),
+                        centerline_venturi_throat_count: 1,
                     });
                 }
             }
@@ -311,6 +332,10 @@ pub fn build_candidate_space() -> Vec<DesignCandidate> {
                                 asymmetric_narrow_frac: 0.5,
                                 trifurcation_left_frac: 1.0 / 3.0,
                                 cross_section_shape: CrossSectionShape::Rectangular,
+                                treatment_zone_mode: treatment_mode_for(
+                                    DesignTopology::TrifurcationBifurcationVenturi,
+                                ),
+                                centerline_venturi_throat_count: 1,
                             });
                         }
                     }
@@ -370,6 +395,8 @@ pub fn build_candidate_space() -> Vec<DesignCandidate> {
                                         asymmetric_narrow_frac: 0.5,
                                         trifurcation_left_frac: 1.0 / 3.0,
                                         cross_section_shape: CrossSectionShape::Rectangular,
+                                        treatment_zone_mode: treatment_mode_for(topology),
+                                        centerline_venturi_throat_count: 1,
                                     });
                                 }
                             }
@@ -380,11 +407,13 @@ pub fn build_candidate_space() -> Vec<DesignCandidate> {
         }
     }
 
-    // Dedicated CCT/CIF deep sweep (bounded runtime grid).
-    const CCT_CIF_FLOWS: [f64; 3] = [1.667e-6, 2.500e-6, 3.333e-6];
-    const CCT_CIF_GAUGES: [f64; 3] = [100_000.0, 200_000.0, 300_000.0];
-    const CCT_CIF_THROATS: [f64; 3] = [50e-6, 75e-6, 100e-6];
-    const CCT_CIF_WIDTHS: [f64; 3] = [2.0e-3, 4.0e-3, 6.0e-3];
+    // Dedicated CCT/CIF deep sweep (targeted strict-core expansion).
+    const CCT_CIF_FLOWS: [f64; 4] = [1.333e-6, 1.667e-6, 2.000e-6, 3.333e-6];
+    const CCT_CIF_GAUGES: [f64; 4] = [25_000.0, 50_000.0, 100_000.0, 200_000.0];
+    const CCT_CIF_THROATS: [f64; 6] = [35e-6, 45e-6, 55e-6, 75e-6, 100e-6, 120e-6];
+    const CCT_CIF_TL_FACTORS: [f64; 3] = [2.0, 3.0, 5.0];
+    const CCT_CIF_WIDTHS: [f64; 3] = [4.0e-3, 6.0e-3, 8.0e-3];
+    const CCT_CIF_HEIGHTS: [f64; 3] = [1.0e-3, 1.5e-3, 2.5e-3];
     const CIF_CENTER_FRACS: [f64; 3] = [0.33, 0.45, 0.55];
     const CIF_BI_TREAT_FRACS: [f64; 3] = [0.60, 0.68, 0.76];
 
@@ -395,45 +424,55 @@ pub fn build_candidate_space() -> Vec<DesignCandidate> {
             for &q in &CCT_CIF_FLOWS {
                 for &gauge in &CCT_CIF_GAUGES {
                     for &d_throat in &CCT_CIF_THROATS {
-                        for &tl_factor in &THROAT_LENGTH_FACTORS {
+                        for &tl_factor in &CCT_CIF_TL_FACTORS {
                             for &w_ch in &CCT_CIF_WIDTHS {
-                                idx += 1;
-                                let throat_len = d_throat * tl_factor;
-                                let id = format!(
-                                    "{:04}-CCT-lv{}-cf{}-q{:.0}ml-g{:.0}kPa-dt{:.0}um-tl{}-w{:.0}um",
-                                    idx,
-                                    n_levels,
-                                    cf_tag,
-                                    q * 6e7,
-                                    gauge * 1e-3,
-                                    d_throat * 1e6,
-                                    tl_factor as u32,
-                                    w_ch * 1e6,
-                                );
-                                candidates.push(DesignCandidate {
-                                    id,
-                                    topology: DesignTopology::CascadeCenterTrifurcationSeparator {
+                                for &h_ch in &CCT_CIF_HEIGHTS {
+                                    idx += 1;
+                                    let throat_len = d_throat * tl_factor;
+                                    let id = format!(
+                                        "{:04}-CCT-lv{}-cf{}-q{:.0}ml-g{:.0}kPa-dt{:.0}um-tl{}-w{:.0}um-h{}",
+                                        idx,
                                         n_levels,
-                                    },
-                                    flow_rate_m3_s: q,
-                                    inlet_gauge_pa: gauge,
-                                    throat_diameter_m: d_throat,
-                                    inlet_diameter_m: VENTURI_INLET_DIAM_M,
-                                    throat_length_m: throat_len,
-                                    channel_width_m: w_ch,
-                                    channel_height_m: CHANNEL_HEIGHT_M,
-                                    serpentine_segments: 1,
-                                    segment_length_m: TREATMENT_WIDTH_MM * 1e-3,
-                                    bend_radius_m: SERPENTINE_BEND_RADIUS_M,
-                                    feed_hematocrit: 0.45,
-                                    trifurcation_center_frac: center_frac,
-                                    cif_pretri_center_frac: 1.0 / 3.0,
-                                    cif_terminal_tri_center_frac: 1.0 / 3.0,
-                                    cif_terminal_bi_treat_frac: 0.68,
-                                    asymmetric_narrow_frac: 0.5,
-                                    trifurcation_left_frac: 1.0 / 3.0,
-                                    cross_section_shape: CrossSectionShape::Rectangular,
-                                });
+                                        cf_tag,
+                                        q * 6e7,
+                                        gauge * 1e-3,
+                                        d_throat * 1e6,
+                                        tl_factor as u32,
+                                        w_ch * 1e6,
+                                        (h_ch * 1e6) as u32,
+                                    );
+                                    candidates.push(DesignCandidate {
+                                        id,
+                                        topology:
+                                            DesignTopology::CascadeCenterTrifurcationSeparator {
+                                                n_levels,
+                                            },
+                                        flow_rate_m3_s: q,
+                                        inlet_gauge_pa: gauge,
+                                        throat_diameter_m: d_throat,
+                                        inlet_diameter_m: VENTURI_INLET_DIAM_M,
+                                        throat_length_m: throat_len,
+                                        channel_width_m: w_ch,
+                                        channel_height_m: h_ch,
+                                        serpentine_segments: 1,
+                                        segment_length_m: TREATMENT_WIDTH_MM * 1e-3,
+                                        bend_radius_m: SERPENTINE_BEND_RADIUS_M,
+                                        feed_hematocrit: 0.45,
+                                        trifurcation_center_frac: center_frac,
+                                        cif_pretri_center_frac: 1.0 / 3.0,
+                                        cif_terminal_tri_center_frac: 1.0 / 3.0,
+                                        cif_terminal_bi_treat_frac: 0.68,
+                                        asymmetric_narrow_frac: 0.5,
+                                        trifurcation_left_frac: 1.0 / 3.0,
+                                        cross_section_shape: CrossSectionShape::Rectangular,
+                                        treatment_zone_mode: treatment_mode_for(
+                                            DesignTopology::CascadeCenterTrifurcationSeparator {
+                                                n_levels,
+                                            },
+                                        ),
+                                        centerline_venturi_throat_count: 1,
+                                    });
+                                }
                             }
                         }
                     }
@@ -453,48 +492,57 @@ pub fn build_candidate_space() -> Vec<DesignCandidate> {
                     for &q in &CCT_CIF_FLOWS {
                         for &gauge in &CCT_CIF_GAUGES {
                             for &d_throat in &CCT_CIF_THROATS {
-                                for &tl_factor in &THROAT_LENGTH_FACTORS {
+                                for &tl_factor in &CCT_CIF_TL_FACTORS {
                                     for &w_ch in &CCT_CIF_WIDTHS {
-                                        idx += 1;
-                                        let throat_len = d_throat * tl_factor;
-                                        let id = format!(
-                                            "{:04}-CIF-pt{}-pcf{}-tcf{}-btf{}-q{:.0}ml-g{:.0}kPa-dt{:.0}um-tl{}-w{:.0}um",
-                                            idx,
-                                            n_pretri,
-                                            pcf_tag,
-                                            tcf_tag,
-                                            btf_tag,
-                                            q * 6e7,
-                                            gauge * 1e-3,
-                                            d_throat * 1e6,
-                                            tl_factor as u32,
-                                            w_ch * 1e6,
-                                        );
-                                        candidates.push(DesignCandidate {
-                                            id,
-                                            topology:
-                                                DesignTopology::IncrementalFiltrationTriBiSeparator {
-                                                    n_pretri,
-                                                },
-                                            flow_rate_m3_s: q,
-                                            inlet_gauge_pa: gauge,
-                                            throat_diameter_m: d_throat,
-                                            inlet_diameter_m: VENTURI_INLET_DIAM_M,
-                                            throat_length_m: throat_len,
-                                            channel_width_m: w_ch,
-                                            channel_height_m: CHANNEL_HEIGHT_M,
-                                            serpentine_segments: 1,
-                                            segment_length_m: TREATMENT_WIDTH_MM * 1e-3,
-                                            bend_radius_m: SERPENTINE_BEND_RADIUS_M,
-                                            feed_hematocrit: 0.45,
-                                            trifurcation_center_frac: pretri_center_frac,
-                                            cif_pretri_center_frac: pretri_center_frac,
-                                            cif_terminal_tri_center_frac: terminal_tri_center_frac,
-                                            cif_terminal_bi_treat_frac: bi_treat_frac,
-                                            asymmetric_narrow_frac: 0.5,
-                                            trifurcation_left_frac: 1.0 / 3.0,
-                                            cross_section_shape: CrossSectionShape::Rectangular,
-                                        });
+                                        for &h_ch in &CCT_CIF_HEIGHTS {
+                                            idx += 1;
+                                            let throat_len = d_throat * tl_factor;
+                                            let id = format!(
+                                                "{:04}-CIF-pt{}-pcf{}-tcf{}-btf{}-q{:.0}ml-g{:.0}kPa-dt{:.0}um-tl{}-w{:.0}um-h{}",
+                                                idx,
+                                                n_pretri,
+                                                pcf_tag,
+                                                tcf_tag,
+                                                btf_tag,
+                                                q * 6e7,
+                                                gauge * 1e-3,
+                                                d_throat * 1e6,
+                                                tl_factor as u32,
+                                                w_ch * 1e6,
+                                                (h_ch * 1e6) as u32,
+                                            );
+                                            candidates.push(DesignCandidate {
+                                                id,
+                                                topology:
+                                                    DesignTopology::IncrementalFiltrationTriBiSeparator {
+                                                        n_pretri,
+                                                    },
+                                                flow_rate_m3_s: q,
+                                                inlet_gauge_pa: gauge,
+                                                throat_diameter_m: d_throat,
+                                                inlet_diameter_m: VENTURI_INLET_DIAM_M,
+                                                throat_length_m: throat_len,
+                                                channel_width_m: w_ch,
+                                                channel_height_m: h_ch,
+                                                serpentine_segments: 1,
+                                                segment_length_m: TREATMENT_WIDTH_MM * 1e-3,
+                                                bend_radius_m: SERPENTINE_BEND_RADIUS_M,
+                                                feed_hematocrit: 0.45,
+                                                trifurcation_center_frac: pretri_center_frac,
+                                                cif_pretri_center_frac: pretri_center_frac,
+                                                cif_terminal_tri_center_frac: terminal_tri_center_frac,
+                                                cif_terminal_bi_treat_frac: bi_treat_frac,
+                                                asymmetric_narrow_frac: 0.5,
+                                                trifurcation_left_frac: 1.0 / 3.0,
+                                                cross_section_shape: CrossSectionShape::Rectangular,
+                                                treatment_zone_mode: treatment_mode_for(
+                                                    DesignTopology::IncrementalFiltrationTriBiSeparator {
+                                                        n_pretri,
+                                                    },
+                                                ),
+                                                centerline_venturi_throat_count: 1,
+                                            });
+                                        }
                                     }
                                 }
                             }
@@ -510,65 +558,82 @@ pub fn build_candidate_space() -> Vec<DesignCandidate> {
     // Purpose: add a focused high-performing band around SDT-selective operating
     // points identified by prior runs (high cancer-targeted cavitation with low
     // RBC venturi exposure) while still covering lower-flow hemolysis-safe space.
-    const ONCO_FLOWS: [f64; 6] = [1.667e-6, 2.500e-6, 3.333e-6, 4.167e-6, 5.000e-6, 5.833e-6]; // 100..350 mL/min
-    const ONCO_GAUGES: [f64; 4] = [200_000.0, 300_000.0, 400_000.0, 500_000.0];
-    const ONCO_THROATS: [f64; 4] = [40e-6, 45e-6, 50e-6, 55e-6];
+    const ONCO_FLOWS: [f64; 4] = [1.667e-6, 2.000e-6, 3.333e-6, 4.167e-6]; // 100,120,200,250 mL/min
+    const ONCO_GAUGES: [f64; 4] = [100_000.0, 150_000.0, 300_000.0, 400_000.0];
+    const ONCO_THROATS: [f64; 4] = [40e-6, 45e-6, 55e-6, 70e-6];
+    const ONCO_TL_FACTORS: [f64; 3] = [2.0, 3.0, 5.0];
     const ONCO_WIDTHS: [f64; 2] = [5.0e-3, 6.0e-3];
-    const ONCO_PRETRI_FRACS: [f64; 3] = [0.50, 0.54, 0.58];
-    const ONCO_TERM_TRI_FRACS: [f64; 4] = [0.50, 0.53, 0.56, 0.60];
-    const ONCO_BI_TREAT_FRACS: [f64; 4] = [0.76, 0.80, 0.84, 0.85];
+    const ONCO_HEIGHTS: [f64; 3] = [1.0e-3, 1.5e-3, 2.5e-3];
+    const ONCO_PRETRI_FRACS: [f64; 2] = [0.54, 0.58];
+    const ONCO_TERM_TRI_FRACS: [f64; 3] = [0.50, 0.56, 0.60];
+    const ONCO_BI_TREAT_FRACS: [f64; 3] = [0.80, 0.84, 0.85];
+    const ONCO_CENTERLINE_VT_COUNTS: [u8; 2] = [1, 2];
     for &n_pretri in &[2u8, 3] {
         for &pretri_center_frac in &ONCO_PRETRI_FRACS {
             for &terminal_tri_center_frac in &ONCO_TERM_TRI_FRACS {
                 for &bi_treat_frac in &ONCO_BI_TREAT_FRACS {
-                    let pcf_tag = (pretri_center_frac * 1000.0).round() as u32;
-                    let tcf_tag = (terminal_tri_center_frac * 1000.0).round() as u32;
-                    let btf_tag = (bi_treat_frac * 1000.0).round() as u32;
-                    for &q in &ONCO_FLOWS {
-                        for &gauge in &ONCO_GAUGES {
-                            for &d_throat in &ONCO_THROATS {
-                                for &tl_factor in &THROAT_LENGTH_FACTORS {
-                                    for &w_ch in &ONCO_WIDTHS {
-                                        idx += 1;
-                                        let throat_len = d_throat * tl_factor;
-                                        let id = format!(
-                                            "{:04}-CIFX-pt{}-pcf{}-tcf{}-btf{}-q{:.0}ml-g{:.0}kPa-dt{:.0}um-tl{}-w{:.0}um",
-                                            idx,
-                                            n_pretri,
-                                            pcf_tag,
-                                            tcf_tag,
-                                            btf_tag,
-                                            q * 6e7,
-                                            gauge * 1e-3,
-                                            d_throat * 1e6,
-                                            tl_factor as u32,
-                                            w_ch * 1e6,
-                                        );
-                                        candidates.push(DesignCandidate {
-                                            id,
-                                            topology:
-                                                DesignTopology::IncrementalFiltrationTriBiSeparator {
+                    for &vt_count in &ONCO_CENTERLINE_VT_COUNTS {
+                        let pcf_tag = (pretri_center_frac * 1000.0).round() as u32;
+                        let tcf_tag = (terminal_tri_center_frac * 1000.0).round() as u32;
+                        let btf_tag = (bi_treat_frac * 1000.0).round() as u32;
+                        for &q in &ONCO_FLOWS {
+                            for &gauge in &ONCO_GAUGES {
+                                for &d_throat in &ONCO_THROATS {
+                                    for &tl_factor in &ONCO_TL_FACTORS {
+                                        for &w_ch in &ONCO_WIDTHS {
+                                            for &h_ch in &ONCO_HEIGHTS {
+                                                idx += 1;
+                                                let throat_len = d_throat * tl_factor;
+                                                let id = format!(
+                                                    "{:04}-CIFX-pt{}-pcf{}-tcf{}-btf{}-vt{}-q{:.0}ml-g{:.0}kPa-dt{:.0}um-tl{}-w{:.0}um-h{}",
+                                                    idx,
                                                     n_pretri,
-                                                },
-                                            flow_rate_m3_s: q,
-                                            inlet_gauge_pa: gauge,
-                                            throat_diameter_m: d_throat,
-                                            inlet_diameter_m: VENTURI_INLET_DIAM_M,
-                                            throat_length_m: throat_len,
-                                            channel_width_m: w_ch,
-                                            channel_height_m: CHANNEL_HEIGHT_M,
-                                            serpentine_segments: 1,
-                                            segment_length_m: TREATMENT_WIDTH_MM * 1e-3,
-                                            bend_radius_m: SERPENTINE_BEND_RADIUS_M,
-                                            feed_hematocrit: 0.45,
-                                            trifurcation_center_frac: pretri_center_frac,
-                                            cif_pretri_center_frac: pretri_center_frac,
-                                            cif_terminal_tri_center_frac: terminal_tri_center_frac,
-                                            cif_terminal_bi_treat_frac: bi_treat_frac,
-                                            asymmetric_narrow_frac: 0.5,
-                                            trifurcation_left_frac: 1.0 / 3.0,
-                                            cross_section_shape: CrossSectionShape::Rectangular,
-                                        });
+                                                    pcf_tag,
+                                                    tcf_tag,
+                                                    btf_tag,
+                                                    vt_count,
+                                                    q * 6e7,
+                                                    gauge * 1e-3,
+                                                    d_throat * 1e6,
+                                                    tl_factor as u32,
+                                                    w_ch * 1e6,
+                                                    (h_ch * 1e6) as u32,
+                                                );
+                                                candidates.push(DesignCandidate {
+                                                    id,
+                                                    topology:
+                                                        DesignTopology::IncrementalFiltrationTriBiSeparator {
+                                                            n_pretri,
+                                                        },
+                                                    flow_rate_m3_s: q,
+                                                    inlet_gauge_pa: gauge,
+                                                    throat_diameter_m: d_throat,
+                                                    inlet_diameter_m: VENTURI_INLET_DIAM_M,
+                                                    throat_length_m: throat_len,
+                                                    channel_width_m: w_ch,
+                                                    channel_height_m: h_ch,
+                                                    serpentine_segments: 1,
+                                                    segment_length_m: TREATMENT_WIDTH_MM * 1e-3,
+                                                    bend_radius_m: SERPENTINE_BEND_RADIUS_M,
+                                                    feed_hematocrit: 0.45,
+                                                    trifurcation_center_frac: pretri_center_frac,
+                                                    cif_pretri_center_frac: pretri_center_frac,
+                                                    cif_terminal_tri_center_frac:
+                                                        terminal_tri_center_frac,
+                                                    cif_terminal_bi_treat_frac: bi_treat_frac,
+                                                    asymmetric_narrow_frac: 0.5,
+                                                    trifurcation_left_frac: 1.0 / 3.0,
+                                                    cross_section_shape:
+                                                        CrossSectionShape::Rectangular,
+                                                    treatment_zone_mode: treatment_mode_for(
+                                                        DesignTopology::IncrementalFiltrationTriBiSeparator {
+                                                            n_pretri,
+                                                        },
+                                                    ),
+                                                    centerline_venturi_throat_count: vt_count,
+                                                });
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -579,6 +644,8 @@ pub fn build_candidate_space() -> Vec<DesignCandidate> {
         }
     }
 
+    const SELECTIVE_CENTERLINE_VT_COUNTS: [u8; 2] = [1, 2];
+
     // ── AsymmetricTrifurcationVenturi grid (F1) ───────────────────────────────
     // Sweep center_frac × left_frac (valid pairs only: center + left ≤ 0.85).
     for &center_frac in &TRIFURCATION_CENTER_FRACS {
@@ -588,46 +655,53 @@ pub fn build_candidate_space() -> Vec<DesignCandidate> {
             }
             let cf_tag = (center_frac * 1000.0).round() as u32;
             let lf_tag = (left_frac * 1000.0).round() as u32;
-            for &q in &CCT_CIF_FLOWS {
-                for &gauge in &CCT_CIF_GAUGES {
-                    for &d_throat in &CCT_CIF_THROATS {
-                        for &tl_factor in &THROAT_LENGTH_FACTORS {
-                            for &w_ch in &CCT_CIF_WIDTHS {
-                                idx += 1;
-                                let throat_len = d_throat * tl_factor;
-                                let id = format!(
-                                    "{:04}-ATV-cf{}-lf{}-q{:.0}ml-g{:.0}kPa-dt{:.0}um-tl{}-w{:.0}um",
+            for &vt_count in &SELECTIVE_CENTERLINE_VT_COUNTS {
+                for &q in &CCT_CIF_FLOWS {
+                    for &gauge in &CCT_CIF_GAUGES {
+                        for &d_throat in &CCT_CIF_THROATS {
+                            for &tl_factor in &THROAT_LENGTH_FACTORS {
+                                for &w_ch in &CCT_CIF_WIDTHS {
+                                    idx += 1;
+                                    let throat_len = d_throat * tl_factor;
+                                    let id = format!(
+                                    "{:04}-ATV-cf{}-lf{}-vt{}-q{:.0}ml-g{:.0}kPa-dt{:.0}um-tl{}-w{:.0}um",
                                     idx,
                                     cf_tag,
                                     lf_tag,
+                                    vt_count,
                                     q * 6e7,
                                     gauge * 1e-3,
                                     d_throat * 1e6,
                                     tl_factor as u32,
                                     w_ch * 1e6,
                                 );
-                                candidates.push(DesignCandidate {
-                                    id,
-                                    topology: DesignTopology::AsymmetricTrifurcationVenturi,
-                                    flow_rate_m3_s: q,
-                                    inlet_gauge_pa: gauge,
-                                    throat_diameter_m: d_throat,
-                                    inlet_diameter_m: VENTURI_INLET_DIAM_M,
-                                    throat_length_m: throat_len,
-                                    channel_width_m: w_ch,
-                                    channel_height_m: CHANNEL_HEIGHT_M,
-                                    serpentine_segments: 1,
-                                    segment_length_m: TREATMENT_WIDTH_MM * 1e-3,
-                                    bend_radius_m: SERPENTINE_BEND_RADIUS_M,
-                                    feed_hematocrit: 0.45,
-                                    trifurcation_center_frac: center_frac,
-                                    cif_pretri_center_frac: 1.0 / 3.0,
-                                    cif_terminal_tri_center_frac: 1.0 / 3.0,
-                                    cif_terminal_bi_treat_frac: 0.68,
-                                    asymmetric_narrow_frac: 0.5,
-                                    trifurcation_left_frac: left_frac,
-                                    cross_section_shape: CrossSectionShape::Rectangular,
-                                });
+                                    candidates.push(DesignCandidate {
+                                        id,
+                                        topology: DesignTopology::AsymmetricTrifurcationVenturi,
+                                        flow_rate_m3_s: q,
+                                        inlet_gauge_pa: gauge,
+                                        throat_diameter_m: d_throat,
+                                        inlet_diameter_m: VENTURI_INLET_DIAM_M,
+                                        throat_length_m: throat_len,
+                                        channel_width_m: w_ch,
+                                        channel_height_m: CHANNEL_HEIGHT_M,
+                                        serpentine_segments: 1,
+                                        segment_length_m: TREATMENT_WIDTH_MM * 1e-3,
+                                        bend_radius_m: SERPENTINE_BEND_RADIUS_M,
+                                        feed_hematocrit: 0.45,
+                                        trifurcation_center_frac: center_frac,
+                                        cif_pretri_center_frac: 1.0 / 3.0,
+                                        cif_terminal_tri_center_frac: 1.0 / 3.0,
+                                        cif_terminal_bi_treat_frac: 0.68,
+                                        asymmetric_narrow_frac: 0.5,
+                                        trifurcation_left_frac: left_frac,
+                                        cross_section_shape: CrossSectionShape::Rectangular,
+                                        treatment_zone_mode: treatment_mode_for(
+                                            DesignTopology::AsymmetricTrifurcationVenturi,
+                                        ),
+                                        centerline_venturi_throat_count: vt_count,
+                                    });
+                                }
                             }
                         }
                     }
@@ -642,46 +716,53 @@ pub fn build_candidate_space() -> Vec<DesignCandidate> {
         for &bi_treat_frac in &CIF_BI_TREAT_FRACS {
             let cf_tag = (center_frac * 1000.0).round() as u32;
             let btf_tag = (bi_treat_frac * 1000.0).round() as u32;
-            for &q in &CCT_CIF_FLOWS {
-                for &gauge in &CCT_CIF_GAUGES {
-                    for &d_throat in &CCT_CIF_THROATS {
-                        for &tl_factor in &THROAT_LENGTH_FACTORS {
-                            for &w_ch in &CCT_CIF_WIDTHS {
-                                idx += 1;
-                                let throat_len = d_throat * tl_factor;
-                                let id = format!(
-                                    "{:04}-TBT-cf{}-btf{}-q{:.0}ml-g{:.0}kPa-dt{:.0}um-tl{}-w{:.0}um",
+            for &vt_count in &SELECTIVE_CENTERLINE_VT_COUNTS {
+                for &q in &CCT_CIF_FLOWS {
+                    for &gauge in &CCT_CIF_GAUGES {
+                        for &d_throat in &CCT_CIF_THROATS {
+                            for &tl_factor in &THROAT_LENGTH_FACTORS {
+                                for &w_ch in &CCT_CIF_WIDTHS {
+                                    idx += 1;
+                                    let throat_len = d_throat * tl_factor;
+                                    let id = format!(
+                                    "{:04}-TBT-cf{}-btf{}-vt{}-q{:.0}ml-g{:.0}kPa-dt{:.0}um-tl{}-w{:.0}um",
                                     idx,
                                     cf_tag,
                                     btf_tag,
+                                    vt_count,
                                     q * 6e7,
                                     gauge * 1e-3,
                                     d_throat * 1e6,
                                     tl_factor as u32,
                                     w_ch * 1e6,
                                 );
-                                candidates.push(DesignCandidate {
-                                    id,
-                                    topology: DesignTopology::TriBiTriSelectiveVenturi,
-                                    flow_rate_m3_s: q,
-                                    inlet_gauge_pa: gauge,
-                                    throat_diameter_m: d_throat,
-                                    inlet_diameter_m: VENTURI_INLET_DIAM_M,
-                                    throat_length_m: throat_len,
-                                    channel_width_m: w_ch,
-                                    channel_height_m: CHANNEL_HEIGHT_M,
-                                    serpentine_segments: 1,
-                                    segment_length_m: TREATMENT_WIDTH_MM * 1e-3,
-                                    bend_radius_m: SERPENTINE_BEND_RADIUS_M,
-                                    feed_hematocrit: 0.45,
-                                    trifurcation_center_frac: center_frac,
-                                    cif_pretri_center_frac: 1.0 / 3.0,
-                                    cif_terminal_tri_center_frac: 1.0 / 3.0,
-                                    cif_terminal_bi_treat_frac: bi_treat_frac,
-                                    asymmetric_narrow_frac: 0.5,
-                                    trifurcation_left_frac: 1.0 / 3.0,
-                                    cross_section_shape: CrossSectionShape::Rectangular,
-                                });
+                                    candidates.push(DesignCandidate {
+                                        id,
+                                        topology: DesignTopology::TriBiTriSelectiveVenturi,
+                                        flow_rate_m3_s: q,
+                                        inlet_gauge_pa: gauge,
+                                        throat_diameter_m: d_throat,
+                                        inlet_diameter_m: VENTURI_INLET_DIAM_M,
+                                        throat_length_m: throat_len,
+                                        channel_width_m: w_ch,
+                                        channel_height_m: CHANNEL_HEIGHT_M,
+                                        serpentine_segments: 1,
+                                        segment_length_m: TREATMENT_WIDTH_MM * 1e-3,
+                                        bend_radius_m: SERPENTINE_BEND_RADIUS_M,
+                                        feed_hematocrit: 0.45,
+                                        trifurcation_center_frac: center_frac,
+                                        cif_pretri_center_frac: 1.0 / 3.0,
+                                        cif_terminal_tri_center_frac: 1.0 / 3.0,
+                                        cif_terminal_bi_treat_frac: bi_treat_frac,
+                                        asymmetric_narrow_frac: 0.5,
+                                        trifurcation_left_frac: 1.0 / 3.0,
+                                        cross_section_shape: CrossSectionShape::Rectangular,
+                                        treatment_zone_mode: treatment_mode_for(
+                                            DesignTopology::TriBiTriSelectiveVenturi,
+                                        ),
+                                        centerline_venturi_throat_count: vt_count,
+                                    });
+                                }
                             }
                         }
                     }
@@ -716,7 +797,7 @@ pub fn build_candidate_space() -> Vec<DesignCandidate> {
 /// | trifurcation_center_frac | \[0.25, 0.65\] | — |
 pub fn sample_random_candidates(n: usize, rng: &mut impl Rng) -> Vec<DesignCandidate> {
     // All topology templates (same order as ALL_EVO_TOPOLOGIES in evo.rs)
-    const N_TOPOS: usize = 27;
+    const N_TOPOS: usize = 28;
     let topo_templates: [DesignTopology; N_TOPOS] = [
         DesignTopology::SingleVenturi,
         DesignTopology::BifurcationVenturi,
@@ -731,6 +812,7 @@ pub fn sample_random_candidates(n: usize, rng: &mut impl Rng) -> Vec<DesignCandi
         DesignTopology::BifurcationTrifurcationVenturi,
         DesignTopology::SerialDoubleVenturi,
         DesignTopology::BifurcationSerpentine,
+        DesignTopology::DoubleBifurcationSerpentine,
         DesignTopology::TrifurcationSerpentine,
         DesignTopology::AsymmetricBifurcationSerpentine,
         DesignTopology::ConstrictionExpansionArray { n_cycles: 10 },
@@ -883,17 +965,31 @@ pub fn sample_random_candidates(n: usize, rng: &mut impl Rng) -> Vec<DesignCandi
                 } else {
                     1.0 / 3.0
                 };
+            let centerline_venturi_throat_count = if matches!(
+                topology,
+                DesignTopology::CascadeCenterTrifurcationSeparator { .. }
+                    | DesignTopology::IncrementalFiltrationTriBiSeparator { .. }
+                    | DesignTopology::AsymmetricTrifurcationVenturi
+                    | DesignTopology::TriBiTriSelectiveVenturi
+                    | DesignTopology::CellSeparationVenturi
+                    | DesignTopology::WbcCancerSeparationVenturi
+            ) {
+                rng.gen_range(1u8..=2u8)
+            } else {
+                1
+            };
             let feed_hematocrit = if is_leuka { 0.04 } else { 0.45 };
             let id = if let DesignTopology::IncrementalFiltrationTriBiSeparator { n_pretri } =
                 topology
             {
                 format!(
-                    "RND{:05}-CIF-pt{}-pcf{}-tcf{}-btf{}-q{:.0}-g{:.0}-d{:.0}-w{:.0}",
+                    "RND{:05}-CIF-pt{}-pcf{}-tcf{}-btf{}-vt{}-q{:.0}-g{:.0}-d{:.0}-w{:.0}",
                     i,
                     n_pretri,
                     (cif_pretri_center_frac * 1000.0).round() as u32,
                     (cif_terminal_tri_center_frac * 1000.0).round() as u32,
                     (cif_terminal_bi_treat_frac * 1000.0).round() as u32,
+                    centerline_venturi_throat_count,
                     q * 6e7,
                     gauge * 1e-3,
                     d_throat * 1e6,
@@ -931,6 +1027,8 @@ pub fn sample_random_candidates(n: usize, rng: &mut impl Rng) -> Vec<DesignCandi
                 asymmetric_narrow_frac,
                 trifurcation_left_frac,
                 cross_section_shape: CrossSectionShape::Rectangular,
+                treatment_zone_mode: treatment_mode_for(topology),
+                centerline_venturi_throat_count,
             }
         })
         .collect()
@@ -939,6 +1037,20 @@ pub fn sample_random_candidates(n: usize, rng: &mut impl Rng) -> Vec<DesignCandi
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashSet;
+
+    #[test]
+    fn candidate_ids_are_unique() {
+        let candidates = build_candidate_space();
+        let mut ids = HashSet::with_capacity(candidates.len());
+        for c in &candidates {
+            assert!(
+                ids.insert(c.id.clone()),
+                "duplicate candidate id detected: {}",
+                c.id
+            );
+        }
+    }
 
     #[test]
     fn oncology_focused_cif_refinement_band_present() {

@@ -20,15 +20,15 @@ pub(super) fn tournament_select<R: Rng>(fitnesses: &[f64], k: usize, rng: &mut R
 /// Produces two offspring from two parents.  `eta` is the distribution index
 /// (larger = children closer to parents).
 pub(super) fn sbx_crossover<R: Rng>(
-    p1: &[f64],
-    p2: &[f64],
+    p1: &[f64; super::N_GENES],
+    p2: &[f64; super::N_GENES],
     eta: f64,
     rng: &mut R,
-) -> (Vec<f64>, Vec<f64>) {
-    let mut c1 = p1.to_vec();
-    let mut c2 = p2.to_vec();
+) -> ([f64; super::N_GENES], [f64; super::N_GENES]) {
+    let mut c1 = *p1;
+    let mut c2 = *p2;
 
-    for i in 0..p1.len() {
+    for i in 0..super::N_GENES {
         if rng.gen::<f64>() < 0.5 {
             let u = rng.gen::<f64>();
             let beta = if u <= 0.5 {
@@ -49,7 +49,7 @@ pub(super) const TOPO_JUMP_RATE: f64 = 0.25;
 
 /// Apply a topology jump to gene[0]: with probability [`TOPO_JUMP_RATE`],
 /// replace it with a uniform draw from [0, 1].
-pub(super) fn apply_topology_jump<R: Rng>(genes: &mut Vec<f64>, rng: &mut R) {
+pub(super) fn apply_topology_jump<R: Rng>(genes: &mut [f64; super::N_GENES], rng: &mut R) {
     if rng.gen::<f64>() < TOPO_JUMP_RATE {
         genes[0] = rng.gen::<f64>();
     }

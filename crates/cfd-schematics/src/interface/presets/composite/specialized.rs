@@ -1478,6 +1478,331 @@ pub fn cascade_tri_bi_tri_selective_rect(
     bp
 }
 
+/// Double-trifurcation CIF topology with differential venturi throat counts.
+///
+/// Implements the SDT Millifluidic Device layout from the
+/// `treatment_zone_plate_trifurcation` figure:
+///
+/// ```text
+/// Inlet → 1st split (trifurcation)
+///   ├── outer_L  (ch 1–3, RBC bypass, 0 throats)
+///   ├── center   → 2nd split (CIF trifurcation)
+///   │     ├── center_L  (ch 4, CTC treatment, center_throat_count throats)
+///   │     ├── center_C  (ch 5, CTC treatment, center_throat_count throats)
+///   │     └── center_R  (ch 6, CTC treatment, center_throat_count throats)
+///   └── outer_R  (ch 7–9, RBC bypass, 0 throats)
+///         → all streams → merge → outlet
+/// ```
+///
+/// **Hemolysis partitioning invariant**: bypass channels accumulate shear-only
+/// HI (no cavitation contribution) because they bypass the sonication zone.
+/// Center channels accumulate both shear HI and cavitation HI from
+/// `center_throat_count` serial venturi throats.
+///
+/// **FDA MI compliance**: each throat on the center channels is tagged with
+/// [`ChannelVenturiSpec`] so that `compute_metrics` can enforce
+/// `MI_equiv < 1.9` independently per throat.
+///
+/// # Parameters
+///
+/// - `center_frac`          — center-arm width fraction at both trifurcations ∈ [0.25, 0.65].
+/// - `center_throat_count`  — serial venturi throats per center channel (1–4).
+/// - `throat_width_m`       — throat constriction width [m].
+/// - `throat_length_m`      — length of each throat segment [m].
+/// - `inter_throat_spacing_m` — re-development length between throats; must be
+///                              `> 10 × D_h` (Shah & London 1978, §2-3).
+#[must_use]
+#[allow(clippy::too_many_arguments)]
+pub fn double_trifurcation_cif_venturi_rect(
+    name: impl Into<String>,
+    trunk_length_m: f64,
+    branch_length_m: f64,
+    main_width_m: f64,
+    center_frac: f64,
+    throat_width_m: f64,
+    throat_length_m: f64,
+    inter_throat_spacing_m: f64,
+    center_throat_count: u8,
+    height_m: f64,
+) -> NetworkBlueprint {
+    use crate::geometry::metadata::ChannelVenturiSpec;
+
+    let center_frac = center_frac.clamp(0.25, 0.65);
+    let periph_frac = (1.0 - center_frac) * 0.5;
+    let center_throat_count = center_throat_count.clamp(1, 4);
+    let l_throat = throat_length_m.max(2.0 * throat_width_m);
+    // Inter-throat spacing: must satisfy re-development criterion D_h * 10.
+    let d_h_throat = 2.0 * throat_width_m * height_m / (throat_width_m + height_m).max(1e-18);
+    let l_spacing = inter_throat_spacing_m.max(10.0 * d_h_throat);
+    let l_taper = 5.0 * (main_width_m * center_frac + throat_width_m) * 0.5;
+    let width_floor = throat_width_m.max(50e-6);
+
+    // Channel widths at each level.
+    let w_outer = (main_width_m * periph_frac).max(width_floor);
+    let w_center_trunk = (main_width_m * center_frac).max(width_floor);
+    // Second trifurcation splits the center trunk into 3 equal sub-channels.
+    let w_center_sub = (w_center_trunk / 3.0).max(width_floor);
+
+    let mut bp = NetworkBlueprint::new(name);
+
+    // ── Nodes ─────────────────────────────────────────────────────────────
+    bp.add_node(NodeSpec::new("inlet", NodeKind::Inlet));
+    bp.add_node(NodeSpec::new("outlet", NodeKind::Outlet));
+    bp.add_node(NodeSpec::new("split1", NodeKind::Junction)); // 1st trifurcation
+    bp.add_node(NodeSpec::new("split2", NodeKind::Junction)); // 2nd CIF trifurcation
+    bp.add_node(NodeSpec::new("merge_bypass", NodeKind::Junction)); // collects outer bypass arms
+    bp.add_node(NodeSpec::new("merge_center", NodeKind::Junction)); // collects center CTC arms
+    bp.add_node(NodeSpec::new("merge_out", NodeKind::Junction)); // final re-merge
+
+    // ── Inlet trunk → split1 ──────────────────────────────────────────────
+    bp.add_channel(
+        ChannelSpec::new_pipe_rect(
+            "inlet_section",
+            "inlet",
+            "split1",
+            trunk_length_m,
+            main_width_m,
+            height_m,
+            shah_london(main_width_m, height_m, trunk_length_m, BLOOD_MU),
+            0.0,
+        )
+        .with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)),
+    );
+
+    // ── Outer bypass channels: split1 → merge_bypass (0 throats) ─────────
+    for side in ["L", "R"] {
+        let id = format!("bypass_{side}");
+        bp.add_channel(
+            ChannelSpec::new_pipe_rect(
+                id.clone(),
+                "split1",
+                "merge_bypass",
+                branch_length_m,
+                w_outer,
+                height_m,
+                shah_london(w_outer, height_m, branch_length_m, BLOOD_MU),
+                0.0,
+            )
+            .with_metadata(TherapyZoneMetadata::new(TherapyZone::HealthyBypass))
+            .with_metadata(ChannelVenturiSpec {
+                n_throats: 0,
+                is_ctc_stream: false,
+                throat_width_m: 0.0,
+                height_m,
+                inter_throat_spacing_m: 0.0,
+            }),
+        );
+    }
+
+    // ── Center trunk: split1 → split2 (CIF enrichment) ───────────────────
+    bp.add_channel(
+        ChannelSpec::new_pipe_rect(
+            "center_trunk",
+            "split1",
+            "split2",
+            branch_length_m,
+            w_center_trunk,
+            height_m,
+            shah_london(w_center_trunk, height_m, branch_length_m, BLOOD_MU),
+            0.0,
+        )
+        .with_metadata(TherapyZoneMetadata::new(TherapyZone::CancerTarget))
+        .with_metadata(CascadeParams {
+            n_levels: 2,
+            center_frac,
+        }),
+    );
+
+    // ── Center sub-channels: split2 → merge_center, each with N throats ──
+    for (sub_idx, sub_name) in ["center_L", "center_C", "center_R"].iter().enumerate() {
+        // Build a single contiguous channel node chain for N serial throats.
+        // Each throat segment is separated by a re-development straight.
+        // Node naming: {sub_name}_in, {sub_name}_t{k}_in, {sub_name}_t{k}_out, ...
+        // For memory efficiency, we pre-allocate the node/channel vectors.
+
+        let from_node = if sub_idx == 0 {
+            "split2".to_string()
+        } else {
+            "split2".to_string() // all 3 sub-channels start at split2
+        };
+
+        // Add sub-channel inlet node (contraction approach for each sub-channel).
+        let sub_in_node = format!("{sub_name}_in");
+        bp.add_node(NodeSpec::new(sub_in_node.clone(), NodeKind::Junction));
+
+        // Approach segment: split2 → sub_in (converging taper)
+        bp.add_channel(
+            ChannelSpec::new_pipe_rect(
+                format!("{sub_name}_approach"),
+                from_node,
+                sub_in_node.clone(),
+                l_taper,
+                w_center_sub,
+                height_m,
+                shah_london(w_center_sub, height_m, l_taper, BLOOD_MU),
+                0.0,
+            )
+            .with_metadata(TherapyZoneMetadata::new(TherapyZone::CancerTarget))
+            .with_metadata(ChannelVenturiSpec {
+                n_throats: 0,
+                is_ctc_stream: true,
+                throat_width_m,
+                height_m,
+                inter_throat_spacing_m: l_spacing,
+            }),
+        );
+
+        // Serial throat chain within the sonication zone.
+        let mut prev_node = sub_in_node.clone();
+        for k in 0..center_throat_count {
+            let t_in_node = format!("{sub_name}_t{k}_in");
+            let t_out_node = format!("{sub_name}_t{k}_out");
+            bp.add_node(NodeSpec::new(t_in_node.clone(), NodeKind::Junction));
+            bp.add_node(NodeSpec::new(t_out_node.clone(), NodeKind::Junction));
+
+            // Throat segment k
+            let resistance_throat = shah_london(throat_width_m, height_m, l_throat, BLOOD_MU);
+            bp.add_channel(
+                ChannelSpec::new_pipe_rect(
+                    format!("{sub_name}_throat{k}"),
+                    t_in_node.clone(),
+                    t_out_node.clone(),
+                    l_throat,
+                    throat_width_m,
+                    height_m,
+                    resistance_throat,
+                    0.0,
+                )
+                .with_metadata(TherapyZoneMetadata::new(TherapyZone::CancerTarget))
+                .with_metadata(VenturiGeometryMetadata {
+                    throat_width_m,
+                    throat_height_m: height_m,
+                    throat_length_m: l_throat,
+                    inlet_width_m: w_center_sub,
+                })
+                .with_metadata(ChannelVenturiSpec {
+                    n_throats: 1, // each segment is one physical throat
+                    is_ctc_stream: true,
+                    throat_width_m,
+                    height_m,
+                    inter_throat_spacing_m: l_spacing,
+                }),
+            );
+
+            // Constriction-to-sub-channel link (prev → t_in contraction)
+            bp.add_channel(
+                ChannelSpec::new_pipe_rect(
+                    format!("{sub_name}_conv{k}"),
+                    prev_node.clone(),
+                    t_in_node,
+                    l_taper,
+                    w_center_sub,
+                    height_m,
+                    shah_london(w_center_sub, height_m, l_taper, BLOOD_MU),
+                    0.0,
+                )
+                .with_metadata(TherapyZoneMetadata::new(TherapyZone::CancerTarget)),
+            );
+
+            // Re-development (diffuser) segment after each throat, except after last.
+            if k + 1 < center_throat_count {
+                let redevel_node = format!("{sub_name}_rdv{k}");
+                bp.add_node(NodeSpec::new(redevel_node.clone(), NodeKind::Junction));
+                bp.add_channel(
+                    ChannelSpec::new_pipe_rect(
+                        format!("{sub_name}_diffuser{k}"),
+                        t_out_node.clone(),
+                        redevel_node.clone(),
+                        l_spacing,
+                        w_center_sub,
+                        height_m,
+                        shah_london(w_center_sub, height_m, l_spacing, BLOOD_MU),
+                        0.0,
+                    )
+                    .with_metadata(TherapyZoneMetadata::new(TherapyZone::CancerTarget)),
+                );
+                prev_node = redevel_node;
+            } else {
+                prev_node = t_out_node;
+            }
+        }
+
+        // Recovery diffuser: last throat_out → merge_center
+        bp.add_channel(
+            ChannelSpec::new_pipe_rect(
+                format!("{sub_name}_recovery"),
+                prev_node,
+                "merge_center",
+                l_taper,
+                w_center_sub,
+                height_m,
+                shah_london(w_center_sub, height_m, l_taper, BLOOD_MU),
+                0.0,
+            )
+            .with_metadata(TherapyZoneMetadata::new(TherapyZone::CancerTarget))
+            .with_metadata(ChannelVenturiSpec {
+                n_throats: 0,
+                is_ctc_stream: true,
+                throat_width_m,
+                height_m,
+                inter_throat_spacing_m: 0.0,
+            }),
+        );
+    }
+
+    // ── Bypass collect → merge_out ─────────────────────────────────────────
+    bp.add_channel(
+        ChannelSpec::new_pipe_rect(
+            "bypass_to_merge",
+            "merge_bypass",
+            "merge_out",
+            trunk_length_m,
+            main_width_m * (1.0 - center_frac),
+            height_m,
+            shah_london(
+                main_width_m * (1.0 - center_frac),
+                height_m,
+                trunk_length_m,
+                BLOOD_MU,
+            ),
+            0.0,
+        )
+        .with_metadata(TherapyZoneMetadata::new(TherapyZone::HealthyBypass)),
+    );
+
+    // ── Center collect → merge_out ─────────────────────────────────────────
+    bp.add_channel(
+        ChannelSpec::new_pipe_rect(
+            "center_to_merge",
+            "merge_center",
+            "merge_out",
+            trunk_length_m,
+            w_center_trunk,
+            height_m,
+            shah_london(w_center_trunk, height_m, trunk_length_m, BLOOD_MU),
+            0.0,
+        )
+        .with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)),
+    );
+
+    // ── Outlet trunk ──────────────────────────────────────────────────────
+    bp.add_channel(
+        ChannelSpec::new_pipe_rect(
+            "outlet_section",
+            "merge_out",
+            "outlet",
+            trunk_length_m,
+            main_width_m,
+            height_m,
+            shah_london(main_width_m, height_m, trunk_length_m, BLOOD_MU),
+            0.0,
+        )
+        .with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)),
+    );
+
+    bp
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -9,7 +9,8 @@ use cfd_schematics::{
         bifurcation_serpentine_rect, bifurcation_trifurcation_venturi_rect,
         bifurcation_venturi_rect, cascade_center_trifurcation_rect,
         cascade_tri_bi_tri_selective_rect, cell_separation_rect, constriction_expansion_array_rect,
-        double_bifurcation_venturi_rect, double_trifurcation_venturi_rect,
+        double_bifurcation_serpentine_rect, double_bifurcation_venturi_rect,
+        double_trifurcation_cif_venturi_rect, double_trifurcation_venturi_rect,
         incremental_filtration_tri_bi_rect_staged_remerge, parallel_microchannel_array_rect,
         quad_trifurcation_venturi_rect, serial_double_venturi_rect, serpentine_rect,
         spiral_channel_rect, trifurcation_bifurcation_bifurcation_venturi_rect,
@@ -202,6 +203,34 @@ impl DesignCandidate {
                 )
             }
 
+            // ── DoubleTrifurcationCIFVenturi: differential throat counts ──
+            // Center CTC-enriched channels get center_throat_count serial throats;
+            // outer bypass channels get 0 throats (shear-only hemolysis).
+            DesignTopology::DoubleTrifurcationCIFVenturi {
+                center_throat_count,
+            } => {
+                let trunk_len = TREATMENT_HEIGHT_MM * 0.20e-3;
+                let branch_len = TREATMENT_HEIGHT_MM * 0.15e-3;
+                let frac = self.trifurcation_center_frac;
+                // Inter-throat spacing: 10× hydraulic diameter of throat for full
+                // flow re-development between serial Rayleigh-collapse events
+                // (Shah & London 1978, §2-3).
+                let d_h_throat = 2.0 * dt * h / (dt + h).max(1e-18);
+                let inter_spacing = (10.0 * d_h_throat).max(tl * 2.0);
+                double_trifurcation_cif_venturi_rect(
+                    &self.id,
+                    trunk_len,
+                    branch_len,
+                    w,
+                    frac,
+                    dt,
+                    tl,
+                    inter_spacing,
+                    center_throat_count,
+                    h,
+                )
+            }
+
             // ── CIF tri-first then tri/bi skimming → single treatment venturi ──
             DesignTopology::IncrementalFiltrationTriBiSeparator { n_pretri } => {
                 use cfd_1d::cell_separation::{cif_pretri_stage_q_fracs, tri_center_q_frac};
@@ -253,6 +282,12 @@ impl DesignCandidate {
             DesignTopology::BifurcationSerpentine => {
                 let trunk_len = TREATMENT_HEIGHT_MM * 0.25e-3;
                 bifurcation_serpentine_rect(&self.id, trunk_len, n, sl, w, h)
+            }
+
+            // ── Double-level bifurcation → 4 parallel serpentine arms ──
+            DesignTopology::DoubleBifurcationSerpentine => {
+                let trunk_len = TREATMENT_HEIGHT_MM * 0.25e-3;
+                double_bifurcation_serpentine_rect(&self.id, trunk_len, n, sl, w, h)
             }
 
             // ── Trifurcation + serpentine in each arm (closed-loop) ──
@@ -442,6 +477,16 @@ impl DesignCandidate {
         .with_square_wave();
 
         let system = match self.topology {
+            // ── Double trifurcation CIF with differential venturi throat counts ──
+            // Center CTC-enriched sub-channels shown with a 2-level trifurcation
+            // schematic; outer bypass channels are the peripheral arms.
+            DesignTopology::DoubleTrifurcationCIFVenturi { .. } => create_geometry(
+                box_dims,
+                &[SplitType::Trifurcation, SplitType::Trifurcation],
+                &gc,
+                &ChannelTypeConfig::AllSerpentine(sine_wave),
+            ),
+
             // ── Single venturi: sine wave, no splits ──
             DesignTopology::SingleVenturi | DesignTopology::SerialDoubleVenturi => create_geometry(
                 box_dims,
@@ -536,6 +581,12 @@ impl DesignCandidate {
             DesignTopology::BifurcationSerpentine => create_geometry(
                 box_dims,
                 &[SplitType::Bifurcation],
+                &gc,
+                &ChannelTypeConfig::AllSerpentine(sine_wave),
+            ),
+            DesignTopology::DoubleBifurcationSerpentine => create_geometry(
+                box_dims,
+                &[SplitType::Bifurcation, SplitType::Bifurcation],
                 &gc,
                 &ChannelTypeConfig::AllSerpentine(sine_wave),
             ),
@@ -708,8 +759,9 @@ impl DesignCandidate {
     pub fn total_path_length_mm(&self) -> f64 {
         let mut len = 0.0_f64;
         // Venturi section (inlet cone + throat + diffuser, approximated as 10× d_inlet)
-        if self.topology.has_venturi() {
-            len += self.inlet_diameter_m * 10.0 * self.topology.venturi_count() as f64 * 1000.0;
+        if self.uses_venturi_treatment() {
+            len +=
+                self.inlet_diameter_m * 10.0 * self.active_venturi_throat_count() as f64 * 1000.0;
         }
         // Serpentine section
         if self.topology.has_serpentine() {
@@ -887,7 +939,7 @@ fn map_to_plate_coords(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::design::{CrossSectionShape, DesignCandidate, DesignTopology};
+    use crate::design::{CrossSectionShape, DesignCandidate, DesignTopology, TreatmentZoneMode};
 
     fn sample_candidate(topology: DesignTopology) -> DesignCandidate {
         DesignCandidate {
@@ -911,6 +963,8 @@ mod tests {
             asymmetric_narrow_frac: 0.5,
             trifurcation_left_frac: 1.0 / 3.0,
             cross_section_shape: CrossSectionShape::Rectangular,
+            treatment_zone_mode: TreatmentZoneMode::VenturiThroats,
+            centerline_venturi_throat_count: 1,
         }
     }
 
@@ -989,8 +1043,17 @@ mod tests {
         // Y channels should be within plate bounds but padded away from walls
         // (edge_padding keeps peripheral channels inward)
         assert!(y_min >= 0.0, "y_min={y_min} should be >= 0");
-        assert!(y_max <= PLATE_HEIGHT_MM, "y_max={y_max} should be <= {PLATE_HEIGHT_MM}");
-        assert!(y_min < PLATE_HEIGHT_MM / 2.0, "y_min={y_min} should be below center");
-        assert!(y_max > PLATE_HEIGHT_MM / 2.0, "y_max={y_max} should be above center");
+        assert!(
+            y_max <= PLATE_HEIGHT_MM,
+            "y_max={y_max} should be <= {PLATE_HEIGHT_MM}"
+        );
+        assert!(
+            y_min < PLATE_HEIGHT_MM / 2.0,
+            "y_min={y_min} should be below center"
+        );
+        assert!(
+            y_max > PLATE_HEIGHT_MM / 2.0,
+            "y_max={y_max} should be above center"
+        );
     }
 }

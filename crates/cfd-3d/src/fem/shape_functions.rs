@@ -46,8 +46,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
     /// L = [L1, L2, L3, L4] where sum(L) = 1.0
     pub fn values(&self, l: &[T; 4]) -> [T; 10] {
         let mut n = [T::zero(); 10];
-        let two = <T as FromPrimitive>::from_f64(2.0).unwrap();
-        let four = <T as FromPrimitive>::from_f64(4.0).unwrap();
+        let two = <T as FromPrimitive>::from_f64(2.0).unwrap_or_else(T::one);
+        let four = <T as FromPrimitive>::from_f64(4.0).unwrap_or_else(T::one);
 
         // Corner nodes (0-3)
         for i in 0..4 {
@@ -75,7 +75,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
     /// Returns 3x10 matrix (rows for x,y,z; columns for nodes 0-9)
     pub fn gradients(&self, l: &[T; 4]) -> DMatrix<T> {
         let mut grad = DMatrix::zeros(3, 10);
-        let four = <T as FromPrimitive>::from_f64(4.0).unwrap();
+        let four = <T as FromPrimitive>::from_f64(4.0).unwrap_or_else(T::one);
 
         // Corner nodes (0-3): ∇Ni = (4Li - 1) ∇Li
         for (i, &li) in l.iter().enumerate() {

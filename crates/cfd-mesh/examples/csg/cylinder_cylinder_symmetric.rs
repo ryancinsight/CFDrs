@@ -210,7 +210,11 @@ fn report(label: &str, mesh: &mut IndexedMesh, expected: f64, tol: f64, ms: u128
     );
     println!(
         "    Components : {n_comps}  [{}]",
-        if comps_ok { "PASS" } else { "WARN phantom islands" }
+        if comps_ok {
+            "PASS"
+        } else {
+            "WARN phantom islands"
+        }
     );
     println!(
         "    Normals    : outward={}, inward={} ({:.1}%), degen={}  [{}]",

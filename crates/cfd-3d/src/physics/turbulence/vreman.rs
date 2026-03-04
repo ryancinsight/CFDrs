@@ -86,7 +86,10 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Vrema
 
         // x-derivatives (j=0 column): ∂u/∂x, ∂v/∂x, ∂w/∂x
         if i > 0 && i < nx - 1 {
-            if let (Some(vp), Some(vm)) = (flow.velocity.get(i+1,j,k), flow.velocity.get(i-1,j,k)) {
+            if let (Some(vp), Some(vm)) = (
+                flow.velocity.get(i + 1, j, k),
+                flow.velocity.get(i - 1, j, k),
+            ) {
                 alpha[0][0] = (vp.x - vm.x) / (two * delta);
                 alpha[1][0] = (vp.y - vm.y) / (two * delta);
                 alpha[2][0] = (vp.z - vm.z) / (two * delta);
@@ -94,7 +97,10 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Vrema
         }
         // y-derivatives (j=1 column)
         if j > 0 && j < ny - 1 {
-            if let (Some(vp), Some(vm)) = (flow.velocity.get(i,j+1,k), flow.velocity.get(i,j-1,k)) {
+            if let (Some(vp), Some(vm)) = (
+                flow.velocity.get(i, j + 1, k),
+                flow.velocity.get(i, j - 1, k),
+            ) {
                 alpha[0][1] = (vp.x - vm.x) / (two * delta);
                 alpha[1][1] = (vp.y - vm.y) / (two * delta);
                 alpha[2][1] = (vp.z - vm.z) / (two * delta);
@@ -102,7 +108,10 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Vrema
         }
         // z-derivatives (j=2 column)
         if k > 0 && k < nz - 1 {
-            if let (Some(vp), Some(vm)) = (flow.velocity.get(i,j,k+1), flow.velocity.get(i,j,k-1)) {
+            if let (Some(vp), Some(vm)) = (
+                flow.velocity.get(i, j, k + 1),
+                flow.velocity.get(i, j, k - 1),
+            ) {
                 alpha[0][2] = (vp.x - vm.x) / (two * delta);
                 alpha[1][2] = (vp.y - vm.y) / (two * delta);
                 alpha[2][2] = (vp.z - vm.z) / (two * delta);
@@ -111,9 +120,15 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Vrema
 
         // Compute |α|² = Σ α_ij²
         let mut alpha_sq = T::zero();
-        for ai in &alpha { for &a in ai { alpha_sq = alpha_sq + a * a; } }
+        for ai in &alpha {
+            for &a in ai {
+                alpha_sq = alpha_sq + a * a;
+            }
+        }
 
-        if alpha_sq <= eps { return T::zero(); }
+        if alpha_sq <= eps {
+            return T::zero();
+        }
 
         // β_mn = Δ² Σ_i α_im α_in  (isotropic Δ, i.e. Δ_m = Δ_n = Δ)
         let delta_sq = delta * delta;
@@ -121,27 +136,38 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Vrema
         for m in 0..3 {
             for n in 0..3 {
                 let mut s = T::zero();
-                for ii in 0..3 { s = s + alpha[ii][m] * alpha[ii][n]; }
+                for ii in 0..3 {
+                    s = s + alpha[ii][m] * alpha[ii][n];
+                }
                 beta[m][n] = delta_sq * s;
             }
         }
 
         // B_β = β₁₁β₂₂ − β₁₂² + β₁₁β₃₃ − β₁₃² + β₂₂β₃₃ − β₂₃²
-        let b_beta = beta[0][0]*beta[1][1] - beta[0][1]*beta[1][0]
-            + beta[0][0]*beta[2][2] - beta[0][2]*beta[2][0]
-            + beta[1][1]*beta[2][2] - beta[1][2]*beta[2][1];
+        let b_beta = beta[0][0] * beta[1][1] - beta[0][1] * beta[1][0] + beta[0][0] * beta[2][2]
+            - beta[0][2] * beta[2][0]
+            + beta[1][1] * beta[2][2]
+            - beta[1][2] * beta[2][1];
 
-        if b_beta <= T::zero() { return T::zero(); }
+        if b_beta <= T::zero() {
+            return T::zero();
+        }
 
         self.c_v * num_traits::Float::sqrt(b_beta / alpha_sq)
     }
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Default for VremanModel<T> {
-    fn default() -> Self { Self::new() }
+impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Default
+    for VremanModel<T>
+{
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> TurbulenceModel<T> for VremanModel<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> TurbulenceModel<T>
+    for VremanModel<T>
+{
     fn turbulent_viscosity(&self, flow_field: &FlowField<T>) -> Vec<T> {
         let (nx, ny, nz) = flow_field.velocity.dimensions;
         let mut viscosity = Vec::with_capacity(nx * ny * nz);
@@ -159,5 +185,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Turbu
         self.turbulent_viscosity(flow_field)
     }
 
-    fn name(&self) -> &'static str { "Vreman" }
+    fn name(&self) -> &'static str {
+        "Vreman"
+    }
 }

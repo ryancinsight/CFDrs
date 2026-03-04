@@ -107,8 +107,8 @@ impl<T: RealField + Copy + FromPrimitive> DiffusionSolver<T> {
                         / (self.dx * self.dx)
                         + (un_n - T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero) * un + un_s) / (self.dy * self.dy);
 
-                    let x = T::from_usize(i).unwrap() * self.dx;
-                    let y = T::from_usize(j).unwrap() * self.dy;
+                    let x = T::from_usize(i).unwrap_or_else(T::one) * self.dx;
+                    let y = T::from_usize(j).unwrap_or_else(T::one) * self.dy;
                     let source = source_fn(x, y, t);
                     let un_plus_1 = un + dt * (self.alpha * laplacian + source);
                     next_solution.insert((i, j), un_plus_1);
