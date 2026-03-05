@@ -563,7 +563,9 @@ pub fn build_candidate_space() -> Vec<DesignCandidate> {
     const DTCV_SPLIT2_CENTER_FRACS: [f64; 3] = [0.33, 0.45, 0.55];
     const DTCV_CENTER_THROAT_COUNTS: [u8; 4] = [1, 2, 3, 4];
     const DTCV_FLOWS: [f64; 5] = [1.333e-6, 1.667e-6, 2.000e-6, 3.333e-6, 4.167e-6];
-    const DTCV_GAUGES: [f64; 6] = [25_000.0, 50_000.0, 100_000.0, 150_000.0, 300_000.0, 400_000.0];
+    const DTCV_GAUGES: [f64; 6] = [
+        25_000.0, 50_000.0, 100_000.0, 150_000.0, 300_000.0, 400_000.0,
+    ];
     const DTCV_THROATS: [f64; 4] = [35e-6, 45e-6, 55e-6, 70e-6];
     const DTCV_TL_FACTORS: [f64; 3] = [2.0, 3.0, 5.0];
     const DTCV_WIDTHS: [f64; 3] = [4.0e-3, 5.0e-3, 6.0e-3];
@@ -596,9 +598,10 @@ pub fn build_candidate_space() -> Vec<DesignCandidate> {
                                         );
                                         candidates.push(DesignCandidate {
                                             id,
-                                            topology: DesignTopology::DoubleTrifurcationCIFVenturi {
-                                                center_throat_count,
-                                            },
+                                            topology:
+                                                DesignTopology::DoubleTrifurcationCIFVenturi {
+                                                    center_throat_count,
+                                                },
                                             flow_rate_m3_s: q,
                                             inlet_gauge_pa: gauge,
                                             throat_diameter_m: d_throat,

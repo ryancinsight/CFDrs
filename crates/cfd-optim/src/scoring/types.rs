@@ -31,6 +31,14 @@ pub enum OptimMode {
     /// - 405 nm optical-delivery proxy (reward thin treatment channels)
     UniformExposure,
 
+    /// Selective acoustic therapy on center-enriched treatment lanes.
+    ///
+    /// Uses the same selective routing objective as venturi-based therapy:
+    /// cancer cells and WBCs should remain in the center treatment stream
+    /// while RBCs are pushed into peripheral bypass channels. The treatment
+    /// mechanism is externally applied ultrasound rather than venturi throats.
+    SelectiveAcousticTherapy,
+
     /// Weighted combination of cavitation and exposure objectives.
     Combined {
         /// Weight on the cavitation sub-score (0.0–1.0).

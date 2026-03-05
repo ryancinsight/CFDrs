@@ -323,7 +323,44 @@ pub fn build_report_annotations(
         }
     }
 
-    annotations.legend_note = Some(format!("Throat markers: {throat_count}"));
+    let min_width_mm = system
+        .channels
+        .iter()
+        .map(|ch| ch.width)
+        .fold(f64::INFINITY, f64::min);
+    let max_width_mm = system
+        .channels
+        .iter()
+        .map(|ch| ch.width)
+        .fold(f64::NEG_INFINITY, f64::max);
+    let stage_sequence = topology_stage_sequence(candidate);
+    let split_layers = visible_split_layers(candidate);
+    let treatment_label = match candidate.treatment_zone_mode_effective() {
+        crate::design::TreatmentZoneMode::UltrasoundOnly => "ultrasound",
+        crate::design::TreatmentZoneMode::VenturiThroats => "venturi",
+    };
+    annotations.legend_note = Some(format!(
+        "{}  |  seq: {}  |  layers: {}  |  throats: {}  |  width: {:.2}-{:.2} mm",
+        candidate.topology.short(),
+        stage_sequence,
+        split_layers,
+        throat_count,
+        min_width_mm,
+        max_width_mm
+    ));
+    annotations.markers.push(
+        AnnotationMarker::new(
+            (system.box_dims.0 * 0.50, system.box_dims.1 * 0.82),
+            MarkerRole::Internal,
+        )
+        .with_label(
+            format!(
+                "{}  |  {} split layers  |  {} treatment",
+                stage_sequence, split_layers, treatment_label
+            ),
+            true,
+        ),
+    );
     annotations
 }
 
@@ -366,6 +403,66 @@ fn apply_therapy_role_overrides(
     }
 }
 
+fn topology_stage_sequence(candidate: &crate::design::DesignCandidate) -> String {
+    match candidate.topology {
+        DesignTopology::CascadeCenterTrifurcationSeparator { n_levels } => {
+            vec!["Tri"; usize::from(n_levels.min(4))].join("→")
+        }
+        DesignTopology::IncrementalFiltrationTriBiSeparator { n_pretri } => {
+            let mut stages = vec!["Tri"; usize::from(n_pretri.min(2))];
+            stages.push("Tri");
+            stages.push("Bi");
+            stages.join("→")
+        }
+        DesignTopology::TriBiTriSelectiveVenturi => "Tri→Bi→Tri".to_owned(),
+        DesignTopology::TrifurcationBifurcationVenturi => "Tri→Bi".to_owned(),
+        DesignTopology::BifurcationTrifurcationVenturi => "Bi→Tri".to_owned(),
+        DesignTopology::TrifurcationBifurcationBifurcationVenturi => "Tri→Bi→Bi".to_owned(),
+        DesignTopology::TripleTrifurcationVenturi => "Tri→Tri→Tri".to_owned(),
+        DesignTopology::QuadTrifurcationVenturi => "Tri→Tri→Tri→Tri".to_owned(),
+        DesignTopology::DoubleTrifurcationVenturi => "Tri→Tri".to_owned(),
+        DesignTopology::DoubleBifurcationVenturi => "Bi→Bi".to_owned(),
+        DesignTopology::TripleBifurcationVenturi => "Bi→Bi→Bi".to_owned(),
+        DesignTopology::BifurcationVenturi | DesignTopology::BifurcationSerpentine => {
+            "Bi".to_owned()
+        }
+        DesignTopology::TrifurcationVenturi | DesignTopology::TrifurcationSerpentine => {
+            "Tri".to_owned()
+        }
+        _ => candidate.topology.short().to_owned(),
+    }
+}
+
+fn visible_split_layers(candidate: &crate::design::DesignCandidate) -> usize {
+    match candidate.topology {
+        DesignTopology::CascadeCenterTrifurcationSeparator { n_levels } => {
+            usize::from(n_levels.min(4))
+        }
+        DesignTopology::IncrementalFiltrationTriBiSeparator { n_pretri } => {
+            usize::from(n_pretri.min(2)) + 2
+        }
+        DesignTopology::TriBiTriSelectiveVenturi => 3,
+        DesignTopology::TrifurcationBifurcationVenturi
+        | DesignTopology::BifurcationTrifurcationVenturi
+        | DesignTopology::DoubleBifurcationVenturi
+        | DesignTopology::DoubleTrifurcationVenturi
+        | DesignTopology::DoubleBifurcationSerpentine => 2,
+        DesignTopology::TripleTrifurcationVenturi
+        | DesignTopology::TripleBifurcationVenturi
+        | DesignTopology::TrifurcationBifurcationBifurcationVenturi => 3,
+        DesignTopology::QuadTrifurcationVenturi => 4,
+        DesignTopology::BifurcationVenturi
+        | DesignTopology::TrifurcationVenturi
+        | DesignTopology::BifurcationSerpentine
+        | DesignTopology::TrifurcationSerpentine
+        | DesignTopology::AsymmetricBifurcationSerpentine
+        | DesignTopology::AsymmetricTrifurcationVenturi
+        | DesignTopology::CellSeparationVenturi
+        | DesignTopology::WbcCancerSeparationVenturi => 1,
+        _ => 0,
+    }
+}
+
 /// Build a compact metric annotation string suited to a given optimisation mode.
 fn metric_annotation(d: &RankedDesign, mode: OptimMode) -> String {
     let m = &d.metrics;
@@ -393,6 +490,16 @@ fn metric_annotation(d: &RankedDesign, mode: OptimMode) -> String {
                 m.well_coverage_fraction * 100.0,
                 m.mean_residence_time_s,
                 m.total_path_length_mm,
+            )
+        }
+        OptimMode::SelectiveAcousticTherapy => {
+            format!(
+                "3pop={:.3}  ctr={:.0}%  wbc_ctr={:.0}%  rbc_peri={:.0}%  t_res={:.2}s",
+                m.three_pop_sep_efficiency,
+                m.cancer_center_fraction * 100.0,
+                m.wbc_center_fraction * 100.0,
+                m.rbc_peripheral_fraction_three_pop * 100.0,
+                m.mean_residence_time_s,
             )
         }
         OptimMode::CellSeparation => {

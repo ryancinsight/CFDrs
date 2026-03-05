@@ -36,7 +36,7 @@ pub use specialized::{
     constriction_expansion_array_rect, double_trifurcation_cif_venturi_rect,
     incremental_filtration_tri_bi_rect, incremental_filtration_tri_bi_rect_staged,
     incremental_filtration_tri_bi_rect_staged_remerge, parallel_microchannel_array_rect,
-    spiral_channel_rect,
+    spiral_channel_rect, CenterSerpentineSpec,
 };
 pub use trifurcation::{trifurcation_serpentine_rect, trifurcation_venturi_rect};
 

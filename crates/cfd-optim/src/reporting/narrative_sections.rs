@@ -1,18 +1,13 @@
 //! Section builders for Milestone 12 narrative markdown.
 
 use std::fmt::Write as _;
-use std::path::Path;
 
 use crate::analysis::RobustnessReport;
 use crate::reporting::figures::NarrativeFigureSpec;
 use crate::reporting::ValidationRow;
 use crate::RankedDesign;
 
-pub(super) fn build_selected_table(
-    option1: &RankedDesign,
-    option2: &RankedDesign,
-    option2_rbc: Option<&RankedDesign>,
-) -> String {
+pub(super) fn build_selected_table(option1: &RankedDesign, option2: &RankedDesign) -> String {
     let mut out = String::new();
     out.push_str(
         "| Track | Candidate | Topology | Mode | Active venturi throats | Score | sigma | WBC recovery | RBC venturi exposure | HI/pass | P95 shear (Pa) | ECV (mL) |\n",
@@ -20,7 +15,7 @@ pub(super) fn build_selected_table(
     out.push_str("|---|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|\n");
     let _ = writeln!(
         out,
-        "| Option 1 (Ultrasound branch, no venturi) | `{}` | {} | {} | {} | {:.4} | n/a | {:.4} | {:.4} | {:.2e} | {:.2} | {:.3} |",
+        "| Option 1 (Selective acoustic center treatment) | `{}` | {} | {} | {} | {:.4} | n/a | {:.4} | {:.4} | {:.2e} | {:.2} | {:.3} |",
         option1.candidate.id,
         option1.candidate.topology.name(),
         option1.metrics.treatment_zone_mode,
@@ -34,7 +29,7 @@ pub(super) fn build_selected_table(
     );
     let _ = writeln!(
         out,
-        "| Option 2 (Oncology-directed SDT, CIF/CCT venturi) | `{}` | {} | {} | {} | {:.4} | {:.4} | {:.4} | {:.4} | {:.2e} | {:.2} | {:.3} |",
+        "| Option 2 (Selective venturi, combined cancer + leukapheresis score) | `{}` | {} | {} | {} | {:.4} | {:.4} | {:.4} | {:.4} | {:.2e} | {:.2} | {:.3} |",
         option2.candidate.id,
         option2.candidate.topology.name(),
         option2.metrics.treatment_zone_mode,
@@ -47,23 +42,6 @@ pub(super) fn build_selected_table(
         option2.metrics.wall_shear_p95_pa,
         option2.metrics.total_ecv_ml
     );
-    if let Some(d) = option2_rbc {
-        let _ = writeln!(
-            out,
-            "| Option 2 (Pure SDT / RBC-protected venturi) | `{}` | {} | {} | {} | {:.4} | {:.4} | {:.4} | {:.4} | {:.2e} | {:.2} | {:.3} |",
-            d.candidate.id,
-            d.candidate.topology.name(),
-            d.metrics.treatment_zone_mode,
-            d.metrics.active_venturi_throat_count,
-            d.score,
-            d.metrics.cavitation_number,
-            d.metrics.wbc_recovery,
-            d.metrics.rbc_venturi_exposure_fraction,
-            d.metrics.hemolysis_index_per_pass,
-            d.metrics.wall_shear_p95_pa,
-            d.metrics.total_ecv_ml
-        );
-    }
     out
 }
 
@@ -90,14 +68,14 @@ pub(super) fn build_option2_top5_table(option2_ranked: &[RankedDesign]) -> Strin
 
 pub(super) fn build_tri_cell_table(
     option2_ranked: &[RankedDesign],
-    rbc_ranked: &[RankedDesign],
+    ga_ranked: &[RankedDesign],
 ) -> String {
     let mut out = String::new();
     out.push_str("| Track | Candidate | cancer_center_fraction | wbc_recovery | rbc_venturi_exposure | three_pop_sep_efficiency |\n");
     out.push_str("|---|---|---:|---:|---:|---:|\n");
     for (label, d_opt) in [
-        ("Option 2 Oncology-directed", option2_ranked.first()),
-        ("Option 2 RBC-protected", rbc_ranked.first()),
+        ("Option 2 Combined", option2_ranked.first()),
+        ("GA HydroSDT", ga_ranked.first()),
     ] {
         if let Some(d) = d_opt {
             let _ = writeln!(
@@ -117,14 +95,14 @@ pub(super) fn build_tri_cell_table(
 
 pub(super) fn build_strict_core_table(
     option2_ranked: &[RankedDesign],
-    rbc_ranked: &[RankedDesign],
+    ga_ranked: &[RankedDesign],
 ) -> String {
     let mut out = String::new();
     out.push_str("| Track | Candidate | Pressure feasible | Plate fits | FDA main | sigma finite | sigma<1 |\n");
     out.push_str("|---|---|---|---|---|---|---|\n");
     for (label, d_opt) in [
-        ("Option 2 Oncology-directed", option2_ranked.first()),
-        ("Option 2 RBC-protected", rbc_ranked.first()),
+        ("Option 2 Combined", option2_ranked.first()),
+        ("GA HydroSDT", ga_ranked.first()),
     ] {
         if let Some(d) = d_opt {
             let m = &d.metrics;
@@ -145,16 +123,12 @@ pub(super) fn build_strict_core_table(
 }
 
 pub(super) fn build_robustness_section(robustness: &[RobustnessReport], fast_mode: bool) -> String {
+    if robustness.is_empty() {
+        return String::new();
+    }
+    let _ = fast_mode;
     let mut out = String::new();
     out.push_str("### Option 2 Robustness Screening (Perturbations +/-10%/+/-20%)\n\n");
-    if robustness.is_empty() {
-        if fast_mode {
-            out.push_str("FAST regeneration mode skipped robustness sweep in this run.\n");
-        } else {
-            out.push_str("No robustness results were generated.\n");
-        }
-        return out;
-    }
     let robust_count = robustness.iter().filter(|r| r.is_robust).count();
     let _ = writeln!(
         out,
@@ -183,16 +157,12 @@ pub(super) fn build_robustness_section(robustness: &[RobustnessReport], fast_mod
 }
 
 pub(super) fn build_validation_section(rows: &[ValidationRow], fast_mode: bool) -> String {
+    if rows.is_empty() {
+        return String::new();
+    }
+    let _ = fast_mode;
     let mut out = String::new();
     out.push_str("### Multi-Fidelity Pressure-Drop Validation (Selected Venturi Designs)\n\n");
-    if rows.is_empty() {
-        if fast_mode {
-            out.push_str("FAST regeneration mode skipped multi-fidelity validation in this run.\n");
-        } else {
-            out.push_str("No validation rows were generated.\n");
-        }
-        return out;
-    }
     out.push_str("| Track | Candidate | dp1D Bernoulli (Pa) | dp2D FVM (Pa) | dp3D FEM (Pa) | 1D-2D diff (%) | 2D-3D diff (%) | Mass error (%) |\n");
     out.push_str("|---|---|---:|---:|---:|---:|---:|---:|\n");
     for row in rows {
@@ -265,15 +235,14 @@ To ensure integrity, security, and accessibility of Milestone 12 computational d
         .to_string()
 }
 
-pub(super) fn build_storage_artifact_index(manifest_path: &Path, rbc_pool_len: usize) -> String {
-    let manifest_rel = manifest_path
-        .to_str()
-        .unwrap_or("report/milestone12/figure_manifest.json")
-        .replace('\\', "/");
-    format!(
-        "- Canonical results: `report/milestone12_results.md`\n- Narrative report: `report/ARPA-H_SonALAsense_Milestone 12 Report.md`\n- Trace matrix: `report/m12_trace_matrix.md`\n- Figure manifest: `{manifest_rel}`\n- Figures: `report/figures/`\n- Generation artifacts: `report/milestone12/` (including top-5 JSON and {} RBC-protected eligibility evidence rows)",
-        rbc_pool_len
-    )
+pub(super) fn build_storage_artifact_index() -> String {
+    "\
+- Canonical results: Appendix A (embedded below)\n\
+- Contract trace matrix: Appendix B (embedded below)\n\
+- Figure manifest: Appendix C (embedded below)\n\
+- Figures: inline throughout §5 Results\n\
+- Generation artifacts: top-5 JSON, validation summaries, robustness outputs, and GA artifacts are included in Appendix A canonical data"
+        .to_string()
 }
 
 fn pass_fail(value: bool) -> &'static str {

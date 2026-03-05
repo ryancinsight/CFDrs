@@ -51,25 +51,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         &milestone12_dir.join("two_concept_option2_venturi_top5.json"),
         "option2_oncology_cif_cct",
     )?;
-    let option2_rbc = load_top_candidate(
-        &milestone12_dir.join("top5_rbc_protected.json"),
-        "option2_rbc_protected",
-    )?;
 
     save_schematic_svg(&option1, &figures_dir.join("selected_ga_schematic.svg"))?;
     save_schematic_svg(
         &option2,
         &figures_dir.join("selected_cifx_combined_schematic.svg"),
     )?;
-    save_schematic_svg(
-        &option2_rbc,
-        &figures_dir.join("selected_cif_schematic.svg"),
-    )?;
 
     println!("Generated report schematics:");
     println!("  Figure 4: {}", option1.id);
     println!("  Figure 5: {}", option2.id);
-    println!("  Figure 6: {}", option2_rbc.id);
 
     Ok(())
 }

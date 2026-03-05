@@ -9,6 +9,43 @@ use crate::geometry::metadata::{
     VenturiGeometryMetadata,
 };
 
+/// Optional serpentine geometry applied only to center treatment lanes.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CenterSerpentineSpec {
+    pub segments: usize,
+    pub bend_radius_m: f64,
+    pub segment_length_m: f64,
+}
+
+fn normalized_center_serpentine(
+    center_serpentine: Option<CenterSerpentineSpec>,
+) -> Option<CenterSerpentineSpec> {
+    center_serpentine.and_then(|spec| {
+        if spec.segments < 2 || spec.bend_radius_m <= 0.0 || spec.segment_length_m <= 0.0 {
+            None
+        } else {
+            Some(spec)
+        }
+    })
+}
+
+fn maybe_apply_center_serpentine(
+    mut channel: ChannelSpec,
+    width_m: f64,
+    height_m: f64,
+    center_serpentine: Option<CenterSerpentineSpec>,
+) -> ChannelSpec {
+    if let Some(spec) = normalized_center_serpentine(center_serpentine) {
+        channel.length_m = spec.segment_length_m * spec.segments as f64;
+        channel.resistance = shah_london(width_m, height_m, channel.length_m, BLOOD_MU);
+        channel.channel_shape = ChannelShape::Serpentine {
+            segments: spec.segments,
+            bend_radius_m: spec.bend_radius_m,
+        };
+    }
+    channel
+}
+
 /// Inertial-focusing cell-separation network with closed loop.
 ///
 /// **Topology**:
@@ -553,10 +590,17 @@ pub fn cascade_center_trifurcation_rect(
     throat_width_m: f64,
     throat_length_m: f64,
     height_m: f64,
+    venturi_treatment_enabled: bool,
+    center_serpentine: Option<CenterSerpentineSpec>,
 ) -> NetworkBlueprint {
     let n_levels = n_levels.clamp(1, 5) as usize;
     let l_throat = throat_length_m.max(2.0 * throat_width_m);
-    let l_taper = 5.0 * (main_width_m + throat_width_m) * 0.5;
+    let treatment_width_m = if venturi_treatment_enabled {
+        throat_width_m
+    } else {
+        main_width_m
+    };
+    let l_taper = 5.0 * (main_width_m + treatment_width_m) * 0.5;
     let center_frac = center_frac.clamp(0.20, 0.70);
     let periph_frac = (1.0 - center_frac) * 0.5;
     let width_floor = throat_width_m.max(50e-6);
@@ -632,7 +676,7 @@ pub fn cascade_center_trifurcation_rect(
         } else {
             "throat_in".to_string()
         };
-        bp.add_channel(
+        bp.add_channel(maybe_apply_center_serpentine(
             ChannelSpec::new_pipe_rect(
                 format!("center_lv{lv}"),
                 split_node.clone(),
@@ -644,46 +688,79 @@ pub fn cascade_center_trifurcation_rect(
                 0.0,
             )
             .with_metadata(TherapyZoneMetadata::new(TherapyZone::CancerTarget)),
-        );
+            w_ctr,
+            height_m,
+            center_serpentine,
+        ));
 
         w_center = w_ctr; // next level parent width = this level's center width
     }
 
-    // ── Venturi throat on the deepest center arm ──────────────────────────
-    bp.add_channel(
-        ChannelSpec::new_pipe_rect(
-            "throat_section",
-            "throat_in",
-            "throat_out",
-            l_throat,
-            throat_width_m,
-            height_m,
-            shah_london(throat_width_m, height_m, l_throat, BLOOD_MU),
-            0.0,
-        )
-        .with_metadata(TherapyZoneMetadata::new(TherapyZone::CancerTarget))
-        .with_metadata(VenturiGeometryMetadata {
-            throat_width_m,
-            throat_height_m: height_m,
-            throat_length_m: l_throat,
-            inlet_width_m: w_center,
-        }),
-    );
+    if venturi_treatment_enabled {
+        bp.add_channel(
+            ChannelSpec::new_pipe_rect(
+                "throat_section",
+                "throat_in",
+                "throat_out",
+                l_throat,
+                throat_width_m,
+                height_m,
+                shah_london(throat_width_m, height_m, l_throat, BLOOD_MU),
+                0.0,
+            )
+            .with_metadata(TherapyZoneMetadata::new(TherapyZone::CancerTarget))
+            .with_metadata(VenturiGeometryMetadata {
+                throat_width_m,
+                throat_height_m: height_m,
+                throat_length_m: l_throat,
+                inlet_width_m: w_center,
+            }),
+        );
 
-    // Diffuser: throat_out → outlet_merge
-    bp.add_channel(
-        ChannelSpec::new_pipe_rect(
-            "center_to_merge",
-            "throat_out",
-            "outlet_merge",
-            l_taper,
+        bp.add_channel(
+            ChannelSpec::new_pipe_rect(
+                "center_to_merge",
+                "throat_out",
+                "outlet_merge",
+                l_taper,
+                w_center,
+                height_m,
+                shah_london(w_center, height_m, l_taper, BLOOD_MU),
+                0.0,
+            )
+            .with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)),
+        );
+    } else {
+        bp.add_channel(maybe_apply_center_serpentine(
+            ChannelSpec::new_pipe_rect(
+                "treatment_section",
+                "throat_in",
+                "throat_out",
+                branch_length_m.max(l_taper),
+                w_center,
+                height_m,
+                shah_london(w_center, height_m, branch_length_m.max(l_taper), BLOOD_MU),
+                0.0,
+            )
+            .with_metadata(TherapyZoneMetadata::new(TherapyZone::CancerTarget)),
             w_center,
             height_m,
-            shah_london(w_center, height_m, l_taper, BLOOD_MU),
-            0.0,
-        )
-        .with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)),
-    );
+            center_serpentine,
+        ));
+        bp.add_channel(
+            ChannelSpec::new_pipe_rect(
+                "center_to_merge",
+                "throat_out",
+                "outlet_merge",
+                l_taper,
+                w_center,
+                height_m,
+                shah_london(w_center, height_m, l_taper, BLOOD_MU),
+                0.0,
+            )
+            .with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)),
+        );
+    }
 
     // ── Peripheral merge → outlet_merge ──────────────────────────────────
     // All side arms have merged into periph_merge; connect to outlet_merge.
@@ -755,6 +832,8 @@ pub fn incremental_filtration_tri_bi_rect(
         throat_width_m,
         throat_length_m,
         height_m,
+        true,
+        None,
     )
 }
 
@@ -794,6 +873,8 @@ pub fn incremental_filtration_tri_bi_rect_staged(
     throat_width_m: f64,
     throat_length_m: f64,
     height_m: f64,
+    venturi_treatment_enabled: bool,
+    center_serpentine: Option<CenterSerpentineSpec>,
 ) -> NetworkBlueprint {
     incremental_filtration_tri_bi_rect_staged_remerge(
         name,
@@ -809,6 +890,8 @@ pub fn incremental_filtration_tri_bi_rect_staged(
         throat_length_m,
         trunk_length_m,
         height_m,
+        venturi_treatment_enabled,
+        center_serpentine,
     )
 }
 
@@ -834,6 +917,8 @@ pub fn incremental_filtration_tri_bi_rect_staged_remerge(
     throat_length_m: f64,
     outlet_tail_length_m: f64,
     height_m: f64,
+    venturi_treatment_enabled: bool,
+    center_serpentine: Option<CenterSerpentineSpec>,
 ) -> NetworkBlueprint {
     let n_pretri = n_pretri.clamp(1, 3) as usize;
     let l_throat = throat_length_m.max(2.0 * throat_width_m);
@@ -924,7 +1009,7 @@ pub fn incremental_filtration_tri_bi_rect_staged_remerge(
         } else {
             "hy_tri".to_string()
         };
-        bp.add_channel(
+        bp.add_channel(maybe_apply_center_serpentine(
             ChannelSpec::new_pipe_rect(
                 format!("center_lv{lv}"),
                 split_node,
@@ -936,7 +1021,10 @@ pub fn incremental_filtration_tri_bi_rect_staged_remerge(
                 0.0,
             )
             .with_metadata(TherapyZoneMetadata::new(TherapyZone::CancerTarget)),
-        );
+            w_ctr,
+            height_m,
+            center_serpentine,
+        ));
 
         w_center = w_ctr;
     }
@@ -959,7 +1047,7 @@ pub fn incremental_filtration_tri_bi_rect_staged_remerge(
             .with_metadata(TherapyZoneMetadata::new(TherapyZone::HealthyBypass)),
         );
     }
-    bp.add_channel(
+    bp.add_channel(maybe_apply_center_serpentine(
         ChannelSpec::new_pipe_rect(
             "hy_tri_center",
             "hy_tri",
@@ -971,7 +1059,10 @@ pub fn incremental_filtration_tri_bi_rect_staged_remerge(
             0.0,
         )
         .with_metadata(TherapyZoneMetadata::new(TherapyZone::CancerTarget)),
-    );
+        w_htri_ctr,
+        height_m,
+        center_serpentine,
+    ));
 
     // ── Stage C: terminal bifurcation skimming ───────────────────────────
     let w_bi_treat = (w_htri_ctr * bi_treat_frac).max(width_floor);
@@ -989,7 +1080,7 @@ pub fn incremental_filtration_tri_bi_rect_staged_remerge(
         )
         .with_metadata(TherapyZoneMetadata::new(TherapyZone::HealthyBypass)),
     );
-    bp.add_channel(
+    bp.add_channel(maybe_apply_center_serpentine(
         ChannelSpec::new_pipe_rect(
             "hy_bi_treat",
             "hy_bi",
@@ -1001,41 +1092,75 @@ pub fn incremental_filtration_tri_bi_rect_staged_remerge(
             0.0,
         )
         .with_metadata(TherapyZoneMetadata::new(TherapyZone::CancerTarget)),
-    );
+        w_bi_treat,
+        height_m,
+        center_serpentine,
+    ));
 
-    // ── Venturi treatment section ─────────────────────────────────────────
-    bp.add_channel(
-        ChannelSpec::new_pipe_rect(
-            "throat_section",
-            "throat_in",
-            "throat_out",
-            l_throat,
-            throat_width_m,
-            height_m,
-            shah_london(throat_width_m, height_m, l_throat, BLOOD_MU),
-            0.0,
-        )
-        .with_metadata(TherapyZoneMetadata::new(TherapyZone::CancerTarget))
-        .with_metadata(VenturiGeometryMetadata {
-            throat_width_m,
-            throat_height_m: height_m,
-            throat_length_m: l_throat,
-            inlet_width_m: w_bi_treat,
-        }),
-    );
-    bp.add_channel(
-        ChannelSpec::new_pipe_rect(
-            "center_to_merge",
-            "throat_out",
-            "outlet_merge",
-            hybrid_branch_length_m,
+    if venturi_treatment_enabled {
+        bp.add_channel(
+            ChannelSpec::new_pipe_rect(
+                "throat_section",
+                "throat_in",
+                "throat_out",
+                l_throat,
+                throat_width_m,
+                height_m,
+                shah_london(throat_width_m, height_m, l_throat, BLOOD_MU),
+                0.0,
+            )
+            .with_metadata(TherapyZoneMetadata::new(TherapyZone::CancerTarget))
+            .with_metadata(VenturiGeometryMetadata {
+                throat_width_m,
+                throat_height_m: height_m,
+                throat_length_m: l_throat,
+                inlet_width_m: w_bi_treat,
+            }),
+        );
+        bp.add_channel(
+            ChannelSpec::new_pipe_rect(
+                "center_to_merge",
+                "throat_out",
+                "outlet_merge",
+                hybrid_branch_length_m,
+                w_bi_treat,
+                height_m,
+                shah_london(w_bi_treat, height_m, hybrid_branch_length_m, BLOOD_MU),
+                0.0,
+            )
+            .with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)),
+        );
+    } else {
+        bp.add_channel(maybe_apply_center_serpentine(
+            ChannelSpec::new_pipe_rect(
+                "treatment_section",
+                "throat_in",
+                "throat_out",
+                hybrid_branch_length_m.max(l_throat),
+                w_bi_treat,
+                height_m,
+                shah_london(w_bi_treat, height_m, hybrid_branch_length_m.max(l_throat), BLOOD_MU),
+                0.0,
+            )
+            .with_metadata(TherapyZoneMetadata::new(TherapyZone::CancerTarget)),
             w_bi_treat,
             height_m,
-            shah_london(w_bi_treat, height_m, hybrid_branch_length_m, BLOOD_MU),
-            0.0,
-        )
-        .with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)),
-    );
+            center_serpentine,
+        ));
+        bp.add_channel(
+            ChannelSpec::new_pipe_rect(
+                "center_to_merge",
+                "throat_out",
+                "outlet_merge",
+                hybrid_branch_length_m,
+                w_bi_treat,
+                height_m,
+                shah_london(w_bi_treat, height_m, hybrid_branch_length_m, BLOOD_MU),
+                0.0,
+            )
+            .with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)),
+        );
+    }
 
     // ── Peripheral merge and outlet trunk ────────────────────────────────
     bp.add_channel(
@@ -1852,6 +1977,8 @@ mod tests {
             100e-6,
             300e-6,
             1.0e-3,
+            true,
+            None,
         );
 
         let center_lv1 = rect_width(&bp, "center_lv1");
@@ -1867,7 +1994,20 @@ mod tests {
     #[test]
     fn staged_cif_metadata_encodes_all_stage_parameters() {
         let bp = incremental_filtration_tri_bi_rect_staged(
-            "cif-meta", 12e-3, 8e-3, 6e-3, 3, 2.0e-3, 0.45, 0.55, 0.76, 100e-6, 300e-6, 1.0e-3,
+            "cif-meta",
+            12e-3,
+            8e-3,
+            6e-3,
+            3,
+            2.0e-3,
+            0.45,
+            0.55,
+            0.76,
+            100e-6,
+            300e-6,
+            1.0e-3,
+            true,
+            None,
         );
         let inlet = bp
             .channels
@@ -1905,6 +2045,8 @@ mod tests {
             300e-6,
             1.5e-3,
             1.0e-3,
+            true,
+            None,
         );
 
         assert!((channel_length(&bp, "periph_to_merge") - 12e-3).abs() < 1e-12);
@@ -1926,6 +2068,8 @@ mod tests {
             100e-6,
             300e-6,
             1.0e-3,
+            true,
+            None,
         );
 
         let c0 = rect_width(&bp, "center_lv0");
@@ -1942,5 +2086,56 @@ mod tests {
         assert!(f1 >= f0 - 1e-12);
         assert!(f2 >= f1 - 1e-12);
         assert!(f2 > f0 + 1e-6);
+    }
+
+    #[test]
+    fn staged_cif_acoustic_serpentine_omits_throat_and_keeps_bypass_straight() {
+        let serpentine = CenterSerpentineSpec {
+            segments: 5,
+            bend_radius_m: 3.5e-3,
+            segment_length_m: 8.0e-3,
+        };
+        let bp = incremental_filtration_tri_bi_rect_staged(
+            "cif-acoustic-serp",
+            12e-3,
+            8e-3,
+            6e-3,
+            2,
+            2.0e-3,
+            0.45,
+            0.55,
+            0.68,
+            100e-6,
+            300e-6,
+            1.0e-3,
+            false,
+            Some(serpentine),
+        );
+
+        assert!(
+            bp.channels.iter().all(|c| c.id.as_str() != "throat_section"),
+            "acoustic-only CIF layout must not emit a venturi throat section"
+        );
+        assert!(
+            bp.channels.iter().any(|c| c.id.as_str() == "treatment_section"),
+            "acoustic-only CIF layout must emit a center treatment section"
+        );
+
+        let center_channel = bp
+            .channels
+            .iter()
+            .find(|c| c.id.as_str() == "center_lv0")
+            .expect("center_lv0 must exist");
+        assert!(matches!(
+            center_channel.channel_shape,
+            ChannelShape::Serpentine { .. }
+        ));
+
+        let bypass_channel = bp
+            .channels
+            .iter()
+            .find(|c| c.id.as_str() == "L_lv0")
+            .expect("L_lv0 must exist");
+        assert_eq!(bypass_channel.channel_shape, ChannelShape::Straight);
     }
 }

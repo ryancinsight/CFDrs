@@ -250,4 +250,3 @@ pub(super) fn leukapheresis_separation(
         total_ecv_ml,
     }
 }
-

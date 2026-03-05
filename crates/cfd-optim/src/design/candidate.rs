@@ -381,7 +381,12 @@ impl DesignCandidate {
     pub fn therapy_channel_fraction(&self) -> f64 {
         use cfd_1d::{cif_pretri_stage_q_fracs, tri_center_q_frac};
 
-        if !self.uses_venturi_treatment() {
+        if !self.topology.has_venturi()
+            && !matches!(
+                self.topology,
+                DesignTopology::AsymmetricBifurcationSerpentine
+            )
+        {
             return 0.0;
         }
 
@@ -489,4 +494,3 @@ impl DesignCandidate {
         )
     }
 }
-

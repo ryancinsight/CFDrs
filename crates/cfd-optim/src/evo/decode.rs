@@ -245,9 +245,7 @@ pub fn decode_genome(g: &MillifluidicGenome, id_prefix: &str) -> DesignCandidate
         | DesignTopology::AsymmetricTrifurcationVenturi
         | DesignTopology::TriBiTriSelectiveVenturi
         | DesignTopology::CellSeparationVenturi
-        | DesignTopology::WbcCancerSeparationVenturi => {
-            (1.0 + (genes[12] * 3.999).floor()) as u8
-        }
+        | DesignTopology::WbcCancerSeparationVenturi => (1.0 + (genes[12] * 3.999).floor()) as u8,
         _ => 1,
     };
 

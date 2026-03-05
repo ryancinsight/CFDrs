@@ -17,6 +17,7 @@ use cfd_schematics::{
         trifurcation_bifurcation_venturi_rect, trifurcation_serpentine_rect,
         trifurcation_venturi_rect, triple_bifurcation_venturi_rect,
         triple_trifurcation_venturi_rect, venturi_rect, venturi_serpentine_rect,
+        CenterSerpentineSpec,
     },
     NetworkBlueprint,
 };
@@ -42,6 +43,15 @@ impl DesignCandidate {
         let tl = self.throat_length_m.max(dt * 2.0);
         let n = self.serpentine_segments;
         let sl = self.segment_length_m;
+        let center_serpentine = if self.serpentine_segments >= 2 {
+            Some(CenterSerpentineSpec {
+                segments: self.serpentine_segments,
+                bend_radius_m: self.bend_radius_m,
+                segment_length_m: self.segment_length_m,
+            })
+        } else {
+            None
+        };
 
         match self.topology {
             // ── Single venturi ──
@@ -199,7 +209,17 @@ impl DesignCandidate {
                 let branch_len = TREATMENT_HEIGHT_MM * 0.15e-3;
                 let frac = self.trifurcation_center_frac;
                 cascade_center_trifurcation_rect(
-                    &self.id, trunk_len, branch_len, n_levels, w, frac, dt, tl, h,
+                    &self.id,
+                    trunk_len,
+                    branch_len,
+                    n_levels,
+                    w,
+                    frac,
+                    dt,
+                    tl,
+                    h,
+                    self.uses_venturi_treatment(),
+                    center_serpentine,
                 )
             }
 
@@ -269,6 +289,8 @@ impl DesignCandidate {
                     tl,
                     outlet_tail_len,
                     h,
+                    self.uses_venturi_treatment(),
+                    center_serpentine,
                 )
             }
 
@@ -415,7 +437,17 @@ impl DesignCandidate {
                         let lv = levels.min(5);
                         let cf = self.trifurcation_center_frac;
                         cascade_center_trifurcation_rect(
-                            &self.id, trunk_len, branch_len, lv, w, cf, dt, tl, h,
+                            &self.id,
+                            trunk_len,
+                            branch_len,
+                            lv,
+                            w,
+                            cf,
+                            dt,
+                            tl,
+                            h,
+                            self.uses_venturi_treatment(),
+                            center_serpentine,
                         )
                     }
                 }
@@ -446,10 +478,12 @@ impl DesignCandidate {
         let h_mm = self.channel_height_m * 1e3; // e.g. 0.5 mm
                                                 // Clamp throat to valid FrustumConfig range: strictly inside (0, w_mm)
         let dt_mm = (self.throat_diameter_m * 1e3).max(0.06).min(w_mm * 0.9);
+        let visual_w_mm = self.schematic_channel_width_mm();
+        let visual_wall_clearance_mm = self.schematic_wall_clearance_mm();
 
         let gc = GeometryConfig {
-            wall_clearance: 4.0,
-            channel_width: w_mm,
+            wall_clearance: visual_wall_clearance_mm,
+            channel_width: visual_w_mm,
             channel_height: h_mm,
             ..Default::default()
         };
@@ -668,9 +702,11 @@ impl DesignCandidate {
                 &ChannelTypeConfig::AllSerpentine(sine_wave),
             ),
             DesignTopology::CascadeCenterTrifurcationSeparator { n_levels } => {
-                // Cascade topology: cap at 3 schematic splits to keep ≤ 27
-                // parallel channels and prevent visual overlap.
-                let schematic_levels = (n_levels as usize).min(3);
+                // Cascade topology: allow up to 4 visible split layers in report
+                // schematics so higher-order center-enrichment designs can fill
+                // the millifluidic footprint without collapsing back to the
+                // older 3-layer look.
+                let schematic_levels = (n_levels as usize).min(4);
                 let splits: Vec<SplitType> = (0..schematic_levels)
                     .map(|_| SplitType::SymmetricTrifurcation {
                         center_ratio: self.trifurcation_center_frac,
@@ -684,12 +720,12 @@ impl DesignCandidate {
                 )
             }
             DesignTopology::IncrementalFiltrationTriBiSeparator { n_pretri } => {
-                // CIF schematic: cap pre-tri splits so parallel channels remain
-                // visually distinct.  Full n_pretri can produce 3^(n+1)*2 leaf
-                // channels; at n_pretri=3 that is 162 — far too many for
-                // 85 mm plate height.  Show at most 1 representative pre-tri
-                // to keep the total ≤ 18 parallel paths.
-                let schematic_pretri = n_pretri.min(1);
+                // CIF report schematics should show up to 4 visible split layers:
+                // two pre-tri stages followed by the terminal tri and terminal bi.
+                // This preserves the intended staged-selective topology for the
+                // current Option 1/2 winners while still capping the visual depth
+                // before the 5-layer/162-leaf case becomes unreadable.
+                let schematic_pretri = n_pretri.min(2);
                 let mut splits: Vec<SplitType> = (0..schematic_pretri as usize)
                     .map(|_| SplitType::SymmetricTrifurcation {
                         center_ratio: self.cif_pretri_center_frac(),
@@ -751,7 +787,7 @@ impl DesignCandidate {
                 )
             }
         };
-        map_to_plate_coords(system, box_dims, w_mm, h_mm)
+        map_to_plate_coords(system, box_dims, visual_w_mm, h_mm)
     }
 
     /// Total approximate channel path length [mm].
@@ -771,6 +807,26 @@ impl DesignCandidate {
                 * 1000.0;
         }
         len
+    }
+
+    fn schematic_channel_width_mm(&self) -> f64 {
+        let base_w_mm = self.channel_width_m * 1e3;
+        let scale = match self.topology {
+            DesignTopology::IncrementalFiltrationTriBiSeparator { .. }
+            | DesignTopology::CascadeCenterTrifurcationSeparator { .. } => 0.22,
+            DesignTopology::TriBiTriSelectiveVenturi => 0.26,
+            _ => 0.35,
+        };
+        (base_w_mm * scale).clamp(0.8, 2.5)
+    }
+
+    fn schematic_wall_clearance_mm(&self) -> f64 {
+        match self.topology {
+            DesignTopology::IncrementalFiltrationTriBiSeparator { .. }
+            | DesignTopology::CascadeCenterTrifurcationSeparator { .. } => 0.9,
+            DesignTopology::TriBiTriSelectiveVenturi => 1.1,
+            _ => 1.5,
+        }
     }
 }
 
@@ -1056,5 +1112,83 @@ mod tests {
             "y_max={y_max} should be above center"
         );
     }
-}
 
+    #[test]
+    fn cif_report_schematic_supports_four_visible_split_layers() {
+        use cfd_schematics::visualizations::{classify_node_roles, MarkerRole};
+
+        let mut candidate =
+            sample_candidate(DesignTopology::IncrementalFiltrationTriBiSeparator { n_pretri: 2 });
+        candidate.treatment_zone_mode = TreatmentZoneMode::UltrasoundOnly;
+        let system = candidate.to_channel_system();
+        let roles = classify_node_roles(&system);
+        let split_count = roles
+            .values()
+            .filter(|&&role| role == MarkerRole::Split)
+            .count();
+
+        assert!(
+            split_count >= 4,
+            "expected at least four visible split nodes, got {split_count}"
+        );
+    }
+
+    #[test]
+    fn cct_report_schematic_supports_four_visible_split_layers() {
+        use cfd_schematics::visualizations::{classify_node_roles, MarkerRole};
+
+        let candidate =
+            sample_candidate(DesignTopology::CascadeCenterTrifurcationSeparator { n_levels: 4 });
+        let system = candidate.to_channel_system();
+        let roles = classify_node_roles(&system);
+        let split_count = roles
+            .values()
+            .filter(|&&role| role == MarkerRole::Split)
+            .count();
+
+        assert!(
+            split_count >= 4,
+            "expected at least four visible split nodes, got {split_count}"
+        );
+    }
+
+    #[test]
+    fn cif_report_schematic_uses_most_of_plate_height() {
+        use cfd_schematics::geometry::ChannelType;
+
+        let mut candidate =
+            sample_candidate(DesignTopology::IncrementalFiltrationTriBiSeparator { n_pretri: 2 });
+        candidate.treatment_zone_mode = TreatmentZoneMode::UltrasoundOnly;
+        let system = candidate.to_channel_system();
+
+        let mut y_min = f64::INFINITY;
+        let mut y_max = f64::NEG_INFINITY;
+        let mut include = |y: f64| {
+            y_min = y_min.min(y);
+            y_max = y_max.max(y);
+        };
+
+        for node in &system.nodes {
+            include(node.point.1);
+        }
+        for channel in &system.channels {
+            match &channel.channel_type {
+                ChannelType::Straight => {}
+                ChannelType::SmoothStraight { path }
+                | ChannelType::Serpentine { path }
+                | ChannelType::Arc { path }
+                | ChannelType::Frustum { path, .. } => {
+                    for &(_, y) in path {
+                        include(y);
+                    }
+                }
+            }
+        }
+
+        let occupied_fraction = (y_max - y_min) / PLATE_HEIGHT_MM;
+        assert!(
+            occupied_fraction >= 0.80,
+            "expected CIF schematic to occupy at least 80% of plate height, got {occupied_fraction:.3}"
+        );
+    }
+}

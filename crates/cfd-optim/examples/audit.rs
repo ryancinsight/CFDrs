@@ -643,7 +643,7 @@ fn preset_defs() -> Vec<PresetDef> {
             mapped_to: "CCT",
             build: |n| {
                 cascade_center_trifurcation_rect(
-                    n, 12e-3, 8e-3, 2, 2e-3, 0.45, 100e-6, 300e-6, 1e-3,
+                    n, 12e-3, 8e-3, 2, 2e-3, 0.45, 100e-6, 300e-6, 1e-3, true, None,
                 )
             },
         },

@@ -10,6 +10,9 @@
 //!   across all 36 treatment wells and maximise residence time in the exposure
 //!   zone.
 //!
+//! - **[`OptimMode::SelectiveAcousticTherapy`]** — maximise selective
+//!   center-lane enrichment for acoustically treated treatment channels.
+//!
 //! - **[`OptimMode::Combined`]** — weighted combination of both objectives.
 //!
 //! Any candidate that violates either hard constraint — non-feasible pressure
@@ -110,6 +113,7 @@ fn score_candidate_impl(
                 mode,
                 OptimMode::SdtTherapy
                     | OptimMode::HydrodynamicCavitationSDT
+                    | OptimMode::SelectiveAcousticTherapy
                     | OptimMode::CombinedSdtLeukapheresis { .. }
             ) && metrics.hemolysis_index_per_pass > HI_PASS_LIMIT
             {
@@ -131,6 +135,7 @@ fn score_candidate_impl(
                 mode,
                 OptimMode::SdtTherapy
                     | OptimMode::HydrodynamicCavitationSDT
+                    | OptimMode::SelectiveAcousticTherapy
                     | OptimMode::CombinedSdtLeukapheresis { .. }
             ) {
                 (HI_PASS_LIMIT - metrics.hemolysis_index_per_pass) / HI_PASS_LIMIT
@@ -165,6 +170,7 @@ fn score_mode_raw(metrics: &SdtMetrics, mode: OptimMode, weights: &SdtWeights) -
     match mode {
         OptimMode::SdtCavitation => score_cavitation(metrics, weights),
         OptimMode::UniformExposure => score_exposure(metrics, weights),
+        OptimMode::SelectiveAcousticTherapy => score_selective_acoustic_therapy(metrics),
         OptimMode::Combined {
             cavitation_weight,
             exposure_weight,
@@ -271,6 +277,46 @@ fn score_three_pop_separation(metrics: &SdtMetrics, w: &SdtWeights) -> f64 {
         + w.sep3_wbc_center * wbc_center
         + w.sep3_cavitation * cav
         + w.sep3_hemolysis * hi_factor
+}
+
+fn score_selective_routing_base(metrics: &SdtMetrics) -> f64 {
+    let cancer_center = metrics.cancer_center_fraction.clamp(0.0, 1.0);
+    let wbc_center = metrics.wbc_center_fraction.clamp(0.0, 1.0);
+    let rbc_peripheral = metrics.rbc_peripheral_fraction_three_pop.clamp(0.0, 1.0);
+    let sep3 = metrics.three_pop_sep_efficiency.clamp(0.0, 1.0);
+    let therapy_fraction = metrics.therapy_channel_fraction.clamp(0.0, 1.0);
+    let residence = (metrics.mean_residence_time_s / 1.0).clamp(0.0, 1.0);
+    let optical_405 = metrics.blue_light_delivery_index_405nm.clamp(0.0, 1.0);
+
+    let hi_ratio = metrics.hemolysis_index_per_pass / HI_PASS_LIMIT.max(1e-12);
+    let hi_score = (1.0_f64 / (1.0_f64 + hi_ratio.powi(2))).clamp(0.0, 1.0);
+    let clot_score = (1.0 - metrics.clotting_risk_index.clamp(0.0, 1.0)).clamp(0.0, 1.0);
+
+    (0.20 * cancer_center
+        + 0.15 * wbc_center
+        + 0.15 * rbc_peripheral
+        + 0.15 * sep3
+        + 0.12 * therapy_fraction
+        + 0.08 * residence
+        + 0.06 * hi_score
+        + 0.05 * clot_score
+        + 0.04 * optical_405)
+        .clamp(0.0, 1.0)
+}
+
+fn score_selective_acoustic_therapy(metrics: &SdtMetrics) -> f64 {
+    let base = score_selective_routing_base(metrics);
+    let therapy_fraction = metrics.therapy_channel_fraction.clamp(0.0, 1.0);
+    let residence = (metrics.mean_residence_time_s / 1.0).clamp(0.0, 1.0);
+    let well_coverage = metrics.well_coverage_fraction.clamp(0.0, 1.0);
+    let optical_405 = metrics.blue_light_delivery_index_405nm.clamp(0.0, 1.0);
+
+    (0.55 * base
+        + 0.20 * therapy_fraction
+        + 0.15 * residence
+        + 0.05 * well_coverage
+        + 0.05 * optical_405)
+        .clamp(0.0, 1.0)
 }
 
 /// Score for the combined selective SDT therapy objective.
@@ -487,7 +533,9 @@ fn score_combined_sdt_leukapheresis(
     patient_weight_kg: f64,
 ) -> f64 {
     let s_l = score_pediatric_leukapheresis(metrics, patient_weight_kg);
-    let s_s = score_hydrodynamic_cavitation_sdt(metrics, weights);
+    let selective_base = score_selective_routing_base(metrics);
+    let venturi_sdt = score_hydrodynamic_cavitation_sdt(metrics, weights);
+    let s_s = (0.60 * selective_base + 0.40 * venturi_sdt).clamp(0.0, 1.0);
     let blended = (leuka_weight * s_l + sdt_weight * s_s) / (leuka_weight + sdt_weight).max(1e-12);
 
     let wbc_gate = (metrics.wbc_recovery / COMBINED_LEUKA_MIN_WBC_RECOVERY).clamp(0.0, 1.0);
@@ -551,6 +599,9 @@ pub fn score_description(mode: OptimMode) -> &'static str {
     match mode {
         OptimMode::SdtCavitation => "SDT Cavitation",
         OptimMode::UniformExposure => "Uniform Exposure",
+        OptimMode::SelectiveAcousticTherapy => {
+            "Selective Acoustic Therapy (Center Enrichment + Peripheral RBC Routing)"
+        }
         OptimMode::Combined { .. } => "Combined (Cavitation + Exposure)",
         OptimMode::CellSeparation => "Cell Separation + SDT",
         OptimMode::ThreePopSeparation => "Three-Pop Separation (WBC+Cancer→Center, RBC→Wall) + SDT",
@@ -711,6 +762,34 @@ mod tests {
         );
     }
 
+    #[test]
+    fn selective_acoustic_prefers_selective_center_routing() {
+        let mut broad = base_metrics();
+        broad.cancer_center_fraction = 0.22;
+        broad.wbc_center_fraction = 0.18;
+        broad.rbc_peripheral_fraction_three_pop = 0.24;
+        broad.three_pop_sep_efficiency = 0.14;
+        broad.therapy_channel_fraction = 0.16;
+        broad.mean_residence_time_s = 0.20;
+
+        let mut selective = base_metrics();
+        selective.cancer_center_fraction = 0.76;
+        selective.wbc_center_fraction = 0.66;
+        selective.rbc_peripheral_fraction_three_pop = 0.82;
+        selective.three_pop_sep_efficiency = 0.61;
+        selective.therapy_channel_fraction = 0.34;
+        selective.mean_residence_time_s = 1.30;
+
+        let mode = OptimMode::SelectiveAcousticTherapy;
+        let w = SdtWeights::default();
+        let broad_score = score_candidate(&broad, mode, &w);
+        let selective_score = score_candidate(&selective, mode, &w);
+        assert!(
+            selective_score > broad_score,
+            "selective acoustic mode should reward center-lane enrichment and peripheral RBC routing"
+        );
+    }
+
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(64))]
 
@@ -724,6 +803,7 @@ mod tests {
             let modes = [
                 OptimMode::SdtCavitation,
                 OptimMode::UniformExposure,
+                OptimMode::SelectiveAcousticTherapy,
                 OptimMode::Combined { cavitation_weight: 0.5, exposure_weight: 0.5 },
                 OptimMode::CellSeparation,
                 OptimMode::ThreePopSeparation,
@@ -774,6 +854,7 @@ mod tests {
             let modes = [
                 OptimMode::SdtCavitation,
                 OptimMode::UniformExposure,
+                OptimMode::SelectiveAcousticTherapy,
                 OptimMode::Combined { cavitation_weight: 0.5, exposure_weight: 0.5 },
                 OptimMode::CellSeparation,
                 OptimMode::ThreePopSeparation,

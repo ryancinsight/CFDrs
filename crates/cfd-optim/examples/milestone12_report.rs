@@ -5,15 +5,16 @@
 //! `report/milestone12/` and `report/figures/`.
 //!
 //! # Parts
-//! 1. **Two-concept selection** — parametric sweep, UniformExposure (no venturi) +
-//!    CombinedSdtLeukapheresis (venturi CIF), top-5 each.
+//! 1. **Two-concept selection** — parametric sweep over shared selective
+//!    center-enrichment layouts, ranked by SelectiveAcousticTherapy
+//!    (Option 1) and CombinedSdtLeukapheresis (Option 2), top-5 each.
 //! 2. **GA warm-start search** — top-100 parametric seeds → HydrodynamicCavitationSDT GA
 //!    (pop=80, gen=120) for deeper optimisation of venturi-cavitation designs.
 //! 3. **Multi-fidelity validation** — 2D FVM + 3D FEM pressure-drop confirmation on
-//!    the selected venturi designs from combined and RBC-protected tracks.
+//!    the selected combined-score Option 2 design plus the HydroSDT GA design.
 //! 4. **Figure generation** — schematics selected dynamically from optimizer output
-//!    (Figure 4 = best non-venturi; Figure 5 = best combined-mode venturi CIF;
-//!    Figure 6 = best RBC-protected SDT; Figure 7 = best HydroSDT GA design).
+//!    (Figure 4 = best selective acoustic design; Figure 5 = best combined-score
+//!    venturi design; Figure 6 = best HydroSDT GA design).
 //! 5. **Canonical report markdown** — `report/milestone12_results.md`.
 //!
 //! # Run
@@ -36,6 +37,7 @@ use cfd_optim::{
         BLOOD_DENSITY_KG_M3 as RHO, BLOOD_VAPOR_PRESSURE_PA as P_VAPOR_PA, M12_GA_HYDRO_SEED,
         P_ATM_PA,
     },
+    metrics_cache::MetricsCache,
     reporting::{
         pct_diff, shortlist_report, write_milestone12_narrative_report, write_milestone12_results,
         Milestone12NarrativeInput, ValidationRow,
@@ -95,7 +97,6 @@ struct EvaluatedCandidate {
     ga_score: f64,
     option1_score: Option<f64>,
     combined_score: Option<f64>,
-    rbc_score: Option<f64>,
 }
 
 struct RunConfig {
@@ -113,10 +114,13 @@ struct RunConfig {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 fn report_eligible_nonventuri(metrics: &SdtMetrics) -> bool {
-    metrics.pressure_feasible && metrics.plate_fits && metrics.fda_main_compliant
+    metrics.pressure_feasible
+        && metrics.plate_fits
+        && metrics.fda_main_compliant
+        && metrics.therapy_channel_fraction > 0.0
 }
 
-fn is_cif_cct_topology(topology: DesignTopology) -> bool {
+fn is_selective_report_topology(topology: DesignTopology) -> bool {
     matches!(
         topology,
         DesignTopology::IncrementalFiltrationTriBiSeparator { .. }
@@ -130,6 +134,71 @@ fn report_eligible_venturi_oncology(metrics: &SdtMetrics) -> bool {
         && metrics.fda_main_compliant
         && metrics.cavitation_number.is_finite()
         && metrics.cavitation_number < 1.0
+        && metrics.therapy_channel_fraction > 0.0
+}
+
+fn option2_mode() -> OptimMode {
+    OptimMode::CombinedSdtLeukapheresis {
+        leuka_weight: 0.5,
+        sdt_weight: 0.5,
+        patient_weight_kg: 3.0,
+    }
+}
+
+fn selective_acoustic_variant(candidate: &DesignCandidate) -> Option<DesignCandidate> {
+    if !is_selective_report_topology(candidate.topology) || !candidate.topology.has_venturi() {
+        return None;
+    }
+    let mut acoustic = candidate.clone();
+    acoustic.id = format!("{}-AC", candidate.id);
+    acoustic.treatment_zone_mode = cfd_optim::TreatmentZoneMode::UltrasoundOnly;
+    Some(acoustic)
+}
+
+fn selective_serpentine_variant(candidate: &DesignCandidate) -> Option<DesignCandidate> {
+    if !is_selective_report_topology(candidate.topology) {
+        return None;
+    }
+    let mut serpentine = candidate.clone();
+    serpentine.id = format!("{}-SP5", candidate.id);
+    serpentine.serpentine_segments = 5;
+    serpentine.bend_radius_m = 3.5e-3;
+    serpentine.segment_length_m = (candidate.segment_length_m * 0.18).max(6.0e-3);
+    Some(serpentine)
+}
+
+fn selective_extra_throat_variant(candidate: &DesignCandidate) -> Option<DesignCandidate> {
+    if !is_selective_report_topology(candidate.topology) || !candidate.uses_venturi_treatment() {
+        return None;
+    }
+    if candidate.centerline_venturi_throat_count >= 2 {
+        return None;
+    }
+    let mut extra = candidate.clone();
+    extra.id = format!("{}-VT2", candidate.id);
+    extra.centerline_venturi_throat_count = 2;
+    Some(extra)
+}
+
+fn expand_m12_candidates(raw_candidates: Vec<DesignCandidate>) -> Vec<DesignCandidate> {
+    let mut expanded = Vec::with_capacity(raw_candidates.len() * 4 / 3);
+    for candidate in raw_candidates {
+        if let Some(acoustic) = selective_acoustic_variant(&candidate) {
+            if let Some(acoustic_serpentine) = selective_serpentine_variant(&acoustic) {
+                expanded.push(acoustic_serpentine);
+            }
+            expanded.push(acoustic);
+        }
+
+        if let Some(serpentine) = selective_serpentine_variant(&candidate) {
+            expanded.push(serpentine);
+        }
+        if let Some(extra_throat) = selective_extra_throat_variant(&candidate) {
+            expanded.push(extra_throat);
+        }
+        expanded.push(candidate);
+    }
+    expanded
 }
 
 fn run_config_from_env() -> RunConfig {
@@ -418,12 +487,30 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Outputs: {}", out_dir.display());
 
     let weights = SdtWeights::default();
+    let option1_mode = OptimMode::SelectiveAcousticTherapy;
+    let oncology_mode = option2_mode();
     let run_cfg = run_config_from_env();
-    let raw_candidates = build_candidate_space();
+    let raw_candidates = expand_m12_candidates(build_candidate_space());
     let all_candidates: Vec<DesignCandidate> = if run_cfg.fast_mode {
-        let mut filtered: Vec<DesignCandidate> = raw_candidates
+        let mut acoustic_reserve: Vec<DesignCandidate> = Vec::new();
+        let mut venturi_filtered: Vec<DesignCandidate> = Vec::new();
+        for candidate in raw_candidates {
+            if !candidate.uses_venturi_treatment()
+                && is_selective_report_topology(candidate.topology)
+            {
+                acoustic_reserve.push(candidate);
+            } else if candidate.uses_venturi_treatment() && fast_mode_candidate_filter(&candidate) {
+                venturi_filtered.push(candidate);
+            }
+        }
+        acoustic_reserve.sort_by(|a, b| {
+            fast_eval_priority(a)
+                .cmp(&fast_eval_priority(b))
+                .then_with(|| a.id.cmp(&b.id))
+        });
+        acoustic_reserve.truncate(run_cfg.fast_nonventuri_reserve);
+        let mut filtered: Vec<DesignCandidate> = venturi_filtered
             .into_iter()
-            .filter(fast_mode_candidate_filter)
             .enumerate()
             .filter(|(idx, _)| idx % run_cfg.fast_stride == 0)
             .map(|(_, c)| c)
@@ -433,16 +520,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .cmp(&fast_eval_priority(b))
                 .then_with(|| a.id.cmp(&b.id))
         });
-        let mut nonventuri = Vec::new();
-        let mut venturi = Vec::new();
-        for c in filtered {
-            if c.topology.has_venturi() {
-                venturi.push(c);
-            } else {
-                nonventuri.push(c);
-            }
-        }
-        let keep_nonventuri = nonventuri
+        let venturi = filtered;
+        let keep_nonventuri = acoustic_reserve
             .len()
             .min(run_cfg.fast_nonventuri_reserve)
             .min(run_cfg.fast_max_candidates);
@@ -451,7 +530,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .min(run_cfg.fast_max_candidates.saturating_sub(keep_nonventuri));
         let mut selected = Vec::with_capacity(keep_nonventuri + keep_venturi);
         let mut vent_iter = venturi.into_iter().take(keep_venturi);
-        let mut non_iter = nonventuri.into_iter().take(keep_nonventuri);
+        let mut non_iter = acoustic_reserve.into_iter().take(keep_nonventuri);
         loop {
             let mut pushed = false;
             if let Some(c) = vent_iter.next() {
@@ -491,14 +570,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ── Part 1: Two-concept selection ─────────────────────────────────────────
     println!("\n[1/6] Two-concept parametric selection …");
     let ga_mode = OptimMode::HydrodynamicCavitationSDT;
-    let oncology_mode = OptimMode::HydrodynamicCavitationSDT;
     let mut option1_pool: Vec<RankedDesign> = Vec::new();
     let mut option2_pool: Vec<RankedDesign> = Vec::new();
-    let mut rbc_pool: Vec<RankedDesign> = Vec::new();
     let mut scored_seeds: Vec<(f64, DesignCandidate)> = Vec::new();
     let mut seen_ids: HashSet<String> = HashSet::with_capacity(total_candidates);
     let mut duplicate_ids_skipped: usize = 0;
     let mut unique_candidates: Vec<DesignCandidate> = Vec::with_capacity(total_candidates);
+    let metrics_cache = MetricsCache::new(workspace_root.join("target").join("m12_metrics_cache"))?;
 
     for c in all_candidates {
         if !seen_ids.insert(c.id.clone()) {
@@ -512,43 +590,62 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut out = Vec::new();
         let mut option1_hits = 0usize;
         let mut option2_hits = 0usize;
-        let mut rbc_hits = 0usize;
         let mut eval_count = 0usize;
 
         for candidate in unique_candidates {
             if eval_count >= run_cfg.fast_eval_max {
                 break;
             }
-            let metrics = match compute_metrics(&candidate) {
-                Ok(m) => m,
-                Err(_) => continue,
-            };
+            let metrics =
+                match metrics_cache.get_or_compute(&candidate, || compute_metrics(&candidate)) {
+                    Ok(m) => m,
+                    Err(_) => continue,
+                };
             eval_count += 1;
 
+            if candidate.uses_venturi_treatment()
+                && is_selective_report_topology(candidate.topology)
+            {
+                let mut acoustic_candidate = candidate.clone();
+                acoustic_candidate.id = format!("{}-ACS", candidate.id);
+                acoustic_candidate.treatment_zone_mode =
+                    cfd_optim::TreatmentZoneMode::UltrasoundOnly;
+                if let Ok(acoustic_metrics) = metrics_cache
+                    .get_or_compute(&acoustic_candidate, || compute_metrics(&acoustic_candidate))
+                {
+                    if report_eligible_nonventuri(&acoustic_metrics) {
+                        option1_hits += 1;
+                        out.push(EvaluatedCandidate {
+                            candidate: acoustic_candidate,
+                            metrics: acoustic_metrics.clone(),
+                            ga_score: 0.0,
+                            option1_score: Some(score_candidate(
+                                &acoustic_metrics,
+                                option1_mode,
+                                &weights,
+                            )),
+                            combined_score: None,
+                        });
+                    }
+                }
+            }
+
             let ga_score = score_candidate(&metrics, ga_mode, &weights);
-            let option1_score =
-                if !candidate.topology.has_venturi() && report_eligible_nonventuri(&metrics) {
-                    Some(score_candidate(
-                        &metrics,
-                        OptimMode::UniformExposure,
-                        &weights,
-                    ))
-                } else {
-                    None
-                };
+            let option1_score = if !candidate.uses_venturi_treatment()
+                && is_selective_report_topology(candidate.topology)
+                && report_eligible_nonventuri(&metrics)
+            {
+                Some(score_candidate(&metrics, option1_mode, &weights))
+            } else {
+                None
+            };
 
             let mut oncology_score = None;
-            let mut rbc_score = None;
-            if candidate.topology.has_venturi()
-                && is_cif_cct_topology(candidate.topology)
+            if candidate.uses_venturi_treatment()
+                && is_selective_report_topology(candidate.topology)
                 && report_eligible_venturi_oncology(&metrics)
             {
                 oncology_score = Some(score_candidate(&metrics, oncology_mode, &weights));
-                rbc_score = Some(score_candidate(
-                    &metrics,
-                    OptimMode::RbcProtectedSdt,
-                    &weights,
-                ));
             }
 
             if option1_score.is_some() {
@@ -557,9 +654,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             if oncology_score.is_some() {
                 option2_hits += 1;
             }
-            if rbc_score.is_some() {
-                rbc_hits += 1;
-            }
 
             out.push(EvaluatedCandidate {
                 candidate,
@@ -567,14 +661,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 ga_score,
                 option1_score,
                 combined_score: oncology_score,
-                rbc_score,
             });
 
-            if eval_count >= run_cfg.fast_eval_min
-                && option1_hits >= 10
-                && option2_hits >= 10
-                && rbc_hits >= 10
-            {
+            if eval_count >= run_cfg.fast_eval_min && option1_hits >= 10 && option2_hits >= 10 {
                 break;
             }
         }
@@ -585,45 +674,70 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
         out
     } else {
+        let cache = metrics_cache.clone();
         unique_candidates
             .into_par_iter()
-            .filter_map(|candidate| {
-                let metrics = compute_metrics(&candidate).ok()?;
-                let ga_score = score_candidate(&metrics, ga_mode, &weights);
+            .flat_map_iter(|candidate| {
+                let mut entries = Vec::new();
+                let metrics = match cache.get_or_compute(&candidate, || compute_metrics(&candidate))
+                {
+                    Ok(m) => m,
+                    Err(_) => return entries.into_iter(),
+                };
 
-                let option1_score =
-                    if !candidate.topology.has_venturi() && report_eligible_nonventuri(&metrics) {
-                        Some(score_candidate(
-                            &metrics,
-                            OptimMode::UniformExposure,
-                            &weights,
-                        ))
-                    } else {
-                        None
-                    };
+                if candidate.uses_venturi_treatment()
+                    && is_selective_report_topology(candidate.topology)
+                {
+                    let mut acoustic_candidate = candidate.clone();
+                    acoustic_candidate.id = format!("{}-ACS", candidate.id);
+                    acoustic_candidate.treatment_zone_mode =
+                        cfd_optim::TreatmentZoneMode::UltrasoundOnly;
+                    if let Ok(acoustic_metrics) = cache.get_or_compute(&acoustic_candidate, || {
+                        compute_metrics(&acoustic_candidate)
+                    }) {
+                        if report_eligible_nonventuri(&acoustic_metrics) {
+                            entries.push(EvaluatedCandidate {
+                                candidate: acoustic_candidate,
+                                metrics: acoustic_metrics.clone(),
+                                ga_score: 0.0,
+                                option1_score: Some(score_candidate(
+                                    &acoustic_metrics,
+                                    option1_mode,
+                                    &weights,
+                                )),
+                                combined_score: None,
+                            });
+                        }
+                    }
+                }
+
+                let ga_score = score_candidate(&metrics, ga_mode, &weights);
+                let option1_score = if !candidate.uses_venturi_treatment()
+                    && is_selective_report_topology(candidate.topology)
+                    && report_eligible_nonventuri(&metrics)
+                {
+                    Some(score_candidate(&metrics, option1_mode, &weights))
+                } else {
+                    None
+                };
 
                 let mut oncology_score = None;
-                let mut rbc_score = None;
-                if candidate.topology.has_venturi()
-                    && is_cif_cct_topology(candidate.topology)
+                if candidate.uses_venturi_treatment()
+                    && is_selective_report_topology(candidate.topology)
                     && report_eligible_venturi_oncology(&metrics)
                 {
                     oncology_score = Some(score_candidate(&metrics, oncology_mode, &weights));
-                    rbc_score = Some(score_candidate(
-                        &metrics,
-                        OptimMode::RbcProtectedSdt,
-                        &weights,
-                    ));
                 }
 
-                Some(EvaluatedCandidate {
+                entries.push(EvaluatedCandidate {
                     candidate,
                     metrics,
                     ga_score,
                     option1_score,
                     combined_score: oncology_score,
-                    rbc_score,
-                })
+                });
+
+                entries.into_iter()
             })
             .collect()
     };
@@ -643,7 +757,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut venturi_sigma_lt1 = 0usize;
     let mut venturi_oncology_eligible = 0usize;
     for ev in evaluated {
-        if ev.candidate.topology.has_venturi() {
+        if ev.candidate.uses_venturi_treatment() {
             venturi_total += 1;
             if ev.metrics.cavitation_number.is_finite() && ev.metrics.cavitation_number < 1.0 {
                 venturi_sigma_lt1_any += 1;
@@ -690,19 +804,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 nonventuri_eligible += 1;
             }
         }
-        if ev.ga_score > 0.0 {
+        if ev.candidate.uses_venturi_treatment() && ev.ga_score > 0.0 {
             scored_seeds.push((ev.ga_score, ev.candidate.clone()));
         }
         if let Some(score) = ev.option1_score {
             option1_pool.push(RankedDesign {
-                rank: 0,
-                candidate: ev.candidate.clone(),
-                metrics: ev.metrics.clone(),
-                score,
-            });
-        }
-        if let Some(score) = ev.rbc_score {
-            rbc_pool.push(RankedDesign {
                 rank: 0,
                 candidate: ev.candidate.clone(),
                 metrics: ev.metrics.clone(),
@@ -721,23 +827,27 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let option1_pool_len = option1_pool.len();
     let option2_pool_len = option2_pool.len();
-    let rbc_pool_len = rbc_pool.len();
+    let cache_stats = metrics_cache.stats();
     println!(
         "      Candidate deduplication: {} unique, {} duplicate IDs skipped",
         seen_ids.len(),
         duplicate_ids_skipped
     );
     println!(
-        "      Gate diagnostics (Option1): total={} pressure+plate={} fda_main={} eligible={}",
+        "      Gate diagnostics (Option1 selective acoustic): total={} pressure+plate={} fda_main={} eligible={}",
         nonventuri_total, nonventuri_pressure_plate, nonventuri_fda_main, nonventuri_eligible
     );
     println!(
-        "      Gate diagnostics (Option2 oncology CIF/CCT): total={} sigma<1(any)={} pressure+plate+fda_main={} sigma<1(pressure+plate+fda_main)={} oncology_eligible={}",
+        "      Gate diagnostics (Option2 combined selective venturi): total={} sigma<1(any)={} pressure+plate+fda_main={} sigma<1(pressure+plate+fda_main)={} oncology_eligible={}",
         venturi_total,
         venturi_sigma_lt1_any,
         venturi_pressure_plate_fda,
         venturi_sigma_lt1,
         venturi_oncology_eligible
+    );
+    println!(
+        "      Metric cache: {} hits, {} misses",
+        cache_stats.hits, cache_stats.misses
     );
     println!(
         "      Sigma<1 breakdown: pressure={} plate={} fda_main={} fda_overall={} pressure+plate+fda_overall={}",
@@ -749,7 +859,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
     let option1_ranked = shortlist_report(option1_pool, 5, "option1_ultrasound")?;
     let option2_ranked = shortlist_report(option2_pool, 5, "option2_venturi_cif")?;
-    let rbc_ranked = shortlist_report(rbc_pool, 5, "rbc_protected_venturi")?;
 
     save_top5_json(
         &option1_ranked,
@@ -761,12 +870,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     )?;
 
     println!(
-        "      Option 1: {} (score={:.4})",
+        "      Option 1 (selective acoustic): {} (score={:.4})",
         option1_ranked[0].candidate.topology.short(),
         option1_ranked[0].score
     );
     println!(
-        "      Option 2 (oncology-directed CIF/CCT): {} (score={:.4}  σ={:.3})",
+        "      Option 2 (combined selective venturi): {} (score={:.4}  σ={:.3})",
         option2_ranked[0].candidate.topology.short(),
         option2_ranked[0].score,
         option2_ranked[0].metrics.cavitation_number
@@ -814,7 +923,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ── Part 3: Multi-fidelity validation ────────────────────────────────────
     let mut validation_rows: Vec<ValidationRow> = Vec::new();
     let option2_robustness: Vec<RobustnessReport>;
-    save_top5_json(&rbc_ranked, &out_dir.join("top5_rbc_protected.json"))?;
     if run_cfg.fast_mode {
         println!("\n[3/6] Fast mode: skipping multi-fidelity validation");
         println!("[4/6] Fast mode: skipping robustness sweep");
@@ -823,22 +931,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("\n[3/6] Running 2D FVM + 3D FEM validation on selected venturi designs …");
 
         let combined_validation = validate_venturi_candidate(
-            "Option 2 Oncology-directed CIF/CCT",
+            "Option 2 Combined Selective Venturi",
             &option2_ranked[0],
             &out_dir,
         )?;
         validation_rows.push(combined_validation.clone());
-        if option2_ranked[0].candidate.id == rbc_ranked[0].candidate.id {
-            let mut mirrored = combined_validation;
-            mirrored.track = "Option 2 RBC-protected".to_string();
-            validation_rows.push(mirrored);
-        } else {
-            validation_rows.push(validate_venturi_candidate(
-                "Option 2 RBC-protected",
-                &rbc_ranked[0],
-                &out_dir,
-            )?);
-        }
+        validation_rows.push(validate_venturi_candidate(
+            "GA HydroSDT Venturi",
+            &ga_top[0],
+            &out_dir,
+        )?);
 
         // ── Part 4: Robustness screening ─────────────────────────────────────
         println!("\n[4/6] Running robustness screening on Option 2 shortlist …");
@@ -869,43 +971,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ── Part 5: Figure generation ─────────────────────────────────────────────
     println!("\n[5/6] Generating report figures …");
 
-    // Figure 4 — best non-venturi design from UniformExposure (dynamic, not hardcoded)
+    // Figure 4 — best selective acoustic design
     save_figure(
         &option1_ranked[0].candidate,
         &figures_dir.join("selected_ga_schematic.svg"),
-        "Figure 4 (Option 1 best non-venturi)",
+        "Figure 4 (Option 1 selective acoustic)",
     );
 
-    // Figure 5 — best oncology-directed CIF/CCT venturi design
+    // Figure 5 — best combined selective venturi design
     save_figure(
         &option2_ranked[0].candidate,
         &figures_dir.join("selected_cifx_combined_schematic.svg"),
-        "Figure 5 (Option 2 oncology-directed CIF/CCT venturi)",
+        "Figure 5 (Option 2 combined selective venturi)",
     );
 
-    // Figure 6 — best RBC-protected SDT design
-    save_figure(
-        &rbc_ranked[0].candidate,
-        &figures_dir.join("selected_cif_schematic.svg"),
-        "Figure 6 (RbcProtectedSdt rank-1)",
-    );
-
-    // Figure 7 — best HydroSDT GA design (new)
+    // Figure 6 — best HydroSDT GA design
     save_figure(
         &ga_top[0].candidate,
         &figures_dir.join("top_hydrosdt_schematic.svg"),
-        "Figure 7 (HydroSDT GA rank-1)",
+        "Figure 6 (HydroSDT GA rank-1)",
     );
-
-    // Also save SVGs for all top-5 RBC-protected designs
-    for (i, d) in rbc_ranked.iter().enumerate() {
-        let fname = format!("ranked_{:02}_{}.svg", i + 1, d.candidate.topology.short());
-        save_figure(
-            &d.candidate,
-            &out_dir.join(&fname),
-            &format!("RBC rank-{}", i + 1),
-        );
-    }
 
     // ── Part 6: Canonical markdown + JSON ────────────────────────────────────
     println!("\n[6/6] Writing canonical report and summary JSON …");
@@ -913,13 +998,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Two-concept selection summary
     let toplines = vec![
         concept_topline(
-            "Option 1: Acoustic branch-network (no venturi)",
-            "UniformExposure",
+            "Option 1: Selective acoustic center treatment",
+            "SelectiveAcousticTherapy",
             &option1_ranked[0],
         ),
         concept_topline(
-            "Option 2: Venturi oncology-directed SDT (CIF/CCT)",
-            "HydrodynamicCavitationSDT",
+            "Option 2: Selective venturi treatment ranked by combined score",
+            "CombinedSdtLeukapheresis",
             &option2_ranked[0],
         ),
     ];
@@ -934,10 +1019,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         total_candidates,
         option1_pool_len,
         option2_pool_len,
-        rbc_pool_len,
         &option1_ranked,
         &option2_ranked,
-        &rbc_ranked,
         &ga_top[0],
         &validation_rows,
         &option2_robustness,
@@ -952,10 +1035,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             total_candidates,
             option1_pool_len,
             option2_pool_len,
-            rbc_pool_len,
             option1_ranked: &option1_ranked,
             option2_ranked: &option2_ranked,
-            rbc_ranked: &rbc_ranked,
             ga_top,
             validation_rows: &validation_rows,
             option2_robustness: &option2_robustness,

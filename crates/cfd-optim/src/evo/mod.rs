@@ -62,13 +62,13 @@ pub(super) const ALL_EVO_TOPOLOGIES: [DesignTopology; 29] = [
     DesignTopology::DoubleTrifurcationCIFVenturi {
         center_throat_count: 2,
     }, // 24
-    DesignTopology::AsymmetricTrifurcationVenturi, // 25
-    DesignTopology::TriBiTriSelectiveVenturi,      // 26
+    DesignTopology::AsymmetricTrifurcationVenturi,                      // 25
+    DesignTopology::TriBiTriSelectiveVenturi,                           // 26
     DesignTopology::AdaptiveTree {
         levels: 0,
         split_types: 0,
     }, // 27
-    DesignTopology::DoubleBifurcationSerpentine, // 28
+    DesignTopology::DoubleBifurcationSerpentine,                        // 28
 ];
 
 // ── Genome definition ─────────────────────────────────────────────────────────

@@ -87,6 +87,7 @@ pub mod design;
 pub mod error;
 pub mod evo;
 pub mod metrics;
+pub mod metrics_cache;
 pub mod orchestration;
 pub mod reporting;
 pub mod scoring;
@@ -104,6 +105,7 @@ pub use design::{
 pub use error::OptimError;
 pub use evo::{candidate_to_genome, decode_genome, GeneticOptimizer, MillifluidicGenome};
 pub use metrics::{compute_metrics, giersiepen_hi, ChannelHemolysis, SdtMetrics};
+pub use metrics_cache::{MetricsCache, MetricsCacheStats, METRICS_CACHE_VERSION};
 pub use orchestration::{
     OptimStats, RankedDesign, RobustScoreStats, RobustSweepConfig, SdtOptimizer,
 };

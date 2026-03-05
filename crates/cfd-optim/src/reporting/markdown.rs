@@ -34,10 +34,8 @@ pub fn write_milestone12_results(
     total_candidates: usize,
     option1_pool_len: usize,
     option2_pool_len: usize,
-    rbc_pool_len: usize,
     option1_ranked: &[RankedDesign],
     option2_ranked: &[RankedDesign],
-    rbc_ranked: &[RankedDesign],
     ga_top: &RankedDesign,
     validation_rows: &[ValidationRow],
     option2_robustness: &[RobustnessReport],
@@ -51,9 +49,6 @@ pub fn write_milestone12_results(
     let option2 = option2_ranked
         .first()
         .ok_or("option2_ranked is empty; strict-core Option 2 selection failed")?;
-    let option2_rbc = rbc_ranked
-        .first()
-        .ok_or("rbc_ranked is empty; strict-core RBC track selection failed")?;
 
     writeln!(md, "# Milestone 12 Results - Canonical\n")?;
     writeln!(
@@ -79,18 +74,13 @@ pub fn write_milestone12_results(
     writeln!(md, "- Total generated candidates: **{}**", total_candidates)?;
     writeln!(
         md,
-        "- Option 1 eligibility pool (no venturi + pressure/plate/FDA-main): **{}**",
+        "- Option 1 eligibility pool (selective acoustic + pressure/plate/FDA-main): **{}**",
         option1_pool_len
     )?;
     writeln!(
         md,
-        "- Option 2 eligibility pool (CIF/CCT venturi + pressure/plate/FDA-main + sigma<1): **{}**",
+        "- Option 2 eligibility pool (selective venturi + pressure/plate/FDA-main + sigma<1): **{}**\n",
         option2_pool_len
-    )?;
-    writeln!(
-        md,
-        "- RBC-protected venturi eligibility pool (CIF/CCT venturi + pressure/plate/FDA-main + sigma<1): **{}**\n",
-        rbc_pool_len
     )?;
 
     writeln!(md, "## Selected Designs")?;
@@ -104,7 +94,7 @@ pub fn write_milestone12_results(
     )?;
     writeln!(
         md,
-        "| Option 1 (Ultrasound branch, no venturi) | `{}` | {} | {} | {} | {:.4} | n/a | {:.4} | {:.4} | {:.2e} | {:.2} | {:.3} |",
+        "| Option 1 (Selective acoustic center treatment) | `{}` | {} | {} | {} | {:.4} | n/a | {:.4} | {:.4} | {:.2e} | {:.2} | {:.3} |",
         option1.candidate.id,
         option1.candidate.topology.name(),
         option1.metrics.treatment_zone_mode,
@@ -118,7 +108,7 @@ pub fn write_milestone12_results(
     )?;
     writeln!(
         md,
-        "| Option 2 (Oncology-directed SDT, CIF/CCT venturi) | `{}` | {} | {} | {} | {:.4} | {:.4} | {:.4} | {:.4} | {:.2e} | {:.2} | {:.3} |",
+        "| Option 2 (Selective venturi, combined cancer + leukapheresis score) | `{}` | {} | {} | {} | {:.4} | {:.4} | {:.4} | {:.4} | {:.2e} | {:.2} | {:.3} |",
         option2.candidate.id,
         option2.candidate.topology.name(),
         option2.metrics.treatment_zone_mode,
@@ -130,21 +120,6 @@ pub fn write_milestone12_results(
         option2.metrics.hemolysis_index_per_pass,
         option2.metrics.wall_shear_p95_pa,
         option2.metrics.total_ecv_ml,
-    )?;
-    writeln!(
-        md,
-        "| Option 2 (Pure SDT / RBC-protected venturi) | `{}` | {} | {} | {} | {:.4} | {:.4} | {:.4} | {:.4} | {:.2e} | {:.2} | {:.3} |",
-        option2_rbc.candidate.id,
-        option2_rbc.candidate.topology.name(),
-        option2_rbc.metrics.treatment_zone_mode,
-        option2_rbc.metrics.active_venturi_throat_count,
-        option2_rbc.score,
-        option2_rbc.metrics.cavitation_number,
-        option2_rbc.metrics.wbc_recovery,
-        option2_rbc.metrics.rbc_venturi_exposure_fraction,
-        option2_rbc.metrics.hemolysis_index_per_pass,
-        option2_rbc.metrics.wall_shear_p95_pa,
-        option2_rbc.metrics.total_ecv_ml,
     )?;
     writeln!(md)?;
 
@@ -177,17 +152,14 @@ pub fn write_milestone12_results(
 
     writeln!(
         md,
-        "## Strict-Core Gate Evidence (Selected Venturi Designs)"
+        "## Strict-Core Gate Evidence (Selected Option 2 Venturi Design)"
     )?;
     writeln!(
         md,
         "| Track | Candidate | Pressure feasible | Plate fits | FDA main | sigma finite | sigma<1 |"
     )?;
     writeln!(md, "|---|---|---|---|---|---|---|")?;
-    for (label, d) in [
-        ("Option 2 Oncology-directed", option2),
-        ("Option 2 RBC-protected", option2_rbc),
-    ] {
+    for (label, d) in [("Option 2 Combined Selective Venturi", option2)] {
         let m = &d.metrics;
         writeln!(
             md,

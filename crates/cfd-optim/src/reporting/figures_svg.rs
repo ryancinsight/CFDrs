@@ -32,14 +32,12 @@ pub(super) fn write_cross_mode_figure(
     path: &Path,
     option1: &[RankedDesign],
     option2: &[RankedDesign],
-    rbc: &[RankedDesign],
     ga: &[RankedDesign],
 ) -> Result<(), Box<dyn std::error::Error>> {
     let data = vec![
-        ("Option1", option1.first().map_or(0.0, |d| d.score)),
-        ("Option2", option2.first().map_or(0.0, |d| d.score)),
-        ("RBC", rbc.first().map_or(0.0, |d| d.score)),
-        ("GA", ga.first().map_or(0.0, |d| d.score)),
+        ("Opt1 Acoustic", option1.first().map_or(0.0, |d| d.score)),
+        ("Opt2 Combined", option2.first().map_or(0.0, |d| d.score)),
+        ("GA HydroSDT", ga.first().map_or(0.0, |d| d.score)),
     ];
     write_bar_svg(path, "Cross-Mode Scoring Comparison", &data, 1.0)
 }
@@ -67,7 +65,6 @@ pub(super) fn write_head_to_head_figure(
 pub(super) fn write_cavitation_distribution_figure(
     path: &Path,
     option2: &[RankedDesign],
-    rbc: &[RankedDesign],
     ga: &[RankedDesign],
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut neg = 0usize;
@@ -75,7 +72,7 @@ pub(super) fn write_cavitation_distribution_figure(
     let mut ge_one = 0usize;
     let mut nonfinite = 0usize;
 
-    for d in option2.iter().chain(rbc.iter()).chain(ga.iter()) {
+    for d in option2.iter().chain(ga.iter()) {
         let s = d.metrics.cavitation_number;
         if !s.is_finite() {
             nonfinite += 1;
@@ -106,13 +103,11 @@ pub(super) fn write_cavitation_distribution_figure(
 pub(super) fn write_pareto_figure(
     path: &Path,
     option2: &[RankedDesign],
-    rbc: &[RankedDesign],
     ga: &[RankedDesign],
 ) -> Result<(), Box<dyn std::error::Error>> {
     let points: Vec<(&RankedDesign, &str)> = option2
         .iter()
         .map(|d| (d, "Option2"))
-        .chain(rbc.iter().map(|d| (d, "RBC")))
         .chain(ga.iter().map(|d| (d, "GA")))
         .collect();
     if points.is_empty() {
@@ -142,7 +137,6 @@ pub(super) fn write_pareto_figure(
         let r = 4.0 + 6.0 * d.score.clamp(0.0, 1.0);
         let color = match tag {
             "Option2" => "#2e86de",
-            "RBC" => "#27ae60",
             _ => "#d35400",
         };
         let _ = write!(

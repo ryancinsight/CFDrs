@@ -11,12 +11,11 @@ use crate::constraints::{
     CLOTTING_BFR_LOW_RISK_ML_MIN, CLOTTING_BFR_STRICT_10MLS_ML_MIN, CLOTTING_RESIDENCE_HIGH_RISK_S,
     CLOTTING_RESIDENCE_LOW_RISK_S, CLOTTING_SHEAR_HIGH_RISK_INV_S, CLOTTING_SHEAR_LOW_RISK_INV_S,
     DEAD_VOLUME_SHEAR_THRESHOLD_INV_S, DIFFUSER_DISCHARGE_COEFF, EXPANSION_RATIO_HIGH_RISK,
-    EXPANSION_RATIO_LOW_RISK, FDA_MAX_WALL_SHEAR_PA, FDA_TRANSIENT_SHEAR_PA,
-    FDA_TRANSIENT_TIME_S, GIERSIEPEN_ALPHA, MILESTONE_TREATMENT_DURATION_MIN,
-    PATIENT_BLOOD_VOLUME_ML, PEDIATRIC_BLOOD_VOLUME_ML_PER_KG, PEDIATRIC_REFERENCE_WEIGHT_KG,
-    PLATE_HEIGHT_MM, P_ATM_PA, RAYLEIGH_COLLAPSE_FACTOR, R_BUBBLE_EQ_M, SIGMA_CRIT,
-    SONO_REF_P_ABS_PA, THERAPEUTIC_WINDOW_REF, TREATMENT_HEIGHT_MM, VENTURI_CC,
-    VENTURI_VEL_RATIO_REF,
+    EXPANSION_RATIO_LOW_RISK, FDA_MAX_WALL_SHEAR_PA, FDA_TRANSIENT_SHEAR_PA, FDA_TRANSIENT_TIME_S,
+    GIERSIEPEN_ALPHA, MILESTONE_TREATMENT_DURATION_MIN, PATIENT_BLOOD_VOLUME_ML,
+    PEDIATRIC_BLOOD_VOLUME_ML_PER_KG, PEDIATRIC_REFERENCE_WEIGHT_KG, PLATE_HEIGHT_MM, P_ATM_PA,
+    RAYLEIGH_COLLAPSE_FACTOR, R_BUBBLE_EQ_M, SIGMA_CRIT, SONO_REF_P_ABS_PA, THERAPEUTIC_WINDOW_REF,
+    TREATMENT_HEIGHT_MM, VENTURI_CC, VENTURI_VEL_RATIO_REF,
 };
 use crate::design::{DesignCandidate, DesignTopology};
 use crate::error::OptimError;
@@ -487,34 +486,31 @@ pub fn compute_metrics(candidate: &DesignCandidate) -> Result<SdtMetrics, OptimE
     let n_outlet_ports: usize = candidate.topology.outlet_count();
 
     // ── 2-population separation ──────────────────────────────────────────────
-    let sep_metrics: (f64, f64, f64) = if candidate.topology == DesignTopology::CellSeparationVenturi {
-        let cancer = CellProperties::mcf7_breast_cancer();
-        let rbc = CellProperties::red_blood_cell();
-        let model = CellSeparationModel::new(
-            w_main,
-            h_main,
-            Some(candidate.bend_radius_m),
-        );
-        let q_center = (q_inlet * venturi_flow_fraction).max(1e-12);
-        let mean_v = q_center / (w_main * h_main).max(1e-18);
-        let shear_est = 6.0 * mean_v / h_main.max(1e-18);
-        match model.analyze(
-            &cancer,
-            &rbc,
-            blood.density,
-            blood.apparent_viscosity(shear_est),
-            mean_v,
-        ) {
-            Some(a) => (
-                a.separation_efficiency,
-                a.target_center_fraction,
-                a.background_peripheral_fraction,
-            ),
-            None => (0.0, 0.0, 0.0),
-        }
-    } else {
-        (0.0, 0.0, 0.0)
-    };
+    let sep_metrics: (f64, f64, f64) =
+        if candidate.topology == DesignTopology::CellSeparationVenturi {
+            let cancer = CellProperties::mcf7_breast_cancer();
+            let rbc = CellProperties::red_blood_cell();
+            let model = CellSeparationModel::new(w_main, h_main, Some(candidate.bend_radius_m));
+            let q_center = (q_inlet * venturi_flow_fraction).max(1e-12);
+            let mean_v = q_center / (w_main * h_main).max(1e-18);
+            let shear_est = 6.0 * mean_v / h_main.max(1e-18);
+            match model.analyze(
+                &cancer,
+                &rbc,
+                blood.density,
+                blood.apparent_viscosity(shear_est),
+                mean_v,
+            ) {
+                Some(a) => (
+                    a.separation_efficiency,
+                    a.target_center_fraction,
+                    a.background_peripheral_fraction,
+                ),
+                None => (0.0, 0.0, 0.0),
+            }
+        } else {
+            (0.0, 0.0, 0.0)
+        };
 
     // ── 3-population separation ──────────────────────────────────────────────
     let three_pop_metrics = if matches!(
@@ -607,14 +603,12 @@ pub fn compute_metrics(candidate: &DesignCandidate) -> Result<SdtMetrics, OptimE
                     h_main,
                 );
                 cct_stage_qfracs = std::iter::repeat_n(q_model, n_levels as usize).collect();
-                Some(
-                    cfd_1d::cascade_junction_separation_cross_junction(
-                        n_levels,
-                        candidate.trifurcation_center_frac,
-                        w_main,
-                        h_main,
-                    ),
-                )
+                Some(cfd_1d::cascade_junction_separation_cross_junction(
+                    n_levels,
+                    candidate.trifurcation_center_frac,
+                    w_main,
+                    h_main,
+                ))
             }
         } else {
             None
@@ -629,18 +623,14 @@ pub fn compute_metrics(candidate: &DesignCandidate) -> Result<SdtMetrics, OptimE
             if use_solved {
                 cif_pretri_stage_qfracs = pretri_q.clone();
                 let tri_q = tri_q_opt.unwrap_or_else(|| {
-                    cfd_1d::tri_center_q_frac(
-                        candidate.cif_terminal_tri_center_frac(),
-                    )
+                    cfd_1d::tri_center_q_frac(candidate.cif_terminal_tri_center_frac())
                 });
                 let bi_q = bi_q_opt.unwrap_or_else(|| candidate.cif_terminal_bi_treat_frac());
                 cif_terminal_tri_qfrac = Some(tri_q);
                 cif_terminal_bi_qfrac = Some(bi_q);
-                Some(
-                    cfd_1d::incremental_filtration_separation_from_qfracs(
-                        &pretri_q, tri_q, bi_q,
-                    ),
-                )
+                Some(cfd_1d::incremental_filtration_separation_from_qfracs(
+                    &pretri_q, tri_q, bi_q,
+                ))
             } else {
                 let staged_pretri_q = cfd_1d::cif_pretri_stage_q_fracs(
                     n_pretri,
@@ -656,16 +646,14 @@ pub fn compute_metrics(candidate: &DesignCandidate) -> Result<SdtMetrics, OptimE
                 cif_pretri_stage_qfracs = staged_pretri_q.clone();
                 cif_terminal_tri_qfrac = Some(q_tri);
                 cif_terminal_bi_qfrac = Some(q_bi);
-                Some(
-                    cfd_1d::incremental_filtration_separation_cross_junction(
-                        n_pretri,
-                        candidate.cif_pretri_center_frac(),
-                        candidate.cif_terminal_tri_center_frac(),
-                        q_bi,
-                        w_main,
-                        h_main,
-                    ),
-                )
+                Some(cfd_1d::incremental_filtration_separation_cross_junction(
+                    n_pretri,
+                    candidate.cif_pretri_center_frac(),
+                    candidate.cif_terminal_tri_center_frac(),
+                    q_bi,
+                    w_main,
+                    h_main,
+                ))
             }
         } else {
             None
@@ -788,8 +776,7 @@ pub fn compute_metrics(candidate: &DesignCandidate) -> Result<SdtMetrics, OptimE
                 w_main,
                 h_main,
             );
-            let atv_cct =
-                cfd_1d::cascade_junction_separation_from_qfracs(&[q_center]);
+            let atv_cct = cfd_1d::cascade_junction_separation_from_qfracs(&[q_center]);
             final_sep_eff = atv_cct.separation_efficiency;
             final_cancer_frac = atv_cct.cancer_center_fraction;
             final_rbc_periph = atv_cct.rbc_peripheral_fraction;
@@ -1145,9 +1132,7 @@ pub fn compute_metrics(candidate: &DesignCandidate) -> Result<SdtMetrics, OptimE
             )
             .into_iter()
             .product::<f64>();
-            let q_tri = cfd_1d::tri_center_q_frac(
-                candidate.cif_terminal_tri_center_frac(),
-            );
+            let q_tri = cfd_1d::tri_center_q_frac(candidate.cif_terminal_tri_center_frac());
             let q_bi = candidate.cif_terminal_bi_treat_frac();
             (q_pretri_product * q_tri * q_bi).clamp(0.0, 1.0)
         } else {
@@ -2010,15 +1995,10 @@ mod tests {
         //
         // This validates that the Zweifach-Fung nonlinearity (β > 1 for stiff
         // cells) is the mechanism for separation, not merely flow splitting.
-        let symmetric = cfd_1d::cascade_junction_separation_cross_junction(
-            2,
-            1.0 / 3.0,
-            6.0e-3,
-            1.5e-3,
-        );
-        let asymmetric = cfd_1d::cascade_junction_separation_cross_junction(
-            2, 0.45, 6.0e-3, 1.5e-3,
-        );
+        let symmetric =
+            cfd_1d::cascade_junction_separation_cross_junction(2, 1.0 / 3.0, 6.0e-3, 1.5e-3);
+        let asymmetric =
+            cfd_1d::cascade_junction_separation_cross_junction(2, 0.45, 6.0e-3, 1.5e-3);
 
         // Symmetric: all cell types distribute nearly identically by flow fraction.
         assert!(
@@ -2146,4 +2126,3 @@ mod tests {
         );
     }
 }
-
