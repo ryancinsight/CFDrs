@@ -101,7 +101,7 @@ impl LaplacianSmoother {
 
         let dt = cdt.triangulation();
         let num_real = dt.num_real_vertices;
-        drop(dt);
+        let _ = dt;
 
         for _ in 0..self.max_iter {
             // Collect all updated positions before applying them (Jacobi update).
@@ -151,7 +151,7 @@ impl LaplacianSmoother {
 ///
 /// Returns all vertices that share an interior triangle edge with `v`,
 /// excluding `v` itself and any super-triangle ghost vertices.
-pub(super) fn one_ring_neighbors(
+pub(crate) fn one_ring_neighbors(
     dt: &crate::application::delaunay::triangulation::bowyer_watson::DelaunayTriangulation,
     v: PslgVertexId,
 ) -> Vec<PslgVertexId> {
@@ -188,7 +188,7 @@ fn centroid(
 ///
 /// Always includes super-triangle vertices.  If `preserve_boundary`, also
 /// includes all constrained-edge endpoints.
-fn build_frozen_set(cdt: &Cdt, preserve_boundary: bool) -> HashSet<PslgVertexId> {
+pub(crate) fn build_frozen_set(cdt: &Cdt, preserve_boundary: bool) -> HashSet<PslgVertexId> {
     let dt = cdt.triangulation();
     let mut frozen = HashSet::new();
 

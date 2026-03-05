@@ -262,7 +262,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Cheby
         // Check if x matches a grid point
         for (j, &x_j) in self.points.iter().enumerate() {
             if num_traits::Float::abs(x - x_j)
-                < <T as FromPrimitive>::from_f64(1e-14).unwrap_or_else(T::zero)
+                < <T as FromPrimitive>::from_f64(1e-14)
+                    .expect("1e-14 is an IEEE 754 representable f64 constant")
             {
                 return Ok(values[j]);
             }

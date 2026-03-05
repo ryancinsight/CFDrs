@@ -133,6 +133,8 @@ pub(crate) mod seam;
 pub(crate) mod stitch;
 #[cfg(test)]
 pub mod tests;
+#[cfg(test)]
+pub mod adversarial_tests;
 
 use classify::FragRecord;
 use patch::patch_small_boundary_holes;

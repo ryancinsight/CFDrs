@@ -59,7 +59,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Vrema
     /// Create a Vreman model with default constant and unit filter width.
     pub fn new() -> Self {
         Self {
-            c_v: <T as FromPrimitive>::from_f64(VREMAN_CV).unwrap_or_else(T::one),
+            c_v: <T as FromPrimitive>::from_f64(VREMAN_CV)
+                .expect("VREMAN_CV is an IEEE 754 representable f64 constant"),
             filter_width: T::one(),
         }
     }
@@ -69,7 +70,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Vrema
         let one_third = T::one() / (T::one() + T::one() + T::one());
         let filter_width = num_traits::Float::powf(dx * dy * dz, one_third);
         Self {
-            c_v: <T as FromPrimitive>::from_f64(VREMAN_CV).unwrap_or_else(T::one),
+            c_v: <T as FromPrimitive>::from_f64(VREMAN_CV)
+                .expect("VREMAN_CV is an IEEE 754 representable f64 constant"),
             filter_width,
         }
     }
@@ -79,7 +81,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Vrema
         let (nx, ny, nz) = flow.velocity.dimensions;
         let delta = self.filter_width;
         let two = T::one() + T::one();
-        let eps = <T as FromPrimitive>::from_f64(1e-30).unwrap_or_else(T::zero);
+        let eps = <T as FromPrimitive>::from_f64(1e-30)
+            .expect("1e-30 is an IEEE 754 representable f64 constant");
 
         // α_ij = ∂u_i / ∂x_j  (central differences where interior, one-sided at boundaries)
         let mut alpha = [[T::zero(); 3]; 3]; // alpha[i][j] = ∂u_i/∂x_j

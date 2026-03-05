@@ -71,12 +71,15 @@ impl WallFunctions {
     /// Dimensionless velocity u⁺ (≥ 0)
     pub fn u_plus<T: RealField + Copy + FromPrimitive + num_traits::Float>(y_plus: T) -> T {
         let y_plus_tr =
-            <T as FromPrimitive>::from_f64(WALL_Y_PLUS_TRANSITION).unwrap_or_else(T::one);
+            <T as FromPrimitive>::from_f64(WALL_Y_PLUS_TRANSITION)
+                .expect("WALL_Y_PLUS_TRANSITION is an IEEE 754 representable f64 constant");
         if y_plus < y_plus_tr {
             y_plus // viscous sublayer
         } else {
-            let kappa = <T as FromPrimitive>::from_f64(WALL_KAPPA).unwrap_or_else(T::one);
-            let b = <T as FromPrimitive>::from_f64(WALL_B).unwrap_or_else(T::zero);
+            let kappa = <T as FromPrimitive>::from_f64(WALL_KAPPA)
+                .expect("WALL_KAPPA is an IEEE 754 representable f64 constant");
+            let b = <T as FromPrimitive>::from_f64(WALL_B)
+                .expect("WALL_B is an IEEE 754 representable f64 constant");
             num_traits::Float::ln(y_plus) / kappa + b
         }
     }
@@ -106,7 +109,8 @@ impl WallFunctions {
         y_p: T,
         nu: T,
     ) -> T {
-        let eps = <T as FromPrimitive>::from_f64(1e-15).unwrap_or_else(T::zero);
+        let eps = <T as FromPrimitive>::from_f64(1e-15)
+            .expect("1e-15 is an IEEE 754 representable f64 constant");
         let half = T::one() / (T::one() + T::one());
 
         // Initial guess: viscous sublayer (u_τ = √(ν u / y))
@@ -156,8 +160,10 @@ impl WallFunctions {
     pub fn in_log_law_region<T: RealField + Copy + FromPrimitive + num_traits::Float>(
         y_plus: T,
     ) -> bool {
-        let y_tr = <T as FromPrimitive>::from_f64(WALL_Y_PLUS_TRANSITION).unwrap_or_else(T::one);
-        let y_max = <T as FromPrimitive>::from_f64(300.0).unwrap_or_else(T::one);
+        let y_tr = <T as FromPrimitive>::from_f64(WALL_Y_PLUS_TRANSITION)
+            .expect("WALL_Y_PLUS_TRANSITION is an IEEE 754 representable f64 constant");
+        let y_max = <T as FromPrimitive>::from_f64(300.0)
+            .expect("300.0 is representable in all IEEE 754 types");
         y_plus >= y_tr && y_plus <= y_max
     }
 }

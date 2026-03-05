@@ -48,6 +48,7 @@ use crate::application::delaunay::refinement::circumcenter::{circumcenter, off_c
 use crate::application::delaunay::refinement::encroachment::{
     is_encroached, point_encroaches_segment,
 };
+use crate::application::delaunay::refinement::metric::MetricTensor;
 use crate::application::delaunay::refinement::quality::TriangleQuality;
 use crate::application::delaunay::triangulation::locate::{locate, Location};
 use crate::application::delaunay::triangulation::triangle::{Triangle, TriangleId};
@@ -85,25 +86,31 @@ impl Ord for BadTriangle {
 
 /// Ruppert's refinement algorithm operating on a CDT.
 ///
-/// # Example
+/// Supports both isotropic refinement (default) and anisotropic refinement via
+/// an optional [`MetricTensor`] that redefines the quality metric.
+///
+/// # Example — Isotropic
 ///
 /// ```rust,ignore
 /// use cfd_mesh::application::delaunay::{Pslg, Cdt, RuppertRefiner};
-///
-/// let mut pslg = Pslg::new();
-/// pslg.add_vertex(0.0, 0.0);
-/// pslg.add_vertex(10.0, 0.0);
-/// pslg.add_vertex(10.0, 10.0);
-/// pslg.add_vertex(0.0, 10.0);
-/// // Add boundary segments...
 ///
 /// let cdt = Cdt::from_pslg(&pslg);
 /// let mut refiner = RuppertRefiner::new(cdt);
 /// refiner.set_max_ratio(1.414);
 /// refiner.refine();
-///
 /// let result = refiner.into_cdt();
-/// // All triangles now satisfy the quality bound.
+/// ```
+///
+/// # Example — Anisotropic (10:1 elongation along x)
+///
+/// ```rust,ignore
+/// use cfd_mesh::application::delaunay::{Pslg, Cdt, RuppertRefiner, MetricTensor};
+///
+/// let cdt = Cdt::from_pslg(&pslg);
+/// let metric = MetricTensor::anisotropic(0.0, 10.0);
+/// let mut refiner = RuppertRefiner::new(cdt).with_metric(metric);
+/// refiner.set_max_ratio(1.414);
+/// refiner.refine();
 /// ```
 pub struct RuppertRefiner {
     cdt: Cdt,
@@ -115,6 +122,13 @@ pub struct RuppertRefiner {
     max_steiner: usize,
     /// Number of Steiner points inserted.
     steiner_count: usize,
+    /// Optional anisotropic metric tensor.
+    ///
+    /// When `Some(M)`, triangle quality is measured in M-space (the Cholesky
+    /// transform of M is applied to all vertices before computing the
+    /// isotropic radius-edge ratio).  When `None`, standard Euclidean quality
+    /// is used — identical to previous behaviour.
+    metric: Option<MetricTensor>,
 }
 
 impl RuppertRefiner {
@@ -127,7 +141,30 @@ impl RuppertRefiner {
             max_area: None,
             max_steiner: 100_000,
             steiner_count: 0,
+            metric: None,
         }
+    }
+
+    /// Set the anisotropic metric tensor (builder pattern).
+    ///
+    /// When set, triangle quality is evaluated in M-space rather than
+    /// Euclidean space, allowing anisotropic refinement.
+    ///
+    /// Default: `None` (isotropic Euclidean — fully backward-compatible).
+    #[must_use]
+    pub fn with_metric(mut self, metric: MetricTensor) -> Self {
+        self.metric = Some(metric);
+        self
+    }
+
+    /// Set (or replace) the anisotropic metric tensor.
+    pub fn set_metric(&mut self, metric: MetricTensor) {
+        self.metric = Some(metric);
+    }
+
+    /// Remove the anisotropic metric, reverting to isotropic Euclidean quality.
+    pub fn clear_metric(&mut self) {
+        self.metric = None;
     }
 
     /// Set the maximum radius-edge ratio bound.
@@ -311,12 +348,41 @@ impl RuppertRefiner {
         }
     }
 
-    /// Compute triangle quality.
+    /// Compute triangle quality, using the anisotropic metric when set.
+    ///
+    /// ## Metric-Weighted Quality
+    ///
+    /// When `self.metric = Some(M)`, quality is measured in M-space.  The
+    /// Cholesky factor L of M (M = Lᵀ L) is applied to transform vertex
+    /// coordinates: `a' = L·a, b' = L·b, c' = L·c`.  The isotropic quality
+    /// of the transformed triangle `(a', b', c')` equals the metric-weighted
+    /// quality of the original triangle.
+    ///
+    /// **Theorem**: |e|_M = |L·e|₂ for any edge vector e.  Therefore the
+    /// metric circumradius R_M = R_iso(La, Lb, Lc) and the metric shortest
+    /// edge l_min_M = l_min_iso(La, Lb, Lc).  The ratio R_M / l_min_M
+    /// equals the metric-quality ρ_M of the triangle.  QED.
     fn triangle_quality(&self, tri: &Triangle) -> TriangleQuality {
         let dt = self.cdt.triangulation();
         let a = dt.vertex(tri.vertices[0]);
         let b = dt.vertex(tri.vertices[1]);
         let c = dt.vertex(tri.vertices[2]);
+
+        if let Some(ref m) = self.metric {
+            // Transform vertices by Cholesky(M) and compute isotropic quality.
+            if let Some(l) = m.cholesky() {
+                use crate::application::delaunay::pslg::vertex::PslgVertex;
+                let (ax2, ay2) = MetricTensor::apply_cholesky(&l, a.x, a.y);
+                let (bx2, by2) = MetricTensor::apply_cholesky(&l, b.x, b.y);
+                let (cx2, cy2) = MetricTensor::apply_cholesky(&l, c.x, c.y);
+                let a2 = PslgVertex::new(ax2, ay2);
+                let b2 = PslgVertex::new(bx2, by2);
+                let c2 = PslgVertex::new(cx2, cy2);
+                return TriangleQuality::compute(&a2, &b2, &c2);
+            }
+            // Metric is not PD (degenerate) — fall through to Euclidean.
+        }
+
         TriangleQuality::compute(a, b, c)
     }
 
@@ -383,5 +449,115 @@ impl RuppertRefiner {
     #[must_use]
     pub fn steiner_count(&self) -> usize {
         self.steiner_count
+    }
+}
+
+// ── Tests ─────────────────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::application::delaunay::constraint::enforce::Cdt;
+    use crate::application::delaunay::pslg::graph::Pslg;
+    use crate::application::delaunay::refinement::metric::MetricTensor;
+
+    /// Build a square PSLG (0,0)-(1,0)-(1,1)-(0,1) with constrained boundary.
+    fn square_cdt() -> Cdt {
+        let mut p = Pslg::new();
+        let v0 = p.add_vertex(0.0, 0.0);
+        let v1 = p.add_vertex(1.0, 0.0);
+        let v2 = p.add_vertex(1.0, 1.0);
+        let v3 = p.add_vertex(0.0, 1.0);
+        p.add_segment(v0, v1);
+        p.add_segment(v1, v2);
+        p.add_segment(v2, v3);
+        p.add_segment(v3, v0);
+        Cdt::from_pslg(&p)
+    }
+
+    /// Isotropic refiner terminates and produces ≥ 2 interior triangles.
+    #[test]
+    fn isotropic_refiner_terminates() {
+        let cdt = square_cdt();
+        let mut refiner = RuppertRefiner::new(cdt);
+        refiner.set_max_ratio(1.5);
+        let n = refiner.refine();
+        assert!(n <= 100_000, "Steiner count should be bounded");
+        assert!(
+            refiner.cdt().triangulation().interior_triangles().count() >= 2,
+            "should have interior triangles"
+        );
+    }
+
+    /// Identity metric gives same result as no metric (backward compat).
+    #[test]
+    fn identity_metric_matches_no_metric() {
+        let cdt_a = square_cdt();
+        let cdt_b = square_cdt();
+
+        let mut r_iso = RuppertRefiner::new(cdt_a);
+        r_iso.set_max_ratio(1.5);
+        r_iso.set_max_steiner(50);
+        r_iso.refine();
+
+        let mut r_id = RuppertRefiner::new(cdt_b).with_metric(MetricTensor::identity());
+        r_id.set_max_ratio(1.5);
+        r_id.set_max_steiner(50);
+        r_id.refine();
+
+        // Both should produce the same number of interior triangles
+        // (identity metric ≡ Euclidean quality).
+        assert_eq!(
+            r_iso.cdt().triangulation().interior_triangles().count(),
+            r_id.cdt().triangulation().interior_triangles().count(),
+            "identity metric should give same result as no metric"
+        );
+    }
+
+    /// Anisotropic metric terminates within the safety limit.
+    ///
+    /// A 2:1 anisotropic metric on the unit square is used (rather than 10:1)
+    /// because very high aspect ratios cause O(α²) insertions on a square domain
+    /// where all edges are comparable in Euclidean space.  The test checks that
+    /// the refiner honours `max_steiner` and produces a valid CDT.
+    #[test]
+    fn anisotropic_refiner_terminates() {
+        let cdt = square_cdt();
+        // 2:1 anisotropy along x: triangles may be 2× longer in x than in y.
+        let metric = MetricTensor::anisotropic(0.0, 2.0);
+        let mut refiner = RuppertRefiner::new(cdt).with_metric(metric);
+        refiner.set_max_ratio(1.5);
+        refiner.set_max_steiner(2_000); // explicit safety cap for test
+        let n = refiner.refine();
+        assert!(n <= 2_000, "anisotropic refiner Steiner count should be bounded: {n}");
+        assert!(
+            refiner.cdt().triangulation().interior_triangles().count() >= 2,
+            "CDT must contain triangles after anisotropic refinement"
+        );
+    }
+
+    /// set_metric / clear_metric mutate metric field correctly.
+    #[test]
+    fn set_and_clear_metric() {
+        let mut refiner = RuppertRefiner::new(square_cdt());
+        assert!(refiner.metric.is_none());
+        refiner.set_metric(MetricTensor::anisotropic(0.5, 5.0));
+        assert!(refiner.metric.is_some());
+        refiner.clear_metric();
+        assert!(refiner.metric.is_none());
+    }
+
+    /// with_metric builder sets metric; final CDT is valid (≥ 1 alive triangle).
+    ///
+    /// Uses a moderate 3:1 anisotropy to keep Steiner point count manageable.
+    #[test]
+    fn with_metric_builder_produces_valid_cdt() {
+        let cdt = square_cdt();
+        let mut refiner =
+            RuppertRefiner::new(cdt).with_metric(MetricTensor::anisotropic(0.0, 3.0));
+        refiner.set_max_steiner(2_000);
+        refiner.refine();
+        let tri_count = refiner.cdt().triangulation().interior_triangles().count();
+        assert!(tri_count >= 1, "CDT must contain triangles after anisotropic refinement");
     }
 }

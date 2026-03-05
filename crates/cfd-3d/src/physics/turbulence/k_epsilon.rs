@@ -81,23 +81,23 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> KEpsi
             c_mu: <T as FromPrimitive>::from_f64(
                 cfd_core::physics::constants::physics::turbulence::K_EPSILON_C_MU,
             )
-            .unwrap_or_else(T::one),
+            .expect("K_EPSILON_C_MU is an IEEE 754 representable f64 constant"),
             c_1: <T as FromPrimitive>::from_f64(
                 cfd_core::physics::constants::physics::turbulence::K_EPSILON_C1,
             )
-            .unwrap_or_else(T::one),
+            .expect("K_EPSILON_C1 is an IEEE 754 representable f64 constant"),
             c_2: <T as FromPrimitive>::from_f64(
                 cfd_core::physics::constants::physics::turbulence::K_EPSILON_C2,
             )
-            .unwrap_or_else(T::one),
+            .expect("K_EPSILON_C2 is an IEEE 754 representable f64 constant"),
             sigma_k: <T as FromPrimitive>::from_f64(
                 cfd_core::physics::constants::physics::turbulence::K_EPSILON_SIGMA_K,
             )
-            .unwrap_or_else(T::one),
+            .expect("K_EPSILON_SIGMA_K is an IEEE 754 representable f64 constant"),
             sigma_epsilon: <T as FromPrimitive>::from_f64(
                 cfd_core::physics::constants::physics::turbulence::K_EPSILON_SIGMA_EPSILON,
             )
-            .unwrap_or_else(T::one),
+            .expect("K_EPSILON_SIGMA_EPSILON is an IEEE 754 representable f64 constant"),
         }
     }
 }
@@ -190,7 +190,9 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Turbu
                 .iter()
                 .zip(state.epsilon.iter())
                 .map(|(&k, &eps)| {
-                    if eps > <T as FromPrimitive>::from_f64(1e-10).unwrap_or_else(T::zero) {
+                    if eps > <T as FromPrimitive>::from_f64(1e-10)
+                        .expect("1e-10 is an IEEE 754 representable f64 constant")
+                    {
                         self.constants.c_mu * k * k / eps
                     } else {
                         T::zero()

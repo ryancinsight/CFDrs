@@ -64,6 +64,14 @@ approx = { workspace = true }
 proptest = { workspace = true }
 criterion = { workspace = true }
 cfd-schematics.workspace = true
+nalgebra = { workspace = true }
+
+# ── Benchmarks ─────────────────────────────────────────────────────────────────
+
+[[bench]]
+name = "csg_performance"
+path = "benches/csg_performance.rs"
+harness = false
 
 # ── Primitive validation examples ─────────────────────────────────────────────
 

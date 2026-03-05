@@ -108,7 +108,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
 
         let det_j = e1.dot(&e2.cross(&e3)); // Signed 6V
         self.volume = num_traits::Float::abs(det_j)
-            / <T as FromPrimitive>::from_f64(6.0).unwrap_or_else(T::one);
+            / <T as FromPrimitive>::from_f64(6.0)
+                .expect("6.0 is representable in all IEEE 754 types");
         det_j // Return signed 6V for orientation-correct assembly
     }
 
@@ -147,7 +148,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
         let six_v = d1_vec.dot(&d2_vec.cross(&d3_vec));
 
         if num_traits::Float::abs(six_v)
-            < <T as FromPrimitive>::from_f64(1e-24).unwrap_or_else(T::zero)
+            < <T as FromPrimitive>::from_f64(1e-24)
+                .expect("1e-24 is an IEEE 754 representable f64 constant")
         {
             self.shape_derivatives = DMatrix::zeros(3, 4);
             return;
@@ -229,7 +231,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
                                         * self.shape_derivatives[(d, j)];
                                 k_e[(row, col)] += factor
                                     * cross_term
-                                    * <T as FromPrimitive>::from_f64(0.5).unwrap_or_else(T::one);
+                                    * <T as FromPrimitive>::from_f64(0.5)
+                                        .expect("0.5 is exactly representable in IEEE 754");
                             }
                         }
                     }
@@ -241,7 +244,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
 
     /// Calculate strain rate from velocity gradient
     pub fn strain_rate(&self, velocity_gradient: &Matrix3<T>) -> Matrix3<T> {
-        let half = <T as FromPrimitive>::from_f64(0.5).unwrap_or_else(T::zero);
+        let half = <T as FromPrimitive>::from_f64(0.5)
+            .expect("0.5 is exactly representable in IEEE 754");
         (velocity_gradient + velocity_gradient.transpose()) * half
     }
 }

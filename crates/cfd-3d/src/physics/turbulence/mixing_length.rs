@@ -56,7 +56,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Mixin
         let kappa = <T as FromPrimitive>::from_f64(
             cfd_core::physics::constants::physics::fluid::VON_KARMAN,
         )
-        .unwrap_or_else(T::one);
+        .expect("VON_KARMAN is an IEEE 754 representable f64 constant");
         Self {
             length_scale,
             kappa,
@@ -76,7 +76,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Mixin
         let kappa = <T as FromPrimitive>::from_f64(
             cfd_core::physics::constants::physics::fluid::VON_KARMAN,
         )
-        .unwrap_or_else(T::one);
+        .expect("VON_KARMAN is an IEEE 754 representable f64 constant");
         let one_third = T::one() / (T::one() + T::one() + T::one());
         let filter_width = num_traits::Float::powf(dx * dy * dz, one_third);
         Self {

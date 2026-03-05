@@ -61,16 +61,21 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Inter
     /// **Proof sketch**: Direct substitution into the piecewise formula
     /// and summation over the stencil j ∈ {-1, 0, 1}.
     fn roma_peskin_3(&self, r: T) -> T {
-        let three_half = <T as FromPrimitive>::from_f64(1.5).unwrap_or_else(T::zero);
+        let three_half = <T as FromPrimitive>::from_f64(1.5)
+            .expect("1.5 is an IEEE 754 representable f64 constant");
         if r >= three_half {
             return T::zero();
         }
 
         let one = T::one();
-        let three = <T as FromPrimitive>::from_f64(3.0).unwrap_or_else(T::one);
-        let five = <T as FromPrimitive>::from_f64(5.0).unwrap_or_else(T::one);
-        let six = <T as FromPrimitive>::from_f64(6.0).unwrap_or_else(T::one);
-        let half = <T as FromPrimitive>::from_f64(0.5).unwrap_or_else(T::zero);
+        let three = <T as FromPrimitive>::from_f64(3.0)
+            .expect("3.0 is representable in all IEEE 754 types");
+        let five = <T as FromPrimitive>::from_f64(5.0)
+            .expect("5.0 is representable in all IEEE 754 types");
+        let six = <T as FromPrimitive>::from_f64(6.0)
+            .expect("6.0 is representable in all IEEE 754 types");
+        let half = <T as FromPrimitive>::from_f64(0.5)
+            .expect("0.5 is exactly representable in IEEE 754");
 
         if r <= half {
             // φ₃(r) = (1 + √(1 - 3r²)) / 3
@@ -98,18 +103,25 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Inter
     /// **Proof sketch**: The piecewise formula is derived by requiring conditions
     /// 1–4 plus continuity at r = 0, 1, 2.
     fn roma_peskin_4(&self, r: T) -> T {
-        let two = <T as FromPrimitive>::from_f64(2.0).unwrap_or_else(T::zero);
+        let two = <T as FromPrimitive>::from_f64(2.0)
+            .expect("2.0 is representable in all IEEE 754 types");
         if r >= two {
             return T::zero();
         }
 
         let one = T::one();
-        let three = <T as FromPrimitive>::from_f64(3.0).unwrap_or_else(T::one);
-        let four = <T as FromPrimitive>::from_f64(4.0).unwrap_or_else(T::one);
-        let five = <T as FromPrimitive>::from_f64(5.0).unwrap_or_else(T::one);
-        let seven = <T as FromPrimitive>::from_f64(7.0).unwrap_or_else(T::one);
-        let eight = <T as FromPrimitive>::from_f64(8.0).unwrap_or_else(T::one);
-        let twelve = <T as FromPrimitive>::from_f64(12.0).unwrap_or_else(T::one);
+        let three = <T as FromPrimitive>::from_f64(3.0)
+            .expect("3.0 is representable in all IEEE 754 types");
+        let four = <T as FromPrimitive>::from_f64(4.0)
+            .expect("4.0 is representable in all IEEE 754 types");
+        let five = <T as FromPrimitive>::from_f64(5.0)
+            .expect("5.0 is representable in all IEEE 754 types");
+        let seven = <T as FromPrimitive>::from_f64(7.0)
+            .expect("7.0 is representable in all IEEE 754 types");
+        let eight = <T as FromPrimitive>::from_f64(8.0)
+            .expect("8.0 is representable in all IEEE 754 types");
+        let twelve = <T as FromPrimitive>::from_f64(12.0)
+            .expect("12.0 is representable in all IEEE 754 types");
 
         if r <= one {
             // φ₄(r) = (3 - 2r + √(1 + 4r - 4r²)) / 8
@@ -132,14 +144,17 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Inter
     ///
     /// This kernel satisfies the partition-of-unity property.
     fn peskin_4(&self, r: T) -> T {
-        let two = <T as FromPrimitive>::from_f64(2.0).unwrap_or_else(T::zero);
+        let two = <T as FromPrimitive>::from_f64(2.0)
+            .expect("2.0 is representable in all IEEE 754 types");
         if r >= two {
             return T::zero();
         }
 
         let one = T::one();
-        let four = <T as FromPrimitive>::from_f64(4.0).unwrap_or_else(T::one);
-        let pi = <T as FromPrimitive>::from_f64(std::f64::consts::PI).unwrap_or_else(T::one);
+        let four = <T as FromPrimitive>::from_f64(4.0)
+            .expect("4.0 is representable in all IEEE 754 types");
+        let pi = <T as FromPrimitive>::from_f64(std::f64::consts::PI)
+            .expect("π is an IEEE 754 representable f64 constant");
 
         if r <= one {
             (one + num_traits::Float::cos(pi * r)) / four

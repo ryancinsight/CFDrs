@@ -78,19 +78,22 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> DESMo
     ///   large value for pure LES, 0 for pure RANS)
     /// * `dx`, `dy`, `dz` — uniform cell dimensions [m]
     pub fn new(n_points: usize, uniform_wall_distance: T, dx: T, dy: T, dz: T) -> Self {
-        let c_des = <T as FromPrimitive>::from_f64(DES_C_DES).unwrap_or_else(T::one);
+        let c_des = <T as FromPrimitive>::from_f64(DES_C_DES)
+            .expect("DES_C_DES is an IEEE 754 representable f64 constant");
         let delta_max = num_traits::Float::max(dx, num_traits::Float::max(dy, dz));
         Self {
             c_des,
             wall_distances: vec![uniform_wall_distance; n_points],
             delta_max: vec![delta_max; n_points],
-            cs: <T as FromPrimitive>::from_f64(SMAGORINSKY_CS_DEFAULT).unwrap_or_else(T::one),
+            cs: <T as FromPrimitive>::from_f64(SMAGORINSKY_CS_DEFAULT)
+                .expect("SMAGORINSKY_CS_DEFAULT is an IEEE 754 representable f64 constant"),
         }
     }
 
     /// Create a DES model with per-point wall distances and delta_max values.
     pub fn with_wall_distances(wall_distances: Vec<T>, delta_max: Vec<T>, cs: T) -> Self {
-        let c_des = <T as FromPrimitive>::from_f64(DES_C_DES).unwrap_or_else(T::one);
+        let c_des = <T as FromPrimitive>::from_f64(DES_C_DES)
+            .expect("DES_C_DES is an IEEE 754 representable f64 constant");
         Self {
             c_des,
             wall_distances,
@@ -111,7 +114,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Turbu
         let (nx, ny, nz) = flow_field.velocity.dimensions;
         let n = nx * ny * nz;
         let mut viscosity = Vec::with_capacity(n);
-        let two = <T as FromPrimitive>::from_f64(2.0).unwrap_or_else(T::one);
+        let two = <T as FromPrimitive>::from_f64(2.0)
+            .expect("2.0 is representable in all IEEE 754 types");
 
         for idx in 0..n {
             let d = if idx < self.wall_distances.len() {

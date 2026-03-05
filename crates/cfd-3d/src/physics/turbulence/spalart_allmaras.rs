@@ -100,7 +100,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Spala
 
     /// Compute the wall-damping function f_v1 = chi^3 / (chi^3 + C_v1^3).
     fn f_v1(chi: T) -> T {
-        let cv1 = <T as FromPrimitive>::from_f64(SA_CV1).unwrap_or_else(T::one);
+        let cv1 = <T as FromPrimitive>::from_f64(SA_CV1)
+            .expect("SA_CV1 is an IEEE 754 representable f64 constant");
         let cv1_3 = cv1 * cv1 * cv1;
         let chi_3 = chi * chi * chi;
         chi_3 / (chi_3 + cv1_3)
@@ -108,15 +109,18 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Spala
 
     /// Compute chi = nu_tilde / nu.
     fn chi(nu_tilde: T, nu: T) -> T {
-        let eps = <T as FromPrimitive>::from_f64(1e-30).unwrap_or_else(T::zero);
+        let eps = <T as FromPrimitive>::from_f64(1e-30)
+            .expect("1e-30 is an IEEE 754 representable f64 constant");
         nu_tilde / (nu + eps)
     }
 
     /// Compute the destruction function f_w (Spalart & Allmaras 1992 eq. 25).
     #[allow(dead_code)]
     fn f_w(r: T) -> T {
-        let cw2 = <T as FromPrimitive>::from_f64(SA_CW2).unwrap_or_else(T::one);
-        let cw3 = <T as FromPrimitive>::from_f64(SA_CW3).unwrap_or_else(T::one);
+        let cw2 = <T as FromPrimitive>::from_f64(SA_CW2)
+            .expect("SA_CW2 is an IEEE 754 representable f64 constant");
+        let cw3 = <T as FromPrimitive>::from_f64(SA_CW3)
+            .expect("SA_CW3 is an IEEE 754 representable f64 constant");
         let cw3_6 = num_traits::Float::powi(cw3, 6);
         let g = r + cw2 * (num_traits::Float::powi(r, 6) - r);
         let g_6 = num_traits::Float::powi(g, 6);

@@ -8,8 +8,10 @@
 
 pub mod circumcenter;
 pub mod encroachment;
+pub mod metric;
 pub mod quality;
 pub mod ruppert;
 
+pub use metric::MetricTensor;
 pub use quality::TriangleQuality;
 pub use ruppert::RuppertRefiner;

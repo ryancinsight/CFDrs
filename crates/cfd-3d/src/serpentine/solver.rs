@@ -234,7 +234,7 @@ impl<
             let fem_solution = match fem_result {
                 Ok(sol) => sol,
                 Err(e) => {
-                    println!("Picard iteration {iter}: linear solve failed ({e}), using last converged solution");
+                    tracing::warn!(error = %e, iter, "Serpentine Picard linear solve failed; using last converged solution");
                     break;
                 }
             };
@@ -278,7 +278,7 @@ impl<
             std::mem::swap(&mut element_viscosities, &mut next_viscosities);
             last_solution = Some(updated_solution);
 
-            println!("Picard iteration {iter}: visc_change={max_change_f64:?}");
+            tracing::debug!(iter, visc_change = max_change_f64, "Serpentine Picard iteration");
             if max_change_f64 < self.config.nonlinear_tolerance.to_f64().unwrap_or(1e-4) {
                 break;
             }
@@ -297,16 +297,19 @@ impl<
         // Calculate Dean Number: De = Re * sqrt(Dh / 2Rc)
         // For sine wave path x = A*sin(k*z), curvature kappa = |x''| / (1 + x'^2)^(3/2)
         // Max curvature at peaks: kappa_max = A*k^2. Radius Rc = 1/kappa_max = 1 / (A * (2pi/lambda)^2)
-        let k = <T as FromPrimitive>::from_f64(2.0 * std::f64::consts::PI).unwrap_or_else(T::one)
+        let k = <T as FromPrimitive>::from_f64(2.0 * std::f64::consts::PI)
+            .expect("2π is an IEEE 754 representable f64 constant")
             / self.builder.wavelength;
         let kappa_max = self.builder.amplitude * k * k;
-        let rc = T::one() / Float::max(kappa_max, <T as FromPrimitive>::from_f64(1e-10).unwrap_or_else(T::zero));
+        let rc = T::one() / Float::max(kappa_max, <T as FromPrimitive>::from_f64(1e-10)
+            .expect("1e-10 is an IEEE 754 representable f64 constant"));
 
         let re =
             (fluid_props.density * u_inlet * self.builder.diameter) / fluid_props.dynamic_viscosity;
         solution.dean_number = re
             * Float::sqrt(
-                self.builder.diameter / (<T as FromPrimitive>::from_f64(2.0).unwrap_or_else(T::one) * rc),
+                self.builder.diameter / (<T as FromPrimitive>::from_f64(2.0)
+                    .expect("2.0 is representable in all IEEE 754 types") * rc),
             );
 
         Ok(solution)

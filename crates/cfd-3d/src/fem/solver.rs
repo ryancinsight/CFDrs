@@ -72,7 +72,8 @@ impl<
     pub fn new(config: FemConfig<T>) -> Self {
         let solver_config = cfd_math::linear_solver::IterativeSolverConfig {
             max_iterations: 30000,
-            tolerance: <T as FromPrimitive>::from_f64(1e-12).unwrap_or_else(T::zero),
+            tolerance: <T as FromPrimitive>::from_f64(1e-12)
+                .expect("1e-12 is an IEEE 754 representable f64 constant"),
             ..cfd_math::linear_solver::IterativeSolverConfig::default()
         };
         let linear_solver = GMRES::new(solver_config, 100);
@@ -123,10 +124,12 @@ impl<
         // The LinearSolverChain encapsulates the 5-tier fallback strategy that
         // was previously duplicated across fem/solver.rs and fem/projection_solver.rs.
         // Tier order: Direct LU → GMRES+BlockDiag → GMRES (unprec) → GMRES+ILU → BiCGSTAB.
-        let rel_tol = <T as FromPrimitive>::from_f64(1e-8).unwrap_or_else(T::zero);
+        let rel_tol = <T as FromPrimitive>::from_f64(1e-8)
+            .expect("1e-8 is an IEEE 754 representable f64 constant");
         let abs_tol = Float::max(
             rel_tol * rhs.norm(),
-            <T as FromPrimitive>::from_f64(1e-14).unwrap_or_else(T::zero),
+            <T as FromPrimitive>::from_f64(1e-14)
+                .expect("1e-14 is an IEEE 754 representable f64 constant"),
         );
         let solver_config = cfd_math::linear_solver::IterativeSolverConfig {
             max_iterations: 50_000,
@@ -198,10 +201,11 @@ impl<
             1.0_f64
         };
         let rel_tol = <T as FromPrimitive>::from_f64(base_tol * adaptive_factor)
-            .unwrap_or_else(T::zero);
+            .expect("base_tol*adaptive_factor is an IEEE 754 representable f64 constant");
         let abs_tol = Float::max(
             rel_tol * rhs.norm(),
-            <T as FromPrimitive>::from_f64(1e-14).unwrap_or_else(T::zero),
+            <T as FromPrimitive>::from_f64(1e-14)
+                .expect("1e-14 is an IEEE 754 representable f64 constant"),
         );
 
         // Reduced iteration budget: 10K is sufficient with warm-starting.
@@ -311,7 +315,9 @@ impl<
                     ]);
                     let det_j = j_mat.determinant();
                     let abs_det = Float::abs(det_j);
-                    if abs_det <= <T as FromPrimitive>::from_f64(1e-24).unwrap_or_else(T::zero) {
+                    if abs_det <= <T as FromPrimitive>::from_f64(1e-24)
+                        .expect("1e-24 is an IEEE 754 representable f64 constant")
+                    {
                         return (res, mx, sm, l2acc, nt);
                     }
                     let j_inv_t = match j_mat.try_inverse() {
@@ -386,10 +392,13 @@ impl<
 
         let n = residual.len();
         if n > 0 {
-            let mean_abs = sum_abs / T::from_usize(n).unwrap_or_else(T::one);
+            let mean_abs = sum_abs / T::from_usize(n)
+                .expect("residual slice length n is always a representable usize");
             let l2_norm = Float::sqrt(l2);
-            println!(
-                "Continuity Residual (Bu): max={max_abs:?}, mean_abs={mean_abs:?}, l2={l2_norm:?}, net={net:?}, n={n} "
+            tracing::debug!(
+                max_abs = ?max_abs, mean_abs = ?mean_abs,
+                l2 = ?l2_norm, net = ?net, n,
+                "Continuity Residual (Bu)"
             );
         }
 
@@ -467,9 +476,11 @@ impl<
                         let v2 = local_verts[2];
                         let v3 = local_verts[3];
 
-                        let six = <T as FromPrimitive>::from_f64(6.0).unwrap_or_else(T::one);
+                        let six = <T as FromPrimitive>::from_f64(6.0)
+                            .expect("6.0 is representable in all IEEE 754 types");
                         let vol = ((v1 - v0).cross(&(v2 - v0))).dot(&(v3 - v0)) / six;
-                        let vol_tol = <T as FromPrimitive>::from_f64(1e-22).unwrap_or_else(T::zero);
+                        let vol_tol = <T as FromPrimitive>::from_f64(1e-22)
+                            .expect("1e-22 is an IEEE 754 representable f64 constant");
                         if Float::abs(vol) < vol_tol {
                             // Skip degenerate element — zero volume means zero
                             // contribution to the global stiffness matrix
@@ -504,7 +515,7 @@ impl<
                 },
             );
 
-        println!("  Assembly map-reduce complete. Applying boundary conditions...");
+        tracing::debug!("Assembly map-reduce complete. Applying boundary conditions");
         // Populate builder with accumulated map entries
         for ((row, col), val) in entry_map {
             matrix_builder.add_entry(row, col, val)?;
@@ -513,14 +524,15 @@ impl<
         self.apply_boundary_conditions_block(&mut matrix_builder, &mut rhs, problem, n_nodes)?;
 
         let velocity_dofs_constrained = problem.boundary_conditions.len() * 3;
-        println!("  Velocity DOFs constrained: {velocity_dofs_constrained} / {n_velocity_dof}");
+        tracing::debug!(constrained = velocity_dofs_constrained, total = n_velocity_dof, "Velocity DOFs constrained");
 
         if velocity_dofs_constrained == n_velocity_dof {
-            println!("  WARNING: All velocity DOFs are constrained (may cause incompressibility conflict)");
+            tracing::warn!("All velocity DOFs constrained — may cause incompressibility conflict");
         }
 
         let diag_eps =
-            problem.fluid.viscosity * <T as FromPrimitive>::from_f64(1e-12).unwrap_or_else(T::zero);
+            problem.fluid.viscosity * <T as FromPrimitive>::from_f64(1e-12)
+                .expect("1e-12 is an IEEE 754 representable f64 constant");
         for i in n_velocity_dof..n_total_dof {
             let _ = matrix_builder.add_entry(i, i, diag_eps);
         }
@@ -657,9 +669,11 @@ impl<
             // Circumvents the LBB inf-sup condition for equal-order P1-P1 elements.
             if viscosity > T::zero() {
                 let h_e = Float::cbrt(abs_det); // (6V)^(1/3) ≈ element diameter
-                let twelve = <T as FromPrimitive>::from_f64(12.0).unwrap_or_else(T::one);
+                let twelve = <T as FromPrimitive>::from_f64(12.0)
+                    .expect("12.0 is representable in all IEEE 754 types");
                 let tau_bp = h_e * h_e / (twelve * viscosity);
-                let vol_e = abs_det / <T as FromPrimitive>::from_f64(6.0).unwrap_or_else(T::one);
+                let vol_e = abs_det / <T as FromPrimitive>::from_f64(6.0)
+                    .expect("6.0 is representable in all IEEE 754 types");
 
                 for i in 0..4 {
                     let gi = idxs[i];
@@ -833,7 +847,8 @@ impl<
                 sum += sol.get_velocity(n);
             }
             // `nodes` is non-empty here; T::from_usize cannot fail for valid lengths.
-            sum / T::from_usize(nodes.len()).unwrap_or_else(T::one)
+            sum / T::from_usize(nodes.len())
+                .expect("node count is always a representable non-zero usize")
         } else {
             Vector3::zeros()
         }

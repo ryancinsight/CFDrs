@@ -169,15 +169,18 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + ToPrimitive
     pub fn new(config: IbmConfig, dx: Vector3<T>, grid_size: (usize, usize, usize)) -> Self {
         let kernel = InterpolationKernel::new(
             DeltaFunction::RomaPeskin4,
-            <T as FromPrimitive>::from_f64(config.smoothing_width).unwrap_or_else(T::one),
+            <T as FromPrimitive>::from_f64(config.smoothing_width)
+                .expect("smoothing_width is an IEEE 754 representable f64 config value"),
         );
 
         let forcing: Box<dyn ForcingMethod<T>> = if config.use_direct_forcing {
             Box::new(DirectForcing::new())
         } else {
             Box::new(FeedbackForcing::new(
-                <T as FromPrimitive>::from_f64(DEFAULT_PROPORTIONAL_GAIN).unwrap_or_else(T::one),
-                <T as FromPrimitive>::from_f64(DEFAULT_INTEGRAL_GAIN).unwrap_or_else(T::one),
+                <T as FromPrimitive>::from_f64(DEFAULT_PROPORTIONAL_GAIN)
+                    .expect("DEFAULT_PROPORTIONAL_GAIN is an IEEE 754 representable f64 constant"),
+                <T as FromPrimitive>::from_f64(DEFAULT_INTEGRAL_GAIN)
+                    .expect("DEFAULT_INTEGRAL_GAIN is an IEEE 754 representable f64 constant"),
             ))
         };
 
@@ -274,9 +277,12 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + ToPrimitive
                         let idx =
                             ii + jj * self.grid_size.0 + kk * self.grid_size.0 * self.grid_size.1;
 
-                        let rx = position.x / self.dx.x - T::from_usize(ii).unwrap_or_else(T::zero);
-                        let ry = position.y / self.dx.y - T::from_usize(jj).unwrap_or_else(T::zero);
-                        let rz = position.z / self.dx.z - T::from_usize(kk).unwrap_or_else(T::zero);
+                        let rx = position.x / self.dx.x - T::from_usize(ii)
+                            .expect("grid index ii is always a representable usize");
+                        let ry = position.y / self.dx.y - T::from_usize(jj)
+                            .expect("grid index jj is always a representable usize");
+                        let rz = position.z / self.dx.z - T::from_usize(kk)
+                            .expect("grid index kk is always a representable usize");
 
                         let weight =
                             self.kernel.delta(rx) * self.kernel.delta(ry) * self.kernel.delta(rz);
@@ -324,11 +330,14 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + ToPrimitive
                             ii + jj * self.grid_size.0 + kk * self.grid_size.0 * self.grid_size.1;
 
                         let rx = point.position.x / self.dx.x
-                            - T::from_usize(ii).unwrap_or_else(T::zero);
+                            - T::from_usize(ii)
+                                .expect("grid index ii is always a representable usize");
                         let ry = point.position.y / self.dx.y
-                            - T::from_usize(jj).unwrap_or_else(T::zero);
+                            - T::from_usize(jj)
+                                .expect("grid index jj is always a representable usize");
                         let rz = point.position.z / self.dx.z
-                            - T::from_usize(kk).unwrap_or_else(T::zero);
+                            - T::from_usize(kk)
+                                .expect("grid index kk is always a representable usize");
 
                         let weight =
                             self.kernel.delta(rx) * self.kernel.delta(ry) * self.kernel.delta(rz);

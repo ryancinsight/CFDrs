@@ -77,8 +77,10 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy>
     ///
     /// For steady-state: τ = [(2U/h)² + (4ν/h²)²]^(-1/2)
     pub fn tau_supg(&self) -> T {
-        let two = <T as FromPrimitive>::from_f64(TWO).unwrap_or_else(T::zero);
-        let four = <T as FromPrimitive>::from_f64(FOUR).unwrap_or_else(T::zero);
+        let two = <T as FromPrimitive>::from_f64(TWO)
+            .expect("TWO (2.0) is representable in all IEEE 754 types");
+        let four = <T as FromPrimitive>::from_f64(FOUR)
+            .expect("FOUR (4.0) is representable in all IEEE 754 types");
 
         // Advection term: (2U/h)²
         let advection_term = if self.u_mag > T::zero() {
@@ -123,7 +125,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy>
     pub fn peclet_number(&self) -> T {
         if self.nu > T::zero() {
             (self.u_mag * self.h)
-                / (<T as FromPrimitive>::from_f64(TWO).unwrap_or_else(T::zero) * self.nu)
+                / (<T as FromPrimitive>::from_f64(TWO)
+                    .expect("TWO (2.0) is representable in all IEEE 754 types") * self.nu)
         } else {
             T::zero()
         }
@@ -148,7 +151,9 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy>
         if pe < T::one() {
             // Diffusion-dominated: reduce stabilization
             tau_supg * pe
-        } else if pe > <T as FromPrimitive>::from_f64(100.0).unwrap_or_else(T::zero) {
+        } else if pe > <T as FromPrimitive>::from_f64(100.0)
+            .expect("100.0 is representable in all IEEE 754 types")
+        {
             // Highly advection-dominated: use full stabilization
             tau_supg
         } else {

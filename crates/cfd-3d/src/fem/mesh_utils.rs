@@ -74,7 +74,8 @@ pub fn extract_vertex_indices<T: cfd_mesh::domain::core::Scalar + RealField + Co
                     .position(cfd_mesh::domain::core::index::VertexId::from_usize(v_j))
                     .coords;
                 let target = (p_i + p_j)
-                    * <T as num_traits::FromPrimitive>::from_f64(0.5).unwrap_or_else(T::one);
+                    * <T as num_traits::FromPrimitive>::from_f64(0.5)
+                        .expect("0.5 is exactly representable in IEEE 754");
 
                 let mut best_m = 0;
                 let mut min_dist_sq = <T as num_traits::Float>::infinity();
@@ -118,7 +119,8 @@ pub fn extract_vertex_indices<T: cfd_mesh::domain::core::Scalar + RealField + Co
                 .vertices
                 .position(cfd_mesh::domain::core::index::VertexId::from_usize(v_j))
                 .coords;
-            let target = (p_i + p_j) * <T as FromPrimitive>::from_f64(0.5).unwrap_or_else(T::one);
+            let target = (p_i + p_j) * <T as FromPrimitive>::from_f64(0.5)
+                .expect("0.5 is exactly representable in IEEE 754");
 
             let mut best_node = None;
             let mut min_dist = T::infinity();
@@ -252,7 +254,7 @@ pub fn extract_vertex_indices_cached<T: cfd_mesh::domain::core::Scalar + RealFie
                         .coords;
                     let target = (p_i + p_j)
                         * <T as num_traits::FromPrimitive>::from_f64(0.5)
-                            .unwrap_or_else(T::one);
+                            .expect("0.5 is exactly representable in IEEE 754");
                     let mut best_m = 0;
                     let mut min_dist_sq = <T as num_traits::Float>::infinity();
                     for m_idx in n_corner_nodes..mesh.vertex_count() {
@@ -303,7 +305,8 @@ pub fn extract_vertex_indices_cached<T: cfd_mesh::domain::core::Scalar + RealFie
                 .position(cfd_mesh::domain::core::index::VertexId::from_usize(v_j))
                 .coords;
             let target =
-                (p_i + p_j) * <T as FromPrimitive>::from_f64(0.5).unwrap_or_else(T::one);
+                (p_i + p_j) * <T as FromPrimitive>::from_f64(0.5)
+                    .expect("0.5 is exactly representable in IEEE 754");
 
             let mut best_node = None;
             let mut min_dist = T::infinity();

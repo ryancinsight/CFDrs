@@ -116,6 +116,7 @@ pub mod constraint;
 pub mod convert;
 pub mod pslg;
 pub mod refinement;
+pub mod smoothing;
 pub mod triangulation;
 
 #[cfg(test)]
@@ -145,3 +146,12 @@ pub use refinement::ruppert::RuppertRefiner;
 
 /// Triangle quality metric.
 pub use refinement::quality::TriangleQuality;
+
+/// Anisotropic metric tensor for metric-weighted Ruppert refinement.
+pub use refinement::metric::MetricTensor;
+
+/// Laplacian mesh smoother (uniform, boundary-preserving).
+pub use smoothing::LaplacianSmoother;
+
+/// Angle-quality–guarded Laplacian mesh smoother.
+pub use smoothing::AngleBasedSmoother;

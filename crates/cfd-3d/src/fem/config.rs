@@ -38,14 +38,14 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Defau
             base: cfd_core::compute::solver::SolverConfig::default(),
             use_stabilization: true,
             tau: <T as FromPrimitive>::from_f64(constants::DEFAULT_STABILIZATION)
-                .unwrap_or_else(|| T::zero()),
+                .expect("DEFAULT_STABILIZATION is an IEEE 754 representable f64 constant"),
             dt: Some(
                 <T as FromPrimitive>::from_f64(constants::DEFAULT_TIME_STEP)
-                    .unwrap_or_else(|| T::zero()),
+                    .expect("DEFAULT_TIME_STEP is an IEEE 754 representable f64 constant"),
             ),
             reynolds: Some(
                 <T as FromPrimitive>::from_f64(constants::DEFAULT_REYNOLDS)
-                    .unwrap_or_else(|| T::zero()),
+                    .expect("DEFAULT_REYNOLDS is an IEEE 754 representable f64 constant"),
             ),
             element_type: ElementType::Tetrahedron,
             quadrature_order: constants::DEFAULT_QUADRATURE_ORDER,

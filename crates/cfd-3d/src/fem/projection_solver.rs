@@ -100,7 +100,8 @@ impl<
     pub fn new(config: FemConfig<T>) -> Self {
         Self {
             _config: config,
-            dt: <T as FromPrimitive>::from_f64(0.001).unwrap_or_else(T::one),
+            dt: <T as FromPrimitive>::from_f64(0.001)
+                .expect("0.001 is an IEEE 754 representable f64 constant"),
             momentum_builder: None,
             momentum_rhs: None,
             pressure_builder: None,
@@ -126,17 +127,14 @@ impl<
         problem: &StokesFlowProblem<T>,
         previous_solution: Option<&StokesFlowSolution<T>>,
     ) -> Result<StokesFlowSolution<T>> {
-        println!(
-            "  Starting Chorin's projection method (dt={:?})...",
-            self.dt
-        );
+        tracing::debug!(dt = ?self.dt, "Starting Chorin's projection method");
 
         let n_nodes = problem.mesh.vertex_count();
         let n_corner_nodes = problem.n_corner_nodes;
         let n_velocity_dof = n_nodes * 3;
 
         // Step 1: Momentum prediction (solve for u*)
-        println!("  Step 1: Momentum prediction...");
+        tracing::debug!("Projection step 1: momentum prediction");
         let (momentum_matrix, momentum_rhs) = self.assemble_momentum_system(problem)?;
 
         let mut u_star = if let Some(sol) = previous_solution {
@@ -148,7 +146,8 @@ impl<
         // Use GMRES for momentum (non-symmetric due to convection)
         let gmres_config = cfd_math::linear_solver::IterativeSolverConfig {
             max_iterations: 10000,
-            tolerance: <T as FromPrimitive>::from_f64(1e-10).unwrap_or_else(T::zero),
+            tolerance: <T as FromPrimitive>::from_f64(1e-10)
+                .expect("1e-10 is an IEEE 754 representable f64 constant"),
             ..cfd_math::linear_solver::IterativeSolverConfig::default()
         };
 
@@ -162,14 +161,14 @@ impl<
             )
             .map_err(|e| Error::Solver(format!("Momentum solve failed: {e}")))?;
 
-        println!(
-            "    ✓ Momentum converged in {} iterations (resid={:?})",
-            monitor.iteration,
-            monitor.residual_history.last()
+        tracing::debug!(
+            iter = monitor.iteration,
+            residual = ?monitor.residual_history.last(),
+            "Momentum solve converged"
         );
 
         // Step 2: Pressure Poisson equation
-        println!("  Step 2: Pressure Poisson equation...");
+        tracing::debug!("Projection step 2: pressure Poisson equation");
         let (pressure_matrix, pressure_rhs) = self.assemble_pressure_poisson(problem, &u_star)?;
 
         let mut pressure = if let Some(sol) = previous_solution {
@@ -189,21 +188,21 @@ impl<
             )
             .map_err(|e| Error::Solver(format!("Pressure solve failed: {e}")))?;
 
-        println!(
-            "    ✓ Pressure converged in {} iterations (resid={:?})",
-            monitor.iteration,
-            monitor.residual_history.last()
+        tracing::debug!(
+            iter = monitor.iteration,
+            residual = ?monitor.residual_history.last(),
+            "Pressure solve converged"
         );
 
         // Step 3: Velocity correction (project onto divergence-free space)
-        println!("  Step 3: Velocity correction...");
+        tracing::debug!("Projection step 3: velocity correction");
         let velocity = self.correct_velocity(problem, &u_star, &pressure)?;
 
         // Compute divergence for verification
         let max_div = self.compute_max_divergence(problem, &velocity)?;
-        println!("    ✓ Max divergence after correction: {max_div:?}");
+        tracing::debug!(max_div = ?max_div, "Max divergence after correction");
 
-        println!("  ✓ Projection method complete");
+        tracing::debug!("Projection method complete");
 
         Ok(StokesFlowSolution::new_with_corners(
             velocity,
@@ -243,10 +242,7 @@ impl<
             .map(|v| v.1.position.coords)
             .collect();
 
-        println!(
-            "    Assembling momentum matrix ({} elements)...",
-            problem.mesh.cells.len()
-        );
+        tracing::debug!(n_cells = problem.mesh.cells.len(), "Assembling momentum matrix");
 
         // Assemble viscous + transient terms (no pressure gradient)
         for (i, cell) in problem.mesh.cells.iter().enumerate() {
@@ -306,7 +302,7 @@ impl<
             .map(|v| v.1.position.coords)
             .collect();
 
-        println!("    Assembling pressure Poisson matrix...");
+        tracing::debug!("Assembling pressure Poisson matrix");
 
         // Assemble Laplacian for pressure using P1 elements
         for cell in &problem.mesh.cells {
@@ -406,7 +402,9 @@ impl<
         let det_j = j_mat.determinant();
         let abs_det = Float::abs(det_j);
 
-        if abs_det < <T as FromPrimitive>::from_f64(1e-20).unwrap_or_else(T::one) {
+        if abs_det < <T as FromPrimitive>::from_f64(1e-20)
+            .expect("1e-20 is an IEEE 754 representable f64 constant")
+        {
             return Err(Error::Solver(
                 "Near-zero element volume in momentum assembly".to_string(),
             ));
@@ -500,7 +498,9 @@ impl<
         let det_j = j_mat.determinant();
         let abs_det = Float::abs(det_j);
 
-        if abs_det < <T as FromPrimitive>::from_f64(1e-20).unwrap_or_else(T::one) {
+        if abs_det < <T as FromPrimitive>::from_f64(1e-20)
+            .expect("1e-20 is an IEEE 754 representable f64 constant")
+        {
             return Err(Error::Solver(
                 "Near-zero element volume in pressure assembly".to_string(),
             ));
@@ -533,7 +533,8 @@ impl<
         // For P1 elements, the Laplacian matrix is constant over the element
         // K_ij = ∫ ∇N_i · ∇N_j dV = (∇N_i · ∇N_j) * V/4
         // Using exact integration for linear elements
-        let vol = abs_det / <T as FromPrimitive>::from_f64(6.0).unwrap_or_else(T::one);
+        let vol = abs_det / <T as FromPrimitive>::from_f64(6.0)
+            .expect("6.0 is representable in all IEEE 754 types");
 
         for i in 0..4 {
             let grad_i = grad_p1_phys.column(i);
@@ -783,7 +784,7 @@ impl<
         builder.set_dirichlet_row(0, diag_scale, T::zero());
         rhs[0] = T::zero();
 
-        println!("    Pinned pressure DOF 0 to zero (reference pressure)");
+        tracing::debug!("Pinned pressure DOF 0 to zero (reference pressure)");
 
         Ok(())
     }

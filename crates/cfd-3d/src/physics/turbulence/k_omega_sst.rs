@@ -63,8 +63,10 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> KOmeg
     /// Create a k-omega SST model with given kinematic viscosity.
     pub fn new(nu: T) -> Self {
         Self {
-            a1: <T as FromPrimitive>::from_f64(SST_A1).unwrap_or_else(T::one),
-            beta_star: <T as FromPrimitive>::from_f64(SST_BETA_STAR).unwrap_or_else(T::one),
+            a1: <T as FromPrimitive>::from_f64(SST_A1)
+                .expect("SST_A1 is an IEEE 754 representable f64 constant"),
+            beta_star: <T as FromPrimitive>::from_f64(SST_BETA_STAR)
+                .expect("SST_BETA_STAR is an IEEE 754 representable f64 constant"),
             nu,
             state: None,
         }
@@ -79,8 +81,10 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> KOmeg
         wall_distances: Vec<T>,
     ) {
         let n = flow_field.velocity.components.len();
-        let three_half = <T as FromPrimitive>::from_f64(1.5).unwrap_or_else(T::one);
-        let c_mu_quarter = <T as FromPrimitive>::from_f64(0.09_f64.sqrt()).unwrap_or_else(T::one);
+        let three_half = <T as FromPrimitive>::from_f64(1.5)
+            .expect("1.5 is an IEEE 754 representable f64 constant");
+        let c_mu_quarter = <T as FromPrimitive>::from_f64(0.09_f64.sqrt())
+            .expect("sqrt(0.09) is an IEEE 754 representable f64 constant");
 
         let k_field: Vec<T> = flow_field
             .velocity
@@ -122,14 +126,22 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> KOmeg
     /// Compute blended SST constants at a point using F1.
     fn blend_constants(&self, f1: T) -> SSTBlended<T> {
         let one_m_f1 = T::one() - f1;
-        let alpha1 = <T as FromPrimitive>::from_f64(SST_ALPHA1).unwrap_or_else(T::one);
-        let alpha2 = <T as FromPrimitive>::from_f64(SST_ALPHA2).unwrap_or_else(T::one);
-        let beta1 = <T as FromPrimitive>::from_f64(SST_BETA1).unwrap_or_else(T::one);
-        let beta2 = <T as FromPrimitive>::from_f64(SST_BETA2).unwrap_or_else(T::one);
-        let sk1 = <T as FromPrimitive>::from_f64(SST_SIGMA_K1).unwrap_or_else(T::one);
-        let sk2 = <T as FromPrimitive>::from_f64(SST_SIGMA_K2).unwrap_or_else(T::one);
-        let so1 = <T as FromPrimitive>::from_f64(SST_SIGMA_OMEGA1).unwrap_or_else(T::one);
-        let so2 = <T as FromPrimitive>::from_f64(SST_SIGMA_OMEGA2).unwrap_or_else(T::one);
+        let alpha1 = <T as FromPrimitive>::from_f64(SST_ALPHA1)
+            .expect("SST_ALPHA1 is an IEEE 754 representable f64 constant");
+        let alpha2 = <T as FromPrimitive>::from_f64(SST_ALPHA2)
+            .expect("SST_ALPHA2 is an IEEE 754 representable f64 constant");
+        let beta1 = <T as FromPrimitive>::from_f64(SST_BETA1)
+            .expect("SST_BETA1 is an IEEE 754 representable f64 constant");
+        let beta2 = <T as FromPrimitive>::from_f64(SST_BETA2)
+            .expect("SST_BETA2 is an IEEE 754 representable f64 constant");
+        let sk1 = <T as FromPrimitive>::from_f64(SST_SIGMA_K1)
+            .expect("SST_SIGMA_K1 is an IEEE 754 representable f64 constant");
+        let sk2 = <T as FromPrimitive>::from_f64(SST_SIGMA_K2)
+            .expect("SST_SIGMA_K2 is an IEEE 754 representable f64 constant");
+        let so1 = <T as FromPrimitive>::from_f64(SST_SIGMA_OMEGA1)
+            .expect("SST_SIGMA_OMEGA1 is an IEEE 754 representable f64 constant");
+        let so2 = <T as FromPrimitive>::from_f64(SST_SIGMA_OMEGA2)
+            .expect("SST_SIGMA_OMEGA2 is an IEEE 754 representable f64 constant");
         SSTBlended {
             alpha: f1 * alpha1 + one_m_f1 * alpha2,
             beta: f1 * beta1 + one_m_f1 * beta2,
@@ -142,7 +154,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> KOmeg
     /// Compute strain rate magnitude |S| at grid point (i, j, k).
     fn strain_rate(&self, flow: &FlowField<T>, i: usize, j: usize, k: usize) -> T {
         let (nx, ny, nz) = flow.velocity.dimensions;
-        let two = <T as FromPrimitive>::from_f64(2.0).unwrap_or_else(T::one);
+        let two = <T as FromPrimitive>::from_f64(2.0)
+            .expect("2.0 is representable in all IEEE 754 types");
         let h = T::one();
         let mut s_sq = T::zero();
         if i > 0 && i < nx - 1 {
@@ -182,7 +195,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Turbu
     fn turbulent_viscosity(&self, flow_field: &FlowField<T>) -> Vec<T> {
         let (nx, ny, nz) = flow_field.velocity.dimensions;
         let n = nx * ny * nz;
-        let eps = <T as FromPrimitive>::from_f64(1e-15).unwrap_or_else(T::zero);
+        let eps = <T as FromPrimitive>::from_f64(1e-15)
+            .expect("1e-15 is an IEEE 754 representable f64 constant");
         match &self.state {
             None => vec![T::zero(); n],
             Some(state) => {
@@ -204,14 +218,17 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Turbu
                         T::one()
                     };
                     let arg2 = num_traits::Float::max(
-                        <T as FromPrimitive>::from_f64(2.0).unwrap_or_else(T::one)
+                        <T as FromPrimitive>::from_f64(2.0)
+                            .expect("2.0 is representable in all IEEE 754 types")
                             * num_traits::Float::sqrt(k)
                             / (self.beta_star * om * d + eps),
-                        <T as FromPrimitive>::from_f64(500.0).unwrap_or_else(T::one) * self.nu
+                        <T as FromPrimitive>::from_f64(500.0)
+                            .expect("500.0 is representable in all IEEE 754 types") * self.nu
                             / (d * d * om + eps),
                     );
                     let f2 = num_traits::Float::tanh(arg2 * arg2);
-                    let f1 = <T as FromPrimitive>::from_f64(0.5).unwrap_or_else(T::one);
+                    let f1 = <T as FromPrimitive>::from_f64(0.5)
+                        .expect("0.5 is exactly representable in IEEE 754");
                     let _blended = self.blend_constants(f1);
                     let ii = idx % nx;
                     let jj = (idx / nx) % ny;

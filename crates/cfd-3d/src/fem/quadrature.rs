@@ -32,13 +32,18 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive>
     /// Keast degree 3 quadrature rule (5 points)
     /// Precision O(h^4), enough for quadratic elements
     pub fn keast_degree_3() -> Self {
-        let a = <T as FromPrimitive>::from_f64(0.25).unwrap_or_else(T::one);
-        let b = <T as FromPrimitive>::from_f64(0.5).unwrap_or_else(T::one);
-        let c = <T as FromPrimitive>::from_f64(1.0 / 6.0).unwrap_or_else(T::one);
+        let a = <T as FromPrimitive>::from_f64(0.25)
+            .expect("0.25 is exactly representable in IEEE 754");
+        let b = <T as FromPrimitive>::from_f64(0.5)
+            .expect("0.5 is exactly representable in IEEE 754");
+        let c = <T as FromPrimitive>::from_f64(1.0 / 6.0)
+            .expect("1/6 is an IEEE 754 representable f64 constant");
 
         let p1 = Vector3::new(a, a, a);
-        let w1 = <T as FromPrimitive>::from_f64(-0.8).unwrap_or_else(T::one)
-            / <T as FromPrimitive>::from_f64(6.0).unwrap_or_else(T::one); // Normalized volume = 1/6
+        let w1 = <T as FromPrimitive>::from_f64(-0.8)
+            .expect("-0.8 is an IEEE 754 representable f64 constant")
+            / <T as FromPrimitive>::from_f64(6.0)
+                .expect("6.0 is representable in all IEEE 754 types"); // Normalized volume = 1/6
 
         // Other 4 points are permutations of (1/2, 1/6, 1/6)
         let points = vec![
@@ -49,8 +54,10 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive>
             Vector3::new(c, c, c),
         ];
 
-        let w2 = <T as FromPrimitive>::from_f64(0.45).unwrap_or_else(T::one)
-            / <T as FromPrimitive>::from_f64(6.0).unwrap_or_else(T::one);
+        let w2 = <T as FromPrimitive>::from_f64(0.45)
+            .expect("0.45 is an IEEE 754 representable f64 constant")
+            / <T as FromPrimitive>::from_f64(6.0)
+                .expect("6.0 is representable in all IEEE 754 types");
         let weights = vec![w1, w2, w2, w2, w2];
 
         Self { points, weights }

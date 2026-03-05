@@ -36,7 +36,8 @@ pub fn stress_tensor<T: cfd_mesh::domain::core::Scalar + RealField + Copy>(
     pressure: T,
     strain_rate: &Matrix3<T>,
 ) -> Matrix3<T> {
-    let two = <T as FromPrimitive>::from_f64(2.0).unwrap_or_else(T::zero);
+    let two = <T as FromPrimitive>::from_f64(2.0)
+        .expect("2.0 is representable in all IEEE 754 types");
     let mut stress = strain_rate * (two * fluid.viscosity);
 
     // Add pressure contribution to diagonal
@@ -53,6 +54,7 @@ pub fn stress_tensor<T: cfd_mesh::domain::core::Scalar + RealField + Copy>(
 pub fn strain_rate_tensor<T: cfd_mesh::domain::core::Scalar + RealField + Copy>(
     velocity_gradient: &Matrix3<T>,
 ) -> Matrix3<T> {
-    let half = <T as FromPrimitive>::from_f64(0.5).unwrap_or_else(T::zero);
+    let half = <T as FromPrimitive>::from_f64(0.5)
+        .expect("0.5 is exactly representable in IEEE 754");
     (velocity_gradient + velocity_gradient.transpose()) * half
 }
