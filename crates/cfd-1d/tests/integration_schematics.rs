@@ -1,5 +1,5 @@
 
-use cfd_1d::network::{NetworkBuilder, Node, Edge, NodeType, EdgeType};
+use cfd_1d::domain::network::{NetworkBuilder, Node, Edge, NodeType, EdgeType};
 
 #[test]
 fn test_new_components_integration() {
@@ -36,7 +36,7 @@ fn test_new_components_integration() {
 #[test]
 fn test_from_spec_conversion() {
     use cfd_schematics::domain::model::{NodeSpec, ChannelSpec, NodeId, NodeKind, EdgeKind};
-    use cfd_1d::network::{Node, Edge};
+    use cfd_1d::domain::network::{Node, Edge};
     
     let n_spec = NodeSpec {
         id: NodeId::new("n1"),
@@ -85,7 +85,7 @@ fn test_blueprint_negative_length_rejected() {
         channels: vec![c1],
     };
     
-    let result = cfd_1d::network::network_from_blueprint(&blueprint, fluid);
+    let result = cfd_1d::domain::network::network_from_blueprint(&blueprint, fluid);
     assert!(result.is_err(), "Blueprint with negative length must be rejected");
 }
 
@@ -118,6 +118,6 @@ fn test_blueprint_zero_diameter_rejected() {
         channels: vec![c1],
     };
     
-    let result = cfd_1d::network::network_from_blueprint(&blueprint, fluid);
+    let result = cfd_1d::domain::network::network_from_blueprint(&blueprint, fluid);
     assert!(result.is_err(), "Blueprint with zero diameter must be rejected");
 }

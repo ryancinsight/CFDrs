@@ -157,7 +157,7 @@ pub(super) fn accumulate_inlet_tree(
         }
         DesignTopology::TripleTrifurcationVenturi => {
             let frac = candidate.trifurcation_center_frac;
-            let q_frac = cfd_1d::cell_separation::tri_center_q_frac(frac);
+            let q_frac = cfd_1d::tri_center_q_frac(frac);
             let w1 = w * frac;
             let w2 = w1 * frac;
             let w3 = w2 * frac;
@@ -172,7 +172,7 @@ pub(super) fn accumulate_inlet_tree(
         }
         DesignTopology::TrifurcationBifurcationBifurcationVenturi => {
             let frac = candidate.trifurcation_center_frac;
-            let q_frac = cfd_1d::cell_separation::tri_center_q_frac(frac);
+            let q_frac = cfd_1d::tri_center_q_frac(frac);
             let w1 = w * frac;
             let trunk_len = TREATMENT_HEIGHT_MM * 0.18e-3;
             let branch1_len = TREATMENT_HEIGHT_MM * 0.15e-3;
@@ -185,7 +185,7 @@ pub(super) fn accumulate_inlet_tree(
         }
         DesignTopology::QuadTrifurcationVenturi => {
             let frac = candidate.trifurcation_center_frac;
-            let q_frac = cfd_1d::cell_separation::tri_center_q_frac(frac);
+            let q_frac = cfd_1d::tri_center_q_frac(frac);
             let level_lens = [
                 TREATMENT_HEIGHT_MM * 0.12e-3,
                 TREATMENT_HEIGHT_MM * 0.10e-3,
@@ -204,7 +204,7 @@ pub(super) fn accumulate_inlet_tree(
         }
         DesignTopology::CascadeCenterTrifurcationSeparator { n_levels } => {
             let frac = candidate.trifurcation_center_frac;
-            let q_frac = cfd_1d::cell_separation::tri_center_q_frac(frac);
+            let q_frac = cfd_1d::tri_center_q_frac(frac);
             let trunk_len = TREATMENT_HEIGHT_MM * 0.20e-3;
             let branch_len = TREATMENT_HEIGHT_MM * 0.15e-3;
             acc.add_rect(blood, q, w, h, trunk_len);
@@ -218,7 +218,7 @@ pub(super) fn accumulate_inlet_tree(
         }
         DesignTopology::IncrementalFiltrationTriBiSeparator { n_pretri } => {
             let frac = candidate.trifurcation_center_frac;
-            let q_tri = cfd_1d::cell_separation::tri_center_q_frac(frac);
+            let q_tri = cfd_1d::tri_center_q_frac(frac);
             let q_bi = 0.68_f64;
             let trunk_len = TREATMENT_HEIGHT_MM * 0.20e-3;
             let pretri_len = TREATMENT_HEIGHT_MM * 0.15e-3;
@@ -294,3 +294,4 @@ pub(super) fn accumulate_inlet_tree(
         }
     }
 }
+

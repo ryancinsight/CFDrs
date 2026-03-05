@@ -1,15 +1,20 @@
-//! Regularized collision operator for improved stability
+//! Regularized collision operator for improved stability.
 //!
-//! # Theorem
-//! The Lattice Boltzmann Method (LBM) recovers the macroscopic Navier-Stokes equations
-//! in the low Mach number limit.
+//! # Theorem — Regularization (Latt & Chopard 2006)
 //!
-//! **Proof sketch**:
-//! Through the Chapman-Enskog expansion, the discrete Boltzmann equation with the BGK
-//! collision operator can be expanded in powers of the Knudsen number ($Kn$).
-//! At $O(Kn^0)$, the Euler equations are recovered. At $O(Kn^1)$, the viscous stress
-//! tensor emerges, yielding the weakly compressible Navier-Stokes equations.
-//! The kinematic viscosity is related to the relaxation time $\tau$ by $\nu = c_s^2 (\tau - 0.5)\Delta t$.
+//! **Statement**: The regularized BGK operator reconstructs the off-equilibrium
+//! distribution as
+//! $f_q^{(1)\text{reg}} = \frac{w_q}{2 c_s^4} \mathbf{e}_q \mathbf{e}_q : \Pi^{(1)}$
+//! from the non-equilibrium stress $\Pi^{(1)} = -(1/2)\tau \sum_q \mathbf{e}_q \mathbf{e}_q f_q^{neq}$,
+//! and applies BGK relaxation only on this regularized part.
+//!
+//! **Properties**:
+//! 1. The regularization step removes high-order ghost modes that cause instability.
+//! 2. At steady state $f_q^{(1)} \equiv 0$ and the regularized scheme reduces to
+//!    pure equilibrium BGK.
+//! 3. Provides superior stability at high Reynolds numbers compared to standard BGK.
+//!
+//! **Reference**: Latt & Chopard (2006), *Phys. Rev. E* 74, 026701.
 
 #![allow(dead_code)]
 
@@ -39,60 +44,63 @@ impl<T: RealField + Copy + FromPrimitive> RegularizedCollision<T> {
     /// Compute non-equilibrium stress tensor
     fn compute_stress_tensor(f: &[T; 9], f_eq: &[T; 9]) -> [[T; 2]; 2] {
         let mut pi = [[T::zero(); 2]; 2];
-
-        // Compute off-equilibrium part
         for q in 0..9 {
             let f_neq = f[q] - f_eq[q];
             let lattice_vel = D2Q9::VELOCITIES[q];
-            let cx = T::from_i32(lattice_vel.0).unwrap_or_else(T::zero);
-            let cy = T::from_i32(lattice_vel.1).unwrap_or_else(T::zero);
-
-            // Pi_αβ = Σ_i c_iα c_iβ f_i^neq
+            let cx = T::from_i32(lattice_vel.0)
+                .expect("lattice velocity is a small integer");
+            let cy = T::from_i32(lattice_vel.1)
+                .expect("lattice velocity is a small integer");
             pi[0][0] += cx * cx * f_neq;
             pi[0][1] += cx * cy * f_neq;
             pi[1][0] += cy * cx * f_neq;
             pi[1][1] += cy * cy * f_neq;
         }
-
         pi
     }
 }
 
 impl<T: RealField + Copy + FromPrimitive> CollisionOperator<T> for RegularizedCollision<T> {
-    fn collide(&self, f: &mut Vec<Vec<[T; 9]>>, density: &[Vec<T>], velocity: &[Vec<[T; 2]>]) {
-        let ny = f.len();
-        let nx = if ny > 0 { f[0].len() } else { 0 };
+    fn collide(
+        &self,
+        f: &mut Vec<T>,
+        density: &[T],
+        velocity: &[T],
+        nx: usize,
+        ny: usize,
+    ) {
+        use crate::solvers::lbm::streaming::f_idx;
 
         for j in 0..ny {
             for i in 0..nx {
-                let rho = density[j][i];
-                let u = velocity[j][i];
+                let cell = j * nx + i;
+                let rho = density[cell];
+                let u   = [velocity[cell * 2], velocity[cell * 2 + 1]];
 
                 // Compute equilibrium
                 let mut f_eq = [T::zero(); 9];
+                let mut f_node = [T::zero(); 9];
                 for q in 0..9 {
-                    let weight = T::from_f64(D2Q9::WEIGHTS[q]).unwrap_or_else(T::zero);
+                    let weight = T::from_f64(D2Q9::WEIGHTS[q])
+                        .expect("D2Q9 weights are exact f64 constants");
                     let lattice_vel = D2Q9::VELOCITIES[q];
-                    f_eq[q] = equilibrium(rho, &u, q, weight, lattice_vel);
+                    f_eq[q]   = equilibrium(rho, &u, q, weight, lattice_vel);
+                    f_node[q] = f[f_idx(j, i, q, nx)];
                 }
 
-                // Compute non-equilibrium stress
-                let pi = Self::compute_stress_tensor(&f[j][i], &f_eq);
+                // Compute non-equilibrium stress Π^(1)
+                let pi = Self::compute_stress_tensor(&f_node, &f_eq);
 
-                // Regularized collision
+                // Regularized collision: BGK on equilibrium + regularized off-eq
                 for q in 0..9 {
-                    // Standard BGK collision
-                    let f_bgk = f[j][i][q] - self.omega * (f[j][i][q] - f_eq[q]);
-
-                    // Regularization term
+                    let f_bgk = f_node[q] - self.omega * (f_node[q] - f_eq[q]);
                     let lattice_vel = D2Q9::VELOCITIES[q];
                     let c = [
-                        T::from_i32(lattice_vel.0).unwrap_or_else(T::zero),
-                        T::from_i32(lattice_vel.1).unwrap_or_else(T::zero),
+                        T::from_i32(lattice_vel.0).expect("lattice velocity is a small integer"),
+                        T::from_i32(lattice_vel.1).expect("lattice velocity is a small integer"),
                     ];
                     let reg_term = self.regularization_term(c, pi);
-
-                    f[j][i][q] = f_bgk + reg_term;
+                    f[f_idx(j, i, q, nx)] = f_bgk + reg_term;
                 }
             }
         }
@@ -103,27 +111,25 @@ impl<T: RealField + Copy + FromPrimitive> CollisionOperator<T> for RegularizedCo
     }
 
     fn viscosity(&self, dt: T, dx: T) -> T {
-        let cs2 =
-            T::from_f64(1.0 / 3.0).unwrap_or_else(|| T::one() / (T::one() + T::one() + T::one()));
-        let half = T::from_f64(0.5).unwrap_or_else(|| T::one() / (T::one() + T::one()));
+        let cs2 = T::from_f64(1.0 / 3.0)
+            .expect("cs² = 1/3 is representable in IEEE 754");
+        let half = T::from_f64(0.5)
+            .expect("0.5 is representable in IEEE 754");
         cs2 * dx * dx * (self.tau - half) / dt
     }
 }
 
 impl<T: RealField + Copy + FromPrimitive> RegularizedCollision<T> {
     fn regularization_term(&self, c: [T; 2], pi: [[T; 2]; 2]) -> T {
-        // Compute regularization term Q_i^(1) = w_i * H_i : Pi^(1)
-        // Based on Latt & Chopard (2006) Phys. Rev. E 74, 026701
-        // H_i = (c_i ⊗ c_i - cs^2 I) where cs^2 = 1/3 for D2Q9
-        let cs2 =
-            T::from_f64(1.0 / 3.0).unwrap_or_else(|| T::one() / (T::one() + T::one() + T::one()));
-
-        // Tensor contraction H_i : Pi^(1)
+        // Q_i^(1) = (ω/2) · [(c_x² - cs²)·Π_xx + (c_y² - cs²)·Π_yy + c_x c_y (Π_xy + Π_yx)]
+        // (Latt & Chopard 2006, eq. 18)
+        let cs2 = T::from_f64(1.0 / 3.0)
+            .expect("cs² = 1/3 is representable in IEEE 754");
+        let half = T::from_f64(0.5)
+            .expect("0.5 is representable in IEEE 754");
         let term = (c[0] * c[0] - cs2) * pi[0][0]
             + (c[1] * c[1] - cs2) * pi[1][1]
             + c[0] * c[1] * (pi[0][1] + pi[1][0]);
-
-        // Apply relaxation factor omega/2
-        term * self.omega / (T::one() + T::one())
+        term * self.omega * half
     }
 }

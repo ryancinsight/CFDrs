@@ -6,7 +6,7 @@
 //! 3) Flags components that exceed configured blood shear limits.
 //!
 //! Network topology and physical geometry are defined entirely via
-//! `cfd-schematics` `ChannelSpec` — no `cfd_1d::channel` imports required.
+//! `cfd-schematics` `ChannelSpec` — no `cfd_1d::domain::channel` imports required.
 //!
 //! Run with:
 //! `cargo run -p cfd-1d --example fda_shear_limit_screening`

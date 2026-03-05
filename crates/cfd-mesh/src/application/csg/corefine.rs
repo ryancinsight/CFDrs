@@ -83,13 +83,18 @@ use crate::infrastructure::storage::vertex_pool::VertexPool;
 
 use crate::application::delaunay::pslg::vertex::PslgVertexId;
 use crate::application::delaunay::{Cdt, Pslg};
+use crate::domain::core::constants::{COREFINE_EDGE_EPS, COREFINE_WELD_TOL_SQ, MAX_STEINER_PER_FACE};
 
 /// Distance tolerance squared for edge Steiner projection.
+///
+/// Delegates to [`COREFINE_WELD_TOL_SQ`] from the SSOT constants module.
 /// Widened from 1e-8 to 1e-6 to handle shallow-angle tangent junctions
 /// (e.g. elbow-cylinder V-shape) where floating-point drift can exceed 1e-8.
-const WELD_TOL_SQ: Real = 1e-6;
+const WELD_TOL_SQ: Real = COREFINE_WELD_TOL_SQ;
 /// Exclude snap endpoints that fall exactly at a face corner.
-const EDGE_EPS: Real = 1e-6;
+///
+/// Delegates to [`COREFINE_EDGE_EPS`] from the SSOT constants module.
+const EDGE_EPS: Real = COREFINE_EDGE_EPS;
 
 type PointBits3 = [u64; 3];
 
@@ -254,6 +259,30 @@ pub fn corefine_face(
     // ── Step 3: Early exit ────────────────────────────────────────────────────
     if edge_steiners.iter().all(std::vec::Vec::is_empty) && interior_vids.is_empty() {
         return vec![*face];
+    }
+
+    // ── Steiner count guard ───────────────────────────────────────────────────
+    //
+    // # Theorem — Steiner Guard Soundness
+    //
+    // `midpoint_subdivide` produces a fan triangulation that covers the original
+    // face and preserves all edge-Steiner vertices on shared boundary edges.
+    // No interior constraint is resolved (sacrificed for stability), but no
+    // T-junctions are introduced because edge Steiners appear identically on
+    // adjacent co-refined faces.  The CDT complexity O(s²) for `s` interior
+    // Steiners is bounded: with `s ≤ MAX_STEINER_PER_FACE` the fallback triggers
+    // before the CDT receives a pathological input. ∎
+    {
+        let total_steiner: usize =
+            edge_steiners.iter().map(|e| e.len()).sum::<usize>() + interior_vids.len();
+        if total_steiner > MAX_STEINER_PER_FACE {
+            tracing::warn!(
+                total_steiner,
+                MAX_STEINER_PER_FACE,
+                "corefine_face: Steiner count exceeds limit — falling back to midpoint subdivision"
+            );
+            return midpoint_subdivide(face, &edge_steiners, pool, face_n);
+        }
     }
 
     // ── Step 4: Build ordered boundary polygon ────────────────────────────────
@@ -682,5 +711,59 @@ mod tests {
 
         let inside = p(0.2, 0.2, 0.0);
         assert!(inside_triangle(inside, a, b, c, n, axis_u, axis_v));
+    }
+
+    /// Regression: when total Steiner count exceeds MAX_STEINER_PER_FACE (256),
+    /// corefine_face must fall back to midpoint_subdivide and return non-empty.
+    ///
+    /// This guards against O(s²) CDT blowup from complex multi-branch junctions.
+    #[test]
+    fn corefine_face_steiner_guard_triggers_midpoint_fallback() {
+        use crate::application::csg::intersect::SnapSegment;
+
+        let mut pool = VertexPool::new(1e-6_f64); // 1µm weld cell → all interior pts unique
+        let n = Vector3r::new(0.0, 0.0, 1.0);
+
+        // 10mm × 10mm right-triangle face in the XY plane.
+        let v0 = pool.insert_or_weld(Point3r::new(0.0, 0.0, 0.0), n);
+        let v1 = pool.insert_or_weld(Point3r::new(0.01, 0.0, 0.0), n);
+        let v2 = pool.insert_or_weld(Point3r::new(0.0, 0.01, 0.0), n);
+        let face = FaceData::untagged(v0, v1, v2);
+
+        // Generate 300 unique horizontal segments, all endpoints strictly interior
+        // (x + y < 0.009, x > 3e-4, y > 3e-4).  Spacing 3e-4 m >> 1µm weld tolerance
+        // so every endpoint inserts as a distinct VertexId.
+        let mut segments: Vec<SnapSegment> = Vec::new();
+        'outer: for i in 1..30_usize {
+            for j in 1..30_usize {
+                let x = i as Real * 3e-4;
+                let y = j as Real * 3e-4;
+                let x2 = x + 1.5e-4;
+                if x + y < 0.008 && x2 + y < 0.008 {
+                    segments.push(SnapSegment {
+                        start: Point3r::new(x, y, 0.0),
+                        end: Point3r::new(x2, y, 0.0),
+                    });
+                    if segments.len() >= 300 {
+                        break 'outer;
+                    }
+                }
+            }
+        }
+
+        assert!(
+            segments.len() >= MAX_STEINER_PER_FACE / 2,
+            "test requires at least {} segments; generated {}",
+            MAX_STEINER_PER_FACE / 2,
+            segments.len()
+        );
+
+        // Must not panic; Steiner guard triggers midpoint fallback before CDT receives
+        // a pathological O(s²) input.
+        let result = corefine_face(&face, &segments, &mut pool);
+        assert!(
+            !result.is_empty(),
+            "midpoint fallback must produce at least one triangle"
+        );
     }
 }

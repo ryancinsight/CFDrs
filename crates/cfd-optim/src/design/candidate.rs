@@ -293,7 +293,7 @@ impl DesignCandidate {
     #[inline]
     #[must_use]
     pub fn venturi_flow_fraction(&self) -> f64 {
-        use cfd_1d::cell_separation::{cif_pretri_stage_q_fracs, tri_center_q_frac_cross_junction};
+        use cfd_1d::{cif_pretri_stage_q_fracs, tri_center_q_frac_cross_junction};
 
         if !self.uses_venturi_treatment() {
             return 0.0;
@@ -379,7 +379,7 @@ impl DesignCandidate {
     #[inline]
     #[must_use]
     pub fn therapy_channel_fraction(&self) -> f64 {
-        use cfd_1d::cell_separation::{cif_pretri_stage_q_fracs, tri_center_q_frac};
+        use cfd_1d::{cif_pretri_stage_q_fracs, tri_center_q_frac};
 
         if !self.uses_venturi_treatment() {
             return 0.0;
@@ -482,10 +482,11 @@ impl DesignCandidate {
     /// staged-CIF geometry and routing calculations.
     #[must_use]
     pub fn cif_pretri_stage_center_fracs(&self, n_pretri: u8) -> Vec<f64> {
-        cfd_1d::cell_separation::cif_pretri_stage_center_fracs(
+        cfd_1d::cif_pretri_stage_center_fracs(
             n_pretri,
             self.cif_pretri_center_frac(),
             self.cif_terminal_tri_center_frac(),
         )
     }
 }
+

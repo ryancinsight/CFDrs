@@ -58,7 +58,8 @@ impl<
         fluid_viscosity: T,
     ) -> Result<SerpentineValidationResult3D<T>, Error> {
         let diameter = self.mesh_builder.diameter;
-        let k = <T as FromPrimitive>::from_f64(2.0 * std::f64::consts::PI).unwrap_or_else(T::one)
+        let k = <T as FromPrimitive>::from_f64(2.0 * std::f64::consts::PI)
+            .expect("2π is an IEEE 754 representable f64 constant")
             / self.mesh_builder.wavelength;
 
         // 1. Mathematically Exact Maximum Dean Number Analysis
@@ -69,7 +70,8 @@ impl<
 
         // Area for mean velocity
         let area = if config.circular {
-            <T as FromPrimitive>::from_f64(std::f64::consts::PI / 4.0).unwrap_or_else(T::one)
+            <T as FromPrimitive>::from_f64(std::f64::consts::PI / 4.0)
+                .expect("PI/4 is an IEEE 754 representable f64 constant")
                 * diameter
                 * diameter
         } else {
@@ -84,12 +86,14 @@ impl<
         // Exact Maximum Dean Number calculation
         let de_exact_max = reynolds_num
             * num_traits::Float::sqrt(
-                diameter / (<T as FromPrimitive>::from_f64(2.0).unwrap_or_else(T::one) * min_radius_of_curvature),
+                diameter / (<T as FromPrimitive>::from_f64(2.0)
+                    .expect("2.0 is representable in all IEEE 754 types") * min_radius_of_curvature),
             );
 
         // Ensure the solver's calculated Dean number aligns with our analytical maximum
         let de_calc = solution.dean_number;
-        let de_tolerance = de_exact_max * <T as FromPrimitive>::from_f64(0.05).unwrap_or_else(T::zero); // 5% max deviation allowance for local averaging
+        let de_tolerance = de_exact_max * <T as FromPrimitive>::from_f64(0.05)
+            .expect("0.05 is an IEEE 754 representable f64 constant"); // 5% max deviation allowance for local averaging
         let de_valid =
             num_traits::Float::abs(de_calc - de_exact_max) < de_tolerance || de_calc > T::zero();
 
@@ -97,22 +101,26 @@ impl<
         // Curved pipe minimum pressure drop is strictly bounded below by the Hagen-Poiseuille
         // straight-pipe flow projected over the exact mathematical arc length.
         let straight_length =
-            self.mesh_builder.wavelength * T::from_usize(self.mesh_builder.num_periods).unwrap_or_else(T::one);
+            self.mesh_builder.wavelength * T::from_usize(self.mesh_builder.num_periods)
+                .expect("num_periods is always a representable usize");
 
         let exact_straight_dp = if config.circular {
-            <T as FromPrimitive>::from_f64(32.0).unwrap_or_else(T::one)
+            <T as FromPrimitive>::from_f64(32.0)
+                .expect("32.0 is representable in all IEEE 754 types")
                 * fluid_viscosity
                 * straight_length
                 * u_mean
                 / (diameter * diameter)
         } else {
             // Exact infinite series solution for square duct yields f*Re ≈ 56.91
-            <T as FromPrimitive>::from_f64(28.455).unwrap_or_else(T::one)
+            <T as FromPrimitive>::from_f64(28.455)
+                .expect("28.455 is an IEEE 754 representable f64 constant")
                 * fluid_viscosity
                 * straight_length
                 * u_mean
                 / (diameter * diameter)
-                * <T as FromPrimitive>::from_f64(2.0).unwrap_or_else(T::one)
+                * <T as FromPrimitive>::from_f64(2.0)
+                    .expect("2.0 is representable in all IEEE 754 types")
         };
 
         let dp_actual = Float::abs(solution.dp_total);
@@ -207,11 +215,12 @@ mod tests {
             )
             .expect("Validation failed");
 
-        println!(
-            "DP Actual: {:?}, DP Straight: {:?}",
-            solution.dp_total, result.dp_straight
+        tracing::debug!(
+            dp_total = ?solution.dp_total,
+            dp_straight = ?result.dp_straight,
+            dean_number = ?solution.dean_number,
+            "Serpentine flow validation diagnostics"
         );
-        println!("Dean Number: {:?}", solution.dean_number);
 
         assert!(
             result.validation_passed,

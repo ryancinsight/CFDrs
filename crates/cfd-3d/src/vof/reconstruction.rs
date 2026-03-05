@@ -58,7 +58,7 @@
 //! "A continuum method for modeling surface tension".
 //! J. Comput. Phys. 100:335–354.
 
-use super::advection::volume_under_plane_3d;
+use super::plic_geometry::volume_under_plane_3d;
 use super::config::{constants, VofConfig, VOF_EPSILON, VOF_INTERFACE_LOWER, VOF_INTERFACE_UPPER};
 use super::solver::VofSolver;
 use nalgebra::{RealField, Vector3};
@@ -121,10 +121,10 @@ impl InterfaceReconstruction {
 
                                 let interface_lower =
                                     <T as FromPrimitive>::from_f64(VOF_INTERFACE_LOWER)
-                                        .unwrap_or_else(T::zero);
+                                        .expect("VOF_INTERFACE_LOWER is an IEEE 754 representable f64 constant");
                                 let interface_upper =
                                     <T as FromPrimitive>::from_f64(VOF_INTERFACE_UPPER)
-                                        .unwrap_or_else(T::one);
+                                        .expect("VOF_INTERFACE_UPPER is an IEEE 754 representable f64 constant");
 
                                 if alpha > interface_lower && alpha < interface_upper {
                                     match self {
@@ -138,7 +138,7 @@ impl InterfaceReconstruction {
                                             let epsilon = <T as FromPrimitive>::from_f64(
                                                 VOF_EPSILON,
                                             )
-                                            .unwrap_or_else(T::zero);
+                                            .expect("VOF_EPSILON is an IEEE 754 representable f64 constant");
                                             if normal.norm() > epsilon {
                                                 solver.normals[idx] = normal.normalize();
                                             } else {
@@ -167,7 +167,8 @@ impl InterfaceReconstruction {
         j: usize,
         k: usize,
     ) -> Vector3<T> {
-        let two = <T as FromPrimitive>::from_f64(2.0).unwrap_or_else(T::one);
+        let two = <T as FromPrimitive>::from_f64(2.0)
+            .expect("2.0 is representable in all IEEE 754 types");
 
         let dx = (solver.alpha[solver.index(i + 1, j, k)]
             - solver.alpha[solver.index(i - 1, j, k)])
@@ -203,7 +204,7 @@ impl InterfaceReconstruction {
         // 1. Interface normal from gradient
         let mut normal = self.calculate_gradient(solver, i, j, k);
         let epsilon = <T as FromPrimitive>::from_f64(VOF_EPSILON)
-            .unwrap_or_else(T::zero);
+            .expect("VOF_EPSILON is an IEEE 754 representable f64 constant");
 
         if normal.norm() > epsilon {
             normal = normal.normalize();
@@ -240,8 +241,9 @@ impl InterfaceReconstruction {
             Float::abs(normal.x) * dx + Float::abs(normal.y) * dy + Float::abs(normal.z) * dz;
 
         let tolerance = <T as FromPrimitive>::from_f64(constants::PLIC_TOLERANCE)
-            .unwrap_or_else(T::zero);
-        let half = <T as FromPrimitive>::from_f64(0.5).unwrap_or_else(T::one);
+            .expect("PLIC_TOLERANCE is an IEEE 754 representable f64 constant");
+        let half = <T as FromPrimitive>::from_f64(0.5)
+            .expect("0.5 is exactly representable in IEEE 754");
 
         // Bisect until interval < tolerance × cell_size
         while (c_max - c_min) > tolerance {
@@ -271,11 +273,12 @@ impl InterfaceReconstruction {
         self,
         solver: &mut VofSolver<T>,
     ) {
-        let two = <T as FromPrimitive>::from_f64(2.0).unwrap_or_else(T::one);
+        let two = <T as FromPrimitive>::from_f64(2.0)
+            .expect("2.0 is representable in all IEEE 754 types");
         let interface_lower = <T as FromPrimitive>::from_f64(VOF_INTERFACE_LOWER)
-            .unwrap_or_else(T::zero);
+            .expect("VOF_INTERFACE_LOWER is an IEEE 754 representable f64 constant");
         let interface_upper = <T as FromPrimitive>::from_f64(VOF_INTERFACE_UPPER)
-            .unwrap_or_else(T::one);
+            .expect("VOF_INTERFACE_UPPER is an IEEE 754 representable f64 constant");
 
         for k_block in (1..solver.nz - 1).step_by(CACHE_BLOCK_SIZE_K) {
             for j_block in (1..solver.ny - 1).step_by(CACHE_BLOCK_SIZE_J) {

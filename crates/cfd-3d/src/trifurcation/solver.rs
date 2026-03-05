@@ -138,15 +138,19 @@ impl<
         let stats_vertex_count = mesh.vertex_count();
         let stats_cell_count = mesh.cell_count();
         let stats_boundary_face_count = mesh.boundary_faces().len();
-        println!("Mesh stats: nodes={stats_vertex_count}, cells={stats_cell_count}, boundary_faces={stats_boundary_face_count}");
-
+        tracing::debug!(
+            nodes = stats_vertex_count,
+            cells = stats_cell_count,
+            boundary_faces = stats_boundary_face_count,
+            "Trifurcation mesh stats"
+        );
         let mut label_counts = std::collections::HashMap::new();
         for f_idx in 0..mesh.face_count() {
             if let Some(label) = mesh.boundary_label(FaceId::from_usize(f_idx)) {
                 *label_counts.entry(label.to_string()).or_insert(0) += 1;
             }
         }
-        println!("Boundary label counts: {label_counts:?}");
+        tracing::debug!(?label_counts, "Trifurcation boundary label counts");
 
         // 2. Define Boundary Conditions
         let mut boundary_conditions = HashMap::new();
@@ -163,7 +167,7 @@ impl<
         // (inlet / outlet_* / wall).  The per-label outlet map preserves per-outlet
         // pressure assignment needed for the trifurcation case.
         let face_sets = crate::fem::AxialBoundaryClassifier::new(&mesh, 8).classify();
-        println!("  Boundary face count: {}", mesh.boundary_faces().len());
+        tracing::debug!(count = mesh.boundary_faces().len(), "Trifurcation boundary face count");
 
         // Apply inlet BCs (highest priority)
         for &v_idx in &face_sets.inlet_nodes {
@@ -181,7 +185,7 @@ impl<
             let idx = label
                 .strip_prefix("outlet_")
                 .and_then(|s| s.parse::<usize>().ok())
-                .unwrap_or(0)
+                .expect("Outlet label should have a valid integer suffix")
                 .min(self.config.outlet_pressures.len().saturating_sub(1));
             let pressure = self.config.outlet_pressures[idx].to_f64().unwrap_or(0.0);
             for &v_idx in nodes {
@@ -201,10 +205,7 @@ impl<
                 });
         }
 
-        println!(
-            "  Unique boundary nodes constrained: {}",
-            boundary_conditions.len()
-        );
+        tracing::debug!(count = boundary_conditions.len(), "Trifurcation boundary nodes constrained");
 
         // 3. Set up FEM Problem
         let constant_fluid = cfd_core::physics::fluid::ConstantPropertyFluid::<f64> {
@@ -249,7 +250,7 @@ impl<
             let fem_solution = match fem_result {
                 Ok(sol) => sol,
                 Err(e) => {
-                    println!("Picard iteration {iter}: linear solve failed ({e}), using last converged solution");
+                    tracing::warn!(error = %e, iter, "Trifurcation Picard linear solve failed; using last converged solution");
                     break;
                 }
             };
@@ -288,7 +289,7 @@ impl<
                 .expect("element_viscosities set before Picard loop");
             std::mem::swap(&mut element_viscosities, &mut next_viscosities);
             last_solution = Some(updated_solution);
-            println!("Picard iteration {iter}: visc_change={max_change_f64:?}");
+            tracing::debug!(iter, visc_change = max_change_f64, "Trifurcation Picard iteration");
             if max_change_f64 < self.config.nonlinear_tolerance.to_f64().unwrap_or(1e-4) {
                 break;
             }
@@ -364,7 +365,8 @@ impl<
                 }
             }
             if cnt > 0 {
-                sum / T::from_usize(cnt).unwrap_or_else(T::one)
+                sum / T::from_usize(cnt)
+                    .expect("inlet pressure averaging count is always a representable usize")
             } else {
                 self.config.inlet_pressure
             }
@@ -387,7 +389,8 @@ impl<
                 }
             }
             if cnt > 0 {
-                sum / T::from_usize(cnt).unwrap_or_else(T::one)
+                sum / T::from_usize(cnt)
+                    .expect("outlet pressure averaging count is always a representable usize")
             } else {
                 T::zero()
             }

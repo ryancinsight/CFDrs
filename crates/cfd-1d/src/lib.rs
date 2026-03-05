@@ -86,27 +86,22 @@
 #![allow(clippy::ptr_arg)] // &Vec used for API compatibility
 #![allow(clippy::should_implement_trait)] // CFD-specific trait implementations
 
-pub mod analysis;
-pub mod channel;
-pub mod components;
-pub mod hemolysis;
-pub mod junctions;
-pub mod network;
-pub mod resistance;
-
-pub mod cell_separation;
+/// Domain modeling: topology, components, and channel geometries
+pub mod domain;
+/// Physical constraints, resistance laws, and biological models
+pub mod physics;
+/// Application orchestration: solvers and post-processors
 pub mod solver;
-pub mod vascular;
 
 // Export haemolysis models
-pub use hemolysis::{
+pub use physics::hemolysis::{
     cavitation_amplified_hi, giersiepen_hi, HemolysisExposure,
     CAVITATION_HI_SLOPE, GIERSIEPEN_ALPHA, GIERSIEPEN_BETA, GIERSIEPEN_C,
 };
 
 // Export three-population inertial focusing model
-pub use cell_separation::{three_population_equilibria, ThreePopEquilibria};
-pub use cell_separation::{
+pub use physics::cell_separation::{three_population_equilibria, ThreePopEquilibria};
+pub use physics::cell_separation::{
     cascade_junction_separation, cascade_junction_separation_cross_junction,
     cascade_junction_separation_from_qfracs,
     cif_pretri_stage_center_fracs, cif_pretri_stage_q_fracs,
@@ -118,41 +113,43 @@ pub use cell_separation::{
 };
 
 // Export network functionality
-pub use network::{
-    BoundaryCondition, ChannelProperties, Edge, EdgeProperties, EdgeType, Network, NetworkBuilder,
-    NetworkBuilderSink, NetworkGraph, NetworkMetadata, Node, NodeProperties, NodeType,
+pub use domain::network::{
+    BoundaryCondition, ChannelProperties, ComponentType, Edge, EdgeProperties, EdgeType,
+    Network, NetworkBuilder, NetworkBuilderSink, NetworkGraph, NetworkMetadata, Node,
+    NodeProperties, NodeType,
 };
 
 // Export solver functionality
-pub use solver::{
+pub use solver::core::{
     ConvergenceChecker, LinearSystemSolver, MatrixAssembler, NetworkDomain, NetworkProblem,
-    NetworkSolver, NetworkState, CompositionState, EdgeFlowEvent, InletCompositionEvent, MixtureComposition,
-    PressureBoundaryEvent, SimulationTimeConfig, TransientCompositionSimulator, ChannelOccupancy, DropletBoundary, DropletInjection,
+    NetworkSolver, NetworkState, SolverConfig, CompositionState, EdgeFlowEvent,
+    InletCompositionEvent, MixtureComposition, PressureBoundaryEvent, SimulationTimeConfig,
+    TransientCompositionSimulator, ChannelOccupancy, DropletBoundary, DropletInjection,
     DropletPosition, DropletSnapshot, DropletSplitPolicy, DropletState,
     DropletTrackingState, SplitMode, TransientDropletSimulator,
 };
 
 // Export component functionality
-pub use components::{
+pub use domain::components::{
     CircularChannel, Component, ComponentFactory, FlowSensor, Micromixer, Micropump, Microvalve,
     MixerType, OrganCompartment, PorousMembrane, PumpType, RectangularChannel, SensorType,
     ValveType,
 };
 
 // Export analysis functionality
-pub use analysis::{
+pub use solver::analysis::{
     BloodShearLimits, FlowAnalysis, NetworkAnalysisResult, NetworkAnalyzerOrchestrator,
     PerformanceMetrics, PressureAnalysis, ResistanceAnalysis, ShearLimitViolation,
 };
 
 // Export channel functionality
-pub use channel::{
+pub use domain::channel::{
     Channel, ChannelGeometry, ChannelType, CrossSection, FlowRegime, FlowState,
     KN_SLIP_MIN, NumericalParameters, SurfaceProperties, Wettability,
 };
 
 // Export resistance functionality
-pub use resistance::{
+pub use physics::resistance::{
     BendType, ChannelGeometry as ResistanceChannelGeometry, CombinationMethod,
     DarcyWeisbachModel, ExpansionType, FlowConditions, HagenPoiseuilleModel,
     JunctionFlowDirection, JunctionLossModel, JunctionType, MembranePoreModel,
@@ -162,7 +159,7 @@ pub use resistance::{
 };
 
 // Export hierarchical junction functionality
-pub use junctions::branching::{
+pub use domain::junctions::branching::{
     BranchingNetworkConfig, BranchingNetworkSolver, BranchingValidationResult,
     BranchingValidator, ThreeWayBranchJunction, ThreeWayBranchSolution,
     TwoWayBranchJunction, TwoWayBranchSolution,
@@ -179,28 +176,28 @@ pub mod prelude {
     // === Extended Network Components ===
     // Specialized components not in main prelude
     pub use crate::{
-        analysis::{
+        solver::analysis::{
             BloodShearLimits, NetworkAnalysisResult, NetworkAnalyzerOrchestrator,
             PerformanceMetrics, ShearLimitViolation,
         },
-        channel::{
+        domain::channel::{
             Channel, ChannelGeometry, ChannelType, CrossSection, FlowRegime, FlowState,
             SurfaceProperties, Wettability,
         },
-        components::{
+        domain::components::{
             ComponentFactory, FlowSensor, Micromixer, MixerType, OrganCompartment,
             PorousMembrane, PumpType, SensorType, ValveType,
         },
-        network::{Edge, EdgeProperties, EdgeType, Node, NodeProperties, NodeType},
-        junctions::branching::{
+        domain::network::{Edge, EdgeProperties, EdgeType, Node, NodeProperties, NodeType},
+        domain::junctions::branching::{
             BranchingNetworkConfig, BranchingNetworkSolver, BranchingValidationResult,
             BranchingValidator, ThreeWayBranchJunction, ThreeWayBranchSolution,
             TwoWayBranchJunction, TwoWayBranchSolution,
         },
-        resistance::{
+        physics::resistance::{
             DarcyWeisbachModel, FlowConditions, ResistanceCalculator, ResistanceModelFactory,
         },
-        solver::{
+        solver::core::{
             ChannelOccupancy, CompositionState, DropletBoundary, DropletInjection,
             DropletPosition, DropletSnapshot, DropletSplitPolicy, DropletState,
             DropletTrackingState, EdgeFlowEvent, InletCompositionEvent, MixtureComposition, PressureBoundaryEvent, SimulationTimeConfig, SplitMode,

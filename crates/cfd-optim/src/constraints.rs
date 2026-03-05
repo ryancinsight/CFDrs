@@ -301,6 +301,27 @@ pub const CLOTTING_RESIDENCE_LOW_RISK_S: f64 = 0.5;
 /// Residence-time threshold [s] above which residence-driven stasis risk is high.
 pub const CLOTTING_RESIDENCE_HIGH_RISK_S: f64 = 3.0;
 
+/// Log-scale area-expansion ratio below which post-venturi recirculation stasis
+/// risk is minimal.
+///
+/// An expansion ratio of 4:1 produces a mild recirculation eddy that clears
+/// quickly under clinical flow rates (Idelchik 1994, Diagram 4-1).
+pub const EXPANSION_RATIO_LOW_RISK: f64 = 4.0;
+
+/// Log-scale area-expansion ratio above which post-venturi recirculation stasis
+/// risk reaches maximum.
+///
+/// Ratios above 200:1 (typical venturi throat → millimetre main channel) produce
+/// persistent recirculation zones spanning several throat diameters downstream.
+pub const EXPANSION_RATIO_HIGH_RISK: f64 = 200.0;
+
+/// Per-channel wall shear rate [1/s] threshold below which channel volume is
+/// counted as stasis-prone dead volume.
+///
+/// Platelet adhesion and fibrin deposition accelerate markedly below 200 /s
+/// (Folie & McIntire, 1989; Badimon et al., 1992).
+pub const DEAD_VOLUME_SHEAR_THRESHOLD_INV_S: f64 = 200.0;
+
 // ── Bubble dynamics / Rayleigh–Plesset sonoluminescence parameters ────────────
 
 /// Equilibrium cavitation bubble radius [m] — typical haematogenous nucleus in blood.

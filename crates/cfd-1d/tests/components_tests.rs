@@ -4,14 +4,14 @@
 //! constructors (validated, returns Result) with Idelchik physics model.
 
 use approx::assert_relative_eq;
-use cfd_1d::components::{
+use cfd_1d::domain::components::{
     CircularChannel, Micropump, Microvalve, OrganCompartment,
     PorousMembrane, RectangularChannel,
 };
-use cfd_1d::components::mixers::{Micromixer, MixerType};
-use cfd_1d::components::sensors::FlowSensor;
-use cfd_1d::components::Component;
-use cfd_1d::solver::ConvergenceChecker;
+use cfd_1d::domain::components::mixers::{Micromixer, MixerType};
+use cfd_1d::domain::components::sensors::FlowSensor;
+use cfd_1d::domain::components::Component;
+use cfd_1d::solver::core::ConvergenceChecker;
 use cfd_core::physics::fluid::database::water_20c;
 
 fn water() -> cfd_core::physics::fluid::ConstantPropertyFluid<f64> {

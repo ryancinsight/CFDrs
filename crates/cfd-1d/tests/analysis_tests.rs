@@ -4,7 +4,7 @@
 //! resistance laws, flow rate aggregation, and blood shear safety limits.
 
 use approx::assert_relative_eq;
-use cfd_1d::analysis::{
+use cfd_1d::solver::analysis::{
     BloodShearLimits, FlowAnalysis, PressureAnalysis, ResistanceAnalysis,
 };
 

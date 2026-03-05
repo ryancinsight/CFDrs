@@ -7,8 +7,8 @@
 //!
 //! Run with: cargo run -p cfd-1d --example schematic_demo_integration
 
-use cfd_1d::network::{Edge, Network, NetworkBuilder, Node};
-use cfd_1d::solver::{NetworkProblem, NetworkSolver, SolverConfig};
+use cfd_1d::domain::network::{Edge, Network, NetworkBuilder, Node};
+use cfd_1d::solver::core::{NetworkProblem, NetworkSolver, SolverConfig};
 use cfd_core::compute::solver::Solver;
 use cfd_core::physics::fluid::database;
 use cfd_schematics::domain::model::{ChannelSpec, NodeKind, NodeSpec};

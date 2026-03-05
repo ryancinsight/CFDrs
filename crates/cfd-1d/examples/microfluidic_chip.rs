@@ -8,7 +8,7 @@
 //!
 //! Run with: cargo run --example microfluidic_chip
 
-use cfd_1d::solver::SolverConfig;
+use cfd_1d::solver::core::SolverConfig;
 use cfd_1d::{EdgeProperties, Network, NetworkBuilder, NetworkProblem, NetworkSolver};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -61,7 +61,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     ] {
         let props = EdgeProperties {
             id: id.to_string(),
-            component_type: cfd_1d::network::ComponentType::Pipe,
+            component_type: cfd_1d::domain::network::ComponentType::Pipe,
             resistance,
             length: CHANNEL_LENGTH,
             area,

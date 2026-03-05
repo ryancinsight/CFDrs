@@ -118,6 +118,9 @@ use crate::infrastructure::storage::face_store::FaceData;
 use crate::infrastructure::storage::vertex_pool::VertexPool;
 
 pub mod classify;
+pub(crate) mod gwn;
+pub(crate) mod gwn_bvh;
+pub(crate) mod tiebreaker;
 pub(crate) mod dsu;
 pub(crate) mod mesh_ops;
 pub(crate) mod patch;

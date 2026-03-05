@@ -1,6 +1,7 @@
 //! Core `compute_metrics` entry point and the Giersiepen haemolysis helper.
 
-use cfd_1d::hemolysis::cavitation_amplified_hi;
+use cfd_1d::cavitation_amplified_hi;
+use cfd_1d::physics::cell_separation::{CellProperties, CellSeparationModel};
 use cfd_core::physics::fluid::blood::CassonBlood;
 use cfd_schematics::domain::model::CrossSectionSpec;
 
@@ -9,11 +10,13 @@ use crate::constraints::{
     BLOOD_VISCOSITY_PA_S, BUBBLE_GAMMA, CLOTTING_BFR_CAUTION_ML_MIN, CLOTTING_BFR_HIGH_RISK_ML_MIN,
     CLOTTING_BFR_LOW_RISK_ML_MIN, CLOTTING_BFR_STRICT_10MLS_ML_MIN, CLOTTING_RESIDENCE_HIGH_RISK_S,
     CLOTTING_RESIDENCE_LOW_RISK_S, CLOTTING_SHEAR_HIGH_RISK_INV_S, CLOTTING_SHEAR_LOW_RISK_INV_S,
-    DIFFUSER_DISCHARGE_COEFF, FDA_MAX_WALL_SHEAR_PA, FDA_TRANSIENT_SHEAR_PA, FDA_TRANSIENT_TIME_S,
-    GIERSIEPEN_ALPHA, MILESTONE_TREATMENT_DURATION_MIN, PATIENT_BLOOD_VOLUME_ML,
-    PEDIATRIC_BLOOD_VOLUME_ML_PER_KG, PEDIATRIC_REFERENCE_WEIGHT_KG, PLATE_HEIGHT_MM, P_ATM_PA,
-    RAYLEIGH_COLLAPSE_FACTOR, R_BUBBLE_EQ_M, SIGMA_CRIT, SONO_REF_P_ABS_PA, THERAPEUTIC_WINDOW_REF,
-    TREATMENT_HEIGHT_MM, VENTURI_CC, VENTURI_VEL_RATIO_REF,
+    DEAD_VOLUME_SHEAR_THRESHOLD_INV_S, DIFFUSER_DISCHARGE_COEFF, EXPANSION_RATIO_HIGH_RISK,
+    EXPANSION_RATIO_LOW_RISK, FDA_MAX_WALL_SHEAR_PA, FDA_TRANSIENT_SHEAR_PA,
+    FDA_TRANSIENT_TIME_S, GIERSIEPEN_ALPHA, MILESTONE_TREATMENT_DURATION_MIN,
+    PATIENT_BLOOD_VOLUME_ML, PEDIATRIC_BLOOD_VOLUME_ML_PER_KG, PEDIATRIC_REFERENCE_WEIGHT_KG,
+    PLATE_HEIGHT_MM, P_ATM_PA, RAYLEIGH_COLLAPSE_FACTOR, R_BUBBLE_EQ_M, SIGMA_CRIT,
+    SONO_REF_P_ABS_PA, THERAPEUTIC_WINDOW_REF, TREATMENT_HEIGHT_MM, VENTURI_CC,
+    VENTURI_VEL_RATIO_REF,
 };
 use crate::design::{DesignCandidate, DesignTopology};
 use crate::error::OptimError;
@@ -31,7 +34,7 @@ use super::SdtMetrics;
 ///
 /// Re-exported from [`cfd_1d::hemolysis`] as the canonical implementation.
 /// Returns 0 for non-positive inputs.
-pub use cfd_1d::hemolysis::giersiepen_hi;
+pub use cfd_1d::giersiepen_hi;
 
 // ── Main entry ───────────────────────────────────────────────────────────────
 
@@ -103,6 +106,15 @@ pub fn compute_metrics(candidate: &DesignCandidate) -> Result<SdtMetrics, OptimE
     let mut network_serial_throat_stages = 1usize;
     let mut per_channel_hi: Vec<ChannelHemolysis> = Vec::new();
 
+    // ── Geometry-sensitive stasis accumulators ──────────────────────────────
+    // Track per-channel shear rates, transit times, volumes, and expansion
+    // ratios to compute a CRI that discriminates designs at the same flow rate.
+    let mut min_channel_shear_rate = f64::INFINITY;
+    let mut max_channel_transit_s = 0.0_f64;
+    let mut max_expansion_area_ratio = 1.0_f64;
+    let mut total_channel_volume_m3 = 0.0_f64;
+    let mut dead_channel_volume_m3 = 0.0_f64;
+
     for sample in &solved.channel_samples {
         let q_abs = sample.flow_m3_s.abs();
         if q_abs <= 1e-18 {
@@ -126,6 +138,19 @@ pub fn compute_metrics(candidate: &DesignCandidate) -> Result<SdtMetrics, OptimE
             1.0
         };
         let weight = q_abs / q_ref;
+
+        // ── Geometry-sensitive stasis accumulation ──────────────────────────
+        let seg_volume = sample.length_m * area;
+        total_channel_volume_m3 += seg_volume;
+        if gamma > 0.0 {
+            min_channel_shear_rate = min_channel_shear_rate.min(gamma);
+        }
+        if gamma < DEAD_VOLUME_SHEAR_THRESHOLD_INV_S {
+            dead_channel_volume_m3 += seg_volume;
+        }
+        if t_seg > 0.0 {
+            max_channel_transit_s = max_channel_transit_s.max(t_seg);
+        }
 
         // Bypass-channel hemolysis accounting:
         // Channels tagged as bypass (is_bypass_channel=true) carry RBCs routed
@@ -183,6 +208,19 @@ pub fn compute_metrics(candidate: &DesignCandidate) -> Result<SdtMetrics, OptimE
                     },
                 );
             venturi_v_in = venturi_v_in.max(upstream_v_local);
+
+            // Area expansion ratio at post-venturi diffuser (throat → main).
+            // Used for geometry-sensitive stasis: larger ratios produce
+            // persistent Borda-Carnot recirculation eddies downstream.
+            if area > 0.0 {
+                let upstream_area = solved
+                    .channel_samples
+                    .iter()
+                    .find(|o| o.to_node == sample.from_node && !o.is_venturi_throat)
+                    .map_or(w_main * h_main, |o| o.cross_section.area().max(1e-18));
+                let expansion = upstream_area / area;
+                max_expansion_area_ratio = max_expansion_area_ratio.max(expansion);
+            }
 
             // ── FDA Mechanical Index compliance check ─────────────────────────
             // Compute equivalent MI from Bernoulli pressure drop at the throat
@@ -449,10 +487,10 @@ pub fn compute_metrics(candidate: &DesignCandidate) -> Result<SdtMetrics, OptimE
     let n_outlet_ports: usize = candidate.topology.outlet_count();
 
     // ── 2-population separation ──────────────────────────────────────────────
-    let sep_metrics = if candidate.topology == DesignTopology::CellSeparationVenturi {
-        let cancer = cfd_1d::cell_separation::CellProperties::mcf7_breast_cancer();
-        let rbc = cfd_1d::cell_separation::CellProperties::red_blood_cell();
-        let model = cfd_1d::cell_separation::CellSeparationModel::new(
+    let sep_metrics: (f64, f64, f64) = if candidate.topology == DesignTopology::CellSeparationVenturi {
+        let cancer = CellProperties::mcf7_breast_cancer();
+        let rbc = CellProperties::red_blood_cell();
+        let model = CellSeparationModel::new(
             w_main,
             h_main,
             Some(candidate.bend_radius_m),
@@ -534,43 +572,43 @@ pub fn compute_metrics(candidate: &DesignCandidate) -> Result<SdtMetrics, OptimE
     // enriches stiff cancer cells (β=1.70) in the center arm while deformable
     // RBCs (β=1.00) distribute more uniformly — exactly the mechanism that
     // makes deeper cascades (tri-tri > tri) produce better separation.
-    let dtcv_cascade_res: Option<cfd_1d::cell_separation::CascadeJunctionResult> =
+    let dtcv_cascade_res: Option<cfd_1d::CascadeJunctionResult> =
         if let DesignTopology::DoubleTrifurcationCIFVenturi { .. } = candidate.topology {
             // DTCV is a 2-level cascade: split1 uses cif_pretri_center_frac,
             // split2 uses cif_terminal_tri_center_frac.  Each level has its
             // own width fraction, so we compute per-stage q_fracs individually.
-            let q1 = cfd_1d::cell_separation::tri_center_q_frac_cross_junction(
+            let q1 = cfd_1d::tri_center_q_frac_cross_junction(
                 candidate.cif_pretri_center_frac(),
                 w_main,
                 h_main,
             );
-            let q2 = cfd_1d::cell_separation::tri_center_q_frac_cross_junction(
+            let q2 = cfd_1d::tri_center_q_frac_cross_junction(
                 candidate.cif_terminal_tri_center_frac(),
                 w_main * candidate.cif_pretri_center_frac(),
                 h_main,
             );
-            Some(cfd_1d::cell_separation::cascade_junction_separation_from_qfracs(&[q1, q2]))
+            Some(cfd_1d::cascade_junction_separation_from_qfracs(&[q1, q2]))
         } else {
             None
         };
 
-    let cascade_res: Option<cfd_1d::cell_separation::CascadeJunctionResult> =
+    let cascade_res: Option<cfd_1d::CascadeJunctionResult> =
         if let DesignTopology::CascadeCenterTrifurcationSeparator { n_levels } = candidate.topology
         {
             let solved_q = extract_cct_stage_qfracs(&solved.channel_samples, n_levels);
             let use_solved = solved_q.len() == n_levels as usize;
             if use_solved {
                 cct_stage_qfracs = solved_q.clone();
-                Some(cfd_1d::cell_separation::cascade_junction_separation_from_qfracs(&solved_q))
+                Some(cfd_1d::cascade_junction_separation_from_qfracs(&solved_q))
             } else {
-                let q_model = cfd_1d::cell_separation::tri_center_q_frac_cross_junction(
+                let q_model = cfd_1d::tri_center_q_frac_cross_junction(
                     candidate.trifurcation_center_frac,
                     w_main,
                     h_main,
                 );
                 cct_stage_qfracs = std::iter::repeat_n(q_model, n_levels as usize).collect();
                 Some(
-                    cfd_1d::cell_separation::cascade_junction_separation_cross_junction(
+                    cfd_1d::cascade_junction_separation_cross_junction(
                         n_levels,
                         candidate.trifurcation_center_frac,
                         w_main,
@@ -582,7 +620,7 @@ pub fn compute_metrics(candidate: &DesignCandidate) -> Result<SdtMetrics, OptimE
             None
         };
 
-    let cif_res: Option<cfd_1d::cell_separation::IncrementalFiltrationResult> =
+    let cif_res: Option<cfd_1d::IncrementalFiltrationResult> =
         if let DesignTopology::IncrementalFiltrationTriBiSeparator { n_pretri } = candidate.topology
         {
             let (pretri_q, tri_q_opt, bi_q_opt) =
@@ -591,7 +629,7 @@ pub fn compute_metrics(candidate: &DesignCandidate) -> Result<SdtMetrics, OptimE
             if use_solved {
                 cif_pretri_stage_qfracs = pretri_q.clone();
                 let tri_q = tri_q_opt.unwrap_or_else(|| {
-                    cfd_1d::cell_separation::tri_center_q_frac(
+                    cfd_1d::tri_center_q_frac(
                         candidate.cif_terminal_tri_center_frac(),
                     )
                 });
@@ -599,17 +637,17 @@ pub fn compute_metrics(candidate: &DesignCandidate) -> Result<SdtMetrics, OptimE
                 cif_terminal_tri_qfrac = Some(tri_q);
                 cif_terminal_bi_qfrac = Some(bi_q);
                 Some(
-                    cfd_1d::cell_separation::incremental_filtration_separation_from_qfracs(
+                    cfd_1d::incremental_filtration_separation_from_qfracs(
                         &pretri_q, tri_q, bi_q,
                     ),
                 )
             } else {
-                let staged_pretri_q = cfd_1d::cell_separation::cif_pretri_stage_q_fracs(
+                let staged_pretri_q = cfd_1d::cif_pretri_stage_q_fracs(
                     n_pretri,
                     candidate.cif_pretri_center_frac(),
                     candidate.cif_terminal_tri_center_frac(),
                 );
-                let q_tri = cfd_1d::cell_separation::tri_center_q_frac_cross_junction(
+                let q_tri = cfd_1d::tri_center_q_frac_cross_junction(
                     candidate.cif_terminal_tri_center_frac(),
                     w_main,
                     h_main,
@@ -619,7 +657,7 @@ pub fn compute_metrics(candidate: &DesignCandidate) -> Result<SdtMetrics, OptimE
                 cif_terminal_tri_qfrac = Some(q_tri);
                 cif_terminal_bi_qfrac = Some(q_bi);
                 Some(
-                    cfd_1d::cell_separation::incremental_filtration_separation_cross_junction(
+                    cfd_1d::incremental_filtration_separation_cross_junction(
                         n_pretri,
                         candidate.cif_pretri_center_frac(),
                         candidate.cif_terminal_tri_center_frac(),
@@ -745,13 +783,13 @@ pub fn compute_metrics(candidate: &DesignCandidate) -> Result<SdtMetrics, OptimE
         DesignTopology::AsymmetricTrifurcationVenturi => {
             // Single asymmetric trifurcation: use three-pop inertial model
             // combined with Zweifach-Fung 1-level routing for the center arm.
-            let q_center = cfd_1d::cell_separation::tri_center_q_frac_cross_junction(
+            let q_center = cfd_1d::tri_center_q_frac_cross_junction(
                 candidate.trifurcation_center_frac,
                 w_main,
                 h_main,
             );
             let atv_cct =
-                cfd_1d::cell_separation::cascade_junction_separation_from_qfracs(&[q_center]);
+                cfd_1d::cascade_junction_separation_from_qfracs(&[q_center]);
             final_sep_eff = atv_cct.separation_efficiency;
             final_cancer_frac = atv_cct.cancer_center_fraction;
             final_rbc_periph = atv_cct.rbc_peripheral_fraction;
@@ -767,14 +805,14 @@ pub fn compute_metrics(candidate: &DesignCandidate) -> Result<SdtMetrics, OptimE
             // Tri→Bi→Tri: three progressive focusing stages.
             // Stage 1 & 3: trifurcation at trifurcation_center_frac.
             // Stage 2: bifurcation at cif_terminal_bi_treat_frac.
-            let q_tri = cfd_1d::cell_separation::tri_center_q_frac_cross_junction(
+            let q_tri = cfd_1d::tri_center_q_frac_cross_junction(
                 candidate.trifurcation_center_frac,
                 w_main,
                 h_main,
             );
             let q_bi = candidate.cif_terminal_bi_treat_frac();
             // Model as: tri stage → bi stage → tri stage (3 multiplicative stages)
-            let tbt_cif = cfd_1d::cell_separation::incremental_filtration_separation_from_qfracs(
+            let tbt_cif = cfd_1d::incremental_filtration_separation_from_qfracs(
                 &[q_tri], // 1 pre-tri stage
                 q_tri,    // terminal tri (same frac)
                 q_bi,     // terminal bi
@@ -996,38 +1034,78 @@ pub fn compute_metrics(candidate: &DesignCandidate) -> Result<SdtMetrics, OptimE
     // Headroom to the 150 Pa FDA main-channel limit [Pa].
     let safety_margin_pa = FDA_MAX_WALL_SHEAR_PA - max_main_shear_pa;
 
-    // ── Low-flow clotting / stasis risk metrics ─────────────────────────────
+    // ── Geometry-sensitive clotting / stasis risk metrics ──────────────────
     // Estimate main-channel shear rate using reference blood viscosity.
     let main_channel_shear_rate_inv_s = max_main_shear_pa / BLOOD_VISCOSITY_PA_S.max(1e-12);
 
-    // Stasis risk increases as flow falls below extracorporeal operating bands.
+    // 1. Low-flow stasis risk (global operating-point term, de-weighted).
     let low_flow_stasis_risk = descending_linear_risk(
         flow_rate_ml_min,
         CLOTTING_BFR_LOW_RISK_ML_MIN,
         CLOTTING_BFR_HIGH_RISK_ML_MIN,
     );
-    let low_shear_stasis_risk = descending_linear_risk(
-        main_channel_shear_rate_inv_s,
+
+    // 2. Minimum per-channel shear-rate stasis risk.
+    //    The worst stasis zone determines clotting risk — wider or slower
+    //    channels have lower minimum shear rates. If no valid channels were
+    //    observed, fall back to the main-channel shear rate.
+    let effective_min_shear = if min_channel_shear_rate.is_finite() {
+        min_channel_shear_rate
+    } else {
+        main_channel_shear_rate_inv_s
+    };
+    let min_shear_stasis_risk = descending_linear_risk(
+        effective_min_shear,
         CLOTTING_SHEAR_LOW_RISK_INV_S,
         CLOTTING_SHEAR_HIGH_RISK_INV_S,
     );
-    let residence_stasis_risk = ascending_linear_risk(
-        solved.mean_residence_time_s,
+
+    // 3. Maximum per-channel residence-time stasis risk.
+    //    The slowest channel segment determines the fibrin deposition ceiling.
+    let max_residence_stasis_risk = ascending_linear_risk(
+        max_channel_transit_s,
         CLOTTING_RESIDENCE_LOW_RISK_S,
         CLOTTING_RESIDENCE_HIGH_RISK_S,
     );
-    let clotting_risk_index =
-        (0.60 * low_flow_stasis_risk + 0.25 * low_shear_stasis_risk + 0.15 * residence_stasis_risk)
-            .clamp(0.0, 1.0);
+
+    // 4. Post-venturi expansion recirculation risk (Borda-Carnot stasis).
+    //    Risk scales with the natural log of the area expansion ratio,
+    //    reflecting the logarithmic growth of recirculation length with
+    //    expansion angle (Idelchik 1994, Diagram 4-1).
+    let expansion_stasis_risk = ascending_linear_risk(
+        max_expansion_area_ratio.ln(),
+        EXPANSION_RATIO_LOW_RISK.ln(),
+        EXPANSION_RATIO_HIGH_RISK.ln(),
+    );
+
+    // 5. Dead-volume stasis risk: fraction of chip volume in low-shear
+    //    channels below platelet-adhesion threshold (Folie & McIntire 1989).
+    let dead_volume_stasis_risk = if total_channel_volume_m3 > 0.0 {
+        (dead_channel_volume_m3 / total_channel_volume_m3).clamp(0.0, 1.0)
+    } else {
+        0.0
+    };
+
+    // Composite 5-term geometry-sensitive CRI: equal 20% weights.
+    let clotting_risk_index = (0.20 * low_flow_stasis_risk
+        + 0.20 * min_shear_stasis_risk
+        + 0.20 * max_residence_stasis_risk
+        + 0.20 * expansion_stasis_risk
+        + 0.20 * dead_volume_stasis_risk)
+        .clamp(0.0, 1.0);
     let clotting_flow_compliant = flow_rate_ml_min >= CLOTTING_BFR_CAUTION_ML_MIN;
+
+    // Conservative 10 mL/s sensitivity variant: replaces only the flow term.
     let low_flow_stasis_risk_10ml_s = descending_linear_risk(
         flow_rate_ml_min,
         CLOTTING_BFR_STRICT_10MLS_ML_MIN,
         CLOTTING_BFR_CAUTION_ML_MIN,
     );
-    let clotting_risk_index_10ml_s = (0.60 * low_flow_stasis_risk_10ml_s
-        + 0.25 * low_shear_stasis_risk
-        + 0.15 * residence_stasis_risk)
+    let clotting_risk_index_10ml_s = (0.20 * low_flow_stasis_risk_10ml_s
+        + 0.20 * min_shear_stasis_risk
+        + 0.20 * max_residence_stasis_risk
+        + 0.20 * expansion_stasis_risk
+        + 0.20 * dead_volume_stasis_risk)
         .clamp(0.0, 1.0);
     let clotting_flow_compliant_10ml_s = flow_rate_ml_min >= CLOTTING_BFR_STRICT_10MLS_ML_MIN;
 
@@ -1038,7 +1116,7 @@ pub fn compute_metrics(candidate: &DesignCandidate) -> Result<SdtMetrics, OptimE
     let cct_model_venturi_flow_fraction =
         if let DesignTopology::CascadeCenterTrifurcationSeparator { n_levels } = candidate.topology
         {
-            let q = cfd_1d::cell_separation::tri_center_q_frac(candidate.trifurcation_center_frac);
+            let q = cfd_1d::tri_center_q_frac(candidate.trifurcation_center_frac);
             q.powi(i32::from(n_levels)).clamp(0.0, 1.0)
         } else {
             0.0
@@ -1060,14 +1138,14 @@ pub fn compute_metrics(candidate: &DesignCandidate) -> Result<SdtMetrics, OptimE
     let cif_model_venturi_flow_fraction =
         if let DesignTopology::IncrementalFiltrationTriBiSeparator { n_pretri } = candidate.topology
         {
-            let q_pretri_product = cfd_1d::cell_separation::cif_pretri_stage_q_fracs(
+            let q_pretri_product = cfd_1d::cif_pretri_stage_q_fracs(
                 n_pretri,
                 candidate.cif_pretri_center_frac(),
                 candidate.cif_terminal_tri_center_frac(),
             )
             .into_iter()
             .product::<f64>();
-            let q_tri = cfd_1d::cell_separation::tri_center_q_frac(
+            let q_tri = cfd_1d::tri_center_q_frac(
                 candidate.cif_terminal_tri_center_frac(),
             );
             let q_bi = candidate.cif_terminal_bi_treat_frac();
@@ -1164,7 +1242,7 @@ pub fn compute_metrics(candidate: &DesignCandidate) -> Result<SdtMetrics, OptimE
 
     // Cavitation-amplified haemolysis for venturi designs (bubble micro-jets
     // + shockwaves contribute independent lysis beyond steady shear).
-    // Use cfd_1d::hemolysis::cavitation_amplified_hi for the final HI.
+    // Use cfd_1d::cavitation_amplified_hi for the final HI.
     let final_hi_cavitation_amplified = cavitation_amplified_hi(final_hi, cav_potential);
     let pressure_feasible = total_pressure_drop_pa <= candidate.inlet_gauge_pa;
 
@@ -1203,8 +1281,10 @@ pub fn compute_metrics(candidate: &DesignCandidate) -> Result<SdtMetrics, OptimE
         platelet_activation_index: final_pai,
         main_channel_shear_rate_inv_s,
         low_flow_stasis_risk,
-        low_shear_stasis_risk,
-        residence_stasis_risk,
+        min_shear_stasis_risk,
+        max_residence_stasis_risk,
+        expansion_stasis_risk,
+        dead_volume_stasis_risk,
         clotting_risk_index,
         clotting_flow_compliant,
         clotting_risk_index_10ml_s,
@@ -1762,7 +1842,7 @@ mod tests {
         let mut prev_rbc_periph = 0.0_f64;
 
         for n_levels in 1u8..=3 {
-            let result = cfd_1d::cell_separation::cascade_junction_separation_cross_junction(
+            let result = cfd_1d::cascade_junction_separation_cross_junction(
                 n_levels,
                 center_frac,
                 parent_w,
@@ -1838,7 +1918,7 @@ mod tests {
         let mut prev_sep = 0.0_f64;
 
         for n_pretri in 1u8..=3 {
-            let result = cfd_1d::cell_separation::incremental_filtration_separation_cross_junction(
+            let result = cfd_1d::incremental_filtration_separation_cross_junction(
                 n_pretri, 0.45,   // pretri_center_frac
                 0.50,   // terminal_tri_center_frac
                 0.68,   // bi_treat_frac
@@ -1930,13 +2010,13 @@ mod tests {
         //
         // This validates that the Zweifach-Fung nonlinearity (β > 1 for stiff
         // cells) is the mechanism for separation, not merely flow splitting.
-        let symmetric = cfd_1d::cell_separation::cascade_junction_separation_cross_junction(
+        let symmetric = cfd_1d::cascade_junction_separation_cross_junction(
             2,
             1.0 / 3.0,
             6.0e-3,
             1.5e-3,
         );
-        let asymmetric = cfd_1d::cell_separation::cascade_junction_separation_cross_junction(
+        let asymmetric = cfd_1d::cascade_junction_separation_cross_junction(
             2, 0.45, 6.0e-3, 1.5e-3,
         );
 
@@ -2066,3 +2146,4 @@ mod tests {
         );
     }
 }
+

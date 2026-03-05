@@ -9,10 +9,10 @@
 use approx::assert_relative_eq;
 use cfd_1d::{
     Network, NetworkBuilder, NetworkProblem, NetworkSolver,
-    components::channels::CircularChannel,
-    components::Component,
-    components::membranes::PorousMembrane,
-    vascular::womersley::{WomersleyFlow, WomersleyNumber},
+    domain::components::channels::CircularChannel,
+    domain::components::Component,
+    domain::components::membranes::PorousMembrane,
+    physics::vascular::womersley::{WomersleyFlow, WomersleyNumber},
 };
 use cfd_core::physics::fluid::database::water_20c;
 use petgraph::visit::EdgeRef;

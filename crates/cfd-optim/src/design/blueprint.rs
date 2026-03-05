@@ -233,7 +233,7 @@ impl DesignCandidate {
 
             // ── CIF tri-first then tri/bi skimming → single treatment venturi ──
             DesignTopology::IncrementalFiltrationTriBiSeparator { n_pretri } => {
-                use cfd_1d::cell_separation::{cif_pretri_stage_q_fracs, tri_center_q_frac};
+                use cfd_1d::{cif_pretri_stage_q_fracs, tri_center_q_frac};
 
                 let trunk_len = TREATMENT_HEIGHT_MM * 0.20e-3;
                 let pretri_len = TREATMENT_HEIGHT_MM * 0.15e-3;
@@ -1057,3 +1057,4 @@ mod tests {
         );
     }
 }
+

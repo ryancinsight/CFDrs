@@ -1,4 +1,4 @@
-use cfd_1d::network::{Edge, EdgeType, Network, NetworkBuilder};
+use cfd_1d::domain::network::{Edge, EdgeType, Network, NetworkBuilder};
 use cfd_core::error::Result;
 use cfd_core::physics::fluid::newtonian::ConstantPropertyFluid;
 use nalgebra::DVector;
@@ -92,7 +92,7 @@ fn dirichlet_enforcement_row_identity_and_rhs() -> Result<()> {
     // Apply Dirichlet at inlet, free at outlet
     network.set_pressure(inlet, 12.0);
 
-    let assembler = cfd_1d::solver::MatrixAssembler::<F>::new();
+    let assembler = cfd_1d::solver::core::MatrixAssembler::<F>::new();
     let (a, b) = assembler.assemble(&network)?;
 
     // Inlet row should be identity
@@ -153,7 +153,7 @@ fn dirichlet_enforcement_interior_junction() -> Result<()> {
 
     network.set_pressure(split, 10.0);
 
-    let assembler = cfd_1d::solver::MatrixAssembler::<F>::new();
+    let assembler = cfd_1d::solver::core::MatrixAssembler::<F>::new();
     let (a, b) = assembler.assemble(&network)?;
 
     let row_split = a.row(split.index());

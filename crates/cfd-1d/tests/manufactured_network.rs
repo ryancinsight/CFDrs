@@ -1,7 +1,7 @@
 use cfd_core::error::Result;
 use cfd_core::compute::solver::traits::Solver;
 use cfd_1d::{NetworkBuilder, Edge, EdgeType, Network, EdgeProperties, NetworkProblem, NetworkSolver};
-use cfd_1d::network::ComponentType;
+use cfd_1d::domain::network::ComponentType;
 use cfd_core::physics::fluid::database;
 use approx::assert_relative_eq;
 

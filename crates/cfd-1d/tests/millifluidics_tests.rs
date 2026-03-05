@@ -4,7 +4,7 @@
 //! inspired by mmft-modular-1D-simulator functionality for production-ready validation.
 
 use approx::assert_relative_eq;
-use cfd_1d::solver::SolverConfig;
+use cfd_1d::solver::core::SolverConfig;
 use cfd_1d::*;
 use cfd_core::compute::solver::{Configurable, Solver};
 use cfd_core::error::Result;

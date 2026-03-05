@@ -1,41 +1,46 @@
-//! Core traits for collision operators
+//! Collision operator trait for LBM solvers.
 //!
-//! # Theorem
-//! The Lattice Boltzmann Method (LBM) recovers the macroscopic Navier-Stokes equations
-//! in the low Mach number limit.
-//!
-//! **Proof sketch**:
-//! Through the Chapman-Enskog expansion, the discrete Boltzmann equation with the BGK
-//! collision operator can be expanded in powers of the Knudsen number ($Kn$).
-//! At $O(Kn^0)$, the Euler equations are recovered. At $O(Kn^1)$, the viscous stress
-//! tensor emerges, yielding the weakly compressible Navier-Stokes equations.
-//! The kinematic viscosity is related to the relaxation time $\tau$ by $\nu = c_s^2 (\tau - 0.5)\Delta t$.
+//! All collision operators work on the flat distribution buffer
+//! with layout `f[j * nx * 9 + i * 9 + q]`.
 
 #![allow(dead_code)]
 
 use nalgebra::RealField;
 
-/// Trait for collision operators in LBM
-pub trait CollisionOperator<T: RealField + Copy> {
-    /// Apply collision step to distribution functions
-    fn collide(&self, f: &mut Vec<Vec<[T; 9]>>, density: &[Vec<T>], velocity: &[Vec<[T; 2]>]);
+/// Trait for LBM collision operators operating on flat distribution buffers.
+pub trait CollisionOperator<T: RealField + Copy>: Send + Sync {
+    /// Apply collision to the flat distribution buffer `f`.
+    ///
+    /// # Arguments
+    /// * `f`        - flat distribution slice, layout `f[j*nx*9 + i*9 + q]`
+    /// * `density`  - flat density slice, layout `density[j*nx + i]`
+    /// * `velocity` - flat velocity slice, layout `velocity[(j*nx + i)*2 + d]`
+    /// * `nx`, `ny` - grid dimensions
+    fn collide(
+        &self,
+        f: &mut Vec<T>,
+        density: &[T],
+        velocity: &[T],
+        nx: usize,
+        ny: usize,
+    );
 
-    /// Get relaxation time
+    /// Return the primary relaxation time τ.
     fn tau(&self) -> T;
 
-    /// Get kinematic viscosity
+    /// Return the kinematic viscosity ν = c_s²(τ − ½)Δt / Δx² · Δx².
     fn viscosity(&self, dt: T, dx: T) -> T;
 }
 
-/// Collision model types
+/// Enumeration of available collision models.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum CollisionModel {
-    /// BGK single relaxation time
+    /// Single-relaxation-time BGK
     Bgk,
-    /// Multiple relaxation time
+    /// Multiple-relaxation-time MRT (Lallemand & Luo 2000)
     Mrt,
-    /// Regularized collision
+    /// Regularized collision (Latt & Chopard 2006)
     Regularized,
-    /// Two relaxation time
+    /// Two-relaxation-time TRT
     Trt,
 }

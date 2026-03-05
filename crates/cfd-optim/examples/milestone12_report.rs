@@ -36,7 +36,10 @@ use cfd_optim::{
         BLOOD_DENSITY_KG_M3 as RHO, BLOOD_VAPOR_PRESSURE_PA as P_VAPOR_PA, M12_GA_HYDRO_SEED,
         P_ATM_PA,
     },
-    reporting::{pct_diff, shortlist_report, write_milestone12_results, ValidationRow},
+    reporting::{
+        pct_diff, shortlist_report, write_milestone12_narrative_report, write_milestone12_results,
+        Milestone12NarrativeInput, ValidationRow,
+    },
     save_schematic_svg, save_top5_json, score_candidate, DesignCandidate, DesignTopology,
     GeneticOptimizer, OptimMode, RankedDesign, SdtMetrics, SdtWeights,
 };
@@ -941,6 +944,34 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         &canonical_results,
     )?;
     println!("Canonical report: {}", canonical_results.display());
+
+    let narrative_artifacts = write_milestone12_narrative_report(
+        &workspace_root,
+        &canonical_results,
+        &Milestone12NarrativeInput {
+            total_candidates,
+            option1_pool_len,
+            option2_pool_len,
+            rbc_pool_len,
+            option1_ranked: &option1_ranked,
+            option2_ranked: &option2_ranked,
+            rbc_ranked: &rbc_ranked,
+            ga_top,
+            validation_rows: &validation_rows,
+            option2_robustness: &option2_robustness,
+            ga_best_per_gen: &ga_result.best_per_gen,
+            fast_mode: run_cfg.fast_mode,
+        },
+    )?;
+    println!(
+        "Narrative report: {}",
+        narrative_artifacts.narrative_path.display()
+    );
+    println!(
+        "Figure manifest: {} ({} figures)",
+        narrative_artifacts.figure_manifest_path.display(),
+        narrative_artifacts.figure_count
+    );
 
     println!("\n=== Outputs written to {} ===", out_dir.display());
     println!("Figures written to {}", figures_dir.display());

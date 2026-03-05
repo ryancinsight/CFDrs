@@ -13,7 +13,7 @@
 //!   of Civil Engineers*, 11(4), 133-156.
 
 use approx::assert_relative_eq;
-use cfd_1d::resistance::{
+use cfd_1d::physics::resistance::{
     DarcyWeisbachModel, EntranceEffectsModel, FlowConditions, HagenPoiseuilleModel,
     RectangularChannelModel, ResistanceModel,
 };
@@ -595,7 +595,7 @@ fn test_entrance_effects_dimensional_analysis() -> Result<()> {
 /// R_eff = k|Q|, if k > 0 then energy is dissipated.
 #[test]
 fn test_venturi_energy_conservation() -> Result<()> {
-    let model = cfd_1d::resistance::models::VenturiModel::symmetric(
+    let model = cfd_1d::physics::resistance::models::VenturiModel::symmetric(
         0.01,
         0.005,
         0.05,
@@ -618,7 +618,7 @@ fn test_venturi_energy_conservation() -> Result<()> {
 /// by comparing the serpentine resistance to an equivalent straight channel.
 #[test]
 fn test_serpentine_dean_number_monotone_in_re() -> Result<()> {
-    use cfd_1d::resistance::models::SerpentineModel;
+    use cfd_1d::physics::resistance::models::SerpentineModel;
     let width = 1e-3;
     let height = 1e-3;
     let segment_length = 0.01;

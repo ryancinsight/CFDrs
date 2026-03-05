@@ -9,7 +9,7 @@
 //! permission system, keeping both sides clean.
 
 use super::geo::{axis_extent, axis_min, axis_value, longest_axis, surface_area};
-use super::node::{BvhNodeKind, MAX_LEAF_PRIMITIVES, SAH_TRAVERSAL_COST};
+use super::node::{BvhNodeKind, MAX_LEAF_PRIMITIVES, SAH_N_BINS, SAH_TRAVERSAL_COST};
 use crate::domain::geometry::aabb::Aabb;
 use nalgebra::Point3;
 use std::cmp::Ordering;
@@ -84,10 +84,11 @@ pub(super) fn build_recursive(
 
 // ── SAH split ─────────────────────────────────────────────────────────────────
 
-/// Choose the best splitting axis and position via 8-bin SAH.
+/// Choose the best splitting axis and position via SAH bin sweep.
 ///
-/// Evaluates 7 split planes per axis (8 bins, 3 axes = 21 candidates) and
-/// returns `(axis, centroid_split_value)`.
+/// Evaluates `SAH_N_BINS - 1` split planes per axis (3 axes) and returns
+/// `(axis, centroid_split_value)`.  `SAH_N_BINS` is the SSOT constant
+/// defined in `node.rs` (currently 32).
 fn sah_split(
     aabbs: &[Aabb],
     centroids: &[Point3<f64>],
@@ -96,7 +97,7 @@ fn sah_split(
     end: usize,
     parent_aabb: &Aabb,
 ) -> (usize, f64) {
-    const N_BINS: usize = 8;
+    const N_BINS: usize = SAH_N_BINS;
 
     let parent_sa = surface_area(parent_aabb);
     let count = (end - start) as f64;

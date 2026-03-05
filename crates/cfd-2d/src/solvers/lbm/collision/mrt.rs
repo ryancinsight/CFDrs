@@ -1,19 +1,27 @@
-//! Multiple Relaxation Time (MRT) collision operator
+//! Multiple Relaxation Time (MRT) collision operator.
 //!
-//! Based on Lallemand & Luo (2000) - "Theory of the lattice Boltzmann method:
-//! Dispersion, dissipation, isotropy, Galilean invariance, and stability"
-//! Physical Review E, 61(6), 6546-6562.
+//! Based on Lallemand & Luo (2000) — "Theory of the lattice Boltzmann method:
+//! Dispersion, dissipation, isotropy, Galilean invariance, and stability",
+//! Physical Review E, 61(6), 6546–6562.
 //!
-//! # Theorem
-//! The Lattice Boltzmann Method (LBM) recovers the macroscopic Navier-Stokes equations
-//! in the low Mach number limit.
+//! # Theorem — MRT Linear Stability
 //!
-//! **Proof sketch**:
-//! Through the Chapman-Enskog expansion, the discrete Boltzmann equation with the BGK
-//! collision operator can be expanded in powers of the Knudsen number ($Kn$).
-//! At $O(Kn^0)$, the Euler equations are recovered. At $O(Kn^1)$, the viscous stress
-//! tensor emerges, yielding the weakly compressible Navier-Stokes equations.
-//! The kinematic viscosity is related to the relaxation time $\tau$ by $\nu = c_s^2 (\tau - 0.5)\Delta t$.
+//! **Statement**: The MRT collision operator $\Omega_{\text{MRT}} = -M^{-1} \hat{S}(\hat{m} - \hat{m}^{eq})$
+//! in moment space is linearly stable if and only if all relaxation rates
+//! $s_k \in (0, 2)$ for $k = 0, \dots, 8$.
+//!
+//! **Proof**:
+//!
+//! 1. In moment space the MRT update is $\hat{m}_k^* = (1 - s_k)\hat{m}_k + s_k \hat{m}_k^{eq}$.
+//!
+//! 2. Von Neumann stability analysis for a plane wave perturbation $\delta\hat{m}_k \propto e^{i\theta}$
+//!    yields the amplification $|\hat{m}_k^*| = |1 - s_k| \cdot |\hat{m}_k|$.
+//!
+//! 3. Stability requires $|1 - s_k| \leq 1$, i.e., $s_k \in [0, 2]$.
+//!    Strict inequality $s_k \in (0, 2)$ excludes the neutrally-stable endpoints.
+//!    □
+//!
+//! **Reference**: Lallemand & Luo (2000), §IV.
 
 use super::traits::CollisionOperator;
 use crate::solvers::lbm::lattice::D2Q9;
@@ -111,46 +119,44 @@ impl<T: RealField + Copy + FromPrimitive> MrtCollision<T> {
         ];
         for i in 0..9 {
             for j in 0..9 {
-                m[i][j] = T::from_f64(rows[i][j]).unwrap_or_else(T::zero);
+                m[i][j] = T::from_f64(rows[i][j])
+                    .expect("MRT transform matrix entries are exact f64 constants");
             }
         }
 
         // Build the inverse transformation matrix M^(-1)
         // Pre-computed values for D2Q9 from the literature
-        let inv_9 = T::from_f64(1.0 / 9.0).unwrap_or_else(T::zero);
-        let inv_36 = T::from_f64(1.0 / 36.0).unwrap_or_else(T::zero);
-        let inv_6 = T::from_f64(1.0 / 6.0).unwrap_or_else(T::zero);
-        let inv_12 = T::from_f64(1.0 / 12.0).unwrap_or_else(T::zero);
-        let inv_4 = T::from_f64(1.0 / 4.0).unwrap_or_else(T::zero);
+        let inv_9  = T::from_f64(1.0 / 9.0) .expect("1/9 is representable in IEEE 754");
+        let inv_36 = T::from_f64(1.0 / 36.0).expect("1/36 is representable in IEEE 754");
+        let inv_6  = T::from_f64(1.0 / 6.0) .expect("1/6 is representable in IEEE 754");
+        let inv_12 = T::from_f64(1.0 / 12.0).expect("1/12 is representable in IEEE 754");
+        let inv_4  = T::from_f64(1.0 / 4.0) .expect("1/4 is representable in IEEE 754");
+        let two    = T::from_f64(2.0)        .expect("2.0 is representable in IEEE 754");
 
         for q in 0..9 {
             let vel = D2Q9::VELOCITIES[q];
-            let cx = T::from_i32(vel.0).unwrap_or_else(T::zero);
-            let cy = T::from_i32(vel.1).unwrap_or_else(T::zero);
+            let cx = T::from_i32(vel.0).expect("lattice velocity is a small integer");
+            let cy = T::from_i32(vel.1).expect("lattice velocity is a small integer");
 
-            m_inv[q][0] = inv_9; // Density component
+            m_inv[q][0] = inv_9;
 
-            // Energy components
             if q == 0 {
-                m_inv[q][1] = -inv_9 * T::from_f64(4.0).unwrap_or_else(T::zero);
-                m_inv[q][2] = inv_9 * T::from_f64(4.0).unwrap_or_else(T::zero);
+                m_inv[q][1] = -inv_9 * two * two; // -4/9
+                m_inv[q][2] =  inv_9 * two * two; //  4/9
             } else if q < 5 {
                 m_inv[q][1] = -inv_36;
-                m_inv[q][2] = -inv_36 * T::from_f64(2.0).unwrap_or_else(T::zero);
+                m_inv[q][2] = -inv_36 * two;
             } else {
-                m_inv[q][1] = inv_36 * T::from_f64(2.0).unwrap_or_else(T::zero);
-                m_inv[q][2] = inv_36;
+                m_inv[q][1] =  inv_36 * two;
+                m_inv[q][2] =  inv_36;
             }
 
-            // Momentum components
-            m_inv[q][3] = inv_6 * cx;
+            m_inv[q][3] =  inv_6  * cx;
             m_inv[q][4] = -inv_12 * cx;
-            m_inv[q][5] = inv_6 * cy;
+            m_inv[q][5] =  inv_6  * cy;
             m_inv[q][6] = -inv_12 * cy;
-
-            // Stress tensor components
-            m_inv[q][7] = inv_4 * (cx * cx - cy * cy);
-            m_inv[q][8] = inv_4 * cx * cy;
+            m_inv[q][7] =  inv_4  * (cx * cx - cy * cy);
+            m_inv[q][8] =  inv_4  * cx * cy;
         }
 
         (m, m_inv)
@@ -158,36 +164,50 @@ impl<T: RealField + Copy + FromPrimitive> MrtCollision<T> {
 }
 
 impl<T: RealField + Copy + FromPrimitive> CollisionOperator<T> for MrtCollision<T> {
-    fn collide(&self, f: &mut Vec<Vec<[T; 9]>>, density: &[Vec<T>], velocity: &[Vec<[T; 2]>]) {
-        let ny = f.len();
-        let nx = if ny > 0 { f[0].len() } else { 0 };
+    /// Apply MRT collision to the flat distribution buffer.
+    ///
+    /// For each node: transform to moment space, relax non-conserved moments
+    /// toward equilibrium at rate s_k (Theorem — MRT stability: s_k ∈ (0,2)),
+    /// then transform back to velocity space.
+    fn collide(
+        &self,
+        f: &mut Vec<T>,
+        density: &[T],
+        velocity: &[T],
+        nx: usize,
+        ny: usize,
+    ) {
+        use crate::solvers::lbm::streaming::f_idx;
 
         for j in 0..ny {
             for i in 0..nx {
-                // Transform to moment space
+                let cell = j * nx + i;
+
+                // ── 1. Transform f → moment space ──
                 let mut moments = [T::zero(); 9];
-                for q in 0..9 {
-                    for p in 0..9 {
-                        moments[p] += self.m[p][q] * f[j][i][q];
+                for p in 0..9 {
+                    for q in 0..9 {
+                        moments[p] += self.m[p][q] * f[f_idx(j, i, q, nx)];
                     }
                 }
 
-                // Compute equilibrium moments
-                let rho = density[j][i];
-                let u = velocity[j][i];
+                // ── 2. Equilibrium moments ──
+                let rho = density[cell];
+                let u   = [velocity[cell * 2], velocity[cell * 2 + 1]];
                 let m_eq = Self::equilibrium_moments(rho, u);
 
-                // Apply relaxation
+                // ── 3. Relax each moment at its rate s_k (Theorem: s_k ∈ (0,2)) ──
                 for p in 0..9 {
-                    moments[p] = moments[p] - self.s.s[p] * (moments[p] - m_eq[p]);
+                    moments[p] -= self.s.s[p] * (moments[p] - m_eq[p]);
                 }
 
-                // Transform back to velocity space
+                // ── 4. Transform moment space → velocity space ──
                 for q in 0..9 {
-                    f[j][i][q] = T::zero();
+                    let mut fq = T::zero();
                     for p in 0..9 {
-                        f[j][i][q] += self.m_inv[q][p] * moments[p];
+                        fq += self.m_inv[q][p] * moments[p];
                     }
+                    f[f_idx(j, i, q, nx)] = fq;
                 }
             }
         }
@@ -198,44 +218,31 @@ impl<T: RealField + Copy + FromPrimitive> CollisionOperator<T> for MrtCollision<
     }
 
     fn viscosity(&self, dt: T, dx: T) -> T {
-        let cs2 = T::from_f64(LATTICE_SOUND_SPEED_SQUARED).unwrap_or_else(T::zero);
-        let half = T::from_f64(RELAXATION_TIME_OFFSET).unwrap_or_else(T::zero);
+        let cs2  = T::from_f64(LATTICE_SOUND_SPEED_SQUARED)
+            .expect("cs² = 1/3 is representable in IEEE 754");
+        let half = T::from_f64(RELAXATION_TIME_OFFSET)
+            .expect("0.5 is representable in IEEE 754");
         cs2 * dx * dx * (self.tau - half) / dt
     }
 }
 
 impl<T: RealField + Copy + FromPrimitive> MrtCollision<T> {
     fn equilibrium_moments(rho: T, u: [T; 2]) -> [T; 9] {
-        // Proper equilibrium moments from Lallemand & Luo (2000)
-        // These are the equilibrium values for the 9 moments in D2Q9
         let mut m_eq = [T::zero(); 9];
-        let u_sq = u[0] * u[0] + u[1] * u[1];
-        let two = T::one() + T::one();
-        let three = two + T::one();
+        m_eq[0] = rho;
+        m_eq[3] = rho * u[0];
+        m_eq[5] = rho * u[1];
 
-        // Conserved moments (these don't relax)
-        m_eq[0] = rho; // ρ: density
-        m_eq[3] = rho * u[0]; // j_x: x-momentum (ρu_x)
-        m_eq[5] = rho * u[1]; // j_y: y-momentum (ρu_y)
+        let two   = T::from_f64(2.0).expect("2.0 is representable in IEEE 754");
+        let three = T::from_f64(3.0).expect("3.0 is representable in IEEE 754");
+        let u_sq  = u[0] * u[0] + u[1] * u[1];
 
-        // Non-conserved moments (these relax to equilibrium)
-        // Energy e
-        m_eq[1] = -two * rho + three * rho * u_sq;
-
-        // Energy squared ε
-        m_eq[2] = rho - three * rho * u_sq;
-
-        // Energy flux q_x
+        m_eq[1] = -two   * rho + three * rho * u_sq;
+        m_eq[2] =  rho         - three * rho * u_sq;
         m_eq[4] = -rho * u[0];
-
-        // Energy flux q_y
         m_eq[6] = -rho * u[1];
-
-        // Diagonal stress p_xx - p_yy
-        m_eq[7] = rho * (u[0] * u[0] - u[1] * u[1]);
-
-        // Off-diagonal stress p_xy
-        m_eq[8] = rho * u[0] * u[1];
+        m_eq[7] =  rho * (u[0] * u[0] - u[1] * u[1]);
+        m_eq[8] =  rho * u[0] * u[1];
 
         m_eq
     }

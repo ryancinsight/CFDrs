@@ -98,7 +98,7 @@ pub(super) fn accumulate_outlet_tree(
 
         DesignTopology::TripleTrifurcationVenturi => {
             let frac = candidate.trifurcation_center_frac;
-            let q_frac = cfd_1d::cell_separation::tri_center_q_frac(frac);
+            let q_frac = cfd_1d::tri_center_q_frac(frac);
             let w1 = w * frac;
             let w2 = w1 * frac;
             let w3 = w2 * frac;
@@ -114,7 +114,7 @@ pub(super) fn accumulate_outlet_tree(
 
         DesignTopology::TrifurcationBifurcationBifurcationVenturi => {
             let frac = candidate.trifurcation_center_frac;
-            let q_frac = cfd_1d::cell_separation::tri_center_q_frac(frac);
+            let q_frac = cfd_1d::tri_center_q_frac(frac);
             let w1 = w * frac;
             let branch3_len = TREATMENT_HEIGHT_MM * 0.08e-3;
             let branch2_len = TREATMENT_HEIGHT_MM * 0.11e-3;
@@ -128,7 +128,7 @@ pub(super) fn accumulate_outlet_tree(
 
         DesignTopology::QuadTrifurcationVenturi => {
             let frac = candidate.trifurcation_center_frac;
-            let q_frac = cfd_1d::cell_separation::tri_center_q_frac(frac);
+            let q_frac = cfd_1d::tri_center_q_frac(frac);
             let level_lens = [
                 TREATMENT_HEIGHT_MM * 0.05e-3,
                 TREATMENT_HEIGHT_MM * 0.06e-3,
@@ -153,7 +153,7 @@ pub(super) fn accumulate_outlet_tree(
 
         DesignTopology::CascadeCenterTrifurcationSeparator { n_levels } => {
             let frac = candidate.trifurcation_center_frac;
-            let q_frac = cfd_1d::cell_separation::tri_center_q_frac(frac);
+            let q_frac = cfd_1d::tri_center_q_frac(frac);
             let branch_len = TREATMENT_HEIGHT_MM * 0.15e-3;
             let trunk_len = TREATMENT_HEIGHT_MM * 0.20e-3;
             for lev in (0..n_levels).rev() {
@@ -165,7 +165,7 @@ pub(super) fn accumulate_outlet_tree(
         }
         DesignTopology::IncrementalFiltrationTriBiSeparator { n_pretri } => {
             let frac = candidate.trifurcation_center_frac;
-            let q_tri = cfd_1d::cell_separation::tri_center_q_frac(frac);
+            let q_tri = cfd_1d::tri_center_q_frac(frac);
             let q_bi = 0.68_f64;
             let trunk_len = TREATMENT_HEIGHT_MM * 0.20e-3;
             let pretri_len = TREATMENT_HEIGHT_MM * 0.15e-3;
@@ -231,3 +231,4 @@ pub(super) fn accumulate_outlet_tree(
         }
     }
 }
+

@@ -1,5 +1,5 @@
-use cfd_1d::network::{Edge, EdgeType, Network, NetworkBuilder};
-use cfd_1d::solver::{LinearSolverMethod, NetworkProblem, NetworkSolver};
+use cfd_1d::domain::network::{Edge, EdgeType, Network, NetworkBuilder};
+use cfd_1d::solver::core::{LinearSolverMethod, NetworkProblem, NetworkSolver};
 use cfd_core::compute::solver::Solver;
 use cfd_core::error::Result;
 use cfd_core::physics::fluid::ConstantPropertyFluid;

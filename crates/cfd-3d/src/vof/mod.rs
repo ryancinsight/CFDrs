@@ -62,18 +62,22 @@
 //! - Interface normals must satisfy |n̂| = 1 (unit normal, enforced after reconstruction).
 
 mod advection;
+mod bubble_dynamics;
 mod cavitation_solver;
+mod cavitation_types;
 mod config;
 mod initialization;
+mod plic_geometry;
 mod reconstruction;
 mod solver;
 
-pub use cavitation_solver::{
-    BubbleDynamicsConfig, CavitationStatistics, CavitationVofConfig, CavitationVofSolver,
-};
+pub use bubble_dynamics::BubbleDynamicsConfig;
+pub use cavitation_solver::CavitationVofSolver;
+pub use cavitation_types::{CavitationStatistics, CavitationVofConfig};
 pub use config::{constants, VofConfig};
 pub use solver::VofSolver;
 
 // Re-export key types for convenience
-pub use advection::{volume_under_plane_3d, AdvectionMethod};
+pub use advection::AdvectionMethod;
+pub use plic_geometry::volume_under_plane_3d;
 pub use reconstruction::InterfaceReconstruction;

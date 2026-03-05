@@ -117,6 +117,11 @@ fn build_cross_mesh_merge_map(
                                     if ra != rb {
                                         // A-root invariant: attach B-root under A-root.
                                         parent[rb] = ra;
+                                        debug_assert!(
+                                            ra < na,
+                                            "A-root invariant violated: ra={ra} must be \
+                                             in A-partition (na={na})"
+                                        );
                                     }
                                 }
                             }
@@ -148,6 +153,11 @@ fn build_cross_mesh_merge_map(
                                     if ra != rb {
                                         // A-root invariant: attach B-root under A-root.
                                         parent[rb] = ra;
+                                        debug_assert!(
+                                            ra < na,
+                                            "A-root invariant violated: ra={ra} must be \
+                                             in A-partition (na={na})"
+                                        );
                                     }
                                 }
                             }

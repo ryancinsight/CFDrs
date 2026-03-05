@@ -1,5 +1,5 @@
-use cfd_1d::network::{Network, NetworkBuilder};
-use cfd_1d::solver::{
+use cfd_1d::domain::network::{Network, NetworkBuilder};
+use cfd_1d::solver::core::{
     EdgeFlowEvent, InletCompositionEvent, MixtureComposition, SimulationTimeConfig,
     PressureBoundaryEvent,
     TransientCompositionSimulator,

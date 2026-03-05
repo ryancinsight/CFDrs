@@ -57,7 +57,8 @@ pub fn iso_discharge_coefficient<
     _pipe_roughness: T,
     _d_inlet: T,
 ) -> T {
-    <T as FromPrimitive>::from_f64(0.995).unwrap_or_else(T::one)
+    <T as FromPrimitive>::from_f64(0.995)
+        .expect("ISO 5167-4 C_d = 0.995 is an IEEE 754 representable f64 constant")
 }
 
 // ============================================================================
@@ -99,7 +100,8 @@ impl<
         // We'll trust solver.u_inlet * A_in vs solution.u_throat * A_throat vs Q_in
 
         let a_inlet = if config.circular {
-            <T as FromPrimitive>::from_f64(std::f64::consts::PI / 4.0).unwrap_or_else(T::one)
+            <T as FromPrimitive>::from_f64(std::f64::consts::PI / 4.0)
+                .expect("PI/4 is an IEEE 754 representable f64 constant")
                 * self.mesh_builder.d_inlet
                 * self.mesh_builder.d_inlet
         } else {
@@ -107,7 +109,8 @@ impl<
         };
 
         let a_throat = if config.circular {
-            <T as FromPrimitive>::from_f64(std::f64::consts::PI / 4.0).unwrap_or_else(T::one)
+            <T as FromPrimitive>::from_f64(std::f64::consts::PI / 4.0)
+                .expect("PI/4 is an IEEE 754 representable f64 constant")
                 * self.mesh_builder.d_throat
                 * self.mesh_builder.d_throat
         } else {
@@ -134,7 +137,8 @@ impl<
         let u_in_avg = actual_flow / a_inlet;
         let area_ratio = a_inlet / a_throat; // > 1
 
-        let dp_bernoulli = <T as FromPrimitive>::from_f64(0.5).unwrap_or_else(T::one)
+        let dp_bernoulli = <T as FromPrimitive>::from_f64(0.5)
+            .expect("0.5 is exactly representable in IEEE 754")
             * fluid_density
             * u_in_avg
             * u_in_avg
@@ -145,7 +149,8 @@ impl<
         // For viscous flow, dp_actual >= dp_bernoulli in physically admissible solutions.
         // Allow tolerance for P1 discretization and non-uniform velocity profile effects.
         let error_dp = (dp_actual - dp_bernoulli) / dp_bernoulli;
-        let numerical_tol = <T as FromPrimitive>::from_f64(0.10).unwrap_or_else(T::zero);
+        let numerical_tol = <T as FromPrimitive>::from_f64(0.10)
+            .expect("0.10 is an IEEE 754 representable f64 constant");
 
         // 3. Pressure Recovery Check
         // Should recover some pressure. dp_recovery (p_out - p_in) is normally negative (loss).
@@ -241,7 +246,7 @@ mod tests {
             .validate_flow(&solution, &config, fluid_props.density)
             .expect("Validation failed");
 
-        println!("DP Error (rel to Bernoulli): {:?}", result.dp_error);
+        tracing::debug!(dp_error = ?result.dp_error, "Venturi DP error relative to Bernoulli");
 
         assert!(
             result.validation_passed,

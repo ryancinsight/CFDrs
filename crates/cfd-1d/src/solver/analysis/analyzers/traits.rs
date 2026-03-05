@@ -1,0 +1,19 @@
+//! Core traits for network analysis
+
+use cfd_core::error::Result;
+use nalgebra::RealField;
+
+/// Trait for domain-specific network analyzers
+pub trait NetworkAnalyzer<T: RealField + Copy> {
+    /// Analysis result type
+    type Result;
+
+    /// Perform analysis on the network
+    ///
+    /// # Errors
+    /// Returns an error if network analysis fails due to invalid network structure or computation errors
+    fn analyze(&mut self, network: &crate::domain::network::Network<T>) -> Result<Self::Result>;
+
+    /// Get analyzer name
+    fn name(&self) -> &str;
+}

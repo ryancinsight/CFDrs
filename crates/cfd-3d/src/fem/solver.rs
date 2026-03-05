@@ -406,16 +406,16 @@ impl<
         let n_velocity_dof = n_nodes * 3;
         let n_total_dof = n_velocity_dof + n_corner_nodes;
 
-        if self.matrix_builder.is_none() || self.matrix_builder.as_ref().unwrap().num_rows() != n_total_dof {
+        if self.matrix_builder.as_ref().is_none_or(|b| b.num_rows() != n_total_dof) {
             self.matrix_builder = Some(SparseMatrixBuilder::new(n_total_dof, n_total_dof));
         } else {
-            self.matrix_builder.as_mut().unwrap().clear();
+            self.matrix_builder.as_mut().expect("checked Some above").clear();
         }
 
-        if self.rhs.is_none() || self.rhs.as_ref().unwrap().len() != n_total_dof {
+        if self.rhs.as_ref().is_none_or(|r| r.len() != n_total_dof) {
             self.rhs = Some(DVector::zeros(n_total_dof));
         } else {
-            self.rhs.as_mut().unwrap().fill(T::zero());
+            self.rhs.as_mut().expect("checked Some above").fill(T::zero());
         }
 
         let mut matrix_builder = self.matrix_builder.take().expect("matrix_builder initialized above");

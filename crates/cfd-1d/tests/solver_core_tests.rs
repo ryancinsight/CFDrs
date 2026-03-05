@@ -5,7 +5,7 @@
 
 use approx::assert_relative_eq;
 use cfd_1d::{Network, NetworkBuilder, NetworkProblem, NetworkSolver};
-use cfd_1d::solver::ConvergenceChecker;
+use cfd_1d::solver::core::ConvergenceChecker;
 use cfd_core::physics::fluid::database::water_20c;
 use nalgebra::DVector;
 use petgraph::visit::EdgeRef;

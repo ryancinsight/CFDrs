@@ -158,7 +158,7 @@ pub(super) fn leukapheresis_separation(
     candidate: &DesignCandidate,
     blood: &CassonBlood<f64>,
 ) -> LeukapheresisMetrics {
-    use cfd_1d::cell_separation::{enhanced_lateral_equilibrium, CellProperties};
+    use cfd_1d::physics::cell_separation::{enhanced_lateral_equilibrium, CellProperties};
 
     let wbc = CellProperties::white_blood_cell();
     let rbc = CellProperties::neonatal_rbc();
@@ -250,3 +250,4 @@ pub(super) fn leukapheresis_separation(
         total_ecv_ml,
     }
 }
+

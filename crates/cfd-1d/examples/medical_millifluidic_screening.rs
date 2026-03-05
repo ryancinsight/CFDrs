@@ -22,8 +22,8 @@
 //! Run with:
 //! `cargo run -p cfd-1d --example medical_millifluidic_screening`
 
-use cfd_1d::network::{EdgeProperties, Network, NetworkBuilder};
-use cfd_1d::solver::{NetworkProblem, NetworkSolver, SolverConfig};
+use cfd_1d::domain::network::{EdgeProperties, Network, NetworkBuilder};
+use cfd_1d::solver::core::{NetworkProblem, NetworkSolver, SolverConfig};
 use cfd_1d::BloodShearLimits;
 use cfd_core::compute::solver::Solver;
 use cfd_core::physics::cavitation::CavitationNumber;

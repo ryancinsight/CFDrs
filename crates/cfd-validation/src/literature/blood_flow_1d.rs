@@ -11,9 +11,12 @@
 
 use super::{LiteratureValidation, ValidationReport};
 use cfd_1d::{
-    channel::{ChannelGeometry, ChannelType, CrossSection, SurfaceProperties, Wettability},
-    network::{ComponentType, EdgeProperties, Network, NetworkBuilder},
-    solver::{NetworkProblem, NetworkSolver, SolverConfig},
+    // Channel geometry types — re-exported at crate root from domain::channel
+    ChannelGeometry, ChannelType, CrossSection, SurfaceProperties, Wettability,
+    // Network types — re-exported at crate root from domain::network
+    ComponentType, Edge, EdgeProperties, Network, NetworkBuilder,
+    // Solver types — re-exported at crate root from solver::core
+    NetworkProblem, NetworkSolver, SolverConfig,
 };
 use cfd_core::{error::Result, physics::fluid::non_newtonian::CarreauYasuda};
 use nalgebra::RealField;
@@ -177,7 +180,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> LiteratureValidation<T>
         let mut details = String::new();
         use petgraph::visit::EdgeRef;
         for edge_ref in solution.graph.edge_references() {
-            let w = edge_ref.weight();
+            let w: &Edge<T> = edge_ref.weight();
             details.push_str(&format!(
                 "Edge {} R: {:e}, k: {:e}\n",
                 edge_ref.id().index(),

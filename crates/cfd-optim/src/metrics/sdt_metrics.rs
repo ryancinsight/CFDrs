@@ -223,27 +223,52 @@ pub struct SdtMetrics {
     #[serde(default)]
     pub low_flow_stasis_risk: f64,
 
-    /// Low-shear stasis contribution to clotting risk ∈ [0, 1].
+    /// Minimum per-channel shear-rate stasis risk ∈ [0, 1].
     ///
-    /// Higher values indicate operation in a low-shear regime more permissive to
-    /// thrombosis and fibrin deposition.
+    /// Uses the *minimum* shear rate across all flow-carrying channels (excluding
+    /// zero-flow segments). Identifies the worst stasis zone in the device rather
+    /// than the overall max-shear regime. Wider or slower channels produce lower
+    /// minimum shear rates and higher stasis risk.
     #[serde(default)]
-    pub low_shear_stasis_risk: f64,
+    pub min_shear_stasis_risk: f64,
 
-    /// Residence-time contribution to clotting risk ∈ [0, 1].
+    /// Maximum per-channel residence-time stasis risk ∈ [0, 1].
     ///
-    /// Higher values indicate longer blood dwell time in the extracorporeal circuit.
+    /// Uses the longest individual channel transit time rather than the mean chip
+    /// residence. The slowest flow path determines the stasis bottleneck and the
+    /// greatest local fibrin deposition potential.
     #[serde(default)]
-    pub residence_stasis_risk: f64,
+    pub max_residence_stasis_risk: f64,
 
-    /// Composite low-flow clotting risk index ∈ [0, 1].
+    /// Post-expansion recirculation stasis risk ∈ [0, 1].
     ///
-    /// Weighted blend of low-flow, low-shear, and residence-time stasis terms:
+    /// Area expansion from venturi throat to downstream diffuser creates
+    /// Borda-Carnot recirculation eddies. Risk scales with the log of the
+    /// expansion area ratio (Idelchik 1994, Diagram 4-1; Borda-Carnot loss
+    /// coefficient K_BC = (1 − A_small/A_large)²).
+    #[serde(default)]
+    pub expansion_stasis_risk: f64,
+
+    /// Dead-volume stasis risk ∈ [0, 1].
     ///
-    /// `clotting_risk_index = 0.60·low_flow + 0.25·low_shear + 0.15·residence`
+    /// Fraction of total chip channel volume residing in channels where local
+    /// wall shear rate falls below the platelet-adhesion threshold (200 /s;
+    /// Folie & McIntire 1989). Higher dead-volume fraction indicates more
+    /// stagnant blood volume susceptible to thrombus formation.
+    #[serde(default)]
+    pub dead_volume_stasis_risk: f64,
+
+    /// Composite clotting risk index ∈ [0, 1].
     ///
-    /// This complements `platelet_activation_index` by capturing low-flow/stasis
-    /// thrombosis mechanisms that are not represented by high-shear activation alone.
+    /// Geometry-sensitive weighted blend of five stasis sub-terms:
+    ///
+    /// `clotting_risk_index = 0.20·low_flow + 0.20·min_shear + 0.20·max_residence
+    ///                      + 0.20·expansion + 0.20·dead_volume`
+    ///
+    /// Unlike the earlier 3-term model (which was degenerate for candidates at
+    /// the same flow rate), every sub-term depends on per-channel solved-flow
+    /// geometry, producing design-discriminating clot risk even within a single
+    /// operating point.
     #[serde(default)]
     pub clotting_risk_index: f64,
 

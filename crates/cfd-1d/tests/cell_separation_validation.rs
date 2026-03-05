@@ -21,11 +21,11 @@
 //!    σ < 1 (cavitation onset).  For 500 µm throat, σ >> 1 (no cavitation).
 
 use approx::assert_relative_eq;
-use cfd_1d::cell_separation::{
+use cfd_1d::physics::cell_separation::{
     margination::{dean_number, lateral_equilibrium},
     CellProperties, CellSeparationModel,
 };
-use cfd_1d::resistance::{FlowConditions, VenturiModel};
+use cfd_1d::physics::resistance::{FlowConditions, VenturiModel};
 
 // ── Blood properties (Casson model at 37°C) ───────────────────────────────────
 const BLOOD_DENSITY: f64 = 1060.0; // kg/m³

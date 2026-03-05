@@ -5,6 +5,7 @@ $workspaceRoot = Split-Path -Parent $PSScriptRoot
 
 $files = @(
     "report/milestone12_results.md",
+    "report/ARPA-H_SonALAsense_Milestone 12 Report.md",
     "report/milestone12_scenario_audit.md",
     "report/milestone12_leukapheresis_infeasibility.md",
     "report/low_flow_band_analysis.md",
@@ -12,7 +13,13 @@ $files = @(
     "report/figures/selected_ga_schematic.svg",
     "report/figures/selected_cifx_combined_schematic.svg",
     "report/figures/selected_cif_schematic.svg",
-    "report/figures/top_hydrosdt_schematic.svg"
+    "report/figures/top_hydrosdt_schematic.svg",
+    "report/figures/m12_cross_mode_scoring.svg",
+    "report/figures/m12_head_to_head_scores.svg",
+    "report/figures/m12_cavitation_distribution.svg",
+    "report/figures/m12_pareto_oncology.svg",
+    "report/figures/m12_multifidelity_dp.svg",
+    "report/figures/m12_ga_convergence.svg"
 )
 
 $dirs = @(
@@ -42,11 +49,19 @@ foreach ($relative in $dirs) {
 
 $canonicalTargets = @(
     "report/milestone12_results.md",
+    "report/ARPA-H_SonALAsense_Milestone 12 Report.md",
+    "report/milestone12/figure_manifest.json",
     "report/milestone12",
     "report/figures/selected_ga_schematic.svg",
     "report/figures/selected_cifx_combined_schematic.svg",
     "report/figures/selected_cif_schematic.svg",
-    "report/figures/top_hydrosdt_schematic.svg"
+    "report/figures/top_hydrosdt_schematic.svg",
+    "report/figures/m12_cross_mode_scoring.svg",
+    "report/figures/m12_head_to_head_scores.svg",
+    "report/figures/m12_cavitation_distribution.svg",
+    "report/figures/m12_pareto_oncology.svg",
+    "report/figures/m12_multifidelity_dp.svg",
+    "report/figures/m12_ga_convergence.svg"
 )
 
 $remaining = @()

@@ -221,16 +221,16 @@ impl<
         let n_nodes = problem.mesh.vertex_count();
         let n_velocity_dof = n_nodes * 3;
 
-        if self.momentum_builder.is_none() || self.momentum_builder.as_ref().unwrap().num_rows() != n_velocity_dof {
+        if self.momentum_builder.as_ref().is_none_or(|b| b.num_rows() != n_velocity_dof) {
             self.momentum_builder = Some(SparseMatrixBuilder::new(n_velocity_dof, n_velocity_dof));
         } else {
-            self.momentum_builder.as_mut().unwrap().clear();
+            self.momentum_builder.as_mut().expect("checked Some above").clear();
         }
 
-        if self.momentum_rhs.is_none() || self.momentum_rhs.as_ref().unwrap().len() != n_velocity_dof {
+        if self.momentum_rhs.as_ref().is_none_or(|r| r.len() != n_velocity_dof) {
             self.momentum_rhs = Some(DVector::zeros(n_velocity_dof));
         } else {
-            self.momentum_rhs.as_mut().unwrap().fill(T::zero());
+            self.momentum_rhs.as_mut().expect("checked Some above").fill(T::zero());
         }
 
         let mut builder = self.momentum_builder.take().expect("momentum_builder initialized above");
@@ -284,16 +284,16 @@ impl<
     ) -> Result<(SparseMatrix<T>, DVector<T>)> {
         let n_corner_nodes = problem.n_corner_nodes;
 
-        if self.pressure_builder.is_none() || self.pressure_builder.as_ref().unwrap().num_rows() != n_corner_nodes {
+        if self.pressure_builder.as_ref().is_none_or(|b| b.num_rows() != n_corner_nodes) {
             self.pressure_builder = Some(SparseMatrixBuilder::new(n_corner_nodes, n_corner_nodes));
         } else {
-            self.pressure_builder.as_mut().unwrap().clear();
+            self.pressure_builder.as_mut().expect("checked Some above").clear();
         }
 
-        if self.pressure_rhs.is_none() || self.pressure_rhs.as_ref().unwrap().len() != n_corner_nodes {
+        if self.pressure_rhs.as_ref().is_none_or(|r| r.len() != n_corner_nodes) {
             self.pressure_rhs = Some(DVector::zeros(n_corner_nodes));
         } else {
-            self.pressure_rhs.as_mut().unwrap().fill(T::zero());
+            self.pressure_rhs.as_mut().expect("checked Some above").fill(T::zero());
         }
 
         let mut builder = self.pressure_builder.take().expect("pressure_builder initialized above");

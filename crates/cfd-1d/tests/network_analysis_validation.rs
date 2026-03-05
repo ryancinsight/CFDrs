@@ -9,7 +9,7 @@
 //! - Hardy Cross (1936). "Analysis of flow in networks of conduits or conductors". University of Illinois Bulletin.
 
 use approx::assert_relative_eq;
-use cfd_1d::solver::SolverConfig;
+use cfd_1d::solver::core::SolverConfig;
 use cfd_1d::{Network, NetworkBuilder, NetworkProblem, NetworkSolver};
 use cfd_core::error::Result;
 use cfd_core::physics::fluid::database;

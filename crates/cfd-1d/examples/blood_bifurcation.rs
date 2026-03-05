@@ -5,7 +5,7 @@
 //!
 //! Network topology and physical geometry are defined entirely via
 //! `cfd-schematics` `NodeSpec`/`ChannelSpec`, then converted to solver types
-//! via the canonical `From<&ChannelSpec>` bridge. No `cfd_1d::channel` imports
+//! via the canonical `From<&ChannelSpec>` bridge. No `cfd_1d::domain::channel` imports
 //! are required in this example.
 //!
 //! Geometry:
@@ -17,8 +17,8 @@
 //! - Inlet Flow: 5 mL/s (pulsatile average)
 //! - Outlet Pressure: 100 mmHg = 13332.2 Pa
 
-use cfd_1d::network::{EdgeProperties, Network, NetworkBuilder};
-use cfd_1d::solver::{NetworkProblem, NetworkSolver, SolverConfig};
+use cfd_1d::domain::network::{EdgeProperties, Network, NetworkBuilder};
+use cfd_1d::solver::core::{NetworkProblem, NetworkSolver, SolverConfig};
 use cfd_core::compute::solver::Solver;
 use cfd_core::physics::fluid::non_newtonian::CarreauYasuda;
 use cfd_core::physics::fluid::FluidTrait;
@@ -33,7 +33,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Viscosity (0): {} Pa·s", blood.viscosity_zero);
 
     // ── 2. Network Topology via ChannelSpec/NodeSpec ─────────────────────────
-    // All physical geometry lives in ChannelSpec — no cfd_1d::channel imports needed.
+    // All physical geometry lives in ChannelSpec — no cfd_1d::domain::channel imports needed.
     let nodes = vec![
         NodeSpec::new("Inlet", NodeKind::Inlet),
         NodeSpec::new("Bifurcation", NodeKind::Junction),

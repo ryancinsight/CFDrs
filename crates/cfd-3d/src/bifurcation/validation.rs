@@ -15,7 +15,8 @@
 //! The GCI provides a 95% confidence band on the discretisation error.
 
 use super::geometry::BifurcationGeometry3D;
-use super::solver::{BifurcationConfig3D, BifurcationSolution3D, BifurcationSolver3D};
+use super::solver::BifurcationSolver3D;
+use super::types::{BifurcationConfig3D, BifurcationSolution3D};
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::Error;
 use cfd_core::physics::fluid::traits::Fluid as FluidTrait;

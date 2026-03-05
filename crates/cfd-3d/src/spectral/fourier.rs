@@ -153,8 +153,10 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Fouri
             let mut sum = Complex::new(T::zero(), T::zero());
             for j in 0..n {
                 let phase =
-                    -two_pi * self.wavenumbers[k] * T::from_usize(j).unwrap_or_else(|| T::zero())
-                        / T::from_usize(n).unwrap_or_else(|| T::zero());
+                    -two_pi * self.wavenumbers[k] * T::from_usize(j)
+                        .expect("DFT loop index j < n, always representable as T")
+                        / T::from_usize(n)
+                        .expect("DFT size n is always representable as T");
                 let exp =
                     Complex::new(num_traits::Float::cos(phase), num_traits::Float::sin(phase));
                 sum += exp * Complex::new(u[j], T::zero());
@@ -199,8 +201,10 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Fouri
             let mut sum = Complex::new(T::zero(), T::zero());
             for k in 0..n {
                 let phase =
-                    two_pi * self.wavenumbers[k] * T::from_usize(j).unwrap_or_else(|| T::zero())
-                        / T::from_usize(n).unwrap_or_else(|| T::zero());
+                    two_pi * self.wavenumbers[k] * T::from_usize(j)
+                        .expect("IDFT loop index j < n, always representable as T")
+                        / T::from_usize(n)
+                        .expect("IDFT size n is always representable as T");
                 let exp =
                     Complex::new(num_traits::Float::cos(phase), num_traits::Float::sin(phase));
                 sum += exp * u_hat[k];

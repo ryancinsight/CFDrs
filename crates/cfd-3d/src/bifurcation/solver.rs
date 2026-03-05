@@ -21,73 +21,12 @@
 //! law is quantified by `murray_law_deviation()` in the geometry module.
 
 use super::geometry::BifurcationGeometry3D;
+use super::types::{BifurcationConfig3D, BifurcationSolution3D};
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::traits::Fluid as FluidTrait;
-use cfd_mesh::domain::core::index::{FaceId, VertexId};
 use nalgebra::{RealField, Vector3};
 use num_traits::{Float, FromPrimitive, ToPrimitive};
-use serde::{Deserialize, Serialize};
-
-// ============================================================================
-// Solver Configuration
-// ============================================================================
-
-/// Configuration for 3D bifurcation solver
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BifurcationConfig3D<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
-    /// Inlet volumetric flow rate [m³/s]
-    pub inlet_flow_rate: T,
-    /// Inlet pressure [Pa]
-    pub inlet_pressure: T,
-    /// Outlet pressure [Pa]
-    pub outlet_pressure: T,
-
-    /// Time step size [s] (for transient)
-    pub time_step: T,
-    /// Number of time steps
-    pub num_time_steps: usize,
-    /// Use steady-state (num_time_steps = 1)
-    pub steady_state: bool,
-
-    /// Maximum iterations for nonlinear solver
-    pub max_nonlinear_iterations: usize,
-    /// Convergence tolerance for nonlinear iterations
-    pub nonlinear_tolerance: T,
-
-    /// Maximum iterations for linear solver
-    pub max_linear_iterations: usize,
-    /// Convergence tolerance for linear solver
-    pub linear_tolerance: T,
-    /// Base mesh resolution factor for branching surface generation
-    pub mesh_resolution: usize,
-}
-
-impl<
-        T: cfd_mesh::domain::core::Scalar
-            + RealField
-            + Copy
-            + FromPrimitive
-            + ToPrimitive
-            + SafeFromF64,
-    > Default for BifurcationConfig3D<T>
-{
-    fn default() -> Self {
-        Self {
-            inlet_flow_rate: T::from_f64_or_one(1e-8),
-            inlet_pressure: T::from_f64_or_one(100.0),
-            outlet_pressure: T::zero(),
-            time_step: T::from_f64_or_one(0.001),
-            num_time_steps: 1,
-            steady_state: true,
-            max_nonlinear_iterations: 20,
-            nonlinear_tolerance: T::from_f64_or_one(1e-4),
-            max_linear_iterations: 1000,
-            linear_tolerance: T::from_f64_or_one(1e-6),
-            mesh_resolution: 8,
-        }
-    }
-}
 
 // ============================================================================
 // 3D Bifurcation Solver
@@ -124,8 +63,8 @@ impl<
 /// - **Energy dissipation**: Tracked for viscous losses
 /// - **Wall shear stress**: Computed from velocity gradient
 pub struct BifurcationSolver3D<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
-    geometry: BifurcationGeometry3D<T>,
-    config: BifurcationConfig3D<T>,
+    pub(crate) geometry: BifurcationGeometry3D<T>,
+    pub(crate) config: BifurcationConfig3D<T>,
 }
 
 impl<
@@ -477,178 +416,6 @@ impl<
         Ok(solution)
     }
 
-    /// Calculate flow rate through a boundary label using u·n integration (f64 precision)
-    fn calculate_boundary_flow_f64(
-        &self,
-        mesh: &cfd_mesh::IndexedMesh<f64>,
-        solution: &crate::fem::StokesFlowSolution<f64>,
-        label: &str,
-    ) -> Result<f64> {
-        let mut total_q = 0.0_f64;
-        let mut face_count = 0;
-
-        for f_idx in 0..mesh.face_count() {
-            let f_id = FaceId::from_usize(f_idx);
-            if mesh.boundary_label(f_id) == Some(label) {
-                face_count += 1;
-                let face = mesh.faces.get(f_id);
-                // FaceData always has exactly 3 vertices
-                let v0 = mesh.vertices.position(face.vertices[0]).coords;
-                let v1 = mesh.vertices.position(face.vertices[1]).coords;
-                let v2 = mesh.vertices.position(face.vertices[2]).coords;
-
-                let n_vec = (v1 - v0).cross(&(v2 - v0));
-                let area = n_vec.norm() * 0.5_f64;
-                let face_normal = n_vec.normalize();
-
-                let mut u_avg = nalgebra::Vector3::zeros();
-                for &v_id in &face.vertices {
-                    let u = solution.get_velocity(v_id.as_usize());
-                    u_avg += u;
-                    if face_count <= 2 {
-                        eprintln!("DEBUG: vertex {} velocity = {:?}", v_id.as_usize(), u);
-                    }
-                }
-                u_avg /= 3.0_f64;
-
-                let face_flow = u_avg.dot(&face_normal) * area;
-                total_q += face_flow;
-            }
-        }
-
-        eprintln!(
-            "DEBUG: Flow integration for '{label}': {face_count} faces, total_q = {total_q:?}"
-        );
-        Ok(total_q.abs())
-    }
-
-    /// Extract pressure at a point in the mesh (closest node, f64 precision)
-    fn extract_point_pressure_f64(
-        &self,
-        mesh: &cfd_mesh::IndexedMesh<f64>,
-        solution: &crate::fem::StokesFlowSolution<f64>,
-        point: nalgebra::Vector3<f64>,
-    ) -> Result<f64> {
-        let mut best_node = 0;
-        let mut min_dist = f64::MAX;
-
-        let n_pressure_nodes = solution.n_corner_nodes.min(mesh.vertex_count());
-        for i in 0..n_pressure_nodes {
-            let pos = mesh.vertices.position(VertexId::from_usize(i));
-            let dist = (pos.coords - point).norm();
-            if dist < min_dist {
-                min_dist = dist;
-                best_node = i;
-            }
-        }
-
-        Ok(solution.get_pressure(best_node))
-    }
-
-    /// Calculate element shear rate (f64 internal precision)
-    fn calculate_element_shear_rate_f64(
-        &self,
-        cell: &cfd_mesh::domain::topology::Cell,
-        mesh: &cfd_mesh::IndexedMesh<f64>,
-        solution: &crate::fem::StokesFlowSolution<f64>,
-    ) -> Result<f64> {
-        let mut idxs: Vec<usize> = Vec::with_capacity(10);
-        for &face_idx in &cell.faces {
-            if face_idx < mesh.face_count() {
-                let face = mesh.faces.get(FaceId::from_usize(face_idx));
-                for &v_id in &face.vertices {
-                    let v_usize = v_id.as_usize();
-                    if !idxs.contains(&v_usize) {
-                        idxs.push(v_usize);
-                    }
-                }
-            }
-        }
-
-        if idxs.len() < 4 {
-            return Err(Error::Solver("Invalid cell topology".to_string()));
-        }
-
-        let mut local_verts = Vec::with_capacity(idxs.len());
-        for &idx in &idxs {
-            local_verts.push(mesh.vertices.position(VertexId::from_usize(idx)).coords);
-        }
-
-        let mut l = nalgebra::Matrix3::zeros();
-
-        if idxs.len() == 10_usize {
-            // Tet10 (P2): Evaluate gradient at centroid (L = [0.25, 0.25, 0.25, 0.25])
-            use crate::fem::shape_functions::LagrangeTet10;
-
-            // 1. Calculate P1 gradients (∇L_i)
-            let mut tet4 = crate::fem::element::FluidElement::<f64>::new(idxs[0..4].to_vec());
-            let six_v = tet4.calculate_volume(&local_verts);
-            if six_v.abs() < 1e-24_f64 {
-                return Ok(0.0_f64);
-            }
-            tet4.calculate_shape_derivatives(&local_verts[0..4]);
-            let p1_grads = nalgebra::Matrix3x4::from_columns(&[
-                Vector3::new(
-                    tet4.shape_derivatives[(0, 0)],
-                    tet4.shape_derivatives[(1, 0)],
-                    tet4.shape_derivatives[(2, 0)],
-                ),
-                Vector3::new(
-                    tet4.shape_derivatives[(0, 1)],
-                    tet4.shape_derivatives[(1, 1)],
-                    tet4.shape_derivatives[(2, 1)],
-                ),
-                Vector3::new(
-                    tet4.shape_derivatives[(0, 2)],
-                    tet4.shape_derivatives[(1, 2)],
-                    tet4.shape_derivatives[(2, 2)],
-                ),
-                Vector3::new(
-                    tet4.shape_derivatives[(0, 3)],
-                    tet4.shape_derivatives[(1, 3)],
-                    tet4.shape_derivatives[(2, 3)],
-                ),
-            ]);
-
-            // 2. Evaluate P2 gradients at centroid
-            let tet10 = LagrangeTet10::new(p1_grads);
-            let l_centroid = [0.25_f64; 4];
-            let p2_grads = tet10.gradients(&l_centroid);
-
-            // 3. Compute velocity gradient: L = sum(u_i * ∇N_i)
-            for i in 0..10 {
-                let u = solution.get_velocity(idxs[i]);
-                for row in 0..3 {
-                    for col in 0..3 {
-                        l[(row, col)] += p2_grads[(col, i)] * u[row];
-                    }
-                }
-            }
-        } else {
-            // Tet4: constant gradient
-            let mut element = crate::fem::element::FluidElement::new(idxs.clone());
-            element.calculate_shape_derivatives(&local_verts);
-            for (i, &idx) in idxs.iter().enumerate().take(4) {
-                let u = solution.get_velocity(idx);
-                for row in 0..3 {
-                    for col in 0..3 {
-                        l[(row, col)] += element.shape_derivatives[(col, i)] * u[row];
-                    }
-                }
-            }
-        }
-
-        let epsilon = (l + l.transpose()) * 0.5_f64;
-        let mut inner_prod = 0.0_f64;
-        for i in 0..3 {
-            for j in 0..3 {
-                inner_prod += epsilon[(i, j)] * epsilon[(i, j)];
-            }
-        }
-
-        Ok(num_traits::Float::sqrt(2.0_f64 * inner_prod))
-    }
-
     /// Validate solver configuration
     fn validate_configuration(&self) -> Result<()> {
         if self.config.inlet_flow_rate <= T::zero() {
@@ -685,82 +452,6 @@ impl<
     pub fn is_laminar<F: FluidTrait<T> + Clone>(&self, fluid: F) -> Result<bool> {
         let re = self.reynolds_number(fluid)?;
         Ok(re < T::from_f64_or_one(2300.0))
-    }
-}
-
-// ============================================================================
-// Solution Result
-// ============================================================================
-
-/// Complete solution to 3D bifurcation problem
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub struct BifurcationSolution3D<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
-    /// Volume flow rate in the parent branch [m³/s]
-    pub q_parent: T,
-    /// Volume flow rate in the first daughter branch [m³/s]
-    pub q_daughter1: T,
-    /// Volume flow rate in the second daughter branch [m³/s]
-    pub q_daughter2: T,
-    /// Mean velocity in the parent branch [m/s]
-    pub u_parent_mean: T,
-    /// Mean velocity in the first daughter branch [m/s]
-    pub u_daughter1_mean: T,
-    /// Mean velocity in the second daughter branch [m/s]
-    pub u_daughter2_mean: T,
-    /// Pressure at the inlet cross-section [Pa]
-    pub p_inlet: T,
-    /// Pressure at the junction midpoint [Pa]
-    pub p_junction_mid: T,
-    /// Pressure at the first daughter outlet [Pa]
-    pub p_daughter1_outlet: T,
-    /// Pressure at the second daughter outlet [Pa]
-    pub p_daughter2_outlet: T,
-    /// Mean pressure at the outlet [Pa]
-    pub p_outlet: T,
-    /// Pressure drop across the parent branch [Pa]
-    pub dp_parent: T,
-    /// Pressure drop across the first daughter branch [Pa]
-    pub dp_daughter1: T,
-    /// Pressure drop across the second daughter branch [Pa]
-    pub dp_daughter2: T,
-    /// Volume-averaged wall shear stress in the parent branch [Pa]
-    pub wall_shear_stress_parent: T,
-    /// Volume-averaged wall shear stress in the first daughter [Pa]
-    pub wall_shear_stress_daughter1: T,
-    /// Volume-averaged wall shear stress in the second daughter [Pa]
-    pub wall_shear_stress_daughter2: T,
-    /// Relative mass conservation error: |Q_in - Q_d1 - Q_d2| / Q_in
-    pub mass_conservation_error: T,
-}
-
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy> BifurcationSolution3D<T> {
-    /// Create a zero-initialized bifurcation solution for the given geometry
-    pub fn new(_geometry: &BifurcationGeometry3D<T>) -> Self {
-        Self {
-            q_parent: T::zero(),
-            q_daughter1: T::zero(),
-            q_daughter2: T::zero(),
-            u_parent_mean: T::zero(),
-            u_daughter1_mean: T::zero(),
-            u_daughter2_mean: T::zero(),
-            p_inlet: T::zero(),
-            p_junction_mid: T::zero(),
-            p_daughter1_outlet: T::zero(),
-            p_daughter2_outlet: T::zero(),
-            p_outlet: T::zero(),
-            dp_parent: T::zero(),
-            dp_daughter1: T::zero(),
-            dp_daughter2: T::zero(),
-            wall_shear_stress_parent: T::zero(),
-            wall_shear_stress_daughter1: T::zero(),
-            wall_shear_stress_daughter2: T::zero(),
-            mass_conservation_error: T::zero(),
-        }
-    }
-
-    /// Check whether mass is conserved within the given tolerance
-    pub fn is_mass_conserved(&self, tolerance: T) -> bool {
-        self.mass_conservation_error < tolerance
     }
 }
 

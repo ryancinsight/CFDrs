@@ -84,10 +84,13 @@
 //!   to mathematical modeling"
 //! - Fung, Y.C. (1997). "Biomechanics: Circulation"
 
+pub mod analysis;
 pub mod geometry;
 pub mod solver;
+pub mod types;
 pub mod validation;
 
 pub use geometry::{BifurcationGeometry3D, BifurcationMesh, ConicalTransition};
-pub use solver::{BifurcationConfig3D, BifurcationSolver3D};
+pub use solver::BifurcationSolver3D;
+pub use types::{BifurcationConfig3D, BifurcationSolution3D};
 pub use validation::{BifurcationValidationResult3D, BifurcationValidator3D, MeshRefinementConfig};

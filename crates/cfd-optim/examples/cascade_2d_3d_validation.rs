@@ -33,7 +33,7 @@ use std::fs;
 use std::path::Path;
 
 // ── cfd-1d ─────────────────────────────────────────────────────────────────────
-use cfd_1d::network::network_from_blueprint;
+use cfd_1d::domain::network::network_from_blueprint;
 use cfd_1d::{NetworkProblem, NetworkSolver, NodeType};
 
 // ── cfd-2d ─────────────────────────────────────────────────────────────────────
@@ -926,3 +926,4 @@ fn main() -> anyhow::Result<()> {
     println!("\n=== Done ===");
     Ok(())
 }
+

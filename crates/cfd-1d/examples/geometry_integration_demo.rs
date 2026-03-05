@@ -2,7 +2,7 @@
 //!
 //! Demonstrates the full pipeline:
 //! 1. Generate a bifurcation geometry via `cfd-schematics`
-//! 2. Convert geometry to `ChannelSpec`/`NodeSpec` (no `cfd_1d::channel` imports)
+//! 2. Convert geometry to `ChannelSpec`/`NodeSpec` (no `cfd_1d::domain::channel` imports)
 //! 3. Build and solve the 1D network
 //! 4. Visualize flow rate distribution using `AnalysisOverlay` (typed CFD field)
 //! 5. Export results to JSON
@@ -10,8 +10,8 @@
 //! Run with:
 //! `cargo run -p cfd-1d --example geometry_integration_demo`
 
-use cfd_1d::network::{EdgeProperties, Network, NetworkBuilder};
-use cfd_1d::solver::{NetworkProblem, NetworkSolver, SolverConfig};
+use cfd_1d::domain::network::{EdgeProperties, Network, NetworkBuilder};
+use cfd_1d::solver::core::{NetworkProblem, NetworkSolver, SolverConfig};
 use cfd_core::compute::solver::Solver;
 use cfd_schematics::config::{ChannelTypeConfig, GeometryConfig};
 use cfd_schematics::domain::model::{ChannelSpec, NodeKind, NodeSpec};
@@ -80,7 +80,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
     let mut network = Network::new(graph, fluid);
 
-    // Attach EdgeProperties from ChannelSpec (no cfd_1d::channel imports needed)
+    // Attach EdgeProperties from ChannelSpec (no cfd_1d::domain::channel imports needed)
     for spec in &channel_specs {
         let eidx = edge_id_map[spec.id.as_str()];
         network.add_edge_properties(eidx, EdgeProperties::from(spec));

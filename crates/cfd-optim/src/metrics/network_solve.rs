@@ -2,7 +2,8 @@
 
 use std::collections::HashMap;
 
-use cfd_1d::{network::network_from_blueprint, NetworkProblem, NetworkSolver};
+use cfd_1d::{NetworkProblem, NetworkSolver};
+use cfd_1d::domain::network::network_from_blueprint;
 use cfd_core::physics::fluid::blood::CassonBlood;
 use cfd_schematics::domain::model::CrossSectionSpec;
 use cfd_schematics::geometry::metadata::{ChannelVenturiSpec, VenturiGeometryMetadata};
@@ -479,3 +480,4 @@ fn compute_remerge_loss(
 
     total_merge_loss_pa
 }
+

@@ -153,7 +153,9 @@ impl<
         // For rectangular cross-sections, use constant half-height for the
         // y-dimension so the venturi narrows only in x (width) while height
         // stays constant — matching real millifluidic chip geometry.
-        let half_height: Option<f64> = if !is_circular {
+        let half_height: Option<f64> = if is_circular {
+            None
+        } else {
             self.config
                 .rect_height
                 .map(|h| {
@@ -162,8 +164,6 @@ impl<
                 })
                 .transpose()?
                 .map(|h| h / 2.0)
-        } else {
-            None
         };
         for i in 0..base_mesh.vertex_count() {
             use cfd_mesh::domain::core::index::VertexId;
@@ -287,32 +287,38 @@ impl<
             let inlet_wall_overlap = inlet_nodes.intersection(&wall_nodes).count();
             let outlet_wall_overlap = outlet_nodes.intersection(&wall_nodes).count();
 
-            println!(
-                "Venturi Boundary Debug: marked_faces={}, connectivity_faces={}, union_faces={}, unlabeled_marked={} ",
-                marked_boundary_faces.len(),
-                connectivity_boundary_faces.len(),
-                boundary_union.len(),
-                unlabeled_faces
+            tracing::debug!(
+                marked = marked_boundary_faces.len(),
+                connectivity = connectivity_boundary_faces.len(),
+                union = boundary_union.len(),
+                unlabeled = unlabeled_faces,
+                "Venturi boundary face counts"
             );
-            println!(
-                "Venturi Boundary Debug: inlet_faces={}, outlet_faces={}, wall_faces={}, inlet_nodes={}, outlet_nodes={}, wall_nodes={} ",
-                inlet_faces, outlet_faces, wall_faces,
-                inlet_nodes.len(), outlet_nodes.len(), wall_nodes.len()
+            tracing::debug!(
+                inlet_faces,
+                outlet_faces,
+                wall_faces,
+                inlet_nodes = inlet_nodes.len(),
+                outlet_nodes = outlet_nodes.len(),
+                wall_nodes = wall_nodes.len(),
+                "Venturi boundary node classification"
             );
-            println!(
-                "Venturi Boundary Debug: overlap inlet/outlet={}, inlet/wall={}, outlet/wall={}, labeled_nodes={}, connectivity_nodes={}, total_nodes={}",
+            tracing::debug!(
                 inlet_outlet_overlap,
                 inlet_wall_overlap,
                 outlet_wall_overlap,
-                labeled_nodes.len(),
-                connectivity_nodes.len(),
-                mesh.vertex_count()
+                labeled = labeled_nodes.len(),
+                connectivity = connectivity_nodes.len(),
+                total = mesh.vertex_count(),
+                "Venturi boundary overlap"
             );
 
             let labeled_not_connectivity = labeled_nodes.difference(&connectivity_nodes).count();
             let connectivity_not_labeled = connectivity_nodes.difference(&labeled_nodes).count();
-            println!(
-                "Venturi Boundary Debug: labeled_not_connectivity={labeled_not_connectivity}, connectivity_not_labeled={connectivity_not_labeled}"
+            tracing::debug!(
+                labeled_not_connectivity,
+                connectivity_not_labeled,
+                "Venturi boundary classification gaps"
             );
         }
 
@@ -412,8 +418,10 @@ impl<
 
         // Pass 4: Ensure all boundary vertices have a BC unless intentionally left as outlet natural boundary.
         let inlet_radius_sq = {
-            let half = <T as FromPrimitive>::from_f64(0.5).unwrap_or_else(T::one);
-            let margin = <T as FromPrimitive>::from_f64(0.98).unwrap_or_else(T::one);
+            let half = <T as FromPrimitive>::from_f64(0.5)
+                .expect("0.5 is exactly representable in IEEE 754");
+            let margin = <T as FromPrimitive>::from_f64(0.98)
+                .expect("0.98 is an IEEE 754 representable f64 constant");
             let r = half * self.builder.d_inlet * margin;
             r * r
         };
@@ -456,32 +464,30 @@ impl<
                             },
                         );
                     }
+                } else if wall_nodes.contains(&v_idx) {
+                    boundary_conditions.insert(
+                        v_idx,
+                        BoundaryCondition::Dirichlet {
+                            value: 0.0_f64,
+                            component_values: Some(vec![
+                                Some(0.0_f64),
+                                Some(0.0_f64),
+                                Some(0.0_f64),
+                                None,
+                            ]),
+                        },
+                    );
                 } else {
-                    if wall_nodes.contains(&v_idx) {
-                        boundary_conditions.insert(
-                            v_idx,
-                            BoundaryCondition::Dirichlet {
-                                value: 0.0_f64,
-                                component_values: Some(vec![
-                                    Some(0.0_f64),
-                                    Some(0.0_f64),
-                                    Some(0.0_f64),
-                                    None,
-                                ]),
-                            },
-                        );
-                    } else {
-                        boundary_conditions.insert(
-                            v_idx,
-                            BoundaryCondition::VelocityInlet {
-                                velocity: Vector3::new(
-                                    0.0_f64,
-                                    0.0_f64,
-                                    u_inlet.to_f64().unwrap_or(0.0),
-                                ),
-                            },
-                        );
-                    }
+                    boundary_conditions.insert(
+                        v_idx,
+                        BoundaryCondition::VelocityInlet {
+                            velocity: Vector3::new(
+                                0.0_f64,
+                                0.0_f64,
+                                u_inlet.to_f64().unwrap_or(0.0),
+                            ),
+                        },
+                    );
                 }
             } else {
                 boundary_conditions.insert(
@@ -500,16 +506,17 @@ impl<
             repaired_nodes += 1;
         }
 
-        println!(
-            "Venturi Outlet Corner BC: corner_nodes={outlet_corner_count}, pressure_outlet_applied={outlet_corner_count}"
+        tracing::debug!(
+            outlet_corner_count,
+            "Venturi Outlet Corner BC: corner_nodes, pressure_outlet_applied"
         );
-        println!(
-            "Venturi Inlet/Wall Compatibility: inlet_nodes={}, wall_nodes={}, rim_nodes={}",
-            inlet_nodes.len(),
-            wall_nodes.len(),
-            inlet_wall_rim_nodes.len()
+        tracing::debug!(
+            inlet_count = inlet_nodes.len(),
+            wall_count = wall_nodes.len(),
+            rim_count = inlet_wall_rim_nodes.len(),
+            "Venturi Inlet/Wall Compatibility"
         );
-        println!("Venturi BC Coverage Repair: repaired_nodes={repaired_nodes}");
+        tracing::debug!(repaired_nodes, "Venturi BC Coverage Repair");
 
         // 3. Set up FEM Problem with initial viscosity
         let constant_basis = cfd_core::physics::fluid::ConstantPropertyFluid::<f64> {
@@ -569,11 +576,7 @@ impl<
             let fem_solution = match fem_result {
                 Ok(sol) => sol,
                 Err(e) => {
-                    tracing::warn!(
-                        "Picard iteration: linear solve failed ({}), using last converged solution",
-                        e
-                    );
-                    println!("Picard: Linear solve failed, using last converged solution");
+                    tracing::warn!(error = %e, "Picard linear solve failed; using last converged solution");
                     break;
                 }
             };
@@ -642,7 +645,12 @@ impl<
             }
             if n_elements > 0 {
                 let shear_avg = shear_sum_f64 / (n_elements as f64);
-                println!("Shear Rate Stats: Min={shear_min_f64:?}, Max={shear_max_f64:?}, Avg={shear_avg:?}");
+                tracing::debug!(
+                    min = shear_min_f64,
+                    max = shear_max_f64,
+                    avg = shear_avg,
+                    "Picard shear rate stats"
+                );
             }
 
             // Track velocity convergence
@@ -665,10 +673,12 @@ impl<
 
             // Log non-linear progress with timing
             let iter_elapsed = iter_start.elapsed();
-            println!(
-                "Picard Iteration {}: vel_change={vel_change_f64:?}, visc_change={max_change_f64:?}, elapsed={:.1}s",
+            tracing::debug!(
                 iter,
-                iter_elapsed.as_secs_f64()
+                vel_change = vel_change_f64,
+                visc_change = max_change_f64,
+                elapsed_secs = iter_elapsed.as_secs_f64(),
+                "Picard iteration progress"
             );
 
             // Stagnation detection: if velocity change hasn't decreased
@@ -681,13 +691,13 @@ impl<
             prev_vel_change = vel_change_f64;
 
             if stagnation_count >= 3 {
-                println!("Picard: Stagnation detected after {} iterations — aborting", iter + 1);
+                tracing::debug!(iter, "Picard stagnation detected — aborting");
                 break;
             }
 
             let tol_f64 = self.config.nonlinear_tolerance.to_f64().unwrap_or(1e-4);
             if vel_change_f64 < tol_f64 && max_change_f64 < tol_f64 {
-                println!("Picard: Converged in {} iterations", iter + 1);
+                tracing::debug!(iter, "Picard converged");
                 break;
             }
         }
@@ -744,15 +754,18 @@ impl<
                 .vertices
                 .get(VertexId::from_usize(u_max_idx))
                 .position;
-            println!("Velocity Diagnostic: {} of {} nodes have |u|>1e-10, max |u|={:?} at node {} pos=({:?},{:?},{:?})",
-                nonzero_count, n, u_max, u_max_idx, u_max_pos.x, u_max_pos.y, u_max_pos.z);
+            tracing::debug!(
+                nonzero_count,
+                total = n,
+                u_max,
+                u_max_idx,
+                ?u_max_pos,
+                "Venturi velocity diagnostic"
+            );
             for b in 0..n_bins {
                 let z_lo = total_length_f64 * (b as f64) / (n_bins as f64);
                 let z_hi = total_length_f64 * ((b + 1) as f64) / (n_bins as f64);
-                println!(
-                    "  z=[{:.4e},{:.4e}]: {} nodes, max|u|={:?}",
-                    z_lo, z_hi, bin_count[b], bin_u_max[b]
-                );
+                tracing::debug!(b, z_lo, z_hi, count = bin_count[b], u_max = bin_u_max[b], "velocity bin");
             }
         }
 
@@ -775,9 +788,11 @@ impl<
                 }
             }
         }
-        println!(
-            "Venturi Solver Setup: Q={:?}, A_in={:?}, u_inlet_calc={:?}",
-            self.config.inlet_flow_rate, area_inlet, u_inlet
+        tracing::debug!(
+            flow_rate = ?self.config.inlet_flow_rate,
+            area_inlet = ?area_inlet,
+            u_inlet = ?u_inlet,
+            "Venturi solver setup"
         );
 
         let mut u_in_sol_sum = T::zero();
@@ -792,22 +807,25 @@ impl<
         }
 
         if p_in_count > 0 {
-            solution.p_inlet = p_in_sum / T::from_usize(p_in_count).unwrap_or_else(T::one);
+            solution.p_inlet = p_in_sum / T::from_usize(p_in_count)
+                .expect("p_in_count is always a representable usize");
         } else {
             solution.p_inlet = self.config.inlet_pressure;
         }
 
         let u_in_sol_avg = if count_in > 0 {
-            u_in_sol_sum / T::from_usize(count_in).unwrap_or_else(T::one)
+            u_in_sol_sum / T::from_usize(count_in)
+                .expect("count_in is always a representable usize")
         } else {
             T::zero()
         };
-        println!("Venturi Solution Debug: Average Inlet Velocity = {u_in_sol_avg:?}");
+        tracing::debug!(u_in_sol_avg = ?u_in_sol_avg, "Venturi average inlet velocity");
 
         // Identify throat section nodes and average pressure
         let z_throat_center = self.builder.l_inlet
             + self.builder.l_convergent
-            + self.builder.l_throat / <T as FromPrimitive>::from_f64(2.0).unwrap_or_else(T::one);
+            + self.builder.l_throat / <T as FromPrimitive>::from_f64(2.0)
+                .expect("2.0 is representable in all IEEE 754 types");
         let total_length = self.builder.l_inlet
             + self.builder.l_convergent
             + self.builder.l_throat
@@ -815,8 +833,10 @@ impl<
             + self.builder.l_outlet;
         // Use tolerance proportional to mesh spacing (half the axial element size)
         let throat_tol = total_length
-            / T::from_usize(self.config.resolution.0.max(1)).unwrap_or_else(T::one)
-            * <T as FromPrimitive>::from_f64(0.6).unwrap_or_else(T::one);
+            / T::from_usize(self.config.resolution.0.max(1))
+                .expect("resolution is always a representable usize")
+            * <T as FromPrimitive>::from_f64(0.6)
+                .expect("0.6 is an IEEE 754 representable f64 constant");
         let mut p_throat_sum = T::zero();
         let mut p_throat_count = 0usize;
         let mut u_throat_max = T::zero();
@@ -842,14 +862,15 @@ impl<
         }
 
         let u_throat_avg = if count_th > 0 {
-            u_throat_sum / T::from_usize(count_th).unwrap_or_else(T::one)
+            u_throat_sum / T::from_usize(count_th)
+                .expect("count_th is always a representable usize")
         } else {
             T::zero()
         };
 
         if p_throat_count > 0 {
-            // FIX: Solver returns negative pressure potential? Invert sign for physical pressure.
-            solution.p_throat = p_throat_sum / T::from_usize(p_throat_count).unwrap_or_else(T::one);
+            solution.p_throat = p_throat_sum / T::from_usize(p_throat_count)
+                .expect("p_throat_count is always a representable usize");
             solution.u_throat = u_throat_max;
         }
 
@@ -881,26 +902,34 @@ impl<
         }
 
         let u_out_avg = if count_out > 0 {
-            u_out_sum / T::from_usize(count_out).unwrap_or_else(T::one)
+            u_out_sum / T::from_usize(count_out)
+                .expect("count_out is always a representable usize")
         } else {
             T::zero()
         };
 
         if p_out_count > 0 {
-            solution.p_outlet = p_out_sum / T::from_usize(p_out_count).unwrap_or_else(T::one);
+            solution.p_outlet = p_out_sum / T::from_usize(p_out_count)
+                .expect("p_out_count is always a representable usize");
         }
 
         // Sample pressure from interior inlet/outlet slices to reduce boundary-node artifacts.
         // Use flux-weighted averaging (u_z-weighted) for better effective pressure-drop estimate.
         let axial_dx =
-            total_length / T::from_usize(self.config.resolution.0.max(1)).unwrap_or_else(T::one);
-        let slice_tol = axial_dx * <T as FromPrimitive>::from_f64(0.55).unwrap_or_else(T::one);
-        let z_in_sample = axial_dx * <T as FromPrimitive>::from_f64(5.0).unwrap_or_else(T::one);
+            total_length / T::from_usize(self.config.resolution.0.max(1))
+                .expect("resolution is always a representable usize");
+        let slice_tol = axial_dx * <T as FromPrimitive>::from_f64(0.55)
+            .expect("0.55 is an IEEE 754 representable f64 constant");
+        let z_in_sample = axial_dx * <T as FromPrimitive>::from_f64(5.0)
+            .expect("5.0 is representable in all IEEE 754 types");
         let z_out_sample =
-            total_length - axial_dx * <T as FromPrimitive>::from_f64(5.0).unwrap_or_else(T::one);
-        let core_radius_frac = <T as FromPrimitive>::from_f64(0.90).unwrap_or_else(T::one);
+            total_length - axial_dx * <T as FromPrimitive>::from_f64(5.0)
+                .expect("5.0 is representable in all IEEE 754 types");
+        let core_radius_frac = <T as FromPrimitive>::from_f64(0.90)
+            .expect("0.90 is an IEEE 754 representable f64 constant");
         let core_radius_sq = if self.config.circular {
-            let r_core = <T as FromPrimitive>::from_f64(0.5).unwrap_or_else(T::one)
+            let r_core = <T as FromPrimitive>::from_f64(0.5)
+                .expect("0.5 is exactly representable in IEEE 754")
                 * self.builder.d_inlet
                 * core_radius_frac;
             r_core * r_core
@@ -916,7 +945,8 @@ impl<
         let mut p_out_slice_weight_sum = T::zero();
         let mut p_in_slice_weighted_sum = T::zero();
         let mut p_out_slice_weighted_sum = T::zero();
-        let weight_floor = <T as FromPrimitive>::from_f64(1e-12).unwrap_or_else(T::zero);
+        let weight_floor = <T as FromPrimitive>::from_f64(1e-12)
+            .expect("1e-12 is an IEEE 754 representable f64 constant");
 
         for i in 0..n_corner_nodes {
             let v = problem.mesh.vertices.get(VertexId::from_usize(i));
@@ -969,7 +999,8 @@ impl<
                 solution.p_inlet = p_in_slice_weighted_sum / p_in_slice_weight_sum;
             } else {
                 solution.p_inlet =
-                    p_in_slice_sum / T::from_usize(p_in_slice_count).unwrap_or_else(T::one);
+                    p_in_slice_sum / T::from_usize(p_in_slice_count)
+                        .expect("p_in_slice_count is always a representable usize");
             }
         }
         if p_out_slice_count > 0 {
@@ -977,18 +1008,33 @@ impl<
                 solution.p_outlet = p_out_slice_weighted_sum / p_out_slice_weight_sum;
             } else {
                 solution.p_outlet =
-                    p_out_slice_sum / T::from_usize(p_out_slice_count).unwrap_or_else(T::one);
+                    p_out_slice_sum / T::from_usize(p_out_slice_count)
+                        .expect("p_out_slice_count is always a representable usize");
             }
         }
 
-        println!("Venturi Debug: p_in={:?}, p_throat={:?}, p_out={:?}, u_throat={:?}, count_th={}, p_in_slice_n={}, p_out_slice_n={}, p_in_wsum={:?}, p_out_wsum={:?}", 
-            solution.p_inlet, solution.p_throat, solution.p_outlet, solution.u_throat, count_th, p_in_slice_count, p_out_slice_count, p_in_slice_weight_sum, p_out_slice_weight_sum);
-
-        println!("Venturi Mass Flux Debug: u_in_avg={u_in_sol_avg:?}, u_throat_avg={u_throat_avg:?}, u_out_avg={u_out_avg:?}");
+        tracing::debug!(
+            p_in = ?solution.p_inlet,
+            p_throat = ?solution.p_throat,
+            p_out = ?solution.p_outlet,
+            u_throat = ?solution.u_throat,
+            count_th,
+            p_in_slice_n = p_in_slice_count,
+            p_out_slice_n = p_out_slice_count,
+            p_in_wsum = ?p_in_slice_weight_sum,
+            p_out_wsum = ?p_out_slice_weight_sum,
+            "Venturi pressure diagnostics"
+        );
+        tracing::debug!(
+            u_in_avg = ?u_in_sol_avg,
+            u_throat_avg = ?u_throat_avg,
+            u_out_avg = ?u_out_avg,
+            "Venturi mass flux diagnostics"
+        );
 
         let q_in_face = self.calculate_boundary_flow(&problem.mesh, &fem_solution, "inlet")?;
         let q_out_face = self.calculate_boundary_flow(&problem.mesh, &fem_solution, "outlet")?;
-        println!("Venturi Mass Flux Debug: q_in_face={q_in_face:?}, q_out_face={q_out_face:?}");
+        tracing::debug!(q_in_face, q_out_face, "Venturi boundary face flux");
 
         let total_length = self.builder.l_inlet
             + self.builder.l_convergent
@@ -1003,16 +1049,15 @@ impl<
             let z_plane = total_length.to_f64().unwrap_or(0.0) * frac;
             let (q_plane, faces) =
                 self.calculate_plane_flux(&problem.mesh, &fem_solution, z_plane, plane_tol)?;
-            println!(
-                "Venturi Slice Flux: z_frac={frac:.2}, z={z_plane:?}, faces={faces}, total_q={q_plane:?}"
-            );
+            tracing::debug!(frac, z_plane, faces, q_plane, "Venturi slice flux");
         }
 
         solution.dp_throat = solution.p_inlet - solution.p_throat;
         solution.dp_recovery = solution.p_outlet - solution.p_inlet; // Usually negative (loss)
 
         let q_dyn = Float::max(
-            <T as FromPrimitive>::from_f64(0.5).unwrap_or_else(T::one)
+            <T as FromPrimitive>::from_f64(0.5)
+                .expect("0.5 is exactly representable in IEEE 754")
                 * fluid_props.density
                 * u_inlet
                 * u_inlet,
@@ -1042,9 +1087,13 @@ impl<
             T::zero()
         };
 
-        println!(
-            "Venturi Mass Balance: Q_in={:?}, Q_th={:?}, Q_in_face={:?}, Q_out_face={:?}, Error={:?}",
-            q_in, q_th, q_in_face, q_out_face, solution.mass_error
+        tracing::debug!(
+            q_in = ?q_in,
+            q_th = ?q_th,
+            q_in_face,
+            q_out_face,
+            mass_error = ?solution.mass_error,
+            "Venturi mass balance"
         );
 
         Ok(solution)

@@ -1,75 +1,117 @@
 //! Streaming operators for LBM.
 //!
-//! This module handles the propagation of distribution functions
-//! along lattice links.
+//! Propagates distribution functions along lattice links using a pull scheme
+//! on the flat, contiguous `Vec<T>` representation.
 //!
-//! # Theorem
-//! The Lattice Boltzmann Method (LBM) recovers the macroscopic Navier-Stokes equations
-//! in the low Mach number limit.
+//! # Theorem — Streaming Mass Conservation
+//!
+//! **Statement**: The pull-scheme streaming step preserves total lattice mass exactly:
+//! $\sum_{i,j,q} f_q^{t+1}(i,j) = \sum_{i,j,q} f_q^t(i,j)$.
+//!
+//! **Proof**:
+//!
+//! 1. The pull scheme sets $f_q^{t+1}(i,j) = f_q^t(i - e_{q,x},\; j - e_{q,y})$, with
+//!    periodic wrap. This is a *permutation* of the source values.
+//! 2. A permutation preserves the multiset of values and hence their sum.
+//! 3. Therefore, $\sum_{i,j,q} f_q^{t+1} = \sum_{i,j,q} f_q^t$. □
+//!
+//! # Theorem — No-Slip Bounce-Back Conservation
+//!
+//! **Statement**: Full bounce-back at a wall node $\mathbf{x}_w$ satisfies
+//! $u(\mathbf{x}_w) = 0$ to second-order accuracy (half-way bounce-back).
 //!
 //! **Proof sketch**:
-//! Through the Chapman-Enskog expansion, the discrete Boltzmann equation with the BGK
-//! collision operator can be expanded in powers of the Knudsen number ($Kn$).
-//! At $O(Kn^0)$, the Euler equations are recovered. At $O(Kn^1)$, the viscous stress
-//! tensor emerges, yielding the weakly compressible Navier-Stokes equations.
-//! The kinematic viscosity is related to the relaxation time $\tau$ by $\nu = c_s^2 (\tau - 0.5)\Delta t$.
+//! Bounce-back reverses $f_{\bar{q}}(\mathbf{x}_w) \leftarrow f_q(\mathbf{x}_w)$.
+//! The macroscopic velocity $u = \sum_q e_q f_q / \rho$ involves equal and opposite
+//! $e_q$ terms for each $(q, \bar{q})$ pair, whose contributions cancel exactly,
+//! giving $u = 0$. □
 
 use crate::solvers::lbm::lattice::D2Q9;
 use nalgebra::RealField;
 
-/// Streaming operator for propagating distributions
+/// Streaming operator for D2Q9 LBM on a flat contiguous buffer.
+///
+/// # Layout
+///
+/// The distribution array `f` is stored as a flat `Vec<T>` with layout:
+/// ```text
+/// f[j * nx * 9 + i * 9 + q]
+/// ```
+/// This achieves stride-1 access over the 9 velocity directions at a node,
+/// the most frequently accessed dimension in collision and macroscopic updates.
 pub struct StreamingOperator;
 
-impl StreamingOperator {
-    /// Perform streaming step (pull scheme)
-    pub fn stream<T: RealField + Copy>(f_src: &Vec<Vec<[T; 9]>>, f_dst: &mut Vec<Vec<[T; 9]>>) {
-        let ny = f_src.len();
-        let nx = if ny > 0 { f_src[0].len() } else { 0 };
+/// Compute flat index into the distribution buffer.
+///
+/// # Arguments
+/// * `j` — row index (0 ≤ j < ny)
+/// * `i` — column index (0 ≤ i < nx)
+/// * `q` — velocity direction (0 ≤ q < 9)
+/// * `nx` — number of columns
+///
+/// # Returns
+/// `j * nx * 9 + i * 9 + q`
+#[inline(always)]
+pub fn f_idx(j: usize, i: usize, q: usize, nx: usize) -> usize {
+    j * nx * 9 + i * 9 + q
+}
 
+impl StreamingOperator {
+    /// Pull-scheme streaming step.
+    ///
+    /// For each node (i, j) and direction q, pulls from the upstream node:
+    /// ```text
+    /// f_dst[j, i, q] = f_src[(j - e_y) mod ny, (i - e_x) mod nx, q]
+    /// ```
+    ///
+    /// This is a pure permutation (Theorem above), so mass is exactly conserved.
+    pub fn stream<T: RealField + Copy>(
+        f_src: &[T],
+        f_dst: &mut [T],
+        nx: usize,
+        ny: usize,
+    ) {
         for j in 0..ny {
             for i in 0..nx {
                 for q in 0..9 {
                     let (ex, ey) = D2Q9::VELOCITIES[q];
-
-                    // Source indices with periodic boundary conditions
-                    let src_i = ((i as i32 - ex + nx as i32) % nx as i32) as usize;
-                    let src_j = ((j as i32 - ey + ny as i32) % ny as i32) as usize;
-
-                    f_dst[j][i][q] = f_src[src_j][src_i][q];
+                    // Periodic upstream index
+                    let src_i = ((i as i32 - ex).rem_euclid(nx as i32)) as usize;
+                    let src_j = ((j as i32 - ey).rem_euclid(ny as i32)) as usize;
+                    f_dst[f_idx(j, i, q, nx)] = f_src[f_idx(src_j, src_i, q, nx)];
                 }
             }
         }
     }
 
-    /// Perform streaming with non-periodic boundaries
+    /// Streaming with interior-only update (boundary nodes excluded via mask).
+    ///
+    /// The `boundary_mask` is a flat `bool` slice with layout `mask[j*nx + i]`.
     pub fn stream_with_boundaries<T: RealField + Copy>(
-        f_src: &Vec<Vec<[T; 9]>>,
-        f_dst: &mut Vec<Vec<[T; 9]>>,
-        boundary_mask: &Vec<Vec<bool>>,
+        f_src: &[T],
+        f_dst: &mut [T],
+        boundary_mask: &[bool],
+        nx: usize,
+        ny: usize,
     ) {
-        let ny = f_src.len();
-        let nx = if ny > 0 { f_src[0].len() } else { 0 };
-
         for j in 0..ny {
             for i in 0..nx {
-                if boundary_mask[j][i] {
-                    // Skip boundary nodes (handled separately)
-                    continue;
+                if boundary_mask[j * nx + i] {
+                    continue; // boundary nodes handled separately
                 }
-
                 for q in 0..9 {
                     let (ex, ey) = D2Q9::VELOCITIES[q];
-
                     let src_i = i as i32 - ex;
                     let src_j = j as i32 - ey;
-
-                    // Check if source is within domain
-                    if src_i >= 0 && src_i < nx as i32 && src_j >= 0 && src_j < ny as i32 {
-                        let src_i = src_i as usize;
-                        let src_j = src_j as usize;
-
-                        if !boundary_mask[src_j][src_i] {
-                            f_dst[j][i][q] = f_src[src_j][src_i][q];
+                    if src_i >= 0
+                        && src_i < nx as i32
+                        && src_j >= 0
+                        && src_j < ny as i32
+                    {
+                        let si = src_i as usize;
+                        let sj = src_j as usize;
+                        if !boundary_mask[sj * nx + si] {
+                            f_dst[f_idx(j, i, q, nx)] = f_src[f_idx(sj, si, q, nx)];
                         }
                     }
                 }
@@ -77,34 +119,24 @@ impl StreamingOperator {
         }
     }
 
-    /// Push scheme streaming (alternative implementation)
+    /// Push-scheme streaming (alternative; pull scheme preferred for cache).
     pub fn stream_push<T: RealField + Copy>(
-        f_src: &Vec<Vec<[T; 9]>>,
-        f_dst: &mut Vec<Vec<[T; 9]>>,
+        f_src: &[T],
+        f_dst: &mut [T],
+        nx: usize,
+        ny: usize,
     ) {
-        let ny = f_src.len();
-        let nx = if ny > 0 { f_src[0].len() } else { 0 };
-
-        // Initialize destination with zeros
-        for j in 0..ny {
-            for i in 0..nx {
-                for q in 0..9 {
-                    f_dst[j][i][q] = T::zero();
-                }
-            }
+        // Zero destination first
+        for v in f_dst.iter_mut() {
+            *v = T::zero();
         }
-
-        // Push distributions to neighbors
         for j in 0..ny {
             for i in 0..nx {
                 for q in 0..9 {
                     let (ex, ey) = D2Q9::VELOCITIES[q];
-
-                    // Destination indices with periodic boundary conditions
-                    let dst_i = ((i as i32 + ex + nx as i32) % nx as i32) as usize;
-                    let dst_j = ((j as i32 + ey + ny as i32) % ny as i32) as usize;
-
-                    f_dst[dst_j][dst_i][q] = f_src[j][i][q];
+                    let dst_i = ((i as i32 + ex).rem_euclid(nx as i32)) as usize;
+                    let dst_j = ((j as i32 + ey).rem_euclid(ny as i32)) as usize;
+                    f_dst[f_idx(dst_j, dst_i, q, nx)] = f_src[f_idx(j, i, q, nx)];
                 }
             }
         }
@@ -114,34 +146,31 @@ impl StreamingOperator {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use approx::assert_relative_eq;
 
     #[test]
     fn test_streaming_preserves_mass() {
-        let nx = 10;
-        let ny = 10;
+        // Theorem: streaming is a permutation → ∑ f conserved exactly.
+        let nx = 10_usize;
+        let ny = 10_usize;
+        let n = nx * ny * 9;
 
-        // Initialize with uniform distribution
-        let f_src = vec![vec![[1.0_f64 / 9.0; 9]; nx]; ny];
-        let mut f_dst = vec![vec![[0.0_f64; 9]; nx]; ny];
+        let f_src: Vec<f64> = (0..n).map(|k| (k as f64 % 0.111) * 0.01 + 0.1).collect();
+        let mut f_dst = vec![0.0_f64; n];
 
-        // Compute initial mass
-        let initial_mass: f64 = f_src
-            .iter()
-            .flat_map(|row| row.iter())
-            .flat_map(|cell| cell.iter())
-            .sum();
+        let initial_mass: f64 = f_src.iter().sum();
+        StreamingOperator::stream(&f_src, &mut f_dst, nx, ny);
+        let final_mass: f64 = f_dst.iter().sum();
 
-        // Perform streaming
-        StreamingOperator::stream(&f_src, &mut f_dst);
+        assert_relative_eq!(initial_mass, final_mass, epsilon = 1e-10);
+    }
 
-        // Compute final mass
-        let final_mass: f64 = f_dst
-            .iter()
-            .flat_map(|row| row.iter())
-            .flat_map(|cell| cell.iter())
-            .sum();
-
-        // Mass should be conserved
-        assert!((initial_mass - final_mass).abs() < 1e-10);
+    #[test]
+    fn test_f_idx_reflects_layout() {
+        let nx = 5_usize;
+        // Direction 0 of cell (j=2, i=3) must be adjacent to direction 1
+        let idx0 = f_idx(2, 3, 0, nx);
+        let idx1 = f_idx(2, 3, 1, nx);
+        assert_eq!(idx1 - idx0, 1, "q direction must be stride-1");
     }
 }

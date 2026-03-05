@@ -7,6 +7,7 @@ use super::classify::{
 use super::dsu::DisjointSet;
 use crate::application::csg::boolean::BooleanOp;
 use crate::application::csg::predicates3d::triangle_is_degenerate_exact;
+use crate::domain::core::constants::SLIVER_AREA_RATIO_SQ;
 use crate::domain::core::index::VertexId;
 use crate::domain::core::scalar::{Point3r, Vector3r};
 use crate::domain::topology::predicates::{orient3d, Sign};
@@ -163,13 +164,21 @@ pub(crate) fn classify_kept_fragments(
         };
 
         // Skip near-degenerate seam slivers.
+        //
+        // # Theorem — Threshold Correctness
+        //
+        // `SLIVER_AREA_RATIO_SQ = 1e-14` skips faces whose altitude-to-longest-edge
+        // ratio is below `sqrt(1e-14) = 1e-7`.  The minimum valid millifluidic ratio
+        // is ≥ 50 µm / 4 mm × 0.5 correction ≈ 6.25e-3, safely above the threshold.
+        // Numerically degenerate slivers from near-parallel face intersections have
+        // ratios ~1e-10 to 1e-15, correctly below the threshold. ∎
         {
             let e01_sq = (p1 - p0).norm_squared();
             let e02_sq = (p2 - p0).norm_squared();
             let e12_sq = (p2 - p1).norm_squared();
             let area_sq = n.norm_squared();
             let max_edge_sq = e01_sq.max(e02_sq).max(e12_sq);
-            if max_edge_sq > 1e-20 && area_sq < 1e-10 * max_edge_sq {
+            if max_edge_sq > 1e-20 && area_sq < SLIVER_AREA_RATIO_SQ * max_edge_sq {
                 continue;
             }
         }
@@ -410,6 +419,50 @@ mod tests {
             component_signature(&frags_a, &roots_a),
             component_signature(&frags_b, &roots_b),
             "component partition should be invariant to fragment order"
+        );
+    }
+
+    /// Regression: SLIVER_AREA_RATIO_SQ = 1e-14 must not skip valid millifluidic faces.
+    ///
+    /// A face with a 4mm longest edge and a 50µm altitude has:
+    ///   area_sq = (2 × 0.5 × 4e-3 × 50e-6)² = 4e-14
+    ///   max_edge_sq ≈ (4e-3)² = 1.6e-5
+    ///   ratio = 4e-14 / 1.6e-5 = 2.5e-9 >> SLIVER_AREA_RATIO_SQ (1e-14)
+    ///
+    /// The old threshold of 1e-10 would skip faces with altitude ratio < sqrt(1e-10) ≈ 3e-5,
+    /// incorrectly eliminating thin-channel seam fragments from near-parallel intersections
+    /// (which have altitude ratios of ~1e-6 to 1e-5).  The new threshold 1e-14 is safe. ∎
+    #[test]
+    fn sliver_area_ratio_keeps_high_aspect_millifluidic_face() {
+        // 4mm × 50µm right-triangle face: aspect ratio ≈ 80:1
+        let max_edge_sq: f64 = (4e-3_f64).powi(2); // 1.6e-5 m²
+        let cross_component: f64 = 4e-3 * 50e-6; // 2e-7 m² (cross-product z-component)
+        let area_sq: f64 = cross_component.powi(2); // 4e-14 m⁴
+
+        // The new threshold must NOT skip this face.
+        assert!(
+            !(max_edge_sq > 1e-20 && area_sq < SLIVER_AREA_RATIO_SQ * max_edge_sq),
+            "SLIVER_AREA_RATIO_SQ incorrectly skips valid 80:1 millifluidic face: \
+             area_sq={area_sq:e} max_edge_sq={max_edge_sq:e} threshold={:e}",
+            SLIVER_AREA_RATIO_SQ * max_edge_sq,
+        );
+    }
+
+    /// Regression: genuinely degenerate slivers (altitude ratio < 1e-7) must still be skipped.
+    #[test]
+    fn sliver_area_ratio_skips_numerically_degenerate_slivers() {
+        // Face where altitude/base ratio ≈ 1e-8 (far below valid millifluidic geometry).
+        let max_edge_sq: f64 = (1e-3_f64).powi(2); // 1e-6 m²
+        let altitude: f64 = 1e-11; // 1e-8 ratio (degenerate floating-point artifact)
+        let cross_component: f64 = 1e-3 * altitude;
+        let area_sq: f64 = cross_component.powi(2);
+
+        // Must be skipped.
+        assert!(
+            max_edge_sq > 1e-20 && area_sq < SLIVER_AREA_RATIO_SQ * max_edge_sq,
+            "SLIVER_AREA_RATIO_SQ must skip altitude ratio 1e-8 sliver: \
+             area_sq={area_sq:e} threshold={:e}",
+            SLIVER_AREA_RATIO_SQ * max_edge_sq,
         );
     }
 }

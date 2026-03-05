@@ -1,5 +1,5 @@
-use cfd_1d::components::{Component, ComponentFactory, OrganCompartment, PorousMembrane};
-use cfd_1d::resistance::{FlowConditions, ResistanceCalculator};
+use cfd_1d::domain::components::{Component, ComponentFactory, OrganCompartment, PorousMembrane};
+use cfd_1d::physics::resistance::{FlowConditions, ResistanceCalculator};
 use std::collections::HashMap;
 
 #[test]

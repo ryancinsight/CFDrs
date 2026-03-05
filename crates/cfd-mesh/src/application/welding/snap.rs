@@ -6,15 +6,21 @@
 //!
 //! ## Algorithm — 26-Neighbor Search
 //!
-//! Each vertex position is *quantized* to a grid cell by rounding (not
-//! flooring) each coordinate to the nearest multiple of ε:
+//! Each vertex position is *quantized* to a grid cell via **round-half-up**:
 //!
 //! ```text
-//! cell(x, y, z) = (round(x/ε), round(y/ε), round(z/ε))
+//! cell(x, y, z) = (floor(x/ε + 0.5), floor(y/ε + 0.5), floor(z/ε + 0.5))
 //! ```
 //!
-//! Rounding (rather than flooring) ensures that a point halfway between two
-//! cells is assigned consistently — a property that flooring lacks.
+//! # Theorem — Deterministic Quantization
+//!
+//! `floor(v + 0.5)` (round-half-up) is a single-valued function for all real
+//! inputs including negative values.  Rust's `.round()` uses round-half-away-
+//! from-zero, which maps `-0.5 → -1` while floor-based maps `-0.5 → 0`.  When
+//! two distinct floating-point computation paths to the same geometric point
+//! straddle a half-integer boundary with opposite-sign rounding errors, `.round()`
+//! can assign different grid cells; `floor(v + 0.5)` always assigns the same
+//! cell for any sign of the tie-breaking error. ∎
 //!
 //! When inserting a new point, the grid searches all **26 face-, edge-, and
 //! corner-adjacent neighbors** plus the home cell itself (27 cells total).
@@ -83,9 +89,9 @@ impl GridCell {
     #[must_use]
     pub fn from_point_round(p: &Point3r, inv_eps: Real) -> Self {
         Self {
-            x: (p.x * inv_eps).round() as i64,
-            y: (p.y * inv_eps).round() as i64,
-            z: (p.z * inv_eps).round() as i64,
+            x: (p.x * inv_eps + 0.5).floor() as i64,
+            y: (p.y * inv_eps + 0.5).floor() as i64,
+            z: (p.z * inv_eps + 0.5).floor() as i64,
         }
     }
 
@@ -334,10 +340,13 @@ pub struct SnapConfig {
 
 impl SnapConfig {
     /// Snap a scalar to the nearest multiple of `grid_spacing`.
+    ///
+    /// Uses round-half-up (`floor(v/ε + 0.5)`) for deterministic tie-breaking
+    /// regardless of value sign. See module-level theorem for justification.
     #[inline]
     #[must_use]
     pub fn snap_value(&self, v: Real) -> Real {
-        (v / self.grid_spacing).round() * self.grid_spacing
+        (v / self.grid_spacing + 0.5).floor() * self.grid_spacing
     }
 
     /// Snap a 3-D point to the nearest grid point.
@@ -384,13 +393,15 @@ mod tests {
     #[test]
     fn grid_cell_round_trip() {
         let eps = 1e-3;
+        // z = -0.5e-3 is exactly at the half-cell boundary between cells -1 and 0.
+        // Round-half-up convention (floor(v + 0.5)) maps -0.5 → floor(0.0) = 0.
         let p = pt(1.5e-3, 2.0e-3, -0.5e-3);
         let cell = GridCell::from_point_round(&p, 1.0 / eps);
-        assert_eq!(cell.x, 2);
-        assert_eq!(cell.y, 2);
-        assert_eq!(cell.z, -1);
+        assert_eq!(cell.x, 2); // 1.5 → floor(2.0) = 2
+        assert_eq!(cell.y, 2); // 2.0 → floor(2.5) = 2
+        assert_eq!(cell.z, 0); // -0.5 → floor(0.0) = 0  (round-half-up)
         let back = cell.to_point(eps);
-        let expected = pt(2e-3, 2e-3, -1e-3);
+        let expected = pt(2e-3, 2e-3, 0.0);
         assert!((back - expected).norm() < 1e-15);
     }
 
@@ -481,5 +492,66 @@ mod tests {
         let cfg = SnapConfig { grid_spacing: 0.5 };
         let g = cfg.into_grid();
         assert_eq!(g.eps(), 0.5);
+    }
+
+    /// Regression: round-half-up gives a single deterministic cell for negative
+    /// half-integer boundaries where `.round()` (round-half-away-from-zero) diverges.
+    ///
+    /// # Theorem — Deterministic Quantization at Half-Integer Boundary
+    ///
+    /// For `v = -(k·ε + ε/2)` with integer k ≥ 0, `.round()` gives `-(k+1)` while
+    /// `floor(v/ε + 0.5)` gives `-k`.  Only one is correct per tie-breaking rule;
+    /// the key property is that the same rule is applied consistently regardless of
+    /// whether the point is approached from above or below. ∎
+    #[test]
+    fn from_point_round_negative_half_cell_is_deterministic() {
+        let eps = 1.0;
+        let inv_eps = 1.0 / eps;
+        // Exact negative half-cell boundary: x = -0.5 (i.e. -(0·ε + ε/2))
+        let p = Point3r::new(-0.5, 0.0, 0.0);
+        let cell = GridCell::from_point_round(&p, inv_eps);
+        // floor(-0.5 + 0.5) = floor(0.0) = 0 — consistent, round-half-up
+        assert_eq!(cell.x, 0, "round-half-up must map -0.5 to cell 0");
+
+        // Symmetric positive case: x = +0.5 → cell 1
+        let p2 = Point3r::new(0.5, 0.0, 0.0);
+        let cell2 = GridCell::from_point_round(&p2, inv_eps);
+        assert_eq!(cell2.x, 1, "round-half-up must map +0.5 to cell 1");
+    }
+
+    /// Two slightly-different floating-point representations of the same point must
+    /// land in the same GridCell when they are within the same ε-neighbourhood.
+    #[test]
+    fn snap_determinism_nearby_floats_same_cell() {
+        let eps = 1e-4;
+        let inv_eps = 1.0 / eps;
+        // Two f64 representations of nominally the same point, separated by 1 ULP.
+        let v1 = 3.5e-4_f64;
+        let v2 = 3.5e-4_f64 + f64::EPSILON * 3.5e-4; // 1 ULP deviation
+
+        let p1 = Point3r::new(v1, 0.0, 0.0);
+        let p2 = Point3r::new(v2, 0.0, 0.0);
+        let c1 = GridCell::from_point_round(&p1, inv_eps);
+        let c2 = GridCell::from_point_round(&p2, inv_eps);
+
+        // Both must map to the same cell (both are clearly in the k=3 half of ε=1e-4)
+        assert_eq!(
+            c1.x, c2.x,
+            "ULP-adjacent floats must quantize to the same cell: {v1:.20e} vs {v2:.20e}"
+        );
+    }
+
+    /// snap_value uses the same round-half-up convention as from_point_round.
+    #[test]
+    fn snap_value_negative_half_cell_is_deterministic() {
+        let cfg = SnapConfig { grid_spacing: 1.0 };
+        // -0.5 is exactly at the half-integer boundary.
+        // floor(-0.5 / 1.0 + 0.5) * 1.0 = floor(0.0) * 1.0 = 0.0
+        let v = cfg.snap_value(-0.5);
+        assert_eq!(v, 0.0, "snap_value(-0.5) must be 0.0 with round-half-up");
+
+        // +0.5 → floor(0.5 + 0.5) * 1.0 = floor(1.0) * 1.0 = 1.0
+        let v2 = cfg.snap_value(0.5);
+        assert_eq!(v2, 1.0, "snap_value(+0.5) must be 1.0 with round-half-up");
     }
 }
