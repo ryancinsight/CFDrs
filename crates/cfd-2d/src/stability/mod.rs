@@ -1,14 +1,11 @@
 //! Numerical stability analysis and monitoring
 //!
-//! # Theorem
-//! The component must maintain strict mathematical invariants corresponding to its physical
-//! or numerical role.
+//! # Theorem (Von Neumann Stability — Necessary Condition)
 //!
-//! **Proof sketch**:
-//! Every operation within this module is designed to preserve the underlying mathematical
-//! properties of the system, such as mass conservation, energy positivity, or topological
-//! consistency. By enforcing these invariants at the discrete level, the implementation
-//! guarantees stability and physical realism.
+//! A finite difference scheme is stable if and only if all eigenvalues of its
+//! amplification matrix $G$ satisfy $|\lambda_j| \le 1 + O(\Delta t)$.
+//! The CFL, diffusion, and combined conditions in this module are derived
+//! from the von Neumann analysis applied to the respective operators.
 
 pub mod cfl;
 

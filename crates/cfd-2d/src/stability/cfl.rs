@@ -4,15 +4,21 @@
 //! - Courant, Friedrichs, Lewy (1928) "Über die partiellen Differenzengleichungen der mathematischen Physik"
 //! - Hirsch (1988) "Numerical Computation of Internal and External Flows"
 //!
-//! # Theorem
-//! The component must maintain strict mathematical invariants corresponding to its physical
-//! or numerical role.
+//! # Theorem (CFL Necessary Condition — Courant, Friedrichs, Lewy 1928)
+//!
+//! For an explicit time-marching scheme applied to the advection equation
+//! $\partial u/\partial t + c\,\partial u/\partial x = 0$, stability requires
+//! $\text{CFL} = |c|\Delta t / \Delta x \le C_{\max}$, where $C_{\max} \le 1$
+//! depends on the spatial discretisation.
 //!
 //! **Proof sketch**:
-//! Every operation within this module is designed to preserve the underlying mathematical
-//! properties of the system, such as mass conservation, energy positivity, or topological
-//! consistency. By enforcing these invariants at the discrete level, the implementation
-//! guarantees stability and physical realism.
+//! The domain of dependence of the PDE at $(x, t+\Delta t)$ is the characteristic
+//! interval $[x - c\Delta t,\, x + c\Delta t]$. The numerical domain of dependence
+//! spans $[x - \Delta x,\, x + \Delta x]$ for a 3-point stencil. If the physical
+//! domain of dependence is not contained in the numerical one, the scheme cannot
+//! represent the correct solution. For 2D with velocities $(u, v)$ and diffusivity
+//! $\nu$, the combined condition is $|u|\Delta t/\Delta x + |v|\Delta t/\Delta y
+//! + 2\nu\Delta t(1/\Delta x^2 + 1/\Delta y^2) \le 1$.
 
 use nalgebra::RealField;
 use num_traits::FromPrimitive;

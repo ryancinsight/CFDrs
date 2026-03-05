@@ -180,6 +180,9 @@ pub struct PoiseuilleFlow2D<T: RealField + Copy + Float> {
 
     /// Convergence history
     pub(super) residuals: Vec<T>,
+
+    /// Reusable buffer for viscosity convergence checks (avoids per-iteration allocation)
+    viscosity_work: Vec<T>,
 }
 
 /// Blood rheology model selection
@@ -231,9 +234,10 @@ impl<T: RealField + FromPrimitive + Float + Copy> PoiseuilleFlow2D<T> {
             dy,
             velocity,
             shear_rate,
-            viscosity,
+            viscosity: viscosity.clone(),
             blood_model,
             residuals: Vec::new(),
+            viscosity_work: viscosity,
         }
     }
 
@@ -259,8 +263,8 @@ impl<T: RealField + FromPrimitive + Float + Copy> PoiseuilleFlow2D<T> {
         self.residuals.clear();
 
         for iteration in 0..max_iter {
-            // Store old viscosity for convergence check
-            let viscosity_old = self.viscosity.clone();
+            // Store old viscosity for convergence check (reuse pre-allocated buffer)
+            self.viscosity_work.copy_from_slice(&self.viscosity);
 
             // 1. Solve for velocity with current viscosity
             self.solve_velocity_linear()?;
@@ -274,11 +278,11 @@ impl<T: RealField + FromPrimitive + Float + Copy> PoiseuilleFlow2D<T> {
             // 4. Apply under-relaxation
             for j in 0..ny {
                 self.viscosity[j] =
-                    alpha * self.viscosity[j] + (T::one() - alpha) * viscosity_old[j];
+                    alpha * self.viscosity[j] + (T::one() - alpha) * self.viscosity_work[j];
             }
 
             // 5. Check convergence
-            let residual = self.calculate_viscosity_residual(&viscosity_old);
+            let residual = self.calculate_viscosity_residual(&self.viscosity_work);
             self.residuals.push(residual);
 
             if residual < tolerance {
@@ -316,11 +320,10 @@ impl<T: RealField + FromPrimitive + Float + Copy> PoiseuilleFlow2D<T> {
 
     /// Get maximum velocity (at centerline)
     pub fn max_velocity(&self) -> T {
-        *self
-            .velocity
+        self.velocity
             .iter()
-            .max_by(|a, b| a.partial_cmp(b).unwrap())
-            .unwrap()
+            .copied()
+            .fold(T::zero(), |acc, v| if v > acc { v } else { acc })
     }
 
     /// Calculate volumetric flow rate per unit width

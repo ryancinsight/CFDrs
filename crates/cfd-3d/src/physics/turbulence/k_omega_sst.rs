@@ -151,7 +151,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> KOmeg
                 flow.velocity.get(i - 1, j, k),
             ) {
                 let s = (vp.x - vm.x) / (two * h);
-                s_sq = s_sq + s * s;
+                s_sq += s * s;
             }
         }
         if j > 0 && j < ny - 1 {
@@ -160,7 +160,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> KOmeg
                 flow.velocity.get(i, j - 1, k),
             ) {
                 let s = (vp.y - vm.y) / (two * h);
-                s_sq = s_sq + s * s;
+                s_sq += s * s;
             }
         }
         if k > 0 && k < nz - 1 {
@@ -169,7 +169,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> KOmeg
                 flow.velocity.get(i, j, k - 1),
             ) {
                 let s = (vp.z - vm.z) / (two * h);
-                s_sq = s_sq + s * s;
+                s_sq += s * s;
             }
         }
         num_traits::Float::sqrt(two * s_sq)

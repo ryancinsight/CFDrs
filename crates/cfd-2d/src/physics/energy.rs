@@ -4,15 +4,19 @@
 //! ∂T/∂t + (u·∇)T = α∇²T + Q/(ρCp)
 //! where α = k/(ρCp) is thermal diffusivity
 //!
-//! # Theorem
-//! The component must maintain strict mathematical invariants corresponding to its physical
-//! or numerical role.
+//! # Theorem (Energy Conservation — First Law of Thermodynamics)
+//!
+//! The discrete energy equation preserves total thermal energy: for an adiabatic
+//! system with no internal heat generation ($Q = 0$), the total enthalpy
+//! $H = \int_\Omega \rho C_p T\,dV$ is conserved to machine precision.
 //!
 //! **Proof sketch**:
-//! Every operation within this module is designed to preserve the underlying mathematical
-//! properties of the system, such as mass conservation, energy positivity, or topological
-//! consistency. By enforcing these invariants at the discrete level, the implementation
-//! guarantees stability and physical realism.
+//! The FVM discretisation of $\partial T/\partial t + \nabla \cdot (\mathbf{u}T) = \alpha \nabla^2 T$
+//! yields telescoping face fluxes (as in the momentum FVM). With no-flux BCs,
+//! all boundary contributions vanish, so $\sum_i V_i (T_i^{n+1} - T_i^n) / \Delta t = 0$.
+//! The explicit time integration is stable under the thermal CFL condition
+//! $\alpha \Delta t / \Delta x^2 \le 1/4$ (2D), ensuring positivity of the temperature
+//! update stencil (all coefficients non-negative).
 
 use cfd_core::error::Result;
 use cfd_core::physics::boundary::BoundaryCondition;
@@ -40,6 +44,8 @@ pub struct EnergyEquationSolver<T: RealField + Copy> {
     /// Grid dimensions
     nx: usize,
     ny: usize,
+    /// Reusable work buffer for explicit time stepping (avoids per-call allocation)
+    work_buffer: Vec<Vec<T>>,
 }
 
 impl<T: RealField + Copy> EnergyEquationSolver<T> {
@@ -51,6 +57,7 @@ impl<T: RealField + Copy> EnergyEquationSolver<T> {
             heat_source: vec![vec![T::zero(); ny]; nx],
             nx,
             ny,
+            work_buffer: vec![vec![T::zero(); ny]; nx],
         }
     }
 
@@ -64,13 +71,16 @@ impl<T: RealField + Copy> EnergyEquationSolver<T> {
         dy: T,
         boundary_conditions: &HashMap<(usize, usize), BoundaryCondition<T>>,
     ) -> Result<()> {
-        let mut new_temperature = self.temperature.clone();
+        // Reuse pre-allocated work buffer instead of cloning temperature each call
+        for i in 0..self.nx {
+            self.work_buffer[i].copy_from_slice(&self.temperature[i]);
+        }
 
         // Apply periodic boundary conditions first (before interior computation)
         // Left boundaries copy from right
         for j in 0..self.ny {
             if let Some(BoundaryCondition::Periodic { .. }) = boundary_conditions.get(&(0, j)) {
-                new_temperature[0][j] = self.temperature[self.nx - 1][j];
+                self.work_buffer[0][j] = self.temperature[self.nx - 1][j];
             }
         }
         // Right boundaries copy from left
@@ -78,13 +88,13 @@ impl<T: RealField + Copy> EnergyEquationSolver<T> {
             if let Some(BoundaryCondition::Periodic { .. }) =
                 boundary_conditions.get(&(self.nx - 1, j))
             {
-                new_temperature[self.nx - 1][j] = self.temperature[0][j];
+                self.work_buffer[self.nx - 1][j] = self.temperature[0][j];
             }
         }
         // Top boundaries copy from bottom
         for i in 0..self.nx {
             if let Some(BoundaryCondition::Periodic { .. }) = boundary_conditions.get(&(i, 0)) {
-                new_temperature[i][0] = self.temperature[i][self.ny - 1];
+                self.work_buffer[i][0] = self.temperature[i][self.ny - 1];
             }
         }
         // Bottom boundaries copy from top
@@ -92,7 +102,7 @@ impl<T: RealField + Copy> EnergyEquationSolver<T> {
             if let Some(BoundaryCondition::Periodic { .. }) =
                 boundary_conditions.get(&(i, self.ny - 1))
             {
-                new_temperature[i][self.ny - 1] = self.temperature[i][0];
+                self.work_buffer[i][self.ny - 1] = self.temperature[i][0];
             }
         }
 
@@ -140,7 +150,7 @@ impl<T: RealField + Copy> EnergyEquationSolver<T> {
                     (f_diff_east - f_diff_west) / dx + (f_diff_north - f_diff_south) / dy;
 
                 // Explicit update
-                new_temperature[i][j] = t + dt * (-conv_term + diff_term + self.heat_source[i][j]);
+                self.work_buffer[i][j] = t + dt * (-conv_term + diff_term + self.heat_source[i][j]);
             }
         }
 
@@ -148,41 +158,41 @@ impl<T: RealField + Copy> EnergyEquationSolver<T> {
         for (&(i, j), bc) in boundary_conditions {
             match bc {
                 BoundaryCondition::Dirichlet { value, .. } => {
-                    new_temperature[i][j] = *value;
+                    self.work_buffer[i][j] = *value;
                 }
                 BoundaryCondition::Neumann { gradient } => {
                     // Apply gradient boundary condition using interior points
                     if i == 0 {
-                        new_temperature[0][j] = new_temperature[1][j] - *gradient * dx;
+                        self.work_buffer[0][j] = self.work_buffer[1][j] - *gradient * dx;
                     } else if i == self.nx - 1 {
-                        new_temperature[self.nx - 1][j] =
-                            new_temperature[self.nx - 2][j] + *gradient * dx;
+                        self.work_buffer[self.nx - 1][j] =
+                            self.work_buffer[self.nx - 2][j] + *gradient * dx;
                     }
                     if j == 0 {
-                        new_temperature[i][0] = new_temperature[i][1] - *gradient * dy;
+                        self.work_buffer[i][0] = self.work_buffer[i][1] - *gradient * dy;
                     } else if j == self.ny - 1 {
-                        new_temperature[i][self.ny - 1] =
-                            new_temperature[i][self.ny - 2] + *gradient * dy;
+                        self.work_buffer[i][self.ny - 1] =
+                            self.work_buffer[i][self.ny - 2] + *gradient * dy;
                     }
                 }
                 BoundaryCondition::Symmetry => {
                     // Symmetry BC: zero normal gradient
                     if i == 0 {
-                        new_temperature[0][j] = new_temperature[1][j];
+                        self.work_buffer[0][j] = self.work_buffer[1][j];
                     } else if i == self.nx - 1 {
-                        new_temperature[self.nx - 1][j] = new_temperature[self.nx - 2][j];
+                        self.work_buffer[self.nx - 1][j] = self.work_buffer[self.nx - 2][j];
                     }
                     if j == 0 {
-                        new_temperature[i][0] = new_temperature[i][1];
+                        self.work_buffer[i][0] = self.work_buffer[i][1];
                     } else if j == self.ny - 1 {
-                        new_temperature[i][self.ny - 1] = new_temperature[i][self.ny - 2];
+                        self.work_buffer[i][self.ny - 1] = self.work_buffer[i][self.ny - 2];
                     }
                 }
                 _ => {}
             }
         }
 
-        self.temperature = new_temperature;
+        std::mem::swap(&mut self.temperature, &mut self.work_buffer);
         Ok(())
     }
 

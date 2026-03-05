@@ -8,6 +8,7 @@
 use crate::error::VisualizationResult;
 use crate::geometry::{ChannelSystem, Point2D};
 use crate::visualizations::analysis_field::AnalysisOverlay;
+use crate::visualizations::annotations::SchematicAnnotations;
 
 /// Trait for rendering 2D microfluidic schematics
 ///
@@ -146,6 +147,8 @@ pub struct RenderConfig {
     pub title_style: TextStyle,
     /// Channel type-specific styling
     pub channel_type_styles: ChannelTypeStyles,
+    /// Optional annotation overlay for nodes/throats/labels.
+    pub annotations: Option<SchematicAnnotations>,
 }
 
 /// Channel type-specific styling configuration
@@ -216,6 +219,7 @@ impl Default for RenderConfig {
                 font_family: "sans-serif".to_string(),
             },
             channel_type_styles: ChannelTypeStyles::default(),
+            annotations: None,
         }
     }
 }
@@ -233,6 +237,14 @@ impl RenderConfig {
             title: "96-Well Plate Schematic (127.76 × 85.47 mm)".to_string(),
             ..Self::default()
         }
+    }
+
+    /// 96-well report preset with annotation defaults enabled.
+    #[must_use]
+    pub fn well_plate_96_report_annotated() -> Self {
+        let mut config = Self::well_plate_96();
+        config.annotations = Some(SchematicAnnotations::report_default());
+        config
     }
 }
 

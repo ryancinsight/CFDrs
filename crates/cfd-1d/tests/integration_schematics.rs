@@ -55,3 +55,69 @@ fn test_from_spec_conversion() {
     assert_eq!(edge.id, "c1");
     assert_eq!(edge.edge_type, EdgeKind::Valve);
 }
+
+#[test]
+fn test_blueprint_negative_length_rejected() {
+    use cfd_schematics::domain::model::{NetworkBlueprint, NodeSpec, ChannelSpec, CrossSectionSpec, ChannelShape, NodeId, NodeKind, EdgeId, EdgeKind};
+    use cfd_core::physics::fluid::database::water_20c;
+    let fluid = water_20c::<f64>().unwrap();
+    let n1 = NodeSpec { id: NodeId::new("in"), kind: NodeKind::Inlet };
+    let n2 = NodeSpec { id: NodeId::new("out"), kind: NodeKind::Outlet };
+    let c1 = ChannelSpec {
+        id: EdgeId::new("c1"),
+        kind: EdgeKind::Pipe,
+        from: NodeId::new("in"),
+        to: NodeId::new("out"),
+        length_m: -0.1, // Invalid negative length!
+        resistance: 100.0,
+        cross_section: CrossSectionSpec::Circular { diameter_m: 0.001 },
+        channel_shape: ChannelShape::Straight,
+        quad_coeff: 0.0,
+        valve_cv: None,
+        pump_max_flow: None,
+        pump_max_pressure: None,
+        metadata: None,
+    };
+    
+    let blueprint = NetworkBlueprint {
+        name: "test_neg_len".to_string(),
+        nodes: vec![n1, n2],
+        channels: vec![c1],
+    };
+    
+    let result = cfd_1d::network::network_from_blueprint(&blueprint, fluid);
+    assert!(result.is_err(), "Blueprint with negative length must be rejected");
+}
+
+#[test]
+fn test_blueprint_zero_diameter_rejected() {
+    use cfd_schematics::domain::model::{NetworkBlueprint, NodeSpec, ChannelSpec, CrossSectionSpec, ChannelShape, NodeId, NodeKind, EdgeId, EdgeKind};
+    use cfd_core::physics::fluid::database::water_20c;
+    let fluid = water_20c::<f64>().unwrap();
+    let n1 = NodeSpec { id: NodeId::new("in"), kind: NodeKind::Inlet };
+    let n2 = NodeSpec { id: NodeId::new("out"), kind: NodeKind::Outlet };
+    let c1 = ChannelSpec {
+        id: EdgeId::new("c1"),
+        kind: EdgeKind::Pipe,
+        from: NodeId::new("in"),
+        to: NodeId::new("out"),
+        length_m: 0.1, 
+        resistance: 100.0,
+        cross_section: CrossSectionSpec::Circular { diameter_m: 0.0 }, // Invalid zero diameter
+        channel_shape: ChannelShape::Straight,
+        quad_coeff: 0.0,
+        valve_cv: None,
+        pump_max_flow: None,
+        pump_max_pressure: None,
+        metadata: None,
+    };
+    
+    let blueprint = NetworkBlueprint {
+        name: "test_zero_diam".to_string(),
+        nodes: vec![n1, n2],
+        channels: vec![c1],
+    };
+    
+    let result = cfd_1d::network::network_from_blueprint(&blueprint, fluid);
+    assert!(result.is_err(), "Blueprint with zero diameter must be rejected");
+}

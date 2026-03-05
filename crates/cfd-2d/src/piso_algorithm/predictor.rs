@@ -1,14 +1,10 @@
 //! Velocity predictor step for PISO algorithm
 //!
-//! # Theorem
-//! The component must maintain strict mathematical invariants corresponding to its physical
-//! or numerical role.
+//! # Theorem (Momentum Predictor)
 //!
-//! **Proof sketch**:
-//! Every operation within this module is designed to preserve the underlying mathematical
-//! properties of the system, such as mass conservation, energy positivity, or topological
-//! consistency. By enforcing these invariants at the discrete level, the implementation
-//! guarantees stability and physical realism.
+//! The predictor solves $\mathbf{A}\mathbf{u}^* = \mathbf{H}(\mathbf{u}^n) - \nabla p^n$,
+//! which is an M-matrix system under upwind convection, guaranteeing a unique solution
+//! by the Gauss-Seidel or Krylov solver.
 
 use crate::fields::{Field2D, SimulationFields};
 use crate::grid::StructuredGrid2D;

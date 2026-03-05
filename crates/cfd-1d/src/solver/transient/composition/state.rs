@@ -32,7 +32,7 @@ impl<T: RealField + Copy + FromPrimitive> MixtureComposition<T> {
 
     /// Weighted blend of incoming mixtures.
     #[must_use]
-    pub fn blend_weighted(inputs: &[(Self, T)]) -> Self {
+    pub fn blend_weighted(inputs: &[(&Self, T)]) -> Self {
         if inputs.is_empty() {
             return Self::empty();
         }

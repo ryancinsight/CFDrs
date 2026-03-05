@@ -13,7 +13,9 @@
 //! pressure drop linked to area contraction; in viscous realizations,
 //! measured drop is bounded below by the inviscid Bernoulli prediction.
 
+pub mod analysis;
 pub mod solver;
+pub mod types;
 pub mod validation;
 
 #[cfg(test)]

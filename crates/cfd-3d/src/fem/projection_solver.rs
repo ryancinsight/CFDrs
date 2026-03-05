@@ -66,8 +66,8 @@ use std::collections::HashSet;
 use crate::fem::quadrature::TetrahedronQuadrature;
 use crate::fem::shape_functions::LagrangeTet10;
 use crate::fem::solver::extract_vertex_indices;
+use crate::fem::mesh_utils::compute_mesh_scale;
 use crate::fem::{FemConfig, StokesFlowProblem, StokesFlowSolution};
-use cfd_mesh::IndexedMesh;
 
 /// Pressure projection solver for incompressible Stokes/Navier-Stokes equations
 pub struct ProjectionSolver<
@@ -76,6 +76,14 @@ pub struct ProjectionSolver<
     _config: FemConfig<T>,
     /// Time step for transient simulations
     dt: T,
+    /// Cached momentum matrix builder to avoid reallocation
+    momentum_builder: Option<SparseMatrixBuilder<T>>,
+    /// Cached momentum RHS vector
+    momentum_rhs: Option<DVector<T>>,
+    /// Cached pressure matrix builder
+    pressure_builder: Option<SparseMatrixBuilder<T>>,
+    /// Cached pressure RHS vector
+    pressure_rhs: Option<DVector<T>>,
 }
 
 impl<
@@ -93,6 +101,10 @@ impl<
         Self {
             _config: config,
             dt: <T as FromPrimitive>::from_f64(0.001).unwrap_or_else(T::one),
+            momentum_builder: None,
+            momentum_rhs: None,
+            pressure_builder: None,
+            pressure_rhs: None,
         }
     }
 
@@ -101,6 +113,10 @@ impl<
         Self {
             _config: config,
             dt,
+            momentum_builder: None,
+            momentum_rhs: None,
+            pressure_builder: None,
+            pressure_rhs: None,
         }
     }
 
@@ -199,14 +215,26 @@ impl<
 
     /// Assemble momentum system: (ρ/Δt)u* + μ∇²u - ρ(u·∇)u* = f + (ρ/Δt)u^n (without pressure gradient)
     fn assemble_momentum_system(
-        &self,
+        &mut self,
         problem: &StokesFlowProblem<T>,
     ) -> Result<(SparseMatrix<T>, DVector<T>)> {
         let n_nodes = problem.mesh.vertex_count();
         let n_velocity_dof = n_nodes * 3;
 
-        let mut builder = SparseMatrixBuilder::new(n_velocity_dof, n_velocity_dof);
-        let mut rhs = DVector::zeros(n_velocity_dof);
+        if self.momentum_builder.is_none() || self.momentum_builder.as_ref().unwrap().num_rows() != n_velocity_dof {
+            self.momentum_builder = Some(SparseMatrixBuilder::new(n_velocity_dof, n_velocity_dof));
+        } else {
+            self.momentum_builder.as_mut().unwrap().clear();
+        }
+
+        if self.momentum_rhs.is_none() || self.momentum_rhs.as_ref().unwrap().len() != n_velocity_dof {
+            self.momentum_rhs = Some(DVector::zeros(n_velocity_dof));
+        } else {
+            self.momentum_rhs.as_mut().unwrap().fill(T::zero());
+        }
+
+        let mut builder = self.momentum_builder.take().expect("momentum_builder initialized above");
+        let mut rhs_out = self.momentum_rhs.take().expect("momentum_rhs initialized above");
 
         let vertex_positions: Vec<Vector3<T>> = problem
             .mesh
@@ -232,7 +260,7 @@ impl<
 
             self.assemble_element_momentum(
                 &mut builder,
-                &mut rhs,
+                &mut rhs_out,
                 &idxs,
                 &positions,
                 viscosity,
@@ -242,21 +270,34 @@ impl<
         }
 
         // Apply boundary conditions
-        let matrix = builder.build_with_rhs(&mut rhs)?;
-        let (matrix, rhs) = self.apply_velocity_boundary_conditions(matrix, rhs, problem)?;
+        self.apply_velocity_boundary_conditions(&mut builder, &mut rhs_out, problem)?;
+        let matrix = builder.build_with_rhs(&mut rhs_out)?;
 
-        Ok((matrix, rhs))
+        Ok((matrix, rhs_out))
     }
 
     /// Assemble pressure Poisson equation: ∇²p = (ρ/Δt)∇·u*
     fn assemble_pressure_poisson(
-        &self,
+        &mut self,
         problem: &StokesFlowProblem<T>,
         u_star: &DVector<T>,
     ) -> Result<(SparseMatrix<T>, DVector<T>)> {
         let n_corner_nodes = problem.n_corner_nodes;
-        let mut builder = SparseMatrixBuilder::new(n_corner_nodes, n_corner_nodes);
-        let mut rhs = DVector::zeros(n_corner_nodes);
+
+        if self.pressure_builder.is_none() || self.pressure_builder.as_ref().unwrap().num_rows() != n_corner_nodes {
+            self.pressure_builder = Some(SparseMatrixBuilder::new(n_corner_nodes, n_corner_nodes));
+        } else {
+            self.pressure_builder.as_mut().unwrap().clear();
+        }
+
+        if self.pressure_rhs.is_none() || self.pressure_rhs.as_ref().unwrap().len() != n_corner_nodes {
+            self.pressure_rhs = Some(DVector::zeros(n_corner_nodes));
+        } else {
+            self.pressure_rhs.as_mut().unwrap().fill(T::zero());
+        }
+
+        let mut builder = self.pressure_builder.take().expect("pressure_builder initialized above");
+        let mut rhs_out = self.pressure_rhs.take().expect("pressure_rhs initialized above");
 
         let vertex_positions: Vec<Vector3<T>> = problem
             .mesh
@@ -278,7 +319,7 @@ impl<
 
             self.assemble_element_pressure_laplacian(
                 &mut builder,
-                &mut rhs,
+                &mut rhs_out,
                 &corner_idxs,
                 &positions,
                 problem.fluid.density,
@@ -286,12 +327,11 @@ impl<
             )?;
         }
 
-        let matrix = builder.build_with_rhs(&mut rhs)?;
-
         // Pin one pressure DOF to remove null space
-        let (matrix, rhs) = self.pin_pressure_reference(matrix, rhs)?;
+        self.pin_pressure_reference(&mut builder, &mut rhs_out)?;
+        let matrix = builder.build_with_rhs(&mut rhs_out)?;
 
-        Ok((matrix, rhs))
+        Ok((matrix, rhs_out))
     }
 
     /// Correct velocity to enforce incompressibility: u = u* - (Δt/ρ) ∇p
@@ -613,10 +653,10 @@ impl<
     /// Apply velocity boundary conditions to the momentum system
     fn apply_velocity_boundary_conditions(
         &self,
-        matrix: SparseMatrix<T>,
-        mut rhs: DVector<T>,
+        builder: &mut SparseMatrixBuilder<T>,
+        rhs: &mut DVector<T>,
         problem: &StokesFlowProblem<T>,
-    ) -> Result<(SparseMatrix<T>, DVector<T>)> {
+    ) -> Result<()> {
         let n_nodes = problem.mesh.vertex_count();
         let v_offset = n_nodes;
 
@@ -624,7 +664,6 @@ impl<
         let mesh_scale = compute_mesh_scale(&problem.mesh);
         let diag_scale = problem.fluid.viscosity * mesh_scale;
 
-        let mut builder = csr_to_builder(matrix);
         let mut applied_bcs = HashSet::new();
 
         for (&node_idx, bc) in &problem.boundary_conditions {
@@ -681,8 +720,7 @@ impl<
             }
         }
 
-        let matrix = builder.build_with_rhs(&mut rhs)?;
-        Ok((matrix, rhs))
+        Ok(())
     }
 
     /// Apply velocity boundary conditions after pressure correction
@@ -730,18 +768,16 @@ impl<
     /// Pin reference pressure to remove null space
     fn pin_pressure_reference(
         &self,
-        matrix: SparseMatrix<T>,
-        mut rhs: DVector<T>,
-    ) -> Result<(SparseMatrix<T>, DVector<T>)> {
+        builder: &mut SparseMatrixBuilder<T>,
+        rhs: &mut DVector<T>,
+    ) -> Result<()> {
         let n_dof = rhs.len();
         if n_dof == 0 {
-            return Ok((matrix, rhs));
+            return Ok(());
         }
 
         // Compute diagonal scale for pressure DOF
         let diag_scale = T::one();
-
-        let mut builder = csr_to_builder(matrix);
 
         // Pin first pressure DOF to zero
         builder.set_dirichlet_row(0, diag_scale, T::zero());
@@ -749,8 +785,7 @@ impl<
 
         println!("    Pinned pressure DOF 0 to zero (reference pressure)");
 
-        let matrix = builder.build_with_rhs(&mut rhs)?;
-        Ok((matrix, rhs))
+        Ok(())
     }
 
     /// Compute maximum divergence over all elements for verification
@@ -815,47 +850,6 @@ impl<
 
         Ok(max_div)
     }
-}
-
-/// Convert a CsrMatrix into a SparseMatrixBuilder so that Dirichlet BCs can be applied.
-fn csr_to_builder<T: cfd_mesh::domain::core::Scalar + RealField + Copy>(
-    matrix: SparseMatrix<T>,
-) -> SparseMatrixBuilder<T> {
-    let nrows = matrix.nrows();
-    let ncols = matrix.ncols();
-    let nnz = matrix.nnz();
-    let mut builder = SparseMatrixBuilder::with_capacity(nrows, ncols, nnz);
-    let offsets = matrix.row_offsets();
-    let col_indices = matrix.col_indices();
-    let values = matrix.values();
-    for row in 0..nrows {
-        let start = offsets[row];
-        let end = offsets[row + 1];
-        for idx in start..end {
-            let _ = builder.add_entry(row, col_indices[idx], values[idx]);
-        }
-    }
-    builder
-}
-
-/// Compute mesh scale for diagonal scaling
-fn compute_mesh_scale<T: cfd_mesh::domain::core::Scalar + RealField + Copy + Float>(
-    mesh: &IndexedMesh<T>,
-) -> T {
-    let mut min = Vector3::new(T::infinity(), T::infinity(), T::infinity());
-    let mut max = Vector3::new(T::neg_infinity(), T::neg_infinity(), T::neg_infinity());
-
-    for v in mesh.vertices.iter() {
-        let p = v.1.position.coords;
-        min.x = Float::min(min.x, p.x);
-        min.y = Float::min(min.y, p.y);
-        min.z = Float::min(min.z, p.z);
-        max.x = Float::max(max.x, p.x);
-        max.y = Float::max(max.y, p.y);
-        max.z = Float::max(max.z, p.z);
-    }
-
-    (max - min).norm()
 }
 
 #[cfg(test)]

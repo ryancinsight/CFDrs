@@ -75,15 +75,20 @@
 //! - **Boundary Resolution**: Sufficient boundary point density required
 //! - **Force Regularization**: Prevents numerical instabilities
 //!
-//! # Theorem
-//! The component must maintain strict mathematical invariants corresponding to its physical
-//! or numerical role.
+//! # Theorem (IBM Spreading/Interpolation Adjointness — Peskin 2002)
+//!
+//! The discrete spreading operator $\mathcal{S}$ and interpolation operator $\mathcal{J}$
+//! satisfy the adjoint relation $\langle \mathcal{S}\mathbf{F}, \mathbf{u} \rangle_E
+//! = \langle \mathbf{F}, \mathcal{J}\mathbf{u} \rangle_L$, where $E$ and $L$ denote
+//! Eulerian and Lagrangian inner products respectively.
 //!
 //! **Proof sketch**:
-//! Every operation within this module is designed to preserve the underlying mathematical
-//! properties of the system, such as mass conservation, energy positivity, or topological
-//! consistency. By enforcing these invariants at the discrete level, the implementation
-//! guarantees stability and physical realism.
+//! With the 4-point cosine delta function $\delta_h(\mathbf{r}) = \prod_{d=1}^{2} \phi(r_d/h)/h$,
+//! spreading is $f_i = \sum_j \delta_h(\mathbf{x}_i - \mathbf{X}_j) F_j \Delta s_j$
+//! and interpolation $U_j = \sum_i \delta_h(\mathbf{x}_i - \mathbf{X}_j) u_i h^2$.
+//! Direct substitution shows $\sum_i f_i u_i h^2 = \sum_j F_j U_j \Delta s_j$,
+//! establishing the adjoint property. This ensures the IBM adds zero net energy to
+//! the fluid–structure system, guaranteeing stability of the coupled solver.
 
 use crate::error::{Error, Result};
 use nalgebra::{DMatrix, Vector2};

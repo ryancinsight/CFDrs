@@ -36,7 +36,7 @@ use cfd_core::physics::fluid_dynamics::turbulence::TurbulenceModel;
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 
-use super::constants::{DEARDORFF_ONE_THIRD, SIGMA_C};
+use super::constants::SIGMA_C;
 
 /// Sigma subgrid-scale model for LES (Nicoud et al. 2011).
 ///
@@ -64,7 +64,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Sigma
     /// # Arguments
     /// * `dx`, `dy`, `dz` — physical cell dimensions [m]
     pub fn with_filter_width(dx: T, dy: T, dz: T) -> Self {
-        let one_third = <T as FromPrimitive>::from_f64(DEARDORFF_ONE_THIRD).unwrap_or_else(T::one);
+        let one_third = T::one() / (T::one() + T::one() + T::one());
         let filter_width = num_traits::Float::powf(dx * dy * dz, one_third);
         Self {
             c_sigma: <T as FromPrimitive>::from_f64(SIGMA_C).unwrap_or_else(T::one),
@@ -80,7 +80,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Sigma
     fn sigma_viscosity_at(&self, flow: &FlowField<T>, i: usize, j: usize, k: usize) -> T {
         let (nx, ny, nz) = flow.velocity.dimensions;
         let delta = self.filter_width;
-        let two = <T as FromPrimitive>::from_f64(2.0).unwrap_or_else(T::one);
+        let two = T::one() + T::one();
         let eps = <T as FromPrimitive>::from_f64(1e-30).unwrap_or_else(T::zero);
 
         // Velocity gradient components (central differences where possible).
@@ -124,7 +124,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Sigma
         for ii in 0..3 {
             for jj in 0..3 {
                 for kk in 0..3 {
-                    gtg[ii][jj] = gtg[ii][jj] + g[kk][ii] * g[kk][jj];
+                    gtg[ii][jj] += g[kk][ii] * g[kk][jj];
                 }
             }
         }
@@ -138,13 +138,10 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Sigma
                 - gtg[0][1] * (gtg[1][0] * gtg[2][2] - gtg[1][2] * gtg[2][0])
                 + gtg[0][2] * (gtg[1][0] * gtg[2][1] - gtg[1][1] * gtg[2][0])
         };
-        let i2 = {
-            let tr_sq = gtg[0][0] * gtg[1][1] + gtg[1][1] * gtg[2][2] + gtg[0][0] * gtg[2][2]
-                - gtg[0][1] * gtg[1][0]
-                - gtg[1][2] * gtg[2][1]
-                - gtg[0][2] * gtg[2][0];
-            tr_sq
-        };
+        let i2 = gtg[0][0] * gtg[1][1] + gtg[1][1] * gtg[2][2] + gtg[0][0] * gtg[2][2]
+            - gtg[0][1] * gtg[1][0]
+            - gtg[1][2] * gtg[2][1]
+            - gtg[0][2] * gtg[2][0];
 
         // Sigma model uses σ₁, σ₂, σ₃ directly.
         // Approximate via eigenvalues of G^T G using Cardano's method.

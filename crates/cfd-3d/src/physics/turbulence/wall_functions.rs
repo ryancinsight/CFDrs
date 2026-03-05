@@ -107,7 +107,7 @@ impl WallFunctions {
         nu: T,
     ) -> T {
         let eps = <T as FromPrimitive>::from_f64(1e-15).unwrap_or_else(T::zero);
-        let half = <T as FromPrimitive>::from_f64(0.5).unwrap_or_else(T::one);
+        let half = T::one() / (T::one() + T::one());
 
         // Initial guess: viscous sublayer (u_τ = √(ν u / y))
         let mut u_tau = num_traits::Float::sqrt(nu * u_wall / (y_p + eps));
@@ -121,7 +121,7 @@ impl WallFunctions {
             // Approximate Jacobian: df/du_τ ≈ u_p (linear approximation)
             let df = u_p_val + eps;
             let du_tau = f / df;
-            u_tau = u_tau - half * du_tau;
+            u_tau -= half * du_tau;
             u_tau = num_traits::Float::max(u_tau, eps);
 
             if num_traits::Float::abs(du_tau) < eps * u_tau {

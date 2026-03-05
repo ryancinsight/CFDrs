@@ -3,17 +3,25 @@
 //! This module provides finite difference implementations for solving
 //! various 2D fluid dynamics problems with proper separation of concerns.
 //!
-//! # Theorem
-//! The solver algorithm must converge to a unique solution that satisfies the discrete
-//! conservation laws.
+//! # Theorem (FDM Consistency and Convergence — Lax–Richtmyer 1956)
+//!
+//! For a consistent and stable finite difference scheme applied to a well-posed linear
+//! initial-boundary value problem, the numerical solution converges to the exact solution
+//! as $\Delta x, \Delta t \to 0$.
 //!
 //! **Proof sketch**:
-//! For a well-posed boundary value problem, the discretized system of equations
-//! $\mathbf{A}\mathbf{x} = \mathbf{b}$ forms a diagonally dominant matrix $\mathbf{A}$
-//! under appropriate upwinding or stabilization. The iterative solver (e.g., SIMPLE, PISO)
-//! reduces the residual norm $\|\mathbf{r}\| = \|\mathbf{b} - \mathbf{A}\mathbf{x}\|$
-//! monotonically. Convergence is guaranteed by the spectral radius of the iteration matrix
-//! being strictly less than 1.
+//! *Consistency*: Taylor expansion of the FD stencil recovers the PDE
+//! $\partial u/\partial t + \mathcal{L}u = 0$ with truncation error
+//! $\tau = O(\Delta x^p + \Delta t^q)$.
+//!
+//! *Stability*: The von Neumann amplification factor $|g(\xi)| \le 1 + C\Delta t$
+//! for all wave numbers $\xi$. For the diffusion operator with central differences,
+//! this requires $\alpha \Delta t / \Delta x^2 \le 1/2$. For convection with
+//! first-order upwind, the CFL condition $|u|\Delta t / \Delta x \le 1$ suffices.
+//!
+//! *Convergence*: By the Lax equivalence theorem, consistency + stability $\Rightarrow$
+//! convergence. The global error $\|e^n\| = \|u^n - u(t_n)\| \to 0$ at rate
+//! $O(\Delta x^p + \Delta t^q)$.
 
 pub mod advection_diffusion;
 pub mod config;

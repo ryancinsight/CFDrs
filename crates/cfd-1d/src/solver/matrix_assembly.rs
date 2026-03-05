@@ -83,7 +83,85 @@ impl<T: RealField + Copy> MatrixAssembler<T> {
     }
 }
 
+/// Per-node Dirichlet and Neumann boundary condition values, indexed by node index.
+struct BoundaryClassification<T> {
+    dirichlet: Vec<Option<T>>,
+    neumann: Vec<Option<T>>,
+}
+
 impl<T: RealField + Copy + FromPrimitive + Copy + Send + Sync + Copy> MatrixAssembler<T> {
+    /// Classify boundary conditions into Dirichlet and Neumann arrays.
+    ///
+    /// Returns `(dirichlet_values, neumann_sources)` where each entry corresponds
+    /// to a node index. Validates that at least one Dirichlet BC exists and that
+    /// no isolated nodes lack a Dirichlet condition.
+    fn classify_boundary_conditions<F: FluidTrait<T>>(
+        network: &Network<T, F>,
+        n: usize,
+    ) -> Result<BoundaryClassification<T>> {
+        let mut dirichlet_values: Vec<Option<T>> = vec![None; n];
+        let mut neumann_sources: Vec<Option<T>> = vec![None; n];
+        let mut has_dirichlet = false;
+
+        for (&node_idx, bc) in network.boundary_conditions() {
+            if network.graph.node_weight(node_idx).is_none() {
+                return Err(Error::InvalidConfiguration(format!(
+                    "Boundary condition references missing node {}",
+                    node_idx.index()
+                )));
+            }
+            let idx: usize = node_idx.index();
+            if idx >= n {
+                return Err(Error::InvalidConfiguration(format!(
+                    "Boundary condition node index {idx} exceeds node count {n}. Deleted nodes are unsupported."
+                )));
+            }
+            match bc {
+                crate::network::BoundaryCondition::Dirichlet { value, .. } => {
+                    dirichlet_values[idx] = Some(*value);
+                    has_dirichlet = true;
+                }
+                crate::network::BoundaryCondition::Neumann { gradient } => {
+                    neumann_sources[idx] = Some(*gradient);
+                }
+                _ => {
+                    return Err(Error::Solver(format!(
+                        "Unsupported boundary condition type encountered at node {idx}: {bc:?}"
+                    )));
+                }
+            }
+        }
+
+        if !has_dirichlet {
+            return Err(Error::InvalidConfiguration(
+                "At least one Dirichlet boundary condition is required".to_string(),
+            ));
+        }
+
+        for node_idx in network.graph.node_indices() {
+            let idx = node_idx.index();
+            if idx >= n {
+                continue;
+            }
+            if network
+                .graph
+                .neighbors_undirected(node_idx)
+                .next()
+                .is_none()
+                && dirichlet_values[idx].is_none()
+            {
+                return Err(Error::InvalidConfiguration(format!(
+                    "Isolated node without Dirichlet condition: {idx}"
+                )));
+            }
+        }
+
+        Ok(BoundaryClassification {
+            dirichlet: dirichlet_values,
+            neumann: neumann_sources,
+        })
+    }
+
     /// Assemble the linear system matrix and right-hand side vector
     ///
     /// This builds the system Ax = b where:
@@ -101,53 +179,9 @@ impl<T: RealField + Copy + FromPrimitive + Copy + Send + Sync + Copy> MatrixAsse
         // Invariants: units [A]=conductance [m³/(Pa·s)] or dimensionless, [b]=flow rate [m³/s] or pressure [Pa]
         // Interior rows: sum(G_ij * (P_i - P_j)) = Q_ext_i => G_ii*P_i + sum(G_ij*P_j) = Q_ext_i
         // Dirichlet rows: 1 * P_i = P_fixed_i
-        let mut dirichlet_values: std::collections::HashMap<usize, T> =
-            std::collections::HashMap::new();
-        let mut neumann_sources: std::collections::HashMap<usize, T> =
-            std::collections::HashMap::new();
-        for (&node_idx, bc) in network.boundary_conditions() {
-            if network.graph.node_weight(node_idx).is_none() {
-                return Err(Error::InvalidConfiguration(format!(
-                    "Boundary condition references missing node {}",
-                    node_idx.index()
-                )));
-            }
-            let idx: usize = node_idx.index();
-            match bc {
-                crate::network::BoundaryCondition::Dirichlet { value, .. } => {
-                    dirichlet_values.insert(idx, *value);
-                }
-                crate::network::BoundaryCondition::Neumann { gradient } => {
-                    neumann_sources.insert(idx, *gradient);
-                }
-                _ => {
-                    return Err(Error::Solver(format!(
-                        "Unsupported boundary condition type encountered at node {idx}: {bc:?}"
-                    )));
-                }
-            }
-        }
-
-        if dirichlet_values.is_empty() {
-            return Err(Error::InvalidConfiguration(
-                "At least one Dirichlet boundary condition is required".to_string(),
-            ));
-        }
-
-        for node_idx in network.graph.node_indices() {
-            if network
-                .graph
-                .neighbors_undirected(node_idx)
-                .next()
-                .is_none()
-                && !dirichlet_values.contains_key(&node_idx.index())
-            {
-                return Err(Error::InvalidConfiguration(format!(
-                    "Isolated node without Dirichlet condition: {}",
-                    node_idx.index()
-                )));
-            }
-        }
+        let bc = Self::classify_boundary_conditions(network, n)?;
+        let dirichlet_values = bc.dirichlet;
+        let neumann_sources = bc.neumann;
 
         // Use a simple, sequential loop for better performance and clarity
         // Exact Dirichlet enforcement via row-replacement:
@@ -175,8 +209,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy + Send + Sync + Copy> MatrixAsse
                 ));
             }
 
-            let i_is_dir = dirichlet_values.contains_key(&i);
-            let j_is_dir = dirichlet_values.contains_key(&j);
+            let i_is_dir = dirichlet_values[i].is_some();
+            let j_is_dir = dirichlet_values[j].is_some();
 
             match (i_is_dir, j_is_dir) {
                 (false, false) => {
@@ -189,13 +223,13 @@ impl<T: RealField + Copy + FromPrimitive + Copy + Send + Sync + Copy> MatrixAsse
                 (true, false) => {
                     // i fixed: remove column i and add contribution to RHS of j
                     coo.push(j, j, conductance);
-                    let p_i = dirichlet_values[&i];
+                    let p_i = dirichlet_values[i].unwrap();
                     rhs[j] += conductance * p_i;
                 }
                 (false, true) => {
                     // j fixed: remove column j and add contribution to RHS of i
                     coo.push(i, i, conductance);
-                    let p_j = dirichlet_values[&j];
+                    let p_j = dirichlet_values[j].unwrap();
                     rhs[i] += conductance * p_j;
                 }
                 (true, true) => {
@@ -205,14 +239,18 @@ impl<T: RealField + Copy + FromPrimitive + Copy + Send + Sync + Copy> MatrixAsse
         }
 
         // Apply Neumann sources to RHS
-        for (idx, flow_rate) in neumann_sources {
-            rhs[idx] += flow_rate;
+        for (idx, source) in neumann_sources.into_iter().enumerate() {
+            if let Some(flow_rate) = source {
+                rhs[idx] += flow_rate;
+            }
         }
 
         // Inject identity rows for Dirichlet nodes with exact values
-        for (idx, pressure) in dirichlet_values {
-            coo.push(idx, idx, T::one());
-            rhs[idx] = pressure;
+        for (idx, dir_val) in dirichlet_values.into_iter().enumerate() {
+            if let Some(pressure) = dir_val {
+                coo.push(idx, idx, T::one());
+                rhs[idx] = pressure;
+            }
         }
 
         let matrix = CsrMatrix::from(&coo);

@@ -5,16 +5,8 @@
 //! **Prefer importing directly from `ns_fvm` for new code.**
 //!
 //! # Theorem
-//! The solver algorithm must converge to a unique solution that satisfies the discrete
-//! conservation laws.
-//!
-//! **Proof sketch**:
-//! For a well-posed boundary value problem, the discretized system of equations
-//! $\mathbf{A}\mathbf{x} = \mathbf{b}$ forms a diagonally dominant matrix $\mathbf{A}$
-//! under appropriate upwinding or stabilization. The iterative solver (e.g., SIMPLE, PISO)
-//! reduces the residual norm $\|\mathbf{r}\| = \|\mathbf{b} - \mathbf{A}\mathbf{x}\|$
-//! monotonically. Convergence is guaranteed by the spectral radius of the iteration matrix
-//! being strictly less than 1.
+//! The solver algorithm converges to a solution satisfying the discrete
+//! conservation laws. See [`super::ns_fvm`] for the canonical implementation.
 
 pub use super::ns_fvm::{
     BCType, BloodModel, BoundaryCondition, FlowField2D, NavierStokesSolver2D, SIMPLEConfig,

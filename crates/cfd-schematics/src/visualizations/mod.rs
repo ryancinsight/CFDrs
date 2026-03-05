@@ -20,6 +20,7 @@
 
 /// Typed CFD analysis field overlay for simulation result visualization
 pub mod analysis_field;
+pub mod annotations;
 pub mod plotters_backend;
 /// High-level schematic rendering functions
 pub mod schematic;
@@ -28,10 +29,16 @@ pub mod shared_utilities;
 pub mod traits;
 
 pub use analysis_field::{colorize, AnalysisField, AnalysisOverlay, ColormapKind};
+pub use annotations::{
+    center_biased_main_path, classify_node_roles, infer_terminal_nodes_by_x,
+    project_markers_along_path, should_render_label, therapy_zone_presence,
+    throat_count_from_blueprint_metadata, AnnotationMarker, AnnotationStyle, LabelDensity,
+    MarkerRole, SchematicAnnotations,
+};
 pub use plotters_backend::{
     create_plotters_renderer, plot_geometry_with_plotters, plot_shell_cuboid, PlottersRenderer,
 };
-pub use schematic::plot_geometry;
+pub use schematic::{plot_geometry, plot_geometry_with_annotations};
 pub use traits::{
     ChannelTypeStyles, Color, LineStyle, OutputFormat, RenderConfig, SchematicRenderer, TextStyle,
 };

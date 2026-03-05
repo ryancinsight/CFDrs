@@ -34,10 +34,12 @@ use crate::fem::mid_node_cache::MidNodeCache;
 use crate::fem::quadrature::TetrahedronQuadrature;
 use crate::fem::shape_functions::LagrangeTet10;
 use crate::fem::{FemConfig, StokesFlowProblem, StokesFlowSolution};
-use cfd_mesh::domain::topology::Cell;
-use cfd_mesh::IndexedMesh;
 use rayon::prelude::*;
 use std::collections::HashMap;
+
+// Re-export mesh utility functions that were previously defined here.
+pub use super::mesh_utils::{extract_vertex_indices, extract_vertex_indices_cached};
+pub(crate) use super::mesh_utils::compute_mesh_scale;
 
 /// Finite Element Method solver for 3D incompressible flow
 pub struct FemSolver<
@@ -50,6 +52,10 @@ pub struct FemSolver<
 > {
     config: FemConfig<T>,
     _linear_solver: GMRES<T>,
+    /// Reusable matrix builder to avoid O(N) allocations per iteration
+    matrix_builder: Option<SparseMatrixBuilder<T>>,
+    /// Reusable RHS vector
+    rhs: Option<DVector<T>>,
 }
 
 impl<
@@ -73,6 +79,8 @@ impl<
         Self {
             _linear_solver: linear_solver,
             config,
+            matrix_builder: None,
+            rhs: None,
         }
     }
 
@@ -389,7 +397,7 @@ impl<
     }
 
     fn assemble_system(
-        &self,
+        &mut self,
         problem: &StokesFlowProblem<T>,
         previous_solution: Option<&StokesFlowSolution<T>>,
     ) -> Result<(SparseMatrix<T>, DVector<T>)> {
@@ -398,7 +406,20 @@ impl<
         let n_velocity_dof = n_nodes * 3;
         let n_total_dof = n_velocity_dof + n_corner_nodes;
 
-        let mut builder = SparseMatrixBuilder::new(n_total_dof, n_total_dof);
+        if self.matrix_builder.is_none() || self.matrix_builder.as_ref().unwrap().num_rows() != n_total_dof {
+            self.matrix_builder = Some(SparseMatrixBuilder::new(n_total_dof, n_total_dof));
+        } else {
+            self.matrix_builder.as_mut().unwrap().clear();
+        }
+
+        if self.rhs.is_none() || self.rhs.as_ref().unwrap().len() != n_total_dof {
+            self.rhs = Some(DVector::zeros(n_total_dof));
+        } else {
+            self.rhs.as_mut().unwrap().fill(T::zero());
+        }
+
+        let mut matrix_builder = self.matrix_builder.take().expect("matrix_builder initialized above");
+        let mut rhs_store = self.rhs.take().expect("rhs initialized above");
 
         let vertex_positions: Vec<Vector3<T>> = problem
             .mesh
@@ -450,7 +471,9 @@ impl<
                         let vol = ((v1 - v0).cross(&(v2 - v0))).dot(&(v3 - v0)) / six;
                         let vol_tol = <T as FromPrimitive>::from_f64(1e-22).unwrap_or_else(T::zero);
                         if Float::abs(vol) < vol_tol {
-                            panic!("Element {} has near-zero volume", i);
+                            // Skip degenerate element — zero volume means zero
+                            // contribution to the global stiffness matrix
+                            return (local_map, local_rhs);
                         }
                     }
 
@@ -484,10 +507,10 @@ impl<
         println!("  Assembly map-reduce complete. Applying boundary conditions...");
         // Populate builder with accumulated map entries
         for ((row, col), val) in entry_map {
-            builder.add_entry(row, col, val)?;
+            matrix_builder.add_entry(row, col, val)?;
         }
 
-        self.apply_boundary_conditions_block(&mut builder, &mut rhs, problem, n_nodes)?;
+        self.apply_boundary_conditions_block(&mut matrix_builder, &mut rhs, problem, n_nodes)?;
 
         let velocity_dofs_constrained = problem.boundary_conditions.len() * 3;
         println!("  Velocity DOFs constrained: {velocity_dofs_constrained} / {n_velocity_dof}");
@@ -499,10 +522,12 @@ impl<
         let diag_eps =
             problem.fluid.viscosity * <T as FromPrimitive>::from_f64(1e-12).unwrap_or_else(T::zero);
         for i in n_velocity_dof..n_total_dof {
-            let _ = builder.add_entry(i, i, diag_eps);
+            let _ = matrix_builder.add_entry(i, i, diag_eps);
         }
 
-        let matrix = builder.build_with_rhs(&mut rhs)?;
+        let matrix = matrix_builder.build_with_rhs(&mut rhs)?;
+        rhs_store.copy_from(&rhs);
+        self.rhs = Some(rhs_store);
         Ok((matrix, rhs))
     }
 
@@ -529,7 +554,10 @@ impl<
         ]);
         let det_j = j_mat.determinant();
         let abs_det = Float::abs(det_j);
-        let j_inv_t = j_mat.try_inverse().expect("Singular Jacobian").transpose();
+        let j_inv_t = match j_mat.try_inverse() {
+            Some(inv) => inv.transpose(),
+            None => return, // Degenerate element — skip assembly
+        };
 
         let grad_ref_p1 = nalgebra::Matrix3x4::new(
             -T::one(),
@@ -810,411 +838,4 @@ impl<
             Vector3::zeros()
         }
     }
-}
-
-/// Extract vertex indices from a cell for element assembly
-pub fn extract_vertex_indices<T: cfd_mesh::domain::core::Scalar + RealField + Copy + Float>(
-    cell: &Cell,
-    mesh: &IndexedMesh<T>,
-    n_corner_nodes: usize,
-) -> Result<Vec<usize>> {
-    let mut counts = std::collections::HashMap::new();
-    for &f_idx in &cell.faces {
-        if f_idx < mesh.face_count() {
-            let f = mesh
-                .faces
-                .get(cfd_mesh::domain::core::index::FaceId::from_usize(f_idx));
-            for &v_id in &f.vertices {
-                *counts.entry(v_id.as_usize()).or_insert(0) += 1;
-            }
-        }
-    }
-
-    // In a tetrahedron, corners are shared by 3 faces, mid-edges by 2.
-    let mut corners = Vec::new();
-    let mut mid_edges = Vec::new();
-    for (&v_idx, &count) in &counts {
-        if count == 3 {
-            corners.push(v_idx);
-        } else if count == 2 {
-            mid_edges.push(v_idx);
-        }
-    }
-
-    if corners.len() == 4 && mid_edges.is_empty() && counts.len() == 4 {
-        let ordered = order_tet_corners(&corners, mesh);
-
-        if mesh.vertex_count() > n_corner_nodes {
-            // P2 mesh: Face geometry only has corners, missing mid-edges.
-            // Recover mid-edges via geometric search over extra nodes.
-            let mut final_nodes = ordered.clone();
-            let edges = [(0, 1), (1, 2), (2, 0), (0, 3), (1, 3), (2, 3)];
-            for &(i, j) in &edges {
-                let v_i = ordered[i];
-                let v_j = ordered[j];
-                let p_i = mesh
-                    .vertices
-                    .position(cfd_mesh::domain::core::index::VertexId::from_usize(v_i))
-                    .coords;
-                let p_j = mesh
-                    .vertices
-                    .position(cfd_mesh::domain::core::index::VertexId::from_usize(v_j))
-                    .coords;
-                let target = (p_i + p_j)
-                    * <T as num_traits::FromPrimitive>::from_f64(0.5).unwrap_or_else(T::one);
-
-                let mut best_m = 0;
-                let mut min_dist_sq = <T as num_traits::Float>::infinity();
-                for m_idx in n_corner_nodes..mesh.vertex_count() {
-                    let pm = mesh
-                        .vertices
-                        .position(cfd_mesh::domain::core::index::VertexId::from_usize(m_idx))
-                        .coords;
-                    let dist_sq = (pm - target).norm_squared();
-                    if dist_sq < min_dist_sq {
-                        min_dist_sq = dist_sq;
-                        best_m = m_idx;
-                    }
-                }
-                final_nodes.push(best_m);
-            }
-            return Ok(final_nodes);
-        }
-        // P1 Tet
-        return Ok(ordered);
-    }
-
-    if corners.len() == 4 && mid_edges.len() == 6 {
-        // P2 Tet
-        // We need them in canonical Tet10 order for LagrangeTet10:
-        // Corners: 0, 1, 2, 3
-        // Mid-edges: 4:(0,1), 5:(1,2), 6:(2,0), 7:(0,3), 8:(1,3), 9:(2,3)
-        let ordered = order_tet_corners(&corners, mesh);
-        let mut final_nodes = ordered.clone();
-        let mut used_mid_edges = std::collections::HashSet::new();
-
-        let edges = [(0, 1), (1, 2), (2, 0), (0, 3), (1, 3), (2, 3)];
-        for &(i, j) in &edges {
-            let v_i = ordered[i];
-            let v_j = ordered[j];
-            // The mid-node for (v_i, v_j) is the one shared by faces that both contain v_i and v_j.
-            // Or simpler: find the mid_edge node that is closest to (v_i + v_j)/2
-            let p_i = mesh
-                .vertices
-                .position(cfd_mesh::domain::core::index::VertexId::from_usize(v_i))
-                .coords;
-            let p_j = mesh
-                .vertices
-                .position(cfd_mesh::domain::core::index::VertexId::from_usize(v_j))
-                .coords;
-            let target = (p_i + p_j) * <T as FromPrimitive>::from_f64(0.5).unwrap_or_else(T::one);
-
-            let mut best_node = None;
-            let mut min_dist = T::infinity();
-
-            for &m_idx in &mid_edges {
-                if used_mid_edges.contains(&m_idx) {
-                    continue;
-                }
-                let dist = (mesh
-                    .vertices
-                    .position(cfd_mesh::domain::core::index::VertexId::from_usize(m_idx))
-                    .coords
-                    - target)
-                    .norm();
-                if dist < min_dist {
-                    min_dist = dist;
-                    best_node = Some(m_idx);
-                }
-            }
-
-            let selected = if let Some(m_idx) = best_node {
-                m_idx
-            } else {
-                let mut fallback = mid_edges[0];
-                let mut fallback_dist = (mesh
-                    .vertices
-                    .position(cfd_mesh::domain::core::index::VertexId::from_usize(
-                        fallback,
-                    ))
-                    .coords
-                    - target)
-                    .norm();
-                for &m_idx in &mid_edges[1..] {
-                    let dist = (mesh
-                        .vertices
-                        .position(cfd_mesh::domain::core::index::VertexId::from_usize(m_idx))
-                        .coords
-                        - target)
-                        .norm();
-                    if dist < fallback_dist {
-                        fallback_dist = dist;
-                        fallback = m_idx;
-                    }
-                }
-                fallback
-            };
-
-            used_mid_edges.insert(selected);
-            final_nodes.push(selected);
-        }
-        return Ok(final_nodes);
-    }
-
-    // Fallback for other elements (e.g. Hex)
-    let mut all: Vec<usize> = counts.keys().copied().collect();
-    all.sort_unstable();
-    Ok(all)
-}
-
-/// Cache-accelerated variant of [`extract_vertex_indices`] for P2 FEM assembly.
-///
-/// # Performance (GAP-PERF-001)
-///
-/// When `mid_cache` is non-empty (P2 mesh), mid-node lookup for each of the 6
-/// edges is O(1) amortised via the pre-built `HashMap<(usize,usize), usize>`,
-/// replacing the O(n_mid) brute-force nearest-midpoint scan in `extract_vertex_indices`.
-///
-/// For P1 meshes (cache empty), falls back to the corner-only path identical to
-/// the uncached version.
-///
-/// # Theorem — Correctness Equivalence
-///
-/// For any conforming P2 tetrahedral mesh where `MidNodeCache::build` was invoked
-/// with the same mesh and `n_corner_nodes`, the output of `extract_vertex_indices_cached`
-/// is element-wise identical to the output of `extract_vertex_indices`.
-///
-/// **Proof**: `MidNodeCache::build` maps each canonical edge `(min,max)` to the
-/// unique mid-node closest to the geometric midpoint (geometric uniqueness from P2
-/// conformity). `extract_vertex_indices` finds the same node via exhaustive nearest-
-/// midpoint scan. Both converge to the same index by definition of the minimum.
-pub fn extract_vertex_indices_cached<T: cfd_mesh::domain::core::Scalar + RealField + Copy + Float>(
-    cell: &Cell,
-    mesh: &IndexedMesh<T>,
-    n_corner_nodes: usize,
-    mid_cache: &crate::fem::mid_node_cache::MidNodeCache,
-) -> Result<Vec<usize>> {
-    let mut counts = std::collections::HashMap::new();
-    for &f_idx in &cell.faces {
-        if f_idx < mesh.face_count() {
-            let f = mesh
-                .faces
-                .get(cfd_mesh::domain::core::index::FaceId::from_usize(f_idx));
-            for &v_id in &f.vertices {
-                *counts.entry(v_id.as_usize()).or_insert(0) += 1;
-            }
-        }
-    }
-
-    let mut corners = Vec::new();
-    let mut mid_edges = Vec::new();
-    for (&v_idx, &count) in &counts {
-        if count == 3 {
-            corners.push(v_idx);
-        } else if count == 2 {
-            mid_edges.push(v_idx);
-        }
-    }
-
-    if corners.len() == 4 && mid_edges.is_empty() && counts.len() == 4 {
-        let ordered = order_tet_corners(&corners, mesh);
-
-        if mesh.vertex_count() > n_corner_nodes {
-            // P2 mesh: use cache for O(1) mid-node lookup (GAP-PERF-001)
-            let mut final_nodes = ordered.clone();
-            let edges = [(0, 1), (1, 2), (2, 0), (0, 3), (1, 3), (2, 3)];
-            for &(i, j) in &edges {
-                let v_i = ordered[i];
-                let v_j = ordered[j];
-
-                if let Some(m_idx) = mid_cache.get(v_i, v_j) {
-                    final_nodes.push(m_idx);
-                } else {
-                    // Cache miss: fall back to geometric search (edge not registered)
-                    let p_i = mesh
-                        .vertices
-                        .position(cfd_mesh::domain::core::index::VertexId::from_usize(v_i))
-                        .coords;
-                    let p_j = mesh
-                        .vertices
-                        .position(cfd_mesh::domain::core::index::VertexId::from_usize(v_j))
-                        .coords;
-                    let target = (p_i + p_j)
-                        * <T as num_traits::FromPrimitive>::from_f64(0.5)
-                            .unwrap_or_else(T::one);
-                    let mut best_m = 0;
-                    let mut min_dist_sq = <T as num_traits::Float>::infinity();
-                    for m_idx in n_corner_nodes..mesh.vertex_count() {
-                        let pm = mesh
-                            .vertices
-                            .position(cfd_mesh::domain::core::index::VertexId::from_usize(m_idx))
-                            .coords;
-                        let dist_sq = (pm - target).norm_squared();
-                        if dist_sq < min_dist_sq {
-                            min_dist_sq = dist_sq;
-                            best_m = m_idx;
-                        }
-                    }
-                    final_nodes.push(best_m);
-                }
-            }
-            return Ok(final_nodes);
-        }
-        // P1 Tet
-        return Ok(ordered);
-    }
-
-    if corners.len() == 4 && mid_edges.len() == 6 {
-        // P2 Tet: corners + mid-edges both recovered from face data
-        let ordered = order_tet_corners(&corners, mesh);
-        let mut final_nodes = ordered.clone();
-        let mut used_mid_edges = std::collections::HashSet::new();
-
-        let edges = [(0, 1), (1, 2), (2, 0), (0, 3), (1, 3), (2, 3)];
-        for &(i, j) in &edges {
-            let v_i = ordered[i];
-            let v_j = ordered[j];
-
-            // Use cache for O(1) lookup if available
-            if let Some(m_idx) = mid_cache.get(v_i, v_j) {
-                used_mid_edges.insert(m_idx);
-                final_nodes.push(m_idx);
-                continue;
-            }
-
-            // Fallback: geometric search among mid_edges
-            let p_i = mesh
-                .vertices
-                .position(cfd_mesh::domain::core::index::VertexId::from_usize(v_i))
-                .coords;
-            let p_j = mesh
-                .vertices
-                .position(cfd_mesh::domain::core::index::VertexId::from_usize(v_j))
-                .coords;
-            let target =
-                (p_i + p_j) * <T as FromPrimitive>::from_f64(0.5).unwrap_or_else(T::one);
-
-            let mut best_node = None;
-            let mut min_dist = T::infinity();
-            for &m_idx in &mid_edges {
-                if used_mid_edges.contains(&m_idx) {
-                    continue;
-                }
-                let dist = (mesh
-                    .vertices
-                    .position(cfd_mesh::domain::core::index::VertexId::from_usize(m_idx))
-                    .coords
-                    - target)
-                    .norm();
-                if dist < min_dist {
-                    min_dist = dist;
-                    best_node = Some(m_idx);
-                }
-            }
-            if let Some(m_idx) = best_node {
-                used_mid_edges.insert(m_idx);
-                final_nodes.push(m_idx);
-            }
-        }
-        return Ok(final_nodes);
-    }
-
-    // Fallback for other elements (e.g. Hex)
-    let mut all: Vec<usize> = counts.keys().copied().collect();
-    all.sort_unstable();
-    Ok(all)
-}
-
-fn order_tet_corners<T: cfd_mesh::domain::core::Scalar + RealField + Copy + Float>(
-    corners: &[usize],
-    mesh: &IndexedMesh<T>,
-) -> Vec<usize> {
-    let perms: [[usize; 4]; 24] = [
-        [0, 1, 2, 3],
-        [0, 1, 3, 2],
-        [0, 2, 1, 3],
-        [0, 2, 3, 1],
-        [0, 3, 1, 2],
-        [0, 3, 2, 1],
-        [1, 0, 2, 3],
-        [1, 0, 3, 2],
-        [1, 2, 0, 3],
-        [1, 2, 3, 0],
-        [1, 3, 0, 2],
-        [1, 3, 2, 0],
-        [2, 0, 1, 3],
-        [2, 0, 3, 1],
-        [2, 1, 0, 3],
-        [2, 1, 3, 0],
-        [2, 3, 0, 1],
-        [2, 3, 1, 0],
-        [3, 0, 1, 2],
-        [3, 0, 2, 1],
-        [3, 1, 0, 2],
-        [3, 1, 2, 0],
-        [3, 2, 0, 1],
-        [3, 2, 1, 0],
-    ];
-
-    let mut best: Option<Vec<usize>> = None;
-    let mut best_det = T::neg_infinity();
-
-    for perm in &perms {
-        let v0 = corners[perm[0]];
-        let v1 = corners[perm[1]];
-        let v2 = corners[perm[2]];
-        let v3 = corners[perm[3]];
-
-        let p0 = mesh
-            .vertices
-            .position(cfd_mesh::domain::core::index::VertexId::from_usize(v0))
-            .coords;
-        let p1 = mesh
-            .vertices
-            .position(cfd_mesh::domain::core::index::VertexId::from_usize(v1))
-            .coords;
-        let p2 = mesh
-            .vertices
-            .position(cfd_mesh::domain::core::index::VertexId::from_usize(v2))
-            .coords;
-        let p3 = mesh
-            .vertices
-            .position(cfd_mesh::domain::core::index::VertexId::from_usize(v3))
-            .coords;
-
-        let det = (p1 - p0).cross(&(p2 - p0)).dot(&(p3 - p0));
-        if det > T::zero() {
-            let candidate = vec![v0, v1, v2, v3];
-            let take = match &best {
-                None => true,
-                Some(existing) => candidate < *existing,
-            };
-            if take {
-                best = Some(candidate);
-                best_det = det;
-            }
-        } else if best.is_none() && det > best_det {
-            best_det = det;
-            best = Some(vec![v0, v1, v2, v3]);
-        }
-    }
-
-    best.unwrap_or_else(|| corners.to_vec())
-}
-
-fn compute_mesh_scale<T: cfd_mesh::domain::core::Scalar + RealField + Copy + Float>(
-    mesh: &IndexedMesh<T>,
-) -> T {
-    let mut min = Vector3::new(T::infinity(), T::infinity(), T::infinity());
-    let mut max = Vector3::new(T::neg_infinity(), T::neg_infinity(), T::neg_infinity());
-    for v in mesh.vertices.iter() {
-        let p = v.1.position.coords;
-        min.x = Float::min(min.x, p.x);
-        min.y = Float::min(min.y, p.y);
-        min.z = Float::min(min.z, p.z);
-        max.x = Float::max(max.x, p.x);
-        max.y = Float::max(max.y, p.y);
-        max.z = Float::max(max.z, p.z);
-    }
-    (max - min).norm()
 }

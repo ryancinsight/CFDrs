@@ -8,8 +8,6 @@ use num_traits::FromPrimitive;
 
 // Named constants
 const ONE: f64 = 1.0;
-const TWO: f64 = 2.0;
-const FOUR: f64 = 4.0;
 
 /// Pressure corrector for PISO algorithm
 pub struct PressureCorrector<T: RealField + Copy> {
@@ -139,15 +137,13 @@ where
                 let visc = fields.viscosity.at(i, j);
                 let density = fields.density.at(i, j);
 
+                let two_t = T::one() + T::one();
+                
                 // Face velocities (using upwind values)
-                let u_e_face = (fields.u.at(i, j) + fields.u.at(i + 1, j))
-                    / T::from_f64(2.0).unwrap_or_else(|| T::one());
-                let u_w_face = (fields.u.at(i - 1, j) + fields.u.at(i, j))
-                    / T::from_f64(2.0).unwrap_or_else(|| T::one());
-                let v_n_face = (fields.v.at(i, j) + fields.v.at(i, j + 1))
-                    / T::from_f64(2.0).unwrap_or_else(|| T::one());
-                let v_s_face = (fields.v.at(i, j - 1) + fields.v.at(i, j))
-                    / T::from_f64(2.0).unwrap_or_else(|| T::one());
+                let u_e_face = (fields.u.at(i, j) + fields.u.at(i + 1, j)) / two_t;
+                let u_w_face = (fields.u.at(i - 1, j) + fields.u.at(i, j)) / two_t;
+                let v_n_face = (fields.v.at(i, j) + fields.v.at(i, j + 1)) / two_t;
+                let v_s_face = (fields.v.at(i, j - 1) + fields.v.at(i, j)) / two_t;
 
                 // Convective fluxes
                 let f_e = density * u_e_face * self.dy;
@@ -162,25 +158,26 @@ where
                 let d_s = visc * self.dx / self.dy;
 
                 // Hybrid differencing scheme coefficients
+                let half = T::one() / (T::one() + T::one());
                 let ae =
                     d_e * T::max(
                         T::zero(),
-                        T::one() - T::from_f64(0.5).unwrap_or_else(|| T::one()) * f_e.abs() / d_e,
+                        T::one() - half * f_e.abs() / d_e,
                     ) + T::max(-f_e, T::zero());
                 let aw =
                     d_w * T::max(
                         T::zero(),
-                        T::one() - T::from_f64(0.5).unwrap_or_else(|| T::one()) * f_w.abs() / d_w,
+                        T::one() - half * f_w.abs() / d_w,
                     ) + T::max(f_w, T::zero());
                 let an =
                     d_n * T::max(
                         T::zero(),
-                        T::one() - T::from_f64(0.5).unwrap_or_else(|| T::one()) * f_n.abs() / d_n,
+                        T::one() - half * f_n.abs() / d_n,
                     ) + T::max(-f_n, T::zero());
                 let as_ =
                     d_s * T::max(
                         T::zero(),
-                        T::one() - T::from_f64(0.5).unwrap_or_else(|| T::one()) * f_s.abs() / d_s,
+                        T::one() - half * f_s.abs() / d_s,
                     ) + T::max(f_s, T::zero());
 
                 // H(u) = -sum(A_nb * u_nb)
@@ -207,7 +204,7 @@ where
         let mass_imbalance = self.calculate_mass_imbalance(fields, i, j);
 
         // Add H(u) correction terms
-        let two_t = T::from_f64(TWO).unwrap_or_else(|| T::one() + T::one());
+        let two_t = T::one() + T::one();
         let h_correction_x =
             (h_operator.at(i + 1, j).x - h_operator.at(i - 1, j).x) / (two_t * self.dx);
         let h_correction_y =
@@ -288,9 +285,8 @@ where
     fn update_face_fluxes(&self, fields: &mut SimulationFields<T>) {
         for i in 1..self.nx - 1 {
             for j in 1..self.ny - 1 {
-                let two_t = T::from_f64(TWO).unwrap_or_else(|| T::one() + T::one());
-                let four_t =
-                    T::from_f64(FOUR).unwrap_or_else(|| T::from_f64(4.0).unwrap_or_else(T::one));
+                let two_t = T::one() + T::one();
+                let four_t = two_t + two_t;
 
                 // d_f = Volume / A_p (A_p approximated from viscous diffusion: ν/Δx)
                 let d_u = self.dx * self.dy / (fields.viscosity.at(i, j) * four_t);

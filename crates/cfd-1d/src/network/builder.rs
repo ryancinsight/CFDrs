@@ -85,17 +85,38 @@ where
             ))
         })?;
 
+        if ch_spec.resistance < 0.0 || !ch_spec.resistance.is_finite() {
+            return Err(cfd_core::error::Error::InvalidConfiguration(format!(
+                "Channel '{}' has invalid resistance: {}",
+                ch_spec.id.as_str(),
+                ch_spec.resistance
+            )));
+        }
         let seed_r = T::from_f64(ch_spec.resistance.max(f64::EPSILON))
-            .unwrap_or_else(T::default_epsilon);
+            .ok_or_else(|| cfd_core::error::Error::InvalidConfiguration("Numeric conversion failed for resistance".to_string()))?;
         let mut edge = Edge::new(ch_spec.id.as_str().to_string(), ch_spec.kind);
         edge.resistance = seed_r;
         edge.area = match ch_spec.cross_section {
             CrossSectionSpec::Circular { diameter_m } => {
+                if diameter_m <= 0.0 || !diameter_m.is_finite() {
+                    return Err(cfd_core::error::Error::InvalidConfiguration(format!(
+                        "Channel '{}' has invalid circular diameter: {}",
+                        ch_spec.id.as_str(),
+                        diameter_m
+                    )));
+                }
                 T::from_f64(std::f64::consts::PI * (diameter_m / 2.0).powi(2))
-                    .unwrap_or(T::zero())
+                    .ok_or_else(|| cfd_core::error::Error::InvalidConfiguration("Numeric conversion failed for area".to_string()))?
             }
             CrossSectionSpec::Rectangular { width_m, height_m } => {
-                T::from_f64(width_m * height_m).unwrap_or(T::zero())
+                if width_m <= 0.0 || !width_m.is_finite() || height_m <= 0.0 || !height_m.is_finite() {
+                    return Err(cfd_core::error::Error::InvalidConfiguration(format!(
+                        "Channel '{}' has invalid rectangular dimensions: {}x{}",
+                        ch_spec.id.as_str(), width_m, height_m
+                    )));
+                }
+                T::from_f64(width_m * height_m)
+                    .ok_or_else(|| cfd_core::error::Error::InvalidConfiguration("Numeric conversion failed for area".to_string()))?
             }
         };
 
@@ -109,32 +130,45 @@ where
     let calculator: ResistanceCalculator<T> = ResistanceCalculator::new();
 
     for (edge_idx, ch_spec) in &edge_specs {
-        let length     = T::from_f64(ch_spec.length_m).unwrap_or(T::zero());
+        if ch_spec.length_m <= 0.0 || !ch_spec.length_m.is_finite() {
+             return Err(cfd_core::error::Error::InvalidConfiguration(format!(
+                 "Channel '{}' has invalid length: {}",
+                 ch_spec.id.as_str(),
+                 ch_spec.length_m
+             )));
+        }
+        let length = T::from_f64(ch_spec.length_m)
+             .ok_or_else(|| cfd_core::error::Error::InvalidConfiguration("Numeric conversion failed for length".to_string()))?;
+             
         let (area, dh, cross_section, res_geom) = match ch_spec.cross_section {
             CrossSectionSpec::Circular { diameter_m } => {
-                let d  = T::from_f64(diameter_m).unwrap_or(T::zero());
-                let a  = T::from_f64(std::f64::consts::PI * (diameter_m / 2.0).powi(2))
-                    .unwrap_or(T::zero());
+                let d = T::from_f64(diameter_m)
+                     .ok_or_else(|| cfd_core::error::Error::InvalidConfiguration("Numeric conversion failed for diameter".to_string()))?;
+                let a = T::from_f64(std::f64::consts::PI * (diameter_m / 2.0).powi(2))
+                     .ok_or_else(|| cfd_core::error::Error::InvalidConfiguration("Numeric conversion failed for area".to_string()))?;
                 (
                     a,
                     Some(d),
                     CrossSection::Circular { diameter: d },
-                    ResGeometry::Circular { diameter: T::from_f64(diameter_m).unwrap_or(T::zero()), length },
+                    ResGeometry::Circular { diameter: d, length },
                 )
             }
             CrossSectionSpec::Rectangular { width_m, height_m } => {
-                let w  = T::from_f64(width_m).unwrap_or(T::zero());
-                let h  = T::from_f64(height_m).unwrap_or(T::zero());
-                let a  = T::from_f64(width_m * height_m).unwrap_or(T::zero());
+                let w = T::from_f64(width_m)
+                     .ok_or_else(|| cfd_core::error::Error::InvalidConfiguration("Numeric conversion failed for width".to_string()))?;
+                let h = T::from_f64(height_m)
+                     .ok_or_else(|| cfd_core::error::Error::InvalidConfiguration("Numeric conversion failed for height".to_string()))?;
+                let a = T::from_f64(width_m * height_m)
+                     .ok_or_else(|| cfd_core::error::Error::InvalidConfiguration("Numeric conversion failed for area".to_string()))?;
                 let dh = T::from_f64(2.0 * width_m * height_m / (width_m + height_m))
-                    .unwrap_or(T::zero());
+                     .ok_or_else(|| cfd_core::error::Error::InvalidConfiguration("Numeric conversion failed for hydraulic diameter".to_string()))?;
                 (
                     a,
                     Some(dh),
                     CrossSection::Rectangular { width: w, height: h },
                     ResGeometry::Rectangular {
-                        width: T::from_f64(width_m).unwrap_or(T::zero()),
-                        height: T::from_f64(height_m).unwrap_or(T::zero()),
+                        width: w,
+                        height: h,
                         length,
                     },
                 )
@@ -286,7 +320,7 @@ where
                     // Skip degenerate non-positive areas to avoid dividing by zero.
                     if area_sq > T::zero() {
                         let k_correction = k_branch_t * rho_blood / (two * area_sq);
-                        edge.quad_coeff = edge.quad_coeff + k_correction;
+                        edge.quad_coeff += k_correction;
                     }
                 }
             }
@@ -297,7 +331,7 @@ where
                     let area_sq = edge.area * edge.area;
                     if area_sq > T::zero() {
                         let k_correction = k_run_t * rho_blood / (two * area_sq);
-                        edge.quad_coeff = edge.quad_coeff + k_correction;
+                        edge.quad_coeff += k_correction;
                     }
                 }
             }
@@ -329,8 +363,18 @@ where
                 continue;
             };
 
-            let length_t = T::from_f64(ch_spec.length_m).unwrap_or(T::zero());
-            let bend_r = T::from_f64(bend_radius_m).unwrap_or(T::one());
+            let length_t = T::from_f64(ch_spec.length_m)
+                 .ok_or_else(|| cfd_core::error::Error::InvalidConfiguration(format!("Numeric conversion failed for length {}", ch_spec.id.as_str())))?;
+            let bend_r = if bend_radius_m <= 0.0 || !bend_radius_m.is_finite() {
+                return Err(cfd_core::error::Error::InvalidConfiguration(format!(
+                    "Channel '{}' has invalid serpentine bend radius: {}",
+                    ch_spec.id.as_str(),
+                    bend_radius_m
+                )));
+            } else {
+                T::from_f64(bend_radius_m)
+                    .ok_or_else(|| cfd_core::error::Error::InvalidConfiguration("Numeric conversion failed for bend_radius".to_string()))?
+            };
 
             let cross_section = match ch_spec.cross_section {
                 CrossSectionSpec::Circular { diameter_m } => {

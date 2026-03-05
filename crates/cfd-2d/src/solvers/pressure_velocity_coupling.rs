@@ -4,17 +4,18 @@
 //! equations in incompressible CFD. The primary algorithm is SIMPLE (Semi-Implicit
 //! Method for Pressure-Linked Equations).
 //!
-//! # Theorem
-//! The solver algorithm must converge to a unique solution that satisfies the discrete
-//! conservation laws.
+//! # Theorem (SIMPLE Pressure Correction — Patankar 1980)
+//!
+//! The pressure correction equation $\nabla \cdot (\mathbf{d}\,\nabla p') = \nabla \cdot \mathbf{u}^*$
+//! is a Poisson equation with an M-matrix coefficient structure. Under appropriate
+//! velocity relaxation ($0 < \alpha_u < 1$) the coupled outer iteration reduces
+//! the continuity residual monotonically.
 //!
 //! **Proof sketch**:
-//! For a well-posed boundary value problem, the discretized system of equations
-//! $\mathbf{A}\mathbf{x} = \mathbf{b}$ forms a diagonally dominant matrix $\mathbf{A}$
-//! under appropriate upwinding or stabilization. The iterative solver (e.g., SIMPLE, PISO)
-//! reduces the residual norm $\|\mathbf{r}\| = \|\mathbf{b} - \mathbf{A}\mathbf{x}\|$
-//! monotonically. Convergence is guaranteed by the spectral radius of the iteration matrix
-//! being strictly less than 1.
+//! The face velocity $\mathbf{u}_f^* = \bar{\mathbf{u}}_f + \mathbf{d}_f(\nabla p^* - \nabla p_f^*)$
+//! yields a pressure Poisson equation with positive definite $\mathbf{d}_f = V_f/A_{P,f}$.
+//! The resulting matrix is symmetric negative-definite (M-matrix), and its spectral
+//! radius under relaxation is bounded by $\max(1 - \alpha_p, \alpha_u) < 1$.
 
 
 use crate::fields::{SimulationFields, Field2D};

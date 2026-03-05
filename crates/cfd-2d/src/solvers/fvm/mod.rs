@@ -1,16 +1,21 @@
-//! Finite Volume Method (FVM) solver for 2D CFD simulations
+//! Finite Volume Method (FVM) solver for 2D CFD simulations.
 //!
-//! # Theorem
-//! The solver algorithm must converge to a unique solution that satisfies the discrete
-//! conservation laws.
+//! # Theorem (FVM Discrete Conservation — Godunov 1959, LeVeque 2002)
+//!
+//! A finite volume discretization satisfies exact discrete conservation:
+//! the integral of the conserved quantity over the domain changes only
+//! through boundary fluxes, not through internal discretization error.
 //!
 //! **Proof sketch**:
-//! For a well-posed boundary value problem, the discretized system of equations
-//! $\mathbf{A}\mathbf{x} = \mathbf{b}$ forms a diagonally dominant matrix $\mathbf{A}$
-//! under appropriate upwinding or stabilization. The iterative solver (e.g., SIMPLE, PISO)
-//! reduces the residual norm $\|\mathbf{r}\| = \|\mathbf{b} - \mathbf{A}\mathbf{x}\|$
-//! monotonically. Convergence is guaranteed by the spectral radius of the iteration matrix
-//! being strictly less than 1.
+//! The FVM integrates the divergence form of the conservation law
+//! $\partial \phi / \partial t + \nabla \cdot \mathbf{F} = S$ over each control volume
+//! $\Omega_i$, yielding $\frac{d}{dt}\int_{\Omega_i}\phi\,dV = -\oint_{\partial\Omega_i}\mathbf{F}\cdot\mathbf{n}\,dA + \int_{\Omega_i}S\,dV$.
+//!
+//! Summing over all internal cells, each interior face flux appears exactly twice with
+//! opposite signs (once for each adjacent cell), so all internal fluxes cancel
+//! telescopically. The global change therefore equals the sum of boundary fluxes
+//! plus source terms — i.e., exact discrete conservation regardless of mesh
+//! resolution or flux scheme accuracy.
 
 pub mod config;
 pub mod flux;

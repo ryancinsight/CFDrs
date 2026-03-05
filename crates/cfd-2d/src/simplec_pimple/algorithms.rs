@@ -171,7 +171,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
         let mut u_prev = self.extract_velocity_field(fields);
         let mut u_star = vec![vec![Vector2::zeros(); self.grid.ny]; self.grid.nx];
         let mut u_corrected = vec![vec![Vector2::zeros(); self.grid.ny]; self.grid.nx];
-        let mut continuity_residual = T::max_value().unwrap();
+        let mut continuity_residual = T::max_value().unwrap_or_else(|| T::from_f64(1e30).unwrap_or_else(T::one));
 
         for iter in 0..max_iterations {
             // Step 1: Solve momentum equations for predicted velocities u*
@@ -187,8 +187,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
             // a_P = Σ(a_nb) + ρV/Δt, NOT the consistent coefficient a_P^c = ρV/Δt.
             if let Some(ref mut rhie_chow) = self.rhie_chow {
                 let (ap_full_u, _, ap_full_v, _) = self.momentum_solver.get_ap_coefficients();
-                rhie_chow.update_u_coefficients(&ap_full_u);
-                rhie_chow.update_v_coefficients(&ap_full_v);
+                rhie_chow.update_u_coefficients(ap_full_u);
+                rhie_chow.update_v_coefficients(ap_full_v);
             }
 
             // Step 3: Extract predicted velocity field u*
@@ -212,8 +212,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
                 self.pressure_solver.correct_velocity(
                     &mut u_corrected,
                     &p_correction,
-                    &ap_c_u,
-                    &ap_c_v,
+                    ap_c_u,
+                    ap_c_v,
                     rho,
                     T::one(),
                     fields,
@@ -318,8 +318,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
 
             if let Some(ref mut rhie_chow) = self.rhie_chow {
                 let (ap_full_u, _, ap_full_v, _) = self.momentum_solver.get_ap_coefficients();
-                rhie_chow.update_u_coefficients(&ap_full_u);
-                rhie_chow.update_v_coefficients(&ap_full_v);
+                rhie_chow.update_u_coefficients(ap_full_u);
+                rhie_chow.update_v_coefficients(ap_full_v);
             }
 
             for i in 0..self.grid.nx {
@@ -332,8 +332,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
             for _inner_iter in 0..self.config.n_inner_correctors {
                 if let Some(ref mut rhie_chow) = self.rhie_chow {
                     let (ap_full_u, _, ap_full_v, _) = self.momentum_solver.get_ap_coefficients();
-                    rhie_chow.update_u_coefficients(&ap_full_u);
-                    rhie_chow.update_v_coefficients(&ap_full_v);
+                    rhie_chow.update_u_coefficients(ap_full_u);
+                    rhie_chow.update_v_coefficients(ap_full_v);
                 }
 
                 let p_correction = self.solve_pressure_correction(fields, dt, rho)?;
@@ -348,8 +348,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
                     self.pressure_solver.correct_velocity(
                         &mut u_corrected,
                         &p_correction,
-                        &ap_c_u,
-                        &ap_c_v,
+                        ap_c_u,
+                        ap_c_v,
                         rho,
                         T::one(),
                         fields,

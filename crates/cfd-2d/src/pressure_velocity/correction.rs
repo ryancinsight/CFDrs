@@ -57,7 +57,7 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
             // Hot-path optimization: $A_c = R A_f P$
             // Recalculates coarse matrices exactly mapping changing continuity coefficients
             // while bypassing O(N) Ruge-Stüben strong-connection heuristics.
-            let _ = amg_cache.as_mut().unwrap().recompute(matrix);
+            let _ = amg_cache.as_mut().expect("guarded by is_none check").recompute(matrix);
         }
 
         let amg_preconditioner: Option<&AlgebraicMultigrid<T>> = amg_cache.as_ref();

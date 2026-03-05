@@ -3,15 +3,22 @@
 //! This solver uses the vorticity-stream function approach which automatically
 //! satisfies continuity and reduces the number of variables.
 //!
-//! # Theorem
-//! The component must maintain strict mathematical invariants corresponding to its physical
-//! or numerical role.
+//! # Theorem (Vorticity-Stream Function Equivalence)
+//!
+//! In 2D, defining $u = \partial\psi/\partial y$, $v = -\partial\psi/\partial x$
+//! automatically satisfies $\nabla \cdot \mathbf{u} = 0$. The vorticity transport
+//! equation $\partial\omega/\partial t + (\mathbf{u}\cdot\nabla)\omega = \nu\nabla^2\omega$
+//! with the Poisson relation $\nabla^2\psi = -\omega$ is equivalent to the full
+//! incompressible Navier-Stokes equations.
 //!
 //! **Proof sketch**:
-//! Every operation within this module is designed to preserve the underlying mathematical
-//! properties of the system, such as mass conservation, energy positivity, or topological
-//! consistency. By enforcing these invariants at the discrete level, the implementation
-//! guarantees stability and physical realism.
+//! Taking the curl of the 2D momentum equation eliminates the pressure gradient
+//! (since $\nabla \times \nabla p = 0$), yielding the vorticity transport equation.
+//! The stream function recovers velocity via its definition, and continuity
+//! $\partial^2\psi/\partial x\partial y - \partial^2\psi/\partial y\partial x = 0$
+//! is satisfied identically by Schwarz's theorem. The Poisson equation for $\psi$
+//! is solved with SOR (spectral radius $< 1$ for $1 < \omega_{SOR} < 2$),
+//! converging at rate $O(h^{-1})$ with optimal relaxation $\omega^* \approx 2/(1 + \sin(\pi h))$.
 
 use crate::grid::StructuredGrid2D;
 use cfd_core::error::Result;

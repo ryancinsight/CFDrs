@@ -3,14 +3,13 @@
 //! Reference: Issa, R.I. (1986) "Solution of the implicitly discretised fluid flow
 //! equations by operator-splitting", Journal of Computational Physics, 62(1), 40-65
 //!
-//! # Theorem
-//! The component must maintain strict mathematical invariants corresponding to its physical
-//! or numerical role.
+//! # Theorem (PISO Splitting Error — Issa 1986)
+//!
+//! After $m$ corrector steps the splitting error is $O(\Delta t^{m+1})$.
+//! Two correctors ($m = 2$) therefore preserve second-order temporal accuracy.
 //!
 //! **Proof sketch**:
-//! Every operation within this module is designed to preserve the underlying mathematical
-//! properties of the system, such as mass conservation, energy positivity, or topological
-//! consistency. By enforcing these invariants at the discrete level, the implementation
+//! See the detailed proof in [`solver`].
 //! guarantees stability and physical realism.
 
 pub mod config;

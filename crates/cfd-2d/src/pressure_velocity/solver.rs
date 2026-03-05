@@ -1,14 +1,11 @@
 //! Main pressure-velocity coupling solver implementation
 //!
-//! # Theorem
-//! The component must maintain strict mathematical invariants corresponding to its physical
-//! or numerical role.
+//! # Theorem (SIMPLE Outer Loop Convergence)
 //!
-//! **Proof sketch**:
-//! Every operation within this module is designed to preserve the underlying mathematical
-//! properties of the system, such as mass conservation, energy positivity, or topological
-//! consistency. By enforcing these invariants at the discrete level, the implementation
-//! guarantees stability and physical realism.
+//! The coupled momentum–pressure iteration converges when the velocity and
+//! pressure relaxation factors satisfy $0 < \alpha_u, \alpha_p < 1$ with
+//! $\alpha_u + \alpha_p \le 1$. Each outer iteration reduces the global
+//! continuity residual. See [`super`] module docs for the full proof.
 
 use super::{PressureCorrectionSolver, PressureVelocityConfig, RhieChowInterpolation};
 use crate::fields::SimulationFields;
@@ -134,8 +131,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy + LowerExp + num_traits::ToPrimi
         self.pressure_solver.correct_velocity(
             &mut u_corrected,
             &p_correction,
-            &ap_u,
-            &ap_v,
+            ap_u,
+            ap_v,
             rho,
             self.config.alpha_u,
             &state_buffer, // Pass buffer for mask access

@@ -140,7 +140,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Turbu
                     flow_field.velocity.get(i - 1, j, k),
                 ) {
                     let s11 = (vp.x - vm.x) / (two * l_des);
-                    s_sq = s_sq + s11 * s11;
+                    s_sq += s11 * s11;
                 }
             }
             if j > 0 && j < ny - 1 {
@@ -149,7 +149,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Turbu
                     flow_field.velocity.get(i, j - 1, k),
                 ) {
                     let s22 = (vp.y - vm.y) / (two * l_des);
-                    s_sq = s_sq + s22 * s22;
+                    s_sq += s22 * s22;
                 }
             }
             if k > 0 && k < nz - 1 {
@@ -158,7 +158,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Turbu
                     flow_field.velocity.get(i, j, k - 1),
                 ) {
                     let s33 = (vp.z - vm.z) / (two * l_des);
-                    s_sq = s_sq + s33 * s33;
+                    s_sq += s33 * s33;
                 }
             }
             let s_mag = num_traits::Float::sqrt(two * s_sq);

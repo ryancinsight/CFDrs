@@ -57,7 +57,7 @@ pub fn iso_discharge_coefficient<
     _pipe_roughness: T,
     _d_inlet: T,
 ) -> T {
-    <T as FromPrimitive>::from_f64(0.995).unwrap()
+    <T as FromPrimitive>::from_f64(0.995).unwrap_or_else(T::one)
 }
 
 // ============================================================================
@@ -99,7 +99,7 @@ impl<
         // We'll trust solver.u_inlet * A_in vs solution.u_throat * A_throat vs Q_in
 
         let a_inlet = if config.circular {
-            <T as FromPrimitive>::from_f64(std::f64::consts::PI / 4.0).unwrap()
+            <T as FromPrimitive>::from_f64(std::f64::consts::PI / 4.0).unwrap_or_else(T::one)
                 * self.mesh_builder.d_inlet
                 * self.mesh_builder.d_inlet
         } else {
@@ -107,7 +107,7 @@ impl<
         };
 
         let a_throat = if config.circular {
-            <T as FromPrimitive>::from_f64(std::f64::consts::PI / 4.0).unwrap()
+            <T as FromPrimitive>::from_f64(std::f64::consts::PI / 4.0).unwrap_or_else(T::one)
                 * self.mesh_builder.d_throat
                 * self.mesh_builder.d_throat
         } else {
@@ -134,7 +134,7 @@ impl<
         let u_in_avg = actual_flow / a_inlet;
         let area_ratio = a_inlet / a_throat; // > 1
 
-        let dp_bernoulli = <T as FromPrimitive>::from_f64(0.5).unwrap()
+        let dp_bernoulli = <T as FromPrimitive>::from_f64(0.5).unwrap_or_else(T::one)
             * fluid_density
             * u_in_avg
             * u_in_avg
@@ -145,7 +145,7 @@ impl<
         // For viscous flow, dp_actual >= dp_bernoulli in physically admissible solutions.
         // Allow tolerance for P1 discretization and non-uniform velocity profile effects.
         let error_dp = (dp_actual - dp_bernoulli) / dp_bernoulli;
-        let numerical_tol = <T as FromPrimitive>::from_f64(0.10).unwrap();
+        let numerical_tol = <T as FromPrimitive>::from_f64(0.10).unwrap_or_else(T::zero);
 
         // 3. Pressure Recovery Check
         // Should recover some pressure. dp_recovery (p_out - p_in) is normally negative (loss).

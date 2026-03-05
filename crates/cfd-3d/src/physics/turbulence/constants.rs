@@ -63,7 +63,7 @@ pub const SA_CV1: f64 = 7.1;
 /// SA destruction constant C_w1 = C_b1/κ² + (1 + C_b2)/σ.
 /// Pre-computed: 0.1355/0.1681 + 1.622/0.6667 ≈ 3.239.
 #[allow(dead_code)]
-pub const SA_CW1: f64 = 3.2390_678_172_680_56;
+pub const SA_CW1: f64 = 3.239_067_817_268_056;
 
 /// SA destruction shape constant C_w2 = 0.3.
 #[allow(dead_code)]

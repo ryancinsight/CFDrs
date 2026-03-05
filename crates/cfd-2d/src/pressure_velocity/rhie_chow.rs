@@ -69,15 +69,7 @@
 //! - Majumdar, S. (1988). "Role of underrelaxation in momentum interpolation for
 //!   calculation of flow with nonstaggered grids." *Numerical Heat Transfer*, 13(2), 125-132.
 //!
-//! # Theorem
-//! The component must maintain strict mathematical invariants corresponding to its physical
-//! or numerical role.
-//!
-//! **Proof sketch**:
-//! Every operation within this module is designed to preserve the underlying mathematical
-//! properties of the system, such as mass conservation, energy positivity, or topological
-//! consistency. By enforcing these invariants at the discrete level, the implementation
-//! guarantees stability and physical realism.
+//! See the Rhie-Chow Consistency theorem and proof in the struct-level documentation below.
 
 use crate::constants::numerical::TWO;
 use crate::fields::Field2D;
@@ -349,5 +341,114 @@ impl<T: RealField + Copy + FromPrimitive + Copy> RhieChowInterpolation<T> {
         }
 
         v_f
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn make_grid() -> StructuredGrid2D<f64> {
+        StructuredGrid2D::new(6, 6, 0.0, 5.0, 0.0, 5.0).unwrap()
+    }
+
+    #[test]
+    fn test_new_coefficients_default_to_one() {
+        let grid = make_grid();
+        let rc = RhieChowInterpolation::new(&grid);
+        // Default ap coefficients should be 1.0
+        for i in 0..6 {
+            for j in 0..6 {
+                assert!(
+                    (rc.ap_u_coefficients.at(i, j) - 1.0).abs() < 1e-14,
+                    "ap_u default should be 1.0"
+                );
+                assert!(
+                    (rc.ap_v_coefficients.at(i, j) - 1.0).abs() < 1e-14,
+                    "ap_v default should be 1.0"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_update_coefficients_clamps_tiny_values() {
+        let grid = make_grid();
+        let mut rc = RhieChowInterpolation::new(&grid);
+        let mut ap = Field2D::new(6, 6, 5.0);
+        // Set one cell to a tiny value — should be ignored
+        if let Some(v) = ap.at_mut(2, 2) {
+            *v = 1e-15;
+        }
+        rc.update_u_coefficients(&ap);
+        // Cell (2,2) should keep the default 1.0 (tiny value rejected)
+        assert!(
+            (rc.ap_u_coefficients.at(2, 2) - 1.0).abs() < 1e-14,
+            "Tiny ap should be rejected"
+        );
+        // Cell (3,3) should be updated to 5.0
+        assert!(
+            (rc.ap_u_coefficients.at(3, 3) - 5.0).abs() < 1e-14,
+            "Valid ap should be updated"
+        );
+    }
+
+    #[test]
+    fn test_d_face_x_harmonic_average() {
+        let grid = make_grid();
+        let mut rc = RhieChowInterpolation::new(&grid);
+        let mut ap = Field2D::new(6, 6, 1.0);
+        if let Some(v) = ap.at_mut(1, 2) {
+            *v = 2.0;
+        }
+        if let Some(v) = ap.at_mut(2, 2) {
+            *v = 4.0;
+        }
+        rc.update_u_coefficients(&ap);
+
+        let dx = grid.dx;
+        let dy = grid.dy;
+        let d = rc.d_face_x(1, 2, dx, dy);
+        // volume = dx*dy, d_p = vol/2, d_e = vol/4
+        // harmonic = 2 * (vol/2) * (vol/4) / (vol/2 + vol/4) = 2 * vol²/8 / (3vol/4) = vol/3
+        let vol = dx * dy;
+        let expected = vol / 3.0;
+        assert!(
+            (d - expected).abs() < 1e-10,
+            "Harmonic average mismatch: expected {expected}, got {d}"
+        );
+    }
+
+    #[test]
+    fn test_face_velocity_x_uniform_pressure() {
+        // Uniform pressure => no correction, face velocity = average of neighbors
+        let grid = make_grid();
+        let rc = RhieChowInterpolation::new(&grid);
+        let p = Field2D::new(6, 6, 10.0); // uniform pressure
+        let mut u = Field2D::new(6, 6, Vector2::zeros());
+        if let Some(v) = u.at_mut(2, 2) {
+            *v = Vector2::new(3.0, 0.0);
+        }
+        if let Some(v) = u.at_mut(3, 2) {
+            *v = Vector2::new(5.0, 0.0);
+        }
+
+        let uf = rc.face_velocity_x(&u, &p, grid.dx, grid.dy, None, 2, 2);
+        // For uniform pressure, dp_dx_cells ≈ dp_dx_face, so correction ≈ 0
+        // face velocity ≈ (3+5)/2 = 4.0
+        assert!(
+            (uf - 4.0).abs() < 1e-6,
+            "Uniform pressure face velocity should be 4.0, got {uf}"
+        );
+    }
+
+    #[test]
+    fn test_has_old_velocity_flag() {
+        let grid = make_grid();
+        let mut rc = RhieChowInterpolation::new(&grid);
+        assert!(!rc.has_old_velocity, "Should start without old velocity");
+        let u_old = Field2D::new(6, 6, Vector2::zeros());
+        rc.update_old_velocity(&u_old);
+        assert!(rc.has_old_velocity, "Should have old velocity after update");
     }
 }

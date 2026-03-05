@@ -2,15 +2,18 @@
 //!
 //! Provides proper implementation of schemes requiring more than nearest neighbors
 //!
-//! # Theorem
-//! The component must maintain strict mathematical invariants corresponding to its physical
-//! or numerical role.
+//! # Theorem (Bramble–Hilbert Approximation Order)
+//!
+//! An $(n+1)$-point symmetric stencil on a uniform grid can achieve at most
+//! $O(\Delta x^n)$ accuracy for a first derivative and $O(\Delta x^{n-1})$
+//! for a second derivative.
 //!
 //! **Proof sketch**:
-//! Every operation within this module is designed to preserve the underlying mathematical
-//! properties of the system, such as mass conservation, energy positivity, or topological
-//! consistency. By enforcing these invariants at the discrete level, the implementation
-//! guarantees stability and physical realism.
+//! The stencil coefficients $c_k$ must satisfy the moment conditions
+//! $\sum_k c_k k^m = \delta_{m,d}$ for $m = 0, \ldots, n$ (where $d$ is the
+//! derivative order). This system has a unique solution by Vandermonde
+//! invertibility. The first unmatched moment $m = n+1$ gives the leading
+//! truncation error $O(\Delta x^{n+1-d})$.
 
 use nalgebra::RealField;
 use num_traits::FromPrimitive;

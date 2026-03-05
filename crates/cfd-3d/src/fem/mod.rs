@@ -25,6 +25,7 @@ pub mod config;
 pub mod constants;
 pub mod element;
 pub mod fluid;
+pub mod mesh_utils;
 pub mod mid_node_cache;
 pub mod problem;
 pub mod projection_solver;

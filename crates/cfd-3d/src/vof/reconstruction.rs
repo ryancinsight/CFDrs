@@ -121,10 +121,10 @@ impl InterfaceReconstruction {
 
                                 let interface_lower =
                                     <T as FromPrimitive>::from_f64(VOF_INTERFACE_LOWER)
-                                        .expect("Failed to represent VOF_INTERFACE_LOWER constant");
+                                        .unwrap_or_else(T::zero);
                                 let interface_upper =
                                     <T as FromPrimitive>::from_f64(VOF_INTERFACE_UPPER)
-                                        .expect("Failed to represent VOF_INTERFACE_UPPER constant");
+                                        .unwrap_or_else(T::one);
 
                                 if alpha > interface_lower && alpha < interface_upper {
                                     match self {
@@ -138,7 +138,7 @@ impl InterfaceReconstruction {
                                             let epsilon = <T as FromPrimitive>::from_f64(
                                                 VOF_EPSILON,
                                             )
-                                            .expect("Failed to represent VOF_EPSILON constant");
+                                            .unwrap_or_else(T::zero);
                                             if normal.norm() > epsilon {
                                                 solver.normals[idx] = normal.normalize();
                                             } else {
@@ -167,7 +167,7 @@ impl InterfaceReconstruction {
         j: usize,
         k: usize,
     ) -> Vector3<T> {
-        let two = <T as FromPrimitive>::from_f64(2.0).expect("Failed to represent constant 2.0");
+        let two = <T as FromPrimitive>::from_f64(2.0).unwrap_or_else(T::one);
 
         let dx = (solver.alpha[solver.index(i + 1, j, k)]
             - solver.alpha[solver.index(i - 1, j, k)])
@@ -203,7 +203,7 @@ impl InterfaceReconstruction {
         // 1. Interface normal from gradient
         let mut normal = self.calculate_gradient(solver, i, j, k);
         let epsilon = <T as FromPrimitive>::from_f64(VOF_EPSILON)
-            .expect("Failed to represent VOF_EPSILON constant");
+            .unwrap_or_else(T::zero);
 
         if normal.norm() > epsilon {
             normal = normal.normalize();
@@ -240,8 +240,8 @@ impl InterfaceReconstruction {
             Float::abs(normal.x) * dx + Float::abs(normal.y) * dy + Float::abs(normal.z) * dz;
 
         let tolerance = <T as FromPrimitive>::from_f64(constants::PLIC_TOLERANCE)
-            .expect("Failed to represent PLIC_TOLERANCE constant");
-        let half = <T as FromPrimitive>::from_f64(0.5).expect("Failed to represent constant 0.5");
+            .unwrap_or_else(T::zero);
+        let half = <T as FromPrimitive>::from_f64(0.5).unwrap_or_else(T::one);
 
         // Bisect until interval < tolerance × cell_size
         while (c_max - c_min) > tolerance {
@@ -271,11 +271,11 @@ impl InterfaceReconstruction {
         self,
         solver: &mut VofSolver<T>,
     ) {
-        let two = <T as FromPrimitive>::from_f64(2.0).expect("Failed to represent constant 2.0");
+        let two = <T as FromPrimitive>::from_f64(2.0).unwrap_or_else(T::one);
         let interface_lower = <T as FromPrimitive>::from_f64(VOF_INTERFACE_LOWER)
-            .expect("Failed to represent VOF_INTERFACE_LOWER constant");
+            .unwrap_or_else(T::zero);
         let interface_upper = <T as FromPrimitive>::from_f64(VOF_INTERFACE_UPPER)
-            .expect("Failed to represent VOF_INTERFACE_UPPER constant");
+            .unwrap_or_else(T::one);
 
         for k_block in (1..solver.nz - 1).step_by(CACHE_BLOCK_SIZE_K) {
             for j_block in (1..solver.ny - 1).step_by(CACHE_BLOCK_SIZE_J) {

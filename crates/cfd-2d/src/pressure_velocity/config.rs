@@ -1,14 +1,9 @@
 //! Configuration for STANDARD algorithm
 //!
-//! # Theorem
-//! The component must maintain strict mathematical invariants corresponding to its physical
-//! or numerical role.
+//! # Invariant
 //!
-//! **Proof sketch**:
-//! Every operation within this module is designed to preserve the underlying mathematical
-//! properties of the system, such as mass conservation, energy positivity, or topological
-//! consistency. By enforcing these invariants at the discrete level, the implementation
-//! guarantees stability and physical realism.
+//! Default relaxation factors satisfy the Patankar stability constraint
+//! $\alpha_u + \alpha_p \le 1$ (typically $\alpha_u = 0.7$, $\alpha_p = 0.3$).
 
 use nalgebra::RealField;
 use num_traits::FromPrimitive;

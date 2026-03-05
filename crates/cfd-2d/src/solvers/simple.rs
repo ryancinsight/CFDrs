@@ -3,17 +3,23 @@
 //! This module implements the SIMPLE algorithm for pressure-velocity coupling
 //! in incompressible CFD.
 //!
-//! # Theorem
-//! The solver algorithm must converge to a unique solution that satisfies the discrete
-//! conservation laws.
+//! # Theorem (SIMPLE Convergence — Patankar 1980)
+//!
+//! The SIMPLE algorithm converges to the solution of the coupled momentum-pressure
+//! system provided the under-relaxation factors satisfy $0 < \alpha_u < 1$ and
+//! $0 < \alpha_p < 1$ with $\alpha_u + \alpha_p \le 1$.
 //!
 //! **Proof sketch**:
-//! For a well-posed boundary value problem, the discretized system of equations
-//! $\mathbf{A}\mathbf{x} = \mathbf{b}$ forms a diagonally dominant matrix $\mathbf{A}$
-//! under appropriate upwinding or stabilization. The iterative solver (e.g., SIMPLE, PISO)
-//! reduces the residual norm $\|\mathbf{r}\| = \|\mathbf{b} - \mathbf{A}\mathbf{x}\|$
-//! monotonically. Convergence is guaranteed by the spectral radius of the iteration matrix
-//! being strictly less than 1.
+//! SIMPLE decomposes the coupled $(\mathbf{u}, p)$ system into sequential solves:
+//! 1. Solve momentum with guessed $p^*$ to obtain $\mathbf{u}^*$
+//! 2. Derive pressure correction $p'$ from the continuity constraint $\nabla \cdot \mathbf{u} = 0$
+//! 3. Correct: $p = p^* + \alpha_p p'$, $\mathbf{u} = \mathbf{u}^* + \mathbf{d}\,p'$
+//!
+//! The pressure correction equation is an M-matrix (diagonal dominance from $1/A_P$
+//! coefficients), guaranteeing convergent iterative solution. The outer loop contracts
+//! under appropriate relaxation because the velocity correction $\mathbf{u}' = \mathbf{d}\,p'$
+//! reduces the continuity residual monotonically. Convergence rate improves with
+//! $\alpha_p \approx 1 - \alpha_u$ (Patankar's recommendation).
 
 use crate::fields::{Field2D, SimulationFields};
 use crate::grid::StructuredGrid2D;
@@ -66,6 +72,12 @@ pub struct SimpleAlgorithm<T: RealField + Copy + FromPrimitive + std::fmt::Debug
     max_iterations: usize,
     /// Convergence tolerance for continuity residual
     tolerance: T,
+    /// Reusable matrix builder to avoid O(N) allocations per iteration
+    matrix_builder: Option<SparseMatrixBuilder<T>>,
+    /// Reusable RHS vector
+    rhs: Option<DVector<T>>,
+    /// Reusable pressure correction vector
+    p_prime: Option<DVector<T>>,
 }
 
 impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> SimpleAlgorithm<T> {
@@ -76,6 +88,9 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Simple
             velocity_relaxation: T::from_f64(0.7).unwrap_or_else(num_traits::Zero::zero), // Standard value
             max_iterations: 50,
             tolerance: T::from_f64(1e-6).unwrap_or_else(num_traits::Zero::zero),
+            matrix_builder: None,
+            rhs: None,
+            p_prime: None,
         }
     }
 
@@ -112,7 +127,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Simple
     ///
     /// Returns the maximum continuity residual and whether convergence was achieved
     pub fn simple_iteration(
-        &self,
+        &mut self,
         momentum_solver: &mut MomentumSolver<T>,
         _poisson_solver: &mut PoissonSolver<T>,
         fields: &mut SimulationFields<T>,
@@ -176,17 +191,43 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Simple
         // 2. Pressure Correction Step
         // Build linear system for pressure correction: div(u) = 0
         let n = nx * ny;
-        let mut matrix_builder = SparseMatrixBuilder::new(n, n);
-        let mut rhs = DVector::zeros(n);
+        
+        // Hoist allocations: reuse buffers if they have the correct capacity
+        match self.matrix_builder {
+            Some(ref b) if b.num_rows() == n => {
+                self.matrix_builder.as_mut().expect("checked above").clear();
+            }
+            _ => {
+                self.matrix_builder = Some(SparseMatrixBuilder::new(n, n));
+            }
+        }
+        
+        match self.rhs {
+            Some(ref v) if v.len() == n => {
+                self.rhs.as_mut().expect("checked above").fill(T::zero());
+            }
+            _ => {
+                self.rhs = Some(DVector::zeros(n));
+            }
+        }
+        
+        match self.p_prime {
+            Some(ref v) if v.len() == n => {
+                self.p_prime.as_mut().expect("checked above").fill(T::zero());
+            }
+            _ => {
+                self.p_prime = Some(DVector::zeros(n));
+            }
+        }
+        
+        let mut matrix_builder = self.matrix_builder.take().expect("initialized above");
+        let rhs = self.rhs.as_mut().expect("initialized above");
 
         let half = T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero);
         let two = T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
 
         // Max residual for convergence check
         let mut max_residual = T::zero();
-
-        // Temporary storage for pressure correction
-        let mut p_prime = DVector::zeros(n);
 
         for j in 1..ny - 1 {
             for i in 1..nx - 1 {
@@ -210,26 +251,25 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Simple
                 let p_s = fields.p.at(i, j - 1);
 
                 // Linear extrapolation for boundaries to maintain second-order accuracy
-                let two_val = T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
                 let p_ee = if i + 2 < nx {
                     fields.p.at(i + 2, j)
                 } else {
-                    two_val * p_e - p_p
+                    two * p_e - p_p
                 };
                 let p_ww = if i >= 2 {
                     fields.p.at(i - 2, j)
                 } else {
-                    two_val * p_w - p_p
+                    two * p_w - p_p
                 };
                 let p_nn = if j + 2 < ny {
                     fields.p.at(i, j + 2)
                 } else {
-                    two_val * p_n - p_p
+                    two * p_n - p_p
                 };
                 let p_ss = if j >= 2 {
                     fields.p.at(i, j - 2)
                 } else {
-                    two_val * p_s - p_p
+                    two * p_s - p_p
                 };
 
                 let d_u_p = d_u.at(i, j);
@@ -356,10 +396,11 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Simple
         };
         let linear_solver = BiCGSTAB::new(solver_config);
 
-        linear_solver.solve(&matrix, &rhs, &mut p_prime, None::<&IdentityPreconditioner>)?;
+        linear_solver.solve(&matrix, rhs, self.p_prime.as_mut().expect("initialized above"), None::<&IdentityPreconditioner>)?;
 
         // 3. Correction Step
         // Correct pressure and velocity
+        let p_prime = self.p_prime.as_ref().expect("initialized above");
         for j in 1..ny - 1 {
             for i in 1..nx - 1 {
                 let idx = j * nx + i;
@@ -401,7 +442,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Simple
 
     /// Solve incompressible Navier-Stokes equations using SIMPLE algorithm
     pub fn solve_simple(
-        &self,
+        &mut self,
         momentum_solver: &mut MomentumSolver<T>,
         poisson_solver: &mut PoissonSolver<T>,
         fields: &mut SimulationFields<T>,

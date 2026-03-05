@@ -105,9 +105,6 @@ pub const WENO_EPSILON: f64 = 1e-6;
 /// d0 = 1/10, d1 = 6/10, d2 = 3/10 for upwind-biased stencil
 pub const WENO5_WEIGHTS: [f64; 3] = [0.1, 0.6, 0.3];
 
-/// General-purpose TWO constant for various schemes
-pub const TWO: f64 = 2.0;
-
 // ============================================================================
 // Helper Functions
 // ============================================================================

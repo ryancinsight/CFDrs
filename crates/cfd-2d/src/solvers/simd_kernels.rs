@@ -2,17 +2,12 @@
 //!
 //! Provides optimized numerical kernels using SIMD operations
 //!
-//! # Theorem
-//! The solver algorithm must converge to a unique solution that satisfies the discrete
-//! conservation laws.
+//! # Invariant (SIMD Numerical Equivalence)
 //!
-//! **Proof sketch**:
-//! For a well-posed boundary value problem, the discretized system of equations
-//! $\mathbf{A}\mathbf{x} = \mathbf{b}$ forms a diagonally dominant matrix $\mathbf{A}$
-//! under appropriate upwinding or stabilization. The iterative solver (e.g., SIMPLE, PISO)
-//! reduces the residual norm $\|\mathbf{r}\| = \|\mathbf{b} - \mathbf{A}\mathbf{x}\|$
-//! monotonically. Convergence is guaranteed by the spectral radius of the iteration matrix
-//! being strictly less than 1.
+//! Each SIMD kernel computes the same stencil operations as the scalar reference.
+//! The Jacobi update $\phi_i^{k+1} = (b_i - \sum_{j \ne i} a_{ij}\phi_j^k) / a_{ii}$
+//! is applied element-wise via SIMD lanes without altering the iteration order,
+//! preserving convergence guarantees of the underlying solver.
 
 use cfd_core::error::Result;
 use cfd_math::simd::{SimdProcessor, VectorOps};
@@ -289,6 +284,260 @@ mod tests {
         let result = jacobi_iteration_simd(&mut phi, &mut phi_new, &source, nx, ny, 0.1, 0.1);
 
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_jacobi_preserves_boundaries() {
+        let nx = 6;
+        let ny = 6;
+        let n = nx * ny;
+        let mut phi = vec![0.0f32; n];
+        let mut phi_new = vec![0.0f32; n];
+        let source = vec![1.0f32; n];
+
+        // Set boundary values
+        for i in 0..nx {
+            phi[i * ny] = 10.0;
+            phi[i * ny + ny - 1] = 20.0;
+        }
+        for j in 0..ny {
+            phi[j] = 30.0;
+            phi[(nx - 1) * ny + j] = 40.0;
+        }
+
+        jacobi_iteration_simd(&mut phi, &mut phi_new, &source, nx, ny, 0.1, 0.1).unwrap();
+
+        // Boundaries must be preserved
+        for i in 0..nx {
+            assert_eq!(phi_new[i * ny], phi[i * ny], "left boundary at i={i}");
+            assert_eq!(
+                phi_new[i * ny + ny - 1],
+                phi[i * ny + ny - 1],
+                "right boundary at i={i}"
+            );
+        }
+        for j in 0..ny {
+            assert_eq!(phi_new[j], phi[j], "bottom boundary at j={j}");
+            assert_eq!(
+                phi_new[(nx - 1) * ny + j],
+                phi[(nx - 1) * ny + j],
+                "top boundary at j={j}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_jacobi_known_stencil() {
+        // For a known interior point, verify the 5-point Jacobi stencil
+        let nx = 4;
+        let ny = 4;
+        let dx = 1.0f32;
+        let dy = 1.0f32;
+        let n = nx * ny;
+        let mut phi = vec![0.0f32; n];
+        let mut phi_new = vec![0.0f32; n];
+        let source = vec![0.0f32; n];
+
+        // Set specific neighbors for cell (1,1)
+        phi[0 * ny + 1] = 1.0; // left
+        phi[2 * ny + 1] = 3.0; // right
+        phi[1 * ny + 0] = 2.0; // bottom
+        phi[1 * ny + 2] = 4.0; // top
+
+        jacobi_iteration_simd(&mut phi, &mut phi_new, &source, nx, ny, dx, dy).unwrap();
+
+        // factor = 0.5 / (1/dx² + 1/dy²) = 0.5 / 2 = 0.25
+        // phi_new[1,1] = 0.25 * ((1+3)/1 + (2+4)/1 - 0) = 0.25 * 10 = 2.5
+        let idx = 1 * ny + 1;
+        assert!(
+            (phi_new[idx] - 2.5).abs() < 1e-6,
+            "Jacobi stencil: expected 2.5, got {}",
+            phi_new[idx]
+        );
+    }
+
+    #[test]
+    fn test_gauss_seidel_convergence() {
+        // Solve ∇²φ = -1 on [0,1]² with φ=0 on boundary
+        // After multiple iterations, interior values should be positive
+        let nx = 8;
+        let ny = 8;
+        let dx = 1.0 / (nx as f32 - 1.0);
+        let dy = 1.0 / (ny as f32 - 1.0);
+        let n = nx * ny;
+        let mut phi = vec![0.0f32; n];
+        let source = vec![-1.0f32; n];
+
+        for _ in 0..100 {
+            gauss_seidel_simd(&mut phi, &source, nx, ny, dx, dy, 1.5).unwrap();
+        }
+
+        // Center point should be positive (concave down solution)
+        let center = (nx / 2) * ny + ny / 2;
+        assert!(
+            phi[center] > 0.0,
+            "Center should be positive for -∇²φ = 1 with zero BCs, got {}",
+            phi[center]
+        );
+    }
+
+    #[test]
+    fn test_divergence_uniform_field() {
+        // Uniform velocity field should have zero divergence
+        let nx = 5;
+        let ny = 5;
+        let u = vec![3.0f32; nx * ny]; // constant u
+        let v = vec![7.0f32; nx * ny]; // constant v
+        let mut divergence = vec![999.0f32; nx * ny];
+
+        calculate_divergence_simd(&u, &v, &mut divergence, nx, ny, 1.0, 1.0).unwrap();
+
+        // Interior divergence should be zero for uniform field
+        for i in 1..nx - 1 {
+            for j in 1..ny - 1 {
+                let idx = i * ny + j;
+                assert!(
+                    divergence[idx].abs() < 1e-10,
+                    "Divergence of uniform field should be zero at ({i},{j}), got {}",
+                    divergence[idx]
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_divergence_linear_field() {
+        // u = x (du/dx = 1), v = 0 => div = 1
+        let nx = 5;
+        let ny = 5;
+        let dx = 1.0f32;
+        let mut u = vec![0.0f32; nx * ny];
+        let v = vec![0.0f32; nx * ny];
+        let mut divergence = vec![0.0f32; nx * ny];
+
+        for i in 0..nx {
+            for j in 0..ny {
+                u[i * ny + j] = i as f32;
+            }
+        }
+
+        calculate_divergence_simd(&u, &v, &mut divergence, nx, ny, dx, 1.0).unwrap();
+
+        // Interior div = du/dx = 1 (central difference: (x+1 - (x-1)) / (2*dx) = 1)
+        for i in 1..nx - 1 {
+            for j in 1..ny - 1 {
+                let idx = i * ny + j;
+                assert!(
+                    (divergence[idx] - 1.0).abs() < 1e-6,
+                    "Divergence of u=x should be 1.0 at ({i},{j}), got {}",
+                    divergence[idx]
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_gradient_constant_field() {
+        // Gradient of constant field should be zero
+        let nx = 5;
+        let ny = 5;
+        let phi = vec![42.0f32; nx * ny];
+        let mut grad_x = vec![999.0f32; nx * ny];
+        let mut grad_y = vec![999.0f32; nx * ny];
+
+        calculate_gradient_simd(&phi, &mut grad_x, &mut grad_y, nx, ny, 1.0, 1.0).unwrap();
+
+        for i in 1..nx - 1 {
+            for j in 1..ny - 1 {
+                let idx = i * ny + j;
+                assert!(
+                    grad_x[idx].abs() < 1e-10,
+                    "grad_x of constant should be 0 at ({i},{j})"
+                );
+                assert!(
+                    grad_y[idx].abs() < 1e-10,
+                    "grad_y of constant should be 0 at ({i},{j})"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_gradient_linear_field() {
+        // φ = 2x + 3y => ∂φ/∂x = 2, ∂φ/∂y = 3
+        let nx = 5;
+        let ny = 5;
+        let dx = 1.0f32;
+        let dy = 1.0f32;
+        let mut phi = vec![0.0f32; nx * ny];
+
+        for i in 0..nx {
+            for j in 0..ny {
+                phi[i * ny + j] = 2.0 * i as f32 + 3.0 * j as f32;
+            }
+        }
+
+        let mut grad_x = vec![0.0f32; nx * ny];
+        let mut grad_y = vec![0.0f32; nx * ny];
+
+        calculate_gradient_simd(&phi, &mut grad_x, &mut grad_y, nx, ny, dx, dy).unwrap();
+
+        for i in 1..nx - 1 {
+            for j in 1..ny - 1 {
+                let idx = i * ny + j;
+                assert!(
+                    (grad_x[idx] - 2.0).abs() < 1e-6,
+                    "grad_x of 2x+3y should be 2.0 at ({i},{j}), got {}",
+                    grad_x[idx]
+                );
+                assert!(
+                    (grad_y[idx] - 3.0).abs() < 1e-6,
+                    "grad_y of 2x+3y should be 3.0 at ({i},{j}), got {}",
+                    grad_y[idx]
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_residual_zero_for_exact_solution() {
+        // If φ satisfies ∇²φ = f exactly, residual should be zero
+        // φ = 0 everywhere, f = 0 => residual = 0
+        let nx = 5;
+        let ny = 5;
+        let phi = vec![0.0f32; nx * ny];
+        let source = vec![0.0f32; nx * ny];
+        let mut residual = vec![999.0f32; nx * ny];
+
+        let max_r =
+            calculate_residual_simd(&phi, &source, &mut residual, nx, ny, 1.0, 1.0).unwrap();
+
+        assert!(max_r < 1e-10, "Residual of zero should be zero, got {max_r}");
+    }
+
+    #[test]
+    fn test_velocity_interpolation_uniform() {
+        // Uniform field: face values should equal cell values
+        let nx = 4;
+        let ny = 4;
+        let n = nx * ny;
+        let u_cell = vec![5.0f32; n];
+        let v_cell = vec![7.0f32; n];
+        let mut u_face = vec![0.0f32; n];
+        let mut v_face = vec![0.0f32; nx * (ny - 1)];
+
+        interpolate_velocity_simd(&u_cell, &v_cell, &mut u_face, &mut v_face, nx, ny).unwrap();
+
+        // For uniform field, face values = cell values
+        for i in 0..nx - 1 {
+            for j in 0..ny {
+                let idx = i * ny + j;
+                assert!(
+                    (u_face[idx] - 5.0).abs() < 1e-6,
+                    "Uniform u face interpolation at ({i},{j})"
+                );
+            }
+        }
     }
 
     #[test]

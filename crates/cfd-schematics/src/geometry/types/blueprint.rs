@@ -146,8 +146,8 @@ impl ChannelSystem {
                 let segments = count_serpentine_segments(&centerline);
                 // Estimate bend radius from path curvature at turning points,
                 // falling back to half the channel width (tight U-turn).
-                let bend_radius_m = estimate_bend_radius(&centerline, scale_m_per_unit)
-                    .unwrap_or(width_m * 0.5);
+                let bend_radius_m =
+                    estimate_bend_radius(&centerline, scale_m_per_unit).unwrap_or(width_m * 0.5);
                 ChannelShape::Serpentine {
                     segments,
                     bend_radius_m,
@@ -212,7 +212,9 @@ fn estimate_bend_radius(path: &[(f64, f64)], scale: f64) -> Option<f64> {
         let dy_before = path[i].1 - path[i - 1].1;
         let dy_after = path[i + 1].1 - path[i].1;
         // Detect reversal
-        if dy_before.abs() > 1e-9 && dy_after.abs() > 1e-9 && dy_before.signum() != dy_after.signum()
+        if dy_before.abs() > 1e-9
+            && dy_after.abs() > 1e-9
+            && dy_before.signum() != dy_after.signum()
         {
             // Circumscribed circle radius through three consecutive points
             let (x1, y1) = path[i - 1];

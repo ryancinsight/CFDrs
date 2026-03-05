@@ -38,15 +38,19 @@
 //! let result = net2d.solve_all(1e-6).unwrap();
 //! ```
 //!
-//! # Theorem
-//! The component must maintain strict mathematical invariants corresponding to its physical
-//! or numerical role.
+//! # Theorem (Network Mass Conservation)
+//!
+//! For any connected channel network with $n$ junctions, the total mass flux
+//! entering at the root inlet equals the sum of mass fluxes exiting at all leaf
+//! outlets, and at every internal junction $Q_{\text{in}} = \sum Q_{\text{out}}$.
 //!
 //! **Proof sketch**:
-//! Every operation within this module is designed to preserve the underlying mathematical
-//! properties of the system, such as mass conservation, energy positivity, or topological
-//! consistency. By enforcing these invariants at the discrete level, the implementation
-//! guarantees stability and physical realism.
+//! Each per-channel 2D Navier-Stokes solve enforces $\nabla \cdot \mathbf{u} = 0$
+//! within its domain. At junction $j$, the outlet velocity profile of the parent
+//! channel is integrated to obtain $Q_j$, which is distributed to daughters
+//! proportional to $1/R_i$ (hydraulic resistance). Since $\sum Q_{\text{daughters}}
+//! = Q_j \sum (1/R_i) / \sum (1/R_i) = Q_j$, mass is conserved at every junction
+//! by construction of the resistance-weighted BFS traversal.
 
 
 use std::collections::{HashMap, VecDeque};

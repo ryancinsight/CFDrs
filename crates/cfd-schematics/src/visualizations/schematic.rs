@@ -1,5 +1,6 @@
 use crate::error::VisualizationResult;
 use crate::geometry::ChannelSystem;
+use crate::visualizations::annotations::SchematicAnnotations;
 use crate::visualizations::plotters_backend::PlottersRenderer;
 use crate::visualizations::traits::{RenderConfig, SchematicRenderer};
 
@@ -24,6 +25,22 @@ pub fn plot_geometry_with_config(
 ) -> VisualizationResult<()> {
     let renderer = PlottersRenderer;
     renderer.render_system(system, output_path, config)
+}
+
+/// Plot a channel system with explicit annotation payload.
+///
+/// This helper leaves the base config unchanged and overlays caller-provided
+/// markers/labels through `RenderConfig.annotations` for this render only.
+pub fn plot_geometry_with_annotations(
+    system: &ChannelSystem,
+    output_path: &str,
+    config: &RenderConfig,
+    annotations: &SchematicAnnotations,
+) -> VisualizationResult<()> {
+    let renderer = PlottersRenderer;
+    let mut annotated_config = config.clone();
+    annotated_config.annotations = Some(annotations.clone());
+    renderer.render_system(system, output_path, &annotated_config)
 }
 
 /// Plot a channel system using a custom renderer

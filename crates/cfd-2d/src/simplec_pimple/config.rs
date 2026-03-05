@@ -1,14 +1,9 @@
 //! Configuration for SIMPLEC and PIMPLE algorithms
 //!
-//! # Theorem
-//! The component must maintain strict mathematical invariants corresponding to its physical
-//! or numerical role.
+//! # Invariant
 //!
-//! **Proof sketch**:
-//! Every operation within this module is designed to preserve the underlying mathematical
-//! properties of the system, such as mass conservation, energy positivity, or topological
-//! consistency. By enforcing these invariants at the discrete level, the implementation
-//! guarantees stability and physical realism.
+//! SIMPLEC permits $\alpha_p = 1$, PIMPLE requires $n_{\text{correctors}} \ge 1$.
+//! All tolerances must be strictly positive.
 
 use crate::pressure_velocity::PressureLinearSolver;
 use crate::schemes::SpatialScheme;

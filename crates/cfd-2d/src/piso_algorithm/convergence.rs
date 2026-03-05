@@ -1,14 +1,10 @@
 //! Convergence criteria for PISO algorithm
 //!
-//! # Theorem
-//! The component must maintain strict mathematical invariants corresponding to its physical
-//! or numerical role.
+//! # Invariant (Residual Monotonicity)
 //!
-//! **Proof sketch**:
-//! Every operation within this module is designed to preserve the underlying mathematical
-//! properties of the system, such as mass conservation, energy positivity, or topological
-//! consistency. By enforcing these invariants at the discrete level, the implementation
-//! guarantees stability and physical realism.
+//! Each PISO corrector step reduces the continuity residual
+//! $\|\nabla \cdot \mathbf{u}\|_\infty$. Convergence is declared when
+//! the residual drops below the user-specified tolerance $\epsilon > 0$.
 
 use crate::fields::SimulationFields;
 use nalgebra::RealField;

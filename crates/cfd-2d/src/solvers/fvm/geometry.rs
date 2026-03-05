@@ -57,3 +57,89 @@ impl<T: RealField + Copy> Face<T> {
         self.area * velocity.dot(&self.normal)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_face_normal_is_unit() {
+        let face: Face<f64> = Face::new(
+            Vector2::new(0.5, 0.0),
+            Vector2::new(3.0, 4.0),
+            1.0,
+            0,
+            Some(1),
+        );
+        let norm = face.normal.norm();
+        assert!(
+            (norm - 1.0).abs() < 1e-14,
+            "Normal should be unit vector, got norm {norm}"
+        );
+    }
+
+    #[test]
+    fn test_boundary_face() {
+        let face: Face<f64> = Face::new(
+            Vector2::new(0.0, 0.5),
+            Vector2::new(1.0, 0.0),
+            0.1,
+            0,
+            None,
+        );
+        assert!(face.is_boundary());
+    }
+
+    #[test]
+    fn test_interior_face() {
+        let face: Face<f64> = Face::new(
+            Vector2::new(0.5, 0.5),
+            Vector2::new(1.0, 0.0),
+            0.1,
+            0,
+            Some(1),
+        );
+        assert!(!face.is_boundary());
+    }
+
+    #[test]
+    fn test_flux_normal_velocity() {
+        // Velocity aligned with normal => flux = area * |v|
+        let face: Face<f64> = Face::new(
+            Vector2::new(0.0, 0.0),
+            Vector2::new(1.0, 0.0),
+            2.0,
+            0,
+            Some(1),
+        );
+        let flux = face.flux(Vector2::new(3.0, 0.0));
+        assert!((flux - 6.0).abs() < 1e-14, "Expected 6.0, got {flux}");
+    }
+
+    #[test]
+    fn test_flux_tangential_velocity() {
+        // Velocity perpendicular to normal => flux = 0
+        let face: Face<f64> = Face::new(
+            Vector2::new(0.0, 0.0),
+            Vector2::new(1.0, 0.0),
+            2.0,
+            0,
+            Some(1),
+        );
+        let flux = face.flux(Vector2::new(0.0, 5.0));
+        assert!(flux.abs() < 1e-14, "Tangential flux should be zero, got {flux}");
+    }
+
+    #[test]
+    fn test_flux_zero_velocity() {
+        let face: Face<f64> = Face::new(
+            Vector2::new(0.0, 0.0),
+            Vector2::new(1.0, 0.0),
+            2.0,
+            0,
+            Some(1),
+        );
+        let flux = face.flux(Vector2::zeros());
+        assert!(flux.abs() < 1e-14, "Zero velocity flux should be zero");
+    }
+}

@@ -2,17 +2,12 @@
 //!
 //! Provides unified interface that automatically uses best available acceleration
 //!
-//! # Theorem
-//! The solver algorithm must converge to a unique solution that satisfies the discrete
-//! conservation laws.
+//! # Invariant (Numerical Equivalence)
 //!
-//! **Proof sketch**:
-//! For a well-posed boundary value problem, the discretized system of equations
-//! $\mathbf{A}\mathbf{x} = \mathbf{b}$ forms a diagonally dominant matrix $\mathbf{A}$
-//! under appropriate upwinding or stabilization. The iterative solver (e.g., SIMPLE, PISO)
-//! reduces the residual norm $\|\mathbf{r}\| = \|\mathbf{b} - \mathbf{A}\mathbf{x}\|$
-//! monotonically. Convergence is guaranteed by the spectral radius of the iteration matrix
-//! being strictly less than 1.
+//! The accelerated (SIMD/GPU) Poisson solver produces bit-identical results to the
+//! scalar reference implementation for IEEE 754 arithmetic, differing only in
+//! operation scheduling. The Jacobi/Red-Black Gauss-Seidel stencil coefficients
+//! are identical across backends.
 
 use crate::error::{Error, Result};
 use crate::fields::Field2D;

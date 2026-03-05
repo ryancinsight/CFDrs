@@ -371,7 +371,7 @@ impl<T: RealField + Copy + FromPrimitive> SerpentineModel<T> {
 
             let qc_qs = 1.0 - 0.03058 * k_sq + 0.01195 * k_4;
             // Bound strictly to ensure mathematical stability near convergence radius
-            let qc_qs_stable = qc_qs.max(0.5).min(1.0);
+            let qc_qs_stable = qc_qs.clamp(0.5, 1.0);
             
             T::from_f64(1.0 / qc_qs_stable).unwrap_or(one)
         } else {

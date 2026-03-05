@@ -230,3 +230,115 @@ impl<T: RealField + FromPrimitive + Copy> AdaptiveGrid2D<T> {
         (self.base_grid.dx / factor, self.base_grid.dy / factor)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn make_grid() -> StructuredGrid2D<f64> {
+        StructuredGrid2D::new(8, 8, 0.0, 8.0, 0.0, 8.0).unwrap()
+    }
+
+    #[test]
+    fn test_initial_refinement_levels_zero() {
+        let grid = AdaptiveGrid2D::new(make_grid(), 3);
+        for row in &grid.refinement_levels {
+            for &level in row {
+                assert_eq!(level, 0);
+            }
+        }
+    }
+
+    #[test]
+    fn test_gradient_marking_refines_above_threshold() {
+        let mut grid = AdaptiveGrid2D::new(make_grid(), 3);
+        grid.mark_for_refinement(RefinementCriterion::Gradient(0.5), |i, _j| {
+            if i > 4 { 1.0 } else { 0.0 }
+        })
+        .unwrap();
+
+        // Cells with i > 4 should be refined
+        for i in 5..8 {
+            for j in 0..8 {
+                assert_eq!(grid.refinement_levels[i][j], 1, "Cell ({i},{j}) should be refined");
+            }
+        }
+        // Cells with i <= 4 should not
+        for i in 0..=4 {
+            for j in 0..8 {
+                assert_eq!(grid.refinement_levels[i][j], 0, "Cell ({i},{j}) should NOT be refined");
+            }
+        }
+    }
+
+    #[test]
+    fn test_max_level_cap() {
+        let mut grid = AdaptiveGrid2D::new(make_grid(), 2);
+        // Refine 3 times, but max_level=2 should cap it
+        for _ in 0..3 {
+            grid.mark_for_refinement(RefinementCriterion::Gradient(0.0), |_, _| 1.0)
+                .unwrap();
+        }
+        for row in &grid.refinement_levels {
+            for &level in row {
+                assert!(level <= 2, "Refinement level should not exceed max_level=2");
+            }
+        }
+    }
+
+    #[test]
+    fn test_coarsen_reduces_level() {
+        let mut grid = AdaptiveGrid2D::new(make_grid(), 3);
+        // Set all cells to level 1
+        for row in &mut grid.refinement_levels {
+            for level in row {
+                *level = 1;
+            }
+        }
+        grid.coarsen().unwrap();
+        // After coarsening, all cells with compatible neighbours should drop to 0
+        let any_reduced = grid
+            .refinement_levels
+            .iter()
+            .flat_map(|r| r.iter())
+            .any(|&l| l == 0);
+        assert!(any_reduced, "At least some cells should have been coarsened");
+    }
+
+    #[test]
+    fn test_coarsen_at_zero_is_noop() {
+        let mut grid = AdaptiveGrid2D::new(make_grid(), 3);
+        // All levels are 0, coarsen should do nothing
+        grid.coarsen().unwrap();
+        for row in &grid.refinement_levels {
+            for &level in row {
+                assert_eq!(level, 0);
+            }
+        }
+    }
+
+    #[test]
+    fn test_effective_spacing_halves_per_level() {
+        let grid = AdaptiveGrid2D::new(make_grid(), 3);
+        let (dx0, dy0) = grid.effective_resolution(0, 0);
+        // Base grid: 8 points spanning [0,8], dx = 8/7 ≈ 1.142..
+        let base_dx: f64 = 8.0 / 7.0;
+        assert!((dx0 - base_dx).abs() < 1e-10);
+        assert!((dy0 - base_dx).abs() < 1e-10);
+
+        let mut grid2 = AdaptiveGrid2D::new(make_grid(), 3);
+        grid2.refinement_levels[2][2] = 1;
+        let (dx1, _) = grid2.effective_resolution(2, 2);
+        assert!(
+            (dx1 - base_dx / 2.0).abs() < 1e-10,
+            "Level 1 spacing should be half, got {dx1}"
+        );
+
+        grid2.refinement_levels[2][2] = 2;
+        let (dx2, _) = grid2.effective_resolution(2, 2);
+        assert!(
+            (dx2 - base_dx / 4.0).abs() < 1e-10,
+            "Level 2 spacing should be quarter, got {dx2}"
+        );
+    }
+}

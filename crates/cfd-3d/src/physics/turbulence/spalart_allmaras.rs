@@ -69,7 +69,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Spala
     /// * `nu`             -- kinematic viscosity [m^2/s]
     /// * `wall_distances` -- per-point wall distances [m]
     pub fn new(n_points: usize, nu: T, wall_distances: Vec<T>) -> Self {
-        let three = <T as FromPrimitive>::from_f64(3.0).unwrap_or_else(T::one);
+        let three = T::one() + T::one() + T::one();
         let nu_tilde = vec![three * nu; n_points];
         let wd = if wall_distances.len() == n_points {
             wall_distances
@@ -122,7 +122,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Spala
         let g_6 = num_traits::Float::powi(g, 6);
         g * num_traits::Float::powf(
             (T::one() + cw3_6) / (g_6 + cw3_6),
-            <T as FromPrimitive>::from_f64(1.0 / 6.0).unwrap_or_else(T::one),
+            T::one() / (T::one() + T::one() + T::one() + T::one() + T::one() + T::one()),
         )
     }
 }

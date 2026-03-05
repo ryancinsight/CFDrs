@@ -90,6 +90,16 @@ impl<T: RealField + Copy> SparseMatrixBuilder<T> {
         }
     }
 
+    /// Number of rows in the matrix
+    pub const fn num_rows(&self) -> usize {
+        self.rows
+    }
+
+    /// Number of columns in the matrix
+    pub const fn num_cols(&self) -> usize {
+        self.cols
+    }
+
     /// Read-only access to the accumulated entries
     pub fn entries(&self) -> &[MatrixEntry<T>] {
         &self.entries
@@ -357,8 +367,9 @@ impl<T: RealField + Copy> SparseMatrixBuilder<T> {
         self.entries.is_empty()
     }
 
-    /// Clear all entries
+    /// Clear all entries and boundary conditions
     pub fn clear(&mut self) {
         self.entries.clear();
+        self.dirichlet_dofs.clear();
     }
 }

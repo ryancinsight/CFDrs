@@ -28,17 +28,20 @@
 //! 2. **Pressure Drop**: Compare against analytical solutions for branching networks.
 //! 3. **Murray's Law**: Validate WSS distribution in optimal vs. non-optimal junctions.
 //!
-//! # Theorem
-//! The solver algorithm must converge to a unique solution that satisfies the discrete
-//! conservation laws.
+//! # Theorem (Bifurcation Mass Conservation — Murray 1926)
+//!
+//! At any bifurcation junction the discrete mass flux is conserved exactly:
+//! $Q_{\text{parent}} = Q_{\text{daughter}_1} + Q_{\text{daughter}_2}$,
+//! and the optimal branching exponent satisfies Murray's cube law
+//! $D_0^3 = \sum_i D_i^3$.
 //!
 //! **Proof sketch**:
-//! For a well-posed boundary value problem, the discretized system of equations
-//! $\mathbf{A}\mathbf{x} = \mathbf{b}$ forms a diagonally dominant matrix $\mathbf{A}$
-//! under appropriate upwinding or stabilization. The iterative solver (e.g., SIMPLE, PISO)
-//! reduces the residual norm $\|\mathbf{r}\| = \|\mathbf{b} - \mathbf{A}\mathbf{x}\|$
-//! monotonically. Convergence is guaranteed by the spectral radius of the iteration matrix
-//! being strictly less than 1.
+//! The junction coupling is enforced by ghost-cell pressure matching:
+//! the outlet pressure of the parent equals the inlet pressure of each daughter.
+//! With identical discrete operators in each branch, the Hagen-Poiseuille relation
+//! $Q = \pi D^4 \Delta P / (128 \mu L)$ at each junction yields the flow split.
+//! Mass conservation follows from the divergence-free constraint applied
+//! at the junction control volume.
 
 use super::ns_fvm_2d::{BloodModel, NavierStokesSolver2D, SIMPLEConfig, StaggeredGrid2D};
 use cfd_core::error::Result as CfdResult;

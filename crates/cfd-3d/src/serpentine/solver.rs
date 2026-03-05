@@ -252,7 +252,8 @@ impl<
 
             let mut max_change_f64 = 0.0_f64;
             next_viscosities.clear();
-            let current_viscosities = problem.element_viscosities.as_ref().unwrap();
+            let current_viscosities = problem.element_viscosities.as_ref()
+                .expect("element_viscosities set before Picard loop");
 
             for (i, cell) in problem.mesh.cells.iter().enumerate() {
                 let shear_rate_f64 =
@@ -272,7 +273,8 @@ impl<
                 next_viscosities.push(new_visc);
             }
 
-            element_viscosities = problem.element_viscosities.take().unwrap();
+            element_viscosities = problem.element_viscosities.take()
+                .expect("element_viscosities set before Picard loop");
             std::mem::swap(&mut element_viscosities, &mut next_viscosities);
             last_solution = Some(updated_solution);
 
@@ -295,16 +297,16 @@ impl<
         // Calculate Dean Number: De = Re * sqrt(Dh / 2Rc)
         // For sine wave path x = A*sin(k*z), curvature kappa = |x''| / (1 + x'^2)^(3/2)
         // Max curvature at peaks: kappa_max = A*k^2. Radius Rc = 1/kappa_max = 1 / (A * (2pi/lambda)^2)
-        let k = <T as FromPrimitive>::from_f64(2.0 * std::f64::consts::PI).unwrap()
+        let k = <T as FromPrimitive>::from_f64(2.0 * std::f64::consts::PI).unwrap_or_else(T::one)
             / self.builder.wavelength;
         let kappa_max = self.builder.amplitude * k * k;
-        let rc = T::one() / Float::max(kappa_max, <T as FromPrimitive>::from_f64(1e-10).unwrap());
+        let rc = T::one() / Float::max(kappa_max, <T as FromPrimitive>::from_f64(1e-10).unwrap_or_else(T::zero));
 
         let re =
             (fluid_props.density * u_inlet * self.builder.diameter) / fluid_props.dynamic_viscosity;
         solution.dean_number = re
             * Float::sqrt(
-                self.builder.diameter / (<T as FromPrimitive>::from_f64(2.0).unwrap() * rc),
+                self.builder.diameter / (<T as FromPrimitive>::from_f64(2.0).unwrap_or_else(T::one) * rc),
             );
 
         Ok(solution)

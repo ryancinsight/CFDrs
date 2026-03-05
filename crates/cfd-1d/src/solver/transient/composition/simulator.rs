@@ -263,9 +263,8 @@ impl TransientCompositionSimulator {
                 pressure_event_cursor += 1;
             }
 
-            let problem = NetworkProblem::new(working_network.clone());
-            let solved_network = solver.solve_network(&problem)?;
-            working_network = solved_network;
+            let problem = NetworkProblem::new(working_network);
+            working_network = solver.solve_network(&problem)?;
 
             let mut effective_flow_rates: HashMap<usize, T> = HashMap::new();
             for (edge_idx, q) in &working_network.flow_rates {
@@ -331,7 +330,7 @@ impl TransientCompositionSimulator {
                     continue;
                 }
 
-                let mut incoming: Vec<(MixtureComposition<T>, T)> = Vec::new();
+                let mut incoming: Vec<(&MixtureComposition<T>, T)> = Vec::with_capacity(4);
 
                 for edge_ref in network.graph.edge_references() {
                     let src = edge_ref.source();
@@ -346,11 +345,11 @@ impl TransientCompositionSimulator {
 
                     if dst == node_idx && q > T::zero() {
                         if let Some(m) = node_mixtures.get(&src.index()) {
-                            incoming.push((m.clone(), q_abs));
+                            incoming.push((m, q_abs));
                         }
                     } else if src == node_idx && q < T::zero() {
                         if let Some(m) = node_mixtures.get(&dst.index()) {
-                            incoming.push((m.clone(), q_abs));
+                            incoming.push((m, q_abs));
                         }
                     }
                 }

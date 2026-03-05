@@ -267,7 +267,8 @@ impl<
 
             let mut max_change_f64 = 0.0_f64;
             next_viscosities.clear();
-            let current_viscosities = problem.element_viscosities.as_ref().unwrap();
+            let current_viscosities = problem.element_viscosities.as_ref()
+                .expect("element_viscosities set before Picard loop");
 
             for (i, cell) in problem.mesh.cells.iter().enumerate() {
                 let shear_rate_f64 =
@@ -283,7 +284,8 @@ impl<
                 next_viscosities.push(new_visc);
             }
 
-            element_viscosities = problem.element_viscosities.take().unwrap();
+            element_viscosities = problem.element_viscosities.take()
+                .expect("element_viscosities set before Picard loop");
             std::mem::swap(&mut element_viscosities, &mut next_viscosities);
             last_solution = Some(updated_solution);
             println!("Picard iteration {iter}: visc_change={max_change_f64:?}");
@@ -362,7 +364,7 @@ impl<
                 }
             }
             if cnt > 0 {
-                sum / T::from_usize(cnt).unwrap()
+                sum / T::from_usize(cnt).unwrap_or_else(T::one)
             } else {
                 self.config.inlet_pressure
             }
@@ -385,7 +387,7 @@ impl<
                 }
             }
             if cnt > 0 {
-                sum / T::from_usize(cnt).unwrap()
+                sum / T::from_usize(cnt).unwrap_or_else(T::one)
             } else {
                 T::zero()
             }
@@ -458,15 +460,15 @@ impl<
         match label {
             "inlet" => Some(nalgebra::Vector3::new(-1.0_f64, 0.0_f64, 0.0_f64)),
             "outlet_0" => {
-                let theta = self.geometry.branching_angles[0].to_f64().unwrap();
+                let theta = self.geometry.branching_angles[0].to_f64().unwrap_or(0.0);
                 Some(nalgebra::Vector3::new(theta.cos(), theta.sin(), 0.0_f64))
             }
             "outlet_1" => {
-                let theta = self.geometry.branching_angles[1].to_f64().unwrap();
+                let theta = self.geometry.branching_angles[1].to_f64().unwrap_or(0.0);
                 Some(nalgebra::Vector3::new(theta.cos(), theta.sin(), 0.0_f64))
             }
             "outlet_2" => {
-                let theta = self.geometry.branching_angles[2].to_f64().unwrap();
+                let theta = self.geometry.branching_angles[2].to_f64().unwrap_or(0.0);
                 Some(nalgebra::Vector3::new(theta.cos(), theta.sin(), 0.0_f64))
             }
             _ => None,

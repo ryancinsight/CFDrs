@@ -3,15 +3,22 @@
 //! This module implements the Strategy pattern for convection schemes,
 //! allowing easy extension and pluggable convection discretization methods.
 //!
-//! # Theorem
-//! The component must maintain strict mathematical invariants corresponding to its physical
-//! or numerical role.
+//! # Theorem (Upwind Boundedness — Godunov 1959)
+//!
+//! A first-order upwind scheme is monotone: if the initial data satisfies
+//! $\phi_{\min} \le \phi_i^0 \le \phi_{\max}$ for all $i$, then
+//! $\phi_{\min} \le \phi_i^n \le \phi_{\max}$ for all $n > 0$, provided the CFL
+//! condition $|u| \Delta t / \Delta x \le 1$ holds.
 //!
 //! **Proof sketch**:
-//! Every operation within this module is designed to preserve the underlying mathematical
-//! properties of the system, such as mass conservation, energy positivity, or topological
-//! consistency. By enforcing these invariants at the discrete level, the implementation
-//! guarantees stability and physical realism.
+//! The upwind stencil $\phi_i^{n+1} = \phi_i^n - C(\phi_i^n - \phi_{i-1}^n)$ (for $u > 0$,
+//! Courant number $C \ge 0$) is a convex combination of $\phi_i^n$ and $\phi_{i-1}^n$
+//! when $0 \le C \le 1$, hence satisfies the discrete maximum principle. Extension to
+//! 2D follows by dimensional splitting (Strang 1968).
+//!
+//! Higher-order schemes (QUICK, Power-Law) trade monotonicity for accuracy;
+//! the Godunov theorem states that no linear scheme of order $\ge 2$ is monotone.
+//! TVD limiters restore boundedness for higher-order schemes.
 
 use nalgebra::RealField;
 use num_traits::FromPrimitive;

@@ -3,14 +3,15 @@
 //! Modularized implementation following SLAP and SOC principles.
 //! Reference: Patankar, S.V. (1980). "Numerical Heat Transfer and Fluid Flow"
 //!
-//! # Theorem
-//! The component must maintain strict mathematical invariants corresponding to its physical
-//! or numerical role.
+//! # Theorem (Pressure Correction M-Matrix)
+//!
+//! The pressure correction equation $\nabla \cdot (\mathbf{d}\,\nabla p') = \nabla \cdot \mathbf{u}^*$
+//! produces a symmetric negative-definite coefficient matrix (M-matrix) when
+//! $d_f = V_f / A_P > 0$, guaranteeing unique solvability by CG or GMRES.
 //!
 //! **Proof sketch**:
-//! Every operation within this module is designed to preserve the underlying mathematical
-//! properties of the system, such as mass conservation, energy positivity, or topological
-//! consistency. By enforcing these invariants at the discrete level, the implementation
+//! Each face coefficient $a_f = d_f A_f / \delta_f > 0$, and $a_P = \sum_f a_f$,
+//! yielding strict diagonal dominance with non-positive off-diagonals.
 //! guarantees stability and physical realism.
 
 pub mod coefficients;

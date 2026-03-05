@@ -256,12 +256,12 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> MomentumSolv
         // Store A_p and A_p_consistent coefficients for pressure correction
         match component {
             MomentumComponent::U => {
-                self.ap_u = coeffs.ap.clone();
-                self.ap_consistent_u = coeffs.ap_consistent.clone();
+                self.ap_u.clone_from(&coeffs.ap);
+                self.ap_consistent_u.clone_from(&coeffs.ap_consistent);
             }
             MomentumComponent::V => {
-                self.ap_v = coeffs.ap.clone();
-                self.ap_consistent_v = coeffs.ap_consistent.clone();
+                self.ap_v.clone_from(&coeffs.ap);
+                self.ap_consistent_v.clone_from(&coeffs.ap_consistent);
             }
         }
 
@@ -269,12 +269,12 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> MomentumSolv
     }
 
     /// Get the last computed A_p and A_p_consistent coefficients for both velocity components
-    pub fn get_ap_coefficients(&self) -> (Field2D<T>, Field2D<T>, Field2D<T>, Field2D<T>) {
+    pub fn get_ap_coefficients(&self) -> (&Field2D<T>, &Field2D<T>, &Field2D<T>, &Field2D<T>) {
         (
-            self.ap_u.clone(),
-            self.ap_consistent_u.clone(),
-            self.ap_v.clone(),
-            self.ap_consistent_v.clone(),
+            &self.ap_u,
+            &self.ap_consistent_u,
+            &self.ap_v,
+            &self.ap_consistent_v,
         )
     }
 

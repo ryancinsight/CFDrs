@@ -41,7 +41,7 @@ use cfd_core::physics::fluid_dynamics::turbulence::TurbulenceModel;
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 
-use super::constants::{DEARDORFF_ONE_THIRD, VREMAN_CV};
+use super::constants::VREMAN_CV;
 
 /// Vreman SGS model for LES (Vreman 2004).
 ///
@@ -66,7 +66,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Vrema
 
     /// Create a Vreman model with physically correct filter width Δ = (dx·dy·dz)^(1/3).
     pub fn with_filter_width(dx: T, dy: T, dz: T) -> Self {
-        let one_third = <T as FromPrimitive>::from_f64(DEARDORFF_ONE_THIRD).unwrap_or_else(T::one);
+        let one_third = T::one() / (T::one() + T::one() + T::one());
         let filter_width = num_traits::Float::powf(dx * dy * dz, one_third);
         Self {
             c_v: <T as FromPrimitive>::from_f64(VREMAN_CV).unwrap_or_else(T::one),
@@ -78,7 +78,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Vrema
     fn vreman_viscosity_at(&self, flow: &FlowField<T>, i: usize, j: usize, k: usize) -> T {
         let (nx, ny, nz) = flow.velocity.dimensions;
         let delta = self.filter_width;
-        let two = <T as FromPrimitive>::from_f64(2.0).unwrap_or_else(T::one);
+        let two = T::one() + T::one();
         let eps = <T as FromPrimitive>::from_f64(1e-30).unwrap_or_else(T::zero);
 
         // α_ij = ∂u_i / ∂x_j  (central differences where interior, one-sided at boundaries)
@@ -122,7 +122,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Vrema
         let mut alpha_sq = T::zero();
         for ai in &alpha {
             for &a in ai {
-                alpha_sq = alpha_sq + a * a;
+                alpha_sq += a * a;
             }
         }
 
@@ -137,7 +137,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Vrema
             for n in 0..3 {
                 let mut s = T::zero();
                 for ii in 0..3 {
-                    s = s + alpha[ii][m] * alpha[ii][n];
+                    s += alpha[ii][m] * alpha[ii][n];
                 }
                 beta[m][n] = delta_sq * s;
             }

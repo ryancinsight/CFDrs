@@ -256,8 +256,8 @@ pub fn tri_center_q_frac_cross_junction(
 /// - clamped to `[0.20, 0.70]`,
 /// - monotone non-decreasing over stage index,
 /// - equal to `pretri_center_frac` when `n_pretri == 1`.
-/// Constructed via a monotone interpolation from `start` to
-/// `max(start, terminal_tri_frac)` with final clamping.
+///   Constructed via a monotone interpolation from `start` to
+///   `max(start, terminal_tri_frac)` with final clamping.
 pub fn cif_pretri_stage_center_fracs(
     n_pretri: u8,
     pretri_center_frac: f64,

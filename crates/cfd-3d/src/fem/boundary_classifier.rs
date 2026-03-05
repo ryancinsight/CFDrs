@@ -283,7 +283,7 @@ impl<'a, T: Scalar> AxialBoundaryClassifier<'a, T> {
         let mut z_sum = T::zero();
         let mut count = 0usize;
         for &v_idx in &face.vertices {
-            z_sum = z_sum + self.mesh.vertices.get(v_idx).position.z;
+            z_sum += self.mesh.vertices.get(v_idx).position.z;
             count += 1;
         }
         if count > 0 {

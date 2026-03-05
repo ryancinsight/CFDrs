@@ -16,11 +16,18 @@
 //! SVG file can be rendered in any modern browser without external
 //! dependencies.
 
+use std::collections::HashMap;
 use std::path::Path;
 
 use crate::design::DesignTopology;
 use crate::scoring::OptimMode;
 use crate::RankedDesign;
+use cfd_schematics::geometry::ChannelSystem;
+use cfd_schematics::visualizations::{
+    center_biased_main_path, classify_node_roles, project_markers_along_path,
+    throat_count_from_blueprint_metadata, AnnotationMarker, MarkerRole, RenderConfig,
+    SchematicAnnotations,
+};
 
 // ── JSON export ───────────────────────────────────────────────────────────────
 
@@ -251,10 +258,112 @@ pub fn save_schematic_svg(
     path: &Path,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let system = candidate.to_channel_system();
+    let annotations = build_report_annotations(candidate, &system);
     let path_str = path.to_str().ok_or("path contains invalid UTF-8")?;
-    let config = cfd_schematics::visualizations::traits::RenderConfig::well_plate_96();
-    cfd_schematics::plot_geometry_with_config(&system, path_str, &config)?;
+    let config = RenderConfig::well_plate_96_report_annotated();
+    cfd_schematics::plot_geometry_with_annotations(&system, path_str, &config, &annotations)?;
     Ok(())
+}
+
+/// Build report-focused schematic annotations for milestone figures.
+///
+/// Policy: blueprint metadata first; candidate/system heuristics only as fallback.
+#[must_use]
+pub fn build_report_annotations(
+    candidate: &crate::design::DesignCandidate,
+    system: &ChannelSystem,
+) -> SchematicAnnotations {
+    let blueprint = candidate.to_blueprint();
+    let mut annotations = SchematicAnnotations::report_default();
+    let mut roles = classify_node_roles(system);
+
+    apply_therapy_role_overrides(&mut roles, &blueprint, system);
+
+    let mut split_idx = 1usize;
+    let mut merge_idx = 1usize;
+    for (node_idx, node) in system.nodes.iter().enumerate() {
+        let role = roles
+            .get(&node_idx)
+            .copied()
+            .unwrap_or(MarkerRole::Internal);
+        let marker = match role {
+            MarkerRole::Inlet => AnnotationMarker::new(node.point, role).with_label("IN", true),
+            MarkerRole::Outlet => AnnotationMarker::new(node.point, role).with_label("OUT", true),
+            MarkerRole::Split => {
+                let marker = AnnotationMarker::new(node.point, role)
+                    .with_label(format!("S{split_idx}"), true);
+                split_idx += 1;
+                marker
+            }
+            MarkerRole::Merge => {
+                let marker = AnnotationMarker::new(node.point, role)
+                    .with_label(format!("M{merge_idx}"), true);
+                merge_idx += 1;
+                marker
+            }
+            _ => AnnotationMarker::new(node.point, role),
+        };
+        annotations.markers.push(marker);
+    }
+
+    let mut throat_count = throat_count_from_blueprint_metadata(&blueprint);
+    if throat_count == 0 && candidate.topology.has_venturi() {
+        throat_count = candidate.active_venturi_throat_count();
+    }
+
+    if throat_count > 0 {
+        let main_path = center_biased_main_path(system);
+        let zone = (system.box_dims.0 * 0.35, system.box_dims.0 * 0.65);
+        let throat_points = project_markers_along_path(&main_path, throat_count, zone);
+        for (idx, point) in throat_points.iter().enumerate() {
+            annotations.markers.push(
+                AnnotationMarker::new(*point, MarkerRole::VenturiThroat)
+                    .with_label(format!("TH{}", idx + 1), true),
+            );
+        }
+    }
+
+    annotations.legend_note = Some(format!("Throat markers: {throat_count}"));
+    annotations
+}
+
+fn apply_therapy_role_overrides(
+    roles: &mut HashMap<usize, MarkerRole>,
+    blueprint: &cfd_schematics::NetworkBlueprint,
+    system: &ChannelSystem,
+) {
+    let (has_target_zone, has_bypass_zone) =
+        cfd_schematics::visualizations::therapy_zone_presence(blueprint);
+    if !has_target_zone && !has_bypass_zone {
+        return;
+    }
+
+    let y_mid = system.box_dims.1 * 0.5;
+    let treatment_x_min = system.box_dims.0 * 0.35;
+    let treatment_x_max = system.box_dims.0 * 0.65;
+
+    for (node_idx, node) in system.nodes.iter().enumerate() {
+        let base_role = roles
+            .get(&node_idx)
+            .copied()
+            .unwrap_or(MarkerRole::Internal);
+        if matches!(
+            base_role,
+            MarkerRole::Inlet | MarkerRole::Outlet | MarkerRole::Split | MarkerRole::Merge
+        ) {
+            continue;
+        }
+
+        let near_centerline = (node.point.1 - y_mid).abs() <= system.box_dims.1 * 0.18;
+        let in_treatment_window =
+            node.point.0 >= treatment_x_min && node.point.0 <= treatment_x_max;
+
+        if has_target_zone && near_centerline && in_treatment_window {
+            roles.insert(node_idx, MarkerRole::TherapyTarget);
+        } else if has_bypass_zone && !near_centerline {
+            roles.insert(node_idx, MarkerRole::Bypass);
+        }
+    }
 }
 
 /// Build a compact metric annotation string suited to a given optimisation mode.

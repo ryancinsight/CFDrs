@@ -43,62 +43,8 @@ use cfd_mesh::domain::core::index::{FaceId, VertexId};
 use cfd_mesh::VenturiMeshBuilder;
 use nalgebra::{RealField, Vector3};
 use num_traits::{Float, FromPrimitive, ToPrimitive};
-use serde::{Deserialize, Serialize};
 
-// ============================================================================
-// Solver Configuration
-// ============================================================================
-
-/// Configuration for 3D Venturi solver
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct VenturiConfig3D<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
-    /// Inlet volumetric flow rate [m³/s]
-    pub inlet_flow_rate: T,
-    /// Inlet pressure [Pa]
-    pub inlet_pressure: T,
-    /// Outlet pressure [Pa]
-    pub outlet_pressure: T,
-
-    /// Maximum iterations for nonlinear (Picard) solver
-    pub max_nonlinear_iterations: usize,
-    /// Convergence tolerance for nonlinear iterations
-    pub nonlinear_tolerance: T,
-
-    /// Mesh resolution (axial, transverse)
-    pub resolution: (usize, usize),
-    /// Whether the Venturi is circular or rectangular
-    pub circular: bool,
-    /// Channel height [m] for rectangular cross-sections.
-    ///
-    /// When `circular = false`, the cross-section is `width × height` where
-    /// `width` varies axially (inlet → throat → outlet) and `height` is
-    /// constant.  When `None`, falls back to `width × width` (square).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub rect_height: Option<T>,
-}
-
-impl<
-        T: cfd_mesh::domain::core::Scalar
-            + RealField
-            + Copy
-            + FromPrimitive
-            + ToPrimitive
-            + SafeFromF64,
-    > Default for VenturiConfig3D<T>
-{
-    fn default() -> Self {
-        Self {
-            inlet_flow_rate: T::from_f64_or_one(1e-7),
-            inlet_pressure: T::from_f64_or_one(100.0),
-            outlet_pressure: T::zero(),
-            max_nonlinear_iterations: 15,
-            nonlinear_tolerance: T::from_f64_or_one(1e-4),
-            resolution: (60, 10),
-            circular: false,
-            rect_height: None,
-        }
-    }
-}
+pub use super::types::{VenturiConfig3D, VenturiSolution3D};
 
 // ============================================================================
 // 3D Venturi Solver
@@ -254,7 +200,8 @@ impl<
         // fallback, and the first four "corner" nodes are nearly coplanar (volume
         // < 1e-22), causing assembly to fail on element 0.  P1 Taylor-Hood elements
         // are well-posed for Stokes flow at the mesh resolutions used here.
-        let mesh = tet_mesh.clone();
+        let n_corner_nodes = tet_mesh.vertex_count();
+        let mesh = tet_mesh;
 
         // Boundary diagnostics: labeled faces vs connectivity boundary faces
         {
@@ -436,7 +383,7 @@ impl<
         let outlet_pressure_f64 = self.config.outlet_pressure.to_f64().unwrap_or(0.0);
         let mut outlet_corner_count = 0usize;
         for &v_idx in &outlet_nodes {
-            if v_idx < tet_mesh.vertex_count() {
+            if v_idx < n_corner_nodes {
                 boundary_conditions.insert(
                     v_idx,
                     BoundaryCondition::PressureOutlet {
@@ -578,7 +525,7 @@ impl<
             mesh,
             constant_basis,
             boundary_conditions,
-            tet_mesh.vertex_count(),
+            n_corner_nodes,
         );
         let n_elements = problem.mesh.cell_count();
         let mut element_viscosities =
@@ -648,7 +595,8 @@ impl<
             let mut shear_sum_f64 = 0.0_f64;
 
             next_viscosities.clear();
-            let current_viscosities = problem.element_viscosities.as_ref().unwrap();
+            let current_viscosities = problem.element_viscosities.as_ref()
+                .expect("element_viscosities set before Picard loop");
 
             // Under-relax viscosity for Picard stability:
             // α ramps from 0.5 (iter 0) to 1.0 (iter ≥ 3)
@@ -709,7 +657,8 @@ impl<
                 vel_change_f64 = 1.0_f64;
             }
 
-            element_viscosities = problem.element_viscosities.take().unwrap();
+            element_viscosities = problem.element_viscosities.take()
+                .expect("element_viscosities set before Picard loop");
             std::mem::swap(&mut element_viscosities, &mut next_viscosities);
             
             last_solution = Some(updated_solution);
@@ -874,7 +823,7 @@ impl<
         let mut u_throat_sum = T::zero();
         let mut count_th = 0;
 
-        for i in 0..tet_mesh.vertex_count() {
+        for i in 0..n_corner_nodes {
             let v = problem.mesh.vertices.get(VertexId::from_usize(i));
             let dist_z =
                 num_traits::Float::abs(<T as From<f64>>::from(v.position.z) - z_throat_center);
@@ -969,7 +918,7 @@ impl<
         let mut p_out_slice_weighted_sum = T::zero();
         let weight_floor = <T as FromPrimitive>::from_f64(1e-12).unwrap_or_else(T::zero);
 
-        for i in 0..tet_mesh.vertex_count() {
+        for i in 0..n_corner_nodes {
             let v = problem.mesh.vertices.get(VertexId::from_usize(i));
             if i >= fem_solution.n_corner_nodes {
                 continue;
@@ -1099,382 +1048,5 @@ impl<
         );
 
         Ok(solution)
-    }
-
-    fn calculate_cell_shear_rate_f64(
-        &self,
-        cell: &cfd_mesh::domain::topology::Cell,
-        mesh: &cfd_mesh::IndexedMesh<f64>,
-        solution: &crate::fem::StokesFlowSolution<f64>,
-    ) -> Result<f64> {
-        use crate::fem::solver::extract_vertex_indices;
-
-        let idxs = extract_vertex_indices(cell, mesh, solution.n_corner_nodes)
-            .map_err(|e| Error::Solver(e.to_string()))?;
-        let vertex_positions: Vec<Vector3<f64>> = mesh
-            .vertices
-            .iter()
-            .map(|(_, v)| v.position.coords)
-            .collect();
-        let local_verts: Vec<Vector3<f64>> = idxs.iter().map(|&i| vertex_positions[i]).collect();
-
-        // Shear rate for P2 elements (Tet10) or P1 (Tet4)
-        // For P2, the gradient is linear, so we evaluate at centroid.
-        // For P1, the gradient is constant.
-
-        let mut l = nalgebra::Matrix3::zeros();
-
-        if idxs.len() == 4 {
-            // Tet4 (P1): constant velocity gradient within the element.
-            // L_ij = Σ_k u_k_i · ∂N_k/∂x_j
-            let mut tet4 = crate::fem::element::FluidElement::<f64>::new(idxs.to_vec());
-            let six_v = tet4.calculate_volume(&local_verts);
-            if six_v.abs() < 1e-24_f64 {
-                return Ok(0.0_f64);
-            }
-            tet4.calculate_shape_derivatives(&local_verts[0..4]);
-
-            for k in 0..4 {
-                let u = solution.get_velocity(idxs[k]);
-                for row in 0..3 {
-                    for col in 0..3 {
-                        l[(row, col)] += u[row] * tet4.shape_derivatives[(col, k)];
-                    }
-                }
-            }
-        } else if idxs.len() == 10 {
-            // Tet10 (P2): Evaluate gradient at centroid (L = [0.25, 0.25, 0.25, 0.25])
-            use crate::fem::shape_functions::LagrangeTet10;
-
-            // 1. Calculate P1 gradients (∇L_i)
-            let mut tet4 = crate::fem::element::FluidElement::<f64>::new(idxs[0..4].to_vec());
-            let six_v = tet4.calculate_volume(&local_verts);
-            if six_v.abs() < 1e-24_f64 {
-                return Ok(0.0_f64);
-            }
-            tet4.calculate_shape_derivatives(&local_verts[0..4]);
-            let p1_grads = nalgebra::Matrix3x4::from_columns(&[
-                Vector3::new(
-                    tet4.shape_derivatives[(0, 0)],
-                    tet4.shape_derivatives[(1, 0)],
-                    tet4.shape_derivatives[(2, 0)],
-                ),
-                Vector3::new(
-                    tet4.shape_derivatives[(0, 1)],
-                    tet4.shape_derivatives[(1, 1)],
-                    tet4.shape_derivatives[(2, 1)],
-                ),
-                Vector3::new(
-                    tet4.shape_derivatives[(0, 2)],
-                    tet4.shape_derivatives[(1, 2)],
-                    tet4.shape_derivatives[(2, 2)],
-                ),
-                Vector3::new(
-                    tet4.shape_derivatives[(0, 3)],
-                    tet4.shape_derivatives[(1, 3)],
-                    tet4.shape_derivatives[(2, 3)],
-                ),
-            ]);
-
-            // 2. Evaluate P2 gradients at centroid
-            let tet10 = LagrangeTet10::new(p1_grads);
-            let l_centroid = [0.25_f64; 4];
-            let p2_grads = tet10.gradients(&l_centroid);
-
-            // 3. Compute velocity gradient: L = sum(u_i * ∇N_i)
-            for i in 0..10 {
-                let u = solution.get_velocity(idxs[i]);
-                for row in 0..3 {
-                    for col in 0..3 {
-                        l[(row, col)] += p2_grads[(col, i)] * u[row];
-                    }
-                }
-            }
-        }
-
-        let epsilon = (l + l.transpose()) * 0.5_f64;
-        let mut inner_prod = 0.0_f64;
-        for i in 0..3 {
-            for j in 0..3 {
-                inner_prod += epsilon[(i, j)] * epsilon[(i, j)];
-            }
-        }
-        let shear = (2.0_f64 * inner_prod).sqrt();
-        Ok(shear)
-    }
-
-    fn print_divergence_stats(
-        &self,
-        mesh: &cfd_mesh::IndexedMesh<f64>,
-        solution: &crate::fem::StokesFlowSolution<f64>,
-    ) -> Result<()> {
-        use crate::fem::solver::extract_vertex_indices;
-
-        let mut min_div = f64::MAX;
-        let mut max_div = 0.0_f64;
-        let mut sum_div = 0.0_f64;
-        let mut count = 0usize;
-        let mut total_volume = 0.0_f64;
-        let mut signed_div_sum = 0.0_f64;
-        let mut abs_div_vol_sum = 0.0_f64;
-
-        for cell in &mesh.cells {
-            let idxs = extract_vertex_indices(cell, mesh, solution.n_corner_nodes)?;
-            if idxs.len() < 4 {
-                continue;
-            }
-
-            let mut local_verts = Vec::with_capacity(idxs.len());
-            for &idx in &idxs {
-                local_verts.push(mesh.vertices.get(VertexId::from_usize(idx)).position.coords);
-            }
-
-            let mut div = 0.0_f64;
-            let cell_volume: f64;
-            if idxs.len() == 10 {
-                let mut tet4 = crate::fem::element::FluidElement::new(idxs[0..4].to_vec());
-                let six_v = tet4.calculate_volume(&local_verts);
-                if Float::abs(six_v) < 1e-24_f64 {
-                    continue;
-                }
-                cell_volume = tet4.volume;
-                tet4.calculate_shape_derivatives(&local_verts[0..4]);
-                let p1_grads = nalgebra::Matrix3x4::from_columns(&[
-                    Vector3::new(
-                        tet4.shape_derivatives[(0, 0)],
-                        tet4.shape_derivatives[(1, 0)],
-                        tet4.shape_derivatives[(2, 0)],
-                    ),
-                    Vector3::new(
-                        tet4.shape_derivatives[(0, 1)],
-                        tet4.shape_derivatives[(1, 1)],
-                        tet4.shape_derivatives[(2, 1)],
-                    ),
-                    Vector3::new(
-                        tet4.shape_derivatives[(0, 2)],
-                        tet4.shape_derivatives[(1, 2)],
-                        tet4.shape_derivatives[(2, 2)],
-                    ),
-                    Vector3::new(
-                        tet4.shape_derivatives[(0, 3)],
-                        tet4.shape_derivatives[(1, 3)],
-                        tet4.shape_derivatives[(2, 3)],
-                    ),
-                ]);
-
-                let tet10 = crate::fem::shape_functions::LagrangeTet10::new(p1_grads);
-                let l_centroid = [0.25_f64; 4];
-                let p2_grads = tet10.gradients(&l_centroid);
-
-                for i in 0..10 {
-                    let u = solution.get_velocity(idxs[i]);
-                    div += p2_grads[(0, i)] * u.x + p2_grads[(1, i)] * u.y + p2_grads[(2, i)] * u.z;
-                }
-            } else {
-                let mut element = crate::fem::element::FluidElement::new(idxs.clone());
-                element.calculate_volume(&local_verts);
-                element.calculate_shape_derivatives(&local_verts);
-                cell_volume = element.volume;
-                for (i, &idx) in idxs.iter().enumerate().take(4) {
-                    let u = solution.get_velocity(idx);
-                    div += element.shape_derivatives[(0, i)] * u.x
-                        + element.shape_derivatives[(1, i)] * u.y
-                        + element.shape_derivatives[(2, i)] * u.z;
-                }
-            }
-
-            let div_abs = Float::abs(div);
-            if div_abs < min_div {
-                min_div = div_abs;
-            }
-            if div_abs > max_div {
-                max_div = div_abs;
-            }
-            sum_div += div_abs;
-            total_volume += cell_volume;
-            signed_div_sum += div * cell_volume;
-            abs_div_vol_sum += div_abs * cell_volume;
-            count += 1;
-        }
-
-        if count > 0 {
-            let avg_div = sum_div / count as f64;
-            let vol_avg_div = if total_volume > 0.0_f64 {
-                abs_div_vol_sum / total_volume
-            } else {
-                0.0_f64
-            };
-            println!(
-                "Divergence Stats: min={min_div:?}, max={max_div:?}, avg={avg_div:?}, vol_avg={vol_avg_div:?}, net={signed_div_sum:?} (n={count}, vol={total_volume:?})"
-            );
-        }
-
-        Ok(())
-    }
-
-    fn calculate_boundary_flow(
-        &self,
-        mesh: &cfd_mesh::IndexedMesh<f64>,
-        solution: &crate::fem::StokesFlowSolution<f64>,
-        label: &str,
-    ) -> Result<f64> {
-        let mut total_q = 0.0_f64;
-        let mut face_count = 0usize;
-
-        for f_idx in mesh.boundary_faces() {
-            if mesh.boundary_label(f_idx) == Some(label) {
-                let face = mesh.faces.get(f_idx);
-                if face.vertices.len() >= 3 {
-                    face_count += 1;
-                    let v0 = mesh.vertices.get(face.vertices[0]).position.coords;
-                    let v1 = mesh.vertices.get(face.vertices[1]).position.coords;
-                    let v2 = mesh.vertices.get(face.vertices[2]).position.coords;
-
-                    let n_vec = (v1 - v0).cross(&(v2 - v0));
-                    let area = n_vec.norm() * 0.5_f64;
-                    if area <= 0.0_f64 {
-                        continue;
-                    }
-                    let face_normal = n_vec.normalize();
-
-                    let mut u_avg = Vector3::zeros();
-                    for &v_idx in &face.vertices {
-                        u_avg += solution.get_velocity(v_idx.as_usize());
-                    }
-                    u_avg /= face.vertices.len() as f64;
-
-                    let mut n_oriented = face_normal;
-                    if (label == "inlet" && n_oriented.z > 0.0_f64)
-                        || (label == "outlet" && n_oriented.z < 0.0_f64)
-                    {
-                        n_oriented = -n_oriented;
-                    }
-
-                    let signed_flux = u_avg.dot(&n_oriented) * area;
-                    let face_flow = if label == "inlet" {
-                        -signed_flux
-                    } else {
-                        signed_flux
-                    };
-                    total_q += face_flow;
-                }
-            }
-        }
-
-        println!("Venturi Flux: label={label}, faces={face_count}, total_q={total_q:?}");
-
-        Ok(total_q)
-    }
-
-    fn calculate_plane_flux(
-        &self,
-        mesh: &cfd_mesh::IndexedMesh<f64>,
-        solution: &crate::fem::StokesFlowSolution<f64>,
-        z_plane: f64,
-        tol: f64,
-    ) -> Result<(f64, usize)> {
-        let mut total_q = 0.0_f64;
-        let mut face_count = 0usize;
-
-        for face in mesh.faces.iter() {
-            if face.vertices.len() < 3 {
-                continue;
-            }
-
-            let mut on_plane = true;
-            for &v_idx in &face.vertices {
-                let v = mesh.vertices.get(v_idx);
-                if Float::abs(v.position.z - z_plane) > tol {
-                    on_plane = false;
-                    break;
-                }
-            }
-            if !on_plane {
-                continue;
-            }
-
-            let v0 = mesh.vertices.get(face.vertices[0]).position.coords;
-            let v1 = mesh.vertices.get(face.vertices[1]).position.coords;
-            let v2 = mesh.vertices.get(face.vertices[2]).position.coords;
-
-            let n_vec = (v1 - v0).cross(&(v2 - v0));
-            let area = n_vec.norm() * 0.5_f64;
-            if area <= 0.0_f64 {
-                continue;
-            }
-            let face_normal = n_vec.normalize();
-
-            let mut u_avg = Vector3::zeros();
-            for &v_idx in &face.vertices {
-                u_avg += solution.get_velocity(v_idx.as_usize());
-            }
-            u_avg /= face.vertices.len() as f64;
-
-            let mut face_flow = u_avg.dot(&face_normal) * area;
-            if face_normal.z < 0.0_f64 {
-                face_flow = -face_flow;
-            }
-
-            total_q += face_flow;
-            face_count += 1;
-        }
-
-        Ok((total_q, face_count))
-    }
-}
-
-// ============================================================================
-// Solution Result
-// ============================================================================
-
-/// Complete solution to 3D Venturi problem
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub struct VenturiSolution3D<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
-    /// Inlet mean velocity [m/s]
-    pub u_inlet: T,
-    /// Maximum velocity in the throat [m/s]
-    pub u_throat: T,
-    /// Inlet pressure [Pa]
-    pub p_inlet: T,
-    /// Average pressure in the throat [Pa]
-    pub p_throat: T,
-    /// Outlet pressure [Pa]
-    pub p_outlet: T,
-    /// Pressure drop from inlet to throat [Pa]
-    pub dp_throat: T,
-    /// Net pressure recovery/loss from inlet to outlet [Pa]
-    pub dp_recovery: T,
-    /// Pressure coefficient at the throat
-    pub cp_throat: T,
-    /// Pressure recovery coefficient at the outlet
-    pub cp_recovery: T,
-    /// Mass balance error (relative)
-    pub mass_error: T,
-    /// Face-integrated inlet volumetric flow rate [m³/s]
-    pub q_in_face: T,
-}
-
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy> VenturiSolution3D<T> {
-    /// Create a zero-initialized Venturi solution
-    pub fn new() -> Self {
-        Self {
-            u_inlet: T::zero(),
-            u_throat: T::zero(),
-            p_inlet: T::zero(),
-            p_throat: T::zero(),
-            p_outlet: T::zero(),
-            dp_throat: T::zero(),
-            dp_recovery: T::zero(),
-            cp_throat: T::zero(),
-            cp_recovery: T::zero(),
-            mass_error: T::zero(),
-            q_in_face: T::zero(),
-        }
-    }
-}
-
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy> Default for VenturiSolution3D<T> {
-    fn default() -> Self {
-        Self::new()
     }
 }

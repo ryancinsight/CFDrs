@@ -1,14 +1,10 @@
 //! Discretization coefficients for STANDARD algorithm
 //!
-//! # Theorem
-//! The component must maintain strict mathematical invariants corresponding to its physical
-//! or numerical role.
+//! # Invariant (Coefficient Positivity)
 //!
-//! **Proof sketch**:
-//! Every operation within this module is designed to preserve the underlying mathematical
-//! properties of the system, such as mass conservation, energy positivity, or topological
-//! consistency. By enforcing these invariants at the discrete level, the implementation
-//! guarantees stability and physical realism.
+//! All neighbour coefficients $a_{nb} \ge 0$ under upwind convection,
+//! and $a_P = \sum_{nb} a_{nb} + S_P$ with $S_P \ge 0$. This ensures
+//! diagonal dominance and the discrete maximum principle.
 
 use nalgebra::RealField;
 use serde::{Deserialize, Serialize};

@@ -163,7 +163,7 @@ impl AdvectionMethod {
 
         let zero = T::zero();
         let one = T::one();
-        let half = <T as FromPrimitive>::from_f64(0.5).unwrap_or_else(|| one / (one + one));
+        let half = T::one() / (T::one() + T::one());
 
         for k in 1..solver.nz - 1 {
             for j in 1..solver.ny - 1 {
@@ -486,12 +486,10 @@ impl AdvectionMethod {
                         let normal = solver.normals[idx];
 
                         if normal.norm() > T::zero() {
-                            let compression_factor =
-                                <T as FromPrimitive>::from_f64(0.5).unwrap_or(T::zero());
+                            let compression_factor = T::one() / (T::one() + T::one());
                             let u_compression = normal * compression_factor;
 
-                            let two =
-                                <T as FromPrimitive>::from_f64(2.0).unwrap_or(T::one() + T::one());
+                            let two = T::one() + T::one();
                             let dalpha_dx = (solver.alpha[solver.index(i + 1, j, k)]
                                 - solver.alpha[solver.index(i - 1, j, k)])
                                 / (two * solver.dx);
@@ -612,7 +610,7 @@ fn find_plic_plane_constant<
 ) -> T {
     use num_traits::Float;
     let zero = T::zero();
-    let half = <T as FromPrimitive>::from_f64(0.5).unwrap_or_else(T::one);
+    let half = T::one() / (T::one() + T::one());
 
     let n_abs = Float::abs(normal.x) * dx + Float::abs(normal.y) * dy + Float::abs(normal.z) * dz;
     let mut c_lo = zero;
@@ -671,11 +669,7 @@ pub fn volume_under_plane_3d<
 
     let zero = T::zero();
     let cell_volume = dx * dy * dz;
-    let six = <T as FromPrimitive>::from_f64(6.0).unwrap_or_else(|| {
-        let one = T::one();
-        let two = one + one;
-        two * two + two
-    });
+    let six = T::one() + T::one() + T::one() + T::one() + T::one() + T::one();
 
     // Absolute normal scaled by cell dimensions.
     let m1 = Float::abs(normal.x) * dx;
@@ -686,7 +680,7 @@ pub fn volume_under_plane_3d<
     // Degenerate case: all normal components essentially zero.
     let eps = <T as FromPrimitive>::from_f64(1e-14).unwrap_or(zero);
     if m1 + m2 + m3 < eps {
-        return <T as FromPrimitive>::from_f64(0.5).unwrap_or(T::one()) * cell_volume;
+        return (T::one() / (T::one() + T::one())) * cell_volume;
     }
 
     let c = plane_constant;

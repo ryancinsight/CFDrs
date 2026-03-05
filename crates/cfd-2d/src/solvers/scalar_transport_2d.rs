@@ -9,17 +9,20 @@
 //! - Diffusion: Central difference.
 //! - Solver: Gauss-Seidel iterations.
 //!
-//! # Theorem
-//! The solver algorithm must converge to a unique solution that satisfies the discrete
-//! conservation laws.
+//! # Theorem (Scalar Transport Boundedness — Patankar 1980, Ch. 5)
+//!
+//! The upwind FVM discretisation of $\nabla \cdot (\mathbf{u}\,c) = \nabla \cdot (\Gamma \nabla c)$
+//! produces a coefficient matrix satisfying the Scarborough criterion
+//! $\sum_{nb}|a_{nb}|/|a_P| \le 1$ (strict for at least one row), guaranteeing
+//! Gauss-Seidel convergence and the discrete maximum principle $c_{\min} \le c_i \le c_{\max}$.
 //!
 //! **Proof sketch**:
-//! For a well-posed boundary value problem, the discretized system of equations
-//! $\mathbf{A}\mathbf{x} = \mathbf{b}$ forms a diagonally dominant matrix $\mathbf{A}$
-//! under appropriate upwinding or stabilization. The iterative solver (e.g., SIMPLE, PISO)
-//! reduces the residual norm $\|\mathbf{r}\| = \|\mathbf{b} - \mathbf{A}\mathbf{x}\|$
-//! monotonically. Convergence is guaranteed by the spectral radius of the iteration matrix
-//! being strictly less than 1.
+//! With UDS, each $a_{nb} = D_{nb} + \max(F_{nb}, 0) \ge 0$ and
+//! $a_P = \sum_{nb} a_{nb}$. All coefficients are non-negative, so
+//! $c_i$ is a convex combination of its neighbours. The Gauss-Seidel iteration
+//! contracts because $\rho(\mathbf{M}^{-1}\mathbf{N}) < 1$ for M-matrices.
+//! Boundedness follows directly from the non-negative coefficients and the
+//! Scarborough criterion.
 
 use crate::solvers::ns_fvm_2d::{FlowField2D, StaggeredGrid2D};
 use nalgebra::RealField;

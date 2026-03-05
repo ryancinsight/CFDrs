@@ -1,37 +1,15 @@
-# Project Backlog
+# CFDrs Backlog
 
-## Strategy
-- **Prioritization**: Math Correctness > Critical Bugs > Test Coverage > Features > Optimization
-- **Workflow**: gap_audit -> backlog -> checklist -> implementation
+## CURRENT PHASE: CFD-1D AUDIT (Sprint 1.100.0)
+- **Goal**: Audit, optimize performance, enhance memory efficiency, correct, complete and attempt to prove implementation wrong in `cfd-1d`.
+- **Status**: ✅ COMPLETE
+- **Methodology**: 
+  - Trace code paths for mathematical correctness under the Navier-Stokes / Hagen-Poiseuille 1D assumptions.
+  - Review network solvers for memory bottlenecks (unnecessary `clone()`, `HashMap` vs `Vec` indexing).
+  - Ensure strict physical constraint invariants are checked (e.g. Reynolds number limits, compressibility limits).
+  - Write negative tests.
 
-## Sprint 1.84.0: CFD-1D Numerical Audit (Immediate)
-
-### High Priority
-- [x] **1D-001**: Fix RectangularChannelModel laminar resistance (must be constant).
-- [x] **1D-002**: Fix DarcyWeisbachModel units and non-linear consistency.
-- [x] **1D-003**: Correct MatrixAssembler units documentation.
-- [x] **1D-004**: Add Mach number and entrance length validation.
-- [x] **1D-005**: Integrate invariant validation into simulation loop.
-
-## Sprint 1.86.0: CFD Validation & Benchmarking Audit (Immediate)
-
-### High Priority
-- [x] **VAL-001**: Fix Richardson extrapolation grid ordering and ratio calculation.
-- [x] **VAL-002**: Correct Laplace equation solver sign error in MMS tests.
-- [x] **BENCH-001**: Fix atomic ordering in memory profiling (Acquire/Release).
-- [x] **BENCH-002**: Improve memory metric display accuracy (peak vs total).
-- [x] **BENCH-003**: Fix scaling analysis thread pool initialization panic.
-- [x] **BENCH-004**: Align benchmarking suite with unified BenchmarkConfig.
-- [x] **TEST-001**: Resolve multi-physics coupled interaction test failures.
-- [x] **TEST-002**: Fix markdown report generation test failures.
-
-## Sprint 1.87.0+: Strategic Restructuring (Deep Vertical Tree)
-
-### High Priority (Phase 1/2)
-- [ ] **REST-001**: Consolidate `cfd-core/src/physics/` (Update re-exports and documentation).
-- [ ] **REST-002**: Consolidate `cfd-core/src/geometry/` (Update external references to geometry).
-- [x] **REST-003**: Consolidate `cfd-core/src/compute/` (gpu, mpi, simd). ✅
-- [ ] **REST-004**: Remove "Potemkin" solvers in `cfd-core/src/compute/numerical_methods/` and migrate `NumericalMethodsService`.
-- [ ] **REST-005**: Eliminate implementation duplication in `cfd-math` (WENO). SIMD consolidated. ✅
-
-## Sprint 1.88.0+: Performance & Test Coverage
+### Strategy Outline:
+1. Validated and converted Linear System Solver efficiency (O(1) Boundary vector mappings).
+2. Validated First-principles physical equations bounds.
+3. Implemented Adverse/Boundary testing preventing silent `NaN` flows.

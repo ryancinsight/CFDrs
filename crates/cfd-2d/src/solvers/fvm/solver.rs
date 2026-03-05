@@ -181,3 +181,75 @@ impl<T: RealField + Copy + FromPrimitive> FvmSolver<T> {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn make_solver(nx: usize, ny: usize) -> FvmSolver<f64> {
+        let grid = StructuredGrid2D::new(
+            nx,
+            ny,
+            0.0,
+            nx as f64 * 0.1,
+            0.0,
+            ny as f64 * 0.1,
+        )
+        .unwrap();
+        let config = FvmConfig {
+            nx,
+            ny,
+            dx: grid.dx,
+            dy: grid.dy,
+            ..FvmConfig::default()
+        };
+        FvmSolver::new(config, grid)
+    }
+
+    #[test]
+    fn test_face_generation() {
+        let solver = make_solver(4, 4);
+        assert!(
+            !solver.faces.is_empty(),
+            "Faces should be generated for a 4×4 grid"
+        );
+    }
+
+    #[test]
+    fn test_solve_uniform_field_stays_uniform() {
+        // Uniform φ with zero source and zero velocity → field should not change
+        let mut solver = make_solver(6, 6);
+        let mut phi = Field2D::new(6, 6, 1.0);
+        let velocity = Field2D::new(6, 6, Vector2::zeros());
+        let source = Field2D::new(6, 6, 0.0);
+
+        solver.solve(&mut phi, &velocity, &source).unwrap();
+
+        for i in 0..6 {
+            for j in 0..6 {
+                assert!(
+                    (phi.at(i, j) - 1.0).abs() < 1e-10,
+                    "Uniform field with zero source/velocity should stay uniform at ({i},{j})"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_set_flux_scheme() {
+        let mut solver = make_solver(4, 4);
+        solver.set_flux_scheme(FluxScheme::CentralDifference);
+        // Should not panic — verifies scheme update works
+    }
+
+    #[test]
+    fn test_solve_returns_ok() {
+        let mut solver = make_solver(8, 8);
+        let mut phi = Field2D::new(8, 8, 0.0);
+        let velocity = Field2D::new(8, 8, Vector2::new(0.1, 0.0));
+        let source = Field2D::new(8, 8, 0.0);
+
+        let result = solver.solve(&mut phi, &velocity, &source);
+        assert!(result.is_ok());
+    }
+}

@@ -190,7 +190,7 @@ impl<F: FluidTrait<f64> + Clone> CascadeSolver3D<F> {
             .max_by(|a, b| {
                 a.wall_shear_max_pa
                     .partial_cmp(&b.wall_shear_max_pa)
-                    .unwrap()
+                    .unwrap_or(std::cmp::Ordering::Equal)
             })
             .map(|r| (r.channel_id.clone(), r.wall_shear_max_pa))
             .unwrap_or_default();

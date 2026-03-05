@@ -102,6 +102,8 @@ pub struct LevelSetSolver<T: cfd_mesh::domain::core::Scalar + RealField + FromPr
     phi: Vec<T>,
     /// Previous timestep / working buffer for double-buffering
     phi_previous: Vec<T>,
+    /// Reinitialization reference buffer (stores φ₀ for S(φ₀) sign function)
+    phi_reinit: Vec<T>,
     /// Velocity field
     velocity: Vec<Vector3<T>>,
     /// Narrow band indices (if using narrow band)
@@ -132,6 +134,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Level
             dz,
             phi: vec![T::zero(); grid_size],
             phi_previous: vec![T::zero(); grid_size],
+            phi_reinit: vec![T::zero(); grid_size],
             velocity: vec![Vector3::zeros(); grid_size],
             narrow_band: Vec::new(),
             time_step: 0,
@@ -328,7 +331,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Level
         let tol = <T as FromPrimitive>::from_f64(1e-6).unwrap_or_else(T::zero);
 
         // Store φ₀ for the sign function (must not be overwritten during iteration).
-        let phi0 = self.phi.clone();
+        self.phi_reinit.copy_from_slice(&self.phi);
 
         let max_iters = 100usize;
 
@@ -343,7 +346,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Level
                         let idx = self.index(i, j, k);
 
                         // S(φ₀) = φ₀ / √(φ₀² + Δx²)
-                        let phi0_val = phi0[idx];
+                        let phi0_val = self.phi_reinit[idx];
                         let sign_phi =
                             phi0_val / Float::sqrt(phi0_val * phi0_val + dx_min * dx_min);
 

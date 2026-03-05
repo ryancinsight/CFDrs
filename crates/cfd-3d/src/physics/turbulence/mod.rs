@@ -107,7 +107,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Smago
     /// let smag = SmagorinskyModel::with_filter_width(0.1, 50e-6, 50e-6, 100e-6);
     /// ```
     pub fn with_filter_width(cs: T, dx: T, dy: T, dz: T) -> Self {
-        let one_third = <T as FromPrimitive>::from_f64(1.0 / 3.0).unwrap_or_else(T::one);
+        let one_third = T::one() / (T::one() + T::one() + T::one());
         let filter_width = num_traits::Float::powf(dx * dy * dz, one_third);
         Self {
             cs,
@@ -138,7 +138,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Smago
                 flow_field.velocity.get(i + 1, j, k),
                 flow_field.velocity.get(i - 1, j, k),
             ) {
-                let two = <T as FromPrimitive>::from_f64(2.0).unwrap_or_else(T::one);
+                let two = T::one() + T::one();
                 s11 = (u_plus.x - u_minus.x) / (two * delta);
             }
         }
@@ -148,7 +148,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Smago
                 flow_field.velocity.get(i, j + 1, k),
                 flow_field.velocity.get(i, j - 1, k),
             ) {
-                let two = <T as FromPrimitive>::from_f64(2.0).unwrap_or_else(T::one);
+                let two = T::one() + T::one();
                 s22 = (v_plus.y - v_minus.y) / (two * delta);
             }
         }
@@ -158,7 +158,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Smago
                 flow_field.velocity.get(i, j, k + 1),
                 flow_field.velocity.get(i, j, k - 1),
             ) {
-                let two = <T as FromPrimitive>::from_f64(2.0).unwrap_or_else(T::one);
+                let two = T::one() + T::one();
                 s33 = (w_plus.z - w_minus.z) / (two * delta);
             }
         }
@@ -176,7 +176,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Smago
                 flow_field.velocity.get(i + 1, j, k),
                 flow_field.velocity.get(i - 1, j, k),
             ) {
-                let two = <T as FromPrimitive>::from_f64(2.0).unwrap_or_else(T::one);
+                let two = T::one() + T::one();
                 let du_dy = (u_jp.x - u_jm.x) / (two * delta);
                 let dv_dx = (v_ip.y - v_im.y) / (two * delta);
                 s12 = (du_dy + dv_dx) / two;
@@ -191,7 +191,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Smago
                 flow_field.velocity.get(i + 1, j, k),
                 flow_field.velocity.get(i - 1, j, k),
             ) {
-                let two = <T as FromPrimitive>::from_f64(2.0).unwrap_or_else(T::one);
+                let two = T::one() + T::one();
                 let du_dz = (u_kp.x - u_km.x) / (two * delta);
                 let dw_dx = (w_ip.z - w_im.z) / (two * delta);
                 s13 = (du_dz + dw_dx) / two;
@@ -206,7 +206,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Smago
                 flow_field.velocity.get(i, j + 1, k),
                 flow_field.velocity.get(i, j - 1, k),
             ) {
-                let two = <T as FromPrimitive>::from_f64(2.0).unwrap_or_else(T::one);
+                let two = T::one() + T::one();
                 let dv_dz = (v_kp.y - v_km.y) / (two * delta);
                 let dw_dy = (w_jp.z - w_jm.z) / (two * delta);
                 s23 = (dv_dz + dw_dy) / two;
@@ -214,7 +214,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Smago
         }
 
         // Strain rate magnitude: |S| = sqrt(2 * Sij * Sij)
-        let two = <T as FromPrimitive>::from_f64(2.0).unwrap_or_else(T::one);
+        let two = T::one() + T::one();
         let s_mag_sq =
             two * (s11 * s11 + s22 * s22 + s33 * s33 + two * (s12 * s12 + s13 * s13 + s23 * s23));
         num_traits::Float::sqrt(s_mag_sq)
@@ -339,7 +339,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Mixin
             cfd_core::physics::constants::physics::fluid::VON_KARMAN,
         )
         .unwrap_or_else(T::one);
-        let one_third = <T as FromPrimitive>::from_f64(1.0 / 3.0).unwrap_or_else(T::one);
+        let one_third = T::one() / (T::one() + T::one() + T::one());
         let filter_width = num_traits::Float::powf(dx * dy * dz, one_third);
         Self {
             length_scale,
@@ -360,7 +360,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Mixin
 
         // Physically correct FD spacing — see filter_width field documentation.
         let delta = self.filter_width;
-        let two = <T as FromPrimitive>::from_f64(2.0).unwrap_or_else(T::one);
+        let two = T::one() + T::one();
 
         let mut grad_u_sq = T::zero();
 
@@ -555,7 +555,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> KEpsi
 
         for vel in &flow_field.velocity.components {
             let u_mag = vel.norm();
-            let three_half = <T as FromPrimitive>::from_f64(1.5).unwrap_or_else(T::one);
+            let three_half = (T::one() + T::one() + T::one()) / (T::one() + T::one());
             let k = three_half * num_traits::Float::powi(u_mag * turbulence_intensity, 2);
             k_field.push(k);
         }
@@ -563,15 +563,17 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> KEpsi
         // Initialize epsilon mathematically
         let mut epsilon_field = Vec::with_capacity(n);
 
+        let three = T::one() + T::one() + T::one();
+        let four = three + T::one();
         let c_mu_34 = num_traits::Float::powf(
             self.constants.c_mu,
-            <T as FromPrimitive>::from_f64(0.75).unwrap_or_else(T::one),
+            three / four,
         );
         for &k in &k_field {
             let epsilon = c_mu_34
                 * num_traits::Float::powf(
                     k,
-                    <T as FromPrimitive>::from_f64(1.5).unwrap_or_else(T::one),
+                    three / (T::one() + T::one()),
                 )
                 / mixing_length;
             epsilon_field.push(epsilon);

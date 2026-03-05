@@ -167,12 +167,11 @@ impl TransientDropletSimulator {
 
         let first_time = composition_states[0].time;
         let mut previous_time = first_time;
+        let mut state_network = network.clone();
 
         for state in &composition_states {
             let dt = (state.time - previous_time).max(T::zero());
             previous_time = state.time;
-
-            let mut state_network = network.clone();
             for (edge_idx, flow_rate) in &state.edge_flow_rates {
                 state_network.set_flow_rate(EdgeIndex::new(*edge_idx), *flow_rate);
             }
@@ -217,9 +216,10 @@ impl TransientDropletSimulator {
                     .as_ref()
                     .and_then(|pos| state.edge_mixtures.get(&pos.channel_index).cloned());
 
-                let mut occupied_channels = Vec::new();
-                let mut occupancy_spans = Vec::new();
-                let mut boundaries = Vec::new();
+                let branch_count = droplet.branches.len();
+                let mut occupied_channels = Vec::with_capacity(branch_count);
+                let mut occupancy_spans = Vec::with_capacity(branch_count);
+                let mut boundaries = Vec::with_capacity(branch_count * 2);
                 let mut total_volume = T::zero();
 
                 if droplet.state == DropletState::Network {
@@ -302,11 +302,12 @@ impl TransientDropletSimulator {
             return Ok(());
         }
 
-        let mut new_branches = Vec::new();
+        let mut new_branches = Vec::with_capacity(droplet.branches.len());
         let mut any_sink = false;
         let mut any_trapped = false;
+        let old_branches = std::mem::take(&mut droplet.branches);
 
-        for branch in droplet.branches.clone() {
+        for branch in old_branches {
             Self::advance_branch(
                 network,
                 branch,
@@ -399,12 +400,14 @@ impl TransientDropletSimulator {
 
             let dp = dt * (q / area) / length;
             let new_center = branch.center + dp;
+            let moved_branch = DropletBranch {
+                channel_index: branch.channel_index,
+                center: new_center,
+                volume: branch.volume,
+            };
             let (start2, end) = Self::branch_interval_raw(
                 network,
-                &DropletBranch {
-                    center: new_center,
-                    ..branch.clone()
-                },
+                &moved_branch,
             )?;
 
             let crosses_downstream = (q >= T::zero() && end > T::one() - eps)
