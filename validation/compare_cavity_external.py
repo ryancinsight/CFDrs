@@ -23,7 +23,8 @@ try:
     import cfd_python
 except ImportError:
     print("ERROR: cfd_python not installed. Build with: cd crates/cfd-python && maturin develop")
-    sys.exit(1)
+    if "pytest" not in sys.modules and __name__ == "__main__":
+        sys.exit(1)
 
 # Import external reference
 from external_cavity_reference import CavityFlowSolver, run_cavity_validation
@@ -101,11 +102,32 @@ def compare_solutions(cfd_python_result, external_result, Re: float):
     ext_sol = external_result["solution"]
     ext_solver = external_result["solver"]
     
+    from scipy.interpolate import RectBivariateSpline
+
     # Ensure same grid size
     if cfd_python_result["u"].shape != ext_sol["u"].shape:
         print(f"WARN: Grid size mismatch: cfd_python {cfd_python_result['u'].shape} vs external {ext_sol['u'].shape}")
-        # TODO: Interpolate if needed
-        return None
+        print("Interpolating cfd_python result to match external grid size...")
+
+        # Create interpolators for u, v, p fields
+        interp_u = RectBivariateSpline(cfd_python_result["y"], cfd_python_result["x"], cfd_python_result["u"])
+        interp_v = RectBivariateSpline(cfd_python_result["y"], cfd_python_result["x"], cfd_python_result["v"])
+        interp_p = RectBivariateSpline(cfd_python_result["y"], cfd_python_result["x"], cfd_python_result["p"])
+
+        # Evaluate interpolators on the external grid
+        cfd_python_result["u"] = interp_u(ext_solver.y, ext_solver.x)
+        cfd_python_result["v"] = interp_v(ext_solver.y, ext_solver.x)
+        cfd_python_result["p"] = interp_p(ext_solver.y, ext_solver.x)
+
+        # Interpolate centerlines
+        from scipy.interpolate import interp1d
+        interp_u_c = interp1d(cfd_python_result["y"], cfd_python_result["u_centerline"], kind='cubic', fill_value='extrapolate')
+        interp_v_c = interp1d(cfd_python_result["x"], cfd_python_result["v_centerline"], kind='cubic', fill_value='extrapolate')
+
+        cfd_python_result["u_centerline"] = interp_u_c(ext_solver.y)
+        cfd_python_result["v_centerline"] = interp_v_c(ext_solver.x)
+        cfd_python_result["x"] = ext_solver.x
+        cfd_python_result["y"] = ext_solver.y
     
     # Compute L2 errors
     u_diff = cfd_python_result["u"] - ext_sol["u"]
