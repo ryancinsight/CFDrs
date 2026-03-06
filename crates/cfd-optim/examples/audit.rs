@@ -640,7 +640,7 @@ fn preset_defs() -> Vec<PresetDef> {
             id: "cascade_center_trifurcation_rect",
             family: "cascade_composite",
             support: "parametric+ga",
-            mapped_to: "CCT",
+            mapped_to: "PST",
             build: |n| {
                 cascade_center_trifurcation_rect(
                     n, 12e-3, 8e-3, 2, 2e-3, 0.45, 100e-6, 300e-6, 1e-3, true, None,

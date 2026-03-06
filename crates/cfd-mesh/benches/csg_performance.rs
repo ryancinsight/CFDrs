@@ -60,10 +60,12 @@ fn bench_gwn_linear_large(c: &mut Criterion) {
 
 fn bench_gwn_bvh_large(c: &mut Criterion) {
     let (pool, faces) = build_sphere_faces(40, 60);
-    let prepared = prepare_bvh_mesh(&faces, &pool);
+    // prepare_bvh_mesh takes &[PreparedFace] (pre-computed via prepare_classification_faces).
+    let prep_faces = prepare_classification_faces(&faces, &pool);
+    let bvh = prepare_bvh_mesh(&prep_faces).expect("non-empty sphere should build BVH");
     let q = Point3r::new(0.0, 0.0, 0.0);
     c.bench_function("gwn_bvh_2400f", |b| {
-        b.iter(|| gwn_bvh(black_box(&q), black_box(&prepared), black_box(0.01)))
+        b.iter(|| gwn_bvh(black_box(&q), black_box(&bvh), black_box(0.01)))
     });
 }
 

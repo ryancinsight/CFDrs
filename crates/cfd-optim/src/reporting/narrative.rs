@@ -313,7 +313,7 @@ fn build_conclusions(
     ga_sigma: f64,
 ) -> String {
     format!(
-        "Milestone 12 completion criteria were met using deterministic CFDrs design selection.\n\nFrom **{}** candidates, the selected Option 1 design (`{}`) satisfies selective acoustic center-lane treatment requirements, while selected Option 2 (`{}`) satisfies selective venturi treatment criteria under the combined cancer-plus-leukapheresis score with finite, sub-unity cavitation number and strict-core gate passes.\n\nGA reproducibility is anchored to seed `{}` with rank-1 design `{}` (score {:.4}, sigma {:.4}). Narrative and canonical outputs are generated from a single run payload to preserve traceable contract evidence.",
+        "Milestone 12 completion criteria were met using deterministic CFDrs design selection.\n\nFrom **{}** candidates, the selected Option 1 design (`{}`) satisfies selective acoustic center-lane treatment requirements, while selected Option 2 (`{}`) satisfies selective venturi treatment criteria under the combined cancer-plus-leukapheresis score with pressure, plate-fit, and FDA main-channel gate passes.\n\nGA reproducibility is anchored to seed `{}` with rank-1 design `{}` (score {:.4}, sigma {:.4}). Narrative and canonical outputs are generated from a single run payload to preserve traceable contract evidence.",
         total_candidates, option1_id, option2_id, M12_GA_HYDRO_SEED, ga_id, ga_score, ga_sigma
     )
 }

@@ -1,8 +1,7 @@
 use cfd_1d::domain::network::{Network, NetworkBuilder};
 use cfd_1d::solver::core::{
-    EdgeFlowEvent, InletCompositionEvent, MixtureComposition, SimulationTimeConfig,
-    PressureBoundaryEvent,
-    TransientCompositionSimulator,
+    EdgeFlowEvent, InletCompositionEvent, MixtureComposition, PressureBoundaryEvent,
+    SimulationTimeConfig, TransientCompositionSimulator,
 };
 use std::collections::HashMap;
 
@@ -40,7 +39,8 @@ fn switches_inlet_mixture_over_time() {
     ];
 
     let states =
-        TransientCompositionSimulator::simulate(&network, events, vec![0.0, 1.0, 2.0, 3.0]).expect("simulate");
+        TransientCompositionSimulator::simulate(&network, events, vec![0.0, 1.0, 2.0, 3.0])
+            .expect("simulate");
 
     assert_eq!(states.len(), 4);
 
@@ -83,8 +83,12 @@ fn mixes_two_inlet_streams_at_junction() {
         },
     ];
 
-    let states = TransientCompositionSimulator::simulate(&network, events, vec![0.0]).expect("simulate");
-    let out_mix = states[0].edge_mixtures.get(&e3.index()).expect("out edge mixture");
+    let states =
+        TransientCompositionSimulator::simulate(&network, events, vec![0.0]).expect("simulate");
+    let out_mix = states[0]
+        .edge_mixtures
+        .get(&e3.index())
+        .expect("out edge mixture");
 
     let f10 = out_mix.fractions.get(&10).copied().unwrap_or(0.0);
     let f20 = out_mix.fractions.get(&20).copied().unwrap_or(0.0);
@@ -131,8 +135,8 @@ fn simulate_with_time_config_samples_result_grid_and_switches_events() {
     ];
 
     let timing = SimulationTimeConfig::new(1.0, 0.25, 0.1);
-    let states =
-        TransientCompositionSimulator::simulate_with_time_config(&network, events, timing).expect("simulate");
+    let states = TransientCompositionSimulator::simulate_with_time_config(&network, events, timing)
+        .expect("simulate");
 
     assert_eq!(states.len(), 5);
     assert!((states[0].time - 0.0).abs() < 1e-12);
@@ -141,10 +145,16 @@ fn simulate_with_time_config_samples_result_grid_and_switches_events() {
     assert!((states[3].time - 0.75).abs() < 1e-12);
     assert!((states[4].time - 1.0).abs() < 1e-12);
 
-    let before_switch = states[1].edge_mixtures.get(&edge.index()).expect("edge t0.25");
+    let before_switch = states[1]
+        .edge_mixtures
+        .get(&edge.index())
+        .expect("edge t0.25");
     assert!((before_switch.fractions.get(&1).copied().unwrap_or(0.0) - 1.0).abs() < 1e-12);
 
-    let at_switch = states[2].edge_mixtures.get(&edge.index()).expect("edge t0.5");
+    let at_switch = states[2]
+        .edge_mixtures
+        .get(&edge.index())
+        .expect("edge t0.5");
     assert!((at_switch.fractions.get(&2).copied().unwrap_or(0.0) - 1.0).abs() < 1e-12);
 }
 
@@ -180,7 +190,8 @@ fn edge_average_concentrations_query_matches_snapshot_mixture() {
         },
     ];
 
-    let states = TransientCompositionSimulator::simulate(&network, events, vec![0.0]).expect("simulate");
+    let states =
+        TransientCompositionSimulator::simulate(&network, events, vec![0.0]).expect("simulate");
     let avg = states[0]
         .average_fluid_concentrations_in_edge(e3.index())
         .expect("average concentrations");
@@ -207,8 +218,11 @@ fn edge_average_concentrations_query_returns_none_for_missing_edge() {
         mixture: mixture(&[(1, 1.0)]),
     }];
 
-    let states = TransientCompositionSimulator::simulate(&network, events, vec![0.0]).expect("simulate");
-    assert!(states[0].average_fluid_concentrations_in_edge(usize::MAX).is_none());
+    let states =
+        TransientCompositionSimulator::simulate(&network, events, vec![0.0]).expect("simulate");
+    assert!(states[0]
+        .average_fluid_concentrations_in_edge(usize::MAX)
+        .is_none());
 }
 
 #[test]

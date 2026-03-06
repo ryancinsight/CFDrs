@@ -106,10 +106,7 @@ impl<T: RealField + Copy + FromPrimitive + Float> ChannelGeometry<T> {
                 top_width,
                 bottom_width,
                 height,
-            } => {
-                (*top_width + *bottom_width) * *height
-                    / (T::one() + T::one())
-            }
+            } => (*top_width + *bottom_width) * *height / (T::one() + T::one()),
             CrossSection::Custom { area, .. } => *area,
         }
     }
@@ -119,8 +116,7 @@ impl<T: RealField + Copy + FromPrimitive + Float> ChannelGeometry<T> {
         match &self.cross_section {
             CrossSection::Rectangular { width, height } => {
                 let four = T::one() + T::one() + T::one() + T::one();
-                four * self.area()
-                    / ((T::one() + T::one()) * (*width + *height))
+                four * self.area() / ((T::one() + T::one()) * (*width + *height))
             }
             CrossSection::Circular { diameter } => *diameter,
             CrossSection::Elliptical { .. } => {
@@ -134,12 +130,9 @@ impl<T: RealField + Copy + FromPrimitive + Float> ChannelGeometry<T> {
                 height,
             } => {
                 let area = self.area();
-                let hw =
-                    (*top_width - *bottom_width) / (T::one() + T::one());
+                let hw = (*top_width - *bottom_width) / (T::one() + T::one());
                 let side_length = Float::sqrt(Float::powi(*height, 2) + Float::powi(hw, 2));
-                let perimeter = *top_width
-                    + *bottom_width
-                    + (T::one() + T::one()) * side_length;
+                let perimeter = *top_width + *bottom_width + (T::one() + T::one()) * side_length;
                 (T::one() + T::one() + T::one() + T::one()) * area / perimeter
             }
             CrossSection::Custom {
@@ -169,40 +162,45 @@ impl<T: RealField + Copy + FromPrimitive + Float> ChannelGeometry<T> {
                 let b_val = *minor_axis / two;
 
                 // Ensure a >= b for standard integral form
-                let (a, b) = if a_val > b_val { (a_val, b_val) } else { (b_val, a_val) };
+                let (a, b) = if a_val > b_val {
+                    (a_val, b_val)
+                } else {
+                    (b_val, a_val)
+                };
 
                 if a == b || b == T::zero() {
                     return two * pi * a;
                 }
 
                 let m = T::one() - (b * b) / (a * a);
-                
+
                 let mut a_n = T::one();
                 let mut b_n = Float::sqrt(T::one() - m);
                 let mut c_n = Float::sqrt(m);
-                
+
                 let mut sum = c_n * c_n / two;
                 let mut power = T::one();
-                
-                let tolerance = T::from_f64(1e-14).expect("Mathematical constant conversion compromised");
-                
+
+                let tolerance =
+                    T::from_f64(1e-14).expect("Mathematical constant conversion compromised");
+
                 for _ in 0..20 {
                     let a_next = (a_n + b_n) / two;
                     let b_next = Float::sqrt(a_n * b_n);
                     let c_next = (a_n - b_n) / two;
-                    
+
                     a_n = a_next;
                     b_n = b_next;
                     c_n = c_next;
-                    
+
                     sum += power * c_n * c_n;
                     power *= two;
-                    
+
                     if c_n < tolerance || c_n == T::zero() {
                         break;
                     }
                 }
-                
+
                 let e_m = (pi / (two * a_n)) * (T::one() - sum);
                 let four = T::one() + T::one() + T::one() + T::one();
                 four * a * e_m
@@ -212,12 +210,9 @@ impl<T: RealField + Copy + FromPrimitive + Float> ChannelGeometry<T> {
                 bottom_width,
                 height,
             } => {
-                let hw =
-                    (*top_width - *bottom_width) / (T::one() + T::one());
+                let hw = (*top_width - *bottom_width) / (T::one() + T::one());
                 let side_length = Float::sqrt(Float::powi(*height, 2) + Float::powi(hw, 2));
-                *top_width
-                    + *bottom_width
-                    + (T::one() + T::one()) * side_length
+                *top_width + *bottom_width + (T::one() + T::one()) * side_length
             }
             CrossSection::Custom {
                 area,
@@ -287,8 +282,10 @@ impl<T: RealField + Copy + FromPrimitive + Float> Channel<T> {
         let kn_opt = if dh > T::zero() {
             // Chapman-Enskog: λ = μ √(π/2) / (ρ c)
             // c = speed of sound = √(γ·P/ρ) ≈ bulk speed_of_sound field in Fluid
-            let sqrt_half_pi = T::from_f64(std::f64::consts::FRAC_PI_2.sqrt()).unwrap_or_else(T::one);
-            let lam = fluid.dynamic_viscosity() * sqrt_half_pi / (fluid.density * fluid.speed_of_sound);
+            let sqrt_half_pi =
+                T::from_f64(std::f64::consts::FRAC_PI_2.sqrt()).unwrap_or_else(T::one);
+            let lam =
+                fluid.dynamic_viscosity() * sqrt_half_pi / (fluid.density * fluid.speed_of_sound);
             if lam > T::zero() {
                 Some(lam / dh)
             } else {
@@ -311,16 +308,20 @@ impl<T: RealField + Copy + FromPrimitive + Float> Channel<T> {
             let entrance_length = match self.flow_state.flow_regime {
                 FlowRegime::Laminar | FlowRegime::Stokes => {
                     // Schlichting (1979): L_e / Dh = 0.06 Re
-                    dh * T::from_f64(0.06).expect("Mathematical constant conversion compromised") * re
+                    dh * T::from_f64(0.06).expect("Mathematical constant conversion compromised")
+                        * re
                 }
                 FlowRegime::Transitional | FlowRegime::Turbulent => {
                     // L_e / Dh = 4.4 Re^(1/6)
-                    let one_sixth = T::from_f64(1.0 / 6.0).expect("Mathematical constant conversion compromised");
-                    dh * T::from_f64(4.4).expect("Mathematical constant conversion compromised") * Float::powf(re, one_sixth)
+                    let one_sixth = T::from_f64(1.0 / 6.0)
+                        .expect("Mathematical constant conversion compromised");
+                    dh * T::from_f64(4.4).expect("Mathematical constant conversion compromised")
+                        * Float::powf(re, one_sixth)
                 }
                 FlowRegime::SlipFlow => {
                     // Slip flow — entrance effects are weaker; use laminar correlation
-                    dh * T::from_f64(0.06).expect("Mathematical constant conversion compromised") * re
+                    dh * T::from_f64(0.06).expect("Mathematical constant conversion compromised")
+                        * re
                 }
             };
             self.flow_state.entrance_effects = self.geometry.length < entrance_length;
@@ -346,8 +347,8 @@ impl<T: RealField + Copy + FromPrimitive + Float> Channel<T> {
         let length = self.geometry.length;
         let viscosity = fluid.dynamic_viscosity();
         let shape_factor = self.get_shape_factor();
-        let resistance = shape_factor * viscosity * length
-            / ((T::one() + T::one()) * area * dh * dh);
+        let resistance =
+            shape_factor * viscosity * length / ((T::one() + T::one()) * area * dh * dh);
         Ok(resistance)
     }
 
@@ -370,8 +371,8 @@ impl<T: RealField + Copy + FromPrimitive + Float> Channel<T> {
         let length = self.geometry.length;
         let viscosity = fluid.dynamic_viscosity();
         let shape_factor = self.get_shape_factor();
-        let resistance = shape_factor * viscosity * length
-            / ((T::one() + T::one()) * area * dh * dh);
+        let resistance =
+            shape_factor * viscosity * length / ((T::one() + T::one()) * area * dh * dh);
         Ok(resistance)
     }
 
@@ -397,8 +398,10 @@ impl<T: RealField + Copy + FromPrimitive + Float> Channel<T> {
         })?;
 
         // Linear interpolation between laminar and turbulent at transition bounds
-        let re_l = T::from_f64(PIPE_LAMINAR_MAX).expect("Mathematical constant conversion compromised");
-        let re_u = T::from_f64(PIPE_TURBULENT_MIN).expect("Mathematical constant conversion compromised");
+        let re_l =
+            T::from_f64(PIPE_LAMINAR_MAX).expect("Mathematical constant conversion compromised");
+        let re_u =
+            T::from_f64(PIPE_TURBULENT_MIN).expect("Mathematical constant conversion compromised");
 
         let r_l = self.calculate_laminar_resistance(fluid)?;
         let r_u = self.calculate_turbulent_resistance(fluid)?;
@@ -437,8 +440,7 @@ impl<T: RealField + Copy + FromPrimitive + Float> Channel<T> {
         // R_eff = f·ρ·L·|V| / (2·Dh·A),  V = Re·μ / (ρ·Dh)
         let viscosity = fluid.dynamic_viscosity();
         let velocity = (re * viscosity) / (density * dh);
-        let resistance = (f * density * length * velocity)
-            / ((T::one() + T::one()) * dh * area);
+        let resistance = (f * density * length * velocity) / ((T::one() + T::one()) * dh * area);
         Ok(resistance)
     }
 
@@ -512,7 +514,8 @@ impl<T: RealField + Copy + FromPrimitive + Float> Channel<T> {
                 };
                 // Guard against degenerate aspect ratio
                 if b <= T::zero() {
-                    return T::from_f64(64.0).expect("Mathematical constant conversion compromised");
+                    return T::from_f64(64.0)
+                        .expect("Mathematical constant conversion compromised");
                 }
                 let alpha = a / b;
                 let c1 = T::from_f64(1.3553).expect("Mathematical constant conversion compromised");
@@ -525,13 +528,9 @@ impl<T: RealField + Copy + FromPrimitive + Float> Channel<T> {
                 let inv_a3 = inv_a2 * inv_a;
                 let inv_a4 = inv_a3 * inv_a;
                 let inv_a5 = inv_a4 * inv_a;
-                
+
                 T::from_f64(96.0).expect("Mathematical constant conversion compromised")
-                    * (T::one()
-                        - c1 * inv_a
-                        + c2 * inv_a2
-                        - c3 * inv_a3
-                        + c4 * inv_a4
+                    * (T::one() - c1 * inv_a + c2 * inv_a2 - c3 * inv_a3 + c4 * inv_a4
                         - c5 * inv_a5)
             }
             CrossSection::Elliptical {
@@ -541,11 +540,13 @@ impl<T: RealField + Copy + FromPrimitive + Float> Channel<T> {
                 // For an ellipse with semi-axes a, b (a ≥ b):
                 // Exact Stokes solution: Po = 2π(a² + b²) / (a·b)
                 // (Dryden, Murnaghan & Bateman, 1932)
-                let two_pi = T::from_f64(2.0 * std::f64::consts::PI).expect("Mathematical constant conversion compromised");
+                let two_pi = T::from_f64(2.0 * std::f64::consts::PI)
+                    .expect("Mathematical constant conversion compromised");
                 let a = *major_axis / (T::one() + T::one());
                 let b = *minor_axis / (T::one() + T::one());
                 if a <= T::zero() || b <= T::zero() {
-                    return T::from_f64(64.0).expect("Mathematical constant conversion compromised");
+                    return T::from_f64(64.0)
+                        .expect("Mathematical constant conversion compromised");
                 }
                 two_pi * (a * a + b * b) / (a * b)
             }
@@ -563,10 +564,10 @@ impl<T: RealField + Copy + FromPrimitive + Float> Channel<T> {
                 //
                 // Reference: Muzychka, Y. S. & Yovanovich, M. M. (2002).
                 // ASME J. Heat Transfer, 124(2), 260–267 — equivalent rectangle method.
-                let avg_width = (*top_width + *bottom_width)
-                    / (T::one() + T::one());
+                let avg_width = (*top_width + *bottom_width) / (T::one() + T::one());
                 if *height <= T::zero() || avg_width <= T::zero() {
-                    return T::from_f64(64.0).expect("Mathematical constant conversion compromised");
+                    return T::from_f64(64.0)
+                        .expect("Mathematical constant conversion compromised");
                 }
                 let (a, b) = if avg_width >= *height {
                     (avg_width, *height)
@@ -585,11 +586,7 @@ impl<T: RealField + Copy + FromPrimitive + Float> Channel<T> {
                 let inv_a4 = inv_a3 * inv_a;
                 let inv_a5 = inv_a4 * inv_a;
                 T::from_f64(96.0).expect("Mathematical constant conversion compromised")
-                    * (T::one()
-                        - c1 * inv_a
-                        + c2 * inv_a2
-                        - c3 * inv_a3
-                        + c4 * inv_a4
+                    * (T::one() - c1 * inv_a + c2 * inv_a2 - c3 * inv_a3 + c4 * inv_a4
                         - c5 * inv_a5)
             }
             CrossSection::Custom { .. } => {

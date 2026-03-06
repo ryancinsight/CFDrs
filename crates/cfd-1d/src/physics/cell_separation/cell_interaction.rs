@@ -56,18 +56,24 @@ use super::{margination, margination::EquilibriumResult, properties::CellPropert
 /// - `hematocrit` — volumetric RBC fraction at device inlet (0.0–0.45)
 #[must_use]
 pub fn enhanced_lateral_equilibrium(
-    wbc:            &CellProperties,
-    fluid_density:  f64,
-    viscosity:      f64,
-    velocity:       f64,
-    width:          f64,
-    height:         f64,
-    bend_radius:    Option<f64>,
-    hematocrit:     f64,
+    wbc: &CellProperties,
+    fluid_density: f64,
+    viscosity: f64,
+    velocity: f64,
+    width: f64,
+    height: f64,
+    bend_radius: Option<f64>,
+    hematocrit: f64,
 ) -> Option<EquilibriumResult> {
     // 1. Pure inertial equilibrium (existing single-particle model)
     let mut result = margination::lateral_equilibrium(
-        wbc, fluid_density, viscosity, velocity, width, height, bend_radius,
+        wbc,
+        fluid_density,
+        viscosity,
+        velocity,
+        width,
+        height,
+        bend_radius,
     )?;
 
     // Skip correction at negligible HCT (< 0.5%) — Γ ≈ 1 and correction is
@@ -80,15 +86,11 @@ pub fn enhanced_lateral_equilibrium(
     let dh = 2.0 * width * height / (width + height);
 
     // 3. Apply CFL + margination enhancement factor
-    let x_tilde_corrected = ci::apply_cell_interaction(
-        result.x_tilde_eq,
-        wbc.diameter_m,
-        hematocrit,
-        dh,
-    );
+    let x_tilde_corrected =
+        ci::apply_cell_interaction(result.x_tilde_eq, wbc.diameter_m, hematocrit, dh);
 
     // 4. Update result with corrected position
-    result.x_tilde_eq       = x_tilde_corrected;
+    result.x_tilde_eq = x_tilde_corrected;
     result.lateral_position_m = x_tilde_corrected * (height * 0.5);
 
     Some(result)
@@ -104,20 +106,24 @@ mod tests {
     /// At zero hematocrit, enhanced and plain equilibrium should agree
     #[test]
     fn enhanced_matches_plain_at_zero_hct() {
-        let wbc    = CellProperties::white_blood_cell();
-        let w      = 400e-6_f64;
-        let h      = 80e-6_f64;
-        let v      = 0.05_f64; // 5 cm/s
-        let rho    = 1060.0_f64;
-        let mu     = 3.5e-3_f64;
+        let wbc = CellProperties::white_blood_cell();
+        let w = 400e-6_f64;
+        let h = 80e-6_f64;
+        let v = 0.05_f64; // 5 cm/s
+        let rho = 1060.0_f64;
+        let mu = 3.5e-3_f64;
 
-        let plain    = margination::lateral_equilibrium(&wbc, rho, mu, v, w, h, None);
+        let plain = margination::lateral_equilibrium(&wbc, rho, mu, v, w, h, None);
         let enhanced = enhanced_lateral_equilibrium(&wbc, rho, mu, v, w, h, None, 0.0);
 
         match (plain, enhanced) {
             (Some(p), Some(e)) => {
-                assert!((p.x_tilde_eq - e.x_tilde_eq).abs() < 1e-9,
-                    "At HCT=0 plain={:.6} enhanced={:.6}", p.x_tilde_eq, e.x_tilde_eq);
+                assert!(
+                    (p.x_tilde_eq - e.x_tilde_eq).abs() < 1e-9,
+                    "At HCT=0 plain={:.6} enhanced={:.6}",
+                    p.x_tilde_eq,
+                    e.x_tilde_eq
+                );
             }
             (None, None) => {} // Both agree cell doesn't focus
             _ => panic!("plain and enhanced should agree at HCT=0"),
@@ -128,19 +134,22 @@ mod tests {
     #[test]
     fn enhanced_shifts_toward_wall_at_physiological_hct() {
         let wbc = CellProperties::white_blood_cell();
-        let w   = 200e-6_f64;
-        let h   = 80e-6_f64;
-        let v   = 0.10_f64;
+        let w = 200e-6_f64;
+        let h = 80e-6_f64;
+        let v = 0.10_f64;
         let rho = 1060.0_f64;
-        let mu  = 3.5e-3_f64;
+        let mu = 3.5e-3_f64;
 
-        let plain    = margination::lateral_equilibrium(&wbc, rho, mu, v, w, h, None);
+        let plain = margination::lateral_equilibrium(&wbc, rho, mu, v, w, h, None);
         let enhanced = enhanced_lateral_equilibrium(&wbc, rho, mu, v, w, h, None, 0.40);
 
         if let (Some(p), Some(e)) = (plain, enhanced) {
-            assert!(e.x_tilde_eq >= p.x_tilde_eq,
+            assert!(
+                e.x_tilde_eq >= p.x_tilde_eq,
                 "Enhanced should be ≥ plain at HCT=40%: plain={:.4} enhanced={:.4}",
-                p.x_tilde_eq, e.x_tilde_eq);
+                p.x_tilde_eq,
+                e.x_tilde_eq
+            );
         }
         // If neither focuses (κ ≤ 0.07) both are None — test is vacuously satisfied
     }
@@ -149,17 +158,20 @@ mod tests {
     #[test]
     fn lateral_position_consistent_with_x_tilde() {
         let wbc = CellProperties::white_blood_cell();
-        let w   = 300e-6_f64;
-        let h   = 100e-6_f64;
-        let v   = 0.08_f64;
+        let w = 300e-6_f64;
+        let h = 100e-6_f64;
+        let v = 0.08_f64;
         let rho = 1060.0_f64;
-        let mu  = 3.5e-3_f64;
+        let mu = 3.5e-3_f64;
 
         if let Some(result) = enhanced_lateral_equilibrium(&wbc, rho, mu, v, w, h, None, 0.20) {
             let expected_pos = result.x_tilde_eq * (h * 0.5);
-            assert!((result.lateral_position_m - expected_pos).abs() < 1e-12,
+            assert!(
+                (result.lateral_position_m - expected_pos).abs() < 1e-12,
                 "lateral_position_m={:.3e} expected={:.3e}",
-                result.lateral_position_m, expected_pos);
+                result.lateral_position_m,
+                expected_pos
+            );
         }
     }
 }

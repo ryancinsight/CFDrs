@@ -28,6 +28,169 @@ pub(super) fn write_placeholder(
     Ok(())
 }
 
+pub(super) fn write_creation_optimization_process_figure(
+    path: &Path,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let mut svg = String::new();
+    let w = 1400.0;
+    let h = 760.0;
+    svg_start(&mut svg, w, h);
+    svg_title(
+        &mut svg,
+        "Milestone 12 Design Creation & Optimization Process",
+    );
+    let _ = write!(
+        svg,
+        r##"<text x="70" y="95" font-size="18" fill="#34495e">Primitive selective-routing pipeline for bifurcation/trifurcation treatment trees.</text>"##
+    );
+
+    for (x1, y1, x2, y2) in [
+        (275.0, 205.0, 365.0, 205.0),
+        (570.0, 205.0, 660.0, 205.0),
+        (865.0, 205.0, 955.0, 205.0),
+        (1160.0, 205.0, 1250.0, 205.0),
+        (775.0, 280.0, 775.0, 390.0),
+        (680.0, 485.0, 570.0, 485.0),
+        (385.0, 485.0, 275.0, 485.0),
+    ] {
+        arrow(&mut svg, x1, y1, x2, y2);
+    }
+
+    process_box(
+        &mut svg,
+        70.0,
+        130.0,
+        205.0,
+        150.0,
+        "#eef6ff",
+        "#2e86de",
+        "1. Primitive candidate generation",
+        &[
+            "cfd-schematics::create_geometry",
+            "Mirrored Bi/Tri split trees",
+            "Branch-diameter biasing for RBC/WBC/CTC routing",
+        ],
+    );
+    process_box(
+        &mut svg,
+        365.0,
+        130.0,
+        205.0,
+        150.0,
+        "#eefcf3",
+        "#27ae60",
+        "2. ChannelSystem topology SSOT",
+        &[
+            "Wall ports and true split/merge nodes",
+            "Treatment/bypass lanes, serpentines, venturi throats",
+            "No report-local topology recreation",
+        ],
+    );
+    process_box(
+        &mut svg,
+        660.0,
+        130.0,
+        205.0,
+        150.0,
+        "#fff7ea",
+        "#d68910",
+        "3. NetworkBlueprint projection",
+        &[
+            "Lossless ChannelSystem -> NetworkBlueprint",
+            "Downstream solver/export representation only",
+            "No independent blueprint layout authoring",
+        ],
+    );
+    process_box(
+        &mut svg,
+        955.0,
+        130.0,
+        205.0,
+        150.0,
+        "#fef0f3",
+        "#c0392b",
+        "4. Cached cfd-1d evaluation",
+        &[
+            "MetricsCache avoids repeat solves",
+            "Pressure, shear, residence, cavitation",
+            "Three-pop separation and safety metrics",
+        ],
+    );
+    process_box(
+        &mut svg,
+        1250.0,
+        130.0,
+        95.0,
+        150.0,
+        "#f4f1ff",
+        "#7d3c98",
+        "5. Ranked outputs",
+        &["Option 1", "Option 2", "GA compare"],
+    );
+    process_box(
+        &mut svg,
+        680.0,
+        390.0,
+        190.0,
+        150.0,
+        "#fff6fb",
+        "#b03a78",
+        "Option 2 combined ranking",
+        &[
+            "CombinedSdtLeukapheresis",
+            "Selective routing + venturi cavitation",
+            "Leukapheresis and safety gates",
+        ],
+    );
+    process_box(
+        &mut svg,
+        385.0,
+        390.0,
+        185.0,
+        150.0,
+        "#eefcf3",
+        "#1e8449",
+        "Option 1 acoustic ranking",
+        &[
+            "SelectiveAcousticTherapy",
+            "Center-lane ultrasound/light exposure",
+            "RBC-biased bypass outside treatment zone",
+        ],
+    );
+    process_box(
+        &mut svg,
+        90.0,
+        390.0,
+        185.0,
+        150.0,
+        "#f4f6f7",
+        "#566573",
+        "Report and artifact export",
+        &[
+            "Schematics from cfd-schematics only",
+            "Canonical markdown, narrative, figure manifest",
+            "Milestone 12 report figures and JSON",
+        ],
+    );
+
+    let _ = write!(
+        svg,
+        r##"<text x="1110" y="415" font-size="18" fill="#34495e" font-weight="600">Option 1</text>
+<text x="1110" y="440" font-size="14" fill="#34495e">Selective acoustic shortlist</text>
+<text x="1110" y="470" font-size="18" fill="#34495e" font-weight="600">Option 2</text>
+<text x="1110" y="495" font-size="14" fill="#34495e">Combined selective venturi shortlist</text>
+<text x="1110" y="525" font-size="18" fill="#34495e" font-weight="600">Figure 6</text>
+<text x="1110" y="550" font-size="14" fill="#34495e">HydroSDT GA comparison branch</text>"##
+    );
+    let _ = write!(
+        svg,
+        r##"<text x="70" y="625" font-size="14" fill="#566573">Selective routing remains the modeled concept: branch-diameter biasing pushes RBCs peripheral, keeps WBC/CTC enrichment in treatment branches, and changes only the treatment mechanism between Option 1 and Option 2.</text>"##
+    );
+    svg_end(&mut svg);
+    std::fs::write(path, svg)?;
+    Ok(())
+}
+
 pub(super) fn write_cross_mode_figure(
     path: &Path,
     option1: &[RankedDesign],
@@ -104,19 +267,55 @@ pub(super) fn write_pareto_figure(
     path: &Path,
     option2: &[RankedDesign],
     ga: &[RankedDesign],
+    option2_pool_all: &[RankedDesign],
+    ga_pool_all: &[RankedDesign],
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let points: Vec<(&RankedDesign, &str)> = option2
+    let selected: Vec<(&RankedDesign, &str)> = option2
         .iter()
         .map(|d| (d, "Option2"))
         .chain(ga.iter().map(|d| (d, "GA")))
         .collect();
-    if points.is_empty() {
+    let background: Vec<(&RankedDesign, &str)> = option2_pool_all
+        .iter()
+        .map(|d| (d, "Pool-O2"))
+        .chain(ga_pool_all.iter().map(|d| (d, "Pool-GA")))
+        .collect();
+    if selected.is_empty() && background.is_empty() {
         return write_placeholder(
             path,
             "Pareto Front — Oncology Objectives",
             "No ranked data available.",
         );
     }
+
+    // Compute data range for auto-scaling axes
+    let all_pts: Vec<(f64, f64)> = background
+        .iter()
+        .chain(selected.iter())
+        .map(|(d, _)| {
+            (
+                d.metrics.cancer_targeted_cavitation,
+                d.metrics.therapeutic_window_score,
+            )
+        })
+        .filter(|(x, y)| x.is_finite() && y.is_finite())
+        .collect();
+    let (x_min, x_max, y_min, y_max) = if all_pts.is_empty() {
+        (0.0, 1.0, 0.0, 1.0)
+    } else {
+        let xmn = all_pts.iter().map(|p| p.0).fold(f64::INFINITY, f64::min);
+        let xmx = all_pts.iter().map(|p| p.0).fold(f64::NEG_INFINITY, f64::max);
+        let ymn = all_pts.iter().map(|p| p.1).fold(f64::INFINITY, f64::min);
+        let ymx = all_pts.iter().map(|p| p.1).fold(f64::NEG_INFINITY, f64::max);
+        let x_span = (xmx - xmn).max(0.01);
+        let y_span = (ymx - ymn).max(0.01);
+        (
+            xmn - 0.1 * x_span,
+            xmx + 0.1 * x_span,
+            ymn - 0.1 * y_span,
+            ymx + 0.1 * y_span,
+        )
+    };
 
     let mut svg = String::new();
     let w = 1100.0;
@@ -128,22 +327,92 @@ pub(super) fn write_pareto_figure(
     let xw = 900.0;
     let yh = 500.0;
     axis(&mut svg, x0, y0, xw, yh);
-    svg.push_str(r##"<text x="460" y="660" font-size="16" fill="#34495e">cancer_targeted_cavitation</text>"##);
+
+    // Tick labels — X axis
+    for i in 0..=5 {
+        let frac = i as f64 / 5.0;
+        let val = x_min + frac * (x_max - x_min);
+        let tx = x0 + xw * frac;
+        let _ = write!(
+            svg,
+            r##"<text x="{tx:.1}" y="{:.1}" text-anchor="middle" font-size="12" fill="#7f8c8d">{val:.3}</text>"##,
+            y0 + 18.0
+        );
+    }
+    // Tick labels — Y axis
+    for i in 0..=5 {
+        let frac = i as f64 / 5.0;
+        let val = y_min + frac * (y_max - y_min);
+        let ty = y0 - yh * frac;
+        let _ = write!(
+            svg,
+            r##"<text x="{:.1}" y="{ty:.1}" text-anchor="end" font-size="12" fill="#7f8c8d">{val:.3}</text>"##,
+            x0 - 8.0
+        );
+    }
+
+    svg.push_str(r##"<text x="420" y="668" font-size="16" fill="#34495e">tumor_targeted_cavitation_index</text>"##);
     svg.push_str(r##"<text x="18" y="340" transform="rotate(-90 18,340)" font-size="16" fill="#34495e">therapeutic_window_score</text>"##);
 
-    for (d, tag) in points {
-        let x = x0 + xw * d.metrics.cancer_targeted_cavitation.clamp(0.0, 1.0);
-        let y = y0 - yh * d.metrics.therapeutic_window_score.clamp(0.0, 1.0);
-        let r = 4.0 + 6.0 * d.score.clamp(0.0, 1.0);
-        let color = match tag {
-            "Option2" => "#2e86de",
-            _ => "#d35400",
+    // Background pool: small translucent dots
+    for (d, tag) in &background {
+        let cx = d.metrics.cancer_targeted_cavitation;
+        let cy = d.metrics.therapeutic_window_score;
+        if !cx.is_finite() || !cy.is_finite() {
+            continue;
+        }
+        let x = x0 + xw * ((cx - x_min) / (x_max - x_min)).clamp(0.0, 1.0);
+        let y = y0 - yh * ((cy - y_min) / (y_max - y_min)).clamp(0.0, 1.0);
+        let color = if *tag == "Pool-O2" {
+            "#85c1e9"
+        } else {
+            "#f0b27a"
         };
         let _ = write!(
             svg,
-            r#"<circle cx="{x:.2}" cy="{y:.2}" r="{r:.2}" fill="{color}" fill-opacity="0.65"/>"#
+            r#"<circle cx="{x:.2}" cy="{y:.2}" r="4" fill="{color}" fill-opacity="0.35"/>"#
         );
     }
+
+    // Selected top designs: larger, opaque, with stroke
+    for (d, tag) in &selected {
+        let cx = d.metrics.cancer_targeted_cavitation;
+        let cy = d.metrics.therapeutic_window_score;
+        if !cx.is_finite() || !cy.is_finite() {
+            continue;
+        }
+        let x = x0 + xw * ((cx - x_min) / (x_max - x_min)).clamp(0.0, 1.0);
+        let y = y0 - yh * ((cy - y_min) / (y_max - y_min)).clamp(0.0, 1.0);
+        let r = 6.0 + 6.0 * d.score.clamp(0.0, 1.0);
+        let (fill, stroke) = if *tag == "Option2" {
+            ("#2e86de", "#1a5276")
+        } else {
+            ("#d35400", "#873600")
+        };
+        let _ = write!(
+            svg,
+            r#"<circle cx="{x:.2}" cy="{y:.2}" r="{r:.2}" fill="{fill}" fill-opacity="0.85" stroke="{stroke}" stroke-width="2"/>"#
+        );
+    }
+
+    // Legend
+    let _ = write!(
+        svg,
+        r#"<circle cx="820" cy="92" r="4" fill="#85c1e9" fill-opacity="0.5"/><text x="830" y="96" font-size="12" fill="#34495e">Option2 pool</text>"#
+    );
+    let _ = write!(
+        svg,
+        r#"<circle cx="820" cy="112" r="4" fill="#f0b27a" fill-opacity="0.5"/><text x="830" y="116" font-size="12" fill="#34495e">GA pool</text>"#
+    );
+    let _ = write!(
+        svg,
+        r#"<circle cx="820" cy="132" r="6" fill="#2e86de" stroke="#1a5276" stroke-width="2"/><text x="832" y="136" font-size="12" fill="#34495e">Selected Option2</text>"#
+    );
+    let _ = write!(
+        svg,
+        r#"<circle cx="820" cy="152" r="6" fill="#d35400" stroke="#873600" stroke-width="2"/><text x="832" y="156" font-size="12" fill="#34495e">Selected GA</text>"#
+    );
+
     svg_end(&mut svg);
     std::fs::write(path, svg)?;
     Ok(())
@@ -289,6 +558,9 @@ fn svg_start(svg: &mut String, width: f64, height: f64) {
         r#"<svg xmlns="http://www.w3.org/2000/svg" width="{width:.0}" height="{height:.0}" viewBox="0 0 {width:.0} {height:.0}">"#
     );
     svg.push_str(r#"<rect x="0" y="0" width="100%" height="100%" fill="white"/>"#);
+    svg.push_str(
+        r##"<defs><marker id="arrowhead-flow" markerWidth="10" markerHeight="8" refX="8" refY="4" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,8 L10,4 z" fill="#566573"/></marker></defs>"##,
+    );
 }
 
 fn svg_end(svg: &mut String) {
@@ -320,4 +592,66 @@ fn escape_xml(text: &str) -> String {
     text.replace('&', "&amp;")
         .replace('<', "&lt;")
         .replace('>', "&gt;")
+}
+
+fn process_box(
+    svg: &mut String,
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+    fill: &str,
+    stroke: &str,
+    title: &str,
+    lines: &[&str],
+) {
+    let _ = write!(
+        svg,
+        r##"<rect x="{x:.1}" y="{y:.1}" width="{width:.1}" height="{height:.1}" rx="16" ry="16" fill="{fill}" stroke="{stroke}" stroke-width="2.5"/>"##
+    );
+    let _ = write!(
+        svg,
+        r##"<text x="{:.1}" y="{:.1}" font-size="19" font-weight="600" fill="#1f2d3d">{}</text>"##,
+        x + 16.0,
+        y + 30.0,
+        escape_xml(title)
+    );
+    for (idx, line) in lines.iter().enumerate() {
+        let _ = write!(
+            svg,
+            r##"<text x="{:.1}" y="{:.1}" font-size="14" fill="#34495e">{}</text>"##,
+            x + 18.0,
+            y + 62.0 + idx as f64 * 24.0,
+            escape_xml(line)
+        );
+    }
+}
+
+fn arrow(svg: &mut String, x1: f64, y1: f64, x2: f64, y2: f64) {
+    let _ = write!(
+        svg,
+        r##"<line x1="{x1:.1}" y1="{y1:.1}" x2="{x2:.1}" y2="{y2:.1}" stroke="#566573" stroke-width="3" marker-end="url(#arrowhead-flow)"/>"##
+    );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::write_creation_optimization_process_figure;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    #[test]
+    fn creation_optimization_process_figure_is_generated_not_placeholder() {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system clock before unix epoch")
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!("m12_process_{nanos}.svg"));
+        write_creation_optimization_process_figure(&path)
+            .expect("process figure generation must succeed");
+        let svg = std::fs::read_to_string(path).expect("must read generated process svg");
+        assert!(svg.contains("Primitive candidate generation"));
+        assert!(svg.contains("Cached cfd-1d evaluation"));
+        assert!(svg.contains("Option 2 combined ranking"));
+        assert!(!svg.contains("placeholder"));
+    }
 }

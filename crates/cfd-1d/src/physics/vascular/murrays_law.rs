@@ -424,7 +424,10 @@ mod tests {
         let d2 = d1;
 
         let deviation = murray.deviation(d0, d1, d2);
-        assert!(deviation < 1e-10, "Perfect bifurcation should have zero deviation");
+        assert!(
+            deviation < 1e-10,
+            "Perfect bifurcation should have zero deviation"
+        );
     }
 
     #[test]
@@ -435,7 +438,11 @@ mod tests {
         let d2 = 7.5;
 
         let deviation = murray.deviation(d0, d1, d2);
-        assert!(deviation > 0.0 && deviation < 0.2, "Deviation {} should be positive but small", deviation);
+        assert!(
+            deviation > 0.0 && deviation < 0.2,
+            "Deviation {} should be positive but small",
+            deviation
+        );
     }
 
     #[test]
@@ -502,7 +509,11 @@ mod tests {
         assert!(bif.mass_conservation_error() < 1e-10);
 
         // Check symmetric diameters
-        assert_relative_eq!(bif.daughter1_diameter, bif.daughter2_diameter, epsilon = 1e-10);
+        assert_relative_eq!(
+            bif.daughter1_diameter,
+            bif.daughter2_diameter,
+            epsilon = 1e-10
+        );
     }
 
     #[test]

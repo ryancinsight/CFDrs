@@ -113,23 +113,23 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for HagenPoiseuille
                 vel
             } else if let Some(q) = conditions.flow_rate {
                 let pi = T::pi();
-                let area = pi * self.diameter * self.diameter / (T::one() + T::one() + T::one() + T::one());
+                let area = pi * self.diameter * self.diameter
+                    / (T::one() + T::one() + T::one() + T::one());
                 q / area
             } else {
                 T::zero()
             };
-            T::from_f64(8.0).expect("Mathematical constant conversion compromised") * v / self.diameter
+            T::from_f64(8.0).expect("Mathematical constant conversion compromised") * v
+                / self.diameter
         };
 
-        let viscosity = fluid.viscosity_at_shear(
-            shear_rate,
-            conditions.temperature,
-            conditions.pressure,
-        )?;
+        let viscosity =
+            fluid.viscosity_at_shear(shear_rate, conditions.temperature, conditions.pressure)?;
 
         let pi = T::pi();
 
-        let coefficient = T::from_f64(HAGEN_POISEUILLE_COEFFICIENT).expect("Mathematical constant conversion compromised");
+        let coefficient = T::from_f64(HAGEN_POISEUILLE_COEFFICIENT)
+            .expect("Mathematical constant conversion compromised");
 
         // R = (128 * μ * L) / (π * D^4)
         let d2 = self.diameter * self.diameter;
@@ -144,7 +144,10 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for HagenPoiseuille
     }
 
     fn reynolds_range(&self) -> (T, T) {
-        (T::zero(), T::from_f64(2300.0).expect("Mathematical constant conversion compromised"))
+        (
+            T::zero(),
+            T::from_f64(2300.0).expect("Mathematical constant conversion compromised"),
+        )
     }
 
     fn validate_invariants<F: FluidTrait<T>>(

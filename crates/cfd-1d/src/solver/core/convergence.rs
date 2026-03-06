@@ -98,7 +98,8 @@ impl<T: RealField + Copy> ConvergenceChecker<T> {
 
         // Divergence guard: solution magnitude must not explode
         let norm = solution.norm();
-        let divergence_limit = T::from_f64(1e10).expect("Mathematical constant conversion compromised");
+        let divergence_limit =
+            T::from_f64(1e10).expect("Mathematical constant conversion compromised");
         if norm > divergence_limit {
             let norm_f64 = nalgebra::try_convert::<T, f64>(norm).unwrap_or(f64::INFINITY);
             return Err(cfd_core::error::Error::Convergence(

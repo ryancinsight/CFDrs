@@ -8,11 +8,11 @@
 
 use approx::assert_relative_eq;
 use cfd_1d::{
-    Network, NetworkBuilder, NetworkProblem, NetworkSolver,
     domain::components::channels::CircularChannel,
-    domain::components::Component,
     domain::components::membranes::PorousMembrane,
+    domain::components::Component,
     physics::vascular::womersley::{WomersleyFlow, WomersleyNumber},
+    Network, NetworkBuilder, NetworkProblem, NetworkSolver,
 };
 use cfd_core::physics::fluid::database::water_20c;
 use petgraph::visit::EdgeRef;
@@ -57,8 +57,15 @@ fn test_tiny_diameter_large_resistance() {
     let fluid = water();
     let chan = CircularChannel::new(0.1, 1e-9, 0.0); // 1 nm diameter
     let r = chan.resistance(&fluid);
-    assert!(r > 1e30, "1 nm channel should have enormous resistance, got {}", r);
-    assert!(r.is_finite(), "Resistance must be finite for non-zero diameter");
+    assert!(
+        r > 1e30,
+        "1 nm channel should have enormous resistance, got {}",
+        r
+    );
+    assert!(
+        r.is_finite(),
+        "Resistance must be finite for non-zero diameter"
+    );
 }
 
 /// Very long channel produces large but finite resistance.
@@ -67,7 +74,10 @@ fn test_extreme_length_stays_finite() {
     let fluid = water();
     let chan = CircularChannel::new(1e6, 1e-3, 0.0); // 1000 km pipe
     let r = chan.resistance(&fluid);
-    assert!(r.is_finite(), "Extreme-length channel must still produce finite resistance");
+    assert!(
+        r.is_finite(),
+        "Extreme-length channel must still produce finite resistance"
+    );
 }
 
 // ============================================================================
@@ -79,7 +89,10 @@ fn test_extreme_length_stays_finite() {
 fn test_empty_network_is_rejected() {
     let builder = NetworkBuilder::<f64>::new();
     let result = builder.build();
-    assert!(result.is_err(), "Empty graph (no nodes) must be rejected by NetworkBuilder::build()");
+    assert!(
+        result.is_err(),
+        "Empty graph (no nodes) must be rejected by NetworkBuilder::build()"
+    );
 }
 
 /// NetworkBuilder::build() must reject graph with junction but no inlet or outlet.
@@ -90,7 +103,10 @@ fn test_no_inlet_or_outlet_is_rejected() {
     let j2 = builder.add_junction("j2".into());
     builder.connect_with_pipe(j1, j2, "pipe".into());
     let result = builder.build();
-    assert!(result.is_err(), "Network without inlet/outlet must be rejected");
+    assert!(
+        result.is_err(),
+        "Network without inlet/outlet must be rejected"
+    );
 }
 
 /// NetworkBuilder::build() must reject disconnected components.
@@ -260,29 +276,35 @@ fn test_two_dirichlet_nodes_solve_correctly() {
 #[test]
 fn test_womersley_zero_frequency_alpha_is_zero() {
     let alpha_num = WomersleyNumber::<f64>::new(
-        0.005,  // R = 5 mm
-        0.0,    // ω = 0 (static)
-        1060.0,
-        0.0035,
+        0.005, // R = 5 mm
+        0.0,   // ω = 0 (static)
+        1060.0, 0.0035,
     );
     let alpha = alpha_num.value();
-    assert_eq!(alpha, 0.0, "Zero-frequency Womersley number must be exactly 0");
+    assert_eq!(
+        alpha, 0.0,
+        "Zero-frequency Womersley number must be exactly 0"
+    );
 }
 
 /// WomersleyFlow solver must not panic at near-zero frequency.
 #[test]
 fn test_womersley_near_zero_frequency_no_panic() {
     let flow = WomersleyFlow::<f64>::new(
-        0.005,    // R = 5 mm
-        0.1,      // L = 10 cm
-        1060.0,   // blood density
-        0.0035,   // blood viscosity
-        1e-10,    // Effectively ω → 0
-        133.0,    // pressure amplitude
-        -100.0,   // steady gradient
+        0.005,  // R = 5 mm
+        0.1,    // L = 10 cm
+        1060.0, // blood density
+        0.0035, // blood viscosity
+        1e-10,  // Effectively ω → 0
+        133.0,  // pressure amplitude
+        -100.0, // steady gradient
     );
     let u = flow.velocity(0.5, 0.0);
-    assert!(u.is_finite(), "Near-zero-frequency velocity must be finite, got {}", u);
+    assert!(
+        u.is_finite(),
+        "Near-zero-frequency velocity must be finite, got {}",
+        u
+    );
 }
 
 // ============================================================================
@@ -295,7 +317,11 @@ fn test_circular_channel_high_roughness_finite() {
     let fluid = water();
     let chan = CircularChannel::new(0.1, 1e-3, 1e-3); // roughness = diameter
     let r = chan.resistance(&fluid);
-    assert!(r.is_finite(), "High-roughness channel must return finite resistance, got {}", r);
+    assert!(
+        r.is_finite(),
+        "High-roughness channel must return finite resistance, got {}",
+        r
+    );
     assert!(r > 0.0, "Resistance must be strictly positive");
 }
 
@@ -305,11 +331,11 @@ fn test_near_inviscid_fluid_resistance_near_zero() {
     use cfd_core::physics::fluid::ConstantPropertyFluid;
     let inviscid = ConstantPropertyFluid::new(
         "near_inviscid".to_string(),
-        1000.0_f64,   // density
-        1e-15_f64,    // viscosity ≈ 0
-        0.0_f64,      // specific_heat
-        0.0_f64,      // thermal_conductivity
-        1500.0_f64,   // speed_of_sound
+        1000.0_f64, // density
+        1e-15_f64,  // viscosity ≈ 0
+        0.0_f64,    // specific_heat
+        0.0_f64,    // thermal_conductivity
+        1500.0_f64, // speed_of_sound
     );
     let chan = CircularChannel::new(0.1, 1e-3, 0.0);
     let r = chan.resistance(&inviscid);

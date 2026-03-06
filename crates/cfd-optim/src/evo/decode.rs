@@ -6,10 +6,30 @@ use crate::{
         LEUKA_FLOW_RATES_M3_S, PLATE_HEIGHT_MM, THROAT_DIAMETERS_M, TREATMENT_WIDTH_MM,
         VENTURI_INLET_DIAM_M,
     },
-    design::{CrossSectionShape, DesignCandidate, DesignTopology, TreatmentZoneMode},
+    design::{
+        CrossSectionShape, DesignCandidate, DesignTopology, PrimitiveSplitSequence,
+        TreatmentZoneMode,
+    },
 };
 
 use super::{MillifluidicGenome, ALL_EVO_TOPOLOGIES, MIN_ADAPTIVE_CH_M};
+
+const PRIMITIVE_SELECTIVE_SEQUENCES: [PrimitiveSplitSequence; 14] = [
+    PrimitiveSplitSequence::Bi,
+    PrimitiveSplitSequence::Tri,
+    PrimitiveSplitSequence::BiBi,
+    PrimitiveSplitSequence::BiTri,
+    PrimitiveSplitSequence::TriBi,
+    PrimitiveSplitSequence::TriTri,
+    PrimitiveSplitSequence::BiBiBi,
+    PrimitiveSplitSequence::BiBiTri,
+    PrimitiveSplitSequence::BiTriBi,
+    PrimitiveSplitSequence::BiTriTri,
+    PrimitiveSplitSequence::TriBiBi,
+    PrimitiveSplitSequence::TriBiTri,
+    PrimitiveSplitSequence::TriTriBi,
+    PrimitiveSplitSequence::TriTriTri,
+];
 
 /// Decode a normalised genome into a [`DesignCandidate`].
 ///
@@ -97,18 +117,13 @@ pub fn decode_genome(g: &MillifluidicGenome, id_prefix: &str) -> DesignCandidate
             let n_channels = raw_n.min(max_n).max(1);
             DesignTopology::ParallelMicrochannelArray { n_channels }
         }
-        DesignTopology::CascadeCenterTrifurcationSeparator { .. } => {
-            let n_levels = (1.0 + genes[8] * 2.0).round().clamp(1.0, 3.0) as u8;
-            DesignTopology::CascadeCenterTrifurcationSeparator { n_levels }
-        }
-        DesignTopology::IncrementalFiltrationTriBiSeparator { .. } => {
-            let n_pretri = (1.0 + genes[8] * 2.0).round().clamp(1.0, 3.0) as u8;
-            DesignTopology::IncrementalFiltrationTriBiSeparator { n_pretri }
-        }
-        DesignTopology::DoubleTrifurcationCIFVenturi { .. } => {
-            let center_throat_count = (1.0 + (genes[8] * 3.999).floor()) as u8;
-            DesignTopology::DoubleTrifurcationCIFVenturi {
-                center_throat_count,
+        DesignTopology::PrimitiveSelectiveTree { .. } => {
+            let seq_idx = (genes[8] * (PRIMITIVE_SELECTIVE_SEQUENCES.len() as f64 - 1e-9))
+                .floor()
+                .clamp(0.0, (PRIMITIVE_SELECTIVE_SEQUENCES.len() - 1) as f64)
+                as usize;
+            DesignTopology::PrimitiveSelectiveTree {
+                sequence: PRIMITIVE_SELECTIVE_SEQUENCES[seq_idx],
             }
         }
         other => other,
@@ -183,31 +198,24 @@ pub fn decode_genome(g: &MillifluidicGenome, id_prefix: &str) -> DesignCandidate
             | DesignTopology::TripleTrifurcationVenturi
             | DesignTopology::TrifurcationBifurcationBifurcationVenturi
             | DesignTopology::QuadTrifurcationVenturi
-            | DesignTopology::CascadeCenterTrifurcationSeparator { .. }
-            | DesignTopology::IncrementalFiltrationTriBiSeparator { .. }
-            | DesignTopology::DoubleTrifurcationCIFVenturi { .. }
             | DesignTopology::AsymmetricTrifurcationVenturi
-            | DesignTopology::TriBiTriSelectiveVenturi
+            | DesignTopology::PrimitiveSelectiveTree { .. }
     ) {
         0.25 + genes[13] * 0.40
     } else {
         1.0 / 3.0
     };
-    // Genes 14-15: staged CIF / TBT controls (terminal trifurcation + terminal bifurcation).
-    let (cif_pretri_center_frac, cif_terminal_tri_center_frac, cif_terminal_bi_treat_frac) = if matches!(
-        topology,
-        DesignTopology::IncrementalFiltrationTriBiSeparator { .. }
-            | DesignTopology::DoubleTrifurcationCIFVenturi { .. }
-            | DesignTopology::TriBiTriSelectiveVenturi
-    ) {
-        (
-            trifurcation_center_frac,
-            0.25 + genes[14] * 0.40,
-            0.50 + genes[15] * 0.35,
-        )
-    } else {
-        (1.0 / 3.0, 1.0 / 3.0, 0.68)
-    };
+    // Genes 14-15: staged selective-routing / TBT controls (terminal trifurcation + terminal bifurcation).
+    let (cif_pretri_center_frac, cif_terminal_tri_center_frac, cif_terminal_bi_treat_frac) =
+        if matches!(topology, DesignTopology::PrimitiveSelectiveTree { .. }) {
+            (
+                trifurcation_center_frac,
+                0.25 + genes[14] * 0.40,
+                0.50 + genes[15] * 0.35,
+            )
+        } else {
+            (1.0 / 3.0, 1.0 / 3.0, 0.68)
+        };
 
     // Gene 16: asymmetric bifurcation narrow-arm fraction [0.20, 0.70].
     let asymmetric_narrow_frac =
@@ -237,13 +245,8 @@ pub fn decode_genome(g: &MillifluidicGenome, id_prefix: &str) -> DesignCandidate
     // Gene 12: centerline venturi throat count for selective centerline topologies.
     // Reuses one AdaptiveTree split-type gene for non-Adaptive topologies.
     let centerline_venturi_throat_count = match topology {
-        DesignTopology::DoubleTrifurcationCIFVenturi {
-            center_throat_count,
-        } => center_throat_count,
-        DesignTopology::CascadeCenterTrifurcationSeparator { .. }
-        | DesignTopology::IncrementalFiltrationTriBiSeparator { .. }
+        DesignTopology::PrimitiveSelectiveTree { .. }
         | DesignTopology::AsymmetricTrifurcationVenturi
-        | DesignTopology::TriBiTriSelectiveVenturi
         | DesignTopology::CellSeparationVenturi
         | DesignTopology::WbcCancerSeparationVenturi => (1.0 + (genes[12] * 3.999).floor()) as u8,
         _ => 1,
@@ -272,27 +275,14 @@ pub fn decode_genome(g: &MillifluidicGenome, id_prefix: &str) -> DesignCandidate
         DesignTopology::ParallelMicrochannelArray { n_channels } => {
             format!("PM-n{n_channels}")
         }
-        DesignTopology::CascadeCenterTrifurcationSeparator { n_levels } => {
-            format!("CCT-lv{n_levels}-vt{centerline_venturi_throat_count}")
-        }
-        DesignTopology::IncrementalFiltrationTriBiSeparator { n_pretri } => {
+        DesignTopology::PrimitiveSelectiveTree { sequence } => {
             format!(
-                "CIF-pt{}-pcf{}-tcf{}-btf{}-vt{}",
-                n_pretri,
+                "PST-{}-pcf{}-tcf{}-btf{}-vt{}",
+                sequence.label().replace('→', ""),
                 (cif_pretri_center_frac * 1000.0).round() as u32,
                 (cif_terminal_tri_center_frac * 1000.0).round() as u32,
                 (cif_terminal_bi_treat_frac * 1000.0).round() as u32,
                 centerline_venturi_throat_count,
-            )
-        }
-        DesignTopology::DoubleTrifurcationCIFVenturi {
-            center_throat_count,
-        } => {
-            format!(
-                "DTCV-s1cf{}-s2cf{}-ct{}",
-                (cif_pretri_center_frac * 1000.0).round() as u32,
-                (cif_terminal_tri_center_frac * 1000.0).round() as u32,
-                center_throat_count,
             )
         }
         DesignTopology::AsymmetricTrifurcationVenturi => {
@@ -300,14 +290,6 @@ pub fn decode_genome(g: &MillifluidicGenome, id_prefix: &str) -> DesignCandidate
                 "ATV-cf{}-lf{}-vt{}",
                 (trifurcation_center_frac * 1000.0).round() as u32,
                 (trifurcation_left_frac * 1000.0).round() as u32,
-                centerline_venturi_throat_count,
-            )
-        }
-        DesignTopology::TriBiTriSelectiveVenturi => {
-            format!(
-                "TBT-cf{}-btf{}-vt{}",
-                (trifurcation_center_frac * 1000.0).round() as u32,
-                (cif_terminal_bi_treat_frac * 1000.0).round() as u32,
                 centerline_venturi_throat_count,
             )
         }
@@ -435,7 +417,7 @@ pub fn candidate_to_genome(c: &DesignCandidate) -> MillifluidicGenome {
         0.5
     };
 
-    // Gene 8: discrete topology parameter (n_levels / n_pretri / n_cycles / etc.)
+    // Gene 8: discrete topology parameter (n_cycles / n_turns / n_channels / primitive sequence)
     let gene8 = match c.topology {
         DesignTopology::ConstrictionExpansionArray { n_cycles } => {
             ((n_cycles as f64 - 2.0) / 18.0).clamp(0.0, 1.0)
@@ -446,15 +428,12 @@ pub fn candidate_to_genome(c: &DesignCandidate) -> MillifluidicGenome {
         DesignTopology::ParallelMicrochannelArray { n_channels } => {
             ((n_channels as f64 - 10.0) / 490.0).clamp(0.0, 1.0)
         }
-        DesignTopology::CascadeCenterTrifurcationSeparator { n_levels } => {
-            ((n_levels as f64 - 1.0) / 2.0).clamp(0.0, 1.0)
-        }
-        DesignTopology::IncrementalFiltrationTriBiSeparator { n_pretri } => {
-            ((n_pretri as f64 - 1.0) / 2.0).clamp(0.0, 1.0)
-        }
-        DesignTopology::DoubleTrifurcationCIFVenturi {
-            center_throat_count,
-        } => ((center_throat_count as f64 - 1.0) / 3.0).clamp(0.0, 1.0),
+        DesignTopology::PrimitiveSelectiveTree { sequence } => PRIMITIVE_SELECTIVE_SEQUENCES
+            .iter()
+            .position(|&seq| seq == sequence)
+            .map_or(0.0, |idx| {
+                (idx as f64 + 0.5) / PRIMITIVE_SELECTIVE_SEQUENCES.len() as f64
+            }),
         _ => 0.5,
     };
 
@@ -475,13 +454,10 @@ pub fn candidate_to_genome(c: &DesignCandidate) -> MillifluidicGenome {
         }
     } else if matches!(
         c.topology,
-        DesignTopology::CascadeCenterTrifurcationSeparator { .. }
-            | DesignTopology::IncrementalFiltrationTriBiSeparator { .. }
+        DesignTopology::PrimitiveSelectiveTree { .. }
             | DesignTopology::AsymmetricTrifurcationVenturi
-            | DesignTopology::TriBiTriSelectiveVenturi
             | DesignTopology::CellSeparationVenturi
             | DesignTopology::WbcCancerSeparationVenturi
-            | DesignTopology::DoubleTrifurcationCIFVenturi { .. }
     ) {
         let stages = c.centerline_venturi_throat_count.clamp(1, 4);
         genes_9_12[3] = (f64::from(stages) - 1.0) / 3.0;
@@ -490,10 +466,10 @@ pub fn candidate_to_genome(c: &DesignCandidate) -> MillifluidicGenome {
     // Gene 13: trifurcation center frac [0.25, 0.65]
     let gene13 = ((c.trifurcation_center_frac - 0.25) / 0.40).clamp(0.0, 1.0);
 
-    // Gene 14: CIF terminal tri center frac [0.25, 0.65]
+    // Gene 14: selective terminal tri center frac [0.25, 0.65]
     let gene14 = ((c.cif_terminal_tri_center_frac - 0.25) / 0.40).clamp(0.0, 1.0);
 
-    // Gene 15: CIF terminal bi treat frac [0.50, 0.85]
+    // Gene 15: selective terminal bi treat frac [0.50, 0.85]
     let gene15 = ((c.cif_terminal_bi_treat_frac - 0.50) / 0.35).clamp(0.0, 1.0);
 
     // Gene 16: asymmetric narrow frac [0.20, 0.70]
@@ -546,16 +522,8 @@ pub fn candidate_to_genome(c: &DesignCandidate) -> MillifluidicGenome {
 fn topology_matches(slot: &DesignTopology, candidate: &DesignTopology) -> bool {
     match (slot, candidate) {
         (
-            DesignTopology::CascadeCenterTrifurcationSeparator { .. },
-            DesignTopology::CascadeCenterTrifurcationSeparator { .. },
-        ) => true,
-        (
-            DesignTopology::IncrementalFiltrationTriBiSeparator { .. },
-            DesignTopology::IncrementalFiltrationTriBiSeparator { .. },
-        ) => true,
-        (
-            DesignTopology::DoubleTrifurcationCIFVenturi { .. },
-            DesignTopology::DoubleTrifurcationCIFVenturi { .. },
+            DesignTopology::PrimitiveSelectiveTree { .. },
+            DesignTopology::PrimitiveSelectiveTree { .. },
         ) => true,
         (
             DesignTopology::ConstrictionExpansionArray { .. },

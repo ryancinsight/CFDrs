@@ -16,18 +16,12 @@
 //! SVG file can be rendered in any modern browser without external
 //! dependencies.
 
-use std::collections::HashMap;
 use std::path::Path;
 
 use crate::design::DesignTopology;
 use crate::scoring::OptimMode;
 use crate::RankedDesign;
-use cfd_schematics::geometry::ChannelSystem;
-use cfd_schematics::visualizations::{
-    center_biased_main_path, classify_node_roles, project_markers_along_path,
-    throat_count_from_blueprint_metadata, AnnotationMarker, MarkerRole, RenderConfig,
-    SchematicAnnotations,
-};
+use cfd_schematics::visualizations::{plot_blueprint_auto_annotated, RenderConfig};
 
 // ── JSON export ───────────────────────────────────────────────────────────────
 
@@ -257,210 +251,11 @@ pub fn save_schematic_svg(
     candidate: &crate::design::DesignCandidate,
     path: &Path,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let system = candidate.to_channel_system();
-    let annotations = build_report_annotations(candidate, &system);
+    let blueprint = candidate.to_blueprint();
     let path_str = path.to_str().ok_or("path contains invalid UTF-8")?;
     let config = RenderConfig::well_plate_96_report_annotated();
-    cfd_schematics::plot_geometry_with_annotations(&system, path_str, &config, &annotations)?;
+    plot_blueprint_auto_annotated(&blueprint, path_str, &config)?;
     Ok(())
-}
-
-/// Build report-focused schematic annotations for milestone figures.
-///
-/// Policy: blueprint metadata first; candidate/system heuristics only as fallback.
-#[must_use]
-pub fn build_report_annotations(
-    candidate: &crate::design::DesignCandidate,
-    system: &ChannelSystem,
-) -> SchematicAnnotations {
-    let blueprint = candidate.to_blueprint();
-    let mut annotations = SchematicAnnotations::report_default();
-    let mut roles = classify_node_roles(system);
-
-    apply_therapy_role_overrides(&mut roles, &blueprint, system);
-
-    let mut split_idx = 1usize;
-    let mut merge_idx = 1usize;
-    for (node_idx, node) in system.nodes.iter().enumerate() {
-        let role = roles
-            .get(&node_idx)
-            .copied()
-            .unwrap_or(MarkerRole::Internal);
-        let marker = match role {
-            MarkerRole::Inlet => AnnotationMarker::new(node.point, role).with_label("IN", true),
-            MarkerRole::Outlet => AnnotationMarker::new(node.point, role).with_label("OUT", true),
-            MarkerRole::Split => {
-                let marker = AnnotationMarker::new(node.point, role)
-                    .with_label(format!("S{split_idx}"), true);
-                split_idx += 1;
-                marker
-            }
-            MarkerRole::Merge => {
-                let marker = AnnotationMarker::new(node.point, role)
-                    .with_label(format!("M{merge_idx}"), true);
-                merge_idx += 1;
-                marker
-            }
-            _ => AnnotationMarker::new(node.point, role),
-        };
-        annotations.markers.push(marker);
-    }
-
-    let mut throat_count = throat_count_from_blueprint_metadata(&blueprint);
-    if throat_count == 0 && candidate.topology.has_venturi() {
-        throat_count = candidate.active_venturi_throat_count();
-    }
-
-    if throat_count > 0 {
-        let main_path = center_biased_main_path(system);
-        let zone = (system.box_dims.0 * 0.35, system.box_dims.0 * 0.65);
-        let throat_points = project_markers_along_path(&main_path, throat_count, zone);
-        for (idx, point) in throat_points.iter().enumerate() {
-            annotations.markers.push(
-                AnnotationMarker::new(*point, MarkerRole::VenturiThroat)
-                    .with_label(format!("TH{}", idx + 1), true),
-            );
-        }
-    }
-
-    let min_width_mm = system
-        .channels
-        .iter()
-        .map(|ch| ch.width)
-        .fold(f64::INFINITY, f64::min);
-    let max_width_mm = system
-        .channels
-        .iter()
-        .map(|ch| ch.width)
-        .fold(f64::NEG_INFINITY, f64::max);
-    let stage_sequence = topology_stage_sequence(candidate);
-    let split_layers = visible_split_layers(candidate);
-    let treatment_label = match candidate.treatment_zone_mode_effective() {
-        crate::design::TreatmentZoneMode::UltrasoundOnly => "ultrasound",
-        crate::design::TreatmentZoneMode::VenturiThroats => "venturi",
-    };
-    annotations.legend_note = Some(format!(
-        "{}  |  seq: {}  |  layers: {}  |  throats: {}  |  width: {:.2}-{:.2} mm",
-        candidate.topology.short(),
-        stage_sequence,
-        split_layers,
-        throat_count,
-        min_width_mm,
-        max_width_mm
-    ));
-    annotations.markers.push(
-        AnnotationMarker::new(
-            (system.box_dims.0 * 0.50, system.box_dims.1 * 0.82),
-            MarkerRole::Internal,
-        )
-        .with_label(
-            format!(
-                "{}  |  {} split layers  |  {} treatment",
-                stage_sequence, split_layers, treatment_label
-            ),
-            true,
-        ),
-    );
-    annotations
-}
-
-fn apply_therapy_role_overrides(
-    roles: &mut HashMap<usize, MarkerRole>,
-    blueprint: &cfd_schematics::NetworkBlueprint,
-    system: &ChannelSystem,
-) {
-    let (has_target_zone, has_bypass_zone) =
-        cfd_schematics::visualizations::therapy_zone_presence(blueprint);
-    if !has_target_zone && !has_bypass_zone {
-        return;
-    }
-
-    let y_mid = system.box_dims.1 * 0.5;
-    let treatment_x_min = system.box_dims.0 * 0.35;
-    let treatment_x_max = system.box_dims.0 * 0.65;
-
-    for (node_idx, node) in system.nodes.iter().enumerate() {
-        let base_role = roles
-            .get(&node_idx)
-            .copied()
-            .unwrap_or(MarkerRole::Internal);
-        if matches!(
-            base_role,
-            MarkerRole::Inlet | MarkerRole::Outlet | MarkerRole::Split | MarkerRole::Merge
-        ) {
-            continue;
-        }
-
-        let near_centerline = (node.point.1 - y_mid).abs() <= system.box_dims.1 * 0.18;
-        let in_treatment_window =
-            node.point.0 >= treatment_x_min && node.point.0 <= treatment_x_max;
-
-        if has_target_zone && near_centerline && in_treatment_window {
-            roles.insert(node_idx, MarkerRole::TherapyTarget);
-        } else if has_bypass_zone && !near_centerline {
-            roles.insert(node_idx, MarkerRole::Bypass);
-        }
-    }
-}
-
-fn topology_stage_sequence(candidate: &crate::design::DesignCandidate) -> String {
-    match candidate.topology {
-        DesignTopology::CascadeCenterTrifurcationSeparator { n_levels } => {
-            vec!["Tri"; usize::from(n_levels.min(4))].join("→")
-        }
-        DesignTopology::IncrementalFiltrationTriBiSeparator { n_pretri } => {
-            let mut stages = vec!["Tri"; usize::from(n_pretri.min(2))];
-            stages.push("Tri");
-            stages.push("Bi");
-            stages.join("→")
-        }
-        DesignTopology::TriBiTriSelectiveVenturi => "Tri→Bi→Tri".to_owned(),
-        DesignTopology::TrifurcationBifurcationVenturi => "Tri→Bi".to_owned(),
-        DesignTopology::BifurcationTrifurcationVenturi => "Bi→Tri".to_owned(),
-        DesignTopology::TrifurcationBifurcationBifurcationVenturi => "Tri→Bi→Bi".to_owned(),
-        DesignTopology::TripleTrifurcationVenturi => "Tri→Tri→Tri".to_owned(),
-        DesignTopology::QuadTrifurcationVenturi => "Tri→Tri→Tri→Tri".to_owned(),
-        DesignTopology::DoubleTrifurcationVenturi => "Tri→Tri".to_owned(),
-        DesignTopology::DoubleBifurcationVenturi => "Bi→Bi".to_owned(),
-        DesignTopology::TripleBifurcationVenturi => "Bi→Bi→Bi".to_owned(),
-        DesignTopology::BifurcationVenturi | DesignTopology::BifurcationSerpentine => {
-            "Bi".to_owned()
-        }
-        DesignTopology::TrifurcationVenturi | DesignTopology::TrifurcationSerpentine => {
-            "Tri".to_owned()
-        }
-        _ => candidate.topology.short().to_owned(),
-    }
-}
-
-fn visible_split_layers(candidate: &crate::design::DesignCandidate) -> usize {
-    match candidate.topology {
-        DesignTopology::CascadeCenterTrifurcationSeparator { n_levels } => {
-            usize::from(n_levels.min(4))
-        }
-        DesignTopology::IncrementalFiltrationTriBiSeparator { n_pretri } => {
-            usize::from(n_pretri.min(2)) + 2
-        }
-        DesignTopology::TriBiTriSelectiveVenturi => 3,
-        DesignTopology::TrifurcationBifurcationVenturi
-        | DesignTopology::BifurcationTrifurcationVenturi
-        | DesignTopology::DoubleBifurcationVenturi
-        | DesignTopology::DoubleTrifurcationVenturi
-        | DesignTopology::DoubleBifurcationSerpentine => 2,
-        DesignTopology::TripleTrifurcationVenturi
-        | DesignTopology::TripleBifurcationVenturi
-        | DesignTopology::TrifurcationBifurcationBifurcationVenturi => 3,
-        DesignTopology::QuadTrifurcationVenturi => 4,
-        DesignTopology::BifurcationVenturi
-        | DesignTopology::TrifurcationVenturi
-        | DesignTopology::BifurcationSerpentine
-        | DesignTopology::TrifurcationSerpentine
-        | DesignTopology::AsymmetricBifurcationSerpentine
-        | DesignTopology::AsymmetricTrifurcationVenturi
-        | DesignTopology::CellSeparationVenturi
-        | DesignTopology::WbcCancerSeparationVenturi => 1,
-        _ => 0,
-    }
 }
 
 /// Build a compact metric annotation string suited to a given optimisation mode.
@@ -630,9 +425,9 @@ fn metric_annotation(d: &RankedDesign, mode: OptimMode) -> String {
     }
 }
 
-// ── Annotated CIF/CCT SVG flow diagram ──────────────────────────────────────
+// ── Annotated primitive selective SVG flow diagram ──────────────────────────
 
-/// Generate an annotated CIF/CCT topology SVG flow diagram.
+/// Generate an annotated primitive selective topology SVG flow diagram.
 ///
 /// Produces a purpose-built flow diagram showing:
 /// - Network topology (pre-trifurcation stages, terminal tri/bi junctions)
@@ -643,7 +438,7 @@ fn metric_annotation(d: &RankedDesign, mode: OptimMode) -> String {
 ///
 /// # Errors
 /// Returns an error if the file cannot be written.
-pub fn save_annotated_cif_svg(
+pub fn save_annotated_selective_svg(
     design: &RankedDesign,
     path: &Path,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -651,35 +446,12 @@ pub fn save_annotated_cif_svg(
     let c = &design.candidate;
 
     let (topology_label, stage_lines) = match c.topology {
-        DesignTopology::IncrementalFiltrationTriBiSeparator { n_pretri } => {
-            let label = format!("CIF/CIFX (n_pretri={n_pretri})");
-            let mut lines = Vec::new();
-            for i in 0..n_pretri {
-                lines.push(format!(
-                    "Pre-tri stage {}: center → next stage, periphery → bypass",
-                    i + 1
-                ));
-            }
-            lines.push("Terminal trifurcation: center → treatment arm".to_owned());
-            lines.push("Terminal bifurcation: treatment → venturi throat".to_owned());
+        DesignTopology::PrimitiveSelectiveTree { sequence } => {
+            let label = format!("Primitive selective split tree ({})", sequence.label());
+            let lines = primitive_stage_lines(sequence);
             (label, lines)
         }
-        DesignTopology::CascadeCenterTrifurcationSeparator { n_levels } => {
-            let label = format!("CCT (n_levels={n_levels})");
-            let mut lines = Vec::new();
-            for i in 0..n_levels {
-                lines.push(format!(
-                    "Trifurcation level {}: center → next, L/R → bypass",
-                    i + 1
-                ));
-            }
-            lines.push("Deepest center arm → venturi throat".to_owned());
-            (label, lines)
-        }
-        _ => {
-            let label = format!("{:?}", c.topology);
-            (label, Vec::new())
-        }
+        _ => (format!("{:?}", c.topology), Vec::new()),
     };
 
     // ANSI/SLAS 96-well plate footprint at 10× scale.
@@ -713,7 +485,7 @@ pub fn save_annotated_cif_svg(
 
     // Header
     svg.push_str(&format!(
-        r#"<text x="20" y="30" class="title">Annotated CIF Flow Diagram — {}</text>"#,
+        r#"<text x="20" y="30" class="title">Annotated Primitive Selective Flow Diagram — {}</text>"#,
         design.candidate.id
     ));
     svg.push_str(&format!(
@@ -900,19 +672,16 @@ pub fn save_annotated_cif_svg(
         hi_reduction_pct,
     ));
 
-    // CIF/CCT specific flow fractions
+    // Primitive selective specific flow fractions
     y += 120.0;
-    if matches!(
-        c.topology,
-        DesignTopology::IncrementalFiltrationTriBiSeparator { .. }
-    ) {
+    if matches!(c.topology, DesignTopology::PrimitiveSelectiveTree { .. }) {
         svg.push_str(&format!(
             r#"<rect x="{}" y="{}" width="820" height="60" class="stage-box"/>"#,
             x_left - 20.0,
             y - 10.0,
         ));
         svg.push_str(&format!(
-            r#"<text x="{}" y="{}" class="label">CIF model Q_venturi={:.1}%   solved Q_venturi={:.1}%   pretri_qfrac_mean={:.3}   tri_qfrac={:.3}   bi_qfrac={:.3}</text>"#,
+            r#"<text x="{}" y="{}" class="label">Selective model Q_venturi={:.1}%   solved Q_venturi={:.1}%   pretri_qfrac_mean={:.3}   tri_qfrac={:.3}   bi_qfrac={:.3}</text>"#,
             x_left,
             y + 14.0,
             m.cif_model_venturi_flow_fraction * 100.0,
@@ -929,26 +698,28 @@ pub fn save_annotated_cif_svg(
             m.cif_remerge_proximity_score,
             m.selective_cavitation_delivery_index,
         ));
-    } else if matches!(
-        c.topology,
-        DesignTopology::CascadeCenterTrifurcationSeparator { .. }
-    ) {
-        svg.push_str(&format!(
-            r#"<rect x="{}" y="{}" width="820" height="40" class="stage-box"/>"#,
-            x_left - 20.0,
-            y - 10.0,
-        ));
-        svg.push_str(&format!(
-            r#"<text x="{}" y="{}" class="label">CCT model Q_venturi={:.1}%   solved Q_venturi={:.1}%   stage_qfrac_mean={:.3}</text>"#,
-            x_left,
-            y + 14.0,
-            m.cct_model_venturi_flow_fraction * 100.0,
-            m.cct_solved_venturi_flow_fraction * 100.0,
-            m.cct_stage_center_qfrac_mean,
-        ));
     }
 
     svg.push_str("</svg>");
     std::fs::write(path, svg)?;
     Ok(())
+}
+
+fn primitive_stage_lines(sequence: crate::design::PrimitiveSplitSequence) -> Vec<String> {
+    let bits = sequence.split_types();
+    (0..usize::from(sequence.levels()))
+        .map(|idx| {
+            if ((bits >> idx) & 1) == 0 {
+                format!(
+                    "Bifurcation stage {}: treatment branch remains selected, bypass branch merges later",
+                    idx + 1
+                )
+            } else {
+                format!(
+                    "Trifurcation stage {}: center treatment band continues, peripheral bands bypass therapy",
+                    idx + 1
+                )
+            }
+        })
+        .collect()
 }

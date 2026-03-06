@@ -114,9 +114,9 @@ fn test_darcy_weisbach_smooth_pipe() -> Result<()> {
     // For smooth pipes at Re=10,000, Moody chart gives f ≈ 0.0309
     // Colebrook-White iterative solution gives slightly different value
     let f_expected: f64 = 0.0308449; // More precise value from Colebrook-White
-    // Turbulent Darcy–Weisbach is quadratic in flow. `calculate_resistance()` returns
-    // an effective linearization R_eff = k|Q|. With Q = V·A (circular):
-    // R_eff = f ρ L V / (2 A D)
+                                     // Turbulent Darcy–Weisbach is quadratic in flow. `calculate_resistance()` returns
+                                     // an effective linearization R_eff = k|Q|. With Q = V·A (circular):
+                                     // R_eff = f ρ L V / (2 A D)
     let v: f64 = conditions_turbulent.velocity.unwrap();
     let expected_resistance_turbulent: f64 =
         f_expected * fluid.density * length * v / (2.0 * area * diameter);
@@ -156,8 +156,8 @@ fn test_darcy_weisbach_rough_pipe() -> Result<()> {
     let f_expected: f64 = 0.01721; // Adjusted for Colebrook-White iteration
     let area: f64 = std::f64::consts::PI * diameter.powi(2) / 4.0;
     let v: f64 = conditions.velocity.unwrap();
-    let expected_resistance: f64 = f_expected * fluid.density * length * v
-        / (2.0 * area * diameter);
+    let expected_resistance: f64 =
+        f_expected * fluid.density * length * v / (2.0 * area * diameter);
 
     // Allow 0.05% tolerance for Colebrook-White iteration vs Moody chart
     assert_relative_eq!(resistance, expected_resistance, max_relative = 0.0005);
@@ -267,7 +267,8 @@ fn test_rectangular_channel_analytical() -> Result<()> {
     let d_h_05: f64 = (2.0 * 1e-3 * 0.5e-3) / (1e-3 + 0.5e-3);
     let area_05 = 1e-3 * 0.5e-3;
     let po_05 = 62.19;
-    let expected_resistance_05 = (po_05 * fluid.viscosity * length) / (2.0 * area_05 * d_h_05.powi(2));
+    let expected_resistance_05 =
+        (po_05 * fluid.viscosity * length) / (2.0 * area_05 * d_h_05.powi(2));
     assert_relative_eq!(resistance_05, expected_resistance_05, max_relative = 0.01);
 
     // High aspect ratio (approaches parallel plates): Po = 96.0
@@ -276,7 +277,8 @@ fn test_rectangular_channel_analytical() -> Result<()> {
     let d_h_inf: f64 = (2.0 * 10e-3 * 0.1e-3) / (10e-3 + 0.1e-3);
     let area_inf = 10e-3 * 0.1e-3;
     let po_inf = 96.0;
-    let expected_resistance_inf = (po_inf * fluid.viscosity * length) / (2.0 * area_inf * d_h_inf.powi(2));
+    let expected_resistance_inf =
+        (po_inf * fluid.viscosity * length) / (2.0 * area_inf * d_h_inf.powi(2));
     assert_relative_eq!(resistance_inf, expected_resistance_inf, max_relative = 0.05);
 
     Ok(())
@@ -296,8 +298,8 @@ fn test_rectangular_channel_analytical() -> Result<()> {
 /// Accuracy: within ±2% of Colebrook-White for 4000 < Re < 10⁸, 10⁻⁶ < ε/D < 10⁻².
 #[test]
 fn test_colebrook_white_convergence() -> Result<()> {
-    let diameter: f64 = 0.05;       // 5 cm
-    let roughness: f64 = 5e-5;     // ε/D = 0.001 (moderate roughness)
+    let diameter: f64 = 0.05; // 5 cm
+    let roughness: f64 = 5e-5; // ε/D = 0.001 (moderate roughness)
     let model = DarcyWeisbachModel::circular(diameter, 10.0, roughness);
     let fluid = fluid::database::water_20c::<f64>()?;
 
@@ -324,11 +326,7 @@ fn test_colebrook_white_convergence() -> Result<()> {
         f_haaland * fluid.density * 10.0 * v / (2.0 * area * diameter);
 
     // Colebrook-White should match Haaland within 2%
-    assert_relative_eq!(
-        resistance,
-        expected_resistance_haaland,
-        max_relative = 0.02
-    );
+    assert_relative_eq!(resistance, expected_resistance_haaland, max_relative = 0.02);
 
     Ok(())
 }
@@ -595,26 +593,25 @@ fn test_entrance_effects_dimensional_analysis() -> Result<()> {
 /// R_eff = k|Q|, if k > 0 then energy is dissipated.
 #[test]
 fn test_venturi_energy_conservation() -> Result<()> {
-    let model = cfd_1d::physics::resistance::models::VenturiModel::symmetric(
-        0.01,
-        0.005,
-        0.05,
-        0.15,
-    );
+    let model =
+        cfd_1d::physics::resistance::models::VenturiModel::symmetric(0.01, 0.005, 0.05, 0.15);
     let fluid = fluid::database::water_20c::<f64>()?;
     let mut conditions = FlowConditions::new(1.0);
     conditions.reynolds_number = Some(20000.0);
-    
+
     let (_, k) = model.calculate_coefficients(&fluid, &conditions)?;
-    assert!(k > 0.0, "Net pressure drop must be positive (energy dissipated)");
-    
+    assert!(
+        k > 0.0,
+        "Net pressure drop must be positive (energy dissipated)"
+    );
+
     Ok(())
 }
 
 /// Test serpentine Dean number monotonicity.
 ///
 /// Dean number De = Re * sqrt(D_h / (2 * R_c)). As Re increases, De increases,
-/// increasing the curvature enhancement f_c / f_s and secondary losses. We test this 
+/// increasing the curvature enhancement f_c / f_s and secondary losses. We test this
 /// by comparing the serpentine resistance to an equivalent straight channel.
 #[test]
 fn test_serpentine_dean_number_monotone_in_re() -> Result<()> {
@@ -626,14 +623,17 @@ fn test_serpentine_dean_number_monotone_in_re() -> Result<()> {
     let bend_radius = 0.002;
 
     let model = SerpentineModel::millifluidic_rectangular(
-        width, height, segment_length, num_segments, bend_radius
+        width,
+        height,
+        segment_length,
+        num_segments,
+        bend_radius,
     );
-    let straight_model = RectangularChannelModel::new(
-        width, height, segment_length * num_segments as f64
-    );
+    let straight_model =
+        RectangularChannelModel::new(width, height, segment_length * num_segments as f64);
 
     let fluid = fluid::database::water_20c::<f64>()?;
-    
+
     // Laminar test (De <= 370 validity limit of the White correlation)
     let re_low = 50.0;
     let mut cond_low = FlowConditions::new(0.01);

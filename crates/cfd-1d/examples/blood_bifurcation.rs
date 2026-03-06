@@ -50,8 +50,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let channels = vec![
         ChannelSpec::new_pipe("Parent", "Inlet", "Bifurcation", 0.05, 0.004, r_parent, 0.0),
-        ChannelSpec::new_pipe("Daughter1", "Bifurcation", "Outlet1", 0.04, 0.003, r_d1, 0.0),
-        ChannelSpec::new_pipe("Daughter2", "Bifurcation", "Outlet2", 0.03, 0.0025, r_d2, 0.0),
+        ChannelSpec::new_pipe(
+            "Daughter1",
+            "Bifurcation",
+            "Outlet1",
+            0.04,
+            0.003,
+            r_d1,
+            0.0,
+        ),
+        ChannelSpec::new_pipe(
+            "Daughter2",
+            "Bifurcation",
+            "Outlet2",
+            0.03,
+            0.0025,
+            r_d2,
+            0.0,
+        ),
     ];
 
     // ── 3. Build Network ─────────────────────────────────────────────────────
@@ -106,7 +122,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     network.update_resistances()?;
 
     // ── 6. Solve ─────────────────────────────────────────────────────────────
-    let config = SolverConfig { tolerance: 1e-6, max_iterations: 100 };
+    let config = SolverConfig {
+        tolerance: 1e-6,
+        max_iterations: 100,
+    };
     let solver = NetworkSolver::<f64, CarreauYasuda<f64>>::with_config(config);
     println!("Solving network...");
     let solution = solver.solve(&NetworkProblem::new(network))?;
@@ -132,9 +151,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         let (v, shear_rate) = if let Some(p) = props {
             let vel = q.abs() / p.area;
-            let sr = p.hydraulic_diameter
-                .map(|d| 8.0 * vel / d)
-                .unwrap_or(0.0);
+            let sr = p.hydraulic_diameter.map(|d| 8.0 * vel / d).unwrap_or(0.0);
             (vel, sr)
         } else {
             (0.0, 0.0)
@@ -162,7 +179,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     use std::fs;
     use std::path::PathBuf;
 
-    let output_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("outputs").join("blood_bifurcation");
+    let output_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("outputs")
+        .join("blood_bifurcation");
     fs::create_dir_all(&output_dir)?;
 
     let results = serde_json::json!({

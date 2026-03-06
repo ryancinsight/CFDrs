@@ -75,7 +75,8 @@ impl<T: RealField + Copy + FromPrimitive + Float> Micropump<T> {
         Self {
             max_flow_rate,
             max_pressure,
-            efficiency: T::from_f64(constants::DEFAULT_PUMP_EFFICIENCY).expect("Mathematical constant conversion compromised"),
+            efficiency: T::from_f64(constants::DEFAULT_PUMP_EFFICIENCY)
+                .expect("Mathematical constant conversion compromised"),
             operating_point: T::one(),
             parameters: HashMap::new(),
         }

@@ -13,7 +13,10 @@ impl<T: RealField + Copy + FromPrimitive> MixtureComposition<T> {
     /// Create a new mixture and normalize to unit sum (when non-empty).
     #[must_use]
     pub fn new(mut fractions: HashMap<i32, T>) -> Self {
-        let sum = fractions.values().copied().fold(T::zero(), |acc, v| acc + v);
+        let sum = fractions
+            .values()
+            .copied()
+            .fold(T::zero(), |acc, v| acc + v);
         if sum > T::zero() {
             for value in fractions.values_mut() {
                 *value /= sum;
@@ -95,7 +98,10 @@ impl<T: RealField + Copy> CompositionState<T> {
     /// In the current architecture, each edge stores a single mixed composition
     /// per snapshot, so this returns that composition as fluid concentrations.
     #[must_use]
-    pub fn average_fluid_concentrations_in_edge(&self, edge_index: usize) -> Option<HashMap<i32, T>> {
+    pub fn average_fluid_concentrations_in_edge(
+        &self,
+        edge_index: usize,
+    ) -> Option<HashMap<i32, T>> {
         self.edge_mixtures
             .get(&edge_index)
             .map(|mixture| mixture.fractions.clone())

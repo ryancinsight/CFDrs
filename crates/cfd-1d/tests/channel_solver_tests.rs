@@ -74,11 +74,19 @@ fn test_knudsen_overrides_re_for_slip_classification() {
 
     // Re=5000 (Turbulent) + Kn=KN_SLIP_MIN → SlipFlow
     let regime2 = FlowRegime::classify_with_knudsen(5000.0_f64, KN_SLIP_MIN);
-    assert_eq!(regime2, FlowRegime::SlipFlow, "Kn=KN_SLIP_MIN must give SlipFlow");
+    assert_eq!(
+        regime2,
+        FlowRegime::SlipFlow,
+        "Kn=KN_SLIP_MIN must give SlipFlow"
+    );
 
     // Re=5000 + Kn=0.0 → Turbulent (no slip)
     let regime3 = FlowRegime::classify_with_knudsen(5000.0_f64, 0.0_f64);
-    assert_eq!(regime3, FlowRegime::Turbulent, "Kn=0 should not give SlipFlow");
+    assert_eq!(
+        regime3,
+        FlowRegime::Turbulent,
+        "Kn=0 should not give SlipFlow"
+    );
 }
 
 /// Kn just below threshold leaves regime continuum-classified.
@@ -86,7 +94,11 @@ fn test_knudsen_overrides_re_for_slip_classification() {
 fn test_kn_below_threshold_stays_continuum() {
     let kn = KN_SLIP_MIN - 1e-10;
     let regime = FlowRegime::classify_with_knudsen(100.0_f64, kn);
-    assert_eq!(regime, FlowRegime::Laminar, "Kn just below threshold = Laminar");
+    assert_eq!(
+        regime,
+        FlowRegime::Laminar,
+        "Kn just below threshold = Laminar"
+    );
 }
 
 // =========================================================================
@@ -100,10 +112,7 @@ fn test_kn_below_threshold_stays_continuum() {
 fn shah_london_po(alpha: f64) -> f64 {
     assert!(alpha >= 1.0);
     let inv = 1.0 / alpha;
-    96.0 * (1.0
-        - 1.3553 * inv
-        + 1.9467 * inv * inv
-        - 1.7012 * inv * inv * inv
+    96.0 * (1.0 - 1.3553 * inv + 1.9467 * inv * inv - 1.7012 * inv * inv * inv
         + 0.9564 * inv * inv * inv * inv
         - 0.2537 * inv * inv * inv * inv * inv)
 }
@@ -168,7 +177,10 @@ fn test_shah_london_monotone_increasing_in_ar() {
 fn test_beskok_karniadakis_formula_correctness() {
     // At Kn = 0: correction = 1.0
     let correction = |kn: f64| 1.0 / (1.0 + 4.0 * kn);
-    assert!((correction(0.0) - 1.0).abs() < 1e-15, "Kn=0 must give factor=1");
+    assert!(
+        (correction(0.0) - 1.0).abs() < 1e-15,
+        "Kn=0 must give factor=1"
+    );
 
     // At Kn = 0.05: correction = 1/1.2
     let c = correction(0.05);

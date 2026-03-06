@@ -100,9 +100,19 @@ fn test_resistance_duality_bound() {
     let (_, r_max) = analysis.max_resistance().unwrap();
     let r_ser = analysis.series_resistance();
 
-    assert!(r_par <= r_min, "R_parallel ({}) must be ≤ min(R_i) ({})", r_par, r_min);
+    assert!(
+        r_par <= r_min,
+        "R_parallel ({}) must be ≤ min(R_i) ({})",
+        r_par,
+        r_min
+    );
     assert!(r_min <= r_max, "min(R_i) must be ≤ max(R_i)");
-    assert!(r_max <= r_ser, "max(R_i) ({}) must be ≤ R_series ({})", r_max, r_ser);
+    assert!(
+        r_max <= r_ser,
+        "max(R_i) ({}) must be ≤ R_series ({})",
+        r_max,
+        r_ser
+    );
 }
 
 /// `add_resistance` must accumulate `total_resistance` correctly.
@@ -125,11 +135,7 @@ fn test_flow_average_correct() {
     analysis.add_component_flow("c1".into(), 1e-9_f64);
     analysis.add_component_flow("c2".into(), 3e-9_f64);
 
-    assert_relative_eq!(
-        analysis.average_flow_rate(),
-        2e-9_f64,
-        epsilon = 1e-21
-    );
+    assert_relative_eq!(analysis.average_flow_rate(), 2e-9_f64, epsilon = 1e-21);
 }
 
 /// `flag_fda_shear_limit_violations` must flag components exceeding stress limit.
@@ -179,5 +185,8 @@ fn test_blood_shear_no_violation_within_limits() {
     };
 
     let violations = analysis.flag_fda_shear_limit_violations(&limits);
-    assert!(violations.is_empty(), "Safe conditions must produce zero violations");
+    assert!(
+        violations.is_empty(),
+        "Safe conditions must produce zero violations"
+    );
 }

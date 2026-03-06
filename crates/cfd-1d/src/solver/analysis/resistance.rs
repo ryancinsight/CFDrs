@@ -14,7 +14,6 @@
 //!
 //! These inequalities are strict when `n > 1` and all `R_i` are finite and positive. ∎
 
-
 use nalgebra::RealField;
 use std::collections::HashMap;
 use std::iter::Sum;

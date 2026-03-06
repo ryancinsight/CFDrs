@@ -8,7 +8,7 @@
 //!
 //! $$ \frac{dx_d}{dt} = \beta u(t) = \beta \frac{Q(t)}{A(x)} $$
 //!
-//! **Conservation of Droplet Volume**: 
+//! **Conservation of Droplet Volume**:
 //! The volume $V_d$ of an incompressible droplet is an invariant scalar across
 //! topology changes. At a bifurcation junction where the superficial flow $Q$
 //! splits into $Q_1$ and $Q_2$, a droplet undergoes deterministic fragmentation
@@ -17,10 +17,10 @@
 //!
 //! $$ V_{d,1} = V_d \left( \frac{Q_1}{Q_1 + Q_2} \right), \quad V_{d,2} = V_d \left( \frac{Q_2}{Q_1 + Q_2} \right) $$
 
-/// Droplet and split policy types
-pub mod types;
 /// Main droplet simulation engine
 pub mod simulator;
+/// Droplet and split policy types
+pub mod types;
 
 pub use simulator::TransientDropletSimulator;
 pub use types::{

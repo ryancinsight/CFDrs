@@ -138,6 +138,17 @@ impl<T: RealField + Copy + FromPrimitive + Copy, F: FluidTrait<T> + Clone> Netwo
         let n = network.node_count();
         let mut last_solution = nalgebra::DVector::zeros(n);
 
+        if Self::is_linear_static_network(&network) {
+            let (matrix, rhs) = self.assembler.assemble(&network)?;
+            let method = Self::detect_solver_method(&matrix);
+            network.last_solver_method = Some(method);
+            let solution = LinearSystemSolver::new()
+                .with_method(method)
+                .solve(&matrix, &rhs)?;
+            self.update_network_solution(&mut network, &solution)?;
+            return Ok(network);
+        }
+
         let anderson_depth = 5;
         let mut anderson_residuals: std::collections::VecDeque<nalgebra::DVector<T>> =
             std::collections::VecDeque::with_capacity(anderson_depth);
@@ -160,8 +171,13 @@ impl<T: RealField + Copy + FromPrimitive + Copy, F: FluidTrait<T> + Clone> Netwo
             let picard_solution = adaptive_solver.solve(&matrix, &rhs)?;
 
             let solution = Self::anderson_accelerate(
-                iter, n, picard_solution, &last_solution,
-                &mut anderson_residuals, &mut anderson_iterates, anderson_depth,
+                iter,
+                n,
+                picard_solution,
+                &last_solution,
+                &mut anderson_residuals,
+                &mut anderson_iterates,
+                anderson_depth,
             );
 
             let residual_norm = Self::compute_residual_norm(&matrix, &solution, &rhs, n);
@@ -169,7 +185,10 @@ impl<T: RealField + Copy + FromPrimitive + Copy, F: FluidTrait<T> + Clone> Netwo
             network.residuals.push(residual_norm);
 
             let converged = self.convergence.has_converged_dual(
-                &solution, &last_solution, residual_norm, rhs_norm,
+                &solution,
+                &last_solution,
+                residual_norm,
+                rhs_norm,
             )?;
 
             if converged {
@@ -186,6 +205,19 @@ impl<T: RealField + Copy + FromPrimitive + Copy, F: FluidTrait<T> + Clone> Netwo
                 max: self.config.max_iterations,
             },
         ))
+    }
+
+    fn is_linear_static_network(network: &Network<T, F>) -> bool {
+        let eps = T::default_epsilon();
+        let all_edges_linear = network
+            .graph
+            .edge_weights()
+            .all(|edge| edge.quad_coeff.abs() <= eps);
+        let no_geometry_updates = network
+            .properties
+            .values()
+            .all(|props| props.geometry.is_none());
+        all_edges_linear && no_geometry_updates
     }
 
     /// Detect whether the assembled matrix is SPD via diagonal dominance check.
@@ -209,14 +241,20 @@ impl<T: RealField + Copy + FromPrimitive + Copy, F: FluidTrait<T> + Clone> Netwo
                     sum_off += val.abs();
                 }
             }
-            if !is_spd { break; }
+            if !is_spd {
+                break;
+            }
             let is_identity_dirichlet = diag == T::one() && sum_off == T::zero();
             if (diag < sum_off || diag <= T::zero()) && !is_identity_dirichlet {
                 is_spd = false;
                 break;
             }
         }
-        if is_spd { LinearSolverMethod::ConjugateGradient } else { LinearSolverMethod::BiCGSTAB }
+        if is_spd {
+            LinearSolverMethod::ConjugateGradient
+        } else {
+            LinearSolverMethod::BiCGSTAB
+        }
     }
 
     /// Apply Anderson acceleration (depth m=5) to the Picard iterate sequence.
@@ -250,7 +288,9 @@ impl<T: RealField + Copy + FromPrimitive + Copy, F: FluidTrait<T> + Clone> Netwo
         iterates.push_back(picard_solution.clone());
 
         let m = residuals.len();
-        if m < 2 { return picard_solution; }
+        if m < 2 {
+            return picard_solution;
+        }
 
         let ncols = m - 1;
         let r_last = &residuals[m - 1];
@@ -268,16 +308,18 @@ impl<T: RealField + Copy + FromPrimitive + Copy, F: FluidTrait<T> + Clone> Netwo
             }
         }
 
-        nalgebra::linalg::LU::new(gram).solve(&rhs_ls).map_or(picard_solution, |lu| {
-            let alpha_sum: T = lu.iter().fold(T::zero(), |acc, &a| acc + a);
-            let one_minus_sum = T::one() - alpha_sum;
-            let x_last = &iterates[m - 1];
-            let mut accelerated = x_last * one_minus_sum + r_last * one_minus_sum;
-            for j in 0..ncols {
-                accelerated += (&iterates[j] + &residuals[j]) * lu[j];
-            }
-            accelerated
-        })
+        nalgebra::linalg::LU::new(gram)
+            .solve(&rhs_ls)
+            .map_or(picard_solution, |lu| {
+                let alpha_sum: T = lu.iter().fold(T::zero(), |acc, &a| acc + a);
+                let one_minus_sum = T::one() - alpha_sum;
+                let x_last = &iterates[m - 1];
+                let mut accelerated = x_last * one_minus_sum + r_last * one_minus_sum;
+                for j in 0..ncols {
+                    accelerated += (&iterates[j] + &residuals[j]) * lu[j];
+                }
+                accelerated
+            })
     }
 
     /// Compute the L2 norm of the linear-system residual ||Ax - b||₂.
@@ -310,7 +352,9 @@ impl<T: RealField + Copy + FromPrimitive + Copy, F: FluidTrait<T> + Clone> Netwo
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + Copy, F: FluidTrait<T> + Clone> Solver<T> for NetworkSolver<T, F> {
+impl<T: RealField + Copy + FromPrimitive + Copy, F: FluidTrait<T> + Clone> Solver<T>
+    for NetworkSolver<T, F>
+{
     type Problem = NetworkProblem<T, F>;
     type Solution = Network<T, F>;
 
@@ -335,7 +379,9 @@ impl<T: RealField + Copy, F: FluidTrait<T>> Configurable<T> for NetworkSolver<T,
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + Copy, F: FluidTrait<T> + Clone> Validatable<T> for NetworkSolver<T, F> {
+impl<T: RealField + Copy + FromPrimitive + Copy, F: FluidTrait<T> + Clone> Validatable<T>
+    for NetworkSolver<T, F>
+{
     type Problem = NetworkProblem<T, F>;
 
     fn validate_problem(&self, problem: &Self::Problem) -> Result<()> {

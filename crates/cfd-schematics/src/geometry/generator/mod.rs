@@ -10,15 +10,22 @@
 //! to strategy objects, promoting loose coupling and extensibility.
 
 pub mod shell;
+mod selective;
 mod splits;
 
 pub use self::shell::create_shell_cuboid;
+pub use self::selective::{
+    create_primitive_selective_tree_geometry, create_selective_tree_geometry,
+    CenterSerpentinePathSpec, PrimitiveSelectiveSplitKind, PrimitiveSelectiveTreeRequest,
+    SelectiveTreeRequest, SelectiveTreeTopology,
+};
 
 use super::builders::{ChannelBuilder, NodeBuilder};
 use super::metadata::{ChannelGeometryMetadata, OptimizationMetadata, PerformanceMetadata};
 use super::strategies::ChannelTypeFactory;
 use super::types::{Channel, ChannelSystem, ChannelType, Node, Point2D, SplitType};
 use crate::config::{ChannelTypeConfig, GeometryConfig};
+use crate::domain::model::{NetworkBlueprint, NodeKind};
 use std::collections::HashMap;
 use std::time::Instant;
 
@@ -151,7 +158,10 @@ impl GeometryGenerator {
             // Fast path for no metadata
             Node {
                 id,
+                name: None,
                 point: p,
+                kind: None,
+                junction_geometry: None,
                 metadata: None,
             }
         };
@@ -270,11 +280,19 @@ impl GeometryGenerator {
             // Fast path for no metadata
             Channel {
                 id,
+                name: None,
                 from_node: from_id,
                 to_node: to_id,
                 width: channel_width,
                 height: self.config.channel_height,
                 channel_type: final_channel_type,
+                visual_role: None,
+                physical_length_m: None,
+                physical_width_m: None,
+                physical_height_m: None,
+                physical_shape: None,
+                therapy_zone: None,
+                venturi_geometry: None,
                 metadata: None,
             }
         };
@@ -283,7 +301,7 @@ impl GeometryGenerator {
         self.channel_counter += 1;
     }
 
-    fn finalize(self) -> ChannelSystem {
+    fn finalize(mut self) -> ChannelSystem {
         let (length, width) = self.box_dims;
         let box_outline = vec![
             ((0.0, 0.0), (length, 0.0)),
@@ -291,6 +309,54 @@ impl GeometryGenerator {
             ((length, width), (0.0, width)),
             ((0.0, width), (0.0, 0.0)),
         ];
+
+        // Assign NodeKind from connectivity so the ChannelSystem carries
+        // the same semantic information as a blueprint-generated one.
+        let mut in_deg = vec![0usize; self.nodes.len()];
+        let mut out_deg = vec![0usize; self.nodes.len()];
+        for ch in &self.channels {
+            if ch.from_node < out_deg.len() {
+                out_deg[ch.from_node] += 1;
+            }
+            if ch.to_node < in_deg.len() {
+                in_deg[ch.to_node] += 1;
+            }
+        }
+        // Terminal nodes (degree-1): leftmost → Inlet, rightmost → Outlet.
+        let terminals: Vec<usize> = (0..self.nodes.len())
+            .filter(|&i| in_deg[i] + out_deg[i] == 1)
+            .collect();
+        let inlet_idx = terminals
+            .iter()
+            .copied()
+            .min_by(|&a, &b| {
+                self.nodes[a]
+                    .point
+                    .0
+                    .total_cmp(&self.nodes[b].point.0)
+            });
+        let outlet_idx = terminals
+            .iter()
+            .copied()
+            .max_by(|&a, &b| {
+                self.nodes[a]
+                    .point
+                    .0
+                    .total_cmp(&self.nodes[b].point.0)
+            });
+        for (idx, node) in self.nodes.iter_mut().enumerate() {
+            if node.kind.is_some() {
+                continue; // respect explicit kind if already set
+            }
+            node.kind = Some(if Some(idx) == inlet_idx {
+                NodeKind::Inlet
+            } else if Some(idx) == outlet_idx {
+                NodeKind::Outlet
+            } else {
+                NodeKind::Junction
+            });
+        }
+
         ChannelSystem {
             box_dims: self.box_dims,
             nodes: self.nodes,
@@ -345,6 +411,25 @@ pub fn create_geometry(
         .product::<usize>()
         .max(1);
     GeometryGenerator::new(box_dims, *config, *channel_type_config, total_branches).generate(splits)
+}
+
+/// Creates a canonical split-tree [`NetworkBlueprint`] for branching geometry generation.
+#[must_use]
+pub fn create_blueprint_geometry(
+    box_dims: (f64, f64),
+    splits: &[SplitType],
+    config: &GeometryConfig,
+    channel_type_config: &ChannelTypeConfig,
+) -> NetworkBlueprint {
+    let total_branches = splits
+        .iter()
+        .map(SplitType::branch_count)
+        .product::<usize>()
+        .max(1);
+    GeometryGenerator::new(box_dims, *config, *channel_type_config, total_branches)
+        .generate(splits)
+        .to_blueprint(1e-3)
+        .expect("generated split geometry must convert to blueprint")
 }
 
 /// Creates a complete 2D microfluidic channel system with metadata support
@@ -408,6 +493,26 @@ pub fn create_geometry_with_metadata(
         metadata_config.clone(),
     )
     .generate(splits)
+}
+
+/// Creates a canonical split-tree [`NetworkBlueprint`] with metadata support.
+#[must_use]
+pub fn create_blueprint_geometry_with_metadata(
+    box_dims: (f64, f64),
+    splits: &[SplitType],
+    config: &GeometryConfig,
+    channel_type_config: &ChannelTypeConfig,
+    metadata_config: &MetadataConfig,
+) -> NetworkBlueprint {
+    create_geometry_with_metadata(
+        box_dims,
+        splits,
+        config,
+        channel_type_config,
+        metadata_config,
+    )
+    .to_blueprint(1e-3)
+    .expect("generated split geometry must convert to blueprint")
 }
 
 #[cfg(test)]

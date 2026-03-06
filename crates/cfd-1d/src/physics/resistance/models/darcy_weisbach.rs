@@ -141,16 +141,22 @@ impl<T: RealField + Copy + FromPrimitive> DarcyWeisbachModel<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T>
-    for DarcyWeisbachModel<T>
-{
-    fn calculate_resistance<F: FluidTrait<T>>(&self, fluid: &F, conditions: &FlowConditions<T>) -> Result<T> {
+impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for DarcyWeisbachModel<T> {
+    fn calculate_resistance<F: FluidTrait<T>>(
+        &self,
+        fluid: &F,
+        conditions: &FlowConditions<T>,
+    ) -> Result<T> {
         let (r, k) = self.calculate_coefficients(fluid, conditions)?;
 
         // For automatic model selection and basic analyzers that expect a single R value,
         // we return the effective resistance R_eff = R + k|Q| such that ΔP = R_eff * Q.
         let q_mag = if let Some(q) = conditions.flow_rate {
-            if q >= T::zero() { q } else { -q }
+            if q >= T::zero() {
+                q
+            } else {
+                -q
+            }
         } else if let Some(v) = conditions.velocity {
             let v_abs = if v >= T::zero() { v } else { -v };
             v_abs * self.area
@@ -183,7 +189,11 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T>
             } else {
                 T::zero()
             };
-            let v_abs = if velocity >= T::zero() { velocity } else { -velocity };
+            let v_abs = if velocity >= T::zero() {
+                velocity
+            } else {
+                -velocity
+            };
             if viscosity > T::zero() {
                 density * v_abs * self.hydraulic_diameter / viscosity
             } else {
@@ -194,14 +204,17 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T>
         };
 
         let friction_factor = self.calculate_friction_factor(reynolds);
-        let re_transition = T::from_f64(LAMINAR_TRANSITION_RE).expect("Mathematical constant conversion compromised");
+        let re_transition = T::from_f64(LAMINAR_TRANSITION_RE)
+            .expect("Mathematical constant conversion compromised");
 
         if reynolds < re_transition {
             // Laminar regime: ΔP = R·Q
             // f = 64/Re = 64μ/(ρ V D_h)  ⟹  ΔP = 64μ/(ρ V D_h) · (L/D_h) · ½ρV²
             //    = 32 μ L V / D_h²  =  (32 μ L) / (A D_h²) · Q
             //    ⟹  R_linear = 32 μ L / (A D_h²)
-            let r = (T::from_f64(32.0).expect("Mathematical constant conversion compromised") * viscosity * self.length)
+            let r = (T::from_f64(32.0).expect("Mathematical constant conversion compromised")
+                * viscosity
+                * self.length)
                 / (area * self.hydraulic_diameter * self.hydraulic_diameter);
             Ok((r, T::zero()))
         } else {
@@ -209,10 +222,7 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T>
             // ΔP = f·(L/D_h)·(ρV²/2) = f·ρ·L·Q²/(2·A²·D_h)
             //    ⟹  k = f·ρ·L / (2·A²·D_h)
             let k = (friction_factor * density * self.length)
-                / ((T::one() + T::one())
-                    * area
-                    * area
-                    * self.hydraulic_diameter);
+                / ((T::one() + T::one()) * area * area * self.hydraulic_diameter);
             Ok((T::zero(), k))
         }
     }
@@ -223,13 +233,16 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T>
 
     fn reynolds_range(&self) -> (T, T) {
         (
-            T::from_f64(LAMINAR_TRANSITION_RE)
-                .unwrap_or_else(|| T::zero()),
+            T::from_f64(LAMINAR_TRANSITION_RE).unwrap_or_else(|| T::zero()),
             T::from_f64(MAX_REYNOLDS).expect("Mathematical constant conversion compromised"),
         )
     }
 
-    fn validate_invariants<F: FluidTrait<T>>(&self, fluid: &F, conditions: &FlowConditions<T>) -> Result<()> {
+    fn validate_invariants<F: FluidTrait<T>>(
+        &self,
+        fluid: &F,
+        conditions: &FlowConditions<T>,
+    ) -> Result<()> {
         // Call Mach number validation
         self.validate_mach_number(fluid, conditions)?;
 
@@ -247,7 +260,8 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T>
 
         // Roughness ratio validation: ε/Dh < 0.05
         let roughness_ratio = self.roughness / self.hydraulic_diameter;
-        let roughness_limit = T::from_f64(0.05).expect("Mathematical constant conversion compromised");
+        let roughness_limit =
+            T::from_f64(0.05).expect("Mathematical constant conversion compromised");
         if roughness_ratio > roughness_limit {
             return Err(cfd_core::error::Error::PhysicsViolation(format!(
                 "Roughness ratio violation: ε/Dh = {:.4} > 0.05. Darcy-Weisbach model '{}' may be inaccurate",
@@ -314,31 +328,40 @@ impl<T: RealField + Copy + FromPrimitive> DarcyWeisbachModel<T> {
         let relative_roughness = self.roughness / self.hydraulic_diameter;
 
         // Laminar flow: f = 64/Re (exact, no iteration needed)
-        let re_transition = T::from_f64(LAMINAR_TRANSITION_RE).expect("Mathematical constant conversion compromised");
+        let re_transition = T::from_f64(LAMINAR_TRANSITION_RE)
+            .expect("Mathematical constant conversion compromised");
         if reynolds < re_transition {
-            return T::from_f64(LAMINAR_FRICTION_COEFFICIENT).expect("Mathematical constant conversion compromised")
+            return T::from_f64(LAMINAR_FRICTION_COEFFICIENT)
+                .expect("Mathematical constant conversion compromised")
                 / reynolds;
         }
 
-        let tolerance = T::from_f64(COLEBROOK_TOLERANCE)
-            .unwrap_or_else(|| T::from_f64(1e-6).expect("Mathematical constant conversion compromised"));
+        let tolerance = T::from_f64(COLEBROOK_TOLERANCE).unwrap_or_else(|| {
+            T::from_f64(1e-6).expect("Mathematical constant conversion compromised")
+        });
 
         // Pre-compute loop-invariant constants (avoids redundant T::from_f64 per call)
-        let ln10_inv = T::from_f64(1.0 / std::f64::consts::LN_10).expect("Mathematical constant conversion compromised");
-        let two = T::from_f64(COLEBROOK_COEFFICIENT).expect("Mathematical constant conversion compromised");
+        let ln10_inv = T::from_f64(1.0 / std::f64::consts::LN_10)
+            .expect("Mathematical constant conversion compromised");
+        let two = T::from_f64(COLEBROOK_COEFFICIENT)
+            .expect("Mathematical constant conversion compromised");
         let rough_term = relative_roughness
-            / T::from_f64(COLEBROOK_ROUGHNESS_DIVISOR).expect("Mathematical constant conversion compromised");
-        let smooth_coeff =
-            T::from_f64(COLEBROOK_REYNOLDS_NUMERATOR).expect("Mathematical constant conversion compromised") / reynolds;
+            / T::from_f64(COLEBROOK_ROUGHNESS_DIVISOR)
+                .expect("Mathematical constant conversion compromised");
+        let smooth_coeff = T::from_f64(COLEBROOK_REYNOLDS_NUMERATOR)
+            .expect("Mathematical constant conversion compromised")
+            / reynolds;
 
         // Serghides 1984 initial guess: three-point Steffensen acceleration
         // A = −2·log₁₀(rough_term + 12/Re)
-        let twelve_over_re = T::from_f64(12.0).expect("Mathematical constant conversion compromised") / reynolds;
+        let twelve_over_re =
+            T::from_f64(12.0).expect("Mathematical constant conversion compromised") / reynolds;
         let a_inner = rough_term + twelve_over_re;
         let a = if a_inner > T::zero() {
             -two * a_inner.ln() * ln10_inv
         } else {
-            T::from_f64(7.0710678).expect("Mathematical constant conversion compromised") // fallback: f₀=0.02
+            T::from_f64(7.0710678).expect("Mathematical constant conversion compromised")
+            // fallback: f₀=0.02
         };
 
         let b_inner = rough_term + smooth_coeff * a;

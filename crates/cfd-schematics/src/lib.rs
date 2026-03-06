@@ -136,8 +136,11 @@ pub use state_management::{
     ConfigurableParameter, ConstraintError, ParameterConstraints, ParameterError, ParameterManager,
     ParameterRegistry, StateManagementError, StateManagementResult,
 };
+pub use geometry::metadata::BlueprintRenderHints;
 pub use visualizations::schematic::{
-    plot_geometry, plot_geometry_with_annotations, plot_geometry_with_config,
+    centerline_vertices, channel_system_from_blueprint, plot_blueprint,
+    plot_blueprint_auto_annotated, plot_blueprint_with_annotations, plot_geometry,
+    plot_geometry_auto_annotated, plot_geometry_with_annotations, plot_geometry_with_config,
 };
 
 /// Unified network / design API — the single import point for downstream crates.

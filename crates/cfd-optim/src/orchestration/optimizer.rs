@@ -94,7 +94,7 @@ pub struct RobustSweepConfig {
     pub feed_hematocrit_values: Vec<f64>,
     /// Additive offsets for `trifurcation_center_frac`.
     pub trifurcation_center_offsets: Vec<f64>,
-    /// Additive offsets for staged CIF terminal-bifurcation treatment fraction.
+    /// Additive offsets for staged selective-routing terminal-bifurcation treatment fraction.
     pub cif_bi_treat_offsets: Vec<f64>,
     /// Additive offsets for `trifurcation_left_frac` in asymmetric trifurcation.
     pub trifurcation_left_offsets: Vec<f64>,
@@ -471,7 +471,7 @@ impl SdtOptimizer {
                                         .clamp(0.25, 0.70);
                                 if matches!(
                                     perturbed.topology,
-                                    crate::design::DesignTopology::IncrementalFiltrationTriBiSeparator { .. }
+                                    crate::design::DesignTopology::PrimitiveSelectiveTree { .. }
                                 ) {
                                     perturbed.cif_pretri_center_frac =
                                         (candidate.cif_pretri_center_frac + tri_offset)

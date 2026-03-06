@@ -1,6 +1,6 @@
 use crate::domain::model::{ChannelSpec, NetworkBlueprint};
 use crate::domain::therapy_metadata::{TherapyZone, TherapyZoneMetadata};
-use crate::geometry::metadata::ChannelVenturiSpec;
+use crate::geometry::metadata::{ChannelVenturiSpec, VenturiGeometryMetadata};
 use crate::geometry::{ChannelSystem, Point2D};
 use petgraph::algo::astar;
 use petgraph::{Directed, Graph};
@@ -76,13 +76,28 @@ pub fn classify_node_roles(system: &ChannelSystem) -> HashMap<usize, MarkerRole>
 /// Extract venturi throat count from blueprint metadata (`ChannelVenturiSpec`).
 #[must_use]
 pub fn throat_count_from_blueprint_metadata(blueprint: &NetworkBlueprint) -> usize {
-    blueprint
+    let total = blueprint
         .channels
         .iter()
         .filter_map(|channel| channel_venturi_spec(channel))
         .filter(|spec| spec.is_ctc_stream)
         .map(|spec| usize::from(spec.n_throats))
-        .sum()
+        .sum::<usize>();
+    if total > 0 {
+        total
+    } else {
+        blueprint
+            .channels
+            .iter()
+            .filter(|channel| {
+                channel.venturi_geometry.is_some()
+                    || channel
+                        .metadata
+                        .as_ref()
+                        .is_some_and(|meta| meta.contains::<VenturiGeometryMetadata>())
+            })
+            .count()
+    }
 }
 
 /// Detect whether the blueprint carries therapy-zone channel metadata.

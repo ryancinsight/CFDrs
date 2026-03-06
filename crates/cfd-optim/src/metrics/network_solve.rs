@@ -37,8 +37,8 @@ pub(super) struct ChannelSolveSample<'a> {
     /// Number of serial venturi throats on this specific channel segment.
     ///
     /// For standard single-throat channels this is `1` (or `0` for non-venturi).
-    /// For multi-throat center CTC channels in `DoubleTrifurcationCIFVenturi`
-    /// this equals `center_throat_count`, enabling per-channel cumulative
+    /// For multi-throat primitive selective treatment channels this equals
+    /// `center_throat_count`, enabling per-channel cumulative
     /// cavitation dose calculation in `compute_metrics`.
     pub per_channel_throat_count: u8,
     pub flow_m3_s: f64,
@@ -53,6 +53,7 @@ pub(super) struct NetworkSolveSummary<'a> {
     pub flow_uniformity: f64,
     pub venturi_flow_fraction: f64,
     pub mean_residence_time_s: f64,
+    pub fallback_used: bool,
     /// Estimated additional pressure loss at merge junctions where branched
     /// flows recombine pre-outlet [Pa]. Uses momentum-conserving T/Y-junction
     /// model: ΔP_merge = K_merge · ½ρv²_combined, K_merge ∈ [0.5, 1.5].
@@ -102,8 +103,8 @@ pub(super) fn solve_blueprint_network<'bp>(
 
     let solver = NetworkSolver::<f64, CassonBlood<f64>>::new();
     let primary_problem = NetworkProblem::new(network.clone());
-    let solved = match solver.solve_network(&primary_problem) {
-        Ok(solved) => solved,
+    let (solved, fallback_used) = match solver.solve_network(&primary_problem) {
+        Ok(solved) => (solved, false),
         Err(primary_err) => {
             // Fallback for short-channel blueprints where dynamic resistance
             // updates can violate entrance-length assumptions.
@@ -180,7 +181,7 @@ pub(super) fn solve_blueprint_network<'bp>(
                 }
             }
 
-            fallback_solved
+            (fallback_solved, true)
         }
     };
 
@@ -220,10 +221,11 @@ pub(super) fn solve_blueprint_network<'bp>(
             .get(ch.id.as_str())
             .copied()
             .unwrap_or((0.0, 0.0));
-        let is_venturi_throat = ch
-            .metadata
-            .as_ref()
-            .is_some_and(|meta| meta.contains::<VenturiGeometryMetadata>())
+        let is_venturi_throat = ch.venturi_geometry.is_some()
+            || ch
+                .metadata
+                .as_ref()
+                .is_some_and(|meta| meta.contains::<VenturiGeometryMetadata>())
             || is_venturi_throat_id(ch.id.as_str());
 
         // Extract per-channel differential venturi spec when present.
@@ -278,6 +280,7 @@ pub(super) fn solve_blueprint_network<'bp>(
         flow_uniformity,
         venturi_flow_fraction,
         mean_residence_time_s,
+        fallback_used,
         remerge_loss_pa,
         channel_samples,
     })
@@ -386,12 +389,11 @@ fn compute_remerge_loss(
     }
 
     // ── Step 2: Classify topology K-factor for merge junctions ──────────────
-    // K = 1.5 → T-junction combining (CCT/CIF cascades, 90° angle)
+    // K = 1.5 → T-junction combining for primitive selective split trees (90° angle)
     // K = 1.0 → symmetric equal-flow T-merge (bifurcation families)
     // K = 0.9 → Y-junction combining (30–60°, trifurcation families)
     let k_merge: f64 = match topology {
-        DesignTopology::CascadeCenterTrifurcationSeparator { .. }
-        | DesignTopology::IncrementalFiltrationTriBiSeparator { .. } => 1.5,
+        DesignTopology::PrimitiveSelectiveTree { .. } => 1.5,
         DesignTopology::BifurcationVenturi
         | DesignTopology::BifurcationSerpentine
         | DesignTopology::AsymmetricBifurcationSerpentine => 1.0,
@@ -446,10 +448,7 @@ fn compute_remerge_loss(
     if merge_count == 0 {
         // Use the original topology-table estimate as a lower bound.
         let n_merges_fallback: usize = match topology {
-            DesignTopology::CascadeCenterTrifurcationSeparator { n_levels } => n_levels as usize,
-            DesignTopology::IncrementalFiltrationTriBiSeparator { n_pretri } => {
-                n_pretri as usize + 2
-            }
+            DesignTopology::PrimitiveSelectiveTree { sequence } => sequence.levels() as usize,
             DesignTopology::BifurcationVenturi
             | DesignTopology::BifurcationSerpentine
             | DesignTopology::AsymmetricBifurcationSerpentine => 1,

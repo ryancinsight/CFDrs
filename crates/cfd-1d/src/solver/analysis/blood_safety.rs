@@ -24,7 +24,8 @@ impl<T: RealField + Copy + FromPrimitive> BloodShearLimits<T> {
     #[must_use]
     pub fn fda_conservative_whole_blood() -> Self {
         Self {
-            max_wall_shear_stress_pa: T::from_f64(150.0).expect("Mathematical constant conversion compromised"),
+            max_wall_shear_stress_pa: T::from_f64(150.0)
+                .expect("Mathematical constant conversion compromised"),
             max_wall_shear_rate_per_s: None,
         }
     }

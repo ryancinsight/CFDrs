@@ -22,7 +22,6 @@
 //! For an ideal network without junction losses, `η_hyd → 1` as all power goes
 //! into moving fluid through the channel resistances.
 
-
 use nalgebra::RealField;
 use std::collections::HashMap;
 use std::iter::Sum;

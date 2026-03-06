@@ -119,7 +119,10 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for MembranePoreMod
     }
 
     fn reynolds_range(&self) -> (T, T) {
-        (T::zero(), T::from_f64(100.0).expect("Mathematical constant conversion compromised"))
+        (
+            T::zero(),
+            T::from_f64(100.0).expect("Mathematical constant conversion compromised"),
+        )
     }
 
     fn validate_invariants<F: FluidTrait<T>>(
@@ -171,11 +174,11 @@ mod tests {
     #[test]
     fn test_membrane_resistance_matches_formula() {
         let model = MembranePoreModel::<f64>::new(
-            10e-6,   // 10 μm thick
-            1e-3,    // 1 mm wide
-            1e-3,    // 1 mm high
-            0.5e-6,  // 0.5 μm pore radius
-            0.2,     // 20% porosity
+            10e-6,  // 10 μm thick
+            1e-3,   // 1 mm wide
+            1e-3,   // 1 mm high
+            0.5e-6, // 0.5 μm pore radius
+            0.2,    // 20% porosity
         );
         let fluid = water();
         let cond = FlowConditions::new(0.0_f64);
@@ -228,7 +231,7 @@ mod tests {
         assert_relative_eq!(r_phi20 / r_phi40, 2.0, epsilon = 1e-9);
     }
 
-    /// R ∝ 1/r² (inverse pore-radius squared). 
+    /// R ∝ 1/r² (inverse pore-radius squared).
     #[test]
     fn test_membrane_resistance_inverse_radius_squared() {
         let r1 = MembranePoreModel::<f64>::new(10e-6, 1e-3, 1e-3, 0.5e-6, 0.2);
@@ -248,8 +251,10 @@ mod tests {
         let model = MembranePoreModel::<f64>::new(10e-6, 1e-3, 1e-3, 0.5e-6, 0.0);
         let fluid = water();
         let cond = FlowConditions::new(0.0);
-        assert!(model.validate_invariants(&fluid, &cond).is_err(),
-            "Zero porosity should return error");
+        assert!(
+            model.validate_invariants(&fluid, &cond).is_err(),
+            "Zero porosity should return error"
+        );
     }
 
     /// Validate invariant: porosity > 1 returns error.
@@ -258,8 +263,10 @@ mod tests {
         let model = MembranePoreModel::<f64>::new(10e-6, 1e-3, 1e-3, 0.5e-6, 1.5);
         let fluid = water();
         let cond = FlowConditions::new(0.0);
-        assert!(model.validate_invariants(&fluid, &cond).is_err(),
-            "Porosity > 1 should return error");
+        assert!(
+            model.validate_invariants(&fluid, &cond).is_err(),
+            "Porosity > 1 should return error"
+        );
     }
 
     /// Validate invariant: zero pore radius returns error.
@@ -268,7 +275,9 @@ mod tests {
         let model = MembranePoreModel::<f64>::new(10e-6, 1e-3, 1e-3, 0.0, 0.2);
         let fluid = water();
         let cond = FlowConditions::new(0.0);
-        assert!(model.validate_invariants(&fluid, &cond).is_err(),
-            "Zero pore radius should return error");
+        assert!(
+            model.validate_invariants(&fluid, &cond).is_err(),
+            "Zero pore radius should return error"
+        );
     }
 }

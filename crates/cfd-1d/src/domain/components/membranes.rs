@@ -57,7 +57,9 @@ impl<T: RealField + Copy + FromPrimitive> Component<T> for PorousMembrane<T> {
         let conditions = FlowConditions::new(T::zero());
         model
             .calculate_resistance(fluid, &conditions)
-            .unwrap_or_else(|_| T::from_f64(1e12).expect("Mathematical constant conversion compromised"))
+            .unwrap_or_else(|_| {
+                T::from_f64(1e12).expect("Mathematical constant conversion compromised")
+            })
     }
 
     fn component_type(&self) -> &'static str {

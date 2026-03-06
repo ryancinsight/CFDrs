@@ -109,7 +109,7 @@ mod tests {
         // J_1(0) = 0
         let z0 = Complex::new(0.0, 0.0);
         assert_relative_eq!(bessel_j1(z0).re, 0.0, epsilon = 1e-12);
-        
+
         // J_1(3.8317059702) approx 0 (first non-zero root)
         let z_root = Complex::new(3.831705970207512, 0.0);
         assert_relative_eq!(bessel_j1(z_root).re, 0.0, epsilon = 1e-5);

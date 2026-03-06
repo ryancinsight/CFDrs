@@ -28,26 +28,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Resistance calculated roughly for laminar flow (Poiseuille) or set explicitly
     // For this demo, we'll set resistance to 1.0 (arbitrary units or pre-calculated)
     let pipe_spec = ChannelSpec::new_pipe(
-        "pipe1",
-        "inlet",
-        "junction",
-        0.01,   // 10mm length
-        0.001,  // 1mm diameter
-        1.0e8,  // Resistance (Pa*s/m^3)
-        0.0,    // Quadratic coeff
+        "pipe1", "inlet", "junction", 0.01,  // 10mm length
+        0.001, // 1mm diameter
+        1.0e8, // Resistance (Pa*s/m^3)
+        0.0,   // Quadratic coeff
     );
 
     // Define a valve connecting Junction -> Outlet
     // Cv = 0.5 (flow coefficient)
-    let valve_spec = ChannelSpec::new_valve(
-        "valve1",
-        "junction",
-        "outlet",
-        0.5,
-    );
+    let valve_spec = ChannelSpec::new_valve("valve1", "junction", "outlet", 0.5);
 
     println!("✅ Defined specifications:");
-    println!("   - Nodes: {:?}, {:?}, {:?}", inlet_spec.id, junction_spec.id, outlet_spec.id);
+    println!(
+        "   - Nodes: {:?}, {:?}, {:?}",
+        inlet_spec.id, junction_spec.id, outlet_spec.id
+    );
     println!("   - Edges: {:?}, {:?}", pipe_spec.id, valve_spec.id);
 
     // 2. Build Simulation Network (Simulation Phase)
@@ -93,17 +88,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // 4. Analyze Results
     println!("\n📊 Results:");
-    
+
     // Check flow through the valve
     // We need to find the edge index for "valve1"
-    if let Some(edge_ref) = solution.graph.edge_references().find(|e| e.weight().id == "valve1") {
-       let flow = solution.flow_rates.get(&edge_ref.id()).unwrap();
-       println!("   Valve Flow Rate: {:.4e} m^3/s", flow);
-       println!("   Valve Flow Rate: {:.2} mL/min", flow * 1e6 * 60.0);
+    if let Some(edge_ref) = solution
+        .graph
+        .edge_references()
+        .find(|e| e.weight().id == "valve1")
+    {
+        let flow = solution.flow_rates.get(&edge_ref.id()).unwrap();
+        println!("   Valve Flow Rate: {:.4e} m^3/s", flow);
+        println!("   Valve Flow Rate: {:.2} mL/min", flow * 1e6 * 60.0);
     }
 
     // Check pressure at junction
-    if let Some(node_idx) = solution.graph.node_indices().find(|&i| solution.graph[i].id == "junction") {
+    if let Some(node_idx) = solution
+        .graph
+        .node_indices()
+        .find(|&i| solution.graph[i].id == "junction")
+    {
         let pressure = solution.pressures.get(&node_idx).unwrap();
         println!("   Junction Pressure: {:.2} Pa", pressure);
     }

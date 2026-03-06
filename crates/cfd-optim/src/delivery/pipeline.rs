@@ -196,16 +196,15 @@ impl DesignPipeline {
             }
         })?;
 
-        // 7. Save interchange JSON (channel system)
+        // 7. Save blueprint-native schematic JSON
         let schematic_json_path = design_dir.join("schematic.json");
-        let channel_system = candidate.to_channel_system();
-        let json =
-            channel_system
-                .to_interchange_json()
-                .map_err(|e| OptimError::MeshExportFailed {
-                    scenario_id: design_id.clone(),
-                    message: format!("failed to serialize interchange JSON: {e}"),
-                })?;
+        let blueprint = candidate.to_blueprint();
+        let json = blueprint
+            .to_json_pretty()
+            .map_err(|e| OptimError::MeshExportFailed {
+                scenario_id: design_id.clone(),
+                message: format!("failed to serialize blueprint JSON: {e}"),
+            })?;
         std::fs::write(&schematic_json_path, json).map_err(|e| OptimError::MeshExportFailed {
             scenario_id: design_id.clone(),
             message: format!("failed to write schematic JSON file: {e}"),

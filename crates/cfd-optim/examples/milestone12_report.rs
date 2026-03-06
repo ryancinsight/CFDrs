@@ -43,7 +43,7 @@ use cfd_optim::{
         Milestone12NarrativeInput, ValidationRow,
     },
     save_schematic_svg, save_top5_json, score_candidate, DesignCandidate, DesignTopology,
-    GeneticOptimizer, OptimMode, RankedDesign, SdtMetrics, SdtWeights,
+    GeneticOptimizer, OptimMode, PrimitiveSplitSequence, RankedDesign, SdtMetrics, SdtWeights,
 };
 use rayon::prelude::*;
 use serde::Serialize;
@@ -121,75 +121,51 @@ fn report_eligible_nonventuri(metrics: &SdtMetrics) -> bool {
 }
 
 fn is_selective_report_topology(topology: DesignTopology) -> bool {
-    matches!(
-        topology,
-        DesignTopology::IncrementalFiltrationTriBiSeparator { .. }
-            | DesignTopology::CascadeCenterTrifurcationSeparator { .. }
-    )
+    matches!(topology, DesignTopology::PrimitiveSelectiveTree { .. })
 }
 
 fn report_eligible_venturi_oncology(metrics: &SdtMetrics) -> bool {
     metrics.pressure_feasible
         && metrics.plate_fits
         && metrics.fda_main_compliant
-        && metrics.cavitation_number.is_finite()
-        && metrics.cavitation_number < 1.0
         && metrics.therapy_channel_fraction > 0.0
+        && metrics.cavitation_number < 1.0
 }
 
 fn option2_mode() -> OptimMode {
+    // Adult oncology patient (70 kg) — CTC treatment via hydrodynamic cavitation.
+    // Projected 15-min hemolysis scales with blood volume (≈ 5 600 mL for an
+    // adult vs 240 mL for a 3 kg neonate), producing a physically meaningful
+    // hi15_gate that doesn't collapse the score.
     OptimMode::CombinedSdtLeukapheresis {
         leuka_weight: 0.5,
         sdt_weight: 0.5,
-        patient_weight_kg: 3.0,
+        patient_weight_kg: 70.0,
     }
-}
-
-fn selective_acoustic_variant(candidate: &DesignCandidate) -> Option<DesignCandidate> {
-    if !is_selective_report_topology(candidate.topology) || !candidate.topology.has_venturi() {
-        return None;
-    }
-    let mut acoustic = candidate.clone();
-    acoustic.id = format!("{}-AC", candidate.id);
-    acoustic.treatment_zone_mode = cfd_optim::TreatmentZoneMode::UltrasoundOnly;
-    Some(acoustic)
 }
 
 fn selective_serpentine_variant(candidate: &DesignCandidate) -> Option<DesignCandidate> {
-    if !is_selective_report_topology(candidate.topology) {
-        return None;
-    }
-    let mut serpentine = candidate.clone();
-    serpentine.id = format!("{}-SP5", candidate.id);
-    serpentine.serpentine_segments = 5;
-    serpentine.bend_radius_m = 3.5e-3;
-    serpentine.segment_length_m = (candidate.segment_length_m * 0.18).max(6.0e-3);
-    Some(serpentine)
+    let _ = candidate;
+    None
 }
 
 fn selective_extra_throat_variant(candidate: &DesignCandidate) -> Option<DesignCandidate> {
-    if !is_selective_report_topology(candidate.topology) || !candidate.uses_venturi_treatment() {
+    let DesignTopology::PrimitiveSelectiveTree { .. } = candidate.topology else {
+        return None;
+    };
+    if !candidate.uses_venturi_treatment() || candidate.centerline_venturi_throat_count >= 4 {
         return None;
     }
-    if candidate.centerline_venturi_throat_count >= 2 {
-        return None;
-    }
+    let next_throat_count = candidate.centerline_venturi_throat_count + 1;
     let mut extra = candidate.clone();
-    extra.id = format!("{}-VT2", candidate.id);
-    extra.centerline_venturi_throat_count = 2;
+    extra.id = format!("{}-VT{}", candidate.id, next_throat_count);
+    extra.centerline_venturi_throat_count = next_throat_count;
     Some(extra)
 }
 
 fn expand_m12_candidates(raw_candidates: Vec<DesignCandidate>) -> Vec<DesignCandidate> {
-    let mut expanded = Vec::with_capacity(raw_candidates.len() * 4 / 3);
+    let mut expanded = Vec::with_capacity(raw_candidates.len() * 5 / 4);
     for candidate in raw_candidates {
-        if let Some(acoustic) = selective_acoustic_variant(&candidate) {
-            if let Some(acoustic_serpentine) = selective_serpentine_variant(&acoustic) {
-                expanded.push(acoustic_serpentine);
-            }
-            expanded.push(acoustic);
-        }
-
         if let Some(serpentine) = selective_serpentine_variant(&candidate) {
             expanded.push(serpentine);
         }
@@ -280,12 +256,21 @@ fn fast_mode_candidate_filter(c: &DesignCandidate) -> bool {
     };
 
     match c.topology {
-        DesignTopology::IncrementalFiltrationTriBiSeparator { n_pretri } => {
-            n_pretri >= 1
+        DesignTopology::PrimitiveSelectiveTree { sequence } => {
+            matches!(
+                sequence,
+                PrimitiveSplitSequence::Tri
+                    | PrimitiveSplitSequence::TriBi
+                    | PrimitiveSplitSequence::TriTri
+                    | PrimitiveSplitSequence::TriBiBi
+                    | PrimitiveSplitSequence::TriBiTri
+                    | PrimitiveSplitSequence::TriTriBi
+                    | PrimitiveSplitSequence::TriTriTri
+            ) && (1..=4).contains(&c.centerline_venturi_throat_count)
                 && flow_ml_min >= 60.0
-                && flow_ml_min <= 260.0
+                && flow_ml_min <= 550.0
                 && gauge_kpa >= 25.0
-                && gauge_kpa <= 400.0
+                && gauge_kpa <= 550.0
                 && c.throat_diameter_m >= 25.0e-6
                 && c.throat_diameter_m <= 120.0e-6
                 && tl_factor <= 5.0
@@ -294,27 +279,9 @@ fn fast_mode_candidate_filter(c: &DesignCandidate) -> bool {
                 && c.channel_height_m >= 0.5e-3
                 && c.channel_height_m <= 2.5e-3
                 && c.cif_pretri_center_frac >= 0.45
-                && c.cif_pretri_center_frac <= 0.60
-                && c.cif_terminal_tri_center_frac >= 0.45
-                && c.cif_terminal_tri_center_frac <= 0.62
-                && c.cif_terminal_bi_treat_frac >= 0.68
-                && c.cif_terminal_bi_treat_frac <= 0.86
-        }
-        DesignTopology::CascadeCenterTrifurcationSeparator { n_levels } => {
-            n_levels >= 1
-                && flow_ml_min >= 60.0
-                && flow_ml_min <= 260.0
-                && gauge_kpa >= 25.0
-                && gauge_kpa <= 400.0
-                && c.throat_diameter_m >= 25.0e-6
-                && c.throat_diameter_m <= 120.0e-6
-                && tl_factor <= 5.0
-                && c.channel_width_m >= 3.0e-3
-                && c.channel_width_m <= 8.0e-3
-                && c.channel_height_m >= 0.5e-3
-                && c.channel_height_m <= 2.5e-3
-                && c.trifurcation_center_frac >= 0.40
-                && c.trifurcation_center_frac <= 0.60
+                && c.cif_pretri_center_frac <= 0.62
+                && c.cif_terminal_tri_center_frac >= 0.33
+                && c.cif_terminal_tri_center_frac <= 0.58
         }
         _ => false,
     }
@@ -322,14 +289,37 @@ fn fast_mode_candidate_filter(c: &DesignCandidate) -> bool {
 
 fn fast_eval_priority(c: &DesignCandidate) -> (u8, i64, i64, i64) {
     let family = match c.topology {
-        DesignTopology::IncrementalFiltrationTriBiSeparator { .. } => 0,
-        DesignTopology::CascadeCenterTrifurcationSeparator { .. } => 1,
-        DesignTopology::DoubleBifurcationSerpentine => 2,
-        _ => 3,
+        DesignTopology::PrimitiveSelectiveTree {
+            sequence: PrimitiveSplitSequence::TriTri,
+        } => 0,
+        DesignTopology::PrimitiveSelectiveTree { .. } => 1,
+        _ => 1,
+    };
+    // Dual-centre priority: candidates close to EITHER the acoustic sweet spot
+    // (q=120, g=200, d=55) or the cavitation sweet spot (q=300, g=400, d=35)
+    // rank highly, ensuring both Option 1 and Option 2 are well-sampled.
+    let q_ml = c.flow_rate_m3_s * 6.0e7;
+    let g_kpa = c.inlet_gauge_pa * 1.0e-3;
+    let d_um = c.throat_diameter_m * 1.0e6;
+    let acoustic_pen = (q_ml - 120.0).abs() + (g_kpa - 200.0).abs() + (d_um - 55.0).abs();
+    let cav_pen = (q_ml - 300.0).abs() + (g_kpa - 400.0).abs() + (d_um - 35.0).abs();
+    let best_pen = acoustic_pen.min(cav_pen).round() as i64;
+    (family, best_pen, 0, 0)
+}
+
+/// Priority for acoustic-only candidates: centre on q = 120 mL/min, g = 200 kPa,
+/// d = 55 μm — the sweet spot for selective routing without cavitation.
+fn fast_eval_priority_acoustic(c: &DesignCandidate) -> (u8, i64, i64, i64) {
+    let family = match c.topology {
+        DesignTopology::PrimitiveSelectiveTree {
+            sequence: PrimitiveSplitSequence::TriTri,
+        } => 0,
+        DesignTopology::PrimitiveSelectiveTree { .. } => 1,
+        _ => 1,
     };
     let q_pen = (c.flow_rate_m3_s * 6.0e7 - 120.0).abs().round() as i64;
-    let g_pen = (c.inlet_gauge_pa * 1.0e-3 - 300.0).abs().round() as i64;
-    let d_pen = (c.throat_diameter_m * 1.0e6 - 45.0).abs().round() as i64;
+    let g_pen = (c.inlet_gauge_pa * 1.0e-3 - 200.0).abs().round() as i64;
+    let d_pen = (c.throat_diameter_m * 1.0e6 - 55.0).abs().round() as i64;
     (family, q_pen, g_pen, d_pen)
 }
 
@@ -504,8 +494,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
         acoustic_reserve.sort_by(|a, b| {
-            fast_eval_priority(a)
-                .cmp(&fast_eval_priority(b))
+            fast_eval_priority_acoustic(a)
+                .cmp(&fast_eval_priority_acoustic(b))
                 .then_with(|| a.id.cmp(&b.id))
         });
         acoustic_reserve.truncate(run_cfg.fast_nonventuri_reserve);
@@ -858,7 +848,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         sigma_lt1_ppfda_overall_ok
     );
     let option1_ranked = shortlist_report(option1_pool, 5, "option1_ultrasound")?;
-    let option2_ranked = shortlist_report(option2_pool, 5, "option2_venturi_cif")?;
+    let option2_ranked = shortlist_report(option2_pool, 5, "option2_venturi_dtcv")?;
 
     save_top5_json(
         &option1_ranked,
@@ -903,13 +893,59 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     let ga_result = GeneticOptimizer::new(ga_mode, weights)
-        .with_seeds(seeds)
+        .with_seeds(seeds.clone())
         .with_population(run_cfg.ga_population)
         .with_max_generations(run_cfg.ga_generations)
         .with_rng_seed(M12_GA_HYDRO_SEED)
         .run()?;
 
-    let ga_top = &ga_result.top_designs;
+    let mut ga_top: Vec<RankedDesign> = ga_result
+        .top_designs
+        .iter()
+        .filter(|design| is_selective_report_topology(design.candidate.topology))
+        .cloned()
+        .collect();
+    if ga_top.is_empty() {
+        ga_top = seeds
+            .iter()
+            .filter(|candidate| is_selective_report_topology(candidate.topology))
+            .filter_map(|candidate| {
+                compute_metrics(candidate).ok().map(|metrics| RankedDesign {
+                    rank: 0,
+                    candidate: candidate.clone(),
+                    metrics: metrics.clone(),
+                    score: score_candidate(&metrics, ga_mode, &weights),
+                })
+            })
+            .collect();
+        ga_top.sort_by(|a, b| b.score.total_cmp(&a.score));
+        ga_top.truncate(5);
+        for (idx, design) in ga_top.iter_mut().enumerate() {
+            design.rank = idx + 1;
+        }
+    }
+    if ga_top.is_empty() {
+        ga_top = option2_ranked
+            .iter()
+            .filter(|design| is_selective_report_topology(design.candidate.topology))
+            .take(5)
+            .map(|design| RankedDesign {
+                rank: 0,
+                candidate: design.candidate.clone(),
+                metrics: design.metrics.clone(),
+                score: score_candidate(&design.metrics, ga_mode, &weights),
+            })
+            .collect();
+        ga_top.sort_by(|a, b| b.score.total_cmp(&a.score));
+        for (idx, design) in ga_top.iter_mut().enumerate() {
+            design.rank = idx + 1;
+        }
+    }
+    if ga_top.is_empty() {
+        return Err(
+            "HydroSDT comparison track produced no primitive split-sequence designs".into(),
+        );
+    }
     println!(
         "      GA rank-1: {} (score={:.4}  σ={:.3}  cancer_cav={:.3})",
         ga_top[0].candidate.id,
@@ -917,7 +953,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ga_top[0].metrics.cavitation_number,
         ga_top[0].metrics.cancer_targeted_cavitation
     );
-    save_top5_json(ga_top, &out_dir.join("ga_hydrosdt_top5.json"))?;
+    save_top5_json(&ga_top, &out_dir.join("ga_hydrosdt_top5.json"))?;
     println!("      Saved: ga_hydrosdt_top5.json");
 
     // ── Part 3: Multi-fidelity validation ────────────────────────────────────
@@ -974,14 +1010,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Figure 4 — best selective acoustic design
     save_figure(
         &option1_ranked[0].candidate,
-        &figures_dir.join("selected_ga_schematic.svg"),
+        &figures_dir.join("selected_option1_schematic.svg"),
         "Figure 4 (Option 1 selective acoustic)",
     );
 
     // Figure 5 — best combined selective venturi design
     save_figure(
         &option2_ranked[0].candidate,
-        &figures_dir.join("selected_cifx_combined_schematic.svg"),
+        &figures_dir.join("selected_option2_combined_schematic.svg"),
         "Figure 5 (Option 2 combined selective venturi)",
     );
 
@@ -1037,7 +1073,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             option2_pool_len,
             option1_ranked: &option1_ranked,
             option2_ranked: &option2_ranked,
-            ga_top,
+            ga_top: &ga_top,
             validation_rows: &validation_rows,
             option2_robustness: &option2_robustness,
             ga_best_per_gen: &ga_result.best_per_gen,

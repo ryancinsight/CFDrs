@@ -16,7 +16,7 @@ pub mod pipeline;
 
 pub use csv_export::save_per_channel_csv;
 pub use export::{
-    save_all_modes_json, save_annotated_cif_svg, save_comparison_svg, save_schematic_svg,
+    save_all_modes_json, save_annotated_selective_svg, save_comparison_svg, save_schematic_svg,
     save_top5_json,
 };
 #[cfg(feature = "mesh-export")]

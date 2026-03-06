@@ -24,7 +24,9 @@ use cfd_schematics::domain::model::{ChannelSpec, NodeKind, NodeSpec};
 use cfd_schematics::geometry::generator::create_geometry;
 use cfd_schematics::geometry::{ChannelSystem, SplitType};
 use cfd_schematics::plot_geometry;
-use cfd_schematics::visualizations::analysis_field::{AnalysisField, AnalysisOverlay, ColormapKind};
+use cfd_schematics::visualizations::analysis_field::{
+    AnalysisField, AnalysisOverlay, ColormapKind,
+};
 use cfd_schematics::visualizations::plotters_backend::create_plotters_renderer;
 use cfd_schematics::visualizations::traits::SchematicRenderer;
 use cfd_schematics::visualizations::RenderConfig;
@@ -71,11 +73,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("4. Building network (water at 25°C)...");
     let water = ConstantPropertyFluid::<f64>::new(
         "Water (25°C)".to_string(),
-        997.0,   // kg/m³
-        8.9e-4,  // Pa·s
-        4186.0,  // J/(kg·K)
-        0.606,   // W/(m·K)
-        1497.0,  // m/s (speed of sound)
+        997.0,  // kg/m³
+        8.9e-4, // Pa·s
+        4186.0, // J/(kg·K)
+        0.606,  // W/(m·K)
+        1497.0, // m/s (speed of sound)
     );
 
     let mut builder = NetworkBuilder::<f64>::new();
@@ -212,10 +214,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .map(|(&k, &v)| (k, max_sigma - v))
         .collect();
 
-    let cav_overlay =
-        AnalysisOverlay::new(AnalysisField::Custom("Cavitation Number σ".into()), ColormapKind::BlueRed)
-            .with_edge_data(inverted_sigma)
-            .with_node_data(node_pressure_data.clone());
+    let cav_overlay = AnalysisOverlay::new(
+        AnalysisField::Custom("Cavitation Number σ".into()),
+        ColormapKind::BlueRed,
+    )
+    .with_edge_data(inverted_sigma)
+    .with_node_data(node_pressure_data.clone());
 
     let mut config_cav = RenderConfig::default();
     config_cav.title = format!(
@@ -356,8 +360,16 @@ fn convert_geometry_to_specs(system: &ChannelSystem) -> (Vec<NodeSpec>, Vec<Chan
         .channels
         .iter()
         .map(|channel| {
-            let from = system.nodes.iter().find(|n| n.id == channel.from_node).unwrap();
-            let to = system.nodes.iter().find(|n| n.id == channel.to_node).unwrap();
+            let from = system
+                .nodes
+                .iter()
+                .find(|n| n.id == channel.from_node)
+                .unwrap();
+            let to = system
+                .nodes
+                .iter()
+                .find(|n| n.id == channel.to_node)
+                .unwrap();
             let dx = from.point.0 - to.point.0;
             let dy = from.point.1 - to.point.1;
             let length_m = dx.hypot(dy) / 1000.0;

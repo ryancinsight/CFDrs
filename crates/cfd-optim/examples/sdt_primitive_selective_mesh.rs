@@ -1,32 +1,25 @@
-//! CIF mesh generation pipeline for top-ranked CIF/CCT designs.
+//! Primitive selective mesh generation pipeline for top-ranked primitive split-sequence designs.
 //!
-//! Processes GA-evolved CIF and CCT designs through the [`DesignPipeline`]
+//! Processes GA-evolved primitive selective designs through the [`DesignPipeline`]
 //! to produce watertight surface meshes (STL) and volume meshes (OpenFOAM
-//! polyMesh) for downstream 3D CFD validation and SLA fabrication
-//! (Section 8.24 of the Milestone 12 report).
+//! polyMesh) for downstream 3D CFD validation and fabrication.
 //!
-//! Submits the top-2 designs from each of three GA modes (6 total);
-//! expects 5 successful mesh constructions (one CSG failure is a known
-//! limitation of the current Boolean engine for topologies with closely
-//! spaced branch junctions).
-//!
-//! Output: `crates/cfd-optim/outputs/cif_meshes/`
-//! (5 design directories with STL + OpenFOAM polyMesh + schematic SVG)
+//! Output: `crates/cfd-optim/outputs/primitive_selective_meshes/`
 //!
 //! # Run
 //! ```bash
-//! cargo run -p cfd-optim --example sdt_cif_mesh --features mesh-export --no-default-features
+//! cargo run -p cfd-optim --example sdt_primitive_selective_mesh --features mesh-export --no-default-features
 //! ```
 
 use cfd_optim::{DesignPipeline, GeneticOptimizer, OptimMode, RankedDesign, SdtWeights};
 use std::path::Path;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let out = Path::new("crates/cfd-optim/outputs/cif_meshes");
+    let out = Path::new("crates/cfd-optim/outputs/primitive_selective_meshes");
     let pipeline = DesignPipeline::new(out);
     let w = SdtWeights::default();
 
-    println!("=== CIF Mesh Generation Pipeline ===\n");
+    println!("=== Primitive Selective Mesh Generation Pipeline ===\n");
     println!("Output: {}\n", out.display());
 
     let modes: [(&str, OptimMode); 3] = [
@@ -42,7 +35,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ),
     ];
 
-    // Collect top-2 designs per GA mode (6 designs total).
     let mut submissions: Vec<(&str, RankedDesign)> = Vec::new();
 
     for (slug, mode) in &modes {
@@ -66,7 +58,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    // Process each design through the mesh pipeline.
     println!(
         "\n=== Mesh Generation ({} designs) ===\n",
         submissions.len()

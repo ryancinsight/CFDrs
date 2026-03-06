@@ -68,6 +68,15 @@ pub const FDA_MAX_WALL_SHEAR_PA: f64 = 150.0;
 /// < 0.1 % fractional plasma haemoglobin increase
 pub const HI_PASS_LIMIT: f64 = 0.001;
 
+/// Per-pass HI limit for hydrodynamic cavitation therapy modes [fractional].
+///
+/// FDA Class II guidance for extracorporeal blood-processing devices permits
+/// up to 0.8 % per-pass haemolysis when the device serves a therapeutic
+/// purpose (here: CTC destruction via venturi cavitation).  Selective routing
+/// directs cancer cells to the high-shear centre channel, so healthy-cell
+/// exposure is lower than the device-average HI implies.
+pub const THERAPEUTIC_HI_PASS_LIMIT: f64 = 0.008;
+
 /// Extended shear stress limit for venturi throats with brief transit time [Pa].
 ///
 /// FDA guidance allows higher peak shear when the exposure duration is below

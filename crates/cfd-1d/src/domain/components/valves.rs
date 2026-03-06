@@ -91,7 +91,10 @@ impl<T: RealField + Copy + FromPrimitive> Component<T> for Microvalve<T> {
 
     fn coefficients(&self, fluid: &Fluid<T>) -> (T, T) {
         if self.opening <= T::zero() {
-            (T::from_f64(1e12).expect("Mathematical constant conversion compromised"), T::zero())
+            (
+                T::from_f64(1e12).expect("Mathematical constant conversion compromised"),
+                T::zero(),
+            )
         } else {
             // k = 1 / (Cv * opening)^2
             let cv_eff = self.effective_cv();
@@ -143,7 +146,10 @@ mod tests {
         let fluid = water_20c::<f64>().unwrap();
         let mut valve = Microvalve::new(0.01_f64);
         valve.set_parameter("opening", 0.0).unwrap();
-        assert!(valve.resistance(&fluid) > 1e10, "Closed valve must have very high resistance");
+        assert!(
+            valve.resistance(&fluid) > 1e10,
+            "Closed valve must have very high resistance"
+        );
     }
 
     #[test]

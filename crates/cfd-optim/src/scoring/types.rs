@@ -123,7 +123,7 @@ pub enum OptimMode {
     /// in peripheral bypass arms.  It combines:
     ///
     /// 1. Strong cavitation at the venturi throat (σ ≪ 1, narrow constriction).
-    /// 2. High enrichment of cancer cells in the center / venturi arm (CCT cascade).
+    /// 2. High enrichment of cancer cells in the selected treatment arm of a primitive split tree.
     /// 3. RBC peripheral routing — minimising red cell exposure to cavitation.
     /// 4. High-energy bubble collapse (sonoluminescence proxy) for sonosensitiser
     ///    activation.

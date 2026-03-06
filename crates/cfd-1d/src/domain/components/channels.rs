@@ -85,7 +85,6 @@ impl<T: RealField + Copy + FromPrimitive> RectangularChannel<T> {
     pub fn aspect_ratio(&self) -> T {
         self.width / self.height
     }
-
 }
 
 impl<T: RealField + Copy + FromPrimitive> Component<T> for RectangularChannel<T> {
@@ -251,7 +250,9 @@ impl<T: RealField + Copy + FromPrimitive> Component<T> for CircularChannel<T> {
         let conditions = crate::physics::resistance::models::FlowConditions::new(T::zero());
         model
             .calculate_resistance(fluid, &conditions)
-            .unwrap_or_else(|_| T::from_f64(1e12).expect("Mathematical constant conversion compromised"))
+            .unwrap_or_else(|_| {
+                T::from_f64(1e12).expect("Mathematical constant conversion compromised")
+            })
     }
 
     fn coefficients(&self, fluid: &Fluid<T>) -> (T, T) {

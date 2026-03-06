@@ -1,13 +1,11 @@
 //! Resistance calculator with model selection and validation.
 
-pub mod dispatch;
 /// Resistance and quadratic coefficient calculation dispatch.
 pub mod coefficients;
+pub mod dispatch;
 
 use super::geometry::ChannelGeometry;
-use super::models::{
-    FlowConditions, SerpentineModel, VenturiModel,
-};
+use super::models::{FlowConditions, SerpentineModel, VenturiModel};
 use cfd_core::error::Result;
 use cfd_core::physics::fluid::FluidTrait;
 use nalgebra::RealField;
@@ -102,7 +100,13 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceCalculator<T> {
         fluid: &F,
         conditions: &FlowConditions<T>,
     ) -> Result<(T, T)> {
-        coefficients::calculate_darcy_weisbach_coefficients(hydraulic_diameter, length, roughness, fluid, conditions)
+        coefficients::calculate_darcy_weisbach_coefficients(
+            hydraulic_diameter,
+            length,
+            roughness,
+            fluid,
+            conditions,
+        )
     }
 
     /// Calculate resistance using Darcy-Weisbach model
@@ -139,7 +143,14 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceCalculator<T> {
         fluid: &F,
         conditions: &FlowConditions<T>,
     ) -> Result<T> {
-        dispatch::calculate_serpentine_circular(diameter, straight_length, num_segments, bend_radius, fluid, conditions)
+        dispatch::calculate_serpentine_circular(
+            diameter,
+            straight_length,
+            num_segments,
+            bend_radius,
+            fluid,
+            conditions,
+        )
     }
 
     /// Calculate resistance using serpentine channel model with rectangular cross-section.
@@ -156,7 +167,15 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceCalculator<T> {
         fluid: &F,
         conditions: &FlowConditions<T>,
     ) -> Result<T> {
-        dispatch::calculate_serpentine_rectangular(width, height, straight_length, num_segments, bend_radius, fluid, conditions)
+        dispatch::calculate_serpentine_rectangular(
+            width,
+            height,
+            straight_length,
+            num_segments,
+            bend_radius,
+            fluid,
+            conditions,
+        )
     }
 
     /// Calculate (R, k) coefficients using serpentine channel model.
@@ -193,7 +212,14 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceCalculator<T> {
         fluid: &F,
         conditions: &FlowConditions<T>,
     ) -> Result<T> {
-        dispatch::calculate_venturi(inlet_diameter, throat_diameter, throat_length, total_length, fluid, conditions)
+        dispatch::calculate_venturi(
+            inlet_diameter,
+            throat_diameter,
+            throat_length,
+            total_length,
+            fluid,
+            conditions,
+        )
     }
 
     /// Calculate (R, k) coefficients using Venturi tube model.
@@ -222,7 +248,15 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceCalculator<T> {
         fluid: &F,
         conditions: &FlowConditions<T>,
     ) -> Result<T> {
-        dispatch::calculate_membrane_porous(thickness, width, height, pore_radius, porosity, fluid, conditions)
+        dispatch::calculate_membrane_porous(
+            thickness,
+            width,
+            height,
+            pore_radius,
+            porosity,
+            fluid,
+            conditions,
+        )
     }
 }
 
@@ -235,8 +269,10 @@ impl<T: RealField + Copy + FromPrimitive> Default for ResistanceCalculator<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::physics::resistance::models::{
+        DarcyWeisbachModel, HagenPoiseuilleModel, RectangularChannelModel, ResistanceModel,
+    };
     use approx::assert_relative_eq;
-    use crate::physics::resistance::models::{DarcyWeisbachModel, HagenPoiseuilleModel, RectangularChannelModel, ResistanceModel};
     use cfd_core::physics::fluid::ConstantFluid;
 
     #[test]
@@ -320,7 +356,9 @@ mod tests {
         let mut conditions = FlowConditions::new(velocity);
         conditions.reynolds_number = Some(re);
 
-        assert!(re > cfd_core::physics::constants::physics::dimensionless::reynolds::PIPE_TURBULENT_MIN);
+        assert!(
+            re > cfd_core::physics::constants::physics::dimensionless::reynolds::PIPE_TURBULENT_MIN
+        );
 
         let resistance = model.calculate_resistance(&fluid, &conditions)?;
         assert!(resistance > 0.0);

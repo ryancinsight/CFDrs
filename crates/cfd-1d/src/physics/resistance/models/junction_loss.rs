@@ -205,11 +205,8 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for JunctionLossMod
         let eight = T::from_f64(8.0).expect("Mathematical constant conversion compromised");
         let shear_rate = eight * v / d;
 
-        let mu = fluid.viscosity_at_shear(
-            shear_rate,
-            conditions.temperature,
-            conditions.pressure,
-        )?;
+        let mu =
+            fluid.viscosity_at_shear(shear_rate, conditions.temperature, conditions.pressure)?;
 
         let l = T::from_f64(self.junction_length_m)
             .ok_or_else(|| Error::InvalidInput("junction_length_m conversion failed".into()))?;
@@ -217,7 +214,9 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for JunctionLossMod
         // Linear component: Hagen-Poiseuille through the junction length.
         // R_lin = 128 μ L / (π D⁴)  [circular], or 12 μ L / (w h³) [rect]
         let pi = T::pi();
-        let r_lin = T::from_f64(128.0).expect("Mathematical constant conversion compromised") * mu * l / (pi * d.powi(4));
+        let r_lin =
+            T::from_f64(128.0).expect("Mathematical constant conversion compromised") * mu * l
+                / (pi * d.powi(4));
 
         // Quadratic component: K ρ / (2 A²).
         let k_factor = T::from_f64(self.loss_coefficient()).unwrap_or_else(T::one);
@@ -236,7 +235,10 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for JunctionLossMod
 
     fn reynolds_range(&self) -> (T, T) {
         // Applicable from creeping flow to low-turbulence millifluidic range.
-        (T::zero(), T::from_f64(2300.0).expect("Mathematical constant conversion compromised"))
+        (
+            T::zero(),
+            T::from_f64(2300.0).expect("Mathematical constant conversion compromised"),
+        )
     }
 }
 

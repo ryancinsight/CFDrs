@@ -202,47 +202,38 @@ pub(super) fn accumulate_inlet_tree(
                 acc.add_rect(blood, qn, wn, h, level_lens[i]);
             }
         }
-        DesignTopology::CascadeCenterTrifurcationSeparator { n_levels } => {
-            let frac = candidate.trifurcation_center_frac;
-            let q_frac = cfd_1d::tri_center_q_frac(frac);
+        DesignTopology::AsymmetricTrifurcationVenturi => {
             let trunk_len = TREATMENT_HEIGHT_MM * 0.20e-3;
             let branch_len = TREATMENT_HEIGHT_MM * 0.15e-3;
+            let q_frac = cfd_1d::tri_center_q_frac(candidate.trifurcation_center_frac);
             acc.add_rect(blood, q, w, h, trunk_len);
-            let mut qn = q;
-            let mut wn = w;
-            for _ in 0..n_levels {
-                qn *= q_frac;
-                wn *= frac;
-                acc.add_rect(blood, qn, wn, h, branch_len);
-            }
+            acc.add_rect(
+                blood,
+                q * q_frac,
+                w * candidate.trifurcation_center_frac,
+                h,
+                branch_len,
+            );
         }
-        DesignTopology::IncrementalFiltrationTriBiSeparator { n_pretri } => {
-            let frac = candidate.trifurcation_center_frac;
-            let q_tri = cfd_1d::tri_center_q_frac(frac);
-            let q_bi = 0.68_f64;
+        DesignTopology::PrimitiveSelectiveTree { sequence } => {
             let trunk_len = TREATMENT_HEIGHT_MM * 0.20e-3;
-            let pretri_len = TREATMENT_HEIGHT_MM * 0.15e-3;
-            let hybrid_len = TREATMENT_HEIGHT_MM * 0.12e-3;
-
+            let stage_len = TREATMENT_HEIGHT_MM * 0.14e-3;
             acc.add_rect(blood, q, w, h, trunk_len);
 
             let mut qn = q;
             let mut wn = w;
-            for _ in 0..n_pretri {
-                qn *= q_tri;
-                wn *= frac;
-                acc.add_rect(blood, qn, wn, h, pretri_len);
+            for stage_idx in 0..sequence.levels() {
+                let is_tri = ((sequence.split_types() >> stage_idx) & 1) == 1;
+                if is_tri {
+                    let center_frac = primitive_tri_stage_fraction(candidate, sequence, stage_idx);
+                    qn *= cfd_1d::tri_center_q_frac(center_frac);
+                    wn *= center_frac;
+                } else {
+                    qn *= candidate.cif_terminal_bi_treat_frac();
+                    wn *= candidate.cif_terminal_bi_treat_frac();
+                }
+                acc.add_rect(blood, qn, wn, h, stage_len);
             }
-
-            // Terminal trifurcation center-arm stage.
-            qn *= q_tri;
-            wn *= frac;
-            acc.add_rect(blood, qn, wn, h, hybrid_len);
-
-            // Terminal bifurcation treatment-arm stage.
-            qn *= q_bi;
-            wn *= q_bi;
-            acc.add_rect(blood, qn, wn, h, hybrid_len);
         }
         DesignTopology::BifurcationSerpentine => {
             let trunk_len = TREATMENT_HEIGHT_MM * 0.25e-3;
@@ -292,6 +283,21 @@ pub(super) fn accumulate_inlet_tree(
                 }
             }
         }
+    }
+}
+
+fn primitive_tri_stage_fraction(
+    candidate: &DesignCandidate,
+    sequence: crate::design::PrimitiveSplitSequence,
+    stage_idx: u8,
+) -> f64 {
+    let tri_indices: Vec<u8> = (0..sequence.levels())
+        .filter(|idx| ((sequence.split_types() >> idx) & 1) == 1)
+        .collect();
+    if tri_indices.last().copied() == Some(stage_idx) {
+        candidate.cif_terminal_tri_center_frac()
+    } else {
+        candidate.cif_pretri_center_frac()
     }
 }
 

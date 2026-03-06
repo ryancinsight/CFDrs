@@ -7,7 +7,10 @@
 use cfd_schematics::{
     config::{ChannelTypeConfig, GeometryConfig},
     geometry::{generator::create_geometry, SplitType},
-    visualizations::schematic::plot_geometry,
+    visualizations::{
+        schematic::plot_geometry_auto_annotated,
+        traits::RenderConfig,
+    },
 };
 use std::fs;
 use std::path::PathBuf;
@@ -45,13 +48,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ("quadruple", vec![SplitType::Bifurcation; 4], (500.0, 250.0)),
     ];
 
+    let render_config = RenderConfig::default();
+
     for (name, splits, box_dims) in bifurcation_patterns {
         let system = create_geometry(box_dims, &splits, &config, &channel_config);
         let output_path = out.join(format!(
             "split_patterns/bifurcation/{}_bifurcation.png",
             name
         ));
-        plot_geometry(&system, output_path.to_str().unwrap())?;
+        plot_geometry_auto_annotated(&system, output_path.to_str().unwrap(), &render_config)?;
 
         println!(
             "   ✓ {}: {} channels, {} nodes -> {}",
@@ -88,7 +93,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "split_patterns/trifurcation/{}_trifurcation.png",
             name
         ));
-        plot_geometry(&system, output_path.to_str().unwrap())?;
+        plot_geometry_auto_annotated(&system, output_path.to_str().unwrap(), &render_config)?;
 
         println!(
             "   ✓ {}: {} channels, {} nodes -> {}",
@@ -136,7 +141,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     for (name, splits, box_dims) in mixed_patterns {
         let system = create_geometry(box_dims, &splits, &config, &channel_config);
         let output_path = out.join(format!("split_patterns/mixed/{}_pattern.png", name));
-        plot_geometry(&system, output_path.to_str().unwrap())?;
+        plot_geometry_auto_annotated(&system, output_path.to_str().unwrap(), &render_config)?;
 
         println!(
             "   ✓ {}: {} channels, {} nodes -> {}",

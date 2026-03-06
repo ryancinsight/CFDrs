@@ -1,7 +1,7 @@
 //! Core `compute_metrics` entry point and the Giersiepen haemolysis helper.
 
-use cfd_1d::cavitation_amplified_hi;
 use cfd_1d::physics::cell_separation::{CellProperties, CellSeparationModel};
+use cfd_1d::{cavitation_amplified_hi, evaluate_venturi_screening, VenturiScreeningInput};
 use cfd_core::physics::fluid::blood::CassonBlood;
 use cfd_schematics::domain::model::CrossSectionSpec;
 
@@ -17,10 +17,10 @@ use crate::constraints::{
     RAYLEIGH_COLLAPSE_FACTOR, R_BUBBLE_EQ_M, SIGMA_CRIT, SONO_REF_P_ABS_PA, THERAPEUTIC_WINDOW_REF,
     TREATMENT_HEIGHT_MM, VENTURI_CC, VENTURI_VEL_RATIO_REF,
 };
-use crate::design::{DesignCandidate, DesignTopology};
+use crate::design::{DesignCandidate, DesignTopology, PrimitiveSplitSequence};
 use crate::error::OptimError;
 
-use super::network_solve::{solve_blueprint_network, ChannelSolveSample};
+use super::network_solve::solve_blueprint_network;
 use super::sdt_metrics::ChannelHemolysis;
 use super::separation::{
     leukapheresis_separation, three_population_separation, LeukapheresisMetrics, ThreePopMetrics,
@@ -251,52 +251,20 @@ pub fn compute_metrics(candidate: &DesignCandidate) -> Result<SdtMetrics, OptimE
             // the geometric throat, so the effective velocity at the vena
             // contracta is v_eff = v_geom / Cc (VENTURI_CC ≈ 0.85 for
             // smooth millifluidic contractions; Idelchik Diagram 4-9).
-            let v_eff = v / VENTURI_CC;
-            let p_gauge_upstream = sample.from_pressure_pa.max(0.0);
-            let bernoulli_drop =
-                0.5 * BLOOD_DENSITY_KG_M3 * (v_eff * v_eff - upstream_v_local * upstream_v_local);
-
-            // Throat skin-friction loss: Darcy-Weisbach ΔP_f = f·(L/D_h)·½ρv²
-            // where f = 64/Re for laminar flow (Re < 2300) in the developing
-            // throat (Shah & London 1978).  This additional pressure drop
-            // further reduces p_static at the vena contracta, promoting
-            // cavitation inception in long/narrow throats.
-            let d_h_throat = sample.cross_section.hydraulic_diameter();
-            let re_throat =
-                BLOOD_DENSITY_KG_M3 * v_eff * d_h_throat / BLOOD_VISCOSITY_PA_S.max(1e-18);
-            let f_darcy = if re_throat > 1.0 {
-                64.0 / re_throat
-            } else {
-                64.0
-            };
-            let friction_drop = f_darcy
-                * (sample.length_m / d_h_throat.max(1e-18))
-                * 0.5
-                * BLOOD_DENSITY_KG_M3
-                * v_eff
-                * v_eff;
-
-            let p_static_throat =
-                (p_gauge_upstream + P_ATM_PA - bernoulli_drop - friction_drop).max(0.0);
-            let dyn_p = 0.5 * BLOOD_DENSITY_KG_M3 * v_eff * v_eff;
-            let sigma = if dyn_p > 1e-12 {
-                (p_static_throat - BLOOD_VAPOR_PRESSURE_PA) / dyn_p
-            } else {
-                f64::INFINITY
-            };
-            venturi_sigma = venturi_sigma.min(sigma);
-
-            // Diffuser pressure recovery: the gradual expansion downstream of
-            // the venturi throat converts a fraction of the throat dynamic
-            // pressure back to static pressure.  This partially compensates
-            // the Bernoulli drop, improving the net pressure budget.
-            // ΔP_recovery = C_D × ½ρ(v_throat² − v_upstream²)
-            // (Idelchik 1994, Handbook of Hydraulic Resistance, Diagram 6-21)
-            let dp_recovery = DIFFUSER_DISCHARGE_COEFF
-                * 0.5
-                * BLOOD_DENSITY_KG_M3
-                * (v_eff * v_eff - upstream_v_local * upstream_v_local).max(0.0);
-            diffuser_recovery_pa = diffuser_recovery_pa.max(dp_recovery);
+            let venturi = evaluate_venturi_screening(VenturiScreeningInput {
+                upstream_pressure_pa: sample.from_pressure_pa.max(0.0) + P_ATM_PA,
+                upstream_velocity_m_s: upstream_v_local,
+                throat_velocity_m_s: v,
+                throat_hydraulic_diameter_m: sample.cross_section.hydraulic_diameter(),
+                throat_length_m: sample.length_m,
+                density_kg_m3: BLOOD_DENSITY_KG_M3,
+                viscosity_pa_s: BLOOD_VISCOSITY_PA_S.max(1e-18),
+                vapor_pressure_pa: BLOOD_VAPOR_PRESSURE_PA,
+                vena_contracta_coeff: VENTURI_CC,
+                diffuser_recovery_coeff: DIFFUSER_DISCHARGE_COEFF,
+            });
+            venturi_sigma = venturi_sigma.min(venturi.cavitation_number);
+            diffuser_recovery_pa = diffuser_recovery_pa.max(venturi.diffuser_recovery_pa);
         } else if !sample.is_bypass_channel {
             // Non-venturi, non-bypass channels: track main-channel shear for
             // FDA compliance and shear statistics.
@@ -393,35 +361,20 @@ pub fn compute_metrics(candidate: &DesignCandidate) -> Result<SdtMetrics, OptimE
         t_throat_venturi = t_throat_venturi.max(t_thr);
 
         // Bernoulli-corrected fallback σ with Cc: v_eff = v_thr / Cc
-        let v_thr_eff = v_thr / VENTURI_CC;
-        let p_abs_local = candidate.inlet_pressure_pa();
-        let bernoulli_drop = 0.5 * BLOOD_DENSITY_KG_M3 * (v_thr_eff * v_thr_eff - v_in * v_in);
-
-        // Throat skin-friction loss (fallback path): same Darcy-Weisbach model
-        // as the resolved-flow path above.
-        let d_h_fb = throat_cs.hydraulic_diameter();
-        let re_fb = BLOOD_DENSITY_KG_M3 * v_thr_eff * d_h_fb / BLOOD_VISCOSITY_PA_S.max(1e-18);
-        let f_darcy_fb = if re_fb > 1.0 { 64.0 / re_fb } else { 64.0 };
-        let friction_drop_fb = f_darcy_fb
-            * (candidate.throat_length_m / d_h_fb.max(1e-18))
-            * 0.5
-            * BLOOD_DENSITY_KG_M3
-            * v_thr_eff
-            * v_thr_eff;
-
-        let p_static_throat = (p_abs_local - bernoulli_drop - friction_drop_fb).max(0.0);
-        let dyn_p = 0.5 * BLOOD_DENSITY_KG_M3 * v_thr_eff * v_thr_eff;
-        if dyn_p > 1e-12 {
-            let sigma = (p_static_throat - BLOOD_VAPOR_PRESSURE_PA) / dyn_p;
-            venturi_sigma = venturi_sigma.min(sigma);
-        }
-
-        // Fallback diffuser recovery (same Idelchik Diagram 6-21 model)
-        let dp_recovery_fb = DIFFUSER_DISCHARGE_COEFF
-            * 0.5
-            * BLOOD_DENSITY_KG_M3
-            * (v_thr_eff * v_thr_eff - v_in * v_in).max(0.0);
-        diffuser_recovery_pa = diffuser_recovery_pa.max(dp_recovery_fb);
+        let venturi = evaluate_venturi_screening(VenturiScreeningInput {
+            upstream_pressure_pa: candidate.inlet_pressure_pa(),
+            upstream_velocity_m_s: v_in,
+            throat_velocity_m_s: v_thr,
+            throat_hydraulic_diameter_m: throat_cs.hydraulic_diameter(),
+            throat_length_m: candidate.throat_length_m,
+            density_kg_m3: BLOOD_DENSITY_KG_M3,
+            viscosity_pa_s: BLOOD_VISCOSITY_PA_S.max(1e-18),
+            vapor_pressure_pa: BLOOD_VAPOR_PRESSURE_PA,
+            vena_contracta_coeff: VENTURI_CC,
+            diffuser_recovery_coeff: DIFFUSER_DISCHARGE_COEFF,
+        });
+        venturi_sigma = venturi_sigma.min(venturi.cavitation_number);
+        diffuser_recovery_pa = diffuser_recovery_pa.max(venturi.diffuser_recovery_pa);
     }
 
     let unresolved_serial_stages = serial_venturi_stages_per_path
@@ -526,12 +479,9 @@ pub fn compute_metrics(candidate: &DesignCandidate) -> Result<SdtMetrics, OptimE
             | DesignTopology::TripleTrifurcationVenturi
             | DesignTopology::TrifurcationBifurcationBifurcationVenturi
             | DesignTopology::QuadTrifurcationVenturi
-            | DesignTopology::CascadeCenterTrifurcationSeparator { .. }
-            | DesignTopology::IncrementalFiltrationTriBiSeparator { .. }
-            | DesignTopology::DoubleTrifurcationCIFVenturi { .. }
             | DesignTopology::AsymmetricTrifurcationVenturi
-            | DesignTopology::TriBiTriSelectiveVenturi
             | DesignTopology::DoubleTrifurcationVenturi
+            | DesignTopology::PrimitiveSelectiveTree { .. }
     ) {
         three_population_separation(candidate, &blood)
     } else {
@@ -550,114 +500,10 @@ pub fn compute_metrics(candidate: &DesignCandidate) -> Result<SdtMetrics, OptimE
         LeukapheresisMetrics::default()
     };
 
-    // ── CCT and CIF staged routing models ───────────────────────────────────
-    let mut cct_stage_qfracs: Vec<f64> = Vec::new();
-    let mut cif_pretri_stage_qfracs: Vec<f64> = Vec::new();
-    let mut cif_terminal_tri_qfrac: Option<f64> = None;
-    let mut cif_terminal_bi_qfrac: Option<f64> = None;
-
-    // ── DTCV (DoubleTrifurcationCIFVenturi) cascade routing ─────────────────
-    // DTCV uses a 2-level asymmetric trifurcation cascade (split1 → split2)
-    // where the first split routes cancer/WBC-enriched flow to the center arm,
-    // and the second split further subdivides into 3 CTC-enriched center
-    // sub-channels with serial venturi throats.  The outer bypass channels
-    // (6 total: 3 from split1 periphery, 3 from split2 periphery of the center
-    // trunk) carry RBC-enriched flow with zero venturi exposure.
-    //
-    // The Zweifach-Fung routing at each trifurcation junction progressively
-    // enriches stiff cancer cells (β=1.70) in the center arm while deformable
-    // RBCs (β=1.00) distribute more uniformly — exactly the mechanism that
-    // makes deeper cascades (tri-tri > tri) produce better separation.
-    let dtcv_cascade_res: Option<cfd_1d::CascadeJunctionResult> =
-        if let DesignTopology::DoubleTrifurcationCIFVenturi { .. } = candidate.topology {
-            // DTCV is a 2-level cascade: split1 uses cif_pretri_center_frac,
-            // split2 uses cif_terminal_tri_center_frac.  Each level has its
-            // own width fraction, so we compute per-stage q_fracs individually.
-            let q1 = cfd_1d::tri_center_q_frac_cross_junction(
-                candidate.cif_pretri_center_frac(),
-                w_main,
-                h_main,
-            );
-            let q2 = cfd_1d::tri_center_q_frac_cross_junction(
-                candidate.cif_terminal_tri_center_frac(),
-                w_main * candidate.cif_pretri_center_frac(),
-                h_main,
-            );
-            Some(cfd_1d::cascade_junction_separation_from_qfracs(&[q1, q2]))
-        } else {
-            None
-        };
-
-    let cascade_res: Option<cfd_1d::CascadeJunctionResult> =
-        if let DesignTopology::CascadeCenterTrifurcationSeparator { n_levels } = candidate.topology
-        {
-            let solved_q = extract_cct_stage_qfracs(&solved.channel_samples, n_levels);
-            let use_solved = solved_q.len() == n_levels as usize;
-            if use_solved {
-                cct_stage_qfracs = solved_q.clone();
-                Some(cfd_1d::cascade_junction_separation_from_qfracs(&solved_q))
-            } else {
-                let q_model = cfd_1d::tri_center_q_frac_cross_junction(
-                    candidate.trifurcation_center_frac,
-                    w_main,
-                    h_main,
-                );
-                cct_stage_qfracs = std::iter::repeat_n(q_model, n_levels as usize).collect();
-                Some(cfd_1d::cascade_junction_separation_cross_junction(
-                    n_levels,
-                    candidate.trifurcation_center_frac,
-                    w_main,
-                    h_main,
-                ))
-            }
-        } else {
-            None
-        };
-
-    let cif_res: Option<cfd_1d::IncrementalFiltrationResult> =
-        if let DesignTopology::IncrementalFiltrationTriBiSeparator { n_pretri } = candidate.topology
-        {
-            let (pretri_q, tri_q_opt, bi_q_opt) =
-                extract_cif_stage_qfracs(&solved.channel_samples, n_pretri);
-            let use_solved = pretri_q.len() == n_pretri as usize;
-            if use_solved {
-                cif_pretri_stage_qfracs = pretri_q.clone();
-                let tri_q = tri_q_opt.unwrap_or_else(|| {
-                    cfd_1d::tri_center_q_frac(candidate.cif_terminal_tri_center_frac())
-                });
-                let bi_q = bi_q_opt.unwrap_or_else(|| candidate.cif_terminal_bi_treat_frac());
-                cif_terminal_tri_qfrac = Some(tri_q);
-                cif_terminal_bi_qfrac = Some(bi_q);
-                Some(cfd_1d::incremental_filtration_separation_from_qfracs(
-                    &pretri_q, tri_q, bi_q,
-                ))
-            } else {
-                let staged_pretri_q = cfd_1d::cif_pretri_stage_q_fracs(
-                    n_pretri,
-                    candidate.cif_pretri_center_frac(),
-                    candidate.cif_terminal_tri_center_frac(),
-                );
-                let q_tri = cfd_1d::tri_center_q_frac_cross_junction(
-                    candidate.cif_terminal_tri_center_frac(),
-                    w_main,
-                    h_main,
-                );
-                let q_bi = candidate.cif_terminal_bi_treat_frac();
-                cif_pretri_stage_qfracs = staged_pretri_q.clone();
-                cif_terminal_tri_qfrac = Some(q_tri);
-                cif_terminal_bi_qfrac = Some(q_bi);
-                Some(cfd_1d::incremental_filtration_separation_cross_junction(
-                    n_pretri,
-                    candidate.cif_pretri_center_frac(),
-                    candidate.cif_terminal_tri_center_frac(),
-                    q_bi,
-                    w_main,
-                    h_main,
-                ))
-            }
-        } else {
-            None
-        };
+    // ── Primitive selective staged routing model ────────────────────────────
+    let primitive_stage_qfracs = primitive_stage_qfracs(candidate, w_main, h_main);
+    let primitive_res = (!primitive_stage_qfracs.is_empty())
+        .then(|| cfd_1d::mixed_cascade_separation(&primitive_stage_qfracs));
 
     // ── PAI baseline (Hellums 1994) ──────────────────────────────────────────
     let pai_tau = if venturi_shear_pa > 0.0 {
@@ -726,105 +572,28 @@ pub fn compute_metrics(candidate: &DesignCandidate) -> Result<SdtMetrics, OptimE
             cancer_center_frac = three_pop_metrics.cancer_center_fraction.clamp(0.0, 1.0);
             wbc_center_frac = three_pop_metrics.wbc_center_fraction.clamp(0.0, 1.0);
         }
-        DesignTopology::CascadeCenterTrifurcationSeparator { .. } => {
-            if let Some(cct) = cascade_res {
-                final_sep_eff = cct.separation_efficiency;
-                final_cancer_frac = cct.cancer_center_fraction;
-                final_rbc_periph = cct.rbc_peripheral_fraction;
-                final_three_pop_sep = cct.separation_efficiency;
-                final_wbc_center_three_pop = cct.wbc_center_fraction;
-                final_rbc_periph_three_pop = cct.rbc_peripheral_fraction;
+        DesignTopology::AsymmetricTrifurcationVenturi
+        | DesignTopology::PrimitiveSelectiveTree { .. } => {
+            if let Some(selective) = primitive_res.as_ref() {
+                final_sep_eff = selective.separation_efficiency;
+                final_cancer_frac = selective.cancer_center_fraction;
+                final_rbc_periph = selective.rbc_peripheral_fraction;
+                final_three_pop_sep = selective.separation_efficiency;
+                final_wbc_center_three_pop = selective.wbc_center_fraction;
+                final_rbc_periph_three_pop = selective.rbc_peripheral_fraction;
 
-                rbc_center_frac = (1.0 - cct.rbc_peripheral_fraction).clamp(0.0, 1.0);
-                cancer_center_frac = cct.cancer_center_fraction.clamp(0.0, 1.0);
-                wbc_center_frac = cct.wbc_center_fraction.clamp(0.0, 1.0);
+                rbc_center_frac = (1.0 - selective.rbc_peripheral_fraction).clamp(0.0, 1.0);
+                cancer_center_frac = selective.cancer_center_fraction.clamp(0.0, 1.0);
+                wbc_center_frac = selective.wbc_center_fraction.clamp(0.0, 1.0);
             }
-        }
-        DesignTopology::IncrementalFiltrationTriBiSeparator { .. } => {
-            if let Some(cif) = cif_res {
-                final_sep_eff = cif.separation_efficiency;
-                final_cancer_frac = cif.cancer_center_fraction;
-                final_rbc_periph = cif.rbc_peripheral_fraction;
-                final_three_pop_sep = cif.separation_efficiency;
-                final_wbc_center_three_pop = cif.wbc_center_fraction;
-                final_rbc_periph_three_pop = cif.rbc_peripheral_fraction;
-
-                rbc_center_frac = cif.rbc_center_fraction.clamp(0.0, 1.0);
-                cancer_center_frac = cif.cancer_center_fraction.clamp(0.0, 1.0);
-                wbc_center_frac = cif.wbc_center_fraction.clamp(0.0, 1.0);
-            }
-        }
-        DesignTopology::DoubleTrifurcationCIFVenturi { .. } => {
-            if let Some(dtcv) = &dtcv_cascade_res {
-                final_sep_eff = dtcv.separation_efficiency;
-                final_cancer_frac = dtcv.cancer_center_fraction;
-                final_rbc_periph = dtcv.rbc_peripheral_fraction;
-                final_three_pop_sep = dtcv.separation_efficiency;
-                final_wbc_center_three_pop = dtcv.wbc_center_fraction;
-                final_rbc_periph_three_pop = dtcv.rbc_peripheral_fraction;
-
-                rbc_center_frac = (1.0 - dtcv.rbc_peripheral_fraction).clamp(0.0, 1.0);
-                cancer_center_frac = dtcv.cancer_center_fraction.clamp(0.0, 1.0);
-                wbc_center_frac = dtcv.wbc_center_fraction.clamp(0.0, 1.0);
-            }
-        }
-        DesignTopology::AsymmetricTrifurcationVenturi => {
-            // Single asymmetric trifurcation: use three-pop inertial model
-            // combined with Zweifach-Fung 1-level routing for the center arm.
-            let q_center = cfd_1d::tri_center_q_frac_cross_junction(
-                candidate.trifurcation_center_frac,
-                w_main,
-                h_main,
-            );
-            let atv_cct = cfd_1d::cascade_junction_separation_from_qfracs(&[q_center]);
-            final_sep_eff = atv_cct.separation_efficiency;
-            final_cancer_frac = atv_cct.cancer_center_fraction;
-            final_rbc_periph = atv_cct.rbc_peripheral_fraction;
-            final_three_pop_sep = atv_cct.separation_efficiency;
-            final_wbc_center_three_pop = atv_cct.wbc_center_fraction;
-            final_rbc_periph_three_pop = atv_cct.rbc_peripheral_fraction;
-
-            rbc_center_frac = (1.0 - atv_cct.rbc_peripheral_fraction).clamp(0.0, 1.0);
-            cancer_center_frac = atv_cct.cancer_center_fraction.clamp(0.0, 1.0);
-            wbc_center_frac = atv_cct.wbc_center_fraction.clamp(0.0, 1.0);
-        }
-        DesignTopology::TriBiTriSelectiveVenturi => {
-            // Tri→Bi→Tri: three progressive focusing stages.
-            // Stage 1 & 3: trifurcation at trifurcation_center_frac.
-            // Stage 2: bifurcation at cif_terminal_bi_treat_frac.
-            let q_tri = cfd_1d::tri_center_q_frac_cross_junction(
-                candidate.trifurcation_center_frac,
-                w_main,
-                h_main,
-            );
-            let q_bi = candidate.cif_terminal_bi_treat_frac();
-            // Model as: tri stage → bi stage → tri stage (3 multiplicative stages)
-            let tbt_cif = cfd_1d::incremental_filtration_separation_from_qfracs(
-                &[q_tri], // 1 pre-tri stage
-                q_tri,    // terminal tri (same frac)
-                q_bi,     // terminal bi
-            );
-            final_sep_eff = tbt_cif.separation_efficiency;
-            final_cancer_frac = tbt_cif.cancer_center_fraction;
-            final_rbc_periph = tbt_cif.rbc_peripheral_fraction;
-            final_three_pop_sep = tbt_cif.separation_efficiency;
-            final_wbc_center_three_pop = tbt_cif.wbc_center_fraction;
-            final_rbc_periph_three_pop = tbt_cif.rbc_peripheral_fraction;
-
-            rbc_center_frac = tbt_cif.rbc_center_fraction.clamp(0.0, 1.0);
-            cancer_center_frac = tbt_cif.cancer_center_fraction.clamp(0.0, 1.0);
-            wbc_center_frac = tbt_cif.wbc_center_fraction.clamp(0.0, 1.0);
         }
         _ => {}
     }
 
     if matches!(
         candidate.topology,
-        DesignTopology::CascadeCenterTrifurcationSeparator { .. }
-            | DesignTopology::IncrementalFiltrationTriBiSeparator { .. }
-            | DesignTopology::DoubleTrifurcationCIFVenturi { .. }
-            | DesignTopology::AsymmetricTrifurcationVenturi
-            | DesignTopology::TriBiTriSelectiveVenturi
+        DesignTopology::AsymmetricTrifurcationVenturi
+            | DesignTopology::PrimitiveSelectiveTree { .. }
     ) {
         final_wbc_recovery = wbc_center_frac.clamp(0.0, 1.0);
         final_rbc_pass_fraction = rbc_center_frac.clamp(0.0, 1.0);
@@ -840,12 +609,10 @@ pub fn compute_metrics(candidate: &DesignCandidate) -> Result<SdtMetrics, OptimE
     if venturi_treatment_enabled && final_venturi_flow_fraction > 0.0 {
         // Use cascade-specific hematocrit ratio when available (more
         // physically accurate — accounts for per-level Zweifach-Fung routing).
-        let cascade_hct_ratio = match (&dtcv_cascade_res, &cascade_res, &cif_res) {
-            (Some(dtcv), _, _) => dtcv.center_hematocrit_ratio,
-            (_, Some(cct), _) => cct.center_hematocrit_ratio,
-            (_, _, Some(cif)) => cif.center_hematocrit_ratio,
-            _ => rbc_center_frac / final_venturi_flow_fraction.max(1e-9),
-        };
+        let cascade_hct_ratio = primitive_res.as_ref().map_or(
+            rbc_center_frac / final_venturi_flow_fraction.max(1e-9),
+            |selective| selective.center_hematocrit_ratio,
+        );
         let hct_venturi = (candidate.feed_hematocrit * cascade_hct_ratio).clamp(0.01, 0.70);
 
         // Re-derive venturi shear using a local Casson blood model with
@@ -1099,80 +866,57 @@ pub fn compute_metrics(candidate: &DesignCandidate) -> Result<SdtMetrics, OptimE
     // Fraction of total chip channel path in the active therapy zone (model-based).
     let therapy_channel_fraction = candidate.therapy_channel_fraction();
 
-    // ── CCT/CIF staged-flow diagnostics ─────────────────────────────────────
-    let cct_model_venturi_flow_fraction =
-        if let DesignTopology::CascadeCenterTrifurcationSeparator { n_levels } = candidate.topology
-        {
-            let q = cfd_1d::tri_center_q_frac(candidate.trifurcation_center_frac);
-            q.powi(i32::from(n_levels)).clamp(0.0, 1.0)
-        } else {
-            0.0
-        };
-    let cct_solved_venturi_flow_fraction = if matches!(
-        candidate.topology,
-        DesignTopology::CascadeCenterTrifurcationSeparator { .. }
-    ) {
-        final_venturi_flow_fraction
-    } else {
-        0.0
-    };
-    let cct_stage_center_qfrac_mean = if cct_stage_qfracs.is_empty() {
-        0.0
-    } else {
-        cct_stage_qfracs.iter().sum::<f64>() / cct_stage_qfracs.len() as f64
-    };
+    // ── Primitive selective staged-flow diagnostics ─────────────────────────
+    let primitive_tri_qfracs: Vec<f64> = primitive_stage_qfracs
+        .iter()
+        .filter_map(|(q_frac, is_tri)| (*is_tri).then_some(*q_frac))
+        .collect();
+    let cct_model_venturi_flow_fraction = 0.0;
+    let cct_solved_venturi_flow_fraction = 0.0;
+    let cct_stage_center_qfrac_mean = 0.0;
 
-    let cif_model_venturi_flow_fraction =
-        if let DesignTopology::IncrementalFiltrationTriBiSeparator { n_pretri } = candidate.topology
-        {
-            let q_pretri_product = cfd_1d::cif_pretri_stage_q_fracs(
-                n_pretri,
-                candidate.cif_pretri_center_frac(),
-                candidate.cif_terminal_tri_center_frac(),
-            )
-            .into_iter()
-            .product::<f64>();
-            let q_tri = cfd_1d::tri_center_q_frac(candidate.cif_terminal_tri_center_frac());
-            let q_bi = candidate.cif_terminal_bi_treat_frac();
-            (q_pretri_product * q_tri * q_bi).clamp(0.0, 1.0)
-        } else {
-            0.0
-        };
+    let cif_model_venturi_flow_fraction = if matches!(
+        candidate.topology,
+        DesignTopology::PrimitiveSelectiveTree { .. }
+            | DesignTopology::AsymmetricTrifurcationVenturi
+    ) {
+        primitive_stage_qfracs
+            .iter()
+            .map(|(q_frac, _)| *q_frac)
+            .product::<f64>()
+            .clamp(0.0, 1.0)
+    } else {
+        0.0
+    };
     let cif_solved_venturi_flow_fraction = if matches!(
         candidate.topology,
-        DesignTopology::IncrementalFiltrationTriBiSeparator { .. }
+        DesignTopology::PrimitiveSelectiveTree { .. }
+            | DesignTopology::AsymmetricTrifurcationVenturi
     ) {
         final_venturi_flow_fraction
     } else {
         0.0
     };
-    let cif_pretri_qfrac_mean = if cif_pretri_stage_qfracs.is_empty() {
-        0.0
-    } else {
-        cif_pretri_stage_qfracs.iter().sum::<f64>() / cif_pretri_stage_qfracs.len() as f64
-    };
-    let cif_terminal_tri_qfrac_value = cif_terminal_tri_qfrac.unwrap_or(0.0);
-    let cif_terminal_bi_qfrac_value = cif_terminal_bi_qfrac.unwrap_or(0.0);
-    let cif_outlet_tail_length_mm = if matches!(
-        candidate.topology,
-        DesignTopology::IncrementalFiltrationTriBiSeparator { .. }
-    ) {
-        solved
-            .channel_samples
+    let cif_pretri_qfrac_mean = if primitive_tri_qfracs.len() > 1 {
+        primitive_tri_qfracs[..primitive_tri_qfracs.len() - 1]
             .iter()
-            .find(|sample| sample.id == "trunk_out")
-            .map_or(0.0, |sample| sample.length_m * 1000.0)
+            .sum::<f64>()
+            / (primitive_tri_qfracs.len() - 1) as f64
     } else {
         0.0
     };
-    let cif_remerge_proximity_score = if matches!(
-        candidate.topology,
-        DesignTopology::IncrementalFiltrationTriBiSeparator { .. }
-    ) {
-        (1.0 - ascending_linear_risk(cif_outlet_tail_length_mm, 0.5, 6.0)).clamp(0.0, 1.0)
-    } else {
-        0.0
-    };
+    let cif_terminal_tri_qfrac_value = primitive_stage_qfracs
+        .iter()
+        .rev()
+        .find_map(|(q_frac, is_tri)| (*is_tri).then_some(*q_frac))
+        .unwrap_or(0.0);
+    let cif_terminal_bi_qfrac_value = primitive_stage_qfracs
+        .iter()
+        .rev()
+        .find_map(|(q_frac, is_tri)| (!*is_tri).then_some(*q_frac))
+        .unwrap_or(0.0);
+    let cif_outlet_tail_length_mm = 0.0;
+    let cif_remerge_proximity_score = 0.0;
     let selective_cavitation_delivery_index = {
         let remerge_bonus = if cif_remerge_proximity_score > 0.0 {
             0.5 + 0.5 * cif_remerge_proximity_score
@@ -1365,75 +1109,66 @@ fn fallback_uniformity(topology: DesignTopology) -> f64 {
         DesignTopology::AsymmetricBifurcationSerpentine => 0.60,
         DesignTopology::CellSeparationVenturi
         | DesignTopology::WbcCancerSeparationVenturi
-        | DesignTopology::CascadeCenterTrifurcationSeparator { .. }
-        | DesignTopology::IncrementalFiltrationTriBiSeparator { .. } => 0.75,
+        | DesignTopology::PrimitiveSelectiveTree { .. }
+        | DesignTopology::AsymmetricTrifurcationVenturi => 0.75,
         _ => 1.0,
     }
 }
 
-fn channel_flow_abs(samples: &[ChannelSolveSample<'_>], id: &str) -> Option<f64> {
-    samples
-        .iter()
-        .find(|sample| sample.id == id)
-        .map(|sample| sample.flow_m3_s.abs())
-}
-
-fn tri_center_flow_frac(
-    samples: &[ChannelSolveSample<'_>],
-    center_id: &str,
-    left_id: &str,
-    right_id: &str,
-) -> Option<f64> {
-    let q_center = channel_flow_abs(samples, center_id)?;
-    let q_left = channel_flow_abs(samples, left_id)?;
-    let q_right = channel_flow_abs(samples, right_id)?;
-    let q_total = q_center + q_left + q_right;
-    (q_total > 1.0e-12).then(|| (q_center / q_total).clamp(0.0, 1.0))
-}
-
-fn bi_treat_flow_frac(
-    samples: &[ChannelSolveSample<'_>],
-    treat_id: &str,
-    bypass_id: &str,
-) -> Option<f64> {
-    let q_treat = channel_flow_abs(samples, treat_id)?;
-    let q_bypass = channel_flow_abs(samples, bypass_id)?;
-    let q_total = q_treat + q_bypass;
-    (q_total > 1.0e-12).then(|| (q_treat / q_total).clamp(0.0, 1.0))
-}
-
-fn extract_cct_stage_qfracs(samples: &[ChannelSolveSample<'_>], n_levels: u8) -> Vec<f64> {
-    let mut q_fracs = Vec::with_capacity(n_levels as usize);
-    for lv in 0..n_levels {
-        let center_id = format!("center_lv{lv}");
-        let left_id = format!("L_lv{lv}");
-        let right_id = format!("R_lv{lv}");
-        let Some(q) = tri_center_flow_frac(samples, &center_id, &left_id, &right_id) else {
-            break;
-        };
-        q_fracs.push(q);
+fn primitive_stage_qfracs(
+    candidate: &DesignCandidate,
+    parent_width_m: f64,
+    channel_height_m: f64,
+) -> Vec<(f64, bool)> {
+    match candidate.topology {
+        DesignTopology::AsymmetricTrifurcationVenturi => vec![(
+            cfd_1d::tri_center_q_frac_cross_junction(
+                candidate.trifurcation_center_frac,
+                parent_width_m,
+                channel_height_m,
+            ),
+            true,
+        )],
+        DesignTopology::PrimitiveSelectiveTree { sequence } => {
+            let mut stages = Vec::with_capacity(sequence.levels() as usize);
+            let mut current_parent_w = parent_width_m;
+            for stage_idx in 0..sequence.levels() {
+                let split_kind = ((sequence.split_types() >> stage_idx) & 1) == 1;
+                if split_kind {
+                    let center_frac = tri_stage_fraction(candidate, sequence, stage_idx);
+                    let q_frac = cfd_1d::tri_center_q_frac_cross_junction(
+                        center_frac,
+                        current_parent_w,
+                        channel_height_m,
+                    );
+                    stages.push((q_frac, true));
+                    current_parent_w *= center_frac;
+                } else {
+                    let q_frac = candidate.cif_terminal_bi_treat_frac();
+                    stages.push((q_frac, false));
+                    current_parent_w *= q_frac;
+                }
+            }
+            stages
+        }
+        _ => Vec::new(),
     }
-    q_fracs
 }
 
-fn extract_cif_stage_qfracs(
-    samples: &[ChannelSolveSample<'_>],
-    n_pretri: u8,
-) -> (Vec<f64>, Option<f64>, Option<f64>) {
-    let mut pretri = Vec::with_capacity(n_pretri as usize);
-    for lv in 0..n_pretri {
-        let center_id = format!("center_lv{lv}");
-        let left_id = format!("L_lv{lv}");
-        let right_id = format!("R_lv{lv}");
-        let Some(q) = tri_center_flow_frac(samples, &center_id, &left_id, &right_id) else {
-            break;
-        };
-        pretri.push(q);
+fn tri_stage_fraction(
+    candidate: &DesignCandidate,
+    sequence: PrimitiveSplitSequence,
+    stage_idx: u8,
+) -> f64 {
+    let tri_indices: Vec<u8> = (0..sequence.levels())
+        .filter(|idx| ((sequence.split_types() >> idx) & 1) == 1)
+        .collect();
+    let is_final_tri = tri_indices.last().copied() == Some(stage_idx);
+    if is_final_tri {
+        candidate.cif_terminal_tri_center_frac()
+    } else {
+        candidate.cif_pretri_center_frac()
     }
-
-    let tri_q = tri_center_flow_frac(samples, "hy_tri_center", "hy_tri_L", "hy_tri_R");
-    let bi_q = bi_treat_flow_frac(samples, "hy_bi_treat", "hy_bi_bypass");
-    (pretri, tri_q, bi_q)
 }
 
 /// Compute wall-shear percentile statistics from collected channel shear values.
@@ -1567,12 +1302,14 @@ mod tests {
     }
 
     #[test]
-    fn cct_selective_venturi_reduces_hemolysis_vs_bulk() {
+    fn primitive_single_tri_selective_venturi_reduces_hemolysis_vs_bulk() {
         let candidate = find_candidate(|c| {
             matches!(
                 c.topology,
-                DesignTopology::CascadeCenterTrifurcationSeparator { n_levels: 1 }
-            ) && near(c.trifurcation_center_frac, 0.55)
+                DesignTopology::PrimitiveSelectiveTree {
+                    sequence: crate::design::PrimitiveSplitSequence::Tri
+                }
+            ) && near(c.cif_terminal_tri_center_frac, 0.55)
                 && near(c.channel_width_m, 6.0e-3)
                 && near(c.throat_diameter_m, 100e-6)
                 && near(c.inlet_gauge_pa, 200_000.0)
@@ -1580,41 +1317,43 @@ mod tests {
         });
         let metrics = compute_metrics(&candidate).unwrap_or_else(|e| {
             panic!(
-                "metrics should compute for CCT candidate {}: {e:?}",
+                "metrics should compute for primitive selective candidate {}: {e:?}",
                 candidate.id
             )
         });
 
         assert!(
             metrics.venturi_flow_fraction < 1.0,
-            "CCT must route only a subset of flow through venturi"
+            "primitive single-tri design must route only a subset of flow through venturi"
         );
         assert!(
             metrics.rbc_venturi_exposure_fraction < 1.0,
-            "CCT must reduce RBC venturi exposure fraction"
+            "primitive single-tri design must reduce RBC venturi exposure fraction"
         );
         assert!(
             metrics.local_hematocrit_venturi <= candidate.feed_hematocrit + 1e-12,
-            "local venturi hematocrit should not exceed feed hematocrit for CCT"
+            "local venturi hematocrit should not exceed feed hematocrit for primitive single-tri"
         );
         assert!(
             metrics.hemolysis_index_per_pass <= metrics.bulk_hemolysis_index_per_pass + 1e-16,
-            "selective venturi correction should not increase HI for CCT"
+            "selective venturi correction should not increase HI for primitive single-tri"
         );
         assert!(
             metrics.wbc_recovery > 0.0 && metrics.total_ecv_ml > 0.0,
-            "CCT should populate leukapheresis-compatible WBC/ECV metrics"
+            "primitive single-tri design should populate leukapheresis-compatible WBC/ECV metrics"
         );
     }
 
     #[test]
-    fn cif_selective_venturi_reduces_hemolysis_vs_bulk() {
+    fn primitive_tri_bi_selective_venturi_reduces_hemolysis_vs_bulk() {
+        // TriBi has only 1 tri stage, so cif_pretri_center_frac is unused.
         let candidate = find_candidate(|c| {
             matches!(
                 c.topology,
-                DesignTopology::IncrementalFiltrationTriBiSeparator { n_pretri: 1 }
-            ) && near(c.cif_pretri_center_frac, 0.55)
-                && near(c.cif_terminal_tri_center_frac, 0.55)
+                DesignTopology::PrimitiveSelectiveTree {
+                    sequence: crate::design::PrimitiveSplitSequence::TriBi
+                }
+            ) && near(c.cif_terminal_tri_center_frac, 0.55)
                 && near(c.cif_terminal_bi_treat_frac, 0.76)
                 && near(c.channel_width_m, 6.0e-3)
                 && near(c.throat_diameter_m, 100e-6)
@@ -1623,30 +1362,30 @@ mod tests {
         });
         let metrics = compute_metrics(&candidate).unwrap_or_else(|e| {
             panic!(
-                "metrics should compute for CIF candidate {}: {e:?}",
+                "metrics should compute for primitive tri-bi candidate {}: {e:?}",
                 candidate.id
             )
         });
 
         assert!(
             metrics.venturi_flow_fraction < 1.0,
-            "CIF must route only treatment arm flow through venturi"
+            "primitive tri-bi design must route only treatment arm flow through venturi"
         );
         assert!(
             metrics.rbc_venturi_exposure_fraction < 1.0,
-            "CIF must reduce RBC venturi exposure fraction"
+            "primitive tri-bi design must reduce RBC venturi exposure fraction"
         );
         assert!(
             metrics.local_hematocrit_venturi <= candidate.feed_hematocrit + 1e-12,
-            "local venturi hematocrit should not exceed feed hematocrit for CIF"
+            "local venturi hematocrit should not exceed feed hematocrit for primitive tri-bi"
         );
         assert!(
             metrics.hemolysis_index_per_pass <= metrics.bulk_hemolysis_index_per_pass + 1e-16,
-            "selective venturi correction should not increase HI for CIF"
+            "selective venturi correction should not increase HI for primitive tri-bi"
         );
         assert!(
             metrics.wbc_recovery > 0.0 && metrics.total_ecv_ml > 0.0,
-            "CIF should populate leukapheresis-compatible WBC/ECV metrics"
+            "primitive tri-bi design should populate leukapheresis-compatible WBC/ECV metrics"
         );
     }
 
@@ -1810,13 +1549,13 @@ mod tests {
     /// The RBC peripheral fraction `1 − q^N` is strictly increasing in N.  ∎
 
     #[test]
-    fn cct_deeper_cascade_improves_separation_monotonically() {
+    fn deeper_primitive_tri_cascade_improves_separation_monotonically() {
         // Validate the mathematical theorem: each added trifurcation level
         // increases RBC peripheral fraction and separation efficiency.
         //
         // Uses the cfd-1d Zweifach-Fung model directly, then verifies that
         // cfd-optim's compute_metrics propagates the same monotonic ordering
-        // through to the final SdtMetrics for CCT topologies.
+        // through to the final SdtMetrics for primitive selective split trees.
 
         // Part 1: Direct model verification (cfd-1d)
         let center_frac = 0.45_f64;
@@ -1836,25 +1575,25 @@ mod tests {
 
             assert!(
                 result.separation_efficiency >= prev_sep - 1e-12,
-                "CCT depth {n_levels}: separation efficiency {:.4} must be >= previous {:.4}",
+                "tri-only cascade depth {n_levels}: separation efficiency {:.4} must be >= previous {:.4}",
                 result.separation_efficiency,
                 prev_sep,
             );
             assert!(
                 result.rbc_peripheral_fraction >= prev_rbc_periph - 1e-12,
-                "CCT depth {n_levels}: RBC peripheral {:.4} must be >= previous {:.4}",
+                "tri-only cascade depth {n_levels}: RBC peripheral {:.4} must be >= previous {:.4}",
                 result.rbc_peripheral_fraction,
                 prev_rbc_periph,
             );
             assert!(
                 result.cancer_center_fraction > result.rbc_peripheral_fraction * 0.0,
-                "CCT depth {n_levels}: cancer should be focused to center",
+                "tri-only cascade depth {n_levels}: cancer should be focused to center",
             );
             // Cancer enrichment over RBC: cancer_center > rbc_center
             let rbc_center = 1.0 - result.rbc_peripheral_fraction;
             assert!(
                 result.cancer_center_fraction > rbc_center,
-                "CCT depth {n_levels}: cancer_center={:.4} must exceed rbc_center={:.4}",
+                "tri-only cascade depth {n_levels}: cancer_center={:.4} must exceed rbc_center={:.4}",
                 result.cancer_center_fraction,
                 rbc_center,
             );
@@ -1864,20 +1603,27 @@ mod tests {
         }
 
         // Part 2: Verify cfd-optim propagates monotonic ordering through metrics.
-        // Find CCT candidates at increasing depths with matched parameters.
+        // Find primitive tri-only candidates at increasing depths with matched parameters.
         let mut metrics_by_depth: Vec<(u8, SdtMetrics)> = Vec::new();
         let candidates = build_candidate_space();
-        for n_levels in 1u8..=3 {
+        let depth_sequences = [
+            crate::design::PrimitiveSplitSequence::Tri,
+            crate::design::PrimitiveSplitSequence::TriTri,
+            crate::design::PrimitiveSplitSequence::TriTriTri,
+        ];
+        for (idx, sequence) in depth_sequences.into_iter().enumerate() {
+            let depth = idx as u8 + 1;
             if let Some(candidate) = candidates.iter().find(|c| {
                 matches!(
                     c.topology,
-                    DesignTopology::CascadeCenterTrifurcationSeparator { n_levels: nl } if nl == n_levels
-                ) && near(c.trifurcation_center_frac, 0.45)
+                    DesignTopology::PrimitiveSelectiveTree { sequence: seq } if seq == sequence
+                ) && near(c.cif_pretri_center_frac, 0.45)
+                    && near(c.cif_terminal_tri_center_frac, 0.45)
                     && near(c.channel_width_m, 6.0e-3)
                     && near(c.channel_height_m, 1.5e-3)
             }) {
                 if let Ok(m) = compute_metrics(candidate) {
-                    metrics_by_depth.push((n_levels, m));
+                    metrics_by_depth.push((depth, m));
                 }
             }
         }
@@ -1888,15 +1634,15 @@ mod tests {
             let (d2, m2) = &window[1];
             assert!(
                 m2.rbc_peripheral_fraction_three_pop >= m1.rbc_peripheral_fraction_three_pop - 0.01,
-                "CCT depth {d2} rbc_periph {:.4} should >= depth {d1} rbc_periph {:.4} in computed metrics",
+                "primitive depth {d2} rbc_periph {:.4} should >= depth {d1} rbc_periph {:.4} in computed metrics",
                 m2.rbc_peripheral_fraction_three_pop, m1.rbc_peripheral_fraction_three_pop,
             );
         }
     }
 
     #[test]
-    fn cif_deeper_pretri_cascade_improves_separation() {
-        // CIF (Controlled Incremental Filtration) uses pre-trifurcation levels
+    fn deeper_incremental_stage_mix_improves_separation() {
+        // Selective-routing primitive trees use pre-trifurcation levels
         // followed by a terminal trifurcation + bifurcation.  More pre-tri levels
         // should push more RBCs to periphery and increase separation efficiency.
         let mut prev_rbc_periph = 0.0_f64;
@@ -1913,19 +1659,19 @@ mod tests {
 
             assert!(
                 result.rbc_peripheral_fraction >= prev_rbc_periph - 1e-12,
-                "CIF n_pretri={n_pretri}: RBC peripheral {:.4} must be >= previous {:.4}",
+                "selective routing n_pretri={n_pretri}: RBC peripheral {:.4} must be >= previous {:.4}",
                 result.rbc_peripheral_fraction,
                 prev_rbc_periph,
             );
             assert!(
                 result.separation_efficiency >= prev_sep - 1e-12,
-                "CIF n_pretri={n_pretri}: separation efficiency {:.4} must be >= previous {:.4}",
+                "selective routing n_pretri={n_pretri}: separation efficiency {:.4} must be >= previous {:.4}",
                 result.separation_efficiency,
                 prev_sep,
             );
             assert!(
                 result.cancer_center_fraction > result.rbc_center_fraction,
-                "CIF n_pretri={n_pretri}: cancer_center={:.4} must exceed rbc_center={:.4}",
+                "selective routing n_pretri={n_pretri}: cancer_center={:.4} must exceed rbc_center={:.4}",
                 result.cancer_center_fraction,
                 result.rbc_center_fraction,
             );
@@ -1936,53 +1682,55 @@ mod tests {
     }
 
     #[test]
-    fn dtcv_has_selective_venturi_metrics() {
-        // DoubleTrifurcationCIFVenturi should now produce non-zero separation
-        // metrics via the DTCV cascade routing model, and selective venturi
+    fn primitive_tri_tri_has_selective_venturi_metrics() {
+        // Primitive Tri→Tri should produce non-zero separation
+        // metrics via the mixed cascade routing model, and selective venturi
         // correction should reduce hemolysis vs bulk.
         let candidate = build_candidate_space()
             .into_iter()
             .find(|c| {
                 matches!(
                     c.topology,
-                    DesignTopology::DoubleTrifurcationCIFVenturi { .. }
+                    DesignTopology::PrimitiveSelectiveTree {
+                        sequence: crate::design::PrimitiveSplitSequence::TriTri
+                    }
                 )
             })
-            .expect("DTCV candidates must exist in design space");
+            .expect("primitive tri-tri candidates must exist in design space");
 
         let metrics = compute_metrics(&candidate).unwrap_or_else(|e| {
             panic!(
-                "metrics should compute for DTCV candidate {}: {e:?}",
+                "metrics should compute for primitive tri-tri candidate {}: {e:?}",
                 candidate.id
             )
         });
 
-        // DTCV is a 2-level cascade — separation metrics must be populated.
+        // Tri→Tri is a 2-level cascade — separation metrics must be populated.
         assert!(
             metrics.cell_separation_efficiency > 0.0,
-            "DTCV separation_efficiency={:.4} must be > 0 (2-level cascade routing)",
+            "primitive tri-tri separation_efficiency={:.4} must be > 0 (2-level cascade routing)",
             metrics.cell_separation_efficiency,
         );
         assert!(
             metrics.cancer_center_fraction > 0.0,
-            "DTCV cancer_center_fraction={:.4} must be > 0",
+            "primitive tri-tri cancer_center_fraction={:.4} must be > 0",
             metrics.cancer_center_fraction,
         );
         assert!(
             metrics.rbc_peripheral_fraction_three_pop > 0.0,
-            "DTCV rbc_peripheral_fraction={:.4} must be > 0",
+            "primitive tri-tri rbc_peripheral_fraction={:.4} must be > 0",
             metrics.rbc_peripheral_fraction_three_pop,
         );
 
         // Selective venturi: only center-arm flow passes through throats.
         assert!(
             metrics.venturi_flow_fraction < 1.0,
-            "DTCV venturi_flow_fraction={:.4} must be < 1.0 (center arm only)",
+            "primitive tri-tri venturi_flow_fraction={:.4} must be < 1.0 (center arm only)",
             metrics.venturi_flow_fraction,
         );
         assert!(
             metrics.rbc_venturi_exposure_fraction < 1.0,
-            "DTCV rbc_venturi_exposure={:.4} must be < 1.0 (RBCs routed to bypass)",
+            "primitive tri-tri rbc_venturi_exposure={:.4} must be < 1.0 (RBCs routed to bypass)",
             metrics.rbc_venturi_exposure_fraction,
         );
     }
@@ -2123,6 +1871,288 @@ mod tests {
         assert!(
             tested_count >= 20,
             "Expected ≥20 unique topology families tested, got {tested_count}"
+        );
+    }
+
+    #[test]
+    fn primitive_selective_tri_tri_candidate_produces_metrics() {
+        use crate::design::PrimitiveSplitSequence;
+        use cfd_1d::domain::network::network_from_blueprint;
+        use cfd_1d::{NetworkProblem, NetworkSolver};
+        use cfd_core::physics::fluid::blood::CassonBlood;
+
+        let candidate = build_candidate_space()
+            .into_iter()
+            .find(|candidate| {
+                matches!(
+                    candidate.topology,
+                    DesignTopology::PrimitiveSelectiveTree {
+                        sequence: PrimitiveSplitSequence::TriTri,
+                    }
+                ) && candidate.flow_rate_m3_s * 6.0e7 >= 60.0
+                    && candidate.flow_rate_m3_s * 6.0e7 <= 260.0
+                    && candidate.inlet_gauge_pa * 1.0e-3 >= 25.0
+                    && candidate.inlet_gauge_pa * 1.0e-3 <= 400.0
+                    && candidate.throat_diameter_m >= 25.0e-6
+                    && candidate.throat_diameter_m <= 120.0e-6
+                    && candidate.channel_width_m >= 3.0e-3
+                    && candidate.channel_width_m <= 8.0e-3
+                    && candidate.channel_height_m >= 0.5e-3
+                    && candidate.channel_height_m <= 2.5e-3
+            })
+            .expect("primitive selective Tri→Tri candidate should exist");
+
+        let blueprint = candidate.to_blueprint();
+        let inlet_count = blueprint
+            .nodes
+            .iter()
+            .filter(|node| matches!(node.kind, cfd_schematics::domain::model::NodeKind::Inlet))
+            .count();
+        let outlet_count = blueprint
+            .nodes
+            .iter()
+            .filter(|node| matches!(node.kind, cfd_schematics::domain::model::NodeKind::Outlet))
+            .count();
+        assert_eq!(inlet_count, 1, "expected one inlet node");
+        assert_eq!(outlet_count, 1, "expected one outlet node");
+        let mut adjacency: std::collections::HashMap<&str, Vec<&str>> =
+            std::collections::HashMap::new();
+        for channel in &blueprint.channels {
+            adjacency
+                .entry(channel.from.as_str())
+                .or_default()
+                .push(channel.to.as_str());
+            adjacency
+                .entry(channel.to.as_str())
+                .or_default()
+                .push(channel.from.as_str());
+        }
+        let start = blueprint
+            .nodes
+            .first()
+            .map(|node| node.id.as_str())
+            .expect("blueprint should have nodes");
+        let mut stack = vec![start];
+        let mut visited = std::collections::HashSet::new();
+        while let Some(node) = stack.pop() {
+            if !visited.insert(node) {
+                continue;
+            }
+            if let Some(neighbors) = adjacency.get(node) {
+                stack.extend(neighbors.iter().copied());
+            }
+        }
+        assert_eq!(
+            visited.len(),
+            blueprint.nodes.len(),
+            "primitive selective blueprint should be connected"
+        );
+        let degenerate: Vec<String> = blueprint
+            .channels
+            .iter()
+            .filter(|channel| {
+                channel.length_m <= 0.0
+                    || channel.cross_section.area() <= 0.0
+                    || !channel.length_m.is_finite()
+            })
+            .map(|channel| {
+                format!(
+                    "{} len={} area={}",
+                    channel.id.as_str(),
+                    channel.length_m,
+                    channel.cross_section.area()
+                )
+            })
+            .collect();
+        assert!(
+            degenerate.is_empty(),
+            "primitive selective blueprint should not contain degenerate channels: {}",
+            degenerate.join(" | ")
+        );
+        let self_loops: Vec<String> = blueprint
+            .channels
+            .iter()
+            .filter(|channel| channel.from == channel.to)
+            .map(|channel| channel.id.as_str().to_string())
+            .collect();
+        assert!(
+            self_loops.is_empty(),
+            "primitive selective blueprint should not contain self-loops: {}",
+            self_loops.join(" | ")
+        );
+        let mut undirected_edge_counts: std::collections::HashMap<(String, String), usize> =
+            std::collections::HashMap::new();
+        for channel in &blueprint.channels {
+            let mut endpoints = [
+                channel.from.as_str().to_string(),
+                channel.to.as_str().to_string(),
+            ];
+            endpoints.sort();
+            *undirected_edge_counts
+                .entry((endpoints[0].clone(), endpoints[1].clone()))
+                .or_default() += 1;
+        }
+        let duplicated_edges: Vec<String> = undirected_edge_counts
+            .into_iter()
+            .filter(|(_, count)| *count > 1)
+            .map(|((a, b), count)| format!("{a}<->{b} x{count}"))
+            .collect();
+
+        let blood = CassonBlood::<f64>::normal_blood();
+        let mut network = network_from_blueprint(&blueprint, blood)
+            .expect("primitive selective blueprint should build a 1D network");
+        let inlet_nodes: Vec<_> = network
+            .graph
+            .node_indices()
+            .filter(|idx| {
+                network
+                    .graph
+                    .node_weight(*idx)
+                    .is_some_and(|node| node.node_type == cfd_1d::NodeType::Inlet)
+            })
+            .collect();
+        let outlet_nodes: Vec<_> = network
+            .graph
+            .node_indices()
+            .filter(|idx| {
+                network
+                    .graph
+                    .node_weight(*idx)
+                    .is_some_and(|node| node.node_type == cfd_1d::NodeType::Outlet)
+            })
+            .collect();
+        for inlet in &inlet_nodes {
+            network.set_neumann_flow(*inlet, candidate.flow_rate_m3_s / inlet_nodes.len() as f64);
+        }
+        for outlet in &outlet_nodes {
+            network.set_pressure(*outlet, 0.0);
+        }
+        let zero_conductance_edges: Vec<String> = network
+            .edges_parallel()
+            .enumerate()
+            .filter(|(_, edge)| !(edge.conductance.is_finite() && edge.conductance > 0.0))
+            .map(|(idx, edge)| {
+                format!(
+                    "edge#{idx} {}->{}, g={}",
+                    edge.nodes.0, edge.nodes.1, edge.conductance
+                )
+            })
+            .collect();
+        assert!(
+            zero_conductance_edges.is_empty(),
+            "primitive selective network should not contain zero/non-finite conductance edges: {}",
+            zero_conductance_edges.join(" | ")
+        );
+        let solve_attempt = NetworkSolver::<f64, CassonBlood<f64>>::new()
+            .solve_network(&NetworkProblem::new(network.clone()));
+        let mut linear_network = network.clone();
+        for props in linear_network.properties.values_mut() {
+            props.geometry = None;
+        }
+        for edge_idx in linear_network.graph.edge_indices().collect::<Vec<_>>() {
+            if let Some(edge) = linear_network.graph.edge_weight_mut(edge_idx) {
+                edge.quad_coeff = 0.0;
+                edge.resistance = edge.resistance.max(1e-12);
+            }
+        }
+        let linear_problem = NetworkProblem::new(linear_network.clone());
+        let linear_solve_attempt =
+            NetworkSolver::<f64, CassonBlood<f64>>::new().solve_network(&linear_problem);
+        if let (Err(err), Err(linear_err)) = (&solve_attempt, &linear_solve_attempt) {
+            let node_count = network.graph.node_count();
+            let mut diag = vec![0.0_f64; node_count];
+            let mut row_nnz = vec![0usize; node_count];
+            let mut dirichlet_nodes = Vec::new();
+            let mut neumann_nodes = Vec::new();
+            for (node_idx, bc) in network.boundary_conditions() {
+                match bc {
+                    cfd_1d::domain::network::BoundaryCondition::Dirichlet { value, .. } => {
+                        dirichlet_nodes.push(format!("{}={value}", node_idx.index()));
+                    }
+                    cfd_1d::domain::network::BoundaryCondition::Neumann { gradient } => {
+                        neumann_nodes.push(format!("{}={gradient}", node_idx.index()));
+                    }
+                    _ => {}
+                }
+            }
+            for edge in network.edges_parallel() {
+                let (i, j) = edge.nodes;
+                if edge.conductance.is_finite() && edge.conductance > 0.0 {
+                    diag[i] += edge.conductance;
+                    diag[j] += edge.conductance;
+                    row_nnz[i] += 1;
+                    row_nnz[j] += 1;
+                }
+            }
+            let zero_rows: Vec<String> = diag
+                .iter()
+                .enumerate()
+                .filter(|(idx, value)| {
+                    let is_dirichlet = network
+                        .boundary_conditions()
+                        .get(&petgraph::graph::NodeIndex::new(*idx))
+                        .is_some_and(|bc| {
+                            matches!(
+                                bc,
+                                cfd_1d::domain::network::BoundaryCondition::Dirichlet { .. }
+                            )
+                        });
+                    !is_dirichlet && **value <= 0.0
+                })
+                .map(|(idx, value)| format!("{idx}:diag={value},nnz={}", row_nnz[idx]))
+                .collect();
+            let node_dump = blueprint
+                .nodes
+                .iter()
+                .map(|node| {
+                    format!(
+                        "{}:{:?}@({:.3},{:.3})",
+                        node.id.as_str(),
+                        node.kind,
+                        node.layout.as_ref().map_or(0.0, |l| l.x_mm),
+                        node.layout.as_ref().map_or(0.0, |l| l.y_mm)
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join(" | ");
+            let edge_dump = blueprint
+                .channels
+                .iter()
+                .map(|channel| {
+                    format!(
+                        "{}:{}->{} len={:.6e} area={:.6e} venturi={} path_pts={}",
+                        channel.id.as_str(),
+                        channel.from.as_str(),
+                        channel.to.as_str(),
+                        channel.length_m,
+                        channel.cross_section.area(),
+                        channel.venturi_geometry.is_some(),
+                        channel
+                            .path
+                            .as_ref()
+                            .map_or(0, |path| path.polyline_mm.len())
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join(" | ");
+            panic!(
+                "primitive selective network solver failed before compute_metrics: {err}; linear_fallback={linear_err}; dirichlet={}; neumann={}; zero_rows={}; duplicated_edges={}; nodes={node_dump}; edges={edge_dump}",
+                dirichlet_nodes.join(","),
+                neumann_nodes.join(","),
+                if zero_rows.is_empty() { String::from("none") } else { zero_rows.join(" | ") },
+                if duplicated_edges.is_empty() {
+                    String::from("none")
+                } else {
+                    duplicated_edges.join(" | ")
+                }
+            );
+        }
+
+        let metrics = compute_metrics(&candidate)
+            .expect("primitive selective Tri→Tri candidate should compute metrics");
+        assert!(
+            metrics.total_pressure_drop_pa.is_finite(),
+            "pressure drop should be finite"
         );
     }
 }

@@ -1,4 +1,7 @@
 use super::{EdgeId, NodeId};
+use crate::geometry::metadata::{
+    ChannelPathMetadata, JunctionGeometryMetadata, NodeLayoutMetadata, VenturiGeometryMetadata,
+};
 use serde::{Deserialize, Serialize};
 
 /// Cross-section geometry specification for a channel
@@ -92,6 +95,12 @@ pub enum NodeKind {
 pub struct NodeSpec {
     pub id: NodeId,
     pub kind: NodeKind,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub layout: Option<NodeLayoutMetadata>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub junction_geometry: Option<JunctionGeometryMetadata>,
+    #[serde(skip)]
+    pub metadata: Option<crate::geometry::metadata::MetadataContainer>,
 }
 
 impl NodeSpec {
@@ -100,7 +109,37 @@ impl NodeSpec {
         Self {
             id: NodeId::new(id),
             kind,
+            layout: None,
+            junction_geometry: None,
+            metadata: None,
         }
+    }
+
+    #[must_use]
+    pub fn with_layout(mut self, layout: NodeLayoutMetadata) -> Self {
+        self.layout = Some(layout);
+        self
+    }
+
+    #[must_use]
+    pub fn with_junction_geometry(mut self, geometry: JunctionGeometryMetadata) -> Self {
+        self.junction_geometry = Some(geometry);
+        self
+    }
+
+    #[must_use]
+    pub fn with_metadata<T: crate::geometry::metadata::Metadata + Clone + 'static>(
+        mut self,
+        meta: T,
+    ) -> Self {
+        if self.metadata.is_none() {
+            self.metadata = Some(crate::geometry::metadata::MetadataContainer::new());
+        }
+        self.metadata
+            .as_mut()
+            .expect("metadata container must exist")
+            .insert(meta);
+        self
     }
 }
 
@@ -164,6 +203,10 @@ pub struct ChannelSpec {
     pub valve_cv: Option<f64>,
     pub pump_max_flow: Option<f64>,
     pub pump_max_pressure: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub path: Option<ChannelPathMetadata>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub venturi_geometry: Option<VenturiGeometryMetadata>,
     #[serde(skip)]
     pub metadata: Option<crate::geometry::metadata::MetadataContainer>,
 }
@@ -204,6 +247,8 @@ impl ChannelSpec {
             valve_cv: None,
             pump_max_flow: None,
             pump_max_pressure: None,
+            path: None,
+            venturi_geometry: None,
             metadata: None,
         }
     }
@@ -233,6 +278,8 @@ impl ChannelSpec {
             valve_cv: None,
             pump_max_flow: None,
             pump_max_pressure: None,
+            path: None,
+            venturi_geometry: None,
             metadata: None,
         }
     }
@@ -257,6 +304,8 @@ impl ChannelSpec {
             valve_cv: Some(cv),
             pump_max_flow: None,
             pump_max_pressure: None,
+            path: None,
+            venturi_geometry: None,
             metadata: None,
         }
     }
@@ -282,7 +331,21 @@ impl ChannelSpec {
             valve_cv: None,
             pump_max_flow: Some(max_flow),
             pump_max_pressure: Some(max_pressure),
+            path: None,
+            venturi_geometry: None,
             metadata: None,
         }
+    }
+
+    #[must_use]
+    pub fn with_path(mut self, path: ChannelPathMetadata) -> Self {
+        self.path = Some(path);
+        self
+    }
+
+    #[must_use]
+    pub fn with_venturi_geometry(mut self, geometry: VenturiGeometryMetadata) -> Self {
+        self.venturi_geometry = Some(geometry);
+        self
     }
 }

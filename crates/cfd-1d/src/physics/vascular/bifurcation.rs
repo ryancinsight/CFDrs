@@ -88,19 +88,15 @@ pub struct VesselSegment<T: RealField + Copy> {
 
 impl<T: RealField + FromPrimitive + Copy> VesselSegment<T> {
     /// Create new vessel segment
-    pub fn new(
-        id: usize,
-        radius: T,
-        length: T,
-        inlet_node: usize,
-        outlet_node: usize,
-    ) -> Self {
+    pub fn new(id: usize, radius: T, length: T, inlet_node: usize, outlet_node: usize) -> Self {
         Self {
             id,
             radius,
             length,
-            wall_thickness: radius * T::from_f64(0.1).expect("Mathematical constant conversion compromised"), // 10% of radius
-            youngs_modulus: T::from_f64(0.4e6).expect("Mathematical constant conversion compromised"),        // ~0.4 MPa for arteries
+            wall_thickness: radius
+                * T::from_f64(0.1).expect("Mathematical constant conversion compromised"), // 10% of radius
+            youngs_modulus: T::from_f64(0.4e6)
+                .expect("Mathematical constant conversion compromised"), // ~0.4 MPa for arteries
             inlet_node,
             outlet_node,
         }
@@ -214,10 +210,20 @@ impl<T: RealField + FromPrimitive + Copy> Bifurcation<T> {
             return T::zero();
         }
 
-        let parent_flow: T = self.flow_rates.iter().take(self.parent_vessels.len()).fold(T::zero(), |acc, &f| acc + f);
-        let daughter_flow: T = self.flow_rates.iter().skip(self.parent_vessels.len()).fold(T::zero(), |acc, &f| acc + f);
+        let parent_flow: T = self
+            .flow_rates
+            .iter()
+            .take(self.parent_vessels.len())
+            .fold(T::zero(), |acc, &f| acc + f);
+        let daughter_flow: T = self
+            .flow_rates
+            .iter()
+            .skip(self.parent_vessels.len())
+            .fold(T::zero(), |acc, &f| acc + f);
 
-        if parent_flow.abs() < T::from_f64(1e-20).expect("Mathematical constant conversion compromised") {
+        if parent_flow.abs()
+            < T::from_f64(1e-20).expect("Mathematical constant conversion compromised")
+        {
             return T::zero();
         }
 
@@ -268,8 +274,10 @@ impl<T: RealField + FromPrimitive + Copy> BifurcationNetwork<T> {
         Self {
             vessels: Vec::new(),
             junctions: Vec::new(),
-            inlet_pressure: T::from_f64(13_332.0).expect("Mathematical constant conversion compromised"), // 100 mmHg
-            outlet_resistance: T::from_f64(1e9).expect("Mathematical constant conversion compromised"),
+            inlet_pressure: T::from_f64(13_332.0)
+                .expect("Mathematical constant conversion compromised"), // 100 mmHg
+            outlet_resistance: T::from_f64(1e9)
+                .expect("Mathematical constant conversion compromised"),
             density: T::from_f64(1060.0).expect("Mathematical constant conversion compromised"),
             viscosity: T::from_f64(0.0035).expect("Mathematical constant conversion compromised"),
         }
@@ -334,7 +342,9 @@ impl<T: RealField + FromPrimitive + Copy> BifurcationNetwork<T> {
             }
 
             // Create daughters
-            let daughter_radius = murray.symmetric_daughter_diameter(parent_radius * (T::one() + T::one()) / (T::one() + T::one()));
+            let daughter_radius = murray.symmetric_daughter_diameter(
+                parent_radius * (T::one() + T::one()) / (T::one() + T::one()),
+            );
             let daughter_length = parent_length * length_ratio;
 
             let parent_vessel_id = network.vessels.len() - 1;
@@ -505,10 +515,10 @@ mod tests {
     #[test]
     fn test_symmetric_tree_generation() {
         let network = BifurcationNetwork::<f64>::create_symmetric_tree(
-            0.01,  // 1 cm root radius
-            0.1,   // 10 cm root length
-            2,     // 2 generations
-            0.8,   // 80% length ratio
+            0.01, // 1 cm root radius
+            0.1,  // 10 cm root length
+            2,    // 2 generations
+            0.8,  // 80% length ratio
         );
 
         // 2 generations: 1 + 2 = 3 vessels minimum
@@ -517,12 +527,7 @@ mod tests {
 
     #[test]
     fn test_murray_validation() {
-        let network = BifurcationNetwork::<f64>::create_symmetric_tree(
-            0.01,
-            0.1,
-            2,
-            0.8,
-        );
+        let network = BifurcationNetwork::<f64>::create_symmetric_tree(0.01, 0.1, 2, 0.8);
 
         // Symmetric tree should satisfy Murray's Law
         let valid = network.validate_murrays_law(0.01);

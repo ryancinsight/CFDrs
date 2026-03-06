@@ -58,7 +58,6 @@
 //! - Gossett, D. R. & Di Carlo, D. (2009). *Anal. Chem.*, 81, 8459–8465.
 //! - Hur, S. C. et al. (2011). *Lab Chip*, 11, 912–920.
 
-
 use crate::physics::cell_separation::margination::{lateral_equilibrium, EquilibriumResult};
 use crate::physics::cell_separation::properties::CellProperties;
 use serde::{Deserialize, Serialize};
@@ -153,11 +152,7 @@ impl CellSeparationModel {
     /// - `channel_height_m` — channel height [m] (shorter dimension)
     /// - `bend_radius_m` — radius of curvature [m], or `None` for straight
     #[must_use]
-    pub fn new(
-        channel_width_m: f64,
-        channel_height_m: f64,
-        bend_radius_m: Option<f64>,
-    ) -> Self {
+    pub fn new(channel_width_m: f64, channel_height_m: f64, bend_radius_m: Option<f64>) -> Self {
         Self {
             channel_width_m,
             channel_height_m,

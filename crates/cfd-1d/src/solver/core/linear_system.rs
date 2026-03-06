@@ -4,7 +4,7 @@ use cfd_core::error::Result;
 use cfd_math::linear_solver::Preconditioner;
 use cfd_math::linear_solver::{BiCGSTAB, ConjugateGradient, IterativeLinearSolver};
 use cfd_math::sparse::SparseMatrixExt;
-use nalgebra::{DVector, RealField};
+use nalgebra::{DMatrix, DVector, RealField};
 use nalgebra_sparse::CsrMatrix;
 use num_traits::FromPrimitive;
 
@@ -71,8 +71,10 @@ impl<T: RealField + Copy + FromPrimitive + Copy> LinearSystemSolver<T> {
                 let solver = ConjugateGradient::<T>::new(config);
                 let mut x = x0.clone();
                 let precond = DiagJacobi::new(a)?;
-                solver.solve(a, b, &mut x, Some(&precond))?;
-                Ok(x)
+                match solver.solve(a, b, &mut x, Some(&precond)) {
+                    Ok(_) => Ok(x),
+                    Err(_) => Self::solve_dense_fallback(a, b),
+                }
             }
             LinearSolverMethod::BiCGSTAB => {
                 let config = cfd_math::linear_solver::IterativeSolverConfig {
@@ -84,10 +86,33 @@ impl<T: RealField + Copy + FromPrimitive + Copy> LinearSystemSolver<T> {
                 let solver = BiCGSTAB::<T>::new(config);
                 let mut x = x0.clone();
                 let precond = DiagJacobi::new(a)?;
-                solver.solve(a, b, &mut x, Some(&precond))?;
-                Ok(x)
+                match solver.solve(a, b, &mut x, Some(&precond)) {
+                    Ok(_) => Ok(x),
+                    Err(_) => Self::solve_dense_fallback(a, b),
+                }
             }
         }
+    }
+
+    fn solve_dense_fallback(a: &CsrMatrix<T>, b: &DVector<T>) -> Result<DVector<T>> {
+        let mut dense = DMatrix::zeros(a.nrows(), a.ncols());
+        for row_idx in 0..a.nrows() {
+            let row = a.row(row_idx);
+            for (col_idx, value) in row.col_indices().iter().zip(row.values()) {
+                dense[(row_idx, *col_idx)] = *value;
+            }
+        }
+
+        dense
+            .clone()
+            .lu()
+            .solve(b)
+            .or_else(|| dense.qr().solve(b))
+            .ok_or_else(|| {
+                cfd_core::error::Error::Numerical(
+                    cfd_core::error::NumericalErrorKind::DivisionByZero,
+                )
+            })
     }
 }
 
@@ -102,12 +127,21 @@ impl<T: RealField + Copy + FromPrimitive> DiagJacobi<T> {
         let mut inv = DVector::zeros(n);
         let eps = T::default_epsilon();
         for (i, val) in diag.iter().enumerate() {
-            if val.abs() <= eps {
+            if !val.is_finite() {
                 return Err(cfd_core::error::Error::Numerical(
                     cfd_core::error::NumericalErrorKind::DivisionByZero,
                 ));
             }
-            inv[i] = T::one() / *val;
+            // A Jacobi preconditioner must not reject a physically valid but
+            // strongly resistive branch merely because its diagonal conductance
+            // is smaller than machine epsilon in absolute units. For such rows,
+            // degrade to the identity preconditioner instead of failing the
+            // solve; the linear system still carries the correct matrix entries.
+            inv[i] = if val.abs() <= eps {
+                T::one()
+            } else {
+                T::one() / *val
+            };
         }
         Ok(Self { inv_diag: inv })
     }
@@ -118,5 +152,26 @@ impl<T: RealField + Copy> Preconditioner<T> for DiagJacobi<T> {
         z.copy_from(r);
         z.component_mul_assign(&self.inv_diag);
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::DiagJacobi;
+    use cfd_math::sparse::SparseMatrixExt;
+    use nalgebra_sparse::{coo::CooMatrix, CsrMatrix};
+
+    #[test]
+    fn jacobi_tolerates_tiny_positive_diagonal() {
+        let mut coo = CooMatrix::new(2, 2);
+        coo.push(0, 0, 1.0e-18);
+        coo.push(1, 1, 2.0);
+        let csr = CsrMatrix::from(&coo);
+        let precond = DiagJacobi::<f64>::new(&csr)
+            .expect("tiny positive diagonal should degrade to identity preconditioning");
+        assert_eq!(precond.inv_diag[0], 1.0);
+        assert!((precond.inv_diag[1] - 0.5).abs() < 1.0e-12);
+        let diag = csr.diagonal();
+        assert!(diag[0] > 0.0);
     }
 }

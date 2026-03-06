@@ -54,13 +54,12 @@ pub mod separation_model;
 
 pub use cascade_junction::{
     cascade_junction_separation, cascade_junction_separation_cross_junction,
-    cascade_junction_separation_from_qfracs,
-    cif_pretri_stage_center_fracs, cif_pretri_stage_q_fracs,
-    incremental_filtration_separation, incremental_filtration_separation_cross_junction,
-    incremental_filtration_separation_from_qfracs,
-    incremental_filtration_separation_staged, tri_center_q_frac,
-    tri_center_q_frac_cross_junction, CascadeJunctionResult,
-    IncrementalFiltrationResult,
+    cascade_junction_separation_from_qfracs, cif_pretri_stage_center_fracs,
+    cif_pretri_stage_q_fracs, incremental_filtration_separation,
+    incremental_filtration_separation_cross_junction,
+    incremental_filtration_separation_from_qfracs, incremental_filtration_separation_staged,
+    mixed_cascade_separation, tri_center_q_frac, tri_center_q_frac_cross_junction,
+    CascadeJunctionResult, IncrementalFiltrationResult,
 };
 pub use cell_interaction::enhanced_lateral_equilibrium;
 pub use margination::{
@@ -134,29 +133,51 @@ pub fn three_population_equilibria(
     use cell_interaction::enhanced_lateral_equilibrium;
 
     let cancer = CellProperties::mcf7_breast_cancer();
-    let wbc    = CellProperties::white_blood_cell();
-    let rbc    = CellProperties::red_blood_cell();
+    let wbc = CellProperties::white_blood_cell();
+    let rbc = CellProperties::red_blood_cell();
 
-    let area   = (width_m * height_m).max(1e-18);
+    let area = (width_m * height_m).max(1e-18);
     let mean_v = flow_rate_m3_s / area;
 
     const DISPERSED: f64 = 0.5;
     const SPLIT: f64 = 0.3;
 
     let cancer_x = margination::lateral_equilibrium(
-        &cancer, blood_density, viscosity, mean_v, width_m, height_m, bend_radius_m,
-    ).map_or(DISPERSED, |r| r.x_tilde_eq);
+        &cancer,
+        blood_density,
+        viscosity,
+        mean_v,
+        width_m,
+        height_m,
+        bend_radius_m,
+    )
+    .map_or(DISPERSED, |r| r.x_tilde_eq);
 
     let wbc_x = enhanced_lateral_equilibrium(
-        &wbc, blood_density, viscosity, mean_v, width_m, height_m, bend_radius_m, hematocrit,
-    ).map_or(DISPERSED, |r| r.x_tilde_eq);
+        &wbc,
+        blood_density,
+        viscosity,
+        mean_v,
+        width_m,
+        height_m,
+        bend_radius_m,
+        hematocrit,
+    )
+    .map_or(DISPERSED, |r| r.x_tilde_eq);
 
     let rbc_x = margination::lateral_equilibrium(
-        &rbc, blood_density, viscosity, mean_v, width_m, height_m, bend_radius_m,
-    ).map_or(DISPERSED, |r| r.x_tilde_eq);
+        &rbc,
+        blood_density,
+        viscosity,
+        mean_v,
+        width_m,
+        height_m,
+        bend_radius_m,
+    )
+    .map_or(DISPERSED, |r| r.x_tilde_eq);
 
-    let cancer_wbc_sep    = (cancer_x - wbc_x).abs();
-    let max_central_x     = cancer_x.max(wbc_x);
+    let cancer_wbc_sep = (cancer_x - wbc_x).abs();
+    let max_central_x = cancer_x.max(wbc_x);
     let rbc_vs_center_sep = (rbc_x - max_central_x).clamp(-1.0, 1.0);
 
     let cancer_center_fraction = if cancer_x < SPLIT {
@@ -177,8 +198,8 @@ pub fn three_population_equilibria(
 
     ThreePopEquilibria {
         cancer_eq: cancer_x,
-        wbc_eq:    wbc_x,
-        rbc_eq:    rbc_x,
+        wbc_eq: wbc_x,
+        rbc_eq: rbc_x,
         cancer_wbc_sep,
         rbc_vs_center_sep,
         cancer_center_fraction,

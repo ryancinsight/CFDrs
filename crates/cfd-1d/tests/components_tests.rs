@@ -4,13 +4,12 @@
 //! constructors (validated, returns Result) with Idelchik physics model.
 
 use approx::assert_relative_eq;
-use cfd_1d::domain::components::{
-    CircularChannel, Micropump, Microvalve, OrganCompartment,
-    PorousMembrane, RectangularChannel,
-};
 use cfd_1d::domain::components::mixers::{Micromixer, MixerType};
 use cfd_1d::domain::components::sensors::FlowSensor;
 use cfd_1d::domain::components::Component;
+use cfd_1d::domain::components::{
+    CircularChannel, Micropump, Microvalve, OrganCompartment, PorousMembrane, RectangularChannel,
+};
 use cfd_1d::solver::core::ConvergenceChecker;
 use cfd_core::physics::fluid::database::water_20c;
 
@@ -195,8 +194,12 @@ fn test_mixer_t_junction_resistance_positive() {
 #[test]
 fn test_mixer_serpentine_increases_with_bends() {
     let fluid = water();
-    let r2 = Micromixer::<f64>::new(MixerType::Serpentine, 200e-6, 5e-3, 2).unwrap().resistance(&fluid);
-    let r8 = Micromixer::<f64>::new(MixerType::Serpentine, 200e-6, 5e-3, 8).unwrap().resistance(&fluid);
+    let r2 = Micromixer::<f64>::new(MixerType::Serpentine, 200e-6, 5e-3, 2)
+        .unwrap()
+        .resistance(&fluid);
+    let r8 = Micromixer::<f64>::new(MixerType::Serpentine, 200e-6, 5e-3, 8)
+        .unwrap()
+        .resistance(&fluid);
     assert!(r8 > r2, "R(8 bends)={r8} must exceed R(2 bends)={r2}");
 }
 
@@ -204,8 +207,12 @@ fn test_mixer_serpentine_increases_with_bends() {
 #[test]
 fn test_mixer_resistance_increases_with_length() {
     let fluid = water();
-    let r1 = Micromixer::<f64>::new(MixerType::TJunction, 200e-6, 1e-3, 1).unwrap().resistance(&fluid);
-    let r10 = Micromixer::<f64>::new(MixerType::TJunction, 200e-6, 10e-3, 1).unwrap().resistance(&fluid);
+    let r1 = Micromixer::<f64>::new(MixerType::TJunction, 200e-6, 1e-3, 1)
+        .unwrap()
+        .resistance(&fluid);
+    let r10 = Micromixer::<f64>::new(MixerType::TJunction, 200e-6, 10e-3, 1)
+        .unwrap()
+        .resistance(&fluid);
     assert!(r10 > r1, "R(10mm)={r10} must exceed R(1mm)={r1}");
 }
 
@@ -213,9 +220,16 @@ fn test_mixer_resistance_increases_with_length() {
 #[test]
 fn test_mixer_resistance_decreases_with_diameter() {
     let fluid = water();
-    let r_small = Micromixer::<f64>::new(MixerType::TJunction, 50e-6, 5e-3, 1).unwrap().resistance(&fluid);
-    let r_large = Micromixer::<f64>::new(MixerType::TJunction, 500e-6, 5e-3, 1).unwrap().resistance(&fluid);
-    assert!(r_large < r_small, "R(500μm)={r_large} must be < R(50μm)={r_small}");
+    let r_small = Micromixer::<f64>::new(MixerType::TJunction, 50e-6, 5e-3, 1)
+        .unwrap()
+        .resistance(&fluid);
+    let r_large = Micromixer::<f64>::new(MixerType::TJunction, 500e-6, 5e-3, 1)
+        .unwrap()
+        .resistance(&fluid);
+    assert!(
+        r_large < r_small,
+        "R(500μm)={r_large} must be < R(50μm)={r_small}"
+    );
 }
 
 /// Invalid geometry (D=0) must be rejected.
@@ -234,8 +248,12 @@ fn test_mixer_rejects_zero_length() {
 #[test]
 fn test_mixer_t_junction_higher_than_y_junction() {
     let fluid = water();
-    let rt = Micromixer::<f64>::new(MixerType::TJunction, 200e-6, 5e-3, 1).unwrap().resistance(&fluid);
-    let ry = Micromixer::<f64>::new(MixerType::YJunction, 200e-6, 5e-3, 1).unwrap().resistance(&fluid);
+    let rt = Micromixer::<f64>::new(MixerType::TJunction, 200e-6, 5e-3, 1)
+        .unwrap()
+        .resistance(&fluid);
+    let ry = Micromixer::<f64>::new(MixerType::YJunction, 200e-6, 5e-3, 1)
+        .unwrap()
+        .resistance(&fluid);
     assert!(rt > ry, "R_T={rt} must exceed R_Y={ry} (K_T=1.5 > K_Y=0.9)");
 }
 

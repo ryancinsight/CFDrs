@@ -3,11 +3,11 @@ use super::types::{
     DropletPosition, DropletSnapshot, DropletSplitPolicy, DropletState, DropletTrackingState,
     SplitMode,
 };
+use crate::domain::network::{Network, NodeType};
 use crate::solver::core::transient::composition::{
     CompositionState, EdgeFlowEvent, InletCompositionEvent, PressureBoundaryEvent,
     TransientCompositionSimulator,
 };
-use crate::domain::network::{Network, NodeType};
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
 use nalgebra::RealField;
@@ -123,7 +123,10 @@ impl TransientDropletSimulator {
     }
 
     /// Simulate droplet state transitions on top of transient composition states.
-    pub fn simulate_on_composition<T: RealField + Copy + FromPrimitive, F: FluidTrait<T> + Clone>(
+    pub fn simulate_on_composition<
+        T: RealField + Copy + FromPrimitive,
+        F: FluidTrait<T> + Clone,
+    >(
         network: &Network<T, F>,
         injections: Vec<DropletInjection<T>>,
         composition_states: Vec<CompositionState<T>>,
@@ -153,7 +156,11 @@ impl TransientDropletSimulator {
             ));
         }
 
-        composition_states.sort_by(|a, b| a.time.partial_cmp(&b.time).unwrap_or(std::cmp::Ordering::Equal));
+        composition_states.sort_by(|a, b| {
+            a.time
+                .partial_cmp(&b.time)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
 
         let mut injections_sorted = injections;
         injections_sorted.sort_by(|a, b| {
@@ -182,7 +189,8 @@ impl TransientDropletSimulator {
                     branches: Vec::new(),
                 });
 
-                if entry.state == DropletState::Injection && state.time >= injection.injection_time {
+                if entry.state == DropletState::Injection && state.time >= injection.injection_time
+                {
                     entry.state = DropletState::Network;
                     entry.branches = vec![DropletBranch {
                         channel_index: injection.channel_index,
@@ -203,9 +211,9 @@ impl TransientDropletSimulator {
 
             let mut snapshots = HashMap::new();
             for injection in &injections_sorted {
-                let droplet = active
-                    .get(&injection.droplet_id)
-                    .ok_or_else(|| Error::InvalidConfiguration("Missing droplet state".to_string()))?;
+                let droplet = active.get(&injection.droplet_id).ok_or_else(|| {
+                    Error::InvalidConfiguration("Missing droplet state".to_string())
+                })?;
 
                 let representative_position = droplet.branches.first().map(|b| DropletPosition {
                     channel_index: b.channel_index,
@@ -356,7 +364,7 @@ impl TransientDropletSimulator {
                 "Edge area/length must be positive for finite-length droplet tracking".to_string(),
             ));
         }
-        let half = T::one() / (T::one() + T::one()) ;
+        let half = T::one() / (T::one() + T::one());
         let frac_len = (branch.volume / (area * length)).max(T::zero());
         let half_len = frac_len * half;
         let start = branch.center - half_len;
@@ -382,7 +390,6 @@ impl TransientDropletSimulator {
         let hops_remaining = network.edge_count().saturating_mul(4).max(8);
 
         if let Some(_hop) = (0..hops_remaining).next() {
-
             let edge_idx = EdgeIndex::new(branch.channel_index);
             let q = *network.flow_rates.get(&edge_idx).unwrap_or(&T::zero());
             if q.abs() <= eps {
@@ -405,10 +412,7 @@ impl TransientDropletSimulator {
                 center: new_center,
                 volume: branch.volume,
             };
-            let (start2, end) = Self::branch_interval_raw(
-                network,
-                &moved_branch,
-            )?;
+            let (start2, end) = Self::branch_interval_raw(network, &moved_branch)?;
 
             let crosses_downstream = (q >= T::zero() && end > T::one() - eps)
                 || (q < T::zero() && start2 < T::zero() + eps);
@@ -466,7 +470,7 @@ impl TransientDropletSimulator {
                 }
 
                 let frac_len = child_volume / (next_area * next_length);
-                let half = T::one() / (T::one() + T::one()) ;
+                let half = T::one() / (T::one() + T::one());
                 let half_len = frac_len * half;
                 let center = if start_position <= T::zero() + eps {
                     half_len
@@ -576,7 +580,11 @@ impl TransientDropletSimulator {
 
         let mut merged = Vec::new();
         for (_channel, mut branches) in groups {
-            branches.sort_by(|a, b| a.center.partial_cmp(&b.center).unwrap_or(std::cmp::Ordering::Equal));
+            branches.sort_by(|a, b| {
+                a.center
+                    .partial_cmp(&b.center)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            });
             let mut current = branches[0].clone();
             for next in branches.into_iter().skip(1) {
                 let (c_start, c_end) = Self::branch_interval(network, &current)?;

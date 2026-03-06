@@ -158,9 +158,7 @@ impl SerpentineCrossSection {
     pub fn hydraulic_diameter(&self) -> f64 {
         match self {
             Self::Circular { diameter } => *diameter,
-            Self::Rectangular { width, height } => {
-                2.0 * width * height / (width + height)
-            }
+            Self::Rectangular { width, height } => 2.0 * width * height / (width + height),
         }
     }
 
@@ -179,7 +177,11 @@ impl SerpentineCrossSection {
         match self {
             Self::Circular { .. } => 1.0,
             Self::Rectangular { width, height } => {
-                let (a, b) = if width > height { (*width, *height) } else { (*height, *width) };
+                let (a, b) = if width > height {
+                    (*width, *height)
+                } else {
+                    (*height, *width)
+                };
                 a / b
             }
         }
@@ -372,7 +374,7 @@ impl<T: RealField + Copy + FromPrimitive> SerpentineModel<T> {
             let qc_qs = 1.0 - 0.03058 * k_sq + 0.01195 * k_4;
             // Bound strictly to ensure mathematical stability near convergence radius
             let qc_qs_stable = qc_qs.clamp(0.5, 1.0);
-            
+
             T::from_f64(1.0 / qc_qs_stable).expect("Mathematical constant conversion compromised")
         } else {
             // Asymptotic Boundary Layer Exact Scaling limit (Ito, 1959 limit)
@@ -384,8 +386,8 @@ impl<T: RealField + Copy + FromPrimitive> SerpentineModel<T> {
     /// Base (straight channel) friction factor
     fn base_friction_factor(&self, reynolds: T) -> T {
         let re_lam = T::from_f64(2300.0).expect("Mathematical constant conversion compromised");
-        let shah_factor = T::from_f64(self.cross_section.shah_london_fre_factor())
-            .unwrap_or_else(T::one);
+        let shah_factor =
+            T::from_f64(self.cross_section.shah_london_fre_factor()).unwrap_or_else(T::one);
 
         if reynolds < re_lam {
             // Laminar: f = 64/Re (circular) or f = C(α)/Re (rectangular)
@@ -409,7 +411,11 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for SerpentineModel
         let (r, k) = self.calculate_coefficients(fluid, conditions)?;
 
         let q_mag = if let Some(q) = conditions.flow_rate {
-            if q >= T::zero() { q } else { -q }
+            if q >= T::zero() {
+                q
+            } else {
+                -q
+            }
         } else if let Some(v) = conditions.velocity {
             let area = T::from_f64(self.cross_section.area()).unwrap_or_else(T::one);
             let v_abs = if v >= T::zero() { v } else { -v };
@@ -446,16 +452,14 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for SerpentineModel
         // Under laminar exact Poiseuille flow, $f \cdot Re = Po$.
         // $\gamma = (Po / 8) \cdot (8 V / D_h)$
         let f_re = self.cross_section.shah_london_fre_factor() * 64.0;
-        let shape_correction = T::from_f64(f_re / 64.0).expect("Mathematical constant conversion compromised");
+        let shape_correction =
+            T::from_f64(f_re / 64.0).expect("Mathematical constant conversion compromised");
         let eight = T::from_f64(8.0).expect("Mathematical constant conversion compromised");
         let shear_rate = shape_correction * eight * velocity / dh;
 
         // Get viscosity (supports non-Newtonian)
-        let viscosity = fluid.viscosity_at_shear(
-            shear_rate,
-            conditions.temperature,
-            conditions.pressure,
-        )?;
+        let viscosity =
+            fluid.viscosity_at_shear(shear_rate, conditions.temperature, conditions.pressure)?;
 
         // Reynolds number
         let reynolds = density * velocity * dh / viscosity;
@@ -464,7 +468,8 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for SerpentineModel
         let re_safe = if reynolds > T::default_epsilon() {
             reynolds
         } else {
-            T::from_f64(0.01).expect("Mathematical constant conversion compromised") // Small but nonzero
+            T::from_f64(0.01).expect("Mathematical constant conversion compromised")
+            // Small but nonzero
         };
 
         // --- 1. Straight segment friction ---
@@ -475,7 +480,8 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for SerpentineModel
         // Note: Curvature enhancement is NOT applied to straight sections,
         // only to bend regions via the bend loss coefficient.
         let half = T::one() / (T::one() + T::one());
-        let dp_friction = f_straight * (self.straight_length / dh) * half * density * velocity * velocity;
+        let dp_friction =
+            f_straight * (self.straight_length / dh) * half * density * velocity * velocity;
 
         // --- 3. Bend minor losses ---
         let n_bends = T::from_usize(self.num_bends()).unwrap_or_else(T::zero);
@@ -491,13 +497,18 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for SerpentineModel
         // is below f64::EPSILON ≈ 2.2e-16 even though the flow is physically
         // meaningful. We only fall back to the zero-flow analytical limit when
         // the velocity is truly negligible.
-        let vel_threshold = T::from_f64(1e-15).expect("Mathematical constant conversion compromised");
+        let vel_threshold =
+            T::from_f64(1e-15).expect("Mathematical constant conversion compromised");
         if velocity > vel_threshold {
             // The friction component is proportional to V (laminar) or V^1.75 (turbulent)
             // For laminar flow, f ∝ 1/Re ∝ 1/V, so ΔP_f ∝ V → linear in Q
             // Minor losses are always ∝ V² → quadratic in Q
             let r = dp_friction / q; // Linear resistance coefficient
-            let k_coeff = if q_sq > T::zero() { dp_bends / q_sq } else { T::zero() };
+            let k_coeff = if q_sq > T::zero() {
+                dp_bends / q_sq
+            } else {
+                T::zero()
+            };
             Ok((r, k_coeff))
         } else {
             // Zero flow: Hagen-Poiseuille limit for total straight length
@@ -603,15 +614,13 @@ impl<T: RealField + Copy + FromPrimitive> SerpentineModel<T> {
         };
 
         let f_re = self.cross_section.shah_london_fre_factor() * 64.0;
-        let shape_correction = T::from_f64(f_re / 64.0).expect("Mathematical constant conversion compromised");
+        let shape_correction =
+            T::from_f64(f_re / 64.0).expect("Mathematical constant conversion compromised");
         let eight = T::from_f64(8.0).expect("Mathematical constant conversion compromised");
         let shear_rate = shape_correction * eight * velocity / dh;
 
-        let viscosity = fluid.viscosity_at_shear(
-            shear_rate,
-            conditions.temperature,
-            conditions.pressure,
-        )?;
+        let viscosity =
+            fluid.viscosity_at_shear(shear_rate, conditions.temperature, conditions.pressure)?;
 
         let reynolds = density * velocity * dh / viscosity;
         let re_safe = if reynolds > T::default_epsilon() {
@@ -628,7 +637,8 @@ impl<T: RealField + Copy + FromPrimitive> SerpentineModel<T> {
         // Friction in straight sections: Use f_straight (NOT f_curved)
         // Curvature effects are captured in bend losses, not friction along straight sections
         let half = T::one() / (T::one() + T::one());
-        let dp_friction = f_straight * (self.straight_length / dh) * half * density * velocity * velocity;
+        let dp_friction =
+            f_straight * (self.straight_length / dh) * half * density * velocity * velocity;
 
         let n_bends = T::from_usize(self.num_bends()).unwrap_or_else(T::zero);
         let k_bend = self.bend_type.loss_coefficient(re_safe);
@@ -667,7 +677,9 @@ mod tests {
             num_segments: 5,
             cross_section: SerpentineCrossSection::Circular { diameter: 0.001 },
             bend_radius: 0.005,
-            bend_type: BendType::Smooth { radius_to_dh_ratio: 5.0 },
+            bend_type: BendType::Smooth {
+                radius_to_dh_ratio: 5.0,
+            },
         };
 
         // De = Re × √(D_h / (2 R_c)) = 100 × √(0.001 / 0.01) = 100 × √0.1 ≈ 31.6
@@ -683,10 +695,12 @@ mod tests {
             num_segments: 5,
             cross_section: SerpentineCrossSection::Circular { diameter: 0.001 },
             bend_radius: 0.005,
-            bend_type: BendType::Smooth { radius_to_dh_ratio: 5.0 },
+            bend_type: BendType::Smooth {
+                radius_to_dh_ratio: 5.0,
+            },
         };
 
-        // Exact Dean (1928) limit for De=5: 
+        // Exact Dean (1928) limit for De=5:
         // K = 5 * sqrt(2) approx 7.07
         // qc_qs = 1.0 - 0.03058 * (7.07 / 576)^2 + ... approx 1.000...
         // Enhancement should be effectively 1.0 at very low De.
@@ -705,7 +719,9 @@ mod tests {
             num_segments: 5,
             cross_section: SerpentineCrossSection::Circular { diameter: 0.001 },
             bend_radius: 0.005,
-            bend_type: BendType::Smooth { radius_to_dh_ratio: 5.0 },
+            bend_type: BendType::Smooth {
+                radius_to_dh_ratio: 5.0,
+            },
         };
 
         // De = 0 or negative → enhancement = 1.0 (no curvature)
@@ -715,7 +731,7 @@ mod tests {
         let e100 = model.curvature_enhancement(100.0_f64);
         assert_relative_eq!(e100, 1.033, epsilon = 0.002);
 
-        // De = 370: Boundary layer limit 
+        // De = 370: Boundary layer limit
         let e370 = model.curvature_enhancement(370.0_f64);
         assert_relative_eq!(e370, 0.1033 * 370.0_f64.sqrt(), epsilon = 0.002);
     }
@@ -727,7 +743,9 @@ mod tests {
             num_segments: 5,
             cross_section: SerpentineCrossSection::Circular { diameter: 0.001 },
             bend_radius: 0.005,
-            bend_type: BendType::Smooth { radius_to_dh_ratio: 5.0 },
+            bend_type: BendType::Smooth {
+                radius_to_dh_ratio: 5.0,
+            },
         };
 
         // At De = 100, enhancement should be > 1.0 (secondary flow increases friction)
@@ -756,7 +774,10 @@ mod tests {
         assert_relative_eq!(k, 4.7, epsilon = 1e-6);
 
         // Smooth bend (R/D=5) at Re = 1000: K = 0.3 + 75/1000 = 0.375
-        let k = BendType::Smooth { radius_to_dh_ratio: 5.0 }.loss_coefficient(1000.0_f64);
+        let k = BendType::Smooth {
+            radius_to_dh_ratio: 5.0,
+        }
+        .loss_coefficient(1000.0_f64);
         assert_relative_eq!(k, 0.375, epsilon = 1e-6);
     }
 
@@ -767,7 +788,9 @@ mod tests {
             num_segments: 5,
             cross_section: SerpentineCrossSection::Circular { diameter: 0.001 },
             bend_radius: 0.005,
-            bend_type: BendType::Smooth { radius_to_dh_ratio: 5.0 },
+            bend_type: BendType::Smooth {
+                radius_to_dh_ratio: 5.0,
+            },
         };
 
         let fluid = water();
@@ -790,7 +813,9 @@ mod tests {
             num_segments: 5,
             cross_section: SerpentineCrossSection::Circular { diameter: 0.001 },
             bend_radius: 0.005,
-            bend_type: BendType::Smooth { radius_to_dh_ratio: 5.0 },
+            bend_type: BendType::Smooth {
+                radius_to_dh_ratio: 5.0,
+            },
         };
 
         let fluid = water();
@@ -818,7 +843,9 @@ mod tests {
             num_segments: 3,
             cross_section: SerpentineCrossSection::Circular { diameter: 0.001 },
             bend_radius: 0.005,
-            bend_type: BendType::Smooth { radius_to_dh_ratio: 5.0 },
+            bend_type: BendType::Smooth {
+                radius_to_dh_ratio: 5.0,
+            },
         };
 
         let model_10 = SerpentineModel {
@@ -826,7 +853,9 @@ mod tests {
             num_segments: 10,
             cross_section: SerpentineCrossSection::Circular { diameter: 0.001 },
             bend_radius: 0.005,
-            bend_type: BendType::Smooth { radius_to_dh_ratio: 5.0 },
+            bend_type: BendType::Smooth {
+                radius_to_dh_ratio: 5.0,
+            },
         };
 
         let r3 = model_3.calculate_resistance(&fluid, &conditions)?;
@@ -848,7 +877,9 @@ mod tests {
             num_segments: 5,
             cross_section: SerpentineCrossSection::Circular { diameter: 0.001 },
             bend_radius: 0.005,
-            bend_type: BendType::Smooth { radius_to_dh_ratio: 5.0 },
+            bend_type: BendType::Smooth {
+                radius_to_dh_ratio: 5.0,
+            },
         };
         assert!(good_model.validate_invariants(&fluid, &conditions).is_ok());
 
@@ -857,7 +888,9 @@ mod tests {
             num_segments: 5,
             cross_section: SerpentineCrossSection::Circular { diameter: 0.001 },
             bend_radius: 0.005,
-            bend_type: BendType::Smooth { radius_to_dh_ratio: 5.0 },
+            bend_type: BendType::Smooth {
+                radius_to_dh_ratio: 5.0,
+            },
         };
         assert!(bad_model.validate_invariants(&fluid, &conditions).is_err());
     }

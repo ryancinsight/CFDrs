@@ -7,11 +7,11 @@
 //! |------|---------|
 //! | 1 | Multi-mode parametric sweep (6 modes) |
 //! | 2 | Cavitation envelope: σ vs (throat, flow, pressure) — SingleVenturi grid |
-//! | 3 | Joint feasibility: CCT/CIF with σ < 1 AND cancer enrichment > 20% |
+//! | 3 | Joint feasibility: primitive selective venturi with σ < 1 AND cancer enrichment > 20% |
 //! | 4 | NSGA-II Pareto front: max cancer_cav · min lysis_risk · max sep3 |
 //! | 5 | Design robustness: ±10%/±20% sensitivity sweep (flow, pressure, throat) |
 //! | 6 | Wall shear percentiles & diffuser pressure recovery (ASTM F1841-20) |
-//! | 7 | Low-flow band (30–60 mL/min) CIF/CCT analysis with gauge compensation |
+//! | 7 | Low-flow band (30–60 mL/min) primitive selective analysis with gauge compensation |
 //!
 //! # Run
 //! ```bash
@@ -218,25 +218,19 @@ fn main() {
 
     // ── Part 3: Joint feasibility scan ───────────────────────────────────────
     println!("\n{}", "=".repeat(110));
-    println!("  PART 3 — Joint Feasibility: CCT/CIF with σ < 1 AND cancer enrichment > 20%");
+    println!("  PART 3 — Joint Feasibility: primitive selective venturi with σ < 1 AND cancer enrichment > 20%");
     println!("{}", "=".repeat(110));
     println!("  Sort by: cancer_targeted_cavitation + 0.5 × three_pop_sep_efficiency");
     println!("{}", "-".repeat(110));
 
-    let cct_cif_candidates: Vec<_> = all_candidates
+    let primitive_selective_candidates: Vec<_> = all_candidates
         .iter()
-        .filter(|c| {
-            matches!(
-                c.topology,
-                DesignTopology::CascadeCenterTrifurcationSeparator { .. }
-                    | DesignTopology::IncrementalFiltrationTriBiSeparator { .. }
-            )
-        })
+        .filter(|c| matches!(c.topology, DesignTopology::PrimitiveSelectiveTree { .. }))
         .collect();
 
     let mut joint_feasible: Vec<(f64, &cfd_optim::DesignCandidate, cfd_optim::SdtMetrics)> =
         Vec::new();
-    for c in &cct_cif_candidates {
+    for c in &primitive_selective_candidates {
         if let Ok(m) = compute_metrics(c) {
             let sigma_ok = m.cavitation_number.is_finite() && m.cavitation_number < 1.0;
             if m.pressure_feasible
@@ -252,16 +246,18 @@ fn main() {
     joint_feasible.sort_by(|a, b| b.0.total_cmp(&a.0));
 
     if joint_feasible.is_empty() {
-        println!("  (no CCT/CIF candidates met joint feasibility criteria in current sweep)");
-        let mut best_cct: Vec<_> = cct_cif_candidates
+        println!(
+            "  (no primitive selective candidates met joint feasibility criteria in current sweep)"
+        );
+        let mut best_primitive: Vec<_> = primitive_selective_candidates
             .iter()
             .filter_map(|c| compute_metrics(c).ok().map(|m| (c, m)))
             .collect();
-        best_cct.sort_by(|a, b| {
+        best_primitive.sort_by(|a, b| {
             b.1.cancer_targeted_cavitation
                 .total_cmp(&a.1.cancer_targeted_cavitation)
         });
-        if let Some((bc, bm)) = best_cct.first() {
+        if let Some((bc, bm)) = best_primitive.first() {
             println!(
                 "  Nearest: {}  σ={:.4}  cancer_ctr={:.1}%  cancer_cav={:.4}  feasible={}",
                 bc.id,
@@ -295,7 +291,7 @@ fn main() {
             );
         }
         println!(
-            "\n  {} CCT/CIF candidate(s) meet joint criteria.",
+            "\n  {} primitive selective candidate(s) meet joint criteria.",
             joint_feasible.len()
         );
     }
@@ -555,7 +551,7 @@ fn main() {
         println!("  Saved: {}", wall_shear_md_path.display());
     }
 
-    // ── Part 7: Low-flow CIF/CCT band analysis ────────────────────────────────
+    // ── Part 7: Low-flow primitive selective band analysis ───────────────────
     println!("\n{}", "=".repeat(110));
     println!("  PART 7 — Low-Flow Band Analysis  (30–60 mL/min, gauge-compensated)");
     println!("{}", "=".repeat(110));

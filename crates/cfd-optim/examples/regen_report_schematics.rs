@@ -52,10 +52,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "option2_oncology_cif_cct",
     )?;
 
-    save_schematic_svg(&option1, &figures_dir.join("selected_ga_schematic.svg"))?;
+    save_schematic_svg(
+        &option1,
+        &figures_dir.join("selected_option1_schematic.svg"),
+    )?;
     save_schematic_svg(
         &option2,
-        &figures_dir.join("selected_cifx_combined_schematic.svg"),
+        &figures_dir.join("selected_option2_combined_schematic.svg"),
     )?;
 
     println!("Generated report schematics:");

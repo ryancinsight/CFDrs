@@ -27,7 +27,9 @@ use cfd_schematics::domain::model::{ChannelSpec, NodeKind, NodeSpec};
 use cfd_schematics::geometry::generator::create_geometry;
 use cfd_schematics::geometry::{ChannelSystem, SplitType};
 use cfd_schematics::plot_geometry;
-use cfd_schematics::visualizations::analysis_field::{AnalysisField, AnalysisOverlay, ColormapKind};
+use cfd_schematics::visualizations::analysis_field::{
+    AnalysisField, AnalysisOverlay, ColormapKind,
+};
 use cfd_schematics::visualizations::plotters_backend::create_plotters_renderer;
 use cfd_schematics::visualizations::traits::SchematicRenderer;
 use cfd_schematics::visualizations::RenderConfig;
@@ -208,10 +210,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    println!(
-        "   Max hemolysis index: {:.4e}",
-        max_hemolysis
-    );
+    println!("   Max hemolysis index: {:.4e}", max_hemolysis);
     println!("   Max wall shear stress: {:.2} Pa", max_shear);
 
     // ── 8. Render hemolysis overlay ──────────────────────────────────────────
@@ -235,27 +234,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     renderer.render_analysis(
         &system,
-        out.join("hemolysis/hemolysis_index.png")
-            .to_str()
-            .unwrap(),
+        out.join("hemolysis/hemolysis_index.png").to_str().unwrap(),
         &config_hi,
         &hemolysis_overlay,
     )?;
 
     // ── 9. Render wall shear stress overlay ──────────────────────────────────
     println!("9. Rendering wall shear stress overlay...");
-    let shear_overlay = AnalysisOverlay::new(
-        AnalysisField::WallShearStress,
-        ColormapKind::BlueRed,
-    )
-    .with_edge_data(edge_shear.clone())
-    .with_node_data(node_pressure.clone());
+    let shear_overlay = AnalysisOverlay::new(AnalysisField::WallShearStress, ColormapKind::BlueRed)
+        .with_edge_data(edge_shear.clone())
+        .with_node_data(node_pressure.clone());
 
     let mut config_wss = RenderConfig::default();
-    config_wss.title = format!(
-        "Wall Shear Stress (max τ_w = {:.2} Pa)",
-        max_shear
-    );
+    config_wss.title = format!("Wall Shear Stress (max τ_w = {:.2} Pa)", max_shear);
     config_wss.show_axes = true;
     config_wss.show_grid = false;
 
@@ -284,9 +275,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     renderer.render_analysis(
         &system,
-        out.join("hemolysis/cavitation_risk.png")
-            .to_str()
-            .unwrap(),
+        out.join("hemolysis/cavitation_risk.png").to_str().unwrap(),
         &config_cav,
         &cavitation_overlay,
     )?;
@@ -383,8 +372,16 @@ fn convert_geometry_to_specs(system: &ChannelSystem) -> (Vec<NodeSpec>, Vec<Chan
         .channels
         .iter()
         .map(|channel| {
-            let from = system.nodes.iter().find(|n| n.id == channel.from_node).unwrap();
-            let to = system.nodes.iter().find(|n| n.id == channel.to_node).unwrap();
+            let from = system
+                .nodes
+                .iter()
+                .find(|n| n.id == channel.from_node)
+                .unwrap();
+            let to = system
+                .nodes
+                .iter()
+                .find(|n| n.id == channel.to_node)
+                .unwrap();
             let dx = from.point.0 - to.point.0;
             let dy = from.point.1 - to.point.1;
             let length_m = dx.hypot(dy) / 1000.0; // mm → m

@@ -121,11 +121,31 @@ pub fn venturi_rect(
             0.0,
         )
         .with_metadata(TherapyZoneMetadata::new(TherapyZone::CancerTarget))
+        .with_venturi_geometry(VenturiGeometryMetadata {
+            throat_width_m,
+            throat_height_m: height_m,
+            throat_length_m: l_throat,
+            inlet_width_m,
+            outlet_width_m: inlet_width_m,
+            convergent_half_angle_deg: ((inlet_width_m - throat_width_m).abs() * 0.5)
+                .atan2(l_taper)
+                .to_degrees(),
+            divergent_half_angle_deg: ((inlet_width_m - throat_width_m).abs() * 0.5)
+                .atan2(l_taper)
+                .to_degrees(),
+        })
         .with_metadata(VenturiGeometryMetadata {
             throat_width_m,
             throat_height_m: height_m,
             throat_length_m: l_throat,
             inlet_width_m,
+            outlet_width_m: inlet_width_m,
+            convergent_half_angle_deg: ((inlet_width_m - throat_width_m).abs() * 0.5)
+                .atan2(l_taper)
+                .to_degrees(),
+            divergent_half_angle_deg: ((inlet_width_m - throat_width_m).abs() * 0.5)
+                .atan2(l_taper)
+                .to_degrees(),
         }),
     );
     bp.add_channel(

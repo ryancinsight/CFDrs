@@ -19,7 +19,7 @@
 //! - $r$ is the radial coordinate ($0 \le r \le R$)
 //! - $\alpha = R \sqrt{\frac{\omega \rho}{\mu}}$ is the dimensionless Womersley number
 //! - $J_0(z)$ is the complex Bessel function of the first kind, order zero
-//! - $i^{3/2} = e^{i \cdot 3\pi/4} = \frac{-1 + i}{\sqrt{2}}$ 
+//! - $i^{3/2} = e^{i \cdot 3\pi/4} = \frac{-1 + i}{\sqrt{2}}$
 //!
 //! **Proof Outline**: Applying the harmonic ansatz $u(r,t) = \hat{u}(r) e^{i \omega t}$
 //! directly reduces the momentum PDE to a modified Bessel differential equation:
@@ -99,7 +99,8 @@ impl<T: RealField + FromPrimitive + Copy> WomersleyNumber<T> {
         // Blood: ρ = 1060 kg/m³, μ = 0.0035 Pa·s
         Self {
             radius: T::from_f64(0.0125).expect("Mathematical constant conversion compromised"),
-            omega: T::from_f64(2.0 * PI * 1.2).expect("Mathematical constant conversion compromised"),
+            omega: T::from_f64(2.0 * PI * 1.2)
+                .expect("Mathematical constant conversion compromised"),
             density: T::from_f64(1060.0).expect("Mathematical constant conversion compromised"),
             viscosity: T::from_f64(0.0035).expect("Mathematical constant conversion compromised"),
         }
@@ -110,7 +111,8 @@ impl<T: RealField + FromPrimitive + Copy> WomersleyNumber<T> {
         // Femoral diameter ~6 mm
         Self {
             radius: T::from_f64(0.003).expect("Mathematical constant conversion compromised"),
-            omega: T::from_f64(2.0 * PI * 1.2).expect("Mathematical constant conversion compromised"),
+            omega: T::from_f64(2.0 * PI * 1.2)
+                .expect("Mathematical constant conversion compromised"),
             density: T::from_f64(1060.0).expect("Mathematical constant conversion compromised"),
             viscosity: T::from_f64(0.0035).expect("Mathematical constant conversion compromised"),
         }
@@ -249,17 +251,17 @@ impl<T: RealField + FromPrimitive + Copy> WomersleyProfile<T> {
 
         let j0_z = bessel_j0(z);
         let j0_z_xi = bessel_j0(z_xi);
-        
+
         let ratio = j0_z_xi / j0_z;
         let term_brackets = Complex::new(one, T::zero()) - ratio;
-        
+
         // P_hat / (i * rho * omega) = -i * P_hat / (rho * omega)
         let coeff = Complex::new(T::zero(), -p_hat / (rho * omega));
-        
+
         // e^{i \omega t} = cos(\omega t) + i \sin(\omega t)
         let phase = omega * t;
         let exp_iwt = Complex::new(phase.cos(), phase.sin());
-        
+
         // Final: Re{ coeff * term_brackets * exp_iwt }
         (coeff * term_brackets * exp_iwt).re
     }
@@ -287,19 +289,19 @@ impl<T: RealField + FromPrimitive + Copy> WomersleyProfile<T> {
         let z = i_3_2 * alpha;
         let j0_z = bessel_j0(z);
         let j1_z = bessel_j1(z);
-        
+
         // z * J_1(z) / J_0(z)
         let term = z * j1_z / j0_z;
-        
+
         // P_hat / (i * rho * omega)
         let coeff = Complex::new(T::zero(), -p_hat / (rho * omega));
-        
+
         let phase = omega * t;
         let exp_iwt = Complex::new(phase.cos(), phase.sin());
-        
+
         // du/dxi at xi=1
         let du_dxi = (coeff * term * exp_iwt).re;
-        
+
         // tau_w = -mu / R * du/dxi
         -mu / r * du_dxi
     }
@@ -321,18 +323,18 @@ impl<T: RealField + FromPrimitive + Copy> WomersleyProfile<T> {
         let z = i_3_2 * alpha;
         let j0_z = bessel_j0(z);
         let j1_z = bessel_j1(z);
-        
+
         // 2 * J_1(z) / (z * J_0(z))
         let complex_two = Complex::new(two, T::zero());
         let term = complex_two * j1_z / (z * j0_z);
         let bracket = Complex::new(one, T::zero()) - term;
-        
+
         // P_hat / (i * rho * omega)
         let coeff = Complex::new(T::zero(), -p_hat / (rho * omega));
-        
+
         let phase = omega * t;
         let exp_iwt = Complex::new(phase.cos(), phase.sin());
-        
+
         // Q = pi * R^2 * Re{ coeff * bracket * exp_iwt }
         pi * r * r * (coeff * bracket * exp_iwt).re
     }
@@ -450,7 +452,11 @@ mod tests {
         let alpha = wom.value();
 
         // Expected α ≈ 18.3 for aorta
-        assert!(alpha > 10.0 && alpha < 25.0, "Aortic α = {} should be ~18", alpha);
+        assert!(
+            alpha > 10.0 && alpha < 25.0,
+            "Aortic α = {} should be ~18",
+            alpha
+        );
     }
 
     #[test]
@@ -459,7 +465,11 @@ mod tests {
         let alpha = wom.value();
 
         // Expected α ≈ 3.3 for femoral
-        assert!(alpha > 2.0 && alpha < 5.0, "Femoral α = {} should be ~3.3", alpha);
+        assert!(
+            alpha > 2.0 && alpha < 5.0,
+            "Femoral α = {} should be ~3.3",
+            alpha
+        );
     }
 
     #[test]
@@ -470,7 +480,10 @@ mod tests {
 
         // Aorta with high α
         let high_alpha = WomersleyNumber::<f64>::human_aorta();
-        matches!(high_alpha.flow_regime(), FlowRegime::Inertial | FlowRegime::PlugFlow);
+        matches!(
+            high_alpha.flow_regime(),
+            FlowRegime::Inertial | FlowRegime::PlugFlow
+        );
     }
 
     #[test]
@@ -479,7 +492,11 @@ mod tests {
         let delta = wom.stokes_layer_thickness();
 
         // Stokes layer should be ~1 mm for cardiac frequency
-        assert!(delta > 0.0005 && delta < 0.002, "δ = {} should be ~1 mm", delta);
+        assert!(
+            delta > 0.0005 && delta < 0.002,
+            "δ = {} should be ~1 mm",
+            delta
+        );
     }
 
     #[test]
@@ -489,7 +506,10 @@ mod tests {
 
         // Centerline velocity should be finite and positive at some time
         let u_center = profile.centerline_velocity(0.25); // t = 0.25s
-        assert!(u_center.abs() < 1.0, "Centerline velocity should be < 1 m/s");
+        assert!(
+            u_center.abs() < 1.0,
+            "Centerline velocity should be < 1 m/s"
+        );
     }
 
     #[test]
@@ -514,7 +534,10 @@ mod tests {
 
         // For moderate α, velocity generally decreases toward wall
         // (though phase shifts may cause exceptions at certain times)
-        assert!(u_center >= u_wall, "Centerline should have higher |u| than wall");
+        assert!(
+            u_center >= u_wall,
+            "Centerline should have higher |u| than wall"
+        );
         let _ = u_mid; // Silence unused warning
     }
 
@@ -525,7 +548,11 @@ mod tests {
 
         // Flow rate magnitude should be finite
         let q = profile.flow_rate(0.1);
-        assert!(q.abs() < 0.001, "Flow rate {} L/s should be realistic", q * 1000.0);
+        assert!(
+            q.abs() < 0.001,
+            "Flow rate {} L/s should be realistic",
+            q * 1000.0
+        );
     }
 
     #[test]
@@ -551,18 +578,14 @@ mod tests {
 
     #[test]
     fn test_impedance_magnitude() {
-        let flow = WomersleyFlow::<f64>::new(
-            0.003,
-            0.1,
-            1060.0,
-            0.0035,
-            7.54,
-            133.0,
-            -1000.0,
-        );
+        let flow = WomersleyFlow::<f64>::new(0.003, 0.1, 1060.0, 0.0035, 7.54, 133.0, -1000.0);
 
         let z = flow.impedance_magnitude();
-        assert!(z > 0.0 && z.is_finite(), "Impedance {} should be finite positive", z);
+        assert!(
+            z > 0.0 && z.is_finite(),
+            "Impedance {} should be finite positive",
+            z
+        );
     }
 
     #[test]
@@ -593,9 +616,9 @@ mod tests {
 
         // Max magnitude of dynamic centerline velocity
         let u_womersley = profile.centerline_velocity(0.0).abs();
-        
+
         let u_poiseuille = (p_hat * r * r) / (4.0 * mu);
-        
+
         assert_relative_eq!(u_womersley, u_poiseuille, max_relative = 0.01);
     }
 
@@ -614,7 +637,11 @@ mod tests {
         }
 
         // Net volume over one period for a purely oscillatory flow must be exactly zero
-        assert!(net_volume.abs() < 1e-10, "Net volume must sum to zero, got {}", net_volume);
+        assert!(
+            net_volume.abs() < 1e-10,
+            "Net volume must sum to zero, got {}",
+            net_volume
+        );
     }
 
     #[test]
@@ -625,8 +652,12 @@ mod tests {
         // Wall velocity (xi = 1.0) must be identically zero at all times (no-slip condition)
         for t in [0.0, 0.25, 0.5, 0.75, 1.0] {
             let u_wall = profile.velocity(1.0, t);
-            assert!(u_wall.abs() < 1e-12, "No-slip violated at t={}: u={}", t, u_wall);
+            assert!(
+                u_wall.abs() < 1e-12,
+                "No-slip violated at t={}: u={}",
+                t,
+                u_wall
+            );
         }
     }
 }
-

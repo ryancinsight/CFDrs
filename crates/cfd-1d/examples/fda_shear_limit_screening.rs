@@ -74,7 +74,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "Configured max wall shear stress: {:.1} Pa",
         limits.max_wall_shear_stress_pa
     );
-    println!("Components analyzed: {}", result.flow_analysis.component_flows.len());
+    println!(
+        "Components analyzed: {}",
+        result.flow_analysis.component_flows.len()
+    );
 
     if violations.is_empty() {
         println!("No shear-limit violations flagged.");

@@ -206,7 +206,10 @@ pub fn insert_intersection_nodes(system: &mut ChannelSystem) -> IntersectionResu
         });
         system.nodes.push(Node {
             id: node_id,
+            name: None,
             point: crossing.point,
+            kind: None,
+            junction_geometry: None,
             metadata: Some(meta_container),
         });
         junction_ids.push(node_id);
@@ -304,11 +307,19 @@ pub fn insert_intersection_nodes(system: &mut ChannelSystem) -> IntersectionResu
                 let (to_id, _to_pt) = pair[1];
                 new_channels.push(Channel {
                     id: next_channel_id,
+                    name: orig_channel.name.clone(),
                     from_node: from_id,
                     to_node: to_id,
                     width: orig_channel.width,
                     height: orig_channel.height,
                     channel_type: ChannelType::Straight,
+                    visual_role: orig_channel.visual_role,
+                    physical_length_m: orig_channel.physical_length_m,
+                    physical_width_m: orig_channel.physical_width_m,
+                    physical_height_m: orig_channel.physical_height_m,
+                    physical_shape: orig_channel.physical_shape,
+                    therapy_zone: orig_channel.therapy_zone.clone(),
+                    venturi_geometry: orig_channel.venturi_geometry.clone(),
                     metadata: orig_channel.metadata.clone(),
                 });
                 next_channel_id += 1;
@@ -428,7 +439,7 @@ mod tests {
     fn adaptive_box_dims_scales_with_branches() {
         let (w1, h1) = adaptive_box_dims(45.0, 45.0, 1, 2.0, 2.0);
         let (w2, h2) = adaptive_box_dims(45.0, 45.0, 4, 2.0, 2.0);
-        let (w8, h8) = adaptive_box_dims(45.0, 45.0, 8, 2.0, 2.0);
+        let (_w8, h8) = adaptive_box_dims(45.0, 45.0, 8, 2.0, 2.0);
 
         // Width should always use full plate width.
         assert!((w1 - 45.0).abs() < 1e-10);

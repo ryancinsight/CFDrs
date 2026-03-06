@@ -32,8 +32,10 @@ impl<T: RealField + Copy + FromPrimitive> Default for DropletSplitPolicy<T> {
     fn default() -> Self {
         Self {
             mode: SplitMode::AutoFlowWeighted,
-            min_secondary_flow_fraction: T::from_f64(0.2).expect("Mathematical constant conversion compromised"),
-            min_child_volume: T::from_f64(1e-15).expect("Mathematical constant conversion compromised"),
+            min_secondary_flow_fraction: T::from_f64(0.2)
+                .expect("Mathematical constant conversion compromised"),
+            min_child_volume: T::from_f64(1e-15)
+                .expect("Mathematical constant conversion compromised"),
             max_split_branches: 2,
         }
     }

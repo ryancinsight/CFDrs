@@ -1,7 +1,7 @@
 //! Network edge definitions
 
-use nalgebra::RealField;
 use cfd_schematics::domain::model::EdgeKind;
+use nalgebra::RealField;
 use serde::{Deserialize, Serialize};
 
 /// Edge in the network
@@ -30,32 +30,41 @@ use num_traits::FromPrimitive;
 
 impl<T: RealField + Copy + FromPrimitive> From<&ChannelSpec> for Edge<T> {
     fn from(spec: &ChannelSpec) -> Self {
-        let mut resistance = T::from_f64(spec.resistance).expect("Mathematical constant conversion compromised");
-        let mut quad_coeff = T::from_f64(spec.quad_coeff).expect("Mathematical constant conversion compromised");
+        let mut resistance =
+            T::from_f64(spec.resistance).expect("Mathematical constant conversion compromised");
+        let mut quad_coeff =
+            T::from_f64(spec.quad_coeff).expect("Mathematical constant conversion compromised");
 
         match spec.kind {
             EdgeKind::Valve => {
                 if let Some(cv) = spec.valve_cv {
                     // Heuristic: k = 1/Cv^2 for initial validation
                     if cv > 0.0 {
-                        let cv_t = T::from_f64(cv).expect("Mathematical constant conversion compromised");
+                        let cv_t =
+                            T::from_f64(cv).expect("Mathematical constant conversion compromised");
                         quad_coeff = T::one() / (cv_t * cv_t);
                     }
                 }
                 // Ensure non-zero to pass builder validation if nothing else set
-                if resistance.abs() < T::default_epsilon() && quad_coeff.abs() < T::default_epsilon() {
-                     resistance = T::from_f64(1e-6).expect("Mathematical constant conversion compromised");
+                if resistance.abs() < T::default_epsilon()
+                    && quad_coeff.abs() < T::default_epsilon()
+                {
+                    resistance =
+                        T::from_f64(1e-6).expect("Mathematical constant conversion compromised");
                 }
             }
             EdgeKind::Pump => {
                 // Pumps need non-zero internal resistance for solver stability/builder validation
-                if resistance.abs() < T::default_epsilon() && quad_coeff.abs() < T::default_epsilon() {
-                     resistance = T::from_f64(1e-6).expect("Mathematical constant conversion compromised");
+                if resistance.abs() < T::default_epsilon()
+                    && quad_coeff.abs() < T::default_epsilon()
+                {
+                    resistance =
+                        T::from_f64(1e-6).expect("Mathematical constant conversion compromised");
                 }
             }
             EdgeKind::Pipe => {}
         }
-        
+
         // Ensure resistance is non-zero for numerical stability (Newton-Raphson at Q=0)
         let min_r = T::from_f64(1e-8).expect("Mathematical constant conversion compromised");
         if resistance.abs() < min_r {
@@ -64,11 +73,11 @@ impl<T: RealField + Copy + FromPrimitive> From<&ChannelSpec> for Edge<T> {
 
         let area = match spec.cross_section {
             cfd_schematics::domain::model::CrossSectionSpec::Circular { diameter_m } => {
-                T::from_f64(std::f64::consts::PI * (diameter_m / 2.0).powi(2))
-                    .unwrap_or(T::zero())
+                T::from_f64(std::f64::consts::PI * (diameter_m / 2.0).powi(2)).unwrap_or(T::zero())
             }
             cfd_schematics::domain::model::CrossSectionSpec::Rectangular { width_m, height_m } => {
-                T::from_f64(width_m * height_m).expect("Mathematical constant conversion compromised")
+                T::from_f64(width_m * height_m)
+                    .expect("Mathematical constant conversion compromised")
             }
         };
 

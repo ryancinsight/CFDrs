@@ -2,7 +2,7 @@
 //!
 //! Full multi-fidelity validation of cascade millifluidic designs for SDT:
 //!
-//! - **Part 1**: Select top-3 RbcProtectedSdt designs (covers CIFX and CCT families)
+//! - **Part 1**: Select top-3 RbcProtectedSdt designs from primitive selective families
 //! - **Part 2**: Extract `NetworkBlueprint` for each design (full cascade)
 //! - **Part 3**: Complete 1D solve — all nodes/edges via `NetworkSolver::solve_network`
 //! - **Part 4**: Complete 2D solve — all channels via `Network2DSolver::solve_all` at 3 grids

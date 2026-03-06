@@ -1,7 +1,7 @@
 //! Network node definitions
 
-use nalgebra::RealField;
 use cfd_schematics::domain::model::NodeKind;
+use nalgebra::RealField;
 use serde::{Deserialize, Serialize};
 
 /// Node in the network

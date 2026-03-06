@@ -6,6 +6,7 @@
 
 use std::any::{Any, TypeId};
 use std::collections::HashMap;
+use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
 /// Base trait for all metadata types
@@ -295,6 +296,104 @@ impl Metadata for PerformanceMetadata {
     }
 }
 
+/// Absolute node position in the schematic layout plane [mm].
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct NodeLayoutMetadata {
+    pub x_mm: f64,
+    pub y_mm: f64,
+}
+
+impl Metadata for NodeLayoutMetadata {
+    fn metadata_type_name(&self) -> &'static str {
+        "NodeLayoutMetadata"
+    }
+
+    fn clone_metadata(&self) -> Box<dyn Metadata> {
+        Box::new(*self)
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+}
+
+/// Rendering role for a channel path in the schematic.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ChannelVisualRole {
+    Trunk,
+    CenterTreatment,
+    PeripheralBypass,
+    MergeCollector,
+    VenturiThroat,
+    Diffuser,
+    InternalLink,
+}
+
+/// Explicit polyline path for blueprint-native schematic rendering [mm].
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ChannelPathMetadata {
+    pub polyline_mm: Vec<(f64, f64)>,
+    pub visual_role: ChannelVisualRole,
+}
+
+impl Metadata for ChannelPathMetadata {
+    fn metadata_type_name(&self) -> &'static str {
+        "ChannelPathMetadata"
+    }
+
+    fn clone_metadata(&self) -> Box<dyn Metadata> {
+        Box::new(self.clone())
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+}
+
+/// Junction family metadata used by rendering and 1D minor-loss models.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum JunctionFamily {
+    Bifurcation,
+    Trifurcation,
+    Tee,
+    Cross,
+    Merge,
+}
+
+/// Geometry metadata for split/merge junctions.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct JunctionGeometryMetadata {
+    pub junction_family: JunctionFamily,
+    pub branch_angles_deg: Vec<f64>,
+    pub merge_angles_deg: Vec<f64>,
+}
+
+impl Metadata for JunctionGeometryMetadata {
+    fn metadata_type_name(&self) -> &'static str {
+        "JunctionGeometryMetadata"
+    }
+
+    fn clone_metadata(&self) -> Box<dyn Metadata> {
+        Box::new(self.clone())
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+}
+
 // ── Therapy geometry metadata types ─────────────────────────────────────────
 
 /// Geometry parameters for a venturi constriction channel.
@@ -302,7 +401,7 @@ impl Metadata for PerformanceMetadata {
 /// Attached to the `throat_section` channel in venturi preset factories so
 /// that downstream consumers (cfd-optim, cfd-mesh) can query exact throat
 /// dimensions without pattern-matching channel IDs.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct VenturiGeometryMetadata {
     /// Throat channel width [m] — the constriction width.
     pub throat_width_m: f64,
@@ -312,6 +411,12 @@ pub struct VenturiGeometryMetadata {
     pub throat_length_m: f64,
     /// Inlet/outlet channel width [m] upstream and downstream of the throat.
     pub inlet_width_m: f64,
+    /// Outlet channel width [m] downstream of the throat.
+    pub outlet_width_m: f64,
+    /// Convergent half-angle [deg].
+    pub convergent_half_angle_deg: f64,
+    /// Divergent half-angle [deg].
+    pub divergent_half_angle_deg: f64,
 }
 
 impl Metadata for VenturiGeometryMetadata {
@@ -640,6 +745,46 @@ impl Metadata for FdaCavitationCompliance {
     fn as_any(&self) -> &dyn Any {
         self
     }
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+}
+
+/// Blueprint-level rendering hints written by `cfd-optim` into a
+/// [`NetworkBlueprint`] so that a generic renderer can produce fully-annotated
+/// schematics without any `cfd-optim`-specific logic in the render path.
+///
+/// Attach to a blueprint via
+/// [`NetworkBlueprint::with_render_hints`][crate::domain::model::NetworkBlueprint::with_render_hints]
+/// and read back with
+/// [`NetworkBlueprint::render_hints`][crate::domain::model::NetworkBlueprint::render_hints].
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct BlueprintRenderHints {
+    /// Human-readable split-stage sequence, e.g. `"Bi→Tri"` or `"Tri→Bi→Bi"`.
+    pub stage_sequence: String,
+    /// Number of visible split layers in the topology tree.
+    pub split_layers: usize,
+    /// Fallback throat count when channel-level metadata yields zero
+    /// (e.g. topologies where throats are implicit rather than tagged).
+    pub throat_count_hint: usize,
+    /// Treatment zone label: `"venturi"` for hydrodynamic SDT, `"ultrasound"`
+    /// for acoustic-only designs.
+    pub treatment_label: String,
+}
+
+impl Metadata for BlueprintRenderHints {
+    fn metadata_type_name(&self) -> &'static str {
+        "BlueprintRenderHints"
+    }
+
+    fn clone_metadata(&self) -> Box<dyn Metadata> {
+        Box::new(self.clone())
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn as_any_mut(&mut self) -> &mut dyn Any {
         self
     }

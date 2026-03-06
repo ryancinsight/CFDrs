@@ -75,7 +75,8 @@ where
             }
 
             Err(Error::InvalidConfiguration(
-                "No applicable resistance model for circular channel at the given Reynolds number".to_string(),
+                "No applicable resistance model for circular channel at the given Reynolds number"
+                    .to_string(),
             ))
         }
         ChannelGeometry::Rectangular {
@@ -98,7 +99,8 @@ where
             }
         }
         _ => Err(Error::InvalidConfiguration(
-            "No resistance model available for this geometry type; use Circular or Rectangular".to_string(),
+            "No resistance model available for this geometry type; use Circular or Rectangular"
+                .to_string(),
         )),
     }
 }
@@ -249,12 +251,8 @@ where
     T: RealField + Copy + FromPrimitive,
     F: FluidTrait<T>,
 {
-    let model = VenturiModel::symmetric(
-        inlet_diameter,
-        throat_diameter,
-        throat_length,
-        total_length,
-    );
+    let model =
+        VenturiModel::symmetric(inlet_diameter, throat_diameter, throat_length, total_length);
     model.validate_invariants(fluid, conditions)?;
     model.calculate_resistance(fluid, conditions)
 }

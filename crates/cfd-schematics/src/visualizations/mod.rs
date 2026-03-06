@@ -38,7 +38,11 @@ pub use annotations::{
 pub use plotters_backend::{
     create_plotters_renderer, plot_geometry_with_plotters, plot_shell_cuboid, PlottersRenderer,
 };
-pub use schematic::{plot_geometry, plot_geometry_with_annotations};
+pub use schematic::{
+    centerline_vertices, channel_system_from_blueprint, plot_blueprint,
+    plot_blueprint_auto_annotated, plot_blueprint_with_annotations, plot_geometry,
+    plot_geometry_with_annotations,
+};
 pub use traits::{
     ChannelTypeStyles, Color, LineStyle, OutputFormat, RenderConfig, SchematicRenderer, TextStyle,
 };

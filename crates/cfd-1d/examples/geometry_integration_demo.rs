@@ -17,7 +17,9 @@ use cfd_schematics::config::{ChannelTypeConfig, GeometryConfig};
 use cfd_schematics::domain::model::{ChannelSpec, NodeKind, NodeSpec};
 use cfd_schematics::geometry::generator::create_geometry;
 use cfd_schematics::geometry::{ChannelSystem, SplitType};
-use cfd_schematics::visualizations::analysis_field::{AnalysisField, AnalysisOverlay, ColormapKind};
+use cfd_schematics::visualizations::analysis_field::{
+    AnalysisField, AnalysisOverlay, ColormapKind,
+};
 use cfd_schematics::visualizations::plotters_backend::create_plotters_renderer;
 use cfd_schematics::visualizations::traits::SchematicRenderer;
 use cfd_schematics::visualizations::RenderConfig;
@@ -107,7 +109,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // ── 5. Solve ─────────────────────────────────────────────────────────────
     println!("DATA: Solving...");
-    let config = SolverConfig { tolerance: 1e-8, max_iterations: 200 };
+    let config = SolverConfig {
+        tolerance: 1e-8,
+        max_iterations: 200,
+    };
     let solver = NetworkSolver::with_config(config);
     let solution = solver.solve(&NetworkProblem::new(network))?;
     println!("DATA: Solution converged.");
@@ -144,7 +149,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_node_data(node_pressure_data);
 
     // ── 7. Render ────────────────────────────────────────────────────────────
-    let output_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("outputs").join("geometry_integration");
+    let output_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("outputs")
+        .join("geometry_integration");
     fs::create_dir_all(&output_dir)?;
 
     let renderer = create_plotters_renderer();

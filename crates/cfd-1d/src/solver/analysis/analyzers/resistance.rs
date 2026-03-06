@@ -1,9 +1,9 @@
 //! Resistance analysis for network components
 
 use super::traits::NetworkAnalyzer;
+use crate::domain::network::{Network, NetworkGraphExt};
 use crate::solver::analysis::error::ResistanceCalculationError;
 use crate::solver::analysis::ResistanceAnalysis;
-use crate::domain::network::{Network, NetworkGraphExt};
 use cfd_core::error::Result;
 use cfd_core::physics::constants::physics::thermo::{P_ATM, T_STANDARD};
 use nalgebra::RealField;
@@ -215,12 +215,16 @@ impl<T: RealField + Copy + FromPrimitive + Float> ResistanceAnalyzer<T> {
             .properties
             .get(REF_TEMPERATURE_KEY)
             .copied()
-            .unwrap_or_else(|| T::from_f64(T_STANDARD).expect("Mathematical constant conversion compromised"));
+            .unwrap_or_else(|| {
+                T::from_f64(T_STANDARD).expect("Mathematical constant conversion compromised")
+            });
         let pressure = properties
             .properties
             .get(REF_PRESSURE_KEY)
             .copied()
-            .unwrap_or_else(|| T::from_f64(P_ATM).expect("Mathematical constant conversion compromised"));
+            .unwrap_or_else(|| {
+                T::from_f64(P_ATM).expect("Mathematical constant conversion compromised")
+            });
 
         let conditions = FlowConditions {
             reynolds_number: flow_rate.map(|q| {

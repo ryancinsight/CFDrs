@@ -49,9 +49,9 @@ fn test_micromixer_flow_characteristics() -> Result<()> {
     // Test Y-junction mixer for two-fluid mixing
     let mut mixer = Micromixer::<f64>::new(
         MixerType::YJunction,
-        100e-6,  // 100 μm hydraulic diameter
-        1e-3,    // 1 mm length
-        2,       // 2 bends
+        100e-6, // 100 μm hydraulic diameter
+        1e-3,   // 1 mm length
+        2,      // 2 bends
     )?;
 
     // Validate mixer properties
@@ -399,9 +399,9 @@ fn test_component_parameter_validation() -> Result<()> {
     // Test mixer parameter validation
     let mut mixer = Micromixer::<f64>::new(
         MixerType::Serpentine,
-        100e-6,  // 100 μm
-        1e-3,    // 1 mm
-        3,       // 3 bends
+        100e-6, // 100 μm
+        1e-3,   // 1 mm
+        3,      // 3 bends
     )?;
 
     // Test efficiency clamping

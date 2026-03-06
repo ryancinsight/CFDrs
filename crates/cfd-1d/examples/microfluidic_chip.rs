@@ -80,17 +80,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Export structure for verification
     use std::fs;
     use std::path::PathBuf;
-    
-    let output_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("outputs").join("microfluidic_chip");
+
+    let output_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("outputs")
+        .join("microfluidic_chip");
     fs::create_dir_all(&output_dir)?;
-    
+
     let structure = serde_json::json!({
         "example": "microfluidic_chip",
         "nodes": network.node_count(),
         "edges": network.edge_count(),
         "description": "Structure built successfully"
     });
-    
+
     let json_path = output_dir.join("microfluidic_chip_structure.json");
     fs::write(&json_path, serde_json::to_string_pretty(&structure)?)?;
     println!("✅ Exported structure to {}", json_path.display());

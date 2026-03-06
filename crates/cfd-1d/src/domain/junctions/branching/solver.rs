@@ -82,8 +82,11 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> BranchingN
         inlet_pressure: T,
         inlet_flow_rate: T,
     ) -> Result<TwoWayBranchSolution<T>, Error> {
-        junction.solve(fluid, inlet_flow_rate, inlet_pressure,
-            T::from_f64_or_one(293.15), // 20°C standard temperature [K]
+        junction.solve(
+            fluid,
+            inlet_flow_rate,
+            inlet_pressure,
+            T::from_f64_or_one(293.15),   // 20°C standard temperature [K]
             T::from_f64_or_one(101325.0), // 1 atm [Pa]
         )
     }
@@ -112,7 +115,10 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> BranchingN
         let mut current_flow = self.config.inlet_flow_rate;
 
         for branch_junction in branch_junctions {
-            let solution = branch_junction.solve(fluid, current_flow, current_pressure,
+            let solution = branch_junction.solve(
+                fluid,
+                current_flow,
+                current_pressure,
                 T::from_f64_or_one(293.15),
                 T::from_f64_or_one(101325.0),
             )?;
@@ -153,9 +159,13 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> BranchingN
         // Use reference flow rate for viscosity evaluation
         let q_ref = self.config.inlet_flow_rate;
 
-        let r_parent = TwoWayBranchJunction::pressure_drop(&fluid, q_ref, &junction.parent,
-            T::from_f64_or_one(293.15), T::from_f64_or_one(101325.0))
-            / (q_ref + T::from_f64_or_one(1e-15));
+        let r_parent = TwoWayBranchJunction::pressure_drop(
+            &fluid,
+            q_ref,
+            &junction.parent,
+            T::from_f64_or_one(293.15),
+            T::from_f64_or_one(101325.0),
+        ) / (q_ref + T::from_f64_or_one(1e-15));
         let r_1 = TwoWayBranchJunction::pressure_drop(
             &fluid,
             q_ref / T::from_f64_or_one(2.0),
@@ -212,7 +222,7 @@ mod tests {
     #[test]
     fn test_two_way_branch_single_solve() {
         use crate::domain::channel::ChannelGeometry;
-        
+
         let config = BranchingNetworkConfig {
             inlet_pressure: 1000.0,
             inlet_flow_rate: 1e-6,
@@ -225,10 +235,10 @@ mod tests {
 
         let parent_geom = ChannelGeometry::<f64>::circular(1.0e-2, 2.0e-3, 1e-6);
         let parent = Channel::new(parent_geom);
-        
+
         let d1_geom = ChannelGeometry::<f64>::circular(1.0e-2, 1.58e-3, 1e-6);
         let d1 = Channel::new(d1_geom);
-        
+
         let d2_geom = ChannelGeometry::<f64>::circular(1.0e-2, 1.58e-3, 1e-6);
         let d2 = Channel::new(d2_geom);
 

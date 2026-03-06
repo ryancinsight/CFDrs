@@ -1,6 +1,9 @@
 //! Network builder for constructing fluid networks
 
-use super::{Edge, EdgeProperties, EdgeType, NetworkGraph, Node, NodeType};
+use super::{
+    junction_losses::apply_blueprint_junction_losses, Edge, EdgeProperties, EdgeType, NetworkGraph,
+    Node, NodeType,
+};
 use cfd_core::error::Result;
 use cfd_schematics::domain::model::{ChannelShape, NetworkBlueprint};
 use nalgebra::RealField;
@@ -16,6 +19,11 @@ use cfd_core::physics::fluid::FluidTrait;
 /// This is the **canonical entry-point** for constructing a `cfd-1d` network.
 /// Callers obtain a blueprint from [`cfd_schematics::geometry::types::ChannelSystem::to_blueprint`]
 /// or from the `cfd_schematics::interface::presets` factory functions.
+///
+/// Fidelity boundary: the 1D solve consumes blueprint lengths, cross-sections,
+/// serpentine bend metadata, venturi throat metadata, and junction-angle
+/// metadata. It does not resolve 2D/3D separation zones, recirculation pockets,
+/// or secondary vortical structure beyond the reduced resistance models.
 ///
 /// # Type parameters
 /// - `T` : numeric field type (e.g. `f64`)
@@ -35,9 +43,14 @@ where
     T: RealField + Copy + FromPrimitive,
     F: FluidTrait<T> + Clone,
 {
-    use crate::domain::channel::{ChannelGeometry, ChannelType, CrossSection, SurfaceProperties, Wettability};
-    use crate::physics::resistance::{ChannelGeometry as ResGeometry, FlowConditions, ResistanceCalculator};
+    use crate::domain::channel::{
+        ChannelGeometry, ChannelType, CrossSection, SurfaceProperties, Wettability,
+    };
+    use crate::physics::resistance::{
+        ChannelGeometry as ResGeometry, FlowConditions, ResistanceCalculator,
+    };
     use cfd_schematics::domain::model::CrossSectionSpec;
+    use cfd_schematics::geometry::metadata::VenturiGeometryMetadata;
 
     if blueprint.nodes.is_empty() {
         return Err(cfd_core::error::Error::InvalidConfiguration(
@@ -61,12 +74,14 @@ where
     }
 
     // Collect (EdgeIndex, ChannelSpec ref) for post-build property population.
-    let mut edge_specs: Vec<(petgraph::graph::EdgeIndex, &cfd_schematics::domain::model::ChannelSpec)> =
-        Vec::new();
+    let mut edge_specs: Vec<(
+        petgraph::graph::EdgeIndex,
+        &cfd_schematics::domain::model::ChannelSpec,
+    )> = Vec::new();
 
     for ch_spec in &blueprint.channels {
         let from_id = ch_spec.from.as_str();
-        let to_id   = ch_spec.to.as_str();
+        let to_id = ch_spec.to.as_str();
 
         let from_idx = node_map.get(from_id).copied().ok_or_else(|| {
             cfd_core::error::Error::InvalidConfiguration(format!(
@@ -90,8 +105,11 @@ where
                 ch_spec.resistance
             )));
         }
-        let seed_r = T::from_f64(ch_spec.resistance.max(f64::EPSILON))
-            .ok_or_else(|| cfd_core::error::Error::InvalidConfiguration("Numeric conversion failed for resistance".to_string()))?;
+        let seed_r = T::from_f64(ch_spec.resistance.max(f64::EPSILON)).ok_or_else(|| {
+            cfd_core::error::Error::InvalidConfiguration(
+                "Numeric conversion failed for resistance".to_string(),
+            )
+        })?;
         let mut edge = Edge::new(ch_spec.id.as_str().to_string(), ch_spec.kind);
         edge.resistance = seed_r;
         edge.area = match ch_spec.cross_section {
@@ -103,18 +121,30 @@ where
                         diameter_m
                     )));
                 }
-                T::from_f64(std::f64::consts::PI * (diameter_m / 2.0).powi(2))
-                    .ok_or_else(|| cfd_core::error::Error::InvalidConfiguration("Numeric conversion failed for area".to_string()))?
+                T::from_f64(std::f64::consts::PI * (diameter_m / 2.0).powi(2)).ok_or_else(|| {
+                    cfd_core::error::Error::InvalidConfiguration(
+                        "Numeric conversion failed for area".to_string(),
+                    )
+                })?
             }
             CrossSectionSpec::Rectangular { width_m, height_m } => {
-                if width_m <= 0.0 || !width_m.is_finite() || height_m <= 0.0 || !height_m.is_finite() {
+                if width_m <= 0.0
+                    || !width_m.is_finite()
+                    || height_m <= 0.0
+                    || !height_m.is_finite()
+                {
                     return Err(cfd_core::error::Error::InvalidConfiguration(format!(
                         "Channel '{}' has invalid rectangular dimensions: {}x{}",
-                        ch_spec.id.as_str(), width_m, height_m
+                        ch_spec.id.as_str(),
+                        width_m,
+                        height_m
                     )));
                 }
-                T::from_f64(width_m * height_m)
-                    .ok_or_else(|| cfd_core::error::Error::InvalidConfiguration("Numeric conversion failed for area".to_string()))?
+                T::from_f64(width_m * height_m).ok_or_else(|| {
+                    cfd_core::error::Error::InvalidConfiguration(
+                        "Numeric conversion failed for area".to_string(),
+                    )
+                })?
             }
         };
 
@@ -129,52 +159,84 @@ where
 
     for (edge_idx, ch_spec) in &edge_specs {
         if ch_spec.length_m <= 0.0 || !ch_spec.length_m.is_finite() {
-             return Err(cfd_core::error::Error::InvalidConfiguration(format!(
-                 "Channel '{}' has invalid length: {}",
-                 ch_spec.id.as_str(),
-                 ch_spec.length_m
-             )));
+            return Err(cfd_core::error::Error::InvalidConfiguration(format!(
+                "Channel '{}' has invalid length: {}",
+                ch_spec.id.as_str(),
+                ch_spec.length_m
+            )));
         }
-        let length = T::from_f64(ch_spec.length_m)
-             .ok_or_else(|| cfd_core::error::Error::InvalidConfiguration("Numeric conversion failed for length".to_string()))?;
-             
-        let (area, dh, cross_section, res_geom) = match ch_spec.cross_section {
-            CrossSectionSpec::Circular { diameter_m } => {
-                let d = T::from_f64(diameter_m)
-                     .ok_or_else(|| cfd_core::error::Error::InvalidConfiguration("Numeric conversion failed for diameter".to_string()))?;
-                let a = T::from_f64(std::f64::consts::PI * (diameter_m / 2.0).powi(2))
-                     .ok_or_else(|| cfd_core::error::Error::InvalidConfiguration("Numeric conversion failed for area".to_string()))?;
-                (
-                    a,
-                    Some(d),
-                    CrossSection::Circular { diameter: d },
-                    ResGeometry::Circular { diameter: d, length },
-                )
-            }
-            CrossSectionSpec::Rectangular { width_m, height_m } => {
-                let w = T::from_f64(width_m)
-                     .ok_or_else(|| cfd_core::error::Error::InvalidConfiguration("Numeric conversion failed for width".to_string()))?;
-                let h = T::from_f64(height_m)
-                     .ok_or_else(|| cfd_core::error::Error::InvalidConfiguration("Numeric conversion failed for height".to_string()))?;
-                let a = T::from_f64(width_m * height_m)
-                     .ok_or_else(|| cfd_core::error::Error::InvalidConfiguration("Numeric conversion failed for area".to_string()))?;
-                let dh = T::from_f64(2.0 * width_m * height_m / (width_m + height_m))
-                     .ok_or_else(|| cfd_core::error::Error::InvalidConfiguration("Numeric conversion failed for hydraulic diameter".to_string()))?;
-                (
-                    a,
-                    Some(dh),
-                    CrossSection::Rectangular { width: w, height: h },
-                    ResGeometry::Rectangular {
-                        width: w,
-                        height: h,
-                        length,
-                    },
-                )
-            }
-        };
+        let length = T::from_f64(ch_spec.length_m).ok_or_else(|| {
+            cfd_core::error::Error::InvalidConfiguration(
+                "Numeric conversion failed for length".to_string(),
+            )
+        })?;
+
+        let (area, dh, cross_section, res_geom) =
+            match ch_spec.cross_section {
+                CrossSectionSpec::Circular { diameter_m } => {
+                    let d = T::from_f64(diameter_m).ok_or_else(|| {
+                        cfd_core::error::Error::InvalidConfiguration(
+                            "Numeric conversion failed for diameter".to_string(),
+                        )
+                    })?;
+                    let a = T::from_f64(std::f64::consts::PI * (diameter_m / 2.0).powi(2))
+                        .ok_or_else(|| {
+                            cfd_core::error::Error::InvalidConfiguration(
+                                "Numeric conversion failed for area".to_string(),
+                            )
+                        })?;
+                    (
+                        a,
+                        Some(d),
+                        CrossSection::Circular { diameter: d },
+                        ResGeometry::Circular {
+                            diameter: d,
+                            length,
+                        },
+                    )
+                }
+                CrossSectionSpec::Rectangular { width_m, height_m } => {
+                    let w = T::from_f64(width_m).ok_or_else(|| {
+                        cfd_core::error::Error::InvalidConfiguration(
+                            "Numeric conversion failed for width".to_string(),
+                        )
+                    })?;
+                    let h = T::from_f64(height_m).ok_or_else(|| {
+                        cfd_core::error::Error::InvalidConfiguration(
+                            "Numeric conversion failed for height".to_string(),
+                        )
+                    })?;
+                    let a = T::from_f64(width_m * height_m).ok_or_else(|| {
+                        cfd_core::error::Error::InvalidConfiguration(
+                            "Numeric conversion failed for area".to_string(),
+                        )
+                    })?;
+                    let dh = T::from_f64(2.0 * width_m * height_m / (width_m + height_m))
+                        .ok_or_else(|| {
+                            cfd_core::error::Error::InvalidConfiguration(
+                                "Numeric conversion failed for hydraulic diameter".to_string(),
+                            )
+                        })?;
+                    (
+                        a,
+                        Some(dh),
+                        CrossSection::Rectangular {
+                            width: w,
+                            height: h,
+                        },
+                        ResGeometry::Rectangular {
+                            width: w,
+                            height: h,
+                            length,
+                        },
+                    )
+                }
+            };
 
         let channel_type = match ch_spec.channel_shape {
-            ChannelShape::Serpentine { segments, .. } => ChannelType::Serpentine { turns: segments.saturating_sub(1) },
+            ChannelShape::Serpentine { segments, .. } => ChannelType::Serpentine {
+                turns: segments.saturating_sub(1),
+            },
             ChannelShape::Straight => ChannelType::Straight,
         };
 
@@ -197,20 +259,34 @@ where
             length,
             area,
             hydraulic_diameter: dh,
-            resistance: T::from_f64(ch_spec.resistance).expect("Mathematical constant conversion compromised"),
+            resistance: T::from_f64(ch_spec.resistance)
+                .expect("Mathematical constant conversion compromised"),
             geometry: Some(channel_geometry),
             properties: HashMap::new(),
         };
         network.add_edge_properties(*edge_idx, props);
 
         // Compute refined resistance with the fluid model at near-zero flow.
+        let mut refined = None;
+        if let Some(venturi) = ch_spec.venturi_geometry.as_ref().or_else(|| {
+            ch_spec
+                .metadata
+                .as_ref()
+                .and_then(|meta| meta.get::<VenturiGeometryMetadata>())
+        }) {
+            refined = venturi_coefficients::<T, F>(venturi, network.fluid()).ok();
+        }
+
         let mut conds = FlowConditions::new(T::zero());
-        conds.flow_rate = Some(T::from_f64(1e-12).expect("Mathematical constant conversion compromised"));
-        if let Ok((r, k)) = calculator.calculate_coefficients_auto(
-            &res_geom,
-            network.fluid(),
-            &conds,
-        ) {
+        conds.flow_rate =
+            Some(T::from_f64(1e-12).expect("Mathematical constant conversion compromised"));
+        if refined.is_none() {
+            refined = calculator
+                .calculate_coefficients_auto(&res_geom, network.fluid(), &conds)
+                .ok();
+        }
+
+        if let Some((r, k)) = refined {
             if let Some(edge) = network.graph.edge_weight_mut(*edge_idx) {
                 edge.resistance = r;
                 edge.quad_coeff = k;
@@ -218,123 +294,7 @@ where
         }
     }
 
-    // ── Junction K-factor post-pass ──────────────────────────────────────────
-    //
-    // After H-P resistances are set, augment the quadratic coefficient on edges
-    // adjacent to internal junction nodes using experimentally-derived K-factors.
-    //
-    // # Theorem — Junction Minor Loss
-    //
-    // ΔP = K · ½ρv² = K · ρQ² / (2A²)
-    //
-    // Adding K·ρ/(2A²) to the edge's quad_coeff models the minor loss as a
-    // quadratic resistance term: ΔP = (R_lin + K·ρ/(2A²)) · Q².
-    //
-    // K-factors (Idelchik 2007):
-    //   - Cross-junction (dividing): K_branch = 1.3, K_run = 0.05
-    //   - Cross-junction (combining): K_branch = 1.2, K_run = 0.05
-    //   - T-junction (dividing): K_branch = 1.0, K_run = 0.05
-    //   - T-junction (combining): K_branch = 1.5, K_run = 0.04
-    //
-    // Only internal nodes (NodeType::Junction) with combined degree ≥ 3 receive
-    // this treatment.  Inlet/outlet nodes are excluded.
-    {
-        use crate::domain::network::NodeType;
-
-        // Collect (node_idx, in_degree, out_degree, total_degree) for internal nodes.
-        let junction_info: Vec<(petgraph::graph::NodeIndex, usize, usize, usize)> = network
-            .graph
-            .node_indices()
-            .filter_map(|idx| {
-                let node = network.graph.node_weight(idx)?;
-                if node.node_type != NodeType::Junction {
-                    return None;
-                }
-                let in_deg = network.graph.edges_directed(idx, petgraph::Direction::Incoming).count();
-                let out_deg = network.graph.edges_directed(idx, petgraph::Direction::Outgoing).count();
-                let total = in_deg + out_deg;
-                if total >= 3 {
-                    Some((idx, in_deg, out_deg, total))
-                } else {
-                    None
-                }
-            })
-            .collect();
-
-        // Blood density constant for millifluidic blood flows.
-        let rho_blood: T = T::from_f64(1060.0).expect("Mathematical constant conversion compromised");
-        let two: T = T::one() + T::one();
-
-        for (node_idx, in_deg, out_deg, total) in junction_info {
-            // Classify junction type and select K-factors.
-            let (k_branch, k_run): (f64, f64) = if total == 4 && in_deg == 2 && out_deg == 2 {
-                // 90° cross-junction: two streams enter, two leave.
-                (1.3_f64, 0.05_f64)
-            } else if in_deg == 1 && out_deg >= 2 {
-                // Dividing T-junction: one inlet → two+ branches.
-                (1.0_f64, 0.05_f64)
-            } else if in_deg >= 2 && out_deg == 1 {
-                // Combining T-junction: two+ branches → one run.
-                (1.5_f64, 0.04_f64)
-            } else {
-                // Generic branch: use conservative T-dividing value.
-                (1.0_f64, 0.05_f64)
-            };
-
-            let k_branch_t: T = T::from_f64(k_branch).expect("Mathematical constant conversion compromised");
-            let k_run_t: T = T::from_f64(k_run).expect("Mathematical constant conversion compromised");
-
-            // Collect all adjacent edge indices and their areas.
-            // The "run" edges are those aligned with the primary flow direction:
-            // for a combining junction the single outgoing edge is the run;
-            // for a dividing junction the single incoming edge is the run.
-            let outgoing: Vec<petgraph::graph::EdgeIndex> = network
-                .graph
-                .edges_directed(node_idx, petgraph::Direction::Outgoing)
-                .map(|e| e.id())
-                .collect();
-            let incoming: Vec<petgraph::graph::EdgeIndex> = network
-                .graph
-                .edges_directed(node_idx, petgraph::Direction::Incoming)
-                .map(|e| e.id())
-                .collect();
-
-            // Determine run vs branch designations.
-            let (run_edges, branch_edges): (Vec<_>, Vec<_>) = if in_deg == 1 {
-                // Dividing: the single incoming edge is the "run".
-                (incoming.clone(), outgoing.clone())
-            } else if out_deg == 1 {
-                // Combining: the single outgoing edge is the "run".
-                (outgoing.clone(), incoming.clone())
-            } else {
-                // Cross or multi-branch: all edges are treated as branches.
-                (vec![], [incoming.clone(), outgoing.clone()].concat())
-            };
-
-            // Apply K_branch to branch edges.
-            for eidx in &branch_edges {
-                if let Some(edge) = network.graph.edge_weight_mut(*eidx) {
-                    let area_sq = edge.area * edge.area;
-                    // Skip degenerate non-positive areas to avoid dividing by zero.
-                    if area_sq > T::zero() {
-                        let k_correction = k_branch_t * rho_blood / (two * area_sq);
-                        edge.quad_coeff += k_correction;
-                    }
-                }
-            }
-
-            // Apply K_run to run edges (much smaller, mostly viscous).
-            for eidx in &run_edges {
-                if let Some(edge) = network.graph.edge_weight_mut(*eidx) {
-                    let area_sq = edge.area * edge.area;
-                    if area_sq > T::zero() {
-                        let k_correction = k_run_t * rho_blood / (two * area_sq);
-                        edge.quad_coeff += k_correction;
-                    }
-                }
-            }
-        }
-    }
+    let _junction_stats = apply_blueprint_junction_losses(&mut network, blueprint);
 
     // ── Dean-flow correction post-pass ───────────────────────────────────────
     //
@@ -348,9 +308,9 @@ where
     // This gives physically correct pressure-drop predictions for serpentine
     // channels instead of treating them as straight ducts.
     {
-        use crate::physics::resistance::models::{SerpentineModel, SerpentineCrossSection};
         use crate::physics::resistance::models::FlowConditions as FC;
         use crate::physics::resistance::models::ResistanceModel as RM;
+        use crate::physics::resistance::models::{SerpentineCrossSection, SerpentineModel};
 
         for (edge_idx, ch_spec) in &edge_specs {
             let ChannelShape::Serpentine {
@@ -361,8 +321,12 @@ where
                 continue;
             };
 
-            let length_t = T::from_f64(ch_spec.length_m)
-                 .ok_or_else(|| cfd_core::error::Error::InvalidConfiguration(format!("Numeric conversion failed for length {}", ch_spec.id.as_str())))?;
+            let length_t = T::from_f64(ch_spec.length_m).ok_or_else(|| {
+                cfd_core::error::Error::InvalidConfiguration(format!(
+                    "Numeric conversion failed for length {}",
+                    ch_spec.id.as_str()
+                ))
+            })?;
             let bend_r = if bend_radius_m <= 0.0 || !bend_radius_m.is_finite() {
                 return Err(cfd_core::error::Error::InvalidConfiguration(format!(
                     "Channel '{}' has invalid serpentine bend radius: {}",
@@ -370,14 +334,17 @@ where
                     bend_radius_m
                 )));
             } else {
-                T::from_f64(bend_radius_m)
-                    .ok_or_else(|| cfd_core::error::Error::InvalidConfiguration("Numeric conversion failed for bend_radius".to_string()))?
+                T::from_f64(bend_radius_m).ok_or_else(|| {
+                    cfd_core::error::Error::InvalidConfiguration(
+                        "Numeric conversion failed for bend_radius".to_string(),
+                    )
+                })?
             };
 
             let cross_section = match ch_spec.cross_section {
-                CrossSectionSpec::Circular { diameter_m } => {
-                    SerpentineCrossSection::Circular { diameter: diameter_m }
-                }
+                CrossSectionSpec::Circular { diameter_m } => SerpentineCrossSection::Circular {
+                    diameter: diameter_m,
+                },
                 CrossSectionSpec::Rectangular { width_m, height_m } => {
                     SerpentineCrossSection::Rectangular {
                         width: width_m,
@@ -401,17 +368,16 @@ where
 
             let total_length = length_t * T::from_usize(total_segments).unwrap_or(T::one());
 
-            let serp_model = SerpentineModel::new(
-                total_length,
-                total_segments,
-                cross_section,
-                bend_r,
-            );
+            let serp_model =
+                SerpentineModel::new(total_length, total_segments, cross_section, bend_r);
 
             let mut conds: FC<T> = FC::new(T::zero());
-            conds.flow_rate = Some(T::from_f64(1e-12).expect("Mathematical constant conversion compromised"));
+            conds.flow_rate =
+                Some(T::from_f64(1e-12).expect("Mathematical constant conversion compromised"));
 
-            if let Ok((r_total, k_total)) = serp_model.calculate_coefficients(network.fluid(), &conds) {
+            if let Ok((r_total, k_total)) =
+                serp_model.calculate_coefficients(network.fluid(), &conds)
+            {
                 // Per-segment share
                 let n_segs = T::from_usize(total_segments.max(1)).unwrap_or(T::one());
                 let r_seg = r_total / n_segs;
@@ -426,6 +392,77 @@ where
     }
 
     Ok(network)
+}
+
+fn venturi_coefficients<T, F>(
+    metadata: &cfd_schematics::geometry::metadata::VenturiGeometryMetadata,
+    fluid: &F,
+) -> Result<(T, T)>
+where
+    T: RealField + Copy + FromPrimitive,
+    F: FluidTrait<T> + Clone,
+{
+    use crate::physics::resistance::models::{
+        ExpansionType, FlowConditions as ModelFlowConditions, ResistanceModel, VenturiGeometry,
+        VenturiModel,
+    };
+    use crate::{discharge_coefficient_from_convergent_half_angle_deg, venturi_taper_length_m};
+
+    let hydraulic_diameter =
+        |width_m: f64, height_m: f64| 2.0 * width_m * height_m / (width_m + height_m).max(1e-18);
+    let inlet_d = hydraulic_diameter(metadata.inlet_width_m, metadata.throat_height_m);
+    let throat_d = hydraulic_diameter(metadata.throat_width_m, metadata.throat_height_m);
+    let outlet_d = hydraulic_diameter(metadata.outlet_width_m, metadata.throat_height_m);
+    let conv_len = venturi_taper_length_m(
+        metadata.inlet_width_m,
+        metadata.throat_width_m,
+        metadata.convergent_half_angle_deg,
+    );
+    let diff_len = venturi_taper_length_m(
+        metadata.outlet_width_m,
+        metadata.throat_width_m,
+        metadata.divergent_half_angle_deg,
+    );
+    let total_length = metadata.throat_length_m + conv_len + diff_len;
+
+    let inlet_d_t = T::from_f64(inlet_d).ok_or_else(|| {
+        cfd_core::error::Error::InvalidConfiguration("inlet diameter conversion failed".to_string())
+    })?;
+    let throat_d_t = T::from_f64(throat_d).ok_or_else(|| {
+        cfd_core::error::Error::InvalidConfiguration(
+            "throat diameter conversion failed".to_string(),
+        )
+    })?;
+    let outlet_d_t = T::from_f64(outlet_d).ok_or_else(|| {
+        cfd_core::error::Error::InvalidConfiguration(
+            "outlet diameter conversion failed".to_string(),
+        )
+    })?;
+    let throat_len_t = T::from_f64(total_length).ok_or_else(|| {
+        cfd_core::error::Error::InvalidConfiguration("throat length conversion failed".to_string())
+    })?;
+    let total_len_t = T::from_f64(total_length).ok_or_else(|| {
+        cfd_core::error::Error::InvalidConfiguration(
+            "venturi total length conversion failed".to_string(),
+        )
+    })?;
+
+    let mut model = VenturiModel::new(inlet_d_t, throat_d_t, outlet_d_t, throat_len_t, total_len_t)
+        .with_geometry(VenturiGeometry::Custom {
+            discharge_coefficient: discharge_coefficient_from_convergent_half_angle_deg(
+                metadata.convergent_half_angle_deg,
+            ),
+        })
+        .with_expansion(ExpansionType::Gradual {
+            half_angle_deg: metadata.divergent_half_angle_deg.clamp(1.0, 45.0),
+        });
+    model.throat_roughness =
+        T::from_f64(1e-7).expect("Mathematical constant conversion compromised");
+
+    let mut conds = ModelFlowConditions::new(T::zero());
+    conds.flow_rate =
+        Some(T::from_f64(1e-12).expect("Mathematical constant conversion compromised"));
+    model.calculate_coefficients(fluid, &conds)
 }
 
 /// Builder for constructing network graphs directly (internal / advanced use).

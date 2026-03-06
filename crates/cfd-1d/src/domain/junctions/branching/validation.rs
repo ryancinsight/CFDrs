@@ -167,7 +167,10 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> BranchingV
     ) -> Result<BranchingValidationResult<T>, String> {
         // Solve on coarse grid
         let solution_coarse = branch_coarse
-            .solve(fluid, self.config.q_parent, self.config.p_parent,
+            .solve(
+                fluid,
+                self.config.q_parent,
+                self.config.p_parent,
                 T::from_f64_or_one(cfd_core::physics::constants::physics::thermo::T_STANDARD),
                 T::from_f64_or_one(cfd_core::physics::constants::physics::thermo::P_ATM),
             )
@@ -175,7 +178,10 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> BranchingV
 
         // Solve on fine grid
         let solution_fine = branch_fine
-            .solve(fluid, self.config.q_parent, self.config.p_parent,
+            .solve(
+                fluid,
+                self.config.q_parent,
+                self.config.p_parent,
                 T::from_f64_or_one(cfd_core::physics::constants::physics::thermo::T_STANDARD),
                 T::from_f64_or_one(cfd_core::physics::constants::physics::thermo::P_ATM),
             )
@@ -237,7 +243,10 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> BranchingV
     ) -> Result<BranchingValidationResult<T>, String> {
         // Solve two-way branch junction
         let solution = branch_junction
-            .solve(fluid, self.config.q_parent, self.config.p_parent,
+            .solve(
+                fluid,
+                self.config.q_parent,
+                self.config.p_parent,
                 T::from_f64_or_one(cfd_core::physics::constants::physics::thermo::T_STANDARD),
                 T::from_f64_or_one(cfd_core::physics::constants::physics::thermo::P_ATM),
             )
@@ -291,7 +300,10 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> BranchingV
         blood: F,
     ) -> Result<BranchingValidationResult<T>, String> {
         let solution = branch_junction
-            .solve(blood, self.config.q_parent, self.config.p_parent,
+            .solve(
+                blood,
+                self.config.q_parent,
+                self.config.p_parent,
                 T::from_f64_or_one(cfd_core::physics::constants::physics::thermo::T_STANDARD),
                 T::from_f64_or_one(cfd_core::physics::constants::physics::thermo::P_ATM),
             )
@@ -340,15 +352,16 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> BranchingV
     /// - Q_i = Q_parent / 3
     /// - Daughter pressures should be approximately equal
     /// - Murray extension D_0^3 ≈ D_1^3 + D_2^3 + D_3^3
-    pub fn validate_three_way_against_analytical<
-        F: FluidTrait<T> + NonNewtonianFluid<T> + Copy,
-    >(
+    pub fn validate_three_way_against_analytical<F: FluidTrait<T> + NonNewtonianFluid<T> + Copy>(
         &self,
         branch_junction: &ThreeWayBranchJunction<T>,
         fluid: F,
     ) -> Result<BranchingValidationResult<T>, String> {
         let solution = branch_junction
-            .solve(fluid, self.config.q_parent, self.config.p_parent,
+            .solve(
+                fluid,
+                self.config.q_parent,
+                self.config.p_parent,
                 T::from_f64_or_one(cfd_core::physics::constants::physics::thermo::T_STANDARD),
                 T::from_f64_or_one(cfd_core::physics::constants::physics::thermo::P_ATM),
             )
@@ -364,8 +377,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> BranchingV
         let p_err = (p_max - p_min).abs() / (self.config.p_parent.abs() + T::from_f64_or_one(1.0));
 
         let murray_err = branch_junction.murray_law_deviation();
-        let l2_error = (q_err_1 * q_err_1 + q_err_2 * q_err_2 + q_err_3 * q_err_3 + p_err * p_err)
-            .sqrt();
+        let l2_error =
+            (q_err_1 * q_err_1 + q_err_2 * q_err_2 + q_err_3 * q_err_3 + p_err * p_err).sqrt();
 
         let mut result = BranchingValidationResult::new(
             "Three-Way Branch vs Analytical".to_string(),
@@ -379,7 +392,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> BranchingV
             && solution.mass_conservation_error < T::from_f64_or_one(1e-10);
 
         if !result.validation_passed {
-            result.error_message = Some(format!(
+            result.error_message =
+                Some(format!(
                 "Three-way analytical validation failed: L2={:.2e}, Murray dev={:.2e}, mass={:.2e}",
                 l2_error.to_f64().unwrap_or(f64::NAN),
                 murray_err.to_f64().unwrap_or(f64::NAN),
@@ -391,15 +405,16 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> BranchingV
     }
 
     /// Validate three-way branch blood-flow metrics for physiological plausibility.
-    pub fn validate_three_way_blood_flow<
-        F: FluidTrait<T> + NonNewtonianFluid<T> + Copy,
-    >(
+    pub fn validate_three_way_blood_flow<F: FluidTrait<T> + NonNewtonianFluid<T> + Copy>(
         &self,
         branch_junction: &ThreeWayBranchJunction<T>,
         blood: F,
     ) -> Result<BranchingValidationResult<T>, String> {
         let solution = branch_junction
-            .solve(blood, self.config.q_parent, self.config.p_parent,
+            .solve(
+                blood,
+                self.config.q_parent,
+                self.config.p_parent,
                 T::from_f64_or_one(cfd_core::physics::constants::physics::thermo::T_STANDARD),
                 T::from_f64_or_one(cfd_core::physics::constants::physics::thermo::P_ATM),
             )
@@ -481,10 +496,10 @@ mod tests {
         // Create symmetric two-way branch using new Channel API
         let parent_geom = ChannelGeometry::<f64>::circular(1.0e-2, 2.0e-3, 1e-6);
         let parent = Channel::new(parent_geom);
-        
+
         let d1_geom = ChannelGeometry::<f64>::circular(1.0e-2, 1.58e-3, 1e-6);
         let d1 = Channel::new(d1_geom);
-        
+
         let d2_geom = ChannelGeometry::<f64>::circular(1.0e-2, 1.58e-3, 1e-6);
         let d2 = Channel::new(d2_geom);
 
@@ -512,17 +527,19 @@ mod tests {
 
         let parent_geom = ChannelGeometry::<f64>::circular(1.0e-3, 100.0e-6, 1e-6);
         let parent = Channel::new(parent_geom);
-        
+
         let d1_geom = ChannelGeometry::<f64>::circular(1.0e-3, 80.0e-6, 1e-6);
         let d1 = Channel::new(d1_geom);
-        
+
         let d2_geom = ChannelGeometry::<f64>::circular(1.0e-3, 80.0e-6, 1e-6);
         let d2 = Channel::new(d2_geom);
 
         let branch_junction = TwoWayBranchJunction::new(parent, d1, d2, 0.5);
         let blood = CassonBlood::<f64>::normal_blood();
 
-        let result = validator.validate_blood_flow(&branch_junction, blood).unwrap();
+        let result = validator
+            .validate_blood_flow(&branch_junction, blood)
+            .unwrap();
 
         // Blood should have physiological properties
         assert!(result.validation_passed || result.error_message.is_some());
@@ -541,11 +558,24 @@ mod tests {
 
         let parent = Channel::new(ChannelGeometry::<f64>::circular(1.0e-3, 120.0e-6, 1e-6));
         let daughter_diameter = 120.0e-6 / 3.0_f64.cbrt();
-        let d1 = Channel::new(ChannelGeometry::<f64>::circular(1.0e-3, daughter_diameter, 1e-6));
-        let d2 = Channel::new(ChannelGeometry::<f64>::circular(1.0e-3, daughter_diameter, 1e-6));
-        let d3 = Channel::new(ChannelGeometry::<f64>::circular(1.0e-3, daughter_diameter, 1e-6));
+        let d1 = Channel::new(ChannelGeometry::<f64>::circular(
+            1.0e-3,
+            daughter_diameter,
+            1e-6,
+        ));
+        let d2 = Channel::new(ChannelGeometry::<f64>::circular(
+            1.0e-3,
+            daughter_diameter,
+            1e-6,
+        ));
+        let d3 = Channel::new(ChannelGeometry::<f64>::circular(
+            1.0e-3,
+            daughter_diameter,
+            1e-6,
+        ));
 
-        let branch = ThreeWayBranchJunction::new(parent, d1, d2, d3, (1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0));
+        let branch =
+            ThreeWayBranchJunction::new(parent, d1, d2, d3, (1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0));
         let blood = CassonBlood::<f64>::normal_blood();
 
         let result = validator
@@ -572,7 +602,9 @@ mod tests {
         let branch = ThreeWayBranchJunction::new(parent, d1, d2, d3, (0.4, 0.35, 0.25));
 
         let blood = CassonBlood::<f64>::normal_blood();
-        let result = validator.validate_three_way_blood_flow(&branch, blood).unwrap();
+        let result = validator
+            .validate_three_way_blood_flow(&branch, blood)
+            .unwrap();
 
         assert!(result.validation_passed, "{:?}", result.error_message);
     }

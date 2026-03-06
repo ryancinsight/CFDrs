@@ -1,26 +1,39 @@
 //! Blueprint and channel-system conversion methods for `DesignCandidate`.
 
 use super::candidate::DesignCandidate;
-use super::topology::DesignTopology;
+use super::topology::{DesignTopology, PrimitiveSplitSequence};
 use crate::constraints::{PLATE_HEIGHT_MM, PLATE_WIDTH_MM, TREATMENT_HEIGHT_MM};
 use cfd_schematics::{
+    geometry::generator::PrimitiveSelectiveSplitKind,
     interface::presets::{
         asymmetric_bifurcation_serpentine_rect, asymmetric_trifurcation_venturi_rect,
         bifurcation_serpentine_rect, bifurcation_trifurcation_venturi_rect,
-        bifurcation_venturi_rect, cascade_center_trifurcation_rect,
-        cascade_tri_bi_tri_selective_rect, cell_separation_rect, constriction_expansion_array_rect,
+        bifurcation_venturi_rect, cell_separation_rect, constriction_expansion_array_rect,
         double_bifurcation_serpentine_rect, double_bifurcation_venturi_rect,
-        double_trifurcation_cif_venturi_rect, double_trifurcation_venturi_rect,
-        incremental_filtration_tri_bi_rect_staged_remerge, parallel_microchannel_array_rect,
-        quad_trifurcation_venturi_rect, serial_double_venturi_rect, serpentine_rect,
-        spiral_channel_rect, trifurcation_bifurcation_bifurcation_venturi_rect,
-        trifurcation_bifurcation_venturi_rect, trifurcation_serpentine_rect,
-        trifurcation_venturi_rect, triple_bifurcation_venturi_rect,
+        double_trifurcation_venturi_rect, parallel_microchannel_array_rect,
+        primitive_selective_split_tree_rect, quad_trifurcation_venturi_rect,
+        serial_double_venturi_rect, serpentine_rect, spiral_channel_rect,
+        trifurcation_bifurcation_bifurcation_venturi_rect, trifurcation_bifurcation_venturi_rect,
+        trifurcation_serpentine_rect, trifurcation_venturi_rect, triple_bifurcation_venturi_rect,
         triple_trifurcation_venturi_rect, venturi_rect, venturi_serpentine_rect,
         CenterSerpentineSpec,
     },
     NetworkBlueprint,
 };
+
+fn primitive_sequence_kinds(sequence: PrimitiveSplitSequence) -> Vec<PrimitiveSelectiveSplitKind> {
+    let levels = sequence.levels() as usize;
+    let bits = sequence.split_types();
+    (0..levels)
+        .map(|idx| {
+            if ((bits >> idx) & 1) == 0 {
+                PrimitiveSelectiveSplitKind::Bi
+            } else {
+                PrimitiveSelectiveSplitKind::Tri
+            }
+        })
+        .collect()
+}
 
 impl DesignCandidate {
     /// Build a [`NetworkBlueprint`] for this candidate using `cfd-schematics` presets.
@@ -53,7 +66,7 @@ impl DesignCandidate {
             None
         };
 
-        match self.topology {
+        let blueprint = match self.topology {
             // ── Single venturi ──
             DesignTopology::SingleVenturi => venturi_rect(&self.id, w, dt, h, tl),
 
@@ -203,93 +216,21 @@ impl DesignCandidate {
                 )
             }
 
-            // ── CascadeCenterTrifurcationSeparator → single venturi on center arm ──
-            DesignTopology::CascadeCenterTrifurcationSeparator { n_levels } => {
-                let trunk_len = TREATMENT_HEIGHT_MM * 0.20e-3;
-                let branch_len = TREATMENT_HEIGHT_MM * 0.15e-3;
-                let frac = self.trifurcation_center_frac;
-                cascade_center_trifurcation_rect(
+            DesignTopology::PrimitiveSelectiveTree { sequence } => {
+                let split_sequence = primitive_sequence_kinds(sequence);
+                primitive_selective_split_tree_rect(
                     &self.id,
-                    trunk_len,
-                    branch_len,
-                    n_levels,
-                    w,
-                    frac,
-                    dt,
-                    tl,
-                    h,
-                    self.uses_venturi_treatment(),
-                    center_serpentine,
-                )
-            }
-
-            // ── DoubleTrifurcationCIFVenturi: differential throat counts ──
-            // Center CTC-enriched channels get center_throat_count serial throats;
-            // outer bypass channels get 0 throats (shear-only hemolysis).
-            DesignTopology::DoubleTrifurcationCIFVenturi {
-                center_throat_count,
-            } => {
-                let trunk_len = TREATMENT_HEIGHT_MM * 0.20e-3;
-                let branch_len = TREATMENT_HEIGHT_MM * 0.15e-3;
-                // Inter-throat spacing: 10× hydraulic diameter of throat for full
-                // flow re-development between serial Rayleigh-collapse events
-                // (Shah & London 1978, §2-3).
-                let d_h_throat = 2.0 * dt * h / (dt + h).max(1e-18);
-                let inter_spacing = (10.0 * d_h_throat).max(tl * 2.0);
-                double_trifurcation_cif_venturi_rect(
-                    &self.id,
-                    trunk_len,
-                    branch_len,
-                    w,
-                    self.cif_pretri_center_frac(),
-                    self.cif_terminal_tri_center_frac(),
-                    dt,
-                    tl,
-                    inter_spacing,
-                    center_throat_count,
-                    h,
-                )
-            }
-
-            // ── CIF tri-first then tri/bi skimming → single treatment venturi ──
-            DesignTopology::IncrementalFiltrationTriBiSeparator { n_pretri } => {
-                use cfd_1d::{cif_pretri_stage_q_fracs, tri_center_q_frac};
-
-                let trunk_len = TREATMENT_HEIGHT_MM * 0.20e-3;
-                let pretri_len = TREATMENT_HEIGHT_MM * 0.15e-3;
-                let hybrid_len = TREATMENT_HEIGHT_MM * 0.12e-3;
-                // Keep CIF streams separated through most of the device and
-                // remerge close to outlet to preserve selective venturi exposure.
-                // Higher selective venturi-flow fractions tolerate a slightly longer
-                // post-remerge tail; strongly selective layouts keep the tail short.
-                let q_pretri_product = cif_pretri_stage_q_fracs(
-                    n_pretri,
-                    self.cif_pretri_center_frac(),
-                    self.cif_terminal_tri_center_frac(),
-                )
-                .into_iter()
-                .product::<f64>();
-                let q_terminal_tri = tri_center_q_frac(self.cif_terminal_tri_center_frac());
-                let q_bi_treat = self.cif_terminal_bi_treat_frac();
-                let selective_qfrac =
-                    (q_pretri_product * q_terminal_tri * q_bi_treat).clamp(0.0, 1.0);
-                let outlet_tail_factor = (0.08 + 0.25 * selective_qfrac).clamp(0.08, 0.30);
-                let outlet_tail_len = trunk_len * outlet_tail_factor;
-                incremental_filtration_tri_bi_rect_staged_remerge(
-                    &self.id,
-                    trunk_len,
-                    pretri_len,
-                    hybrid_len,
-                    n_pretri,
+                    (PLATE_WIDTH_MM, PLATE_HEIGHT_MM),
+                    &split_sequence,
                     w,
                     self.cif_pretri_center_frac(),
                     self.cif_terminal_tri_center_frac(),
                     self.cif_terminal_bi_treat_frac(),
                     dt,
                     tl,
-                    outlet_tail_len,
                     h,
                     self.uses_venturi_treatment(),
+                    self.centerline_venturi_throat_count,
                     center_serpentine,
                 )
             }
@@ -343,24 +284,6 @@ impl DesignCandidate {
                     w,
                     self.trifurcation_center_frac,
                     self.trifurcation_left_frac,
-                    dt,
-                    tl,
-                    h,
-                )
-            }
-
-            // ── Tri→Bi→Tri selective center venturi ──
-            DesignTopology::TriBiTriSelectiveVenturi => {
-                let trunk_len = TREATMENT_HEIGHT_MM * 1e-3 / 6.0;
-                let branch_len = TREATMENT_HEIGHT_MM * 1e-3 * 0.15;
-                cascade_tri_bi_tri_selective_rect(
-                    &self.id,
-                    trunk_len,
-                    branch_len,
-                    w,
-                    self.trifurcation_center_frac,
-                    self.cif_terminal_bi_treat_frac,
-                    self.trifurcation_center_frac,
                     dt,
                     tl,
                     h,
@@ -431,48 +354,78 @@ impl DesignCandidate {
                             &self.id, trunk_len, branch_len, w, dt, h, tl,
                         ),
                     },
-                    // levels ≥3: use CCT-style selective center-only venturi
-                    // (protects RBCs while cancer-enriched center stream gets treatment)
+                    // levels ≥3: keep the geometry on the primitive selective-tree path.
                     _ => {
-                        let lv = levels.min(5);
-                        let cf = self.trifurcation_center_frac;
-                        cascade_center_trifurcation_rect(
+                        let lv = usize::from(levels.min(4));
+                        let split_sequence: Vec<PrimitiveSelectiveSplitKind> = (0..lv)
+                            .map(|idx| {
+                                if ((split_types >> idx) & 1) == 0 {
+                                    PrimitiveSelectiveSplitKind::Bi
+                                } else {
+                                    PrimitiveSelectiveSplitKind::Tri
+                                }
+                            })
+                            .collect();
+                        primitive_selective_split_tree_rect(
                             &self.id,
-                            trunk_len,
-                            branch_len,
-                            lv,
+                            (PLATE_WIDTH_MM, PLATE_HEIGHT_MM),
+                            &split_sequence,
                             w,
-                            cf,
+                            self.cif_pretri_center_frac(),
+                            self.cif_terminal_tri_center_frac(),
+                            self.cif_terminal_bi_treat_frac(),
                             dt,
                             tl,
                             h,
                             self.uses_venturi_treatment(),
+                            self.centerline_venturi_throat_count,
                             center_serpentine,
                         )
                     }
                 }
             }
-        }
+        };
+        blueprint.with_render_hints(cfd_schematics::BlueprintRenderHints {
+            stage_sequence: topology_stage_sequence(self.topology),
+            split_layers: visible_split_layers(self.topology),
+            throat_count_hint: self.active_venturi_throat_count(),
+            treatment_label: if self.uses_venturi_treatment() {
+                "venturi"
+            } else {
+                "ultrasound"
+            }
+            .to_owned(),
+        })
     }
 
-    /// Build a [`cfd_schematics::geometry::ChannelSystem`] for 2D schematic
-    /// visualisation using `cfd-schematics`.
+    /// Build a legacy compatibility [`cfd_schematics::geometry::ChannelSystem`]
+    /// sketch for non-SSOT consumers.
     ///
     /// All physical units are converted from metres (candidate fields) to
     /// millimetres (the schematics API).  The generated system mirrors the
     /// x/y symmetry shown in existing `cfd-schematics` examples.
     ///
-    /// Returns a fully-populated `ChannelSystem` that can be passed directly
-    /// to [`cfd_schematics::plot_geometry`].
+    /// Report/export paths must render from [`Self::to_blueprint`] through
+    /// `cfd-schematics`. This helper remains only for older local tests and
+    /// non-authoritative sketch workflows.
     #[must_use]
     pub fn to_channel_system(&self) -> cfd_schematics::geometry::ChannelSystem {
         use cfd_schematics::{
+            channel_system_from_blueprint,
             config::{
                 ArcConfig, ChannelTypeConfig, FrustumConfig, GeometryConfig, SerpentineConfig,
                 TaperProfile,
             },
             geometry::{create_geometry, SplitType},
         };
+
+        if matches!(self.topology, DesignTopology::PrimitiveSelectiveTree { .. }) {
+            return channel_system_from_blueprint(
+                &self.to_blueprint(),
+                Some((PLATE_WIDTH_MM, PLATE_HEIGHT_MM)),
+            )
+            .expect("selective blueprint should always convert back to a schematic");
+        }
 
         let w_mm = self.channel_width_m * 1e3; // e.g. 2.0 mm
         let h_mm = self.channel_height_m * 1e3; // e.g. 0.5 mm
@@ -511,16 +464,23 @@ impl DesignCandidate {
         .with_square_wave();
 
         let system = match self.topology {
-            // ── Double trifurcation CIF with differential venturi throat counts ──
-            // Center CTC-enriched sub-channels shown with a 2-level trifurcation
-            // schematic; outer bypass channels are the peripheral arms.
-            DesignTopology::DoubleTrifurcationCIFVenturi { .. } => create_geometry(
-                box_dims,
-                &[SplitType::Trifurcation, SplitType::Trifurcation],
-                &gc,
-                &ChannelTypeConfig::AllSerpentine(sine_wave),
-            ),
-
+            DesignTopology::PrimitiveSelectiveTree { sequence } => {
+                let splits: Vec<SplitType> = primitive_sequence_kinds(sequence)
+                    .into_iter()
+                    .map(|kind| match kind {
+                        PrimitiveSelectiveSplitKind::Bi => SplitType::Bifurcation,
+                        PrimitiveSelectiveSplitKind::Tri => SplitType::SymmetricTrifurcation {
+                            center_ratio: self.cif_terminal_tri_center_frac(),
+                        },
+                    })
+                    .collect();
+                create_geometry(
+                    box_dims,
+                    &splits,
+                    &gc,
+                    &ChannelTypeConfig::AllSerpentine(sine_wave),
+                )
+            }
             // ── Single venturi: sine wave, no splits ──
             DesignTopology::SingleVenturi | DesignTopology::SerialDoubleVenturi => create_geometry(
                 box_dims,
@@ -701,66 +661,10 @@ impl DesignCandidate {
                 &gc,
                 &ChannelTypeConfig::AllSerpentine(sine_wave),
             ),
-            DesignTopology::CascadeCenterTrifurcationSeparator { n_levels } => {
-                // Cascade topology: allow up to 4 visible split layers in report
-                // schematics so higher-order center-enrichment designs can fill
-                // the millifluidic footprint without collapsing back to the
-                // older 3-layer look.
-                let schematic_levels = (n_levels as usize).min(4);
-                let splits: Vec<SplitType> = (0..schematic_levels)
-                    .map(|_| SplitType::SymmetricTrifurcation {
-                        center_ratio: self.trifurcation_center_frac,
-                    })
-                    .collect();
-                create_geometry(
-                    box_dims,
-                    &splits,
-                    &gc,
-                    &ChannelTypeConfig::AllSerpentine(sine_wave),
-                )
-            }
-            DesignTopology::IncrementalFiltrationTriBiSeparator { n_pretri } => {
-                // CIF report schematics should show up to 4 visible split layers:
-                // two pre-tri stages followed by the terminal tri and terminal bi.
-                // This preserves the intended staged-selective topology for the
-                // current Option 1/2 winners while still capping the visual depth
-                // before the 5-layer/162-leaf case becomes unreadable.
-                let schematic_pretri = n_pretri.min(2);
-                let mut splits: Vec<SplitType> = (0..schematic_pretri as usize)
-                    .map(|_| SplitType::SymmetricTrifurcation {
-                        center_ratio: self.cif_pretri_center_frac(),
-                    })
-                    .collect();
-                splits.push(SplitType::SymmetricTrifurcation {
-                    center_ratio: self.cif_terminal_tri_center_frac(),
-                });
-                splits.push(SplitType::AsymmetricBifurcation {
-                    ratio: self.cif_terminal_bi_treat_frac(),
-                });
-                create_geometry(
-                    box_dims,
-                    &splits,
-                    &gc,
-                    &ChannelTypeConfig::AllSerpentine(sine_wave),
-                )
-            }
-
             // ── Asymmetric 3-stream trifurcation → sine wave ──
             DesignTopology::AsymmetricTrifurcationVenturi => create_geometry(
                 box_dims,
                 &[SplitType::Trifurcation],
-                &gc,
-                &ChannelTypeConfig::AllSerpentine(sine_wave),
-            ),
-
-            // ── Tri→Bi→Tri selective center venturi → sine wave ──
-            DesignTopology::TriBiTriSelectiveVenturi => create_geometry(
-                box_dims,
-                &[
-                    SplitType::Trifurcation,
-                    SplitType::Bifurcation,
-                    SplitType::Trifurcation,
-                ],
                 &gc,
                 &ChannelTypeConfig::AllSerpentine(sine_wave),
             ),
@@ -812,9 +716,7 @@ impl DesignCandidate {
     fn schematic_channel_width_mm(&self) -> f64 {
         let base_w_mm = self.channel_width_m * 1e3;
         let scale = match self.topology {
-            DesignTopology::IncrementalFiltrationTriBiSeparator { .. }
-            | DesignTopology::CascadeCenterTrifurcationSeparator { .. } => 0.22,
-            DesignTopology::TriBiTriSelectiveVenturi => 0.26,
+            DesignTopology::PrimitiveSelectiveTree { .. } => 0.22,
             _ => 0.35,
         };
         (base_w_mm * scale).clamp(0.8, 2.5)
@@ -822,11 +724,59 @@ impl DesignCandidate {
 
     fn schematic_wall_clearance_mm(&self) -> f64 {
         match self.topology {
-            DesignTopology::IncrementalFiltrationTriBiSeparator { .. }
-            | DesignTopology::CascadeCenterTrifurcationSeparator { .. } => 0.9,
-            DesignTopology::TriBiTriSelectiveVenturi => 1.1,
+            DesignTopology::PrimitiveSelectiveTree { .. } => 0.9,
             _ => 1.5,
         }
+    }
+}
+
+/// Human-readable split-stage sequence string for a topology.
+///
+/// Derives the arrow-separated sequence label (e.g. `"Tri→Bi"`) that
+/// [`cfd_schematics::BlueprintRenderHints`] embeds in the figure legend.
+fn topology_stage_sequence(t: DesignTopology) -> String {
+    match t {
+        DesignTopology::PrimitiveSelectiveTree { sequence } => sequence.label().to_owned(),
+        DesignTopology::TrifurcationBifurcationVenturi => "Tri→Bi".to_owned(),
+        DesignTopology::BifurcationTrifurcationVenturi => "Bi→Tri".to_owned(),
+        DesignTopology::TrifurcationBifurcationBifurcationVenturi => "Tri→Bi→Bi".to_owned(),
+        DesignTopology::TripleTrifurcationVenturi => "Tri→Tri→Tri".to_owned(),
+        DesignTopology::QuadTrifurcationVenturi => "Tri→Tri→Tri→Tri".to_owned(),
+        DesignTopology::DoubleTrifurcationVenturi => "Tri→Tri".to_owned(),
+        DesignTopology::DoubleBifurcationVenturi => "Bi→Bi".to_owned(),
+        DesignTopology::TripleBifurcationVenturi => "Bi→Bi→Bi".to_owned(),
+        DesignTopology::BifurcationVenturi | DesignTopology::BifurcationSerpentine => {
+            "Bi".to_owned()
+        }
+        DesignTopology::TrifurcationVenturi | DesignTopology::TrifurcationSerpentine => {
+            "Tri".to_owned()
+        }
+        _ => t.short().to_owned(),
+    }
+}
+
+/// Number of visible split layers for the topology legend.
+fn visible_split_layers(t: DesignTopology) -> usize {
+    match t {
+        DesignTopology::PrimitiveSelectiveTree { sequence } => usize::from(sequence.levels()),
+        DesignTopology::TrifurcationBifurcationVenturi
+        | DesignTopology::BifurcationTrifurcationVenturi
+        | DesignTopology::DoubleBifurcationVenturi
+        | DesignTopology::DoubleTrifurcationVenturi
+        | DesignTopology::DoubleBifurcationSerpentine => 2,
+        DesignTopology::TripleTrifurcationVenturi
+        | DesignTopology::TripleBifurcationVenturi
+        | DesignTopology::TrifurcationBifurcationBifurcationVenturi => 3,
+        DesignTopology::QuadTrifurcationVenturi => 4,
+        DesignTopology::BifurcationVenturi
+        | DesignTopology::TrifurcationVenturi
+        | DesignTopology::BifurcationSerpentine
+        | DesignTopology::TrifurcationSerpentine
+        | DesignTopology::AsymmetricBifurcationSerpentine
+        | DesignTopology::AsymmetricTrifurcationVenturi
+        | DesignTopology::CellSeparationVenturi
+        | DesignTopology::WbcCancerSeparationVenturi => 1,
+        _ => 0,
     }
 }
 
@@ -938,7 +888,10 @@ fn map_to_plate_coords(
                 next_node_id += 1;
                 sys.nodes.push(Node {
                     id: port_id,
+                    name: None,
                     point: (0.0, inlet_y),
+                    kind: None,
+                    junction_geometry: None,
                     metadata: None,
                 });
                 let (w, h) = sys
@@ -950,11 +903,19 @@ fn map_to_plate_coords(
                     });
                 sys.channels.push(Channel {
                     id: next_channel_id,
+                    name: None,
                     from_node: port_id,
                     to_node: inlet_node,
                     width: w,
                     height: h,
                     channel_type: ChannelType::Straight,
+                    visual_role: None,
+                    physical_length_m: None,
+                    physical_width_m: None,
+                    physical_height_m: None,
+                    physical_shape: None,
+                    therapy_zone: None,
+                    venturi_geometry: None,
                     metadata: None,
                 });
                 next_channel_id += 1;
@@ -966,7 +927,10 @@ fn map_to_plate_coords(
                 let port_id = next_node_id;
                 sys.nodes.push(Node {
                     id: port_id,
+                    name: None,
                     point: (PLATE_WIDTH_MM, outlet_y),
+                    kind: None,
+                    junction_geometry: None,
                     metadata: None,
                 });
                 let (w, h) = sys
@@ -978,11 +942,19 @@ fn map_to_plate_coords(
                     });
                 sys.channels.push(Channel {
                     id: next_channel_id,
+                    name: None,
                     from_node: outlet_node,
                     to_node: port_id,
                     width: w,
                     height: h,
                     channel_type: ChannelType::Straight,
+                    visual_role: None,
+                    physical_length_m: None,
+                    physical_width_m: None,
+                    physical_height_m: None,
+                    physical_shape: None,
+                    therapy_zone: None,
+                    venturi_geometry: None,
                     metadata: None,
                 });
             }
@@ -1052,8 +1024,9 @@ mod tests {
     fn channel_geometry_is_remapped_to_full_plate_bounds() {
         use cfd_schematics::geometry::ChannelType;
 
-        let candidate =
-            sample_candidate(DesignTopology::IncrementalFiltrationTriBiSeparator { n_pretri: 2 });
+        let candidate = sample_candidate(DesignTopology::PrimitiveSelectiveTree {
+            sequence: PrimitiveSplitSequence::TriTriBi,
+        });
         let system = candidate.to_channel_system();
 
         let mut x_min = f64::INFINITY;
@@ -1117,8 +1090,9 @@ mod tests {
     fn cif_report_schematic_supports_four_visible_split_layers() {
         use cfd_schematics::visualizations::{classify_node_roles, MarkerRole};
 
-        let mut candidate =
-            sample_candidate(DesignTopology::IncrementalFiltrationTriBiSeparator { n_pretri: 2 });
+        let mut candidate = sample_candidate(DesignTopology::PrimitiveSelectiveTree {
+            sequence: PrimitiveSplitSequence::TriTriBi,
+        });
         candidate.treatment_zone_mode = TreatmentZoneMode::UltrasoundOnly;
         let system = candidate.to_channel_system();
         let roles = classify_node_roles(&system);
@@ -1137,8 +1111,9 @@ mod tests {
     fn cct_report_schematic_supports_four_visible_split_layers() {
         use cfd_schematics::visualizations::{classify_node_roles, MarkerRole};
 
-        let candidate =
-            sample_candidate(DesignTopology::CascadeCenterTrifurcationSeparator { n_levels: 4 });
+        let candidate = sample_candidate(DesignTopology::PrimitiveSelectiveTree {
+            sequence: PrimitiveSplitSequence::TriTriTri,
+        });
         let system = candidate.to_channel_system();
         let roles = classify_node_roles(&system);
         let split_count = roles
@@ -1156,8 +1131,9 @@ mod tests {
     fn cif_report_schematic_uses_most_of_plate_height() {
         use cfd_schematics::geometry::ChannelType;
 
-        let mut candidate =
-            sample_candidate(DesignTopology::IncrementalFiltrationTriBiSeparator { n_pretri: 2 });
+        let mut candidate = sample_candidate(DesignTopology::PrimitiveSelectiveTree {
+            sequence: PrimitiveSplitSequence::TriTriBi,
+        });
         candidate.treatment_zone_mode = TreatmentZoneMode::UltrasoundOnly;
         let system = candidate.to_channel_system();
 
@@ -1188,7 +1164,7 @@ mod tests {
         let occupied_fraction = (y_max - y_min) / PLATE_HEIGHT_MM;
         assert!(
             occupied_fraction >= 0.80,
-            "expected CIF schematic to occupy at least 80% of plate height, got {occupied_fraction:.3}"
+            "expected selective-routing schematic to occupy at least 80% of plate height, got {occupied_fraction:.3}"
         );
     }
 }

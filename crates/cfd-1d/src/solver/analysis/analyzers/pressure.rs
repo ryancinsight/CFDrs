@@ -1,8 +1,8 @@
 //! Pressure analysis for network components
 
 use super::traits::NetworkAnalyzer;
-use crate::solver::analysis::PressureAnalysis;
 use crate::domain::network::Network;
+use crate::solver::analysis::PressureAnalysis;
 use cfd_core::error::Result;
 use nalgebra::RealField;
 use num_traits::FromPrimitive;

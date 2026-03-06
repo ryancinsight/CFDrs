@@ -59,7 +59,10 @@ impl<T: RealField + Copy + FromPrimitive> SimulationTimeConfig<T> {
     /// Generate output snapshot timepoints in `[0, duration]`.
     pub fn result_timepoints(&self) -> Result<Vec<T>> {
         self.validate()?;
-        Ok(Self::uniform_timepoints(self.duration, self.result_time_step))
+        Ok(Self::uniform_timepoints(
+            self.duration,
+            self.result_time_step,
+        ))
     }
 
     /// Generate internal calculation timepoints in `[0, duration]`.
@@ -165,8 +168,16 @@ impl TransientCompositionSimulator {
             ));
         }
 
-        events.sort_by(|a, b| a.time.partial_cmp(&b.time).unwrap_or(std::cmp::Ordering::Equal));
-        flow_events.sort_by(|a, b| a.time.partial_cmp(&b.time).unwrap_or(std::cmp::Ordering::Equal));
+        events.sort_by(|a, b| {
+            a.time
+                .partial_cmp(&b.time)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+        flow_events.sort_by(|a, b| {
+            a.time
+                .partial_cmp(&b.time)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         timepoints.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
         let mut active_inlet_mixtures: HashMap<usize, MixtureComposition<T>> = HashMap::new();
@@ -182,7 +193,9 @@ impl TransientCompositionSimulator {
                 event_cursor += 1;
             }
 
-            while flow_event_cursor < flow_events.len() && flow_events[flow_event_cursor].time <= time {
+            while flow_event_cursor < flow_events.len()
+                && flow_events[flow_event_cursor].time <= time
+            {
                 let flow_event = &flow_events[flow_event_cursor];
                 active_flow_overrides.insert(flow_event.edge_index, flow_event.flow_rate);
                 flow_event_cursor += 1;
@@ -198,7 +211,8 @@ impl TransientCompositionSimulator {
 
             let node_mixtures =
                 Self::solve_node_mixtures(network, &active_inlet_mixtures, &effective_flow_rates)?;
-            let edge_mixtures = Self::compute_edge_mixtures(network, &node_mixtures, &effective_flow_rates);
+            let edge_mixtures =
+                Self::compute_edge_mixtures(network, &node_mixtures, &effective_flow_rates);
 
             states.push(CompositionState {
                 time,
@@ -231,8 +245,16 @@ impl TransientCompositionSimulator {
             ));
         }
 
-        composition_events.sort_by(|a, b| a.time.partial_cmp(&b.time).unwrap_or(std::cmp::Ordering::Equal));
-        pressure_events.sort_by(|a, b| a.time.partial_cmp(&b.time).unwrap_or(std::cmp::Ordering::Equal));
+        composition_events.sort_by(|a, b| {
+            a.time
+                .partial_cmp(&b.time)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+        pressure_events.sort_by(|a, b| {
+            a.time
+                .partial_cmp(&b.time)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         timepoints.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
         let mut working_network = network.clone();
@@ -276,8 +298,11 @@ impl TransientCompositionSimulator {
                 &active_inlet_mixtures,
                 &effective_flow_rates,
             )?;
-            let edge_mixtures =
-                Self::compute_edge_mixtures(&working_network, &node_mixtures, &effective_flow_rates);
+            let edge_mixtures = Self::compute_edge_mixtures(
+                &working_network,
+                &node_mixtures,
+                &effective_flow_rates,
+            );
 
             states.push(CompositionState {
                 time,
@@ -294,10 +319,7 @@ impl TransientCompositionSimulator {
         (a - b).abs() <= tolerance
     }
 
-    fn sort_unique_timepoints<T: RealField + Copy>(
-        mut timepoints: Vec<T>,
-        tolerance: T,
-    ) -> Vec<T> {
+    fn sort_unique_timepoints<T: RealField + Copy>(mut timepoints: Vec<T>, tolerance: T) -> Vec<T> {
         timepoints.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
         let mut unique = Vec::with_capacity(timepoints.len());

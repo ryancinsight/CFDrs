@@ -29,7 +29,8 @@ impl ComponentFactory {
                     Error::InvalidConfiguration("Missing height parameter".into())
                 })?;
                 let roughness = params.get("roughness").copied().unwrap_or_else(|| {
-                    T::from_f64(constants::DEFAULT_ROUGHNESS).expect("Mathematical constant conversion compromised")
+                    T::from_f64(constants::DEFAULT_ROUGHNESS)
+                        .expect("Mathematical constant conversion compromised")
                 });
 
                 Ok(Box::new(RectangularChannel::new(
@@ -44,7 +45,8 @@ impl ComponentFactory {
                     Error::InvalidConfiguration("Missing diameter parameter".into())
                 })?;
                 let roughness = params.get("roughness").copied().unwrap_or_else(|| {
-                    T::from_f64(constants::DEFAULT_ROUGHNESS).expect("Mathematical constant conversion compromised")
+                    T::from_f64(constants::DEFAULT_ROUGHNESS)
+                        .expect("Mathematical constant conversion compromised")
                 });
 
                 Ok(Box::new(CircularChannel::new(
@@ -63,7 +65,8 @@ impl ComponentFactory {
             }
             "Microvalve" => {
                 let cv = params.get("cv").copied().unwrap_or_else(|| {
-                    T::from_f64(constants::DEFAULT_VALVE_CV).expect("Mathematical constant conversion compromised")
+                    T::from_f64(constants::DEFAULT_VALVE_CV)
+                        .expect("Mathematical constant conversion compromised")
                 });
 
                 Ok(Box::new(Microvalve::new(cv)))

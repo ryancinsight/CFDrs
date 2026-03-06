@@ -69,20 +69,15 @@ fn test_segre_silberberg_equilibrium_cancer_vs_rbc() {
 
     // RBC confinement ratio will be < 0.07, so they won't focus. This is expected.
 
-
     // Mean velocity: Q = 1 mL/min = 1.667e-8 m³/s → v = Q/(w×h)
     let q = 1e-6 / 60.0; // 1 mL/min in m³/s
     let v = q / (w * h);
 
-    let cancer_eq = lateral_equilibrium(
-        &cancer, BLOOD_DENSITY, BLOOD_VISCOSITY, v, w, h, None,
-    )
-    .expect("MCF-7 must focus in this channel");
+    let cancer_eq = lateral_equilibrium(&cancer, BLOOD_DENSITY, BLOOD_VISCOSITY, v, w, h, None)
+        .expect("MCF-7 must focus in this channel");
 
     // RBCs (7 µm) in 100 µm channel have κ < 0.07 so they remain dispersed
-    let rbc_eq = lateral_equilibrium(
-        &rbc, BLOOD_DENSITY, BLOOD_VISCOSITY, v, w, h, None,
-    );
+    let rbc_eq = lateral_equilibrium(&rbc, BLOOD_DENSITY, BLOOD_VISCOSITY, v, w, h, None);
 
     println!("MCF-7 equilibrium x̃ = {:.4}", cancer_eq.x_tilde_eq);
     println!("RBC focuses? {}", rbc_eq.is_some());
@@ -122,11 +117,26 @@ fn test_cell_separation_model_cancer_rbc_purity() {
         .analyze(&cancer, &rbc, BLOOD_DENSITY, BLOOD_VISCOSITY, v)
         .expect("analysis must succeed for these cell types");
 
-    println!("Cancer x̃_eq = {:.4}", analysis.target_equilibrium.x_tilde_eq);
-    println!("RBC x̃_eq   = {:.4}", analysis.background_equilibrium.x_tilde_eq);
-    println!("Separation efficiency = {:.4}", analysis.separation_efficiency);
-    println!("Cancer center fraction = {:.4}", analysis.target_center_fraction);
-    println!("RBC peripheral fraction = {:.4}", analysis.background_peripheral_fraction);
+    println!(
+        "Cancer x̃_eq = {:.4}",
+        analysis.target_equilibrium.x_tilde_eq
+    );
+    println!(
+        "RBC x̃_eq   = {:.4}",
+        analysis.background_equilibrium.x_tilde_eq
+    );
+    println!(
+        "Separation efficiency = {:.4}",
+        analysis.separation_efficiency
+    );
+    println!(
+        "Cancer center fraction = {:.4}",
+        analysis.target_center_fraction
+    );
+    println!(
+        "RBC peripheral fraction = {:.4}",
+        analysis.background_peripheral_fraction
+    );
     println!("Purity = {:.4}", analysis.purity);
 
     // Separation efficiency must be positive
@@ -136,10 +146,7 @@ fn test_cell_separation_model_cancer_rbc_purity() {
     );
 
     // Purity must be non-negative
-    assert!(
-        analysis.purity >= 0.0,
-        "Purity must be non-negative"
-    );
+    assert!(analysis.purity >= 0.0, "Purity must be non-negative");
 }
 
 // ── Test 2: Dean flow enhancement in curved channels ─────────────────────────
@@ -210,8 +217,7 @@ fn test_dean_flow_enhances_separation() {
 
     println!(
         "Straight sep_eff = {:.4}, Curved sep_eff = {:.4}",
-        straight_analysis.separation_efficiency,
-        curved_analysis.separation_efficiency
+        straight_analysis.separation_efficiency, curved_analysis.separation_efficiency
     );
 
     // Dean flow should change the equilibrium positions (not necessarily increase
@@ -222,7 +228,10 @@ fn test_dean_flow_enhances_separation() {
     // Dean drag pushes RBCs (small, deformable) further toward wall
     // (Dean drag is the same for both cell types but has larger relative effect
     // on smaller cells with weaker inertial lift)
-    println!("RBC x̃ straight={:.4}, curved={:.4}", rbc_straight, rbc_curved);
+    println!(
+        "RBC x̃ straight={:.4}, curved={:.4}",
+        rbc_straight, rbc_curved
+    );
     // At minimum, the Dean force must be non-zero in the curved case
     // Check Dean drag on focused cells (Cancer)
     assert!(
@@ -375,7 +384,9 @@ fn test_venturi_cavitation_onset_100um_throat() {
     let mut cond = FlowConditions::<f64>::new(v_inlet);
     cond.pressure = p_inlet_abs;
 
-    let analysis = model.analyze(&blood, &cond).expect("VenturiModel must succeed");
+    let analysis = model
+        .analyze(&blood, &cond)
+        .expect("VenturiModel must succeed");
 
     let v_throat = analysis.throat_velocity;
     let dynamic_pressure = 0.5 * BLOOD_DENSITY * v_throat * v_throat;
@@ -420,7 +431,9 @@ fn test_no_cavitation_large_throat() {
     let mut cond = FlowConditions::<f64>::new(v_inlet);
     cond.pressure = p_inlet_abs;
 
-    let analysis = model.analyze(&blood, &cond).expect("VenturiModel must succeed");
+    let analysis = model
+        .analyze(&blood, &cond)
+        .expect("VenturiModel must succeed");
 
     let v_throat = analysis.throat_velocity;
     let dynamic_pressure = 0.5 * BLOOD_DENSITY * v_throat * v_throat;

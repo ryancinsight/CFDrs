@@ -20,10 +20,10 @@
 
 /// Events for flow and boundary changes.
 pub mod events;
-/// Mixture state definitions.
-pub mod state;
 /// Main composition simulation engine.
 pub mod simulator;
+/// Mixture state definitions.
+pub mod state;
 
 pub use events::{EdgeFlowEvent, InletCompositionEvent, PressureBoundaryEvent};
 pub use simulator::{SimulationTimeConfig, TransientCompositionSimulator};

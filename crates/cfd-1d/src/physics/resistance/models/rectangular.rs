@@ -79,25 +79,35 @@ impl<T: RealField + Copy> RectangularChannelModel<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T>
-    for RectangularChannelModel<T>
-{
-    fn calculate_resistance<F: FluidTrait<T>>(&self, fluid: &F, conditions: &FlowConditions<T>) -> Result<T> {
+impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for RectangularChannelModel<T> {
+    fn calculate_resistance<F: FluidTrait<T>>(
+        &self,
+        fluid: &F,
+        conditions: &FlowConditions<T>,
+    ) -> Result<T> {
         let (r, k) = self.calculate_coefficients(fluid, conditions)?;
         let q = conditions.flow_rate.unwrap_or_else(T::zero);
         let q_abs = if q >= T::zero() { q } else { -q };
         Ok(r + k * q_abs)
     }
 
-    fn calculate_coefficients<F: FluidTrait<T>>(&self, fluid: &F, conditions: &FlowConditions<T>) -> Result<(T, T)> {
-        let viscosity = fluid.viscosity_at_shear(T::zero(), conditions.temperature, conditions.pressure)?;
+    fn calculate_coefficients<F: FluidTrait<T>>(
+        &self,
+        fluid: &F,
+        conditions: &FlowConditions<T>,
+    ) -> Result<(T, T)> {
+        let viscosity =
+            fluid.viscosity_at_shear(T::zero(), conditions.temperature, conditions.pressure)?;
 
         // Calculate hydraulic diameter
         let area = self.width * self.height;
-        let perimeter =
-            T::from_f64(PERIMETER_FACTOR).expect("Mathematical constant conversion compromised") * (self.width + self.height);
-        let dh =
-            T::from_f64(HYDRAULIC_DIAMETER_FACTOR).expect("Mathematical constant conversion compromised") * area / perimeter;
+        let perimeter = T::from_f64(PERIMETER_FACTOR)
+            .expect("Mathematical constant conversion compromised")
+            * (self.width + self.height);
+        let dh = T::from_f64(HYDRAULIC_DIAMETER_FACTOR)
+            .expect("Mathematical constant conversion compromised")
+            * area
+            / perimeter;
 
         // Calculate aspect ratio (always ≥ 1 for consistency)
         let aspect_ratio =
@@ -119,16 +129,23 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T>
         "Rectangular Channel (Exact)"
     }
 
-    fn validate_invariants<F: FluidTrait<T>>(&self, fluid: &F, conditions: &FlowConditions<T>) -> Result<()> {
+    fn validate_invariants<F: FluidTrait<T>>(
+        &self,
+        fluid: &F,
+        conditions: &FlowConditions<T>,
+    ) -> Result<()> {
         // Call Mach number validation
         self.validate_mach_number(fluid, conditions)?;
 
         // Entrance length validation: L/Dh > 10
         let area = self.width * self.height;
-        let perimeter =
-            T::from_f64(PERIMETER_FACTOR).expect("Mathematical constant conversion compromised") * (self.width + self.height);
-        let dh =
-            T::from_f64(HYDRAULIC_DIAMETER_FACTOR).expect("Mathematical constant conversion compromised") * area / perimeter;
+        let perimeter = T::from_f64(PERIMETER_FACTOR)
+            .expect("Mathematical constant conversion compromised")
+            * (self.width + self.height);
+        let dh = T::from_f64(HYDRAULIC_DIAMETER_FACTOR)
+            .expect("Mathematical constant conversion compromised")
+            * area
+            / perimeter;
 
         let ratio = self.length / dh;
         let limit = T::from_f64(10.0).expect("Mathematical constant conversion compromised");
@@ -145,11 +162,7 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T>
     }
 
     fn reynolds_range(&self) -> (T, T) {
-        (
-            T::zero(),
-            T::from_f64(2300.0)
-                .unwrap_or_else(|| T::zero()),
-        )
+        (T::zero(), T::from_f64(2300.0).unwrap_or_else(|| T::zero()))
     }
 }
 

@@ -86,10 +86,10 @@ use serde::{Deserialize, Serialize};
 
 // Named constants for entrance effects (Idelchik 1994 §5)
 const SUDDEN_CONTRACTION_CONSTANT: f64 = 0.1; // Low-Re correction coefficient (Idelchik Table 5-1)
-const SMOOTH_CONTRACTION_BASE: f64 = 0.05;    // Blevins (1984) smooth inlet base
-const SMOOTH_CONTRACTION_SLOPE: f64 = 0.19;   // Blevins (1984) smooth inlet area-ratio coefficient
-const TURBULENT_TRANSITION_RE: f64 = 1e4;     // Turbulent-onset Re for smooth-inlet correlation
-const MAX_REYNOLDS_ENTRANCE: f64 = 1e6;       // Upper Re limit for model applicability
+const SMOOTH_CONTRACTION_BASE: f64 = 0.05; // Blevins (1984) smooth inlet base
+const SMOOTH_CONTRACTION_SLOPE: f64 = 0.19; // Blevins (1984) smooth inlet area-ratio coefficient
+const TURBULENT_TRANSITION_RE: f64 = 1e4; // Turbulent-onset Re for smooth-inlet correlation
+const MAX_REYNOLDS_ENTRANCE: f64 = 1e6; // Upper Re limit for model applicability
 /// Exact laminar entrance coefficient from Langhaar (1942)
 const LAMINAR_SMOOTH_ENTRANCE_COEFFICIENT: f64 = 1.25;
 
@@ -158,7 +158,11 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceModel<T>
     ) -> Result<T> {
         let (r, k) = self.calculate_coefficients(fluid, conditions)?;
         let q_mag = if let Some(q) = conditions.flow_rate {
-            if q >= T::zero() { q } else { -q }
+            if q >= T::zero() {
+                q
+            } else {
+                -q
+            }
         } else if let Some(v) = conditions.velocity {
             let v_abs = if v >= T::zero() { v } else { -v };
             v_abs * self.downstream_area
@@ -207,8 +211,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceModel<T>
         // k = K_entry · ρ / (2 · A₂²)   [Pa·s²/m⁶]
         // Derivation: ΔP = K · ½ρV₂² = K · ρQ²/(2A₂²)
         let two = T::one() + T::one();
-        let k_coeff = k_entry * rho
-            / (two * self.downstream_area * self.downstream_area);
+        let k_coeff = k_entry * rho / (two * self.downstream_area * self.downstream_area);
 
         Ok((T::zero(), k_coeff))
     }
@@ -220,7 +223,8 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceModel<T>
     fn reynolds_range(&self) -> (T, T) {
         (
             T::zero(),
-            T::from_f64(MAX_REYNOLDS_ENTRANCE).expect("Mathematical constant conversion compromised"),
+            T::from_f64(MAX_REYNOLDS_ENTRANCE)
+                .expect("Mathematical constant conversion compromised"),
         )
     }
 
@@ -269,7 +273,8 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> EntranceEffectsMod
         // base: 0.5·(1 − A₂/A₁)
         let k_base = (T::one() / (T::one() + T::one())) * contraction_ratio;
         // Low-Re correction: multiply by (1 + C/Re)
-        let c = T::from_f64(SUDDEN_CONTRACTION_CONSTANT).expect("Mathematical constant conversion compromised");
+        let c = T::from_f64(SUDDEN_CONTRACTION_CONSTANT)
+            .expect("Mathematical constant conversion compromised");
         let re_correction = c / reynolds;
         k_base * (T::one() + re_correction)
     }
@@ -279,14 +284,19 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> EntranceEffectsMod
     /// Turbulent (Re > 10⁴): `K = 0.05 + 0.19 · (A₁/A₂)`  [Blevins 1984 ch. 6]
     /// Laminar: `K = 1.25`  [Langhaar 1942 exact analytical solution]
     fn calculate_smooth_contraction_coefficient(&self, area_ratio: T, reynolds: T) -> T {
-        let re_transition = T::from_f64(TURBULENT_TRANSITION_RE).expect("Mathematical constant conversion compromised");
+        let re_transition = T::from_f64(TURBULENT_TRANSITION_RE)
+            .expect("Mathematical constant conversion compromised");
         if reynolds > re_transition {
             // Turbulent smooth inlet correlation (Blevins 1984)
-            T::from_f64(SMOOTH_CONTRACTION_BASE).expect("Mathematical constant conversion compromised")
-                + T::from_f64(SMOOTH_CONTRACTION_SLOPE).expect("Mathematical constant conversion compromised") * area_ratio
+            T::from_f64(SMOOTH_CONTRACTION_BASE)
+                .expect("Mathematical constant conversion compromised")
+                + T::from_f64(SMOOTH_CONTRACTION_SLOPE)
+                    .expect("Mathematical constant conversion compromised")
+                    * area_ratio
         } else {
             // Laminar: Langhaar (1942) exact total entrance coefficient = 1.25
-            T::from_f64(LAMINAR_SMOOTH_ENTRANCE_COEFFICIENT).expect("Mathematical constant conversion compromised")
+            T::from_f64(LAMINAR_SMOOTH_ENTRANCE_COEFFICIENT)
+                .expect("Mathematical constant conversion compromised")
         }
     }
 }
@@ -331,7 +341,10 @@ mod tests {
         conditions.reynolds_number = Some(1000.0);
 
         let (r, k) = model.calculate_coefficients(&fluid, &conditions)?;
-        assert_eq!(r, 0.0, "Linear coefficient should be zero for entrance effects");
+        assert_eq!(
+            r, 0.0,
+            "Linear coefficient should be zero for entrance effects"
+        );
         assert!(k > 0.0, "Quadratic coefficient must be positive, got {}", k);
         assert!(k.is_finite(), "Quadratic coefficient must be finite");
 
@@ -394,7 +407,12 @@ mod tests {
         let (_, k_high) = model.calculate_coefficients(&fluid, &make_cond(1000.0))?;
 
         // Higher Re → smaller 1/Re correction → smaller K → smaller k
-        assert!(k_high < k_low, "k at Re=1000 ({}) should be < k at Re=100 ({})", k_high, k_low);
+        assert!(
+            k_high < k_low,
+            "k at Re=1000 ({}) should be < k at Re=100 ({})",
+            k_high,
+            k_low
+        );
         Ok(())
     }
 
@@ -407,10 +425,8 @@ mod tests {
         let s = 2.0_f64;
         let model_base = EntranceEffectsModel::sudden_contraction(4.0 * base_down, base_down);
         // Scale both areas by s², keeping area ratio constant
-        let model_scaled = EntranceEffectsModel::sudden_contraction(
-            4.0 * base_down * s * s,
-            base_down * s * s,
-        );
+        let model_scaled =
+            EntranceEffectsModel::sudden_contraction(4.0 * base_down * s * s, base_down * s * s);
         let fluid = water();
         let mut conditions = FlowConditions::new(0.1_f64);
         conditions.reynolds_number = Some(1000.0);

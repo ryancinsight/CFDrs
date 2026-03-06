@@ -1,7 +1,7 @@
 use cfd_1d::domain::network::{Network, NetworkBuilder};
 use cfd_1d::solver::core::{
-    CompositionState, DropletInjection, DropletState, EdgeFlowEvent, InletCompositionEvent,
-    MixtureComposition, DropletSplitPolicy, PressureBoundaryEvent, SplitMode,
+    CompositionState, DropletInjection, DropletSplitPolicy, DropletState, EdgeFlowEvent,
+    InletCompositionEvent, MixtureComposition, PressureBoundaryEvent, SplitMode,
     TransientCompositionSimulator, TransientDropletSimulator,
 };
 use std::collections::HashMap;
@@ -49,7 +49,8 @@ fn droplet_transitions_to_sink_with_channel_occupancy_tracking() {
     }];
 
     let states =
-        TransientDropletSimulator::simulate_on_composition(&network, injections, composition).expect("droplets");
+        TransientDropletSimulator::simulate_on_composition(&network, injections, composition)
+            .expect("droplets");
 
     assert_eq!(states[0].droplets[&7].state, DropletState::Injection);
     assert_eq!(states[1].droplets[&7].state, DropletState::Network);
@@ -87,7 +88,8 @@ fn droplet_transitions_to_trapped_when_no_outgoing_path() {
     }];
 
     let states =
-        TransientDropletSimulator::simulate_on_composition(&network, injections, composition).expect("droplets");
+        TransientDropletSimulator::simulate_on_composition(&network, injections, composition)
+            .expect("droplets");
 
     assert_eq!(states[0].droplets[&8].state, DropletState::Network);
     assert_eq!(states[2].droplets[&8].state, DropletState::Trapped);
@@ -123,7 +125,8 @@ fn droplet_splits_flow_weighted_with_volume_conservation() {
     }];
 
     let states =
-        TransientDropletSimulator::simulate_on_composition(&network, injections, composition).expect("droplets");
+        TransientDropletSimulator::simulate_on_composition(&network, injections, composition)
+            .expect("droplets");
 
     let s2 = &states[2].droplets[&11];
     assert_eq!(s2.state, DropletState::Network);
@@ -170,7 +173,8 @@ fn split_branches_merge_back_at_reconvergence() {
     }];
 
     let states =
-        TransientDropletSimulator::simulate_on_composition(&network, injections, composition).expect("droplets");
+        TransientDropletSimulator::simulate_on_composition(&network, injections, composition)
+            .expect("droplets");
 
     let split_state = &states[1].droplets[&12];
     assert_eq!(split_state.state, DropletState::Network);

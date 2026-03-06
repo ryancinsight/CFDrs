@@ -4,6 +4,146 @@ use crate::constraints::TREATMENT_WELL_COUNT;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum PrimitiveSplitSequence {
+    Bi,
+    Tri,
+    BiBi,
+    BiTri,
+    TriBi,
+    TriTri,
+    BiBiBi,
+    BiBiTri,
+    BiTriBi,
+    BiTriTri,
+    TriBiBi,
+    TriBiTri,
+    TriTriBi,
+    TriTriTri,
+}
+
+impl PrimitiveSplitSequence {
+    #[must_use]
+    pub const fn levels(self) -> u8 {
+        match self {
+            Self::Bi | Self::Tri => 1,
+            Self::BiBi | Self::BiTri | Self::TriBi | Self::TriTri => 2,
+            Self::BiBiBi
+            | Self::BiBiTri
+            | Self::BiTriBi
+            | Self::BiTriTri
+            | Self::TriBiBi
+            | Self::TriBiTri
+            | Self::TriTriBi
+            | Self::TriTriTri => 3,
+        }
+    }
+
+    #[must_use]
+    pub const fn split_types(self) -> u8 {
+        match self {
+            Self::Bi => 0b0,
+            Self::Tri => 0b1,
+            Self::BiBi => 0b00,
+            Self::BiTri => 0b10,
+            Self::TriBi => 0b01,
+            Self::TriTri => 0b11,
+            Self::BiBiBi => 0b000,
+            Self::BiBiTri => 0b100,
+            Self::BiTriBi => 0b010,
+            Self::BiTriTri => 0b110,
+            Self::TriBiBi => 0b001,
+            Self::TriBiTri => 0b101,
+            Self::TriTriBi => 0b011,
+            Self::TriTriTri => 0b111,
+        }
+    }
+
+    #[must_use]
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Bi => "Bi",
+            Self::Tri => "Tri",
+            Self::BiBi => "Bi→Bi",
+            Self::BiTri => "Bi→Tri",
+            Self::TriBi => "Tri→Bi",
+            Self::TriTri => "Tri→Tri",
+            Self::BiBiBi => "Bi→Bi→Bi",
+            Self::BiBiTri => "Bi→Bi→Tri",
+            Self::BiTriBi => "Bi→Tri→Bi",
+            Self::BiTriTri => "Bi→Tri→Tri",
+            Self::TriBiBi => "Tri→Bi→Bi",
+            Self::TriBiTri => "Tri→Bi→Tri",
+            Self::TriTriBi => "Tri→Tri→Bi",
+            Self::TriTriTri => "Tri→Tri→Tri",
+        }
+    }
+
+    #[must_use]
+    pub const fn short_code(self) -> &'static str {
+        match self {
+            Self::Bi => "PSB1",
+            Self::Tri => "PST1",
+            Self::BiBi => "PSB2",
+            Self::BiTri => "PSBT",
+            Self::TriBi => "PSTB",
+            Self::TriTri => "PST2",
+            Self::BiBiBi => "PSB3",
+            Self::BiBiTri => "PSBBT",
+            Self::BiTriBi => "PSBTB",
+            Self::BiTriTri => "PSBTT",
+            Self::TriBiBi => "PSTBB",
+            Self::TriBiTri => "PSTBT",
+            Self::TriTriBi => "PSTTB",
+            Self::TriTriTri => "PST3",
+        }
+    }
+
+    #[must_use]
+    pub const fn first_stage_is_tri(self) -> bool {
+        matches!(
+            self,
+            Self::Tri
+                | Self::TriBi
+                | Self::TriTri
+                | Self::TriBiBi
+                | Self::TriBiTri
+                | Self::TriTriBi
+                | Self::TriTriTri
+        )
+    }
+
+    #[must_use]
+    pub const fn terminal_branch_count(self) -> usize {
+        let mut count = 1usize;
+        let levels = self.levels() as usize;
+        let bits = self.split_types();
+        let mut i = 0usize;
+        while i < levels {
+            count *= if ((bits >> i) & 1) == 0 { 2 } else { 3 };
+            i += 1;
+        }
+        count
+    }
+
+    #[must_use]
+    pub const fn treatment_branch_count(self) -> usize {
+        if !self.first_stage_is_tri() {
+            return self.terminal_branch_count();
+        }
+        match self {
+            Self::Tri => 1,
+            Self::TriBi => 2,
+            Self::TriTri => 3,
+            Self::TriBiBi => 4,
+            Self::TriBiTri => 6,
+            Self::TriTriBi => 6,
+            Self::TriTriTri => 9,
+            _ => self.terminal_branch_count(),
+        }
+    }
+}
+
 // ── Topology families ────────────────────────────────────────────────────────
 
 /// The five millifluidic topology families for SDT / exposure optimization.
@@ -126,87 +266,13 @@ pub enum DesignTopology {
     /// all four levels produces extreme terminal-channel narrowing at high `frac`.
     QuadTrifurcationVenturi,
 
-    /// CIF-inspired cascade: only the center arm is re-trifurcated at each stage.
+    /// Primitive mirrored split tree with selective branch-diameter routing.
     ///
-    /// Level 1: inlet → Tri(asym) → `center_arm` + `L1_bypass` + `R1_bypass`
-    /// Level 2: `center_arm` → Tri(asym) → `center_center` + `L2_bypass` + `R2_bypass`
-    /// Level N (optional): repeat on `center_center`
-    ///
-    /// After the cascade the deepest center arm passes through a **venturi throat**
-    /// (cancer-enriched, cavitation treatment), then all arms — venturi stream and
-    /// all bypass channels — **converge at a single outlet**.
-    ///
-    /// Zweifach-Fung junction routing concentrates large/stiff cells (cancer, WBC)
-    /// into the center arm with each cascade level; peripheral bypass channels carry
-    /// the RBC-enriched fraction through wide, low-shear paths, minimising haemolysis.
-    ///
-    /// Hemolysis and PAI are computed using the **local hematocrit** at the venturi
-    /// (lower than feed hematocrit because RBCs are preferentially diverted to bypass),
-    /// rewarding designs that maximally protect RBCs while targeting cancer cells.
-    CascadeCenterTrifurcationSeparator {
-        /// Number of cascade trifurcation levels (1–3).
-        n_levels: u8,
-    },
-
-    /// Controlled incremental filtration (CIF): pre-trifurcation cascade,
-    /// then terminal trifurcation + bifurcation skimming before one venturi.
-    ///
-    /// Sequence:
-    /// 1. `n_pretri` center-only trifurcations for progressive RBC skimming.
-    /// 2. Terminal trifurcation to intensify center-path enrichment.
-    /// 3. Terminal bifurcation to route the high-flow treatment arm to venturi.
-    ///
-    /// All bypass arms merge back internally and the device still exposes a
-    /// single external outlet.
-    IncrementalFiltrationTriBiSeparator {
-        /// Number of initial center-cascade trifurcation levels (1–3).
-        n_pretri: u8,
-    },
-
-    /// Double trifurcation with differential venturi throat counts per channel.
-    ///
-    /// Implements the SDT Millifluidic Device layout shown in the
-    /// `treatment_zone_plate_trifurcation` figure:
-    ///
-    /// ```text
-    /// Inlet → 1st trifurcation → [outer bypass ch 1–3, 7–9] + [center 3 channels]
-    ///         2nd trifurcation (CIF) → center sub-channels 4–6 → sonication zone
-    /// ```
-    ///
-    /// **Channel topology**:
-    /// - Outer channels (RBC bypass, ch 1–3 and ch 7–9): 0 venturi throats —
-    ///   bypass the sonication zone entirely; hemolysis is shear-only.
-    /// - Center channels (CTC-enriched, ch 4–6): `center_throat_count` serial
-    ///   venturi throats in the sonication zone — maximised cavitation dose.
-    ///
-    /// The asymmetry is the physically correct model for the figure:
-    /// RBCs and WBCs are temporarily separated to the periphery to focus
-    /// ultrasound/hydrodynamic cavitation on the CTC-enriched center stream.
-    /// After treatment, all streams re-merge at the outlet junction.
-    ///
-    /// # Physics
-    ///
-    /// Zweifach-Fung routing at the first trifurcation concentrates large/stiff
-    /// cancer cells (MCF-7, ~17.5 µm) into the center arm.  The second
-    /// trifurcation (CIF stage) further enriches the center sub-channels.
-    /// `center_throat_count` serial throats deliver cumulative SDT dose:
-    ///
-    /// ```text
-    /// dose = 1 − (1 − σ_cav_potential)^{center_throat_count}
-    /// ```
-    ///
-    /// FDA compliance requires each individual throat to satisfy σ < σ_crit
-    /// AND the Bernoulli pressure drop at each throat to keep the equivalent
-    /// mechanical index below 1.9 (FDA 510(k) guidance, 2019).
-    DoubleTrifurcationCIFVenturi {
-        /// Number of serial venturi throats on each CTC-enriched center channel.
-        ///
-        /// - `1` → single throat per center channel (baseline SDT).
-        /// - `2–4` → multi-throat for enhanced cumulative cavitation dose.
-        ///
-        /// Outer bypass channels always have 0 throats.
-        center_throat_count: u8,
-    },
+    /// The geometry is composed only of bifurcations, trifurcations,
+    /// optional treatment-branch serpentines, and venturi throats.
+    /// Selective routing is represented as the per-stage branch-diameter
+    /// allocation, not as a separate topology family.
+    PrimitiveSelectiveTree { sequence: PrimitiveSplitSequence },
 
     // ── Serial venturis ──────────────────────────────────────────────────────
     /// 2 venturi throats in series on the same flow path.
@@ -265,18 +331,6 @@ pub enum DesignTopology {
     /// Independent left/right fractions enable 3-stream sorting: cancer treatment,
     /// WBC recovery, and RBC waste in a single-pass millifluidic chip.
     AsymmetricTrifurcationVenturi,
-
-    /// Tri → Bi → Tri cascade with center-only venturi for ultra-selective SDT.
-    ///
-    /// Three progressive focusing stages ensure only the most cancer-enriched
-    /// center stream reaches the venturi cavitation zone:
-    /// - Stage 1: Trifurcation (L/R → HealthyBypass, center → stage 2)
-    /// - Stage 2: Bifurcation (bypass → HealthyBypass, treatment → stage 3)
-    /// - Stage 3: Trifurcation (L/R → HealthyBypass, center → venturi)
-    ///
-    /// `trifurcation_center_frac` controls stage-1 and stage-3 splits;
-    /// `cif_terminal_bi_treat_frac` controls the stage-2 bifurcation.
-    TriBiTriSelectiveVenturi,
 
     // ── Leukapheresis / inertial cell separation ─────────────────────────────
     /// N alternating wide→narrow constriction-expansion cycles.
@@ -352,13 +406,24 @@ impl DesignTopology {
     #[must_use]
     pub fn name(self) -> &'static str {
         match self {
-            Self::DoubleTrifurcationCIFVenturi {
-                center_throat_count,
-            } => {
-                // Static name; count encoded in `short()` for candidate IDs.
-                let _ = center_throat_count;
-                "Double Trifurcation CIF + Differential Venturi (Center CTC Treatment)"
-            }
+            Self::PrimitiveSelectiveTree { sequence } => match sequence {
+                PrimitiveSplitSequence::Bi => "Primitive Selective Split Sequence Bi",
+                PrimitiveSplitSequence::Tri => "Primitive Selective Split Sequence Tri",
+                PrimitiveSplitSequence::BiBi => "Primitive Selective Split Sequence Bi→Bi",
+                PrimitiveSplitSequence::BiTri => "Primitive Selective Split Sequence Bi→Tri",
+                PrimitiveSplitSequence::TriBi => "Primitive Selective Split Sequence Tri→Bi",
+                PrimitiveSplitSequence::TriTri => "Primitive Selective Split Sequence Tri→Tri",
+                PrimitiveSplitSequence::BiBiBi => "Primitive Selective Split Sequence Bi→Bi→Bi",
+                PrimitiveSplitSequence::BiBiTri => "Primitive Selective Split Sequence Bi→Bi→Tri",
+                PrimitiveSplitSequence::BiTriBi => "Primitive Selective Split Sequence Bi→Tri→Bi",
+                PrimitiveSplitSequence::BiTriTri => "Primitive Selective Split Sequence Bi→Tri→Tri",
+                PrimitiveSplitSequence::TriBiBi => "Primitive Selective Split Sequence Tri→Bi→Bi",
+                PrimitiveSplitSequence::TriBiTri => "Primitive Selective Split Sequence Tri→Bi→Tri",
+                PrimitiveSplitSequence::TriTriBi => "Primitive Selective Split Sequence Tri→Tri→Bi",
+                PrimitiveSplitSequence::TriTriTri => {
+                    "Primitive Selective Split Sequence Tri→Tri→Tri"
+                }
+            },
             Self::SingleVenturi => "Single Venturi",
             Self::BifurcationVenturi => "Bifurcation + Venturi",
             Self::TrifurcationVenturi => "Trifurcation + Venturi",
@@ -376,12 +441,6 @@ impl DesignTopology {
                 "Trifurcation → Bifurcation → Bifurcation → 12× Venturi"
             }
             Self::QuadTrifurcationVenturi => "Quad Trifurcation [Tri^4] → 81× Venturi",
-            Self::CascadeCenterTrifurcationSeparator { .. } => {
-                "Cascade Center Trifurcation Separator"
-            }
-            Self::IncrementalFiltrationTriBiSeparator { .. } => {
-                "Incremental Filtration Tri→Tri/Bi Separator"
-            }
             Self::SerialDoubleVenturi => "Serial Double Venturi",
             Self::BifurcationSerpentine => "Bifurcation → 2× Serpentine",
             Self::DoubleBifurcationSerpentine => "Double Bifurcation [Bi,Bi] → 4× Serpentine",
@@ -390,7 +449,6 @@ impl DesignTopology {
             Self::AsymmetricTrifurcationVenturi => {
                 "Asymmetric 3-Stream Trifurcation + Center Venturi"
             }
-            Self::TriBiTriSelectiveVenturi => "Tri→Bi→Tri Selective Center Venturi",
             Self::ConstrictionExpansionArray { .. } => "Constriction-Expansion Array",
             Self::SpiralSerpentine { .. } => "Spiral Serpentine",
             Self::ParallelMicrochannelArray { .. } => "Parallel Microchannel Array",
@@ -402,7 +460,7 @@ impl DesignTopology {
     #[must_use]
     pub fn short(self) -> &'static str {
         match self {
-            Self::DoubleTrifurcationCIFVenturi { .. } => "DTCV",
+            Self::PrimitiveSelectiveTree { sequence } => sequence.short_code(),
             Self::SingleVenturi => "SV",
             Self::BifurcationVenturi => "BV",
             Self::TrifurcationVenturi => "TV",
@@ -418,15 +476,12 @@ impl DesignTopology {
             Self::TripleTrifurcationVenturi => "T27",
             Self::TrifurcationBifurcationBifurcationVenturi => "TBB",
             Self::QuadTrifurcationVenturi => "T81",
-            Self::CascadeCenterTrifurcationSeparator { .. } => "CCT",
-            Self::IncrementalFiltrationTriBiSeparator { .. } => "CIF",
             Self::SerialDoubleVenturi => "S2",
             Self::BifurcationSerpentine => "BS",
             Self::DoubleBifurcationSerpentine => "D4S",
             Self::TrifurcationSerpentine => "TS",
             Self::AsymmetricBifurcationSerpentine => "AB",
             Self::AsymmetricTrifurcationVenturi => "ATV",
-            Self::TriBiTriSelectiveVenturi => "TBT",
             Self::ConstrictionExpansionArray { .. } => "CE",
             Self::SpiralSerpentine { .. } => "SP",
             Self::ParallelMicrochannelArray { .. } => "PM",
@@ -441,7 +496,7 @@ impl DesignTopology {
     pub fn has_venturi(self) -> bool {
         matches!(
             self,
-            Self::DoubleTrifurcationCIFVenturi { .. }
+            Self::PrimitiveSelectiveTree { .. }
                 | Self::SingleVenturi
                 | Self::BifurcationVenturi
                 | Self::TrifurcationVenturi
@@ -456,10 +511,7 @@ impl DesignTopology {
                 | Self::TripleTrifurcationVenturi
                 | Self::TrifurcationBifurcationBifurcationVenturi
                 | Self::QuadTrifurcationVenturi
-                | Self::CascadeCenterTrifurcationSeparator { .. }
-                | Self::IncrementalFiltrationTriBiSeparator { .. }
                 | Self::AsymmetricTrifurcationVenturi
-                | Self::TriBiTriSelectiveVenturi
                 | Self::SerialDoubleVenturi
                 | Self::AdaptiveTree { .. }
         )
@@ -473,8 +525,8 @@ impl DesignTopology {
     #[must_use]
     pub fn has_distribution(self) -> bool {
         match self {
-            Self::DoubleTrifurcationCIFVenturi { .. }
-            | Self::BifurcationVenturi
+            Self::PrimitiveSelectiveTree { sequence } => sequence.levels() > 0,
+            Self::BifurcationVenturi
             | Self::TrifurcationVenturi
             | Self::VenturiSerpentine
             | Self::SerpentineGrid
@@ -488,10 +540,7 @@ impl DesignTopology {
             | Self::TripleTrifurcationVenturi
             | Self::TrifurcationBifurcationBifurcationVenturi
             | Self::QuadTrifurcationVenturi
-            | Self::CascadeCenterTrifurcationSeparator { .. }
-            | Self::IncrementalFiltrationTriBiSeparator { .. }
             | Self::AsymmetricTrifurcationVenturi
-            | Self::TriBiTriSelectiveVenturi
             | Self::BifurcationSerpentine
             | Self::DoubleBifurcationSerpentine
             | Self::TrifurcationSerpentine
@@ -508,7 +557,8 @@ impl DesignTopology {
     pub fn has_serpentine(self) -> bool {
         matches!(
             self,
-            Self::VenturiSerpentine
+            Self::PrimitiveSelectiveTree { .. }
+                | Self::VenturiSerpentine
                 | Self::SerpentineGrid
                 | Self::BifurcationSerpentine
                 | Self::DoubleBifurcationSerpentine
@@ -524,10 +574,7 @@ impl DesignTopology {
     #[must_use]
     pub fn venturi_count(self) -> usize {
         match self {
-            // 3 center channels × center_throat_count serial throats each
-            Self::DoubleTrifurcationCIFVenturi {
-                center_throat_count,
-            } => 3 * usize::from(center_throat_count),
+            Self::PrimitiveSelectiveTree { sequence } => sequence.treatment_branch_count(),
             Self::SingleVenturi => 1,
             Self::BifurcationVenturi => 2,
             Self::TrifurcationVenturi => 3,
@@ -543,10 +590,7 @@ impl DesignTopology {
             Self::TripleTrifurcationVenturi => 27,
             Self::TrifurcationBifurcationBifurcationVenturi => 12,
             Self::QuadTrifurcationVenturi => 81,
-            Self::CascadeCenterTrifurcationSeparator { .. } => 1, // single centre-arm venturi
-            Self::IncrementalFiltrationTriBiSeparator { .. } => 1, // single treatment-arm venturi
-            Self::AsymmetricTrifurcationVenturi => 1,             // single center-arm venturi
-            Self::TriBiTriSelectiveVenturi => 1,                  // single center-path venturi
+            Self::AsymmetricTrifurcationVenturi => 1, // single center-arm venturi
             // Serial: 2 in series on one path
             Self::SerialDoubleVenturi => 2,
             Self::BifurcationSerpentine => 0,
@@ -578,8 +622,7 @@ impl DesignTopology {
     #[must_use]
     pub fn parallel_venturi_count(self) -> usize {
         match self {
-            // 3 center channels are parallel; each has serial throats.
-            Self::DoubleTrifurcationCIFVenturi { .. } => 3,
+            Self::PrimitiveSelectiveTree { sequence } => sequence.treatment_branch_count(),
             Self::SerialDoubleVenturi => 1, // full Q through each stage in series
             _ => self.venturi_count(),
         }
@@ -587,14 +630,11 @@ impl DesignTopology {
 
     /// Number of serial venturi stages on one flow path.
     ///
-    /// `1` for all topologies except `SerialDoubleVenturi` (2) and
-    /// `DoubleTrifurcationCIFVenturi` which uses `center_throat_count`.
+    /// `1` for all topologies except `SerialDoubleVenturi` (2).
     #[must_use]
     pub fn serial_venturi_stages(self) -> usize {
         match self {
-            Self::DoubleTrifurcationCIFVenturi {
-                center_throat_count,
-            } => usize::from(center_throat_count),
+            Self::PrimitiveSelectiveTree { .. } => 1,
             Self::SerialDoubleVenturi => 2,
             _ if self.has_venturi() => 1,
             _ => 0,
@@ -637,8 +677,7 @@ impl DesignTopology {
     #[must_use]
     pub fn terminal_branch_count(self) -> usize {
         match self {
-            // 9 total channels: 3 center (CTC-enriched) + 6 bypass (RBC/WBC)
-            Self::DoubleTrifurcationCIFVenturi { .. } => 9,
+            Self::PrimitiveSelectiveTree { sequence } => sequence.terminal_branch_count(),
             Self::SingleVenturi
             | Self::SerialDoubleVenturi
             | Self::VenturiSerpentine
@@ -663,16 +702,10 @@ impl DesignTopology {
             Self::TripleBifurcationVenturi => 8,
             Self::DoubleTrifurcationVenturi => 9,
             Self::TrifurcationBifurcationBifurcationVenturi => 12,
-            Self::TriBiTriSelectiveVenturi => 18, // 3 × 2 × 3
             Self::TripleTrifurcationVenturi => 27,
             Self::QuadTrifurcationVenturi => 81,
 
             Self::ParallelMicrochannelArray { n_channels } => n_channels,
-
-            Self::CascadeCenterTrifurcationSeparator { n_levels } => 3usize.pow(n_levels as u32),
-            Self::IncrementalFiltrationTriBiSeparator { n_pretri } => {
-                3usize.pow(n_pretri as u32 + 1) * 2
-            }
             Self::AdaptiveTree {
                 levels,
                 split_types,
@@ -693,9 +726,7 @@ impl DesignTopology {
     #[must_use]
     pub fn nominal_well_coverage(self) -> f64 {
         match self {
-            // Center 3 channels traverse the full sonication zone (all 36 wells);
-            // outer 6 bypass channels are routed around the zone.
-            Self::DoubleTrifurcationCIFVenturi { .. } => 1.0,
+            Self::PrimitiveSelectiveTree { .. } => 1.0,
             // Single-point cavitation: covers ~1 well
             Self::SingleVenturi | Self::SerialDoubleVenturi => 1.0 / TREATMENT_WELL_COUNT as f64,
             // 2 venturis spanning 2 half-plate zones → full 6×6
@@ -722,14 +753,8 @@ impl DesignTopology {
             | Self::TripleTrifurcationVenturi
             | Self::TrifurcationBifurcationBifurcationVenturi
             | Self::QuadTrifurcationVenturi => 1.0,
-            // CCT: center arm covers ~half the treatment zone; bypass arms cover the other half
-            Self::CascadeCenterTrifurcationSeparator { .. } => 1.0,
-            // CIF tri→tri/bi: treatment + bypass paths span the full channelized zone
-            Self::IncrementalFiltrationTriBiSeparator { .. } => 1.0,
             // Asymmetric trifurcation: 3-stream split across the full plate
             Self::AsymmetricTrifurcationVenturi => 1.0,
-            // Tri→Bi→Tri: three-stage cascade spans the full channelized zone
-            Self::TriBiTriSelectiveVenturi => 1.0,
             // Leukapheresis topologies: cover full channel length
             Self::ConstrictionExpansionArray { .. }
             | Self::SpiralSerpentine { .. }

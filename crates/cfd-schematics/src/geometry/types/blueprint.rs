@@ -1,6 +1,11 @@
-//! `ChannelSystem::to_blueprint` — conversion to 1D solver `NetworkBlueprint`.
+//! `ChannelSystem::to_blueprint` — conversion to solver/render `NetworkBlueprint`.
 
 use crate::error::{GeometryError, GeometryResult};
+use crate::domain::therapy_metadata::TherapyZoneMetadata;
+use crate::geometry::metadata::{
+    ChannelPathMetadata, ChannelVisualRole, JunctionFamily, JunctionGeometryMetadata,
+    NodeLayoutMetadata, VenturiGeometryMetadata,
+};
 use std::collections::HashSet;
 
 use super::channel_system::ChannelSystem;
@@ -8,6 +13,11 @@ use super::{centerline_for_channel, polyline_length, ChannelType};
 
 impl ChannelSystem {
     /// Convert this 2D schematic layout into a [`NetworkBlueprint`] for the 1D solver.
+    ///
+    /// This conversion preserves explicit node positions, channel polylines,
+    /// inferred junction geometry, and venturi geometry so the resulting
+    /// blueprint can act as the single source of truth for both solver and
+    /// schematic rendering paths.
     ///
     /// `scale_m_per_unit` converts schematic coordinate units to SI metres
     /// (e.g. `1e-3` if coordinates are in millimetres, `1e-6` for micrometres).
@@ -99,17 +109,40 @@ impl ChannelSystem {
             });
         }
 
+        let node_bp_ids: Vec<String> = self
+            .nodes
+            .iter()
+            .map(|node| {
+                node.name
+                    .clone()
+                    .unwrap_or_else(|| format!("node_{}", node.id))
+            })
+            .collect();
+
         for node in &self.nodes {
-            blueprint.add_node(NodeSpec::new(
-                format!("node_{}", node.id),
-                classify(node.id),
-            ));
+            let mut node_spec = NodeSpec::new(
+                node.name
+                    .clone()
+                    .unwrap_or_else(|| format!("node_{}", node.id)),
+                node.kind.unwrap_or_else(|| classify(node.id)),
+            )
+                .with_layout(NodeLayoutMetadata {
+                    x_mm: node.point.0,
+                    y_mm: node.point.1,
+                });
+            if let Some(junction_geometry) = node.junction_geometry.clone() {
+                node_spec = node_spec.with_junction_geometry(junction_geometry);
+            }
+            node_spec.metadata = node.metadata.clone();
+            blueprint.add_node(node_spec);
         }
 
         // ── channels → ChannelSpec ────────────────────────────────────────
         for channel in &self.channels {
             let centerline = centerline_for_channel(channel, &self.nodes);
-            let length_m = polyline_length(&centerline) * scale_m_per_unit;
+            let length_m = channel
+                .physical_length_m
+                .unwrap_or_else(|| polyline_length(&centerline) * scale_m_per_unit);
 
             if length_m <= 0.0 {
                 return Err(GeometryError::ChannelCreationFailed {
@@ -131,8 +164,12 @@ impl ChannelSystem {
                 ),
                 _ => (channel.width, channel.height),
             };
-            let width_m = avg_width * scale_m_per_unit;
-            let height_m = height * scale_m_per_unit;
+            let width_m = channel
+                .physical_width_m
+                .unwrap_or(avg_width * scale_m_per_unit);
+            let height_m = channel
+                .physical_height_m
+                .unwrap_or(height * scale_m_per_unit);
 
             // Hagen-Poiseuille thin-slit approximation: R ≈ 12μL / (wh³)
             let mu = 0.001_f64; // Pa·s  (water at 20 °C)
@@ -142,25 +179,30 @@ impl ChannelSystem {
             let cross_section = CrossSectionSpec::Rectangular { width_m, height_m };
 
             // Detect serpentine channels and estimate bend geometry from path.
-            let channel_shape = if matches!(channel.channel_type, ChannelType::Serpentine { .. }) {
-                let segments = count_serpentine_segments(&centerline);
-                // Estimate bend radius from path curvature at turning points,
-                // falling back to half the channel width (tight U-turn).
-                let bend_radius_m =
-                    estimate_bend_radius(&centerline, scale_m_per_unit).unwrap_or(width_m * 0.5);
-                ChannelShape::Serpentine {
-                    segments,
-                    bend_radius_m,
+            let channel_shape = channel.physical_shape.unwrap_or_else(|| {
+                if matches!(channel.channel_type, ChannelType::Serpentine { .. }) {
+                    let segments = count_serpentine_segments(&centerline);
+                    let bend_radius_m = estimate_bend_radius(&centerline, scale_m_per_unit)
+                        .unwrap_or(width_m * 0.5);
+                    ChannelShape::Serpentine {
+                        segments,
+                        bend_radius_m,
+                    }
+                } else {
+                    ChannelShape::Straight
                 }
-            } else {
-                ChannelShape::Straight
-            };
+            });
 
-            blueprint.add_channel(ChannelSpec {
-                id: EdgeId::new(format!("ch_{}", channel.id)),
+            let mut channel_spec = ChannelSpec {
+                id: EdgeId::new(
+                    channel
+                        .name
+                        .clone()
+                        .unwrap_or_else(|| format!("ch_{}", channel.id)),
+                ),
                 kind: EdgeKind::Pipe,
-                from: NodeId::new(format!("node_{}", channel.from_node)),
-                to: NodeId::new(format!("node_{}", channel.to_node)),
+                from: NodeId::new(node_bp_ids[channel.from_node].clone()),
+                to: NodeId::new(node_bp_ids[channel.to_node].clone()),
                 length_m,
                 cross_section,
                 channel_shape,
@@ -169,12 +211,150 @@ impl ChannelSystem {
                 valve_cv: None,
                 pump_max_flow: None,
                 pump_max_pressure: None,
-                metadata: None,
-            });
+                path: Some(ChannelPathMetadata {
+                    polyline_mm: centerline.clone(),
+                    visual_role: channel.visual_role.unwrap_or(ChannelVisualRole::InternalLink),
+                }),
+                venturi_geometry: channel.venturi_geometry.clone().or_else(|| {
+                    venturi_geometry_from_channel_type(
+                        &channel.channel_type,
+                        height_m,
+                        scale_m_per_unit,
+                    )
+                }),
+                metadata: channel.metadata.clone(),
+            };
+            if let Some(zone) = &channel.therapy_zone {
+                channel_spec = channel_spec.with_metadata(TherapyZoneMetadata::new(zone.clone()));
+            }
+            if let Some(venturi) = channel_spec.venturi_geometry.clone() {
+                channel_spec = channel_spec.with_metadata(venturi);
+            }
+            blueprint.add_channel(channel_spec);
+        }
+
+        let inferred_junctions: Vec<(String, JunctionGeometryMetadata)> = blueprint
+            .nodes
+            .iter()
+            .filter(|node| matches!(node.kind, NodeKind::Junction))
+            .filter_map(|node| {
+                infer_junction_geometry(&blueprint, node.id.as_str())
+                    .map(|geometry| (node.id.as_str().to_string(), geometry))
+            })
+            .collect();
+        for (node_id, geometry) in inferred_junctions {
+            let Some(node) = blueprint
+                .nodes
+                .iter_mut()
+                .find(|node| node.id.as_str() == node_id)
+            else {
+                continue;
+            };
+            if node.junction_geometry.is_none() {
+                node.junction_geometry = Some(geometry.clone());
+                node.metadata
+                    .get_or_insert_with(crate::geometry::metadata::MetadataContainer::new)
+                    .insert(geometry);
+            }
         }
 
         Ok(blueprint)
     }
+}
+
+fn venturi_geometry_from_channel_type(
+    channel_type: &ChannelType,
+    height_m: f64,
+    scale_m_per_unit: f64,
+) -> Option<VenturiGeometryMetadata> {
+    let ChannelType::Frustum {
+        inlet_width,
+        throat_width,
+        outlet_width,
+        path,
+        ..
+    } = channel_type
+    else {
+        return None;
+    };
+    let length_m = polyline_length(path) * scale_m_per_unit;
+    Some(VenturiGeometryMetadata {
+        throat_width_m: throat_width * scale_m_per_unit,
+        throat_height_m: height_m,
+        throat_length_m: length_m,
+        inlet_width_m: inlet_width * scale_m_per_unit,
+        outlet_width_m: outlet_width * scale_m_per_unit,
+        convergent_half_angle_deg: 15.0,
+        divergent_half_angle_deg: 15.0,
+    })
+}
+
+fn infer_junction_geometry(
+    blueprint: &crate::domain::model::NetworkBlueprint,
+    node_id: &str,
+) -> Option<JunctionGeometryMetadata> {
+    let outgoing_angles: Vec<f64> = blueprint
+        .channels
+        .iter()
+        .filter(|channel| channel.from.as_str() == node_id)
+        .filter_map(|channel| channel.path.as_ref())
+        .filter_map(|path| direction_angle_deg(&path.polyline_mm, true))
+        .collect();
+    let incoming_angles: Vec<f64> = blueprint
+        .channels
+        .iter()
+        .filter(|channel| channel.to.as_str() == node_id)
+        .filter_map(|channel| channel.path.as_ref())
+        .filter_map(|path| direction_angle_deg(&path.polyline_mm, false))
+        .collect();
+
+    let family = match (incoming_angles.len(), outgoing_angles.len()) {
+        (1, 2) => JunctionFamily::Bifurcation,
+        (1, 3) => JunctionFamily::Trifurcation,
+        (2, 1) => JunctionFamily::Merge,
+        (3, 1) => JunctionFamily::Merge,
+        (1, 1) => JunctionFamily::Merge,
+        (_, _) if incoming_angles.len() + outgoing_angles.len() >= 4 => JunctionFamily::Cross,
+        _ => return None,
+    };
+
+    Some(JunctionGeometryMetadata {
+        junction_family: family,
+        branch_angles_deg: centered_angles(&outgoing_angles),
+        merge_angles_deg: centered_angles(&incoming_angles),
+    })
+}
+
+fn centered_angles(angles_deg: &[f64]) -> Vec<f64> {
+    if angles_deg.is_empty() {
+        return Vec::new();
+    }
+    let mut sorted = angles_deg.to_vec();
+    sorted.sort_by(|a, b| a.total_cmp(b));
+    let center = sorted[sorted.len() / 2];
+    sorted.into_iter().map(|angle| angle - center).collect()
+}
+
+fn direction_angle_deg(path: &[(f64, f64)], from_start: bool) -> Option<f64> {
+    let (p1, p2) = if from_start {
+        path.windows(2)
+            .find(|segment| {
+                let dx = segment[1].0 - segment[0].0;
+                let dy = segment[1].1 - segment[0].1;
+                dx.abs() > 1e-9 || dy.abs() > 1e-9
+            })
+            .map(|segment| (segment[0], segment[1]))?
+    } else {
+        path.windows(2)
+            .rev()
+            .find(|segment| {
+                let dx = segment[1].0 - segment[0].0;
+                let dy = segment[1].1 - segment[0].1;
+                dx.abs() > 1e-9 || dy.abs() > 1e-9
+            })
+            .map(|segment| (segment[1], segment[0]))?
+    };
+    Some((p2.1 - p1.1).atan2(p2.0 - p1.0).to_degrees())
 }
 
 /// Count the number of straight segments in a serpentine path by detecting

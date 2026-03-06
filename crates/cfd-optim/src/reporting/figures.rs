@@ -5,8 +5,9 @@ use std::path::Path;
 use serde::{Deserialize, Serialize};
 
 use crate::reporting::figures_svg::{
-    write_cavitation_distribution_figure, write_cross_mode_figure, write_ga_convergence_figure,
-    write_head_to_head_figure, write_multifidelity_figure, write_pareto_figure, write_placeholder,
+    write_cavitation_distribution_figure, write_creation_optimization_process_figure,
+    write_cross_mode_figure, write_ga_convergence_figure, write_head_to_head_figure,
+    write_multifidelity_figure, write_pareto_figure, write_placeholder,
 };
 use crate::reporting::ValidationRow;
 use crate::RankedDesign;
@@ -42,9 +43,8 @@ pub fn generate_m12_report_figures(
 ) -> Result<Vec<NarrativeFigureSpec>, Box<dyn std::error::Error>> {
     std::fs::create_dir_all(figures_dir)?;
 
-    ensure_existing_or_placeholder(
+    write_creation_optimization_process_figure(
         &figures_dir.join("milestone12_creation_optimization_process.svg"),
-        "Milestone 12 Design Creation & Optimization Process",
     )?;
     ensure_existing_or_placeholder(
         &figures_dir.join("treatment_zone_plate.svg"),
@@ -55,11 +55,11 @@ pub fn generate_m12_report_figures(
         "Treatment Zone Layout — Trifurcation Concept",
     )?;
     ensure_existing_or_placeholder(
-        &figures_dir.join("selected_ga_schematic.svg"),
+        &figures_dir.join("selected_option1_schematic.svg"),
         "Selected Option 1 Design — Selective Acoustic",
     )?;
     ensure_existing_or_placeholder(
-        &figures_dir.join("selected_cifx_combined_schematic.svg"),
+        &figures_dir.join("selected_option2_combined_schematic.svg"),
         "Selected Option 2 Design — Combined Selective Venturi",
     )?;
     ensure_existing_or_placeholder(
@@ -113,7 +113,7 @@ pub fn generate_m12_report_figures(
                 "Selected Option 1 Design — {} Selective Acoustic",
                 stage_sequence_label(&option1.candidate)
             ),
-            "selected_ga_schematic.svg",
+            "selected_option1_schematic.svg",
             &selected_schematic_caption(
                 option1,
                 "Option 1",
@@ -127,7 +127,7 @@ pub fn generate_m12_report_figures(
                 "Selected Option 2 Design — {} Combined Selective Venturi",
                 stage_sequence_label(&option2.candidate)
             ),
-            "selected_cifx_combined_schematic.svg",
+            "selected_option2_combined_schematic.svg",
             &selected_schematic_caption(
                 option2,
                 "Option 2",
@@ -269,16 +269,7 @@ fn venturi_caption_suffix(ranked: &RankedDesign) -> String {
 
 fn stage_sequence_label(candidate: &DesignCandidate) -> String {
     match candidate.topology {
-        DesignTopology::CascadeCenterTrifurcationSeparator { n_levels } => {
-            vec!["Tri"; usize::from(n_levels.min(4))].join("→")
-        }
-        DesignTopology::IncrementalFiltrationTriBiSeparator { n_pretri } => {
-            let mut stages = vec!["Tri"; usize::from(n_pretri.min(2))];
-            stages.push("Tri");
-            stages.push("Bi");
-            stages.join("→")
-        }
-        DesignTopology::TriBiTriSelectiveVenturi => "Tri→Bi→Tri".to_owned(),
+        DesignTopology::PrimitiveSelectiveTree { sequence } => sequence.label().to_owned(),
         DesignTopology::TrifurcationBifurcationVenturi => "Tri→Bi".to_owned(),
         DesignTopology::BifurcationTrifurcationVenturi => "Bi→Tri".to_owned(),
         DesignTopology::TrifurcationBifurcationBifurcationVenturi => "Tri→Bi→Bi".to_owned(),
@@ -299,13 +290,7 @@ fn stage_sequence_label(candidate: &DesignCandidate) -> String {
 
 fn visible_split_layers(candidate: &DesignCandidate) -> usize {
     match candidate.topology {
-        DesignTopology::CascadeCenterTrifurcationSeparator { n_levels } => {
-            usize::from(n_levels.min(4))
-        }
-        DesignTopology::IncrementalFiltrationTriBiSeparator { n_pretri } => {
-            usize::from(n_pretri.min(2)) + 2
-        }
-        DesignTopology::TriBiTriSelectiveVenturi => 3,
+        DesignTopology::PrimitiveSelectiveTree { sequence } => usize::from(sequence.levels()),
         DesignTopology::TrifurcationBifurcationVenturi
         | DesignTopology::BifurcationTrifurcationVenturi
         | DesignTopology::DoubleBifurcationVenturi

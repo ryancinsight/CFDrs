@@ -4,8 +4,8 @@
 //! All tests use the correct `NetworkBuilder → Network → NetworkProblem → NetworkSolver` chain.
 
 use approx::assert_relative_eq;
-use cfd_1d::{Network, NetworkBuilder, NetworkProblem, NetworkSolver};
 use cfd_1d::solver::core::ConvergenceChecker;
+use cfd_1d::{Network, NetworkBuilder, NetworkProblem, NetworkSolver};
 use cfd_core::physics::fluid::database::water_20c;
 use nalgebra::DVector;
 use petgraph::visit::EdgeRef;
@@ -56,7 +56,7 @@ fn test_solver_ohms_law_single_edge() {
         .edge_references()
         .map(|e| {
             let p_from = solved.pressures().get(&e.source()).copied().unwrap_or(0.0);
-            let p_to   = solved.pressures().get(&e.target()).copied().unwrap_or(0.0);
+            let p_to = solved.pressures().get(&e.target()).copied().unwrap_or(0.0);
             (p_from - p_to) / e.weight().resistance
         })
         .collect();
@@ -78,11 +78,11 @@ fn test_solver_y_junction_kcl() {
     let r = hp_resistance(d, l, fluid.viscosity);
 
     let mut builder = NetworkBuilder::new();
-    let n_in   = builder.add_inlet("in".into());
-    let n_mid  = builder.add_junction("mid".into());
+    let n_in = builder.add_inlet("in".into());
+    let n_mid = builder.add_junction("mid".into());
     let n_out1 = builder.add_outlet("out1".into());
     let n_out2 = builder.add_outlet("out2".into());
-    builder.connect_with_pipe(n_in,  n_mid,  "edge0".into());
+    builder.connect_with_pipe(n_in, n_mid, "edge0".into());
     builder.connect_with_pipe(n_mid, n_out1, "edge1".into());
     builder.connect_with_pipe(n_mid, n_out2, "edge2".into());
 
@@ -94,9 +94,9 @@ fn test_solver_y_junction_kcl() {
     }
 
     let mut network = Network::new(graph, fluid.clone());
-    network.set_pressure(n_in,   1000.0);
-    network.set_pressure(n_out1,    0.0);
-    network.set_pressure(n_out2,    0.0);
+    network.set_pressure(n_in, 1000.0);
+    network.set_pressure(n_out1, 0.0);
+    network.set_pressure(n_out2, 0.0);
 
     let problem = NetworkProblem::new(network);
     let solver = NetworkSolver::new();
@@ -106,10 +106,14 @@ fn test_solver_y_junction_kcl() {
     let mut q_out_of_mid = 0.0_f64;
     for e in solved.graph.edge_references() {
         let p_from = solved.pressures().get(&e.source()).copied().unwrap_or(0.0);
-        let p_to   = solved.pressures().get(&e.target()).copied().unwrap_or(0.0);
+        let p_to = solved.pressures().get(&e.target()).copied().unwrap_or(0.0);
         let q = (p_from - p_to) / e.weight().resistance;
-        if e.target() == n_mid  { q_into_mid  += q; }
-        if e.source() == n_mid  { q_out_of_mid += q; }
+        if e.target() == n_mid {
+            q_into_mid += q;
+        }
+        if e.source() == n_mid {
+            q_out_of_mid += q;
+        }
     }
     assert_relative_eq!(q_into_mid, q_out_of_mid, max_relative = 1e-9);
 }
@@ -133,7 +137,7 @@ fn test_solver_no_dirichlet_bc_singular_system() {
     // Build a valid topology (inlet+outlet required by builder) but do NOT set pressures,
     // so the assembled Laplacian has no Dirichlet rows → singular system.
     let mut builder = NetworkBuilder::new();
-    let inlet  = builder.add_inlet("n0".into());
+    let inlet = builder.add_inlet("n0".into());
     let outlet = builder.add_outlet("n1".into());
     builder.connect_with_pipe(inlet, outlet, "edge".into());
 
@@ -153,7 +157,7 @@ fn test_solver_no_dirichlet_bc_singular_system() {
     match outcome {
         Ok(Ok(_)) => panic!("Solver must not succeed on a singular (unconstrained) system"),
         Ok(Err(_)) => { /* Graceful error — ideal */ }
-        Err(_)     => { /* Panic — acceptable for an unconstrained Laplacian */ }
+        Err(_) => { /* Panic — acceptable for an unconstrained Laplacian */ }
     }
 }
 
@@ -195,6 +199,8 @@ fn test_convergence_dual_large_change_not_converged() {
     let checker = ConvergenceChecker::<f64>::new(1e-6);
     let x_old = DVector::from_vec(vec![0.0_f64, 0.0]);
     let x_new = DVector::from_vec(vec![100.0_f64, 100.0]);
-    let converged = checker.has_converged_dual(&x_new, &x_old, 50.0, 1.0).unwrap();
+    let converged = checker
+        .has_converged_dual(&x_new, &x_old, 50.0, 1.0)
+        .unwrap();
     assert!(!converged);
 }

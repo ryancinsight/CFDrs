@@ -145,7 +145,11 @@ impl HemolysisExposure {
     /// Create a new exposure event.
     #[must_use]
     pub fn new(shear_pa: f64, duration_s: f64, cavitation_potential: f64) -> Self {
-        Self { shear_pa, duration_s, cavitation_potential }
+        Self {
+            shear_pa,
+            duration_s,
+            cavitation_potential,
+        }
     }
 
     /// Create an exposure event with no cavitation contribution.
@@ -193,9 +197,13 @@ mod tests {
     #[test]
     fn giersiepen_reference_value_at_100pa_1s() {
         // HI = 3.62e-5 × 1^0.765 × 100^1.991
-        let expected = GIERSIEPEN_C * 1.0_f64.powf(GIERSIEPEN_ALPHA) * 100.0_f64.powf(GIERSIEPEN_BETA);
+        let expected =
+            GIERSIEPEN_C * 1.0_f64.powf(GIERSIEPEN_ALPHA) * 100.0_f64.powf(GIERSIEPEN_BETA);
         let hi = giersiepen_hi(100.0, 1.0);
-        assert!((hi - expected).abs() < 1e-15, "got {hi}, expected {expected}");
+        assert!(
+            (hi - expected).abs() < 1e-15,
+            "got {hi}, expected {expected}"
+        );
     }
 
     #[test]
@@ -227,7 +235,9 @@ mod tests {
     fn cavitation_clamped_above_one() {
         let base = 0.1;
         // cav_potential > 1 should be clamped to 1
-        assert!((cavitation_amplified_hi(base, 2.0) - cavitation_amplified_hi(base, 1.0)).abs() < 1e-15);
+        assert!(
+            (cavitation_amplified_hi(base, 2.0) - cavitation_amplified_hi(base, 1.0)).abs() < 1e-15
+        );
     }
 
     #[test]

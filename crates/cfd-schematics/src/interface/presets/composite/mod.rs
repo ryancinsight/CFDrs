@@ -16,6 +16,7 @@ mod mixed_tree;
 mod multi_level;
 mod series;
 mod specialized;
+mod specialized_layout;
 mod trifurcation;
 
 pub use bifurcation::{
@@ -36,7 +37,7 @@ pub use specialized::{
     constriction_expansion_array_rect, double_trifurcation_cif_venturi_rect,
     incremental_filtration_tri_bi_rect, incremental_filtration_tri_bi_rect_staged,
     incremental_filtration_tri_bi_rect_staged_remerge, parallel_microchannel_array_rect,
-    spiral_channel_rect, CenterSerpentineSpec,
+    primitive_selective_split_tree_rect, spiral_channel_rect, CenterSerpentineSpec,
 };
 pub use trifurcation::{trifurcation_serpentine_rect, trifurcation_venturi_rect};
 

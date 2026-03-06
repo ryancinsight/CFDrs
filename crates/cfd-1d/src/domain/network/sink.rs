@@ -26,8 +26,8 @@ use cfd_schematics::domain::model::NetworkBlueprint;
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 
-use crate::domain::network::wrapper::Network;
 use super::builder::network_from_blueprint;
+use crate::domain::network::wrapper::Network;
 
 /// A [`GraphSink`] that converts a validated [`NetworkBlueprint`] into a
 /// solver-ready [`Network<T, F>`] using Hagen-Poiseuille / Shah-London

@@ -22,7 +22,7 @@ mod types;
 
 pub use types::{OptimMode, ScoreMode, SdtWeights};
 
-use crate::constraints::{HI_PASS_LIMIT, PAI_PASS_LIMIT};
+use crate::constraints::{HI_PASS_LIMIT, PAI_PASS_LIMIT, THERAPEUTIC_HI_PASS_LIMIT};
 use crate::metrics::SdtMetrics;
 
 /// Combined-mode gate target: minimum leukapheresis sub-score for full credit.
@@ -41,14 +41,10 @@ const COMBINED_ONCOLOGY_MIN_CANCER_CAV: f64 = 0.20;
 const COMBINED_ONCOLOGY_MIN_SELECTIVITY: f64 = 0.10;
 /// Floor for oncology gate to preserve optimization gradient.
 const COMBINED_ONCOLOGY_GATE_FLOOR: f64 = 0.05;
-/// Combined-mode minimum cancer-vs-RBC cavitation bias for full credit.
-const COMBINED_CAV_BIAS_MIN: f64 = 0.60;
-/// Floor for cavitation-bias gate to preserve optimization gradient.
-const COMBINED_CAV_BIAS_GATE_FLOOR: f64 = 0.10;
-/// Combined-mode CIF remerge-proximity target score for full credit.
-const COMBINED_CIF_REMERGE_MIN_SCORE: f64 = 0.70;
-/// Floor for CIF remerge-proximity gate to preserve optimization gradient.
-const COMBINED_CIF_REMERGE_GATE_FLOOR: f64 = 0.20;
+/// Combined-mode selective-remerge proximity target score for full credit.
+const COMBINED_SELECTIVE_REMERGE_MIN_SCORE: f64 = 0.70;
+/// Floor for the selective-remerge gate to preserve optimization gradient.
+const COMBINED_SELECTIVE_REMERGE_GATE_FLOOR: f64 = 0.20;
 
 // ── Score functions ──────────────────────────────────────────────────────────
 
@@ -109,13 +105,20 @@ fn score_candidate_impl(
             if !metrics.pressure_feasible || !metrics.fda_main_compliant || !metrics.plate_fits {
                 return 0.0;
             }
+            // Acoustic-only modes: strict 0.1 % per-pass limit.
             if matches!(
                 mode,
-                OptimMode::SdtTherapy
-                    | OptimMode::HydrodynamicCavitationSDT
-                    | OptimMode::SelectiveAcousticTherapy
-                    | OptimMode::CombinedSdtLeukapheresis { .. }
+                OptimMode::SdtTherapy | OptimMode::SelectiveAcousticTherapy
             ) && metrics.hemolysis_index_per_pass > HI_PASS_LIMIT
+            {
+                return 0.0;
+            }
+            // Hydrodynamic cavitation modes: relaxed 0.8 % per-pass limit
+            // (FDA Class II extracorporeal therapeutic device).
+            if matches!(
+                mode,
+                OptimMode::HydrodynamicCavitationSDT | OptimMode::CombinedSdtLeukapheresis { .. }
+            ) && metrics.hemolysis_index_per_pass > THERAPEUTIC_HI_PASS_LIMIT
             {
                 return 0.0;
             }
@@ -133,10 +136,13 @@ fn score_candidate_impl(
             let fda_margin = (150.0 - metrics.max_main_channel_shear_pa) / 150.0;
             let hi_margin = if matches!(
                 mode,
-                OptimMode::SdtTherapy
-                    | OptimMode::HydrodynamicCavitationSDT
-                    | OptimMode::SelectiveAcousticTherapy
-                    | OptimMode::CombinedSdtLeukapheresis { .. }
+                OptimMode::HydrodynamicCavitationSDT | OptimMode::CombinedSdtLeukapheresis { .. }
+            ) {
+                (THERAPEUTIC_HI_PASS_LIMIT - metrics.hemolysis_index_per_pass)
+                    / THERAPEUTIC_HI_PASS_LIMIT
+            } else if matches!(
+                mode,
+                OptimMode::SdtTherapy | OptimMode::SelectiveAcousticTherapy
             ) {
                 (HI_PASS_LIMIT - metrics.hemolysis_index_per_pass) / HI_PASS_LIMIT
             } else {
@@ -523,8 +529,14 @@ fn score_rbc_protected_sdt(metrics: &SdtMetrics, w: &SdtWeights) -> f64 {
 /// with caller-supplied weights, enabling joint optimisation that satisfies both
 /// the leukapheresis WBC-recovery goal and the cancer-targeted cavitation goal.
 ///
-/// A leukapheresis gate suppresses candidates with near-zero WBC recovery so
-/// SDT-only layouts do not dominate the official combined leaderboard.
+/// The oncology gate suppresses the venturi-SDT term when cavitation metrics
+/// are weak, without penalising routing or leukapheresis value.  The
+/// cancer_rbc_cavitation_bias gate is intentionally NOT applied here because
+/// it is already incorporated inside `score_hydrodynamic_cavitation_sdt`;
+/// double-gating would compound the penalty spuriously.
+///
+/// Safety gates (leukapheresis recovery, cumulative hemolysis, selective remerge)
+/// apply to the entire blended score.
 fn score_combined_sdt_leukapheresis(
     metrics: &SdtMetrics,
     weights: &SdtWeights,
@@ -535,37 +547,46 @@ fn score_combined_sdt_leukapheresis(
     let s_l = score_pediatric_leukapheresis(metrics, patient_weight_kg);
     let selective_base = score_selective_routing_base(metrics);
     let venturi_sdt = score_hydrodynamic_cavitation_sdt(metrics, weights);
-    let s_s = (0.60 * selective_base + 0.40 * venturi_sdt).clamp(0.0, 1.0);
-    let blended = (leuka_weight * s_l + sdt_weight * s_s) / (leuka_weight + sdt_weight).max(1e-12);
 
-    let wbc_gate = (metrics.wbc_recovery / COMBINED_LEUKA_MIN_WBC_RECOVERY).clamp(0.0, 1.0);
-    let leuka_gate = (s_l / COMBINED_LEUKA_MIN_SCORE).clamp(0.0, 1.0);
-    let leuka_gate_total =
-        COMBINED_LEUKA_GATE_FLOOR + (1.0 - COMBINED_LEUKA_GATE_FLOOR) * wbc_gate.min(leuka_gate);
-    let hi15_gate_raw = (1.0
-        - metrics.projected_hemolysis_15min_pediatric_3kg / COMBINED_PEDIATRIC_HI15_LIMIT)
-        .clamp(0.0, 1.0);
-    let hi15_gate = COMBINED_PEDIATRIC_HI15_GATE_FLOOR
-        + (1.0 - COMBINED_PEDIATRIC_HI15_GATE_FLOOR) * hi15_gate_raw;
+    // Oncology gate: suppress venturi-SDT when cavitation or selectivity is
+    // too weak to deliver meaningful cancer treatment.
     let cav_gate_raw =
         (metrics.cancer_targeted_cavitation / COMBINED_ONCOLOGY_MIN_CANCER_CAV).clamp(0.0, 1.0);
     let sel_gate_raw =
         (metrics.oncology_selectivity_index / COMBINED_ONCOLOGY_MIN_SELECTIVITY).clamp(0.0, 1.0);
     let oncology_gate = COMBINED_ONCOLOGY_GATE_FLOOR
         + (1.0 - COMBINED_ONCOLOGY_GATE_FLOOR) * cav_gate_raw.min(sel_gate_raw);
-    let cav_bias_gate_raw =
-        (metrics.cancer_rbc_cavitation_bias_index / COMBINED_CAV_BIAS_MIN).clamp(0.0, 1.0);
-    let cav_bias_gate =
-        COMBINED_CAV_BIAS_GATE_FLOOR + (1.0 - COMBINED_CAV_BIAS_GATE_FLOOR) * cav_bias_gate_raw;
+
+    let gated_venturi_sdt = venturi_sdt * oncology_gate;
+    let s_s = (0.60 * selective_base + 0.40 * gated_venturi_sdt).clamp(0.0, 1.0);
+    let blended = (leuka_weight * s_l + sdt_weight * s_s) / (leuka_weight + sdt_weight).max(1e-12);
+
+    // Safety gates: apply to the entire blended score.
+    let wbc_gate = (metrics.wbc_recovery / COMBINED_LEUKA_MIN_WBC_RECOVERY).clamp(0.0, 1.0);
+    let leuka_gate = (s_l / COMBINED_LEUKA_MIN_SCORE).clamp(0.0, 1.0);
+    let leuka_gate_total =
+        COMBINED_LEUKA_GATE_FLOOR + (1.0 - COMBINED_LEUKA_GATE_FLOOR) * wbc_gate.min(leuka_gate);
+    // Cumulative hemolysis gate: use patient-weight-appropriate metric.
+    // For adult patients (≥ 40 kg), the pediatric 3 kg projection is
+    // irrelevant — an adult at 70 kg has 5950 mL blood volume vs 255 mL for
+    // a neonate, so pass count and projected HI are drastically different.
+    let projected_hi15 = if patient_weight_kg >= 40.0 {
+        metrics.projected_hemolysis_15min_adult
+    } else {
+        metrics.projected_hemolysis_15min_pediatric_3kg
+    };
+    let hi15_gate_raw = (1.0 - projected_hi15 / COMBINED_PEDIATRIC_HI15_LIMIT).clamp(0.0, 1.0);
+    let hi15_gate = COMBINED_PEDIATRIC_HI15_GATE_FLOOR
+        + (1.0 - COMBINED_PEDIATRIC_HI15_GATE_FLOOR) * hi15_gate_raw;
     let cif_remerge_gate = if metrics.cif_outlet_tail_length_mm > 0.0 {
-        let raw =
-            (metrics.cif_remerge_proximity_score / COMBINED_CIF_REMERGE_MIN_SCORE).clamp(0.0, 1.0);
-        COMBINED_CIF_REMERGE_GATE_FLOOR + (1.0 - COMBINED_CIF_REMERGE_GATE_FLOOR) * raw
+        let raw = (metrics.cif_remerge_proximity_score / COMBINED_SELECTIVE_REMERGE_MIN_SCORE)
+            .clamp(0.0, 1.0);
+        COMBINED_SELECTIVE_REMERGE_GATE_FLOOR + (1.0 - COMBINED_SELECTIVE_REMERGE_GATE_FLOOR) * raw
     } else {
         1.0
     };
 
-    blended * leuka_gate_total * hi15_gate * oncology_gate * cav_bias_gate * cif_remerge_gate
+    blended * leuka_gate_total * hi15_gate * cif_remerge_gate
 }
 
 // ── Constraint helpers ────────────────────────────────────────────────────────
@@ -735,7 +756,7 @@ mod tests {
         let s_near = score_candidate(&near_remerge, mode, &w);
         assert!(
             s_near > s_far,
-            "combined mode should reward CIF remerge-near-outlet layouts"
+            "combined mode should reward selective remerge-near-outlet layouts"
         );
     }
 

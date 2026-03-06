@@ -1,5 +1,6 @@
 use cfd_optim::{
-    save_schematic_svg, CrossSectionShape, DesignCandidate, DesignTopology, TreatmentZoneMode,
+    save_schematic_svg, CrossSectionShape, DesignCandidate, DesignTopology, PrimitiveSplitSequence,
+    TreatmentZoneMode,
 };
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -63,5 +64,58 @@ fn save_schematic_svg_keeps_node_markers_without_throats_for_non_venturi_design(
     let svg = std::fs::read_to_string(&out).expect("must read rendered svg");
     assert!(svg.contains("IN"));
     assert!(svg.contains("OUT"));
+    assert!(!svg.contains("TH1"));
+}
+
+#[test]
+fn save_schematic_svg_renders_selective_blueprint_topology_from_blueprint_ssot() {
+    let candidate = candidate_with_topology(
+        "selective_cif",
+        DesignTopology::PrimitiveSelectiveTree {
+            sequence: PrimitiveSplitSequence::TriBi,
+        },
+    );
+    let out = unique_svg_path("cfd_optim_selective_cif");
+
+    save_schematic_svg(&candidate, &out).expect("selective schematic export must succeed");
+
+    let svg = std::fs::read_to_string(&out).expect("must read rendered svg");
+    assert!(svg.contains("TH1"));
+    assert!(svg.contains("S1"));
+    assert!(svg.contains("layers"));
+}
+
+#[test]
+fn save_schematic_svg_renders_full_tree_split_markers_for_dtcv() {
+    let candidate = candidate_with_topology(
+        "selective_dtcv",
+        DesignTopology::PrimitiveSelectiveTree {
+            sequence: PrimitiveSplitSequence::TriTri,
+        },
+    );
+    let out = unique_svg_path("cfd_optim_selective_dtcv");
+
+    save_schematic_svg(&candidate, &out).expect("dtcv schematic export must succeed");
+
+    let svg = std::fs::read_to_string(&out).expect("must read rendered svg");
+    assert!(svg.contains("TH1"));
+    assert!(svg.contains("S4"));
+}
+
+#[test]
+fn save_schematic_svg_renders_acoustic_dtcv_without_throats() {
+    let mut candidate = candidate_with_topology(
+        "selective_dtcv_acoustic",
+        DesignTopology::PrimitiveSelectiveTree {
+            sequence: PrimitiveSplitSequence::TriTri,
+        },
+    );
+    candidate.treatment_zone_mode = TreatmentZoneMode::UltrasoundOnly;
+    let out = unique_svg_path("cfd_optim_selective_dtcv_acoustic");
+
+    save_schematic_svg(&candidate, &out).expect("acoustic dtcv schematic export must succeed");
+
+    let svg = std::fs::read_to_string(&out).expect("must read rendered svg");
+    assert!(svg.contains("S4"));
     assert!(!svg.contains("TH1"));
 }

@@ -1,11 +1,20 @@
 use super::{ChannelSpec, EdgeKind, NodeKind, NodeSpec};
+use crate::geometry::metadata::{BlueprintRenderHints, MetadataContainer};
+use serde::{Deserialize, Serialize};
 use std::fmt;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NetworkBlueprint {
     pub name: String,
     pub nodes: Vec<NodeSpec>,
     pub channels: Vec<ChannelSpec>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub render_hints: Option<BlueprintRenderHints>,
+    /// Optional blueprint-level metadata (e.g. rendering hints written by
+    /// `cfd-optim` so that a generic renderer can produce fully-annotated
+    /// schematics without any domain-specific render logic).
+    #[serde(skip)]
+    pub metadata: Option<MetadataContainer>,
 }
 
 impl NetworkBlueprint {
@@ -15,7 +24,37 @@ impl NetworkBlueprint {
             name: name.into(),
             nodes: Vec::new(),
             channels: Vec::new(),
+            render_hints: None,
+            metadata: None,
         }
+    }
+
+    /// Attach [`BlueprintRenderHints`] and return `self` (builder pattern).
+    ///
+    /// Hints are subsequently readable via [`Self::render_hints`].
+    #[must_use]
+    pub fn with_render_hints(mut self, hints: BlueprintRenderHints) -> Self {
+        self.render_hints = Some(hints.clone());
+        self.metadata
+            .get_or_insert_with(MetadataContainer::new)
+            .insert(hints);
+        self
+    }
+
+    /// Return the [`BlueprintRenderHints`] embedded in this blueprint, if any.
+    #[must_use]
+    pub fn render_hints(&self) -> Option<&BlueprintRenderHints> {
+        self.render_hints
+            .as_ref()
+            .or_else(|| self.metadata.as_ref()?.get::<BlueprintRenderHints>())
+    }
+
+    /// Serialize the blueprint, including explicit render/layout state.
+    ///
+    /// # Errors
+    /// Returns a serialization error if the blueprint cannot be encoded as JSON.
+    pub fn to_json_pretty(&self) -> Result<String, serde_json::Error> {
+        serde_json::to_string_pretty(self)
     }
 
     pub fn add_node(&mut self, node: NodeSpec) {
@@ -95,15 +134,16 @@ impl NetworkBlueprint {
     /// throat geometry parameters, as set by the venturi preset factories.
     #[must_use]
     pub fn venturi_channels(&self) -> Vec<&ChannelSpec> {
-        use crate::geometry::metadata::VenturiGeometryMetadata;
         self.channels
             .iter()
             .filter(|c| {
-                c.metadata
-                    .as_ref()
-                    .is_some_and(crate::geometry::metadata::MetadataContainer::contains::<
-                        VenturiGeometryMetadata,
-                    >)
+                c.venturi_geometry.is_some()
+                    || c
+                        .metadata
+                        .as_ref()
+                        .is_some_and(crate::geometry::metadata::MetadataContainer::contains::<
+                            crate::geometry::metadata::VenturiGeometryMetadata,
+                        >)
             })
             .collect()
     }

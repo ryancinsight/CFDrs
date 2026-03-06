@@ -65,25 +65,35 @@ impl<T: RealField + Copy + FromPrimitive> From<&ChannelSpec> for EdgeProperties<
     /// 1D solver. It eliminates the need for examples to import `cfd_1d::channel`
     /// types directly.
     fn from(spec: &ChannelSpec) -> Self {
-        let length = T::from_f64(spec.length_m).expect("Mathematical constant conversion compromised");
-        let resistance = T::from_f64(spec.resistance).expect("Mathematical constant conversion compromised");
+        let length =
+            T::from_f64(spec.length_m).expect("Mathematical constant conversion compromised");
+        let resistance =
+            T::from_f64(spec.resistance).expect("Mathematical constant conversion compromised");
 
         let (cross_section, area, hydraulic_diameter) = match spec.cross_section {
             CrossSectionSpec::Circular { diameter_m } => {
-                let d = T::from_f64(diameter_m).expect("Mathematical constant conversion compromised");
-                let a = T::from_f64(
-                    std::f64::consts::PI * (diameter_m / 2.0).powi(2),
-                )
-                .unwrap_or(T::zero());
+                let d =
+                    T::from_f64(diameter_m).expect("Mathematical constant conversion compromised");
+                let a = T::from_f64(std::f64::consts::PI * (diameter_m / 2.0).powi(2))
+                    .unwrap_or(T::zero());
                 (CrossSection::Circular { diameter: d }, a, Some(d))
             }
             CrossSectionSpec::Rectangular { width_m, height_m } => {
                 let w = T::from_f64(width_m).expect("Mathematical constant conversion compromised");
-                let h = T::from_f64(height_m).expect("Mathematical constant conversion compromised");
-                let a = T::from_f64(width_m * height_m).expect("Mathematical constant conversion compromised");
+                let h =
+                    T::from_f64(height_m).expect("Mathematical constant conversion compromised");
+                let a = T::from_f64(width_m * height_m)
+                    .expect("Mathematical constant conversion compromised");
                 let dh = T::from_f64(2.0 * width_m * height_m / (width_m + height_m))
                     .unwrap_or(T::zero());
-                (CrossSection::Rectangular { width: w, height: h }, a, Some(dh))
+                (
+                    CrossSection::Rectangular {
+                        width: w,
+                        height: h,
+                    },
+                    a,
+                    Some(dh),
+                )
             }
         };
 
@@ -118,7 +128,6 @@ impl<T: RealField + Copy + FromPrimitive> From<&ChannelSpec> for EdgeProperties<
         }
     }
 }
-
 
 /// Edge with properties for iteration
 pub struct EdgeWithProperties<'a, T: RealField + Copy> {
@@ -414,8 +423,9 @@ impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T>> Network<T, F> {
                     // Prepare flow conditions
                     // Explicitly use from_flow_rate if available, or initialize and set flow rate.
                     // Using standard ambient temperature (293.15 K) as default instead of zero.
-                    let t_std = T::from_f64(cfd_core::physics::constants::physics::thermo::T_STANDARD)
-                        .unwrap_or_else(T::one);
+                    let t_std =
+                        T::from_f64(cfd_core::physics::constants::physics::thermo::T_STANDARD)
+                            .unwrap_or_else(T::one);
 
                     let mut conditions = crate::physics::resistance::FlowConditions::new(T::zero());
                     // Force velocity to None to ensure calculator derives it from flow rate

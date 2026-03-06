@@ -94,43 +94,47 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> TwoWayBran
                 let pi = T::from_f64_or_one(std::f64::consts::PI);
                 let two = T::from_f64_or_one(2.0);
                 let four = T::from_f64_or_one(4.0);
-                
+
                 let a_val = *major_axis / two;
                 let b_val = *minor_axis / two;
 
-                let (a, b) = if a_val > b_val { (a_val, b_val) } else { (b_val, a_val) };
+                let (a, b) = if a_val > b_val {
+                    (a_val, b_val)
+                } else {
+                    (b_val, a_val)
+                };
 
                 if a == b || b == T::from_f64_or_one(0.0) {
                     return two * a;
                 }
 
                 let m = T::from_f64_or_one(1.0) - (b * b) / (a * a);
-                
+
                 let mut a_n = T::from_f64_or_one(1.0);
                 let mut b_n = (T::from_f64_or_one(1.0) - m).sqrt();
                 let mut c_n = m.sqrt();
-                
+
                 let mut sum = c_n * c_n / two;
                 let mut power = T::from_f64_or_one(1.0);
                 let tolerance = T::from_f64_or_one(1e-14);
-                
+
                 for _ in 0..20 {
                     let a_next = (a_n + b_n) / two;
                     let b_next = (a_n * b_n).sqrt();
                     let c_next = (a_n - b_n) / two;
-                    
+
                     a_n = a_next;
                     b_n = b_next;
                     c_n = c_next;
-                    
+
                     sum += power * c_n * c_n;
                     power *= two;
-                    
+
                     if c_n < tolerance || c_n == T::from_f64_or_one(0.0) {
                         break;
                     }
                 }
-                
+
                 let e_m = (pi / (two * a_n)) * (T::from_f64_or_one(1.0) - sum);
                 let perimeter = four * a * e_m;
                 let area = pi * a * b;
@@ -179,7 +183,6 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> TwoWayBran
         let d1_cubed = d1.powf(three);
         let d2_cubed = d2.powf(three);
 
-        
         (d0_cubed - (d1_cubed + d2_cubed)).abs() / d0_cubed.max(T::from_f64_or_one(1e-10))
     }
 
@@ -241,8 +244,10 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> TwoWayBran
             .viscosity_at_shear(gamma, temperature, pressure)
             .unwrap_or_else(|_| {
                 // Fallback: reference viscosity from the fluid properties
-                fluid
-                    .properties_at(temperature, pressure).map_or_else(|_| T::from_f64_or_one(0.0035), |state| state.dynamic_viscosity) // 3.5 mPa·s (blood default)
+                fluid.properties_at(temperature, pressure).map_or_else(
+                    |_| T::from_f64_or_one(0.0035),
+                    |state| state.dynamic_viscosity,
+                ) // 3.5 mPa·s (blood default)
             })
     }
 
@@ -557,9 +562,27 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> ThreeWayBr
         }
 
         // Pressure drops
-        let dp_1 = TwoWayBranchJunction::pressure_drop(&fluid, q_1, &self.daughter1, temperature, pressure);
-        let dp_2 = TwoWayBranchJunction::pressure_drop(&fluid, q_2, &self.daughter2, temperature, pressure);
-        let dp_3 = TwoWayBranchJunction::pressure_drop(&fluid, q_3, &self.daughter3, temperature, pressure);
+        let dp_1 = TwoWayBranchJunction::pressure_drop(
+            &fluid,
+            q_1,
+            &self.daughter1,
+            temperature,
+            pressure,
+        );
+        let dp_2 = TwoWayBranchJunction::pressure_drop(
+            &fluid,
+            q_2,
+            &self.daughter2,
+            temperature,
+            pressure,
+        );
+        let dp_3 = TwoWayBranchJunction::pressure_drop(
+            &fluid,
+            q_3,
+            &self.daughter3,
+            temperature,
+            pressure,
+        );
 
         // Daughter pressures
         let p_1 = p_parent - dp_1;
@@ -578,9 +601,27 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> ThreeWayBr
         let gamma_3 = TwoWayBranchJunction::shear_rate(q_3, &self.daughter3);
 
         // Apparent viscosities
-        let mu_1 = TwoWayBranchJunction::apparent_viscosity(&fluid, q_1, &self.daughter1, temperature, pressure);
-        let mu_2 = TwoWayBranchJunction::apparent_viscosity(&fluid, q_2, &self.daughter2, temperature, pressure);
-        let mu_3 = TwoWayBranchJunction::apparent_viscosity(&fluid, q_3, &self.daughter3, temperature, pressure);
+        let mu_1 = TwoWayBranchJunction::apparent_viscosity(
+            &fluid,
+            q_1,
+            &self.daughter1,
+            temperature,
+            pressure,
+        );
+        let mu_2 = TwoWayBranchJunction::apparent_viscosity(
+            &fluid,
+            q_2,
+            &self.daughter2,
+            temperature,
+            pressure,
+        );
+        let mu_3 = TwoWayBranchJunction::apparent_viscosity(
+            &fluid,
+            q_3,
+            &self.daughter3,
+            temperature,
+            pressure,
+        );
 
         Ok(ThreeWayBranchSolution {
             q_parent,
@@ -677,10 +718,10 @@ mod tests {
         // Create symmetric two-way branch using new Channel API
         let parent_geom = ChannelGeometry::<f64>::circular(1.0e-2, 2.0e-3, 1e-6);
         let parent = Channel::new(parent_geom);
-        
+
         let d1_geom = ChannelGeometry::<f64>::circular(1.0e-2, 1.5e-3, 1e-6);
         let d1 = Channel::new(d1_geom);
-        
+
         let d2_geom = ChannelGeometry::<f64>::circular(1.0e-2, 1.5e-3, 1e-6);
         let d2 = Channel::new(d2_geom);
 
@@ -694,13 +735,11 @@ mod tests {
         // Use standard blood temperature (37°C = 310.15 K) and atmospheric pressure
         let t_blood = 310.15_f64;
         let p_atm = 101325.0_f64;
-        let solution = two_way_branch.solve(blood, q_parent, p_parent, t_blood, p_atm).unwrap();
+        let solution = two_way_branch
+            .solve(blood, q_parent, p_parent, t_blood, p_atm)
+            .unwrap();
 
-        assert_relative_eq!(
-            solution.q_1 + solution.q_2,
-            q_parent,
-            epsilon = 1e-10
-        );
+        assert_relative_eq!(solution.q_1 + solution.q_2, q_parent, epsilon = 1e-10);
     }
 
     #[test]
@@ -708,10 +747,10 @@ mod tests {
         // Create two-way branch with blood using new Channel API
         let parent_geom = ChannelGeometry::<f64>::circular(1.0e-3, 100.0e-6, 1e-6);
         let parent = Channel::new(parent_geom);
-        
+
         let d1_geom = ChannelGeometry::<f64>::circular(1.0e-3, 80.0e-6, 1e-6);
         let d1 = Channel::new(d1_geom);
-        
+
         let d2_geom = ChannelGeometry::<f64>::circular(1.0e-3, 80.0e-6, 1e-6);
         let d2 = Channel::new(d2_geom);
 
@@ -723,7 +762,9 @@ mod tests {
 
         let t_blood = 310.15_f64;
         let p_atm = 101325.0_f64;
-        let solution = two_way_branch.solve(blood, q_parent, p_parent, t_blood, p_atm).unwrap();
+        let solution = two_way_branch
+            .solve(blood, q_parent, p_parent, t_blood, p_atm)
+            .unwrap();
 
         // Blood should have non-Newtonian viscosity effects
         assert!(solution.mu_1 > 0.0);
@@ -736,10 +777,10 @@ mod tests {
     fn test_murrary_law() {
         let parent_geom = ChannelGeometry::<f64>::circular(1.0e-2, 2.0e-3, 1e-6);
         let parent = Channel::new(parent_geom);
-        
+
         let d1_geom = ChannelGeometry::<f64>::circular(1.0e-2, 1.58e-3, 1e-6);
         let d1 = Channel::new(d1_geom);
-        
+
         let d2_geom = ChannelGeometry::<f64>::circular(1.0e-2, 1.58e-3, 1e-6);
         let d2 = Channel::new(d2_geom);
 
@@ -770,7 +811,11 @@ mod tests {
         let p_atm = 101325.0_f64;
         let solution = branch.solve(blood, 9.0e-9, 120.0, t_blood, p_atm).unwrap();
 
-        assert_relative_eq!(solution.q_1 + solution.q_2 + solution.q_3, solution.q_parent, epsilon = 1e-10);
+        assert_relative_eq!(
+            solution.q_1 + solution.q_2 + solution.q_3,
+            solution.q_parent,
+            epsilon = 1e-10
+        );
         assert!(solution.p_1 <= solution.p_parent);
         assert!(solution.p_2 <= solution.p_parent);
         assert!(solution.p_3 <= solution.p_parent);
@@ -782,11 +827,24 @@ mod tests {
         let parent = Channel::new(parent_geom);
 
         let daughter_diameter = 2.0e-3 / 3.0_f64.cbrt();
-        let d1 = Channel::new(ChannelGeometry::<f64>::circular(1.0e-2, daughter_diameter, 1e-6));
-        let d2 = Channel::new(ChannelGeometry::<f64>::circular(1.0e-2, daughter_diameter, 1e-6));
-        let d3 = Channel::new(ChannelGeometry::<f64>::circular(1.0e-2, daughter_diameter, 1e-6));
+        let d1 = Channel::new(ChannelGeometry::<f64>::circular(
+            1.0e-2,
+            daughter_diameter,
+            1e-6,
+        ));
+        let d2 = Channel::new(ChannelGeometry::<f64>::circular(
+            1.0e-2,
+            daughter_diameter,
+            1e-6,
+        ));
+        let d3 = Channel::new(ChannelGeometry::<f64>::circular(
+            1.0e-2,
+            daughter_diameter,
+            1e-6,
+        ));
 
-        let branch = ThreeWayBranchJunction::new(parent, d1, d2, d3, (1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0));
+        let branch =
+            ThreeWayBranchJunction::new(parent, d1, d2, d3, (1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0));
         let deviation = branch.murray_law_deviation();
 
         assert!(deviation < 1e-12);
@@ -797,7 +855,7 @@ mod tests {
         // Symmetric branch
         let parent_geom = ChannelGeometry::<f64>::circular(1.0e-2, 2.0e-3, 1e-6);
         let parent = Channel::new(parent_geom);
-        
+
         let d1_geom = ChannelGeometry::<f64>::circular(1.0e-2, 1.5e-3, 1e-6);
         let d1 = Channel::new(d1_geom.clone());
         let d2 = Channel::new(d1_geom);
@@ -819,7 +877,7 @@ mod tests {
     fn test_two_way_murray_optimal_flow_split() {
         let parent_geom = ChannelGeometry::<f64>::circular(1.0e-2, 2.0e-3, 1e-6);
         let parent = Channel::new(parent_geom);
-        
+
         // Murray's law: r_0^3 = r_1^3 + r_2^3. For optimal flow split where P1=P2,
         // flow split Q1/Q0 should equal r1^3 / (r1^3 + r2^3).
         let r1 = 1.6e-3;
@@ -828,7 +886,7 @@ mod tests {
         let d2 = Channel::new(ChannelGeometry::<f64>::circular(1.0e-2, r2, 1e-6));
 
         let optimal_split = r1.powi(3) / (r1.powi(3) + r2.powi(3));
-        
+
         let branch = TwoWayBranchJunction::new(parent, d1, d2, optimal_split);
         let blood = CassonBlood::<f64>::normal_blood();
         let t_blood = 310.15_f64;
@@ -838,7 +896,11 @@ mod tests {
         // The pressure continuity error should be minimal at the optimal split
         // Note: For Casson blood (non-Newtonian), the exact analytical optimum shifts slightly,
         // but it should still be very close.
-        assert!(solution.junction_pressure_error < 0.15, "Error: {}", solution.junction_pressure_error);
+        assert!(
+            solution.junction_pressure_error < 0.15,
+            "Error: {}",
+            solution.junction_pressure_error
+        );
     }
 
     #[test]
@@ -856,12 +918,19 @@ mod tests {
         let q_parent = 1.0e-6;
 
         for (s1, s2, s3) in splits {
-            let branch = ThreeWayBranchJunction::new(parent.clone(), d1.clone(), d2.clone(), d3.clone(), (s1, s2, s3));
+            let branch = ThreeWayBranchJunction::new(
+                parent.clone(),
+                d1.clone(),
+                d2.clone(),
+                d3.clone(),
+                (s1, s2, s3),
+            );
             let t_blood = 310.15_f64;
             let p_atm = 101325.0_f64;
-            let solution = branch.solve(blood, q_parent, 1000.0, t_blood, p_atm).unwrap();
+            let solution = branch
+                .solve(blood, q_parent, 1000.0, t_blood, p_atm)
+                .unwrap();
 
-            
             // Should perfectly conserve mass
             let q_sum = solution.q_1 + solution.q_2 + solution.q_3;
             assert_relative_eq!(q_sum, q_parent, epsilon = 1e-10);

@@ -11,16 +11,14 @@
 //! |--------|----------------|
 //! | [`topology`] | `DesignTopology` enum + query methods |
 //! | [`candidate`] | `DesignCandidate` struct + accessor helpers |
-//! | [`blueprint`] | `to_blueprint()`, `to_channel_system()`, `total_path_length_mm()` |
+//! | [`blueprint`] | `to_blueprint()`, `to_channel_system()` (legacy compatibility only), `total_path_length_mm()` |
 //! | [`space`] | `build_candidate_space()`, `sample_random_candidates()` |
-//! | [`cif_schematic`] | Design Option 1 ESDT CIF SVG schematic generator |
 
 mod blueprint;
 mod candidate;
-pub mod cif_schematic;
 mod space;
 mod topology;
 
 pub use candidate::{CrossSectionShape, DesignCandidate, TreatmentZoneMode};
 pub use space::{build_candidate_space, sample_random_candidates};
-pub use topology::DesignTopology;
+pub use topology::{DesignTopology, PrimitiveSplitSequence};

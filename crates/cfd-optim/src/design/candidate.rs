@@ -86,23 +86,23 @@ pub struct DesignCandidate {
     ///   Zweifach-Fung routing of large/stiff cells (cancer, WBC) toward center.
     ///
     /// Applies to `TripleTrifurcationVenturi`, `TrifurcationBifurcationBifurcationVenturi`,
-    /// `QuadTrifurcationVenturi`, `CascadeCenterTrifurcationSeparator`, and all existing
-    /// trifurcation-bearing topologies.  Ignored by bifurcation-only and serpentine topologies.
+    /// `QuadTrifurcationVenturi`, `PrimitiveSelectiveTree`, and all other
+    /// trifurcation-bearing topologies. Ignored by bifurcation-only and serpentine topologies.
     #[serde(default = "default_tri_frac")]
     pub trifurcation_center_frac: f64,
-    /// CIF pre-trifurcation center-arm width fraction.
+    /// Primitive selective pre-trifurcation center-arm width fraction.
     ///
-    /// Used only by `IncrementalFiltrationTriBiSeparator`.
+    /// Used by primitive selective split-sequence topologies.
     #[serde(default = "default_cif_tri_frac")]
     pub cif_pretri_center_frac: f64,
-    /// CIF terminal-trifurcation center-arm width fraction.
+    /// Primitive selective terminal-trifurcation center-arm width fraction.
     ///
-    /// Used only by `IncrementalFiltrationTriBiSeparator`.
+    /// Used by primitive selective split-sequence topologies.
     #[serde(default = "default_cif_tri_frac")]
     pub cif_terminal_tri_center_frac: f64,
-    /// CIF terminal-bifurcation treatment-arm fraction.
+    /// Primitive selective terminal-bifurcation treatment-arm fraction.
     ///
-    /// Used only by `IncrementalFiltrationTriBiSeparator` and `TriBiTriSelectiveVenturi`.
+    /// Used by primitive selective split-sequence topologies with terminal bifurcation treatment.
     #[serde(default = "default_cif_bi_treat_frac")]
     pub cif_terminal_bi_treat_frac: f64,
 
@@ -144,7 +144,7 @@ pub struct DesignCandidate {
 
     /// Number of serial venturi throats on the CTC-enriched treatment channel.
     ///
-    /// Used for centerline-selective topologies (CCT/CIF/ATV/TBT). For all other
+    /// Used for centerline-selective primitive topologies. For all other
     /// topologies this acts as `1`.
     #[serde(default = "default_centerline_venturi_throat_count")]
     pub centerline_venturi_throat_count: u8,
@@ -185,10 +185,8 @@ impl DesignCandidate {
     pub fn has_selective_centerline_treatment(&self) -> bool {
         matches!(
             self.topology,
-            DesignTopology::CascadeCenterTrifurcationSeparator { .. }
-                | DesignTopology::IncrementalFiltrationTriBiSeparator { .. }
+            DesignTopology::PrimitiveSelectiveTree { .. }
                 | DesignTopology::AsymmetricTrifurcationVenturi
-                | DesignTopology::TriBiTriSelectiveVenturi
                 | DesignTopology::CellSeparationVenturi
                 | DesignTopology::WbcCancerSeparationVenturi
         )
@@ -286,57 +284,52 @@ impl DesignCandidate {
     /// Fraction of total inlet flow that traverses venturi throat sections.
     ///
     /// For most venturi-bearing topologies this is `1.0` (all flow passes through
-    /// one or more throats).  For selective-separation layouts with bypass arms
-    /// (`CellSeparationVenturi`, `WbcCancerSeparationVenturi`,
-    /// `CascadeCenterTrifurcationSeparator`, `IncrementalFiltrationTriBiSeparator`)
+    /// one or more throats). For selective-separation layouts with bypass arms
+    /// (`CellSeparationVenturi`, `WbcCancerSeparationVenturi`, `PrimitiveSelectiveTree`)
     /// only a subset of the flow reaches the treatment venturi.
     #[inline]
     #[must_use]
     pub fn venturi_flow_fraction(&self) -> f64 {
-        use cfd_1d::{cif_pretri_stage_q_fracs, tri_center_q_frac_cross_junction};
+        use cfd_1d::tri_center_q_frac_cross_junction;
 
         if !self.uses_venturi_treatment() {
             return 0.0;
         }
 
         let frac = match self.topology {
+            DesignTopology::PrimitiveSelectiveTree { sequence } => {
+                let first_tri = cfd_1d::tri_center_q_frac_cross_junction(
+                    self.cif_pretri_center_frac(),
+                    self.channel_width_m,
+                    self.channel_height_m,
+                );
+                let later_tri = cfd_1d::tri_center_q_frac_cross_junction(
+                    self.cif_terminal_tri_center_frac(),
+                    self.channel_width_m,
+                    self.channel_height_m,
+                );
+                let q_bi = self.cif_terminal_bi_treat_frac();
+                match sequence {
+                    crate::design::PrimitiveSplitSequence::Bi
+                    | crate::design::PrimitiveSplitSequence::BiBi
+                    | crate::design::PrimitiveSplitSequence::BiTri
+                    | crate::design::PrimitiveSplitSequence::BiBiBi
+                    | crate::design::PrimitiveSplitSequence::BiBiTri
+                    | crate::design::PrimitiveSplitSequence::BiTriBi
+                    | crate::design::PrimitiveSplitSequence::BiTriTri => 1.0,
+                    crate::design::PrimitiveSplitSequence::Tri => first_tri,
+                    crate::design::PrimitiveSplitSequence::TriBi
+                    | crate::design::PrimitiveSplitSequence::TriTri => first_tri,
+                    crate::design::PrimitiveSplitSequence::TriBiBi
+                    | crate::design::PrimitiveSplitSequence::TriBiTri => first_tri * q_bi,
+                    crate::design::PrimitiveSplitSequence::TriTriBi
+                    | crate::design::PrimitiveSplitSequence::TriTriTri => first_tri * later_tri,
+                }
+            }
             // center channel (w) vs two peripheral channels (0.5w each):
             // Q_center ∝ w^3, Q_periph ∝ (0.5w)^3 -> Q_center/(Q_total)=1/(1+0.125+0.125)=0.8
             DesignTopology::CellSeparationVenturi | DesignTopology::WbcCancerSeparationVenturi => {
                 0.80
-            }
-            DesignTopology::DoubleTrifurcationCIFVenturi { .. } => {
-                // DTCV routes only the first-split center arm into the treatment
-                // zone; second-split subchannels all remain in-zone.
-                tri_center_q_frac_cross_junction(
-                    self.cif_pretri_center_frac(),
-                    self.channel_width_m,
-                    self.channel_height_m,
-                )
-            }
-            DesignTopology::CascadeCenterTrifurcationSeparator { n_levels } => {
-                let q_tri = tri_center_q_frac_cross_junction(
-                    self.trifurcation_center_frac,
-                    self.channel_width_m,
-                    self.channel_height_m,
-                );
-                q_tri.powi(i32::from(n_levels))
-            }
-            DesignTopology::IncrementalFiltrationTriBiSeparator { n_pretri } => {
-                let q_pretri_product = cif_pretri_stage_q_fracs(
-                    n_pretri,
-                    self.cif_pretri_center_frac(),
-                    self.cif_terminal_tri_center_frac(),
-                )
-                .into_iter()
-                .product::<f64>();
-                let q_terminal_tri = tri_center_q_frac_cross_junction(
-                    self.cif_terminal_tri_center_frac(),
-                    self.channel_width_m,
-                    self.channel_height_m,
-                );
-                let q_bi_treat = self.cif_terminal_bi_treat_frac();
-                q_pretri_product * q_terminal_tri * q_bi_treat
             }
             // Asymmetric trifurcation: center arm fraction of flow
             DesignTopology::AsymmetricTrifurcationVenturi => tri_center_q_frac_cross_junction(
@@ -344,16 +337,6 @@ impl DesignCandidate {
                 self.channel_width_m,
                 self.channel_height_m,
             ),
-            // Tri→Bi→Tri: tri1 × bi × tri3 (tri1 = tri3 = trifurcation_center_frac)
-            DesignTopology::TriBiTriSelectiveVenturi => {
-                let q_tri = tri_center_q_frac_cross_junction(
-                    self.trifurcation_center_frac,
-                    self.channel_width_m,
-                    self.channel_height_m,
-                );
-                let q_bi = self.cif_terminal_bi_treat_frac();
-                q_tri * q_bi * q_tri
-            }
             _ => 1.0,
         };
 
@@ -370,16 +353,13 @@ impl DesignCandidate {
     ///   venturi, etc.): `1.0` — the entire channel path is the treatment zone.
     /// - **AsymmetricBifurcationSerpentine**: wide arm is CancerTarget; narrow
     ///   arm is HealthyBypass.  Fraction = `1 / (1 + narrow_frac)`.
-    /// - **CascadeCenterTrifurcationSeparator**: only the center arm at each
-    ///   split carries cancer-enriched flow.  Fraction ≈ `tri_center_q_frac`.
     /// - **AsymmetricTrifurcationVenturi**: center arm only.
-    /// - **TriBiTriSelectiveVenturi**: product of three center fractions.
-    /// - **IncrementalFiltrationTriBiSeparator**: product of staged fractions.
+    /// - **PrimitiveSelectiveTree**: product of staged tri/bifurcation treatment fractions.
     /// - **Non-venturi / leukapheresis**: `0.0`.
     #[inline]
     #[must_use]
     pub fn therapy_channel_fraction(&self) -> f64 {
-        use cfd_1d::{cif_pretri_stage_q_fracs, tri_center_q_frac};
+        use cfd_1d::tri_center_q_frac;
 
         if !self.topology.has_venturi()
             && !matches!(
@@ -391,42 +371,35 @@ impl DesignCandidate {
         }
 
         let frac = match self.topology {
+            DesignTopology::PrimitiveSelectiveTree { sequence } => {
+                let first_tri = tri_center_q_frac(self.cif_pretri_center_frac());
+                let later_tri = tri_center_q_frac(self.cif_terminal_tri_center_frac());
+                let q_bi = self.cif_terminal_bi_treat_frac();
+                match sequence {
+                    crate::design::PrimitiveSplitSequence::Bi
+                    | crate::design::PrimitiveSplitSequence::BiBi
+                    | crate::design::PrimitiveSplitSequence::BiTri
+                    | crate::design::PrimitiveSplitSequence::BiBiBi
+                    | crate::design::PrimitiveSplitSequence::BiBiTri
+                    | crate::design::PrimitiveSplitSequence::BiTriBi
+                    | crate::design::PrimitiveSplitSequence::BiTriTri => 1.0,
+                    crate::design::PrimitiveSplitSequence::Tri => first_tri,
+                    crate::design::PrimitiveSplitSequence::TriBi
+                    | crate::design::PrimitiveSplitSequence::TriTri => first_tri,
+                    crate::design::PrimitiveSplitSequence::TriBiBi
+                    | crate::design::PrimitiveSplitSequence::TriBiTri => first_tri * q_bi,
+                    crate::design::PrimitiveSplitSequence::TriTriBi
+                    | crate::design::PrimitiveSplitSequence::TriTriTri => first_tri * later_tri,
+                }
+            }
             DesignTopology::AsymmetricBifurcationSerpentine => {
                 // Wide (CancerTarget) arm vs narrow (HealthyBypass) arm.
                 // Path length is equal in both arms; therapy fraction = 1/(1+narrow_frac).
                 1.0 / (1.0 + self.asymmetric_narrow_frac.clamp(0.10, 0.90))
             }
-            DesignTopology::DoubleTrifurcationCIFVenturi { .. } => {
-                // DTCV: only the first-split center arm enters the sonication
-                // region; all outer arms bypass.
-                tri_center_q_frac(self.cif_pretri_center_frac())
-            }
-            DesignTopology::CascadeCenterTrifurcationSeparator { .. } => {
-                // Each cascade level routes only center_frac flow to therapy.
-                tri_center_q_frac(self.trifurcation_center_frac)
-            }
             DesignTopology::AsymmetricTrifurcationVenturi => {
                 // Center arm carries cancer-enriched stream to venturi.
                 tri_center_q_frac(self.trifurcation_center_frac)
-            }
-            DesignTopology::TriBiTriSelectiveVenturi => {
-                // Three selective stages: Tri → Bi → Tri (center only at each).
-                let q_tri = tri_center_q_frac(self.trifurcation_center_frac);
-                let q_bi = self.cif_terminal_bi_treat_frac();
-                q_tri * q_bi * q_tri
-            }
-            DesignTopology::IncrementalFiltrationTriBiSeparator { n_pretri } => {
-                // Pre-trifurcation cascade + terminal tri + terminal bi.
-                let q_pretri_product = cif_pretri_stage_q_fracs(
-                    n_pretri,
-                    self.cif_pretri_center_frac(),
-                    self.cif_terminal_tri_center_frac(),
-                )
-                .into_iter()
-                .product::<f64>();
-                let q_tri = tri_center_q_frac(self.cif_terminal_tri_center_frac());
-                let q_bi = self.cif_terminal_bi_treat_frac();
-                q_pretri_product * q_tri * q_bi
             }
             // All remaining venturi topologies route the full flow through
             // the treatment zone.
@@ -463,28 +436,28 @@ impl DesignCandidate {
         q_per / (self.channel_width_m * self.channel_height_m)
     }
 
-    /// Effective CIF pre-trifurcation center fraction (clamped to physical range).
+    /// Effective primitive selective pre-trifurcation center fraction (clamped to physical range).
     #[must_use]
     pub fn cif_pretri_center_frac(&self) -> f64 {
         self.cif_pretri_center_frac.clamp(0.20, 0.70)
     }
 
-    /// Effective CIF terminal-trifurcation center fraction (clamped to physical range).
+    /// Effective primitive selective terminal-trifurcation center fraction (clamped to physical range).
     #[must_use]
     pub fn cif_terminal_tri_center_frac(&self) -> f64 {
         self.cif_terminal_tri_center_frac.clamp(0.20, 0.70)
     }
 
-    /// Effective CIF terminal-bifurcation treatment fraction (clamped to physical range).
+    /// Effective primitive selective terminal-bifurcation treatment fraction (clamped to physical range).
     #[must_use]
     pub fn cif_terminal_bi_treat_frac(&self) -> f64 {
         self.cif_terminal_bi_treat_frac.clamp(0.50, 0.85)
     }
 
-    /// Stage-wise pre-trifurcation center-arm fractions for CIF.
+    /// Stage-wise pre-trifurcation center-arm fractions for primitive selective trees.
     ///
     /// The returned vector has length `n_pretri.clamp(1, 3)` and is used by
-    /// staged-CIF geometry and routing calculations.
+    /// staged primitive selective geometry and routing calculations.
     #[must_use]
     pub fn cif_pretri_stage_center_fracs(&self, n_pretri: u8) -> Vec<f64> {
         cfd_1d::cif_pretri_stage_center_fracs(

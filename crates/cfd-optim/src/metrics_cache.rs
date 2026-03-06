@@ -143,12 +143,16 @@ impl MetricsCache {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::design::{CrossSectionShape, DesignTopology, TreatmentZoneMode};
+    use crate::design::{
+        CrossSectionShape, DesignTopology, PrimitiveSplitSequence, TreatmentZoneMode,
+    };
 
     fn sample_candidate() -> DesignCandidate {
         DesignCandidate {
             id: "cache-test".to_string(),
-            topology: DesignTopology::CascadeCenterTrifurcationSeparator { n_levels: 2 },
+            topology: DesignTopology::PrimitiveSelectiveTree {
+                sequence: PrimitiveSplitSequence::TriTri,
+            },
             flow_rate_m3_s: 1.667e-6,
             inlet_gauge_pa: 100_000.0,
             throat_diameter_m: 45e-6,

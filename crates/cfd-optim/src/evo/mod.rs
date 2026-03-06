@@ -30,45 +30,53 @@ mod optimizer;
 pub use decode::{candidate_to_genome, decode_genome};
 pub use optimizer::{EvolutionResult, GeneticOptimizer};
 
-use crate::design::DesignTopology;
+use crate::design::{DesignTopology, PrimitiveSplitSequence};
 
 // ── All topology families available to the genetic search ───────────────────
 
 pub(super) const ALL_EVO_TOPOLOGIES: [DesignTopology; 29] = [
-    DesignTopology::SingleVenturi,                                      // 0
-    DesignTopology::BifurcationVenturi,                                 // 1
-    DesignTopology::TrifurcationVenturi,                                // 2
-    DesignTopology::VenturiSerpentine,                                  // 3
-    DesignTopology::SerpentineGrid,                                     // 4
-    DesignTopology::CellSeparationVenturi,                              // 5
-    DesignTopology::WbcCancerSeparationVenturi,                         // 6
-    DesignTopology::DoubleBifurcationVenturi,                           // 7
-    DesignTopology::TripleBifurcationVenturi,                           // 8
-    DesignTopology::DoubleTrifurcationVenturi,                          // 9
-    DesignTopology::BifurcationTrifurcationVenturi,                     // 10
-    DesignTopology::SerialDoubleVenturi,                                // 11
-    DesignTopology::BifurcationSerpentine,                              // 12
-    DesignTopology::TrifurcationSerpentine,                             // 13
-    DesignTopology::AsymmetricBifurcationSerpentine,                    // 14
-    DesignTopology::ConstrictionExpansionArray { n_cycles: 10 },        // 15
-    DesignTopology::SpiralSerpentine { n_turns: 8 },                    // 16
-    DesignTopology::ParallelMicrochannelArray { n_channels: 100 },      // 17
-    DesignTopology::TrifurcationBifurcationVenturi,                     // 18
-    DesignTopology::TripleTrifurcationVenturi,                          // 19
-    DesignTopology::TrifurcationBifurcationBifurcationVenturi,          // 20
-    DesignTopology::QuadTrifurcationVenturi,                            // 21
-    DesignTopology::CascadeCenterTrifurcationSeparator { n_levels: 2 }, // 22
-    DesignTopology::IncrementalFiltrationTriBiSeparator { n_pretri: 2 }, // 23
-    DesignTopology::DoubleTrifurcationCIFVenturi {
-        center_throat_count: 2,
+    DesignTopology::SingleVenturi,                                 // 0
+    DesignTopology::BifurcationVenturi,                            // 1
+    DesignTopology::TrifurcationVenturi,                           // 2
+    DesignTopology::VenturiSerpentine,                             // 3
+    DesignTopology::SerpentineGrid,                                // 4
+    DesignTopology::CellSeparationVenturi,                         // 5
+    DesignTopology::WbcCancerSeparationVenturi,                    // 6
+    DesignTopology::DoubleBifurcationVenturi,                      // 7
+    DesignTopology::TripleBifurcationVenturi,                      // 8
+    DesignTopology::DoubleTrifurcationVenturi,                     // 9
+    DesignTopology::BifurcationTrifurcationVenturi,                // 10
+    DesignTopology::SerialDoubleVenturi,                           // 11
+    DesignTopology::BifurcationSerpentine,                         // 12
+    DesignTopology::TrifurcationSerpentine,                        // 13
+    DesignTopology::AsymmetricBifurcationSerpentine,               // 14
+    DesignTopology::ConstrictionExpansionArray { n_cycles: 10 },   // 15
+    DesignTopology::SpiralSerpentine { n_turns: 8 },               // 16
+    DesignTopology::ParallelMicrochannelArray { n_channels: 100 }, // 17
+    DesignTopology::TrifurcationBifurcationVenturi,                // 18
+    DesignTopology::TripleTrifurcationVenturi,                     // 19
+    DesignTopology::TrifurcationBifurcationBifurcationVenturi,     // 20
+    DesignTopology::QuadTrifurcationVenturi,                       // 21
+    DesignTopology::PrimitiveSelectiveTree {
+        sequence: PrimitiveSplitSequence::Tri,
+    }, // 22
+    DesignTopology::PrimitiveSelectiveTree {
+        sequence: PrimitiveSplitSequence::TriBi,
+    }, // 23
+    DesignTopology::PrimitiveSelectiveTree {
+        sequence: PrimitiveSplitSequence::TriTri,
     }, // 24
-    DesignTopology::AsymmetricTrifurcationVenturi,                      // 25
-    DesignTopology::TriBiTriSelectiveVenturi,                           // 26
+    DesignTopology::PrimitiveSelectiveTree {
+        sequence: PrimitiveSplitSequence::BiTri,
+    }, // 25
+    DesignTopology::PrimitiveSelectiveTree {
+        sequence: PrimitiveSplitSequence::TriTriTri,
+    }, // 26
     DesignTopology::AdaptiveTree {
         levels: 0,
         split_types: 0,
     }, // 27
-    DesignTopology::DoubleBifurcationSerpentine,                        // 28
+    DesignTopology::DoubleBifurcationSerpentine,                   // 28
 ];
 
 // ── Genome definition ─────────────────────────────────────────────────────────
@@ -89,9 +97,9 @@ pub(super) const ALL_EVO_TOPOLOGIES: [DesignTopology; 29] = [
 /// | 7  | Bend radius fraction |
 /// | 8  | Discrete topology parameter (variant-dependent) |
 /// | 9–12 | AdaptiveTree per-level split type (0 = Bi, 1 = Tri); for non-Adaptive topologies gene 12 encodes selective centerline venturi throat count (1..4) |
-/// | 13 | `trifurcation_center_frac` / CIF pretri center frac ∈ [0.25, 0.65] |
-/// | 14 | CIF terminal tri center frac ∈ [0.25, 0.65] |
-/// | 15 | CIF terminal bifurcation treat frac / TBT bi frac ∈ [0.50, 0.85] |
+/// | 13 | `trifurcation_center_frac` / selective pre-tri center frac ∈ [0.25, 0.65] |
+/// | 14 | selective terminal tri center frac ∈ [0.25, 0.65] |
+/// | 15 | selective terminal bifurcation treat frac / TBT bi frac ∈ [0.50, 0.85] |
 /// | 16 | `asymmetric_narrow_frac` ∈ [0.20, 0.70] (AsymmetricBifurcationSerpentine only) |
 /// | 17 | Throat length factor ∈ [1.5, 15.0] × throat diameter (venturi only) |
 /// | 18 | Channel height log-linear ∈ [0.3 mm, 3.0 mm] (millifluidic only) |

@@ -25,10 +25,7 @@ pub trait ResistanceModel<T: RealField + Copy> {
         conditions: &FlowConditions<T>,
     ) -> Result<(T, T)> {
         // Default implementation: assume model is purely linear
-        Ok((
-            self.calculate_resistance(fluid, conditions)?,
-            T::zero(),
-        ))
+        Ok((self.calculate_resistance(fluid, conditions)?, T::zero()))
     }
 
     /// Get model name
@@ -65,7 +62,8 @@ pub trait ResistanceModel<T: RealField + Copy> {
                     -velocity
                 };
                 let mach = v_abs / speed_of_sound;
-                let mach_limit = T::from_f64(0.3).expect("Mathematical constant conversion compromised");
+                let mach_limit =
+                    T::from_f64(0.3).expect("Mathematical constant conversion compromised");
                 if mach > mach_limit {
                     return Err(cfd_core::error::Error::PhysicsViolation(format!(
                         "Mach number violation: Ma > 0.3. Incompressibility assumption invalid for model '{}'",
@@ -116,7 +114,8 @@ impl<T: RealField + Copy + FromPrimitive> FlowConditions<T> {
             velocity: Some(velocity),
             flow_rate: None,
             shear_rate: None,
-            temperature: T::from_f64(T_STANDARD).expect("Mathematical constant conversion compromised"),
+            temperature: T::from_f64(T_STANDARD)
+                .expect("Mathematical constant conversion compromised"),
             pressure: T::from_f64(P_ATM).expect("Mathematical constant conversion compromised"),
         }
     }

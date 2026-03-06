@@ -1,8 +1,9 @@
-//! Zweifach-Fung junction routing model for asymmetric trifurcation cascades.
+//! Zweifach-Fung junction routing model for selective split-sequence trees.
 //!
-//! Used by `CascadeCenterTrifurcationSeparator` (CCT) topologies to predict
-//! the cell-type-specific distribution between the center arm (cancer/WBC-enriched,
-//! routed to the venturi) and the peripheral bypass arms (RBC-enriched, low shear).
+//! Used by primitive selective branching topologies to predict the
+//! cell-type-specific distribution between the designated treatment arm
+//! (cancer/WBC-enriched, routed to the therapy zone) and the peripheral
+//! bypass arms (RBC-enriched, low shear).
 //!
 //! # Physical basis
 //!
@@ -245,7 +246,7 @@ pub fn tri_center_q_frac_cross_junction(
     g_c / (g_c + 2.0 * g_p)
 }
 
-/// Stage-wise pre-trifurcation center-arm width fractions for CIF.
+/// Stage-wise pre-trifurcation center-arm width fractions for selective routing.
 ///
 /// This models progressive asymmetric focusing across pre-trifurcation levels:
 /// deeper levels are allowed to bias further toward the center arm so that
@@ -280,7 +281,7 @@ pub fn cif_pretri_stage_center_fracs(
         .collect()
 }
 
-/// Stage-wise pre-trifurcation center-flow fractions for CIF.
+/// Stage-wise pre-trifurcation center-flow fractions for selective routing.
 ///
 /// Each value is `tri_center_q_frac(stage_center_frac)` for the corresponding
 /// stage returned by [`cif_pretri_stage_center_fracs`].
@@ -317,7 +318,7 @@ pub struct CascadeJunctionResult {
     pub center_hematocrit_ratio: f64,
 }
 
-/// Cell fractions after a staged controlled incremental filtration (CIF) path:
+/// Cell fractions after a staged selective-routing path:
 ///
 /// 1. `n_pretri` center-only cascade trifurcation stages (incremental skimming),
 /// 2. one terminal trifurcation skimming stage,
@@ -366,18 +367,16 @@ pub fn cascade_junction_separation(
     cascade_from_q_fractions(&q_fracs)
 }
 
-/// Compute CCT routing from per-stage solved center-flow fractions.
+/// Compute cascade selective-routing separation from per-stage solved center-flow fractions.
 ///
 /// This additive API is intended for high-fidelity coupling with solved 1D
 /// network flow extraction (`cfd-optim::metrics::network_solve`), where each
 /// stage can have a slightly different split due to downstream resistance.
-pub fn cascade_junction_separation_from_qfracs(
-    q_center_fracs: &[f64],
-) -> CascadeJunctionResult {
+pub fn cascade_junction_separation_from_qfracs(q_center_fracs: &[f64]) -> CascadeJunctionResult {
     cascade_from_q_fractions(q_center_fracs)
 }
 
-/// Compute staged controlled incremental filtration (CIF) routing.
+/// Compute staged selective-routing separation.
 ///
 /// The sequence is:
 /// - Pre-skimming: `n_pretri` center-only trifurcation cascade levels,
@@ -407,9 +406,9 @@ pub fn incremental_filtration_separation(
     )
 }
 
-/// Compute staged controlled incremental filtration (CIF) routing.
+/// Compute staged selective-routing separation.
 ///
-/// This is the canonical staged-CIF model for:
+/// This is the canonical staged selective-routing model for:
 /// - pre-trifurcation skimming (`pretri_center_frac`),
 /// - terminal-trifurcation skimming (`terminal_tri_frac`),
 /// - terminal treatment bifurcation (`terminal_bi_treat_frac`).
@@ -424,7 +423,7 @@ pub fn incremental_filtration_separation_staged(
     incremental_from_q_fractions(&pretri_q_fracs, q_tri, terminal_bi_treat_frac)
 }
 
-/// Compute staged CIF routing from solved per-stage flow fractions.
+/// Compute staged selective-routing separation from solved per-stage flow fractions.
 ///
 /// This additive API is intended for coupling with solved-network extraction
 /// where each pre-trifurcation stage can carry a different center-flow fraction.
@@ -440,7 +439,7 @@ pub fn incremental_filtration_separation_from_qfracs(
     )
 }
 
-/// Compute staged CIF routing with cross-junction diameter effects.
+/// Compute staged selective-routing separation with cross-junction diameter effects.
 ///
 /// Identical to [`incremental_filtration_separation_staged`] but uses
 /// [`tri_center_q_frac_cross_junction`] to account for cross-junction
@@ -479,15 +478,12 @@ pub fn incremental_filtration_separation_cross_junction(
         })
         .collect();
 
-    let q_tri = tri_center_q_frac_cross_junction(
-        terminal_tri_frac,
-        current_parent_w,
-        channel_height_m,
-    );
+    let q_tri =
+        tri_center_q_frac_cross_junction(terminal_tri_frac, current_parent_w, channel_height_m);
     incremental_from_q_fractions(&pretri_q_fracs, q_tri, terminal_bi_treat_frac)
 }
 
-/// Compute CCT routing with cross-junction diameter effects.
+/// Compute cascade selective-routing separation with cross-junction diameter effects.
 ///
 /// Each cascade level uses [`tri_center_q_frac_cross_junction`] to account
 /// for cross-junction K-factor mismatch between center and peripheral arms.
@@ -511,6 +507,68 @@ pub fn cascade_junction_separation_cross_junction(
     cascade_from_q_fractions(&q_fracs)
 }
 
+/// Compute cell separation through a mixed cascade of trifurcation and
+/// bifurcation junctions.
+///
+/// Each level is specified as a `(q_frac, is_trifurcation)` pair:
+/// - **Trifurcation** levels use the 3-arm Zweifach-Fung model ([`p_center`])
+///   where `q_frac` is the center-arm volumetric flow fraction.
+/// - **Bifurcation** levels use the 2-arm model ([`p_treat_bifurcation`])
+///   where `q_frac` is the treatment-arm volumetric flow fraction.
+///
+/// This generalises [`cascade_from_q_fractions`] (all-tri) and
+/// [`incremental_from_q_fractions`] (tri + terminal bi) to arbitrary
+/// Bi/Tri orderings, as required by [`PrimitiveSplitSequence`] topologies.
+///
+/// # Theorem
+///
+/// **Monotonicity**: for each cell type with stiffness exponent `β ≥ 1`,
+/// adding a cascade level with `q_frac > 0.5` (for bi) or `q_frac > 1/3`
+/// (for tri) can only *increase* the center-arm cell fraction relative to
+/// a shorter cascade truncated at the preceding level.
+///
+/// **Proof sketch**: at every level the routing probability `p ∈ (0,1)`
+/// satisfies `p ≥ q_frac` when `β ≥ 1` and `q_frac` exceeds the
+/// equal-flow baseline.  Multiplying the running product by `p ≤ 1` keeps
+/// it monotonically bounded, while the differential between cancer (β=1.70)
+/// and RBC (β=1.00) persists or widens.
+pub fn mixed_cascade_separation(stages: &[(f64, bool)]) -> CascadeJunctionResult {
+    let mut f_cancer = 1.0_f64;
+    let mut f_wbc = 1.0_f64;
+    let mut f_rbc = 1.0_f64;
+    let mut q_center_total = 1.0_f64;
+
+    for &(q_frac, is_tri) in stages {
+        let q = q_frac.clamp(1e-9, 1.0 - 1e-9);
+        if is_tri {
+            f_cancer *= p_center(q, SE_CANCER);
+            f_wbc *= p_center(q, SE_WBC);
+            f_rbc *= p_center(q, SE_RBC);
+        } else {
+            f_cancer *= p_treat_bifurcation(q, SE_CANCER);
+            f_wbc *= p_treat_bifurcation(q, SE_WBC);
+            f_rbc *= p_treat_bifurcation(q, SE_RBC);
+        }
+        q_center_total *= q;
+    }
+
+    let rbc_periph = (1.0 - f_rbc).clamp(0.0, 1.0);
+    let sep_eff = (f_cancer - f_rbc).abs().clamp(0.0, 1.0);
+    let center_hematocrit_ratio = if q_center_total > 1e-12 {
+        (f_rbc / q_center_total).clamp(0.0, 2.0)
+    } else {
+        1.0
+    };
+
+    CascadeJunctionResult {
+        cancer_center_fraction: f_cancer.clamp(0.0, 1.0),
+        wbc_center_fraction: f_wbc.clamp(0.0, 1.0),
+        rbc_peripheral_fraction: rbc_periph,
+        separation_efficiency: sep_eff,
+        center_hematocrit_ratio,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -522,7 +580,10 @@ mod tests {
         let r = cascade_junction_separation(1, 1.0 / 3.0, 2e-3, 1e-3, 5e-6);
         // Center arm carries 1/3 of flow → q_frac = (1/3)³/((1/3)³+2*(1/3)³) = 1/3
         // After 1 level: cancer_center_fraction > rbc_center_fraction (stiffness effect)
-        assert!(r.cancer_center_fraction > r.wbc_center_fraction || (r.cancer_center_fraction - r.wbc_center_fraction).abs() < 1e-6);
+        assert!(
+            r.cancer_center_fraction > r.wbc_center_fraction
+                || (r.cancer_center_fraction - r.wbc_center_fraction).abs() < 1e-6
+        );
         assert!(r.wbc_center_fraction >= r.rbc_peripheral_fraction * 0.0); // just sanity
         assert!(r.separation_efficiency >= 0.0 && r.separation_efficiency <= 1.0);
     }
@@ -548,7 +609,10 @@ mod tests {
     fn tri_center_q_frac_symmetric() {
         // Symmetric 1/3 split → q_frac = 1/3
         let q = tri_center_q_frac(1.0 / 3.0);
-        assert!((q - 1.0 / 3.0).abs() < 1e-10, "symmetric frac should give q=1/3, got {q}");
+        assert!(
+            (q - 1.0 / 3.0).abs() < 1e-10,
+            "symmetric frac should give q=1/3, got {q}"
+        );
     }
 
     #[test]
@@ -572,6 +636,43 @@ mod tests {
         let high = incremental_filtration_separation_staged(2, 0.45, 0.45, 0.76);
         assert!(high.cancer_center_fraction >= low.cancer_center_fraction - 1e-10);
         assert!(high.wbc_center_fraction >= low.wbc_center_fraction - 1e-10);
+    }
+
+    #[test]
+    fn mixed_sequence_tri_bi_routes_more_rbc_peripheral_than_single_tri() {
+        let q_tri = tri_center_q_frac(0.45);
+        let tri_only = mixed_cascade_separation(&[(q_tri, true)]);
+        let tri_bi = mixed_cascade_separation(&[(q_tri, true), (0.72, false)]);
+
+        assert!(
+            tri_bi.rbc_peripheral_fraction >= tri_only.rbc_peripheral_fraction,
+            "adding a treatment bifurcation should not reduce RBC peripheral routing"
+        );
+        assert!(
+            tri_bi.cancer_center_fraction > (1.0 - tri_bi.rbc_peripheral_fraction),
+            "cancer capture should remain above RBC center carryover in selective routing"
+        );
+    }
+
+    #[test]
+    fn stronger_trifurcation_bias_improves_three_pop_selectivity() {
+        let weak = mixed_cascade_separation(&[
+            (tri_center_q_frac(0.38), true),
+            (tri_center_q_frac(0.38), true),
+        ]);
+        let strong = mixed_cascade_separation(&[
+            (tri_center_q_frac(0.52), true),
+            (tri_center_q_frac(0.52), true),
+        ]);
+
+        assert!(
+            strong.cancer_center_fraction >= weak.cancer_center_fraction,
+            "stronger center-arm bias should not reduce cancer capture"
+        );
+        assert!(
+            strong.separation_efficiency >= weak.separation_efficiency,
+            "stronger center-arm bias should improve separation efficiency"
+        );
     }
 
     #[test]
@@ -599,8 +700,7 @@ mod tests {
         let q = tri_center_q_frac(0.45);
         let solved_like = cascade_junction_separation_from_qfracs(&[q, q, q]);
         assert!(
-            (width_model.cancer_center_fraction - solved_like.cancer_center_fraction).abs()
-                < 1e-12
+            (width_model.cancer_center_fraction - solved_like.cancer_center_fraction).abs() < 1e-12
         );
         assert!(
             (width_model.rbc_peripheral_fraction - solved_like.rbc_peripheral_fraction).abs()
@@ -615,12 +715,9 @@ mod tests {
         let q_tri = tri_center_q_frac(0.55);
         let solved_like = incremental_filtration_separation_from_qfracs(&q_pretri, q_tri, 0.68);
         assert!(
-            (width_model.cancer_center_fraction - solved_like.cancer_center_fraction).abs()
-                < 1e-12
+            (width_model.cancer_center_fraction - solved_like.cancer_center_fraction).abs() < 1e-12
         );
-        assert!(
-            (width_model.rbc_center_fraction - solved_like.rbc_center_fraction).abs() < 1e-12
-        );
+        assert!((width_model.rbc_center_fraction - solved_like.rbc_center_fraction).abs() < 1e-12);
     }
 
     #[test]
@@ -638,12 +735,13 @@ mod tests {
         // With symmetric 1/3 split, cross-junction model should give similar
         // result to the basic model (identical for symmetric).
         let q_basic = tri_center_q_frac(1.0 / 3.0);
-        let q_cross =
-            tri_center_q_frac_cross_junction(1.0 / 3.0, 2e-3, 1e-3);
+        let q_cross = tri_center_q_frac_cross_junction(1.0 / 3.0, 2e-3, 1e-3);
         // Both should be ~1/3 for symmetric geometry
         assert!((q_basic - 1.0 / 3.0).abs() < 1e-10);
-        assert!((q_cross - 1.0 / 3.0).abs() < 0.05,
-            "symmetric cross-junction should be near 1/3, got {q_cross}");
+        assert!(
+            (q_cross - 1.0 / 3.0).abs() < 0.05,
+            "symmetric cross-junction should be near 1/3, got {q_cross}"
+        );
     }
 
     #[test]
@@ -662,11 +760,10 @@ mod tests {
     #[test]
     fn cross_junction_cif_pushes_more_rbc_to_periphery() {
         let basic = incremental_filtration_separation_staged(2, 0.45, 0.50, 0.68);
-        let cross = incremental_filtration_separation_cross_junction(
-            2, 0.45, 0.50, 0.68, 2e-3, 1e-3,
-        );
+        let cross =
+            incremental_filtration_separation_cross_junction(2, 0.45, 0.50, 0.68, 2e-3, 1e-3);
         assert!(cross.rbc_peripheral_fraction >= basic.rbc_peripheral_fraction - 0.01,
-            "cross-junction CIF should push more RBCs to periphery: basic={}, cross={}",
+            "cross-junction selective routing should push more RBCs to periphery: basic={}, cross={}",
             basic.rbc_peripheral_fraction, cross.rbc_peripheral_fraction);
     }
 
@@ -674,8 +771,38 @@ mod tests {
     fn cross_junction_cct_pushes_more_rbc_to_periphery() {
         let basic = cascade_junction_separation(2, 0.45, 2e-3, 1e-3, 5e-6);
         let cross = cascade_junction_separation_cross_junction(2, 0.45, 2e-3, 1e-3);
-        assert!(cross.rbc_peripheral_fraction >= basic.rbc_peripheral_fraction - 0.01,
-            "cross-junction CCT should push more RBCs to periphery: basic={}, cross={}",
-            basic.rbc_peripheral_fraction, cross.rbc_peripheral_fraction);
+        assert!(
+            cross.rbc_peripheral_fraction >= basic.rbc_peripheral_fraction - 0.01,
+            "cross-junction cascade routing should push more RBCs to periphery: basic={}, cross={}",
+            basic.rbc_peripheral_fraction,
+            cross.rbc_peripheral_fraction
+        );
+    }
+
+    #[test]
+    fn mixed_cascade_all_tri_matches_cascade() {
+        let q = tri_center_q_frac(0.45);
+        let pure = cascade_from_q_fractions(&[q, q]);
+        let mixed = mixed_cascade_separation(&[(q, true), (q, true)]);
+        assert!((pure.cancer_center_fraction - mixed.cancer_center_fraction).abs() < 1e-12);
+        assert!((pure.rbc_peripheral_fraction - mixed.rbc_peripheral_fraction).abs() < 1e-12);
+    }
+
+    #[test]
+    fn mixed_cascade_tri_bi_produces_nonzero_separation() {
+        let q_tri = tri_center_q_frac(0.45);
+        let q_bi = 0.68;
+        let r = mixed_cascade_separation(&[(q_tri, true), (q_bi, false)]);
+        assert!(r.cancer_center_fraction > 0.0);
+        assert!(r.separation_efficiency > 0.0);
+        assert!(r.cancer_center_fraction > r.rbc_peripheral_fraction.min(0.99));
+    }
+
+    #[test]
+    fn mixed_cascade_deeper_improves_separation() {
+        let q_tri = tri_center_q_frac(0.45);
+        let r1 = mixed_cascade_separation(&[(q_tri, true)]);
+        let r2 = mixed_cascade_separation(&[(q_tri, true), (q_tri, true)]);
+        assert!(r2.separation_efficiency >= r1.separation_efficiency - 1e-10);
     }
 }

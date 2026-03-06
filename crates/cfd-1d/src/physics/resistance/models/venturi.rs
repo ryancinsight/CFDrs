@@ -130,7 +130,9 @@ impl VenturiGeometry {
             Self::MachinedConvergent => 0.995,
             Self::RoughCastConvergent => 0.984,
             Self::RoughWeldedConvergent => 0.985,
-            Self::Custom { discharge_coefficient } => *discharge_coefficient,
+            Self::Custom {
+                discharge_coefficient,
+            } => *discharge_coefficient,
         }
     }
 }
@@ -233,7 +235,9 @@ impl<T: RealField + Copy + FromPrimitive> VenturiModel<T> {
             throat_length,
             total_length,
             geometry_type: VenturiGeometry::MachinedConvergent,
-            expansion_type: ExpansionType::Gradual { half_angle_deg: 7.0 },
+            expansion_type: ExpansionType::Gradual {
+                half_angle_deg: 7.0,
+            },
             throat_roughness: T::zero(),
         }
     }
@@ -245,16 +249,19 @@ impl<T: RealField + Copy + FromPrimitive> VenturiModel<T> {
         throat_length: T,
         total_length: T,
     ) -> Self {
-        Self::new(inlet_diameter, throat_diameter, inlet_diameter, throat_length, total_length)
+        Self::new(
+            inlet_diameter,
+            throat_diameter,
+            inlet_diameter,
+            throat_length,
+            total_length,
+        )
     }
 
     /// Create a millifluidic Venturi with typical parameters
-    pub fn millifluidic(
-        inlet_diameter: T,
-        throat_diameter: T,
-        throat_length: T,
-    ) -> Self {
-        let total_length = throat_length * T::from_f64(5.0).expect("Mathematical constant conversion compromised");
+    pub fn millifluidic(inlet_diameter: T, throat_diameter: T, throat_length: T) -> Self {
+        let total_length =
+            throat_length * T::from_f64(5.0).expect("Mathematical constant conversion compromised");
         Self {
             inlet_diameter,
             throat_diameter,
@@ -264,7 +271,9 @@ impl<T: RealField + Copy + FromPrimitive> VenturiModel<T> {
             geometry_type: VenturiGeometry::Custom {
                 discharge_coefficient: 0.97,
             },
-            expansion_type: ExpansionType::Gradual { half_angle_deg: 5.0 },
+            expansion_type: ExpansionType::Gradual {
+                half_angle_deg: 5.0,
+            },
             throat_roughness: T::zero(),
         }
     }
@@ -310,28 +319,35 @@ impl<T: RealField + Copy + FromPrimitive> VenturiModel<T> {
     /// Throat cross-sectional area [m²]
     fn throat_area(&self) -> T {
         let pi = T::pi();
-        pi * self.throat_diameter * self.throat_diameter / (T::one() + T::one() + T::one() + T::one())
+        pi * self.throat_diameter * self.throat_diameter
+            / (T::one() + T::one() + T::one() + T::one())
     }
 
     /// Outlet cross-sectional area [m²]
     fn outlet_area(&self) -> T {
         let pi = T::pi();
-        pi * self.outlet_diameter * self.outlet_diameter / (T::one() + T::one() + T::one() + T::one())
+        pi * self.outlet_diameter * self.outlet_diameter
+            / (T::one() + T::one() + T::one() + T::one())
     }
 
     /// Calculate the Darcy friction factor in the throat
     ///
     /// Uses Hagen-Poiseuille (laminar) or Blasius (turbulent) correlations
     fn throat_friction_factor(&self, reynolds_throat: T) -> T {
-        let re_lam = T::from_f64(LAMINAR_LIMIT_RE).expect("Mathematical constant conversion compromised");
+        let re_lam =
+            T::from_f64(LAMINAR_LIMIT_RE).expect("Mathematical constant conversion compromised");
 
         if reynolds_throat < re_lam {
             // Laminar: f = 64/Re
-            T::from_f64(LAMINAR_FRICTION_COEFF).expect("Mathematical constant conversion compromised") / reynolds_throat
+            T::from_f64(LAMINAR_FRICTION_COEFF)
+                .expect("Mathematical constant conversion compromised")
+                / reynolds_throat
         } else {
             // Blasius: f = 0.3164 / Re^0.25
-            let coeff = T::from_f64(BLASIUS_COEFF).expect("Mathematical constant conversion compromised");
-            let exp = T::from_f64(BLASIUS_EXP).expect("Mathematical constant conversion compromised");
+            let coeff =
+                T::from_f64(BLASIUS_COEFF).expect("Mathematical constant conversion compromised");
+            let exp =
+                T::from_f64(BLASIUS_EXP).expect("Mathematical constant conversion compromised");
             coeff / reynolds_throat.powf(exp)
         }
     }
@@ -341,8 +357,8 @@ impl<T: RealField + Copy + FromPrimitive> VenturiModel<T> {
     /// At low Re (millifluidic regime), C_d decreases due to boundary layer growth.
     /// Empirical correction: C_d_eff = C_d_nominal × min(1, 0.5 + 0.5×(Re/1000)^0.3)
     fn effective_discharge_coefficient(&self, reynolds: T) -> T {
-        let c_d_nom = T::from_f64(self.geometry_type.discharge_coefficient())
-            .unwrap_or_else(T::one);
+        let c_d_nom =
+            T::from_f64(self.geometry_type.discharge_coefficient()).unwrap_or_else(T::one);
         let re_ref = T::from_f64(1000.0).expect("Mathematical constant conversion compromised");
         let ratio = reynolds / re_ref;
 
@@ -368,7 +384,11 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for VenturiModel<T>
 
         // Effective resistance: R_eff = R + k|Q|
         let q_mag = if let Some(q) = conditions.flow_rate {
-            if q >= T::zero() { q } else { -q }
+            if q >= T::zero() {
+                q
+            } else {
+                -q
+            }
         } else if let Some(v) = conditions.velocity {
             let v_abs = if v >= T::zero() { v } else { -v };
             v_abs * self.inlet_area()
@@ -426,7 +446,7 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for VenturiModel<T>
         let re_inlet = density * v_inlet * self.inlet_diameter / viscosity_inlet;
 
         // --- 1. Contraction loss (Bernoulli + discharge coefficient) ---
-        let beta_sq = self.beta_squared();  // = (D_t/D_i)² = A_t/A_i
+        let beta_sq = self.beta_squared(); // = (D_t/D_i)² = A_t/A_i
         let c_d = self.effective_discharge_coefficient(re_inlet);
 
         // ΔP_contraction = ½ρV_t²(1 − (A_t/A_i)²) / C_d²
@@ -439,18 +459,16 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for VenturiModel<T>
 
         // --- 2. Throat friction loss ---
         let f = self.throat_friction_factor(re_throat);
-        let dp_friction = f * (self.throat_length / self.throat_diameter)
-            * half * density * v_throat * v_throat;
+        let dp_friction =
+            f * (self.throat_length / self.throat_diameter) * half * density * v_throat * v_throat;
 
         // --- 3. Expansion loss (Borda-Carnot) ---
-        let k_exp = T::from_f64(self.expansion_type.loss_coefficient())
-            .unwrap_or_else(T::one);
+        let k_exp = T::from_f64(self.expansion_type.loss_coefficient()).unwrap_or_else(T::one);
         let dv = v_throat - v_outlet;
         let dp_expansion_loss = k_exp * half * density * dv * dv;
 
         // --- 4. Expansion recovery (ideal Bernoulli) ---
-        let eta_r = T::from_f64(self.expansion_type.recovery_efficiency())
-            .unwrap_or_else(T::one);
+        let eta_r = T::from_f64(self.expansion_type.recovery_efficiency()).unwrap_or_else(T::one);
         let dp_recovery = eta_r * half * density * (v_throat * v_throat - v_outlet * v_outlet);
 
         // --- Net pressure drop ---
@@ -466,7 +484,8 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for VenturiModel<T>
         // microfluidic flow rates (Q ~ 1e-10 m³/s) yield q² ~ 1e-20 which
         // is below f64::EPSILON ≈ 2.2e-16 even though the flow is physically
         // meaningful. Only fall back to analytical limit for truly zero flow.
-        let vel_threshold = T::from_f64(1e-15).expect("Mathematical constant conversion compromised");
+        let vel_threshold =
+            T::from_f64(1e-15).expect("Mathematical constant conversion compromised");
         if v_inlet > vel_threshold {
             // Decompose: laminar part (friction ∝ V → R·Q) and inertial part (∝ V² → k·Q²)
             let r = dp_friction / q; // Friction is approximately linear at low Re
@@ -623,8 +642,8 @@ impl<T: RealField + Copy + FromPrimitive> VenturiModel<T> {
         // ΔP_contraction = ½ρV_t²(1 − β⁴) / C_d²  where β⁴ = (A_t/A_i)² = beta_sq·beta_sq
         let dp_contraction =
             half * density * v_throat * v_throat * (one - beta_sq * beta_sq) / (c_d * c_d);
-        let dp_friction = f * (self.throat_length / self.throat_diameter)
-            * half * density * v_throat * v_throat;
+        let dp_friction =
+            f * (self.throat_length / self.throat_diameter) * half * density * v_throat * v_throat;
         let dv = v_throat - v_outlet;
         let dp_expansion_loss = k_exp * half * density * dv * dv;
         let dp_recovery = eta_r * half * density * (v_throat * v_throat - v_outlet * v_outlet);
@@ -657,12 +676,17 @@ mod tests {
         // At high Re, the pressure drop should approach the ideal Bernoulli value
         // ΔP = ½ρV₂²(1 - β²)
         let model = VenturiModel::symmetric(
-            0.01,   // 10mm inlet
-            0.005,  // 5mm throat (β = 0.5)
-            0.01,   // 10mm throat length
-            0.05,   // 50mm total
-        ).with_geometry(VenturiGeometry::Custom { discharge_coefficient: 1.0 })
-         .with_expansion(ExpansionType::Gradual { half_angle_deg: 3.0 });
+            0.01,  // 10mm inlet
+            0.005, // 5mm throat (β = 0.5)
+            0.01,  // 10mm throat length
+            0.05,  // 50mm total
+        )
+        .with_geometry(VenturiGeometry::Custom {
+            discharge_coefficient: 1.0,
+        })
+        .with_expansion(ExpansionType::Gradual {
+            half_angle_deg: 3.0,
+        });
 
         let fluid = cfd_core::physics::fluid::database::water_20c::<f64>()?;
 
@@ -689,9 +713,9 @@ mod tests {
     fn test_venturi_millifluidic_blood() -> Result<()> {
         // Test with blood properties at millifluidic scale
         let model = VenturiModel::millifluidic(
-            0.001,   // 1mm inlet
-            0.0005,  // 0.5mm throat
-            0.002,   // 2mm throat length
+            0.001,  // 1mm inlet
+            0.0005, // 0.5mm throat
+            0.002,  // 2mm throat length
         );
 
         // Create a simple Newtonian approximation of blood
@@ -749,14 +773,24 @@ mod tests {
 
     #[test]
     fn test_venturi_expansion_coefficients() {
-        assert_relative_eq!(ExpansionType::Sudden.loss_coefficient(), 1.0, epsilon = 1e-10);
         assert_relative_eq!(
-            ExpansionType::Gradual { half_angle_deg: 3.0 }.loss_coefficient(),
+            ExpansionType::Sudden.loss_coefficient(),
+            1.0,
+            epsilon = 1e-10
+        );
+        assert_relative_eq!(
+            ExpansionType::Gradual {
+                half_angle_deg: 3.0
+            }
+            .loss_coefficient(),
             0.10,
             epsilon = 1e-10
         );
         assert_relative_eq!(
-            ExpansionType::Gradual { half_angle_deg: 7.0 }.loss_coefficient(),
+            ExpansionType::Gradual {
+                half_angle_deg: 7.0
+            }
+            .loss_coefficient(),
             0.20,
             epsilon = 1e-10
         );

@@ -6,12 +6,18 @@
 
 use super::metadata::{Metadata, MetadataContainer};
 use super::types::{Channel, ChannelType, Node, Point2D};
+use crate::domain::model::{ChannelShape, NodeKind};
+use crate::domain::therapy_metadata::TherapyZone;
+use crate::geometry::metadata::{ChannelVisualRole, JunctionGeometryMetadata, VenturiGeometryMetadata};
 
 /// Builder for creating nodes with optional metadata
 #[derive(Debug)]
 pub struct NodeBuilder {
     id: usize,
+    name: Option<String>,
     point: Point2D,
+    kind: Option<NodeKind>,
+    junction_geometry: Option<JunctionGeometryMetadata>,
     metadata: Option<MetadataContainer>,
 }
 
@@ -21,9 +27,30 @@ impl NodeBuilder {
     pub const fn new(id: usize, point: Point2D) -> Self {
         Self {
             id,
+            name: None,
             point,
+            kind: None,
+            junction_geometry: None,
             metadata: None,
         }
+    }
+
+    #[must_use]
+    pub fn with_name(mut self, name: impl Into<String>) -> Self {
+        self.name = Some(name.into());
+        self
+    }
+
+    #[must_use]
+    pub const fn with_kind(mut self, kind: NodeKind) -> Self {
+        self.kind = Some(kind);
+        self
+    }
+
+    #[must_use]
+    pub fn with_junction_geometry(mut self, geometry: JunctionGeometryMetadata) -> Self {
+        self.junction_geometry = Some(geometry);
+        self
     }
 
     /// Add metadata to the node
@@ -52,7 +79,10 @@ impl NodeBuilder {
     pub fn build(self) -> Node {
         Node {
             id: self.id,
+            name: self.name,
             point: self.point,
+            kind: self.kind,
+            junction_geometry: self.junction_geometry,
             metadata: self.metadata,
         }
     }
@@ -62,11 +92,19 @@ impl NodeBuilder {
 #[derive(Debug)]
 pub struct ChannelBuilder {
     id: usize,
+    name: Option<String>,
     from_node: usize,
     to_node: usize,
     width: f64,
     height: f64,
     channel_type: ChannelType,
+    visual_role: Option<ChannelVisualRole>,
+    physical_length_m: Option<f64>,
+    physical_width_m: Option<f64>,
+    physical_height_m: Option<f64>,
+    physical_shape: Option<ChannelShape>,
+    therapy_zone: Option<TherapyZone>,
+    venturi_geometry: Option<VenturiGeometryMetadata>,
     metadata: Option<MetadataContainer>,
 }
 
@@ -83,13 +121,64 @@ impl ChannelBuilder {
     ) -> Self {
         Self {
             id,
+            name: None,
             from_node,
             to_node,
             width,
             height,
             channel_type,
+            visual_role: None,
+            physical_length_m: None,
+            physical_width_m: None,
+            physical_height_m: None,
+            physical_shape: None,
+            therapy_zone: None,
+            venturi_geometry: None,
             metadata: None,
         }
+    }
+
+    #[must_use]
+    pub fn with_name(mut self, name: impl Into<String>) -> Self {
+        self.name = Some(name.into());
+        self
+    }
+
+    #[must_use]
+    pub const fn with_visual_role(mut self, role: ChannelVisualRole) -> Self {
+        self.visual_role = Some(role);
+        self
+    }
+
+    #[must_use]
+    pub const fn with_physical_length_m(mut self, length_m: f64) -> Self {
+        self.physical_length_m = Some(length_m);
+        self
+    }
+
+    #[must_use]
+    pub const fn with_physical_dims_m(mut self, width_m: f64, height_m: f64) -> Self {
+        self.physical_width_m = Some(width_m);
+        self.physical_height_m = Some(height_m);
+        self
+    }
+
+    #[must_use]
+    pub const fn with_physical_shape(mut self, shape: ChannelShape) -> Self {
+        self.physical_shape = Some(shape);
+        self
+    }
+
+    #[must_use]
+    pub const fn with_therapy_zone(mut self, zone: TherapyZone) -> Self {
+        self.therapy_zone = Some(zone);
+        self
+    }
+
+    #[must_use]
+    pub fn with_venturi_geometry(mut self, geometry: VenturiGeometryMetadata) -> Self {
+        self.venturi_geometry = Some(geometry);
+        self
     }
 
     /// Add metadata to the channel
@@ -119,11 +208,19 @@ impl ChannelBuilder {
     pub fn build(self) -> Channel {
         Channel {
             id: self.id,
+            name: self.name,
             from_node: self.from_node,
             to_node: self.to_node,
             width: self.width,
             height: self.height,
             channel_type: self.channel_type,
+            visual_role: self.visual_role,
+            physical_length_m: self.physical_length_m,
+            physical_width_m: self.physical_width_m,
+            physical_height_m: self.physical_height_m,
+            physical_shape: self.physical_shape,
+            therapy_zone: self.therapy_zone,
+            venturi_geometry: self.venturi_geometry,
             metadata: self.metadata,
         }
     }

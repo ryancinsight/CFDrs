@@ -99,7 +99,6 @@
 //!   (2011). Deformability-based cell classification and enrichment using
 //!   inertial microfluidics. *Lab Chip*, 11, 912–920.
 
-
 use crate::physics::cell_separation::properties::CellProperties;
 use serde::{Deserialize, Serialize};
 
@@ -174,11 +173,7 @@ pub fn dean_number(re: f64, hydraulic_diameter_m: f64, bend_radius_m: f64) -> f6
 /// the outer wall of the curved channel.
 #[inline]
 #[must_use]
-pub fn dean_drag_force_n(
-    dynamic_viscosity_pa_s: f64,
-    de: f64,
-    cell_diameter_m: f64,
-) -> f64 {
+pub fn dean_drag_force_n(dynamic_viscosity_pa_s: f64, de: f64, cell_diameter_m: f64) -> f64 {
     5.4e-4 * std::f64::consts::PI * dynamic_viscosity_pa_s * de.powf(1.63) * cell_diameter_m
 }
 
@@ -330,7 +325,11 @@ pub fn lateral_equilibrium(
     // If both ends have the same sign, the equilibrium is at the boundary
     let x_eq = if f_lo * f_hi > 0.0 {
         // No zero crossing: equilibrium is at the end with smaller |F|
-        if f_lo.abs() < f_hi.abs() { lo } else { hi }
+        if f_lo.abs() < f_hi.abs() {
+            lo
+        } else {
+            hi
+        }
     } else {
         // Bisection: 60 iterations → precision < 0.95 / 2^60 ≈ 8×10⁻¹⁹
         let mut mid = 0.5 * (lo + hi);

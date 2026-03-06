@@ -95,16 +95,19 @@ pub mod scoring;
 // ── Top-level re-exports ─────────────────────────────────────────────────────
 
 pub use delivery::{
-    save_all_modes_json, save_annotated_cif_svg, save_comparison_svg, save_schematic_svg,
+    save_all_modes_json, save_annotated_selective_svg, save_comparison_svg, save_schematic_svg,
     save_top5_json,
 };
 pub use design::{
     build_candidate_space, sample_random_candidates, CrossSectionShape, DesignCandidate,
-    DesignTopology, TreatmentZoneMode,
+    DesignTopology, PrimitiveSplitSequence, TreatmentZoneMode,
 };
 pub use error::OptimError;
 pub use evo::{candidate_to_genome, decode_genome, GeneticOptimizer, MillifluidicGenome};
-pub use metrics::{compute_metrics, giersiepen_hi, ChannelHemolysis, SdtMetrics};
+pub use metrics::{
+    audit_candidate_1d, compute_metrics, giersiepen_hi, ChannelHemolysis,
+    OneDimensionalAuditReport, OneDimensionalEdgeAudit, SdtMetrics,
+};
 pub use metrics_cache::{MetricsCache, MetricsCacheStats, METRICS_CACHE_VERSION};
 pub use orchestration::{
     OptimStats, RankedDesign, RobustScoreStats, RobustSweepConfig, SdtOptimizer,

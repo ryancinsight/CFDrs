@@ -15,9 +15,11 @@
 //! | [`compute`] | `compute_metrics()` entry point + `giersiepen_hi()` |
 
 mod compute;
+mod diagnostics;
 mod network_solve;
 mod sdt_metrics;
 mod separation;
 
 pub use compute::{compute_metrics, giersiepen_hi};
+pub use diagnostics::{audit_candidate_1d, OneDimensionalAuditReport, OneDimensionalEdgeAudit};
 pub use sdt_metrics::{ChannelHemolysis, SdtMetrics};

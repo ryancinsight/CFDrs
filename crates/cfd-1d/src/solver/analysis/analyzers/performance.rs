@@ -1,8 +1,8 @@
 //! Performance analysis for network components
 
 use super::traits::NetworkAnalyzer;
-use crate::solver::analysis::PerformanceMetrics;
 use crate::domain::network::Network;
+use crate::solver::analysis::PerformanceMetrics;
 use cfd_core::error::Result;
 use nalgebra::RealField;
 use num_traits::{Float, FromPrimitive};

@@ -317,21 +317,21 @@ pub struct SdtMetrics {
     #[serde(default = "default_one")]
     pub venturi_flow_fraction: f64,
 
-    /// Model-predicted center-stream flow fraction for CCT topologies.
+    /// Model-predicted center-stream flow fraction for staged primitive selective split trees.
     ///
     /// `q_model = q_center(center_frac)^n_levels`
     #[serde(default)]
     pub cct_model_venturi_flow_fraction: f64,
 
-    /// Solved-network venturi flow fraction for CCT topologies.
+    /// Solved-network venturi flow fraction for staged primitive selective split trees.
     ///
-    /// Non-CCT topologies keep this at `0.0`.
+    /// Non-selective topologies keep this at `0.0`.
     #[serde(default)]
     pub cct_solved_venturi_flow_fraction: f64,
 
-    /// Mean solved center-flow split across CCT trifurcation stages.
+    /// Mean solved center-flow split across staged primitive trifurcation segments.
     ///
-    /// Non-CCT topologies keep this at `0.0`.
+    /// Non-selective topologies keep this at `0.0`.
     #[serde(default)]
     pub cct_stage_center_qfrac_mean: f64,
 
@@ -379,7 +379,7 @@ pub struct SdtMetrics {
 
     /// Effective hematocrit at the venturi throat.
     ///
-    /// For [`DesignTopology::CascadeCenterTrifurcationSeparator`],
+    /// For primitive selective split-sequence designs,
     /// this is lower than the bulk feed hematocrit because the Zweifach-Fung
     /// cascade routes RBCs preferentially to the peripheral bypass arms.
     /// HI and PAI are computed using this LOCAL concentration at the venturi.
@@ -617,7 +617,7 @@ pub struct SdtMetrics {
     /// vs. bypass plumbing or healthy-cell routing arms.
     ///
     /// - `1.0` — all-flow treatment topologies (single/double venturi, etc.).
-    /// - `< 1.0` — selective-routing designs (CCT, asymmetric bifurcation, etc.)
+    /// - `< 1.0` — selective-routing designs (primitive split trees, asymmetric bifurcation, etc.)
     ///   where a fraction of flow bypasses the therapy zone to protect RBCs.
     /// - `0.0` — non-venturi or leukapheresis-only designs.
     ///
@@ -698,7 +698,7 @@ pub struct SdtMetrics {
     // ── Per-channel hemolysis decomposition ──────────────────────────────────
     /// HI contribution from venturi/treatment channel(s) only.
     ///
-    /// After local-hematocrit correction for selective topologies (CCT/CIF).
+    /// After local-hematocrit correction for selective split-sequence topologies.
     /// Zero for non-venturi topologies.
     #[serde(default)]
     pub treatment_channel_hi: f64,

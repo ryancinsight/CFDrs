@@ -6,11 +6,21 @@
 //!
 //! ## Physical Model
 //!
-//! The 1D model makes the following assumptions:
-//! - Flow is **fully developed** in every cross-section (Hagen-Poiseuille).
-//! - Channels are **straight** or have analytically correctable geometry.
-//! - Inertial effects are negligible (low Reynolds number, Re ≪ 1).
-//! - The fluid state at a node is described by a single scalar: **pressure**.
+//! The 1D model is a **fast reduced-order screening solver**. It is expected to
+//! be robust and physically discriminative for:
+//! - explicit channel size and length,
+//! - rectangular/circular hydraulic resistance,
+//! - serpentine bend and Dean-loss corrections,
+//! - venturi throat geometry and diffuser-loss screening,
+//! - split/merge minor losses from junction family, angle, and area ratio,
+//! - shear-based blood-damage screening,
+//! - reduced-order RBC/WBC/CTC routing coupled to solved branch flows.
+//!
+//! It does **not** resolve:
+//! - 2D/3D recirculation pockets,
+//! - unsteady cavitation bubble growth and collapse,
+//! - detailed secondary vortices,
+//! - particle-resolved transport or cell-cell interactions in the hydraulic solve.
 //!
 //! Under these assumptions the governing equation per edge is:
 //!
@@ -95,38 +105,41 @@ pub mod solver;
 
 // Export haemolysis models
 pub use physics::hemolysis::{
-    cavitation_amplified_hi, giersiepen_hi, HemolysisExposure,
-    CAVITATION_HI_SLOPE, GIERSIEPEN_ALPHA, GIERSIEPEN_BETA, GIERSIEPEN_C,
+    cavitation_amplified_hi, giersiepen_hi, HemolysisExposure, CAVITATION_HI_SLOPE,
+    GIERSIEPEN_ALPHA, GIERSIEPEN_BETA, GIERSIEPEN_C,
+};
+pub use physics::venturi_screening::{
+    discharge_coefficient_from_convergent_half_angle_deg, evaluate_venturi_screening,
+    venturi_taper_length_m, VenturiScreeningInput, VenturiScreeningResult,
 };
 
 // Export three-population inertial focusing model
-pub use physics::cell_separation::{three_population_equilibria, ThreePopEquilibria};
 pub use physics::cell_separation::{
     cascade_junction_separation, cascade_junction_separation_cross_junction,
-    cascade_junction_separation_from_qfracs,
-    cif_pretri_stage_center_fracs, cif_pretri_stage_q_fracs,
-    incremental_filtration_separation, incremental_filtration_separation_cross_junction,
-    incremental_filtration_separation_from_qfracs,
-    incremental_filtration_separation_staged, tri_center_q_frac,
-    tri_center_q_frac_cross_junction, CascadeJunctionResult,
-    IncrementalFiltrationResult,
+    cascade_junction_separation_from_qfracs, cif_pretri_stage_center_fracs,
+    cif_pretri_stage_q_fracs, incremental_filtration_separation,
+    incremental_filtration_separation_cross_junction,
+    incremental_filtration_separation_from_qfracs, incremental_filtration_separation_staged,
+    mixed_cascade_separation, tri_center_q_frac, tri_center_q_frac_cross_junction,
+    CascadeJunctionResult, IncrementalFiltrationResult,
 };
+pub use physics::cell_separation::{three_population_equilibria, ThreePopEquilibria};
 
 // Export network functionality
 pub use domain::network::{
-    BoundaryCondition, ChannelProperties, ComponentType, Edge, EdgeProperties, EdgeType,
-    Network, NetworkBuilder, NetworkBuilderSink, NetworkGraph, NetworkMetadata, Node,
-    NodeProperties, NodeType,
+    BoundaryCondition, ChannelProperties, ComponentType, Edge, EdgeProperties, EdgeType, Network,
+    NetworkBuilder, NetworkBuilderSink, NetworkGraph, NetworkMetadata, Node, NodeProperties,
+    NodeType,
 };
 
 // Export solver functionality
 pub use solver::core::{
-    ConvergenceChecker, LinearSystemSolver, MatrixAssembler, NetworkDomain, NetworkProblem,
-    NetworkSolver, NetworkState, SolverConfig, CompositionState, EdgeFlowEvent,
-    InletCompositionEvent, MixtureComposition, PressureBoundaryEvent, SimulationTimeConfig,
-    TransientCompositionSimulator, ChannelOccupancy, DropletBoundary, DropletInjection,
-    DropletPosition, DropletSnapshot, DropletSplitPolicy, DropletState,
-    DropletTrackingState, SplitMode, TransientDropletSimulator,
+    ChannelOccupancy, CompositionState, ConvergenceChecker, DropletBoundary, DropletInjection,
+    DropletPosition, DropletSnapshot, DropletSplitPolicy, DropletState, DropletTrackingState,
+    EdgeFlowEvent, InletCompositionEvent, LinearSystemSolver, MatrixAssembler, MixtureComposition,
+    NetworkDomain, NetworkProblem, NetworkSolver, NetworkState, PressureBoundaryEvent,
+    SimulationTimeConfig, SolverConfig, SplitMode, TransientCompositionSimulator,
+    TransientDropletSimulator,
 };
 
 // Export component functionality
@@ -145,24 +158,22 @@ pub use solver::analysis::{
 // Export channel functionality
 pub use domain::channel::{
     Channel, ChannelGeometry, ChannelType, CrossSection, FlowRegime, FlowState,
-    KN_SLIP_MIN, NumericalParameters, SurfaceProperties, Wettability,
+    NumericalParameters, SurfaceProperties, Wettability, KN_SLIP_MIN,
 };
 
 // Export resistance functionality
 pub use physics::resistance::{
-    BendType, ChannelGeometry as ResistanceChannelGeometry, CombinationMethod,
-    DarcyWeisbachModel, ExpansionType, FlowConditions, HagenPoiseuilleModel,
-    JunctionFlowDirection, JunctionLossModel, JunctionType, MembranePoreModel,
-    RectangularChannelModel, ResistanceCalculator, ResistanceModel, ResistanceModelFactory,
-    SerpentineAnalysis, SerpentineCrossSection, SerpentineModel, VenturiAnalysis,
-    VenturiGeometry, VenturiModel,
+    BendType, ChannelGeometry as ResistanceChannelGeometry, CombinationMethod, DarcyWeisbachModel,
+    ExpansionType, FlowConditions, HagenPoiseuilleModel, JunctionFlowDirection, JunctionLossModel,
+    JunctionType, MembranePoreModel, RectangularChannelModel, ResistanceCalculator,
+    ResistanceModel, ResistanceModelFactory, SerpentineAnalysis, SerpentineCrossSection,
+    SerpentineModel, VenturiAnalysis, VenturiGeometry, VenturiModel,
 };
 
 // Export hierarchical junction functionality
 pub use domain::junctions::branching::{
-    BranchingNetworkConfig, BranchingNetworkSolver, BranchingValidationResult,
-    BranchingValidator, ThreeWayBranchJunction, ThreeWayBranchSolution,
-    TwoWayBranchJunction, TwoWayBranchSolution,
+    BranchingNetworkConfig, BranchingNetworkSolver, BranchingValidationResult, BranchingValidator,
+    ThreeWayBranchJunction, ThreeWayBranchSolution, TwoWayBranchJunction, TwoWayBranchSolution,
 };
 
 /// 1D CFD domain-specific prelude for microfluidic networks
@@ -176,32 +187,32 @@ pub mod prelude {
     // === Extended Network Components ===
     // Specialized components not in main prelude
     pub use crate::{
-        solver::analysis::{
-            BloodShearLimits, NetworkAnalysisResult, NetworkAnalyzerOrchestrator,
-            PerformanceMetrics, ShearLimitViolation,
-        },
         domain::channel::{
             Channel, ChannelGeometry, ChannelType, CrossSection, FlowRegime, FlowState,
             SurfaceProperties, Wettability,
         },
         domain::components::{
-            ComponentFactory, FlowSensor, Micromixer, MixerType, OrganCompartment,
-            PorousMembrane, PumpType, SensorType, ValveType,
+            ComponentFactory, FlowSensor, Micromixer, MixerType, OrganCompartment, PorousMembrane,
+            PumpType, SensorType, ValveType,
         },
-        domain::network::{Edge, EdgeProperties, EdgeType, Node, NodeProperties, NodeType},
         domain::junctions::branching::{
             BranchingNetworkConfig, BranchingNetworkSolver, BranchingValidationResult,
             BranchingValidator, ThreeWayBranchJunction, ThreeWayBranchSolution,
             TwoWayBranchJunction, TwoWayBranchSolution,
         },
+        domain::network::{Edge, EdgeProperties, EdgeType, Node, NodeProperties, NodeType},
         physics::resistance::{
             DarcyWeisbachModel, FlowConditions, ResistanceCalculator, ResistanceModelFactory,
         },
+        solver::analysis::{
+            BloodShearLimits, NetworkAnalysisResult, NetworkAnalyzerOrchestrator,
+            PerformanceMetrics, ShearLimitViolation,
+        },
         solver::core::{
-            ChannelOccupancy, CompositionState, DropletBoundary, DropletInjection,
-            DropletPosition, DropletSnapshot, DropletSplitPolicy, DropletState,
-            DropletTrackingState, EdgeFlowEvent, InletCompositionEvent, MixtureComposition, PressureBoundaryEvent, SimulationTimeConfig, SplitMode,
-            TransientCompositionSimulator, TransientDropletSimulator,
+            ChannelOccupancy, CompositionState, DropletBoundary, DropletInjection, DropletPosition,
+            DropletSnapshot, DropletSplitPolicy, DropletState, DropletTrackingState, EdgeFlowEvent,
+            InletCompositionEvent, MixtureComposition, PressureBoundaryEvent, SimulationTimeConfig,
+            SplitMode, TransientCompositionSimulator, TransientDropletSimulator,
         },
     };
 }

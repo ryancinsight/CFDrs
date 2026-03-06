@@ -15,7 +15,6 @@
 //! `P > max_pressure` and updates `min_pressure` only when `P < min_pressure`.
 //! Both operations preserve `max_pressure ≥ min_pressure` by induction. ∎
 
-
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 use std::collections::HashMap;
@@ -42,8 +41,10 @@ impl<T: RealField + Copy + FromPrimitive + Sum> PressureAnalysis<T> {
         Self {
             pressures: HashMap::new(),
             pressure_drops: HashMap::new(),
-            max_pressure: T::from_f64(f64::NEG_INFINITY).expect("Mathematical constant conversion compromised"),
-            min_pressure: T::from_f64(f64::INFINITY).expect("Mathematical constant conversion compromised"),
+            max_pressure: T::from_f64(f64::NEG_INFINITY)
+                .expect("Mathematical constant conversion compromised"),
+            min_pressure: T::from_f64(f64::INFINITY)
+                .expect("Mathematical constant conversion compromised"),
             pressure_gradients: HashMap::new(),
         }
     }

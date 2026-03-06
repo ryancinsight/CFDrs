@@ -1,7 +1,7 @@
 use crate::physics::resistance::geometry::ChannelGeometry;
 use crate::physics::resistance::models::{
-    DarcyWeisbachModel, FlowConditions, HagenPoiseuilleModel,
-    RectangularChannelModel, ResistanceModel, SerpentineModel, VenturiModel,
+    DarcyWeisbachModel, FlowConditions, HagenPoiseuilleModel, RectangularChannelModel,
+    ResistanceModel, SerpentineModel, VenturiModel,
 };
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
@@ -68,7 +68,8 @@ where
             }
 
             Err(Error::InvalidConfiguration(
-                "No applicable resistance model for circular channel at the given Reynolds number".to_string(),
+                "No applicable resistance model for circular channel at the given Reynolds number"
+                    .to_string(),
             ))
         }
         ChannelGeometry::Rectangular {
@@ -91,7 +92,8 @@ where
             }
         }
         _ => Err(Error::InvalidConfiguration(
-            "No resistance model available for this geometry type; use Circular or Rectangular".to_string(),
+            "No resistance model available for this geometry type; use Circular or Rectangular"
+                .to_string(),
         )),
     }
 }

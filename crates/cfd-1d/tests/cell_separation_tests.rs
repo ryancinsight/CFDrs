@@ -87,12 +87,26 @@ fn test_cancer_focuses_closer_to_center_than_rbc() {
     let rbc = CellProperties::red_blood_cell();
 
     let cancer_eq = lateral_equilibrium(
-        &cancer, BLOOD_DENSITY, BLOOD_VISCOSITY, 0.05, 500e-6, 200e-6, None,
-    ).expect("MCF-7 must focus (κ > 0.07)");
+        &cancer,
+        BLOOD_DENSITY,
+        BLOOD_VISCOSITY,
+        0.05,
+        500e-6,
+        200e-6,
+        None,
+    )
+    .expect("MCF-7 must focus (κ > 0.07)");
 
     let rbc_eq = lateral_equilibrium(
-        &rbc, BLOOD_DENSITY, BLOOD_VISCOSITY, 0.05, 500e-6, 200e-6, None,
-    ).expect("RBC must focus in this channel");
+        &rbc,
+        BLOOD_DENSITY,
+        BLOOD_VISCOSITY,
+        0.05,
+        500e-6,
+        200e-6,
+        None,
+    )
+    .expect("RBC must focus in this channel");
 
     // More rigid cells focus nearer center (smaller x̃)
     assert!(
@@ -108,8 +122,15 @@ fn test_cancer_focuses_closer_to_center_than_rbc() {
 fn test_bisection_residual_near_zero() {
     let cancer = CellProperties::mcf7_breast_cancer();
     let eq = lateral_equilibrium(
-        &cancer, BLOOD_DENSITY, BLOOD_VISCOSITY, 0.05, 500e-6, 200e-6, None,
-    ).unwrap();
+        &cancer,
+        BLOOD_DENSITY,
+        BLOOD_VISCOSITY,
+        0.05,
+        500e-6,
+        200e-6,
+        None,
+    )
+    .unwrap();
     // Residual force should be machine-epsilon small (< 1 pN = 1e-12 N)
     assert!(
         eq.residual_force_n.abs() < 1e-12,
@@ -168,11 +189,25 @@ fn test_purity_bounded_in_zero_to_one() {
 fn test_curved_channel_shifts_equilibrium_outward() {
     let cancer = CellProperties::mcf7_breast_cancer();
     let straight = lateral_equilibrium(
-        &cancer, BLOOD_DENSITY, BLOOD_VISCOSITY, 0.05, 500e-6, 200e-6, None,
-    ).unwrap();
+        &cancer,
+        BLOOD_DENSITY,
+        BLOOD_VISCOSITY,
+        0.05,
+        500e-6,
+        200e-6,
+        None,
+    )
+    .unwrap();
     let curved = lateral_equilibrium(
-        &cancer, BLOOD_DENSITY, BLOOD_VISCOSITY, 0.05, 500e-6, 200e-6, Some(5e-3),
-    ).unwrap();
+        &cancer,
+        BLOOD_DENSITY,
+        BLOOD_VISCOSITY,
+        0.05,
+        500e-6,
+        200e-6,
+        Some(5e-3),
+    )
+    .unwrap();
 
     assert!(
         curved.x_tilde_eq >= straight.x_tilde_eq,
@@ -210,7 +245,11 @@ fn test_inertial_lift_at_center_is_negative() {
     let cancer = CellProperties::mcf7_breast_cancer();
     let fl = inertial_lift_force_n(0.0, &cancer, BLOOD_DENSITY, 0.05, 200e-6);
     // At center (x̃=0), C_wall=0, C_center=0.3 → C_L = -0.3 → F_L < 0
-    assert!(fl < 0.0, "Lift at center must be negative (toward wall), got {}", fl);
+    assert!(
+        fl < 0.0,
+        "Lift at center must be negative (toward wall), got {}",
+        fl
+    );
 }
 
 /// Inertial lift force must have the correct dimensional units.
@@ -220,5 +259,9 @@ fn test_inertial_lift_near_wall_is_positive() {
     let cancer = CellProperties::mcf7_breast_cancer();
     let fl = inertial_lift_force_n(0.9, &cancer, BLOOD_DENSITY, 0.05, 200e-6);
     // Near wall C_wall diverges, C_L should be positive
-    assert!(fl > 0.0, "Lift near wall must be positive (toward center), got {}", fl);
+    assert!(
+        fl > 0.0,
+        "Lift near wall must be positive (toward center), got {}",
+        fl
+    );
 }

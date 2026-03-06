@@ -52,14 +52,18 @@ name = "audit"
 path = "examples/audit.rs"
 
 [[example]]
+name = "one_d_audit"
+path = "examples/one_d_audit.rs"
+
+[[example]]
 name = "cascade_2d_3d_validation"
 path = "examples/cascade_2d_3d_validation.rs"
 
 [[example]]
-name = "sdt_cif_separation"
-path = "examples/sdt_cif_separation.rs"
+name = "sdt_primitive_selective_separation"
+path = "examples/sdt_primitive_selective_separation.rs"
 
 [[example]]
-name = "sdt_cif_mesh"
-path = "examples/sdt_cif_mesh.rs"
+name = "sdt_primitive_selective_mesh"
+path = "examples/sdt_primitive_selective_mesh.rs"
 required-features = ["mesh-export"]

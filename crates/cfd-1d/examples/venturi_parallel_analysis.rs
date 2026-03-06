@@ -31,7 +31,9 @@ use cfd_schematics::domain::model::{ChannelSpec, NodeKind, NodeSpec};
 use cfd_schematics::geometry::generator::create_geometry;
 use cfd_schematics::geometry::{ChannelSystem, SplitType};
 use cfd_schematics::plot_geometry;
-use cfd_schematics::visualizations::analysis_field::{AnalysisField, AnalysisOverlay, ColormapKind};
+use cfd_schematics::visualizations::analysis_field::{
+    AnalysisField, AnalysisOverlay, ColormapKind,
+};
 use cfd_schematics::visualizations::plotters_backend::create_plotters_renderer;
 use cfd_schematics::visualizations::traits::SchematicRenderer;
 use cfd_schematics::visualizations::RenderConfig;
@@ -49,11 +51,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ── Water at 25 °C ───────────────────────────────────────────────────────
     let water = ConstantPropertyFluid::new(
         "Water".to_string(),
-        998.0,   // kg/m³
-        8.9e-4,  // Pa·s
-        4182.0,  // J/(kg·K)
-        0.598,   // W/(m·K)
-        1497.0,  // m/s (speed of sound)
+        998.0,  // kg/m³
+        8.9e-4, // Pa·s
+        4182.0, // J/(kg·K)
+        0.598,  // W/(m·K)
+        1497.0, // m/s (speed of sound)
     );
     let mu = 8.9e-4_f64;
     let rho = 998.0_f64;
@@ -61,9 +63,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // ── Configuration A: Mild Venturi (2:1 contraction) ──────────────────────
     let mild_frustum = FrustumConfig {
-        inlet_width: 2.0,    // mm
-        throat_width: 1.0,   // mm
-        outlet_width: 2.0,   // mm
+        inlet_width: 2.0,  // mm
+        throat_width: 1.0, // mm
+        outlet_width: 2.0, // mm
         taper_profile: TaperProfile::Smooth,
         smoothness: 80,
         throat_position: 0.5,
@@ -71,18 +73,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // ── Configuration B: Aggressive Venturi (4:1 contraction) ────────────────
     let aggressive_frustum = FrustumConfig {
-        inlet_width: 2.0,    // mm
-        throat_width: 0.5,   // mm
-        outlet_width: 2.0,   // mm
+        inlet_width: 2.0,  // mm
+        throat_width: 0.5, // mm
+        outlet_width: 2.0, // mm
         taper_profile: TaperProfile::Smooth,
         smoothness: 80,
         throat_position: 0.5,
     };
 
-    let configs: Vec<(&str, FrustumConfig)> = vec![
-        ("mild", mild_frustum),
-        ("aggressive", aggressive_frustum),
-    ];
+    let configs: Vec<(&str, FrustumConfig)> =
+        vec![("mild", mild_frustum), ("aggressive", aggressive_frustum)];
 
     let mut all_results = Vec::new();
 
@@ -159,7 +159,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         // ── 5. Solve ────────────────────────────────────────────────────────
-        let config = SolverConfig { tolerance: 1e-8, max_iterations: 200 };
+        let config = SolverConfig {
+            tolerance: 1e-8,
+            max_iterations: 200,
+        };
         let solver = NetworkSolver::<f64, ConstantPropertyFluid<f64>>::with_config(config);
         let solution = solver.solve(&NetworkProblem::new(network))?;
         println!("  Solver converged.");
@@ -195,7 +198,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             // Bulk velocity at channel inlet
             let inlet_area = std::f64::consts::PI * (inlet_d / 2.0).powi(2);
-            let v_inlet = if inlet_area > 0.0 { q / inlet_area } else { 0.0 };
+            let v_inlet = if inlet_area > 0.0 {
+                q / inlet_area
+            } else {
+                0.0
+            };
 
             // VenturiCavitation analysis
             let venturi = VenturiCavitation {
@@ -264,15 +271,35 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let renderer = create_plotters_renderer();
 
         let overlays: Vec<(&str, AnalysisField, &HashMap<usize, f64>, ColormapKind)> = vec![
-            ("cavitation_sigma", AnalysisField::Custom("σ".to_string()), &edge_cavitation_sigma, ColormapKind::BlueRed),
-            ("throat_velocity", AnalysisField::Velocity, &edge_throat_velocity, ColormapKind::Viridis),
-            ("throat_pressure", AnalysisField::Pressure, &edge_throat_pressure, ColormapKind::BlueRed),
-            ("pressure_drop", AnalysisField::Custom("ΔP".to_string()), &edge_pressure_drop, ColormapKind::Viridis),
+            (
+                "cavitation_sigma",
+                AnalysisField::Custom("σ".to_string()),
+                &edge_cavitation_sigma,
+                ColormapKind::BlueRed,
+            ),
+            (
+                "throat_velocity",
+                AnalysisField::Velocity,
+                &edge_throat_velocity,
+                ColormapKind::Viridis,
+            ),
+            (
+                "throat_pressure",
+                AnalysisField::Pressure,
+                &edge_throat_pressure,
+                ColormapKind::BlueRed,
+            ),
+            (
+                "pressure_drop",
+                AnalysisField::Custom("ΔP".to_string()),
+                &edge_pressure_drop,
+                ColormapKind::Viridis,
+            ),
         ];
 
         for (filename, field, data, cmap) in &overlays {
-            let overlay = AnalysisOverlay::new(field.clone(), *cmap)
-                .with_edge_data((*data).clone());
+            let overlay =
+                AnalysisOverlay::new(field.clone(), *cmap).with_edge_data((*data).clone());
             let mut rc = RenderConfig::default();
             rc.title = format!("{label} venturi — {filename}");
             rc.show_axes = true;
@@ -283,14 +310,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("  Rendered 4 overlay maps.");
 
         // ── 8. Collect JSON ──────────────────────────────────────────────────
-        let node_results: Vec<_> = solution.graph.node_indices().map(|idx| {
-            let n = solution.graph.node_weight(idx).unwrap();
-            serde_json::json!({
-                "id": n.id,
-                "pressure_pa": solution.pressures.get(&idx).unwrap_or(&0.0),
-                "type": format!("{:?}", n.node_type)
+        let node_results: Vec<_> = solution
+            .graph
+            .node_indices()
+            .map(|idx| {
+                let n = solution.graph.node_weight(idx).unwrap();
+                serde_json::json!({
+                    "id": n.id,
+                    "pressure_pa": solution.pressures.get(&idx).unwrap_or(&0.0),
+                    "type": format!("{:?}", n.node_type)
+                })
             })
-        }).collect();
+            .collect();
 
         all_results.push(serde_json::json!({
             "configuration": label,
@@ -360,8 +391,16 @@ fn convert_geometry_to_specs(system: &ChannelSystem, mu: f64) -> (Vec<NodeSpec>,
         .channels
         .iter()
         .map(|channel| {
-            let from_node = system.nodes.iter().find(|n| n.id == channel.from_node).unwrap();
-            let to_node = system.nodes.iter().find(|n| n.id == channel.to_node).unwrap();
+            let from_node = system
+                .nodes
+                .iter()
+                .find(|n| n.id == channel.from_node)
+                .unwrap();
+            let to_node = system
+                .nodes
+                .iter()
+                .find(|n| n.id == channel.to_node)
+                .unwrap();
             let dx = from_node.point.0 - to_node.point.0;
             let dy = from_node.point.1 - to_node.point.1;
             let length_m = dx.hypot(dy) / 1000.0; // mm → m
@@ -369,7 +408,11 @@ fn convert_geometry_to_specs(system: &ChannelSystem, mu: f64) -> (Vec<NodeSpec>,
             let width_m = channel.width / 1000.0;
             let height_m = channel.height / 1000.0;
 
-            let (w, h) = if width_m > height_m { (width_m, height_m) } else { (height_m, width_m) };
+            let (w, h) = if width_m > height_m {
+                (width_m, height_m)
+            } else {
+                (height_m, width_m)
+            };
             let resistance = if h > 0.0 {
                 (12.0 * mu * length_m) / (w * h.powi(3) * (1.0 - 0.63 * h / w))
             } else {

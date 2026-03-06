@@ -1,9 +1,9 @@
 //! Flow analysis for network components
 
 use super::traits::NetworkAnalyzer;
-use crate::solver::analysis::FlowAnalysis;
 use crate::domain::channel::FlowRegime;
 use crate::domain::network::Network;
+use crate::solver::analysis::FlowAnalysis;
 use cfd_core::error::Result;
 use nalgebra::RealField;
 use num_traits::{Float, FromPrimitive};
@@ -50,8 +50,7 @@ impl<T: RealField + Copy + FromPrimitive + Float + Sum> NetworkAnalyzer<T> for F
 
                 let hydraulic_diameter = edge.properties.hydraulic_diameter.unwrap_or_else(|| {
                     (T::one() + T::one() + T::one() + T::one()) * area
-                        / (T::pi()
-                            * Float::sqrt(area))
+                        / (T::pi() * Float::sqrt(area))
                 });
 
                 let reynolds = network.fluid().density * velocity_mag * hydraulic_diameter
@@ -59,7 +58,8 @@ impl<T: RealField + Copy + FromPrimitive + Float + Sum> NetworkAnalyzer<T> for F
                 analysis.add_reynolds_number(edge.id.clone(), reynolds);
 
                 if hydraulic_diameter > T::zero() {
-                    let eight = T::from_f64(8.0).expect("Mathematical constant conversion compromised");
+                    let eight =
+                        T::from_f64(8.0).expect("Mathematical constant conversion compromised");
                     let shear_rate = eight * velocity_mag / hydraulic_diameter;
                     let shear_stress = network.fluid().viscosity * shear_rate;
                     analysis.add_wall_shear_rate(edge.id.clone(), shear_rate);
@@ -97,8 +97,7 @@ impl<T: RealField + Copy + FromPrimitive + Float> FlowAnalyzer<T> {
         // Calculate Reynolds number
         let area = properties.area;
         let hydraulic_diameter = properties.hydraulic_diameter.unwrap_or_else(|| {
-            (T::one() + T::one() + T::one() + T::one()) * area
-                / (T::pi() * Float::sqrt(area))
+            (T::one() + T::one() + T::one() + T::one()) * area / (T::pi() * Float::sqrt(area))
         });
 
         let velocity = flow_rate / area;

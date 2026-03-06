@@ -91,7 +91,9 @@ impl FlowRegime {
     ///
     /// `Kn = λ / Dh` where `λ` is the fluid mean free path and `Dh` is the hydraulic diameter.
     /// When `Kn ≥ 0.001`, slip flow overrides the continuum classification.
-    pub fn classify_with_knudsen<T: RealField + Copy + num_traits::FromPrimitive + num_traits::ToPrimitive>(
+    pub fn classify_with_knudsen<
+        T: RealField + Copy + num_traits::FromPrimitive + num_traits::ToPrimitive,
+    >(
         re: T,
         kn: T,
     ) -> Self {
@@ -103,7 +105,6 @@ impl FlowRegime {
         }
     }
 }
-
 
 /// Numerical parameters for advanced modeling
 #[derive(Debug, Clone)]

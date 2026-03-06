@@ -38,7 +38,7 @@ impl ResistanceModelFactory {
         length: T,
         roughness: T,
     ) -> DarcyWeisbachModel<T> {
-           DarcyWeisbachModel::circular(hydraulic_diameter, length, roughness)
+        DarcyWeisbachModel::circular(hydraulic_diameter, length, roughness)
     }
 
     /// Create Darcy-Weisbach model for turbulent flow in a circular channel
@@ -109,7 +109,10 @@ impl ResistanceModelFactory {
         SerpentineModel {
             straight_length,
             num_segments,
-            cross_section: SerpentineCrossSection::Rectangular { width: w, height: h },
+            cross_section: SerpentineCrossSection::Rectangular {
+                width: w,
+                height: h,
+            },
             bend_radius,
             bend_type: BendType::Smooth {
                 radius_to_dh_ratio: ratio,
