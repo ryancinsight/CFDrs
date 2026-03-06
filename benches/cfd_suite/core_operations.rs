@@ -154,7 +154,7 @@ pub fn benchmark_turbulence_operations(c: &mut Criterion, config: &BenchmarkConf
         group.bench_with_input(
             BenchmarkId::new("strain_rate_computation", size),
             &size,
-            |b, _| {
+            |b, _: &usize| {
                 b.iter(|| {
                     let mut strain_rate = vec![0.0; size * size];
                     for i in 1..size.saturating_sub(1) {
