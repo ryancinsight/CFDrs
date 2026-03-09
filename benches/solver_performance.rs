@@ -1,16 +1,16 @@
 //! Performance benchmarks for solver implementations
 
-use cfd_1d::network::{Network, NetworkBuilder};
-use cfd_1d::NetworkProblem;
+use cfd_1d::domain::network::{Network, NetworkBuilder};
+use cfd_1d::{NetworkProblem, NetworkSolver};
 use cfd_2d::grid::StructuredGrid2D;
 use cfd_2d::solvers::fdm::{FdmConfig, PoissonSolver};
 use cfd_core::error::Result;
 use cfd_core::physics::fluid::Fluid;
-use cfd_suite::prelude::*;
+use cfd_core::compute::solver::traits::Solver;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
 struct NetworkBenchmarkContext {
-    solver: cfd_1d::solver::NetworkSolver<f64>,
+    solver: NetworkSolver<f64>,
     problem: NetworkProblem<f64>,
 }
 
@@ -23,7 +23,7 @@ fn build_network_benchmark_context() -> Result<NetworkBenchmarkContext> {
     let graph = builder.build()?;
     let network = Network::new(graph, fluid);
 
-    let solver = cfd_1d::solver::NetworkSolver::<f64>::new();
+    let solver = NetworkSolver::<f64>::new();
     let problem = NetworkProblem::new(network);
 
     Ok(NetworkBenchmarkContext { solver, problem })
