@@ -8,7 +8,6 @@
 //! - Performance validation against requirements
 
 use cfd_validation::benchmarking::BenchmarkConfig;
-use cfd_validation::reporting::PerformanceMetrics;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use std::collections::HashMap;
 use std::fs;

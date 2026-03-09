@@ -299,8 +299,3 @@ harness = false
 name = "regression_detection"
 path = "benches/cfd_suite/regression_detection.rs"
 harness = false
-
-[[bench]]
-name = "production_validation"
-path = "benches/cfd_suite/production_validation.rs"
-harness = false
