@@ -163,6 +163,7 @@ rayon.workspace = true
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
+cfd-validation = { workspace = true }
 proptest = "1.0"
 approx = "0.5"
 nalgebra-sparse = "0.10"
@@ -292,4 +293,9 @@ harness = false
 [[bench]]
 name = "scaling_analysis"
 path = "benches/cfd_suite/scaling_analysis.rs"
+harness = false
+
+[[bench]]
+name = "regression_detection"
+path = "benches/cfd_suite/regression_detection.rs"
 harness = false

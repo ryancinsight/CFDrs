@@ -26,6 +26,27 @@ except ImportError:
     print("\n✗ cfd_python not available - will compare Python calculations only\n")
     print("Run: maturin develop --release\n")
 
+validation_status = {
+    "Blake Threshold": {
+        "Physics": "✓ VALIDATED (against Brennen 1995)",
+        "Python": "✓ CORRECT (R_c formulation)",
+        "Rust": "✓ IMPLEMENTED (regimes.rs)",
+        "Cross-check": "⚠ PENDING" if not has_cfd_python else "⚠ PENDING"
+    },
+    "Blood Viscosity": {
+        "Physics": "✓ VALIDATED (against Cho & Kensey 1991)",
+        "Python": "✓ CORRECT (λ=3.313s convergence)",
+        "Rust": "✓ IMPLEMENTED (blood.rs)",
+        "Cross-check": "⚠ PENDING" if not has_cfd_python else "⚠ PENDING"
+    },
+    "Hemolysis Model": {
+        "Physics": "✓ VALIDATED (against Giersiepen 1990)",
+        "Python": "✓ CORRECT (iso-damage curves)",
+        "Rust": "✓ IMPLEMENTED (giersiepen.rs)",
+        "Cross-check": "⚠ PENDING" if not has_cfd_python else "⚠ PENDING"
+    }
+}
+
 # Physical constants (match validation scripts)
 WATER_DENSITY = 997.0  # kg/m³
 WATER_VISCOSITY = 0.001  # Pa·s
@@ -54,12 +75,21 @@ print(f"  R_c = {R_c_python*1e6:.4f} μm")
 print(f"  P_Blake = {P_Blake_python:.2f} Pa = {P_Blake_python/1000:.2f} kPa")
 
 if has_cfd_python:
-    # TODO: Check if cfd_python exposes Blake threshold calculation
-    # For now, document that Rust implementation is in regimes.rs
     print(f"\nRust implementation:")
     print(f"  Located in: crates/cfd-core/src/physics/cavitation/regimes.rs")
     print(f"  Method: blake_threshold() and blake_critical_radius()")
-    print(f"  Formula matches Python implementation ✓")
+
+    if hasattr(cfd_python, 'blake_threshold'):
+        P_Blake_rust = cfd_python.blake_threshold(P_inf, P_v, sigma)
+        print(f"  Rust P_Blake = {P_Blake_rust:.2f} Pa")
+
+        diff_pct = abs(P_Blake_rust - P_Blake_python) / P_Blake_python * 100
+        print(f"  Diff = {diff_pct:.6f}%")
+        assert diff_pct < 0.01, f"Rust implementation diverges by {diff_pct:.4f}%"
+        print("\n  ✓ Rust implementation perfectly matches Python reference")
+        validation_status["Blake Threshold"]["Cross-check"] = "✓ VERIFIED"
+    else:
+        print(f"\n  ⚠ cfd_python API test skipped: blake_threshold not exposed")
 else:
     print(f"\nRust verification skipped (cfd_python not available)")
 
@@ -104,9 +134,20 @@ if has_cfd_python:
     print(f"  Type: CarreauYasudaBlood")
     print(f"  Method: apparent_viscosity(shear_rate)")
     
-    # Try to test if we can create a blood model
-    # Note: This depends on cfd_python API structure
-    print(f"\n  TODO: Add cfd_python API test if blood model is exposed")
+    if hasattr(cfd_python, 'CarreauYasudaBlood'):
+        cy_rust = cfd_python.CarreauYasudaBlood()
+        print(f"\n{'Shear Rate (s⁻¹)':>20} {'μ (mPa·s) [Rust]':>20} {'Diff (%)':>15}")
+        print("-" * 57)
+        for gamma_dot in test_shear_rates:
+            mu_python = carreau_yasuda_python(gamma_dot)
+            mu_rust = cy_rust.apparent_viscosity(gamma_dot)
+            diff_pct = abs(mu_rust - mu_python) / mu_python * 100
+            print(f"{gamma_dot:20.0f} {mu_rust*1000:20.4f} {diff_pct:14.4f}%")
+            assert diff_pct < 0.01, f"Rust implementation diverges by {diff_pct:.4f}%"
+        print("\n  ✓ Rust implementation perfectly matches Python reference")
+        validation_status["Blood Viscosity"]["Cross-check"] = "✓ VERIFIED"
+    else:
+        print(f"\n  ⚠ cfd_python API test skipped: CarreauYasudaBlood not exposed")
 else:
     print(f"\nRust verification skipped (cfd_python not available)")
 
@@ -147,7 +188,21 @@ if has_cfd_python:
     print(f"\nRust implementation:")
     print(f"  Located in: crates/cfd-core/src/physics/hemolysis/giersiepen.rs")
     print(f"  Method: calculate_damage(shear_stress, exposure_time)")
-    print(f"\n  TODO: Add cfd_python API test if hemolysis model is exposed")
+
+    if hasattr(cfd_python, 'HemolysisModel'):
+        model_rust = cfd_python.HemolysisModel.giersiepen_standard()
+        print(f"\n{'Stress (Pa)':>12} {'Time (s)':>12} {'Damage [Rust]':>15} {'Diff (%)':>10}")
+        print("-" * 55)
+        for tau, t in test_cases:
+            damage_python = giersiepen_python(tau, t)
+            damage_rust = model_rust.damage_index(tau, t)
+            diff_pct = abs(damage_rust - damage_python) / damage_python * 100
+            print(f"{tau:12.1f} {t:12.2f} {damage_rust:15.6f} {diff_pct:10.4f}%")
+            assert diff_pct < 0.01, f"Rust implementation diverges by {diff_pct:.4f}%"
+        print("\n  ✓ Rust implementation perfectly matches Python reference")
+        validation_status["Hemolysis Model"]["Cross-check"] = "✓ VERIFIED"
+    else:
+        print(f"\n  ⚠ cfd_python API test skipped: HemolysisModel not exposed")
 else:
     print(f"\nRust verification skipped (cfd_python not available)")
 
@@ -197,27 +252,6 @@ Rust files to verify:
 print("\n" + "="*80)
 print("VALIDATION STATUS")
 print("="*80)
-
-validation_status = {
-    "Blake Threshold": {
-        "Physics": "✓ VALIDATED (against Brennen 1995)",
-        "Python": "✓ CORRECT (R_c formulation)",
-        "Rust": "✓ IMPLEMENTED (regimes.rs)",
-        "Cross-check": "⚠ PENDING" if not has_cfd_python else "✓ READY"
-    },
-    "Blood Viscosity": {
-        "Physics": "✓ VALIDATED (against Cho & Kensey 1991)",
-        "Python": "✓ CORRECT (λ=3.313s convergence)",
-        "Rust": "✓ IMPLEMENTED (blood.rs)",
-        "Cross-check": "⚠ PENDING" if not has_cfd_python else "✓ READY"
-    },
-    "Hemolysis Model": {
-        "Physics": "✓ VALIDATED (against Giersiepen 1990)",
-        "Python": "✓ CORRECT (iso-damage curves)",
-        "Rust": "✓ IMPLEMENTED (giersiepen.rs)",
-        "Cross-check": "⚠ PENDING" if not has_cfd_python else "✓ READY"
-    }
-}
 
 for model, status in validation_status.items():
     print(f"\n{model}:")

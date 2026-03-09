@@ -1,0 +1,71 @@
+{
+  "timestamp": 1773021517,
+  "benchmarks": {
+    "memory_allocation_100000": {
+      "name": "memory_allocation_100000",
+      "mean_time_ns": 401641,
+      "std_dev_ns": 26945,
+      "throughput": 24897856543530.168,
+      "samples": 100,
+      "confidence_interval": [
+        396359,
+        406922
+      ]
+    },
+    "cfd_computation_1000": {
+      "name": "cfd_computation_1000",
+      "mean_time_ns": 433924,
+      "std_dev_ns": 91054,
+      "throughput": 2304551027.3688483,
+      "samples": 100,
+      "confidence_interval": [
+        416077,
+        451770
+      ]
+    },
+    "memory_allocation_10000": {
+      "name": "memory_allocation_10000",
+      "mean_time_ns": 473367,
+      "std_dev_ns": 134256,
+      "throughput": 211252579922.1323,
+      "samples": 100,
+      "confidence_interval": [
+        447052,
+        499681
+      ]
+    },
+    "cfd_computation_10000": {
+      "name": "cfd_computation_10000",
+      "mean_time_ns": 434459,
+      "std_dev_ns": 43454,
+      "throughput": 230171316510.87906,
+      "samples": 100,
+      "confidence_interval": [
+        425942,
+        442975
+      ]
+    },
+    "memory_allocation_1000": {
+      "name": "memory_allocation_1000",
+      "mean_time_ns": 1069666,
+      "std_dev_ns": 1819851,
+      "throughput": 934871258.8789399,
+      "samples": 100,
+      "confidence_interval": [
+        712975,
+        1426356
+      ]
+    },
+    "cfd_computation_100000": {
+      "name": "cfd_computation_100000",
+      "mean_time_ns": 442298,
+      "std_dev_ns": 101958,
+      "throughput": 22609191088361.242,
+      "samples": 100,
+      "confidence_interval": [
+        422314,
+        462281
+      ]
+    }
+  }
+}

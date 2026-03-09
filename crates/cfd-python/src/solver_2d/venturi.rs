@@ -188,7 +188,7 @@ impl PyVenturiSolver1D {
 
     /// Solve Venturi resistance for given flow conditions.
     fn solve(&self, velocity: f64, blood_type: &str) -> PyResult<PyVenturiResult1D> {
-        use cfd_1d::resistance::models::{FlowConditions, ResistanceModel, VenturiModel};
+        use cfd_1d::physics::resistance::models::{FlowConditions, ResistanceModel, VenturiModel};
 
         let model = VenturiModel::symmetric(
             self.inlet_diameter, self.throat_diameter,

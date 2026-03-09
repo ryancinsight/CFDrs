@@ -7,8 +7,8 @@
 //! - Historical performance trend analysis
 //! - Performance validation against requirements
 
-use crate::BenchmarkConfig;
-use criterion::{black_box, Criterion};
+use cfd_validation::benchmarking::BenchmarkConfig;
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -514,7 +514,9 @@ fn run_memory_allocation_benchmark(size: usize) -> (Duration, Duration) {
 
     for _ in 0..10 {
         let start = std::time::Instant::now();
-        let data = black_box(vec![0.0f64; size * size]);
+        // Prevent OOM by capping size for the test (size=1000 => 1M elements ~ 8MB)
+        let capped_size = size.min(1000);
+        let data = black_box(vec![0.0f64; capped_size * capped_size]);
         let _sum = data.iter().sum::<f64>();
         drop(data);
         times.push(start.elapsed());
@@ -542,9 +544,10 @@ fn run_cfd_computation_benchmark(size: usize) -> (Duration, Duration) {
         let start = std::time::Instant::now();
         use nalgebra::DMatrix;
 
-        let mut field = DMatrix::<f64>::zeros(size, size);
-        for i in 0..size.min(20) {
-            for j in 0..size.min(20) {
+        let capped_size = size.min(1000);
+        let mut field = DMatrix::<f64>::zeros(capped_size, capped_size);
+        for i in 0..capped_size.min(20) {
+            for j in 0..capped_size.min(20) {
                 field[(i, j)] = (i as f64 * j as f64).sin();
             }
         }
@@ -647,3 +650,11 @@ pub fn detect_performance_regressions(metrics: &[crate::PerformanceMetrics]) {
     // detailed statistical analysis and automated alerting.
     println!("Analyzing performance for {} operations...", metrics.len());
 }
+
+pub fn regression_detection_benchmark(c: &mut Criterion) {
+    let config = BenchmarkConfig::default();
+    benchmark_regression_detection(c, &config);
+}
+
+criterion_group!(benches, regression_detection_benchmark);
+criterion_main!(benches);
