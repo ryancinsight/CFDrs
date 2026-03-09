@@ -1,6 +1,6 @@
 //! Womersley pulsatile flow `PyO3` wrappers
 
-use cfd_1d::vascular::womersley::{
+use cfd_1d::physics::vascular::womersley::{
     WomersleyFlow as RustWomersleyFlow, WomersleyNumber as RustWomersleyNumber,
     WomersleyProfile as RustWomersleyProfile,
 };
