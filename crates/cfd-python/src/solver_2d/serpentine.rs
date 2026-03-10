@@ -42,7 +42,7 @@ impl PySerpentineSolver1D {
 
     /// Solve serpentine resistance for given flow conditions.
     fn solve(&self, velocity: f64, blood_type: &str) -> PyResult<PySerpentineResult1D> {
-        use cfd_1d::resistance::models::{
+        use cfd_1d::physics::resistance::models::{
             FlowConditions, ResistanceModel, SerpentineCrossSection, SerpentineModel,
         };
         use cfd_core::physics::fluid::blood::CassonBlood as RustCasson;
