@@ -249,10 +249,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // 5a. Main assembly — open-top chip with TPMS visible inside
     let asm_path = out_dir.join("chip_assembly.stl");
-    stl::write_stl_binary(
-        &mut BufWriter::new(fs::File::create(&asm_path)?),
-        &assembly,
-    )?;
+    stl::write_stl_binary(&mut BufWriter::new(fs::File::create(&asm_path)?), &assembly)?;
 
     // 5b. Lid (top plate) — load alongside assembly for closed chip view
     let lid_path = out_dir.join("chip_lid.stl");
@@ -281,9 +278,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("  chip_lid.stl      — top plate (load with assembly for closed view)");
     println!("  tpms_lattice.stl  — standalone Gyroid lattice (detail inspection)");
     println!();
-    println!(
-        "View chip_assembly.stl to see the millifluidic chip with TPMS lattice"
-    );
+    println!("View chip_assembly.stl to see the millifluidic chip with TPMS lattice");
     println!("visible inside the cavity, with inlet/outlet port holes through the walls.");
 
     Ok(())

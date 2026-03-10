@@ -1,7 +1,8 @@
 use cfd_2d::network::validate_blueprint_for_2d_projection;
 use cfd_schematics::domain::model::{ChannelSpec, NodeKind, NodeSpec};
 use cfd_schematics::geometry::generator::{
-    create_primitive_selective_tree_geometry, PrimitiveSelectiveSplitKind, PrimitiveSelectiveTreeRequest,
+    create_primitive_selective_tree_geometry, PrimitiveSelectiveSplitKind,
+    PrimitiveSelectiveTreeRequest,
 };
 
 fn selective_blueprint() -> cfd_schematics::NetworkBlueprint {

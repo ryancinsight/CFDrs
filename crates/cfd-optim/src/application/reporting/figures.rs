@@ -19,17 +19,17 @@ impl FigureManifestEntry {
 #[must_use]
 pub fn required_figure_ids(goal: OptimizationGoal) -> &'static [&'static str] {
     match goal {
-        OptimizationGoal::SelectiveAcousticResidenceSeparation => &[
+        OptimizationGoal::AsymmetricSplitResidenceSeparation => &[
             "option1_blueprint",
             "option1_residence_map",
             "option1_separation_curve",
         ],
-        OptimizationGoal::SelectiveVenturiCavitation => &[
+        OptimizationGoal::AsymmetricSplitVenturiCavitationSelectivity => &[
             "option2_blueprint",
             "option2_venturi_screening",
             "option2_cavitation_window",
         ],
-        OptimizationGoal::BlueprintGeneticRefinement => {
+        OptimizationGoal::InPlaceDeanSerpentineRefinement => {
             &["ga_blueprint", "ga_lineage_delta", "ga_dean_peak_map"]
         }
     }

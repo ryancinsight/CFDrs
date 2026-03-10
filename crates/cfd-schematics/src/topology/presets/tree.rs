@@ -58,12 +58,15 @@ pub fn asymmetric_split_tree_spec(
                 .enumerate()
                 .map(|(bi, &(w, role, treatment))| {
                     let label = match (kind, bi) {
-                        (SplitKind::Trifurcation, 0) => "center".to_string(),
-                        (SplitKind::Trifurcation, 1) => "left".to_string(),
-                        (SplitKind::Trifurcation, 2) => "right".to_string(),
-                        (SplitKind::Bifurcation, 0) => "upper".to_string(),
-                        (SplitKind::Bifurcation, _) => "lower".to_string(),
-                        _ => format!("arm_{bi}"),
+                        (SplitKind::NFurcation(2), 0) => "upper".to_string(),
+                        (SplitKind::NFurcation(2), 1) => "lower".to_string(),
+                        (SplitKind::NFurcation(3), 0) => "left".to_string(),
+                        (SplitKind::NFurcation(3), 1) => "center".to_string(),
+                        (SplitKind::NFurcation(3), 2) => "right".to_string(),
+                        (SplitKind::NFurcation(n), idx) if n % 2 != 0 && idx == n / 2 => {
+                            "center".to_string()
+                        }
+                        (_, _) => format!("arm_{bi}"),
                     };
 
                     let therapy_zone = if treatment {
@@ -111,56 +114,38 @@ pub fn asymmetric_split_tree_spec(
     }
 }
 
-/// Symmetric bifurcation spec: equal-width branches at every level.
-///
-/// Convenience wrapper over [`asymmetric_split_tree_spec`] with
-/// `center_frac = 0.5` at every bifurcation (equal halves).
+/// Symmetric N-furcation spec: split `parent_width` based on whether N is even or odd,
+/// creating `splits` branches. Center branch (if N is odd) or first branch (if N even) is the treatment path.
+/// All branches divide the total parent flow equally.
 #[must_use]
-pub fn symmetric_bifurcation_spec(
+pub fn symmetric_n_furcation_spec(
     name: &str,
     n_levels: usize,
+    splits: usize,
     inlet_width_m: f64,
     channel_height_m: f64,
     trunk_length_m: f64,
 ) -> BlueprintTopologySpec {
-    let kinds = vec![SplitKind::Bifurcation; n_levels];
+    let kinds = vec![SplitKind::NFurcation(splits); n_levels];
+    let frac = 1.0 / (splits as f64);
     let mut widths = Vec::with_capacity(n_levels);
     let mut parent_width = inlet_width_m;
     for _ in 0..n_levels {
-        let half = parent_width * 0.5;
-        widths.push(vec![
-            (half, BranchRole::Treatment, true),
-            (half, BranchRole::Neutral, false),
-        ]);
-        parent_width = half;
-    }
-    asymmetric_split_tree_spec(name, &kinds, &widths, channel_height_m, trunk_length_m)
-}
+        let mut level_branches = Vec::with_capacity(splits);
+        let branch_width = parent_width * frac;
 
-/// Symmetric trifurcation spec: per-arm fractions from center_frac.
-///
-/// Center arm gets `center_frac × parent_width`, each peripheral arm
-/// gets `(1 − center_frac) / 2 × parent_width`.
-#[must_use]
-pub fn asymmetric_trifurcation_spec(
-    name: &str,
-    n_levels: usize,
-    inlet_width_m: f64,
-    center_frac: f64,
-    channel_height_m: f64,
-    trunk_length_m: f64,
-) -> BlueprintTopologySpec {
-    let kinds = vec![SplitKind::Trifurcation; n_levels];
-    let periph_frac = (1.0 - center_frac) / 2.0;
-    let mut widths = Vec::with_capacity(n_levels);
-    let mut parent_width = inlet_width_m;
-    for _ in 0..n_levels {
-        widths.push(vec![
-            (parent_width * center_frac, BranchRole::Treatment, true),
-            (parent_width * periph_frac, BranchRole::WbcCollection, false),
-            (parent_width * periph_frac, BranchRole::RbcBypass, false),
-        ]);
-        parent_width *= center_frac;
+        for i in 0..splits {
+            let (role, treatment) =
+                if (splits % 2 != 0 && i == splits / 2) || (splits % 2 == 0 && i == 0) {
+                    (BranchRole::Treatment, true)
+                } else {
+                    (BranchRole::Neutral, false)
+                };
+            level_branches.push((branch_width, role, treatment));
+        }
+
+        widths.push(level_branches);
+        parent_width *= frac;
     }
     asymmetric_split_tree_spec(name, &kinds, &widths, channel_height_m, trunk_length_m)
 }

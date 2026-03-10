@@ -108,6 +108,8 @@ pub enum SplitType {
     AsymmetricBifurcation { ratio: f64 },
     Trifurcation,
     SymmetricTrifurcation { center_ratio: f64 },
+    Quadfurcation,
+    Pentafurcation,
 }
 
 impl SplitType {
@@ -116,6 +118,8 @@ impl SplitType {
         match self {
             Self::Bifurcation | Self::AsymmetricBifurcation { .. } => 2,
             Self::Trifurcation | Self::SymmetricTrifurcation { .. } => 3,
+            Self::Quadfurcation => 4,
+            Self::Pentafurcation => 5,
         }
     }
 }

@@ -17,15 +17,24 @@ pub struct Milestone12LineageKey {
 
 #[must_use]
 pub fn is_milestone12_lineage_topology(candidate: &BlueprintCandidate) -> bool {
-    candidate
-        .topology_spec()
-        .is_ok_and(|spec| spec.first_stage_is_trifurcation() && spec.is_selective_routing())
+    candidate.topology_spec().is_ok_and(|spec| {
+        spec.is_selective_routing()
+            && matches!(
+                spec.split_stages.first().map(|stage| stage.split_kind),
+                Some(
+                    cfd_schematics::SplitKind::NFurcation(2)
+                        | cfd_schematics::SplitKind::NFurcation(3)
+                        | cfd_schematics::SplitKind::NFurcation(4)
+                        | cfd_schematics::SplitKind::NFurcation(5)
+                )
+            )
+    })
 }
 
 #[must_use]
 pub fn milestone12_lineage_key(candidate: &BlueprintCandidate) -> Option<Milestone12LineageKey> {
     let spec = candidate.topology_spec().ok()?;
-    if !spec.first_stage_is_trifurcation() || !spec.is_selective_routing() {
+    if !is_milestone12_lineage_topology(candidate) {
         return None;
     }
 
@@ -62,7 +71,7 @@ pub fn validate_milestone12_candidate(
 
     if !is_milestone12_lineage_topology(candidate) {
         return Err(format!(
-            "{stage:?} must use a tri-first selective-routing scaffold, got {}",
+            "{stage:?} must use a canonical asymmetric split scaffold rooted in Bi/Tri/Quad/Penta, got {}",
             spec.short_code()
         ));
     }
@@ -119,7 +128,8 @@ pub fn validate_milestone12_candidate(
 
 #[cfg(test)]
 mod tests {
-    use super::milestone12_lineage_key;
+    use super::{is_milestone12_lineage_topology, milestone12_lineage_key};
+    use crate::build_milestone12_blueprint_candidate_space;
     use crate::domain::fixtures::{
         canonical_option1_candidate, canonical_option2_candidate, operating_point,
     };
@@ -134,5 +144,31 @@ mod tests {
             milestone12_lineage_key(&option1),
             milestone12_lineage_key(&option2)
         );
+    }
+
+    #[test]
+    fn milestone12_lineage_accepts_bi_and_quad_roots_from_canonical_candidate_space() {
+        let candidates = build_milestone12_blueprint_candidate_space()
+            .expect("candidate space should build from cfd-schematics SSOT");
+
+        let bi = candidates
+            .iter()
+            .find(|candidate| {
+                candidate
+                    .topology_spec()
+                    .is_ok_and(|spec| spec.stage_sequence_label() == "Bi")
+            })
+            .expect("Bi-root candidate should exist");
+        let quad = candidates
+            .iter()
+            .find(|candidate| {
+                candidate
+                    .topology_spec()
+                    .is_ok_and(|spec| spec.stage_sequence_label() == "Quad")
+            })
+            .expect("Quad-root candidate should exist");
+
+        assert!(is_milestone12_lineage_topology(bi));
+        assert!(is_milestone12_lineage_topology(quad));
     }
 }

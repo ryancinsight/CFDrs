@@ -128,13 +128,14 @@ pub use domain::model::{
 pub use error::{
     ConfigurationError, GeometryError, SchemeError, SchemeResult, StrategyError, VisualizationError,
 };
-pub use geometry::metadata::BlueprintRenderHints;
 pub use geometry::generator::GeometryGeneratorBuilder;
+pub use geometry::metadata::BlueprintRenderHints;
 pub use heatmap::{write_well_plate_diagram_svg, CandidateZoneData};
 pub use infrastructure::adapters::{build_design_graph, DesignGraph, PetgraphGraphSink};
 pub use interface::presets::{
-    bifurcation_rect, serpentine_chain, serpentine_rect, serpentine_venturi_rect,
-    symmetric_bifurcation, symmetric_trifurcation, trifurcation_rect, venturi_chain, venturi_rect,
+    bifurcation_rect, n_furcation_rect, serpentine_chain, serpentine_rect, serpentine_venturi_rect,
+    symmetric_bifurcation, symmetric_n_furcation, symmetric_trifurcation, trifurcation_rect,
+    venturi_chain, venturi_rect,
 };
 pub use state_management::{
     ConfigurableParameter, ConstraintError, ParameterConstraints, ParameterError, ParameterManager,
@@ -147,10 +148,12 @@ pub use topology::{
     TopologyLineageEvent, TopologyLineageMetadata, TopologyOptimizationStage,
     TreatmentActuationMode, VenturiPlacementMode, VenturiPlacementSpec,
 };
+pub use topology::presets::{
+    build_milestone12_blueprint, build_milestone12_topology_spec,
+    enumerate_milestone12_topologies, Milestone12TopologyRequest,
+};
 pub use visualizations::schematic::{
     centerline_vertices, plot_blueprint, plot_blueprint_auto_annotated,
     plot_blueprint_with_annotations, plot_geometry, plot_geometry_auto_annotated,
     plot_geometry_with_annotations, plot_geometry_with_config,
 };
-
-

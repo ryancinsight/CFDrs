@@ -54,16 +54,16 @@ impl BlueprintCandidate {
             .blueprint
             .lineage()
             .map(|lineage| lineage.current_stage)
-            .unwrap_or(TopologyOptimizationStage::SelectiveAcousticResidenceSeparation)
+            .unwrap_or(TopologyOptimizationStage::AsymmetricSplitResidenceSeparation)
         {
-            TopologyOptimizationStage::SelectiveAcousticResidenceSeparation => {
-                OptimizationGoal::SelectiveAcousticResidenceSeparation
+            TopologyOptimizationStage::AsymmetricSplitResidenceSeparation => {
+                OptimizationGoal::AsymmetricSplitResidenceSeparation
             }
-            TopologyOptimizationStage::SelectiveVenturiCavitation => {
-                OptimizationGoal::SelectiveVenturiCavitation
+            TopologyOptimizationStage::AsymmetricSplitVenturiCavitationSelectivity => {
+                OptimizationGoal::AsymmetricSplitVenturiCavitationSelectivity
             }
-            TopologyOptimizationStage::BlueprintGeneticRefinement => {
-                OptimizationGoal::BlueprintGeneticRefinement
+            TopologyOptimizationStage::InPlaceDeanSerpentineRefinement => {
+                OptimizationGoal::InPlaceDeanSerpentineRefinement
             }
         }
     }

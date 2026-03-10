@@ -208,7 +208,9 @@ impl SelectiveTreeBuilder {
         shape: Option<ChannelShape>,
         venturi: Option<VenturiGeometryMetadata>,
     ) {
-        let final_length_m = if path.len() >= 2 {
+        let final_length_m = if length_m > 0.0 {
+            length_m
+        } else if path.len() >= 2 {
             polyline_length_mm(&path) * 1.0e-3
         } else {
             length_m
@@ -415,7 +417,7 @@ impl SelectiveTreeBuilder {
                 "throat_out",
                 path,
                 center_width,
-                req.branch_length_m.max(req.throat_length_m),
+                if center_serp.is_some() { 0.0 } else { req.branch_length_m.max(req.throat_length_m) },
                 req.channel_height_m,
                 ChannelVisualRole::CenterTreatment,
                 zone,
@@ -456,7 +458,7 @@ impl SelectiveTreeBuilder {
             "trunk_out",
             "outlet_merge",
             "outlet",
-            vec![(self.box_dims.0, y_mid)],
+            vec![(116.0, y_mid), (self.box_dims.0, y_mid)],
             req.main_width_m,
             req.trunk_length_m,
             req.channel_height_m,
@@ -738,7 +740,7 @@ impl SelectiveTreeBuilder {
                 "throat_out",
                 path,
                 treat_w,
-                req.hybrid_branch_length_m.max(req.throat_length_m),
+                if center_serp.is_some() { 0.0 } else { req.hybrid_branch_length_m.max(req.throat_length_m) },
                 req.channel_height_m,
                 ChannelVisualRole::CenterTreatment,
                 TherapyZone::CancerTarget,
@@ -779,7 +781,7 @@ impl SelectiveTreeBuilder {
             "trunk_out",
             "outlet_merge",
             "outlet",
-            vec![(self.box_dims.0, y_mid)],
+            vec![(116.0, y_mid), (self.box_dims.0, y_mid)],
             req.main_width_m,
             outlet_tail_length_m,
             req.channel_height_m,
@@ -995,7 +997,7 @@ impl SelectiveTreeBuilder {
             "trunk_out",
             "outlet_merge",
             "outlet",
-            vec![(self.box_dims.0, y_mid)],
+            vec![(116.0, y_mid), (self.box_dims.0, y_mid)],
             req.main_width_m,
             req.trunk_length_m,
             req.channel_height_m,
@@ -1323,6 +1325,8 @@ impl SelectiveTreeBuilder {
 pub enum PrimitiveSelectiveSplitKind {
     Bi,
     Tri,
+    Quad,
+    Penta,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -1362,6 +1366,8 @@ pub fn create_primitive_selective_tree_geometry(
                     request.later_trifurcation_center_frac
                 },
             },
+            PrimitiveSelectiveSplitKind::Quad => SplitType::Quadfurcation,
+            PrimitiveSelectiveSplitKind::Penta => SplitType::Pentafurcation,
         })
         .collect();
 
@@ -1379,7 +1385,6 @@ pub fn create_primitive_selective_tree_geometry(
         &ChannelTypeConfig::AllStraight,
     );
     annotate_primitive_tree(&mut blueprint, request);
-    blueprint.insert_metadata(GeometryAuthoringProvenance::selective_wrapper());
     blueprint
 }
 
@@ -1418,19 +1423,22 @@ pub fn create_primitive_selective_tree_geometry_from_spec(
         }
 
         let treatment_fraction = (treatment_branch.route.width_m / parent_width_m).clamp(0.0, 1.0);
-        center_serpentine = center_serpentine.or(treatment_branch.route.serpentine.as_ref().map(
-            |serpentine| CenterSerpentinePathSpec {
-                segments: serpentine.segments,
-                bend_radius_m: serpentine.bend_radius_m,
-            },
-        ));
+        center_serpentine =
+            center_serpentine.or(treatment_branch
+                .route
+                .serpentine
+                .as_ref()
+                .map(|serpentine| CenterSerpentinePathSpec {
+                    segments: serpentine.segments,
+                    bend_radius_m: serpentine.bend_radius_m,
+                }));
 
         match stage.split_kind {
-            SplitKind::Bifurcation => {
+            SplitKind::NFurcation(2) => {
                 split_sequence.push(PrimitiveSelectiveSplitKind::Bi);
                 bifurcation_treatment_frac = treatment_fraction;
             }
-            SplitKind::Trifurcation => {
+            SplitKind::NFurcation(3) => {
                 split_sequence.push(PrimitiveSelectiveSplitKind::Tri);
                 if stage_index == 0 {
                     first_trifurcation_center_frac = treatment_fraction;
@@ -1439,6 +1447,13 @@ pub fn create_primitive_selective_tree_geometry_from_spec(
                     saw_later_trifurcation = true;
                 }
             }
+            SplitKind::NFurcation(4) => {
+                split_sequence.push(PrimitiveSelectiveSplitKind::Quad);
+            }
+            SplitKind::NFurcation(5) => {
+                split_sequence.push(PrimitiveSelectiveSplitKind::Penta);
+            }
+            SplitKind::NFurcation(_) => return Ok(None),
         }
 
         parent_width_m = treatment_branch.route.width_m;
@@ -1463,8 +1478,9 @@ pub fn create_primitive_selective_tree_geometry_from_spec(
         box_dims_mm: spec.box_dims_mm,
         split_sequence,
         main_width_m: spec.inlet_width_m,
-        throat_width_m: strongest_venturi
-            .map_or(parent_width_m, |placement| placement.throat_geometry.throat_width_m),
+        throat_width_m: strongest_venturi.map_or(parent_width_m, |placement| {
+            placement.throat_geometry.throat_width_m
+        }),
         throat_length_m: strongest_venturi.map_or(spec.trunk_length_m / 8.0, |placement| {
             placement.throat_geometry.throat_length_m
         }),
@@ -1472,7 +1488,8 @@ pub fn create_primitive_selective_tree_geometry_from_spec(
         first_trifurcation_center_frac,
         later_trifurcation_center_frac,
         bifurcation_treatment_frac,
-        treatment_branch_venturi_enabled: spec.treatment_mode == TreatmentActuationMode::VenturiCavitation
+        treatment_branch_venturi_enabled: spec.treatment_mode
+            == TreatmentActuationMode::VenturiCavitation
             && !spec.venturi_placements.is_empty(),
         treatment_branch_throat_count: strongest_venturi
             .map_or(0, |placement| placement.serial_throat_count),
@@ -1480,7 +1497,7 @@ pub fn create_primitive_selective_tree_geometry_from_spec(
     };
 
     let mut blueprint = create_primitive_selective_tree_geometry(&request);
-    blueprint.name = spec.design_name.clone();
+    blueprint.name.clone_from(&spec.design_name);
     blueprint.topology = Some(spec.clone());
     blueprint.lineage = Some(BlueprintTopologyFactory::lineage_for_spec(spec));
     blueprint.render_hints = Some(BlueprintRenderHints {
@@ -1673,7 +1690,7 @@ fn annotate_primitive_tree(system: &mut NetworkBlueprint, request: &PrimitiveSel
         let starts_at_treatment_leaf = treatment_leaves.contains(&channel.from);
         let is_treatment_window_channel =
             starts_at_treatment_leaf && max_x > mid_x + 1e-6 && min_x >= mid_x - 1e-6;
-        let is_trunk = touches_inlet || touches_outlet || (avg_y - mid_y).abs() < 1e-6;
+        let is_trunk = touches_inlet || touches_outlet;
 
         let physical_width = if touches_inlet || touches_outlet {
             request.main_width_m
@@ -1705,10 +1722,10 @@ fn annotate_primitive_tree(system: &mut NetworkBlueprint, request: &PrimitiveSel
             role = ChannelVisualRole::MergeCollector;
         }
         channel.visual_role = Some(role);
-        channel.therapy_zone = Some(if is_treatment {
-            TherapyZone::CancerTarget
-        } else if is_trunk {
+        channel.therapy_zone = Some(if is_trunk {
             TherapyZone::MixedFlow
+        } else if is_treatment {
+            TherapyZone::CancerTarget
         } else {
             TherapyZone::HealthyBypass
         });
@@ -1793,6 +1810,10 @@ fn primitive_treatment_leaf_indices(
         return Vec::new();
     }
     match first_stage {
+        Some(PrimitiveSelectiveSplitKind::Bi) => {
+            // Leaves sorted by Y ascending: index 0 = lower (bypass), index 1 = upper (treatment)
+            vec![leaf_count - 1]
+        }
         Some(PrimitiveSelectiveSplitKind::Tri) => {
             if leaf_count == 3 {
                 vec![1]
@@ -1801,7 +1822,21 @@ fn primitive_treatment_leaf_indices(
                 (block..(2 * block)).collect()
             }
         }
-        _ => (0..leaf_count).collect(),
+        Some(PrimitiveSelectiveSplitKind::Quad) => {
+            // 4 leaves sorted by Y: indices 1,2 are the center pair (treatment)
+            let quarter = leaf_count / 4;
+            (quarter..(3 * quarter)).collect()
+        }
+        Some(PrimitiveSelectiveSplitKind::Penta) => {
+            // 5 leaves sorted by Y: index 2 is the center (treatment)
+            if leaf_count == 5 {
+                vec![2]
+            } else {
+                let fifth = leaf_count / 5;
+                (2 * fifth..(3 * fifth)).collect()
+            }
+        }
+        None => Vec::new(),
     }
 }
 

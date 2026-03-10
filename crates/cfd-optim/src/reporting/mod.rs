@@ -5,18 +5,24 @@
 //! [`ranking`]  | Deterministic tie-break sort, oncology priority score, shortlisting |
 //! [`markdown`] | `write_milestone12_results`, `ValidationRow` |
 //! [`narrative`] | Milestone 12 narrative templating + figure manifest generation |
+//! [`svg_primitives`] | Low-level SVG rendering primitives and generic bar-chart builder |
 
 mod contract_trace;
 mod design_record;
 mod figures;
+mod figures_process;
 mod figures_svg;
 mod guardrails;
 mod markdown;
 mod narrative;
+mod narrative_addenda;
 mod narrative_sections;
 mod ranking;
+mod report_math;
 mod report_metrics;
+mod svg_primitives;
 mod template;
+mod validation_runner;
 
 pub use design_record::{compute_blueprint_report_metrics, Milestone12ReportDesign};
 pub use guardrails::{
@@ -26,3 +32,4 @@ pub use guardrails::{
 pub use markdown::{write_milestone12_results, ValidationRow};
 pub use narrative::{write_milestone12_narrative_report, Milestone12NarrativeInput};
 pub use ranking::{pct_diff, shortlist_report_designs, sort_report_designs};
+pub use validation_runner::run_milestone12_validation;

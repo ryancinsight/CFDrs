@@ -115,20 +115,23 @@ fn venturi_blueprint(
     divergent_half_angle_deg: f64,
 ) -> NetworkBlueprint {
     let mut bp = NetworkBlueprint::new("venturi-angle-test");
-    bp.add_node(NodeSpec::new("inlet", NodeKind::Inlet));
-    bp.add_node(NodeSpec::new("contraction", NodeKind::Junction));
-    bp.add_node(NodeSpec::new("throat", NodeKind::Junction));
-    bp.add_node(NodeSpec::new("outlet", NodeKind::Outlet));
-    bp.add_channel(ChannelSpec::new_pipe_rect(
-        "inlet_section",
-        "inlet",
-        "contraction",
-        5.0e-3,
-        1.0e-3,
-        0.5e-3,
-        1.0,
-        0.0,
-    ));
+    bp.add_node(NodeSpec::new_at("inlet", NodeKind::Inlet, (0.0, 0.0)));
+    bp.add_node(NodeSpec::new_at("contraction", NodeKind::Junction, (5.0, 0.0)));
+    bp.add_node(NodeSpec::new_at("throat", NodeKind::Junction, (5.8, 0.0)));
+    bp.add_node(NodeSpec::new_at("outlet", NodeKind::Outlet, (10.8, 0.0)));
+    bp.add_channel(
+        ChannelSpec::new_pipe_rect(
+            "inlet_section",
+            "inlet",
+            "contraction",
+            5.0e-3,
+            1.0e-3,
+            0.5e-3,
+            1.0,
+            0.0,
+        )
+        .with_path(vec![(0.0, 0.0), (5.0, 0.0)]),
+    );
     bp.add_channel(
         ChannelSpec::new_pipe_rect(
             "throat_section",
@@ -159,26 +162,30 @@ fn venturi_blueprint(
             convergent_half_angle_deg,
             divergent_half_angle_deg,
             throat_position: 0.5,
-        }),
+        })
+        .with_path(vec![(5.0, 0.0), (5.8, 0.0)]),
     );
-    bp.add_channel(ChannelSpec::new_pipe_rect(
-        "diffuser_section",
-        "throat",
-        "outlet",
-        5.0e-3,
-        1.0e-3,
-        0.5e-3,
-        1.0,
-        0.0,
-    ));
+    bp.add_channel(
+        ChannelSpec::new_pipe_rect(
+            "diffuser_section",
+            "throat",
+            "outlet",
+            5.0e-3,
+            1.0e-3,
+            0.5e-3,
+            1.0,
+            0.0,
+        )
+        .with_path(vec![(5.8, 0.0), (10.8, 0.0)]),
+    );
     bp
 }
 
 fn split_blueprint(branch_angles_deg: Vec<f64>) -> NetworkBlueprint {
     let mut bp = NetworkBlueprint::new("junction-angle-test");
-    bp.add_node(NodeSpec::new("inlet", NodeKind::Inlet));
+    bp.add_node(NodeSpec::new_at("inlet", NodeKind::Inlet, (0.0, 0.0)));
     bp.add_node(
-        NodeSpec::new("split", NodeKind::Junction)
+        NodeSpec::new_at("split", NodeKind::Junction, (6.0, 0.0))
             .with_junction_geometry(JunctionGeometryMetadata {
                 junction_family: JunctionFamily::Trifurcation,
                 branch_angles_deg: branch_angles_deg.clone(),
@@ -190,36 +197,42 @@ fn split_blueprint(branch_angles_deg: Vec<f64>) -> NetworkBlueprint {
                 merge_angles_deg: Vec::new(),
             }),
     );
-    bp.add_node(NodeSpec::new("run_out", NodeKind::Outlet));
-    bp.add_node(NodeSpec::new("branch_up", NodeKind::Outlet));
-    bp.add_node(NodeSpec::new("branch_dn", NodeKind::Outlet));
-    bp.add_channel(ChannelSpec::new_pipe_rect(
-        "inlet_section",
-        "inlet",
-        "split",
-        6.0e-3,
-        1.2e-3,
-        0.6e-3,
-        1.0,
-        0.0,
-    ));
-    for (edge_id, node_id) in [
-        ("run_edge", "run_out"),
-        ("branch_up_edge", "branch_up"),
-        ("branch_dn_edge", "branch_dn"),
-    ] {
-        bp.add_channel(ChannelSpec::new_pipe_rect(
-            edge_id, "split", node_id, 6.0e-3, 0.8e-3, 0.6e-3, 1.0, 0.0,
-        ));
-    }
+    bp.add_node(NodeSpec::new_at("run_out", NodeKind::Outlet, (12.0, 0.0)));
+    bp.add_node(NodeSpec::new_at("branch_up", NodeKind::Outlet, (6.0, 6.0)));
+    bp.add_node(NodeSpec::new_at("branch_dn", NodeKind::Outlet, (6.0, -6.0)));
+    bp.add_channel(
+        ChannelSpec::new_pipe_rect(
+            "inlet_section",
+            "inlet",
+            "split",
+            6.0e-3,
+            1.2e-3,
+            0.6e-3,
+            1.0,
+            0.0,
+        )
+        .with_path(vec![(0.0, 0.0), (6.0, 0.0)]),
+    );
+    bp.add_channel(
+        ChannelSpec::new_pipe_rect("run_edge", "split", "run_out", 6.0e-3, 0.8e-3, 0.6e-3, 1.0, 0.0)
+            .with_path(vec![(6.0, 0.0), (12.0, 0.0)]),
+    );
+    bp.add_channel(
+        ChannelSpec::new_pipe_rect("branch_up_edge", "split", "branch_up", 6.0e-3, 0.8e-3, 0.6e-3, 1.0, 0.0)
+            .with_path(vec![(6.0, 0.0), (6.0, 6.0)]),
+    );
+    bp.add_channel(
+        ChannelSpec::new_pipe_rect("branch_dn_edge", "split", "branch_dn", 6.0e-3, 0.8e-3, 0.6e-3, 1.0, 0.0)
+            .with_path(vec![(6.0, 0.0), (6.0, -6.0)]),
+    );
     bp
 }
 
 fn bifurcation_flow_blueprint(branch_width_m: f64) -> NetworkBlueprint {
     let mut bp = NetworkBlueprint::new("branch-width-test");
-    bp.add_node(NodeSpec::new("inlet", NodeKind::Inlet));
+    bp.add_node(NodeSpec::new_at("inlet", NodeKind::Inlet, (0.0, 0.0)));
     bp.add_node(
-        NodeSpec::new("split", NodeKind::Junction).with_junction_geometry(
+        NodeSpec::new_at("split", NodeKind::Junction, (8.0, 0.0)).with_junction_geometry(
             JunctionGeometryMetadata {
                 junction_family: JunctionFamily::Bifurcation,
                 branch_angles_deg: vec![-35.0, 35.0],
@@ -227,38 +240,47 @@ fn bifurcation_flow_blueprint(branch_width_m: f64) -> NetworkBlueprint {
             },
         ),
     );
-    bp.add_node(NodeSpec::new("wide_out", NodeKind::Outlet));
-    bp.add_node(NodeSpec::new("narrow_out", NodeKind::Outlet));
-    bp.add_channel(ChannelSpec::new_pipe_rect(
-        "inlet_section",
-        "inlet",
-        "split",
-        8.0e-3,
-        1.2e-3,
-        0.6e-3,
-        1.0,
-        0.0,
-    ));
-    bp.add_channel(ChannelSpec::new_pipe_rect(
-        "treatment_edge",
-        "split",
-        "wide_out",
-        9.0e-3,
-        branch_width_m,
-        0.6e-3,
-        1.0,
-        0.0,
-    ));
-    bp.add_channel(ChannelSpec::new_pipe_rect(
-        "bypass_edge",
-        "split",
-        "narrow_out",
-        9.0e-3,
-        0.45e-3,
-        0.6e-3,
-        1.0,
-        0.0,
-    ));
+    bp.add_node(NodeSpec::new_at("wide_out", NodeKind::Outlet, (8.0, 9.0)));
+    bp.add_node(NodeSpec::new_at("narrow_out", NodeKind::Outlet, (8.0, -9.0)));
+    bp.add_channel(
+        ChannelSpec::new_pipe_rect(
+            "inlet_section",
+            "inlet",
+            "split",
+            8.0e-3,
+            1.2e-3,
+            0.6e-3,
+            1.0,
+            0.0,
+        )
+        .with_path(vec![(0.0, 0.0), (8.0, 0.0)]),
+    );
+    bp.add_channel(
+        ChannelSpec::new_pipe_rect(
+            "treatment_edge",
+            "split",
+            "wide_out",
+            9.0e-3,
+            branch_width_m,
+            0.6e-3,
+            1.0,
+            0.0,
+        )
+        .with_path(vec![(8.0, 0.0), (8.0, 9.0)]),
+    );
+    bp.add_channel(
+        ChannelSpec::new_pipe_rect(
+            "bypass_edge",
+            "split",
+            "narrow_out",
+            9.0e-3,
+            0.45e-3,
+            0.6e-3,
+            1.0,
+            0.0,
+        )
+        .with_path(vec![(8.0, 0.0), (8.0, -9.0)]),
+    );
     bp
 }
 
@@ -354,12 +376,26 @@ fn branch_width_changes_resistance_and_flow_split() {
 fn venturi_throat_width_and_length_change_coefficients() {
     let short_wide = venturi_blueprint(8.0, 8.0);
     let mut long_narrow = venturi_blueprint(8.0, 8.0);
+    if let Some(throat_node) = long_narrow.nodes.iter_mut().find(|n| n.id.as_str() == "throat") {
+        throat_node.point = (6.6, 0.0);
+    }
+    if let Some(outlet_node) = long_narrow.nodes.iter_mut().find(|n| n.id.as_str() == "outlet") {
+        outlet_node.point = (11.6, 0.0);
+    }
+    if let Some(diffuser) = long_narrow
+        .channels
+        .iter_mut()
+        .find(|channel| channel.id.as_str() == "diffuser_section")
+    {
+        diffuser.path = vec![(6.6, 0.0), (11.6, 0.0)];
+    }
     if let Some(throat) = long_narrow
         .channels
         .iter_mut()
         .find(|channel| channel.id.as_str() == "throat_section")
     {
         throat.length_m = 1.6e-3;
+        throat.path = vec![(5.0, 0.0), (6.6, 0.0)];
         throat.cross_section = cfd_schematics::domain::model::CrossSectionSpec::Rectangular {
             width_m: 1.8e-4,
             height_m: 0.5e-3,

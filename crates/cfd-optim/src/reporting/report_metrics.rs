@@ -1,8 +1,12 @@
 use cfd_1d::{cavitation_amplified_hi, giersiepen_hi};
 use cfd_schematics::topology::TreatmentActuationMode;
 
+use super::report_math::{
+    coefficient_of_variation, cumulative_pass_damage, direct_linear_risk, inverse_linear_risk,
+    log_risk, mean, percentile, resonance_match,
+};
 use crate::constraints::{
-    ACOUSTIC_HALF_WAVELENGTH_M, BLOOD_ATTENUATION_405NM_INV_M, BLOOD_DENSITY_KG_M3,
+    BLOOD_ATTENUATION_405NM_INV_M, BLOOD_DENSITY_KG_M3,
     BLOOD_VAPOR_PRESSURE_PA, BLOOD_VISCOSITY_PA_S, BUBBLE_POLYTROPIC_K,
     CLOTTING_BFR_CAUTION_ML_MIN, CLOTTING_BFR_HIGH_RISK_ML_MIN, CLOTTING_BFR_LOW_RISK_ML_MIN,
     CLOTTING_BFR_STRICT_10MLS_ML_MIN, CLOTTING_RESIDENCE_HIGH_RISK_S,
@@ -432,85 +436,4 @@ pub fn compute_blueprint_report_metrics(
     metrics.fda_thermal_compliant = throat_temperature_rise_k <= FDA_THROAT_TEMP_RISE_LIMIT_K;
 
     Ok(metrics)
-}
-
-fn mean(values: &[f64]) -> f64 {
-    if values.is_empty() {
-        0.0
-    } else {
-        values.iter().sum::<f64>() / values.len() as f64
-    }
-}
-
-fn coefficient_of_variation(values: &[f64], mean: f64) -> f64 {
-    if values.len() <= 1 || mean <= 1.0e-18 {
-        return 0.0;
-    }
-    let variance = values
-        .iter()
-        .map(|value| (value - mean).powi(2))
-        .sum::<f64>()
-        / values.len() as f64;
-    variance.sqrt() / mean
-}
-
-fn percentile(values: &[f64], p: f64) -> f64 {
-    if values.is_empty() {
-        return 0.0;
-    }
-    let mut sorted = values.to_vec();
-    sorted.sort_by(|a, b| a.total_cmp(b));
-    let index = ((sorted.len() - 1) as f64 * p.clamp(0.0, 1.0)).round() as usize;
-    sorted[index]
-}
-
-fn direct_linear_risk(value: f64, low_risk: f64, high_risk: f64) -> f64 {
-    if value <= low_risk {
-        0.0
-    } else if value >= high_risk {
-        1.0
-    } else {
-        (value - low_risk) / (high_risk - low_risk)
-    }
-}
-
-fn inverse_linear_risk(value: f64, high_risk: f64, low_risk: f64) -> f64 {
-    if value <= high_risk {
-        1.0
-    } else if value >= low_risk {
-        0.0
-    } else {
-        (low_risk - value) / (low_risk - high_risk)
-    }
-}
-
-fn log_risk(value: f64, low_risk: f64, high_risk: f64) -> f64 {
-    if value <= low_risk {
-        0.0
-    } else if value >= high_risk {
-        1.0
-    } else {
-        let log_value = value.ln();
-        let log_low = low_risk.ln();
-        let log_high = high_risk.ln();
-        (log_value - log_low) / (log_high - log_low)
-    }
-}
-
-fn cumulative_pass_damage(pass_damage: f64, passes: f64) -> f64 {
-    if pass_damage <= 0.0 || passes <= 0.0 {
-        0.0
-    } else {
-        1.0 - (1.0 - pass_damage.clamp(0.0, 1.0)).powf(passes)
-    }
-}
-
-fn resonance_match(hydraulic_diameter_m: f64) -> f64 {
-    if hydraulic_diameter_m <= 0.0 {
-        0.0
-    } else {
-        (1.0 - ((hydraulic_diameter_m - ACOUSTIC_HALF_WAVELENGTH_M).abs()
-            / ACOUSTIC_HALF_WAVELENGTH_M.max(1.0e-18)))
-        .clamp(0.0, 1.0)
-    }
 }

@@ -8,6 +8,6 @@ pub use model::{
     BlueprintTopologySpec, BranchRole, BranchSpec, ChannelRouteSpec, DeanSiteEstimate,
     ParallelChannelSpec, SeriesChannelSpec, SerpentineSpec, SplitKind, SplitStageSpec,
     ThroatGeometrySpec, TopologyChannelSpec, TopologyLineageEvent, TopologyLineageMetadata,
-    TopologyOptimizationStage, TreatmentActuationMode, VenturiPlacementMode,
+    TopologyOptimizationStage, TreatmentActuationMode, VenturiConfig, VenturiPlacementMode,
     VenturiPlacementSpec,
 };

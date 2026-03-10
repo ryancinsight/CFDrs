@@ -27,7 +27,6 @@ use cfd_schematics::visualizations::traits::RenderConfig;
 mod shared;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-
     // ── Configuration matrix ────────────────────────────────────────
     // Millifluidic-scale channels within 96-well-plate footprint
     // (127.76 × 85.47 mm — ANSI/SLAS 1-2004).

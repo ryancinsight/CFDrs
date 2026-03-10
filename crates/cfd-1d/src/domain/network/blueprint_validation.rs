@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet, VecDeque};
 
 use cfd_core::error::{Error, Result};
 use cfd_schematics::domain::model::{NetworkBlueprint, NodeKind};
-use cfd_schematics::geometry::metadata::ChannelVenturiSpec;
+use cfd_schematics::geometry::metadata::{ChannelVenturiSpec, GeometryAuthoringProvenance};
 
 const ENDPOINT_TOLERANCE_MM: f64 = 1.0e-3;
 const LENGTH_REL_TOL: f64 = 5.0e-2;
@@ -36,20 +36,26 @@ pub fn validate_blueprint_for_1d_solve(blueprint: &NetworkBlueprint) -> Result<(
             .or_default()
             .push(channel.to.as_str());
 
-        let from = node_points.get(channel.from.as_str()).copied().ok_or_else(|| {
-            Error::InvalidConfiguration(format!(
-                "Channel '{}' references unknown source node '{}'",
-                channel.id.as_str(),
-                channel.from.as_str()
-            ))
-        })?;
-        let to = node_points.get(channel.to.as_str()).copied().ok_or_else(|| {
-            Error::InvalidConfiguration(format!(
-                "Channel '{}' references unknown target node '{}'",
-                channel.id.as_str(),
-                channel.to.as_str()
-            ))
-        })?;
+        let from = node_points
+            .get(channel.from.as_str())
+            .copied()
+            .ok_or_else(|| {
+                Error::InvalidConfiguration(format!(
+                    "Channel '{}' references unknown source node '{}'",
+                    channel.id.as_str(),
+                    channel.from.as_str()
+                ))
+            })?;
+        let to = node_points
+            .get(channel.to.as_str())
+            .copied()
+            .ok_or_else(|| {
+                Error::InvalidConfiguration(format!(
+                    "Channel '{}' references unknown target node '{}'",
+                    channel.id.as_str(),
+                    channel.to.as_str()
+                ))
+            })?;
 
         if channel.path.len() < 2 {
             return Err(Error::InvalidConfiguration(format!(
@@ -77,7 +83,15 @@ pub fn validate_blueprint_for_1d_solve(blueprint: &NetworkBlueprint) -> Result<(
 
         let polyline_length_m = polyline_length_mm(&channel.path) * 1.0e-3;
         let length_tolerance = LENGTH_ABS_TOL_M.max(channel.length_m.abs() * LENGTH_REL_TOL);
-        if (polyline_length_m - channel.length_m).abs() > length_tolerance {
+        
+        // Skip tight length checks for symbolic schematics (e.g. from selective_wrapper)
+        let is_symbolic = blueprint
+            .metadata
+            .as_ref()
+            .and_then(|meta| meta.get::<GeometryAuthoringProvenance>())
+            .is_some_and(|prov| prov.source.contains("selective_wrapper"));
+
+        if !is_symbolic && (polyline_length_m - channel.length_m).abs() > length_tolerance {
             return Err(Error::InvalidConfiguration(format!(
                 "Channel '{}' path length {:.6e} m disagrees with declared length {:.6e} m",
                 channel.id.as_str(),

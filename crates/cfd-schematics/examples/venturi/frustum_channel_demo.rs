@@ -62,7 +62,11 @@ fn demonstrate_taper_profiles() -> Result<(), Box<dyn std::error::Error>> {
         &GeometryConfig::default(),
         &ChannelTypeConfig::AllFrustum(linear_config),
     );
-    shared::save_example_output_with_name(&linear_system, "frustum_channel_demo", "frustum_linear_taper");
+    shared::save_example_output_with_name(
+        &linear_system,
+        "frustum_channel_demo",
+        "frustum_linear_taper",
+    );
     println!("   ✅ Linear taper: saved to frustum_linear_taper.svg");
 
     let exponential_config = FrustumConfig {
@@ -75,7 +79,11 @@ fn demonstrate_taper_profiles() -> Result<(), Box<dyn std::error::Error>> {
         &GeometryConfig::default(),
         &ChannelTypeConfig::AllFrustum(exponential_config),
     );
-    shared::save_example_output_with_name(&exponential_system, "frustum_channel_demo", "frustum_exponential_taper");
+    shared::save_example_output_with_name(
+        &exponential_system,
+        "frustum_channel_demo",
+        "frustum_exponential_taper",
+    );
     println!("   ✅ Exponential taper: saved to frustum_exponential_taper.svg");
 
     let smooth_config = FrustumConfig {
@@ -88,7 +96,11 @@ fn demonstrate_taper_profiles() -> Result<(), Box<dyn std::error::Error>> {
         &GeometryConfig::default(),
         &ChannelTypeConfig::AllFrustum(smooth_config),
     );
-    shared::save_example_output_with_name(&smooth_system, "frustum_channel_demo", "frustum_smooth_taper");
+    shared::save_example_output_with_name(
+        &smooth_system,
+        "frustum_channel_demo",
+        "frustum_smooth_taper",
+    );
     println!("   ✅ Smooth taper: saved to frustum_smooth_taper.svg");
 
     println!();
@@ -114,7 +126,11 @@ fn demonstrate_throat_positions() -> Result<(), Box<dyn std::error::Error>> {
         &GeometryConfig::default(),
         &ChannelTypeConfig::AllFrustum(config_25),
     );
-    shared::save_example_output_with_name(&system, "frustum_channel_demo", "frustum_throat_positions");
+    shared::save_example_output_with_name(
+        &system,
+        "frustum_channel_demo",
+        "frustum_throat_positions",
+    );
     println!("   ✅ Variable throat positions: saved to frustum_throat_positions.svg");
 
     println!();
@@ -206,8 +222,12 @@ fn demonstrate_json_serialization() -> Result<(), Box<dyn std::error::Error>> {
 
     // We just rely on the saving logic that save_example_output already provides
     // but we simulate the original example logic below.
-    shared::save_example_output_with_name(&original_system, "frustum_channel_demo", "frustum_system_export");
-    
+    shared::save_example_output_with_name(
+        &original_system,
+        "frustum_channel_demo",
+        "frustum_system_export",
+    );
+
     let json = serde_json::to_string_pretty(&original_system)?;
     println!("   ✅ Exported to: frustum_system_export.json");
 

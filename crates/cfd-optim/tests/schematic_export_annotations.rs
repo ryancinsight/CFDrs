@@ -28,7 +28,7 @@ fn selective_blueprint(
             stage_id: format!("stage{index}"),
             split_kind: *split_kind,
             branches: match split_kind {
-                SplitKind::Bifurcation => vec![
+                SplitKind::NFurcation(2) => vec![
                     BranchSpec {
                         label: "ctc".to_string(),
                         role: BranchRole::Treatment,
@@ -54,7 +54,7 @@ fn selective_blueprint(
                         },
                     },
                 ],
-                SplitKind::Trifurcation => vec![
+                SplitKind::NFurcation(3) => vec![
                     BranchSpec {
                         label: "wbc".to_string(),
                         role: BranchRole::WbcCollection,
@@ -92,6 +92,7 @@ fn selective_blueprint(
                         },
                     },
                 ],
+                SplitKind::NFurcation(n) => panic!("unsupported split count {n} in test fixture"),
             },
         })
         .collect::<Vec<_>>();
@@ -136,7 +137,7 @@ fn selective_blueprint(
 fn save_schematic_svg_adds_throat_markers_for_venturi_blueprint() {
     let blueprint = selective_blueprint(
         "venturi_test",
-        &[SplitKind::Trifurcation],
+        &[SplitKind::NFurcation(3)],
         TreatmentActuationMode::VenturiCavitation,
     );
     let out = unique_svg_path("cfd_optim_venturi_blueprint");
@@ -154,7 +155,7 @@ fn save_schematic_svg_adds_throat_markers_for_venturi_blueprint() {
 fn save_schematic_svg_keeps_node_markers_without_throats_for_nonventuri_blueprint() {
     let blueprint = selective_blueprint(
         "nonventuri_test",
-        &[SplitKind::Trifurcation],
+        &[SplitKind::NFurcation(3)],
         TreatmentActuationMode::UltrasoundOnly,
     );
     let out = unique_svg_path("cfd_optim_nonventuri_blueprint");
@@ -172,7 +173,7 @@ fn save_schematic_svg_keeps_node_markers_without_throats_for_nonventuri_blueprin
 fn save_schematic_svg_renders_selective_blueprint_topology_from_blueprint_ssot() {
     let blueprint = selective_blueprint(
         "selective_cif",
-        &[SplitKind::Trifurcation, SplitKind::Bifurcation],
+        &[SplitKind::NFurcation(3), SplitKind::NFurcation(2)],
         TreatmentActuationMode::VenturiCavitation,
     );
     let out = unique_svg_path("cfd_optim_selective_cif");
@@ -190,7 +191,7 @@ fn save_schematic_svg_renders_selective_blueprint_topology_from_blueprint_ssot()
 fn save_schematic_svg_renders_full_tree_split_markers_for_dtcv() {
     let blueprint = selective_blueprint(
         "selective_dtcv",
-        &[SplitKind::Trifurcation, SplitKind::Trifurcation],
+        &[SplitKind::NFurcation(3), SplitKind::NFurcation(3)],
         TreatmentActuationMode::VenturiCavitation,
     );
     let out = unique_svg_path("cfd_optim_selective_dtcv");
@@ -211,7 +212,7 @@ fn save_schematic_svg_renders_full_tree_split_markers_for_dtcv() {
 fn save_schematic_svg_renders_acoustic_dtcv_without_throats() {
     let blueprint = selective_blueprint(
         "selective_dtcv_acoustic",
-        &[SplitKind::Trifurcation, SplitKind::Trifurcation],
+        &[SplitKind::NFurcation(3), SplitKind::NFurcation(3)],
         TreatmentActuationMode::UltrasoundOnly,
     );
     let out = unique_svg_path("cfd_optim_selective_dtcv_acoustic");
@@ -228,7 +229,7 @@ fn save_schematic_svg_renders_acoustic_dtcv_without_throats() {
 fn save_schematic_svg_rejects_non_geometry_authored_blueprint() {
     let mut blueprint = selective_blueprint(
         "selective_noncanonical",
-        &[SplitKind::Trifurcation, SplitKind::Trifurcation],
+        &[SplitKind::NFurcation(3), SplitKind::NFurcation(3)],
         TreatmentActuationMode::VenturiCavitation,
     );
     let out = unique_svg_path("cfd_optim_noncanonical");

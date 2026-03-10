@@ -128,7 +128,8 @@ impl PlottersRenderer {
         output_path: &str,
         overlay: &AnalysisOverlay,
     ) -> VisualizationResult<()> {
-        let renderable = channel_system_from_blueprint(system, Some(system.box_dims), Some(output_path))?;
+        let renderable =
+            channel_system_from_blueprint(system, Some(system.box_dims), Some(output_path))?;
         let (length, width) = system.box_dims;
         let x_buffer = length * config.margin_fraction;
         let y_buffer = width * config.margin_fraction;

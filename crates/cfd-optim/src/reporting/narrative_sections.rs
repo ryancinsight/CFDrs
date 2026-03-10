@@ -4,7 +4,6 @@ use std::fmt::Write as _;
 
 use crate::analysis::RobustnessReport;
 use crate::constraints::{EXPANSION_RATIO_LOW_RISK, VENTURI_EXPANSION_RATIO_HIGH_RISK};
-use crate::reporting::figures::NarrativeFigureSpec;
 use crate::reporting::{Milestone12ReportDesign, ValidationRow};
 
 pub(super) fn build_selected_table(
@@ -13,7 +12,7 @@ pub(super) fn build_selected_table(
 ) -> String {
     let mut out = String::new();
     out.push_str(
-        "| Track | Candidate | Topology | Mode | Active venturi throats | Score | sigma | Cumulative cavitation dose | WBC recovery | RBC venturi exposure | HI/pass | P95 shear (Pa) | ECV (mL) | ECV / 3kg limit (%) |\n",
+        "| Track | Candidate | Topology | Mode | Active venturi throats | Score | sigma | Cumulative cavitation dose | WBC treatment exposure | RBC treatment exposure | HI/pass | P95 shear (Pa) | ECV (mL) | ECV / 3kg limit (%) |\n",
     );
     out.push_str("|---|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n");
     if let Some(option1) = option1 {
@@ -26,7 +25,7 @@ pub(super) fn build_selected_table(
             option1.metrics.active_venturi_throat_count,
             option1.score,
             option1.metrics.wbc_recovery,
-            option1.metrics.rbc_venturi_exposure_fraction,
+            option1.metrics.rbc_pass_fraction,
             option1.metrics.hemolysis_index_per_pass,
             option1.metrics.wall_shear_p95_pa,
                 option1.metrics.total_ecv_ml,
@@ -37,7 +36,7 @@ pub(super) fn build_selected_table(
     }
     let _ = writeln!(
         out,
-            "| Option 2 (Selective venturi, combined cancer + leukapheresis score) | `{}` | {} | {} | {} | {:.2e} | {:.4} | {:.4} | {:.4} | {:.4} | {:.2e} | {:.2} | {:.3} | {:.1} |",
+            "| Option 2 (Selective venturi cavitation selectivity) | `{}` | {} | {} | {} | {:.2e} | {:.4} | {:.4} | {:.4} | {:.4} | {:.2e} | {:.2} | {:.3} | {:.1} |",
         option2.candidate.id,
         option2.topology_display_name(),
         option2.metrics.treatment_zone_mode,
@@ -82,7 +81,7 @@ pub(super) fn build_tri_cell_table(
     ga_ranked: &[Milestone12ReportDesign],
 ) -> String {
     let mut out = String::new();
-    out.push_str("| Track | Candidate | cancer_center_fraction | wbc_recovery | rbc_venturi_exposure | three_pop_sep_efficiency |\n");
+    out.push_str("| Track | Candidate | cancer_center_fraction | wbc_treatment_exposure | rbc_treatment_exposure | three_pop_sep_efficiency |\n");
     out.push_str("|---|---|---:|---:|---:|---:|\n");
     for (label, d_opt) in [
         ("Option 2 Combined", option2_ranked.first()),
@@ -243,15 +242,16 @@ pub(super) fn build_results_intro(
     opt2_pool: usize,
 ) -> String {
     format!(
-        "From {} total candidates generated across 27 topology families, \
+        "From {total_candidates} total candidates generated from canonical Milestone 12 split-sequence scaffolds, \
 strict eligibility gating produced {} Option 1 qualified designs \
-(SelectiveAcousticTherapy track) and {} Option 2 qualified designs \
-(CombinedSdtLeukapheresis track). The following sub-sections present the selected designs \
-(§5.1), gate evidence (§5.2), robustness and multi-fidelity validation (§5.3), design \
-visualizations (§5.4), derived metric formulas (§5.5), and operating limits (§5.6). \
-Extracorporeal circuit volume is reported explicitly as ECV = Σ(L_i A_i) = Q_in t_res, and each selected design is benchmarked against the 3 kg neonatal \
-reference limit of 25.5 mL (10% of 3 × 85 mL blood volume).",
-        total_candidates,
+(AsymmetricSplitResidenceSeparation track) and {} Option 2 qualified designs \
+(AsymmetricSplitVenturiCavitationSelectivity track). The ranked pool therefore reflects only physically admissible \
+designs that preserve selective split-width partitioning, treatment-lane residence time, and \
+healthy-cell protection. The following sub-sections present the selected designs (§5.1), gate \
+evidence (§5.2), robustness and multi-fidelity validation (§5.3), design visualizations (§5.4), \
+derived metric formulas (§5.5), and operating limits (§5.6). Extracorporeal circuit volume is \
+reported explicitly as ECV = Σ(L_i A_i) = Q_in t_res, and each selected design is benchmarked \
+against the 3 kg neonatal reference limit of 25.5 mL (10% of 3 × 85 mL blood volume).",
         opt1_pool,
         opt2_pool,
     )
@@ -263,19 +263,20 @@ pub(super) fn build_selected_table_intro(
 ) -> String {
     let m2 = &option2.metrics;
     let ccf_pct = m2.cancer_center_fraction * 100.0;
-    let wbc2_pct = m2.wbc_recovery * 100.0;
+    let wbc2_exposure_pct = m2.wbc_recovery * 100.0;
     let option1_summary = if let Some(option1) = option1 {
         let m1 = &option1.metrics;
         format!(
             "**Option 1 — Selective Acoustic Center Treatment** \
-(`{}`, score {:.4}): branch-diameter biasing routes {:.0}% of WBCs into the center lane \
-per pass; HI/pass = {:.2e}% (FDA 0.1% non-therapeutic limit); ECV = {:.2} mL \
+(`{}`, score {:.4}): branch-diameter biasing keeps {:.0}% of WBCs out of the treatment lane \
+per pass while concentrating CTC-rich flow for ultrasound exposure; HI/pass = {:.2e}% \
+(FDA 0.1% non-therapeutic limit); ECV = {:.2} mL \
 ({:.1}% of the 3 kg neonatal circuit-volume limit). \
 This design carries zero active venturi throats — treatment relies entirely on externally \
 applied 412 kHz ultrasound acting on cells concentrated in the center lane.",
             option1.candidate.id,
             option1.score,
-            m1.wbc_recovery * 100.0,
+            (1.0 - m1.wbc_recovery) * 100.0,
             m1.hemolysis_index_per_pass,
             m1.total_ecv_ml,
             pediatric_limit_pct(m1.total_ecv_ml),
@@ -288,17 +289,18 @@ applied 412 kHz ultrasound acting on cells concentrated in the center lane.",
 **Option 2 — Selective Venturi Hydrodynamic Cavitation** \
 (`{}`, score {:.4}): σ = {:.4} < 0 confirms active hydrodynamic cavitation at \
 {} serial venturi throat(s) per path; {:.0}% of CTCs route through the venturi \
-treatment lane (cancer_center_fraction); WBC recovery = {:.0}%; therapeutic window \
+treatment lane (cancer_center_fraction); WBC treatment exposure = {:.0}%; therapeutic window \
 score = {:.3}; HI/pass = {:.2e}%; ECV = {:.2} mL ({:.1}% of the same neonatal limit). \
 **Note:** Option 1 and Option 2 scores use different objective functions \
-(SelectiveAcousticTherapy vs CombinedSdtLeukapheresis) and are not comparable across tracks.",
+(AsymmetricSplitResidenceSeparation vs AsymmetricSplitVenturiCavitationSelectivity) and are not comparable across tracks. \
+This report is emitted from structured canonical data and should be regenerated rather than edited manually.",
         option1_summary,
         option2.candidate.id,
         option2.score,
         m2.cavitation_number,
         m2.serial_venturi_stages_per_path,
         ccf_pct,
-        wbc2_pct,
+        wbc2_exposure_pct,
         m2.therapeutic_window_score,
         m2.hemolysis_index_per_pass,
         m2.total_ecv_ml,
@@ -340,10 +342,12 @@ pub(super) fn build_tri_cell_intro(
     let mut s = format!(
         "Three-population routing provides the clinical selectivity basis for Option 2. \
 For the selected design: {ccf_pct:.0}% of CTCs enter the venturi treatment lane \
-(cancer_center_fraction); {wbc_pct:.0}% of WBCs follow the center path \
-(leukapheresis co-feasible); {rbc_pct:.0}% of RBCs pass through venturi throats \
-(rbc_venturi_exposure) — reducing this fraction is the primary hemocompatibility lever. \
+(cancer_center_fraction); {wbc_pct:.0}% of WBCs enter the treatment lane, so {:.0}% are kept out \
+of the treatment region before all flowpaths remerge upstream of the outlet; {rbc_pct:.0}% of RBCs \
+pass through venturi throats (rbc_venturi_exposure) — reducing this fraction is the primary \
+hemocompatibility lever. \
 Composite three-population separation efficiency = {:.4}.",
+        (1.0 - m.wbc_recovery) * 100.0,
         m.three_pop_sep_efficiency
     );
     if let Some(ga) = ga_best {
@@ -351,7 +355,7 @@ Composite three-population separation efficiency = {:.4}.",
         let _ = write!(
             s,
             " GA rank-1 (`{}`) achieves cancer_center_fraction={:.4}, \
-wbc_recovery={:.4}, rbc_venturi_exposure={:.4} — a narrower, more cavitation-intensive \
+wbc_treatment_exposure={:.4}, rbc_venturi_exposure={:.4} — a narrower, more cavitation-intensive \
 configuration than the parametric Option 2 selection.",
             ga.candidate.id,
             gm.cancer_center_fraction,
@@ -458,50 +462,6 @@ pub(super) fn build_cri_expansion_sensitivity() -> String {
         }
     }
     out
-}
-
-pub(super) fn build_figure_toc_rows(specs: &[NarrativeFigureSpec]) -> String {
-    let mut out = String::new();
-    for spec in specs {
-        let _ = writeln!(
-            out,
-            "| {} | [{}](#fig-{}) |",
-            spec.number, spec.title, spec.number
-        );
-    }
-    out
-}
-
-pub(super) fn build_figure_sections(specs: &[NarrativeFigureSpec]) -> String {
-    let mut out = String::new();
-    for spec in specs {
-        let _ = writeln!(out, "<a id=\"fig-{}\"></a>\n", spec.number);
-        let _ = writeln!(
-            out,
-            "<p align=\"center\"><img src=\"{}\" alt=\"{}\" style=\"max-width:100%;width:6.5in;\" /></p>\n",
-            spec.path, spec.alt
-        );
-        let _ = writeln!(out, "*Figure {}. {}*\n", spec.number, spec.caption);
-    }
-    out
-}
-
-pub(super) fn build_storage_policy_section() -> String {
-    "\
-To ensure integrity, security, and accessibility of Milestone 12 computational data, SonALAsense applies policy-aligned storage controls across its managed engineering systems.\n\n\
-**Data Governance and Access Control:** versioned simulation/report assets are maintained in the SonALAsense GitHub repository with controlled branch/merge workflows and auditable change history.\n\n\
-**Secure Collaboration and Operational Storage:** project data packages and controlled shared artifacts are managed in SonALAsense Egnyte with role-based access and organization-managed retention policies.\n\n\
-**Backup, Recovery, and Traceability:** canonical milestone outputs are regenerated deterministically from source code and preserved alongside run artifacts to support reproducible milestone evidence.\n"
-        .to_string()
-}
-
-pub(super) fn build_storage_artifact_index() -> String {
-    "\
-- Canonical results: Appendix A (embedded below)\n\
-- Figure manifest: Appendix B (embedded below)\n\
-- Figures: inline throughout §5 Results\n\
-- Generation artifacts: top-5 JSON, validation summaries, robustness outputs, and GA artifacts are included in Appendix A canonical data"
-        .to_string()
 }
 
 fn pass_fail(value: bool) -> &'static str {

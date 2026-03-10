@@ -1,6 +1,7 @@
 use cfd_1d::validate_blueprint_for_1d_solve;
 use cfd_schematics::geometry::generator::{
-    create_primitive_selective_tree_geometry, PrimitiveSelectiveSplitKind, PrimitiveSelectiveTreeRequest,
+    create_primitive_selective_tree_geometry, PrimitiveSelectiveSplitKind,
+    PrimitiveSelectiveTreeRequest,
 };
 
 fn selective_blueprint() -> cfd_schematics::NetworkBlueprint {
@@ -27,7 +28,8 @@ fn selective_blueprint() -> cfd_schematics::NetworkBlueprint {
 #[test]
 fn generated_selective_blueprint_passes_1d_graph_validation() {
     let blueprint = selective_blueprint();
-    validate_blueprint_for_1d_solve(&blueprint).expect("generated selective blueprint should validate");
+    validate_blueprint_for_1d_solve(&blueprint)
+        .expect("generated selective blueprint should validate");
 }
 
 #[test]

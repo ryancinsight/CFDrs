@@ -89,7 +89,7 @@ fn benchmark_sparse_matrix_operations(c: &mut Criterion) {
 
 fn benchmark_fluid_calculations(c: &mut Criterion) {
     use cfd_core::physics::fluid::traits::Fluid as FluidTrait;
-    use cfd_core::physics::fluid::Fluid;
+    use cfd_core::physics::fluid::traits::Fluid;
 
     let mut group = c.benchmark_group("fluid_calculations");
 

@@ -14,9 +14,9 @@
 mod bifurcation;
 mod mixed_tree;
 mod multi_level;
+mod n_furcation;
 mod series;
 mod specialized;
-mod specialized_layout;
 mod trifurcation;
 
 pub use bifurcation::{
@@ -30,6 +30,7 @@ pub use multi_level::{
     double_bifurcation_venturi_rect, quad_trifurcation_venturi_rect,
     triple_bifurcation_venturi_rect, triple_trifurcation_venturi_rect,
 };
+pub use n_furcation::{n_furcation_serpentine_rect, n_furcation_venturi_rect};
 pub use series::{serial_double_venturi_rect, venturi_serpentine_rect};
 pub use specialized::{
     asymmetric_bifurcation_serpentine_rect, asymmetric_trifurcation_venturi_rect,
@@ -41,31 +42,7 @@ pub use specialized::{
 };
 pub use trifurcation::{trifurcation_serpentine_rect, trifurcation_venturi_rect};
 
-pub(crate) const BLOOD_MU: f64 = 3.5e-3; // Pa·s (whole blood, high-shear Newtonian approx.)
-
-/// Shah-London hydraulic resistance for a rectangular duct [Pa·s/m³].
-///
-/// # Theorem (Shah & London 1978)
-///
-/// For fully-developed laminar flow through a rectangular duct with aspect
-/// ratio α = min(w,h)/max(w,h), the product fRe (Poiseuille number) is:
-///
-/// ```text
-/// Po = 96 · (1 − 1.3553α + 1.9467α² − 1.7012α³ + 0.9564α⁴ − 0.2537α⁵)
-/// ```
-///
-/// The hydraulic resistance is then `R = Po·μ·L / (D_h² · A)`.
-pub(crate) fn shah_london(w: f64, h: f64, l: f64, mu: f64) -> f64 {
-    let alpha = h.min(w) / h.max(w);
-    let po = 96.0
-        * (1.0 - 1.3553 * alpha + 1.9467 * alpha.powi(2) - 1.7012 * alpha.powi(3)
-            + 0.9564 * alpha.powi(4)
-            - 0.2537 * alpha.powi(5));
-    let d_h = 2.0 * w * h / (w + h);
-    let area = w * h;
-    po * mu * l / (d_h * d_h * area)
-}
-
+pub(crate) use super::finalize_preset_blueprint;
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -94,32 +71,16 @@ mod tests {
     }
 
     #[test]
-    fn bifurcation_venturi_has_single_inlet_outlet() {
-        let bp = bifurcation_venturi_rect("t", 20e-3, 2e-3, 0.5e-3, 0.5e-3, 1e-3);
+    fn n_furcation_venturi_has_single_inlet_outlet() {
+        let bp = n_furcation_venturi_rect("t", 2, 20e-3, 2e-3, 0.5e-3, 0.5e-3, 1e-3);
         let (i, o) = count_inlets_outlets(&bp);
         assert_eq!(i, 1);
         assert_eq!(o, 1);
     }
 
     #[test]
-    fn trifurcation_venturi_has_single_inlet_outlet() {
-        let bp = trifurcation_venturi_rect("t", 20e-3, 2e-3, 0.5e-3, 0.5e-3, 1e-3);
-        let (i, o) = count_inlets_outlets(&bp);
-        assert_eq!(i, 1);
-        assert_eq!(o, 1);
-    }
-
-    #[test]
-    fn bifurcation_serpentine_has_single_inlet_outlet() {
-        let bp = bifurcation_serpentine_rect("t", 20e-3, 6, 7.5e-3, 2e-3, 0.5e-3);
-        let (i, o) = count_inlets_outlets(&bp);
-        assert_eq!(i, 1);
-        assert_eq!(o, 1);
-    }
-
-    #[test]
-    fn trifurcation_serpentine_has_single_inlet_outlet() {
-        let bp = trifurcation_serpentine_rect("t", 20e-3, 6, 7.5e-3, 2e-3, 0.5e-3);
+    fn n_furcation_serpentine_has_single_inlet_outlet() {
+        let bp = n_furcation_serpentine_rect("t", 3, 20e-3, 6, 7.5e-3, 2e-3, 0.5e-3);
         let (i, o) = count_inlets_outlets(&bp);
         assert_eq!(i, 1);
         assert_eq!(o, 1);

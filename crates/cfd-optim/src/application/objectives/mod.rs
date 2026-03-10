@@ -85,6 +85,45 @@ impl BlueprintObjectiveEvaluation {
             },
         }
     }
+
+    /// Construct from pre-extracted identity strings and a shared evaluation.
+    ///
+    /// Used by [`EvaluatedPool`] which stores only the candidate ID and
+    /// blueprint name (not the full `BlueprintCandidate`) to avoid OOM at
+    /// scale.
+    #[must_use]
+    pub fn from_identity(
+        goal: OptimizationGoal,
+        candidate_id: &str,
+        blueprint_name: &str,
+        evaluation: Arc<BlueprintEvaluation>,
+        score: f64,
+    ) -> Self {
+        let candidate_id = candidate_id.to_owned();
+        let blueprint_name = blueprint_name.to_owned();
+        match Arc::try_unwrap(evaluation) {
+            Ok(owned) => Self {
+                goal,
+                candidate_id,
+                blueprint_name,
+                score,
+                residence: owned.residence,
+                separation: owned.separation,
+                venturi: owned.venturi,
+                safety: owned.safety,
+            },
+            Err(shared) => Self {
+                goal,
+                candidate_id,
+                blueprint_name,
+                score,
+                residence: shared.residence.clone(),
+                separation: shared.separation.clone(),
+                venturi: shared.venturi.clone(),
+                safety: shared.safety.clone(),
+            },
+        }
+    }
 }
 
 pub fn evaluate_goal(
@@ -93,13 +132,13 @@ pub fn evaluate_goal(
 ) -> Result<BlueprintObjectiveEvaluation, OptimError> {
     let evaluation = evaluate_blueprint_candidate(candidate)?;
     match goal {
-        OptimizationGoal::SelectiveAcousticResidenceSeparation => Ok(
+        OptimizationGoal::AsymmetricSplitResidenceSeparation => Ok(
             evaluate_selective_acoustic_residence_separation(candidate, evaluation),
         ),
-        OptimizationGoal::SelectiveVenturiCavitation => {
+        OptimizationGoal::AsymmetricSplitVenturiCavitationSelectivity => {
             evaluate_selective_venturi_cavitation(candidate, evaluation)
         }
-        OptimizationGoal::BlueprintGeneticRefinement => {
+        OptimizationGoal::InPlaceDeanSerpentineRefinement => {
             evaluate_blueprint_genetic_refinement(candidate, evaluation)
         }
     }

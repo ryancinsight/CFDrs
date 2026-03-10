@@ -248,12 +248,15 @@ impl BlueprintTopologySpec {
             return self.design_name.clone();
         }
 
-        let stage_labels: Vec<&str> = self
+        let stage_labels: Vec<String> = self
             .split_stages
             .iter()
             .map(|s| match s.split_kind {
-                SplitKind::Bifurcation => "Bi",
-                SplitKind::Trifurcation => "Tri",
+                SplitKind::NFurcation(2) => "Bi".to_string(),
+                SplitKind::NFurcation(3) => "Tri".to_string(),
+                SplitKind::NFurcation(4) => "Quad".to_string(),
+                SplitKind::NFurcation(5) => "Penta".to_string(),
+                SplitKind::NFurcation(n) => format!("{n}Way"),
             })
             .collect();
         let tree_label = stage_labels.join("→");
@@ -300,8 +303,11 @@ impl BlueprintTopologySpec {
         let mut code = String::with_capacity(8);
         for stage in &self.split_stages {
             code.push(match stage.split_kind {
-                SplitKind::Bifurcation => 'B',
-                SplitKind::Trifurcation => 'T',
+                SplitKind::NFurcation(2) => 'B',
+                SplitKind::NFurcation(3) => 'T',
+                SplitKind::NFurcation(4) => 'Q',
+                SplitKind::NFurcation(5) => 'P',
+                SplitKind::NFurcation(_) => 'N',
             });
         }
 
@@ -323,8 +329,11 @@ impl BlueprintTopologySpec {
         self.split_stages
             .iter()
             .map(|s| match s.split_kind {
-                SplitKind::Bifurcation => "Bi",
-                SplitKind::Trifurcation => "Tri",
+                SplitKind::NFurcation(2) => "Bi".to_string(),
+                SplitKind::NFurcation(3) => "Tri".to_string(),
+                SplitKind::NFurcation(4) => "Quad".to_string(),
+                SplitKind::NFurcation(5) => "Penta".to_string(),
+                SplitKind::NFurcation(n) => format!("{n}Way"),
             })
             .collect::<Vec<_>>()
             .join("→")
@@ -400,7 +409,7 @@ impl BlueprintTopologySpec {
             .iter()
             .filter(|b| b.role == BranchRole::RbcBypass)
             .count();
-        stage.split_kind == SplitKind::Bifurcation && n_treat == 1 && n_bypass == 1
+        stage.split_kind == SplitKind::NFurcation(2) && n_treat == 1 && n_bypass == 1
     }
 
     /// Whether the 3-population (cancer + WBC + RBC) separation model applies.
@@ -511,12 +520,10 @@ impl BlueprintTopologySpec {
     }
 
     /// Whether the first split stage is a trifurcation.
-    ///
-    /// Used by milestone-12 lineage checks which require tri-first topologies.
     #[must_use]
     pub fn first_stage_is_trifurcation(&self) -> bool {
         self.split_stages
             .first()
-            .map_or(false, |s| s.split_kind == SplitKind::Trifurcation)
+            .map_or(false, |s| s.split_kind == SplitKind::NFurcation(3))
     }
 }

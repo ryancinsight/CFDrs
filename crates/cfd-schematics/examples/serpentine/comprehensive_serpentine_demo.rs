@@ -16,7 +16,6 @@ use cfd_schematics::{
 mod shared;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-
     let config = GeometryConfig::default();
     let splits = vec![SplitType::Bifurcation, SplitType::Trifurcation];
     let box_dims = (300.0, 150.0);
@@ -41,10 +40,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         &config,
         &ChannelTypeConfig::AllSerpentine(sine_config),
     );
-    shared::save_example_output_with_name(&sine_system, "comprehensive_serpentine_demo", "sine_wave");
-    tracing::info!(
-        "   ✓ Sine wave: Smooth, natural curves"
+    shared::save_example_output_with_name(
+        &sine_system,
+        "comprehensive_serpentine_demo",
+        "sine_wave",
     );
+    tracing::info!("   ✓ Sine wave: Smooth, natural curves");
 
     let square_config = base_config.with_square_wave();
     let square_system = create_geometry(
@@ -53,10 +54,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         &config,
         &ChannelTypeConfig::AllSerpentine(square_config),
     );
-    shared::save_example_output_with_name(&square_system, "comprehensive_serpentine_demo", "square_wave");
-    tracing::info!(
-        "   ✓ Square wave: Angular transitions"
+    shared::save_example_output_with_name(
+        &square_system,
+        "comprehensive_serpentine_demo",
+        "square_wave",
     );
+    tracing::info!("   ✓ Square wave: Angular transitions");
 
     tracing::info!("\n🔄 Phase Direction Control:");
 
@@ -216,9 +219,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     tracing::info!("\n✅ Comprehensive serpentine demonstration complete!");
-    tracing::info!(
-        "   All outputs organized in output/examples/comprehensive_serpentine_demo/"
-    );
+    tracing::info!("   All outputs organized in output/examples/comprehensive_serpentine_demo/");
 
     Ok(())
 }

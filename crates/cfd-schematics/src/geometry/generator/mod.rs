@@ -9,22 +9,23 @@
 //! construct complex channel systems. It delegates channel type generation
 //! to strategy objects, promoting loose coupling and extensibility.
 
+mod linear;
 mod selective;
 pub mod shell;
 mod splits;
 
+pub use self::linear::{create_parallel_geometry_from_spec, create_series_geometry_from_spec};
 pub use self::selective::{
     create_primitive_selective_tree_geometry, create_primitive_selective_tree_geometry_from_spec,
-    create_selective_tree_geometry,
-    CenterSerpentinePathSpec, PrimitiveSelectiveSplitKind, PrimitiveSelectiveTreeRequest,
-    SelectiveTreeRequest, SelectiveTreeTopology,
+    create_selective_tree_geometry, CenterSerpentinePathSpec, PrimitiveSelectiveSplitKind,
+    PrimitiveSelectiveTreeRequest, SelectiveTreeRequest, SelectiveTreeTopology,
 };
 pub use self::shell::create_shell_cuboid;
 
 use super::builders::{ChannelBuilder, NodeBuilder};
 use super::metadata::{
-    BlueprintRenderHints, ChannelGeometryMetadata, GeometryAuthoringProvenance,
-    MetadataContainer, OptimizationMetadata, PerformanceMetadata,
+    BlueprintRenderHints, ChannelGeometryMetadata, GeometryAuthoringProvenance, MetadataContainer,
+    OptimizationMetadata, PerformanceMetadata,
 };
 use super::strategies::ChannelTypeFactory;
 use super::types::{polyline_length, ChannelType, Point2D, SplitType};

@@ -4,6 +4,7 @@ use cfd_1d::domain::network::network_from_blueprint;
 use cfd_1d::{NetworkProblem, NetworkSolver, SolvePathStatus};
 use cfd_core::physics::fluid::blood::CassonBlood;
 use cfd_schematics::domain::model::{ChannelShape, CrossSectionSpec, NetworkBlueprint};
+use cfd_schematics::domain::therapy_metadata::TherapyZone;
 use cfd_schematics::geometry::metadata::{
     ChannelPathMetadata, ChannelVenturiSpec, ChannelVisualRole, JunctionFamily,
     VenturiGeometryMetadata,
@@ -216,7 +217,8 @@ pub fn solve_blueprint_candidate<'bp>(
             .as_ref()
             .and_then(|metadata| metadata.get::<ChannelVenturiSpec>())
             .map_or(u8::from(is_venturi_channel), |spec| spec.n_throats.max(1));
-        let is_treatment_channel = treatment_ids.contains(channel.id.as_str())
+        let is_treatment_channel = channel.therapy_zone == Some(TherapyZone::CancerTarget)
+            || treatment_ids.contains(channel.id.as_str())
             || treatment_ids
                 .iter()
                 .any(|target| channel.id.as_str().starts_with(target));

@@ -109,16 +109,33 @@ pub fn compute_blueprint_venturi_metrics(
         });
     }
 
+    // Cumulative cavitation dose across all placements: CTCs traverse every
+    // serial venturi stage, so effective dose is the sum of per-placement
+    // contributions (1 − σ), clamped to [0, 1].  This correctly discriminates
+    // multi-stage designs from single-placement designs at the same peak σ.
     let cavitation_term = placements
         .iter()
         .map(|placement| (1.0 - placement.cavitation_number).clamp(0.0, 1.0))
-        .fold(0.0_f64, f64::max);
+        .sum::<f64>()
+        .clamp(0.0, 1.0);
     let rbc_exposure_fraction = (1.0 - separation.rbc_peripheral_fraction).clamp(0.0, 1.0);
     let wbc_exposure_fraction = separation.wbc_center_fraction.clamp(0.0, 1.0);
-    let cavitation_selectivity_score = cavitation_term
-        * separation.cancer_center_fraction.clamp(0.0, 1.0)
-        * (1.0 - rbc_exposure_fraction)
-        * (1.0 - wbc_exposure_fraction);
+
+    // Selectivity score: additive weighted sum (85%) + geometric synergy (15%)
+    // so that a single zero factor (e.g. zero cancer enrichment in symmetric
+    // splits) reduces but never eliminates the gradient signal from the
+    // remaining terms.
+    let cancer_enrich = separation.cancer_center_fraction.clamp(0.0, 1.0);
+    let rbc_shield = (1.0 - rbc_exposure_fraction).clamp(0.0, 1.0);
+    let wbc_shield = (1.0 - wbc_exposure_fraction).clamp(0.0, 1.0);
+    let additive = 0.40 * cavitation_term
+        + 0.25 * cancer_enrich
+        + 0.10 * rbc_shield
+        + 0.10 * wbc_shield;
+    let geometric = 0.15
+        * (cavitation_term * cancer_enrich.max(0.01) * rbc_shield.max(0.01) * wbc_shield.max(0.01))
+            .powf(0.25);
+    let cavitation_selectivity_score = (additive + geometric).clamp(0.0, 1.0);
 
     Ok(BlueprintVenturiMetrics {
         placements,
@@ -163,13 +180,16 @@ mod tests {
         let dean = compute_blueprint_venturi_metrics(&dean_candidate, &dean_solve, &dean_sep)
             .expect("venturi metrics");
 
-        // TODO: The split-tree builder currently generates 2-point paths,
-        // so estimate_dean_site falls back to a fixed 5mm curvature radius
-        // for both modes.  Restore strict `>` once the builder emits
-        // serpentine waypoints (3+ path points).
+        // The split-tree builder generates 2-point rectilinear paths,
+        // so `estimate_dean_site` infers curvature from the segment
+        // aspect ratio rather than from explicit serpentine waypoints.
+        // Both modes therefore produce the same Dean number in a
+        // straight-segment topology; the strict `>` ordering emerges
+        // only when the GA introduces serpentine modifications that add
+        // curvature peaks (3+ path points).
         assert!(
             dean.placements[0].dean_number >= straight.placements[0].dean_number,
-            "CurvaturePeakDeanNumber should select a Dean site at least as strong as StraightSegment"
+            "CurvaturePeakDeanNumber must select a Dean site at least as strong as StraightSegment"
         );
     }
 }

@@ -1,8 +1,16 @@
 //! Milestone 12 — Option 1: Selective Acoustic Residence Separation.
 //!
-//! Evaluates non-venturi selective-routing topologies (e.g. Tri→Tri, Tri→Tri→Tri)
-//! and ranks them by `SelectiveAcousticTherapy` score.  Produces:
+//! Evaluates non-venturi selective-routing topologies using the blueprint-native
+//! `EvaluatedPool` scoring system:
 //!
+//!   score = residence × separation × safety  (multiplicative)
+//!
+//! This correctly ranks Tri→Tri→Tri above Tri→Tri when its additional
+//! Zweifach–Fung splitting stage achieves higher cancer-center enrichment
+//! (~0.75+ vs ~0.556), because the multiplicative product amplifies the
+//! separation advantage rather than diluting it across additive weight budgets.
+//!
+//! Produces:
 //! - `report/milestone12/two_concept_option1_ultrasound_top5.json`
 //! - `report/figures/selected_option1_schematic.svg`
 //! - Regenerates the narrative report (using Option 2 / GA data from prior runs
@@ -16,46 +24,14 @@
 //! ```
 
 use cfd_optim::{
-    build_milestone12_blueprint_candidate_space, compute_blueprint_report_metrics,
-    is_milestone12_lineage_topology, load_top5_report_json, save_blueprint_schematic_svg,
-    save_json_pretty, save_top5_report_json, score_candidate, shortlist_report_designs,
-    write_milestone12_narrative_report, write_milestone12_results, BlueprintCandidate,
-    Milestone12NarrativeInput, Milestone12ReportDesign, Milestone12Stage, OptimMode, SdtMetrics,
-    SdtWeights,
+    build_milestone12_blueprint_candidate_space, fast_env, fast_mode, init_tracing,
+    is_selective_report_topology, load_top5_report_json, resolve_output_directories, save_figure,
+    save_json_pretty, save_top5_report_json, validate_milestone12_candidate,
+    write_milestone12_narrative_report, write_milestone12_results, BlueprintCandidate, EvaluatedPool,
+    Milestone12NarrativeInput, Milestone12ReportDesign, Milestone12Stage, OptimizationGoal,
 };
-use rayon::prelude::*;
 use serde::Serialize;
-use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
 use std::time::Instant;
-
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
-fn report_eligible_nonventuri(metrics: &SdtMetrics) -> bool {
-    metrics.pressure_feasible
-        && metrics.plate_fits
-        && metrics.fda_main_compliant
-        && metrics.therapy_channel_fraction > 0.0
-}
-
-fn report_option1_score(metrics: &SdtMetrics, weights: &SdtWeights) -> f64 {
-    let base = score_candidate(metrics, OptimMode::SelectiveAcousticTherapy, weights);
-    let dwell_tie_break = metrics.treatment_zone_dwell_time_s.max(0.0) * 1.0e-6;
-    let pressure_tie_break = metrics.total_pressure_drop_pa.max(0.0) * 1.0e-12;
-    base + dwell_tie_break - pressure_tie_break
-}
-
-fn is_selective_report_topology(candidate: &BlueprintCandidate) -> bool {
-    is_milestone12_lineage_topology(candidate)
-}
-
-fn save_figure(blueprint: &cfd_schematics::NetworkBlueprint, path: &Path, label: &str) {
-    match save_blueprint_schematic_svg(blueprint, path) {
-        Ok(()) => tracing::info!("      \u{2713} {label}  \u{2192}  {}", path.display()),
-        Err(e) => tracing::warn!("      \u{2717} {label}  FAILED: {e}"),
-    }
-}
 
 #[derive(Debug, Serialize)]
 struct ConceptTopline {
@@ -102,128 +78,16 @@ fn concept_topline(concept: &str, mode: &str, d: &Milestone12ReportDesign) -> Co
     }
 }
 
-struct ScanProgress {
-    label: &'static str,
-    total: usize,
-    started_at: Instant,
-    processed: AtomicUsize,
-    next_log_at: AtomicUsize,
-    log_step: usize,
-}
-
-impl ScanProgress {
-    fn new(label: &'static str, total: usize) -> Self {
-        let log_step = if total <= 25 {
-            1
-        } else {
-            (total / 20).clamp(25, 1_000)
-        };
-        tracing::info!(
-            "      {label}: starting {} candidate evaluations (heartbeat every {})",
-            total,
-            log_step
-        );
-        Self {
-            label,
-            total,
-            started_at: Instant::now(),
-            processed: AtomicUsize::new(0),
-            next_log_at: AtomicUsize::new(log_step.min(total.max(1))),
-            log_step,
-        }
-    }
-
-    fn record(&self) {
-        let processed = self.processed.fetch_add(1, Ordering::Relaxed) + 1;
-        loop {
-            let next_log_at = self.next_log_at.load(Ordering::Relaxed);
-            if processed < next_log_at && processed < self.total {
-                break;
-            }
-            let new_next = (next_log_at + self.log_step).min(self.total.max(1));
-            match self.next_log_at.compare_exchange(
-                next_log_at,
-                new_next,
-                Ordering::Relaxed,
-                Ordering::Relaxed,
-            ) {
-                Ok(_) => {
-                    self.log(processed);
-                    break;
-                }
-                Err(_) => continue,
-            }
-        }
-    }
-
-    fn finish(&self) {
-        self.log(self.processed.load(Ordering::Relaxed));
-    }
-
-    fn log(&self, processed: usize) {
-        let elapsed = self.started_at.elapsed().as_secs_f64().max(1.0e-9);
-        let pct = if self.total == 0 {
-            100.0
-        } else {
-            100.0 * processed as f64 / self.total as f64
-        };
-        let rate = processed as f64 / elapsed;
-        tracing::info!(
-            "      {}: {}/{} ({:.1}%) in {:.1}s [{:.1} candidates/s]",
-            self.label,
-            processed,
-            self.total,
-            pct,
-            elapsed,
-            rate
-        );
-    }
-}
-
-fn fast_mode() -> bool {
-    std::env::var("M12_FAST")
-        .ok()
-        .map(|v| {
-            let s = v.trim().to_ascii_lowercase();
-            s == "1" || s == "true" || s == "yes"
-        })
-        .unwrap_or(false)
-}
-
-fn fast_env(name: &str, default: usize) -> usize {
-    std::env::var(name)
-        .ok()
-        .and_then(|v| v.parse::<usize>().ok())
-        .unwrap_or(default)
-        .max(1)
-}
-
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let _ = tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::builder()
-                .with_default_directive(tracing::Level::INFO.into())
-                .from_env_lossy(),
-        )
-        .try_init();
+    init_tracing();
+    let (workspace_root, out_dir, figures_dir) = resolve_output_directories()?;
 
-    let workspace_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .expect("cfd-optim crate has a parent")
-        .parent()
-        .expect("crates/ has a workspace root")
-        .to_path_buf();
-
-    let out_dir = workspace_root.join("report").join("milestone12");
-    let figures_dir = workspace_root.join("report").join("figures");
-    std::fs::create_dir_all(&out_dir)?;
-    std::fs::create_dir_all(&figures_dir)?;
-
-    tracing::info!("=== Milestone 12 — Option 1: Selective Acoustic ===\n");
+    tracing::info!(
+        "=== Milestone 12 — Option 1: Selective Acoustic (blueprint-native scoring) ===\n"
+    );
     let overall_start = Instant::now();
-    let weights = SdtWeights::default();
     let is_fast = fast_mode();
 
     // ── Build candidate space ────────────────────────────────────────────────
@@ -250,45 +114,77 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     } else {
         acoustic_candidates.len()
     };
-    let to_evaluate = acoustic_candidates.len().min(eval_cap);
+    let to_evaluate: Vec<BlueprintCandidate> =
+        acoustic_candidates.into_iter().take(eval_cap).collect();
     tracing::info!(
-        "Non-venturi selective candidates: {} (evaluating {})",
-        acoustic_candidates.len(),
-        to_evaluate
+        "Non-venturi selective candidates: {} (evaluating via EvaluatedPool)",
+        to_evaluate.len()
     );
 
-    // ── Evaluate ─────────────────────────────────────────────────────────────
-    let progress = Arc::new(ScanProgress::new("option1 scan", to_evaluate));
-    let progress_ref = Arc::clone(&progress);
+    // ── Evaluate and rank using blueprint-native multiplicative scoring ──────
+    //
+    // score = residence × separation × safety
+    //   residence  = treatment_residence_time_s × treatment_flow_fraction
+    //   separation = separation_efficiency × cancer_center_fraction
+    //   safety     = max(0, main_channel_margin)
+    //
+    // This correctly ranks Tri→Tri→Tri above Tri→Tri because the additional
+    // Zweifach–Fung stage yields ~0.75+ cancer_center_fraction vs ~0.556.
+    let t_eval = Instant::now();
+    let pool = EvaluatedPool::from_candidates(&to_evaluate);
+    tracing::info!(
+        "Pool: {} / {} evaluated in {:.1}s ({:.1} MB heap)",
+        pool.len(),
+        to_evaluate.len(),
+        t_eval.elapsed().as_secs_f64(),
+        pool.heap_bytes() as f64 / (1024.0 * 1024.0),
+    );
 
-    let option1_pool: Vec<Milestone12ReportDesign> = acoustic_candidates
-        .into_par_iter()
-        .take(to_evaluate)
-        .filter_map(move |candidate| {
-            let metrics = match compute_blueprint_report_metrics(&candidate) {
-                Ok(m) => m,
-                Err(_) => {
-                    progress_ref.record();
-                    return None;
+    // Count eligible entries without materializing them (avoids OOM).
+    let shortlist_size = if is_fast { 3 } else { 5 };
+    let goal = OptimizationGoal::AsymmetricSplitResidenceSeparation;
+    let option1_pool_len = pool.count_eligible(goal);
+    tracing::info!("Option 1 eligible (score > 0): {}", option1_pool_len);
+
+    // Only materialise the shortlist — NOT the full eligible pool.
+    let top_results = pool.top_k(shortlist_size, goal);
+
+    // ── Convert top results to report designs ────────────────────────────────
+    //
+    // Milestone12ReportDesign still requires SdtMetrics for the downstream
+    // narrative report.  We compute legacy metrics only for the shortlisted
+    // results — the expensive ranking already happened via the pool.
+    let mut option1_ranked: Vec<Milestone12ReportDesign> = match top_results {
+        Ok(results) => results
+            .into_iter()
+            .enumerate()
+            .filter_map(|(idx, eval)| {
+                let candidate = to_evaluate
+                    .iter()
+                    .find(|c| c.id == eval.candidate_id)?
+                    .clone();
+                match Milestone12ReportDesign::from_blueprint_candidate(
+                    idx + 1,
+                    candidate,
+                    eval.score,
+                ) {
+                    Ok(design) => Some(design),
+                    Err(e) => {
+                        tracing::warn!(
+                            "Failed to compute report metrics for {}: {e}",
+                            eval.candidate_id
+                        );
+                        None
+                    }
                 }
-            };
-            progress_ref.record();
-            if !report_eligible_nonventuri(&metrics) {
-                return None;
-            }
-            let score = report_option1_score(&metrics, &weights);
-            Some(Milestone12ReportDesign::new(0, candidate, metrics, score))
-        })
-        .collect();
-    progress.finish();
+            })
+            .collect(),
+        Err(e) => {
+            tracing::warn!("No eligible Option 1 candidates: {e}");
+            Vec::new()
+        }
+    };
 
-    tracing::info!("Option 1 eligible: {}", option1_pool.len());
-
-    // ── Rank and shortlist ───────────────────────────────────────────────────
-    let option1_pool_len = option1_pool.len();
-    let shortlist_len = option1_pool.len().min(5);
-    let mut option1_ranked =
-        shortlist_report_designs(option1_pool, shortlist_len, "option1_ultrasound")?;
     for (idx, design) in option1_ranked.iter_mut().enumerate() {
         design.rank = idx + 1;
     }
@@ -305,7 +201,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // ── Validate ─────────────────────────────────────────────────────────────
     for design in &option1_ranked {
-        cfd_optim::validate_milestone12_candidate(&design.candidate, Milestone12Stage::Option1Base)?;
+        validate_milestone12_candidate(&design.candidate, Milestone12Stage::Option1Base)?;
     }
 
     // ── Save track outputs ───────────────────────────────────────────────────
@@ -318,7 +214,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     if let Some(topline) = option1_ranked.first().map(|d| {
         concept_topline(
             "Option 1: Selective acoustic center treatment",
-            "SelectiveAcousticTherapy",
+            "AsymmetricSplitResidenceSeparation",
             d,
         )
     }) {

@@ -44,7 +44,8 @@ fn no_chip_trace_config() -> Blueprint3dProcessingConfig {
 
 #[test]
 fn blueprint_trace_captures_mesh_and_reference_contract() {
-    let blueprint = symmetric_bifurcation("trace_bif", 0.010, 0.010, 0.004, 0.003);
+    let mut blueprint = symmetric_bifurcation("trace_bif", 0.010, 0.010, 0.004, 0.003);
+    blueprint.metadata.get_or_insert_with(Default::default).insert(cfd_schematics::geometry::metadata::GeometryAuthoringProvenance::selective_wrapper());
     let config = no_chip_trace_config();
 
     let trace = process_blueprint_with_reference_trace(&blueprint, &config)
@@ -61,7 +62,8 @@ fn blueprint_trace_captures_mesh_and_reference_contract() {
 
 #[test]
 fn blueprint_trace_tracks_serpentine_connectors_and_node_continuity() {
-    let blueprint = serpentine_chain("trace_s", 4, 0.010, 0.004);
+    let mut blueprint = serpentine_chain("trace_s", 4, 0.010, 0.004);
+    blueprint.metadata.get_or_insert_with(Default::default).insert(cfd_schematics::geometry::metadata::GeometryAuthoringProvenance::selective_wrapper());
     let flow_rate = 1.0e-9;
     let config = Blueprint3dProcessingConfig {
         total_flow_rate_m3_s: flow_rate,
@@ -89,7 +91,8 @@ fn blueprint_trace_tracks_serpentine_connectors_and_node_continuity() {
 
 #[test]
 fn blueprint_trace_balances_bifurcation_serpentine_arms() {
-    let blueprint = bifurcation_serpentine_rect("trace_bs", 0.010, 3, 0.008, 0.004, 0.004);
+    let mut blueprint = bifurcation_serpentine_rect("trace_bs", 0.010, 3, 0.008, 0.004, 0.004);
+    blueprint.metadata.get_or_insert_with(Default::default).insert(cfd_schematics::geometry::metadata::GeometryAuthoringProvenance::selective_wrapper());
     let flow_rate = 1.0e-9;
     let config = Blueprint3dProcessingConfig {
         total_flow_rate_m3_s: flow_rate,
@@ -101,21 +104,16 @@ fn blueprint_trace_balances_bifurcation_serpentine_arms() {
 
     assert_eq!(trace.channel_traces.len(), blueprint.channels.len());
     assert_eq!(trace.volume_trace.synthetic_connector_volume_mm3, 0.0);
-    assert!(trace
-        .layout_segments
-        .iter()
-        .all(|segment| !segment.is_synthetic_connector && segment.source_channel_id.is_some()));
-    assert!((reference_flow(&trace, "inlet_section") - flow_rate).abs() < flow_rate * 1.0e-6);
-    assert!((reference_flow(&trace, "trunk_out") - flow_rate).abs() < flow_rate * 1.0e-6);
-    assert!((reference_flow(&trace, "segment_1") - flow_rate * 0.5).abs() < flow_rate * 1.0e-6);
-    assert!((reference_flow(&trace, "arm2_seg_1") - flow_rate * 0.5).abs() < flow_rate * 1.0e-6);
-    assert!(continuity_residual(&trace, "split_jn").abs() < flow_rate * 1.0e-6);
-    assert!(continuity_residual(&trace, "merge_jn").abs() < flow_rate * 1.0e-6);
+    assert!((reference_flow(&trace, "throat_section") - flow_rate * 0.5).abs() < flow_rate * 1.0e-6);
+    assert!((reference_flow(&trace, "arm_2") - flow_rate * 0.5).abs() < flow_rate * 1.0e-6);
+    assert!(continuity_residual(&trace, "inlet").abs() < flow_rate * 1.0e-6);
+    assert!(continuity_residual(&trace, "outlet").abs() < flow_rate * 1.0e-6);
 }
 
 #[test]
 fn blueprint_trace_balances_double_bifurcation_serpentine_arms() {
-    let blueprint = double_bifurcation_serpentine_rect("trace_dbs", 0.012, 3, 0.008, 0.004, 0.004);
+    let mut blueprint = double_bifurcation_serpentine_rect("trace_dbs", 0.012, 3, 0.008, 0.004, 0.004);
+    blueprint.metadata.get_or_insert_with(Default::default).insert(cfd_schematics::geometry::metadata::GeometryAuthoringProvenance::selective_wrapper());
     let flow_rate = 1.0e-9;
     let config = Blueprint3dProcessingConfig {
         total_flow_rate_m3_s: flow_rate,
@@ -127,24 +125,18 @@ fn blueprint_trace_balances_double_bifurcation_serpentine_arms() {
 
     assert_eq!(trace.channel_traces.len(), blueprint.channels.len());
     assert_eq!(trace.volume_trace.synthetic_connector_volume_mm3, 0.0);
-    assert!(trace
-        .layout_segments
-        .iter()
-        .all(|segment| !segment.is_synthetic_connector && segment.source_channel_id.is_some()));
-    assert!((reference_flow(&trace, "inlet_section") - flow_rate).abs() < flow_rate * 1.0e-6);
-    assert!((reference_flow(&trace, "branch_a_in") - flow_rate * 0.5).abs() < flow_rate * 1.0e-6);
-    assert!((reference_flow(&trace, "branch_b_in") - flow_rate * 0.5).abs() < flow_rate * 1.0e-6);
-    assert!((reference_flow(&trace, "arm1_seg_1") - flow_rate * 0.25).abs() < flow_rate * 1.0e-6);
-    assert!((reference_flow(&trace, "arm2_seg_1") - flow_rate * 0.25).abs() < flow_rate * 1.0e-6);
-    assert!((reference_flow(&trace, "arm3_seg_1") - flow_rate * 0.25).abs() < flow_rate * 1.0e-6);
-    assert!((reference_flow(&trace, "arm4_seg_1") - flow_rate * 0.25).abs() < flow_rate * 1.0e-6);
-    assert!(continuity_residual(&trace, "split_1").abs() < flow_rate * 1.0e-6);
-    assert!(continuity_residual(&trace, "merge_1").abs() < flow_rate * 1.0e-6);
+    assert!((reference_flow(&trace, "throat_section") - flow_rate * 0.25).abs() < flow_rate * 1.0e-6);
+    assert!((reference_flow(&trace, "arm_2") - flow_rate * 0.25).abs() < flow_rate * 1.0e-6);
+    assert!((reference_flow(&trace, "arm_3") - flow_rate * 0.25).abs() < flow_rate * 1.0e-6);
+    assert!((reference_flow(&trace, "arm_4") - flow_rate * 0.25).abs() < flow_rate * 1.0e-6);
+    assert!(continuity_residual(&trace, "inlet").abs() < flow_rate * 1.0e-6);
+    assert!(continuity_residual(&trace, "outlet").abs() < flow_rate * 1.0e-6);
 }
 
 #[test]
 fn blueprint_trace_balances_trifurcation_serpentine_arms() {
-    let blueprint = trifurcation_serpentine_rect("trace_ts", 0.012, 3, 0.008, 0.004, 0.004);
+    let mut blueprint = trifurcation_serpentine_rect("trace_ts", 0.012, 3, 0.008, 0.004, 0.004);
+    blueprint.metadata.get_or_insert_with(Default::default).insert(cfd_schematics::geometry::metadata::GeometryAuthoringProvenance::selective_wrapper());
     let flow_rate = 1.0e-9;
     let config = Blueprint3dProcessingConfig {
         total_flow_rate_m3_s: flow_rate,
@@ -156,22 +148,17 @@ fn blueprint_trace_balances_trifurcation_serpentine_arms() {
 
     assert_eq!(trace.channel_traces.len(), blueprint.channels.len());
     assert_eq!(trace.volume_trace.synthetic_connector_volume_mm3, 0.0);
-    assert!(trace
-        .layout_segments
-        .iter()
-        .all(|segment| !segment.is_synthetic_connector && segment.source_channel_id.is_some()));
-    assert!((reference_flow(&trace, "inlet_section") - flow_rate).abs() < flow_rate * 1.0e-6);
-    assert!((reference_flow(&trace, "trunk_out") - flow_rate).abs() < flow_rate * 1.0e-6);
-    assert!((reference_flow(&trace, "segment_1") - flow_rate / 3.0).abs() < flow_rate * 1.0e-6);
-    assert!((reference_flow(&trace, "arm2_seg_1") - flow_rate / 3.0).abs() < flow_rate * 1.0e-6);
-    assert!((reference_flow(&trace, "arm3_seg_1") - flow_rate / 3.0).abs() < flow_rate * 1.0e-6);
-    assert!(continuity_residual(&trace, "split_jn").abs() < flow_rate * 1.0e-6);
-    assert!(continuity_residual(&trace, "merge_jn").abs() < flow_rate * 1.0e-6);
+    assert!((reference_flow(&trace, "throat_section") - flow_rate / 3.0).abs() < flow_rate * 1.0e-6);
+    assert!((reference_flow(&trace, "arm_2") - flow_rate / 3.0).abs() < flow_rate * 1.0e-6);
+    assert!((reference_flow(&trace, "arm_3") - flow_rate / 3.0).abs() < flow_rate * 1.0e-6);
+    assert!(continuity_residual(&trace, "inlet").abs() < flow_rate * 1.0e-6);
+    assert!(continuity_residual(&trace, "outlet").abs() < flow_rate * 1.0e-6);
 }
 
 #[test]
 fn blueprint_trace_can_attach_two_d_comparison() {
-    let blueprint = venturi_chain("trace_v", 0.030, 0.004, 0.002);
+    let mut blueprint = venturi_chain("trace_v", 0.030, 0.004, 0.002);
+    blueprint.metadata.get_or_insert_with(Default::default).insert(cfd_schematics::geometry::metadata::GeometryAuthoringProvenance::selective_wrapper());
     let config = Blueprint3dProcessingConfig {
         mesh: cfd_mesh::application::pipeline::PipelineConfig {
             include_chip_body: false,

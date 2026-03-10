@@ -32,7 +32,8 @@ pub mod types;
 pub use self::{
     generator::{
         create_blueprint_geometry, create_blueprint_geometry_with_metadata, create_geometry,
-        create_geometry_with_metadata, create_shell_cuboid, GeometryGeneratorBuilder, MetadataConfig,
+        create_geometry_with_metadata, create_shell_cuboid, GeometryGeneratorBuilder,
+        MetadataConfig,
     },
     intersection::{
         adaptive_box_dims, has_unresolved_intersections, insert_intersection_nodes,

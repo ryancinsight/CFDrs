@@ -18,56 +18,17 @@
 
 use cfd_optim::{
     build_milestone12_blueprint_candidate_space, compute_blueprint_report_metrics,
-    evaluate_blueprint_candidate, is_milestone12_lineage_topology, load_top5_report_json,
-    milestone12_lineage_key, save_blueprint_schematic_svg, save_top5_report_json, score_candidate,
+    evaluate_blueprint_candidate, fast_env, fast_mode, ga_matches_lineage_sequence, init_tracing,
+    is_selective_report_topology, load_top5_report_json, milestone12_lineage_key,
+    resolve_output_directories, save_figure, save_top5_report_json, score_candidate,
     sort_report_designs, validate_milestone12_candidate, write_milestone12_narrative_report,
     write_milestone12_results, BlueprintCandidate, BlueprintGeneticOptimizer,
     Milestone12LineageKey, Milestone12NarrativeInput, Milestone12ReportDesign, Milestone12Stage,
     OptimMode, OptimizationGoal, SdtWeights,
 };
 use rayon::prelude::*;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::time::Instant;
-
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
-fn is_selective_report_topology(candidate: &BlueprintCandidate) -> bool {
-    is_milestone12_lineage_topology(candidate)
-}
-
-fn ga_matches_lineage_sequence(
-    candidate: &BlueprintCandidate,
-    selected_key: &Milestone12LineageKey,
-) -> bool {
-    candidate
-        .topology_spec()
-        .is_ok_and(|spec| spec.stage_sequence_label() == selected_key.stage_sequence_label())
-}
-
-fn save_figure(blueprint: &cfd_schematics::NetworkBlueprint, path: &Path, label: &str) {
-    match save_blueprint_schematic_svg(blueprint, path) {
-        Ok(()) => tracing::info!("      \u{2713} {label}  \u{2192}  {}", path.display()),
-        Err(e) => tracing::warn!("      \u{2717} {label}  FAILED: {e}"),
-    }
-}
-
-fn fast_mode() -> bool {
-    std::env::var("M12_FAST")
-        .ok()
-        .map(|v| {
-            let s = v.trim().to_ascii_lowercase();
-            s == "1" || s == "true" || s == "yes"
-        })
-        .unwrap_or(false)
-}
-
-fn fast_env(name: &str, default: usize) -> usize {
-    std::env::var(name)
-        .ok()
-        .and_then(|v| v.parse::<usize>().ok())
-        .unwrap_or(default)
-        .max(1)
-}
 
 /// Try to load scored seeds saved by milestone12_option2.
 fn load_seeds(out_dir: &Path) -> Result<Vec<BlueprintCandidate>, Box<dyn std::error::Error>> {
@@ -116,25 +77,8 @@ fn rebuild_seeds(take: usize) -> Result<Vec<BlueprintCandidate>, Box<dyn std::er
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let _ = tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::builder()
-                .with_default_directive(tracing::Level::INFO.into())
-                .from_env_lossy(),
-        )
-        .try_init();
-
-    let workspace_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .expect("cfd-optim crate has a parent")
-        .parent()
-        .expect("crates/ has a workspace root")
-        .to_path_buf();
-
-    let out_dir = workspace_root.join("report").join("milestone12");
-    let figures_dir = workspace_root.join("report").join("figures");
-    std::fs::create_dir_all(&out_dir)?;
-    std::fs::create_dir_all(&figures_dir)?;
+    init_tracing();
+    let (workspace_root, out_dir, figures_dir) = resolve_output_directories()?;
 
     tracing::info!("=== Milestone 12 — GA: Blueprint Genetic Refinement ===\n");
     let overall_start = Instant::now();
@@ -188,12 +132,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
     let ga_start = Instant::now();
 
-    let ga_result = BlueprintGeneticOptimizer::new(OptimizationGoal::BlueprintGeneticRefinement)
-        .with_seeds(seeds.clone())
-        .with_population(ga_population)
-        .with_max_generations(ga_generations)
-        .with_top_k(5)
-        .run()?;
+    let ga_result = BlueprintGeneticOptimizer::new(
+        OptimizationGoal::InPlaceDeanSerpentineRefinement,
+    )
+    .with_seeds(seeds.clone())
+    .with_population(ga_population)
+    .with_max_generations(ga_generations)
+    .with_top_k(5)
+    .run()?;
 
     tracing::info!(
         "GA complete in {:.1}s ({} total candidates evaluated)",
@@ -225,14 +171,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Fallback: if lineage filter is too strict, use seeds directly.
     if ga_report_top.is_empty() {
-        tracing::warn!("GA top_candidates produced no lineage-matched designs; falling back to seeds");
+        tracing::warn!(
+            "GA top_candidates produced no lineage-matched designs; falling back to seeds"
+        );
         ga_report_top = seeds
             .iter()
             .filter(|c| {
                 is_selective_report_topology(c)
-                    && selected_lineage_key.as_ref().map_or(true, |key| {
-                        ga_matches_lineage_sequence(c, key)
-                    })
+                    && selected_lineage_key
+                        .as_ref()
+                        .map_or(true, |key| ga_matches_lineage_sequence(c, key))
             })
             .filter_map(|candidate| {
                 let metrics = compute_blueprint_report_metrics(candidate).ok()?;
@@ -266,6 +214,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .collect();
         sort_report_designs(&mut ga_report_top);
     }
+
+    // Seeds and option2 fallback candidates no longer needed.
+    drop(seeds);
 
     if ga_report_top.is_empty() {
         return Err("GA produced no viable designs".into());
@@ -303,11 +254,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let option1_ranked =
         load_top5_report_json(&out_dir.join("two_concept_option1_ultrasound_top5.json"))?;
 
-    // Build the full GA pool for the narrative (all candidates from GA run).
+    // Build a bounded GA pool for the narrative scatter-plot (top 100
+    // from the GA run, not ALL candidates).  Cloning every candidate from
+    // all generations (pop × gen = thousands) was a major OOM contributor.
     let ga_pool_all: Vec<Milestone12ReportDesign> = ga_result
         .all_candidates
         .iter()
         .filter(|ranked| is_selective_report_topology(&ranked.candidate))
+        .take(100)
         .filter_map(|ranked| {
             Milestone12ReportDesign::from_blueprint_candidate(
                 ranked.rank,

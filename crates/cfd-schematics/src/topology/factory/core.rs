@@ -9,7 +9,8 @@
 use crate::config::{ChannelTypeConfig, GeometryConfig};
 use crate::domain::model::{EdgeId, NetworkBlueprint};
 use crate::geometry::generator::{
-    create_primitive_selective_tree_geometry_from_spec, GeometryGeneratorBuilder,
+    create_parallel_geometry_from_spec, create_primitive_selective_tree_geometry_from_spec,
+    create_series_geometry_from_spec, GeometryGeneratorBuilder,
 };
 use crate::geometry::metadata::BlueprintRenderHints;
 use crate::geometry::types::SplitType;
@@ -77,12 +78,10 @@ impl BlueprintTopologyFactory {
 
         let lineage = Self::lineage_for_spec(spec);
 
-        // Dispatch to the appropriate construction path:
-        // - Series: direct linear chain construction (create_geometry cannot
-        //   express multi-segment series paths)
-        // - Split-tree: delegate to the canonical GeometryGeneratorBuilder
         let mut blueprint = if spec.has_series_path() && spec.split_stages.is_empty() {
             Self::build_series_path(spec, lineage)?
+        } else if spec.has_parallel_paths() && spec.split_stages.is_empty() {
+            Self::build_parallel_path(spec, lineage)?
         } else {
             Self::build_split_tree(spec, lineage)?
         };
@@ -95,90 +94,24 @@ impl BlueprintTopologyFactory {
         Ok(blueprint)
     }
 
-    /// Construct a linear series-path blueprint directly from the spec.
-    ///
-    /// Series topologies (inlet → section₁ → section₂ → … → outlet) cannot
-    /// be expressed as `SplitType[]`, so we build nodes and channels directly
-    /// from the topology spec's `series_channels` array.
     fn build_series_path(
         spec: &BlueprintTopologySpec,
         lineage: TopologyLineageMetadata,
     ) -> Result<NetworkBlueprint, String> {
-        use crate::domain::model::{ChannelSpec, NodeKind, NodeSpec};
-        use crate::domain::therapy_metadata::TherapyZoneMetadata;
+        let mut blueprint = create_series_geometry_from_spec(spec);
+        blueprint.lineage = Some(lineage);
+        blueprint.render_hints = Some(Self::render_hints_for_spec(spec));
+        Ok(blueprint)
+    }
 
-        let mut bp = NetworkBlueprint {
-            name: spec.design_name.clone(),
-            box_dims: (127.76, 85.47),
-            box_outline: Vec::new(),
-            nodes: Vec::new(),
-            channels: Vec::new(),
-            render_hints: None,
-            topology: None,
-            lineage: None,
-            metadata: None,
-        };
-
-        // Layout: place nodes linearly across the box width
-        let n_nodes = spec.series_channels.len() + 1;
-        let (box_w, box_h) = spec.box_dims_mm;
-        let y_mid = box_h * 0.5;
-        let x_step = box_w / n_nodes as f64;
-
-        // Create inlet node
-        let inlet_name = "inlet";
-        bp.add_node(NodeSpec::new_at(
-            inlet_name,
-            NodeKind::Inlet,
-            (x_step * 0.5, y_mid),
-        ));
-
-        // Create intermediate junction nodes and outlet
-        let mut node_names: Vec<String> = vec![inlet_name.to_string()];
-        for i in 0..spec.series_channels.len() {
-            let name = if i == spec.series_channels.len() - 1 {
-                "outlet".to_string()
-            } else {
-                format!("junction_{}", i)
-            };
-            let kind = if i == spec.series_channels.len() - 1 {
-                NodeKind::Outlet
-            } else {
-                NodeKind::Junction
-            };
-            bp.add_node(NodeSpec::new_at(
-                &name,
-                kind,
-                (x_step * (i as f64 + 1.5), y_mid),
-            ));
-            node_names.push(name);
-        }
-
-        // Create channels from spec
-        for (i, ch) in spec.series_channels.iter().enumerate() {
-            let from = &node_names[i];
-            let to = &node_names[i + 1];
-            bp.add_channel(
-                ChannelSpec::new_pipe_rect(
-                    &ch.channel_id,
-                    from,
-                    to,
-                    ch.route.length_m,
-                    ch.route.width_m,
-                    ch.route.height_m,
-                    0.0,
-                    0.0,
-                )
-                .with_metadata(TherapyZoneMetadata::new(ch.route.therapy_zone)),
-            );
-        }
-
-        // Attach topology and lineage
-        bp.topology = Some(spec.clone());
-        bp.lineage = Some(lineage);
-        bp.box_dims = spec.box_dims_mm;
-
-        Ok(bp)
+    fn build_parallel_path(
+        spec: &BlueprintTopologySpec,
+        lineage: TopologyLineageMetadata,
+    ) -> Result<NetworkBlueprint, String> {
+        let mut blueprint = create_parallel_geometry_from_spec(spec);
+        blueprint.lineage = Some(lineage);
+        blueprint.render_hints = Some(Self::render_hints_for_spec(spec));
+        Ok(blueprint)
     }
 
     /// Construct a split-tree blueprint via the canonical GeometryGeneratorBuilder.
@@ -197,7 +130,7 @@ impl BlueprintTopologyFactory {
         let representative_height_m = Self::representative_channel_height_m(spec);
 
         let geo_config = GeometryConfig {
-            channel_width: representative_width_m * 1e3,  // m → mm
+            channel_width: representative_width_m * 1e3,   // m → mm
             channel_height: representative_height_m * 1e3, // m → mm
             ..GeometryConfig::default()
         };
@@ -431,15 +364,15 @@ impl BlueprintTopologyFactory {
     /// Extract standard lineage tracing metadata.
     ///
     /// The optimization stage is derived from the spec's treatment mode:
-    /// - `VenturiCavitation` → `SelectiveVenturiCavitation`
-    /// - `UltrasoundOnly` → `SelectiveAcousticResidenceSeparation`
+    /// - `VenturiCavitation` → `AsymmetricSplitVenturiCavitationSelectivity`
+    /// - `UltrasoundOnly` → `AsymmetricSplitResidenceSeparation`
     pub fn lineage_for_spec(spec: &BlueprintTopologySpec) -> TopologyLineageMetadata {
         let stage = match spec.treatment_mode {
             TreatmentActuationMode::VenturiCavitation => {
-                TopologyOptimizationStage::SelectiveVenturiCavitation
+                TopologyOptimizationStage::AsymmetricSplitVenturiCavitationSelectivity
             }
             TreatmentActuationMode::UltrasoundOnly => {
-                TopologyOptimizationStage::SelectiveAcousticResidenceSeparation
+                TopologyOptimizationStage::AsymmetricSplitResidenceSeparation
             }
         };
         TopologyLineageMetadata {
@@ -462,8 +395,13 @@ impl BlueprintTopologyFactory {
         spec.split_stages
             .iter()
             .map(|stage| match stage.split_kind {
-                SplitKind::Bifurcation => SplitType::Bifurcation,
-                SplitKind::Trifurcation => SplitType::Trifurcation,
+                SplitKind::NFurcation(2) => SplitType::Bifurcation,
+                SplitKind::NFurcation(3) => SplitType::Trifurcation,
+                SplitKind::NFurcation(4) => SplitType::Quadfurcation,
+                SplitKind::NFurcation(5) => SplitType::Pentafurcation,
+                SplitKind::NFurcation(_) => {
+                    unimplemented!("Only Bi/Tri geometries supported currently")
+                }
             })
             .collect()
     }

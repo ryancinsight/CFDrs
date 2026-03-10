@@ -10,12 +10,11 @@
 
 mod builder;
 mod dimensions;
-pub(crate) mod params;
 mod sweep;
 
 use crate::domain::BlueprintCandidate;
 
-/// Build only the tri-first primitive selective candidates needed by the
+/// Build only the canonical primitive selective candidates needed by the
 /// Milestone 12 report pipeline.
 ///
 /// This avoids allocating and scanning unrelated topology families when the
@@ -38,7 +37,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn milestone12_candidate_space_is_tri_first_selective_only() {
+    fn milestone12_candidate_space_is_selective_only() {
         let candidates = build_milestone12_candidate_space();
         assert!(
             !candidates.is_empty(),
@@ -47,6 +46,15 @@ mod tests {
         assert!(candidates
             .iter()
             .all(|candidate| { candidate.id.contains("-PST-") }));
+        assert!(candidates
+            .iter()
+            .any(|candidate| candidate.id.contains("-PST-Bi-")));
+        assert!(candidates
+            .iter()
+            .any(|candidate| candidate.id.contains("-PST-Quad-")));
+        assert!(candidates
+            .iter()
+            .any(|candidate| candidate.id.contains("-PST-Penta-")));
     }
 
     #[test]

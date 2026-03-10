@@ -9,7 +9,7 @@ pub struct StageBlueprintSeparationSummary {
     pub stage_id: String,
     pub n_arms: u8,
     pub treatment_flow_fraction: f64,
-    pub wbc_collection_flow_fraction: f64,
+    pub wbc_exclusion_flow_fraction: f64,
     pub rbc_bypass_flow_fraction: f64,
     pub treatment_width_m: f64,
     pub total_branch_width_m: f64,
@@ -42,12 +42,13 @@ pub fn compute_blueprint_separation_metrics(
             conductance_flow_fractions(&branch_widths, stage.branches[0].route.height_m);
 
         let mut treatment_flow_fraction = 0.0_f64;
-        let mut wbc_collection_flow_fraction = 0.0_f64;
+        let mut wbc_exclusion_flow_fraction = 0.0_f64;
         let mut rbc_bypass_flow_fraction = 0.0_f64;
         let mut treatment_width_m = 0.0_f64;
         let total_branch_width_m = branch_widths.iter().sum::<f64>();
-        let mut arm_q_fracs = [0.0_f64; 3];
+        let mut arm_q_fracs = [0.0_f64; 5];
 
+        let mut arm_idx = 0;
         for (branch, q_fraction) in stage.branches.iter().zip(q_fractions.iter().copied()) {
             match branch.role {
                 cfd_schematics::BranchRole::Treatment => {
@@ -56,20 +57,24 @@ pub fn compute_blueprint_separation_metrics(
                     arm_q_fracs[0] += q_fraction;
                 }
                 cfd_schematics::BranchRole::WbcCollection => {
-                    wbc_collection_flow_fraction += q_fraction;
-                    arm_q_fracs[1] += q_fraction;
+                    wbc_exclusion_flow_fraction += q_fraction;
+                    arm_idx += 1;
+                    if arm_idx < 5 {
+                        arm_q_fracs[arm_idx] += q_fraction;
+                    }
                 }
                 cfd_schematics::BranchRole::RbcBypass => {
                     rbc_bypass_flow_fraction += q_fraction;
-                    arm_q_fracs[2] += q_fraction;
+                    arm_idx += 1;
+                    if arm_idx < 5 {
+                        arm_q_fracs[arm_idx] += q_fraction;
+                    }
                 }
                 cfd_schematics::BranchRole::Neutral => {
-                    if arm_q_fracs[1] <= arm_q_fracs[2] {
-                        arm_q_fracs[1] += q_fraction;
-                        wbc_collection_flow_fraction += q_fraction;
-                    } else {
-                        arm_q_fracs[2] += q_fraction;
-                        rbc_bypass_flow_fraction += q_fraction;
+                    wbc_exclusion_flow_fraction += q_fraction;
+                    arm_idx += 1;
+                    if arm_idx < 5 {
+                        arm_q_fracs[arm_idx] += q_fraction;
                     }
                 }
             }
@@ -86,7 +91,7 @@ pub fn compute_blueprint_separation_metrics(
             stage_id: stage.stage_id.clone(),
             n_arms: stage.branches.len() as u8,
             treatment_flow_fraction,
-            wbc_collection_flow_fraction,
+            wbc_exclusion_flow_fraction,
             rbc_bypass_flow_fraction,
             treatment_width_m,
             total_branch_width_m,

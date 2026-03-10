@@ -74,10 +74,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     //   Outlet channel  : D = 4.0 mm, L = 10.0 mm (port connection)
     let nodes = vec![
         NodeSpec::new("Inlet", NodeKind::Inlet),
-        NodeSpec::new("J1", NodeKind::Junction),    // bifurcation
-        NodeSpec::new("J2", NodeKind::Junction),    // upper mid-point
-        NodeSpec::new("J3", NodeKind::Junction),    // recombination
-        NodeSpec::new("J4", NodeKind::Junction),    // lower mid-point
+        NodeSpec::new("J1", NodeKind::Junction), // bifurcation
+        NodeSpec::new("J2", NodeKind::Junction), // upper mid-point
+        NodeSpec::new("J3", NodeKind::Junction), // recombination
+        NodeSpec::new("J4", NodeKind::Junction), // lower mid-point
         NodeSpec::new("Outlet", NodeKind::Outlet),
     ];
 
@@ -88,41 +88,59 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let channels = vec![
         // Inlet port → first bifurcation
         ChannelSpec::new_pipe(
-            "ch_in", "Inlet", "J1",
-            0.010, 0.004,
+            "ch_in",
+            "Inlet",
+            "J1",
+            0.010,
+            0.004,
             hagen_poiseuille_resistance(mu_ref, 0.010, 0.004),
             0.0,
         ),
         // Upper branch: J1 → J2 → J3
         ChannelSpec::new_pipe(
-            "ch_upper_1", "J1", "J2",
-            0.050, 0.002,
+            "ch_upper_1",
+            "J1",
+            "J2",
+            0.050,
+            0.002,
             hagen_poiseuille_resistance(mu_ref, 0.050, 0.002),
             0.0,
         ),
         ChannelSpec::new_pipe(
-            "ch_upper_2", "J2", "J3",
-            0.050, 0.002,
+            "ch_upper_2",
+            "J2",
+            "J3",
+            0.050,
+            0.002,
             hagen_poiseuille_resistance(mu_ref, 0.050, 0.002),
             0.0,
         ),
         // Lower branch: J1 → J4 → J3
         ChannelSpec::new_pipe(
-            "ch_lower_1", "J1", "J4",
-            0.045, 0.0025,
+            "ch_lower_1",
+            "J1",
+            "J4",
+            0.045,
+            0.0025,
             hagen_poiseuille_resistance(mu_ref, 0.045, 0.0025),
             0.0,
         ),
         ChannelSpec::new_pipe(
-            "ch_lower_2", "J4", "J3",
-            0.045, 0.0025,
+            "ch_lower_2",
+            "J4",
+            "J3",
+            0.045,
+            0.0025,
             hagen_poiseuille_resistance(mu_ref, 0.045, 0.0025),
             0.0,
         ),
         // Recombination → Outlet port
         ChannelSpec::new_pipe(
-            "ch_out", "J3", "Outlet",
-            0.010, 0.004,
+            "ch_out",
+            "J3",
+            "Outlet",
+            0.010,
+            0.004,
             hagen_poiseuille_resistance(mu_ref, 0.010, 0.004),
             0.0,
         ),
@@ -236,10 +254,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         let (velocity, shear_rate) = if let Some(p) = props {
             let vel = q.abs() / p.area;
-            let sr = p
-                .hydraulic_diameter
-                .map(|d| 8.0 * vel / d)
-                .unwrap_or(0.0);
+            let sr = p.hydraulic_diameter.map(|d| 8.0 * vel / d).unwrap_or(0.0);
             (vel, sr)
         } else {
             (0.0, 0.0)
@@ -275,8 +290,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("═══════════════════════════════════════════════════════");
     println!("  TPMS LATTICE FLOW DISTRIBUTION");
     println!("═══════════════════════════════════════════════════════");
-    println!("  Upper branch (D=2.0mm): {:.1}%", q_upper / q_total * 100.0);
-    println!("  Lower branch (D=2.5mm): {:.1}%", q_lower / q_total * 100.0);
+    println!(
+        "  Upper branch (D=2.0mm): {:.1}%",
+        q_upper / q_total * 100.0
+    );
+    println!(
+        "  Lower branch (D=2.5mm): {:.1}%",
+        q_lower / q_total * 100.0
+    );
     println!();
     println!("  The lower branch carries more flow due to its larger");
     println!("  diameter (lower Hagen-Poiseuille resistance, R ∝ D⁻⁴).");

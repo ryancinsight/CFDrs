@@ -1,8 +1,9 @@
 //! Network builder for constructing fluid networks
 
 use super::{
-    blueprint_validation::validate_blueprint_for_1d_solve, junction_losses::apply_blueprint_junction_losses, Edge,
-    EdgeProperties, EdgeType, NetworkGraph, Node, NodeType,
+    blueprint_validation::validate_blueprint_for_1d_solve,
+    junction_losses::apply_blueprint_junction_losses, Edge, EdgeProperties, EdgeType, NetworkGraph,
+    Node, NodeType,
 };
 use cfd_core::error::Result;
 use cfd_schematics::domain::model::{ChannelShape, NetworkBlueprint};

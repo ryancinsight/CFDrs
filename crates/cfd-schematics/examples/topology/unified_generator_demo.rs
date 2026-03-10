@@ -14,7 +14,6 @@ use std::path::PathBuf;
 mod shared;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-
     tracing::info!("Unified Generator Demo");
     tracing::info!("====================");
 
@@ -93,9 +92,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing::info!("   Metadata overhead: {:.1}x", overhead);
 
     tracing::info!("4. Generating Visualizations");
-    
-    shared::save_example_output_with_name(&standard_system, "unified_generator_demo", "standard_system");
-    shared::save_example_output_with_name(&metadata_system, "unified_generator_demo", "metadata_system");
+
+    shared::save_example_output_with_name(
+        &standard_system,
+        "unified_generator_demo",
+        "standard_system",
+    );
+    shared::save_example_output_with_name(
+        &metadata_system,
+        "unified_generator_demo",
+        "metadata_system",
+    );
 
     tracing::info!("5. Unified Generator API Summary");
     tracing::info!("   • create_geometry() - Fast generation without metadata");

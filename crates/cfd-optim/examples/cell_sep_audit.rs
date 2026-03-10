@@ -44,11 +44,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let candidates = build_milestone12_blueprint_candidate_space()?;
     let n = candidates.len();
     let d_build = t_build.elapsed();
-    println!(
-        "  {} candidates built in {:.2}s",
-        n,
-        d_build.as_secs_f64()
-    );
+    println!("  {} candidates built in {:.2}s", n, d_build.as_secs_f64());
 
     // Evaluate all candidates once.
     println!("  Evaluating physics (1-D network solves)...");
@@ -64,52 +60,46 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         heap_mb,
     );
 
-    // ── Option 1: SelectiveAcousticResidenceSeparation ────────────────────
+    // ── Option 1: AsymmetricSplitResidenceSeparation ────────────────────
     println!("{}", "=".repeat(118));
-    println!("  OPTION 1 — SelectiveAcousticResidenceSeparation");
+    println!("  OPTION 1 — AsymmetricSplitResidenceSeparation");
     println!("  Updated physics: SE_CANCER=1.85, Fahraeus margination correction");
     println!("{}", "=".repeat(118));
 
     let t1 = Instant::now();
-    let opt1 = pool.top_k(20, OptimizationGoal::SelectiveAcousticResidenceSeparation)?;
-    println!(
-        "  [{:.3}s] Top 20 designs:\n",
-        t1.elapsed().as_secs_f64()
-    );
+    let opt1 = pool.top_k(20, OptimizationGoal::AsymmetricSplitResidenceSeparation)?;
+    println!("  [{:.3}s] Top 20 designs:\n", t1.elapsed().as_secs_f64());
     print_header();
     for e in &opt1 {
         print_row(e);
     }
 
-    // ── Option 2: SelectiveVenturiCavitation ──────────────────────────────
+    // ── Option 2: AsymmetricSplitVenturiCavitationSelectivity ──────────────────────────────
     println!("\n\n{}", "=".repeat(118));
-    println!("  OPTION 2 — SelectiveVenturiCavitation");
+    println!("  OPTION 2 — AsymmetricSplitVenturiCavitationSelectivity");
     println!("  Updated physics: SE_CANCER=1.85, Fahraeus margination correction");
     println!("{}", "=".repeat(118));
 
     let t2 = Instant::now();
-    let opt2 = pool.top_k(20, OptimizationGoal::SelectiveVenturiCavitation)?;
-    println!(
-        "  [{:.3}s] Top 20 designs:\n",
-        t2.elapsed().as_secs_f64()
-    );
+    let opt2 = pool.top_k(
+        20,
+        OptimizationGoal::AsymmetricSplitVenturiCavitationSelectivity,
+    )?;
+    println!("  [{:.3}s] Top 20 designs:\n", t2.elapsed().as_secs_f64());
     print_header();
     for e in &opt2 {
         print_row(e);
     }
 
-    // ── Option 3: BlueprintGeneticRefinement ──────────────────────────────
+    // ── Option 3: InPlaceDeanSerpentineRefinement ──────────────────────────────
     println!("\n\n{}", "=".repeat(118));
-    println!("  OPTION 3 — BlueprintGeneticRefinement");
+    println!("  OPTION 3 — InPlaceDeanSerpentineRefinement");
     println!("{}", "=".repeat(118));
 
     let t3 = Instant::now();
-    match pool.top_k(20, OptimizationGoal::BlueprintGeneticRefinement) {
+    match pool.top_k(20, OptimizationGoal::InPlaceDeanSerpentineRefinement) {
         Ok(opt3) => {
-            println!(
-                "  [{:.3}s] Top 20 designs:\n",
-                t3.elapsed().as_secs_f64()
-            );
+            println!("  [{:.3}s] Top 20 designs:\n", t3.elapsed().as_secs_f64());
             print_header();
             for e in &opt3 {
                 print_row(e);

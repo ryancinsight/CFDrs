@@ -6,7 +6,7 @@ use cfd_2d::grid::StructuredGrid2D;
 use cfd_2d::solvers::fdm::{FdmConfig, PoissonSolver};
 use cfd_core::compute::solver::Solver;
 use cfd_core::error::Result;
-use cfd_core::physics::fluid::Fluid;
+use cfd_core::physics::fluid::traits::Fluid;
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 

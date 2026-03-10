@@ -191,9 +191,6 @@ path = "examples/spectral_performance.rs"
 
 
 
-[[example]]
-name = "pediatric_leukapheresis"
-path = "examples/pediatric_leukapheresis/main.rs"
 
 [[example]]
 name = "venturi_cavitation"

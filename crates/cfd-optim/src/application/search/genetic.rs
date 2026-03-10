@@ -4,8 +4,11 @@ use crate::application::objectives::{evaluate_goal, BlueprintObjectiveEvaluation
 use crate::domain::{BlueprintCandidate, OptimizationGoal};
 use crate::error::OptimError;
 use cfd_schematics::{
-    BlueprintTopologyFactory, BlueprintTopologyMutation, SerpentineSpec, TopologyOptimizationStage,
+    topology::presets::with_venturi, BlueprintTopologyFactory, BlueprintTopologyMutation,
+    SerpentineSpec, ThroatGeometrySpec, TopologyOptimizationStage,
+    VenturiPlacementMode,
 };
+use cfd_schematics::topology::{TreatmentActuationMode, VenturiConfig};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -148,15 +151,7 @@ impl BlueprintGeneticOptimizer {
     }
 
     fn initial_population(&self) -> Result<Vec<BlueprintCandidate>, OptimError> {
-        let seed_pool: Vec<BlueprintCandidate> =
-            if self.goal == OptimizationGoal::BlueprintGeneticRefinement {
-                seed_option2_candidates(&self.seeds)
-                    .into_iter()
-                    .cloned()
-                    .collect()
-            } else {
-                self.seeds.clone()
-            };
+        let seed_pool = self.seeds.clone();
 
         if seed_pool.is_empty() {
             return Err(OptimError::EmptyCandidates);
@@ -165,9 +160,27 @@ impl BlueprintGeneticOptimizer {
         let mut population = Vec::with_capacity(self.population.max(seed_pool.len()));
         let mut seen = HashSet::new();
         for seed in seed_pool {
-            let key = candidate_key(&seed)?;
-            if seen.insert(key) {
-                population.push(seed);
+            let has_venturi = seed
+                .topology_spec()
+                .is_ok_and(|topology| !topology.venturi_placements.is_empty());
+            if self.goal == OptimizationGoal::InPlaceDeanSerpentineRefinement && !has_venturi {
+                for bootstrap in generate_ga_mutations(&seed)? {
+                    let key = candidate_key(&bootstrap)?;
+                    if seen.insert(key) {
+                        population.push(bootstrap);
+                    }
+                    if population.len() >= self.population {
+                        break;
+                    }
+                }
+            } else {
+                let key = candidate_key(&seed)?;
+                if seen.insert(key) {
+                    population.push(seed);
+                }
+            }
+            if population.len() >= self.population {
+                break;
             }
         }
 
@@ -191,13 +204,12 @@ impl BlueprintGeneticOptimizer {
     }
 }
 
-pub fn seed_option2_candidates<'a>(
-    candidates: &'a [BlueprintCandidate],
-) -> Vec<&'a BlueprintCandidate> {
+pub fn seed_option2_candidates(candidates: &[BlueprintCandidate]) -> Vec<&BlueprintCandidate> {
     candidates
         .iter()
         .filter(|candidate| {
-            candidate.inferred_goal() == OptimizationGoal::SelectiveVenturiCavitation
+            candidate.inferred_goal()
+                == OptimizationGoal::AsymmetricSplitVenturiCavitationSelectivity
                 || candidate
                     .blueprint
                     .topology_spec()
@@ -210,6 +222,9 @@ pub fn generate_ga_mutations(
     seed: &BlueprintCandidate,
 ) -> Result<Vec<BlueprintCandidate>, OptimError> {
     let topology = seed.topology_spec()?;
+    if topology.venturi_placements.is_empty() {
+        return bootstrap_ga_venturi_mutations(seed);
+    }
     let mut mutated = Vec::new();
 
     for stage in &topology.split_stages {
@@ -222,7 +237,7 @@ pub fn generate_ga_mutations(
                     branch_label: branch.label.clone(),
                     new_width_m: branch.route.width_m * width_scale,
                 },
-                TopologyOptimizationStage::BlueprintGeneticRefinement,
+                TopologyOptimizationStage::InPlaceDeanSerpentineRefinement,
             )
             .map_err(OptimError::InvalidParameter)?;
             mutated.push(BlueprintCandidate::new(
@@ -253,7 +268,7 @@ pub fn generate_ga_mutations(
                         branch_label: branch.label.clone(),
                         serpentine,
                     },
-                    TopologyOptimizationStage::BlueprintGeneticRefinement,
+                    TopologyOptimizationStage::InPlaceDeanSerpentineRefinement,
                 )
                 .map_err(OptimError::InvalidParameter)?;
                 mutated.push(BlueprintCandidate::new(
@@ -278,7 +293,7 @@ pub fn generate_ga_mutations(
                     placements,
                     treatment_mode: topology.treatment_mode,
                 },
-                TopologyOptimizationStage::BlueprintGeneticRefinement,
+                TopologyOptimizationStage::InPlaceDeanSerpentineRefinement,
             )
             .map_err(OptimError::InvalidParameter)?;
             mutated.push(BlueprintCandidate::new(
@@ -287,6 +302,88 @@ pub fn generate_ga_mutations(
                 seed.operating_point.clone(),
             ));
         }
+    }
+
+    Ok(mutated)
+}
+
+fn bootstrap_ga_venturi_mutations(
+    seed: &BlueprintCandidate,
+) -> Result<Vec<BlueprintCandidate>, OptimError> {
+    let topology = seed.topology_spec()?;
+    let treatment_channel_ids = topology.treatment_channel_ids();
+    if treatment_channel_ids.is_empty() {
+        return Err(OptimError::InvalidParameter(format!(
+            "GA refinement requires at least one treatment channel, but candidate '{}' has none",
+            seed.id
+        )));
+    }
+
+    let representative_route = topology.channel_route(&treatment_channel_ids[0]).ok_or_else(|| {
+        OptimError::InvalidParameter(format!(
+            "GA refinement could not resolve treatment channel '{}' in candidate '{}'",
+            treatment_channel_ids[0], seed.id
+        ))
+    })?;
+    let placement_mode = if treatment_channel_ids.iter().any(|channel_id| {
+        topology
+            .channel_route(channel_id)
+            .is_some_and(|route| route.serpentine.is_some())
+    }) {
+        VenturiPlacementMode::CurvaturePeakDeanNumber
+    } else {
+        VenturiPlacementMode::StraightSegment
+    };
+    let throat_width_m =
+        (representative_route.width_m * 0.4).clamp(60.0e-6, representative_route.width_m * 0.85);
+    let throat_length_m = (representative_route.length_m / 8.0)
+        .clamp(300.0e-6, representative_route.length_m * 0.5);
+
+    let build_mutant =
+        |target_channel_ids: Vec<String>, suffix: &str| -> Result<BlueprintCandidate, OptimError> {
+            let augmented = with_venturi(
+                topology.clone(),
+                VenturiConfig {
+                    target_channel_ids,
+                    serial_throat_count: 1,
+                    throat_geometry: ThroatGeometrySpec {
+                        throat_width_m,
+                        throat_height_m: representative_route.height_m,
+                        throat_length_m,
+                        inlet_width_m: representative_route.width_m,
+                        outlet_width_m: representative_route.width_m,
+                        convergent_half_angle_deg: 7.0,
+                        divergent_half_angle_deg: 7.0,
+                    },
+                    placement_mode,
+                },
+            );
+            let blueprint = BlueprintTopologyFactory::mutate(
+                &seed.blueprint,
+                BlueprintTopologyMutation::UpdateVenturiConfiguration {
+                    placements: augmented.venturi_placements,
+                    treatment_mode: TreatmentActuationMode::VenturiCavitation,
+                },
+                TopologyOptimizationStage::InPlaceDeanSerpentineRefinement,
+            )
+            .map_err(OptimError::InvalidParameter)?;
+            Ok(BlueprintCandidate::new(
+                format!("{}-{suffix}", seed.id),
+                blueprint,
+                seed.operating_point.clone(),
+            ))
+        };
+
+    let mut mutated = Vec::with_capacity(treatment_channel_ids.len() + 1);
+    mutated.push(build_mutant(
+        treatment_channel_ids.clone(),
+        "ga-bootstrap-v-all",
+    )?);
+    for channel_id in treatment_channel_ids {
+        mutated.push(build_mutant(
+            vec![channel_id.clone()],
+            &format!("ga-bootstrap-v-{channel_id}"),
+        )?);
     }
 
     Ok(mutated)
@@ -391,14 +488,15 @@ mod tests {
     #[test]
     fn blueprint_genetic_optimizer_returns_blueprint_candidates_with_direct_graph_access() {
         let seed = canonical_option2_candidate("seed", operating_point(2.2e-6, 32_000.0, 0.16));
-        let result =
-            BlueprintGeneticOptimizer::new(crate::OptimizationGoal::BlueprintGeneticRefinement)
-                .with_population(6)
-                .with_max_generations(2)
-                .with_top_k(2)
-                .with_seeds(vec![seed])
-                .run()
-                .expect("blueprint genetic optimization should succeed");
+        let result = BlueprintGeneticOptimizer::new(
+            crate::OptimizationGoal::InPlaceDeanSerpentineRefinement,
+        )
+        .with_population(6)
+        .with_max_generations(2)
+        .with_top_k(2)
+        .with_seeds(vec![seed])
+        .run()
+        .expect("blueprint genetic optimization should succeed");
 
         assert_eq!(result.top_candidates.len(), 2);
         assert_eq!(result.best_per_generation.len(), 2);

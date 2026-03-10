@@ -1,7 +1,8 @@
 //! Milestone 12 — Option 2: Selective Venturi Cavitation.
 //!
 //! Evaluates venturi-equipped selective-routing topologies, ranks them by
-//! `CombinedSdtLeukapheresis` score, and applies robustness screening.
+//! the Milestone 12 venturi-cavitation selectivity score, and applies
+//! robustness screening.
 //!
 //! The lineage constraint (shared topology family with Option 1) is enforced
 //! when Option 1 results exist on disk; otherwise the best venturi family is
@@ -23,178 +24,26 @@
 use cfd_optim::{
     build_milestone12_blueprint_candidate_space, compute_blueprint_report_metrics,
     evaluate_blueprint_candidate, evaluate_blueprint_genetic_refinement,
-    is_milestone12_lineage_topology, load_top5_report_json, milestone12_lineage_key,
-    robustness_sweep_blueprint, save_blueprint_schematic_svg, save_json_pretty,
-    save_top5_report_json, score_candidate, sort_report_designs,
-    validate_milestone12_candidate, write_milestone12_narrative_report, write_milestone12_results,
-    BlueprintCandidate, Milestone12LineageKey, Milestone12NarrativeInput, Milestone12ReportDesign,
-    Milestone12Stage, OptimMode, OptimizationGoal, RobustnessReport, SdtMetrics, SdtWeights,
+    evaluate_selective_acoustic_residence_separation, fast_mode, init_tracing,
+    is_selective_report_topology, load_top5_report_json, option2_mode,
+    orchestration_lineage_key as blueprint_lineage_key, report_eligible_venturi_oncology,
+    resolve_output_directories, robustness_sweep_blueprint, save_figure, save_json_pretty,
+    save_top5_report_json, score_candidate, sort_report_designs, validate_milestone12_candidate,
+    write_milestone12_narrative_report, write_milestone12_results, BlueprintCandidate,
+    Milestone12LineageKey, Milestone12NarrativeInput, Milestone12ReportDesign, Milestone12Stage,
+    OptimizationGoal, RobustnessReport, ScanProgress, SdtMetrics, SdtWeights,
     STANDARD_PERTURBATIONS,
 };
 use rayon::prelude::*;
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
-
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
-fn report_eligible_nonventuri(metrics: &SdtMetrics) -> bool {
-    metrics.pressure_feasible
-        && metrics.plate_fits
-        && metrics.fda_main_compliant
-        && metrics.therapy_channel_fraction > 0.0
-}
-
-fn report_eligible_venturi_oncology(metrics: &SdtMetrics) -> bool {
-    metrics.pressure_feasible
-        && metrics.plate_fits
-        && metrics.fda_main_compliant
-        && metrics.therapy_channel_fraction > 0.0
-        && metrics.cavitation_number < 1.0
-}
-
-fn report_option1_score(metrics: &SdtMetrics, weights: &SdtWeights) -> f64 {
-    let base = score_candidate(metrics, OptimMode::SelectiveAcousticTherapy, weights);
-    let dwell_tie_break = metrics.treatment_zone_dwell_time_s.max(0.0) * 1.0e-6;
-    let pressure_tie_break = metrics.total_pressure_drop_pa.max(0.0) * 1.0e-12;
-    base + dwell_tie_break - pressure_tie_break
-}
-
-fn option2_mode() -> OptimMode {
-    OptimMode::CombinedSdtLeukapheresis {
-        leuka_weight: 0.5,
-        sdt_weight: 0.5,
-        patient_weight_kg: 70.0,
-    }
-}
-
-fn is_selective_report_topology(candidate: &BlueprintCandidate) -> bool {
-    is_milestone12_lineage_topology(candidate)
-}
-
-fn blueprint_lineage_key(candidate: &BlueprintCandidate) -> Option<Milestone12LineageKey> {
-    milestone12_lineage_key(candidate)
-}
-
-fn save_figure(blueprint: &cfd_schematics::NetworkBlueprint, path: &Path, label: &str) {
-    match save_blueprint_schematic_svg(blueprint, path) {
-        Ok(()) => tracing::info!("      \u{2713} {label}  \u{2192}  {}", path.display()),
-        Err(e) => tracing::warn!("      \u{2717} {label}  FAILED: {e}"),
-    }
-}
-
-struct ScanProgress {
-    label: &'static str,
-    total: usize,
-    started_at: Instant,
-    processed: AtomicUsize,
-    next_log_at: AtomicUsize,
-    log_step: usize,
-}
-
-impl ScanProgress {
-    fn new(label: &'static str, total: usize) -> Self {
-        let log_step = if total <= 25 {
-            1
-        } else {
-            (total / 20).clamp(25, 1_000)
-        };
-        tracing::info!(
-            "      {label}: starting {} evaluations (heartbeat every {})",
-            total,
-            log_step
-        );
-        Self {
-            label,
-            total,
-            started_at: Instant::now(),
-            processed: AtomicUsize::new(0),
-            next_log_at: AtomicUsize::new(log_step.min(total.max(1))),
-            log_step,
-        }
-    }
-
-    fn record(&self) {
-        let processed = self.processed.fetch_add(1, Ordering::Relaxed) + 1;
-        loop {
-            let next_log_at = self.next_log_at.load(Ordering::Relaxed);
-            if processed < next_log_at && processed < self.total {
-                break;
-            }
-            let new_next = (next_log_at + self.log_step).min(self.total.max(1));
-            match self.next_log_at.compare_exchange(
-                next_log_at,
-                new_next,
-                Ordering::Relaxed,
-                Ordering::Relaxed,
-            ) {
-                Ok(_) => {
-                    self.log(processed);
-                    break;
-                }
-                Err(_) => continue,
-            }
-        }
-    }
-
-    fn finish(&self) {
-        self.log(self.processed.load(Ordering::Relaxed));
-    }
-
-    fn log(&self, processed: usize) {
-        let elapsed = self.started_at.elapsed().as_secs_f64().max(1.0e-9);
-        let pct = if self.total == 0 {
-            100.0
-        } else {
-            100.0 * processed as f64 / self.total as f64
-        };
-        let rate = processed as f64 / elapsed;
-        tracing::info!(
-            "      {}: {}/{} ({:.1}%) in {:.1}s [{:.1} candidates/s]",
-            self.label,
-            processed,
-            self.total,
-            pct,
-            elapsed,
-            rate
-        );
-    }
-}
-
-fn fast_mode() -> bool {
-    std::env::var("M12_FAST")
-        .ok()
-        .map(|v| {
-            let s = v.trim().to_ascii_lowercase();
-            s == "1" || s == "true" || s == "yes"
-        })
-        .unwrap_or(false)
-}
 
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let _ = tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::builder()
-                .with_default_directive(tracing::Level::INFO.into())
-                .from_env_lossy(),
-        )
-        .try_init();
-
-    let workspace_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .expect("cfd-optim crate has a parent")
-        .parent()
-        .expect("crates/ has a workspace root")
-        .to_path_buf();
-
-    let out_dir = workspace_root.join("report").join("milestone12");
-    let figures_dir = workspace_root.join("report").join("figures");
-    std::fs::create_dir_all(&out_dir)?;
-    std::fs::create_dir_all(&figures_dir)?;
+    init_tracing();
+    let (workspace_root, out_dir, figures_dir) = resolve_output_directories()?;
 
     tracing::info!("=== Milestone 12 — Option 2: Selective Venturi Cavitation ===\n");
     let overall_start = Instant::now();
@@ -233,7 +82,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .filter(|c| is_selective_report_topology(c))
         .collect();
 
-    let progress = Arc::new(ScanProgress::new("option2 scan", selective_candidates.len()));
+    let progress = Arc::new(ScanProgress::new(
+        "option2 scan",
+        selective_candidates.len(),
+    ));
     let progress_ref = Arc::clone(&progress);
     let have_option1_for_par = have_option1;
 
@@ -249,7 +101,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let results: Vec<CandidateResult> = selective_candidates
         .into_par_iter()
         .filter_map(move |candidate| {
-            let _eval = match evaluate_blueprint_candidate(&candidate) {
+            let eval = match evaluate_blueprint_candidate(&candidate) {
                 Ok(e) => e,
                 Err(_) => {
                     progress_ref.record();
@@ -269,24 +121,28 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .topology_spec()
                 .is_ok_and(cfd_schematics::BlueprintTopologySpec::has_venturi);
 
-            let ga_score = evaluate_blueprint_genetic_refinement(&candidate, _eval)
-                .map_or(0.0, |e| e.score);
-
-            let option1_score = if !is_venturi
-                && !have_option1_for_par
-                && report_eligible_nonventuri(&metrics)
-            {
-                Some(report_option1_score(&metrics, &weights))
+            // For non-venturi candidates that need option1 scoring, clone the
+            // eval before consuming it in the GA path.
+            let option1_score = if !is_venturi && !have_option1_for_par {
+                let opt1 =
+                    evaluate_selective_acoustic_residence_separation(&candidate, eval.clone());
+                if opt1.score > 0.0 {
+                    Some(opt1.score)
+                } else {
+                    None
+                }
             } else {
                 None
             };
 
-            let option2_score =
-                if is_venturi && report_eligible_venturi_oncology(&metrics) {
-                    Some(score_candidate(&metrics, oncology_mode, &weights))
-                } else {
-                    None
-                };
+            let ga_score =
+                evaluate_blueprint_genetic_refinement(&candidate, eval).map_or(0.0, |e| e.score);
+
+            let option2_score = if is_venturi && report_eligible_venturi_oncology(&metrics) {
+                Some(score_candidate(&metrics, oncology_mode, &weights))
+            } else {
+                None
+            };
 
             Some(CandidateResult {
                 candidate,
@@ -305,16 +161,42 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut option2_pool: Vec<Milestone12ReportDesign> = Vec::new();
     let mut scored_seeds: Vec<(f64, BlueprintCandidate)> = Vec::new();
 
+    // Move candidates instead of cloning when only one destination needs
+    // them.  Clone only when a venturi candidate qualifies for BOTH
+    // scored_seeds AND option2_pool.
     for r in results {
         if r.is_venturi {
-            if r.ga_score > 0.0 {
-                scored_seeds.push((r.ga_score, r.candidate.clone()));
-            }
-            if let Some(score) = r.option2_score {
-                option2_pool.push(Milestone12ReportDesign::new(0, r.candidate, r.metrics, score));
+            let need_seed = r.ga_score > 0.0;
+            match (need_seed, r.option2_score) {
+                (true, Some(score)) => {
+                    scored_seeds.push((r.ga_score, r.candidate.clone()));
+                    option2_pool.push(Milestone12ReportDesign::new(
+                        0,
+                        r.candidate,
+                        r.metrics,
+                        score,
+                    ));
+                }
+                (true, None) => {
+                    scored_seeds.push((r.ga_score, r.candidate));
+                }
+                (false, Some(score)) => {
+                    option2_pool.push(Milestone12ReportDesign::new(
+                        0,
+                        r.candidate,
+                        r.metrics,
+                        score,
+                    ));
+                }
+                (false, None) => {}
             }
         } else if let Some(score) = r.option1_score {
-            option1_pool.push(Milestone12ReportDesign::new(0, r.candidate, r.metrics, score));
+            option1_pool.push(Milestone12ReportDesign::new(
+                0,
+                r.candidate,
+                r.metrics,
+                score,
+            ));
         }
     }
 
@@ -332,37 +214,29 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         &option1_pool
     };
 
-    let mut option1_by_lineage: HashMap<Milestone12LineageKey, Vec<Milestone12ReportDesign>> =
-        HashMap::new();
-    let mut option2_by_lineage: HashMap<Milestone12LineageKey, Vec<Milestone12ReportDesign>> =
-        HashMap::new();
+    // Index-based lineage matching — store indices into existing vecs
+    // instead of cloning entire Milestone12ReportDesign objects (each ~10-20 KB).
+    let mut option1_lineage_keys: HashMap<Milestone12LineageKey, bool> = HashMap::new();
     for design in option1_for_lineage {
         if let Some(key) = blueprint_lineage_key(&design.candidate) {
-            option1_by_lineage.entry(key).or_default().push(design.clone());
-        }
-    }
-    for design in &option2_pool {
-        if let Some(key) = blueprint_lineage_key(&design.candidate) {
-            option2_by_lineage
-                .entry(key)
-                .or_default()
-                .push(design.clone());
+            option1_lineage_keys.insert(key, true);
         }
     }
 
-    let mut viable_lineages: Vec<_> = option2_by_lineage
+    let mut option2_by_lineage: HashMap<Milestone12LineageKey, Vec<usize>> = HashMap::new();
+    for (idx, design) in option2_pool.iter().enumerate() {
+        if let Some(key) = blueprint_lineage_key(&design.candidate) {
+            option2_by_lineage.entry(key).or_default().push(idx);
+        }
+    }
+
+    // Find lineage families that exist in BOTH Option 1 and Option 2.
+    let mut viable_lineages: Vec<(Milestone12LineageKey, Vec<usize>)> = option2_by_lineage
         .into_iter()
-        .filter_map(|(key, mut derived)| {
-            let option1_designs = option1_by_lineage.get(&key)?;
-            let mut acoustic = option1_designs.clone();
-            sort_report_designs(&mut acoustic);
-            sort_report_designs(&mut derived);
-            Some((key, acoustic[0].clone(), derived))
-        })
+        .filter(|(key, _)| option1_lineage_keys.contains_key(key))
         .collect();
 
     if viable_lineages.is_empty() {
-        // Fall back: use all option2 candidates without lineage constraint.
         tracing::warn!(
             "No shared lineage between Option 1 and Option 2 — using best venturi family"
         );
@@ -372,28 +246,51 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             d.rank = idx + 1;
         }
     } else {
+        // Sort lineage families by their best Option 2 score (descending).
         viable_lineages.sort_by(|a, b| {
-            b.2[0]
-                .score
-                .total_cmp(&a.2[0].score)
-                .then_with(|| a.1.candidate.id.cmp(&b.1.candidate.id))
+            let a_best =
+                a.1.iter()
+                    .map(|&i| option2_pool[i].score)
+                    .fold(f64::NEG_INFINITY, f64::max);
+            let b_best =
+                b.1.iter()
+                    .map(|&i| option2_pool[i].score)
+                    .fold(f64::NEG_INFINITY, f64::max);
+            b_best.total_cmp(&a_best)
         });
 
-        let (_lineage_key, _option1_best, lineage_pool) = viable_lineages
-            .into_iter()
-            .find(|(_, _, derived)| derived.len() >= 5)
-            .or_else(|| {
-                // Relax the >=5 constraint if no lineage has enough.
-                None
-            })
-            .ok_or("No shared Option 1→Option 2 family retained five derived venturi candidates")?;
+        // Prefer a lineage with >= 5 candidates; fall back to the highest-scoring.
+        let winning_indices = viable_lineages
+            .iter()
+            .find(|(_, indices)| indices.len() >= 5)
+            .or(viable_lineages.first())
+            .ok_or("No shared Option 1→Option 2 family retained derived venturi candidates")?
+            .1
+            .clone();
 
-        option2_pool = lineage_pool;
-        option2_pool.truncate(5);
-        for (idx, d) in option2_pool.iter_mut().enumerate() {
+        // Extract the winning lineage's designs from option2_pool by swapping
+        // them into a new vec, avoiding clone.
+        let mut kept: Vec<bool> = vec![false; option2_pool.len()];
+        for &i in &winning_indices {
+            kept[i] = true;
+        }
+        // Filter option2_pool to winning lineage without cloning.
+        let mut lineage_pool: Vec<Milestone12ReportDesign> = option2_pool
+            .into_iter()
+            .enumerate()
+            .filter_map(|(i, d)| if kept[i] { Some(d) } else { None })
+            .collect();
+        sort_report_designs(&mut lineage_pool);
+        lineage_pool.truncate(5);
+        for (idx, d) in lineage_pool.iter_mut().enumerate() {
             d.rank = idx + 1;
         }
+        option2_pool = lineage_pool;
     }
+
+    // Free Option 1 pools — no longer needed after lineage selection.
+    drop(option1_pool);
+    drop(option1_from_disk);
 
     let option2_pool_len = option2_pool.len();
     if option2_pool.is_empty() {
@@ -419,18 +316,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     )?;
     tracing::info!("Saved: two_concept_option2_venturi_top5.json");
 
-    // Save scored seeds for GA warm-start.
-    scored_seeds.sort_by(|a, b| b.0.total_cmp(&a.0));
-    let seed_candidates: Vec<&BlueprintCandidate> =
-        scored_seeds.iter().take(150).map(|(_, c)| c).collect();
-    save_json_pretty(
-        &seed_candidates,
-        &out_dir.join("option2_scored_seeds.json"),
-    )?;
-    tracing::info!(
-        "Saved: option2_scored_seeds.json ({} seeds)",
-        seed_candidates.len()
-    );
+    // Save scored seeds for GA warm-start, then drop to free memory.
+    {
+        scored_seeds.sort_by(|a, b| b.0.total_cmp(&a.0));
+        let seed_candidates: Vec<&BlueprintCandidate> =
+            scored_seeds.iter().take(150).map(|(_, c)| c).collect();
+        save_json_pretty(&seed_candidates, &out_dir.join("option2_scored_seeds.json"))?;
+        tracing::info!(
+            "Saved: option2_scored_seeds.json ({} seeds)",
+            seed_candidates.len()
+        );
+    }
+    drop(scored_seeds);
 
     // ── Robustness screening ─────────────────────────────────────────────────
     let option2_robustness: Vec<RobustnessReport> = if is_fast {
@@ -443,7 +340,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .map(|d| {
                 robustness_sweep_blueprint(
                     &d.candidate,
-                    OptimizationGoal::SelectiveVenturiCavitation,
+                    OptimizationGoal::AsymmetricSplitVenturiCavitationSelectivity,
                     &STANDARD_PERTURBATIONS,
                 )
             })
@@ -451,10 +348,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let robust_count = robustness.iter().filter(|r| r.is_robust).count();
         tracing::info!("Robust: {}/{}", robust_count, robustness.len());
         let json = serde_json::to_string_pretty(&robustness)?;
-        std::fs::write(
-            out_dir.join("option2_combined_robustness_top5.json"),
-            json,
-        )?;
+        std::fs::write(out_dir.join("option2_combined_robustness_top5.json"), json)?;
         robustness
     };
 

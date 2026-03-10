@@ -16,7 +16,6 @@ use cfd_schematics::{
 mod shared;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-
     let config = GeometryConfig::default();
     let splits = vec![SplitType::Bifurcation, SplitType::Trifurcation];
     let box_dims = (300.0, 150.0);
@@ -53,12 +52,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
         let filename = format!("curvature_{}", name);
         shared::save_example_output_with_name(&system, "comprehensive_arc_demo", &filename);
-        tracing::info!(
-            "   ✓ {}: {} (factor: {})",
-            name,
-            description,
-            factor
-        );
+        tracing::info!("   ✓ {}: {} (factor: {})", name, description, factor);
     }
 
     tracing::info!("\n✨ Smoothness Levels:");
@@ -281,9 +275,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing::info!("   • Performance Optimized: Efficient generation for all smoothness levels");
 
     tracing::info!("\n✅ Comprehensive arc demonstration complete!");
-    tracing::info!(
-        "   All outputs organized in output/examples/comprehensive_arc_demo/"
-    );
+    tracing::info!("   All outputs organized in output/examples/comprehensive_arc_demo/");
 
     Ok(())
 }

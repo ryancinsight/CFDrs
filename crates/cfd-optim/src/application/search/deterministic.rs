@@ -60,18 +60,20 @@ mod tests {
             .expect("at least one ga candidate");
 
         let option1_ranked = rank_blueprint_candidates(
-            crate::OptimizationGoal::SelectiveAcousticResidenceSeparation,
+            crate::OptimizationGoal::AsymmetricSplitResidenceSeparation,
             &option1_candidates,
         )
         .expect("option1 evaluation");
         let option2_ranked = rank_blueprint_candidates(
-            crate::OptimizationGoal::SelectiveVenturiCavitation,
+            crate::OptimizationGoal::AsymmetricSplitVenturiCavitationSelectivity,
             &[option2.clone()],
         )
         .expect("option2 evaluation");
-        let ga_ranked =
-            rank_blueprint_candidates(crate::OptimizationGoal::BlueprintGeneticRefinement, &[ga])
-                .expect("ga evaluation");
+        let ga_ranked = rank_blueprint_candidates(
+            crate::OptimizationGoal::InPlaceDeanSerpentineRefinement,
+            &[ga],
+        )
+        .expect("ga evaluation");
 
         assert_eq!(option1_ranked.len(), 1);
         assert_eq!(option2_ranked.len(), 1);
@@ -99,7 +101,7 @@ mod tests {
         assert_eq!(candidates[0].treatment_channel_ids().len(), 5);
         assert_eq!(
             candidates[0].inferred_goal(),
-            crate::OptimizationGoal::SelectiveVenturiCavitation
+            crate::OptimizationGoal::AsymmetricSplitVenturiCavitationSelectivity
         );
     }
 
@@ -124,7 +126,7 @@ mod tests {
         assert!(topology.has_parallel_paths());
         assert_eq!(
             candidates[0].inferred_goal(),
-            crate::OptimizationGoal::SelectiveAcousticResidenceSeparation
+            crate::OptimizationGoal::AsymmetricSplitResidenceSeparation
         );
     }
 
@@ -134,7 +136,7 @@ mod tests {
             canonical_option2_candidate("option2", operating_point(2.4e-6, 32_000.0, 0.12));
         let fresh = crate::evaluate_goal(
             &candidate,
-            crate::OptimizationGoal::SelectiveVenturiCavitation,
+            crate::OptimizationGoal::AsymmetricSplitVenturiCavitationSelectivity,
         )
         .expect("fresh evaluation");
         let serialized = candidate.blueprint.to_json().expect("serialize");
@@ -147,7 +149,7 @@ mod tests {
         );
         let roundtrip = crate::evaluate_goal(
             &restored,
-            crate::OptimizationGoal::SelectiveVenturiCavitation,
+            crate::OptimizationGoal::AsymmetricSplitVenturiCavitationSelectivity,
         )
         .expect("roundtrip evaluation");
 

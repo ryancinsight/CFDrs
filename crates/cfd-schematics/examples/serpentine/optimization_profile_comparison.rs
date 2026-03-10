@@ -6,7 +6,6 @@ use cfd_schematics::{
 mod shared;
 
 fn main() {
-
     let config = GeometryConfig::default();
     let splits = vec![SplitType::Bifurcation];
     let box_dims = (200.0, 100.0);
@@ -26,7 +25,11 @@ fn main() {
     let standard_time = start_time.elapsed();
     let standard_length = calculate_total_length(&standard_system);
 
-    shared::save_example_output_with_name(&standard_system, "optimization_profile_comparison", "profile_standard");
+    shared::save_example_output_with_name(
+        &standard_system,
+        "optimization_profile_comparison",
+        "profile_standard",
+    );
 
     tracing::info!("   Generation time: {:?}", standard_time);
     tracing::info!("   Total length:    {:.2} mm", standard_length);
@@ -44,7 +47,11 @@ fn main() {
     let fast_length = calculate_total_length(&fast_system);
     let fast_improvement = ((fast_length - standard_length) / standard_length) * 100.0;
 
-    shared::save_example_output_with_name(&fast_system, "optimization_profile_comparison", "profile_fast");
+    shared::save_example_output_with_name(
+        &fast_system,
+        "optimization_profile_comparison",
+        "profile_fast",
+    );
 
     tracing::info!("   Generation time: {:?}", fast_time);
     tracing::info!("   Total length:    {:.2} mm", fast_length);
@@ -67,7 +74,11 @@ fn main() {
     let balanced_length = calculate_total_length(&balanced_system);
     let balanced_improvement = ((balanced_length - standard_length) / standard_length) * 100.0;
 
-    shared::save_example_output_with_name(&balanced_system, "optimization_profile_comparison", "profile_balanced");
+    shared::save_example_output_with_name(
+        &balanced_system,
+        "optimization_profile_comparison",
+        "profile_balanced",
+    );
 
     tracing::info!("   Generation time: {:?}", balanced_time);
     tracing::info!("   Total length:    {:.2} mm", balanced_length);
@@ -90,7 +101,11 @@ fn main() {
     let thorough_length = calculate_total_length(&thorough_system);
     let thorough_improvement = ((thorough_length - standard_length) / standard_length) * 100.0;
 
-    shared::save_example_output_with_name(&thorough_system, "optimization_profile_comparison", "profile_thorough");
+    shared::save_example_output_with_name(
+        &thorough_system,
+        "optimization_profile_comparison",
+        "profile_thorough",
+    );
 
     tracing::info!("   Generation time: {:?}", thorough_time);
     tracing::info!("   Total length:    {:.2} mm", thorough_length);
@@ -123,7 +138,11 @@ fn main() {
     let custom_length = calculate_total_length(&custom_system);
     let custom_improvement = ((custom_length - standard_length) / standard_length) * 100.0;
 
-    shared::save_example_output_with_name(&custom_system, "optimization_profile_comparison", "profile_custom");
+    shared::save_example_output_with_name(
+        &custom_system,
+        "optimization_profile_comparison",
+        "profile_custom",
+    );
 
     tracing::info!("   Generation time: {:?}", custom_time);
     tracing::info!("   Total length:    {:.2} mm", custom_length);

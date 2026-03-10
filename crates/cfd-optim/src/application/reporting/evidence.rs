@@ -61,9 +61,9 @@ pub fn validate_canonical_manifest(manifest: &EvidenceRunManifest) -> Result<(),
     }
 
     for goal in [
-        OptimizationGoal::SelectiveAcousticResidenceSeparation,
-        OptimizationGoal::SelectiveVenturiCavitation,
-        OptimizationGoal::BlueprintGeneticRefinement,
+        OptimizationGoal::AsymmetricSplitResidenceSeparation,
+        OptimizationGoal::AsymmetricSplitVenturiCavitationSelectivity,
+        OptimizationGoal::InPlaceDeanSerpentineRefinement,
     ] {
         let evidence = manifest
             .goals
@@ -200,13 +200,13 @@ mod tests {
     fn sample_candidate(goal: OptimizationGoal) -> BlueprintCandidate {
         let operating_point = operating_point(2.0e-6, 30_000.0, 0.18);
         match goal {
-            OptimizationGoal::SelectiveAcousticResidenceSeparation => {
+            OptimizationGoal::AsymmetricSplitResidenceSeparation => {
                 canonical_option1_candidate(format!("{goal:?}"), operating_point)
             }
-            OptimizationGoal::SelectiveVenturiCavitation => {
+            OptimizationGoal::AsymmetricSplitVenturiCavitationSelectivity => {
                 canonical_option2_candidate(format!("{goal:?}"), operating_point)
             }
-            OptimizationGoal::BlueprintGeneticRefinement => crate::generate_ga_mutations(
+            OptimizationGoal::InPlaceDeanSerpentineRefinement => crate::generate_ga_mutations(
                 &canonical_option2_candidate("ga-seed", operating_point),
             )
             .expect("ga mutations")
@@ -271,8 +271,8 @@ mod tests {
 
     #[test]
     fn official_report_generation_rejects_missing_evidence() {
-        let candidate = sample_candidate(OptimizationGoal::SelectiveAcousticResidenceSeparation);
-        let evaluation = sample_evaluation(OptimizationGoal::SelectiveAcousticResidenceSeparation);
+        let candidate = sample_candidate(OptimizationGoal::AsymmetricSplitResidenceSeparation);
+        let evaluation = sample_evaluation(OptimizationGoal::AsymmetricSplitResidenceSeparation);
         let manifest = EvidenceRunManifest {
             run_label: "missing-evidence".to_string(),
             validation: ValidationEvidence {
@@ -288,16 +288,16 @@ mod tests {
     #[test]
     fn canonical_report_generation_contains_complete_appendices() {
         let goals = [
-            OptimizationGoal::SelectiveAcousticResidenceSeparation,
-            OptimizationGoal::SelectiveVenturiCavitation,
-            OptimizationGoal::BlueprintGeneticRefinement,
+            OptimizationGoal::AsymmetricSplitResidenceSeparation,
+            OptimizationGoal::AsymmetricSplitVenturiCavitationSelectivity,
+            OptimizationGoal::InPlaceDeanSerpentineRefinement,
         ];
         let goal_evidence = goals
             .into_iter()
             .map(|goal| {
                 let candidate = sample_candidate(goal);
                 let mut evaluation = sample_evaluation(goal);
-                if goal != OptimizationGoal::SelectiveAcousticResidenceSeparation {
+                if goal != OptimizationGoal::AsymmetricSplitResidenceSeparation {
                     evaluation.venturi.placements = vec![VenturiPlacementMetrics {
                         placement_id: "p0".to_string(),
                         target_channel_id: "stage0_ctc".to_string(),

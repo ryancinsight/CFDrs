@@ -21,9 +21,11 @@ fn selective_venturi_spec() -> BlueprintTopologySpec {
         outlet_width_m: 3.0e-3,
         trunk_length_m: 20.0e-3,
         outlet_tail_length_m: 14.0e-3,
+        series_channels: vec![],
+        parallel_channels: vec![],
         split_stages: vec![SplitStageSpec {
             stage_id: "stage0".to_string(),
-            split_kind: SplitKind::Trifurcation,
+            split_kind: SplitKind::NFurcation(3),
             branches: vec![
                 BranchSpec {
                     label: "wbc".to_string(),

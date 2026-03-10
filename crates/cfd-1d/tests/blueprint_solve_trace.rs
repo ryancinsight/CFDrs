@@ -142,7 +142,7 @@ fn series_circuit_pressure_drop_matches_kirchhoff() {
     let mut bp = NetworkBlueprint::new("series");
     bp.add_node(node("inlet", NodeKind::Inlet, 0.0, 0.0));
     bp.add_node(node("outlet", NodeKind::Outlet, 100.0, 0.0));
-    bp.add_channel(pipe("pipe1", "inlet", "outlet", L_M, D_M));
+    bp.add_channel(pipe("pipe1", "inlet", "outlet", L_M, D_M).with_path(vec![(0.0, 0.0), (100.0, 0.0)]));
 
     let network = solve_dirichlet(&bp, &[("inlet", P_IN), ("outlet", P_OUT)]);
 
@@ -192,12 +192,12 @@ fn symmetric_bifurcation_flow_distribution_and_mass_conservation() {
     let mut bp = NetworkBlueprint::new("bifurcation");
     bp.add_node(node("inlet", NodeKind::Inlet, 0.0, 0.0));
     bp.add_node(node("junction", NodeKind::Junction, 50.0, 0.0));
-    bp.add_node(node("out_L", NodeKind::Outlet, 100.0, -10.0));
-    bp.add_node(node("out_R", NodeKind::Outlet, 100.0, 10.0));
+    bp.add_node(node("out_L", NodeKind::Outlet, 90.0, -30.0));
+    bp.add_node(node("out_R", NodeKind::Outlet, 90.0, 30.0));
 
-    bp.add_channel(pipe("trunk", "inlet", "junction", L_M, D_M));
-    bp.add_channel(pipe("branch_L", "junction", "out_L", L_M, D_M));
-    bp.add_channel(pipe("branch_R", "junction", "out_R", L_M, D_M));
+    bp.add_channel(pipe("trunk", "inlet", "junction", L_M, D_M).with_path(vec![(0.0, 0.0), (50.0, 0.0)]));
+    bp.add_channel(pipe("branch_L", "junction", "out_L", L_M, D_M).with_path(vec![(50.0, 0.0), (90.0, -30.0)]));
+    bp.add_channel(pipe("branch_R", "junction", "out_R", L_M, D_M).with_path(vec![(50.0, 0.0), (90.0, 30.0)]));
 
     let network = solve_dirichlet(&bp, &[("inlet", P_IN), ("out_L", P_OUT), ("out_R", P_OUT)]);
 
@@ -280,11 +280,11 @@ fn asymmetric_bifurcation_flow_ratio_matches_resistance_ratio() {
 
     let mut bp = NetworkBlueprint::new("asym_bifurcation");
     bp.add_node(node("junction", NodeKind::Inlet, 0.0, 0.0));
-    bp.add_node(node("out_wide", NodeKind::Outlet, 50.0, -10.0));
-    bp.add_node(node("out_narr", NodeKind::Outlet, 50.0, 10.0));
+    bp.add_node(node("out_wide", NodeKind::Outlet, 40.0, -30.0));
+    bp.add_node(node("out_narr", NodeKind::Outlet, 40.0, 30.0));
 
-    bp.add_channel(pipe("branch_wide", "junction", "out_wide", L_M, D_WIDE));
-    bp.add_channel(pipe("branch_narr", "junction", "out_narr", L_M, D_NARROW));
+    bp.add_channel(pipe("branch_wide", "junction", "out_wide", L_M, D_WIDE).with_path(vec![(0.0, 0.0), (40.0, -30.0)]));
+    bp.add_channel(pipe("branch_narr", "junction", "out_narr", L_M, D_NARROW).with_path(vec![(0.0, 0.0), (40.0, 30.0)]));
 
     let network = solve_dirichlet(
         &bp,

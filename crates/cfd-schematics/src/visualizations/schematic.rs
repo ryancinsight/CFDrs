@@ -65,6 +65,32 @@ pub fn plot_blueprint_auto_annotated(
     plot_blueprint_with_annotations(blueprint, output_path, config, &annotations)
 }
 
+pub(crate) fn materialize_blueprint_layout(blueprint: &mut NetworkBlueprint) {
+    let box_dims = blueprint.box_dims;
+    let (node_points, auto_layout_used) = blueprint_node_positions(blueprint, box_dims);
+    let channel_paths = resolved_channel_paths(blueprint, &node_points, box_dims);
+
+    for node in &mut blueprint.nodes {
+        let Some(&(x_mm, y_mm)) = node_points.get(node.id.as_str()) else {
+            continue;
+        };
+        if auto_layout_used.contains_key(node.id.as_str()) {
+            let layout = NodeLayoutMetadata { x_mm, y_mm };
+            node.point = (x_mm, y_mm);
+            node.layout = Some(layout);
+            node.metadata
+                .get_or_insert_with(crate::geometry::metadata::MetadataContainer::new)
+                .insert(layout);
+        }
+    }
+
+    for (channel, path) in blueprint.channels.iter_mut().zip(channel_paths) {
+        if channel.path.is_empty() && path.len() >= 2 {
+            channel.path = path;
+        }
+    }
+}
+
 pub(crate) fn channel_system_from_blueprint(
     blueprint: &NetworkBlueprint,
     box_dims_hint: Option<(f64, f64)>,
@@ -79,18 +105,10 @@ pub(crate) fn channel_system_from_blueprint(
     }
     let mut channel_paths = Vec::with_capacity(blueprint.channels.len());
     let mut channel_categories = Vec::with_capacity(blueprint.channels.len());
+    let resolved_paths = resolved_channel_paths(blueprint, &node_points, box_dims);
 
-    for channel_spec in &blueprint.channels {
-        let from = node_points
-            .get(channel_spec.from.as_str())
-            .copied()
-            .unwrap_or((box_dims.0 * 0.5, box_dims.1 * 0.5));
-        let to = node_points
-            .get(channel_spec.to.as_str())
-            .copied()
-            .unwrap_or((box_dims.0 * 0.5, box_dims.1 * 0.5));
+    for (channel_spec, raw_path) in blueprint.channels.iter().zip(resolved_paths) {
         let category = channel_category_from_blueprint(channel_spec);
-        let raw_path = explicit_or_generated_path(channel_spec, from, to);
         channel_paths.push(render_path_for_display(&raw_path, category, box_dims));
         channel_categories.push(category);
     }
@@ -143,6 +161,56 @@ fn blueprint_node_positions(
         node_points.insert(node_spec.id.as_str().to_string(), point);
     }
     (node_points, auto_layout_used)
+}
+
+fn resolved_channel_paths(
+    blueprint: &NetworkBlueprint,
+    node_points: &HashMap<String, Point2D>,
+    box_dims: (f64, f64),
+) -> Vec<Vec<Point2D>> {
+    let parallel_groups = parallel_channel_groups(blueprint);
+    let default_point = (box_dims.0 * 0.5, box_dims.1 * 0.5);
+
+    blueprint
+        .channels
+        .iter()
+        .enumerate()
+        .map(|(channel_idx, channel_spec)| {
+            let from = node_points
+                .get(channel_spec.from.as_str())
+                .copied()
+                .unwrap_or(default_point);
+            let to = node_points
+                .get(channel_spec.to.as_str())
+                .copied()
+                .unwrap_or(default_point);
+            let key = (
+                channel_spec.from.as_str().to_string(),
+                channel_spec.to.as_str().to_string(),
+            );
+            let parallel_slot = parallel_groups.get(&key).and_then(|indices| {
+                indices
+                    .iter()
+                    .position(|idx| *idx == channel_idx)
+                    .map(|slot| (slot, indices.len()))
+            });
+            explicit_or_generated_path(channel_spec, from, to, parallel_slot, box_dims)
+        })
+        .collect()
+}
+
+fn parallel_channel_groups(blueprint: &NetworkBlueprint) -> HashMap<(String, String), Vec<usize>> {
+    let mut groups: HashMap<(String, String), Vec<usize>> = HashMap::new();
+    for (channel_idx, channel) in blueprint.channels.iter().enumerate() {
+        groups
+            .entry((
+                channel.from.as_str().to_string(),
+                channel.to.as_str().to_string(),
+            ))
+            .or_default()
+            .push(channel_idx);
+    }
+    groups
 }
 
 /// Serialisable record saved as `{stem}_layout.json` whenever the topological
@@ -388,6 +456,8 @@ fn explicit_or_generated_path(
     channel_spec: &crate::domain::model::ChannelSpec,
     from: Point2D,
     to: Point2D,
+    parallel_slot: Option<(usize, usize)>,
+    box_dims: (f64, f64),
 ) -> Vec<Point2D> {
     if !channel_spec.path.is_empty() {
         return channel_spec.path.clone();
@@ -402,6 +472,10 @@ fn explicit_or_generated_path(
         return path;
     }
 
+    if let Some((slot, count)) = parallel_slot.filter(|(_, count)| *count > 1) {
+        return generated_parallel_path(from, to, slot, count, box_dims);
+    }
+
     match channel_spec.channel_shape {
         crate::domain::model::ChannelShape::Serpentine {
             segments,
@@ -409,6 +483,46 @@ fn explicit_or_generated_path(
         } => generated_serpentine_path(from, to, segments, bend_radius_m * 1.0e3),
         crate::domain::model::ChannelShape::Straight => vec![from, to],
     }
+}
+
+fn generated_parallel_path(
+    start: Point2D,
+    end: Point2D,
+    slot: usize,
+    count: usize,
+    box_dims: (f64, f64),
+) -> Vec<Point2D> {
+    if count <= 1 {
+        return vec![start, end];
+    }
+
+    let dx = end.0 - start.0;
+    let dy = end.1 - start.1;
+    let length = dx.hypot(dy);
+    if length <= 1e-9 {
+        return vec![start, end];
+    }
+
+    let nx = -dy / length;
+    let ny = dx / length;
+    let base_spacing_mm = (length * 0.18).clamp(6.0, box_dims.1 * 0.18);
+    let centered_slot = slot as f64 - (count as f64 - 1.0) * 0.5;
+    let spread = if count == 2 { 2.0 } else { 1.0 };
+    let offset_mm = centered_slot * base_spacing_mm * spread;
+    if offset_mm.abs() <= 1e-9 {
+        return vec![start, end];
+    }
+
+    let shoulder = 0.28;
+    let entry = (
+        start.0 + dx * shoulder + nx * offset_mm,
+        start.1 + dy * shoulder + ny * offset_mm,
+    );
+    let exit = (
+        end.0 - dx * shoulder + nx * offset_mm,
+        end.1 - dy * shoulder + ny * offset_mm,
+    );
+    vec![start, entry, exit, end]
 }
 
 fn channel_category_from_blueprint(

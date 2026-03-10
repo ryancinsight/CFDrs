@@ -230,8 +230,8 @@ pub fn tri_asymmetric_q_fracs(
 #[derive(Debug, Clone, Copy)]
 pub struct CascadeStage {
     /// Flow fractions for all arms; first entry is the treatment arm.
-    pub arm_q_fracs: [f64; 3],
-    /// Number of active arms (2 = bifurcation, 3 = trifurcation).
+    pub arm_q_fracs: [f64; 5],
+    /// Number of active arms (2 = bifurcation, 3 = trifurcation, 4 = quad, 5 = penta).
     pub n_arms: u8,
     /// Hydraulic diameter of the treatment arm [m] at this stage.
     /// Used to compute κ = cell_diameter / Dh for β amplification.
@@ -730,7 +730,7 @@ pub fn mixed_cascade_separation_kappa_aware(stages: &[CascadeStage]) -> CascadeJ
         .min(3.0);
         let beta_rbc = beta_kappa_adjusted(SE_RBC, D_RBC_M / dh);
 
-        let n = stage.n_arms.clamp(2, 3) as usize;
+        let n = stage.n_arms.clamp(2, 5) as usize;
         let arms = &stage.arm_q_fracs[..n];
 
         f_cancer *= p_arm_general(arms, 0, beta_cancer);
@@ -1087,7 +1087,7 @@ mod tests {
         let dh = 2.0 * w_center * h / (w_center + h);
 
         let stage = CascadeStage {
-            arm_q_fracs: [q, q_p, q_p],
+            arm_q_fracs: [q, q_p, q_p, 0.0, 0.0],
             n_arms: 3,
             treatment_dh_m: dh,
         };
@@ -1120,7 +1120,7 @@ mod tests {
         let h = 1e-3_f64;
         let dh = 2.0 * w_center * h / (w_center + h);
         let stage = CascadeStage {
-            arm_q_fracs: [q_c, q_l, q_r],
+            arm_q_fracs: [q_c, q_l, q_r, 0.0, 0.0],
             n_arms: 3,
             treatment_dh_m: dh,
         };
@@ -1148,7 +1148,7 @@ mod tests {
             let q_c = tri_center_q_frac_cross_junction(center_frac, parent_w, h);
             let q_p = (1.0 - q_c) / 2.0;
             stages.push(CascadeStage {
-                arm_q_fracs: [q_c, q_p, q_p],
+                arm_q_fracs: [q_c, q_p, q_p, 0.0, 0.0],
                 n_arms: 3,
                 treatment_dh_m: dh,
             });
@@ -1220,7 +1220,7 @@ mod tests {
         let dh = 2.0 * w_center * h / (w_center + h);
 
         let stage = CascadeStage {
-            arm_q_fracs: [q, q_p, q_p],
+            arm_q_fracs: [q, q_p, q_p, 0.0, 0.0],
             n_arms: 3,
             treatment_dh_m: dh,
         };
@@ -1270,12 +1270,12 @@ mod tests {
 
         let stages = vec![
             CascadeStage {
-                arm_q_fracs: arm_q_1,
+                arm_q_fracs: [arm_q_1[0], arm_q_1[1], arm_q_1[2], 0.0, 0.0],
                 n_arms: 3,
                 treatment_dh_m: dh_1,
             },
             CascadeStage {
-                arm_q_fracs: arm_q_2,
+                arm_q_fracs: [arm_q_2[0], arm_q_2[1], arm_q_2[2], 0.0, 0.0],
                 n_arms: 3,
                 treatment_dh_m: dh_2,
             },
@@ -1349,12 +1349,12 @@ mod tests {
 
         let stages = vec![
             CascadeStage {
-                arm_q_fracs: arm_q_1,
+                arm_q_fracs: [arm_q_1[0], arm_q_1[1], arm_q_1[2], 0.0, 0.0],
                 n_arms: 3,
                 treatment_dh_m: dh_1,
             },
             CascadeStage {
-                arm_q_fracs: arm_q_2,
+                arm_q_fracs: [arm_q_2[0], arm_q_2[1], arm_q_2[2], 0.0, 0.0],
                 n_arms: 3,
                 treatment_dh_m: dh_2,
             },

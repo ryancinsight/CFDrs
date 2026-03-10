@@ -114,7 +114,7 @@ fn main() {
 
     tracing::info!("\n── Interchange JSON ──────────────────────────────────────────");
     tracing::info!("{json}");
-    
+
     let json_path = output_dir.join("shell_cuboid_demo.json");
     fs::write(&json_path, &json).expect("failed to write json");
     tracing::info!("Saved files to {}", output_dir.display());

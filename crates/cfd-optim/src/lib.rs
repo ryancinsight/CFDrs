@@ -107,6 +107,11 @@ pub use application::search::genetic::{
     generate_ga_mutations, seed_option2_candidates, BlueprintEvolutionResult,
     BlueprintGeneticOptimizer, BlueprintRankedCandidate,
 };
+pub use application::orchestration::{
+    blueprint_lineage_key as orchestration_lineage_key, fast_env, fast_mode,
+    ga_matches_lineage_sequence, init_tracing, is_selective_report_topology, option2_mode,
+    report_eligible_venturi_oncology, resolve_output_directories, save_figure, ScanProgress,
+};
 pub use application::search::pool::EvaluatedPool;
 pub use constraints::{BLOOD_DENSITY_KG_M3, BLOOD_VAPOR_PRESSURE_PA, P_ATM_PA};
 pub use delivery::{
@@ -125,8 +130,9 @@ pub use metrics::{
 };
 pub use reporting::{
     compute_blueprint_report_metrics, is_milestone12_lineage_topology, milestone12_lineage_key,
-    pct_diff, shortlist_report_designs, sort_report_designs, validate_milestone12_candidate,
-    write_milestone12_narrative_report, write_milestone12_results, Milestone12LineageKey,
-    Milestone12NarrativeInput, Milestone12ReportDesign, Milestone12Stage, ValidationRow,
+    pct_diff, run_milestone12_validation, shortlist_report_designs, sort_report_designs,
+    validate_milestone12_candidate, write_milestone12_narrative_report, write_milestone12_results,
+    Milestone12LineageKey, Milestone12NarrativeInput, Milestone12ReportDesign, Milestone12Stage,
+    ValidationRow,
 };
 pub use scoring::{score_candidate, score_description, OptimMode, SdtWeights};

@@ -7,9 +7,7 @@ use cfd_schematics::domain::model::NetworkBlueprint;
 /// # Errors
 /// Returns an error when the blueprint fails 1D graph validation or when the
 /// routed geometry is unsuitable for 2D projection.
-pub fn validate_blueprint_for_2d_projection(
-    blueprint: &NetworkBlueprint,
-) -> CfdResult<()> {
+pub fn validate_blueprint_for_2d_projection(blueprint: &NetworkBlueprint) -> CfdResult<()> {
     cfd_1d::validate_blueprint_for_1d_solve(blueprint)?;
 
     if blueprint.has_unresolved_channel_overlaps() {

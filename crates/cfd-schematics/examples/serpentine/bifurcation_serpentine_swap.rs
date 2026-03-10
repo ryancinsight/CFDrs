@@ -40,7 +40,12 @@ fn main() {
         SplitType::Bifurcation,
         SplitType::Bifurcation,
     ];
-    let base = create_geometry(box_dims, &splits, &GeometryConfig::default(), &ChannelTypeConfig::default());
+    let base = create_geometry(
+        box_dims,
+        &splits,
+        &GeometryConfig::default(),
+        &ChannelTypeConfig::default(),
+    );
 
     println!(
         "Base blueprint: {} nodes, {} channels",
@@ -56,7 +61,11 @@ fn main() {
     let config = RenderConfig::default();
 
     // Render the base (all straight).
-    shared::save_example_output_with_name(&base, "bifurcation_serpentine_swap", "00_base_bifurcation");
+    shared::save_example_output_with_name(
+        &base,
+        "bifurcation_serpentine_swap",
+        "00_base_bifurcation",
+    );
 
     // For each leaf pair, swap both segments to serpentine and render.
     for (i, &(left_idx, right_idx)) in leaf_pairs.iter().enumerate() {
@@ -88,11 +97,8 @@ fn main() {
 /// by y-position.
 fn find_leaf_channel_pairs(bp: &NetworkBlueprint) -> Vec<(usize, usize)> {
     use std::collections::HashMap;
-    let node_pos: HashMap<&str, (f64, f64)> = bp
-        .nodes
-        .iter()
-        .map(|n| (n.id.as_str(), n.point))
-        .collect();
+    let node_pos: HashMap<&str, (f64, f64)> =
+        bp.nodes.iter().map(|n| (n.id.as_str(), n.point)).collect();
 
     let half_x = bp.box_dims.0 * 0.5;
     let tol = 1e-3;
@@ -106,8 +112,7 @@ fn find_leaf_channel_pairs(bp: &NetworkBlueprint) -> Vec<(usize, usize)> {
         let to = node_pos.get(ch.to.as_str());
         if let (Some(&(fx, fy)), Some(&(tx, ty))) = (from, to) {
             let horizontal = (fy - ty).abs() < tol;
-            let touches_center =
-                (fx - half_x).abs() < tol || (tx - half_x).abs() < tol;
+            let touches_center = (fx - half_x).abs() < tol || (tx - half_x).abs() < tol;
             if horizontal && touches_center {
                 #[allow(clippy::cast_possible_truncation)]
                 let y_key = (fy * 1e6) as i64;
@@ -123,10 +128,7 @@ fn find_leaf_channel_pairs(bp: &NetworkBlueprint) -> Vec<(usize, usize)> {
         .map(|(y_key, indices)| {
             let (a, b) = (indices[0], indices[1]);
             // Left channel has from.x < half_x, right has from.x >= half_x.
-            let fa = node_pos
-                .get(bp.channels[a].from.as_str())
-                .unwrap()
-                .0;
+            let fa = node_pos.get(bp.channels[a].from.as_str()).unwrap().0;
             if fa < half_x {
                 (y_key, a, b)
             } else {

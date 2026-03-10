@@ -6,8 +6,9 @@
 //!
 //! # Parts
 //! 1. **Two-concept selection** — parametric sweep over shared selective
-//!    center-enrichment layouts, ranked by SelectiveAcousticTherapy
-//!    (Option 1) and CombinedSdtLeukapheresis (Option 2), top-5 each.
+//!    center-enrichment layouts, ranked by AsymmetricSplitResidenceSeparation
+//!    (Option 1) and AsymmetricSplitVenturiCavitationSelectivity (Option 2),
+//!    top-5 each.
 //! 2. **GA warm-start search** — top-100 parametric seeds → HydrodynamicCavitationSDT GA
 //!    (pop=80, gen=120) for deeper optimisation of venturi-cavitation designs.
 //! 3. **Robustness screening** — +/-10 % / +/-20 % operating-point perturbations on
@@ -30,20 +31,22 @@
 use cfd_optim::{
     build_milestone12_blueprint_candidate_space, compute_blueprint_report_metrics,
     evaluate_blueprint_candidate, evaluate_blueprint_genetic_refinement,
-    is_milestone12_lineage_topology, milestone12_lineage_key, robustness_sweep_blueprint,
-    save_blueprint_schematic_svg, save_top5_report_json, score_candidate, shortlist_report_designs,
+    evaluate_selective_acoustic_residence_separation, ga_matches_lineage_sequence, init_tracing,
+    is_selective_report_topology, milestone12_lineage_key, option2_mode,
+    report_eligible_venturi_oncology, resolve_output_directories, robustness_sweep_blueprint,
+    run_milestone12_validation, save_figure, save_top5_report_json, score_candidate,
     sort_report_designs, validate_milestone12_candidate, write_milestone12_narrative_report,
     write_milestone12_results, BlueprintCandidate, BlueprintGeneticOptimizer,
     Milestone12LineageKey, Milestone12NarrativeInput, Milestone12ReportDesign, Milestone12Stage,
-    OptimMode, OptimizationGoal, RobustnessReport, SdtMetrics, SdtWeights, ValidationRow,
+    OptimMode, OptimizationGoal, RobustnessReport, ScanProgress, SdtMetrics, SdtWeights,
     STANDARD_PERTURBATIONS,
 };
 use cfd_schematics::NetworkBlueprint;
 use rayon::prelude::*;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
-use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::path::Path;
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -84,144 +87,143 @@ struct RunConfig {
     ga_generations: usize,
 }
 
-struct ScanProgress {
-    label: &'static str,
-    total: usize,
-    started_at: Instant,
-    processed: AtomicUsize,
-    next_log_at: AtomicUsize,
-    log_step: usize,
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
+enum ReportStage {
+    Option1,
+    Option2,
+    Ga,
+    Validation,
 }
 
-impl ScanProgress {
-    fn new(label: &'static str, total: usize) -> Self {
-        let log_step = if total <= 25 {
-            1
-        } else {
-            (total / 20).clamp(25, 1_000)
-        };
-        tracing::info!(
-            "      {label}: starting {} candidate evaluations (heartbeat every {} candidates)",
-            total,
-            log_step
-        );
-        Self {
-            label,
-            total,
-            started_at: Instant::now(),
-            processed: AtomicUsize::new(0),
-            next_log_at: AtomicUsize::new(log_step.min(total.max(1))),
-            log_step,
-        }
-    }
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct StageArtifact {
+    stage: String,
+    path: String,
+}
 
-    fn record(&self) {
-        let processed = self.processed.fetch_add(1, Ordering::Relaxed) + 1;
-        loop {
-            let next_log_at = self.next_log_at.load(Ordering::Relaxed);
-            if processed < next_log_at && processed < self.total {
-                break;
-            }
-            let new_next = (next_log_at + self.log_step).min(self.total.max(1));
-            match self.next_log_at.compare_exchange(
-                next_log_at,
-                new_next,
-                Ordering::Relaxed,
-                Ordering::Relaxed,
-            ) {
-                Ok(_) => {
-                    self.log(processed);
-                    break;
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct InputHash {
+    name: String,
+    sha256: String,
+}
+
+#[derive(Debug, Default, Serialize, Deserialize)]
+struct StageManifest {
+    #[serde(default)]
+    requested_stages: Vec<String>,
+    #[serde(default)]
+    input_hashes: Vec<InputHash>,
+    selected_lineage: Option<String>,
+    total_candidates: Option<usize>,
+    option1_pool_len: Option<usize>,
+    option2_pool_len: Option<usize>,
+    #[serde(default)]
+    artifacts: Vec<StageArtifact>,
+    #[serde(default)]
+    report_dependencies: Vec<String>,
+}
+
+#[derive(Debug, Default)]
+struct RequestedStages {
+    selected: HashSet<ReportStage>,
+}
+
+impl RequestedStages {
+    fn from_args() -> Self {
+        let mut requested = Self::default();
+        let mut args = std::env::args().skip(1);
+        while let Some(arg) = args.next() {
+            if arg == "--stages" {
+                if let Some(value) = args.next() {
+                    requested.apply_csv(&value);
                 }
-                Err(_) => continue,
+            }
+        }
+        if requested.selected.is_empty() {
+            requested.selected.extend([
+                ReportStage::Option1,
+                ReportStage::Option2,
+                ReportStage::Ga,
+                ReportStage::Validation,
+            ]);
+        }
+        requested
+    }
+
+    fn apply_csv(&mut self, csv: &str) {
+        for item in csv
+            .split(',')
+            .map(str::trim)
+            .filter(|item| !item.is_empty())
+        {
+            match item.to_ascii_lowercase().as_str() {
+                "all" => {
+                    self.selected.extend([
+                        ReportStage::Option1,
+                        ReportStage::Option2,
+                        ReportStage::Ga,
+                        ReportStage::Validation,
+                    ]);
+                }
+                "option1" => {
+                    self.selected.insert(ReportStage::Option1);
+                }
+                "option2" => {
+                    self.selected.insert(ReportStage::Option2);
+                }
+                "ga" => {
+                    self.selected.insert(ReportStage::Ga);
+                }
+                "validation" => {
+                    self.selected.insert(ReportStage::Validation);
+                }
+                _ => {}
             }
         }
     }
 
-    fn finish(&self) {
-        self.log(self.processed.load(Ordering::Relaxed));
+    fn includes(&self, stage: ReportStage) -> bool {
+        self.selected.contains(&stage)
     }
 
-    fn log(&self, processed: usize) {
-        let elapsed = self.started_at.elapsed().as_secs_f64().max(1.0e-9);
-        let pct = if self.total == 0 {
-            100.0
-        } else {
-            100.0 * processed as f64 / self.total as f64
-        };
-        let rate = processed as f64 / elapsed;
-        tracing::info!(
-            "      {}: {}/{} ({:.1}%) in {:.1}s [{:.1} candidates/s]",
-            self.label,
-            processed,
-            self.total,
-            pct,
-            elapsed,
-            rate
-        );
+    fn persist_option1(&self) -> bool {
+        self.includes(ReportStage::Option1)
+            || self.includes(ReportStage::Option2)
+            || self.includes(ReportStage::Ga)
+    }
+
+    fn persist_option2(&self) -> bool {
+        self.includes(ReportStage::Option2) || self.includes(ReportStage::Ga)
+    }
+
+    fn persist_ga(&self) -> bool {
+        self.includes(ReportStage::Ga)
+    }
+
+    fn persist_validation(&self) -> bool {
+        self.includes(ReportStage::Validation)
+    }
+
+    fn labels(&self) -> Vec<String> {
+        let mut labels = Vec::new();
+        for (stage, label) in [
+            (ReportStage::Option1, "option1"),
+            (ReportStage::Option2, "option2"),
+            (ReportStage::Ga, "ga"),
+            (ReportStage::Validation, "validation"),
+        ] {
+            if self.selected.contains(&stage) {
+                labels.push(label.to_string());
+            }
+        }
+        labels
     }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-fn report_eligible_nonventuri(metrics: &SdtMetrics) -> bool {
-    metrics.pressure_feasible
-        && metrics.plate_fits
-        && metrics.fda_main_compliant
-        && metrics.therapy_channel_fraction > 0.0
-}
-
-fn is_selective_report_topology(candidate: &BlueprintCandidate) -> bool {
-    is_milestone12_lineage_topology(candidate)
-}
-
-/// Relaxed lineage match for GA results: same `PrimitiveSelectiveTree` sequence
-/// as the selected lineage, but geometry parameters may differ (the GA mutates
-/// channel width, serpentine counts, etc. via SBX crossover).
-fn ga_matches_lineage_sequence(
-    candidate: &BlueprintCandidate,
-    selected_key: &Milestone12LineageKey,
-) -> bool {
-    candidate
-        .topology_spec()
-        .is_ok_and(|spec| spec.stage_sequence_label() == selected_key.stage_sequence_label())
-}
-
-fn report_eligible_venturi_oncology(metrics: &SdtMetrics) -> bool {
-    metrics.pressure_feasible
-        && metrics.plate_fits
-        && metrics.fda_main_compliant
-        && metrics.therapy_channel_fraction > 0.0
-        && metrics.cavitation_number < 1.0
-}
-
-fn report_option1_score(metrics: &SdtMetrics, weights: &SdtWeights) -> f64 {
-    let base = score_candidate(metrics, OptimMode::SelectiveAcousticTherapy, weights);
-    let dwell_tie_break = metrics.treatment_zone_dwell_time_s.max(0.0) * 1.0e-6;
-    let pressure_tie_break = metrics.total_pressure_drop_pa.max(0.0) * 1.0e-12;
-    base + dwell_tie_break - pressure_tie_break
-}
-
-fn option2_mode() -> OptimMode {
-    // Adult oncology patient (70 kg) — CTC treatment via hydrodynamic cavitation.
-    // Projected 15-min hemolysis scales with blood volume (≈ 5 600 mL for an
-    // adult vs 240 mL for a 3 kg neonate), producing a physically meaningful
-    // hi15_gate that doesn't collapse the score.
-    OptimMode::CombinedSdtLeukapheresis {
-        leuka_weight: 0.5,
-        sdt_weight: 0.5,
-        patient_weight_kg: 70.0,
-    }
-}
-
 fn run_config_from_env() -> RunConfig {
-    let fast_mode = std::env::var("M12_FAST")
-        .ok()
-        .map(|v| {
-            let s = v.trim().to_ascii_lowercase();
-            s == "1" || s == "true" || s == "yes"
-        })
-        .unwrap_or(false);
+    let fast_mode = cfd_optim::fast_mode();
     if fast_mode {
         let fast_stride = std::env::var("M12_FAST_STRIDE")
             .ok()
@@ -359,7 +361,7 @@ fn fast_mode_candidate_filter(c: &BlueprintCandidate) -> bool {
         .split_stages
         .iter()
         .rev()
-        .find(|stage| matches!(stage.split_kind, cfd_schematics::SplitKind::Trifurcation))
+        .find(|stage| matches!(stage.split_kind, cfd_schematics::SplitKind::NFurcation(3)))
         .and_then(|stage| {
             let stage_width = stage
                 .branches
@@ -374,8 +376,7 @@ fn fast_mode_candidate_filter(c: &BlueprintCandidate) -> bool {
         })
         .unwrap_or(first_stage_center_frac);
 
-    topology.first_stage_is_trifurcation()
-        && topology.is_selective_routing()
+    is_selective_report_topology(c)
         && (1..=4).contains(&(venturi.serial_throat_count as usize))
         && flow_ml_min >= 60.0
         && flow_ml_min <= 550.0
@@ -452,31 +453,98 @@ fn blueprint_matches_lineage(
     blueprint_lineage_key(candidate).as_ref() == Some(selected_key)
 }
 
+fn load_json_or_default<T>(path: &Path) -> Result<Vec<T>, Box<dyn std::error::Error>>
+where
+    T: for<'de> Deserialize<'de>,
+{
+    if !path.exists() {
+        return Ok(Vec::new());
+    }
+    Ok(serde_json::from_str(&std::fs::read_to_string(path)?)?)
+}
+
+fn load_stage_manifest(out_dir: &Path) -> Result<StageManifest, Box<dyn std::error::Error>> {
+    let path = out_dir.join("stage_manifest.json");
+    if !path.exists() {
+        return Ok(StageManifest::default());
+    }
+    Ok(serde_json::from_str(&std::fs::read_to_string(path)?)?)
+}
+
+fn write_stage_manifest(
+    out_dir: &Path,
+    requested: &RequestedStages,
+    input_hashes: Vec<InputHash>,
+    selected_lineage: Option<String>,
+    total_candidates: Option<usize>,
+    option1_pool_len: Option<usize>,
+    option2_pool_len: Option<usize>,
+    artifacts: Vec<StageArtifact>,
+    report_dependencies: Vec<String>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let manifest = StageManifest {
+        requested_stages: requested.labels(),
+        input_hashes,
+        selected_lineage,
+        total_candidates,
+        option1_pool_len,
+        option2_pool_len,
+        artifacts,
+        report_dependencies,
+    };
+    std::fs::write(
+        out_dir.join("stage_manifest.json"),
+        serde_json::to_string_pretty(&manifest)?,
+    )?;
+    Ok(())
+}
+
+fn stage_artifact(stage: &str, path: &Path) -> StageArtifact {
+    StageArtifact {
+        stage: stage.to_string(),
+        path: path.to_string_lossy().into_owned(),
+    }
+}
+
+fn sha256_hex(bytes: &[u8]) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(bytes);
+    format!("{:x}", hasher.finalize())
+}
+
+fn hash_named_value(name: impl Into<String>, value: impl AsRef<[u8]>) -> InputHash {
+    InputHash {
+        name: name.into(),
+        sha256: sha256_hex(value.as_ref()),
+    }
+}
+
+fn hash_existing_file(path: &Path) -> Option<InputHash> {
+    let bytes = std::fs::read(path).ok()?;
+    Some(InputHash {
+        name: path.to_string_lossy().into_owned(),
+        sha256: sha256_hex(&bytes),
+    })
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let _ = tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::builder()
-                .with_default_directive(tracing::Level::INFO.into())
-                .from_env_lossy(),
-        )
-        .try_init();
-
-    let workspace_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .expect("cfd-optim crate has a parent")
-        .parent()
-        .expect("crates/ has a workspace root")
-        .to_path_buf();
-
-    let out_dir = workspace_root.join("report").join("milestone12");
-    let figures_dir = workspace_root.join("report").join("figures");
-    std::fs::create_dir_all(&out_dir)?;
-    std::fs::create_dir_all(&figures_dir)?;
+    init_tracing();
+    let (workspace_root, out_dir, figures_dir) = resolve_output_directories()?;
+    let requested_stages = RequestedStages::from_args();
+    let prior_manifest = load_stage_manifest(&out_dir)?;
+    let option1_path = out_dir.join("two_concept_option1_ultrasound_top5.json");
+    let option2_path = out_dir.join("two_concept_option2_venturi_top5.json");
+    let ga_path = out_dir.join("ga_hydrosdt_top5.json");
+    let robustness_path = out_dir.join("option2_combined_robustness_top5.json");
+    let validation_path = out_dir.join("milestone12_validation_rows.json");
+    let summary_path = out_dir.join("two_concept_selection_summary.json");
+    let mut artifacts = Vec::new();
 
     tracing::info!("=== Milestone 12 Unified Report Generator ===\n");
     tracing::info!("Outputs: {}", out_dir.display());
+    tracing::info!("Stages: {}", requested_stages.labels().join(", "));
     let overall_start = Instant::now();
 
     let weights = SdtWeights::default();
@@ -680,19 +748,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             eval_count += 1;
             progress.record();
 
+            let option1_score = if is_acoustic && is_selective_report_topology(&blueprint_candidate)
+            {
+                let opt1 = evaluate_selective_acoustic_residence_separation(
+                    &blueprint_candidate,
+                    blueprint_evaluation.clone(),
+                );
+                if opt1.score > 0.0 {
+                    Some(opt1.score)
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
             let ga_score = evaluate_blueprint_genetic_refinement(
                 &blueprint_candidate,
                 blueprint_evaluation.clone(),
             )
             .map_or(0.0, |evaluation| evaluation.score);
-            let option1_score = if is_acoustic
-                && is_selective_report_topology(&blueprint_candidate)
-                && report_eligible_nonventuri(&metrics)
-            {
-                Some(report_option1_score(&metrics, &weights))
-            } else {
-                None
-            };
 
             let combined_score = if !is_acoustic
                 && is_selective_report_topology(&blueprint_candidate)
@@ -753,22 +827,28 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     };
                     progress_for_eval.record();
 
+                    let is_acoustic = !blueprint_candidate
+                        .topology_spec()
+                        .is_ok_and(cfd_schematics::BlueprintTopologySpec::has_venturi);
+                    let option1_score =
+                        if is_acoustic && is_selective_report_topology(&blueprint_candidate) {
+                            let opt1 = evaluate_selective_acoustic_residence_separation(
+                                &blueprint_candidate,
+                                blueprint_evaluation.clone(),
+                            );
+                            if opt1.score > 0.0 {
+                                Some(opt1.score)
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        };
                     let ga_score = evaluate_blueprint_genetic_refinement(
                         &blueprint_candidate,
                         blueprint_evaluation,
                     )
                     .map_or(0.0, |evaluation| evaluation.score);
-                    let is_acoustic = !blueprint_candidate
-                        .topology_spec()
-                        .is_ok_and(cfd_schematics::BlueprintTopologySpec::has_venturi);
-                    let option1_score = if is_acoustic
-                        && is_selective_report_topology(&blueprint_candidate)
-                        && report_eligible_nonventuri(&metrics)
-                    {
-                        Some(report_option1_score(&metrics, &weights))
-                    } else {
-                        None
-                    };
 
                     let combined_score = if !is_acoustic
                         && is_selective_report_topology(&blueprint_candidate)
@@ -796,7 +876,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         progress.finish();
         evaluated
     };
-    let option1_pool = evaluated.option1_pool;
+    let mut option1_pool = evaluated.option1_pool;
     let option2_pool = evaluated.option2_pool;
     let mut scored_seeds = evaluated.scored_seeds;
     let nonventuri_total = evaluated.nonventuri_total;
@@ -840,15 +920,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         sigma_lt1_fda_overall_ok,
         sigma_lt1_ppfda_overall_ok
     );
+    // Sort once and split the shortlist from the remainder, avoiding a full
+    // clone of option1_pool (each design holds ~10-20 KB BlueprintCandidate).
     let option1_shortlist_len = option1_pool.len().min(5);
-    let option1_shortlist_global = shortlist_report_designs(
-        option1_pool.clone(),
-        option1_shortlist_len,
-        "option1_ultrasound",
-    )?;
+    sort_report_designs(&mut option1_pool);
+    let option1_shortlist_global: Vec<Milestone12ReportDesign> =
+        option1_pool.drain(..option1_shortlist_len).collect();
+    // `option1_pool` now contains the remainder (designs NOT in the shortlist).
+    // We still need to index ALL designs by lineage — merge shortlist + remainder.
     let mut option1_by_lineage: HashMap<_, Vec<Milestone12ReportDesign>> = HashMap::new();
     let mut option2_by_lineage: HashMap<_, Vec<Milestone12ReportDesign>> = HashMap::new();
-    for design in option1_pool {
+    for design in option1_shortlist_global
+        .iter()
+        .cloned()
+        .chain(option1_pool.into_iter())
+    {
         if let Some(key) = blueprint_lineage_key(&design.candidate) {
             option1_by_lineage.entry(key).or_default().push(design);
         }
@@ -908,14 +994,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         design.rank = idx + 1;
     }
 
-    save_top5_report_json(
-        &option1_ranked,
-        &out_dir.join("two_concept_option1_ultrasound_top5.json"),
-    )?;
-    save_top5_report_json(
-        &option2_ranked,
-        &out_dir.join("two_concept_option2_venturi_top5.json"),
-    )?;
+    if requested_stages.persist_option1() {
+        save_top5_report_json(&option1_ranked, &option1_path)?;
+        artifacts.push(stage_artifact("option1", &option1_path));
+    } else if option1_path.exists() {
+        artifacts.push(stage_artifact("option1", &option1_path));
+    }
+    if requested_stages.persist_option2() {
+        save_top5_report_json(&option2_ranked, &option2_path)?;
+        artifacts.push(stage_artifact("option2", &option2_path));
+    } else if option2_path.exists() {
+        artifacts.push(stage_artifact("option2", &option2_path));
+    }
 
     tracing::info!(
         "      Option 1 (selective acoustic): {} (score={:.4})",
@@ -980,12 +1070,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         run_cfg.ga_generations
     );
 
-    let ga_result = BlueprintGeneticOptimizer::new(OptimizationGoal::BlueprintGeneticRefinement)
-        .with_seeds(seeds.clone())
-        .with_population(run_cfg.ga_population)
-        .with_max_generations(run_cfg.ga_generations)
-        .with_top_k(5)
-        .run()?;
+    let ga_result =
+        BlueprintGeneticOptimizer::new(OptimizationGoal::InPlaceDeanSerpentineRefinement)
+            .with_seeds(seeds.clone())
+            .with_population(run_cfg.ga_population)
+            .with_max_generations(run_cfg.ga_generations)
+            .with_top_k(5)
+            .run()?;
     for ranked in &ga_result.all_candidates {
         blueprint_by_id.insert(
             ranked.candidate.id.clone(),
@@ -1103,8 +1194,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ga_report_top[0].metrics.cavitation_number,
         ga_report_top[0].metrics.cancer_targeted_cavitation
     );
-    save_top5_report_json(&ga_report_top, &out_dir.join("ga_hydrosdt_top5.json"))?;
-    tracing::info!("      Saved: ga_hydrosdt_top5.json");
+    if requested_stages.persist_ga() {
+        save_top5_report_json(&ga_report_top, &ga_path)?;
+        artifacts.push(stage_artifact("ga", &ga_path));
+        tracing::info!("      Saved: ga_hydrosdt_top5.json");
+    } else if ga_path.exists() {
+        artifacts.push(stage_artifact("ga", &ga_path));
+    }
     tracing::info!(
         "      [2/6] completed in {:.1}s",
         phase2_start.elapsed().as_secs_f64()
@@ -1112,37 +1208,56 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // ── Part 3: Robustness screening ─────────────────────────────────────────
     let phase3_start = Instant::now();
-    let validation_rows: Vec<ValidationRow> = Vec::new();
     let option2_robustness: Vec<RobustnessReport>;
     if run_cfg.fast_mode {
         tracing::info!(
-            "\n[3/5] Fast mode: skipping robustness sweep; multi-fidelity validation lives in milestone12_validation"
+            "\n[3/5] Fast mode: skipping robustness sweep recomputation; loading persisted robustness when available"
         );
-        option2_robustness = Vec::new();
+        option2_robustness = load_json_or_default(&robustness_path)?;
     } else {
-        tracing::info!("\n[3/5] Running robustness screening on Option 2 shortlist …");
-        option2_robustness = option2_ranked
-            .iter()
-            .map(|d| {
-                robustness_sweep_blueprint(
-                    &d.candidate,
-                    OptimizationGoal::SelectiveVenturiCavitation,
-                    &STANDARD_PERTURBATIONS,
-                )
-            })
-            .collect();
+        if requested_stages.persist_option2() || !robustness_path.exists() {
+            tracing::info!("\n[3/5] Running robustness screening on Option 2 shortlist …");
+            option2_robustness = option2_ranked
+                .iter()
+                .map(|d| {
+                    robustness_sweep_blueprint(
+                        &d.candidate,
+                        OptimizationGoal::AsymmetricSplitVenturiCavitationSelectivity,
+                        &STANDARD_PERTURBATIONS,
+                    )
+                })
+                .collect();
+            std::fs::write(
+                &robustness_path,
+                serde_json::to_string_pretty(&option2_robustness)?,
+            )?;
+            artifacts.push(stage_artifact("option2", &robustness_path));
+        } else {
+            tracing::info!("\n[3/5] Reusing persisted robustness screening …");
+            option2_robustness = load_json_or_default(&robustness_path)?;
+        }
         let robust_count = option2_robustness.iter().filter(|r| r.is_robust).count();
         tracing::info!(
             "      Robust candidates: {}/{}",
             robust_count,
             option2_robustness.len()
         );
-        let option2_robustness_json = serde_json::to_string_pretty(&option2_robustness)?;
-        std::fs::write(
-            out_dir.join("option2_combined_robustness_top5.json"),
-            option2_robustness_json,
-        )?;
     }
+
+    let validation_rows = if requested_stages.persist_validation() || !validation_path.exists() {
+        tracing::info!("\n[4/5] Running multi-fidelity validation …");
+        let rows =
+            run_milestone12_validation(&out_dir, &option2_report_ranked[0], &ga_report_top[0])?;
+        artifacts.push(stage_artifact("validation", &validation_path));
+        rows
+    } else {
+        tracing::info!("\n[4/5] Reusing persisted multi-fidelity validation …");
+        let rows = load_json_or_default(&validation_path)?;
+        if validation_path.exists() {
+            artifacts.push(stage_artifact("validation", &validation_path));
+        }
+        rows
+    };
 
     // ── Part 5: Figure generation ─────────────────────────────────────────────
     tracing::info!(
@@ -1199,29 +1314,27 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             || {
                 concept_topline_unavailable(
                     "Option 1: Selective acoustic center treatment",
-                    "SelectiveAcousticTherapy",
+                    "AsymmetricSplitResidenceSeparation",
                     "No selective acoustic design satisfied strict eligibility under the current physics regime.",
                 )
             },
             |design| {
                 concept_topline(
                     "Option 1: Selective acoustic center treatment",
-                    "SelectiveAcousticTherapy",
+                    "AsymmetricSplitResidenceSeparation",
                     design,
                 )
             },
         ),
         concept_topline(
-            "Option 2: Selective venturi treatment ranked by combined score",
-            "CombinedSdtLeukapheresis",
+            "Option 2: Selective venturi treatment ranked by cavitation selectivity",
+            "AsymmetricSplitVenturiCavitationSelectivity",
             &option2_report_ranked[0],
         ),
     ];
     let topline_json = serde_json::to_string_pretty(&toplines)?;
-    std::fs::write(
-        out_dir.join("two_concept_selection_summary.json"),
-        topline_json,
-    )?;
+    std::fs::write(&summary_path, topline_json)?;
+    artifacts.push(stage_artifact("report", &summary_path));
 
     let canonical_results = workspace_root.join("report").join("milestone12_results.md");
     write_milestone12_results(
@@ -1235,6 +1348,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         &option2_robustness,
         &canonical_results,
     )?;
+    artifacts.push(stage_artifact("report", &canonical_results));
     tracing::info!("Canonical report: {}", canonical_results.display());
 
     let narrative_artifacts = write_milestone12_narrative_report(
@@ -1264,6 +1378,74 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         narrative_artifacts.figure_manifest_path.display(),
         narrative_artifacts.figure_count
     );
+    artifacts.push(stage_artifact(
+        "report",
+        &narrative_artifacts.narrative_path,
+    ));
+    artifacts.push(stage_artifact(
+        "report",
+        &narrative_artifacts.figure_manifest_path,
+    ));
+
+    let selected_lineage = milestone12_lineage_key(&option2_report_ranked[0].candidate)
+        .map(|key| key.stage_sequence_label().to_string())
+        .or(prior_manifest.selected_lineage);
+    let canonical_results_path = workspace_root.join("report").join("milestone12_results.md");
+    let narrative_report_path = workspace_root
+        .join("report")
+        .join("ARPA-H_SonALAsense_Milestone 12 Report.md");
+    let mut input_hashes = vec![
+        hash_named_value("requested_stages", requested_stages.labels().join(",")),
+        hash_named_value(
+            "selected_lineage",
+            selected_lineage.clone().unwrap_or_default(),
+        ),
+        hash_named_value(
+            "candidate_space_summary",
+            format!(
+                "{}:{}:{}:{}",
+                total_candidates,
+                option1_pool_len,
+                option2_pool_len,
+                ga_report_top.len()
+            ),
+        ),
+    ];
+    for path in [
+        &option1_path,
+        &option2_path,
+        &ga_path,
+        &robustness_path,
+        &validation_path,
+        &summary_path,
+        &canonical_results_path,
+        &narrative_report_path,
+    ] {
+        if let Some(hash) = hash_existing_file(path) {
+            input_hashes.push(hash);
+        }
+    }
+    let report_dependencies = vec![
+        option1_path.to_string_lossy().into_owned(),
+        option2_path.to_string_lossy().into_owned(),
+        ga_path.to_string_lossy().into_owned(),
+        robustness_path.to_string_lossy().into_owned(),
+        validation_path.to_string_lossy().into_owned(),
+        summary_path.to_string_lossy().into_owned(),
+        canonical_results_path.to_string_lossy().into_owned(),
+        narrative_report_path.to_string_lossy().into_owned(),
+    ];
+    write_stage_manifest(
+        &out_dir,
+        &requested_stages,
+        input_hashes,
+        selected_lineage,
+        Some(total_candidates.max(prior_manifest.total_candidates.unwrap_or(0))),
+        Some(option1_pool_len.max(prior_manifest.option1_pool_len.unwrap_or(0))),
+        Some(option2_pool_len.max(prior_manifest.option2_pool_len.unwrap_or(0))),
+        artifacts,
+        report_dependencies,
+    )?;
 
     tracing::info!("\n=== Outputs written to {} ===", out_dir.display());
     tracing::info!("Figures written to {}", figures_dir.display());
@@ -1277,15 +1459,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     Ok(())
-}
-
-// ── Figure saving helper ──────────────────────────────────────────────────────
-
-fn save_figure(blueprint: &NetworkBlueprint, path: &Path, label: &str) {
-    match save_blueprint_schematic_svg(blueprint, path) {
-        Ok(()) => tracing::info!("      ✓ {label}  →  {}", path.display()),
-        Err(e) => tracing::warn!("      ✗ {label}  FAILED: {e}"),
-    }
 }
 
 // ── Concept topline builder ───────────────────────────────────────────────────
@@ -1339,6 +1512,7 @@ fn concept_topline_unavailable(concept: &str, mode: &str, status: &str) -> Conce
 #[cfg(test)]
 mod tests {
     use super::*;
+    use cfd_optim::evaluate_goal;
     use cfd_schematics::{SplitKind, SplitStageSpec};
     use serde_json::Value;
 
@@ -1406,7 +1580,7 @@ mod tests {
             .split_stages
             .iter_mut()
             .rev()
-            .find(|stage| matches!(stage.split_kind, SplitKind::Trifurcation))
+            .find(|stage| matches!(stage.split_kind, SplitKind::NFurcation(3)))
             .expect("Tri->Tri topology must include a terminal trifurcation");
         rebalance_treatment_branch(terminal_tri, terminal_tri_center_frac);
         let treatment_branch = spec
@@ -1445,10 +1619,14 @@ mod tests {
         ]
         .into_iter()
         .map(|candidate| {
-            let metrics = compute_blueprint_report_metrics(&candidate)
-                .expect("reference acoustic blueprint metrics should compute");
-            let score = report_option1_score(&metrics, &weights);
-            Milestone12ReportDesign::new(0, candidate, metrics, score)
+            let score = evaluate_goal(
+                &candidate,
+                OptimizationGoal::AsymmetricSplitResidenceSeparation,
+            )
+            .map(|e| e.score)
+            .unwrap_or(0.0);
+            Milestone12ReportDesign::from_blueprint_candidate(0, candidate, score)
+                .expect("reference acoustic blueprint report metrics should compute")
         })
         .collect::<Vec<_>>();
         for design in &mut ranked[2..] {
@@ -1603,7 +1781,7 @@ impl EvaluationAccumulator {
             if metrics.fda_main_compliant {
                 self.nonventuri_fda_main += 1;
             }
-            if report_eligible_nonventuri(&metrics) {
+            if option1_score.is_some() {
                 self.nonventuri_eligible += 1;
             }
             if let Some(score) = option1_score {

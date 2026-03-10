@@ -126,9 +126,9 @@ pub use physics::cell_separation::{three_population_equilibria, ThreePopEquilibr
 
 // Export network functionality
 pub use domain::network::{
-    BoundaryCondition, ChannelProperties, ComponentType, Edge, EdgeProperties, EdgeType, Network,
-    NetworkBuilder, NetworkBuilderSink, NetworkGraph, NetworkMetadata, Node, NodeProperties,
-    NodeType, validate_blueprint_for_1d_solve,
+    validate_blueprint_for_1d_solve, BoundaryCondition, ChannelProperties, ComponentType, Edge,
+    EdgeProperties, EdgeType, Network, NetworkBuilder, NetworkBuilderSink, NetworkGraph,
+    NetworkMetadata, Node, NodeProperties, NodeType,
 };
 
 // Export solver functionality

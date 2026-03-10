@@ -10,43 +10,28 @@
 //!   across all 36 treatment wells and maximise residence time in the exposure
 //!   zone.
 //!
-//! - **[`OptimMode::SelectiveAcousticTherapy`]** — maximise selective
-//!   center-lane enrichment for acoustically treated treatment channels.
-//!
 //! - **[`OptimMode::Combined`]** — weighted combination of both objectives.
 //!
 //! Any candidate that violates either hard constraint — non-feasible pressure
 //! drop **or** FDA main-channel shear exceedance — receives a score of `0.0`.
 
+mod modes;
 mod types;
 
 pub use types::{OptimMode, ScoreMode, SdtWeights};
 
+use self::modes::{
+    COMBINED_LEUKA_GATE_FLOOR, COMBINED_LEUKA_MIN_SCORE,
+    COMBINED_LEUKA_MIN_WBC_RECOVERY, COMBINED_ONCOLOGY_GATE_FLOOR,
+    COMBINED_ONCOLOGY_MIN_CANCER_CAV, COMBINED_ONCOLOGY_MIN_SELECTIVITY,
+    COMBINED_PEDIATRIC_HI15_GATE_FLOOR, COMBINED_PEDIATRIC_HI15_LIMIT,
+    COMBINED_SELECTIVE_REMERGE_GATE_FLOOR, COMBINED_SELECTIVE_REMERGE_MIN_SCORE,
+};
 use crate::constraints::{
-    FDA_THROAT_TEMP_RISE_LIMIT_K, HI_PASS_LIMIT, PAI_PASS_LIMIT, THERAPEUTIC_HI_PASS_LIMIT,
+    FDA_THROAT_TEMP_RISE_LIMIT_K, HI_PASS_LIMIT, PAI_PASS_LIMIT,
+    THERAPEUTIC_HI_PASS_LIMIT,
 };
 use crate::metrics::SdtMetrics;
-
-/// Combined-mode gate target: minimum leukapheresis sub-score for full credit.
-const COMBINED_LEUKA_MIN_SCORE: f64 = 0.10;
-/// Combined-mode gate target: minimum WBC recovery for full credit.
-const COMBINED_LEUKA_MIN_WBC_RECOVERY: f64 = 0.20;
-/// Combined-mode floor so GA/search retains a weak gradient signal.
-const COMBINED_LEUKA_GATE_FLOOR: f64 = 0.02;
-/// Combined-mode pediatric cumulative hemolysis target over 15 min.
-const COMBINED_PEDIATRIC_HI15_LIMIT: f64 = 0.01;
-/// Floor for the pediatric cumulative-HI gate to preserve search gradient.
-const COMBINED_PEDIATRIC_HI15_GATE_FLOOR: f64 = 0.05;
-/// Combined-mode minimum cancer-targeted cavitation for full oncology credit.
-const COMBINED_ONCOLOGY_MIN_CANCER_CAV: f64 = 0.20;
-/// Combined-mode minimum oncology selectivity index for full oncology credit.
-const COMBINED_ONCOLOGY_MIN_SELECTIVITY: f64 = 0.10;
-/// Floor for oncology gate to preserve optimization gradient.
-const COMBINED_ONCOLOGY_GATE_FLOOR: f64 = 0.05;
-/// Combined-mode selective-remerge proximity target score for full credit.
-const COMBINED_SELECTIVE_REMERGE_MIN_SCORE: f64 = 0.70;
-/// Floor for the selective-remerge gate to preserve optimization gradient.
-const COMBINED_SELECTIVE_REMERGE_GATE_FLOOR: f64 = 0.20;
 
 // ── Score functions ──────────────────────────────────────────────────────────
 
@@ -99,10 +84,7 @@ fn score_candidate_impl(
             //   HI = 0      → 1.0
             //   HI = limit  → 0.5
             //   HI = 2×limit → 0.059
-            let hi_gate = if matches!(
-                mode,
-                OptimMode::SdtTherapy | OptimMode::SelectiveAcousticTherapy
-            ) {
+            let hi_gate = if matches!(mode, OptimMode::SdtTherapy) {
                 let r = metrics.hemolysis_index_per_pass / HI_PASS_LIMIT.max(1e-18);
                 1.0 / (1.0 + r * r)
             } else if matches!(
@@ -115,8 +97,8 @@ fn score_candidate_impl(
                 1.0
             };
 
-            let raw = score_mode_raw(metrics, mode, weights);
-            let coag_penalty = coagulation_penalty(metrics, weights);
+            let raw = modes::score_mode_raw(metrics, mode, weights);
+            let coag_penalty = modes::coagulation_penalty(metrics, weights);
             let thermal_penalty = if metrics.fda_thermal_compliant {
                 0.0
             } else {
@@ -142,10 +124,7 @@ fn score_candidate_impl(
             ) {
                 (THERAPEUTIC_HI_PASS_LIMIT - metrics.hemolysis_index_per_pass)
                     / THERAPEUTIC_HI_PASS_LIMIT
-            } else if matches!(
-                mode,
-                OptimMode::SdtTherapy | OptimMode::SelectiveAcousticTherapy
-            ) {
+            } else if matches!(mode, OptimMode::SdtTherapy) {
                 (HI_PASS_LIMIT - metrics.hemolysis_index_per_pass) / HI_PASS_LIMIT
             } else {
                 0.2
@@ -162,8 +141,8 @@ fn score_candidate_impl(
                 return feasibility * 0.1;
             }
             // Moderately feasible: continue with normal scoring, then multiply.
-            let raw = score_mode_raw(metrics, mode, weights);
-            let coag_penalty = coagulation_penalty(metrics, weights);
+            let raw = modes::score_mode_raw(metrics, mode, weights);
+            let coag_penalty = modes::coagulation_penalty(metrics, weights);
             let thermal_penalty = if metrics.fda_thermal_compliant {
                 0.0
             } else {
@@ -175,67 +154,23 @@ fn score_candidate_impl(
     }
 }
 
-/// Compute the raw mode-specific score (without constraint checks or coag penalty).
-fn score_mode_raw(metrics: &SdtMetrics, mode: OptimMode, weights: &SdtWeights) -> f64 {
-    match mode {
-        OptimMode::SdtCavitation => score_cavitation(metrics, weights),
-        OptimMode::UniformExposure => score_exposure(metrics, weights),
-        OptimMode::SelectiveAcousticTherapy => score_selective_acoustic_therapy(metrics),
-        OptimMode::Combined {
-            cavitation_weight,
-            exposure_weight,
-        } => {
-            let s_cav = score_cavitation(metrics, weights);
-            let s_exp = score_exposure(metrics, weights);
-            (cavitation_weight * s_cav + exposure_weight * s_exp)
-                / (cavitation_weight + exposure_weight).max(1e-12)
-        }
-        OptimMode::CellSeparation => score_cell_separation(metrics, weights),
-        OptimMode::ThreePopSeparation => score_three_pop_separation(metrics, weights),
-        OptimMode::SdtTherapy => score_sdt_therapy(metrics),
-        OptimMode::PediatricLeukapheresis { patient_weight_kg } => {
-            score_pediatric_leukapheresis(metrics, patient_weight_kg)
-        }
-        OptimMode::HydrodynamicCavitationSDT => score_hydrodynamic_cavitation_sdt(metrics, weights),
-        OptimMode::CombinedSdtLeukapheresis {
-            leuka_weight,
-            sdt_weight,
-            patient_weight_kg,
-        } => score_combined_sdt_leukapheresis(
-            metrics,
-            weights,
-            leuka_weight,
-            sdt_weight,
-            patient_weight_kg,
-        ),
-        OptimMode::RbcProtectedSdt => score_rbc_protected_sdt(metrics, weights),
-    }
-}
+// Mode-specific scoring functions live in `modes.rs`.
 
-/// Combined coagulation penalty (high-shear platelet activation + low-flow stasis clotting).
-fn coagulation_penalty(metrics: &SdtMetrics, weights: &SdtWeights) -> f64 {
-    let pai_term = (metrics.platelet_activation_index / PAI_PASS_LIMIT).min(1.0);
-    let stasis_term = metrics.clotting_risk_index.clamp(0.0, 1.0);
-    // Platelet activation remains primary; stasis clotting adds a complementary penalty.
-    weights.coag_weight * (0.70 * pai_term + 0.30 * stasis_term).min(1.0)
-}
+// SPLIT_MARKER_START
+    let hi_ratio = metrics.hemolysis_index_per_pass / HI_PASS_LIMIT.max(1e-12);
+    let hi_factor = (1.0_f64 / (1.0 + (hi_ratio / 0.5).powi(2))).clamp(0.0_f64, 1.0_f64);
+    let coverage = metrics.well_coverage_fraction.clamp(0.0, 1.0);
 
-/// Score for the SDT cavitation objective.
-fn score_cavitation(metrics: &SdtMetrics, w: &SdtWeights) -> f64 {
-    // Require active cavitation (sigma < 1.0); non-cavitating designs score zero.
     if metrics.cavitation_number >= 1.0 {
-        return 0.0;
+        // Non-cavitating: small gradient signal based on proximity to σ = 1
+        // and the HI / coverage sub-scores.  A design at σ = 1.01 scores
+        // ~0.10 × full, providing smooth gradient toward cavitation.
+        let proximity = (1.0 / metrics.cavitation_number.max(1.0)).clamp(0.0, 1.0);
+        let non_cav_base = w.cav_hemolysis * hi_factor + w.cav_coverage * coverage;
+        return (0.10 * proximity * (non_cav_base + 0.01)).clamp(0.001, 0.10);
     }
 
     let cav = metrics.cavitation_potential;
-
-    // Smooth sigmoid HI penalty: avoids the clamp-at-2 plateau where designs
-    // with HI=0.002 and HI=0.010 receive identical scores.
-    let hi_ratio = metrics.hemolysis_index_per_pass / HI_PASS_LIMIT.max(1e-12);
-    let hi_factor = (1.0_f64 / (1.0 + (hi_ratio / 0.5).powi(2))).clamp(0.0_f64, 1.0_f64);
-
-    let coverage = metrics.well_coverage_fraction.clamp(0.0, 1.0);
-
     w.cav_potential * cav + w.cav_hemolysis * hi_factor + w.cav_coverage * coverage
 }
 
@@ -320,27 +255,6 @@ fn score_selective_routing_base(metrics: &SdtMetrics) -> f64 {
         + 0.06 * hi_score
         + 0.05 * clot_score
         + 0.04 * optical_405)
-        .clamp(0.0, 1.0)
-}
-
-fn score_selective_acoustic_therapy(metrics: &SdtMetrics) -> f64 {
-    let base = score_selective_routing_base(metrics);
-    // cancer_dose_fraction = cancer_center_fraction × serial_cavitation_dose:
-    // rewards the fraction of cancer cells that actually receive therapeutic
-    // dose.  PST3 achieves higher cancer concentration (≈ 0.75+) than PST2
-    // (≈ 0.556), so this term correctly ranks PST3 above PST2 when its
-    // additional Zweifach–Fung stage delivers more targeted treatment.
-    let cancer_dose = metrics.cancer_dose_fraction.clamp(0.0, 1.0);
-    let treatment_dwell = (metrics.treatment_zone_dwell_time_s / 1.5).clamp(0.0, 1.0);
-    let cancer_dwell =
-        (metrics.cancer_center_fraction.clamp(0.0, 1.0) * treatment_dwell).clamp(0.0, 1.0);
-    let resonance = metrics.channel_resonance_score.clamp(0.0, 1.0);
-    let optical_405 = metrics.blue_light_delivery_index_405nm.clamp(0.0, 1.0);
-
-    // 0.05 resonance replaces 0.05 well_coverage: channel-dimension match to
-    // λ/2 at 412 kHz creates standing-wave antinodes that preferentially trap
-    // resonant-radius bubbles (R_res ≈ 7.5 µm), amplifying sonoporation.
-    (0.55 * base + 0.20 * cancer_dose + 0.15 * cancer_dwell + 0.05 * resonance + 0.05 * optical_405)
         .clamp(0.0, 1.0)
 }
 
@@ -429,7 +343,7 @@ fn score_sdt_therapy(metrics: &SdtMetrics) -> f64 {
 /// Weights: 40% WBC recovery + 30% RBC removal + 20% WBC purity + 10% throughput.
 fn score_pediatric_leukapheresis(metrics: &SdtMetrics, patient_weight_kg: f64) -> f64 {
     if metrics.total_ecv_ml <= 0.0 {
-        return 0.0;
+        return 0.001;
     }
 
     let wbc_rec = metrics.wbc_recovery.clamp(0.0, 1.0);
@@ -639,9 +553,6 @@ pub fn score_description(mode: OptimMode) -> &'static str {
     match mode {
         OptimMode::SdtCavitation => "SDT Cavitation",
         OptimMode::UniformExposure => "Uniform Exposure",
-        OptimMode::SelectiveAcousticTherapy => {
-            "Selective Acoustic Therapy (Center Enrichment + Peripheral RBC Routing)"
-        }
         OptimMode::Combined { .. } => "Combined (Cavitation + Exposure)",
         OptimMode::CellSeparation => "Cell Separation + SDT",
         OptimMode::ThreePopSeparation => "Three-Pop Separation (WBC+Cancer→Center, RBC→Wall) + SDT",
@@ -822,37 +733,13 @@ mod tests {
         selective.mean_residence_time_s = 1.30;
         selective.treatment_zone_dwell_time_s = 1.05;
 
-        let mode = OptimMode::SelectiveAcousticTherapy;
+        let mode = OptimMode::SdtTherapy;
         let w = SdtWeights::default();
         let broad_score = score_candidate(&broad, mode, &w);
         let selective_score = score_candidate(&selective, mode, &w);
         assert!(
             selective_score > broad_score,
-            "selective acoustic mode should reward center-lane enrichment and peripheral RBC routing"
-        );
-    }
-
-    #[test]
-    fn selective_acoustic_prefers_true_treatment_lane_dwell() {
-        let mut low_dwell = base_metrics();
-        low_dwell.cancer_center_fraction = 0.78;
-        low_dwell.wbc_center_fraction = 0.68;
-        low_dwell.rbc_peripheral_fraction_three_pop = 0.80;
-        low_dwell.three_pop_sep_efficiency = 0.60;
-        low_dwell.therapy_channel_fraction = 0.34;
-        low_dwell.mean_residence_time_s = 1.20;
-        low_dwell.treatment_zone_dwell_time_s = 0.18;
-
-        let mut high_dwell = low_dwell.clone();
-        high_dwell.treatment_zone_dwell_time_s = 1.10;
-
-        let mode = OptimMode::SelectiveAcousticTherapy;
-        let w = SdtWeights::default();
-        let low_score = score_candidate(&low_dwell, mode, &w);
-        let high_score = score_candidate(&high_dwell, mode, &w);
-        assert!(
-            high_score > low_score,
-            "selective acoustic mode should reward longer cancer-target dwell at fixed whole-chip residence"
+            "sdt therapy mode should reward center-lane enrichment and peripheral RBC routing"
         );
     }
 
@@ -869,7 +756,6 @@ mod tests {
             let modes = [
                 OptimMode::SdtCavitation,
                 OptimMode::UniformExposure,
-                OptimMode::SelectiveAcousticTherapy,
                 OptimMode::Combined { cavitation_weight: 0.5, exposure_weight: 0.5 },
                 OptimMode::CellSeparation,
                 OptimMode::ThreePopSeparation,
@@ -920,7 +806,6 @@ mod tests {
             let modes = [
                 OptimMode::SdtCavitation,
                 OptimMode::UniformExposure,
-                OptimMode::SelectiveAcousticTherapy,
                 OptimMode::Combined { cavitation_weight: 0.5, exposure_weight: 0.5 },
                 OptimMode::CellSeparation,
                 OptimMode::ThreePopSeparation,

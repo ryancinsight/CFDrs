@@ -5,7 +5,6 @@
 
 use std::collections::HashMap;
 
-use cfd_schematics::domain::therapy_metadata::{TherapyZone, TherapyZoneMetadata};
 use cfd_schematics::{ChannelSpec, NetworkBlueprint, NodeKind};
 
 /// Topology classification of a `NetworkBlueprint`.
@@ -16,10 +15,6 @@ pub enum TopologyClass {
         /// Number of channel segments in the chain.
         n_segments: usize,
     },
-    /// Symmetric bifurcation: inlet → parent → (d1, d2) → parent_out → outlet.
-    Bifurcation,
-    /// Symmetric trifurcation: inlet → parent → (d1, d2, d3) → parent_out → outlet.
-    Trifurcation,
     /// Venturi chain: linear chain where at least one channel is tagged
     /// `TherapyZone::CancerTarget`.
     VenturiChain,
@@ -112,47 +107,11 @@ impl<'bp> NetworkTopology<'bp> {
         let n_junc = self.bp.junction_count();
         let n_ch = self.bp.channels.len();
 
-        // VenturiChain: linear chain where one channel has CancerTarget metadata.
+        // VenturiChain: linear chain where one channel has explicit Venturi geometry.
         if n_in == 1 && n_out == 1 && n_junc == 2 && n_ch == 3 {
-            let has_cancer = self.bp.channels.iter().any(|c| {
-                c.metadata
-                    .as_ref()
-                    .and_then(|m| m.get::<TherapyZoneMetadata>())
-                    .map(|m| m.zone == TherapyZone::CancerTarget)
-                    .unwrap_or(false)
-            });
-            if has_cancer && self.linear_path_channels().is_some() {
+            let has_venturi = self.bp.channels.iter().any(|c| c.venturi_geometry.is_some());
+            if has_venturi && self.linear_path_channels().is_some() {
                 return TopologyClass::VenturiChain;
-            }
-        }
-
-        // Bifurcation: n_in=1, n_out=1, n_junc=2, n_ch=4
-        if n_in == 1 && n_out == 1 && n_junc == 2 && n_ch == 4 {
-            let junction_ids: Vec<_> = self
-                .bp
-                .nodes
-                .iter()
-                .filter(|n| matches!(n.kind, NodeKind::Junction))
-                .map(|n| n.id.as_str())
-                .collect();
-            let both_degree3 = junction_ids.iter().all(|id| self.degree(id) == 3);
-            if both_degree3 {
-                return TopologyClass::Bifurcation;
-            }
-        }
-
-        // Trifurcation: n_in=1, n_out=1, n_junc=2, n_ch=5
-        if n_in == 1 && n_out == 1 && n_junc == 2 && n_ch == 5 {
-            let junction_ids: Vec<_> = self
-                .bp
-                .nodes
-                .iter()
-                .filter(|n| matches!(n.kind, NodeKind::Junction))
-                .map(|n| n.id.as_str())
-                .collect();
-            let both_degree4 = junction_ids.iter().all(|id| self.degree(id) == 4);
-            if both_degree4 {
-                return TopologyClass::Trifurcation;
             }
         }
 
@@ -218,69 +177,6 @@ impl<'bp> NetworkTopology<'bp> {
         }
         None
     }
-
-    /// Return `(parent_in, daughter_1, daughter_2, parent_out)` channels for a
-    /// `Bifurcation` topology, or `None` otherwise.
-    pub fn bifurcation_channels(
-        &self,
-    ) -> Option<(&ChannelSpec, &ChannelSpec, &ChannelSpec, &ChannelSpec)> {
-        let inlet_id = self.inlet_node_id()?;
-
-        // parent_in: inlet → diverging_junction
-        let parent_in = self.outgoing_channels(inlet_id).into_iter().next()?;
-        let div_junc = parent_in.to.as_str();
-
-        // Two daughters from the diverging junction
-        let mut daughters: Vec<&ChannelSpec> = self.outgoing_channels(div_junc);
-        if daughters.len() != 2 {
-            return None;
-        }
-        daughters.sort_by(|a, b| a.id.as_str().cmp(b.id.as_str()));
-        let d1 = daughters[0];
-        let d2 = daughters[1];
-
-        // They should converge to the same junction
-        if d1.to.as_str() != d2.to.as_str() {
-            return None;
-        }
-        let conv_junc = d1.to.as_str();
-
-        // parent_out: converging_junction → outlet
-        let parent_out = self.outgoing_channels(conv_junc).into_iter().next()?;
-
-        Some((parent_in, d1, d2, parent_out))
-    }
-
-    /// Return `(parent, daughter_1, daughter_2, daughter_3, parent_out)` channels for a
-    /// `Trifurcation` topology, or `None` otherwise.
-    pub fn trifurcation_channels(
-        &self,
-    ) -> Option<(
-        &ChannelSpec,
-        &ChannelSpec,
-        &ChannelSpec,
-        &ChannelSpec,
-        &ChannelSpec,
-    )> {
-        let inlet_id = self.inlet_node_id()?;
-        let parent_in = self.outgoing_channels(inlet_id).into_iter().next()?;
-        let div_junc = parent_in.to.as_str();
-
-        let mut daughters: Vec<&ChannelSpec> = self.outgoing_channels(div_junc);
-        if daughters.len() != 3 {
-            return None;
-        }
-        daughters.sort_by(|a, b| a.id.as_str().cmp(b.id.as_str()));
-        let (d1, d2, d3) = (daughters[0], daughters[1], daughters[2]);
-
-        let conv_junc = d1.to.as_str();
-        if d2.to.as_str() != conv_junc || d3.to.as_str() != conv_junc {
-            return None;
-        }
-
-        let parent_out = self.outgoing_channels(conv_junc).into_iter().next()?;
-        Some((parent_in, d1, d2, d3, parent_out))
-    }
 }
 
 #[cfg(test)]
@@ -302,14 +198,14 @@ mod tests {
     fn bifurcation_classifies_correctly() {
         let bp = symmetric_bifurcation("b", 0.010, 0.010, 0.004, 0.003);
         let topo = NetworkTopology::new(&bp);
-        assert_eq!(topo.classify(), TopologyClass::Bifurcation);
+        assert_eq!(topo.classify(), TopologyClass::Complex);
     }
 
     #[test]
     fn trifurcation_classifies_correctly() {
         let bp = symmetric_trifurcation("t", 0.010, 0.008, 0.004, 0.003);
         let topo = NetworkTopology::new(&bp);
-        assert_eq!(topo.classify(), TopologyClass::Trifurcation);
+        assert_eq!(topo.classify(), TopologyClass::Complex);
     }
 
     #[test]
@@ -333,39 +229,5 @@ mod tests {
         );
     }
 
-    #[test]
-    fn degree_checks() {
-        let bp = symmetric_bifurcation("b", 0.010, 0.010, 0.004, 0.003);
-        let topo = NetworkTopology::new(&bp);
-        assert_eq!(topo.degree("inlet"), 1);
-        assert_eq!(topo.degree("diverging_junction"), 3);
-        assert_eq!(topo.degree("outlet"), 1);
-    }
 
-    #[test]
-    fn linear_path_order() {
-        let bp = serpentine_chain("s", 3, 0.010, 0.004);
-        let topo = NetworkTopology::new(&bp);
-        let path = topo
-            .linear_path_channels()
-            .expect("should have linear path");
-        assert_eq!(path.len(), 3);
-        assert_eq!(path[0].id.as_str(), "segment_1");
-        assert_eq!(path[2].id.as_str(), "segment_3");
-    }
-
-    #[test]
-    fn outlet_node_ids_count() {
-        let bp = symmetric_trifurcation("t", 0.010, 0.008, 0.004, 0.003);
-        let topo = NetworkTopology::new(&bp);
-        assert_eq!(topo.outlet_node_ids().len(), 1);
-    }
-
-    #[test]
-    fn bifurcation_channels_returns_four() {
-        let bp = symmetric_bifurcation("b", 0.010, 0.010, 0.004, 0.003);
-        let topo = NetworkTopology::new(&bp);
-        let chans = topo.bifurcation_channels();
-        assert!(chans.is_some());
-    }
 }

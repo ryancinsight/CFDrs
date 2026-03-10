@@ -12,12 +12,12 @@ pub struct ComponentAuditEntry {
 
 pub fn render_goal_narrative(evaluation: &BlueprintObjectiveEvaluation) -> String {
     match evaluation.goal {
-        OptimizationGoal::SelectiveAcousticResidenceSeparation => format!(
+        OptimizationGoal::AsymmetricSplitResidenceSeparation => format!(
             "Option 1 uses asymmetric bifurcation and trifurcation widths to bias hydraulic resistance toward the treatment lane, yielding a treatment-zone residence time of {:.4} s while maintaining an RBC peripheral fraction of {:.4}.",
             evaluation.residence.treatment_residence_time_s,
             evaluation.separation.rbc_peripheral_fraction,
         ),
-        OptimizationGoal::SelectiveVenturiCavitation => format!(
+        OptimizationGoal::AsymmetricSplitVenturiCavitationSelectivity => format!(
             "Option 2 augments the asymmetric cascade with venturi throats placed according to vena-contracta and Dean-number screening. The strongest screened cavitation state reached sigma = {:.4} while RBC and WBC exposure fractions were {:.4} and {:.4}, respectively.",
             evaluation
                 .venturi
@@ -28,7 +28,7 @@ pub fn render_goal_narrative(evaluation: &BlueprintObjectiveEvaluation) -> Strin
             evaluation.venturi.rbc_exposure_fraction,
             evaluation.venturi.wbc_exposure_fraction,
         ),
-        OptimizationGoal::BlueprintGeneticRefinement => format!(
+        OptimizationGoal::InPlaceDeanSerpentineRefinement => format!(
             "The GA stage preserves Option 2 lineage and refines local curvature, serpentine placement, and throat geometry in place. The resulting refinement score was {:.4}, with a peak Dean number of {:.4}.",
             evaluation.score,
             evaluation

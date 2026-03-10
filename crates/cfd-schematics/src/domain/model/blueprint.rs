@@ -1,8 +1,13 @@
 use super::{ChannelSpec, EdgeKind, NodeKind, NodeSpec};
+use crate::domain::therapy_metadata::TherapyZone;
 use crate::geometry::metadata::{
-    BlueprintRenderHints, GeometryAuthoringProvenance, MetadataContainer,
+    BlueprintRenderHints, ChannelVenturiSpec, GeometryAuthoringProvenance, MetadataContainer,
+    VenturiGeometryMetadata,
 };
-use crate::topology::{BlueprintTopologyFactory, BlueprintTopologySpec, TopologyLineageMetadata};
+use crate::topology::{
+    BlueprintTopologyFactory, BlueprintTopologySpec, TopologyLineageMetadata,
+    TopologyOptimizationStage, TreatmentActuationMode, VenturiConfig, VenturiPlacementSpec,
+};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
@@ -170,6 +175,97 @@ impl NetworkBlueprint {
         self.channels.push(channel);
     }
 
+    /// Attach venturi augmentation metadata to one or more existing channels.
+    ///
+    /// When `config.target_channel_ids` is empty, the topology treatment lanes
+    /// are used as the augmentation targets.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the blueprint has no eligible channels or a target
+    /// channel ID cannot be found.
+    pub fn add_venturi(&mut self, config: &VenturiConfig) -> Result<(), String> {
+        let target_channel_ids = if config.target_channel_ids.is_empty() {
+            self.treatment_channel_ids()
+        } else {
+            config.target_channel_ids.clone()
+        };
+        if target_channel_ids.is_empty() {
+            return Err("venturi augmentation requires at least one target channel".to_string());
+        }
+
+        let mut placements = Vec::with_capacity(target_channel_ids.len());
+        for (index, channel_id) in target_channel_ids.into_iter().enumerate() {
+            let channel = self
+                .channels
+                .iter_mut()
+                .find(|channel| channel.id.as_str() == channel_id)
+                .ok_or_else(|| {
+                    format!(
+                        "venturi augmentation target '{}' does not exist in blueprint '{}'",
+                        channel_id, self.name
+                    )
+                })?;
+
+            let resolved_inlet_width_m = if config.throat_geometry.inlet_width_m > 0.0 {
+                config.throat_geometry.inlet_width_m
+            } else {
+                channel.effective_width_m()
+            };
+            let resolved_outlet_width_m = if config.throat_geometry.outlet_width_m > 0.0 {
+                config.throat_geometry.outlet_width_m
+            } else {
+                channel.effective_width_m()
+            };
+            let venturi_geometry = VenturiGeometryMetadata {
+                throat_width_m: config.throat_geometry.throat_width_m,
+                throat_height_m: config.throat_geometry.throat_height_m,
+                throat_length_m: config.throat_geometry.throat_length_m,
+                inlet_width_m: resolved_inlet_width_m,
+                outlet_width_m: resolved_outlet_width_m,
+                convergent_half_angle_deg: config.throat_geometry.convergent_half_angle_deg,
+                divergent_half_angle_deg: config.throat_geometry.divergent_half_angle_deg,
+                throat_position: 0.5,
+            };
+            channel.venturi_geometry = Some(venturi_geometry.clone());
+            if channel.metadata.is_none() {
+                channel.metadata = Some(MetadataContainer::new());
+            }
+            let metadata = channel
+                .metadata
+                .as_mut()
+                .expect("channel metadata container must exist");
+            metadata.insert(venturi_geometry);
+            metadata.insert(ChannelVenturiSpec {
+                n_throats: config.serial_throat_count,
+                is_ctc_stream: channel
+                    .therapy_zone
+                    .is_some_and(|zone| zone == TherapyZone::CancerTarget),
+                throat_width_m: config.throat_geometry.throat_width_m,
+                height_m: config.throat_geometry.throat_height_m,
+                inter_throat_spacing_m: config.throat_geometry.throat_length_m,
+            });
+
+            placements.push(VenturiPlacementSpec {
+                placement_id: format!("venturi_{index}"),
+                target_channel_id: channel_id,
+                serial_throat_count: config.serial_throat_count,
+                throat_geometry: config.throat_geometry.clone(),
+                placement_mode: config.placement_mode,
+            });
+        }
+
+        if let Some(topology) = &mut self.topology {
+            topology.venturi_placements = placements;
+            topology.treatment_mode = TreatmentActuationMode::VenturiCavitation;
+        }
+        if let Some(lineage) = &mut self.lineage {
+            lineage.current_stage =
+                TopologyOptimizationStage::AsymmetricSplitVenturiCavitationSelectivity;
+        }
+        Ok(())
+    }
+
     /// Count nodes by kind.
     #[must_use]
     pub fn inlet_count(&self) -> usize {
@@ -327,6 +423,13 @@ impl NetworkBlueprint {
         }
         if let Some(topology) = &self.topology {
             BlueprintTopologyFactory::validate_spec(topology)?;
+            if topology.is_selective_routing() && !self.is_geometry_authored() {
+                return Err(format!(
+                    "NetworkBlueprint '{}' carries selective split-tree topology '{}' but was not authored through create_geometry()",
+                    self.name,
+                    topology.stage_sequence_label()
+                ));
+            }
         }
         Ok(())
     }
@@ -375,5 +478,80 @@ impl NetworkBlueprint {
 impl fmt::Display for NetworkBlueprint {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(&self.describe())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::domain::therapy_metadata::TherapyZone;
+    use crate::geometry::metadata::ChannelVenturiSpec;
+    use crate::topology::presets::parallel_path_spec;
+    use crate::topology::{ChannelRouteSpec, ParallelChannelSpec, VenturiPlacementMode};
+
+    #[test]
+    fn add_venturi_attaches_metadata_to_existing_parallel_channel() {
+        let topology = parallel_path_spec(
+            "venturi-blueprint",
+            2.0e-3,
+            2.0e-3,
+            12.0e-3,
+            12.0e-3,
+            vec![ParallelChannelSpec {
+                channel_id: "treatment_lane".to_string(),
+                route: ChannelRouteSpec {
+                    length_m: 10.0e-3,
+                    width_m: 1.6e-3,
+                    height_m: 1.0e-3,
+                    serpentine: None,
+                    therapy_zone: TherapyZone::CancerTarget,
+                },
+            }],
+            TreatmentActuationMode::UltrasoundOnly,
+        );
+        let mut blueprint =
+            BlueprintTopologyFactory::build(&topology).expect("parallel topology should build");
+
+        blueprint
+            .add_venturi(&VenturiConfig {
+                target_channel_ids: vec!["treatment_lane".to_string()],
+                serial_throat_count: 2,
+                throat_geometry: crate::topology::ThroatGeometrySpec {
+                    throat_width_m: 80.0e-6,
+                    throat_height_m: 1.0e-3,
+                    throat_length_m: 300.0e-6,
+                    inlet_width_m: 0.0,
+                    outlet_width_m: 0.0,
+                    convergent_half_angle_deg: 7.0,
+                    divergent_half_angle_deg: 7.0,
+                },
+                placement_mode: VenturiPlacementMode::StraightSegment,
+            })
+            .expect("venturi should attach");
+
+        let channel = blueprint
+            .channels
+            .iter()
+            .find(|channel| channel.id.as_str() == "treatment_lane")
+            .expect("target channel must exist");
+        assert!(channel.venturi_geometry.is_some());
+        assert_eq!(
+            channel
+                .metadata
+                .as_ref()
+                .and_then(|metadata| metadata.get::<ChannelVenturiSpec>())
+                .expect("ChannelVenturiSpec must be inserted")
+                .n_throats,
+            2
+        );
+        assert_eq!(
+            blueprint
+                .topology
+                .as_ref()
+                .expect("topology metadata must be preserved")
+                .venturi_placements
+                .len(),
+            1
+        );
     }
 }

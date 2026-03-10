@@ -1,11 +1,6 @@
-#![allow(deprecated)] // NetworkBlueprint::new() used intentionally; all nodes are created with NodeSpec::new_at().
-
-use crate::domain::model::{ChannelSpec, NetworkBlueprint, NodeKind, NodeSpec};
-use crate::domain::therapy_metadata::{TherapyZone, TherapyZoneMetadata};
+use super::finalize_preset_blueprint;
 use crate::topology::presets::single_venturi_series_spec;
 use crate::BlueprintTopologyFactory;
-
-
 
 #[must_use]
 pub fn venturi_chain(
@@ -13,70 +8,22 @@ pub fn venturi_chain(
     total_length_m: f64,
     inlet_diameter_m: f64,
     throat_diameter_m: f64,
-) -> NetworkBlueprint {
-    let mut bp = NetworkBlueprint::new(name);
-
-    let section_length = total_length_m / 3.0;
-
-    bp.add_node(NodeSpec::new("inlet", NodeKind::Inlet));
-    bp.add_node(NodeSpec::new("contraction", NodeKind::Junction));
-    bp.add_node(NodeSpec::new("throat", NodeKind::Junction));
-    bp.add_node(NodeSpec::new("outlet", NodeKind::Outlet));
-
-    bp.add_channel(
-        ChannelSpec::new_pipe(
-            "inlet_section",
-            "inlet",
-            "contraction",
-            section_length,
-            inlet_diameter_m,
-            0.0, // resistance delegated to solver
-            0.0,
-        )
-        .with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)),
+) -> crate::domain::model::NetworkBlueprint {
+    let name = name.into();
+    let throat_length_m = total_length_m / 3.0;
+    let spec = single_venturi_series_spec(
+        &name,
+        inlet_diameter_m,
+        throat_diameter_m,
+        inlet_diameter_m,
+        throat_length_m,
     );
-
-    bp.add_channel(
-        ChannelSpec::new_pipe(
-            "throat_section",
-            "contraction",
-            "throat",
-            section_length,
-            throat_diameter_m,
-            0.0, // resistance delegated to solver
-            0.0,
-        )
-        .with_metadata(TherapyZoneMetadata::new(TherapyZone::CancerTarget)),
-    );
-
-    bp.add_channel(
-        ChannelSpec::new_pipe(
-            "diffuser_section",
-            "throat",
-            "outlet",
-            section_length,
-            inlet_diameter_m,
-            0.0, // resistance delegated to solver
-            0.0,
-        )
-        .with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)),
-    );
-
-    bp
+    finalize_preset_blueprint(
+        BlueprintTopologyFactory::build(&spec).expect("valid venturi_chain topology spec"),
+    )
 }
 
 /// Rectangular-channel planar venturi (photolithographic millifluidic chips).
-///
-/// The venturi narrows the channel **width** while keeping `height_m` constant —
-/// the geometry used in PDMS/SU-8 chip fabrication.
-///
-/// Produces three channels:
-/// - `inlet_section`:   `inlet_width_m × height_m`, converging approach
-/// - `throat_section`:  `throat_width_m × height_m`, constant-area throat
-/// - `diffuser_section`: `inlet_width_m × height_m`, expanding recovery
-///
-/// The converging/diverging section length is `5 × mean(inlet_width, throat_width)`.
-/// Throat length is `max(throat_length_m, 2 × throat_width_m)`.
 #[must_use]
 pub fn venturi_rect(
     name: impl Into<String>,
@@ -84,9 +31,8 @@ pub fn venturi_rect(
     throat_width_m: f64,
     height_m: f64,
     throat_length_m: f64,
-) -> NetworkBlueprint {
+) -> crate::domain::model::NetworkBlueprint {
     let name = name.into();
-
     let spec = single_venturi_series_spec(
         &name,
         inlet_width_m,
@@ -94,7 +40,9 @@ pub fn venturi_rect(
         height_m,
         throat_length_m,
     );
-    BlueprintTopologyFactory::build(&spec).expect("Valid topology spec")
+    finalize_preset_blueprint(
+        BlueprintTopologyFactory::build(&spec).expect("valid venturi_rect topology spec"),
+    )
 }
 
 #[cfg(test)]
@@ -120,7 +68,8 @@ mod tests {
         assert_eq!(topology.serial_venturi_stages(), 1);
         assert_eq!(
             lineage.current_stage,
-            crate::TopologyOptimizationStage::SelectiveVenturiCavitation
+            crate::TopologyOptimizationStage::AsymmetricSplitVenturiCavitationSelectivity
         );
+        assert!(blueprint.is_geometry_authored());
     }
 }

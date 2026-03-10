@@ -295,11 +295,12 @@ mod cross_fidelity_physics_tests {
             pump_max_flow: None,
             pump_max_pressure: None,
             visual_role: None,
-            path: Vec::new(),
+            path: vec![(0.0, 0.0), (1.0, 0.0)],
             therapy_zone: None,
             venturi_geometry: None,
             metadata: None,
         });
+        bp.metadata.get_or_insert_with(Default::default).insert(cfd_schematics::geometry::metadata::GeometryAuthoringProvenance::selective_wrapper());
         bp
     }
 
@@ -504,7 +505,8 @@ mod cross_fidelity_physics_tests {
     /// that the throat channel carries higher wall shear than the inlet section.
     #[test]
     fn cross_fidelity_venturi_shear_ordering_consistent_across_all_levels() {
-        let bp = venturi_rect("v", 2e-3, 0.5e-3, 0.5e-3, 2e-3);
+        let mut bp = venturi_rect("v", 2e-3, 0.5e-3, 0.5e-3, 2e-3);
+        bp.metadata.get_or_insert_with(Default::default).insert(cfd_schematics::geometry::metadata::GeometryAuthoringProvenance::selective_wrapper());
         let q = 5e-8_f64;
 
         // 1D reference

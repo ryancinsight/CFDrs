@@ -1,124 +1,76 @@
-use cfd_schematics::domain::therapy_metadata::TherapyZone;
 use cfd_schematics::{
-    BlueprintTopologyFactory, BlueprintTopologySpec, BranchRole, BranchSpec, ChannelRouteSpec,
-    SplitKind, SplitStageSpec, ThroatGeometrySpec, TreatmentActuationMode,
-    VenturiPlacementMode, VenturiPlacementSpec,
+    build_milestone12_blueprint, build_milestone12_topology_spec, BlueprintTopologyFactory,
+    BlueprintTopologySpec, BranchRole, Milestone12TopologyRequest, SplitKind,
+    TreatmentActuationMode, VenturiPlacementMode,
 };
 
 fn selective_spec() -> BlueprintTopologySpec {
-    BlueprintTopologySpec {
-        topology_id: "tri_tri_canonical".to_string(),
-        design_name: "tri_tri_canonical".to_string(),
-        box_dims_mm: (127.76, 85.47),
-        inlet_width_m: 5.5e-3,
-        outlet_width_m: 4.0e-3,
-        trunk_length_m: 20.0e-3,
-        outlet_tail_length_m: 14.0e-3,
-        split_stages: vec![
-            SplitStageSpec {
-                stage_id: "stage0".to_string(),
-                split_kind: SplitKind::Trifurcation,
-                branches: vec![
-                    BranchSpec {
-                        label: "wbc".to_string(),
-                        role: BranchRole::WbcCollection,
-                        treatment_path: false,
-                        route: ChannelRouteSpec {
-                            length_m: 24.0e-3,
-                            width_m: 1.0e-3,
-                            height_m: 1.0e-3,
-                            serpentine: None,
-                            therapy_zone: TherapyZone::HealthyBypass,
-                        },
-                    },
-                    BranchSpec {
-                        label: "ctc".to_string(),
-                        role: BranchRole::Treatment,
-                        treatment_path: true,
-                        route: ChannelRouteSpec {
-                            length_m: 28.0e-3,
-                            width_m: 2.0e-3,
-                            height_m: 1.0e-3,
-                            serpentine: None,
-                            therapy_zone: TherapyZone::CancerTarget,
-                        },
-                    },
-                    BranchSpec {
-                        label: "rbc".to_string(),
-                        role: BranchRole::RbcBypass,
-                        treatment_path: false,
-                        route: ChannelRouteSpec {
-                            length_m: 24.0e-3,
-                            width_m: 1.0e-3,
-                            height_m: 1.0e-3,
-                            serpentine: None,
-                            therapy_zone: TherapyZone::HealthyBypass,
-                        },
-                    },
-                ],
-            },
-            SplitStageSpec {
-                stage_id: "stage1".to_string(),
-                split_kind: SplitKind::Trifurcation,
-                branches: vec![
-                    BranchSpec {
-                        label: "wbc".to_string(),
-                        role: BranchRole::WbcCollection,
-                        treatment_path: false,
-                        route: ChannelRouteSpec {
-                            length_m: 20.0e-3,
-                            width_m: 0.45e-3,
-                            height_m: 1.0e-3,
-                            serpentine: None,
-                            therapy_zone: TherapyZone::HealthyBypass,
-                        },
-                    },
-                    BranchSpec {
-                        label: "ctc".to_string(),
-                        role: BranchRole::Treatment,
-                        treatment_path: true,
-                        route: ChannelRouteSpec {
-                            length_m: 24.0e-3,
-                            width_m: 1.3e-3,
-                            height_m: 1.0e-3,
-                            serpentine: None,
-                            therapy_zone: TherapyZone::CancerTarget,
-                        },
-                    },
-                    BranchSpec {
-                        label: "rbc".to_string(),
-                        role: BranchRole::RbcBypass,
-                        treatment_path: false,
-                        route: ChannelRouteSpec {
-                            length_m: 20.0e-3,
-                            width_m: 0.25e-3,
-                            height_m: 1.0e-3,
-                            serpentine: None,
-                            therapy_zone: TherapyZone::HealthyBypass,
-                        },
-                    },
-                ],
-            },
-        ],
-        venturi_placements: vec![VenturiPlacementSpec {
-            placement_id: "tri_tri_venturi".to_string(),
-            target_channel_id: BlueprintTopologySpec::branch_channel_id("stage1", "ctc"),
-            serial_throat_count: 2,
-            throat_geometry: ThroatGeometrySpec {
-                throat_width_m: 45e-6,
-                throat_height_m: 1.0e-3,
-                throat_length_m: 250e-6,
-                inlet_width_m: 1.3e-3,
-                outlet_width_m: 1.3e-3,
-                convergent_half_angle_deg: 15.0,
-                divergent_half_angle_deg: 9.0,
-            },
-            placement_mode: VenturiPlacementMode::StraightSegment,
-        }],
-        series_channels: Vec::new(),
-        parallel_channels: Vec::new(),
-        treatment_mode: TreatmentActuationMode::VenturiCavitation,
-    }
+    let mut request = Milestone12TopologyRequest::new(
+        "tri_tri_canonical",
+        "tri_tri_canonical",
+        vec![SplitKind::NFurcation(3), SplitKind::NFurcation(3)],
+        5.5e-3,
+        1.0e-3,
+        20.0e-3,
+        14.0e-3,
+    );
+    request.stage_layouts = vec![
+        cfd_schematics::topology::presets::Milestone12StageLayout {
+            split_kind: SplitKind::NFurcation(3),
+            branches: vec![
+                cfd_schematics::topology::presets::Milestone12StageBranchSpec {
+                    label: "wbc".to_string(),
+                    role: BranchRole::WbcCollection,
+                    treatment_path: false,
+                    width_m: 1.0e-3,
+                },
+                cfd_schematics::topology::presets::Milestone12StageBranchSpec {
+                    label: "ctc".to_string(),
+                    role: BranchRole::Treatment,
+                    treatment_path: true,
+                    width_m: 2.0e-3,
+                },
+                cfd_schematics::topology::presets::Milestone12StageBranchSpec {
+                    label: "rbc".to_string(),
+                    role: BranchRole::RbcBypass,
+                    treatment_path: false,
+                    width_m: 2.5e-3,
+                },
+            ],
+        },
+        cfd_schematics::topology::presets::Milestone12StageLayout {
+            split_kind: SplitKind::NFurcation(3),
+            branches: vec![
+                cfd_schematics::topology::presets::Milestone12StageBranchSpec {
+                    label: "wbc".to_string(),
+                    role: BranchRole::WbcCollection,
+                    treatment_path: false,
+                    width_m: 0.45e-3,
+                },
+                cfd_schematics::topology::presets::Milestone12StageBranchSpec {
+                    label: "ctc".to_string(),
+                    role: BranchRole::Treatment,
+                    treatment_path: true,
+                    width_m: 1.3e-3,
+                },
+                cfd_schematics::topology::presets::Milestone12StageBranchSpec {
+                    label: "rbc".to_string(),
+                    role: BranchRole::RbcBypass,
+                    treatment_path: false,
+                    width_m: 0.25e-3,
+                },
+            ],
+        },
+    ];
+    request.treatment_mode = TreatmentActuationMode::VenturiCavitation;
+    request.venturi_throat_count = 2;
+    request.venturi_throat_width_m = 45e-6;
+    request.venturi_throat_length_m = 250e-6;
+    request.venturi_target_channel_ids =
+        vec![BlueprintTopologySpec::branch_channel_id("stage_1", "ctc")];
+    request.venturi_placement_mode = VenturiPlacementMode::StraightSegment;
+
+    build_milestone12_topology_spec(&request)
 }
 
 #[test]
@@ -131,11 +83,35 @@ fn selective_factory_build_uses_canonical_geometry_authoring() {
         "selective factory builds must carry create_geometry provenance"
     );
     assert!(
-        blueprint.channels.iter().all(|channel| channel.path.len() >= 2),
+        blueprint
+            .channels
+            .iter()
+            .all(|channel| channel.path.len() >= 2),
         "report-grade channels must have explicit routed paths"
     );
     assert_eq!(blueprint.unresolved_channel_overlap_count(), 0);
     blueprint
         .validate()
         .expect("canonical selective blueprint should remain structurally valid");
+}
+
+#[test]
+fn milestone12_blueprints_reject_missing_geometry_provenance() {
+    let request = Milestone12TopologyRequest::new(
+        "tri_manual_guard",
+        "tri_manual_guard",
+        vec![SplitKind::NFurcation(3)],
+        6.0e-3,
+        1.0e-3,
+        10.0e-3,
+        10.0e-3,
+    );
+    let mut blueprint =
+        build_milestone12_blueprint(&request).expect("Milestone 12 blueprint should build");
+    blueprint.metadata = None;
+
+    let error = blueprint
+        .validate()
+        .expect_err("manual provenance stripping must fail validation");
+    assert!(error.contains("create_geometry"));
 }

@@ -2,8 +2,8 @@
 //!
 //! Provides graph-based representation of fluid networks
 
-mod builder;
 mod blueprint_validation;
+mod builder;
 mod component_type;
 mod edge;
 mod graph;

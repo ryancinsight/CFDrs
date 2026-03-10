@@ -23,8 +23,8 @@
 //! use cfd_optim::{EvaluatedPool, OptimizationGoal};
 //!
 //! let pool = EvaluatedPool::from_candidates(&candidates);
-//! let opt1 = pool.top_k(10, OptimizationGoal::SelectiveAcousticResidenceSeparation);
-//! let opt2 = pool.top_k(10, OptimizationGoal::SelectiveVenturiCavitation);
+//! let opt1 = pool.top_k(10, OptimizationGoal::AsymmetricSplitResidenceSeparation);
+//! let opt2 = pool.top_k(10, OptimizationGoal::AsymmetricSplitVenturiCavitationSelectivity);
 //! ```
 
 use std::sync::Arc;
@@ -54,6 +54,8 @@ struct ScoringSnapshot {
     treatment_flow_fraction: f64,
     separation_efficiency: f64,
     cancer_center_fraction: f64,
+    wbc_center_fraction: f64,
+    rbc_peripheral_fraction: f64,
     main_channel_margin: f64,
 
     // -- Option 2 (selective venturi cavitation) --------------------------
@@ -73,29 +75,31 @@ struct ScoringSnapshot {
 const _: () = assert!(std::mem::size_of::<ScoringSnapshot>() <= 128);
 
 impl ScoringSnapshot {
-    fn new(candidate: &BlueprintCandidate, eval: &BlueprintEvaluation) -> Self {
+    /// Build from one candidate/evaluation pair.
+    fn from_candidate_eval(candidate: &BlueprintCandidate, eval: &BlueprintEvaluation) -> Self {
         let max_dean_number = eval
             .venturi
             .placements
             .iter()
             .map(|p| p.dean_number)
             .fold(0.0_f64, f64::max);
-        let lineage_mutation_count = candidate
-            .blueprint
-            .lineage()
-            .map_or(0, |l| l.mutations.len().min(u16::MAX as usize) as u16);
         Self {
             treatment_residence_time_s: eval.residence.treatment_residence_time_s,
             treatment_flow_fraction: eval.residence.treatment_flow_fraction,
             separation_efficiency: eval.separation.separation_efficiency,
             cancer_center_fraction: eval.separation.cancer_center_fraction,
+            wbc_center_fraction: eval.separation.wbc_center_fraction,
+            rbc_peripheral_fraction: eval.separation.rbc_peripheral_fraction,
             main_channel_margin: eval.safety.main_channel_margin,
             cavitation_selectivity_score: eval.venturi.cavitation_selectivity_score,
             rbc_exposure_fraction: eval.venturi.rbc_exposure_fraction,
             wbc_exposure_fraction: eval.venturi.wbc_exposure_fraction,
             cavitation_safety_margin: eval.safety.cavitation_safety_margin,
             max_dean_number,
-            lineage_mutation_count,
+            lineage_mutation_count: candidate
+                .blueprint
+                .lineage()
+                .map_or(0, |lineage| lineage.mutations.len().min(u16::MAX as usize) as u16),
             has_venturi: !eval.venturi.placements.is_empty(),
         }
     }
@@ -104,46 +108,93 @@ impl ScoringSnapshot {
     #[inline]
     fn score(self, goal: OptimizationGoal) -> f64 {
         match goal {
-            OptimizationGoal::SelectiveAcousticResidenceSeparation => self.score_option1(),
-            OptimizationGoal::SelectiveVenturiCavitation => self.score_option2(),
-            OptimizationGoal::BlueprintGeneticRefinement => self.score_ga(),
+            OptimizationGoal::AsymmetricSplitResidenceSeparation => self.score_option1(),
+            OptimizationGoal::AsymmetricSplitVenturiCavitationSelectivity => self.score_option2(),
+            OptimizationGoal::InPlaceDeanSerpentineRefinement => self.score_ga(),
         }
     }
 
+    /// Additive scoring for the asymmetric-split residence-separation goal.
+    ///
+    /// Mirrors [`evaluate_selective_acoustic_residence_separation`] using only
+    /// the compact snapshot fields. Floor: 0.001.
     #[inline]
     fn score_option1(self) -> f64 {
-        let residence =
-            self.treatment_residence_time_s * self.treatment_flow_fraction.max(1.0e-9);
-        let separation =
-            self.separation_efficiency * self.cancer_center_fraction.max(1.0e-9);
-        let safety = self.main_channel_margin.max(0.0);
-        residence * separation * safety
+        let residence_norm = (self.treatment_residence_time_s / 1.0).clamp(0.0, 1.0);
+        let flow_frac = self.treatment_flow_fraction.clamp(0.0, 1.0);
+        let sep = self.separation_efficiency.clamp(0.0, 1.0);
+        let cancer = self.cancer_center_fraction.clamp(0.0, 1.0);
+        let wbc_exclusion = (1.0 - self.wbc_center_fraction).clamp(0.0, 1.0);
+        let rbc_exclusion = self.rbc_peripheral_fraction.clamp(0.0, 1.0);
+        let safety = self.main_channel_margin.clamp(0.0, 1.0);
+
+        let base = 0.22 * cancer
+            + 0.18 * sep
+            + 0.16 * residence_norm
+            + 0.12 * flow_frac
+            + 0.12 * wbc_exclusion
+            + 0.10 * rbc_exclusion
+            + 0.10 * safety;
+        let healthy_cell_shielding = (wbc_exclusion * rbc_exclusion).sqrt();
+        let synergy =
+            0.12 * (sep * cancer * residence_norm.max(0.01) * healthy_cell_shielding.max(0.01))
+                .powf(0.25);
+
+        (base + synergy).clamp(0.001, 1.0)
     }
 
+    /// Additive scoring for the selective venturi-cavitation goal.
+    ///
+    /// Mirrors [`evaluate_selective_venturi_cavitation`] but filters
+    /// structurally invalid non-venturi entries out of ranked pools.
     #[inline]
     fn score_option2(self) -> f64 {
         if !self.has_venturi {
             return 0.0;
         }
-        let cavitation = self.cavitation_selectivity_score.max(0.0);
-        let exposure =
-            1.0 - 0.5 * (self.rbc_exposure_fraction + self.wbc_exposure_fraction);
-        let safety = self.cavitation_safety_margin.max(0.0);
-        cavitation * exposure.max(0.0) * safety
+
+        let cav = self.cavitation_selectivity_score.clamp(0.0, 1.0);
+        let rbc_shield = (1.0 - self.rbc_exposure_fraction).clamp(0.0, 1.0);
+        let wbc_shield = (1.0 - self.wbc_exposure_fraction).clamp(0.0, 1.0);
+        let safety = self.cavitation_safety_margin.clamp(0.0, 1.0);
+        let sep = self.separation_efficiency.clamp(0.0, 1.0);
+        let routing_support = self.treatment_flow_fraction.clamp(0.0, 1.0);
+
+        let base = 0.32 * cav
+            + 0.18 * rbc_shield
+            + 0.14 * wbc_shield
+            + 0.12 * safety
+            + 0.08 * sep
+            + 0.06 * routing_support;
+        let synergy = 0.10 * (cav * rbc_shield * routing_support.max(0.01)).cbrt();
+
+        (base + synergy).clamp(0.001, 1.0)
     }
 
+    /// Additive scoring for the in-place Dean serpentine refinement goal (GA).
+    ///
+    /// Mirrors [`evaluate_blueprint_genetic_refinement`] but filters
+    /// structurally invalid non-venturi entries out of ranked pools.
     #[inline]
     fn score_ga(self) -> f64 {
         if !self.has_venturi {
             return 0.0;
         }
-        let lineage_bonus = self.lineage_mutation_count as f64 * 0.05;
-        let dean_bonus = self.max_dean_number / 100.0;
-        self.cavitation_selectivity_score.max(0.0)
-            * self.separation_efficiency.max(0.0)
-            * self.main_channel_margin.max(0.0)
-            + lineage_bonus
-            + dean_bonus
+
+        let cav = self.cavitation_selectivity_score.clamp(0.0, 1.0);
+        let sep = self.separation_efficiency.clamp(0.0, 1.0);
+        let safety = self.main_channel_margin.clamp(0.0, 1.0);
+        let dean_norm = (self.max_dean_number / 100.0).clamp(0.0, 1.0);
+        let lineage_norm = (f64::from(self.lineage_mutation_count) / 5.0).clamp(0.0, 1.0);
+
+        let base = 0.30 * cav
+            + 0.20 * sep
+            + 0.15 * safety
+            + 0.15 * dean_norm
+            + 0.10 * lineage_norm;
+        let synergy = 0.10 * (cav * sep * dean_norm.max(0.01)).cbrt();
+
+        (base + synergy).clamp(0.001, 1.0)
     }
 }
 
@@ -151,51 +202,75 @@ impl ScoringSnapshot {
 // EvaluatedPool
 // ---------------------------------------------------------------------------
 
+/// Lightweight identity for a candidate — just the two strings that
+/// `BlueprintObjectiveEvaluation` needs.  Avoids cloning the full
+/// `NetworkBlueprint` (nodes, channels, topology specs, metadata…)
+/// which was the primary OOM driver at 80 K candidates.
+#[derive(Clone)]
+struct CandidateIdentity {
+    id: String,
+    blueprint_name: String,
+}
+
 /// Pre-computed evaluation pool for the full candidate space.
 ///
 /// Stores evaluated entries in two parallel vectors:
-/// - **`entries`**: `(BlueprintCandidate, Arc<BlueprintEvaluation>)` — full
-///   data needed for materialising output results.  `Arc` sharing means
-///   `top_k` / `rank` produce results via cheap reference-count bumps
-///   rather than deep-cloning heap-allocated Vecs and Strings inside each
-///   evaluation.
+/// - **`identities`**: `CandidateIdentity` — only the candidate ID and
+///   blueprint name (two `String`s, ~100 bytes each).  The full
+///   `BlueprintCandidate` is **not** cloned into the pool; callers keep
+///   ownership of the original slice.
+/// - **`evaluations`**: `Arc<BlueprintEvaluation>` — physics results.
 /// - **`scoring_cache`**: `Vec<ScoringSnapshot>` — compact (~96 bytes),
 ///   contiguous, `Copy` structs holding every scalar the scoring functions
 ///   need.  The scoring pass scans this linearly, keeping the CPU
 ///   prefetcher happy and avoiding pointer-chasing.
 pub struct EvaluatedPool {
-    entries: Vec<(BlueprintCandidate, Arc<BlueprintEvaluation>)>,
+    identities: Vec<CandidateIdentity>,
+    evaluations: Vec<Arc<BlueprintEvaluation>>,
     scoring_cache: Vec<ScoringSnapshot>,
 }
 
 impl EvaluatedPool {
     /// Build a pool by evaluating all candidates in parallel.
     ///
+    /// Only the candidate ID and blueprint name are copied into the pool —
+    /// the full `NetworkBlueprint` (nodes, channels, topology specs, …) is
+    /// **not** cloned, saving ~10-20 KB per candidate (800 MB–1.6 GB at
+    /// 80 K candidates).
+    ///
     /// Candidates that fail physics evaluation are silently dropped.
     /// The pool is shrunk to fit after construction to release excess capacity.
     pub fn from_candidates(candidates: &[BlueprintCandidate]) -> Self {
-        let raw: Vec<(BlueprintCandidate, BlueprintEvaluation)> = candidates
+        let raw: Vec<(CandidateIdentity, BlueprintEvaluation, ScoringSnapshot)> = candidates
             .par_iter()
             .filter_map(|c| {
                 let eval = evaluate_blueprint_candidate(c).ok()?;
-                Some((c.clone(), eval))
+                let identity = CandidateIdentity {
+                    id: c.id.clone(),
+                    blueprint_name: c.blueprint.name.clone(),
+                };
+                let snapshot = ScoringSnapshot::from_candidate_eval(c, &eval);
+                Some((identity, eval, snapshot))
             })
             .collect();
 
-        let mut entries = Vec::with_capacity(raw.len());
+        let mut identities = Vec::with_capacity(raw.len());
+        let mut evaluations = Vec::with_capacity(raw.len());
         let mut scoring_cache = Vec::with_capacity(raw.len());
 
-        for (candidate, eval) in raw {
-            let snapshot = ScoringSnapshot::new(&candidate, &eval);
-            entries.push((candidate, Arc::new(eval)));
+        for (identity, eval, snapshot) in raw {
+            identities.push(identity);
+            evaluations.push(Arc::new(eval));
             scoring_cache.push(snapshot);
         }
 
-        entries.shrink_to_fit();
+        identities.shrink_to_fit();
+        evaluations.shrink_to_fit();
         scoring_cache.shrink_to_fit();
 
         Self {
-            entries,
+            identities,
+            evaluations,
             scoring_cache,
         }
     }
@@ -203,21 +278,32 @@ impl EvaluatedPool {
     /// Number of successfully evaluated entries.
     #[must_use]
     pub fn len(&self) -> usize {
-        self.entries.len()
+        self.identities.len()
     }
 
     /// Whether the pool is empty.
     #[must_use]
     pub fn is_empty(&self) -> bool {
-        self.entries.is_empty()
+        self.identities.is_empty()
     }
 
-    /// Approximate heap bytes used by this pool (entries + scoring cache).
+    /// Approximate heap bytes used by this pool (identities + evaluations + scoring cache).
     #[must_use]
     pub fn heap_bytes(&self) -> usize {
-        let entry_size = std::mem::size_of::<(BlueprintCandidate, Arc<BlueprintEvaluation>)>();
+        let id_size = std::mem::size_of::<CandidateIdentity>();
+        let eval_size = std::mem::size_of::<Arc<BlueprintEvaluation>>();
         let snapshot_size = std::mem::size_of::<ScoringSnapshot>();
-        self.entries.len() * entry_size + self.scoring_cache.len() * snapshot_size
+        self.identities.len() * (id_size + eval_size + snapshot_size)
+    }
+
+    /// Count entries with positive score under the given goal, without
+    /// materialising any output objects.
+    #[must_use]
+    pub fn count_eligible(&self, goal: OptimizationGoal) -> usize {
+        self.scoring_cache
+            .iter()
+            .filter(|s| s.score(goal) > 0.0)
+            .count()
     }
 
     /// Score and rank ALL entries under the given goal, returning full
@@ -229,7 +315,7 @@ impl EvaluatedPool {
         &self,
         goal: OptimizationGoal,
     ) -> Result<Vec<BlueprintObjectiveEvaluation>, OptimError> {
-        self.top_k(self.entries.len(), goal)
+        self.top_k(self.identities.len(), goal)
     }
 
     /// Score all entries and return the top `k` results for the given goal.
@@ -274,11 +360,14 @@ impl EvaluatedPool {
         let results: Vec<BlueprintObjectiveEvaluation> = scored[..take]
             .iter()
             .map(|&(idx, score)| {
-                let (candidate, eval) = &self.entries[idx as usize];
-                BlueprintObjectiveEvaluation::from_shared_evaluation(
+                let i = idx as usize;
+                let identity = &self.identities[i];
+                let eval = Arc::clone(&self.evaluations[i]);
+                BlueprintObjectiveEvaluation::from_identity(
                     goal,
-                    candidate,
-                    Arc::clone(eval),
+                    &identity.id,
+                    &identity.blueprint_name,
+                    eval,
                     score,
                 )
             })

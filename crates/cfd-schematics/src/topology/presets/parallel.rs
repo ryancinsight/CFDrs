@@ -2,9 +2,7 @@
 
 use crate::domain::therapy_metadata::TherapyZone;
 
-use super::super::model::{
-    BlueprintTopologySpec, ParallelChannelSpec, TreatmentActuationMode,
-};
+use super::super::model::{BlueprintTopologySpec, ParallelChannelSpec, TreatmentActuationMode};
 use super::helpers::{parallel_channel, PLATE_HEIGHT_MM, PLATE_WIDTH_MM};
 
 /// Create a canonical parallel-channel topology spec.

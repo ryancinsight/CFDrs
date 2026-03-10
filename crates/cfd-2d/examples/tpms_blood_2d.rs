@@ -26,9 +26,7 @@
 //! cargo run -p cfd-2d --example tpms_blood_2d --release --no-default-features
 //! ```
 
-use cfd_2d::solvers::ns_fvm::{
-    BloodModel, NavierStokesSolver2D, SIMPLEConfig, StaggeredGrid2D,
-};
+use cfd_2d::solvers::ns_fvm::{BloodModel, NavierStokesSolver2D, SIMPLEConfig, StaggeredGrid2D};
 use cfd_core::physics::fluid::blood::CarreauYasudaBlood;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -68,12 +66,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // NavierStokesSolver2D uses Gauss-Seidel for momentum (not GMRES),
     // which avoids the convergence issues from tight iterative tolerances.
     let config = SIMPLEConfig::new(
-        2000,  // max_iterations
-        1e-5,  // tolerance
-        0.5,   // alpha_u  (momentum under-relaxation)
-        0.3,   // alpha_p  (pressure under-relaxation)
-        0.8,   // alpha_mu (viscosity under-relaxation)
-        5,     // viscosity_update_interval
+        2000, // max_iterations
+        1e-5, // tolerance
+        0.5,  // alpha_u  (momentum under-relaxation)
+        0.3,  // alpha_p  (pressure under-relaxation)
+        0.8,  // alpha_mu (viscosity under-relaxation)
+        5,    // viscosity_update_interval
     );
 
     let blood = BloodModel::CarreauYasuda(blood_params.clone());
@@ -112,8 +110,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let n_fluid = nx * ny - n_solid;
-    println!("TPMS  : Gyroid cross-section, λ = {:.1} mm, 1 period", tpms_period * 1e3);
-    println!("        Constriction amplitude = {:.1} mm per side", amplitude * 1e3);
+    println!(
+        "TPMS  : Gyroid cross-section, λ = {:.1} mm, 1 period",
+        tpms_period * 1e3
+    );
+    println!(
+        "        Constriction amplitude = {:.1} mm per side",
+        amplitude * 1e3
+    );
     println!(
         "        Min gap = {:.1} mm, Max gap = {:.1} mm",
         (height - 2.0 * amplitude) * 1e3,
@@ -129,7 +133,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // ── 5. Solve ─────────────────────────────────────────────────────────────
     let u_inlet_val = 0.01; // 1 cm/s mean inlet → Re ≈ 6
-    println!("Solving (u_inlet = {:.0} mm/s, SIMPLE + Gauss-Seidel) ...", u_inlet_val * 1e3);
+    println!(
+        "Solving (u_inlet = {:.0} mm/s, SIMPLE + Gauss-Seidel) ...",
+        u_inlet_val * 1e3
+    );
 
     let result = solver
         .solve(u_inlet_val)
@@ -192,7 +199,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let p_out = solver.field.p[nx - 1][j_centre];
     let dp = p_in - p_out;
     println!();
-    println!("  Pressure drop ΔP   : {:.2} Pa ({:.4} mmHg)", dp, dp / 133.322);
+    println!(
+        "  Pressure drop ΔP   : {:.2} Pa ({:.4} mmHg)",
+        dp,
+        dp / 133.322
+    );
 
     // Wall shear stress estimate (bottom wall)
     let dy = solver.grid.dy;
@@ -219,7 +230,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         0.0
     };
 
-    println!("  Wall shear (bottom) : max = {:.4} Pa, mean = {:.4} Pa", tau_max, tau_mean);
+    println!(
+        "  Wall shear (bottom) : max = {:.4} Pa, mean = {:.4} Pa",
+        tau_max, tau_mean
+    );
 
     // ── 7. Compare with 1D ───────────────────────────────────────────────────
     println!();
@@ -228,9 +242,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("─────────────────────────────────────────────────────────");
     println!("                   1D (H-P network)    2D (N-S FVM)");
     println!("  ΔP             ≈ 19.2 Pa            {:.1} Pa", dp);
-    println!("  Wall shear     ≈ 0.06–0.13 Pa       {:.2}–{:.2} Pa", tau_mean, tau_max);
-    println!("  μ_app          ≈ 7.5–11.8 mPa·s     {:.1}–{:.1} mPa·s",
-             mu_constr * 1e3, mu_expand * 1e3);
+    println!(
+        "  Wall shear     ≈ 0.06–0.13 Pa       {:.2}–{:.2} Pa",
+        tau_mean, tau_max
+    );
+    println!(
+        "  μ_app          ≈ 7.5–11.8 mPa·s     {:.1}–{:.1} mPa·s",
+        mu_constr * 1e3,
+        mu_expand * 1e3
+    );
     println!();
     println!("  The 2D solver captures spatially varying viscosity,");
     println!("  velocity acceleration through constrictions, and higher");

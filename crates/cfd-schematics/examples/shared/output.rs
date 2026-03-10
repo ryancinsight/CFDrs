@@ -28,8 +28,8 @@ pub fn save_example_output(blueprint: &NetworkBlueprint, example_name: &str) {
 
     // 1. Save JSON Blueprint
     let json_path = output_dir.join(format!("{}.json", example_name));
-    let json_data = serde_json::to_string_pretty(blueprint)
-        .expect("Failed to serialize blueprint to JSON");
+    let json_data =
+        serde_json::to_string_pretty(blueprint).expect("Failed to serialize blueprint to JSON");
     fs::write(&json_path, json_data)
         .unwrap_or_else(|e| panic!("Failed to write JSON path {:?}: {}", json_path, e));
     println!("  - JSON: {:?}", json_path.file_name().unwrap());
@@ -40,7 +40,7 @@ pub fn save_example_output(blueprint: &NetworkBlueprint, example_name: &str) {
         .map_err(|e| e.to_string())
         .unwrap_or_else(|e| panic!("Failed to plot geometry {:?}: {}", svg_path, e));
     println!("  - SVG : {:?}", svg_path.file_name().unwrap());
-    
+
     // Print statistics
     println!("\nBlueprint Statistics:");
     println!("  - Nodes: {}", blueprint.nodes.len());
@@ -49,7 +49,11 @@ pub fn save_example_output(blueprint: &NetworkBlueprint, example_name: &str) {
 
 /// Standardized output generator that allows specifying a custom filename
 /// within the example's directory. Useful for examples that generate multiple permutations.
-pub fn save_example_output_with_name(blueprint: &NetworkBlueprint, example_name: &str, file_name: &str) {
+pub fn save_example_output_with_name(
+    blueprint: &NetworkBlueprint,
+    example_name: &str,
+    file_name: &str,
+) {
     let current_dir = std::env::current_dir().expect("Failed to get current directory");
     let workspace_root = current_dir
         .ancestors()
@@ -69,8 +73,8 @@ pub fn save_example_output_with_name(blueprint: &NetworkBlueprint, example_name:
 
     // 1. Save JSON Blueprint
     let json_path = output_dir.join(format!("{}.json", file_name));
-    let json_data = serde_json::to_string_pretty(blueprint)
-        .expect("Failed to serialize blueprint to JSON");
+    let json_data =
+        serde_json::to_string_pretty(blueprint).expect("Failed to serialize blueprint to JSON");
     fs::write(&json_path, json_data)
         .unwrap_or_else(|e| panic!("Failed to write JSON path {:?}: {}", json_path, e));
 
@@ -79,6 +83,6 @@ pub fn save_example_output_with_name(blueprint: &NetworkBlueprint, example_name:
     plot_geometry(blueprint, svg_path.to_str().unwrap())
         .map_err(|e| e.to_string())
         .unwrap_or_else(|e| panic!("Failed to plot geometry {:?}: {}", svg_path, e));
-    
+
     println!("Saved -> {:?}", svg_path.file_name().unwrap());
 }

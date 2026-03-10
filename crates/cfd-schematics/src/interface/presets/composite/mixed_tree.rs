@@ -1,15 +1,114 @@
-//! Mixed-tree composite presets: topologies combining bifurcation and trifurcation at different levels.
-#![allow(deprecated)] // NetworkBlueprint::new() used intentionally; nodes are created with NodeSpec::new_at().
+//! Mixed split-family venturi bundles materialized through canonical topology specs.
 
-use super::{shah_london, BLOOD_MU};
-use crate::domain::model::{ChannelSpec, NetworkBlueprint, NodeKind, NodeSpec};
-use crate::domain::therapy_metadata::{TherapyZone, TherapyZoneMetadata};
+use super::finalize_preset_blueprint;
+use crate::domain::model::NetworkBlueprint;
+use crate::domain::therapy_metadata::TherapyZone;
+use crate::topology::presets::{parallel_path_spec, with_venturi};
+use crate::topology::{
+    ChannelRouteSpec, ParallelChannelSpec, ThroatGeometrySpec, TreatmentActuationMode,
+    VenturiConfig, VenturiPlacementMode,
+};
+use crate::BlueprintTopologyFactory;
 
-/// Two-level symmetric trifurcation with a venturi in each of the 9 leaves — closed loop.
-///
-/// **Topology**: 2-level ternary tree → 9 venturis → converging ternary tree → outlet.
-///
-/// Nine cavitation sites in a 3×3 grid covering the full treatment zone.
+fn venturi_lane(
+    channel_id: impl Into<String>,
+    length_m: f64,
+    width_m: f64,
+    height_m: f64,
+) -> ParallelChannelSpec {
+    ParallelChannelSpec {
+        channel_id: channel_id.into(),
+        route: ChannelRouteSpec {
+            length_m,
+            width_m,
+            height_m,
+            serpentine: None,
+            therapy_zone: TherapyZone::CancerTarget,
+        },
+    }
+}
+
+fn venturi_bundle_blueprint(
+    name: String,
+    inlet_width_m: f64,
+    trunk_length_m: f64,
+    channel_height_m: f64,
+    throat_width_m: f64,
+    throat_length_m: f64,
+    channels: Vec<ParallelChannelSpec>,
+) -> NetworkBlueprint {
+    let spec = with_venturi(
+        parallel_path_spec(
+            &name,
+            inlet_width_m,
+            inlet_width_m,
+            trunk_length_m,
+            trunk_length_m,
+            channels.clone(),
+            TreatmentActuationMode::VenturiCavitation,
+        ),
+        VenturiConfig {
+            target_channel_ids: channels
+                .iter()
+                .map(|channel| channel.channel_id.clone())
+                .collect(),
+            serial_throat_count: 1,
+            throat_geometry: ThroatGeometrySpec {
+                throat_width_m,
+                throat_height_m: channel_height_m,
+                throat_length_m,
+                inlet_width_m: 0.0,
+                outlet_width_m: 0.0,
+                convergent_half_angle_deg: 7.0,
+                divergent_half_angle_deg: 7.0,
+            },
+            placement_mode: VenturiPlacementMode::StraightSegment,
+        },
+    );
+    finalize_preset_blueprint(
+        BlueprintTopologyFactory::build(&spec)
+            .expect("valid canonical mixed-tree venturi topology"),
+    )
+}
+
+fn primary_lane_id(primary_label: &str, label: &str) -> String {
+    if label == primary_label {
+        "throat_section".to_string()
+    } else {
+        format!("throat_section_{label}")
+    }
+}
+
+fn label_products(alphabet: &[&str], depth: usize) -> Vec<String> {
+    if depth == 0 {
+        return vec![String::new()];
+    }
+    let suffixes = label_products(alphabet, depth - 1);
+    let mut labels = Vec::with_capacity(alphabet.len().pow(depth as u32));
+    for prefix in alphabet {
+        for suffix in &suffixes {
+            labels.push(format!("{prefix}{suffix}"));
+        }
+    }
+    labels
+}
+
+fn width_scaled_by_mixed_trifurcation(label: &str, main_width_m: f64, center_frac: f64) -> f64 {
+    let center_frac = center_frac.clamp(0.20, 0.70);
+    let periph_frac = (1.0 - center_frac) * 0.5;
+    let level_1 = if label.starts_with('B') {
+        center_frac
+    } else {
+        periph_frac
+    };
+    let level_2 = 0.5;
+    let level_3 = 0.5;
+    main_width_m
+        * level_1
+        * if label.len() >= 2 { level_2 } else { 1.0 }
+        * if label.len() >= 3 { level_3 } else { 1.0 }
+}
+
 #[must_use]
 pub fn double_trifurcation_venturi_rect(
     name: impl Into<String>,
@@ -21,141 +120,30 @@ pub fn double_trifurcation_venturi_rect(
     throat_length_m: f64,
 ) -> NetworkBlueprint {
     let l_throat = throat_length_m.max(2.0 * throat_width_m);
-    let l_taper = 5.0 * (main_width_m + throat_width_m) * 0.5;
-    let mut bp = NetworkBlueprint::new(name);
-
-    let l1_labels = ["A", "B", "C"];
-    // Level-2 labels: AA, AB, AC, BA, BB, BC, CA, CB, CC
-    let l2_labels: Vec<String> = l1_labels
-        .iter()
-        .flat_map(|a| l1_labels.iter().map(move |b| format!("{a}{b}")))
+    let l_taper = 2.5 * (main_width_m + throat_width_m);
+    let leaf_length_m = 2.0 * branch1_length_m + 2.0 * l_taper + l_throat;
+    let channels = label_products(&["A", "B", "C"], 2)
+        .into_iter()
+        .map(|label| {
+            venturi_lane(
+                primary_lane_id("AA", &label),
+                leaf_length_m,
+                main_width_m,
+                height_m,
+            )
+        })
         .collect();
-
-    bp.add_node(NodeSpec::new("inlet", NodeKind::Inlet));
-    bp.add_node(NodeSpec::new("split_0", NodeKind::Junction));
-    bp.add_node(NodeSpec::new("merge_0", NodeKind::Junction));
-    bp.add_node(NodeSpec::new("outlet", NodeKind::Outlet));
-    for l1 in &l1_labels {
-        bp.add_node(NodeSpec::new(format!("split_{l1}"), NodeKind::Junction));
-        bp.add_node(NodeSpec::new(format!("merge_{l1}"), NodeKind::Junction));
-    }
-    for l2 in &l2_labels {
-        bp.add_node(NodeSpec::new(format!("ctr_{l2}"), NodeKind::Junction));
-        bp.add_node(NodeSpec::new(format!("throat_{l2}"), NodeKind::Junction));
-    }
-
-    bp.add_channel(
-        ChannelSpec::new_pipe_rect(
-            "inlet_section",
-            "inlet",
-            "split_0",
-            trunk_length_m,
-            main_width_m,
-            height_m,
-            shah_london(main_width_m, height_m, trunk_length_m, BLOOD_MU),
-            0.0,
-        )
-        .with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)),
-    );
-    bp.add_channel(
-        ChannelSpec::new_pipe_rect(
-            "trunk_out",
-            "merge_0",
-            "outlet",
-            trunk_length_m,
-            main_width_m,
-            height_m,
-            shah_london(main_width_m, height_m, trunk_length_m, BLOOD_MU),
-            0.0,
-        )
-        .with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)),
-    );
-
-    for l1 in &l1_labels {
-        bp.add_channel(
-            ChannelSpec::new_pipe_rect(
-                format!("b1_{l1}_in"),
-                "split_0",
-                format!("split_{l1}"),
-                branch1_length_m,
-                main_width_m,
-                height_m,
-                shah_london(main_width_m, height_m, branch1_length_m, BLOOD_MU),
-                0.0,
-            )
-            .with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)),
-        );
-        bp.add_channel(
-            ChannelSpec::new_pipe_rect(
-                format!("b1_{l1}_out"),
-                format!("merge_{l1}"),
-                "merge_0",
-                branch1_length_m,
-                main_width_m,
-                height_m,
-                shah_london(main_width_m, height_m, branch1_length_m, BLOOD_MU),
-                0.0,
-            )
-            .with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)),
-        );
-    }
-
-    for (idx, l2) in l2_labels.iter().enumerate() {
-        let parent = &l2[0..1];
-        let throat_name = if idx == 0 {
-            "throat_section".to_string()
-        } else {
-            format!("throat_section_{l2}")
-        };
-        bp.add_channel(
-            ChannelSpec::new_pipe_rect(
-                format!("leaf_{l2}_in"),
-                format!("split_{parent}"),
-                format!("ctr_{l2}"),
-                l_taper,
-                main_width_m,
-                height_m,
-                shah_london(main_width_m, height_m, l_taper, BLOOD_MU),
-                0.0,
-            )
-            .with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)),
-        );
-        bp.add_channel(
-            ChannelSpec::new_pipe_rect(
-                throat_name,
-                format!("ctr_{l2}"),
-                format!("throat_{l2}"),
-                l_throat,
-                throat_width_m,
-                height_m,
-                shah_london(throat_width_m, height_m, l_throat, BLOOD_MU),
-                0.0,
-            )
-            .with_metadata(TherapyZoneMetadata::new(TherapyZone::CancerTarget)),
-        );
-        bp.add_channel(
-            ChannelSpec::new_pipe_rect(
-                format!("leaf_{l2}_out"),
-                format!("throat_{l2}"),
-                format!("merge_{parent}"),
-                l_taper,
-                main_width_m,
-                height_m,
-                shah_london(main_width_m, height_m, l_taper, BLOOD_MU),
-                0.0,
-            )
-            .with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)),
-        );
-    }
-
-    bp
+    venturi_bundle_blueprint(
+        name.into(),
+        main_width_m,
+        trunk_length_m,
+        height_m,
+        throat_width_m,
+        l_throat,
+        channels,
+    )
 }
 
-/// Mixed split: bifurcation at level-1, trifurcation at level-2 → 6 venturis — closed loop.
-///
-/// **Topology**: bi split → [tri, tri] → 6 venturis → [tri-merge, tri-merge] → bi-merge → outlet.
-///
-/// Six cavitation sites in a 2×3 grid.
 #[must_use]
 pub fn bifurcation_trifurcation_venturi_rect(
     name: impl Into<String>,
@@ -167,145 +155,31 @@ pub fn bifurcation_trifurcation_venturi_rect(
     throat_length_m: f64,
 ) -> NetworkBlueprint {
     let l_throat = throat_length_m.max(2.0 * throat_width_m);
-    let l_taper = 5.0 * (main_width_m + throat_width_m) * 0.5;
-    let mut bp = NetworkBlueprint::new(name);
-
-    // Level-1: binary (L, R)
-    let l1 = ["L", "R"];
-    // Level-2: ternary per branch (A, B, C)
-    let l2_sub = ["A", "B", "C"];
-
-    bp.add_node(NodeSpec::new("inlet", NodeKind::Inlet));
-    bp.add_node(NodeSpec::new("split_0", NodeKind::Junction));
-    bp.add_node(NodeSpec::new("merge_0", NodeKind::Junction));
-    bp.add_node(NodeSpec::new("outlet", NodeKind::Outlet));
-    for s in &l1 {
-        bp.add_node(NodeSpec::new(format!("split_{s}"), NodeKind::Junction));
-        bp.add_node(NodeSpec::new(format!("merge_{s}"), NodeKind::Junction));
-        for t in &l2_sub {
-            bp.add_node(NodeSpec::new(format!("ctr_{s}{t}"), NodeKind::Junction));
-            bp.add_node(NodeSpec::new(format!("throat_{s}{t}"), NodeKind::Junction));
-        }
-    }
-
-    bp.add_channel(
-        ChannelSpec::new_pipe_rect(
-            "inlet_section",
-            "inlet",
-            "split_0",
-            trunk_length_m,
-            main_width_m,
-            height_m,
-            shah_london(main_width_m, height_m, trunk_length_m, BLOOD_MU),
-            0.0,
-        )
-        .with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)),
-    );
-    bp.add_channel(
-        ChannelSpec::new_pipe_rect(
-            "trunk_out",
-            "merge_0",
-            "outlet",
-            trunk_length_m,
-            main_width_m,
-            height_m,
-            shah_london(main_width_m, height_m, trunk_length_m, BLOOD_MU),
-            0.0,
-        )
-        .with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)),
-    );
-
-    let mut throat_idx = 0usize;
-    for s in &l1 {
-        bp.add_channel(
-            ChannelSpec::new_pipe_rect(
-                format!("b1_{s}_in"),
-                "split_0",
-                format!("split_{s}"),
-                branch1_length_m,
+    let l_taper = 2.5 * (main_width_m + throat_width_m);
+    let leaf_length_m = 2.0 * branch1_length_m + 2.0 * l_taper + l_throat;
+    let labels = ["LA", "LB", "LC", "RA", "RB", "RC"];
+    let channels = labels
+        .into_iter()
+        .map(|label| {
+            venturi_lane(
+                primary_lane_id("LA", label),
+                leaf_length_m,
                 main_width_m,
                 height_m,
-                shah_london(main_width_m, height_m, branch1_length_m, BLOOD_MU),
-                0.0,
             )
-            .with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)),
-        );
-        bp.add_channel(
-            ChannelSpec::new_pipe_rect(
-                format!("b1_{s}_out"),
-                format!("merge_{s}"),
-                "merge_0",
-                branch1_length_m,
-                main_width_m,
-                height_m,
-                shah_london(main_width_m, height_m, branch1_length_m, BLOOD_MU),
-                0.0,
-            )
-            .with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)),
-        );
-        for t in &l2_sub {
-            let label = format!("{s}{t}");
-            let throat_name = if throat_idx == 0 {
-                "throat_section".to_string()
-            } else {
-                format!("throat_section_{label}")
-            };
-            throat_idx += 1;
-            bp.add_channel(
-                ChannelSpec::new_pipe_rect(
-                    format!("leaf_{label}_in"),
-                    format!("split_{s}"),
-                    format!("ctr_{label}"),
-                    l_taper,
-                    main_width_m,
-                    height_m,
-                    shah_london(main_width_m, height_m, l_taper, BLOOD_MU),
-                    0.0,
-                )
-                .with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)),
-            );
-            bp.add_channel(
-                ChannelSpec::new_pipe_rect(
-                    throat_name,
-                    format!("ctr_{label}"),
-                    format!("throat_{label}"),
-                    l_throat,
-                    throat_width_m,
-                    height_m,
-                    shah_london(throat_width_m, height_m, l_throat, BLOOD_MU),
-                    0.0,
-                )
-                .with_metadata(TherapyZoneMetadata::new(TherapyZone::CancerTarget)),
-            );
-            bp.add_channel(
-                ChannelSpec::new_pipe_rect(
-                    format!("leaf_{label}_out"),
-                    format!("throat_{label}"),
-                    format!("merge_{s}"),
-                    l_taper,
-                    main_width_m,
-                    height_m,
-                    shah_london(main_width_m, height_m, l_taper, BLOOD_MU),
-                    0.0,
-                )
-                .with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)),
-            );
-        }
-    }
-
-    bp
+        })
+        .collect();
+    venturi_bundle_blueprint(
+        name.into(),
+        main_width_m,
+        trunk_length_m,
+        height_m,
+        throat_width_m,
+        l_throat,
+        channels,
+    )
 }
 
-/// Mixed split: trifurcation at level-1, bifurcation at level-2 → 6 venturis — closed loop.
-///
-/// **Topology**: tri split → [bi, bi, bi] → 6 venturis → [bi-merge ×3] → tri-merge → outlet.
-///
-/// Six cavitation sites in a 3×2 grid.
-///
-/// # Channel names
-/// - `"inlet_section"` — level-0 trunk
-/// - `"throat_section"` — leaf-AL venturi throat (primary)
-/// - `"throat_section_AR"`, `"throat_section_BL"`, … — remaining throats
 #[must_use]
 pub fn trifurcation_bifurcation_venturi_rect(
     name: impl Into<String>,
@@ -317,150 +191,31 @@ pub fn trifurcation_bifurcation_venturi_rect(
     throat_length_m: f64,
 ) -> NetworkBlueprint {
     let l_throat = throat_length_m.max(2.0 * throat_width_m);
-    let l_taper = 5.0 * (main_width_m + throat_width_m) * 0.5;
-    let mut bp = NetworkBlueprint::new(name);
-
-    // Level-1: ternary (A, B, C); level-2: binary (L, R)
-    let l1 = ["A", "B", "C"];
-    let l2_sub = ["L", "R"];
-
-    bp.add_node(NodeSpec::new("inlet", NodeKind::Inlet));
-    bp.add_node(NodeSpec::new("split_0", NodeKind::Junction));
-    bp.add_node(NodeSpec::new("merge_0", NodeKind::Junction));
-    bp.add_node(NodeSpec::new("outlet", NodeKind::Outlet));
-    for s in &l1 {
-        bp.add_node(NodeSpec::new(format!("split_{s}"), NodeKind::Junction));
-        bp.add_node(NodeSpec::new(format!("merge_{s}"), NodeKind::Junction));
-        for t in &l2_sub {
-            bp.add_node(NodeSpec::new(format!("ctr_{s}{t}"), NodeKind::Junction));
-            bp.add_node(NodeSpec::new(format!("throat_{s}{t}"), NodeKind::Junction));
-        }
-    }
-
-    bp.add_channel(
-        ChannelSpec::new_pipe_rect(
-            "inlet_section",
-            "inlet",
-            "split_0",
-            trunk_length_m,
-            main_width_m,
-            height_m,
-            shah_london(main_width_m, height_m, trunk_length_m, BLOOD_MU),
-            0.0,
-        )
-        .with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)),
-    );
-    bp.add_channel(
-        ChannelSpec::new_pipe_rect(
-            "trunk_out",
-            "merge_0",
-            "outlet",
-            trunk_length_m,
-            main_width_m,
-            height_m,
-            shah_london(main_width_m, height_m, trunk_length_m, BLOOD_MU),
-            0.0,
-        )
-        .with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)),
-    );
-
-    let mut throat_idx = 0usize;
-    for s in &l1 {
-        // Level-1 trifurcation distribution branches
-        bp.add_channel(
-            ChannelSpec::new_pipe_rect(
-                format!("b1_{s}_in"),
-                "split_0",
-                format!("split_{s}"),
-                branch1_length_m,
+    let l_taper = 2.5 * (main_width_m + throat_width_m);
+    let leaf_length_m = 2.0 * branch1_length_m + 2.0 * l_taper + l_throat;
+    let labels = ["AL", "AR", "BL", "BR", "CL", "CR"];
+    let channels = labels
+        .into_iter()
+        .map(|label| {
+            venturi_lane(
+                primary_lane_id("AL", label),
+                leaf_length_m,
                 main_width_m,
                 height_m,
-                shah_london(main_width_m, height_m, branch1_length_m, BLOOD_MU),
-                0.0,
             )
-            .with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)),
-        );
-        bp.add_channel(
-            ChannelSpec::new_pipe_rect(
-                format!("b1_{s}_out"),
-                format!("merge_{s}"),
-                "merge_0",
-                branch1_length_m,
-                main_width_m,
-                height_m,
-                shah_london(main_width_m, height_m, branch1_length_m, BLOOD_MU),
-                0.0,
-            )
-            .with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)),
-        );
-
-        // Level-2 bifurcation + venturi at each leaf
-        for t in &l2_sub {
-            let label = format!("{s}{t}");
-            let throat_name = if throat_idx == 0 {
-                "throat_section".to_string()
-            } else {
-                format!("throat_section_{label}")
-            };
-            throat_idx += 1;
-            bp.add_channel(
-                ChannelSpec::new_pipe_rect(
-                    format!("leaf_{label}_in"),
-                    format!("split_{s}"),
-                    format!("ctr_{label}"),
-                    l_taper,
-                    main_width_m,
-                    height_m,
-                    shah_london(main_width_m, height_m, l_taper, BLOOD_MU),
-                    0.0,
-                )
-                .with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)),
-            );
-            bp.add_channel(
-                ChannelSpec::new_pipe_rect(
-                    throat_name,
-                    format!("ctr_{label}"),
-                    format!("throat_{label}"),
-                    l_throat,
-                    throat_width_m,
-                    height_m,
-                    shah_london(throat_width_m, height_m, l_throat, BLOOD_MU),
-                    0.0,
-                )
-                .with_metadata(TherapyZoneMetadata::new(TherapyZone::CancerTarget)),
-            );
-            bp.add_channel(
-                ChannelSpec::new_pipe_rect(
-                    format!("leaf_{label}_out"),
-                    format!("throat_{label}"),
-                    format!("merge_{s}"),
-                    l_taper,
-                    main_width_m,
-                    height_m,
-                    shah_london(main_width_m, height_m, l_taper, BLOOD_MU),
-                    0.0,
-                )
-                .with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)),
-            );
-        }
-    }
-
-    bp
+        })
+        .collect();
+    venturi_bundle_blueprint(
+        name.into(),
+        main_width_m,
+        trunk_length_m,
+        height_m,
+        throat_width_m,
+        l_throat,
+        channels,
+    )
 }
 
-/// Trifurcation → Bifurcation → Bifurcation → 12 parallel venturi throats.
-///
-/// **Topology**:
-/// `inlet → split_0 → [A/B/C] → [AL/AR, BL/BR, CL/CR] → [ALL/ALR, … CRR] → 12 venturis → merging tree → outlet`
-///
-/// Mixed 3-level tree: one ternary split at level 1, two binary splits at levels 2–3.
-/// Width-scaled at the trifurcation split using `center_frac`; bifurcation arms
-/// halve width at each subsequent level.
-///
-/// # Channel names
-/// - `"inlet_section"` — trunk
-/// - `"throat_section"` — first leaf (label `"ALL"`)
-/// - `"throat_section_{LABEL}"` — remaining 11 throats
 #[must_use]
 #[allow(clippy::too_many_arguments)]
 pub fn trifurcation_bifurcation_bifurcation_venturi_rect(
@@ -475,191 +230,31 @@ pub fn trifurcation_bifurcation_bifurcation_venturi_rect(
     throat_length_m: f64,
 ) -> NetworkBlueprint {
     let l_throat = throat_length_m.max(2.0 * throat_width_m);
-    let l_taper = 5.0 * (main_width_m + throat_width_m) * 0.5;
-    let center_frac = center_frac.clamp(0.20, 0.70);
-    let periph_frac = (1.0 - center_frac) * 0.5;
-
-    // Level-1 (trifurcation): A, B (center), C
-    let tri_labels = ["A", "B", "C"];
-    // Level-2 (bifurcation of each tri arm): {A,B,C}{L,R}
-    let bi_labels: Vec<String> = tri_labels
-        .iter()
-        .flat_map(|t| ["L", "R"].iter().map(move |b| format!("{t}{b}")))
+    let l_taper = 2.5 * (main_width_m + throat_width_m);
+    let leaf_length_m = 2.0 * (branch1_length_m + branch2_length_m) + 2.0 * l_taper + l_throat;
+    let channels = label_products(&["A", "B", "C"], 1)
+        .into_iter()
+        .flat_map(|root| {
+            label_products(&["L", "R"], 2)
+                .into_iter()
+                .map(move |suffix| format!("{root}{suffix}"))
+        })
+        .map(|label| {
+            venturi_lane(
+                primary_lane_id("ALL", &label),
+                leaf_length_m,
+                width_scaled_by_mixed_trifurcation(&label, main_width_m, center_frac),
+                height_m,
+            )
+        })
         .collect();
-    // Level-3 (bifurcation of each level-2 arm): {A,B,C}{L,R}{L,R}
-    let leaf_labels: Vec<String> = bi_labels
-        .iter()
-        .flat_map(|t| ["L", "R"].iter().map(move |b| format!("{t}{b}")))
-        .collect();
-
-    let mut bp = NetworkBlueprint::new(name);
-
-    bp.add_node(NodeSpec::new("inlet", NodeKind::Inlet));
-    bp.add_node(NodeSpec::new("split_0", NodeKind::Junction));
-    bp.add_node(NodeSpec::new("merge_0", NodeKind::Junction));
-    bp.add_node(NodeSpec::new("outlet", NodeKind::Outlet));
-    for l1 in &tri_labels {
-        bp.add_node(NodeSpec::new(format!("split_{l1}"), NodeKind::Junction));
-        bp.add_node(NodeSpec::new(format!("merge_{l1}"), NodeKind::Junction));
-    }
-    for l2 in &bi_labels {
-        bp.add_node(NodeSpec::new(format!("split_{l2}"), NodeKind::Junction));
-        bp.add_node(NodeSpec::new(format!("merge_{l2}"), NodeKind::Junction));
-    }
-    for leaf in &leaf_labels {
-        bp.add_node(NodeSpec::new(format!("ctr_{leaf}"), NodeKind::Junction));
-        bp.add_node(NodeSpec::new(format!("throat_{leaf}"), NodeKind::Junction));
-    }
-
-    // Width at each level:
-    //   Level-1: trifurcation width scaling
-    //   Level-2: halved from level-1 (bifurcation — equal split)
-    //   Level-3: halved from level-2
-    let w_l1 =
-        |l1: &str| -> f64 { main_width_m * if l1 == "B" { center_frac } else { periph_frac } };
-    let w_l2 = |l2: &str| -> f64 { w_l1(&l2[0..1]) * 0.5 };
-    let w_leaf = |leaf: &str| -> f64 { w_l2(&leaf[0..2]) * 0.5 };
-
-    // Trunk in/out
-    bp.add_channel(
-        ChannelSpec::new_pipe_rect(
-            "inlet_section",
-            "inlet",
-            "split_0",
-            trunk_length_m,
-            main_width_m,
-            height_m,
-            shah_london(main_width_m, height_m, trunk_length_m, BLOOD_MU),
-            0.0,
-        )
-        .with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)),
-    );
-    bp.add_channel(
-        ChannelSpec::new_pipe_rect(
-            "trunk_out",
-            "merge_0",
-            "outlet",
-            trunk_length_m,
-            main_width_m,
-            height_m,
-            shah_london(main_width_m, height_m, trunk_length_m, BLOOD_MU),
-            0.0,
-        )
-        .with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)),
-    );
-
-    // Level-1 trifurcation branches
-    for l1 in &tri_labels {
-        let w = w_l1(l1);
-        bp.add_channel(
-            ChannelSpec::new_pipe_rect(
-                format!("b1_{l1}_in"),
-                "split_0",
-                format!("split_{l1}"),
-                branch1_length_m,
-                w,
-                height_m,
-                shah_london(w, height_m, branch1_length_m, BLOOD_MU),
-                0.0,
-            )
-            .with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)),
-        );
-        bp.add_channel(
-            ChannelSpec::new_pipe_rect(
-                format!("b1_{l1}_out"),
-                format!("merge_{l1}"),
-                "merge_0",
-                branch1_length_m,
-                w,
-                height_m,
-                shah_london(w, height_m, branch1_length_m, BLOOD_MU),
-                0.0,
-            )
-            .with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)),
-        );
-    }
-
-    // Level-2 bifurcation branches
-    for l2 in &bi_labels {
-        let parent = &l2[0..1];
-        let w = w_l2(l2);
-        bp.add_channel(
-            ChannelSpec::new_pipe_rect(
-                format!("b2_{l2}_in"),
-                format!("split_{parent}"),
-                format!("split_{l2}"),
-                branch2_length_m,
-                w,
-                height_m,
-                shah_london(w, height_m, branch2_length_m, BLOOD_MU),
-                0.0,
-            )
-            .with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)),
-        );
-        bp.add_channel(
-            ChannelSpec::new_pipe_rect(
-                format!("b2_{l2}_out"),
-                format!("merge_{l2}"),
-                format!("merge_{parent}"),
-                branch2_length_m,
-                w,
-                height_m,
-                shah_london(w, height_m, branch2_length_m, BLOOD_MU),
-                0.0,
-            )
-            .with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)),
-        );
-    }
-
-    // Level-3 venturis (12 leaves)
-    for (idx, leaf) in leaf_labels.iter().enumerate() {
-        let parent = &leaf[0..2];
-        let throat_name = if idx == 0 {
-            "throat_section".to_string()
-        } else {
-            format!("throat_section_{leaf}")
-        };
-        let w = w_leaf(leaf);
-        bp.add_channel(
-            ChannelSpec::new_pipe_rect(
-                format!("leaf_{leaf}_in"),
-                format!("split_{parent}"),
-                format!("ctr_{leaf}"),
-                l_taper,
-                w,
-                height_m,
-                shah_london(w, height_m, l_taper, BLOOD_MU),
-                0.0,
-            )
-            .with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)),
-        );
-        bp.add_channel(
-            ChannelSpec::new_pipe_rect(
-                throat_name,
-                format!("ctr_{leaf}"),
-                format!("throat_{leaf}"),
-                l_throat,
-                throat_width_m,
-                height_m,
-                shah_london(throat_width_m, height_m, l_throat, BLOOD_MU),
-                0.0,
-            )
-            .with_metadata(TherapyZoneMetadata::new(TherapyZone::CancerTarget)),
-        );
-        bp.add_channel(
-            ChannelSpec::new_pipe_rect(
-                format!("leaf_{leaf}_out"),
-                format!("throat_{leaf}"),
-                format!("merge_{parent}"),
-                l_taper,
-                w,
-                height_m,
-                shah_london(w, height_m, l_taper, BLOOD_MU),
-                0.0,
-            )
-            .with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)),
-        );
-    }
-
-    bp
+    venturi_bundle_blueprint(
+        name.into(),
+        main_width_m,
+        trunk_length_m,
+        height_m,
+        throat_width_m,
+        l_throat,
+        channels,
+    )
 }

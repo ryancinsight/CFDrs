@@ -12,9 +12,7 @@ pub fn validate_spec(spec: &BlueprintTopologySpec) -> Result<(), String> {
     }
     let (bw, bh) = spec.box_dims_mm;
     if bw <= 0.0 || bh <= 0.0 {
-        return Err(format!(
-            "Box dimensions must be positive: ({bw}, {bh})"
-        ));
+        return Err(format!("Box dimensions must be positive: ({bw}, {bh})"));
     }
     if spec.inlet_width_m <= 0.0 {
         return Err(format!(
@@ -54,10 +52,7 @@ pub fn validate_spec(spec: &BlueprintTopologySpec) -> Result<(), String> {
     // Validate split stages
     for stage in &spec.split_stages {
         if stage.branches.is_empty() {
-            return Err(format!(
-                "Split stage '{}' has no branches",
-                stage.stage_id
-            ));
+            return Err(format!("Split stage '{}' has no branches", stage.stage_id));
         }
         let expected = stage.split_kind.branch_count();
         if stage.branches.len() != expected {
@@ -94,23 +89,36 @@ pub fn validate_spec(spec: &BlueprintTopologySpec) -> Result<(), String> {
 /// Validate a single channel route specification.
 pub fn validate_route(label: &str, route: &ChannelRouteSpec) -> Result<(), String> {
     if route.length_m <= 0.0 {
-        return Err(format!("{label}: length_m must be positive: {}", route.length_m));
+        return Err(format!(
+            "{label}: length_m must be positive: {}",
+            route.length_m
+        ));
     }
     if route.width_m <= 0.0 {
-        return Err(format!("{label}: width_m must be positive: {}", route.width_m));
+        return Err(format!(
+            "{label}: width_m must be positive: {}",
+            route.width_m
+        ));
     }
     if route.height_m <= 0.0 {
-        return Err(format!("{label}: height_m must be positive: {}", route.height_m));
+        return Err(format!(
+            "{label}: height_m must be positive: {}",
+            route.height_m
+        ));
     }
     if let Some(ref serp) = route.serpentine {
         if serp.segments == 0 {
             return Err(format!("{label}: serpentine segments must be > 0"));
         }
         if serp.bend_radius_m <= 0.0 {
-            return Err(format!("{label}: serpentine bend_radius_m must be positive"));
+            return Err(format!(
+                "{label}: serpentine bend_radius_m must be positive"
+            ));
         }
         if serp.segment_length_m <= 0.0 {
-            return Err(format!("{label}: serpentine segment_length_m must be positive"));
+            return Err(format!(
+                "{label}: serpentine segment_length_m must be positive"
+            ));
         }
     }
     Ok(())

@@ -3,16 +3,14 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SplitKind {
-    Bifurcation,
-    Trifurcation,
+    NFurcation(usize),
 }
 
 impl SplitKind {
     #[must_use]
     pub const fn branch_count(self) -> usize {
         match self {
-            Self::Bifurcation => 2,
-            Self::Trifurcation => 3,
+            Self::NFurcation(n) => n,
         }
     }
 }
@@ -96,6 +94,15 @@ pub struct ThroatGeometrySpec {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct VenturiConfig {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub target_channel_ids: Vec<String>,
+    pub serial_throat_count: u8,
+    pub throat_geometry: ThroatGeometrySpec,
+    pub placement_mode: VenturiPlacementMode,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct VenturiPlacementSpec {
     pub placement_id: String,
     pub target_channel_id: String,
@@ -132,9 +139,9 @@ pub struct BlueprintTopologySpec {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TopologyOptimizationStage {
-    SelectiveAcousticResidenceSeparation,
-    SelectiveVenturiCavitation,
-    BlueprintGeneticRefinement,
+    AsymmetricSplitResidenceSeparation,
+    AsymmetricSplitVenturiCavitationSelectivity,
+    InPlaceDeanSerpentineRefinement,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -162,7 +169,7 @@ impl Default for TopologyLineageMetadata {
     fn default() -> Self {
         Self {
             root_blueprint_name: String::new(),
-            current_stage: TopologyOptimizationStage::SelectiveAcousticResidenceSeparation,
+            current_stage: TopologyOptimizationStage::AsymmetricSplitResidenceSeparation,
             option1_source_blueprint: None,
             option2_source_blueprint: None,
             ga_seed_blueprint: None,
@@ -172,6 +179,28 @@ impl Default for TopologyLineageMetadata {
 }
 
 impl BlueprintTopologySpec {
+    #[must_use]
+    pub fn channel_route(&self, channel_id: &str) -> Option<&ChannelRouteSpec> {
+        self.series_channels
+            .iter()
+            .find(|channel| channel.channel_id == channel_id)
+            .map(|channel| &channel.route)
+            .or_else(|| {
+                self.parallel_channels
+                    .iter()
+                    .find(|channel| channel.channel_id == channel_id)
+                    .map(|channel| &channel.route)
+            })
+            .or_else(|| {
+                self.split_stages.iter().find_map(|stage| {
+                    stage.branches.iter().find_map(|branch| {
+                        (Self::branch_channel_id(&stage.stage_id, &branch.label) == channel_id)
+                            .then_some(&branch.route)
+                    })
+                })
+            })
+    }
+
     #[must_use]
     pub fn treatment_channel_ids(&self) -> Vec<String> {
         if !self.split_stages.is_empty() {

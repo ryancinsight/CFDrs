@@ -1,19 +1,21 @@
 //! Specialized composite presets: cell separation, asymmetric, constriction,
 //! spiral, and parallel microchannel array topologies.
-#![allow(deprecated)] // NetworkBlueprint::new() used intentionally; nodes are created with NodeSpec::new_at().
-
-use super::{shah_london, specialized_layout, BLOOD_MU};
-use crate::domain::model::{ChannelShape, ChannelSpec, NetworkBlueprint, NodeKind, NodeSpec};
-use crate::domain::therapy_metadata::{TherapyZone, TherapyZoneMetadata};
+use super::finalize_preset_blueprint;
+use crate::domain::model::NetworkBlueprint;
+use crate::domain::therapy_metadata::TherapyZone;
 use crate::geometry::generator::{
     create_primitive_selective_tree_geometry, create_selective_tree_geometry,
     CenterSerpentinePathSpec, PrimitiveSelectiveSplitKind, PrimitiveSelectiveTreeRequest,
     SelectiveTreeRequest, SelectiveTreeTopology,
 };
-use crate::geometry::metadata::{AsymmetricTrifurcationParams, VenturiGeometryMetadata};
+use crate::topology::presets::with_venturi;
 use crate::topology::presets::{
-    constriction_expansion_series_spec, parallel_microchannel_array_spec,
+    constriction_expansion_series_spec, parallel_microchannel_array_spec, parallel_path_spec,
     spiral_serpentine_series_spec,
+};
+use crate::topology::{
+    ChannelRouteSpec, ParallelChannelSpec, SerpentineSpec, ThroatGeometrySpec,
+    TreatmentActuationMode, VenturiConfig, VenturiPlacementMode,
 };
 use crate::BlueprintTopologyFactory;
 
@@ -46,38 +48,87 @@ fn generator_center_serpentine(
     })
 }
 
-fn venturi_metadata(
-    throat_width_m: f64,
-    throat_height_m: f64,
-    throat_length_m: f64,
-    inlet_width_m: f64,
-    outlet_width_m: f64,
-    taper_length_m: f64,
-) -> VenturiGeometryMetadata {
-    let half_delta_in = ((inlet_width_m - throat_width_m) * 0.5).abs();
-    let half_delta_out = ((outlet_width_m - throat_width_m) * 0.5).abs();
-    let safe_taper = taper_length_m.max(1e-9);
-    let conv_angle = half_delta_in.atan2(safe_taper).to_degrees().max(1.0);
-    let diff_angle = half_delta_out.atan2(safe_taper).to_degrees().max(1.0);
-    VenturiGeometryMetadata {
-        throat_width_m,
-        throat_height_m,
-        throat_length_m,
-        inlet_width_m,
-        outlet_width_m,
-        convergent_half_angle_deg: conv_angle,
-        divergent_half_angle_deg: diff_angle,
-        throat_position: 0.5,
+fn parallel_lane(
+    channel_id: impl Into<String>,
+    length_m: f64,
+    width_m: f64,
+    height_m: f64,
+    therapy_zone: TherapyZone,
+    serpentine: Option<SerpentineSpec>,
+) -> ParallelChannelSpec {
+    ParallelChannelSpec {
+        channel_id: channel_id.into(),
+        route: ChannelRouteSpec {
+            length_m,
+            width_m,
+            height_m,
+            serpentine,
+            therapy_zone,
+        },
     }
 }
 
-fn with_venturi_geometry_metadata(
-    channel: ChannelSpec,
-    metadata: VenturiGeometryMetadata,
-) -> ChannelSpec {
-    channel
-        .with_venturi_geometry(metadata.clone())
-        .with_metadata(metadata)
+fn canonical_parallel_blueprint(
+    name: String,
+    inlet_width_m: f64,
+    trunk_length_m: f64,
+    outlet_tail_length_m: f64,
+    parallel_channels: Vec<ParallelChannelSpec>,
+    treatment_mode: TreatmentActuationMode,
+) -> NetworkBlueprint {
+    let topology = parallel_path_spec(
+        &name,
+        inlet_width_m,
+        inlet_width_m,
+        trunk_length_m,
+        outlet_tail_length_m,
+        parallel_channels,
+        treatment_mode,
+    );
+    finalize_preset_blueprint(
+        BlueprintTopologyFactory::build(&topology).expect("valid canonical parallel topology"),
+    )
+}
+
+fn canonical_parallel_venturi_blueprint(
+    name: String,
+    inlet_width_m: f64,
+    trunk_length_m: f64,
+    outlet_tail_length_m: f64,
+    throat_width_m: f64,
+    throat_height_m: f64,
+    throat_length_m: f64,
+    target_channel_ids: Vec<String>,
+    parallel_channels: Vec<ParallelChannelSpec>,
+) -> NetworkBlueprint {
+    let topology = with_venturi(
+        parallel_path_spec(
+            &name,
+            inlet_width_m,
+            inlet_width_m,
+            trunk_length_m,
+            outlet_tail_length_m,
+            parallel_channels,
+            TreatmentActuationMode::VenturiCavitation,
+        ),
+        VenturiConfig {
+            target_channel_ids,
+            serial_throat_count: 1,
+            throat_geometry: ThroatGeometrySpec {
+                throat_width_m,
+                throat_height_m,
+                throat_length_m,
+                inlet_width_m: 0.0,
+                outlet_width_m: 0.0,
+                convergent_half_angle_deg: 7.0,
+                divergent_half_angle_deg: 7.0,
+            },
+            placement_mode: VenturiPlacementMode::StraightSegment,
+        },
+    );
+    finalize_preset_blueprint(
+        BlueprintTopologyFactory::build(&topology).expect("valid canonical venturi topology"),
+    )
 }
 
 #[must_use]
@@ -140,109 +191,45 @@ pub fn cell_separation_rect(
     bypass_length_m: f64,
 ) -> NetworkBlueprint {
     let l_throat = throat_length_m.max(2.0 * throat_width_m);
-    let l_taper = 5.0 * (main_width_m + throat_width_m) * 0.5;
-    let mut bp = NetworkBlueprint::new(name);
-
-    bp.add_node(NodeSpec::new("inlet", NodeKind::Inlet));
-    bp.add_node(NodeSpec::new("split_jn", NodeKind::Junction));
-    bp.add_node(NodeSpec::new("contraction", NodeKind::Junction));
-    bp.add_node(NodeSpec::new("throat_jn", NodeKind::Junction));
-    bp.add_node(NodeSpec::new("merge_jn", NodeKind::Junction));
-    bp.add_node(NodeSpec::new("outlet", NodeKind::Outlet));
-
-    // Approach
-    bp.add_channel(
-        ChannelSpec::new_pipe_rect(
-            "inlet_section",
-            "inlet",
-            "split_jn",
-            approach_length_m,
-            main_width_m,
-            height_m,
-            shah_london(main_width_m, height_m, approach_length_m, BLOOD_MU),
-            0.0,
-        )
-        .with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)),
-    );
-
-    // Centre venturi (cancer/WBC target)
-    bp.add_channel(
-        ChannelSpec::new_pipe_rect(
-            "center_approach",
-            "split_jn",
-            "contraction",
-            l_taper,
-            main_width_m,
-            height_m,
-            shah_london(main_width_m, height_m, l_taper, BLOOD_MU),
-            0.0,
-        )
-        .with_metadata(TherapyZoneMetadata::new(TherapyZone::CancerTarget)),
-    );
-    bp.add_channel(
-        ChannelSpec::new_pipe_rect(
+    let l_taper = 2.5 * (main_width_m + throat_width_m);
+    let name = name.into();
+    let channels = vec![
+        parallel_lane(
             "throat_section",
-            "contraction",
-            "throat_jn",
-            l_throat,
-            throat_width_m,
-            height_m,
-            shah_london(throat_width_m, height_m, l_throat, BLOOD_MU),
-            0.0,
-        )
-        .with_metadata(TherapyZoneMetadata::new(TherapyZone::CancerTarget)),
-    );
-    if let Some(channel) = bp
-        .channels
-        .iter_mut()
-        .find(|channel| channel.id.as_str() == "throat_section")
-    {
-        let metadata = venturi_metadata(
-            throat_width_m,
-            height_m,
-            l_throat,
-            main_width_m,
-            main_width_m,
-            l_taper,
-        );
-        channel.venturi_geometry = Some(metadata.clone());
-        channel
-            .metadata
-            .get_or_insert_with(crate::geometry::metadata::MetadataContainer::new)
-            .insert(metadata);
-    }
-    bp.add_channel(
-        ChannelSpec::new_pipe_rect(
-            "center_diffuser",
-            "throat_jn",
-            "merge_jn",
-            l_taper,
+            2.0 * l_taper + l_throat,
             main_width_m,
             height_m,
-            shah_london(main_width_m, height_m, l_taper, BLOOD_MU),
-            0.0,
-        )
-        .with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)),
-    );
-
-    // Peripheral bypass streams (×2, for RBC protection)
-    for i in 1..=2 {
-        bp.add_channel(
-            ChannelSpec::new_pipe_rect(
-                format!("peripheral_{i}"),
-                "split_jn",
-                "merge_jn",
-                bypass_length_m,
-                main_width_m * 0.5, // peripheral channels are narrower
-                height_m,
-                shah_london(main_width_m * 0.5, height_m, bypass_length_m, BLOOD_MU),
-                0.0,
-            )
-            .with_metadata(TherapyZoneMetadata::new(TherapyZone::HealthyBypass)),
-        );
-    }
-
-    bp
+            TherapyZone::CancerTarget,
+            None,
+        ),
+        parallel_lane(
+            "peripheral_1",
+            bypass_length_m,
+            main_width_m * 0.5,
+            height_m,
+            TherapyZone::HealthyBypass,
+            None,
+        ),
+        parallel_lane(
+            "peripheral_2",
+            bypass_length_m,
+            main_width_m * 0.5,
+            height_m,
+            TherapyZone::HealthyBypass,
+            None,
+        ),
+    ];
+    canonical_parallel_venturi_blueprint(
+        name,
+        main_width_m,
+        approach_length_m,
+        bypass_length_m,
+        throat_width_m,
+        height_m,
+        l_throat,
+        vec!["throat_section".to_string()],
+        channels,
+    )
 }
 
 /// Asymmetric bifurcation — wide serpentine arm (cancer/WBC) + narrow bypass (RBC).
@@ -275,111 +262,41 @@ pub fn asymmetric_bifurcation_serpentine_rect(
     height_m: f64,
 ) -> NetworkBlueprint {
     let narrow_width_m = wide_width_m * narrow_frac.clamp(0.10, 0.90);
-    let mut bp = NetworkBlueprint::new(name);
-
-    bp.add_node(NodeSpec::new("inlet", NodeKind::Inlet));
-    bp.add_node(NodeSpec::new("split_jn", NodeKind::Junction));
-    bp.add_node(NodeSpec::new("merge_jn", NodeKind::Junction));
-    bp.add_node(NodeSpec::new("outlet", NodeKind::Outlet));
-    // Intermediate nodes between segments (split_jn is "wide_0"/"narrow_0"; skip index 0)
-    for i in 1..segments {
-        bp.add_node(NodeSpec::new(format!("wide_{i}"), NodeKind::Junction));
-        bp.add_node(NodeSpec::new(format!("narrow_{i}"), NodeKind::Junction));
-    }
-
-    // Upstream trunk (wide cross-section)
-    bp.add_channel(
-        ChannelSpec::new_pipe_rect(
-            "inlet_section",
-            "inlet",
-            "split_jn",
-            trunk_length_m,
-            wide_width_m,
-            height_m,
-            shah_london(wide_width_m, height_m, trunk_length_m, BLOOD_MU),
-            0.0,
-        )
-        .with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)),
-    );
-
-    // Wide arm — carries ~89 % of total flow; cancer cells / WBCs route here.
-    for i in 0..segments {
-        let actual_from = if i == 0 {
-            "split_jn".to_string()
-        } else {
-            format!("wide_{i}")
-        };
-        let to = if i + 1 == segments {
-            "merge_jn".to_string()
-        } else {
-            format!("wide_{}", i + 1)
-        };
-        bp.add_channel({
-            let mut spec = ChannelSpec::new_pipe_rect(
-                format!("wide_seg_{}", i + 1),
-                actual_from,
-                to,
-                segment_length_m,
+    let name = name.into();
+    let serpentine = Some(SerpentineSpec {
+        segments: segments.max(2),
+        bend_radius_m: wide_width_m * 0.5,
+        segment_length_m,
+    });
+    canonical_parallel_blueprint(
+        name,
+        wide_width_m,
+        trunk_length_m,
+        trunk_length_m,
+        vec![
+            parallel_lane(
+                "wide_arm",
+                segment_length_m * segments.max(1) as f64,
                 wide_width_m,
                 height_m,
-                shah_london(wide_width_m, height_m, segment_length_m, BLOOD_MU),
-                0.0,
-            );
-            spec.channel_shape = ChannelShape::Serpentine {
-                segments,
-                bend_radius_m: wide_width_m * 0.5,
-            };
-            spec.with_metadata(TherapyZoneMetadata::new(TherapyZone::CancerTarget))
-        });
-    }
-
-    // Narrow arm — carries ~11 % of total flow; RBCs route here.
-    for i in 0..segments {
-        let actual_from = if i == 0 {
-            "split_jn".to_string()
-        } else {
-            format!("narrow_{i}")
-        };
-        let to = if i + 1 == segments {
-            "merge_jn".to_string()
-        } else {
-            format!("narrow_{}", i + 1)
-        };
-        bp.add_channel({
-            let mut spec = ChannelSpec::new_pipe_rect(
-                format!("narrow_seg_{}", i + 1),
-                actual_from,
-                to,
-                segment_length_m,
+                TherapyZone::CancerTarget,
+                serpentine.clone(),
+            ),
+            parallel_lane(
+                "narrow_arm",
+                segment_length_m * segments.max(1) as f64,
                 narrow_width_m,
                 height_m,
-                shah_london(narrow_width_m, height_m, segment_length_m, BLOOD_MU),
-                0.0,
-            );
-            spec.channel_shape = ChannelShape::Serpentine {
-                segments,
-                bend_radius_m: narrow_width_m * 0.5,
-            };
-            spec.with_metadata(TherapyZoneMetadata::new(TherapyZone::HealthyBypass))
-        });
-    }
-
-    // Downstream trunk (wide cross-section)
-    bp.add_channel(
-        ChannelSpec::new_pipe_rect(
-            "trunk_out",
-            "merge_jn",
-            "outlet",
-            trunk_length_m,
-            wide_width_m,
-            height_m,
-            shah_london(wide_width_m, height_m, trunk_length_m, BLOOD_MU),
-            0.0,
-        )
-        .with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)),
-    );
-
-    bp
+                TherapyZone::HealthyBypass,
+                Some(SerpentineSpec {
+                    segments: segments.max(2),
+                    bend_radius_m: narrow_width_m * 0.5,
+                    segment_length_m,
+                }),
+            ),
+        ],
+        TreatmentActuationMode::UltrasoundOnly,
+    )
 }
 
 /// N alternating wide→narrow constriction-expansion cycles for cumulative WBC margination.
@@ -433,62 +350,10 @@ pub fn constriction_expansion_array_rect(
         narrow_width_m,
         height_m,
     );
-    let lineage = BlueprintTopologyFactory::lineage_for_spec(&topology);
-    let mut bp = NetworkBlueprint::new(name);
-
-    // ── Nodes ────────────────────────────────────────────────────────────────
-    // inlet, j_0 … j_{2n-2}, outlet  (2n-1 intermediate junctions)
-    bp.add_node(NodeSpec::new("inlet", NodeKind::Inlet));
-    for k in 0..2 * n_cycles - 1 {
-        bp.add_node(NodeSpec::new(format!("j_{k}"), NodeKind::Junction));
-    }
-    bp.add_node(NodeSpec::new("outlet", NodeKind::Outlet));
-
-    // Helper: channel endpoint at position p in the sequence
-    // p=0 → "inlet", p=1 … 2n-1 → "j_{p-1}", p=2n → "outlet"
-    let node_at = |p: usize| -> String {
-        if p == 0 {
-            "inlet".to_string()
-        } else if p == 2 * n_cycles {
-            "outlet".to_string()
-        } else {
-            format!("j_{}", p - 1)
-        }
-    };
-
-    // ── Channels ─────────────────────────────────────────────────────────────
-    for i in 0..n_cycles {
-        // Wide section: position 2i → 2i+1
-        bp.add_channel(
-            ChannelSpec::new_pipe_rect(
-                format!("wide_{i}"),
-                node_at(2 * i),
-                node_at(2 * i + 1),
-                wide_length_m,
-                wide_width_m,
-                height_m,
-                shah_london(wide_width_m, height_m, wide_length_m, BLOOD_MU),
-                0.0,
-            )
-            .with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)),
-        );
-        // Narrow constriction: position 2i+1 → 2i+2
-        bp.add_channel(
-            ChannelSpec::new_pipe_rect(
-                format!("narrow_{i}"),
-                node_at(2 * i + 1),
-                node_at(2 * i + 2),
-                narrow_length_m,
-                narrow_width_m,
-                height_m,
-                shah_london(narrow_width_m, height_m, narrow_length_m, BLOOD_MU),
-                0.0,
-            )
-            .with_metadata(TherapyZoneMetadata::new(TherapyZone::CancerTarget)),
-        );
-    }
-
-    bp.with_topology_spec(topology).with_lineage(lineage)
+    finalize_preset_blueprint(
+        BlueprintTopologyFactory::build(&topology)
+            .expect("valid constriction_expansion_array topology spec"),
+    )
 }
 
 /// Tight spiral channel with N turns for Dean-flow dominant WBC/RBC separation.
@@ -527,47 +392,9 @@ pub fn spiral_channel_rect(
     let name = name.into();
     assert!(n_turns >= 1, "n_turns must be ≥ 1");
     let topology = spiral_serpentine_series_spec(&name, n_turns, turn_length_m, width_m, height_m);
-    let lineage = BlueprintTopologyFactory::lineage_for_spec(&topology);
-    let mut bp = NetworkBlueprint::new(name);
-
-    // ── Nodes ────────────────────────────────────────────────────────────────
-    // inlet, turn_0 … turn_{n-2}, outlet  (n-1 intermediate junctions)
-    bp.add_node(NodeSpec::new("inlet", NodeKind::Inlet));
-    for k in 0..n_turns.saturating_sub(1) {
-        bp.add_node(NodeSpec::new(format!("turn_{k}"), NodeKind::Junction));
-    }
-    bp.add_node(NodeSpec::new("outlet", NodeKind::Outlet));
-
-    // Helper: node name at position p (0 = inlet, n = outlet)
-    let node_at = |p: usize| -> String {
-        if p == 0 {
-            "inlet".to_string()
-        } else if p == n_turns {
-            "outlet".to_string()
-        } else {
-            format!("turn_{}", p - 1)
-        }
-    };
-
-    // ── Channels ─────────────────────────────────────────────────────────────
-    let r_seg = shah_london(width_m, height_m, turn_length_m, BLOOD_MU);
-    for i in 0..n_turns {
-        bp.add_channel(
-            ChannelSpec::new_pipe_rect(
-                format!("spiral_{i}"),
-                node_at(i),
-                node_at(i + 1),
-                turn_length_m,
-                width_m,
-                height_m,
-                r_seg,
-                0.0,
-            )
-            .with_metadata(TherapyZoneMetadata::new(TherapyZone::CancerTarget)),
-        );
-    }
-
-    bp.with_topology_spec(topology).with_lineage(lineage)
+    finalize_preset_blueprint(
+        BlueprintTopologyFactory::build(&topology).expect("valid spiral_channel topology spec"),
+    )
 }
 
 /// N identical parallel microchannels all connecting a single Inlet to a single Outlet.
@@ -617,35 +444,10 @@ pub fn parallel_microchannel_array_rect(
         channel_width_m,
         channel_height_m,
     );
-    let lineage = BlueprintTopologyFactory::lineage_for_spec(&topology);
-    let mut bp = NetworkBlueprint::new(name);
-
-    bp.add_node(NodeSpec::new("inlet", NodeKind::Inlet));
-    bp.add_node(NodeSpec::new("outlet", NodeKind::Outlet));
-
-    let r_ch = shah_london(
-        channel_width_m,
-        channel_height_m,
-        channel_length_m,
-        BLOOD_MU,
-    );
-    for i in 0..n_channels {
-        bp.add_channel(
-            ChannelSpec::new_pipe_rect(
-                format!("ch_{i}"),
-                "inlet",
-                "outlet",
-                channel_length_m,
-                channel_width_m,
-                channel_height_m,
-                r_ch,
-                0.0,
-            )
-            .with_metadata(TherapyZoneMetadata::new(TherapyZone::CancerTarget)),
-        );
-    }
-
-    bp.with_topology_spec(topology).with_lineage(lineage)
+    finalize_preset_blueprint(
+        BlueprintTopologyFactory::build(&topology)
+            .expect("valid parallel_microchannel_array topology spec"),
+    )
 }
 
 /// Selective-routing cascade center-trifurcation separator with a single outlet.
@@ -895,156 +697,46 @@ pub fn asymmetric_trifurcation_venturi_rect(
     let left_frac = left_frac.clamp(0.15, 0.50);
     let right_frac = (1.0 - center_frac - left_frac).clamp(0.05, 0.50);
     let l_throat = throat_length_m.max(2.0 * throat_width_m);
-    let l_taper = 5.0 * (main_width_m + throat_width_m) * 0.5;
     let w_center = main_width_m * center_frac;
     let w_left = main_width_m * left_frac;
     let w_right = main_width_m * right_frac;
-
-    let mut bp = NetworkBlueprint::new(name);
-
-    bp.add_node(NodeSpec::new("inlet", NodeKind::Inlet));
-    bp.add_node(NodeSpec::new("split_jn", NodeKind::Junction));
-    bp.add_node(NodeSpec::new("throat_in", NodeKind::Junction));
-    bp.add_node(NodeSpec::new("throat_out", NodeKind::Junction));
-    bp.add_node(NodeSpec::new("periph_merge", NodeKind::Junction));
-    bp.add_node(NodeSpec::new("outlet_merge", NodeKind::Junction));
-    bp.add_node(NodeSpec::new("outlet", NodeKind::Outlet));
-
-    // Inlet trunk
-    bp.add_channel(
-        ChannelSpec::new_pipe_rect(
-            "inlet_section",
-            "inlet",
-            "split_jn",
-            trunk_length_m,
-            main_width_m,
-            height_m,
-            shah_london(main_width_m, height_m, trunk_length_m, BLOOD_MU),
-            0.0,
-        )
-        .with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow))
-        .with_metadata(AsymmetricTrifurcationParams {
-            center_frac,
-            left_frac,
-            right_frac,
-        }),
-    );
-
-    // Center arm → venturi
-    bp.add_channel(
-        ChannelSpec::new_pipe_rect(
-            "center_arm",
-            "split_jn",
-            "throat_in",
-            branch_length_m,
-            w_center,
-            height_m,
-            shah_london(w_center, height_m, branch_length_m, BLOOD_MU),
-            0.0,
-        )
-        .with_metadata(TherapyZoneMetadata::new(TherapyZone::CancerTarget)),
-    );
-
-    // Left arm (WBC collection) → periph_merge
-    bp.add_channel(
-        ChannelSpec::new_pipe_rect(
-            "left_arm",
-            "split_jn",
-            "periph_merge",
-            branch_length_m,
-            w_left,
-            height_m,
-            shah_london(w_left, height_m, branch_length_m, BLOOD_MU),
-            0.0,
-        )
-        .with_metadata(TherapyZoneMetadata::new(TherapyZone::HealthyBypass)),
-    );
-
-    // Right arm (RBC waste via CFL margination) → periph_merge
-    bp.add_channel(
-        ChannelSpec::new_pipe_rect(
-            "right_arm",
-            "split_jn",
-            "periph_merge",
-            branch_length_m,
-            w_right,
-            height_m,
-            shah_london(w_right, height_m, branch_length_m, BLOOD_MU),
-            0.0,
-        )
-        .with_metadata(TherapyZoneMetadata::new(TherapyZone::HealthyBypass)),
-    );
-
-    // Venturi throat
-    bp.add_channel(with_venturi_geometry_metadata(
-        ChannelSpec::new_pipe_rect(
-            "throat_section",
-            "throat_in",
-            "throat_out",
-            l_throat,
-            throat_width_m,
-            height_m,
-            shah_london(throat_width_m, height_m, l_throat, BLOOD_MU),
-            0.0,
-        )
-        .with_metadata(TherapyZoneMetadata::new(TherapyZone::CancerTarget)),
-        venturi_metadata(
-            throat_width_m,
-            height_m,
-            l_throat,
-            w_center,
-            w_center,
-            l_taper,
-        ),
-    ));
-
-    // Diffuser: throat_out → outlet_merge
-    bp.add_channel(
-        ChannelSpec::new_pipe_rect(
-            "center_to_merge",
-            "throat_out",
-            "outlet_merge",
-            l_taper,
-            w_center,
-            height_m,
-            shah_london(w_center, height_m, l_taper, BLOOD_MU),
-            0.0,
-        )
-        .with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)),
-    );
-
-    // Peripheral merge → outlet_merge
-    bp.add_channel(
-        ChannelSpec::new_pipe_rect(
-            "periph_to_merge",
-            "periph_merge",
-            "outlet_merge",
-            trunk_length_m,
-            main_width_m,
-            height_m,
-            shah_london(main_width_m, height_m, trunk_length_m, BLOOD_MU),
-            0.0,
-        )
-        .with_metadata(TherapyZoneMetadata::new(TherapyZone::HealthyBypass)),
-    );
-
-    // Outlet trunk
-    bp.add_channel(
-        ChannelSpec::new_pipe_rect(
-            "trunk_out",
-            "outlet_merge",
-            "outlet",
-            trunk_length_m,
-            main_width_m,
-            height_m,
-            shah_london(main_width_m, height_m, trunk_length_m, BLOOD_MU),
-            0.0,
-        )
-        .with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)),
-    );
-
-    specialized_layout::attach_asymmetric_trifurcation_layout(&mut bp);
-    bp
+    let name = name.into();
+    canonical_parallel_venturi_blueprint(
+        name,
+        main_width_m,
+        trunk_length_m,
+        trunk_length_m,
+        throat_width_m,
+        height_m,
+        l_throat,
+        vec!["center_arm".to_string()],
+        vec![
+            parallel_lane(
+                "left_arm",
+                branch_length_m,
+                w_left,
+                height_m,
+                TherapyZone::HealthyBypass,
+                None,
+            ),
+            parallel_lane(
+                "center_arm",
+                branch_length_m,
+                w_center,
+                height_m,
+                TherapyZone::CancerTarget,
+                None,
+            ),
+            parallel_lane(
+                "right_arm",
+                branch_length_m,
+                w_right,
+                height_m,
+                TherapyZone::HealthyBypass,
+                None,
+            ),
+        ],
+    )
 }
 
 /// Cascade Tri→Bi→Tri with center-only venturi (selective SDT treatment).
@@ -1167,7 +859,7 @@ pub fn double_trifurcation_cif_venturi_rect(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::model::CrossSectionSpec;
+    use crate::domain::model::{ChannelShape, CrossSectionSpec};
     use crate::geometry::metadata::IncrementalFiltrationParams;
 
     fn rect_width(bp: &NetworkBlueprint, id: &str) -> f64 {
@@ -1366,6 +1058,9 @@ mod tests {
             .topology_spec()
             .expect("constriction_expansion_array_rect should attach topology metadata");
 
+        assert!(bp.is_geometry_authored());
+        assert!(bp.channels.iter().all(|channel| channel.path.len() >= 2));
+        assert_eq!(bp.unresolved_channel_overlap_count(), 0);
         assert_eq!(topology.treatment_channel_ids().len(), 4);
         assert!(topology.is_leukapheresis_topology());
         assert_eq!(topology.parallel_venturi_count(), 0);
@@ -1378,6 +1073,9 @@ mod tests {
             .topology_spec()
             .expect("spiral_channel_rect should attach topology metadata");
 
+        assert!(bp.is_geometry_authored());
+        assert!(bp.channels.iter().all(|channel| channel.path.len() >= 2));
+        assert_eq!(bp.unresolved_channel_overlap_count(), 0);
         assert_eq!(topology.treatment_channel_ids().len(), 5);
         assert!(topology.has_serpentine());
         assert!(topology.is_leukapheresis_topology());
@@ -1390,6 +1088,9 @@ mod tests {
             .topology_spec()
             .expect("parallel_microchannel_array_rect should attach topology metadata");
 
+        assert!(bp.is_geometry_authored());
+        assert!(bp.channels.iter().all(|channel| channel.path.len() >= 2));
+        assert_eq!(bp.unresolved_channel_overlap_count(), 0);
         assert!(topology.has_parallel_paths());
         assert_eq!(topology.parallel_channels.len(), 8);
         assert_eq!(topology.treatment_channel_ids().len(), 8);

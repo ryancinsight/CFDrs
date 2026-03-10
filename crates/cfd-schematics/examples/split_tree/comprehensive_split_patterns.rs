@@ -15,7 +15,6 @@ use std::path::PathBuf;
 mod shared;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-
     let config = GeometryConfig::default();
     let channel_config = ChannelTypeConfig::default();
 
@@ -138,10 +137,54 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
     }
 
+    tracing::info!("\n🔠 Quadfurcation Patterns:");
+    let quadfurcation_patterns = vec![
+        ("single", vec![SplitType::Quadfurcation], (300.0, 150.0)),
+        (
+            "double",
+            vec![SplitType::Quadfurcation, SplitType::Quadfurcation],
+            (500.0, 250.0),
+        ),
+    ];
+    for (name, splits, box_dims) in quadfurcation_patterns {
+        let system = create_geometry(box_dims, &splits, &config, &channel_config);
+        let filename = format!("quadfurcation_{}", name);
+        shared::save_example_output_with_name(&system, "comprehensive_split_patterns", &filename);
+        tracing::info!(
+            "   ✓ {}: {} channels, {} nodes",
+            name,
+            system.channels.len(),
+            system.nodes.len()
+        );
+    }
+
+    tracing::info!("\n🌟 Pentafurcation Patterns:");
+    let pentafurcation_patterns = vec![
+        ("single", vec![SplitType::Pentafurcation], (400.0, 200.0)),
+        (
+            "double",
+            vec![SplitType::Pentafurcation, SplitType::Pentafurcation],
+            (600.0, 300.0),
+        ),
+    ];
+    for (name, splits, box_dims) in pentafurcation_patterns {
+        let system = create_geometry(box_dims, &splits, &config, &channel_config);
+        let filename = format!("pentafurcation_{}", name);
+        shared::save_example_output_with_name(&system, "comprehensive_split_patterns", &filename);
+        tracing::info!(
+            "   ✓ {}: {} channels, {} nodes",
+            name,
+            system.channels.len(),
+            system.nodes.len()
+        );
+    }
+
     tracing::info!("\n📈 Summary:");
     tracing::info!("   • Bifurcation patterns: Each split creates 2 branches");
     tracing::info!("   • Trifurcation patterns: Each split creates 3 branches");
-    tracing::info!("   • Mixed patterns: Combinations of both split types");
+    tracing::info!("   • Quadfurcation patterns: Each split creates 4 branches");
+    tracing::info!("   • Pentafurcation patterns: Each split creates 5 branches");
+    tracing::info!("   • Mixed patterns: Combinations of all split types");
     tracing::info!("   • Smart channel selection: Automatically chooses optimal channel types");
     tracing::info!("   • All outputs saved to organized directory structure");
 
