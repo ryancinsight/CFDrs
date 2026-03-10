@@ -7,7 +7,10 @@ use crate::PerformanceMetrics;
 use cfd_2d::grid::{Grid2D, StructuredGrid2D};
 use cfd_math::linear_solver::{ConjugateGradient, IterativeLinearSolver};
 use cfd_math::sparse::SparseMatrixBuilder;
+#[cfg(feature = "validation")]
 use cfd_validation::benchmarking::BenchmarkConfig;
+#[cfg(not(feature = "validation"))]
+use crate::BenchmarkConfig;
 use criterion::{black_box, BenchmarkId, Criterion, Throughput};
 use nalgebra::DVector;
 use std::time::Instant;
@@ -154,7 +157,7 @@ pub fn benchmark_turbulence_operations(c: &mut Criterion, config: &BenchmarkConf
         group.bench_with_input(
             BenchmarkId::new("strain_rate_computation", size),
             &size,
-            |b, _| {
+            |b, &size| {
                 b.iter(|| {
                     let mut strain_rate = vec![0.0; size * size];
                     for i in 1..size.saturating_sub(1) {

@@ -7,7 +7,10 @@
 //! - Memory optimization recommendations
 //! - Performance benchmarking infrastructure
 
+#[cfg(feature = "validation")]
 use cfd_validation::benchmarking::BenchmarkConfig;
+#[cfg(not(feature = "validation"))]
+use crate::BenchmarkConfig;
 use criterion::{black_box, BenchmarkId, Criterion, Throughput};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

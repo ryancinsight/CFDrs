@@ -54,11 +54,33 @@ print(f"  R_c = {R_c_python*1e6:.4f} μm")
 print(f"  P_Blake = {P_Blake_python:.2f} Pa = {P_Blake_python/1000:.2f} kPa")
 
 if has_cfd_python:
-    # TODO: Check if cfd_python exposes Blake threshold calculation
-    # For now, document that Rust implementation is in regimes.rs
     print(f"\nRust implementation:")
-    print(f"  Located in: crates/cfd-core/src/physics/cavitation/regimes.rs")
-    print(f"  Method: blake_threshold() and blake_critical_radius()")
+
+    # Create Rayleigh-Plesset bubble model in Python
+    bubble_model = cfd_python.RayleighPlesset(
+        initial_radius=R_0,
+        liquid_density=WATER_DENSITY,
+        liquid_viscosity=WATER_VISCOSITY,
+        surface_tension=WATER_SURFACE_TENSION,
+        vapor_pressure=WATER_VAPOR_PRESSURE
+    )
+
+    # Create cavitation classifier
+    classifier = cfd_python.CavitationRegimeClassifier(
+        bubble_model=bubble_model,
+        ambient_pressure=P_inf
+    )
+
+    # Calculate thresholds via Rust bindings
+    R_c_rust = bubble_model.blake_critical_radius(P_inf)
+    P_Blake_rust = classifier.blake_threshold()
+
+    print(f"  R_c = {R_c_rust*1e6:.4f} μm")
+    print(f"  P_Blake = {P_Blake_rust:.2f} Pa = {P_Blake_rust/1000:.2f} kPa")
+
+    # Assert they match
+    assert abs(R_c_rust - R_c_python) < 1e-10, "Critical radius mismatch"
+    assert abs(P_Blake_rust - P_Blake_python) < 1e-6, "Blake threshold mismatch"
     print(f"  Formula matches Python implementation ✓")
 else:
     print(f"\nRust verification skipped (cfd_python not available)")
@@ -100,13 +122,23 @@ for gamma_dot in test_shear_rates:
 
 if has_cfd_python:
     print(f"\nRust implementation:")
-    print(f"  Located in: crates/cfd-core/src/physics/fluid/blood.rs")
-    print(f"  Type: CarreauYasudaBlood")
-    print(f"  Method: apparent_viscosity(shear_rate)")
     
-    # Try to test if we can create a blood model
-    # Note: This depends on cfd_python API structure
-    print(f"\n  TODO: Add cfd_python API test if blood model is exposed")
+    # Create Carreau-Yasuda blood model using default parameters
+    blood_model = cfd_python.CarreauYasudaBlood()
+
+    print(f"{'Shear Rate (s⁻¹)':>20} {'μ (mPa·s)':>15} {'Error from Py':>15}")
+    print("-"*55)
+
+    for gamma_dot in test_shear_rates:
+        mu_python = carreau_yasuda_python(gamma_dot)
+        mu_rust = blood_model.apparent_viscosity(gamma_dot)
+        error_pct = abs(mu_python - mu_rust) / mu_python * 100
+        print(f"{gamma_dot:20.0f} {mu_rust*1000:15.4f} {error_pct:14.4f}%")
+
+        # Assert they match
+        assert error_pct < 0.01, f"Viscosity mismatch at {gamma_dot} s⁻¹"
+
+    print(f"\n  Formula matches Python implementation ✓")
 else:
     print(f"\nRust verification skipped (cfd_python not available)")
 
@@ -145,9 +177,23 @@ for tau, t in test_cases:
 
 if has_cfd_python:
     print(f"\nRust implementation:")
-    print(f"  Located in: crates/cfd-core/src/physics/hemolysis/giersiepen.rs")
-    print(f"  Method: calculate_damage(shear_stress, exposure_time)")
-    print(f"\n  TODO: Add cfd_python API test if hemolysis model is exposed")
+
+    # Create Giersiepen hemolysis model
+    hemolysis_model = cfd_python.HemolysisModel.giersiepen_standard()
+
+    print(f"{'Stress (Pa)':>12} {'Time (s)':>12} {'Damage':>15} {'Error from Py':>15}")
+    print("-"*60)
+
+    for tau, t in test_cases:
+        damage_python = giersiepen_python(tau, t)
+        damage_rust = hemolysis_model.damage_index(tau, t)
+        error_pct = abs(damage_python - damage_rust) / damage_python * 100
+        print(f"{tau:12.1f} {t:12.2f} {damage_rust:15.6f} {error_pct:14.4f}%")
+
+        # Assert they match
+        assert error_pct < 0.01, f"Damage mismatch for tau={tau}, t={t}"
+
+    print(f"\n  Formula matches Python implementation ✓")
 else:
     print(f"\nRust verification skipped (cfd_python not available)")
 
@@ -174,10 +220,6 @@ All three validated models have corresponding Rust implementations:
    - Rust: crates/cfd-core/src/physics/hemolysis/giersiepen.rs
    - Formula: D = C×τ^α×t^β
 
-NEXT STEP: Add explicit cross-validation tests that:
-  - Call Rust via cfd_python with same inputs
-  - Compare outputs to Python calculations
-  - Assert < 0.01% difference
 """)
 else:
     print(f"""

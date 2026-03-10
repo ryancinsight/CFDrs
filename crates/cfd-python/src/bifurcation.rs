@@ -2,8 +2,8 @@
 //!
 //! Provides Python interface to the 1D bifurcation solver with non-Newtonian blood flow.
 
-use cfd_1d::junctions::branching::{TwoWayBranchJunction, ThreeWayBranchJunction};
-use cfd_1d::channel::{Channel, ChannelGeometry};
+use cfd_1d::domain::junctions::branching::{TwoWayBranchJunction, ThreeWayBranchJunction};
+use cfd_1d::domain::channel::{Channel, ChannelGeometry};
 use cfd_core::physics::fluid::blood::{CarreauYasudaBlood, CassonBlood};
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;

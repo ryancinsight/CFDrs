@@ -6,7 +6,10 @@
 //! - Parallel efficiency metrics and analysis
 //! - Scaling visualization and reporting
 
+#[cfg(feature = "validation")]
 use cfd_validation::benchmarking::BenchmarkConfig;
+#[cfg(not(feature = "validation"))]
+use crate::BenchmarkConfig;
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use serde::{Deserialize, Serialize};
 use std::time::{Duration, Instant};
