@@ -5,7 +5,7 @@
 //! hydraulic properties and behaviors.
 
 use cfd_core::error::Result;
-use cfd_core::physics::fluid::Fluid;
+use cfd_core::physics::fluid::ConstantPropertyFluid;
 use nalgebra::RealField;
 use std::collections::HashMap;
 
@@ -31,16 +31,16 @@ pub use valves::{Microvalve, ValveType};
 /// Trait for all microfluidic components
 pub trait Component<T: RealField + Copy> {
     /// Get the hydraulic resistance of the component (linear part R)
-    fn resistance(&self, fluid: &Fluid<T>) -> T;
+    fn resistance(&self, fluid: &ConstantPropertyFluid<T>) -> T;
 
     /// Get the linear (R) and quadratic (k) resistance coefficients
     /// such that ΔP = R·Q + k·Q|Q|
-    fn coefficients(&self, fluid: &Fluid<T>) -> (T, T) {
+    fn coefficients(&self, fluid: &ConstantPropertyFluid<T>) -> (T, T) {
         (self.resistance(fluid), T::zero())
     }
 
     /// Get the pressure drop across the component for a given flow rate
-    fn pressure_drop(&self, flow_rate: T, fluid: &Fluid<T>) -> T {
+    fn pressure_drop(&self, flow_rate: T, fluid: &ConstantPropertyFluid<T>) -> T {
         let (r, k) = self.coefficients(fluid);
         r * flow_rate + k * flow_rate * flow_rate.abs()
     }

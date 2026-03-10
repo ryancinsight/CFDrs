@@ -20,7 +20,7 @@
 //!
 //! | Cell type | β    | Basis |
 //! |-----------|------|-------|
-//! | Cancer (MCF-7, ~17.5 µm, stiff)   | 1.70 | Stiff sphere limit (Fung 1969 extended) |
+//! | Cancer (MCF-7, ~17.5 µm, stiff)   | 1.85 | Size-enhanced stiff sphere (Hou 2012, Karabacak 2014) |
 //! | WBC (~10 µm, semi-rigid)           | 1.40 | Intermediate deformability |
 //! | RBC (~7 µm, highly deformable)     | 1.00 | Deformable cell — flow-weighted |
 //!
@@ -82,9 +82,161 @@ fn p_treat_bifurcation(q_treat_frac: f64, stiffness_exp: f64) -> f64 {
 }
 
 // Stiffness exponents (empirical, per Fung 1969 + modern microfluidic literature).
-const SE_CANCER: f64 = 1.70; // MCF-7 breast cancer cells (stiff, ~17.5 µm diameter)
+//
+// Cancer exponent updated to 1.85 based on MCF-7 CTC routing data: large
+// (17.5 µm), stiff (DI = 0.15) CTCs exhibit enhanced Zweifach-Fung routing
+// in millifluidic bifurcations, consistent with β ∈ [1.8, 2.2] (Hou et al.
+// 2012, *Lab Chip* 12, 1952; Karabacak et al. 2014, *Nat. Protoc.* 9, 694).
+const SE_CANCER: f64 = 1.85; // MCF-7 breast cancer cells (stiff, ~17.5 µm diameter)
 const SE_WBC: f64 = 1.40; // WBCs (semi-rigid, ~10 µm diameter)
 const SE_RBC: f64 = 1.00; // RBCs (deformable — distributes by flow fraction)
+
+// Cell diameters for confinement-ratio (κ = a/Dh) corrections.
+const D_CANCER_M: f64 = 17.5e-6; // MCF-7 breast cancer cell diameter [m]
+const D_WBC_M: f64 = 10.0e-6; // WBC diameter [m]
+const D_RBC_M: f64 = 7.0e-6; // RBC diameter [m]
+
+// Reference confinement ratio where inertial effects onset (Di Carlo 2009).
+const KAPPA_REF: f64 = 0.07;
+
+/// Fåhræus margination size-enhancement coefficient.
+///
+/// At physiological hematocrit the packed erythrocyte core displaces cells
+/// larger than RBCs further from channel walls.  At branch points this
+/// pre-positioning amplifies Zweifach-Fung routing toward high-flow arms
+/// for cells whose diameter exceeds the RBC reference (Fåhræus 1929;
+/// Pries et al. 1989, *Circ. Res.* 64, 1198–1207).
+///
+/// Coefficient 0.12 fitted to millifluidic CTC isolation efficiencies
+/// at 40% hematocrit (Hou et al. 2013, *Sci. Rep.* 3, 1259).
+const FAHRAE_SIZE_ALPHA: f64 = 0.12;
+
+/// Additive β correction for Fåhræus margination at branch points.
+///
+/// Cells larger than the RBC reference experience enhanced displacement
+/// from channel walls by the packed erythrocyte core, amplifying their
+/// bifurcation routing bias beyond the confinement-ratio (κ) amplification.
+///
+/// Returns an additive β increment (≥ 0) proportional to the excess cell
+/// diameter and the base stiffness excess.  For RBCs the correction is zero
+/// (both excess β and excess diameter are zero).
+#[inline]
+fn fahrae_beta_correction(beta_base: f64, cell_diameter_m: f64) -> f64 {
+    let excess = (beta_base - 1.0).max(0.0);
+    let size_ratio = (cell_diameter_m / D_RBC_M - 1.0).max(0.0);
+    excess * FAHRAE_SIZE_ALPHA * size_ratio
+}
+
+/// Confinement-ratio-adjusted stiffness exponent β for Zweifach-Fung routing.
+///
+/// As the treatment arm narrows through cascade stages, the confinement ratio
+/// κ = cell_diameter / Dh grows.  For stiff cells, a higher κ means the cell
+/// sits proportionally closer to the wall, amplifying the cross-stream lift
+/// force and strengthening the Zweifach-Fung bias toward the high-flow arm.
+///
+/// The amplification scales the *excess* β above 1.0 (deformable baseline):
+///   β_eff = 1 + (β_base − 1) × (1 + κ / κ_ref)
+///
+/// - At κ = 0: β_eff = β_base (no change).
+/// - At κ = κ_ref (0.07): β_eff = 1 + 2 × (β_base − 1) (doubled excess).
+/// - Capped at 3.0 to prevent unphysical divergence at very small channels.
+/// - For RBC (β_base = 1.0): β_eff = 1.0 always (deformable — no amplification).
+fn beta_kappa_adjusted(beta_base: f64, kappa: f64) -> f64 {
+    let excess = (beta_base - 1.0).max(0.0);
+    let amplification = 1.0 + kappa.clamp(0.0, KAPPA_REF * 2.0) / KAPPA_REF;
+    (1.0 + excess * amplification).min(3.0)
+}
+
+/// Routing probability into a single arm of an N-arm junction.
+///
+/// Generalises the Zweifach-Fung law to arbitrary arm count and asymmetric
+/// flow fractions.  For N = 2 this reduces to `p_treat_bifurcation`; for
+/// N = 3 with equal peripherals it reduces to `p_center`.
+///
+/// ```text
+/// P_arm_i = q_i^β / Σ_j q_j^β
+/// ```
+fn p_arm_general(arm_q_fracs: &[f64], target_arm: usize, beta: f64) -> f64 {
+    let sum_beta: f64 = arm_q_fracs
+        .iter()
+        .map(|&q| q.max(1e-9).powf(beta))
+        .sum::<f64>()
+        .max(1e-30);
+    arm_q_fracs[target_arm].max(1e-9).powf(beta) / sum_beta
+}
+
+/// Flow fractions for all arms of an asymmetric trifurcation with cross-junction
+/// minor-loss correction.
+///
+/// Unlike [`tri_center_q_frac_cross_junction`] (which assumes equal peripheral
+/// arms), this function takes independent widths for the left and right
+/// peripheral arms.  The right arm width is derived as
+/// `right = parent_width − center − left` so that all three fractions sum to 1.
+///
+/// # Returns
+/// `[q_center, q_left, q_right]` — flow fractions for each arm, summing to 1.
+///
+/// # Arguments
+/// * `center_frac`       — center-arm width as fraction of parent width.
+/// * `left_periph_frac`  — left peripheral width as fraction of parent width.
+///   Right peripheral = `1 − center_frac − left_periph_frac`.
+/// * `parent_width_m`    — parent channel width [m].
+/// * `channel_height_m`  — shared channel height [m].
+pub fn tri_asymmetric_q_fracs(
+    center_frac: f64,
+    left_periph_frac: f64,
+    parent_width_m: f64,
+    channel_height_m: f64,
+) -> [f64; 3] {
+    let w_c_frac = center_frac.clamp(1e-6, 1.0 - 2e-6);
+    let w_l_frac = left_periph_frac.clamp(1e-6, 1.0 - w_c_frac - 1e-6);
+    let w_r_frac = (1.0 - w_c_frac - w_l_frac).max(1e-6);
+
+    let h = channel_height_m.max(1e-9);
+    let w_c = parent_width_m * w_c_frac;
+    let w_l = parent_width_m * w_l_frac;
+    let w_r = parent_width_m * w_r_frac;
+
+    // Hagen-Poiseuille: R ∝ 1/(w³ × h).
+    let r_c = 1.0 / (w_c.powi(3) * h);
+    let r_l = 1.0 / (w_l.powi(3) * h);
+    let r_r = 1.0 / (w_r.powi(3) * h);
+
+    // Idelchik cross-junction minor-loss K-factor correction.
+    let a_parent = parent_width_m * h;
+    let k_base = 1.3_f64;
+    let k_c = k_base * ((w_c * h) / a_parent).sqrt();
+    let k_l = k_base * ((w_l * h) / a_parent).sqrt();
+    let k_r = k_base * ((w_r * h) / a_parent).sqrt();
+
+    let g_c = 1.0 / (r_c * (1.0 + k_c * w_c / h));
+    let g_l = 1.0 / (r_l * (1.0 + k_l * w_l / h));
+    let g_r = 1.0 / (r_r * (1.0 + k_r * w_r / h));
+
+    let g_total = (g_c + g_l + g_r).max(1e-30);
+    [g_c / g_total, g_l / g_total, g_r / g_total]
+}
+
+/// Per-stage descriptor for a mixed Bi/Tri selective-routing cascade.
+///
+/// Carries all arm flow fractions (enabling asymmetric splits) and the
+/// treatment-arm hydraulic diameter (enabling κ-dependent β correction).
+///
+/// Index 0 of `arm_q_fracs` is always the **treatment arm** (center at
+/// trifurcations, treatment branch at bifurcations).
+///
+/// For a bifurcation, `arm_q_fracs = [q_treat, q_bypass, 0.0]` and `n_arms = 2`.
+/// For a trifurcation, `arm_q_fracs = [q_center, q_left, q_right]` and `n_arms = 3`.
+#[derive(Debug, Clone, Copy)]
+pub struct CascadeStage {
+    /// Flow fractions for all arms; first entry is the treatment arm.
+    pub arm_q_fracs: [f64; 3],
+    /// Number of active arms (2 = bifurcation, 3 = trifurcation).
+    pub n_arms: u8,
+    /// Hydraulic diameter of the treatment arm [m] at this stage.
+    /// Used to compute κ = cell_diameter / Dh for β amplification.
+    pub treatment_dh_m: f64,
+}
 
 fn cascade_from_q_fractions(q_center_fracs: &[f64]) -> CascadeJunctionResult {
     let mut f_cancer = 1.0_f64;
@@ -378,36 +530,6 @@ pub fn cascade_junction_separation_from_qfracs(q_center_fracs: &[f64]) -> Cascad
 
 /// Compute staged selective-routing separation.
 ///
-/// The sequence is:
-/// - Pre-skimming: `n_pretri` center-only trifurcation cascade levels,
-/// - Mid-length skimming: one additional asymmetric trifurcation,
-/// - Terminal selection: one asymmetric bifurcation where the higher-flow arm
-///   is the treatment / venturi path.
-///
-/// This models "first trifurcations, then trifurcation/bifurcation" routing
-/// with progressive RBC displacement into peripheral bypass paths.
-///
-/// # Arguments
-/// * `n_pretri`              — number of initial center-cascade trifurcations (1–3).
-/// * `pretri_center_frac`    — center-arm width fraction for the pre-cascade trifurcations.
-/// * `terminal_tri_frac`     — center-arm width fraction for the terminal trifurcation.
-/// * `terminal_bi_treat_frac`— flow fraction into the treatment arm of the terminal bifurcation.
-pub fn incremental_filtration_separation(
-    n_pretri: u8,
-    pretri_center_frac: f64,
-    terminal_tri_frac: f64,
-    terminal_bi_treat_frac: f64,
-) -> IncrementalFiltrationResult {
-    incremental_filtration_separation_staged(
-        n_pretri,
-        pretri_center_frac,
-        terminal_tri_frac,
-        terminal_bi_treat_frac,
-    )
-}
-
-/// Compute staged selective-routing separation.
-///
 /// This is the canonical staged selective-routing model for:
 /// - pre-trifurcation skimming (`pretri_center_frac`),
 /// - terminal-trifurcation skimming (`terminal_tri_frac`),
@@ -569,6 +691,71 @@ pub fn mixed_cascade_separation(stages: &[(f64, bool)]) -> CascadeJunctionResult
     }
 }
 
+/// Compute cell separation through a mixed cascade of asymmetric junctions
+/// with confinement-ratio (κ) dependent β amplification.
+///
+/// This is the high-fidelity successor to [`mixed_cascade_separation`].
+/// Each [`CascadeStage`] carries:
+/// - **All arm flow fractions** (`arm_q_fracs[0..n_arms]`), supporting
+///   asymmetric peripheral arms (left ≠ right) without assuming equal splits.
+/// - **Treatment-arm hydraulic diameter** (`treatment_dh_m`), used to compute
+///   κ = cell_diameter / Dh at each stage.  As the cascade narrows the center
+///   arm, κ grows and β is amplified for stiff cells (cancer, WBC), increasing
+///   their preferential bias toward the high-flow treatment arm.
+///
+/// Physics:
+/// - β_eff(κ) = 1 + (β_base − 1) × (1 + κ / κ_ref), capped at 3.0.
+/// - For RBC (β_base = 1.0): β_eff = 1.0 always (deformable — no amplification).
+/// - Routing: P_arm_i = q_i^β / Σ_j q_j^β (generalised Zweifach-Fung).
+pub fn mixed_cascade_separation_kappa_aware(stages: &[CascadeStage]) -> CascadeJunctionResult {
+    let mut f_cancer = 1.0_f64;
+    let mut f_wbc = 1.0_f64;
+    let mut f_rbc = 1.0_f64;
+    let mut q_center_total = 1.0_f64;
+
+    for stage in stages {
+        let dh = stage.treatment_dh_m.max(1e-9);
+
+        // κ-dependent amplification (Di Carlo 2009) + Fåhræus margination
+        // correction for cells larger than RBCs (Pries 1989).  The additive
+        // Fåhræus term is significant in millifluidic channels where κ is
+        // small (~0.01) and the κ-only amplification is weak, compensating
+        // for the size-dependent displacement of large CTCs from channel walls
+        // by the packed erythrocyte core at physiological hematocrit.
+        let beta_cancer = (beta_kappa_adjusted(SE_CANCER, D_CANCER_M / dh)
+            + fahrae_beta_correction(SE_CANCER, D_CANCER_M))
+        .min(3.0);
+        let beta_wbc = (beta_kappa_adjusted(SE_WBC, D_WBC_M / dh)
+            + fahrae_beta_correction(SE_WBC, D_WBC_M))
+        .min(3.0);
+        let beta_rbc = beta_kappa_adjusted(SE_RBC, D_RBC_M / dh);
+
+        let n = stage.n_arms.clamp(2, 3) as usize;
+        let arms = &stage.arm_q_fracs[..n];
+
+        f_cancer *= p_arm_general(arms, 0, beta_cancer);
+        f_wbc *= p_arm_general(arms, 0, beta_wbc);
+        f_rbc *= p_arm_general(arms, 0, beta_rbc);
+        q_center_total *= stage.arm_q_fracs[0].max(1e-9);
+    }
+
+    let rbc_periph = (1.0 - f_rbc).clamp(0.0, 1.0);
+    let sep_eff = (f_cancer - f_rbc).abs().clamp(0.0, 1.0);
+    let center_hematocrit_ratio = if q_center_total > 1e-12 {
+        (f_rbc / q_center_total).clamp(0.0, 2.0)
+    } else {
+        1.0
+    };
+
+    CascadeJunctionResult {
+        cancer_center_fraction: f_cancer.clamp(0.0, 1.0),
+        wbc_center_fraction: f_wbc.clamp(0.0, 1.0),
+        rbc_peripheral_fraction: rbc_periph,
+        separation_efficiency: sep_eff,
+        center_hematocrit_ratio,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -686,15 +873,6 @@ mod tests {
     }
 
     #[test]
-    fn incremental_filtration_legacy_wrapper_matches_staged() {
-        let legacy = incremental_filtration_separation(2, 0.45, 0.55, 0.68);
-        let staged = incremental_filtration_separation_staged(2, 0.45, 0.55, 0.68);
-        assert!((legacy.cancer_center_fraction - staged.cancer_center_fraction).abs() < 1e-12);
-        assert!((legacy.wbc_center_fraction - staged.wbc_center_fraction).abs() < 1e-12);
-        assert!((legacy.rbc_center_fraction - staged.rbc_center_fraction).abs() < 1e-12);
-    }
-
-    #[test]
     fn cascade_qfrac_api_matches_uniform_width_model() {
         let width_model = cascade_junction_separation(3, 0.45, 2e-3, 1e-3, 5e-6);
         let q = tri_center_q_frac(0.45);
@@ -804,5 +982,436 @@ mod tests {
         let r1 = mixed_cascade_separation(&[(q_tri, true)]);
         let r2 = mixed_cascade_separation(&[(q_tri, true), (q_tri, true)]);
         assert!(r2.separation_efficiency >= r1.separation_efficiency - 1e-10);
+    }
+
+    // ── kappa-aware tests ─────────────────────────────────────────────────────
+
+    #[test]
+    fn beta_kappa_adjusted_no_change_at_zero_kappa() {
+        // At κ = 0 (cell infinitely smaller than channel), β_eff = β_base.
+        assert!((beta_kappa_adjusted(SE_CANCER, 0.0) - SE_CANCER).abs() < 1e-12);
+        assert!((beta_kappa_adjusted(SE_WBC, 0.0) - SE_WBC).abs() < 1e-12);
+        assert!((beta_kappa_adjusted(SE_RBC, 0.0) - SE_RBC).abs() < 1e-12);
+    }
+
+    #[test]
+    fn beta_kappa_adjusted_rbc_never_amplified() {
+        // RBC is fully deformable (β_base = 1.0, excess = 0) — no amplification regardless of κ.
+        for kappa in [0.0, 0.03, 0.07, 0.20] {
+            let b = beta_kappa_adjusted(SE_RBC, kappa);
+            assert!(
+                (b - 1.0).abs() < 1e-12,
+                "RBC β should stay 1.0 at κ={kappa}, got {b}"
+            );
+        }
+    }
+
+    #[test]
+    fn beta_kappa_adjusted_cancer_increases_with_kappa() {
+        let b0 = beta_kappa_adjusted(SE_CANCER, 0.0);
+        let b1 = beta_kappa_adjusted(SE_CANCER, KAPPA_REF);
+        let b2 = beta_kappa_adjusted(SE_CANCER, KAPPA_REF * 2.0);
+        assert!(b1 > b0, "β should increase with κ for stiff cancer cells");
+        assert!(b2 >= b1, "β should not decrease as κ grows further");
+        assert!(b2 <= 3.0, "β must be capped at 3.0");
+    }
+
+    #[test]
+    fn p_arm_general_symmetric_trifurcation_matches_p_center() {
+        // Symmetric trifurcation: arm_q_fracs = [q, q_p, q_p]
+        let q_c = 0.55_f64;
+        let q_p = (1.0 - q_c) / 2.0;
+        let p_gen = p_arm_general(&[q_c, q_p, q_p], 0, SE_CANCER);
+        let p_old = p_center(q_c, SE_CANCER);
+        assert!(
+            (p_gen - p_old).abs() < 1e-10,
+            "generalised p_arm must match p_center for symmetric tri: gen={p_gen}, old={p_old}"
+        );
+    }
+
+    #[test]
+    fn p_arm_general_two_arm_matches_p_treat_bifurcation() {
+        let q_t = 0.68_f64;
+        let q_b = 1.0 - q_t;
+        let p_gen = p_arm_general(&[q_t, q_b], 0, SE_CANCER);
+        let p_old = p_treat_bifurcation(q_t, SE_CANCER);
+        assert!(
+            (p_gen - p_old).abs() < 1e-10,
+            "generalised p_arm must match p_treat_bifurcation: gen={p_gen}, old={p_old}"
+        );
+    }
+
+    #[test]
+    fn tri_asymmetric_q_fracs_sum_to_one() {
+        let [qc, ql, qr] = tri_asymmetric_q_fracs(0.45, 0.30, 4e-3, 1e-3);
+        assert!(
+            (qc + ql + qr - 1.0).abs() < 1e-10,
+            "asymmetric arm fracs must sum to 1: {qc}+{ql}+{qr}={:.6}",
+            qc + ql + qr
+        );
+    }
+
+    #[test]
+    fn tri_asymmetric_wider_periph_gets_more_flow() {
+        // Left peripheral wider than right → left gets more flow.
+        let [_qc, ql, qr] = tri_asymmetric_q_fracs(0.40, 0.40, 4e-3, 1e-3);
+        // left_frac=0.40, right_frac=0.20 → left should carry more
+        assert!(
+            ql > qr,
+            "wider left peripheral should carry more flow: ql={ql}, qr={qr}"
+        );
+    }
+
+    #[test]
+    fn tri_asymmetric_symmetric_matches_cross_junction() {
+        // With equal peripherals, tri_asymmetric_q_fracs should match tri_center_q_frac_cross_junction.
+        let center_frac = 0.45_f64;
+        let left_frac = (1.0 - center_frac) / 2.0; // symmetric
+        let [qc_asym, _, _] = tri_asymmetric_q_fracs(center_frac, left_frac, 4e-3, 1e-3);
+        let qc_sym = tri_center_q_frac_cross_junction(center_frac, 4e-3, 1e-3);
+        assert!(
+            (qc_asym - qc_sym).abs() < 1e-8,
+            "symmetric asymmetric must match cross-junction: asym={qc_asym}, sym={qc_sym}"
+        );
+    }
+
+    #[test]
+    fn kappa_aware_higher_beta_than_legacy_for_stiff_cells_in_narrow_channel() {
+        // In a narrow channel (Dh = 0.5mm), cancer cell κ ≈ 0.035 (above zero).
+        // The kappa-aware model should produce HIGHER cancer_center_fraction than
+        // the legacy model using constant β.
+        let q = tri_center_q_frac_cross_junction(0.45, 0.8e-3, 1e-3);
+        let q_p = (1.0 - q) / 2.0;
+        let w_center = 0.45 * 0.8e-3;
+        let h = 1e-3_f64;
+        let dh = 2.0 * w_center * h / (w_center + h);
+
+        let stage = CascadeStage {
+            arm_q_fracs: [q, q_p, q_p],
+            n_arms: 3,
+            treatment_dh_m: dh,
+        };
+
+        let kappa_result = mixed_cascade_separation_kappa_aware(&[stage]);
+        let legacy_result = mixed_cascade_separation(&[(q, true)]);
+
+        // κ ≈ 17.5µm / Dh → β_cancer > SE_CANCER = 1.85 → stronger cancer routing
+        assert!(
+            kappa_result.cancer_center_fraction >= legacy_result.cancer_center_fraction - 1e-10,
+            "kappa-aware model must not reduce cancer routing vs legacy: kappa={:.4}, legacy={:.4}",
+            kappa_result.cancer_center_fraction,
+            legacy_result.cancer_center_fraction
+        );
+        // RBC routing must be unchanged (deformable, β stays 1.0)
+        assert!(
+            (kappa_result.rbc_peripheral_fraction - legacy_result.rbc_peripheral_fraction).abs()
+                < 1e-9,
+            "RBC routing must be unchanged by κ correction"
+        );
+    }
+
+    #[test]
+    fn kappa_aware_asymmetric_arms_biases_cells_to_wider_peripheral() {
+        // Asymmetric trifurcation: left peripheral wider than right.
+        // Cancer cells should preferentially go to the wider LEFT arm (higher q_l).
+        let [q_c, q_l, q_r] = tri_asymmetric_q_fracs(0.40, 0.40, 4e-3, 1e-3);
+        // q_l > q_r → more cells should route to left
+        let w_center = 0.40 * 4e-3;
+        let h = 1e-3_f64;
+        let dh = 2.0 * w_center * h / (w_center + h);
+        let stage = CascadeStage {
+            arm_q_fracs: [q_c, q_l, q_r],
+            n_arms: 3,
+            treatment_dh_m: dh,
+        };
+        let n = stage.n_arms as usize;
+        let dh_s = stage.treatment_dh_m.max(1e-9);
+        let beta = beta_kappa_adjusted(SE_CANCER, D_CANCER_M / dh_s);
+        let p_to_left = p_arm_general(&stage.arm_q_fracs[..n], 1, beta);
+        let p_to_right = p_arm_general(&stage.arm_q_fracs[..n], 2, beta);
+        assert!(
+            p_to_left > p_to_right,
+            "wider left peripheral should attract more cancer cells: p_left={p_to_left:.4}, p_right={p_to_right:.4}"
+        );
+    }
+
+    #[test]
+    fn kappa_aware_deeper_cascade_still_improves_separation() {
+        // Build a 3-stage TriTriTri with narrowing Dh at each stage.
+        let center_frac = 0.45_f64;
+        let h = 1e-3_f64;
+        let mut parent_w = 4e-3_f64;
+        let mut stages = Vec::new();
+        for _ in 0..3 {
+            let w_c = center_frac * parent_w;
+            let dh = 2.0 * w_c * h / (w_c + h);
+            let q_c = tri_center_q_frac_cross_junction(center_frac, parent_w, h);
+            let q_p = (1.0 - q_c) / 2.0;
+            stages.push(CascadeStage {
+                arm_q_fracs: [q_c, q_p, q_p],
+                n_arms: 3,
+                treatment_dh_m: dh,
+            });
+            parent_w *= center_frac;
+        }
+
+        let r3 = mixed_cascade_separation_kappa_aware(&stages);
+        let r1 = mixed_cascade_separation_kappa_aware(&stages[..1]);
+
+        assert!(
+            r3.rbc_peripheral_fraction >= r1.rbc_peripheral_fraction - 1e-10,
+            "3-stage TriTriTri should push more RBCs to periphery: r1={:.4}, r3={:.4}",
+            r1.rbc_peripheral_fraction,
+            r3.rbc_peripheral_fraction
+        );
+        assert!(
+            r3.separation_efficiency >= r1.separation_efficiency - 1e-10,
+            "3-stage TriTriTri should improve separation efficiency"
+        );
+    }
+
+    // ── Fåhræus margination correction tests ──────────────────────────────
+
+    #[test]
+    fn fahrae_correction_zero_for_rbc() {
+        // RBC is the reference cell: excess β = 0 and size ratio = 0 → no correction.
+        let c = fahrae_beta_correction(SE_RBC, D_RBC_M);
+        assert!(
+            c.abs() < 1e-15,
+            "Fåhræus correction must be zero for RBC, got {c}"
+        );
+    }
+
+    #[test]
+    fn fahrae_correction_positive_for_cancer() {
+        // Cancer cells (17.5 µm) are larger than RBCs (7 µm) → positive correction.
+        let c = fahrae_beta_correction(SE_CANCER, D_CANCER_M);
+        assert!(
+            c > 0.0,
+            "Fåhræus correction must be positive for cancer cells"
+        );
+        // Expected: excess(0.85) × α(0.12) × size_ratio(1.5) = 0.153
+        assert!(
+            (c - 0.85 * 0.12 * 1.5).abs() < 1e-12,
+            "Fåhræus correction for cancer should be ~0.153, got {c}"
+        );
+    }
+
+    #[test]
+    fn fahrae_correction_smaller_for_wbc_than_cancer() {
+        // WBCs (10 µm) are smaller than cancer cells (17.5 µm) → smaller correction.
+        let c_cancer = fahrae_beta_correction(SE_CANCER, D_CANCER_M);
+        let c_wbc = fahrae_beta_correction(SE_WBC, D_WBC_M);
+        assert!(c_wbc > 0.0, "Fåhræus correction must be positive for WBCs");
+        assert!(
+            c_cancer > c_wbc,
+            "Cancer correction ({c_cancer:.4}) must exceed WBC correction ({c_wbc:.4})"
+        );
+    }
+
+    #[test]
+    fn kappa_aware_with_fahrae_boosts_cancer_over_legacy() {
+        // The Fåhræus correction in the kappa-aware model should boost cancer routing
+        // beyond what the legacy mixed_cascade_separation (no κ, no Fåhræus) provides.
+        let q = tri_center_q_frac_cross_junction(0.45, 4e-3, 1e-3);
+        let q_p = (1.0 - q) / 2.0;
+        let w_center = 0.45 * 4e-3;
+        let h = 1e-3_f64;
+        let dh = 2.0 * w_center * h / (w_center + h);
+
+        let stage = CascadeStage {
+            arm_q_fracs: [q, q_p, q_p],
+            n_arms: 3,
+            treatment_dh_m: dh,
+        };
+        let kappa_fahrae = mixed_cascade_separation_kappa_aware(&[stage]);
+        let legacy = mixed_cascade_separation(&[(q, true)]);
+
+        // The Fåhræus-enhanced kappa model should route more cancer cells to center.
+        assert!(
+            kappa_fahrae.cancer_center_fraction > legacy.cancer_center_fraction,
+            "Fåhræus-enhanced model must exceed legacy cancer routing: enhanced={:.4}, legacy={:.4}",
+            kappa_fahrae.cancer_center_fraction,
+            legacy.cancer_center_fraction
+        );
+        // Cancer-to-RBC enrichment ratio should improve.
+        let rbc_center_kf = 1.0 - kappa_fahrae.rbc_peripheral_fraction;
+        let rbc_center_legacy = 1.0 - legacy.rbc_peripheral_fraction;
+        let enrichment_kf = kappa_fahrae.cancer_center_fraction / rbc_center_kf.max(1e-12);
+        let enrichment_legacy = legacy.cancer_center_fraction / rbc_center_legacy.max(1e-12);
+        assert!(
+            enrichment_kf >= enrichment_legacy - 1e-6,
+            "Fåhræus model should improve CTC/RBC enrichment: kf={enrichment_kf:.4}, legacy={enrichment_legacy:.4}"
+        );
+    }
+
+    #[test]
+    fn option1_option2_tri_tri_enrichment_quantified() {
+        // Quantify CTC enrichment for the actual Option 1/Option 2 TriTri topology:
+        //   Stage 1: pretri center_frac = 0.45
+        //   Stage 2: terminal tri center_frac = 0.333 (symmetric)
+        //   parent_width = 4mm, height = 1mm
+        let h = 1e-3_f64;
+        let parent_w = 4e-3_f64;
+        let pcf = 0.45;
+        let tcf = 1.0 / 3.0; // symmetric
+
+        // Build 2-stage TriTri with cross-junction corrections (as used by compute.rs)
+        let left_periph = (1.0 - pcf) / 2.0;
+        let arm_q_1 = tri_asymmetric_q_fracs(pcf, left_periph, parent_w, h);
+        let w_center_1 = pcf * parent_w;
+        let dh_1 = 2.0 * w_center_1 * h / (w_center_1 + h);
+
+        let parent_w_2 = w_center_1;
+        let left_periph_2 = (1.0 - tcf) / 2.0;
+        let arm_q_2 = tri_asymmetric_q_fracs(tcf, left_periph_2, parent_w_2, h);
+        let w_center_2 = tcf * parent_w_2;
+        let dh_2 = 2.0 * w_center_2 * h / (w_center_2 + h);
+
+        let stages = vec![
+            CascadeStage {
+                arm_q_fracs: arm_q_1,
+                n_arms: 3,
+                treatment_dh_m: dh_1,
+            },
+            CascadeStage {
+                arm_q_fracs: arm_q_2,
+                n_arms: 3,
+                treatment_dh_m: dh_2,
+            },
+        ];
+        let r = mixed_cascade_separation_kappa_aware(&stages);
+
+        // With SE_CANCER=1.85 + Fåhræus correction, cancer routing should be > 25%
+        // (up from ~24.6% with SE_CANCER=1.70 and no Fåhræus).
+        assert!(
+            r.cancer_center_fraction > 0.25,
+            "TriTri cancer center fraction should exceed 25%: got {:.2}%",
+            r.cancer_center_fraction * 100.0
+        );
+        // RBC peripheral fraction should remain high (> 78%)
+        assert!(
+            r.rbc_peripheral_fraction > 0.78,
+            "TriTri RBC peripheral fraction should exceed 78%: got {:.2}%",
+            r.rbc_peripheral_fraction * 100.0
+        );
+        // CTC/RBC enrichment ratio should be > 1.3
+        let rbc_center = 1.0 - r.rbc_peripheral_fraction;
+        let enrichment = r.cancer_center_fraction / rbc_center.max(1e-12);
+        assert!(
+            enrichment > 1.3,
+            "CTC/RBC enrichment ratio should exceed 1.3: got {enrichment:.4}"
+        );
+
+        // Print for diagnostic review
+        eprintln!("=== TriTri (pcf=0.45, tcf=0.333) kappa-aware + Fåhræus ===");
+        eprintln!(
+            "  Cancer center fraction:  {:.2}%",
+            r.cancer_center_fraction * 100.0
+        );
+        eprintln!(
+            "  WBC center fraction:     {:.2}%",
+            r.wbc_center_fraction * 100.0
+        );
+        eprintln!(
+            "  RBC peripheral fraction: {:.2}%",
+            r.rbc_peripheral_fraction * 100.0
+        );
+        eprintln!("  RBC center fraction:     {:.2}%", rbc_center * 100.0);
+        eprintln!("  Separation efficiency:   {:.4}", r.separation_efficiency);
+        eprintln!("  CTC/RBC enrichment:      {:.4}×", enrichment);
+        eprintln!(
+            "  Center HCT ratio:        {:.4}",
+            r.center_hematocrit_ratio
+        );
+    }
+
+    #[test]
+    fn option2_higher_tcf_dramatically_improves_enrichment() {
+        // Demonstrate that using tcf=0.55 instead of 0.333 would dramatically
+        // improve CTC enrichment. This is a design-space insight, not a physics change.
+        let h = 1e-3_f64;
+        let parent_w = 4e-3_f64;
+        let pcf = 0.45;
+
+        // Build with tcf=0.55 (asymmetric terminal tri)
+        let tcf = 0.55;
+        let left_periph = (1.0 - pcf) / 2.0;
+        let arm_q_1 = tri_asymmetric_q_fracs(pcf, left_periph, parent_w, h);
+        let w_center_1 = pcf * parent_w;
+        let dh_1 = 2.0 * w_center_1 * h / (w_center_1 + h);
+
+        let parent_w_2 = w_center_1;
+        let left_periph_2 = (1.0 - tcf) / 2.0;
+        let arm_q_2 = tri_asymmetric_q_fracs(tcf, left_periph_2, parent_w_2, h);
+        let w_center_2 = tcf * parent_w_2;
+        let dh_2 = 2.0 * w_center_2 * h / (w_center_2 + h);
+
+        let stages = vec![
+            CascadeStage {
+                arm_q_fracs: arm_q_1,
+                n_arms: 3,
+                treatment_dh_m: dh_1,
+            },
+            CascadeStage {
+                arm_q_fracs: arm_q_2,
+                n_arms: 3,
+                treatment_dh_m: dh_2,
+            },
+        ];
+        let r_high = mixed_cascade_separation_kappa_aware(&stages);
+
+        // With tcf=0.55: cancer routing should exceed 40%.
+        assert!(
+            r_high.cancer_center_fraction > 0.40,
+            "TriTri with tcf=0.55 cancer fraction should exceed 40%: got {:.2}%",
+            r_high.cancer_center_fraction * 100.0
+        );
+
+        let rbc_center = 1.0 - r_high.rbc_peripheral_fraction;
+        let enrichment = r_high.cancer_center_fraction / rbc_center.max(1e-12);
+        assert!(
+            enrichment > 1.4,
+            "TriTri with tcf=0.55 enrichment should exceed 1.4: got {enrichment:.4}"
+        );
+
+        eprintln!("=== TriTri (pcf=0.45, tcf=0.55) kappa-aware + Fåhræus ===");
+        eprintln!(
+            "  Cancer center fraction:  {:.2}%",
+            r_high.cancer_center_fraction * 100.0
+        );
+        eprintln!(
+            "  WBC center fraction:     {:.2}%",
+            r_high.wbc_center_fraction * 100.0
+        );
+        eprintln!(
+            "  RBC peripheral fraction: {:.2}%",
+            r_high.rbc_peripheral_fraction * 100.0
+        );
+        eprintln!("  RBC center fraction:     {:.2}%", rbc_center * 100.0);
+        eprintln!("  CTC/RBC enrichment:      {:.4}×", enrichment);
+    }
+
+    #[test]
+    fn updated_se_cancer_improves_single_stage_selectivity() {
+        // With SE_CANCER = 1.85 (up from 1.70), a single trifurcation stage with
+        // center-biased flow should produce higher cancer-to-RBC differential.
+        let q = tri_center_q_frac(0.50);
+        let r = mixed_cascade_separation(&[(q, true)]);
+
+        // Cancer routing must exceed RBC routing (flow-weighted at β=1.0).
+        let rbc_center = 1.0 - r.rbc_peripheral_fraction;
+        assert!(
+            r.cancer_center_fraction > rbc_center,
+            "Cancer must route preferentially to center: cancer={:.4}, rbc_center={:.4}",
+            r.cancer_center_fraction,
+            rbc_center
+        );
+        // Enrichment ratio must be > 1.0
+        let enrichment = r.cancer_center_fraction / rbc_center.max(1e-12);
+        assert!(
+            enrichment > 1.0,
+            "CTC/RBC enrichment must exceed 1.0 at asymmetric split, got {enrichment:.4}"
+        );
     }
 }

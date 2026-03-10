@@ -512,7 +512,10 @@ mod tests {
         let max_r =
             calculate_residual_simd(&phi, &source, &mut residual, nx, ny, 1.0, 1.0).unwrap();
 
-        assert!(max_r < 1e-10, "Residual of zero should be zero, got {max_r}");
+        assert!(
+            max_r < 1e-10,
+            "Residual of zero should be zero, got {max_r}"
+        );
     }
 
     #[test]

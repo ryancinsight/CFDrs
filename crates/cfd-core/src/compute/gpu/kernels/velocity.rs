@@ -63,7 +63,8 @@ impl<T: RealField + Copy> ComputeKernel<T> for GpuVelocityKernel<T> {
 
     fn execute(&self, _input: &[T], _output: &mut [T], _params: KernelParams) -> Result<()> {
         Err(crate::error::Error::UnsupportedOperation(
-            "GpuVelocityKernel does not support CPU execution; use the GpuKernel trait dispatch".into(),
+            "GpuVelocityKernel does not support CPU execution; use the GpuKernel trait dispatch"
+                .into(),
         ))
     }
 

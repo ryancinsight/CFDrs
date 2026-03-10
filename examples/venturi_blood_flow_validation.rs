@@ -31,18 +31,11 @@
 //! - Shapiro (1953): "The Dynamics and Thermodynamics of Compressible Fluid Flow"
 //! - White (2011): "Fluid Mechanics" (7th ed.)
 
-use cfd_2d::solvers::venturi_flow::{
-    BernoulliVenturi, VenturiFlowSolution, VenturiGeometry, VenturiValidator,
-    ViscousVenturi,
-};
-use cfd_core::physics::fluid::blood::{CassonBlood, CarreauYasudaBlood};
-use cfd_core::physics::fluid::traits::{Fluid as FluidTrait, NonNewtonianFluid};
+use cfd_2d::solvers::venturi_flow::{BernoulliVenturi, VenturiGeometry, ViscousVenturi};
+use cfd_core::physics::fluid::blood::{CarreauYasudaBlood, CassonBlood};
 
 /// Validation tolerance for pressure (5%)
 const PRESSURE_TOLERANCE: f64 = 0.05;
-
-/// Validation tolerance for velocity (1%)
-const VELOCITY_TOLERANCE: f64 = 0.01;
 
 /// ============================================================================
 /// Validation Report
@@ -258,7 +251,7 @@ fn validate_blood_shear_thinning() -> ValidationReport {
     let geom = VenturiGeometry::<f64>::iso_5167_standard();
 
     let u_inlet = 0.2; // m/s
-    let p_inlet = 12000.0; // Pa (typical physiological pressure)
+    let _p_inlet = 12000.0; // Pa (typical physiological pressure)
 
     // Casson blood model
     let blood = CassonBlood::<f64>::normal_blood();
@@ -267,7 +260,10 @@ fn validate_blood_shear_thinning() -> ValidationReport {
     println!("Blood model: Casson");
     println!("Density: {:.1} kg/m³", rho);
     println!("Yield stress: {:.4e} Pa", blood.yield_stress);
-    println!("Infinite-shear viscosity: {:.4e} Pa·s", blood.infinite_shear_viscosity);
+    println!(
+        "Infinite-shear viscosity: {:.4e} Pa·s",
+        blood.infinite_shear_viscosity
+    );
 
     // Calculate shear rates
     let a_ratio = geom.area_ratio();
@@ -295,7 +291,7 @@ fn validate_blood_shear_thinning() -> ValidationReport {
     );
 
     // Compare with Newtonian (constant viscosity)
-    let mu_newtonian = blood.infinite_shear_viscosity;
+    let _mu_newtonian = blood.infinite_shear_viscosity;
     let dp_newtonian = 0.5 * rho * (u_inlet.powi(2) - u_throat.powi(2));
     let dp_effective = 0.5 * rho * (u_inlet.powi(2) - u_throat.powi(2));
 
@@ -346,7 +342,10 @@ fn validate_carreau_yasuda() -> ValidationReport {
 
     println!("Carreau-Yasuda parameters:");
     println!("  μ₀ (zero-shear): {:.4e} Pa·s", blood.zero_shear_viscosity);
-    println!("  μ_∞ (infinite-shear): {:.4e} Pa·s", blood.infinite_shear_viscosity);
+    println!(
+        "  μ_∞ (infinite-shear): {:.4e} Pa·s",
+        blood.infinite_shear_viscosity
+    );
     println!("  λ (relaxation time): {:.3} s", blood.relaxation_time);
     println!("  n (power-law index): {:.4}", blood.power_law_index);
     println!("  a (transition): {:.1}", blood.transition_parameter);
@@ -377,8 +376,7 @@ fn validate_carreau_yasuda() -> ValidationReport {
     let mu_high = blood.apparent_viscosity(10000.0);
 
     let zero_shear_correct = (mu_zero - blood.zero_shear_viscosity).abs() < 1e-10;
-    let high_shear_correct =
-        (mu_high - blood.infinite_shear_viscosity).abs() < 0.0001; // Small tolerance
+    let high_shear_correct = (mu_high - blood.infinite_shear_viscosity).abs() < 0.0001; // Small tolerance
 
     println!("\nLimiting behavior:");
     println!(
@@ -444,7 +442,11 @@ fn main() {
     println!("{}", "-".repeat(90));
 
     for report in &reports {
-        let status = if report.passed { "✓ PASS" } else { "✗ FAIL" };
+        let status = if report.passed {
+            "✓ PASS"
+        } else {
+            "✗ FAIL"
+        };
         println!(
             "{:<35} {:<10} {:<15.4} {}",
             report.test_name, status, report.recovery_coefficient, report.reference

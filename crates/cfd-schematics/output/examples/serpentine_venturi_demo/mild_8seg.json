@@ -1,0 +1,1330 @@
+{
+  "name": "sv_mild_8seg",
+  "box_dims": [
+    127.76,
+    85.47
+  ],
+  "box_outline": [],
+  "nodes": [
+    {
+      "id": "inlet",
+      "kind": "Inlet",
+      "point": [
+        2.1293333333333333,
+        42.735
+      ]
+    },
+    {
+      "id": "junction_0",
+      "kind": "Junction",
+      "point": [
+        6.388,
+        42.735
+      ]
+    },
+    {
+      "id": "junction_1",
+      "kind": "Junction",
+      "point": [
+        10.646666666666667,
+        42.735
+      ]
+    },
+    {
+      "id": "junction_2",
+      "kind": "Junction",
+      "point": [
+        14.905333333333333,
+        42.735
+      ]
+    },
+    {
+      "id": "junction_3",
+      "kind": "Junction",
+      "point": [
+        19.164,
+        42.735
+      ]
+    },
+    {
+      "id": "junction_4",
+      "kind": "Junction",
+      "point": [
+        23.422666666666665,
+        42.735
+      ]
+    },
+    {
+      "id": "junction_5",
+      "kind": "Junction",
+      "point": [
+        27.681333333333335,
+        42.735
+      ]
+    },
+    {
+      "id": "junction_6",
+      "kind": "Junction",
+      "point": [
+        31.939999999999998,
+        42.735
+      ]
+    },
+    {
+      "id": "junction_7",
+      "kind": "Junction",
+      "point": [
+        36.19866666666667,
+        42.735
+      ]
+    },
+    {
+      "id": "junction_8",
+      "kind": "Junction",
+      "point": [
+        40.45733333333333,
+        42.735
+      ]
+    },
+    {
+      "id": "junction_9",
+      "kind": "Junction",
+      "point": [
+        44.716,
+        42.735
+      ]
+    },
+    {
+      "id": "junction_10",
+      "kind": "Junction",
+      "point": [
+        48.974666666666664,
+        42.735
+      ]
+    },
+    {
+      "id": "junction_11",
+      "kind": "Junction",
+      "point": [
+        53.233333333333334,
+        42.735
+      ]
+    },
+    {
+      "id": "junction_12",
+      "kind": "Junction",
+      "point": [
+        57.492,
+        42.735
+      ]
+    },
+    {
+      "id": "junction_13",
+      "kind": "Junction",
+      "point": [
+        61.75066666666667,
+        42.735
+      ]
+    },
+    {
+      "id": "junction_14",
+      "kind": "Junction",
+      "point": [
+        66.00933333333333,
+        42.735
+      ]
+    },
+    {
+      "id": "junction_15",
+      "kind": "Junction",
+      "point": [
+        70.268,
+        42.735
+      ]
+    },
+    {
+      "id": "junction_16",
+      "kind": "Junction",
+      "point": [
+        74.52666666666667,
+        42.735
+      ]
+    },
+    {
+      "id": "junction_17",
+      "kind": "Junction",
+      "point": [
+        78.78533333333333,
+        42.735
+      ]
+    },
+    {
+      "id": "junction_18",
+      "kind": "Junction",
+      "point": [
+        83.044,
+        42.735
+      ]
+    },
+    {
+      "id": "junction_19",
+      "kind": "Junction",
+      "point": [
+        87.30266666666667,
+        42.735
+      ]
+    },
+    {
+      "id": "junction_20",
+      "kind": "Junction",
+      "point": [
+        91.56133333333334,
+        42.735
+      ]
+    },
+    {
+      "id": "junction_21",
+      "kind": "Junction",
+      "point": [
+        95.82,
+        42.735
+      ]
+    },
+    {
+      "id": "junction_22",
+      "kind": "Junction",
+      "point": [
+        100.07866666666666,
+        42.735
+      ]
+    },
+    {
+      "id": "junction_23",
+      "kind": "Junction",
+      "point": [
+        104.33733333333333,
+        42.735
+      ]
+    },
+    {
+      "id": "junction_24",
+      "kind": "Junction",
+      "point": [
+        108.596,
+        42.735
+      ]
+    },
+    {
+      "id": "junction_25",
+      "kind": "Junction",
+      "point": [
+        112.85466666666666,
+        42.735
+      ]
+    },
+    {
+      "id": "junction_26",
+      "kind": "Junction",
+      "point": [
+        117.11333333333333,
+        42.735
+      ]
+    },
+    {
+      "id": "junction_27",
+      "kind": "Junction",
+      "point": [
+        121.372,
+        42.735
+      ]
+    },
+    {
+      "id": "outlet",
+      "kind": "Outlet",
+      "point": [
+        125.63066666666667,
+        42.735
+      ]
+    }
+  ],
+  "channels": [
+    {
+      "id": "segment_1",
+      "kind": "Pipe",
+      "from": "inlet",
+      "to": "junction_0",
+      "length_m": 0.01,
+      "cross_section": {
+        "Rectangular": {
+          "width_m": 0.002,
+          "height_m": 0.001
+        }
+      },
+      "channel_shape": "Straight",
+      "resistance": 0.0,
+      "quad_coeff": 0.0,
+      "valve_cv": null,
+      "pump_max_flow": null,
+      "pump_max_pressure": null,
+      "visual_role": null
+    },
+    {
+      "id": "approach_1",
+      "kind": "Pipe",
+      "from": "junction_0",
+      "to": "junction_1",
+      "length_m": 0.00875,
+      "cross_section": {
+        "Rectangular": {
+          "width_m": 0.002,
+          "height_m": 0.001
+        }
+      },
+      "channel_shape": "Straight",
+      "resistance": 0.0,
+      "quad_coeff": 0.0,
+      "valve_cv": null,
+      "pump_max_flow": null,
+      "pump_max_pressure": null,
+      "visual_role": null
+    },
+    {
+      "id": "throat_1",
+      "kind": "Pipe",
+      "from": "junction_1",
+      "to": "junction_2",
+      "length_m": 0.003,
+      "cross_section": {
+        "Rectangular": {
+          "width_m": 0.0015,
+          "height_m": 0.001
+        }
+      },
+      "channel_shape": "Straight",
+      "resistance": 0.0,
+      "quad_coeff": 0.0,
+      "valve_cv": null,
+      "pump_max_flow": null,
+      "pump_max_pressure": null,
+      "visual_role": null,
+      "venturi_geometry": {
+        "throat_width_m": 0.0015,
+        "throat_height_m": 0.001,
+        "throat_length_m": 0.003,
+        "inlet_width_m": 0.002,
+        "outlet_width_m": 0.002,
+        "convergent_half_angle_deg": 7.0,
+        "divergent_half_angle_deg": 7.0,
+        "throat_position": 0.5
+      }
+    },
+    {
+      "id": "recovery_1",
+      "kind": "Pipe",
+      "from": "junction_2",
+      "to": "junction_3",
+      "length_m": 0.00875,
+      "cross_section": {
+        "Rectangular": {
+          "width_m": 0.002,
+          "height_m": 0.001
+        }
+      },
+      "channel_shape": "Straight",
+      "resistance": 0.0,
+      "quad_coeff": 0.0,
+      "valve_cv": null,
+      "pump_max_flow": null,
+      "pump_max_pressure": null,
+      "visual_role": null
+    },
+    {
+      "id": "segment_2",
+      "kind": "Pipe",
+      "from": "junction_3",
+      "to": "junction_4",
+      "length_m": 0.01,
+      "cross_section": {
+        "Rectangular": {
+          "width_m": 0.002,
+          "height_m": 0.001
+        }
+      },
+      "channel_shape": "Straight",
+      "resistance": 0.0,
+      "quad_coeff": 0.0,
+      "valve_cv": null,
+      "pump_max_flow": null,
+      "pump_max_pressure": null,
+      "visual_role": null
+    },
+    {
+      "id": "approach_2",
+      "kind": "Pipe",
+      "from": "junction_4",
+      "to": "junction_5",
+      "length_m": 0.00875,
+      "cross_section": {
+        "Rectangular": {
+          "width_m": 0.002,
+          "height_m": 0.001
+        }
+      },
+      "channel_shape": "Straight",
+      "resistance": 0.0,
+      "quad_coeff": 0.0,
+      "valve_cv": null,
+      "pump_max_flow": null,
+      "pump_max_pressure": null,
+      "visual_role": null
+    },
+    {
+      "id": "throat_2",
+      "kind": "Pipe",
+      "from": "junction_5",
+      "to": "junction_6",
+      "length_m": 0.003,
+      "cross_section": {
+        "Rectangular": {
+          "width_m": 0.0015,
+          "height_m": 0.001
+        }
+      },
+      "channel_shape": "Straight",
+      "resistance": 0.0,
+      "quad_coeff": 0.0,
+      "valve_cv": null,
+      "pump_max_flow": null,
+      "pump_max_pressure": null,
+      "visual_role": null,
+      "venturi_geometry": {
+        "throat_width_m": 0.0015,
+        "throat_height_m": 0.001,
+        "throat_length_m": 0.003,
+        "inlet_width_m": 0.002,
+        "outlet_width_m": 0.002,
+        "convergent_half_angle_deg": 7.0,
+        "divergent_half_angle_deg": 7.0,
+        "throat_position": 0.5
+      }
+    },
+    {
+      "id": "recovery_2",
+      "kind": "Pipe",
+      "from": "junction_6",
+      "to": "junction_7",
+      "length_m": 0.00875,
+      "cross_section": {
+        "Rectangular": {
+          "width_m": 0.002,
+          "height_m": 0.001
+        }
+      },
+      "channel_shape": "Straight",
+      "resistance": 0.0,
+      "quad_coeff": 0.0,
+      "valve_cv": null,
+      "pump_max_flow": null,
+      "pump_max_pressure": null,
+      "visual_role": null
+    },
+    {
+      "id": "segment_3",
+      "kind": "Pipe",
+      "from": "junction_7",
+      "to": "junction_8",
+      "length_m": 0.01,
+      "cross_section": {
+        "Rectangular": {
+          "width_m": 0.002,
+          "height_m": 0.001
+        }
+      },
+      "channel_shape": "Straight",
+      "resistance": 0.0,
+      "quad_coeff": 0.0,
+      "valve_cv": null,
+      "pump_max_flow": null,
+      "pump_max_pressure": null,
+      "visual_role": null
+    },
+    {
+      "id": "approach_3",
+      "kind": "Pipe",
+      "from": "junction_8",
+      "to": "junction_9",
+      "length_m": 0.00875,
+      "cross_section": {
+        "Rectangular": {
+          "width_m": 0.002,
+          "height_m": 0.001
+        }
+      },
+      "channel_shape": "Straight",
+      "resistance": 0.0,
+      "quad_coeff": 0.0,
+      "valve_cv": null,
+      "pump_max_flow": null,
+      "pump_max_pressure": null,
+      "visual_role": null
+    },
+    {
+      "id": "throat_3",
+      "kind": "Pipe",
+      "from": "junction_9",
+      "to": "junction_10",
+      "length_m": 0.003,
+      "cross_section": {
+        "Rectangular": {
+          "width_m": 0.0015,
+          "height_m": 0.001
+        }
+      },
+      "channel_shape": "Straight",
+      "resistance": 0.0,
+      "quad_coeff": 0.0,
+      "valve_cv": null,
+      "pump_max_flow": null,
+      "pump_max_pressure": null,
+      "visual_role": null,
+      "venturi_geometry": {
+        "throat_width_m": 0.0015,
+        "throat_height_m": 0.001,
+        "throat_length_m": 0.003,
+        "inlet_width_m": 0.002,
+        "outlet_width_m": 0.002,
+        "convergent_half_angle_deg": 7.0,
+        "divergent_half_angle_deg": 7.0,
+        "throat_position": 0.5
+      }
+    },
+    {
+      "id": "recovery_3",
+      "kind": "Pipe",
+      "from": "junction_10",
+      "to": "junction_11",
+      "length_m": 0.00875,
+      "cross_section": {
+        "Rectangular": {
+          "width_m": 0.002,
+          "height_m": 0.001
+        }
+      },
+      "channel_shape": "Straight",
+      "resistance": 0.0,
+      "quad_coeff": 0.0,
+      "valve_cv": null,
+      "pump_max_flow": null,
+      "pump_max_pressure": null,
+      "visual_role": null
+    },
+    {
+      "id": "segment_4",
+      "kind": "Pipe",
+      "from": "junction_11",
+      "to": "junction_12",
+      "length_m": 0.01,
+      "cross_section": {
+        "Rectangular": {
+          "width_m": 0.002,
+          "height_m": 0.001
+        }
+      },
+      "channel_shape": "Straight",
+      "resistance": 0.0,
+      "quad_coeff": 0.0,
+      "valve_cv": null,
+      "pump_max_flow": null,
+      "pump_max_pressure": null,
+      "visual_role": null
+    },
+    {
+      "id": "approach_4",
+      "kind": "Pipe",
+      "from": "junction_12",
+      "to": "junction_13",
+      "length_m": 0.00875,
+      "cross_section": {
+        "Rectangular": {
+          "width_m": 0.002,
+          "height_m": 0.001
+        }
+      },
+      "channel_shape": "Straight",
+      "resistance": 0.0,
+      "quad_coeff": 0.0,
+      "valve_cv": null,
+      "pump_max_flow": null,
+      "pump_max_pressure": null,
+      "visual_role": null
+    },
+    {
+      "id": "throat_4",
+      "kind": "Pipe",
+      "from": "junction_13",
+      "to": "junction_14",
+      "length_m": 0.003,
+      "cross_section": {
+        "Rectangular": {
+          "width_m": 0.0015,
+          "height_m": 0.001
+        }
+      },
+      "channel_shape": "Straight",
+      "resistance": 0.0,
+      "quad_coeff": 0.0,
+      "valve_cv": null,
+      "pump_max_flow": null,
+      "pump_max_pressure": null,
+      "visual_role": null,
+      "venturi_geometry": {
+        "throat_width_m": 0.0015,
+        "throat_height_m": 0.001,
+        "throat_length_m": 0.003,
+        "inlet_width_m": 0.002,
+        "outlet_width_m": 0.002,
+        "convergent_half_angle_deg": 7.0,
+        "divergent_half_angle_deg": 7.0,
+        "throat_position": 0.5
+      }
+    },
+    {
+      "id": "recovery_4",
+      "kind": "Pipe",
+      "from": "junction_14",
+      "to": "junction_15",
+      "length_m": 0.00875,
+      "cross_section": {
+        "Rectangular": {
+          "width_m": 0.002,
+          "height_m": 0.001
+        }
+      },
+      "channel_shape": "Straight",
+      "resistance": 0.0,
+      "quad_coeff": 0.0,
+      "valve_cv": null,
+      "pump_max_flow": null,
+      "pump_max_pressure": null,
+      "visual_role": null
+    },
+    {
+      "id": "segment_5",
+      "kind": "Pipe",
+      "from": "junction_15",
+      "to": "junction_16",
+      "length_m": 0.01,
+      "cross_section": {
+        "Rectangular": {
+          "width_m": 0.002,
+          "height_m": 0.001
+        }
+      },
+      "channel_shape": "Straight",
+      "resistance": 0.0,
+      "quad_coeff": 0.0,
+      "valve_cv": null,
+      "pump_max_flow": null,
+      "pump_max_pressure": null,
+      "visual_role": null
+    },
+    {
+      "id": "approach_5",
+      "kind": "Pipe",
+      "from": "junction_16",
+      "to": "junction_17",
+      "length_m": 0.00875,
+      "cross_section": {
+        "Rectangular": {
+          "width_m": 0.002,
+          "height_m": 0.001
+        }
+      },
+      "channel_shape": "Straight",
+      "resistance": 0.0,
+      "quad_coeff": 0.0,
+      "valve_cv": null,
+      "pump_max_flow": null,
+      "pump_max_pressure": null,
+      "visual_role": null
+    },
+    {
+      "id": "throat_5",
+      "kind": "Pipe",
+      "from": "junction_17",
+      "to": "junction_18",
+      "length_m": 0.003,
+      "cross_section": {
+        "Rectangular": {
+          "width_m": 0.0015,
+          "height_m": 0.001
+        }
+      },
+      "channel_shape": "Straight",
+      "resistance": 0.0,
+      "quad_coeff": 0.0,
+      "valve_cv": null,
+      "pump_max_flow": null,
+      "pump_max_pressure": null,
+      "visual_role": null,
+      "venturi_geometry": {
+        "throat_width_m": 0.0015,
+        "throat_height_m": 0.001,
+        "throat_length_m": 0.003,
+        "inlet_width_m": 0.002,
+        "outlet_width_m": 0.002,
+        "convergent_half_angle_deg": 7.0,
+        "divergent_half_angle_deg": 7.0,
+        "throat_position": 0.5
+      }
+    },
+    {
+      "id": "recovery_5",
+      "kind": "Pipe",
+      "from": "junction_18",
+      "to": "junction_19",
+      "length_m": 0.00875,
+      "cross_section": {
+        "Rectangular": {
+          "width_m": 0.002,
+          "height_m": 0.001
+        }
+      },
+      "channel_shape": "Straight",
+      "resistance": 0.0,
+      "quad_coeff": 0.0,
+      "valve_cv": null,
+      "pump_max_flow": null,
+      "pump_max_pressure": null,
+      "visual_role": null
+    },
+    {
+      "id": "segment_6",
+      "kind": "Pipe",
+      "from": "junction_19",
+      "to": "junction_20",
+      "length_m": 0.01,
+      "cross_section": {
+        "Rectangular": {
+          "width_m": 0.002,
+          "height_m": 0.001
+        }
+      },
+      "channel_shape": "Straight",
+      "resistance": 0.0,
+      "quad_coeff": 0.0,
+      "valve_cv": null,
+      "pump_max_flow": null,
+      "pump_max_pressure": null,
+      "visual_role": null
+    },
+    {
+      "id": "approach_6",
+      "kind": "Pipe",
+      "from": "junction_20",
+      "to": "junction_21",
+      "length_m": 0.00875,
+      "cross_section": {
+        "Rectangular": {
+          "width_m": 0.002,
+          "height_m": 0.001
+        }
+      },
+      "channel_shape": "Straight",
+      "resistance": 0.0,
+      "quad_coeff": 0.0,
+      "valve_cv": null,
+      "pump_max_flow": null,
+      "pump_max_pressure": null,
+      "visual_role": null
+    },
+    {
+      "id": "throat_6",
+      "kind": "Pipe",
+      "from": "junction_21",
+      "to": "junction_22",
+      "length_m": 0.003,
+      "cross_section": {
+        "Rectangular": {
+          "width_m": 0.0015,
+          "height_m": 0.001
+        }
+      },
+      "channel_shape": "Straight",
+      "resistance": 0.0,
+      "quad_coeff": 0.0,
+      "valve_cv": null,
+      "pump_max_flow": null,
+      "pump_max_pressure": null,
+      "visual_role": null,
+      "venturi_geometry": {
+        "throat_width_m": 0.0015,
+        "throat_height_m": 0.001,
+        "throat_length_m": 0.003,
+        "inlet_width_m": 0.002,
+        "outlet_width_m": 0.002,
+        "convergent_half_angle_deg": 7.0,
+        "divergent_half_angle_deg": 7.0,
+        "throat_position": 0.5
+      }
+    },
+    {
+      "id": "recovery_6",
+      "kind": "Pipe",
+      "from": "junction_22",
+      "to": "junction_23",
+      "length_m": 0.00875,
+      "cross_section": {
+        "Rectangular": {
+          "width_m": 0.002,
+          "height_m": 0.001
+        }
+      },
+      "channel_shape": "Straight",
+      "resistance": 0.0,
+      "quad_coeff": 0.0,
+      "valve_cv": null,
+      "pump_max_flow": null,
+      "pump_max_pressure": null,
+      "visual_role": null
+    },
+    {
+      "id": "segment_7",
+      "kind": "Pipe",
+      "from": "junction_23",
+      "to": "junction_24",
+      "length_m": 0.01,
+      "cross_section": {
+        "Rectangular": {
+          "width_m": 0.002,
+          "height_m": 0.001
+        }
+      },
+      "channel_shape": "Straight",
+      "resistance": 0.0,
+      "quad_coeff": 0.0,
+      "valve_cv": null,
+      "pump_max_flow": null,
+      "pump_max_pressure": null,
+      "visual_role": null
+    },
+    {
+      "id": "approach_7",
+      "kind": "Pipe",
+      "from": "junction_24",
+      "to": "junction_25",
+      "length_m": 0.00875,
+      "cross_section": {
+        "Rectangular": {
+          "width_m": 0.002,
+          "height_m": 0.001
+        }
+      },
+      "channel_shape": "Straight",
+      "resistance": 0.0,
+      "quad_coeff": 0.0,
+      "valve_cv": null,
+      "pump_max_flow": null,
+      "pump_max_pressure": null,
+      "visual_role": null
+    },
+    {
+      "id": "throat_7",
+      "kind": "Pipe",
+      "from": "junction_25",
+      "to": "junction_26",
+      "length_m": 0.003,
+      "cross_section": {
+        "Rectangular": {
+          "width_m": 0.0015,
+          "height_m": 0.001
+        }
+      },
+      "channel_shape": "Straight",
+      "resistance": 0.0,
+      "quad_coeff": 0.0,
+      "valve_cv": null,
+      "pump_max_flow": null,
+      "pump_max_pressure": null,
+      "visual_role": null,
+      "venturi_geometry": {
+        "throat_width_m": 0.0015,
+        "throat_height_m": 0.001,
+        "throat_length_m": 0.003,
+        "inlet_width_m": 0.002,
+        "outlet_width_m": 0.002,
+        "convergent_half_angle_deg": 7.0,
+        "divergent_half_angle_deg": 7.0,
+        "throat_position": 0.5
+      }
+    },
+    {
+      "id": "recovery_7",
+      "kind": "Pipe",
+      "from": "junction_26",
+      "to": "junction_27",
+      "length_m": 0.00875,
+      "cross_section": {
+        "Rectangular": {
+          "width_m": 0.002,
+          "height_m": 0.001
+        }
+      },
+      "channel_shape": "Straight",
+      "resistance": 0.0,
+      "quad_coeff": 0.0,
+      "valve_cv": null,
+      "pump_max_flow": null,
+      "pump_max_pressure": null,
+      "visual_role": null
+    },
+    {
+      "id": "segment_8",
+      "kind": "Pipe",
+      "from": "junction_27",
+      "to": "outlet",
+      "length_m": 0.01,
+      "cross_section": {
+        "Rectangular": {
+          "width_m": 0.002,
+          "height_m": 0.001
+        }
+      },
+      "channel_shape": "Straight",
+      "resistance": 0.0,
+      "quad_coeff": 0.0,
+      "valve_cv": null,
+      "pump_max_flow": null,
+      "pump_max_pressure": null,
+      "visual_role": null
+    }
+  ],
+  "topology": {
+    "topology_id": "sv_mild_8seg_topology",
+    "design_name": "sv_mild_8seg",
+    "box_dims_mm": [
+      127.76,
+      85.47
+    ],
+    "inlet_width_m": 0.002,
+    "outlet_width_m": 0.002,
+    "trunk_length_m": 0.01,
+    "outlet_tail_length_m": 0.01,
+    "series_channels": [
+      {
+        "channel_id": "segment_1",
+        "route": {
+          "length_m": 0.01,
+          "width_m": 0.002,
+          "height_m": 0.001,
+          "serpentine": {
+            "segments": 8,
+            "bend_radius_m": 0.002,
+            "segment_length_m": 0.01
+          },
+          "therapy_zone": "MixedFlow"
+        }
+      },
+      {
+        "channel_id": "approach_1",
+        "route": {
+          "length_m": 0.00875,
+          "width_m": 0.002,
+          "height_m": 0.001,
+          "therapy_zone": "MixedFlow"
+        }
+      },
+      {
+        "channel_id": "throat_1",
+        "route": {
+          "length_m": 0.003,
+          "width_m": 0.0015,
+          "height_m": 0.001,
+          "therapy_zone": "CancerTarget"
+        }
+      },
+      {
+        "channel_id": "recovery_1",
+        "route": {
+          "length_m": 0.00875,
+          "width_m": 0.002,
+          "height_m": 0.001,
+          "therapy_zone": "MixedFlow"
+        }
+      },
+      {
+        "channel_id": "segment_2",
+        "route": {
+          "length_m": 0.01,
+          "width_m": 0.002,
+          "height_m": 0.001,
+          "serpentine": {
+            "segments": 8,
+            "bend_radius_m": 0.002,
+            "segment_length_m": 0.01
+          },
+          "therapy_zone": "MixedFlow"
+        }
+      },
+      {
+        "channel_id": "approach_2",
+        "route": {
+          "length_m": 0.00875,
+          "width_m": 0.002,
+          "height_m": 0.001,
+          "therapy_zone": "MixedFlow"
+        }
+      },
+      {
+        "channel_id": "throat_2",
+        "route": {
+          "length_m": 0.003,
+          "width_m": 0.0015,
+          "height_m": 0.001,
+          "therapy_zone": "CancerTarget"
+        }
+      },
+      {
+        "channel_id": "recovery_2",
+        "route": {
+          "length_m": 0.00875,
+          "width_m": 0.002,
+          "height_m": 0.001,
+          "therapy_zone": "MixedFlow"
+        }
+      },
+      {
+        "channel_id": "segment_3",
+        "route": {
+          "length_m": 0.01,
+          "width_m": 0.002,
+          "height_m": 0.001,
+          "serpentine": {
+            "segments": 8,
+            "bend_radius_m": 0.002,
+            "segment_length_m": 0.01
+          },
+          "therapy_zone": "MixedFlow"
+        }
+      },
+      {
+        "channel_id": "approach_3",
+        "route": {
+          "length_m": 0.00875,
+          "width_m": 0.002,
+          "height_m": 0.001,
+          "therapy_zone": "MixedFlow"
+        }
+      },
+      {
+        "channel_id": "throat_3",
+        "route": {
+          "length_m": 0.003,
+          "width_m": 0.0015,
+          "height_m": 0.001,
+          "therapy_zone": "CancerTarget"
+        }
+      },
+      {
+        "channel_id": "recovery_3",
+        "route": {
+          "length_m": 0.00875,
+          "width_m": 0.002,
+          "height_m": 0.001,
+          "therapy_zone": "MixedFlow"
+        }
+      },
+      {
+        "channel_id": "segment_4",
+        "route": {
+          "length_m": 0.01,
+          "width_m": 0.002,
+          "height_m": 0.001,
+          "serpentine": {
+            "segments": 8,
+            "bend_radius_m": 0.002,
+            "segment_length_m": 0.01
+          },
+          "therapy_zone": "MixedFlow"
+        }
+      },
+      {
+        "channel_id": "approach_4",
+        "route": {
+          "length_m": 0.00875,
+          "width_m": 0.002,
+          "height_m": 0.001,
+          "therapy_zone": "MixedFlow"
+        }
+      },
+      {
+        "channel_id": "throat_4",
+        "route": {
+          "length_m": 0.003,
+          "width_m": 0.0015,
+          "height_m": 0.001,
+          "therapy_zone": "CancerTarget"
+        }
+      },
+      {
+        "channel_id": "recovery_4",
+        "route": {
+          "length_m": 0.00875,
+          "width_m": 0.002,
+          "height_m": 0.001,
+          "therapy_zone": "MixedFlow"
+        }
+      },
+      {
+        "channel_id": "segment_5",
+        "route": {
+          "length_m": 0.01,
+          "width_m": 0.002,
+          "height_m": 0.001,
+          "serpentine": {
+            "segments": 8,
+            "bend_radius_m": 0.002,
+            "segment_length_m": 0.01
+          },
+          "therapy_zone": "MixedFlow"
+        }
+      },
+      {
+        "channel_id": "approach_5",
+        "route": {
+          "length_m": 0.00875,
+          "width_m": 0.002,
+          "height_m": 0.001,
+          "therapy_zone": "MixedFlow"
+        }
+      },
+      {
+        "channel_id": "throat_5",
+        "route": {
+          "length_m": 0.003,
+          "width_m": 0.0015,
+          "height_m": 0.001,
+          "therapy_zone": "CancerTarget"
+        }
+      },
+      {
+        "channel_id": "recovery_5",
+        "route": {
+          "length_m": 0.00875,
+          "width_m": 0.002,
+          "height_m": 0.001,
+          "therapy_zone": "MixedFlow"
+        }
+      },
+      {
+        "channel_id": "segment_6",
+        "route": {
+          "length_m": 0.01,
+          "width_m": 0.002,
+          "height_m": 0.001,
+          "serpentine": {
+            "segments": 8,
+            "bend_radius_m": 0.002,
+            "segment_length_m": 0.01
+          },
+          "therapy_zone": "MixedFlow"
+        }
+      },
+      {
+        "channel_id": "approach_6",
+        "route": {
+          "length_m": 0.00875,
+          "width_m": 0.002,
+          "height_m": 0.001,
+          "therapy_zone": "MixedFlow"
+        }
+      },
+      {
+        "channel_id": "throat_6",
+        "route": {
+          "length_m": 0.003,
+          "width_m": 0.0015,
+          "height_m": 0.001,
+          "therapy_zone": "CancerTarget"
+        }
+      },
+      {
+        "channel_id": "recovery_6",
+        "route": {
+          "length_m": 0.00875,
+          "width_m": 0.002,
+          "height_m": 0.001,
+          "therapy_zone": "MixedFlow"
+        }
+      },
+      {
+        "channel_id": "segment_7",
+        "route": {
+          "length_m": 0.01,
+          "width_m": 0.002,
+          "height_m": 0.001,
+          "serpentine": {
+            "segments": 8,
+            "bend_radius_m": 0.002,
+            "segment_length_m": 0.01
+          },
+          "therapy_zone": "MixedFlow"
+        }
+      },
+      {
+        "channel_id": "approach_7",
+        "route": {
+          "length_m": 0.00875,
+          "width_m": 0.002,
+          "height_m": 0.001,
+          "therapy_zone": "MixedFlow"
+        }
+      },
+      {
+        "channel_id": "throat_7",
+        "route": {
+          "length_m": 0.003,
+          "width_m": 0.0015,
+          "height_m": 0.001,
+          "therapy_zone": "CancerTarget"
+        }
+      },
+      {
+        "channel_id": "recovery_7",
+        "route": {
+          "length_m": 0.00875,
+          "width_m": 0.002,
+          "height_m": 0.001,
+          "therapy_zone": "MixedFlow"
+        }
+      },
+      {
+        "channel_id": "segment_8",
+        "route": {
+          "length_m": 0.01,
+          "width_m": 0.002,
+          "height_m": 0.001,
+          "serpentine": {
+            "segments": 8,
+            "bend_radius_m": 0.002,
+            "segment_length_m": 0.01
+          },
+          "therapy_zone": "MixedFlow"
+        }
+      }
+    ],
+    "split_stages": [],
+    "venturi_placements": [
+      {
+        "placement_id": "venturi_0",
+        "target_channel_id": "throat_1",
+        "serial_throat_count": 1,
+        "throat_geometry": {
+          "throat_width_m": 0.0015,
+          "throat_height_m": 0.001,
+          "throat_length_m": 0.003,
+          "inlet_width_m": 0.002,
+          "outlet_width_m": 0.002,
+          "convergent_half_angle_deg": 7.0,
+          "divergent_half_angle_deg": 7.0
+        },
+        "placement_mode": "CurvaturePeakDeanNumber"
+      },
+      {
+        "placement_id": "venturi_1",
+        "target_channel_id": "throat_2",
+        "serial_throat_count": 1,
+        "throat_geometry": {
+          "throat_width_m": 0.0015,
+          "throat_height_m": 0.001,
+          "throat_length_m": 0.003,
+          "inlet_width_m": 0.002,
+          "outlet_width_m": 0.002,
+          "convergent_half_angle_deg": 7.0,
+          "divergent_half_angle_deg": 7.0
+        },
+        "placement_mode": "CurvaturePeakDeanNumber"
+      },
+      {
+        "placement_id": "venturi_2",
+        "target_channel_id": "throat_3",
+        "serial_throat_count": 1,
+        "throat_geometry": {
+          "throat_width_m": 0.0015,
+          "throat_height_m": 0.001,
+          "throat_length_m": 0.003,
+          "inlet_width_m": 0.002,
+          "outlet_width_m": 0.002,
+          "convergent_half_angle_deg": 7.0,
+          "divergent_half_angle_deg": 7.0
+        },
+        "placement_mode": "CurvaturePeakDeanNumber"
+      },
+      {
+        "placement_id": "venturi_3",
+        "target_channel_id": "throat_4",
+        "serial_throat_count": 1,
+        "throat_geometry": {
+          "throat_width_m": 0.0015,
+          "throat_height_m": 0.001,
+          "throat_length_m": 0.003,
+          "inlet_width_m": 0.002,
+          "outlet_width_m": 0.002,
+          "convergent_half_angle_deg": 7.0,
+          "divergent_half_angle_deg": 7.0
+        },
+        "placement_mode": "CurvaturePeakDeanNumber"
+      },
+      {
+        "placement_id": "venturi_4",
+        "target_channel_id": "throat_5",
+        "serial_throat_count": 1,
+        "throat_geometry": {
+          "throat_width_m": 0.0015,
+          "throat_height_m": 0.001,
+          "throat_length_m": 0.003,
+          "inlet_width_m": 0.002,
+          "outlet_width_m": 0.002,
+          "convergent_half_angle_deg": 7.0,
+          "divergent_half_angle_deg": 7.0
+        },
+        "placement_mode": "CurvaturePeakDeanNumber"
+      },
+      {
+        "placement_id": "venturi_5",
+        "target_channel_id": "throat_6",
+        "serial_throat_count": 1,
+        "throat_geometry": {
+          "throat_width_m": 0.0015,
+          "throat_height_m": 0.001,
+          "throat_length_m": 0.003,
+          "inlet_width_m": 0.002,
+          "outlet_width_m": 0.002,
+          "convergent_half_angle_deg": 7.0,
+          "divergent_half_angle_deg": 7.0
+        },
+        "placement_mode": "CurvaturePeakDeanNumber"
+      },
+      {
+        "placement_id": "venturi_6",
+        "target_channel_id": "throat_7",
+        "serial_throat_count": 1,
+        "throat_geometry": {
+          "throat_width_m": 0.0015,
+          "throat_height_m": 0.001,
+          "throat_length_m": 0.003,
+          "inlet_width_m": 0.002,
+          "outlet_width_m": 0.002,
+          "convergent_half_angle_deg": 7.0,
+          "divergent_half_angle_deg": 7.0
+        },
+        "placement_mode": "CurvaturePeakDeanNumber"
+      }
+    ],
+    "treatment_mode": "VenturiCavitation"
+  },
+  "lineage": {
+    "root_blueprint_name": "sv_mild_8seg",
+    "current_stage": "SelectiveVenturiCavitation"
+  }
+}

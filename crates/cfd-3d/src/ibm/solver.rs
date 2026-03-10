@@ -277,12 +277,15 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + ToPrimitive
                         let idx =
                             ii + jj * self.grid_size.0 + kk * self.grid_size.0 * self.grid_size.1;
 
-                        let rx = position.x / self.dx.x - T::from_usize(ii)
-                            .expect("grid index ii is always a representable usize");
-                        let ry = position.y / self.dx.y - T::from_usize(jj)
-                            .expect("grid index jj is always a representable usize");
-                        let rz = position.z / self.dx.z - T::from_usize(kk)
-                            .expect("grid index kk is always a representable usize");
+                        let rx = position.x / self.dx.x
+                            - T::from_usize(ii)
+                                .expect("grid index ii is always a representable usize");
+                        let ry = position.y / self.dx.y
+                            - T::from_usize(jj)
+                                .expect("grid index jj is always a representable usize");
+                        let rz = position.z / self.dx.z
+                            - T::from_usize(kk)
+                                .expect("grid index kk is always a representable usize");
 
                         let weight =
                             self.kernel.delta(rx) * self.kernel.delta(ry) * self.kernel.delta(rz);

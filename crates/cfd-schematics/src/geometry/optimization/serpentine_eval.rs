@@ -9,6 +9,31 @@ use crate::geometry::types::Point2D;
 
 use super::constants;
 
+fn calculate_safe_full_periods(
+    channel_length: f64,
+    amplitude: f64,
+    serpentine_config: &SerpentineConfig,
+    geometry_config: &GeometryConfig,
+    base_wavelength: f64,
+) -> usize {
+    let channel_width = geometry_config.channel_width;
+    let min_cycle_span = base_wavelength
+        .max(amplitude.mul_add(2.75, channel_width * 4.0))
+        .max(channel_width * 8.0);
+    let max_full_periods = (channel_length / min_cycle_span).floor().max(1.0);
+    let requested_full_periods = match serpentine_config.wave_shape {
+        crate::config::WaveShape::Square => serpentine_config.wave_density_factor.ceil(),
+        crate::config::WaveShape::Sine => serpentine_config.wave_density_factor.round(),
+    }
+    .clamp(1.0, max_full_periods);
+
+    if channel_length < min_cycle_span * 1.4 {
+        1
+    } else {
+        requested_full_periods as usize
+    }
+}
+
 /// Optimized serpentine path generation with aggressive amplitude calculation
 #[must_use]
 pub(super) fn generate_simplified_serpentine_path(
@@ -121,9 +146,14 @@ pub(super) fn generate_simplified_serpentine_path(
     let base_wavelength = calculate_optimized_wavelength(geometry_config, serpentine_config);
 
     // Generate simplified serpentine path with smooth endpoints
-    let base_periods = (channel_length / base_wavelength) * serpentine_config.wave_density_factor;
-    // Round to nearest integer number of half-periods to ensure sin(pi*n) = 0 at endpoints
-    let half_periods = (base_periods * 2.0).round().max(1.0);
+    let full_periods = calculate_safe_full_periods(
+        channel_length,
+        amplitude,
+        serpentine_config,
+        geometry_config,
+        base_wavelength,
+    );
+    let half_periods = (full_periods * 2) as f64;
 
     for i in 0..n_points {
         let t = i as f64 / (n_points - 1) as f64;

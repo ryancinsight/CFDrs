@@ -137,9 +137,9 @@ impl<T: RealField + Copy + FromPrimitive> TimeDependentSpec<T> {
                 component_values,
             } => BoundaryCondition::Dirichlet {
                 value: *value * factor,
-                component_values: component_values.as_ref().map(|comps| {
-                    comps.iter().map(|opt| opt.map(|v| v * factor)).collect()
-                }),
+                component_values: component_values
+                    .as_ref()
+                    .map(|comps| comps.iter().map(|opt| opt.map(|v| v * factor)).collect()),
             },
             BoundaryCondition::Neumann { gradient } => BoundaryCondition::Neumann {
                 gradient: *gradient * factor,

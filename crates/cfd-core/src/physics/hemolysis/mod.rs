@@ -32,10 +32,7 @@ mod trauma;
 
 pub use calculator::HemolysisCalculator;
 pub use models::{
-    HemolysisModel,
-    CAVITATION_HI_SLOPE,
-    GIERSIEPEN_MILLIFLUIDIC_C,
-    GIERSIEPEN_MILLIFLUIDIC_STRESS,
+    HemolysisModel, CAVITATION_HI_SLOPE, GIERSIEPEN_MILLIFLUIDIC_C, GIERSIEPEN_MILLIFLUIDIC_STRESS,
     GIERSIEPEN_MILLIFLUIDIC_TIME,
 };
 pub use trauma::{BloodTrauma, BloodTraumaSeverity, PlateletActivation};
@@ -83,14 +80,8 @@ mod tests {
 
     #[test]
     fn test_nih_calculation() {
-        let calc = HemolysisCalculator::new(
-            HemolysisModel::default(),
-            0.45,
-            15.0,
-            5e-3,
-            1e-4,
-        )
-        .unwrap();
+        let calc =
+            HemolysisCalculator::new(HemolysisModel::default(), 0.45, 15.0, 5e-3, 1e-4).unwrap();
 
         let delta_hb = 0.1;
         let nih = calc.normalized_index(delta_hb);

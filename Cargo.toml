@@ -66,7 +66,7 @@ aquamarine = "0.5"
 # Serialization
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-bincode = "2.0.0-rc.3"
+bincode = { version = "2.0.0-rc.3", features = ["serde"] }
 
 # Parallel processing
 rayon = "1.8"
@@ -182,36 +182,14 @@ harness = false
 name = "cfd_benchmarks"
 harness = false
 
-[[example]]
-name = "pipe_flow_1d"
-path = "examples/pipe_flow_1d.rs"
 
 [[example]]
 name = "spectral_performance"
 path = "examples/spectral_performance.rs"
 
-[[example]]
-name = "scheme_integration_demo"
 
-[[example]]
-name = "blood_millifluidic_simulation"
-path = "examples/blood_millifluidic_simulation.rs"
 
-[[example]]
-name = "millifluidic_scenarios"
-path = "examples/millifluidic_scenarios.rs"
 
-[[example]]
-name = "literature_validation"
-path = "examples/literature_validation.rs"
-
-[[example]]
-name = "pipe_flow_validation"
-path = "examples/pipe_flow_validation.rs"
-
-[[example]]
-name = "pipe_flow_1d_validation"
-path = "examples/pipe_flow_1d_validation.rs"
 
 [[example]]
 name = "pediatric_leukapheresis"
@@ -261,9 +239,6 @@ harness = false
 name = "simd_spmv"
 harness = false
 
-[[bench]]
-name = "comprehensive_cfd_benchmarks"
-harness = false
 
 [[bench]]
 name = "gpu_turbulence_benchmark"
@@ -287,9 +262,4 @@ harness = false
 
 [[bench]]
 name = "cfd_3d_benchmarks"
-harness = false
-
-[[bench]]
-name = "scaling_analysis"
-path = "benches/cfd_suite/scaling_analysis.rs"
 harness = false

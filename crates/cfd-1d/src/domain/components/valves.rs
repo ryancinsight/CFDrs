@@ -26,7 +26,7 @@
 
 use super::Component;
 use cfd_core::error::Result;
-use cfd_core::physics::fluid::Fluid;
+use cfd_core::physics::fluid::ConstantPropertyFluid;
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
@@ -81,7 +81,7 @@ impl<T: RealField + Copy + FromPrimitive> Component<T> for Microvalve<T> {
     /// - **Closed** (`opening ≤ 0`): large linear resistance `1e12` Pa·s/m³ prevents
     ///   division-by-zero and maintains matrix conditioning.
     /// - **Open**: `0.0` — all losses are quadratic (captured by `coefficients`).
-    fn resistance(&self, _fluid: &Fluid<T>) -> T {
+    fn resistance(&self, _fluid: &ConstantPropertyFluid<T>) -> T {
         if self.opening <= T::zero() {
             T::from_f64(1e12).expect("Mathematical constant conversion compromised")
         } else {
@@ -89,7 +89,7 @@ impl<T: RealField + Copy + FromPrimitive> Component<T> for Microvalve<T> {
         }
     }
 
-    fn coefficients(&self, fluid: &Fluid<T>) -> (T, T) {
+    fn coefficients(&self, fluid: &ConstantPropertyFluid<T>) -> (T, T) {
         if self.opening <= T::zero() {
             (
                 T::from_f64(1e12).expect("Mathematical constant conversion compromised"),

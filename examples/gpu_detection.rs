@@ -18,7 +18,10 @@ fn main() {
     println!("Available backends: {:?}", capabilities.backends);
     println!("Preferred backend: {:?}", capabilities.preferred_backend);
     println!("Compute units: {}", capabilities.compute_units);
-    println!("Available memory: {} MB", capabilities.available_memory / (1024 * 1024));
+    println!(
+        "Available memory: {} MB",
+        capabilities.available_memory / (1024 * 1024)
+    );
 
     // Initialize unified compute dispatcher
     match ComputeDispatcher::new() {

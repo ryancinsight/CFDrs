@@ -160,11 +160,9 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
                         let t_xy = turbulent_transport(k, epsilon, &stress_gradient, 0, 1);
                         let t_yy = turbulent_transport(k, epsilon, &stress_gradient, 1, 1);
 
-                        xx_new[(i, j)] = (xx + dt * (p_xx + phi_xx - eps_xx + t_xx))
-                            .max(T::zero());
+                        xx_new[(i, j)] = (xx + dt * (p_xx + phi_xx - eps_xx + t_xx)).max(T::zero());
                         xy_new[(i, j)] = xy + dt * (p_xy + phi_xy - eps_xy + t_xy);
-                        yy_new[(i, j)] = (yy + dt * (p_yy + phi_yy - eps_yy + t_yy))
-                            .max(T::zero());
+                        yy_new[(i, j)] = (yy + dt * (p_yy + phi_yy - eps_yy + t_yy)).max(T::zero());
 
                         // Schwarz inequality: |⟨u'v'⟩|² ≤ ⟨u'u'⟩⟨v'v'⟩
                         let xy_max = (xx_new[(i, j)] * yy_new[(i, j)]).sqrt();
@@ -406,8 +404,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
         let eps_laplacian = (epsilon_field[(i + 1, j)] - two * epsilon_field[(i, j)]
             + epsilon_field[(i - 1, j)])
             / (dx * dx)
-            + (epsilon_field[(i, j + 1)] - two * epsilon_field[(i, j)]
-                + epsilon_field[(i, j - 1)])
+            + (epsilon_field[(i, j + 1)] - two * epsilon_field[(i, j)] + epsilon_field[(i, j - 1)])
                 / (dy * dy);
         let diffusion = (nu_t / sigma_eps) * eps_laplacian;
 

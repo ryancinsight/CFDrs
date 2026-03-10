@@ -1,6 +1,7 @@
 use super::{EdgeId, NodeId};
+use crate::domain::therapy_metadata::TherapyZone;
 use crate::geometry::metadata::{
-    ChannelPathMetadata, JunctionGeometryMetadata, NodeLayoutMetadata, VenturiGeometryMetadata,
+    JunctionGeometryMetadata, NodeLayoutMetadata, VenturiGeometryMetadata,
 };
 use serde::{Deserialize, Serialize};
 
@@ -95,6 +96,7 @@ pub enum NodeKind {
 pub struct NodeSpec {
     pub id: NodeId,
     pub kind: NodeKind,
+    pub point: (f64, f64),
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub layout: Option<NodeLayoutMetadata>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -106,9 +108,15 @@ pub struct NodeSpec {
 impl NodeSpec {
     #[must_use]
     pub fn new(id: impl Into<String>, kind: NodeKind) -> Self {
+        Self::new_at(id, kind, (0.0, 0.0))
+    }
+
+    #[must_use]
+    pub fn new_at(id: impl Into<String>, kind: NodeKind, point: (f64, f64)) -> Self {
         Self {
             id: NodeId::new(id),
             kind,
+            point,
             layout: None,
             junction_geometry: None,
             metadata: None,
@@ -116,7 +124,14 @@ impl NodeSpec {
     }
 
     #[must_use]
+    pub fn with_point(mut self, point: (f64, f64)) -> Self {
+        self.point = point;
+        self
+    }
+
+    #[must_use]
     pub fn with_layout(mut self, layout: NodeLayoutMetadata) -> Self {
+        self.point = (layout.x_mm, layout.y_mm);
         self.layout = Some(layout);
         self
     }
@@ -151,7 +166,7 @@ pub enum EdgeKind {
 }
 
 /// Channel geometry shape — determines which resistance model the 1D solver
-/// dispatches. Defaults to `Straight` for backward compatibility.
+/// dispatches. Defaults to `Straight`.
 ///
 /// # Theorem — Dean Flow Correction
 ///
@@ -203,8 +218,11 @@ pub struct ChannelSpec {
     pub valve_cv: Option<f64>,
     pub pump_max_flow: Option<f64>,
     pub pump_max_pressure: Option<f64>,
+    pub visual_role: Option<crate::geometry::metadata::ChannelVisualRole>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub path: Vec<(f64, f64)>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub path: Option<ChannelPathMetadata>,
+    pub therapy_zone: Option<TherapyZone>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub venturi_geometry: Option<VenturiGeometryMetadata>,
     #[serde(skip)]
@@ -219,7 +237,10 @@ impl ChannelSpec {
         if self.metadata.is_none() {
             self.metadata = Some(crate::geometry::metadata::MetadataContainer::new());
         }
-        self.metadata.as_mut().unwrap().insert(meta);
+        self.metadata
+            .as_mut()
+            .expect("structural invariant")
+            .insert(meta);
         self
     }
 
@@ -247,7 +268,9 @@ impl ChannelSpec {
             valve_cv: None,
             pump_max_flow: None,
             pump_max_pressure: None,
-            path: None,
+            visual_role: None,
+            path: Vec::new(),
+            therapy_zone: None,
             venturi_geometry: None,
             metadata: None,
         }
@@ -278,7 +301,9 @@ impl ChannelSpec {
             valve_cv: None,
             pump_max_flow: None,
             pump_max_pressure: None,
-            path: None,
+            visual_role: None,
+            path: Vec::new(),
+            therapy_zone: None,
             venturi_geometry: None,
             metadata: None,
         }
@@ -304,7 +329,9 @@ impl ChannelSpec {
             valve_cv: Some(cv),
             pump_max_flow: None,
             pump_max_pressure: None,
-            path: None,
+            visual_role: None,
+            path: Vec::new(),
+            therapy_zone: None,
             venturi_geometry: None,
             metadata: None,
         }
@@ -331,15 +358,23 @@ impl ChannelSpec {
             valve_cv: None,
             pump_max_flow: Some(max_flow),
             pump_max_pressure: Some(max_pressure),
-            path: None,
+            visual_role: None,
+            path: Vec::new(),
+            therapy_zone: None,
             venturi_geometry: None,
             metadata: None,
         }
     }
 
     #[must_use]
-    pub fn with_path(mut self, path: ChannelPathMetadata) -> Self {
-        self.path = Some(path);
+    pub fn with_path(mut self, path: Vec<(f64, f64)>) -> Self {
+        self.path = path;
+        self
+    }
+
+    #[must_use]
+    pub fn with_visual_role(mut self, role: crate::geometry::metadata::ChannelVisualRole) -> Self {
+        self.visual_role = Some(role);
         self
     }
 
@@ -347,5 +382,23 @@ impl ChannelSpec {
     pub fn with_venturi_geometry(mut self, geometry: VenturiGeometryMetadata) -> Self {
         self.venturi_geometry = Some(geometry);
         self
+    }
+
+    /// Extract the effective hydraulic width of the channel in meters.
+    #[must_use]
+    pub fn effective_width_m(&self) -> f64 {
+        match self.cross_section {
+            CrossSectionSpec::Rectangular { width_m, .. } => width_m,
+            CrossSectionSpec::Circular { diameter_m } => diameter_m,
+        }
+    }
+
+    /// Extract the effective hydraulic height of the channel in meters.
+    #[must_use]
+    pub fn effective_height_m(&self) -> f64 {
+        match self.cross_section {
+            CrossSectionSpec::Rectangular { height_m, .. } => height_m,
+            CrossSectionSpec::Circular { diameter_m } => diameter_m,
+        }
     }
 }

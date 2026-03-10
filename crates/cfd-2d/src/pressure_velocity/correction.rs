@@ -57,7 +57,10 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
             // Hot-path optimization: $A_c = R A_f P$
             // Recalculates coarse matrices exactly mapping changing continuity coefficients
             // while bypassing O(N) Ruge-Stüben strong-connection heuristics.
-            let _ = amg_cache.as_mut().expect("guarded by is_none check").recompute(matrix);
+            let _ = amg_cache
+                .as_mut()
+                .expect("guarded by is_none check")
+                .recompute(matrix);
         }
 
         let amg_preconditioner: Option<&AlgebraicMultigrid<T>> = amg_cache.as_ref();
@@ -83,22 +86,23 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
             }
             PressureLinearSolver::BiCGSTAB => {
                 let result = if let Some(amg) = amg_preconditioner {
-                    self.bicgstab_solver
-                        .solve(matrix, rhs, solution, Some(amg))
+                    self.bicgstab_solver.solve(matrix, rhs, solution, Some(amg))
                 } else {
-                    self.bicgstab_solver
-                        .solve(matrix, rhs, solution, None::<&IdentityPreconditioner>)
+                    self.bicgstab_solver.solve(
+                        matrix,
+                        rhs,
+                        solution,
+                        None::<&IdentityPreconditioner>,
+                    )
                 };
                 match result {
                     Ok(_) => Ok(()),
                     Err(cfd_core::error::Error::Convergence(
                         cfd_core::error::ConvergenceErrorKind::Breakdown,
-                    )) if amg_preconditioner.is_some() => self.bicgstab_solver.solve(
-                        matrix,
-                        rhs,
-                        solution,
-                        None::<&IdentityPreconditioner>,
-                    ).map(|_| ()),
+                    )) if amg_preconditioner.is_some() => self
+                        .bicgstab_solver
+                        .solve(matrix, rhs, solution, None::<&IdentityPreconditioner>)
+                        .map(|_| ()),
                     Err(e) => Err(e),
                 }
             }
@@ -117,12 +121,9 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
                     Ok(_) => Ok(()),
                     Err(cfd_core::error::Error::Convergence(
                         cfd_core::error::ConvergenceErrorKind::Breakdown,
-                    )) if amg_preconditioner.is_some() => solver.solve(
-                        matrix,
-                        rhs,
-                        solution,
-                        None::<&IdentityPreconditioner>,
-                    ).map(|_| ()),
+                    )) if amg_preconditioner.is_some() => solver
+                        .solve(matrix, rhs, solution, None::<&IdentityPreconditioner>)
+                        .map(|_| ()),
                     Err(e) => Err(e),
                 }
             }
@@ -346,8 +347,8 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
                     }
                 }
 
-                let div_u = (u_face[i][j] - u_face[i - 1][j]) / dx
-                    + (v_face[i][j] - v_face[i][j - 1]) / dy;
+                let div_u =
+                    (u_face[i][j] - u_face[i - 1][j]) / dx + (v_face[i][j] - v_face[i][j - 1]) / dy;
                 rhs[row_idx] = -rho * div_u;
             }
         }

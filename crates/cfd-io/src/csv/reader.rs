@@ -138,13 +138,3 @@ impl<R: for<'de> Deserialize<'de>> Iterator for CsvIterator<'_, R> {
         })
     }
 }
-
-/// Convenience function to read field data
-pub fn read_field_data<T>(path: &Path) -> Result<(Vec<T>, Vec<T>, Vec<T>)>
-where
-    T: RealField + Copy + FromStr,
-    <T as FromStr>::Err: std::fmt::Display,
-{
-    let reader = CsvReader::<T>::new();
-    reader.read_field_data(path)
-}

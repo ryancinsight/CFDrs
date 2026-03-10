@@ -2,10 +2,7 @@
 
 use super::helpers::wall_distance_field_2d;
 use super::SpalartAllmaras;
-use cfd_core::{
-    error::Result,
-    physics::constants::mathematical::numeric::TWO,
-};
+use cfd_core::{error::Result, physics::constants::mathematical::numeric::TWO};
 use nalgebra::{RealField, Vector2};
 use num_traits::FromPrimitive;
 use tracing::instrument;

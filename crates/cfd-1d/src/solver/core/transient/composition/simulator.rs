@@ -5,7 +5,7 @@ use crate::solver::core::{NetworkProblem, NetworkSolver};
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
 use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use num_traits::{FromPrimitive, ToPrimitive};
 use petgraph::graph::NodeIndex;
 use petgraph::visit::EdgeRef;
 use std::collections::HashMap;
@@ -231,7 +231,7 @@ impl TransientCompositionSimulator {
     /// the hydraulic network is re-solved, and composition mixing is computed from
     /// the resulting flow field.
     pub fn simulate_with_pressure_events<
-        T: RealField + Copy + FromPrimitive,
+        T: RealField + Copy + FromPrimitive + ToPrimitive,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,

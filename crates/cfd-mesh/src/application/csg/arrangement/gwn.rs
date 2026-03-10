@@ -82,7 +82,13 @@ pub fn prepare_classification_faces(
             (a.y + b.y + c.y) / 3.0,
             (a.z + b.z + c.z) / 3.0,
         );
-        prepared.push(PreparedFace { a, b, c, centroid, normal });
+        prepared.push(PreparedFace {
+            a,
+            b,
+            c,
+            centroid,
+            normal,
+        });
     }
     prepared
 }
@@ -152,12 +158,9 @@ pub fn gwn<T: Scalar>(query: &nalgebra::Point3<T>, faces: &[FaceData], pool: &Ve
 pub(super) fn gwn_prepared(query: &Point3r, faces: &[PreparedFace]) -> f64 {
     let mut solid_angle_sum = 0.0_f64;
     for face in faces {
-        let va =
-            nalgebra::Vector3::new(face.a.x - query.x, face.a.y - query.y, face.a.z - query.z);
-        let vb =
-            nalgebra::Vector3::new(face.b.x - query.x, face.b.y - query.y, face.b.z - query.z);
-        let vc =
-            nalgebra::Vector3::new(face.c.x - query.x, face.c.y - query.y, face.c.z - query.z);
+        let va = nalgebra::Vector3::new(face.a.x - query.x, face.a.y - query.y, face.a.z - query.z);
+        let vb = nalgebra::Vector3::new(face.b.x - query.x, face.b.y - query.y, face.b.z - query.z);
+        let vc = nalgebra::Vector3::new(face.c.x - query.x, face.c.y - query.y, face.c.z - query.z);
 
         if va.norm_squared() < f64::MIN_POSITIVE
             || vb.norm_squared() < f64::MIN_POSITIVE
@@ -222,22 +225,36 @@ mod tests {
     fn gwn_unit_cube_interior_is_one() {
         let (pool, faces) = unit_cube_mesh();
         let wn = gwn::<f64>(&Point3r::new(0.0, 0.0, 0.0), &faces, &pool);
-        assert!((wn - 1.0).abs() < 0.02, "GWN at interior should be ≈1.0, got {wn:.4}");
+        assert!(
+            (wn - 1.0).abs() < 0.02,
+            "GWN at interior should be ≈1.0, got {wn:.4}"
+        );
     }
 
     #[test]
     fn gwn_unit_cube_exterior_is_zero() {
         let (pool, faces) = unit_cube_mesh();
         let wn = gwn::<f64>(&Point3r::new(10.0, 0.0, 0.0), &faces, &pool);
-        assert!(wn.abs() < 0.02, "GWN at exterior should be ≈0.0, got {wn:.4}");
+        assert!(
+            wn.abs() < 0.02,
+            "GWN at exterior should be ≈0.0, got {wn:.4}"
+        );
     }
 
     #[test]
     fn gwn_always_clamped_to_unit_interval() {
         let (pool, faces) = unit_cube_mesh();
-        for (x, y, z) in [(0.0, 0.0, 0.0), (10.0, 0.0, 0.0), (0.5, 0.5, 0.5), (100.0, 100.0, 100.0)] {
+        for (x, y, z) in [
+            (0.0, 0.0, 0.0),
+            (10.0, 0.0, 0.0),
+            (0.5, 0.5, 0.5),
+            (100.0, 100.0, 100.0),
+        ] {
             let wn = gwn::<f64>(&Point3r::new(x, y, z), &faces, &pool);
-            assert!(wn >= -1.0 && wn <= 1.0, "GWN ({x},{y},{z}) out of [-1,1]: {wn}");
+            assert!(
+                wn >= -1.0 && wn <= 1.0,
+                "GWN ({x},{y},{z}) out of [-1,1]: {wn}"
+            );
         }
     }
 
@@ -261,8 +278,14 @@ mod tests {
         let faces = vec![FaceData::untagged(v0, v1, v2)];
         let query = nalgebra::Point3::new(0.0_f32, 0.0, 0.0);
         let wn = gwn::<f32>(&query, &faces, &pool);
-        assert!(wn.is_finite(), "GWN<f32> at vertex must be finite, got {wn}");
-        assert!(wn >= -1.0 && wn <= 1.0, "GWN<f32> must be in [-1, 1], got {wn}");
+        assert!(
+            wn.is_finite(),
+            "GWN<f32> at vertex must be finite, got {wn}"
+        );
+        assert!(
+            wn >= -1.0 && wn <= 1.0,
+            "GWN<f32> must be in [-1, 1], got {wn}"
+        );
     }
 
     /// GWN on a zero-area degenerate triangle must be finite and in [-1,1].
@@ -275,7 +298,10 @@ mod tests {
         let v2 = pool.insert_unique(Point3r::new(1.0, 0.0, 0.0), n);
         let faces = vec![FaceData::untagged(v0, v1, v2)];
         let wn = gwn::<f64>(&Point3r::new(0.0, 0.0, 0.0), &faces, &pool);
-        assert!(wn.is_finite(), "GWN on degenerate face must be finite, got {wn}");
+        assert!(
+            wn.is_finite(),
+            "GWN on degenerate face must be finite, got {wn}"
+        );
         assert!(wn >= -1.0 && wn <= 1.0, "GWN must be in [-1,1], got {wn}");
     }
 
@@ -292,7 +318,10 @@ mod tests {
             (5.0, 5.0, 5.0),
         ] {
             let wn = gwn::<f64>(&Point3r::new(x, y, z), &faces, &pool);
-            assert!(wn.abs() < 0.1, "GWN at far exterior ({x},{y},{z}) should be ≈0, got {wn}");
+            assert!(
+                wn.abs() < 0.1,
+                "GWN at far exterior ({x},{y},{z}) should be ≈0, got {wn}"
+            );
         }
     }
 }

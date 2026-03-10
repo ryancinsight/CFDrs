@@ -22,17 +22,17 @@
 mod bicgstab;
 pub mod block_preconditioner;
 pub mod chain;
-mod direct_solver;
 mod config;
 mod conjugate_gradient;
+mod direct_solver;
 pub mod gmres;
 pub mod matrix_free;
 pub mod operators;
 pub mod preconditioners;
 mod traits;
 
-pub use chain::LinearSolverChain;
 pub use bicgstab::BiCGSTAB;
+pub use chain::LinearSolverChain;
 pub use config::IterativeSolverConfig;
 pub use conjugate_gradient::ConjugateGradient;
 pub use direct_solver::DirectSparseSolver;
@@ -48,10 +48,10 @@ pub use matrix_free::{
     PoissonOperator3D,
 };
 
-pub use preconditioners::multigrid::AMGConfig;
 pub use block_preconditioner::{
     BlockDiagonalPreconditioner, DiagonalPreconditioner, SimplePreconditioner,
 };
+pub use preconditioners::multigrid::AMGConfig;
 pub use preconditioners::{
     AlgebraicMultigrid, DeflationPreconditioner, IdentityPreconditioner, IncompleteLU,
     JacobiPreconditioner, SORPreconditioner, SerialSchwarzPreconditioner, SSOR,

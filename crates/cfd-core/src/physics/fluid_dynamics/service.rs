@@ -177,13 +177,9 @@ mod tests {
         assert!((re - 500_000.0).abs() < 1e-1);
 
         // Calculate pressure drop
-        let delta_p = FluidDynamicsService::pipe_pressure_drop(
-            &fluid,
-            velocity,
-            length,
-            diameter,
-            roughness,
-        ).expect("Pressure drop calculation failed");
+        let delta_p =
+            FluidDynamicsService::pipe_pressure_drop(&fluid, velocity, length, diameter, roughness)
+                .expect("Pressure drop calculation failed");
 
         // Back-calculate friction factor
         // dp = f * (L/D) * (rho * v^2 / 2)

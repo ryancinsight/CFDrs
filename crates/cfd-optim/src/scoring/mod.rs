@@ -22,7 +22,9 @@ mod types;
 
 pub use types::{OptimMode, ScoreMode, SdtWeights};
 
-use crate::constraints::{HI_PASS_LIMIT, PAI_PASS_LIMIT, THERAPEUTIC_HI_PASS_LIMIT};
+use crate::constraints::{
+    FDA_THROAT_TEMP_RISE_LIMIT_K, HI_PASS_LIMIT, PAI_PASS_LIMIT, THERAPEUTIC_HI_PASS_LIMIT,
+};
 use crate::metrics::SdtMetrics;
 
 /// Combined-mode gate target: minimum leukapheresis sub-score for full credit.
@@ -69,27 +71,6 @@ pub fn score_candidate(metrics: &SdtMetrics, mode: OptimMode, weights: &SdtWeigh
     score_candidate_impl(metrics, mode, weights, ScoreMode::HardConstraint, 0.0)
 }
 
-/// Variant of [`score_candidate`] used by the genetic algorithm.
-///
-/// Uses smooth feasibility penalties instead of a hard `0.0` cliff, allowing the
-/// GA to navigate toward the feasible region.  Pass `inlet_gauge_pa` from the
-/// candidate so the pressure-margin sigmoid can be computed.
-#[must_use]
-pub fn score_candidate_ga(
-    metrics: &SdtMetrics,
-    mode: OptimMode,
-    weights: &SdtWeights,
-    inlet_gauge_pa: f64,
-) -> f64 {
-    score_candidate_impl(
-        metrics,
-        mode,
-        weights,
-        ScoreMode::SmoothPenalty,
-        inlet_gauge_pa,
-    )
-}
-
 fn score_candidate_impl(
     metrics: &SdtMetrics,
     mode: OptimMode,
@@ -105,23 +86,44 @@ fn score_candidate_impl(
             if !metrics.pressure_feasible || !metrics.fda_main_compliant || !metrics.plate_fits {
                 return 0.0;
             }
-            // Acoustic-only modes: strict 0.1 % per-pass limit.
-            if matches!(
+            // HI constraints use a smooth sigmoid gate rather than a binary
+            // cutoff.  Each mode-specific scoring function already penalises
+            // high hemolysis internally; the gate here provides an additional
+            // multiplicative penalty that
+            //   • preserves non-zero scores for designs slightly above the
+            //     limit (enabling meaningful ranking),
+            //   • still suppresses designs far above the limit (gate → 0),
+            //   • is monotone decreasing in HI (no new optima introduced).
+            //
+            // Gate formula: 1 / (1 + (HI / limit)^4)
+            //   HI = 0      → 1.0
+            //   HI = limit  → 0.5
+            //   HI = 2×limit → 0.059
+            let hi_gate = if matches!(
                 mode,
                 OptimMode::SdtTherapy | OptimMode::SelectiveAcousticTherapy
-            ) && metrics.hemolysis_index_per_pass > HI_PASS_LIMIT
-            {
-                return 0.0;
-            }
-            // Hydrodynamic cavitation modes: relaxed 0.8 % per-pass limit
-            // (FDA Class II extracorporeal therapeutic device).
-            if matches!(
+            ) {
+                let r = metrics.hemolysis_index_per_pass / HI_PASS_LIMIT.max(1e-18);
+                1.0 / (1.0 + r * r)
+            } else if matches!(
                 mode,
                 OptimMode::HydrodynamicCavitationSDT | OptimMode::CombinedSdtLeukapheresis { .. }
-            ) && metrics.hemolysis_index_per_pass > THERAPEUTIC_HI_PASS_LIMIT
-            {
-                return 0.0;
-            }
+            ) {
+                let r = metrics.hemolysis_index_per_pass / THERAPEUTIC_HI_PASS_LIMIT.max(1e-18);
+                1.0 / (1.0 + r * r)
+            } else {
+                1.0
+            };
+
+            let raw = score_mode_raw(metrics, mode, weights);
+            let coag_penalty = coagulation_penalty(metrics, weights);
+            let thermal_penalty = if metrics.fda_thermal_compliant {
+                0.0
+            } else {
+                0.05 * (metrics.throat_temperature_rise_k / FDA_THROAT_TEMP_RISE_LIMIT_K)
+                    .clamp(0.0, 1.0)
+            };
+            return ((raw - coag_penalty - thermal_penalty) * hi_gate).max(0.0);
         }
         ScoreMode::SmoothPenalty => {
             // Smooth sigmoid multiplier: provides a non-zero gradient for the GA
@@ -162,13 +164,15 @@ fn score_candidate_impl(
             // Moderately feasible: continue with normal scoring, then multiply.
             let raw = score_mode_raw(metrics, mode, weights);
             let coag_penalty = coagulation_penalty(metrics, weights);
-            return (raw * feasibility - coag_penalty).max(0.0);
+            let thermal_penalty = if metrics.fda_thermal_compliant {
+                0.0
+            } else {
+                0.05 * (metrics.throat_temperature_rise_k / FDA_THROAT_TEMP_RISE_LIMIT_K)
+                    .clamp(0.0, 1.0)
+            };
+            return (raw * feasibility - coag_penalty - thermal_penalty).max(0.0);
         }
     }
-
-    let raw = score_mode_raw(metrics, mode, weights);
-    let coag_penalty = coagulation_penalty(metrics, weights);
-    (raw - coag_penalty).max(0.0)
 }
 
 /// Compute the raw mode-specific score (without constraint checks or coag penalty).
@@ -218,6 +222,11 @@ fn coagulation_penalty(metrics: &SdtMetrics, weights: &SdtWeights) -> f64 {
 
 /// Score for the SDT cavitation objective.
 fn score_cavitation(metrics: &SdtMetrics, w: &SdtWeights) -> f64 {
+    // Require active cavitation (sigma < 1.0); non-cavitating designs score zero.
+    if metrics.cavitation_number >= 1.0 {
+        return 0.0;
+    }
+
     let cav = metrics.cavitation_potential;
 
     // Smooth sigmoid HI penalty: avoids the clamp-at-2 plateau where designs
@@ -290,7 +299,11 @@ fn score_selective_routing_base(metrics: &SdtMetrics) -> f64 {
     let wbc_center = metrics.wbc_center_fraction.clamp(0.0, 1.0);
     let rbc_peripheral = metrics.rbc_peripheral_fraction_three_pop.clamp(0.0, 1.0);
     let sep3 = metrics.three_pop_sep_efficiency.clamp(0.0, 1.0);
-    let therapy_fraction = metrics.therapy_channel_fraction.clamp(0.0, 1.0);
+    // Use cancer_dose_fraction (cancer cells actually treated) rather than
+    // therapy_channel_fraction (total blood through treatment zone).  For PST
+    // designs the deliberate flow reduction is the selectivity mechanism, so
+    // penalising it with therapy_fraction unfairly ranks PST3 below PST2.
+    let cancer_dose = metrics.cancer_dose_fraction.clamp(0.0, 1.0);
     let residence = (metrics.mean_residence_time_s / 1.0).clamp(0.0, 1.0);
     let optical_405 = metrics.blue_light_delivery_index_405nm.clamp(0.0, 1.0);
 
@@ -302,7 +315,7 @@ fn score_selective_routing_base(metrics: &SdtMetrics) -> f64 {
         + 0.15 * wbc_center
         + 0.15 * rbc_peripheral
         + 0.15 * sep3
-        + 0.12 * therapy_fraction
+        + 0.12 * cancer_dose
         + 0.08 * residence
         + 0.06 * hi_score
         + 0.05 * clot_score
@@ -312,16 +325,22 @@ fn score_selective_routing_base(metrics: &SdtMetrics) -> f64 {
 
 fn score_selective_acoustic_therapy(metrics: &SdtMetrics) -> f64 {
     let base = score_selective_routing_base(metrics);
-    let therapy_fraction = metrics.therapy_channel_fraction.clamp(0.0, 1.0);
-    let residence = (metrics.mean_residence_time_s / 1.0).clamp(0.0, 1.0);
-    let well_coverage = metrics.well_coverage_fraction.clamp(0.0, 1.0);
+    // cancer_dose_fraction = cancer_center_fraction × serial_cavitation_dose:
+    // rewards the fraction of cancer cells that actually receive therapeutic
+    // dose.  PST3 achieves higher cancer concentration (≈ 0.75+) than PST2
+    // (≈ 0.556), so this term correctly ranks PST3 above PST2 when its
+    // additional Zweifach–Fung stage delivers more targeted treatment.
+    let cancer_dose = metrics.cancer_dose_fraction.clamp(0.0, 1.0);
+    let treatment_dwell = (metrics.treatment_zone_dwell_time_s / 1.5).clamp(0.0, 1.0);
+    let cancer_dwell =
+        (metrics.cancer_center_fraction.clamp(0.0, 1.0) * treatment_dwell).clamp(0.0, 1.0);
+    let resonance = metrics.channel_resonance_score.clamp(0.0, 1.0);
     let optical_405 = metrics.blue_light_delivery_index_405nm.clamp(0.0, 1.0);
 
-    (0.55 * base
-        + 0.20 * therapy_fraction
-        + 0.15 * residence
-        + 0.05 * well_coverage
-        + 0.05 * optical_405)
+    // 0.05 resonance replaces 0.05 well_coverage: channel-dimension match to
+    // λ/2 at 412 kHz creates standing-wave antinodes that preferentially trap
+    // resonant-radius bubbles (R_res ≈ 7.5 µm), amplifying sonoporation.
+    (0.55 * base + 0.20 * cancer_dose + 0.15 * cancer_dwell + 0.05 * resonance + 0.05 * optical_405)
         .clamp(0.0, 1.0)
 }
 
@@ -792,6 +811,7 @@ mod tests {
         broad.three_pop_sep_efficiency = 0.14;
         broad.therapy_channel_fraction = 0.16;
         broad.mean_residence_time_s = 0.20;
+        broad.treatment_zone_dwell_time_s = 0.12;
 
         let mut selective = base_metrics();
         selective.cancer_center_fraction = 0.76;
@@ -800,6 +820,7 @@ mod tests {
         selective.three_pop_sep_efficiency = 0.61;
         selective.therapy_channel_fraction = 0.34;
         selective.mean_residence_time_s = 1.30;
+        selective.treatment_zone_dwell_time_s = 1.05;
 
         let mode = OptimMode::SelectiveAcousticTherapy;
         let w = SdtWeights::default();
@@ -808,6 +829,30 @@ mod tests {
         assert!(
             selective_score > broad_score,
             "selective acoustic mode should reward center-lane enrichment and peripheral RBC routing"
+        );
+    }
+
+    #[test]
+    fn selective_acoustic_prefers_true_treatment_lane_dwell() {
+        let mut low_dwell = base_metrics();
+        low_dwell.cancer_center_fraction = 0.78;
+        low_dwell.wbc_center_fraction = 0.68;
+        low_dwell.rbc_peripheral_fraction_three_pop = 0.80;
+        low_dwell.three_pop_sep_efficiency = 0.60;
+        low_dwell.therapy_channel_fraction = 0.34;
+        low_dwell.mean_residence_time_s = 1.20;
+        low_dwell.treatment_zone_dwell_time_s = 0.18;
+
+        let mut high_dwell = low_dwell.clone();
+        high_dwell.treatment_zone_dwell_time_s = 1.10;
+
+        let mode = OptimMode::SelectiveAcousticTherapy;
+        let w = SdtWeights::default();
+        let low_score = score_candidate(&low_dwell, mode, &w);
+        let high_score = score_candidate(&high_dwell, mode, &w);
+        assert!(
+            high_score > low_score,
+            "selective acoustic mode should reward longer cancer-target dwell at fixed whole-chip residence"
         );
     }
 

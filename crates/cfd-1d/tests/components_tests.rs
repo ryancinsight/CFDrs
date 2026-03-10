@@ -14,7 +14,7 @@ use cfd_1d::solver::core::ConvergenceChecker;
 use cfd_core::physics::fluid::database::water_20c;
 
 fn water() -> cfd_core::physics::fluid::ConstantPropertyFluid<f64> {
-    water_20c::<f64>().unwrap()
+    water_20c::<f64>().expect("test invariant")
 }
 
 // ========================  RectangularChannel  ============
@@ -87,7 +87,7 @@ fn test_valve_resistance_open() {
 fn test_valve_resistance_closed() {
     let fluid = water();
     let mut valve = Microvalve::new(0.01_f64);
-    valve.set_parameter("opening", 0.0).unwrap();
+    valve.set_parameter("opening", 0.0).expect("test invariant");
     assert!(valve.resistance(&fluid) > 1e10);
 }
 
@@ -145,7 +145,7 @@ fn test_flow_sensor_rejects_zero_range() {
 #[test]
 fn test_flow_sensor_ideal_zero_resistance() {
     let fluid = water();
-    let sensor = FlowSensor::<f64>::new(0.0, 1e-3).unwrap();
+    let sensor = FlowSensor::<f64>::new(0.0, 1e-3).expect("test invariant");
     assert_eq!(sensor.resistance(&fluid), 0.0);
 }
 
@@ -153,23 +153,25 @@ fn test_flow_sensor_ideal_zero_resistance() {
 #[test]
 fn test_sensor_resistance_pass_through() {
     let fluid = water();
-    let sensor = FlowSensor::<f64>::new(1e6, 1e-6).unwrap();
+    let sensor = FlowSensor::<f64>::new(1e6, 1e-6).expect("test invariant");
     assert_relative_eq!(sensor.resistance(&fluid), 1e6, epsilon = 1e-30);
 }
 
 /// set_parameter rejects negative resistance.
 #[test]
 fn test_sensor_parameter_update_validates() {
-    let mut sensor = FlowSensor::<f64>::new(1e6, 1e-6).unwrap();
+    let mut sensor = FlowSensor::<f64>::new(1e6, 1e-6).expect("test invariant");
     assert!(sensor.set_parameter("resistance", -1.0).is_err());
-    sensor.set_parameter("resistance", 2e6).unwrap();
+    sensor
+        .set_parameter("resistance", 2e6)
+        .expect("test invariant");
     assert_relative_eq!(sensor.resistance, 2e6, epsilon = 1e-30);
 }
 
 /// is_overrange detects flow above measurement range.
 #[test]
 fn test_flow_sensor_overrange_detection() {
-    let sensor = FlowSensor::<f64>::new(0.0, 1e-6).unwrap();
+    let sensor = FlowSensor::<f64>::new(0.0, 1e-6).expect("test invariant");
     assert!(!sensor.is_overrange(0.5e-6));
     assert!(sensor.is_overrange(2e-6));
 }
@@ -183,7 +185,8 @@ fn test_flow_sensor_overrange_detection() {
 #[test]
 fn test_mixer_t_junction_resistance_positive() {
     let fluid = water();
-    let mixer = Micromixer::<f64>::new(MixerType::TJunction, 200e-6, 5e-3, 1).unwrap();
+    let mixer =
+        Micromixer::<f64>::new(MixerType::TJunction, 200e-6, 5e-3, 1).expect("test invariant");
     let r = mixer.resistance(&fluid);
     assert!(r > 0.0 && r.is_finite(), "R = {r}");
 }
@@ -195,10 +198,10 @@ fn test_mixer_t_junction_resistance_positive() {
 fn test_mixer_serpentine_increases_with_bends() {
     let fluid = water();
     let r2 = Micromixer::<f64>::new(MixerType::Serpentine, 200e-6, 5e-3, 2)
-        .unwrap()
+        .expect("test invariant")
         .resistance(&fluid);
     let r8 = Micromixer::<f64>::new(MixerType::Serpentine, 200e-6, 5e-3, 8)
-        .unwrap()
+        .expect("test invariant")
         .resistance(&fluid);
     assert!(r8 > r2, "R(8 bends)={r8} must exceed R(2 bends)={r2}");
 }
@@ -208,10 +211,10 @@ fn test_mixer_serpentine_increases_with_bends() {
 fn test_mixer_resistance_increases_with_length() {
     let fluid = water();
     let r1 = Micromixer::<f64>::new(MixerType::TJunction, 200e-6, 1e-3, 1)
-        .unwrap()
+        .expect("test invariant")
         .resistance(&fluid);
     let r10 = Micromixer::<f64>::new(MixerType::TJunction, 200e-6, 10e-3, 1)
-        .unwrap()
+        .expect("test invariant")
         .resistance(&fluid);
     assert!(r10 > r1, "R(10mm)={r10} must exceed R(1mm)={r1}");
 }
@@ -221,10 +224,10 @@ fn test_mixer_resistance_increases_with_length() {
 fn test_mixer_resistance_decreases_with_diameter() {
     let fluid = water();
     let r_small = Micromixer::<f64>::new(MixerType::TJunction, 50e-6, 5e-3, 1)
-        .unwrap()
+        .expect("test invariant")
         .resistance(&fluid);
     let r_large = Micromixer::<f64>::new(MixerType::TJunction, 500e-6, 5e-3, 1)
-        .unwrap()
+        .expect("test invariant")
         .resistance(&fluid);
     assert!(
         r_large < r_small,
@@ -249,10 +252,10 @@ fn test_mixer_rejects_zero_length() {
 fn test_mixer_t_junction_higher_than_y_junction() {
     let fluid = water();
     let rt = Micromixer::<f64>::new(MixerType::TJunction, 200e-6, 5e-3, 1)
-        .unwrap()
+        .expect("test invariant")
         .resistance(&fluid);
     let ry = Micromixer::<f64>::new(MixerType::YJunction, 200e-6, 5e-3, 1)
-        .unwrap()
+        .expect("test invariant")
         .resistance(&fluid);
     assert!(rt > ry, "R_T={rt} must exceed R_Y={ry} (K_T=1.5 > K_Y=0.9)");
 }
@@ -260,16 +263,22 @@ fn test_mixer_t_junction_higher_than_y_junction() {
 /// Efficiency clamping above 1.
 #[test]
 fn test_mixer_efficiency_clamped_above_one() {
-    let mut mixer = Micromixer::<f64>::new(MixerType::Serpentine, 200e-6, 5e-3, 4).unwrap();
-    mixer.set_parameter("efficiency", 1.5).unwrap();
+    let mut mixer =
+        Micromixer::<f64>::new(MixerType::Serpentine, 200e-6, 5e-3, 4).expect("test invariant");
+    mixer
+        .set_parameter("efficiency", 1.5)
+        .expect("test invariant");
     assert_relative_eq!(mixer.efficiency, 1.0, epsilon = 1e-15);
 }
 
 /// Efficiency clamping below zero.
 #[test]
 fn test_mixer_efficiency_clamped_below_zero() {
-    let mut mixer = Micromixer::<f64>::new(MixerType::Herringbone, 200e-6, 5e-3, 4).unwrap();
-    mixer.set_parameter("efficiency", -0.1).unwrap();
+    let mut mixer =
+        Micromixer::<f64>::new(MixerType::Herringbone, 200e-6, 5e-3, 4).expect("test invariant");
+    mixer
+        .set_parameter("efficiency", -0.1)
+        .expect("test invariant");
     assert_relative_eq!(mixer.efficiency, 0.0, epsilon = 1e-15);
 }
 
@@ -305,7 +314,11 @@ fn test_organ_compartment_resistance_exact() {
 fn test_organ_compartment_volume() {
     let compartment = OrganCompartment::new(0.01, 2e-3, 1e-3, 1.5e8_f64);
     let expected = 0.01 * 2e-3 * 1e-3;
-    assert_relative_eq!(compartment.volume().unwrap(), expected, epsilon = 1e-25);
+    assert_relative_eq!(
+        compartment.volume().expect("test invariant"),
+        expected,
+        epsilon = 1e-25
+    );
 }
 
 // ========================  ConvergenceChecker  ============

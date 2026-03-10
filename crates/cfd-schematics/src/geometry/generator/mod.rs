@@ -9,23 +9,28 @@
 //! construct complex channel systems. It delegates channel type generation
 //! to strategy objects, promoting loose coupling and extensibility.
 
-pub mod shell;
 mod selective;
+pub mod shell;
 mod splits;
 
-pub use self::shell::create_shell_cuboid;
 pub use self::selective::{
-    create_primitive_selective_tree_geometry, create_selective_tree_geometry,
+    create_primitive_selective_tree_geometry, create_primitive_selective_tree_geometry_from_spec,
+    create_selective_tree_geometry,
     CenterSerpentinePathSpec, PrimitiveSelectiveSplitKind, PrimitiveSelectiveTreeRequest,
     SelectiveTreeRequest, SelectiveTreeTopology,
 };
+pub use self::shell::create_shell_cuboid;
 
 use super::builders::{ChannelBuilder, NodeBuilder};
-use super::metadata::{ChannelGeometryMetadata, OptimizationMetadata, PerformanceMetadata};
+use super::metadata::{
+    BlueprintRenderHints, ChannelGeometryMetadata, GeometryAuthoringProvenance,
+    MetadataContainer, OptimizationMetadata, PerformanceMetadata,
+};
 use super::strategies::ChannelTypeFactory;
-use super::types::{Channel, ChannelSystem, ChannelType, Node, Point2D, SplitType};
+use super::types::{polyline_length, ChannelType, Point2D, SplitType};
 use crate::config::{ChannelTypeConfig, GeometryConfig};
-use crate::domain::model::{NetworkBlueprint, NodeKind};
+use crate::domain::model::{ChannelShape, ChannelSpec, NetworkBlueprint, NodeKind, NodeSpec};
+use crate::topology::{BlueprintTopologySpec, TopologyLineageMetadata};
 use std::collections::HashMap;
 use std::time::Instant;
 
@@ -56,13 +61,13 @@ impl MetadataConfig {
 ///
 /// This struct follows the Builder pattern and uses the Strategy pattern
 /// for channel type generation. It maintains state during the generation
-/// process and produces a complete `ChannelSystem` when finalized.
+/// process and produces a complete `NetworkBlueprint` when finalized.
 ///
 /// Supports optional metadata tracking for performance analysis and optimization.
 struct GeometryGenerator {
     box_dims: (f64, f64),
-    nodes: Vec<Node>,
-    channels: Vec<Channel>,
+    nodes: Vec<NodeSpec>,
+    channels: Vec<ChannelSpec>,
     node_counter: usize,
     channel_counter: usize,
     point_to_node_id: HashMap<(i64, i64), usize>,
@@ -71,9 +76,130 @@ struct GeometryGenerator {
     total_branches: usize,
     metadata_config: Option<MetadataConfig>,
     generation_start_time: Option<Instant>,
+    render_hints: Option<BlueprintRenderHints>,
+    topology: Option<BlueprintTopologySpec>,
+    lineage: Option<TopologyLineageMetadata>,
+    blueprint_metadata: Option<MetadataContainer>,
 }
 
 impl GeometryGenerator {
+    fn channel_path(channel_type: &ChannelType) -> Vec<Point2D> {
+        match channel_type {
+            ChannelType::Straight => Vec::new(),
+            ChannelType::SmoothStraight { path }
+            | ChannelType::Serpentine { path }
+            | ChannelType::Arc { path }
+            | ChannelType::Frustum { path, .. } => path.clone(),
+        }
+    }
+
+    fn channel_length_m(p1: Point2D, p2: Point2D, path: &[Point2D]) -> f64 {
+        if path.len() >= 2 {
+            polyline_length(path) * 1.0e-3
+        } else {
+            (p2.0 - p1.0).hypot(p2.1 - p1.1) * 1.0e-3
+        }
+    }
+
+    fn estimate_local_bend_radius(path: &[Point2D], idx: usize) -> Option<f64> {
+        if idx == 0 || idx + 1 >= path.len() {
+            return None;
+        }
+
+        let a = path[idx - 1];
+        let b = path[idx];
+        let c = path[idx + 1];
+        let ab = ((b.0 - a.0).powi(2) + (b.1 - a.1).powi(2)).sqrt();
+        let bc = ((c.0 - b.0).powi(2) + (c.1 - b.1).powi(2)).sqrt();
+        let ac = ((c.0 - a.0).powi(2) + (c.1 - a.1).powi(2)).sqrt();
+        if ab <= 1e-9 || bc <= 1e-9 || ac <= 1e-9 {
+            return None;
+        }
+
+        let twice_area = ((b.0 - a.0) * (c.1 - a.1) - (b.1 - a.1) * (c.0 - a.0)).abs();
+        if twice_area <= 1e-12 {
+            return Some(f64::INFINITY);
+        }
+
+        Some((ab * bc * ac) / (2.0 * twice_area))
+    }
+
+    fn infer_serpentine_shape(
+        path: &[Point2D],
+        p1: Point2D,
+        p2: Point2D,
+        channel_width: f64,
+    ) -> ChannelShape {
+        if path.len() < 3 {
+            return ChannelShape::Serpentine {
+                segments: 2,
+                bend_radius_m: (channel_width * 0.5) * 1.0e-3,
+            };
+        }
+
+        let dx = p2.0 - p1.0;
+        let dy = p2.1 - p1.1;
+        let length = dx.hypot(dy);
+        if length <= 1e-9 {
+            return ChannelShape::Serpentine {
+                segments: 2,
+                bend_radius_m: (channel_width * 0.5) * 1.0e-3,
+            };
+        }
+
+        let nx = -dy / length;
+        let ny = dx / length;
+        let offsets: Vec<f64> = path
+            .iter()
+            .map(|point| ((point.0 - p1.0) * nx) + ((point.1 - p1.1) * ny))
+            .collect();
+        let extrema_threshold = channel_width * 0.15;
+        let mut turns = 0usize;
+        for idx in 1..offsets.len() - 1 {
+            let prev_delta = offsets[idx] - offsets[idx - 1];
+            let next_delta = offsets[idx + 1] - offsets[idx];
+            if prev_delta.abs() <= 1e-9 || next_delta.abs() <= 1e-9 {
+                continue;
+            }
+            if prev_delta.signum() != next_delta.signum() && offsets[idx].abs() > extrema_threshold
+            {
+                turns += 1;
+            }
+        }
+
+        let min_radius_mm = path
+            .iter()
+            .enumerate()
+            .filter_map(|(idx, _)| Self::estimate_local_bend_radius(path, idx))
+            .filter(|radius| radius.is_finite())
+            .fold(f64::INFINITY, f64::min);
+        let bend_radius_mm = if min_radius_mm.is_finite() {
+            min_radius_mm.max(channel_width * 0.5)
+        } else {
+            channel_width * 0.5
+        };
+
+        ChannelShape::Serpentine {
+            segments: turns.saturating_add(1).max(2),
+            bend_radius_m: bend_radius_mm * 1.0e-3,
+        }
+    }
+
+    fn physical_shape_for_channel(
+        channel_type: &ChannelType,
+        path: &[Point2D],
+        p1: Point2D,
+        p2: Point2D,
+        channel_width: f64,
+    ) -> ChannelShape {
+        match channel_type {
+            ChannelType::Serpentine { .. } => {
+                Self::infer_serpentine_shape(path, p1, p2, channel_width)
+            }
+            _ => ChannelShape::Straight,
+        }
+    }
+
     fn new(
         box_dims: (f64, f64),
         config: GeometryConfig,
@@ -92,6 +218,10 @@ impl GeometryGenerator {
             total_branches,
             metadata_config: None,
             generation_start_time: None,
+            render_hints: None,
+            topology: None,
+            lineage: None,
+            blueprint_metadata: None,
         }
     }
 
@@ -114,7 +244,35 @@ impl GeometryGenerator {
             total_branches,
             metadata_config: Some(metadata_config),
             generation_start_time: Some(Instant::now()),
+            render_hints: None,
+            topology: None,
+            lineage: None,
+            blueprint_metadata: None,
         }
+    }
+
+    /// Attach [`BlueprintRenderHints`] to the generated blueprint.
+    pub(crate) fn with_render_hints(mut self, hints: BlueprintRenderHints) -> Self {
+        self.render_hints = Some(hints);
+        self
+    }
+
+    /// Attach a [`BlueprintTopologySpec`] to the generated blueprint.
+    pub(crate) fn with_topology_spec(mut self, spec: BlueprintTopologySpec) -> Self {
+        self.topology = Some(spec);
+        self
+    }
+
+    /// Attach [`TopologyLineageMetadata`] to the generated blueprint.
+    pub(crate) fn with_lineage(mut self, lineage: TopologyLineageMetadata) -> Self {
+        self.lineage = Some(lineage);
+        self
+    }
+
+    /// Attach blueprint-level [`MetadataContainer`] to the generated blueprint.
+    pub(crate) fn with_blueprint_metadata(mut self, metadata: MetadataContainer) -> Self {
+        self.blueprint_metadata = Some(metadata);
+        self
     }
 
     fn point_to_key(p: Point2D) -> (i64, i64) {
@@ -146,7 +304,7 @@ impl GeometryGenerator {
                 if let Some(start_time) = self.generation_start_time {
                     let perf_metadata = PerformanceMetadata {
                         generation_time_us: start_time.elapsed().as_micros() as u64,
-                        memory_usage_bytes: std::mem::size_of::<Node>(),
+                        memory_usage_bytes: std::mem::size_of::<NodeSpec>(),
                         path_points_count: 1, // Single point for node
                     };
                     node_builder = node_builder.with_metadata(perf_metadata);
@@ -156,14 +314,7 @@ impl GeometryGenerator {
             node_builder.build()
         } else {
             // Fast path for no metadata
-            Node {
-                id,
-                name: None,
-                point: p,
-                kind: None,
-                junction_geometry: None,
-                metadata: None,
-            }
+            NodeSpec::new_at(format!("node_{}", id), NodeKind::Junction, p)
         };
 
         self.nodes.push(node);
@@ -217,6 +368,18 @@ impl GeometryGenerator {
             channel_type.unwrap_or_else(|| self.determine_channel_type(p1, p2, None));
 
         let channel_width = width.unwrap_or(self.config.channel_width);
+        let mut channel_path = Self::channel_path(&final_channel_type);
+        if channel_path.len() < 2 {
+            channel_path = vec![p1, p2];
+        }
+        let physical_length_m = Self::channel_length_m(p1, p2, &channel_path);
+        let physical_shape = Self::physical_shape_for_channel(
+            &final_channel_type,
+            &channel_path,
+            p1,
+            p2,
+            channel_width,
+        );
 
         // Create channel with optional metadata
         let channel = if let Some(ref metadata_config) = self.metadata_config {
@@ -228,6 +391,10 @@ impl GeometryGenerator {
                 self.config.channel_height,
                 final_channel_type.clone(),
             );
+            channel_builder = channel_builder
+                .with_physical_length_m(physical_length_m)
+                .with_physical_dims_m(channel_width * 1e-3, self.config.channel_height * 1e-3)
+                .with_physical_shape(physical_shape);
 
             // Add performance metadata if enabled
             if metadata_config.track_performance {
@@ -242,7 +409,7 @@ impl GeometryGenerator {
 
                     let perf_metadata = PerformanceMetadata {
                         generation_time_us: start_time.elapsed().as_micros() as u64,
-                        memory_usage_bytes: std::mem::size_of::<Channel>()
+                        memory_usage_bytes: std::mem::size_of::<ChannelSpec>()
                             + path_points * std::mem::size_of::<Point2D>(),
                         path_points_count: path_points,
                     };
@@ -278,30 +445,26 @@ impl GeometryGenerator {
             channel_builder.build()
         } else {
             // Fast path for no metadata
-            Channel {
-                id,
-                name: None,
-                from_node: from_id,
-                to_node: to_id,
-                width: channel_width,
-                height: self.config.channel_height,
-                channel_type: final_channel_type,
-                visual_role: None,
-                physical_length_m: None,
-                physical_width_m: None,
-                physical_height_m: None,
-                physical_shape: None,
-                therapy_zone: None,
-                venturi_geometry: None,
-                metadata: None,
-            }
+            let mut channel = ChannelSpec::new_pipe_rect(
+                format!("ch_{}", id),
+                format!("node_{}", from_id),
+                format!("node_{}", to_id),
+                physical_length_m,
+                channel_width * 1e-3,
+                self.config.channel_height * 1e-3,
+                0.0,
+                0.0,
+            );
+            channel.path = channel_path;
+            channel.channel_shape = physical_shape;
+            channel
         };
 
         self.channels.push(channel);
         self.channel_counter += 1;
     }
 
-    fn finalize(mut self) -> ChannelSystem {
+    fn finalize(mut self) -> NetworkBlueprint {
         let (length, width) = self.box_dims;
         let box_outline = vec![
             ((0.0, 0.0), (length, 0.0)),
@@ -310,66 +473,63 @@ impl GeometryGenerator {
             ((0.0, width), (0.0, 0.0)),
         ];
 
-        // Assign NodeKind from connectivity so the ChannelSystem carries
-        // the same semantic information as a blueprint-generated one.
-        let mut in_deg = vec![0usize; self.nodes.len()];
-        let mut out_deg = vec![0usize; self.nodes.len()];
+        let mut in_deg: std::collections::HashMap<&str, usize> = std::collections::HashMap::new();
+        let mut out_deg: std::collections::HashMap<&str, usize> = std::collections::HashMap::new();
         for ch in &self.channels {
-            if ch.from_node < out_deg.len() {
-                out_deg[ch.from_node] += 1;
-            }
-            if ch.to_node < in_deg.len() {
-                in_deg[ch.to_node] += 1;
+            *out_deg.entry(ch.from.as_str()).or_default() += 1;
+            *in_deg.entry(ch.to.as_str()).or_default() += 1;
+        }
+
+        let mut terminals = Vec::new();
+        for (idx, node) in self.nodes.iter().enumerate() {
+            let deg_in = in_deg.get(node.id.as_str()).copied().unwrap_or(0);
+            let deg_out = out_deg.get(node.id.as_str()).copied().unwrap_or(0);
+            if deg_in + deg_out == 1 {
+                terminals.push(idx);
             }
         }
-        // Terminal nodes (degree-1): leftmost → Inlet, rightmost → Outlet.
-        let terminals: Vec<usize> = (0..self.nodes.len())
-            .filter(|&i| in_deg[i] + out_deg[i] == 1)
-            .collect();
+
         let inlet_idx = terminals
             .iter()
             .copied()
-            .min_by(|&a, &b| {
-                self.nodes[a]
-                    .point
-                    .0
-                    .total_cmp(&self.nodes[b].point.0)
-            });
+            .min_by(|&a, &b| self.nodes[a].point.0.total_cmp(&self.nodes[b].point.0));
         let outlet_idx = terminals
             .iter()
             .copied()
-            .max_by(|&a, &b| {
-                self.nodes[a]
-                    .point
-                    .0
-                    .total_cmp(&self.nodes[b].point.0)
-            });
+            .max_by(|&a, &b| self.nodes[a].point.0.total_cmp(&self.nodes[b].point.0));
+
         for (idx, node) in self.nodes.iter_mut().enumerate() {
-            if node.kind.is_some() {
-                continue; // respect explicit kind if already set
+            if node.kind == NodeKind::Junction {
+                node.kind = if Some(idx) == inlet_idx {
+                    NodeKind::Inlet
+                } else if Some(idx) == outlet_idx {
+                    NodeKind::Outlet
+                } else {
+                    NodeKind::Junction
+                };
             }
-            node.kind = Some(if Some(idx) == inlet_idx {
-                NodeKind::Inlet
-            } else if Some(idx) == outlet_idx {
-                NodeKind::Outlet
-            } else {
-                NodeKind::Junction
-            });
         }
 
-        ChannelSystem {
+        let mut blueprint = NetworkBlueprint {
+            name: "Generated Schematic".to_string(),
             box_dims: self.box_dims,
             nodes: self.nodes,
             channels: self.channels,
             box_outline,
-        }
+            render_hints: self.render_hints,
+            topology: self.topology,
+            lineage: self.lineage,
+            metadata: self.blueprint_metadata,
+        };
+        blueprint.insert_metadata(GeometryAuthoringProvenance::create_geometry());
+        blueprint
     }
 }
 
 /// Creates a complete 2D microfluidic channel system
 ///
 /// This is the main entry point for generating microfluidic geometries.
-/// It creates a channel system with the specified split pattern and
+/// It creates a blueprint with the specified split pattern and
 /// channel types within the given bounding box.
 ///
 /// # Arguments
@@ -381,7 +541,7 @@ impl GeometryGenerator {
 ///
 /// # Returns
 ///
-/// A complete `ChannelSystem` containing all nodes, channels, and boundary information
+/// A complete `NetworkBlueprint` containing all nodes, channels, and boundary information
 ///
 /// # Examples
 ///
@@ -391,7 +551,7 @@ impl GeometryGenerator {
 ///     config::{GeometryConfig, ChannelTypeConfig},
 /// };
 ///
-/// let system = create_geometry(
+/// let blueprint = create_geometry(
 ///     (200.0, 100.0),
 ///     &[SplitType::Bifurcation],
 ///     &GeometryConfig::default(),
@@ -404,7 +564,7 @@ pub fn create_geometry(
     splits: &[SplitType],
     config: &GeometryConfig,
     channel_type_config: &ChannelTypeConfig,
-) -> ChannelSystem {
+) -> NetworkBlueprint {
     let total_branches = splits
         .iter()
         .map(SplitType::branch_count)
@@ -421,15 +581,7 @@ pub fn create_blueprint_geometry(
     config: &GeometryConfig,
     channel_type_config: &ChannelTypeConfig,
 ) -> NetworkBlueprint {
-    let total_branches = splits
-        .iter()
-        .map(SplitType::branch_count)
-        .product::<usize>()
-        .max(1);
-    GeometryGenerator::new(box_dims, *config, *channel_type_config, total_branches)
-        .generate(splits)
-        .to_blueprint(1e-3)
-        .expect("generated split geometry must convert to blueprint")
+    create_geometry(box_dims, splits, config, channel_type_config)
 }
 
 /// Creates a complete 2D microfluidic channel system with metadata support
@@ -447,7 +599,7 @@ pub fn create_blueprint_geometry(
 ///
 /// # Returns
 ///
-/// A complete `ChannelSystem` containing all nodes, channels, boundary information,
+/// A complete `NetworkBlueprint` containing all nodes, channels, boundary information,
 /// and optional metadata based on the configuration.
 ///
 /// # Examples
@@ -464,7 +616,7 @@ pub fn create_blueprint_geometry(
 ///     channel_diameter_mm: None,
 /// };
 ///
-/// let system = create_geometry_with_metadata(
+/// let blueprint = create_geometry_with_metadata(
 ///     (200.0, 100.0),
 ///     &[SplitType::Bifurcation],
 ///     &GeometryConfig::default(),
@@ -479,7 +631,7 @@ pub fn create_geometry_with_metadata(
     config: &GeometryConfig,
     channel_type_config: &ChannelTypeConfig,
     metadata_config: &MetadataConfig,
-) -> ChannelSystem {
+) -> NetworkBlueprint {
     let total_branches = splits
         .iter()
         .map(SplitType::branch_count)
@@ -511,13 +663,150 @@ pub fn create_blueprint_geometry_with_metadata(
         channel_type_config,
         metadata_config,
     )
-    .to_blueprint(1e-3)
-    .expect("generated split geometry must convert to blueprint")
+}
+
+/// Fluent builder that exposes all [`NetworkBlueprint`] capabilities when
+/// generating geometry via [`create_geometry`].
+///
+/// Use this when you need to attach rendering hints, topology metadata,
+/// lineage records, or a blueprint-level [`MetadataContainer`] to a
+/// programmatically generated schematic.
+///
+/// # Example
+///
+/// ```rust
+/// use cfd_schematics::geometry::{
+///     generator::{GeometryGeneratorBuilder, MetadataConfig},
+///     SplitType,
+/// };
+/// use cfd_schematics::config::{GeometryConfig, ChannelTypeConfig};
+///
+/// let blueprint = GeometryGeneratorBuilder::new(
+///     (200.0, 100.0),
+///     &[SplitType::Bifurcation],
+///     &GeometryConfig::default(),
+///     &ChannelTypeConfig::AllStraight,
+/// )
+/// .build();
+/// ```
+pub struct GeometryGeneratorBuilder<'s> {
+    box_dims: (f64, f64),
+    splits: &'s [SplitType],
+    config: GeometryConfig,
+    channel_type_config: ChannelTypeConfig,
+    metadata_config: Option<MetadataConfig>,
+    render_hints: Option<BlueprintRenderHints>,
+    topology: Option<BlueprintTopologySpec>,
+    lineage: Option<TopologyLineageMetadata>,
+    blueprint_metadata: Option<MetadataContainer>,
+}
+
+impl<'s> GeometryGeneratorBuilder<'s> {
+    /// Create a new builder with the minimum required geometry parameters.
+    #[must_use]
+    pub fn new(
+        box_dims: (f64, f64),
+        splits: &'s [SplitType],
+        config: &GeometryConfig,
+        channel_type_config: &ChannelTypeConfig,
+    ) -> Self {
+        Self {
+            box_dims,
+            splits,
+            config: *config,
+            channel_type_config: *channel_type_config,
+            metadata_config: None,
+            render_hints: None,
+            topology: None,
+            lineage: None,
+            blueprint_metadata: None,
+        }
+    }
+
+    /// Enable per-node / per-channel metadata tracking during generation.
+    #[must_use]
+    pub fn with_metadata_config(mut self, cfg: MetadataConfig) -> Self {
+        self.metadata_config = Some(cfg);
+        self
+    }
+
+    /// Attach [`BlueprintRenderHints`] to the produced blueprint.
+    #[must_use]
+    pub fn with_render_hints(mut self, hints: BlueprintRenderHints) -> Self {
+        self.render_hints = Some(hints);
+        self
+    }
+
+    /// Attach a [`BlueprintTopologySpec`] to the produced blueprint.
+    #[must_use]
+    pub fn with_topology_spec(mut self, spec: BlueprintTopologySpec) -> Self {
+        self.topology = Some(spec);
+        self
+    }
+
+    /// Attach [`TopologyLineageMetadata`] to the produced blueprint.
+    #[must_use]
+    pub fn with_lineage(mut self, lineage: TopologyLineageMetadata) -> Self {
+        self.lineage = Some(lineage);
+        self
+    }
+
+    /// Attach a blueprint-level [`MetadataContainer`] to the produced blueprint.
+    #[must_use]
+    pub fn with_blueprint_metadata(mut self, metadata: MetadataContainer) -> Self {
+        self.blueprint_metadata = Some(metadata);
+        self
+    }
+
+    /// Generate the [`NetworkBlueprint`], applying all configured options.
+    #[must_use]
+    pub fn build(self) -> NetworkBlueprint {
+        let total_branches = self
+            .splits
+            .iter()
+            .map(SplitType::branch_count)
+            .product::<usize>()
+            .max(1);
+
+        let mut gen = if let Some(mc) = self.metadata_config {
+            GeometryGenerator::new_with_metadata(
+                self.box_dims,
+                self.config,
+                self.channel_type_config,
+                total_branches,
+                mc,
+            )
+        } else {
+            GeometryGenerator::new(
+                self.box_dims,
+                self.config,
+                self.channel_type_config,
+                total_branches,
+            )
+        };
+
+        if let Some(hints) = self.render_hints {
+            gen = gen.with_render_hints(hints);
+        }
+        if let Some(spec) = self.topology {
+            gen = gen.with_topology_spec(spec);
+        }
+        if let Some(lineage) = self.lineage {
+            gen = gen.with_lineage(lineage);
+        }
+        if let Some(meta) = self.blueprint_metadata {
+            gen = gen.with_blueprint_metadata(meta);
+        }
+
+        gen.generate(self.splits)
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::SerpentineConfig;
+    use crate::domain::model::ChannelShape;
     use crate::geometry::builders::{ChannelExt, NodeExt};
     use crate::geometry::metadata::{ChannelGeometryMetadata, PerformanceMetadata};
 
@@ -599,6 +888,58 @@ mod tests {
                 "channel should include ChannelGeometryMetadata when diameter is configured",
             );
             assert!((metadata.channel_diameter_mm - 40.0).abs() < 1e-10);
+        }
+    }
+
+    #[test]
+    fn generated_serpentine_channels_persist_physical_length_and_shape() {
+        let system = create_geometry(
+            (200.0, 100.0),
+            &[SplitType::Bifurcation],
+            &GeometryConfig::default(),
+            &ChannelTypeConfig::AllSerpentine(SerpentineConfig::default()),
+        );
+
+        let serpentine_channels: Vec<_> = system
+            .channels
+            .iter()
+            .filter(|channel| channel.path.len() > 2)
+            .collect();
+        assert!(
+            !serpentine_channels.is_empty(),
+            "expected generated geometry to include routed serpentine channels"
+        );
+
+        for channel in serpentine_channels {
+            let expected_length_m = polyline_length(&channel.path) * 1.0e-3;
+            assert!(channel.length_m > 0.0);
+            assert!(
+                (channel.length_m - expected_length_m).abs() < 1e-9,
+                "channel {:?} length should follow stored polyline length",
+                channel.id
+            );
+
+            match channel.channel_shape {
+                ChannelShape::Serpentine {
+                    segments,
+                    bend_radius_m,
+                } => {
+                    assert!(
+                        segments >= 2,
+                        "channel {:?} should expose at least one serpentine bend",
+                        channel.id
+                    );
+                    assert!(
+                        bend_radius_m > 0.0,
+                        "channel {:?} should expose a positive bend radius",
+                        channel.id
+                    );
+                }
+                ref shape => panic!(
+                    "channel {:?} should be marked serpentine for 1D modeling, got {:?}",
+                    channel.id, shape
+                ),
+            }
         }
     }
 }

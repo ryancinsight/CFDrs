@@ -154,7 +154,8 @@ impl<T: RealField + Copy + FromPrimitive> SigmaModel<T> {
             for j in 0..2 {
                 let duidxj = velocity_gradient[(i, j)];
                 let duidxi = velocity_gradient[(j, i)];
-                strain_rate[(i, j)] = (duidxj + duidxi) * T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero);
+                strain_rate[(i, j)] =
+                    (duidxj + duidxi) * T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero);
             }
         }
 

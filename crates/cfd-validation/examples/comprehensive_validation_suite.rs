@@ -6,9 +6,8 @@
 use cfd_core::error::Result;
 use cfd_core::physics::fluid::blood::CassonBlood;
 use cfd_validation::benchmarks::{
-    Benchmark, BenchmarkConfig, BenchmarkResult, BenchmarkRunner, BifurcationFlow,
-    BifurcationFlow3D, LidDrivenCavity, SerpentineFlow, SerpentineFlow3D, VenturiFlow,
-    VenturiFlow3D,
+    Benchmark, BenchmarkConfig, BenchmarkRunner, BifurcationFlow, BifurcationFlow3D,
+    LidDrivenCavity, SerpentineFlow, SerpentineFlow3D, VenturiFlow, VenturiFlow3D,
 };
 use cfd_validation::geometry::threed::{Bifurcation3D, Serpentine3D, Venturi3D};
 

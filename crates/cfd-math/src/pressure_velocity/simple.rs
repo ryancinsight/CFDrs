@@ -74,7 +74,14 @@ impl<T: RealField + Copy + FromPrimitive> SIMPLEConfig<T> {
             alpha_mu > T::zero() && alpha_mu <= T::one(),
             "alpha_mu must be in (0, 1]"
         );
-        Self { max_iterations, tolerance, alpha_u, alpha_p, alpha_mu, viscosity_update_interval }
+        Self {
+            max_iterations,
+            tolerance,
+            alpha_u,
+            alpha_p,
+            alpha_mu,
+            viscosity_update_interval,
+        }
     }
 }
 
@@ -93,7 +100,11 @@ impl<T> SolveResult<T> {
     /// Construct a solve result.
     #[must_use]
     pub fn new(iterations: usize, residual: T, converged: bool) -> Self {
-        Self { iterations, residual, converged }
+        Self {
+            iterations,
+            residual,
+            converged,
+        }
     }
 }
 

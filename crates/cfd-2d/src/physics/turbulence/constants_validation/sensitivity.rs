@@ -143,8 +143,10 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceConstantsValid
         );
 
         // σ_ε sensitivity
-        let sigeps_plus = sigma_eps_baseline * T::from_f64(1.1).unwrap_or_else(num_traits::Zero::zero);
-        let sigeps_minus = sigma_eps_baseline * T::from_f64(0.9).unwrap_or_else(num_traits::Zero::zero);
+        let sigeps_plus =
+            sigma_eps_baseline * T::from_f64(1.1).unwrap_or_else(num_traits::Zero::zero);
+        let sigeps_minus =
+            sigma_eps_baseline * T::from_f64(0.9).unwrap_or_else(num_traits::Zero::zero);
         let error_plus = self.simulate_channel_flow_k_epsilon(
             c_mu_baseline,
             c1_eps_baseline,
@@ -199,7 +201,8 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceConstantsValid
         let beta1_baseline = T::from_f64(SST_BETA_1).unwrap_or_else(num_traits::Zero::zero);
         let beta_star_baseline = T::from_f64(SST_BETA_STAR).unwrap_or_else(num_traits::Zero::zero);
         let sigma_k1_baseline = T::from_f64(SST_SIGMA_K1).unwrap_or_else(num_traits::Zero::zero);
-        let sigma_omega1_baseline = T::from_f64(SST_SIGMA_OMEGA1).unwrap_or_else(num_traits::Zero::zero);
+        let sigma_omega1_baseline =
+            T::from_f64(SST_SIGMA_OMEGA1).unwrap_or_else(num_traits::Zero::zero);
 
         let baseline_error = self.simulate_channel_flow_k_omega_sst(
             alpha1_baseline,
@@ -213,7 +216,8 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceConstantsValid
 
         // α₁ sensitivity
         let alpha1_plus = alpha1_baseline * T::from_f64(1.1).unwrap_or_else(num_traits::Zero::zero);
-        let alpha1_minus = alpha1_baseline * T::from_f64(0.9).unwrap_or_else(num_traits::Zero::zero);
+        let alpha1_minus =
+            alpha1_baseline * T::from_f64(0.9).unwrap_or_else(num_traits::Zero::zero);
         let error_plus = self.simulate_channel_flow_k_omega_sst(
             alpha1_plus,
             beta1_baseline,
@@ -266,8 +270,10 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceConstantsValid
         );
 
         // β* sensitivity
-        let beta_star_plus = beta_star_baseline * T::from_f64(1.1).unwrap_or_else(num_traits::Zero::zero);
-        let beta_star_minus = beta_star_baseline * T::from_f64(0.9).unwrap_or_else(num_traits::Zero::zero);
+        let beta_star_plus =
+            beta_star_baseline * T::from_f64(1.1).unwrap_or_else(num_traits::Zero::zero);
+        let beta_star_minus =
+            beta_star_baseline * T::from_f64(0.9).unwrap_or_else(num_traits::Zero::zero);
         let error_plus = self.simulate_channel_flow_k_omega_sst(
             alpha1_baseline,
             beta1_baseline,
@@ -399,9 +405,11 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceConstantsValid
         for j in 1..ny - 1 {
             let y_plus = (j as f64 / (ny - 1) as f64) * self.dns_database.re_tau;
             let dns_velocity = self.dns_database.interpolate_velocity(y_plus);
-            let cfd_velocity = T::from_f64(dns_velocity).unwrap_or_else(num_traits::Zero::zero) * T::from_f64(0.95).unwrap_or_else(num_traits::Zero::zero);
+            let cfd_velocity = T::from_f64(dns_velocity).unwrap_or_else(num_traits::Zero::zero)
+                * T::from_f64(0.95).unwrap_or_else(num_traits::Zero::zero);
 
-            let error = cfd_velocity - T::from_f64(dns_velocity).unwrap_or_else(num_traits::Zero::zero);
+            let error =
+                cfd_velocity - T::from_f64(dns_velocity).unwrap_or_else(num_traits::Zero::zero);
             rms_error += error * error;
             num_points += 1;
         }
@@ -428,9 +436,11 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceConstantsValid
         for j in 1..ny - 1 {
             let y_plus = (j as f64 / (ny - 1) as f64) * self.dns_database.re_tau;
             let dns_velocity = self.dns_database.interpolate_velocity(y_plus);
-            let cfd_velocity = T::from_f64(dns_velocity).unwrap_or_else(num_traits::Zero::zero) * T::from_f64(0.98).unwrap_or_else(num_traits::Zero::zero);
+            let cfd_velocity = T::from_f64(dns_velocity).unwrap_or_else(num_traits::Zero::zero)
+                * T::from_f64(0.98).unwrap_or_else(num_traits::Zero::zero);
 
-            let error = cfd_velocity - T::from_f64(dns_velocity).unwrap_or_else(num_traits::Zero::zero);
+            let error =
+                cfd_velocity - T::from_f64(dns_velocity).unwrap_or_else(num_traits::Zero::zero);
             rms_error += error * error;
             num_points += 1;
         }
@@ -450,9 +460,11 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceConstantsValid
         for j in 1..ny - 1 {
             let y_plus = (j as f64 / (ny - 1) as f64) * self.dns_database.re_tau;
             let dns_velocity = self.dns_database.interpolate_velocity(y_plus);
-            let cfd_velocity = T::from_f64(dns_velocity).unwrap_or_else(num_traits::Zero::zero) * T::from_f64(0.92).unwrap_or_else(num_traits::Zero::zero);
+            let cfd_velocity = T::from_f64(dns_velocity).unwrap_or_else(num_traits::Zero::zero)
+                * T::from_f64(0.92).unwrap_or_else(num_traits::Zero::zero);
 
-            let error = cfd_velocity - T::from_f64(dns_velocity).unwrap_or_else(num_traits::Zero::zero);
+            let error =
+                cfd_velocity - T::from_f64(dns_velocity).unwrap_or_else(num_traits::Zero::zero);
             rms_error += error * error;
             num_points += 1;
         }

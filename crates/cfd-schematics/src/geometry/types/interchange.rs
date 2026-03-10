@@ -1,11 +1,17 @@
 //! Interchange export types for downstream mesh/CFD toolchains.
 
 use crate::config::TaperProfile;
+use crate::domain::model::CrossSectionSpec;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
-use super::channel_system::ChannelSystem;
 use super::tpms_fill::TpmsFillSpec;
-use super::{centerline_for_channel, hydraulic_diameter, polyline_length, ChannelType, Point2D};
+use super::{hydraulic_diameter, polyline_length, Point2D};
+use crate::domain::model::NetworkBlueprint;
+
+const INTERCHANGE_SCHEMA_VERSION: &str = "1.0.0";
+const INTERCHANGE_LENGTH_UNITS: &str = "mm";
+const INTERCHANGE_PRODUCER_PREFIX: &str = "scheme";
 
 /// Interchange-ready node payload for downstream meshing/CFD tooling.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -108,7 +114,7 @@ pub struct InterchangeChannelSystem {
     pub channels: Vec<InterchangeChannel>,
 }
 
-impl ChannelSystem {
+impl NetworkBlueprint {
     /// Build an explicit interchange payload suitable for mesh/CFD workflows.
     ///
     /// # Examples
@@ -130,11 +136,19 @@ impl ChannelSystem {
     /// ```
     #[must_use]
     pub fn to_interchange(&self) -> InterchangeChannelSystem {
+        let node_indices: HashMap<&str, usize> = self
+            .nodes
+            .iter()
+            .enumerate()
+            .map(|(idx, node)| (node.id.as_str(), idx))
+            .collect();
+
         let nodes = self
             .nodes
             .iter()
-            .map(|node| InterchangeNode {
-                id: node.id,
+            .enumerate()
+            .map(|(idx, node)| InterchangeNode {
+                id: idx,
                 point_mm: node.point,
             })
             .collect();
@@ -142,71 +156,79 @@ impl ChannelSystem {
         let channels = self
             .channels
             .iter()
-            .map(|channel| {
-                let centerline = centerline_for_channel(channel, &self.nodes);
+            .enumerate()
+            .map(|(idx, channel)| {
+                let centerline = if channel.path.is_empty() {
+                    let from_point = self
+                        .nodes
+                        .iter()
+                        .find(|node| node.id == channel.from)
+                        .map(|node| node.point)
+                        .unwrap_or((0.0, 0.0));
+                    let to_point = self
+                        .nodes
+                        .iter()
+                        .find(|node| node.id == channel.to)
+                        .map(|node| node.point)
+                        .unwrap_or(from_point);
+                    vec![from_point, to_point]
+                } else {
+                    channel.path.clone()
+                };
                 let centerline_length = polyline_length(&centerline);
 
-                let profile = if let ChannelType::Frustum {
-                    widths,
-                    inlet_width,
-                    throat_width,
-                    outlet_width,
-                    taper_profile,
-                    throat_position,
-                    has_venturi_throat,
-                    ..
-                } = &channel.channel_type
-                {
-                    InterchangeChannelProfile::Frustum {
-                        inlet_width_mm: *inlet_width,
-                        throat_width_mm: *throat_width,
-                        outlet_width_mm: *outlet_width,
-                        height_mm: channel.height,
-                        taper_profile: *taper_profile,
-                        throat_position: *throat_position,
-                        width_profile_mm: widths.clone(),
-                        area_profile_mm2: widths.iter().map(|w| w * channel.height).collect(),
-                        has_venturi_throat: *has_venturi_throat,
-                    }
-                } else {
-                    let area = channel.width * channel.height;
-
-                    if let Some(meta) = &channel.metadata {
-                        if let Some(geom_meta) =
-                            meta.get::<crate::geometry::metadata::ChannelGeometryMetadata>()
-                        {
-                            InterchangeChannelProfile::Circular {
-                                diameter_mm: geom_meta.channel_diameter_mm,
-                                cross_section_area_mm2: area,
-                            }
-                        } else {
-                            InterchangeChannelProfile::Constant {
-                                width_mm: channel.width,
-                                height_mm: channel.height,
-                                cross_section_area_mm2: area,
-                                hydraulic_diameter_mm: hydraulic_diameter(
-                                    channel.width,
-                                    channel.height,
-                                ),
-                            }
+                let profile = match (channel.cross_section, channel.venturi_geometry.as_ref()) {
+                    (CrossSectionSpec::Rectangular { height_m, .. }, Some(venturi)) => {
+                        let inlet_width_mm = venturi.inlet_width_m * 1.0e3;
+                        let throat_width_mm = venturi.throat_width_m * 1.0e3;
+                        let outlet_width_mm = venturi.outlet_width_m * 1.0e3;
+                        let height_mm = height_m * 1.0e3;
+                        let width_profile_mm =
+                            vec![inlet_width_mm, throat_width_mm, outlet_width_mm];
+                        InterchangeChannelProfile::Frustum {
+                            inlet_width_mm,
+                            throat_width_mm,
+                            outlet_width_mm,
+                            height_mm,
+                            taper_profile: TaperProfile::Linear,
+                            throat_position: 0.5,
+                            area_profile_mm2: width_profile_mm
+                                .iter()
+                                .map(|width_mm| width_mm * height_mm)
+                                .collect(),
+                            width_profile_mm,
+                            has_venturi_throat: true,
                         }
-                    } else {
+                    }
+                    (CrossSectionSpec::Circular { diameter_m }, _) => {
+                        let diameter_mm = diameter_m * 1.0e3;
+                        InterchangeChannelProfile::Circular {
+                            diameter_mm,
+                            cross_section_area_mm2: std::f64::consts::PI
+                                * (diameter_mm * 0.5).powi(2),
+                        }
+                    }
+                    (CrossSectionSpec::Rectangular { width_m, height_m }, _) => {
+                        let width_mm = width_m * 1.0e3;
+                        let height_mm = height_m * 1.0e3;
+                        let area = width_mm * height_mm;
                         InterchangeChannelProfile::Constant {
-                            width_mm: channel.width,
-                            height_mm: channel.height,
+                            width_mm,
+                            height_mm,
                             cross_section_area_mm2: area,
-                            hydraulic_diameter_mm: hydraulic_diameter(
-                                channel.width,
-                                channel.height,
-                            ),
+                            hydraulic_diameter_mm: hydraulic_diameter(width_mm, height_mm),
                         }
                     }
                 };
 
                 InterchangeChannel {
-                    id: channel.id,
-                    from_node_id: channel.from_node,
-                    to_node_id: channel.to_node,
+                    id: idx,
+                    from_node_id: *node_indices
+                        .get(channel.from.as_str())
+                        .expect("blueprint channel source node must exist"),
+                    to_node_id: *node_indices
+                        .get(channel.to.as_str())
+                        .expect("blueprint channel target node must exist"),
                     centerline_mm: centerline,
                     centerline_length_mm: centerline_length,
                     profile,
@@ -215,13 +237,13 @@ impl ChannelSystem {
             .collect();
 
         InterchangeChannelSystem {
-            schema_version: Self::INTERCHANGE_SCHEMA_VERSION.to_string(),
+            schema_version: INTERCHANGE_SCHEMA_VERSION.to_string(),
             producer: format!(
                 "{}/{}",
-                Self::INTERCHANGE_PRODUCER_PREFIX,
+                INTERCHANGE_PRODUCER_PREFIX,
                 env!("CARGO_PKG_VERSION")
             ),
-            length_units: Self::INTERCHANGE_LENGTH_UNITS.to_string(),
+            length_units: INTERCHANGE_LENGTH_UNITS.to_string(),
             box_dims_mm: self.box_dims,
             nodes,
             channels,
@@ -258,10 +280,9 @@ impl ChannelSystem {
     /// This is useful when imported or procedurally modified schematics contain
     /// crossing centerlines that should become explicit junction nodes for
     /// downstream solver graph construction.
-    #[must_use]
     pub fn to_interchange_resolved(&self) -> InterchangeChannelSystem {
         let mut resolved = self.clone();
-        resolved.resolve_channel_overlaps();
+        crate::geometry::insert_intersection_nodes(&mut resolved);
         resolved.to_interchange()
     }
 
@@ -321,7 +342,7 @@ impl super::shell_cuboid::ShellCuboid {
     /// ```rust
     /// use cfd_schematics::geometry::ShellCuboid;
     ///
-    /// let sc = ShellCuboid::new((80.0, 40.0), 2.0).unwrap();
+    /// let sc = ShellCuboid::new((80.0, 40.0), 2.0).expect("structural invariant");
     /// let ix = sc.to_interchange();
     /// assert_eq!(ix.length_units, "mm");
     /// assert_eq!(ix.ports.len(), 2);
@@ -365,7 +386,7 @@ impl super::shell_cuboid::ShellCuboid {
     /// ```rust
     /// use cfd_schematics::geometry::ShellCuboid;
     ///
-    /// let sc = ShellCuboid::new((80.0, 40.0), 2.0).unwrap();
+    /// let sc = ShellCuboid::new((80.0, 40.0), 2.0).expect("structural invariant");
     /// let json = sc.to_interchange_json().expect("should serialize");
     /// assert!(json.contains("\"outer_dims_mm\""));
     /// assert!(json.contains("\"inlet\""));

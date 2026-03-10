@@ -71,8 +71,8 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
     /// Correct velocity field using pressure correction gradient
     pub fn correct_velocity(
         &self,
-        u_star: &mut Vec<Vec<Vector2<T>>>,
-        p_correction: &Vec<Vec<T>>,
+        u_star: &mut [Vec<Vector2<T>>],
+        p_correction: &[Vec<T>],
         ap_u: &Field2D<T>,
         ap_v: &Field2D<T>,
         _rho: T,
@@ -108,7 +108,7 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
     }
 
     /// Correct pressure field with under-relaxation
-    pub fn correct_pressure(&self, p: &mut Vec<Vec<T>>, p_correction: &Vec<Vec<T>>, alpha: T) {
+    pub fn correct_pressure(&self, p: &mut [Vec<T>], p_correction: &[Vec<T>], alpha: T) {
         for i in 0..p.len() {
             for j in 0..p[i].len() {
                 p[i][j] += alpha * p_correction[i][j];

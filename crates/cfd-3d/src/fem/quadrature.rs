@@ -34,8 +34,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive>
     pub fn keast_degree_3() -> Self {
         let a = <T as FromPrimitive>::from_f64(0.25)
             .expect("0.25 is exactly representable in IEEE 754");
-        let b = <T as FromPrimitive>::from_f64(0.5)
-            .expect("0.5 is exactly representable in IEEE 754");
+        let b =
+            <T as FromPrimitive>::from_f64(0.5).expect("0.5 is exactly representable in IEEE 754");
         let c = <T as FromPrimitive>::from_f64(1.0 / 6.0)
             .expect("1/6 is an IEEE 754 representable f64 constant");
 

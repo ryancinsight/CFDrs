@@ -93,7 +93,6 @@
 #![allow(clippy::doc_markdown)] // Math notation doesn't need backticks
 #![allow(clippy::needless_pass_by_value)] // Pass by value for Copy types is idiomatic
 #![allow(clippy::return_self_not_must_use)] // Builder patterns used internally
-#![allow(clippy::ptr_arg)] // &Vec used for API compatibility
 #![allow(clippy::should_implement_trait)] // CFD-specific trait implementations
 
 /// Domain modeling: topology, components, and channel geometries
@@ -117,11 +116,11 @@ pub use physics::venturi_screening::{
 pub use physics::cell_separation::{
     cascade_junction_separation, cascade_junction_separation_cross_junction,
     cascade_junction_separation_from_qfracs, cif_pretri_stage_center_fracs,
-    cif_pretri_stage_q_fracs, incremental_filtration_separation,
-    incremental_filtration_separation_cross_junction,
+    cif_pretri_stage_q_fracs, incremental_filtration_separation_cross_junction,
     incremental_filtration_separation_from_qfracs, incremental_filtration_separation_staged,
-    mixed_cascade_separation, tri_center_q_frac, tri_center_q_frac_cross_junction,
-    CascadeJunctionResult, IncrementalFiltrationResult,
+    mixed_cascade_separation, mixed_cascade_separation_kappa_aware, tri_asymmetric_q_fracs,
+    tri_center_q_frac, tri_center_q_frac_cross_junction, CascadeJunctionResult, CascadeStage,
+    IncrementalFiltrationResult,
 };
 pub use physics::cell_separation::{three_population_equilibria, ThreePopEquilibria};
 
@@ -129,7 +128,7 @@ pub use physics::cell_separation::{three_population_equilibria, ThreePopEquilibr
 pub use domain::network::{
     BoundaryCondition, ChannelProperties, ComponentType, Edge, EdgeProperties, EdgeType, Network,
     NetworkBuilder, NetworkBuilderSink, NetworkGraph, NetworkMetadata, Node, NodeProperties,
-    NodeType,
+    NodeType, validate_blueprint_for_1d_solve,
 };
 
 // Export solver functionality
@@ -138,7 +137,8 @@ pub use solver::core::{
     DropletPosition, DropletSnapshot, DropletSplitPolicy, DropletState, DropletTrackingState,
     EdgeFlowEvent, InletCompositionEvent, LinearSystemSolver, MatrixAssembler, MixtureComposition,
     NetworkDomain, NetworkProblem, NetworkSolver, NetworkState, PressureBoundaryEvent,
-    SimulationTimeConfig, SolverConfig, SplitMode, TransientCompositionSimulator,
+    PrimarySolveDiagnostics, PrimarySolveError, SimulationTimeConfig, SolveFailureReason,
+    SolvePathStatus, SolverConfig, SplitMode, TransientCompositionSimulator,
     TransientDropletSimulator,
 };
 

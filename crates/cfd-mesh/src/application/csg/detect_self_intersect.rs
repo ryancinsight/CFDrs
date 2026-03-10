@@ -198,9 +198,7 @@ fn tri_tri_intersects(ta: &[Point3r; 3], tb: &[Point3r; 3]) -> bool {
         n1.dot(&tb[2].coords) + d1,
     ];
     // All same strict sign → tb on one side → no intersection.
-    if (db[0] > 0.0 && db[1] > 0.0 && db[2] > 0.0)
-        || (db[0] < 0.0 && db[1] < 0.0 && db[2] < 0.0)
-    {
+    if (db[0] > 0.0 && db[1] > 0.0 && db[2] > 0.0) || (db[0] < 0.0 && db[1] < 0.0 && db[2] < 0.0) {
         return false;
     }
 
@@ -214,9 +212,7 @@ fn tri_tri_intersects(ta: &[Point3r; 3], tb: &[Point3r; 3]) -> bool {
         n2.dot(&ta[1].coords) + d2,
         n2.dot(&ta[2].coords) + d2,
     ];
-    if (da[0] > 0.0 && da[1] > 0.0 && da[2] > 0.0)
-        || (da[0] < 0.0 && da[1] < 0.0 && da[2] < 0.0)
-    {
+    if (da[0] > 0.0 && da[1] > 0.0 && da[2] > 0.0) || (da[0] < 0.0 && da[1] < 0.0 && da[2] < 0.0) {
         return false;
     }
 
@@ -339,7 +335,9 @@ mod tests {
     use crate::domain::core::scalar::Vector3r;
     use crate::infrastructure::storage::face_store::FaceData;
 
-    fn pool_with_verts(pts: &[[f64; 3]]) -> (VertexPool, Vec<crate::domain::core::index::VertexId>) {
+    fn pool_with_verts(
+        pts: &[[f64; 3]],
+    ) -> (VertexPool, Vec<crate::domain::core::index::VertexId>) {
         let mut pool = VertexPool::default_millifluidic();
         let n = Vector3r::zeros();
         let ids = pts
@@ -365,7 +363,10 @@ mod tests {
             Point3r::new(0.0, 1.0, 0.5),
             Point3r::new(0.0, 0.0, -0.5),
         ];
-        assert!(tri_tri_intersects(&ta, &tb), "crossing triangles must be detected");
+        assert!(
+            tri_tri_intersects(&ta, &tb),
+            "crossing triangles must be detected"
+        );
     }
 
     /// Two triangles on opposite sides of a plane → no intersection.
@@ -382,7 +383,10 @@ mod tests {
             Point3r::new(1.0, 0.0, 5.0),
             Point3r::new(0.0, 1.0, 5.0),
         ];
-        assert!(!tri_tri_intersects(&ta, &tb), "separated triangles must not intersect");
+        assert!(
+            !tri_tri_intersects(&ta, &tb),
+            "separated triangles must not intersect"
+        );
     }
 
     /// Two coplanar triangles: conservatively returns false.
@@ -399,7 +403,10 @@ mod tests {
             Point3r::new(0.0, 0.5, 0.0),
         ];
         // Conservative: coplanar → false (not a proper intersection in 3-D).
-        assert!(!tri_tri_intersects(&ta, &tb), "coplanar overlap is not reported");
+        assert!(
+            !tri_tri_intersects(&ta, &tb),
+            "coplanar overlap is not reported"
+        );
     }
 
     // ── detect_self_intersections integration tests ───────────────────────────
@@ -418,7 +425,10 @@ mod tests {
             FaceData::untagged(ids[0], ids[2], ids[3]),
         ];
         let pairs = detect_self_intersections(&faces, &pool);
-        assert!(pairs.is_empty(), "adjacent triangles must not be reported as self-intersecting");
+        assert!(
+            pairs.is_empty(),
+            "adjacent triangles must not be reported as self-intersecting"
+        );
     }
 
     /// Two non-adjacent triangles that cross each other ARE detected.
@@ -441,7 +451,10 @@ mod tests {
             FaceData::untagged(ids[3], ids[4], ids[5]),
         ];
         let pairs = detect_self_intersections(&faces, &pool);
-        assert!(!pairs.is_empty(), "crossing non-adjacent triangles must be detected");
+        assert!(
+            !pairs.is_empty(),
+            "crossing non-adjacent triangles must be detected"
+        );
         assert_eq!(pairs, vec![(0, 1)]);
     }
 
@@ -461,7 +474,10 @@ mod tests {
             FaceData::untagged(ids[3], ids[4], ids[5]),
         ];
         let pairs = detect_self_intersections(&faces, &pool);
-        assert!(pairs.is_empty(), "widely separated triangles must not be reported");
+        assert!(
+            pairs.is_empty(),
+            "widely separated triangles must not be reported"
+        );
     }
 
     /// Single face: always empty result.

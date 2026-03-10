@@ -449,10 +449,10 @@ pub fn inject_cap_seam_into_barrels(
             if (end_3d - start_3d).norm_squared() < 1e-20 {
                 continue;
             }
-            segs_out
-                .entry(face_idx)
-                .or_default()
-                .push(SnapSegment { start: start_3d, end: end_3d });
+            segs_out.entry(face_idx).or_default().push(SnapSegment {
+                start: start_3d,
+                end: end_3d,
+            });
         }
     }
 }
@@ -581,8 +581,13 @@ mod tests {
             &pool,
         );
 
-        let injected = segs_out.get(&0).expect("rim face 0 should receive injected segments");
-        assert!(!injected.is_empty(), "seam at t=0.25 should generate sub-segments");
+        let injected = segs_out
+            .get(&0)
+            .expect("rim face 0 should receive injected segments");
+        assert!(
+            !injected.is_empty(),
+            "seam at t=0.25 should generate sub-segments"
+        );
         assert_eq!(injected.len(), 2, "one seam point creates 2 sub-segments");
     }
 
@@ -606,7 +611,10 @@ mod tests {
             &pool,
         );
 
-        assert!(segs_out.is_empty(), "off-plane seam position must not inject into any face");
+        assert!(
+            segs_out.is_empty(),
+            "off-plane seam position must not inject into any face"
+        );
     }
 
     /// Two seam positions (given out of order) produce 3 sorted sub-segments.
@@ -616,8 +624,7 @@ mod tests {
         let (faces, plane_pt, plane_n) = single_rim_face(&mut pool);
         let coplanar_used = std::collections::HashSet::new();
         // Intentionally insert t=0.75 before t=0.25 to verify sorting.
-        let seam_positions =
-            vec![Point3r::new(0.75, 0.0, 0.0), Point3r::new(0.25, 0.0, 0.0)];
+        let seam_positions = vec![Point3r::new(0.75, 0.0, 0.0), Point3r::new(0.25, 0.0, 0.0)];
         let mut segs_out: HashMap<usize, Vec<SnapSegment>> = HashMap::new();
 
         inject_cap_seam_into_barrels(
@@ -630,8 +637,9 @@ mod tests {
             &pool,
         );
 
-        let injected =
-            segs_out.get(&0).expect("rim face should receive injected segments");
+        let injected = segs_out
+            .get(&0)
+            .expect("rim face should receive injected segments");
         assert_eq!(injected.len(), 3, "two seam points create 3 sub-segments");
     }
 

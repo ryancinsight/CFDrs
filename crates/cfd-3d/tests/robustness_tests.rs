@@ -1147,7 +1147,7 @@ fn test_chebyshev_derivative_x_squared() {
 
     let n = 16;
     let cheb = ChebyshevPolynomial::<f64>::new(n).unwrap();
-    let points = cheb.collocation_points();
+    let points = cheb.points();
 
     let u: DVector<f64> = DVector::from_iterator(n, points.iter().map(|&x| x * x));
     let du = cheb.differentiate(&u);
@@ -1178,7 +1178,7 @@ fn test_chebyshev_second_derivative() {
     let n = 24;
     let cheb = ChebyshevPolynomial::<f64>::new(n).unwrap();
     let d2 = cheb.second_derivative_matrix().unwrap();
-    let points = cheb.collocation_points();
+    let points = cheb.points();
 
     let pi = std::f64::consts::PI;
     let u: DVector<f64> = DVector::from_iterator(n, points.iter().map(|&x| (pi * x).cos()));
@@ -1232,7 +1232,7 @@ fn test_chebyshev_interpolation_cubic() {
 
     let n = 8; // Should reproduce polynomials up to degree 7 exactly
     let cheb = ChebyshevPolynomial::<f64>::new(n).unwrap();
-    let points = cheb.collocation_points();
+    let points = cheb.points();
 
     // f(x) = x³ − 2x + 1
     let values: Vec<f64> = points.iter().map(|&x| x * x * x - 2.0 * x + 1.0).collect();

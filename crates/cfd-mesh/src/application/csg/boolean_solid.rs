@@ -73,16 +73,26 @@ mod tests {
 
     /// Axis-aligned unit cube centred at the origin.
     fn cube_a() -> IndexedMesh {
-        Cube { origin: Point3r::new(-1.0, -1.0, -1.0), width: 2.0, height: 2.0, depth: 2.0 }
-            .build()
-            .expect("cube_a build")
+        Cube {
+            origin: Point3r::new(-1.0, -1.0, -1.0),
+            width: 2.0,
+            height: 2.0,
+            depth: 2.0,
+        }
+        .build()
+        .expect("cube_a build")
     }
 
     /// Offset cube — overlaps cube_a by half its width along X.
     fn cube_b() -> IndexedMesh {
-        Cube { origin: Point3r::new(-0.5, -0.5, -0.5), width: 2.0, height: 2.0, depth: 2.0 }
-            .build()
-            .expect("cube_b build")
+        Cube {
+            origin: Point3r::new(-0.5, -0.5, -0.5),
+            width: 2.0,
+            height: 2.0,
+            depth: 2.0,
+        }
+        .build()
+        .expect("cube_b build")
     }
 
     /// `BooleanSolid::union` produces a valid result for overlapping cubes.
@@ -94,13 +104,19 @@ mod tests {
     /// `BooleanSolid::intersection` produces a valid result for overlapping cubes.
     #[test]
     fn boolean_solid_intersection_succeeds() {
-        assert!(cube_a().intersection(&cube_b()).is_ok(), "intersection should succeed");
+        assert!(
+            cube_a().intersection(&cube_b()).is_ok(),
+            "intersection should succeed"
+        );
     }
 
     /// `BooleanSolid::difference` produces a valid result for overlapping cubes.
     #[test]
     fn boolean_solid_difference_succeeds() {
-        assert!(cube_a().difference(&cube_b()).is_ok(), "difference should succeed");
+        assert!(
+            cube_a().difference(&cube_b()).is_ok(),
+            "difference should succeed"
+        );
     }
 
     /// Trait and free function agree on result type for union.

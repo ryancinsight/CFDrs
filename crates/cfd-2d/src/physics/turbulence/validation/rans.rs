@@ -33,10 +33,12 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
 
             let dk_dt = -eps;
             let deps_dt =
-                -T::from_f64(C2_EPSILON).unwrap_or_else(num_traits::Zero::zero) * eps * eps / k.max(T::from_f64(1e-10).unwrap_or_else(num_traits::Zero::zero));
+                -T::from_f64(C2_EPSILON).unwrap_or_else(num_traits::Zero::zero) * eps * eps
+                    / k.max(T::from_f64(1e-10).unwrap_or_else(num_traits::Zero::zero));
 
             k = (k + dk_dt * dt).max(T::zero());
-            eps = (eps + deps_dt * dt).max(T::from_f64(EPSILON_MIN).unwrap_or_else(num_traits::Zero::zero));
+            eps = (eps + deps_dt * dt)
+                .max(T::from_f64(EPSILON_MIN).unwrap_or_else(num_traits::Zero::zero));
 
             t += dt;
         }
@@ -67,14 +69,16 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
         let y_wall = T::from_f64(1e-4).unwrap_or_else(num_traits::Zero::zero);
 
         let beta1 = T::from_f64(SST_BETA_1).unwrap_or_else(num_traits::Zero::zero);
-        let expected_omega_wall =
-            T::from_f64(6.0).unwrap_or_else(num_traits::Zero::zero) * molecular_viscosity / (beta1 * y_wall * y_wall);
+        let expected_omega_wall = T::from_f64(6.0).unwrap_or_else(num_traits::Zero::zero)
+            * molecular_viscosity
+            / (beta1 * y_wall * y_wall);
 
         let _k = [T::zero()];
         let mut omega = [T::one()];
 
-        let omega_wall =
-            T::from_f64(6.0).unwrap_or_else(num_traits::Zero::zero) * molecular_viscosity / (beta1 * y_wall * y_wall);
+        let omega_wall = T::from_f64(6.0).unwrap_or_else(num_traits::Zero::zero)
+            * molecular_viscosity
+            / (beta1 * y_wall * y_wall);
         omega[0] = omega_wall;
 
         let omega_ratio = omega[0] / expected_omega_wall;
@@ -117,7 +121,8 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
         for (nu_tilde, nu, expected_nu_t) in test_cases {
             let nu_t = model.eddy_viscosity(nu_tilde, nu);
             let ratio = nu_t / expected_nu_t;
-            let passed = (ratio - T::one()).abs() < T::from_f64(0.01).unwrap_or_else(num_traits::Zero::zero);
+            let passed =
+                (ratio - T::one()).abs() < T::from_f64(0.01).unwrap_or_else(num_traits::Zero::zero);
 
             passed_all &= passed;
             let _ = writeln!(
@@ -148,7 +153,8 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
             "k-epsilon" => {
                 let mut model = KEpsilonModel::new(nx, ny);
                 let mut k = vec![T::from_f64(0.1).unwrap_or_else(num_traits::Zero::zero); nx * ny];
-                let mut epsilon = vec![T::from_f64(0.01).unwrap_or_else(num_traits::Zero::zero); nx * ny];
+                let mut epsilon =
+                    vec![T::from_f64(0.01).unwrap_or_else(num_traits::Zero::zero); nx * ny];
 
                 for _ in 0..5 {
                     model
@@ -170,7 +176,8 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
             "k-omega-sst" => {
                 let mut model = KOmegaSSTModel::new(nx, ny);
                 let mut k = vec![T::from_f64(0.1).unwrap_or_else(num_traits::Zero::zero); nx * ny];
-                let mut omega = vec![T::from_f64(10.0).unwrap_or_else(num_traits::Zero::zero); nx * ny];
+                let mut omega =
+                    vec![T::from_f64(10.0).unwrap_or_else(num_traits::Zero::zero); nx * ny];
 
                 for _ in 0..5 {
                     model
@@ -191,7 +198,8 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
             }
             "spalart-allmaras" => {
                 let _model = SpalartAllmaras::new(nx, ny);
-                let mut nu_tilde = vec![T::from_f64(1e-4).unwrap_or_else(num_traits::Zero::zero); nx * ny];
+                let mut nu_tilde =
+                    vec![T::from_f64(1e-4).unwrap_or_else(num_traits::Zero::zero); nx * ny];
 
                 for _ in 0..5 {
                     _model

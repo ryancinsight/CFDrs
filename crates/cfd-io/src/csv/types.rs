@@ -93,8 +93,8 @@ impl<T: RealField + Copy> TimeSeriesData<T> {
     }
 
     /// Get data for a specific variable
-    pub fn get_variable(&self, index: usize) -> Option<&Vec<T>> {
-        self.data.get(index)
+    pub fn get_variable(&self, index: usize) -> Option<&[T]> {
+        self.data.get(index).map(Vec::as_slice)
     }
 
     /// Get data for a specific time step

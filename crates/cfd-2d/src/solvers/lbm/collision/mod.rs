@@ -15,7 +15,6 @@
 
 mod bgk;
 mod mrt;
-mod regularized;
 mod traits;
 
 pub use bgk::BgkCollision;

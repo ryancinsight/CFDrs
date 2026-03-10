@@ -478,6 +478,6 @@ fn test_gmres_zero_restart_dim_panics() {
     let _solver = GMRES::<f64>::new(config, 0);
 }
 
+mod adversarial_solver_tests;
 mod edge_case_tests;
 mod extended_edge_case_tests;
-mod adversarial_solver_tests;

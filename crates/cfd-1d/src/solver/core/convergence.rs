@@ -21,7 +21,20 @@
 //! ‖ x_k  −  x_{k−1} ‖₂  /  max(‖ x_k ‖₂, ε_float)  <  ε
 //! ```
 //!
-//! Both criteria must be satisfied simultaneously (`has_converged_dual`) to confirm:
+//! The outer criterion in this crate accepts either:
+//! - a small **relative residual** `‖r‖/‖b‖ < ε`,
+//! - a small **absolute residual** `‖r‖ < ε` only when `‖b‖` itself is
+//!   effectively zero,
+//! - a numerically stalled residual floor `‖r‖/‖b‖ < 100 ε` once the fixed-point
+//!   update itself has collapsed to machine precision,
+//!
+//! together with the fixed-point change test. The absolute fallback matters for
+//! millifluidic networks whose assembled right-hand side can become very small
+//! after Dirichlet elimination or normalized-flow scaling, even when the actual
+//! linear residual is already within the target solver tolerance.
+//!
+//! Both the fixed-point change criterion and one residual criterion must hold
+//! simultaneously (`has_converged_dual`) to confirm:
 //! 1. The linear system was solved accurately (residual criterion).
 //! 2. The outer Picard iteration found a fixed point (change criterion).
 //!
@@ -131,7 +144,15 @@ impl<T: RealField + Copy> ConvergenceChecker<T> {
         Ok(change < self.tolerance)
     }
 
-    /// Check if solution has converged using both solution change and residual norm
+    /// Check if solution has converged using both solution change and residual norm.
+    ///
+    /// The residual gate is satisfied when either the relative residual is
+    /// below tolerance, or the assembled right-hand side is itself effectively
+    /// zero and the absolute residual is below tolerance. A numerically stalled
+    /// Picard update also accepts a bounded relative residual floor of `100 ε`.
+    /// This avoids rejecting otherwise converged reduced-order network solves
+    /// merely because `‖b‖₂` is tiny or the linear residual has plateaued above
+    /// the nominal absolute tolerance while the iterate itself is unchanged.
     pub fn has_converged_dual(
         &self,
         current: &DVector<T>,
@@ -161,12 +182,19 @@ impl<T: RealField + Copy> ConvergenceChecker<T> {
         } else {
             residual_norm
         };
+        let stagnation_floor = self.tolerance
+            * T::from_f64(100.0).expect("Mathematical constant conversion compromised");
+        let rhs_effectively_zero = rhs_norm <= self.tolerance.max(T::default_epsilon());
+        let residual_converged = relative_residual < self.tolerance
+            || (rhs_effectively_zero && residual_norm < self.tolerance)
+            || (relative_change <= T::default_epsilon() && relative_residual < stagnation_floor);
 
-        // Converged if BOTH relative change AND relative residual are below tolerance
+        // Converged if the fixed-point iterate is stable and the linear residual
+        // is small in either relative or absolute terms.
         // This ensures that we have found a fixed point of the non-linear iteration (Picard)
         // AND that the linear system was solved to sufficient accuracy.
         // Checking only residual (linear residual) is insufficient because it is minimized
         // by the linear solver in each step, regardless of whether the non-linear problem is solved.
-        Ok(relative_change < self.tolerance && relative_residual < self.tolerance)
+        Ok(relative_change < self.tolerance && residual_converged)
     }
 }

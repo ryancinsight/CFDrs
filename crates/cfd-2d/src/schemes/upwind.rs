@@ -78,7 +78,7 @@
 //! $0 \le \phi(r) \le \min(2r, 2)$ and $\phi(1) = 1$. The implemented scheme
 //! enforces these bounds, guaranteeing monotonicity preservation.
 
-use super::{FaceReconstruction, Grid2D, SpatialDiscretization};
+use super::{FaceReconstruction, Grid2D};
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 
@@ -156,29 +156,6 @@ impl<T: RealField + Copy + FromPrimitive + Copy> FaceReconstruction<T> for First
 
     fn order(&self) -> usize {
         1
-    }
-}
-
-// Keep backward compatibility with old interface (deprecated)
-impl<T: RealField + Copy + FromPrimitive + Copy> SpatialDiscretization<T> for FirstOrderUpwind<T> {
-    fn compute_derivative(&self, _grid: &Grid2D<T>, _i: usize, _j: usize) -> T {
-        // Return zero as a safe default for deprecated interface
-        // Users should migrate to FaceReconstruction trait
-        T::zero()
-    }
-
-    fn order(&self) -> usize {
-        1
-    }
-
-    fn is_conservative(&self) -> bool {
-        true
-    }
-
-    /// CFL limit for first-order upwind: CFL ≤ 1
-    /// The scheme is stable for all CFL ≤ 1
-    fn cfl_limit(&self) -> f64 {
-        1.0
     }
 }
 
@@ -270,28 +247,5 @@ impl<T: RealField + Copy + FromPrimitive + Copy> FaceReconstruction<T> for Secon
 
     fn order(&self) -> usize {
         2
-    }
-}
-
-// Keep backward compatibility with old interface (deprecated)
-impl<T: RealField + Copy + FromPrimitive + Copy> SpatialDiscretization<T> for SecondOrderUpwind<T> {
-    fn compute_derivative(&self, _grid: &Grid2D<T>, _i: usize, _j: usize) -> T {
-        // Return zero as a safe default for deprecated interface
-        // Users should migrate to FaceReconstruction trait
-        T::zero()
-    }
-
-    fn order(&self) -> usize {
-        2
-    }
-
-    fn is_conservative(&self) -> bool {
-        true
-    }
-
-    /// CFL limit for second-order upwind: CFL ≤ 1
-    /// With proper limiters, the scheme maintains stability up to CFL = 1
-    fn cfl_limit(&self) -> f64 {
-        1.0
     }
 }

@@ -49,24 +49,22 @@ pub(super) fn apply_west_boundary<T: RealField + Copy + FromPrimitive>(
                 };
                 rhs[idx] = velocity[component_idx];
             }
-            BoundaryCondition::Wall { wall_type } => {
-                match wall_type {
-                    cfd_core::physics::boundary::WallType::NoSlip => {
-                        rhs[idx] = T::zero();
-                    }
-                    cfd_core::physics::boundary::WallType::Slip => {}
-                    cfd_core::physics::boundary::WallType::Moving { velocity } => {
-                        let component_idx = match component {
-                            MomentumComponent::U => 0,
-                            MomentumComponent::V => 1,
-                        };
-                        rhs[idx] = velocity[component_idx];
-                    }
-                    cfd_core::physics::boundary::WallType::Rotating { omega, center } => {
-                        rhs[idx] = apply_rotating_wall_bc(component, omega, center, grid, idx);
-                    }
+            BoundaryCondition::Wall { wall_type } => match wall_type {
+                cfd_core::physics::boundary::WallType::NoSlip => {
+                    rhs[idx] = T::zero();
                 }
-            }
+                cfd_core::physics::boundary::WallType::Slip => {}
+                cfd_core::physics::boundary::WallType::Moving { velocity } => {
+                    let component_idx = match component {
+                        MomentumComponent::U => 0,
+                        MomentumComponent::V => 1,
+                    };
+                    rhs[idx] = velocity[component_idx];
+                }
+                cfd_core::physics::boundary::WallType::Rotating { omega, center } => {
+                    rhs[idx] = apply_rotating_wall_bc(component, omega, center, grid, idx);
+                }
+            },
             BoundaryCondition::Neumann { gradient } => {
                 if *gradient == T::zero() {
                     matrix.add_entry(idx, idx, T::one())?;
@@ -165,24 +163,22 @@ pub(super) fn apply_east_boundary<T: RealField + Copy + FromPrimitive>(
                 };
                 rhs[idx] = velocity[component_idx];
             }
-            BoundaryCondition::Wall { wall_type } => {
-                match wall_type {
-                    cfd_core::physics::boundary::WallType::NoSlip => {
-                        rhs[idx] = T::zero();
-                    }
-                    cfd_core::physics::boundary::WallType::Slip => {}
-                    cfd_core::physics::boundary::WallType::Moving { velocity } => {
-                        let component_idx = match component {
-                            MomentumComponent::U => 0,
-                            MomentumComponent::V => 1,
-                        };
-                        rhs[idx] = velocity[component_idx];
-                    }
-                    cfd_core::physics::boundary::WallType::Rotating { omega, center } => {
-                        rhs[idx] = apply_rotating_wall_bc(component, omega, center, grid, idx);
-                    }
+            BoundaryCondition::Wall { wall_type } => match wall_type {
+                cfd_core::physics::boundary::WallType::NoSlip => {
+                    rhs[idx] = T::zero();
                 }
-            }
+                cfd_core::physics::boundary::WallType::Slip => {}
+                cfd_core::physics::boundary::WallType::Moving { velocity } => {
+                    let component_idx = match component {
+                        MomentumComponent::U => 0,
+                        MomentumComponent::V => 1,
+                    };
+                    rhs[idx] = velocity[component_idx];
+                }
+                cfd_core::physics::boundary::WallType::Rotating { omega, center } => {
+                    rhs[idx] = apply_rotating_wall_bc(component, omega, center, grid, idx);
+                }
+            },
             BoundaryCondition::Neumann { gradient } => {
                 if *gradient == T::zero() {
                     matrix.add_entry(idx, idx, T::one())?;
@@ -256,24 +252,22 @@ pub(super) fn apply_north_boundary<T: RealField + Copy + FromPrimitive>(
                 };
                 rhs[idx] = velocity[component_idx];
             }
-            BoundaryCondition::Wall { wall_type } => {
-                match wall_type {
-                    cfd_core::physics::boundary::WallType::NoSlip => {
-                        rhs[idx] = T::zero();
-                    }
-                    cfd_core::physics::boundary::WallType::Slip => {}
-                    cfd_core::physics::boundary::WallType::Moving { velocity } => {
-                        let component_idx = match component {
-                            MomentumComponent::U => 0,
-                            MomentumComponent::V => 1,
-                        };
-                        rhs[idx] = velocity[component_idx];
-                    }
-                    cfd_core::physics::boundary::WallType::Rotating { omega, center } => {
-                        rhs[idx] = apply_rotating_wall_bc(component, omega, center, grid, idx);
-                    }
+            BoundaryCondition::Wall { wall_type } => match wall_type {
+                cfd_core::physics::boundary::WallType::NoSlip => {
+                    rhs[idx] = T::zero();
                 }
-            }
+                cfd_core::physics::boundary::WallType::Slip => {}
+                cfd_core::physics::boundary::WallType::Moving { velocity } => {
+                    let component_idx = match component {
+                        MomentumComponent::U => 0,
+                        MomentumComponent::V => 1,
+                    };
+                    rhs[idx] = velocity[component_idx];
+                }
+                cfd_core::physics::boundary::WallType::Rotating { omega, center } => {
+                    rhs[idx] = apply_rotating_wall_bc(component, omega, center, grid, idx);
+                }
+            },
             BoundaryCondition::Neumann { gradient } => {
                 if *gradient == T::zero() {
                     matrix.add_entry(idx, idx, T::one())?;
@@ -347,24 +341,22 @@ pub(super) fn apply_south_boundary<T: RealField + Copy + FromPrimitive>(
                 };
                 rhs[idx] = velocity[component_idx];
             }
-            BoundaryCondition::Wall { wall_type } => {
-                match wall_type {
-                    cfd_core::physics::boundary::WallType::NoSlip => {
-                        rhs[idx] = T::zero();
-                    }
-                    cfd_core::physics::boundary::WallType::Slip => {}
-                    cfd_core::physics::boundary::WallType::Moving { velocity } => {
-                        let component_idx = match component {
-                            MomentumComponent::U => 0,
-                            MomentumComponent::V => 1,
-                        };
-                        rhs[idx] = velocity[component_idx];
-                    }
-                    cfd_core::physics::boundary::WallType::Rotating { omega, center } => {
-                        rhs[idx] = apply_rotating_wall_bc(component, omega, center, grid, idx);
-                    }
+            BoundaryCondition::Wall { wall_type } => match wall_type {
+                cfd_core::physics::boundary::WallType::NoSlip => {
+                    rhs[idx] = T::zero();
                 }
-            }
+                cfd_core::physics::boundary::WallType::Slip => {}
+                cfd_core::physics::boundary::WallType::Moving { velocity } => {
+                    let component_idx = match component {
+                        MomentumComponent::U => 0,
+                        MomentumComponent::V => 1,
+                    };
+                    rhs[idx] = velocity[component_idx];
+                }
+                cfd_core::physics::boundary::WallType::Rotating { omega, center } => {
+                    rhs[idx] = apply_rotating_wall_bc(component, omega, center, grid, idx);
+                }
+            },
             BoundaryCondition::Neumann { gradient } => {
                 if *gradient == T::zero() {
                     matrix.add_entry(idx, idx, T::one())?;

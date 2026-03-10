@@ -3,7 +3,7 @@
 //! Demonstrates the two-phase schematic-driven pattern for cfd-2d:
 //!
 //! **Phase 1 — Design (cfd-schematics)**
-//! - Define Venturi topology as `ChannelSystem` (5 nodes, 4 channels)
+//! - Define Venturi topology as `NetworkBlueprint` (5 nodes, 4 channels)
 //! - Render schematic PNG → `outputs/venturi_schematic.png`
 //!
 //! **Phase 2 — Simulation (cfd-2d)**
@@ -14,9 +14,9 @@
 //! Run with:
 //! `cargo run -p cfd-2d --example venturi_schematic`
 
-use cfd_2d::solvers::ns_fvm_2d::BloodModel;
+use cfd_2d::solvers::ns_fvm::BloodModel;
 use cfd_2d::solvers::venturi_flow::{BernoulliVenturi, VenturiGeometry, VenturiSolver2D};
-use cfd_schematics::geometry::types::{Channel, ChannelSystem, ChannelType, Node};
+use cfd_schematics::domain::model::{ChannelSpec, NetworkBlueprint, NodeKind, NodeSpec};
 use cfd_schematics::visualizations::{
     create_plotters_renderer, AnalysisField, AnalysisOverlay, ColormapKind, RenderConfig,
     SchematicRenderer,
@@ -51,79 +51,38 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let w_throat = 7.07; // mm — throat width (√2 ratio)
     let w_mid = (w_inlet + w_throat) / 2.0;
 
-    let nodes: Vec<Node> = vec![
-        Node {
-            id: 0,
-            point: (x0, y),
-            metadata: None,
-        },
-        Node {
-            id: 1,
-            point: (x1, y),
-            metadata: None,
-        },
-        Node {
-            id: 2,
-            point: (x2, y),
-            metadata: None,
-        },
-        Node {
-            id: 3,
-            point: (x3, y),
-            metadata: None,
-        },
-        Node {
-            id: 4,
-            point: (x4, y),
-            metadata: None,
-        },
-    ];
+    let mut system = NetworkBlueprint::new("venturi-iso5167");
+    system.box_dims = (x4 + 2.0, y * 2.0);
 
-    let channels: Vec<Channel> = vec![
-        Channel {
-            id: 0,
-            from_node: 0,
-            to_node: 1,
-            width: w_inlet,
-            height: 1.0,
-            channel_type: ChannelType::Straight,
-            metadata: None,
-        },
-        Channel {
-            id: 1,
-            from_node: 1,
-            to_node: 2,
-            width: w_mid,
-            height: 1.0,
-            channel_type: ChannelType::Straight,
-            metadata: None,
-        },
-        Channel {
-            id: 2,
-            from_node: 2,
-            to_node: 3,
-            width: w_throat,
-            height: 1.0,
-            channel_type: ChannelType::Straight,
-            metadata: None,
-        },
-        Channel {
-            id: 3,
-            from_node: 3,
-            to_node: 4,
-            width: w_mid,
-            height: 1.0,
-            channel_type: ChannelType::Straight,
-            metadata: None,
-        },
-    ];
+    for (id, px, py, kind) in [
+        ("n0", x0, y, NodeKind::Inlet),
+        ("n1", x1, y, NodeKind::Junction),
+        ("n2", x2, y, NodeKind::Junction),
+        ("n3", x3, y, NodeKind::Junction),
+        ("n4", x4, y, NodeKind::Outlet),
+    ] {
+        system.add_node(NodeSpec::new(id, kind).with_point((px, py)));
+    }
 
-    let system = ChannelSystem {
-        box_dims: (x4 + 2.0, y * 2.0),
-        nodes,
-        channels,
-        box_outline: vec![],
-    };
+    let height_m = 1.0 / 1000.0;
+    for (id, from, to, width_mm) in [
+        ("ch0", "n0", "n1", w_inlet),
+        ("ch1", "n1", "n2", w_mid),
+        ("ch2", "n2", "n3", w_throat),
+        ("ch3", "n3", "n4", w_mid),
+    ] {
+        let length_m = (width_mm * std::f64::consts::SQRT_2) / 1000.0;
+        system.add_channel(ChannelSpec::new_pipe_rect(
+            id,
+            from,
+            to,
+            length_m,
+            width_mm / 1000.0,
+            height_m,
+            1.0,
+            0.0,
+        ));
+    }
 
     let renderer = create_plotters_renderer();
     let schematic_cfg = RenderConfig {

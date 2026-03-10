@@ -1,0 +1,1313 @@
+{
+  "name": "Generated Schematic",
+  "box_dims": [
+    300.0,
+    150.0
+  ],
+  "box_outline": [
+    [
+      [
+        0.0,
+        0.0
+      ],
+      [
+        300.0,
+        0.0
+      ]
+    ],
+    [
+      [
+        300.0,
+        0.0
+      ],
+      [
+        300.0,
+        150.0
+      ]
+    ],
+    [
+      [
+        300.0,
+        150.0
+      ],
+      [
+        0.0,
+        150.0
+      ]
+    ],
+    [
+      [
+        0.0,
+        150.0
+      ],
+      [
+        0.0,
+        0.0
+      ]
+    ]
+  ],
+  "nodes": [
+    {
+      "id": "node_0",
+      "kind": "Inlet",
+      "point": [
+        0.0,
+        75.0
+      ]
+    },
+    {
+      "id": "node_1",
+      "kind": "Junction",
+      "point": [
+        30.0,
+        75.0
+      ]
+    },
+    {
+      "id": "node_2",
+      "kind": "Junction",
+      "point": [
+        60.0,
+        38.625
+      ]
+    },
+    {
+      "id": "node_3",
+      "kind": "Junction",
+      "point": [
+        60.0,
+        111.375
+      ]
+    },
+    {
+      "id": "node_4",
+      "kind": "Junction",
+      "point": [
+        90.0,
+        38.625
+      ]
+    },
+    {
+      "id": "node_5",
+      "kind": "Junction",
+      "point": [
+        90.0,
+        111.375
+      ]
+    },
+    {
+      "id": "node_6",
+      "kind": "Junction",
+      "point": [
+        120.0,
+        14.958333333333332
+      ]
+    },
+    {
+      "id": "node_7",
+      "kind": "Junction",
+      "point": [
+        120.0,
+        38.625
+      ]
+    },
+    {
+      "id": "node_8",
+      "kind": "Junction",
+      "point": [
+        120.0,
+        62.29166666666666
+      ]
+    },
+    {
+      "id": "node_9",
+      "kind": "Junction",
+      "point": [
+        120.0,
+        87.70833333333333
+      ]
+    },
+    {
+      "id": "node_10",
+      "kind": "Junction",
+      "point": [
+        120.0,
+        111.37499999999999
+      ]
+    },
+    {
+      "id": "node_11",
+      "kind": "Junction",
+      "point": [
+        120.0,
+        135.04166666666666
+      ]
+    },
+    {
+      "id": "node_12",
+      "kind": "Junction",
+      "point": [
+        150.0,
+        14.958333333333332
+      ]
+    },
+    {
+      "id": "node_13",
+      "kind": "Junction",
+      "point": [
+        150.0,
+        38.625
+      ]
+    },
+    {
+      "id": "node_14",
+      "kind": "Junction",
+      "point": [
+        150.0,
+        62.29166666666666
+      ]
+    },
+    {
+      "id": "node_15",
+      "kind": "Junction",
+      "point": [
+        150.0,
+        87.70833333333333
+      ]
+    },
+    {
+      "id": "node_16",
+      "kind": "Junction",
+      "point": [
+        150.0,
+        111.37499999999999
+      ]
+    },
+    {
+      "id": "node_17",
+      "kind": "Junction",
+      "point": [
+        150.0,
+        135.04166666666666
+      ]
+    },
+    {
+      "id": "node_18",
+      "kind": "Junction",
+      "point": [
+        180.0,
+        14.958333333333332
+      ]
+    },
+    {
+      "id": "node_19",
+      "kind": "Junction",
+      "point": [
+        180.0,
+        38.625
+      ]
+    },
+    {
+      "id": "node_20",
+      "kind": "Junction",
+      "point": [
+        180.0,
+        62.29166666666666
+      ]
+    },
+    {
+      "id": "node_21",
+      "kind": "Junction",
+      "point": [
+        180.0,
+        87.70833333333333
+      ]
+    },
+    {
+      "id": "node_22",
+      "kind": "Junction",
+      "point": [
+        180.0,
+        111.37499999999999
+      ]
+    },
+    {
+      "id": "node_23",
+      "kind": "Junction",
+      "point": [
+        180.0,
+        135.04166666666666
+      ]
+    },
+    {
+      "id": "node_24",
+      "kind": "Junction",
+      "point": [
+        210.0,
+        38.62499999999999
+      ]
+    },
+    {
+      "id": "node_25",
+      "kind": "Junction",
+      "point": [
+        210.0,
+        111.375
+      ]
+    },
+    {
+      "id": "node_26",
+      "kind": "Junction",
+      "point": [
+        240.0,
+        38.62499999999999
+      ]
+    },
+    {
+      "id": "node_27",
+      "kind": "Junction",
+      "point": [
+        240.0,
+        111.375
+      ]
+    },
+    {
+      "id": "node_28",
+      "kind": "Junction",
+      "point": [
+        270.0,
+        75.0
+      ]
+    },
+    {
+      "id": "node_29",
+      "kind": "Outlet",
+      "point": [
+        300.0,
+        75.0
+      ]
+    }
+  ],
+  "channels": [
+    {
+      "id": "ch_0",
+      "kind": "Pipe",
+      "from": "node_0",
+      "to": "node_1",
+      "length_m": 0.03,
+      "cross_section": {
+        "Rectangular": {
+          "width_m": 0.001,
+          "height_m": 0.0005
+        }
+      },
+      "channel_shape": "Straight",
+      "resistance": 0.0,
+      "quad_coeff": 0.0,
+      "valve_cv": null,
+      "pump_max_flow": null,
+      "pump_max_pressure": null,
+      "visual_role": null,
+      "path": [
+        [
+          0.0,
+          75.0
+        ],
+        [
+          30.0,
+          75.0
+        ]
+      ]
+    },
+    {
+      "id": "ch_1",
+      "kind": "Pipe",
+      "from": "node_1",
+      "to": "node_2",
+      "length_m": 0.047150192205334646,
+      "cross_section": {
+        "Rectangular": {
+          "width_m": 0.0008823804282084509,
+          "height_m": 0.0005
+        }
+      },
+      "channel_shape": "Straight",
+      "resistance": 0.0,
+      "quad_coeff": 0.0,
+      "valve_cv": null,
+      "pump_max_flow": null,
+      "pump_max_pressure": null,
+      "visual_role": null,
+      "path": [
+        [
+          30.0,
+          75.0
+        ],
+        [
+          60.0,
+          38.625
+        ]
+      ]
+    },
+    {
+      "id": "ch_2",
+      "kind": "Pipe",
+      "from": "node_1",
+      "to": "node_3",
+      "length_m": 0.047150192205334646,
+      "cross_section": {
+        "Rectangular": {
+          "width_m": 0.0008823804282084509,
+          "height_m": 0.0005
+        }
+      },
+      "channel_shape": "Straight",
+      "resistance": 0.0,
+      "quad_coeff": 0.0,
+      "valve_cv": null,
+      "pump_max_flow": null,
+      "pump_max_pressure": null,
+      "visual_role": null,
+      "path": [
+        [
+          30.0,
+          75.0
+        ],
+        [
+          60.0,
+          111.375
+        ]
+      ]
+    },
+    {
+      "id": "ch_3",
+      "kind": "Pipe",
+      "from": "node_2",
+      "to": "node_4",
+      "length_m": 0.03,
+      "cross_section": {
+        "Rectangular": {
+          "width_m": 0.0006710301229087908,
+          "height_m": 0.0005
+        }
+      },
+      "channel_shape": "Straight",
+      "resistance": 0.0,
+      "quad_coeff": 0.0,
+      "valve_cv": null,
+      "pump_max_flow": null,
+      "pump_max_pressure": null,
+      "visual_role": null,
+      "path": [
+        [
+          60.0,
+          38.625
+        ],
+        [
+          90.0,
+          38.625
+        ]
+      ]
+    },
+    {
+      "id": "ch_4",
+      "kind": "Pipe",
+      "from": "node_3",
+      "to": "node_5",
+      "length_m": 0.03,
+      "cross_section": {
+        "Rectangular": {
+          "width_m": 0.0006710301229087908,
+          "height_m": 0.0005
+        }
+      },
+      "channel_shape": "Straight",
+      "resistance": 0.0,
+      "quad_coeff": 0.0,
+      "valve_cv": null,
+      "pump_max_flow": null,
+      "pump_max_pressure": null,
+      "visual_role": null,
+      "path": [
+        [
+          60.0,
+          111.375
+        ],
+        [
+          90.0,
+          111.375
+        ]
+      ]
+    },
+    {
+      "id": "ch_5",
+      "kind": "Pipe",
+      "from": "node_4",
+      "to": "node_6",
+      "length_m": 0.03821140027676441,
+      "cross_section": {
+        "Rectangular": {
+          "width_m": 0.0005759696151656156,
+          "height_m": 0.0005
+        }
+      },
+      "channel_shape": "Straight",
+      "resistance": 0.0,
+      "quad_coeff": 0.0,
+      "valve_cv": null,
+      "pump_max_flow": null,
+      "pump_max_pressure": null,
+      "visual_role": null,
+      "path": [
+        [
+          90.0,
+          38.625
+        ],
+        [
+          120.0,
+          14.958333333333332
+        ]
+      ]
+    },
+    {
+      "id": "ch_6",
+      "kind": "Pipe",
+      "from": "node_4",
+      "to": "node_7",
+      "length_m": 0.03,
+      "cross_section": {
+        "Rectangular": {
+          "width_m": 0.0006710301229087908,
+          "height_m": 0.0005
+        }
+      },
+      "channel_shape": "Straight",
+      "resistance": 0.0,
+      "quad_coeff": 0.0,
+      "valve_cv": null,
+      "pump_max_flow": null,
+      "pump_max_pressure": null,
+      "visual_role": null,
+      "path": [
+        [
+          90.0,
+          38.625
+        ],
+        [
+          120.0,
+          38.625
+        ]
+      ]
+    },
+    {
+      "id": "ch_7",
+      "kind": "Pipe",
+      "from": "node_4",
+      "to": "node_8",
+      "length_m": 0.0382114002767644,
+      "cross_section": {
+        "Rectangular": {
+          "width_m": 0.0008068270067228185,
+          "height_m": 0.0005
+        }
+      },
+      "channel_shape": "Straight",
+      "resistance": 0.0,
+      "quad_coeff": 0.0,
+      "valve_cv": null,
+      "pump_max_flow": null,
+      "pump_max_pressure": null,
+      "visual_role": null,
+      "path": [
+        [
+          90.0,
+          38.625
+        ],
+        [
+          120.0,
+          62.29166666666666
+        ]
+      ]
+    },
+    {
+      "id": "ch_8",
+      "kind": "Pipe",
+      "from": "node_5",
+      "to": "node_9",
+      "length_m": 0.03821140027676441,
+      "cross_section": {
+        "Rectangular": {
+          "width_m": 0.0008068270067228186,
+          "height_m": 0.0005
+        }
+      },
+      "channel_shape": "Straight",
+      "resistance": 0.0,
+      "quad_coeff": 0.0,
+      "valve_cv": null,
+      "pump_max_flow": null,
+      "pump_max_pressure": null,
+      "visual_role": null,
+      "path": [
+        [
+          90.0,
+          111.375
+        ],
+        [
+          120.0,
+          87.70833333333333
+        ]
+      ]
+    },
+    {
+      "id": "ch_9",
+      "kind": "Pipe",
+      "from": "node_5",
+      "to": "node_10",
+      "length_m": 0.03,
+      "cross_section": {
+        "Rectangular": {
+          "width_m": 0.0006710301229087908,
+          "height_m": 0.0005
+        }
+      },
+      "channel_shape": "Straight",
+      "resistance": 0.0,
+      "quad_coeff": 0.0,
+      "valve_cv": null,
+      "pump_max_flow": null,
+      "pump_max_pressure": null,
+      "visual_role": null,
+      "path": [
+        [
+          90.0,
+          111.375
+        ],
+        [
+          120.0,
+          111.37499999999999
+        ]
+      ]
+    },
+    {
+      "id": "ch_10",
+      "kind": "Pipe",
+      "from": "node_5",
+      "to": "node_11",
+      "length_m": 0.0382114002767644,
+      "cross_section": {
+        "Rectangular": {
+          "width_m": 0.0005759696151656157,
+          "height_m": 0.0005
+        }
+      },
+      "channel_shape": "Straight",
+      "resistance": 0.0,
+      "quad_coeff": 0.0,
+      "valve_cv": null,
+      "pump_max_flow": null,
+      "pump_max_pressure": null,
+      "visual_role": null,
+      "path": [
+        [
+          90.0,
+          111.375
+        ],
+        [
+          120.0,
+          135.04166666666666
+        ]
+      ]
+    },
+    {
+      "id": "ch_11",
+      "kind": "Pipe",
+      "from": "node_6",
+      "to": "node_12",
+      "length_m": 0.03,
+      "cross_section": {
+        "Rectangular": {
+          "width_m": 0.0005268902932933253,
+          "height_m": 0.0005
+        }
+      },
+      "channel_shape": "Straight",
+      "resistance": 0.0,
+      "quad_coeff": 0.0,
+      "valve_cv": null,
+      "pump_max_flow": null,
+      "pump_max_pressure": null,
+      "visual_role": null,
+      "path": [
+        [
+          120.0,
+          14.958333333333332
+        ],
+        [
+          150.0,
+          14.958333333333332
+        ]
+      ]
+    },
+    {
+      "id": "ch_12",
+      "kind": "Pipe",
+      "from": "node_7",
+      "to": "node_13",
+      "length_m": 0.03,
+      "cross_section": {
+        "Rectangular": {
+          "width_m": 0.0006710301229087908,
+          "height_m": 0.0005
+        }
+      },
+      "channel_shape": "Straight",
+      "resistance": 0.0,
+      "quad_coeff": 0.0,
+      "valve_cv": null,
+      "pump_max_flow": null,
+      "pump_max_pressure": null,
+      "visual_role": null,
+      "path": [
+        [
+          120.0,
+          38.625
+        ],
+        [
+          150.0,
+          38.625
+        ]
+      ]
+    },
+    {
+      "id": "ch_13",
+      "kind": "Pipe",
+      "from": "node_8",
+      "to": "node_14",
+      "length_m": 0.03,
+      "cross_section": {
+        "Rectangular": {
+          "width_m": 0.0009386345661554371,
+          "height_m": 0.0005
+        }
+      },
+      "channel_shape": "Straight",
+      "resistance": 0.0,
+      "quad_coeff": 0.0,
+      "valve_cv": null,
+      "pump_max_flow": null,
+      "pump_max_pressure": null,
+      "visual_role": null,
+      "path": [
+        [
+          120.0,
+          62.29166666666666
+        ],
+        [
+          150.0,
+          62.29166666666666
+        ]
+      ]
+    },
+    {
+      "id": "ch_14",
+      "kind": "Pipe",
+      "from": "node_9",
+      "to": "node_15",
+      "length_m": 0.03,
+      "cross_section": {
+        "Rectangular": {
+          "width_m": 0.0009386345661554373,
+          "height_m": 0.0005
+        }
+      },
+      "channel_shape": "Straight",
+      "resistance": 0.0,
+      "quad_coeff": 0.0,
+      "valve_cv": null,
+      "pump_max_flow": null,
+      "pump_max_pressure": null,
+      "visual_role": null,
+      "path": [
+        [
+          120.0,
+          87.70833333333333
+        ],
+        [
+          150.0,
+          87.70833333333333
+        ]
+      ]
+    },
+    {
+      "id": "ch_15",
+      "kind": "Pipe",
+      "from": "node_10",
+      "to": "node_16",
+      "length_m": 0.03,
+      "cross_section": {
+        "Rectangular": {
+          "width_m": 0.0006710301229087909,
+          "height_m": 0.0005
+        }
+      },
+      "channel_shape": "Straight",
+      "resistance": 0.0,
+      "quad_coeff": 0.0,
+      "valve_cv": null,
+      "pump_max_flow": null,
+      "pump_max_pressure": null,
+      "visual_role": null,
+      "path": [
+        [
+          120.0,
+          111.37499999999999
+        ],
+        [
+          150.0,
+          111.37499999999999
+        ]
+      ]
+    },
+    {
+      "id": "ch_16",
+      "kind": "Pipe",
+      "from": "node_11",
+      "to": "node_17",
+      "length_m": 0.03,
+      "cross_section": {
+        "Rectangular": {
+          "width_m": 0.0005268902932933254,
+          "height_m": 0.0005
+        }
+      },
+      "channel_shape": "Straight",
+      "resistance": 0.0,
+      "quad_coeff": 0.0,
+      "valve_cv": null,
+      "pump_max_flow": null,
+      "pump_max_pressure": null,
+      "visual_role": null,
+      "path": [
+        [
+          120.0,
+          135.04166666666666
+        ],
+        [
+          150.0,
+          135.04166666666666
+        ]
+      ]
+    },
+    {
+      "id": "ch_17",
+      "kind": "Pipe",
+      "from": "node_12",
+      "to": "node_18",
+      "length_m": 0.03,
+      "cross_section": {
+        "Rectangular": {
+          "width_m": 0.0005268902932933253,
+          "height_m": 0.0005
+        }
+      },
+      "channel_shape": "Straight",
+      "resistance": 0.0,
+      "quad_coeff": 0.0,
+      "valve_cv": null,
+      "pump_max_flow": null,
+      "pump_max_pressure": null,
+      "visual_role": null,
+      "path": [
+        [
+          150.0,
+          14.958333333333332
+        ],
+        [
+          180.0,
+          14.958333333333332
+        ]
+      ]
+    },
+    {
+      "id": "ch_18",
+      "kind": "Pipe",
+      "from": "node_13",
+      "to": "node_19",
+      "length_m": 0.03,
+      "cross_section": {
+        "Rectangular": {
+          "width_m": 0.0006710301229087908,
+          "height_m": 0.0005
+        }
+      },
+      "channel_shape": "Straight",
+      "resistance": 0.0,
+      "quad_coeff": 0.0,
+      "valve_cv": null,
+      "pump_max_flow": null,
+      "pump_max_pressure": null,
+      "visual_role": null,
+      "path": [
+        [
+          150.0,
+          38.625
+        ],
+        [
+          180.0,
+          38.625
+        ]
+      ]
+    },
+    {
+      "id": "ch_19",
+      "kind": "Pipe",
+      "from": "node_14",
+      "to": "node_20",
+      "length_m": 0.03,
+      "cross_section": {
+        "Rectangular": {
+          "width_m": 0.0009386345661554371,
+          "height_m": 0.0005
+        }
+      },
+      "channel_shape": "Straight",
+      "resistance": 0.0,
+      "quad_coeff": 0.0,
+      "valve_cv": null,
+      "pump_max_flow": null,
+      "pump_max_pressure": null,
+      "visual_role": null,
+      "path": [
+        [
+          150.0,
+          62.29166666666666
+        ],
+        [
+          180.0,
+          62.29166666666666
+        ]
+      ]
+    },
+    {
+      "id": "ch_20",
+      "kind": "Pipe",
+      "from": "node_15",
+      "to": "node_21",
+      "length_m": 0.03,
+      "cross_section": {
+        "Rectangular": {
+          "width_m": 0.0009386345661554373,
+          "height_m": 0.0005
+        }
+      },
+      "channel_shape": "Straight",
+      "resistance": 0.0,
+      "quad_coeff": 0.0,
+      "valve_cv": null,
+      "pump_max_flow": null,
+      "pump_max_pressure": null,
+      "visual_role": null,
+      "path": [
+        [
+          150.0,
+          87.70833333333333
+        ],
+        [
+          180.0,
+          87.70833333333333
+        ]
+      ]
+    },
+    {
+      "id": "ch_21",
+      "kind": "Pipe",
+      "from": "node_16",
+      "to": "node_22",
+      "length_m": 0.03,
+      "cross_section": {
+        "Rectangular": {
+          "width_m": 0.0006710301229087909,
+          "height_m": 0.0005
+        }
+      },
+      "channel_shape": "Straight",
+      "resistance": 0.0,
+      "quad_coeff": 0.0,
+      "valve_cv": null,
+      "pump_max_flow": null,
+      "pump_max_pressure": null,
+      "visual_role": null,
+      "path": [
+        [
+          150.0,
+          111.37499999999999
+        ],
+        [
+          180.0,
+          111.37499999999999
+        ]
+      ]
+    },
+    {
+      "id": "ch_22",
+      "kind": "Pipe",
+      "from": "node_17",
+      "to": "node_23",
+      "length_m": 0.03,
+      "cross_section": {
+        "Rectangular": {
+          "width_m": 0.0005268902932933254,
+          "height_m": 0.0005
+        }
+      },
+      "channel_shape": "Straight",
+      "resistance": 0.0,
+      "quad_coeff": 0.0,
+      "valve_cv": null,
+      "pump_max_flow": null,
+      "pump_max_pressure": null,
+      "visual_role": null,
+      "path": [
+        [
+          150.0,
+          135.04166666666666
+        ],
+        [
+          180.0,
+          135.04166666666666
+        ]
+      ]
+    },
+    {
+      "id": "ch_23",
+      "kind": "Pipe",
+      "from": "node_18",
+      "to": "node_24",
+      "length_m": 0.03821140027676441,
+      "cross_section": {
+        "Rectangular": {
+          "width_m": 0.0005759696151656156,
+          "height_m": 0.0005
+        }
+      },
+      "channel_shape": "Straight",
+      "resistance": 0.0,
+      "quad_coeff": 0.0,
+      "valve_cv": null,
+      "pump_max_flow": null,
+      "pump_max_pressure": null,
+      "visual_role": null,
+      "path": [
+        [
+          180.0,
+          14.958333333333332
+        ],
+        [
+          210.0,
+          38.62499999999999
+        ]
+      ]
+    },
+    {
+      "id": "ch_24",
+      "kind": "Pipe",
+      "from": "node_19",
+      "to": "node_24",
+      "length_m": 0.03,
+      "cross_section": {
+        "Rectangular": {
+          "width_m": 0.0006710301229087908,
+          "height_m": 0.0005
+        }
+      },
+      "channel_shape": "Straight",
+      "resistance": 0.0,
+      "quad_coeff": 0.0,
+      "valve_cv": null,
+      "pump_max_flow": null,
+      "pump_max_pressure": null,
+      "visual_role": null,
+      "path": [
+        [
+          180.0,
+          38.625
+        ],
+        [
+          210.0,
+          38.62499999999999
+        ]
+      ]
+    },
+    {
+      "id": "ch_25",
+      "kind": "Pipe",
+      "from": "node_20",
+      "to": "node_24",
+      "length_m": 0.03821140027676441,
+      "cross_section": {
+        "Rectangular": {
+          "width_m": 0.0008068270067228185,
+          "height_m": 0.0005
+        }
+      },
+      "channel_shape": "Straight",
+      "resistance": 0.0,
+      "quad_coeff": 0.0,
+      "valve_cv": null,
+      "pump_max_flow": null,
+      "pump_max_pressure": null,
+      "visual_role": null,
+      "path": [
+        [
+          180.0,
+          62.29166666666666
+        ],
+        [
+          210.0,
+          38.62499999999999
+        ]
+      ]
+    },
+    {
+      "id": "ch_26",
+      "kind": "Pipe",
+      "from": "node_21",
+      "to": "node_25",
+      "length_m": 0.03821140027676441,
+      "cross_section": {
+        "Rectangular": {
+          "width_m": 0.0008068270067228186,
+          "height_m": 0.0005
+        }
+      },
+      "channel_shape": "Straight",
+      "resistance": 0.0,
+      "quad_coeff": 0.0,
+      "valve_cv": null,
+      "pump_max_flow": null,
+      "pump_max_pressure": null,
+      "visual_role": null,
+      "path": [
+        [
+          180.0,
+          87.70833333333333
+        ],
+        [
+          210.0,
+          111.375
+        ]
+      ]
+    },
+    {
+      "id": "ch_27",
+      "kind": "Pipe",
+      "from": "node_22",
+      "to": "node_25",
+      "length_m": 0.03,
+      "cross_section": {
+        "Rectangular": {
+          "width_m": 0.0006710301229087908,
+          "height_m": 0.0005
+        }
+      },
+      "channel_shape": "Straight",
+      "resistance": 0.0,
+      "quad_coeff": 0.0,
+      "valve_cv": null,
+      "pump_max_flow": null,
+      "pump_max_pressure": null,
+      "visual_role": null,
+      "path": [
+        [
+          180.0,
+          111.37499999999999
+        ],
+        [
+          210.0,
+          111.375
+        ]
+      ]
+    },
+    {
+      "id": "ch_28",
+      "kind": "Pipe",
+      "from": "node_23",
+      "to": "node_25",
+      "length_m": 0.0382114002767644,
+      "cross_section": {
+        "Rectangular": {
+          "width_m": 0.0005759696151656157,
+          "height_m": 0.0005
+        }
+      },
+      "channel_shape": "Straight",
+      "resistance": 0.0,
+      "quad_coeff": 0.0,
+      "valve_cv": null,
+      "pump_max_flow": null,
+      "pump_max_pressure": null,
+      "visual_role": null,
+      "path": [
+        [
+          180.0,
+          135.04166666666666
+        ],
+        [
+          210.0,
+          111.375
+        ]
+      ]
+    },
+    {
+      "id": "ch_29",
+      "kind": "Pipe",
+      "from": "node_24",
+      "to": "node_26",
+      "length_m": 0.03,
+      "cross_section": {
+        "Rectangular": {
+          "width_m": 0.0006710301229087907,
+          "height_m": 0.0005
+        }
+      },
+      "channel_shape": "Straight",
+      "resistance": 0.0,
+      "quad_coeff": 0.0,
+      "valve_cv": null,
+      "pump_max_flow": null,
+      "pump_max_pressure": null,
+      "visual_role": null,
+      "path": [
+        [
+          210.0,
+          38.62499999999999
+        ],
+        [
+          240.0,
+          38.62499999999999
+        ]
+      ]
+    },
+    {
+      "id": "ch_30",
+      "kind": "Pipe",
+      "from": "node_25",
+      "to": "node_27",
+      "length_m": 0.03,
+      "cross_section": {
+        "Rectangular": {
+          "width_m": 0.0006710301229087908,
+          "height_m": 0.0005
+        }
+      },
+      "channel_shape": "Straight",
+      "resistance": 0.0,
+      "quad_coeff": 0.0,
+      "valve_cv": null,
+      "pump_max_flow": null,
+      "pump_max_pressure": null,
+      "visual_role": null,
+      "path": [
+        [
+          210.0,
+          111.375
+        ],
+        [
+          240.0,
+          111.375
+        ]
+      ]
+    },
+    {
+      "id": "ch_31",
+      "kind": "Pipe",
+      "from": "node_26",
+      "to": "node_28",
+      "length_m": 0.047150192205334646,
+      "cross_section": {
+        "Rectangular": {
+          "width_m": 0.0008823804282084509,
+          "height_m": 0.0005
+        }
+      },
+      "channel_shape": "Straight",
+      "resistance": 0.0,
+      "quad_coeff": 0.0,
+      "valve_cv": null,
+      "pump_max_flow": null,
+      "pump_max_pressure": null,
+      "visual_role": null,
+      "path": [
+        [
+          240.0,
+          38.62499999999999
+        ],
+        [
+          270.0,
+          75.0
+        ]
+      ]
+    },
+    {
+      "id": "ch_32",
+      "kind": "Pipe",
+      "from": "node_27",
+      "to": "node_28",
+      "length_m": 0.047150192205334646,
+      "cross_section": {
+        "Rectangular": {
+          "width_m": 0.0008823804282084509,
+          "height_m": 0.0005
+        }
+      },
+      "channel_shape": "Straight",
+      "resistance": 0.0,
+      "quad_coeff": 0.0,
+      "valve_cv": null,
+      "pump_max_flow": null,
+      "pump_max_pressure": null,
+      "visual_role": null,
+      "path": [
+        [
+          240.0,
+          111.375
+        ],
+        [
+          270.0,
+          75.0
+        ]
+      ]
+    },
+    {
+      "id": "ch_33",
+      "kind": "Pipe",
+      "from": "node_28",
+      "to": "node_29",
+      "length_m": 0.03,
+      "cross_section": {
+        "Rectangular": {
+          "width_m": 0.001,
+          "height_m": 0.0005
+        }
+      },
+      "channel_shape": "Straight",
+      "resistance": 0.0,
+      "quad_coeff": 0.0,
+      "valve_cv": null,
+      "pump_max_flow": null,
+      "pump_max_pressure": null,
+      "visual_role": null,
+      "path": [
+        [
+          270.0,
+          75.0
+        ],
+        [
+          300.0,
+          75.0
+        ]
+      ]
+    }
+  ]
+}

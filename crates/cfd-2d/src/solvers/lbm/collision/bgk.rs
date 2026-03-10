@@ -59,16 +59,19 @@ impl<T: RealField + Copy + FromPrimitive> BgkCollision<T> {
     /// Never panics; tau = 0 would cause ω = ∞ but that is a caller invariant.
     #[must_use]
     pub fn new(tau: T) -> Self {
-        Self { tau, omega: T::one() / tau }
+        Self {
+            tau,
+            omega: T::one() / tau,
+        }
     }
 
     /// Construct from physical kinematic viscosity (Theorem — Viscosity correspondence).
     ///
     /// τ = ½ + ν Δt / (c_s² Δx²)
     pub fn from_viscosity(nu: T, dt: T, dx: T) -> Self {
-        let cs2  = T::from_f64(LATTICE_CS2).expect("T must represent f64; cs² = 1/3");
+        let cs2 = T::from_f64(LATTICE_CS2).expect("T must represent f64; cs² = 1/3");
         let half = T::from_f64(HALF).expect("T must represent f64; ½");
-        let tau  = half + nu * dt / (cs2 * dx * dx);
+        let tau = half + nu * dt / (cs2 * dx * dx);
         Self::new(tau)
     }
 }
@@ -83,27 +86,20 @@ impl<T: RealField + Copy + FromPrimitive> CollisionOperator<T> for BgkCollision<
     ///
     /// # Correctness (BGK H-Theorem)
     /// The update is a convex step toward equilibrium; H is non-increasing. □
-    fn collide(
-        &self,
-        f: &mut Vec<T>,
-        density: &[T],
-        velocity: &[T],
-        nx: usize,
-        ny: usize,
-    ) {
+    fn collide(&self, f: &mut [T], density: &[T], velocity: &[T], nx: usize, ny: usize) {
         for j in 0..ny {
             for i in 0..nx {
                 let cell = j * nx + i;
                 let rho = density[cell];
-                let u   = [velocity[cell * 2], velocity[cell * 2 + 1]];
+                let u = [velocity[cell * 2], velocity[cell * 2 + 1]];
 
                 for q in 0..9 {
-                    let weight      = T::from_f64(D2Q9::WEIGHTS[q])
+                    let weight = T::from_f64(D2Q9::WEIGHTS[q])
                         .expect("D2Q9 weights are exact f64 constants");
                     let lattice_vel = D2Q9::VELOCITIES[q];
-                    let f_eq        = equilibrium(rho, &u, q, weight, lattice_vel);
-                    let idx         = f_idx(j, i, q, nx);
-                    f[idx]          = f[idx] - self.omega * (f[idx] - f_eq);
+                    let f_eq = equilibrium(rho, &u, q, weight, lattice_vel);
+                    let idx = f_idx(j, i, q, nx);
+                    f[idx] = f[idx] - self.omega * (f[idx] - f_eq);
                 }
             }
         }
@@ -116,7 +112,7 @@ impl<T: RealField + Copy + FromPrimitive> CollisionOperator<T> for BgkCollision<
     /// Kinematic viscosity: ν = c_s²(τ − ½)Δt / Δx² × Δx² = c_s²(τ − ½)Δt
     /// (in physical units, divide by Δx² if Δx ≠ 1)
     fn viscosity(&self, dt: T, dx: T) -> T {
-        let cs2  = T::from_f64(LATTICE_CS2).expect("T must represent f64; cs² = 1/3");
+        let cs2 = T::from_f64(LATTICE_CS2).expect("T must represent f64; cs² = 1/3");
         let half = T::from_f64(HALF).expect("T must represent f64; ½");
         cs2 * dx * dx * (self.tau - half) / dt
     }
@@ -132,35 +128,72 @@ mod tests {
     fn test_h_theorem_bgk() {
         use crate::solvers::lbm::lattice::{equilibrium, D2Q9};
 
-        let tau   = 1.0_f64;
+        let tau = 1.0_f64;
         let omega = 1.0 / tau;
-        let rho   = 1.0_f64;
-        let u     = [0.1_f64, 0.05];
+        let rho = 1.0_f64;
+        let u = [0.1_f64, 0.05];
 
         // Perturb equilibrium to get a non-eq state
         let mut f = [0.0_f64; 9];
         for q in 0..9 {
             let weight = D2Q9::WEIGHTS[q];
-            f[q] = equilibrium(rho, &u, q, weight, D2Q9::VELOCITIES[q]) + 0.01 * (q as f64 - 4.0) * 0.001;
+            f[q] = equilibrium(rho, &u, q, weight, D2Q9::VELOCITIES[q])
+                + 0.01 * (q as f64 - 4.0) * 0.001;
         }
 
+        let rho_after_perturbation = f.iter().sum::<f64>();
+        let momentum = f
+            .iter()
+            .enumerate()
+            .fold([0.0_f64, 0.0_f64], |mut acc, (q, &fq)| {
+                acc[0] += f64::from(D2Q9::VELOCITIES[q].0) * fq;
+                acc[1] += f64::from(D2Q9::VELOCITIES[q].1) * fq;
+                acc
+            });
+        let u_after_perturbation = [
+            momentum[0] / rho_after_perturbation,
+            momentum[1] / rho_after_perturbation,
+        ];
+
         // H before
-        let h_before = f.iter().enumerate().map(|(q, &fq)| {
-            if fq > 0.0 { fq * (fq / D2Q9::WEIGHTS[q]).ln() } else { 0.0 }
-        }).sum::<f64>();
+        let h_before = f
+            .iter()
+            .enumerate()
+            .map(|(q, &fq)| {
+                if fq > 0.0 {
+                    fq * (fq / D2Q9::WEIGHTS[q]).ln()
+                } else {
+                    0.0
+                }
+            })
+            .sum::<f64>();
 
         // Apply BGK
         let mut f_after = f;
         for q in 0..9 {
-            let weight  = D2Q9::WEIGHTS[q];
-            let f_eq    = equilibrium(rho, &u, q, weight, D2Q9::VELOCITIES[q]);
-            f_after[q]  = f[q] - omega * (f[q] - f_eq);
+            let weight = D2Q9::WEIGHTS[q];
+            let f_eq = equilibrium(
+                rho_after_perturbation,
+                &u_after_perturbation,
+                q,
+                weight,
+                D2Q9::VELOCITIES[q],
+            );
+            f_after[q] = f[q] - omega * (f[q] - f_eq);
         }
 
         // H after
-        let h_after = f_after.iter().enumerate().map(|(q, &fq)| {
-            if fq > 0.0 { fq * (fq / D2Q9::WEIGHTS[q]).ln() } else { 0.0 }
-        }).sum::<f64>();
+        let h_after = f_after
+            .iter()
+            .enumerate()
+            .map(|(q, &fq)| {
+                if fq > 0.0 {
+                    fq * (fq / D2Q9::WEIGHTS[q]).ln()
+                } else {
+                    0.0
+                }
+            })
+            .sum::<f64>();
 
         assert!(
             h_after <= h_before + 1e-12,

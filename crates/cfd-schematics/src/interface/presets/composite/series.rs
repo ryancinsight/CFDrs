@@ -1,8 +1,11 @@
 //! Series-topology composite presets: single flow path with multiple features.
+#![allow(deprecated)] // NetworkBlueprint::new() used intentionally; nodes are created with NodeSpec::new_at().
 
 use super::{shah_london, BLOOD_MU};
 use crate::domain::model::{ChannelShape, ChannelSpec, NetworkBlueprint, NodeKind, NodeSpec};
 use crate::domain::therapy_metadata::{TherapyZone, TherapyZoneMetadata};
+use crate::topology::presets::{serial_double_venturi_series_spec, venturi_serpentine_series_spec};
+use crate::BlueprintTopologyFactory;
 
 /// Rectangular venturi followed immediately by a serpentine — all in series.
 ///
@@ -27,8 +30,19 @@ pub fn venturi_serpentine_rect(
     segments: usize,
     segment_length_m: f64,
 ) -> NetworkBlueprint {
+    let name = name.into();
     let l_throat = throat_length_m.max(2.0 * throat_width_m);
     let l_taper = 5.0 * (main_width_m + throat_width_m) * 0.5;
+    let topology = venturi_serpentine_series_spec(
+        &name,
+        main_width_m,
+        throat_width_m,
+        height_m,
+        throat_length_m,
+        segments,
+        segment_length_m,
+    );
+    let lineage = BlueprintTopologyFactory::lineage_for_spec(&topology);
     let mut bp = NetworkBlueprint::new(name);
 
     bp.add_node(NodeSpec::new("inlet", NodeKind::Inlet));
@@ -105,10 +119,10 @@ pub fn venturi_serpentine_rect(
             segments,
             bend_radius_m: main_width_m * 0.5,
         };
-        bp.add_channel(spec.with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)));
+        bp.add_channel(spec.with_metadata(TherapyZoneMetadata::new(TherapyZone::CancerTarget)));
     }
 
-    bp
+    bp.with_topology_spec(topology).with_lineage(lineage)
 }
 
 /// Two venturi throats in series on the same flow path — closed loop.
@@ -133,8 +147,18 @@ pub fn serial_double_venturi_rect(
     throat_length_m: f64,
     inter_length_m: f64,
 ) -> NetworkBlueprint {
+    let name = name.into();
     let l_throat = throat_length_m.max(2.0 * throat_width_m);
     let l_taper = 5.0 * (main_width_m + throat_width_m) * 0.5;
+    let topology = serial_double_venturi_series_spec(
+        &name,
+        main_width_m,
+        throat_width_m,
+        height_m,
+        throat_length_m,
+        inter_length_m,
+    );
+    let lineage = BlueprintTopologyFactory::lineage_for_spec(&topology);
     let mut bp = NetworkBlueprint::new(name);
 
     bp.add_node(NodeSpec::new("inlet", NodeKind::Inlet));
@@ -224,5 +248,40 @@ pub fn serial_double_venturi_rect(
         .with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)),
     );
 
-    bp
+    bp.with_topology_spec(topology).with_lineage(lineage)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{serial_double_venturi_rect, venturi_serpentine_rect};
+
+    #[test]
+    fn venturi_serpentine_rect_embeds_canonical_topology_metadata() {
+        let blueprint =
+            venturi_serpentine_rect("vs-meta", 2.0e-3, 0.7e-3, 1.0e-3, 1.8e-3, 4, 8.0e-3);
+        let topology = blueprint
+            .topology_spec()
+            .expect("venturi_serpentine_rect should attach topology metadata");
+
+        assert_eq!(topology.parallel_venturi_count(), 1);
+        assert_eq!(topology.serial_venturi_stages(), 1);
+        assert!(topology.has_serpentine());
+        assert!(topology
+            .treatment_channel_ids()
+            .iter()
+            .any(|channel_id| channel_id == "throat_section"));
+    }
+
+    #[test]
+    fn serial_double_venturi_rect_embeds_serial_path_metadata() {
+        let blueprint =
+            serial_double_venturi_rect("sdv-meta", 2.0e-3, 0.7e-3, 1.0e-3, 1.8e-3, 4.0e-3);
+        let topology = blueprint
+            .topology_spec()
+            .expect("serial_double_venturi_rect should attach topology metadata");
+
+        assert_eq!(topology.parallel_venturi_count(), 1);
+        assert_eq!(topology.serial_venturi_stages(), 2);
+        assert_eq!(topology.treatment_channel_ids().len(), 2);
+    }
 }

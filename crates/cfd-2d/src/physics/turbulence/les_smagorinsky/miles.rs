@@ -90,8 +90,8 @@ impl<T: RealField + Copy + FromPrimitive> Default for MilesConfig<T> {
     fn default() -> Self {
         Self {
             min_resolution_ratio: T::from_f64(4.0).unwrap_or_else(num_traits::Zero::zero), // Require 4 points per large eddy
-            shock_threshold: T::from_f64(0.1).unwrap_or_else(num_traits::Zero::zero),      // Shock detection sensitivity
-            max_dissipation: T::from_f64(1.0).unwrap_or_else(num_traits::Zero::zero),      // Maximum dissipation limit
+            shock_threshold: T::from_f64(0.1).unwrap_or_else(num_traits::Zero::zero), // Shock detection sensitivity
+            max_dissipation: T::from_f64(1.0).unwrap_or_else(num_traits::Zero::zero), // Maximum dissipation limit
         }
     }
 }
@@ -173,8 +173,8 @@ impl<T: RealField + Copy + FromPrimitive> MilesLES<T> {
         let divergence = velocity_gradient[(0, 0)] + velocity_gradient[(1, 1)];
 
         // Shock indicator combines divergence and pressure gradient
-        let shock_indicator =
-            divergence.abs() + pressure_gradient.abs() * T::from_f64(0.1).unwrap_or_else(num_traits::Zero::zero);
+        let shock_indicator = divergence.abs()
+            + pressure_gradient.abs() * T::from_f64(0.1).unwrap_or_else(num_traits::Zero::zero);
 
         // Normalize and clamp
         if shock_indicator > self.config.shock_threshold {
@@ -209,10 +209,12 @@ impl<T: RealField + Copy + FromPrimitive> MilesLES<T> {
         let _shock_strength = self.shock_detector(velocity_gradient, pressure_gradient);
 
         // Base flux (Lax-Friedrichs for simplicity)
-        let alpha = (left_state.abs() + right_state.abs()) * T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero);
+        let alpha = (left_state.abs() + right_state.abs())
+            * T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero);
         // Add implicit dissipation based on shock strength
         // In MILES, the shock-capturing scheme provides the dissipation
-        T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero) * (left_state.powi(2) + right_state.powi(2))
+        T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero)
+            * (left_state.powi(2) + right_state.powi(2))
             - alpha * (right_state - left_state)
     }
 
@@ -238,11 +240,12 @@ impl<T: RealField + Copy + FromPrimitive> MilesLES<T> {
         // 2. Compressible flows (shock-containing)
         // 3. Sufficient grid resolution
 
-        let re_score = if reynolds_number > T::from_f64(1000.0).unwrap_or_else(num_traits::Zero::zero) {
-            T::one()
-        } else {
-            reynolds_number / T::from_f64(1000.0).unwrap_or_else(num_traits::Zero::zero)
-        };
+        let re_score =
+            if reynolds_number > T::from_f64(1000.0).unwrap_or_else(num_traits::Zero::zero) {
+                T::one()
+            } else {
+                reynolds_number / T::from_f64(1000.0).unwrap_or_else(num_traits::Zero::zero)
+            };
 
         let mach_score = if mach_number > T::from_f64(0.3).unwrap_or_else(num_traits::Zero::zero) {
             T::one()
@@ -257,7 +260,8 @@ impl<T: RealField + Copy + FromPrimitive> MilesLES<T> {
         };
 
         // Geometric mean of all scores
-        (re_score * mach_score * grid_score).powf(T::from_f64(1.0 / 3.0).unwrap_or_else(num_traits::Zero::zero))
+        (re_score * mach_score * grid_score)
+            .powf(T::from_f64(1.0 / 3.0).unwrap_or_else(num_traits::Zero::zero))
     }
 
     /// Get MILES configuration

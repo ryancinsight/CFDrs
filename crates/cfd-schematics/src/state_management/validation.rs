@@ -102,7 +102,7 @@ impl ValidationRuleSet {
         if errors.is_empty() {
             Ok(())
         } else if errors.len() == 1 {
-            Err(errors.into_iter().next().unwrap())
+            Err(errors.into_iter().next().expect("structural invariant"))
         } else {
             Err(ValidationError::multiple(
                 errors

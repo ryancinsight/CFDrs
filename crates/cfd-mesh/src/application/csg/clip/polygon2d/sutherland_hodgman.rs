@@ -19,7 +19,7 @@ fn edge_distance(ax: Real, ay: Real, bx: Real, by: Real, px: Real, py: Real) -> 
 
 /// Clip a polygon against the left half-plane of directed edge (ax,ay)→(bx,by).
 ///
-/// Retained from the original implementation for backward compatibility.
+/// Retained from the original implementation because it is still the canonical polygon clipper.
 /// Optimal for convex clip regions (one pass per edge, O(n) total).
 pub fn sh_clip_halfplane(
     poly: &[[Real; 2]],

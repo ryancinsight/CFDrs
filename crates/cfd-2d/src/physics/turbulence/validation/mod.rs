@@ -114,7 +114,8 @@ pub fn run_turbulence_validation<T: RealField + FromPrimitive + ToPrimitive + Co
     println!("References: White (2006), Moser et al. (1999), Comte-Bellot & Corrsin (1971)");
     println!();
 
-    let validator = TurbulenceValidator::<T>::new(T::from_f64(0.01).unwrap_or_else(num_traits::Zero::zero));
+    let validator =
+        TurbulenceValidator::<T>::new(T::from_f64(0.01).unwrap_or_else(num_traits::Zero::zero));
     let results = validator.run_full_validation_suite();
     let total_tests = results.len();
 
@@ -206,7 +207,8 @@ pub fn run_rans_benchmark_suite<T: RealField + FromPrimitive + ToPrimitive + Cop
     println!("Validating k-ε, k-ω SST, and SA models against experimental data");
     println!();
 
-    let validator = TurbulenceValidator::<T>::new(T::from_f64(0.01).unwrap_or_else(num_traits::Zero::zero));
+    let validator =
+        TurbulenceValidator::<T>::new(T::from_f64(0.01).unwrap_or_else(num_traits::Zero::zero));
     let results = validator.run_rans_benchmark_suite();
 
     let mut passed = 0;
@@ -236,7 +238,8 @@ pub fn run_les_benchmark_suite<T: RealField + FromPrimitive + ToPrimitive + Copy
     println!("Validating Smagorinsky LES and DES models");
     println!();
 
-    let validator = TurbulenceValidator::<T>::new(T::from_f64(0.01).unwrap_or_else(num_traits::Zero::zero));
+    let validator =
+        TurbulenceValidator::<T>::new(T::from_f64(0.01).unwrap_or_else(num_traits::Zero::zero));
     let results = validator.run_les_benchmark_suite();
 
     let mut passed = 0;

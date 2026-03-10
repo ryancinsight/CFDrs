@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::any::Any;
 
 /// Identifies the routing purpose of a specific channel in sonodynamic therapy.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TherapyZone {
     /// Target zone intended for diseased cells (high cavitation energy).
     CancerTarget,

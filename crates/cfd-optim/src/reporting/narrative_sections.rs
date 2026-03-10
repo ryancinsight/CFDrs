@@ -3,56 +3,66 @@
 use std::fmt::Write as _;
 
 use crate::analysis::RobustnessReport;
+use crate::constraints::{EXPANSION_RATIO_LOW_RISK, VENTURI_EXPANSION_RATIO_HIGH_RISK};
 use crate::reporting::figures::NarrativeFigureSpec;
-use crate::reporting::ValidationRow;
-use crate::RankedDesign;
+use crate::reporting::{Milestone12ReportDesign, ValidationRow};
 
-pub(super) fn build_selected_table(option1: &RankedDesign, option2: &RankedDesign) -> String {
+pub(super) fn build_selected_table(
+    option1: Option<&Milestone12ReportDesign>,
+    option2: &Milestone12ReportDesign,
+) -> String {
     let mut out = String::new();
     out.push_str(
-        "| Track | Candidate | Topology | Mode | Active venturi throats | Score | sigma | WBC recovery | RBC venturi exposure | HI/pass | P95 shear (Pa) | ECV (mL) |\n",
+        "| Track | Candidate | Topology | Mode | Active venturi throats | Score | sigma | Cumulative cavitation dose | WBC recovery | RBC venturi exposure | HI/pass | P95 shear (Pa) | ECV (mL) | ECV / 3kg limit (%) |\n",
     );
-    out.push_str("|---|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|\n");
+    out.push_str("|---|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n");
+    if let Some(option1) = option1 {
+        let _ = writeln!(
+            out,
+                    "| Option 1 (Selective acoustic center treatment) | `{}` | {} | {} | {} | {:.4} | n/a | n/a | {:.4} | {:.4} | {:.2e} | {:.2} | {:.3} | {:.1} |",
+            option1.candidate.id,
+            option1.topology_display_name(),
+            option1.metrics.treatment_zone_mode,
+            option1.metrics.active_venturi_throat_count,
+            option1.score,
+            option1.metrics.wbc_recovery,
+            option1.metrics.rbc_venturi_exposure_fraction,
+            option1.metrics.hemolysis_index_per_pass,
+            option1.metrics.wall_shear_p95_pa,
+                option1.metrics.total_ecv_ml,
+                pediatric_limit_pct(option1.metrics.total_ecv_ml)
+        );
+    } else {
+        out.push_str("| Option 1 (Selective acoustic center treatment) | _No eligible design under current physics regime_ | n/a | Unavailable | 0 | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a |\n");
+    }
     let _ = writeln!(
         out,
-        "| Option 1 (Selective acoustic center treatment) | `{}` | {} | {} | {} | {:.4} | n/a | {:.4} | {:.4} | {:.2e} | {:.2} | {:.3} |",
-        option1.candidate.id,
-        option1.candidate.topology.name(),
-        option1.metrics.treatment_zone_mode,
-        option1.metrics.active_venturi_throat_count,
-        option1.score,
-        option1.metrics.wbc_recovery,
-        option1.metrics.rbc_venturi_exposure_fraction,
-        option1.metrics.hemolysis_index_per_pass,
-        option1.metrics.wall_shear_p95_pa,
-        option1.metrics.total_ecv_ml
-    );
-    let _ = writeln!(
-        out,
-        "| Option 2 (Selective venturi, combined cancer + leukapheresis score) | `{}` | {} | {} | {} | {:.4} | {:.4} | {:.4} | {:.4} | {:.2e} | {:.2} | {:.3} |",
+            "| Option 2 (Selective venturi, combined cancer + leukapheresis score) | `{}` | {} | {} | {} | {:.2e} | {:.4} | {:.4} | {:.4} | {:.4} | {:.2e} | {:.2} | {:.3} | {:.1} |",
         option2.candidate.id,
-        option2.candidate.topology.name(),
+        option2.topology_display_name(),
         option2.metrics.treatment_zone_mode,
         option2.metrics.active_venturi_throat_count,
         option2.score,
         option2.metrics.cavitation_number,
+        option2.metrics.serial_cavitation_dose_fraction,
         option2.metrics.wbc_recovery,
         option2.metrics.rbc_venturi_exposure_fraction,
         option2.metrics.hemolysis_index_per_pass,
         option2.metrics.wall_shear_p95_pa,
-        option2.metrics.total_ecv_ml
+            option2.metrics.total_ecv_ml,
+            pediatric_limit_pct(option2.metrics.total_ecv_ml)
     );
     out
 }
 
-pub(super) fn build_option2_top5_table(option2_ranked: &[RankedDesign]) -> String {
+pub(super) fn build_option2_top5_table(option2_ranked: &[Milestone12ReportDesign]) -> String {
     let mut out = String::new();
-    out.push_str("| Rank | Candidate | Mode | Active venturi throats | Score | RBC venturi exposure | Clot risk | sigma |\n");
-    out.push_str("|---:|---|---|---:|---:|---:|---:|---:|\n");
+    out.push_str("| Rank | Candidate | Mode | Active venturi throats | Score | RBC venturi exposure | Clot risk | sigma | Cumulative cavitation dose |\n");
+    out.push_str("|---:|---|---|---:|---:|---:|---:|---:|---:|\n");
     for d in option2_ranked.iter().take(5) {
         let _ = writeln!(
             out,
-            "| {} | `{}` | {} | {} | {:.4} | {:.4} | {:.4} | {:.4} |",
+            "| {} | `{}` | {} | {} | {:.2e} | {:.4} | {:.4} | {:.4} | {:.4} |",
             d.rank,
             d.candidate.id,
             d.metrics.treatment_zone_mode,
@@ -60,15 +70,16 @@ pub(super) fn build_option2_top5_table(option2_ranked: &[RankedDesign]) -> Strin
             d.score,
             d.metrics.rbc_venturi_exposure_fraction,
             d.metrics.clotting_risk_index,
-            d.metrics.cavitation_number
+            d.metrics.cavitation_number,
+            d.metrics.serial_cavitation_dose_fraction
         );
     }
     out
 }
 
 pub(super) fn build_tri_cell_table(
-    option2_ranked: &[RankedDesign],
-    ga_ranked: &[RankedDesign],
+    option2_ranked: &[Milestone12ReportDesign],
+    ga_ranked: &[Milestone12ReportDesign],
 ) -> String {
     let mut out = String::new();
     out.push_str("| Track | Candidate | cancer_center_fraction | wbc_recovery | rbc_venturi_exposure | three_pop_sep_efficiency |\n");
@@ -94,8 +105,8 @@ pub(super) fn build_tri_cell_table(
 }
 
 pub(super) fn build_strict_core_table(
-    option2_ranked: &[RankedDesign],
-    ga_ranked: &[RankedDesign],
+    option2_ranked: &[Milestone12ReportDesign],
+    ga_ranked: &[Milestone12ReportDesign],
 ) -> String {
     let mut out = String::new();
     out.push_str("| Track | Candidate | Pressure feasible | Plate fits | FDA main | sigma finite | sigma<1 |\n");
@@ -124,7 +135,12 @@ pub(super) fn build_strict_core_table(
 
 pub(super) fn build_robustness_section(robustness: &[RobustnessReport], fast_mode: bool) -> String {
     if robustness.is_empty() {
-        return String::new();
+        let _ = fast_mode;
+        return "\
+### Option 2 Robustness Screening (Perturbations +/-10%/+/-20%)\n\n\
+*Robustness screening was not computed in this run (fast mode). \
+Re-run without `M12_FAST=1` to populate.*\n"
+            .to_string();
     }
     let _ = fast_mode;
     let mut out = String::new();
@@ -158,7 +174,13 @@ pub(super) fn build_robustness_section(robustness: &[RobustnessReport], fast_mod
 
 pub(super) fn build_validation_section(rows: &[ValidationRow], fast_mode: bool) -> String {
     if rows.is_empty() {
-        return String::new();
+        let _ = fast_mode;
+        return "\
+### Multi-Fidelity Pressure-Drop Validation (Selected Venturi Designs)\n\n\
+*Multi-fidelity validation is produced by the companion example \
+`cargo run -p cfd-optim --example milestone12_validation --no-default-features`. \
+This report run did not embed 2D/3D validation rows.*\n"
+            .to_string();
     }
     let _ = fast_mode;
     let mut out = String::new();
@@ -182,22 +204,260 @@ pub(super) fn build_validation_section(rows: &[ValidationRow], fast_mode: bool) 
     out
 }
 
-pub(super) fn build_limits_of_usage(option2: &RankedDesign) -> String {
+pub(super) fn build_limits_of_usage(option2: &Milestone12ReportDesign) -> String {
+    let m = &option2.metrics;
+    let thermal_line = format!(
+        "- Throat viscous heating: **{:.2} K** rise (FDA 5 K / 42 °C ceiling): **{}**",
+        m.throat_temperature_rise_k,
+        pass_fail(m.fda_thermal_compliant)
+    );
     format!(
-        "- Operating point: **{:.1} mL/min**, **{:.0} kPa gauge**\n- Venturi throat: **{:.0} um**, throat length **{:.0} um**\n- Treatment mode: **{}**, active venturi throats: **{}** (serial stages per path: **{}**)\n- FDA main-channel compliance: **{}**\n- Clot-risk indicators: `clotting_risk_index={:.4}`, `clotting_risk_index_10ml_s={:.4}`\n- Flow caution flags: `Q>=200={}`, `Q>=600={}`",
-        option2.candidate.flow_rate_m3_s * 6.0e7,
-        option2.candidate.inlet_gauge_pa * 1.0e-3,
-        option2.candidate.throat_diameter_m * 1.0e6,
-        option2.candidate.throat_length_m * 1.0e6,
-        option2.metrics.treatment_zone_mode,
-        option2.metrics.active_venturi_throat_count,
-        option2.metrics.serial_venturi_stages_per_path,
-        pass_fail(option2.metrics.fda_main_compliant),
-        option2.metrics.clotting_risk_index,
-        option2.metrics.clotting_risk_index_10ml_s,
-        pass_fail(option2.metrics.clotting_flow_compliant),
-        pass_fail(option2.metrics.clotting_flow_compliant_10ml_s)
+        "- Operating point: **{:.1} mL/min**, **{:.0} kPa gauge**\n\
+         - Venturi throat: **{:.0} µm**, throat length **{:.0} µm**\n\
+         - Treatment mode: **{}**, active venturi throats: **{}** (serial stages per path: **{}**)\n\
+         - FDA main-channel compliance: **{}**\n\
+         {}\n\
+         - Clot-risk indicators: `clotting_risk_index={:.4}`, `clotting_risk_index_10ml_s={:.4}`\n\
+         - Flow caution flags: `Q>=200={}`, `Q>=600={}`",
+        option2.flow_rate_ml_min(),
+        option2.inlet_gauge_kpa(),
+        option2.throat_width_um().unwrap_or(0.0),
+        option2.throat_length_um().unwrap_or(0.0),
+        m.treatment_zone_mode,
+        m.active_venturi_throat_count,
+        m.serial_venturi_stages_per_path,
+        pass_fail(m.fda_main_compliant),
+        thermal_line,
+        m.clotting_risk_index,
+        m.clotting_risk_index_10ml_s,
+        pass_fail(m.clotting_flow_compliant),
+        pass_fail(m.clotting_flow_compliant_10ml_s)
     )
+}
+
+// ── Narrative paragraph builders ─────────────────────────────────────────────
+
+pub(super) fn build_results_intro(
+    total_candidates: usize,
+    opt1_pool: usize,
+    opt2_pool: usize,
+) -> String {
+    format!(
+        "From {} total candidates generated across 27 topology families, \
+strict eligibility gating produced {} Option 1 qualified designs \
+(SelectiveAcousticTherapy track) and {} Option 2 qualified designs \
+(CombinedSdtLeukapheresis track). The following sub-sections present the selected designs \
+(§5.1), gate evidence (§5.2), robustness and multi-fidelity validation (§5.3), design \
+visualizations (§5.4), derived metric formulas (§5.5), and operating limits (§5.6). \
+Extracorporeal circuit volume is reported explicitly as ECV = Σ(L_i A_i) = Q_in t_res, and each selected design is benchmarked against the 3 kg neonatal \
+reference limit of 25.5 mL (10% of 3 × 85 mL blood volume).",
+        total_candidates,
+        opt1_pool,
+        opt2_pool,
+    )
+}
+
+pub(super) fn build_selected_table_intro(
+    option1: Option<&Milestone12ReportDesign>,
+    option2: &Milestone12ReportDesign,
+) -> String {
+    let m2 = &option2.metrics;
+    let ccf_pct = m2.cancer_center_fraction * 100.0;
+    let wbc2_pct = m2.wbc_recovery * 100.0;
+    let option1_summary = if let Some(option1) = option1 {
+        let m1 = &option1.metrics;
+        format!(
+            "**Option 1 — Selective Acoustic Center Treatment** \
+(`{}`, score {:.4}): branch-diameter biasing routes {:.0}% of WBCs into the center lane \
+per pass; HI/pass = {:.2e}% (FDA 0.1% non-therapeutic limit); ECV = {:.2} mL \
+({:.1}% of the 3 kg neonatal circuit-volume limit). \
+This design carries zero active venturi throats — treatment relies entirely on externally \
+applied 412 kHz ultrasound acting on cells concentrated in the center lane.",
+            option1.candidate.id,
+            option1.score,
+            m1.wbc_recovery * 100.0,
+            m1.hemolysis_index_per_pass,
+            m1.total_ecv_ml,
+            pediatric_limit_pct(m1.total_ecv_ml),
+        )
+    } else {
+        "**Option 1 — Selective Acoustic Center Treatment**: no design satisfied the strict acoustic eligibility gates under the current physics regime, so the report records Option 1 explicitly as an empty shortlist.".to_string()
+    };
+    format!(
+        "{}\n\n\
+**Option 2 — Selective Venturi Hydrodynamic Cavitation** \
+(`{}`, score {:.4}): σ = {:.4} < 0 confirms active hydrodynamic cavitation at \
+{} serial venturi throat(s) per path; {:.0}% of CTCs route through the venturi \
+treatment lane (cancer_center_fraction); WBC recovery = {:.0}%; therapeutic window \
+score = {:.3}; HI/pass = {:.2e}%; ECV = {:.2} mL ({:.1}% of the same neonatal limit). \
+**Note:** Option 1 and Option 2 scores use different objective functions \
+(SelectiveAcousticTherapy vs CombinedSdtLeukapheresis) and are not comparable across tracks.",
+        option1_summary,
+        option2.candidate.id,
+        option2.score,
+        m2.cavitation_number,
+        m2.serial_venturi_stages_per_path,
+        ccf_pct,
+        wbc2_pct,
+        m2.therapeutic_window_score,
+        m2.hemolysis_index_per_pass,
+        m2.total_ecv_ml,
+        pediatric_limit_pct(m2.total_ecv_ml),
+    )
+}
+
+pub(super) fn build_top5_intro(option2_ranked: &[Milestone12ReportDesign]) -> String {
+    let n = option2_ranked.len().min(5);
+    if n < 2 {
+        return "The top-ranked Option 2 design was selected by deterministic tie-break \
+(score desc, oncology-priority desc, RBC venturi exposure asc, clot risk asc, candidate id asc)."
+            .to_string();
+    }
+    let score_spread =
+        if let (Some(top), Some(rank5)) = (option2_ranked.first(), option2_ranked.get(n - 1)) {
+            format!("{:.2e}", (top.score - rank5.score).abs())
+        } else {
+            "small".to_string()
+        };
+    format!(
+        "Sorting policy: score desc, oncology-priority desc, RBC venturi exposure asc, \
+clot risk asc, candidate id asc. Ranks 1–{n} span a score range of {score_spread}, \
+demonstrating that the top configuration is not a fragile single point — adjacent designs \
+differ primarily in venturi stage count and throat length factor rather than fundamental \
+topology. A wider score gap at the boundary between Rank {n} and lower-ranked candidates \
+marks a meaningful performance discontinuity driven by trifurcation center fraction."
+    )
+}
+
+pub(super) fn build_tri_cell_intro(
+    option2: &Milestone12ReportDesign,
+    ga_best: Option<&Milestone12ReportDesign>,
+) -> String {
+    let m = &option2.metrics;
+    let ccf_pct = m.cancer_center_fraction * 100.0;
+    let wbc_pct = m.wbc_recovery * 100.0;
+    let rbc_pct = m.rbc_venturi_exposure_fraction * 100.0;
+    let mut s = format!(
+        "Three-population routing provides the clinical selectivity basis for Option 2. \
+For the selected design: {ccf_pct:.0}% of CTCs enter the venturi treatment lane \
+(cancer_center_fraction); {wbc_pct:.0}% of WBCs follow the center path \
+(leukapheresis co-feasible); {rbc_pct:.0}% of RBCs pass through venturi throats \
+(rbc_venturi_exposure) — reducing this fraction is the primary hemocompatibility lever. \
+Composite three-population separation efficiency = {:.4}.",
+        m.three_pop_sep_efficiency
+    );
+    if let Some(ga) = ga_best {
+        let gm = &ga.metrics;
+        let _ = write!(
+            s,
+            " GA rank-1 (`{}`) achieves cancer_center_fraction={:.4}, \
+wbc_recovery={:.4}, rbc_venturi_exposure={:.4} — a narrower, more cavitation-intensive \
+configuration than the parametric Option 2 selection.",
+            ga.candidate.id,
+            gm.cancer_center_fraction,
+            gm.wbc_recovery,
+            gm.rbc_venturi_exposure_fraction
+        );
+    }
+    s
+}
+
+pub(super) fn build_strict_core_intro() -> String {
+    "These five binary gates represent hard physical constraints. A design failing any gate \
+receives score = 0 and is excluded from the eligible pool regardless of objective metrics. \
+Passing all five gates is a necessary (not sufficient) condition for design selection: \
+pressure feasibility ensures the device can be driven by clinically available extracorporeal \
+pump heads; plate fit ensures the chip body is compatible with SBS 96-well format optics; \
+FDA main-channel compliance ensures sustained shear stays below the 150 Pa haemolysis limit; \
+σ finiteness confirms the network solver converged a real cavitation number; and σ < 1 \
+confirms incipient cavitation onset at the venturi throat."
+        .to_string()
+}
+
+pub(super) fn build_cavitation_formulas_intro(option2: &Milestone12ReportDesign) -> String {
+    let m = &option2.metrics;
+    format!(
+        "These derived metrics translate raw physics (pressure drop, shear, flow split) into \
+clinically interpretable quantities. TTCI (tumor-targeted cavitation index) quantifies \
+cancer-selective cavitation dose; TWS (therapeutic window score) normalises TTCI against \
+lysis risk. For the selected Option 2 design: cancer_targeted_cavitation = {:.4}, \
+therapeutic_window_score = {:.4}, lysis_risk_index = {:.4e}, \
+sonoluminescence_proxy = {:.4}.",
+        m.cancer_targeted_cavitation,
+        m.therapeutic_window_score,
+        m.lysis_risk_index,
+        m.sonoluminescence_proxy
+    )
+}
+
+pub(super) fn build_limits_of_usage_intro(option2: &Milestone12ReportDesign) -> String {
+    let m = &option2.metrics;
+    let q_ml_min = option2.flow_rate_ml_min();
+    let gauge_kpa = option2.inlet_gauge_kpa();
+    let flow_flag = if m.clotting_flow_compliant_10ml_s {
+        "does not trigger"
+    } else {
+        "**triggers**"
+    };
+    format!(
+        "Limits are derived from the selected Option 2 operating point ({q_ml_min:.1} mL/min, \
+{gauge_kpa:.0} kPa gauge). The `Q>=600=FAIL` clotting flag means the device must not be \
+operated at < 600 mL/min without re-evaluation of clotting risk. Operation at 300 mL/min \
+{flow_flag} the 10 mL/s high-risk clotting threshold. Viscous heating in the \
+{:.0} µm venturi throat is {:.2} K — {}: the FDA 42 °C (37 + 5 K) temperature ceiling.",
+        option2.throat_width_um().unwrap_or(0.0),
+        m.throat_temperature_rise_k,
+        if m.fda_thermal_compliant {
+            "well within"
+        } else {
+            "**exceeding**"
+        }
+    )
+}
+
+/// Build the CRI expansion-sensitivity table for the PST topology parameter space.
+///
+/// # Theorem (Expansion Stasis Risk)
+/// For a channel–throat pair with geometric expansion ratio `r = channel_width / throat_diameter`,
+/// the per-stage stasis risk follows a log-linear model:
+/// `p_stage = clamp((ln r − ln r_lo) / (ln r_hi − ln r_lo), 0, 1)`
+/// where `r_lo = EXPANSION_RATIO_LOW_RISK = 4` and `r_hi = VENTURI_EXPANSION_RATIO_HIGH_RISK = 10 000`.
+///
+/// The cumulative risk after `n` independent stages is
+/// `P(n) = 1 − (1 − p_stage)^n`,
+/// and the expansion contribution to `clotting_risk_index` is `0.20 × P(n)`.
+///
+/// The table spans all `SELECTIVE_TREE_WIDTHS × SELECTIVE_TREE_THROATS` combinations
+/// and reports vt1 (n=1) and vt2 (n=2) columns so design engineers can read the
+/// hemocompatibility cost directly from the chosen width/throat pairing.
+pub(super) fn build_cri_expansion_sensitivity() -> String {
+    const WIDTHS_MM: [f64; 3] = [4.0, 6.0, 8.0];
+    const THROATS_UM: [f64; 6] = [35.0, 45.0, 55.0, 75.0, 100.0, 120.0];
+    const CRI_WEIGHT: f64 = 0.20;
+
+    let ln_lo = EXPANSION_RATIO_LOW_RISK.ln();
+    let ln_hi = VENTURI_EXPANSION_RATIO_HIGH_RISK.ln();
+    let range = ln_hi - ln_lo;
+
+    let mut out = String::new();
+    out.push_str("| Channel width (mm) | Throat Ø (µm) | w/d ratio | p_stage | P(vt1) | P(vt2) | CRI_exp (vt1) | CRI_exp (vt2) |\n");
+    out.push_str("|---:|---:|---:|---:|---:|---:|---:|---:|\n");
+
+    for &w_mm in &WIDTHS_MM {
+        for &d_um in &THROATS_UM {
+            let ratio = (w_mm * 1e-3) / (d_um * 1e-6);
+            let p_stage = ((ratio.ln() - ln_lo) / range).clamp(0.0, 1.0);
+            let p_vt1 = p_stage;
+            let p_vt2 = 1.0 - (1.0 - p_stage).powi(2);
+            let _ = writeln!(
+                out,
+                "| {w_mm:.0} | {d_um:.0} | {ratio:.1} | {p_stage:.3} | {p_vt1:.3} | {p_vt2:.3} | {:.4} | {:.4} |",
+                CRI_WEIGHT * p_vt1,
+                CRI_WEIGHT * p_vt2,
+            );
+        }
+    }
+    out
 }
 
 pub(super) fn build_figure_toc_rows(specs: &[NarrativeFigureSpec]) -> String {
@@ -231,15 +491,14 @@ pub(super) fn build_storage_policy_section() -> String {
 To ensure integrity, security, and accessibility of Milestone 12 computational data, SonALAsense applies policy-aligned storage controls across its managed engineering systems.\n\n\
 **Data Governance and Access Control:** versioned simulation/report assets are maintained in the SonALAsense GitHub repository with controlled branch/merge workflows and auditable change history.\n\n\
 **Secure Collaboration and Operational Storage:** project data packages and controlled shared artifacts are managed in SonALAsense Egnyte with role-based access and organization-managed retention policies.\n\n\
-**Backup, Recovery, and Traceability:** canonical milestone outputs are regenerated deterministically from source code and preserved alongside run artifacts and trace matrices to support audit reproducibility.\n"
+**Backup, Recovery, and Traceability:** canonical milestone outputs are regenerated deterministically from source code and preserved alongside run artifacts to support reproducible milestone evidence.\n"
         .to_string()
 }
 
 pub(super) fn build_storage_artifact_index() -> String {
     "\
 - Canonical results: Appendix A (embedded below)\n\
-- Contract trace matrix: Appendix B (embedded below)\n\
-- Figure manifest: Appendix C (embedded below)\n\
+- Figure manifest: Appendix B (embedded below)\n\
 - Figures: inline throughout §5 Results\n\
 - Generation artifacts: top-5 JSON, validation summaries, robustness outputs, and GA artifacts are included in Appendix A canonical data"
         .to_string()
@@ -251,4 +510,8 @@ fn pass_fail(value: bool) -> &'static str {
     } else {
         "FAIL"
     }
+}
+
+fn pediatric_limit_pct(ecv_ml: f64) -> f64 {
+    100.0 * ecv_ml / 25.5_f64
 }

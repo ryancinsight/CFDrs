@@ -77,10 +77,14 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
 
             let z = NumComplex::new(r_boundary * theta.cos(), r_boundary * theta.sin());
             let z_real = T::from_f64(z.re).ok_or_else(|| {
-                Error::InvalidInput("stability boundary real part not representable in T".to_string())
+                Error::InvalidInput(
+                    "stability boundary real part not representable in T".to_string(),
+                )
             })?;
             let z_imag = T::from_f64(z.im).ok_or_else(|| {
-                Error::InvalidInput("stability boundary imag part not representable in T".to_string())
+                Error::InvalidInput(
+                    "stability boundary imag part not representable in T".to_string(),
+                )
             })?;
 
             boundary_points.push(ComplexPoint {
@@ -270,7 +274,9 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
             .iter()
             .zip(_c.iter())
             .fold(T::zero(), |acc, (&bi, &ci)| acc + bi * ci);
-        if (sum_b_c - T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero)).abs() > T::from_f64(1e-10).unwrap_or_else(num_traits::Zero::zero) {
+        if (sum_b_c - T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero)).abs()
+            > T::from_f64(1e-10).unwrap_or_else(num_traits::Zero::zero)
+        {
             return 1;
         }
 
@@ -279,7 +285,9 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
             .iter()
             .zip(_c.iter())
             .fold(T::zero(), |acc, (&bi, &ci)| acc + bi * ci * ci);
-        if (sum_b_c2 - T::from_f64(1.0 / 3.0).unwrap_or_else(num_traits::Zero::zero)).abs() > T::from_f64(1e-10).unwrap_or_else(num_traits::Zero::zero) {
+        if (sum_b_c2 - T::from_f64(1.0 / 3.0).unwrap_or_else(num_traits::Zero::zero)).abs()
+            > T::from_f64(1e-10).unwrap_or_else(num_traits::Zero::zero)
+        {
             return 2;
         }
 
@@ -333,7 +341,8 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
             }
         }
 
-        let is_stable = max_amplification <= T::from_f64(1.0001).unwrap_or_else(num_traits::Zero::zero); // Allow small numerical errors
+        let is_stable =
+            max_amplification <= T::from_f64(1.0001).unwrap_or_else(num_traits::Zero::zero); // Allow small numerical errors
 
         Ok(VonNeumannAnalysis {
             wave_numbers: wave_numbers.to_vec(),
@@ -341,7 +350,8 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
             max_amplification,
             critical_wave_number,
             is_stable,
-            stability_margin: T::from_f64(1.0).unwrap_or_else(num_traits::Zero::zero) - max_amplification,
+            stability_margin: T::from_f64(1.0).unwrap_or_else(num_traits::Zero::zero)
+                - max_amplification,
         })
     }
 
@@ -384,7 +394,8 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
             }
         }
 
-        let is_stable = max_amplification <= T::from_f64(1.0001).unwrap_or_else(num_traits::Zero::zero);
+        let is_stable =
+            max_amplification <= T::from_f64(1.0001).unwrap_or_else(num_traits::Zero::zero);
 
         Ok(VonNeumannAnalysis {
             wave_numbers: wave_numbers.to_vec(),
@@ -392,7 +403,8 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
             max_amplification,
             critical_wave_number,
             is_stable,
-            stability_margin: T::from_f64(1.0).unwrap_or_else(num_traits::Zero::zero) - max_amplification,
+            stability_margin: T::from_f64(1.0).unwrap_or_else(num_traits::Zero::zero)
+                - max_amplification,
         })
     }
 
@@ -411,7 +423,9 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
         F: Fn(NumComplex<f64>) -> NumComplex<f64>,
     {
         match scheme {
-            NumericalScheme::ForwardEuler => self.von_neumann_analysis(spatial_operator, dt, wave_numbers),
+            NumericalScheme::ForwardEuler => {
+                self.von_neumann_analysis(spatial_operator, dt, wave_numbers)
+            }
             NumericalScheme::RK3 => {
                 // Heun/Kutta 3rd-order as used in validation
                 let a = DMatrix::from_row_slice(
@@ -439,7 +453,14 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
                     T::from_f64(1.0 / 3.0).unwrap_or_else(num_traits::Zero::zero),
                     T::from_f64(2.0 / 3.0).unwrap_or_else(num_traits::Zero::zero),
                 ]);
-                self.von_neumann_analysis_explicit_rk(&a, &b, &c, spatial_operator, dt, wave_numbers)
+                self.von_neumann_analysis_explicit_rk(
+                    &a,
+                    &b,
+                    &c,
+                    spatial_operator,
+                    dt,
+                    wave_numbers,
+                )
             }
             NumericalScheme::RK4 => {
                 let one_half = T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero);
@@ -472,7 +493,14 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
                     T::from_f64(1.0 / 6.0).unwrap_or_else(num_traits::Zero::zero),
                 ]);
                 let c = DVector::from_vec(vec![T::zero(), one_half, one_half, T::one()]);
-                self.von_neumann_analysis_explicit_rk(&a, &b, &c, spatial_operator, dt, wave_numbers)
+                self.von_neumann_analysis_explicit_rk(
+                    &a,
+                    &b,
+                    &c,
+                    spatial_operator,
+                    dt,
+                    wave_numbers,
+                )
             }
             _ => Err(Error::InvalidInput(
                 "von Neumann analysis is only implemented for explicit schemes".to_string(),

@@ -232,7 +232,11 @@ impl<T: RealField + Copy> TimeStepper<T> for RungeKutta3<T> {
         let _coeff4 = dt / T::from_f64(1.5).unwrap_or_else(num_traits::Zero::zero);
 
         for i in 0..n {
-            u_new[i] = u[i] + coeff1 * (k1[i] + T::from_f64(4.0).unwrap_or_else(num_traits::Zero::zero) * k2[i] + k3[i]);
+            u_new[i] = u[i]
+                + coeff1
+                    * (k1[i]
+                        + T::from_f64(4.0).unwrap_or_else(num_traits::Zero::zero) * k2[i]
+                        + k3[i]);
         }
 
         Ok(u_new)

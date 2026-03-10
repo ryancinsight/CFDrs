@@ -75,7 +75,11 @@ pub struct LaplacianSmoother {
 
 impl Default for LaplacianSmoother {
     fn default() -> Self {
-        Self { max_iter: 5, lambda: 0.3, preserve_boundary: true }
+        Self {
+            max_iter: 5,
+            lambda: 0.3,
+            preserve_boundary: true,
+        }
     }
 }
 
@@ -106,9 +110,8 @@ impl LaplacianSmoother {
         for _ in 0..self.max_iter {
             // Collect all updated positions before applying them (Jacobi update).
             // This prevents the order of iteration from affecting the result.
-            let mut new_positions: Vec<Option<(Real, Real)>> = vec![None; {
-                cdt.triangulation().vertices().len()
-            }];
+            let mut new_positions: Vec<Option<(Real, Real)>> =
+                vec![None; cdt.triangulation().vertices().len()];
 
             let dt = cdt.triangulation();
             for raw in 0..num_real {
@@ -141,7 +144,11 @@ impl LaplacianSmoother {
     /// Return the number of iterations that would be performed.
     #[must_use]
     pub fn effective_iterations(&self) -> usize {
-        if self.lambda <= 0.0 { 0 } else { self.max_iter }
+        if self.lambda <= 0.0 {
+            0
+        } else {
+            self.max_iter
+        }
     }
 }
 
@@ -176,11 +183,10 @@ fn centroid(
     dt: &crate::application::delaunay::triangulation::bowyer_watson::DelaunayTriangulation,
 ) -> (Real, Real) {
     let n = neighbors.len() as Real;
-    let (sx, sy) =
-        neighbors.iter().fold((0.0, 0.0), |(ax, ay), &id| {
-            let v = dt.vertex(id);
-            (ax + v.x, ay + v.y)
-        });
+    let (sx, sy) = neighbors.iter().fold((0.0, 0.0), |(ax, ay), &id| {
+        let v = dt.vertex(id);
+        (ax + v.x, ay + v.y)
+    });
     (sx / n, sy / n)
 }
 
@@ -236,7 +242,11 @@ mod tests {
     #[test]
     fn smooth_centered_interior_vertex_is_stable() {
         let mut cdt = small_square_cdt(0.5, 0.5);
-        let smoother = LaplacianSmoother { max_iter: 10, lambda: 0.3, preserve_boundary: true };
+        let smoother = LaplacianSmoother {
+            max_iter: 10,
+            lambda: 0.3,
+            preserve_boundary: true,
+        };
         smoother.smooth(&mut cdt);
         // Interior vertex should remain near (0.5, 0.5) — centroid of the 4 corners.
         let dt = cdt.triangulation();
@@ -264,7 +274,11 @@ mod tests {
             before_x = v.x;
             before_y = v.y;
         }
-        let smoother = LaplacianSmoother { max_iter: 5, lambda: 0.3, preserve_boundary: true };
+        let smoother = LaplacianSmoother {
+            max_iter: 5,
+            lambda: 0.3,
+            preserve_boundary: true,
+        };
         smoother.smooth(&mut cdt);
         let dt = cdt.triangulation();
         let v4 = PslgVertexId::from_usize(4);
@@ -283,12 +297,18 @@ mod tests {
         let mut cdt = small_square_cdt(0.1, 0.1);
         let corners_before: Vec<(Real, Real)> = {
             let dt = cdt.triangulation();
-            (0..4).map(|i| {
-                let v = dt.vertex(PslgVertexId::from_usize(i));
-                (v.x, v.y)
-            }).collect()
+            (0..4)
+                .map(|i| {
+                    let v = dt.vertex(PslgVertexId::from_usize(i));
+                    (v.x, v.y)
+                })
+                .collect()
         };
-        let smoother = LaplacianSmoother { max_iter: 10, lambda: 0.5, preserve_boundary: true };
+        let smoother = LaplacianSmoother {
+            max_iter: 10,
+            lambda: 0.5,
+            preserve_boundary: true,
+        };
         smoother.smooth(&mut cdt);
         let dt = cdt.triangulation();
         for i in 0..4 {
@@ -297,7 +317,8 @@ mod tests {
             assert!(
                 (v.x - bx).abs() < 1e-12 && (v.y - by).abs() < 1e-12,
                 "boundary vertex {i} moved: before=({bx},{by}), after=({},{})",
-                v.x, v.y
+                v.x,
+                v.y
             );
         }
     }
@@ -310,10 +331,19 @@ mod tests {
             let dt = cdt.triangulation();
             dt.vertices().iter().map(|v| (v.x, v.y)).collect()
         };
-        LaplacianSmoother { max_iter: 0, lambda: 0.5, preserve_boundary: true }.smooth(&mut cdt);
+        LaplacianSmoother {
+            max_iter: 0,
+            lambda: 0.5,
+            preserve_boundary: true,
+        }
+        .smooth(&mut cdt);
         let dt = cdt.triangulation();
         for (i, v) in dt.vertices().iter().enumerate() {
-            assert_eq!((v.x, v.y), before[i], "vertex {i} should not move with 0 iterations");
+            assert_eq!(
+                (v.x, v.y),
+                before[i],
+                "vertex {i} should not move with 0 iterations"
+            );
         }
     }
 }

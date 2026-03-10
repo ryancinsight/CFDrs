@@ -181,11 +181,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy + LowerExp + num_traits::ToPrimi
     }
 
     /// Calculate residual between two velocity fields
-    fn calculate_residual(
-        &self,
-        previous: &Vec<Vec<Vector2<T>>>,
-        current: &Vec<Vec<Vector2<T>>>,
-    ) -> T {
+    fn calculate_residual(&self, previous: &[Vec<Vector2<T>>], current: &[Vec<Vector2<T>>]) -> T {
         let nx = self.grid.nx;
         let ny = self.grid.ny;
 
@@ -203,12 +199,12 @@ impl<T: RealField + Copy + FromPrimitive + Copy + LowerExp + num_traits::ToPrimi
     }
 
     /// Get current velocity field
-    pub fn velocity(&self) -> &Vec<Vec<Vector2<T>>> {
+    pub fn velocity(&self) -> &[Vec<Vector2<T>>] {
         &self.u
     }
 
     /// Get current pressure field
-    pub fn pressure(&self) -> &Vec<Vec<T>> {
+    pub fn pressure(&self) -> &[Vec<T>] {
         &self.p
     }
 

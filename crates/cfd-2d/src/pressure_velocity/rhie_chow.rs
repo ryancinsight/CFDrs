@@ -134,15 +134,6 @@ impl<T: RealField + Copy + FromPrimitive + Copy> RhieChowInterpolation<T> {
         }
     }
 
-    /// Update momentum equation coefficients from discretized momentum equation (zero-copy)
-    /// `A_p` is the diagonal coefficient from momentum discretization
-    /// This method is kept for backward compatibility but uses U coefficients for both
-    pub fn update_coefficients(&mut self, ap: &Field2D<T>) {
-        // Copy data efficiently without cloning the entire structure
-        self.ap_u_coefficients.data.copy_from_slice(&ap.data);
-        self.ap_v_coefficients.data.copy_from_slice(&ap.data);
-    }
-
     /// Compute face pressure coefficient d_f = (Volume/A_p)_f for x-direction (east face)
     pub fn d_face_x(&self, i: usize, j: usize, dx: T, dy: T) -> T {
         let two = T::from_f64(TWO).expect("Failed to represent 2.0 in numeric type T");

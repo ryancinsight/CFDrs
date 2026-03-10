@@ -86,22 +86,25 @@ impl<
         // Exact Maximum Dean Number calculation
         let de_exact_max = reynolds_num
             * num_traits::Float::sqrt(
-                diameter / (<T as FromPrimitive>::from_f64(2.0)
-                    .expect("2.0 is representable in all IEEE 754 types") * min_radius_of_curvature),
+                diameter
+                    / (<T as FromPrimitive>::from_f64(2.0)
+                        .expect("2.0 is representable in all IEEE 754 types")
+                        * min_radius_of_curvature),
             );
 
         // Ensure the solver's calculated Dean number aligns with our analytical maximum
         let de_calc = solution.dean_number;
-        let de_tolerance = de_exact_max * <T as FromPrimitive>::from_f64(0.05)
-            .expect("0.05 is an IEEE 754 representable f64 constant"); // 5% max deviation allowance for local averaging
+        let de_tolerance = de_exact_max
+            * <T as FromPrimitive>::from_f64(0.05)
+                .expect("0.05 is an IEEE 754 representable f64 constant"); // 5% max deviation allowance for local averaging
         let de_valid =
             num_traits::Float::abs(de_calc - de_exact_max) < de_tolerance || de_calc > T::zero();
 
         // 2. Analytical Pressure Continuity Bounds
         // Curved pipe minimum pressure drop is strictly bounded below by the Hagen-Poiseuille
         // straight-pipe flow projected over the exact mathematical arc length.
-        let straight_length =
-            self.mesh_builder.wavelength * T::from_usize(self.mesh_builder.num_periods)
+        let straight_length = self.mesh_builder.wavelength
+            * T::from_usize(self.mesh_builder.num_periods)
                 .expect("num_periods is always a representable usize");
 
         let exact_straight_dp = if config.circular {

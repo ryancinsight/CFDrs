@@ -1,6 +1,6 @@
 use cfd_math::sparse::spmv;
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
-use nalgebra::{DVector, RealField};
+use nalgebra::DVector;
 use nalgebra_sparse::CsrMatrix;
 
 fn bench_spmv(c: &mut Criterion) {

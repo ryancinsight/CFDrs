@@ -44,8 +44,6 @@
 //! that CFD implementations produce **correct physical results**, not just
 //! running code.
 
-use std::f64::consts::PI;
-
 // ============================================================================
 // SUMMARY REPORT STRUCTURE
 // ============================================================================
@@ -56,9 +54,9 @@ struct ValidationReport {
     simulation_type: String,
     physics_equations: Vec<String>,
     boundary_conditions: Vec<String>,
-    mesh_elements: usize,
-    convergence_order: f64,
-    gci: f64,
+    _mesh_elements: usize,
+    _convergence_order: f64,
+    _gci: f64,
     conservation_errors: ConservationErrors,
     literature_reference: String,
     validation_status: String,
@@ -93,9 +91,9 @@ fn report_1d_bifurcation() {
             "Outlet: P = 0 Pa (gauge)".to_string(),
             "Junction: Pressure continuity, mass conservation".to_string(),
         ],
-        mesh_elements: 1,
-        convergence_order: 1.0, // 1D is exact for Poiseuille
-        gci: 0.0,
+        _mesh_elements: 1,
+        _convergence_order: 1.0, // 1D is exact for Poiseuille
+        _gci: 0.0,
         conservation_errors: ConservationErrors {
             mass: 1e-12,
             energy: 5e-11,
@@ -118,19 +116,31 @@ fn report_1d_bifurcation() {
     }
     println!("├{}┤", "─".repeat(78));
     println!("│ Conservation Errors:                                                       │");
-    println!("│   Mass:     {:10.2e}  (Requirement: < 1e-10)  ✓ PASSED       │",
-             report.conservation_errors.mass);
-    println!("│   Energy:   {:10.2e}  (Requirement: < 1e-10)  ✓ PASSED       │",
-             report.conservation_errors.energy);
-    println!("│   Momentum: {:10.2e}  (Requirement: < 1e-10)  ✓ PASSED       │",
-             report.conservation_errors.momentum);
+    println!(
+        "│   Mass:     {:10.2e}  (Requirement: < 1e-10)  ✓ PASSED       │",
+        report.conservation_errors.mass
+    );
+    println!(
+        "│   Energy:   {:10.2e}  (Requirement: < 1e-10)  ✓ PASSED       │",
+        report.conservation_errors.energy
+    );
+    println!(
+        "│   Momentum: {:10.2e}  (Requirement: < 1e-10)  ✓ PASSED       │",
+        report.conservation_errors.momentum
+    );
     println!("├{}┤", "─".repeat(78));
     println!("│ Validation Against Literature:                                             │");
     println!("│   Murray's Law: Deviation = 2.4% (Target < 10%)  ✓ PASSED                │");
     println!("│   Viscosity range: 3.2-4.1 cP (Literature: 3-10 cP)  ✓ PASSED             │");
     println!("│   Shear rates: 180-220 s⁻¹ (Physiological: 1-500 s⁻¹)  ✓ PASSED            │");
-    println!("│   Reference: {} │", format!("{:<37}", report.literature_reference));
-    println!("│ Status: {} │", format!("{:<69}", report.validation_status));
+    println!(
+        "│   Reference: {} │",
+        format!("{:<37}", report.literature_reference)
+    );
+    println!(
+        "│ Status: {} │",
+        format!("{:<69}", report.validation_status)
+    );
     println!("╰{}╯", "─".repeat(78));
 }
 
@@ -139,8 +149,14 @@ fn report_1d_trifurcation() {
     println!("│ {:^76} │", "1D TRIFURCATION WITH BLOOD FLOW");
     println!("├{}┤", "─".repeat(78));
 
-    println!("│ Geometry: {:<66} │", "Symmetric Trifurcation (50→40 μm each)");
-    println!("│ Type: {:<75} │", "1D three-way junction with non-Newtonian blood");
+    println!(
+        "│ Geometry: {:<66} │",
+        "Symmetric Trifurcation (50→40 μm each)"
+    );
+    println!(
+        "│ Type: {:<75} │",
+        "1D three-way junction with non-Newtonian blood"
+    );
     println!("├{}┤", "─".repeat(78));
     println!("│ Physics:                                                                   │");
     println!("│   • Generalized Murray's law: D₀³ ≈ D₁³ + D₂³ + D₃³                       │");
@@ -171,8 +187,14 @@ fn report_2d_venturi() {
     println!("│ {:^76} │", "2D VENTURI THROAT");
     println!("├{}┤", "─".repeat(78));
 
-    println!("│ Geometry: {:<66} │", "ISO 5167 Standard Venturi (100→50 mm, β=0.25)");
-    println!("│ Type: {:<75} │", "2D FVM solution of Navier-Stokes + Bernoulli validation");
+    println!(
+        "│ Geometry: {:<66} │",
+        "ISO 5167 Standard Venturi (100→50 mm, β=0.25)"
+    );
+    println!(
+        "│ Type: {:<75} │",
+        "2D FVM solution of Navier-Stokes + Bernoulli validation"
+    );
     println!("├{}┤", "─".repeat(78));
     println!("│ Physics:                                                                   │");
     println!("│   • Bernoulli equation: P₁ + ½ρu₁² = P₂ + ½ρu₂² (energy conservation)     │");
@@ -208,8 +230,14 @@ fn report_2d_serpentine() {
     println!("│ {:^76} │", "2D SERPENTINE MIXING CHANNEL");
     println!("├{}┤", "─".repeat(78));
 
-    println!("│ Geometry: {:<66} │", "Microfluidic serpentine (200×50 μm, 5 cycles)");
-    println!("│ Type: {:<75} │", "2D advection-diffusion mixing efficiency analysis");
+    println!(
+        "│ Geometry: {:<66} │",
+        "Microfluidic serpentine (200×50 μm, 5 cycles)"
+    );
+    println!(
+        "│ Type: {:<75} │",
+        "2D advection-diffusion mixing efficiency analysis"
+    );
     println!("├{}┤", "─".repeat(78));
     println!("│ Physics:                                                                   │");
     println!("│   • Advection-diffusion: ∂c/∂t + u·∇c = D·∇²c                             │");
@@ -251,8 +279,14 @@ fn report_3d_bifurcation() {
     println!("│ {:^76} │", "3D FEM BIFURCATION (WALL SHEAR STRESS)");
     println!("├{}┤", "─".repeat(78));
 
-    println!("│ Geometry: {:<66} │", "Symmetric bifurcation (100→80 μm each)");
-    println!("│ Type: {:<75} │", "3D P1-P1 FEM solution of incompressible Navier-Stokes");
+    println!(
+        "│ Geometry: {:<66} │",
+        "Symmetric bifurcation (100→80 μm each)"
+    );
+    println!(
+        "│ Type: {:<75} │",
+        "3D P1-P1 FEM solution of incompressible Navier-Stokes"
+    );
     println!("├{}┤", "─".repeat(78));
     println!("│ Physics:                                                                   │");
     println!("│   • Momentum: ρ(∂u/∂t + u·∇u) = -∇p + μ∇²u                                │");
@@ -478,7 +512,7 @@ fn main() {
     println!("EXECUTIVE SUMMARY");
     println!("{}", "═".repeat(80));
     println!("\nThis document presents comprehensive validation of all CFD solvers implemented");
-    println!("in the microfluidic CFD suite. Each solver has been:") ;
+    println!("in the microfluidic CFD suite. Each solver has been:");
     println!("  1. Implemented with complete physics models (no placeholders)");
     println!("  2. Validated against analytical solutions");
     println!("  3. Verified with convergence studies");
@@ -502,10 +536,14 @@ fn main() {
     println!("   Dynamics and Heat Transfer.\" ASME Standard.");
     println!("\n2. Roache, P.J. (1998). \"Verification and Validation in Computational Science");
     println!("   and Engineering.\" Hermosa Publishers.");
-    println!("\n3. Huo, Y., & Kassab, G.S. (2012). \"Intraspecific scaling laws of vascular trees.\"");
+    println!(
+        "\n3. Huo, Y., & Kassab, G.S. (2012). \"Intraspecific scaling laws of vascular trees.\""
+    );
     println!("   Journal of Royal Society Interface, 9(66), 75-88.");
     println!("\n4. Glagov, S., Zarins, C., Giddens, D.P., & Ku, D.N. (1988). \"Hemodynamics and");
-    println!("   atherosclerosis. Insights and perspectives gained from studies of human arteries.\"");
+    println!(
+        "   atherosclerosis. Insights and perspectives gained from studies of human arteries.\""
+    );
     println!("   Archives of Pathology & Laboratory Medicine, 112(10), 1018-1031.");
     println!("\n5. Ku, D.N., Giddens, D.P., Zarins, C.K., & Glagov, S. (1985). \"Pulsatile flow");
     println!("   and atherosclerosis in the human carotid bifurcation.\" Arteriosclerosis, 5(3),");

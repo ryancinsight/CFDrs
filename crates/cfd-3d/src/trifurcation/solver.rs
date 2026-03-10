@@ -167,7 +167,10 @@ impl<
         // (inlet / outlet_* / wall).  The per-label outlet map preserves per-outlet
         // pressure assignment needed for the trifurcation case.
         let face_sets = crate::fem::AxialBoundaryClassifier::new(&mesh, 8).classify();
-        tracing::debug!(count = mesh.boundary_faces().len(), "Trifurcation boundary face count");
+        tracing::debug!(
+            count = mesh.boundary_faces().len(),
+            "Trifurcation boundary face count"
+        );
 
         // Apply inlet BCs (highest priority)
         for &v_idx in &face_sets.inlet_nodes {
@@ -205,7 +208,10 @@ impl<
                 });
         }
 
-        tracing::debug!(count = boundary_conditions.len(), "Trifurcation boundary nodes constrained");
+        tracing::debug!(
+            count = boundary_conditions.len(),
+            "Trifurcation boundary nodes constrained"
+        );
 
         // 3. Set up FEM Problem
         let constant_fluid = cfd_core::physics::fluid::ConstantPropertyFluid::<f64> {
@@ -268,7 +274,9 @@ impl<
 
             let mut max_change_f64 = 0.0_f64;
             next_viscosities.clear();
-            let current_viscosities = problem.element_viscosities.as_ref()
+            let current_viscosities = problem
+                .element_viscosities
+                .as_ref()
                 .expect("element_viscosities set before Picard loop");
 
             for (i, cell) in problem.mesh.cells.iter().enumerate() {
@@ -285,11 +293,17 @@ impl<
                 next_viscosities.push(new_visc);
             }
 
-            element_viscosities = problem.element_viscosities.take()
+            element_viscosities = problem
+                .element_viscosities
+                .take()
                 .expect("element_viscosities set before Picard loop");
             std::mem::swap(&mut element_viscosities, &mut next_viscosities);
             last_solution = Some(updated_solution);
-            tracing::debug!(iter, visc_change = max_change_f64, "Trifurcation Picard iteration");
+            tracing::debug!(
+                iter,
+                visc_change = max_change_f64,
+                "Trifurcation Picard iteration"
+            );
             if max_change_f64 < self.config.nonlinear_tolerance.to_f64().unwrap_or(1e-4) {
                 break;
             }

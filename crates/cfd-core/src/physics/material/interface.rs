@@ -50,8 +50,10 @@ impl<T: RealField + Copy> FluidSolidInterface<T> {
             contact_angle,
             wetting: WettingProperties {
                 contact_angle,
-                advancing_angle: pi * T::from_f64(100.0 / 180.0).unwrap_or_else(num_traits::Zero::zero),
-                receding_angle: pi * T::from_f64(80.0 / 180.0).unwrap_or_else(num_traits::Zero::zero),
+                advancing_angle: pi
+                    * T::from_f64(100.0 / 180.0).unwrap_or_else(num_traits::Zero::zero),
+                receding_angle: pi
+                    * T::from_f64(80.0 / 180.0).unwrap_or_else(num_traits::Zero::zero),
             },
         }
     }

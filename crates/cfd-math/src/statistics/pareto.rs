@@ -131,16 +131,15 @@ pub fn crowding_distances(front_objectives: &[Vec<f64>]) -> Vec<f64> {
         dist[order[0]] = f64::INFINITY;
         dist[order[n - 1]] = f64::INFINITY;
 
-        let range = front_objectives[order[n - 1]][obj_idx]
-            - front_objectives[order[0]][obj_idx];
+        let range = front_objectives[order[n - 1]][obj_idx] - front_objectives[order[0]][obj_idx];
         if range < 1e-12 {
             // All members have the same value for this objective; no contribution
             continue;
         }
 
         for k in 1..(n - 1) {
-            let delta = front_objectives[order[k + 1]][obj_idx]
-                - front_objectives[order[k - 1]][obj_idx];
+            let delta =
+                front_objectives[order[k + 1]][obj_idx] - front_objectives[order[k - 1]][obj_idx];
             dist[order[k]] += delta / range;
         }
     }

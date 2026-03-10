@@ -126,7 +126,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy>
         if self.nu > T::zero() {
             (self.u_mag * self.h)
                 / (<T as FromPrimitive>::from_f64(TWO)
-                    .expect("TWO (2.0) is representable in all IEEE 754 types") * self.nu)
+                    .expect("TWO (2.0) is representable in all IEEE 754 types")
+                    * self.nu)
         } else {
             T::zero()
         }
@@ -151,8 +152,9 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy>
         if pe < T::one() {
             // Diffusion-dominated: reduce stabilization
             tau_supg * pe
-        } else if pe > <T as FromPrimitive>::from_f64(100.0)
-            .expect("100.0 is representable in all IEEE 754 types")
+        } else if pe
+            > <T as FromPrimitive>::from_f64(100.0)
+                .expect("100.0 is representable in all IEEE 754 types")
         {
             // Highly advection-dominated: use full stabilization
             tau_supg

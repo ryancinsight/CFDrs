@@ -171,9 +171,9 @@ impl HemolysisModel {
     ///   *Biophys. J.* 12:257–273.
     pub fn giersiepen_millifluidic() -> Self {
         Self::PowerLaw {
-            coefficient:     GIERSIEPEN_MILLIFLUIDIC_C,
+            coefficient: GIERSIEPEN_MILLIFLUIDIC_C,
             stress_exponent: GIERSIEPEN_MILLIFLUIDIC_STRESS,
-            time_exponent:   GIERSIEPEN_MILLIFLUIDIC_TIME,
+            time_exponent: GIERSIEPEN_MILLIFLUIDIC_TIME,
         }
     }
 

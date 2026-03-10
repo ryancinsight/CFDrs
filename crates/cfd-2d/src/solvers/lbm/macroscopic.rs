@@ -59,7 +59,7 @@ impl<T: RealField + Copy + FromPrimitive> MacroscopicQuantities<T> {
     pub fn new(nx: usize, ny: usize) -> Self {
         let n = nx * ny;
         Self {
-            density:  vec![T::one();  n],
+            density: vec![T::one(); n],
             velocity: vec![T::zero(); n * 2],
             pressure: None,
             nx,
@@ -89,7 +89,7 @@ impl<T: RealField + Copy + FromPrimitive> MacroscopicQuantities<T> {
                 let rho = compute_density_flat(f, j, i, nx);
                 self.density[cell] = rho;
                 let [ux, uy] = compute_velocity_flat::<T>(f, j, i, nx, rho);
-                self.velocity[cell * 2]     = ux;
+                self.velocity[cell * 2] = ux;
                 self.velocity[cell * 2 + 1] = uy;
 
                 if let Some(ref mut pressure) = self.pressure {
@@ -117,12 +117,7 @@ impl<T: RealField + Copy + FromPrimitive> MacroscopicQuantities<T> {
 ///
 /// ρ(i,j) = ∑_{q=0}^{8} f_q(i,j)
 #[inline]
-pub fn compute_density_flat<T: RealField + Copy>(
-    f: &[T],
-    j: usize,
-    i: usize,
-    nx: usize,
-) -> T {
+pub fn compute_density_flat<T: RealField + Copy>(f: &[T], j: usize, i: usize, nx: usize) -> T {
     let mut rho = T::zero();
     for q in 0..9 {
         rho += f[f_idx(j, i, q, nx)];
@@ -208,8 +203,7 @@ pub fn compute_kinetic_energy<T: RealField + Copy + FromPrimitive>(
     density: T,
     velocity: &[T; 2],
 ) -> T {
-    let half = T::from_f64(0.5)
-        .expect("T must represent f64 values; ½ is exact in IEEE 754");
+    let half = T::from_f64(0.5).expect("T must represent f64 values; ½ is exact in IEEE 754");
     half * density * (velocity[0] * velocity[0] + velocity[1] * velocity[1])
 }
 

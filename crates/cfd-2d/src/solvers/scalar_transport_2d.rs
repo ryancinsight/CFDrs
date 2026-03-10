@@ -24,7 +24,7 @@
 //! Boundedness follows directly from the non-negative coefficients and the
 //! Scarborough criterion.
 
-use crate::solvers::ns_fvm_2d::{FlowField2D, StaggeredGrid2D};
+use crate::solvers::ns_fvm::{FlowField2D, StaggeredGrid2D};
 use nalgebra::RealField;
 use num_traits::{Float, FromPrimitive};
 use serde::{Deserialize, Serialize};
@@ -145,13 +145,14 @@ impl<T: RealField + Copy + Float + FromPrimitive> ScalarTransportSolver2D<T> {
                     let a_p = a_e + a_w + a_n + a_s + (f_e - f_w + f_n - f_s);
                     // Add inlet terms to a_p if applicable
                     let mut a_p_eff = a_p;
-                    if (i == 0 || (i > 0 && !field.mask[i - 1][j]))
-                        && f_w > zero {
-                            let d_in = gamma * dy / (half * dx);
-                            a_p_eff += d_in;
-                        }
+                    if (i == 0 || (i > 0 && !field.mask[i - 1][j])) && f_w > zero {
+                        let d_in = gamma * dy / (half * dx);
+                        a_p_eff += d_in;
+                    }
 
-                    if Float::abs(a_p_eff) > T::from_f64(1e-30).unwrap_or_else(num_traits::Zero::zero) {
+                    if Float::abs(a_p_eff)
+                        > T::from_f64(1e-30).unwrap_or_else(num_traits::Zero::zero)
+                    {
                         let c_e = if i < nx - 1 && field.mask[i + 1][j] {
                             self.c[i + 1][j]
                         } else {

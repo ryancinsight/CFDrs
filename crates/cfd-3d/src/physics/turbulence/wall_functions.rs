@@ -70,9 +70,8 @@ impl WallFunctions {
     /// # Returns
     /// Dimensionless velocity u⁺ (≥ 0)
     pub fn u_plus<T: RealField + Copy + FromPrimitive + num_traits::Float>(y_plus: T) -> T {
-        let y_plus_tr =
-            <T as FromPrimitive>::from_f64(WALL_Y_PLUS_TRANSITION)
-                .expect("WALL_Y_PLUS_TRANSITION is an IEEE 754 representable f64 constant");
+        let y_plus_tr = <T as FromPrimitive>::from_f64(WALL_Y_PLUS_TRANSITION)
+            .expect("WALL_Y_PLUS_TRANSITION is an IEEE 754 representable f64 constant");
         if y_plus < y_plus_tr {
             y_plus // viscous sublayer
         } else {

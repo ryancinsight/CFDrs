@@ -63,14 +63,12 @@ where
                 length: *length,
             };
             if hp.is_applicable(&local_conditions) {
-                hp.validate_invariants(fluid, &local_conditions)?;
                 return hp.calculate_resistance(fluid, &local_conditions);
             }
 
             // Default to a smooth pipe if roughness is not specified by the geometry.
             let dw = DarcyWeisbachModel::circular(*diameter, *length, T::zero());
             if dw.is_applicable(&local_conditions) {
-                dw.validate_invariants(fluid, &local_conditions)?;
                 return dw.calculate_resistance(fluid, &local_conditions);
             }
 
@@ -84,19 +82,19 @@ where
             height,
             length,
         } => {
+            let area = *width * *height;
+            let dh = (T::one() + T::one()) * *width * *height / (*width + *height);
             let rect = RectangularChannelModel {
                 width: *width,
                 height: *height,
                 length: *length,
             };
             if rect.is_applicable(&local_conditions) {
-                rect.validate_invariants(fluid, &local_conditions)?;
-                rect.calculate_resistance(fluid, &local_conditions)
-            } else {
-                Err(Error::InvalidConfiguration(
-                    "Rectangular-channel resistance currently supports laminar flow only; provide a laminar Reynolds number or use a different model".to_string(),
-                ))
+                return rect.calculate_resistance(fluid, &local_conditions);
             }
+
+            DarcyWeisbachModel::new(dh, area, *length, T::zero())
+                .calculate_resistance(fluid, &local_conditions)
         }
         _ => Err(Error::InvalidConfiguration(
             "No resistance model available for this geometry type; use Circular or Rectangular"

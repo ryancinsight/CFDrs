@@ -1,7 +1,7 @@
 //! 3D Poiseuille flow (pipe flow) `PyO3` wrapper.
 
-use pyo3::prelude::*;
 use pyo3::exceptions::PyRuntimeError;
+use pyo3::prelude::*;
 
 use cfd_core::physics::fluid::blood::CassonBlood;
 
@@ -90,15 +90,15 @@ impl PyPoiseuille3DSolver {
             "casson" => {
                 let fluid = CassonBlood::<f64>::normal_blood();
                 fluid.apparent_viscosity(gamma_dot)
-            },
+            }
             "carreau_yasuda" | "carreau_yasuda_blood" => {
                 let fluid = CarreauYasudaBlood::<f64>::normal_blood();
                 fluid.apparent_viscosity(gamma_dot)
-            },
+            }
             _ => {
-                return Err(PyRuntimeError::new_err(
-                    format!("Unknown blood type '{blood_type}'. Use: newtonian, casson, or carreau_yasuda")
-                ));
+                return Err(PyRuntimeError::new_err(format!(
+                    "Unknown blood type '{blood_type}'. Use: newtonian, casson, or carreau_yasuda"
+                )));
             }
         };
 

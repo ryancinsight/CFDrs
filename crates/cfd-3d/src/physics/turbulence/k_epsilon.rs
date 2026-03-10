@@ -153,17 +153,10 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> KEpsi
 
         let three = T::one() + T::one() + T::one();
         let four = three + T::one();
-        let c_mu_34 = num_traits::Float::powf(
-            self.constants.c_mu,
-            three / four,
-        );
+        let c_mu_34 = num_traits::Float::powf(self.constants.c_mu, three / four);
         for &k in &k_field {
-            let epsilon = c_mu_34
-                * num_traits::Float::powf(
-                    k,
-                    three / (T::one() + T::one()),
-                )
-                / mixing_length;
+            let epsilon =
+                c_mu_34 * num_traits::Float::powf(k, three / (T::one() + T::one())) / mixing_length;
             epsilon_field.push(epsilon);
         }
 
@@ -190,8 +183,9 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Turbu
                 .iter()
                 .zip(state.epsilon.iter())
                 .map(|(&k, &eps)| {
-                    if eps > <T as FromPrimitive>::from_f64(1e-10)
-                        .expect("1e-10 is an IEEE 754 representable f64 constant")
+                    if eps
+                        > <T as FromPrimitive>::from_f64(1e-10)
+                            .expect("1e-10 is an IEEE 754 representable f64 constant")
                     {
                         self.constants.c_mu * k * k / eps
                     } else {

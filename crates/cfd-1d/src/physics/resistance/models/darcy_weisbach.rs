@@ -174,8 +174,27 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for DarcyWeisbachMo
     ) -> Result<(T, T)> {
         let state = fluid.properties_at(conditions.temperature, conditions.pressure)?;
         let density = state.density;
-        let viscosity = state.dynamic_viscosity;
         let area = self.area;
+
+        let velocity = if let Some(v) = conditions.velocity {
+            v
+        } else if let Some(q) = conditions.flow_rate {
+            q / area
+        } else {
+            T::zero()
+        };
+        let v_abs = if velocity >= T::zero() {
+            velocity
+        } else {
+            -velocity
+        };
+
+        // Always query the shear-dependent viscosity. Newtonian fluids gracefully
+        // ignore the shear_rate argument via the default trait implementation.
+        let shear_rate = T::from_f64(8.0).unwrap_or(T::one()) * v_abs / self.hydraulic_diameter;
+        let viscosity = fluid
+            .viscosity_at_shear(shear_rate, conditions.temperature, conditions.pressure)
+            .unwrap_or(state.dynamic_viscosity);
 
         // Auto-compute Reynolds number when not explicitly provided.
         // Re = ρ·V·D_h / μ   (derived from velocity or flow_rate)

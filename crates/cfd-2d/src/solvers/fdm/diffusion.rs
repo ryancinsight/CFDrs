@@ -74,7 +74,8 @@ impl<T: RealField + Copy + FromPrimitive> DiffusionSolver<T> {
         t_final: T,
         source_fn: &impl Fn(T, T, T) -> T,
     ) -> HashMap<(usize, usize), T> {
-        let dt = T::from_f64(0.25 * 0.9).unwrap_or_else(num_traits::Zero::zero) * self.dx * self.dx / self.alpha;
+        let dt = T::from_f64(0.25 * 0.9).unwrap_or_else(num_traits::Zero::zero) * self.dx * self.dx
+            / self.alpha;
         let mut t = T::zero();
 
         while t < t_final {
@@ -103,9 +104,13 @@ impl<T: RealField + Copy + FromPrimitive> DiffusionSolver<T> {
                         .copied()
                         .unwrap_or_else(T::zero);
 
-                    let laplacian = (un_e - T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero) * un + un_w)
+                    let laplacian = (un_e
+                        - T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero) * un
+                        + un_w)
                         / (self.dx * self.dx)
-                        + (un_n - T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero) * un + un_s) / (self.dy * self.dy);
+                        + (un_n - T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero) * un
+                            + un_s)
+                            / (self.dy * self.dy);
 
                     let x = T::from_usize(i).unwrap_or_else(T::one) * self.dx;
                     let y = T::from_usize(j).unwrap_or_else(T::one) * self.dy;

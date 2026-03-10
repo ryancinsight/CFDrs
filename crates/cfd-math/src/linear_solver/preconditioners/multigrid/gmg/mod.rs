@@ -103,7 +103,8 @@ impl<T: RealField + Copy + FromPrimitive> GeometricMultigrid<T> {
         // Build hierarchy from finest to coarsest
         let mut current_nx = nx;
         let mut current_ny = ny;
-        let mut current_h = T::from_f64(1.0).unwrap_or_else(num_traits::Zero::zero) / T::from_usize(nx.max(ny)).unwrap();
+        let mut current_h = T::from_f64(1.0).unwrap_or_else(num_traits::Zero::zero)
+            / T::from_usize(nx.max(ny)).unwrap();
 
         for _level in 0..max_levels {
             grid_sizes.push((current_nx, current_ny));
@@ -127,8 +128,8 @@ impl<T: RealField + Copy + FromPrimitive> GeometricMultigrid<T> {
             grid_sizes,
             matrices,
             relaxation_param: T::from_f64(0.8).unwrap_or_else(num_traits::Zero::zero), // Weighted Jacobi
-            nu1: 2,                                      // Pre-smoothing iterations
-            nu2: 2,                                      // Post-smoothing iterations
+            nu1: 2, // Pre-smoothing iterations
+            nu2: 2, // Post-smoothing iterations
         })
     }
 

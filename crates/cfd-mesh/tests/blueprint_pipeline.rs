@@ -47,6 +47,26 @@ fn venturi_chain_fluid_mesh_watertight() {
 }
 
 #[test]
+fn venturi_pipeline_reports_channel_volume_trace() {
+    let bp = venturi_chain("v_trace", 0.030, 0.004, 0.002);
+    let out = BlueprintMeshPipeline::run(&bp, &no_chip_cfg())
+        .expect("venturi_chain pipeline with volume trace failed");
+
+    assert_eq!(out.volume_trace.channel_traces.len(), bp.channels.len());
+    assert!(out.volume_trace.schematic_summary.total_fluid_volume_mm3 > 0.0);
+    assert!(out.volume_trace.fluid_mesh_volume_mm3 > 0.0);
+    assert!(out
+        .layout_segments
+        .iter()
+        .all(|segment| !segment.is_synthetic_connector || segment.source_channel_id.is_none()));
+    assert!(out.volume_trace.channel_traces.iter().all(|trace| {
+        trace.schematic_volume_mm3 > 0.0
+            && trace.meshed_volume_mm3 > 0.0
+            && trace.layout_segment_count >= 1
+    }));
+}
+
+#[test]
 fn bifurcation_fluid_mesh_watertight() {
     let bp = symmetric_bifurcation("b1", 0.010, 0.010, 0.004, 0.003);
     let mut out = BlueprintMeshPipeline::run(&bp, &no_chip_cfg())

@@ -80,8 +80,9 @@ mod tests {
     #[test]
     fn test_distributed_vector_type_algebra() {
         // The distributed vector requires RealField + Copy + FromPrimitive + LowerExp.
-        fn assert_bounds<T: nalgebra::RealField + Copy + num_traits::FromPrimitive + std::fmt::LowerExp>(
-        ) {
+        fn assert_bounds<
+            T: nalgebra::RealField + Copy + num_traits::FromPrimitive + std::fmt::LowerExp,
+        >() {
         }
         assert_bounds::<f64>();
         assert_bounds::<f32>();

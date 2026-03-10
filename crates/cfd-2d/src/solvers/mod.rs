@@ -91,7 +91,6 @@ pub mod fdm;
 pub mod fvm;
 pub mod lbm;
 pub mod ns_fvm;
-pub mod ns_fvm_2d;
 pub mod poiseuille;
 pub mod scalar_transport_2d;
 pub mod serpentine_flow;

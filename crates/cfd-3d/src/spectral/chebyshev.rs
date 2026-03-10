@@ -134,12 +134,6 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Cheby
         &self.points
     }
 
-    /// Get collocation points (alias for compatibility)
-    #[must_use]
-    pub fn collocation_points(&self) -> &[T] {
-        &self.points
-    }
-
     /// Get differentiation matrix reference
     #[must_use]
     pub fn diff_matrix(&self) -> &DMatrix<T> {

@@ -3,5 +3,6 @@
     "kimi.yoloMode": true,
     "problems.autoReveal": false,
     "chat.agent.maxRequests": 400,
-    "github.copilot.chat.backgroundCompaction": true
+    "github.copilot.chat.backgroundCompaction": true,
+    "claudeCode.allowDangerouslySkipPermissions": true
 }

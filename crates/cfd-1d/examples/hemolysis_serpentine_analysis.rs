@@ -23,9 +23,9 @@ use cfd_core::physics::fluid::FluidTrait;
 use cfd_core::physics::hemolysis::HemolysisModel;
 use cfd_schematics::config::presets::smooth_serpentine;
 use cfd_schematics::config::{ChannelTypeConfig, GeometryConfig};
-use cfd_schematics::domain::model::{ChannelSpec, NodeKind, NodeSpec};
+
 use cfd_schematics::geometry::generator::create_geometry;
-use cfd_schematics::geometry::{ChannelSystem, SplitType};
+use cfd_schematics::geometry::SplitType;
 use cfd_schematics::plot_geometry;
 use cfd_schematics::visualizations::analysis_field::{
     AnalysisField, AnalysisOverlay, ColormapKind,
@@ -70,8 +70,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     )?;
 
     // ── 3. Convert to 1D simulation specs ────────────────────────────────────
-    println!("3. Converting to 1D network specifications...");
-    let (node_specs, channel_specs) = convert_geometry_to_specs(&system);
+    // The system.nodes and system.channels are already the specs needed.
 
     // ── 4. Build Network with Carreau-Yasuda blood ───────────────────────────
     println!("4. Building 1D network with Carreau-Yasuda blood model...");
@@ -87,12 +86,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut id_map = HashMap::new();
     let mut edge_id_map = HashMap::new();
 
-    for spec in &node_specs {
+    for spec in &system.nodes {
         let node = cfd_1d::Node::from(spec);
         let idx = builder.add_node(node);
         id_map.insert(spec.id.as_str().to_string(), idx);
     }
-    for spec in &channel_specs {
+    for spec in &system.channels {
         let edge = cfd_1d::Edge::from(spec);
         let from_idx = id_map[spec.from.as_str()];
         let to_idx = id_map[spec.to.as_str()];
@@ -103,7 +102,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let graph = builder.build()?;
     let mut network = Network::new(graph, blood.clone());
 
-    for spec in &channel_specs {
+    for spec in &system.channels {
         let eidx = edge_id_map[spec.id.as_str()];
         network.add_edge_properties(eidx, EdgeProperties::from(spec));
     }
@@ -113,11 +112,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let inlet_pressure_pa = 2000.0; // 2 kPa — moderate millifluidic pressure
     let outlet_pressure_pa = 0.0;
 
-    for spec in &node_specs {
+    for spec in &system.nodes {
         let idx = id_map[spec.id.as_str()];
         match spec.kind {
-            NodeKind::Inlet => network.set_pressure(idx, inlet_pressure_pa),
-            NodeKind::Outlet => network.set_pressure(idx, outlet_pressure_pa),
+            cfd_schematics::domain::model::NodeKind::Inlet => {
+                network.set_pressure(idx, inlet_pressure_pa)
+            }
+            cfd_schematics::domain::model::NodeKind::Outlet => {
+                network.set_pressure(idx, outlet_pressure_pa)
+            }
             _ => {}
         }
     }
@@ -331,87 +334,4 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("\n✅ Hemolysis analysis complete — all outputs in hemolysis/");
     Ok(())
-}
-
-/// Convert a `ChannelSystem` geometry into `NodeSpec`/`ChannelSpec` pairs.
-///
-/// Nodes at minimum x are inlets; maximum x are outlets; all others are junctions.
-/// Channels use the Hele-Shaw rectangular resistance model:
-///   R = 12·μ·L / (w·h³·(1 − 0.63·h/w))
-fn convert_geometry_to_specs(system: &ChannelSystem) -> (Vec<NodeSpec>, Vec<ChannelSpec>) {
-    let min_x = system
-        .nodes
-        .iter()
-        .map(|n| n.point.0)
-        .fold(f64::INFINITY, f64::min);
-    let max_x = system
-        .nodes
-        .iter()
-        .map(|n| n.point.0)
-        .fold(f64::NEG_INFINITY, f64::max);
-
-    let node_specs: Vec<NodeSpec> = system
-        .nodes
-        .iter()
-        .map(|node| {
-            let kind = if (node.point.0 - min_x).abs() < 1e-3 {
-                NodeKind::Inlet
-            } else if (node.point.0 - max_x).abs() < 1e-3 {
-                NodeKind::Outlet
-            } else {
-                NodeKind::Junction
-            };
-            NodeSpec::new(format!("node_{}", node.id), kind)
-        })
-        .collect();
-
-    // Blood apparent viscosity at mid-shear ≈ 3.5 mPa·s
-    let mu = 3.5e-3_f64;
-
-    let channel_specs: Vec<ChannelSpec> = system
-        .channels
-        .iter()
-        .map(|channel| {
-            let from = system
-                .nodes
-                .iter()
-                .find(|n| n.id == channel.from_node)
-                .unwrap();
-            let to = system
-                .nodes
-                .iter()
-                .find(|n| n.id == channel.to_node)
-                .unwrap();
-            let dx = from.point.0 - to.point.0;
-            let dy = from.point.1 - to.point.1;
-            let length_m = dx.hypot(dy) / 1000.0; // mm → m
-
-            let width_m = channel.width / 1000.0;
-            let height_m = channel.height / 1000.0;
-
-            let (w, h) = if width_m > height_m {
-                (width_m, height_m)
-            } else {
-                (height_m, width_m)
-            };
-            let resistance = if h > 0.0 {
-                (12.0 * mu * length_m) / (w * h.powi(3) * (1.0 - 0.63 * h / w))
-            } else {
-                f64::INFINITY
-            };
-
-            ChannelSpec::new_pipe_rect(
-                format!("chan_{}", channel.id),
-                format!("node_{}", channel.from_node),
-                format!("node_{}", channel.to_node),
-                length_m,
-                width_m,
-                height_m,
-                resistance,
-                0.0,
-            )
-        })
-        .collect();
-
-    (node_specs, channel_specs)
 }

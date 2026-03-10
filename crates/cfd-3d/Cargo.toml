@@ -9,10 +9,13 @@ documentation.workspace = true
 description = "3D CFD solvers with CSGrs mesh integration"
 
 [dependencies]
+cfd-1d.workspace = true
+cfd-2d.workspace = true
 cfd-core.workspace = true
 cfd-math.workspace = true
 cfd-mesh.workspace = true
 cfd-io.workspace = true
+cfd-schematics.workspace = true
 nalgebra.workspace = true
 nalgebra-sparse.workspace = true
 thiserror.workspace = true
@@ -33,6 +36,7 @@ proptest.workspace = true
 approx.workspace = true
 criterion.workspace = true
 cfd-validation.workspace = true
+cfd-schematics.workspace = true
 
 [[bench]]
 name = "smagorinsky_benchmark"

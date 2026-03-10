@@ -80,13 +80,8 @@ mod tests {
 
     #[test]
     fn test_boundary_face() {
-        let face: Face<f64> = Face::new(
-            Vector2::new(0.0, 0.5),
-            Vector2::new(1.0, 0.0),
-            0.1,
-            0,
-            None,
-        );
+        let face: Face<f64> =
+            Face::new(Vector2::new(0.0, 0.5), Vector2::new(1.0, 0.0), 0.1, 0, None);
         assert!(face.is_boundary());
     }
 
@@ -127,7 +122,10 @@ mod tests {
             Some(1),
         );
         let flux = face.flux(Vector2::new(0.0, 5.0));
-        assert!(flux.abs() < 1e-14, "Tangential flux should be zero, got {flux}");
+        assert!(
+            flux.abs() < 1e-14,
+            "Tangential flux should be zero, got {flux}"
+        );
     }
 
     #[test]

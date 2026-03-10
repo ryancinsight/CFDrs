@@ -108,9 +108,14 @@ mod tests {
     use crate::domain::geometry::primitives::{Cube, PrimitiveMesh};
 
     fn unit_cube() -> IndexedMesh {
-        Cube { origin: Point3r::new(-1.0, -1.0, -1.0), width: 2.0, height: 2.0, depth: 2.0 }
-            .build()
-            .expect("cube build")
+        Cube {
+            origin: Point3r::new(-1.0, -1.0, -1.0),
+            width: 2.0,
+            height: 2.0,
+            depth: 2.0,
+        }
+        .build()
+        .expect("cube build")
     }
 
     #[test]

@@ -491,7 +491,10 @@ fn clean(sh: &Shell) -> Result<()> {
     cmd!(sh, "cargo clean").run()?;
 
     // Remove cfd-python wheels
-    let wheel_dir = project_root().join("crates").join("cfd-python").join("target");
+    let wheel_dir = project_root()
+        .join("crates")
+        .join("cfd-python")
+        .join("target");
     if wheel_dir.exists() {
         println!("Removing cfd-python wheels...");
         std::fs::remove_dir_all(&wheel_dir).context("Failed to remove wheel directory")?;

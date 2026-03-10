@@ -31,21 +31,15 @@
 
 use cfd_2d::fields::SimulationFields;
 use cfd_2d::grid::structured::StructuredGrid2D;
-use cfd_2d::grid::traits::Grid2D;
 use cfd_2d::simplec_pimple::config::SimplecPimpleConfig;
 use cfd_2d::simplec_pimple::solver::SimplecPimpleSolver;
-use cfd_core::physics::fluid::blood::{CassonBlood, CarreauYasudaBlood};
-use cfd_core::physics::fluid::traits::{Fluid as FluidTrait, NonNewtonianFluid};
-use nalgebra::RealField;
+use cfd_core::physics::fluid::blood::{CarreauYasudaBlood, CassonBlood};
 
 /// Tolerance for mass conservation validation
 const MASS_CONSERVATION_TOLERANCE: f64 = 0.001; // 0.1%
 
 /// Tolerance for Murray's law validation
 const MURRAY_TOLERANCE: f64 = 0.05; // 5%
-
-/// Tolerance for pressure continuity
-const PRESSURE_TOLERANCE: f64 = 0.01; // 1%
 
 /// ============================================================================
 /// Bifurcation Geometry Definition
@@ -64,7 +58,7 @@ struct BifurcationGeometry2D {
     /// Second daughter channel width [m]
     pub daughter2_width: f64,
     /// Second daughter channel length [m]
-    pub daughter2_length: f64,
+    pub _daughter2_length: f64,
     /// Bifurcation angle [rad]
     pub bifurcation_angle: f64,
 }
@@ -85,7 +79,7 @@ impl BifurcationGeometry2D {
             daughter1_width: daughter_width,
             daughter1_length: parent_length * 1.5,
             daughter2_width: daughter_width,
-            daughter2_length: parent_length * 1.5,
+            _daughter2_length: parent_length * 1.5,
             bifurcation_angle: angle_deg.to_radians(),
         }
     }
@@ -104,7 +98,7 @@ impl BifurcationGeometry2D {
             daughter1_width,
             daughter1_length: length * 1.5,
             daughter2_width,
-            daughter2_length: length * 1.5,
+            _daughter2_length: length * 1.5,
             bifurcation_angle: angle_deg.to_radians(),
         }
     }
@@ -153,12 +147,18 @@ impl ValidationResult {
             "Mass conservation error: {:.4e}%",
             self.mass_conservation_error * 100.0
         );
-        println!("Murray's law deviation: {:.4e}%", self.murray_deviation * 100.0);
+        println!(
+            "Murray's law deviation: {:.4e}%",
+            self.murray_deviation * 100.0
+        );
         println!(
             "Pressure continuity error: {:.4e}%",
             self.pressure_continuity_error * 100.0
         );
-        println!("Wall shear stress (parent): {:.4e} Pa", self.wall_shear_stress_parent);
+        println!(
+            "Wall shear stress (parent): {:.4e} Pa",
+            self.wall_shear_stress_parent
+        );
         println!(
             "Wall shear stress (daughter 1): {:.4e} Pa",
             self.wall_shear_stress_daughter1
@@ -205,7 +205,10 @@ fn validate_symmetric_casson() -> ValidationResult {
 
     println!("Parent width: {:.2} mm", geom.parent_width * 1e3);
     println!("Daughter width: {:.2} mm", geom.daughter1_width * 1e3);
-    println!("Bifurcation angle: {:.1}°", geom.bifurcation_angle.to_degrees());
+    println!(
+        "Bifurcation angle: {:.1}°",
+        geom.bifurcation_angle.to_degrees()
+    );
 
     // Check Murray's law
     let murray_dev = geom.murray_deviation();
@@ -216,8 +219,8 @@ fn validate_symmetric_casson() -> ValidationResult {
     let ny = 80;
     let (lx, ly) = geom.domain_size();
 
-    let grid = StructuredGrid2D::new(nx, ny, 0.0, lx, -ly / 2.0, ly / 2.0)
-        .expect("Failed to create grid");
+    let grid =
+        StructuredGrid2D::new(nx, ny, 0.0, lx, -ly / 2.0, ly / 2.0).expect("Failed to create grid");
 
     // Initialize fields
     let mut fields = SimulationFields::new(nx, ny);
@@ -226,7 +229,10 @@ fn validate_symmetric_casson() -> ValidationResult {
     let blood = CassonBlood::<f64>::normal_blood();
     println!("Blood model: Casson (normal hematocrit)");
     println!("Yield stress: {:.4e} Pa", blood.yield_stress);
-    println!("Infinite-shear viscosity: {:.4e} Pa·s", blood.infinite_shear_viscosity);
+    println!(
+        "Infinite-shear viscosity: {:.4e} Pa·s",
+        blood.infinite_shear_viscosity
+    );
 
     // Initialize viscosity field with high-shear viscosity
     let mu_high_shear = blood.infinite_shear_viscosity;
@@ -320,10 +326,12 @@ fn validate_asymmetric_carreau() -> ValidationResult {
     let d2_width = 1.8e-3; // External carotid
     let length = 20.0e-3;
 
-    let geom =
-        BifurcationGeometry2D::asymmetric(parent_width, d1_width, d2_width, length, 45.0);
+    let geom = BifurcationGeometry2D::asymmetric(parent_width, d1_width, d2_width, length, 45.0);
 
-    println!("Parent width: {:.2} mm (carotid artery)", geom.parent_width * 1e3);
+    println!(
+        "Parent width: {:.2} mm (carotid artery)",
+        geom.parent_width * 1e3
+    );
     println!("Daughter 1 (ICA): {:.2} mm", geom.daughter1_width * 1e3);
     println!("Daughter 2 (ECA): {:.2} mm", geom.daughter2_width * 1e3);
 
@@ -339,8 +347,14 @@ fn validate_asymmetric_carreau() -> ValidationResult {
     // Carreau-Yasuda blood model
     let blood = CarreauYasudaBlood::<f64>::normal_blood();
     println!("Blood model: Carreau-Yasuda");
-    println!("Zero-shear viscosity: {:.4e} Pa·s", blood.zero_shear_viscosity);
-    println!("Infinite-shear viscosity: {:.4e} Pa·s", blood.infinite_shear_viscosity);
+    println!(
+        "Zero-shear viscosity: {:.4e} Pa·s",
+        blood.zero_shear_viscosity
+    );
+    println!(
+        "Infinite-shear viscosity: {:.4e} Pa·s",
+        blood.infinite_shear_viscosity
+    );
 
     // Wall shear stress estimates
     let q_parent = 8.0e-6; // 8 mL/s (typical carotid flow)
@@ -363,7 +377,10 @@ fn validate_asymmetric_carreau() -> ValidationResult {
 
     // Physiological validation: WSS should be 1-5 Pa in arteries
     let wss_physiological = tau_parent > 0.5 && tau_parent < 10.0;
-    println!("WSS physiological: {}", if wss_physiological { "✓" } else { "✗" });
+    println!(
+        "WSS physiological: {}",
+        if wss_physiological { "✓" } else { "✗" }
+    );
 
     let passed = murray_dev < MURRAY_TOLERANCE && wss_physiological;
 
@@ -396,20 +413,17 @@ fn validate_microvascular_fl() -> ValidationResult {
 
     let d_parent = 100e-6; // 100 μm
     let d_daughter = 80e-6; // 80 μm
-    let length = 500e-6; // 500 μm
+    let _length = 500e-6; // 500 μm
 
     println!("Parent diameter: {:.0} μm", d_parent * 1e6);
     println!("Daughter diameter: {:.0} μm", d_daughter * 1e6);
 
     // Fåhræus-Lindqvist effect
     let fl_parent = cfd_core::physics::fluid::blood::FahraeuasLindqvist::<f64>::new(
-        d_parent,
-        0.45, // Normal hematocrit
+        d_parent, 0.45, // Normal hematocrit
     );
-    let fl_daughter = cfd_core::physics::fluid::blood::FahraeuasLindqvist::<f64>::new(
-        d_daughter,
-        0.45,
-    );
+    let fl_daughter =
+        cfd_core::physics::fluid::blood::FahraeuasLindqvist::<f64>::new(d_daughter, 0.45);
 
     let mu_rel_parent = fl_parent.relative_viscosity();
     let mu_rel_daughter = fl_daughter.relative_viscosity();

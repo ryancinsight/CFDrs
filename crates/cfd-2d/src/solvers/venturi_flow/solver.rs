@@ -1,7 +1,7 @@
 //! Discretized Venturi solver and validation against analytical solutions.
 
 use super::{BernoulliVenturi, VenturiFlowSolution, VenturiGeometry};
-use crate::solvers::ns_fvm_2d::{BloodModel, NavierStokesSolver2D, SIMPLEConfig, StaggeredGrid2D};
+use crate::solvers::ns_fvm::{BloodModel, NavierStokesSolver2D, SIMPLEConfig, StaggeredGrid2D};
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::Result as CfdResult;
 use nalgebra::RealField;
@@ -84,10 +84,12 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> VenturiSolver2D<
         Self::populate_mask(&mut solver, &geometry, nx, ny);
 
         // Log resolution at throat for debugging
-        let dy_min = (0..ny)
-            .map(|j| solver.grid.dy_at(j))
-            .fold(ly, Float::min);
-        let cr = geometry.w_inlet / Float::max(geometry.w_throat, T::from_f64(1e-12).unwrap_or_else(num_traits::Zero::zero));
+        let dy_min = (0..ny).map(|j| solver.grid.dy_at(j)).fold(ly, Float::min);
+        let cr = geometry.w_inlet
+            / Float::max(
+                geometry.w_throat,
+                T::from_f64(1e-12).unwrap_or_else(num_traits::Zero::zero),
+            );
         if dy_min > geometry.w_throat / T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero) {
             eprintln!(
                 "[VenturiSolver2D] WARNING: dy_min ({:.2e}) > w_throat/2 ({:.2e}). \
@@ -181,7 +183,8 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> VenturiSolver2D<
         let dp_recovery = p_outlet - p_inlet;
 
         let rho = self.solver.density;
-        let q_dyn = T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero) * rho * u_inlet * u_inlet;
+        let q_dyn =
+            T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero) * rho * u_inlet * u_inlet;
         let one = T::from_f64(1.0).unwrap_or_else(num_traits::Zero::zero);
         let cp_throat = dp_throat / num_traits::Float::max(q_dyn, one);
         let cp_recovery = dp_recovery / num_traits::Float::max(q_dyn, one);
@@ -338,7 +341,11 @@ mod tests {
         let mut solver = VenturiSolver2D::new_stretched(geom, blood, density, 40, 20, 0.5);
         let result = solver.solve(0.1);
 
-        assert!(result.is_ok(), "Stretched solver failed: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "Stretched solver failed: {:?}",
+            result.err()
+        );
         let sol = result.unwrap();
 
         assert!(

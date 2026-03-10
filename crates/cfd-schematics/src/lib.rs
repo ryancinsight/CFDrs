@@ -32,7 +32,6 @@
 // Some public APIs take owned values for ergonomics
 #![allow(clippy::needless_pass_by_value)]
 // &mut Vec is sometimes needed for push operations
-#![allow(clippy::ptr_arg)]
 // Panics docs are low-value for internal geometry functions
 #![allow(clippy::missing_panics_doc)]
 // Returning &str tied to argument lifetime is correct
@@ -67,7 +66,9 @@
 //! describes where channels and nodes are positioned on a chip diagram (x, y
 //! in millimetres). This is **not** the same as the 2D spatial domain solved
 //! by `cfd-2d`. The schematic is always flat (z = 0); it is a *topology map*,
-//! not a simulation domain.
+//! not a simulation domain. Finalized blueprints must remain planar and free
+//! of unresolved interior channel crossings; crossings must either be routed
+//! away during generation or converted into explicit junction nodes.
 //!
 //! ### Relationship with `cfd-1d`
 //!
@@ -117,6 +118,7 @@ pub mod application;
 pub mod domain;
 pub mod infrastructure;
 pub mod interface;
+pub mod topology;
 
 // ── Flat convenience re-exports ───────────────────────────────────────────────
 pub use application::use_cases::NetworkGenerationService;
@@ -126,34 +128,29 @@ pub use domain::model::{
 pub use error::{
     ConfigurationError, GeometryError, SchemeError, SchemeResult, StrategyError, VisualizationError,
 };
+pub use geometry::metadata::BlueprintRenderHints;
+pub use geometry::generator::GeometryGeneratorBuilder;
 pub use heatmap::{write_well_plate_diagram_svg, CandidateZoneData};
 pub use infrastructure::adapters::{build_design_graph, DesignGraph, PetgraphGraphSink};
 pub use interface::presets::{
-    bifurcation_rect, serpentine_chain, serpentine_rect, symmetric_bifurcation,
-    symmetric_trifurcation, trifurcation_rect, venturi_chain, venturi_rect,
+    bifurcation_rect, serpentine_chain, serpentine_rect, serpentine_venturi_rect,
+    symmetric_bifurcation, symmetric_trifurcation, trifurcation_rect, venturi_chain, venturi_rect,
 };
 pub use state_management::{
     ConfigurableParameter, ConstraintError, ParameterConstraints, ParameterError, ParameterManager,
     ParameterRegistry, StateManagementError, StateManagementResult,
 };
-pub use geometry::metadata::BlueprintRenderHints;
+pub use topology::{
+    BlueprintTopologyFactory, BlueprintTopologyMutation, BlueprintTopologySpec, BranchRole,
+    BranchSpec, ChannelRouteSpec, DeanSiteEstimate, ParallelChannelSpec, SeriesChannelSpec,
+    SerpentineSpec, SplitKind, SplitStageSpec, ThroatGeometrySpec, TopologyChannelSpec,
+    TopologyLineageEvent, TopologyLineageMetadata, TopologyOptimizationStage,
+    TreatmentActuationMode, VenturiPlacementMode, VenturiPlacementSpec,
+};
 pub use visualizations::schematic::{
-    centerline_vertices, channel_system_from_blueprint, plot_blueprint,
-    plot_blueprint_auto_annotated, plot_blueprint_with_annotations, plot_geometry,
-    plot_geometry_auto_annotated, plot_geometry_with_annotations, plot_geometry_with_config,
+    centerline_vertices, plot_blueprint, plot_blueprint_auto_annotated,
+    plot_blueprint_with_annotations, plot_geometry, plot_geometry_auto_annotated,
+    plot_geometry_with_annotations, plot_geometry_with_config,
 };
 
-/// Unified network / design API — the single import point for downstream crates.
-pub mod network {
-    pub use crate::application::ports::GraphSink;
-    pub use crate::application::use_cases::NetworkGenerationService;
-    pub use crate::domain::model::{
-        ChannelSpec, EdgeId, EdgeKind, NetworkBlueprint, NodeId, NodeKind, NodeSpec,
-    };
-    pub use crate::domain::rules::BlueprintValidator;
-    pub use crate::infrastructure::adapters::{build_design_graph, DesignGraph, PetgraphGraphSink};
-    pub use crate::interface::presets::{
-        bifurcation_rect, serpentine_chain, serpentine_rect, symmetric_bifurcation,
-        symmetric_trifurcation, trifurcation_rect, venturi_chain, venturi_rect,
-    };
-}
+

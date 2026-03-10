@@ -117,11 +117,12 @@ use super::intersect::{intersect_triangles, IntersectionType, SnapSegment};
 use crate::infrastructure::storage::face_store::FaceData;
 use crate::infrastructure::storage::vertex_pool::VertexPool;
 
+#[cfg(test)]
+pub mod adversarial_tests;
 pub mod classify;
+pub(crate) mod dsu;
 pub(crate) mod gwn;
 pub(crate) mod gwn_bvh;
-pub(crate) mod tiebreaker;
-pub(crate) mod dsu;
 pub(crate) mod mesh_ops;
 pub(crate) mod patch;
 pub(crate) mod phase2;
@@ -133,8 +134,7 @@ pub(crate) mod seam;
 pub(crate) mod stitch;
 #[cfg(test)]
 pub mod tests;
-#[cfg(test)]
-pub mod adversarial_tests;
+pub(crate) mod tiebreaker;
 
 use classify::FragRecord;
 use patch::patch_small_boundary_holes;

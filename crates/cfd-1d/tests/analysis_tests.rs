@@ -96,8 +96,8 @@ fn test_resistance_duality_bound() {
     }
 
     let r_par = analysis.parallel_resistance();
-    let (_, r_min) = analysis.min_resistance().unwrap();
-    let (_, r_max) = analysis.max_resistance().unwrap();
+    let (_, r_min) = analysis.min_resistance().expect("test invariant");
+    let (_, r_max) = analysis.max_resistance().expect("test invariant");
     let r_ser = analysis.series_resistance();
 
     assert!(

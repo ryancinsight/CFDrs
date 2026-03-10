@@ -217,7 +217,10 @@ mod tests {
         // For uniform φ, flux should be zero regardless of velocity
         let calc = FluxSchemeFactory::create::<f64>(FluxScheme::CentralDifference, 1.0);
         let flux = calc.calculate_flux(1.0, 1.0, 1.0, 5.0, 0.1).unwrap();
-        assert!(flux.abs() < 1e-14, "Uniform field flux should be zero, got {flux}");
+        assert!(
+            flux.abs() < 1e-14,
+            "Uniform field flux should be zero, got {flux}"
+        );
     }
 
     #[test]
@@ -277,7 +280,10 @@ mod tests {
         // At low Pe (diffusion-dominated), scheme should approach central difference
         let calc = FluxSchemeFactory::create::<f64>(FluxScheme::PowerLaw, 10.0);
         let flux = calc.calculate_flux(1.0, 2.0, 0.0, 0.01, 1.0).unwrap();
-        assert!(flux.is_finite(), "Power law flux should be finite at low Pe");
+        assert!(
+            flux.is_finite(),
+            "Power law flux should be finite at low Pe"
+        );
     }
 
     #[test]
@@ -285,7 +291,10 @@ mod tests {
         // At high Pe (convection-dominated), scheme should approach upwind
         let calc = FluxSchemeFactory::create::<f64>(FluxScheme::PowerLaw, 0.001);
         let flux = calc.calculate_flux(1.0, 2.0, 0.0, 100.0, 1.0).unwrap();
-        assert!(flux.is_finite(), "Power law flux should be finite at high Pe");
+        assert!(
+            flux.is_finite(),
+            "Power law flux should be finite at high Pe"
+        );
     }
 
     // ── Hybrid ──────────────────────────────────────────────────────

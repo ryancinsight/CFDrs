@@ -33,8 +33,8 @@
 //!   saddle point problems." *Acta Numerica* 14:1–137.
 
 use crate::linear_solver::{
-    BiCGSTAB, BlockDiagonalPreconditioner, DirectSparseSolver, GMRES, IncompleteLU,
-    IterativeSolverConfig,
+    BiCGSTAB, BlockDiagonalPreconditioner, DirectSparseSolver, IncompleteLU, IterativeSolverConfig,
+    GMRES,
 };
 use cfd_core::error::{Error, Result};
 use nalgebra::{DVector, RealField};
@@ -207,12 +207,10 @@ impl<T: RealField + Copy + Float + FromPrimitive + Debug> LinearSolverChain<T> {
         let bicg = BiCGSTAB::new(self.config);
         bicg.solve_unpreconditioned(matrix, rhs, &mut x)
             .map_err(|e| {
-                Error::Solver(
-                    format!(
-                        "LinearSolverChain: all solver tiers failed. \
+                Error::Solver(format!(
+                    "LinearSolverChain: all solver tiers failed. \
                          Final BiCGSTAB error: {e}"
-                    )
-                )
+                ))
             })?;
 
         tracing::debug!("LinearSolverChain: BiCGSTAB (last resort) converged");
@@ -239,7 +237,9 @@ impl<T: RealField + Copy + Float + FromPrimitive + Debug> LinearSolverChain<T> {
     ) -> Result<DVector<T>> {
         let n_total_dof = rhs.len();
         let n_pressure_dof = n_total_dof.saturating_sub(n_velocity_dof);
-        let mut x = initial_guess.cloned().unwrap_or_else(|| DVector::zeros(n_total_dof));
+        let mut x = initial_guess
+            .cloned()
+            .unwrap_or_else(|| DVector::zeros(n_total_dof));
 
         let reset = |x: &mut DVector<T>| {
             if let Some(guess) = initial_guess {
@@ -334,12 +334,10 @@ impl<T: RealField + Copy + Float + FromPrimitive + Debug> LinearSolverChain<T> {
         let bicg = BiCGSTAB::new(self.config);
         bicg.solve_unpreconditioned(matrix, rhs, &mut x)
             .map_err(|e| {
-                Error::Solver(
-                    format!(
-                        "LinearSolverChain: all solver tiers failed. \
+                Error::Solver(format!(
+                    "LinearSolverChain: all solver tiers failed. \
                          Final BiCGSTAB error: {e}"
-                    )
-                )
+                ))
             })?;
 
         tracing::debug!("LinearSolverChain(warm): BiCGSTAB (last resort) converged");

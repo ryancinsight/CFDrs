@@ -125,7 +125,9 @@ impl ChannelGenerationContext {
                     } else {
                         // Log warning for NaN values in debug builds
                         #[cfg(debug_assertions)]
-                        eprintln!("Warning: NaN encountered in neighbor distance calculation");
+                        ::tracing::info!(
+                            "Warning: NaN encountered in neighbor distance calculation"
+                        );
                         std::cmp::Ordering::Equal
                     }
                 })
@@ -201,7 +203,7 @@ impl std::fmt::Display for AdaptationError {
 
 impl std::error::Error for AdaptationError {}
 
-/// Extension trait for backward compatibility with existing code
+/// Convenience extension trait for fallible adaptive parameters.
 pub trait AdaptiveParameterCompat<T, Context>: AdaptiveParameter<T, Context> {
     /// Adapt with fallback to default value on error
     fn adapt_or_default(&self, base_value: T, context: &Context, default: T) -> T
@@ -212,7 +214,7 @@ pub trait AdaptiveParameterCompat<T, Context>: AdaptiveParameter<T, Context> {
             adapted
         } else {
             #[cfg(debug_assertions)]
-            eprintln!("Warning: Adaptation failed, using default value");
+            ::tracing::info!("Warning: Adaptation failed, using default value");
             default
         }
     }
@@ -226,7 +228,7 @@ pub trait AdaptiveParameterCompat<T, Context>: AdaptiveParameter<T, Context> {
             adapted
         } else {
             #[cfg(debug_assertions)]
-            eprintln!("Warning: Adaptation failed, using base value");
+            ::tracing::info!("Warning: Adaptation failed, using base value");
             base_value
         }
     }
@@ -284,7 +286,9 @@ mod tests {
         let context = create_test_context();
 
         let base_amplitude = 10.0;
-        let adapted = adapter.adapt(base_amplitude, &context).unwrap();
+        let adapted = adapter
+            .adapt(base_amplitude, &context)
+            .expect("structural invariant");
 
         // Should be scaled down due to constraints
         assert!(adapted < base_amplitude);
@@ -297,7 +301,9 @@ mod tests {
         let context = create_test_context();
 
         let base_density = 2.0;
-        let adapted = adapter.adapt(base_density, &context).unwrap();
+        let adapted = adapter
+            .adapt(base_density, &context)
+            .expect("structural invariant");
 
         // Should be scaled based on branch count
         assert!(adapted > 0.0);
@@ -310,7 +316,9 @@ mod tests {
         let context = create_test_context();
 
         let base_wavelength = 1.0;
-        let adapted = adapter.adapt(base_wavelength, &context).unwrap();
+        let adapted = adapter
+            .adapt(base_wavelength, &context)
+            .expect("structural invariant");
 
         // Should adjust based on channel length
         assert!(adapted > 0.0);

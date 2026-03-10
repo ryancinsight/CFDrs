@@ -302,7 +302,9 @@ impl<
             // Calculate shear rates and new viscosities
             let mut max_change_f64: f64 = 0.0;
             next_viscosities.clear();
-            let current_viscosities = problem.element_viscosities.as_ref()
+            let current_viscosities = problem
+                .element_viscosities
+                .as_ref()
                 .expect("element_viscosities set before Picard loop");
 
             for (i, cell) in problem.mesh.cells.iter().enumerate() {
@@ -324,7 +326,9 @@ impl<
                 next_viscosities.push(new_visc);
             }
 
-            element_viscosities = problem.element_viscosities.take()
+            element_viscosities = problem
+                .element_viscosities
+                .take()
                 .expect("element_viscosities set before Picard loop");
             std::mem::swap(&mut element_viscosities, &mut next_viscosities);
             last_solution = Some(updated_solution);

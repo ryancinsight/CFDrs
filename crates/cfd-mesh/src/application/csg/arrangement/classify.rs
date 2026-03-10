@@ -188,7 +188,10 @@ mod tests {
         let (pool, faces) = unit_cube_mesh();
         let c = Point3r::new(0.0, 0.0, 0.0);
         let n = Vector3r::new(0.0, 0.0, 1.0);
-        assert_eq!(classify_fragment(&c, &n, &faces, &pool), FragmentClass::Inside);
+        assert_eq!(
+            classify_fragment(&c, &n, &faces, &pool),
+            FragmentClass::Inside
+        );
     }
 
     #[test]
@@ -196,7 +199,10 @@ mod tests {
         let (pool, faces) = unit_cube_mesh();
         let c = Point3r::new(5.0, 0.0, 0.0);
         let n = Vector3r::new(1.0, 0.0, 0.0);
-        assert_eq!(classify_fragment(&c, &n, &faces, &pool), FragmentClass::Outside);
+        assert_eq!(
+            classify_fragment(&c, &n, &faces, &pool),
+            FragmentClass::Outside
+        );
     }
 
     #[test]
@@ -207,7 +213,10 @@ mod tests {
         let v1 = pool.insert_or_weld(Point3r::new(0.5, -0.5, 0.5), n);
         let v2 = pool.insert_or_weld(Point3r::new(-0.5, 0.5, 0.5), n);
         let v3 = pool.insert_or_weld(Point3r::new(0.5, 0.5, 0.5), n);
-        let faces = vec![FaceData::untagged(v0, v1, v2), FaceData::untagged(v1, v3, v2)];
+        let faces = vec![
+            FaceData::untagged(v0, v1, v2),
+            FaceData::untagged(v1, v3, v2),
+        ];
         let c = Point3r::new(0.0, 0.0, 0.5);
         let frag_n = Vector3r::new(0.0, 0.0, 1.0);
         let cls = classify_fragment(&c, &frag_n, &faces, &pool);

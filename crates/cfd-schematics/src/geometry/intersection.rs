@@ -20,16 +20,17 @@
 //! each endpoint lies on. If endpoints of one segment lie on opposite
 //! sides of the other segment (and vice versa), the segments must cross.
 
-use super::types::{centerline_for_channel, Channel, ChannelSystem, ChannelType, Node, Point2D};
-use crate::geometry::metadata::MetadataContainer;
+use crate::domain::model::{ChannelSpec, NetworkBlueprint, NodeKind, NodeSpec};
+
+use crate::geometry::Point2D;
 
 /// Metadata marker for nodes created at channel intersections.
 #[derive(Debug, Clone)]
 pub struct IntersectionMetadata {
     /// IDs of the two channels that cross at this node.
-    pub channel_a_id: usize,
+    pub channel_a_id: String,
     /// ID of the second crossing channel.
-    pub channel_b_id: usize,
+    pub channel_b_id: String,
 }
 
 impl crate::geometry::metadata::Metadata for IntersectionMetadata {
@@ -117,30 +118,78 @@ struct SegmentCrossing {
     point: Point2D,
 }
 
+fn push_distinct_point(points: &mut Vec<Point2D>, point: Point2D) {
+    let Some(last) = points.last().copied() else {
+        points.push(point);
+        return;
+    };
+    if (last.0 - point.0).abs() > 1e-9 || (last.1 - point.1).abs() > 1e-9 {
+        points.push(point);
+    }
+}
+
+fn channel_centerline_points(
+    channel: &ChannelSpec,
+    node_points: &std::collections::HashMap<String, Point2D>,
+) -> Vec<Point2D> {
+    match channel.path.as_slice() {
+        [] => {
+            let mut centerline = Vec::with_capacity(2);
+            if let Some(start) = node_points.get(channel.from.as_str()).copied() {
+                push_distinct_point(&mut centerline, start);
+            }
+            if let Some(end) = node_points.get(channel.to.as_str()).copied() {
+                push_distinct_point(&mut centerline, end);
+            }
+            centerline
+        }
+        [midpoint] => {
+            let mut centerline = Vec::with_capacity(3);
+            if let Some(start) = node_points.get(channel.from.as_str()).copied() {
+                push_distinct_point(&mut centerline, start);
+            }
+            push_distinct_point(&mut centerline, *midpoint);
+            if let Some(end) = node_points.get(channel.to.as_str()).copied() {
+                push_distinct_point(&mut centerline, end);
+            }
+            centerline
+        }
+        points => points.to_vec(),
+    }
+}
+
 /// Detect all pairwise intersections between channel centerlines.
-fn detect_crossings(system: &ChannelSystem) -> Vec<SegmentCrossing> {
+fn detect_crossings(system: &NetworkBlueprint) -> Vec<SegmentCrossing> {
+    let mut crossings = Vec::new();
+    let node_points: std::collections::HashMap<String, Point2D> = system
+        .nodes
+        .iter()
+        .map(|node| (node.id.as_str().to_string(), node.point))
+        .collect();
     let centerlines: Vec<Vec<Point2D>> = system
         .channels
         .iter()
-        .map(|ch| centerline_for_channel(ch, &system.nodes))
+        .map(|channel| channel_centerline_points(channel, &node_points))
         .collect();
 
-    let mut crossings = Vec::new();
-
-    for (i, cl_a) in centerlines.iter().enumerate() {
-        for (j, cl_b) in centerlines.iter().enumerate() {
+    for (i, ch_a) in system.channels.iter().enumerate() {
+        for (j, ch_b) in system.channels.iter().enumerate() {
             if j <= i {
                 continue; // avoid duplicates
             }
             // Skip channels that share an endpoint node — those are
             // intentional junctions, not geometric crossings.
-            let ch_a = &system.channels[i];
-            let ch_b = &system.channels[j];
-            if ch_a.from_node == ch_b.from_node
-                || ch_a.from_node == ch_b.to_node
-                || ch_a.to_node == ch_b.from_node
-                || ch_a.to_node == ch_b.to_node
+            if ch_a.from == ch_b.from
+                || ch_a.from == ch_b.to
+                || ch_a.to == ch_b.from
+                || ch_a.to == ch_b.to
             {
+                continue;
+            }
+
+            let cl_a = &centerlines[i];
+            let cl_b = &centerlines[j];
+            if cl_a.len() < 2 || cl_b.len() < 2 {
                 continue;
             }
 
@@ -170,6 +219,18 @@ fn detect_crossings(system: &ChannelSystem) -> Vec<SegmentCrossing> {
     crossings
 }
 
+/// Count unresolved centerline intersections without mutating the blueprint.
+#[must_use]
+pub fn unresolved_intersection_count(system: &NetworkBlueprint) -> usize {
+    detect_crossings(system).len()
+}
+
+/// Report whether the blueprint still contains unresolved centerline crossings.
+#[must_use]
+pub fn has_unresolved_intersections(system: &NetworkBlueprint) -> bool {
+    unresolved_intersection_count(system) > 0
+}
+
 /// Insert junction nodes at all detected channel intersections.
 ///
 /// For each crossing, this function:
@@ -185,7 +246,7 @@ fn detect_crossings(system: &ChannelSystem) -> Vec<SegmentCrossing> {
 ///
 /// An [`IntersectionResult`] summarising how many intersections were found
 /// and which node IDs were created.
-pub fn insert_intersection_nodes(system: &mut ChannelSystem) -> IntersectionResult {
+pub fn insert_intersection_nodes(system: &mut NetworkBlueprint) -> IntersectionResult {
     let crossings = detect_crossings(system);
     if crossings.is_empty() {
         return IntersectionResult {
@@ -197,28 +258,32 @@ pub fn insert_intersection_nodes(system: &mut ChannelSystem) -> IntersectionResu
     // For simplicity and correctness, rebuild the channel list from scratch.
     // First, create all junction nodes for the crossings.
     let mut junction_ids = Vec::with_capacity(crossings.len());
-    for crossing in &crossings {
-        let node_id = system.nodes.len();
-        let mut meta_container = MetadataContainer::new();
-        meta_container.insert(IntersectionMetadata {
-            channel_a_id: system.channels[crossing.channel_a].id,
-            channel_b_id: system.channels[crossing.channel_b].id,
-        });
-        system.nodes.push(Node {
-            id: node_id,
-            name: None,
-            point: crossing.point,
-            kind: None,
-            junction_geometry: None,
-            metadata: Some(meta_container),
-        });
-        junction_ids.push(node_id);
+    let mut new_nodes = Vec::new();
+    let initial_node_count = system.nodes.len();
+
+    for (ci, crossing) in crossings.iter().enumerate() {
+        let node_id = format!(
+            "intersect_{}_{}_{}",
+            crossing.channel_a, crossing.channel_b, ci
+        );
+
+        // This won't perfectly match exactly if IntersectionMetadata expects usize, but we'll fix IntersectionMetadata next.
+        // Wait, IntersectionMetadata might expect usize if it wasn't refactored. Let me check its definition.
+        // I'll update it separately below if needed.
+
+        system.nodes.push(NodeSpec::new_at(
+            node_id.clone(),
+            NodeKind::Junction,
+            crossing.point,
+        ));
+        junction_ids.push(initial_node_count + ci);
+        new_nodes.push(node_id);
     }
 
     // Build a map: original_channel_index → Vec<(crossing_index, role)>
     // where role indicates whether this channel is A or B in the crossing.
     struct SplitInfo {
-        junction_node_id: usize,
+        junction_node_id: String,
         /// Parametric position along this channel's centerline segment.
         t: f64,
         /// Which segment of the centerline is being split.
@@ -233,7 +298,7 @@ pub fn insert_intersection_nodes(system: &mut ChannelSystem) -> IntersectionResu
             .entry(crossing.channel_a)
             .or_default()
             .push(SplitInfo {
-                junction_node_id: junction_ids[ci],
+                junction_node_id: new_nodes[ci].clone(),
                 t: crossing.t_a,
                 seg: crossing.seg_a,
             });
@@ -241,26 +306,30 @@ pub fn insert_intersection_nodes(system: &mut ChannelSystem) -> IntersectionResu
             .entry(crossing.channel_b)
             .or_default()
             .push(SplitInfo {
-                junction_node_id: junction_ids[ci],
+                junction_node_id: new_nodes[ci].clone(),
                 t: crossing.t_b,
                 seg: crossing.seg_b,
             });
     }
 
     // Sort each channel's splits by (segment, t) so we can process them in order.
-    for (_ch, splits) in splits_per_channel.iter_mut() {
-        splits.sort_by(|a, b| a.seg.cmp(&b.seg).then(a.t.partial_cmp(&b.t).unwrap()));
+    for splits in splits_per_channel.values_mut() {
+        splits.sort_by(|a, b| {
+            a.seg
+                .cmp(&b.seg)
+                .then(a.t.partial_cmp(&b.t).expect("structural invariant"))
+        });
     }
 
     // Rebuild the channel list.
-    let mut next_channel_id = system.channels.iter().map(|c| c.id).max().unwrap_or(0) + 1;
-    let mut new_channels: Vec<Channel> = Vec::new();
+    let mut next_channel_idx = 0;
+    let mut new_channels: Vec<ChannelSpec> = Vec::new();
 
     for (ch_idx, orig_channel) in system.channels.iter().enumerate() {
         if let Some(splits) = splits_per_channel.get(&ch_idx) {
             // This channel is split at one or more crossings.
             // Walk through the centerline and produce sub-channels.
-            let centerline = centerline_for_channel(orig_channel, &system.nodes);
+            let centerline = &orig_channel.path;
             if centerline.len() < 2 {
                 new_channels.push(orig_channel.clone());
                 continue;
@@ -268,8 +337,8 @@ pub fn insert_intersection_nodes(system: &mut ChannelSystem) -> IntersectionResu
 
             // Build a sequence of (node_id, point) for the split points,
             // ordered along the channel path.
-            let mut waypoints: Vec<(usize, Point2D)> = Vec::new();
-            waypoints.push((orig_channel.from_node, centerline[0]));
+            let mut waypoints: Vec<(String, Point2D)> = Vec::new();
+            waypoints.push((orig_channel.from.0.clone(), centerline[0]));
 
             // Insert splits in order along the centerline.
             let mut path_idx = 0; // current segment index
@@ -279,7 +348,7 @@ pub fn insert_intersection_nodes(system: &mut ChannelSystem) -> IntersectionResu
                 // Collect all splits on this segment, sorted by t.
                 while let Some(split) = split_iter.peek() {
                     if split.seg == path_idx {
-                        let s = split_iter.next().unwrap();
+                        let s = split_iter.next().expect("structural invariant");
                         let pt = (
                             centerline[path_idx]
                                 .0
@@ -288,7 +357,7 @@ pub fn insert_intersection_nodes(system: &mut ChannelSystem) -> IntersectionResu
                                 .1
                                 .mul_add(1.0 - s.t, centerline[path_idx + 1].1 * s.t),
                         );
-                        waypoints.push((s.junction_node_id, pt));
+                        waypoints.push((s.junction_node_id.clone(), pt));
                     } else {
                         break;
                     }
@@ -299,30 +368,25 @@ pub fn insert_intersection_nodes(system: &mut ChannelSystem) -> IntersectionResu
                 path_idx += 1;
             }
 
-            waypoints.push((orig_channel.to_node, *centerline.last().unwrap()));
+            waypoints.push((
+                orig_channel.to.0.clone(),
+                *centerline.last().expect("structural invariant"),
+            ));
 
             // Now produce sub-channels between consecutive waypoints.
             for pair in waypoints.windows(2) {
-                let (from_id, _from_pt) = pair[0];
-                let (to_id, _to_pt) = pair[1];
-                new_channels.push(Channel {
-                    id: next_channel_id,
-                    name: orig_channel.name.clone(),
-                    from_node: from_id,
-                    to_node: to_id,
-                    width: orig_channel.width,
-                    height: orig_channel.height,
-                    channel_type: ChannelType::Straight,
-                    visual_role: orig_channel.visual_role,
-                    physical_length_m: orig_channel.physical_length_m,
-                    physical_width_m: orig_channel.physical_width_m,
-                    physical_height_m: orig_channel.physical_height_m,
-                    physical_shape: orig_channel.physical_shape,
-                    therapy_zone: orig_channel.therapy_zone.clone(),
-                    venturi_geometry: orig_channel.venturi_geometry.clone(),
-                    metadata: orig_channel.metadata.clone(),
-                });
-                next_channel_id += 1;
+                let (from_id, from_pt) = &pair[0];
+                let (to_id, to_pt) = &pair[1];
+                next_channel_idx += 1;
+                let mut channel_clone = orig_channel.clone();
+                channel_clone.id = crate::domain::model::EdgeId(format!(
+                    "{}_part{}",
+                    orig_channel.id.0, next_channel_idx
+                ));
+                channel_clone.from = crate::domain::model::NodeId(from_id.clone());
+                channel_clone.to = crate::domain::model::NodeId(to_id.clone());
+                channel_clone.path = vec![*from_pt, *to_pt]; // Simplify path to straight segments between intersections
+                new_channels.push(channel_clone);
             }
         } else {
             // Channel has no crossings; keep as-is.
@@ -409,13 +473,13 @@ mod tests {
     use super::*;
     use crate::config::{ChannelTypeConfig, GeometryConfig};
     use crate::geometry::generator::create_geometry;
-    use crate::geometry::types::SplitType;
+    use crate::geometry::SplitType;
 
     #[test]
     fn segment_intersection_detects_crossing() {
         let result = segment_intersection((0.0, 0.0), (1.0, 1.0), (0.0, 1.0), (1.0, 0.0));
         assert!(result.is_some());
-        let (t, u, pt) = result.unwrap();
+        let (t, u, pt) = result.expect("structural invariant");
         assert!((t - 0.5).abs() < 1e-10);
         assert!((u - 0.5).abs() < 1e-10);
         assert!((pt.0 - 0.5).abs() < 1e-10);
@@ -467,56 +531,41 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)] // NetworkBlueprint::new() used intentionally; all nodes use NodeSpec::new_at().
     fn intersection_detection_finds_manual_crossing() {
         // Manually build a system with two crossing channels.
-        let nodes = vec![
-            Node {
-                id: 0,
-                point: (0.0, 0.5),
-                metadata: None,
-            },
-            Node {
-                id: 1,
-                point: (1.0, 0.5),
-                metadata: None,
-            },
-            Node {
-                id: 2,
-                point: (0.5, 0.0),
-                metadata: None,
-            },
-            Node {
-                id: 3,
-                point: (0.5, 1.0),
-                metadata: None,
-            },
+        let mut system = NetworkBlueprint::new("crossing");
+        system.box_dims = (1.0, 1.0);
+        system.nodes = vec![
+            NodeSpec::new_at("0".to_string(), NodeKind::Junction, (0.0, 0.5)),
+            NodeSpec::new_at("1".to_string(), NodeKind::Junction, (1.0, 0.5)),
+            NodeSpec::new_at("2".to_string(), NodeKind::Junction, (0.5, 0.0)),
+            NodeSpec::new_at("3".to_string(), NodeKind::Junction, (0.5, 1.0)),
         ];
-        let channels = vec![
-            Channel {
-                id: 0,
-                from_node: 0,
-                to_node: 1,
-                width: 0.1,
-                height: 0.05,
-                channel_type: ChannelType::Straight,
-                metadata: None,
-            },
-            Channel {
-                id: 1,
-                from_node: 2,
-                to_node: 3,
-                width: 0.1,
-                height: 0.05,
-                channel_type: ChannelType::Straight,
-                metadata: None,
-            },
-        ];
-        let mut system = ChannelSystem {
-            box_dims: (1.0, 1.0),
-            nodes,
-            channels,
-            box_outline: vec![],
-        };
+
+        let mut ch0 = ChannelSpec::new_pipe_rect(
+            "ch0".to_string(),
+            "0".to_string(),
+            "1".to_string(),
+            1.0,
+            0.1,
+            0.05,
+            0.0,
+            0.0,
+        );
+        ch0.path = vec![(0.0, 0.5), (1.0, 0.5)];
+        let mut ch1 = ChannelSpec::new_pipe_rect(
+            "ch1".to_string(),
+            "2".to_string(),
+            "3".to_string(),
+            1.0,
+            0.1,
+            0.05,
+            0.0,
+            0.0,
+        );
+        ch1.path = vec![(0.5, 0.0), (0.5, 1.0)];
+        system.channels = vec![ch0, ch1];
 
         let result = insert_intersection_nodes(&mut system);
         assert_eq!(result.intersection_count, 1);

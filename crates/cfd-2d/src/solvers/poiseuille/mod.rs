@@ -140,10 +140,10 @@ pub struct PoiseuilleConfig<T: RealField + Copy> {
 impl<T: RealField + FromPrimitive + Copy> Default for PoiseuilleConfig<T> {
     fn default() -> Self {
         Self {
-            height: T::from_f64(100e-6).unwrap_or_else(num_traits::Zero::zero),            // 100 μm
-            width: T::from_f64(500e-6).unwrap_or_else(num_traits::Zero::zero),             // 500 μm
-            length: T::from_f64(1e-3).unwrap_or_else(num_traits::Zero::zero),              // 1 mm
-            ny: 101,                                         // 101 points for 100 intervals
+            height: T::from_f64(100e-6).unwrap_or_else(num_traits::Zero::zero), // 100 μm
+            width: T::from_f64(500e-6).unwrap_or_else(num_traits::Zero::zero),  // 500 μm
+            length: T::from_f64(1e-3).unwrap_or_else(num_traits::Zero::zero),   // 1 mm
+            ny: 101, // 101 points for 100 intervals
             pressure_gradient: T::from_f64(1000.0).unwrap_or_else(num_traits::Zero::zero), // 1000 Pa/m
             tolerance: T::from_f64(1e-6).unwrap_or_else(num_traits::Zero::zero),
             max_iterations: 1000,
@@ -218,7 +218,9 @@ impl<T: RealField + FromPrimitive + Float + Copy> PoiseuilleFlow2D<T> {
         let dy = config.height / T::from_usize(ny - 1).unwrap_or_else(T::one);
 
         // Create grid points
-        let y_coords: Vec<T> = (0..ny).map(|j| T::from_usize(j).unwrap_or_else(T::one) * dy).collect();
+        let y_coords: Vec<T> = (0..ny)
+            .map(|j| T::from_usize(j).unwrap_or_else(T::one) * dy)
+            .collect();
 
         // Initialize fields
         let velocity = vec![T::zero(); ny];

@@ -87,7 +87,13 @@ impl PyCavitySolver2D {
     #[new]
     #[pyo3(signature = (reynolds=100.0, nx=129, ny=129, lid_velocity=1.0, cavity_size=1.0))]
     fn new(reynolds: f64, nx: usize, ny: usize, lid_velocity: f64, cavity_size: f64) -> Self {
-        PyCavitySolver2D { reynolds, nx, ny, lid_velocity, cavity_size }
+        PyCavitySolver2D {
+            reynolds,
+            nx,
+            ny,
+            lid_velocity,
+            cavity_size,
+        }
     }
 
     /// Get kinematic viscosity from Reynolds number
@@ -98,7 +104,11 @@ impl PyCavitySolver2D {
     /// Get Ghia benchmark data for U-velocity along vertical centerline
     fn ghia_u_centerline<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyArray2<f64>>> {
         let array = ndarray::Array2::from_shape_fn((GHIA_U_RE100.len(), 2), |(i, j)| {
-            if j == 0 { GHIA_U_RE100[i].0 } else { GHIA_U_RE100[i].1 }
+            if j == 0 {
+                GHIA_U_RE100[i].0
+            } else {
+                GHIA_U_RE100[i].1
+            }
         });
         Ok(PyArray2::from_owned_array_bound(py, array))
     }
@@ -106,7 +116,11 @@ impl PyCavitySolver2D {
     /// Get Ghia benchmark data for V-velocity along horizontal centerline
     fn ghia_v_centerline<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyArray2<f64>>> {
         let array = ndarray::Array2::from_shape_fn((GHIA_V_RE100.len(), 2), |(i, j)| {
-            if j == 0 { GHIA_V_RE100[i].0 } else { GHIA_V_RE100[i].1 }
+            if j == 0 {
+                GHIA_V_RE100[i].0
+            } else {
+                GHIA_V_RE100[i].1
+            }
         });
         Ok(PyArray2::from_owned_array_bound(py, array))
     }
@@ -117,8 +131,15 @@ impl PyCavitySolver2D {
 
         let max_iterations = if self.nx * self.ny > 4000 { 5000 } else { 3000 };
         let result = cavity_solver::solve_lid_driven_cavity(
-            self.nx, self.ny, self.reynolds, self.lid_velocity,
-            self.cavity_size, max_iterations, 1e-6, 0.5, 0.3,
+            self.nx,
+            self.ny,
+            self.reynolds,
+            self.lid_velocity,
+            self.cavity_size,
+            max_iterations,
+            1e-6,
+            0.5,
+            0.3,
         );
 
         let l2_error = self.calculate_ghia_error(&result.y_coords, &result.u_centerline);

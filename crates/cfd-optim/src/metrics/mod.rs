@@ -1,25 +1,23 @@
 //! Physics-based metric computation for SDT millifluidic design candidates.
-//!
-//! Each [`DesignCandidate`] is evaluated against the 1-D physics models from
-//! `cfd-1d` (venturi + serpentine) and the Casson blood rheology from
-//! `cfd-core`.  The resulting [`SdtMetrics`] struct gathers all values needed
-//! for multi-objective scoring.
-//!
-//! ## Sub-modules
-//!
-//! | Module | Responsibility |
-//! |--------|----------------|
-//! | [`sdt_metrics`] | `SdtMetrics` struct definition |
-//! | [`network_solve`] | Full 1D solved-network extraction helpers |
-//! | [`separation`] | 3-population + leukapheresis separation models |
-//! | [`compute`] | `compute_metrics()` entry point + `giersiepen_hi()` |
 
-mod compute;
-mod diagnostics;
-mod network_solve;
+mod blueprint_eval;
+mod blueprint_graph;
+mod blueprint_separation;
+mod residence;
+mod safety;
 mod sdt_metrics;
-mod separation;
+mod venturi;
 
-pub use compute::{compute_metrics, giersiepen_hi};
-pub use diagnostics::{audit_candidate_1d, OneDimensionalAuditReport, OneDimensionalEdgeAudit};
+pub use blueprint_eval::{evaluate_blueprint_candidate, BlueprintEvaluation};
+pub use blueprint_graph::{solve_blueprint_candidate, BlueprintSolveSample, BlueprintSolveSummary};
+pub use blueprint_separation::{
+    compute_blueprint_separation_metrics, BlueprintSeparationMetrics,
+    StageBlueprintSeparationSummary,
+};
+pub use cfd_1d::physics::hemolysis::giersiepen_hi;
+pub use residence::{compute_residence_metrics, ResidenceMetrics};
+pub use safety::{compute_blueprint_safety_metrics, BlueprintSafetyMetrics};
 pub use sdt_metrics::{ChannelHemolysis, SdtMetrics};
+pub use venturi::{
+    compute_blueprint_venturi_metrics, BlueprintVenturiMetrics, VenturiPlacementMetrics,
+};

@@ -138,7 +138,7 @@ struct BifurcationGeometry3D {
     /// Daughter 2 diameter [m]
     d_daughter2: f64,
     /// Channel length [m]
-    length: f64,
+    _length: f64,
     /// Bifurcation angle [degrees]
     bifurcation_angle: f64,
 }
@@ -185,11 +185,12 @@ impl FlowConditions {
     }
 
     /// Calculate wall shear stress for Poiseuille flow in cylinder
-    /// 
+    ///
     /// For fully developed laminar flow in a circular pipe:
     /// τ_w = (4 μ u) / R = (8 μ u) / D
-    /// 
+    ///
     /// where u is mean velocity, μ is viscosity, D is diameter
+    #[allow(dead_code)]
     fn shear_stress_inlet(&self, d_inlet: f64) -> f64 {
         (8.0 * self.mu * self.u_inlet) / d_inlet
     }
@@ -243,26 +244,36 @@ fn validate_symmetric_bifurcation_3d() {
         d_parent: 100e-6,
         d_daughter1: 80e-6,
         d_daughter2: 80e-6,
-        length: 1e-3,
+        _length: 1e-3,
         bifurcation_angle: 35.0,
     };
 
     let flow = FlowConditions {
         u_inlet: 0.001, // 1 mm/s (slow flow in capillary beds)
-        p_inlet: 40.0, // Pa (capillary pressure)
-        rho: 1060.0, // Blood density
-        mu: 0.004, // 4 cP (blood viscosity)
+        p_inlet: 40.0,  // Pa (capillary pressure)
+        rho: 1060.0,    // Blood density
+        mu: 0.004,      // 4 cP (blood viscosity)
     };
 
     println!("\n[Geometry (3D)]");
     println!("  Parent: {:.0} μm diameter", geometry.d_parent * 1e6);
-    println!("  Daughters: {:.0} μm, {:.0} μm",
-             geometry.d_daughter1 * 1e6, geometry.d_daughter2 * 1e6);
+    println!(
+        "  Daughters: {:.0} μm, {:.0} μm",
+        geometry.d_daughter1 * 1e6,
+        geometry.d_daughter2 * 1e6
+    );
     println!("  Bifurcation angle: {:.1}°", geometry.bifurcation_angle);
-    println!("  Murray's law deviation: {:.1}%", geometry.murray_deviation() * 100.0);
+    println!(
+        "  Murray's law deviation: {:.1}%",
+        geometry.murray_deviation() * 100.0
+    );
 
     println!("\n[Flow Conditions (Blood)]");
-    println!("  Inlet velocity: {:.3} m/s = {:.0} μm/s", flow.u_inlet, flow.u_inlet * 1e6);
+    println!(
+        "  Inlet velocity: {:.3} m/s = {:.0} μm/s",
+        flow.u_inlet,
+        flow.u_inlet * 1e6
+    );
     println!("  Inlet pressure: {:.1} Pa", flow.p_inlet);
     println!("  Density: {:.0} kg/m³", flow.rho);
     println!("  Viscosity: {:.1} cP", flow.mu * 1000.0);
@@ -276,9 +287,11 @@ fn validate_symmetric_bifurcation_3d() {
     let wss_inlet_theoretical = (4.0 * flow.mu * flow.u_inlet) / geometry.d_parent;
 
     println!("\n[Wall Shear Stress (Theoretical Poiseuille)]");
-    println!("  At parent inlet: {:.3} Pa = {:.2} dyne/cm²",
-             wss_inlet_theoretical,
-             wss_inlet_theoretical * 10.0); // Convert Pa to dyne/cm²
+    println!(
+        "  At parent inlet: {:.3} Pa = {:.2} dyne/cm²",
+        wss_inlet_theoretical,
+        wss_inlet_theoretical * 10.0
+    ); // Convert Pa to dyne/cm²
     println!("  Physiological normal: 0.5-1.5 Pa");
     if wss_inlet_theoretical > 0.5 && wss_inlet_theoretical < 1.5 {
         println!("  ✓ In normal physiological range");
@@ -306,7 +319,10 @@ fn validate_symmetric_bifurcation_3d() {
     println!("  WSS std dev: {:.3} Pa", results.wss_std);
 
     println!("\n[Wall Shear Stress Distribution Analysis]");
-    println!("  Area with low WSS (< 0.4 Pa): {:.1}%", results.low_wss_area_percent);
+    println!(
+        "  Area with low WSS (< 0.4 Pa): {:.1}%",
+        results.low_wss_area_percent
+    );
 
     if results.low_wss_area_percent < 20.0 {
         println!("  ✓ Low-WSS zone small (favorable for endothelium)");
@@ -317,16 +333,28 @@ fn validate_symmetric_bifurcation_3d() {
     }
 
     println!("\n[Bifurcation Hemodynamics]");
-    println!("  Flow split: {:.1}% / {:.1}%",
-             results.flow_split * 100.0, (1.0 - results.flow_split) * 100.0);
+    println!(
+        "  Flow split: {:.1}% / {:.1}%",
+        results.flow_split * 100.0,
+        (1.0 - results.flow_split) * 100.0
+    );
     println!("  Pressure drop: {:.2} Pa", results.pressure_drop);
     println!("  ✓ Symmetric flow expected for symmetric geometry");
 
     // Mesh convergence study
     println!("\n[Mesh Convergence Study]");
-    println!("  Grid refinement level 1 (coarse): {:.0}k elements → M_L2 = 0.0145", 150.0);
-    println!("  Grid refinement level 2 (medium): {:.0}k elements → M_L2 = 0.0092", 450.0);
-    println!("  Grid refinement level 3 (fine): {:.0}k elements → M_L2 = 0.0074", 1200.0);
+    println!(
+        "  Grid refinement level 1 (coarse): {:.0}k elements → M_L2 = 0.0145",
+        150.0
+    );
+    println!(
+        "  Grid refinement level 2 (medium): {:.0}k elements → M_L2 = 0.0092",
+        450.0
+    );
+    println!(
+        "  Grid refinement level 3 (fine): {:.0}k elements → M_L2 = 0.0074",
+        1200.0
+    );
     println!("  Convergence order: p ≈ 1.8 (expected p=2 for P1-P1 elements)");
     println!("  ✓ Solution converged (GCI < 2%)");
 }
@@ -348,19 +376,30 @@ fn validate_asymmetric_bifurcation_3d() {
         d_parent: 100e-6,
         d_daughter1: 90e-6, // Larger branch
         d_daughter2: 50e-6, // Smaller branch
-        length: 1e-3,
+        _length: 1e-3,
         bifurcation_angle: 40.0,
     };
 
     println!("\n[Asymmetric Geometry]");
     println!("  Parent: {:.0} μm", geometry.d_parent * 1e6);
-    println!("  Large daughter: {:.0} μm (65% flow)", geometry.d_daughter1 * 1e6);
-    println!("  Small daughter: {:.0} μm (35% flow)", geometry.d_daughter2 * 1e6);
+    println!(
+        "  Large daughter: {:.0} μm (65% flow)",
+        geometry.d_daughter1 * 1e6
+    );
+    println!(
+        "  Small daughter: {:.0} μm (35% flow)",
+        geometry.d_daughter2 * 1e6
+    );
     println!("  Area ratio check:");
     println!("    A_parent = {:.3e} m²", geometry.area_parent());
-    println!("    A_d1 + A_d2 = {:.3e} m²",
-             geometry.area_daughter1() + geometry.area_daughter2());
-    println!("  Murray deviation: {:.1}%", geometry.murray_deviation() * 100.0);
+    println!(
+        "    A_d1 + A_d2 = {:.3e} m²",
+        geometry.area_daughter1() + geometry.area_daughter2()
+    );
+    println!(
+        "  Murray deviation: {:.1}%",
+        geometry.murray_deviation() * 100.0
+    );
 
     let flow = FlowConditions {
         u_inlet: 0.002,
@@ -386,9 +425,15 @@ fn validate_asymmetric_bifurcation_3d() {
 
     println!("\n[Wall Shear Stress Distribution]");
     println!("  WSS inlet: {:.4} Pa", results.wss_inlet);
-    println!("  WSS range: {:.4} - {:.4} Pa", results.wss_min, results.wss_max);
+    println!(
+        "  WSS range: {:.4} - {:.4} Pa",
+        results.wss_min, results.wss_max
+    );
     println!("  WSS mean: {:.4} Pa", results.wss_mean);
-    println!("  Low WSS area (< 0.4 Pa): {:.1}%", results.low_wss_area_percent);
+    println!(
+        "  Low WSS area (< 0.4 Pa): {:.1}%",
+        results.low_wss_area_percent
+    );
 
     println!("\n[Clinical Significance]");
     println!("  ⚠ Large low-WSS zone in asymmetric bifurcation");
@@ -399,8 +444,10 @@ fn validate_asymmetric_bifurcation_3d() {
     println!("\n[Literature Comparison]");
     println!("  Ku et al. (1985): Plaques located at low-WSS (< 0.4 Pa) zones");
     println!("  Glagov et al. (1988): WSS-atherosclerosis correlation established");
-    println!("  Our result: {:.1}% of wall in low-WSS zone matches observations",
-             results.low_wss_area_percent);
+    println!(
+        "  Our result: {:.1}% of wall in low-WSS zone matches observations",
+        results.low_wss_area_percent
+    );
 }
 
 // ============================================================================
@@ -422,11 +469,13 @@ fn validate_bifurcation_network_3d() {
     println!("Total bifurcation points: 7");
 
     println!("\n[Pressure Drop Analysis Through Network]");
-    println!("{:>10} {:>12} {:>15} {:>18} {:>15}",
-             "Level", "Vessels", "Diameter [μm]", "Pressure [Pa]", "ΔP [Pa]");
+    println!(
+        "{:>10} {:>12} {:>15} {:>18} {:>15}",
+        "Level", "Vessels", "Diameter [μm]", "Pressure [Pa]", "ΔP [Pa]"
+    );
     println!("{}", "-".repeat(70));
 
-    let mut pressure = 100.0; // Starting pressure
+    let mut _pressure = 100.0; // Starting pressure
     let pressures = vec![
         (0, 1, 150.0, 100.0, 0.0),
         (1, 2, 100.0, 98.5, 1.5),
@@ -435,8 +484,10 @@ fn validate_bifurcation_network_3d() {
     ];
 
     for (level, n_vessels, diameter, p_in, dp) in pressures {
-        println!("{:>10} {:>12} {:>15.1} {:>18.1} {:>15.1}",
-                 level, n_vessels, diameter, p_in, dp);
+        println!(
+            "{:>10} {:>12} {:>15.1} {:>18.1} {:>15.1}",
+            level, n_vessels, diameter, p_in, dp
+        );
     }
 
     println!("\n[Network Performance]");
@@ -470,15 +521,15 @@ fn validate_blood_rheology_effects_3d() {
     println!("TEST 4: Non-Newtonian Blood Rheology Effects");
     println!("{}", "=".repeat(80));
 
-    let geometry = BifurcationGeometry3D {
+    let _geometry = BifurcationGeometry3D {
         d_parent: 100e-6,
         d_daughter1: 80e-6,
         d_daughter2: 80e-6,
-        length: 1e-3,
+        _length: 1e-3,
         bifurcation_angle: 35.0,
     };
 
-    let flow = FlowConditions {
+    let _flow = FlowConditions {
         u_inlet: 0.001,
         p_inlet: 40.0,
         rho: 1060.0,
@@ -531,8 +582,10 @@ fn validate_grid_convergence_3d() {
 
     println!("\n[Convergence of L2 Pressure Error with Mesh Refinement]");
     println!();
-    println!("{:>20} {:>15} {:>18} {:>15}",
-             "Elements", "L2 error [Pa]", "Δ from fine", "Order");
+    println!(
+        "{:>20} {:>15} {:>18} {:>15}",
+        "Elements", "L2 error [Pa]", "Δ from fine", "Order"
+    );
     println!("{}", "-".repeat(70));
 
     let grids = vec![
@@ -546,8 +599,17 @@ fn validate_grid_convergence_3d() {
 
     for (elements, error) in &grids {
         let delta: f64 = (finest - error).abs();
-        let order = if delta < 0.001 { "✓" } else if delta < 0.01 { "•" } else { "→" };
-        println!("{:>20} {:>15.4} {:>18.4} {:>15}", elements, error, delta, order);
+        let order = if delta < 0.001 {
+            "✓"
+        } else if delta < 0.01 {
+            "•"
+        } else {
+            "→"
+        };
+        println!(
+            "{:>20} {:>15.4} {:>18.4} {:>15}",
+            elements, error, delta, order
+        );
     }
 
     println!("\n[Convergence Analysis]");
@@ -588,8 +650,16 @@ fn validate_grid_convergence_3d() {
 fn main() {
     println!("\n");
     println!("╔{}╗", "=".repeat(78));
-    println!("║ {}{}║", " ".repeat(10), "3D BIFURCATION VALIDATION: WALL SHEAR STRESS");
-    println!("║ {}{}║", " ".repeat(8), "3D FEM Analysis with Endothelial Mechanobiology");
+    println!(
+        "║ {}{}║",
+        " ".repeat(10),
+        "3D BIFURCATION VALIDATION: WALL SHEAR STRESS"
+    );
+    println!(
+        "║ {}{}║",
+        " ".repeat(8),
+        "3D FEM Analysis with Endothelial Mechanobiology"
+    );
     println!("╚{}╝", "=".repeat(78));
 
     validate_symmetric_bifurcation_3d();

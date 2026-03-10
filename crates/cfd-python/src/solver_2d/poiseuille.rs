@@ -2,8 +2,8 @@
 
 use nalgebra::DMatrix;
 use numpy::PyArray2;
-use pyo3::prelude::*;
 use pyo3::exceptions::PyRuntimeError;
+use pyo3::prelude::*;
 
 use cfd_2d::fields::SimulationFields;
 use cfd_2d::grid::StructuredGrid2D;
@@ -106,14 +106,8 @@ impl PyPoiseuille2DSolver {
 
     /// Solve Poiseuille flow simulation
     fn solve(&self, pressure_drop: f64, blood_type: &str) -> PyResult<PyPoiseuille2DResult> {
-        let _grid = StructuredGrid2D::new(
-            self.nx,
-            self.ny,
-            0.0,
-            self.length,
-            0.0,
-            self.height,
-        ).map_err(|e| PyRuntimeError::new_err(format!("Grid error: {e}")))?;
+        let _grid = StructuredGrid2D::new(self.nx, self.ny, 0.0, self.length, 0.0, self.height)
+            .map_err(|e| PyRuntimeError::new_err(format!("Grid error: {e}")))?;
 
         let mut fields = SimulationFields::new(self.nx, self.ny);
         let rho = 1060.0;

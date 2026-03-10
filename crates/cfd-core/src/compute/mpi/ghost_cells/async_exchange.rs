@@ -45,11 +45,7 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp> GhostCellManager<
         }
 
         // Receive operations - strict 1:1 mapping between buffers and ops
-        for (buffer, op) in context
-            .recv_buffers
-            .iter_mut()
-            .zip(context.recv_ops.iter())
-        {
+        for (buffer, op) in context.recv_buffers.iter_mut().zip(context.recv_ops.iter()) {
             requests.push(comm.receive_async(op.neighbor_rank, op.tag, buffer));
         }
 

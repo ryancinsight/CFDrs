@@ -93,7 +93,8 @@ impl<T: RealField + Copy> Mesh<T> {
         for element in &self.elements {
             let n = element.nodes.len();
             match element.element_type {
-                crate::geometry::mesh::ElementType::Line | crate::geometry::mesh::ElementType::Line3 => {
+                crate::geometry::mesh::ElementType::Line
+                | crate::geometry::mesh::ElementType::Line3 => {
                     if n >= 2 {
                         edges_list.push(order_edge(element.nodes[0], element.nodes[1]));
                     }
@@ -231,9 +232,7 @@ mod tests {
         assert_eq!(edge_conn.edges.len(), 6);
 
         // Check edges existence
-        let edges: Vec<(usize, usize)> = edge_conn.edges.iter()
-            .map(|e| (e.start, e.end))
-            .collect();
+        let edges: Vec<(usize, usize)> = edge_conn.edges.iter().map(|e| (e.start, e.end)).collect();
 
         assert!(edges.contains(&(0, 1)));
         assert!(edges.contains(&(1, 2)));

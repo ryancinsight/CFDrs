@@ -60,7 +60,7 @@
 #[must_use]
 pub fn cell_free_layer_m(hematocrit: f64, hydraulic_diameter_m: f64) -> f64 {
     const ALPHA_CFL: f64 = 0.079;
-    const BETA_CFL:  f64 = 2.63;
+    const BETA_CFL: f64 = 2.63;
     let delta = hydraulic_diameter_m * ALPHA_CFL * (-BETA_CFL * hematocrit).exp();
     // Clamp to at least 0.5 µm (half WBC diameter lower bound) to avoid division issues
     delta.max(0.5e-6)
@@ -139,12 +139,12 @@ pub fn wbc_margination_factor(a_wbc_m: f64, cfl_m: f64, hematocrit: f64) -> f64 
 #[inline]
 #[must_use]
 pub fn apply_cell_interaction(
-    x_tilde_inertial:     f64,
-    a_wbc_m:              f64,
-    hematocrit:           f64,
+    x_tilde_inertial: f64,
+    a_wbc_m: f64,
+    hematocrit: f64,
     hydraulic_diameter_m: f64,
 ) -> f64 {
-    let cfl   = cell_free_layer_m(hematocrit, hydraulic_diameter_m);
+    let cfl = cell_free_layer_m(hematocrit, hydraulic_diameter_m);
     let gamma = wbc_margination_factor(a_wbc_m, cfl, hematocrit).max(1.0);
     let x_eff = 1.0 - (1.0 - x_tilde_inertial) / gamma;
     // Clamp to [0, 0.95] — same wall-exclusion cutoff as margination.rs
@@ -163,14 +163,17 @@ mod tests {
         let dh = 100e-6;
         let cfl = cell_free_layer_m(0.0, dh);
         let expected = dh * 0.079;
-        assert!((cfl - expected).abs() < 1e-12, "cfl={cfl:.3e} expected={expected:.3e}");
+        assert!(
+            (cfl - expected).abs() < 1e-12,
+            "cfl={cfl:.3e} expected={expected:.3e}"
+        );
     }
 
     /// δ_CFL strictly decreases with hematocrit (exponential decay)
     #[test]
     fn cfl_decreases_with_hematocrit() {
         let dh = 133e-6; // Nivedita spiral D_h
-        let cfl_2  = cell_free_layer_m(0.02, dh);
+        let cfl_2 = cell_free_layer_m(0.02, dh);
         let cfl_20 = cell_free_layer_m(0.20, dh);
         let cfl_45 = cell_free_layer_m(0.45, dh);
         assert!(cfl_2 > cfl_20, "CFL should decrease with HCT");
@@ -184,49 +187,68 @@ mod tests {
         let dh = 200e-6;
         let cfl = cell_free_layer_m(0.001, dh);
         let gamma = wbc_margination_factor(10e-6, cfl, 0.001);
-        assert!((gamma - 1.0).abs() < 1e-9, "Γ should be 1.0 when CFL >> WBC radius");
+        assert!(
+            (gamma - 1.0).abs() < 1e-9,
+            "Γ should be 1.0 when CFL >> WBC radius"
+        );
     }
 
     /// At physiological HCT, CFL < WBC radius → Γ > 1 (enhancement)
     #[test]
     fn margination_factor_gt_one_at_physiological_hct() {
-        let dh  = 100e-6;
+        let dh = 100e-6;
         let cfl = cell_free_layer_m(0.40, dh); // physiological HCT
         let gamma = wbc_margination_factor(10e-6, cfl, 0.40); // WBC 10 µm
-        assert!(gamma > 1.0, "Γ should exceed 1.0 at physiological HCT; got {gamma:.4}");
+        assert!(
+            gamma > 1.0,
+            "Γ should exceed 1.0 at physiological HCT; got {gamma:.4}"
+        );
     }
 
     /// apply_cell_interaction: corrected x̃_eff ≥ x̃_inertial (WBC moves toward wall)
     #[test]
     fn cell_interaction_shifts_equilibrium_toward_wall() {
-        let x_in  = 0.60_f64; // typical inertial equilibrium
+        let x_in = 0.60_f64; // typical inertial equilibrium
         let x_eff = apply_cell_interaction(x_in, 10e-6, 0.40, 100e-6);
-        assert!(x_eff >= x_in, "x̃_eff={x_eff:.4} should be ≥ x̃_inertial={x_in:.4}");
-        assert!(x_eff <= 0.95, "x̃_eff must stay within valid range [0, 0.95]");
+        assert!(
+            x_eff >= x_in,
+            "x̃_eff={x_eff:.4} should be ≥ x̃_inertial={x_in:.4}"
+        );
+        assert!(
+            x_eff <= 0.95,
+            "x̃_eff must stay within valid range [0, 0.95]"
+        );
     }
 
     /// At zero hematocrit: no correction (Γ = 1, CFL very large)
     #[test]
     fn cell_interaction_identity_at_zero_hct() {
-        let x_in  = 0.55_f64;
+        let x_in = 0.55_f64;
         let x_eff = apply_cell_interaction(x_in, 10e-6, 0.0, 100e-6);
         // CFL at HCT=0 → 7.9 µm > WBC radius (5 µm) for D_h=100 µm → Γ = 1
-        assert!((x_eff - x_in).abs() < 1e-9,
-            "No correction expected at HCT=0; got x_eff={x_eff:.6} x_in={x_in:.6}");
+        assert!(
+            (x_eff - x_in).abs() < 1e-9,
+            "No correction expected at HCT=0; got x_eff={x_eff:.6} x_in={x_in:.6}"
+        );
     }
 
     /// Nivedita spiral benchmark: D_h=133µm, HCT=2%, WBC=10µm
     /// Expected: δ_CFL ≈ 10.4 µm, Γ ≈ 1.05 (weak enhancement at low HCT)
     #[test]
     fn nivedita_spiral_benchmark_cfl_and_gamma() {
-        let dh  = 2.0 * 400e-6 * 80e-6 / (400e-6 + 80e-6); // 133.3 µm
+        let dh = 2.0 * 400e-6 * 80e-6 / (400e-6 + 80e-6); // 133.3 µm
         let cfl = cell_free_layer_m(0.02, dh);
         // δ_CFL = 133.3e-6 × 0.079 × exp(-2.63 × 0.02) ≈ 10.0 µm
-        assert!(cfl > 9e-6 && cfl < 12e-6,
-            "Nivedita spiral δ_CFL = {:.2} µm; expected ≈ 10 µm", cfl * 1e6);
+        assert!(
+            cfl > 9e-6 && cfl < 12e-6,
+            "Nivedita spiral δ_CFL = {:.2} µm; expected ≈ 10 µm",
+            cfl * 1e6
+        );
         let gamma = wbc_margination_factor(10e-6, cfl, 0.02);
         // WBC radius = 5 µm, δ_CFL ≈ 10 µm → size_ratio ≈ 0.5 → Γ = 1
-        assert!((gamma - 1.0).abs() < 0.1,
-            "Γ={gamma:.3} should be ≈ 1.0 at HCT=2% (weak enhancement)");
+        assert!(
+            (gamma - 1.0).abs() < 0.1,
+            "Γ={gamma:.3} should be ≈ 1.0 at HCT=2% (weak enhancement)"
+        );
     }
 }

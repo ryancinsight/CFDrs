@@ -2,8 +2,10 @@
 
 use super::ValidationResult;
 use crate::physics::turbulence::traits::LESTurbulenceModel;
-use crate::physics::turbulence::{DetachedEddySimulation, KEpsilonModel, KOmegaSSTModel, SmagorinskyLES};
 use crate::physics::turbulence::traits::TurbulenceModel;
+use crate::physics::turbulence::{
+    DetachedEddySimulation, KEpsilonModel, KOmegaSSTModel, SmagorinskyLES,
+};
 use nalgebra::{DMatrix, RealField, Vector2};
 use num_traits::{FromPrimitive, ToPrimitive};
 
@@ -241,8 +243,7 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
             } else if y_plus <= 30.0_f64 {
                 5.0_f64 * (y_plus / 5.0_f64).ln() + 5.17_f64
             } else {
-                2.5_f64 * (y_plus / 30.0_f64).ln() + 5.17_f64
-                    + 2.5_f64 * (30.0_f64 / 5.0_f64).ln()
+                2.5_f64 * (y_plus / 30.0_f64).ln() + 5.17_f64 + 2.5_f64 * (30.0_f64 / 5.0_f64).ln()
             };
             let u_velocity = u_plus * kinematic_viscosity * re_tau;
 
@@ -286,8 +287,7 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
             } else if y_plus <= 30.0_f64 {
                 5.0_f64 * (y_plus / 5.0_f64).ln() + 5.17_f64
             } else {
-                2.5_f64 * (y_plus / 30.0_f64).ln() + 5.17_f64
-                    + 2.5_f64 * (30.0_f64 / 5.0_f64).ln()
+                2.5_f64 * (y_plus / 30.0_f64).ln() + 5.17_f64 + 2.5_f64 * (30.0_f64 / 5.0_f64).ln()
             };
 
             u_plus_reference.push(u_plus_ref);
@@ -335,15 +335,11 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
                 let x = i as f64 * 0.05_f64;
                 let y = j as f64 * 0.05_f64;
                 let fluctuation_u = 0.1_f64
-                    * ((2.0_f64 * PI * x / 0.5_f64).sin()
-                        + (4.0_f64 * PI * x / 0.5_f64).sin())
-                    * ((2.0_f64 * PI * y / 0.5_f64).cos()
-                        + (4.0_f64 * PI * y / 0.5_f64).cos());
+                    * ((2.0_f64 * PI * x / 0.5_f64).sin() + (4.0_f64 * PI * x / 0.5_f64).sin())
+                    * ((2.0_f64 * PI * y / 0.5_f64).cos() + (4.0_f64 * PI * y / 0.5_f64).cos());
                 let fluctuation_v = 0.1_f64
-                    * ((2.0_f64 * PI * x / 0.5_f64).cos()
-                        + (4.0_f64 * PI * x / 0.5_f64).cos())
-                    * ((2.0_f64 * PI * y / 0.5_f64).sin()
-                        + (4.0_f64 * PI * y / 0.5_f64).sin());
+                    * ((2.0_f64 * PI * x / 0.5_f64).cos() + (4.0_f64 * PI * x / 0.5_f64).cos())
+                    * ((2.0_f64 * PI * y / 0.5_f64).sin() + (4.0_f64 * PI * y / 0.5_f64).sin());
                 velocity_u[(i, j)] = fluctuation_u;
                 velocity_v[(i, j)] = fluctuation_v;
             }

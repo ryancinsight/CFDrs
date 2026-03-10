@@ -51,11 +51,14 @@ impl<T: RealField + Copy + FromPrimitive> Default for SimplecPimpleConfig<T> {
         Self {
             algorithm: AlgorithmType::Simplec,
             dt: T::from_f64(0.01).unwrap_or_else(T::one),
-            alpha_u: T::from_f64(0.7).unwrap_or_else(|| T::from_f64(0.7).unwrap_or_else(num_traits::Zero::zero)),
-            alpha_p: T::from_f64(0.3).unwrap_or_else(|| T::from_f64(0.3).unwrap_or_else(num_traits::Zero::zero)),
+            alpha_u: T::from_f64(0.7)
+                .unwrap_or_else(|| T::from_f64(0.7).unwrap_or_else(num_traits::Zero::zero)),
+            alpha_p: T::from_f64(0.3)
+                .unwrap_or_else(|| T::from_f64(0.3).unwrap_or_else(num_traits::Zero::zero)),
             n_outer_correctors: 2,
             n_inner_correctors: 1,
-            tolerance: T::from_f64(1e-6).unwrap_or_else(|| T::from_f64(1e-6).unwrap_or_else(num_traits::Zero::zero)),
+            tolerance: T::from_f64(1e-6)
+                .unwrap_or_else(|| T::from_f64(1e-6).unwrap_or_else(num_traits::Zero::zero)),
             max_inner_iterations: 50,
             use_rhie_chow: true,
             convection_scheme: SpatialScheme::SecondOrderUpwind,

@@ -107,7 +107,8 @@ impl<T: RealField + Copy + ToPrimitive> MUSCLScheme<T> {
             let slope1 = self.limited_slope(phi_im1, phi_i, phi_ip1);
             let slope2 = self.limited_slope(phi_i, phi_ip1, phi_ip2);
 
-            let quick = (T::from_f64(6.0).unwrap_or_else(num_traits::Zero::zero) * phi_i - T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero) * phi_im1
+            let quick = (T::from_f64(6.0).unwrap_or_else(num_traits::Zero::zero) * phi_i
+                - T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero) * phi_im1
                 + T::from_f64(8.0).unwrap_or_else(num_traits::Zero::zero) * phi_ip1
                 - phi_ip2)
                 / T::from_f64(12.0).unwrap_or_else(num_traits::Zero::zero);

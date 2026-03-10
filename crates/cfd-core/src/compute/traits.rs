@@ -163,10 +163,7 @@ impl ComputeBackend {
                 let instance = wgpu::Instance::default();
                 let options: wgpu::RequestAdapterOptions<'_, '_> =
                     wgpu::RequestAdapterOptions::default();
-                instance
-                    .request_adapter(&options)
-                    .await
-                    .is_some()
+                instance.request_adapter(&options).await.is_some()
             })
         }
         #[cfg(not(feature = "gpu"))]

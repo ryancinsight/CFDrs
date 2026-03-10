@@ -108,7 +108,10 @@ pub fn prepare_bvh_mesh(faces: &[PreparedFace]) -> Option<PreparedBvhMesh> {
 
     build_recursive(faces, &mut sorted, 0, n, &mut nodes, &mut reordered);
 
-    Some(PreparedBvhMesh { nodes, faces: reordered })
+    Some(PreparedBvhMesh {
+        nodes,
+        faces: reordered,
+    })
 }
 
 /// Recursively partition `sorted[start..end]` into the BVH, appending leaf
@@ -132,8 +135,7 @@ fn build_recursive(
         is_leaf: false,
     });
 
-    let (center, circumradius_sq, total_area) =
-        bounding_sphere_and_area(src, &sorted[start..end]);
+    let (center, circumradius_sq, total_area) = bounding_sphere_and_area(src, &sorted[start..end]);
 
     let count = end - start;
     if count <= MAX_LEAF_FACES {
@@ -184,10 +186,7 @@ fn build_recursive(
 
 /// Bounding sphere (center = AABB centroid, R² = max distance² from center)
 /// and total triangle area for the given indexed face subset.
-fn bounding_sphere_and_area(
-    faces: &[PreparedFace],
-    indices: &[usize],
-) -> ([f64; 3], f64, f64) {
+fn bounding_sphere_and_area(faces: &[PreparedFace], indices: &[usize]) -> ([f64; 3], f64, f64) {
     let mut min = [f64::INFINITY; 3];
     let mut max = [f64::NEG_INFINITY; 3];
     let mut total_area = 0.0;
@@ -201,20 +200,25 @@ fn bounding_sphere_and_area(
         ] {
             let _ = k;
             for (d, &v) in min.iter_mut().zip(pts.iter()) {
-                if v < *d { *d = v; }
+                if v < *d {
+                    *d = v;
+                }
             }
             for (d, &v) in max.iter_mut().zip(pts.iter()) {
-                if v > *d { *d = v; }
+                if v > *d {
+                    *d = v;
+                }
             }
         }
         let ab = [f.b.x - f.a.x, f.b.y - f.a.y, f.b.z - f.a.z];
         let ac = [f.c.x - f.a.x, f.c.y - f.a.y, f.c.z - f.a.z];
         let cross = [
-            ab[1]*ac[2] - ab[2]*ac[1],
-            ab[2]*ac[0] - ab[0]*ac[2],
-            ab[0]*ac[1] - ab[1]*ac[0],
+            ab[1] * ac[2] - ab[2] * ac[1],
+            ab[2] * ac[0] - ab[0] * ac[2],
+            ab[0] * ac[1] - ab[1] * ac[0],
         ];
-        total_area += 0.5 * (cross[0]*cross[0] + cross[1]*cross[1] + cross[2]*cross[2]).sqrt();
+        total_area +=
+            0.5 * (cross[0] * cross[0] + cross[1] * cross[1] + cross[2] * cross[2]).sqrt();
     }
 
     let cx = 0.5 * (min[0] + max[0]);
@@ -226,9 +230,15 @@ fn bounding_sphere_and_area(
     let mut r_sq = 0.0f64;
     for &i in indices {
         let f = &faces[i];
-        for &[px, py, pz] in &[[f.a.x, f.a.y, f.a.z], [f.b.x, f.b.y, f.b.z], [f.c.x, f.c.y, f.c.z]] {
-            let d = (px-cx)*(px-cx) + (py-cy)*(py-cy) + (pz-cz)*(pz-cz);
-            if d > r_sq { r_sq = d; }
+        for &[px, py, pz] in &[
+            [f.a.x, f.a.y, f.a.z],
+            [f.b.x, f.b.y, f.b.z],
+            [f.c.x, f.c.y, f.c.z],
+        ] {
+            let d = (px - cx) * (px - cx) + (py - cy) * (py - cy) + (pz - cz) * (pz - cz);
+            if d > r_sq {
+                r_sq = d;
+            }
         }
     }
 
@@ -242,20 +252,32 @@ fn longest_axis_of_centroids(faces: &[PreparedFace], indices: &[usize]) -> usize
         let c = &faces[i].centroid;
         let cs = [c.x, c.y, c.z];
         for j in 0..3 {
-            if cs[j] < min[j] { min[j] = cs[j]; }
-            if cs[j] > max[j] { max[j] = cs[j]; }
+            if cs[j] < min[j] {
+                min[j] = cs[j];
+            }
+            if cs[j] > max[j] {
+                max[j] = cs[j];
+            }
         }
     }
-    let extents = [max[0]-min[0], max[1]-min[1], max[2]-min[2]];
-    if extents[1] > extents[0] && extents[1] > extents[2] { 1 }
-    else if extents[2] > extents[0] { 2 }
-    else { 0 }
+    let extents = [max[0] - min[0], max[1] - min[1], max[2] - min[2]];
+    if extents[1] > extents[0] && extents[1] > extents[2] {
+        1
+    } else if extents[2] > extents[0] {
+        2
+    } else {
+        0
+    }
 }
 
 #[inline]
 fn face_centroid_axis(faces: &[PreparedFace], idx: usize, axis: usize) -> f64 {
     let c = &faces[idx].centroid;
-    match axis { 0 => c.x, 1 => c.y, _ => c.z }
+    match axis {
+        0 => c.x,
+        1 => c.y,
+        _ => c.z,
+    }
 }
 
 // ── Query ─────────────────────────────────────────────────────────────────────
@@ -289,7 +311,7 @@ pub fn gwn_bvh(query: &Point3r, mesh: &PreparedBvhMesh, error_budget: f64) -> f6
         let dx = q[0] - node.center[0];
         let dy = q[1] - node.center[1];
         let dz = q[2] - node.center[2];
-        let d_sq = dx*dx + dy*dy + dz*dz;
+        let d_sq = dx * dx + dy * dy + dz * dz;
 
         // Skip criterion: if query is outside bounding sphere AND total triangle
         // area is negligible relative to distance, skip (contribution ≈ 0).
@@ -306,7 +328,7 @@ pub fn gwn_bvh(query: &Point3r, mesh: &PreparedBvhMesh, error_budget: f64) -> f6
             debug_assert!(top + 2 <= 64, "BVH stack overflow — mesh too deep?");
             stack[top] = node.start; // left child
             top += 1;
-            stack[top] = node.end;  // right child
+            stack[top] = node.end; // right child
             top += 1;
         }
     }
@@ -322,9 +344,9 @@ fn gwn_triangle_raw(q: &[f64; 3], face: &PreparedFace) -> f64 {
     let vb = [face.b.x - q[0], face.b.y - q[1], face.b.z - q[2]];
     let vc = [face.c.x - q[0], face.c.y - q[1], face.c.z - q[2]];
 
-    let la_sq = va[0]*va[0] + va[1]*va[1] + va[2]*va[2];
-    let lb_sq = vb[0]*vb[0] + vb[1]*vb[1] + vb[2]*vb[2];
-    let lc_sq = vc[0]*vc[0] + vc[1]*vc[1] + vc[2]*vc[2];
+    let la_sq = va[0] * va[0] + va[1] * va[1] + va[2] * va[2];
+    let lb_sq = vb[0] * vb[0] + vb[1] * vb[1] + vb[2] * vb[2];
+    let lc_sq = vc[0] * vc[0] + vc[1] * vc[1] + vc[2] * vc[2];
 
     if la_sq < f64::MIN_POSITIVE || lb_sq < f64::MIN_POSITIVE || lc_sq < f64::MIN_POSITIVE {
         return 0.0;
@@ -334,14 +356,13 @@ fn gwn_triangle_raw(q: &[f64; 3], face: &PreparedFace) -> f64 {
     let lc = lc_sq.sqrt();
 
     // Numerator: scalar triple product va · (vb × vc)
-    let num = va[0]*(vb[1]*vc[2] - vb[2]*vc[1])
-            - va[1]*(vb[0]*vc[2] - vb[2]*vc[0])
-            + va[2]*(vb[0]*vc[1] - vb[1]*vc[0]);
+    let num = va[0] * (vb[1] * vc[2] - vb[2] * vc[1]) - va[1] * (vb[0] * vc[2] - vb[2] * vc[0])
+        + va[2] * (vb[0] * vc[1] - vb[1] * vc[0]);
 
-    let dot_ab = va[0]*vb[0] + va[1]*vb[1] + va[2]*vb[2];
-    let dot_bc = vb[0]*vc[0] + vb[1]*vc[1] + vb[2]*vc[2];
-    let dot_ca = vc[0]*va[0] + vc[1]*va[1] + vc[2]*va[2];
-    let den = la*lb*lc + dot_ab*lc + dot_bc*la + dot_ca*lb;
+    let dot_ab = va[0] * vb[0] + va[1] * vb[1] + va[2] * vb[2];
+    let dot_bc = vb[0] * vc[0] + vb[1] * vc[1] + vb[2] * vc[2];
+    let dot_ca = vc[0] * va[0] + vc[1] * va[1] + vc[2] * va[2];
+    let den = la * lb * lc + dot_ab * lc + dot_bc * la + dot_ca * lb;
 
     if den.abs() > GWN_DENOMINATOR_GUARD || num.abs() > GWN_DENOMINATOR_GUARD {
         2.0 * num.atan2(den)
@@ -355,7 +376,7 @@ fn gwn_triangle_raw(q: &[f64; 3], face: &PreparedFace) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::application::csg::arrangement::gwn::{prepare_classification_faces, gwn};
+    use crate::application::csg::arrangement::gwn::{gwn, prepare_classification_faces};
     use crate::domain::core::scalar::Point3r;
     use crate::infrastructure::storage::face_store::FaceData;
     use crate::infrastructure::storage::vertex_pool::VertexPool;
@@ -366,18 +387,28 @@ mod tests {
         let n = nalgebra::Vector3::zeros();
         let s = 0.5_f64;
         let mut v = |x, y, z| pool.insert_or_weld(Point3r::new(x, y, z), n);
-        let c000 = v(-s, -s, -s); let c100 = v(s, -s, -s);
-        let c010 = v(-s, s, -s);  let c110 = v(s, s, -s);
-        let c001 = v(-s, -s, s);  let c101 = v(s, -s, s);
-        let c011 = v(-s, s, s);   let c111 = v(s, s, s);
+        let c000 = v(-s, -s, -s);
+        let c100 = v(s, -s, -s);
+        let c010 = v(-s, s, -s);
+        let c110 = v(s, s, -s);
+        let c001 = v(-s, -s, s);
+        let c101 = v(s, -s, s);
+        let c011 = v(-s, s, s);
+        let c111 = v(s, s, s);
         let f = FaceData::untagged;
         let faces = vec![
-            f(c000, c010, c110), f(c000, c110, c100),
-            f(c001, c101, c111), f(c001, c111, c011),
-            f(c000, c001, c011), f(c000, c011, c010),
-            f(c100, c110, c111), f(c100, c111, c101),
-            f(c000, c100, c101), f(c000, c101, c001),
-            f(c010, c011, c111), f(c010, c111, c110),
+            f(c000, c010, c110),
+            f(c000, c110, c100),
+            f(c001, c101, c111),
+            f(c001, c111, c011),
+            f(c000, c001, c011),
+            f(c000, c011, c010),
+            f(c100, c110, c111),
+            f(c100, c111, c101),
+            f(c000, c100, c101),
+            f(c000, c101, c001),
+            f(c010, c011, c111),
+            f(c010, c111, c110),
         ];
         (pool, faces)
     }
@@ -390,10 +421,10 @@ mod tests {
         let bvh = prepare_bvh_mesh(&prepared).expect("bvh build");
 
         let samples = [
-            Point3r::new(0.0, 0.0, 0.0),       // interior
-            Point3r::new(5.0, 0.0, 0.0),       // exterior (far)
-            Point3r::new(0.4, 0.0, 0.0),       // interior near boundary
-            Point3r::new(2.0, 2.0, 2.0),       // exterior (corner direction)
+            Point3r::new(0.0, 0.0, 0.0), // interior
+            Point3r::new(5.0, 0.0, 0.0), // exterior (far)
+            Point3r::new(0.4, 0.0, 0.0), // interior near boundary
+            Point3r::new(2.0, 2.0, 2.0), // exterior (corner direction)
         ];
 
         let error_budget = 0.01;

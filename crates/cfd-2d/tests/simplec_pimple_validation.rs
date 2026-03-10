@@ -280,8 +280,10 @@ where
                 // Linear interpolation between reference points
                 let y1 = T::from_f64(reference.y[idx - 1]).unwrap_or_else(num_traits::Zero::zero);
                 let y2 = T::from_f64(reference.y[idx]).unwrap_or_else(num_traits::Zero::zero);
-                let u1 = T::from_f64(reference.u_centerline[idx - 1]).unwrap_or_else(num_traits::Zero::zero);
-                let u2 = T::from_f64(reference.u_centerline[idx]).unwrap_or_else(num_traits::Zero::zero);
+                let u1 = T::from_f64(reference.u_centerline[idx - 1])
+                    .unwrap_or_else(num_traits::Zero::zero);
+                let u2 =
+                    T::from_f64(reference.u_centerline[idx]).unwrap_or_else(num_traits::Zero::zero);
 
                 let u_ref = u1 + (u2 - u1) * (y_comp - y1) / (y2 - y1);
                 let error = u_comp - u_ref;

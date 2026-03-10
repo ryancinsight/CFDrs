@@ -323,7 +323,10 @@ mod tests {
             0.65, // des_constant
         );
 
-        assert!(result.is_ok(), "DES length scale computation should succeed");
+        assert!(
+            result.is_ok(),
+            "DES length scale computation should succeed"
+        );
     }
 
     #[cfg(feature = "gpu")]

@@ -41,12 +41,12 @@ impl SerpentineChannelStrategy {
 
         match phase_calculator.calculate_phase_direction(&symmetry_context) {
             Ok(phase_direction) => phase_direction,
-            Err(_) => self.calculate_wave_phase_direction_legacy(p1, p2, context.box_dims),
+            Err(_) => self.calculate_wave_phase_direction_fallback(p1, p2, context.box_dims),
         }
     }
 
-    /// Legacy fallback for phase direction that preserves centerline mirror behavior.
-    fn calculate_wave_phase_direction_legacy(
+    /// Baseline fallback that preserves centerline mirror behavior.
+    fn calculate_wave_phase_direction_fallback(
         &self,
         p1: Point2D,
         p2: Point2D,

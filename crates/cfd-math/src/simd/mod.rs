@@ -13,7 +13,7 @@ pub mod vectorization;
 #[cfg(test)]
 mod tests;
 
-use crate::performance_monitor::PerformanceAwareSelector;
+use crate::diagnostics::performance_monitor::PerformanceAwareSelector;
 pub use arch_detect::ArchDetect;
 pub use ops::{SimdOperation, SimdOps, VectorOps};
 use std::sync::Mutex;

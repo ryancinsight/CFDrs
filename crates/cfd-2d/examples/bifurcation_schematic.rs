@@ -3,7 +3,7 @@
 //! Demonstrates the two-phase schematic-driven pattern for cfd-2d:
 //!
 //! **Phase 1 — Design (cfd-schematics)**
-//! - Define symmetric bifurcation topology as `ChannelSystem`
+//! - Define symmetric bifurcation topology as `NetworkBlueprint`
 //! - Murray's law sizing: r_d = r_p / 2^(1/3)
 //! - Render schematic PNG → `outputs/bifurcation_schematic.png`
 //!
@@ -16,9 +16,9 @@
 //! `cargo run -p cfd-2d --example bifurcation_schematic`
 
 use cfd_2d::solvers::bifurcation_flow::{BifurcationGeometry, BifurcationSolver2D};
-use cfd_2d::solvers::ns_fvm_2d::{BloodModel, SIMPLEConfig};
+use cfd_2d::solvers::ns_fvm::{BloodModel, SIMPLEConfig};
 use cfd_core::physics::fluid::blood::CassonBlood;
-use cfd_schematics::geometry::types::{Channel, ChannelSystem, ChannelType, Node};
+use cfd_schematics::domain::model::{ChannelSpec, NetworkBlueprint, NodeKind, NodeSpec};
 use cfd_schematics::visualizations::{
     create_plotters_renderer, AnalysisField, AnalysisOverlay, ColormapKind, RenderConfig,
     SchematicRenderer,
@@ -61,66 +61,45 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let d1_end_y = jy + l_daughter * angle_rad.sin();
     let d2_end_x = jx + l_daughter * angle_rad.cos();
     let d2_end_y = jy - l_daughter * angle_rad.sin();
+    let mut system = NetworkBlueprint::new("bifurcation-murray");
+    system.box_dims = (d1_end_x + 2.0, jy * 2.0);
 
-    let nodes: Vec<Node> = vec![
-        Node {
-            id: 0,
-            point: (0.0, jy),
-            metadata: None,
-        }, // inlet
-        Node {
-            id: 1,
-            point: (jx, jy),
-            metadata: None,
-        }, // junction
-        Node {
-            id: 2,
-            point: (d1_end_x, d1_end_y),
-            metadata: None,
-        }, // daughter 1
-        Node {
-            id: 3,
-            point: (d2_end_x, d2_end_y),
-            metadata: None,
-        }, // daughter 2
-    ];
+    system.add_node(NodeSpec::new("n0", NodeKind::Inlet).with_point((0.0, jy)));
+    system.add_node(NodeSpec::new("n1", NodeKind::Junction).with_point((jx, jy)));
+    system.add_node(NodeSpec::new("n2", NodeKind::Outlet).with_point((d1_end_x, d1_end_y)));
+    system.add_node(NodeSpec::new("n3", NodeKind::Outlet).with_point((d2_end_x, d2_end_y)));
 
-    let channels: Vec<Channel> = vec![
-        Channel {
-            id: 0,
-            from_node: 0,
-            to_node: 1,
-            width: w_parent,
-            height: 1.0,
-            channel_type: ChannelType::Straight,
-            metadata: None,
-        },
-        Channel {
-            id: 1,
-            from_node: 1,
-            to_node: 2,
-            width: w_daughter,
-            height: 1.0,
-            channel_type: ChannelType::Straight,
-            metadata: None,
-        },
-        Channel {
-            id: 2,
-            from_node: 1,
-            to_node: 3,
-            width: w_daughter,
-            height: 1.0,
-            channel_type: ChannelType::Straight,
-            metadata: None,
-        },
-    ];
-
-    let system = ChannelSystem {
-        box_dims: (d1_end_x + 2.0, jy * 2.0),
-        nodes,
-        channels,
-        box_outline: vec![],
-    };
+    let h_m = 1.0 / 1000.0;
+    system.add_channel(ChannelSpec::new_pipe_rect(
+        "ch0",
+        "n0",
+        "n1",
+        l_parent / 1000.0,
+        w_parent / 1000.0,
+        h_m,
+        1.0,
+        0.0,
+    ));
+    system.add_channel(ChannelSpec::new_pipe_rect(
+        "ch1",
+        "n1",
+        "n2",
+        l_daughter / 1000.0,
+        w_daughter / 1000.0,
+        h_m,
+        1.0,
+        0.0,
+    ));
+    system.add_channel(ChannelSpec::new_pipe_rect(
+        "ch2",
+        "n1",
+        "n3",
+        l_daughter / 1000.0,
+        w_daughter / 1000.0,
+        h_m,
+        1.0,
+        0.0,
+    ));
 
     let renderer = create_plotters_renderer();
     let schematic_cfg = RenderConfig {

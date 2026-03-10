@@ -5,8 +5,9 @@
 //! by allowing the visualization logic to depend on abstractions rather than
 //! concrete implementations.
 
+use crate::domain::model::NetworkBlueprint;
 use crate::error::VisualizationResult;
-use crate::geometry::{ChannelSystem, Point2D};
+use crate::geometry::Point2D;
 use crate::visualizations::analysis_field::AnalysisOverlay;
 use crate::visualizations::annotations::SchematicAnnotations;
 
@@ -26,7 +27,7 @@ pub trait SchematicRenderer {
     /// Result indicating success or failure of the rendering operation
     fn render_system(
         &self,
-        system: &ChannelSystem,
+        system: &NetworkBlueprint,
         output_path: &str,
         config: &RenderConfig,
     ) -> VisualizationResult<()>;
@@ -44,7 +45,7 @@ pub trait SchematicRenderer {
     /// * `overlay` - Typed CFD analysis overlay with field data and colormap
     fn render_analysis(
         &self,
-        system: &ChannelSystem,
+        system: &NetworkBlueprint,
         output_path: &str,
         config: &RenderConfig,
         overlay: &AnalysisOverlay,
@@ -147,6 +148,13 @@ pub struct RenderConfig {
     pub title_style: TextStyle,
     /// Channel type-specific styling
     pub channel_type_styles: ChannelTypeStyles,
+    /// Role-based styling for selective-tree schematics.
+    ///
+    /// When `Some`, channels whose `visual_role` field is set will be colored
+    /// by role (red = treatment, blue = bypass, orange = venturi throat, …)
+    /// instead of by shape category.  Set to `None` to fall back to the legacy
+    /// category-based coloring.
+    pub role_styles: Option<VisualRoleStyles>,
     /// Optional annotation overlay for nodes/throats/labels.
     pub annotations: Option<SchematicAnnotations>,
 }
@@ -163,6 +171,64 @@ pub struct ChannelTypeStyles {
     pub curved_style: LineStyle,
     /// Style for tapered channels (Frustum)
     pub tapered_style: LineStyle,
+}
+
+/// Role-based styling for selective-tree schematics.
+///
+/// These styles override the category-based styles when a channel has an
+/// explicit [`crate::geometry::metadata::ChannelVisualRole`] set (e.g., by
+/// `annotate_primitive_tree`).  The `width_multiplier` derived from physical
+/// cross-section dimensions is still applied on top, so bypass channels
+/// (which are physically wider than treatment channels) render thicker in
+/// addition to receiving a distinct color.
+///
+/// Color convention follows the therapeutic domain:
+/// - **Trunk**: neutral dark grey — fluid transport, no processing
+/// - **CenterTreatment**: red — cancer / WBC target stream
+/// - **PeripheralBypass**: steel blue — healthy RBC protection stream
+/// - **MergeCollector**: teal — post-split recombination
+/// - **VenturiThroat**: orange — active treatment / cavitation point
+#[derive(Debug, Clone)]
+pub struct VisualRoleStyles {
+    /// Inlet / outlet trunk channels
+    pub trunk: LineStyle,
+    /// Centre treatment stream (cancer / WBC target)
+    pub center_treatment: LineStyle,
+    /// Peripheral bypass stream (healthy cell protection)
+    pub peripheral_bypass: LineStyle,
+    /// Merge-collector segment (post-split recombination towards outlet)
+    pub merge_collector: LineStyle,
+    /// Venturi throat (active cavitation / treatment point)
+    pub venturi_throat: LineStyle,
+}
+
+impl Default for VisualRoleStyles {
+    fn default() -> Self {
+        Self {
+            trunk: LineStyle::solid(Color::rgb(60, 60, 60), 2.5),
+            center_treatment: LineStyle::solid(Color::rgb(210, 45, 45), 1.5),
+            peripheral_bypass: LineStyle::solid(Color::rgb(55, 120, 185), 1.5),
+            merge_collector: LineStyle::solid(Color::rgb(40, 130, 130), 1.2),
+            venturi_throat: LineStyle::solid(Color::rgb(230, 130, 0), 2.0),
+        }
+    }
+}
+
+impl VisualRoleStyles {
+    /// Return the line style for the given visual role.
+    #[must_use]
+    pub fn get_style(&self, role: crate::geometry::metadata::ChannelVisualRole) -> &LineStyle {
+        use crate::geometry::metadata::ChannelVisualRole;
+        match role {
+            ChannelVisualRole::Trunk => &self.trunk,
+            ChannelVisualRole::CenterTreatment => &self.center_treatment,
+            ChannelVisualRole::PeripheralBypass => &self.peripheral_bypass,
+            ChannelVisualRole::MergeCollector => &self.merge_collector,
+            ChannelVisualRole::VenturiThroat => &self.venturi_throat,
+            // Diffuser and InternalLink share the trunk neutral style
+            ChannelVisualRole::Diffuser | ChannelVisualRole::InternalLink => &self.trunk,
+        }
+    }
 }
 
 impl Default for ChannelTypeStyles {
@@ -219,6 +285,7 @@ impl Default for RenderConfig {
                 font_family: "sans-serif".to_string(),
             },
             channel_type_styles: ChannelTypeStyles::default(),
+            role_styles: None,
             annotations: None,
         }
     }
@@ -240,10 +307,16 @@ impl RenderConfig {
     }
 
     /// 96-well report preset with annotation defaults enabled.
+    ///
+    /// Enables role-based channel colouring: red for the treatment stream,
+    /// steel-blue for the bypass stream, orange for venturi throats and dark-grey
+    /// for trunk channels.  This makes channel-size differentiation (wide bypass
+    /// vs. narrow treatment) immediately visible in report figures.
     #[must_use]
     pub fn well_plate_96_report_annotated() -> Self {
         let mut config = Self::well_plate_96();
         config.annotations = Some(SchematicAnnotations::report_default());
+        config.role_styles = Some(VisualRoleStyles::default());
         config
     }
 }
@@ -447,28 +520,28 @@ pub trait VisualizationEngine {
     /// Visualize a complete channel system
     fn visualize_system(
         &mut self,
-        system: &ChannelSystem,
+        system: &NetworkBlueprint,
         config: &RenderConfig,
     ) -> VisualizationResult<()>;
 
     /// Visualize just the channels without the boundary box
     fn visualize_channels(
         &mut self,
-        system: &ChannelSystem,
+        system: &NetworkBlueprint,
         style: &LineStyle,
     ) -> VisualizationResult<()>;
 
     /// Visualize the boundary box
     fn visualize_boundary(
         &mut self,
-        system: &ChannelSystem,
+        system: &NetworkBlueprint,
         style: &LineStyle,
     ) -> VisualizationResult<()>;
 
     /// Add coordinate axes to the visualization
     fn add_axes(
         &mut self,
-        system: &ChannelSystem,
+        system: &NetworkBlueprint,
         config: &RenderConfig,
     ) -> VisualizationResult<()>;
 

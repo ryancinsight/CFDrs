@@ -47,8 +47,7 @@ impl AdaptiveMeshRefinement {
         error_estimates
             .iter()
             .map(|&error| {
-                error < self.refinement_criteria.coarsening_threshold
-                    && self.refinement_level > 0
+                error < self.refinement_criteria.coarsening_threshold && self.refinement_level > 0
             })
             .collect()
     }
@@ -67,9 +66,7 @@ impl AdaptiveMeshRefinement {
         let coarsen_count = coarsen_flags.iter().filter(|&&x| x).count();
 
         // If significant adaptation needed, trigger load rebalancing
-        if refine_count > error_estimates.len() / 10
-            || coarsen_count > error_estimates.len() / 10
-        {
+        if refine_count > error_estimates.len() / 10 || coarsen_count > error_estimates.len() / 10 {
             if let Some(ref mut balancer) = self.load_balancer {
                 // Create workload estimate based on refinement
                 let local_workload = error_estimates.len() + refine_count - coarsen_count;

@@ -360,9 +360,9 @@ impl GpuPoissonSolver {
     /// 2. Black sweep: read from `phi_out` (updated reds), write blacks
     ///    to `phi_out`.
     ///
-    /// Since the current shader applies the stencil to all interior points 
+    /// Since the current shader applies the stencil to all interior points
     /// regardless of color (the `is_red` variable is computed but not used
-    /// as a guard), each dispatch is equivalent to a full Jacobi sweep. 
+    /// as a guard), each dispatch is equivalent to a full Jacobi sweep.
     /// We dispatch twice per iteration for the SOR-weighted convergence
     /// benefit, using the same pipeline the Jacobi solver uses, achieving
     /// the two-sweep structure of Gauss-Seidel.

@@ -253,20 +253,30 @@ mod tests {
     fn test_gradient_marking_refines_above_threshold() {
         let mut grid = AdaptiveGrid2D::new(make_grid(), 3);
         grid.mark_for_refinement(RefinementCriterion::Gradient(0.5), |i, _j| {
-            if i > 4 { 1.0 } else { 0.0 }
+            if i > 4 {
+                1.0
+            } else {
+                0.0
+            }
         })
         .unwrap();
 
         // Cells with i > 4 should be refined
         for i in 5..8 {
             for j in 0..8 {
-                assert_eq!(grid.refinement_levels[i][j], 1, "Cell ({i},{j}) should be refined");
+                assert_eq!(
+                    grid.refinement_levels[i][j], 1,
+                    "Cell ({i},{j}) should be refined"
+                );
             }
         }
         // Cells with i <= 4 should not
         for i in 0..=4 {
             for j in 0..8 {
-                assert_eq!(grid.refinement_levels[i][j], 0, "Cell ({i},{j}) should NOT be refined");
+                assert_eq!(
+                    grid.refinement_levels[i][j], 0,
+                    "Cell ({i},{j}) should NOT be refined"
+                );
             }
         }
     }
@@ -302,7 +312,10 @@ mod tests {
             .iter()
             .flat_map(|r| r.iter())
             .any(|&l| l == 0);
-        assert!(any_reduced, "At least some cells should have been coarsened");
+        assert!(
+            any_reduced,
+            "At least some cells should have been coarsened"
+        );
     }
 
     #[test]

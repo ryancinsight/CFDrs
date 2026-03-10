@@ -5,8 +5,8 @@
 //! 1. **Raw JSON** — `import_schematic()` parses a simple JSON format with
 //!    `substrate` and `channels` keys (no dependency on `cfd-schematics`).
 //!
-//! 2. **`cfd-schematics` interchange** — `from_channel_system()` converts
-//!    a `cfd_schematics::ChannelSystem` into a `Schematic` that the
+//! 2. **`cfd-schematics` interchange** — `from_blueprint()` converts
+//!    a `cfd_schematics::domain::model::NetworkBlueprint` into a `Schematic` that the
 //!    channel/sweep pipeline can mesh directly.
 
 use std::io::Read;
@@ -168,31 +168,21 @@ fn parse_channels(value: &serde_json::Value) -> MeshResult<Vec<ChannelDef>> {
 // cfd-schematics bridge
 // =========================================================================
 
-/// Convert a `cfd_schematics::ChannelSystem` into a `Schematic`.
+/// Convert a `cfd_schematics::domain::model::NetworkBlueprint` into a `Schematic`.
 ///
 /// 2D channel centerlines are lifted to 3D at `z = height / 2` so channels
 /// run through the centre of the substrate.
 ///
 /// # Arguments
-/// - `system` — the channel system from `cfd_schematics::geometry::generator::create_geometry`
+/// - `blueprint` — the network blueprint from `cfd_schematics`
 /// - `height` — substrate height in mm (also used as z-centering)
 /// - `channel_segments` — number of cross-section segments per channel
-pub fn from_channel_system(
-    system: &cfd_schematics::geometry::ChannelSystem,
+pub fn from_blueprint(
+    blueprint: &cfd_schematics::domain::model::NetworkBlueprint,
     height: Real,
     channel_segments: usize,
 ) -> MeshResult<Schematic> {
-    let interchange = system.to_interchange();
-    from_interchange(&interchange, height, channel_segments)
-}
-
-/// Convert an `InterchangeChannelSystem` into a `Schematic`.
-pub fn from_interchange(
-    interchange: &cfd_schematics::geometry::InterchangeChannelSystem,
-    height: Real,
-    channel_segments: usize,
-) -> MeshResult<Schematic> {
-    let (bw, bd) = interchange.box_dims_mm;
+    let (bw, bd) = blueprint.box_dims;
 
     let substrate = SubstrateDef {
         width: bw as Real,
@@ -201,74 +191,99 @@ pub fn from_interchange(
         origin: Point3r::origin(),
     };
 
-    let mut channels = Vec::with_capacity(interchange.channels.len());
+    let mut channels = Vec::with_capacity(blueprint.channels.len());
+    let node_points: std::collections::HashMap<&str, (f64, f64)> = blueprint
+        .nodes
+        .iter()
+        .map(|node| (node.id.as_str(), node.point))
+        .collect();
 
-    for ch in &interchange.channels {
-        if ch.centerline_mm.len() < 2 {
+    for ch in &blueprint.channels {
+        let centerline_2d: Vec<(f64, f64)> = match ch.path.as_slice() {
+            [] => node_points
+                .get(ch.from.as_str())
+                .zip(node_points.get(ch.to.as_str()))
+                .map_or_else(Vec::new, |(&start, &end)| vec![start, end]),
+            [midpoint] => {
+                let mut points = Vec::with_capacity(3);
+                if let Some(&start) = node_points.get(ch.from.as_str()) {
+                    points.push(start);
+                }
+                points.push(*midpoint);
+                if let Some(&end) = node_points.get(ch.to.as_str()) {
+                    points.push(end);
+                }
+                points
+            }
+            points => points.to_vec(),
+        };
+
+        if centerline_2d.len() < 2 {
             continue;
         }
 
         let mid_z = height / 2.0;
 
         // Lift 2D centerline to 3D at z = mid_z
-        let points: Vec<Point3r> = ch
-            .centerline_mm
+        let points: Vec<Point3r> = centerline_2d
             .iter()
             .map(|&(x, y)| Point3r::new(x as Real, y as Real, mid_z))
             .collect();
 
         let mut width_scales = None;
 
-        let profile = match &ch.profile {
-            cfd_schematics::geometry::InterchangeChannelProfile::Circular {
-                diameter_mm, ..
-            } => ChannelProfile::Circular {
-                radius: (*diameter_mm as Real) / 2.0,
-                segments: channel_segments,
-            },
-            cfd_schematics::geometry::InterchangeChannelProfile::RoundedRectangular {
-                width_mm,
-                height_mm,
-                corner_radius_mm,
-                ..
-            } => ChannelProfile::RoundedRectangular {
-                width: *width_mm as Real,
-                height: *height_mm as Real,
-                corner_radius: *corner_radius_mm as Real,
-                corner_segments: channel_segments.max(4) / 4,
-            },
-            cfd_schematics::geometry::InterchangeChannelProfile::Constant {
-                width_mm,
-                height_mm,
-                ..
-            } => ChannelProfile::Rectangular {
-                width: *width_mm as Real,
-                height: *height_mm as Real,
-            },
-            cfd_schematics::geometry::InterchangeChannelProfile::Frustum {
-                inlet_width_mm,
-                height_mm,
-                width_profile_mm,
-                ..
-            } => {
-                let inlet_w = *inlet_width_mm as Real;
-                // Calculate scaling factors relative to inlet width
-                let scales: Vec<Real> = width_profile_mm
-                    .iter()
-                    .map(|&w| (w as Real) / inlet_w)
-                    .collect();
+        let profile = if let Some(vg) = &ch.venturi_geometry {
+            let inlet_w = (vg.inlet_width_m * 1000.0) as Real;
+            let throat_w = (vg.throat_width_m * 1000.0) as Real;
+            let outlet_w = (vg.outlet_width_m * 1000.0) as Real;
 
-                width_scales = Some(scales);
+            // Reconstruct frustum width profile matching the lifted centerline.
+            let n = centerline_2d.len();
+            let mut scales = Vec::with_capacity(n);
+            for idx in 0..n {
+                let t = idx as f64 / (n - 1).max(1) as f64;
+                let w = if t <= 0.5 {
+                    let local = t / 0.5;
+                    inlet_w + (throat_w - inlet_w) * local as Real
+                } else {
+                    let local = (t - 0.5) / 0.5;
+                    throat_w + (outlet_w - throat_w) * local as Real
+                };
+                scales.push(w / inlet_w);
+            }
+            width_scales = Some(scales);
 
-                ChannelProfile::Rectangular {
-                    width: inlet_w,
-                    height: *height_mm as Real,
+            let h = match ch.cross_section {
+                cfd_schematics::domain::model::CrossSectionSpec::Rectangular {
+                    height_m, ..
+                } => (height_m * 1000.0) as Real,
+                _ => inlet_w,
+            };
+
+            ChannelProfile::Rectangular {
+                width: inlet_w,
+                height: h,
+            }
+        } else {
+            match ch.cross_section {
+                cfd_schematics::domain::model::CrossSectionSpec::Circular { diameter_m } => {
+                    ChannelProfile::Circular {
+                        radius: (diameter_m as Real * 1000.0) / 2.0,
+                        segments: channel_segments,
+                    }
                 }
+                cfd_schematics::domain::model::CrossSectionSpec::Rectangular {
+                    width_m,
+                    height_m,
+                } => ChannelProfile::Rectangular {
+                    width: width_m as Real * 1000.0,
+                    height: height_m as Real * 1000.0,
+                },
             }
         };
 
         channels.push(ChannelDef {
-            id: format!("ch{}", ch.id),
+            id: ch.id.as_str().to_string(),
             path: ChannelPath::new(points),
             profile,
             width_scales,

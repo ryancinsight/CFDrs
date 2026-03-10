@@ -53,19 +53,17 @@
 //! A typical workflow is: run `cfd-1d` first to find the pressure distribution
 //! across the network, then use those pressures as inlet/outlet boundary
 //! conditions for a `cfd-2d` simulation of a single critical channel segment.
+//! The `network` module now follows that pattern directly for
+//! `cfd-schematics::NetworkBlueprint` inputs by building a normalized 1D
+//! reference solve and attaching its per-node and per-channel trace to the 2D
+//! channel solves.
 //!
 //! ## Relationship with `cfd-schematics`
 //!
-//! `cfd-2d` does **not** currently depend on `cfd-schematics`. The 2D
-//! simulation domain is a continuous PDE field on a grid — it is not a lumped
-//! network graph. The "2D" in `cfd-schematics` refers to the **layout plane**
-//! of a chip schematic (x, y in mm), not a PDE simulation domain.
-//!
-//! `cfd-schematics` *can* support `cfd-2d` workflows in two ways:
-//! 1. **Geometry seeding**: `ChannelSystem` centrelines and bounding boxes can
-//!    define the domain extents and inlet/outlet positions for a 2D grid.
-//! 2. **Result overlay**: `AnalysisOverlay` can project cross-section-averaged
-//!    2D solver results back onto the schematic for design-level inspection.
+//! `cfd-2d` consumes `cfd-schematics::NetworkBlueprint` in its `network`
+//! module. The blueprint remains the topology and geometry single source of
+//! truth, while `cfd-2d` builds one PDE solve per channel and retains the 1D
+//! trace used to configure those solves.
 //!
 //! # Modules
 //! - **grid**: `StructuredGrid2D`, `UnstructuredGrid2D`, boundary types, refinement
@@ -131,7 +129,6 @@
 #![allow(clippy::implicit_hasher)]
 #![allow(clippy::needless_pass_by_value)] // Pass by value for Copy types is idiomatic
 #![allow(clippy::return_self_not_must_use)] // Builder patterns used internally
-#![allow(clippy::ptr_arg)] // &Vec used for API compatibility
 #![allow(clippy::should_implement_trait)] // CFD-specific trait implementations
 #![allow(clippy::too_many_lines)] // Complex solver implementations require detailed methods
 #![allow(clippy::needless_range_loop)] // Explicit indexing clearer for multi-dimensional CFD arrays

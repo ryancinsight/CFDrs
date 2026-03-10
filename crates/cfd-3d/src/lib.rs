@@ -100,7 +100,6 @@
 #![allow(clippy::doc_markdown)] // Math notation doesn't need backticks
 #![allow(clippy::needless_pass_by_value)] // Pass by value for Copy types is idiomatic
 #![allow(clippy::return_self_not_must_use)] // Builder patterns used internally
-#![allow(clippy::ptr_arg)] // &Vec used for API compatibility
 #![allow(clippy::should_implement_trait)] // CFD-specific trait implementations
 #![allow(clippy::manual_let_else)]
 #![allow(clippy::match_same_arms)]
@@ -118,7 +117,11 @@
 #![allow(clippy::duplicated_attributes)]
 
 pub mod bifurcation;
-/// Multi-stage cascade 3D FEM solver for CIF networks.
+/// Canonical blueprint-driven preprocessing and cross-fidelity tracing for 3D workflows.
+pub mod blueprint_integration;
+/// Legacy multi-stage cascade 3D FEM solver for CIF networks.
+///
+/// Prefer [`blueprint_integration`] for new blueprint-driven preprocessing flows.
 pub mod cascade;
 pub mod fem;
 pub mod ibm;
@@ -133,6 +136,12 @@ pub mod vof;
 
 // Export FEM functionality
 pub use fem::{FemConfig, FemSolver, StokesFlowProblem};
+
+// Export blueprint integration functionality
+pub use blueprint_integration::{
+    process_blueprint_with_reference_trace, Blueprint3dProcessingConfig, Blueprint3dTrace,
+    ChannelCrossFidelityTrace, NodeCrossFidelityTrace,
+};
 
 // Export spectral functionality
 pub use spectral::{
@@ -422,3 +431,7 @@ mod tests {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "tests/adversarial_tests.rs"]
+mod adversarial_tests_suite;

@@ -112,7 +112,8 @@ impl<T: RealField + Copy + FromPrimitive> HemolysisCalculator<T> {
         let hundred = T::from_f64(100.0).unwrap_or_else(|| T::one());
 
         if self.flow_rate > T::zero() && exposure_time > T::zero() {
-            self.blood_volume / (self.flow_rate * exposure_time) * delta_hemoglobin
+            self.blood_volume / (self.flow_rate * exposure_time)
+                * delta_hemoglobin
                 * (hundred - self.hematocrit * hundred)
                 / hundred
         } else {
@@ -180,9 +181,7 @@ impl<T: RealField + Copy + FromPrimitive> HemolysisCalculator<T> {
                 }
             }
             HemolysisModel::HeuserOpitz { threshold, .. } => Ok(threshold),
-            HemolysisModel::Zhang { .. } => {
-                Ok(1000.0 * 0.0035)
-            }
+            HemolysisModel::Zhang { .. } => Ok(1000.0 * 0.0035),
         }
     }
 }

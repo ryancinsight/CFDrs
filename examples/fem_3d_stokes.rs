@@ -20,9 +20,9 @@ use cfd_3d::fem::{FemConfig, FemSolver, StokesFlowProblem};
 use cfd_core::geometry::ElementType;
 use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
-use cfd_mesh::IndexedMesh;
 use cfd_mesh::domain::core::index::VertexId;
 use cfd_mesh::domain::topology::Cell;
+use cfd_mesh::IndexedMesh;
 use nalgebra::{Point3, Vector3};
 use std::collections::HashMap;
 
@@ -131,9 +131,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 ///
 /// Creates an nx x nx x nx structured grid subdivided into tetrahedra
 /// using Kuhn triangulation (5 tets per hex cell).
-fn create_refined_cube_mesh(
-    nx: usize,
-) -> Result<IndexedMesh<f64>, Box<dyn std::error::Error>> {
+fn create_refined_cube_mesh(nx: usize) -> Result<IndexedMesh<f64>, Box<dyn std::error::Error>> {
     if nx < 2 {
         return Err("Need at least 2 nodes per direction".into());
     }

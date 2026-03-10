@@ -3,12 +3,13 @@
 //! Implements the core split and merge operations that create bifurcating
 //! and trifurcating channel topologies within the bounding box.
 
-use super::super::types::{ChannelSystem, Point2D, SplitType};
+use super::super::types::{Point2D, SplitType};
 use super::GeometryGenerator;
 use crate::config::ChannelTypeConfig;
+use crate::domain::model::NetworkBlueprint;
 
 impl GeometryGenerator {
-    pub(super) fn generate(mut self, splits: &[SplitType]) -> ChannelSystem {
+    pub(super) fn generate(mut self, splits: &[SplitType]) -> NetworkBlueprint {
         let (length, width) = self.box_dims;
 
         if splits.is_empty() {

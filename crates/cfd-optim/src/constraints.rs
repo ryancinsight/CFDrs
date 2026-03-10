@@ -324,6 +324,22 @@ pub const EXPANSION_RATIO_LOW_RISK: f64 = 4.0;
 /// persistent recirculation zones spanning several throat diameters downstream.
 pub const EXPANSION_RATIO_HIGH_RISK: f64 = 200.0;
 
+/// Log-scale geometric channel-width–to–throat-diameter ratio above which
+/// millifluidic venturi post-expansion stasis risk saturates to 1.0.
+///
+/// For millifluidic SDT devices, micro-throat jets (Re ≈ 500–5 000) at clinical
+/// blood-flow rates entrain the downstream recirculation zone, raising the
+/// saturation threshold well above the macro-duct value of 200:1.
+/// Calibrated so that a 35 µm throat in an 8 mm channel (ratio ≈ 229) yields a
+/// per-stage expansion risk of ~0.51, allowing `cumulative_stage_probability` to
+/// meaningfully separate serial venturi stage counts (vt1 vs vt2 vs vt3).
+///
+/// # Physical basis
+/// Idelchik (1994) Diagram 6-1 for abrupt axisymmetric diffusers: recirculation
+/// separation persists until Re_throat × (D_throat/D_main) > 2 000, which for
+/// these geometries corresponds to a width ratio of ~10 000 at Re_throat ≈ 500.
+pub const VENTURI_EXPANSION_RATIO_HIGH_RISK: f64 = 10_000.0;
+
 /// Per-channel wall shear rate [1/s] threshold below which channel volume is
 /// counted as stasis-prone dead volume.
 ///
@@ -414,6 +430,51 @@ pub const DIFFUSER_DISCHARGE_COEFF: f64 = 0.80;
 ///
 /// (Lord Rayleigh 1917; Brennen 1995 _Cavitation and Bubble Dynamics_ §2.3).
 pub const RAYLEIGH_COLLAPSE_FACTOR: f64 = 0.915;
+
+// ── Thermal safety (viscous heating in venturi throat) ───────────────────────
+
+/// Specific heat capacity of whole blood at 37 °C [J / (kg · K)].
+///
+/// Used to compute the adiabatic temperature rise in the venturi throat from
+/// viscous dissipation: `ΔT = (τ × γ̇ × V_throat × t_transit) / (m × c_p)`.
+/// Reference: Charm & Kurland (1974), *Blood Rheology*.
+pub const C_P_BLOOD_J_KG_K: f64 = 3_617.0;
+
+/// Maximum allowable venturi-throat temperature rise [K].
+///
+/// Blood must remain below 42 °C (physiologic 37 °C + 5 K margin) to prevent
+/// protein denaturation (haemoglobin Td ≈ 68 °C) and red-cell lysis.
+/// FDA guidance for extracorporeal devices (VAD-equivalent thermal criterion).
+pub const FDA_THROAT_TEMP_RISE_LIMIT_K: f64 = 5.0;
+
+// ── Acoustic / ultrasound parameters (Acoustiic 412 kHz platform) ────────────
+
+/// Operating ultrasound frequency of the Acoustiic transducer platform [Hz].
+///
+/// Used to compute the acoustic half-wavelength in blood and the resonant
+/// bubble radius at which bubble oscillation is in phase with the driving field.
+pub const ULTRASOUND_FREQ_HZ: f64 = 412_000.0;
+
+/// Speed of sound in blood at 37 °C [m / s].
+///
+/// Reference: Wells (1977) *Biomedical Ultrasonics*; typical range 1540–1580 m/s
+/// depending on haematocrit; 1540 m/s is used as the conservative lower bound.
+pub const SOUND_SPEED_BLOOD_M_S: f64 = 1_540.0;
+
+/// Acoustic half-wavelength in blood at the operating frequency [m].
+///
+/// `λ/2 = c_blood / (2 × f)`.  Channels with hydraulic diameter near this
+/// value (≈ 1.87 mm) form standing-wave pressure antinodes that preferentially
+/// trap and grow resonant bubbles, amplifying sonosensitiser activation.
+pub const ACOUSTIC_HALF_WAVELENGTH_M: f64 = SOUND_SPEED_BLOOD_M_S / (2.0 * ULTRASOUND_FREQ_HZ);
+
+/// Resonant bubble radius at the operating ultrasound frequency [m].
+///
+/// From linear bubble dynamics (Minnaert 1933):
+/// `R_res ≈ (1 / (2π f)) × √(3γ P_0 / ρ)`.
+/// At 412 kHz, 101 325 Pa ambient, γ = 1.4, ρ = 1060 kg/m³: R_res ≈ 7.5 µm.
+/// Bubbles near this radius absorb acoustic energy most efficiently.
+pub const RESONANT_BUBBLE_RADIUS_M: f64 = 7.45e-6;
 
 // ── Milestone 12 reproducibility ─────────────────────────────────────────────
 

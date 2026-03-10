@@ -3,8 +3,8 @@
 //! Provides explicit, implicit, and IMEX time-stepping schemes including
 //! Forward Euler, RK4, SSP-RK3, and Implicit Euler with Newton iteration.
 
-use nalgebra::DMatrix;
 use super::super::{DGError, Result};
+use nalgebra::DMatrix;
 
 /// Type for the right-hand side function
 pub type RhsFn<'a> = dyn Fn(f64, &DMatrix<f64>) -> Result<DMatrix<f64>> + 'a;

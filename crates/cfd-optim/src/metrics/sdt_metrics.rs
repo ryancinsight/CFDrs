@@ -1,5 +1,5 @@
 //! The [`SdtMetrics`] output struct — all physics-derived metrics for one
-//! [`DesignCandidate`](crate::design::DesignCandidate).
+//! [`BlueprintCandidate`](crate::design::BlueprintCandidate).
 
 use serde::{Deserialize, Serialize};
 
@@ -29,7 +29,7 @@ pub struct ChannelHemolysis {
     pub flow_fraction: f64,
 }
 
-/// All physics-derived metrics for one [`DesignCandidate`](crate::design::DesignCandidate).
+/// All physics-derived metrics for one [`BlueprintCandidate`](crate::design::BlueprintCandidate).
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SdtMetrics {
     // ── Cavitation ──
@@ -154,7 +154,7 @@ pub struct SdtMetrics {
     /// `0.5` (dispersed) for topologies without a separation stage.
     pub rbc_equilibrium_pos: f64,
 
-    // ── Leukapheresis (ConstrictionExpansionArray / SpiralSerpentine / ParallelMicrochannelArray) ──
+    // ── Leukapheresis-style parallel or recirculating blueprints ──
     /// Fraction of WBCs focused into the center outlet channel.
     ///
     /// Computed using [`enhanced_lateral_equilibrium`] with CFL correction at
@@ -190,8 +190,8 @@ pub struct SdtMetrics {
     /// 96-well plate footprint (127.76 × 85.47 mm).
     ///
     /// All symmetric millifluidic topologies fit within the 45 × 45 mm treatment
-    /// zone by construction.  Only [`DesignTopology::ParallelMicrochannelArray`]
-    /// can violate the plate boundary when `n_channels × pitch > plate_height`.
+    /// zone by construction. Parallel-path layouts can violate the plate
+    /// boundary when `n_channels × pitch > plate_height`.
     pub plate_fits: bool,
 
     /// Number of external outlet ports for this topology.
@@ -721,6 +721,24 @@ pub struct SdtMetrics {
     /// to cumulative hemolysis.  Sorted by descending HI contribution.
     #[serde(default)]
     pub per_channel_hemolysis: Vec<ChannelHemolysis>,
+
+    #[serde(default)]
+    pub acoustic_resonance_factor: f64,
+
+    #[serde(default)]
+    pub channel_resonance_score: f64,
+
+    #[serde(default)]
+    pub serial_cavitation_dose_fraction: f64,
+
+    #[serde(default)]
+    pub treatment_zone_dwell_time_s: f64,
+
+    #[serde(default)]
+    pub throat_temperature_rise_k: f64,
+
+    #[serde(default)]
+    pub fda_thermal_compliant: bool,
 }
 
 fn default_one() -> f64 {

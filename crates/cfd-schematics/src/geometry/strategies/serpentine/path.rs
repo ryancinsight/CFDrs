@@ -59,6 +59,33 @@ impl SerpentineChannelStrategy {
         }
     }
 
+    fn calculate_safe_full_periods(
+        &self,
+        channel_length: f64,
+        start_guard: f64,
+        end_guard: f64,
+        effective_wavelength: f64,
+        amplitude: f64,
+        channel_diameter: f64,
+    ) -> usize {
+        let usable_length = channel_length * (1.0 - start_guard - end_guard).max(0.15);
+        let min_cycle_span = effective_wavelength
+            .max(amplitude.mul_add(2.75, channel_diameter * 4.0))
+            .max(channel_diameter * 8.0);
+        let max_full_periods = (usable_length / min_cycle_span).floor().max(1.0);
+        let requested_full_periods = match self.config.wave_shape {
+            crate::config::WaveShape::Square => self.config.wave_density_factor.ceil(),
+            crate::config::WaveShape::Sine => self.config.wave_density_factor.round(),
+        }
+        .clamp(1.0, max_full_periods);
+
+        if usable_length < min_cycle_span * 1.4 {
+            1
+        } else {
+            requested_full_periods as usize
+        }
+    }
+
     /// Generate a serpentine path between two points using zero-copy techniques
     pub(super) fn generate_serpentine_path(
         &self,
@@ -111,10 +138,15 @@ impl SerpentineChannelStrategy {
         let square_sharpness =
             self.calculate_effective_square_sharpness(channel_diameter, effective_wavelength);
 
-        let length_based_periods =
-            (channel_length / effective_wavelength) * self.config.wave_density_factor;
-        let base_periods = length_based_periods.max(1.0);
-        let requested_half_periods = (base_periods * 2.0).max(1.0);
+        let full_periods = self.calculate_safe_full_periods(
+            channel_length,
+            start_guard,
+            end_guard,
+            effective_wavelength,
+            initial_amplitude,
+            channel_diameter,
+        );
+        let requested_half_periods = (full_periods * 2) as f64;
 
         let base_points = context.geometry_config.generation.serpentine_points;
         let n_points = self.calculate_required_wave_points(requested_half_periods, base_points);

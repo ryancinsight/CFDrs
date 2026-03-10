@@ -71,7 +71,7 @@ pub struct PyBifurcationResult {
 impl PyBifurcationResult {
     /// Create new bifurcation result
     #[new]
-    #[must_use] 
+    #[must_use]
     pub fn new(
         q_parent: f64,
         q_1: f64,

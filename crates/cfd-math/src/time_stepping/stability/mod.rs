@@ -221,7 +221,9 @@ impl NumericalScheme {
             NumericalScheme::ForwardEuler
             | NumericalScheme::LaxWendroff
             | NumericalScheme::Upwind => T::from_f64(1.0).unwrap_or_else(num_traits::Zero::zero),
-            NumericalScheme::CentralDifference => T::from_f64(0.0).unwrap_or_else(num_traits::Zero::zero), // Unstable
+            NumericalScheme::CentralDifference => {
+                T::from_f64(0.0).unwrap_or_else(num_traits::Zero::zero)
+            } // Unstable
         }
     }
 }
@@ -323,7 +325,11 @@ mod tests {
         assert_relative_eq!(lim1, 2.0, epsilon = 1e-6);
 
         // RK3 (Kutta/Heun 3rd order as used in validation)
-        let a3 = nalgebra::DMatrix::from_row_slice(3, 3, &[0.0, 0.0, 0.0, 1.0 / 3.0, 0.0, 0.0, 0.0, 2.0 / 3.0, 0.0]);
+        let a3 = nalgebra::DMatrix::from_row_slice(
+            3,
+            3,
+            &[0.0, 0.0, 0.0, 1.0 / 3.0, 0.0, 0.0, 0.0, 2.0 / 3.0, 0.0],
+        );
         let b3 = DVector::from_vec(vec![0.25, 0.0, 0.75]);
         let c3 = DVector::from_vec(vec![0.0, 1.0 / 3.0, 2.0 / 3.0]);
         let lim3 = analyzer
@@ -359,7 +365,12 @@ mod tests {
         let spatial_operator = |_k: NumComplex<f64>| NumComplex::new(-1.0, 0.0);
 
         let analysis = analyzer
-            .von_neumann_analysis_with_scheme(NumericalScheme::RK4, spatial_operator, dt, &wave_numbers)
+            .von_neumann_analysis_with_scheme(
+                NumericalScheme::RK4,
+                spatial_operator,
+                dt,
+                &wave_numbers,
+            )
             .unwrap();
 
         assert!(analysis.is_stable);

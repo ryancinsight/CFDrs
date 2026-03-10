@@ -20,30 +20,28 @@
 //! - **Factory Pattern**: For creating appropriate strategies
 //! - **Builder Pattern**: For constructing complex geometries and metadata
 
-pub mod adaptive_collision;
 pub mod builders;
 pub mod collision_detection;
 pub mod generator;
 pub mod intersection;
 pub mod metadata;
 pub mod optimization;
-pub mod state_integration;
 pub mod strategies;
 pub mod types;
 
 pub use self::{
     generator::{
         create_blueprint_geometry, create_blueprint_geometry_with_metadata, create_geometry,
-        create_geometry_with_metadata, create_shell_cuboid, MetadataConfig,
+        create_geometry_with_metadata, create_shell_cuboid, GeometryGeneratorBuilder, MetadataConfig,
     },
-    intersection::{adaptive_box_dims, insert_intersection_nodes, IntersectionResult},
+    intersection::{
+        adaptive_box_dims, has_unresolved_intersections, insert_intersection_nodes,
+        unresolved_intersection_count, IntersectionResult,
+    },
     types::{
-        AdaptiveGradient, Channel, ChannelSystem, ChannelType, ChannelTypeCategory,
-        InterchangeChannel, InterchangeChannelProfile, InterchangeChannelSystem, InterchangeNode,
-        InterchangeShellCuboid, InterchangeShellPort, Node, Point2D, ShellCuboid, SplitType,
-        TpmsFillSpec, TpmsSurfaceKind,
+        AdaptiveGradient, ChannelFluidVolumeSummary, ChannelType, ChannelTypeCategory,
+        FluidVolumeSummary, InterchangeChannel, InterchangeChannelProfile,
+        InterchangeChannelSystem, InterchangeNode, InterchangeShellCuboid, InterchangeShellPort,
+        Point2D, ShellCuboid, SplitType, TpmsFillSpec, TpmsSurfaceKind,
     },
 };
-
-/// Alias for `Point2D` for backward compatibility and convenience
-pub type Point = Point2D;

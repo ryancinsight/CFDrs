@@ -105,12 +105,7 @@ pub trait Fluid<T: RealField + Copy>: Send + Sync {
     ///
     /// For Newtonian fluids, this returns the dynamic viscosity.
     /// For non-Newtonian fluids, this returns the apparent viscosity.
-    fn viscosity_at_shear(
-        &self,
-        _shear_rate: T,
-        temperature: T,
-        pressure: T,
-    ) -> Result<T, Error> {
+    fn viscosity_at_shear(&self, _shear_rate: T, temperature: T, pressure: T) -> Result<T, Error> {
         self.properties_at(temperature, pressure)
             .map(|s| s.dynamic_viscosity)
     }

@@ -1,23 +1,14 @@
-//! Artifact delivery: pipeline, JSON/SVG export, and CSV export.
+//! Artifact delivery: blueprint-native JSON/SVG export.
 //!
-//! All output-concern code lives here (SoC).  Nothing in this module
+//! All output-concern code lives here (SoC). Nothing in this module
 //! computes metrics or scores candidates.
 //!
 //! | Sub-module | Responsibility |
 //! |------------|----------------|
-//! [`csv_export`] | Per-channel hemolysis CSV |
-//! [`export`]     | JSON and SVG report artefacts |
-//! [`pipeline`]   | End-to-end mesh + schematic pipeline (mesh-export feature) |
+//! [`export`]   | JSON and SVG report artefacts |
 
-pub mod csv_export;
-pub mod export;
-#[cfg(feature = "mesh-export")]
-pub mod pipeline;
+mod export;
 
-pub use csv_export::save_per_channel_csv;
 pub use export::{
-    save_all_modes_json, save_annotated_selective_svg, save_comparison_svg, save_schematic_svg,
-    save_top5_json,
+    load_top5_report_json, save_blueprint_schematic_svg, save_json_pretty, save_top5_report_json,
 };
-#[cfg(feature = "mesh-export")]
-pub use pipeline::{DesignArtifacts, DesignPipeline};

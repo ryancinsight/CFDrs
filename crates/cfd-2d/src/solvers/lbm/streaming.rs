@@ -65,12 +65,7 @@ impl StreamingOperator {
     /// ```
     ///
     /// This is a pure permutation (Theorem above), so mass is exactly conserved.
-    pub fn stream<T: RealField + Copy>(
-        f_src: &[T],
-        f_dst: &mut [T],
-        nx: usize,
-        ny: usize,
-    ) {
+    pub fn stream<T: RealField + Copy>(f_src: &[T], f_dst: &mut [T], nx: usize, ny: usize) {
         for j in 0..ny {
             for i in 0..nx {
                 for q in 0..9 {
@@ -103,11 +98,7 @@ impl StreamingOperator {
                     let (ex, ey) = D2Q9::VELOCITIES[q];
                     let src_i = i as i32 - ex;
                     let src_j = j as i32 - ey;
-                    if src_i >= 0
-                        && src_i < nx as i32
-                        && src_j >= 0
-                        && src_j < ny as i32
-                    {
+                    if src_i >= 0 && src_i < nx as i32 && src_j >= 0 && src_j < ny as i32 {
                         let si = src_i as usize;
                         let sj = src_j as usize;
                         if !boundary_mask[sj * nx + si] {
@@ -120,12 +111,7 @@ impl StreamingOperator {
     }
 
     /// Push-scheme streaming (alternative; pull scheme preferred for cache).
-    pub fn stream_push<T: RealField + Copy>(
-        f_src: &[T],
-        f_dst: &mut [T],
-        nx: usize,
-        ny: usize,
-    ) {
+    pub fn stream_push<T: RealField + Copy>(f_src: &[T], f_dst: &mut [T], nx: usize, ny: usize) {
         // Zero destination first
         for v in f_dst.iter_mut() {
             *v = T::zero();

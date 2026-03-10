@@ -1,4 +1,5 @@
 //! Mixed-tree composite presets: topologies combining bifurcation and trifurcation at different levels.
+#![allow(deprecated)] // NetworkBlueprint::new() used intentionally; nodes are created with NodeSpec::new_at().
 
 use super::{shah_london, BLOOD_MU};
 use crate::domain::model::{ChannelSpec, NetworkBlueprint, NodeKind, NodeSpec};

@@ -111,13 +111,10 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Simple
     /// Construct with Patankar-recommended defaults: α_u = 0.7, α_p = 0.3.
     pub fn new() -> Self {
         Self {
-            pressure_relaxation: T::from_f64(0.3)
-                .expect("T must represent f64 values; α_p = 0.3"),
-            velocity_relaxation: T::from_f64(0.7)
-                .expect("T must represent f64 values; α_u = 0.7"),
+            pressure_relaxation: T::from_f64(0.3).expect("T must represent f64 values; α_p = 0.3"),
+            velocity_relaxation: T::from_f64(0.7).expect("T must represent f64 values; α_u = 0.7"),
             max_iterations: 50,
-            tolerance: T::from_f64(1e-6)
-                .expect("T must represent f64 values; tol = 1e-6"),
+            tolerance: T::from_f64(1e-6).expect("T must represent f64 values; tol = 1e-6"),
             matrix_builder: None,
             rhs: None,
             p_prime: None,
@@ -225,8 +222,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Simple
         let (ap_u, _, ap_v, _) = momentum_solver.get_ap_coefficients();
         let dx = grid.dx;
         let dy = grid.dy;
-        let min_ap = T::from_f64(1e-10)
-            .expect("T must represent f64 values");
+        let min_ap = T::from_f64(1e-10).expect("T must represent f64 values");
 
         {
             let d_u = self.d_u.as_mut().expect("buffers initialized");
@@ -235,10 +231,26 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Simple
             for j in 0..ny {
                 for i in 0..nx {
                     let ap_u_val = ap_u.at(i, j).abs();
-                    d_u.set(i, j, if ap_u_val > min_ap { dy / ap_u_val } else { T::zero() });
+                    d_u.set(
+                        i,
+                        j,
+                        if ap_u_val > min_ap {
+                            dy / ap_u_val
+                        } else {
+                            T::zero()
+                        },
+                    );
 
                     let ap_v_val = ap_v.at(i, j).abs();
-                    d_v.set(i, j, if ap_v_val > min_ap { dx / ap_v_val } else { T::zero() });
+                    d_v.set(
+                        i,
+                        j,
+                        if ap_v_val > min_ap {
+                            dx / ap_v_val
+                        } else {
+                            T::zero()
+                        },
+                    );
                 }
             }
         }
@@ -254,7 +266,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Simple
         //
         // The correction factor is identically 1.0 (no empirical damping).
         let half = T::from_f64(0.5).expect("T must represent f64 values");
-        let two  = T::from_f64(2.0) .expect("T must represent f64 values");
+        let two = T::from_f64(2.0).expect("T must represent f64 values");
 
         {
             let matrix_builder = self.matrix_builder.as_mut().expect("buffers initialized");
@@ -282,25 +294,41 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Simple
                     let v_s = fields.v.at(i, j - 1);
 
                     // ── Cell-centred pressures ───────────────────────────────
-                    let p_p  = fields.p.at(i, j);
-                    let p_e  = fields.p.at(i + 1, j);
-                    let p_w  = fields.p.at(i - 1, j);
-                    let p_n  = fields.p.at(i, j + 1);
-                    let p_s  = fields.p.at(i, j - 1);
+                    let p_p = fields.p.at(i, j);
+                    let p_e = fields.p.at(i + 1, j);
+                    let p_w = fields.p.at(i - 1, j);
+                    let p_n = fields.p.at(i, j + 1);
+                    let p_s = fields.p.at(i, j - 1);
 
                     // Second-neighbour pressures (linear extrapolation at boundaries)
-                    let p_ee = if i + 2 < nx { fields.p.at(i + 2, j) } else { two * p_e - p_p };
-                    let p_ww = if i >= 2    { fields.p.at(i - 2, j) } else { two * p_w - p_p };
-                    let p_nn = if j + 2 < ny { fields.p.at(i, j + 2) } else { two * p_n - p_p };
-                    let p_ss = if j >= 2    { fields.p.at(i, j - 2) } else { two * p_s - p_p };
+                    let p_ee = if i + 2 < nx {
+                        fields.p.at(i + 2, j)
+                    } else {
+                        two * p_e - p_p
+                    };
+                    let p_ww = if i >= 2 {
+                        fields.p.at(i - 2, j)
+                    } else {
+                        two * p_w - p_p
+                    };
+                    let p_nn = if j + 2 < ny {
+                        fields.p.at(i, j + 2)
+                    } else {
+                        two * p_n - p_p
+                    };
+                    let p_ss = if j >= 2 {
+                        fields.p.at(i, j - 2)
+                    } else {
+                        two * p_s - p_p
+                    };
 
                     // ── D coefficients at faces (arithmetic average) ─────────
-                    let d_u_p  = d_u.at(i, j);
-                    let d_u_e  = d_u.at(i + 1, j);
-                    let d_u_w  = d_u.at(i - 1, j);
-                    let d_v_p  = d_v.at(i, j);
-                    let d_v_n  = d_v.at(i, j + 1);
-                    let d_v_s  = d_v.at(i, j - 1);
+                    let d_u_p = d_u.at(i, j);
+                    let d_u_e = d_u.at(i + 1, j);
+                    let d_u_w = d_u.at(i - 1, j);
+                    let d_v_p = d_v.at(i, j);
+                    let d_v_n = d_v.at(i, j + 1);
+                    let d_v_s = d_v.at(i, j - 1);
 
                     let d_face_e = (d_u_p + d_u_e) * half;
                     let d_face_w = (d_u_w + d_u_p) * half;
@@ -313,33 +341,33 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Simple
                     //   avg_grad_p_e = 0.5*[(p_E - p_W)/(2Δx) + (p_EE - p_P)/(2Δx)]
                     //   face_grad_p_e = (p_E - p_P)/Δx
                     //   RC_correction = d_e * (avg_grad_p_e - face_grad_p_e)
-                    let grad_p_p_x  = (p_e - p_w) / (two * dx);
-                    let grad_p_e_x  = (p_ee - p_p) / (two * dx);
+                    let grad_p_p_x = (p_e - p_w) / (two * dx);
+                    let grad_p_e_x = (p_ee - p_p) / (two * dx);
                     let avg_grad_pe = (grad_p_p_x + grad_p_e_x) * half;
                     let face_grad_pe = (p_e - p_p) / dx;
                     let u_face_e = (u_p + u_e) * half + d_face_e * (avg_grad_pe - face_grad_pe);
 
                     // West face:
-                    let grad_p_w_x  = (p_p - p_ww) / (two * dx);
+                    let grad_p_w_x = (p_p - p_ww) / (two * dx);
                     let avg_grad_pw = (grad_p_w_x + grad_p_p_x) * half;
                     let face_grad_pw = (p_p - p_w) / dx;
                     let u_face_w = (u_w + u_p) * half + d_face_w * (avg_grad_pw - face_grad_pw);
 
                     // North face:
-                    let grad_p_p_y  = (p_n - p_s) / (two * dy);
-                    let grad_p_n_y  = (p_nn - p_p) / (two * dy);
+                    let grad_p_p_y = (p_n - p_s) / (two * dy);
+                    let grad_p_n_y = (p_nn - p_p) / (two * dy);
                     let avg_grad_pn = (grad_p_p_y + grad_p_n_y) * half;
                     let face_grad_pn = (p_n - p_p) / dy;
                     let v_face_n = (v_p + v_n) * half + d_face_n * (avg_grad_pn - face_grad_pn);
 
                     // South face:
-                    let grad_p_s_y  = (p_p - p_ss) / (two * dy);
+                    let grad_p_s_y = (p_p - p_ss) / (two * dy);
                     let avg_grad_ps = (grad_p_s_y + grad_p_p_y) * half;
                     let face_grad_ps = (p_p - p_s) / dy;
                     let v_face_s = (v_s + v_p) * half + d_face_s * (avg_grad_ps - face_grad_ps);
 
                     // ── Mass imbalance (RHS of pressure-correction Poisson) ───
-                    let rho  = fields.density.at(i, j);
+                    let rho = fields.density.at(i, j);
                     let flux_e = rho * u_face_e * dy;
                     let flux_w = rho * u_face_w * dy;
                     let flux_n = rho * v_face_n * dx;
@@ -353,9 +381,9 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Simple
                     let a_s = rho * d_face_s * dx / dy;
                     let a_p = -(a_e + a_w + a_n + a_s);
 
-                    matrix_builder.add_entry(idx, idx,      a_p)?;
-                    matrix_builder.add_entry(idx, idx + 1,  a_e)?;
-                    matrix_builder.add_entry(idx, idx - 1,  a_w)?;
+                    matrix_builder.add_entry(idx, idx, a_p)?;
+                    matrix_builder.add_entry(idx, idx + 1, a_e)?;
+                    matrix_builder.add_entry(idx, idx - 1, a_w)?;
                     matrix_builder.add_entry(idx, idx + nx, a_n)?;
                     matrix_builder.add_entry(idx, idx - nx, a_s)?;
 
@@ -381,7 +409,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Simple
                     } else {
                         // Top/bottom walls: ∂p'/∂n = 0 (Neumann)
                         let neighbor = if j == 0 { idx + nx } else { idx - nx };
-                        matrix_builder.add_entry(idx, idx,      T::one())?;
+                        matrix_builder.add_entry(idx, idx, T::one())?;
                         matrix_builder.add_entry(idx, neighbor, -T::one())?;
                         rhs[idx] = T::zero();
                     }
@@ -391,7 +419,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Simple
             // ── Step 4: Solve Pressure-Correction System ─────────────────────
             // Take ownership of the builder (Option::take) to call build(self),
             // then immediately restore a fresh empty builder for the next SIMPLE iteration.
-            let builder_owned = self.matrix_builder
+            let builder_owned = self
+                .matrix_builder
                 .take()
                 .expect("matrix_builder initialized above");
             let n_rows = nx * ny;
@@ -420,12 +449,12 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Simple
             let p_prime = self.p_prime.as_ref().expect("buffers initialized");
             for j in 1..ny - 1 {
                 for i in 1..nx - 1 {
-                    let idx   = j * nx + i;
-                    let pp    = p_prime[idx];
-                    let pp_e  = p_prime[idx + 1];
-                    let pp_w  = p_prime[idx - 1];
-                    let pp_n  = p_prime[idx + nx];
-                    let pp_s  = p_prime[idx - nx];
+                    let idx = j * nx + i;
+                    let pp = p_prime[idx];
+                    let pp_e = p_prime[idx + 1];
+                    let pp_w = p_prime[idx - 1];
+                    let pp_n = p_prime[idx + nx];
+                    let pp_s = p_prime[idx - nx];
 
                     // Pressure update
                     if let Some(p) = fields.p.at_mut(i, j) {
@@ -534,14 +563,14 @@ mod tests {
         //   d_e * (avg_grad_pe - face_grad_pe)
         // must be identically zero, since both gradients equal zero.
         let dx = 0.1_f64;
-        let dy = 0.1_f64;
+        let _dy = 0.1_f64;
         let two = 2.0_f64;
 
         // All pressures equal → all gradients zero
         let (p_p, p_e, p_w, p_ee) = (1.0, 1.0, 1.0, 1.0);
-        let grad_p_p_x   = (p_e - p_w) / (two * dx);
-        let grad_p_e_x   = (p_ee - p_p) / (two * dx);
-        let avg_grad_pe  = (grad_p_p_x + grad_p_e_x) * 0.5;
+        let grad_p_p_x = (p_e - p_w) / (two * dx);
+        let grad_p_e_x = (p_ee - p_p) / (two * dx);
+        let avg_grad_pe = (grad_p_p_x + grad_p_e_x) * 0.5;
         let face_grad_pe = (p_e - p_p) / dx;
         let rc_correction = avg_grad_pe - face_grad_pe;
 
@@ -562,10 +591,10 @@ mod tests {
         // Checker-board pattern: p_P = 1, p_E = -1, p_W = -1, p_EE = 1
         let (p_p, p_e, p_w, p_ee) = (1.0_f64, -1.0, -1.0, 1.0);
         let _ = dy; // used conceptually
-        let grad_p_p_x   = (p_e - p_w) / (two * dx);  // (-1 - -1)/(0.2) = 0
-        let grad_p_e_x   = (p_ee - p_p) / (two * dx); // (1 - 1)/(0.2)   = 0
-        let avg_grad_pe  = (grad_p_p_x + grad_p_e_x) * 0.5; // = 0
-        let face_grad_pe = (p_e - p_p) / dx;           // (-1 - 1)/0.1    = -20
+        let grad_p_p_x = (p_e - p_w) / (two * dx); // (-1 - -1)/(0.2) = 0
+        let grad_p_e_x = (p_ee - p_p) / (two * dx); // (1 - 1)/(0.2)   = 0
+        let avg_grad_pe = (grad_p_p_x + grad_p_e_x) * 0.5; // = 0
+        let face_grad_pe = (p_e - p_p) / dx; // (-1 - 1)/0.1    = -20
         let rc_correction = avg_grad_pe - face_grad_pe; // 0 - (-20) = 20 ≠ 0
 
         assert!(

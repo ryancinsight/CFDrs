@@ -481,7 +481,7 @@ fn test_performance_metrics_calculation() -> Result<()> {
     let avg_time = metrics.average_residence_time();
     assert_relative_eq!(avg_time, 1.0, epsilon = 1e-10);
 
-    let max_time = metrics.max_residence_time().unwrap();
+    let max_time = metrics.max_residence_time().expect("test invariant");
     assert_relative_eq!(max_time, 1.5, epsilon = 1e-10);
 
     Ok(())

@@ -448,7 +448,7 @@ impl PerformanceAnalyzer {
     fn get_baseline_metrics(&self, benchmark_name: &str) -> Option<PerformanceMetrics> {
         self.historical_data
             .get(benchmark_name)
-            .and_then(|data: &Vec<PerformanceMetrics>| data.first().cloned())
+            .and_then(|data| data.as_slice().first().cloned())
     }
 
     /// Generate performance recommendations

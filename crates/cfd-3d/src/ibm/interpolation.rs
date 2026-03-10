@@ -74,8 +74,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Inter
             .expect("5.0 is representable in all IEEE 754 types");
         let six = <T as FromPrimitive>::from_f64(6.0)
             .expect("6.0 is representable in all IEEE 754 types");
-        let half = <T as FromPrimitive>::from_f64(0.5)
-            .expect("0.5 is exactly representable in IEEE 754");
+        let half =
+            <T as FromPrimitive>::from_f64(0.5).expect("0.5 is exactly representable in IEEE 754");
 
         if r <= half {
             // φ₃(r) = (1 + √(1 - 3r²)) / 3

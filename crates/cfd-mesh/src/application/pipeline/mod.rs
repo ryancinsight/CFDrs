@@ -22,7 +22,8 @@ pub mod topology;
 pub mod well_plate;
 
 pub use blueprint_mesh::{
-    BlueprintMeshPipeline, PipelineConfig, PipelineOutput, SegmentCenterline,
+    BlueprintMeshPipeline, ChannelVolumeTrace, PipelineConfig, PipelineOutput, PipelineVolumeTrace,
+    SegmentCenterline,
 };
 pub use constraint::{DiameterConstraintError, InletOutletConstraint, WallClearanceConstraint};
 pub use region_map::{BoundaryLabelMap, RegionMap};

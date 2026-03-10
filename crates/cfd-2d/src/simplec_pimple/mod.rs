@@ -22,11 +22,11 @@
 //! for the neighbour neglection, removing the need for pressure under-relaxation and
 //! reducing the spectral radius of the outer iteration operator.
 
-pub mod config;
-pub mod solver;
 mod algorithms;
+pub mod config;
 mod diagnostics;
 mod interpolation;
+pub mod solver;
 
 pub use config::{AlgorithmType, SimplecPimpleConfig};
 pub use solver::SimplecPimpleSolver;

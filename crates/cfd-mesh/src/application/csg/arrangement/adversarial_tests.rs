@@ -15,11 +15,11 @@
 
 #[cfg(test)]
 mod tests {
-    use crate::application::csg::boolean::{csg_boolean_indexed, BooleanOp};
     use crate::application::csg::arrangement::classify::{
-        classify_fragment, centroid, tri_normal, FragmentClass,
+        centroid, classify_fragment, tri_normal, FragmentClass,
     };
     use crate::application::csg::arrangement::gwn::gwn;
+    use crate::application::csg::boolean::{csg_boolean_indexed, BooleanOp};
     use crate::application::csg::detect_self_intersect::detect_self_intersections;
     use crate::domain::core::scalar::Point3r;
     use crate::domain::geometry::primitives::{Cube, Cylinder, PrimitiveMesh};
@@ -30,9 +30,14 @@ mod tests {
     // ── Helper builders ────────────────────────────────────────────────────
 
     fn unit_cube() -> crate::domain::mesh::IndexedMesh {
-        Cube { origin: Point3r::new(-1.0, -1.0, -1.0), width: 2.0, height: 2.0, depth: 2.0 }
-            .build()
-            .expect("unit_cube build")
+        Cube {
+            origin: Point3r::new(-1.0, -1.0, -1.0),
+            width: 2.0,
+            height: 2.0,
+            depth: 2.0,
+        }
+        .build()
+        .expect("unit_cube build")
     }
 
     fn offset_cube(dx: f64) -> crate::domain::mesh::IndexedMesh {
@@ -127,8 +132,15 @@ mod tests {
         // Query point deep inside the cube
         let interior = Point3r::new(0.0, 0.0, 0.0);
         let wn = gwn::<f64>(&interior, &faces, &pool);
-        assert!(wn.is_finite(), "GWN must be finite for interior point: {wn}");
-        assert!(wn.abs() > 0.5, "Interior GWN |wn|={} must be > 0.5", wn.abs());
+        assert!(
+            wn.is_finite(),
+            "GWN must be finite for interior point: {wn}"
+        );
+        assert!(
+            wn.abs() > 0.5,
+            "Interior GWN |wn|={} must be > 0.5",
+            wn.abs()
+        );
     }
 
     /// A flat sliver triangle with 10000:1 aspect ratio (4mm × 0.4µm)
@@ -170,7 +182,10 @@ mod tests {
         // Query at a vertex of the cube — exactly on-boundary degenerate position.
         let corner = Point3r::new(0.5, 0.5, 0.5);
         let wn = gwn::<f64>(&corner, &faces, &pool);
-        assert!(wn.is_finite(), "GWN at cube corner must be finite, got {wn}");
+        assert!(
+            wn.is_finite(),
+            "GWN at cube corner must be finite, got {wn}"
+        );
     }
 
     // ── Self-intersection detection ────────────────────────────────────────
@@ -227,18 +242,24 @@ mod tests {
         let v1 = pool.insert_or_weld(Point3r::new(1.0, 0.0, 0.0), n);
         let v2 = pool.insert_or_weld(Point3r::new(1.0, 1.0, 0.0), n);
         let v3 = pool.insert_or_weld(Point3r::new(0.0, 1.0, 0.0), n);
-        let faces = vec![FaceData::untagged(v0, v1, v2), FaceData::untagged(v0, v2, v3)];
+        let faces = vec![
+            FaceData::untagged(v0, v1, v2),
+            FaceData::untagged(v0, v2, v3),
+        ];
         let pairs = detect_self_intersections(&faces, &pool);
-        assert!(pairs.is_empty(), "adjacent manifold faces must not be reported as self-intersecting");
+        assert!(
+            pairs.is_empty(),
+            "adjacent manifold faces must not be reported as self-intersecting"
+        );
     }
 
     // ── Property-based tests (proptest) ────────────────────────────────────
 
-    /// Property: GWN of exterior points is approximately 0 (< 0.5 in absolute value)
-    /// for a closed manifold unit cube.
-    ///
-    /// For any query point at distance > 1 from the cube surface along +Z,
-    /// the winding number must be close to 0 (exterior).
+    // Property: GWN of exterior points is approximately 0 (< 0.5 in absolute value)
+    // for a closed manifold unit cube.
+    //
+    // For any query point at distance > 1 from the cube surface along +Z,
+    // the winding number must be close to 0 (exterior).
     proptest! {
         #[test]
         fn gwn_exterior_always_below_half(qz in 2.0_f64..100.0) {
@@ -254,10 +275,10 @@ mod tests {
         }
     }
 
-    /// Property: Union volume ≥ max(vol_a, vol_b).
-    ///
-    /// For two overlapping unit cubes with offset ∈ (0.1, 1.0) along X, the
-    /// union must be larger than each individual cube.
+    // Property: Union volume ≥ max(vol_a, vol_b).
+    //
+    // For two overlapping unit cubes with offset ∈ (0.1, 1.0) along X, the
+    // union must be larger than each individual cube.
     proptest! {
         #[test]
         fn union_vertex_count_geq_each_operand(dx in 0.1_f64..1.0) {
@@ -274,8 +295,8 @@ mod tests {
         }
     }
 
-    /// Property: snap determinism — GridCell from two different computation
-    /// paths for the same geometric point must agree.
+    // Property: snap determinism — GridCell from two different computation
+    // paths for the same geometric point must agree.
     proptest! {
         #[test]
         fn snap_gridcell_deterministic(
@@ -293,11 +314,11 @@ mod tests {
         }
     }
 
-    /// Property: CSG intersection is contained within each operand.
-    ///
-    /// For overlapping cubes, the intersection face count must be ≤ min(fa, fb).
-    /// This is a weak containment check — exact volume bounds require signed-volume
-    /// integration which is not exposed here.
+    // Property: CSG intersection is contained within each operand.
+    //
+    // For overlapping cubes, the intersection face count must be ≤ min(fa, fb).
+    // This is a weak containment check — exact volume bounds require signed-volume
+    // integration which is not exposed here.
     proptest! {
         #[test]
         fn intersection_nonempty_for_overlapping_cubes(dx in 0.01_f64..0.99) {

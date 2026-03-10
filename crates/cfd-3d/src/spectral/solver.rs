@@ -134,6 +134,11 @@ pub struct SpectralConfig<T: cfd_mesh::domain::core::Scalar + RealField + Copy> 
 impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> SpectralConfig<T> {
     /// Create new configuration with validation
     pub fn new(nx: usize, ny: usize, nz: usize) -> Result<Self> {
+        if nx == 0 || ny == 0 || nz == 0 {
+            return Err(cfd_core::error::Error::InvalidConfiguration(format!(
+                "SpectralConfig: mode counts must be > 0, got ({nx}, {ny}, {nz})"
+            )));
+        }
         Ok(Self {
             base: cfd_core::compute::solver::SolverConfig::builder()
                 .tolerance(<T as FromPrimitive>::from_f64(1e-10).ok_or_else(|| {

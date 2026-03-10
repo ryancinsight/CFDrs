@@ -58,8 +58,7 @@ impl PartitionRegion {
                 "Cannot split dimension with length <= 1".to_string(),
             ));
         }
-        let mut left_len =
-            ((left_weight / total_weight) * len as f64).round() as usize;
+        let mut left_len = ((left_weight / total_weight) * len as f64).round() as usize;
         if left_len < min_len {
             left_len = min_len;
         }
@@ -153,8 +152,7 @@ pub(super) fn partition_1d_by_weights(
             partitions.push((start, length));
             start = i + 1;
             current_rank += 1;
-            target_weight =
-                (total_weight as f64 * (current_rank as f64 + 1.0)) / size as f64;
+            target_weight = (total_weight as f64 * (current_rank as f64 + 1.0)) / size as f64;
         }
     }
     if start < nx {
@@ -246,9 +244,7 @@ fn partition_rcb_recursive(
         ));
     }
     let split_dim = region.select_split_dimension().ok_or_else(|| {
-        MpiError::DecompositionError(
-            "Cannot split region with no available dimension".to_string(),
-        )
+        MpiError::DecompositionError("Cannot split region with no available dimension".to_string())
     })?;
     let mut cumulative = 0.0;
     let mut split_index = 0usize;
@@ -272,8 +268,7 @@ fn partition_rcb_recursive(
         ));
     }
 
-    let (left_region, right_region) =
-        region.split(split_dim, left_weight, right_weight)?;
+    let (left_region, right_region) = region.split(split_dim, left_weight, right_weight)?;
 
     partition_rcb_recursive(left_region, &ranks[..split_index], left_weights, partitions)?;
     partition_rcb_recursive(

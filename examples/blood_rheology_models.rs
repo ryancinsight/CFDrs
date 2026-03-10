@@ -49,9 +49,7 @@ use std::io::Write;
 use plotters::prelude::*;
 
 // cfd-core blood models
-use cfd_core::physics::fluid::blood::{
-    CarreauYasudaBlood, CassonBlood, CrossBlood,
-};
+use cfd_core::physics::fluid::blood::{CarreauYasudaBlood, CassonBlood, CrossBlood};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Millifluidic channel geometry
@@ -147,7 +145,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Channel geometry:");
     println!("  Diameter  D = {:.1} mm", D * 1e3);
     println!("  Length    L = {:.1} mm", L * 1e3);
-    println!("  Flow rate Q = {:.2e} m³/s  ({:.2} mL min⁻¹)", Q, Q * 1e6 * 60.0);
+    println!(
+        "  Flow rate Q = {:.2e} m³/s  ({:.2} mL min⁻¹)",
+        Q,
+        Q * 1e6 * 60.0
+    );
     println!("  Mean vel  V = {:.4} m/s", mean_velocity());
     println!("  Wall γ̇   = {:.1} s⁻¹  (HP: 8V/D)", wall_shear_rate_hp());
     println!();
@@ -156,7 +158,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let shear_rates: Vec<f64> = {
         let mut v = Vec::with_capacity(60);
         let log_min = (-2.0_f64).exp2(); // not log, use linear log space
-        // 60 points from 0.01 to 1000 s⁻¹ (log-spaced)
+                                         // 60 points from 0.01 to 1000 s⁻¹ (log-spaced)
         for i in 0..60 {
             let log_gamma = -2.0 + 5.0 * (i as f64) / 59.0; // log10 from -2 to 3
             v.push(10.0_f64.powf(log_gamma));
@@ -196,10 +198,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ── Section 3: Literature validation ─────────────────────────────────
     // Cho & Kensey (1991) Table 1 reference data (H_t = 45 %, 37 °C)
     let lit_data = [
-        (1.0_f64, 18.0e-3_f64),   // γ̇=1 s⁻¹,  μ≈18 mPa·s  (Cho & Kensey lower bound)
-        (10.0, 7.5e-3),           // γ̇=10 s⁻¹, μ≈7.5 mPa·s
-        (100.0, 4.5e-3),          // γ̇=100 s⁻¹, μ≈4.5 mPa·s
-        (1_000.0, 3.5e-3),        // γ̇=1000 s⁻¹, μ≈3.5 mPa·s (infinite-shear plateau)
+        (1.0_f64, 18.0e-3_f64), // γ̇=1 s⁻¹,  μ≈18 mPa·s  (Cho & Kensey lower bound)
+        (10.0, 7.5e-3),         // γ̇=10 s⁻¹, μ≈7.5 mPa·s
+        (100.0, 4.5e-3),        // γ̇=100 s⁻¹, μ≈4.5 mPa·s
+        (1_000.0, 3.5e-3),      // γ̇=1000 s⁻¹, μ≈3.5 mPa·s (infinite-shear plateau)
     ];
 
     println!("Validation against Cho & Kensey (1991) reference viscosities:");
@@ -236,31 +238,64 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let results: Vec<ModelResult> = vec![
         {
             let mu = 3.5e-3;
-            ModelResult { name: "Newtonian (3.5 mPa·s)", mu_app: mu, dp_pa: hagen_poiseuille_dp(mu), re: reynolds(mu) }
+            ModelResult {
+                name: "Newtonian (3.5 mPa·s)",
+                mu_app: mu,
+                dp_pa: hagen_poiseuille_dp(mu),
+                re: reynolds(mu),
+            }
         },
         {
             let mu = casson.apparent_viscosity(gamma_w);
-            ModelResult { name: "Casson (Merrill 1969)", mu_app: mu, dp_pa: hagen_poiseuille_dp(mu), re: reynolds(mu) }
+            ModelResult {
+                name: "Casson (Merrill 1969)",
+                mu_app: mu,
+                dp_pa: hagen_poiseuille_dp(mu),
+                re: reynolds(mu),
+            }
         },
         {
             let mu = cy.apparent_viscosity(gamma_w);
-            ModelResult { name: "Carreau-Yasuda (Cho & Kensey 1991)", mu_app: mu, dp_pa: hagen_poiseuille_dp(mu), re: reynolds(mu) }
+            ModelResult {
+                name: "Carreau-Yasuda (Cho & Kensey 1991)",
+                mu_app: mu,
+                dp_pa: hagen_poiseuille_dp(mu),
+                re: reynolds(mu),
+            }
         },
         {
             let mu = cross.apparent_viscosity(gamma_w);
-            ModelResult { name: "Cross (Johnston 2004)", mu_app: mu, dp_pa: hagen_poiseuille_dp(mu), re: reynolds(mu) }
+            ModelResult {
+                name: "Cross (Johnston 2004)",
+                mu_app: mu,
+                dp_pa: hagen_poiseuille_dp(mu),
+                re: reynolds(mu),
+            }
         },
         {
             let mu = walburn_schneck_viscosity(gamma_w);
-            ModelResult { name: "Power-law Walburn-Schneck (1976)", mu_app: mu, dp_pa: hagen_poiseuille_dp(mu), re: reynolds(mu) }
+            ModelResult {
+                name: "Power-law Walburn-Schneck (1976)",
+                mu_app: mu,
+                dp_pa: hagen_poiseuille_dp(mu),
+                re: reynolds(mu),
+            }
         },
         {
             let mu = herschel_bulkley_viscosity(gamma_w);
-            ModelResult { name: "Herschel-Bulkley (Baskurt 2003)", mu_app: mu, dp_pa: hagen_poiseuille_dp(mu), re: reynolds(mu) }
+            ModelResult {
+                name: "Herschel-Bulkley (Baskurt 2003)",
+                mu_app: mu,
+                dp_pa: hagen_poiseuille_dp(mu),
+                re: reynolds(mu),
+            }
         },
     ];
 
-    println!("Pressure drop & Reynolds number at Q = 1 mL/min (γ̇_w = {:.0} s⁻¹):", gamma_w);
+    println!(
+        "Pressure drop & Reynolds number at Q = 1 mL/min (γ̇_w = {:.0} s⁻¹):",
+        gamma_w
+    );
     println!(
         "{:<38}  {:>12}  {:>10}  {:>8}",
         "Model", "μ_app [mPa·s]", "ΔP [Pa]", "Re"
@@ -269,16 +304,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     for r in &results {
         println!(
             "{:<38}  {:>12.3}  {:>10.2}  {:>8.1}",
-            r.name, r.mu_app * 1e3, r.dp_pa, r.re
+            r.name,
+            r.mu_app * 1e3,
+            r.dp_pa,
+            r.re
         );
     }
     println!();
-    println!(
-        "Note: All Re << 2300 → laminar flow assumption valid."
-    );
-    println!(
-        "      Carreau-Yasuda and Cross both agree within ~5 % of Cho & Kensey data."
-    );
+    println!("Note: All Re << 2300 → laminar flow assumption valid.");
+    println!("      Carreau-Yasuda and Cross both agree within ~5 % of Cho & Kensey data.");
     println!();
 
     // ── Section 5: Hematocrit sweep (Casson model) ───────────────────────
@@ -334,13 +368,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // Build y-range in mPa·s (log10 scale: 1 to 100 mPa·s)
         let mut chart = ChartBuilder::on(&root)
-            .caption("Blood Viscosity vs. Shear Rate", ("sans-serif", 20).into_font())
+            .caption(
+                "Blood Viscosity vs. Shear Rate",
+                ("sans-serif", 20).into_font(),
+            )
             .margin(30)
             .x_label_area_size(50)
             .y_label_area_size(65)
             .build_cartesian_2d(
-                (-2.0f64..3.0f64), // log10(γ̇) range
-                (-3.0f64..0.0f64), // log10(μ / Pa·s) range
+                -2.0f64..3.0f64, // log10(γ̇) range
+                -3.0f64..0.0f64, // log10(μ / Pa·s) range
             )?;
 
         chart
@@ -358,23 +395,68 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         };
 
         let series_data = [
-            ("Newtonian",       make_series(&|_| 3.5e-3),                   &RED),
-            ("Casson",          make_series(&|gd| casson.apparent_viscosity(gd)), &BLUE),
-            ("Carreau-Yasuda",  make_series(&|gd| cy.apparent_viscosity(gd)),     &GREEN),
-            ("Cross",           make_series(&|gd| cross.apparent_viscosity(gd)),  &MAGENTA),
-            ("Power-law (W-S)", make_series(&walburn_schneck_viscosity),     &CYAN),
-            ("Herschel-Bulkley",make_series(&herschel_bulkley_viscosity),    &BLACK),
+            ("Newtonian", make_series(&|_| 3.5e-3), &RED),
+            (
+                "Casson",
+                make_series(&|gd| casson.apparent_viscosity(gd)),
+                &BLUE,
+            ),
+            (
+                "Carreau-Yasuda",
+                make_series(&|gd| cy.apparent_viscosity(gd)),
+                &GREEN,
+            ),
+            (
+                "Cross",
+                make_series(&|gd| cross.apparent_viscosity(gd)),
+                &MAGENTA,
+            ),
+            (
+                "Power-law (W-S)",
+                make_series(&walburn_schneck_viscosity),
+                &CYAN,
+            ),
+            (
+                "Herschel-Bulkley",
+                make_series(&herschel_bulkley_viscosity),
+                &BLACK,
+            ),
         ];
 
         let colors: [&RGBColor; 6] = [&RED, &BLUE, &GREEN, &MAGENTA, &CYAN, &BLACK];
-        let labels = ["Newtonian", "Casson", "Carreau-Yasuda", "Cross", "Power-law (W-S)", "Herschel-Bulkley"];
+        let labels = [
+            "Newtonian",
+            "Casson",
+            "Carreau-Yasuda",
+            "Cross",
+            "Power-law (W-S)",
+            "Herschel-Bulkley",
+        ];
         let all_series: Vec<Vec<(f64, f64)>> = vec![
-            shear_rates.iter().map(|&gd| (gd.log10(), (3.5e-3_f64).log10())).collect(),
-            shear_rates.iter().map(|&gd| (gd.log10(), casson.apparent_viscosity(gd).log10())).collect(),
-            shear_rates.iter().map(|&gd| (gd.log10(), cy.apparent_viscosity(gd).log10())).collect(),
-            shear_rates.iter().map(|&gd| (gd.log10(), cross.apparent_viscosity(gd).log10())).collect(),
-            shear_rates.iter().map(|&gd| (gd.log10(), walburn_schneck_viscosity(gd).log10())).collect(),
-            shear_rates.iter().map(|&gd| (gd.log10(), herschel_bulkley_viscosity(gd).log10())).collect(),
+            shear_rates
+                .iter()
+                .map(|&gd| (gd.log10(), (3.5e-3_f64).log10()))
+                .collect(),
+            shear_rates
+                .iter()
+                .map(|&gd| (gd.log10(), casson.apparent_viscosity(gd).log10()))
+                .collect(),
+            shear_rates
+                .iter()
+                .map(|&gd| (gd.log10(), cy.apparent_viscosity(gd).log10()))
+                .collect(),
+            shear_rates
+                .iter()
+                .map(|&gd| (gd.log10(), cross.apparent_viscosity(gd).log10()))
+                .collect(),
+            shear_rates
+                .iter()
+                .map(|&gd| (gd.log10(), walburn_schneck_viscosity(gd).log10()))
+                .collect(),
+            shear_rates
+                .iter()
+                .map(|&gd| (gd.log10(), herschel_bulkley_viscosity(gd).log10()))
+                .collect(),
         ];
 
         // Suppress unused series_data warning
@@ -405,12 +487,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // Wall shear rate marker
         let gamma_w_log = gamma_w.log10();
-        chart.draw_series(std::iter::once(
-            PathElement::new(
-                vec![(gamma_w_log, -3.0), (gamma_w_log, 0.0)],
-                BLACK.stroke_width(1),
-            ),
-        ))?;
+        chart.draw_series(std::iter::once(PathElement::new(
+            vec![(gamma_w_log, -3.0), (gamma_w_log, 0.0)],
+            BLACK.stroke_width(1),
+        )))?;
 
         chart
             .configure_series_labels()
@@ -432,8 +512,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         let mut chart = ChartBuilder::on(&root)
             .caption(
-                format!("ΔP Comparison — D={:.0}mm, L={:.0}mm, Q=1 mL min⁻¹",
-                    D * 1e3, L * 1e3),
+                format!(
+                    "ΔP Comparison — D={:.0}mm, L={:.0}mm, Q=1 mL min⁻¹",
+                    D * 1e3,
+                    L * 1e3
+                ),
                 ("sans-serif", 18).into_font(),
             )
             .margin(30)
@@ -477,8 +560,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let root = SVGBackend::new(svg_ht, (700, 450)).into_drawing_area();
         root.fill(&WHITE)?;
         let mut chart = ChartBuilder::on(&root)
-            .caption("Effect of Hematocrit on Pressure Drop (Casson model, Chien 1970)",
-                ("sans-serif", 16).into_font())
+            .caption(
+                "Effect of Hematocrit on Pressure Drop (Casson model, Chien 1970)",
+                ("sans-serif", 16).into_font(),
+            )
             .margin(30)
             .x_label_area_size(50)
             .y_label_area_size(65)
@@ -490,18 +575,30 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .y_desc("ΔP [Pa]")
             .draw()?;
 
-        let series: Vec<(f64, f64)> = ht_sweep.iter().cloned().zip(dp_sweep.iter().cloned()).collect();
-        chart.draw_series(LineSeries::new(series, RED.stroke_width(2)))?
+        let series: Vec<(f64, f64)> = ht_sweep
+            .iter()
+            .cloned()
+            .zip(dp_sweep.iter().cloned())
+            .collect();
+        chart
+            .draw_series(LineSeries::new(series, RED.stroke_width(2)))?
             .label("Casson (Chien 1970 scaling)")
             .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], RED.stroke_width(2)));
 
         // Mark H_t = 0.45 (normal)
-        let dp_normal = hagen_poiseuille_dp(CassonBlood::<f64>::normal_blood().apparent_viscosity(gamma_w));
-        chart.draw_series(std::iter::once(Circle::new((0.45, dp_normal), 6, BLUE.filled())))?
+        let dp_normal =
+            hagen_poiseuille_dp(CassonBlood::<f64>::normal_blood().apparent_viscosity(gamma_w));
+        chart
+            .draw_series(std::iter::once(Circle::new(
+                (0.45, dp_normal),
+                6,
+                BLUE.filled(),
+            )))?
             .label("Normal blood (H_t = 0.45)")
             .legend(|(x, y)| Circle::new((x + 10, y), 5, BLUE.filled()));
 
-        chart.configure_series_labels()
+        chart
+            .configure_series_labels()
             .border_style(BLACK)
             .position(SeriesLabelPosition::UpperLeft)
             .draw()?;
@@ -516,7 +613,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!(" KEY FINDINGS");
     println!("═══════════════════════════════════════════════════════════");
     println!();
-    println!("1. At millifluidic wall shear rate ({:.0} s⁻¹), all non-Newtonian models", gamma_w);
+    println!(
+        "1. At millifluidic wall shear rate ({:.0} s⁻¹), all non-Newtonian models",
+        gamma_w
+    );
     println!("   converge to within ~10 % of each other because blood is near its");
     println!("   high-shear plateau at these flow conditions.");
     println!();
@@ -528,9 +628,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("   increases ΔP by roughly 4× due to the cubic yield-stress scaling");
     println!("   (Chien 1970) and the exponential viscosity increase (Quemada 1978).");
     println!();
-    println!("4. All Re values ({:.0}–{:.0}) are well below 2300 → fully laminar,",
+    println!(
+        "4. All Re values ({:.0}–{:.0}) are well below 2300 → fully laminar,",
         results.iter().map(|r| r.re).fold(f64::INFINITY, f64::min),
-        results.iter().map(|r| r.re).fold(0.0_f64, f64::max));
+        results.iter().map(|r| r.re).fold(0.0_f64, f64::max)
+    );
     println!("   validating the Hagen-Poiseuille framework for millifluidic analysis.");
 
     Ok(())

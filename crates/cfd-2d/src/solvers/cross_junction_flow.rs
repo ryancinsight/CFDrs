@@ -31,7 +31,7 @@
 //! masked domain inherits the diagonal-dominance property of the staggered
 //! discretisation (provided CFL ≤ 1) and therefore converges.
 
-use super::ns_fvm_2d::{BloodModel, NavierStokesSolver2D, SIMPLEConfig, StaggeredGrid2D};
+use super::ns_fvm::{BloodModel, NavierStokesSolver2D, SIMPLEConfig, StaggeredGrid2D};
 use cfd_core::error::Result as CfdResult;
 use nalgebra::RealField;
 use num_traits::{Float, FromPrimitive, ToPrimitive};
@@ -215,11 +215,12 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> CrossJunctionSol
 
         let q_total_in = q_west;
         let q_total_out = q_east + q_north + q_south;
-        let mass_balance_error = if Float::abs(q_total_in) > T::from_f64(1e-30).unwrap_or_else(num_traits::Zero::zero) {
-            Float::abs(q_total_in - q_total_out) / Float::abs(q_total_in)
-        } else {
-            T::zero()
-        };
+        let mass_balance_error =
+            if Float::abs(q_total_in) > T::from_f64(1e-30).unwrap_or_else(num_traits::Zero::zero) {
+                Float::abs(q_total_in - q_total_out) / Float::abs(q_total_in)
+            } else {
+                T::zero()
+            };
 
         // Compute junction pressure loss ΔP between west and east centroids.
         let j_mid = ny / 2;

@@ -1,0 +1,44 @@
+{
+  "schema_version": "1.0.0",
+  "producer": "scheme/0.1.0",
+  "length_units": "mm",
+  "outer_dims_mm": [
+    127.76,
+    85.47
+  ],
+  "inner_dims_mm": [
+    123.76,
+    81.47
+  ],
+  "shell_thickness_mm": 2.0,
+  "ports": [
+    {
+      "label": "inlet",
+      "outer_point_mm": [
+        0.0,
+        42.735
+      ],
+      "inner_point_mm": [
+        2.0,
+        42.735
+      ]
+    },
+    {
+      "label": "outlet",
+      "outer_point_mm": [
+        127.76,
+        42.735
+      ],
+      "inner_point_mm": [
+        125.76,
+        42.735
+      ]
+    }
+  ],
+  "tpms_fill": {
+    "surface": "Gyroid",
+    "period_mm": 5.0,
+    "iso_value": 0.0,
+    "resolution": 64
+  }
+}

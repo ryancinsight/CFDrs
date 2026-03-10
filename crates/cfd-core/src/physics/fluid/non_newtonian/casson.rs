@@ -79,12 +79,7 @@ impl<T: RealField + FromPrimitive + Copy> FluidTrait<T> for Casson<T> {
         &self.name
     }
 
-    fn viscosity_at_shear(
-        &self,
-        shear_rate: T,
-        _temperature: T,
-        _pressure: T,
-    ) -> Result<T, Error> {
+    fn viscosity_at_shear(&self, shear_rate: T, _temperature: T, _pressure: T) -> Result<T, Error> {
         Ok(self.apparent_viscosity(shear_rate))
     }
 }

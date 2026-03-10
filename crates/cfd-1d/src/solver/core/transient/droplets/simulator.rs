@@ -11,7 +11,7 @@ use crate::solver::core::transient::composition::{
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
 use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use num_traits::{FromPrimitive, ToPrimitive};
 use petgraph::graph::{EdgeIndex, NodeIndex};
 use petgraph::visit::EdgeRef;
 use std::collections::HashMap;
@@ -76,7 +76,7 @@ impl TransientDropletSimulator {
     /// This convenience API first computes transient composition states using
     /// pressure events and then runs droplet tracking with the default split policy.
     pub fn simulate_with_pressure_events<
-        T: RealField + Copy + FromPrimitive,
+        T: RealField + Copy + FromPrimitive + ToPrimitive,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -97,7 +97,7 @@ impl TransientDropletSimulator {
 
     /// Simulate droplet states with pressure events and an explicit split policy.
     pub fn simulate_with_pressure_events_and_policy<
-        T: RealField + Copy + FromPrimitive,
+        T: RealField + Copy + FromPrimitive + ToPrimitive,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,

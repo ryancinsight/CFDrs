@@ -1,8 +1,11 @@
+#![allow(deprecated)] // NetworkBlueprint::new() used intentionally; all nodes are created with NodeSpec::new_at().
+
 use crate::domain::model::{ChannelSpec, NetworkBlueprint, NodeKind, NodeSpec};
 use crate::domain::therapy_metadata::{TherapyZone, TherapyZoneMetadata};
-use crate::geometry::metadata::VenturiGeometryMetadata;
+use crate::topology::presets::single_venturi_series_spec;
+use crate::BlueprintTopologyFactory;
 
-const BLOOD_MU: f64 = 3.5e-3;
+
 
 #[must_use]
 pub fn venturi_chain(
@@ -27,7 +30,7 @@ pub fn venturi_chain(
             "contraction",
             section_length,
             inlet_diameter_m,
-            hp_resistance(section_length, inlet_diameter_m),
+            0.0, // resistance delegated to solver
             0.0,
         )
         .with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)),
@@ -40,7 +43,7 @@ pub fn venturi_chain(
             "throat",
             section_length,
             throat_diameter_m,
-            hp_resistance(section_length, throat_diameter_m),
+            0.0, // resistance delegated to solver
             0.0,
         )
         .with_metadata(TherapyZoneMetadata::new(TherapyZone::CancerTarget)),
@@ -53,17 +56,13 @@ pub fn venturi_chain(
             "outlet",
             section_length,
             inlet_diameter_m,
-            hp_resistance(section_length, inlet_diameter_m),
+            0.0, // resistance delegated to solver
             0.0,
         )
         .with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)),
     );
 
     bp
-}
-
-fn hp_resistance(length_m: f64, diameter_m: f64) -> f64 {
-    128.0 * BLOOD_MU * length_m / (std::f64::consts::PI * diameter_m.powi(4))
 }
 
 /// Rectangular-channel planar venturi (photolithographic millifluidic chips).
@@ -86,93 +85,42 @@ pub fn venturi_rect(
     height_m: f64,
     throat_length_m: f64,
 ) -> NetworkBlueprint {
-    let l_throat = throat_length_m.max(2.0 * throat_width_m);
-    let l_taper = 5.0 * (inlet_width_m + throat_width_m) * 0.5;
+    let name = name.into();
 
-    let mut bp = NetworkBlueprint::new(name);
-
-    bp.add_node(NodeSpec::new("inlet", NodeKind::Inlet));
-    bp.add_node(NodeSpec::new("contraction", NodeKind::Junction));
-    bp.add_node(NodeSpec::new("throat", NodeKind::Junction));
-    bp.add_node(NodeSpec::new("outlet", NodeKind::Outlet));
-
-    bp.add_channel(
-        ChannelSpec::new_pipe_rect(
-            "inlet_section",
-            "inlet",
-            "contraction",
-            l_taper,
-            inlet_width_m,
-            height_m,
-            shah_london_resistance(inlet_width_m, height_m, l_taper, BLOOD_MU),
-            0.0,
-        )
-        .with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)),
+    let spec = single_venturi_series_spec(
+        &name,
+        inlet_width_m,
+        throat_width_m,
+        height_m,
+        throat_length_m,
     );
-    bp.add_channel(
-        ChannelSpec::new_pipe_rect(
-            "throat_section",
-            "contraction",
-            "throat",
-            l_throat,
-            throat_width_m,
-            height_m,
-            shah_london_resistance(throat_width_m, height_m, l_throat, BLOOD_MU),
-            0.0,
-        )
-        .with_metadata(TherapyZoneMetadata::new(TherapyZone::CancerTarget))
-        .with_venturi_geometry(VenturiGeometryMetadata {
-            throat_width_m,
-            throat_height_m: height_m,
-            throat_length_m: l_throat,
-            inlet_width_m,
-            outlet_width_m: inlet_width_m,
-            convergent_half_angle_deg: ((inlet_width_m - throat_width_m).abs() * 0.5)
-                .atan2(l_taper)
-                .to_degrees(),
-            divergent_half_angle_deg: ((inlet_width_m - throat_width_m).abs() * 0.5)
-                .atan2(l_taper)
-                .to_degrees(),
-        })
-        .with_metadata(VenturiGeometryMetadata {
-            throat_width_m,
-            throat_height_m: height_m,
-            throat_length_m: l_throat,
-            inlet_width_m,
-            outlet_width_m: inlet_width_m,
-            convergent_half_angle_deg: ((inlet_width_m - throat_width_m).abs() * 0.5)
-                .atan2(l_taper)
-                .to_degrees(),
-            divergent_half_angle_deg: ((inlet_width_m - throat_width_m).abs() * 0.5)
-                .atan2(l_taper)
-                .to_degrees(),
-        }),
-    );
-    bp.add_channel(
-        ChannelSpec::new_pipe_rect(
-            "diffuser_section",
-            "throat",
-            "outlet",
-            l_taper,
-            inlet_width_m,
-            height_m,
-            shah_london_resistance(inlet_width_m, height_m, l_taper, BLOOD_MU),
-            0.0,
-        )
-        .with_metadata(TherapyZoneMetadata::new(TherapyZone::MixedFlow)),
-    );
-
-    bp
+    BlueprintTopologyFactory::build(&spec).expect("Valid topology spec")
 }
 
-/// Shah (1978) Poiseuille-number resistance for a rectangular duct.
-fn shah_london_resistance(width_m: f64, height_m: f64, length_m: f64, mu: f64) -> f64 {
-    let alpha = height_m.min(width_m) / height_m.max(width_m);
-    let po = 96.0
-        * (1.0 - 1.3553 * alpha + 1.9467 * alpha * alpha - 1.7012 * alpha.powi(3)
-            + 0.9564 * alpha.powi(4)
-            - 0.2537 * alpha.powi(5));
-    let d_h = 2.0 * width_m * height_m / (width_m + height_m);
-    let area = width_m * height_m;
-    po * mu * length_m / (d_h * d_h * area)
+#[cfg(test)]
+mod tests {
+    use super::venturi_rect;
+
+    #[test]
+    fn venturi_rect_embeds_canonical_topology_metadata() {
+        let blueprint = venturi_rect("rect-venturi", 2.0e-3, 0.7e-3, 1.0e-3, 1.8e-3);
+        let topology = blueprint
+            .topology_spec()
+            .expect("venturi_rect should attach topology metadata");
+        let lineage = blueprint
+            .lineage()
+            .expect("venturi_rect should attach lineage metadata");
+
+        assert_eq!(topology.design_name, "rect-venturi");
+        assert_eq!(
+            topology.treatment_channel_ids(),
+            vec!["throat_section".to_string()]
+        );
+        assert_eq!(topology.parallel_venturi_count(), 1);
+        assert_eq!(topology.serial_venturi_stages(), 1);
+        assert_eq!(
+            lineage.current_stage,
+            crate::TopologyOptimizationStage::SelectiveVenturiCavitation
+        );
+    }
 }

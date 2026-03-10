@@ -15,7 +15,7 @@
 //! ```text
 //! NetworkBlueprint / ChannelSystem (cfd-schematics)
 //!   └─▶ BlueprintMeshPipeline::run()      (default for non-serpentine presets)
-//!      or mesh_output_from_channel_system() (serpentine presets; centerline-driven)
+//!      or mesh_output_from_blueprint() (serpentine presets; centerline-driven)
 //!         ├─ fluid_mesh  — channel interior (IndexedMesh, boundary-labelled)
 //!         └─ chip_mesh   — PDMS substrate minus channel voids
 //!               │
@@ -52,7 +52,7 @@ use cfd_mesh::application::csg::boolean::{
     csg_boolean_indexed, csg_boolean_indexed_tolerant, BooleanOp,
 };
 use cfd_mesh::application::pipeline::PipelineOutput;
-use cfd_mesh::application::pipeline::{BlueprintMeshPipeline, PipelineConfig};
+use cfd_mesh::application::pipeline::{BlueprintMeshPipeline, PipelineConfig, PipelineVolumeTrace};
 use cfd_mesh::domain::core::index::RegionId;
 use cfd_mesh::domain::core::scalar::{Point3r, Real};
 use cfd_mesh::domain::mesh::IndexedMesh;
@@ -62,7 +62,8 @@ use cfd_mesh::infrastructure::io::scheme;
 use cfd_mesh::infrastructure::io::stl::write_stl_binary;
 
 use cfd_schematics::config::{ChannelTypeConfig, FrustumConfig, GeometryConfig, SerpentineConfig};
-use cfd_schematics::geometry::{create_geometry, ChannelSystem, SplitType};
+use cfd_schematics::geometry::generator::create_geometry;
+use cfd_schematics::geometry::SplitType;
 use cfd_schematics::interface::presets::{
     serpentine_chain, serpentine_rect, symmetric_bifurcation, symmetric_trifurcation,
     venturi_chain, venturi_rect,
@@ -127,9 +128,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut out = BlueprintMeshPipeline::run(bp, &config)
             .map_err(|e| format!("{name}: pipeline failed — {e}"))?;
         if *name == "serpentine_chain" || *name == "serpentine_rect" {
-            let system = channel_system_for(name);
+            let blueprint = blueprint_for(name);
             let force_circular = *name == "serpentine_chain";
-            out = mesh_output_from_channel_system(&system, &config, force_circular)
+            out = mesh_output_from_blueprint(&blueprint, &config, force_circular)
                 .map_err(|e| format!("{name}: schematic mesh failed — {e}"))?;
         }
 
@@ -222,7 +223,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn channel_system_for(name: &str) -> ChannelSystem {
+fn blueprint_for(name: &str) -> cfd_schematics::NetworkBlueprint {
     const CHIP_W_MM: f64 = 127.76;
     const CHIP_D_MM: f64 = 85.47;
     let box_dims = (CHIP_W_MM, CHIP_D_MM);
@@ -269,12 +270,12 @@ fn channel_system_for(name: &str) -> ChannelSystem {
     }
 }
 
-fn mesh_output_from_channel_system(
-    system: &ChannelSystem,
+fn mesh_output_from_blueprint(
+    system: &cfd_schematics::NetworkBlueprint,
     config: &PipelineConfig,
     force_circular: bool,
 ) -> Result<PipelineOutput, Box<dyn std::error::Error>> {
-    let schematic3d = scheme::from_channel_system(
+    let schematic3d = scheme::from_blueprint(
         system,
         config.chip_height_mm as Real,
         config.circular_segments,
@@ -352,6 +353,27 @@ fn mesh_output_from_channel_system(
     } else {
         None
     };
+    let schematic_summary = system.fluid_volume_summary();
+    let fluid_mesh_volume_mm3 = fluid_mesh.signed_volume().abs();
+    let chip_mesh_volume_mm3 = chip_mesh.as_ref().map(|mesh| mesh.signed_volume().abs());
+    let fluid_mesh_volume_error_mm3 =
+        fluid_mesh_volume_mm3 - schematic_summary.total_fluid_volume_mm3;
+    let fluid_mesh_volume_error_pct = if schematic_summary.total_fluid_volume_mm3.abs() <= 1e-18 {
+        0.0
+    } else {
+        fluid_mesh_volume_error_mm3.abs() / schematic_summary.total_fluid_volume_mm3.abs() * 100.0
+    };
+    let volume_trace = PipelineVolumeTrace {
+        schematic_summary,
+        channel_traces: Vec::new(),
+        pre_csg_channel_volume_mm3: fluid_mesh_volume_mm3,
+        synthetic_connector_volume_mm3: 0.0,
+        fluid_mesh_volume_mm3,
+        chip_mesh_volume_mm3,
+        fluid_mesh_volume_error_mm3,
+        fluid_mesh_volume_error_pct,
+        csg_overlap_delta_mm3: 0.0,
+    };
 
     Ok(PipelineOutput {
         fluid_mesh,
@@ -361,6 +383,7 @@ fn mesh_output_from_channel_system(
         },
         segment_count: system.channels.len(),
         layout_segments: Vec::new(),
+        volume_trace,
     })
 }
 

@@ -66,8 +66,8 @@ impl<T: RealField + Copy + FromPrimitive> CavitationRegimeClassifier<T> {
             }
         } else {
             let two = T::from_f64(2.0).unwrap_or_else(|| T::one());
-            let v_sq = (self.ambient_pressure - min_pressure) * two
-                / self.bubble_model.liquid_density;
+            let v_sq =
+                (self.ambient_pressure - min_pressure) * two / self.bubble_model.liquid_density;
             let current_velocity = if v_sq > T::zero() {
                 v_sq.sqrt()
             } else {
@@ -92,7 +92,9 @@ impl<T: RealField + Copy + FromPrimitive> CavitationRegimeClassifier<T> {
     /// Calculate Blake threshold pressure
     pub fn blake_threshold(&self) -> T {
         let four_thirds = T::from_f64(4.0 / 3.0).unwrap_or_else(|| T::one());
-        let r_critical = self.bubble_model.blake_critical_radius(self.ambient_pressure);
+        let r_critical = self
+            .bubble_model
+            .blake_critical_radius(self.ambient_pressure);
 
         self.bubble_model.vapor_pressure
             + four_thirds * self.bubble_model.surface_tension / r_critical

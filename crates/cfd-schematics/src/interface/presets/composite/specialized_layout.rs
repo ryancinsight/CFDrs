@@ -16,9 +16,27 @@ pub(crate) fn attach_asymmetric_trifurcation_layout(bp: &mut NetworkBlueprint) {
     set_node(bp, "periph_merge", 98.0, Y_MID_MM);
     set_node(bp, "outlet_merge", 112.0, Y_MID_MM);
     set_node(bp, "outlet", 124.0, Y_MID_MM);
-    set_junction(bp, "split_jn", JunctionFamily::Trifurcation, &[-25.0, 0.0, 30.0], &[]);
-    set_junction(bp, "periph_merge", JunctionFamily::Merge, &[], &[30.0, 25.0]);
-    set_junction(bp, "outlet_merge", JunctionFamily::Merge, &[], &[18.0, 18.0]);
+    set_junction(
+        bp,
+        "split_jn",
+        JunctionFamily::Trifurcation,
+        &[-25.0, 0.0, 30.0],
+        &[],
+    );
+    set_junction(
+        bp,
+        "periph_merge",
+        JunctionFamily::Merge,
+        &[],
+        &[30.0, 25.0],
+    );
+    set_junction(
+        bp,
+        "outlet_merge",
+        JunctionFamily::Merge,
+        &[],
+        &[18.0, 18.0],
+    );
     set_polyline(
         bp,
         "left_arm",
@@ -44,6 +62,7 @@ pub(crate) fn attach_asymmetric_trifurcation_layout(bp: &mut NetworkBlueprint) {
 fn set_node(bp: &mut NetworkBlueprint, node_id: &str, x_mm: f64, y_mm: f64) {
     if let Some(node) = bp.nodes.iter_mut().find(|node| node.id.as_str() == node_id) {
         node.layout = Some(NodeLayoutMetadata { x_mm, y_mm });
+        node.point = (x_mm, y_mm);
         node.metadata
             .get_or_insert_with(crate::geometry::metadata::MetadataContainer::new)
             .insert(NodeLayoutMetadata { x_mm, y_mm });
@@ -85,7 +104,8 @@ fn set_polyline(
             polyline_mm: polyline_mm.clone(),
             visual_role,
         };
-        channel.path = Some(path.clone());
+        channel.path = polyline_mm;
+        channel.visual_role = Some(visual_role);
         channel
             .metadata
             .get_or_insert_with(crate::geometry::metadata::MetadataContainer::new)
@@ -98,5 +118,11 @@ fn node_point(bp: &NetworkBlueprint, node_id: &str) -> (f64, f64) {
         .iter()
         .find(|node| node.id.as_str() == node_id)
         .and_then(|node| node.layout.map(|layout| (layout.x_mm, layout.y_mm)))
+        .or_else(|| {
+            bp.nodes
+                .iter()
+                .find(|node| node.id.as_str() == node_id)
+                .map(|node| node.point)
+        })
         .unwrap_or((PLATE_W_MM * 0.5, Y_MID_MM))
 }

@@ -17,7 +17,7 @@ mod tests {
             registry.err()
         );
 
-        let registry = registry.unwrap();
+        let registry = registry.expect("structural invariant");
         assert_eq!(
             registry.domain_names(),
             vec!["serpentine", "arc", "geometry", "collision", "symmetry"]
@@ -28,7 +28,7 @@ mod tests {
 
     #[test]
     fn test_serpentine_parameter_manager() {
-        let registry = ParameterRegistry::with_defaults().unwrap();
+        let registry = ParameterRegistry::with_defaults().expect("structural invariant");
         let serpentine_manager = registry.serpentine();
 
         // Test parameter names
@@ -48,7 +48,7 @@ mod tests {
 
     #[test]
     fn test_arc_parameter_manager() {
-        let registry = ParameterRegistry::with_defaults().unwrap();
+        let registry = ParameterRegistry::with_defaults().expect("structural invariant");
         let arc_manager = registry.arc();
 
         // Test parameter names
@@ -67,7 +67,7 @@ mod tests {
 
     #[test]
     fn test_geometry_parameter_manager() {
-        let registry = ParameterRegistry::with_defaults().unwrap();
+        let registry = ParameterRegistry::with_defaults().expect("structural invariant");
         let geometry_manager = registry.geometry();
 
         // Test parameter names
@@ -87,7 +87,7 @@ mod tests {
 
     #[test]
     fn test_adaptive_parameter_behavior() {
-        let registry = ParameterRegistry::with_defaults().unwrap();
+        let registry = ParameterRegistry::with_defaults().expect("structural invariant");
         let serpentine_manager = registry.serpentine();
 
         // Create a test context
@@ -118,14 +118,14 @@ mod tests {
 
     #[test]
     fn test_parameter_metadata() {
-        let registry = ParameterRegistry::with_defaults().unwrap();
+        let registry = ParameterRegistry::with_defaults().expect("structural invariant");
         let serpentine_manager = registry.serpentine();
 
         // Test amplitude metadata
         let amplitude_metadata = serpentine_manager.get_metadata("amplitude");
         assert!(amplitude_metadata.is_ok());
 
-        let metadata = amplitude_metadata.unwrap();
+        let metadata = amplitude_metadata.expect("structural invariant");
         assert_eq!(metadata.name, "amplitude");
         assert_eq!(metadata.category, "wave_parameters");
         assert!(metadata.is_mutable);
@@ -135,7 +135,7 @@ mod tests {
 
     #[test]
     fn test_registry_validation() {
-        let registry = ParameterRegistry::with_defaults().unwrap();
+        let registry = ParameterRegistry::with_defaults().expect("structural invariant");
 
         // Test global validation
         assert!(registry.validate_all().is_ok());
@@ -146,7 +146,7 @@ mod tests {
 
     #[test]
     fn test_registry_locking() {
-        let mut registry = ParameterRegistry::with_defaults().unwrap();
+        let mut registry = ParameterRegistry::with_defaults().expect("structural invariant");
 
         // Initially unlocked
         assert!(!registry.is_locked());
@@ -168,7 +168,7 @@ mod tests {
 
     #[test]
     fn test_parameter_names_across_domains() {
-        let registry = ParameterRegistry::with_defaults().unwrap();
+        let registry = ParameterRegistry::with_defaults().expect("structural invariant");
         let all_params = registry.all_parameter_names();
 
         // Check that we have parameters for each domain
@@ -194,7 +194,7 @@ mod tests {
 
     #[test]
     fn test_wave_parameters_helper() {
-        let registry = ParameterRegistry::with_defaults().unwrap();
+        let registry = ParameterRegistry::with_defaults().expect("structural invariant");
         let serpentine_manager = registry.serpentine();
 
         // Test the wave parameters helper method

@@ -11,7 +11,7 @@
 //! | Nivedita 2017 | Inertial spiral | 133 µm | 1.8 mL/min | 2 % |
 //! | Wu Z. 2019 | Constriction-expansion | 75 µm | 150 µL/min | 0.1 % |
 
-use cfd_optim::{CrossSectionShape, DesignCandidate, DesignTopology, TreatmentZoneMode};
+use cfd_optim::design::{CrossSectionShape, DesignCandidate, DesignTopology, TreatmentZoneMode};
 
 // ── Nivedita et al. (2017) — inertial spiral ─────────────────────────────────
 
@@ -48,6 +48,7 @@ pub fn nivedita_spiral() -> DesignCandidate {
         channel_width_m: w,
         channel_height_m: h,
         serpentine_segments: NIVEDITA_N_TURNS,
+        center_serpentine_segments: 1,
         // Arc length of one 360° turn at the mean bend radius.
         segment_length_m: 2.0 * std::f64::consts::PI * NIVEDITA_BEND_M,
         bend_radius_m: NIVEDITA_BEND_M,
@@ -97,6 +98,7 @@ pub fn wu_constriction() -> DesignCandidate {
         channel_width_m: w,
         channel_height_m: h,
         serpentine_segments: WU_N_CYCLES,
+        center_serpentine_segments: 1,
         // Approximate straight-segment length: total device length / (2 × n_cycles).
         segment_length_m: 5e-3, // ~5 mm per half-cycle
         bend_radius_m: 0.0,     // straight channel; no bends

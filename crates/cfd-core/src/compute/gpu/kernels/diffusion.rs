@@ -61,7 +61,8 @@ impl<T: RealField + Copy> ComputeKernel<T> for GpuDiffusionKernel<T> {
 
     fn execute(&self, _input: &[T], _output: &mut [T], _params: KernelParams) -> Result<()> {
         Err(crate::error::Error::UnsupportedOperation(
-            "GpuDiffusionKernel does not support CPU execution; use the GpuKernel trait dispatch".into(),
+            "GpuDiffusionKernel does not support CPU execution; use the GpuKernel trait dispatch"
+                .into(),
         ))
     }
 

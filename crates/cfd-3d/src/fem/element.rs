@@ -244,8 +244,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
 
     /// Calculate strain rate from velocity gradient
     pub fn strain_rate(&self, velocity_gradient: &Matrix3<T>) -> Matrix3<T> {
-        let half = <T as FromPrimitive>::from_f64(0.5)
-            .expect("0.5 is exactly representable in IEEE 754");
+        let half =
+            <T as FromPrimitive>::from_f64(0.5).expect("0.5 is exactly representable in IEEE 754");
         (velocity_gradient + velocity_gradient.transpose()) * half
     }
 }

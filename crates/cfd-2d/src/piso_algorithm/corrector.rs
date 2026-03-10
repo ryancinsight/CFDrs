@@ -138,7 +138,7 @@ where
                 let density = fields.density.at(i, j);
 
                 let two_t = T::one() + T::one();
-                
+
                 // Face velocities (using upwind values)
                 let u_e_face = (fields.u.at(i, j) + fields.u.at(i + 1, j)) / two_t;
                 let u_w_face = (fields.u.at(i - 1, j) + fields.u.at(i, j)) / two_t;
@@ -159,26 +159,14 @@ where
 
                 // Hybrid differencing scheme coefficients
                 let half = T::one() / (T::one() + T::one());
-                let ae =
-                    d_e * T::max(
-                        T::zero(),
-                        T::one() - half * f_e.abs() / d_e,
-                    ) + T::max(-f_e, T::zero());
-                let aw =
-                    d_w * T::max(
-                        T::zero(),
-                        T::one() - half * f_w.abs() / d_w,
-                    ) + T::max(f_w, T::zero());
-                let an =
-                    d_n * T::max(
-                        T::zero(),
-                        T::one() - half * f_n.abs() / d_n,
-                    ) + T::max(-f_n, T::zero());
-                let as_ =
-                    d_s * T::max(
-                        T::zero(),
-                        T::one() - half * f_s.abs() / d_s,
-                    ) + T::max(f_s, T::zero());
+                let ae = d_e * T::max(T::zero(), T::one() - half * f_e.abs() / d_e)
+                    + T::max(-f_e, T::zero());
+                let aw = d_w * T::max(T::zero(), T::one() - half * f_w.abs() / d_w)
+                    + T::max(f_w, T::zero());
+                let an = d_n * T::max(T::zero(), T::one() - half * f_n.abs() / d_n)
+                    + T::max(-f_n, T::zero());
+                let as_ = d_s * T::max(T::zero(), T::one() - half * f_s.abs() / d_s)
+                    + T::max(f_s, T::zero());
 
                 // H(u) = -sum(A_nb * u_nb)
                 let h_u = -(u_e * ae + u_w * aw + u_n * an + u_s * as_);

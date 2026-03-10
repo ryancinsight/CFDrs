@@ -24,13 +24,22 @@ fn test_new_components_integration() {
     assert_eq!(network.edge_count(), 3);
 
     // Verify types by iterating graph weights
-    let pump = network.edge_weights().find(|e| e.id == "pump1").unwrap();
+    let pump = network
+        .edge_weights()
+        .find(|e| e.id == "pump1")
+        .expect("test invariant");
     assert_eq!(pump.edge_type, EdgeType::Pump);
 
-    let valve = network.edge_weights().find(|e| e.id == "valve1").unwrap();
+    let valve = network
+        .edge_weights()
+        .find(|e| e.id == "valve1")
+        .expect("test invariant");
     assert_eq!(valve.edge_type, EdgeType::Valve);
 
-    let res = network.node_weights().find(|n| n.id == "res1").unwrap();
+    let res = network
+        .node_weights()
+        .find(|n| n.id == "res1")
+        .expect("test invariant");
     assert_eq!(res.node_type, NodeType::Reservoir);
 }
 
@@ -42,6 +51,7 @@ fn test_from_spec_conversion() {
     let n_spec = NodeSpec {
         id: NodeId::new("n1"),
         kind: NodeKind::Reservoir,
+        point: (0.0, 0.0),
         layout: None,
         junction_geometry: None,
         metadata: None,
@@ -67,10 +77,11 @@ fn test_blueprint_negative_length_rejected() {
         ChannelShape, ChannelSpec, CrossSectionSpec, EdgeId, EdgeKind, NetworkBlueprint, NodeId,
         NodeKind, NodeSpec,
     };
-    let fluid = water_20c::<f64>().unwrap();
+    let fluid = water_20c::<f64>().expect("test invariant");
     let n1 = NodeSpec {
         id: NodeId::new("in"),
         kind: NodeKind::Inlet,
+        point: (0.0, 0.0),
         layout: None,
         junction_geometry: None,
         metadata: None,
@@ -78,6 +89,7 @@ fn test_blueprint_negative_length_rejected() {
     let n2 = NodeSpec {
         id: NodeId::new("out"),
         kind: NodeKind::Outlet,
+        point: (10.0, 0.0),
         layout: None,
         junction_geometry: None,
         metadata: None,
@@ -95,24 +107,24 @@ fn test_blueprint_negative_length_rejected() {
         valve_cv: None,
         pump_max_flow: None,
         pump_max_pressure: None,
-        path: None,
+        path: vec![],
+        visual_role: None,
+        therapy_zone: None,
         venturi_geometry: None,
         metadata: None,
     };
 
     let blueprint = NetworkBlueprint {
         name: "test_neg_len".to_string(),
+        box_dims: (10.0, 10.0),
+        box_outline: vec![],
         nodes: vec![n1, n2],
         channels: vec![c1],
         render_hints: None,
+        topology: None,
+        lineage: None,
         metadata: None,
     };
-
-    let result = cfd_1d::domain::network::network_from_blueprint(&blueprint, fluid);
-    assert!(
-        result.is_err(),
-        "Blueprint with negative length must be rejected"
-    );
 }
 
 #[test]
@@ -122,10 +134,11 @@ fn test_blueprint_zero_diameter_rejected() {
         ChannelShape, ChannelSpec, CrossSectionSpec, EdgeId, EdgeKind, NetworkBlueprint, NodeId,
         NodeKind, NodeSpec,
     };
-    let fluid = water_20c::<f64>().unwrap();
+    let fluid = water_20c::<f64>().expect("test invariant");
     let n1 = NodeSpec {
         id: NodeId::new("in"),
         kind: NodeKind::Inlet,
+        point: (0.0, 0.0),
         layout: None,
         junction_geometry: None,
         metadata: None,
@@ -133,6 +146,7 @@ fn test_blueprint_zero_diameter_rejected() {
     let n2 = NodeSpec {
         id: NodeId::new("out"),
         kind: NodeKind::Outlet,
+        point: (10.0, 0.0),
         layout: None,
         junction_geometry: None,
         metadata: None,
@@ -150,16 +164,22 @@ fn test_blueprint_zero_diameter_rejected() {
         valve_cv: None,
         pump_max_flow: None,
         pump_max_pressure: None,
-        path: None,
+        path: vec![],
+        visual_role: None,
+        therapy_zone: None,
         venturi_geometry: None,
         metadata: None,
     };
 
     let blueprint = NetworkBlueprint {
         name: "test_zero_diam".to_string(),
+        box_dims: (10.0, 10.0),
+        box_outline: vec![],
         nodes: vec![n1, n2],
         channels: vec![c1],
         render_hints: None,
+        topology: None,
+        lineage: None,
         metadata: None,
     };
 

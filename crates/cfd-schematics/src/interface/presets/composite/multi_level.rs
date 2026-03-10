@@ -1,4 +1,5 @@
 //! Multi-level bifurcation-tree composite presets: 2- and 3-level binary branching.
+#![allow(deprecated)] // NetworkBlueprint::new() used intentionally; nodes are created with NodeSpec::new_at().
 
 use super::{shah_london, BLOOD_MU};
 use crate::domain::model::{ChannelSpec, NetworkBlueprint, NodeKind, NodeSpec};

@@ -98,13 +98,3 @@ impl<T: RealField + Copy> Default for CsvWriter<T> {
         Self::new()
     }
 }
-
-/// Convenience function to write time series data
-pub fn write_time_series<T, I>(path: &Path, headers: &[&str], data: I) -> Result<()>
-where
-    T: RealField + Copy + std::fmt::Display,
-    I: IntoIterator<Item = Vec<T>>,
-{
-    let writer = CsvWriter::<T>::new();
-    writer.write_time_series(path, headers, data)
-}

@@ -27,9 +27,9 @@ use cfd_core::compute::solver::Solver;
 use cfd_core::physics::cavitation::VenturiCavitation;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
 use cfd_schematics::config::{ChannelTypeConfig, FrustumConfig, GeometryConfig, TaperProfile};
-use cfd_schematics::domain::model::{ChannelSpec, NodeKind, NodeSpec};
+use cfd_schematics::domain::model::NodeKind;
 use cfd_schematics::geometry::generator::create_geometry;
-use cfd_schematics::geometry::{ChannelSystem, SplitType};
+use cfd_schematics::geometry::SplitType;
 use cfd_schematics::plot_geometry;
 use cfd_schematics::visualizations::analysis_field::{
     AnalysisField, AnalysisOverlay, ColormapKind,
@@ -110,7 +110,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("  Rendered schematic → {label}_schematic.png");
 
         // ── 2. Convert to Network Specs ──────────────────────────────────────
-        let (node_specs, channel_specs) = convert_geometry_to_specs(&system, mu);
+        let node_specs = system.nodes.clone();
+        let channel_specs = system.channels.clone();
 
         // ── 3. Build Network ─────────────────────────────────────────────────
         let mut builder = NetworkBuilder::<f64>::new();
@@ -352,85 +353,4 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("✅ Exported combined results to {}", json_path.display());
 
     Ok(())
-}
-
-/// Convert a `ChannelSystem` geometry into `NodeSpec`/`ChannelSpec` pairs.
-///
-/// Nodes at the minimum x-coordinate are classified as inlets; those at the
-/// maximum x-coordinate as outlets; all others as junctions.
-/// Channels use `ChannelSpec::new_pipe_rect` with the Hele-Shaw rectangular
-/// resistance formula: `R = 12·μ·L / (w·h³·(1 − 0.63·h/w))`.
-fn convert_geometry_to_specs(system: &ChannelSystem, mu: f64) -> (Vec<NodeSpec>, Vec<ChannelSpec>) {
-    let min_x = system
-        .nodes
-        .iter()
-        .map(|n| n.point.0)
-        .fold(f64::INFINITY, f64::min);
-    let max_x = system
-        .nodes
-        .iter()
-        .map(|n| n.point.0)
-        .fold(f64::NEG_INFINITY, f64::max);
-
-    let node_specs: Vec<NodeSpec> = system
-        .nodes
-        .iter()
-        .map(|node| {
-            let kind = if (node.point.0 - min_x).abs() < 1e-3 {
-                NodeKind::Inlet
-            } else if (node.point.0 - max_x).abs() < 1e-3 {
-                NodeKind::Outlet
-            } else {
-                NodeKind::Junction
-            };
-            NodeSpec::new(format!("node_{}", node.id), kind)
-        })
-        .collect();
-
-    let channel_specs: Vec<ChannelSpec> = system
-        .channels
-        .iter()
-        .map(|channel| {
-            let from_node = system
-                .nodes
-                .iter()
-                .find(|n| n.id == channel.from_node)
-                .unwrap();
-            let to_node = system
-                .nodes
-                .iter()
-                .find(|n| n.id == channel.to_node)
-                .unwrap();
-            let dx = from_node.point.0 - to_node.point.0;
-            let dy = from_node.point.1 - to_node.point.1;
-            let length_m = dx.hypot(dy) / 1000.0; // mm → m
-
-            let width_m = channel.width / 1000.0;
-            let height_m = channel.height / 1000.0;
-
-            let (w, h) = if width_m > height_m {
-                (width_m, height_m)
-            } else {
-                (height_m, width_m)
-            };
-            let resistance = if h > 0.0 {
-                (12.0 * mu * length_m) / (w * h.powi(3) * (1.0 - 0.63 * h / w))
-            } else {
-                f64::INFINITY
-            };
-
-            ChannelSpec::new_pipe_rect(
-                format!("chan_{}", channel.id),
-                format!("node_{}", channel.from_node),
-                format!("node_{}", channel.to_node),
-                length_m,
-                width_m,
-                height_m,
-                resistance,
-                0.0,
-            )
-        })
-        .collect();
-
-    (node_specs, channel_specs)
 }

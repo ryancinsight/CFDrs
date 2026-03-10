@@ -110,7 +110,7 @@ impl<T: RealField + Copy + FromPrimitive> BoundaryHandler<T> {
         use crate::solvers::lbm::streaming::f_idx;
         let cell = j * nx + i;
 
-        velocity[cell * 2]     = u_boundary[0];
+        velocity[cell * 2] = u_boundary[0];
         velocity[cell * 2 + 1] = u_boundary[1];
 
         // Density from all distributions (approximation; use Zou-He formula for production)
@@ -122,8 +122,8 @@ impl<T: RealField + Copy + FromPrimitive> BoundaryHandler<T> {
 
         // Reset to equilibrium at the boundary density/velocity
         for q in 0..9 {
-            let weight = T::from_f64(D2Q9::WEIGHTS[q])
-                .expect("D2Q9 weights are exact f64 constants");
+            let weight =
+                T::from_f64(D2Q9::WEIGHTS[q]).expect("D2Q9 weights are exact f64 constants");
             let lattice_vel = D2Q9::VELOCITIES[q];
             f[f_idx(j, i, q, nx)] = equilibrium(rho, &u_boundary, q, weight, lattice_vel);
         }
@@ -152,12 +152,12 @@ impl<T: RealField + Copy + FromPrimitive> BoundaryHandler<T> {
         density[cell] = rho;
 
         let u = Self::extrapolate_velocity_flat(velocity, nx, ny, i, j);
-        velocity[cell * 2]     = u[0];
+        velocity[cell * 2] = u[0];
         velocity[cell * 2 + 1] = u[1];
 
         for q in 0..9 {
-            let weight = T::from_f64(D2Q9::WEIGHTS[q])
-                .expect("D2Q9 weights are exact f64 constants");
+            let weight =
+                T::from_f64(D2Q9::WEIGHTS[q]).expect("D2Q9 weights are exact f64 constants");
             let lattice_vel = D2Q9::VELOCITIES[q];
             f[f_idx(j, i, q, nx)] = equilibrium(rho, &u, q, weight, lattice_vel);
         }
@@ -166,9 +166,9 @@ impl<T: RealField + Copy + FromPrimitive> BoundaryHandler<T> {
     /// Apply all boundary conditions from the boundary map.
     pub fn apply_boundaries(
         &self,
-        f: &mut Vec<T>,
-        density: &mut Vec<T>,
-        velocity: &mut Vec<T>,
+        f: &mut [T],
+        density: &mut [T],
+        velocity: &mut [T],
         boundaries: &HashMap<(usize, usize), BoundaryCondition<T>>,
         nx: usize,
         ny: usize,
@@ -206,13 +206,22 @@ impl<T: RealField + Copy + FromPrimitive> BoundaryHandler<T> {
         j: usize,
     ) -> [T; 2] {
         let cell = |jj: usize, ii: usize| {
-            [(velocity[(jj * nx + ii) * 2]), (velocity[(jj * nx + ii) * 2 + 1])]
+            [
+                (velocity[(jj * nx + ii) * 2]),
+                (velocity[(jj * nx + ii) * 2 + 1]),
+            ]
         };
-        if i == 0 && i + 1 < nx             { cell(j, i + 1) }
-        else if i + 1 == nx && i > 0        { cell(j, i - 1) }
-        else if j == 0 && j + 1 < ny        { cell(j + 1, i) }
-        else if j + 1 == ny && j > 0        { cell(j - 1, i) }
-        else                                { [T::zero(), T::zero()] }
+        if i == 0 && i + 1 < nx {
+            cell(j, i + 1)
+        } else if i + 1 == nx && i > 0 {
+            cell(j, i - 1)
+        } else if j == 0 && j + 1 < ny {
+            cell(j + 1, i)
+        } else if j + 1 == ny && j > 0 {
+            cell(j - 1, i)
+        } else {
+            [T::zero(), T::zero()]
+        }
     }
 }
 

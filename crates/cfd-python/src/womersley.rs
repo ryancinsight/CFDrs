@@ -1,6 +1,6 @@
 //! Womersley pulsatile flow `PyO3` wrappers
 
-use cfd_1d::vascular::womersley::{
+use cfd_1d::physics::vascular::womersley::{
     WomersleyFlow as RustWomersleyFlow, WomersleyNumber as RustWomersleyNumber,
     WomersleyProfile as RustWomersleyProfile,
 };
@@ -122,13 +122,7 @@ impl PyWomersleyProfile {
     /// - `viscosity`: Dynamic viscosity [Pa.s]
     /// - `pressure_amplitude`: Oscillatory pressure gradient amplitude [Pa/m]
     #[new]
-    fn new(
-        radius: f64,
-        omega: f64,
-        density: f64,
-        viscosity: f64,
-        pressure_amplitude: f64,
-    ) -> Self {
+    fn new(radius: f64, omega: f64, density: f64, viscosity: f64, pressure_amplitude: f64) -> Self {
         let wom = RustWomersleyNumber::<f64>::new(radius, omega, density, viscosity);
         PyWomersleyProfile {
             inner: RustWomersleyProfile::<f64>::new(wom, pressure_amplitude),

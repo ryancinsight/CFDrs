@@ -119,8 +119,9 @@ pub fn extract_vertex_indices<T: cfd_mesh::domain::core::Scalar + RealField + Co
                 .vertices
                 .position(cfd_mesh::domain::core::index::VertexId::from_usize(v_j))
                 .coords;
-            let target = (p_i + p_j) * <T as FromPrimitive>::from_f64(0.5)
-                .expect("0.5 is exactly representable in IEEE 754");
+            let target = (p_i + p_j)
+                * <T as FromPrimitive>::from_f64(0.5)
+                    .expect("0.5 is exactly representable in IEEE 754");
 
             let mut best_node = None;
             let mut min_dist = T::infinity();
@@ -201,7 +202,9 @@ pub fn extract_vertex_indices<T: cfd_mesh::domain::core::Scalar + RealField + Co
 /// unique mid-node closest to the geometric midpoint (geometric uniqueness from P2
 /// conformity). `extract_vertex_indices` finds the same node via exhaustive nearest-
 /// midpoint scan. Both converge to the same index by definition of the minimum.
-pub fn extract_vertex_indices_cached<T: cfd_mesh::domain::core::Scalar + RealField + Copy + Float>(
+pub fn extract_vertex_indices_cached<
+    T: cfd_mesh::domain::core::Scalar + RealField + Copy + Float,
+>(
     cell: &Cell,
     mesh: &IndexedMesh<T>,
     n_corner_nodes: usize,
@@ -304,8 +307,8 @@ pub fn extract_vertex_indices_cached<T: cfd_mesh::domain::core::Scalar + RealFie
                 .vertices
                 .position(cfd_mesh::domain::core::index::VertexId::from_usize(v_j))
                 .coords;
-            let target =
-                (p_i + p_j) * <T as FromPrimitive>::from_f64(0.5)
+            let target = (p_i + p_j)
+                * <T as FromPrimitive>::from_f64(0.5)
                     .expect("0.5 is exactly representable in IEEE 754");
 
             let mut best_node = None;

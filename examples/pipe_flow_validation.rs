@@ -20,7 +20,7 @@
 
 use cfd_3d::fem::{StokesFlowProblem, StokesFlowSolution};
 use cfd_3d::FemConfig;
-use cfd_core::prelude::{BoundaryCondition, Fluid, WallType};
+use cfd_core::prelude::{BoundaryCondition, ConstantPropertyFluid, WallType};
 use cfd_mesh::IndexedMesh;
 use nalgebra::{Point3, Vector3};
 use std::collections::HashMap;
@@ -65,7 +65,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let _fem_config = FemConfig::<f64>::default();
 
     // Create fluid properties - water at 20C
-    let fluid = Fluid::new(
+    let fluid = ConstantPropertyFluid::new(
         "water".to_string(),
         fluid_density,
         fluid_viscosity,
@@ -298,8 +298,14 @@ fn validate_pipe_flow(
         }
     }
 
-    println!("\n  Flow rate (numerical): {:.9} m^3/s", flow_rate_numerical);
-    println!("  Flow rate (analytical): {:.9} m^3/s", flow_rate_analytical);
+    println!(
+        "\n  Flow rate (numerical): {:.9} m^3/s",
+        flow_rate_numerical
+    );
+    println!(
+        "  Flow rate (analytical): {:.9} m^3/s",
+        flow_rate_analytical
+    );
 
     if flow_rate_numerical.abs() > 0.0 {
         let flow_rate_error =

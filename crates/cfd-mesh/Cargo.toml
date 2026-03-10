@@ -288,10 +288,6 @@ name = "csg_coplanar_disk_disk"
 path = "examples/csg_coplanar/disk_disk.rs"
 
 [[example]]
-name = "millifluidic_designs"
-path = "examples/millifluidic_designs.rs"
-
-[[example]]
 name = "schematic_to_3d_mesh"
 path = "examples/schematic_to_3d_mesh.rs"
 
@@ -303,12 +299,11 @@ path = "examples/schematic_to_mesh_demo.rs"
 name = "schematic_to_openfoam"
 path = "examples/schematic_to_openfoam.rs"
 
-# ── Millifluidic chip-body STL examples ───────────────────────────────────────
-
-[[example]]
-name = "millifluidic_chip_stl"
-path = "examples/millifluidic/chip_stl.rs"
 
 [[example]]
 name = "millifluidic_shell_tpms"
 path = "examples/millifluidic_shell_tpms.rs"
+
+[[example]]
+name = "tpms_blood_chip_mesh"
+path = "examples/tpms_blood_chip_mesh.rs"

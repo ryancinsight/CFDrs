@@ -1,7 +1,7 @@
 //! 3D Venturi and Serpentine flow solver `PyO3` wrappers.
 
-use pyo3::prelude::*;
 use pyo3::exceptions::PyRuntimeError;
+use pyo3::prelude::*;
 
 use cfd_3d::serpentine::{SerpentineConfig3D, SerpentineSolver3D};
 use cfd_3d::venturi::{VenturiConfig3D, VenturiSolver3D};
@@ -80,7 +80,7 @@ impl PyVenturi3DSolver {
 
         let fluid = match blood_type {
             "casson" => CassonBlood::<f64>::normal_blood(),
-             "carreau_yasuda" => {
+            "carreau_yasuda" => {
                 // Carreau-Yasuda shares the same Fluid + NonNewtonianFluid traits as Casson.
                 // The 3D Venturi solver accepts any `F: FluidTrait<T> + Clone`, so CY works
                 // directly.  However, cfd_python dispatches through CassonBlood because the Rust
@@ -90,11 +90,12 @@ impl PyVenturi3DSolver {
                 // at the characteristic shear rate of the Venturi throat which is validated
                 // against Cho & Kensey (1991) reference data (see cfd-core blood.rs).
                 CassonBlood::<f64>::normal_blood()
-            },
+            }
             _ => CassonBlood::<f64>::normal_blood(),
         };
 
-        let solution = solver.solve(fluid)
+        let solution = solver
+            .solve(fluid)
             .map_err(|e| PyRuntimeError::new_err(format!("Solver error: {e}")))?;
 
         Ok(PyVenturi3DResult {
@@ -154,13 +155,7 @@ pub struct PySerpentine3DSolver {
 impl PySerpentine3DSolver {
     #[new]
     #[pyo3(signature = (diameter, wavelength, amplitude, cycles=3, circular=true))]
-    fn new(
-        diameter: f64,
-        wavelength: f64,
-        amplitude: f64,
-        cycles: usize,
-        circular: bool,
-    ) -> Self {
+    fn new(diameter: f64, wavelength: f64, amplitude: f64, cycles: usize, circular: bool) -> Self {
         PySerpentine3DSolver {
             diameter,
             wavelength,
@@ -172,12 +167,8 @@ impl PySerpentine3DSolver {
 
     /// Solve 3D Serpentine simulation
     fn solve(&self, flow_rate: f64, blood_type: &str) -> PyResult<PySerpentine3DResult> {
-        let builder = SerpentineMeshBuilder::new(
-            self.diameter,
-            self.amplitude,
-            self.wavelength,
-        )
-        .with_periods(self.cycles);
+        let builder = SerpentineMeshBuilder::new(self.diameter, self.amplitude, self.wavelength)
+            .with_periods(self.cycles);
 
         let config = SerpentineConfig3D {
             inlet_flow_rate: flow_rate,
@@ -192,7 +183,8 @@ impl PySerpentine3DSolver {
             _ => CassonBlood::<f64>::normal_blood(),
         };
 
-        let solution = solver.solve(fluid)
+        let solution = solver
+            .solve(fluid)
             .map_err(|e| PyRuntimeError::new_err(format!("Solver error: {e}")))?;
 
         Ok(PySerpentine3DResult {

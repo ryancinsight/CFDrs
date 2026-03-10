@@ -35,7 +35,7 @@ use crate::solvers::lbm::{
     boundary::BoundaryHandler,
     collision::{BgkCollision, CollisionOperator},
     lattice::{equilibrium, D2Q9},
-    macroscopic::{MacroscopicQuantities},
+    macroscopic::MacroscopicQuantities,
     streaming::{f_idx, StreamingOperator},
 };
 use cfd_core::error::Result;
@@ -119,16 +119,16 @@ where
     pub fn new(config: LbmConfig<T>, grid: &StructuredGrid2D<T>) -> Self {
         let nx = grid.nx();
         let ny = grid.ny();
-        let n  = nx * ny;
+        let n = nx * ny;
 
         // Single flat allocation for all distribution functions
-        let f        = vec![T::zero(); n * 9];
+        let f = vec![T::zero(); n * 9];
         let f_buffer = vec![T::zero(); n * 9];
 
         let macroscopic = MacroscopicQuantities::new(nx, ny);
-        let collision   = Box::new(BgkCollision::new(config.tau));
-        let boundary_handler   = BoundaryHandler::new();
-        let previous_velocity  = vec![T::zero(); n * 2];
+        let collision = Box::new(BgkCollision::new(config.tau));
+        let boundary_handler = BoundaryHandler::new();
+        let previous_velocity = vec![T::zero(); n * 2];
 
         Self {
             config,
@@ -151,8 +151,8 @@ where
         let u = [velocity.x, velocity.y];
         (0..9)
             .map(|q| {
-                let weight = T::from_f64(D2Q9::WEIGHTS[q])
-                    .expect("D2Q9 weights are exact f64 constants");
+                let weight =
+                    T::from_f64(D2Q9::WEIGHTS[q]).expect("D2Q9 weights are exact f64 constants");
                 equilibrium(density, &u, q, weight, D2Q9::VELOCITIES[q])
             })
             .collect()
@@ -183,17 +183,18 @@ where
 
                 let rho = density_fn(x, y);
                 let vel = velocity_fn(x, y);
-                let u   = [vel.x, vel.y];
+                let u = [vel.x, vel.y];
 
                 let cell = j * nx + i;
-                self.macroscopic.density[cell]       = rho;
-                self.macroscopic.velocity[cell * 2]     = u[0];
+                self.macroscopic.density[cell] = rho;
+                self.macroscopic.velocity[cell * 2] = u[0];
                 self.macroscopic.velocity[cell * 2 + 1] = u[1];
 
                 for q in 0..9 {
                     let weight = T::from_f64(D2Q9::WEIGHTS[q])
                         .expect("D2Q9 weights are exact f64 constants");
-                    self.f[f_idx(j, i, q, nx)] = equilibrium(rho, &u, q, weight, D2Q9::VELOCITIES[q]);
+                    self.f[f_idx(j, i, q, nx)] =
+                        equilibrium(rho, &u, q, weight, D2Q9::VELOCITIES[q]);
                 }
             }
         }
@@ -203,7 +204,10 @@ where
     }
 
     /// Perform one time step: macroscopic → collision → streaming → boundary.
-    pub fn step(&mut self, boundaries: &HashMap<(usize, usize), BoundaryCondition<T>>) -> Result<()> {
+    pub fn step(
+        &mut self,
+        boundaries: &HashMap<(usize, usize), BoundaryCondition<T>>,
+    ) -> Result<()> {
         let nx = self.nx;
         let ny = self.ny;
 
@@ -289,7 +293,8 @@ where
 
     /// Copy velocity buffer for convergence checking (zero additional allocation).
     fn copy_velocity_to_buffer(&mut self) {
-        self.previous_velocity.copy_from_slice(&self.macroscopic.velocity);
+        self.previous_velocity
+            .copy_from_slice(&self.macroscopic.velocity);
     }
 
     /// Compute ‖u^{n+1} − u^n‖_∞ for convergence check.

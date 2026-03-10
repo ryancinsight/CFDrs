@@ -156,7 +156,6 @@ impl ScalingTestResult {
 
     /// Assess overall scaling performance
     pub fn assess_scaling(&mut self) {
-        self.assessment =
-            super::assessment::ScalingAssessment::assess_from_results(self);
+        self.assessment = super::assessment::ScalingAssessment::assess_from_results(self);
     }
 }

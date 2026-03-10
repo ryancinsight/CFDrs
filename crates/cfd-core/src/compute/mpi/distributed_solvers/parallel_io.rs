@@ -87,7 +87,8 @@ impl<T: RealField + Copy + ToPrimitive> ParallelVtkWriter<T> {
         // --- Gather cell data fields ---
         let cell_count = cell_types.len();
         let mut all_cell_counts = vec![0usize; size];
-        self.communicator.all_gather(&cell_count, &mut all_cell_counts);
+        self.communicator
+            .all_gather(&cell_count, &mut all_cell_counts);
 
         let mut global_cell_data: HashMap<String, Vec<f64>> = HashMap::new();
         for (name, dv) in cell_data {
@@ -121,11 +122,7 @@ impl<T: RealField + Copy + ToPrimitive> ParallelVtkWriter<T> {
     ///
     /// Returns a `Vec<f64>` containing the concatenated data on root, and an
     /// empty `Vec` on non-root ranks.
-    fn gather_f64_to_root(
-        &self,
-        local: &[f64],
-        sizes: &[usize],
-    ) -> MpiResult<Vec<f64>> {
+    fn gather_f64_to_root(&self, local: &[f64], sizes: &[usize]) -> MpiResult<Vec<f64>> {
         if self.is_root {
             let mut global = Vec::with_capacity(sizes.iter().sum());
             // Root's own data.
@@ -156,9 +153,8 @@ impl<T: RealField + Copy + ToPrimitive> ParallelVtkWriter<T> {
         let n_points = points.len() / 3;
         let n_cells = cell_types.len();
 
-        let file = std::fs::File::create(filename.as_ref()).map_err(|e| {
-            MpiError::IoError(format!("Failed to create VTK file: {e}"))
-        })?;
+        let file = std::fs::File::create(filename.as_ref())
+            .map_err(|e| MpiError::IoError(format!("Failed to create VTK file: {e}")))?;
         let mut w = std::io::BufWriter::new(file);
 
         // VTK header
@@ -289,11 +285,7 @@ impl<T: RealField + Copy + ToPrimitive> ParallelHdf5Writer<T> {
     }
 
     /// Gather variable-length f64 slices from all ranks to root.
-    fn gather_f64_to_root(
-        &self,
-        local: &[f64],
-        sizes: &[usize],
-    ) -> MpiResult<Vec<f64>> {
+    fn gather_f64_to_root(&self, local: &[f64], sizes: &[usize]) -> MpiResult<Vec<f64>> {
         if self.is_root {
             let mut global = Vec::with_capacity(sizes.iter().sum());
             global.extend_from_slice(local);
@@ -325,9 +317,8 @@ impl<T: RealField + Copy + ToPrimitive> ParallelHdf5Writer<T> {
         datasets: &HashMap<String, Vec<f64>>,
         metadata: &HashMap<String, String>,
     ) -> MpiResult<()> {
-        let file = std::fs::File::create(filename.as_ref()).map_err(|e| {
-            MpiError::IoError(format!("Failed to create HDF5 file: {e}"))
-        })?;
+        let file = std::fs::File::create(filename.as_ref())
+            .map_err(|e| MpiError::IoError(format!("Failed to create HDF5 file: {e}")))?;
         let mut w = std::io::BufWriter::new(file);
 
         // Magic header

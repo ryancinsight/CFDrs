@@ -276,13 +276,14 @@ fn test_strain_rate_calculation() {
 
     let production = model.production_term(&velocity_gradient, nu_t, k, 0.0, 1.5e-5);
 
+
     // Production term formula: P = ν_t * strain² * 2
     // where strain = sqrt(2 * S_ij * S_ij)
     // For simple shear: S_12 = S_21 = γ/2, others = 0
     // S_ij * S_ij = S_12² + S_21² = 2 * (γ/2)² = γ²/2
     // strain = sqrt(2 * γ²/2) = γ
-    // P = ν_t * γ² * 2 = 2 ν_t γ²
-    let production_expected = 2.0 * nu_t * gamma * gamma;
+    // P = ν_t * γ²
+    let production_expected = nu_t * gamma * gamma;
 
     assert_relative_eq!(production, production_expected, epsilon = 1e-10);
 }

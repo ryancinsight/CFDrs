@@ -61,7 +61,11 @@ pub struct AngleBasedSmoother {
 
 impl Default for AngleBasedSmoother {
     fn default() -> Self {
-        Self { max_iter: 5, lambda: 0.3, preserve_boundary: true }
+        Self {
+            max_iter: 5,
+            lambda: 0.3,
+            preserve_boundary: true,
+        }
     }
 }
 
@@ -163,11 +167,7 @@ fn min_angle_in_ring(
 ///
 /// Uses the law of cosines: `cos θ = (e1² + e2² − e3²) / (2 e1 e2)` for each
 /// vertex angle, then returns the minimum.
-fn min_angle_triangle(
-    a: (Real, Real),
-    b: (Real, Real),
-    c: (Real, Real),
-) -> Real {
+fn min_angle_triangle(a: (Real, Real), b: (Real, Real), c: (Real, Real)) -> Real {
     let edge_sq = |p: (Real, Real), q: (Real, Real)| {
         let dx = p.0 - q.0;
         let dy = p.1 - q.1;
@@ -221,11 +221,7 @@ mod tests {
     #[test]
     fn equilateral_triangle_min_angle_is_60_deg() {
         use std::f64::consts::FRAC_PI_3;
-        let ang = min_angle_triangle(
-            (0.0, 0.0),
-            (1.0, 0.0),
-            (0.5, 3.0_f64.sqrt() / 2.0),
-        );
+        let ang = min_angle_triangle((0.0, 0.0), (1.0, 0.0), (0.5, 3.0_f64.sqrt() / 2.0));
         assert!(
             (ang - FRAC_PI_3).abs() < 1e-6,
             "equilateral min angle should be π/3, got {ang}"
@@ -258,9 +254,12 @@ mod tests {
                 })
                 .collect()
         };
-        AngleBasedSmoother { max_iter: 10, lambda: 0.5, preserve_boundary: true }.smooth(
-            &mut cdt,
-        );
+        AngleBasedSmoother {
+            max_iter: 10,
+            lambda: 0.5,
+            preserve_boundary: true,
+        }
+        .smooth(&mut cdt);
         let dt = cdt.triangulation();
         for i in 0..4 {
             let v = dt.vertex(PslgVertexId::from_usize(i));
@@ -268,7 +267,8 @@ mod tests {
             assert!(
                 (v.x - bx).abs() < 1e-12 && (v.y - by).abs() < 1e-12,
                 "boundary vertex {i} moved from ({bx},{by}) to ({},{})",
-                v.x, v.y
+                v.x,
+                v.y
             );
         }
     }

@@ -61,7 +61,8 @@ impl<T: RealField + Copy> ComputeKernel<T> for GpuPressureKernel<T> {
 
     fn execute(&self, _input: &[T], _output: &mut [T], _params: KernelParams) -> Result<()> {
         Err(crate::error::Error::UnsupportedOperation(
-            "GpuPressureKernel does not support CPU execution; use the GpuKernel trait dispatch".into(),
+            "GpuPressureKernel does not support CPU execution; use the GpuKernel trait dispatch"
+                .into(),
         ))
     }
 

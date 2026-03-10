@@ -1,5 +1,6 @@
 //! Specialized composite presets: cell separation, asymmetric, constriction,
 //! spiral, and parallel microchannel array topologies.
+#![allow(deprecated)] // NetworkBlueprint::new() used intentionally; nodes are created with NodeSpec::new_at().
 
 use super::{shah_london, specialized_layout, BLOOD_MU};
 use crate::domain::model::{ChannelShape, ChannelSpec, NetworkBlueprint, NodeKind, NodeSpec};
@@ -9,9 +10,12 @@ use crate::geometry::generator::{
     CenterSerpentinePathSpec, PrimitiveSelectiveSplitKind, PrimitiveSelectiveTreeRequest,
     SelectiveTreeRequest, SelectiveTreeTopology,
 };
-use crate::geometry::metadata::{
-    AsymmetricTrifurcationParams, VenturiGeometryMetadata,
+use crate::geometry::metadata::{AsymmetricTrifurcationParams, VenturiGeometryMetadata};
+use crate::topology::presets::{
+    constriction_expansion_series_spec, parallel_microchannel_array_spec,
+    spiral_serpentine_series_spec,
 };
+use crate::BlueprintTopologyFactory;
 
 /// Optional serpentine geometry applied only to center treatment lanes.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -63,10 +67,14 @@ fn venturi_metadata(
         outlet_width_m,
         convergent_half_angle_deg: conv_angle,
         divergent_half_angle_deg: diff_angle,
+        throat_position: 0.5,
     }
 }
 
-fn with_venturi_geometry_metadata(channel: ChannelSpec, metadata: VenturiGeometryMetadata) -> ChannelSpec {
+fn with_venturi_geometry_metadata(
+    channel: ChannelSpec,
+    metadata: VenturiGeometryMetadata,
+) -> ChannelSpec {
     channel
         .with_venturi_geometry(metadata.clone())
         .with_metadata(metadata)
@@ -104,8 +112,6 @@ pub fn primitive_selective_split_tree_rect(
         center_serpentine: generator_center_serpentine(center_serpentine),
     };
     create_primitive_selective_tree_geometry(&request)
-        .to_blueprint(1e-3)
-        .expect("primitive selective ChannelSystem should convert losslessly to blueprint")
 }
 
 /// Inertial-focusing cell-separation network with closed loop.
@@ -416,7 +422,18 @@ pub fn constriction_expansion_array_rect(
     narrow_width_m: f64,
     height_m: f64,
 ) -> NetworkBlueprint {
+    let name = name.into();
     assert!(n_cycles >= 1, "n_cycles must be ≥ 1");
+    let topology = constriction_expansion_series_spec(
+        &name,
+        n_cycles,
+        wide_length_m,
+        narrow_length_m,
+        wide_width_m,
+        narrow_width_m,
+        height_m,
+    );
+    let lineage = BlueprintTopologyFactory::lineage_for_spec(&topology);
     let mut bp = NetworkBlueprint::new(name);
 
     // ── Nodes ────────────────────────────────────────────────────────────────
@@ -471,7 +488,7 @@ pub fn constriction_expansion_array_rect(
         );
     }
 
-    bp
+    bp.with_topology_spec(topology).with_lineage(lineage)
 }
 
 /// Tight spiral channel with N turns for Dean-flow dominant WBC/RBC separation.
@@ -507,7 +524,10 @@ pub fn spiral_channel_rect(
     width_m: f64,
     height_m: f64,
 ) -> NetworkBlueprint {
+    let name = name.into();
     assert!(n_turns >= 1, "n_turns must be ≥ 1");
+    let topology = spiral_serpentine_series_spec(&name, n_turns, turn_length_m, width_m, height_m);
+    let lineage = BlueprintTopologyFactory::lineage_for_spec(&topology);
     let mut bp = NetworkBlueprint::new(name);
 
     // ── Nodes ────────────────────────────────────────────────────────────────
@@ -547,7 +567,7 @@ pub fn spiral_channel_rect(
         );
     }
 
-    bp
+    bp.with_topology_spec(topology).with_lineage(lineage)
 }
 
 /// N identical parallel microchannels all connecting a single Inlet to a single Outlet.
@@ -588,7 +608,16 @@ pub fn parallel_microchannel_array_rect(
     channel_width_m: f64,
     channel_height_m: f64,
 ) -> NetworkBlueprint {
+    let name = name.into();
     assert!(n_channels >= 1, "n_channels must be ≥ 1");
+    let topology = parallel_microchannel_array_spec(
+        &name,
+        n_channels,
+        channel_length_m,
+        channel_width_m,
+        channel_height_m,
+    );
+    let lineage = BlueprintTopologyFactory::lineage_for_spec(&topology);
     let mut bp = NetworkBlueprint::new(name);
 
     bp.add_node(NodeSpec::new("inlet", NodeKind::Inlet));
@@ -616,7 +645,7 @@ pub fn parallel_microchannel_array_rect(
         );
     }
 
-    bp
+    bp.with_topology_spec(topology).with_lineage(lineage)
 }
 
 /// Selective-routing cascade center-trifurcation separator with a single outlet.
@@ -686,8 +715,6 @@ pub fn cascade_center_trifurcation_rect(
         },
     };
     create_selective_tree_geometry(&request)
-        .to_blueprint(1e-3)
-        .expect("selective routing geometry must convert to blueprint")
 }
 
 /// Selective routing: pre-trifurcation cascade followed
@@ -834,8 +861,6 @@ pub fn incremental_filtration_tri_bi_rect_staged_remerge(
         },
     };
     create_selective_tree_geometry(&request)
-        .to_blueprint(1e-3)
-        .expect("selective routing geometry must convert to blueprint")
 }
 
 /// Asymmetric 3-stream trifurcation with center-only venturi for selective SDT.
@@ -951,29 +976,27 @@ pub fn asymmetric_trifurcation_venturi_rect(
     );
 
     // Venturi throat
-    bp.add_channel(
-        with_venturi_geometry_metadata(
-            ChannelSpec::new_pipe_rect(
-                "throat_section",
-                "throat_in",
-                "throat_out",
-                l_throat,
-                throat_width_m,
-                height_m,
-                shah_london(throat_width_m, height_m, l_throat, BLOOD_MU),
-                0.0,
-            )
-            .with_metadata(TherapyZoneMetadata::new(TherapyZone::CancerTarget)),
-            venturi_metadata(
-                throat_width_m,
-                height_m,
-                l_throat,
-                w_center,
-                w_center,
-                l_taper,
-            ),
+    bp.add_channel(with_venturi_geometry_metadata(
+        ChannelSpec::new_pipe_rect(
+            "throat_section",
+            "throat_in",
+            "throat_out",
+            l_throat,
+            throat_width_m,
+            height_m,
+            shah_london(throat_width_m, height_m, l_throat, BLOOD_MU),
+            0.0,
+        )
+        .with_metadata(TherapyZoneMetadata::new(TherapyZone::CancerTarget)),
+        venturi_metadata(
+            throat_width_m,
+            height_m,
+            l_throat,
+            w_center,
+            w_center,
+            l_taper,
         ),
-    );
+    ));
 
     // Diffuser: throat_out → outlet_merge
     bp.add_channel(
@@ -1070,8 +1093,6 @@ pub fn cascade_tri_bi_tri_selective_rect(
         },
     };
     create_selective_tree_geometry(&request)
-        .to_blueprint(1e-3)
-        .expect("selective Tri-Bi-Tri geometry must convert to blueprint")
 }
 
 /// Double-trifurcation selective-routing topology with differential venturi throat counts.
@@ -1141,14 +1162,13 @@ pub fn double_trifurcation_cif_venturi_rect(
         },
     };
     create_selective_tree_geometry(&request)
-        .to_blueprint(1e-3)
-        .expect("selective DTCV geometry must convert to blueprint")
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::domain::model::CrossSectionSpec;
+    use crate::geometry::metadata::IncrementalFiltrationParams;
 
     fn rect_width(bp: &NetworkBlueprint, id: &str) -> f64 {
         let ch = bp
@@ -1336,5 +1356,44 @@ mod tests {
             .find(|c| c.id.as_str() == "L_lv0")
             .expect("L_lv0 must exist");
         assert_eq!(bypass_channel.channel_shape, ChannelShape::Straight);
+    }
+
+    #[test]
+    fn constriction_expansion_array_embeds_series_topology_metadata() {
+        let bp =
+            constriction_expansion_array_rect("ce-meta", 4, 3.0e-3, 1.5e-3, 200e-6, 80e-6, 60e-6);
+        let topology = bp
+            .topology_spec()
+            .expect("constriction_expansion_array_rect should attach topology metadata");
+
+        assert_eq!(topology.treatment_channel_ids().len(), 4);
+        assert!(topology.is_leukapheresis_topology());
+        assert_eq!(topology.parallel_venturi_count(), 0);
+    }
+
+    #[test]
+    fn spiral_channel_embeds_series_topology_metadata() {
+        let bp = spiral_channel_rect("spiral-meta", 5, 6.0e-3, 200e-6, 60e-6);
+        let topology = bp
+            .topology_spec()
+            .expect("spiral_channel_rect should attach topology metadata");
+
+        assert_eq!(topology.treatment_channel_ids().len(), 5);
+        assert!(topology.has_serpentine());
+        assert!(topology.is_leukapheresis_topology());
+    }
+
+    #[test]
+    fn parallel_microchannel_array_embeds_parallel_topology_metadata() {
+        let bp = parallel_microchannel_array_rect("parallel-meta", 8, 12.0e-3, 140e-6, 55e-6);
+        let topology = bp
+            .topology_spec()
+            .expect("parallel_microchannel_array_rect should attach topology metadata");
+
+        assert!(topology.has_parallel_paths());
+        assert_eq!(topology.parallel_channels.len(), 8);
+        assert_eq!(topology.treatment_channel_ids().len(), 8);
+        assert!(topology.is_leukapheresis_topology());
+        assert_eq!(topology.parallel_venturi_count(), 0);
     }
 }

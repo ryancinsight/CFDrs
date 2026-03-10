@@ -107,7 +107,8 @@ impl<T: RealField + Copy + FromPrimitive> WaleModel<T> {
         let s_yy = dv_dy;
 
         // Strain rate magnitude squared: |S|² = 2*S_ij*S_ij
-        let strain_mag_sq = T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero) * (s_xx * s_xx + s_xy * s_xy + s_yy * s_yy);
+        let strain_mag_sq = T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero)
+            * (s_xx * s_xx + s_xy * s_xy + s_yy * s_yy);
 
         // Compute WALE tensor S_ij^d
         let wale_tensor_mag_sq = self.wale_tensor_magnitude_squared(du_dx, du_dy, dv_dx, dv_dy);
@@ -152,25 +153,29 @@ impl<T: RealField + Copy + FromPrimitive> WaleModel<T> {
 
         // Central differences with boundary handling
         let du_dx = if i > 0 && i < nx - 1 {
-            (velocity.at(i + 1, j).x - velocity.at(i - 1, j).x) / (T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero) * dx)
+            (velocity.at(i + 1, j).x - velocity.at(i - 1, j).x)
+                / (T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero) * dx)
         } else {
             T::zero() // Boundary - assume zero gradient for simplicity
         };
 
         let du_dy = if j > 0 && j < ny - 1 {
-            (velocity.at(i, j + 1).x - velocity.at(i, j - 1).x) / (T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero) * dy)
+            (velocity.at(i, j + 1).x - velocity.at(i, j - 1).x)
+                / (T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero) * dy)
         } else {
             T::zero()
         };
 
         let dv_dx = if i > 0 && i < nx - 1 {
-            (velocity.at(i + 1, j).y - velocity.at(i - 1, j).y) / (T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero) * dx)
+            (velocity.at(i + 1, j).y - velocity.at(i - 1, j).y)
+                / (T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero) * dx)
         } else {
             T::zero()
         };
 
         let dv_dy = if j > 0 && j < ny - 1 {
-            (velocity.at(i, j + 1).y - velocity.at(i, j - 1).y) / (T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero) * dy)
+            (velocity.at(i, j + 1).y - velocity.at(i, j - 1).y)
+                / (T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero) * dy)
         } else {
             T::zero()
         };
@@ -207,12 +212,16 @@ impl<T: RealField + Copy + FromPrimitive> WaleModel<T> {
         let trace_s2 = s2_xx + s2_yy;
 
         // WALE tensor: S_ij^d = S²_ij - (1/3)δ_ij tr(S²)
-        let sd_xx = s2_xx - T::from_f64(1.0 / 3.0).unwrap_or_else(num_traits::Zero::zero) * trace_s2;
+        let sd_xx =
+            s2_xx - T::from_f64(1.0 / 3.0).unwrap_or_else(num_traits::Zero::zero) * trace_s2;
         let sd_xy = s2_xy; // Off-diagonal terms unchanged
-        let sd_yy = s2_yy - T::from_f64(1.0 / 3.0).unwrap_or_else(num_traits::Zero::zero) * trace_s2;
+        let sd_yy =
+            s2_yy - T::from_f64(1.0 / 3.0).unwrap_or_else(num_traits::Zero::zero) * trace_s2;
 
         // Magnitude squared: S^d_ij S^d_ij
-        sd_xx * sd_xx + T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero) * sd_xy * sd_xy + sd_yy * sd_yy
+        sd_xx * sd_xx
+            + T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero) * sd_xy * sd_xy
+            + sd_yy * sd_yy
     }
 }
 

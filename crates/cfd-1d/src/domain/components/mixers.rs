@@ -51,7 +51,7 @@
 
 use super::Component;
 use cfd_core::error::{Error, Result};
-use cfd_core::physics::fluid::Fluid;
+use cfd_core::physics::fluid::ConstantPropertyFluid;
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
@@ -189,7 +189,7 @@ impl<T: RealField + Copy + FromPrimitive> Component<T> for Micromixer<T> {
     /// - White, F. M. (2003). *Fluid Mechanics* (5th ed.). Ch. 8.
     /// - Stroock, A. D. et al. (2002). Chaotic mixer for microchannels.
     ///   *Science*, 295(5555), 647–651.
-    fn resistance(&self, fluid: &Fluid<T>) -> T {
+    fn resistance(&self, fluid: &ConstantPropertyFluid<T>) -> T {
         let mu = fluid.viscosity;
 
         let d = self.hydraulic_diameter;

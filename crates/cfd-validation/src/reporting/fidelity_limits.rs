@@ -74,7 +74,10 @@ impl fmt::Display for FidelityLimit {
         write!(
             f,
             "{}: {} | Order: {} | Min res: {} | Validated: {}",
-            self.fidelity, self.solver, self.accuracy_order, self.min_resolution,
+            self.fidelity,
+            self.solver,
+            self.accuracy_order,
+            self.min_resolution,
             self.validated_against,
         )
     }
@@ -90,8 +93,13 @@ pub fn fidelity_limits_markdown() -> String {
     for l in &limits {
         md.push_str(&format!(
             "| {} | {} | {} | {} | {} | {} | {} |\n",
-            l.fidelity, l.solver, l.accuracy_order, l.min_resolution,
-            l.validated_against, l.phenomena, l.limitations,
+            l.fidelity,
+            l.solver,
+            l.accuracy_order,
+            l.min_resolution,
+            l.validated_against,
+            l.phenomena,
+            l.limitations,
         ));
     }
     md

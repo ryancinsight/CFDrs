@@ -38,7 +38,7 @@ pub struct SerpentineConfig {
     pub wave_phase_direction: f64,
     /// Wave shape type - sine for smooth curves, square for angular transitions
     pub wave_shape: WaveShape,
-    /// Enable length optimization algorithm (default: false for backward compatibility)
+    /// Enable length optimization algorithm (default: false)
     pub optimization_enabled: bool,
     /// Target fill ratio for optimization - fraction of maximum possible length to achieve (0.8 to 0.99)
     pub target_fill_ratio: f64,
@@ -57,7 +57,7 @@ impl Default for SerpentineConfig {
             wave_density_factor: constants::DEFAULT_WAVE_DENSITY_FACTOR,
             wave_phase_direction: 0.0, // Auto-determine for perfect symmetry
             wave_shape: WaveShape::default(), // Default to sine wave
-            optimization_enabled: false, // Disabled by default for backward compatibility
+            optimization_enabled: false, // Disabled by default
             target_fill_ratio: 0.9,    // Default target for optimization
             optimization_profile: OptimizationProfile::Balanced, // Default profile
             adaptive_config: AdaptiveSerpentineConfig::default(), // Default adaptive behavior
@@ -80,7 +80,7 @@ impl SerpentineConfig {
             wave_density_factor,
             wave_phase_direction: 0.0, // Auto-determine for perfect symmetry
             wave_shape: WaveShape::default(), // Default to sine wave
-            optimization_enabled: false, // Disabled by default for backward compatibility
+            optimization_enabled: false, // Disabled by default
             target_fill_ratio: 0.9,    // Default target for optimization
             optimization_profile: OptimizationProfile::Balanced, // Default profile
             adaptive_config: AdaptiveSerpentineConfig::default(), // Default adaptive behavior
@@ -153,7 +153,7 @@ impl SerpentineConfig {
             wave_density_factor,
             wave_phase_direction,
             wave_shape: WaveShape::default(), // Default to sine wave
-            optimization_enabled: false,      // Disabled by default for backward compatibility
+            optimization_enabled: false,      // Disabled by default
             target_fill_ratio: 0.9,           // Default target for optimization
             optimization_profile: OptimizationProfile::Balanced, // Default profile
             adaptive_config: AdaptiveSerpentineConfig::default(), // Default adaptive behavior

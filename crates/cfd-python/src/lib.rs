@@ -56,7 +56,6 @@
 #![allow(clippy::implicit_hasher)]
 #![allow(clippy::new_without_default)]
 #![allow(clippy::trivially_copy_pass_by_ref)]
-#![allow(clippy::ptr_arg)]
 #![allow(clippy::format_push_string)]
 #![allow(clippy::field_reassign_with_default)]
 #![allow(clippy::empty_line_after_doc_comments)]
@@ -81,11 +80,11 @@ mod womersley;
 
 pub use bifurcation::{PyBifurcationSolver, PyTrifurcationResult, PyTrifurcationSolver};
 pub use blood::*;
-pub use womersley::*;
 pub use poiseuille_2d::{PyPoiseuilleConfig, PyPoiseuilleResult, PyPoiseuilleSolver};
 pub use result_types::PyBifurcationResult;
 pub use solver_2d::*;
 pub use solver_3d::*;
+pub use womersley::*;
 
 /// `PyO3` module for CFD-rs Python bindings
 #[pymodule]

@@ -50,7 +50,6 @@
 #![allow(clippy::doc_markdown)] // Math notation doesn't need backticks
 #![allow(clippy::needless_pass_by_value)] // Pass by value for Copy types is idiomatic
 #![allow(clippy::return_self_not_must_use)] // Builder patterns used internally
-#![allow(clippy::ptr_arg)] // &Vec used for API compatibility
 #![allow(clippy::should_implement_trait)] // CFD-specific trait implementations
 #![allow(clippy::approx_constant)] // Fallback constants for generic numerical types
 #![allow(clippy::too_many_lines)] // Complex validation/benchmark functions need detailed implementation

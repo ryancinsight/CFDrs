@@ -8,6 +8,7 @@ readme = "README.md"
 [lib]
 name = "cfd_python"
 crate-type = ["cdylib"]
+test = false
 
 [dependencies]
 pyo3 = { version = "0.22", features = ["extension-module"] }

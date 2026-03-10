@@ -197,9 +197,7 @@ impl<
 
                 for i in 0..10 {
                     let u = solution.get_velocity(idxs[i]);
-                    div += p2_grads[(0, i)] * u.x
-                        + p2_grads[(1, i)] * u.y
-                        + p2_grads[(2, i)] * u.z;
+                    div += p2_grads[(0, i)] * u.x + p2_grads[(1, i)] * u.y + p2_grads[(2, i)] * u.z;
                 }
             } else {
                 let mut element = crate::fem::element::FluidElement::new(idxs.clone());

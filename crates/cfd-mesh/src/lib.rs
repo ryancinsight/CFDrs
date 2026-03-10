@@ -2,7 +2,7 @@
 //!
 //! State-of-the-art watertight CFD mesh generation for millifluidic devices.
 //!
-//! This crate provides three mesh representations (one modern, two legacy),
+//! This crate provides the canonical indexed and half-edge mesh representations,
 //! a complete Boolean CSG pipeline, spatial-hash vertex welding, exact
 //! geometric predicates, manifold/watertight checking, and OpenFOAM-compatible
 //! I/O — all targeting millimetre-scale microfluidic channel geometries.
@@ -50,7 +50,7 @@
 //!
 //! | Module | Contents |
 //! |--------|---------|
-//! | [`mesh`] | `HalfEdgeMesh`, `Mesh<T>`, `IndexedMesh`, `MeshBuilder` |
+//! | [`mesh`] | `HalfEdgeMesh`, `IndexedMesh`, `MeshBuilder` |
 //! | [`topology`] | Half-edge structures, boundary patches, element types |
 //! | [`geometry`] | Exact predicates, AABB, plane, NURBS, builders |
 //! | [`welding`] | 26-neighbor `SnappingGrid`, `SpatialHashGrid`, `MeshWelder` |
@@ -118,7 +118,6 @@
 #![allow(clippy::implicit_hasher)]
 #![allow(clippy::new_without_default)]
 #![allow(clippy::trivially_copy_pass_by_ref)]
-#![allow(clippy::ptr_arg)]
 #![allow(clippy::format_push_string)]
 #![allow(clippy::field_reassign_with_default)]
 #![allow(clippy::empty_line_after_doc_comments)]
@@ -135,7 +134,7 @@ pub mod application;
 pub mod domain;
 pub mod infrastructure;
 
-/// Legacy watertight-first indexed surface mesh.
+/// Canonical watertight-first indexed surface mesh.
 pub use domain::mesh::IndexedMesh;
 
 /// Ergonomic builder for `IndexedMesh`.

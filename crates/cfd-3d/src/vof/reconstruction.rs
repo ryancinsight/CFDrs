@@ -58,8 +58,8 @@
 //! "A continuum method for modeling surface tension".
 //! J. Comput. Phys. 100:335–354.
 
-use super::plic_geometry::volume_under_plane_3d;
 use super::config::{constants, VofConfig, VOF_EPSILON, VOF_INTERFACE_LOWER, VOF_INTERFACE_UPPER};
+use super::plic_geometry::volume_under_plane_3d;
 use super::solver::VofSolver;
 use nalgebra::{RealField, Vector3};
 use num_traits::FromPrimitive;
@@ -119,12 +119,18 @@ impl InterfaceReconstruction {
                                 let idx = solver.index(i, j, k);
                                 let alpha = solver.alpha[idx];
 
-                                let interface_lower =
-                                    <T as FromPrimitive>::from_f64(VOF_INTERFACE_LOWER)
-                                        .expect("VOF_INTERFACE_LOWER is an IEEE 754 representable f64 constant");
-                                let interface_upper =
-                                    <T as FromPrimitive>::from_f64(VOF_INTERFACE_UPPER)
-                                        .expect("VOF_INTERFACE_UPPER is an IEEE 754 representable f64 constant");
+                                let interface_lower = <T as FromPrimitive>::from_f64(
+                                    VOF_INTERFACE_LOWER,
+                                )
+                                .expect(
+                                    "VOF_INTERFACE_LOWER is an IEEE 754 representable f64 constant",
+                                );
+                                let interface_upper = <T as FromPrimitive>::from_f64(
+                                    VOF_INTERFACE_UPPER,
+                                )
+                                .expect(
+                                    "VOF_INTERFACE_UPPER is an IEEE 754 representable f64 constant",
+                                );
 
                                 if alpha > interface_lower && alpha < interface_upper {
                                     match self {
@@ -242,8 +248,8 @@ impl InterfaceReconstruction {
 
         let tolerance = <T as FromPrimitive>::from_f64(constants::PLIC_TOLERANCE)
             .expect("PLIC_TOLERANCE is an IEEE 754 representable f64 constant");
-        let half = <T as FromPrimitive>::from_f64(0.5)
-            .expect("0.5 is exactly representable in IEEE 754");
+        let half =
+            <T as FromPrimitive>::from_f64(0.5).expect("0.5 is exactly representable in IEEE 754");
 
         // Bisect until interval < tolerance × cell_size
         while (c_max - c_min) > tolerance {

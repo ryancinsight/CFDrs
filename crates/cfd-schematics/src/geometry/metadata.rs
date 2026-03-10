@@ -4,9 +4,9 @@
 //! of new tracking variables without requiring changes to core data structures.
 //! It uses trait-based extensibility with type-safe metadata storage.
 
+use serde::{Deserialize, Serialize};
 use std::any::{Any, TypeId};
 use std::collections::HashMap;
-use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
 /// Base trait for all metadata types
@@ -417,6 +417,13 @@ pub struct VenturiGeometryMetadata {
     pub convergent_half_angle_deg: f64,
     /// Divergent half-angle [deg].
     pub divergent_half_angle_deg: f64,
+    /// Relative position of the throat along the channel (0 = inlet, 1 = outlet, 0.5 = center).
+    #[serde(default = "default_throat_position")]
+    pub throat_position: f64,
+}
+
+fn default_throat_position() -> f64 {
+    0.5
 }
 
 impl Metadata for VenturiGeometryMetadata {
@@ -469,10 +476,6 @@ impl Metadata for CascadeParams {
 pub struct IncrementalFiltrationParams {
     /// Number of pre-trifurcation stages (typically 1–3).
     pub n_pretri: u8,
-    /// Legacy center-arm width fraction ∈ [0.25, 0.65].
-    ///
-    /// Preserved for backward compatibility with older CIF metadata readers.
-    pub center_frac: f64,
     /// Pre-trifurcation center-arm width fraction ∈ [0.25, 0.65].
     pub pretri_center_frac: f64,
     /// Terminal-trifurcation center-arm width fraction ∈ [0.25, 0.65].
@@ -790,6 +793,51 @@ impl Metadata for BlueprintRenderHints {
     }
 }
 
+/// Provenance marker for figure-authorable blueprints created by the canonical
+/// geometry-generation path.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GeometryAuthoringProvenance {
+    /// Stable source identifier for the geometry-authoring pipeline.
+    pub source: String,
+}
+
+impl GeometryAuthoringProvenance {
+    /// Canonical provenance marker written by `create_geometry`.
+    #[must_use]
+    pub fn create_geometry() -> Self {
+        Self {
+            source: "create_geometry".to_string(),
+        }
+    }
+
+    /// Canonical provenance marker written by selective-tree wrappers that
+    /// delegate to the `create_geometry` pipeline before annotating the result.
+    #[must_use]
+    pub fn selective_wrapper() -> Self {
+        Self {
+            source: "create_geometry::selective_wrapper".to_string(),
+        }
+    }
+}
+
+impl Metadata for GeometryAuthoringProvenance {
+    fn metadata_type_name(&self) -> &'static str {
+        "GeometryAuthoringProvenance"
+    }
+
+    fn clone_metadata(&self) -> Box<dyn Metadata> {
+        Box::new(self.clone())
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+}
+
 /// Convenience macro for implementing Metadata trait
 #[macro_export]
 macro_rules! impl_metadata {
@@ -832,7 +880,9 @@ mod tests {
 
         container.insert(flow_data.clone());
 
-        let retrieved = container.get::<FlowMetadata>().unwrap();
+        let retrieved = container
+            .get::<FlowMetadata>()
+            .expect("structural invariant");
         assert_eq!(retrieved, &flow_data);
 
         // Test contains
@@ -869,8 +919,12 @@ mod tests {
         assert!(container.contains::<FlowMetadata>());
         assert!(container.contains::<ThermalMetadata>());
 
-        let retrieved_flow = container.get::<FlowMetadata>().unwrap();
-        let retrieved_thermal = container.get::<ThermalMetadata>().unwrap();
+        let retrieved_flow = container
+            .get::<FlowMetadata>()
+            .expect("structural invariant");
+        let retrieved_thermal = container
+            .get::<ThermalMetadata>()
+            .expect("structural invariant");
 
         assert_eq!(retrieved_flow, &flow_data);
         assert_eq!(retrieved_thermal, &thermal_data);

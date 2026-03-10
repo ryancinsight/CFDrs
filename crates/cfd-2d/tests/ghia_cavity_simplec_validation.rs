@@ -19,7 +19,7 @@ use cfd_2d::pressure_velocity::PressureLinearSolver;
 use cfd_2d::schemes::SpatialScheme;
 use cfd_2d::simplec_pimple::config::{AlgorithmType, SimplecPimpleConfig};
 use cfd_2d::simplec_pimple::SimplecPimpleSolver;
-use cfd_core::physics::fluid::Fluid;
+use cfd_core::physics::fluid::ConstantPropertyFluid;
 use cfd_validation::analytical_benchmarks::lid_driven_cavity;
 use cfd_validation::benchmarks::cavity::LidDrivenCavity;
 use cfd_validation::error_metrics::ErrorMetric;
@@ -46,7 +46,8 @@ where
 
     // Create grid and fluid
     let grid = StructuredGrid2D::new(nx, ny, 0.0, 1.0, 0.0, 1.0).expect("Failed to create grid");
-    let fluid = Fluid::new("Test Fluid".to_string(), 1.0, nu, 1000.0, 0.001, 1482.0);
+    let fluid =
+        ConstantPropertyFluid::new("Test Fluid".to_string(), 1.0, nu, 1000.0, 0.001, 1482.0);
 
     // Create simulation fields
     let mut fields = SimulationFields::with_fluid(nx, ny, &fluid);
@@ -149,7 +150,8 @@ where
 
     // Create grid and fluid
     let grid = StructuredGrid2D::new(nx, ny, 0.0, 1.0, 0.0, 1.0).expect("Failed to create grid");
-    let fluid = Fluid::new("Test Fluid".to_string(), 1.0, nu, 1000.0, 0.001, 1482.0);
+    let fluid =
+        ConstantPropertyFluid::new("Test Fluid".to_string(), 1.0, nu, 1000.0, 0.001, 1482.0);
 
     // Create simulation fields
     let mut fields = SimulationFields::with_fluid(nx, ny, &fluid);
@@ -284,7 +286,8 @@ where
 
     // Create grid and fluid
     let grid = StructuredGrid2D::new(nx, ny, 0.0, 1.0, 0.0, 1.0).expect("Failed to create grid");
-    let fluid = Fluid::new("Test Fluid".to_string(), 1.0, nu, 1000.0, 0.001, 1482.0);
+    let fluid =
+        ConstantPropertyFluid::new("Test Fluid".to_string(), 1.0, nu, 1000.0, 0.001, 1482.0);
 
     // Create simulation fields (boundary conditions handled by solver)
     let mut fields = SimulationFields::with_fluid(nx, ny, &fluid);
@@ -405,7 +408,8 @@ where
     let nu = lid_velocity / reynolds;
 
     let grid = StructuredGrid2D::new(nx, ny, 0.0, 1.0, 0.0, 1.0).expect("Failed to create grid");
-    let fluid = Fluid::new("Test Fluid".to_string(), 1.0, nu, 1000.0, 0.001, 1482.0);
+    let fluid =
+        ConstantPropertyFluid::new("Test Fluid".to_string(), 1.0, nu, 1000.0, 0.001, 1482.0);
 
     // Test without Rhie-Chow
     let mut fields_no_rhie = SimulationFields::with_fluid(nx, ny, &fluid);
@@ -602,7 +606,14 @@ where
     let fields = cfd_2d::fields::SimulationFields::with_fluid(
         nx,
         ny,
-        &cfd_core::physics::fluid::Fluid::new("test".to_string(), 1.0, 0.01, 1.0, 1.0, 1.0),
+        &cfd_core::physics::fluid::ConstantPropertyFluid::new(
+            "test".to_string(),
+            1.0,
+            0.01,
+            1.0,
+            1.0,
+            1.0,
+        ),
     );
     // Set u_star values into fields if needed, but the solver interface may vary
     let p_correction = solver
@@ -849,7 +860,8 @@ where
 
     // Create grid and fluid
     let grid = StructuredGrid2D::new(nx, ny, 0.0, 1.0, 0.0, 1.0).expect("Failed to create grid");
-    let fluid = Fluid::new("Test Fluid".to_string(), 1.0, nu, 1000.0, 0.001, 1482.0);
+    let fluid =
+        ConstantPropertyFluid::new("Test Fluid".to_string(), 1.0, nu, 1000.0, 0.001, 1482.0);
 
     // Parameter study: try different configurations
     let parameter_sets = vec![
@@ -993,7 +1005,8 @@ where
 
         let grid =
             StructuredGrid2D::new(nx, ny, 0.0, 1.0, 0.0, 1.0).expect("Failed to create grid");
-        let fluid = Fluid::new("Test Fluid".to_string(), 1.0, nu, 1000.0, 0.001, 1482.0);
+        let fluid =
+            ConstantPropertyFluid::new("Test Fluid".to_string(), 1.0, nu, 1000.0, 0.001, 1482.0);
 
         // Use optimized configuration
         let config = SimplecPimpleConfig {
@@ -1132,7 +1145,8 @@ where
         let nu = lid_velocity / reynolds;
         let grid =
             StructuredGrid2D::new(nx, ny, 0.0, 1.0, 0.0, 1.0).expect("Failed to create grid");
-        let fluid = Fluid::new("Test Fluid".to_string(), 1.0, nu, 1000.0, 0.001, 1482.0);
+        let fluid =
+            ConstantPropertyFluid::new("Test Fluid".to_string(), 1.0, nu, 1000.0, 0.001, 1482.0);
 
         // Use optimized configuration from Re=100 study
         let config = SimplecPimpleConfig {
@@ -1259,7 +1273,8 @@ where
 
         let grid =
             StructuredGrid2D::new(nx, ny, 0.0, 1.0, 0.0, 1.0).expect("Failed to create grid");
-        let fluid = Fluid::new("Test Fluid".to_string(), 1.0, nu, 1000.0, 0.001, 1482.0);
+        let fluid =
+            ConstantPropertyFluid::new("Test Fluid".to_string(), 1.0, nu, 1000.0, 0.001, 1482.0);
 
         // Optimized configuration for performance
         let config = SimplecPimpleConfig {
@@ -1424,7 +1439,8 @@ where
 
     let grid = StructuredGrid2D::new(nx, ny, 0.0, 2.0, 0.0, channel_height)
         .expect("Failed to create grid");
-    let fluid = Fluid::new("Test Fluid".to_string(), 1.0, nu, 1000.0, 0.001, 1482.0);
+    let fluid =
+        ConstantPropertyFluid::new("Test Fluid".to_string(), 1.0, nu, 1000.0, 0.001, 1482.0);
 
     let config = SimplecPimpleConfig {
         algorithm: AlgorithmType::Simplec,
@@ -1576,7 +1592,8 @@ where
     println!("\n=== Stokes Flow Validation (Re={:.4}) ===", reynolds);
 
     let grid = StructuredGrid2D::new(nx, ny, 0.0, 1.0, 0.0, 1.0).expect("Failed to create grid");
-    let fluid = Fluid::new("Test Fluid".to_string(), 1.0, nu, 1000.0, 0.001, 1482.0);
+    let fluid =
+        ConstantPropertyFluid::new("Test Fluid".to_string(), 1.0, nu, 1000.0, 0.001, 1482.0);
 
     // Use very conservative settings for Stokes flow
     let config = SimplecPimpleConfig {

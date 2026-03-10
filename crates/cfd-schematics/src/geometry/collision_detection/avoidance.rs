@@ -18,7 +18,7 @@ impl CollisionDetectionSystem {
     /// encounters computational issues during the avoidance process.
     pub fn apply_collision_avoidance(
         &mut self,
-        path: &mut Vec<Point2D>,
+        path: &mut [Point2D],
         context: &CollisionContext,
     ) -> SchemeResult<CollisionAvoidanceResult> {
         let detection_result = self.detect_collisions(path, context)?;
@@ -194,7 +194,7 @@ impl CollisionDetectionSystem {
         }
     }
 
-    /// Apply standard path reduction (legacy method)
+    /// Apply the baseline path-reduction pass.
     fn apply_standard_reduction(
         path: &mut [Point2D],
         start: Point2D,

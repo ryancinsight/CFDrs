@@ -19,8 +19,8 @@
 //!
 //! **Reference**: Zienkiewicz & Taylor (2005), *The Finite Element Method*, Vol. 1, §8.4.
 
-use cfd_mesh::IndexedMesh;
 use cfd_mesh::domain::core::Scalar;
+use cfd_mesh::IndexedMesh;
 use nalgebra::RealField;
 use num_traits::{Float, FromPrimitive};
 use std::collections::HashMap;
@@ -56,27 +56,17 @@ impl MidNodeCache {
 
         // Collect corner node positions
         let corner_positions: Vec<nalgebra::Vector3<T>> = (0..n_corner_nodes)
-            .map(|i| {
-                mesh.vertices
-                    .position(VertexId::from_usize(i))
-                    .coords
-            })
+            .map(|i| mesh.vertices.position(VertexId::from_usize(i)).coords)
             .collect();
 
         // Collect mid-node positions
-        let mid_node_positions: Vec<(usize, nalgebra::Vector3<T>)> =
-            (n_corner_nodes..mesh.vertex_count())
-                .map(|i| {
-                    (
-                        i,
-                        mesh.vertices
-                            .position(VertexId::from_usize(i))
-                            .coords,
-                    )
-                })
-                .collect();
+        let mid_node_positions: Vec<(usize, nalgebra::Vector3<T>)> = (n_corner_nodes
+            ..mesh.vertex_count())
+            .map(|i| (i, mesh.vertices.position(VertexId::from_usize(i)).coords))
+            .collect();
 
-        let half = <T as FromPrimitive>::from_f64(0.5_f64).unwrap_or(T::one() / (T::one() + T::one()));
+        let half =
+            <T as FromPrimitive>::from_f64(0.5_f64).unwrap_or(T::one() / (T::one() + T::one()));
 
         // For each mid-node, find its closest corner-corner midpoint
         let mut inner: HashMap<(usize, usize), usize> =
@@ -145,7 +135,9 @@ mod tests {
     /// get() must be symmetric: cache.get(a, b) == cache.get(b, a).
     #[test]
     fn test_mid_node_cache_symmetric_lookup() {
-        let mut cache = MidNodeCache { inner: HashMap::new() };
+        let mut cache = MidNodeCache {
+            inner: HashMap::new(),
+        };
         cache.inner.insert((0, 3), 42);
         cache.inner.insert((1, 2), 99);
 

@@ -6,6 +6,7 @@
 use std::collections::HashMap;
 use std::f64::consts::PI;
 
+use cfd_schematics::geometry::FluidVolumeSummary;
 use cfd_schematics::{CrossSectionSpec, NetworkBlueprint, NodeKind};
 
 use crate::application::channel::path::ChannelPath;
@@ -91,8 +92,66 @@ pub struct SegmentCenterline {
     pub x1: f64,
     /// Y end [mm]
     pub y1: f64,
+    /// Source blueprint channel identifier when this segment maps to one.
+    pub source_channel_id: Option<String>,
+    /// Upstream blueprint node identifier when this segment maps to one.
+    pub from_node_id: Option<String>,
+    /// Downstream blueprint node identifier when this segment maps to one.
+    pub to_node_id: Option<String>,
+    /// Whether this segment was synthesized as a routing connector rather than a direct blueprint channel mapping.
+    pub is_synthetic_connector: bool,
     /// Effective tube diameter [mm]
     pub diameter_mm: f64,
+}
+
+/// Per-blueprint-channel volume comparison between schematic geometry and the meshed 3D path.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct ChannelVolumeTrace {
+    /// Blueprint channel identifier.
+    pub channel_id: String,
+    /// Upstream blueprint node identifier.
+    pub from_node_id: String,
+    /// Downstream blueprint node identifier.
+    pub to_node_id: String,
+    /// Schematic centerline length [mm].
+    pub schematic_centerline_length_mm: f64,
+    /// Meshed centerline length traced through synthesized layout segments [mm].
+    pub meshed_centerline_length_mm: f64,
+    /// True schematic cross-sectional area [mm^2].
+    pub cross_section_area_mm2: f64,
+    /// Authoritative schematic fluid volume [mm^3].
+    pub schematic_volume_mm3: f64,
+    /// Meshed fluid volume for this channel after collapsing the channel's own subsegments [mm^3].
+    pub meshed_volume_mm3: f64,
+    /// Meshed minus schematic volume [mm^3].
+    pub volume_error_mm3: f64,
+    /// Relative volume error against the schematic contract [%].
+    pub volume_error_pct: f64,
+    /// Number of synthesized layout segments attributed to this blueprint channel.
+    pub layout_segment_count: usize,
+}
+
+/// Volume diagnostics for the full blueprint-to-mesh conversion.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct PipelineVolumeTrace {
+    /// Authoritative schematic-wide fluid volume summary.
+    pub schematic_summary: FluidVolumeSummary,
+    /// Per-channel schematic-versus-mesh volume traces.
+    pub channel_traces: Vec<ChannelVolumeTrace>,
+    /// Sum of all per-channel meshed volumes before inter-channel CSG overlap removal [mm^3].
+    pub pre_csg_channel_volume_mm3: f64,
+    /// Volume carried by synthesized routing connectors that do not map to a blueprint channel [mm^3].
+    pub synthetic_connector_volume_mm3: f64,
+    /// Final fluid mesh signed volume after full CSG assembly [mm^3].
+    pub fluid_mesh_volume_mm3: f64,
+    /// Final chip-body signed volume [mm^3] when requested.
+    pub chip_mesh_volume_mm3: Option<f64>,
+    /// Fluid-mesh minus schematic total fluid volume [mm^3].
+    pub fluid_mesh_volume_error_mm3: f64,
+    /// Relative fluid-mesh volume error against the schematic total [%].
+    pub fluid_mesh_volume_error_pct: f64,
+    /// Volume removed by full-network CSG relative to the sum of meshed channel and connector volumes [mm^3].
+    pub csg_overlap_delta_mm3: f64,
 }
 
 /// Output of the `BlueprintMeshPipeline`.
@@ -111,6 +170,8 @@ pub struct PipelineOutput {
     /// Includes the full pre-merge layout (before `merge_collinear_segments`).
     /// Use for 2-D schematic rendering and geometry verification.
     pub layout_segments: Vec<SegmentCenterline>,
+    /// Volume diagnostics tying the mesh back to the schematic contract.
+    pub volume_trace: PipelineVolumeTrace,
 }
 
 // ── BlueprintMeshPipeline ─────────────────────────────────────────────────────
@@ -193,6 +254,10 @@ impl BlueprintMeshPipeline {
                 y0: seg.start.y,
                 x1: seg.end.x,
                 y1: seg.end.y,
+                source_channel_id: seg.source_channel_id.clone(),
+                from_node_id: seg.from_node_id.clone(),
+                to_node_id: seg.to_node_id.clone(),
+                is_synthetic_connector: seg.is_synthetic_connector,
                 diameter_mm: cross_section_diameter_mm(&seg.cross_section),
             })
             .collect();
@@ -305,12 +370,16 @@ impl BlueprintMeshPipeline {
             None
         };
 
+        let volume_trace =
+            compute_volume_trace(bp, &layout, &fluid_mesh, chip_mesh.as_ref(), config)?;
+
         Ok(PipelineOutput {
             fluid_mesh,
             chip_mesh,
             topology_class: class,
             segment_count,
             layout_segments,
+            volume_trace,
         })
     }
 }
@@ -322,6 +391,45 @@ struct SegmentLayout {
     start: Point3r,
     end: Point3r,
     cross_section: CrossSectionSpec,
+    source_channel_id: Option<String>,
+    from_node_id: Option<String>,
+    to_node_id: Option<String>,
+    is_synthetic_connector: bool,
+}
+
+fn channel_segment(
+    start: Point3r,
+    end: Point3r,
+    cross_section: CrossSectionSpec,
+    channel_id: &str,
+    from_node_id: &str,
+    to_node_id: &str,
+) -> SegmentLayout {
+    SegmentLayout {
+        start,
+        end,
+        cross_section,
+        source_channel_id: Some(channel_id.to_string()),
+        from_node_id: Some(from_node_id.to_string()),
+        to_node_id: Some(to_node_id.to_string()),
+        is_synthetic_connector: false,
+    }
+}
+
+fn synthetic_segment(
+    start: Point3r,
+    end: Point3r,
+    cross_section: CrossSectionSpec,
+) -> SegmentLayout {
+    SegmentLayout {
+        start,
+        end,
+        cross_section,
+        source_channel_id: None,
+        from_node_id: None,
+        to_node_id: None,
+        is_synthetic_connector: true,
+    }
 }
 
 // ── Layout synthesis ──────────────────────────────────────────────────────────
@@ -367,11 +475,14 @@ fn synthesize_layout(
                 // bounds check (e.g. 127.760000000000002 > 127.76).
                 let x_end = if i + 1 == n { chip_w } else { x + seg_len };
                 let end = Point3r::new(x_end, y_center, z_mid);
-                layout.push(SegmentLayout {
+                layout.push(channel_segment(
                     start,
                     end,
-                    cross_section: ch.cross_section,
-                });
+                    ch.cross_section,
+                    ch.id.as_str(),
+                    ch.from.as_str(),
+                    ch.to.as_str(),
+                ));
                 x = x_end;
             }
             Ok(layout)
@@ -440,19 +551,22 @@ fn synthesize_layout(
                     x_left
                 };
 
-                layout.push(SegmentLayout {
-                    start: Point3r::new(x0, y_row, z_mid),
-                    end: Point3r::new(x1, y_row, z_mid),
-                    cross_section: channels[i].cross_section,
-                });
+                layout.push(channel_segment(
+                    Point3r::new(x0, y_row, z_mid),
+                    Point3r::new(x1, y_row, z_mid),
+                    channels[i].cross_section,
+                    channels[i].id.as_str(),
+                    channels[i].from.as_str(),
+                    channels[i].to.as_str(),
+                ));
                 // Vertical turn connecting this row to the next at an inset x.
                 if i + 1 < n {
                     let y_next = y_base + (i + 1) as Real * row_pitch;
-                    layout.push(SegmentLayout {
-                        start: Point3r::new(x1, y_row, z_mid),
-                        end: Point3r::new(x1, y_next, z_mid),
-                        cross_section: channels[i].cross_section,
-                    });
+                    layout.push(synthetic_segment(
+                        Point3r::new(x1, y_row, z_mid),
+                        Point3r::new(x1, y_next, z_mid),
+                        channels[i].cross_section,
+                    ));
                 }
             }
             Ok(layout)
@@ -480,7 +594,7 @@ fn synthesize_layout(
         //
         // dv = arm_x_span × tan(bifurcation_half_angle_rad), capped at routing bound.
         TopologyClass::Bifurcation => {
-            let (parent_in, d1, _d2, parent_out) =
+            let (parent_in, d1, d2, parent_out) =
                 topo.bifurcation_channels()
                     .ok_or_else(|| MeshError::ChannelError {
                         message: "bifurcation topology detected but channel decomposition failed"
@@ -503,49 +617,73 @@ fn synthesize_layout(
             let mut layout = Vec::with_capacity(8);
 
             // 1. Inlet straight (parent_in cross-section)
-            layout.push(SegmentLayout {
-                start: Point3r::new(0.0, y_center, z_mid),
-                end: Point3r::new(div_x, y_center, z_mid),
-                cross_section: parent_in.cross_section,
-            });
+            layout.push(channel_segment(
+                Point3r::new(0.0, y_center, z_mid),
+                Point3r::new(div_x, y_center, z_mid),
+                parent_in.cross_section,
+                parent_in.id.as_str(),
+                parent_in.from.as_str(),
+                parent_in.to.as_str(),
+            ));
             // 2-4. Upper daughter: arm_in → parallel → arm_out (d1 cross-section)
-            layout.push(SegmentLayout {
-                start: Point3r::new(div_x, y_center, z_mid),
-                end: Point3r::new(p_x1, y_center + d_vert, z_mid),
-                cross_section: d1.cross_section,
-            });
-            layout.push(SegmentLayout {
-                start: Point3r::new(p_x1, y_center + d_vert, z_mid),
-                end: Point3r::new(p_x2, y_center + d_vert, z_mid),
-                cross_section: d1.cross_section,
-            });
-            layout.push(SegmentLayout {
-                start: Point3r::new(p_x2, y_center + d_vert, z_mid),
-                end: Point3r::new(conv_x, y_center, z_mid),
-                cross_section: d1.cross_section,
-            });
+            layout.push(channel_segment(
+                Point3r::new(div_x, y_center, z_mid),
+                Point3r::new(p_x1, y_center + d_vert, z_mid),
+                d1.cross_section,
+                d1.id.as_str(),
+                d1.from.as_str(),
+                d1.to.as_str(),
+            ));
+            layout.push(channel_segment(
+                Point3r::new(p_x1, y_center + d_vert, z_mid),
+                Point3r::new(p_x2, y_center + d_vert, z_mid),
+                d1.cross_section,
+                d1.id.as_str(),
+                d1.from.as_str(),
+                d1.to.as_str(),
+            ));
+            layout.push(channel_segment(
+                Point3r::new(p_x2, y_center + d_vert, z_mid),
+                Point3r::new(conv_x, y_center, z_mid),
+                d1.cross_section,
+                d1.id.as_str(),
+                d1.from.as_str(),
+                d1.to.as_str(),
+            ));
             // 5-7. Lower daughter: arm_in → parallel → arm_out (symmetric)
-            layout.push(SegmentLayout {
-                start: Point3r::new(div_x, y_center, z_mid),
-                end: Point3r::new(p_x1, y_center - d_vert, z_mid),
-                cross_section: d1.cross_section,
-            });
-            layout.push(SegmentLayout {
-                start: Point3r::new(p_x1, y_center - d_vert, z_mid),
-                end: Point3r::new(p_x2, y_center - d_vert, z_mid),
-                cross_section: d1.cross_section,
-            });
-            layout.push(SegmentLayout {
-                start: Point3r::new(p_x2, y_center - d_vert, z_mid),
-                end: Point3r::new(conv_x, y_center, z_mid),
-                cross_section: d1.cross_section,
-            });
+            layout.push(channel_segment(
+                Point3r::new(div_x, y_center, z_mid),
+                Point3r::new(p_x1, y_center - d_vert, z_mid),
+                d2.cross_section,
+                d2.id.as_str(),
+                d2.from.as_str(),
+                d2.to.as_str(),
+            ));
+            layout.push(channel_segment(
+                Point3r::new(p_x1, y_center - d_vert, z_mid),
+                Point3r::new(p_x2, y_center - d_vert, z_mid),
+                d2.cross_section,
+                d2.id.as_str(),
+                d2.from.as_str(),
+                d2.to.as_str(),
+            ));
+            layout.push(channel_segment(
+                Point3r::new(p_x2, y_center - d_vert, z_mid),
+                Point3r::new(conv_x, y_center, z_mid),
+                d2.cross_section,
+                d2.id.as_str(),
+                d2.from.as_str(),
+                d2.to.as_str(),
+            ));
             // 8. Outlet straight (parent_out cross-section)
-            layout.push(SegmentLayout {
-                start: Point3r::new(conv_x, y_center, z_mid),
-                end: Point3r::new(chip_w, y_center, z_mid),
-                cross_section: parent_out.cross_section,
-            });
+            layout.push(channel_segment(
+                Point3r::new(conv_x, y_center, z_mid),
+                Point3r::new(chip_w, y_center, z_mid),
+                parent_out.cross_section,
+                parent_out.id.as_str(),
+                parent_out.from.as_str(),
+                parent_out.to.as_str(),
+            ));
 
             Ok(layout)
         }
@@ -590,55 +728,82 @@ fn synthesize_layout(
             let mut layout = Vec::with_capacity(9);
 
             // 1. Inlet straight (parent_in cross-section)
-            layout.push(SegmentLayout {
-                start: Point3r::new(0.0, y_center, z_mid),
-                end: Point3r::new(div_x, y_center, z_mid),
-                cross_section: parent_in.cross_section,
-            });
+            layout.push(channel_segment(
+                Point3r::new(0.0, y_center, z_mid),
+                Point3r::new(div_x, y_center, z_mid),
+                parent_in.cross_section,
+                parent_in.id.as_str(),
+                parent_in.from.as_str(),
+                parent_in.to.as_str(),
+            ));
             // 2-4. Upper daughter: arm_in → parallel → arm_out (d1 cross-section)
-            layout.push(SegmentLayout {
-                start: Point3r::new(div_x, y_center, z_mid),
-                end: Point3r::new(p_x1, y_center + d_vert, z_mid),
-                cross_section: d1.cross_section,
-            });
-            layout.push(SegmentLayout {
-                start: Point3r::new(p_x1, y_center + d_vert, z_mid),
-                end: Point3r::new(p_x2, y_center + d_vert, z_mid),
-                cross_section: d1.cross_section,
-            });
-            layout.push(SegmentLayout {
-                start: Point3r::new(p_x2, y_center + d_vert, z_mid),
-                end: Point3r::new(conv_x, y_center, z_mid),
-                cross_section: d1.cross_section,
-            });
+            layout.push(channel_segment(
+                Point3r::new(div_x, y_center, z_mid),
+                Point3r::new(p_x1, y_center + d_vert, z_mid),
+                d1.cross_section,
+                d1.id.as_str(),
+                d1.from.as_str(),
+                d1.to.as_str(),
+            ));
+            layout.push(channel_segment(
+                Point3r::new(p_x1, y_center + d_vert, z_mid),
+                Point3r::new(p_x2, y_center + d_vert, z_mid),
+                d1.cross_section,
+                d1.id.as_str(),
+                d1.from.as_str(),
+                d1.to.as_str(),
+            ));
+            layout.push(channel_segment(
+                Point3r::new(p_x2, y_center + d_vert, z_mid),
+                Point3r::new(conv_x, y_center, z_mid),
+                d1.cross_section,
+                d1.id.as_str(),
+                d1.from.as_str(),
+                d1.to.as_str(),
+            ));
             // 5. Center daughter: straight across (d2 cross-section)
-            layout.push(SegmentLayout {
-                start: Point3r::new(div_x, y_center, z_mid),
-                end: Point3r::new(conv_x, y_center, z_mid),
-                cross_section: d2.cross_section,
-            });
+            layout.push(channel_segment(
+                Point3r::new(div_x, y_center, z_mid),
+                Point3r::new(conv_x, y_center, z_mid),
+                d2.cross_section,
+                d2.id.as_str(),
+                d2.from.as_str(),
+                d2.to.as_str(),
+            ));
             // 6-8. Lower daughter: arm_in → parallel → arm_out (d3 cross-section)
-            layout.push(SegmentLayout {
-                start: Point3r::new(div_x, y_center, z_mid),
-                end: Point3r::new(p_x1, y_center - d_vert, z_mid),
-                cross_section: d3.cross_section,
-            });
-            layout.push(SegmentLayout {
-                start: Point3r::new(p_x1, y_center - d_vert, z_mid),
-                end: Point3r::new(p_x2, y_center - d_vert, z_mid),
-                cross_section: d3.cross_section,
-            });
-            layout.push(SegmentLayout {
-                start: Point3r::new(p_x2, y_center - d_vert, z_mid),
-                end: Point3r::new(conv_x, y_center, z_mid),
-                cross_section: d3.cross_section,
-            });
+            layout.push(channel_segment(
+                Point3r::new(div_x, y_center, z_mid),
+                Point3r::new(p_x1, y_center - d_vert, z_mid),
+                d3.cross_section,
+                d3.id.as_str(),
+                d3.from.as_str(),
+                d3.to.as_str(),
+            ));
+            layout.push(channel_segment(
+                Point3r::new(p_x1, y_center - d_vert, z_mid),
+                Point3r::new(p_x2, y_center - d_vert, z_mid),
+                d3.cross_section,
+                d3.id.as_str(),
+                d3.from.as_str(),
+                d3.to.as_str(),
+            ));
+            layout.push(channel_segment(
+                Point3r::new(p_x2, y_center - d_vert, z_mid),
+                Point3r::new(conv_x, y_center, z_mid),
+                d3.cross_section,
+                d3.id.as_str(),
+                d3.from.as_str(),
+                d3.to.as_str(),
+            ));
             // 9. Outlet straight (parent_out cross-section)
-            layout.push(SegmentLayout {
-                start: Point3r::new(conv_x, y_center, z_mid),
-                end: Point3r::new(chip_w, y_center, z_mid),
-                cross_section: parent_out.cross_section,
-            });
+            layout.push(channel_segment(
+                Point3r::new(conv_x, y_center, z_mid),
+                Point3r::new(chip_w, y_center, z_mid),
+                parent_out.cross_section,
+                parent_out.id.as_str(),
+                parent_out.from.as_str(),
+                parent_out.to.as_str(),
+            ));
 
             Ok(layout)
         }
@@ -694,13 +859,16 @@ fn synthesize_parallel_array_layout(
     let y_base = y_center - (n_channels as Real - 1.0) / 2.0 * row_pitch;
 
     let mut layout = Vec::with_capacity(n_channels);
-    for i in 0..n_channels {
+    for (i, channel) in bp.channels.iter().take(n_channels).enumerate() {
         let y_row = y_base + i as Real * row_pitch;
-        layout.push(SegmentLayout {
-            start: Point3r::new(0.0, y_row, z_mid),
-            end: Point3r::new(chip_w, y_row, z_mid),
-            cross_section: cs,
-        });
+        layout.push(channel_segment(
+            Point3r::new(0.0, y_row, z_mid),
+            Point3r::new(chip_w, y_row, z_mid),
+            cs,
+            channel.id.as_str(),
+            channel.from.as_str(),
+            channel.to.as_str(),
+        ));
     }
     Ok(layout)
 }
@@ -817,11 +985,14 @@ fn synthesize_complex_layout(
             (x0, y0, x1, y1)
         };
 
-        layout.push(SegmentLayout {
-            start: Point3r::new(sx, sy, z_mid),
-            end: Point3r::new(ex, ey, z_mid),
-            cross_section: ch.cross_section,
-        });
+        layout.push(channel_segment(
+            Point3r::new(sx, sy, z_mid),
+            Point3r::new(ex, ey, z_mid),
+            ch.cross_section,
+            ch.id.as_str(),
+            ch.from.as_str(),
+            ch.to.as_str(),
+        ));
     }
 
     Ok(layout)
@@ -1414,17 +1585,27 @@ fn build_bifurcation_fluid_mesh(
     //   (one at the diverging junction, one at the converging junction).
     let mut mesh = build_segment_mesh(&layout[0], config)?;
 
+    let robust_union = |a: &IndexedMesh, b: &IndexedMesh| -> MeshResult<IndexedMesh> {
+        match csg_boolean_indexed(BooleanOp::Union, a, b) {
+            Ok(mesh) => Ok(mesh),
+            Err(MeshError::NotWatertight { .. }) => {
+                csg_boolean_indexed_tolerant(BooleanOp::Union, a, b)
+            }
+            Err(e) => Err(e),
+        }
+    };
+
     // ── Step 2: upper fork arm chain [1,2,3] → single polyline sweep ──────────
     let upper_fork = build_polyline_mesh(&layout[1..=3], 0.0, config)?;
-    mesh = csg_boolean_indexed(BooleanOp::Union, &mesh, &upper_fork)?;
+    mesh = robust_union(&mesh, &upper_fork)?;
 
     // ── Step 3: lower fork arm chain [4,5,6] → single polyline sweep ──────────
     let lower_fork = build_polyline_mesh(&layout[4..=6], 0.0, config)?;
-    mesh = csg_boolean_indexed(BooleanOp::Union, &mesh, &lower_fork)?;
+    mesh = robust_union(&mesh, &lower_fork)?;
 
     // ── Step 4: outlet trunk segment (layout[7]) ──────────────────────────────
     let outlet_trunk = build_segment_mesh(&layout[7], config)?;
-    mesh = csg_boolean_indexed(BooleanOp::Union, &mesh, &outlet_trunk)?;
+    mesh = robust_union(&mesh, &outlet_trunk)?;
 
     // ── Post-CSG repair ───────────────────────────────────────────────────────
     mesh.orient_outward();
@@ -1474,7 +1655,7 @@ fn build_trifurcation_fluid_mesh(
     let robust_union = |a: &IndexedMesh, b: &IndexedMesh| -> MeshResult<IndexedMesh> {
         match csg_boolean_indexed(BooleanOp::Union, a, b) {
             Ok(mesh) => Ok(mesh),
-            Err(MeshError::NotWatertight { count: 0 }) => {
+            Err(MeshError::NotWatertight { .. }) => {
                 csg_boolean_indexed_tolerant(BooleanOp::Union, a, b)
             }
             Err(e) => Err(e),
@@ -1789,7 +1970,11 @@ fn merge_collinear_segments(layout: &[SegmentLayout]) -> Vec<SegmentLayout> {
         let connected = (current.end - next.start).norm() < 1e-6;
         let collinear = (cur_dir - nxt_dir).norm() < 1e-6;
         let same_cs = cross_sections_equal(&current.cross_section, &next.cross_section);
-        if connected && collinear && same_cs {
+        let same_source = current.source_channel_id == next.source_channel_id
+            && current.from_node_id == next.from_node_id
+            && current.to_node_id == next.to_node_id
+            && current.is_synthetic_connector == next.is_synthetic_connector;
+        if connected && collinear && same_cs && same_source {
             current.end = next.end; // extend without changing start
         } else {
             merged.push(current);
@@ -1817,6 +2002,105 @@ fn cross_sections_equal(a: &CrossSectionSpec, b: &CrossSectionSpec) -> bool {
             },
         ) => (w1 - w2).abs() < 1e-9 && (h1 - h2).abs() < 1e-9,
         _ => false,
+    }
+}
+
+fn compute_volume_trace(
+    bp: &NetworkBlueprint,
+    layout: &[SegmentLayout],
+    fluid_mesh: &IndexedMesh,
+    chip_mesh: Option<&IndexedMesh>,
+    config: &PipelineConfig,
+) -> MeshResult<PipelineVolumeTrace> {
+    let schematic_summary = bp.fluid_volume_summary();
+    let mut channel_traces = Vec::with_capacity(bp.channels.len());
+    let mut pre_csg_channel_volume_mm3 = 0.0;
+
+    for channel_summary in bp.channel_fluid_volume_summaries() {
+        let channel_segments: Vec<SegmentLayout> = layout
+            .iter()
+            .filter(|segment| {
+                segment.source_channel_id.as_deref() == Some(channel_summary.channel_id.as_str())
+            })
+            .cloned()
+            .collect();
+        if channel_segments.is_empty() {
+            return Err(MeshError::ChannelError {
+                message: format!(
+                    "mesh pipeline produced no synthesized segments for blueprint channel '{}'",
+                    channel_summary.channel_id
+                ),
+            });
+        }
+
+        let channel_mesh = if channel_segments.len() == 1 {
+            build_segment_mesh(&channel_segments[0], config)?
+        } else {
+            build_polyline_mesh(&channel_segments, 0.0, config)?
+        };
+        let meshed_volume_mm3 = channel_mesh.signed_volume().abs();
+        let meshed_centerline_length_mm =
+            channel_segments.iter().map(segment_length_mm).sum::<f64>();
+        let volume_error_mm3 = meshed_volume_mm3 - channel_summary.fluid_volume_mm3;
+        let volume_error_pct = relative_percent(volume_error_mm3, channel_summary.fluid_volume_mm3);
+
+        pre_csg_channel_volume_mm3 += meshed_volume_mm3;
+        channel_traces.push(ChannelVolumeTrace {
+            channel_id: channel_summary.channel_id,
+            from_node_id: channel_summary.from_node_id,
+            to_node_id: channel_summary.to_node_id,
+            schematic_centerline_length_mm: channel_summary.centerline_length_mm,
+            meshed_centerline_length_mm,
+            cross_section_area_mm2: channel_summary.cross_section_area_mm2,
+            schematic_volume_mm3: channel_summary.fluid_volume_mm3,
+            meshed_volume_mm3,
+            volume_error_mm3,
+            volume_error_pct,
+            layout_segment_count: channel_segments.len(),
+        });
+    }
+
+    let synthetic_connector_volume_mm3 = layout
+        .iter()
+        .filter(|segment| segment.is_synthetic_connector)
+        .map(|segment| build_segment_mesh(segment, config).map(|mesh| mesh.signed_volume().abs()))
+        .collect::<MeshResult<Vec<_>>>()?
+        .into_iter()
+        .sum();
+
+    let fluid_mesh_volume_mm3 = fluid_mesh.signed_volume().abs();
+    let chip_mesh_volume_mm3 = chip_mesh.map(|mesh| mesh.signed_volume().abs());
+    let fluid_mesh_volume_error_mm3 =
+        fluid_mesh_volume_mm3 - schematic_summary.total_fluid_volume_mm3;
+    let fluid_mesh_volume_error_pct = relative_percent(
+        fluid_mesh_volume_error_mm3,
+        schematic_summary.total_fluid_volume_mm3,
+    );
+    let csg_overlap_delta_mm3 =
+        pre_csg_channel_volume_mm3 + synthetic_connector_volume_mm3 - fluid_mesh_volume_mm3;
+
+    Ok(PipelineVolumeTrace {
+        schematic_summary,
+        channel_traces,
+        pre_csg_channel_volume_mm3,
+        synthetic_connector_volume_mm3,
+        fluid_mesh_volume_mm3,
+        chip_mesh_volume_mm3,
+        fluid_mesh_volume_error_mm3,
+        fluid_mesh_volume_error_pct,
+        csg_overlap_delta_mm3,
+    })
+}
+
+fn segment_length_mm(segment: &SegmentLayout) -> f64 {
+    (segment.end - segment.start).norm()
+}
+
+fn relative_percent(delta: f64, reference: f64) -> f64 {
+    if reference.abs() <= 1e-18 {
+        0.0
+    } else {
+        delta.abs() / reference.abs() * 100.0
     }
 }
 

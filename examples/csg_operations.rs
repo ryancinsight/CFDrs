@@ -75,17 +75,38 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         let t0 = Instant::now();
         let mut res = csg_boolean_indexed(BooleanOp::Union, &cube, &cylinder)?;
-        report("Union (A ∪ B)", &mut res, v_cube + v_cyl - v_overlap, 0.05, t0.elapsed().as_millis());
+        report(
+            "Union (A ∪ B)",
+            &mut res,
+            v_cube + v_cyl - v_overlap,
+            0.05,
+            t0.elapsed().as_millis(),
+        );
         write_stl(&res, &out_dir.join("csg_ops_cube_cylinder_union.stl"))?;
 
         let t0 = Instant::now();
         let mut res = csg_boolean_indexed(BooleanOp::Intersection, &cube, &cylinder)?;
-        report("Intersection (A ∩ B)", &mut res, v_overlap, 0.05, t0.elapsed().as_millis());
-        write_stl(&res, &out_dir.join("csg_ops_cube_cylinder_intersection.stl"))?;
+        report(
+            "Intersection (A ∩ B)",
+            &mut res,
+            v_overlap,
+            0.05,
+            t0.elapsed().as_millis(),
+        );
+        write_stl(
+            &res,
+            &out_dir.join("csg_ops_cube_cylinder_intersection.stl"),
+        )?;
 
         let t0 = Instant::now();
         let mut res = csg_boolean_indexed(BooleanOp::Difference, &cube, &cylinder)?;
-        report("Difference (A \\ B)", &mut res, v_cube - v_overlap, 0.05, t0.elapsed().as_millis());
+        report(
+            "Difference (A \\ B)",
+            &mut res,
+            v_cube - v_overlap,
+            0.05,
+            t0.elapsed().as_millis(),
+        );
         write_stl(&res, &out_dir.join("csg_ops_cube_cylinder_difference.stl"))?;
         println!();
     }
@@ -143,7 +164,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             0.10,
             t0.elapsed().as_millis(),
         );
-        write_stl(&res, &out_dir.join("csg_ops_sphere_cylinder_difference.stl"))?;
+        write_stl(
+            &res,
+            &out_dir.join("csg_ops_sphere_cylinder_difference.stl"),
+        )?;
         println!();
     }
 
@@ -185,7 +209,11 @@ fn report(label: &str, mesh: &mut IndexedMesh, expected: f64, tol: f64, ms: u128
     );
     println!(
         "    Components : {n_comps}  [{}]",
-        if comps_ok { "PASS" } else { "WARN phantom islands" }
+        if comps_ok {
+            "PASS"
+        } else {
+            "WARN phantom islands"
+        }
     );
     println!(
         "    Normals    : outward={}, inward={} ({:.1}%), degen={}  [{}]",

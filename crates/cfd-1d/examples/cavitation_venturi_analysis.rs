@@ -20,9 +20,10 @@ use cfd_core::compute::solver::Solver;
 use cfd_core::physics::cavitation::CavitationNumber;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
 use cfd_schematics::config::{ChannelTypeConfig, GeometryConfig};
-use cfd_schematics::domain::model::{ChannelSpec, NodeKind, NodeSpec};
+
 use cfd_schematics::geometry::generator::create_geometry;
-use cfd_schematics::geometry::{ChannelSystem, SplitType};
+
+use cfd_schematics::geometry::SplitType;
 use cfd_schematics::plot_geometry;
 use cfd_schematics::visualizations::analysis_field::{
     AnalysisField, AnalysisOverlay, ColormapKind,
@@ -66,8 +67,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     )?;
 
     // ── 3. Convert geometry → 1D specs ───────────────────────────────────────
-    println!("3. Converting to simulation specifications...");
-    let (node_specs, channel_specs) = convert_geometry_to_specs(&system);
+    let node_specs = system.nodes.clone();
+    let channel_specs = system.channels.clone();
 
     // ── 4. Build network with water ──────────────────────────────────────────
     println!("4. Building network (water at 25°C)...");
@@ -113,8 +114,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     for spec in &node_specs {
         let idx = id_map[spec.id.as_str()];
         match spec.kind {
-            NodeKind::Inlet => network.set_pressure(idx, inlet_pressure),
-            NodeKind::Outlet => network.set_pressure(idx, outlet_pressure),
+            cfd_schematics::domain::model::NodeKind::Inlet => {
+                network.set_pressure(idx, inlet_pressure)
+            }
+            cfd_schematics::domain::model::NodeKind::Outlet => {
+                network.set_pressure(idx, outlet_pressure)
+            }
             _ => {}
         }
     }
@@ -324,82 +329,4 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("\n✅ Cavitation analysis complete — all outputs in cavitation/");
     Ok(())
-}
-
-/// Convert `ChannelSystem` → `NodeSpec`/`ChannelSpec` with Hagen-Poiseuille rectangular resistance.
-fn convert_geometry_to_specs(system: &ChannelSystem) -> (Vec<NodeSpec>, Vec<ChannelSpec>) {
-    let min_x = system
-        .nodes
-        .iter()
-        .map(|n| n.point.0)
-        .fold(f64::INFINITY, f64::min);
-    let max_x = system
-        .nodes
-        .iter()
-        .map(|n| n.point.0)
-        .fold(f64::NEG_INFINITY, f64::max);
-
-    let node_specs: Vec<NodeSpec> = system
-        .nodes
-        .iter()
-        .map(|node| {
-            let kind = if (node.point.0 - min_x).abs() < 1e-3 {
-                NodeKind::Inlet
-            } else if (node.point.0 - max_x).abs() < 1e-3 {
-                NodeKind::Outlet
-            } else {
-                NodeKind::Junction
-            };
-            NodeSpec::new(format!("node_{}", node.id), kind)
-        })
-        .collect();
-
-    let mu = 8.9e-4_f64; // Water viscosity at 25°C
-
-    let channel_specs: Vec<ChannelSpec> = system
-        .channels
-        .iter()
-        .map(|channel| {
-            let from = system
-                .nodes
-                .iter()
-                .find(|n| n.id == channel.from_node)
-                .unwrap();
-            let to = system
-                .nodes
-                .iter()
-                .find(|n| n.id == channel.to_node)
-                .unwrap();
-            let dx = from.point.0 - to.point.0;
-            let dy = from.point.1 - to.point.1;
-            let length_m = dx.hypot(dy) / 1000.0;
-
-            let width_m = channel.width / 1000.0;
-            let height_m = channel.height / 1000.0;
-
-            let (w, h) = if width_m > height_m {
-                (width_m, height_m)
-            } else {
-                (height_m, width_m)
-            };
-            let resistance = if h > 0.0 {
-                (12.0 * mu * length_m) / (w * h.powi(3) * (1.0 - 0.63 * h / w))
-            } else {
-                f64::INFINITY
-            };
-
-            ChannelSpec::new_pipe_rect(
-                format!("chan_{}", channel.id),
-                format!("node_{}", channel.from_node),
-                format!("node_{}", channel.to_node),
-                length_m,
-                width_m,
-                height_m,
-                resistance,
-                0.0,
-            )
-        })
-        .collect();
-
-    (node_specs, channel_specs)
 }

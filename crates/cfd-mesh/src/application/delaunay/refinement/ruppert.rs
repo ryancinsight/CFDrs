@@ -529,7 +529,10 @@ mod tests {
         refiner.set_max_ratio(1.5);
         refiner.set_max_steiner(2_000); // explicit safety cap for test
         let n = refiner.refine();
-        assert!(n <= 2_000, "anisotropic refiner Steiner count should be bounded: {n}");
+        assert!(
+            n <= 2_000,
+            "anisotropic refiner Steiner count should be bounded: {n}"
+        );
         assert!(
             refiner.cdt().triangulation().interior_triangles().count() >= 2,
             "CDT must contain triangles after anisotropic refinement"
@@ -553,11 +556,13 @@ mod tests {
     #[test]
     fn with_metric_builder_produces_valid_cdt() {
         let cdt = square_cdt();
-        let mut refiner =
-            RuppertRefiner::new(cdt).with_metric(MetricTensor::anisotropic(0.0, 3.0));
+        let mut refiner = RuppertRefiner::new(cdt).with_metric(MetricTensor::anisotropic(0.0, 3.0));
         refiner.set_max_steiner(2_000);
         refiner.refine();
         let tri_count = refiner.cdt().triangulation().interior_triangles().count();
-        assert!(tri_count >= 1, "CDT must contain triangles after anisotropic refinement");
+        assert!(
+            tri_count >= 1,
+            "CDT must contain triangles after anisotropic refinement"
+        );
     }
 }

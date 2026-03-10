@@ -126,12 +126,12 @@ impl<T: RealField + Copy + FromPrimitive> MrtCollision<T> {
 
         // Build the inverse transformation matrix M^(-1)
         // Pre-computed values for D2Q9 from the literature
-        let inv_9  = T::from_f64(1.0 / 9.0) .expect("1/9 is representable in IEEE 754");
+        let inv_9 = T::from_f64(1.0 / 9.0).expect("1/9 is representable in IEEE 754");
         let inv_36 = T::from_f64(1.0 / 36.0).expect("1/36 is representable in IEEE 754");
-        let inv_6  = T::from_f64(1.0 / 6.0) .expect("1/6 is representable in IEEE 754");
+        let inv_6 = T::from_f64(1.0 / 6.0).expect("1/6 is representable in IEEE 754");
         let inv_12 = T::from_f64(1.0 / 12.0).expect("1/12 is representable in IEEE 754");
-        let inv_4  = T::from_f64(1.0 / 4.0) .expect("1/4 is representable in IEEE 754");
-        let two    = T::from_f64(2.0)        .expect("2.0 is representable in IEEE 754");
+        let inv_4 = T::from_f64(1.0 / 4.0).expect("1/4 is representable in IEEE 754");
+        let two = T::from_f64(2.0).expect("2.0 is representable in IEEE 754");
 
         for q in 0..9 {
             let vel = D2Q9::VELOCITIES[q];
@@ -142,21 +142,21 @@ impl<T: RealField + Copy + FromPrimitive> MrtCollision<T> {
 
             if q == 0 {
                 m_inv[q][1] = -inv_9 * two * two; // -4/9
-                m_inv[q][2] =  inv_9 * two * two; //  4/9
+                m_inv[q][2] = inv_9 * two * two; //  4/9
             } else if q < 5 {
                 m_inv[q][1] = -inv_36;
                 m_inv[q][2] = -inv_36 * two;
             } else {
-                m_inv[q][1] =  inv_36 * two;
-                m_inv[q][2] =  inv_36;
+                m_inv[q][1] = inv_36 * two;
+                m_inv[q][2] = inv_36;
             }
 
-            m_inv[q][3] =  inv_6  * cx;
+            m_inv[q][3] = inv_6 * cx;
             m_inv[q][4] = -inv_12 * cx;
-            m_inv[q][5] =  inv_6  * cy;
+            m_inv[q][5] = inv_6 * cy;
             m_inv[q][6] = -inv_12 * cy;
-            m_inv[q][7] =  inv_4  * (cx * cx - cy * cy);
-            m_inv[q][8] =  inv_4  * cx * cy;
+            m_inv[q][7] = inv_4 * (cx * cx - cy * cy);
+            m_inv[q][8] = inv_4 * cx * cy;
         }
 
         (m, m_inv)
@@ -169,14 +169,7 @@ impl<T: RealField + Copy + FromPrimitive> CollisionOperator<T> for MrtCollision<
     /// For each node: transform to moment space, relax non-conserved moments
     /// toward equilibrium at rate s_k (Theorem — MRT stability: s_k ∈ (0,2)),
     /// then transform back to velocity space.
-    fn collide(
-        &self,
-        f: &mut Vec<T>,
-        density: &[T],
-        velocity: &[T],
-        nx: usize,
-        ny: usize,
-    ) {
+    fn collide(&self, f: &mut [T], density: &[T], velocity: &[T], nx: usize, ny: usize) {
         use crate::solvers::lbm::streaming::f_idx;
 
         for j in 0..ny {
@@ -193,7 +186,7 @@ impl<T: RealField + Copy + FromPrimitive> CollisionOperator<T> for MrtCollision<
 
                 // ── 2. Equilibrium moments ──
                 let rho = density[cell];
-                let u   = [velocity[cell * 2], velocity[cell * 2 + 1]];
+                let u = [velocity[cell * 2], velocity[cell * 2 + 1]];
                 let m_eq = Self::equilibrium_moments(rho, u);
 
                 // ── 3. Relax each moment at its rate s_k (Theorem: s_k ∈ (0,2)) ──
@@ -218,10 +211,9 @@ impl<T: RealField + Copy + FromPrimitive> CollisionOperator<T> for MrtCollision<
     }
 
     fn viscosity(&self, dt: T, dx: T) -> T {
-        let cs2  = T::from_f64(LATTICE_SOUND_SPEED_SQUARED)
+        let cs2 = T::from_f64(LATTICE_SOUND_SPEED_SQUARED)
             .expect("cs² = 1/3 is representable in IEEE 754");
-        let half = T::from_f64(RELAXATION_TIME_OFFSET)
-            .expect("0.5 is representable in IEEE 754");
+        let half = T::from_f64(RELAXATION_TIME_OFFSET).expect("0.5 is representable in IEEE 754");
         cs2 * dx * dx * (self.tau - half) / dt
     }
 }
@@ -233,16 +225,16 @@ impl<T: RealField + Copy + FromPrimitive> MrtCollision<T> {
         m_eq[3] = rho * u[0];
         m_eq[5] = rho * u[1];
 
-        let two   = T::from_f64(2.0).expect("2.0 is representable in IEEE 754");
+        let two = T::from_f64(2.0).expect("2.0 is representable in IEEE 754");
         let three = T::from_f64(3.0).expect("3.0 is representable in IEEE 754");
-        let u_sq  = u[0] * u[0] + u[1] * u[1];
+        let u_sq = u[0] * u[0] + u[1] * u[1];
 
-        m_eq[1] = -two   * rho + three * rho * u_sq;
-        m_eq[2] =  rho         - three * rho * u_sq;
+        m_eq[1] = -two * rho + three * rho * u_sq;
+        m_eq[2] = rho - three * rho * u_sq;
         m_eq[4] = -rho * u[0];
         m_eq[6] = -rho * u[1];
-        m_eq[7] =  rho * (u[0] * u[0] - u[1] * u[1]);
-        m_eq[8] =  rho * u[0] * u[1];
+        m_eq[7] = rho * (u[0] * u[0] - u[1] * u[1]);
+        m_eq[8] = rho * u[0] * u[1];
 
         m_eq
     }

@@ -173,8 +173,10 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp> DistributedGrid<T
             (self.local_subdomain().nx_local * self.local_subdomain().ny_local) as f64;
         let local_total = (self.local_nx * self.local_ny) as f64;
 
-        let global_owned = self.global_reduce_sum(T::from_f64(local_owned).unwrap_or_else(num_traits::Zero::zero));
-        let global_total = self.global_reduce_sum(T::from_f64(local_total).unwrap_or_else(num_traits::Zero::zero));
+        let global_owned =
+            self.global_reduce_sum(T::from_f64(local_owned).unwrap_or_else(num_traits::Zero::zero));
+        let global_total =
+            self.global_reduce_sum(T::from_f64(local_total).unwrap_or_else(num_traits::Zero::zero));
 
         GridStatistics {
             local_owned_cells: local_owned as usize,

@@ -375,14 +375,14 @@ mod tests {
         let upper_context = create_test_context((10.0, 35.0), (40.0, 40.0));
         let upper_phase = calculator
             .calculate_phase_direction(&upper_context)
-            .unwrap();
+            .expect("structural invariant");
         assert_eq!(upper_phase, 1.0);
 
         // Test lower channel (should have negative phase)
         let lower_context = create_test_context((10.0, 10.0), (40.0, 15.0));
         let lower_phase = calculator
             .calculate_phase_direction(&lower_context)
-            .unwrap();
+            .expect("structural invariant");
         assert_eq!(lower_phase, -1.0);
     }
 
@@ -396,7 +396,7 @@ mod tests {
 
         let is_symmetric = calculator
             .validate_bilateral_symmetry(&left_context, &right_context)
-            .unwrap();
+            .expect("structural invariant");
         assert!(is_symmetric);
     }
 
@@ -410,7 +410,7 @@ mod tests {
 
         let is_symmetric = calculator
             .validate_horizontal_symmetry(&upper_context, &lower_context)
-            .unwrap();
+            .expect("structural invariant");
         assert!(is_symmetric);
     }
 }

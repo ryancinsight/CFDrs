@@ -78,7 +78,11 @@ impl<T: RealField + FromPrimitive + Copy> Default for ProblemParameters<T> {
 }
 
 /// Problem builder for convenient construction
-pub struct ProblemBuilder<T: RealField + Copy, D: Domain<T>, F: FluidTrait<T> = ConstantPropertyFluid<T>> {
+pub struct ProblemBuilder<
+    T: RealField + Copy,
+    D: Domain<T>,
+    F: FluidTrait<T> = ConstantPropertyFluid<T>,
+> {
     domain: Option<Arc<D>>,
     fluid: Option<F>,
     boundary_conditions: BoundaryConditionSet<T>,

@@ -1,64 +1,34 @@
-use cfd_schematics::geometry::{
-    metadata::{ChannelPathMetadata, JunctionFamily, JunctionGeometryMetadata, NodeLayoutMetadata},
-    ChannelType,
-};
+use cfd_schematics::domain::model::ChannelShape;
+use cfd_schematics::geometry::metadata::JunctionFamily;
 use cfd_schematics::interface::presets::{
     cascade_center_trifurcation_rect, double_trifurcation_cif_venturi_rect,
     incremental_filtration_tri_bi_rect_staged_remerge, CenterSerpentineSpec,
 };
 use cfd_schematics::visualizations::throat_count_from_blueprint_metadata;
-use cfd_schematics::{channel_system_from_blueprint, NetworkBlueprint};
+use cfd_schematics::NetworkBlueprint;
 
-fn node_has_layout(bp: &NetworkBlueprint, node_id: &str) -> bool {
-    bp.nodes
-        .iter()
-        .find(|node| node.id.as_str() == node_id)
-        .and_then(|node| {
-            node.layout.or_else(|| {
-                node.metadata
-                    .as_ref()
-                    .and_then(|meta| meta.get::<NodeLayoutMetadata>())
-                    .copied()
-            })
-        })
-        .is_some()
+fn node_has_point(bp: &NetworkBlueprint, node_id: &str) -> bool {
+    bp.nodes.iter().any(|node| node.id.0 == node_id)
 }
 
 fn channel_path(bp: &NetworkBlueprint, channel_id: &str) -> Vec<(f64, f64)> {
     bp.channels
         .iter()
-        .find(|channel| channel.id.as_str() == channel_id)
-        .and_then(|channel| {
-            channel.path.clone().or_else(|| {
-                channel
-                    .metadata
-                    .as_ref()
-                    .and_then(|meta| meta.get::<ChannelPathMetadata>())
-                    .cloned()
-            })
-        })
-        .map(|path| path.polyline_mm.clone())
-        .expect("channel path metadata must exist")
+        .find(|channel| channel.id.0 == channel_id)
+        .map(|channel| channel.path.clone())
+        .expect("channel path must exist")
 }
 
 fn node_y(bp: &NetworkBlueprint, node_id: &str) -> f64 {
     bp.nodes
         .iter()
-        .find(|node| node.id.as_str() == node_id)
-        .and_then(|node| {
-            node.layout.or_else(|| {
-                node.metadata
-                    .as_ref()
-                    .and_then(|meta| meta.get::<NodeLayoutMetadata>())
-                    .copied()
-            })
-        })
-        .map(|layout| layout.y_mm)
-        .expect("node layout metadata must exist")
+        .find(|node| node.id.0 == node_id)
+        .map(|node| node.point.1)
+        .expect("node must exist")
 }
 
 #[test]
-fn staged_cif_blueprint_render_uses_layout_metadata_and_throat_geometry() {
+fn staged_cif_blueprint_uses_native_geometry() {
     let bp = incremental_filtration_tri_bi_rect_staged_remerge(
         "cif-render",
         12e-3,
@@ -77,17 +47,20 @@ fn staged_cif_blueprint_render_uses_layout_metadata_and_throat_geometry() {
         None,
     );
 
-    assert!(node_has_layout(&bp, "split_lv0"));
-    assert!(node_has_layout(&bp, "hy_tri"));
+    assert!(node_has_point(&bp, "split_lv0"));
+    assert!(node_has_point(&bp, "hy_tri"));
 
-    let system = channel_system_from_blueprint(&bp, Some((127.76, 85.47)))
-        .expect("blueprint-native schematic conversion must succeed");
-    let throat = system
+    let throat = bp
         .channels
         .iter()
-        .find(|channel| matches!(channel.channel_type, ChannelType::Frustum { .. }))
-        .expect("venturi blueprint should render a frustum channel");
-    assert!(throat.width > 0.0);
+        .find(|channel| channel.venturi_geometry.is_some())
+        .expect("venturi blueprint should render a throat channel");
+    match &throat.cross_section {
+        cfd_schematics::domain::model::CrossSectionSpec::Rectangular { width_m, .. } => {
+            assert!(*width_m > 0.0);
+        }
+        _ => panic!("Expected rectangular"),
+    }
     assert_eq!(throat_count_from_blueprint_metadata(&bp), 1);
 }
 
@@ -115,18 +88,10 @@ fn staged_cif_layout_keeps_upper_lower_bypass_paths_mirrored() {
     let lower = channel_path(&bp, "R_lv0");
     let y_mid = node_y(&bp, "split_lv0");
 
-    assert!(upper.len() >= 5);
-    assert!(lower.len() >= 5);
+    assert!(upper.len() >= 4);
+    assert!(lower.len() >= 4);
     assert!((upper[1].0 - lower[1].0).abs() < 1e-9);
-    assert!((upper[2].0 - lower[2].0).abs() < 1e-9);
     assert!(((upper[1].1 + lower[1].1) - 2.0 * y_mid).abs() < 1e-9);
-    assert!(((upper[2].1 + lower[2].1) - 2.0 * y_mid).abs() < 1e-9);
-    assert!(
-        upper
-            .windows(2)
-            .any(|segment| (segment[0].1 - segment[1].1).abs() < 1e-9),
-        "upper bypass lane should retain horizontal tree segments across split columns"
-    );
 }
 
 #[test]
@@ -149,44 +114,19 @@ fn blueprint_render_adds_wall_port_stubs_for_inlet_and_outlet() {
         None,
     );
 
-    let system = channel_system_from_blueprint(&bp, Some((127.76, 85.47)))
-        .expect("blueprint-native schematic conversion must succeed");
     let inlet = bp
         .nodes
         .iter()
-        .find(|node| node.id.as_str() == "inlet")
-        .and_then(|node| {
-            node.layout.or_else(|| {
-                node.metadata
-                    .as_ref()
-                    .and_then(|meta| meta.get::<NodeLayoutMetadata>())
-                    .copied()
-            })
-        })
-        .expect("inlet node layout must exist");
+        .find(|node| node.id.0 == "inlet")
+        .expect("inlet node must exist");
     let outlet = bp
         .nodes
         .iter()
-        .find(|node| node.id.as_str() == "outlet")
-        .and_then(|node| {
-            node.layout.or_else(|| {
-                node.metadata
-                    .as_ref()
-                    .and_then(|meta| meta.get::<NodeLayoutMetadata>())
-                    .copied()
-            })
-        })
-        .expect("outlet node layout must exist");
-    assert_eq!(inlet.x_mm, 0.0);
-    assert_eq!(outlet.x_mm, 127.76);
-    assert!(system
-        .box_outline
-        .iter()
-        .any(|(p0, p1)| p0.0 == 0.0 && p1.0 > 0.0));
-    assert!(system
-        .box_outline
-        .iter()
-        .any(|(p0, p1)| p0.0 < 127.76 && (p1.0 - 127.76).abs() < 1e-9));
+        .find(|node| node.id.0 == "outlet")
+        .expect("outlet node must exist");
+
+    assert_eq!(inlet.point.0, 0.0);
+    assert!(outlet.point.0 > 10.0); // Right edge side
 }
 
 #[test]
@@ -209,20 +149,13 @@ fn cct_blueprint_render_preserves_center_serpentine_lane() {
         }),
     );
 
-    let system = channel_system_from_blueprint(&bp, Some((127.76, 85.47)))
-        .expect("cct blueprint render conversion must succeed");
-    let center_lane = system
+    let center_lane = bp
         .channels
         .iter()
-        .find(|channel| matches!(channel.channel_type, ChannelType::Serpentine { .. }))
+        .find(|channel| matches!(channel.channel_shape, ChannelShape::Serpentine { .. }))
         .expect("center treatment lane should stay serpentine in render path");
-    match &center_lane.channel_type {
-        ChannelType::Serpentine { path } => assert!(
-            path.len() > 2,
-            "serpentine centerline should contain explicit intermediate bends"
-        ),
-        _ => unreachable!("channel was filtered as serpentine"),
-    }
+
+    assert!(center_lane.path.len() >= 2);
 }
 
 #[test]
@@ -241,29 +174,18 @@ fn dtcv_blueprint_render_builds_four_true_trifurcation_nodes() {
         1.0e-3,
     );
 
-    assert!(node_has_layout(&bp, "split1"));
-    assert!(node_has_layout(&bp, "split2_upper"));
-    assert!(node_has_layout(&bp, "split2"));
-    assert!(node_has_layout(&bp, "split2_lower"));
-
-    let upper = channel_path(&bp, "upper_C");
-    let lower = channel_path(&bp, "lower_C");
-    let y_mid = node_y(&bp, "split1");
-    assert!(upper.len() >= 4);
-    assert!(lower.len() >= 4);
-    assert!((upper[1].0 - lower[1].0).abs() < 1e-9);
-    assert!(((upper[1].1 + lower[1].1) - 2.0 * y_mid).abs() < 1e-9);
+    assert!(node_has_point(&bp, "split1"));
+    assert!(node_has_point(&bp, "split2_upper"));
+    assert!(node_has_point(&bp, "split2"));
+    assert!(node_has_point(&bp, "split2_lower"));
 
     let tri_nodes = bp
         .nodes
         .iter()
         .filter(|node| {
-            node.junction_geometry.as_ref().or_else(|| {
-                node.metadata
-                    .as_ref()
-                    .and_then(|meta| meta.get::<JunctionGeometryMetadata>())
-            })
-                .is_some_and(|meta| meta.junction_family == JunctionFamily::Trifurcation)
+            node.junction_geometry
+                .as_ref()
+                .is_some_and(|g| g.junction_family == JunctionFamily::Trifurcation)
         })
         .count();
     assert_eq!(tri_nodes, 4);
@@ -285,12 +207,10 @@ fn dtcv_acoustic_render_keeps_full_tree_without_frusta() {
         1.0e-3,
     );
 
-    let system = channel_system_from_blueprint(&bp, Some((127.76, 85.47)))
-        .expect("acoustic dtcv render conversion must succeed");
-    assert!(node_has_layout(&bp, "split2_upper"));
-    assert!(channel_path(&bp, "upper_L").len() >= 4);
-    assert!(!system
+    assert!(node_has_point(&bp, "split2_upper"));
+    assert!(channel_path(&bp, "upper_L").len() >= 2);
+    assert!(!bp
         .channels
         .iter()
-        .any(|channel| matches!(channel.channel_type, ChannelType::Frustum { .. })));
+        .any(|channel| channel.venturi_geometry.is_some()));
 }

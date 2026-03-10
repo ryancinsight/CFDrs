@@ -95,7 +95,7 @@ impl<T: RealField + Float> DiagonalPreconditioner<T> {
     pub fn new(matrix: &SparseMatrix<T>) -> Self {
         let n = matrix.nrows();
         let mut diag_inv = DVector::zeros(n);
-        
+
         for i in 0..n {
             let d = get_diagonal(matrix, i);
             if Float::abs(d) > T::from_f64(1e-14).unwrap_or_else(T::epsilon) {
@@ -105,10 +105,10 @@ impl<T: RealField + Float> DiagonalPreconditioner<T> {
                 diag_inv[i] = T::one();
             }
         }
-        
+
         Self { diag_inv }
     }
-    
+
     /// Apply preconditioner: x = M^{-1} b
     pub fn apply(&self, b: &DVector<T>) -> DVector<T> {
         b.component_mul(&self.diag_inv)
@@ -132,22 +132,16 @@ impl<T: RealField + Float + Copy> BlockDiagonalPreconditioner<T> {
     ///    - Better than diagonal: accounts for element coupling
     ///    - M_p_ij = ∫ φ_i φ_j dΩ (mass matrix assembly)
     ///    - Use: S^{-1} ≈ (1/ν) M_p^{-1}
-    pub fn new(
-        matrix: &SparseMatrix<T>,
-        n_velocity: usize,
-        n_pressure: usize,
-    ) -> Result<Self> {
+    pub fn new(matrix: &SparseMatrix<T>, n_velocity: usize, n_pressure: usize) -> Result<Self> {
         if matrix.nrows() != n_velocity + n_pressure {
-            return Err(cfd_core::error::Error::InvalidConfiguration(
-                format!(
-                    "Matrix size mismatch: {} != {} + {}",
-                    matrix.nrows(),
-                    n_velocity,
-                    n_pressure
-                )
-            ));
+            return Err(cfd_core::error::Error::InvalidConfiguration(format!(
+                "Matrix size mismatch: {} != {} + {}",
+                matrix.nrows(),
+                n_velocity,
+                n_pressure
+            )));
         }
-        
+
         // Extract momentum block diagonal (A block)
         let mut momentum_diag = DVector::zeros(n_velocity);
         for i in 0..n_velocity {
@@ -158,63 +152,69 @@ impl<T: RealField + Float + Copy> BlockDiagonalPreconditioner<T> {
                 T::one() // Avoid division by zero
             };
         }
-        
+
         // IMPROVED: Approximate Schur complement using viscosity-scaled mass matrix
         // For incompressible flow: S ≈ μ M_p where M_p is pressure mass matrix
         // Extract pressure block diagonal and off-diagonal contributions
         let mut pressure_diag = DVector::zeros(n_pressure);
-        
+
         for i in 0..n_pressure {
             let row_idx = n_velocity + i;
-            
+
             // Sum row absolute values to approximate mass matrix diagonal
             // M_p_ii ≈ Σ_j |M_p_ij|  (row-sum lumping)
             let row = matrix.row(row_idx);
             let mut row_sum = T::zero();
-            
+
             for (col_idx, &value) in row.col_indices().iter().zip(row.values()) {
-                if *col_idx >= n_velocity { // Only pressure-pressure block
+                if *col_idx >= n_velocity {
+                    // Only pressure-pressure block
                     row_sum += Float::abs(value);
                 }
             }
-            
+
             if row_sum > T::from_f64(1e-14).unwrap_or_else(T::epsilon) {
                 pressure_diag[i] = row_sum;
             } else {
                 // Fallback: use viscosity-based scaling
                 // Estimate from momentum block diagonal (average viscosity)
-                let filtered: Vec<T> = momentum_diag.iter()
+                let filtered: Vec<T> = momentum_diag
+                    .iter()
                     .filter(|&&x| Float::abs(x) > T::from_f64(1e-14).unwrap_or_else(T::epsilon))
                     .map(|&x| Float::abs(x))
                     .collect();
-                
+
                 let avg_momentum_diag = if filtered.is_empty() {
                     T::one()
                 } else {
-                    filtered.iter().fold(T::zero(), |acc, &x| acc + x) 
+                    filtered.iter().fold(T::zero(), |acc, &x| acc + x)
                         / T::from_usize(filtered.len()).unwrap_or(T::one())
                 };
-                    
+
                 pressure_diag[i] = avg_momentum_diag;
             }
         }
-        
-        let momentum_preconditioner = DiagonalPreconditioner { diag_inv: momentum_diag.map(|d| {
-            if Float::abs(d) > T::from_f64(1e-14).unwrap_or_else(T::epsilon) {
-                T::one() / d
-            } else {
-                T::one()
-            }
-        })};
-        
-        let pressure_preconditioner = DiagonalPreconditioner { diag_inv: pressure_diag.map(|d| {
-            if Float::abs(d) > T::from_f64(1e-14).unwrap_or_else(T::epsilon) {
-                T::one() / d
-            } else {
-                T::one()
-            }
-        })};
-        
+
+        let momentum_preconditioner = DiagonalPreconditioner {
+            diag_inv: momentum_diag.map(|d| {
+                if Float::abs(d) > T::from_f64(1e-14).unwrap_or_else(T::epsilon) {
+                    T::one() / d
+                } else {
+                    T::one()
+                }
+            }),
+        };
+
+        let pressure_preconditioner = DiagonalPreconditioner {
+            diag_inv: pressure_diag.map(|d| {
+                if Float::abs(d) > T::from_f64(1e-14).unwrap_or_else(T::epsilon) {
+                    T::one() / d
+                } else {
+                    T::one()
+                }
+            }),
+        };
+
         Ok(Self {
             momentum_preconditioner,
             pressure_preconditioner,
@@ -222,7 +222,7 @@ impl<T: RealField + Float + Copy> BlockDiagonalPreconditioner<T> {
             n_pressure,
         })
     }
-    
+
     /// Apply block diagonal preconditioner: x = P^{-1} b
     ///
     /// # Algorithm
@@ -237,19 +237,19 @@ impl<T: RealField + Float + Copy> BlockDiagonalPreconditioner<T> {
             // Handle size mismatch gracefully
             return b.clone();
         }
-        
+
         let mut x = DVector::zeros(n_total);
-        
+
         // Apply momentum block preconditioner
         let f = b.rows(0, self.n_velocity);
         let u = self.momentum_preconditioner.apply(&f.into_owned());
         x.rows_mut(0, self.n_velocity).copy_from(&u);
-        
+
         // Apply pressure block preconditioner
         let g = b.rows(self.n_velocity, self.n_pressure);
         let p = self.pressure_preconditioner.apply(&g.into_owned());
         x.rows_mut(self.n_velocity, self.n_pressure).copy_from(&p);
-        
+
         x
     }
 }
@@ -302,11 +302,7 @@ impl<T: RealField + Float + Copy> SimplePreconditioner<T> {
     ///
     /// Extracts the $A$, $B$, and $B^T$ sub-blocks from the full saddle-point
     /// matrix and builds the diagonal Schur complement $\text{diag}(B\,\text{diag}(A)^{-1}B^T)$.
-    pub fn new(
-        matrix: &SparseMatrix<T>,
-        n_velocity: usize,
-        n_pressure: usize,
-    ) -> Result<Self> {
+    pub fn new(matrix: &SparseMatrix<T>, n_velocity: usize, n_pressure: usize) -> Result<Self> {
         let eps = T::from_f64(1e-14).unwrap_or_else(T::epsilon);
 
         // Extract momentum diagonal and its inverse
@@ -430,60 +426,60 @@ impl<T: RealField + Float + Copy> Preconditioner<T> for SimplePreconditioner<T> 
 mod tests {
     use super::*;
     use crate::sparse::SparseMatrixBuilder;
-    
+
     #[test]
     fn test_diagonal_preconditioner() {
         let mut builder = SparseMatrixBuilder::new(3, 3);
         builder.add_entry(0, 0, 2.0).unwrap();
         builder.add_entry(1, 1, 4.0).unwrap();
         builder.add_entry(2, 2, 8.0).unwrap();
-        
+
         let mut rhs = DVector::zeros(3);
         let matrix = builder.build_with_rhs(&mut rhs).unwrap();
-        
+
         let precond = DiagonalPreconditioner::new(&matrix);
         let b = DVector::from_vec(vec![2.0, 4.0, 8.0]);
         let x = precond.apply(&b);
-        
+
         assert!((x[0] - 1.0).abs() < 1e-10);
         assert!((x[1] - 1.0).abs() < 1e-10);
         assert!((x[2] - 1.0).abs() < 1e-10);
     }
-    
+
     #[test]
     fn test_block_diagonal_preconditioner() {
         // Create simple 4x4 saddle-point system: 2 velocity, 2 pressure DOFs
         // This represents a stabilized FEM system with pressure diagonal
         let mut builder = SparseMatrixBuilder::new(4, 4);
-        
+
         // Momentum block (2x2) - viscous terms
         builder.add_entry(0, 0, 4.0).unwrap();
         builder.add_entry(1, 1, 4.0).unwrap();
-        
+
         // Gradient block (velocity -> pressure coupling)
         builder.add_entry(0, 2, 1.0).unwrap();
         builder.add_entry(1, 3, 1.0).unwrap();
-        
+
         // Divergence block (pressure -> velocity coupling)
         builder.add_entry(2, 0, 1.0).unwrap();
         builder.add_entry(3, 1, 1.0).unwrap();
-        
+
         // Pressure block diagonal (stabilization term, typical in FEM)
         // Without this, the pressure block is singular
         builder.add_entry(2, 2, 1.0).unwrap();
         builder.add_entry(3, 3, 1.0).unwrap();
-        
+
         let mut rhs = DVector::zeros(4);
         let matrix = builder.build_with_rhs(&mut rhs).unwrap();
-        
+
         let precond = BlockDiagonalPreconditioner::new(&matrix, 2, 2).unwrap();
         let b = DVector::from_vec(vec![4.0, 4.0, 1.0, 1.0]);
         let x = precond.apply(&b);
-        
+
         // Momentum block: u = [4/4, 4/4] = [1, 1]
         assert!((x[0] - 1.0).abs() < 1e-10);
         assert!((x[1] - 1.0).abs() < 1e-10);
-        
+
         // Pressure block: p = [1/1, 1/1] = [1, 1]
         assert!((x[2] - 1.0).abs() < 1e-10);
         assert!((x[3] - 1.0).abs() < 1e-10);

@@ -84,7 +84,15 @@
       "Bash(git -C \"C:/Users/RyanClanton/gcli/software/millifluidic_design/CFDrs\" diff HEAD -- crates/cfd-optim/src/constraints.rs)",
       "Bash(git -C \"C:/Users/RyanClanton/gcli/software/millifluidic_design/CFDrs\" stash list)",
       "Bash(git -C \"C:/Users/RyanClanton/gcli/software/millifluidic_design/CFDrs\" show HEAD:crates/cfd-optim/src/constraints.rs)",
-      "Bash(git -C \"C:/Users/RyanClanton/gcli/software/millifluidic_design/CFDrs\" show HEAD:crates/cfd-optim/src/metrics/compute.rs)"
+      "Bash(git -C \"C:/Users/RyanClanton/gcli/software/millifluidic_design/CFDrs\" show HEAD:crates/cfd-optim/src/metrics/compute.rs)",
+      "Bash(powershell -Command \"Stop-Process -Name milestone12_report -Force -ErrorAction SilentlyContinue; ''done''\")",
+      "Bash(M12_FAST=1 cargo run -p cfd-optim --example milestone12_report --no-default-features)",
+      "Bash(M12_FAST=1 cargo run -p cfd-optim --no-default-features --example milestone12_report)",
+      "Bash(rustup show)",
+      "Read(//c/Users/RyanClanton/AppData/Local/Temp/claude/**)",
+      "Read(//c/Users/RYANCL~1/AppData/Local/Temp/claude/**)",
+      "Read(//c/Users/RyanClanton/AppData/Local/Temp/claude//**)",
+      "Bash(M12_FAST=1 cargo run -p cfd-optim --example milestone12_option1 --no-default-features --release)"
     ]
   }
 }

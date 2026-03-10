@@ -83,7 +83,9 @@ use crate::infrastructure::storage::vertex_pool::VertexPool;
 
 use crate::application::delaunay::pslg::vertex::PslgVertexId;
 use crate::application::delaunay::{Cdt, Pslg};
-use crate::domain::core::constants::{COREFINE_EDGE_EPS, COREFINE_WELD_TOL_SQ, MAX_STEINER_PER_FACE};
+use crate::domain::core::constants::{
+    COREFINE_EDGE_EPS, COREFINE_WELD_TOL_SQ, MAX_STEINER_PER_FACE,
+};
 
 /// Distance tolerance squared for edge Steiner projection.
 ///

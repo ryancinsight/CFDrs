@@ -1,7 +1,7 @@
 //! 3D bifurcation and trifurcation flow solver `PyO3` wrappers.
 
-use pyo3::prelude::*;
 use pyo3::exceptions::PyRuntimeError;
+use pyo3::prelude::*;
 
 use cfd_3d::bifurcation::{BifurcationConfig3D, BifurcationGeometry3D, BifurcationSolver3D};
 use cfd_3d::trifurcation::{TrifurcationConfig3D, TrifurcationGeometry3D, TrifurcationSolver3D};
@@ -115,13 +115,21 @@ impl PyBifurcation3DSolver {
             _ => CassonBlood::<f64>::normal_blood(),
         };
 
-        let solution = solver.solve(fluid)
+        let solution = solver
+            .solve(fluid)
             .map_err(|e| PyRuntimeError::new_err(format!("Solver error: {e}")))?;
 
         Ok(PyBifurcation3DResult {
-            max_wss: solution.wall_shear_stress_parent.max(solution.wall_shear_stress_daughter1),
-            min_wss: solution.wall_shear_stress_parent.min(solution.wall_shear_stress_daughter1),
-            mean_wss: (solution.wall_shear_stress_parent + solution.wall_shear_stress_daughter1 + solution.wall_shear_stress_daughter2) / 3.0,
+            max_wss: solution
+                .wall_shear_stress_parent
+                .max(solution.wall_shear_stress_daughter1),
+            min_wss: solution
+                .wall_shear_stress_parent
+                .min(solution.wall_shear_stress_daughter1),
+            mean_wss: (solution.wall_shear_stress_parent
+                + solution.wall_shear_stress_daughter1
+                + solution.wall_shear_stress_daughter2)
+                / 3.0,
             wss_ratio: solution.wall_shear_stress_daughter1 / solution.wall_shear_stress_parent,
             flow_split_ratio: solution.q_daughter1 / solution.q_parent,
             mass_conservation_error: solution.mass_conservation_error,
@@ -174,7 +182,11 @@ impl PyTrifurcation3DSolver {
     #[new]
     #[pyo3(signature = (d_parent, d_daughter, length=1e-3))]
     fn new(d_parent: f64, d_daughter: f64, length: f64) -> Self {
-        PyTrifurcation3DSolver { d_parent, d_daughter, length }
+        PyTrifurcation3DSolver {
+            d_parent,
+            d_daughter,
+            length,
+        }
     }
 
     /// Solve 3D trifurcation simulation
@@ -199,12 +211,21 @@ impl PyTrifurcation3DSolver {
             _ => CassonBlood::<f64>::normal_blood(),
         };
 
-        let solution = solver.solve(&fluid)
+        let solution = solver
+            .solve(&fluid)
             .map_err(|e| PyRuntimeError::new_err(format!("Solver error: {e}")))?;
 
         Ok(PyTrifurcation3DResult {
-            max_wss: solution.wall_shear_stresses.iter().copied().fold(0.0, f64::max),
-            min_wss: solution.wall_shear_stresses.iter().copied().fold(f64::INFINITY, f64::min),
+            max_wss: solution
+                .wall_shear_stresses
+                .iter()
+                .copied()
+                .fold(0.0, f64::max),
+            min_wss: solution
+                .wall_shear_stresses
+                .iter()
+                .copied()
+                .fold(f64::INFINITY, f64::min),
             flow_rates: solution.flow_rates,
             mass_conservation_error: solution.mass_conservation_error,
         })

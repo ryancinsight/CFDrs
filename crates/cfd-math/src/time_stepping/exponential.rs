@@ -257,7 +257,8 @@ impl<T: RealField + Copy + FromPrimitive + ComplexField> ExponentialRungeKutta4<
 
         // Combine stages: u_{n+1} = u + (dt/6) * (f0 + 2*f1 + 2*f2 + f3)
         let combined_rhs = &f0 + &(&f1 * two) + &(&f2 * two) + &f3;
-        let u_new = u + &combined_rhs * (dt / T::from_f64(6.0).unwrap_or_else(num_traits::Zero::zero));
+        let u_new =
+            u + &combined_rhs * (dt / T::from_f64(6.0).unwrap_or_else(num_traits::Zero::zero));
 
         Ok(u_new)
     }

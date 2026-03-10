@@ -375,7 +375,7 @@ impl<T: RealField + FromPrimitive + Copy> CassonPoiseuille<T> {
             return T::zero();
         }
 
-        if y_abs <= self.plug_radius {
+        if y_abs < self.plug_radius {
             // Plug region: constant velocity
             return self.plug_velocity();
         }
@@ -385,17 +385,21 @@ impl<T: RealField + FromPrimitive + Copy> CassonPoiseuille<T> {
         let dy = (self.half_width - y_abs) / T::from_usize(n_points).unwrap();
         let mut integral = T::zero();
 
+        let two = T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
+        let four = T::from_f64(4.0).unwrap_or_else(num_traits::Zero::zero);
+        let three = T::from_f64(3.0).unwrap_or_else(num_traits::Zero::zero);
+        let sqrt_tau_y = self.model.yield_stress.sqrt();
+        let sqrt_mu_inf = self.model.infinite_shear_viscosity.sqrt();
+
         for i in 0..=n_points {
             let eta = y_abs + T::from_usize(i).unwrap() * dy;
             let tau = self.pressure_gradient * eta;
 
             // Casson equation: √τ = √τ_y + √(μ_∞·γ̇)
             // Solve for γ̇: γ̇ = [(√τ - √τ_y)² / μ_∞]
-            let sqrt_tau_y = self.model.yield_stress.sqrt();
             let sqrt_tau = tau.sqrt();
 
             let gamma_dot = if tau > self.model.yield_stress {
-                let sqrt_mu_inf = self.model.infinite_shear_viscosity.sqrt();
                 let diff = sqrt_tau - sqrt_tau_y;
                 (diff / sqrt_mu_inf) * (diff / sqrt_mu_inf)
             } else {
@@ -406,15 +410,15 @@ impl<T: RealField + FromPrimitive + Copy> CassonPoiseuille<T> {
             let weight = if i == 0 || i == n_points {
                 T::one()
             } else if i % 2 == 0 {
-                T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero)
+                two
             } else {
-                T::from_f64(4.0).unwrap_or_else(num_traits::Zero::zero)
+                four
             };
 
             integral += weight * gamma_dot;
         }
 
-        integral * dy / T::from_f64(3.0).unwrap_or_else(num_traits::Zero::zero)
+        integral * dy / three
     }
 
     /// Wall shear stress [Pa]
@@ -429,6 +433,10 @@ impl<T: RealField + FromPrimitive + Copy> CassonPoiseuille<T> {
         let dy = self.half_width / T::from_usize(n_points).unwrap();
         let mut integral = T::zero();
 
+        let two = T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
+        let four = T::from_f64(4.0).unwrap_or_else(num_traits::Zero::zero);
+        let three = T::from_f64(3.0).unwrap_or_else(num_traits::Zero::zero);
+
         for i in 0..=n_points {
             let y = T::from_usize(i).unwrap() * dy;
             let u = self.velocity_at_numerical(y);
@@ -436,16 +444,15 @@ impl<T: RealField + FromPrimitive + Copy> CassonPoiseuille<T> {
             let weight = if i == 0 || i == n_points {
                 T::one()
             } else if i % 2 == 0 {
-                T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero)
+                two
             } else {
-                T::from_f64(4.0).unwrap_or_else(num_traits::Zero::zero)
+                four
             };
 
             integral += weight * u;
         }
 
-        T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero) * integral * dy
-            / T::from_f64(3.0).unwrap_or_else(num_traits::Zero::zero)
+        two * integral * dy / three
     }
 }
 

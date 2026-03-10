@@ -96,9 +96,6 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for RectangularChan
         fluid: &F,
         conditions: &FlowConditions<T>,
     ) -> Result<(T, T)> {
-        let viscosity =
-            fluid.viscosity_at_shear(T::zero(), conditions.temperature, conditions.pressure)?;
-
         // Calculate hydraulic diameter
         let area = self.width * self.height;
         let perimeter = T::from_f64(PERIMETER_FACTOR)
@@ -108,6 +105,30 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for RectangularChan
             .expect("Mathematical constant conversion compromised")
             * area
             / perimeter;
+
+        let velocity = if let Some(v) = conditions.velocity {
+            v
+        } else if let Some(q) = conditions.flow_rate {
+            q / area
+        } else {
+            T::zero()
+        };
+        let v_abs = if velocity >= T::zero() {
+            velocity
+        } else {
+            -velocity
+        };
+
+        // Always query the shear-dependent viscosity. Newtonian fluids gracefully
+        // ignore the shear_rate argument via the default trait implementation.
+        let shear_rate = T::from_f64(8.0).unwrap_or(T::one()) * v_abs / dh;
+        let viscosity = fluid
+            .viscosity_at_shear(shear_rate, conditions.temperature, conditions.pressure)
+            .unwrap_or(
+                fluid
+                    .properties_at(conditions.temperature, conditions.pressure)?
+                    .dynamic_viscosity,
+            );
 
         // Calculate aspect ratio (always ≥ 1 for consistency)
         let aspect_ratio =

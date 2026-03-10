@@ -1,7 +1,7 @@
 //! 1D Serpentine resistance solver `PyO3` wrapper.
 
-use pyo3::prelude::*;
 use pyo3::exceptions::PyRuntimeError;
+use pyo3::prelude::*;
 
 // ── Solver ───────────────────────────────────────────────────────────────────
 
@@ -36,17 +36,27 @@ pub struct PySerpentineSolver1D {
 impl PySerpentineSolver1D {
     #[new]
     #[pyo3(signature = (width, height, straight_length, num_segments=10, bend_radius=0.002))]
-    fn new(width: f64, height: f64, straight_length: f64, num_segments: usize, bend_radius: f64) -> Self {
-        PySerpentineSolver1D { width, height, straight_length, num_segments, bend_radius }
+    fn new(
+        width: f64,
+        height: f64,
+        straight_length: f64,
+        num_segments: usize,
+        bend_radius: f64,
+    ) -> Self {
+        PySerpentineSolver1D {
+            width,
+            height,
+            straight_length,
+            num_segments,
+            bend_radius,
+        }
     }
 
     /// Solve serpentine resistance for given flow conditions.
     fn solve(&self, velocity: f64, blood_type: &str) -> PyResult<PySerpentineResult1D> {
-        use cfd_1d::resistance::models::{
-            FlowConditions, ResistanceModel, SerpentineCrossSection, SerpentineModel,
-        };
-        use cfd_core::physics::fluid::blood::CassonBlood as RustCasson;
+        use cfd_1d::{FlowConditions, ResistanceModel, SerpentineCrossSection, SerpentineModel};
         use cfd_core::physics::fluid::blood::CarreauYasudaBlood as RustCY;
+        use cfd_core::physics::fluid::blood::CassonBlood as RustCasson;
 
         let cross_section = SerpentineCrossSection::Rectangular {
             width: self.width,
@@ -54,7 +64,10 @@ impl PySerpentineSolver1D {
         };
         let total_straight = self.straight_length * self.num_segments as f64;
         let model = SerpentineModel::new(
-            total_straight, self.num_segments, cross_section, self.bend_radius,
+            total_straight,
+            self.num_segments,
+            cross_section,
+            self.bend_radius,
         );
 
         let dh = cross_section.hydraulic_diameter();
@@ -84,10 +97,16 @@ impl PySerpentineSolver1D {
         conditions.reynolds_number = Some(re);
 
         let fluid = cfd_core::physics::fluid::ConstantPropertyFluid::new(
-            "blood".to_string(), density, mu, 3617.0, 0.52, 1570.0,
+            "blood".to_string(),
+            density,
+            mu,
+            3617.0,
+            0.52,
+            1570.0,
         );
 
-        let resistance = model.calculate_resistance(&fluid, &conditions)
+        let resistance = model
+            .calculate_resistance(&fluid, &conditions)
             .map_err(|e| PyRuntimeError::new_err(format!("Serpentine solver error: {e}")))?;
 
         let area = self.width * self.height;

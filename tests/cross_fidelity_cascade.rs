@@ -165,8 +165,17 @@ fn cross_fidelity_1d_to_3d_cascade() {
 
     // Log for manual inspection.
     eprintln!("Cross-fidelity comparison:");
-    eprintln!("  1D:  ΔP_bypass = {:.4} Pa, ΔP_center = {:.4} Pa", dp_1d_bypass, dp_1d_center);
-    eprintln!("  3D:  ΔP_bypass = {:.4} Pa, ΔP_center = {:.4} Pa", dp_3d_bypass, dp_3d_center);
-    eprintln!("  Flow split: Q_bypass/Q_total = {:.3}, Q_center/Q_total = {:.3}",
-        q_bypass / Q_TOTAL, q_center / Q_TOTAL);
+    eprintln!(
+        "  1D:  ΔP_bypass = {:.4} Pa, ΔP_center = {:.4} Pa",
+        dp_1d_bypass, dp_1d_center
+    );
+    eprintln!(
+        "  3D:  ΔP_bypass = {:.4} Pa, ΔP_center = {:.4} Pa",
+        dp_3d_bypass, dp_3d_center
+    );
+    eprintln!(
+        "  Flow split: Q_bypass/Q_total = {:.3}, Q_center/Q_total = {:.3}",
+        q_bypass / Q_TOTAL,
+        q_center / Q_TOTAL
+    );
 }

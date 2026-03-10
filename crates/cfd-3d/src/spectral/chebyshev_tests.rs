@@ -19,7 +19,7 @@ mod tests {
     #[test]
     fn test_gauss_lobatto_points_endpoints() {
         let cheb = ChebyshevPolynomial::<f64>::new(5).unwrap();
-        let points = cheb.collocation_points();
+        let points = cheb.points();
 
         // Endpoints should be exactly ±1
         assert_relative_eq!(points[0], 1.0, epsilon = 1e-14);
@@ -32,7 +32,7 @@ mod tests {
     fn test_gauss_lobatto_symmetry() {
         let n = 9;
         let cheb = ChebyshevPolynomial::<f64>::new(n).unwrap();
-        let points = cheb.collocation_points();
+        let points = cheb.points();
 
         // Points should be symmetric: x_j = -x_{n-1-j}
         for j in 0..n / 2 {
@@ -46,7 +46,7 @@ mod tests {
     fn test_gauss_lobatto_analytical() {
         let n = 8;
         let cheb = ChebyshevPolynomial::<f64>::new(n).unwrap();
-        let points = cheb.collocation_points();
+        let points = cheb.points();
 
         for (j, &point) in points.iter().enumerate() {
             let expected = (PI * (j as f64) / ((n - 1) as f64)).cos();
@@ -95,7 +95,7 @@ mod tests {
         let n = 10;
         let cheb = ChebyshevPolynomial::<f64>::new(n).unwrap();
         let d_matrix = cheb.diff_matrix();
-        let points = cheb.collocation_points();
+        let points = cheb.points();
 
         // Linear function u = x
         let u = nalgebra::DVector::from_vec(points.to_vec());
@@ -114,7 +114,7 @@ mod tests {
         let n = 12;
         let cheb = ChebyshevPolynomial::<f64>::new(n).unwrap();
         let d_matrix = cheb.diff_matrix();
-        let points = cheb.collocation_points();
+        let points = cheb.points();
 
         // Quadratic function u = x²
         let u: nalgebra::DVector<f64> =
@@ -136,7 +136,7 @@ mod tests {
         let n = 20;
         let cheb = ChebyshevPolynomial::<f64>::new(n).unwrap();
         let d_matrix = cheb.diff_matrix();
-        let points = cheb.collocation_points();
+        let points = cheb.points();
 
         // Function u = sin(πx)
         let u: nalgebra::DVector<f64> =
@@ -158,7 +158,7 @@ mod tests {
         let n = 20;
         let cheb = ChebyshevPolynomial::<f64>::new(n).unwrap();
         let d_matrix = cheb.diff_matrix();
-        let points = cheb.collocation_points();
+        let points = cheb.points();
 
         // Second derivative matrix D²
         let d2_matrix = d_matrix * d_matrix;
@@ -183,7 +183,7 @@ mod tests {
     fn test_interpolation_polynomial() {
         let n = 10;
         let cheb = ChebyshevPolynomial::<f64>::new(n).unwrap();
-        let points = cheb.collocation_points();
+        let points = cheb.points();
 
         // Polynomial p(x) = x³ - 2x² + x - 1 (degree 3 < n-1)
         let poly = |x: f64| x * x * x - 2.0 * x * x + x - 1.0;
@@ -214,7 +214,7 @@ mod tests {
         for &n in &n_values {
             let cheb = ChebyshevPolynomial::<f64>::new(n).unwrap();
             let d_matrix = cheb.diff_matrix();
-            let points = cheb.collocation_points();
+            let points = cheb.points();
 
             let u: nalgebra::DVector<f64> =
                 nalgebra::DVector::from_iterator(n, points.iter().map(|&x| f(x)));
@@ -256,7 +256,7 @@ mod tests {
     fn test_boundary_values_preserved() {
         let n = 8;
         let cheb = ChebyshevPolynomial::<f64>::new(n).unwrap();
-        let points = cheb.collocation_points();
+        let points = cheb.points();
 
         // Function with specific boundary values
         let u: nalgebra::DVector<f64> =
@@ -273,7 +273,7 @@ mod tests {
     fn test_gauss_lobatto_quadrature() {
         let n = 16;
         let cheb = ChebyshevPolynomial::<f64>::new(n).unwrap();
-        let points = cheb.collocation_points();
+        let points = cheb.points();
         let weights = cheb.quadrature_weights().unwrap();
 
         // Integrate a polynomial of degree < N (where N=n-1)

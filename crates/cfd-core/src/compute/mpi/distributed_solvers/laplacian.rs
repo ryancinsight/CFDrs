@@ -128,12 +128,20 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp> DistributedLinear
                 let mut val = T::zero();
 
                 // x-direction
-                if i > 0 { val -= T::one() / dx_sq; }
-                if i < nx - 1 { val -= T::one() / dx_sq; }
+                if i > 0 {
+                    val -= T::one() / dx_sq;
+                }
+                if i < nx - 1 {
+                    val -= T::one() / dx_sq;
+                }
 
                 // y-direction
-                if j > 0 { val -= T::one() / dy_sq; }
-                if j < ny - 1 { val -= T::one() / dy_sq; }
+                if j > 0 {
+                    val -= T::one() / dy_sq;
+                }
+                if j < ny - 1 {
+                    val -= T::one() / dy_sq;
+                }
 
                 diag[idx] = val;
             }

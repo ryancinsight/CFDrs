@@ -116,38 +116,10 @@ fn benchmark_fluid_calculations(c: &mut Criterion) {
     group.finish();
 }
 
-fn benchmark_analytical_solutions(c: &mut Criterion) {
-    use cfd_validation::analytical::{AnalyticalSolution, PoiseuilleFlow};
-
-    let mut group = c.benchmark_group("analytical_solutions");
-
-    let poiseuille = PoiseuilleFlow::create(
-        2.5,    // u_max
-        0.05,   // characteristic length (half-width), was 0.1 width
-        -100.0, // pressure gradient
-        0.001,  // viscosity
-        cfd_validation::analytical::PoiseuilleGeometry::Plates,
-    );
-
-    group.bench_function("poiseuille_velocity", |b| {
-        b.iter(|| {
-            let x = black_box(0.5);
-            let y = black_box(0.05);
-            let z = black_box(0.0);
-            let t = black_box(0.0);
-            let v = poiseuille.velocity(x, y, z, t);
-            black_box(v);
-        });
-    });
-
-    group.finish();
-}
-
 criterion_group!(
     benches,
     benchmark_grid_operations,
     benchmark_sparse_matrix_operations,
-    benchmark_fluid_calculations,
-    benchmark_analytical_solutions
+    benchmark_fluid_calculations
 );
 criterion_main!(benches);

@@ -99,10 +99,16 @@ mod tests {
             .expect("construction must succeed for valid data");
         // Query below domain minimum
         let result = interp.interpolate(-0.1);
-        assert!(result.is_err(), "extrapolation below domain must return Err");
+        assert!(
+            result.is_err(),
+            "extrapolation below domain must return Err"
+        );
         // Query above domain maximum
         let result = interp.interpolate(2.1);
-        assert!(result.is_err(), "extrapolation above domain must return Err");
+        assert!(
+            result.is_err(),
+            "extrapolation above domain must return Err"
+        );
     }
 
     /// Verify that a single-point dataset (degenerate case) is handled.
@@ -112,7 +118,10 @@ mod tests {
         let y_data = vec![3.0];
         let result = LinearInterpolation::new(x_data, y_data);
         // A single point cannot define an interpolation scheme — must fail gracefully.
-        assert!(result.is_err(), "single-point interpolation must return Err");
+        assert!(
+            result.is_err(),
+            "single-point interpolation must return Err"
+        );
     }
 
     /// Verify non-strictly-increasing nodes are rejected.

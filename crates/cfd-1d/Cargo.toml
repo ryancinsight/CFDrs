@@ -32,3 +32,8 @@ tracing = "0.1"
 [dev-dependencies]
 tracing-subscriber = "0.3"
 proptest = "1.0"
+criterion.workspace = true
+
+[[bench]]
+name = "primitive_selective_solver"
+harness = false

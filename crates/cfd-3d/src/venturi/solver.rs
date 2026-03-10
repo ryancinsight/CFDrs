@@ -598,7 +598,9 @@ impl<
             let mut shear_sum_f64 = 0.0_f64;
 
             next_viscosities.clear();
-            let current_viscosities = problem.element_viscosities.as_ref()
+            let current_viscosities = problem
+                .element_viscosities
+                .as_ref()
                 .expect("element_viscosities set before Picard loop");
 
             // Under-relax viscosity for Picard stability:
@@ -635,7 +637,8 @@ impl<
                     new_visc = problem.fluid.viscosity;
                 }
 
-                let relaxed_visc = relax_alpha * new_visc + (1.0 - relax_alpha) * current_viscosities[i];
+                let relaxed_visc =
+                    relax_alpha * new_visc + (1.0 - relax_alpha) * current_viscosities[i];
                 let change = num_traits::Float::abs(relaxed_visc - current_viscosities[i])
                     / current_viscosities[i];
                 if change > max_change_f64 {
@@ -665,10 +668,12 @@ impl<
                 vel_change_f64 = 1.0_f64;
             }
 
-            element_viscosities = problem.element_viscosities.take()
+            element_viscosities = problem
+                .element_viscosities
+                .take()
                 .expect("element_viscosities set before Picard loop");
             std::mem::swap(&mut element_viscosities, &mut next_viscosities);
-            
+
             last_solution = Some(updated_solution);
 
             // Log non-linear progress with timing
@@ -765,7 +770,14 @@ impl<
             for b in 0..n_bins {
                 let z_lo = total_length_f64 * (b as f64) / (n_bins as f64);
                 let z_hi = total_length_f64 * ((b + 1) as f64) / (n_bins as f64);
-                tracing::debug!(b, z_lo, z_hi, count = bin_count[b], u_max = bin_u_max[b], "velocity bin");
+                tracing::debug!(
+                    b,
+                    z_lo,
+                    z_hi,
+                    count = bin_count[b],
+                    u_max = bin_u_max[b],
+                    "velocity bin"
+                );
             }
         }
 
@@ -807,15 +819,15 @@ impl<
         }
 
         if p_in_count > 0 {
-            solution.p_inlet = p_in_sum / T::from_usize(p_in_count)
-                .expect("p_in_count is always a representable usize");
+            solution.p_inlet = p_in_sum
+                / T::from_usize(p_in_count).expect("p_in_count is always a representable usize");
         } else {
             solution.p_inlet = self.config.inlet_pressure;
         }
 
         let u_in_sol_avg = if count_in > 0 {
-            u_in_sol_sum / T::from_usize(count_in)
-                .expect("count_in is always a representable usize")
+            u_in_sol_sum
+                / T::from_usize(count_in).expect("count_in is always a representable usize")
         } else {
             T::zero()
         };
@@ -824,8 +836,9 @@ impl<
         // Identify throat section nodes and average pressure
         let z_throat_center = self.builder.l_inlet
             + self.builder.l_convergent
-            + self.builder.l_throat / <T as FromPrimitive>::from_f64(2.0)
-                .expect("2.0 is representable in all IEEE 754 types");
+            + self.builder.l_throat
+                / <T as FromPrimitive>::from_f64(2.0)
+                    .expect("2.0 is representable in all IEEE 754 types");
         let total_length = self.builder.l_inlet
             + self.builder.l_convergent
             + self.builder.l_throat
@@ -862,15 +875,16 @@ impl<
         }
 
         let u_throat_avg = if count_th > 0 {
-            u_throat_sum / T::from_usize(count_th)
-                .expect("count_th is always a representable usize")
+            u_throat_sum
+                / T::from_usize(count_th).expect("count_th is always a representable usize")
         } else {
             T::zero()
         };
 
         if p_throat_count > 0 {
-            solution.p_throat = p_throat_sum / T::from_usize(p_throat_count)
-                .expect("p_throat_count is always a representable usize");
+            solution.p_throat = p_throat_sum
+                / T::from_usize(p_throat_count)
+                    .expect("p_throat_count is always a representable usize");
             solution.u_throat = u_throat_max;
         }
 
@@ -902,29 +916,31 @@ impl<
         }
 
         let u_out_avg = if count_out > 0 {
-            u_out_sum / T::from_usize(count_out)
-                .expect("count_out is always a representable usize")
+            u_out_sum / T::from_usize(count_out).expect("count_out is always a representable usize")
         } else {
             T::zero()
         };
 
         if p_out_count > 0 {
-            solution.p_outlet = p_out_sum / T::from_usize(p_out_count)
-                .expect("p_out_count is always a representable usize");
+            solution.p_outlet = p_out_sum
+                / T::from_usize(p_out_count).expect("p_out_count is always a representable usize");
         }
 
         // Sample pressure from interior inlet/outlet slices to reduce boundary-node artifacts.
         // Use flux-weighted averaging (u_z-weighted) for better effective pressure-drop estimate.
-        let axial_dx =
-            total_length / T::from_usize(self.config.resolution.0.max(1))
+        let axial_dx = total_length
+            / T::from_usize(self.config.resolution.0.max(1))
                 .expect("resolution is always a representable usize");
-        let slice_tol = axial_dx * <T as FromPrimitive>::from_f64(0.55)
-            .expect("0.55 is an IEEE 754 representable f64 constant");
-        let z_in_sample = axial_dx * <T as FromPrimitive>::from_f64(5.0)
-            .expect("5.0 is representable in all IEEE 754 types");
-        let z_out_sample =
-            total_length - axial_dx * <T as FromPrimitive>::from_f64(5.0)
+        let slice_tol = axial_dx
+            * <T as FromPrimitive>::from_f64(0.55)
+                .expect("0.55 is an IEEE 754 representable f64 constant");
+        let z_in_sample = axial_dx
+            * <T as FromPrimitive>::from_f64(5.0)
                 .expect("5.0 is representable in all IEEE 754 types");
+        let z_out_sample = total_length
+            - axial_dx
+                * <T as FromPrimitive>::from_f64(5.0)
+                    .expect("5.0 is representable in all IEEE 754 types");
         let core_radius_frac = <T as FromPrimitive>::from_f64(0.90)
             .expect("0.90 is an IEEE 754 representable f64 constant");
         let core_radius_sq = if self.config.circular {
@@ -998,8 +1014,8 @@ impl<
             if p_in_slice_weight_sum > T::zero() {
                 solution.p_inlet = p_in_slice_weighted_sum / p_in_slice_weight_sum;
             } else {
-                solution.p_inlet =
-                    p_in_slice_sum / T::from_usize(p_in_slice_count)
+                solution.p_inlet = p_in_slice_sum
+                    / T::from_usize(p_in_slice_count)
                         .expect("p_in_slice_count is always a representable usize");
             }
         }
@@ -1007,8 +1023,8 @@ impl<
             if p_out_slice_weight_sum > T::zero() {
                 solution.p_outlet = p_out_slice_weighted_sum / p_out_slice_weight_sum;
             } else {
-                solution.p_outlet =
-                    p_out_slice_sum / T::from_usize(p_out_slice_count)
+                solution.p_outlet = p_out_slice_sum
+                    / T::from_usize(p_out_slice_count)
                         .expect("p_out_slice_count is always a representable usize");
             }
         }
@@ -1056,8 +1072,7 @@ impl<
         solution.dp_recovery = solution.p_outlet - solution.p_inlet; // Usually negative (loss)
 
         let q_dyn = Float::max(
-            <T as FromPrimitive>::from_f64(0.5)
-                .expect("0.5 is exactly representable in IEEE 754")
+            <T as FromPrimitive>::from_f64(0.5).expect("0.5 is exactly representable in IEEE 754")
                 * fluid_props.density
                 * u_inlet
                 * u_inlet,

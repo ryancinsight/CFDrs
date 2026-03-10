@@ -14,8 +14,8 @@ fn network_two_node<T: nalgebra::RealField + Copy + num_traits::FromPrimitive>()
     let inlet = builder.add_inlet("in".to_string());
     let outlet = builder.add_outlet("out".to_string());
     let edge = builder.add_edge(inlet, outlet, Edge::new("e".to_string(), EdgeType::Pipe));
-    let graph = builder.build().unwrap();
-    let fluid = ConstantPropertyFluid::<T>::water_20c().unwrap();
+    let graph = builder.build().expect("test invariant");
+    let fluid = ConstantPropertyFluid::<T>::water_20c().expect("test invariant");
     let net = Network::new(graph, fluid);
     (net, edge, inlet, outlet)
 }
@@ -32,7 +32,7 @@ fn spd_heuristic_selects_cg() -> Result<()> {
     let problem = NetworkProblem::new(net.clone());
     let solver = NetworkSolver::<F>::new();
     let solved = solver.solve(&problem)?;
-    match solved.last_solver_method.unwrap() {
+    match solved.last_solver_method.expect("test invariant") {
         LinearSolverMethod::ConjugateGradient => (),
         _ => panic!("expected CG method selection"),
     }

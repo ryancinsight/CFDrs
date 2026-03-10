@@ -43,7 +43,7 @@
 //! Mass conservation follows from the divergence-free constraint applied
 //! at the junction control volume.
 
-use super::ns_fvm_2d::{BloodModel, NavierStokesSolver2D, SIMPLEConfig, StaggeredGrid2D};
+use super::ns_fvm::{BloodModel, NavierStokesSolver2D, SIMPLEConfig, StaggeredGrid2D};
 use cfd_core::error::Result as CfdResult;
 use nalgebra::RealField;
 use num_traits::{Float, FromPrimitive, ToPrimitive};
@@ -165,8 +165,10 @@ impl<T: RealField + Copy + FromPrimitive> BifurcationGeometry<T> {
         let d2_end_y = self.daughter2_length * self.daughter2_angle.sin();
 
         let half_pw = self.parent_width / T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
-        let half_d1w = self.daughter1_width / T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
-        let half_d2w = self.daughter2_width / T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
+        let half_d1w =
+            self.daughter1_width / T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
+        let half_d2w =
+            self.daughter2_width / T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
 
         let min_x = T::zero();
         let max_x = d1_end_x.max(d2_end_x).max(self.parent_length);

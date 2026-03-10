@@ -46,12 +46,10 @@
 //! cargo run --example blood_flow_1d_validation --no-default-features
 //! ```
 
-use cfd_1d::junctions::branching::TwoWayBranchJunction;
-use cfd_1d::channel::Channel;
-use cfd_1d::channel::ChannelGeometry;
-use cfd_core::physics::fluid::blood::{
-    CassonBlood, CarreauYasudaBlood, FahraeuasLindqvist,
-};
+use cfd_1d::domain::channel::Channel;
+use cfd_1d::domain::channel::ChannelGeometry;
+use cfd_1d::domain::junctions::branching::TwoWayBranchJunction;
+use cfd_core::physics::fluid::blood::{CarreauYasudaBlood, CassonBlood, FahraeuasLindqvist};
 
 /// Tolerance for validation (1% relative error)
 const VALIDATION_TOLERANCE: f64 = 0.01;
@@ -98,7 +96,8 @@ fn validate_poiseuille_casson() -> ValidationReport {
     let blood = CassonBlood::<f64>::normal_blood();
 
     // Calculate pressure drop using solver
-    let dp_solver = TwoWayBranchJunction::<f64>::pressure_drop(&blood, q, &channel, 310.15, 101325.0);
+    let dp_solver =
+        TwoWayBranchJunction::<f64>::pressure_drop(&blood, q, &channel, 310.15, 101325.0);
 
     // Analytical solution (Casson model approximation)
     // For high shear rates, Casson approaches Newtonian with μ_∞
@@ -117,7 +116,10 @@ fn validate_poiseuille_casson() -> ValidationReport {
     println!("Relative error: {:.2e}%", error * 100.0);
 
     let passed = error < VALIDATION_TOLERANCE;
-    println!("Validation: {}", if passed { "✓ PASSED" } else { "✗ FAILED" });
+    println!(
+        "Validation: {}",
+        if passed { "✓ PASSED" } else { "✗ FAILED" }
+    );
 
     ValidationReport {
         name: "Poiseuille Flow (Casson)".to_string(),
@@ -188,7 +190,9 @@ fn validate_murray_symmetric() -> ValidationReport {
     let q_parent = 1.0e-6; // 1 mL/s
     let p_parent = 100.0; // 100 Pa
 
-    let solution = bifurcation.solve(blood, q_parent, p_parent, 310.15, 101325.0).unwrap();
+    let solution = bifurcation
+        .solve(blood, q_parent, p_parent, 310.15, 101325.0)
+        .unwrap();
 
     // Check mass conservation
     let q_sum = solution.q_1 + solution.q_2;
@@ -200,7 +204,10 @@ fn validate_murray_symmetric() -> ValidationReport {
     println!("Mass conservation error: {:.2e}%", mass_error * 100.0);
 
     let passed = relative_deviation < MURRAY_TOLERANCE && mass_error < 0.001;
-    println!("Validation: {}", if passed { "✓ PASSED" } else { "✗ FAILED" });
+    println!(
+        "Validation: {}",
+        if passed { "✓ PASSED" } else { "✗ FAILED" }
+    );
 
     ValidationReport {
         name: "Murray's Law (Symmetric)".to_string(),
@@ -253,7 +260,10 @@ fn validate_asymmetric_bifurcation() -> ValidationReport {
     let murray_sum = d1_cubed + d2_cubed;
     let murray_deviation = (d_parent_cubed - murray_sum).abs() / d_parent_cubed;
 
-    println!("Murray's law compliance: {:.2e}% deviation", murray_deviation * 100.0);
+    println!(
+        "Murray's law compliance: {:.2e}% deviation",
+        murray_deviation * 100.0
+    );
 
     // Create channels
     let parent_geom = ChannelGeometry::<f64>::circular(l, d_parent, 1e-6);
@@ -279,7 +289,9 @@ fn validate_asymmetric_bifurcation() -> ValidationReport {
     let q_parent = 1.0e-6;
     let p_parent = 100.0;
 
-    let solution = bifurcation.solve(blood, q_parent, p_parent, 310.15, 101325.0).unwrap();
+    let solution = bifurcation
+        .solve(blood, q_parent, p_parent, 310.15, 101325.0)
+        .unwrap();
 
     let actual_split = solution.q_1 / (solution.q_1 + solution.q_2);
     let split_error = (actual_split - split_ratio).abs() / split_ratio;
@@ -288,7 +300,10 @@ fn validate_asymmetric_bifurcation() -> ValidationReport {
     println!("Flow split error: {:.2e}%", split_error * 100.0);
 
     let passed = split_error < 0.05; // 5% tolerance
-    println!("Validation: {}", if passed { "✓ PASSED" } else { "✗ FAILED" });
+    println!(
+        "Validation: {}",
+        if passed { "✓ PASSED" } else { "✗ FAILED" }
+    );
 
     ValidationReport {
         name: "Asymmetric Bifurcation".to_string(),
@@ -325,7 +340,10 @@ fn validate_fahraeus_lindqvist() -> ValidationReport {
     let hematocrit = 0.45; // Normal hematocrit
     let diameters = [10e-6, 20e-6, 50e-6, 100e-6, 200e-6, 300e-6, 500e-6];
 
-    println!("{:<15} {:<20} {:<20}", "Diameter (μm)", "Rel. Viscosity", "Status");
+    println!(
+        "{:<15} {:<20} {:<20}",
+        "Diameter (μm)", "Rel. Viscosity", "Status"
+    );
     println!("{}", "-".repeat(55));
 
     let mut max_error: f64 = 0.0;
@@ -348,12 +366,7 @@ fn validate_fahraeus_lindqvist() -> ValidationReport {
         let passed = mu_rel >= expected_min && mu_rel <= expected_max;
         let status = if passed { "✓" } else { "✗" };
 
-        println!(
-            "{:<15.0} {:<20.3} {}",
-            d * 1e6,
-            mu_rel,
-            status
-        );
+        println!("{:<15.0} {:<20.3} {}", d * 1e6, mu_rel, status);
 
         if !passed {
             all_passed = false;
@@ -366,7 +379,14 @@ fn validate_fahraeus_lindqvist() -> ValidationReport {
         }
     }
 
-    println!("Validation: {}", if all_passed { "✓ PASSED" } else { "✗ FAILED" });
+    println!(
+        "Validation: {}",
+        if all_passed {
+            "✓ PASSED"
+        } else {
+            "✗ FAILED"
+        }
+    );
 
     ValidationReport {
         name: "Fåhræus-Lindqvist Effect".to_string(),
@@ -382,6 +402,7 @@ fn validate_fahraeus_lindqvist() -> ValidationReport {
 /// ============================================================================
 
 #[derive(Debug)]
+#[allow(dead_code)]
 struct ValidationReport {
     name: String,
     passed: bool,

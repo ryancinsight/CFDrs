@@ -28,7 +28,7 @@
 
 use super::Component;
 use cfd_core::error::{Error, Result};
-use cfd_core::physics::fluid::Fluid;
+use cfd_core::physics::fluid::ConstantPropertyFluid;
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
@@ -96,7 +96,7 @@ impl<T: RealField + Copy + FromPrimitive> Component<T> for FlowSensor<T> {
     ///
     /// **Invariant**: `R_insertion ≥ 0`. A return value of `0.0` denotes
     /// an ideal non-intrusive sensor.
-    fn resistance(&self, _fluid: &Fluid<T>) -> T {
+    fn resistance(&self, _fluid: &ConstantPropertyFluid<T>) -> T {
         self.resistance
     }
 

@@ -160,20 +160,27 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
         }
 
         // Apply East BC
-        match bc_east.fundamental_type() {
-            BCType::Neumann => {
+        match bc_east {
+            BoundaryCondition::PressureOutlet { .. } => {
                 for j in 0..ny {
                     self.field.u[nx][j] = self.field.u[nx - 1][j];
                 }
             }
-            BCType::Dirichlet => {
-                if let BoundaryCondition::Wall { .. } = bc_east {
+            _ => match bc_east.fundamental_type() {
+                BCType::Neumann => {
                     for j in 0..ny {
-                        self.field.u[nx][j] = zero;
+                        self.field.u[nx][j] = self.field.u[nx - 1][j];
                     }
                 }
-            }
-            _ => {}
+                BCType::Dirichlet => {
+                    if let BoundaryCondition::Wall { .. } = bc_east {
+                        for j in 0..ny {
+                            self.field.u[nx][j] = zero;
+                        }
+                    }
+                }
+                _ => {}
+            },
         }
 
         self.a_p_u = a_p_u;

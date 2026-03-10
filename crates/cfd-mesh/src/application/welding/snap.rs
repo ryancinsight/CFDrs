@@ -1,8 +1,7 @@
 //! # Unified Vertex Snapping and Welding
 //!
-//! This module replaces the old split between `SnapConfig` (scalar grid) and
-//! `SpatialHashGrid` (query-only) with a single [`SnappingGrid`] that owns
-//! the canonical vertex set and performs both snapping *and* deduplication.
+//! This module unifies coordinate snapping and deduplication in a single
+//! [`SnappingGrid`] that owns the canonical vertex set.
 //!
 //! ## Algorithm — 26-Neighbor Search
 //!
@@ -325,61 +324,6 @@ impl SnappingGrid {
     }
 }
 
-// ── Legacy SnapConfig shim ────────────────────────────────────────────────────
-
-/// Backward-compatible scalar snapping utility.
-///
-/// For new code, prefer [`SnappingGrid`] which combines snapping and
-/// deduplication.  `SnapConfig` is kept for callers that only need the
-/// scalar `snap_value` / `snap_point` helpers.
-#[derive(Clone, Debug)]
-pub struct SnapConfig {
-    /// Grid spacing ε.
-    pub grid_spacing: Real,
-}
-
-impl SnapConfig {
-    /// Snap a scalar to the nearest multiple of `grid_spacing`.
-    ///
-    /// Uses round-half-up (`floor(v/ε + 0.5)`) for deterministic tie-breaking
-    /// regardless of value sign. See module-level theorem for justification.
-    #[inline]
-    #[must_use]
-    pub fn snap_value(&self, v: Real) -> Real {
-        (v / self.grid_spacing + 0.5).floor() * self.grid_spacing
-    }
-
-    /// Snap a 3-D point to the nearest grid point.
-    #[inline]
-    #[must_use]
-    pub fn snap_point(&self, p: &Point3r) -> Point3r {
-        Point3r::new(
-            self.snap_value(p.x),
-            self.snap_value(p.y),
-            self.snap_value(p.z),
-        )
-    }
-
-    /// Snap all positions in a slice in-place.
-    pub fn snap_all(&self, positions: &mut [Point3r]) {
-        for p in positions.iter_mut() {
-            *p = self.snap_point(p);
-        }
-    }
-
-    /// Lift into a full [`SnappingGrid`] with the same tolerance.
-    #[must_use]
-    pub fn into_grid(self) -> SnappingGrid {
-        SnappingGrid::new(self.grid_spacing)
-    }
-}
-
-impl Default for SnapConfig {
-    fn default() -> Self {
-        Self { grid_spacing: 1e-6 }
-    }
-}
-
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
@@ -479,21 +423,6 @@ mod tests {
         assert!(g.is_empty());
     }
 
-    #[test]
-    fn snap_config_snap_value() {
-        let cfg = SnapConfig { grid_spacing: 1e-3 };
-        // 1.4999e-3 should round to 1e-3
-        let v = cfg.snap_value(1.4999e-3);
-        assert!((v - 1e-3).abs() < 1e-10);
-    }
-
-    #[test]
-    fn snap_config_into_grid() {
-        let cfg = SnapConfig { grid_spacing: 0.5 };
-        let g = cfg.into_grid();
-        assert_eq!(g.eps(), 0.5);
-    }
-
     /// Regression: round-half-up gives a single deterministic cell for negative
     /// half-integer boundaries where `.round()` (round-half-away-from-zero) diverges.
     ///
@@ -539,19 +468,5 @@ mod tests {
             c1.x, c2.x,
             "ULP-adjacent floats must quantize to the same cell: {v1:.20e} vs {v2:.20e}"
         );
-    }
-
-    /// snap_value uses the same round-half-up convention as from_point_round.
-    #[test]
-    fn snap_value_negative_half_cell_is_deterministic() {
-        let cfg = SnapConfig { grid_spacing: 1.0 };
-        // -0.5 is exactly at the half-integer boundary.
-        // floor(-0.5 / 1.0 + 0.5) * 1.0 = floor(0.0) * 1.0 = 0.0
-        let v = cfg.snap_value(-0.5);
-        assert_eq!(v, 0.0, "snap_value(-0.5) must be 0.0 with round-half-up");
-
-        // +0.5 → floor(0.5 + 0.5) * 1.0 = floor(1.0) * 1.0 = 1.0
-        let v2 = cfg.snap_value(0.5);
-        assert_eq!(v2, 1.0, "snap_value(+0.5) must be 1.0 with round-half-up");
     }
 }

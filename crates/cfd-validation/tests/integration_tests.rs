@@ -7,7 +7,6 @@ use cfd_core::error::Result;
 use cfd_core::physics::fluid::blood::CassonBlood;
 use cfd_validation::benchmarks::{Benchmark, BenchmarkConfig, BifurcationFlow3D, LidDrivenCavity};
 use cfd_validation::geometry::threed::Bifurcation3D;
-use nalgebra::RealField;
 
 #[test]
 fn test_lid_driven_cavity_integration() -> Result<()> {

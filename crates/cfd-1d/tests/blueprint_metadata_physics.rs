@@ -1,6 +1,15 @@
 use cfd_1d::domain::network::network_from_blueprint;
+use cfd_1d::physics::resistance::models::{
+    FlowConditions, SerpentineCrossSection, SerpentineModel,
+};
 use cfd_core::physics::fluid::database::water_20c;
-use cfd_schematics::domain::model::{ChannelSpec, NetworkBlueprint, NodeKind, NodeSpec};
+use cfd_schematics::domain::model::{
+    ChannelShape, ChannelSpec, CrossSectionSpec, NetworkBlueprint, NodeKind, NodeSpec,
+};
+use cfd_schematics::geometry::generator::{
+    create_selective_tree_geometry, CenterSerpentinePathSpec, SelectiveTreeRequest,
+    SelectiveTreeTopology,
+};
 use cfd_schematics::geometry::metadata::{
     JunctionFamily, JunctionGeometryMetadata, VenturiGeometryMetadata,
 };
@@ -26,6 +35,79 @@ fn branch_quad_coeff(bp: &NetworkBlueprint, edge_id: &str) -> f64 {
         .expect("branch edge must exist")
         .weight()
         .quad_coeff
+}
+
+fn edge_coefficients(bp: &NetworkBlueprint, edge_id: &str) -> (f64, f64) {
+    let fluid = water_20c::<f64>().expect("water database entry must exist");
+    let network = network_from_blueprint(bp, fluid).expect("network build must succeed");
+    let edge = network
+        .graph
+        .edge_references()
+        .find(|candidate| candidate.weight().id == edge_id)
+        .expect("edge must exist");
+    (edge.weight().resistance, edge.weight().quad_coeff)
+}
+
+fn blueprint_channel<'a>(bp: &'a NetworkBlueprint, edge_id: &str) -> &'a ChannelSpec {
+    bp.channels
+        .iter()
+        .find(|channel| channel.id.as_str() == edge_id)
+        .expect("channel must exist")
+}
+
+fn selective_serpentine_blueprint(spec: CenterSerpentinePathSpec) -> NetworkBlueprint {
+    let request = SelectiveTreeRequest {
+        name: format!("selective-serp-{}", spec.segments),
+        box_dims_mm: (127.76, 85.47),
+        trunk_length_m: 12.0e-3,
+        branch_length_m: 10.0e-3,
+        hybrid_branch_length_m: 8.0e-3,
+        main_width_m: 1.2e-3,
+        throat_width_m: 0.4e-3,
+        throat_length_m: 3.0e-3,
+        channel_height_m: 0.5e-3,
+        topology: SelectiveTreeTopology::CascadeCenterTrifurcation {
+            n_levels: 3,
+            center_frac: 0.45,
+            venturi_treatment_enabled: false,
+            center_serpentine: Some(spec),
+        },
+    };
+    create_selective_tree_geometry(&request)
+}
+
+fn serpentine_analysis(channel: &ChannelSpec) -> (usize, f64, f64, f64) {
+    let (segments, bend_radius_m) = match channel.channel_shape {
+        ChannelShape::Serpentine {
+            segments,
+            bend_radius_m,
+        } => (segments, bend_radius_m),
+        _ => panic!("channel must carry inferred serpentine metadata"),
+    };
+
+    let cross_section = match channel.cross_section {
+        CrossSectionSpec::Circular { diameter_m } => SerpentineCrossSection::Circular {
+            diameter: diameter_m,
+        },
+        CrossSectionSpec::Rectangular { width_m, height_m } => {
+            SerpentineCrossSection::Rectangular {
+                width: width_m,
+                height: height_m,
+            }
+        }
+    };
+
+    let fluid = water_20c::<f64>().expect("water database entry must exist");
+    let model = SerpentineModel::new(channel.length_m, segments, cross_section, bend_radius_m);
+    let analysis = model
+        .analyze(&fluid, &FlowConditions::new(0.25))
+        .expect("serpentine analysis must succeed");
+    (
+        segments,
+        bend_radius_m,
+        analysis.dean_number,
+        analysis.dp_bends,
+    )
 }
 
 fn venturi_blueprint(
@@ -66,6 +148,7 @@ fn venturi_blueprint(
             outlet_width_m: 1.0e-3,
             convergent_half_angle_deg,
             divergent_half_angle_deg,
+            throat_position: 0.5,
         })
         .with_metadata(VenturiGeometryMetadata {
             throat_width_m: 2.5e-4,
@@ -75,6 +158,7 @@ fn venturi_blueprint(
             outlet_width_m: 1.0e-3,
             convergent_half_angle_deg,
             divergent_half_angle_deg,
+            throat_position: 0.5,
         }),
     );
     bp.add_channel(ChannelSpec::new_pipe_rect(
@@ -288,6 +372,7 @@ fn venturi_throat_width_and_length_change_coefficients() {
             outlet_width_m: 1.0e-3,
             convergent_half_angle_deg: 8.0,
             divergent_half_angle_deg: 8.0,
+            throat_position: 0.5,
         });
     }
 
@@ -302,5 +387,47 @@ fn venturi_throat_width_and_length_change_coefficients() {
         (r_long_narrow - r_short_wide).abs() > 1.0e-9
             || (k_long_narrow - k_short_wide).abs() > 1.0e-9,
         "changing throat geometry must perturb at least one throat-loss coefficient"
+    );
+}
+
+#[test]
+fn inferred_selective_serpentine_metadata_changes_1d_losses() {
+    let tight = selective_serpentine_blueprint(CenterSerpentinePathSpec {
+        segments: 9,
+        bend_radius_m: 0.45e-3,
+    });
+    let gentle = selective_serpentine_blueprint(CenterSerpentinePathSpec {
+        segments: 5,
+        bend_radius_m: 2.2e-3,
+    });
+
+    let tight_channel = blueprint_channel(&tight, "center_lv0");
+    let gentle_channel = blueprint_channel(&gentle, "center_lv0");
+    let (tight_segments, tight_radius_m, tight_dean, tight_dp_bends) =
+        serpentine_analysis(tight_channel);
+    let (gentle_segments, gentle_radius_m, gentle_dean, gentle_dp_bends) =
+        serpentine_analysis(gentle_channel);
+    let (tight_r, tight_k) = edge_coefficients(&tight, "center_lv0");
+    let (gentle_r, gentle_k) = edge_coefficients(&gentle, "center_lv0");
+
+    assert!(
+        tight_segments > gentle_segments,
+        "tighter selective routing should infer more serpentine segments"
+    );
+    assert!(
+        tight_radius_m < gentle_radius_m,
+        "tighter selective routing should infer a smaller bend radius"
+    );
+    assert!(
+        tight_dean > gentle_dean,
+        "smaller inferred bend radii should raise Dean number on the representative selective lane"
+    );
+    assert!(
+        tight_dp_bends > gentle_dp_bends,
+        "more turns with tighter curvature should increase bend-loss pressure drop"
+    );
+    assert!(
+        (tight_r - gentle_r).abs() > 1.0e-12 || (tight_k - gentle_k).abs() > 1.0e-12,
+        "network_from_blueprint must remain sensitive to inferred selective serpentine metadata"
     );
 }

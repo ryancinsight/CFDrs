@@ -308,17 +308,17 @@ impl<T: RealField + Copy + FromPrimitive + Send + Sync> VorticityStreamSolver<T>
     }
 
     /// Get stream function field
-    pub fn stream_function(&self) -> &Vec<Vec<T>> {
+    pub fn stream_function(&self) -> &[Vec<T>] {
         &self.psi
     }
 
     /// Get vorticity field
-    pub fn vorticity(&self) -> &Vec<Vec<T>> {
+    pub fn vorticity(&self) -> &[Vec<T>] {
         &self.omega
     }
 
     /// Get velocity field
-    pub fn velocity_field(&self) -> &Vec<Vec<Vector2<T>>> {
+    pub fn velocity_field(&self) -> &[Vec<Vector2<T>>] {
         &self.u
     }
 

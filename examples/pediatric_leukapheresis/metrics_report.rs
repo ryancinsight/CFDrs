@@ -85,7 +85,7 @@ pub fn save_leuka_results(
     // JSON
     let json_path = out_dir.join(format!("{tag}_top5.json"));
     match save_top5_json(designs, &json_path) {
-        Ok(_)  => println!("  Saved: {}", json_path.display()),
+        Ok(_) => println!("  Saved: {}", json_path.display()),
         Err(e) => eprintln!("  WARN (JSON): {e}"),
     }
 
@@ -93,7 +93,7 @@ pub fn save_leuka_results(
     if !designs.is_empty() {
         let svg_path = out_dir.join(format!("{tag}_comparison.svg"));
         match save_comparison_svg(designs, &svg_path, mode) {
-            Ok(_)  => println!("  Saved: {}", svg_path.display()),
+            Ok(_) => println!("  Saved: {}", svg_path.display()),
             Err(e) => eprintln!("  WARN (comparison SVG): {e}"),
         }
     }
@@ -107,7 +107,7 @@ pub fn save_leuka_results(
             safe_id(&d.candidate.id)
         ));
         match save_schematic_svg(&d.candidate, &sch) {
-            Ok(_)  => println!("  Saved: {}", sch.display()),
+            Ok(_) => println!("  Saved: {}", sch.display()),
             Err(e) => eprintln!("  WARN (schematic {}): {e}", d.candidate.id),
         }
     }
@@ -116,11 +116,21 @@ pub fn save_leuka_results(
 // ── Utilities ─────────────────────────────────────────────────────────────────
 
 fn truncate(s: &str, n: usize) -> &str {
-    if s.len() <= n { s } else { &s[..n] }
+    if s.len() <= n {
+        s
+    } else {
+        &s[..n]
+    }
 }
 
 fn safe_id(id: &str) -> String {
     id.chars()
-        .map(|c| if c.is_alphanumeric() || c == '_' || c == '-' { c } else { '_' })
+        .map(|c| {
+            if c.is_alphanumeric() || c == '_' || c == '-' {
+                c
+            } else {
+                '_'
+            }
+        })
         .collect()
 }

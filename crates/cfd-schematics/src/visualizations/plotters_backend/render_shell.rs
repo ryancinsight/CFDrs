@@ -168,7 +168,7 @@ impl PlottersRenderer {
         root.present()
             .map_err(|e| VisualizationError::rendering_error(&e.to_string()))?;
 
-        println!("Shell cuboid schematic saved to {output_path}");
+        ::tracing::info!("Shell cuboid schematic saved to {output_path}");
         Ok(())
     }
 }

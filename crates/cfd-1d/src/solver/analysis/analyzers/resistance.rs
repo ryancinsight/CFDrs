@@ -195,7 +195,7 @@ impl<T: RealField + Copy + FromPrimitive + Float> ResistanceAnalyzer<T> {
     fn calculate_resistance(
         &self,
         properties: &crate::domain::network::EdgeProperties<T>,
-        fluid: &cfd_core::physics::fluid::Fluid<T>,
+        fluid: &cfd_core::physics::fluid::ConstantPropertyFluid<T>,
         flow_rate: Option<T>,
     ) -> std::result::Result<T, ResistanceCalculationError> {
         use crate::physics::resistance::{FlowConditions, HagenPoiseuilleModel, ResistanceModel};

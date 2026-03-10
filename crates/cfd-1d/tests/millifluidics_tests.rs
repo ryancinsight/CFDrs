@@ -217,10 +217,10 @@ fn test_performance_analysis() -> Result<()> {
     let avg_time = metrics.average_residence_time();
     assert_relative_eq!(avg_time, 0.15, epsilon = 1e-10);
 
-    let max_time = metrics.max_residence_time().unwrap();
+    let max_time = metrics.max_residence_time().expect("test invariant");
     assert_relative_eq!(max_time, 0.2, epsilon = 1e-10);
 
-    let min_time = metrics.min_residence_time().unwrap();
+    let min_time = metrics.min_residence_time().expect("test invariant");
     assert_relative_eq!(min_time, 0.1, epsilon = 1e-10);
 
     Ok(())

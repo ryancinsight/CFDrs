@@ -31,7 +31,7 @@
 
 use super::{constants, Component};
 use cfd_core::error::Result;
-use cfd_core::physics::fluid::Fluid;
+use cfd_core::physics::fluid::ConstantPropertyFluid;
 use nalgebra::RealField;
 use num_traits::{Float, FromPrimitive};
 use serde::{Deserialize, Serialize};
@@ -88,7 +88,7 @@ impl<T: RealField + Copy + FromPrimitive + Float> Component<T> for Micropump<T> 
     ///
     /// **Invariant**: A pump is a Neumann source (Q_pump injected at the driven node), not
     /// a negative-resistance element. Negative resistance corrupts the matrix Laplacian.
-    fn resistance(&self, _fluid: &Fluid<T>) -> T {
+    fn resistance(&self, _fluid: &ConstantPropertyFluid<T>) -> T {
         T::zero()
     }
 

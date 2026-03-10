@@ -1,7 +1,7 @@
 //! 2D Bifurcation and Trifurcation solver `PyO3` wrappers.
 
-use pyo3::prelude::*;
 use pyo3::exceptions::PyRuntimeError;
+use pyo3::prelude::*;
 
 use cfd_core::physics::fluid::blood::{CarreauYasudaBlood, CassonBlood};
 use cfd_validation::benchmarks::{Benchmark, BenchmarkConfig, TrifurcationFlow};
@@ -26,7 +26,12 @@ impl PyTrifurcationSolver2D {
     #[new]
     #[pyo3(signature = (width, length, angle, nx=128))]
     fn new(width: f64, length: f64, angle: f64, nx: usize) -> Self {
-        PyTrifurcationSolver2D { width, length, angle, nx }
+        PyTrifurcationSolver2D {
+            width,
+            length,
+            angle,
+            nx,
+        }
     }
 
     /// Solve 2D trifurcation simulation
@@ -38,7 +43,8 @@ impl PyTrifurcationSolver2D {
             ..Default::default()
         };
 
-        let result = bench.run(&config)
+        let result = bench
+            .run(&config)
             .map_err(|e| PyRuntimeError::new_err(format!("Benchmark error: {e}")))?;
 
         Ok(PyTrifurcationResult2D {
@@ -113,8 +119,13 @@ impl PyBifurcationSolver2D {
         ny: usize,
     ) -> Self {
         PyBifurcationSolver2D {
-            parent_width, parent_length, daughter_width, daughter_length,
-            angle, nx, ny,
+            parent_width,
+            parent_length,
+            daughter_width,
+            daughter_length,
+            angle,
+            nx,
+            ny,
         }
     }
 
@@ -130,11 +141,14 @@ impl PyBifurcationSolver2D {
     /// Solve 2D bifurcation flow.
     fn solve(&self, inlet_velocity: f64, blood_type: &str) -> PyResult<PyBifurcationResult2D> {
         use cfd_2d::solvers::bifurcation_flow::{BifurcationGeometry, BifurcationSolver2D};
-        use cfd_2d::solvers::ns_fvm_2d::{BloodModel, SIMPLEConfig};
+        use cfd_2d::solvers::ns_fvm::{BloodModel, SIMPLEConfig};
 
         let geom = BifurcationGeometry::new_symmetric(
-            self.parent_width, self.parent_length,
-            self.daughter_width, self.daughter_length, self.angle,
+            self.parent_width,
+            self.parent_length,
+            self.daughter_width,
+            self.daughter_length,
+            self.angle,
         );
 
         let blood = match blood_type {
@@ -150,11 +164,10 @@ impl PyBifurcationSolver2D {
         config.alpha_u = 0.5;
         config.alpha_p = 0.2;
 
-        let mut solver = BifurcationSolver2D::new(
-            geom, blood, density, self.nx, self.ny, config,
-        );
+        let mut solver = BifurcationSolver2D::new(geom, blood, density, self.nx, self.ny, config);
 
-        let sol = solver.solve(inlet_velocity)
+        let sol = solver
+            .solve(inlet_velocity)
             .map_err(|e| PyRuntimeError::new_err(format!("Bifurcation solver error: {e}")))?;
 
         let flow_split = if sol.q_parent.abs() > 1e-30 {
@@ -178,7 +191,8 @@ impl PyBifurcationSolver2D {
             self.parent_width * 1e6,
             self.daughter_width * 1e6,
             self.angle.to_degrees(),
-            self.nx, self.ny
+            self.nx,
+            self.ny
         )
     }
 }

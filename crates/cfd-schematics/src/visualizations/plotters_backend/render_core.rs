@@ -1,6 +1,7 @@
 use crate::config::ConstantsRegistry;
+use crate::domain::model::{ChannelShape, NetworkBlueprint};
 use crate::error::{VisualizationError, VisualizationResult};
-use crate::geometry::{ChannelSystem, Point2D};
+use crate::geometry::{ChannelTypeCategory, Point2D};
 use crate::visualizations::analysis_field::{
     colorize, AnalysisField, AnalysisOverlay, ColormapKind,
 };
@@ -15,6 +16,7 @@ use std::path::Path;
 
 use super::convert_color;
 use super::render_annotations::draw_annotation_overlay;
+use crate::visualizations::schematic::channel_system_from_blueprint;
 
 /// Plotters-based implementation of the schematic renderer.
 pub struct PlottersRenderer;
@@ -22,7 +24,7 @@ pub struct PlottersRenderer;
 impl SchematicRenderer for PlottersRenderer {
     fn render_system(
         &self,
-        system: &ChannelSystem,
+        system: &NetworkBlueprint,
         output_path: &str,
         config: &RenderConfig,
     ) -> VisualizationResult<()> {
@@ -36,7 +38,7 @@ impl SchematicRenderer for PlottersRenderer {
 
     fn render_analysis(
         &self,
-        system: &ChannelSystem,
+        system: &NetworkBlueprint,
         output_path: &str,
         config: &RenderConfig,
         overlay: &AnalysisOverlay,
@@ -44,8 +46,6 @@ impl SchematicRenderer for PlottersRenderer {
         if system.channels.is_empty() && system.nodes.is_empty() {
             return Err(VisualizationError::EmptyChannelSystem);
         }
-
-        self.validate_output_path(output_path)?;
 
         match self.detect_output_format(output_path)? {
             OutputFormat::PNG | OutputFormat::JPEG => {
@@ -95,7 +95,7 @@ impl PlottersRenderer {
 
     fn render_bitmap(
         &self,
-        system: &ChannelSystem,
+        system: &NetworkBlueprint,
         output_path: &str,
         config: &RenderConfig,
         overlay: &AnalysisOverlay,
@@ -109,7 +109,7 @@ impl PlottersRenderer {
 
     fn render_svg(
         &self,
-        system: &ChannelSystem,
+        system: &NetworkBlueprint,
         output_path: &str,
         config: &RenderConfig,
         overlay: &AnalysisOverlay,
@@ -122,12 +122,13 @@ impl PlottersRenderer {
 
     fn render_with_backend<DB: DrawingBackend>(
         &self,
-        system: &ChannelSystem,
+        system: &NetworkBlueprint,
         config: &RenderConfig,
         root: DrawingArea<DB, Shift>,
         output_path: &str,
         overlay: &AnalysisOverlay,
     ) -> VisualizationResult<()> {
+        let renderable = channel_system_from_blueprint(system, Some(system.box_dims), Some(output_path))?;
         let (length, width) = system.box_dims;
         let x_buffer = length * config.margin_fraction;
         let y_buffer = width * config.margin_fraction;
@@ -158,7 +159,7 @@ impl PlottersRenderer {
         }
 
         chart
-            .draw_series(system.box_outline.iter().map(|(p1, p2)| {
+            .draw_series(renderable.box_outline.iter().map(|(p1, p2)| {
                 PathElement::new(
                     vec![*p1, *p2],
                     convert_color(&config.boundary_style.color)
@@ -171,7 +172,7 @@ impl PlottersRenderer {
             let mut lo = f64::INFINITY;
             let mut hi = f64::NEG_INFINITY;
             for channel in &system.channels {
-                let w = (channel.width * 1e6).round() / 1e6;
+                let w = (channel.cross_section.dims().0 * 1e3 * 1e6).round() / 1e6; // to mm
                 lo = lo.min(w);
                 hi = hi.max(w);
             }
@@ -190,24 +191,41 @@ impl PlottersRenderer {
         };
 
         let has_edge_data = !overlay.edge_data.is_empty();
-        for channel in &system.channels {
+        for (i, channel) in system.channels.iter().enumerate() {
             let base_style = if has_edge_data {
                 let color = overlay
-                    .edge_color(channel.id)
+                    .edge_color(i)
                     .unwrap_or_else(|| CfdColor::rgb(128, 128, 128));
                 LineStyle::solid(color, config.channel_style.width)
+            } else if let (Some(role), Some(role_styles)) =
+                (channel.visual_role, config.role_styles.as_ref())
+            {
+                // Role-based styling: treatment vs. bypass vs. trunk get distinct
+                // colors and base widths.  The width_multiplier (driven by the
+                // physical cross-section) is applied on top so wider bypass
+                // channels also render with a thicker stroke.
+                role_styles.get_style(role).clone()
             } else {
-                let category = crate::geometry::ChannelTypeCategory::from(&channel.channel_type);
+                let category = renderable
+                    .channel_categories
+                    .get(i)
+                    .copied()
+                    .unwrap_or_else(|| match channel.channel_shape {
+                        ChannelShape::Straight => ChannelTypeCategory::Straight,
+                        ChannelShape::Serpentine { .. } => ChannelTypeCategory::Straight,
+                    });
                 config.channel_type_styles.get_style(category).clone()
             };
 
+            let channel_width_mm = channel.cross_section.dims().0 * 1e3;
             let stroke = if max_width > min_width {
-                base_style.width as u32 * width_multiplier(channel.width)
+                (base_style.width * width_multiplier(channel_width_mm) as f64).round() as u32
             } else {
-                base_style.width as u32
-            };
+                base_style.width.round() as u32
+            }
+            .max(1);
 
-            let path = crate::geometry::types::centerline_for_channel(channel, &system.nodes);
+            let path = renderable.channel_paths.get(i).cloned().unwrap_or_default();
             if path.len() < 2 {
                 continue;
             }
@@ -223,9 +241,9 @@ impl PlottersRenderer {
         let has_node_data = !overlay.node_data.is_empty();
         if has_node_data {
             let node_radius = (length.min(width) * 0.02).max(0.5);
-            for node in &system.nodes {
+            for (i, node) in system.nodes.iter().enumerate() {
                 let color = overlay
-                    .node_color(node.id)
+                    .node_color(i)
                     .unwrap_or_else(|| CfdColor::rgb(200, 200, 200));
                 let (cx, cy) = node.point;
                 let steps = 16usize;
@@ -265,14 +283,14 @@ impl PlottersRenderer {
         root.present()
             .map_err(|e| VisualizationError::rendering_error(&e.to_string()))?;
 
-        println!("Schematic plot saved to {output_path}");
+        ::tracing::info!("Schematic plot saved to {output_path}");
         Ok(())
     }
 }
 
 fn draw_colorbar<DB: DrawingBackend>(
     chart: &mut ChartContext<'_, DB, Cartesian2d<RangedCoordf64, RangedCoordf64>>,
-    system: &ChannelSystem,
+    system: &NetworkBlueprint,
     x_buffer: f64,
     y_buffer: f64,
     overlay: &AnalysisOverlay,
@@ -452,7 +470,7 @@ impl<'a, DB: DrawingBackend> PlottersVisualizationEngine<'a, DB> {
 impl<DB: DrawingBackend> VisualizationEngine for PlottersVisualizationEngine<'_, DB> {
     fn visualize_system(
         &mut self,
-        system: &ChannelSystem,
+        system: &NetworkBlueprint,
         config: &RenderConfig,
     ) -> VisualizationResult<()> {
         self.visualize_boundary(system, &config.boundary_style)?;
@@ -462,19 +480,20 @@ impl<DB: DrawingBackend> VisualizationEngine for PlottersVisualizationEngine<'_,
 
     fn visualize_channels(
         &mut self,
-        system: &ChannelSystem,
+        system: &NetworkBlueprint,
         style: &LineStyle,
     ) -> VisualizationResult<()> {
-        let lines = system.get_lines();
-        for (p1, p2) in lines {
-            self.drawer.draw_line(p1, p2, style)?;
+        for channel in &system.channels {
+            if channel.path.len() >= 2 {
+                self.drawer.draw_path(&channel.path, style)?;
+            }
         }
         Ok(())
     }
 
     fn visualize_boundary(
         &mut self,
-        system: &ChannelSystem,
+        system: &NetworkBlueprint,
         style: &LineStyle,
     ) -> VisualizationResult<()> {
         for &(p1, p2) in &system.box_outline {
@@ -485,7 +504,7 @@ impl<DB: DrawingBackend> VisualizationEngine for PlottersVisualizationEngine<'_,
 
     fn add_axes(
         &mut self,
-        _system: &ChannelSystem,
+        _system: &NetworkBlueprint,
         _config: &RenderConfig,
     ) -> VisualizationResult<()> {
         Ok(())
@@ -500,14 +519,4 @@ impl<DB: DrawingBackend> VisualizationEngine for PlottersVisualizationEngine<'_,
 #[must_use]
 pub const fn create_plotters_renderer() -> PlottersRenderer {
     PlottersRenderer
-}
-
-/// Convenience function for backward compatibility.
-pub fn plot_geometry_with_plotters(
-    system: &ChannelSystem,
-    output_path: &str,
-) -> VisualizationResult<()> {
-    let renderer = PlottersRenderer;
-    let config = RenderConfig::default();
-    renderer.render_system(system, output_path, &config)
 }

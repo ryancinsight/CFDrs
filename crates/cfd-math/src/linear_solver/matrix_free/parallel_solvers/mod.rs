@@ -346,10 +346,10 @@ where
         _alpha: &mut T,
         _omega: &mut T,
     ) -> MpiResult<()> {
-        Err(
-            Error::InvalidConfiguration("Persistent MPI requests require the mpi3 feature".to_string())
-                .into(),
+        Err(Error::InvalidConfiguration(
+            "Persistent MPI requests require the mpi3 feature".to_string(),
         )
+        .into())
     }
 
     /// Synchronous solve (no overlap).

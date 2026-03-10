@@ -1,6 +1,6 @@
 //! CSG Cylinder–Cylinder (alias for symmetric variant).
 //!
-//! This file is kept for backward compatibility.  Prefer running
+//! This example mirrors the canonical cylinder-cylinder CSG workflow. Prefer running
 //! `csg_cylinder_cylinder_symmetric` or `csg_cylinder_cylinder_asymmetric`.
 //!
 //! Two equal-radius, equal-height Y-axis cylinders (r = 0.6 mm, h = 3 mm)

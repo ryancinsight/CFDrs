@@ -12,11 +12,21 @@
 use super::{LiteratureValidation, ValidationReport};
 use cfd_1d::{
     // Channel geometry types — re-exported at crate root from domain::channel
-    ChannelGeometry, ChannelType, CrossSection, SurfaceProperties, Wettability,
+    ChannelGeometry,
+    ChannelType,
     // Network types — re-exported at crate root from domain::network
-    ComponentType, Edge, EdgeProperties, Network, NetworkBuilder,
+    ComponentType,
+    CrossSection,
+    Edge,
+    EdgeProperties,
+    Network,
+    NetworkBuilder,
     // Solver types — re-exported at crate root from solver::core
-    NetworkProblem, NetworkSolver, SolverConfig,
+    NetworkProblem,
+    NetworkSolver,
+    SolverConfig,
+    SurfaceProperties,
+    Wettability,
 };
 use cfd_core::{error::Result, physics::fluid::non_newtonian::CarreauYasuda};
 use nalgebra::RealField;

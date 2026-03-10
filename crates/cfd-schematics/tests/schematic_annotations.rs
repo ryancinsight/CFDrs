@@ -1,103 +1,74 @@
-use cfd_schematics::geometry::{Channel, ChannelSystem, ChannelType, Node};
+use cfd_schematics::domain::model::{ChannelSpec, NetworkBlueprint, NodeId, NodeKind, NodeSpec};
 use cfd_schematics::visualizations::{
     AnnotationMarker, MarkerRole, RenderConfig, SchematicAnnotations,
 };
-use cfd_schematics::{plot_geometry_with_annotations, plot_geometry_with_config};
+use cfd_schematics::{plot_geometry, plot_geometry_with_annotations, plot_geometry_with_config};
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-fn synthetic_system() -> ChannelSystem {
+fn synthetic_system() -> NetworkBlueprint {
     let nodes = vec![
-        Node {
-            id: 0,
+        NodeSpec {
+            id: NodeId::new("0"),
+            kind: NodeKind::Inlet,
             point: (0.0, 42.735),
+            layout: None,
+            junction_geometry: None,
             metadata: None,
         },
-        Node {
-            id: 1,
+        NodeSpec {
+            id: NodeId::new("1"),
+            kind: NodeKind::Junction,
             point: (30.0, 42.735),
+            layout: None,
+            junction_geometry: None,
             metadata: None,
         },
-        Node {
-            id: 2,
+        NodeSpec {
+            id: NodeId::new("2"),
+            kind: NodeKind::Junction,
             point: (60.0, 52.0),
+            layout: None,
+            junction_geometry: None,
             metadata: None,
         },
-        Node {
-            id: 3,
+        NodeSpec {
+            id: NodeId::new("3"),
+            kind: NodeKind::Junction,
             point: (60.0, 33.0),
+            layout: None,
+            junction_geometry: None,
             metadata: None,
         },
-        Node {
-            id: 4,
+        NodeSpec {
+            id: NodeId::new("4"),
+            kind: NodeKind::Junction,
             point: (92.0, 42.735),
+            layout: None,
+            junction_geometry: None,
             metadata: None,
         },
-        Node {
-            id: 5,
+        NodeSpec {
+            id: NodeId::new("5"),
+            kind: NodeKind::Outlet,
             point: (127.76, 42.735),
+            layout: None,
+            junction_geometry: None,
             metadata: None,
         },
     ];
 
     let channels = vec![
-        Channel {
-            id: 0,
-            from_node: 0,
-            to_node: 1,
-            width: 1.0,
-            height: 0.8,
-            channel_type: ChannelType::Straight,
-            metadata: None,
-        },
-        Channel {
-            id: 1,
-            from_node: 1,
-            to_node: 2,
-            width: 1.0,
-            height: 0.8,
-            channel_type: ChannelType::Straight,
-            metadata: None,
-        },
-        Channel {
-            id: 2,
-            from_node: 1,
-            to_node: 3,
-            width: 1.0,
-            height: 0.8,
-            channel_type: ChannelType::Straight,
-            metadata: None,
-        },
-        Channel {
-            id: 3,
-            from_node: 2,
-            to_node: 4,
-            width: 1.0,
-            height: 0.8,
-            channel_type: ChannelType::Straight,
-            metadata: None,
-        },
-        Channel {
-            id: 4,
-            from_node: 3,
-            to_node: 4,
-            width: 1.0,
-            height: 0.8,
-            channel_type: ChannelType::Straight,
-            metadata: None,
-        },
-        Channel {
-            id: 5,
-            from_node: 4,
-            to_node: 5,
-            width: 1.0,
-            height: 0.8,
-            channel_type: ChannelType::Straight,
-            metadata: None,
-        },
+        ChannelSpec::new_pipe_rect("c0", "0", "1", 30.0, 1.0, 0.8, 10.0, 0.0),
+        ChannelSpec::new_pipe_rect("c1", "1", "2", 30.0, 1.0, 0.8, 10.0, 0.0),
+        ChannelSpec::new_pipe_rect("c2", "1", "3", 30.0, 1.0, 0.8, 10.0, 0.0),
+        ChannelSpec::new_pipe_rect("c3", "2", "4", 30.0, 1.0, 0.8, 10.0, 0.0),
+        ChannelSpec::new_pipe_rect("c4", "3", "4", 30.0, 1.0, 0.8, 10.0, 0.0),
+        ChannelSpec::new_pipe_rect("c5", "4", "5", 30.0, 1.0, 0.8, 10.0, 0.0),
     ];
 
-    ChannelSystem {
+    NetworkBlueprint {
+        name: "test".to_string(),
         box_dims: (127.76, 85.47),
         nodes,
         channels,
@@ -107,6 +78,10 @@ fn synthetic_system() -> ChannelSystem {
             ((127.76, 85.47), (0.0, 85.47)),
             ((0.0, 85.47), (0.0, 0.0)),
         ],
+        render_hints: None,
+        topology: None,
+        lineage: None,
+        metadata: None,
     }
 }
 
@@ -158,4 +133,17 @@ fn plot_geometry_with_config_still_renders_without_annotations() {
 
     let svg = std::fs::read_to_string(&path).expect("must read rendered svg");
     assert!(svg.contains("<svg"));
+}
+
+#[test]
+fn auto_annotations_include_computed_volume_label() {
+    let system = synthetic_system();
+    let path = unique_svg_path("cfd_schematic_auto_volume");
+    let path_str = path.to_string_lossy();
+
+    plot_geometry(&system, path_str.as_ref()).expect("auto-annotated render must succeed");
+
+    let svg = std::fs::read_to_string(&path).expect("must read rendered svg");
+    assert!(svg.contains("Volume:"));
+    assert!(!svg.contains("Volume: --"));
 }

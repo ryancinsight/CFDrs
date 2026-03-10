@@ -171,7 +171,11 @@ mod tests {
         .build()
         .expect("sphere build");
         let h = vertex_mean_curvature(&mesh);
-        let finite: Vec<Real> = h.iter().copied().filter(|v| v.is_finite() && *v > 0.0).collect();
+        let finite: Vec<Real> = h
+            .iter()
+            .copied()
+            .filter(|v| v.is_finite() && *v > 0.0)
+            .collect();
         assert!(!finite.is_empty(), "sphere should have positive curvatures");
 
         let mean_h: Real = finite.iter().sum::<Real>() / finite.len() as Real;

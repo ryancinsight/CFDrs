@@ -178,8 +178,8 @@ pub enum DependencyError {
 impl From<ConstraintError> for ParameterError {
     fn from(error: ConstraintError) -> Self {
         Self::InvalidValue {
-            name: "unknown".to_string(),
-            value: "unknown".to_string(),
+            name: String::new(),
+            value: String::new(),
             constraint: error.to_string(),
         }
     }
@@ -188,8 +188,8 @@ impl From<ConstraintError> for ParameterError {
 impl From<ValidationError> for ParameterError {
     fn from(error: ValidationError) -> Self {
         Self::InvalidValue {
-            name: "unknown".to_string(),
-            value: "unknown".to_string(),
+            name: String::new(),
+            value: String::new(),
             constraint: error.to_string(),
         }
     }

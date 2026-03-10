@@ -35,19 +35,19 @@
 //! - Chien, S. (1970) "Shear dependence of effective cell volume as a determinant of blood viscosity"
 //! - Fung, Y.C. (1993) "Biomechanics: Mechanical Properties of Living Tissues"
 
-/// Blood physical constants at 37°C (body temperature).
-pub mod constants;
-/// Casson blood rheology model with yield stress.
-pub mod casson;
 /// Carreau-Yasuda blood rheology model for wide shear rate range.
 pub mod carreau_yasuda;
+/// Casson blood rheology model with yield stress.
+pub mod casson;
+/// Blood physical constants at 37°C (body temperature).
+pub mod constants;
 /// Cross blood model (simpler alternative to Carreau-Yasuda).
 pub mod cross;
 /// Fåhræus-Lindqvist effect for microvascular blood flow.
 pub mod fahraeus_lindqvist;
 
-pub use casson::{temperature_viscosity_factor, CassonBlood};
 pub use carreau_yasuda::CarreauYasudaBlood;
+pub use casson::{temperature_viscosity_factor, CassonBlood};
 pub use cross::CrossBlood;
 pub use fahraeus_lindqvist::FahraeuasLindqvist;
 

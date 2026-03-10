@@ -45,7 +45,7 @@ use cfd_core::physics::constants::mathematical::{numeric, PI};
 use cfd_core::physics::constants::physics::dimensionless::reynolds::{
     PIPE_LAMINAR_MAX, PIPE_TURBULENT_MIN,
 };
-use cfd_core::physics::fluid::{ConstantFluid, Fluid};
+use cfd_core::physics::fluid::{ConstantFluid, ConstantPropertyFluid};
 use nalgebra::RealField;
 use num_traits::{cast::FromPrimitive, Float};
 
@@ -247,7 +247,7 @@ impl<T: RealField + Copy + FromPrimitive + Float> Channel<T> {
     ///
     /// # Errors
     /// Returns an error if flow state calculation or resistance computation fails
-    pub fn calculate_resistance(&mut self, fluid: &Fluid<T>) -> Result<T> {
+    pub fn calculate_resistance(&mut self, fluid: &ConstantPropertyFluid<T>) -> Result<T> {
         // Update flow state
         self.update_flow_state(fluid)?;
 
@@ -272,7 +272,7 @@ impl<T: RealField + Copy + FromPrimitive + Float> Channel<T> {
     /// ```
     ///
     /// For liquid-phase millifluidics, Kn << 0.001 (continuum limit).
-    fn update_flow_state(&mut self, fluid: &Fluid<T>) -> Result<()> {
+    fn update_flow_state(&mut self, fluid: &ConstantPropertyFluid<T>) -> Result<()> {
         // Compute hydraulic diameter
         let dh = self.geometry.hydraulic_diameter();
 
@@ -341,7 +341,7 @@ impl<T: RealField + Copy + FromPrimitive + Float> Channel<T> {
     ///
     /// **Validity**: Re < 1 (Stokes regime), any cross-section shape.
     /// **Reference**: White, F. M. (2011). *Fluid Mechanics*, 7th ed., §6.4.
-    fn calculate_stokes_resistance(&self, fluid: &Fluid<T>) -> Result<T> {
+    fn calculate_stokes_resistance(&self, fluid: &ConstantPropertyFluid<T>) -> Result<T> {
         let area = self.geometry.area();
         let dh = self.geometry.hydraulic_diameter();
         let length = self.geometry.length;
@@ -365,7 +365,7 @@ impl<T: RealField + Copy + FromPrimitive + Float> Channel<T> {
     ///
     /// **Validity**: 1 ≤ Re < 2300, fully-developed, incompressible, Newtonian.
     /// **Reference**: Shah, R. K. & London, A. L. (1978). *Laminar Flow Forced Convection*.
-    fn calculate_laminar_resistance(&self, fluid: &Fluid<T>) -> Result<T> {
+    fn calculate_laminar_resistance(&self, fluid: &ConstantPropertyFluid<T>) -> Result<T> {
         let area = self.geometry.area();
         let dh = self.geometry.hydraulic_diameter();
         let length = self.geometry.length;
@@ -390,7 +390,7 @@ impl<T: RealField + Copy + FromPrimitive + Float> Channel<T> {
     /// engineering practice (White 2011, §6.6).
     ///
     /// **Validity**: 2300 ≤ Re ≤ 4000 (transitional region).
-    fn calculate_transitional_resistance(&self, fluid: &Fluid<T>) -> Result<T> {
+    fn calculate_transitional_resistance(&self, fluid: &ConstantPropertyFluid<T>) -> Result<T> {
         let re = self.flow_state.reynolds_number.ok_or_else(|| {
             cfd_core::error::Error::InvalidConfiguration(
                 "Reynolds number required for transitional resistance".to_string(),
@@ -424,7 +424,7 @@ impl<T: RealField + Copy + FromPrimitive + Float> Channel<T> {
     /// $$ R_{eff} = k \cdot |Q| = \frac{f \rho L |V|}{2 D_h A} $$
     ///
     /// **Reference**: Haaland, S. E. (1983). J. Fluids Eng. 105(1), 89–90.
-    fn calculate_turbulent_resistance(&self, fluid: &Fluid<T>) -> Result<T> {
+    fn calculate_turbulent_resistance(&self, fluid: &ConstantPropertyFluid<T>) -> Result<T> {
         let re = self.flow_state.reynolds_number.ok_or_else(|| {
             cfd_core::error::Error::InvalidConfiguration(
                 "Reynolds number required for turbulent resistance".to_string(),
@@ -465,7 +465,7 @@ impl<T: RealField + Copy + FromPrimitive + Float> Channel<T> {
     /// **References**:
     /// - Beskok, A. & Karniadakis, G. E. (1999). Microscale Thermophys. Eng. 3(1), 43–77.
     /// - Maxwell, J. C. (1879). Phil. Trans. R. Soc. Lond. 170, 231–256.
-    fn calculate_slip_flow_resistance(&self, fluid: &Fluid<T>) -> Result<T> {
+    fn calculate_slip_flow_resistance(&self, fluid: &ConstantPropertyFluid<T>) -> Result<T> {
         let r_laminar = self.calculate_laminar_resistance(fluid)?;
 
         // Use Kn from flow state (computed by update_flow_state from mean free path).

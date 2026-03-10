@@ -14,11 +14,11 @@
 //! Run with:
 //! `cargo run -p cfd-2d --example serpentine_mixing_schematic`
 
-use cfd_2d::solvers::ns_fvm_2d::BloodModel;
+use cfd_2d::solvers::ns_fvm::BloodModel;
 use cfd_2d::solvers::serpentine_flow::{
     AdvectionDiffusionMixing, SerpentineGeometry, SerpentineSolver2D,
 };
-use cfd_schematics::geometry::types::{Channel, ChannelSystem, ChannelType, Node};
+use cfd_schematics::domain::model::{ChannelSpec, NetworkBlueprint, NodeKind, NodeSpec};
 use cfd_schematics::visualizations::{
     create_plotters_renderer, AnalysisField, AnalysisOverlay, ColormapKind, RenderConfig,
     SchematicRenderer,
@@ -54,38 +54,38 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let y_top = 2.0_f64;
     let y_bot = 0.0_f64;
 
-    let mut nodes: Vec<Node> = Vec::with_capacity(n_segments + 1);
-    let mut channels: Vec<Channel> = Vec::with_capacity(n_segments);
+    let total_x = n_segments as f64 * seg_len + 1.0;
+
+    let mut system = NetworkBlueprint::new("serpentine-mixer");
+    system.box_dims = (total_x, y_top + 1.0);
 
     for i in 0..=n_segments {
         let x = i as f64 * seg_len;
         let y = if i % 2 == 0 { y_bot } else { y_top };
-        nodes.push(Node {
-            id: i,
-            point: (x, y),
-            metadata: None,
-        });
+        let kind = if i == 0 {
+            NodeKind::Inlet
+        } else if i == n_segments {
+            NodeKind::Outlet
+        } else {
+            NodeKind::Junction
+        };
+        system.add_node(NodeSpec::new(format!("n{}", i), kind).with_point((x, y)));
     }
 
     for i in 0..n_segments {
-        channels.push(Channel {
-            id: i,
-            from_node: i,
-            to_node: i + 1,
-            width: w_mm,
-            height: 0.05, // 50 μm depth
-            channel_type: ChannelType::Straight,
-            metadata: None,
-        });
+        let from = format!("n{}", i);
+        let to = format!("n{}", i + 1);
+        system.add_channel(ChannelSpec::new_pipe_rect(
+            format!("ch{}", i),
+            from,
+            to,
+            seg_len / 1000.0, // length in m
+            w_mm / 1000.0,    // width in m
+            0.05 / 1000.0,    // 50 μm depth in m
+            1.0,
+            0.0,
+        ));
     }
-
-    let total_x = n_segments as f64 * seg_len + 1.0;
-    let system = ChannelSystem {
-        box_dims: (total_x, y_top + 1.0),
-        nodes,
-        channels,
-        box_outline: vec![],
-    };
 
     let renderer = create_plotters_renderer();
     let schematic_cfg = RenderConfig {

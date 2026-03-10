@@ -165,13 +165,13 @@ impl ArcChannelStrategy {
             x * x * 2.0f64.mul_add(-x, 3.0)
         };
 
-        // Generate smooth figure-8 pattern with two crossing arcs
+        // Generate smooth figure-8 style curvature with a central weave.
         for i in 0..num_points {
             let t = i as f64 / (num_points - 1) as f64;
             let base_x = t.mul_add(dx, p1.0);
             let base_y = t.mul_add(dy, p1.1);
 
-            // Create smooth figure-8 with two arcs that cross in the middle
+            // Create smooth figure-8 style curvature with opposing bends around the midpoint.
             // First half curves one way, second half curves the opposite way
             let wave_shape = if t < 0.5 {
                 // First arc: smooth curve upward then back to center

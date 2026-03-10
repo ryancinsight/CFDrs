@@ -11,9 +11,9 @@ categories = ["science", "simulation"]
 
 [features]
 default = []
-mesh-export = ["dep:cfd-mesh"]
 
 [dependencies]
+bincode.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 thiserror.workspace = true
@@ -27,8 +27,8 @@ cfd-core = { workspace = true, default-features = false }
 cfd-1d.workspace = true
 cfd-math.workspace = true
 cfd-schematics.workspace = true
-
-cfd-mesh = { workspace = true, optional = true }
+tracing.workspace = true
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 [dev-dependencies]
 cfd-2d.workspace = true
@@ -44,26 +44,17 @@ name = "milestone12_report"
 path = "examples/milestone12_report.rs"
 
 [[example]]
-name = "milestone12_analysis"
-path = "examples/milestone12_analysis.rs"
+name = "milestone12_validation"
+path = "examples/milestone12_validation.rs"
 
 [[example]]
-name = "audit"
-path = "examples/audit.rs"
+name = "milestone12_option1"
+path = "examples/milestone12_option1.rs"
 
 [[example]]
-name = "one_d_audit"
-path = "examples/one_d_audit.rs"
+name = "milestone12_option2"
+path = "examples/milestone12_option2.rs"
 
 [[example]]
-name = "cascade_2d_3d_validation"
-path = "examples/cascade_2d_3d_validation.rs"
-
-[[example]]
-name = "sdt_primitive_selective_separation"
-path = "examples/sdt_primitive_selective_separation.rs"
-
-[[example]]
-name = "sdt_primitive_selective_mesh"
-path = "examples/sdt_primitive_selective_mesh.rs"
-required-features = ["mesh-export"]
+name = "milestone12_ga"
+path = "examples/milestone12_ga.rs"

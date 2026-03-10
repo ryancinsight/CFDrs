@@ -292,8 +292,10 @@ impl<T: nalgebra::RealField + Copy> MultigridSmoother<T> for ChebyshevSmoother<T
         b: &DVector<T>,
         iterations: usize,
     ) {
-        let theta = (self.eigenvalues_max + self.eigenvalues_min) / (T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero));
-        let delta = (self.eigenvalues_max - self.eigenvalues_min) / (T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero));
+        let theta = (self.eigenvalues_max + self.eigenvalues_min)
+            / (T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero));
+        let delta = (self.eigenvalues_max - self.eigenvalues_min)
+            / (T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero));
         let sigma = if delta.abs() < T::from_f64(1e-10).unwrap_or_else(num_traits::Zero::zero) {
             T::zero()
         } else {
@@ -312,7 +314,8 @@ impl<T: nalgebra::RealField + Copy> MultigridSmoother<T> for ChebyshevSmoother<T
         let alpha = if sigma == T::zero() {
             T::from_f64(1.0).unwrap_or_else(num_traits::Zero::zero) / self.eigenvalues_max
         } else {
-            let rho_new = T::from_f64(1.0).unwrap_or_else(num_traits::Zero::zero) / (T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero) * sigma - rho_old);
+            let rho_new = T::from_f64(1.0).unwrap_or_else(num_traits::Zero::zero)
+                / (T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero) * sigma - rho_old);
             rho_new / rho_old
         };
 

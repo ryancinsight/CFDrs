@@ -171,7 +171,7 @@ where
                     adapted
                 } else {
                     #[cfg(debug_assertions)]
-                    eprintln!(
+                    ::tracing::info!(
                         "Warning: Adaptation failed for parameter '{}', using base value",
                         self.metadata.name
                     );
@@ -262,11 +262,6 @@ where
 
     /// Get change history
     pub fn change_history(&self) -> &[(T, String)] {
-        &self.change_history
-    }
-
-    /// Get change history (alias for compatibility)
-    pub fn get_change_history(&self) -> &[(T, String)] {
         &self.change_history
     }
 

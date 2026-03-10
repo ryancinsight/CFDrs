@@ -187,15 +187,8 @@ mod tests {
     use super::*;
 
     fn make_solver(nx: usize, ny: usize) -> FvmSolver<f64> {
-        let grid = StructuredGrid2D::new(
-            nx,
-            ny,
-            0.0,
-            nx as f64 * 0.1,
-            0.0,
-            ny as f64 * 0.1,
-        )
-        .unwrap();
+        let grid =
+            StructuredGrid2D::new(nx, ny, 0.0, nx as f64 * 0.1, 0.0, ny as f64 * 0.1).unwrap();
         let config = FvmConfig {
             nx,
             ny,

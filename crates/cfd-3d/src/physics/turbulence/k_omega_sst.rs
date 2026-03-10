@@ -17,10 +17,7 @@ use cfd_core::physics::fluid_dynamics::turbulence::TurbulenceModel;
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 
-use super::constants::{
-    SST_A1, SST_ALPHA1, SST_ALPHA2, SST_BETA1, SST_BETA2, SST_BETA_STAR, SST_SIGMA_K1,
-    SST_SIGMA_K2, SST_SIGMA_OMEGA1, SST_SIGMA_OMEGA2,
-};
+use super::constants::{SST_A1, SST_BETA_STAR};
 
 /// State fields for the k-omega SST model.
 #[derive(Debug, Clone)]
@@ -31,16 +28,6 @@ pub struct KOmegaSSTState<T: cfd_mesh::domain::core::Scalar + RealField + Copy> 
     pub omega: Vec<T>,
     /// Per-point wall distance d [m].
     pub wall_distance: Vec<T>,
-}
-
-/// Blended SST constants at a grid point.
-#[allow(dead_code)]
-struct SSTBlended<T> {
-    alpha: T,
-    beta: T,
-    sigma_k: T,
-    sigma_omega: T,
-    f1: T,
 }
 
 /// k-omega SST turbulence model (Menter 1994).
@@ -123,34 +110,6 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> KOmeg
         });
     }
 
-    /// Compute blended SST constants at a point using F1.
-    fn blend_constants(&self, f1: T) -> SSTBlended<T> {
-        let one_m_f1 = T::one() - f1;
-        let alpha1 = <T as FromPrimitive>::from_f64(SST_ALPHA1)
-            .expect("SST_ALPHA1 is an IEEE 754 representable f64 constant");
-        let alpha2 = <T as FromPrimitive>::from_f64(SST_ALPHA2)
-            .expect("SST_ALPHA2 is an IEEE 754 representable f64 constant");
-        let beta1 = <T as FromPrimitive>::from_f64(SST_BETA1)
-            .expect("SST_BETA1 is an IEEE 754 representable f64 constant");
-        let beta2 = <T as FromPrimitive>::from_f64(SST_BETA2)
-            .expect("SST_BETA2 is an IEEE 754 representable f64 constant");
-        let sk1 = <T as FromPrimitive>::from_f64(SST_SIGMA_K1)
-            .expect("SST_SIGMA_K1 is an IEEE 754 representable f64 constant");
-        let sk2 = <T as FromPrimitive>::from_f64(SST_SIGMA_K2)
-            .expect("SST_SIGMA_K2 is an IEEE 754 representable f64 constant");
-        let so1 = <T as FromPrimitive>::from_f64(SST_SIGMA_OMEGA1)
-            .expect("SST_SIGMA_OMEGA1 is an IEEE 754 representable f64 constant");
-        let so2 = <T as FromPrimitive>::from_f64(SST_SIGMA_OMEGA2)
-            .expect("SST_SIGMA_OMEGA2 is an IEEE 754 representable f64 constant");
-        SSTBlended {
-            alpha: f1 * alpha1 + one_m_f1 * alpha2,
-            beta: f1 * beta1 + one_m_f1 * beta2,
-            sigma_k: f1 * sk1 + one_m_f1 * sk2,
-            sigma_omega: f1 * so1 + one_m_f1 * so2,
-            f1,
-        }
-    }
-
     /// Compute strain rate magnitude |S| at grid point (i, j, k).
     fn strain_rate(&self, flow: &FlowField<T>, i: usize, j: usize, k: usize) -> T {
         let (nx, ny, nz) = flow.velocity.dimensions;
@@ -223,13 +182,11 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Turbu
                             * num_traits::Float::sqrt(k)
                             / (self.beta_star * om * d + eps),
                         <T as FromPrimitive>::from_f64(500.0)
-                            .expect("500.0 is representable in all IEEE 754 types") * self.nu
+                            .expect("500.0 is representable in all IEEE 754 types")
+                            * self.nu
                             / (d * d * om + eps),
                     );
                     let f2 = num_traits::Float::tanh(arg2 * arg2);
-                    let f1 = <T as FromPrimitive>::from_f64(0.5)
-                        .expect("0.5 is exactly representable in IEEE 754");
-                    let _blended = self.blend_constants(f1);
                     let ii = idx % nx;
                     let jj = (idx / nx) % ny;
                     let kk = idx / (nx * ny);

@@ -8,70 +8,30 @@
 //! allowing for easy addition of new tracking variables without breaking
 //! existing functionality.
 
-mod blueprint;
-mod channel_system;
 mod interchange;
 mod shell_cuboid;
 mod tpms_fill;
+mod volume;
 
-pub use self::channel_system::ChannelSystem;
 pub use self::interchange::{
     InterchangeChannel, InterchangeChannelProfile, InterchangeChannelSystem, InterchangeNode,
     InterchangeShellCuboid, InterchangeShellPort,
 };
 pub use self::shell_cuboid::ShellCuboid;
 pub use self::tpms_fill::{AdaptiveGradient, TpmsFillSpec, TpmsSurfaceKind};
+pub use self::volume::{ChannelFluidVolumeSummary, FluidVolumeSummary};
 
 use crate::config::TaperProfile;
-use crate::domain::model::{ChannelShape, NodeKind};
-use crate::domain::therapy_metadata::TherapyZone;
-use crate::error::{GeometryError, GeometryResult};
-use crate::geometry::metadata::{
-    ChannelVisualRole, JunctionGeometryMetadata, MetadataContainer, VenturiGeometryMetadata,
-};
 use serde::{Deserialize, Serialize};
 
 /// A 2D point represented as (x, y) coordinates
 pub type Point2D = (f64, f64);
 
-/// A node represents a connection point in the channel system
-///
-/// Nodes are used to define the endpoints of channels and serve as
-/// junction points where multiple channels can connect.
-///
-/// The node supports extensible metadata for tracking additional properties
-/// like pressure, temperature, or manufacturing tolerances.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Node {
-    /// Unique identifier for this node
-    pub id: usize,
-    /// Optional stable semantic identifier used for solver/export contracts
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub name: Option<String>,
-    /// 2D coordinates of the node
-    pub point: Point2D,
-    /// Optional semantic node classification for lossless blueprint export
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub kind: Option<NodeKind>,
-    /// Optional explicit junction geometry for rendering / 1D minor-loss models
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub junction_geometry: Option<JunctionGeometryMetadata>,
-    /// Optional metadata container for extensible properties
-    #[serde(skip)]
-    pub metadata: Option<MetadataContainer>,
-}
-
-/// Categories of channel types for visualization and analysis
-///
-/// This enum groups channel types into categories for consistent coloring
-/// and styling in visualizations.
+/// Categories of channel types for visualization and analysis.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ChannelTypeCategory {
-    /// Straight line channels (Straight, `SmoothStraight`)
     Straight,
-    /// Curved channels (Serpentine, Arc)
     Curved,
-    /// Tapered channels (Frustum)
     Tapered,
 }
 
@@ -85,56 +45,33 @@ impl From<&ChannelType> for ChannelTypeCategory {
     }
 }
 
-/// Represents the different types of channels that can be generated
-///
-/// Each channel type has different characteristics:
-/// - `Straight`: Direct line between two points
-/// - `SmoothStraight`: Straight line with optional smooth transition zones at endpoints
-/// - `Serpentine`: Sinusoidal path with Gaussian envelope for smooth transitions
-/// - `Arc`: Curved path using quadratic Bezier curves
-/// - `Frustum`: Tapered channel with variable width for venturi throat functionality
+/// Represents the different types of channels that can be generated.
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub enum ChannelType {
-    /// A straight line channel between two points
     #[default]
     Straight,
-    /// A straight line channel with smooth transition zones at endpoints
     SmoothStraight {
-        /// The sequence of points defining the smooth straight path with transitions
         path: Vec<Point2D>,
     },
-    /// A serpentine (S-shaped) channel with a predefined path
     Serpentine {
-        /// The sequence of points defining the serpentine path
         path: Vec<Point2D>,
     },
-    /// A curved arc channel with a predefined path
     Arc {
-        /// The sequence of points defining the arc path
         path: Vec<Point2D>,
     },
-    /// A tapered frustum channel with variable width
     Frustum {
-        /// The sequence of centerline points
         path: Vec<Point2D>,
-        /// Width values at each centerline point
         widths: Vec<f64>,
-        /// Width at the channel inlet
         #[serde(default = "default_frustum_inlet_width")]
         inlet_width: f64,
-        /// Width at the throat (narrowest section)
         #[serde(default = "default_frustum_throat_width")]
         throat_width: f64,
-        /// Width at the channel outlet
         #[serde(default = "default_frustum_outlet_width")]
         outlet_width: f64,
-        /// Taper profile shape
         #[serde(default = "default_frustum_taper_profile")]
         taper_profile: TaperProfile,
-        /// Normalized throat position along the channel (0.0 to 1.0)
         #[serde(default = "default_frustum_throat_position")]
         throat_position: f64,
-        /// Whether this frustum acts as a venturi throat
         #[serde(default = "default_has_venturi_throat")]
         has_venturi_throat: bool,
     },
@@ -164,81 +101,16 @@ fn default_frustum_outlet_width() -> f64 {
     1.0
 }
 
-/// A microfluidic channel connecting two nodes
-///
-/// The channel supports extensible metadata for tracking additional properties
-/// like flow rates, pressure drops, optimization history, or manufacturing data.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Channel {
-    /// Unique identifier for this channel
-    pub id: usize,
-    /// Optional stable semantic identifier used for solver/export contracts
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub name: Option<String>,
-    /// ID of the starting node
-    pub from_node: usize,
-    /// ID of the ending node
-    pub to_node: usize,
-    /// Physical width of the channel
-    pub width: f64,
-    /// Physical height of the channel
-    pub height: f64,
-    /// The type and path of this channel
-    pub channel_type: ChannelType,
-    /// Optional schematic role for blueprint/native rendering
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub visual_role: Option<ChannelVisualRole>,
-    /// Optional physical channel length [m] used by downstream solvers
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub physical_length_m: Option<f64>,
-    /// Optional physical channel width [m] used by downstream solvers
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub physical_width_m: Option<f64>,
-    /// Optional physical channel height [m] used by downstream solvers
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub physical_height_m: Option<f64>,
-    /// Optional physical channel-shape semantic used by downstream solvers
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub physical_shape: Option<ChannelShape>,
-    /// Optional therapy-zone semantic for selective routing designs
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub therapy_zone: Option<TherapyZone>,
-    /// Optional explicit venturi geometry
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub venturi_geometry: Option<VenturiGeometryMetadata>,
-    /// Optional metadata container for extensible properties
-    #[serde(skip)]
-    pub metadata: Option<MetadataContainer>,
-}
-
-/// Defines the type of channel splitting pattern
-///
-/// Split types determine how many branches are created at each junction:
-/// - `Bifurcation`: Splits into 2 branches
-/// - `Trifurcation`: Splits into 3 branches
+/// Defines the type of channel splitting pattern.
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub enum SplitType {
-    /// Split into two branches
     Bifurcation,
-    /// Split into two branches with asymmetric width distribution.
-    /// The ratio (0.0-1.0) determines the fraction of available width allocated to the first (top) branch.
-    AsymmetricBifurcation {
-        /// Ratio of total width allocated to the first branch
-        ratio: f64,
-    },
-    /// Split into three branches
+    AsymmetricBifurcation { ratio: f64 },
     Trifurcation,
-    /// Split into three branches with symmetric width distribution (Center vs Sides).
-    /// The center_ratio (0.0-1.0) determines the fraction of total width allocated to the center branch.
-    /// Side branches share the remaining width equally.
-    SymmetricTrifurcation {
-        /// Ratio of total width allocated to the center branch
-        center_ratio: f64,
-    },
+    SymmetricTrifurcation { center_ratio: f64 },
 }
 
 impl SplitType {
-    /// Returns the number of branches created by this split type
     #[must_use]
     pub const fn branch_count(&self) -> usize {
         match self {
@@ -249,45 +121,6 @@ impl SplitType {
 }
 
 // ── Free functions ──────────────────────────────────────────────────────────
-
-pub(crate) fn is_finite_point(point: Point2D) -> bool {
-    point.0.is_finite() && point.1.is_finite()
-}
-
-pub(crate) fn validate_path(path: &[Point2D]) -> GeometryResult<()> {
-    if path.len() < 2 {
-        return Err(GeometryError::InvalidChannelPath {
-            reason: "Path must contain at least 2 points".to_string(),
-        });
-    }
-
-    if path.iter().any(|point| !is_finite_point(*point)) {
-        return Err(GeometryError::InvalidChannelPath {
-            reason: "Path contains non-finite coordinates".to_string(),
-        });
-    }
-
-    Ok(())
-}
-
-/// Get the centerline points for a channel, accounting for its type.
-pub fn centerline_for_channel(channel: &Channel, nodes: &[Node]) -> Vec<Point2D> {
-    match &channel.channel_type {
-        ChannelType::Straight => {
-            if let (Some(from), Some(to)) =
-                (nodes.get(channel.from_node), nodes.get(channel.to_node))
-            {
-                vec![from.point, to.point]
-            } else {
-                Vec::new()
-            }
-        }
-        ChannelType::SmoothStraight { path }
-        | ChannelType::Serpentine { path }
-        | ChannelType::Arc { path }
-        | ChannelType::Frustum { path, .. } => path.clone(),
-    }
-}
 
 pub(crate) fn polyline_length(points: &[Point2D]) -> f64 {
     points

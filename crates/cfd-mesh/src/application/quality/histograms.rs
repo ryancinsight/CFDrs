@@ -54,7 +54,11 @@ impl Histogram {
 
         let mut edges = Vec::with_capacity(n_bins + 1);
         let range = max - min;
-        let bin_w = if range < Real::EPSILON { 1.0 } else { range / n_bins as Real };
+        let bin_w = if range < Real::EPSILON {
+            1.0
+        } else {
+            range / n_bins as Real
+        };
         for i in 0..=n_bins {
             edges.push(min + i as Real * bin_w);
         }
@@ -69,7 +73,12 @@ impl Histogram {
             bins[idx] += 1;
         }
 
-        Some(Histogram { bins, edges, min, max })
+        Some(Histogram {
+            bins,
+            edges,
+            min,
+            max,
+        })
     }
 
     /// Number of bins.

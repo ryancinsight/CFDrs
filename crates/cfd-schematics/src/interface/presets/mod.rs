@@ -15,11 +15,10 @@ pub use composite::{
     incremental_filtration_tri_bi_rect_staged, incremental_filtration_tri_bi_rect_staged_remerge,
     parallel_microchannel_array_rect, primitive_selective_split_tree_rect,
     quad_trifurcation_venturi_rect, serial_double_venturi_rect, spiral_channel_rect,
-    trifurcation_bifurcation_bifurcation_venturi_rect,
-    trifurcation_bifurcation_venturi_rect, trifurcation_serpentine_rect, trifurcation_venturi_rect,
-    triple_bifurcation_venturi_rect, triple_trifurcation_venturi_rect, venturi_serpentine_rect,
-    CenterSerpentineSpec,
+    trifurcation_bifurcation_bifurcation_venturi_rect, trifurcation_bifurcation_venturi_rect,
+    trifurcation_serpentine_rect, trifurcation_venturi_rect, triple_bifurcation_venturi_rect,
+    triple_trifurcation_venturi_rect, venturi_serpentine_rect, CenterSerpentineSpec,
 };
-pub use serpentine::{serpentine_chain, serpentine_rect};
+pub use serpentine::{serpentine_chain, serpentine_rect, serpentine_venturi_rect};
 pub use trifurcation::{symmetric_trifurcation, trifurcation_rect};
 pub use venturi::{venturi_chain, venturi_rect};

@@ -42,9 +42,9 @@
 //! For history depth m=5 and 10³ outer iterations, total shift cost drops from
 //! O(5 × 10³) = 5000 ops to O(10³) = 1000 ops in pointer increments.
 
-use std::collections::VecDeque;
 use nalgebra::{DMatrix, DVector, RealField};
 use num_traits::{Float, FromPrimitive};
+use std::collections::VecDeque;
 
 /// Method for solving the Anderson least-squares subproblem.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -156,7 +156,9 @@ impl<T: RealField + Copy + Float + std::fmt::Debug> QrState<T> {
             let new_m = m_new + 1;
             let mut new_r = DMatrix::zeros(new_m, new_m);
             if m_new > 0 && self.r_mat.nrows() == m_new && self.r_mat.ncols() == m_new {
-                new_r.view_mut((0, 0), (m_new, m_new)).copy_from(&self.r_mat);
+                new_r
+                    .view_mut((0, 0), (m_new, m_new))
+                    .copy_from(&self.r_mat);
             }
             for i in 0..=m_new {
                 new_r[(i, m_new)] = r_col[i];
@@ -288,17 +290,14 @@ impl<T: RealField + Copy + Float + std::fmt::Debug> AndersonAccelerator<T> {
                         None
                     }
                 }
-                AndersonMethod::NormalEquations => {
-                    self.solve_normal_equations(&f)
-                }
+                AndersonMethod::NormalEquations => self.solve_normal_equations(&f),
             };
 
             match gamma_opt {
                 Some(gamma) => {
                     // x_next = x + β·f − (ΔX + β·ΔF) · γ
                     for (j, g_j) in gamma.iter().enumerate() {
-                        let term =
-                            &self.delta_x[j] + &self.delta_f[j] * self.config.relaxation;
+                        let term = &self.delta_x[j] + &self.delta_f[j] * self.config.relaxation;
                         x_next -= term * *g_j;
                     }
                 }

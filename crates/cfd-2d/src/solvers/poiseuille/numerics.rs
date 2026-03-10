@@ -109,7 +109,9 @@ impl<T: RealField + FromPrimitive + Float + Copy> PoiseuilleFlow2D<T> {
         }
 
         // Relative L2 norm
-        Float::sqrt(sum_sq / (sum_sq_old + T::from_f64(1e-20).unwrap_or_else(num_traits::Zero::zero)))
+        Float::sqrt(
+            sum_sq / (sum_sq_old + T::from_f64(1e-20).unwrap_or_else(num_traits::Zero::zero)),
+        )
     }
 }
 

@@ -63,10 +63,10 @@ use nalgebra::{DVector, RealField, Vector3};
 use num_traits::{Float, FromPrimitive};
 use std::collections::HashSet;
 
+use crate::fem::mesh_utils::compute_mesh_scale;
 use crate::fem::quadrature::TetrahedronQuadrature;
 use crate::fem::shape_functions::LagrangeTet10;
 use crate::fem::solver::extract_vertex_indices;
-use crate::fem::mesh_utils::compute_mesh_scale;
 use crate::fem::{FemConfig, StokesFlowProblem, StokesFlowSolution};
 
 /// Pressure projection solver for incompressible Stokes/Navier-Stokes equations
@@ -220,20 +220,40 @@ impl<
         let n_nodes = problem.mesh.vertex_count();
         let n_velocity_dof = n_nodes * 3;
 
-        if self.momentum_builder.as_ref().is_none_or(|b| b.num_rows() != n_velocity_dof) {
+        if self
+            .momentum_builder
+            .as_ref()
+            .is_none_or(|b| b.num_rows() != n_velocity_dof)
+        {
             self.momentum_builder = Some(SparseMatrixBuilder::new(n_velocity_dof, n_velocity_dof));
         } else {
-            self.momentum_builder.as_mut().expect("checked Some above").clear();
+            self.momentum_builder
+                .as_mut()
+                .expect("checked Some above")
+                .clear();
         }
 
-        if self.momentum_rhs.as_ref().is_none_or(|r| r.len() != n_velocity_dof) {
+        if self
+            .momentum_rhs
+            .as_ref()
+            .is_none_or(|r| r.len() != n_velocity_dof)
+        {
             self.momentum_rhs = Some(DVector::zeros(n_velocity_dof));
         } else {
-            self.momentum_rhs.as_mut().expect("checked Some above").fill(T::zero());
+            self.momentum_rhs
+                .as_mut()
+                .expect("checked Some above")
+                .fill(T::zero());
         }
 
-        let mut builder = self.momentum_builder.take().expect("momentum_builder initialized above");
-        let mut rhs_out = self.momentum_rhs.take().expect("momentum_rhs initialized above");
+        let mut builder = self
+            .momentum_builder
+            .take()
+            .expect("momentum_builder initialized above");
+        let mut rhs_out = self
+            .momentum_rhs
+            .take()
+            .expect("momentum_rhs initialized above");
 
         let vertex_positions: Vec<Vector3<T>> = problem
             .mesh
@@ -242,7 +262,10 @@ impl<
             .map(|v| v.1.position.coords)
             .collect();
 
-        tracing::debug!(n_cells = problem.mesh.cells.len(), "Assembling momentum matrix");
+        tracing::debug!(
+            n_cells = problem.mesh.cells.len(),
+            "Assembling momentum matrix"
+        );
 
         // Assemble viscous + transient terms (no pressure gradient)
         for (i, cell) in problem.mesh.cells.iter().enumerate() {
@@ -280,20 +303,40 @@ impl<
     ) -> Result<(SparseMatrix<T>, DVector<T>)> {
         let n_corner_nodes = problem.n_corner_nodes;
 
-        if self.pressure_builder.as_ref().is_none_or(|b| b.num_rows() != n_corner_nodes) {
+        if self
+            .pressure_builder
+            .as_ref()
+            .is_none_or(|b| b.num_rows() != n_corner_nodes)
+        {
             self.pressure_builder = Some(SparseMatrixBuilder::new(n_corner_nodes, n_corner_nodes));
         } else {
-            self.pressure_builder.as_mut().expect("checked Some above").clear();
+            self.pressure_builder
+                .as_mut()
+                .expect("checked Some above")
+                .clear();
         }
 
-        if self.pressure_rhs.as_ref().is_none_or(|r| r.len() != n_corner_nodes) {
+        if self
+            .pressure_rhs
+            .as_ref()
+            .is_none_or(|r| r.len() != n_corner_nodes)
+        {
             self.pressure_rhs = Some(DVector::zeros(n_corner_nodes));
         } else {
-            self.pressure_rhs.as_mut().expect("checked Some above").fill(T::zero());
+            self.pressure_rhs
+                .as_mut()
+                .expect("checked Some above")
+                .fill(T::zero());
         }
 
-        let mut builder = self.pressure_builder.take().expect("pressure_builder initialized above");
-        let mut rhs_out = self.pressure_rhs.take().expect("pressure_rhs initialized above");
+        let mut builder = self
+            .pressure_builder
+            .take()
+            .expect("pressure_builder initialized above");
+        let mut rhs_out = self
+            .pressure_rhs
+            .take()
+            .expect("pressure_rhs initialized above");
 
         let vertex_positions: Vec<Vector3<T>> = problem
             .mesh
@@ -402,8 +445,9 @@ impl<
         let det_j = j_mat.determinant();
         let abs_det = Float::abs(det_j);
 
-        if abs_det < <T as FromPrimitive>::from_f64(1e-20)
-            .expect("1e-20 is an IEEE 754 representable f64 constant")
+        if abs_det
+            < <T as FromPrimitive>::from_f64(1e-20)
+                .expect("1e-20 is an IEEE 754 representable f64 constant")
         {
             return Err(Error::Solver(
                 "Near-zero element volume in momentum assembly".to_string(),
@@ -498,8 +542,9 @@ impl<
         let det_j = j_mat.determinant();
         let abs_det = Float::abs(det_j);
 
-        if abs_det < <T as FromPrimitive>::from_f64(1e-20)
-            .expect("1e-20 is an IEEE 754 representable f64 constant")
+        if abs_det
+            < <T as FromPrimitive>::from_f64(1e-20)
+                .expect("1e-20 is an IEEE 754 representable f64 constant")
         {
             return Err(Error::Solver(
                 "Near-zero element volume in pressure assembly".to_string(),
@@ -533,8 +578,9 @@ impl<
         // For P1 elements, the Laplacian matrix is constant over the element
         // K_ij = ∫ ∇N_i · ∇N_j dV = (∇N_i · ∇N_j) * V/4
         // Using exact integration for linear elements
-        let vol = abs_det / <T as FromPrimitive>::from_f64(6.0)
-            .expect("6.0 is representable in all IEEE 754 types");
+        let vol = abs_det
+            / <T as FromPrimitive>::from_f64(6.0)
+                .expect("6.0 is representable in all IEEE 754 types");
 
         for i in 0..4 {
             let grad_i = grad_p1_phys.column(i);

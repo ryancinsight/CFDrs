@@ -70,7 +70,7 @@ pub mod api {
         BoundaryCondition, BoundaryConditionManager, BoundaryConditionSet, WallType,
     };
     pub use super::constants::{mathematical, physics};
-    pub use super::fluid::{ConstantPropertyFluid, Fluid, FluidProperties};
+    pub use super::fluid::{ConstantPropertyFluid, FluidProperties};
     pub use super::fluid_dynamics::{
         FlowClassifier, FlowField, FlowOperations, FlowRegime, FluidDynamicsService, PressureField,
         RANSModel, RhieChowInterpolation, ScalarField, TurbulenceModel, VelocityField,

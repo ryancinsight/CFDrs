@@ -105,7 +105,10 @@ pub(crate) fn find_plic_plane_constant<
     let mut c_hi = n_abs;
     let target = alpha * dx * dy * dz;
     let tol = <T as FromPrimitive>::from_f64(1e-12)
-        .expect("1e-12 is an IEEE 754 representable f64 constant") * dx * dy * dz;
+        .expect("1e-12 is an IEEE 754 representable f64 constant")
+        * dx
+        * dy
+        * dz;
 
     for _ in 0..64 {
         if c_hi - c_lo < tol {

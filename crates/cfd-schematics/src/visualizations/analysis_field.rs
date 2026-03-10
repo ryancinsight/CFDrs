@@ -6,8 +6,8 @@
 //! and a colormap specification. Normalization and colorization are handled internally.
 //!
 //! # Invariants
-//! - `AnalysisOverlay::edge_data` keys are channel IDs from `ChannelSystem::channels`.
-//! - `AnalysisOverlay::node_data` keys are node IDs from `ChannelSystem::nodes`.
+//! - `AnalysisOverlay::edge_data` keys are channel IDs from `NetworkBlueprint::channels`.
+//! - `AnalysisOverlay::node_data` keys are node IDs from `NetworkBlueprint::nodes`.
 //! - `colorize` is a pure function: same inputs always produce the same `Color`.
 
 use crate::visualizations::traits::Color;

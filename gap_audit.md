@@ -1,23 +1,16 @@
-# CFD-1D Gap Audit
-- **Started:** 2026-03-05
-- **Goal:** Identify numerical, physical, and performance gaps in the `cfd-1d` implementation.
+# Gap Audit: cfd-schematics
 
-## 1. Mathematical Purity & Physical Laws
-- [x] Check for hardcoded constants instead of physical parameters.
-- [x] Check for correct application of Hagen-Poiseuille equations.
-- [x] Ensure non-Newtonian flow edge cases (if any) are explicitly prohibited or handled mathematically.
-- [x] Invariant bounding: Maximum Re for strictly laminar assumption, maximum Mach for incompressibility.
-  - **Resolution**: Replaced `unwrap_or(T::zero)` fallbacks in `NetworkBuilder` with explicit strict positive bounds checking for all `ChannelSpec` lengths, radii, and widths.
+## Phase 1: Foundation (Current)
+- Auditing `cfd-schematics`...
+- Goal: Identify redundancy, shared component duplication, and structural integrity violations.
+- Checking for placeholders, temporary workarounds, and approximations.
 
-## 2. Performance and Memory
-- [x] `Network` data structure memory locality.
-- [x] Assembly of sparse matrix for linear solver.
-  - **Resolution**: Refactored `cfd-1d/src/solver/matrix_assembly.rs` to replace O(N) `HashMap<usize, T>` lookups during network parallel edge iteration with O(1) continuous memory `Vec<Option<T>>` indexed arrays.
-- [x] Preallocation and re-use of solver buffers.
-- [x] Redundant validations taking O(N) when O(1) is possible.
+## Findings
+### 1. Dual-Path Topology Generation (SSOT & DRY Violation)
+- `interface::presets` (e.g., `bifurcation.rs`, `serpentine.rs`) directly instantiate `NetworkBlueprint`, manually inserting nodes and channels.
+- `topology::presets` combined with `topology::factory::BlueprintTopologyFactory` does exactly the same thing but via declarative `BlueprintTopologySpec`.
+- **Gap**: `interface::presets` must be completely removed or refactored into thin wrappers that call `topology::presets` and `BlueprintTopologyFactory`.
 
-## 4. CFD-2D Purity and Performance
-- [x] Analyze `cfd-2d` simple algorithm implementations for memory efficiency.
-  - **Resolution**: Hoisted `SparseMatrixBuilder<T>` allocation from inside `SimpleAlgorithm` `simple_iteration` hot loop to a cached generic pointer, resolving a structural $O(N)$ allocation penalty executed identically 50+ times per step.
-- [x] Investigate float-injected heuristic numbers in continuous math systems.
-  - **Resolution**: Replaced empirical `unwrap_or_else(|| T::one())` constant heuristics mathematically via algebraic type-safe constant equivalents (`T::one() + T::one()`) within the PISO corrector Rhie-Chow iterations.
+### 2. Leaking Physics Constants (SOC Violation)
+- `BLOOD_MU` (3.5e-3) and `shah_london_resistance` / `hp_resistance` formulas are hardcoded into schematic generation (`cfd-schematics/src/interface/presets/*` and `factory.rs`).
+- **Gap**: Schematic generation (topology/geometry mappings) should not calculate fluidic resistances. That is the domain of `cfd-1d`. The schematic layer should only provide geometry (`length_m`, `width_m`, `height_m`) and let downstream solvers compute resistances based on their own runtime fluid models.

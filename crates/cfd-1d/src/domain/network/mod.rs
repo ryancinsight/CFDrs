@@ -3,6 +3,7 @@
 //! Provides graph-based representation of fluid networks
 
 mod builder;
+mod blueprint_validation;
 mod component_type;
 mod edge;
 mod graph;
@@ -12,6 +13,7 @@ mod node;
 pub mod sink;
 mod wrapper;
 
+pub use blueprint_validation::validate_blueprint_for_1d_solve;
 pub use builder::{network_from_blueprint, NetworkBuilder};
 pub use cfd_schematics::domain::model::EdgeKind as EdgeType;
 pub use cfd_schematics::domain::model::NodeKind as NodeType;

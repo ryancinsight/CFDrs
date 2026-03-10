@@ -414,12 +414,13 @@ impl CfdMemoryProfiler {
     /// Profile memory usage of CFD simulation fields
     pub fn profile_simulation_fields(&self) -> Result<MemoryStatsSnapshot> {
         use cfd_2d::fields::SimulationFields;
-        use cfd_core::physics::fluid::Fluid;
+        use cfd_core::physics::fluid::ConstantPropertyFluid;
 
         Ok(self
             .profiler
             .profile_closure(|| {
-                let fluid = Fluid::new("Test".to_string(), 1.0, 0.01, 1000.0, 0.001, 343.0);
+                let fluid =
+                    ConstantPropertyFluid::new("Test".to_string(), 1.0, 0.01, 1000.0, 0.001, 343.0);
                 let _fields = SimulationFields::with_fluid(32, 32, &fluid);
             })
             .1)

@@ -198,10 +198,7 @@ impl<T: RealField + Copy + Float + FromPrimitive + std::fmt::Debug> JfnkSolver<T
             ));
         }
 
-        let abs_tol = Float::max(
-            self.config.atol,
-            self.config.rtol * norm0,
-        );
+        let abs_tol = Float::max(self.config.atol, self.config.rtol * norm0);
 
         let mut history = vec![norm0];
         let mut eta = self.config.inner_tol_init; // EW forcing term
@@ -334,7 +331,12 @@ impl<T: RealField + Copy + Float + FromPrimitive + std::fmt::Debug> JfnkSolver<T
                 // Arnoldi: compute w = J(x) · vⱼ
                 let vj = &v_basis[j];
                 let eps = Self::compute_eps(x, vj);
-                let jop = JvpOperator { x_pivot: x, f_pivot: f_x, func, eps };
+                let jop = JvpOperator {
+                    x_pivot: x,
+                    f_pivot: f_x,
+                    func,
+                    eps,
+                };
                 let mut w = jop.apply_jvp(vj);
 
                 // Modified Gram-Schmidt orthogonalization
@@ -377,7 +379,12 @@ impl<T: RealField + Copy + Float + FromPrimitive + std::fmt::Debug> JfnkSolver<T
                     }
                     let fwd = {
                         let eps = Self::compute_eps(x, &delta);
-                        let jop = JvpOperator { x_pivot: x, f_pivot: f_x, func, eps };
+                        let jop = JvpOperator {
+                            x_pivot: x,
+                            f_pivot: f_x,
+                            func,
+                            eps,
+                        };
                         jop.apply_jvp(&delta)
                     };
                     r = b - fwd;
@@ -397,7 +404,12 @@ impl<T: RealField + Copy + Float + FromPrimitive + std::fmt::Debug> JfnkSolver<T
                     }
                     let fwd = {
                         let eps = Self::compute_eps(x, &delta);
-                        let jop = JvpOperator { x_pivot: x, f_pivot: f_x, func, eps };
+                        let jop = JvpOperator {
+                            x_pivot: x,
+                            f_pivot: f_x,
+                            func,
+                            eps,
+                        };
                         jop.apply_jvp(&delta)
                     };
                     r = b - fwd;
@@ -514,8 +526,7 @@ mod tests {
         assert!(
             conv.converged,
             "JFNK nonlinear: must converge, residual={:.2e}, iters={}",
-            conv.residual_norm,
-            conv.newton_iterations
+            conv.residual_norm, conv.newton_iterations
         );
         assert_relative_eq!(x_sol[0], 1.0, epsilon = 1e-8);
         assert_relative_eq!(x_sol[1], 2.0, epsilon = 1e-8);

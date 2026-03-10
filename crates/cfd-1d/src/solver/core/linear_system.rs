@@ -7,9 +7,10 @@ use cfd_math::sparse::SparseMatrixExt;
 use nalgebra::{DMatrix, DVector, RealField};
 use nalgebra_sparse::CsrMatrix;
 use num_traits::FromPrimitive;
+use serde::{Deserialize, Serialize};
 
 /// Linear solver method selection
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum LinearSolverMethod {
     /// Conjugate Gradient method for Symmetric Positive Definite systems
     ConjugateGradient,
@@ -31,6 +32,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Default for LinearSystemSolver<
 }
 
 impl<T: RealField + Copy + FromPrimitive + Copy> LinearSystemSolver<T> {
+    const DIRECT_SOLVE_NODE_THRESHOLD: usize = 256;
+
     /// Create a new linear system solver
     pub fn new() -> Self {
         Self {
@@ -57,6 +60,10 @@ impl<T: RealField + Copy + FromPrimitive + Copy> LinearSystemSolver<T> {
     where
         T: Copy,
     {
+        if a.nrows() <= Self::DIRECT_SOLVE_NODE_THRESHOLD {
+            return Self::solve_dense_fallback(a, b);
+        }
+
         // Initial guess
         let x0 = DVector::zeros(b.len());
 
@@ -72,8 +79,9 @@ impl<T: RealField + Copy + FromPrimitive + Copy> LinearSystemSolver<T> {
                 let mut x = x0.clone();
                 let precond = DiagJacobi::new(a)?;
                 match solver.solve(a, b, &mut x, Some(&precond)) {
-                    Ok(_) => Ok(x),
+                    Ok(_) if self.solution_meets_residual_target(a, &x, b) => Ok(x),
                     Err(_) => Self::solve_dense_fallback(a, b),
+                    Ok(_) => Self::solve_dense_fallback(a, b),
                 }
             }
             LinearSolverMethod::BiCGSTAB => {
@@ -87,11 +95,44 @@ impl<T: RealField + Copy + FromPrimitive + Copy> LinearSystemSolver<T> {
                 let mut x = x0.clone();
                 let precond = DiagJacobi::new(a)?;
                 match solver.solve(a, b, &mut x, Some(&precond)) {
-                    Ok(_) => Ok(x),
+                    Ok(_) if self.solution_meets_residual_target(a, &x, b) => Ok(x),
                     Err(_) => Self::solve_dense_fallback(a, b),
+                    Ok(_) => Self::solve_dense_fallback(a, b),
                 }
             }
         }
+    }
+
+    fn solution_meets_residual_target(
+        &self,
+        a: &CsrMatrix<T>,
+        x: &DVector<T>,
+        b: &DVector<T>,
+    ) -> bool {
+        let residual = Self::compute_residual_norm(a, x, b);
+        if !residual.is_finite() {
+            return false;
+        }
+        let rhs_norm = b.norm();
+        if rhs_norm > T::default_epsilon() {
+            residual / rhs_norm <= self.tolerance
+        } else {
+            residual <= self.tolerance
+        }
+    }
+
+    fn compute_residual_norm(a: &CsrMatrix<T>, x: &DVector<T>, b: &DVector<T>) -> T {
+        let mut norm = T::zero();
+        for row_idx in 0..a.nrows() {
+            let row = a.row(row_idx);
+            let mut ax_i = T::zero();
+            for (col_idx, value) in row.col_indices().iter().zip(row.values()) {
+                ax_i += *value * x[*col_idx];
+            }
+            let residual = ax_i - b[row_idx];
+            norm += residual * residual;
+        }
+        norm.sqrt()
     }
 
     fn solve_dense_fallback(a: &CsrMatrix<T>, b: &DVector<T>) -> Result<DVector<T>> {

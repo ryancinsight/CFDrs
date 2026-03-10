@@ -130,7 +130,7 @@ fn test_bisection_residual_near_zero() {
         200e-6,
         None,
     )
-    .unwrap();
+    .expect("test invariant");
     // Residual force should be machine-epsilon small (< 1 pN = 1e-12 N)
     assert!(
         eq.residual_force_n.abs() < 1e-12,
@@ -170,7 +170,7 @@ fn test_purity_bounded_in_zero_to_one() {
 
     let analysis = model
         .analyze(&cancer, &rbc, BLOOD_DENSITY, BLOOD_VISCOSITY, 0.05)
-        .unwrap();
+        .expect("test invariant");
 
     assert!(
         (0.0..=1.0).contains(&analysis.purity),
@@ -197,7 +197,7 @@ fn test_curved_channel_shifts_equilibrium_outward() {
         200e-6,
         None,
     )
-    .unwrap();
+    .expect("test invariant");
     let curved = lateral_equilibrium(
         &cancer,
         BLOOD_DENSITY,
@@ -207,7 +207,7 @@ fn test_curved_channel_shifts_equilibrium_outward() {
         200e-6,
         Some(5e-3),
     )
-    .unwrap();
+    .expect("test invariant");
 
     assert!(
         curved.x_tilde_eq >= straight.x_tilde_eq,

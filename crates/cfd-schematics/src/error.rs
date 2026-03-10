@@ -5,6 +5,7 @@
 //! information to help users diagnose and fix issues.
 
 use crate::geometry::Point2D;
+use crate::state_management::errors::StateManagementError;
 use thiserror::Error;
 
 /// Main error type for the scheme library
@@ -29,9 +30,9 @@ pub enum SchemeError {
     #[error("Strategy error: {0}")]
     Strategy(#[from] StrategyError),
 
-    /// Legacy simulation errors (kept for backward compatibility)
-    #[error("Simulation error: {0}")]
-    Simulation(#[from] SimulationError),
+    /// Errors from the state management subsystem
+    #[error("State management error: {0}")]
+    StateManagement(#[from] StateManagementError),
 }
 
 /// Errors related to geometry generation and validation
@@ -196,14 +197,6 @@ pub enum StrategyError {
     /// Unsupported channel type
     #[error("Unsupported channel type: {channel_type}")]
     UnsupportedChannelType { channel_type: String },
-}
-
-/// Legacy simulation errors (kept for backward compatibility)
-#[derive(Error, Debug)]
-pub enum SimulationError {
-    #[error("The simulation's linear system could not be solved. This may be due to disconnected channels or other geometry issues.")]
-    /// Linear system could not be solved due to geometry issues
-    LinearSystemError,
 }
 
 /// Convenient result type for scheme operations

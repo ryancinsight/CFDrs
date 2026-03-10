@@ -85,7 +85,11 @@ impl MetricTensor {
     /// default isotropic Ruppert implementation.
     #[must_use]
     pub fn identity() -> Self {
-        Self { m00: 1.0, m01: 0.0, m11: 1.0 }
+        Self {
+            m00: 1.0,
+            m01: 0.0,
+            m11: 1.0,
+        }
     }
 
     /// Construct an anisotropic metric aligned with direction `theta` (radians
@@ -198,7 +202,10 @@ mod tests {
     fn identity_length_equals_euclidean() {
         let m = MetricTensor::identity();
         let e = [3.0_f64, 4.0_f64];
-        assert!((m.length(&e) - 5.0).abs() < 1e-12, "identity metric should give l2 norm");
+        assert!(
+            (m.length(&e) - 5.0).abs() < 1e-12,
+            "identity metric should give l2 norm"
+        );
     }
 
     #[test]
@@ -219,10 +226,16 @@ mod tests {
         assert!((m.m11 - 1.0 / 16.0).abs() < 1e-12, "m11 should be 1/16");
         // y-direction: |[0, 4]|_M = sqrt(1/16 * 16) = 1
         let ey = [0.0, 4.0];
-        assert!((m.length(&ey) - 1.0).abs() < 1e-10, "y metric-length mismatch");
+        assert!(
+            (m.length(&ey) - 1.0).abs() < 1e-10,
+            "y metric-length mismatch"
+        );
         // x-direction: unchanged
         let ex = [5.0, 0.0];
-        assert!((m.length(&ex) - 5.0).abs() < 1e-10, "x metric-length mismatch");
+        assert!(
+            (m.length(&ex) - 5.0).abs() < 1e-10,
+            "x metric-length mismatch"
+        );
     }
 
     #[test]
@@ -247,7 +260,11 @@ mod tests {
     #[test]
     fn cholesky_reconstructs_m() {
         // M = [[4, 2], [2, 3]].  Cholesky: l00=2, l10=1, l11=sqrt(2).
-        let m = MetricTensor { m00: 4.0, m01: 2.0, m11: 3.0 };
+        let m = MetricTensor {
+            m00: 4.0,
+            m01: 2.0,
+            m11: 3.0,
+        };
         let l = m.cholesky().expect("M is PD");
         // Reconstruct Mᵀ = LᵀL: m00 = l00², m01 = l10·l00, m11 = l10² + l11²
         let rec_m00 = l[0] * l[0];
@@ -276,6 +293,9 @@ mod tests {
         let direct = m.length(&e);
         let (tx, ty) = MetricTensor::apply_cholesky(&l, e[0], e[1]);
         let via_chol = (tx * tx + ty * ty).sqrt();
-        assert!((direct - via_chol).abs() < 1e-12, "direct={direct} chol={via_chol}");
+        assert!(
+            (direct - via_chol).abs() < 1e-12,
+            "direct={direct} chol={via_chol}"
+        );
     }
 }

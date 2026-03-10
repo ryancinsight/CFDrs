@@ -1,5 +1,10 @@
 # Cargo configuration for CFD-rs
 
+# MinGW ld fails to link large test binaries (205+ object files with wgpu/proptest)
+# when full debug info is included. Strip debug info in test profile to stay linkable.
+[profile.test]
+debug = 0
+
 [alias]
 # xtask commands
 xtask = "run --package xtask --"

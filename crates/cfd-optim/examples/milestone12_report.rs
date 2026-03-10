@@ -1,7 +1,7 @@
 //! Milestone 12 unified report generator.
 //!
-//! Consolidates concept selection, GA optimisation, multi-fidelity validation,
-//! and figure generation in one runnable example.  All outputs go to
+//! Consolidates concept selection, GA optimisation, and figure/report generation
+//! in one runnable example.  All outputs go to
 //! `report/milestone12/` and `report/figures/`.
 //!
 //! # Parts
@@ -10,12 +10,15 @@
 //!    (Option 1) and CombinedSdtLeukapheresis (Option 2), top-5 each.
 //! 2. **GA warm-start search** — top-100 parametric seeds → HydrodynamicCavitationSDT GA
 //!    (pop=80, gen=120) for deeper optimisation of venturi-cavitation designs.
-//! 3. **Multi-fidelity validation** — 2D FVM + 3D FEM pressure-drop confirmation on
-//!    the selected combined-score Option 2 design plus the HydroSDT GA design.
+//! 3. **Robustness screening** — +/-10 % / +/-20 % operating-point perturbations on
+//!    the selected Option 2 shortlist.
 //! 4. **Figure generation** — schematics selected dynamically from optimizer output
 //!    (Figure 4 = best selective acoustic design; Figure 5 = best combined-score
 //!    venturi design; Figure 6 = best HydroSDT GA design).
 //! 5. **Canonical report markdown** — `report/milestone12_results.md`.
+//!
+//! Multi-fidelity 2D/3D venturi validation is handled by the companion example
+//! `milestone12_validation`.
 //!
 //! # Run
 //! ```bash
@@ -24,31 +27,25 @@
 //! $env:M12_FAST=1; cargo run -p cfd-optim --example milestone12_report --no-default-features
 //! ```
 
-use cfd_2d::solvers::ns_fvm::BloodModel;
-use cfd_2d::solvers::venturi_flow::{VenturiGeometry, VenturiSolver2D};
-use cfd_3d::venturi::{VenturiConfig3D, VenturiSolver3D};
-use cfd_core::physics::fluid::blood::CarreauYasudaBlood;
-use cfd_core::physics::fluid::CassonBlood;
-use cfd_mesh::VenturiMeshBuilder;
 use cfd_optim::{
-    analysis::{robustness_sweep, RobustnessReport, STANDARD_PERTURBATIONS},
-    build_candidate_space, compute_metrics,
-    constraints::{
-        BLOOD_DENSITY_KG_M3 as RHO, BLOOD_VAPOR_PRESSURE_PA as P_VAPOR_PA, M12_GA_HYDRO_SEED,
-        P_ATM_PA,
-    },
-    metrics_cache::MetricsCache,
-    reporting::{
-        pct_diff, shortlist_report, write_milestone12_narrative_report, write_milestone12_results,
-        Milestone12NarrativeInput, ValidationRow,
-    },
-    save_schematic_svg, save_top5_json, score_candidate, DesignCandidate, DesignTopology,
-    GeneticOptimizer, OptimMode, PrimitiveSplitSequence, RankedDesign, SdtMetrics, SdtWeights,
+    build_milestone12_blueprint_candidate_space, compute_blueprint_report_metrics,
+    evaluate_blueprint_candidate, evaluate_blueprint_genetic_refinement,
+    is_milestone12_lineage_topology, milestone12_lineage_key, robustness_sweep_blueprint,
+    save_blueprint_schematic_svg, save_top5_report_json, score_candidate, shortlist_report_designs,
+    sort_report_designs, validate_milestone12_candidate, write_milestone12_narrative_report,
+    write_milestone12_results, BlueprintCandidate, BlueprintGeneticOptimizer,
+    Milestone12LineageKey, Milestone12NarrativeInput, Milestone12ReportDesign, Milestone12Stage,
+    OptimMode, OptimizationGoal, RobustnessReport, SdtMetrics, SdtWeights, ValidationRow,
+    STANDARD_PERTURBATIONS,
 };
+use cfd_schematics::NetworkBlueprint;
 use rayon::prelude::*;
 use serde::Serialize;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
+use std::time::Instant;
 
 // ── Output structures ─────────────────────────────────────────────────────────
 
@@ -56,47 +53,22 @@ use std::path::{Path, PathBuf};
 struct ConceptTopline {
     concept: String,
     mode: String,
+    available: bool,
+    status: String,
     candidate_id: String,
-    score: f64,
+    score: Option<f64>,
     topology: String,
     treatment_zone_mode: String,
-    active_venturi_throat_count: usize,
-    cavitation_number: f64,
-    cancer_center_fraction: f64,
-    therapeutic_window_score: f64,
-    hemolysis_index_per_pass: f64,
-    wall_shear_p95_pa: f64,
-    mean_residence_time_s: f64,
-    total_ecv_ml: f64,
-    therapy_channel_fraction: f64,
-}
-
-#[derive(Debug, Serialize)]
-struct Venturi2DResult {
-    u_inlet_m_s: f64,
-    u_throat_m_s: f64,
-    dp_throat_pa: f64,
-    dp_recovery_pa: f64,
-    sigma_2d: f64,
-    dp_bernoulli_1d_pa: f64,
-}
-
-#[derive(Debug, Serialize)]
-struct Venturi3DResult {
-    u_inlet_m_s: f64,
-    u_throat_m_s: f64,
-    dp_throat_pa: f64,
-    dp_recovery_pa: f64,
-    mass_error: f64,
-    resolution: (usize, usize),
-}
-
-struct EvaluatedCandidate {
-    candidate: DesignCandidate,
-    metrics: SdtMetrics,
-    ga_score: f64,
-    option1_score: Option<f64>,
-    combined_score: Option<f64>,
+    active_venturi_throat_count: Option<usize>,
+    cavitation_number: Option<f64>,
+    cancer_center_fraction: Option<f64>,
+    therapeutic_window_score: Option<f64>,
+    hemolysis_index_per_pass: Option<f64>,
+    wall_shear_p95_pa: Option<f64>,
+    mean_residence_time_s: Option<f64>,
+    treatment_zone_dwell_time_s: Option<f64>,
+    total_ecv_ml: Option<f64>,
+    therapy_channel_fraction: Option<f64>,
 }
 
 struct RunConfig {
@@ -104,11 +76,90 @@ struct RunConfig {
     fast_stride: usize,
     fast_max_candidates: usize,
     fast_nonventuri_reserve: usize,
+    fast_acoustic_eval_max: usize,
     fast_eval_min: usize,
     fast_eval_max: usize,
     ga_seed_take: usize,
     ga_population: usize,
     ga_generations: usize,
+}
+
+struct ScanProgress {
+    label: &'static str,
+    total: usize,
+    started_at: Instant,
+    processed: AtomicUsize,
+    next_log_at: AtomicUsize,
+    log_step: usize,
+}
+
+impl ScanProgress {
+    fn new(label: &'static str, total: usize) -> Self {
+        let log_step = if total <= 25 {
+            1
+        } else {
+            (total / 20).clamp(25, 1_000)
+        };
+        tracing::info!(
+            "      {label}: starting {} candidate evaluations (heartbeat every {} candidates)",
+            total,
+            log_step
+        );
+        Self {
+            label,
+            total,
+            started_at: Instant::now(),
+            processed: AtomicUsize::new(0),
+            next_log_at: AtomicUsize::new(log_step.min(total.max(1))),
+            log_step,
+        }
+    }
+
+    fn record(&self) {
+        let processed = self.processed.fetch_add(1, Ordering::Relaxed) + 1;
+        loop {
+            let next_log_at = self.next_log_at.load(Ordering::Relaxed);
+            if processed < next_log_at && processed < self.total {
+                break;
+            }
+            let new_next = (next_log_at + self.log_step).min(self.total.max(1));
+            match self.next_log_at.compare_exchange(
+                next_log_at,
+                new_next,
+                Ordering::Relaxed,
+                Ordering::Relaxed,
+            ) {
+                Ok(_) => {
+                    self.log(processed);
+                    break;
+                }
+                Err(_) => continue,
+            }
+        }
+    }
+
+    fn finish(&self) {
+        self.log(self.processed.load(Ordering::Relaxed));
+    }
+
+    fn log(&self, processed: usize) {
+        let elapsed = self.started_at.elapsed().as_secs_f64().max(1.0e-9);
+        let pct = if self.total == 0 {
+            100.0
+        } else {
+            100.0 * processed as f64 / self.total as f64
+        };
+        let rate = processed as f64 / elapsed;
+        tracing::info!(
+            "      {}: {}/{} ({:.1}%) in {:.1}s [{:.1} candidates/s]",
+            self.label,
+            processed,
+            self.total,
+            pct,
+            elapsed,
+            rate
+        );
+    }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -120,8 +171,20 @@ fn report_eligible_nonventuri(metrics: &SdtMetrics) -> bool {
         && metrics.therapy_channel_fraction > 0.0
 }
 
-fn is_selective_report_topology(topology: DesignTopology) -> bool {
-    matches!(topology, DesignTopology::PrimitiveSelectiveTree { .. })
+fn is_selective_report_topology(candidate: &BlueprintCandidate) -> bool {
+    is_milestone12_lineage_topology(candidate)
+}
+
+/// Relaxed lineage match for GA results: same `PrimitiveSelectiveTree` sequence
+/// as the selected lineage, but geometry parameters may differ (the GA mutates
+/// channel width, serpentine counts, etc. via SBX crossover).
+fn ga_matches_lineage_sequence(
+    candidate: &BlueprintCandidate,
+    selected_key: &Milestone12LineageKey,
+) -> bool {
+    candidate
+        .topology_spec()
+        .is_ok_and(|spec| spec.stage_sequence_label() == selected_key.stage_sequence_label())
 }
 
 fn report_eligible_venturi_oncology(metrics: &SdtMetrics) -> bool {
@@ -130,6 +193,13 @@ fn report_eligible_venturi_oncology(metrics: &SdtMetrics) -> bool {
         && metrics.fda_main_compliant
         && metrics.therapy_channel_fraction > 0.0
         && metrics.cavitation_number < 1.0
+}
+
+fn report_option1_score(metrics: &SdtMetrics, weights: &SdtWeights) -> f64 {
+    let base = score_candidate(metrics, OptimMode::SelectiveAcousticTherapy, weights);
+    let dwell_tie_break = metrics.treatment_zone_dwell_time_s.max(0.0) * 1.0e-6;
+    let pressure_tie_break = metrics.total_pressure_drop_pa.max(0.0) * 1.0e-12;
+    base + dwell_tie_break - pressure_tie_break
 }
 
 fn option2_mode() -> OptimMode {
@@ -142,39 +212,6 @@ fn option2_mode() -> OptimMode {
         sdt_weight: 0.5,
         patient_weight_kg: 70.0,
     }
-}
-
-fn selective_serpentine_variant(candidate: &DesignCandidate) -> Option<DesignCandidate> {
-    let _ = candidate;
-    None
-}
-
-fn selective_extra_throat_variant(candidate: &DesignCandidate) -> Option<DesignCandidate> {
-    let DesignTopology::PrimitiveSelectiveTree { .. } = candidate.topology else {
-        return None;
-    };
-    if !candidate.uses_venturi_treatment() || candidate.centerline_venturi_throat_count >= 4 {
-        return None;
-    }
-    let next_throat_count = candidate.centerline_venturi_throat_count + 1;
-    let mut extra = candidate.clone();
-    extra.id = format!("{}-VT{}", candidate.id, next_throat_count);
-    extra.centerline_venturi_throat_count = next_throat_count;
-    Some(extra)
-}
-
-fn expand_m12_candidates(raw_candidates: Vec<DesignCandidate>) -> Vec<DesignCandidate> {
-    let mut expanded = Vec::with_capacity(raw_candidates.len() * 5 / 4);
-    for candidate in raw_candidates {
-        if let Some(serpentine) = selective_serpentine_variant(&candidate) {
-            expanded.push(serpentine);
-        }
-        if let Some(extra_throat) = selective_extra_throat_variant(&candidate) {
-            expanded.push(extra_throat);
-        }
-        expanded.push(candidate);
-    }
-    expanded
 }
 
 fn run_config_from_env() -> RunConfig {
@@ -201,6 +238,11 @@ fn run_config_from_env() -> RunConfig {
             .and_then(|v| v.parse::<usize>().ok())
             .unwrap_or(1_500)
             .max(100);
+        let fast_acoustic_eval_max = std::env::var("M12_FAST_ACOUSTIC_EVAL_MAX")
+            .ok()
+            .and_then(|v| v.parse::<usize>().ok())
+            .unwrap_or(80)
+            .max(20);
         let fast_eval_min = std::env::var("M12_FAST_EVAL_MIN")
             .ok()
             .and_then(|v| v.parse::<usize>().ok())
@@ -211,16 +253,32 @@ fn run_config_from_env() -> RunConfig {
             .and_then(|v| v.parse::<usize>().ok())
             .unwrap_or(600)
             .max(fast_eval_min);
+        let ga_seed_take = std::env::var("M12_FAST_GA_SEED_TAKE")
+            .ok()
+            .and_then(|v| v.parse::<usize>().ok())
+            .unwrap_or(24)
+            .max(8);
+        let ga_population = std::env::var("M12_FAST_GA_POPULATION")
+            .ok()
+            .and_then(|v| v.parse::<usize>().ok())
+            .unwrap_or(12)
+            .max(10);
+        let ga_generations = std::env::var("M12_FAST_GA_GENERATIONS")
+            .ok()
+            .and_then(|v| v.parse::<usize>().ok())
+            .unwrap_or(8)
+            .max(1);
         RunConfig {
             fast_mode: true,
             fast_stride,
             fast_max_candidates,
             fast_nonventuri_reserve,
+            fast_acoustic_eval_max,
             fast_eval_min,
             fast_eval_max,
-            ga_seed_take: 50,
-            ga_population: 16,
-            ga_generations: 12,
+            ga_seed_take,
+            ga_population,
+            ga_generations,
         }
     } else {
         RunConfig {
@@ -228,6 +286,7 @@ fn run_config_from_env() -> RunConfig {
             fast_stride: 1,
             fast_max_candidates: usize::MAX,
             fast_nonventuri_reserve: 0,
+            fast_acoustic_eval_max: usize::MAX,
             fast_eval_min: usize::MAX,
             fast_eval_max: usize::MAX,
             ga_seed_take: 150,
@@ -237,70 +296,121 @@ fn run_config_from_env() -> RunConfig {
     }
 }
 
-fn fast_mode_candidate_filter(c: &DesignCandidate) -> bool {
-    let flow_ml_min = c.flow_rate_m3_s * 6.0e7;
-    let gauge_kpa = c.inlet_gauge_pa * 1.0e-3;
-    if !c.topology.has_venturi() {
+fn fast_mode_candidate_filter(c: &BlueprintCandidate) -> bool {
+    let flow_ml_min = c.operating_point.flow_rate_m3_s * 6.0e7;
+    let gauge_kpa = c.operating_point.inlet_gauge_pa * 1.0e-3;
+    let Ok(topology) = c.topology_spec() else {
+        return false;
+    };
+    let treatment_branch = topology
+        .split_stages
+        .iter()
+        .rev()
+        .flat_map(|stage| stage.branches.iter())
+        .find(|branch| branch.treatment_path);
+    let channel_width_m = topology
+        .split_stages
+        .first()
+        .map(|stage| {
+            stage
+                .branches
+                .iter()
+                .map(|branch| branch.route.width_m)
+                .sum::<f64>()
+        })
+        .unwrap_or(topology.inlet_width_m);
+    let channel_height_m = treatment_branch.map_or(0.0, |branch| branch.route.height_m);
+    if !topology.has_venturi() {
         return flow_ml_min <= 250.0
             && gauge_kpa <= 300.0
-            && c.channel_width_m >= 1.0e-3
-            && c.channel_width_m <= 6.0e-3
-            && c.channel_height_m >= 0.5e-3
-            && c.channel_height_m <= 2.0e-3;
+            && channel_width_m >= 1.0e-3
+            && channel_width_m <= 6.0e-3
+            && channel_height_m >= 0.5e-3
+            && channel_height_m <= 2.0e-3;
     }
 
-    let tl_factor = if c.throat_diameter_m > 0.0 {
-        c.throat_length_m / c.throat_diameter_m
+    let Some(venturi) = topology.venturi_placements.first() else {
+        return false;
+    };
+    let throat_width_m = venturi.throat_geometry.throat_width_m;
+    let throat_length_m = venturi.throat_geometry.throat_length_m;
+    let tl_factor = if throat_width_m > 0.0 {
+        throat_length_m / throat_width_m
     } else {
         0.0
     };
+    let first_stage_center_frac = topology
+        .split_stages
+        .first()
+        .and_then(|stage| {
+            let stage_width = stage
+                .branches
+                .iter()
+                .map(|branch| branch.route.width_m)
+                .sum::<f64>();
+            stage
+                .branches
+                .iter()
+                .find(|branch| branch.treatment_path)
+                .map(|branch| branch.route.width_m / stage_width.max(1.0e-12))
+        })
+        .unwrap_or(1.0 / 3.0);
+    let terminal_tri_center_frac = topology
+        .split_stages
+        .iter()
+        .rev()
+        .find(|stage| matches!(stage.split_kind, cfd_schematics::SplitKind::Trifurcation))
+        .and_then(|stage| {
+            let stage_width = stage
+                .branches
+                .iter()
+                .map(|branch| branch.route.width_m)
+                .sum::<f64>();
+            stage
+                .branches
+                .iter()
+                .find(|branch| branch.treatment_path)
+                .map(|branch| branch.route.width_m / stage_width.max(1.0e-12))
+        })
+        .unwrap_or(first_stage_center_frac);
 
-    match c.topology {
-        DesignTopology::PrimitiveSelectiveTree { sequence } => {
-            matches!(
-                sequence,
-                PrimitiveSplitSequence::Tri
-                    | PrimitiveSplitSequence::TriBi
-                    | PrimitiveSplitSequence::TriTri
-                    | PrimitiveSplitSequence::TriBiBi
-                    | PrimitiveSplitSequence::TriBiTri
-                    | PrimitiveSplitSequence::TriTriBi
-                    | PrimitiveSplitSequence::TriTriTri
-            ) && (1..=4).contains(&c.centerline_venturi_throat_count)
-                && flow_ml_min >= 60.0
-                && flow_ml_min <= 550.0
-                && gauge_kpa >= 25.0
-                && gauge_kpa <= 550.0
-                && c.throat_diameter_m >= 25.0e-6
-                && c.throat_diameter_m <= 120.0e-6
-                && tl_factor <= 5.0
-                && c.channel_width_m >= 3.0e-3
-                && c.channel_width_m <= 8.0e-3
-                && c.channel_height_m >= 0.5e-3
-                && c.channel_height_m <= 2.5e-3
-                && c.cif_pretri_center_frac >= 0.45
-                && c.cif_pretri_center_frac <= 0.62
-                && c.cif_terminal_tri_center_frac >= 0.33
-                && c.cif_terminal_tri_center_frac <= 0.58
-        }
-        _ => false,
-    }
+    topology.first_stage_is_trifurcation()
+        && topology.is_selective_routing()
+        && (1..=4).contains(&(venturi.serial_throat_count as usize))
+        && flow_ml_min >= 60.0
+        && flow_ml_min <= 550.0
+        && gauge_kpa >= 25.0
+        && gauge_kpa <= 550.0
+        && throat_width_m >= 25.0e-6
+        && throat_width_m <= 120.0e-6
+        && tl_factor <= 5.0
+        && channel_width_m >= 3.0e-3
+        && channel_width_m <= 8.0e-3
+        && channel_height_m >= 0.5e-3
+        && channel_height_m <= 2.5e-3
+        && first_stage_center_frac >= 0.45
+        && first_stage_center_frac <= 0.62
+        && terminal_tri_center_frac >= 0.33
+        && terminal_tri_center_frac <= 0.58
 }
 
-fn fast_eval_priority(c: &DesignCandidate) -> (u8, i64, i64, i64) {
-    let family = match c.topology {
-        DesignTopology::PrimitiveSelectiveTree {
-            sequence: PrimitiveSplitSequence::TriTri,
-        } => 0,
-        DesignTopology::PrimitiveSelectiveTree { .. } => 1,
-        _ => 1,
-    };
+fn fast_eval_priority(c: &BlueprintCandidate) -> (u8, i64, i64, i64) {
+    let family = u8::from(
+        c.topology_spec()
+            .is_ok_and(|spec| spec.stage_sequence_label() != "Tri→Tri"),
+    );
     // Dual-centre priority: candidates close to EITHER the acoustic sweet spot
     // (q=120, g=200, d=55) or the cavitation sweet spot (q=300, g=400, d=35)
     // rank highly, ensuring both Option 1 and Option 2 are well-sampled.
-    let q_ml = c.flow_rate_m3_s * 6.0e7;
-    let g_kpa = c.inlet_gauge_pa * 1.0e-3;
-    let d_um = c.throat_diameter_m * 1.0e6;
+    let q_ml = c.operating_point.flow_rate_m3_s * 6.0e7;
+    let g_kpa = c.operating_point.inlet_gauge_pa * 1.0e-3;
+    let d_um = c
+        .topology_spec()
+        .ok()
+        .and_then(|spec| spec.venturi_placements.first())
+        .map_or(0.0, |placement| {
+            placement.throat_geometry.throat_width_m * 1.0e6
+        });
     let acoustic_pen = (q_ml - 120.0).abs() + (g_kpa - 200.0).abs() + (d_um - 55.0).abs();
     let cav_pen = (q_ml - 300.0).abs() + (g_kpa - 400.0).abs() + (d_um - 35.0).abs();
     let best_pen = acoustic_pen.min(cav_pen).round() as i64;
@@ -309,158 +419,50 @@ fn fast_eval_priority(c: &DesignCandidate) -> (u8, i64, i64, i64) {
 
 /// Priority for acoustic-only candidates: centre on q = 120 mL/min, g = 200 kPa,
 /// d = 55 μm — the sweet spot for selective routing without cavitation.
-fn fast_eval_priority_acoustic(c: &DesignCandidate) -> (u8, i64, i64, i64) {
-    let family = match c.topology {
-        DesignTopology::PrimitiveSelectiveTree {
-            sequence: PrimitiveSplitSequence::TriTri,
-        } => 0,
-        DesignTopology::PrimitiveSelectiveTree { .. } => 1,
-        _ => 1,
-    };
-    let q_pen = (c.flow_rate_m3_s * 6.0e7 - 120.0).abs().round() as i64;
-    let g_pen = (c.inlet_gauge_pa * 1.0e-3 - 200.0).abs().round() as i64;
-    let d_pen = (c.throat_diameter_m * 1.0e6 - 55.0).abs().round() as i64;
+fn fast_eval_priority_acoustic(c: &BlueprintCandidate) -> (u8, i64, i64, i64) {
+    let family = u8::from(
+        c.topology_spec()
+            .is_ok_and(|spec| spec.stage_sequence_label() != "Tri→Tri"),
+    );
+    let q_pen = (c.operating_point.flow_rate_m3_s * 6.0e7 - 120.0)
+        .abs()
+        .round() as i64;
+    let g_pen = (c.operating_point.inlet_gauge_pa * 1.0e-3 - 200.0)
+        .abs()
+        .round() as i64;
+    let d_pen = c
+        .topology_spec()
+        .ok()
+        .and_then(|spec| spec.venturi_placements.first())
+        .map_or(55.0, |placement| {
+            placement.throat_geometry.throat_width_m * 1.0e6
+        });
+    let d_pen = (d_pen - 55.0).abs().round() as i64;
     (family, q_pen, g_pen, d_pen)
 }
 
-fn validate_venturi_candidate(
-    track: &str,
-    d: &RankedDesign,
-    out_dir: &Path,
-) -> Result<ValidationRow, Box<dyn std::error::Error>> {
-    let c = &d.candidate;
-    let m = &d.metrics;
-    let id = &c.id;
+fn blueprint_lineage_key(candidate: &BlueprintCandidate) -> Option<Milestone12LineageKey> {
+    milestone12_lineage_key(candidate)
+}
 
-    if !c.topology.has_venturi() {
-        return Err(format!("validation requires venturi topology: {id}").into());
-    }
-
-    let q = c.per_venturi_flow();
-    let a_in = c.inlet_area_m2();
-    let a_th = c.throat_area_m2();
-    let v_in_1d = q / a_in.max(1e-30);
-    let v_th_1d = q / a_th.max(1e-30);
-    let dp_bernoulli = 0.5 * RHO * (v_th_1d * v_th_1d - v_in_1d * v_in_1d);
-
-    // 2D FVM
-    let geom2d = VenturiGeometry::<f64>::new(
-        c.inlet_diameter_m,
-        c.throat_diameter_m,
-        3e-3,
-        2e-3,
-        c.throat_length_m,
-        4e-3,
-        c.channel_height_m,
-    );
-    let blood_2d = BloodModel::Casson(CassonBlood::<f64>::normal_blood());
-    let cr = c.inlet_diameter_m / c.throat_diameter_m.max(1e-12);
-    let ny_2d = (4.0 * cr).round().clamp(40.0, 200.0) as usize;
-    let beta_2d = (1.0 - 4.0 * c.throat_diameter_m / c.inlet_diameter_m.max(1e-12)).clamp(0.0, 0.9);
-    let mut solver2d = VenturiSolver2D::new_stretched(geom2d, blood_2d, RHO, 60, ny_2d, beta_2d);
-    let area_2d = c.inlet_diameter_m * c.channel_height_m;
-    let u_inlet_2d = q / area_2d.max(1e-30);
-
-    let sol2d = solver2d
-        .solve(u_inlet_2d)
-        .map_err(|e| format!("2D FVM failed for {id}: {e}"))?;
-    let p_abs_inlet = P_ATM_PA + c.inlet_gauge_pa;
-    let p_abs_throat = p_abs_inlet + sol2d.dp_throat;
-    let dyn_p = 0.5 * RHO * sol2d.u_throat * sol2d.u_throat;
-    let sigma_2d = if dyn_p > 1e-12 {
-        (p_abs_throat - P_VAPOR_PA) / dyn_p
-    } else {
-        f64::INFINITY
-    };
-    let dp_2d = -sol2d.dp_throat;
-    if !dp_2d.is_finite() || !sigma_2d.is_finite() {
-        return Err(format!("non-finite 2D validation values for {id}").into());
-    }
-    let r2d = Venturi2DResult {
-        u_inlet_m_s: u_inlet_2d,
-        u_throat_m_s: sol2d.u_throat,
-        dp_throat_pa: dp_2d,
-        dp_recovery_pa: -sol2d.dp_recovery,
-        sigma_2d,
-        dp_bernoulli_1d_pa: dp_bernoulli,
-    };
-    if let Ok(json) = serde_json::to_string_pretty(&r2d) {
-        std::fs::write(out_dir.join(format!("{id}_2d_venturi.json")), json)?;
-    }
-
-    // 3D FEM (deterministic resolution).
-    // Resolution (60,10) balances fidelity against solve time for high-CR throats.
-    let res3d = (60_usize, 10_usize);
-    let builder3d = VenturiMeshBuilder::<f64>::new(
-        c.inlet_diameter_m,
-        c.throat_diameter_m,
-        5.0 * c.inlet_diameter_m,
-        3.0 * c.inlet_diameter_m,
-        c.throat_length_m,
-        7.0 * c.inlet_diameter_m,
-        5.0 * c.inlet_diameter_m,
-    )
-    .with_resolution(res3d.0, res3d.1)
-    .with_circular(false);
-
-    let config3d = VenturiConfig3D::<f64> {
-        inlet_flow_rate: q,
-        resolution: res3d,
-        circular: false,
-        rect_height: Some(c.channel_height_m),
-        ..Default::default()
-    };
-
-    let sol3d = VenturiSolver3D::new(builder3d, config3d)
-        .solve(CarreauYasudaBlood::<f64>::normal_blood())
-        .map_err(|e| format!("3D FEM failed for {id}: {e}"))?;
-    let dp_3d = sol3d.dp_throat.abs();
-    let mass_err_3d = sol3d.mass_error.abs();
-    if !dp_3d.is_finite() || !mass_err_3d.is_finite() {
-        return Err(format!("non-finite 3D validation values for {id}").into());
-    }
-    let r3d = Venturi3DResult {
-        u_inlet_m_s: sol3d.u_inlet,
-        u_throat_m_s: sol3d.u_throat,
-        dp_throat_pa: dp_3d,
-        dp_recovery_pa: sol3d.dp_recovery.abs(),
-        mass_error: mass_err_3d,
-        resolution: res3d,
-    };
-    if let Ok(json) = serde_json::to_string_pretty(&r3d) {
-        std::fs::write(out_dir.join(format!("{id}_3d_result.json")), json)?;
-    }
-
-    let row = ValidationRow {
-        track: track.to_string(),
-        id: id.clone(),
-        topology: c.topology.short().to_string(),
-        dp_1d_bernoulli_pa: dp_bernoulli,
-        dp_2d_fvm_pa: dp_2d,
-        dp_3d_fem_pa: dp_3d,
-        agreement_1d_2d_pct: pct_diff(dp_bernoulli, dp_2d),
-        agreement_2d_3d_pct: pct_diff(dp_2d, dp_3d),
-        mass_error_3d_pct: mass_err_3d * 100.0,
-        sigma_1d: m.cavitation_number,
-        sigma_2d,
-        score: d.score,
-    };
-    if !row.agreement_1d_2d_pct.is_finite()
-        || !row.agreement_2d_3d_pct.is_finite()
-        || !row.mass_error_3d_pct.is_finite()
-    {
-        return Err(format!("non-finite validation agreement values for {id}").into());
-    }
-    if let Ok(json) = serde_json::to_string_pretty(&row) {
-        std::fs::write(out_dir.join(format!("{id}_validation.json")), json)?;
-    }
-
-    Ok(row)
+fn blueprint_matches_lineage(
+    candidate: &BlueprintCandidate,
+    selected_key: &Milestone12LineageKey,
+) -> bool {
+    blueprint_lineage_key(candidate).as_ref() == Some(selected_key)
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let _ = tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::builder()
+                .with_default_directive(tracing::Level::INFO.into())
+                .from_env_lossy(),
+        )
+        .try_init();
+
     let workspace_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .expect("cfd-optim crate has a parent")
@@ -473,43 +475,73 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     std::fs::create_dir_all(&out_dir)?;
     std::fs::create_dir_all(&figures_dir)?;
 
-    println!("=== Milestone 12 Unified Report Generator ===\n");
-    println!("Outputs: {}", out_dir.display());
+    tracing::info!("=== Milestone 12 Unified Report Generator ===\n");
+    tracing::info!("Outputs: {}", out_dir.display());
+    let overall_start = Instant::now();
 
     let weights = SdtWeights::default();
-    let option1_mode = OptimMode::SelectiveAcousticTherapy;
     let oncology_mode = option2_mode();
     let run_cfg = run_config_from_env();
-    let raw_candidates = expand_m12_candidates(build_candidate_space());
-    let all_candidates: Vec<DesignCandidate> = if run_cfg.fast_mode {
-        let mut acoustic_reserve: Vec<DesignCandidate> = Vec::new();
-        let mut venturi_filtered: Vec<DesignCandidate> = Vec::new();
+    let raw_candidates = build_milestone12_blueprint_candidate_space()?;
+    let all_candidates: Vec<BlueprintCandidate> = if run_cfg.fast_mode {
+        let mut acoustic_reserve: Vec<BlueprintCandidate> = Vec::new();
+        let mut venturi_filtered: Vec<BlueprintCandidate> = Vec::new();
         for candidate in raw_candidates {
-            if !candidate.uses_venturi_treatment()
-                && is_selective_report_topology(candidate.topology)
+            let uses_venturi = candidate
+                .topology_spec()
+                .is_ok_and(cfd_schematics::BlueprintTopologySpec::has_venturi);
+            if !uses_venturi
+                && is_selective_report_topology(&candidate)
+                && fast_mode_candidate_filter(&candidate)
             {
                 acoustic_reserve.push(candidate);
-            } else if candidate.uses_venturi_treatment() && fast_mode_candidate_filter(&candidate) {
+            } else if uses_venturi && fast_mode_candidate_filter(&candidate) {
                 venturi_filtered.push(candidate);
             }
+        }
+        // Sort-then-stride: sort by priority FIRST so high-priority candidates survive
+        // the stride filter. Use numeric ID prefix comparison so "699982-..." sorts
+        // before "1785880-..." (lexicographic '1' < '6' gives wrong order).
+        fn id_num(id: &str) -> u64 {
+            id.split('-')
+                .next()
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(u64::MAX)
+        }
+        tracing::info!(
+            "      [fast] acoustic_reserve before truncate: {} candidates (venturi_filtered before stride: {})",
+            acoustic_reserve.len(), venturi_filtered.len()
+        );
+        if let Some(sample) = acoustic_reserve.first() {
+            tracing::info!(
+                "      [fast] acoustic_reserve sample[0]: id={} topology={} uses_venturi={}",
+                sample.id,
+                sample
+                    .topology_spec()
+                    .map_or_else(|_| String::new(), |spec| spec.display_name()),
+                sample
+                    .topology_spec()
+                    .is_ok_and(cfd_schematics::BlueprintTopologySpec::has_venturi)
+            );
         }
         acoustic_reserve.sort_by(|a, b| {
             fast_eval_priority_acoustic(a)
                 .cmp(&fast_eval_priority_acoustic(b))
-                .then_with(|| a.id.cmp(&b.id))
+                .then_with(|| id_num(&a.id).cmp(&id_num(&b.id)))
         });
         acoustic_reserve.truncate(run_cfg.fast_nonventuri_reserve);
-        let mut filtered: Vec<DesignCandidate> = venturi_filtered
+        let mut filtered: Vec<BlueprintCandidate> = venturi_filtered;
+        filtered.sort_by(|a, b| {
+            fast_eval_priority(a)
+                .cmp(&fast_eval_priority(b))
+                .then_with(|| id_num(&a.id).cmp(&id_num(&b.id)))
+        });
+        let filtered: Vec<BlueprintCandidate> = filtered
             .into_iter()
             .enumerate()
             .filter(|(idx, _)| idx % run_cfg.fast_stride == 0)
             .map(|(_, c)| c)
             .collect();
-        filtered.sort_by(|a, b| {
-            fast_eval_priority(a)
-                .cmp(&fast_eval_priority(b))
-                .then_with(|| a.id.cmp(&b.id))
-        });
         let venturi = filtered;
         let keep_nonventuri = acoustic_reserve
             .len()
@@ -539,8 +571,36 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     } else {
         raw_candidates
     };
+    let mut blueprint_by_id: HashMap<String, NetworkBlueprint> = all_candidates
+        .iter()
+        .map(|candidate| (candidate.id.clone(), candidate.blueprint().clone()))
+        .collect();
+    let fast_acoustic_candidate_count = if run_cfg.fast_mode {
+        all_candidates
+            .iter()
+            .filter(|candidate| {
+                !candidate
+                    .topology_spec()
+                    .is_ok_and(cfd_schematics::BlueprintTopologySpec::has_venturi)
+            })
+            .count()
+    } else {
+        0
+    };
+    let fast_venturi_candidate_count = if run_cfg.fast_mode {
+        all_candidates
+            .iter()
+            .filter(|candidate| {
+                candidate
+                    .topology_spec()
+                    .is_ok_and(cfd_schematics::BlueprintTopologySpec::has_venturi)
+            })
+            .count()
+    } else {
+        0
+    };
     let total_candidates = all_candidates.len();
-    println!(
+    tracing::info!(
         "Mode: {} (M12_FAST={})",
         if run_cfg.fast_mode {
             "FAST regeneration"
@@ -549,285 +609,222 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         },
         if run_cfg.fast_mode { "1" } else { "0" }
     );
-    println!(
-        "Candidate pool before metrics: {} (stride={}, cap={}, non-venturi reserve={})",
+    tracing::info!(
+        "Candidate pool before metrics: {} (stride={}, cap={}, non-venturi reserve={}, acoustic eval cap={})",
         total_candidates,
         run_cfg.fast_stride,
         run_cfg.fast_max_candidates,
-        run_cfg.fast_nonventuri_reserve
+        run_cfg.fast_nonventuri_reserve,
+        run_cfg.fast_acoustic_eval_max
     );
-
-    // ── Part 1: Two-concept selection ─────────────────────────────────────────
-    println!("\n[1/6] Two-concept parametric selection …");
-    let ga_mode = OptimMode::HydrodynamicCavitationSDT;
-    let mut option1_pool: Vec<RankedDesign> = Vec::new();
-    let mut option2_pool: Vec<RankedDesign> = Vec::new();
-    let mut scored_seeds: Vec<(f64, DesignCandidate)> = Vec::new();
-    let mut seen_ids: HashSet<String> = HashSet::with_capacity(total_candidates);
-    let mut duplicate_ids_skipped: usize = 0;
-    let mut unique_candidates: Vec<DesignCandidate> = Vec::with_capacity(total_candidates);
-    let metrics_cache = MetricsCache::new(workspace_root.join("target").join("m12_metrics_cache"))?;
-
-    for c in all_candidates {
-        if !seen_ids.insert(c.id.clone()) {
-            duplicate_ids_skipped += 1;
-            continue;
-        }
-        unique_candidates.push(c);
+    if run_cfg.fast_mode {
+        tracing::info!(
+            "Fast candidate mix: acoustic={} venturi={}",
+            fast_acoustic_candidate_count,
+            fast_venturi_candidate_count
+        );
     }
 
-    let evaluated: Vec<EvaluatedCandidate> = if run_cfg.fast_mode {
-        let mut out = Vec::new();
-        let mut option1_hits = 0usize;
-        let mut option2_hits = 0usize;
+    // ── Part 1: Two-concept selection ─────────────────────────────────────────
+    let phase1_start = Instant::now();
+    tracing::info!("\n[1/6] Two-concept parametric selection …");
+    let ga_mode = OptimMode::HydrodynamicCavitationSDT;
+    let duplicate_ids_skipped: usize = 0;
+    let unique_candidate_count = total_candidates;
+    let evaluated = if run_cfg.fast_mode {
+        let progress = ScanProgress::new("candidate scan", all_candidates.len());
+        let mut acc = EvaluationAccumulator::default();
         let mut eval_count = 0usize;
+        let mut acoustic_eval_count = 0usize;
+        let has_fast_acoustic_candidates = fast_acoustic_candidate_count > 0;
+        let mut lineage_ready = false;
 
-        for candidate in unique_candidates {
-            if eval_count >= run_cfg.fast_eval_max {
+        for blueprint_candidate in all_candidates {
+            let blueprint_evaluation = match evaluate_blueprint_candidate(&blueprint_candidate) {
+                Ok(evaluation) => evaluation,
+                Err(_) => {
+                    progress.record();
+                    continue;
+                }
+            };
+            let is_acoustic = !blueprint_candidate
+                .topology_spec()
+                .is_ok_and(cfd_schematics::BlueprintTopologySpec::has_venturi);
+            let acoustic_unavailable = acc.option1_hits() == 0
+                && (!has_fast_acoustic_candidates
+                    || acoustic_eval_count >= run_cfg.fast_acoustic_eval_max);
+            // In fast mode, stop at the nominal cap only after both tracks have enough
+            // eligible candidates to build a stable shortlist. Otherwise keep scanning.
+            // `lineage_ready` is cached from the previous iteration's post-record check
+            // to avoid redundant HashSet/HashMap allocation.
+            if eval_count >= run_cfg.fast_eval_max && lineage_ready {
                 break;
             }
-            let metrics =
-                match metrics_cache.get_or_compute(&candidate, || compute_metrics(&candidate)) {
-                    Ok(m) => m,
-                    Err(_) => continue,
-                };
-            eval_count += 1;
-
-            if candidate.uses_venturi_treatment()
-                && is_selective_report_topology(candidate.topology)
-            {
-                let mut acoustic_candidate = candidate.clone();
-                acoustic_candidate.id = format!("{}-ACS", candidate.id);
-                acoustic_candidate.treatment_zone_mode =
-                    cfd_optim::TreatmentZoneMode::UltrasoundOnly;
-                if let Ok(acoustic_metrics) = metrics_cache
-                    .get_or_compute(&acoustic_candidate, || compute_metrics(&acoustic_candidate))
-                {
-                    if report_eligible_nonventuri(&acoustic_metrics) {
-                        option1_hits += 1;
-                        out.push(EvaluatedCandidate {
-                            candidate: acoustic_candidate,
-                            metrics: acoustic_metrics.clone(),
-                            ga_score: 0.0,
-                            option1_score: Some(score_candidate(
-                                &acoustic_metrics,
-                                option1_mode,
-                                &weights,
-                            )),
-                            combined_score: None,
-                        });
-                    }
-                }
+            if is_acoustic && acoustic_unavailable {
+                progress.record();
+                continue;
             }
+            let metrics = match compute_blueprint_report_metrics(&blueprint_candidate) {
+                Ok(m) => m,
+                Err(_) => {
+                    if is_acoustic {
+                        acoustic_eval_count += 1;
+                    }
+                    progress.record();
+                    continue;
+                }
+            };
+            if is_acoustic {
+                acoustic_eval_count += 1;
+            }
+            eval_count += 1;
+            progress.record();
 
-            let ga_score = score_candidate(&metrics, ga_mode, &weights);
-            let option1_score = if !candidate.uses_venturi_treatment()
-                && is_selective_report_topology(candidate.topology)
+            let ga_score = evaluate_blueprint_genetic_refinement(
+                &blueprint_candidate,
+                blueprint_evaluation.clone(),
+            )
+            .map_or(0.0, |evaluation| evaluation.score);
+            let option1_score = if is_acoustic
+                && is_selective_report_topology(&blueprint_candidate)
                 && report_eligible_nonventuri(&metrics)
             {
-                Some(score_candidate(&metrics, option1_mode, &weights))
+                Some(report_option1_score(&metrics, &weights))
             } else {
                 None
             };
 
-            let mut oncology_score = None;
-            if candidate.uses_venturi_treatment()
-                && is_selective_report_topology(candidate.topology)
+            let combined_score = if !is_acoustic
+                && is_selective_report_topology(&blueprint_candidate)
                 && report_eligible_venturi_oncology(&metrics)
             {
-                oncology_score = Some(score_candidate(&metrics, oncology_mode, &weights));
-            }
+                Some(score_candidate(&metrics, oncology_mode, &weights))
+            } else {
+                None
+            };
 
-            if option1_score.is_some() {
-                option1_hits += 1;
-            }
-            if oncology_score.is_some() {
-                option2_hits += 1;
-            }
-
-            out.push(EvaluatedCandidate {
-                candidate,
+            acc.record(
+                blueprint_candidate,
                 metrics,
                 ga_score,
                 option1_score,
-                combined_score: oncology_score,
-            });
+                combined_score,
+            );
 
-            if eval_count >= run_cfg.fast_eval_min && option1_hits >= 10 && option2_hits >= 10 {
+            lineage_ready = has_viable_lineage_family(&acc.option1_pool, &acc.option2_pool, 5);
+            if eval_count >= run_cfg.fast_eval_min && lineage_ready {
                 break;
             }
         }
 
-        println!(
-            "      Fast evaluation budget: evaluated {} candidates (min={}, max={})",
-            eval_count, run_cfg.fast_eval_min, run_cfg.fast_eval_max
+        progress.finish();
+
+        tracing::info!(
+            "      Fast evaluation budget: evaluated {} candidates (acoustic evaluated={} min={} max={} acoustic_cap={})",
+            eval_count,
+            acoustic_eval_count,
+            run_cfg.fast_eval_min,
+            run_cfg.fast_eval_max,
+            run_cfg.fast_acoustic_eval_max
         );
-        out
+        acc
     } else {
-        let cache = metrics_cache.clone();
-        unique_candidates
+        let progress = Arc::new(ScanProgress::new("candidate scan", all_candidates.len()));
+        let progress_for_eval = Arc::clone(&progress);
+        let evaluated = all_candidates
             .into_par_iter()
-            .flat_map_iter(|candidate| {
-                let mut entries = Vec::new();
-                let metrics = match cache.get_or_compute(&candidate, || compute_metrics(&candidate))
-                {
-                    Ok(m) => m,
-                    Err(_) => return entries.into_iter(),
-                };
-
-                if candidate.uses_venturi_treatment()
-                    && is_selective_report_topology(candidate.topology)
-                {
-                    let mut acoustic_candidate = candidate.clone();
-                    acoustic_candidate.id = format!("{}-ACS", candidate.id);
-                    acoustic_candidate.treatment_zone_mode =
-                        cfd_optim::TreatmentZoneMode::UltrasoundOnly;
-                    if let Ok(acoustic_metrics) = cache.get_or_compute(&acoustic_candidate, || {
-                        compute_metrics(&acoustic_candidate)
-                    }) {
-                        if report_eligible_nonventuri(&acoustic_metrics) {
-                            entries.push(EvaluatedCandidate {
-                                candidate: acoustic_candidate,
-                                metrics: acoustic_metrics.clone(),
-                                ga_score: 0.0,
-                                option1_score: Some(score_candidate(
-                                    &acoustic_metrics,
-                                    option1_mode,
-                                    &weights,
-                                )),
-                                combined_score: None,
-                            });
+            .fold(
+                EvaluationAccumulator::default,
+                move |mut acc, blueprint_candidate| {
+                    let blueprint_evaluation =
+                        match evaluate_blueprint_candidate(&blueprint_candidate) {
+                            Ok(evaluation) => evaluation,
+                            Err(_) => {
+                                progress_for_eval.record();
+                                return acc;
+                            }
+                        };
+                    let metrics = match compute_blueprint_report_metrics(&blueprint_candidate) {
+                        Ok(m) => m,
+                        Err(_) => {
+                            progress_for_eval.record();
+                            return acc;
                         }
-                    }
-                }
+                    };
+                    progress_for_eval.record();
 
-                let ga_score = score_candidate(&metrics, ga_mode, &weights);
-                let option1_score = if !candidate.uses_venturi_treatment()
-                    && is_selective_report_topology(candidate.topology)
-                    && report_eligible_nonventuri(&metrics)
-                {
-                    Some(score_candidate(&metrics, option1_mode, &weights))
-                } else {
-                    None
-                };
+                    let ga_score = evaluate_blueprint_genetic_refinement(
+                        &blueprint_candidate,
+                        blueprint_evaluation,
+                    )
+                    .map_or(0.0, |evaluation| evaluation.score);
+                    let is_acoustic = !blueprint_candidate
+                        .topology_spec()
+                        .is_ok_and(cfd_schematics::BlueprintTopologySpec::has_venturi);
+                    let option1_score = if is_acoustic
+                        && is_selective_report_topology(&blueprint_candidate)
+                        && report_eligible_nonventuri(&metrics)
+                    {
+                        Some(report_option1_score(&metrics, &weights))
+                    } else {
+                        None
+                    };
 
-                let mut oncology_score = None;
-                if candidate.uses_venturi_treatment()
-                    && is_selective_report_topology(candidate.topology)
-                    && report_eligible_venturi_oncology(&metrics)
-                {
-                    oncology_score = Some(score_candidate(&metrics, oncology_mode, &weights));
-                }
+                    let combined_score = if !is_acoustic
+                        && is_selective_report_topology(&blueprint_candidate)
+                        && report_eligible_venturi_oncology(&metrics)
+                    {
+                        Some(score_candidate(&metrics, oncology_mode, &weights))
+                    } else {
+                        None
+                    };
 
-                entries.push(EvaluatedCandidate {
-                    candidate,
-                    metrics,
-                    ga_score,
-                    option1_score,
-                    combined_score: oncology_score,
-                });
-
-                entries.into_iter()
-            })
-            .collect()
+                    acc.record(
+                        blueprint_candidate,
+                        metrics,
+                        ga_score,
+                        option1_score,
+                        combined_score,
+                    );
+                    acc
+                },
+            )
+            .reduce(EvaluationAccumulator::default, |mut lhs, rhs| {
+                lhs.merge(rhs);
+                lhs
+            });
+        progress.finish();
+        evaluated
     };
-
-    let mut nonventuri_total = 0usize;
-    let mut nonventuri_pressure_plate = 0usize;
-    let mut nonventuri_fda_main = 0usize;
-    let mut nonventuri_eligible = 0usize;
-    let mut venturi_total = 0usize;
-    let mut venturi_sigma_lt1_any = 0usize;
-    let mut sigma_lt1_pressure_ok = 0usize;
-    let mut sigma_lt1_plate_ok = 0usize;
-    let mut sigma_lt1_fda_main_ok = 0usize;
-    let mut sigma_lt1_fda_overall_ok = 0usize;
-    let mut sigma_lt1_ppfda_overall_ok = 0usize;
-    let mut venturi_pressure_plate_fda = 0usize;
-    let mut venturi_sigma_lt1 = 0usize;
-    let mut venturi_oncology_eligible = 0usize;
-    for ev in evaluated {
-        if ev.candidate.uses_venturi_treatment() {
-            venturi_total += 1;
-            if ev.metrics.cavitation_number.is_finite() && ev.metrics.cavitation_number < 1.0 {
-                venturi_sigma_lt1_any += 1;
-                if ev.metrics.pressure_feasible {
-                    sigma_lt1_pressure_ok += 1;
-                }
-                if ev.metrics.plate_fits {
-                    sigma_lt1_plate_ok += 1;
-                }
-                if ev.metrics.fda_main_compliant {
-                    sigma_lt1_fda_main_ok += 1;
-                }
-                if ev.metrics.fda_overall_compliant {
-                    sigma_lt1_fda_overall_ok += 1;
-                }
-                if ev.metrics.pressure_feasible
-                    && ev.metrics.plate_fits
-                    && ev.metrics.fda_overall_compliant
-                {
-                    sigma_lt1_ppfda_overall_ok += 1;
-                }
-            }
-            if ev.metrics.pressure_feasible
-                && ev.metrics.plate_fits
-                && ev.metrics.fda_main_compliant
-            {
-                venturi_pressure_plate_fda += 1;
-                if ev.metrics.cavitation_number.is_finite() && ev.metrics.cavitation_number < 1.0 {
-                    venturi_sigma_lt1 += 1;
-                }
-            }
-            if report_eligible_venturi_oncology(&ev.metrics) {
-                venturi_oncology_eligible += 1;
-            }
-        } else {
-            nonventuri_total += 1;
-            if ev.metrics.pressure_feasible && ev.metrics.plate_fits {
-                nonventuri_pressure_plate += 1;
-            }
-            if ev.metrics.fda_main_compliant {
-                nonventuri_fda_main += 1;
-            }
-            if report_eligible_nonventuri(&ev.metrics) {
-                nonventuri_eligible += 1;
-            }
-        }
-        if ev.candidate.uses_venturi_treatment() && ev.ga_score > 0.0 {
-            scored_seeds.push((ev.ga_score, ev.candidate.clone()));
-        }
-        if let Some(score) = ev.option1_score {
-            option1_pool.push(RankedDesign {
-                rank: 0,
-                candidate: ev.candidate.clone(),
-                metrics: ev.metrics.clone(),
-                score,
-            });
-        }
-        if let Some(score) = ev.combined_score {
-            option2_pool.push(RankedDesign {
-                rank: 0,
-                candidate: ev.candidate,
-                metrics: ev.metrics,
-                score,
-            });
-        }
-    }
-
+    let option1_pool = evaluated.option1_pool;
+    let option2_pool = evaluated.option2_pool;
+    let mut scored_seeds = evaluated.scored_seeds;
+    let nonventuri_total = evaluated.nonventuri_total;
+    let nonventuri_pressure_plate = evaluated.nonventuri_pressure_plate;
+    let nonventuri_fda_main = evaluated.nonventuri_fda_main;
+    let nonventuri_eligible = evaluated.nonventuri_eligible;
+    let venturi_total = evaluated.venturi_total;
+    let venturi_sigma_lt1_any = evaluated.venturi_sigma_lt1_any;
+    let sigma_lt1_pressure_ok = evaluated.sigma_lt1_pressure_ok;
+    let sigma_lt1_plate_ok = evaluated.sigma_lt1_plate_ok;
+    let sigma_lt1_fda_main_ok = evaluated.sigma_lt1_fda_main_ok;
+    let sigma_lt1_fda_overall_ok = evaluated.sigma_lt1_fda_overall_ok;
+    let sigma_lt1_ppfda_overall_ok = evaluated.sigma_lt1_ppfda_overall_ok;
+    let venturi_pressure_plate_fda = evaluated.venturi_pressure_plate_fda;
+    let venturi_sigma_lt1 = evaluated.venturi_sigma_lt1;
+    let venturi_oncology_eligible = evaluated.venturi_oncology_eligible;
     let option1_pool_len = option1_pool.len();
     let option2_pool_len = option2_pool.len();
-    let cache_stats = metrics_cache.stats();
-    println!(
+    tracing::info!(
         "      Candidate deduplication: {} unique, {} duplicate IDs skipped",
-        seen_ids.len(),
+        unique_candidate_count,
         duplicate_ids_skipped
     );
-    println!(
+    tracing::info!(
         "      Gate diagnostics (Option1 selective acoustic): total={} pressure+plate={} fda_main={} eligible={}",
         nonventuri_total, nonventuri_pressure_plate, nonventuri_fda_main, nonventuri_eligible
     );
-    println!(
+    tracing::info!(
         "      Gate diagnostics (Option2 combined selective venturi): total={} sigma<1(any)={} pressure+plate+fda_main={} sigma<1(pressure+plate+fda_main)={} oncology_eligible={}",
         venturi_total,
         venturi_sigma_lt1_any,
@@ -835,11 +832,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         venturi_sigma_lt1,
         venturi_oncology_eligible
     );
-    println!(
-        "      Metric cache: {} hits, {} misses",
-        cache_stats.hits, cache_stats.misses
-    );
-    println!(
+    tracing::info!(
         "      Sigma<1 breakdown: pressure={} plate={} fda_main={} fda_overall={} pressure+plate+fda_overall={}",
         sigma_lt1_pressure_ok,
         sigma_lt1_plate_ok,
@@ -847,152 +840,299 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         sigma_lt1_fda_overall_ok,
         sigma_lt1_ppfda_overall_ok
     );
-    let option1_ranked = shortlist_report(option1_pool, 5, "option1_ultrasound")?;
-    let option2_ranked = shortlist_report(option2_pool, 5, "option2_venturi_dtcv")?;
+    let option1_shortlist_len = option1_pool.len().min(5);
+    let option1_shortlist_global = shortlist_report_designs(
+        option1_pool.clone(),
+        option1_shortlist_len,
+        "option1_ultrasound",
+    )?;
+    let mut option1_by_lineage: HashMap<_, Vec<Milestone12ReportDesign>> = HashMap::new();
+    let mut option2_by_lineage: HashMap<_, Vec<Milestone12ReportDesign>> = HashMap::new();
+    for design in option1_pool {
+        if let Some(key) = blueprint_lineage_key(&design.candidate) {
+            option1_by_lineage.entry(key).or_default().push(design);
+        }
+    }
+    for design in option2_pool {
+        if let Some(key) = blueprint_lineage_key(&design.candidate) {
+            option2_by_lineage.entry(key).or_default().push(design);
+        }
+    }
 
-    save_top5_json(
+    let mut viable_lineages: Vec<_> = option2_by_lineage
+        .into_iter()
+        .filter_map(|(key, mut derived_designs)| {
+            let option1_designs = option1_by_lineage.get(&key)?;
+            let mut acoustic_designs = option1_designs.clone();
+            sort_report_designs(&mut acoustic_designs);
+            sort_report_designs(&mut derived_designs);
+            Some((key, acoustic_designs[0].clone(), derived_designs))
+        })
+        .collect();
+    if viable_lineages.is_empty() {
+        return Err(
+            "Milestone 12 lineage broke: no venturi Option 2 family shares a valid Option 1 scaffold"
+                .into(),
+        );
+    }
+    viable_lineages.sort_by(|lhs, rhs| {
+        rhs.2[0]
+            .score
+            .total_cmp(&lhs.2[0].score)
+            .then_with(|| lhs.1.candidate.id.cmp(&rhs.1.candidate.id))
+    });
+
+    let (selected_lineage_key, selected_option1, option2_pool_all) = viable_lineages
+        .into_iter()
+        .find(|(_, _, derived_designs)| derived_designs.len() >= 5)
+        .ok_or(
+            "Milestone 12 lineage broke: no shared Option 1 -> Option 2 family retained five derived venturi candidates in this run",
+        )?;
+
+    let mut option1_ranked = Vec::with_capacity(option1_shortlist_len);
+    option1_ranked.push(selected_option1.clone());
+    for design in option1_shortlist_global {
+        if option1_ranked.len() == option1_shortlist_len {
+            break;
+        }
+        if design.candidate.id != selected_option1.candidate.id {
+            option1_ranked.push(design);
+        }
+    }
+    for (idx, design) in option1_ranked.iter_mut().enumerate() {
+        design.rank = idx + 1;
+    }
+    let mut option2_ranked = option2_pool_all.clone();
+    option2_ranked.truncate(5);
+    for (idx, design) in option2_ranked.iter_mut().enumerate() {
+        design.rank = idx + 1;
+    }
+
+    save_top5_report_json(
         &option1_ranked,
         &out_dir.join("two_concept_option1_ultrasound_top5.json"),
     )?;
-    save_top5_json(
+    save_top5_report_json(
         &option2_ranked,
         &out_dir.join("two_concept_option2_venturi_top5.json"),
     )?;
 
-    println!(
+    tracing::info!(
         "      Option 1 (selective acoustic): {} (score={:.4})",
-        option1_ranked[0].candidate.topology.short(),
-        option1_ranked[0].score
+        selected_option1.topology_short_code(),
+        selected_option1.score
     );
-    println!(
+    tracing::info!(
+        "      Option 2 derived family size from Option 1 scaffold: {} candidates",
+        option2_pool_all.len()
+    );
+    tracing::info!(
         "      Option 2 (combined selective venturi): {} (score={:.4}  σ={:.3})",
-        option2_ranked[0].candidate.topology.short(),
+        option2_ranked[0].topology_short_code(),
         option2_ranked[0].score,
         option2_ranked[0].metrics.cavitation_number
     );
 
     // ── Part 2: GA warm-start search ─────────────────────────────────────────
-    println!("\n[2/6] Building parametric seed pool for GA warm-start …");
-    println!("      Parametric space: {} candidates", total_candidates);
+    tracing::info!(
+        "      [1/6] completed in {:.1}s",
+        phase1_start.elapsed().as_secs_f64()
+    );
+    let phase2_start = Instant::now();
+    tracing::info!("\n[2/6] Building parametric seed pool for GA warm-start …");
+    tracing::info!("      Parametric space: {} candidates", total_candidates);
 
     scored_seeds.sort_by(|a, b| b.0.total_cmp(&a.0));
-    let seeds: Vec<_> = scored_seeds
+    let mut seeds: Vec<_> = scored_seeds
         .into_iter()
+        .filter(|(_, candidate)| blueprint_matches_lineage(candidate, &selected_lineage_key))
         .take(run_cfg.ga_seed_take)
         .map(|(_, c)| c)
         .collect();
+    if seeds.len() < run_cfg.ga_seed_take {
+        for design in &option2_ranked {
+            if seeds.len() == run_cfg.ga_seed_take {
+                break;
+            }
+            if seeds
+                .iter()
+                .all(|candidate| candidate.id != design.candidate.id)
+            {
+                seeds.push(design.candidate.clone());
+            }
+        }
+    }
+    if seeds.is_empty() {
+        return Err(
+            "Milestone 12 lineage broke: GA received no seeds from the selected Option 2 family"
+                .into(),
+        );
+    }
 
-    println!(
+    tracing::info!(
         "      Warm-start seeds: {} feasible (top {} selected)",
         seeds.len(),
         run_cfg.ga_seed_take
     );
-    println!(
+    tracing::info!(
         "      Running HydroSDT GA (pop={}, gen={}) …",
-        run_cfg.ga_population, run_cfg.ga_generations
+        run_cfg.ga_population,
+        run_cfg.ga_generations
     );
 
-    let ga_result = GeneticOptimizer::new(ga_mode, weights)
+    let ga_result = BlueprintGeneticOptimizer::new(OptimizationGoal::BlueprintGeneticRefinement)
         .with_seeds(seeds.clone())
         .with_population(run_cfg.ga_population)
         .with_max_generations(run_cfg.ga_generations)
-        .with_rng_seed(M12_GA_HYDRO_SEED)
+        .with_top_k(5)
         .run()?;
+    for ranked in &ga_result.all_candidates {
+        blueprint_by_id.insert(
+            ranked.candidate.id.clone(),
+            ranked.candidate.blueprint().clone(),
+        );
+    }
 
-    let mut ga_top: Vec<RankedDesign> = ga_result
-        .top_designs
+    let ga_report_pool_all: Vec<Milestone12ReportDesign> = ga_result
+        .all_candidates
         .iter()
-        .filter(|design| is_selective_report_topology(design.candidate.topology))
-        .cloned()
+        .filter(|ranked| blueprint_matches_lineage(&ranked.candidate, &selected_lineage_key))
+        .filter_map(|ranked| {
+            if !is_selective_report_topology(&ranked.candidate)
+                || !ga_matches_lineage_sequence(&ranked.candidate, &selected_lineage_key)
+            {
+                return None;
+            }
+            Milestone12ReportDesign::from_blueprint_candidate(
+                ranked.rank,
+                ranked.candidate.clone(),
+                ranked.evaluation.score,
+            )
+            .ok()
+        })
         .collect();
-    if ga_top.is_empty() {
-        ga_top = seeds
+
+    let mut ga_report_top: Vec<Milestone12ReportDesign> = ga_result
+        .top_candidates
+        .iter()
+        .filter(|ranked| blueprint_matches_lineage(&ranked.candidate, &selected_lineage_key))
+        .filter_map(|ranked| {
+            if !is_selective_report_topology(&ranked.candidate)
+                || !ga_matches_lineage_sequence(&ranked.candidate, &selected_lineage_key)
+            {
+                return None;
+            }
+            Milestone12ReportDesign::from_blueprint_candidate(
+                ranked.rank,
+                ranked.candidate.clone(),
+                ranked.evaluation.score,
+            )
+            .ok()
+        })
+        .collect();
+    if ga_report_top.is_empty() {
+        ga_report_top = seeds
             .iter()
-            .filter(|candidate| is_selective_report_topology(candidate.topology))
+            .filter(|candidate| {
+                is_selective_report_topology(candidate)
+                    && ga_matches_lineage_sequence(candidate, &selected_lineage_key)
+            })
             .filter_map(|candidate| {
-                compute_metrics(candidate).ok().map(|metrics| RankedDesign {
-                    rank: 0,
-                    candidate: candidate.clone(),
-                    metrics: metrics.clone(),
-                    score: score_candidate(&metrics, ga_mode, &weights),
-                })
+                compute_blueprint_report_metrics(candidate)
+                    .ok()
+                    .map(|metrics: SdtMetrics| {
+                        Milestone12ReportDesign::new(
+                            0,
+                            candidate.clone(),
+                            metrics.clone(),
+                            score_candidate(&metrics, ga_mode, &weights),
+                        )
+                    })
             })
             .collect();
-        ga_top.sort_by(|a, b| b.score.total_cmp(&a.score));
-        ga_top.truncate(5);
-        for (idx, design) in ga_top.iter_mut().enumerate() {
+        sort_report_designs(&mut ga_report_top);
+        ga_report_top.truncate(5);
+        for (idx, design) in ga_report_top.iter_mut().enumerate() {
             design.rank = idx + 1;
         }
     }
-    if ga_top.is_empty() {
-        ga_top = option2_ranked
+    if ga_report_top.is_empty() {
+        ga_report_top = option2_ranked
             .iter()
-            .filter(|design| is_selective_report_topology(design.candidate.topology))
+            .filter(|design| {
+                is_selective_report_topology(&design.candidate)
+                    && ga_matches_lineage_sequence(&design.candidate, &selected_lineage_key)
+            })
             .take(5)
-            .map(|design| RankedDesign {
-                rank: 0,
-                candidate: design.candidate.clone(),
-                metrics: design.metrics.clone(),
-                score: score_candidate(&design.metrics, ga_mode, &weights),
+            .map(|design| {
+                Milestone12ReportDesign::new(
+                    0,
+                    design.candidate.clone(),
+                    design.metrics.clone(),
+                    score_candidate(&design.metrics, ga_mode, &weights),
+                )
             })
             .collect();
-        ga_top.sort_by(|a, b| b.score.total_cmp(&a.score));
-        for (idx, design) in ga_top.iter_mut().enumerate() {
+        sort_report_designs(&mut ga_report_top);
+        for (idx, design) in ga_report_top.iter_mut().enumerate() {
             design.rank = idx + 1;
         }
     }
-    if ga_top.is_empty() {
+    if ga_report_top.is_empty() {
         return Err(
             "HydroSDT comparison track produced no primitive split-sequence designs".into(),
         );
     }
-    println!(
-        "      GA rank-1: {} (score={:.4}  σ={:.3}  cancer_cav={:.3})",
-        ga_top[0].candidate.id,
-        ga_top[0].score,
-        ga_top[0].metrics.cavitation_number,
-        ga_top[0].metrics.cancer_targeted_cavitation
-    );
-    save_top5_json(&ga_top, &out_dir.join("ga_hydrosdt_top5.json"))?;
-    println!("      Saved: ga_hydrosdt_top5.json");
+    let option1_report_ranked = option1_ranked.clone();
+    let option2_report_ranked = option2_ranked.clone();
+    let option2_report_pool_all = option2_pool_all.clone();
 
-    // ── Part 3: Multi-fidelity validation ────────────────────────────────────
-    let mut validation_rows: Vec<ValidationRow> = Vec::new();
+    for design in &option1_report_ranked {
+        validate_milestone12_candidate(&design.candidate, Milestone12Stage::Option1Base)?;
+    }
+    for design in &option2_report_ranked {
+        validate_milestone12_candidate(&design.candidate, Milestone12Stage::Option2Derived)?;
+    }
+    for design in &ga_report_top {
+        validate_milestone12_candidate(&design.candidate, Milestone12Stage::GaRefined)?;
+    }
+    tracing::info!(
+        "      GA rank-1: {} (score={:.4}  σ={:.3}  cancer_cav={:.3})",
+        ga_report_top[0].candidate.id,
+        ga_report_top[0].score,
+        ga_report_top[0].metrics.cavitation_number,
+        ga_report_top[0].metrics.cancer_targeted_cavitation
+    );
+    save_top5_report_json(&ga_report_top, &out_dir.join("ga_hydrosdt_top5.json"))?;
+    tracing::info!("      Saved: ga_hydrosdt_top5.json");
+    tracing::info!(
+        "      [2/6] completed in {:.1}s",
+        phase2_start.elapsed().as_secs_f64()
+    );
+
+    // ── Part 3: Robustness screening ─────────────────────────────────────────
+    let phase3_start = Instant::now();
+    let validation_rows: Vec<ValidationRow> = Vec::new();
     let option2_robustness: Vec<RobustnessReport>;
     if run_cfg.fast_mode {
-        println!("\n[3/6] Fast mode: skipping multi-fidelity validation");
-        println!("[4/6] Fast mode: skipping robustness sweep");
+        tracing::info!(
+            "\n[3/5] Fast mode: skipping robustness sweep; multi-fidelity validation lives in milestone12_validation"
+        );
         option2_robustness = Vec::new();
     } else {
-        println!("\n[3/6] Running 2D FVM + 3D FEM validation on selected venturi designs …");
-
-        let combined_validation = validate_venturi_candidate(
-            "Option 2 Combined Selective Venturi",
-            &option2_ranked[0],
-            &out_dir,
-        )?;
-        validation_rows.push(combined_validation.clone());
-        validation_rows.push(validate_venturi_candidate(
-            "GA HydroSDT Venturi",
-            &ga_top[0],
-            &out_dir,
-        )?);
-
-        // ── Part 4: Robustness screening ─────────────────────────────────────
-        println!("\n[4/6] Running robustness screening on Option 2 shortlist …");
+        tracing::info!("\n[3/5] Running robustness screening on Option 2 shortlist …");
         option2_robustness = option2_ranked
             .iter()
             .map(|d| {
-                robustness_sweep(
+                robustness_sweep_blueprint(
                     &d.candidate,
-                    oncology_mode,
-                    &weights,
+                    OptimizationGoal::SelectiveVenturiCavitation,
                     &STANDARD_PERTURBATIONS,
                 )
             })
             .collect();
         let robust_count = option2_robustness.iter().filter(|r| r.is_robust).count();
-        println!(
+        tracing::info!(
             "      Robust candidates: {}/{}",
             robust_count,
             option2_robustness.len()
@@ -1005,43 +1145,76 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // ── Part 5: Figure generation ─────────────────────────────────────────────
-    println!("\n[5/6] Generating report figures …");
+    tracing::info!(
+        "      [3/5] completed in {:.1}s",
+        phase3_start.elapsed().as_secs_f64()
+    );
+    let phase5_start = Instant::now();
+    tracing::info!("\n[4/5] Generating report figures …");
 
     // Figure 4 — best selective acoustic design
-    save_figure(
-        &option1_ranked[0].candidate,
-        &figures_dir.join("selected_option1_schematic.svg"),
-        "Figure 4 (Option 1 selective acoustic)",
-    );
+    if let Some(option1_best) = option1_ranked.first() {
+        save_figure(
+            blueprint_by_id
+                .get(&option1_best.candidate.id)
+                .ok_or("missing direct blueprint for selected Option 1 figure")?,
+            &figures_dir.join("selected_option1_schematic.svg"),
+            "Figure 4 (Option 1 selective acoustic)",
+        );
+    } else {
+        tracing::warn!(
+            "      Figure 4 (Option 1 selective acoustic) skipped: no eligible shortlist under current physics regime"
+        );
+    }
 
     // Figure 5 — best combined selective venturi design
     save_figure(
-        &option2_ranked[0].candidate,
+        blueprint_by_id
+            .get(&option2_ranked[0].candidate.id)
+            .ok_or("missing direct blueprint for selected Option 2 figure")?,
         &figures_dir.join("selected_option2_combined_schematic.svg"),
         "Figure 5 (Option 2 combined selective venturi)",
     );
 
     // Figure 6 — best HydroSDT GA design
     save_figure(
-        &ga_top[0].candidate,
+        blueprint_by_id
+            .get(&ga_report_top[0].candidate.id)
+            .ok_or("missing direct blueprint for selected GA figure")?,
         &figures_dir.join("top_hydrosdt_schematic.svg"),
         "Figure 6 (HydroSDT GA rank-1)",
     );
 
     // ── Part 6: Canonical markdown + JSON ────────────────────────────────────
-    println!("\n[6/6] Writing canonical report and summary JSON …");
+    tracing::info!(
+        "      [4/5] completed in {:.1}s",
+        phase5_start.elapsed().as_secs_f64()
+    );
+    let phase6_start = Instant::now();
+    tracing::info!("\n[5/5] Writing canonical report and summary JSON …");
 
     // Two-concept selection summary
     let toplines = vec![
-        concept_topline(
-            "Option 1: Selective acoustic center treatment",
-            "SelectiveAcousticTherapy",
-            &option1_ranked[0],
+        option1_report_ranked.first().map_or_else(
+            || {
+                concept_topline_unavailable(
+                    "Option 1: Selective acoustic center treatment",
+                    "SelectiveAcousticTherapy",
+                    "No selective acoustic design satisfied strict eligibility under the current physics regime.",
+                )
+            },
+            |design| {
+                concept_topline(
+                    "Option 1: Selective acoustic center treatment",
+                    "SelectiveAcousticTherapy",
+                    design,
+                )
+            },
         ),
         concept_topline(
             "Option 2: Selective venturi treatment ranked by combined score",
             "CombinedSdtLeukapheresis",
-            &option2_ranked[0],
+            &option2_report_ranked[0],
         ),
     ];
     let topline_json = serde_json::to_string_pretty(&toplines)?;
@@ -1055,14 +1228,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         total_candidates,
         option1_pool_len,
         option2_pool_len,
-        &option1_ranked,
-        &option2_ranked,
-        &ga_top[0],
+        &option1_report_ranked,
+        &option2_report_ranked,
+        &ga_report_top[0],
         &validation_rows,
         &option2_robustness,
         &canonical_results,
     )?;
-    println!("Canonical report: {}", canonical_results.display());
+    tracing::info!("Canonical report: {}", canonical_results.display());
 
     let narrative_artifacts = write_milestone12_narrative_report(
         &workspace_root,
@@ -1071,58 +1244,431 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             total_candidates,
             option1_pool_len,
             option2_pool_len,
-            option1_ranked: &option1_ranked,
-            option2_ranked: &option2_ranked,
-            ga_top: &ga_top,
+            option1_ranked: &option1_report_ranked,
+            option2_ranked: &option2_report_ranked,
+            ga_top: &ga_report_top,
+            option2_pool_all: &option2_report_pool_all,
+            ga_pool_all: &ga_report_pool_all,
             validation_rows: &validation_rows,
             option2_robustness: &option2_robustness,
-            ga_best_per_gen: &ga_result.best_per_gen,
+            ga_best_per_gen: &ga_result.best_per_generation,
             fast_mode: run_cfg.fast_mode,
         },
     )?;
-    println!(
+    tracing::info!(
         "Narrative report: {}",
         narrative_artifacts.narrative_path.display()
     );
-    println!(
+    tracing::info!(
         "Figure manifest: {} ({} figures)",
         narrative_artifacts.figure_manifest_path.display(),
         narrative_artifacts.figure_count
     );
 
-    println!("\n=== Outputs written to {} ===", out_dir.display());
-    println!("Figures written to {}", figures_dir.display());
+    tracing::info!("\n=== Outputs written to {} ===", out_dir.display());
+    tracing::info!("Figures written to {}", figures_dir.display());
+    tracing::info!(
+        "      [5/5] completed in {:.1}s",
+        phase6_start.elapsed().as_secs_f64()
+    );
+    tracing::info!(
+        "=== Total wall time: {:.1}s ===",
+        overall_start.elapsed().as_secs_f64()
+    );
 
     Ok(())
 }
 
 // ── Figure saving helper ──────────────────────────────────────────────────────
 
-fn save_figure(candidate: &DesignCandidate, path: &Path, label: &str) {
-    match save_schematic_svg(candidate, path) {
-        Ok(()) => println!("      ✓ {label}  →  {}", path.display()),
-        Err(e) => eprintln!("      ✗ {label}  FAILED: {e}"),
+fn save_figure(blueprint: &NetworkBlueprint, path: &Path, label: &str) {
+    match save_blueprint_schematic_svg(blueprint, path) {
+        Ok(()) => tracing::info!("      ✓ {label}  →  {}", path.display()),
+        Err(e) => tracing::warn!("      ✗ {label}  FAILED: {e}"),
     }
 }
 
 // ── Concept topline builder ───────────────────────────────────────────────────
 
-fn concept_topline(concept: &str, mode: &str, d: &RankedDesign) -> ConceptTopline {
+fn concept_topline(concept: &str, mode: &str, d: &Milestone12ReportDesign) -> ConceptTopline {
     ConceptTopline {
         concept: concept.to_string(),
         mode: mode.to_string(),
+        available: true,
+        status: "selected".to_string(),
         candidate_id: d.candidate.id.clone(),
-        score: d.score,
-        topology: d.candidate.topology.short().to_string(),
+        score: Some(d.score),
+        topology: d.topology_short_code(),
         treatment_zone_mode: d.metrics.treatment_zone_mode.clone(),
-        active_venturi_throat_count: d.metrics.active_venturi_throat_count,
-        cavitation_number: d.metrics.cavitation_number,
-        cancer_center_fraction: d.metrics.cancer_center_fraction,
-        therapeutic_window_score: d.metrics.therapeutic_window_score,
-        hemolysis_index_per_pass: d.metrics.hemolysis_index_per_pass,
-        wall_shear_p95_pa: d.metrics.wall_shear_p95_pa,
-        mean_residence_time_s: d.metrics.mean_residence_time_s,
-        total_ecv_ml: d.metrics.total_ecv_ml,
-        therapy_channel_fraction: d.metrics.therapy_channel_fraction,
+        active_venturi_throat_count: Some(d.metrics.active_venturi_throat_count),
+        cavitation_number: Some(d.metrics.cavitation_number),
+        cancer_center_fraction: Some(d.metrics.cancer_center_fraction),
+        therapeutic_window_score: Some(d.metrics.therapeutic_window_score),
+        hemolysis_index_per_pass: Some(d.metrics.hemolysis_index_per_pass),
+        wall_shear_p95_pa: Some(d.metrics.wall_shear_p95_pa),
+        mean_residence_time_s: Some(d.metrics.mean_residence_time_s),
+        treatment_zone_dwell_time_s: Some(d.metrics.treatment_zone_dwell_time_s),
+        total_ecv_ml: Some(d.metrics.total_ecv_ml),
+        therapy_channel_fraction: Some(d.metrics.therapy_channel_fraction),
     }
+}
+
+fn concept_topline_unavailable(concept: &str, mode: &str, status: &str) -> ConceptTopline {
+    ConceptTopline {
+        concept: concept.to_string(),
+        mode: mode.to_string(),
+        available: false,
+        status: status.to_string(),
+        candidate_id: "NONE_ELIGIBLE_CURRENT_PHYSICS".to_string(),
+        score: None,
+        topology: "n/a".to_string(),
+        treatment_zone_mode: "Unavailable".to_string(),
+        active_venturi_throat_count: None,
+        cavitation_number: None,
+        cancer_center_fraction: None,
+        therapeutic_window_score: None,
+        hemolysis_index_per_pass: None,
+        wall_shear_p95_pa: None,
+        mean_residence_time_s: None,
+        treatment_zone_dwell_time_s: None,
+        total_ecv_ml: None,
+        therapy_channel_fraction: None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use cfd_schematics::{SplitKind, SplitStageSpec};
+    use serde_json::Value;
+
+    fn tri_tri_acoustic_blueprint() -> BlueprintCandidate {
+        build_milestone12_blueprint_candidate_space()
+            .expect("Milestone 12 blueprint candidate space should build")
+            .into_iter()
+            .find(|candidate| {
+                candidate.topology_spec().is_ok_and(|spec| {
+                    spec.stage_sequence_label() == "Tri→Tri" && spec.venturi_placements.is_empty()
+                })
+            })
+            .expect("Tri->Tri acoustic blueprint candidate should exist")
+    }
+
+    fn rebalance_treatment_branch(stage: &mut SplitStageSpec, target_frac: f64) {
+        let total_width = stage
+            .branches
+            .iter()
+            .map(|branch| branch.route.width_m)
+            .sum::<f64>();
+        let treatment_index = stage
+            .branches
+            .iter()
+            .position(|branch| branch.treatment_path)
+            .expect("split stage must include a treatment branch");
+        let other_total = stage
+            .branches
+            .iter()
+            .enumerate()
+            .filter(|(index, _)| *index != treatment_index)
+            .map(|(_, branch)| branch.route.width_m)
+            .sum::<f64>();
+        let treatment_width = (total_width * target_frac).clamp(1.0e-9, total_width - 1.0e-9);
+        let remaining_width = (total_width - treatment_width).max(1.0e-9);
+        let branch_count = stage.branches.len().saturating_sub(1).max(1);
+        for (index, branch) in stage.branches.iter_mut().enumerate() {
+            if index == treatment_index {
+                branch.route.width_m = treatment_width;
+            } else if other_total > 1.0e-12 {
+                branch.route.width_m *= remaining_width / other_total;
+            } else {
+                branch.route.width_m = remaining_width / branch_count as f64;
+            }
+        }
+    }
+
+    fn reference_option1_acoustic_candidate(
+        id: &str,
+        serpentine_segments: usize,
+        first_tri_center_frac: f64,
+        terminal_tri_center_frac: f64,
+    ) -> BlueprintCandidate {
+        let base = tri_tri_acoustic_blueprint();
+        let mut spec = base
+            .topology_spec()
+            .expect("Tri->Tri acoustic candidate must carry topology metadata")
+            .clone();
+        let first_stage = spec
+            .split_stages
+            .first_mut()
+            .expect("Tri->Tri topology must include a first stage");
+        rebalance_treatment_branch(first_stage, first_tri_center_frac);
+        let terminal_tri = spec
+            .split_stages
+            .iter_mut()
+            .rev()
+            .find(|stage| matches!(stage.split_kind, SplitKind::Trifurcation))
+            .expect("Tri->Tri topology must include a terminal trifurcation");
+        rebalance_treatment_branch(terminal_tri, terminal_tri_center_frac);
+        let treatment_branch = spec
+            .split_stages
+            .iter_mut()
+            .rev()
+            .flat_map(|stage| stage.branches.iter_mut())
+            .find(|branch| branch.treatment_path)
+            .expect("Tri->Tri topology must expose a treatment branch");
+        if let Some(serpentine) = treatment_branch.route.serpentine.as_mut() {
+            serpentine.segments = serpentine_segments;
+        }
+        BlueprintCandidate::from_topology_spec(id.to_string(), &spec, base.operating_point.clone())
+            .expect("reference acoustic blueprint candidate should remain constructible")
+    }
+
+    #[test]
+    fn option1_report_serialization_retains_reference_n1_and_n5_acoustic_rows() {
+        let weights = SdtWeights::default();
+        let mut ranked = vec![
+            reference_option1_acoustic_candidate(
+                "m12-option1-pst-tritri-uo-n1",
+                5,
+                0.55,
+                1.0 / 3.0,
+            ),
+            reference_option1_acoustic_candidate(
+                "m12-option1-pst-tritri-uo-n5",
+                7,
+                0.55,
+                1.0 / 3.0,
+            ),
+            reference_option1_acoustic_candidate("sentinel-option1-third", 5, 0.52, 0.34),
+            reference_option1_acoustic_candidate("sentinel-option1-fourth", 3, 0.55, 1.0 / 3.0),
+            reference_option1_acoustic_candidate("sentinel-option1-fifth", 5, 0.58, 0.38),
+        ]
+        .into_iter()
+        .map(|candidate| {
+            let metrics = compute_blueprint_report_metrics(&candidate)
+                .expect("reference acoustic blueprint metrics should compute");
+            let score = report_option1_score(&metrics, &weights);
+            Milestone12ReportDesign::new(0, candidate, metrics, score)
+        })
+        .collect::<Vec<_>>();
+        for design in &mut ranked[2..] {
+            design.score *= 0.95;
+        }
+
+        let shortlist = shortlist_report_designs(ranked, 5, "option1_ultrasound_test")
+            .expect("shortlist should succeed");
+        let serialized: Value = serde_json::from_str(
+            &serde_json::to_string_pretty(&shortlist)
+                .expect("report shortlist should serialize to json"),
+        )
+        .expect("serialized shortlist should parse back to json");
+
+        let rows = serialized
+            .as_array()
+            .expect("shortlist serialization should be a json array");
+        assert_eq!(
+            rows.len(),
+            5,
+            "serialized Option 1 shortlist should retain all ranked rows"
+        );
+        let n1_row = rows
+            .iter()
+            .find(|row| row["candidate"]["id"] == n1_row_id())
+            .expect("serialized shortlist should contain n1 row");
+        let n5_row = rows
+            .iter()
+            .find(|row| row["candidate"]["id"] == n5_row_id())
+            .expect("serialized shortlist should contain n5 row");
+
+        assert_ne!(
+            n1_row["candidate"]["id"],
+            n5_row["candidate"]["id"],
+            "serialized Option 1 shortlist must retain distinct rows for the reference n1/n5 acoustic pair"
+        );
+        assert!(
+            n1_row["metrics"]
+                .get("treatment_zone_dwell_time_s")
+                .is_some()
+                && n5_row["metrics"]
+                    .get("treatment_zone_dwell_time_s")
+                    .is_some(),
+            "serialized Option 1 shortlist must expose treatment_zone_dwell_time_s"
+        );
+    }
+
+    fn n1_row_id() -> Value {
+        Value::String("m12-option1-pst-tritri-uo-n1".to_string())
+    }
+
+    fn n5_row_id() -> Value {
+        Value::String("m12-option1-pst-tritri-uo-n5".to_string())
+    }
+}
+
+#[derive(Default)]
+struct EvaluationAccumulator {
+    option1_pool: Vec<Milestone12ReportDesign>,
+    option2_pool: Vec<Milestone12ReportDesign>,
+    scored_seeds: Vec<(f64, BlueprintCandidate)>,
+    nonventuri_total: usize,
+    nonventuri_pressure_plate: usize,
+    nonventuri_fda_main: usize,
+    nonventuri_eligible: usize,
+    venturi_total: usize,
+    venturi_sigma_lt1_any: usize,
+    sigma_lt1_pressure_ok: usize,
+    sigma_lt1_plate_ok: usize,
+    sigma_lt1_fda_main_ok: usize,
+    sigma_lt1_fda_overall_ok: usize,
+    sigma_lt1_ppfda_overall_ok: usize,
+    venturi_pressure_plate_fda: usize,
+    venturi_sigma_lt1: usize,
+    venturi_oncology_eligible: usize,
+}
+
+impl EvaluationAccumulator {
+    fn record(
+        &mut self,
+        blueprint_candidate: BlueprintCandidate,
+        metrics: SdtMetrics,
+        ga_score: f64,
+        option1_score: Option<f64>,
+        combined_score: Option<f64>,
+    ) {
+        let uses_venturi = blueprint_candidate
+            .topology_spec()
+            .is_ok_and(cfd_schematics::BlueprintTopologySpec::has_venturi);
+        if uses_venturi {
+            self.venturi_total += 1;
+            if metrics.cavitation_number.is_finite() && metrics.cavitation_number < 1.0 {
+                self.venturi_sigma_lt1_any += 1;
+                if metrics.pressure_feasible {
+                    self.sigma_lt1_pressure_ok += 1;
+                }
+                if metrics.plate_fits {
+                    self.sigma_lt1_plate_ok += 1;
+                }
+                if metrics.fda_main_compliant {
+                    self.sigma_lt1_fda_main_ok += 1;
+                }
+                if metrics.fda_overall_compliant {
+                    self.sigma_lt1_fda_overall_ok += 1;
+                }
+                if metrics.pressure_feasible && metrics.plate_fits && metrics.fda_overall_compliant
+                {
+                    self.sigma_lt1_ppfda_overall_ok += 1;
+                }
+            }
+            if metrics.pressure_feasible && metrics.plate_fits && metrics.fda_main_compliant {
+                self.venturi_pressure_plate_fda += 1;
+                if metrics.cavitation_number.is_finite() && metrics.cavitation_number < 1.0 {
+                    self.venturi_sigma_lt1 += 1;
+                }
+            }
+            if report_eligible_venturi_oncology(&metrics) {
+                self.venturi_oncology_eligible += 1;
+            }
+            // Avoid unnecessary clone: when the candidate goes to BOTH
+            // scored_seeds and option2_pool, clone is required. When only one
+            // destination needs the candidate, move it directly.
+            match (ga_score > 0.0, combined_score) {
+                (true, Some(score)) => {
+                    self.scored_seeds
+                        .push((ga_score, blueprint_candidate.clone()));
+                    self.option2_pool.push(Milestone12ReportDesign::new(
+                        0,
+                        blueprint_candidate,
+                        metrics,
+                        score,
+                    ));
+                }
+                (true, None) => {
+                    self.scored_seeds.push((ga_score, blueprint_candidate));
+                }
+                (false, Some(score)) => {
+                    self.option2_pool.push(Milestone12ReportDesign::new(
+                        0,
+                        blueprint_candidate,
+                        metrics,
+                        score,
+                    ));
+                }
+                (false, None) => {}
+            }
+        } else {
+            self.nonventuri_total += 1;
+            if metrics.pressure_feasible && metrics.plate_fits {
+                self.nonventuri_pressure_plate += 1;
+            }
+            if metrics.fda_main_compliant {
+                self.nonventuri_fda_main += 1;
+            }
+            if report_eligible_nonventuri(&metrics) {
+                self.nonventuri_eligible += 1;
+            }
+            if let Some(score) = option1_score {
+                self.option1_pool.push(Milestone12ReportDesign::new(
+                    0,
+                    blueprint_candidate,
+                    metrics,
+                    score,
+                ));
+            }
+        }
+    }
+
+    fn merge(&mut self, mut other: Self) {
+        self.option1_pool.append(&mut other.option1_pool);
+        self.option2_pool.append(&mut other.option2_pool);
+        self.scored_seeds.append(&mut other.scored_seeds);
+        self.nonventuri_total += other.nonventuri_total;
+        self.nonventuri_pressure_plate += other.nonventuri_pressure_plate;
+        self.nonventuri_fda_main += other.nonventuri_fda_main;
+        self.nonventuri_eligible += other.nonventuri_eligible;
+        self.venturi_total += other.venturi_total;
+        self.venturi_sigma_lt1_any += other.venturi_sigma_lt1_any;
+        self.sigma_lt1_pressure_ok += other.sigma_lt1_pressure_ok;
+        self.sigma_lt1_plate_ok += other.sigma_lt1_plate_ok;
+        self.sigma_lt1_fda_main_ok += other.sigma_lt1_fda_main_ok;
+        self.sigma_lt1_fda_overall_ok += other.sigma_lt1_fda_overall_ok;
+        self.sigma_lt1_ppfda_overall_ok += other.sigma_lt1_ppfda_overall_ok;
+        self.venturi_pressure_plate_fda += other.venturi_pressure_plate_fda;
+        self.venturi_sigma_lt1 += other.venturi_sigma_lt1;
+        self.venturi_oncology_eligible += other.venturi_oncology_eligible;
+    }
+
+    fn option1_hits(&self) -> usize {
+        self.option1_pool.len()
+    }
+}
+
+fn has_viable_lineage_family(
+    option1_pool: &[Milestone12ReportDesign],
+    option2_pool: &[Milestone12ReportDesign],
+    min_option2_count: usize,
+) -> bool {
+    let option1_keys: HashSet<_> = option1_pool
+        .iter()
+        .filter_map(|design| blueprint_lineage_key(&design.candidate))
+        .collect();
+    if option1_keys.is_empty() {
+        return false;
+    }
+
+    let mut option2_counts: HashMap<_, usize> = HashMap::new();
+    for design in option2_pool {
+        let Some(key) = blueprint_lineage_key(&design.candidate) else {
+            continue;
+        };
+        if !option1_keys.contains(&key) {
+            continue;
+        }
+        let count = option2_counts.entry(key).or_insert(0);
+        *count += 1;
+        if *count >= min_option2_count {
+            return true;
+        }
+    }
+
+    false
 }

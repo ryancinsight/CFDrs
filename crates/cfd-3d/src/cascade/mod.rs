@@ -283,12 +283,16 @@ impl<F: FluidTrait<f64> + Clone> CascadeSolver3D<F> {
                 .sum::<f64>()
                 / face.vertices.len() as f64;
 
-            let bc = if (centroid_z - z_min).abs() < z_tol {
+            let is_inlet = (centroid_z - z_min).abs() < z_tol;
+            let is_outlet = (centroid_z - z_max).abs() < z_tol;
+            let is_wall = !is_inlet && !is_outlet;
+
+            let bc = if is_inlet {
                 // Inlet face: uniform velocity in +z direction.
                 BoundaryCondition::VelocityInlet {
                     velocity: Vector3::new(0.0, 0.0, u_inlet),
                 }
-            } else if (centroid_z - z_max).abs() < z_tol {
+            } else if is_outlet {
                 // Outlet face: zero-gauge pressure.
                 BoundaryCondition::PressureOutlet {
                     pressure: self.config.outlet_pressure,
@@ -302,9 +306,21 @@ impl<F: FluidTrait<f64> + Clone> CascadeSolver3D<F> {
             };
 
             for &v_id in &face.vertices {
-                boundary_conditions
-                    .entry(v_id.as_usize())
-                    .or_insert(bc.clone());
+                if is_wall {
+                    // Wall faces use or_insert so that inlet/outlet BCs assigned
+                    // earlier to corner vertices are NOT overwritten: the plug-flow
+                    // inlet already prescribes u=u_inlet at all inlet-plane vertices
+                    // including corners, and that condition takes physical priority
+                    // over the lateral-wall no-slip at the inlet plane.
+                    boundary_conditions
+                        .entry(v_id.as_usize())
+                        .or_insert(bc.clone());
+                } else {
+                    // Inlet/outlet BCs overwrite any previously-assigned wall BCs
+                    // on corner vertices so the inlet velocity/pressure condition
+                    // is always enforced at the inflow and outflow planes.
+                    boundary_conditions.insert(v_id.as_usize(), bc.clone());
+                }
             }
         }
 
@@ -455,17 +471,62 @@ impl<F: FluidTrait<f64> + Clone> CascadeSolver3D<F> {
     }
 
     /// Extract mean and max wall shear stress from boundary faces.
+    ///
+    /// Uses the first-interior-node gradient: τ = μ · |u_interior| / d(face_centroid, v_interior).
+    /// Wall face vertices carry a Dirichlet no-slip BC (u ≈ 0), so averaging velocity at the
+    /// wall itself gives τ ≈ 0.  Instead, for each wall face we find the closest non-boundary
+    /// vertex in the adjacent cell and use that velocity over its distance from the face centroid.
     fn extract_wall_shear(
         &self,
         mesh: &cfd_mesh::IndexedMesh,
         solution: &crate::fem::StokesFlowSolution<f64>,
         face_cell_count: &HashMap<usize, usize>,
     ) -> (f64, f64) {
+        use std::collections::HashSet;
+
         let mu = self
             .fluid
             .properties_at(310.0, 0.0)
             .map(|p| p.dynamic_viscosity)
             .unwrap_or(3.5e-3);
+
+        // Pre-compute z-range once (instead of inside the face loop).
+        let z_range = mesh
+            .vertices
+            .iter()
+            .map(|(_, vd)| vd.position.z)
+            .fold((f64::MAX, f64::MIN), |(lo, hi): (f64, f64), z| {
+                (lo.min(z), hi.max(z))
+            });
+        let z_tol = (z_range.1 - z_range.0) / (self.config.resolution.0 as f64 * 4.0);
+
+        // Build set of all boundary vertex indices (all vertices on any boundary face).
+        let boundary_verts: HashSet<usize> = face_cell_count
+            .iter()
+            .filter(|(_, &c)| c == 1)
+            .flat_map(|(&fi, _)| {
+                if fi < mesh.face_count() {
+                    mesh.faces
+                        .get(FaceId::from_usize(fi))
+                        .vertices
+                        .iter()
+                        .map(|v| v.as_usize())
+                        .collect::<Vec<_>>()
+                } else {
+                    vec![]
+                }
+            })
+            .collect();
+
+        // Build face_idx → owning cell index for all boundary (count == 1) faces.
+        let mut face_to_cell: HashMap<usize, usize> = HashMap::new();
+        for (cell_idx, cell) in mesh.cells.iter().enumerate() {
+            for &fi in &cell.faces {
+                if face_cell_count.get(&fi).copied().unwrap_or(0) == 1 {
+                    face_to_cell.insert(fi, cell_idx);
+                }
+            }
+        }
 
         let mut sum_tau = 0.0;
         let mut max_tau = 0.0_f64;
@@ -476,37 +537,81 @@ impl<F: FluidTrait<f64> + Clone> CascadeSolver3D<F> {
                 continue;
             }
             let face = mesh.faces.get(FaceId::from_usize(face_idx));
-            let centroid_z: f64 = face
-                .vertices
-                .iter()
-                .map(|vid| mesh.vertices.position(*vid).z)
-                .sum::<f64>()
-                / face.vertices.len() as f64;
 
-            // Skip inlet/outlet faces — only walls.
-            let z_range = mesh
-                .vertices
-                .iter()
-                .map(|(_, vd)| vd.position.z)
-                .fold((f64::MAX, f64::MIN), |(lo, hi): (f64, f64), z| {
-                    (lo.min(z), hi.max(z))
-                });
-            let z_tol = (z_range.1 - z_range.0) / (self.config.resolution.0 as f64 * 4.0);
-            if (centroid_z - z_range.0).abs() < z_tol || (centroid_z - z_range.1).abs() < z_tol {
+            // Face centroid.
+            let n_fv = face.vertices.len() as f64;
+            let centroid =
+                face.vertices
+                    .iter()
+                    .fold(nalgebra::Point3::<f64>::origin(), |acc, vid| {
+                        let p = mesh.vertices.position(*vid);
+                        nalgebra::Point3::new(
+                            acc.x + p.x / n_fv,
+                            acc.y + p.y / n_fv,
+                            acc.z + p.z / n_fv,
+                        )
+                    });
+
+            // Skip inlet/outlet faces — process only lateral walls.
+            if (centroid.z - z_range.0).abs() < z_tol || (centroid.z - z_range.1).abs() < z_tol {
                 continue;
             }
 
-            // Compute velocity gradient at wall face (du/dn approximation).
-            let face_verts: Vec<usize> = face.vertices.iter().map(|v| v.as_usize()).collect();
-            let u_mag: f64 = face_verts
-                .iter()
-                .map(|&vi| solution.get_velocity(vi).norm())
-                .sum::<f64>()
-                / face_verts.len() as f64;
+            // Find the cell that owns this wall face.
+            let Some(&cell_idx) = face_to_cell.get(&face_idx) else {
+                continue;
+            };
+            let cell = &mesh.cells[cell_idx];
 
-            // τ = μ · |u_wall| / (h/2), where h is half the nearest cell dimension.
-            let h_local = (z_range.1 - z_range.0) / self.config.resolution.0 as f64;
-            let tau = mu * u_mag / (h_local / 2.0);
+            // Gather all unique vertices belonging to the owning cell.
+            let cell_verts: HashSet<usize> = cell
+                .faces
+                .iter()
+                .flat_map(|&fi| {
+                    if fi < mesh.face_count() {
+                        mesh.faces
+                            .get(FaceId::from_usize(fi))
+                            .vertices
+                            .iter()
+                            .map(|v| v.as_usize())
+                            .collect::<Vec<_>>()
+                    } else {
+                        vec![]
+                    }
+                })
+                .collect();
+
+            // Interior vertices: in the cell but NOT on any boundary face.
+            let interior_verts: Vec<usize> = cell_verts
+                .iter()
+                .copied()
+                .filter(|vi| !boundary_verts.contains(vi))
+                .collect();
+
+            if interior_verts.is_empty() {
+                continue;
+            }
+
+            // Pick the interior vertex closest to the face centroid.
+            let Some((best_vi, best_dist)) = interior_verts
+                .iter()
+                .map(|&vi| {
+                    let p = mesh.vertices.position(VertexId::from_usize(vi));
+                    let d = (nalgebra::Point3::new(p.x, p.y, p.z) - centroid).norm();
+                    (vi, d)
+                })
+                .min_by(|(_, da), (_, db)| da.partial_cmp(db).unwrap_or(std::cmp::Ordering::Equal))
+            else {
+                continue;
+            };
+
+            if best_dist < 1e-15 {
+                continue;
+            }
+
+            // τ = μ · |u_interior| / d(face_centroid → interior_vertex)
+            let u_interior = solution.get_velocity(best_vi).norm();
+            let tau = mu * u_interior / best_dist;
             sum_tau += tau;
             max_tau = max_tau.max(tau);
             wall_count += 1;

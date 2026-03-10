@@ -40,7 +40,6 @@
 #![allow(clippy::doc_markdown)] // Math notation doesn't need backticks
 #![allow(clippy::needless_pass_by_value)] // Pass by value for Copy types is idiomatic
 #![allow(clippy::return_self_not_must_use)] // Builder patterns used internally
-#![allow(clippy::ptr_arg)] // &Vec used for API compatibility
 #![allow(clippy::should_implement_trait)] // CFD-specific trait implementations
 
 pub mod abstractions;
@@ -69,7 +68,7 @@ pub mod prelude {
     pub use crate::error::{Error, Result};
     pub use crate::geometry::Domain;
     pub use crate::physics::boundary::{BoundaryCondition, WallType};
-    pub use crate::physics::fluid::{ConstantPropertyFluid, Fluid};
+    pub use crate::physics::fluid::ConstantPropertyFluid;
     pub use crate::physics::values::{Pressure, ReynoldsNumber, Temperature, Velocity};
 
     // Plugin system - only expose the main trait

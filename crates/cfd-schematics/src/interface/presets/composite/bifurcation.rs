@@ -1,4 +1,5 @@
 //! Bifurcation-based composite presets: symmetric 2-branch split topologies.
+#![allow(deprecated)] // NetworkBlueprint::new() used intentionally; nodes are created with NodeSpec::new_at().
 
 use super::{shah_london, BLOOD_MU};
 use crate::domain::model::{ChannelShape, ChannelSpec, NetworkBlueprint, NodeKind, NodeSpec};

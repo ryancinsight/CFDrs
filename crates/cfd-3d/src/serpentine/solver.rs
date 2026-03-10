@@ -252,7 +252,9 @@ impl<
 
             let mut max_change_f64 = 0.0_f64;
             next_viscosities.clear();
-            let current_viscosities = problem.element_viscosities.as_ref()
+            let current_viscosities = problem
+                .element_viscosities
+                .as_ref()
                 .expect("element_viscosities set before Picard loop");
 
             for (i, cell) in problem.mesh.cells.iter().enumerate() {
@@ -273,12 +275,18 @@ impl<
                 next_viscosities.push(new_visc);
             }
 
-            element_viscosities = problem.element_viscosities.take()
+            element_viscosities = problem
+                .element_viscosities
+                .take()
                 .expect("element_viscosities set before Picard loop");
             std::mem::swap(&mut element_viscosities, &mut next_viscosities);
             last_solution = Some(updated_solution);
 
-            tracing::debug!(iter, visc_change = max_change_f64, "Serpentine Picard iteration");
+            tracing::debug!(
+                iter,
+                visc_change = max_change_f64,
+                "Serpentine Picard iteration"
+            );
             if max_change_f64 < self.config.nonlinear_tolerance.to_f64().unwrap_or(1e-4) {
                 break;
             }
@@ -301,15 +309,21 @@ impl<
             .expect("2π is an IEEE 754 representable f64 constant")
             / self.builder.wavelength;
         let kappa_max = self.builder.amplitude * k * k;
-        let rc = T::one() / Float::max(kappa_max, <T as FromPrimitive>::from_f64(1e-10)
-            .expect("1e-10 is an IEEE 754 representable f64 constant"));
+        let rc = T::one()
+            / Float::max(
+                kappa_max,
+                <T as FromPrimitive>::from_f64(1e-10)
+                    .expect("1e-10 is an IEEE 754 representable f64 constant"),
+            );
 
         let re =
             (fluid_props.density * u_inlet * self.builder.diameter) / fluid_props.dynamic_viscosity;
         solution.dean_number = re
             * Float::sqrt(
-                self.builder.diameter / (<T as FromPrimitive>::from_f64(2.0)
-                    .expect("2.0 is representable in all IEEE 754 types") * rc),
+                self.builder.diameter
+                    / (<T as FromPrimitive>::from_f64(2.0)
+                        .expect("2.0 is representable in all IEEE 754 types")
+                        * rc),
             );
 
         Ok(solution)

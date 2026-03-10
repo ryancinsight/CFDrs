@@ -1,0 +1,33 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "cargo-check-cfd-optim-tests",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"check",
+				"-p",
+				"cfd-optim",
+				"--tests",
+				"--no-default-features"
+			],
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "cargo-check-cfd-optim-tests-fresh",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"check",
+				"-p",
+				"cfd-optim",
+				"--tests",
+				"--no-default-features"
+			],
+			"isBackground": false,
+			"group": "build"
+		}
+	]
+}

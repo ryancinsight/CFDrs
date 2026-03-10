@@ -3,8 +3,6 @@
 //! All collision operators work on the flat distribution buffer
 //! with layout `f[j * nx * 9 + i * 9 + q]`.
 
-#![allow(dead_code)]
-
 use nalgebra::RealField;
 
 /// Trait for LBM collision operators operating on flat distribution buffers.
@@ -16,31 +14,11 @@ pub trait CollisionOperator<T: RealField + Copy>: Send + Sync {
     /// * `density`  - flat density slice, layout `density[j*nx + i]`
     /// * `velocity` - flat velocity slice, layout `velocity[(j*nx + i)*2 + d]`
     /// * `nx`, `ny` - grid dimensions
-    fn collide(
-        &self,
-        f: &mut Vec<T>,
-        density: &[T],
-        velocity: &[T],
-        nx: usize,
-        ny: usize,
-    );
+    fn collide(&self, f: &mut [T], density: &[T], velocity: &[T], nx: usize, ny: usize);
 
     /// Return the primary relaxation time τ.
     fn tau(&self) -> T;
 
     /// Return the kinematic viscosity ν = c_s²(τ − ½)Δt / Δx² · Δx².
     fn viscosity(&self, dt: T, dx: T) -> T;
-}
-
-/// Enumeration of available collision models.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum CollisionModel {
-    /// Single-relaxation-time BGK
-    Bgk,
-    /// Multiple-relaxation-time MRT (Lallemand & Luo 2000)
-    Mrt,
-    /// Regularized collision (Latt & Chopard 2006)
-    Regularized,
-    /// Two-relaxation-time TRT
-    Trt,
 }

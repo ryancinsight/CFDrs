@@ -183,9 +183,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Level
     /// Update narrow band indices based on current level set
     pub fn update_narrow_band(&mut self) {
         self.narrow_band.clear();
-        let band_width =
-            <T as FromPrimitive>::from_f64(self.config.band_width)
-                .expect("band_width config is an IEEE 754 representable f64");
+        let band_width = <T as FromPrimitive>::from_f64(self.config.band_width)
+            .expect("band_width config is an IEEE 754 representable f64");
 
         for idx in 0..self.phi.len() {
             if num_traits::Float::abs(self.phi[idx])
@@ -328,8 +327,9 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Level
 
         let dx_min = Float::min(Float::min(self.dx, self.dy), self.dz);
         // CFL-stable pseudo-time step for 3D: dtau ≤ dx/(2*dim) to stay below CFL=1.
-        let dtau = dx_min / <T as FromPrimitive>::from_f64(6.0)
-            .expect("6.0 is representable in all IEEE 754 types");
+        let dtau = dx_min
+            / <T as FromPrimitive>::from_f64(6.0)
+                .expect("6.0 is representable in all IEEE 754 types");
         let tol = <T as FromPrimitive>::from_f64(1e-6)
             .expect("1e-6 is an IEEE 754 representable f64 constant");
 
@@ -474,8 +474,8 @@ fn weno5_derivative<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitiv
     h: T,
     u: T,
 ) -> T {
-    let half = <T as FromPrimitive>::from_f64(0.5)
-        .expect("0.5 is exactly representable in IEEE 754");
+    let half =
+        <T as FromPrimitive>::from_f64(0.5).expect("0.5 is exactly representable in IEEE 754");
 
     // Left-biased derivative D⁻φ_i = (φ̂⁻_{i+½} - φ̂⁻_{i-½}) / h
     // φ̂⁻_{i+½} from {v[1]..v[5]} = {φ_{i-2},..,φ_{i+2}}
@@ -541,12 +541,9 @@ fn weno5_reconstruct_left<T: cfd_mesh::domain::core::Scalar + RealField + FromPr
         b0,
         b1,
         b2,
-        <T as FromPrimitive>::from_f64(0.1)
-            .expect("0.1 is an IEEE 754 representable f64 constant"),
-        <T as FromPrimitive>::from_f64(0.6)
-            .expect("0.6 is an IEEE 754 representable f64 constant"),
-        <T as FromPrimitive>::from_f64(0.3)
-            .expect("0.3 is an IEEE 754 representable f64 constant"),
+        <T as FromPrimitive>::from_f64(0.1).expect("0.1 is an IEEE 754 representable f64 constant"),
+        <T as FromPrimitive>::from_f64(0.6).expect("0.6 is an IEEE 754 representable f64 constant"),
+        <T as FromPrimitive>::from_f64(0.3).expect("0.3 is an IEEE 754 representable f64 constant"),
         eps,
     );
 
@@ -591,8 +588,8 @@ fn smoothness_indicator<T: cfd_mesh::domain::core::Scalar + RealField + FromPrim
 ) -> T {
     let thirteen_over_twelve = <T as FromPrimitive>::from_f64(13.0 / 12.0)
         .expect("13/12 is an IEEE 754 representable f64 constant");
-    let quarter = <T as FromPrimitive>::from_f64(0.25)
-        .expect("0.25 is exactly representable in IEEE 754");
+    let quarter =
+        <T as FromPrimitive>::from_f64(0.25).expect("0.25 is exactly representable in IEEE 754");
     let two = T::one() + T::one();
 
     let diff1 = v0 - two * v1 + v2; // ≈ h² φ''

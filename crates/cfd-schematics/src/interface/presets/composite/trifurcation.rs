@@ -1,4 +1,5 @@
 //! Trifurcation-based composite presets: symmetric 3-branch topologies.
+#![allow(deprecated)] // NetworkBlueprint::new() used intentionally; nodes are created with NodeSpec::new_at().
 
 use super::{shah_london, BLOOD_MU};
 use crate::domain::model::{ChannelShape, ChannelSpec, NetworkBlueprint, NodeKind, NodeSpec};
@@ -98,6 +99,7 @@ pub fn trifurcation_venturi_rect(
                 divergent_half_angle_deg: ((main_width_m - throat_width_m).abs() * 0.5)
                     .atan2(l_taper)
                     .to_degrees(),
+                throat_position: 0.5,
             })
             .with_metadata(VenturiGeometryMetadata {
                 throat_width_m,
@@ -111,6 +113,7 @@ pub fn trifurcation_venturi_rect(
                 divergent_half_angle_deg: ((main_width_m - throat_width_m).abs() * 0.5)
                     .atan2(l_taper)
                     .to_degrees(),
+                throat_position: 0.5,
             }),
         );
         bp.add_channel(

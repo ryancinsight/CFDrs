@@ -5,7 +5,7 @@ use cfd_core::physics::fluid::database::water_20c;
 use proptest::prelude::*;
 
 fn water() -> cfd_core::physics::fluid::ConstantPropertyFluid<f64> {
-    water_20c::<f64>().unwrap()
+    water_20c::<f64>().expect("test invariant")
 }
 
 // Property: Hagen-Poiseuille resistance is strictly monotonic with length
@@ -146,7 +146,7 @@ proptest! {
         // And a second parallel pipe to test branching KCL
         builder.connect_with_pipe(n_split, n_out, "pipe3".into());
 
-        let mut graph = builder.build().unwrap();
+        let mut graph = builder.build().expect("test invariant");
 
         // Define resistances dynamically
         let r1 = CircularChannel::new(0.01, 0.001, 0.0).resistance(&fluid);
@@ -165,7 +165,7 @@ proptest! {
 
         let problem = NetworkProblem::new(network);
         let solver = NetworkSolver::new();
-        let solved = solver.solve_network(&problem).unwrap();
+        let solved = solver.solve_network(&problem).expect("test invariant");
 
         // We know edges[0] is in->split, edges[1,2] is split->out
         // Flow = (P_source - P_target) / R
@@ -173,8 +173,8 @@ proptest! {
         let mut flow_out = 0.0;
 
         for edge_idx in edges {
-            let e = solved.graph.edge_weight(edge_idx).unwrap();
-            let (src, tgt) = solved.graph.edge_endpoints(edge_idx).unwrap();
+            let e = solved.graph.edge_weight(edge_idx).expect("test invariant");
+            let (src, tgt) = solved.graph.edge_endpoints(edge_idx).expect("test invariant");
             let p_src = solved.pressures().get(&src).copied().unwrap_or(0.0);
             let p_tgt = solved.pressures().get(&tgt).copied().unwrap_or(0.0);
             let q = (p_src - p_tgt) / e.resistance;

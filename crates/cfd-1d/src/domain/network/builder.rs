@@ -1,8 +1,8 @@
 //! Network builder for constructing fluid networks
 
 use super::{
-    junction_losses::apply_blueprint_junction_losses, Edge, EdgeProperties, EdgeType, NetworkGraph,
-    Node, NodeType,
+    blueprint_validation::validate_blueprint_for_1d_solve, junction_losses::apply_blueprint_junction_losses, Edge,
+    EdgeProperties, EdgeType, NetworkGraph, Node, NodeType,
 };
 use cfd_core::error::Result;
 use cfd_schematics::domain::model::{ChannelShape, NetworkBlueprint};
@@ -43,6 +43,8 @@ where
     T: RealField + Copy + FromPrimitive,
     F: FluidTrait<T> + Clone,
 {
+    validate_blueprint_for_1d_solve(blueprint)?;
+
     use crate::domain::channel::{
         ChannelGeometry, ChannelType, CrossSection, SurfaceProperties, Wettability,
     };
@@ -50,7 +52,7 @@ where
         ChannelGeometry as ResGeometry, FlowConditions, ResistanceCalculator,
     };
     use cfd_schematics::domain::model::CrossSectionSpec;
-    use cfd_schematics::geometry::metadata::VenturiGeometryMetadata;
+    use cfd_schematics::geometry::metadata::{ChannelVenturiSpec, VenturiGeometryMetadata};
 
     if blueprint.nodes.is_empty() {
         return Err(cfd_core::error::Error::InvalidConfiguration(
@@ -63,9 +65,31 @@ where
         ));
     }
 
+    let mut node_degree: HashMap<&str, usize> = HashMap::with_capacity(blueprint.nodes.len());
+    for channel in &blueprint.channels {
+        *node_degree.entry(channel.from.as_str()).or_default() += 1;
+        *node_degree.entry(channel.to.as_str()).or_default() += 1;
+    }
+    let expects_explicit_junction_geometry = blueprint
+        .nodes
+        .iter()
+        .any(|node| node.junction_geometry.is_some());
+    if expects_explicit_junction_geometry {
+        for node in &blueprint.nodes {
+            let degree = node_degree.get(node.id.as_str()).copied().unwrap_or(0);
+            if degree >= 3 && node.junction_geometry.is_none() {
+                return Err(cfd_core::error::Error::InvalidConfiguration(format!(
+                    "Branching node '{}' is missing explicit junction metadata",
+                    node.id.as_str()
+                )));
+            }
+        }
+    }
+
     let mut builder = NetworkBuilder::<T>::new();
-    // Map NodeId string → petgraph NodeIndex
-    let mut node_map: HashMap<String, petgraph::graph::NodeIndex> = HashMap::new();
+    // Map NodeId string → petgraph NodeIndex (pre-sized to avoid rehashes)
+    let mut node_map: HashMap<String, petgraph::graph::NodeIndex> =
+        HashMap::with_capacity(blueprint.nodes.len());
 
     for node_spec in &blueprint.nodes {
         let node = Node::new(node_spec.id.as_str().to_string(), node_spec.kind);
@@ -80,6 +104,25 @@ where
     )> = Vec::new();
 
     for ch_spec in &blueprint.channels {
+        let serial_venturi_throats = ch_spec
+            .metadata
+            .as_ref()
+            .and_then(|meta| meta.get::<ChannelVenturiSpec>())
+            .map_or(0, |spec| spec.n_throats);
+        if serial_venturi_throats > 0
+            && ch_spec.venturi_geometry.is_none()
+            && ch_spec
+                .metadata
+                .as_ref()
+                .and_then(|meta| meta.get::<VenturiGeometryMetadata>())
+                .is_none()
+        {
+            return Err(cfd_core::error::Error::InvalidConfiguration(format!(
+                "Channel '{}' declares venturi throats but has no explicit venturi geometry",
+                ch_spec.id.as_str()
+            )));
+        }
+
         let from_id = ch_spec.from.as_str();
         let to_id = ch_spec.to.as_str();
 
@@ -388,6 +431,22 @@ where
                     edge.quad_coeff = k_seg;
                 }
             }
+        }
+    }
+
+    for edge_ref in network.graph.edge_references() {
+        let edge = edge_ref.weight();
+        if !edge.resistance.is_finite() || edge.resistance <= T::zero() {
+            return Err(cfd_core::error::Error::InvalidConfiguration(format!(
+                "Edge '{}' has invalid effective linear resistance after refinement",
+                edge.id
+            )));
+        }
+        if !edge.quad_coeff.is_finite() || edge.quad_coeff < T::zero() {
+            return Err(cfd_core::error::Error::InvalidConfiguration(format!(
+                "Edge '{}' has invalid effective quadratic coefficient after refinement",
+                edge.id
+            )));
         }
     }
 

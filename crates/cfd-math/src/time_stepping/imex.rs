@@ -187,9 +187,13 @@ impl<T: RealField + Copy> IMEXTimeStepper<T> {
     /// Ascher, U. M., Ruuth, S. J., & Wetton, B. T. (1997). Implicit-explicit methods
     /// for time-dependent PDEs. SIAM Journal on Numerical Analysis, 32(3), 797-823.
     pub fn ars343() -> Self {
-        let gamma = (T::from_f64(3.0).unwrap_or_else(num_traits::Zero::zero) + T::from_f64(3.0).unwrap_or_else(num_traits::Zero::zero).sqrt())
+        let gamma = (T::from_f64(3.0).unwrap_or_else(num_traits::Zero::zero)
+            + T::from_f64(3.0)
+                .unwrap_or_else(num_traits::Zero::zero)
+                .sqrt())
             / T::from_f64(6.0).unwrap_or_else(num_traits::Zero::zero);
-        let delta = T::one() - T::one() / (T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero) * gamma);
+        let delta =
+            T::one() - T::one() / (T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero) * gamma);
 
         let c = vec![T::zero(), gamma, T::one()];
 
@@ -202,9 +206,12 @@ impl<T: RealField + Copy> IMEXTimeStepper<T> {
 
         // Implicit tableau (strictly lower part)
         let implicit_a = vec![
-            vec![],                                                        // Stage 0
-            vec![T::zero()],                                               // Stage 1
-            vec![T::zero(), T::one() - T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero) * gamma], // Stage 2
+            vec![],          // Stage 0
+            vec![T::zero()], // Stage 1
+            vec![
+                T::zero(),
+                T::one() - T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero) * gamma,
+            ], // Stage 2
         ];
 
         // Implicit diagonals
@@ -234,12 +241,6 @@ impl<T: RealField + Copy> IMEXTimeStepper<T> {
             c,
             _phantom: std::marker::PhantomData,
         }
-    }
-
-    /// Alias for backward compatibility (maps to ars343 for now)
-    /// Warning: Original ARK436L2SA implementation was unstable.
-    pub fn ark436l2sa() -> Self {
-        Self::ars343()
     }
 
     /// Take an IMEX step with proper implicit solving

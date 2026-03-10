@@ -1,11 +1,16 @@
-use super::super::types::{centerline_for_channel, Channel, ChannelSystem, ChannelType, Node, Point2D, SplitType};
-use crate::config::{ChannelTypeConfig, GeometryConfig, TaperProfile};
-use crate::domain::model::{ChannelShape, NodeKind};
+use super::super::types::{Point2D, SplitType};
+use crate::config::{ChannelTypeConfig, GeometryConfig};
+use crate::domain::model::{ChannelShape, ChannelSpec, NetworkBlueprint, NodeKind, NodeSpec};
 use crate::domain::therapy_metadata::TherapyZone;
 use crate::geometry::metadata::{
-    ChannelVenturiSpec, ChannelVisualRole, JunctionFamily, JunctionGeometryMetadata,
-    MetadataContainer, VenturiGeometryMetadata,
+    BlueprintRenderHints, ChannelVenturiSpec, ChannelVisualRole, GeometryAuthoringProvenance,
+    IncrementalFiltrationParams, JunctionFamily, JunctionGeometryMetadata, MetadataContainer,
+    VenturiGeometryMetadata,
 };
+use crate::topology::{
+    BlueprintTopologyFactory, BlueprintTopologySpec, SplitKind, TreatmentActuationMode,
+};
+use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -14,13 +19,24 @@ pub struct CenterSerpentinePathSpec {
     pub bend_radius_m: f64,
 }
 
+use crate::geometry::builders::ChannelExt;
+
+#[derive(Debug, Clone, Copy)]
+struct PendingVenturiPath {
+    channel_idx: usize,
+    start: Option<Point2D>,
+    end: Option<Point2D>,
+    preferred_y: f64,
+    fallback_length_m: f64,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum SelectiveTreeTopology {
     CascadeCenterTrifurcation {
         n_levels: usize,
         center_frac: f64,
         venturi_treatment_enabled: bool,
-        center_serpentine: Option<CenterSerpentinePathSpec>,
+        center_serpentine: Option<super::selective::CenterSerpentinePathSpec>,
     },
     IncrementalFiltrationTriBi {
         n_pretri: usize,
@@ -28,7 +44,7 @@ pub enum SelectiveTreeTopology {
         terminal_tri_center_frac: f64,
         bi_treat_frac: f64,
         venturi_treatment_enabled: bool,
-        center_serpentine: Option<CenterSerpentinePathSpec>,
+        center_serpentine: Option<super::selective::CenterSerpentinePathSpec>,
         outlet_tail_length_m: f64,
     },
     TriBiTriSelective {
@@ -58,8 +74,8 @@ pub struct SelectiveTreeRequest {
     pub topology: SelectiveTreeTopology,
 }
 
-pub fn create_selective_tree_geometry(request: &SelectiveTreeRequest) -> ChannelSystem {
-    let mut builder = SelectiveTreeBuilder::new(request.box_dims_mm);
+pub fn create_selective_tree_geometry(request: &SelectiveTreeRequest) -> NetworkBlueprint {
+    let mut builder = SelectiveTreeBuilder::new(request.name.clone(), request.box_dims_mm);
     match &request.topology {
         SelectiveTreeTopology::CascadeCenterTrifurcation {
             n_levels,
@@ -95,7 +111,12 @@ pub fn create_selective_tree_geometry(request: &SelectiveTreeRequest) -> Channel
             first_center_frac,
             bi_treat_frac,
             second_center_frac,
-        } => builder.build_tbt(*first_center_frac, *bi_treat_frac, *second_center_frac, request),
+        } => builder.build_tbt(
+            *first_center_frac,
+            *bi_treat_frac,
+            *second_center_frac,
+            request,
+        ),
         SelectiveTreeTopology::DoubleTrifurcationCif {
             split1_center_frac,
             split2_center_frac,
@@ -113,43 +134,64 @@ pub fn create_selective_tree_geometry(request: &SelectiveTreeRequest) -> Channel
 }
 
 struct SelectiveTreeBuilder {
+    name: String,
     box_dims: (f64, f64),
-    nodes: Vec<Node>,
-    channels: Vec<Channel>,
-    node_ids: HashMap<String, usize>,
+    nodes: Vec<NodeSpec>,
+    channels: Vec<ChannelSpec>,
+    node_ids: HashMap<String, crate::domain::model::NodeId>,
 }
 
 impl SelectiveTreeBuilder {
-    fn new(box_dims: (f64, f64)) -> Self {
-        Self { box_dims, nodes: Vec::new(), channels: Vec::new(), node_ids: HashMap::new() }
-    }
-
-    fn finish(self) -> ChannelSystem {
-        let (w, h) = self.box_dims;
-        ChannelSystem {
-            box_dims: self.box_dims,
-            nodes: self.nodes,
-            channels: self.channels,
-            box_outline: vec![((0.0, 0.0), (w, 0.0)), ((w, 0.0), (w, h)), ((w, h), (0.0, h)), ((0.0, h), (0.0, 0.0))],
+    fn new(name: String, box_dims: (f64, f64)) -> Self {
+        Self {
+            name,
+            box_dims,
+            nodes: Vec::new(),
+            channels: Vec::new(),
+            node_ids: HashMap::new(),
         }
     }
 
-    fn add_node(&mut self, name: &str, point: Point2D, kind: NodeKind, family: Option<JunctionFamily>) {
-        let junction_geometry = family.map(|junction_family| JunctionGeometryMetadata {
-            junction_family,
-            branch_angles_deg: Vec::new(),
-            merge_angles_deg: Vec::new(),
-        });
-        let id = self.nodes.len();
-        self.nodes.push(Node {
-            id,
-            name: Some(name.to_string()),
-            point,
-            kind: Some(kind),
-            junction_geometry,
+    fn finish(self) -> NetworkBlueprint {
+        let (w, h) = self.box_dims;
+        let mut blueprint = NetworkBlueprint {
+            name: self.name,
+            box_dims: self.box_dims,
+            nodes: self.nodes,
+            channels: self.channels,
+            render_hints: None,
+            box_outline: vec![
+                ((0.0, 0.0), (w, 0.0)),
+                ((w, 0.0), (w, h)),
+                ((w, h), (0.0, h)),
+                ((0.0, h), (0.0, 0.0)),
+            ],
+            topology: None,
+            lineage: None,
             metadata: None,
-        });
-        self.node_ids.insert(name.to_string(), id);
+        };
+        blueprint.insert_metadata(GeometryAuthoringProvenance::selective_wrapper());
+        blueprint
+    }
+
+    fn add_node(
+        &mut self,
+        name: &str,
+        point: Point2D,
+        kind: NodeKind,
+        family: Option<JunctionFamily>,
+    ) {
+        let mut node = NodeSpec::new_at(name, kind, point);
+        if let Some(junction_family) = family {
+            node.junction_geometry = Some(crate::geometry::metadata::JunctionGeometryMetadata {
+                junction_family,
+                branch_angles_deg: Vec::new(),
+                merge_angles_deg: Vec::new(),
+            });
+        }
+        let id_str = node.id.clone();
+        self.nodes.push(node);
+        self.node_ids.insert(name.to_string(), id_str);
     }
 
     fn add_channel(
@@ -162,209 +204,989 @@ impl SelectiveTreeBuilder {
         length_m: f64,
         height_m: f64,
         role: ChannelVisualRole,
-        zone: TherapyZone,
+        zone: crate::domain::therapy_metadata::TherapyZone,
         shape: Option<ChannelShape>,
         venturi: Option<VenturiGeometryMetadata>,
     ) {
-        let render_width_mm = (width_m * 1e3).clamp(0.20, 3.0);
-        let path_len = path.len();
-        let inlet_render = (venturi.as_ref().map_or(width_m, |v| v.inlet_width_m) * 1e3).clamp(0.20, 3.0);
-        let throat_render = (venturi.as_ref().map_or(width_m, |v| v.throat_width_m) * 1e3).clamp(0.12, 2.0);
-        let outlet_render = (venturi.as_ref().map_or(width_m, |v| v.outlet_width_m) * 1e3).clamp(0.20, 3.0);
-        let channel_type = if let Some(venturi_geometry) = &venturi {
-            let throat_idx = path_len / 2;
-            let widths = (0..path_len)
-                .map(|idx| if idx < throat_idx { inlet_render } else if idx == throat_idx { throat_render } else { outlet_render })
-                .collect();
-            ChannelType::Frustum {
-                path,
-                widths,
-                inlet_width: inlet_render,
-                throat_width: throat_render,
-                outlet_width: outlet_render,
-                taper_profile: crate::config::TaperProfile::Smooth,
-                throat_position: 0.5,
-                has_venturi_throat: venturi_geometry.throat_width_m > 0.0,
-            }
-        } else if matches!(shape, Some(ChannelShape::Serpentine { .. })) {
-            ChannelType::Serpentine { path }
-        } else if path_len > 2 {
-            ChannelType::SmoothStraight { path }
+        let final_length_m = if path.len() >= 2 {
+            polyline_length_mm(&path) * 1.0e-3
         } else {
-            ChannelType::Straight
+            length_m
         };
-        let mut metadata = MetadataContainer::new();
-        if let Some(venturi_geometry) = &venturi {
-            metadata.insert(venturi_geometry.clone());
-        }
-        self.channels.push(Channel {
-            id: self.channels.len(),
-            name: Some(name.to_string()),
-            from_node: self.node_ids[from],
-            to_node: self.node_ids[to],
-            width: render_width_mm,
-            height: (height_m * 1e3).clamp(0.20, 3.0),
-            channel_type,
-            visual_role: Some(role),
-            physical_length_m: Some(length_m),
-            physical_width_m: Some(width_m),
-            physical_height_m: Some(height_m),
-            physical_shape: shape,
-            therapy_zone: Some(zone),
-            venturi_geometry: venturi,
-            metadata: if metadata.is_empty() { None } else { Some(metadata) },
-        });
+        let final_shape = match shape {
+            Some(ChannelShape::Serpentine { .. }) => path
+                .first()
+                .zip(path.last())
+                .map_or(ChannelShape::Straight, |(start, end)| {
+                    infer_serpentine_shape(&path, *start, *end, width_m * 1.0e3)
+                }),
+            Some(other) => other,
+            None => ChannelShape::Straight,
+        };
+
+        let mut ch = ChannelSpec::new_pipe_rect(
+            name,
+            self.node_ids[from].0.clone(),
+            self.node_ids[to].0.clone(),
+            final_length_m,
+            width_m,
+            height_m,
+            0.0,
+            0.0,
+        );
+        ch.path = path;
+        ch.channel_shape = final_shape;
+        ch.visual_role = Some(role);
+        ch.therapy_zone = Some(zone);
+        ch.venturi_geometry = venturi;
+        self.channels.push(ch);
     }
 
-    fn y_mid(&self) -> f64 { self.box_dims.1 * 0.5 }
-    fn leaf_triplet(&self, center_y: f64, gap: f64) -> [f64; 3] { [center_y - gap, center_y, center_y + gap] }
-    fn serpentine_path(&self, start: Point2D, end: Point2D, segments: usize, amplitude_mm: f64) -> Vec<Point2D> {
-        let mut path = vec![start];
-        for idx in 1..segments {
-            let t = idx as f64 / segments as f64;
-            let x = start.0 + (end.0 - start.0) * t;
-            let y = start.1 + if idx % 2 == 0 { amplitude_mm } else { -amplitude_mm };
-            path.push((x, y));
-        }
-        path.push(end);
-        path
+    fn y_mid(&self) -> f64 {
+        self.box_dims.1 * 0.5
+    }
+    fn leaf_triplet(&self, center_y: f64, gap: f64) -> [f64; 3] {
+        [center_y - gap, center_y, center_y + gap]
+    }
+    fn serpentine_path(
+        &self,
+        start: Point2D,
+        end: Point2D,
+        width_m: f64,
+        spec: CenterSerpentinePathSpec,
+        amplitude_mm: f64,
+    ) -> Vec<Point2D> {
+        build_serpentine_lobe_path(start, end, width_m, spec, amplitude_mm)
     }
 
-    fn build_cct(&mut self, n_levels: usize, center_frac: f64, venturi: bool, center_serp: Option<CenterSerpentinePathSpec>, req: &SelectiveTreeRequest) {
+    fn build_cct(
+        &mut self,
+        n_levels: usize,
+        center_frac: f64,
+        venturi: bool,
+        center_serp: Option<super::selective::CenterSerpentinePathSpec>,
+        req: &SelectiveTreeRequest,
+    ) {
+        use crate::domain::therapy_metadata::TherapyZone;
         let y_mid = self.y_mid();
         self.add_node("inlet", (0.0, y_mid), NodeKind::Inlet, None);
-        self.add_node("periph_merge", (104.0, y_mid), NodeKind::Junction, Some(JunctionFamily::Merge));
-        self.add_node("outlet_merge", (116.0, y_mid), NodeKind::Junction, Some(JunctionFamily::Merge));
+        self.add_node(
+            "periph_merge",
+            (104.0, y_mid),
+            NodeKind::Junction,
+            Some(JunctionFamily::Merge),
+        );
+        self.add_node(
+            "outlet_merge",
+            (116.0, y_mid),
+            NodeKind::Junction,
+            Some(JunctionFamily::Merge),
+        );
         self.add_node("throat_in", (68.0, y_mid), NodeKind::Junction, None);
         self.add_node("throat_out", (76.0, y_mid), NodeKind::Junction, None);
         self.add_node("outlet", (self.box_dims.0, y_mid), NodeKind::Outlet, None);
-        for lv in 0..n_levels { self.add_node(&format!("split_lv{lv}"), (18.0 + lv as f64 * 12.0, y_mid), NodeKind::Junction, Some(JunctionFamily::Trifurcation)); }
-        self.add_channel("inlet_section", "inlet", "split_lv0", vec![(0.0, y_mid), (18.0, y_mid)], req.main_width_m, req.trunk_length_m, req.channel_height_m, ChannelVisualRole::Trunk, TherapyZone::MixedFlow, None, None);
+        for lv in 0..n_levels {
+            self.add_node(
+                &format!("split_lv{lv}"),
+                (18.0 + lv as f64 * 12.0, y_mid),
+                NodeKind::Junction,
+                Some(JunctionFamily::Trifurcation),
+            );
+        }
+        self.add_channel(
+            "inlet_section",
+            "inlet",
+            "split_lv0",
+            vec![(0.0, y_mid), (18.0, y_mid)],
+            req.main_width_m,
+            0.0,
+            req.channel_height_m,
+            ChannelVisualRole::Trunk,
+            TherapyZone::MixedFlow,
+            None,
+            None,
+        );
         let mut center_width = req.main_width_m;
         let side_frac = (1.0 - center_frac) * 0.5;
         for lv in 0..n_levels {
             let split = format!("split_lv{lv}");
-            let next = if lv + 1 < n_levels { format!("split_lv{}", lv + 1) } else { "throat_in".to_string() };
+            let next = if lv + 1 < n_levels {
+                format!("split_lv{}", lv + 1)
+            } else {
+                "throat_in".to_string()
+            };
             let off = 12.0 + 5.0 * (n_levels.saturating_sub(lv + 1)) as f64;
             let side_w = (center_width * side_frac).max(req.throat_width_m);
             let ctr_w = (center_width * center_frac).max(req.throat_width_m);
             for (id, y) in [("L", y_mid - off), ("R", y_mid + off)] {
-                self.add_channel(&format!("{id}_lv{lv}"), &split, "periph_merge", vec![self.nodes[self.node_ids[&split]].point, (34.0 + lv as f64 * 10.0, y), (90.0, y), (104.0, y_mid)], side_w, req.branch_length_m, req.channel_height_m, ChannelVisualRole::PeripheralBypass, TherapyZone::HealthyBypass, None, None);
+                let start_pt = self
+                    .nodes
+                    .iter()
+                    .find(|n| n.id == self.node_ids[&split])
+                    .unwrap()
+                    .point;
+                self.add_channel(
+                    &format!("{id}_lv{lv}"),
+                    &split,
+                    "periph_merge",
+                    vec![
+                        start_pt,
+                        (34.0 + lv as f64 * 10.0, y),
+                        (90.0, y),
+                        (104.0, y_mid),
+                    ],
+                    side_w,
+                    0.0,
+                    req.channel_height_m,
+                    ChannelVisualRole::PeripheralBypass,
+                    TherapyZone::HealthyBypass,
+                    None,
+                    None,
+                );
             }
-            let start = self.nodes[self.node_ids[&split]].point;
-            let end = self.nodes[self.node_ids[&next]].point;
-            let path = if center_serp.is_some() { self.serpentine_path(start, end, center_serp.unwrap().segments.max(3), 1.6) } else { vec![start, end] };
-            self.add_channel(&format!("center_lv{lv}"), &split, &next, path, ctr_w, req.branch_length_m, req.channel_height_m, ChannelVisualRole::CenterTreatment, TherapyZone::CancerTarget, center_serp.map(|s| ChannelShape::Serpentine { segments: s.segments, bend_radius_m: s.bend_radius_m }), None);
+            let start = self
+                .nodes
+                .iter()
+                .find(|n| n.id == self.node_ids[&split])
+                .unwrap()
+                .point;
+            let end = self
+                .nodes
+                .iter()
+                .find(|n| n.id == self.node_ids[&next])
+                .unwrap()
+                .point;
+            let path = if let Some(spec) = center_serp {
+                self.serpentine_path(start, end, ctr_w, spec, 1.6)
+            } else {
+                vec![start, end]
+            };
+            self.add_channel(
+                &format!("center_lv{lv}"),
+                &split,
+                &next,
+                path,
+                ctr_w,
+                0.0,
+                req.channel_height_m,
+                ChannelVisualRole::CenterTreatment,
+                TherapyZone::CancerTarget,
+                center_serp.map(|_| ChannelShape::Serpentine {
+                    segments: 2,
+                    bend_radius_m: 0.0,
+                }),
+                None,
+            );
             center_width = ctr_w;
         }
-        let zone = if venturi { TherapyZone::CancerTarget } else { TherapyZone::CancerTarget };
+        let zone = TherapyZone::CancerTarget;
         if venturi {
-            self.add_channel("throat_section", "throat_in", "throat_out", vec![(68.0, y_mid), (72.0, y_mid), (76.0, y_mid)], req.throat_width_m, req.throat_length_m, req.channel_height_m, ChannelVisualRole::VenturiThroat, zone, None, Some(VenturiGeometryMetadata { throat_width_m: req.throat_width_m, throat_height_m: req.channel_height_m, throat_length_m: req.throat_length_m, inlet_width_m: center_width, outlet_width_m: center_width, convergent_half_angle_deg: 15.0, divergent_half_angle_deg: 15.0 }));
+            self.add_channel(
+                "throat_section",
+                "throat_in",
+                "throat_out",
+                vec![(68.0, y_mid), (72.0, y_mid), (76.0, y_mid)],
+                req.throat_width_m,
+                req.throat_length_m,
+                req.channel_height_m,
+                ChannelVisualRole::VenturiThroat,
+                zone,
+                None,
+                Some(VenturiGeometryMetadata {
+                    throat_width_m: req.throat_width_m,
+                    throat_height_m: req.channel_height_m,
+                    throat_length_m: req.throat_length_m,
+                    inlet_width_m: center_width,
+                    outlet_width_m: center_width,
+                    convergent_half_angle_deg: 15.0,
+                    divergent_half_angle_deg: 15.0,
+                    throat_position: 0.5,
+                }),
+            );
         } else {
-            let path = if let Some(spec) = center_serp { self.serpentine_path((68.0, y_mid), (76.0, y_mid), spec.segments.max(3), 1.5) } else { vec![(68.0, y_mid), (76.0, y_mid)] };
-            self.add_channel("treatment_section", "throat_in", "throat_out", path, center_width, req.branch_length_m.max(req.throat_length_m), req.channel_height_m, ChannelVisualRole::CenterTreatment, zone, center_serp.map(|s| ChannelShape::Serpentine { segments: s.segments, bend_radius_m: s.bend_radius_m }), None);
+            let path = if let Some(spec) = center_serp {
+                self.serpentine_path((68.0, y_mid), (76.0, y_mid), center_width, spec, 1.5)
+            } else {
+                vec![(68.0, y_mid), (76.0, y_mid)]
+            };
+            self.add_channel(
+                "treatment_section",
+                "throat_in",
+                "throat_out",
+                path,
+                center_width,
+                req.branch_length_m.max(req.throat_length_m),
+                req.channel_height_m,
+                ChannelVisualRole::CenterTreatment,
+                zone,
+                center_serp.map(|_| ChannelShape::Serpentine {
+                    segments: 2,
+                    bend_radius_m: 0.0,
+                }),
+                None,
+            );
         }
-        self.add_channel("center_to_merge", "throat_out", "outlet_merge", vec![(76.0, y_mid), (116.0, y_mid)], center_width, req.branch_length_m, req.channel_height_m, ChannelVisualRole::MergeCollector, TherapyZone::MixedFlow, None, None);
-        self.add_channel("periph_to_merge", "periph_merge", "outlet_merge", vec![(104.0, y_mid), (116.0, y_mid)], req.main_width_m, req.trunk_length_m, req.channel_height_m, ChannelVisualRole::MergeCollector, TherapyZone::HealthyBypass, None, None);
-        self.add_channel("trunk_out", "outlet_merge", "outlet", vec![(116.0, y_mid), (self.box_dims.0, y_mid)], req.main_width_m, req.trunk_length_m, req.channel_height_m, ChannelVisualRole::Trunk, TherapyZone::MixedFlow, None, None);
+        self.add_channel(
+            "center_to_merge",
+            "throat_out",
+            "outlet_merge",
+            vec![(76.0, y_mid), (116.0, y_mid)],
+            center_width,
+            req.branch_length_m,
+            req.channel_height_m,
+            ChannelVisualRole::MergeCollector,
+            TherapyZone::MixedFlow,
+            None,
+            None,
+        );
+        self.add_channel(
+            "periph_to_merge",
+            "periph_merge",
+            "outlet_merge",
+            vec![(104.0, y_mid), (116.0, y_mid)],
+            req.main_width_m,
+            req.trunk_length_m,
+            req.channel_height_m,
+            ChannelVisualRole::MergeCollector,
+            TherapyZone::HealthyBypass,
+            None,
+            None,
+        );
+        self.add_channel(
+            "trunk_out",
+            "outlet_merge",
+            "outlet",
+            vec![(self.box_dims.0, y_mid)],
+            req.main_width_m,
+            req.trunk_length_m,
+            req.channel_height_m,
+            ChannelVisualRole::Trunk,
+            TherapyZone::MixedFlow,
+            None,
+            None,
+        );
     }
 
-    fn build_cif(&mut self, n_pretri: usize, pretri_center_frac: f64, terminal_tri_center_frac: f64, bi_treat_frac: f64, venturi: bool, center_serp: Option<CenterSerpentinePathSpec>, outlet_tail_length_m: f64, req: &SelectiveTreeRequest) {
+    fn build_cif(
+        &mut self,
+        n_pretri: usize,
+        pretri_center_frac: f64,
+        terminal_tri_center_frac: f64,
+        bi_treat_frac: f64,
+        venturi: bool,
+        center_serp: Option<super::selective::CenterSerpentinePathSpec>,
+        outlet_tail_length_m: f64,
+        req: &SelectiveTreeRequest,
+    ) {
+        use crate::domain::therapy_metadata::TherapyZone;
         let y_mid = self.y_mid();
-        for (name, x, kind, family) in [("inlet", 0.0, NodeKind::Inlet, None), ("periph_merge", 104.0, NodeKind::Junction, Some(JunctionFamily::Merge)), ("outlet_merge", 116.0, NodeKind::Junction, Some(JunctionFamily::Merge)), ("hy_tri", 52.0, NodeKind::Junction, Some(JunctionFamily::Trifurcation)), ("hy_bi", 64.0, NodeKind::Junction, Some(JunctionFamily::Bifurcation)), ("throat_in", 72.0, NodeKind::Junction, None), ("throat_out", 80.0, NodeKind::Junction, None), ("outlet", self.box_dims.0, NodeKind::Outlet, None)] { self.add_node(name, (x, y_mid), kind, family); }
-        for lv in 0..n_pretri { self.add_node(&format!("split_lv{lv}"), (18.0 + lv as f64 * 11.0, y_mid), NodeKind::Junction, Some(JunctionFamily::Trifurcation)); }
-        self.add_channel("inlet_section", "inlet", "split_lv0", vec![(0.0, y_mid), (18.0, y_mid)], req.main_width_m, req.trunk_length_m, req.channel_height_m, ChannelVisualRole::Trunk, TherapyZone::MixedFlow, None, None);
+        for (name, x, kind, family) in [
+            ("inlet", 0.0, NodeKind::Inlet, None),
+            (
+                "periph_merge",
+                104.0,
+                NodeKind::Junction,
+                Some(JunctionFamily::Merge),
+            ),
+            (
+                "outlet_merge",
+                116.0,
+                NodeKind::Junction,
+                Some(JunctionFamily::Merge),
+            ),
+            (
+                "hy_tri",
+                52.0,
+                NodeKind::Junction,
+                Some(JunctionFamily::Trifurcation),
+            ),
+            (
+                "hy_bi",
+                64.0,
+                NodeKind::Junction,
+                Some(JunctionFamily::Bifurcation),
+            ),
+            ("throat_in", 72.0, NodeKind::Junction, None),
+            ("throat_out", 80.0, NodeKind::Junction, None),
+            ("outlet", self.box_dims.0, NodeKind::Outlet, None),
+        ] {
+            self.add_node(name, (x, y_mid), kind, family);
+        }
+        for lv in 0..n_pretri {
+            self.add_node(
+                &format!("split_lv{lv}"),
+                (18.0 + lv as f64 * 11.0, y_mid),
+                NodeKind::Junction,
+                Some(JunctionFamily::Trifurcation),
+            );
+        }
+        self.add_channel(
+            "inlet_section",
+            "inlet",
+            "split_lv0",
+            vec![(0.0, y_mid), (18.0, y_mid)],
+            req.main_width_m,
+            0.0,
+            req.channel_height_m,
+            ChannelVisualRole::Trunk,
+            TherapyZone::MixedFlow,
+            None,
+            None,
+        );
+
+        if let Some(ch) = self.channels.last_mut() {
+            ch.add_metadata(IncrementalFiltrationParams {
+                n_pretri: n_pretri as u8,
+                pretri_center_frac,
+                terminal_tri_center_frac,
+                bi_treat_frac,
+                outlet_tail_length_m,
+            });
+        }
         let mut center_width = req.main_width_m;
         for lv in 0..n_pretri {
             let split = format!("split_lv{lv}");
-            let next = if lv + 1 < n_pretri { format!("split_lv{}", lv + 1) } else { "hy_tri".to_string() };
+            let next = if lv + 1 < n_pretri {
+                format!("split_lv{}", lv + 1)
+            } else {
+                "hy_tri".to_string()
+            };
             let side_off = 10.0 + 4.0 * (n_pretri.saturating_sub(lv + 1)) as f64;
-            let side_w = (center_width * (1.0 - pretri_center_frac) * 0.5).max(req.throat_width_m);
-            let ctr_w = (center_width * pretri_center_frac).max(req.throat_width_m);
+            let t = if n_pretri > 1 {
+                lv as f64 / (n_pretri - 1) as f64
+            } else {
+                0.0
+            };
+            let level_frac =
+                pretri_center_frac + t * (terminal_tri_center_frac - pretri_center_frac);
+            let side_w = (center_width * (1.0 - level_frac) * 0.5).max(req.throat_width_m);
+            let ctr_w = (center_width * level_frac).max(req.throat_width_m);
             for (id, y) in [("L", y_mid - side_off), ("R", y_mid + side_off)] {
-                self.add_channel(&format!("{id}_lv{lv}"), &split, "periph_merge", vec![self.nodes[self.node_ids[&split]].point, (34.0 + lv as f64 * 9.0, y), (50.0 + lv as f64 * 8.0, y), (92.0, y), (104.0, y_mid)], side_w, req.branch_length_m, req.channel_height_m, ChannelVisualRole::PeripheralBypass, TherapyZone::HealthyBypass, None, None);
+                let start_pt = self
+                    .nodes
+                    .iter()
+                    .find(|n| n.id == self.node_ids[&split])
+                    .unwrap()
+                    .point;
+                self.add_channel(
+                    &format!("{id}_lv{lv}"),
+                    &split,
+                    "periph_merge",
+                    vec![
+                        start_pt,
+                        (34.0 + lv as f64 * 9.0, y),
+                        (50.0 + lv as f64 * 8.0, y),
+                        (92.0, y),
+                        (104.0, y_mid),
+                    ],
+                    side_w,
+                    req.branch_length_m,
+                    req.channel_height_m,
+                    ChannelVisualRole::PeripheralBypass,
+                    TherapyZone::HealthyBypass,
+                    None,
+                    None,
+                );
             }
-            let start = self.nodes[self.node_ids[&split]].point;
-            let end = self.nodes[self.node_ids[&next]].point;
-            let path = if let Some(spec) = center_serp { self.serpentine_path(start, end, spec.segments.max(3), 1.4) } else { vec![start, end] };
-            self.add_channel(&format!("center_lv{lv}"), &split, &next, path, ctr_w, req.branch_length_m, req.channel_height_m, ChannelVisualRole::CenterTreatment, TherapyZone::CancerTarget, center_serp.map(|s| ChannelShape::Serpentine { segments: s.segments, bend_radius_m: s.bend_radius_m }), None);
+            let start = self
+                .nodes
+                .iter()
+                .find(|n| n.id == self.node_ids[&split])
+                .unwrap()
+                .point;
+            let end = self
+                .nodes
+                .iter()
+                .find(|n| n.id == self.node_ids[&next])
+                .unwrap()
+                .point;
+            let path = if let Some(spec) = center_serp {
+                self.serpentine_path(start, end, ctr_w, spec, 1.4)
+            } else {
+                vec![start, end]
+            };
+            self.add_channel(
+                &format!("center_lv{lv}"),
+                &split,
+                &next,
+                path,
+                ctr_w,
+                req.branch_length_m,
+                req.channel_height_m,
+                ChannelVisualRole::CenterTreatment,
+                TherapyZone::CancerTarget,
+                center_serp.map(|_| ChannelShape::Serpentine {
+                    segments: 2,
+                    bend_radius_m: 0.0,
+                }),
+                None,
+            );
             center_width = ctr_w;
         }
-        let tri_side = (center_width * (1.0 - terminal_tri_center_frac) * 0.5).max(req.throat_width_m);
+        let tri_side =
+            (center_width * (1.0 - terminal_tri_center_frac) * 0.5).max(req.throat_width_m);
         let tri_ctr = (center_width * terminal_tri_center_frac).max(req.throat_width_m);
         for (id, y) in [("hy_tri_L", y_mid - 8.0), ("hy_tri_R", y_mid + 8.0)] {
-            self.add_channel(id, "hy_tri", "periph_merge", vec![(52.0, y_mid), (62.0, y), (92.0, y), (104.0, y_mid)], tri_side, req.hybrid_branch_length_m, req.channel_height_m, ChannelVisualRole::PeripheralBypass, TherapyZone::HealthyBypass, None, None);
+            self.add_channel(
+                id,
+                "hy_tri",
+                "periph_merge",
+                vec![(52.0, y_mid), (62.0, y), (92.0, y), (104.0, y_mid)],
+                tri_side,
+                req.hybrid_branch_length_m,
+                req.channel_height_m,
+                ChannelVisualRole::PeripheralBypass,
+                TherapyZone::HealthyBypass,
+                None,
+                None,
+            );
         }
-        let tri_path = if let Some(spec) = center_serp { self.serpentine_path((52.0, y_mid), (64.0, y_mid), spec.segments.max(3), 1.3) } else { vec![(52.0, y_mid), (64.0, y_mid)] };
-        self.add_channel("hy_tri_center", "hy_tri", "hy_bi", tri_path, tri_ctr, req.hybrid_branch_length_m, req.channel_height_m, ChannelVisualRole::CenterTreatment, TherapyZone::CancerTarget, center_serp.map(|s| ChannelShape::Serpentine { segments: s.segments, bend_radius_m: s.bend_radius_m }), None);
+        let tri_path = if let Some(spec) = center_serp {
+            self.serpentine_path((52.0, y_mid), (64.0, y_mid), tri_ctr, spec, 1.3)
+        } else {
+            vec![(52.0, y_mid), (64.0, y_mid)]
+        };
+        self.add_channel(
+            "hy_tri_center",
+            "hy_tri",
+            "hy_bi",
+            tri_path,
+            tri_ctr,
+            req.hybrid_branch_length_m,
+            req.channel_height_m,
+            ChannelVisualRole::CenterTreatment,
+            TherapyZone::CancerTarget,
+            center_serp.map(|_| ChannelShape::Serpentine {
+                segments: 2,
+                bend_radius_m: 0.0,
+            }),
+            None,
+        );
         let treat_w = (tri_ctr * bi_treat_frac).max(req.throat_width_m);
         let bypass_w = (tri_ctr * (1.0 - bi_treat_frac)).max(req.throat_width_m);
-        self.add_channel("hy_bi_bypass", "hy_bi", "periph_merge", vec![(64.0, y_mid), (76.0, y_mid + 10.0), (92.0, y_mid + 10.0), (104.0, y_mid)], bypass_w, req.hybrid_branch_length_m, req.channel_height_m, ChannelVisualRole::PeripheralBypass, TherapyZone::HealthyBypass, None, None);
-        let bi_path = if let Some(spec) = center_serp { self.serpentine_path((64.0, y_mid), (72.0, y_mid), spec.segments.max(3), 1.2) } else { vec![(64.0, y_mid), (72.0, y_mid)] };
-        self.add_channel("hy_bi_treat", "hy_bi", "throat_in", bi_path, treat_w, req.hybrid_branch_length_m, req.channel_height_m, ChannelVisualRole::CenterTreatment, TherapyZone::CancerTarget, center_serp.map(|s| ChannelShape::Serpentine { segments: s.segments, bend_radius_m: s.bend_radius_m }), None);
-        if venturi {
-            self.add_channel("throat_section", "throat_in", "throat_out", vec![(72.0, y_mid), (76.0, y_mid), (80.0, y_mid)], req.throat_width_m, req.throat_length_m, req.channel_height_m, ChannelVisualRole::VenturiThroat, TherapyZone::CancerTarget, None, Some(VenturiGeometryMetadata { throat_width_m: req.throat_width_m, throat_height_m: req.channel_height_m, throat_length_m: req.throat_length_m, inlet_width_m: treat_w, outlet_width_m: treat_w, convergent_half_angle_deg: 15.0, divergent_half_angle_deg: 15.0 }));
+        self.add_channel(
+            "hy_bi_bypass",
+            "hy_bi",
+            "periph_merge",
+            vec![
+                (64.0, y_mid),
+                (76.0, y_mid + 10.0),
+                (92.0, y_mid + 10.0),
+                (104.0, y_mid),
+            ],
+            bypass_w,
+            req.hybrid_branch_length_m,
+            req.channel_height_m,
+            ChannelVisualRole::PeripheralBypass,
+            TherapyZone::HealthyBypass,
+            None,
+            None,
+        );
+        let bi_path = if let Some(spec) = center_serp {
+            self.serpentine_path((64.0, y_mid), (72.0, y_mid), treat_w, spec, 1.2)
         } else {
-            let path = if let Some(spec) = center_serp { self.serpentine_path((72.0, y_mid), (80.0, y_mid), spec.segments.max(3), 1.2) } else { vec![(72.0, y_mid), (80.0, y_mid)] };
-            self.add_channel("treatment_section", "throat_in", "throat_out", path, treat_w, req.hybrid_branch_length_m.max(req.throat_length_m), req.channel_height_m, ChannelVisualRole::CenterTreatment, TherapyZone::CancerTarget, center_serp.map(|s| ChannelShape::Serpentine { segments: s.segments, bend_radius_m: s.bend_radius_m }), None);
+            vec![(64.0, y_mid), (72.0, y_mid)]
+        };
+        self.add_channel(
+            "hy_bi_treat",
+            "hy_bi",
+            "throat_in",
+            bi_path,
+            treat_w,
+            req.hybrid_branch_length_m,
+            req.channel_height_m,
+            ChannelVisualRole::CenterTreatment,
+            TherapyZone::CancerTarget,
+            center_serp.map(|_| ChannelShape::Serpentine {
+                segments: 2,
+                bend_radius_m: 0.0,
+            }),
+            None,
+        );
+        if venturi {
+            self.add_channel(
+                "throat_section",
+                "throat_in",
+                "throat_out",
+                vec![(72.0, y_mid), (76.0, y_mid), (80.0, y_mid)],
+                req.throat_width_m,
+                req.throat_length_m,
+                req.channel_height_m,
+                ChannelVisualRole::VenturiThroat,
+                TherapyZone::CancerTarget,
+                None,
+                Some(VenturiGeometryMetadata {
+                    throat_width_m: req.throat_width_m,
+                    throat_height_m: req.channel_height_m,
+                    throat_length_m: req.throat_length_m,
+                    inlet_width_m: treat_w,
+                    outlet_width_m: treat_w,
+                    convergent_half_angle_deg: 15.0,
+                    divergent_half_angle_deg: 15.0,
+                    throat_position: 0.5,
+                }),
+            );
+        } else {
+            let path = if let Some(spec) = center_serp {
+                self.serpentine_path((72.0, y_mid), (80.0, y_mid), treat_w, spec, 1.2)
+            } else {
+                vec![(72.0, y_mid), (80.0, y_mid)]
+            };
+            self.add_channel(
+                "treatment_section",
+                "throat_in",
+                "throat_out",
+                path,
+                treat_w,
+                req.hybrid_branch_length_m.max(req.throat_length_m),
+                req.channel_height_m,
+                ChannelVisualRole::CenterTreatment,
+                TherapyZone::CancerTarget,
+                center_serp.map(|_| ChannelShape::Serpentine {
+                    segments: 2,
+                    bend_radius_m: 0.0,
+                }),
+                None,
+            );
         }
-        self.add_channel("center_to_merge", "throat_out", "outlet_merge", vec![(80.0, y_mid), (116.0, y_mid)], treat_w, req.hybrid_branch_length_m, req.channel_height_m, ChannelVisualRole::MergeCollector, TherapyZone::MixedFlow, None, None);
-        self.add_channel("periph_to_merge", "periph_merge", "outlet_merge", vec![(104.0, y_mid), (116.0, y_mid)], req.main_width_m, req.trunk_length_m, req.channel_height_m, ChannelVisualRole::MergeCollector, TherapyZone::HealthyBypass, None, None);
-        self.add_channel("trunk_out", "outlet_merge", "outlet", vec![(116.0, y_mid), (self.box_dims.0, y_mid)], req.main_width_m, outlet_tail_length_m, req.channel_height_m, ChannelVisualRole::Trunk, TherapyZone::MixedFlow, None, None);
+        self.add_channel(
+            "center_to_merge",
+            "throat_out",
+            "outlet_merge",
+            vec![(80.0, y_mid), (116.0, y_mid)],
+            treat_w,
+            req.hybrid_branch_length_m,
+            req.channel_height_m,
+            ChannelVisualRole::MergeCollector,
+            TherapyZone::MixedFlow,
+            None,
+            None,
+        );
+        self.add_channel(
+            "periph_to_merge",
+            "periph_merge",
+            "outlet_merge",
+            vec![(104.0, y_mid), (116.0, y_mid)],
+            req.main_width_m,
+            req.trunk_length_m,
+            req.channel_height_m,
+            ChannelVisualRole::MergeCollector,
+            TherapyZone::HealthyBypass,
+            None,
+            None,
+        );
+        self.add_channel(
+            "trunk_out",
+            "outlet_merge",
+            "outlet",
+            vec![(self.box_dims.0, y_mid)],
+            req.main_width_m,
+            outlet_tail_length_m,
+            req.channel_height_m,
+            ChannelVisualRole::Trunk,
+            TherapyZone::MixedFlow,
+            None,
+            None,
+        );
     }
 
-    fn build_tbt(&mut self, first_center_frac: f64, bi_treat_frac: f64, second_center_frac: f64, req: &SelectiveTreeRequest) {
+    fn build_tbt(
+        &mut self,
+        first_center_frac: f64,
+        bi_treat_frac: f64,
+        second_center_frac: f64,
+        req: &SelectiveTreeRequest,
+    ) {
+        use crate::domain::therapy_metadata::TherapyZone;
         let y_mid = self.y_mid();
-        for (name, x, kind, family) in [("inlet", 0.0, NodeKind::Inlet, None), ("split_lv0", 24.0, NodeKind::Junction, Some(JunctionFamily::Trifurcation)), ("split_bi", 46.0, NodeKind::Junction, Some(JunctionFamily::Bifurcation)), ("split_lv1", 70.0, NodeKind::Junction, Some(JunctionFamily::Trifurcation)), ("throat_in", 86.0, NodeKind::Junction, None), ("throat_out", 92.0, NodeKind::Junction, None), ("periph_merge", 104.0, NodeKind::Junction, Some(JunctionFamily::Merge)), ("outlet_merge", 116.0, NodeKind::Junction, Some(JunctionFamily::Merge)), ("outlet", self.box_dims.0, NodeKind::Outlet, None)] { self.add_node(name, (x, y_mid), kind, family); }
-        self.add_channel("inlet_section", "inlet", "split_lv0", vec![(0.0, y_mid), (24.0, y_mid)], req.main_width_m, req.trunk_length_m, req.channel_height_m, ChannelVisualRole::Trunk, TherapyZone::MixedFlow, None, None);
+        for (name, x, kind, family) in [
+            ("inlet", 0.0, NodeKind::Inlet, None),
+            (
+                "split_lv0",
+                24.0,
+                NodeKind::Junction,
+                Some(JunctionFamily::Trifurcation),
+            ),
+            (
+                "split_bi",
+                46.0,
+                NodeKind::Junction,
+                Some(JunctionFamily::Bifurcation),
+            ),
+            (
+                "split_lv1",
+                70.0,
+                NodeKind::Junction,
+                Some(JunctionFamily::Trifurcation),
+            ),
+            ("throat_in", 86.0, NodeKind::Junction, None),
+            ("throat_out", 92.0, NodeKind::Junction, None),
+            (
+                "periph_merge",
+                104.0,
+                NodeKind::Junction,
+                Some(JunctionFamily::Merge),
+            ),
+            (
+                "outlet_merge",
+                116.0,
+                NodeKind::Junction,
+                Some(JunctionFamily::Merge),
+            ),
+            ("outlet", self.box_dims.0, NodeKind::Outlet, None),
+        ] {
+            self.add_node(name, (x, y_mid), kind, family);
+        }
+        self.add_channel(
+            "inlet_section",
+            "inlet",
+            "split_lv0",
+            vec![(0.0, y_mid), (24.0, y_mid)],
+            req.main_width_m,
+            req.trunk_length_m,
+            req.channel_height_m,
+            ChannelVisualRole::Trunk,
+            TherapyZone::MixedFlow,
+            None,
+            None,
+        );
         let side1 = (req.main_width_m * (1.0 - first_center_frac) * 0.5).max(req.throat_width_m);
         let ctr1 = (req.main_width_m * first_center_frac).max(req.throat_width_m);
-        for (id, y) in [("L_lv0", y_mid - 18.0), ("R_lv0", y_mid + 18.0)] { self.add_channel(id, "split_lv0", "periph_merge", vec![(24.0, y_mid), (40.0, y), (96.0, y), (104.0, y_mid)], side1, req.branch_length_m, req.channel_height_m, ChannelVisualRole::PeripheralBypass, TherapyZone::HealthyBypass, None, None); }
+        for (id, y) in [("L_lv0", y_mid - 18.0), ("R_lv0", y_mid + 18.0)] {
+            self.add_channel(
+                id,
+                "split_lv0",
+                "periph_merge",
+                vec![(24.0, y_mid), (40.0, y), (96.0, y), (104.0, y_mid)],
+                side1,
+                req.branch_length_m,
+                req.channel_height_m,
+                ChannelVisualRole::PeripheralBypass,
+                TherapyZone::HealthyBypass,
+                None,
+                None,
+            );
+        }
         let bi_bypass_w = (ctr1 * (1.0 - bi_treat_frac)).max(req.throat_width_m);
         let bi_treat_w = (ctr1 * bi_treat_frac).max(req.throat_width_m);
-        self.add_channel("center_lv0", "split_lv0", "split_bi", vec![(24.0, y_mid), (46.0, y_mid)], ctr1, req.branch_length_m, req.channel_height_m, ChannelVisualRole::CenterTreatment, TherapyZone::CancerTarget, None, None);
-        self.add_channel("bi_bypass", "split_bi", "periph_merge", vec![(46.0, y_mid), (60.0, y_mid + 10.0), (96.0, y_mid + 10.0), (104.0, y_mid)], bi_bypass_w, req.hybrid_branch_length_m, req.channel_height_m, ChannelVisualRole::PeripheralBypass, TherapyZone::HealthyBypass, None, None);
-        self.add_channel("center_bi", "split_bi", "split_lv1", vec![(46.0, y_mid), (70.0, y_mid)], bi_treat_w, req.hybrid_branch_length_m, req.channel_height_m, ChannelVisualRole::CenterTreatment, TherapyZone::CancerTarget, None, None);
+        self.add_channel(
+            "center_lv0",
+            "split_lv0",
+            "split_bi",
+            vec![(24.0, y_mid), (46.0, y_mid)],
+            ctr1,
+            req.branch_length_m,
+            req.channel_height_m,
+            ChannelVisualRole::CenterTreatment,
+            TherapyZone::CancerTarget,
+            None,
+            None,
+        );
+        self.add_channel(
+            "bi_bypass",
+            "split_bi",
+            "periph_merge",
+            vec![
+                (46.0, y_mid),
+                (60.0, y_mid + 10.0),
+                (96.0, y_mid + 10.0),
+                (104.0, y_mid),
+            ],
+            bi_bypass_w,
+            req.hybrid_branch_length_m,
+            req.channel_height_m,
+            ChannelVisualRole::PeripheralBypass,
+            TherapyZone::HealthyBypass,
+            None,
+            None,
+        );
+        self.add_channel(
+            "center_bi",
+            "split_bi",
+            "split_lv1",
+            vec![(46.0, y_mid), (70.0, y_mid)],
+            bi_treat_w,
+            req.hybrid_branch_length_m,
+            req.channel_height_m,
+            ChannelVisualRole::CenterTreatment,
+            TherapyZone::CancerTarget,
+            None,
+            None,
+        );
         let side2 = (bi_treat_w * (1.0 - second_center_frac) * 0.5).max(req.throat_width_m);
         let ctr2 = (bi_treat_w * second_center_frac).max(req.throat_width_m);
-        for (id, y) in [("L_lv1", y_mid - 10.0), ("R_lv1", y_mid + 10.0)] { self.add_channel(id, "split_lv1", "periph_merge", vec![(70.0, y_mid), (82.0, y), (96.0, y), (104.0, y_mid)], side2, req.hybrid_branch_length_m, req.channel_height_m, ChannelVisualRole::PeripheralBypass, TherapyZone::HealthyBypass, None, None); }
-        self.add_channel("throat_section", "throat_in", "throat_out", vec![(86.0, y_mid), (89.0, y_mid), (92.0, y_mid)], req.throat_width_m, req.throat_length_m, req.channel_height_m, ChannelVisualRole::VenturiThroat, TherapyZone::CancerTarget, None, Some(VenturiGeometryMetadata { throat_width_m: req.throat_width_m, throat_height_m: req.channel_height_m, throat_length_m: req.throat_length_m, inlet_width_m: ctr2, outlet_width_m: ctr2, convergent_half_angle_deg: 15.0, divergent_half_angle_deg: 15.0 }));
-        self.add_channel("center_lv1", "split_lv1", "throat_in", vec![(70.0, y_mid), (86.0, y_mid)], ctr2, req.hybrid_branch_length_m, req.channel_height_m, ChannelVisualRole::CenterTreatment, TherapyZone::CancerTarget, None, None);
-        self.add_channel("center_to_merge", "throat_out", "outlet_merge", vec![(92.0, y_mid), (116.0, y_mid)], ctr2, req.hybrid_branch_length_m, req.channel_height_m, ChannelVisualRole::MergeCollector, TherapyZone::MixedFlow, None, None);
-        self.add_channel("periph_to_merge", "periph_merge", "outlet_merge", vec![(104.0, y_mid), (116.0, y_mid)], req.main_width_m, req.trunk_length_m, req.channel_height_m, ChannelVisualRole::MergeCollector, TherapyZone::HealthyBypass, None, None);
-        self.add_channel("trunk_out", "outlet_merge", "outlet", vec![(116.0, y_mid), (self.box_dims.0, y_mid)], req.main_width_m, req.trunk_length_m, req.channel_height_m, ChannelVisualRole::Trunk, TherapyZone::MixedFlow, None, None);
+        for (id, y) in [("L_lv1", y_mid - 10.0), ("R_lv1", y_mid + 10.0)] {
+            self.add_channel(
+                id,
+                "split_lv1",
+                "periph_merge",
+                vec![(70.0, y_mid), (82.0, y), (96.0, y), (104.0, y_mid)],
+                side2,
+                req.hybrid_branch_length_m,
+                req.channel_height_m,
+                ChannelVisualRole::PeripheralBypass,
+                TherapyZone::HealthyBypass,
+                None,
+                None,
+            );
+        }
+        self.add_channel(
+            "throat_section",
+            "throat_in",
+            "throat_out",
+            vec![(86.0, y_mid), (89.0, y_mid), (92.0, y_mid)],
+            req.throat_width_m,
+            req.throat_length_m,
+            req.channel_height_m,
+            ChannelVisualRole::VenturiThroat,
+            TherapyZone::CancerTarget,
+            None,
+            Some(VenturiGeometryMetadata {
+                throat_width_m: req.throat_width_m,
+                throat_height_m: req.channel_height_m,
+                throat_length_m: req.throat_length_m,
+                inlet_width_m: ctr2,
+                outlet_width_m: ctr2,
+                convergent_half_angle_deg: 15.0,
+                divergent_half_angle_deg: 15.0,
+                throat_position: 0.5,
+            }),
+        );
+        self.add_channel(
+            "center_lv1",
+            "split_lv1",
+            "throat_in",
+            vec![(70.0, y_mid), (86.0, y_mid)],
+            ctr2,
+            req.hybrid_branch_length_m,
+            req.channel_height_m,
+            ChannelVisualRole::CenterTreatment,
+            TherapyZone::CancerTarget,
+            None,
+            None,
+        );
+        self.add_channel(
+            "center_to_merge",
+            "throat_out",
+            "outlet_merge",
+            vec![(92.0, y_mid), (116.0, y_mid)],
+            ctr2,
+            req.hybrid_branch_length_m,
+            req.channel_height_m,
+            ChannelVisualRole::MergeCollector,
+            TherapyZone::MixedFlow,
+            None,
+            None,
+        );
+        self.add_channel(
+            "periph_to_merge",
+            "periph_merge",
+            "outlet_merge",
+            vec![(104.0, y_mid), (116.0, y_mid)],
+            req.main_width_m,
+            req.trunk_length_m,
+            req.channel_height_m,
+            ChannelVisualRole::MergeCollector,
+            TherapyZone::HealthyBypass,
+            None,
+            None,
+        );
+        self.add_channel(
+            "trunk_out",
+            "outlet_merge",
+            "outlet",
+            vec![(self.box_dims.0, y_mid)],
+            req.main_width_m,
+            req.trunk_length_m,
+            req.channel_height_m,
+            ChannelVisualRole::Trunk,
+            TherapyZone::MixedFlow,
+            None,
+            None,
+        );
     }
 
-fn build_dtcv(&mut self, split1_center_frac: f64, split2_center_frac: f64, center_throat_count: u8, inter_spacing_m: f64, req: &SelectiveTreeRequest) {
+    fn build_dtcv(
+        &mut self,
+        split1_center_frac: f64,
+        split2_center_frac: f64,
+        center_throat_count: u8,
+        inter_spacing_m: f64,
+        req: &SelectiveTreeRequest,
+    ) {
+        use crate::domain::therapy_metadata::TherapyZone;
         let y_mid = self.y_mid();
-        for (name, x, y, kind, family) in [("inlet", 0.0, y_mid, NodeKind::Inlet, None), ("split1", 18.0, y_mid, NodeKind::Junction, Some(JunctionFamily::Trifurcation)), ("split2_upper", 36.0, y_mid - 21.0, NodeKind::Junction, Some(JunctionFamily::Trifurcation)), ("split2", 36.0, y_mid, NodeKind::Junction, Some(JunctionFamily::Trifurcation)), ("split2_lower", 36.0, y_mid + 21.0, NodeKind::Junction, Some(JunctionFamily::Trifurcation)), ("merge_bypass", 100.0, y_mid, NodeKind::Junction, Some(JunctionFamily::Merge)), ("merge_center", 100.0, y_mid, NodeKind::Junction, Some(JunctionFamily::Merge)), ("merge_out", 118.0, y_mid, NodeKind::Junction, Some(JunctionFamily::Merge)), ("outlet", self.box_dims.0, y_mid, NodeKind::Outlet, None)] { self.add_node(name, (x, y), kind, family); }
-        self.add_channel("inlet_section", "inlet", "split1", vec![(0.0, y_mid), (18.0, y_mid)], req.main_width_m, req.trunk_length_m, req.channel_height_m, ChannelVisualRole::Trunk, TherapyZone::MixedFlow, None, None);
+        for (name, x, y, kind, family) in [
+            ("inlet", 0.0, y_mid, NodeKind::Inlet, None),
+            (
+                "split1",
+                18.0,
+                y_mid,
+                NodeKind::Junction,
+                Some(JunctionFamily::Trifurcation),
+            ),
+            (
+                "split2_upper",
+                36.0,
+                y_mid - 21.0,
+                NodeKind::Junction,
+                Some(JunctionFamily::Trifurcation),
+            ),
+            (
+                "split2",
+                36.0,
+                y_mid,
+                NodeKind::Junction,
+                Some(JunctionFamily::Trifurcation),
+            ),
+            (
+                "split2_lower",
+                36.0,
+                y_mid + 21.0,
+                NodeKind::Junction,
+                Some(JunctionFamily::Trifurcation),
+            ),
+            (
+                "merge_bypass",
+                100.0,
+                y_mid,
+                NodeKind::Junction,
+                Some(JunctionFamily::Merge),
+            ),
+            (
+                "merge_center",
+                100.0,
+                y_mid,
+                NodeKind::Junction,
+                Some(JunctionFamily::Merge),
+            ),
+            (
+                "merge_out",
+                118.0,
+                y_mid,
+                NodeKind::Junction,
+                Some(JunctionFamily::Merge),
+            ),
+            ("outlet", self.box_dims.0, y_mid, NodeKind::Outlet, None),
+        ] {
+            self.add_node(name, (x, y), kind, family);
+        }
+        self.add_channel(
+            "inlet_section",
+            "inlet",
+            "split1",
+            vec![(0.0, y_mid), (18.0, y_mid)],
+            req.main_width_m,
+            req.trunk_length_m,
+            req.channel_height_m,
+            ChannelVisualRole::Trunk,
+            TherapyZone::MixedFlow,
+            None,
+            None,
+        );
         let side1 = (req.main_width_m * (1.0 - split1_center_frac) * 0.5).max(req.throat_width_m);
         let ctr1 = (req.main_width_m * split1_center_frac).max(req.throat_width_m);
-        for (id, to, y) in [("upper_trunk", "split2_upper", y_mid - 21.0), ("center_trunk", "split2", y_mid), ("lower_trunk", "split2_lower", y_mid + 21.0)] {
-            let zone = if id == "center_trunk" { TherapyZone::CancerTarget } else { TherapyZone::HealthyBypass };
+        for (id, to, y) in [
+            ("upper_trunk", "split2_upper", y_mid - 21.0),
+            ("center_trunk", "split2", y_mid),
+            ("lower_trunk", "split2_lower", y_mid + 21.0),
+        ] {
+            let zone = if id == "center_trunk" {
+                TherapyZone::CancerTarget
+            } else {
+                TherapyZone::HealthyBypass
+            };
             let width = if id == "center_trunk" { ctr1 } else { side1 };
-            self.add_channel(id, "split1", to, vec![(18.0, y_mid), (36.0, y)], width, req.branch_length_m, req.channel_height_m, if id == "center_trunk" { ChannelVisualRole::CenterTreatment } else { ChannelVisualRole::PeripheralBypass }, zone, None, None);
+            self.add_channel(
+                id,
+                "split1",
+                to,
+                vec![(18.0, y_mid), (36.0, y)],
+                width,
+                req.branch_length_m,
+                req.channel_height_m,
+                if id == "center_trunk" {
+                    ChannelVisualRole::CenterTreatment
+                } else {
+                    ChannelVisualRole::PeripheralBypass
+                },
+                zone,
+                None,
+                None,
+            );
         }
         let upper = self.leaf_triplet(y_mid - 21.0, 4.0);
         let center = self.leaf_triplet(y_mid, 7.0);
         let lower = self.leaf_triplet(y_mid + 21.0, 4.0);
         let outer_leaf_w = (side1 * (1.0 - split2_center_frac) * 0.5).max(req.throat_width_m);
         let outer_ctr_w = (side1 * split2_center_frac).max(req.throat_width_m);
-        for ((prefix, split), ys) in [(("upper", "split2_upper"), upper), (("lower", "split2_lower"), lower)] {
-            for (suffix, y, width) in [("L", ys[0], outer_leaf_w), ("C", ys[1], outer_ctr_w), ("R", ys[2], outer_leaf_w)] {
-                self.add_channel(&format!("{prefix}_{suffix}"), split, "merge_bypass", vec![self.nodes[self.node_ids[split]].point, (54.0, y), (90.0, y), (100.0, y_mid)], width, req.branch_length_m, req.channel_height_m, ChannelVisualRole::PeripheralBypass, TherapyZone::HealthyBypass, None, None);
+        for ((prefix, split), ys) in [
+            (("upper", "split2_upper"), upper),
+            (("lower", "split2_lower"), lower),
+        ] {
+            for (suffix, y, width) in [
+                ("L", ys[0], outer_leaf_w),
+                ("C", ys[1], outer_ctr_w),
+                ("R", ys[2], outer_leaf_w),
+            ] {
+                let start_pt = self
+                    .nodes
+                    .iter()
+                    .find(|n| n.id == self.node_ids[split])
+                    .unwrap()
+                    .point;
+                self.add_channel(
+                    &format!("{prefix}_{suffix}"),
+                    split,
+                    "merge_bypass",
+                    vec![start_pt, (54.0, y), (90.0, y), (100.0, y_mid)],
+                    width,
+                    req.branch_length_m,
+                    req.channel_height_m,
+                    ChannelVisualRole::PeripheralBypass,
+                    TherapyZone::HealthyBypass,
+                    None,
+                    None,
+                );
             }
         }
         let center_side_w = (ctr1 * (1.0 - split2_center_frac) * 0.5).max(req.throat_width_m);
         let center_ctr_w = (ctr1 * split2_center_frac).max(req.throat_width_m);
-        for (suffix, y, width) in [("L", center[0], center_side_w), ("C", center[1], center_ctr_w), ("R", center[2], center_side_w)] {
+        for (suffix, y, width) in [
+            ("L", center[0], center_side_w),
+            ("C", center[1], center_ctr_w),
+            ("R", center[2], center_side_w),
+        ] {
             let sub = format!("center_{suffix}");
             let sub_in = format!("{sub}_in");
             self.add_node(&sub_in, (54.0, y), NodeKind::Junction, None);
-            self.add_channel(&format!("{sub}_approach"), "split2", &sub_in, vec![(36.0, y_mid), (54.0, y)], width, req.branch_length_m * 0.35, req.channel_height_m, ChannelVisualRole::CenterTreatment, TherapyZone::CancerTarget, None, None);
+            self.add_channel(
+                &format!("{sub}_approach"),
+                "split2",
+                &sub_in,
+                vec![(36.0, y_mid), (54.0, y)],
+                width,
+                req.branch_length_m * 0.35,
+                req.channel_height_m,
+                ChannelVisualRole::CenterTreatment,
+                TherapyZone::CancerTarget,
+                None,
+                None,
+            );
             if center_throat_count == 0 {
-                self.add_channel(&format!("{sub}_treatment"), &sub_in, "merge_center", vec![(54.0, y), (90.0, y), (100.0, y_mid)], width, req.branch_length_m, req.channel_height_m, ChannelVisualRole::CenterTreatment, TherapyZone::CancerTarget, None, None);
+                self.add_channel(
+                    &format!("{sub}_treatment"),
+                    &sub_in,
+                    "merge_center",
+                    vec![(54.0, y), (90.0, y), (100.0, y_mid)],
+                    width,
+                    req.branch_length_m,
+                    req.channel_height_m,
+                    ChannelVisualRole::CenterTreatment,
+                    TherapyZone::CancerTarget,
+                    None,
+                    None,
+                );
                 continue;
             }
             let mut prev = sub_in.clone();
@@ -374,21 +1196,126 @@ fn build_dtcv(&mut self, split1_center_frac: f64, split2_center_frac: f64, cente
                 let x0 = 60.0 + f64::from(k) * 8.0;
                 self.add_node(&tin, (x0, y), NodeKind::Junction, None);
                 self.add_node(&tout, (x0 + 4.0, y), NodeKind::Junction, None);
-                self.add_channel(&format!("{sub}_conv{k}"), &prev, &tin, vec![self.nodes[self.node_ids[&prev]].point, (x0, y)], width, req.branch_length_m * 0.12, req.channel_height_m, ChannelVisualRole::CenterTreatment, TherapyZone::CancerTarget, None, None);
-                self.add_channel(&format!("{sub}_throat{k}"), &tin, &tout, vec![(x0, y), (x0 + 2.0, y), (x0 + 4.0, y)], req.throat_width_m, req.throat_length_m, req.channel_height_m, ChannelVisualRole::VenturiThroat, TherapyZone::CancerTarget, None, Some(VenturiGeometryMetadata { throat_width_m: req.throat_width_m, throat_height_m: req.channel_height_m, throat_length_m: req.throat_length_m, inlet_width_m: width, outlet_width_m: width, convergent_half_angle_deg: 15.0, divergent_half_angle_deg: 15.0 }));
+                let start_pt = self
+                    .nodes
+                    .iter()
+                    .find(|n| n.id == self.node_ids[&prev])
+                    .unwrap()
+                    .point;
+                self.add_channel(
+                    &format!("{sub}_conv{k}"),
+                    &prev,
+                    &tin,
+                    vec![start_pt, (x0, y)],
+                    width,
+                    req.branch_length_m * 0.12,
+                    req.channel_height_m,
+                    ChannelVisualRole::CenterTreatment,
+                    TherapyZone::CancerTarget,
+                    None,
+                    None,
+                );
+                self.add_channel(
+                    &format!("{sub}_throat{k}"),
+                    &tin,
+                    &tout,
+                    vec![(x0, y), (x0 + 2.0, y), (x0 + 4.0, y)],
+                    req.throat_width_m,
+                    req.throat_length_m,
+                    req.channel_height_m,
+                    ChannelVisualRole::VenturiThroat,
+                    TherapyZone::CancerTarget,
+                    None,
+                    Some(VenturiGeometryMetadata {
+                        throat_width_m: req.throat_width_m,
+                        throat_height_m: req.channel_height_m,
+                        throat_length_m: req.throat_length_m,
+                        inlet_width_m: width,
+                        outlet_width_m: width,
+                        convergent_half_angle_deg: 15.0,
+                        divergent_half_angle_deg: 15.0,
+                        throat_position: 0.5,
+                    }),
+                );
                 prev = tout;
                 if k + 1 < center_throat_count {
                     let rdv = format!("{sub}_rdv{k}");
                     self.add_node(&rdv, (x0 + 6.0, y), NodeKind::Junction, None);
-                    self.add_channel(&format!("{sub}_diffuser{k}"), &prev, &rdv, vec![(x0 + 4.0, y), (x0 + 6.0, y)], width, inter_spacing_m, req.channel_height_m, ChannelVisualRole::Diffuser, TherapyZone::CancerTarget, None, None);
+                    self.add_channel(
+                        &format!("{sub}_diffuser{k}"),
+                        &prev,
+                        &rdv,
+                        vec![(x0 + 4.0, y), (x0 + 6.0, y)],
+                        width,
+                        inter_spacing_m,
+                        req.channel_height_m,
+                        ChannelVisualRole::Diffuser,
+                        TherapyZone::CancerTarget,
+                        None,
+                        None,
+                    );
                     prev = rdv;
                 }
             }
-            self.add_channel(&format!("{sub}_recovery"), &prev, "merge_center", vec![self.nodes[self.node_ids[&prev]].point, (90.0, y), (100.0, y_mid)], width, req.branch_length_m * 0.18, req.channel_height_m, ChannelVisualRole::Diffuser, TherapyZone::CancerTarget, None, None);
+            let start_pt = self
+                .nodes
+                .iter()
+                .find(|n| n.id == self.node_ids[&prev])
+                .unwrap()
+                .point;
+            self.add_channel(
+                &format!("{sub}_recovery"),
+                &prev,
+                "merge_center",
+                vec![start_pt, (90.0, y), (100.0, y_mid)],
+                width,
+                req.branch_length_m * 0.18,
+                req.channel_height_m,
+                ChannelVisualRole::Diffuser,
+                TherapyZone::CancerTarget,
+                None,
+                None,
+            );
         }
-        self.add_channel("bypass_to_merge", "merge_bypass", "merge_out", vec![(100.0, y_mid), (118.0, y_mid)], req.main_width_m * (1.0 - split1_center_frac), req.trunk_length_m, req.channel_height_m, ChannelVisualRole::MergeCollector, TherapyZone::HealthyBypass, None, None);
-        self.add_channel("center_to_merge", "merge_center", "merge_out", vec![(100.0, y_mid), (118.0, y_mid)], ctr1, req.trunk_length_m, req.channel_height_m, ChannelVisualRole::MergeCollector, TherapyZone::MixedFlow, None, None);
-        self.add_channel("outlet_section", "merge_out", "outlet", vec![(118.0, y_mid), (self.box_dims.0, y_mid)], req.main_width_m, req.trunk_length_m, req.channel_height_m, ChannelVisualRole::Trunk, TherapyZone::MixedFlow, None, None);
+        self.add_channel(
+            "bypass_to_merge",
+            "merge_bypass",
+            "merge_out",
+            vec![(100.0, y_mid), (118.0, y_mid)],
+            req.main_width_m * (1.0 - split1_center_frac),
+            req.trunk_length_m,
+            req.channel_height_m,
+            ChannelVisualRole::MergeCollector,
+            TherapyZone::HealthyBypass,
+            None,
+            None,
+        );
+        self.add_channel(
+            "center_to_merge",
+            "merge_center",
+            "merge_out",
+            vec![(100.0, y_mid), (118.0, y_mid)],
+            ctr1,
+            req.trunk_length_m,
+            req.channel_height_m,
+            ChannelVisualRole::MergeCollector,
+            TherapyZone::MixedFlow,
+            None,
+            None,
+        );
+        self.add_channel(
+            "outlet_section",
+            "merge_out",
+            "outlet",
+            vec![(118.0, y_mid), (self.box_dims.0, y_mid)],
+            req.main_width_m,
+            req.trunk_length_m,
+            req.channel_height_m,
+            ChannelVisualRole::Trunk,
+            TherapyZone::MixedFlow,
+            None,
+            None,
+        );
     }
 }
 
@@ -417,7 +1344,11 @@ pub struct PrimitiveSelectiveTreeRequest {
 
 pub fn create_primitive_selective_tree_geometry(
     request: &PrimitiveSelectiveTreeRequest,
-) -> ChannelSystem {
+) -> NetworkBlueprint {
+    // All primitive selective split sequences use the canonical full-tree
+    // generator and are then annotated with treatment/bypass metadata.
+    // This preserves the actual split topology instead of collapsing all-tri
+    // trees into a centerline cascade surrogate.
     let splits: Vec<SplitType> = request
         .split_sequence
         .iter()
@@ -441,17 +1372,160 @@ pub fn create_primitive_selective_tree_geometry(
         ..Default::default()
     };
 
-    let mut system = super::create_geometry(
+    let mut blueprint = super::create_geometry(
         request.box_dims_mm,
         &splits,
         &geometry_config,
         &ChannelTypeConfig::AllStraight,
     );
-    annotate_primitive_tree(&mut system, request);
-    system
+    annotate_primitive_tree(&mut blueprint, request);
+    blueprint.insert_metadata(GeometryAuthoringProvenance::selective_wrapper());
+    blueprint
 }
 
-fn annotate_primitive_tree(system: &mut ChannelSystem, request: &PrimitiveSelectiveTreeRequest) {
+/// Build a primitive selective tree directly from a declarative topology spec
+/// when the spec matches the canonical selective-routing contract.
+///
+/// Returns `Ok(None)` if the spec cannot be represented without losing
+/// topology information.
+pub fn create_primitive_selective_tree_geometry_from_spec(
+    spec: &BlueprintTopologySpec,
+) -> Result<Option<NetworkBlueprint>, String> {
+    if spec.split_stages.is_empty() || spec.has_series_path() || spec.has_parallel_paths() {
+        return Ok(None);
+    }
+
+    let mut split_sequence = Vec::with_capacity(spec.split_stages.len());
+    let mut parent_width_m = spec.inlet_width_m;
+    let mut first_trifurcation_center_frac = 0.5;
+    let mut later_trifurcation_center_frac = 0.5;
+    let mut bifurcation_treatment_frac = 0.5;
+    let mut saw_later_trifurcation = false;
+    let mut center_serpentine = None;
+
+    for (stage_index, stage) in spec.split_stages.iter().enumerate() {
+        let treatment_branches: Vec<_> = stage
+            .branches
+            .iter()
+            .filter(|branch| branch.treatment_path)
+            .collect();
+        if treatment_branches.len() != 1 {
+            return Ok(None);
+        }
+        let treatment_branch = treatment_branches[0];
+        if parent_width_m <= 0.0 || treatment_branch.route.width_m <= 0.0 {
+            return Ok(None);
+        }
+
+        let treatment_fraction = (treatment_branch.route.width_m / parent_width_m).clamp(0.0, 1.0);
+        center_serpentine = center_serpentine.or(treatment_branch.route.serpentine.as_ref().map(
+            |serpentine| CenterSerpentinePathSpec {
+                segments: serpentine.segments,
+                bend_radius_m: serpentine.bend_radius_m,
+            },
+        ));
+
+        match stage.split_kind {
+            SplitKind::Bifurcation => {
+                split_sequence.push(PrimitiveSelectiveSplitKind::Bi);
+                bifurcation_treatment_frac = treatment_fraction;
+            }
+            SplitKind::Trifurcation => {
+                split_sequence.push(PrimitiveSelectiveSplitKind::Tri);
+                if stage_index == 0 {
+                    first_trifurcation_center_frac = treatment_fraction;
+                } else {
+                    later_trifurcation_center_frac = treatment_fraction;
+                    saw_later_trifurcation = true;
+                }
+            }
+        }
+
+        parent_width_m = treatment_branch.route.width_m;
+    }
+
+    if !saw_later_trifurcation {
+        later_trifurcation_center_frac = first_trifurcation_center_frac;
+    }
+
+    let representative_height_m = spec
+        .split_stages
+        .first()
+        .and_then(|stage| stage.branches.first())
+        .map_or(1.0e-3, |branch| branch.route.height_m);
+    let strongest_venturi = spec
+        .venturi_placements
+        .iter()
+        .max_by_key(|placement| placement.serial_throat_count);
+
+    let request = PrimitiveSelectiveTreeRequest {
+        name: spec.design_name.clone(),
+        box_dims_mm: spec.box_dims_mm,
+        split_sequence,
+        main_width_m: spec.inlet_width_m,
+        throat_width_m: strongest_venturi
+            .map_or(parent_width_m, |placement| placement.throat_geometry.throat_width_m),
+        throat_length_m: strongest_venturi.map_or(spec.trunk_length_m / 8.0, |placement| {
+            placement.throat_geometry.throat_length_m
+        }),
+        channel_height_m: representative_height_m,
+        first_trifurcation_center_frac,
+        later_trifurcation_center_frac,
+        bifurcation_treatment_frac,
+        treatment_branch_venturi_enabled: spec.treatment_mode == TreatmentActuationMode::VenturiCavitation
+            && !spec.venturi_placements.is_empty(),
+        treatment_branch_throat_count: strongest_venturi
+            .map_or(0, |placement| placement.serial_throat_count),
+        center_serpentine,
+    };
+
+    let mut blueprint = create_primitive_selective_tree_geometry(&request);
+    blueprint.name = spec.design_name.clone();
+    blueprint.topology = Some(spec.clone());
+    blueprint.lineage = Some(BlueprintTopologyFactory::lineage_for_spec(spec));
+    blueprint.render_hints = Some(BlueprintRenderHints {
+        stage_sequence: spec.stage_sequence_label(),
+        split_layers: spec.visible_split_layers(),
+        throat_count_hint: spec.venturi_count(),
+        treatment_label: if spec.treatment_mode == TreatmentActuationMode::VenturiCavitation {
+            "venturi".to_string()
+        } else {
+            "ultrasound".to_string()
+        },
+    });
+    Ok(Some(blueprint))
+}
+
+fn channel_length_from_points_or_endpoints(
+    points: &[Point2D],
+    start: Option<Point2D>,
+    end: Option<Point2D>,
+    fallback_m: f64,
+) -> f64 {
+    let path_length_m = if points.len() >= 2 {
+        polyline_length_mm(points) * 1.0e-3
+    } else {
+        0.0
+    };
+    if path_length_m.is_finite() && path_length_m > 0.0 {
+        return path_length_m;
+    }
+
+    if let (Some(start), Some(end)) = (start, end) {
+        let endpoint_length_m = ((end.0 - start.0).hypot(end.1 - start.1)) * 1.0e-3;
+        if endpoint_length_m.is_finite() && endpoint_length_m > 0.0 {
+            return endpoint_length_m;
+        }
+    }
+
+    if fallback_m.is_finite() && fallback_m > 0.0 {
+        fallback_m
+    } else {
+        f64::EPSILON
+    }
+}
+
+fn annotate_primitive_tree(system: &mut NetworkBlueprint, request: &PrimitiveSelectiveTreeRequest) {
     if system.nodes.is_empty() || system.channels.is_empty() {
         return;
     }
@@ -462,62 +1536,63 @@ fn annotate_primitive_tree(system: &mut ChannelSystem, request: &PrimitiveSelect
         .nodes
         .iter()
         .min_by(|a, b| a.point.0.total_cmp(&b.point.0))
-        .map(|node| node.id);
+        .map(|node| node.id.clone());
     let outlet_node = system
         .nodes
         .iter()
         .max_by(|a, b| a.point.0.total_cmp(&b.point.0))
-        .map(|node| node.id);
+        .map(|node| node.id.clone());
     let (Some(inlet_node), Some(outlet_node)) = (inlet_node, outlet_node) else {
         return;
     };
 
-    let mut adjacency: HashMap<usize, Vec<(usize, usize)>> = HashMap::new();
+    let mut adjacency: HashMap<NodeId, Vec<(NodeId, usize)>> = HashMap::new();
     for (idx, channel) in system.channels.iter().enumerate() {
         adjacency
-            .entry(channel.from_node)
+            .entry(channel.from.clone())
             .or_default()
-            .push((channel.to_node, idx));
+            .push((channel.to.clone(), idx));
         adjacency
-            .entry(channel.to_node)
+            .entry(channel.to.clone())
             .or_default()
-            .push((channel.from_node, idx));
+            .push((channel.from.clone(), idx));
     }
 
-    let leaf_nodes: Vec<usize> = system
+    let node_pts: HashMap<NodeId, Point2D> = system
+        .nodes
+        .iter()
+        .map(|n| (n.id.clone(), n.point))
+        .collect();
+
+    let leaf_nodes: Vec<NodeId> = system
         .nodes
         .iter()
         .filter(|node| (node.point.0 - mid_x).abs() < 1e-6)
-        .map(|node| node.id)
+        .map(|node| node.id.clone())
         .collect();
     let mut ordered_leaves = leaf_nodes;
-    ordered_leaves.sort_by(|a, b| system.nodes[*a].point.1.total_cmp(&system.nodes[*b].point.1));
+    ordered_leaves.sort_by(|a, b| node_pts[a].1.total_cmp(&node_pts[b].1));
 
     let treatment_leaf_indices = primitive_treatment_leaf_indices(
         ordered_leaves.len(),
         request.split_sequence.first().copied(),
     );
-    let treatment_leaves: HashSet<usize> = treatment_leaf_indices
+    let treatment_leaves: HashSet<NodeId> = treatment_leaf_indices
         .into_iter()
-        .filter_map(|idx| ordered_leaves.get(idx).copied())
+        .filter_map(|idx| ordered_leaves.get(idx).cloned())
         .collect();
 
     let mut treatment_channels = HashSet::new();
-    for &leaf in &treatment_leaves {
-        if let Some(path) = channel_path_between(
-            inlet_node,
-            leaf,
-            system,
-            &adjacency,
-            Some(mid_x),
-            true,
-        ) {
+    for leaf in &treatment_leaves {
+        if let Some(path) =
+            channel_path_between(&inlet_node, leaf, &node_pts, &adjacency, Some(mid_x), true)
+        {
             treatment_channels.extend(path);
         }
         if let Some(path) = channel_path_between(
             leaf,
-            outlet_node,
-            system,
+            &outlet_node,
+            &node_pts,
             &adjacency,
             Some(mid_x),
             false,
@@ -545,37 +1620,47 @@ fn annotate_primitive_tree(system: &mut ChannelSystem, request: &PrimitiveSelect
 
     for node in &mut system.nodes {
         let degree = adjacency.get(&node.id).map_or(0, Vec::len);
-        node.kind = Some(if node.id == inlet_node {
+        node.kind = if node.id == inlet_node {
             NodeKind::Inlet
         } else if node.id == outlet_node {
             NodeKind::Outlet
-        } else if degree > 1 {
-            NodeKind::Junction
         } else {
             NodeKind::Junction
-        });
-        if node.id == inlet_node {
-            node.name = Some("inlet".to_string());
-        } else if node.id == outlet_node {
-            node.name = Some("outlet".to_string());
-        } else {
-            node.name = Some(format!("jn{}", node.id));
+        };
+
+        if degree >= 3 {
+            let junction_family = if degree >= 4 {
+                JunctionFamily::Trifurcation
+            } else {
+                JunctionFamily::Bifurcation
+            };
+            node.junction_geometry = Some(JunctionGeometryMetadata {
+                junction_family,
+                branch_angles_deg: Vec::new(),
+                merge_angles_deg: Vec::new(),
+            });
         }
     }
 
-    let mut inlet_named = false;
-    let mut outlet_named = false;
-    let mut venturi_named = 0usize;
+    let mut pending_venturi_paths = Vec::new();
+
     for (idx, channel) in system.channels.iter_mut().enumerate() {
-        let points = centerline_for_channel(channel, &system.nodes);
-        let min_x = points
-            .iter()
-            .map(|(x, _)| *x)
-            .fold(f64::INFINITY, f64::min);
-        let max_x = points
-            .iter()
-            .map(|(x, _)| *x)
-            .fold(f64::NEG_INFINITY, f64::max);
+        let points = channel.path.clone();
+        let start_point = node_pts.get(&channel.from).copied();
+        let end_point = node_pts.get(&channel.to).copied();
+        let (min_x, max_x) = if points.is_empty() {
+            // Straight channels have empty path; derive x-range from endpoint node positions
+            let x0 = start_point.map_or(f64::INFINITY, |(x, _)| x);
+            let x1 = end_point.map_or(f64::NEG_INFINITY, |(x, _)| x);
+            (x0.min(x1), x0.max(x1))
+        } else {
+            let min_x = points.iter().map(|(x, _)| *x).fold(f64::INFINITY, f64::min);
+            let max_x = points
+                .iter()
+                .map(|(x, _)| *x)
+                .fold(f64::NEG_INFINITY, f64::max);
+            (min_x, max_x)
+        };
         let avg_y = if points.is_empty() {
             mid_y
         } else {
@@ -583,9 +1668,9 @@ fn annotate_primitive_tree(system: &mut ChannelSystem, request: &PrimitiveSelect
         };
 
         let is_treatment = treatment_channels.contains(&idx);
-        let touches_inlet = channel.from_node == inlet_node || channel.to_node == inlet_node;
-        let touches_outlet = channel.from_node == outlet_node || channel.to_node == outlet_node;
-        let starts_at_treatment_leaf = treatment_leaves.contains(&channel.from_node);
+        let touches_inlet = channel.from == inlet_node || channel.to == inlet_node;
+        let touches_outlet = channel.from == outlet_node || channel.to == outlet_node;
+        let starts_at_treatment_leaf = treatment_leaves.contains(&channel.from);
         let is_treatment_window_channel =
             starts_at_treatment_leaf && max_x > mid_x + 1e-6 && min_x >= mid_x - 1e-6;
         let is_trunk = touches_inlet || touches_outlet || (avg_y - mid_y).abs() < 1e-6;
@@ -597,11 +1682,17 @@ fn annotate_primitive_tree(system: &mut ChannelSystem, request: &PrimitiveSelect
         } else {
             bypass_width
         };
-        channel.width = (physical_width * 1.0e3).clamp(0.15, 3.5);
-        channel.height = (request.channel_height_m * 1.0e3).clamp(0.15, 3.0);
-        channel.physical_width_m = Some(physical_width);
-        channel.physical_height_m = Some(request.channel_height_m);
-        channel.physical_length_m = Some(polyline_length_mm(&points) * 1.0e-3);
+
+        channel.cross_section = crate::domain::model::CrossSectionSpec::Rectangular {
+            width_m: physical_width,
+            height_m: request.channel_height_m,
+        };
+        channel.length_m = channel_length_from_points_or_endpoints(
+            &points,
+            start_point,
+            end_point,
+            channel.length_m,
+        );
 
         let mut role = if is_treatment {
             ChannelVisualRole::CenterTreatment
@@ -622,49 +1713,44 @@ fn annotate_primitive_tree(system: &mut ChannelSystem, request: &PrimitiveSelect
             TherapyZone::HealthyBypass
         });
 
-        if touches_inlet && !inlet_named {
-            channel.name = Some("inlet_section".to_string());
-            inlet_named = true;
-        } else if touches_outlet && !outlet_named {
-            channel.name = Some("trunk_out".to_string());
-            outlet_named = true;
-        } else {
-            channel.name = Some(format!("seg_{}", idx));
-        }
-
         if is_treatment
             && is_treatment_window_channel
             && request.center_serpentine.is_some()
             && !request.treatment_branch_venturi_enabled
         {
             if let Some(spec) = request.center_serpentine {
-                channel.channel_type = ChannelType::Serpentine {
-                    path: serpentine_overlay_path(&points, spec.segments.max(3), 1.5),
+                // When the generator produced a straight channel (empty path), seed
+                // the serpentine overlay with the endpoint node positions so the
+                // overlay has a valid bounding box to work with.
+                let source_points: Vec<Point2D> = if points.is_empty() {
+                    [start_point, end_point].into_iter().flatten().collect()
+                } else {
+                    points.clone()
                 };
-                channel.physical_shape = Some(ChannelShape::Serpentine {
-                    segments: spec.segments,
-                    bend_radius_m: spec.bend_radius_m,
-                });
+                let serpentine_path =
+                    serpentine_overlay_path(&source_points, physical_width, spec, 1.5);
+                channel.path = serpentine_path;
+                channel.length_m = channel_length_from_points_or_endpoints(
+                    &channel.path,
+                    start_point,
+                    end_point,
+                    channel.length_m,
+                );
+                if let Some((start, end)) = channel.path.first().zip(channel.path.last()) {
+                    channel.channel_shape =
+                        infer_serpentine_shape(&channel.path, *start, *end, physical_width * 1.0e3);
+                }
             }
         }
 
         if is_treatment && is_treatment_window_channel && request.treatment_branch_venturi_enabled {
-            venturi_named += 1;
-            let path = simple_path(points.first().copied(), points.last().copied(), avg_y);
-            channel.channel_type = ChannelType::Frustum {
-                path,
-                widths: vec![
-                    (physical_width * 1.0e3).clamp(0.15, 3.5),
-                    (request.throat_width_m * 1.0e3).clamp(0.12, 2.0),
-                    (physical_width * 1.0e3).clamp(0.15, 3.5),
-                ],
-                inlet_width: (physical_width * 1.0e3).clamp(0.15, 3.5),
-                throat_width: (request.throat_width_m * 1.0e3).clamp(0.12, 2.0),
-                outlet_width: (physical_width * 1.0e3).clamp(0.15, 3.5),
-                taper_profile: TaperProfile::Smooth,
-                throat_position: 0.5,
-                has_venturi_throat: true,
-            };
+            pending_venturi_paths.push(PendingVenturiPath {
+                channel_idx: idx,
+                start: points.first().copied().or(start_point),
+                end: points.last().copied().or(end_point),
+                preferred_y: preferred_treatment_lane_y(&points, start_point, end_point, avg_y),
+                fallback_length_m: channel.length_m,
+            });
             channel.visual_role = Some(ChannelVisualRole::VenturiThroat);
             channel.venturi_geometry = Some(VenturiGeometryMetadata {
                 throat_width_m: request.throat_width_m,
@@ -674,10 +1760,9 @@ fn annotate_primitive_tree(system: &mut ChannelSystem, request: &PrimitiveSelect
                 outlet_width_m: physical_width,
                 convergent_half_angle_deg: 15.0,
                 divergent_half_angle_deg: 15.0,
+                throat_position: 0.5,
             });
-            let metadata = channel
-                .metadata
-                .get_or_insert_with(MetadataContainer::new);
+            let metadata = channel.metadata.get_or_insert_with(MetadataContainer::new);
             metadata.insert(ChannelVenturiSpec {
                 n_throats: request.treatment_branch_throat_count.max(1),
                 is_ctc_stream: true,
@@ -685,11 +1770,8 @@ fn annotate_primitive_tree(system: &mut ChannelSystem, request: &PrimitiveSelect
                 height_m: request.channel_height_m,
                 inter_throat_spacing_m: request.throat_length_m * 2.0,
             });
-            channel.name = Some(format!("throat_section_{venturi_named}"));
         } else if !is_treatment {
-            let metadata = channel
-                .metadata
-                .get_or_insert_with(MetadataContainer::new);
+            let metadata = channel.metadata.get_or_insert_with(MetadataContainer::new);
             metadata.insert(ChannelVenturiSpec {
                 n_throats: 0,
                 is_ctc_stream: false,
@@ -699,6 +1781,8 @@ fn annotate_primitive_tree(system: &mut ChannelSystem, request: &PrimitiveSelect
             });
         }
     }
+
+    route_pending_venturi_paths(&mut system.channels, &pending_venturi_paths, mid_y);
 }
 
 fn primitive_treatment_leaf_indices(
@@ -721,11 +1805,13 @@ fn primitive_treatment_leaf_indices(
     }
 }
 
+use crate::domain::model::NodeId;
+
 fn channel_path_between(
-    start: usize,
-    goal: usize,
-    system: &ChannelSystem,
-    adjacency: &HashMap<usize, Vec<(usize, usize)>>,
+    start: &NodeId,
+    goal: &NodeId,
+    node_pts: &HashMap<NodeId, Point2D>,
+    adjacency: &HashMap<NodeId, Vec<(NodeId, usize)>>,
     mid_x: Option<f64>,
     left_half: bool,
 ) -> Option<Vec<usize>> {
@@ -734,7 +1820,7 @@ fn channel_path_between(
     if dfs_channel_path(
         start,
         goal,
-        system,
+        node_pts,
         adjacency,
         mid_x,
         left_half,
@@ -748,29 +1834,29 @@ fn channel_path_between(
 }
 
 fn dfs_channel_path(
-    current: usize,
-    goal: usize,
-    system: &ChannelSystem,
-    adjacency: &HashMap<usize, Vec<(usize, usize)>>,
+    current: &NodeId,
+    goal: &NodeId,
+    node_pts: &HashMap<NodeId, Point2D>,
+    adjacency: &HashMap<NodeId, Vec<(NodeId, usize)>>,
     mid_x: Option<f64>,
     left_half: bool,
-    visited: &mut HashSet<usize>,
+    visited: &mut HashSet<NodeId>,
     path: &mut Vec<usize>,
 ) -> bool {
     if current == goal {
         return true;
     }
-    visited.insert(current);
-    let Some(neighbors) = adjacency.get(&current) else {
+    visited.insert(current.clone());
+    let Some(neighbors) = adjacency.get(current) else {
         return false;
     };
-    for &(next, channel_idx) in neighbors {
-        if visited.contains(&next) {
+    for (next, channel_idx) in neighbors {
+        if visited.contains(next) {
             continue;
         }
         if let Some(mid_x) = mid_x {
-            let from = system.nodes[current].point.0;
-            let to = system.nodes[next].point.0;
+            let from = node_pts[current].0;
+            let to = node_pts[next].0;
             let keep = if left_half {
                 from <= mid_x + 1e-6 && to <= mid_x + 1e-6
             } else {
@@ -780,44 +1866,370 @@ fn dfs_channel_path(
                 continue;
             }
         }
-        path.push(channel_idx);
-        if dfs_channel_path(next, goal, system, adjacency, mid_x, left_half, visited, path) {
+        path.push(*channel_idx);
+        if dfs_channel_path(
+            next, goal, node_pts, adjacency, mid_x, left_half, visited, path,
+        ) {
             return true;
         }
         path.pop();
     }
-    visited.remove(&current);
+    visited.remove(current);
     false
 }
 
-fn serpentine_overlay_path(points: &[Point2D], segments: usize, amplitude_mm: f64) -> Vec<Point2D> {
+#[cfg(test)]
+mod tests {
+    use super::{
+        create_primitive_selective_tree_geometry, path_intersects_any,
+        route_monotone_treatment_path, PrimitiveSelectiveSplitKind, PrimitiveSelectiveTreeRequest,
+    };
+
+    #[test]
+    fn primitive_selective_tree_annotation_preserves_positive_channel_lengths() {
+        let blueprint = create_primitive_selective_tree_geometry(&PrimitiveSelectiveTreeRequest {
+            name: "primitive-selective-lengths".to_string(),
+            box_dims_mm: (127.76, 85.47),
+            split_sequence: vec![
+                PrimitiveSelectiveSplitKind::Tri,
+                PrimitiveSelectiveSplitKind::Tri,
+            ],
+            main_width_m: 8.0e-3,
+            throat_width_m: 55.0e-6,
+            throat_length_m: 110.0e-6,
+            channel_height_m: 1.0e-3,
+            first_trifurcation_center_frac: 0.55,
+            later_trifurcation_center_frac: 0.45,
+            bifurcation_treatment_frac: 0.68,
+            treatment_branch_venturi_enabled: false,
+            treatment_branch_throat_count: 1,
+            center_serpentine: None,
+        });
+
+        let invalid_lengths: Vec<String> = blueprint
+            .channels
+            .iter()
+            .filter(|channel| !(channel.length_m.is_finite() && channel.length_m > 0.0))
+            .map(|channel| format!("{}={}", channel.id.as_str(), channel.length_m))
+            .collect();
+
+        assert!(
+            invalid_lengths.is_empty(),
+            "primitive selective annotation should preserve positive channel lengths: {}",
+            invalid_lengths.join(", ")
+        );
+    }
+
+    #[test]
+    fn primitive_selective_venturi_paths_have_no_unresolved_crossings() {
+        let blueprint = create_primitive_selective_tree_geometry(&PrimitiveSelectiveTreeRequest {
+            name: "primitive-selective-no-crossings".to_string(),
+            box_dims_mm: (127.76, 85.47),
+            split_sequence: vec![
+                PrimitiveSelectiveSplitKind::Tri,
+                PrimitiveSelectiveSplitKind::Tri,
+            ],
+            main_width_m: 8.0e-3,
+            throat_width_m: 55.0e-6,
+            throat_length_m: 110.0e-6,
+            channel_height_m: 1.0e-3,
+            first_trifurcation_center_frac: 0.55,
+            later_trifurcation_center_frac: 0.45,
+            bifurcation_treatment_frac: 0.68,
+            treatment_branch_venturi_enabled: true,
+            treatment_branch_throat_count: 1,
+            center_serpentine: None,
+        });
+
+        assert_eq!(blueprint.unresolved_channel_overlap_count(), 0);
+        blueprint
+            .validate()
+            .expect("venturi treatment paths must remain planar");
+
+        for channel in blueprint.venturi_channels() {
+            if let (Some(start), Some(end)) = (channel.path.first(), channel.path.last()) {
+                if (start.1 - end.1).abs() < 1e-9 {
+                    assert!(
+                        channel
+                            .path
+                            .iter()
+                            .all(|point| (point.1 - start.1).abs() < 1e-9),
+                        "equal-y treatment channel {} must stay on its own lane",
+                        channel.id.as_str()
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn primitive_selective_tri_tri_retains_multiple_treatment_window_lanes() {
+        let blueprint = create_primitive_selective_tree_geometry(&PrimitiveSelectiveTreeRequest {
+            name: "primitive-selective-tritri-lanes".to_string(),
+            box_dims_mm: (127.76, 85.47),
+            split_sequence: vec![
+                PrimitiveSelectiveSplitKind::Tri,
+                PrimitiveSelectiveSplitKind::Tri,
+            ],
+            main_width_m: 8.0e-3,
+            throat_width_m: 55.0e-6,
+            throat_length_m: 110.0e-6,
+            channel_height_m: 1.0e-3,
+            first_trifurcation_center_frac: 0.55,
+            later_trifurcation_center_frac: 0.45,
+            bifurcation_treatment_frac: 0.68,
+            treatment_branch_venturi_enabled: false,
+            treatment_branch_throat_count: 1,
+            center_serpentine: None,
+        });
+
+        let mid_x = blueprint.box_dims.0 * 0.5;
+        let mut lane_keys = std::collections::BTreeSet::new();
+        for channel in &blueprint.channels {
+            if channel.therapy_zone
+                != Some(crate::domain::therapy_metadata::TherapyZone::CancerTarget)
+            {
+                continue;
+            }
+            let points = if channel.path.is_empty() {
+                let start = blueprint
+                    .nodes
+                    .iter()
+                    .find(|node| node.id == channel.from)
+                    .map(|node| node.point);
+                let end = blueprint
+                    .nodes
+                    .iter()
+                    .find(|node| node.id == channel.to)
+                    .map(|node| node.point);
+                [start, end].into_iter().flatten().collect::<Vec<_>>()
+            } else {
+                channel.path.clone()
+            };
+            if points.is_empty() {
+                continue;
+            }
+            let min_x = points.iter().map(|(x, _)| *x).fold(f64::INFINITY, f64::min);
+            let max_x = points
+                .iter()
+                .map(|(x, _)| *x)
+                .fold(f64::NEG_INFINITY, f64::max);
+            if max_x <= mid_x + 1.0e-6 || min_x < mid_x - 1.0e-6 {
+                continue;
+            }
+            let mean_y = points.iter().map(|(_, y)| *y).sum::<f64>() / points.len() as f64;
+            lane_keys.insert((mean_y * 100.0).round() as i64);
+        }
+
+        assert!(
+            lane_keys.len() >= 3,
+            "Tri->Tri selective trees must preserve multiple treatment-window lanes instead of collapsing to a centerline surrogate, got {:?}",
+            lane_keys
+        );
+    }
+
+    #[test]
+    fn monotone_treatment_routing_preserves_equal_y_lane() {
+        let routed =
+            route_monotone_treatment_path(Some((10.0, 24.0)), Some((40.0, 24.0)), 24.0, 42.0, &[]);
+        assert_eq!(routed, vec![(10.0, 24.0), (40.0, 24.0)]);
+    }
+
+    #[test]
+    fn monotone_treatment_routing_doglegs_around_existing_branch() {
+        let existing_paths = vec![vec![(3.0, 0.0), (7.0, 4.0)]];
+        let routed = route_monotone_treatment_path(
+            Some((0.0, 2.0)),
+            Some((10.0, 2.0)),
+            0.0,
+            2.0,
+            &existing_paths,
+        );
+
+        assert!(
+            routed.len() > 2,
+            "crossing direct path should reroute with a dogleg"
+        );
+        assert!(
+            !path_intersects_any(&routed, &existing_paths),
+            "rerouted path must not cross the existing treatment lane"
+        );
+    }
+}
+
+fn serpentine_overlay_path(
+    points: &[Point2D],
+    width_m: f64,
+    spec: CenterSerpentinePathSpec,
+    amplitude_mm: f64,
+) -> Vec<Point2D> {
     let Some(start) = points.first().copied() else {
         return Vec::new();
     };
     let Some(end) = points.last().copied() else {
         return vec![start];
     };
-    let mut path = vec![start];
-    for idx in 1..segments {
-        let t = idx as f64 / segments as f64;
-        let x = start.0 + (end.0 - start.0) * t;
-        let y = start.1 + if idx % 2 == 0 { amplitude_mm } else { -amplitude_mm };
-        path.push((x, y));
-    }
-    path.push(end);
-    path
+    build_serpentine_lobe_path(start, end, width_m, spec, amplitude_mm)
 }
 
-fn simple_path(start: Option<Point2D>, end: Option<Point2D>, y_fallback: f64) -> Vec<Point2D> {
+fn preferred_treatment_lane_y(
+    points: &[Point2D],
+    start: Option<Point2D>,
+    end: Option<Point2D>,
+    y_fallback: f64,
+) -> f64 {
+    match (start, end) {
+        (Some(a), Some(b)) => f64::midpoint(a.1, b.1),
+        (Some(a), None) => a.1,
+        (None, Some(b)) => b.1,
+        (None, None) => match (points.first(), points.last()) {
+            (Some(first), Some(last)) => f64::midpoint(first.1, last.1),
+            (Some(point), None) | (None, Some(point)) => point.1,
+            (None, None) => y_fallback,
+        },
+    }
+}
+
+fn route_pending_venturi_paths(
+    channels: &mut [ChannelSpec],
+    pending_paths: &[PendingVenturiPath],
+    mid_y: f64,
+) {
+    let mut ordered_paths = pending_paths.to_vec();
+    ordered_paths.sort_by(|left, right| {
+        right
+            .preferred_y
+            .partial_cmp(&left.preferred_y)
+            .unwrap_or(Ordering::Equal)
+            .then(left.channel_idx.cmp(&right.channel_idx))
+    });
+
+    let mut assigned_paths = Vec::with_capacity(ordered_paths.len());
+    for pending in ordered_paths {
+        let routed_path = route_monotone_treatment_path(
+            pending.start,
+            pending.end,
+            pending.preferred_y,
+            mid_y,
+            &assigned_paths,
+        );
+        let channel = &mut channels[pending.channel_idx];
+        channel.path = routed_path;
+        channel.length_m = channel_length_from_points_or_endpoints(
+            &channel.path,
+            pending.start,
+            pending.end,
+            pending.fallback_length_m,
+        );
+        assigned_paths.push(channel.path.clone());
+    }
+}
+
+fn route_monotone_treatment_path(
+    start: Option<Point2D>,
+    end: Option<Point2D>,
+    preferred_y: f64,
+    mid_y: f64,
+    existing_paths: &[Vec<Point2D>],
+) -> Vec<Point2D> {
     match (start, end) {
         (Some(a), Some(b)) => {
-            let mid_x = (a.0 + b.0) * 0.5;
-            vec![a, (mid_x, y_fallback), b]
+            let direct = simplify_polyline_points(vec![a, b]);
+            if !path_intersects_any(&direct, existing_paths) {
+                return direct;
+            }
+
+            let direction = if preferred_y >= mid_y { 1.0 } else { -1.0 };
+            let offset_step = ((a.1 - b.1).abs() * 0.5).max(2.0);
+            for attempt in 0..8 {
+                let lane_y = preferred_y + direction * f64::from(attempt) * offset_step;
+                let dogleg = simplify_polyline_points(monotone_dogleg_path(a, b, lane_y));
+                if !path_intersects_any(&dogleg, existing_paths) {
+                    return dogleg;
+                }
+            }
+
+            direct
         }
         (Some(a), None) => vec![a],
         (None, Some(b)) => vec![b],
         (None, None) => Vec::new(),
     }
+}
+
+fn monotone_dogleg_path(start: Point2D, end: Point2D, lane_y: f64) -> Vec<Point2D> {
+    let span_x = end.0 - start.0;
+    let lead_frac = if span_x.abs() > 1e-9 { 0.25 } else { 0.0 };
+    let x1 = start.0 + span_x * lead_frac;
+    let x2 = end.0 - span_x * lead_frac;
+    vec![
+        start,
+        (x1, start.1),
+        (x1, lane_y),
+        (x2, lane_y),
+        (x2, end.1),
+        end,
+    ]
+}
+
+fn simplify_polyline_points(points: Vec<Point2D>) -> Vec<Point2D> {
+    let mut simplified = Vec::with_capacity(points.len());
+    for point in points {
+        if simplified.last().is_some_and(|last: &Point2D| {
+            (last.0 - point.0).abs() < 1e-9 && (last.1 - point.1).abs() < 1e-9
+        }) {
+            continue;
+        }
+        simplified.push(point);
+    }
+    if simplified.len() < 3 {
+        return simplified;
+    }
+
+    let mut cleaned = Vec::with_capacity(simplified.len());
+    for point in simplified {
+        cleaned.push(point);
+        while cleaned.len() >= 3 {
+            let len = cleaned.len();
+            if points_are_colinear(cleaned[len - 3], cleaned[len - 2], cleaned[len - 1]) {
+                cleaned.remove(len - 2);
+            } else {
+                break;
+            }
+        }
+    }
+    cleaned
+}
+
+fn points_are_colinear(a: Point2D, b: Point2D, c: Point2D) -> bool {
+    let cross = (b.0 - a.0) * (c.1 - b.1) - (b.1 - a.1) * (c.0 - b.0);
+    cross.abs() < 1e-9
+}
+
+fn segment_intersection_strict(p1: Point2D, p2: Point2D, p3: Point2D, p4: Point2D) -> bool {
+    let dx1 = p2.0 - p1.0;
+    let dy1 = p2.1 - p1.1;
+    let dx2 = p4.0 - p3.0;
+    let dy2 = p4.1 - p3.1;
+    let denom = dx1 * dy2 - dy1 * dx2;
+    if denom.abs() < 1e-12 {
+        return false;
+    }
+
+    let t = ((p3.0 - p1.0) * dy2 - (p3.1 - p1.1) * dx2) / denom;
+    let u = ((p3.0 - p1.0) * dy1 - (p3.1 - p1.1) * dx1) / denom;
+    let eps = 1e-6;
+    t > eps && t < (1.0 - eps) && u > eps && u < (1.0 - eps)
+}
+
+fn path_intersects_any(candidate: &[Point2D], existing_paths: &[Vec<Point2D>]) -> bool {
+    candidate.windows(2).any(|segment_a| {
+        existing_paths.iter().any(|path| {
+            path.windows(2).any(|segment_b| {
+                segment_intersection_strict(segment_a[0], segment_a[1], segment_b[0], segment_b[1])
+            })
+        })
+    })
 }
 
 fn polyline_length_mm(points: &[Point2D]) -> f64 {
@@ -829,4 +2241,156 @@ fn polyline_length_mm(points: &[Point2D]) -> f64 {
             dx.hypot(dy)
         })
         .sum()
+}
+
+fn build_serpentine_lobe_path(
+    start: Point2D,
+    end: Point2D,
+    width_m: f64,
+    spec: CenterSerpentinePathSpec,
+    amplitude_mm: f64,
+) -> Vec<Point2D> {
+    let dx = end.0 - start.0;
+    let dy = end.1 - start.1;
+    let chord_length_mm = dx.hypot(dy);
+    if chord_length_mm <= 1e-9 || spec.segments < 3 {
+        return vec![start, end];
+    }
+
+    let channel_diameter_mm = (width_m * 1.0e3).max(1.0e-3);
+    let bend_radius_mm = (spec.bend_radius_m * 1.0e3).max(channel_diameter_mm * 0.5);
+    let requested_turns = spec.segments.saturating_sub(1).max(1);
+    let usable_length_mm = (chord_length_mm - 2.0 * channel_diameter_mm).max(0.0);
+    let min_turn_span_mm = (bend_radius_mm * 2.5)
+        .max(channel_diameter_mm * 3.0)
+        .max(amplitude_mm * 2.0);
+    let max_turns = (usable_length_mm / min_turn_span_mm).floor() as usize;
+    // Guarantee at least a full S (2 turns) when the channel is physically long enough.
+    let min_s_turns = if usable_length_mm >= channel_diameter_mm * 6.0 {
+        2
+    } else {
+        1
+    };
+    let safe_turns = requested_turns
+        .min(max_turns.max(1))
+        .max(min_s_turns.min(max_turns.max(1)));
+    // Place peaks at chord*(i+0.5)/N so a 2-turn S has peaks at 1/4 and 3/4 of the
+    // chord — symmetric about the x-midpoint and spanning the full channel length.
+    let step_mm = chord_length_mm / safe_turns as f64;
+    let shoulder_mm = (step_mm * 0.28).min(bend_radius_mm.max(channel_diameter_mm * 1.5));
+    let lobe_amplitude_mm = amplitude_mm
+        .max(channel_diameter_mm * 1.5)
+        .min(step_mm * 0.45);
+    let tx = dx / chord_length_mm;
+    let ty = dy / chord_length_mm;
+    let nx = -ty;
+    let ny = tx;
+
+    let mut path = Vec::with_capacity(2 + safe_turns * 3);
+    path.push(start);
+    let mut last_along_mm = 0.0;
+    for turn_idx in 0..safe_turns {
+        let center_mm = step_mm * (turn_idx as f64 + 0.5);
+        let direction = if turn_idx % 2 == 0 { 1.0 } else { -1.0 };
+        for (along_mm, offset_scale) in [
+            (center_mm - shoulder_mm, 0.35),
+            (center_mm, 1.0),
+            (center_mm + shoulder_mm, 0.35),
+        ] {
+            if along_mm <= last_along_mm + 1.0e-6 || along_mm >= chord_length_mm - 1.0e-6 {
+                continue;
+            }
+            let offset_mm = direction * lobe_amplitude_mm * offset_scale;
+            path.push((
+                start.0 + tx * along_mm + nx * offset_mm,
+                start.1 + ty * along_mm + ny * offset_mm,
+            ));
+            last_along_mm = along_mm;
+        }
+    }
+    path.push(end);
+    path
+}
+
+fn estimate_local_bend_radius(path: &[Point2D], idx: usize) -> Option<f64> {
+    if idx == 0 || idx + 1 >= path.len() {
+        return None;
+    }
+
+    let a = path[idx - 1];
+    let b = path[idx];
+    let c = path[idx + 1];
+    let ab = ((b.0 - a.0).powi(2) + (b.1 - a.1).powi(2)).sqrt();
+    let bc = ((c.0 - b.0).powi(2) + (c.1 - b.1).powi(2)).sqrt();
+    let ac = ((c.0 - a.0).powi(2) + (c.1 - a.1).powi(2)).sqrt();
+    if ab <= 1e-9 || bc <= 1e-9 || ac <= 1e-9 {
+        return None;
+    }
+
+    let twice_area = ((b.0 - a.0) * (c.1 - a.1) - (b.1 - a.1) * (c.0 - a.0)).abs();
+    if twice_area <= 1e-12 {
+        return Some(f64::INFINITY);
+    }
+
+    Some((ab * bc * ac) / (2.0 * twice_area))
+}
+
+fn infer_serpentine_shape(
+    path: &[Point2D],
+    start: Point2D,
+    end: Point2D,
+    channel_width_mm: f64,
+) -> ChannelShape {
+    if path.len() < 3 {
+        return ChannelShape::Serpentine {
+            segments: 2,
+            bend_radius_m: (channel_width_mm * 0.5) * 1.0e-3,
+        };
+    }
+
+    let dx = end.0 - start.0;
+    let dy = end.1 - start.1;
+    let length = dx.hypot(dy);
+    if length <= 1e-9 {
+        return ChannelShape::Serpentine {
+            segments: 2,
+            bend_radius_m: (channel_width_mm * 0.5) * 1.0e-3,
+        };
+    }
+
+    let nx = -dy / length;
+    let ny = dx / length;
+    let offsets: Vec<f64> = path
+        .iter()
+        .map(|point| ((point.0 - start.0) * nx) + ((point.1 - start.1) * ny))
+        .collect();
+    let extrema_threshold = channel_width_mm * 0.15;
+    let mut turns = 0usize;
+    for idx in 1..offsets.len() - 1 {
+        let prev_delta = offsets[idx] - offsets[idx - 1];
+        let next_delta = offsets[idx + 1] - offsets[idx];
+        if prev_delta.abs() <= 1e-9 || next_delta.abs() <= 1e-9 {
+            continue;
+        }
+        if prev_delta.signum() != next_delta.signum() && offsets[idx].abs() > extrema_threshold {
+            turns += 1;
+        }
+    }
+
+    let min_radius_mm = path
+        .iter()
+        .enumerate()
+        .filter_map(|(idx, _)| estimate_local_bend_radius(path, idx))
+        .filter(|radius| radius.is_finite())
+        .fold(f64::INFINITY, f64::min);
+    let bend_radius_mm = if min_radius_mm.is_finite() {
+        min_radius_mm.max(channel_width_mm * 0.5)
+    } else {
+        channel_width_mm * 0.5
+    };
+
+    ChannelShape::Serpentine {
+        segments: turns.saturating_add(1).max(2),
+        bend_radius_m: bend_radius_mm * 1.0e-3,
+    }
 }

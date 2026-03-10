@@ -210,8 +210,12 @@ impl MixingMetrics {
 
         // Pressure drop (laminar, friction factor f = 64/Re)
         let friction_factor = 64.0 / reynolds.max(1.0);
-        let pressure_drop = friction_factor * (channel_length / hydraulic_diameter)
-            * 0.5 * density * velocity * velocity;
+        let pressure_drop = friction_factor
+            * (channel_length / hydraulic_diameter)
+            * 0.5
+            * density
+            * velocity
+            * velocity;
 
         // Power consumption: P = ΔP × Q
         let power_consumption = pressure_drop * flow_rate;
@@ -273,9 +277,18 @@ fn validate_standard_microfluidic_serpentine() {
     println!("\n[Geometry]");
     println!("  Channel width: {:.0} μm", channel.width * 1e6);
     println!("  Channel height: {:.0} μm", channel.height * 1e6);
-    println!("  Hydraulic diameter: {:.0} μm", channel.hydraulic_diameter() * 1e6);
-    println!("  Cross-sectional area: {:.1e} m²", channel.cross_section_area());
-    println!("  Straight section: {:.0} μm", channel.straight_length * 1e6);
+    println!(
+        "  Hydraulic diameter: {:.0} μm",
+        channel.hydraulic_diameter() * 1e6
+    );
+    println!(
+        "  Cross-sectional area: {:.1e} m²",
+        channel.cross_section_area()
+    );
+    println!(
+        "  Straight section: {:.0} μm",
+        channel.straight_length * 1e6
+    );
     println!("  Turn radius: {:.0} μm", channel.turn_radius * 1e6);
     println!("  Cycles: {}", channel.cycles);
     println!("  Total length: {:.2} mm", channel.total_length() * 1e3);
@@ -289,8 +302,16 @@ fn validate_standard_microfluidic_serpentine() {
     let flow_rate = velocity * channel.cross_section_area();
 
     println!("\n[Operating Conditions: Aqueous Solution at 25°C]");
-    println!("  Inlet velocity: {:.3} m/s ({:.1} cm/s)", velocity, velocity * 100.0);
-    println!("  Flow rate: {:.2e} m³/s ({:.2} μL/s)", flow_rate, flow_rate * 1e9);
+    println!(
+        "  Inlet velocity: {:.3} m/s ({:.1} cm/s)",
+        velocity,
+        velocity * 100.0
+    );
+    println!(
+        "  Flow rate: {:.2e} m³/s ({:.2} μL/s)",
+        flow_rate,
+        flow_rate * 1e9
+    );
     println!("  Density: {:.0} kg/m³", density);
     println!("  Viscosity: {:.3} cP", viscosity * 1000.0);
     println!("  Diffusion coefficient: {:.2e} m²/s", diffusivity);
@@ -308,22 +329,42 @@ fn validate_standard_microfluidic_serpentine() {
 
     println!("\n[Flow Regime]");
     println!("  Reynolds number: {:.2}", metrics.reynolds);
-    println!("  Flow type: {} (viscous, no turbulence)",
-             if metrics.reynolds < 1.0 { "Creeping" } else { "Laminar" });
+    println!(
+        "  Flow type: {} (viscous, no turbulence)",
+        if metrics.reynolds < 1.0 {
+            "Creeping"
+        } else {
+            "Laminar"
+        }
+    );
 
     println!("\n[Mixing Analysis]");
     println!("  Peclet number: {:.0}", metrics.peclet);
-    println!("  Interpretation: {} advection-dominated",
-             if metrics.peclet > 100.0 { "Highly" } else { "Moderately" });
-    println!("  Mixing length (90% homogeneity): {:.0} μm", metrics.mixing_length_90 * 1e6);
+    println!(
+        "  Interpretation: {} advection-dominated",
+        if metrics.peclet > 100.0 {
+            "Highly"
+        } else {
+            "Moderately"
+        }
+    );
+    println!(
+        "  Mixing length (90% homogeneity): {:.0} μm",
+        metrics.mixing_length_90 * 1e6
+    );
     println!("  Channel length: {:.2} mm", channel.total_length() * 1e3);
-    println!("  Length ratio (L_channel / L_mix): {:.2}",
-             channel.total_length() / metrics.mixing_length_90);
+    println!(
+        "  Length ratio (L_channel / L_mix): {:.2}",
+        channel.total_length() / metrics.mixing_length_90
+    );
 
     println!("\n[Mixing Quality at Outlet]");
     println!("  Mixing fraction: {:.1}%", metrics.mixing_index * 100.0);
     println!("  Mixing index: {:.3}", metrics.mixing_index);
-    println!("  Intensity of segregation: {:.3}", metrics.intensity_segregation);
+    println!(
+        "  Intensity of segregation: {:.3}",
+        metrics.intensity_segregation
+    );
 
     if metrics.mixing_index > 0.9 {
         println!("  ✓ EXCELLENT: > 90% homogeneous at outlet");
@@ -341,9 +382,18 @@ fn validate_standard_microfluidic_serpentine() {
     println!("  Ultra-low: typical passive microfluidic device");
 
     println!("\n[Efficiency]");
-    println!("  Mixing efficiency: {:.2e} (M/ΔP)", metrics.mixing_efficiency);
-    println!("  Assessment: {} mixing quality per unit pressure",
-             if metrics.mixing_efficiency > 1.0 { "Excellent" } else { "Good" });
+    println!(
+        "  Mixing efficiency: {:.2e} (M/ΔP)",
+        metrics.mixing_efficiency
+    );
+    println!(
+        "  Assessment: {} mixing quality per unit pressure",
+        if metrics.mixing_efficiency > 1.0 {
+            "Excellent"
+        } else {
+            "Good"
+        }
+    );
 }
 
 // ============================================================================
@@ -363,17 +413,20 @@ fn validate_industrial_scale_serpentine() {
     println!("{}", "=".repeat(80));
 
     let channel = SerpentineChannel {
-        width: 5e-3, // 5 mm
-        height: 2e-3, // 2 mm
+        width: 5e-3,            // 5 mm
+        height: 2e-3,           // 2 mm
         straight_length: 50e-3, // 50 mm
-        turn_radius: 20e-3, // 20 mm
-        cycles: 10, // More cycles for larger scale
+        turn_radius: 20e-3,     // 20 mm
+        cycles: 10,             // More cycles for larger scale
     };
 
     println!("\n[Geometry (Industrial)]");
     println!("  Channel width: {:.1} mm", channel.width * 1e3);
     println!("  Channel height: {:.1} mm", channel.height * 1e3);
-    println!("  Hydraulic diameter: {:.2} mm", channel.hydraulic_diameter() * 1e3);
+    println!(
+        "  Hydraulic diameter: {:.2} mm",
+        channel.hydraulic_diameter() * 1e3
+    );
     println!("  Total length: {:.2} m", channel.total_length());
 
     // Water at 20°C, high flow
@@ -386,7 +439,11 @@ fn validate_industrial_scale_serpentine() {
 
     println!("\n[Operating Conditions]");
     println!("  Inlet velocity: {:.2} m/s", velocity);
-    println!("  Flow rate: {:.4} L/s ({:.1} L/min)", flow_rate * 1000.0, flow_rate * 1000.0 * 60.0);
+    println!(
+        "  Flow rate: {:.4} L/s ({:.1} L/min)",
+        flow_rate * 1000.0,
+        flow_rate * 1000.0 * 60.0
+    );
 
     let metrics = MixingMetrics::new(
         velocity,
@@ -415,12 +472,17 @@ fn validate_industrial_scale_serpentine() {
     if channel.total_length() > metrics.mixing_length_90 {
         println!("  ✓ Channel sufficiently long for target mixing");
     } else {
-        println!("  ✗ Channel too short: {} × longer needed",
-                 metrics.mixing_length_90 / channel.total_length());
+        println!(
+            "  ✗ Channel too short: {} × longer needed",
+            metrics.mixing_length_90 / channel.total_length()
+        );
     }
 
     println!("\n[Mixing Quality]");
-    println!("  Mixing fraction at outlet: {:.1}%", metrics.mixing_index * 100.0);
+    println!(
+        "  Mixing fraction at outlet: {:.1}%",
+        metrics.mixing_index * 100.0
+    );
     println!("  Mixing index: {:.3}", metrics.mixing_index);
 
     println!("\n[Pressure & Power]");
@@ -457,8 +519,10 @@ fn validate_solute_property_effects() {
     println!("  Channel: 200 μm × 50 μm, 3.5 mm total");
     println!("  Inlet velocity: {:.2} cm/s", velocity * 100.0);
     println!();
-    println!("{:>25} {:>15} {:>15} {:>15}",
-             "Solute", "D [m²/s]", "Pe", "L_mix [μm]");
+    println!(
+        "{:>25} {:>15} {:>15} {:>15}",
+        "Solute", "D [m²/s]", "Pe", "L_mix [μm]"
+    );
     println!("{}", "-".repeat(75));
 
     let solutes = vec![
@@ -483,8 +547,13 @@ fn validate_solute_property_effects() {
             flow_rate,
         );
 
-        println!("{:>25} {:>15.2e} {:>15.0} {:>15.0}",
-                 name, diffusivity, metrics.peclet, metrics.mixing_length_90 * 1e6);
+        println!(
+            "{:>25} {:>15.2e} {:>15.0} {:>15.0}",
+            name,
+            diffusivity,
+            metrics.peclet,
+            metrics.mixing_length_90 * 1e6
+        );
     }
 
     println!("\n[Interpretation]");
@@ -514,8 +583,10 @@ fn validate_velocity_sweep() {
 
     println!("\n[Serpentine Channel: 200 μm × 50 μm, 5 cycles]");
     println!();
-    println!("{:>10} {:>10} {:>12} {:>15} {:>15} {:>12}",
-             "u [cm/s]", "Re", "Pe", "L_mix [μm]", "M_index", "Pressure");
+    println!(
+        "{:>10} {:>10} {:>12} {:>15} {:>15} {:>12}",
+        "u [cm/s]", "Re", "Pe", "L_mix [μm]", "M_index", "Pressure"
+    );
     println!("{}", "-".repeat(80));
 
     let velocities = vec![0.001, 0.01, 0.1, 0.5, 1.0, 5.0];
@@ -536,13 +607,15 @@ fn validate_velocity_sweep() {
             flow_rate,
         );
 
-        println!("{:>10.4} {:>10.3} {:>12.0} {:>15.0} {:>15.3} {:>12.4}",
-                 velocity * 100.0,
-                 metrics.reynolds,
-                 metrics.peclet,
-                 metrics.mixing_length_90 * 1e6,
-                 metrics.mixing_index,
-                 metrics.pressure_drop);
+        println!(
+            "{:>10.4} {:>10.3} {:>12.0} {:>15.0} {:>15.3} {:>12.4}",
+            velocity * 100.0,
+            metrics.reynolds,
+            metrics.peclet,
+            metrics.mixing_length_90 * 1e6,
+            metrics.mixing_index,
+            metrics.pressure_drop
+        );
     }
 
     println!("\n[Key Observations]");
@@ -567,26 +640,36 @@ fn validate_grid_convergence() {
     println!("\n[Mixing Index Convergence with Mesh Refinement]");
     println!("As computational grid is refined, numerical solution converges");
     println!();
-    println!("{:>20} {:>15} {:>15} {:>15}",
-             "Grid spacing [μm]", "Mixing index", "Δ from fine", "Convergence");
+    println!(
+        "{:>20} {:>15} {:>15} {:>15}",
+        "Grid spacing [μm]", "Mixing index", "Δ from fine", "Convergence"
+    );
     println!("{}", "-".repeat(70));
 
     // Simulated convergence study (Richardson extrapolation)
     let grids: Vec<(f64, f64)> = vec![
-        (20.0, 0.9500),  // Coarse
-        (10.0, 0.9605),  // Medium
-        (5.0, 0.9656),   // Fine
-        (2.5, 0.9678),   // Very fine
+        (20.0, 0.9500), // Coarse
+        (10.0, 0.9605), // Medium
+        (5.0, 0.9656),  // Fine
+        (2.5, 0.9678),  // Very fine
     ];
 
     let finest = grids[grids.len() - 1].1;
 
     for (spacing, mixing_index) in &grids {
         let error = (finest - mixing_index).abs();
-        let convergence = if error < 0.001 { "✓ Converged" } else if error < 0.01 { "• Converging" } else { "→ Coarse" };
+        let convergence = if error < 0.001 {
+            "✓ Converged"
+        } else if error < 0.01 {
+            "• Converging"
+        } else {
+            "→ Coarse"
+        };
 
-        println!("{:>20.1} {:>15.4} {:>15.4} {:>15}",
-                 spacing, mixing_index, error, convergence);
+        println!(
+            "{:>20.1} {:>15.4} {:>15.4} {:>15}",
+            spacing, mixing_index, error, convergence
+        );
     }
 
     println!("\n[Convergence Analysis]");
@@ -622,8 +705,16 @@ fn validate_grid_convergence() {
 fn main() {
     println!("\n");
     println!("╔{}╗", "=".repeat(78));
-    println!("║ {}{}║", " ".repeat(15), "SERPENTINE MIXING CHANNEL VALIDATION");
-    println!("║ {}{}║", " ".repeat(10), "Comprehensive Advection-Diffusion Analysis");
+    println!(
+        "║ {}{}║",
+        " ".repeat(15),
+        "SERPENTINE MIXING CHANNEL VALIDATION"
+    );
+    println!(
+        "║ {}{}║",
+        " ".repeat(10),
+        "Comprehensive Advection-Diffusion Analysis"
+    );
     println!("╚{}╝", "=".repeat(78));
 
     validate_standard_microfluidic_serpentine();

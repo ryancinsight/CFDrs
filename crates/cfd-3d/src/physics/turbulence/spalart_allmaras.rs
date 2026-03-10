@@ -43,7 +43,9 @@ use cfd_core::physics::fluid_dynamics::turbulence::TurbulenceModel;
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 
-use super::constants::{SA_CV1, SA_CW2, SA_CW3};
+use super::constants::SA_CV1;
+#[cfg(test)]
+use super::constants::{SA_CW2, SA_CW3};
 
 /// Spalart-Allmaras one-equation RANS model (Spalart & Allmaras 1992).
 ///
@@ -115,7 +117,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Spala
     }
 
     /// Compute the destruction function f_w (Spalart & Allmaras 1992 eq. 25).
-    #[allow(dead_code)]
+    #[cfg(test)]
     fn f_w(r: T) -> T {
         let cw2 = <T as FromPrimitive>::from_f64(SA_CW2)
             .expect("SA_CW2 is an IEEE 754 representable f64 constant");

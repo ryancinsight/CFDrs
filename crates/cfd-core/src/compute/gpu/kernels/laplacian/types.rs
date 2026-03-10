@@ -27,7 +27,9 @@ impl BoundaryType {
     pub fn description(self) -> &'static str {
         match self {
             BoundaryType::Dirichlet => "Dirichlet: u = 0, odd reflection ghosting for endpoints",
-            BoundaryType::Neumann => "Neumann: du/dn = 0, one-sided second derivatives at endpoints",
+            BoundaryType::Neumann => {
+                "Neumann: du/dn = 0, one-sided second derivatives at endpoints"
+            }
             BoundaryType::Periodic => "Periodic: endpoint-inclusive wrapping to inner indices",
         }
     }

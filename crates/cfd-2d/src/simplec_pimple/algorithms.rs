@@ -85,11 +85,16 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
         let mut residuals = Vec::new();
         let mut last_residual = T::max_value().unwrap_or(T::from_f64(1e10).unwrap_or(T::one()));
 
-        let dt_increase_factor =
-            T::from_f64(1.2).unwrap_or_else(|| T::one() + T::from_f64(0.2).unwrap_or_else(num_traits::Zero::zero));
-        let dt_decrease_factor = T::from_f64(0.7).unwrap_or_else(|| T::from_f64(0.7).unwrap_or_else(num_traits::Zero::zero));
-        let min_dt = dt_initial * T::from_f64(0.1).unwrap_or_else(|| T::from_f64(0.1).unwrap_or_else(num_traits::Zero::zero));
-        let max_dt = dt_initial * T::from_f64(5.0).unwrap_or_else(|| T::from_f64(5.0).unwrap_or_else(num_traits::Zero::zero));
+        let dt_increase_factor = T::from_f64(1.2)
+            .unwrap_or_else(|| T::one() + T::from_f64(0.2).unwrap_or_else(num_traits::Zero::zero));
+        let dt_decrease_factor = T::from_f64(0.7)
+            .unwrap_or_else(|| T::from_f64(0.7).unwrap_or_else(num_traits::Zero::zero));
+        let min_dt = dt_initial
+            * T::from_f64(0.1)
+                .unwrap_or_else(|| T::from_f64(0.1).unwrap_or_else(num_traits::Zero::zero));
+        let max_dt = dt_initial
+            * T::from_f64(5.0)
+                .unwrap_or_else(|| T::from_f64(5.0).unwrap_or_else(num_traits::Zero::zero));
 
         while step_count < max_steps {
             let residual = self.solve_time_step(fields, dt, nu, rho)?;
@@ -124,7 +129,9 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
 
             // Adaptive time step adjustment
             if residual
-                < last_residual * T::from_f64(0.95).unwrap_or_else(|| T::from_f64(0.95).unwrap_or_else(num_traits::Zero::zero))
+                < last_residual
+                    * T::from_f64(0.95)
+                        .unwrap_or_else(|| T::from_f64(0.95).unwrap_or_else(num_traits::Zero::zero))
             {
                 dt = (dt * dt_increase_factor).min(max_dt);
                 tracing::debug!(
@@ -133,7 +140,9 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
                     residual
                 );
             } else if residual
-                > last_residual * T::from_f64(1.05).unwrap_or_else(|| T::from_f64(1.05).unwrap_or_else(num_traits::Zero::zero))
+                > last_residual
+                    * T::from_f64(1.05)
+                        .unwrap_or_else(|| T::from_f64(1.05).unwrap_or_else(num_traits::Zero::zero))
             {
                 dt = (dt * dt_decrease_factor).max(min_dt);
                 tracing::debug!(
@@ -171,7 +180,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
         let mut u_prev = self.extract_velocity_field(fields);
         let mut u_star = vec![vec![Vector2::zeros(); self.grid.ny]; self.grid.nx];
         let mut u_corrected = vec![vec![Vector2::zeros(); self.grid.ny]; self.grid.nx];
-        let mut continuity_residual = T::max_value().unwrap_or_else(|| T::from_f64(1e30).unwrap_or_else(T::one));
+        let mut continuity_residual =
+            T::max_value().unwrap_or_else(|| T::from_f64(1e30).unwrap_or_else(T::one));
 
         for iter in 0..max_iterations {
             // Step 1: Solve momentum equations for predicted velocities u*
@@ -380,7 +390,9 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
             let outer_residual =
                 self.calculate_velocity_residual_from_vectors(&u_before_outer, &u_current);
 
-            if outer_residual < self.config.tolerance * T::from_f64(5.0).unwrap_or_else(num_traits::Zero::zero) {
+            if outer_residual
+                < self.config.tolerance * T::from_f64(5.0).unwrap_or_else(num_traits::Zero::zero)
+            {
                 break;
             }
         }
@@ -390,7 +402,9 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
             &self.extract_velocity_field(fields),
         );
 
-        if final_residual > self.config.tolerance * T::from_f64(10.0).unwrap_or_else(num_traits::Zero::zero) {
+        if final_residual
+            > self.config.tolerance * T::from_f64(10.0).unwrap_or_else(num_traits::Zero::zero)
+        {
             tracing::warn!(
                 "PIMPLE did not achieve desired convergence, residual: {:.2e}",
                 final_residual

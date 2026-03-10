@@ -1,24 +1,15 @@
-//! Design topology and candidate generation for SDT millifluidic devices.
-//!
-//! This module defines the [`DesignTopology`] enum, the
-//! [`DesignCandidate`] parameter struct, blueprint conversion methods,
-//! and the parametric sweep / random-sampling functions that populate
-//! the initial candidate space.
+//! Milestone 12 design-space helpers.
 //!
 //! ## Sub-modules
 //!
 //! | Module | Responsibility |
 //! |--------|----------------|
-//! | [`topology`] | `DesignTopology` enum + query methods |
-//! | [`candidate`] | `DesignCandidate` struct + accessor helpers |
-//! | [`blueprint`] | `to_blueprint()`, `to_channel_system()` (legacy compatibility only), `total_path_length_mm()` |
-//! | [`space`] | `build_candidate_space()`, `sample_random_candidates()` |
+//! | [`space`] | `build_milestone12_blueprint_candidate_space()` |
 
-mod blueprint;
-mod candidate;
-mod space;
-mod topology;
+mod sequence_catalog;
+pub(crate) mod space;
+pub(crate) use sequence_catalog::{
+    primitive_sequence_metadata, TRI_FIRST_PRIMITIVE_SELECTIVE_SEQUENCES,
+};
 
-pub use candidate::{CrossSectionShape, DesignCandidate, TreatmentZoneMode};
-pub use space::{build_candidate_space, sample_random_candidates};
-pub use topology::{DesignTopology, PrimitiveSplitSequence};
+pub use space::build_milestone12_blueprint_candidate_space;

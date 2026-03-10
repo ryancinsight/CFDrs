@@ -275,8 +275,8 @@ impl<T: RealField + Copy + FromPrimitive> RungeKuttaChebyshev<T> {
                     let scale =
                         self.config.atol + self.config.rtol * y[i].abs().max(y_half_full[i].abs());
                     let denom = if scale > T::zero() { scale } else { T::one() };
-                    let diff =
-                        (y_half_full[i] - y_full[i]).abs() / (T::from_f64(3.0).unwrap_or_else(num_traits::Zero::zero) * denom);
+                    let diff = (y_half_full[i] - y_full[i]).abs()
+                        / (T::from_f64(3.0).unwrap_or_else(num_traits::Zero::zero) * denom);
                     err_sum += diff * diff;
                 }
                 let n_t = T::from_usize(n).unwrap();
@@ -288,7 +288,8 @@ impl<T: RealField + Copy + FromPrimitive> RungeKuttaChebyshev<T> {
                     let factor = if err_norm == T::zero() {
                         T::from_f64(5.0).unwrap_or_else(num_traits::Zero::zero)
                     } else {
-                        let exponent = T::from_f64(1.0 / 3.0).unwrap_or_else(num_traits::Zero::zero);
+                        let exponent =
+                            T::from_f64(1.0 / 3.0).unwrap_or_else(num_traits::Zero::zero);
                         self.config.safety_factor * err_norm.powf(-exponent)
                     };
                     let factor = factor

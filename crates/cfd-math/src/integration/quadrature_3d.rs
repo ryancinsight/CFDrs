@@ -1,6 +1,6 @@
 //! Tetrahedral quadrature rules (Keast rules)
 //!
-//! References: 
+//! References:
 //! Keast, P. (1986). "Moderate-degree quadrature rules for simplices".
 //! Computer Methods in Applied Mechanics and Engineering.
 
@@ -112,14 +112,18 @@ impl<T: RealField + Copy + From<f64>> TetrahedronQuadrature<T> {
         points.push([x2_b, x2_a, x2_b, x2_b]);
         points.push([x2_b, x2_b, x2_a, x2_b]);
         points.push([x2_b, x2_b, x2_b, x2_a]);
-        for _ in 0..4 { weights.push(w2); }
+        for _ in 0..4 {
+            weights.push(w2);
+        }
 
         // 3. Four points (c, d, d, d) and perms
         points.push([x3_a, x3_b, x3_b, x3_b]);
         points.push([x3_b, x3_a, x3_b, x3_b]);
         points.push([x3_b, x3_b, x3_a, x3_b]);
         points.push([x3_b, x3_b, x3_b, x3_a]);
-        for _ in 0..4 { weights.push(w3); }
+        for _ in 0..4 {
+            weights.push(w3);
+        }
 
         // 4. Six points (e, e, f, f) and perms
         points.push([x4_a, x4_a, x4_b, x4_b]);
@@ -128,7 +132,9 @@ impl<T: RealField + Copy + From<f64>> TetrahedronQuadrature<T> {
         points.push([x4_b, x4_a, x4_a, x4_b]);
         points.push([x4_b, x4_a, x4_b, x4_a]);
         points.push([x4_b, x4_b, x4_a, x4_a]);
-        for _ in 0..6 { weights.push(w4); }
+        for _ in 0..6 {
+            weights.push(w4);
+        }
 
         Self {
             points,

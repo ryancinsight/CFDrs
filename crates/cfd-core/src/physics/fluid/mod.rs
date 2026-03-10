@@ -20,9 +20,3 @@ pub use properties::FluidProperties;
 pub use traits::{
     CompressibleFluid, ConstantFluid, Fluid as FluidTrait, FluidState, NonNewtonianFluid,
 };
-
-/// Type alias for backward compatibility
-pub type Fluid<T> = ConstantPropertyFluid<T>;
-
-// Legacy FluidModel trait removed - use traits::Fluid instead
-

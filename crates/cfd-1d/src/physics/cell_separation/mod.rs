@@ -55,11 +55,11 @@ pub mod separation_model;
 pub use cascade_junction::{
     cascade_junction_separation, cascade_junction_separation_cross_junction,
     cascade_junction_separation_from_qfracs, cif_pretri_stage_center_fracs,
-    cif_pretri_stage_q_fracs, incremental_filtration_separation,
-    incremental_filtration_separation_cross_junction,
+    cif_pretri_stage_q_fracs, incremental_filtration_separation_cross_junction,
     incremental_filtration_separation_from_qfracs, incremental_filtration_separation_staged,
-    mixed_cascade_separation, tri_center_q_frac, tri_center_q_frac_cross_junction,
-    CascadeJunctionResult, IncrementalFiltrationResult,
+    mixed_cascade_separation, mixed_cascade_separation_kappa_aware, tri_asymmetric_q_fracs,
+    tri_center_q_frac, tri_center_q_frac_cross_junction, CascadeJunctionResult, CascadeStage,
+    IncrementalFiltrationResult,
 };
 pub use cell_interaction::enhanced_lateral_equilibrium;
 pub use margination::{

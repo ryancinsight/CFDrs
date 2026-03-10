@@ -63,7 +63,7 @@ pub enum SpatialScheme {
 
 /// Trait for spatial discretization schemes
 pub trait SpatialDiscretization<T: RealField + Copy> {
-    /// Compute spatial derivative (for backward compatibility)
+    /// Compute the spatial derivative on a cell-centered grid.
     fn compute_derivative(&self, grid: &Grid2D<T>, i: usize, j: usize) -> T;
 
     /// Get scheme order of accuracy

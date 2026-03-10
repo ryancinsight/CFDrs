@@ -1,12 +1,10 @@
 //! MPI performance validator for scaling benchmarks and production readiness.
 
 use super::assessment::ScalingAssessment;
-use super::metrics::{
-    PerformanceMetrics, ScalingGrade, ScalingTestResult, ScalingTestType,
-};
+use super::metrics::{PerformanceMetrics, ScalingGrade, ScalingTestResult, ScalingTestType};
 use super::types::{
-    CommunicationAnalysis, DeploymentConfig, LoadBalancingValidation,
-    ProductionReadinessReport, ScalingLimits, SimulationData,
+    CommunicationAnalysis, DeploymentConfig, LoadBalancingValidation, ProductionReadinessReport,
+    ScalingLimits, SimulationData,
 };
 use crate::compute::mpi::communicator::MpiCommunicator;
 use crate::compute::mpi::decomposition::LoadBalancer;

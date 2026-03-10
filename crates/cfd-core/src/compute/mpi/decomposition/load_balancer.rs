@@ -121,12 +121,12 @@ impl LoadBalancer {
 
         // Gather current volumes from all ranks
         let local_sub = &self.current_decomp.local_subdomain;
-        let local_volume = (local_sub.nx_local as u64)
-            * (local_sub.ny_local as u64)
-            * (local_sub.nz_local as u64);
+        let local_volume =
+            (local_sub.nx_local as u64) * (local_sub.ny_local as u64) * (local_sub.nz_local as u64);
 
         let mut all_volumes = vec![0u64; size];
-        self.communicator.all_gather(&local_volume, &mut all_volumes);
+        self.communicator
+            .all_gather(&local_volume, &mut all_volumes);
 
         // Compute weights proportional to Volume / Load (inverse density)
         // to equalize load in the new partition.
@@ -152,9 +152,7 @@ impl LoadBalancer {
             .into_iter()
             .find(|subdomain| subdomain.rank == rank)
             .ok_or_else(|| {
-                MpiError::DecompositionError(
-                    "Rank not found in repartitioned domain".to_string(),
-                )
+                MpiError::DecompositionError("Rank not found in repartitioned domain".to_string())
             })
     }
 

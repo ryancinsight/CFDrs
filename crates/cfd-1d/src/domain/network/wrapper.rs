@@ -205,7 +205,7 @@ impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T>> Network<T, F> {
     }
 
     /// Get residuals from the last solver run
-    pub fn residuals(&self) -> &Vec<T> {
+    pub fn residuals(&self) -> &[T] {
         &self.residuals
     }
 
@@ -295,10 +295,10 @@ impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T>> Network<T, F> {
                 .edge_endpoints(edge_idx)
                 .ok_or_else(|| Error::InvalidConfiguration("Missing edge endpoints".into()))?;
 
-            let (resistance, quad_coeff) = self
+            let (resistance, quad_coeff, previous_flow_rate) = self
                 .graph
                 .edge_weight(edge_idx)
-                .map(|edge| (edge.resistance, edge.quad_coeff))
+                .map(|edge| (edge.resistance, edge.quad_coeff, edge.flow_rate.abs()))
                 .ok_or_else(|| Error::InvalidConfiguration("Missing edge data".into()))?;
 
             // Invariant checks: physical coefficients must be non-negative
@@ -327,30 +327,17 @@ impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T>> Network<T, F> {
             let p_from = solution[from.index()];
             let p_to = solution[to.index()];
             let dp = p_from - p_to;
-            let dp_abs = dp.abs();
-            let sign = if dp >= T::zero() { T::one() } else { -T::one() };
-
-            // Calculate flow rate solving the quadratic equation:
-            // |dP| = R*|Q| + k*|Q|^2
-            // k*|Q|^2 + R*|Q| - |dP| = 0
-            // |Q| = (-R + sqrt(R^2 + 4*k*|dP|)) / (2*k)
-
-            let flow = if quad_coeff.abs() < epsilon {
-                // Linear case: Q = dP / R
-                dp / resistance
-            } else {
-                // Quadratic case
-                let two = T::one() + T::one();
-                let four = two + two;
-
-                let discriminant = resistance * resistance + four * quad_coeff * dp_abs;
-                let sqrt_disc = discriminant.sqrt();
-
-                // Numerator: -R + sqrt(Delta)
-                // Denominator: 2k
-                let q_mag = (sqrt_disc - resistance) / (two * quad_coeff);
-                sign * q_mag
-            };
+            // Using Picard iteration (secant modulus) avoids the need for a residual
+            // offset vector. R_eff = R + k|Q_prev|.
+            let r_eff = resistance + quad_coeff * previous_flow_rate;
+            if !r_eff.is_finite() || r_eff <= epsilon {
+                return Err(Error::InvalidConfiguration(format!(
+                    "Edge {} has invalid effective resistance after linearization: {}",
+                    edge_idx.index(),
+                    r_eff
+                )));
+            }
+            let flow = dp / r_eff;
 
             self.flow_rates.insert(edge_idx, flow);
 
@@ -497,12 +484,10 @@ impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T>> Network<T, F> {
             let edge_data = edge_ref.weight();
 
             let q = edge_data.flow_rate.abs();
-            // Derivation: For quadratic loss ΔP = R·Q + k·Q|Q|, the local linearization around Q_k is:
-            // ΔP ≈ (R + 2k|Q_k|)·Q.
-            // Thus, effective resistance R_eff = R + 2k|Q_k|.
-            // We use 2.0 explicitly; failure to represent 2.0 is a critical system failure.
-            let two = T::one() + T::one();
-            let r_eff = edge_data.resistance + two * edge_data.quad_coeff * q;
+            // Using Picard iteration (secant modulus):
+            // ΔP ≈ (R + k|Q_k|)·Q.
+            // Thus, effective resistance R_eff = R + k|Q_k|.
+            let r_eff = edge_data.resistance + edge_data.quad_coeff * q;
             let eps = T::default_epsilon();
             // Conductance is 1/R_eff. We enforce R_eff > ε to avoid division by zero.
             // If R_eff is effectively zero or invalid, we return zero conductance (infinite resistance).

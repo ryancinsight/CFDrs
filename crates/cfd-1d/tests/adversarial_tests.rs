@@ -18,7 +18,7 @@ use cfd_core::physics::fluid::database::water_20c;
 use petgraph::visit::EdgeRef;
 
 fn water() -> cfd_core::physics::fluid::ConstantPropertyFluid<f64> {
-    water_20c::<f64>().unwrap()
+    water_20c::<f64>().expect("test invariant")
 }
 
 fn hp_resistance(d: f64, l: f64, mu: f64) -> f64 {
@@ -147,7 +147,7 @@ fn test_nan_resistance_does_not_panic() {
     let n2 = builder.add_outlet("n2".into());
     builder.connect_with_pipe(n1, n2, "pipe".into());
 
-    let mut graph = builder.build().unwrap();
+    let mut graph = builder.build().expect("test invariant");
     // Pre-set a valid resistance to pass validation, then overwrite with NaN
     for edge in graph.edge_indices() {
         if let Some(e) = graph.edge_weight_mut(edge) {
@@ -155,7 +155,7 @@ fn test_nan_resistance_does_not_panic() {
         }
     }
     // Now inject NaN after validation
-    let edge_idx = graph.edge_indices().next().unwrap();
+    let edge_idx = graph.edge_indices().next().expect("test invariant");
     if let Some(e) = graph.edge_weight_mut(edge_idx) {
         e.resistance = f64::NAN;
     }
@@ -240,7 +240,7 @@ fn test_two_dirichlet_nodes_solve_correctly() {
     let n2 = builder.add_outlet("out".into());
     builder.connect_with_pipe(n1, n2, "pipe".into());
 
-    let mut graph = builder.build().unwrap();
+    let mut graph = builder.build().expect("test invariant");
     for edge in graph.edge_indices() {
         if let Some(e) = graph.edge_weight_mut(edge) {
             e.resistance = r;
@@ -253,7 +253,7 @@ fn test_two_dirichlet_nodes_solve_correctly() {
 
     let problem = NetworkProblem::new(network);
     let solver = NetworkSolver::new();
-    let result = solver.solve_network(&problem).unwrap();
+    let result = solver.solve_network(&problem).expect("test invariant");
 
     let expected_q = 100.0 / r;
     let flows: Vec<f64> = result

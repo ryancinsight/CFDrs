@@ -74,7 +74,9 @@ fn asymmetric_bifurcation_matches_resistance_prediction() {
 
     let mut solver = BifurcationSolver2D::new(geom, blood, density, 60, 40, config);
 
-    let result = solver.solve(u_inlet).expect("bifurcation solve should succeed");
+    let result = solver
+        .solve(u_inlet)
+        .expect("bifurcation solve should succeed");
 
     // Analytical prediction: Q ratio = w₁³ / w₂³.
     let ratio_analytical = (d1_w / d2_w).powi(3); // (1.5/0.75)³ = 8.0

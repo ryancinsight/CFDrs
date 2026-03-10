@@ -32,7 +32,7 @@
 use super::Component;
 use crate::physics::resistance::models::ResistanceModel;
 use cfd_core::error::Result;
-use cfd_core::physics::fluid::Fluid;
+use cfd_core::physics::fluid::ConstantPropertyFluid;
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
@@ -88,7 +88,7 @@ impl<T: RealField + Copy + FromPrimitive> RectangularChannel<T> {
 }
 
 impl<T: RealField + Copy + FromPrimitive> Component<T> for RectangularChannel<T> {
-    fn resistance(&self, fluid: &Fluid<T>) -> T {
+    fn resistance(&self, fluid: &ConstantPropertyFluid<T>) -> T {
         // Use the validated RectangularChannelModel for consistency
         let model = crate::physics::resistance::models::RectangularChannelModel {
             width: self.width,
@@ -107,7 +107,7 @@ impl<T: RealField + Copy + FromPrimitive> Component<T> for RectangularChannel<T>
             })
     }
 
-    fn coefficients(&self, fluid: &Fluid<T>) -> (T, T) {
+    fn coefficients(&self, fluid: &ConstantPropertyFluid<T>) -> (T, T) {
         let r = self.resistance(fluid);
         (r, T::zero())
     }
@@ -241,7 +241,7 @@ mod tests {
 }
 
 impl<T: RealField + Copy + FromPrimitive> Component<T> for CircularChannel<T> {
-    fn resistance(&self, fluid: &Fluid<T>) -> T {
+    fn resistance(&self, fluid: &ConstantPropertyFluid<T>) -> T {
         // Use Hagen-Poiseuille model for laminar circular flow
         let model = crate::physics::resistance::models::HagenPoiseuilleModel {
             diameter: self.diameter,
@@ -255,7 +255,7 @@ impl<T: RealField + Copy + FromPrimitive> Component<T> for CircularChannel<T> {
             })
     }
 
-    fn coefficients(&self, fluid: &Fluid<T>) -> (T, T) {
+    fn coefficients(&self, fluid: &ConstantPropertyFluid<T>) -> (T, T) {
         // By default, components return laminar resistance.
         // For turbulent flow, one should use the ResistanceCalculator or a model
         // that supports flow-dependent coefficients.

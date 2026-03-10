@@ -128,7 +128,6 @@
 #![allow(clippy::doc_markdown)] // Math notation doesn't need backticks
 #![allow(clippy::needless_pass_by_value)] // Pass by value for Copy types is idiomatic
 #![allow(clippy::return_self_not_must_use)] // Builder patterns used internally
-#![allow(clippy::ptr_arg)] // &Vec used for API compatibility
 #![allow(clippy::should_implement_trait)] // CFD-specific trait implementations
 #![allow(clippy::used_underscore_binding)] // Underscore prefixed bindings used for intentional partial use
 
@@ -141,12 +140,6 @@ pub mod interpolation;
 pub mod iterators;
 pub mod linear_solver;
 pub mod nonlinear_solver;
-/// Backward-compatibility shim: all types now live in `diagnostics::performance_monitor`.
-/// Prefer `cfd_math::diagnostics::performance_monitor` for new code.
-#[doc(hidden)]
-pub mod performance_monitor {
-    pub use crate::diagnostics::performance_monitor::*;
-}
 pub mod pressure_velocity;
 pub mod simd;
 pub mod sparse;

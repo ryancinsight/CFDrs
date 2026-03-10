@@ -8,7 +8,7 @@ use super::ChannelTypeStrategy;
 /// Strategy wrapper for custom channel type functions
 ///
 /// This strategy wraps custom channel type functions to fit into
-/// the strategy pattern while maintaining backward compatibility.
+/// the strategy pattern without introducing extra dispatch layers.
 #[derive(Debug, Clone)]
 pub struct CustomChannelStrategy {
     channel_type: ChannelType,

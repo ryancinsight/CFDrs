@@ -58,7 +58,15 @@ impl<T: RealField + Copy + FromPrimitive> StaggeredGrid2D<T> {
         assert!(nx > 0 && ny > 0, "Grid dimensions must be positive");
         let dx = lx / T::from_usize(nx).expect("nx fits in T");
         let dy = ly / T::from_usize(ny).expect("ny fits in T");
-        Self { nx, ny, dx, dy, lx, ly, y_faces: None }
+        Self {
+            nx,
+            ny,
+            dx,
+            dy,
+            lx,
+            ly,
+            y_faces: None,
+        }
     }
 
     /// Construct a grid with non-uniform y-spacing from explicit face coordinates.

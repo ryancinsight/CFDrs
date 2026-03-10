@@ -321,8 +321,8 @@ mod tests {
             resolution: 32,
             gradient: None,
         };
-        let json = serde_json::to_string(&spec).unwrap();
-        let parsed: TpmsFillSpec = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&spec).expect("structural invariant");
+        let parsed: TpmsFillSpec = serde_json::from_str(&json).expect("structural invariant");
         assert_eq!(spec, parsed);
     }
 
@@ -456,8 +456,8 @@ mod tests {
             gradient: Some(AdaptiveGradient::default()),
             ..TpmsFillSpec::default()
         };
-        let json = serde_json::to_string_pretty(&spec).unwrap();
-        let parsed: TpmsFillSpec = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string_pretty(&spec).expect("structural invariant");
+        let parsed: TpmsFillSpec = serde_json::from_str(&json).expect("structural invariant");
         assert_eq!(spec, parsed);
         assert!(parsed.is_graded());
     }

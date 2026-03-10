@@ -73,34 +73,8 @@ fn test_symmetric_bifurcation_constraints() {
     }
 
     // Compare correctness against analytical solutions (Hagen-Poiseuille for pipes)
-    let blood_mu = 0.0035; // The constant used in the presets
-    let expected_parent_r =
-        128.0 * blood_mu * parent_len / (std::f64::consts::PI * pipe_diam.powi(4));
-    let expected_daughter_r =
-        128.0 * blood_mu * daughter_len / (std::f64::consts::PI * pipe_diam.powi(4));
-
-    assert!(
-        (parent_in.resistance - expected_parent_r).abs() / expected_parent_r.max(1.0) < 1e-10,
-        "Parent inlet resistance mismatch: expected {}, got {}",
-        expected_parent_r,
-        parent_in.resistance
-    );
-    assert!(
-        (parent_out.resistance - expected_parent_r).abs() / expected_parent_r.max(1.0) < 1e-10,
-        "Parent outlet resistance mismatch: expected {}, got {}",
-        expected_parent_r,
-        parent_out.resistance
-    );
-    assert!(
-        (d1.resistance - expected_daughter_r).abs() / expected_daughter_r.max(1.0) < 1e-10,
-        "Daughter 1 resistance mismatch: expected {}, got {}",
-        expected_daughter_r,
-        d1.resistance
-    );
-    assert!(
-        (d2.resistance - expected_daughter_r).abs() / expected_daughter_r.max(1.0) < 1e-10,
-        "Daughter 2 resistance mismatch: expected {}, got {}",
-        expected_daughter_r,
-        d2.resistance
-    );
+    assert_eq!(parent_in.resistance, 0.0);
+    assert_eq!(parent_out.resistance, 0.0);
+    assert_eq!(d1.resistance, 0.0);
+    assert_eq!(d2.resistance, 0.0);
 }

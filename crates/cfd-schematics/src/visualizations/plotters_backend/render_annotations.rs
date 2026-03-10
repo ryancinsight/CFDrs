@@ -1,5 +1,5 @@
+use crate::domain::model::NetworkBlueprint;
 use crate::error::{VisualizationError, VisualizationResult};
-use crate::geometry::ChannelSystem;
 use crate::visualizations::annotations::{should_render_label, MarkerRole, SchematicAnnotations};
 use plotters::coord::types::RangedCoordf64;
 use plotters::prelude::*;
@@ -8,7 +8,7 @@ use super::convert_color;
 
 pub(super) fn draw_annotation_overlay<DB: DrawingBackend>(
     chart: &mut ChartContext<'_, DB, Cartesian2d<RangedCoordf64, RangedCoordf64>>,
-    system: &ChannelSystem,
+    system: &NetworkBlueprint,
     annotations: &SchematicAnnotations,
 ) -> VisualizationResult<()> {
     let label_dx = system.box_dims.0 * 0.008;
@@ -49,7 +49,7 @@ pub(super) fn draw_annotation_overlay<DB: DrawingBackend>(
 
 fn draw_annotation_legend<DB: DrawingBackend>(
     chart: &mut ChartContext<'_, DB, Cartesian2d<RangedCoordf64, RangedCoordf64>>,
-    system: &ChannelSystem,
+    system: &NetworkBlueprint,
     annotations: &SchematicAnnotations,
 ) -> VisualizationResult<()> {
     use std::collections::BTreeSet;

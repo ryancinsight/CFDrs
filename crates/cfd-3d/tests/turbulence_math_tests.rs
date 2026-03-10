@@ -99,13 +99,16 @@ fn test_spalart_allmaras_math_bounds() {
     let ny = 2;
     let nz = 2;
     let nu = 1e-6_f64;
-    
+
     // Test wall damping limits implicitly
     let model = SpalartAllmarasModel::new(nx * ny * nz, nu, vec![1.0; nx * ny * nz]);
     let flow_field = FlowField::<f64>::new(nx, ny, nz);
-    
+
     let viscosity = model.turbulent_viscosity(&flow_field);
     for v in viscosity {
-        assert!(v >= 0.0, "Spalart Allmaras viscosity must be bounded positively");
+        assert!(
+            v >= 0.0,
+            "Spalart Allmaras viscosity must be bounded positively"
+        );
     }
 }

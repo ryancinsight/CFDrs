@@ -133,10 +133,7 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp> GhostCellManager<
             ));
         }
         for i in 0..nx {
-            if velocity_u[i].len() != ny
-                || velocity_v[i].len() != ny
-                || pressure[i].len() != ny
-            {
+            if velocity_u[i].len() != ny || velocity_v[i].len() != ny || pressure[i].len() != ny {
                 return Err(MpiError::GhostCellError(
                     "Field dimensions do not match subdomain extents".to_string(),
                 ));
@@ -200,9 +197,9 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp> GhostCellManager<
             self.communicator.send(&send_buf, neighbor_rank, tag);
             received
         };
-        recv.into_iter().next().ok_or_else(|| {
-            MpiError::GhostCellError("Checksum exchange failed".to_string())
-        })
+        recv.into_iter()
+            .next()
+            .ok_or_else(|| MpiError::GhostCellError("Checksum exchange failed".to_string()))
     }
 
     fn checksum_matches(&self, local: T, remote: T) -> bool {

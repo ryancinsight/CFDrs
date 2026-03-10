@@ -1,6 +1,9 @@
-use cfd_optim::{
-    save_schematic_svg, CrossSectionShape, DesignCandidate, DesignTopology, PrimitiveSplitSequence,
-    TreatmentZoneMode,
+use cfd_optim::save_blueprint_schematic_svg;
+use cfd_schematics::domain::therapy_metadata::TherapyZone;
+use cfd_schematics::{
+    BlueprintTopologyFactory, BlueprintTopologySpec, BranchRole, BranchSpec, ChannelRouteSpec,
+    NetworkBlueprint, SplitKind, SplitStageSpec, ThroatGeometrySpec, TreatmentActuationMode,
+    VenturiPlacementMode, VenturiPlacementSpec,
 };
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -13,39 +16,133 @@ fn unique_svg_path(prefix: &str) -> PathBuf {
     std::env::temp_dir().join(format!("{prefix}_{nanos}.svg"))
 }
 
-fn candidate_with_topology(id: &str, topology: DesignTopology) -> DesignCandidate {
-    DesignCandidate {
-        id: id.to_string(),
-        topology,
-        flow_rate_m3_s: 150.0 / 6.0e7,
-        inlet_gauge_pa: 300_000.0,
-        throat_diameter_m: 45e-6,
-        inlet_diameter_m: 540e-6,
-        throat_length_m: 250e-6,
-        channel_width_m: 5e-3,
-        channel_height_m: 1.5e-3,
-        serpentine_segments: 4,
-        segment_length_m: 8e-3,
-        bend_radius_m: 3e-3,
-        feed_hematocrit: 0.30,
-        trifurcation_center_frac: 1.0 / 3.0,
-        cif_pretri_center_frac: 0.54,
-        cif_terminal_tri_center_frac: 0.50,
-        cif_terminal_bi_treat_frac: 0.84,
-        asymmetric_narrow_frac: 0.5,
-        trifurcation_left_frac: 1.0 / 3.0,
-        cross_section_shape: CrossSectionShape::Rectangular,
-        treatment_zone_mode: TreatmentZoneMode::VenturiThroats,
-        centerline_venturi_throat_count: 2,
-    }
+fn selective_blueprint(
+    id: &str,
+    split_kinds: &[SplitKind],
+    treatment_mode: TreatmentActuationMode,
+) -> NetworkBlueprint {
+    let split_stages = split_kinds
+        .iter()
+        .enumerate()
+        .map(|(index, split_kind)| SplitStageSpec {
+            stage_id: format!("stage{index}"),
+            split_kind: *split_kind,
+            branches: match split_kind {
+                SplitKind::Bifurcation => vec![
+                    BranchSpec {
+                        label: "ctc".to_string(),
+                        role: BranchRole::Treatment,
+                        treatment_path: true,
+                        route: ChannelRouteSpec {
+                            length_m: 22.0e-3,
+                            width_m: if index == 0 { 1.4e-3 } else { 1.0e-3 },
+                            height_m: 1.0e-3,
+                            serpentine: None,
+                            therapy_zone: TherapyZone::CancerTarget,
+                        },
+                    },
+                    BranchSpec {
+                        label: "waste".to_string(),
+                        role: BranchRole::Neutral,
+                        treatment_path: false,
+                        route: ChannelRouteSpec {
+                            length_m: 18.0e-3,
+                            width_m: if index == 0 { 0.6e-3 } else { 0.7e-3 },
+                            height_m: 1.0e-3,
+                            serpentine: None,
+                            therapy_zone: TherapyZone::HealthyBypass,
+                        },
+                    },
+                ],
+                SplitKind::Trifurcation => vec![
+                    BranchSpec {
+                        label: "wbc".to_string(),
+                        role: BranchRole::WbcCollection,
+                        treatment_path: false,
+                        route: ChannelRouteSpec {
+                            length_m: 24.0e-3,
+                            width_m: if index == 0 { 1.0e-3 } else { 0.45e-3 },
+                            height_m: 1.0e-3,
+                            serpentine: None,
+                            therapy_zone: TherapyZone::HealthyBypass,
+                        },
+                    },
+                    BranchSpec {
+                        label: "ctc".to_string(),
+                        role: BranchRole::Treatment,
+                        treatment_path: true,
+                        route: ChannelRouteSpec {
+                            length_m: 28.0e-3,
+                            width_m: if index == 0 { 2.0e-3 } else { 1.0e-3 },
+                            height_m: 1.0e-3,
+                            serpentine: None,
+                            therapy_zone: TherapyZone::CancerTarget,
+                        },
+                    },
+                    BranchSpec {
+                        label: "rbc".to_string(),
+                        role: BranchRole::RbcBypass,
+                        treatment_path: false,
+                        route: ChannelRouteSpec {
+                            length_m: 24.0e-3,
+                            width_m: if index == 0 { 1.0e-3 } else { 0.45e-3 },
+                            height_m: 1.0e-3,
+                            serpentine: None,
+                            therapy_zone: TherapyZone::HealthyBypass,
+                        },
+                    },
+                ],
+            },
+        })
+        .collect::<Vec<_>>();
+    let last_stage_id = format!("stage{}", split_kinds.len().saturating_sub(1));
+    let venturi_placements = if treatment_mode == TreatmentActuationMode::VenturiCavitation {
+        vec![VenturiPlacementSpec {
+            placement_id: format!("{id}-venturi"),
+            target_channel_id: BlueprintTopologySpec::branch_channel_id(&last_stage_id, "ctc"),
+            serial_throat_count: 2,
+            throat_geometry: ThroatGeometrySpec {
+                throat_width_m: 45e-6,
+                throat_height_m: 1.0e-3,
+                throat_length_m: 250e-6,
+                inlet_width_m: 1.4e-3,
+                outlet_width_m: 1.4e-3,
+                convergent_half_angle_deg: 15.0,
+                divergent_half_angle_deg: 9.0,
+            },
+            placement_mode: VenturiPlacementMode::StraightSegment,
+        }]
+    } else {
+        Vec::new()
+    };
+    let spec = BlueprintTopologySpec {
+        topology_id: id.to_string(),
+        design_name: id.to_string(),
+        box_dims_mm: (127.76, 85.47),
+        inlet_width_m: 5.0e-3,
+        outlet_width_m: 4.0e-3,
+        trunk_length_m: 20.0e-3,
+        outlet_tail_length_m: 14.0e-3,
+        split_stages,
+        venturi_placements,
+        series_channels: Vec::new(),
+        parallel_channels: Vec::new(),
+        treatment_mode,
+    };
+    BlueprintTopologyFactory::build(&spec).expect("spec should build")
 }
 
 #[test]
-fn save_schematic_svg_adds_throat_markers_for_venturi_design() {
-    let candidate = candidate_with_topology("venturi_test", DesignTopology::SingleVenturi);
-    let out = unique_svg_path("cfd_optim_venturi");
+fn save_schematic_svg_adds_throat_markers_for_venturi_blueprint() {
+    let blueprint = selective_blueprint(
+        "venturi_test",
+        &[SplitKind::Trifurcation],
+        TreatmentActuationMode::VenturiCavitation,
+    );
+    let out = unique_svg_path("cfd_optim_venturi_blueprint");
 
-    save_schematic_svg(&candidate, &out).expect("venturi schematic export must succeed");
+    save_blueprint_schematic_svg(&blueprint, &out)
+        .expect("venturi blueprint schematic export must succeed");
 
     let svg = std::fs::read_to_string(&out).expect("must read rendered svg");
     assert!(svg.contains("IN"));
@@ -54,12 +151,16 @@ fn save_schematic_svg_adds_throat_markers_for_venturi_design() {
 }
 
 #[test]
-fn save_schematic_svg_keeps_node_markers_without_throats_for_non_venturi_design() {
-    let mut candidate = candidate_with_topology("nonventuri_test", DesignTopology::SerpentineGrid);
-    candidate.treatment_zone_mode = TreatmentZoneMode::UltrasoundOnly;
-    let out = unique_svg_path("cfd_optim_nonventuri");
+fn save_schematic_svg_keeps_node_markers_without_throats_for_nonventuri_blueprint() {
+    let blueprint = selective_blueprint(
+        "nonventuri_test",
+        &[SplitKind::Trifurcation],
+        TreatmentActuationMode::UltrasoundOnly,
+    );
+    let out = unique_svg_path("cfd_optim_nonventuri_blueprint");
 
-    save_schematic_svg(&candidate, &out).expect("non-venturi schematic export must succeed");
+    save_blueprint_schematic_svg(&blueprint, &out)
+        .expect("non-venturi blueprint schematic export must succeed");
 
     let svg = std::fs::read_to_string(&out).expect("must read rendered svg");
     assert!(svg.contains("IN"));
@@ -69,53 +170,76 @@ fn save_schematic_svg_keeps_node_markers_without_throats_for_non_venturi_design(
 
 #[test]
 fn save_schematic_svg_renders_selective_blueprint_topology_from_blueprint_ssot() {
-    let candidate = candidate_with_topology(
+    let blueprint = selective_blueprint(
         "selective_cif",
-        DesignTopology::PrimitiveSelectiveTree {
-            sequence: PrimitiveSplitSequence::TriBi,
-        },
+        &[SplitKind::Trifurcation, SplitKind::Bifurcation],
+        TreatmentActuationMode::VenturiCavitation,
     );
     let out = unique_svg_path("cfd_optim_selective_cif");
 
-    save_schematic_svg(&candidate, &out).expect("selective schematic export must succeed");
+    save_blueprint_schematic_svg(&blueprint, &out)
+        .expect("selective blueprint schematic export must succeed");
 
     let svg = std::fs::read_to_string(&out).expect("must read rendered svg");
     assert!(svg.contains("TH1"));
     assert!(svg.contains("S1"));
-    assert!(svg.contains("layers"));
+    assert!(svg.contains("S2"));
 }
 
 #[test]
 fn save_schematic_svg_renders_full_tree_split_markers_for_dtcv() {
-    let candidate = candidate_with_topology(
+    let blueprint = selective_blueprint(
         "selective_dtcv",
-        DesignTopology::PrimitiveSelectiveTree {
-            sequence: PrimitiveSplitSequence::TriTri,
-        },
+        &[SplitKind::Trifurcation, SplitKind::Trifurcation],
+        TreatmentActuationMode::VenturiCavitation,
     );
     let out = unique_svg_path("cfd_optim_selective_dtcv");
 
-    save_schematic_svg(&candidate, &out).expect("dtcv schematic export must succeed");
+    assert_eq!(blueprint.unresolved_channel_overlap_count(), 0);
+    blueprint
+        .validate()
+        .expect("report-grade selective venturi blueprint must be planar before export");
+
+    save_blueprint_schematic_svg(&blueprint, &out).expect("dtcv blueprint export must succeed");
 
     let svg = std::fs::read_to_string(&out).expect("must read rendered svg");
     assert!(svg.contains("TH1"));
-    assert!(svg.contains("S4"));
+    assert!(svg.contains("S2"));
 }
 
 #[test]
 fn save_schematic_svg_renders_acoustic_dtcv_without_throats() {
-    let mut candidate = candidate_with_topology(
+    let blueprint = selective_blueprint(
         "selective_dtcv_acoustic",
-        DesignTopology::PrimitiveSelectiveTree {
-            sequence: PrimitiveSplitSequence::TriTri,
-        },
+        &[SplitKind::Trifurcation, SplitKind::Trifurcation],
+        TreatmentActuationMode::UltrasoundOnly,
     );
-    candidate.treatment_zone_mode = TreatmentZoneMode::UltrasoundOnly;
     let out = unique_svg_path("cfd_optim_selective_dtcv_acoustic");
 
-    save_schematic_svg(&candidate, &out).expect("acoustic dtcv schematic export must succeed");
+    save_blueprint_schematic_svg(&blueprint, &out)
+        .expect("acoustic dtcv blueprint export must succeed");
 
     let svg = std::fs::read_to_string(&out).expect("must read rendered svg");
-    assert!(svg.contains("S4"));
+    assert!(svg.contains("S2"));
     assert!(!svg.contains("TH1"));
+}
+
+#[test]
+fn save_schematic_svg_rejects_non_geometry_authored_blueprint() {
+    let mut blueprint = selective_blueprint(
+        "selective_noncanonical",
+        &[SplitKind::Trifurcation, SplitKind::Trifurcation],
+        TreatmentActuationMode::VenturiCavitation,
+    );
+    let out = unique_svg_path("cfd_optim_noncanonical");
+    blueprint.metadata = None;
+
+    let error = save_blueprint_schematic_svg(&blueprint, &out)
+        .expect_err("canonical export must reject non-geometry-authored blueprints");
+    assert!(
+        error
+            .to_string()
+            .contains("geometry-authored blueprint provenance"),
+        "unexpected error: {error}"
+    );
 }

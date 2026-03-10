@@ -10,7 +10,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     use cfd_mesh::application::channel::profile::ChannelProfile;
     use cfd_mesh::infrastructure::io::scheme;
     use cfd_schematics::config::{ChannelTypeConfig, GeometryConfig};
-    use cfd_schematics::geometry::{generator::create_geometry, ChannelType};
+    use cfd_schematics::geometry::generator::create_geometry;
 
     println!("🔌 Schematic to Mesh Integration Demo");
     println!("=====================================");
@@ -32,42 +32,52 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("   Generated {} channels.", system.channels.len());
 
     // 2. Add a Frustum (Venturi) channel manually for testing
-    // We hack the system to add a second channel that is a Frustum
-    use cfd_schematics::config::TaperProfile;
+    use cfd_schematics::domain::model::{ChannelSpec, NodeKind, NodeSpec};
+    use cfd_schematics::geometry::metadata::VenturiGeometryMetadata;
 
-    // Frustum from (0, 10) to (10, 10). Inlet=1.0, Throat=0.2, Outlet=1.0
-    let frustum_path = vec![(0.0, 10.0), (5.0, 10.0), (10.0, 10.0)];
-    let frustum_widths = vec![1.0, 0.2, 1.0]; // Simple V-shape for test
+    let frustum_path = vec![
+        (0.0_f64, 10.0_f64),
+        (5.0_f64, 10.0_f64),
+        (10.0_f64, 10.0_f64),
+    ];
 
-    let frustum_channel = cfd_schematics::geometry::Channel {
-        id: 99,
-        from_node: 0, // Reuse nodes for simplicity or just dummy IDs
-        to_node: 1,
-        width: 1.0, // Inlet width
-        height: 0.5,
-        channel_type: ChannelType::Frustum {
-            path: frustum_path,
-            widths: frustum_widths.clone(),
-            inlet_width: 1.0,
-            throat_width: 0.2,
-            outlet_width: 1.0,
-            taper_profile: TaperProfile::Linear,
-            throat_position: 0.5,
-            has_venturi_throat: true,
-        },
-        metadata: None,
-    };
+    let mut frustum_channel = ChannelSpec::new_pipe_rect(
+        "99",
+        "frust_in",
+        "frust_out",
+        10.0,
+        1.0 / 1000.0,
+        0.5 / 1000.0,
+        0.0,
+        0.0,
+    );
+    frustum_channel.path = frustum_path;
+    frustum_channel.venturi_geometry = Some(VenturiGeometryMetadata {
+        throat_width_m: 0.2 / 1000.0,
+        throat_height_m: 0.5 / 1000.0,
+        throat_length_m: 1.0 / 1000.0,
+        inlet_width_m: 1.0 / 1000.0,
+        outlet_width_m: 1.0 / 1000.0,
+        convergent_half_angle_deg: 45.0,
+        divergent_half_angle_deg: 45.0,
+        throat_position: 0.5,
+    });
 
-    // Clone system and add frustum
+    // Clone system and add frustum with its own isolated nodes
     let mut system_with_frustum = system.clone();
-    system_with_frustum.channels.push(frustum_channel);
+    system_with_frustum.add_node(NodeSpec::new_at("frust_in", NodeKind::Inlet, (0.0, 10.0)));
+    system_with_frustum.add_node(NodeSpec::new_at(
+        "frust_out",
+        NodeKind::Outlet,
+        (10.0, 10.0),
+    ));
+    system_with_frustum.add_channel(frustum_channel);
 
     println!("2. Converting to 3D Schematic...");
     let substrate_height = 5.0; // 5mm substrate
     let segments = 32;
 
-    let schematic3d =
-        scheme::from_channel_system(&system_with_frustum, substrate_height, segments)?;
+    let schematic3d = scheme::from_blueprint(&system_with_frustum, substrate_height, segments)?;
 
     println!("   Converted {} channels.", schematic3d.channels.len());
 

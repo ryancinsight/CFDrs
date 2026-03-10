@@ -108,8 +108,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
                         face_velocity[i][self.grid.ny - 1] = Vector2::zeros();
                     }
                     WallType::Moving { velocity } => {
-                        face_velocity[i][self.grid.ny - 1] =
-                            Vector2::new(velocity[0], velocity[1]);
+                        face_velocity[i][self.grid.ny - 1] = Vector2::new(velocity[0], velocity[1]);
                     }
                     _ => {}
                 }
@@ -154,8 +153,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
                         face_velocity[self.grid.nx - 1][j] = Vector2::zeros();
                     }
                     WallType::Moving { velocity } => {
-                        face_velocity[self.grid.nx - 1][j] =
-                            Vector2::new(velocity[0], velocity[1]);
+                        face_velocity[self.grid.nx - 1][j] = Vector2::new(velocity[0], velocity[1]);
                     }
                     _ => {}
                 }
@@ -192,9 +190,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
                 }
             }
 
-            self.pressure_solver.solve_pressure_correction_from_faces(
-                &u_face, &v_face, &d_x, &d_y, rho, fields,
-            )
+            self.pressure_solver
+                .solve_pressure_correction_from_faces(&u_face, &v_face, &d_x, &d_y, rho, fields)
         } else {
             self.pressure_solver
                 .solve_pressure_correction(fields, dt, rho)

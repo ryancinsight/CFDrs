@@ -56,7 +56,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             stacks: 16,
         }
         .build()?;
-        report_primitive("UV Sphere (r=1, seg=32, stk=16)", &mut mesh, expected_vol, t0.elapsed().as_millis());
+        report_primitive(
+            "UV Sphere (r=1, seg=32, stk=16)",
+            &mut mesh,
+            expected_vol,
+            t0.elapsed().as_millis(),
+        );
     }
 
     // ── Cylinder ──────────────────────────────────────────────────────────────
@@ -72,7 +77,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             segments: 64,
         }
         .build()?;
-        report_primitive("Cylinder (r=0.5, h=2, seg=64)", &mut mesh, expected_vol, t0.elapsed().as_millis());
+        report_primitive(
+            "Cylinder (r=0.5, h=2, seg=64)",
+            &mut mesh,
+            expected_vol,
+            t0.elapsed().as_millis(),
+        );
     }
 
     // ── Cone ──────────────────────────────────────────────────────────────────
@@ -88,7 +98,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             segments: 64,
         }
         .build()?;
-        report_primitive("Cone (r=1, h=2, seg=64)", &mut mesh, expected_vol, t0.elapsed().as_millis());
+        report_primitive(
+            "Cone (r=1, h=2, seg=64)",
+            &mut mesh,
+            expected_vol,
+            t0.elapsed().as_millis(),
+        );
     }
 
     println!("=================================================================");
@@ -164,7 +179,10 @@ fn report_primitive(label: &str, mesh: &mut IndexedMesh, expected_vol: f64, ms: 
             );
         }
         if !comps_ok {
-            println!("       - {} connected component(s): unexpected disconnected patches", n_comps);
+            println!(
+                "       - {} connected component(s): unexpected disconnected patches",
+                n_comps
+            );
         }
         if !norm_ok {
             println!(

@@ -25,13 +25,10 @@
 pub mod adaptive;
 pub mod bilateral_symmetry;
 pub mod constraints;
-pub mod context_consolidation;
-pub mod error_handling_utilities;
 pub mod errors;
 pub mod managers;
 pub mod parameters;
 pub mod registry;
-pub mod symmetry_integration;
 pub mod validation;
 
 #[cfg(test)]

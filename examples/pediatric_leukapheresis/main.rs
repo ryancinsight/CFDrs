@@ -31,23 +31,15 @@ mod metrics_report;
 mod paper_benchmark;
 mod pediatric_blood;
 
-use cfd_optim::{compute_metrics, evo::GeneticOptimizer, save_comparison_svg, OptimMode, SdtWeights};
+use cfd_optim::{
+    compute_metrics, save_comparison_svg, LegacyGeneticOptimizer, OptimMode, SdtWeights,
+};
 
 use pediatric_blood::{
-    CLINICAL_FLOW_ML_MIN,
-    DILUTED_BLOOD_VISCOSITY_PAS,
-    DILUTED_HCT,
-    NEONATAL_RBC_DIAMETER_M,
-    NEONATE_3KG_ECV_BUDGET_ML,
-    NEONATE_3KG_WEIGHT_KG,
-    NIVEDITA_RBC_REMOVAL,
-    NIVEDITA_WBC_RECOVERY,
-    TBV_PER_KG_ML,
-    MAX_ECV_FRACTION,
-    WHOLE_BLOOD_HCT,
-    WBC_DIAMETER_M,
-    WU_WBC_PURITY,
-    WU_WBC_RECOVERY,
+    CLINICAL_FLOW_ML_MIN, DILUTED_BLOOD_VISCOSITY_PAS, DILUTED_HCT, MAX_ECV_FRACTION,
+    NEONATAL_RBC_DIAMETER_M, NEONATE_3KG_ECV_BUDGET_ML, NEONATE_3KG_WEIGHT_KG,
+    NIVEDITA_RBC_REMOVAL, NIVEDITA_WBC_RECOVERY, TBV_PER_KG_ML, WBC_DIAMETER_M, WHOLE_BLOOD_HCT,
+    WU_WBC_PURITY, WU_WBC_RECOVERY,
 };
 
 fn main() {
@@ -59,8 +51,8 @@ fn main() {
     std::fs::create_dir_all(&out_dir).expect("failed to create output directory");
 
     let patient_weight_kg = NEONATE_3KG_WEIGHT_KG;
-    let mode              = OptimMode::PediatricLeukapheresis { patient_weight_kg };
-    let weights           = SdtWeights::default();
+    let mode = OptimMode::PediatricLeukapheresis { patient_weight_kg };
+    let weights = SdtWeights::default();
 
     // ═════════════════════════════════════════════════════════════════════════
     println!("\n{}", "=".repeat(100));
@@ -82,15 +74,21 @@ fn main() {
     println!("{}", "-".repeat(100));
 
     let nivedita = paper_benchmark::nivedita_spiral();
-    let wu       = paper_benchmark::wu_constriction();
+    let wu = paper_benchmark::wu_constriction();
 
     let nivedita_metrics = match compute_metrics(&nivedita) {
-        Ok(m)  => m,
-        Err(e) => { eprintln!("  ERROR (Nivedita metrics): {e}"); return; }
+        Ok(m) => m,
+        Err(e) => {
+            eprintln!("  ERROR (Nivedita metrics): {e}");
+            return;
+        }
     };
     let wu_metrics = match compute_metrics(&wu) {
-        Ok(m)  => m,
-        Err(e) => { eprintln!("  ERROR (Wu metrics): {e}"); return; }
+        Ok(m) => m,
+        Err(e) => {
+            eprintln!("  ERROR (Wu metrics): {e}");
+            return;
+        }
     };
 
     println!();
@@ -154,7 +152,7 @@ fn main() {
 
     let scaling = chip_model::scale_to_clinical(
         paper_benchmark::NIVEDITA_FLOW_M3S,
-        nivedita_metrics.total_ecv_ml,   // single-chip ECV from Phase 1
+        nivedita_metrics.total_ecv_ml, // single-chip ECV from Phase 1
         NEONATE_3KG_ECV_BUDGET_ML,
         CLINICAL_FLOW_ML_MIN,
     );
@@ -164,11 +162,26 @@ fn main() {
 
     // Per-chip performance is unchanged by parallelisation — report from Phase 1.
     println!();
-    println!("  Per-chip separation performance (each of {} replicas):", scaling.n_parallel);
-    println!("    WBC recovery : {:.1}%", nivedita_metrics.wbc_recovery * 100.0);
-    println!("    RBC removal  : {:.1}%", (1.0 - nivedita_metrics.rbc_pass_fraction) * 100.0);
-    println!("    WBC purity   : {:.1}%", nivedita_metrics.wbc_purity * 100.0);
-    println!("    HI/pass      : {:.2e}", nivedita_metrics.hemolysis_index_per_pass);
+    println!(
+        "  Per-chip separation performance (each of {} replicas):",
+        scaling.n_parallel
+    );
+    println!(
+        "    WBC recovery : {:.1}%",
+        nivedita_metrics.wbc_recovery * 100.0
+    );
+    println!(
+        "    RBC removal  : {:.1}%",
+        (1.0 - nivedita_metrics.rbc_pass_fraction) * 100.0
+    );
+    println!(
+        "    WBC purity   : {:.1}%",
+        nivedita_metrics.wbc_purity * 100.0
+    );
+    println!(
+        "    HI/pass      : {:.2e}",
+        nivedita_metrics.hemolysis_index_per_pass
+    );
 
     let assembly_feasible = nivedita_metrics.wbc_recovery >= 0.70
         && scaling.ecv_ok
@@ -176,7 +189,11 @@ fn main() {
     println!();
     println!(
         "  Clinical feasibility: {}",
-        if assembly_feasible { "FEASIBLE" } else { "NEEDS FURTHER OPTIMISATION" }
+        if assembly_feasible {
+            "FEASIBLE"
+        } else {
+            "NEEDS FURTHER OPTIMISATION"
+        }
     );
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -189,14 +206,17 @@ fn main() {
     println!("{}", "-".repeat(100));
     println!();
 
-    let ga_optimizer = GeneticOptimizer::new(mode, weights)
+    let ga_optimizer = LegacyGeneticOptimizer::new(mode, weights)
         .with_population(80)
         .with_max_generations(150)
         .with_top_k(5);
 
     let ga_result = match ga_optimizer.run() {
-        Ok(d)  => d,
-        Err(e) => { eprintln!("  ERROR (GA): {e}"); return; }
+        Ok(d) => d,
+        Err(e) => {
+            eprintln!("  ERROR (GA): {e}");
+            return;
+        }
     };
     let ga_top5 = &ga_result.top_designs;
 
@@ -219,7 +239,7 @@ fn main() {
         let top2 = &ga_top5[..2];
         let cmp_path = out_dir.join("top2_comparison.svg");
         match save_comparison_svg(top2, &cmp_path, mode) {
-            Ok(_)  => println!("  Saved: {}", cmp_path.display()),
+            Ok(_) => println!("  Saved: {}", cmp_path.display()),
             Err(e) => eprintln!("  WARN (top2 SVG): {e}"),
         }
     }
@@ -234,9 +254,9 @@ fn main() {
 // ── Detailed design printer ────────────────────────────────────────────────────
 
 fn print_leuka_detailed(d: &cfd_optim::RankedDesign, patient_weight_kg: f64) {
-    let c             = &d.candidate;
-    let m             = &d.metrics;
-    let bv_ml         = patient_weight_kg * TBV_PER_KG_ML;
+    let c = &d.candidate;
+    let m = &d.metrics;
+    let bv_ml = patient_weight_kg * TBV_PER_KG_ML;
     let ecv_budget_ml = bv_ml * MAX_ECV_FRACTION;
 
     println!("  Rank #{}: {}", d.rank, c.id);
@@ -262,7 +282,11 @@ fn print_leuka_detailed(d: &cfd_optim::RankedDesign, patient_weight_kg: f64) {
         "    ECV        : {:.2} mL  (budget {:.1} mL  ->  {})",
         m.total_ecv_ml,
         ecv_budget_ml,
-        if m.total_ecv_ml <= ecv_budget_ml { "PASS" } else { "FAIL" },
+        if m.total_ecv_ml <= ecv_budget_ml {
+            "PASS"
+        } else {
+            "FAIL"
+        },
     );
     println!(
         "    HI/pass    : {:.3e}  |  FDA shear: {:.1} Pa ({})",

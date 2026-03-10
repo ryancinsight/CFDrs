@@ -1,7 +1,7 @@
 //! Discretized 2D serpentine flow solver using FVM.
 
 use super::{SerpentineGeometry, SerpentineMixingSolution};
-use crate::solvers::ns_fvm_2d::{BloodModel, NavierStokesSolver2D, SIMPLEConfig};
+use crate::solvers::ns_fvm::{BloodModel, NavierStokesSolver2D, SIMPLEConfig, StaggeredGrid2D};
 use crate::solvers::scalar_transport_2d::{ScalarTransportConfig, ScalarTransportSolver2D};
 use cfd_core::error::Result as CfdResult;
 use nalgebra::RealField;
@@ -30,7 +30,7 @@ impl<T: RealField + Copy + Float + FromPrimitive> SerpentineSolver2D<T> {
         let width = bbox[1] - bbox[0];
         let height = bbox[3] - bbox[2];
 
-        let grid = crate::solvers::ns_fvm_2d::StaggeredGrid2D::new(nx, ny, width, height);
+        let grid = StaggeredGrid2D::new(nx, ny, width, height);
         let config = SIMPLEConfig::default();
         let mut ns_solver = NavierStokesSolver2D::new(grid, blood, density, config);
 
@@ -144,7 +144,11 @@ impl<T: RealField + Copy + Float + FromPrimitive> SerpentineSolver2D<T> {
             let var_inlet = half_sq(c_left - c_right);
             mixing_frac = T::one()
                 - Float::sqrt(
-                    variance / num_traits::Float::max(var_inlet, T::from_f64(1e-10).unwrap_or_else(num_traits::Zero::zero)),
+                    variance
+                        / num_traits::Float::max(
+                            var_inlet,
+                            T::from_f64(1e-10).unwrap_or_else(num_traits::Zero::zero),
+                        ),
                 );
         }
 
@@ -191,7 +195,7 @@ fn half_sq<T: RealField + Copy + FromPrimitive>(val: T) -> T {
 #[cfg(test)]
 mod tests_discretized {
     use super::*;
-    use crate::solvers::ns_fvm_2d::BloodModel;
+    use crate::solvers::ns_fvm::BloodModel;
 
     #[test]
     fn test_discretized_serpentine_mixing() {

@@ -41,7 +41,7 @@
 
 use cfd_core::error::{Error, Result};
 use nalgebra::{DVector, RealField};
-use nalgebra_sparse::{CsrMatrix};
+use nalgebra_sparse::CsrMatrix;
 use rayon::prelude::*;
 use std::collections::{BTreeMap, HashMap};
 
@@ -130,7 +130,8 @@ impl<T: RealField + Copy> SparseMatrixBuilder<T> {
     ///
     /// The caller must also set `rhs[dof] = diag_value * prescribed_value`.
     pub fn set_dirichlet_row(&mut self, row: usize, diag_value: T, prescribed_value: T) {
-        self.dirichlet_dofs.insert(row, (diag_value, prescribed_value));
+        self.dirichlet_dofs
+            .insert(row, (diag_value, prescribed_value));
     }
 
     /// Add a single entry
@@ -174,8 +175,7 @@ impl<T: RealField + Copy> SparseMatrixBuilder<T> {
     /// O(nnz) average — HashMap O(1) amortised per entry (GAP-PERF-003).
     fn accumulate_to_hashmap(&self, rhs: &mut DVector<T>) -> HashMap<(usize, usize), T> {
         // Estimate: each entry is unique (upper bound). Reserve for minimal rehash.
-        let mut entry_map: HashMap<(usize, usize), T> =
-            HashMap::with_capacity(self.entries.len());
+        let mut entry_map: HashMap<(usize, usize), T> = HashMap::with_capacity(self.entries.len());
 
         for entry in &self.entries {
             let row_is_dirichlet = self.dirichlet_dofs.contains_key(&entry.row);
@@ -303,8 +303,7 @@ impl<T: RealField + Copy> SparseMatrixBuilder<T> {
         // No actual column elimination occurs because we pass a zero-length vector.
         let mut dummy_rhs: DVector<T> = DVector::zeros(0);
         // We replicate the loop manually here to skip column elimination entirely.
-        let mut entry_map: HashMap<(usize, usize), T> =
-            HashMap::with_capacity(self.entries.len());
+        let mut entry_map: HashMap<(usize, usize), T> = HashMap::with_capacity(self.entries.len());
 
         for entry in &self.entries {
             if self.dirichlet_dofs.contains_key(&entry.row) {

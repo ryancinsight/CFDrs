@@ -38,8 +38,8 @@ use rayon::prelude::*;
 use std::collections::HashMap;
 
 // Re-export mesh utility functions that were previously defined here.
-pub use super::mesh_utils::{extract_vertex_indices, extract_vertex_indices_cached};
 pub(crate) use super::mesh_utils::compute_mesh_scale;
+pub use super::mesh_utils::{extract_vertex_indices, extract_vertex_indices_cached};
 
 /// Finite Element Method solver for 3D incompressible flow
 pub struct FemSolver<
@@ -179,7 +179,10 @@ impl<
         picard_iteration: usize,
         max_picard_iterations: usize,
     ) -> Result<StokesFlowSolution<T>> {
-        tracing::info!(picard_iteration, "Starting Taylor-Hood Stokes solver (Picard mode)");
+        tracing::info!(
+            picard_iteration,
+            "Starting Taylor-Hood Stokes solver (Picard mode)"
+        );
 
         problem.validate()?;
 
@@ -287,7 +290,15 @@ impl<
             .cells
             .par_iter()
             .fold(
-                || (vec![T::zero(); n_corner], T::zero(), T::zero(), T::zero(), T::zero()),
+                || {
+                    (
+                        vec![T::zero(); n_corner],
+                        T::zero(),
+                        T::zero(),
+                        T::zero(),
+                        T::zero(),
+                    )
+                },
                 |(mut res, mut mx, mut sm, mut l2acc, mut nt), cell| {
                     let idxs = match extract_vertex_indices(cell, &problem.mesh, n_corner) {
                         Ok(v) => v,
@@ -315,8 +326,9 @@ impl<
                     ]);
                     let det_j = j_mat.determinant();
                     let abs_det = Float::abs(det_j);
-                    if abs_det <= <T as FromPrimitive>::from_f64(1e-24)
-                        .expect("1e-24 is an IEEE 754 representable f64 constant")
+                    if abs_det
+                        <= <T as FromPrimitive>::from_f64(1e-24)
+                            .expect("1e-24 is an IEEE 754 representable f64 constant")
                     {
                         return (res, mx, sm, l2acc, nt);
                     }
@@ -326,9 +338,18 @@ impl<
                     };
 
                     let grad_ref_p1 = nalgebra::Matrix3x4::new(
-                        -T::one(), T::one(), T::zero(), T::zero(),
-                        -T::one(), T::zero(), T::one(), T::zero(),
-                        -T::one(), T::zero(), T::zero(), T::one(),
+                        -T::one(),
+                        T::one(),
+                        T::zero(),
+                        T::zero(),
+                        -T::one(),
+                        T::zero(),
+                        T::one(),
+                        T::zero(),
+                        -T::one(),
+                        T::zero(),
+                        T::zero(),
+                        T::one(),
                     );
                     let p1_gradients_phys = j_inv_t * grad_ref_p1;
                     let shape = LagrangeTet10::new(p1_gradients_phys);
@@ -365,7 +386,9 @@ impl<
                     // Update running stats (local thread, no synchronization needed)
                     for &r in &res {
                         let a = Float::abs(r);
-                        if a > mx { mx = a; }
+                        if a > mx {
+                            mx = a;
+                        }
                         sm += a;
                         l2acc += r * r;
                         nt += r;
@@ -375,7 +398,15 @@ impl<
                 },
             )
             .reduce(
-                || (vec![T::zero(); n_corner], T::zero(), T::zero(), T::zero(), T::zero()),
+                || {
+                    (
+                        vec![T::zero(); n_corner],
+                        T::zero(),
+                        T::zero(),
+                        T::zero(),
+                        T::zero(),
+                    )
+                },
                 |(mut r1, mx1, sm1, l2a1, nt1), (r2, mx2, sm2, l2a2, nt2)| {
                     for i in 0..n_corner {
                         r1[i] += r2[i];
@@ -392,8 +423,9 @@ impl<
 
         let n = residual.len();
         if n > 0 {
-            let mean_abs = sum_abs / T::from_usize(n)
-                .expect("residual slice length n is always a representable usize");
+            let mean_abs = sum_abs
+                / T::from_usize(n)
+                    .expect("residual slice length n is always a representable usize");
             let l2_norm = Float::sqrt(l2);
             tracing::debug!(
                 max_abs = ?max_abs, mean_abs = ?mean_abs,
@@ -415,19 +447,32 @@ impl<
         let n_velocity_dof = n_nodes * 3;
         let n_total_dof = n_velocity_dof + n_corner_nodes;
 
-        if self.matrix_builder.as_ref().is_none_or(|b| b.num_rows() != n_total_dof) {
+        if self
+            .matrix_builder
+            .as_ref()
+            .is_none_or(|b| b.num_rows() != n_total_dof)
+        {
             self.matrix_builder = Some(SparseMatrixBuilder::new(n_total_dof, n_total_dof));
         } else {
-            self.matrix_builder.as_mut().expect("checked Some above").clear();
+            self.matrix_builder
+                .as_mut()
+                .expect("checked Some above")
+                .clear();
         }
 
         if self.rhs.as_ref().is_none_or(|r| r.len() != n_total_dof) {
             self.rhs = Some(DVector::zeros(n_total_dof));
         } else {
-            self.rhs.as_mut().expect("checked Some above").fill(T::zero());
+            self.rhs
+                .as_mut()
+                .expect("checked Some above")
+                .fill(T::zero());
         }
 
-        let mut matrix_builder = self.matrix_builder.take().expect("matrix_builder initialized above");
+        let mut matrix_builder = self
+            .matrix_builder
+            .take()
+            .expect("matrix_builder initialized above");
         let mut rhs_store = self.rhs.take().expect("rhs initialized above");
 
         let vertex_positions: Vec<Vector3<T>> = problem
@@ -461,12 +506,8 @@ impl<
                         .as_ref()
                         .map_or(problem.fluid.viscosity, |v| v[i]);
                     // Use cache-accelerated index extraction (O(1) per edge vs O(N_mid))
-                    let idxs = extract_vertex_indices(
-                        cell,
-                        &problem.mesh,
-                        problem.n_corner_nodes,
-                    )
-                    .unwrap();
+                    let idxs = extract_vertex_indices(cell, &problem.mesh, problem.n_corner_nodes)
+                        .unwrap();
                     let local_verts: Vec<Vector3<T>> =
                         idxs.iter().map(|&idx| vertex_positions[idx]).collect();
 
@@ -524,14 +565,18 @@ impl<
         self.apply_boundary_conditions_block(&mut matrix_builder, &mut rhs, problem, n_nodes)?;
 
         let velocity_dofs_constrained = problem.boundary_conditions.len() * 3;
-        tracing::debug!(constrained = velocity_dofs_constrained, total = n_velocity_dof, "Velocity DOFs constrained");
+        tracing::debug!(
+            constrained = velocity_dofs_constrained,
+            total = n_velocity_dof,
+            "Velocity DOFs constrained"
+        );
 
         if velocity_dofs_constrained == n_velocity_dof {
             tracing::warn!("All velocity DOFs constrained — may cause incompressibility conflict");
         }
 
-        let diag_eps =
-            problem.fluid.viscosity * <T as FromPrimitive>::from_f64(1e-12)
+        let diag_eps = problem.fluid.viscosity
+            * <T as FromPrimitive>::from_f64(1e-12)
                 .expect("1e-12 is an IEEE 754 representable f64 constant");
         for i in n_velocity_dof..n_total_dof {
             let _ = matrix_builder.add_entry(i, i, diag_eps);
@@ -672,8 +717,9 @@ impl<
                 let twelve = <T as FromPrimitive>::from_f64(12.0)
                     .expect("12.0 is representable in all IEEE 754 types");
                 let tau_bp = h_e * h_e / (twelve * viscosity);
-                let vol_e = abs_det / <T as FromPrimitive>::from_f64(6.0)
-                    .expect("6.0 is representable in all IEEE 754 types");
+                let vol_e = abs_det
+                    / <T as FromPrimitive>::from_f64(6.0)
+                        .expect("6.0 is representable in all IEEE 754 types");
 
                 for i in 0..4 {
                     let gi = idxs[i];

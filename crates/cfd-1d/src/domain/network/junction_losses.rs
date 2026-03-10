@@ -42,7 +42,18 @@ where
     use crate::domain::network::NodeType;
 
     let mut stats = JunctionLossAuditStats::default();
-    let rho_blood: T = T::from_f64(1060.0).expect("Mathematical constant conversion compromised");
+    // Derive fluid density from the network's fluid model at reference conditions
+    // (body temperature 310.15 K, atmospheric pressure 101 325 Pa).
+    // Falls back to 1060 kg/m³ (whole-blood reference) if the fluid query fails.
+    let rho_ref_t = T::from_f64(310.15).expect("Mathematical constant conversion compromised");
+    let p_ref_t = T::from_f64(101_325.0).expect("Mathematical constant conversion compromised");
+    let rho_blood: T = network
+        .fluid
+        .properties_at(rho_ref_t, p_ref_t)
+        .map(|state| state.density)
+        .unwrap_or_else(|_| {
+            T::from_f64(1060.0).expect("Mathematical constant conversion compromised")
+        });
     let two: T = T::one() + T::one();
 
     let blueprint_node_meta: HashMap<

@@ -91,8 +91,7 @@ mod tests {
         let bubble = create_test_bubble();
 
         let classifier_none = CavitationRegimeClassifier::new(bubble, 1e5, None, None);
-        let classifier_stable =
-            CavitationRegimeClassifier::new(bubble, 3e4, Some(2e4), Some(20e3));
+        let classifier_stable = CavitationRegimeClassifier::new(bubble, 3e4, Some(2e4), Some(20e3));
         let classifier_inertial =
             CavitationRegimeClassifier::new(bubble, 1e5, Some(1e6), Some(20e3));
 
@@ -108,8 +107,7 @@ mod tests {
     fn test_hemolysis_risk_inertial_highest() {
         let bubble = create_test_bubble();
 
-        let classifier_stable =
-            CavitationRegimeClassifier::new(bubble, 1e5, Some(1e4), Some(20e3));
+        let classifier_stable = CavitationRegimeClassifier::new(bubble, 1e5, Some(1e4), Some(20e3));
         let classifier_inertial =
             CavitationRegimeClassifier::new(bubble, 1e5, Some(1e6), Some(20e3));
 

@@ -93,7 +93,9 @@ use super::solver::MomentumComponent;
 use crate::grid::traits::Grid2D;
 use cfd_core::physics::boundary::{BoundaryCondition, BoundaryError};
 use cfd_math::sparse::SparseMatrixBuilder;
-use directional::{apply_east_boundary, apply_north_boundary, apply_south_boundary, apply_west_boundary};
+use directional::{
+    apply_east_boundary, apply_north_boundary, apply_south_boundary, apply_west_boundary,
+};
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 use std::collections::HashMap;
@@ -258,7 +260,8 @@ where
                 get_dirichlet_value(b2, component),
             ) {
                 let diff = (v1 - v2).abs();
-                let epsilon = T::default_epsilon() * T::from_f64(100.0).unwrap_or_else(num_traits::Zero::zero);
+                let epsilon = T::default_epsilon()
+                    * T::from_f64(100.0).unwrap_or_else(num_traits::Zero::zero);
                 if diff > epsilon {
                     return Err(BoundaryError::InvalidRegion(format!(
                         "Corner conflict at {b1_name}-{b2_name}: Component {component:?} values mismatch ({v1:?} vs {v2:?})"

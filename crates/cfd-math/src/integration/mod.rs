@@ -49,11 +49,11 @@
 
 pub mod composite;
 pub mod quadrature;
+pub mod quadrature_3d;
 pub mod tensor;
 pub mod traits;
 pub mod utils;
 pub mod variable;
-pub mod quadrature_3d;
 
 // Re-export main types for convenience
 pub use composite::CompositeQuadrature;
@@ -63,7 +63,3 @@ pub use tensor::TensorProductQuadrature;
 pub use traits::{Quadrature, Quadrature3D};
 pub use utils::IntegrationUtils;
 pub use variable::VariableQuadrature;
-
-// Type alias for backward compatibility while eliminating adjective-based naming
-/// Type alias for variable quadrature (backwards compatibility)
-pub type AdaptiveQuadrature<Q> = VariableQuadrature<Q>;

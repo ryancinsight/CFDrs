@@ -74,14 +74,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut json_str = String::new();
     file.read_to_string(&mut json_str)?;
 
-    let interchange: cfd_schematics::geometry::InterchangeChannelSystem =
-        serde_json::from_str(&json_str)?;
+    let interchange: cfd_schematics::NetworkBlueprint = serde_json::from_str(&json_str)?;
 
     // ── Convert to 3-D Schematic ──────────────────────────────────────────────
     let substrate_height = 5.0_f64; // mm
     let segments = 32;
 
-    let schematic3d = scheme::from_interchange(
+    let schematic3d = scheme::from_blueprint(
         &interchange,
         substrate_height as cfd_mesh::domain::core::scalar::Real,
         segments,
@@ -90,13 +89,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!(
         "🔧 {} channels parsed (substrate: {}×{}×{} mm)",
         schematic3d.channels.len(),
-        interchange.box_dims_mm.0,
-        interchange.box_dims_mm.1,
+        interchange.box_dims.0,
+        interchange.box_dims.1,
         substrate_height,
     );
 
     // ── Build substrate block ─────────────────────────────────────────────────
-    let (bw, bd) = interchange.box_dims_mm;
+    let (bw, bd) = interchange.box_dims;
     let bw = bw as f64;
     let bd = bd as f64;
     let _half_h = substrate_height / 2.0;

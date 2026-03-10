@@ -14,8 +14,8 @@
 
 use crate::linear_solver::preconditioners::IdentityPreconditioner;
 use crate::linear_solver::traits::IterativeLinearSolver;
-use crate::linear_solver::{BiCGSTAB, ConjugateGradient};
 use crate::linear_solver::IterativeSolverConfig;
+use crate::linear_solver::{BiCGSTAB, ConjugateGradient};
 use crate::sparse::SparseMatrixBuilder;
 use nalgebra::DVector;
 use nalgebra_sparse::{CooMatrix, CsrMatrix};
@@ -66,7 +66,11 @@ fn test_cg_zero_rhs_any_initial_guess() {
     solver
         .solve(&a, &b, &mut x, Some(&IdentityPreconditioner))
         .expect("CG must converge for zero RHS");
-    assert!(x.norm() < 1e-12, "solution for zero RHS must be zero, got ‖x‖ = {}", x.norm());
+    assert!(
+        x.norm() < 1e-12,
+        "solution for zero RHS must be zero, got ‖x‖ = {}",
+        x.norm()
+    );
 }
 
 #[test]
@@ -80,7 +84,11 @@ fn test_bicgstab_zero_rhs_any_initial_guess() {
     solver
         .solve(&a, &b, &mut x, Some(&IdentityPreconditioner))
         .expect("BiCGSTAB must converge for zero RHS");
-    assert!(x.norm() < 1e-12, "solution for zero RHS must be zero, got ‖x‖ = {}", x.norm());
+    assert!(
+        x.norm() < 1e-12,
+        "solution for zero RHS must be zero, got ‖x‖ = {}",
+        x.norm()
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -107,7 +115,10 @@ fn test_bicgstab_dimension_mismatch_returns_err() {
     let config = IterativeSolverConfig::new(1e-10).with_max_iterations(50);
     let solver = BiCGSTAB::new(config);
     let result = solver.solve(&a, &b, &mut x, Some(&IdentityPreconditioner));
-    assert!(result.is_err(), "BiCGSTAB must return Err on dimension mismatch");
+    assert!(
+        result.is_err(),
+        "BiCGSTAB must return Err on dimension mismatch"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -164,7 +175,10 @@ fn test_bicgstab_large_nonsymmetric_converges() {
         .solve(&a, &b, &mut x, Some(&IdentityPreconditioner))
         .expect("BiCGSTAB must converge on 300×300 non-symmetric advection-diffusion matrix");
     let residual = (&a * &x - &b).norm() / b.norm();
-    assert!(residual < 1e-6, "relative residual {residual:.2e} must be < 1e-6");
+    assert!(
+        residual < 1e-6,
+        "relative residual {residual:.2e} must be < 1e-6"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -193,7 +207,10 @@ fn test_cg_ill_conditioned_no_panic_no_nan() {
         }
     }
     // No panics, no NaN — the test reaching here proves that.
-    assert!(x.iter().all(|v| !v.is_nan()), "solution must never contain NaN");
+    assert!(
+        x.iter().all(|v| !v.is_nan()),
+        "solution must never contain NaN"
+    );
 }
 
 // ---------------------------------------------------------------------------

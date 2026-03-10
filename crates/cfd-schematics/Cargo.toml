@@ -18,31 +18,52 @@ plotters = { version = "0.3.5", default-features = false, features = ["bitmap_ba
 thiserror.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
+tracing.workspace = true
 
 [[example]]
 name = "comprehensive_split_patterns"
-path = "examples/comprehensive_split_patterns.rs"
+path = "examples/split_tree/comprehensive_split_patterns.rs"
+
+[[example]]
+name = "asymmetric_demo"
+path = "examples/split_tree/asymmetric_demo.rs"
+
+[[example]]
+name = "mirrored_bifurcation"
+path = "examples/split_tree/mirrored_bifurcation.rs"
+
+[[example]]
+name = "symmetric_split_demo"
+path = "examples/split_tree/symmetric_split_demo.rs"
 
 [[example]]
 name = "comprehensive_serpentine_demo"
-path = "examples/comprehensive_serpentine_demo.rs"
-
-[[example]]
-name = "comprehensive_arc_demo"
-path = "examples/comprehensive_arc_demo.rs"
-
-[[example]]
-name = "frustum_channel_demo"
-path = "examples/frustum_channel_demo.rs"
-
-[[example]]
-name = "unified_generator_demo"
-path = "examples/unified_generator_demo.rs"
+path = "examples/serpentine/comprehensive_serpentine_demo.rs"
 
 [[example]]
 name = "optimization_profile_comparison"
-path = "examples/optimization_profile_comparison.rs"
+path = "examples/serpentine/optimization_profile_comparison.rs"
+
+[[example]]
+name = "bifurcation_serpentine_swap"
+path = "examples/serpentine/bifurcation_serpentine_swap.rs"
+
+[[example]]
+name = "comprehensive_arc_demo"
+path = "examples/arc/comprehensive_arc_demo.rs"
+
+[[example]]
+name = "frustum_channel_demo"
+path = "examples/venturi/frustum_channel_demo.rs"
+
+[[example]]
+name = "serpentine_venturi_demo"
+path = "examples/venturi/serpentine_venturi_demo.rs"
+
+[[example]]
+name = "unified_generator_demo"
+path = "examples/topology/unified_generator_demo.rs"
 
 [[example]]
 name = "shell_cuboid_demo"
-path = "examples/shell_cuboid_demo.rs"
+path = "examples/advanced/shell_cuboid_demo.rs"

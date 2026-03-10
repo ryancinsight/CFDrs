@@ -13,7 +13,7 @@
 //! consistency. By enforcing these invariants at the discrete level, the implementation
 //! guarantees stability and physical realism.
 
-use cfd_core::physics::fluid::Fluid;
+use cfd_core::physics::fluid::ConstantPropertyFluid;
 use nalgebra::{RealField, Vector2};
 use num_traits::{Float, FromPrimitive};
 use std::ops::{Index, IndexMut};
@@ -26,7 +26,8 @@ pub mod constants {
     /// Default Reynolds number for laminar flow
     #[must_use]
     pub fn default_reynolds<T: RealField + FromPrimitive>() -> T {
-        T::from_f64(100.0).unwrap_or_else(|| T::from_i32(100).unwrap_or_else(num_traits::Zero::zero))
+        T::from_f64(100.0)
+            .unwrap_or_else(|| T::from_i32(100).unwrap_or_else(num_traits::Zero::zero))
     }
 
     /// Minimum allowed time step for stability
@@ -277,7 +278,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> SimulationFields<T> {
     }
 
     /// Create fields with specified fluid properties
-    pub fn with_fluid(nx: usize, ny: usize, fluid: &Fluid<T>) -> Self
+    pub fn with_fluid(nx: usize, ny: usize, fluid: &ConstantPropertyFluid<T>) -> Self
     where
         T: Float,
     {

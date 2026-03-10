@@ -40,7 +40,8 @@ impl<T: RealField + FromPrimitive + Copy> FahraeuasLindqvist<T> {
         Self {
             diameter,
             hematocrit,
-            plasma_viscosity: T::from_f64(constants::PLASMA_VISCOSITY_37C).unwrap_or_else(num_traits::Zero::zero),
+            plasma_viscosity: T::from_f64(constants::PLASMA_VISCOSITY_37C)
+                .unwrap_or_else(num_traits::Zero::zero),
         }
     }
 
@@ -48,7 +49,9 @@ impl<T: RealField + FromPrimitive + Copy> FahraeuasLindqvist<T> {
     ///
     /// Effect is significant for D < 300 μm
     pub fn is_significant(&self) -> bool {
-        self.diameter < T::from_f64(constants::FAHRAEUS_LINDQVIST_CRITICAL_DIAMETER).unwrap_or_else(num_traits::Zero::zero)
+        self.diameter
+            < T::from_f64(constants::FAHRAEUS_LINDQVIST_CRITICAL_DIAMETER)
+                .unwrap_or_else(num_traits::Zero::zero)
     }
 
     /// Calculate relative apparent viscosity using exact Pries et al. (1992) formulation
@@ -73,21 +76,38 @@ impl<T: RealField + FromPrimitive + Copy> FahraeuasLindqvist<T> {
         // μ_rel_vit = 1 + (μ_45 - 1) * (( (1-H_t)^C - 1 ) / ( (1-0.45)^C - 1 ))
         // where C = (0.8 + exp(-0.075D)) * (-1 + 1/(1 + 10^-11 * D^12)) + (1/(1 + 10^-11 * D^12))
 
-        let mu_45 = T::from_f64(6.0).unwrap_or_else(num_traits::Zero::zero) * (-T::from_f64(0.85).unwrap_or_else(num_traits::Zero::zero) * d_um).exp()
-                  + T::from_f64(3.2).unwrap_or_else(num_traits::Zero::zero)
-                  - T::from_f64(2.44).unwrap_or_else(num_traits::Zero::zero) * (-T::from_f64(0.06).unwrap_or_else(num_traits::Zero::zero) * d_um.powf(T::from_f64(0.645).unwrap_or_else(num_traits::Zero::zero))).exp();
+        let mu_45 = T::from_f64(6.0).unwrap_or_else(num_traits::Zero::zero)
+            * (-T::from_f64(0.85).unwrap_or_else(num_traits::Zero::zero) * d_um).exp()
+            + T::from_f64(3.2).unwrap_or_else(num_traits::Zero::zero)
+            - T::from_f64(2.44).unwrap_or_else(num_traits::Zero::zero)
+                * (-T::from_f64(0.06).unwrap_or_else(num_traits::Zero::zero)
+                    * d_um.powf(T::from_f64(0.645).unwrap_or_else(num_traits::Zero::zero)))
+                .exp();
 
-        let exponent_c = (T::from_f64(0.8).unwrap_or_else(num_traits::Zero::zero) + (-T::from_f64(0.075).unwrap_or_else(num_traits::Zero::zero) * d_um).exp())
-                       * (-one + one / (one + T::from_f64(1e-11).unwrap_or_else(num_traits::Zero::zero) * d_um.powf(T::from_f64(12.0).unwrap_or_else(num_traits::Zero::zero))))
-                       + (one / (one + T::from_f64(1e-11).unwrap_or_else(num_traits::Zero::zero) * d_um.powf(T::from_f64(12.0).unwrap_or_else(num_traits::Zero::zero))));
+        let exponent_c = (T::from_f64(0.8).unwrap_or_else(num_traits::Zero::zero)
+            + (-T::from_f64(0.075).unwrap_or_else(num_traits::Zero::zero) * d_um).exp())
+            * (-one
+                + one
+                    / (one
+                        + T::from_f64(1e-11).unwrap_or_else(num_traits::Zero::zero)
+                            * d_um.powf(T::from_f64(12.0).unwrap_or_else(num_traits::Zero::zero))))
+            + (one
+                / (one
+                    + T::from_f64(1e-11).unwrap_or_else(num_traits::Zero::zero)
+                        * d_um.powf(T::from_f64(12.0).unwrap_or_else(num_traits::Zero::zero))));
 
         let ht_factor = ((one - self.hematocrit).powf(exponent_c) - one)
-                      / ((one - T::from_f64(0.45).unwrap_or_else(num_traits::Zero::zero)).powf(exponent_c) - one);
+            / ((one - T::from_f64(0.45).unwrap_or_else(num_traits::Zero::zero)).powf(exponent_c)
+                - one);
 
         let mu_rel = one + (mu_45 - one) * ht_factor;
 
         // Ensure we don't drop below plasma viscosity
-        if mu_rel < one { one } else { mu_rel }
+        if mu_rel < one {
+            one
+        } else {
+            mu_rel
+        }
     }
 
     /// Calculate apparent viscosity in microvessel [Pa·s]
@@ -105,12 +125,14 @@ impl<T: RealField + FromPrimitive + Copy> FahraeuasLindqvist<T> {
         // Empirical correlation for tube hematocrit reduction
         // Valid for D > 10 μm
         if d_um < T::from_f64(10.0).unwrap_or_else(num_traits::Zero::zero) {
-            return self.hematocrit * T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero); // Approximate minimum
+            return self.hematocrit * T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero);
+            // Approximate minimum
         }
 
         // Pries et al. empirical fit
-        let reduction_factor =
-            one - T::from_f64(1.7).unwrap_or_else(num_traits::Zero::zero) * (-d_um / T::from_f64(40.0).unwrap_or_else(num_traits::Zero::zero)).exp();
+        let reduction_factor = one
+            - T::from_f64(1.7).unwrap_or_else(num_traits::Zero::zero)
+                * (-d_um / T::from_f64(40.0).unwrap_or_else(num_traits::Zero::zero)).exp();
         self.hematocrit * reduction_factor
     }
 }

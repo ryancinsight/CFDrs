@@ -3,7 +3,6 @@
 //! This file owns:
 //! - `update_reynolds_stresses` — primary public entry point (optimised)
 //! - `update_reynolds_stresses_optimized` — block-cached, SIMD-friendly loop
-//! - `update_reynolds_stresses_standard` — legacy compatibility (deprecated)
 //! - Wall boundary condition application
 //! - Velocity/stress gradient helpers
 //! - Scalar Laplacian helper
@@ -180,110 +179,6 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
         let two = Self::c(2.0);
         (scalar[(i + 1, j)] - two * scalar[(i, j)] + scalar[(i - 1, j)]) / (dx * dx)
             + (scalar[(i, j + 1)] - two * scalar[(i, j)] + scalar[(i, j - 1)]) / (dy * dy)
-    }
-
-    /// Legacy path kept for backward compatibility. Prefer `update_reynolds_stresses`.
-    #[deprecated(
-        note = "Use update_reynolds_stresses() — now backed by the optimised implementation"
-    )]
-    pub fn update_reynolds_stresses_standard(
-        &self,
-        rs: &mut ReynoldsStressTensor<T>,
-        velocity: &[DMatrix<T>; 2],
-        dt: T,
-        dx: T,
-        dy: T,
-    ) -> Result<()> {
-        if dt <= T::zero() {
-            return Err(cfd_core::error::Error::InvalidInput(format!(
-                "Time step must be positive: dt={}",
-                dt.to_f64().expect("dt conversion")
-            )));
-        }
-        if dx <= T::zero() || dy <= T::zero() {
-            return Err(cfd_core::error::Error::InvalidInput(format!(
-                "Grid spacing must be positive: dx={}, dy={}",
-                dx.to_f64().expect("dx"),
-                dy.to_f64().expect("dy")
-            )));
-        }
-
-        let nx = self.nx;
-        let ny = self.ny;
-        let epsilon_min = Self::c(EPSILON_MIN);
-
-        let mut xx_new: DMatrix<T> = rs.xx.clone();
-        let mut xy_new: DMatrix<T> = rs.xy.clone();
-        let mut yy_new: DMatrix<T> = rs.yy.clone();
-        let mut k_new: DMatrix<T> = rs.k.clone();
-        let mut epsilon_new: DMatrix<T> = rs.epsilon.clone();
-
-        for i in 1..nx - 1 {
-            for j in 1..ny - 1 {
-                let vg = self.calculate_velocity_gradients(velocity, i, j, dx, dy);
-                let (strain_rate, rotation_rate) = self.calculate_strain_rotation_rates(&vg);
-                let sg = self.calculate_stress_gradients(rs, i, j, dx, dy);
-
-                for ii in 0..2 {
-                    for jj in 0..2 {
-                        let p_ij = prod_term(rs, &vg, ii, jj, i, j);
-                        let phi_ij = self.pressure_strain_term(
-                            rs,
-                            &strain_rate,
-                            &rotation_rate,
-                            ii,
-                            jj,
-                            i,
-                            j,
-                        );
-                        let eps_ij = dissipation_tensor(rs, ii, jj, i, j);
-                        let t_ij =
-                            turbulent_transport(rs.k[(i, j)], rs.epsilon[(i, j)], &sg, ii, jj);
-
-                        let rhs = p_ij + phi_ij - eps_ij + t_ij;
-                        match (ii, jj) {
-                            (0, 0) => xx_new[(i, j)] = rs.xx[(i, j)] + dt * rhs,
-                            (0, 1) | (1, 0) => xy_new[(i, j)] = rs.xy[(i, j)] + dt * rhs,
-                            (1, 1) => yy_new[(i, j)] = rs.yy[(i, j)] + dt * rhs,
-                            _ => {}
-                        }
-                    }
-                }
-
-                k_new[(i, j)] = Self::c(0.5) * (xx_new[(i, j)] + yy_new[(i, j)]);
-                let k = k_new[(i, j)];
-                let epsilon = rs.epsilon[(i, j)];
-
-                if k > T::zero() && epsilon > T::zero() {
-                    let p_xx = prod_term(rs, &vg, 0, 0, i, j);
-                    let p_yy = prod_term(rs, &vg, 1, 1, i, j);
-                    let p_k = Self::c(0.5) * (p_xx + p_yy);
-                    let nu_t = self.c_mu * k * k / epsilon;
-                    let eps_laplacian = self.calculate_scalar_laplacian(&rs.epsilon, i, j, dx, dy);
-                    let deps_dt = Self::c(1.44) * p_k * epsilon / k
-                        - Self::c(1.92) * epsilon * epsilon / k
-                        + (nu_t / Self::c(1.3)) * eps_laplacian;
-                    epsilon_new[(i, j)] = (epsilon + dt * deps_dt).max(epsilon_min);
-                } else {
-                    epsilon_new[(i, j)] = Self::c(0.09) * k * k.sqrt();
-                }
-            }
-        }
-
-        self.apply_wall_boundary_conditions(
-            &mut xx_new,
-            &mut xy_new,
-            &mut yy_new,
-            &mut k_new,
-            &mut epsilon_new,
-        );
-
-        rs.xx = xx_new;
-        rs.xy = xy_new;
-        rs.yy = yy_new;
-        rs.k = k_new;
-        rs.epsilon = epsilon_new;
-        Ok(())
     }
 }
 

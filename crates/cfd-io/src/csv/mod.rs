@@ -12,7 +12,3 @@ pub use reader::{CsvIterator, CsvReader};
 pub use streaming::{StreamingReader, StreamingWriter};
 pub use types::{CsvRecord, FieldData, TimeSeriesData};
 pub use writer::CsvWriter;
-
-// Re-export for backward compatibility (will deprecate in future)
-pub use reader::read_field_data;
-pub use writer::write_time_series;

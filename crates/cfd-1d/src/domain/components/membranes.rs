@@ -3,7 +3,7 @@
 use super::Component;
 use crate::physics::resistance::models::{FlowConditions, MembranePoreModel, ResistanceModel};
 use cfd_core::error::Result;
-use cfd_core::physics::fluid::Fluid;
+use cfd_core::physics::fluid::ConstantPropertyFluid;
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
@@ -46,7 +46,7 @@ impl<T: RealField + Copy + FromPrimitive> PorousMembrane<T> {
 }
 
 impl<T: RealField + Copy + FromPrimitive> Component<T> for PorousMembrane<T> {
-    fn resistance(&self, fluid: &Fluid<T>) -> T {
+    fn resistance(&self, fluid: &ConstantPropertyFluid<T>) -> T {
         let model = MembranePoreModel::new(
             self.thickness,
             self.width,
@@ -123,7 +123,7 @@ impl<T: RealField + Copy + FromPrimitive> OrganCompartment<T> {
 }
 
 impl<T: RealField + Copy + FromPrimitive> Component<T> for OrganCompartment<T> {
-    fn resistance(&self, _fluid: &Fluid<T>) -> T {
+    fn resistance(&self, _fluid: &ConstantPropertyFluid<T>) -> T {
         self.hydraulic_resistance
     }
 

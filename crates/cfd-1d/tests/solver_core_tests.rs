@@ -11,7 +11,7 @@ use nalgebra::DVector;
 use petgraph::visit::EdgeRef;
 
 fn water() -> cfd_core::physics::fluid::ConstantPropertyFluid<f64> {
-    water_20c::<f64>().unwrap()
+    water_20c::<f64>().expect("test invariant")
 }
 
 fn hp_resistance(d: f64, l: f64, mu: f64) -> f64 {
@@ -36,7 +36,7 @@ fn test_solver_ohms_law_single_edge() {
     let outlet = builder.add_outlet("outlet".into());
     builder.connect_with_pipe(inlet, outlet, "pipe".into());
 
-    let mut graph = builder.build().unwrap();
+    let mut graph = builder.build().expect("test invariant");
     for edge in graph.edge_indices() {
         if let Some(e) = graph.edge_weight_mut(edge) {
             e.resistance = r;
@@ -49,7 +49,7 @@ fn test_solver_ohms_law_single_edge() {
 
     let problem = NetworkProblem::new(network);
     let solver = NetworkSolver::new();
-    let solved = solver.solve_network(&problem).unwrap();
+    let solved = solver.solve_network(&problem).expect("test invariant");
 
     let flows: Vec<f64> = solved
         .graph
@@ -86,7 +86,7 @@ fn test_solver_y_junction_kcl() {
     builder.connect_with_pipe(n_mid, n_out1, "edge1".into());
     builder.connect_with_pipe(n_mid, n_out2, "edge2".into());
 
-    let mut graph = builder.build().unwrap();
+    let mut graph = builder.build().expect("test invariant");
     for edge in graph.edge_indices() {
         if let Some(e) = graph.edge_weight_mut(edge) {
             e.resistance = r;
@@ -100,7 +100,7 @@ fn test_solver_y_junction_kcl() {
 
     let problem = NetworkProblem::new(network);
     let solver = NetworkSolver::new();
-    let solved = solver.solve_network(&problem).unwrap();
+    let solved = solver.solve_network(&problem).expect("test invariant");
 
     let mut q_into_mid = 0.0_f64;
     let mut q_out_of_mid = 0.0_f64;
@@ -141,7 +141,7 @@ fn test_solver_no_dirichlet_bc_singular_system() {
     let outlet = builder.add_outlet("n1".into());
     builder.connect_with_pipe(inlet, outlet, "edge".into());
 
-    let mut graph = builder.build().unwrap();
+    let mut graph = builder.build().expect("test invariant");
     for edge in graph.edge_indices() {
         if let Some(e) = graph.edge_weight_mut(edge) {
             e.resistance = r;
@@ -190,7 +190,9 @@ fn test_convergence_max_iterations() {
 fn test_convergence_dual_identical_converged() {
     let checker = ConvergenceChecker::<f64>::new(1e-6);
     let x = DVector::from_vec(vec![1.0_f64, 2.0, 3.0]);
-    let converged = checker.has_converged_dual(&x, &x, 0.0, 1.0).unwrap();
+    let converged = checker
+        .has_converged_dual(&x, &x, 0.0, 1.0)
+        .expect("test invariant");
     assert!(converged);
 }
 
@@ -201,6 +203,6 @@ fn test_convergence_dual_large_change_not_converged() {
     let x_new = DVector::from_vec(vec![100.0_f64, 100.0]);
     let converged = checker
         .has_converged_dual(&x_new, &x_old, 50.0, 1.0)
-        .unwrap();
+        .expect("test invariant");
     assert!(!converged);
 }

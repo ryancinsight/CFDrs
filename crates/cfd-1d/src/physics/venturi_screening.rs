@@ -96,10 +96,14 @@ pub fn evaluate_venturi_screening(input: VenturiScreeningInput) -> VenturiScreen
         * v_eff
         * v_eff;
 
-    let throat_static = (input.upstream_pressure_pa - bernoulli_drop - friction_drop).max(0.0);
+    // Unclamped static pressure preserves full Bernoulli + friction
+    // differentiation in the sigma formula.  The physical (non-negative)
+    // value is stored separately in `throat_static_pressure_pa`.
+    let throat_static_raw = input.upstream_pressure_pa - bernoulli_drop - friction_drop;
+    let throat_static = throat_static_raw.max(0.0);
     let dyn_p = 0.5 * input.density_kg_m3 * v_eff * v_eff;
     let cavitation_number = if dyn_p > 1e-12 {
-        (throat_static - input.vapor_pressure_pa) / dyn_p
+        (throat_static_raw - input.vapor_pressure_pa) / dyn_p
     } else {
         f64::INFINITY
     };

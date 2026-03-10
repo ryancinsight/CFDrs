@@ -57,20 +57,15 @@ impl DomainDecomposition {
         // Perform domain decomposition based on strategy
         let local_subdomain = match strategy {
             DecompositionStrategy::Simple1D => Self::decompose_1d(&global_extents, rank, size)?,
-            DecompositionStrategy::Cartesian2D => {
-                Self::decompose_2d(&global_extents, rank, size)?
-            }
+            DecompositionStrategy::Cartesian2D => Self::decompose_2d(&global_extents, rank, size)?,
             DecompositionStrategy::RecursiveBisection => {
                 Self::decompose_bisection(&global_extents, rank, size)?
             }
-            DecompositionStrategy::Metis => {
-                Self::decompose_metis(&global_extents, rank, size)?
-            }
+            DecompositionStrategy::Metis => Self::decompose_metis(&global_extents, rank, size)?,
         };
 
         // Determine neighbor relationships
-        let neighbors =
-            Self::compute_neighbors(&local_subdomain, &global_extents, size, strategy)?;
+        let neighbors = Self::compute_neighbors(&local_subdomain, &global_extents, size, strategy)?;
 
         Ok(Self {
             global_extents,
@@ -108,8 +103,7 @@ impl DomainDecomposition {
                 "Global domain has zero extent in x".to_string(),
             ));
         }
-        let weights =
-            vec![global.ny_global.max(1) * global.nz_global.max(1); global.nx_global];
+        let weights = vec![global.ny_global.max(1) * global.nz_global.max(1); global.nx_global];
         let partition =
             super::partition::partition_1d_by_weights(global.nx_global, &weights, size)?;
         let (i_start, nx_local) = partition[rank as usize];
@@ -173,9 +167,7 @@ impl DomainDecomposition {
             .into_iter()
             .find(|subdomain| subdomain.rank == rank)
             .ok_or_else(|| {
-                MpiError::DecompositionError(
-                    "Rank not found in bisection partition".to_string(),
-                )
+                MpiError::DecompositionError("Rank not found in bisection partition".to_string())
             })
     }
 
@@ -262,9 +254,7 @@ impl DomainDecomposition {
                 let dy = ny as f64 / py as f64;
                 let dz = nz as f64 / pz as f64;
                 let interface_area = 2.0 * (dx * dy + dx * dz + dy * dz);
-                let aspect = (dx / dy - 1.0).abs()
-                    + (dx / dz - 1.0).abs()
-                    + (dy / dz - 1.0).abs();
+                let aspect = (dx / dy - 1.0).abs() + (dx / dz - 1.0).abs() + (dy / dz - 1.0).abs();
                 let cost = interface_area * (1.0 + aspect);
                 if cost < best_cost {
                     best_cost = cost;

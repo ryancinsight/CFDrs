@@ -5,10 +5,12 @@
 //! breaking existing code.
 
 use super::metadata::{Metadata, MetadataContainer};
-use super::types::{Channel, ChannelType, Node, Point2D};
-use crate::domain::model::{ChannelShape, NodeKind};
+use super::types::{ChannelType, Point2D};
+use crate::domain::model::{ChannelShape, ChannelSpec, NodeKind, NodeSpec};
 use crate::domain::therapy_metadata::TherapyZone;
-use crate::geometry::metadata::{ChannelVisualRole, JunctionGeometryMetadata, VenturiGeometryMetadata};
+use crate::geometry::metadata::{
+    ChannelVisualRole, JunctionGeometryMetadata, VenturiGeometryMetadata,
+};
 
 /// Builder for creating nodes with optional metadata
 #[derive(Debug)]
@@ -63,7 +65,10 @@ impl NodeBuilder {
         if self.metadata.is_none() {
             self.metadata = Some(MetadataContainer::new());
         }
-        self.metadata.as_mut().unwrap().insert(metadata);
+        self.metadata
+            .as_mut()
+            .expect("structural invariant")
+            .insert(metadata);
         self
     }
 
@@ -76,15 +81,15 @@ impl NodeBuilder {
 
     /// Build the node
     #[must_use]
-    pub fn build(self) -> Node {
-        Node {
-            id: self.id,
-            name: self.name,
-            point: self.point,
-            kind: self.kind,
-            junction_geometry: self.junction_geometry,
-            metadata: self.metadata,
-        }
+    pub fn build(self) -> NodeSpec {
+        let mut node = NodeSpec::new_at(
+            self.name.unwrap_or_else(|| format!("node_{}", self.id)),
+            self.kind.unwrap_or(NodeKind::Junction),
+            self.point,
+        );
+        node.junction_geometry = self.junction_geometry;
+        node.metadata = self.metadata;
+        node
     }
 }
 
@@ -192,7 +197,10 @@ impl ChannelBuilder {
         if self.metadata.is_none() {
             self.metadata = Some(MetadataContainer::new());
         }
-        self.metadata.as_mut().unwrap().insert(metadata);
+        self.metadata
+            .as_mut()
+            .expect("structural invariant")
+            .insert(metadata);
         self
     }
 
@@ -203,26 +211,43 @@ impl ChannelBuilder {
         self
     }
 
-    /// Build the channel
+    /// Build the channel spec
     #[must_use]
-    pub fn build(self) -> Channel {
-        Channel {
-            id: self.id,
-            name: self.name,
-            from_node: self.from_node,
-            to_node: self.to_node,
-            width: self.width,
-            height: self.height,
-            channel_type: self.channel_type,
-            visual_role: self.visual_role,
-            physical_length_m: self.physical_length_m,
-            physical_width_m: self.physical_width_m,
-            physical_height_m: self.physical_height_m,
-            physical_shape: self.physical_shape,
-            therapy_zone: self.therapy_zone,
-            venturi_geometry: self.venturi_geometry,
-            metadata: self.metadata,
+    pub fn build(self) -> ChannelSpec {
+        let name = self.name.unwrap_or_else(|| format!("channel_{}", self.id));
+        let from_node_str = format!("node_{}", self.from_node);
+        let to_node_str = format!("node_{}", self.to_node);
+
+        let path = match self.channel_type {
+            ChannelType::Straight => Vec::new(),
+            ChannelType::SmoothStraight { path }
+            | ChannelType::Serpentine { path }
+            | ChannelType::Arc { path }
+            | ChannelType::Frustum { path, .. } => path,
+        };
+
+        let mut spec = ChannelSpec::new_pipe_rect(
+            name,
+            from_node_str,
+            to_node_str,
+            self.physical_length_m.unwrap_or(0.0),
+            self.physical_width_m.unwrap_or(self.width * 1e-6),
+            self.physical_height_m.unwrap_or(self.height * 1e-6),
+            0.0,
+            0.0,
+        );
+
+        spec.path = path;
+        spec.visual_role = self.visual_role;
+        spec.channel_shape = self.physical_shape.unwrap_or(ChannelShape::Straight);
+        spec.venturi_geometry = self.venturi_geometry;
+        spec.metadata = self.metadata;
+        if let Some(zone) = self.therapy_zone {
+            spec.add_metadata(crate::domain::therapy_metadata::TherapyZoneMetadata::new(
+                zone,
+            ));
         }
+        spec
     }
 }
 
@@ -247,7 +272,7 @@ pub trait NodeExt {
     fn metadata_types(&self) -> Vec<&'static str>;
 }
 
-impl NodeExt for Node {
+impl NodeExt for NodeSpec {
     fn get_metadata<T: Metadata + 'static>(&self) -> Option<&T> {
         self.metadata.as_ref()?.get::<T>()
     }
@@ -306,7 +331,7 @@ pub trait ChannelExt {
     fn metadata_types(&self) -> Vec<&'static str>;
 }
 
-impl ChannelExt for Channel {
+impl ChannelExt for ChannelSpec {
     fn get_metadata<T: Metadata + 'static>(&self) -> Option<&T> {
         self.metadata.as_ref()?.get::<T>()
     }
@@ -362,11 +387,13 @@ mod tests {
             .with_metadata(flow_data.clone())
             .build();
 
-        assert_eq!(node.id, 0);
+        assert_eq!(node.id.0, "node_0");
         assert_eq!(node.point, (5.0, 10.0));
         assert!(node.has_metadata::<FlowMetadata>());
 
-        let retrieved = node.get_metadata::<FlowMetadata>().unwrap();
+        let retrieved = node
+            .get_metadata::<FlowMetadata>()
+            .expect("structural invariant");
         assert_eq!(retrieved, &flow_data);
     }
 
@@ -382,22 +409,20 @@ mod tests {
             .with_metadata(thermal_data.clone())
             .build();
 
-        assert_eq!(channel.id, 0);
-        assert_eq!(channel.from_node, 0);
-        assert_eq!(channel.to_node, 1);
+        assert_eq!(channel.id.0, "channel_0");
+        assert_eq!(channel.from.0, "node_0");
+        assert_eq!(channel.to.0, "node_1");
         assert!(channel.has_metadata::<ThermalMetadata>());
 
-        let retrieved = channel.get_metadata::<ThermalMetadata>().unwrap();
+        let retrieved = channel
+            .get_metadata::<ThermalMetadata>()
+            .expect("structural invariant");
         assert_eq!(retrieved, &thermal_data);
     }
 
     #[test]
     fn test_extension_traits() {
-        let mut node = Node {
-            id: 0,
-            point: (0.0, 0.0),
-            metadata: None,
-        };
+        let mut node = NodeSpec::new_at("node_0", NodeKind::Junction, (0.0, 0.0));
 
         let flow_data = FlowMetadata {
             flow_rate: 5.0,
@@ -411,7 +436,9 @@ mod tests {
         assert!(node.has_metadata::<FlowMetadata>());
 
         // Test getting metadata
-        let retrieved = node.get_metadata::<FlowMetadata>().unwrap();
+        let retrieved = node
+            .get_metadata::<FlowMetadata>()
+            .expect("structural invariant");
         assert_eq!(retrieved, &flow_data);
 
         // Test metadata types

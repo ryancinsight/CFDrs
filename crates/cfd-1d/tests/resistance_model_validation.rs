@@ -117,7 +117,7 @@ fn test_darcy_weisbach_smooth_pipe() -> Result<()> {
                                      // Turbulent Darcy–Weisbach is quadratic in flow. `calculate_resistance()` returns
                                      // an effective linearization R_eff = k|Q|. With Q = V·A (circular):
                                      // R_eff = f ρ L V / (2 A D)
-    let v: f64 = conditions_turbulent.velocity.unwrap();
+    let v: f64 = conditions_turbulent.velocity.expect("test invariant");
     let expected_resistance_turbulent: f64 =
         f_expected * fluid.density * length * v / (2.0 * area * diameter);
 
@@ -155,7 +155,7 @@ fn test_darcy_weisbach_rough_pipe() -> Result<()> {
     // (fully rough asymptote) - Colebrook-White gives slightly different value
     let f_expected: f64 = 0.01721; // Adjusted for Colebrook-White iteration
     let area: f64 = std::f64::consts::PI * diameter.powi(2) / 4.0;
-    let v: f64 = conditions.velocity.unwrap();
+    let v: f64 = conditions.velocity.expect("test invariant");
     let expected_resistance: f64 =
         f_expected * fluid.density * length * v / (2.0 * area * diameter);
 
@@ -319,7 +319,7 @@ fn test_colebrook_white_convergence() -> Result<()> {
     let f_haaland = 1.0 / (inv_sqrt_f * inv_sqrt_f);
 
     let area: f64 = std::f64::consts::PI * diameter.powi(2) / 4.0;
-    let v: f64 = conditions.velocity.unwrap();
+    let v: f64 = conditions.velocity.expect("test invariant");
     // Expected turbulent resistance: k·Q at given velocity
     // k = f·ρ·L/(2·A²·D), R_eff = k·V·A = f·ρ·L·V/(2·A·D)
     let expected_resistance_haaland: f64 =

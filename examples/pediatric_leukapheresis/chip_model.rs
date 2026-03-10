@@ -8,7 +8,7 @@
 //! that represents N identical chips operating in parallel — useful for passing
 //! to `compute_metrics()` when the `ParallelMicrochannelArray` topology is used.
 
-use cfd_optim::DesignCandidate;
+use cfd_optim::design::DesignCandidate;
 
 // ── Clinical scaling result ───────────────────────────────────────────────────
 
@@ -67,7 +67,7 @@ pub fn scale_to_clinical(
         1
     };
     let total_flow = single_flow_ml_min * n_parallel as f64;
-    let total_ecv  = single_chip_ecv_ml  * n_parallel as f64;
+    let total_ecv = single_chip_ecv_ml * n_parallel as f64;
     ClinicalScaleResult {
         n_parallel,
         total_flow_ml_min: total_flow,

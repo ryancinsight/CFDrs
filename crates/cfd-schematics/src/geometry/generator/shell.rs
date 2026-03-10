@@ -58,7 +58,7 @@ mod tests {
 
     #[test]
     fn create_shell_cuboid_interchange_has_two_ports() {
-        let sc = create_shell_cuboid((80.0, 40.0), 2.0).unwrap();
+        let sc = create_shell_cuboid((80.0, 40.0), 2.0).expect("structural invariant");
         let ix = sc.to_interchange();
         assert_eq!(ix.ports.len(), 2);
         assert_eq!(ix.ports[0].label, "inlet");
