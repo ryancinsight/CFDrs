@@ -3,7 +3,33 @@
 //! This benchmark suite provides comprehensive performance analysis for all major CFD operations,
 //! including memory profiling, scaling analysis, and regression detection capabilities.
 
+#[cfg(feature = "validation")]
 use cfd_validation::benchmarking::BenchmarkConfig;
+#[cfg(not(feature = "validation"))]
+#[derive(Debug, Clone)]
+pub struct BenchmarkConfig {
+    pub iterations: usize,
+    pub warmup_iterations: usize,
+    pub enable_memory: bool,
+    pub enable_scaling: bool,
+    pub detailed_reporting: bool,
+    pub regression_threshold: f64,
+    pub problem_sizes: Vec<usize>,
+}
+#[cfg(not(feature = "validation"))]
+impl Default for BenchmarkConfig {
+    fn default() -> Self {
+        Self {
+            iterations: 10,
+            warmup_iterations: 3,
+            enable_memory: true,
+            enable_scaling: true,
+            detailed_reporting: true,
+            regression_threshold: 5.0,
+            problem_sizes: vec![32, 64, 128, 256, 512],
+        }
+    }
+}
 use criterion::{criterion_group, criterion_main, Criterion};
 use std::time::Duration;
 
