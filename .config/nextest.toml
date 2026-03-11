@@ -11,3 +11,8 @@ status-level = "all"
 [[profile.default.overrides]]
 filter = "test(=application::csg::arrangement::tests::v_shape_right_branch_64x32_is_watertight)"
 slow-timeout = { period = "10s", terminate-after = 2 }
+
+# GA tests involve population-level optimisation and require more budget.
+[[profile.default.overrides]]
+filter = "test(ga_optimizer_evolves_population_and_ranks_results) | test(ga_seed_pair_contains_exactly_two_canonical_baselines)"
+slow-timeout = { period = "30s", terminate-after = 4 }

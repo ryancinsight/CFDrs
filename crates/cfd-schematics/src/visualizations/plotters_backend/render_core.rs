@@ -180,14 +180,14 @@ impl PlottersRenderer {
             (lo, hi)
         };
 
-        const MAX_STROKE_MULT: u32 = 3;
+        const MAX_STROKE_MULT: u32 = 6;
         let width_multiplier = |w: f64| -> u32 {
             if max_width <= min_width {
                 return 1;
             }
             let rounded = (w * 1e6).round() / 1e6;
             let ratio = (rounded - min_width) / (max_width - min_width);
-            let mult = ratio.mul_add((MAX_STROKE_MULT - 1) as f64, 1.0);
+            let mult = ratio.powf(0.8).mul_add((MAX_STROKE_MULT - 1) as f64, 1.0);
             (mult.round() as u32).clamp(1, MAX_STROKE_MULT)
         };
 

@@ -1,5 +1,6 @@
 //! Core resistance models for 1D flow calculations.
 
+mod conductance;
 mod darcy_weisbach;
 mod entrance;
 mod hagen_poiseuille;
@@ -10,6 +11,7 @@ mod serpentine;
 pub(crate) mod traits;
 mod venturi;
 
+pub use conductance::{cascade_treatment_flow_fractions, parallel_channel_flow_fractions};
 pub use darcy_weisbach::DarcyWeisbachModel;
 pub use entrance::{CombinationMethod, EntranceEffectsModel};
 pub use hagen_poiseuille::HagenPoiseuilleModel;

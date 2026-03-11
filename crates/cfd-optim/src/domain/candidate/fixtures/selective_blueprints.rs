@@ -1,15 +1,14 @@
 use crate::domain::{BlueprintCandidate, OperatingPoint};
 use cfd_schematics::domain::therapy_metadata::TherapyZone;
 use cfd_schematics::topology::presets::{
-    build_milestone12_blueprint, build_milestone12_topology_spec, Milestone12StageBranchSpec,
-    Milestone12StageLayout, Milestone12TopologyRequest,
+    build_milestone12_blueprint, Milestone12StageBranchSpec, Milestone12StageLayout,
+    Milestone12TopologyRequest,
 };
 use cfd_schematics::{
-    BlueprintTopologySpec, BranchRole, SerpentineSpec, SplitKind, TreatmentActuationMode,
-    VenturiPlacementMode,
+    BlueprintTopologySpec, BranchRole, SerpentineSpec, SplitKind, TreatmentActuationMode, VenturiPlacementMode,
 };
 
-fn canonical_option1_request() -> Milestone12TopologyRequest {
+pub(crate) fn canonical_option1_request() -> Milestone12TopologyRequest {
     let mut request = Milestone12TopologyRequest::new(
         "option1",
         "option1",
@@ -69,7 +68,7 @@ fn canonical_option1_request() -> Milestone12TopologyRequest {
     request
 }
 
-fn canonical_option2_request() -> Milestone12TopologyRequest {
+pub(crate) fn canonical_option2_request() -> Milestone12TopologyRequest {
     let mut request = canonical_option1_request();
     request.topology_id = "option2".to_string();
     request.design_name = "option2".to_string();
@@ -81,10 +80,6 @@ fn canonical_option2_request() -> Milestone12TopologyRequest {
     request.venturi_target_channel_ids =
         vec![BlueprintTopologySpec::branch_channel_id("stage_1", "ctc")];
     request
-}
-
-pub(crate) fn canonical_option1_spec() -> BlueprintTopologySpec {
-    build_milestone12_topology_spec(&canonical_option1_request())
 }
 
 pub(crate) fn canonical_option1_candidate(

@@ -281,6 +281,14 @@ path = "examples/csg/cylinder_cylinder_y_junction.rs"
 name = "csg_cylinder_cylinder_trifurcation"
 path = "examples/csg/cylinder_cylinder_trifurcation.rs"
 
+[[example]]
+name = "csg_cylinder_cylinder_quadfurcation"
+path = "examples/csg/cylinder_cylinder_quadfurcation.rs"
+
+[[example]]
+name = "csg_cylinder_cylinder_pentafurcation"
+path = "examples/csg/cylinder_cylinder_pentafurcation.rs"
+
 # ── Coplanar 2-D Boolean examples ──────────────────────────────────────────────
 
 [[example]]

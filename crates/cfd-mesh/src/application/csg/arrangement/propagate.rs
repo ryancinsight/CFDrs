@@ -53,7 +53,7 @@ const COLLINEAR_TOL_SQ: Real = 1e-6;
 /// - parameter `t = (P−Va)·(Vb−Va) / |Vb−Va|² ∈ (1e-7, 1−1e-7)`
 pub fn propagate_seam_vertices(
     faces: &[FaceData],
-    segs: &mut HashMap<usize, Vec<SnapSegment>>,
+    segs: &mut [Vec<SnapSegment>],
     pool: &VertexPool,
 ) {
     use crate::domain::core::index::VertexId;
@@ -77,8 +77,8 @@ pub fn propagate_seam_vertices(
 
     let mut injections: Vec<(usize, SnapSegment)> = Vec::new();
 
-    for (&fi, snap_segs) in segs.iter() {
-        if fi >= faces.len() {
+    for (fi, snap_segs) in segs.iter().enumerate() {
+        if snap_segs.is_empty() || fi >= faces.len() {
             continue;
         }
         let face = &faces[fi];
@@ -227,7 +227,9 @@ pub fn propagate_seam_vertices(
     }
 
     for (fi, seg) in injections {
-        segs.entry(fi).or_default().push(seg);
+        if fi < segs.len() {
+            segs[fi].push(seg);
+        }
     }
 }
 
@@ -297,7 +299,7 @@ pub fn inject_cap_seam_into_barrels(
     plane_pt: &Point3r,
     plane_n: &Vector3r,
     seam_positions: &[Point3r],
-    segs_out: &mut HashMap<usize, Vec<SnapSegment>>,
+    segs_out: &mut [Vec<SnapSegment>],
     pool: &VertexPool,
 ) {
     let plane_n_len_sq = plane_n.dot(plane_n);
@@ -356,10 +358,16 @@ pub fn inject_cap_seam_into_barrels(
     }
 
     // ── Phase 2: Build seam-position spatial hash ─────────────────────────────
-    // Cell size 1 mm covers millifluidic rim edges ≤ 8 mm via 5 sample points
-    // (see theorem in module doc above).
-    const HASH_CELL_M: Real = 1e-3; // 1 mm
-    let inv_cell = 1.0 / HASH_CELL_M;
+    // The sample spacing is edge_len / 4, so any seam point on the rim lies
+    // within edge_len / 8 of some sample. Size the hash cells from the longest
+    // rim edge so that a 27-cell neighborhood remains complete for every rim
+    // face processed in this pass.
+    let max_rim_edge_len = rim_faces
+        .iter()
+        .map(|rim| (rim.pb - rim.pa).norm())
+        .fold(0.0_f64, f64::max);
+    let hash_cell = (max_rim_edge_len / 8.0).max(1e-6);
+    let inv_cell = 1.0 / hash_cell;
 
     let mut seam_hash: HashMap<GridCell, Vec<usize>> =
         HashMap::with_capacity(seam_positions.len() * 2);
@@ -449,10 +457,12 @@ pub fn inject_cap_seam_into_barrels(
             if (end_3d - start_3d).norm_squared() < 1e-20 {
                 continue;
             }
-            segs_out.entry(face_idx).or_default().push(SnapSegment {
-                start: start_3d,
-                end: end_3d,
-            });
+            if face_idx < segs_out.len() {
+                segs_out[face_idx].push(SnapSegment {
+                    start: start_3d,
+                    end: end_3d,
+                });
+            }
         }
     }
 }
@@ -463,7 +473,6 @@ pub fn inject_cap_seam_into_barrels(
 mod tests {
     use super::*;
     use crate::domain::core::scalar::Vector3r;
-    use std::collections::HashMap;
 
     fn contains_param_split(
         segs: &[SnapSegment],
@@ -491,20 +500,15 @@ mod tests {
         let d = pool.insert_or_weld(Point3r::new(0.5, -1.0, 0.0), n);
         let faces = vec![FaceData::untagged(a, b, c), FaceData::untagged(b, a, d)];
 
-        let mut segs: HashMap<usize, Vec<SnapSegment>> = HashMap::new();
-        segs.insert(
-            0,
-            vec![SnapSegment {
-                start: Point3r::new(0.25, 0.5, 0.0),
-                end: Point3r::new(0.25, -0.5, 0.0),
-            }],
-        );
+        let mut segs = vec![Vec::new(); 2];
+        segs[0].push(SnapSegment {
+            start: Point3r::new(0.25, 0.5, 0.0),
+            end: Point3r::new(0.25, -0.5, 0.0),
+        });
 
         propagate_seam_vertices(&faces, &mut segs, &pool);
 
-        let injected = segs
-            .get(&1)
-            .expect("adjacent face should receive seam splits");
+        let injected = &segs[1];
         let pa = *pool.position(a);
         let pb = *pool.position(b);
         assert!(
@@ -527,19 +531,14 @@ mod tests {
         let d = pool.insert_or_weld(Point3r::new(0.2, -1.0, 0.0), n);
         let faces = vec![FaceData::untagged(a, b, c), FaceData::untagged(b, a, d)];
 
-        let mut segs: HashMap<usize, Vec<SnapSegment>> = HashMap::new();
-        segs.insert(
-            0,
-            vec![SnapSegment {
-                start: Point3r::new(0.5, -1.0e-10, 0.0),
-                end: Point3r::new(0.5000000001, 1.0e-10, 0.0),
-            }],
-        );
+        let mut segs = vec![Vec::new(); 2];
+        segs[0].push(SnapSegment {
+            start: Point3r::new(0.5, -1.0e-10, 0.0),
+            end: Point3r::new(0.5000000001, 1.0e-10, 0.0),
+        });
 
         propagate_seam_vertices(&faces, &mut segs, &pool);
-        let injected = segs
-            .get(&1)
-            .expect("near-parallel proper crossing should still propagate");
+        let injected = &segs[1];
         assert!(
             !injected.is_empty(),
             "adjacent face should receive injected segments for near-parallel crossing"
@@ -569,7 +568,7 @@ mod tests {
         let (faces, plane_pt, plane_n) = single_rim_face(&mut pool);
         let coplanar_used = std::collections::HashSet::new();
         let seam_positions = vec![Point3r::new(0.25, 0.0, 0.0)];
-        let mut segs_out: HashMap<usize, Vec<SnapSegment>> = HashMap::new();
+        let mut segs_out = vec![Vec::new(); faces.len()];
 
         inject_cap_seam_into_barrels(
             &faces,
@@ -581,14 +580,44 @@ mod tests {
             &pool,
         );
 
-        let injected = segs_out
-            .get(&0)
-            .expect("rim face 0 should receive injected segments");
+        let injected = &segs_out[0];
         assert!(
             !injected.is_empty(),
             "seam at t=0.25 should generate sub-segments"
         );
         assert_eq!(injected.len(), 2, "one seam point creates 2 sub-segments");
+    }
+
+    /// A seam point that does not coincide with any of the five sample points
+    /// must still be discovered on a long rim edge by the adaptive hash cell.
+    #[test]
+    fn inject_cap_seam_off_sample_position_on_long_rim_edge_is_detected() {
+        let mut pool = VertexPool::default_millifluidic();
+        let nz = Vector3r::new(0.0, 0.0, 1.0);
+        let v0 = pool.insert_or_weld(Point3r::new(0.0, 0.0, 0.0), nz);
+        let v1 = pool.insert_or_weld(Point3r::new(8.0, 0.0, 0.0), nz);
+        let v2 = pool.insert_or_weld(Point3r::new(4.0, 0.0, -1.0), nz);
+        let faces = vec![FaceData::untagged(v0, v1, v2)];
+        let plane_pt = Point3r::new(0.0, 0.0, 0.0);
+        let plane_n = Vector3r::new(0.0, 0.0, 1.0);
+        let seam_positions = vec![Point3r::new(1.0, 0.0, 0.0)];
+        let mut segs_out = vec![Vec::new(); 1];
+
+        inject_cap_seam_into_barrels(
+            &faces,
+            &std::collections::HashSet::new(),
+            &plane_pt,
+            &plane_n,
+            &seam_positions,
+            &mut segs_out,
+            &pool,
+        );
+
+        let injected = &segs_out[0];
+        assert!(
+            contains_param_split(injected, Point3r::new(0.0, 0.0, 0.0), Point3r::new(8.0, 0.0, 0.0), 0.125, 1e-10),
+            "adaptive cap-seam injection should detect off-sample seam position on long rim edge"
+        );
     }
 
     /// Seam position not on the cap plane (z=0.5) must not inject into any face.
@@ -599,7 +628,7 @@ mod tests {
         let coplanar_used = std::collections::HashSet::new();
         // z=0.5 — off-plane, should be rejected by the ds.abs() guard.
         let seam_positions = vec![Point3r::new(0.5, 0.0, 0.5)];
-        let mut segs_out: HashMap<usize, Vec<SnapSegment>> = HashMap::new();
+        let mut segs_out = vec![Vec::new(); faces.len()];
 
         inject_cap_seam_into_barrels(
             &faces,
@@ -612,7 +641,7 @@ mod tests {
         );
 
         assert!(
-            segs_out.is_empty(),
+            segs_out.iter().all(|s| s.is_empty()),
             "off-plane seam position must not inject into any face"
         );
     }
@@ -625,7 +654,7 @@ mod tests {
         let coplanar_used = std::collections::HashSet::new();
         // Intentionally insert t=0.75 before t=0.25 to verify sorting.
         let seam_positions = vec![Point3r::new(0.75, 0.0, 0.0), Point3r::new(0.25, 0.0, 0.0)];
-        let mut segs_out: HashMap<usize, Vec<SnapSegment>> = HashMap::new();
+        let mut segs_out = vec![Vec::new(); faces.len()];
 
         inject_cap_seam_into_barrels(
             &faces,
@@ -637,9 +666,7 @@ mod tests {
             &pool,
         );
 
-        let injected = segs_out
-            .get(&0)
-            .expect("rim face should receive injected segments");
+        let injected = &segs_out[0];
         assert_eq!(injected.len(), 3, "two seam points create 3 sub-segments");
     }
 
@@ -658,7 +685,7 @@ mod tests {
         let plane_pt = Point3r::new(0.0, 0.0, 0.0);
         let plane_n = Vector3r::new(0.0, 0.0, 1.0);
         let seam_positions = vec![Point3r::new(0.5, 0.0, 0.0)];
-        let mut segs_out: HashMap<usize, Vec<SnapSegment>> = HashMap::new();
+        let mut segs_out = vec![Vec::new(); faces.len()];
 
         inject_cap_seam_into_barrels(
             &faces,
@@ -671,7 +698,7 @@ mod tests {
         );
 
         assert!(
-            segs_out.is_empty(),
+            segs_out[0].is_empty(),
             "non-rim face (1 on-plane vertex) must not receive injected segments"
         );
     }
@@ -685,7 +712,7 @@ mod tests {
         let coplanar_used = std::collections::HashSet::new();
         // y=0.5 puts the point on the cap plane but off the rim edge [0,0,0]→[1,0,0].
         let seam_positions = vec![Point3r::new(0.5, 0.5, 0.0)];
-        let mut segs_out: HashMap<usize, Vec<SnapSegment>> = HashMap::new();
+        let mut segs_out = vec![Vec::new(); faces.len()];
 
         inject_cap_seam_into_barrels(
             &faces,
@@ -698,7 +725,7 @@ mod tests {
         );
 
         assert!(
-            segs_out.is_empty(),
+            segs_out[0].is_empty(),
             "seam position beside rim edge must not inject (off-edge but on-plane)"
         );
     }

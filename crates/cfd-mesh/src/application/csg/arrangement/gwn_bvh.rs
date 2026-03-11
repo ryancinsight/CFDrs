@@ -83,7 +83,7 @@ struct GwnBvhNode {
 pub struct PreparedBvhMesh {
     nodes: Vec<GwnBvhNode>,
     /// Faces in BVH-traversal order (leaves reference contiguous slices).
-    faces: Vec<PreparedFace>,
+    pub(crate) faces: Vec<PreparedFace>,
 }
 
 // ── Build ─────────────────────────────────────────────────────────────────────

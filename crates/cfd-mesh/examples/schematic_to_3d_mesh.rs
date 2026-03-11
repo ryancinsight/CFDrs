@@ -29,9 +29,7 @@ use std::io::Read;
 use std::path::PathBuf;
 
 use cfd_mesh::application::channel::sweep::SweepMesher;
-use cfd_mesh::application::csg::boolean::{
-    csg_boolean_indexed, csg_boolean_indexed_tolerant, BooleanOp,
-};
+use cfd_mesh::application::csg::boolean::{csg_boolean, BooleanOp};
 use cfd_mesh::domain::core::index::RegionId;
 use cfd_mesh::domain::core::scalar::Point3r;
 use cfd_mesh::domain::geometry::primitives::{Cube, PrimitiveMesh};
@@ -186,17 +184,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // Union into accumulated fluid mesh.
         if let Some(existing) = all_channels.take() {
-            match csg_boolean_indexed(BooleanOp::Union, &existing, &current_ch) {
+            match csg_boolean(BooleanOp::Union, &existing, &current_ch) {
                 Ok(m) => all_channels = Some(m),
-                Err(_) => {
-                    match csg_boolean_indexed_tolerant(BooleanOp::Union, &existing, &current_ch) {
-                        Ok(m) => all_channels = Some(m),
-                        Err(e) => {
-                            eprintln!("  ⚠ union for channel {} failed: {}", channel_def.id, e);
-                            all_channels = Some(existing);
-                        }
+                Err(_) => match csg_boolean(BooleanOp::Union, &existing, &current_ch) {
+                    Ok(m) => all_channels = Some(m),
+                    Err(e) => {
+                        eprintln!("  ⚠ union for channel {} failed: {}", channel_def.id, e);
+                        all_channels = Some(existing);
                     }
-                }
+                },
             }
         } else {
             all_channels = Some(current_ch);
@@ -221,7 +217,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Single difference: substrate minus the consolidated watertight channel mesh.
     println!("  → applying boolean difference (substrate − channels)");
-    match csg_boolean_indexed_tolerant(BooleanOp::Difference, &final_solid, &all_channels) {
+    match csg_boolean(BooleanOp::Difference, &final_solid, &all_channels) {
         Ok(mut m) => {
             // Post-difference repair: the Difference can leave phantom seam triangles
             // at T-junctions (flat caps of channels that intersect the new solid face).

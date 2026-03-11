@@ -83,7 +83,8 @@ pub use factory::ResistanceModelFactory;
 pub use geometry::ChannelGeometry;
 pub use models::CombinationMethod;
 pub use models::{
-    BendType, DarcyWeisbachModel, EntranceEffectsModel, ExpansionType, FlowConditions,
+    cascade_treatment_flow_fractions, parallel_channel_flow_fractions, BendType,
+    DarcyWeisbachModel, EntranceEffectsModel, ExpansionType, FlowConditions,
     HagenPoiseuilleModel, JunctionFlowDirection, JunctionLossModel, JunctionType,
     MembranePoreModel, RectangularChannelModel, ResistanceModel, SerpentineAnalysis,
     SerpentineCrossSection, SerpentineModel, VenturiAnalysis, VenturiGeometry, VenturiModel,

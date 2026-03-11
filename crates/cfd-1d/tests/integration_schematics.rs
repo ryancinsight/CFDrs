@@ -124,6 +124,7 @@ fn test_blueprint_negative_length_rejected() {
         topology: None,
         lineage: None,
         metadata: None,
+        geometry_authored: false,
     };
 }
 
@@ -179,6 +180,7 @@ fn test_blueprint_zero_diameter_rejected() {
         channels: vec![c1],
         render_hints: None,
         topology: None,
+        geometry_authored: false,
         lineage: None,
         metadata: None,
     };

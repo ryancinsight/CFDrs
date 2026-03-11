@@ -773,6 +773,12 @@ pub struct BlueprintRenderHints {
     /// Treatment zone label: `"venturi"` for hydrodynamic SDT, `"ultrasound"`
     /// for acoustic-only designs.
     pub treatment_label: String,
+    /// Whether the canonical schematic geometry was mirrored across the X axis.
+    #[serde(default)]
+    pub mirror_x: bool,
+    /// Whether the canonical schematic geometry was mirrored across the Y axis.
+    #[serde(default)]
+    pub mirror_y: bool,
 }
 
 impl Metadata for BlueprintRenderHints {

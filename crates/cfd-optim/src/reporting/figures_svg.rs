@@ -6,9 +6,11 @@ use std::path::Path;
 use super::svg_primitives::{
     axis, svg_end, svg_start, svg_title, write_bar_svg, write_bar_svg_owned,
 };
-use crate::reporting::{Milestone12ReportDesign, ValidationRow};
+use crate::reporting::{Milestone12ReportDesign, ParetoPoint, ParetoTag, ValidationRow};
 
-pub(super) use super::figures_process::{write_creation_optimization_process_figure, write_placeholder};
+pub(super) use super::figures_process::{
+    write_creation_optimization_process_figure, write_placeholder,
+};
 
 pub(super) fn write_cross_mode_figure(
     path: &Path,
@@ -102,18 +104,33 @@ pub(super) fn write_pareto_figure(
     path: &Path,
     option2: &[Milestone12ReportDesign],
     ga: &[Milestone12ReportDesign],
-    option2_pool_all: &[Milestone12ReportDesign],
-    ga_pool_all: &[Milestone12ReportDesign],
+    option2_pool_all: &[ParetoPoint],
+    ga_pool_all: &[ParetoPoint],
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let selected: Vec<(&Milestone12ReportDesign, &str)> = option2
+    // Selected designs — extract Pareto coords from their metrics.
+    let selected: Vec<(f64, f64, f64, &str)> = option2
         .iter()
-        .map(|d| (d, "Option2"))
-        .chain(ga.iter().map(|d| (d, "GA")))
+        .map(|d| {
+            (
+                d.metrics.cancer_targeted_cavitation,
+                d.metrics.rbc_venturi_protection,
+                d.score,
+                "Option2",
+            )
+        })
+        .chain(ga.iter().map(|d| {
+            (
+                d.metrics.cancer_targeted_cavitation,
+                d.metrics.rbc_venturi_protection,
+                d.score,
+                "GA",
+            )
+        }))
         .collect();
-    let background: Vec<(&Milestone12ReportDesign, &str)> = option2_pool_all
+    // Background pool — already lightweight ParetoPoints.
+    let background: Vec<&ParetoPoint> = option2_pool_all
         .iter()
-        .map(|d| (d, "Pool-O2"))
-        .chain(ga_pool_all.iter().map(|d| (d, "Pool-GA")))
+        .chain(ga_pool_all.iter())
         .collect();
     if selected.is_empty() && background.is_empty() {
         return write_placeholder(
@@ -123,16 +140,17 @@ pub(super) fn write_pareto_figure(
         );
     }
 
-    // Compute data range for auto-scaling axes
+    // Compute data range for auto-scaling axes.
+    // Y-axis uses rbc_venturi_protection instead of therapeutic_window_score:
+    // TWS ≈ k × TTCI (nearly collinear) because lysis_risk_index varies too
+    // little across designs, collapsing the Pareto front to a line.
+    // rbc_venturi_protection is genuinely inversely correlated with TTCI —
+    // aggressive cavitation raises TTCI but reduces healthy-cell shielding —
+    // producing a meaningful multi-objective trade-off surface.
     let all_pts: Vec<(f64, f64)> = background
         .iter()
-        .chain(selected.iter())
-        .map(|(d, _)| {
-            (
-                d.metrics.cancer_targeted_cavitation,
-                d.metrics.therapeutic_window_score,
-            )
-        })
+        .map(|p| (p.cancer_targeted_cavitation, p.rbc_venturi_protection))
+        .chain(selected.iter().map(|(x, y, _, _)| (*x, *y)))
         .filter(|(x, y)| x.is_finite() && y.is_finite())
         .collect();
     let (x_min, x_max, y_min, y_max) = if all_pts.is_empty() {
@@ -193,18 +211,18 @@ pub(super) fn write_pareto_figure(
     }
 
     svg.push_str(r##"<text x="420" y="668" font-size="16" fill="#34495e">Tumor-Targeted Cavitation Index</text>"##);
-    svg.push_str(r##"<text x="18" y="340" transform="rotate(-90 18,340)" font-size="16" fill="#34495e">Therapeutic Window Score</text>"##);
+    svg.push_str(r##"<text x="18" y="340" transform="rotate(-90 18,340)" font-size="16" fill="#34495e">Healthy-Cell Protection (RBC Venturi)</text>"##);
 
-    // Background pool: small translucent dots
-    for (d, tag) in &background {
-        let cx = d.metrics.cancer_targeted_cavitation;
-        let cy = d.metrics.therapeutic_window_score;
+    // Background pool: small translucent dots (from lightweight ParetoPoints)
+    for point in &background {
+        let cx = point.cancer_targeted_cavitation;
+        let cy = point.rbc_venturi_protection;
         if !cx.is_finite() || !cy.is_finite() {
             continue;
         }
         let x = x0 + xw * ((cx - x_min) / (x_max - x_min)).clamp(0.0, 1.0);
         let y = y0 - yh * ((cy - y_min) / (y_max - y_min)).clamp(0.0, 1.0);
-        let color = if *tag == "Pool-O2" {
+        let color = if point.tag == ParetoTag::Option2 {
             "#85c1e9"
         } else {
             "#f0b27a"
@@ -216,16 +234,14 @@ pub(super) fn write_pareto_figure(
     }
 
     // Selected top designs: larger, opaque, with stroke
-    for (d, tag) in &selected {
-        let cx = d.metrics.cancer_targeted_cavitation;
-        let cy = d.metrics.therapeutic_window_score;
+    for &(cx, cy, score, tag) in &selected {
         if !cx.is_finite() || !cy.is_finite() {
             continue;
         }
         let x = x0 + xw * ((cx - x_min) / (x_max - x_min)).clamp(0.0, 1.0);
         let y = y0 - yh * ((cy - y_min) / (y_max - y_min)).clamp(0.0, 1.0);
-        let r = 6.0 + 6.0 * d.score.clamp(0.0, 1.0);
-        let (fill, stroke) = if *tag == "Option2" {
+        let r = 6.0 + 6.0 * score.clamp(0.0, 1.0);
+        let (fill, stroke) = if tag == "Option2" {
             ("#2e86de", "#1a5276")
         } else {
             ("#d35400", "#873600")
@@ -449,4 +465,3 @@ pub(super) fn write_ga_convergence_figure(
     std::fs::write(path, svg)?;
     Ok(())
 }
-

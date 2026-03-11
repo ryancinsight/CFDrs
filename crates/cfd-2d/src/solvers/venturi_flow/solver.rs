@@ -62,6 +62,20 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> VenturiSolver2D<
         ny: usize,
         beta: T,
     ) -> Self {
+        Self::new_stretched_with_config(geometry, blood, density, nx, ny, beta, SIMPLEConfig::default())
+    }
+
+    /// Like [`new_stretched`] but accepts a custom [`SIMPLEConfig`], allowing
+    /// callers to tune under-relaxation and iteration count for high-Re flows.
+    pub fn new_stretched_with_config(
+        geometry: VenturiGeometry<T>,
+        blood: BloodModel<T>,
+        density: T,
+        nx: usize,
+        ny: usize,
+        beta: T,
+        simple_config: SIMPLEConfig<T>,
+    ) -> Self {
         assert!(
             beta >= T::zero() && beta < T::one(),
             "beta must be in [0, 1)"
@@ -79,8 +93,7 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> VenturiSolver2D<
 
         let lx = geometry.total_length();
         let grid = StaggeredGrid2D::new_stretched_y(nx, ny, lx, y_faces);
-        let config = SIMPLEConfig::default();
-        let mut solver = NavierStokesSolver2D::new(grid, blood, density, config);
+        let mut solver = NavierStokesSolver2D::new(grid, blood, density, simple_config);
         Self::populate_mask(&mut solver, &geometry, nx, ny);
 
         // Log resolution at throat for debugging
@@ -130,7 +143,7 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> VenturiSolver2D<
 
     /// Solve the Venturi flow for a given inlet velocity
     pub fn solve(&mut self, u_inlet: T) -> CfdResult<VenturiFlowSolution<T>> {
-        let _ = self
+        let solve_result = self
             .solver
             .solve(u_inlet)
             .map_err(|e| cfd_core::error::Error::Solver(e.to_string()))?;
@@ -139,43 +152,42 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> VenturiSolver2D<
         let nx = self.solver.grid.nx;
         let ny = self.solver.grid.ny;
 
-        // Average inlet velocity from the internal faces (first fluid faces)
-        let mut u_inlet_sim = T::zero();
-        let mut count_inlet = 0;
-        for j in 0..ny {
-            if self.solver.field.mask[0][j] {
-                u_inlet_sim += self.solver.field.u[1][j];
-                count_inlet += 1;
-            }
-        }
-        if count_inlet > 0 {
-            u_inlet_sim /= T::from_usize(count_inlet).unwrap_or_else(T::one);
-        }
+        // Average inlet velocity from the first internal u-faces — zero-alloc fold.
+        let (u_sum_in, count_inlet) = (0..ny)
+            .filter(|&j| self.solver.field.mask[0][j])
+            .fold((T::zero(), 0usize), |(s, n), j| {
+                (s + self.solver.field.u[1][j], n + 1)
+            });
+        let u_inlet_sim = if count_inlet > 0 {
+            u_sum_in / T::from_usize(count_inlet).unwrap_or_else(T::one)
+        } else {
+            T::zero()
+        };
 
-        // Find throat section (max velocity)
-        let mut u_max = T::zero();
-        let mut p_throat = T::zero();
-        for i in 0..nx {
-            for j in 0..ny {
-                if self.solver.field.mask[i][j] && self.solver.field.u[i][j] > u_max {
-                    u_max = self.solver.field.u[i][j];
-                    p_throat = self.solver.field.p[i][j];
+        // Find throat section: cell with maximum u-velocity — single flat_map fold.
+        let (u_max, p_throat) = (0..nx)
+            .flat_map(|i| (0..ny).map(move |j| (i, j)))
+            .filter(|&(i, j)| self.solver.field.mask[i][j])
+            .fold((T::zero(), T::zero()), |(u_best, p_best), (i, j)| {
+                let u = self.solver.field.u[i][j];
+                if u > u_best {
+                    (u, self.solver.field.p[i][j])
+                } else {
+                    (u_best, p_best)
                 }
-            }
-        }
+            });
 
-        // Average outlet pressure (last fluid column)
-        let mut p_outlet = T::zero();
-        let mut count_outlet = 0;
-        for j in 0..ny {
-            if self.solver.field.mask[nx - 1][j] {
-                p_outlet += self.solver.field.p[nx - 1][j];
-                count_outlet += 1;
-            }
-        }
-        if count_outlet > 0 {
-            p_outlet /= T::from_usize(count_outlet).unwrap_or_else(T::one);
-        }
+        // Average outlet pressure from the last fluid column — zero-alloc fold.
+        let (p_sum_out, count_outlet) = (0..ny)
+            .filter(|&j| self.solver.field.mask[nx - 1][j])
+            .fold((T::zero(), 0usize), |(s, n), j| {
+                (s + self.solver.field.p[nx - 1][j], n + 1)
+            });
+        let p_outlet = if count_outlet > 0 {
+            p_sum_out / T::from_usize(count_outlet).unwrap_or_else(T::one)
+        } else {
+            T::zero()
+        };
 
         let p_inlet = self.solver.field.p[0][ny / 2]; // Reference inlet pressure
 
@@ -185,9 +197,14 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> VenturiSolver2D<
         let rho = self.solver.density;
         let q_dyn =
             T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero) * rho * u_inlet * u_inlet;
-        let one = T::from_f64(1.0).unwrap_or_else(num_traits::Zero::zero);
-        let cp_throat = dp_throat / num_traits::Float::max(q_dyn, one);
-        let cp_recovery = dp_recovery / num_traits::Float::max(q_dyn, one);
+        // Guard: avoid division by near-zero dynamic pressure.  Use 1e-6 Pa (not 1.0)
+        // so Cp remains physically meaningful even at very low inlet velocities.
+        let q_dyn_safe = num_traits::Float::max(
+            q_dyn,
+            T::from_f64(1e-6).unwrap_or_else(num_traits::Zero::zero),
+        );
+        let cp_throat = dp_throat / q_dyn_safe;
+        let cp_recovery = dp_recovery / q_dyn_safe;
 
         Ok(VenturiFlowSolution {
             u_inlet: u_inlet_sim,
@@ -200,6 +217,7 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> VenturiSolver2D<
             dp_recovery,
             cp_throat,
             cp_recovery,
+            converged: solve_result.converged,
         })
     }
 }

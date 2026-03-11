@@ -28,6 +28,13 @@ pub struct ValidationRow {
     pub sigma_1d: f64,
     pub sigma_2d: f64,
     pub score: f64,
+    /// Whether the 2D FVM SIMPLE solver converged and the velocity field is physical.
+    #[serde(default)]
+    pub two_d_converged: bool,
+    /// Whether the throat Reynolds number exceeds the Stokes-flow validity limit (Re > 1).
+    /// When true the 3D Stokes FEM ΔP will be << Bernoulli (inertia-dominated flow).
+    #[serde(default)]
+    pub high_re_stokes_mismatch: bool,
 }
 
 pub fn write_milestone12_results(
@@ -39,6 +46,8 @@ pub fn write_milestone12_results(
     ga_top: &Milestone12ReportDesign,
     validation_rows: &[ValidationRow],
     option2_robustness: &[RobustnessReport],
+    authoritative_run: bool,
+    canonical_source: &str,
     path: &Path,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut md = String::new();
@@ -51,7 +60,12 @@ pub fn write_milestone12_results(
     writeln!(md, "# Milestone 12 Results - Canonical\n")?;
     writeln!(
         md,
-        "> Generated artifact. Do not edit manually.\n> Source: `cargo run -p cfd-optim --example milestone12_report --no-default-features`.\n"
+        "> Generated artifact. Do not edit manually.\n> Source: `cargo run -p cfd-optim --example milestone12_report --no-default-features`.\n> Artifact class: **{}**.\n> Published location: `{canonical_source}`.\n",
+        if authoritative_run {
+            "authoritative full-sweep report"
+        } else {
+            "draft non-authoritative fast-mode report"
+        }
     )?;
 
     writeln!(md, "## Dataset And Strict Eligibility")?;
@@ -81,7 +95,7 @@ pub fn write_milestone12_results(
     if let Some(option1) = option1 {
         writeln!(
             md,
-            "| Option 1 (Selective acoustic center treatment) | `{}` | {} | {} | {} | {:.4} | n/a | n/a | {:.4} | {:.4} | {:.2e} | {:.2} | {:.3} | {:.1} |",
+            "| Option 1 (Selective acoustic center treatment) | `{}` | {} | {} | {} | {:.4} | n/a | n/a | {:.4} | {:.4} | {:.4} | {:.2} | {:.3} | {:.1} |",
             option1.candidate.id,
             option1.topology_display_name(),
             option1.metrics.treatment_zone_mode,
@@ -102,7 +116,7 @@ pub fn write_milestone12_results(
     }
     writeln!(
         md,
-        "| Option 2 (Selective venturi cavitation selectivity) | `{}` | {} | {} | {} | {:.2e} | {:.4} | {:.4} | {:.4} | {:.4} | {:.2e} | {:.2} | {:.3} | {:.1} |",
+        "| Option 2 (Selective venturi cavitation selectivity) | `{}` | {} | {} | {} | {:.4} | {:.4} | {:.4} | {:.4} | {:.4} | {:.4} | {:.2} | {:.3} | {:.1} |",
         option2.candidate.id,
         option2.topology_display_name(),
         option2.metrics.treatment_zone_mode,
@@ -132,7 +146,7 @@ pub fn write_milestone12_results(
     for d in option2_ranked.iter().take(5) {
         writeln!(
             md,
-            "| {} | `{}` | {} | {} | {:.2e} | {:.4} | {:.4} | {:.4} | {:.4} | {:.4} |",
+            "| {} | `{}` | {} | {} | {:.4} | {:.4} | {:.4} | {:.4} | {:.4} | {:.4} |",
             d.rank,
             d.candidate.id,
             d.metrics.treatment_zone_mode,
@@ -239,13 +253,13 @@ pub fn write_milestone12_results(
     } else {
         writeln!(
             md,
-            "| Track | Candidate | dp1D Bernoulli (Pa) | dp2D FVM (Pa) | dp3D FEM (Pa) | 1D-2D diff (%) | 2D-3D diff (%) | Mass error (%) |"
+            "| Track | Candidate | dp1D Bernoulli (Pa) | dp2D FVM (Pa) | dp3D FEM (Pa) | 1D-2D diff (%) | 2D-3D diff (%) | Mass error (%) | 2D Conv? | Re regime |"
         )?;
-        writeln!(md, "|---|---|---:|---:|---:|---:|---:|---:|")?;
+        writeln!(md, "|---|---|---:|---:|---:|---:|---:|---:|:---:|:---:|")?;
         for row in validation_rows {
             writeln!(
                 md,
-                "| {} | `{}` | {:.2} | {:.2} | {:.2} | {:.2} | {:.2} | {:.2} |",
+                "| {} | `{}` | {:.2} | {:.2} | {:.2} | {:.2} | {:.2} | {:.2} | {} | {} |",
                 row.track,
                 row.id,
                 row.dp_1d_bernoulli_pa,
@@ -254,7 +268,24 @@ pub fn write_milestone12_results(
                 row.agreement_1d_2d_pct,
                 row.agreement_2d_3d_pct,
                 row.mass_error_3d_pct,
+                if row.two_d_converged { "yes" } else { "NO" },
+                if row.high_re_stokes_mismatch {
+                    "inertial (3D Stokes invalid)"
+                } else {
+                    "Stokes ok"
+                },
             )?;
+        }
+        let any_high_re = validation_rows.iter().any(|r| r.high_re_stokes_mismatch);
+        let any_unconverged_2d = validation_rows.iter().any(|r| !r.two_d_converged);
+        if any_high_re || any_unconverged_2d {
+            writeln!(md, "\n**Validation Notes:**")?;
+            if any_high_re {
+                writeln!(md, "- **Re regime — inertial (3D Stokes invalid)**: The 3D FEM uses Taylor-Hood Stokes equations (creeping-flow, Re≪1). At the operating throat Re > 1 (inertia-dominated), the Stokes solver underestimates ΔP by ~1/Re relative to Bernoulli. The 1D/3D discrepancy is expected physics, not a numerical error.")?;
+            }
+            if any_unconverged_2d {
+                writeln!(md, "- **2D FVM NO (non-converged)**: The SIMPLE pressure–velocity solver exhausted its iteration budget before reaching the tolerance. The 2D ΔP value is from an unconverged field and should not be used for comparison.")?;
+            }
         }
         writeln!(md)?;
     }
@@ -358,6 +389,8 @@ mod tests {
             &option2,
             &[],
             &[],
+            true,
+            "report/milestone12_results.md",
             &path,
         )
         .expect("canonical markdown should render");

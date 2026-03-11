@@ -367,30 +367,67 @@ configuration than the parametric Option 2 selection.",
 }
 
 pub(super) fn build_strict_core_intro() -> String {
-    "These five binary gates represent hard physical constraints. A design failing any gate \
-receives score = 0 and is excluded from the eligible pool regardless of objective metrics. \
-Passing all five gates is a necessary (not sufficient) condition for design selection: \
-pressure feasibility ensures the device can be driven by clinically available extracorporeal \
-pump heads; plate fit ensures the chip body is compatible with SBS 96-well format optics; \
-FDA main-channel compliance ensures sustained shear stays below the 150 Pa haemolysis limit; \
-σ finiteness confirms the network solver converged a real cavitation number; and σ < 1 \
-confirms incipient cavitation onset at the venturi throat."
+    "These five binary gates represent hard physical constraints derived from FDA guidance, \
+ANSI/SLAS plate standards, and Hagen–Poiseuille network feasibility. A design failing any \
+gate receives the infeasibility floor score (0.001) and is excluded from the eligible pool \
+regardless of objective metrics.\n\n\
+1. **Pressure feasible** — total pressure drop Δp must not exceed the inlet gauge budget. \
+For the 1D lumped-element Hagen–Poiseuille model, Δp = Σ (128 μ L Q / π D_h⁴) across all \
+channel segments (Casson-corrected blood viscosity μ ≈ 3.5 mPa·s at γ̇ > 100 s⁻¹). \
+This ensures the device can be driven by clinically available extracorporeal pump heads.\n\n\
+2. **Plate fits** — chip body dimensions ≤ 127.76 × 85.47 mm (ANSI/SLAS 1-2004, 96-well \
+format), ensuring compatibility with standard fluorescence microscopy stages and optical \
+delivery windows for sonosensitiser activation.\n\n\
+3. **FDA main-channel compliance** — sustained wall shear stress τ_w = μ γ̇_w must not \
+exceed 150 Pa in any non-venturi channel. This threshold is derived from the Giersiepen \
+hemolysis correlation at exposure times typical of millifluidic transit (10–500 ms). Venturi \
+throats are excluded from this gate and evaluated separately under the transient shear \
+exception (≤ 300 Pa for ≤ 5 ms transit).\n\n\
+4. **σ finite** — the Bernoulli cavitation number σ = (p∞ − pᵥ)/(½ρv²) must converge \
+to a finite real value, confirming the 1D network solver produced a physically meaningful \
+flow field (no zero-flow or infinite-velocity singularities).\n\n\
+5. **σ < 1** — confirms incipient cavitation onset at the venturi throat. At σ < 1, the \
+local static pressure at the vena contracta drops below the vapour pressure of blood \
+(pᵥ ≈ 6.3 kPa at 37 °C), nucleating vapour/gas bubbles whose subsequent collapse delivers \
+the mechanical forces for sonodynamic therapy. Designs with σ ≥ 1 have no hydrodynamic \
+cavitation activity and must rely on externally applied acoustic energy alone for \
+sonosensitiser activation."
         .to_string()
 }
 
 pub(super) fn build_cavitation_formulas_intro(option2: &Milestone12ReportDesign) -> String {
     let m = &option2.metrics;
     format!(
-        "These derived metrics translate raw physics (pressure drop, shear, flow split) into \
-clinically interpretable quantities. TTCI (tumor-targeted cavitation index) quantifies \
-cancer-selective cavitation dose; TWS (therapeutic window score) normalises TTCI against \
-lysis risk. For the selected Option 2 design: cancer_targeted_cavitation = {:.4}, \
-therapeutic_window_score = {:.4}, lysis_risk_index = {:.4e}, \
-sonoluminescence_proxy = {:.4}.",
+        "These derived metrics translate raw 1D Hagen–Poiseuille network physics (pressure drop, \
+wall shear rate, flow partition fractions) into clinically interpretable quantities.\n\n\
+**Cavitation number** σ = (p∞ − pᵥ) / (½ρv²_throat), where p∞ is the far-field \
+(inlet) absolute pressure, pᵥ ≈ 6.3 kPa (blood vapor pressure at 37 °C), and \
+v_throat is the Casson-regime mean velocity at the venturi throat. σ < 1 indicates \
+incipient hydrodynamic cavitation; σ < 0 implies p_throat < pᵥ (strong cavitation). \
+Cavitation potential C_p = max(0, 1 − σ).\n\n\
+**Cavitation intensity** I_cav = C_p × (0.5 + 0.5 × κ), where κ is the constriction \
+score — the logarithmic velocity ratio ln(v_throat/v_upstream) normalised by ln(v_ref). \
+This couples bubble nucleation probability (C_p) with collapse violence (proportional \
+to kinetic energy at the vena contracta).\n\n\
+**Tumor-targeted cavitation index** TTCI = f_cancer,center × I_cav, where \
+f_cancer,center is the cancer center-lane enrichment fraction from Zweifach–Fung \
+flow partitioning at asymmetric bifurcations.\n\n\
+**Therapeutic window score** TWS = clamp(TTCI / (10⁻⁶ + L_risk) / L_ref, 0, 1), \
+where L_risk = HI × (1 + 5 × f_rbc,venturi × H_local) is the lysis risk index \
+(HI = Giersiepen hemolysis index per pass, H_local = local hematocrit at the throat). \
+TWS → 1 when cancer-targeted cavitation is high relative to blood damage.\n\n\
+**Sonoluminescence proxy** S = clamp(C_p × (p_abs/p_vap)^((κ_poly−1)/κ_poly) / S_ref, 0, 1), \
+modelling the adiabatic collapse temperature ratio for sonosensitiser (5-ALA, Ce6) \
+photoactivation under polytropic bubble dynamics (κ_poly = 1.4).\n\n\
+For the selected Option 2 design: TTCI = {:.4}, TWS = {:.4}, \
+lysis_risk_index = {:.4e}, sonoluminescence_proxy = {:.4}, \
+oncology_selectivity_index = {:.4}, cancer_rbc_cavitation_bias = {:.4}.",
         m.cancer_targeted_cavitation,
         m.therapeutic_window_score,
         m.lysis_risk_index,
-        m.sonoluminescence_proxy
+        m.sonoluminescence_proxy,
+        m.oncology_selectivity_index,
+        m.cancer_rbc_cavitation_bias_index,
     )
 }
 
@@ -398,24 +435,39 @@ pub(super) fn build_limits_of_usage_intro(option2: &Milestone12ReportDesign) -> 
     let m = &option2.metrics;
     let q_ml_min = option2.flow_rate_ml_min();
     let gauge_kpa = option2.inlet_gauge_kpa();
-    let flow_flag = if m.clotting_flow_compliant_10ml_s {
-        "does not trigger"
+    let q_ml_s = q_ml_min / 60.0;
+    let q600_text = if m.clotting_flow_compliant_10ml_s {
+        format!(
+            "At {q_ml_min:.1} mL/min ({q_ml_s:.2} mL/s) the operating flow rate exceeds \
+the conservative 10 mL/s (600 mL/min) threshold; low-flow stasis-clotting risk is minimal."
+        )
     } else {
-        "**triggers**"
+        format!(
+            "At {q_ml_min:.1} mL/min ({q_ml_s:.2} mL/s) the operating flow rate is below \
+the conservative 10 mL/s (600 mL/min) threshold (`Q>=600=FAIL`). Anticoagulation protocol \
+adjustments should be evaluated per institutional guidelines for moderate-flow \
+extracorporeal circuits."
+        )
     };
+
+    // Use scientific notation for sub-millikelvin heating to avoid misleading "0.00 K".
+    let temp_str = if m.throat_temperature_rise_k < 0.01 && m.throat_temperature_rise_k > 0.0 {
+        format!("{:.2e}", m.throat_temperature_rise_k)
+    } else {
+        format!("{:.2}", m.throat_temperature_rise_k)
+    };
+    let thermal_verdict = if m.fda_thermal_compliant {
+        "well within"
+    } else {
+        "**exceeding**"
+    };
+
     format!(
         "Limits are derived from the selected Option 2 operating point ({q_ml_min:.1} mL/min, \
-{gauge_kpa:.0} kPa gauge). The `Q>=600=FAIL` clotting flag means the device must not be \
-operated at < 600 mL/min without re-evaluation of clotting risk. Operation at 300 mL/min \
-{flow_flag} the 10 mL/s high-risk clotting threshold. Viscous heating in the \
-{:.0} µm venturi throat is {:.2} K — {}: the FDA 42 °C (37 + 5 K) temperature ceiling.",
+{gauge_kpa:.0} kPa gauge). {q600_text} Viscous heating in the \
+{:.0} µm venturi throat is {temp_str} K — {thermal_verdict}: the FDA 42 °C \
+(37 + 5 K) temperature ceiling.",
         option2.throat_width_um().unwrap_or(0.0),
-        m.throat_temperature_rise_k,
-        if m.fda_thermal_compliant {
-            "well within"
-        } else {
-            "**exceeding**"
-        }
     )
 }
 

@@ -143,9 +143,25 @@ impl WallClearanceConstraint {
 
 #[cfg(test)]
 mod tests {
+    use cfd_schematics::NetworkBlueprint;
     use cfd_schematics::interface::presets::{serpentine_chain, venturi_chain};
 
     use super::*;
+
+    fn explicit_layout_blueprint(name: &str) -> NetworkBlueprint {
+        NetworkBlueprint {
+            name: name.to_string(),
+            box_dims: (127.76, 85.47),
+            box_outline: Vec::new(),
+            nodes: Vec::new(),
+            channels: Vec::new(),
+            render_hints: None,
+            topology: None,
+            lineage: None,
+            metadata: None,
+            geometry_authored: false,
+        }
+    }
 
     #[test]
     fn four_mm_circular_passes() {
@@ -163,9 +179,9 @@ mod tests {
     fn four_mm_at_tolerance_boundary_passes() {
         // diameter_m = 4.1 mm is within ±0.1 mm
         use cfd_schematics::{ChannelSpec, NodeKind, NodeSpec};
-        let mut bp = cfd_schematics::NetworkBlueprint::new("t");
-        bp.add_node(NodeSpec::new("inlet", NodeKind::Inlet));
-        bp.add_node(NodeSpec::new("outlet", NodeKind::Outlet));
+        let mut bp = explicit_layout_blueprint("t");
+        bp.add_node(NodeSpec::new_at("inlet", NodeKind::Inlet, (0.0, 0.0)));
+        bp.add_node(NodeSpec::new_at("outlet", NodeKind::Outlet, (10.0, 0.0)));
         bp.add_channel(ChannelSpec::new_pipe(
             "c", "inlet", "outlet", 0.01, 0.0041, 0.0, 0.0,
         ));
@@ -175,8 +191,8 @@ mod tests {
     #[test]
     fn isolated_node_fails() {
         use cfd_schematics::{NodeKind, NodeSpec};
-        let mut bp = cfd_schematics::NetworkBlueprint::new("x");
-        bp.add_node(NodeSpec::new("inlet", NodeKind::Inlet));
+        let mut bp = explicit_layout_blueprint("x");
+        bp.add_node(NodeSpec::new_at("inlet", NodeKind::Inlet, (0.0, 0.0)));
         assert!(InletOutletConstraint::check(&bp).is_err());
     }
 
@@ -196,9 +212,9 @@ mod tests {
     fn tolerance_boundary_near_4mm_passes() {
         // exactly REQUIRED - TOLERANCE should still pass
         use cfd_schematics::{ChannelSpec, NodeKind, NodeSpec};
-        let mut bp = cfd_schematics::NetworkBlueprint::new("b");
-        bp.add_node(NodeSpec::new("inlet", NodeKind::Inlet));
-        bp.add_node(NodeSpec::new("outlet", NodeKind::Outlet));
+        let mut bp = explicit_layout_blueprint("b");
+        bp.add_node(NodeSpec::new_at("inlet", NodeKind::Inlet, (0.0, 0.0)));
+        bp.add_node(NodeSpec::new_at("outlet", NodeKind::Outlet, (10.0, 0.0)));
         // 3.9 mm = 4.0 - 0.1 (borderline)
         bp.add_channel(ChannelSpec::new_pipe(
             "c", "inlet", "outlet", 0.01, 0.0039, 0.0, 0.0,

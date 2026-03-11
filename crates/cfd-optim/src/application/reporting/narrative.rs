@@ -13,12 +13,12 @@ pub struct ComponentAuditEntry {
 pub fn render_goal_narrative(evaluation: &BlueprintObjectiveEvaluation) -> String {
     match evaluation.goal {
         OptimizationGoal::AsymmetricSplitResidenceSeparation => format!(
-            "Option 1 uses asymmetric bifurcation and trifurcation widths to bias hydraulic resistance toward the treatment lane, yielding a treatment-zone residence time of {:.4} s while maintaining an RBC peripheral fraction of {:.4}.",
+            "Option 1 evaluates mirrored asymmetric split families as a residence-time and selective-routing study. The selected geometry sustains {:.4} s of treatment-zone dwell while maintaining an RBC peripheral fraction of {:.4}, indicating that the imposed daughter-width asymmetry continues to bias cell-rich core flow toward the treatment path without collapsing the healthy-cell bypass.",
             evaluation.residence.treatment_residence_time_s,
             evaluation.separation.rbc_peripheral_fraction,
         ),
         OptimizationGoal::AsymmetricSplitVenturiCavitationSelectivity => format!(
-            "Option 2 augments the asymmetric cascade with venturi throats placed according to vena-contracta and Dean-number screening. The strongest screened cavitation state reached sigma = {:.4} while RBC and WBC exposure fractions were {:.4} and {:.4}, respectively.",
+            "Option 2 derives from the same mirrored split lineage and adds venturi throats on treatment-zone channels to test how split-partitioned flow alters cavitation feasibility. The strongest screened cavitation state reached sigma = {:.4} while RBC and WBC exposure fractions were {:.4} and {:.4}, respectively.",
             evaluation
                 .venturi
                 .placements
@@ -29,8 +29,8 @@ pub fn render_goal_narrative(evaluation: &BlueprintObjectiveEvaluation) -> Strin
             evaluation.venturi.wbc_exposure_fraction,
         ),
         OptimizationGoal::InPlaceDeanSerpentineRefinement => format!(
-            "The GA stage preserves Option 2 lineage and refines local curvature, serpentine placement, and throat geometry in place. The resulting refinement score was {:.4}, with a peak Dean number of {:.4}.",
-            evaluation.score,
+            "The GA stage preserves Option 2 lineage and applies in-place treatment-zone mutations, including serpentine insertion, venturi retargeting, and mirrored split-merge refinement. The resulting refinement score was {:.4}, with a peak Dean number of {:.4}.",
+            evaluation.score_or_zero(),
             evaluation
                 .venturi
                 .placements
@@ -43,12 +43,23 @@ pub fn render_goal_narrative(evaluation: &BlueprintObjectiveEvaluation) -> Strin
 
 pub fn build_component_audit(candidate: &BlueprintCandidate) -> Vec<ComponentAuditEntry> {
     let mut audit = Vec::new();
+    if let Some(render_hints) = candidate.blueprint.render_hints() {
+        audit.push(ComponentAuditEntry {
+            component_id: "milestone12_catalog_entry".to_string(),
+            component_type: "CanonicalTopologyCatalog".to_string(),
+            governing_physics: format!(
+                "Stage sequence '{}' with mirror state (mirror_x={}, mirror_y={}) generated exclusively through create_geometry-authored schematics.",
+                render_hints.stage_sequence, render_hints.mirror_x, render_hints.mirror_y
+            ),
+            safety_relevance: "Fixes the geometric context in which split partitioning, venturi cavitation, and remerge transport are interpreted across the report lineage.".to_string(),
+        });
+    }
     if let Some(topology) = candidate.blueprint.topology_spec() {
         for stage in &topology.split_stages {
             audit.push(ComponentAuditEntry {
                 component_id: stage.stage_id.clone(),
                 component_type: format!("{:?}", stage.split_kind),
-                governing_physics: "Hydraulic resistance partitioning, Zweifach-Fung skimming, and inertial focusing through unequal daughter widths.".to_string(),
+                governing_physics: "Hydraulic resistance partitioning, Zweifach-Fung skimming, inertial focusing, and steric exclusion through unequal daughter widths.".to_string(),
                 safety_relevance: "Controls which blood sub-populations are routed toward the treatment lane versus healthy-cell bypass lanes.".to_string(),
             });
             for branch in &stage.branches {

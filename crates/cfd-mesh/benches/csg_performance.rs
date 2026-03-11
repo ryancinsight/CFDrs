@@ -4,7 +4,7 @@ use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use cfd_mesh::application::csg::arrangement::classify::{
     classify_fragment_prepared, gwn, gwn_bvh, prepare_bvh_mesh, prepare_classification_faces,
 };
-use cfd_mesh::application::csg::boolean::{csg_boolean_indexed, BooleanOp};
+use cfd_mesh::application::csg::boolean::{csg_boolean, BooleanOp};
 use cfd_mesh::application::csg::detect_self_intersect::detect_self_intersections;
 use cfd_mesh::domain::core::scalar::Point3r;
 use cfd_mesh::domain::geometry::primitives::{Cube, Cylinder, PrimitiveMesh, UvSphere};
@@ -127,9 +127,7 @@ fn bench_csg_union_cube_cube(c: &mut Criterion) {
     .build()
     .unwrap();
     c.bench_function("csg_union_cube_cube", |b| {
-        b.iter(|| {
-            csg_boolean_indexed(BooleanOp::Union, black_box(&cube_a), black_box(&cube_b)).ok()
-        })
+        b.iter(|| csg_boolean(BooleanOp::Union, black_box(&cube_a), black_box(&cube_b)).ok())
     });
 }
 
@@ -152,7 +150,7 @@ fn bench_csg_intersection_cylinders(c: &mut Criterion) {
     .unwrap();
     c.bench_function("csg_intersection_cyl32", |b| {
         b.iter(|| {
-            csg_boolean_indexed(
+            csg_boolean(
                 BooleanOp::Intersection,
                 black_box(&cyl_a),
                 black_box(&cyl_b),

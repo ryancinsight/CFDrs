@@ -1,7 +1,7 @@
 //! `CsgNode` expression tree
 
-use super::indexed::csg_boolean_indexed;
-use super::operations::BooleanOp;
+use super::indexed::csg_boolean;
+use crate::application::csg::arrangement::boolean_csg::BooleanOp;
 use crate::domain::core::error::MeshResult;
 use crate::domain::core::index::RegionId;
 use crate::domain::core::scalar::Real;
@@ -48,15 +48,15 @@ impl CsgNode {
         match self {
             CsgNode::Leaf(mesh) => Ok(*mesh),
             CsgNode::Union { left, right } => {
-                csg_boolean_indexed(BooleanOp::Union, &left.evaluate()?, &right.evaluate()?)
+                csg_boolean(BooleanOp::Union, &left.evaluate()?, &right.evaluate()?)
             }
-            CsgNode::Intersection { left, right } => csg_boolean_indexed(
+            CsgNode::Intersection { left, right } => csg_boolean(
                 BooleanOp::Intersection,
                 &left.evaluate()?,
                 &right.evaluate()?,
             ),
             CsgNode::Difference { left, right } => {
-                csg_boolean_indexed(BooleanOp::Difference, &left.evaluate()?, &right.evaluate()?)
+                csg_boolean(BooleanOp::Difference, &left.evaluate()?, &right.evaluate()?)
             }
             CsgNode::Transform { node, iso } => Ok(transform_mesh(node.evaluate()?, &iso)),
         }

@@ -3,19 +3,18 @@ use cfd_schematics::topology::TreatmentActuationMode;
 
 use super::report_math::{
     coefficient_of_variation, cumulative_pass_damage, direct_linear_risk, inverse_linear_risk,
-    log_risk, mean, percentile, resonance_match,
+    log_risk, mean, percentile, resonance_match, split_stage_flow_fractions,
 };
 use crate::constraints::{
-    BLOOD_ATTENUATION_405NM_INV_M, BLOOD_DENSITY_KG_M3,
-    BLOOD_VAPOR_PRESSURE_PA, BLOOD_VISCOSITY_PA_S, BUBBLE_POLYTROPIC_K,
-    CLOTTING_BFR_CAUTION_ML_MIN, CLOTTING_BFR_HIGH_RISK_ML_MIN, CLOTTING_BFR_LOW_RISK_ML_MIN,
-    CLOTTING_BFR_STRICT_10MLS_ML_MIN, CLOTTING_RESIDENCE_HIGH_RISK_S,
-    CLOTTING_RESIDENCE_LOW_RISK_S, CLOTTING_SHEAR_HIGH_RISK_INV_S, CLOTTING_SHEAR_LOW_RISK_INV_S,
-    C_P_BLOOD_J_KG_K, DEAD_VOLUME_SHEAR_THRESHOLD_INV_S, EXPANSION_RATIO_LOW_RISK,
-    FDA_MAX_WALL_SHEAR_PA, FDA_THROAT_TEMP_RISE_LIMIT_K, FDA_TRANSIENT_SHEAR_PA,
-    FDA_TRANSIENT_TIME_S, MILESTONE_TREATMENT_DURATION_MIN, PATIENT_BLOOD_VOLUME_ML,
-    PEDIATRIC_BLOOD_VOLUME_ML_PER_KG, PEDIATRIC_REFERENCE_WEIGHT_KG, PLATE_HEIGHT_MM,
-    PLATE_WIDTH_MM, P_ATM_PA, SONO_REF_P_ABS_PA, THERAPEUTIC_WINDOW_REF,
+    BLOOD_ATTENUATION_405NM_INV_M, BLOOD_DENSITY_KG_M3, BLOOD_VAPOR_PRESSURE_PA,
+    BLOOD_VISCOSITY_PA_S, BUBBLE_POLYTROPIC_K, CLOTTING_BFR_CAUTION_ML_MIN,
+    CLOTTING_BFR_HIGH_RISK_ML_MIN, CLOTTING_BFR_LOW_RISK_ML_MIN, CLOTTING_BFR_STRICT_10MLS_ML_MIN,
+    CLOTTING_RESIDENCE_HIGH_RISK_S, CLOTTING_RESIDENCE_LOW_RISK_S, CLOTTING_SHEAR_HIGH_RISK_INV_S,
+    CLOTTING_SHEAR_LOW_RISK_INV_S, C_P_BLOOD_J_KG_K, DEAD_VOLUME_SHEAR_THRESHOLD_INV_S,
+    EXPANSION_RATIO_LOW_RISK, FDA_MAX_WALL_SHEAR_PA, FDA_THROAT_TEMP_RISE_LIMIT_K,
+    FDA_TRANSIENT_SHEAR_PA, FDA_TRANSIENT_TIME_S, MILESTONE_TREATMENT_DURATION_MIN,
+    PATIENT_BLOOD_VOLUME_ML, PEDIATRIC_BLOOD_VOLUME_ML_PER_KG, PEDIATRIC_REFERENCE_WEIGHT_KG,
+    PLATE_HEIGHT_MM, PLATE_WIDTH_MM, P_ATM_PA, SONO_REF_P_ABS_PA, THERAPEUTIC_WINDOW_REF,
     VENTURI_EXPANSION_RATIO_HIGH_RISK, VENTURI_VEL_RATIO_REF,
 };
 use crate::domain::BlueprintCandidate;
@@ -85,6 +84,7 @@ pub fn compute_blueprint_report_metrics(
     let mut corrected_hi = 0.0_f64;
     let mut treatment_hi = 0.0_f64;
     let mut bypass_hi_values = Vec::new();
+    let mut pai_accumulator = 0.0_f64;
     let mut per_channel_hemolysis = Vec::with_capacity(solve.channel_samples.len());
 
     for sample in &solve.channel_samples {
@@ -105,6 +105,13 @@ pub fn compute_blueprint_report_metrics(
                 (1.0 - placement.cavitation_number).clamp(0.0, 1.0)
             });
         let base_hi = giersiepen_hi(shear_pa, transit_time_s) * flow_fraction;
+        // Hellums 1994: PAI = 1.8e-8 × τ^1.325 × t^0.462, flow-weighted.
+        let channel_pai = if shear_pa > 0.0 && transit_time_s > 0.0 {
+            1.8e-8 * shear_pa.powf(1.325) * transit_time_s.powf(0.462) * flow_fraction
+        } else {
+            0.0
+        };
+        pai_accumulator += channel_pai;
         let corrected_channel_hi = if sample.is_venturi_channel {
             cavitation_amplified_hi(base_hi * hematocrit_factor, local_cavitation)
         } else {
@@ -434,6 +441,59 @@ pub fn compute_blueprint_report_metrics(
     metrics.treatment_zone_dwell_time_s = residence.treatment_residence_time_s;
     metrics.throat_temperature_rise_k = throat_temperature_rise_k;
     metrics.fda_thermal_compliant = throat_temperature_rise_k <= FDA_THROAT_TEMP_RISE_LIMIT_K;
+
+    // ── Previously unset metrics ─────────────────────────────────────────────
+    // Platelet activation index (Hellums 1994 power-law model).
+    metrics.platelet_activation_index = pai_accumulator;
+
+    // Diffuser pressure recovery: maximum across all venturi placements.
+    metrics.diffuser_recovery_pa = venturi
+        .placements
+        .iter()
+        .map(|p| p.diffuser_recovery_pa)
+        .fold(0.0_f64, f64::max);
+
+    // Outlet tail length and remerge proximity: applicable to all PST topologies.
+    // Shorter outlet tails mean treatment-stream remerge happens closer to chip exit,
+    // reducing post-therapy dilution and secondary separation of treated cells.
+    let outlet_tail_mm = topology.outlet_tail_length_m * 1.0e3;
+    metrics.cif_outlet_tail_length_mm = outlet_tail_mm;
+    metrics.cif_remerge_proximity_score = if outlet_tail_mm > 0.0 {
+        // Exponential decay: 1 mm → 0.95, 5 mm → 0.37, 10 mm → 0.14.
+        (-outlet_tail_mm / 5.0_f64).exp().clamp(0.0, 1.0)
+    } else {
+        0.0
+    };
+
+    // Topology-specific split-stage flow fractions via Hagen–Poiseuille Q ∝ w³.
+    let (stage_center_fracs, model_frac) =
+        split_stage_flow_fractions(&topology.split_stages);
+    // Assign to both CCT and CIF fields since these generalise across topologies.
+    metrics.cct_model_venturi_flow_fraction = model_frac.clamp(0.0, 1.0);
+    metrics.cif_model_venturi_flow_fraction = model_frac.clamp(0.0, 1.0);
+    metrics.cct_solved_venturi_flow_fraction = solve.venturi_flow_fraction;
+    metrics.cif_solved_venturi_flow_fraction = solve.venturi_flow_fraction;
+    metrics.cct_stage_center_qfrac_mean = if stage_center_fracs.is_empty() {
+        0.0
+    } else {
+        stage_center_fracs.iter().sum::<f64>() / stage_center_fracs.len() as f64
+    };
+    // CIF pre-trifurcation mean: all stages except the last (which is the terminal).
+    metrics.cif_pretri_qfrac_mean = if stage_center_fracs.len() > 1 {
+        let pretri = &stage_center_fracs[..stage_center_fracs.len() - 1];
+        pretri.iter().sum::<f64>() / pretri.len() as f64
+    } else {
+        metrics.cct_stage_center_qfrac_mean
+    };
+    // Terminal trifurcation and bifurcation fractions.
+    metrics.cif_terminal_tri_qfrac = stage_center_fracs.last().copied().unwrap_or(0.0);
+    metrics.cif_terminal_bi_qfrac = stage_center_fracs.first().copied().unwrap_or(0.0);
+
+    // Update selective_cavitation_delivery_index to include remerge bonus
+    // now that cif_remerge_proximity_score is properly computed.
+    let remerge_bonus = 0.5 + 0.5 * metrics.cif_remerge_proximity_score;
+    metrics.selective_cavitation_delivery_index =
+        oncology_selectivity_index * cancer_rbc_cavitation_bias_index * remerge_bonus;
 
     Ok(metrics)
 }

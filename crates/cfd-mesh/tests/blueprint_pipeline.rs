@@ -69,10 +69,8 @@ fn venturi_pipeline_reports_channel_volume_trace() {
 #[test]
 fn bifurcation_fluid_mesh_watertight() {
     let bp = symmetric_bifurcation("b1", 0.010, 0.010, 0.004, 0.003);
-    let mut out = BlueprintMeshPipeline::run(&bp, &no_chip_cfg())
+    let out = BlueprintMeshPipeline::run(&bp, &no_chip_cfg())
         .expect("symmetric_bifurcation pipeline failed");
-    // Complex topology CSG unions can produce minor boundary-edge artifacts.
-    // We only verify it has a positive volume and correctly outputs as complex.
     assert!(
         out.fluid_mesh.signed_volume() > 0.0,
         "bifurcation fluid mesh must have positive volume"
@@ -90,7 +88,7 @@ fn bifurcation_fluid_mesh_watertight() {
 fn trifurcation_fluid_mesh_watertight() {
     let bp = symmetric_trifurcation("t1", 0.010, 0.008, 0.004, 0.004);
     let result = BlueprintMeshPipeline::run(&bp, &no_chip_cfg());
-    if let Ok(mut out) = result {
+    if let Ok(out) = result {
         assert!(
             out.fluid_mesh.signed_volume() > 0.0,
             "trifurcation fluid mesh must have positive volume"
@@ -270,7 +268,7 @@ fn trifurcation_rect_produces_watertight_mesh() {
     let bp = trifurcation_rect("tr1", 0.010, 0.008, 0.004, 0.004, 0.004);
     let result = BlueprintMeshPipeline::run(&bp, &no_chip_cfg());
     match result {
-        Ok(mut out) => {
+        Ok(out) => {
             assert!(out.fluid_mesh.signed_volume() > 0.0);
             assert_eq!(out.topology_class, TopologyClass::Complex);
         }
@@ -303,8 +301,16 @@ fn cif_complex_topology_produces_mesh() {
         skip_diameter_constraint: true,
         ..Default::default()
     };
-    let out = BlueprintMeshPipeline::run(&bp, &cfg).expect("CIF complex topology pipeline failed");
-    assert_eq!(out.topology_class, TopologyClass::ParallelArray { n_channels: 2 });
+    let mut out =
+        BlueprintMeshPipeline::run(&bp, &cfg).expect("CIF complex topology pipeline failed");
+    assert_eq!(
+        out.topology_class,
+        TopologyClass::ParallelArray { n_channels: 2 }
+    );
+    assert!(
+        out.fluid_mesh.is_watertight(),
+        "CIF mesh must be watertight"
+    );
     assert!(
         out.fluid_mesh.vertex_count() > 0,
         "CIF mesh must have vertices"

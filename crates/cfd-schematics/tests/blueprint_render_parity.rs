@@ -159,6 +159,58 @@ fn cct_blueprint_render_preserves_center_serpentine_lane() {
 }
 
 #[test]
+fn cct_serpentine_lane_materializes_mirrored_rotated_s_offsets() {
+    let bp = cascade_center_trifurcation_rect(
+        "cct-serp-mirror",
+        12e-3,
+        8e-3,
+        3,
+        2.0e-3,
+        0.45,
+        100e-6,
+        300e-6,
+        1.0e-3,
+        false,
+        Some(CenterSerpentineSpec {
+            segments: 3,
+            bend_radius_m: 3.0e-3,
+            segment_length_m: 7.5e-3,
+        }),
+    );
+
+    let center_lane = bp
+        .channels
+        .iter()
+        .find(|channel| matches!(channel.channel_shape, ChannelShape::Serpentine { .. }))
+        .expect("center treatment lane should stay serpentine");
+    let start = center_lane.path.first().copied().expect("path start");
+    let end = center_lane.path.last().copied().expect("path end");
+    let dx = end.0 - start.0;
+    let dy = end.1 - start.1;
+    let length = dx.hypot(dy);
+    assert!(length > 0.0, "serpentine chord length must be non-zero");
+    let nx = -dy / length;
+    let ny = dx / length;
+    let signed_offsets: Vec<f64> = center_lane
+        .path
+        .iter()
+        .skip(1)
+        .take(center_lane.path.len().saturating_sub(2))
+        .map(|point| ((point.0 - start.0) * nx) + ((point.1 - start.1) * ny))
+        .filter(|offset| offset.abs() > 1.0e-6)
+        .collect();
+
+    assert!(
+        signed_offsets.iter().any(|offset| *offset > 0.0),
+        "serpentine path must lobe to one side of the centerline"
+    );
+    assert!(
+        signed_offsets.iter().any(|offset| *offset < 0.0),
+        "serpentine path must mirror to the opposite side of the centerline"
+    );
+}
+
+#[test]
 fn dtcv_blueprint_render_builds_four_true_trifurcation_nodes() {
     let bp = double_trifurcation_cif_venturi_rect(
         "dtcv-full-tree",

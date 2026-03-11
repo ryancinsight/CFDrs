@@ -33,19 +33,41 @@ pub struct NFurcationGeometry<T: RealField + Copy> {
 
 impl<T: RealField + Copy + FromPrimitive> NFurcationGeometry<T> {
     /// Build a symmetric N-furcation with evenly spaced daughter-branch angles.
-    pub fn new_symmetric(parent_width: T, parent_length: T, daughter_width: T, daughter_length: T, num_branches: usize, spread_angle: T) -> Self {
+    pub fn new_symmetric(
+        parent_width: T,
+        parent_length: T,
+        daughter_width: T,
+        daughter_length: T,
+        num_branches: usize,
+        spread_angle: T,
+    ) -> Self {
         let mut branches = Vec::new();
         if num_branches == 1 {
-            branches.push(BranchGeometry { width: daughter_width, length: daughter_length, angle: T::zero() });
+            branches.push(BranchGeometry {
+                width: daughter_width,
+                length: daughter_length,
+                angle: T::zero(),
+            });
         } else {
-            let half_spread = spread_angle / T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
-            let step = spread_angle / T::from_f64((num_branches - 1) as f64).unwrap_or_else(num_traits::Zero::zero);
+            let half_spread =
+                spread_angle / T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
+            let step = spread_angle
+                / T::from_f64((num_branches - 1) as f64).unwrap_or_else(num_traits::Zero::zero);
             for i in 0..num_branches {
-                let angle = half_spread - T::from_f64(i as f64).unwrap_or_else(num_traits::Zero::zero) * step;
-                branches.push(BranchGeometry { width: daughter_width, length: daughter_length, angle });
+                let angle = half_spread
+                    - T::from_f64(i as f64).unwrap_or_else(num_traits::Zero::zero) * step;
+                branches.push(BranchGeometry {
+                    width: daughter_width,
+                    length: daughter_length,
+                    angle,
+                });
             }
         }
-        Self { parent_width, parent_length, branches }
+        Self {
+            parent_width,
+            parent_length,
+            branches,
+        }
     }
 
     /// Return whether the point `(x, y)` lies inside the parent channel or any daughter branch.
@@ -56,14 +78,31 @@ impl<T: RealField + Copy + FromPrimitive> NFurcationGeometry<T> {
         }
 
         for branch in &self.branches {
-            if self.in_segment(x, y, self.parent_length, T::zero(), branch.angle, branch.length, branch.width) {
+            if self.in_segment(
+                x,
+                y,
+                self.parent_length,
+                T::zero(),
+                branch.angle,
+                branch.length,
+                branch.width,
+            ) {
                 return true;
             }
         }
         false
     }
 
-    fn in_segment(&self, x: T, y: T, start_x: T, start_y: T, angle: T, length: T, width: T) -> bool {
+    fn in_segment(
+        &self,
+        x: T,
+        y: T,
+        start_x: T,
+        start_y: T,
+        angle: T,
+        length: T,
+        width: T,
+    ) -> bool {
         let dx = x - start_x;
         let dy = y - start_y;
         let cos_a = angle.cos();
@@ -105,7 +144,14 @@ pub struct NFurcationSolver2D<T: RealField + Copy + Float + FromPrimitive> {
 
 impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> NFurcationSolver2D<T> {
     /// Construct a masked 2D solver over the N-furcation bounding box.
-    pub fn new(geometry: NFurcationGeometry<T>, blood: BloodModel<T>, density: T, nx: usize, ny: usize, config: SIMPLEConfig<T>) -> Self {
+    pub fn new(
+        geometry: NFurcationGeometry<T>,
+        blood: BloodModel<T>,
+        density: T,
+        nx: usize,
+        ny: usize,
+        config: SIMPLEConfig<T>,
+    ) -> Self {
         let bbox = geometry.bounding_box();
         let width = bbox[1] - bbox[0];
         let height = bbox[3] - bbox[2];
@@ -119,36 +165,41 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> NFurcationSolver
                 ns_solver.field.mask[i][j] = geometry.contains(x, y);
             }
         }
-        Self { geometry, ns_solver }
+        Self {
+            geometry,
+            ns_solver,
+        }
     }
 
     /// Solve the masked N-furcation flow field for a prescribed inlet velocity.
     pub fn solve(&mut self, u_inlet: T) -> CfdResult<NFurcationSolution<T>> {
-        let _solve_res = self.ns_solver.solve(u_inlet).map_err(|e| cfd_core::error::Error::Solver(e.to_string()))?;
+        let _solve_res = self
+            .ns_solver
+            .solve(u_inlet)
+            .map_err(|e| cfd_core::error::Error::Solver(e.to_string()))?;
 
         let nx = self.ns_solver.grid.nx;
         let ny = self.ns_solver.grid.ny;
         let dy = self.ns_solver.grid.dy;
         let dx = self.ns_solver.grid.dx;
 
-        let mut q_parent = T::zero();
-        for j in 0..ny {
-            if self.ns_solver.field.mask[0][j] {
-                q_parent += self.ns_solver.field.u[0][j] * dy;
-            }
-        }
+        // Fused boundary scan: inlet (column 0) and right-outlet (column nx-1)
+        // share the same j-loop, avoiding a second pass over 0..ny.
+        let (q_parent, mut total_out) = (0..ny).fold((T::zero(), T::zero()), |(qp, qo), j| {
+            let qp_next = if self.ns_solver.field.mask[0][j] {
+                qp + self.ns_solver.field.u[0][j] * dy
+            } else {
+                qp
+            };
+            let qo_next = if self.ns_solver.field.mask[nx - 1][j] {
+                qo + self.ns_solver.field.u[nx][j] * dy
+            } else {
+                qo
+            };
+            (qp_next, qo_next)
+        });
 
-        // To properly attribute flows to N daughters at the outlet boundary,
-        // we sum out-flux at the boundaries. If N > 2, it's safer to just sum all right-hand boundary flows, 
-        // or upper/lower boundary flows. Since branches can exit right, top, or bottom.
-        // let mut q_daughters = vec![T::zero(); self.geometry.branches.len()];
-        let mut total_out = T::zero();
-
-        for j in 0..ny {
-            if self.ns_solver.field.mask[nx - 1][j] {
-                total_out += self.ns_solver.field.u[nx][j] * dy;
-            }
-        }
+        // Top and bottom boundary outflux (branches exiting vertically).
         for i in 0..nx {
             if self.ns_solver.field.mask[i][ny - 1] {
                 total_out += self.ns_solver.field.v[i][ny] * dx;
@@ -158,7 +209,14 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> NFurcationSolver
             }
         }
 
-        let mass_balance_error = Float::abs(q_parent - total_out) / q_parent;
+        // Guard: avoid NaN/Inf when q_parent ≈ 0 (degenerate or empty inlet).
+        let mass_balance_error = if q_parent
+            > T::from_f64(1e-30).unwrap_or_else(num_traits::Zero::zero)
+        {
+            Float::abs(q_parent - total_out) / q_parent
+        } else {
+            T::zero()
+        };
 
         Ok(NFurcationSolution {
             q_parent,

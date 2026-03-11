@@ -83,7 +83,7 @@ pub fn validate_blueprint_for_1d_solve(blueprint: &NetworkBlueprint) -> Result<(
 
         let polyline_length_m = polyline_length_mm(&channel.path) * 1.0e-3;
         let length_tolerance = LENGTH_ABS_TOL_M.max(channel.length_m.abs() * LENGTH_REL_TOL);
-        
+
         // Skip tight length checks for symbolic schematics (e.g. from selective_wrapper)
         let is_symbolic = blueprint
             .metadata

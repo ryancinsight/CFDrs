@@ -10,9 +10,8 @@ use crate::constraints::M12_GA_HYDRO_SEED;
 use crate::reporting::contract_trace::load_m12_contract_text;
 use crate::reporting::figures::{generate_m12_report_figures, FigureGenerationInput};
 use crate::reporting::narrative_addenda::{
-    build_appendix_a_supplemental, build_conclusions, build_figure_sections,
-    build_figure_toc_rows, build_references_block, build_storage_artifact_index,
-    build_storage_policy_section,
+    build_appendix_a_supplemental, build_conclusions, build_figure_sections, build_figure_toc_rows,
+    build_references_block, build_storage_artifact_index, build_storage_policy_section,
 };
 use crate::reporting::narrative_sections::{
     build_cavitation_formulas_intro, build_cri_expansion_sensitivity, build_limits_of_usage,
@@ -22,7 +21,7 @@ use crate::reporting::narrative_sections::{
     build_tri_cell_table, build_validation_section,
 };
 use crate::reporting::template::render_template_strict;
-use crate::reporting::{Milestone12ReportDesign, ValidationRow};
+use crate::reporting::{Milestone12ReportDesign, ParetoPoint, ValidationRow};
 
 /// Metadata for the narrative title page.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -42,14 +41,17 @@ pub struct M12Metadata {
 
 /// Inputs used to render the narrative report.
 pub struct Milestone12NarrativeInput<'a> {
+    pub authoritative_run: bool,
+    pub canonical_source: String,
     pub total_candidates: usize,
     pub option1_pool_len: usize,
     pub option2_pool_len: usize,
+    pub option1_sequence_summary_markdown: String,
     pub option1_ranked: &'a [Milestone12ReportDesign],
     pub option2_ranked: &'a [Milestone12ReportDesign],
     pub ga_top: &'a [Milestone12ReportDesign],
-    pub option2_pool_all: &'a [Milestone12ReportDesign],
-    pub ga_pool_all: &'a [Milestone12ReportDesign],
+    pub option2_pool_all: &'a [ParetoPoint],
+    pub ga_pool_all: &'a [ParetoPoint],
     pub validation_rows: &'a [ValidationRow],
     pub option2_robustness: &'a [RobustnessReport],
     pub ga_best_per_gen: &'a [f64],
@@ -94,8 +96,25 @@ pub fn write_milestone12_narrative_report(
         .first()
         .ok_or("ga_top is empty; narrative requires GA rank-1")?;
 
+    let artifact_root = if input.authoritative_run {
+        report_dir.clone()
+    } else {
+        report_dir.join("draft")
+    };
+    let figures_dir = if input.authoritative_run {
+        report_dir.join("figures")
+    } else {
+        report_dir.join("figures").join("draft")
+    };
+    let figure_path_prefix = if input.authoritative_run {
+        "../report/figures"
+    } else {
+        "../report/figures/draft"
+    };
+
     let figure_specs = generate_m12_report_figures(
-        &report_dir.join("figures"),
+        &figures_dir,
+        figure_path_prefix,
         &FigureGenerationInput {
             option1_ranked: input.option1_ranked,
             option2_ranked: input.option2_ranked,
@@ -107,7 +126,14 @@ pub fn write_milestone12_narrative_report(
             fast_mode: input.fast_mode,
         },
     )?;
-    let manifest_path = report_dir.join("milestone12").join("figure_manifest.json");
+    let manifest_path = if input.authoritative_run {
+        report_dir.join("milestone12").join("figure_manifest.json")
+    } else {
+        report_dir
+            .join("milestone12")
+            .join("draft")
+            .join("figure_manifest.json")
+    };
     std::fs::create_dir_all(manifest_path.parent().ok_or("invalid manifest path")?)?;
     std::fs::write(&manifest_path, serde_json::to_string_pretty(&figure_specs)?)?;
 
@@ -159,7 +185,12 @@ pub fn write_milestone12_narrative_report(
 
     let narrative = render_template_strict(&template, &values)?;
 
-    let narrative_path = report_dir.join("ARPA-H_SonALAsense_Milestone 12 Report.md");
+    std::fs::create_dir_all(&artifact_root)?;
+    let narrative_path = if input.authoritative_run {
+        report_dir.join("ARPA-H_SonALAsense_Milestone 12 Report.md")
+    } else {
+        artifact_root.join("ARPA-H_SonALAsense_Milestone 12 Report.fast.md")
+    };
     std::fs::write(&narrative_path, narrative)?;
 
     Ok(Milestone12NarrativeArtifacts {
@@ -256,7 +287,15 @@ fn insert_data_values(
     );
     values.insert(
         "CANONICAL_SOURCE".to_string(),
-        "report/milestone12_results.md".to_string(),
+        input.canonical_source.clone(),
+    );
+    values.insert(
+        "RUN_AUTHORITY_NOTE".to_string(),
+        if input.authoritative_run {
+            "This report is an authoritative full-sweep artifact. All selected figures and ranked conclusions were generated from the complete Milestone 12 topology sweep.".to_string()
+        } else {
+            "This report is a draft, non-authoritative fast-mode artifact. It must not replace the canonical full-sweep Milestone 12 report because Option 1 topology coverage may be truncated.".to_string()
+        },
     );
     values.insert(
         "OPTION1_POOL".to_string(),
@@ -290,15 +329,27 @@ fn insert_data_values(
     );
     values.insert(
         "FIG_PROCESS".to_string(),
-        "../report/figures/milestone12_creation_optimization_process.svg".to_string(),
+        if input.authoritative_run {
+            "../report/figures/milestone12_creation_optimization_process.svg".to_string()
+        } else {
+            "../report/figures/draft/milestone12_creation_optimization_process.svg".to_string()
+        },
     );
     values.insert(
         "FIG_TREATMENT_BI".to_string(),
-        "../report/figures/treatment_zone_plate.svg".to_string(),
+        if input.authoritative_run {
+            "../report/figures/treatment_zone_plate.svg".to_string()
+        } else {
+            "../report/figures/draft/treatment_zone_plate.svg".to_string()
+        },
     );
     values.insert(
         "FIG_TREATMENT_TRI".to_string(),
-        "../report/figures/treatment_zone_plate_trifurcation.svg".to_string(),
+        if input.authoritative_run {
+            "../report/figures/treatment_zone_plate_trifurcation.svg".to_string()
+        } else {
+            "../report/figures/draft/treatment_zone_plate_trifurcation.svg".to_string()
+        },
     );
 }
 
@@ -331,6 +382,10 @@ fn insert_table_values(
     values.insert(
         "OPTION2_TOP5_TABLE".to_string(),
         build_option2_top5_table(input.option2_ranked),
+    );
+    values.insert(
+        "OPTION1_SEQUENCE_FAMILY_SUMMARY".to_string(),
+        input.option1_sequence_summary_markdown.clone(),
     );
     values.insert(
         "TRI_CELL_INTRO".to_string(),

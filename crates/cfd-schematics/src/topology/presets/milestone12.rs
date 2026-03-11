@@ -1,5 +1,6 @@
-use crate::domain::therapy_metadata::TherapyZone;
 use crate::domain::model::NetworkBlueprint;
+use crate::domain::therapy_metadata::TherapyZone;
+use crate::geometry::metadata::BlueprintRenderHints;
 use crate::topology::BlueprintTopologyFactory;
 
 use super::super::model::{
@@ -9,7 +10,7 @@ use super::super::model::{
 };
 use super::helpers::{PLATE_HEIGHT_MM, PLATE_WIDTH_MM};
 use super::modifiers::with_venturi;
-use super::sequence::ALL_SELECTIVE_SEQUENCES;
+use super::sequence::MILESTONE12_SWEEP_SEQUENCES;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Milestone12StageBranchSpec {
@@ -29,6 +30,8 @@ pub struct Milestone12StageLayout {
 pub struct Milestone12PrimitiveSelectiveSpec {
     pub topology_id: String,
     pub design_name: String,
+    pub mirror_x: bool,
+    pub mirror_y: bool,
     pub box_dims_mm: (f64, f64),
     pub split_kinds: Vec<SplitKind>,
     pub inlet_width_m: f64,
@@ -62,6 +65,8 @@ impl Milestone12PrimitiveSelectiveSpec {
         Self {
             topology_id: topology_id.into(),
             design_name: design_name.into(),
+            mirror_x: false,
+            mirror_y: false,
             box_dims_mm: (PLATE_WIDTH_MM, PLATE_HEIGHT_MM),
             split_kinds,
             inlet_width_m,
@@ -89,6 +94,95 @@ impl Milestone12PrimitiveSelectiveSpec {
 /// [`build_milestone12_blueprint`] and
 /// [`build_milestone12_topology_spec`].
 pub type Milestone12TopologyRequest = Milestone12PrimitiveSelectiveSpec;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct MirrorVariant {
+    suffix: &'static str,
+    mirror_x: bool,
+    mirror_y: bool,
+}
+
+const MILESTONE12_MIRROR_VARIANTS: [MirrorVariant; 4] = [
+    MirrorVariant {
+        suffix: "base",
+        mirror_x: false,
+        mirror_y: false,
+    },
+    MirrorVariant {
+        suffix: "x",
+        mirror_x: true,
+        mirror_y: false,
+    },
+    MirrorVariant {
+        suffix: "y",
+        mirror_x: false,
+        mirror_y: true,
+    },
+    MirrorVariant {
+        suffix: "xy",
+        mirror_x: true,
+        mirror_y: true,
+    },
+];
+
+fn mirror_blueprint_geometry(
+    blueprint: &mut NetworkBlueprint,
+    box_dims_mm: (f64, f64),
+    mirror_x: bool,
+    mirror_y: bool,
+) {
+    if !mirror_x && !mirror_y {
+        return;
+    }
+
+    let reflect = |(x, y): (f64, f64)| -> (f64, f64) {
+        let mapped_x = if mirror_x { box_dims_mm.0 - x } else { x };
+        let mapped_y = if mirror_y { box_dims_mm.1 - y } else { y };
+        (mapped_x, mapped_y)
+    };
+
+    for node in &mut blueprint.nodes {
+        node.point = reflect(node.point);
+    }
+    for channel in &mut blueprint.channels {
+        channel.path = channel.path.iter().copied().map(reflect).collect();
+    }
+    blueprint.box_outline = blueprint
+        .box_outline
+        .iter()
+        .map(|(start, end)| (reflect(*start), reflect(*end)))
+        .collect();
+}
+
+fn apply_request_mirror(
+    blueprint: &mut NetworkBlueprint,
+    request: &Milestone12TopologyRequest,
+) {
+    mirror_blueprint_geometry(
+        blueprint,
+        request.box_dims_mm,
+        request.mirror_x,
+        request.mirror_y,
+    );
+    if let Some(hints) = blueprint.render_hints.as_mut() {
+        hints.mirror_x = request.mirror_x;
+        hints.mirror_y = request.mirror_y;
+    } else {
+        let topology = blueprint.topology_spec();
+        blueprint.render_hints = Some(BlueprintRenderHints {
+            stage_sequence: topology.map_or_else(String::new, |spec| spec.stage_sequence_label()),
+            split_layers: topology.map_or(0, |spec| spec.visible_split_layers()),
+            throat_count_hint: topology.map_or(0, |spec| spec.venturi_count()),
+            treatment_label: if topology.is_some_and(|spec| spec.has_venturi()) {
+                "venturi".to_string()
+            } else {
+                "ultrasound".to_string()
+            },
+            mirror_x: request.mirror_x,
+            mirror_y: request.mirror_y,
+        });
+    }
+}
 
 fn treatment_branch(
     label: &str,
@@ -431,7 +525,111 @@ pub fn build_milestone12_topology_spec(
 pub fn build_milestone12_blueprint(
     request: &Milestone12TopologyRequest,
 ) -> Result<NetworkBlueprint, String> {
-    BlueprintTopologyFactory::build(&build_milestone12_topology_spec(request))
+    let mut blueprint = BlueprintTopologyFactory::build(&build_milestone12_topology_spec(request))?;
+    apply_request_mirror(&mut blueprint, request);
+    Ok(blueprint)
+}
+
+/// Promote a canonical Milestone 12 Option 1 selective-routing blueprint into
+/// a canonical Option 2 venturi-capable blueprint.
+///
+/// The returned blueprint is rebuilt through the topology factory so geometry
+/// provenance and auto-layout remain authoritative.
+///
+/// # Errors
+///
+/// Returns an error when the source blueprint is not a geometry-authored
+/// selective Milestone 12 design or when the treatment route cannot supply a
+/// physically valid venturi throat geometry.
+pub fn promote_milestone12_option1_to_option2(
+    blueprint: &NetworkBlueprint,
+    serial_throat_count: u8,
+    placement_mode: VenturiPlacementMode,
+) -> Result<NetworkBlueprint, String> {
+    let topology = blueprint
+        .topology_spec()
+        .ok_or_else(|| {
+            format!(
+                "Milestone 12 promotion requires topology metadata on blueprint '{}'",
+                blueprint.name
+            )
+        })?
+        .clone();
+    if !topology.is_selective_routing() {
+        return Err(format!(
+            "Milestone 12 promotion requires selective-routing topology, but '{}' is '{}'",
+            blueprint.name,
+            topology.stage_sequence_label()
+        ));
+    }
+    if !blueprint.is_geometry_authored() {
+        return Err(format!(
+            "Milestone 12 promotion requires create_geometry provenance; '{}' is not geometry-authored",
+            blueprint.name
+        ));
+    }
+
+    let treatment_channel_ids = topology.treatment_channel_ids();
+    let representative_id = treatment_channel_ids
+        .first()
+        .ok_or_else(|| {
+            format!(
+                "Milestone 12 promotion requires at least one treatment channel in '{}'",
+                blueprint.name
+            )
+        })?
+        .clone();
+    let representative_route = topology.channel_route(&representative_id).ok_or_else(|| {
+        format!(
+            "Milestone 12 promotion could not resolve treatment channel '{}' in '{}'",
+            representative_id, blueprint.name
+        )
+    })?;
+
+    let throat_width_m =
+        (representative_route.width_m * 0.4).clamp(60.0e-6, representative_route.width_m * 0.85);
+    let throat_length_m =
+        (representative_route.length_m / 8.0).clamp(300.0e-6, representative_route.length_m * 0.5);
+
+    let throat_height_m = representative_route.height_m;
+    let inlet_width_m = representative_route.width_m;
+
+    let spec = with_venturi(
+        topology.clone(),
+        VenturiConfig {
+            target_channel_ids: treatment_channel_ids,
+            serial_throat_count: serial_throat_count.max(1),
+            throat_geometry: ThroatGeometrySpec {
+                throat_width_m,
+                throat_height_m,
+                throat_length_m,
+                inlet_width_m,
+                outlet_width_m: inlet_width_m,
+                convergent_half_angle_deg: 7.0,
+                divergent_half_angle_deg: 7.0,
+            },
+            placement_mode,
+        },
+    );
+
+    let mut promoted = BlueprintTopologyFactory::build(&spec)?;
+    if let Some(render_hints) = blueprint.render_hints() {
+        mirror_blueprint_geometry(
+            &mut promoted,
+            topology.box_dims_mm,
+            render_hints.mirror_x,
+            render_hints.mirror_y,
+        );
+        if let Some(promoted_hints) = promoted.render_hints.as_mut() {
+            promoted_hints.mirror_x = render_hints.mirror_x;
+            promoted_hints.mirror_y = render_hints.mirror_y;
+        }
+    }
+    if let Some(lineage) = promoted.lineage.as_mut() {
+        lineage.option1_source_blueprint = Some(blueprint.name.clone());
+        lineage.option2_source_blueprint = Some(promoted.name.clone());
+    }
+    Ok(promoted)
 }
 
 /// Enumerate the canonical Milestone 12 split-tree scaffolds.
@@ -442,26 +640,34 @@ pub fn build_milestone12_blueprint(
 /// terminal serpentine settings.
 #[must_use]
 pub fn enumerate_milestone12_topologies() -> Vec<Milestone12TopologyRequest> {
-    ALL_SELECTIVE_SEQUENCES
-        .iter()
-        .copied()
-        .map(|sequence| {
-            Milestone12TopologyRequest::new(
-                format!("pst-{}", sequence.label().replace('→', "").to_ascii_lowercase()),
-                sequence.label(),
-                sequence.to_split_kinds(),
+    let mut requests = Vec::with_capacity(
+        MILESTONE12_SWEEP_SEQUENCES.len() * MILESTONE12_MIRROR_VARIANTS.len(),
+    );
+    for seq in &MILESTONE12_SWEEP_SEQUENCES {
+        let split_kinds = seq.to_split_kinds();
+        let family = seq.label().replace('\u{2192}', "");
+        for variant in &MILESTONE12_MIRROR_VARIANTS {
+            let mut request = Milestone12TopologyRequest::new(
+                format!("pst-{}-{}", family.to_ascii_lowercase(), variant.suffix),
+                format!("{family}-{}", variant.suffix.to_ascii_uppercase()),
+                split_kinds.clone(),
                 6.0e-3,
                 1.0e-3,
                 8.0e-3,
                 8.0e-3,
-            )
-        })
-        .collect()
+            );
+            request.mirror_x = variant.mirror_x;
+            request.mirror_y = variant.mirror_y;
+            requests.push(request);
+        }
+    }
+    requests
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::topology::{BlueprintTopologyFactory, BlueprintTopologyMutation, TopologyOptimizationStage};
 
     #[test]
     fn default_stage_layouts_cover_bi_tri_quad_penta_roots() {
@@ -584,27 +790,92 @@ mod tests {
     }
 
     #[test]
-    fn enumerate_milestone12_topologies_covers_full_sequence_catalog() {
+    fn enumerate_milestone12_topologies_covers_mirrored_root_catalog() {
         let catalog = enumerate_milestone12_topologies();
-        assert_eq!(catalog.len(), ALL_SELECTIVE_SEQUENCES.len());
-        assert!(catalog.iter().any(|request| request.design_name == "Bi"));
-        assert!(catalog.iter().any(|request| request.design_name == "Quad"));
-        assert!(catalog.iter().any(|request| request.design_name == "Penta"));
+        assert_eq!(
+            catalog.len(),
+            MILESTONE12_SWEEP_SEQUENCES.len() * MILESTONE12_MIRROR_VARIANTS.len(),
+        );
+        // Single-stage roots
+        assert!(catalog.iter().any(|request| request.design_name == "Bi-BASE"));
+        assert!(catalog.iter().any(|request| request.design_name == "Quad-Y"));
+        assert!(catalog.iter().any(|request| request.design_name == "Penta-XY"));
+        // Multi-layer Quad/Penta cascades
+        assert!(catalog.iter().any(|request| request.design_name == "QuadTriBi-BASE"));
+        assert!(catalog.iter().any(|request| request.design_name == "PentaTriBi-XY"));
+        assert!(catalog.iter().any(|request| request.design_name == "QuadBi-X"));
+        assert!(catalog.iter().any(|request| request.design_name == "PentaTri-Y"));
     }
 
     #[test]
     fn build_milestone12_blueprint_uses_canonical_geometry_authoring() {
         let request = enumerate_milestone12_topologies()
             .into_iter()
-            .find(|request| request.design_name == "Tri→Tri")
-            .expect("Tri→Tri scaffold should exist");
+            .find(|request| request.design_name == "Tri-XY")
+            .expect("mirrored Tri scaffold should exist");
 
         let blueprint =
             build_milestone12_blueprint(&request).expect("Milestone 12 blueprint should build");
 
         assert!(blueprint.is_geometry_authored());
+        assert!(blueprint.render_hints().is_some_and(|hints| hints.mirror_x && hints.mirror_y));
         blueprint
             .validate()
             .expect("Milestone 12 blueprint should validate");
+    }
+
+    #[test]
+    fn promote_option1_to_option2_rebuilds_geometry_authored_blueprint() {
+        let mut request = enumerate_milestone12_topologies()
+            .into_iter()
+            .find(|request| request.design_name == "Quad-Y")
+            .expect("mirrored Quad scaffold should exist");
+        request.treatment_mode = TreatmentActuationMode::UltrasoundOnly;
+        request.venturi_throat_count = 0;
+        let option1 =
+            build_milestone12_blueprint(&request).expect("Milestone 12 Option 1 should build");
+
+        let promoted = promote_milestone12_option1_to_option2(
+            &option1,
+            1,
+            VenturiPlacementMode::StraightSegment,
+        )
+        .expect("promotion should succeed");
+
+        assert!(promoted.is_geometry_authored());
+        assert!(promoted
+            .topology_spec()
+            .is_some_and(BlueprintTopologySpec::has_venturi));
+        assert!(promoted.render_hints().is_some_and(|hints| !hints.mirror_x && hints.mirror_y));
+        assert_eq!(
+            promoted
+                .lineage()
+                .and_then(|lineage| lineage.option1_source_blueprint.as_deref()),
+            Some(option1.name.as_str())
+        );
+    }
+
+    #[test]
+    fn selective_mutation_rejects_non_geometry_authored_blueprint() {
+        let request = enumerate_milestone12_topologies()
+            .into_iter()
+            .find(|request| request.design_name == "Tri-BASE")
+            .expect("Tri scaffold should exist");
+        let mut blueprint =
+            build_milestone12_blueprint(&request).expect("Milestone 12 blueprint should build");
+        blueprint.metadata = None;
+        blueprint.geometry_authored = false;
+
+        let error = BlueprintTopologyFactory::mutate(
+            &blueprint,
+            BlueprintTopologyMutation::UpdateBranchWidth {
+                stage_id: "stage_0".to_string(),
+                branch_label: "center".to_string(),
+                new_width_m: 1.8e-3,
+            },
+            TopologyOptimizationStage::InPlaceDeanSerpentineRefinement,
+        )
+        .expect_err("non-canonical selective mutation must fail");
+        assert!(error.contains("create_geometry-authored provenance"));
     }
 }

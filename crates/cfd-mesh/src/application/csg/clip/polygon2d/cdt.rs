@@ -13,7 +13,7 @@ use crate::application::csg::arrangement::planar::{
     insert_shattered_subedges, PlanarEdgeKey, PlanarPointGridIndex,
 };
 use crate::domain::core::scalar::Real;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 const WELD_TOL: Real = 1e-8;
 const INTERIOR_TOL: Real = 1e-10;
@@ -243,9 +243,12 @@ pub fn cdt_clip(subject: &[[Real; 2]], clip: &[[Real; 2]], op: ClipOp) -> Vec<Ve
     }
 
     let point_index = PlanarPointGridIndex::new(&unique, WELD_TOL);
-    let mut pslg_edges = HashSet::<PlanarEdgeKey>::new();
+    let mut pslg_edges = Vec::<PlanarEdgeKey>::new();
     add_shattered_edges(&subj, &subj_indices, &unique, &point_index, &mut pslg_edges);
     add_shattered_edges(&clp, &clip_indices, &unique, &point_index, &mut pslg_edges);
+
+    pslg_edges.sort_unstable();
+    pslg_edges.dedup();
 
     let pslg = build_pslg_from_points_and_edges(&unique, &pslg_edges);
 
@@ -286,7 +289,7 @@ fn add_shattered_edges(
     indices: &[usize],
     unique: &[[Real; 2]],
     point_index: &PlanarPointGridIndex,
-    pslg_edges: &mut HashSet<PlanarEdgeKey>,
+    pslg_edges: &mut Vec<PlanarEdgeKey>,
 ) {
     let n = poly.len();
     let mut candidates: Vec<usize> = Vec::new();

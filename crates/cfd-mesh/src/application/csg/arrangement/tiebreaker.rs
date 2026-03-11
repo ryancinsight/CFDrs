@@ -181,7 +181,6 @@ fn classify_by_sign(sign: f64) -> FragmentClass {
             FragmentClass::Outside
         }
     } else {
-        // Conservative fallback: keeps coplanar seam faces in the output.
         FragmentClass::CoplanarSame
     }
 }

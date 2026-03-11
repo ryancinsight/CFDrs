@@ -26,7 +26,7 @@ fn print_row(e: &BlueprintObjectiveEvaluation) {
     println!(
         "{:<50} {:>8.5} {:>10.1} {:>10.1} {:>10.1} {:>10.4} {:>10.3}",
         e.candidate_id,
-        e.score,
+        e.score_or_zero(),
         e.separation.cancer_center_fraction * 100.0,
         e.separation.wbc_center_fraction * 100.0,
         e.separation.rbc_peripheral_fraction * 100.0,

@@ -82,6 +82,7 @@ fn synthetic_system() -> NetworkBlueprint {
         topology: None,
         lineage: None,
         metadata: None,
+        geometry_authored: false,
     }
 }
 

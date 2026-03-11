@@ -26,7 +26,7 @@ use std::fs;
 use std::io::BufWriter;
 use std::time::Instant;
 
-use cfd_mesh::application::csg::boolean::{csg_boolean_indexed, BooleanOp};
+use cfd_mesh::application::csg::boolean::{csg_boolean, BooleanOp};
 use cfd_mesh::application::watertight::check::check_watertight;
 use cfd_mesh::domain::core::scalar::{Point3r, Real};
 use cfd_mesh::domain::geometry::primitives::{PrimitiveMesh, UvSphere};
@@ -91,7 +91,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ── Intersection (lens) ────────────────────────────────────────────────────
     {
         let t0 = Instant::now();
-        let mut result = csg_boolean_indexed(BooleanOp::Intersection, &sphere_a, &sphere_b)?;
+        let mut result = csg_boolean(BooleanOp::Intersection, &sphere_a, &sphere_b)?;
         let ms = t0.elapsed().as_millis();
         report("Intersection (lens)", &mut result, v_lens, 0.05, ms);
         write_stl(&result, &out_dir.join("sphere_sphere_intersection.stl"))?;
@@ -102,7 +102,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ── Union ─────────────────────────────────────────────────────────────────
     {
         let t0 = Instant::now();
-        let mut result = csg_boolean_indexed(BooleanOp::Union, &sphere_a, &sphere_b)?;
+        let mut result = csg_boolean(BooleanOp::Union, &sphere_a, &sphere_b)?;
         let ms = t0.elapsed().as_millis();
         report("Union", &mut result, v_union, 0.05, ms);
         write_stl(&result, &out_dir.join("sphere_sphere_union.stl"))?;
@@ -113,7 +113,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ── Difference A \ B ──────────────────────────────────────────────────────
     {
         let t0 = Instant::now();
-        let mut result = csg_boolean_indexed(BooleanOp::Difference, &sphere_a, &sphere_b)?;
+        let mut result = csg_boolean(BooleanOp::Difference, &sphere_a, &sphere_b)?;
         let ms = t0.elapsed().as_millis();
         report("Difference A\\B", &mut result, v_diff, 0.05, ms);
         write_stl(&result, &out_dir.join("sphere_sphere_difference.stl"))?;

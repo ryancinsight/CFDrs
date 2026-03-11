@@ -72,8 +72,6 @@
 //! for pools of 2 000+ vertices.  The HashMap reduces per-call allocation from
 //! O(pool_size) to O(face_vertex_count) (typically 3–12 entries).
 
-use std::collections::{HashMap, HashSet};
-
 use super::intersect::SnapSegment;
 use crate::domain::core::index::VertexId;
 use crate::domain::core::scalar::{Point3r, Real, Vector3r};
@@ -149,13 +147,15 @@ pub fn corefine_face(
     // remove degenerate and bit-identical duplicate constraints before O(s²)
     // crossing detection and PSLG resolve_crossings.
     let mut dedup_snap_segments: Vec<SnapSegment> = Vec::with_capacity(snap_segments.len());
-    let mut seen_snap_segments: HashSet<(PointBits3, PointBits3)> =
-        HashSet::with_capacity(snap_segments.len());
+    let mut seen_snap_segments: Vec<(PointBits3, PointBits3)> =
+        Vec::with_capacity(snap_segments.len());
     for seg in snap_segments {
         if (seg.end - seg.start).norm_squared() < 1e-24 {
             continue;
         }
-        if seen_snap_segments.insert(canonical_segment_key(seg)) {
+        let key = canonical_segment_key(seg);
+        if !seen_snap_segments.contains(&key) {
+            seen_snap_segments.push(key);
             dedup_snap_segments.push(*seg);
         }
     }
@@ -174,8 +174,7 @@ pub fn corefine_face(
     ];
     // seg_vids[i] = [vid_of_start, vid_of_end]; None if not on face boundary.
     let mut seg_vids: Vec<[Option<VertexId>; 2]> = vec![[None, None]; dedup_snap_segments.len()];
-    // Use a HashSet for O(1) dedup and a Vec to preserve insertion order.
-    let mut interior_vid_set: HashSet<VertexId> = HashSet::new();
+    // Use a flat Vec for O(1) short-array dedup to preserve insertion order without allocation.
     let mut interior_vids: Vec<VertexId> = Vec::new();
 
     for (si, seg) in dedup_snap_segments.iter().enumerate() {
@@ -218,7 +217,7 @@ pub fn corefine_face(
             // Interior endpoint fallback
             if seg_vids[si][ep].is_none() && inside_triangle(p3d, a, b, c, face_n, axis_u, axis_v) {
                 let vid = pool.insert_or_weld(p3d, face_n_unit);
-                if interior_vid_set.insert(vid) {
+                if !interior_vids.contains(&vid) {
                     interior_vids.push(vid);
                 }
             }
@@ -252,7 +251,7 @@ pub fn corefine_face(
                 continue;
             }
             let vid = pool.insert_or_weld(crossing, face_n_unit);
-            if interior_vid_set.insert(vid) {
+            if !interior_vids.contains(&vid) {
                 interior_vids.push(vid);
             }
         }
@@ -340,7 +339,7 @@ pub fn corefine_face(
     // entries.  A `HashMap` with an exact capacity hint is O(face_vertex_count)
     // and avoids the large up-front allocation entirely.
     let register_cap = boundary_vids.len() + interior_vids.len();
-    let mut vid_to_pslg: HashMap<VertexId, PslgVertexId> = HashMap::with_capacity(register_cap);
+    let mut vid_to_pslg: Vec<(VertexId, PslgVertexId)> = Vec::with_capacity(register_cap);
     let mut pslg_to_vid: Vec<VertexId> = Vec::with_capacity(register_cap);
     let mut pslg = Pslg::new();
 
@@ -348,17 +347,17 @@ pub fn corefine_face(
     // Returns the PSLG vertex id.
     let register = |vid: VertexId,
                     pslg: &mut Pslg,
-                    vid_to_pslg: &mut HashMap<VertexId, PslgVertexId>,
+                    vid_to_pslg: &mut Vec<(VertexId, PslgVertexId)>,
                     pslg_to_vid: &mut Vec<VertexId>,
                     pool: &VertexPool|
      -> PslgVertexId {
-        if let Some(&pid) = vid_to_pslg.get(&vid) {
+        if let Some(&(_, pid)) = vid_to_pslg.iter().find(|(v, _)| *v == vid) {
             return pid;
         }
         let pos3d = *pool.position(vid);
         let (u, v) = project_2d(pos3d, axis_u, axis_v);
         let pid = pslg.add_vertex(u, v);
-        vid_to_pslg.insert(vid, pid);
+        vid_to_pslg.push((vid, pid));
         pslg_to_vid.push(vid);
         pid
     };
@@ -374,15 +373,15 @@ pub fn corefine_face(
 
     // Extract unique 2D points from PSLG for segment shattering.
     let unique_pts: Vec<[Real; 2]> = pslg.vertices().iter().map(|v| [v.x, v.y]).collect();
-    let mut pslg_edges = std::collections::HashSet::new();
+    let mut pslg_edges = Vec::new();
 
     // Boundary polygon segments (ring).
     let nb = boundary_vids.len();
     for i in 0..nb {
         let va = boundary_vids[i];
         let vb = boundary_vids[(i + 1) % nb];
-        let pa = vid_to_pslg[&va];
-        let pb = vid_to_pslg[&vb];
+        let pa = vid_to_pslg.iter().find(|(v, _)| *v == va).unwrap().1;
+        let pb = vid_to_pslg.iter().find(|(v, _)| *v == vb).unwrap().1;
         if pa != pb {
             let p1 = unique_pts[pa.idx()];
             let p2 = unique_pts[pb.idx()];
@@ -405,7 +404,9 @@ pub fn corefine_face(
     // Constraint segments from snap-segment endpoints.
     for vids in &seg_vids {
         if let (Some(v0), Some(v1)) = (vids[0], vids[1]) {
-            if let (Some(&p0), Some(&p1)) = (vid_to_pslg.get(&v0), vid_to_pslg.get(&v1)) {
+            let p0_opt = vid_to_pslg.iter().find(|(v, _)| *v == v0).map(|(_, p)| *p);
+            let p1_opt = vid_to_pslg.iter().find(|(v, _)| *v == v1).map(|(_, p)| *p);
+            if let (Some(p0), Some(p1)) = (p0_opt, p1_opt) {
                 if p0 != p1 {
                     let pa = unique_pts[p0.idx()];
                     let pb = unique_pts[p1.idx()];
@@ -421,9 +422,9 @@ pub fn corefine_face(
         }
     }
 
-    let mut sorted_pslg_edges: Vec<(usize, usize)> = pslg_edges.into_iter().collect();
-    sorted_pslg_edges.sort_unstable();
-    for (a, b) in sorted_pslg_edges {
+    pslg_edges.sort_unstable();
+    pslg_edges.dedup();
+    for (a, b) in pslg_edges {
         let _ = pslg.add_segment(PslgVertexId::from_usize(a), PslgVertexId::from_usize(b));
     }
 
@@ -732,21 +733,21 @@ mod tests {
         let v2 = pool.insert_or_weld(Point3r::new(0.0, 0.01, 0.0), n);
         let face = FaceData::untagged(v0, v1, v2);
 
-        // Generate 300 unique horizontal segments, all endpoints strictly interior
-        // (x + y < 0.009, x > 3e-4, y > 3e-4).  Spacing 3e-4 m >> 1µm weld tolerance
-        // so every endpoint inserts as a distinct VertexId.
+        // Generate enough unique horizontal segments to exceed MAX_STEINER_PER_FACE.
+        // We need > 32768 segments. We use a 200 x 200 grid.
         let mut segments: Vec<SnapSegment> = Vec::new();
-        'outer: for i in 1..30_usize {
-            for j in 1..30_usize {
-                let x = i as Real * 3e-4;
-                let y = j as Real * 3e-4;
-                let x2 = x + 1.5e-4;
-                if x + y < 0.008 && x2 + y < 0.008 {
+        let target_len = MAX_STEINER_PER_FACE;
+        'outer: for i in 1..300_usize {
+            for j in 1..300_usize {
+                let x = i as Real * 1.5e-5;
+                let y = j as Real * 1.5e-5;
+                let x2 = x + 0.5e-5;
+                if x + y < 0.009 && x2 + y < 0.009 {
                     segments.push(SnapSegment {
                         start: Point3r::new(x, y, 0.0),
                         end: Point3r::new(x2, y, 0.0),
                     });
-                    if segments.len() >= 300 {
+                    if segments.len() >= target_len {
                         break 'outer;
                     }
                 }

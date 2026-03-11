@@ -89,7 +89,16 @@ pub use analysis::{robustness_sweep_blueprint, RobustnessReport, STANDARD_PERTUR
 pub use application::objectives::{
     evaluate_blueprint_genetic_refinement, evaluate_goal,
     evaluate_selective_acoustic_residence_separation, evaluate_selective_venturi_cavitation,
-    BlueprintObjectiveEvaluation,
+    BlueprintEvaluationStatus, BlueprintObjectiveEvaluation,
+};
+pub use application::orchestration::{
+    blueprint_lineage_key as orchestration_lineage_key, fast_env, fast_mode,
+    ga_matches_lineage_sequence, init_tracing, is_selective_report_topology, option2_mode,
+    refresh_milestone12_reports, report_eligible_venturi_oncology, resolve_output_directories,
+    run_milestone12_ga, run_milestone12_option1, run_milestone12_option2,
+    run_milestone12_report, run_milestone12_validation, save_figure, Milestone12GaRun,
+    Milestone12Option1Run, Milestone12Option2Run, Milestone12RequestedStage,
+    Milestone12StageArtifact, Milestone12ValidationRun, ScanProgress,
 };
 pub use application::reporting::evidence::{
     build_goal_evidence, render_canonical_report, render_exploratory_report,
@@ -104,13 +113,11 @@ pub use application::search::deterministic::{
     build_blueprint_candidates_from_specs, rank_blueprint_candidates,
 };
 pub use application::search::genetic::{
-    generate_ga_mutations, seed_option2_candidates, BlueprintEvolutionResult,
-    BlueprintGeneticOptimizer, BlueprintRankedCandidate,
+    BlueprintEvolutionResult, BlueprintGeneticOptimizer, BlueprintRankedCandidate,
 };
-pub use application::orchestration::{
-    blueprint_lineage_key as orchestration_lineage_key, fast_env, fast_mode,
-    ga_matches_lineage_sequence, init_tracing, is_selective_report_topology, option2_mode,
-    report_eligible_venturi_oncology, resolve_output_directories, save_figure, ScanProgress,
+pub use application::search::mutations::{
+    build_milestone12_ga_seed_pair, generate_ga_mutations, promote_option1_candidate_to_ga_seed,
+    seed_option2_candidates,
 };
 pub use application::search::pool::EvaluatedPool;
 pub use constraints::{BLOOD_DENSITY_KG_M3, BLOOD_VAPOR_PRESSURE_PA, P_ATM_PA};
@@ -129,10 +136,13 @@ pub use metrics::{
     StageBlueprintSeparationSummary, VenturiPlacementMetrics,
 };
 pub use reporting::{
-    compute_blueprint_report_metrics, is_milestone12_lineage_topology, milestone12_lineage_key,
-    pct_diff, run_milestone12_validation, shortlist_report_designs, sort_report_designs,
-    validate_milestone12_candidate, write_milestone12_narrative_report, write_milestone12_results,
-    Milestone12LineageKey, Milestone12NarrativeInput, Milestone12ReportDesign, Milestone12Stage,
+    audit_goal_candidates, compute_blueprint_report_metrics, is_milestone12_lineage_topology,
+    milestone12_lineage_key, pct_diff,
+    run_milestone12_validation as run_milestone12_validation_solver,
+    shortlist_report_designs, sort_report_designs, validate_milestone12_candidate,
+    write_goal_audit_report, write_milestone12_narrative_report, write_milestone12_results,
+    GoalAuditArtifacts, GoalAuditEntry, GoalAuditStatus, Milestone12LineageKey,
+    Milestone12NarrativeInput, Milestone12ReportDesign, Milestone12Stage, ParetoPoint, ParetoTag,
     ValidationRow,
 };
 pub use scoring::{score_candidate, score_description, OptimMode, SdtWeights};

@@ -5,7 +5,7 @@
 //! - `clip::polygon2d::cdt` (native 2-D polygon Boolean)
 //! - `corefine` (3-D face projection -> planar CDT subdivision)
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use crate::application::delaunay::{Pslg, PslgVertexId};
 use crate::domain::core::scalar::Real;
@@ -333,7 +333,7 @@ pub(crate) fn collect_points_on_segment_interior_indexed(
 /// consecutive sub-edges into `edges`.
 pub(crate) fn insert_shattered_subedges(
     mut on_seg: Vec<(Real, usize)>,
-    edges: &mut HashSet<PlanarEdgeKey>,
+    edges: &mut Vec<PlanarEdgeKey>,
 ) {
     on_seg.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
     on_seg.dedup_by_key(|x| x.1);
@@ -344,14 +344,14 @@ pub(crate) fn insert_shattered_subedges(
             continue;
         }
         let key = if a < b { (a, b) } else { (b, a) };
-        edges.insert(key);
+        edges.push(key);
     }
 }
 
 /// Build a PSLG from planar points and deduplicated undirected edge keys.
 pub(crate) fn build_pslg_from_points_and_edges(
     points: &[[Real; 2]],
-    edges: &HashSet<PlanarEdgeKey>,
+    edges: &[PlanarEdgeKey],
 ) -> Pslg {
     let mut pslg = Pslg::with_capacity(points.len(), edges.len());
     for &p in points {

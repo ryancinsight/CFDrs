@@ -12,7 +12,7 @@
 //!
 //! ## High-level `IndexedMesh` API (new in Phase 8)
 //!
-//! [`csg_boolean_indexed`] takes two `IndexedMesh` objects, merges their
+//! [`csg_boolean`] takes two `IndexedMesh` objects, merges their
 //! vertex pools, runs the Boolean pipeline, and reconstructs a fresh mesh.
 //!
 //! [`CsgNode`] provides a composable CSG tree that evaluates lazily.
@@ -21,8 +21,11 @@ pub mod containment;
 pub mod indexed;
 pub mod operations;
 pub mod tree;
+mod union_strategy;
 
-pub use indexed::csg_boolean_indexed;
-pub use indexed::csg_boolean_indexed_tolerant;
-pub use operations::{csg_boolean, BooleanOp};
+pub use indexed::{
+    csg_boolean, csg_boolean_indexed, csg_boolean_indexed_best_effort,
+    csg_boolean_indexed_tolerant, csg_boolean_nary, csg_boolean_nary_union,
+};
+pub use operations::BooleanOp;
 pub use tree::CsgNode;

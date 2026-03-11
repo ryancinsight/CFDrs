@@ -163,7 +163,8 @@ pub use domain::channel::{
 
 // Export resistance functionality
 pub use physics::resistance::{
-    BendType, ChannelGeometry as ResistanceChannelGeometry, CombinationMethod, DarcyWeisbachModel,
+    cascade_treatment_flow_fractions, parallel_channel_flow_fractions, BendType,
+    ChannelGeometry as ResistanceChannelGeometry, CombinationMethod, DarcyWeisbachModel,
     ExpansionType, FlowConditions, HagenPoiseuilleModel, JunctionFlowDirection, JunctionLossModel,
     JunctionType, MembranePoreModel, RectangularChannelModel, ResistanceCalculator,
     ResistanceModel, ResistanceModelFactory, SerpentineAnalysis, SerpentineCrossSection,

@@ -19,7 +19,7 @@ mod tests {
         centroid, classify_fragment, tri_normal, FragmentClass,
     };
     use crate::application::csg::arrangement::gwn::gwn;
-    use crate::application::csg::boolean::{csg_boolean_indexed, BooleanOp};
+    use crate::application::csg::boolean::{csg_boolean, BooleanOp};
     use crate::application::csg::detect_self_intersect::detect_self_intersections;
     use crate::domain::core::scalar::Point3r;
     use crate::domain::geometry::primitives::{Cube, Cylinder, PrimitiveMesh};
@@ -115,7 +115,7 @@ mod tests {
 
         // Must not panic; result may or may not be Ok depending on degenerate
         // surface handling — we only require no panic.
-        let result = csg_boolean_indexed(BooleanOp::Union, &cyl_a, &cyl_b);
+        let result = csg_boolean(BooleanOp::Union, &cyl_a, &cyl_b);
         // Either success or a structured error — never a panic or OOM.
         // If it succeeded, the mesh must be non-empty.
         if let Ok(mesh) = result {
@@ -284,7 +284,7 @@ mod tests {
         fn union_vertex_count_geq_each_operand(dx in 0.1_f64..1.0) {
             let a = unit_cube();
             let b = offset_cube(dx);
-            if let Ok(union) = csg_boolean_indexed(BooleanOp::Union, &a, &b) {
+            if let Ok(union) = csg_boolean(BooleanOp::Union, &a, &b) {
                 let fa = a.faces.len();
                 let fb = b.faces.len();
                 let fu = union.faces.len();
@@ -324,7 +324,7 @@ mod tests {
         fn intersection_nonempty_for_overlapping_cubes(dx in 0.01_f64..0.99) {
             let a = unit_cube();
             let b = offset_cube(dx);
-            if let Ok(inter) = csg_boolean_indexed(BooleanOp::Intersection, &a, &b) {
+            if let Ok(inter) = csg_boolean(BooleanOp::Intersection, &a, &b) {
                 prop_assert!(!inter.faces.is_empty(), "intersection of overlapping cubes must be non-empty");
             }
         }

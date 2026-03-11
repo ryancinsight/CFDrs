@@ -1,13 +1,51 @@
-//! Phase 3.5 post-corefine vertex consolidation.
+//! Fragment refinement for arrangement CSG.
 //!
 //! Performs cross-mesh-only near-duplicate unification after independent CDTs.
 
 use std::collections::{HashMap, HashSet};
 
+use super::super::corefine::corefine_face;
+use super::super::intersect::SnapSegment;
 use super::classify::FragRecord;
 use crate::domain::core::index::VertexId;
 use crate::domain::core::scalar::Real;
+use crate::infrastructure::storage::face_store::FaceData;
 use crate::infrastructure::storage::vertex_pool::VertexPool;
+
+/// Corefine each non-skipped face into fragment records using the canonical
+/// arrangement CDT path.
+pub(crate) fn append_corefined_fragments<T, F>(
+    fragments: &mut Vec<T>,
+    faces: &[FaceData],
+    skipped_faces: &HashSet<usize>,
+    snap_segments: &[Vec<SnapSegment>],
+    pool: &mut VertexPool,
+    mut build_fragment: F,
+) where
+    F: FnMut(FaceData, usize) -> T,
+{
+    debug_assert_eq!(
+        faces.len(),
+        snap_segments.len(),
+        "every source face must have a snap-segment slot"
+    );
+
+    for (face_index, face) in faces.iter().enumerate() {
+        if skipped_faces.contains(&face_index) {
+            continue;
+        }
+
+        let face_segments = &snap_segments[face_index];
+        if face_segments.is_empty() {
+            fragments.push(build_fragment(*face, face_index));
+            continue;
+        }
+
+        for sub_face in corefine_face(face, face_segments, pool) {
+            fragments.push(build_fragment(sub_face, face_index));
+        }
+    }
+}
 
 /// Build cross-mesh consolidation map from near-duplicate A/B vertex pairs.
 ///

@@ -48,7 +48,12 @@ fn circular_blueprint() -> NetworkBlueprint {
         venturi_geometry: None,
         metadata: None,
     });
-    blueprint.metadata.get_or_insert_with(Default::default).insert(cfd_schematics::geometry::metadata::GeometryAuthoringProvenance::selective_wrapper());
+    blueprint
+        .metadata
+        .get_or_insert_with(Default::default)
+        .insert(
+            cfd_schematics::geometry::metadata::GeometryAuthoringProvenance::selective_wrapper(),
+        );
     blueprint
 }
 
@@ -56,19 +61,25 @@ fn rectangular_blueprint() -> NetworkBlueprint {
     let mut blueprint = NetworkBlueprint::new("rectangular_trace");
     blueprint.add_node(NodeSpec::new_at("inlet", NodeKind::Inlet, (0.0, 0.0)));
     blueprint.add_node(NodeSpec::new_at("outlet", NodeKind::Outlet, (1.0, 0.0)));
-    let mut duct = ChannelSpec::new_pipe_rect(
-        "duct", "inlet", "outlet", 0.01, 1.0e-3, 1.0e-3, 0.0, 0.0,
-    );
+    let mut duct =
+        ChannelSpec::new_pipe_rect("duct", "inlet", "outlet", 0.01, 1.0e-3, 1.0e-3, 0.0, 0.0);
     duct.path = vec![(0.0, 0.0), (1.0, 0.0)];
     blueprint.add_channel(duct);
-    blueprint.metadata.get_or_insert_with(Default::default).insert(cfd_schematics::geometry::metadata::GeometryAuthoringProvenance::selective_wrapper());
+    blueprint
+        .metadata
+        .get_or_insert_with(Default::default)
+        .insert(
+            cfd_schematics::geometry::metadata::GeometryAuthoringProvenance::selective_wrapper(),
+        );
     blueprint
 }
 
 #[test]
 fn build_single_venturi_network() {
     let mut bp = venturi_rect("test_v", 2e-3, 0.5e-3, 0.5e-3, 2e-3);
-    bp.metadata.get_or_insert_with(Default::default).insert(cfd_schematics::geometry::metadata::GeometryAuthoringProvenance::selective_wrapper());
+    bp.metadata.get_or_insert_with(Default::default).insert(
+        cfd_schematics::geometry::metadata::GeometryAuthoringProvenance::selective_wrapper(),
+    );
     let blood = BloodModel::Newtonian(3.5e-3_f64);
     let sink = Network2dBuilderSink::new(blood, 1060.0, 1e-6, 10, 5);
     let net2d = sink.build(&bp).expect("build should succeed");
@@ -80,7 +91,9 @@ fn reference_trace_sums_to_q_total() {
     use cfd_schematics::interface::presets::bifurcation_venturi_rect;
 
     let mut bp = bifurcation_venturi_rect("bv", 0.005, 0.002, 0.0005, 0.001, 0.001);
-    bp.metadata.get_or_insert_with(Default::default).insert(cfd_schematics::geometry::metadata::GeometryAuthoringProvenance::selective_wrapper());
+    bp.metadata.get_or_insert_with(Default::default).insert(
+        cfd_schematics::geometry::metadata::GeometryAuthoringProvenance::selective_wrapper(),
+    );
     let q_total = 1e-6;
     let blood = BloodModel::Newtonian(3.5e-3_f64);
     let sink = Network2dBuilderSink::new(blood, 1060.0, q_total, 10, 5);
@@ -211,7 +224,9 @@ fn two_d_outlet_flow_error_within_20pct_of_1d_reference() {
 fn two_d_venturi_throat_has_higher_shear_than_inlet_section() {
     // main channel 2 mm wide, throat 0.5 mm, height 0.5 mm, length 2 mm
     let mut bp = venturi_rect("v", 2e-3, 0.5e-3, 0.5e-3, 2e-3);
-    bp.metadata.get_or_insert_with(Default::default).insert(cfd_schematics::geometry::metadata::GeometryAuthoringProvenance::selective_wrapper());
+    bp.metadata.get_or_insert_with(Default::default).insert(
+        cfd_schematics::geometry::metadata::GeometryAuthoringProvenance::selective_wrapper(),
+    );
     let q = 5e-8_f64;
     let blood = BloodModel::Newtonian(3.5e-3_f64);
     let sink = Network2dBuilderSink::new(blood, 1060.0, q, 20, 8);
@@ -247,7 +262,9 @@ fn two_d_venturi_throat_has_higher_shear_than_inlet_section() {
 #[test]
 fn two_d_bifurcation_mass_conservation_tracks_1d_reference() {
     let mut bp = bifurcation_venturi_rect("bv", 5e-3, 2e-3, 5e-4, 1e-3, 1e-3);
-    bp.metadata.get_or_insert_with(Default::default).insert(cfd_schematics::geometry::metadata::GeometryAuthoringProvenance::selective_wrapper());
+    bp.metadata.get_or_insert_with(Default::default).insert(
+        cfd_schematics::geometry::metadata::GeometryAuthoringProvenance::selective_wrapper(),
+    );
     let q_total = 1e-6_f64;
     let blood = BloodModel::Newtonian(3.5e-3_f64);
     let sink = Network2dBuilderSink::new(blood, 1060.0, q_total, 20, 8);

@@ -31,7 +31,7 @@ use std::io::BufWriter;
 use std::time::Instant;
 
 use cfd_mesh::domain::core::scalar::Real;
-use cfd_mesh::application::csg::boolean::{BooleanOp, CsgNode, csg_boolean_indexed};
+use cfd_mesh::application::csg::boolean::{BooleanOp, CsgNode, csg_boolean};
 use cfd_mesh::{Cube, IndexedMesh, NormalAnalysis, analyze_normals};
 use cfd_mesh::domain::geometry::primitives::PrimitiveMesh;
 use cfd_mesh::infrastructure::io::stl;
@@ -58,7 +58,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // CubeA [0,2]³ ∪ CubeB [1,3]×[0,2]×[0,2] → 12 mm³ bar
         let cube_a = Cube { origin: Point3r::new(0.0, 0.0, 0.0), width: 2.0, height: 2.0, depth: 2.0 }.build()?;
         let cube_b = Cube { origin: Point3r::new(1.0, 0.0, 0.0), width: 2.0, height: 2.0, depth: 2.0 }.build()?;
-        let union_ab = csg_boolean_indexed(BooleanOp::Union, &cube_a, &cube_b)?;
+        let union_ab = csg_boolean(BooleanOp::Union, &cube_a, &cube_b)?;
 
         // CubeC [2,4]×[1,3]×[1,3]: overlaps bar at [2,3]×[1,2]×[1,2] = 1 mm³
         let cube_c = Cube { origin: Point3r::new(2.0, 1.0, 1.0), width: 2.0, height: 2.0, depth: 2.0 }.build()?;
@@ -88,7 +88,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let cube_c = Cube { origin: Point3r::new(2.0, -1.0, -1.0), width: 2.0, height: 2.0, depth: 2.0 }.build()?;
 
         // Union of the two notch cubes, then subtract from A
-        let union_bc = csg_boolean_indexed(BooleanOp::Union, &cube_b, &cube_c)?;
+        let union_bc = csg_boolean(BooleanOp::Union, &cube_b, &cube_c)?;
 
         let tree = CsgNode::Difference {
             left:  Box::new(CsgNode::Leaf(Box::new(cube_a))),

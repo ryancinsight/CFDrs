@@ -4,7 +4,7 @@ use std::path::Path;
 
 use serde::Serialize;
 
-use crate::reporting::Milestone12ReportDesign;
+use crate::reporting::{Milestone12ReportDesign, ParetoPoint};
 use cfd_1d::validate_blueprint_for_1d_solve;
 use cfd_schematics::visualizations::{plot_blueprint_auto_annotated, RenderConfig};
 use cfd_schematics::NetworkBlueprint;
@@ -49,6 +49,30 @@ pub fn save_json_pretty<T: Serialize + ?Sized>(
     let json = serde_json::to_string_pretty(value)?;
     std::fs::write(path, json)?;
     Ok(())
+}
+
+/// Save lightweight Pareto points to disk.
+///
+/// ~500x smaller than the full `Milestone12ReportDesign` pool: 32 bytes
+/// per point vs ~16-20 KB per design.
+pub fn save_pareto_points(
+    points: &[ParetoPoint],
+    path: &Path,
+) -> Result<(), Box<dyn std::error::Error>> {
+    save_json_pretty(points, path)
+}
+
+/// Load lightweight Pareto points from disk.
+///
+/// Returns `Ok(vec![])` if the file does not exist.
+pub fn load_pareto_points(
+    path: &Path,
+) -> Result<Vec<ParetoPoint>, Box<dyn std::error::Error>> {
+    if !path.exists() {
+        return Ok(Vec::new());
+    }
+    let contents = std::fs::read_to_string(path)?;
+    Ok(serde_json::from_str(&contents)?)
 }
 
 /// Render a schematic SVG for a fully materialized blueprint.

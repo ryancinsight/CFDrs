@@ -5,17 +5,42 @@ use crate::metrics::BlueprintEvaluation;
 
 /// Score for the asymmetric-split venturi-cavitation selectivity objective.
 ///
-/// Evaluates how well venturi throat placements in treatment-zone channels
+/// Evaluates how well venturi throat placements on mirrored treatment-zone
+/// channels derived from the canonical split catalog
 /// achieve selective hydrodynamic cavitation of circulating tumor cells while
-/// limiting RBC and WBC exposure.  The key physics: asymmetric splits drive
-/// differential flow rates and pressures; channel size determines whether
-/// venturi throats can achieve σ < 1 cavitation.  Too many splits may reduce
-/// channel widths below the effective cavitation threshold.
+/// limiting RBC and WBC exposure.
 ///
-/// Uses an **additive weighted sum** (90%) plus a geometric-mean synergy (10%)
-/// to prevent any single zero factor from eliminating the score.
+/// ## Physics — Rayleigh–Plesset bubble dynamics in venturi constrictions
 ///
-/// Floor: 0.001 — no feasible candidate scores exactly zero.
+/// The Bernoulli cavitation number σ = (p∞ − pᵥ)/(½ρv²_throat) governs
+/// bubble nucleation: σ < 1 indicates that the local static pressure at
+/// the vena contracta drops below the blood vapour pressure (pᵥ ≈ 6.3 kPa
+/// at 37 °C). The resulting vapour/gas microbubble growth follows the
+/// Rayleigh–Plesset ODE:
+///
+///   R R̈ + (3/2) Ṙ² = (1/ρ)[p_gas(R₀/R)^(3κ) − p∞ − pᵥ − 4μṘ/R − 2γ/R]
+///
+/// where R is the instantaneous bubble radius, κ ≈ 1.4 (polytropic exponent),
+/// and γ ≈ 0.056 N/m (blood–air surface tension). Violent inertial collapse
+/// at the divergent exit generates localised shear and sonoluminescence for SDT.
+///
+/// ## Channel size constraints
+///
+/// - **Lower bound** (throat ≥ 35 µm): avoids clogging by RBC rouleaux
+///   (∅ ≈ 8 µm) and prevents fabrication limits from dominating pressure-
+///   drop uncertainty.
+/// - **Upper bound** (throat ≤ 120 µm): maintains v_throat sufficient for
+///   σ < 1 within ≤ 250 kPa gauge (clinical extracorporeal pump ceiling).
+///   Wider throats require impractically high flow rates for cavitation onset.
+///
+/// ## Scoring
+///
+/// Uses a **hybrid additive + multiplicative synergy** form:
+///   score = base + synergy
+/// where:
+///   base    = weighted cavitation selectivity, healthy-cell shielding,
+///             routing support, and safety support
+///   synergy = 0.10 × (cav × rbc_shield × routing_support)^(1/3)
 pub fn evaluate_selective_venturi_cavitation(
     candidate: &BlueprintCandidate,
     evaluation: BlueprintEvaluation,
@@ -30,7 +55,10 @@ pub fn evaluate_selective_venturi_cavitation(
         )));
     }
 
-    let cav = evaluation.venturi.cavitation_selectivity_score.clamp(0.0, 1.0);
+    let cav = evaluation
+        .venturi
+        .cavitation_selectivity_score
+        .clamp(0.0, 1.0);
     let rbc_shield = (1.0 - evaluation.venturi.rbc_exposure_fraction).clamp(0.0, 1.0);
     let wbc_shield = (1.0 - evaluation.venturi.wbc_exposure_fraction).clamp(0.0, 1.0);
     let safety = evaluation.safety.cavitation_safety_margin.clamp(0.0, 1.0);
@@ -43,14 +71,30 @@ pub fn evaluate_selective_venturi_cavitation(
         + 0.12 * safety
         + 0.08 * sep
         + 0.06 * routing_support;
-
     let synergy = 0.10 * (cav * rbc_shield * routing_support.max(0.01)).cbrt();
-
-    let score = (base + synergy).clamp(0.001, 1.0);
+    let screening_reasons = [
+        (
+            evaluation.safety.cavitation_safety_margin <= 0.0,
+            "cavitation safety margin must remain positive",
+        ),
+        (
+            evaluation.residence.treatment_flow_fraction <= 0.0,
+            "treatment flow fraction must remain positive",
+        ),
+        (
+            evaluation.venturi.cavitation_selectivity_score <= 0.0,
+            "venturi cavitation selectivity must remain positive",
+        ),
+    ]
+    .into_iter()
+    .filter(|(flag, _)| *flag)
+    .map(|(_, reason)| reason.to_string())
+    .collect();
     Ok(BlueprintObjectiveEvaluation::from_evaluation(
         OptimizationGoal::AsymmetricSplitVenturiCavitationSelectivity,
         candidate,
         evaluation,
-        score,
-    ))
+        (base + synergy).clamp(0.001, 1.0),
+    )
+    .with_screening_reasons(screening_reasons))
 }

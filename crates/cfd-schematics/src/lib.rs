@@ -141,16 +141,16 @@ pub use state_management::{
     ConfigurableParameter, ConstraintError, ParameterConstraints, ParameterError, ParameterManager,
     ParameterRegistry, StateManagementError, StateManagementResult,
 };
+pub use topology::presets::{
+    build_milestone12_blueprint, build_milestone12_topology_spec, enumerate_milestone12_topologies,
+    promote_milestone12_option1_to_option2, Milestone12TopologyRequest,
+};
 pub use topology::{
     BlueprintTopologyFactory, BlueprintTopologyMutation, BlueprintTopologySpec, BranchRole,
     BranchSpec, ChannelRouteSpec, DeanSiteEstimate, ParallelChannelSpec, SeriesChannelSpec,
     SerpentineSpec, SplitKind, SplitStageSpec, ThroatGeometrySpec, TopologyChannelSpec,
     TopologyLineageEvent, TopologyLineageMetadata, TopologyOptimizationStage,
     TreatmentActuationMode, VenturiPlacementMode, VenturiPlacementSpec,
-};
-pub use topology::presets::{
-    build_milestone12_blueprint, build_milestone12_topology_spec,
-    enumerate_milestone12_topologies, Milestone12TopologyRequest,
 };
 pub use visualizations::schematic::{
     centerline_vertices, plot_blueprint, plot_blueprint_auto_annotated,

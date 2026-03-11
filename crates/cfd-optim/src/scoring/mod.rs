@@ -12,45 +12,37 @@
 //!
 //! - **[`OptimMode::Combined`]** — weighted combination of both objectives.
 //!
-//! Any candidate that violates either hard constraint — non-feasible pressure
-//! drop **or** FDA main-channel shear exceedance — receives a score of `0.0`.
+//! Any candidate that violates a hard constraint — non-feasible pressure drop,
+//! FDA main-channel shear exceedance, or plate-boundary overflow — receives a
+//! small positive floor score (`0.001`) to preserve gradient signal for the
+//! optimizer while remaining strictly below any feasible design.
 
 mod modes;
 mod types;
 
 pub use types::{OptimMode, ScoreMode, SdtWeights};
 
-use self::modes::{
-    COMBINED_LEUKA_GATE_FLOOR, COMBINED_LEUKA_MIN_SCORE,
-    COMBINED_LEUKA_MIN_WBC_RECOVERY, COMBINED_ONCOLOGY_GATE_FLOOR,
-    COMBINED_ONCOLOGY_MIN_CANCER_CAV, COMBINED_ONCOLOGY_MIN_SELECTIVITY,
-    COMBINED_PEDIATRIC_HI15_GATE_FLOOR, COMBINED_PEDIATRIC_HI15_LIMIT,
-    COMBINED_SELECTIVE_REMERGE_GATE_FLOOR, COMBINED_SELECTIVE_REMERGE_MIN_SCORE,
-};
-use crate::constraints::{
-    FDA_THROAT_TEMP_RISE_LIMIT_K, HI_PASS_LIMIT, PAI_PASS_LIMIT,
-    THERAPEUTIC_HI_PASS_LIMIT,
-};
+use crate::constraints::{FDA_THROAT_TEMP_RISE_LIMIT_K, HI_PASS_LIMIT, THERAPEUTIC_HI_PASS_LIMIT};
 use crate::metrics::SdtMetrics;
+
+/// Minimum score for any candidate, including those violating hard constraints.
+///
+/// Returning exactly zero destroys gradient information for downstream
+/// optimizers (deterministic search, GA).  This floor preserves a small
+/// positive signal so that infeasible candidates can still be ranked by
+/// "how close to feasibility" they are, enabling smoother convergence.
+const INFEASIBILITY_FLOOR: f64 = 0.001;
 
 // ── Score functions ──────────────────────────────────────────────────────────
 
 /// Compute the score for a single candidate given a mode and weights.
 ///
-/// Returns a value in **[0.0, 1.0]**.  Higher scores indicate better designs.
-/// Returns `0.0` for any candidate that violates hard constraints
-/// (hard-constraint mode) or a tiny gradient signal (smooth-penalty mode).
-///
-/// # Theorem
-/// In `HardConstraint` mode, `score_candidate(...) = 0` whenever any hard
-/// feasibility predicate fails (`pressure_feasible == false`,
-/// `fda_main_compliant == false`, or `plate_fits == false`).
-///
-/// **Proof sketch**
-/// `score_candidate` delegates to `score_candidate_impl` with
-/// `ScoreMode::HardConstraint`.  The first branch performs these feasibility
-/// checks and returns `0.0` before any objective-specific scoring is evaluated.
-/// Therefore no infeasible candidate can receive non-zero score in hard mode.
+/// Returns a value in **[0.001, 1.0]**.  Higher scores indicate better designs.
+/// Infeasible candidates (hard-constraint violations) receive a small but
+/// non-zero floor (`INFEASIBILITY_FLOOR = 0.001`) to preserve gradient signal
+/// for the optimizer.  Any feasible candidate will score strictly above this
+/// floor, maintaining correct ranking while enabling smooth navigation out of
+/// infeasible regions.
 #[must_use]
 pub fn score_candidate(metrics: &SdtMetrics, mode: OptimMode, weights: &SdtWeights) -> f64 {
     score_candidate_impl(metrics, mode, weights, ScoreMode::HardConstraint, 0.0)
@@ -66,10 +58,14 @@ fn score_candidate_impl(
     // ── Feasibility check ─────────────────────────────────────────────────
     match constraint_mode {
         ScoreMode::HardConstraint => {
-            // Disqualify any infeasible candidate.
-            // `plate_fits` rejects candidates whose footprint exceeds the plate boundary.
+            // Infeasible candidates receive INFEASIBILITY_FLOOR (0.001) — a tiny
+            // positive score that preserves gradient signal without competing
+            // with any feasible design.  The floor is small enough that any
+            // feasible candidate (whose mode-specific raw score ≥ 0.01) always
+            // dominates, yet non-zero so optimizers can rank infeasible designs
+            // by proximity to the feasibility boundary.
             if !metrics.pressure_feasible || !metrics.fda_main_compliant || !metrics.plate_fits {
-                return 0.0;
+                return INFEASIBILITY_FLOOR;
             }
             // HI constraints use a smooth sigmoid gate rather than a binary
             // cutoff.  Each mode-specific scoring function already penalises
@@ -105,7 +101,7 @@ fn score_candidate_impl(
                 0.05 * (metrics.throat_temperature_rise_k / FDA_THROAT_TEMP_RISE_LIMIT_K)
                     .clamp(0.0, 1.0)
             };
-            return ((raw - coag_penalty - thermal_penalty) * hi_gate).max(0.0);
+            ((raw - coag_penalty - thermal_penalty) * hi_gate).max(INFEASIBILITY_FLOOR)
         }
         ScoreMode::SmoothPenalty => {
             // Smooth sigmoid multiplier: provides a non-zero gradient for the GA
@@ -129,7 +125,11 @@ fn score_candidate_impl(
             } else {
                 0.2
             };
-            let plate_ok = if metrics.plate_fits { 1.0_f64 } else { 0.0 };
+            // Soft penalty for plate overflow: 0.01 preserves gradient signal
+            // so the GA can navigate toward plate-fitting designs rather than
+            // hitting a hard zero cliff.  The 100× suppression is severe enough
+            // to rank plate-overflow designs strictly below fitting designs.
+            let plate_ok = if metrics.plate_fits { 1.0_f64 } else { 0.01 };
 
             let feasibility = sigmoid_penalty(pressure_margin)
                 * sigmoid_penalty(fda_margin)
@@ -137,8 +137,9 @@ fn score_candidate_impl(
                 * plate_ok;
 
             if feasibility < 0.05 {
-                // Deeply infeasible: return a tiny gradient signal so the GA can escape.
-                return feasibility * 0.1;
+                // Deeply infeasible: return a tiny gradient signal so the GA can
+                // escape.  Floor to INFEASIBILITY_FLOOR to guarantee no zeros.
+                return (feasibility * 0.1).max(INFEASIBILITY_FLOOR);
             }
             // Moderately feasible: continue with normal scoring, then multiply.
             let raw = modes::score_mode_raw(metrics, mode, weights);
@@ -149,378 +150,12 @@ fn score_candidate_impl(
                 0.05 * (metrics.throat_temperature_rise_k / FDA_THROAT_TEMP_RISE_LIMIT_K)
                     .clamp(0.0, 1.0)
             };
-            return (raw * feasibility - coag_penalty - thermal_penalty).max(0.0);
+            (raw * feasibility - coag_penalty - thermal_penalty).max(INFEASIBILITY_FLOOR)
         }
     }
 }
 
 // Mode-specific scoring functions live in `modes.rs`.
-
-// SPLIT_MARKER_START
-    let hi_ratio = metrics.hemolysis_index_per_pass / HI_PASS_LIMIT.max(1e-12);
-    let hi_factor = (1.0_f64 / (1.0 + (hi_ratio / 0.5).powi(2))).clamp(0.0_f64, 1.0_f64);
-    let coverage = metrics.well_coverage_fraction.clamp(0.0, 1.0);
-
-    if metrics.cavitation_number >= 1.0 {
-        // Non-cavitating: small gradient signal based on proximity to σ = 1
-        // and the HI / coverage sub-scores.  A design at σ = 1.01 scores
-        // ~0.10 × full, providing smooth gradient toward cavitation.
-        let proximity = (1.0 / metrics.cavitation_number.max(1.0)).clamp(0.0, 1.0);
-        let non_cav_base = w.cav_hemolysis * hi_factor + w.cav_coverage * coverage;
-        return (0.10 * proximity * (non_cav_base + 0.01)).clamp(0.001, 0.10);
-    }
-
-    let cav = metrics.cavitation_potential;
-    w.cav_potential * cav + w.cav_hemolysis * hi_factor + w.cav_coverage * coverage
-}
-
-/// Score for the uniform exposure objective.
-fn score_exposure(metrics: &SdtMetrics, w: &SdtWeights) -> f64 {
-    let uniformity = metrics.flow_uniformity.clamp(0.0, 1.0);
-    let coverage = metrics.well_coverage_fraction.clamp(0.0, 1.0);
-    let sep3 = metrics.three_pop_sep_efficiency.clamp(0.0, 1.0);
-    let optical_405 = metrics.blue_light_delivery_index_405nm.clamp(0.0, 1.0);
-
-    let target_s = 30.0_f64;
-    let res_norm = if metrics.mean_residence_time_s > 0.0 {
-        (metrics.mean_residence_time_s.ln() - 1e-3_f64.ln()) / (target_s.ln() - 1e-3_f64.ln())
-    } else {
-        0.0
-    }
-    .clamp(0.0, 1.0);
-
-    let core =
-        w.exp_uniformity * uniformity + w.exp_coverage * coverage + w.exp_residence * res_norm;
-    (0.70 * core + 0.15 * sep3 + 0.15 * optical_405).clamp(0.0, 1.0)
-}
-
-/// Score for the cell separation objective.
-///
-/// Uses **adaptive weighting** to avoid a floor effect when the achievable
-/// separation is inherently low (< 0.25).
-fn score_cell_separation(metrics: &SdtMetrics, w: &SdtWeights) -> f64 {
-    let separation = metrics.cell_separation_efficiency.clamp(0.0, 1.0);
-    let cav = metrics.cavitation_potential;
-
-    let hi_ratio = metrics.hemolysis_index_per_pass / HI_PASS_LIMIT.max(1e-12);
-    let hi_factor = (1.0_f64 / (1.0 + (hi_ratio / 0.5).powi(2))).clamp(0.0_f64, 1.0_f64);
-
-    let (sep_w, cav_w, hi_w) = if separation < 0.25 {
-        (0.30, 0.50, 0.20)
-    } else {
-        (w.sep_efficiency, w.sep_cavitation, w.sep_hemolysis)
-    };
-
-    sep_w * separation + cav_w * cav + hi_w * hi_factor
-}
-
-/// Score for the three-population separation objective (WBC+cancer→center, RBC→wall).
-fn score_three_pop_separation(metrics: &SdtMetrics, w: &SdtWeights) -> f64 {
-    let sep3 = metrics.three_pop_sep_efficiency.clamp(0.0, 1.0);
-    let wbc_center = metrics.wbc_center_fraction.clamp(0.0, 1.0);
-    let cav = metrics.cavitation_potential;
-
-    let hi_ratio = metrics.hemolysis_index_per_pass / HI_PASS_LIMIT.max(1e-12);
-    let hi_factor = (1.0_f64 / (1.0 + (hi_ratio / 0.5).powi(2))).clamp(0.0_f64, 1.0_f64);
-
-    w.sep3_efficiency * sep3
-        + w.sep3_wbc_center * wbc_center
-        + w.sep3_cavitation * cav
-        + w.sep3_hemolysis * hi_factor
-}
-
-fn score_selective_routing_base(metrics: &SdtMetrics) -> f64 {
-    let cancer_center = metrics.cancer_center_fraction.clamp(0.0, 1.0);
-    let wbc_center = metrics.wbc_center_fraction.clamp(0.0, 1.0);
-    let rbc_peripheral = metrics.rbc_peripheral_fraction_three_pop.clamp(0.0, 1.0);
-    let sep3 = metrics.three_pop_sep_efficiency.clamp(0.0, 1.0);
-    // Use cancer_dose_fraction (cancer cells actually treated) rather than
-    // therapy_channel_fraction (total blood through treatment zone).  For PST
-    // designs the deliberate flow reduction is the selectivity mechanism, so
-    // penalising it with therapy_fraction unfairly ranks PST3 below PST2.
-    let cancer_dose = metrics.cancer_dose_fraction.clamp(0.0, 1.0);
-    let residence = (metrics.mean_residence_time_s / 1.0).clamp(0.0, 1.0);
-    let optical_405 = metrics.blue_light_delivery_index_405nm.clamp(0.0, 1.0);
-
-    let hi_ratio = metrics.hemolysis_index_per_pass / HI_PASS_LIMIT.max(1e-12);
-    let hi_score = (1.0_f64 / (1.0_f64 + hi_ratio.powi(2))).clamp(0.0, 1.0);
-    let clot_score = (1.0 - metrics.clotting_risk_index.clamp(0.0, 1.0)).clamp(0.0, 1.0);
-
-    (0.20 * cancer_center
-        + 0.15 * wbc_center
-        + 0.15 * rbc_peripheral
-        + 0.15 * sep3
-        + 0.12 * cancer_dose
-        + 0.08 * residence
-        + 0.06 * hi_score
-        + 0.05 * clot_score
-        + 0.04 * optical_405)
-        .clamp(0.0, 1.0)
-}
-
-/// Score for the combined selective SDT therapy objective.
-///
-/// Rewards designs that achieve:
-/// - High three-population separation (cancer → center, RBC → periphery)
-/// - Low hemolysis index (safe for blood cells)
-/// - High cavitation potential (effective SDT treatment)
-/// - High cancer-targeted dose fraction
-/// - RBC protection in peripheral bypass
-/// - Adequate treatment residence time (throat exposure ≥ 1 ms target)
-/// - Low cumulative hemolysis over a 15-minute pediatric therapy window
-/// - Uniform wall-shear distribution (FDA spatial compliance)
-fn score_sdt_therapy(metrics: &SdtMetrics) -> f64 {
-    let sep3 = metrics.three_pop_sep_efficiency.clamp(0.0, 1.0);
-
-    let hi_ratio = metrics.hemolysis_index_per_pass / HI_PASS_LIMIT.max(1e-12);
-    let hi_score = (1.0_f64 / (1.0_f64 + hi_ratio)).clamp(0.0_f64, 1.0_f64);
-
-    let cav = metrics.cavitation_potential;
-    let dose = metrics.cancer_dose_fraction.clamp(0.0, 1.0);
-    let rbc_periph = metrics.rbc_peripheral_fraction_three_pop.clamp(0.0, 1.0);
-
-    // Sonoluminescence proxy: sonosensitiser activation energy is proportional
-    // to the adiabatic collapse temperature ratio.  This captures the
-    // theraputically relevant dimension of cavitation intensity that
-    // cavitation_potential alone does not — higher inlet pressure drives
-    // more energetic collapse and stronger 5-ALA/Ce6 activation.
-    let sono = metrics.sonoluminescence_proxy.clamp(0.0, 1.0);
-    let oncology_selective = metrics.oncology_selectivity_index.clamp(0.0, 1.0);
-    let optical_405 = metrics.blue_light_delivery_index_405nm.clamp(0.0, 1.0);
-
-    // Throat residence time factor: reward designs where the cancer-enriched
-    // stream spends at least ~1 ms in the cavitating throat (enough for R-P
-    // bubble growth/collapse).  Uses throat_transit_time_s (throat-only transit,
-    // ~1–5 ms) rather than mean_residence_time_s (full-chip, ~150–500 ms) so
-    // that the factor discriminates between designs instead of always saturating.
-    let res_target_s = 1e-3; // 1 ms target throat residence time
-    let res_factor = if metrics.throat_transit_time_s > 0.0 {
-        (metrics.throat_transit_time_s / res_target_s)
-            .min(1.0)
-            .max(0.0)
-    } else {
-        0.0
-    };
-
-    // Cumulative hemolysis gate: penalise designs whose projected 15-minute
-    // pediatric hemolysis exceeds the 1% clinical limit.  The gate goes from
-    // 1.0 (when cumulative HI = 0) to 0.0 (when HI ≥ 2× the 1% limit).
-    let cumul_hi_ratio =
-        metrics.projected_hemolysis_15min_pediatric_3kg / COMBINED_PEDIATRIC_HI15_LIMIT.max(1e-18);
-    let cumul_hi_gate = (1.0 / (1.0 + cumul_hi_ratio.powi(2))).clamp(0.0, 1.0);
-
-    // Wall shear uniformity bonus: reward designs with low shear CV (per ASTM
-    // F1841-20 spatial distribution requirement).  CV < 0.3 → full bonus;
-    // CV > 1.0 → zero bonus.
-    let shear_uniformity = (1.0 - (metrics.wall_shear_cv - 0.3).max(0.0) / 0.7).clamp(0.0, 1.0);
-
-    let base = 0.16_f64 * sep3
-        + 0.14_f64 * hi_score
-        + 0.16_f64 * cav
-        + 0.12_f64 * dose
-        + 0.08_f64 * rbc_periph
-        + 0.06_f64 * res_factor
-        + 0.06_f64 * sono
-        + 0.04_f64 * metrics.therapeutic_window_score.clamp(0.0, 1.0)
-        + 0.04_f64 * oncology_selective
-        + 0.04_f64 * shear_uniformity
-        + 0.04_f64 * cumul_hi_gate
-        + 0.06_f64 * optical_405;
-
-    let synergy = if dose > 0.20 && cav > 0.50 && oncology_selective > 0.10 {
-        0.05
-    } else {
-        0.0
-    };
-    let targeting_gate = (0.5 * dose + 0.5 * cav).clamp(0.0, 1.0);
-    let non_target_penalty = if dose < 0.05 { 0.25 } else { 1.0 };
-
-    ((base + synergy) * (0.65 + 0.35 * targeting_gate) * non_target_penalty).min(1.0_f64)
-}
-
-/// Score for the paediatric leukapheresis objective.
-///
-/// Weights: 40% WBC recovery + 30% RBC removal + 20% WBC purity + 10% throughput.
-fn score_pediatric_leukapheresis(metrics: &SdtMetrics, patient_weight_kg: f64) -> f64 {
-    if metrics.total_ecv_ml <= 0.0 {
-        return 0.001;
-    }
-
-    let wbc_rec = metrics.wbc_recovery.clamp(0.0, 1.0);
-    let has_wbc_capture = wbc_rec > 1.0e-9;
-    let rbc_rem = if has_wbc_capture {
-        (1.0_f64 - metrics.rbc_pass_fraction).clamp(0.0_f64, 1.0_f64)
-    } else {
-        0.0
-    };
-    let purity = if has_wbc_capture {
-        metrics.wbc_purity.clamp(0.0, 1.0)
-    } else {
-        0.0
-    };
-
-    let throughput_score = (metrics.flow_rate_ml_min / 10.0).min(1.0);
-
-    let patient_bv_ml = patient_weight_kg * 85.0;
-    let max_ecv_ml = patient_bv_ml * 0.10;
-    let ecv_ok_factor = if metrics.total_ecv_ml <= max_ecv_ml {
-        1.0
-    } else {
-        (max_ecv_ml / metrics.total_ecv_ml).clamp(0.0, 1.0)
-    };
-
-    let raw = 0.40 * wbc_rec + 0.30 * rbc_rem + 0.20 * purity + 0.10 * throughput_score;
-    raw * ecv_ok_factor
-}
-
-/// Score for the hydrodynamic cavitation SDT objective.
-///
-/// Rewards designs that route cancer cells into the cavitating venturi center
-/// stream while keeping RBCs in peripheral bypass arms.
-fn score_hydrodynamic_cavitation_sdt(metrics: &SdtMetrics, w: &SdtWeights) -> f64 {
-    let cancer_cav = metrics.cancer_targeted_cavitation.clamp(0.0, 1.0);
-    let oncology_selective = metrics.oncology_selectivity_index.clamp(0.0, 1.0);
-    let sep3 = metrics.three_pop_sep_efficiency.clamp(0.0, 1.0);
-    let rbc_prot = metrics.rbc_venturi_protection.clamp(0.0, 1.0);
-    let sono = metrics.sonoluminescence_proxy.clamp(0.0, 1.0);
-    let wbc_cav = metrics.wbc_targeted_cavitation.clamp(0.0, 1.0);
-    let cancer_term = (0.70 * cancer_cav + 0.30 * oncology_selective).clamp(0.0, 1.0);
-
-    let base = w.hydro_cancer_cav * cancer_term
-        + w.hydro_sep3 * sep3
-        + w.hydro_rbc_protection * rbc_prot
-        + w.hydro_sonolum * sono
-        + w.hydro_wbc_cav * wbc_cav;
-
-    // Synergy bonus: strong cancer targeting AND effective cell separation.
-    let synergy = if cancer_term > 0.30 && sep3 > 0.30 {
-        0.05
-    } else {
-        0.0
-    };
-    let selective_delivery = metrics.selective_cavitation_delivery_index.clamp(0.0, 1.0);
-    let cav_bias = metrics.cancer_rbc_cavitation_bias_index.clamp(0.0, 1.0);
-    let optical_405 = metrics.blue_light_delivery_index_405nm.clamp(0.0, 1.0);
-    let bias_gate = 0.15 + 0.85 * cav_bias;
-    let remerge_gate = if metrics.cif_outlet_tail_length_mm > 0.0 {
-        0.35 + 0.65 * metrics.cif_remerge_proximity_score.clamp(0.0, 1.0)
-    } else {
-        1.0
-    };
-    let optical_gate = 0.40 + 0.60 * optical_405;
-    let stasis_guard = (1.0 - metrics.clotting_risk_index.clamp(0.0, 1.0)).clamp(0.0, 1.0);
-    let stasis_gate = 0.25 + 0.75 * stasis_guard;
-
-    ((base + 0.08 * selective_delivery + synergy)
-        * bias_gate
-        * remerge_gate
-        * optical_gate
-        * stasis_gate)
-        .min(1.0)
-}
-
-/// Score for the RBC-protected SDT objective.
-///
-/// Maximises the therapeutic window — the ratio of cancer treatment intensity
-/// to RBC lysis risk — while rewarding FDA compliance and therapy-zone coverage.
-fn score_rbc_protected_sdt(metrics: &SdtMetrics, w: &SdtWeights) -> f64 {
-    let window = metrics.therapeutic_window_score.clamp(0.0, 1.0);
-    let cancer_cav = metrics.cancer_targeted_cavitation.clamp(0.0, 1.0);
-
-    // Lysis penalty: lysis_risk_index = 0 → score 1.0; index = 0.001 (limit) → 0.0.
-    let lysis_penalty = (1.0 - metrics.lysis_risk_index * 1000.0).clamp(0.0, 1.0);
-
-    // FDA bonus: full compliance (main + throat transit exception) → 1.0;
-    // throat-exceeds-FDA without exception → 0.5 (partial credit: main is OK).
-    let fda_bonus = if metrics.fda_overall_compliant {
-        1.0_f64
-    } else {
-        0.5_f64
-    };
-
-    let coverage = metrics.therapy_channel_fraction.clamp(0.0, 1.0);
-
-    let base = w.rbc_protected_window * window
-        + w.rbc_protected_cav * cancer_cav
-        + w.rbc_protected_lysis * lysis_penalty
-        + w.rbc_protected_fda * fda_bonus
-        + w.rbc_protected_coverage * coverage;
-
-    // Synergy: strong cancer treatment AND low lysis risk — best-case scenario.
-    let synergy = if cancer_cav > 0.25 && metrics.lysis_risk_index < 0.001 {
-        0.05
-    } else {
-        0.0
-    };
-
-    (base + synergy).min(1.0)
-}
-
-/// Score for the combined SDT + paediatric leukapheresis objective.
-///
-/// Blends `score_pediatric_leukapheresis` and `score_hydrodynamic_cavitation_sdt`
-/// with caller-supplied weights, enabling joint optimisation that satisfies both
-/// the leukapheresis WBC-recovery goal and the cancer-targeted cavitation goal.
-///
-/// The oncology gate suppresses the venturi-SDT term when cavitation metrics
-/// are weak, without penalising routing or leukapheresis value.  The
-/// cancer_rbc_cavitation_bias gate is intentionally NOT applied here because
-/// it is already incorporated inside `score_hydrodynamic_cavitation_sdt`;
-/// double-gating would compound the penalty spuriously.
-///
-/// Safety gates (leukapheresis recovery, cumulative hemolysis, selective remerge)
-/// apply to the entire blended score.
-fn score_combined_sdt_leukapheresis(
-    metrics: &SdtMetrics,
-    weights: &SdtWeights,
-    leuka_weight: f64,
-    sdt_weight: f64,
-    patient_weight_kg: f64,
-) -> f64 {
-    let s_l = score_pediatric_leukapheresis(metrics, patient_weight_kg);
-    let selective_base = score_selective_routing_base(metrics);
-    let venturi_sdt = score_hydrodynamic_cavitation_sdt(metrics, weights);
-
-    // Oncology gate: suppress venturi-SDT when cavitation or selectivity is
-    // too weak to deliver meaningful cancer treatment.
-    let cav_gate_raw =
-        (metrics.cancer_targeted_cavitation / COMBINED_ONCOLOGY_MIN_CANCER_CAV).clamp(0.0, 1.0);
-    let sel_gate_raw =
-        (metrics.oncology_selectivity_index / COMBINED_ONCOLOGY_MIN_SELECTIVITY).clamp(0.0, 1.0);
-    let oncology_gate = COMBINED_ONCOLOGY_GATE_FLOOR
-        + (1.0 - COMBINED_ONCOLOGY_GATE_FLOOR) * cav_gate_raw.min(sel_gate_raw);
-
-    let gated_venturi_sdt = venturi_sdt * oncology_gate;
-    let s_s = (0.60 * selective_base + 0.40 * gated_venturi_sdt).clamp(0.0, 1.0);
-    let blended = (leuka_weight * s_l + sdt_weight * s_s) / (leuka_weight + sdt_weight).max(1e-12);
-
-    // Safety gates: apply to the entire blended score.
-    let wbc_gate = (metrics.wbc_recovery / COMBINED_LEUKA_MIN_WBC_RECOVERY).clamp(0.0, 1.0);
-    let leuka_gate = (s_l / COMBINED_LEUKA_MIN_SCORE).clamp(0.0, 1.0);
-    let leuka_gate_total =
-        COMBINED_LEUKA_GATE_FLOOR + (1.0 - COMBINED_LEUKA_GATE_FLOOR) * wbc_gate.min(leuka_gate);
-    // Cumulative hemolysis gate: use patient-weight-appropriate metric.
-    // For adult patients (≥ 40 kg), the pediatric 3 kg projection is
-    // irrelevant — an adult at 70 kg has 5950 mL blood volume vs 255 mL for
-    // a neonate, so pass count and projected HI are drastically different.
-    let projected_hi15 = if patient_weight_kg >= 40.0 {
-        metrics.projected_hemolysis_15min_adult
-    } else {
-        metrics.projected_hemolysis_15min_pediatric_3kg
-    };
-    let hi15_gate_raw = (1.0 - projected_hi15 / COMBINED_PEDIATRIC_HI15_LIMIT).clamp(0.0, 1.0);
-    let hi15_gate = COMBINED_PEDIATRIC_HI15_GATE_FLOOR
-        + (1.0 - COMBINED_PEDIATRIC_HI15_GATE_FLOOR) * hi15_gate_raw;
-    let cif_remerge_gate = if metrics.cif_outlet_tail_length_mm > 0.0 {
-        let raw = (metrics.cif_remerge_proximity_score / COMBINED_SELECTIVE_REMERGE_MIN_SCORE)
-            .clamp(0.0, 1.0);
-        COMBINED_SELECTIVE_REMERGE_GATE_FLOOR + (1.0 - COMBINED_SELECTIVE_REMERGE_GATE_FLOOR) * raw
-    } else {
-        1.0
-    };
-
-    blended * leuka_gate_total * hi15_gate * cif_remerge_gate
-}
 
 // ── Constraint helpers ────────────────────────────────────────────────────────
 
@@ -747,7 +382,7 @@ mod tests {
         #![proptest_config(ProptestConfig::with_cases(64))]
 
         #[test]
-        fn prop_hard_constraints_always_zero_score(
+        fn prop_hard_constraints_produce_floor_score(
             cav in 0.0_f64..1.0,
             sep3 in 0.0_f64..1.0,
             wbc_recovery in 0.0_f64..1.0,
@@ -774,7 +409,9 @@ mod tests {
                 m.blue_light_delivery_index_405nm = optical_405;
 
                 m.pressure_feasible = false;
-                prop_assert_eq!(score_candidate(&m, mode, &weights), 0.0);
+                let s = score_candidate(&m, mode, &weights);
+                prop_assert_eq!(s, INFEASIBILITY_FLOOR,
+                    "pressure-infeasible candidate must receive floor score, got {}", s);
 
                 let mut m = base_metrics();
                 m.cavitation_potential = cav;
@@ -782,7 +419,9 @@ mod tests {
                 m.wbc_recovery = wbc_recovery;
                 m.blue_light_delivery_index_405nm = optical_405;
                 m.fda_main_compliant = false;
-                prop_assert_eq!(score_candidate(&m, mode, &weights), 0.0);
+                let s = score_candidate(&m, mode, &weights);
+                prop_assert_eq!(s, INFEASIBILITY_FLOOR,
+                    "FDA-noncompliant candidate must receive floor score, got {}", s);
 
                 let mut m = base_metrics();
                 m.cavitation_potential = cav;
@@ -790,7 +429,9 @@ mod tests {
                 m.wbc_recovery = wbc_recovery;
                 m.blue_light_delivery_index_405nm = optical_405;
                 m.plate_fits = false;
-                prop_assert_eq!(score_candidate(&m, mode, &weights), 0.0);
+                let s = score_candidate(&m, mode, &weights);
+                prop_assert_eq!(s, INFEASIBILITY_FLOOR,
+                    "plate-overflow candidate must receive floor score, got {}", s);
             }
         }
 

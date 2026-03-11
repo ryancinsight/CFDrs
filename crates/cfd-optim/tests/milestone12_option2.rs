@@ -10,10 +10,13 @@
 //! 5. FDA venturi transient shear compliance (≤ 300 Pa for ≤ 0.015 s)
 //! 6. EvaluatedPool ranking for Option 2 is consistent
 
+use std::collections::HashSet;
+
 use cfd_optim::{
     build_milestone12_blueprint_candidate_space, evaluate_blueprint_candidate, evaluate_goal,
     evaluate_selective_venturi_cavitation, BlueprintCandidate, EvaluatedPool, OptimizationGoal,
 };
+use cfd_optim::orchestration_lineage_key;
 
 #[test]
 fn option2_candidate_space_contains_venturi_topologies() {
@@ -65,7 +68,7 @@ fn option2_evaluate_goal_produces_bounded_scores_for_venturi_candidates() {
         .take(20)
         .collect();
 
-    let mut positive_count = 0;
+    let mut eligible_count = 0;
     for candidate in &venturi {
         let result = evaluate_goal(
             candidate,
@@ -73,18 +76,24 @@ fn option2_evaluate_goal_produces_bounded_scores_for_venturi_candidates() {
         );
         match result {
             Ok(eval) => {
-                assert!(
-                    eval.score.is_finite(),
-                    "score must be finite for '{}'",
-                    candidate.id
-                );
-                assert!(
-                    eval.score >= 0.0,
-                    "score must be non-negative for '{}'",
-                    candidate.id
-                );
-                if eval.score > 0.0 {
-                    positive_count += 1;
+                if eval.is_eligible() {
+                    assert!(
+                        eval.score.is_some_and(f64::is_finite),
+                        "eligible score must be finite for '{}'",
+                        candidate.id
+                    );
+                    assert!(
+                        eval.score.is_some_and(|score| score > 0.0),
+                        "eligible Option 2 score must be strictly positive for '{}'",
+                        candidate.id
+                    );
+                    eligible_count += 1;
+                } else {
+                    assert!(
+                        eval.score.is_none(),
+                        "screened-out Option 2 candidate '{}' must omit numeric score",
+                        candidate.id
+                    );
                 }
             }
             Err(e) => panic!(
@@ -95,8 +104,8 @@ fn option2_evaluate_goal_produces_bounded_scores_for_venturi_candidates() {
     }
 
     assert!(
-        positive_count > 0,
-        "at least one venturi candidate should achieve positive Option 2 score"
+        eligible_count > 0,
+        "at least one venturi candidate should remain eligible under Option 2 scoring"
     );
 }
 
@@ -196,15 +205,85 @@ fn option2_pool_ranking_is_descending_and_consistent() {
         .expect("pool ranking succeeds");
 
     for window in ranked.windows(2) {
+        let left_score = window[0].score.expect("ranked entries are always eligible");
+        let right_score = window[1].score.expect("ranked entries are always eligible");
         assert!(
-            window[0].score >= window[1].score,
+            left_score >= right_score,
             "Option 2 ranking must be descending: {} ({}) >= {} ({})",
             window[0].candidate_id,
-            window[0].score,
+            left_score,
             window[1].candidate_id,
-            window[1].score
+            right_score
         );
     }
+}
+
+#[test]
+fn option2_candidates_retain_option1_lineage() {
+    let candidates = build_milestone12_blueprint_candidate_space().expect("candidate space builds");
+
+    let acoustic_lineages: HashSet<_> = candidates
+        .iter()
+        .filter(|candidate| {
+            candidate
+                .topology_spec()
+                .map(|spec| !spec.has_venturi() && !spec.split_stages.is_empty())
+                .unwrap_or(false)
+        })
+        .filter_map(orchestration_lineage_key)
+        .collect();
+
+    let venturi_lineages: Vec<_> = candidates
+        .iter()
+        .filter(|candidate| {
+            candidate
+                .topology_spec()
+                .map(|spec| spec.has_venturi())
+                .unwrap_or(false)
+        })
+        .filter_map(orchestration_lineage_key)
+        .collect();
+
+    assert!(
+        !venturi_lineages.is_empty(),
+        "Option 2 candidate space must retain venturi lineage keys"
+    );
+    assert!(
+        venturi_lineages
+            .iter()
+            .all(|lineage| acoustic_lineages.contains(lineage)),
+        "every Option 2 venturi lineage must derive from an Option 1 acoustic lineage"
+    );
+}
+
+#[test]
+fn option2_pool_returns_only_eligible_scored_entries() {
+    let candidates = build_milestone12_blueprint_candidate_space().expect("candidate space builds");
+
+    let venturi: Vec<BlueprintCandidate> = candidates
+        .into_iter()
+        .filter(|c| {
+            c.topology_spec()
+                .map(|spec| spec.has_venturi())
+                .unwrap_or(false)
+        })
+        .take(20)
+        .collect();
+
+    let pool = EvaluatedPool::from_candidates(&venturi);
+    let ranked = pool
+        .top_k(
+            5,
+            OptimizationGoal::AsymmetricSplitVenturiCavitationSelectivity,
+        )
+        .expect("pool ranking succeeds");
+
+    assert!(
+        ranked
+            .iter()
+            .all(|entry| entry.is_eligible() && entry.score.is_some_and(|score| score > 0.0)),
+        "ranked Option 2 entries must be eligible and carry strictly positive scores"
+    );
 }
 
 #[test]
@@ -229,13 +308,12 @@ fn option2_venturi_selectivity_prefers_low_cavitation_number() {
         )
         .expect("pool ranking succeeds");
 
-    // Among positive-score candidates, verify that cavitation selectivity is
+    // Among eligible ranked candidates, verify that cavitation selectivity is
     // correlated with score: candidates with higher cavitation_selectivity_score
     // should have higher total scores (on average).
-    let positive: Vec<_> = ranked.iter().filter(|e| e.score > 0.0).collect();
-    if positive.len() >= 2 {
-        let top_selectivity = positive[0].venturi.cavitation_selectivity_score;
-        let bottom_selectivity = positive
+    if ranked.len() >= 2 {
+        let top_selectivity = ranked[0].venturi.cavitation_selectivity_score;
+        let bottom_selectivity = ranked
             .last()
             .unwrap()
             .venturi

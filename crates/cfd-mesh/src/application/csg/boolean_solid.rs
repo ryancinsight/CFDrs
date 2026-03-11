@@ -16,7 +16,7 @@
 //! The free functions [`csg_boolean`] and [`csg_boolean_indexed`] are **not removed**;
 //! existing call sites continue to compile unchanged.
 
-use crate::application::csg::boolean::{csg_boolean_indexed, BooleanOp};
+use crate::application::csg::boolean::{csg_boolean, BooleanOp};
 use crate::domain::core::error::MeshResult;
 use crate::domain::mesh::IndexedMesh;
 
@@ -51,15 +51,15 @@ pub trait BooleanSolid: Sized {
 
 impl BooleanSolid for IndexedMesh {
     fn union(&self, other: &Self) -> MeshResult<Self> {
-        csg_boolean_indexed(BooleanOp::Union, self, other)
+        csg_boolean(BooleanOp::Union, self, other)
     }
 
     fn intersection(&self, other: &Self) -> MeshResult<Self> {
-        csg_boolean_indexed(BooleanOp::Intersection, self, other)
+        csg_boolean(BooleanOp::Intersection, self, other)
     }
 
     fn difference(&self, other: &Self) -> MeshResult<Self> {
-        csg_boolean_indexed(BooleanOp::Difference, self, other)
+        csg_boolean(BooleanOp::Difference, self, other)
     }
 }
 
@@ -125,7 +125,7 @@ mod tests {
         let a = cube_a();
         let b = cube_b();
         let via_trait = a.union(&b);
-        let via_fn = csg_boolean_indexed(BooleanOp::Union, &a, &b);
+        let via_fn = csg_boolean(BooleanOp::Union, &a, &b);
         assert_eq!(via_trait.is_ok(), via_fn.is_ok());
     }
 }

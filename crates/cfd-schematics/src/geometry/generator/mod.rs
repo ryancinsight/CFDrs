@@ -521,6 +521,7 @@ impl GeometryGenerator {
             topology: self.topology,
             lineage: self.lineage,
             metadata: self.blueprint_metadata,
+            geometry_authored: true,
         };
         blueprint.insert_metadata(GeometryAuthoringProvenance::create_geometry());
         blueprint

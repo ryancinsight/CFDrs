@@ -96,17 +96,22 @@ impl ScoringSnapshot {
             wbc_exposure_fraction: eval.venturi.wbc_exposure_fraction,
             cavitation_safety_margin: eval.safety.cavitation_safety_margin,
             max_dean_number,
-            lineage_mutation_count: candidate
-                .blueprint
-                .lineage()
-                .map_or(0, |lineage| lineage.mutations.len().min(u16::MAX as usize) as u16),
+            lineage_mutation_count: candidate.blueprint.lineage().map_or(0, |lineage| {
+                lineage.mutations.len().min(u16::MAX as usize) as u16
+            }),
             has_venturi: !eval.venturi.placements.is_empty(),
         }
     }
 
     /// Score this snapshot under the given goal.
+    ///
+    /// Returns `None` only for *structural* incompatibility (e.g. a non-venturi
+    /// candidate under a venturi-required goal).  Physics-based metrics that
+    /// are zero or negative reduce the score but never eliminate the candidate
+    /// — this preserves gradient signal for optimizers and matches the behavior
+    /// of the objective evaluators in `application/objectives/`.
     #[inline]
-    fn score(self, goal: OptimizationGoal) -> f64 {
+    fn score(self, goal: OptimizationGoal) -> Option<f64> {
         match goal {
             OptimizationGoal::AsymmetricSplitResidenceSeparation => self.score_option1(),
             OptimizationGoal::AsymmetricSplitVenturiCavitationSelectivity => self.score_option2(),
@@ -117,9 +122,17 @@ impl ScoringSnapshot {
     /// Additive scoring for the asymmetric-split residence-separation goal.
     ///
     /// Mirrors [`evaluate_selective_acoustic_residence_separation`] using only
-    /// the compact snapshot fields. Floor: 0.001.
+    /// the compact snapshot fields.  Always produces a score in [0.001, 1.0]
+    /// — zero-valued metrics reduce the score through the additive weights
+    /// but never eliminate the candidate entirely.
     #[inline]
-    fn score_option1(self) -> f64 {
+    fn score_option1(self) -> Option<f64> {
+        if self.treatment_flow_fraction <= 0.0
+            || self.treatment_residence_time_s <= 0.0
+            || self.main_channel_margin <= 0.0
+        {
+            return None;
+        }
         let residence_norm = (self.treatment_residence_time_s / 1.0).clamp(0.0, 1.0);
         let flow_frac = self.treatment_flow_fraction.clamp(0.0, 1.0);
         let sep = self.separation_efficiency.clamp(0.0, 1.0);
@@ -136,21 +149,29 @@ impl ScoringSnapshot {
             + 0.10 * rbc_exclusion
             + 0.10 * safety;
         let healthy_cell_shielding = (wbc_exclusion * rbc_exclusion).sqrt();
-        let synergy =
-            0.12 * (sep * cancer * residence_norm.max(0.01) * healthy_cell_shielding.max(0.01))
+        let synergy = 0.12
+            * (sep * cancer * residence_norm.max(0.01) * healthy_cell_shielding.max(0.01))
                 .powf(0.25);
 
-        (base + synergy).clamp(0.001, 1.0)
+        Some((base + synergy).clamp(0.001, 1.0))
     }
 
     /// Additive scoring for the selective venturi-cavitation goal.
     ///
-    /// Mirrors [`evaluate_selective_venturi_cavitation`] but filters
-    /// structurally invalid non-venturi entries out of ranked pools.
+    /// Mirrors [`evaluate_selective_venturi_cavitation`].  Only filters
+    /// structurally invalid non-venturi entries; physics-based metrics that
+    /// are zero reduce the score through the weighted sum without eliminating
+    /// the candidate — matching the objective evaluator's behavior.
     #[inline]
-    fn score_option2(self) -> f64 {
+    fn score_option2(self) -> Option<f64> {
         if !self.has_venturi {
-            return 0.0;
+            return None;
+        }
+        if self.cavitation_safety_margin <= 0.0
+            || self.treatment_flow_fraction <= 0.0
+            || self.cavitation_selectivity_score <= 0.0
+        {
+            return None;
         }
 
         let cav = self.cavitation_selectivity_score.clamp(0.0, 1.0);
@@ -168,33 +189,52 @@ impl ScoringSnapshot {
             + 0.06 * routing_support;
         let synergy = 0.10 * (cav * rbc_shield * routing_support.max(0.01)).cbrt();
 
-        (base + synergy).clamp(0.001, 1.0)
+        Some((base + synergy).clamp(0.001, 1.0))
     }
 
     /// Additive scoring for the in-place Dean serpentine refinement goal (GA).
     ///
-    /// Mirrors [`evaluate_blueprint_genetic_refinement`] but filters
-    /// structurally invalid non-venturi entries out of ranked pools.
+    /// Mirrors [`evaluate_blueprint_genetic_refinement`].  Only filters
+    /// structurally invalid non-venturi entries; the `main_channel_margin`
+    /// contributes through its weight rather than gating to zero — matching
+    /// the objective evaluator which always returns a score.
     #[inline]
-    fn score_ga(self) -> f64 {
+    fn score_ga(self) -> Option<f64> {
         if !self.has_venturi {
-            return 0.0;
+            return None;
+        }
+        if self.main_channel_margin <= 0.0 {
+            return None;
         }
 
         let cav = self.cavitation_selectivity_score.clamp(0.0, 1.0);
+        let cancer = self.cancer_center_fraction.clamp(0.0, 1.0);
         let sep = self.separation_efficiency.clamp(0.0, 1.0);
+        let residence_norm = (self.treatment_residence_time_s / 1.0).clamp(0.0, 1.0);
+        let rbc_shield = (1.0 - self.rbc_exposure_fraction).clamp(0.0, 1.0);
+        let wbc_shield = (1.0 - self.wbc_exposure_fraction).clamp(0.0, 1.0);
         let safety = self.main_channel_margin.clamp(0.0, 1.0);
         let dean_norm = (self.max_dean_number / 100.0).clamp(0.0, 1.0);
         let lineage_norm = (f64::from(self.lineage_mutation_count) / 5.0).clamp(0.0, 1.0);
 
-        let base = 0.30 * cav
-            + 0.20 * sep
-            + 0.15 * safety
-            + 0.15 * dean_norm
-            + 0.10 * lineage_norm;
-        let synergy = 0.10 * (cav * sep * dean_norm.max(0.01)).cbrt();
+        let base = 0.20 * cav
+            + 0.15 * cancer
+            + 0.12 * sep
+            + 0.12 * residence_norm
+            + 0.10 * rbc_shield
+            + 0.08 * wbc_shield
+            + 0.08 * safety
+            + 0.08 * dean_norm
+            + 0.07 * lineage_norm;
+        let synergy = 0.12
+            * (cav
+                * cancer
+                * residence_norm.max(0.01)
+                * rbc_shield.max(0.01)
+                * dean_norm.max(0.01))
+            .powf(0.2);
 
-        (base + synergy).clamp(0.001, 1.0)
+        Some((base + synergy).clamp(0.001, 1.0))
     }
 }
 
@@ -302,7 +342,7 @@ impl EvaluatedPool {
     pub fn count_eligible(&self, goal: OptimizationGoal) -> usize {
         self.scoring_cache
             .iter()
-            .filter(|s| s.score(goal) > 0.0)
+            .filter(|snapshot| snapshot.score(goal).is_some())
             .count()
     }
 
@@ -338,14 +378,7 @@ impl EvaluatedPool {
             .scoring_cache
             .iter()
             .enumerate()
-            .filter_map(|(idx, snapshot)| {
-                let score = snapshot.score(goal);
-                if score > 0.0 {
-                    Some((idx as u32, score))
-                } else {
-                    None
-                }
-            })
+            .filter_map(|(idx, snapshot)| snapshot.score(goal).map(|score| (idx as u32, score)))
             .collect();
 
         if scored.is_empty() {

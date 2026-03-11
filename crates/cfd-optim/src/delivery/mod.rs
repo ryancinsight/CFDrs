@@ -10,5 +10,6 @@
 mod export;
 
 pub use export::{
-    load_top5_report_json, save_blueprint_schematic_svg, save_json_pretty, save_top5_report_json,
+    load_pareto_points, load_top5_report_json, save_blueprint_schematic_svg, save_json_pretty,
+    save_pareto_points, save_top5_report_json,
 };

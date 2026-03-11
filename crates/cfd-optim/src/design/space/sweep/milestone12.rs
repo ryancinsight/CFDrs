@@ -4,13 +4,13 @@ use super::super::builder::primitive_selective_candidate;
 use super::super::dimensions::{pst_frac_slices, Milestone12Dimensions};
 use crate::constraints::{CHANNEL_HEIGHT_M, THROAT_LENGTH_FACTORS};
 use crate::domain::BlueprintCandidate;
+use cfd_schematics::topology::presets::enumerate_milestone12_topologies;
 use cfd_schematics::TreatmentActuationMode;
-use cfd_schematics::topology::presets::ALL_SELECTIVE_SEQUENCES;
 
 #[cfg(any(test, debug_assertions))]
 const MILESTONE12_CAPACITY: usize = 8_192;
 #[cfg(not(any(test, debug_assertions)))]
-const MILESTONE12_CAPACITY: usize = 80_000;
+const MILESTONE12_CAPACITY: usize = 500_000;
 
 /// Build the canonical Milestone 12 primitive selective candidates needed by the
 /// Milestone 12 report pipeline.
@@ -25,15 +25,27 @@ pub fn build_milestone12_candidate_space() -> Vec<BlueprintCandidate> {
     let mut candidates = Vec::with_capacity(MILESTONE12_CAPACITY);
     let mut idx: u32 = 0;
 
-    for &sequence in &ALL_SELECTIVE_SEQUENCES {
-        let seq_tag = sequence.label().replace('→', "");
-        let (has_intermediate_tri, has_any_tri, has_any_bi) = sequence.metadata();
+    for request in enumerate_milestone12_topologies() {
+        let seq_tag = request.design_name.replace('→', "");
+        let split_kinds = &request.split_kinds;
+        let has_any_tri = split_kinds
+            .iter()
+            .any(|split_kind| matches!(split_kind, cfd_schematics::SplitKind::NFurcation(3)));
+        let has_intermediate_tri = split_kinds
+            .iter()
+            .skip(1)
+            .any(|split_kind| matches!(split_kind, cfd_schematics::SplitKind::NFurcation(3)));
+        let has_any_bi = split_kinds
+            .iter()
+            .any(|split_kind| matches!(split_kind, cfd_schematics::SplitKind::NFurcation(2)));
         let (pretri_fracs, tri_center_fracs, bi_treat_fracs) =
             pst_frac_slices(has_intermediate_tri, has_any_tri, has_any_bi);
-        let supports_venturi_materialization = sequence
-            .to_split_kinds()
-            .iter()
-            .all(|split_kind| matches!(split_kind, cfd_schematics::SplitKind::NFurcation(2 | 3)));
+        let supports_venturi_materialization = split_kinds.iter().all(|split_kind| {
+            matches!(
+                split_kind,
+                cfd_schematics::SplitKind::NFurcation(2 | 3 | 4 | 5)
+            )
+        });
 
         for &pretri_center_frac in pretri_fracs {
             for &terminal_tri_center_frac in tri_center_fracs {
@@ -59,7 +71,7 @@ pub fn build_milestone12_candidate_space() -> Vec<BlueprintCandidate> {
                                     );
                                     candidates.push(primitive_selective_candidate(
                                         acoustic_id,
-                                        sequence,
+                                        &request,
                                         q,
                                         gauge,
                                         0.0,
@@ -107,7 +119,7 @@ pub fn build_milestone12_candidate_space() -> Vec<BlueprintCandidate> {
                                                     );
                                                     candidates.push(primitive_selective_candidate(
                                                         venturi_id,
-                                                        sequence,
+                                                        &request,
                                                         q,
                                                         gauge,
                                                         d_throat,
@@ -154,7 +166,7 @@ pub fn build_milestone12_candidate_space() -> Vec<BlueprintCandidate> {
                                                     );
                                                     candidates.push(primitive_selective_candidate(
                                                         cavitation_id,
-                                                        sequence,
+                                                        &request,
                                                         q,
                                                         gauge,
                                                         d_throat,

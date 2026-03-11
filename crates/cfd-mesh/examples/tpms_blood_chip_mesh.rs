@@ -36,7 +36,7 @@ use std::fs;
 use std::io::BufWriter;
 use std::path::Path;
 
-use cfd_mesh::application::csg::boolean::{csg_boolean_indexed, BooleanOp};
+use cfd_mesh::application::csg::boolean::{csg_boolean, BooleanOp};
 use cfd_mesh::domain::core::index::VertexId;
 use cfd_mesh::domain::core::scalar::Point3r;
 use cfd_mesh::domain::geometry::primitives::cube::Cube;
@@ -153,7 +153,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // CSG Difference: wall − cutter → wall with rectangular port hole
     println!("  CSG: cutting inlet port through left wall ...");
-    let left = csg_boolean_indexed(BooleanOp::Difference, &left_solid, &inlet_cutter)
+    let left = csg_boolean(BooleanOp::Difference, &left_solid, &inlet_cutter)
         .map_err(|e| format!("Inlet CSG error: {e:?}"))?;
     println!(
         "    Left wall: {} faces → {} faces (hole cut)",
@@ -162,7 +162,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     println!("  CSG: cutting outlet port through right wall ...");
-    let right = csg_boolean_indexed(BooleanOp::Difference, &right_solid, &outlet_cutter)
+    let right = csg_boolean(BooleanOp::Difference, &right_solid, &outlet_cutter)
         .map_err(|e| format!("Outlet CSG error: {e:?}"))?;
     println!(
         "    Right wall: {} faces → {} faces (hole cut)",

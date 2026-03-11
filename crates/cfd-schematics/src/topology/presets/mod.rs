@@ -22,9 +22,9 @@ mod series;
 mod tree;
 
 pub use milestone12::{
-    build_milestone12_blueprint, build_milestone12_topology_spec,
-    enumerate_milestone12_topologies, milestone12_default_stage_layouts,
-    milestone12_primitive_selective_tree_spec, Milestone12PrimitiveSelectiveSpec,
+    build_milestone12_blueprint, build_milestone12_topology_spec, enumerate_milestone12_topologies,
+    milestone12_default_stage_layouts, milestone12_primitive_selective_tree_spec,
+    promote_milestone12_option1_to_option2, Milestone12PrimitiveSelectiveSpec,
     Milestone12StageBranchSpec, Milestone12StageLayout, Milestone12TopologyRequest,
 };
 pub use modifiers::{

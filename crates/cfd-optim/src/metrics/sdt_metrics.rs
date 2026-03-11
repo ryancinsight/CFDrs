@@ -1,7 +1,7 @@
 //! The [`SdtMetrics`] output struct — all physics-derived metrics for one
 //! [`BlueprintCandidate`](crate::design::BlueprintCandidate).
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 
 /// Per-channel hemolysis decomposition for a single channel segment.
 ///
@@ -36,6 +36,7 @@ pub struct SdtMetrics {
     /// Cavitation number σ at the primary venturi throat.
     /// `< 1` implies active cavitation inception; lower values = more intense.
     /// `f64::INFINITY` when the topology has no venturi.
+    #[serde(deserialize_with = "deserialize_f64_null_as_infinity")]
     pub cavitation_number: f64,
 
     /// Dimensionless cavitation potential: `max(0, 1 − σ)`.
@@ -739,6 +740,12 @@ pub struct SdtMetrics {
 
     #[serde(default)]
     pub fda_thermal_compliant: bool,
+}
+
+/// Deserialize an `f64` that may be JSON `null` (produced when `f64::INFINITY`
+/// is serialized by serde_json).  Maps `null` → `f64::INFINITY`.
+fn deserialize_f64_null_as_infinity<'de, D: Deserializer<'de>>(d: D) -> Result<f64, D::Error> {
+    Ok(Option::<f64>::deserialize(d)?.unwrap_or(f64::INFINITY))
 }
 
 fn default_one() -> f64 {

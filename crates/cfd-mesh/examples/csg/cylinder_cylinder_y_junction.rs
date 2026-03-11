@@ -56,7 +56,7 @@ use std::time::Instant;
 
 use nalgebra::{Isometry3, Translation3, UnitQuaternion, Vector3};
 
-use cfd_mesh::application::csg::boolean::{csg_boolean_indexed, BooleanOp};
+use cfd_mesh::application::csg::boolean::{csg_boolean, BooleanOp};
 use cfd_mesh::application::csg::CsgNode;
 use cfd_mesh::application::watertight::check::check_watertight;
 use cfd_mesh::domain::core::scalar::{Point3r, Real};
@@ -133,8 +133,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // Union: (A ∪ B) ∪ C
         let t0 = Instant::now();
-        let a_union_b = csg_boolean_indexed(BooleanOp::Union, &trunk, &branch_up)?;
-        let mut result = csg_boolean_indexed(BooleanOp::Union, &a_union_b, &branch_dn)?;
+        let a_union_b = csg_boolean(BooleanOp::Union, &trunk, &branch_up)?;
+        let mut result = csg_boolean(BooleanOp::Union, &a_union_b, &branch_dn)?;
         let ms = t0.elapsed().as_millis();
 
         report_union(
@@ -171,8 +171,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("  Quarter-Steinmetz (B ∩ C at 90°): V = 4r³/3 = {v_quarter_steinmetz:.4} mm³");
 
         let t0 = Instant::now();
-        let mut result =
-            csg_boolean_indexed(BooleanOp::Intersection, &branch_up_45, &branch_dn_45)?;
+        let mut result = csg_boolean(BooleanOp::Intersection, &branch_up_45, &branch_dn_45)?;
         let ms = t0.elapsed().as_millis();
 
         report(
@@ -197,9 +196,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // reduction from the junction clips.
     {
         let t0_union = Instant::now();
-        let branches_union = csg_boolean_indexed(BooleanOp::Union, &branch_up_45, &branch_dn_45)?;
+        let branches_union = csg_boolean(BooleanOp::Union, &branch_up_45, &branch_dn_45)?;
         let t0_diff = Instant::now();
-        let mut result = csg_boolean_indexed(BooleanOp::Difference, &trunk_45, &branches_union)?;
+        let mut result = csg_boolean(BooleanOp::Difference, &trunk_45, &branches_union)?;
         let ms = t0_diff.elapsed().as_millis() + t0_union.elapsed().as_millis();
 
         report(

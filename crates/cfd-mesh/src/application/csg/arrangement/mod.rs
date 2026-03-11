@@ -107,11 +107,8 @@
 
 #![allow(missing_docs)]
 
-use std::collections::HashMap;
-
 use super::boolean::BooleanOp;
 use super::broad_phase::broad_phase_pairs;
-use super::corefine::corefine_face;
 use super::diagnostics::trace_enabled;
 use super::intersect::{intersect_triangles, IntersectionType, SnapSegment};
 use crate::infrastructure::storage::face_store::FaceData;
@@ -119,17 +116,26 @@ use crate::infrastructure::storage::vertex_pool::VertexPool;
 
 #[cfg(test)]
 pub mod adversarial_tests;
+pub mod boolean_csg;
+#[cfg(test)]
+pub mod boolean_csg_tests;
 pub mod classify;
+pub(crate) mod coplanar_dispatch;
+pub(crate) mod coplanar_groups;
+pub(crate) mod coplanar_resolution;
 pub(crate) mod dsu;
+pub(crate) mod fragment_analysis;
+pub(crate) mod fragment_classification;
+pub(crate) mod fragment_refinement;
 pub(crate) mod gwn;
 pub(crate) mod gwn_bvh;
 pub(crate) mod mesh_ops;
+pub(crate) mod multi_mesh_resolution;
+pub mod n_way;
 pub(crate) mod patch;
-pub(crate) mod phase2;
-pub(crate) mod phase3;
-pub(crate) mod phase4;
 pub mod planar;
 pub mod propagate;
+pub(crate) mod result_finalization;
 pub(crate) mod seam;
 pub(crate) mod stitch;
 #[cfg(test)]
@@ -137,12 +143,28 @@ pub mod tests;
 pub(crate) mod tiebreaker;
 
 use classify::FragRecord;
-use patch::patch_small_boundary_holes;
-use phase2::{build_coplanar_group_index, process_coplanar_groups};
-use phase3::consolidate_cross_mesh_vertices;
-use phase4::classify_kept_fragments;
+use coplanar_groups::{build_coplanar_group_index, process_coplanar_groups};
+use fragment_classification::classify_kept_fragments;
+use fragment_refinement::{append_corefined_fragments, consolidate_cross_mesh_vertices};
 use propagate::propagate_seam_vertices;
-use seam::stitch_boundary_seams;
+use result_finalization::finalize_boolean_faces;
+
+fn propagate_seam_vertices_until_stable(
+    faces: &[FaceData],
+    segs: &mut [Vec<SnapSegment>],
+    pool: &VertexPool,
+) {
+    const MAX_PROPAGATION_PASSES: usize = 8;
+
+    for _ in 0..MAX_PROPAGATION_PASSES {
+        let before: usize = segs.iter().map(Vec::len).sum();
+        propagate_seam_vertices(faces, segs, pool);
+        let after: usize = segs.iter().map(Vec::len).sum();
+        if after == before {
+            break;
+        }
+    }
+}
 
 /// Perform a Boolean operation on two **curved** (non-flat-face) face soups
 /// using the Mesh Arrangement pipeline.
@@ -174,15 +196,15 @@ pub fn boolean_intersecting_arrangement(
     }
 
     // Build per-face lists of intersection snap-segments for CDT co-refinement.
-    let mut segs_a: HashMap<usize, Vec<SnapSegment>> = HashMap::new();
-    let mut segs_b: HashMap<usize, Vec<SnapSegment>> = HashMap::new();
+    let mut segs_a = vec![Vec::new(); faces_a.len()];
+    let mut segs_b = vec![Vec::new(); faces_b.len()];
 
     // Coplanar pair tracking.
     //
     // Modern grouping strategy (Phase 2c): build connected components on the
     // bipartite coplanar-pair graph via DSU in `build_coplanar_group_index`.
     let mut coplanar_pairs: Vec<(usize, usize)> = Vec::new();
-    let t_phase2 = std::time::Instant::now();
+    let t_narrow_phase = std::time::Instant::now();
     // Ã¢â€â‚¬Ã¢â€â‚¬ Phase 2: narrow phase Ã¢â‚¬â€ exact intersection test Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
     for pair in &pairs {
         let fa = &faces_a[pair.face_a];
@@ -190,8 +212,8 @@ pub fn boolean_intersecting_arrangement(
         match intersect_triangles(fa, pool, fb, pool) {
             IntersectionType::Segment { start, end } => {
                 let snap = SnapSegment { start, end };
-                segs_a.entry(pair.face_a).or_default().push(snap);
-                segs_b.entry(pair.face_b).or_default().push(snap);
+                segs_a[pair.face_a].push(snap);
+                segs_b[pair.face_b].push(snap);
             }
             IntersectionType::Coplanar => {
                 coplanar_pairs.push((pair.face_a, pair.face_b));
@@ -212,12 +234,12 @@ pub fn boolean_intersecting_arrangement(
     // check every OTHER face that shares the edge [Va, Vb] on which P lies.
     // Inject a zero-length point-snap segment `PÃ¢â€ â€™P` (or a tiny segment `PaÃ¢â€ â€™PÃ¢â€ â€™Pb`)
     // into the adjacent face so its CDT also places a constrained vertex at P.
-    propagate_seam_vertices(faces_a, &mut segs_a, pool);
-    propagate_seam_vertices(faces_b, &mut segs_b, pool);
+    propagate_seam_vertices_until_stable(faces_a, &mut segs_a, pool);
+    propagate_seam_vertices_until_stable(faces_b, &mut segs_b, pool);
     if trace_enabled() {
         eprintln!(
             "CSG Phase 2 (narrow + propagation): {:?}",
-            t_phase2.elapsed()
+            t_narrow_phase.elapsed()
         );
     }
 
@@ -230,7 +252,7 @@ pub fn boolean_intersecting_arrangement(
     // Face indices used here are excluded from Phase 3/4 processing.
     let mut result_faces: Vec<FaceData> = Vec::new();
 
-    let phase2 = process_coplanar_groups(
+    let coplanar_groups = process_coplanar_groups(
         op,
         faces_a,
         faces_b,
@@ -239,74 +261,64 @@ pub fn boolean_intersecting_arrangement(
         &mut segs_a,
         &mut segs_b,
     );
-    let coplanar_a_used = phase2.a_used;
-    let coplanar_b_used = phase2.b_used;
-    let coplanar_results = phase2.results;
+    let coplanar_a_used = coplanar_groups.a_used;
+    let coplanar_b_used = coplanar_groups.b_used;
+    let coplanar_results = coplanar_groups.results;
+
+    // Coplanar-cap resolution can inject new seam segments onto rim triangles
+    // after the initial propagation pass. Propagate again so adjacent barrel
+    // triangles sharing those edges receive matching Steiner vertices.
+    propagate_seam_vertices_until_stable(faces_a, &mut segs_a, pool);
+    propagate_seam_vertices_until_stable(faces_b, &mut segs_b, pool);
 
     // Phase 3: subdivide intersecting faces via CDT co-refinement.
-    let t_phase3 = std::time::Instant::now();
+    let t_fragment_refinement = std::time::Instant::now();
     // For each face that has intersection segments, run corefine_face to produce
     // CDT-based sub-triangles with pool-registered vertices.
     // Coplanar faces already handled above are skipped.
 
     let mut frags: Vec<FragRecord> = Vec::new();
-
-    // A faces
-    for (fa_idx, fa) in faces_a.iter().enumerate() {
-        if coplanar_a_used.contains(&fa_idx) {
-            continue;
-        }
-        if let Some(snap_segs) = segs_a.get(&fa_idx) {
-            let sub = corefine_face(fa, snap_segs, pool);
-            for face in sub {
-                frags.push(FragRecord {
-                    face,
-                    parent_idx: fa_idx,
-                    from_a: true,
-                });
-            }
-        } else {
-            frags.push(FragRecord {
-                face: *fa,
-                parent_idx: fa_idx,
-                from_a: true,
-            });
-        }
-    }
-
-    // B faces
-    for (fb_idx, fb) in faces_b.iter().enumerate() {
-        if coplanar_b_used.contains(&fb_idx) {
-            continue;
-        }
-        if let Some(snap_segs) = segs_b.get(&fb_idx) {
-            let sub = corefine_face(fb, snap_segs, pool);
-            for face in sub {
-                frags.push(FragRecord {
-                    face,
-                    parent_idx: fb_idx,
-                    from_a: false,
-                });
-            }
-        } else {
-            frags.push(FragRecord {
-                face: *fb,
-                parent_idx: fb_idx,
-                from_a: false,
-            });
-        }
-    }
+    append_corefined_fragments(
+        &mut frags,
+        faces_a,
+        &coplanar_a_used,
+        &segs_a,
+        pool,
+        |face, parent_idx| FragRecord {
+            face,
+            parent_idx,
+            from_a: true,
+        },
+    );
+    append_corefined_fragments(
+        &mut frags,
+        faces_b,
+        &coplanar_b_used,
+        &segs_b,
+        pool,
+        |face, parent_idx| FragRecord {
+            face,
+            parent_idx,
+            from_a: false,
+        },
+    );
     if trace_enabled() {
-        eprintln!("CSG Phase 3 (corefine CDT): {:?}", t_phase3.elapsed());
+        eprintln!(
+            "CSG Fragment refinement (corefine CDT): {:?}",
+            t_fragment_refinement.elapsed()
+        );
     }
 
     // Phase 3.5: global cross-mesh vertex consolidation.
     consolidate_cross_mesh_vertices(&mut frags, pool);
     if trace_enabled() {
-        eprintln!("CSG Phase 3.5: {:?}", t_phase3.elapsed());
+        eprintln!(
+            "CSG Fragment consolidation: {:?}",
+            t_fragment_refinement.elapsed()
+        );
     }
 
-    let t_phase4 = std::time::Instant::now();
+    let t_fragment_classification = std::time::Instant::now();
     let coplanar_groups: Vec<(usize, FaceData)> = coplanar_index
         .rep_a
         .values()
@@ -314,7 +326,10 @@ pub fn boolean_intersecting_arrangement(
         .collect();
     let kept_faces = classify_kept_fragments(op, &frags, faces_a, faces_b, pool, &coplanar_groups);
     if trace_enabled() {
-        eprintln!("CSG Phase 4 (GWN classification): {:?}", t_phase4.elapsed());
+        eprintln!(
+            "CSG Fragment classification (GWN): {:?}",
+            t_fragment_classification.elapsed()
+        );
     }
 
     // Phase 4b: emit 2-D coplanar boolean caps directly.
@@ -331,15 +346,12 @@ pub fn boolean_intersecting_arrangement(
     // (a) Snap-round: split unresolved T-junctions from independent face CDTs.
     // (b) Stitch: merge short cross-seam boundary edges from CDT co-refinement.
     // (c) Fill: ear-clip closed boundary loops to add patch faces.
-    stitch_boundary_seams(&mut result_faces, pool);
-    stitch::fill_boundary_loops(&mut result_faces, pool);
-
-    // Ã¢â€â‚¬Ã¢â€â‚¬ Phase 6: patch small boundary holes Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+    // Ã¢â€â‚¬Ã¢â€â‚¬ Phase 6: patch small boundary holes Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
     // After all phases, tiny holes (3Ã¢â‚¬â€œ6 boundary edges) can remain at the
     // barrel-barrel junction boundary, where an excluded mesh face's grid edge
     // is not shared by the other mesh's kept frags.  We detect these small
     // boundary loops and fill them with fan-triangulated patch faces.
-    patch_small_boundary_holes(&mut result_faces, pool);
+    finalize_boolean_faces(&mut result_faces, pool);
 
     result_faces
 }

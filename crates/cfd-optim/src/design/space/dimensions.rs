@@ -47,7 +47,7 @@ fn primary_slice<T>(values: &'static [T]) -> &'static [T] {
 
 pub(super) const SELECTIVE_TRI_CENTER_FRACS: [f64; 3] = [0.33, 0.45, 0.55];
 pub(super) const SELECTIVE_BI_TREAT_FRACS: [f64; 3] = [0.60, 0.68, 0.76];
-pub(super) const SELECTIVE_CENTERLINE_VT_COUNTS: [u8; 2] = [1, 2];
+pub(super) const SELECTIVE_CENTERLINE_VT_COUNTS: [u8; 4] = [1, 2, 3, 4];
 
 static MILESTONE12_FLOWS: [f64; 4] = [1.333e-6, 1.667e-6, 2.000e-6, 3.333e-6];
 static MILESTONE12_GAUGES: [f64; 4] = [25_000.0, 50_000.0, 100_000.0, 200_000.0];

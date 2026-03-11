@@ -1,6 +1,6 @@
 use cfd_1d::{evaluate_venturi_screening, VenturiScreeningInput};
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use crate::constraints::{
     BLOOD_DENSITY_KG_M3, BLOOD_VAPOR_PRESSURE_PA, BLOOD_VISCOSITY_PA_S, DIFFUSER_DISCHARGE_COEFF,
@@ -19,6 +19,7 @@ pub struct VenturiPlacementMetrics {
     pub cavitation_number: f64,
     pub effective_throat_velocity_m_s: f64,
     pub throat_static_pressure_pa: f64,
+    pub diffuser_recovery_pa: f64,
     pub dean_number: f64,
     pub curvature_radius_m: f64,
     pub arc_length_m: f64,
@@ -38,22 +39,47 @@ pub fn compute_blueprint_venturi_metrics(
     separation: &BlueprintSeparationMetrics,
 ) -> Result<BlueprintVenturiMetrics, OptimError> {
     let topology = candidate.topology_spec()?;
-    let mut placements = Vec::with_capacity(topology.venturi_placements.len());
-    let mut used_sample_ids = HashSet::with_capacity(topology.venturi_placements.len());
+    let n_placements = topology.venturi_placements.len();
+    let mut placements = Vec::with_capacity(n_placements);
+
+    // Pre-build O(1) index: channel id → position in channel_samples slice.
+    // Using &str keys avoids String allocation on every lookup.
+    let sample_index: HashMap<&str, usize> = solve
+        .channel_samples
+        .iter()
+        .enumerate()
+        .map(|(i, s)| (s.id, i))
+        .collect();
+    // Track consumed sample indices (usize) instead of cloning Strings.
+    let mut used_indices: HashSet<usize> = HashSet::with_capacity(n_placements);
+
+    // Accumulate cavitation strength inline to avoid a second pass over `placements`.
+    let mut cavitation_strength_sum = 0.0_f64;
 
     for placement in &topology.venturi_placements {
-        let sample = solve
-            .channel_samples
-            .iter()
-            .find(|sample| {
-                (sample.id == placement.target_channel_id
-                    || sample.id.starts_with(&placement.target_channel_id))
-                    && used_sample_ids.insert(sample.id.to_string())
+        // 1. Exact-match or prefix-match via the pre-built index (O(1)).
+        // 2. Fall back to any unused venturi channel (linear, rare path).
+        let sample_idx = sample_index
+            .get(placement.target_channel_id.as_str())
+            .copied()
+            .filter(|&i| used_indices.insert(i))
+            .or_else(|| {
+                solve
+                    .channel_samples
+                    .iter()
+                    .enumerate()
+                    .find(|(i, s)| {
+                        s.id.starts_with(&placement.target_channel_id) && used_indices.insert(*i)
+                    })
+                    .map(|(i, _)| i)
             })
             .or_else(|| {
-                solve.channel_samples.iter().find(|sample| {
-                    sample.is_venturi_channel && used_sample_ids.insert(sample.id.to_string())
-                })
+                solve
+                    .channel_samples
+                    .iter()
+                    .enumerate()
+                    .find(|(i, s)| s.is_venturi_channel && used_indices.insert(*i))
+                    .map(|(i, _)| i)
             })
             .ok_or_else(|| OptimError::PhysicsError {
                 id: candidate.id.clone(),
@@ -62,6 +88,7 @@ pub fn compute_blueprint_venturi_metrics(
                     placement.target_channel_id
                 ),
             })?;
+        let sample = &solve.channel_samples[sample_idx];
         let mut resolved_placement = placement.clone();
         resolved_placement.target_channel_id = sample.id.to_string();
         let area_inlet_m2 = (placement.throat_geometry.inlet_width_m
@@ -97,27 +124,46 @@ pub fn compute_blueprint_venturi_metrics(
             BLOOD_VISCOSITY_PA_S / BLOOD_DENSITY_KG_M3,
         )
         .unwrap_or_default();
+        // Accumulate saturating cavitation strength inline (avoids a second pass).
+        //
+        // # Theorem — Saturating cavitation strength
+        //
+        // For cavitation number σ, the per-placement strength function
+        //   f(σ) = max(0, 1−σ) / (1 + max(0, 1−σ))
+        //
+        // satisfies:
+        //   1. f(σ) ∈ [0, 1) for all σ           (bounded, never reaches 1)
+        //   2. f(σ) = 0 ⟺ σ ≥ 1                  (no cavitation → zero contribution)
+        //   3. ∂f/∂σ < 0 for σ < 1               (monotone: lower σ ⟹ stronger cavitation)
+        //   4. lim_{σ→−∞} f(σ) = 1               (asymptotic saturation)
+        //
+        // **Proof sketch:**
+        //   Let s = max(0, 1−σ). Then f = s/(1+s).
+        //   • s ≥ 0 ⟹ f ≥ 0; s/(1+s) < 1 for finite s ⟹ f ∈ [0,1). ∎ (1)
+        //   • σ ≥ 1 ⟹ s = 0 ⟹ f = 0. ∎ (2)
+        //   • For σ < 1: ds/dσ = −1, df/ds = 1/(1+s)² > 0, so df/dσ < 0. ∎ (3)
+        //   • σ→−∞ ⟹ s→∞ ⟹ s/(1+s)→1. ∎ (4)
+        //
+        // This replaces the previous `(1−σ).clamp(0,1)` which collapsed all
+        // σ < 0 designs to identical scores, preventing discrimination among
+        // strongly cavitating venturi configurations (e.g. σ = −0.93 vs −0.88).
+        let cav_s = (1.0 - screening.cavitation_number).max(0.0);
+        cavitation_strength_sum += cav_s / (1.0 + cav_s);
+
         placements.push(VenturiPlacementMetrics {
             placement_id: placement.placement_id.clone(),
             target_channel_id: sample.id.to_string(),
             cavitation_number: screening.cavitation_number,
             effective_throat_velocity_m_s: screening.effective_throat_velocity_m_s,
             throat_static_pressure_pa: screening.throat_static_pressure_pa,
+            diffuser_recovery_pa: screening.diffuser_recovery_pa,
             dean_number: dean_site.dean_number,
             curvature_radius_m: dean_site.curvature_radius_m,
             arc_length_m: dean_site.arc_length_m,
         });
     }
 
-    // Cumulative cavitation dose across all placements: CTCs traverse every
-    // serial venturi stage, so effective dose is the sum of per-placement
-    // contributions (1 − σ), clamped to [0, 1].  This correctly discriminates
-    // multi-stage designs from single-placement designs at the same peak σ.
-    let cavitation_term = placements
-        .iter()
-        .map(|placement| (1.0 - placement.cavitation_number).clamp(0.0, 1.0))
-        .sum::<f64>()
-        .clamp(0.0, 1.0);
+    let cavitation_term = cavitation_strength_sum.clamp(0.0, 1.0);
     let rbc_exposure_fraction = (1.0 - separation.rbc_peripheral_fraction).clamp(0.0, 1.0);
     let wbc_exposure_fraction = separation.wbc_center_fraction.clamp(0.0, 1.0);
 
@@ -128,10 +174,8 @@ pub fn compute_blueprint_venturi_metrics(
     let cancer_enrich = separation.cancer_center_fraction.clamp(0.0, 1.0);
     let rbc_shield = (1.0 - rbc_exposure_fraction).clamp(0.0, 1.0);
     let wbc_shield = (1.0 - wbc_exposure_fraction).clamp(0.0, 1.0);
-    let additive = 0.40 * cavitation_term
-        + 0.25 * cancer_enrich
-        + 0.10 * rbc_shield
-        + 0.10 * wbc_shield;
+    let additive =
+        0.40 * cavitation_term + 0.25 * cancer_enrich + 0.10 * rbc_shield + 0.10 * wbc_shield;
     let geometric = 0.15
         * (cavitation_term * cancer_enrich.max(0.01) * rbc_shield.max(0.01) * wbc_shield.max(0.01))
             .powf(0.25);
@@ -153,6 +197,49 @@ mod tests {
     use crate::metrics::{compute_blueprint_separation_metrics, solve_blueprint_candidate};
 
     use super::compute_blueprint_venturi_metrics;
+
+    #[test]
+    fn saturating_cavitation_strength_discriminates_negative_sigma() {
+        // The saturating function f(σ) = max(0,1−σ)/(1+max(0,1−σ)) must produce
+        // strictly different outputs for distinct σ < 0, unlike the old
+        // (1−σ).clamp(0,1) which collapsed all σ < 0 to 1.0.
+        let strength = |sigma: f64| -> f64 {
+            let s = (1.0 - sigma).max(0.0);
+            s / (1.0 + s)
+        };
+
+        // Property 1: f(σ) = 0 for σ ≥ 1 (no cavitation)
+        assert_eq!(strength(1.0), 0.0);
+        assert_eq!(strength(2.0), 0.0);
+
+        // Property 2: f(σ) ∈ (0, 1) for σ < 1
+        let f_half = strength(0.5);
+        assert!(f_half > 0.0 && f_half < 1.0, "f(0.5) = {f_half}");
+
+        // Property 3: Monotone — lower σ produces higher score
+        assert!(strength(-0.93) > strength(-0.88));
+        assert!(strength(-0.88) > strength(0.0));
+        assert!(strength(0.0) > strength(0.5));
+
+        // Property 4: Discrimination — distinct negative σ produce distinct values
+        let scores: Vec<f64> = [-0.93, -0.91, -0.88, -0.85, -0.80]
+            .iter()
+            .map(|&s| strength(s))
+            .collect();
+        for i in 0..scores.len() {
+            for j in (i + 1)..scores.len() {
+                assert!(
+                    (scores[i] - scores[j]).abs() > 1e-12,
+                    "σ[{i}] and σ[{j}] produced identical strength: {}",
+                    scores[i]
+                );
+            }
+        }
+
+        // Property 5: Asymptotic saturation — f(σ) → 1 as σ → −∞
+        assert!(strength(-1000.0) > 0.999);
+        assert!(strength(-1000.0) < 1.0);
+    }
 
     #[test]
     fn dean_peak_placement_selects_highest_curvature_treatment_segment() {

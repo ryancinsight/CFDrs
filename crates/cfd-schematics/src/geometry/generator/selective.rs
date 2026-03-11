@@ -169,6 +169,7 @@ impl SelectiveTreeBuilder {
             topology: None,
             lineage: None,
             metadata: None,
+            geometry_authored: true,
         };
         blueprint.insert_metadata(GeometryAuthoringProvenance::selective_wrapper());
         blueprint
@@ -216,12 +217,17 @@ impl SelectiveTreeBuilder {
             length_m
         };
         let final_shape = match shape {
-            Some(ChannelShape::Serpentine { .. }) => path
-                .first()
-                .zip(path.last())
-                .map_or(ChannelShape::Straight, |(start, end)| {
-                    infer_serpentine_shape(&path, *start, *end, width_m * 1.0e3)
-                }),
+            Some(ChannelShape::Serpentine { segments, bend_radius_m }) => {
+                if bend_radius_m == 0.0 {
+                    path.first()
+                        .zip(path.last())
+                        .map_or(ChannelShape::Straight, |(start, end)| {
+                            infer_serpentine_shape(&path, *start, *end, width_m * 1.0e3)
+                        })
+                } else {
+                    ChannelShape::Serpentine { segments, bend_radius_m }
+                }
+            }
             Some(other) => other,
             None => ChannelShape::Straight,
         };
@@ -417,7 +423,11 @@ impl SelectiveTreeBuilder {
                 "throat_out",
                 path,
                 center_width,
-                if center_serp.is_some() { 0.0 } else { req.branch_length_m.max(req.throat_length_m) },
+                if center_serp.is_some() {
+                    0.0
+                } else {
+                    req.branch_length_m.max(req.throat_length_m)
+                },
                 req.channel_height_m,
                 ChannelVisualRole::CenterTreatment,
                 zone,
@@ -617,9 +627,9 @@ impl SelectiveTreeBuilder {
                 req.channel_height_m,
                 ChannelVisualRole::CenterTreatment,
                 TherapyZone::CancerTarget,
-                center_serp.map(|_| ChannelShape::Serpentine {
-                    segments: 2,
-                    bend_radius_m: 0.0,
+                center_serp.map(|spec| ChannelShape::Serpentine {
+                    segments: spec.segments,
+                    bend_radius_m: spec.bend_radius_m,
                 }),
                 None,
             );
@@ -658,9 +668,9 @@ impl SelectiveTreeBuilder {
             req.channel_height_m,
             ChannelVisualRole::CenterTreatment,
             TherapyZone::CancerTarget,
-            center_serp.map(|_| ChannelShape::Serpentine {
-                segments: 2,
-                bend_radius_m: 0.0,
+            center_serp.map(|spec| ChannelShape::Serpentine {
+                segments: spec.segments,
+                bend_radius_m: spec.bend_radius_m,
             }),
             None,
         );
@@ -699,9 +709,9 @@ impl SelectiveTreeBuilder {
             req.channel_height_m,
             ChannelVisualRole::CenterTreatment,
             TherapyZone::CancerTarget,
-            center_serp.map(|_| ChannelShape::Serpentine {
-                segments: 2,
-                bend_radius_m: 0.0,
+            center_serp.map(|spec| ChannelShape::Serpentine {
+                segments: spec.segments,
+                bend_radius_m: spec.bend_radius_m,
             }),
             None,
         );
@@ -740,13 +750,17 @@ impl SelectiveTreeBuilder {
                 "throat_out",
                 path,
                 treat_w,
-                if center_serp.is_some() { 0.0 } else { req.hybrid_branch_length_m.max(req.throat_length_m) },
+                if center_serp.is_some() {
+                    0.0
+                } else {
+                    req.hybrid_branch_length_m.max(req.throat_length_m)
+                },
                 req.channel_height_m,
                 ChannelVisualRole::CenterTreatment,
                 TherapyZone::CancerTarget,
-                center_serp.map(|_| ChannelShape::Serpentine {
-                    segments: 2,
-                    bend_radius_m: 0.0,
+                center_serp.map(|spec| ChannelShape::Serpentine {
+                    segments: spec.segments,
+                    bend_radius_m: spec.bend_radius_m,
                 }),
                 None,
             );
@@ -1509,6 +1523,8 @@ pub fn create_primitive_selective_tree_geometry_from_spec(
         } else {
             "ultrasound".to_string()
         },
+        mirror_x: false,
+        mirror_y: false,
     });
     Ok(Some(blueprint))
 }
@@ -1690,6 +1706,10 @@ fn annotate_primitive_tree(system: &mut NetworkBlueprint, request: &PrimitiveSel
         let starts_at_treatment_leaf = treatment_leaves.contains(&channel.from);
         let is_treatment_window_channel =
             starts_at_treatment_leaf && max_x > mid_x + 1e-6 && min_x >= mid_x - 1e-6;
+        let touches_treatment_leaf =
+            starts_at_treatment_leaf || treatment_leaves.contains(&channel.to);
+        let is_split_side_treatment_mirror =
+            touches_treatment_leaf && max_x <= mid_x + 1e-6 && min_x < mid_x - 1e-6;
         let is_trunk = touches_inlet || touches_outlet;
 
         let physical_width = if touches_inlet || touches_outlet {
@@ -1718,7 +1738,7 @@ fn annotate_primitive_tree(system: &mut NetworkBlueprint, request: &PrimitiveSel
         };
         if touches_inlet || touches_outlet {
             role = ChannelVisualRole::Trunk;
-        } else if max_x > mid_x {
+        } else if !is_treatment && max_x > mid_x {
             role = ChannelVisualRole::MergeCollector;
         }
         channel.visual_role = Some(role);
@@ -1731,7 +1751,7 @@ fn annotate_primitive_tree(system: &mut NetworkBlueprint, request: &PrimitiveSel
         });
 
         if is_treatment
-            && is_treatment_window_channel
+            && (is_treatment_window_channel || is_split_side_treatment_mirror)
             && request.center_serpentine.is_some()
             && !request.treatment_branch_venturi_enabled
         {
@@ -1917,7 +1937,8 @@ fn dfs_channel_path(
 mod tests {
     use super::{
         create_primitive_selective_tree_geometry, path_intersects_any,
-        route_monotone_treatment_path, PrimitiveSelectiveSplitKind, PrimitiveSelectiveTreeRequest,
+        route_monotone_treatment_path, CenterSerpentinePathSpec, PrimitiveSelectiveSplitKind,
+        PrimitiveSelectiveTreeRequest,
     };
 
     #[test]
@@ -2089,6 +2110,151 @@ mod tests {
             !path_intersects_any(&routed, &existing_paths),
             "rerouted path must not cross the existing treatment lane"
         );
+    }
+
+    #[test]
+    fn primitive_selective_serpentine_mirrors_on_both_sides_of_midline() {
+        use crate::domain::model::ChannelShape;
+        let blueprint = create_primitive_selective_tree_geometry(&PrimitiveSelectiveTreeRequest {
+            name: "serp-mirror-check".to_string(),
+            box_dims_mm: (127.76, 85.47),
+            split_sequence: vec![
+                PrimitiveSelectiveSplitKind::Tri,
+                PrimitiveSelectiveSplitKind::Tri,
+            ],
+            main_width_m: 4.0e-3,
+            throat_width_m: 55.0e-6,
+            throat_length_m: 110.0e-6,
+            channel_height_m: 1.0e-3,
+            first_trifurcation_center_frac: 0.55,
+            later_trifurcation_center_frac: 0.45,
+            bifurcation_treatment_frac: 0.68,
+            treatment_branch_venturi_enabled: false,
+            treatment_branch_throat_count: 1,
+            center_serpentine: Some(CenterSerpentinePathSpec {
+                segments: 5,
+                bend_radius_m: 3.0e-3,
+            }),
+        });
+
+        let mid_x = blueprint.box_dims.0 * 0.5;
+        let serpentine_channels: Vec<_> = blueprint
+            .channels
+            .iter()
+            .filter(|ch| matches!(ch.channel_shape, ChannelShape::Serpentine { .. }))
+            .collect();
+
+        assert!(
+            serpentine_channels.len() >= 2,
+            "at least one serpentine channel on each side expected, got {}",
+            serpentine_channels.len()
+        );
+
+        let node_pts: std::collections::HashMap<_, _> = blueprint
+            .nodes
+            .iter()
+            .map(|n| (n.id.clone(), n.point))
+            .collect();
+        let left_count = serpentine_channels
+            .iter()
+            .filter(|ch| {
+                let max_x = [
+                    node_pts.get(&ch.from).map(|p| p.0),
+                    node_pts.get(&ch.to).map(|p| p.0),
+                ]
+                .into_iter()
+                .flatten()
+                .fold(f64::NEG_INFINITY, f64::max);
+                max_x <= mid_x + 1e-6
+            })
+            .count();
+        let right_count = serpentine_channels
+            .iter()
+            .filter(|ch| {
+                let min_x = [
+                    node_pts.get(&ch.from).map(|p| p.0),
+                    node_pts.get(&ch.to).map(|p| p.0),
+                ]
+                .into_iter()
+                .flatten()
+                .fold(f64::INFINITY, f64::min);
+                min_x >= mid_x - 1e-6
+            })
+            .count();
+
+        assert!(
+            left_count >= 1,
+            "split-side (left) treatment channels must have serpentine overlays, got {left_count}"
+        );
+        assert!(
+            right_count >= 1,
+            "merge-side (right) treatment channels must have serpentine overlays, got {right_count}"
+        );
+    }
+
+    #[test]
+    fn treatment_channels_retain_center_treatment_role_on_merge_side() {
+        use crate::geometry::metadata::ChannelVisualRole;
+        let blueprint = create_primitive_selective_tree_geometry(&PrimitiveSelectiveTreeRequest {
+            name: "role-mirror-check".to_string(),
+            box_dims_mm: (127.76, 85.47),
+            split_sequence: vec![
+                PrimitiveSelectiveSplitKind::Tri,
+                PrimitiveSelectiveSplitKind::Tri,
+            ],
+            main_width_m: 4.0e-3,
+            throat_width_m: 55.0e-6,
+            throat_length_m: 110.0e-6,
+            channel_height_m: 1.0e-3,
+            first_trifurcation_center_frac: 0.55,
+            later_trifurcation_center_frac: 0.45,
+            bifurcation_treatment_frac: 0.68,
+            treatment_branch_venturi_enabled: false,
+            treatment_branch_throat_count: 1,
+            center_serpentine: Some(CenterSerpentinePathSpec {
+                segments: 5,
+                bend_radius_m: 3.0e-3,
+            }),
+        });
+
+        let mid_x = blueprint.box_dims.0 * 0.5;
+        let node_pts: std::collections::HashMap<_, _> = blueprint
+            .nodes
+            .iter()
+            .map(|n| (n.id.clone(), n.point))
+            .collect();
+
+        let merge_side_treatment: Vec<_> = blueprint
+            .channels
+            .iter()
+            .filter(|ch| {
+                ch.therapy_zone
+                    == Some(crate::domain::therapy_metadata::TherapyZone::CancerTarget)
+            })
+            .filter(|ch| {
+                let max_x = [
+                    node_pts.get(&ch.from).map(|p| p.0),
+                    node_pts.get(&ch.to).map(|p| p.0),
+                ]
+                .into_iter()
+                .flatten()
+                .fold(f64::NEG_INFINITY, f64::max);
+                max_x > mid_x + 1e-6
+            })
+            .collect();
+
+        assert!(
+            !merge_side_treatment.is_empty(),
+            "should have treatment channels on the merge side"
+        );
+        for ch in &merge_side_treatment {
+            assert_eq!(
+                ch.visual_role,
+                Some(ChannelVisualRole::CenterTreatment),
+                "merge-side treatment channel {} must retain CenterTreatment role",
+                ch.id.as_str()
+            );
+        }
     }
 }
 
@@ -2288,40 +2454,30 @@ fn build_serpentine_lobe_path(
     let dx = end.0 - start.0;
     let dy = end.1 - start.1;
     let chord_length_mm = dx.hypot(dy);
-    if chord_length_mm <= 1e-9 || spec.segments < 3 {
+    if chord_length_mm <= 1e-9 || spec.segments < 2 {
         return vec![start, end];
     }
 
     let channel_diameter_mm = (width_m * 1.0e3).max(1.0e-3);
     let bend_radius_mm = (spec.bend_radius_m * 1.0e3).max(channel_diameter_mm * 0.5);
-    let requested_turns = spec.segments.saturating_sub(1).max(1);
-    let usable_length_mm = (chord_length_mm - 2.0 * channel_diameter_mm).max(0.0);
-    let min_turn_span_mm = (bend_radius_mm * 2.5)
-        .max(channel_diameter_mm * 3.0)
-        .max(amplitude_mm * 2.0);
-    let max_turns = (usable_length_mm / min_turn_span_mm).floor() as usize;
-    // Guarantee at least a full S (2 turns) when the channel is physically long enough.
-    let min_s_turns = if usable_length_mm >= channel_diameter_mm * 6.0 {
-        2
-    } else {
-        1
-    };
-    let safe_turns = requested_turns
-        .min(max_turns.max(1))
-        .max(min_s_turns.min(max_turns.max(1)));
-    // Place peaks at chord*(i+0.5)/N so a 2-turn S has peaks at 1/4 and 3/4 of the
-    // chord — symmetric about the x-midpoint and spanning the full channel length.
+    let requested_turns = spec.segments.saturating_sub(1).max(2);
+    // Always materialize at least a mirrored 2-lobe rotated-S when a treatment
+    // serpentine is requested. The physical bend radius still modulates the
+    // shoulder and amplitude, but the authored path never degrades to a single apex.
+    let safe_turns = requested_turns;
     let step_mm = chord_length_mm / safe_turns as f64;
-    let shoulder_mm = (step_mm * 0.28).min(bend_radius_mm.max(channel_diameter_mm * 1.5));
+    let shoulder_mm = (step_mm * 0.28)
+        .max(channel_diameter_mm * 0.75)
+        .min(bend_radius_mm.max(channel_diameter_mm * 1.5));
     let lobe_amplitude_mm = amplitude_mm
         .max(channel_diameter_mm * 1.5)
-        .min(step_mm * 0.45);
+        .min(step_mm * 0.40);
     let tx = dx / chord_length_mm;
     let ty = dy / chord_length_mm;
     let nx = -ty;
     let ny = tx;
 
-    let mut path = Vec::with_capacity(2 + safe_turns * 3);
+    let mut path = Vec::with_capacity(2 + safe_turns * 5);
     path.push(start);
     let mut last_along_mm = 0.0;
     for turn_idx in 0..safe_turns {
@@ -2329,7 +2485,9 @@ fn build_serpentine_lobe_path(
         let direction = if turn_idx % 2 == 0 { 1.0 } else { -1.0 };
         for (along_mm, offset_scale) in [
             (center_mm - shoulder_mm, 0.35),
+            (center_mm - shoulder_mm * 0.45, 0.72),
             (center_mm, 1.0),
+            (center_mm + shoulder_mm * 0.45, 0.72),
             (center_mm + shoulder_mm, 0.35),
         ] {
             if along_mm <= last_along_mm + 1.0e-6 || along_mm >= chord_length_mm - 1.0e-6 {

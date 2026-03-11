@@ -29,6 +29,13 @@ pub struct NetworkBlueprint {
     /// schematics without any domain-specific render logic).
     #[serde(skip)]
     pub metadata: Option<MetadataContainer>,
+    /// Serializable flag recording that this blueprint was created through
+    /// the canonical `create_geometry()` pipeline.  The in-memory
+    /// [`MetadataContainer`] cannot survive JSON round-trips (`#[serde(skip)]`),
+    /// so this persistent flag ensures deserialized blueprints still pass the
+    /// `is_geometry_authored()` validation gate.
+    #[serde(default)]
+    pub geometry_authored: bool,
 }
 
 impl NetworkBlueprint {
@@ -67,6 +74,7 @@ impl NetworkBlueprint {
             topology: None,
             lineage: None,
             metadata: None,
+            geometry_authored: false,
         }
     }
 
@@ -125,9 +133,13 @@ impl NetworkBlueprint {
 
     /// Whether this blueprint was created by the canonical geometry-authoring
     /// pipeline and is therefore eligible for canonical figure export.
+    ///
+    /// Returns `true` if either the in-memory metadata container carries a
+    /// [`GeometryAuthoringProvenance`] marker **or** the serializable
+    /// `geometry_authored` flag is set (survives JSON round-trips).
     #[must_use]
     pub fn is_geometry_authored(&self) -> bool {
-        self.geometry_authoring_provenance().is_some()
+        self.geometry_authored || self.geometry_authoring_provenance().is_some()
     }
 
     #[must_use]

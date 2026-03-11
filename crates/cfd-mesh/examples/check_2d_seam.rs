@@ -1,4 +1,4 @@
-use cfd_mesh::application::csg::boolean::{csg_boolean_indexed, BooleanOp};
+use cfd_mesh::application::csg::boolean::{csg_boolean, BooleanOp};
 use cfd_mesh::domain::core::scalar::Point3r;
 use cfd_mesh::domain::geometry::primitives::{Disk, PrimitiveMesh};
 use cfd_mesh::domain::topology::manifold;
@@ -40,12 +40,12 @@ fn main() {
     let a = disk(-d / 2., r, 128);
     let b = disk(d / 2., r, 128);
 
-    let u = csg_boolean_indexed(BooleanOp::Union, &a, &b).unwrap();
+    let u = csg_boolean(BooleanOp::Union, &a, &b).unwrap();
     check_mesh("Union", &u);
 
-    let i = csg_boolean_indexed(BooleanOp::Intersection, &a, &b).unwrap();
+    let i = csg_boolean(BooleanOp::Intersection, &a, &b).unwrap();
     check_mesh("Intersection", &i);
 
-    let diff = csg_boolean_indexed(BooleanOp::Difference, &a, &b).unwrap();
+    let diff = csg_boolean(BooleanOp::Difference, &a, &b).unwrap();
     check_mesh("Difference", &diff);
 }

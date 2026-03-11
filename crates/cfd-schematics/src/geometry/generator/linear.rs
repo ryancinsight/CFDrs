@@ -124,28 +124,30 @@ fn build_series_channel(
 
 pub fn create_series_geometry_from_spec(spec: &BlueprintTopologySpec) -> NetworkBlueprint {
     let channel_count = spec.series_channels.len();
-    let spacing_mm = if channel_count == 0 {
-        10.0
-    } else {
-        (spec.box_dims_mm.0 - 20.0) / channel_count as f64
-    };
     let y_mm = spec.box_dims_mm.1 * 0.5;
-
+    
     let mut nodes = Vec::with_capacity(channel_count + 1);
-    nodes.push(layout_node("inlet", NodeKind::Inlet, (0.0, y_mm)));
-    for idx in 0..channel_count.saturating_sub(1) {
-        let x_mm = 10.0 + spacing_mm * (idx as f64 + 1.0);
-        nodes.push(layout_node(
-            format!("junction_{idx}"),
-            NodeKind::Junction,
-            (x_mm, y_mm),
-        ));
+    let mut current_x = 10.0;
+    nodes.push(layout_node("inlet", NodeKind::Inlet, (current_x, y_mm)));
+    
+    for (idx, channel) in spec.series_channels.iter().enumerate() {
+        if idx < channel_count - 1 {
+            current_x += channel.route.length_m * 1000.0;
+            nodes.push(layout_node(
+                format!("junction_{idx}"),
+                NodeKind::Junction,
+                (current_x, y_mm),
+            ));
+        } else {
+            current_x += channel.route.length_m * 1000.0;
+            nodes.push(layout_node(
+                "outlet",
+                NodeKind::Outlet,
+                (current_x, y_mm),
+            ));
+        }
     }
-    nodes.push(layout_node(
-        "outlet",
-        NodeKind::Outlet,
-        (spec.box_dims_mm.0, y_mm),
-    ));
+
 
     let mut channels = Vec::with_capacity(channel_count);
     for (idx, channel) in spec.series_channels.iter().enumerate() {
@@ -182,6 +184,7 @@ pub fn create_series_geometry_from_spec(spec: &BlueprintTopologySpec) -> Network
         topology: Some(spec.clone()),
         lineage: None,
         metadata: None,
+        geometry_authored: true,
     };
     blueprint.insert_metadata(GeometryAuthoringProvenance::create_geometry());
     materialize_blueprint_layout(&mut blueprint);
@@ -255,6 +258,7 @@ pub fn create_parallel_geometry_from_spec(spec: &BlueprintTopologySpec) -> Netwo
         topology: Some(spec.clone()),
         lineage: None,
         metadata: None,
+        geometry_authored: true,
     };
     blueprint.insert_metadata(GeometryAuthoringProvenance::create_geometry());
     materialize_blueprint_layout(&mut blueprint);

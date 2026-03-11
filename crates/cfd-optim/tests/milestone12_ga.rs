@@ -12,9 +12,12 @@
 //! 6. GA can bootstrap venturi placements from an Option 1 seed
 
 use cfd_optim::{
-    build_milestone12_blueprint_candidate_space, evaluate_blueprint_candidate, evaluate_goal,
-    generate_ga_mutations, BlueprintCandidate, BlueprintGeneticOptimizer, OptimizationGoal,
+    build_milestone12_blueprint_candidate_space, build_milestone12_ga_seed_pair,
+    evaluate_blueprint_candidate, evaluate_goal, generate_ga_mutations,
+    promote_option1_candidate_to_ga_seed, BlueprintCandidate, BlueprintEvaluationStatus,
+    BlueprintGeneticOptimizer, OptimizationGoal,
 };
+use cfd_schematics::TopologyOptimizationStage;
 
 fn venturi_seed() -> BlueprintCandidate {
     let candidates = build_milestone12_blueprint_candidate_space().expect("candidate space builds");
@@ -101,16 +104,24 @@ fn ga_evaluate_goal_produces_bounded_scores() {
         let result = evaluate_goal(mutant, OptimizationGoal::InPlaceDeanSerpentineRefinement);
         match result {
             Ok(eval) => {
-                assert!(
-                    eval.score.is_finite(),
-                    "GA score must be finite for '{}'",
-                    mutant.id
-                );
-                assert!(
-                    eval.score >= 0.0,
-                    "GA score must be non-negative for '{}'",
-                    mutant.id
-                );
+                if eval.is_eligible() {
+                    assert!(
+                        eval.score.is_some_and(f64::is_finite),
+                        "eligible GA score must be finite for '{}'",
+                        mutant.id
+                    );
+                    assert!(
+                        eval.score.is_some_and(|score| score > 0.0),
+                        "eligible GA score must be strictly positive for '{}'",
+                        mutant.id
+                    );
+                } else {
+                    assert!(
+                        eval.score.is_none(),
+                        "screened-out GA candidate '{}' must omit numeric score",
+                        mutant.id
+                    );
+                }
             }
             Err(e) => panic!("evaluate_goal (GA) failed for '{}': {e}", mutant.id),
         }
@@ -118,11 +129,46 @@ fn ga_evaluate_goal_produces_bounded_scores() {
 }
 
 #[test]
-fn ga_optimizer_evolves_population_and_ranks_results() {
+fn ga_mutation_catalog_includes_canonical_split_serpentine_and_venturi_compositions() {
     let seed = venturi_seed();
+    let seed_topology = seed.topology_spec().expect("seed has topology");
+    let seed_stage_count = seed_topology.split_stages.len();
+    let mutations = generate_ga_mutations(&seed).expect("GA mutations succeed");
+
+    assert!(
+        mutations.iter().any(|candidate| {
+            candidate
+                .topology_spec()
+                .is_ok_and(|topology| topology.has_serpentine() && topology.has_venturi())
+        }),
+        "GA mutation catalog must include serpentine plus venturi compositions"
+    );
+    assert!(
+        mutations.iter().any(|candidate| {
+            candidate
+                .topology_spec()
+                .is_ok_and(|topology| topology.split_stages.len() > seed_stage_count)
+        }),
+        "GA mutation catalog must include canonical split-merge insertions"
+    );
+    assert!(
+        mutations.iter().all(|candidate| {
+            candidate.blueprint().lineage().is_some_and(|lineage| {
+                lineage.current_stage == TopologyOptimizationStage::InPlaceDeanSerpentineRefinement
+                    && !lineage.mutations.is_empty()
+            })
+        }),
+        "all GA mutations must remain canonical schematics mutations with recorded lineage"
+    );
+}
+
+#[test]
+fn ga_optimizer_evolves_population_and_ranks_results() {
+    let candidates = build_milestone12_blueprint_candidate_space().expect("candidate space builds");
+    let seeds = build_milestone12_ga_seed_pair(&candidates).expect("canonical GA seed pair");
 
     let result = BlueprintGeneticOptimizer::new(OptimizationGoal::InPlaceDeanSerpentineRefinement)
-        .with_seeds(vec![seed])
+        .with_seeds(seeds)
         .with_population(8)
         .with_max_generations(2)
         .with_top_k(3)
@@ -137,12 +183,13 @@ fn ga_optimizer_evolves_population_and_ranks_results() {
     // Verify descending score order.
     for window in result.top_candidates.windows(2) {
         assert!(
-            window[0].evaluation.score >= window[1].evaluation.score,
+            window[0].evaluation.score.unwrap_or_default()
+                >= window[1].evaluation.score.unwrap_or_default(),
             "GA results must be descending: {} ({}) >= {} ({})",
             window[0].candidate.id,
-            window[0].evaluation.score,
+            window[0].evaluation.score.unwrap_or_default(),
             window[1].candidate.id,
-            window[1].evaluation.score
+            window[1].evaluation.score.unwrap_or_default()
         );
     }
 
@@ -156,6 +203,11 @@ fn ga_optimizer_evolves_population_and_ranks_results() {
             eval.is_ok(),
             "ranked GA candidate '{}' must be evaluable",
             entry.candidate.id
+        );
+        assert_eq!(entry.evaluation.status, BlueprintEvaluationStatus::Eligible);
+        assert!(
+            entry.evaluation.exceeds_all_baselines.is_some(),
+            "GA evaluation should record baseline comparison"
         );
     }
 }
@@ -195,7 +247,7 @@ fn ga_scoring_includes_dean_number_contribution() {
 }
 
 #[test]
-fn ga_bootstraps_venturi_from_non_venturi_seed() {
+fn ga_promotes_option1_seed_through_canonical_topology_api() {
     let candidates = build_milestone12_blueprint_candidate_space().expect("candidate space builds");
 
     let acoustic = candidates
@@ -207,18 +259,37 @@ fn ga_bootstraps_venturi_from_non_venturi_seed() {
         })
         .expect("at least one acoustic candidate");
 
-    let result = generate_ga_mutations(&acoustic);
     assert!(
-        result.is_ok(),
-        "GA mutation generation must accept acoustic Option 1 seeds by bootstrapping venturi placements"
+        generate_ga_mutations(&acoustic).is_err(),
+        "GA mutation generation must reject non-venturi seeds after the canonical promotion split"
     );
-    let mutants = result.expect("GA bootstrap mutations should exist");
+
+    let promoted =
+        promote_option1_candidate_to_ga_seed(&acoustic).expect("Option 1 promotion should work");
     assert!(
-        mutants.iter().all(|candidate| {
+        promoted
+            .topology_spec()
+            .is_ok_and(|topology| !topology.venturi_placements.is_empty()),
+        "promoted GA seed must carry venturi placements"
+    );
+}
+
+#[test]
+fn ga_seed_pair_contains_exactly_two_canonical_baselines() {
+    let candidates = build_milestone12_blueprint_candidate_space().expect("candidate space builds");
+    let seeds = build_milestone12_ga_seed_pair(&candidates).expect("seed pair");
+
+    assert_eq!(
+        seeds.len(),
+        2,
+        "GA must start from exactly two canonical seeds"
+    );
+    assert!(
+        seeds.iter().all(|candidate| {
             candidate
                 .topology_spec()
                 .is_ok_and(|topology| !topology.venturi_placements.is_empty())
         }),
-        "all GA bootstrap mutations must introduce venturi placements"
+        "both GA seeds must be venturi-capable after canonical promotion"
     );
 }

@@ -234,6 +234,10 @@ pub(crate) fn stitch_boundary_seams(faces: &mut Vec<FaceData>, pool: &VertexPool
         }
 
         // Threshold: geometric mean of min and max.
+        //
+        // An additional hard cap here proved too aggressive for shallow-angle
+        // elbow and branch seams, leaving open zipper gaps that the exact split
+        // pass had already localized to a narrow bimodal edge-length band.
         let threshold_sq = (min_len_sq * max_len_sq).sqrt();
 
         let mut merge_map: HashMap<VertexId, VertexId> = HashMap::new();
@@ -338,7 +342,8 @@ pub(crate) fn stitch_boundary_seams(faces: &mut Vec<FaceData>, pool: &VertexPool
 /// geometric features while still closing narrow residual seam gaps.
 pub(crate) fn stitch_boundary_seams_conservative(faces: &mut Vec<FaceData>, pool: &VertexPool) {
     // Hard cap: never merge edges longer than 0.02 units.
-    // This handles seam gaps (0.004-0.01) without collapsing geometry.
+    // This closes residual seam gaps exposed by patch cleanup without
+    // collapsing macroscopic geometry across a tube cross-section.
     const MAX_THRESHOLD_SQ: Real = 4e-4; // 0.02^2
 
     for iter_idx in 0..4_usize {

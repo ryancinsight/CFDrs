@@ -8,7 +8,7 @@
 //! and `build_tpms_box_graded`. Co-planar CSG unions seamlessly integrate the
 //! port connection pipes into the bounded cavity.
 
-use crate::application::csg::boolean::{csg_boolean_indexed, BooleanOp};
+use crate::application::csg::boolean::{csg_boolean, BooleanOp};
 use crate::domain::core::scalar::Vector3r;
 use crate::domain::core::MeshError;
 use crate::domain::core::MeshResult;
@@ -187,7 +187,7 @@ impl ShellMeshPipeline {
             }
             port_mesh.rebuild_edges();
 
-            fluid_mesh = csg_boolean_indexed(BooleanOp::Union, &fluid_mesh, &port_mesh)?;
+            fluid_mesh = csg_boolean(BooleanOp::Union, &fluid_mesh, &port_mesh)?;
         }
 
         // 3. Build Chip Substrate
@@ -202,7 +202,7 @@ impl ShellMeshPipeline {
         .map_err(|e| MeshError::Other(e.to_string()))?;
 
         // 4. Physical Chip = Substrate \ Fluid
-        let chip_body_mesh = csg_boolean_indexed(BooleanOp::Difference, &substrate, &fluid_mesh)?;
+        let chip_body_mesh = csg_boolean(BooleanOp::Difference, &substrate, &fluid_mesh)?;
 
         Ok(ShellPipelineOutput {
             fluid_mesh,

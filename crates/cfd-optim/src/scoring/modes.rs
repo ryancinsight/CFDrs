@@ -33,6 +33,44 @@ pub(super) const COMBINED_SELECTIVE_REMERGE_MIN_SCORE: f64 = 0.70;
 /// Floor for the selective-remerge gate to preserve optimization gradient.
 pub(super) const COMBINED_SELECTIVE_REMERGE_GATE_FLOOR: f64 = 0.20;
 
+// ── Shared hemolysis helpers ──────────────────────────────────────────────────
+
+/// Hill-function hemolysis safety factor with half-max at HI = 0.5 × limit.
+///
+/// Maps hemolysis_index_per_pass to a [0, 1] safety score via a Hill function
+/// of order 2: `1 / (1 + (HI / (0.5 × limit))²)`.  Returns 1.0 when HI = 0,
+/// 0.5 when HI = 0.5 × limit, and decays quadratically above.
+///
+/// Used by cavitation, cell separation, and three-population separation modes
+/// where the half-max threshold is set at 50% of the regulatory limit.
+fn hemolysis_safety_factor(metrics: &SdtMetrics) -> f64 {
+    let hi_ratio = metrics.hemolysis_index_per_pass / HI_PASS_LIMIT.max(1e-12);
+    (1.0_f64 / (1.0 + (hi_ratio / 0.5).powi(2))).clamp(0.0, 1.0)
+}
+
+/// Hemolysis compliance score with half-max at HI = limit.
+///
+/// Simpler Hill function `1 / (1 + (HI / limit)²)` for modes where the
+/// half-max penalty sits at the regulatory limit itself rather than at 50%.
+/// Returns 1.0 at HI = 0, 0.5 at HI = limit.
+fn hemolysis_compliance_score(metrics: &SdtMetrics) -> f64 {
+    let hi_ratio = metrics.hemolysis_index_per_pass / HI_PASS_LIMIT.max(1e-12);
+    (1.0_f64 / (1.0_f64 + hi_ratio.powi(2))).clamp(0.0, 1.0)
+}
+
+/// Clotting safety score: 1.0 = no risk, 0.0 = maximum stasis clotting.
+fn clotting_safety_score(metrics: &SdtMetrics) -> f64 {
+    (1.0 - metrics.clotting_risk_index.clamp(0.0, 1.0)).clamp(0.0, 1.0)
+}
+
+/// Apply a soft-floor gate: `floor + (1 − floor) × raw_value`.
+///
+/// Guarantees the gate never drops below `floor`, preserving gradient signal
+/// for the optimizer while still penalizing designs that miss the target.
+fn apply_gate_floor(raw_value: f64, floor: f64) -> f64 {
+    floor + (1.0 - floor) * raw_value.clamp(0.0, 1.0)
+}
+
 // ── Dispatch ──────────────────────────────────────────────────────────────────
 
 pub(super) fn score_mode_raw(metrics: &SdtMetrics, mode: OptimMode, weights: &SdtWeights) -> f64 {
@@ -89,8 +127,7 @@ pub(super) fn coagulation_penalty(metrics: &SdtMetrics, weights: &SdtWeights) ->
 /// cavitation rather than a hard zero cliff.  The signal approaches
 /// the full additive score as σ → 1⁺.
 fn score_cavitation(metrics: &SdtMetrics, w: &SdtWeights) -> f64 {
-    let hi_ratio = metrics.hemolysis_index_per_pass / HI_PASS_LIMIT.max(1e-12);
-    let hi_factor = (1.0_f64 / (1.0 + (hi_ratio / 0.5).powi(2))).clamp(0.0_f64, 1.0_f64);
+    let hi_factor = hemolysis_safety_factor(metrics);
     let coverage = metrics.well_coverage_fraction.clamp(0.0, 1.0);
 
     if metrics.cavitation_number >= 1.0 {
@@ -133,9 +170,7 @@ fn score_exposure(metrics: &SdtMetrics, w: &SdtWeights) -> f64 {
 fn score_cell_separation(metrics: &SdtMetrics, w: &SdtWeights) -> f64 {
     let separation = metrics.cell_separation_efficiency.clamp(0.0, 1.0);
     let cav = metrics.cavitation_potential;
-
-    let hi_ratio = metrics.hemolysis_index_per_pass / HI_PASS_LIMIT.max(1e-12);
-    let hi_factor = (1.0_f64 / (1.0 + (hi_ratio / 0.5).powi(2))).clamp(0.0_f64, 1.0_f64);
+    let hi_factor = hemolysis_safety_factor(metrics);
 
     let (sep_w, cav_w, hi_w) = if separation < 0.25 {
         (0.30, 0.50, 0.20)
@@ -151,9 +186,7 @@ fn score_three_pop_separation(metrics: &SdtMetrics, w: &SdtWeights) -> f64 {
     let sep3 = metrics.three_pop_sep_efficiency.clamp(0.0, 1.0);
     let wbc_center = metrics.wbc_center_fraction.clamp(0.0, 1.0);
     let cav = metrics.cavitation_potential;
-
-    let hi_ratio = metrics.hemolysis_index_per_pass / HI_PASS_LIMIT.max(1e-12);
-    let hi_factor = (1.0_f64 / (1.0 + (hi_ratio / 0.5).powi(2))).clamp(0.0_f64, 1.0_f64);
+    let hi_factor = hemolysis_safety_factor(metrics);
 
     w.sep3_efficiency * sep3
         + w.sep3_wbc_center * wbc_center
@@ -174,9 +207,8 @@ fn score_selective_routing_base(metrics: &SdtMetrics) -> f64 {
     let residence = (metrics.mean_residence_time_s / 1.0).clamp(0.0, 1.0);
     let optical_405 = metrics.blue_light_delivery_index_405nm.clamp(0.0, 1.0);
 
-    let hi_ratio = metrics.hemolysis_index_per_pass / HI_PASS_LIMIT.max(1e-12);
-    let hi_score = (1.0_f64 / (1.0_f64 + hi_ratio.powi(2))).clamp(0.0, 1.0);
-    let clot_score = (1.0 - metrics.clotting_risk_index.clamp(0.0, 1.0)).clamp(0.0, 1.0);
+    let hi_score = hemolysis_compliance_score(metrics);
+    let clot_score = clotting_safety_score(metrics);
 
     (0.20 * cancer_center
         + 0.15 * wbc_center
@@ -204,6 +236,9 @@ fn score_selective_routing_base(metrics: &SdtMetrics) -> f64 {
 fn score_sdt_therapy(metrics: &SdtMetrics) -> f64 {
     let sep3 = metrics.three_pop_sep_efficiency.clamp(0.0, 1.0);
 
+    // SDT therapy uses a milder Hill function (order 1) for hemolysis:
+    // `1/(1 + HI/limit)` — half-max at HI = limit, linear decay, providing
+    // softer gradient than the squared version in other modes.
     let hi_ratio = metrics.hemolysis_index_per_pass / HI_PASS_LIMIT.max(1e-12);
     let hi_score = (1.0_f64 / (1.0_f64 + hi_ratio)).clamp(0.0_f64, 1.0_f64);
 
@@ -227,9 +262,7 @@ fn score_sdt_therapy(metrics: &SdtMetrics) -> f64 {
     // that the factor discriminates between designs instead of always saturating.
     let res_target_s = 1e-3; // 1 ms target throat residence time
     let res_factor = if metrics.throat_transit_time_s > 0.0 {
-        (metrics.throat_transit_time_s / res_target_s)
-            .min(1.0)
-            .max(0.0)
+        (metrics.throat_transit_time_s / res_target_s).clamp(0.0, 1.0)
     } else {
         0.0
     };
@@ -302,7 +335,7 @@ fn score_pediatric_leukapheresis(metrics: &SdtMetrics, patient_weight_kg: f64) -
     };
 
     let raw = 0.40 * wbc_rec + 0.30 * rbc_rem + 0.20 * purity + 0.10 * throughput_score;
-    raw * ecv_ok_factor
+    (raw * ecv_ok_factor).max(0.001)
 }
 
 /// Score for the hydrodynamic cavitation SDT objective.
@@ -340,15 +373,14 @@ fn score_hydrodynamic_cavitation_sdt(metrics: &SdtMetrics, w: &SdtWeights) -> f6
         1.0
     };
     let optical_gate = 0.40 + 0.60 * optical_405;
-    let stasis_guard = (1.0 - metrics.clotting_risk_index.clamp(0.0, 1.0)).clamp(0.0, 1.0);
-    let stasis_gate = 0.25 + 0.75 * stasis_guard;
+    let stasis_gate = 0.25 + 0.75 * clotting_safety_score(metrics);
 
     ((base + 0.08 * selective_delivery + synergy)
         * bias_gate
         * remerge_gate
         * optical_gate
         * stasis_gate)
-        .min(1.0)
+        .clamp(0.001, 1.0)
 }
 
 /// Score for the RBC-protected SDT objective.
@@ -419,8 +451,7 @@ fn score_combined_sdt_leukapheresis(
         (metrics.cancer_targeted_cavitation / COMBINED_ONCOLOGY_MIN_CANCER_CAV).clamp(0.0, 1.0);
     let sel_gate_raw =
         (metrics.oncology_selectivity_index / COMBINED_ONCOLOGY_MIN_SELECTIVITY).clamp(0.0, 1.0);
-    let oncology_gate = COMBINED_ONCOLOGY_GATE_FLOOR
-        + (1.0 - COMBINED_ONCOLOGY_GATE_FLOOR) * cav_gate_raw.min(sel_gate_raw);
+    let oncology_gate = apply_gate_floor(cav_gate_raw.min(sel_gate_raw), COMBINED_ONCOLOGY_GATE_FLOOR);
 
     let gated_venturi_sdt = venturi_sdt * oncology_gate;
     let s_s = (0.60 * selective_base + 0.40 * gated_venturi_sdt).clamp(0.0, 1.0);
@@ -429,8 +460,7 @@ fn score_combined_sdt_leukapheresis(
     // Safety gates: apply to the entire blended score.
     let wbc_gate = (metrics.wbc_recovery / COMBINED_LEUKA_MIN_WBC_RECOVERY).clamp(0.0, 1.0);
     let leuka_gate = (s_l / COMBINED_LEUKA_MIN_SCORE).clamp(0.0, 1.0);
-    let leuka_gate_total =
-        COMBINED_LEUKA_GATE_FLOOR + (1.0 - COMBINED_LEUKA_GATE_FLOOR) * wbc_gate.min(leuka_gate);
+    let leuka_gate_total = apply_gate_floor(wbc_gate.min(leuka_gate), COMBINED_LEUKA_GATE_FLOOR);
     // Cumulative hemolysis gate: use patient-weight-appropriate metric.
     // For adult patients (≥ 40 kg), the pediatric 3 kg projection is
     // irrelevant — an adult at 70 kg has 5950 mL blood volume vs 255 mL for
@@ -441,15 +471,18 @@ fn score_combined_sdt_leukapheresis(
         metrics.projected_hemolysis_15min_pediatric_3kg
     };
     let hi15_gate_raw = (1.0 - projected_hi15 / COMBINED_PEDIATRIC_HI15_LIMIT).clamp(0.0, 1.0);
-    let hi15_gate = COMBINED_PEDIATRIC_HI15_GATE_FLOOR
-        + (1.0 - COMBINED_PEDIATRIC_HI15_GATE_FLOOR) * hi15_gate_raw;
+    let hi15_gate = apply_gate_floor(hi15_gate_raw, COMBINED_PEDIATRIC_HI15_GATE_FLOOR);
     let cif_remerge_gate = if metrics.cif_outlet_tail_length_mm > 0.0 {
         let raw = (metrics.cif_remerge_proximity_score / COMBINED_SELECTIVE_REMERGE_MIN_SCORE)
             .clamp(0.0, 1.0);
-        COMBINED_SELECTIVE_REMERGE_GATE_FLOOR + (1.0 - COMBINED_SELECTIVE_REMERGE_GATE_FLOOR) * raw
+        apply_gate_floor(raw, COMBINED_SELECTIVE_REMERGE_GATE_FLOOR)
     } else {
         1.0
     };
 
-    blended * leuka_gate_total * hi15_gate * cif_remerge_gate
+    // Floor the gated product: the individual gate floors (0.02, 0.05, 0.20)
+    // multiply to ~0.0002, which destroys relative ranking when all candidates
+    // land at the caller's INFEASIBILITY_FLOOR.  Flooring here preserves
+    // meaningful ordering among gated candidates.
+    (blended * leuka_gate_total * hi15_gate * cif_remerge_gate).max(0.001)
 }

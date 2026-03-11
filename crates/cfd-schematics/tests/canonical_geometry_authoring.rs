@@ -109,6 +109,7 @@ fn milestone12_blueprints_reject_missing_geometry_provenance() {
     let mut blueprint =
         build_milestone12_blueprint(&request).expect("Milestone 12 blueprint should build");
     blueprint.metadata = None;
+    blueprint.geometry_authored = false;
 
     let error = blueprint
         .validate()

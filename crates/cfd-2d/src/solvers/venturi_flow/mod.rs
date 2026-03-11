@@ -403,6 +403,8 @@ pub struct VenturiFlowSolution<T: RealField + Copy> {
     pub cp_throat: T,
     /// Pressure recovery coefficient at outlet
     pub cp_recovery: T,
+    /// Whether the iterative solver converged (always true for Bernoulli)
+    pub converged: bool,
 }
 
 impl<T: RealField + Copy + FromPrimitive> VenturiFlowSolution<T> {
@@ -428,6 +430,7 @@ impl<T: RealField + Copy + FromPrimitive> VenturiFlowSolution<T> {
             dp_recovery: p_outlet - bernoulli.p_inlet,
             cp_throat,
             cp_recovery,
+            converged: true,
         }
     }
 

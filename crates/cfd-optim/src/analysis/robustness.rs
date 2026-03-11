@@ -45,7 +45,7 @@ pub fn robustness_sweep_blueprint(
     perturbation_fracs: &[f64],
 ) -> RobustnessReport {
     let score_nominal = evaluate_goal(candidate, goal)
-        .map(|e| e.score)
+        .map(|e| e.score_or_zero())
         .unwrap_or(0.0);
 
     let mut scored: Vec<(f64, String)> = vec![(score_nominal, "nominal".into())];
@@ -54,7 +54,9 @@ pub fn robustness_sweep_blueprint(
     for &frac in perturbation_fracs {
         let mut c = candidate.clone();
         c.operating_point.inlet_gauge_pa *= 1.0 + frac;
-        let s = evaluate_goal(&c, goal).map(|e| e.score).unwrap_or(0.0);
+        let s = evaluate_goal(&c, goal)
+            .map(|e| e.score_or_zero())
+            .unwrap_or(0.0);
         scored.push((s, format!("inlet_pressure{:+.0}%", frac * 100.0)));
     }
 
@@ -65,7 +67,9 @@ pub fn robustness_sweep_blueprint(
         let mut c = candidate.clone();
         if true {
             c.operating_point.flow_rate_m3_s *= 1.0 + frac;
-            let s = evaluate_goal(&c, goal).map(|e| e.score).unwrap_or(0.0);
+            let s = evaluate_goal(&c, goal)
+                .map(|e| e.score_or_zero())
+                .unwrap_or(0.0);
             scored.push((s, format!("flow_rate{:+.0}%", frac * 100.0)));
         }
     }

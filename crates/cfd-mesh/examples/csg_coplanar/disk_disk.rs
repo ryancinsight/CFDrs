@@ -44,7 +44,7 @@ use std::fs;
 use std::io::BufWriter;
 use std::time::Instant;
 
-use cfd_mesh::application::csg::boolean::{csg_boolean_indexed, BooleanOp};
+use cfd_mesh::application::csg::boolean::{csg_boolean, BooleanOp};
 use cfd_mesh::domain::core::scalar::Point3r;
 use cfd_mesh::domain::geometry::primitives::{Disk, PrimitiveMesh};
 use cfd_mesh::infrastructure::io::stl;
@@ -104,7 +104,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ── Union ─────────────────────────────────────────────────────────────────
     {
         let t0 = Instant::now();
-        let result = csg_boolean_indexed(BooleanOp::Union, &disk_a, &disk_b)?;
+        let result = csg_boolean(BooleanOp::Union, &disk_a, &disk_b)?;
         let ms = t0.elapsed().as_millis();
         report(
             "Union (A ∪ B)",
@@ -121,7 +121,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ── Intersection ──────────────────────────────────────────────────────────
     {
         let t0 = Instant::now();
-        let result = csg_boolean_indexed(BooleanOp::Intersection, &disk_a, &disk_b)?;
+        let result = csg_boolean(BooleanOp::Intersection, &disk_a, &disk_b)?;
         let ms = t0.elapsed().as_millis();
         report("Intersection (A ∩ B)", &result, a_intersect, 0.02, ms);
         write_stl(&result, &out_dir.join("disk_disk_intersection.stl"))?;
@@ -132,7 +132,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ── Difference ────────────────────────────────────────────────────────────
     {
         let t0 = Instant::now();
-        let result = csg_boolean_indexed(BooleanOp::Difference, &disk_a, &disk_b)?;
+        let result = csg_boolean(BooleanOp::Difference, &disk_a, &disk_b)?;
         let ms = t0.elapsed().as_millis();
         report(
             "Difference (A \\ B)",

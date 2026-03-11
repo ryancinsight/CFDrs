@@ -409,7 +409,7 @@ fn build_auto_annotations(blueprint: &NetworkBlueprint) -> SchematicAnnotations 
             .map(|ch| ch.cross_section.dims().0)
             .fold(f64::NEG_INFINITY, f64::max);
         annotations.legend_note = Some(format!(
-            "{}  |  seq: {}  |  layers: {}  |  throats: {}  |  width: {:.2}-{:.2} mm",
+            "{}  |  seq: {}  |  layers: {}  |  throats: {}  |  width: {:.2}-{:.2} mm  |  line thickness ∝ channel width",
             h.treatment_label,
             h.stage_sequence,
             h.split_layers,
@@ -532,7 +532,7 @@ fn channel_category_from_blueprint(
         return ChannelTypeCategory::Tapered;
     }
     match channel_spec.channel_shape {
-        crate::domain::model::ChannelShape::Serpentine { .. } => ChannelTypeCategory::Straight,
+        crate::domain::model::ChannelShape::Serpentine { .. } => ChannelTypeCategory::Curved,
         crate::domain::model::ChannelShape::Straight => ChannelTypeCategory::Straight,
     }
 }
@@ -559,39 +559,39 @@ fn generated_serpentine_path(
         return vec![start, end];
     }
 
-    // Primary direction (start → end) and perpendicular (90° CCW)
     let px = dx / length;
     let py = dy / length;
     let nx = -py;
     let ny = px;
+    let requested_turns = segments.saturating_sub(1).max(2);
+    let step = length / requested_turns as f64;
+    let shoulder = (step * 0.28).max(length * 0.04);
+    let amplitude = (bend_radius_mm * 1.4)
+        .max(length / ((requested_turns as f64 + 1.0) * 3.0))
+        .min(length * 0.24);
 
-    // Amplitude scaled for visibility, clamped to stay within bounds
-    let amplitude = (bend_radius_mm * 2.0)
-        .max(length / (segments as f64 * 2.0))
-        .min(length * 0.3);
-    let step = length / segments as f64;
-
-    // Build right-angle square-wave path
-    let mut path = Vec::with_capacity(2 * segments + 3);
+    let mut path = Vec::with_capacity(2 + requested_turns * 5);
     path.push(start);
-
-    for i in 0..segments {
-        let sign = if i % 2 == 0 { 1.0 } else { -1.0 };
-        let t0 = i as f64 * step;
-        let t1 = (i + 1) as f64 * step;
-
-        // Base points along the primary axis
-        let bx0 = start.0 + px * t0;
-        let by0 = start.1 + py * t0;
-        let bx1 = start.0 + px * t1;
-        let by1 = start.1 + py * t1;
-
-        // Corner: step perpendicular into the fold
-        path.push((bx0 + nx * amplitude * sign, by0 + ny * amplitude * sign));
-        // Run: straight along primary at the offset
-        path.push((bx1 + nx * amplitude * sign, by1 + ny * amplitude * sign));
+    for turn_idx in 0..requested_turns {
+        let center = step * (turn_idx as f64 + 0.5);
+        let sign = if turn_idx % 2 == 0 { 1.0 } else { -1.0 };
+        for (along, scale) in [
+            (center - shoulder, 0.35),
+            (center - shoulder * 0.45, 0.72),
+            (center, 1.0),
+            (center + shoulder * 0.45, 0.72),
+            (center + shoulder, 0.35),
+        ] {
+            if along <= 1.0e-6 || along >= length - 1.0e-6 {
+                continue;
+            }
+            let offset = sign * amplitude * scale;
+            path.push((
+                start.0 + px * along + nx * offset,
+                start.1 + py * along + ny * offset,
+            ));
+        }
     }
-
     path.push(end);
     path
 }
@@ -842,4 +842,63 @@ pub fn centerline_vertices(blueprint: &NetworkBlueprint) -> Vec<Point2D> {
     channel_system_from_blueprint(blueprint, Some(blueprint.box_dims), None)
         .map(|system| system.channel_paths.into_iter().flatten().collect())
         .unwrap_or_default()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{channel_category_from_blueprint, generated_serpentine_path, render_path_for_display};
+    use crate::domain::model::{ChannelShape, ChannelSpec};
+    use crate::geometry::ChannelTypeCategory;
+
+    #[test]
+    fn generated_serpentine_path_has_mirrored_two_lobe_offsets() {
+        let path = generated_serpentine_path((0.0, 0.0), (20.0, 0.0), 2, 2.0);
+        let signed_offsets: Vec<f64> = path
+            .iter()
+            .skip(1)
+            .take(path.len().saturating_sub(2))
+            .map(|point| point.1)
+            .filter(|offset| offset.abs() > 1.0e-6)
+            .collect();
+        assert!(
+            signed_offsets.iter().any(|offset| *offset > 0.0),
+            "serpentine path must lobe above the centerline"
+        );
+        assert!(
+            signed_offsets.iter().any(|offset| *offset < 0.0),
+            "serpentine path must lobe below the centerline"
+        );
+    }
+
+    #[test]
+    fn serpentine_channels_render_as_curved_paths() {
+        let path = generated_serpentine_path((0.0, 0.0), (20.0, 0.0), 5, 2.5);
+        let rendered = render_path_for_display(&path, ChannelTypeCategory::Curved, (40.0, 20.0));
+        assert!(
+            rendered.len() > path.len(),
+            "curved serpentine display path should be spline-resampled"
+        );
+    }
+
+    #[test]
+    fn serpentine_channel_category_is_curved() {
+        let mut channel = ChannelSpec::new_pipe_rect(
+            "serp",
+            "a".to_string(),
+            "b".to_string(),
+            1.0,
+            1.0e-3,
+            1.0e-3,
+            0.0,
+            0.0,
+        );
+        channel.channel_shape = ChannelShape::Serpentine {
+            segments: 5,
+            bend_radius_m: 2.0e-3,
+        };
+        assert_eq!(
+            channel_category_from_blueprint(&channel),
+            ChannelTypeCategory::Curved
+        );
+    }
 }

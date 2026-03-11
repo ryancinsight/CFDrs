@@ -3,13 +3,9 @@ use std::collections::{hash_map::Entry, HashMap, HashSet};
 use crate::application::objectives::{evaluate_goal, BlueprintObjectiveEvaluation};
 use crate::domain::{BlueprintCandidate, OptimizationGoal};
 use crate::error::OptimError;
-use cfd_schematics::{
-    topology::presets::with_venturi, BlueprintTopologyFactory, BlueprintTopologyMutation,
-    SerpentineSpec, ThroatGeometrySpec, TopologyOptimizationStage,
-    VenturiPlacementMode,
-};
-use cfd_schematics::topology::{TreatmentActuationMode, VenturiConfig};
 use serde::{Deserialize, Serialize};
+
+pub use super::mutations::{generate_ga_mutations, promote_option1_candidate_to_ga_seed};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BlueprintRankedCandidate {
@@ -31,6 +27,10 @@ pub struct BlueprintGeneticOptimizer {
     max_generations: usize,
     top_k: usize,
     seeds: Vec<BlueprintCandidate>,
+}
+
+fn evaluation_score_or_zero(evaluation: &BlueprintObjectiveEvaluation) -> f64 {
+    evaluation.score.unwrap_or(0.0)
 }
 
 impl BlueprintGeneticOptimizer {
@@ -73,6 +73,14 @@ impl BlueprintGeneticOptimizer {
         let mut population = self.initial_population()?;
         let mut archive: HashMap<String, BlueprintRankedCandidate> = HashMap::new();
         let mut best_per_generation = Vec::with_capacity(self.max_generations);
+        let baseline_scores = self
+            .seeds
+            .iter()
+            .map(|candidate| {
+                evaluate_goal(candidate, self.goal)
+                    .map(|evaluation| evaluation.score.unwrap_or(0.0))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
 
         for _generation in 0..self.max_generations {
             let ranked = rank_population(self.goal, &population)?;
@@ -80,7 +88,7 @@ impl BlueprintGeneticOptimizer {
                 return Err(OptimError::EmptyCandidates);
             }
 
-            best_per_generation.push(ranked[0].evaluation.score);
+            best_per_generation.push(evaluation_score_or_zero(&ranked[0].evaluation));
             retain_archive(&mut archive, ranked.iter().cloned());
 
             let elite_count = (self.population / 4).max(1).min(ranked.len());
@@ -124,16 +132,23 @@ impl BlueprintGeneticOptimizer {
         }
 
         let mut all_candidates: Vec<BlueprintRankedCandidate> = archive.into_values().collect();
-        all_candidates.sort_by(|left, right| {
-            right
-                .evaluation
-                .score
-                .partial_cmp(&left.evaluation.score)
-                .unwrap_or(std::cmp::Ordering::Equal)
+        all_candidates.sort_unstable_by(|left, right| {
+            evaluation_score_or_zero(&right.evaluation)
+                .total_cmp(&evaluation_score_or_zero(&left.evaluation))
                 .then_with(|| left.candidate.id.cmp(&right.candidate.id))
         });
+        // Bound the retained archive to avoid unbounded memory growth.
+        // The GA caller only uses the top ~200 for audit + Pareto data.
+        let retain_cap = self.top_k.max(200);
+        all_candidates.truncate(retain_cap);
+        all_candidates.shrink_to_fit();
+
         for (index, candidate) in all_candidates.iter_mut().enumerate() {
             candidate.rank = index + 1;
+            candidate.evaluation = candidate
+                .evaluation
+                .clone()
+                .with_baseline_scores(&baseline_scores);
         }
 
         if all_candidates.len() < self.top_k {
@@ -151,45 +166,30 @@ impl BlueprintGeneticOptimizer {
     }
 
     fn initial_population(&self) -> Result<Vec<BlueprintCandidate>, OptimError> {
-        let seed_pool = self.seeds.clone();
-
-        if seed_pool.is_empty() {
+        if self.seeds.is_empty() {
             return Err(OptimError::EmptyCandidates);
         }
 
-        let mut population = Vec::with_capacity(self.population.max(seed_pool.len()));
+        let mut population = Vec::with_capacity(self.population.max(self.seeds.len()));
         let mut seen = HashSet::new();
-        for seed in seed_pool {
-            let has_venturi = seed
-                .topology_spec()
-                .is_ok_and(|topology| !topology.venturi_placements.is_empty());
-            if self.goal == OptimizationGoal::InPlaceDeanSerpentineRefinement && !has_venturi {
-                for bootstrap in generate_ga_mutations(&seed)? {
-                    let key = candidate_key(&bootstrap)?;
-                    if seen.insert(key) {
-                        population.push(bootstrap);
-                    }
-                    if population.len() >= self.population {
-                        break;
-                    }
-                }
-            } else {
-                let key = candidate_key(&seed)?;
-                if seen.insert(key) {
-                    population.push(seed);
-                }
+        for seed in &self.seeds {
+            let key = candidate_key(seed)?;
+            if seen.insert(key) {
+                population.push(seed.clone());
             }
             if population.len() >= self.population {
                 break;
             }
         }
 
-        let base_population = population.clone();
-        for seed in &base_population {
+        // Generate mutations from the initial seeds to fill the population.
+        // Iterate by index to avoid cloning the entire population vec.
+        let base_len = population.len();
+        for i in 0..base_len {
             if population.len() >= self.population {
                 break;
             }
-            for mutation in generate_ga_mutations(seed)? {
+            for mutation in generate_ga_mutations(&population[i])? {
                 let key = candidate_key(&mutation)?;
                 if seen.insert(key) {
                     population.push(mutation);
@@ -202,191 +202,6 @@ impl BlueprintGeneticOptimizer {
 
         Ok(population)
     }
-}
-
-pub fn seed_option2_candidates(candidates: &[BlueprintCandidate]) -> Vec<&BlueprintCandidate> {
-    candidates
-        .iter()
-        .filter(|candidate| {
-            candidate.inferred_goal()
-                == OptimizationGoal::AsymmetricSplitVenturiCavitationSelectivity
-                || candidate
-                    .blueprint
-                    .topology_spec()
-                    .is_some_and(|spec| !spec.venturi_placements.is_empty())
-        })
-        .collect()
-}
-
-pub fn generate_ga_mutations(
-    seed: &BlueprintCandidate,
-) -> Result<Vec<BlueprintCandidate>, OptimError> {
-    let topology = seed.topology_spec()?;
-    if topology.venturi_placements.is_empty() {
-        return bootstrap_ga_venturi_mutations(seed);
-    }
-    let mut mutated = Vec::new();
-
-    for stage in &topology.split_stages {
-        for branch in &stage.branches {
-            let width_scale = if branch.treatment_path { 1.08 } else { 0.94 };
-            let widened = BlueprintTopologyFactory::mutate(
-                &seed.blueprint,
-                BlueprintTopologyMutation::UpdateBranchWidth {
-                    stage_id: stage.stage_id.clone(),
-                    branch_label: branch.label.clone(),
-                    new_width_m: branch.route.width_m * width_scale,
-                },
-                TopologyOptimizationStage::InPlaceDeanSerpentineRefinement,
-            )
-            .map_err(OptimError::InvalidParameter)?;
-            mutated.push(BlueprintCandidate::new(
-                format!("{}-ga-w-{}", seed.id, branch.label),
-                widened,
-                seed.operating_point.clone(),
-            ));
-
-            if branch.treatment_path {
-                let serpentine = branch.route.serpentine.clone().map_or(
-                    Some(SerpentineSpec {
-                        segments: 4,
-                        bend_radius_m: branch.route.width_m * 2.5,
-                        segment_length_m: branch.route.length_m / 4.0,
-                    }),
-                    |serpentine| {
-                        Some(SerpentineSpec {
-                            segments: serpentine.segments + 1,
-                            bend_radius_m: serpentine.bend_radius_m,
-                            segment_length_m: serpentine.segment_length_m,
-                        })
-                    },
-                );
-                let serpentine_mutation = BlueprintTopologyFactory::mutate(
-                    &seed.blueprint,
-                    BlueprintTopologyMutation::SetTreatmentSerpentine {
-                        stage_id: stage.stage_id.clone(),
-                        branch_label: branch.label.clone(),
-                        serpentine,
-                    },
-                    TopologyOptimizationStage::InPlaceDeanSerpentineRefinement,
-                )
-                .map_err(OptimError::InvalidParameter)?;
-                mutated.push(BlueprintCandidate::new(
-                    format!("{}-ga-s-{}", seed.id, branch.label),
-                    serpentine_mutation,
-                    seed.operating_point.clone(),
-                ));
-            }
-        }
-    }
-
-    for placement in &topology.venturi_placements {
-        let mut placements = topology.venturi_placements.clone();
-        if let Some(target) = placements
-            .iter_mut()
-            .find(|candidate_placement| candidate_placement.placement_id == placement.placement_id)
-        {
-            target.throat_geometry.throat_width_m *= 0.92;
-            let placement_mutation = BlueprintTopologyFactory::mutate(
-                &seed.blueprint,
-                BlueprintTopologyMutation::UpdateVenturiConfiguration {
-                    placements,
-                    treatment_mode: topology.treatment_mode,
-                },
-                TopologyOptimizationStage::InPlaceDeanSerpentineRefinement,
-            )
-            .map_err(OptimError::InvalidParameter)?;
-            mutated.push(BlueprintCandidate::new(
-                format!("{}-ga-v-{}", seed.id, placement.placement_id),
-                placement_mutation,
-                seed.operating_point.clone(),
-            ));
-        }
-    }
-
-    Ok(mutated)
-}
-
-fn bootstrap_ga_venturi_mutations(
-    seed: &BlueprintCandidate,
-) -> Result<Vec<BlueprintCandidate>, OptimError> {
-    let topology = seed.topology_spec()?;
-    let treatment_channel_ids = topology.treatment_channel_ids();
-    if treatment_channel_ids.is_empty() {
-        return Err(OptimError::InvalidParameter(format!(
-            "GA refinement requires at least one treatment channel, but candidate '{}' has none",
-            seed.id
-        )));
-    }
-
-    let representative_route = topology.channel_route(&treatment_channel_ids[0]).ok_or_else(|| {
-        OptimError::InvalidParameter(format!(
-            "GA refinement could not resolve treatment channel '{}' in candidate '{}'",
-            treatment_channel_ids[0], seed.id
-        ))
-    })?;
-    let placement_mode = if treatment_channel_ids.iter().any(|channel_id| {
-        topology
-            .channel_route(channel_id)
-            .is_some_and(|route| route.serpentine.is_some())
-    }) {
-        VenturiPlacementMode::CurvaturePeakDeanNumber
-    } else {
-        VenturiPlacementMode::StraightSegment
-    };
-    let throat_width_m =
-        (representative_route.width_m * 0.4).clamp(60.0e-6, representative_route.width_m * 0.85);
-    let throat_length_m = (representative_route.length_m / 8.0)
-        .clamp(300.0e-6, representative_route.length_m * 0.5);
-
-    let build_mutant =
-        |target_channel_ids: Vec<String>, suffix: &str| -> Result<BlueprintCandidate, OptimError> {
-            let augmented = with_venturi(
-                topology.clone(),
-                VenturiConfig {
-                    target_channel_ids,
-                    serial_throat_count: 1,
-                    throat_geometry: ThroatGeometrySpec {
-                        throat_width_m,
-                        throat_height_m: representative_route.height_m,
-                        throat_length_m,
-                        inlet_width_m: representative_route.width_m,
-                        outlet_width_m: representative_route.width_m,
-                        convergent_half_angle_deg: 7.0,
-                        divergent_half_angle_deg: 7.0,
-                    },
-                    placement_mode,
-                },
-            );
-            let blueprint = BlueprintTopologyFactory::mutate(
-                &seed.blueprint,
-                BlueprintTopologyMutation::UpdateVenturiConfiguration {
-                    placements: augmented.venturi_placements,
-                    treatment_mode: TreatmentActuationMode::VenturiCavitation,
-                },
-                TopologyOptimizationStage::InPlaceDeanSerpentineRefinement,
-            )
-            .map_err(OptimError::InvalidParameter)?;
-            Ok(BlueprintCandidate::new(
-                format!("{}-{suffix}", seed.id),
-                blueprint,
-                seed.operating_point.clone(),
-            ))
-        };
-
-    let mut mutated = Vec::with_capacity(treatment_channel_ids.len() + 1);
-    mutated.push(build_mutant(
-        treatment_channel_ids.clone(),
-        "ga-bootstrap-v-all",
-    )?);
-    for channel_id in treatment_channel_ids {
-        mutated.push(build_mutant(
-            vec![channel_id.clone()],
-            &format!("ga-bootstrap-v-{channel_id}"),
-        )?);
-    }
-
-    Ok(mutated)
 }
 
 fn rank_population(
@@ -403,11 +218,10 @@ fn rank_population(
             })
         })
         .collect::<Result<Vec<_>, _>>()?;
+    ranked.retain(|ranked_candidate| ranked_candidate.evaluation.is_eligible());
     ranked.sort_by(|left, right| {
-        right
-            .evaluation
-            .score
-            .partial_cmp(&left.evaluation.score)
+        evaluation_score_or_zero(&right.evaluation)
+            .partial_cmp(&evaluation_score_or_zero(&left.evaluation))
             .unwrap_or(std::cmp::Ordering::Equal)
             .then_with(|| left.candidate.id.cmp(&right.candidate.id))
     });
@@ -428,7 +242,9 @@ fn retain_archive(
                     entry.insert(candidate);
                 }
                 Entry::Occupied(mut entry) => {
-                    if candidate.evaluation.score > entry.get().evaluation.score {
+                    if evaluation_score_or_zero(&candidate.evaluation)
+                        > evaluation_score_or_zero(&entry.get().evaluation)
+                    {
                         entry.insert(candidate);
                     }
                 }
@@ -460,7 +276,8 @@ fn candidate_key(candidate: &BlueprintCandidate) -> Result<String, OptimError> {
 mod tests {
     use crate::domain::fixtures::{canonical_option2_candidate, operating_point};
 
-    use super::{generate_ga_mutations, seed_option2_candidates, BlueprintGeneticOptimizer};
+    use crate::application::search::mutations::seed_option2_candidates;
+    use super::{generate_ga_mutations, BlueprintGeneticOptimizer};
 
     #[test]
     fn ga_mutations_preserve_branch_width_conservation_and_roles() {

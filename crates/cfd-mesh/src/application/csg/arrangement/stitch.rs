@@ -646,6 +646,8 @@ fn build_boundary_adjacency(boundary: &[(VertexId, VertexId)]) -> HashMap<Vertex
 
 type FaceEdgeRef = (usize, VertexId, VertexId);
 
+type SplitCandidate = (bool, Real, Real, VertexId, VertexId, VertexId);
+
 /// Build an endpoint-to-face-edge index for all current triangle edges.
 ///
 /// # Algorithm
@@ -716,6 +718,32 @@ fn endpoint_constrained(
         .is_some_and(|neigh| neigh.contains(&a) || neigh.contains(&b))
 }
 
+fn update_best_split(
+    best_split_for_face: &mut HashMap<usize, SplitCandidate>,
+    face_index: usize,
+    candidate: SplitCandidate,
+) {
+    match best_split_for_face.get_mut(&face_index) {
+        Some(best) => {
+            let best_key = (!best.0, best.1, best.2, best.5.raw(), best.3.raw(), best.4.raw());
+            let cand_key = (
+                !candidate.0,
+                candidate.1,
+                candidate.2,
+                candidate.5.raw(),
+                candidate.3.raw(),
+                candidate.4.raw(),
+            );
+            if cand_key < best_key {
+                *best = candidate;
+            }
+        }
+        None => {
+            best_split_for_face.insert(face_index, candidate);
+        }
+    }
+}
+
 // ── T-junction snap-round ────────────────────────────────────────────────────
 
 /// Squared perpendicular distance tolerance for snap-round.
@@ -767,13 +795,11 @@ pub(crate) fn snap_round_tjunctions(faces: &mut Vec<FaceData>, pool: &VertexPool
         let endpoint_index = build_endpoint_edge_index(faces);
         // For each face, keep the best constrained split candidate:
         // exact-hit first, then shortest residual distance, then centrality.
-        let mut best_split_for_face: HashMap<
-            usize,
-            (bool, Real, Real, VertexId, VertexId, VertexId),
-        > = HashMap::new();
+        let mut best_split_for_face: HashMap<usize, SplitCandidate> = HashMap::new();
 
         for &v in &bnd_verts {
             let pv = pool.position(v);
+            let mut found_exact_candidate = false;
             for (fi, a, b) in candidate_face_edges_for_vertex(v, &bnd_adj, &endpoint_index) {
                 let Some(face) = faces.get(fi) else {
                     continue;
@@ -802,6 +828,7 @@ pub(crate) fn snap_round_tjunctions(faces: &mut Vec<FaceData>, pool: &VertexPool
                         continue;
                     }
                     exact_hit = true;
+                    found_exact_candidate = true;
                     t = t_exact;
                     dist_metric = 0.0;
                 } else {
@@ -832,31 +859,32 @@ pub(crate) fn snap_round_tjunctions(faces: &mut Vec<FaceData>, pool: &VertexPool
 
                 let center_bias = (t - 0.5).abs();
                 let candidate = (exact_hit, dist_metric, center_bias, a, b, v);
-                match best_split_for_face.get_mut(&fi) {
-                    Some(best) => {
-                        let best_key = (
-                            !best.0,
-                            best.1,
-                            best.2,
-                            best.5.raw(),
-                            best.3.raw(),
-                            best.4.raw(),
-                        );
-                        let cand_key = (
-                            !candidate.0,
-                            candidate.1,
-                            candidate.2,
-                            candidate.5.raw(),
-                            candidate.3.raw(),
-                            candidate.4.raw(),
-                        );
-                        if cand_key < best_key {
-                            *best = candidate;
-                        }
+                update_best_split(&mut best_split_for_face, fi, candidate);
+            }
+
+            if found_exact_candidate {
+                continue;
+            }
+
+            for (fi, face) in faces.iter().enumerate() {
+                if face.vertices.contains(&v) {
+                    continue;
+                }
+                for edge_idx in 0..3_usize {
+                    let a = face.vertices[edge_idx];
+                    let b = face.vertices[(edge_idx + 1) % 3];
+                    let pa = pool.position(a);
+                    let pb = pool.position(b);
+                    let Some(t_exact) = point_on_segment_exact(pa, pb, pv) else {
+                        continue;
+                    };
+                    if t_exact <= SNAP_EDGE_PARAM_EPS || t_exact >= 1.0 - SNAP_EDGE_PARAM_EPS {
+                        continue;
                     }
-                    None => {
-                        best_split_for_face.insert(fi, candidate);
-                    }
+
+                    let center_bias = (t_exact - 0.5).abs();
+                    let candidate = (true, 0.0, center_bias, a, b, v);
+                    update_best_split(&mut best_split_for_face, fi, candidate);
                 }
             }
         }
@@ -1027,7 +1055,7 @@ mod tests {
     }
 
     #[test]
-    fn snap_round_rejects_exact_collinear_vertex_without_constraint() {
+    fn snap_round_splits_exact_collinear_vertex_without_endpoint_constraint() {
         let mut pool = VertexPool::default_millifluidic();
         let n = Vector3r::new(0.0, 0.0, 1.0);
         let a = pool.insert_or_weld(Point3r::new(0.0, 0.0, 0.0), n);
@@ -1043,8 +1071,12 @@ mod tests {
 
         assert_eq!(
             faces.len(),
-            2,
-            "unconstrained collinear vertices must not trigger edge splits"
+            3,
+            "exact on-edge boundary vertices should trigger a split even without endpoint adjacency"
+        );
+        assert!(
+            faces.iter().filter(|face| face.vertices.contains(&m)).count() >= 2,
+            "split faces should contain the exact T-junction vertex"
         );
     }
 

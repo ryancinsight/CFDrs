@@ -15,7 +15,7 @@ use std::io::BufWriter;
 use std::time::Instant;
 
 use cfd_mesh::domain::core::scalar::Real;
-use cfd_mesh::application::csg::boolean::{BooleanOp, csg_boolean_indexed};
+use cfd_mesh::application::csg::boolean::{BooleanOp, csg_boolean};
 use cfd_mesh::domain::geometry::primitives::PrimitiveMesh;
 use cfd_mesh::infrastructure::io::stl;
 use cfd_mesh::{Cube, IndexedMesh, NormalAnalysis, analyze_normals};
@@ -49,7 +49,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("  Cube A : {} faces", cube_a.face_count());
     println!("  Cube B : {} faces", cube_b.face_count());
 
-    let mut mesh = csg_boolean_indexed(BooleanOp::Union, &cube_a, &cube_b)?;
+    let mut mesh = csg_boolean(BooleanOp::Union, &cube_a, &cube_b)?;
 
     let volume    = mesh.signed_volume();
     let is_wt     = mesh.is_watertight();

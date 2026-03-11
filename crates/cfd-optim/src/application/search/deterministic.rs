@@ -28,10 +28,11 @@ pub fn rank_blueprint_candidates(
         .iter()
         .map(|candidate| evaluate_goal(candidate, goal))
         .collect::<Result<Vec<_>, _>>()?;
+    evaluations.retain(BlueprintObjectiveEvaluation::is_eligible);
     evaluations.sort_by(|left, right| {
         right
-            .score
-            .partial_cmp(&left.score)
+            .score_or_zero()
+            .partial_cmp(&left.score_or_zero())
             .unwrap_or(std::cmp::Ordering::Equal)
             .then_with(|| left.candidate_id.cmp(&right.candidate_id))
     });
@@ -41,7 +42,7 @@ pub fn rank_blueprint_candidates(
 #[cfg(test)]
 mod tests {
     use crate::domain::fixtures::{
-        canonical_option1_spec, canonical_option2_candidate, operating_point,
+        canonical_option1_request, canonical_option2_candidate, operating_point,
     };
 
     use super::{build_blueprint_candidates_from_specs, rank_blueprint_candidates};
@@ -49,9 +50,13 @@ mod tests {
     #[test]
     fn official_option1_option2_ga_blueprints_are_evaluable_without_topology_enum() {
         let operating_point = operating_point(2.4e-6, 32_000.0, 0.12);
-        let option1_candidates =
-            build_blueprint_candidates_from_specs(&[canonical_option1_spec()], &operating_point)
-                .expect("option1 candidates");
+        let request = canonical_option1_request();
+        let option1_candidates = vec![crate::BlueprintCandidate::new(
+            format!("0000-{}", request.topology_id),
+            cfd_schematics::topology::presets::build_milestone12_blueprint(&request)
+                .expect("canonical option1 blueprint"),
+            operating_point.clone(),
+        )];
         let option2 = canonical_option2_candidate("option2", operating_point.clone());
         let ga = crate::generate_ga_mutations(&option2)
             .expect("ga mutations")

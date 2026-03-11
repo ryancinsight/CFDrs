@@ -134,12 +134,13 @@ FDA thermal compliance (42 °C ceiling) for Option 2: {} ({:.2} K rise).\n",
         s,
         "**Topology Selection Physics — Option 1 vs Option 2:** The two optimization \
 goals impose distinct constraints on optimal tree depth. For **Option 1** \
-(selective acoustic, no venturi), the positive-definite additive score with a coupled \
-synergy term rewards deeper split trees because \
-each additional Zweifach–Fung splitting stage compounds cancer-center enrichment \
-multiplicatively in the underlying flow partition: a three-stage Tri→Tri→Tri tree achieves \
-cancer_center_fraction ~0.75+ compared to ~0.556 for Tri→Tri, and the scoring function preserves \
-that separation advantage without collapsing valid low-performing designs to zero. \
+(selective acoustic, no venturi), the hybrid additive + geometric-mean synergy score \
+rewards deeper split trees because each additional Zweifach–Fung splitting stage compounds \
+cancer-center enrichment multiplicatively in the underlying flow partition: a three-stage \
+Tri→Tri→Tri tree achieves cancer_center_fraction ~0.75+ compared to ~0.556 for Tri→Tri. \
+Both the additive cancer-focusing term (22% weight) and the 4th-root synergy term amplify \
+this separation advantage while the additive base ensures no feasible design collapses \
+to zero (floor = 0.001). \
 For **Option 2** (selective venturi cavitation), the selected design uses an \
 {:.0} mm × {:.0} mm cross-section. Here, deeper trifurcation beyond 2 levels becomes \
 counterproductive: a third level narrows terminal treatment channels to approximately \

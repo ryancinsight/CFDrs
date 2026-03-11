@@ -109,7 +109,11 @@ impl<'bp> NetworkTopology<'bp> {
 
         // VenturiChain: linear chain where one channel has explicit Venturi geometry.
         if n_in == 1 && n_out == 1 && n_junc == 2 && n_ch == 3 {
-            let has_venturi = self.bp.channels.iter().any(|c| c.venturi_geometry.is_some());
+            let has_venturi = self
+                .bp
+                .channels
+                .iter()
+                .any(|c| c.venturi_geometry.is_some());
             if has_venturi && self.linear_path_channels().is_some() {
                 return TopologyClass::VenturiChain;
             }
@@ -228,6 +232,4 @@ mod tests {
             TopologyClass::ParallelArray { n_channels: 50 }
         );
     }
-
-
 }

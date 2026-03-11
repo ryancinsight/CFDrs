@@ -3,9 +3,7 @@
 use std::fmt::Write as _;
 use std::path::Path;
 
-use super::svg_primitives::{
-    arrow, escape_xml, process_box, svg_end, svg_start, svg_title,
-};
+use super::svg_primitives::{arrow, escape_xml, process_box, svg_end, svg_start, svg_title};
 
 pub(super) fn write_placeholder(
     path: &Path,

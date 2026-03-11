@@ -1,6 +1,31 @@
 use crate::{BlueprintCandidate, OptimError, SdtMetrics};
 use serde::{Deserialize, Serialize};
 
+// ---------------------------------------------------------------------------
+// ParetoPoint — lightweight struct for Pareto-front visualization
+// ---------------------------------------------------------------------------
+
+/// Lightweight data point for Pareto-front scatter plots.
+///
+/// ~32 bytes per entry vs ~16-20 KB for a full [`Milestone12ReportDesign`].
+/// Saved to disk as `option2_pool_all.json` / `ga_pool_all.json` so the
+/// report phase can render the background cloud without loading full
+/// candidates + metrics into memory.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct ParetoPoint {
+    pub cancer_targeted_cavitation: f64,
+    pub rbc_venturi_protection: f64,
+    pub score: f64,
+    pub tag: ParetoTag,
+}
+
+/// Which optimization track produced this Pareto point.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ParetoTag {
+    Option2,
+    Ga,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Milestone12ReportDesign {
     pub rank: usize,

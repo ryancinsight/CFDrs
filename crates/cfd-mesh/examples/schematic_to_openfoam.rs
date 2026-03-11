@@ -48,9 +48,7 @@ use std::path::Path;
 use cfd_mesh::application::channel::path::ChannelPath;
 use cfd_mesh::application::channel::substrate::SubstrateBuilder;
 use cfd_mesh::application::channel::sweep::SweepMesher;
-use cfd_mesh::application::csg::boolean::{
-    csg_boolean_indexed, csg_boolean_indexed_tolerant, BooleanOp,
-};
+use cfd_mesh::application::csg::boolean::{csg_boolean, BooleanOp};
 use cfd_mesh::application::pipeline::PipelineOutput;
 use cfd_mesh::application::pipeline::{BlueprintMeshPipeline, PipelineConfig, PipelineVolumeTrace};
 use cfd_mesh::domain::core::index::RegionId;
@@ -301,7 +299,7 @@ fn mesh_output_from_blueprint(
         current.rebuild_edges();
 
         all_channels = Some(if let Some(existing) = all_channels.take() {
-            csg_boolean_indexed_tolerant(BooleanOp::Union, &existing, &current)?
+            csg_boolean(BooleanOp::Union, &existing, &current)?
         } else {
             current
         });
@@ -318,7 +316,7 @@ fn mesh_output_from_blueprint(
             void_current.rebuild_edges();
 
             all_void_channels = Some(if let Some(existing) = all_void_channels.take() {
-                csg_boolean_indexed_tolerant(BooleanOp::Union, &existing, &void_current)?
+                csg_boolean(BooleanOp::Union, &existing, &void_current)?
             } else {
                 void_current
             });
@@ -335,13 +333,13 @@ fn mesh_output_from_blueprint(
     let chip_mesh = if config.include_chip_body {
         let substrate = SubstrateBuilder::well_plate_96(config.chip_height_mm).build_indexed()?;
         let void_mesh = all_void_channels.as_ref().unwrap_or(&fluid_mesh);
-        let mut chip = csg_boolean_indexed_tolerant(BooleanOp::Difference, &substrate, void_mesh)?;
+        let mut chip = csg_boolean(BooleanOp::Difference, &substrate, void_mesh)?;
         chip.orient_outward();
         chip.retain_largest_component();
         chip.rebuild_edges();
 
         if !chip.is_watertight() {
-            chip = csg_boolean_indexed(BooleanOp::Difference, &substrate, void_mesh)?;
+            chip = csg_boolean(BooleanOp::Difference, &substrate, void_mesh)?;
             chip.orient_outward();
             chip.retain_largest_component();
             chip.rebuild_edges();

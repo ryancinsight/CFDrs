@@ -13,9 +13,7 @@ use crate::application::channel::path::ChannelPath;
 use crate::application::channel::profile::ChannelProfile;
 use crate::application::channel::substrate::SubstrateBuilder;
 use crate::application::channel::sweep::SweepMesher;
-use crate::application::csg::boolean::csg_boolean_indexed;
-use crate::application::csg::boolean::csg_boolean_indexed_tolerant;
-use crate::application::csg::boolean::operations::BooleanOp;
+use crate::application::csg::boolean::{self, BooleanOp};
 use crate::domain::core::error::{MeshError, MeshResult};
 use crate::domain::core::index::RegionId;
 use crate::domain::core::scalar::{Point3r, Real};
@@ -192,10 +190,21 @@ impl BlueprintMeshPipeline {
     /// 7. Label boundary faces (inlet / outlet / wall).
     /// 8. Optionally build chip body via CSG Difference.
     pub fn run(bp: &NetworkBlueprint, config: &PipelineConfig) -> MeshResult<PipelineOutput> {
+        let is_selective_routing = bp
+            .topology_spec()
+            .is_some_and(cfd_schematics::BlueprintTopologySpec::is_selective_routing);
+        if is_selective_routing {
+            require_geometry_authored_selective_blueprint(bp)?;
+        }
+
         // Step 2 — classify topology (must precede constraint check so we can
         // skip the 4 mm port constraint for ParallelArray micro-channels).
         let topo = NetworkTopology::new(bp);
-        let class = topo.classify();
+        let class = if is_selective_routing {
+            TopologyClass::Complex
+        } else {
+            topo.classify()
+        };
 
         // Step 1 — diameter constraint.
         // ParallelArray micro-channels (D_h << 4 mm) are not subject to the
@@ -218,7 +227,13 @@ impl BlueprintMeshPipeline {
         // The serpentine zigzag inserts synthetic turn segments that don't map to
         // blueprint channels, so we cannot use layout.len() here.
         let segment_count = bp.channels.len();
-        let layout = synthesize_layout(&class, &topo, bp, y_center, z_mid, config)?;
+        let use_authored_routed_layout = is_selective_routing
+            || (matches!(&class, TopologyClass::Complex) && blueprint_has_routed_layout(bp));
+        let layout = if use_authored_routed_layout {
+            synthesize_geometry_authored_routed_layout(bp, z_mid)?
+        } else {
+            synthesize_layout(&class, &topo, bp, y_center, z_mid, config)?
+        };
 
         // Step 4 — wall clearance (routing bounds)
         // Inlet/outlet ports are allowed to touch the x=0 and x=WIDTH_MM faces;
@@ -283,20 +298,18 @@ impl BlueprintMeshPipeline {
         } else if matches!(&class, TopologyClass::Complex) {
             build_complex_fluid_mesh(&mesh_layout, config)?
         } else {
-            let segment_meshes: Vec<IndexedMesh> = mesh_layout
-                .iter()
-                .map(|seg| build_segment_mesh(seg, config))
-                .collect::<MeshResult<_>>()?;
-            assemble_fluid_mesh(segment_meshes)?
+            // Robust topological fluid extraction via CSG inversion.
+            // Direct multi-way union of intersecting cylinders at unconstrained angles
+            build_complex_fluid_mesh(&mesh_layout, config)?
         };
 
         // Step 7 — label boundaries
         label_boundaries(&mut fluid_mesh, &class, &layout, z_mid, y_center);
         fluid_mesh.rebuild_edges();
 
-        // Complex topologies may have minor boundary-edge artifacts from
-        // multi-junction CSG; allow them through since the mesh is still
-        // usable for simulation and fabrication.
+        // Complex branching junctions can still retain small residual boundary
+        // loops under aggressive auto-layout intersections. Keep those designs
+        // usable while the multi-branch closure audit continues.
         if !matches!(&class, TopologyClass::Complex) && !fluid_mesh.is_watertight() {
             let count = fluid_mesh
                 .edges_ref()
@@ -316,7 +329,7 @@ impl BlueprintMeshPipeline {
                 // LinearChain (serpentine): subtract the full connected fluid
                 // mesh as the void so the chip body exposes exactly one inlet
                 // and one outlet for a single continuous channel network.
-                csg_boolean_indexed(
+                boolean::csg_boolean(
                     BooleanOp::Difference,
                     &SubstrateBuilder::well_plate_96(config.chip_height_mm).build_indexed()?,
                     &fluid_mesh,
@@ -325,7 +338,7 @@ impl BlueprintMeshPipeline {
                 // VenturiChain: build the void via the same annular-cap direct
                 // sweep path used for the fluid mesh, then subtract from substrate.
                 let void_mesh = build_venturi_chain_mesh(&mesh_layout, config)?;
-                csg_boolean_indexed(
+                boolean::csg_boolean(
                     BooleanOp::Difference,
                     &SubstrateBuilder::well_plate_96(config.chip_height_mm).build_indexed()?,
                     &void_mesh,
@@ -334,7 +347,7 @@ impl BlueprintMeshPipeline {
                 // Complex: reuse the already-built fluid_mesh as the void.
                 // Use tolerant CSG because the fluid mesh may have minor
                 // boundary-edge artifacts from multi-junction unions.
-                csg_boolean_indexed_tolerant(
+                boolean::csg_boolean(
                     BooleanOp::Difference,
                     &SubstrateBuilder::well_plate_96(config.chip_height_mm).build_indexed()?,
                     &fluid_mesh,
@@ -406,6 +419,39 @@ fn synthetic_segment(
         to_node_id: None,
         is_synthetic_connector: true,
     }
+}
+
+fn require_geometry_authored_selective_blueprint(bp: &NetworkBlueprint) -> MeshResult<()> {
+    let Some(topology) = bp.topology_spec() else {
+        return Err(MeshError::ChannelError {
+            message: format!(
+                "selective split-tree mesh pipeline requires topology metadata on blueprint '{}'",
+                bp.name
+            ),
+        });
+    };
+    if !topology.is_selective_routing() {
+        return Ok(());
+    }
+    if !bp.is_geometry_authored() {
+        return Err(MeshError::ChannelError {
+            message: format!(
+                "selective split-tree mesh pipeline requires create_geometry-authored provenance for blueprint '{}' ({})",
+                bp.name,
+                topology.stage_sequence_label()
+            ),
+        });
+    }
+    if bp.render_hints().is_none() {
+        return Err(MeshError::ChannelError {
+            message: format!(
+                "selective split-tree mesh pipeline requires canonical render hints for blueprint '{}' ({})",
+                bp.name,
+                topology.stage_sequence_label()
+            ),
+        });
+    }
+    Ok(())
 }
 
 // ── Layout synthesis ──────────────────────────────────────────────────────────
@@ -615,6 +661,90 @@ fn synthesize_parallel_array_layout(
 
 // ── Complex (general DAG) layout synthesis ───────────────────────────────────
 
+fn blueprint_has_routed_layout(bp: &NetworkBlueprint) -> bool {
+    bp.nodes.iter().all(|node| node.layout.is_some())
+        && bp.channels.iter().all(|channel| channel.path.len() >= 2)
+}
+
+fn synthesize_geometry_authored_routed_layout(
+    bp: &NetworkBlueprint,
+    z_mid: Real,
+) -> MeshResult<Vec<SegmentLayout>> {
+    let node_positions: HashMap<&str, (f64, f64)> = bp
+        .nodes
+        .iter()
+        .map(|node| (node.id.as_str(), node.point))
+        .collect();
+    let mut layout = Vec::new();
+
+    for channel in &bp.channels {
+        let start = node_positions
+            .get(channel.from.as_str())
+            .copied()
+            .ok_or_else(|| MeshError::ChannelError {
+                message: format!(
+                    "selective blueprint '{}' is missing node position for '{}'",
+                    bp.name,
+                    channel.from.as_str()
+                ),
+            })?;
+        let end = node_positions
+            .get(channel.to.as_str())
+            .copied()
+            .ok_or_else(|| MeshError::ChannelError {
+                message: format!(
+                    "selective blueprint '{}' is missing node position for '{}'",
+                    bp.name,
+                    channel.to.as_str()
+                ),
+            })?;
+
+        let mut path_points = if channel.path.len() >= 2 {
+            channel.path.clone()
+        } else {
+            vec![start, end]
+        };
+        if path_points.first().is_some_and(|point| {
+            (point.0 - start.0).abs() > 1.0e-6 || (point.1 - start.1).abs() > 1.0e-6
+        }) {
+            path_points.insert(0, start);
+        }
+        if path_points.last().is_some_and(|point| {
+            (point.0 - end.0).abs() > 1.0e-6 || (point.1 - end.1).abs() > 1.0e-6
+        }) {
+            path_points.push(end);
+        }
+
+        let before_len = layout.len();
+        for window in path_points.windows(2) {
+            let start_pt = Point3r::new(window[0].0, window[0].1, z_mid);
+            let end_pt = Point3r::new(window[1].0, window[1].1, z_mid);
+            if (end_pt - start_pt).norm() <= 1.0e-9 {
+                continue;
+            }
+            layout.push(channel_segment(
+                start_pt,
+                end_pt,
+                channel.cross_section,
+                channel.id.as_str(),
+                channel.from.as_str(),
+                channel.to.as_str(),
+            ));
+        }
+        if layout.len() == before_len {
+            return Err(MeshError::ChannelError {
+                message: format!(
+                    "selective blueprint '{}' produced no non-degenerate path segments for channel '{}'",
+                    bp.name,
+                    channel.id.as_str()
+                ),
+            });
+        }
+    }
+
+    Ok(layout)
+}
+
 /// Lay out a general directed-acyclic channel network on the SBS-96 plate.
 ///
 /// # Algorithm
@@ -796,6 +926,7 @@ fn build_segment_mesh(seg: &SegmentLayout, config: &PipelineConfig) -> MeshResul
         );
     }
     mesh.rebuild_edges();
+    repair_pipeline_mesh(&mut mesh, true)?;
     Ok(mesh)
 }
 
@@ -815,6 +946,15 @@ fn build_polyline_mesh(
     layout: &[SegmentLayout],
     extend_ends_mm: f64,
     config: &PipelineConfig,
+) -> MeshResult<IndexedMesh> {
+    build_polyline_mesh_with_policy(layout, extend_ends_mm, config, true)
+}
+
+fn build_polyline_mesh_with_policy(
+    layout: &[SegmentLayout],
+    extend_ends_mm: f64,
+    config: &PipelineConfig,
+    require_watertight: bool,
 ) -> MeshResult<IndexedMesh> {
     if layout.is_empty() {
         return Err(MeshError::ChannelError {
@@ -871,42 +1011,104 @@ fn build_polyline_mesh(
         );
     }
     mesh.rebuild_edges();
+    repair_pipeline_mesh(&mut mesh, require_watertight)?;
     Ok(mesh)
 }
 
 // ── Fluid mesh assembly ───────────────────────────────────────────────────────
 
 fn assemble_fluid_mesh(meshes: Vec<IndexedMesh>) -> MeshResult<IndexedMesh> {
-    let mut iter = meshes.into_iter();
-    let first = iter.next().ok_or_else(|| MeshError::ChannelError {
-        message: "no segment meshes to assemble".to_string(),
-    })?;
-    let mut accumulated = first;
-    for mesh in iter {
-        accumulated = csg_boolean_indexed(BooleanOp::Union, &accumulated, &mesh)?;
+    assemble_fluid_mesh_with_policy(meshes, true)
+}
+
+fn assemble_fluid_mesh_best_effort(meshes: Vec<IndexedMesh>) -> MeshResult<IndexedMesh> {
+    assemble_fluid_mesh_with_policy(meshes, false)
+}
+
+fn assemble_fluid_mesh_with_policy(
+    meshes: Vec<IndexedMesh>,
+    require_watertight: bool,
+) -> MeshResult<IndexedMesh> {
+    if meshes.is_empty() {
+        return Err(MeshError::ChannelError {
+            message: "no segment meshes to assemble".to_string(),
+        });
     }
 
-    // Post-CSG repair: the iterative union can leave a small number of
-    // misoriented faces (winding flips at T-junction seams) and phantom
-    // disconnected triangles.  orient_outward() corrects the winding via
-    // BFS flood-fill, and retain_largest_component() removes any floating
-    // island faces that individually pass watertight=true but corrupt the
-    // Euler characteristic of the whole mesh.
-    accumulated.orient_outward();
-    accumulated.retain_largest_component();
-    accumulated.rebuild_edges();
+    let mut accumulated = match crate::application::csg::boolean::csg_boolean_nary_union(&meshes) {
+        Ok(mesh) => mesh,
+        Err(MeshError::NotWatertight { .. }) if !require_watertight => {
+            let mut iter = meshes.into_iter();
+            let mut accumulated = iter.next().unwrap();
+            for mesh in iter {
+                accumulated = crate::application::csg::boolean::csg_boolean_indexed_best_effort(
+                    crate::application::csg::BooleanOp::Union,
+                    &accumulated,
+                    &mesh,
+                )?;
+            }
+            accumulated
+        }
+        Err(error) => return Err(error),
+    };
+    repair_pipeline_mesh(&mut accumulated, require_watertight)?;
+    Ok(accumulated)
+}
 
-    if accumulated.signed_volume() < 0.0 {
-        accumulated.flip_faces();
+fn repair_pipeline_mesh(mesh: &mut IndexedMesh, require_watertight: bool) -> MeshResult<()> {
+    // The blueprint pipeline mixes direct sweeps and Boolean assembly. Apply a
+    // consistent repair pass before final watertight enforcement so chain
+    // builders and n-way unions converge to the same closure semantics.
+    mesh.orient_outward();
+    mesh.retain_largest_component();
+    mesh.rebuild_edges();
+
+    if mesh.signed_volume() < 0.0 {
+        mesh.flip_faces();
+        mesh.rebuild_edges();
     }
 
-    if !accumulated.is_watertight() {
-        let count = accumulated
-            .edges_ref()
-            .map_or(0, |e| e.boundary_edges().len());
+    if !mesh.is_watertight() {
+        let edge_store = crate::infrastructure::storage::edge_store::EdgeStore::from_face_store(
+            &mesh.faces,
+        );
+        let added = crate::application::watertight::seal::seal_boundary_loops(
+            &mut mesh.vertices,
+            &mut mesh.faces,
+            &edge_store,
+            RegionId::INVALID,
+        );
+        if added > 0 {
+            mesh.rebuild_edges();
+            mesh.orient_outward();
+            mesh.rebuild_edges();
+        }
+    }
+
+    if !mesh.is_watertight() {
+        let improved = crate::application::watertight::repair::MeshRepair::iterative_boundary_stitch(
+            &mut mesh.faces,
+            &mesh.vertices,
+            3,
+        );
+        if improved > 0 {
+            mesh.rebuild_edges();
+            mesh.orient_outward();
+            mesh.rebuild_edges();
+        }
+    }
+
+    if mesh.signed_volume() < 0.0 {
+        mesh.flip_faces();
+        mesh.rebuild_edges();
+    }
+
+    if require_watertight && !mesh.is_watertight() {
+        let count = mesh.edges_ref().map_or(0, |e| e.boundary_edges().len());
         return Err(MeshError::NotWatertight { count });
     }
-    Ok(accumulated)
+
+    Ok(())
 }
 
 // ── Venturi chain concatenated sweep (no CSG) ─────────────────────────────────
@@ -1138,10 +1340,7 @@ fn build_venturi_chain_mesh(
     }
     mesh.recompute_normals();
     mesh.rebuild_edges();
-    if !mesh.is_watertight() {
-        let count = mesh.edges_ref().map_or(0, |e| e.boundary_edges().len());
-        return Err(MeshError::NotWatertight { count });
-    }
+    repair_pipeline_mesh(&mut mesh, true)?;
     Ok(mesh)
 }
 
@@ -1388,34 +1587,32 @@ fn build_complex_fluid_mesh(
     let mut chain_meshes: Vec<IndexedMesh> = Vec::with_capacity(oriented_chains.len());
     for chain_segs in &oriented_chains {
         if chain_segs.len() == 1 {
-            chain_meshes.push(build_segment_mesh(&chain_segs[0], config)?);
+            let mesh = build_segment_mesh(&chain_segs[0], config).map_err(|error| {
+                MeshError::ChannelError {
+                    message: format!("complex chain segment mesh failed: {error}"),
+                }
+            })?;
+            chain_meshes.push(mesh);
         } else {
-            chain_meshes.push(build_polyline_mesh(chain_segs, 0.0, config)?);
+            let mesh = build_polyline_mesh_with_policy(
+                chain_segs,
+                0.0,
+                config,
+                false,
+            )
+            .map_err(|error| MeshError::ChannelError {
+                message: format!(
+                    "complex chain polyline mesh failed for {} segments: {error}",
+                    chain_segs.len()
+                ),
+            })?;
+            chain_meshes.push(mesh);
         }
     }
 
-    // ── Step 6: CSG-union all chain meshes (tolerant) ────────────────────────
-    let mut iter = chain_meshes.into_iter();
-    let mut mesh = iter.next().ok_or_else(|| MeshError::ChannelError {
-        message: "no chain meshes to assemble".to_string(),
-    })?;
-    for chain_mesh in iter {
-        mesh = csg_boolean_indexed_tolerant(BooleanOp::Union, &mesh, &chain_mesh)?;
-    }
-
-    mesh.orient_outward();
-    mesh.retain_largest_component();
-    mesh.rebuild_edges();
-
-    if mesh.signed_volume() < 0.0 {
-        mesh.flip_faces();
-    }
-
-    // Complex topologies tolerate minor boundary-edge artifacts from
-    // multi-junction CSG.  The mesh is still valid for simulation and
-    // fabrication — external tools (MeshLab / netfabb) can close the
-    // remaining gaps if needed.
-    Ok(mesh)
+    assemble_fluid_mesh_best_effort(chain_meshes).map_err(|error| MeshError::ChannelError {
+        message: format!("complex fluid assembly failed: {error}"),
+    })
 }
 
 fn build_chip_body(layout: &[SegmentLayout], config: &PipelineConfig) -> MeshResult<IndexedMesh> {
@@ -1433,7 +1630,7 @@ fn build_chip_body(layout: &[SegmentLayout], config: &PipelineConfig) -> MeshRes
 
     let void_mesh = assemble_fluid_mesh(void_meshes)?;
 
-    csg_boolean_indexed(BooleanOp::Difference, &substrate, &void_mesh)
+    boolean::csg_boolean(BooleanOp::Difference, &substrate, &void_mesh)
 }
 
 /// Build the chip body by subtracting each void tube **individually**.
@@ -1454,7 +1651,7 @@ fn build_chip_body_sequential(
     let mut result = SubstrateBuilder::well_plate_96(config.chip_height_mm).build_indexed()?;
     for seg in layout {
         let void_mesh = build_segment_mesh(seg, config)?;
-        result = csg_boolean_indexed(BooleanOp::Difference, &result, &void_mesh)?;
+        result = boolean::csg_boolean(BooleanOp::Difference, &result, &void_mesh)?;
     }
     Ok(result)
 }
@@ -1620,6 +1817,9 @@ fn relative_percent(delta: f64, reference: f64) -> f64 {
 #[cfg(test)]
 mod tests {
     use cfd_schematics::interface::presets::venturi_chain;
+    use cfd_schematics::topology::presets::{
+        build_milestone12_blueprint, build_milestone12_topology_spec, Milestone12TopologyRequest,
+    };
 
     use super::*;
 
@@ -1645,12 +1845,23 @@ mod tests {
     fn pipeline_handles_complex_topology() {
         // Build a blueprint with complex topology manually
         use cfd_schematics::{ChannelSpec, NetworkBlueprint, NodeKind, NodeSpec};
-        let mut bp = NetworkBlueprint::new("complex");
-        bp.add_node(NodeSpec::new("inlet", NodeKind::Inlet));
-        bp.add_node(NodeSpec::new("j1", NodeKind::Junction));
-        bp.add_node(NodeSpec::new("j2", NodeKind::Junction));
-        bp.add_node(NodeSpec::new("j3", NodeKind::Junction));
-        bp.add_node(NodeSpec::new("outlet", NodeKind::Outlet));
+        let mut bp = NetworkBlueprint {
+            name: "complex".to_string(),
+            box_dims: (127.76, 85.47),
+            box_outline: Vec::new(),
+            nodes: Vec::new(),
+            channels: Vec::new(),
+            render_hints: None,
+            topology: None,
+            lineage: None,
+            metadata: None,
+            geometry_authored: false,
+        };
+        bp.add_node(NodeSpec::new_at("inlet", NodeKind::Inlet, (0.0, 42.735)));
+        bp.add_node(NodeSpec::new_at("j1", NodeKind::Junction, (30.0, 42.735)));
+        bp.add_node(NodeSpec::new_at("j2", NodeKind::Junction, (60.0, 42.735)));
+        bp.add_node(NodeSpec::new_at("j3", NodeKind::Junction, (90.0, 42.735)));
+        bp.add_node(NodeSpec::new_at("outlet", NodeKind::Outlet, (120.0, 42.735)));
         // 5 channels: creates a Complex topology (degree > 3 at some node)
         for i in 1..=5_usize {
             let from = if i == 1 { "inlet" } else { "j1" };
@@ -1698,5 +1909,75 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn selective_pipeline_rejects_non_geometry_authored_blueprint() {
+        let request = Milestone12TopologyRequest::new(
+            "tri_bi",
+            "Tri→Bi",
+            vec![
+                cfd_schematics::SplitKind::NFurcation(3),
+                cfd_schematics::SplitKind::NFurcation(2),
+            ],
+            6.0e-3,
+            1.0e-3,
+            8.0e-3,
+            8.0e-3,
+        );
+        let spec = build_milestone12_topology_spec(&request);
+        let mut bp = build_milestone12_blueprint(&request).expect("selective blueprint");
+        bp.metadata = None;
+        bp.geometry_authored = false;
+        bp.topology = Some(spec);
+
+        let result = BlueprintMeshPipeline::run(
+            &bp,
+            &PipelineConfig {
+                include_chip_body: false,
+                skip_diameter_constraint: true,
+                ..Default::default()
+            },
+        );
+        let message = result
+            .err()
+            .expect("non-canonical selective blueprint must fail");
+        assert!(
+            message
+                .to_string()
+                .contains("create_geometry-authored provenance"),
+            "unexpected error: {message}"
+        );
+    }
+
+    #[test]
+    fn selective_pipeline_uses_geometry_authored_paths() {
+        let request = Milestone12TopologyRequest::new(
+            "tri_bi",
+            "Tri→Bi",
+            vec![
+                cfd_schematics::SplitKind::NFurcation(3),
+                cfd_schematics::SplitKind::NFurcation(2),
+            ],
+            6.0e-3,
+            1.0e-3,
+            8.0e-3,
+            8.0e-3,
+        );
+        let bp = build_milestone12_blueprint(&request).expect("geometry-authored selective build");
+        let result = BlueprintMeshPipeline::run(
+            &bp,
+            &PipelineConfig {
+                include_chip_body: false,
+                skip_diameter_constraint: true,
+                ..Default::default()
+            },
+        )
+        .expect("geometry-authored selective blueprint should mesh");
+        assert_eq!(result.topology_class, TopologyClass::Complex);
+        assert!(
+            result.layout_segments.len() >= bp.channels.len(),
+            "selective path meshing should preserve authored channel polylines"
+        );
     }
 }

@@ -414,7 +414,7 @@ pub(crate) fn boolean_coplanar(
 mod tests {
     use super::super::geometry2d::polygon_area_2d;
     use super::{aabb_overlaps, SweepAabbIndex2d};
-    use crate::application::csg::boolean::{csg_boolean_indexed, BooleanOp};
+    use crate::application::csg::boolean::{csg_boolean, BooleanOp};
     use crate::domain::geometry::primitives::{Disk, PrimitiveMesh};
     use crate::domain::mesh::IndexedMesh;
 
@@ -499,7 +499,7 @@ mod tests {
     fn identical_disks_union_equals_single() {
         let a = disk(0., 1., 64);
         let b = disk(0., 1., 64);
-        let u = csg_boolean_indexed(BooleanOp::Union, &a, &b).unwrap();
+        let u = csg_boolean(BooleanOp::Union, &a, &b).unwrap();
         let err = (area(&u) - std::f64::consts::PI).abs() / std::f64::consts::PI;
         assert!(err < 0.02, "union err {:.1}%", err * 100.);
     }
@@ -509,7 +509,7 @@ mod tests {
         let (r, d) = (1.0_f64, 1.0_f64);
         let a = disk(-d / 2., r, 128);
         let b = disk(d / 2., r, 128);
-        let inter = csg_boolean_indexed(BooleanOp::Intersection, &a, &b).unwrap();
+        let inter = csg_boolean(BooleanOp::Intersection, &a, &b).unwrap();
         let th = (d / (2. * r)).acos();
         let exp = 2. * r * r * (th - th.sin() * th.cos());
         let err = (area(&inter) - exp).abs() / exp;
@@ -521,8 +521,8 @@ mod tests {
         let (r, d) = (1.0_f64, 1.0_f64);
         let a = disk(-d / 2., r, 128);
         let b = disk(d / 2., r, 128);
-        let u = csg_boolean_indexed(BooleanOp::Union, &a, &b).unwrap();
-        let i = csg_boolean_indexed(BooleanOp::Intersection, &a, &b).unwrap();
+        let u = csg_boolean(BooleanOp::Union, &a, &b).unwrap();
+        let i = csg_boolean(BooleanOp::Intersection, &a, &b).unwrap();
         let lhs = area(&a) + area(&b);
         let rhs = area(&u) + area(&i);
         let err = (lhs - rhs).abs() / lhs;
@@ -534,8 +534,8 @@ mod tests {
         let (r, d) = (1.0_f64, 1.0_f64);
         let a = disk(-d / 2., r, 128);
         let b = disk(d / 2., r, 128);
-        let diff = csg_boolean_indexed(BooleanOp::Difference, &a, &b).unwrap();
-        let inter = csg_boolean_indexed(BooleanOp::Intersection, &a, &b).unwrap();
+        let diff = csg_boolean(BooleanOp::Difference, &a, &b).unwrap();
+        let inter = csg_boolean(BooleanOp::Intersection, &a, &b).unwrap();
         let area_a = area(&a);
         let lhs = area(&diff) + area(&inter);
         let err = (lhs - area_a).abs() / area_a;

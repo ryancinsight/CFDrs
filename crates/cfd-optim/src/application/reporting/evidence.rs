@@ -141,7 +141,7 @@ pub fn render_exploratory_report(manifest: &EvidenceRunManifest) -> String {
         report.push_str(&format!(
             "- {:?}: score {:.4}, residence {:.4} s, separation {:.4}\n",
             goal_evidence.goal,
-            goal_evidence.evaluation.score,
+            goal_evidence.evaluation.score_or_zero(),
             goal_evidence
                 .evaluation
                 .residence
@@ -221,7 +221,11 @@ mod tests {
             goal,
             candidate_id: format!("{goal:?}"),
             blueprint_name: format!("{goal:?}"),
-            score: 0.9,
+            score: Some(0.9),
+            status: crate::BlueprintEvaluationStatus::Eligible,
+            screening_reasons: Vec::new(),
+            baseline_scores: Vec::new(),
+            exceeds_all_baselines: None,
             residence: ResidenceMetrics {
                 treatment_volume_m3: 1.0e-9,
                 treatment_residence_time_s: 0.02,
@@ -304,6 +308,7 @@ mod tests {
                         cavitation_number: 0.8,
                         effective_throat_velocity_m_s: 12.0,
                         throat_static_pressure_pa: 20_000.0,
+                        diffuser_recovery_pa: 0.0,
                         dean_number: 45.0,
                         curvature_radius_m: 0.002,
                         arc_length_m: 0.01,

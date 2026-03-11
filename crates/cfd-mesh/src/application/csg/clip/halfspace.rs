@@ -224,7 +224,7 @@ pub fn fan_triangulate(polygon: &[Point3r]) -> Vec<[Point3r; 3]> {
         unique_pts.push([u, v]);
     }
 
-    let mut pslg_edges = std::collections::HashSet::new();
+    let mut pslg_edges = Vec::new();
     let nb = pslg_vids.len();
     for i in 0..nb {
         let va = pslg_vids[i].idx();
@@ -248,6 +248,8 @@ pub fn fan_triangulate(polygon: &[Point3r]) -> Vec<[Point3r; 3]> {
         }
     }
 
+    pslg_edges.sort_unstable();
+    pslg_edges.dedup();
     for (a, b) in pslg_edges {
         // Only add segment if it hasn't been added yet and the edge does not degenerate
         if a != b {

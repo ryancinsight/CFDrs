@@ -140,4 +140,4 @@ pub const SEAM_COLLINEAR_TOL_SQ: Real = 1e-6;
 /// When the total count (edge Steiners + interior Steiners) exceeds this
 /// bound, `corefine_face` falls back to `midpoint_subdivide` to prevent
 /// O(s²) CDT blowup from complex multi-branch junction geometries.
-pub const MAX_STEINER_PER_FACE: usize = 256;
+pub const MAX_STEINER_PER_FACE: usize = 32768;

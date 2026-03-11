@@ -1,0 +1,597 @@
+//! `IndexedMesh` wrapper API for CSG Boolean operations
+
+use super::operations::{csg_boolean, BooleanOp};
+use crate::application::csg::reconstruct;
+use crate::domain::core::error::{MeshError, MeshResult};
+use crate::domain::mesh::IndexedMesh;
+use crate::infrastructure::storage::face_store::FaceData;
+use crate::infrastructure::storage::vertex_pool::VertexPool;
+
+/// High-level Boolean operation on two [`IndexedMesh`] objects.
+///
+/// Merges the vertex pools, runs the Boolean pipeline with containment
+/// detection, and reconstructs a fresh deduplicated `IndexedMesh`.
+pub fn csg_boolean_indexed(
+    op: BooleanOp,
+    mesh_a: &IndexedMesh,
+    mesh_b: &IndexedMesh,
+) -> MeshResult<IndexedMesh> {
+    use crate::domain::core::index::VertexId;
+    use std::collections::HashMap;
+
+    let mut combined = VertexPool::for_csg();
+
+    let mut remap_a: HashMap<VertexId, VertexId> = HashMap::new();
+    for (old_id, _) in mesh_a.vertices.iter() {
+        let pos = *mesh_a.vertices.position(old_id);
+        let nrm = *mesh_a.vertices.normal(old_id);
+        remap_a.insert(old_id, combined.insert_or_weld(pos, nrm));
+    }
+
+    let mut remap_b: HashMap<VertexId, VertexId> = HashMap::new();
+    for (old_id, _) in mesh_b.vertices.iter() {
+        let pos = *mesh_b.vertices.position(old_id);
+        let nrm = *mesh_b.vertices.normal(old_id);
+        remap_b.insert(old_id, combined.insert_or_weld(pos, nrm));
+    }
+
+    let faces_a: Vec<FaceData> = mesh_a
+        .faces
+        .iter()
+        .map(|f| FaceData {
+            vertices: f.vertices.map(|vid| remap_a[&vid]),
+            region: f.region,
+        })
+        .collect();
+
+    let faces_b: Vec<FaceData> = mesh_b
+        .faces
+        .iter()
+        .map(|f| FaceData {
+            vertices: f.vertices.map(|vid| remap_b[&vid]),
+            region: f.region,
+        })
+        .collect();
+
+    // Detect coplanar flat-surface operands before consuming the face soups.
+    // Coplanar (2-D) operations produce open surfaces with zero signed volume;
+    // the watertight invariant only applies to 3-D solid outputs.
+    let is_coplanar = crate::application::csg::coplanar::detect_flat_plane(&faces_a, &combined)
+        .is_some()
+        && crate::application::csg::coplanar::detect_flat_plane(&faces_b, &combined).is_some();
+
+    let result_faces = csg_boolean(op, &faces_a, &faces_b, &mut combined)?;
+    let mut mesh = reconstruct::reconstruct_mesh(&result_faces, &combined);
+
+    // Recompute vertex normals from the final face geometry.
+    // After boolean operations, B-sourced faces may have had their winding
+    // flipped (e.g. for Difference) but retain the original vertex normals from
+    // mesh B.  Recomputing from face geometry ensures alignment consistency.
+    mesh.recompute_normals();
+
+    if !is_coplanar {
+        mesh.rebuild_edges();
+        let mut report = crate::application::watertight::check::check_watertight(
+            &mesh.vertices,
+            &mesh.faces,
+            mesh.edges_ref().unwrap(),
+        );
+        if !report.is_watertight {
+            // Repair path 1: if topology is closed but winding consistency is
+            // broken, re-orient globally and re-check before failing.
+            if report.is_closed && !report.orientation_consistent {
+                mesh.orient_outward();
+                mesh.rebuild_edges();
+                report = crate::application::watertight::check::check_watertight(
+                    &mesh.vertices,
+                    &mesh.faces,
+                    mesh.edges_ref().unwrap(),
+                );
+            }
+
+            // Repair path 1b: when geometric outward orientation alone is
+            // insufficient, enforce edge-adjacency winding consistency, then
+            // re-apply outward orientation for global sign.
+            if !report.is_watertight && report.is_closed && !report.orientation_consistent {
+                let edge_store =
+                    crate::infrastructure::storage::edge_store::EdgeStore::from_face_store(
+                        &mesh.faces,
+                    );
+                let _ = crate::domain::topology::orientation::fix_orientation(
+                    &mut mesh.faces,
+                    &edge_store,
+                );
+                mesh.rebuild_edges();
+                mesh.orient_outward();
+                mesh.rebuild_edges();
+                report = crate::application::watertight::check::check_watertight(
+                    &mesh.vertices,
+                    &mesh.faces,
+                    mesh.edges_ref().unwrap(),
+                );
+            }
+
+            // Repair path 2: boundary-only defects (no non-manifold edges).
+            // Seal residual boundary loops, then re-orient and re-check.
+            if !report.is_watertight
+                && report.non_manifold_edge_count == 0
+                && report.boundary_edge_count > 0
+                && report.boundary_edge_count <= 512
+            {
+                let edge_store =
+                    crate::infrastructure::storage::edge_store::EdgeStore::from_face_store(
+                        &mesh.faces,
+                    );
+                let added = crate::application::watertight::seal::seal_boundary_loops(
+                    &mut mesh.vertices,
+                    &mut mesh.faces,
+                    &edge_store,
+                    crate::domain::core::index::RegionId::INVALID,
+                );
+                if added > 0 {
+                    mesh.rebuild_edges();
+                    mesh.orient_outward();
+                    mesh.rebuild_edges();
+                    report = crate::application::watertight::check::check_watertight(
+                        &mesh.vertices,
+                        &mesh.faces,
+                        mesh.edges_ref().unwrap(),
+                    );
+                }
+            }
+
+            // Repair path 3: run arrangement seam repair on reconstructed faces.
+            // This targets residual T-junctions and open loops that survive
+            // reconstruction-level checks in complex branch seams.
+            if !report.is_watertight && report.boundary_edge_count > 0 {
+                let mut repaired_faces: Vec<FaceData> = mesh.faces.iter().copied().collect();
+                crate::application::csg::arrangement::stitch::snap_round_tjunctions(
+                    &mut repaired_faces,
+                    &mesh.vertices,
+                );
+                crate::application::csg::arrangement::stitch::fill_boundary_loops(
+                    &mut repaired_faces,
+                    &mesh.vertices,
+                );
+                let mut store = crate::infrastructure::storage::face_store::FaceStore::new();
+                for face in repaired_faces {
+                    store.push(face);
+                }
+                mesh.faces = store;
+                mesh.rebuild_edges();
+                mesh.orient_outward();
+                mesh.rebuild_edges();
+                report = crate::application::watertight::check::check_watertight(
+                    &mesh.vertices,
+                    &mesh.faces,
+                    mesh.edges_ref().unwrap(),
+                );
+            }
+
+            if !report.is_watertight {
+                return Err(MeshError::NotWatertight {
+                    count: report.boundary_edge_count + report.non_manifold_edge_count,
+                });
+            }
+        }
+        // Discard phantom closed islands produced by Phase-4 GWN seam
+        // classification.  Each island is locally manifold (passes the
+        // watertight check above) but inflates Euler χ beyond 2 and corrupts
+        // signed volume.  GUARD: only apply if the result is STILL watertight —
+        // at T-junction seams (e.g., bifurcation arm joints) the "phantom"
+        // component may in fact be a seam-bridging fragment; discarding it
+        // converts a manifold mesh into a 5-edge boundary-hole mesh.
+        {
+            let mut candidate = mesh.clone();
+            candidate.retain_largest_component();
+            candidate.rebuild_edges();
+            let post_report = crate::application::watertight::check::check_watertight(
+                &candidate.vertices,
+                &candidate.faces,
+                candidate.edges_ref().unwrap(),
+            );
+            if post_report.is_watertight {
+                mesh = candidate;
+            }
+            // If retain_largest_component would break watertightness, keep
+            // the full mesh (with potentially non-zero Euler surplus from extra
+            // islands).  The caller will handle Euler normalization if needed.
+        }
+
+        // Fix any globally-inverted face islands left by Phase-4 GWN
+        // classification.  Seeds from the extremal (Jordan-Brouwer) face
+        // and BFS-flips inward components.
+        mesh.orient_outward();
+    }
+
+    Ok(mesh)
+}
+
+/// Best-effort Boolean union that applies all repair paths but returns the
+/// mesh even if a small number of boundary edges remain.
+///
+/// This is used for complex multi-junction topologies where T-junction CSG
+/// artifacts are expected and acceptable.  The returned mesh may have minor
+/// boundary-edge defects but is still valid for simulation and fabrication.
+pub fn csg_boolean_indexed_tolerant(
+    op: BooleanOp,
+    a: &IndexedMesh,
+    b: &IndexedMesh,
+) -> MeshResult<IndexedMesh> {
+    match csg_boolean_indexed(op, a, b) {
+        Ok(m) => Ok(m),
+        Err(MeshError::NotWatertight { .. }) => {
+            // Re-run the boolean pipeline but skip the watertight assertion.
+            use crate::domain::core::index::VertexId;
+            use std::collections::HashMap;
+
+            let mut combined = VertexPool::for_csg();
+
+            let mut remap_a: HashMap<VertexId, VertexId> = HashMap::new();
+            for (old_id, _) in a.vertices.iter() {
+                let pos = *a.vertices.position(old_id);
+                let nrm = *a.vertices.normal(old_id);
+                remap_a.insert(old_id, combined.insert_or_weld(pos, nrm));
+            }
+
+            let mut remap_b: HashMap<VertexId, VertexId> = HashMap::new();
+            for (old_id, _) in b.vertices.iter() {
+                let pos = *b.vertices.position(old_id);
+                let nrm = *b.vertices.normal(old_id);
+                remap_b.insert(old_id, combined.insert_or_weld(pos, nrm));
+            }
+
+            let faces_a: Vec<FaceData> = a
+                .faces
+                .iter()
+                .map(|f| FaceData {
+                    vertices: f.vertices.map(|vid| remap_a[&vid]),
+                    region: f.region,
+                })
+                .collect();
+
+            let faces_b: Vec<FaceData> = b
+                .faces
+                .iter()
+                .map(|f| FaceData {
+                    vertices: f.vertices.map(|vid| remap_b[&vid]),
+                    region: f.region,
+                })
+                .collect();
+
+            let result_faces = csg_boolean(op, &faces_a, &faces_b, &mut combined)?;
+            let mut mesh = reconstruct::reconstruct_mesh(&result_faces, &combined);
+            mesh.recompute_normals();
+            mesh.rebuild_edges();
+            mesh.orient_outward();
+            mesh.retain_largest_component();
+            mesh.rebuild_edges();
+            Ok(mesh)
+        }
+        Err(e) => Err(e),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::application::watertight::check::check_watertight;
+    use crate::domain::core::scalar::Point3r;
+    use crate::domain::geometry::primitives::{Cube, Cylinder, Disk, PrimitiveMesh, UvSphere};
+
+    fn sphere() -> IndexedMesh {
+        UvSphere {
+            radius: 1.0,
+            center: Point3r::origin(),
+            segments: 16,
+            stacks: 8,
+        }
+        .build()
+        .expect("sphere build")
+    }
+
+    fn cylinder() -> IndexedMesh {
+        Cylinder {
+            base_center: Point3r::new(0.0, -1.5, 0.0),
+            radius: 0.4,
+            height: 3.0,
+            segments: 16,
+        }
+        .build()
+        .expect("cylinder build")
+    }
+
+    fn cube_a() -> IndexedMesh {
+        Cube {
+            origin: Point3r::new(-1.0, -1.0, -1.0),
+            width: 2.0,
+            height: 2.0,
+            depth: 2.0,
+        }
+        .build()
+        .expect("cube_a build")
+    }
+
+    fn cube_b() -> IndexedMesh {
+        Cube {
+            origin: Point3r::new(-0.5, -0.5, -0.5),
+            width: 2.0,
+            height: 2.0,
+            depth: 2.0,
+        }
+        .build()
+        .expect("cube_b build")
+    }
+
+    fn disk_a() -> IndexedMesh {
+        Disk {
+            center: Point3r::new(0.0, 0.0, 0.0),
+            radius: 1.0,
+            segments: 16,
+        }
+        .build()
+        .expect("disk_a build")
+    }
+
+    fn disk_b() -> IndexedMesh {
+        Disk {
+            center: Point3r::new(0.5, 0.0, 0.0),
+            radius: 1.0,
+            segments: 16,
+        }
+        .build()
+        .expect("disk_b build")
+    }
+
+    /// Assert a 3-D CSG result is watertight with a positive signed volume.
+    fn assert_3d_watertight(mut mesh: IndexedMesh) {
+        mesh.rebuild_edges();
+        let report = check_watertight(&mesh.vertices, &mesh.faces, mesh.edges_ref().unwrap());
+        assert!(
+            report.is_watertight,
+            "CSG result must be watertight: {} boundary edge(s), {} non-manifold edge(s)",
+            report.boundary_edge_count, report.non_manifold_edge_count,
+        );
+        assert!(
+            mesh.signed_volume() > 0.0,
+            "CSG result must have positive signed volume (outward-oriented normals)",
+        );
+    }
+
+    // ── sphere × cylinder (curved × curved — arrangement pipeline) ─────────────
+
+    #[test]
+    fn sphere_cylinder_union_is_watertight() {
+        let result = csg_boolean_indexed(BooleanOp::Union, &sphere(), &cylinder())
+            .expect("sphere ∪ cylinder");
+        assert_3d_watertight(result);
+    }
+
+    #[test]
+    fn sphere_cylinder_intersection_is_watertight() {
+        let result = csg_boolean_indexed(BooleanOp::Intersection, &sphere(), &cylinder())
+            .expect("sphere ∩ cylinder");
+        assert_3d_watertight(result);
+    }
+
+    #[test]
+    fn sphere_cylinder_difference_is_watertight() {
+        let result = csg_boolean_indexed(BooleanOp::Difference, &sphere(), &cylinder())
+            .expect("sphere \\ cylinder");
+        assert_3d_watertight(result);
+    }
+
+    // ── cube × cube (flat faces — intersecting arrangement pipeline) ───────────
+
+    #[test]
+    fn cube_cube_union_is_watertight() {
+        let result =
+            csg_boolean_indexed(BooleanOp::Union, &cube_a(), &cube_b()).expect("cube ∪ cube");
+        assert_3d_watertight(result);
+    }
+
+    #[test]
+    fn cube_cube_intersection_is_watertight() {
+        let result = csg_boolean_indexed(BooleanOp::Intersection, &cube_a(), &cube_b())
+            .expect("cube ∩ cube");
+        assert_3d_watertight(result);
+    }
+
+    #[test]
+    fn cube_cube_difference_is_watertight() {
+        let result =
+            csg_boolean_indexed(BooleanOp::Difference, &cube_a(), &cube_b()).expect("cube \\ cube");
+        assert_3d_watertight(result);
+    }
+
+    // ── cube × cylinder coplanar (caps flush with cube walls) ──────────────────
+
+    fn cylinder_coplanar() -> IndexedMesh {
+        Cylinder {
+            base_center: Point3r::new(0.0, -1.0, 0.0),
+            radius: 0.4,
+            height: 2.0,
+            segments: 16,
+        }
+        .build()
+        .expect("cylinder_coplanar build")
+    }
+
+    /// Difference of cube minus a coplanar cylinder must be watertight.
+    /// The cylinder end caps are coplanar with the cube's top and bottom walls.
+    /// The 2-D coplanar pipeline must subtract circular discs from the square
+    /// walls, producing annular rings (tunnel openings).
+    #[test]
+    fn cube_cylinder_coplanar_difference_is_watertight() {
+        let result = csg_boolean_indexed(BooleanOp::Difference, &cube_a(), &cylinder_coplanar())
+            .expect("cube \\\\ cylinder_coplanar");
+        assert_3d_watertight(result);
+    }
+
+    #[test]
+    fn cube_cylinder_coplanar_union_is_watertight() {
+        let result = csg_boolean_indexed(BooleanOp::Union, &cube_a(), &cylinder_coplanar())
+            .expect("cube ∪ cylinder_coplanar");
+        assert_3d_watertight(result);
+    }
+
+    #[test]
+    fn cube_cylinder_coplanar_intersection_is_watertight() {
+        let result = csg_boolean_indexed(BooleanOp::Intersection, &cube_a(), &cylinder_coplanar())
+            .expect("cube ∩ cylinder_coplanar");
+        assert_3d_watertight(result);
+    }
+
+    // ── disk × disk (coplanar — 2-D Sutherland-Hodgman pipeline) ───────────────
+    // Disk operands are open surfaces; the coplanar path produces an open
+    // surface result.  Only assert the operation completes without error.
+
+    #[test]
+    fn disk_disk_union_succeeds() {
+        csg_boolean_indexed(BooleanOp::Union, &disk_a(), &disk_b())
+            .expect("disk ∪ disk must not error");
+    }
+
+    #[test]
+    fn disk_disk_intersection_succeeds() {
+        csg_boolean_indexed(BooleanOp::Intersection, &disk_a(), &disk_b())
+            .expect("disk ∩ disk must not error");
+    }
+
+    #[test]
+    fn disk_disk_difference_succeeds() {
+        csg_boolean_indexed(BooleanOp::Difference, &disk_a(), &disk_b())
+            .expect("disk \\ disk must not error");
+    }
+
+    // ── Y-junction trunk difference (curved × curved, Difference) ──────────
+    // Diagnostic: verify watertight trunk difference has outward-only normals.
+    // The BFS seed is the extremal (max-X) face — by the Jordan-Brouwer theorem
+    // its outward normal must have nx ≥ 0, so BFS correctly orients the mesh.
+    #[test]
+    fn cylinder_difference_normals_check() {
+        use crate::application::csg::CsgNode;
+        use crate::application::quality::normals::analyze_normals;
+        use crate::domain::core::scalar::Point3r;
+        use crate::domain::geometry::primitives::{Cylinder, PrimitiveMesh};
+        use nalgebra::{Isometry3, Translation3, UnitQuaternion, Vector3};
+        use std::f64::consts::FRAC_PI_2;
+
+        const R: f64 = 0.5;
+        const H_TRUNK: f64 = 3.0;
+        const H_BRANCH: f64 = 3.0;
+        const EPS: f64 = R * 0.10;
+        const SEGS: usize = 32;
+        let theta = std::f64::consts::FRAC_PI_4;
+
+        let trunk = {
+            let raw = Cylinder {
+                base_center: Point3r::new(0.0, 0.0, 0.0),
+                radius: R,
+                height: H_TRUNK + EPS,
+                segments: SEGS,
+            }
+            .build()
+            .unwrap();
+            let rot = UnitQuaternion::<f64>::from_axis_angle(&Vector3::z_axis(), -FRAC_PI_2);
+            let iso = Isometry3::from_parts(Translation3::new(-H_TRUNK, 0.0, 0.0), rot);
+            CsgNode::Transform {
+                node: Box::new(CsgNode::Leaf(Box::new(raw))),
+                iso,
+            }
+            .evaluate()
+            .unwrap()
+        };
+        let branch_up = {
+            let raw = Cylinder {
+                base_center: Point3r::new(0.0, 0.0, 0.0),
+                radius: R,
+                height: H_BRANCH,
+                segments: SEGS,
+            }
+            .build()
+            .unwrap();
+            let rot = UnitQuaternion::<f64>::from_axis_angle(&Vector3::z_axis(), theta - FRAC_PI_2);
+            let iso = Isometry3::from_parts(Translation3::new(0.0, 0.0, 0.0), rot);
+            CsgNode::Transform {
+                node: Box::new(CsgNode::Leaf(Box::new(raw))),
+                iso,
+            }
+            .evaluate()
+            .unwrap()
+        };
+        let branch_dn = {
+            let raw = Cylinder {
+                base_center: Point3r::new(0.0, 0.0, 0.0),
+                radius: R,
+                height: H_BRANCH,
+                segments: SEGS,
+            }
+            .build()
+            .unwrap();
+            let rot =
+                UnitQuaternion::<f64>::from_axis_angle(&Vector3::z_axis(), -theta - FRAC_PI_2);
+            let iso = Isometry3::from_parts(Translation3::new(0.0, 0.0, 0.0), rot);
+            CsgNode::Transform {
+                node: Box::new(CsgNode::Leaf(Box::new(raw))),
+                iso,
+            }
+            .evaluate()
+            .unwrap()
+        };
+        let branches = csg_boolean_indexed(BooleanOp::Union, &branch_up, &branch_dn).unwrap();
+        let mut result = csg_boolean_indexed(BooleanOp::Difference, &trunk, &branches).unwrap();
+        let normals_before = analyze_normals(&result);
+        eprintln!(
+            "before orient_outward: outward={}, inward={}, degen={}",
+            normals_before.outward_faces,
+            normals_before.inward_faces,
+            normals_before.degenerate_faces,
+        );
+        eprintln!("is_watertight_before={}", result.is_watertight());
+        result.orient_outward();
+        let normals_after = analyze_normals(&result);
+        eprintln!(
+            "after  orient_outward: outward={}, inward={}, degen={}",
+            normals_after.outward_faces, normals_after.inward_faces, normals_after.degenerate_faces,
+        );
+        eprintln!("is_watertight_after={}", result.is_watertight());
+        assert_eq!(
+            normals_after.inward_faces, 0,
+            "orient_outward must eliminate inward faces"
+        );
+
+        // Single connected component — retain_largest_component must have
+        // stripped the 2 × 8-face phantom islands from the trunk difference.
+        {
+            use crate::domain::topology::connectivity::connected_components;
+            use crate::domain::topology::AdjacencyGraph;
+            result.rebuild_edges();
+            let edges = result.edges_ref().unwrap();
+            let adj = AdjacencyGraph::build(&result.faces, edges);
+            let comps = connected_components(&result.faces, &adj);
+            eprintln!("components={}", comps.len());
+            assert_eq!(
+                comps.len(),
+                1,
+                "trunk difference must be a single connected component; \
+                 got {} (phantom islands not removed)",
+                comps.len(),
+            );
+        }
+        // Euler characteristic χ = 2 for a single genus-0 closed body.
+        {
+            use crate::application::watertight::check::check_watertight;
+            result.rebuild_edges();
+            let rpt =
+                check_watertight(&result.vertices, &result.faces, result.edges_ref().unwrap());
+            eprintln!("euler_characteristic={:?}", rpt.euler_characteristic);
+            assert_eq!(
+                rpt.euler_characteristic,
+                Some(2),
+                "trunk difference must have Euler χ = 2; got {:?}",
+                rpt.euler_characteristic,
+            );
+        }
+    }
+}

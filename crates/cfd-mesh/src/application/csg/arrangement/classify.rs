@@ -38,7 +38,7 @@
 //! - Jacobson et al. (2013), *Robust Inside-Outside Segmentation using
 //!   Generalized Winding Numbers*, ACM SIGGRAPH.
 
-// ── Public re-exports (stable API for phase4.rs and external callers) ─────────
+// ── Public re-exports (stable API for fragment classification and callers) ───
 
 pub use super::gwn::{gwn, prepare_classification_faces, PreparedFace};
 pub use super::gwn_bvh::{gwn_bvh, prepare_bvh_mesh, PreparedBvhMesh};

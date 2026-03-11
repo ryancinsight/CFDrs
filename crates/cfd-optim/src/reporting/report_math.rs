@@ -1,6 +1,8 @@
 //! Pure math helpers for report-metrics computation.
 
 use crate::constraints::ACOUSTIC_HALF_WAVELENGTH_M;
+use cfd_1d::cascade_treatment_flow_fractions;
+use cfd_schematics::topology::SplitStageSpec;
 
 pub(super) fn mean(values: &[f64]) -> f64 {
     if values.is_empty() {
@@ -81,4 +83,23 @@ pub(super) fn resonance_match(hydraulic_diameter_m: f64) -> f64 {
             / ACOUSTIC_HALF_WAVELENGTH_M.max(1.0e-18)))
         .clamp(0.0, 1.0)
     }
+}
+
+/// Per-stage treatment-path flow fractions via Hagen–Poiseuille conductance.
+///
+/// Thin wrapper: maps [`SplitStageSpec`] branches to `(width, is_treatment)`
+/// pairs and delegates to [`cfd_1d::cascade_treatment_flow_fractions`] for the
+/// actual Q ∝ w³ conductance computation.
+pub(super) fn split_stage_flow_fractions(stages: &[SplitStageSpec]) -> (Vec<f64>, f64) {
+    let stage_data: Vec<Vec<(f64, bool)>> = stages
+        .iter()
+        .map(|s| {
+            s.branches
+                .iter()
+                .map(|b| (b.route.width_m, b.treatment_path))
+                .collect()
+        })
+        .collect();
+    let refs: Vec<&[(f64, bool)]> = stage_data.iter().map(|v| v.as_slice()).collect();
+    cascade_treatment_flow_fractions(&refs)
 }

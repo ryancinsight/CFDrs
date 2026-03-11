@@ -22,7 +22,7 @@ Mathematical Proofs → Formal Verification → Empirical Validation → Product
 
 - Crate-level `agents.md` files (`crates/*/agents.md`) were audited against `Cargo.toml`, `src/lib.rs`, and top-level `src/` trees on **2026-02-26**.
 - `crates/cfd-mesh/agents.md` was converted to a hybrid format: current agent-reference snapshot up top, historical rewrite proposal notes preserved below.
-- `cfd-optim` documentation claims were refreshed to current code-truth counts (`DesignTopology` enum variants and `SdtMetrics` fields).
+- `cfd-optim` documentation claims were refreshed to current code-truth (24 PST split sequences via `BlueprintTopologySpec`, topology fully centralised in `cfd-schematics`, no `DesignTopology` enum in `cfd-optim`).
 - Workspace warning cleanup completed on **2026-02-26**:
   - Removed non-root profile config from `crates/cfd-python/Cargo.toml`.
   - Corrected root profile package key to `cfd-python`.
@@ -43,7 +43,7 @@ crates/
   cfd-1d              1D lumped-network Hagen-Poiseuille solver for channel networks
   cfd-2d              2D incompressible N-S: SIMPLE/PISO, LBM, FDM/FVM
   cfd-3d              3D FEM/IBM/Level-Set, LES/DES turbulence, multiphase (VOF + LS)
-  cfd-optim           SDT therapy + leukapheresis optimiser: 24 `DesignTopology` enum variants, wave-channel SVG, optional mesh-export pipeline
+  cfd-optim           SDT therapy + leukapheresis optimiser: 24 PST (Primitive Selective Tree) split sequences via BlueprintTopologySpec, wave-channel SVG, optional mesh-export pipeline
   cfd-validation      MMS, Richardson extrapolation, Ghia cavity, analytical benchmarks
   cfd-python          PyO3 Python bindings (cfd-python)
 xtask/               Cargo xtask automation
@@ -304,7 +304,7 @@ Each crate has its own `agents.md` with module structure, key APIs, theorems, an
 | `crates/cfd-1d/agents.md` | Lumped-network Hagen-Poiseuille solver, resistance models, vascular |
 | `crates/cfd-2d/agents.md` | 2D N-S: SIMPLE/PISO/LBM, turbulence zoo, Rhie-Chow |
 | `crates/cfd-3d/agents.md` | 3D FEM/IBM/Level-Set/VOF/spectral, domain solvers |
-| `crates/cfd-optim/agents.md` | SDT therapy + leukapheresis optimiser: 24 `DesignTopology` enum variants, GA, wave-channel SVG, optional mesh-export pipeline |
+| `crates/cfd-optim/agents.md` | SDT therapy + leukapheresis optimiser: 24 PST split sequences via `BlueprintTopologySpec`, GA, wave-channel SVG, optional mesh-export pipeline |
 | `crates/cfd-validation/agents.md` | MMS, Richardson/GCI, benchmarks, conservation checks |
 | `crates/cfd-python/agents.md` | PyO3 cfd-python bindings, all Python classes, build instructions |
 

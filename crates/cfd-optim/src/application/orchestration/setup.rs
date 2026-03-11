@@ -29,12 +29,36 @@ pub fn resolve_output_directories(
         .expect("crates/ has a workspace root")
         .to_path_buf();
 
-    let out_dir = workspace_root.join("report").join("milestone12");
-    let figures_dir = workspace_root.join("report").join("figures");
+    let report_root = workspace_root.join("report");
+    let (out_dir, figures_dir) = if fast_mode() {
+        (
+            report_root.join("milestone12").join("draft"),
+            report_root.join("figures").join("draft"),
+        )
+    } else {
+        (
+            report_root.join("milestone12"),
+            report_root.join("figures"),
+        )
+    };
     std::fs::create_dir_all(&out_dir)?;
     std::fs::create_dir_all(&figures_dir)?;
 
     Ok((workspace_root, out_dir, figures_dir))
+}
+
+/// Canonical Milestone 12 reporting must run in release mode because the full
+/// audit/report pipeline materializes long-running evidence products.
+///
+/// # Errors
+/// Returns an error when invoked from a debug build.
+pub fn ensure_release_reports() -> Result<(), Box<dyn std::error::Error>> {
+    if cfg!(debug_assertions) {
+        return Err(
+            "Milestone 12 report orchestration is release-only; rerun with --release".into(),
+        );
+    }
+    Ok(())
 }
 
 /// Check the `M12_FAST` environment variable.
@@ -64,5 +88,19 @@ pub fn option2_mode() -> OptimMode {
         leuka_weight: 0.5,
         sdt_weight: 0.5,
         patient_weight_kg: 70.0,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ensure_release_reports;
+
+    #[test]
+    fn milestone12_reports_are_debug_guarded() {
+        if cfg!(debug_assertions) {
+            assert!(ensure_release_reports().is_err());
+        } else {
+            assert!(ensure_release_reports().is_ok());
+        }
     }
 }

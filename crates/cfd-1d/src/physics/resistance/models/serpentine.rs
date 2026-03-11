@@ -488,37 +488,36 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for SerpentineModel
         let k_bend = self.bend_type.loss_coefficient(re_safe);
         let dp_bends = n_bends * k_bend * half * density * velocity * velocity;
 
-        // Decompose into R·Q (viscous/linear) + k·Q² (inertial/quadratic)
+        // Ensure geometric variations are ALWAYS mathematically represented,
+        // even deeply embedded in the micro-flow limit. Zero-flow limits still
+        // experience differentiated boundary conditions.
         let q = velocity * area;
         let q_sq = q * q;
 
-        // Use velocity-based check instead of q_sq > epsilon, because
-        // microfluidic flow rates (Q ~ 1e-10 m³/s) yield q² ~ 1e-20 which
-        // is below f64::EPSILON ≈ 2.2e-16 even though the flow is physically
-        // meaningful. We only fall back to the zero-flow analytical limit when
-        // the velocity is truly negligible.
-        let vel_threshold =
-            T::from_f64(1e-15).expect("Mathematical constant conversion compromised");
-        if velocity > vel_threshold {
-            // The friction component is proportional to V (laminar) or V^1.75 (turbulent)
-            // For laminar flow, f ∝ 1/Re ∝ 1/V, so ΔP_f ∝ V → linear in Q
-            // Minor losses are always ∝ V² → quadratic in Q
-            let r = dp_friction / q; // Linear resistance coefficient
-            let k_coeff = if q_sq > T::zero() {
-                dp_bends / q_sq
-            } else {
-                T::zero()
-            };
-            Ok((r, k_coeff))
+        // Even at low velocity, K-factor (minor losses) must be captured to differentiate geometries.
+        // As limits approach 0, we preserve the mathematically computed scalars.
+        let r = if q > T::zero() {
+            dp_friction / q
         } else {
-            // Zero flow: Hagen-Poiseuille limit for total straight length
+            // Analytical Hagen-Poiseuille limit for linear scaling
             let coeff = T::from_f64(128.0).expect("Mathematical constant conversion compromised");
             let pi = T::pi();
             let d2 = dh * dh;
             let d4 = d2 * d2;
-            let r = coeff * viscosity * self.straight_length / (pi * d4);
-            Ok((r, T::zero()))
-        }
+            coeff * viscosity * self.straight_length / (pi * d4)
+        };
+
+        let k_coeff = if q_sq > T::zero() {
+            dp_bends / q_sq
+        } else {
+            // Keep geometric base K coefficient even if Q is exactly 0
+            let n_bends = T::from_usize(self.num_bends()).unwrap_or_else(T::zero);
+            let k_bend_static = self.bend_type.loss_coefficient(T::from_f64(0.01).unwrap()); 
+            let half = T::one() / (T::one() + T::one());
+            n_bends * k_bend_static * half * density / (area * area)
+        };
+
+        Ok((r, k_coeff))
     }
 
     fn model_name(&self) -> &'static str {

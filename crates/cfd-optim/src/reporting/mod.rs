@@ -14,6 +14,7 @@ mod figures_process;
 mod figures_svg;
 mod guardrails;
 mod markdown;
+mod milestone12_audit;
 mod narrative;
 mod narrative_addenda;
 mod narrative_sections;
@@ -24,12 +25,18 @@ mod svg_primitives;
 mod template;
 mod validation_runner;
 
-pub use design_record::{compute_blueprint_report_metrics, Milestone12ReportDesign};
+pub use design_record::{
+    compute_blueprint_report_metrics, Milestone12ReportDesign, ParetoPoint, ParetoTag,
+};
 pub use guardrails::{
     is_milestone12_lineage_topology, milestone12_lineage_key, validate_milestone12_candidate,
     Milestone12LineageKey, Milestone12Stage,
 };
 pub use markdown::{write_milestone12_results, ValidationRow};
+pub use milestone12_audit::{
+    audit_goal_candidates, write_goal_audit_report, GoalAuditArtifacts, GoalAuditEntry,
+    GoalAuditStatus,
+};
 pub use narrative::{write_milestone12_narrative_report, Milestone12NarrativeInput};
 pub use ranking::{pct_diff, shortlist_report_designs, sort_report_designs};
 pub use validation_runner::run_milestone12_validation;

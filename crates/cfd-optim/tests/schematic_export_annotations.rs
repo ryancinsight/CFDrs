@@ -234,6 +234,7 @@ fn save_schematic_svg_rejects_non_geometry_authored_blueprint() {
     );
     let out = unique_svg_path("cfd_optim_noncanonical");
     blueprint.metadata = None;
+    blueprint.geometry_authored = false;
 
     let error = save_blueprint_schematic_svg(&blueprint, &out)
         .expect_err("canonical export must reject non-geometry-authored blueprints");
