@@ -54,12 +54,38 @@ print(f"  R_c = {R_c_python*1e6:.4f} μm")
 print(f"  P_Blake = {P_Blake_python:.2f} Pa = {P_Blake_python/1000:.2f} kPa")
 
 if has_cfd_python:
-    # TODO: Check if cfd_python exposes Blake threshold calculation
-    # For now, document that Rust implementation is in regimes.rs
     print(f"\nRust implementation:")
     print(f"  Located in: crates/cfd-core/src/physics/cavitation/regimes.rs")
-    print(f"  Method: blake_threshold() and blake_critical_radius()")
-    print(f"  Formula matches Python implementation ✓")
+
+    if hasattr(cfd_python, 'CavitySolver2D'):
+        # Check if the required API is exposed
+        if hasattr(cfd_python, 'CavitationRegimeClassifier'):
+            classifier = cfd_python.CavitationRegimeClassifier(
+                initial_radius=R_0,
+                liquid_density=WATER_DENSITY,
+                liquid_viscosity=WATER_VISCOSITY,
+                surface_tension=WATER_SURFACE_TENSION,
+                vapor_pressure=WATER_VAPOR_PRESSURE,
+                polytropic_index=1.4,
+                ambient_pressure=P_inf
+            )
+
+            R_c_rust = classifier.blake_critical_radius()
+            P_Blake_rust = classifier.blake_threshold()
+
+            print(f"  R_c (Rust) = {R_c_rust*1e6:.4f} μm")
+            print(f"  P_Blake (Rust) = {P_Blake_rust:.2f} Pa")
+
+            # Assert equivalence
+            rc_error = abs(R_c_rust - R_c_python) / R_c_python * 100
+            pb_error = abs(P_Blake_rust - P_Blake_python) / P_Blake_python * 100
+
+            if rc_error < 0.01 and pb_error < 0.01:
+                print(f"  Cross-validation: ✓ MATCH (<0.01% diff)")
+            else:
+                print(f"  Cross-validation: ✗ MISMATCH (Rc err: {rc_error:.4f}%, Pb err: {pb_error:.4f}%)")
+        else:
+            print(f"  Skipping test: CavitationRegimeClassifier not found in cfd_python")
 else:
     print(f"\nRust verification skipped (cfd_python not available)")
 
@@ -101,12 +127,25 @@ for gamma_dot in test_shear_rates:
 if has_cfd_python:
     print(f"\nRust implementation:")
     print(f"  Located in: crates/cfd-core/src/physics/fluid/blood.rs")
-    print(f"  Type: CarreauYasudaBlood")
-    print(f"  Method: apparent_viscosity(shear_rate)")
     
-    # Try to test if we can create a blood model
-    # Note: This depends on cfd_python API structure
-    print(f"\n  TODO: Add cfd_python API test if blood model is exposed")
+    if hasattr(cfd_python, 'CarreauYasudaBlood'):
+        blood = cfd_python.CarreauYasudaBlood()
+        print(f"  Cross-validation:")
+
+        all_match = True
+        for gamma_dot in test_shear_rates:
+            mu_python = carreau_yasuda_python(gamma_dot)
+            mu_rust = blood.apparent_viscosity(gamma_dot)
+            error_pct = abs(mu_rust - mu_python) / mu_python * 100
+
+            if error_pct > 0.01:
+                all_match = False
+                print(f"    Mismatch at γ̇ = {gamma_dot}: Python={mu_python*1000:.4f}, Rust={mu_rust*1000:.4f} (err: {error_pct:.2f}%)")
+
+        if all_match:
+            print(f"  ✓ MATCH for all shear rates (<0.01% diff)")
+    else:
+        print(f"  Skipping test: CarreauYasudaBlood not found in cfd_python")
 else:
     print(f"\nRust verification skipped (cfd_python not available)")
 
@@ -145,9 +184,29 @@ for tau, t in test_cases:
 
 if has_cfd_python:
     print(f"\nRust implementation:")
-    print(f"  Located in: crates/cfd-core/src/physics/hemolysis/giersiepen.rs")
-    print(f"  Method: calculate_damage(shear_stress, exposure_time)")
-    print(f"\n  TODO: Add cfd_python API test if hemolysis model is exposed")
+    print(f"  Located in: crates/cfd-core/src/physics/hemolysis/models.rs")
+
+    if hasattr(cfd_python, 'GiersiepenModel'):
+        model = cfd_python.GiersiepenModel()
+        print(f"  Cross-validation:")
+
+        all_match = True
+        for tau, t in test_cases:
+            damage_python = giersiepen_python(tau, t)
+            damage_rust = model.calculate_damage(tau, t)
+
+            # Note: Rust model might return slightly different results based on float precision or slight variations in constants
+            # so we use a reasonable tolerance
+            error_pct = abs(damage_rust - damage_python) / damage_python * 100
+
+            if error_pct > 0.01:
+                all_match = False
+                print(f"    Mismatch at τ={tau}, t={t}: Python={damage_python:.6f}, Rust={damage_rust:.6f} (err: {error_pct:.2f}%)")
+
+        if all_match:
+            print(f"  ✓ MATCH for all test cases (<0.01% diff)")
+    else:
+        print(f"  Skipping test: GiersiepenModel not found in cfd_python")
 else:
     print(f"\nRust verification skipped (cfd_python not available)")
 

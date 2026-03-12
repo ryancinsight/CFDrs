@@ -17,13 +17,13 @@ use super::types::CavitationRegime;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CavitationRegimeClassifier<T: RealField + Copy> {
     /// Rayleigh-Plesset bubble model
-    pub(super) bubble_model: RayleighPlesset<T>,
+    pub bubble_model: RayleighPlesset<T>,
     /// Ambient pressure (Pa)
-    pub(super) ambient_pressure: T,
+    pub ambient_pressure: T,
     /// Acoustic pressure amplitude (Pa), if applicable
-    pub(super) acoustic_pressure: Option<T>,
+    pub acoustic_pressure: Option<T>,
     /// Acoustic frequency (Hz), if applicable
-    pub(super) acoustic_frequency: Option<T>,
+    pub acoustic_frequency: Option<T>,
 }
 
 impl<T: RealField + Copy + FromPrimitive> CavitationRegimeClassifier<T> {
