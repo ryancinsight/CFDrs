@@ -72,6 +72,8 @@ use pyo3::prelude::*;
 
 mod bifurcation;
 mod blood;
+mod cavitation;
+mod hemolysis;
 mod poiseuille_2d;
 mod result_types;
 mod solver_2d;
@@ -80,6 +82,8 @@ mod womersley;
 
 pub use bifurcation::{PyBifurcationSolver, PyTrifurcationResult, PyTrifurcationSolver};
 pub use blood::*;
+pub use cavitation::PyCavitationRegimeClassifier;
+pub use hemolysis::PyGiersiepenModel;
 pub use poiseuille_2d::{PyPoiseuilleConfig, PyPoiseuilleResult, PyPoiseuilleSolver};
 pub use result_types::PyBifurcationResult;
 pub use solver_2d::*;
@@ -107,6 +111,10 @@ fn cfd_python(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyCarreauYasudaBlood>()?;
     m.add_class::<PyCrossBlood>()?;
     m.add_class::<PyFahraeuasLindqvist>()?;
+
+    // Cavitation and Hemolysis
+    m.add_class::<PyCavitationRegimeClassifier>()?;
+    m.add_class::<PyGiersiepenModel>()?;
 
     // Womersley pulsatile flow
     m.add_class::<PyWomersleyNumber>()?;
