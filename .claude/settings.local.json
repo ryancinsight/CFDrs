@@ -92,7 +92,10 @@
       "Read(//c/Users/RyanClanton/AppData/Local/Temp/claude/**)",
       "Read(//c/Users/RYANCL~1/AppData/Local/Temp/claude/**)",
       "Read(//c/Users/RyanClanton/AppData/Local/Temp/claude//**)",
-      "Bash(M12_FAST=1 cargo run -p cfd-optim --example milestone12_option1 --no-default-features --release)"
+      "Bash(M12_FAST=1 cargo run -p cfd-optim --example milestone12_option1 --no-default-features --release)",
+      "Bash(/tmp/analysis.txt:*)",
+      "Read(//tmp/**)",
+      "Bash(cargo nextest:*)"
     ]
   }
 }

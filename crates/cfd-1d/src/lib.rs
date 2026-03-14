@@ -120,7 +120,7 @@ pub use physics::cell_separation::{
     incremental_filtration_separation_from_qfracs, incremental_filtration_separation_staged,
     mixed_cascade_separation, mixed_cascade_separation_kappa_aware, tri_asymmetric_q_fracs,
     tri_center_q_frac, tri_center_q_frac_cross_junction, CascadeJunctionResult, CascadeStage,
-    IncrementalFiltrationResult,
+    IncrementalFiltrationResult, PeripheralRecovery,
 };
 pub use physics::cell_separation::{three_population_equilibria, ThreePopEquilibria};
 

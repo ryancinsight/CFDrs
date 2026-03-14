@@ -4,8 +4,10 @@ use super::union_strategy::{concat_disjoint_meshes, spatial_union_order};
 use crate::application::csg::boolean::BooleanOp;
 use crate::application::csg::reconstruct;
 use crate::domain::core::error::{MeshError, MeshResult};
+use crate::domain::core::index::{FaceId, VertexId};
+use crate::domain::geometry::normal::triangle_normal;
 use crate::domain::mesh::IndexedMesh;
-use crate::infrastructure::storage::face_store::FaceData;
+use crate::infrastructure::storage::face_store::{FaceData, FaceStore};
 use crate::infrastructure::storage::vertex_pool::VertexPool;
 
 /// High-level boolean operation on two [`IndexedMesh`] objects.
@@ -68,6 +70,9 @@ pub fn csg_boolean_indexed_tolerant(
             let mut mesh = reconstruct::reconstruct_mesh(&result_faces, &combined);
             mesh.recompute_normals();
             repair_boolean_mesh(&mut mesh, is_coplanar)?;
+            collapse_degenerate_faces(&mut mesh);
+            split_non_manifold_vertices(&mut mesh);
+            mesh.rebuild_edges();
             Ok(mesh)
         }
         Err(error) => Err(error),
@@ -103,6 +108,9 @@ pub fn csg_boolean_indexed_best_effort(
             let mut mesh = reconstruct::reconstruct_mesh(&result_faces, &combined);
             mesh.recompute_normals();
             repair_boolean_mesh_with_policy(&mut mesh, is_coplanar, false)?;
+            collapse_degenerate_faces(&mut mesh);
+            split_non_manifold_vertices(&mut mesh);
+            mesh.rebuild_edges();
             Ok(mesh)
         }
         Err(error) => Err(error),
@@ -249,6 +257,9 @@ fn postprocess_boolean_mesh(
     let mut mesh = reconstruct::reconstruct_mesh(&result_faces, combined);
     mesh.recompute_normals();
     repair_boolean_mesh(&mut mesh, is_coplanar)?;
+    collapse_degenerate_faces(&mut mesh);
+    split_non_manifold_vertices(&mut mesh);
+    mesh.rebuild_edges();
     Ok(mesh)
 }
 
@@ -358,6 +369,309 @@ fn repair_boolean_mesh_with_policy(
     }
 
     Ok(())
+}
+
+/// Collapse degenerate (zero-area) faces by merging the redundant vertex.
+///
+/// Handles two cases:
+/// 1. Near-coincident vertices (distance² < tolerance²): merge the pair.
+/// 2. Collinear slivers (3 distinct vertices on a line): find the "middle"
+///    vertex and merge it into the nearest endpoint, but only when (a) the edge
+///    has at most 2 incident faces, (b) no duplicate faces would be created,
+///    and (c) no surviving face normals would be inverted.
+fn collapse_degenerate_faces(mesh: &mut IndexedMesh) {
+    use std::collections::{HashMap, HashSet};
+
+    let tol_sq = 1e-18_f64; // (1e-9)²
+    let mut total_collapsed: usize = 0;
+    let mut skip_faces: HashSet<usize> = HashSet::new();
+
+    loop {
+        // Build an edge-use count: how many faces reference each undirected edge.
+        let mut edge_use: HashMap<(VertexId, VertexId), usize> = HashMap::new();
+        for face in mesh.faces.iter() {
+            let v = face.vertices;
+            for &(a, b) in &[(v[0], v[1]), (v[1], v[2]), (v[2], v[0])] {
+                let key = if a < b { (a, b) } else { (b, a) };
+                *edge_use.entry(key).or_insert(0) += 1;
+            }
+        }
+
+        // Find a degenerate face we can safely collapse.
+        let degen = mesh.faces.iter().enumerate().find_map(|(i, face)| {
+            if skip_faces.contains(&i) {
+                return None;
+            }
+            let pa = mesh.vertices.position(face.vertices[0]);
+            let pb = mesh.vertices.position(face.vertices[1]);
+            let pc = mesh.vertices.position(face.vertices[2]);
+            if triangle_normal(pa, pb, pc).is_some() {
+                return None; // not degenerate
+            }
+
+            let d01 = (pb - pa).norm_squared();
+            let d12 = (pc - pb).norm_squared();
+            let d20 = (pa - pc).norm_squared();
+
+            // Case 1: near-coincident vertex pair — always safe.
+            let shortest = d01.min(d12).min(d20);
+            if shortest <= tol_sq {
+                let (keep, remove) = if d01 <= d12 && d01 <= d20 {
+                    (face.vertices[0], face.vertices[1])
+                } else if d12 <= d20 {
+                    (face.vertices[1], face.vertices[2])
+                } else {
+                    (face.vertices[2], face.vertices[0])
+                };
+                return Some((i, keep, remove, true));
+            }
+
+            // Case 2: collinear sliver — find the middle vertex (opposite the
+            // longest edge) and merge it into the nearer endpoint.
+            let (middle_idx, ep_a_idx, ep_b_idx) = if d01 >= d12 && d01 >= d20 {
+                (2, 0, 1)
+            } else if d12 >= d20 {
+                (0, 1, 2)
+            } else {
+                (1, 2, 0)
+            };
+            let middle = face.vertices[middle_idx];
+            let ep_a = face.vertices[ep_a_idx];
+            let ep_b = face.vertices[ep_b_idx];
+
+            let pm = mesh.vertices.position(middle);
+            let pea = mesh.vertices.position(ep_a);
+            let peb = mesh.vertices.position(ep_b);
+            let (keep, remove) = if (pea - pm).norm_squared() <= (peb - pm).norm_squared() {
+                (ep_a, middle)
+            } else {
+                (ep_b, middle)
+            };
+
+            // Link condition: the edge (keep, remove) must be shared by at most
+            // 2 faces.
+            let edge_key = if keep < remove {
+                (keep, remove)
+            } else {
+                (remove, keep)
+            };
+            let uses = edge_use.get(&edge_key).copied().unwrap_or(0);
+            if uses > 2 {
+                return None;
+            }
+            Some((i, keep, remove, false))
+        });
+
+        let (face_idx, keep, remove, is_coincident) = match degen {
+            Some(v) => v,
+            None => break,
+        };
+
+        // For sliver collapses, simulate the rename first and check for hazards.
+        if !is_coincident {
+            let mut would_create_duplicate = false;
+            let mut would_invert_normal = false;
+            let mut new_face_keys: HashSet<[VertexId; 3]> = HashSet::new();
+
+            for face in mesh.faces.iter() {
+                let mut verts = face.vertices;
+                for v in verts.iter_mut() {
+                    if *v == remove {
+                        *v = keep;
+                    }
+                }
+                // Skip faces that become degenerate (two identical verts).
+                if verts[0] == verts[1]
+                    || verts[1] == verts[2]
+                    || verts[2] == verts[0]
+                {
+                    continue;
+                }
+                let mut key = verts;
+                if key[0] > key[1] {
+                    key.swap(0, 1);
+                }
+                if key[1] > key[2] {
+                    key.swap(1, 2);
+                }
+                if key[0] > key[1] {
+                    key.swap(0, 1);
+                }
+                if !new_face_keys.insert(key) {
+                    would_create_duplicate = true;
+                    break;
+                }
+            }
+
+            // Check that no surviving face gets its normal inverted.
+            if !would_create_duplicate {
+                for face in mesh.faces.iter() {
+                    let has_remove = face.vertices.contains(&remove);
+                    if !has_remove {
+                        continue;
+                    }
+                    // Compute pre-collapse normal.
+                    let p0 = mesh.vertices.position(face.vertices[0]);
+                    let p1 = mesh.vertices.position(face.vertices[1]);
+                    let p2 = mesh.vertices.position(face.vertices[2]);
+                    let pre_n = triangle_normal(p0, p1, p2);
+
+                    // Compute post-collapse vertices.
+                    let mut new_verts = face.vertices;
+                    for v in new_verts.iter_mut() {
+                        if *v == remove {
+                            *v = keep;
+                        }
+                    }
+                    if new_verts[0] == new_verts[1]
+                        || new_verts[1] == new_verts[2]
+                        || new_verts[2] == new_verts[0]
+                    {
+                        continue; // will be removed
+                    }
+                    let q0 = mesh.vertices.position(new_verts[0]);
+                    let q1 = mesh.vertices.position(new_verts[1]);
+                    let q2 = mesh.vertices.position(new_verts[2]);
+                    let post_n = triangle_normal(q0, q1, q2);
+
+                    if let (Some(pn), Some(qn)) = (pre_n, post_n) {
+                        if pn.dot(&qn) < 0.0 {
+                            would_invert_normal = true;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if would_create_duplicate || would_invert_normal {
+                skip_faces.insert(face_idx);
+                continue;
+            }
+        }
+
+        // Commit: rewrite all face references from `remove` → `keep`.
+        for face in mesh.faces.iter_mut() {
+            for v in face.vertices.iter_mut() {
+                if *v == remove {
+                    *v = keep;
+                }
+            }
+        }
+
+        // Purge collapsed faces and exact duplicates.
+        let mut seen: HashSet<[VertexId; 3]> = HashSet::new();
+        let mut keep_faces: Vec<FaceData> = Vec::with_capacity(mesh.faces.len());
+        let mut removed = 0usize;
+        for face in mesh.faces.iter() {
+            if face.vertices[0] == face.vertices[1]
+                || face.vertices[1] == face.vertices[2]
+                || face.vertices[2] == face.vertices[0]
+            {
+                removed += 1;
+                continue;
+            }
+            let mut key = face.vertices;
+            if key[0] > key[1] {
+                key.swap(0, 1);
+            }
+            if key[1] > key[2] {
+                key.swap(1, 2);
+            }
+            if key[0] > key[1] {
+                key.swap(0, 1);
+            }
+            if !seen.insert(key) {
+                removed += 1;
+                continue;
+            }
+            keep_faces.push(*face);
+        }
+        total_collapsed += removed;
+        skip_faces.clear(); // face indices changed after rebuild
+        let mut new_faces = FaceStore::with_capacity(keep_faces.len());
+        for f in keep_faces {
+            new_faces.push(f);
+        }
+        mesh.faces = new_faces;
+    }
+    if total_collapsed > 0 {
+        tracing::debug!(
+            "CSG postprocess: collapsed {} degenerate face(s)",
+            total_collapsed
+        );
+    }
+}
+
+/// Split non-manifold "pinch" vertices created by edge collapse.
+fn split_non_manifold_vertices(mesh: &mut IndexedMesh) {
+    use std::collections::{HashMap, HashSet, VecDeque};
+    let mut vertex_faces: HashMap<VertexId, Vec<usize>> = HashMap::new();
+    for (fi, face) in mesh.faces.iter().enumerate() {
+        for &v in &face.vertices {
+            vertex_faces.entry(v).or_default().push(fi);
+        }
+    }
+    let mut total_splits: usize = 0;
+    let vertices: Vec<VertexId> = vertex_faces.keys().copied().collect();
+    for v in vertices {
+        let face_indices = match vertex_faces.get(&v) {
+            Some(fi) if fi.len() >= 2 => fi,
+            _ => continue,
+        };
+        let mut visited: HashSet<usize> = HashSet::new();
+        let mut components: Vec<Vec<usize>> = Vec::new();
+        for &start_fi in face_indices {
+            if visited.contains(&start_fi) {
+                continue;
+            }
+            let mut component: Vec<usize> = Vec::new();
+            let mut queue: VecDeque<usize> = VecDeque::new();
+            queue.push_back(start_fi);
+            visited.insert(start_fi);
+            while let Some(fi) = queue.pop_front() {
+                component.push(fi);
+                let face = mesh.faces.get(FaceId::from_usize(fi));
+                let others: Vec<VertexId> =
+                    face.vertices.iter().copied().filter(|&vid| vid != v).collect();
+                for &neighbor_fi in face_indices {
+                    if visited.contains(&neighbor_fi) {
+                        continue;
+                    }
+                    let neighbor = mesh.faces.get(FaceId::from_usize(neighbor_fi));
+                    let shares_edge = others.iter().any(|ov| neighbor.vertices.contains(ov));
+                    if shares_edge {
+                        visited.insert(neighbor_fi);
+                        queue.push_back(neighbor_fi);
+                    }
+                }
+            }
+            components.push(component);
+        }
+        if components.len() <= 1 {
+            continue;
+        }
+        let pos = *mesh.vertices.position(v);
+        let normal = *mesh.vertices.normal(v);
+        for component in components.iter().skip(1) {
+            let new_v = mesh.add_vertex(pos, normal);
+            for &fi in component {
+                let fid = FaceId::from_usize(fi);
+                let face_mut = mesh.faces.get_mut(fid);
+                for vref in face_mut.vertices.iter_mut() {
+                    if *vref == v {
+                        *vref = new_v;
+                    }
+                }
+            }
+            total_splits += 1;
+        }
+    }
+    if total_splits > 0 {
+        tracing::debug!(
+            "CSG postprocess: split {} non-manifold vertex instance(s)",
+            total_splits
+        );
+    }
 }
 
 #[cfg(test)]

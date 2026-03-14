@@ -98,3 +98,36 @@ pub fn evaluate_selective_venturi_cavitation(
     )
     .with_screening_reasons(screening_reasons))
 }
+
+/// Lightweight score-only variant that borrows the evaluation and returns
+/// `Some(score)` if eligible, `None` if screened out. Zero allocations.
+#[must_use]
+pub fn score_selective_venturi_cavitation(
+    evaluation: &BlueprintEvaluation,
+    has_venturi_placements: bool,
+) -> Option<f64> {
+    if !has_venturi_placements {
+        return None;
+    }
+    if evaluation.safety.cavitation_safety_margin <= 0.0
+        || evaluation.residence.treatment_flow_fraction <= 0.0
+        || evaluation.venturi.cavitation_selectivity_score <= 0.0
+    {
+        return None;
+    }
+    let cav = evaluation.venturi.cavitation_selectivity_score.clamp(0.0, 1.0);
+    let rbc_shield = (1.0 - evaluation.venturi.rbc_exposure_fraction).clamp(0.0, 1.0);
+    let wbc_shield = (1.0 - evaluation.venturi.wbc_exposure_fraction).clamp(0.0, 1.0);
+    let safety = evaluation.safety.cavitation_safety_margin.clamp(0.0, 1.0);
+    let sep = evaluation.separation.separation_efficiency.clamp(0.0, 1.0);
+    let routing_support = evaluation.residence.treatment_flow_fraction.clamp(0.0, 1.0);
+
+    let base = 0.32 * cav
+        + 0.18 * rbc_shield
+        + 0.14 * wbc_shield
+        + 0.12 * safety
+        + 0.08 * sep
+        + 0.06 * routing_support;
+    let synergy = 0.10 * (cav * rbc_shield * routing_support.max(0.01)).cbrt();
+    Some((base + synergy).clamp(0.001, 1.0))
+}

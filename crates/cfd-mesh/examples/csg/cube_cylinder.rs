@@ -107,6 +107,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             v_cube + v_cyl - v_overlap,
             0.05,
             ms,
+            0, // genus 0 — no holes
         );
         write_stl(&result, &out_dir.join("cube_cylinder_union.stl"))?;
         println!("  STL: outputs/csg/cube_cylinder_union.stl");
@@ -118,7 +119,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let t0 = Instant::now();
         let mut result = csg_boolean(BooleanOp::Intersection, &cube, &cylinder)?;
         let ms = t0.elapsed().as_millis();
-        report("Intersection (A ∩ B)", &mut result, v_overlap, 0.05, ms);
+        report("Intersection (A ∩ B)", &mut result, v_overlap, 0.05, ms, 0);
         write_stl(&result, &out_dir.join("cube_cylinder_intersection.stl"))?;
         println!("  STL: outputs/csg/cube_cylinder_intersection.stl");
         println!();
@@ -135,6 +136,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             v_cube - v_overlap,
             0.05,
             ms,
+            1, // genus 1 — cylinder punches a through-hole (torus topology)
         );
         write_stl(&result, &out_dir.join("cube_cylinder_difference.stl"))?;
         println!("  STL: outputs/csg/cube_cylinder_difference.stl");
@@ -147,7 +149,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
-fn report(label: &str, mesh: &mut IndexedMesh, expected: f64, tol: f64, ms: u128) {
+fn report(label: &str, mesh: &mut IndexedMesh, expected: f64, tol: f64, ms: u128, genus: i64) {
     let vol = mesh.signed_volume();
     let n = analyze_normals(mesh);
     let err = (vol - expected).abs() / expected.abs().max(1e-12);
@@ -159,7 +161,8 @@ fn report(label: &str, mesh: &mut IndexedMesh, expected: f64, tol: f64, ms: u128
     let adj = AdjacencyGraph::build(&mesh.faces, mesh.edges_ref().unwrap());
     let n_comps = connected_components(&mesh.faces, &adj).len();
 
-    let chi_ok = wt.euler_characteristic == Some(2);
+    let expected_chi = 2 * (1 - genus);
+    let chi_ok = wt.euler_characteristic == Some(expected_chi);
     let comps_ok = n_comps == 1;
     let norm_ok = n.inward_faces == 0;
     let any_issue = !wt.is_watertight || !chi_ok || !comps_ok || !norm_ok;
@@ -173,8 +176,10 @@ fn report(label: &str, mesh: &mut IndexedMesh, expected: f64, tol: f64, ms: u128
         wt.is_watertight, wt.boundary_edge_count, wt.non_manifold_edge_count
     );
     println!(
-        "    Euler χ    : {:?}  (expected 2)  [{}]",
+        "    Euler χ    : {:?}  (expected {}, genus {})  [{}]",
         wt.euler_characteristic,
+        expected_chi,
+        genus,
         if chi_ok { "PASS" } else { "WARN" }
     );
     println!(
@@ -213,8 +218,8 @@ fn report(label: &str, mesh: &mut IndexedMesh, expected: f64, tol: f64, ms: u128
         }
         if !chi_ok {
             println!(
-                "       - Euler χ = {:?} (expected 2): phantom islands or non-manifold topology",
-                wt.euler_characteristic
+                "       - Euler χ = {:?} (expected {}, genus {}): topology mismatch",
+                wt.euler_characteristic, expected_chi, genus
             );
         }
         if !comps_ok {

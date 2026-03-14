@@ -59,11 +59,26 @@ fn default_therapy_zone() -> TherapyZone {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SubBranchSpec {
+    pub label: String,
+    pub width_m: f64,
+    pub height_m: f64,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RecoverySubSplit {
+    pub sub_branches: Vec<SubBranchSpec>,
+    pub recovery_arm_index: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct BranchSpec {
     pub label: String,
     pub role: BranchRole,
     pub treatment_path: bool,
     pub route: ChannelRouteSpec,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recovery_sub_split: Option<RecoverySubSplit>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

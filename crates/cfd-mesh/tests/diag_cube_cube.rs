@@ -1,12 +1,13 @@
-#![cfg(feature = "csg")]
-use cfd_mesh::core::index::VertexId;
-use cfd_mesh::core::scalar::Point3r;
-use cfd_mesh::csg::{csg_boolean, csg_boolean_indexed, BooleanOp};
-use cfd_mesh::geometry::primitives::{Cylinder, PrimitiveMesh, UvSphere};
-use cfd_mesh::storage::edge_store::EdgeStore;
-use cfd_mesh::storage::face_store::FaceData;
-use cfd_mesh::storage::vertex_pool::VertexPool;
-use cfd_mesh::watertight::check::check_watertight;
+
+
+use cfd_mesh::application::csg::boolean::{csg_boolean_indexed, BooleanOp};
+use cfd_mesh::application::watertight::check::check_watertight;
+use cfd_mesh::domain::core::index::VertexId;
+use cfd_mesh::domain::core::scalar::Point3r;
+use cfd_mesh::domain::geometry::primitives::{Cylinder, PrimitiveMesh, UvSphere};
+use cfd_mesh::infrastructure::storage::edge_store::EdgeStore;
+use cfd_mesh::infrastructure::storage::face_store::FaceData;
+use cfd_mesh::infrastructure::storage::vertex_pool::VertexPool;
 use std::collections::HashMap;
 
 fn csg_boolean_indexed_unchecked(
@@ -47,8 +48,8 @@ fn csg_boolean_indexed_unchecked(
         })
         .collect();
 
-    let result_faces = csg_boolean(op, &faces_a, &faces_b, &mut combined).unwrap();
-    cfd_mesh::csg::reconstruct::reconstruct_mesh(&result_faces, &combined)
+    let result_faces = cfd_mesh::application::csg::boolean::operations::csg_boolean(op, &faces_a, &faces_b, &mut combined).unwrap();
+    cfd_mesh::application::csg::reconstruct::reconstruct_mesh(&result_faces, &combined)
 }
 
 #[test]

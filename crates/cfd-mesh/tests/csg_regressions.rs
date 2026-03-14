@@ -1,15 +1,13 @@
-#![cfg(feature = "csg")]
-
 use std::f64::consts::{PI, TAU};
 
-use cfd_mesh::core::index::RegionId;
-use cfd_mesh::core::scalar::{Point3r, Real, Vector3r};
-use cfd_mesh::csg::boolean::{csg_boolean, BooleanOp};
-use cfd_mesh::csg::bsp::BspNode;
-use cfd_mesh::storage::edge_store::EdgeStore;
-use cfd_mesh::storage::face_store::FaceData;
-use cfd_mesh::storage::vertex_pool::VertexPool;
-use cfd_mesh::topology::{manifold, orientation};
+use cfd_mesh::application::csg::boolean::operations::csg_boolean;
+use cfd_mesh::application::csg::boolean::BooleanOp;
+use cfd_mesh::domain::core::index::RegionId;
+use cfd_mesh::domain::core::scalar::{Point3r, Real, Vector3r};
+use cfd_mesh::domain::topology::{manifold, orientation};
+use cfd_mesh::infrastructure::storage::edge_store::EdgeStore;
+use cfd_mesh::infrastructure::storage::face_store::FaceData;
+use cfd_mesh::infrastructure::storage::vertex_pool::VertexPool;
 use cfd_mesh::IndexedMesh;
 
 const EPS_VOLUME: Real = 0.1;
@@ -71,7 +69,7 @@ fn invalid_operands_reproduce_failure_markers() {
 
     let mut inward_cube =
         generate_cube_outward(1.0, Point3r::origin(), &mut pool, RegionId::new(10));
-    for face in &mut inward_cube {
+    for face in inward_cube.iter_mut() {
         face.flip();
     }
 
@@ -109,77 +107,11 @@ fn invalid_operands_reproduce_failure_markers() {
     }
 }
 
-#[test]
-fn difference_sequence_manual_variant_matches_current_on_cube_case(
-) -> Result<(), Box<dyn std::error::Error>> {
-    let current = run_current_difference()?;
-    let manual = run_manual_difference_with_extra_invert()?;
-
-    assert!(
-        (current.volume - manual.volume).abs() <= EPS_VOLUME,
-        "current={} manual={}",
-        current.volume,
-        manual.volume
-    );
-
-    Ok(())
-}
-
-fn run_current_difference() -> Result<MeshSummary, Box<dyn std::error::Error>> {
-    let mut pool = VertexPool::default_millifluidic();
-    let a = generate_cube_outward(
-        2.0,
-        Point3r::new(0.0, 0.0, 0.0),
-        &mut pool,
-        RegionId::new(1),
-    );
-    let b = generate_cube_outward(
-        2.0,
-        Point3r::new(1.0, 1.0, 1.0),
-        &mut pool,
-        RegionId::new(2),
-    );
-    let faces = csg_boolean(BooleanOp::Difference, &a, &b, &mut pool)?;
-    Ok(summarize_faces(&pool, &faces))
-}
-
-fn run_manual_difference_with_extra_invert() -> Result<MeshSummary, Box<dyn std::error::Error>> {
-    let mut pool = VertexPool::default_millifluidic();
-    let a_faces = generate_cube_outward(
-        2.0,
-        Point3r::new(0.0, 0.0, 0.0),
-        &mut pool,
-        RegionId::new(1),
-    );
-    let b_faces = generate_cube_outward(
-        2.0,
-        Point3r::new(1.0, 1.0, 1.0),
-        &mut pool,
-        RegionId::new(2),
-    );
-
-    let mut a = BspNode::build(&a_faces, &mut pool);
-    let mut b = BspNode::build(&b_faces, &mut pool);
-
-    a.invert();
-    a.clip_to(&b, &mut pool);
-    b.clip_to(&a, &mut pool);
-    b.invert();
-    b.clip_to(&a, &mut pool);
-    b.invert();
-
-    let b_remaining = b.all_faces();
-    a.add_faces(&b_remaining, &mut pool);
-    a.invert();
-
-    Ok(summarize_faces(&pool, &a.all_faces()))
-}
-
 fn summarize_faces(pool: &VertexPool, faces: &[FaceData]) -> MeshSummary {
     let mut mesh = IndexedMesh::new();
-    mesh.vertices = clone_pool(pool);
-    for face in faces {
-        mesh.faces.push(*face);
+    mesh.vertices = pool.clone();
+    for &face in faces {
+        mesh.faces.push(face);
     }
     mesh.rebuild_edges();
 
@@ -197,14 +129,6 @@ fn summarize_faces(pool: &VertexPool, faces: &[FaceData]) -> MeshSummary {
 
 fn is_watertight(summary: MeshSummary) -> bool {
     summary.boundary_edges == 0 && summary.non_manifold_edges == 0 && summary.orientation_ok
-}
-
-fn clone_pool(pool: &VertexPool) -> VertexPool {
-    let mut cloned = VertexPool::default_millifluidic();
-    for (_, v) in pool.iter() {
-        cloned.insert_unique(v.position, v.normal);
-    }
-    cloned
 }
 
 fn generate_cube_outward(

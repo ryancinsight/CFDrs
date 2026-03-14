@@ -4,12 +4,13 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
-use crate::constraints::{PEDIATRIC_BLOOD_VOLUME_ML_PER_KG, PEDIATRIC_REFERENCE_WEIGHT_KG};
-use crate::reporting::figures_svg::{
-    write_cavitation_distribution_figure, write_creation_optimization_process_figure,
-    write_cross_mode_figure, write_ga_convergence_figure, write_head_to_head_figure,
-    write_multifidelity_figure, write_pareto_figure, write_pediatric_ecv_figure, write_placeholder,
+use super::process::{write_creation_optimization_process_figure, write_placeholder};
+use super::svg::{
+    write_cavitation_distribution_figure, write_cross_mode_figure, write_ga_convergence_figure,
+    write_head_to_head_figure, write_multifidelity_figure, write_pareto_figure,
+    write_pediatric_ecv_figure,
 };
+use crate::constraints::{PEDIATRIC_BLOOD_VOLUME_ML_PER_KG, PEDIATRIC_REFERENCE_WEIGHT_KG};
 use crate::reporting::{Milestone12ReportDesign, ParetoPoint, ValidationRow};
 
 /// Figure metadata used for dynamic table-of-contents and section rendering.
@@ -20,6 +21,10 @@ pub struct NarrativeFigureSpec {
     pub path: String,
     pub caption: String,
     pub alt: String,
+    /// True when this figure was generated as a placeholder because the source
+    /// schematic or data was not available in the current run.
+    #[serde(default)]
+    pub is_placeholder: bool,
 }
 
 /// Inputs needed to generate dynamic report figures.
@@ -56,23 +61,24 @@ pub fn generate_m12_report_figures(
         &figures_dir.join("treatment_zone_plate_trifurcation.svg"),
         "Treatment Zone Layout — Trifurcation Concept",
     )?;
-    if input.option1_ranked.is_empty() {
+    let option1_is_placeholder = if input.option1_ranked.is_empty() {
         write_placeholder(
             &figures_dir.join("selected_option1_schematic.svg"),
             "Option 1 Unavailable Under Current Physics",
             "No selective acoustic design satisfied strict eligibility under the current physics regime.",
         )?;
+        true
     } else {
         ensure_existing_or_placeholder(
             &figures_dir.join("selected_option1_schematic.svg"),
             "Selected Option 1 Design — Selective Acoustic",
-        )?;
-    }
-    ensure_existing_or_placeholder(
+        )?
+    };
+    let option2_is_placeholder = ensure_existing_or_placeholder(
         &figures_dir.join("selected_option2_combined_schematic.svg"),
         "Selected Option 2 Design — Combined Selective Venturi",
     )?;
-    ensure_existing_or_placeholder(
+    let ga_is_placeholder = ensure_existing_or_placeholder(
         &figures_dir.join("top_hydrosdt_schematic.svg"),
         "Best HydroSDT GA-Optimized Design",
     )?;
@@ -124,10 +130,18 @@ pub fn generate_m12_report_figures(
     let option2 = &input.option2_ranked[0];
     let ga_best = &input.ga_top[0];
 
+    let make_spec = |number, title: &str, file_name, prefix, caption: &str, alt, is_ph| {
+        if is_ph {
+            spec_placeholder(number, title, file_name, prefix, caption, alt)
+        } else {
+            spec(number, title, file_name, prefix, caption, alt)
+        }
+    };
+
     let mut specs = vec![
         option1.map_or_else(
             || {
-                spec(
+                spec_placeholder(
                     4,
                     "Option 1 Unavailable Under Current Physics",
                     "selected_option1_schematic.svg",
@@ -137,7 +151,7 @@ pub fn generate_m12_report_figures(
                 )
             },
             |option1| {
-                spec(
+                make_spec(
                     4,
                     &format!(
                         "Selected Option 1 Design — {} Selective Acoustic",
@@ -151,10 +165,11 @@ pub fn generate_m12_report_figures(
                         "selective acoustic center-treatment network",
                     ),
                     "Option 1 schematic",
+                    option1_is_placeholder,
                 )
             },
         ),
-        spec(
+        make_spec(
             5,
             &format!(
                 "Selected Option 2 Design — {} Combined Selective Venturi",
@@ -168,8 +183,9 @@ pub fn generate_m12_report_figures(
                 "selective venturi treatment ranked by the combined score",
             ),
             "Option 2 schematic",
+            option2_is_placeholder,
         ),
-        spec(
+        make_spec(
             6,
             &format!(
                 "Best HydroSDT GA-Optimized Design — {}",
@@ -178,19 +194,22 @@ pub fn generate_m12_report_figures(
             "top_hydrosdt_schematic.svg",
             figure_path_prefix,
             &format!(
-                "Best HydroSDT GA-optimized design. Topology: {}. Visible split layers: {}. Active venturi throats: {}.",
+                "Best HydroSDT GA-optimized design after architecture-preserving in-place refinement. Topology: {}. Visible split layers: {} ({}). Active venturi throats: {} with {} serial stage(s) per path. The treatment-path geometry shows where Dean-generating curvature and venturi placement were co-localised for the final GA-ranked lineage.",
                 ga_best.topology_display_name(),
                 visible_split_layers(ga_best),
+                stage_sequence_label(ga_best),
                 ga_best.metrics.active_venturi_throat_count,
+                ga_best.metrics.serial_venturi_stages_per_path,
             ),
             "GA best schematic",
+            ga_is_placeholder,
         ),
         spec(
             7,
             "Cross-Mode Scoring Comparison",
             "m12_cross_mode_scoring.svg",
             figure_path_prefix,
-            "Cross-mode scoring comparison for selected tracks.",
+            "Cross-mode scoring comparison for the selected Option 1, Option 2, and GA tracks. Bars should be interpreted within-track because each optimization goal uses a distinct composite objective; the figure is intended to show relative ranking structure, not absolute score equivalence across tracks.",
             "Cross mode score bars",
         ),
         spec(
@@ -198,7 +217,7 @@ pub fn generate_m12_report_figures(
             "Head-to-Head Design Comparison",
             "m12_head_to_head_scores.svg",
             figure_path_prefix,
-            "Head-to-head score comparison for Option 2 top-ranked designs.",
+            "Head-to-head comparison of the top-ranked Option 2 candidates under the deterministic tie-break sequence. Differences reflect changes in asymmetric split-width partitioning, venturi stage count, and throat geometry rather than unrelated rendering variation.",
             "Option 2 top 5 score bars",
         ),
         spec(
@@ -206,7 +225,7 @@ pub fn generate_m12_report_figures(
             "Cavitation Number (σ) Distribution",
             "m12_cavitation_distribution.svg",
             figure_path_prefix,
-            "Cavitation number category distribution across selected venturi designs.",
+            "Distribution of cavitation-number regimes across the selected venturi-capable designs. Values with 0 < σ < 1 are inception-capable; σ < 0 indicates sub-vapor-pressure throat operation and stronger hydrodynamic cavitation.",
             "Cavitation sigma category bars",
         ),
         spec(
@@ -214,7 +233,7 @@ pub fn generate_m12_report_figures(
             "Pareto Front — Oncology Objectives",
             "m12_pareto_oncology.svg",
             figure_path_prefix,
-            "Pareto trade-off between tumor-targeted cavitation intensity and healthy-cell (RBC) protection. Upper-right designs simultaneously maximise cancer targeting and minimise collateral haemolysis.",
+            "Pareto trade-off between tumor-targeted cavitation intensity and healthy-cell protection. Upper-right designs simultaneously maximize cancer-targeted treatment intensity and minimize RBC collateral exposure, making the frontier a concise view of the main Milestone 12 oncology trade space.",
             "Pareto oncology scatter",
         ),
         spec(
@@ -222,7 +241,7 @@ pub fn generate_m12_report_figures(
             "Pediatric Circuit Volume Margin",
             "m12_pediatric_ecv_margin.svg",
             figure_path_prefix,
-            "Selected-design ECV as a percentage of the 3 kg neonatal 10% circuit-volume limit (25.5 mL). Lower is better; values below 100% satisfy the pediatric reference margin.",
+            "Selected-design extracorporeal circuit volume as a percentage of the 3 kg neonatal 10% circuit-volume limit (25.5 mL). Lower is better; values below 100% satisfy the pediatric reference margin while preserving the selected treatment topology.",
             "Pediatric ECV margin bars",
         ),
     ];
@@ -232,7 +251,7 @@ pub fn generate_m12_report_figures(
             "Multi-Fidelity Pressure-Drop Comparison",
             "m12_multifidelity_dp.svg",
             figure_path_prefix,
-            "Multi-fidelity pressure-drop comparison (1D/2D/3D).",
+            "Multi-fidelity pressure-drop comparison across the companion 1D, 2D, and 3D solvers. Rows that are unconverged in 2D or outside the validity range of the 3D Stokes model should be interpreted as diagnostic solver-audit evidence, not as confirmation-grade agreement.",
             "Multi fidelity pressure drop bars",
         ));
     }
@@ -248,7 +267,7 @@ pub fn generate_m12_report_figures(
             "GA Fitness Convergence",
             "m12_ga_convergence.svg",
             figure_path_prefix,
-            "HydroSDT GA convergence over generations.",
+            "HydroSDT GA best-fitness trajectory across generations. Flat convergence indicates the seeded parametric design was already locally optimal under the allowed in-place mutations; a rising curve indicates beneficial Dean-serpentine or throat-refinement updates were discovered.",
             "GA convergence line",
         ));
     }
@@ -269,21 +288,42 @@ fn spec(
         path: format!("{figure_path_prefix}/{file_name}"),
         caption: caption.to_string(),
         alt: alt.to_string(),
+        is_placeholder: false,
     }
 }
 
+fn spec_placeholder(
+    number: usize,
+    title: &str,
+    file_name: &str,
+    figure_path_prefix: &str,
+    caption: &str,
+    alt: &str,
+) -> NarrativeFigureSpec {
+    NarrativeFigureSpec {
+        number,
+        title: title.to_string(),
+        path: format!("{figure_path_prefix}/{file_name}"),
+        caption: format!("{caption} *(Placeholder — source data not available in this run)*"),
+        alt: alt.to_string(),
+        is_placeholder: true,
+    }
+}
+
+/// Returns `true` if a placeholder was generated (file did not already exist).
 fn ensure_existing_or_placeholder(
     path: &Path,
     title: &str,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<bool, Box<dyn std::error::Error>> {
     if path.exists() {
-        Ok(())
+        Ok(false)
     } else {
         write_placeholder(
             path,
             title,
             "Source schematic not present in current run; placeholder generated.",
-        )
+        )?;
+        Ok(true)
     }
 }
 

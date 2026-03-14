@@ -5,6 +5,23 @@ use crate::domain::geometry::predicates::{orient_2d_arr, Orientation};
 
 /// Test whether 2-D point `(px,py)` lies inside or on the boundary of the
 /// CCW-wound triangle `(ax,ay)→(bx,by)→(cx,cy)` using exact arithmetic.
+///
+/// # Theorem — Degenerate Triangle Rejection
+///
+/// **Statement**: A zero-area (degenerate) triangle contains no points by
+/// definition.  When `orient_2d(a,b,c) == Degenerate`, the three vertices
+/// are collinear and the triangle degenerates to a line segment or point,
+/// enclosing zero area.
+///
+/// **Proof**: A triangle in ℝ² encloses area iff its signed area
+/// `½|det([b−a, c−a])| > 0`, which is equivalent to `orient_2d(a,b,c) ≠ 0`.
+/// When the determinant is zero the "triangle" is a 1-D simplex with empty
+/// interior.  Returning `false` prevents false-positive containment results
+/// that would cause incorrect coplanar Boolean fragment classification.
+///
+/// **Consequence**: Callers receive `false` for degenerate triangles rather
+/// than the previous behavior where all collinear points were classified as
+/// "inside" (since no edge had both positive and negative orientations).  ∎
 #[inline]
 pub(crate) fn point_in_tri_2d_exact(
     px: Real,
@@ -21,6 +38,13 @@ pub(crate) fn point_in_tri_2d_exact(
     let b = [bx, by];
     let c = [cx, cy];
 
+    // Reject degenerate (zero-area) triangles: collinear vertices enclose
+    // no area and therefore contain no points.
+    let tri_ori = orient_2d_arr(a, b, c);
+    if tri_ori == Orientation::Degenerate {
+        return false;
+    }
+
     let d0 = orient_2d_arr(a, b, p);
     let d1 = orient_2d_arr(b, c, p);
     let d2 = orient_2d_arr(c, a, p);
@@ -30,7 +54,8 @@ pub(crate) fn point_in_tri_2d_exact(
     let pos =
         d0 == Orientation::Positive || d1 == Orientation::Positive || d2 == Orientation::Positive;
 
-    // Inside or on boundary iff it's not strictly outside on some edges and strictly inside on others.
+    // Inside or on boundary iff all edge orientations agree with the triangle
+    // winding (or are degenerate = on-edge).
     !(neg && pos)
 }
 
@@ -81,4 +106,67 @@ pub(crate) fn polygon_area_2d(poly: &[[Real; 2]]) -> Real {
         sum += poly[i][0] * poly[j][1] - poly[j][0] * poly[i][1];
     }
     sum.abs() * 0.5
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A well-formed CCW triangle correctly contains its centroid.
+    #[test]
+    fn point_in_tri_2d_exact_interior_point() {
+        assert!(point_in_tri_2d_exact(
+            0.25, 0.25, // centroid-ish
+            0.0, 0.0, 1.0, 0.0, 0.0, 1.0,
+        ));
+    }
+
+    /// A point outside the triangle is rejected.
+    #[test]
+    fn point_in_tri_2d_exact_exterior_point() {
+        assert!(!point_in_tri_2d_exact(
+            2.0, 2.0, // far outside
+            0.0, 0.0, 1.0, 0.0, 0.0, 1.0,
+        ));
+    }
+
+    /// A point on the edge of the triangle is accepted (boundary-inclusive).
+    #[test]
+    fn point_in_tri_2d_exact_edge_point() {
+        assert!(point_in_tri_2d_exact(
+            0.5, 0.0, // midpoint of edge a→b
+            0.0, 0.0, 1.0, 0.0, 0.0, 1.0,
+        ));
+    }
+
+    /// Degenerate triangle (collinear vertices) rejects all points.
+    ///
+    /// Validates the Phase 5a guard: zero-area triangles contain nothing.
+    #[test]
+    fn point_in_tri_2d_exact_degenerate_rejects_collinear_point() {
+        // Triangle degenerates to the segment (0,0)→(2,0).
+        // Point (1,0) is on that segment but the "triangle" has zero area.
+        assert!(!point_in_tri_2d_exact(
+            1.0, 0.0, // on the degenerate segment
+            0.0, 0.0, 1.0, 0.0, 2.0, 0.0,
+        ));
+    }
+
+    /// Degenerate triangle rejects points off the line too.
+    #[test]
+    fn point_in_tri_2d_exact_degenerate_rejects_off_line_point() {
+        assert!(!point_in_tri_2d_exact(
+            1.0, 1.0, // off the degenerate line
+            0.0, 0.0, 1.0, 0.0, 2.0, 0.0,
+        ));
+    }
+
+    /// Degenerate triangle where all three vertices coincide.
+    #[test]
+    fn point_in_tri_2d_exact_degenerate_single_point() {
+        assert!(!point_in_tri_2d_exact(
+            0.0, 0.0, // same as all vertices
+            0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+        ));
+    }
 }

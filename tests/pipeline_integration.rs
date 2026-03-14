@@ -38,6 +38,7 @@ fn selective_venturi_spec() -> BlueprintTopologySpec {
                         serpentine: None,
                         therapy_zone: TherapyZone::HealthyBypass,
                     },
+                    recovery_sub_split: None,
                 },
                 BranchSpec {
                     label: "ctc".to_string(),
@@ -54,6 +55,7 @@ fn selective_venturi_spec() -> BlueprintTopologySpec {
                         }),
                         therapy_zone: TherapyZone::CancerTarget,
                     },
+                    recovery_sub_split: None,
                 },
                 BranchSpec {
                     label: "rbc".to_string(),
@@ -66,6 +68,7 @@ fn selective_venturi_spec() -> BlueprintTopologySpec {
                         serpentine: None,
                         therapy_zone: TherapyZone::HealthyBypass,
                     },
+                    recovery_sub_split: None,
                 },
             ],
         }],

@@ -4,5 +4,10 @@
     "problems.autoReveal": false,
     "chat.agent.maxRequests": 400,
     "github.copilot.chat.backgroundCompaction": true,
-    "claudeCode.allowDangerouslySkipPermissions": true
+    "claudeCode.allowDangerouslySkipPermissions": true,
+    "editor.hover.sticky": false,
+    "editor.stickyScroll.enabled": false,
+    "editor.stickyScroll.scrollWithEditor": false,
+    "workbench.tree.enableStickyScroll": false,
+    "terminal.integrated.stickyScroll.enabled": false
 }

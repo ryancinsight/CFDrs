@@ -6,8 +6,8 @@ mod query;
 pub use factory::{BlueprintTopologyFactory, BlueprintTopologyMutation};
 pub use model::{
     BlueprintTopologySpec, BranchRole, BranchSpec, ChannelRouteSpec, DeanSiteEstimate,
-    ParallelChannelSpec, SeriesChannelSpec, SerpentineSpec, SplitKind, SplitStageSpec,
-    ThroatGeometrySpec, TopologyChannelSpec, TopologyLineageEvent, TopologyLineageMetadata,
-    TopologyOptimizationStage, TreatmentActuationMode, VenturiConfig, VenturiPlacementMode,
-    VenturiPlacementSpec,
+    ParallelChannelSpec, RecoverySubSplit, SeriesChannelSpec, SerpentineSpec, SplitKind,
+    SplitStageSpec, SubBranchSpec, ThroatGeometrySpec, TopologyChannelSpec, TopologyLineageEvent,
+    TopologyLineageMetadata, TopologyOptimizationStage, TreatmentActuationMode, VenturiConfig,
+    VenturiPlacementMode, VenturiPlacementSpec,
 };

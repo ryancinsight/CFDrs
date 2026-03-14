@@ -43,7 +43,6 @@ fn combine_meshes(meshes: &[IndexedMesh]) -> IndexedMesh {
     combined
 }
 
-
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("╔══════════════════════════════════════════╗");
     println!("║  SBS 96-Well Flat-Bottom Plate Generator ║");
@@ -91,7 +90,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         for col in 0..12 {
             let cx = cx_start + (col as f64) * well_spacing;
             let cz = cz_start + (row as f64) * well_spacing;
-            
+
             // Actual fluid domain inside the well
             let frustum = Frustum {
                 base_center: Point3r::new(cx, well_bottom_y, cz),
@@ -108,7 +107,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 base_center: Point3r::new(cx, well_bottom_y, cz),
                 bottom_radius: well_bottom_radius,
                 top_radius: well_top_radius,
-                height: well_height + 1.0, 
+                height: well_height + 1.0,
                 segments,
             }
             .build()?;

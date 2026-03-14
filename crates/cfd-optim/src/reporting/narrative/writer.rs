@@ -5,22 +5,22 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-use crate::analysis::RobustnessReport;
-use crate::constraints::M12_GA_HYDRO_SEED;
-use crate::reporting::contract_trace::load_m12_contract_text;
-use crate::reporting::figures::{generate_m12_report_figures, FigureGenerationInput};
-use crate::reporting::narrative_addenda::{
+use super::addenda::{
     build_appendix_a_supplemental, build_conclusions, build_figure_sections, build_figure_toc_rows,
     build_references_block, build_storage_artifact_index, build_storage_policy_section,
 };
-use crate::reporting::narrative_sections::{
+use super::contract::load_m12_contract_text;
+use super::sections::{
     build_cavitation_formulas_intro, build_cri_expansion_sensitivity, build_limits_of_usage,
     build_limits_of_usage_intro, build_option2_top5_table, build_results_intro,
     build_robustness_section, build_selected_table, build_selected_table_intro,
     build_strict_core_intro, build_strict_core_table, build_top5_intro, build_tri_cell_intro,
     build_tri_cell_table, build_validation_section,
 };
-use crate::reporting::template::render_template_strict;
+use super::template::render_template_strict;
+use crate::analysis::RobustnessReport;
+use crate::constraints::M12_GA_HYDRO_SEED;
+use crate::reporting::figures::{generate_m12_report_figures, FigureGenerationInput};
 use crate::reporting::{Milestone12ReportDesign, ParetoPoint, ValidationRow};
 
 /// Metadata for the narrative title page.
@@ -55,6 +55,7 @@ pub struct Milestone12NarrativeInput<'a> {
     pub validation_rows: &'a [ValidationRow],
     pub option2_robustness: &'a [RobustnessReport],
     pub ga_best_per_gen: &'a [f64],
+    pub topology_family_count: usize,
     pub fast_mode: bool,
 }
 
@@ -150,6 +151,9 @@ pub fn write_milestone12_narrative_report(
         "FIGURE_SECTIONS".to_string(),
         build_figure_sections(&figure_specs),
     );
+    // figure_specs fully consumed — drop to free SVG metadata.
+    let figure_count = figure_specs.len();
+    drop(figure_specs);
     values.insert(
         "STORAGE_POLICY_SECTION".to_string(),
         build_storage_policy_section(),
@@ -160,7 +164,14 @@ pub fn write_milestone12_narrative_report(
     );
     values.insert(
         "CONCLUSIONS".to_string(),
-        build_conclusions(input.total_candidates, option1, option2, ga_best),
+        build_conclusions(
+            input.total_candidates,
+            input.topology_family_count,
+            option1,
+            option2,
+            ga_best,
+            input.ga_best_per_gen,
+        ),
     );
     values.insert("REFERENCES_BLOCK".to_string(), build_references_block());
 
@@ -180,10 +191,13 @@ pub fn write_milestone12_narrative_report(
     let manifest_json = std::fs::read_to_string(&manifest_path)?;
     values.insert(
         "APPENDIX_B_FIGURES".to_string(),
-        format!("```json\n{}\n```", manifest_json),
+        format!("```json\n{manifest_json}\n```"),
     );
 
     let narrative = render_template_strict(&template, &values)?;
+    // Template string and BTreeMap values consumed — free ~300 KB.
+    drop(template);
+    drop(values);
 
     std::fs::create_dir_all(&artifact_root)?;
     let narrative_path = if input.authoritative_run {
@@ -196,7 +210,7 @@ pub fn write_milestone12_narrative_report(
     Ok(Milestone12NarrativeArtifacts {
         narrative_path,
         figure_manifest_path: manifest_path,
-        figure_count: figure_specs.len(),
+        figure_count,
     })
 }
 
@@ -243,7 +257,7 @@ fn insert_title_page_values(values: &mut BTreeMap<String, String>, metadata: &M1
 
 fn insert_contract_values(
     values: &mut BTreeMap<String, String>,
-    contract: &crate::reporting::contract_trace::MilestoneContractText,
+    contract: &super::contract::MilestoneContractText,
 ) {
     values.insert(
         "MILESTONE_DESCRIPTION".to_string(),
@@ -286,15 +300,17 @@ fn insert_data_values(
         input.total_candidates.to_string(),
     );
     values.insert(
-        "CANONICAL_SOURCE".to_string(),
-        input.canonical_source.clone(),
-    );
-    values.insert(
         "RUN_AUTHORITY_NOTE".to_string(),
         if input.authoritative_run {
-            "This report is an authoritative full-sweep artifact. All selected figures and ranked conclusions were generated from the complete Milestone 12 topology sweep.".to_string()
+            format!(
+                "Selected figures and ranked conclusions reflect the complete Milestone 12 topology sweep across all {} candidates.",
+                input.total_candidates,
+            )
         } else {
-            "This report is a draft, non-authoritative fast-mode artifact. It must not replace the canonical full-sweep Milestone 12 report because Option 1 topology coverage may be truncated.".to_string()
+            format!(
+                "This is a fast-mode draft covering {} candidates. Option 1 topology coverage may be truncated relative to the full sweep.",
+                input.total_candidates,
+            )
         },
     );
     values.insert(

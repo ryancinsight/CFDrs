@@ -86,6 +86,7 @@ pub fn asymmetric_split_tree_spec(
                             serpentine: None,
                             therapy_zone,
                         },
+                        recovery_sub_split: None,
                     }
                 })
                 .collect();

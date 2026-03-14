@@ -7,7 +7,7 @@ use crate::application::orchestration::{
 };
 use crate::application::search::pool::EvaluatedPool;
 use crate::delivery::{save_json_pretty, save_top5_report_json};
-use crate::design::build_milestone12_blueprint_candidate_space;
+use crate::design::{build_milestone12_candidate_params, CandidateParams};
 use crate::domain::{BlueprintCandidate, OptimizationGoal};
 use crate::reporting::{
     audit_goal_candidates, validate_milestone12_candidate, write_goal_audit_report,
@@ -147,28 +147,34 @@ pub fn run_milestone12_option1() -> Result<Milestone12Option1Run, Box<dyn std::e
     let is_fast = fast_mode();
     let goal = OptimizationGoal::AsymmetricSplitResidenceSeparation;
 
-    let raw_candidates = build_milestone12_blueprint_candidate_space()?;
-    let total_candidates = raw_candidates.len();
+    // Keep lightweight params (~100 bytes each) instead of full candidates (~15 KB).
+    let all_params = build_milestone12_candidate_params();
+    let total_candidates = all_params.len();
 
-    // Chain filter + take in a single pass — avoids materialising the full
-    // intermediate acoustic_candidates Vec (~50K × 15 KB = 750 MB) when
-    // fast_mode only evaluates a few hundred.
     let eval_cap = if is_fast {
         fast_env("M12_FAST_ACOUSTIC_EVAL_MAX", 200)
     } else {
-        total_candidates // no cap
+        total_candidates
     };
-    let to_evaluate: Vec<BlueprintCandidate> = raw_candidates
+
+    // Filter to non-venturi selective topologies. Materialize transiently
+    // for the filter check, then keep only the lightweight params.
+    let selective_params: Vec<CandidateParams> = all_params
         .into_iter()
-        .filter(|candidate| {
-            !candidate
-                .topology_spec()
-                .is_ok_and(cfd_schematics::BlueprintTopologySpec::has_venturi)
-                && is_selective_report_topology(candidate)
+        .filter(|params| {
+            // Quick venturi check from params — avoids full materialization.
+            if params.is_venturi() {
+                return false;
+            }
+            let candidate = params.materialize();
+            is_selective_report_topology(&candidate)
         })
         .take(eval_cap)
         .collect();
 
+    // Audit + sequence coverage need full candidates, but only transiently.
+    let to_evaluate: Vec<BlueprintCandidate> =
+        selective_params.iter().map(|p| p.materialize()).collect();
     let audit_entries = audit_goal_candidates(&to_evaluate, goal);
     let sequence_coverage = summarize_sequence_coverage(&to_evaluate, &audit_entries);
     let audit = write_goal_audit_report(&out_dir, "option1_audit", &audit_entries)?;
@@ -180,8 +186,6 @@ pub fn run_milestone12_option1() -> Result<Milestone12Option1Run, Box<dyn std::e
     drop(pool);
 
     // Consume `to_evaluate` — extract only the ≤5 candidates needed for the shortlist.
-    // Frees ~50K × 15 KB of non-selected candidates before the costly
-    // `from_blueprint_candidate` calls (which compute SdtMetrics via 1-D solve).
     let needed_ids: Vec<String> = top_results.iter().map(|e| e.candidate_id.clone()).collect();
     let mut candidate_map: HashMap<String, BlueprintCandidate> =
         HashMap::with_capacity(needed_ids.len());

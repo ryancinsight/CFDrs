@@ -1,1 +1,25 @@
 .git_disabled/
+
+# Large data and mesh files
+*.vtk
+*.vtu
+*.vtp
+*.vtr
+*.vtm
+*.pvd
+*.h5
+*.h5part
+*.hdf5
+*.cgns
+*.msh
+*.su2
+*.cas
+*.dat
+*.polyMesh
+*.stl
+*.obj
+*.ply
+*.bin
+*.out
+*.csv
+*.tsv

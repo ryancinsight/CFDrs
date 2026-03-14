@@ -5,12 +5,13 @@
 //!
 //! - Branch 1: at +60° from the +X axis
 //! - Branch 2: at +30° from the +X axis
-//! - Branch 3: at 0° from the +X axis (straight)
+//! - Branch 3: at +15° from the +X axis (near-forward)
 //! - Branch 4: at -30° from the +X axis
 //! - Branch 5: at -60° from the +X axis
 //!
 //! This example exercises the canonical indexed N-way Boolean path on a dense
-//! five-branch junction that includes a coaxial branch aligned with the trunk.
+//! five-branch junction.  The center branch uses 15° (not 0°) to avoid
+//! coincident surfaces with the trunk lateral barrel.
 //!
 //! ## Run
 //!
@@ -49,7 +50,7 @@ const SEGS: usize = 64;
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("=================================================================");
     println!("  CSG N-Way (Pentafurcation)");
-    println!("  Outer branches ±60°, ±30° | Center coaxial 0° branch");
+    println!("  Outer branches ±60°, ±30° | Near-forward 15° branch");
     println!("  Unified N-Way Exact Union");
     println!("  r={R} mm  h_trunk={H_TRUNK} mm  h_branch={H_BRANCH} mm");
     println!("=================================================================");
@@ -134,8 +135,8 @@ fn build_pentafurcation() -> Result<Vec<IndexedMesh>, Box<dyn std::error::Error>
         .evaluate()?,
     );
 
-    // Branches at +60°, +30°, 0°, -30°, -60°
-    for &angle_deg in &[60.0, 30.0, 0.0, -30.0, -60.0_f64] {
+    // Branches at +60°, +30°, +15°, -30°, -60°
+    for &angle_deg in &[60.0, 30.0, 15.0, -30.0, -60.0_f64] {
         out.push(make_branch_planar(angle_deg.to_radians())?);
     }
 

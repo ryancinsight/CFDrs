@@ -13,6 +13,15 @@ mod dimensions;
 mod sweep;
 
 use crate::domain::BlueprintCandidate;
+pub use sweep::milestone12::CandidateParams;
+
+/// Return lightweight parameter tuples (~100 bytes each) for lazy
+/// materialization. This is the memory-efficient alternative to
+/// [`build_milestone12_blueprint_candidate_space`].
+#[must_use]
+pub fn build_milestone12_candidate_params() -> Vec<CandidateParams> {
+    sweep::milestone12::build_milestone12_candidate_params_only()
+}
 
 /// Build only the canonical primitive selective candidates needed by the
 /// Milestone 12 report pipeline.
@@ -27,6 +36,9 @@ pub(crate) fn build_milestone12_candidate_space() -> Vec<BlueprintCandidate> {
 
 /// Build the Milestone 12 selective-routing candidate space directly as
 /// blueprint-native candidates.
+///
+/// **Warning:** eagerly materializes ~500K candidates (~7.5 GB). Prefer
+/// [`build_milestone12_candidate_params`] for memory-constrained pipelines.
 pub fn build_milestone12_blueprint_candidate_space(
 ) -> Result<Vec<BlueprintCandidate>, crate::error::OptimError> {
     Ok(build_milestone12_candidate_space())

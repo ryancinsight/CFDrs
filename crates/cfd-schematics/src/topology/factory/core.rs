@@ -385,6 +385,7 @@ impl BlueprintTopologyFactory {
                                 therapy_zone:
                                     crate::domain::therapy_metadata::TherapyZone::MixedFlow,
                             },
+                            recovery_sub_split: None,
                         })
                         .collect(),
                 };
@@ -788,6 +789,7 @@ fn build_inserted_treatment_stage(
                         serpentine: treatment_serpentine.clone(),
                         therapy_zone: TherapyZone::CancerTarget,
                     },
+                    recovery_sub_split: None,
                 },
                 BranchSpec {
                     label: "lower".to_string(),
@@ -800,6 +802,7 @@ fn build_inserted_treatment_stage(
                         serpentine: None,
                         therapy_zone: TherapyZone::HealthyBypass,
                     },
+                    recovery_sub_split: None,
                 },
             ]
         }
@@ -863,6 +866,7 @@ fn treatment_branch(
             serpentine,
             therapy_zone: TherapyZone::CancerTarget,
         },
+        recovery_sub_split: None,
     }
 }
 
@@ -884,6 +888,7 @@ fn bypass_branch(
             serpentine: None,
             therapy_zone: TherapyZone::HealthyBypass,
         },
+        recovery_sub_split: None,
     }
 }
 

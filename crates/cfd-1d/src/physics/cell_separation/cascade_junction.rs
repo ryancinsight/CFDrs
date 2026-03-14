@@ -217,6 +217,25 @@ pub fn tri_asymmetric_q_fracs(
     [g_c / g_total, g_l / g_total, g_r / g_total]
 }
 
+/// Peripheral recovery sub-split descriptor.
+///
+/// When a non-treatment arm is further sub-split, the wider sub-arm can
+/// feed recovered cells back to the treatment path.  This struct
+/// parameterises that recovery routing for a single source arm.
+#[derive(Debug, Clone, Copy)]
+pub struct PeripheralRecovery {
+    /// Index of the source arm in the parent stage's `arm_q_fracs`.
+    pub source_arm_idx: usize,
+    /// Sub-arm flow fractions (up to 5); only `[..n_sub_arms]` are used.
+    pub sub_arm_q_fracs: [f64; 5],
+    /// Number of active sub-arms (2–5).
+    pub n_sub_arms: u8,
+    /// Index of the sub-arm that feeds back to the treatment path.
+    pub recovery_arm_idx: usize,
+    /// Hydraulic diameter of the recovery sub-arm [m].
+    pub recovery_dh_m: f64,
+}
+
 /// Per-stage descriptor for a mixed Bi/Tri selective-routing cascade.
 ///
 /// Carries all arm flow fractions (enabling asymmetric splits) and the
@@ -236,6 +255,10 @@ pub struct CascadeStage {
     /// Hydraulic diameter of the treatment arm [m] at this stage.
     /// Used to compute κ = cell_diameter / Dh for β amplification.
     pub treatment_dh_m: f64,
+    /// Optional peripheral recovery sub-splits (up to 4 per stage).
+    pub peripheral_recoveries: [Option<PeripheralRecovery>; 4],
+    /// Number of active peripheral recoveries.
+    pub n_recoveries: u8,
 }
 
 fn cascade_from_q_fractions(q_center_fracs: &[f64]) -> CascadeJunctionResult {
@@ -733,9 +756,44 @@ pub fn mixed_cascade_separation_kappa_aware(stages: &[CascadeStage]) -> CascadeJ
         let n = stage.n_arms.clamp(2, 5) as usize;
         let arms = &stage.arm_q_fracs[..n];
 
-        f_cancer *= p_arm_general(arms, 0, beta_cancer);
-        f_wbc *= p_arm_general(arms, 0, beta_wbc);
-        f_rbc *= p_arm_general(arms, 0, beta_rbc);
+        let p_treat_cancer = p_arm_general(arms, 0, beta_cancer);
+        let p_treat_wbc = p_arm_general(arms, 0, beta_wbc);
+        let p_treat_rbc = p_arm_general(arms, 0, beta_rbc);
+
+        let mut recovery_cancer = 0.0_f64;
+        let mut recovery_wbc = 0.0_f64;
+        let mut recovery_rbc = 0.0_f64;
+
+        for i in 0..stage.n_recoveries as usize {
+            if let Some(ref pr) = stage.peripheral_recoveries[i] {
+                let p_leak_cancer = p_arm_general(arms, pr.source_arm_idx, beta_cancer);
+                let p_leak_wbc = p_arm_general(arms, pr.source_arm_idx, beta_wbc);
+                let p_leak_rbc = p_arm_general(arms, pr.source_arm_idx, beta_rbc);
+
+                let sub_dh = pr.recovery_dh_m.max(1e-9);
+                let sub_beta_cancer = (beta_kappa_adjusted(SE_CANCER, D_CANCER_M / sub_dh)
+                    + fahrae_beta_correction(SE_CANCER, D_CANCER_M))
+                .min(3.0);
+                let sub_beta_wbc = (beta_kappa_adjusted(SE_WBC, D_WBC_M / sub_dh)
+                    + fahrae_beta_correction(SE_WBC, D_WBC_M))
+                .min(3.0);
+                let sub_beta_rbc = beta_kappa_adjusted(SE_RBC, D_RBC_M / sub_dh);
+
+                let sub_n = pr.n_sub_arms.clamp(2, 5) as usize;
+                let sub_arms = &pr.sub_arm_q_fracs[..sub_n];
+
+                recovery_cancer +=
+                    p_leak_cancer * p_arm_general(sub_arms, pr.recovery_arm_idx, sub_beta_cancer);
+                recovery_wbc +=
+                    p_leak_wbc * p_arm_general(sub_arms, pr.recovery_arm_idx, sub_beta_wbc);
+                recovery_rbc +=
+                    p_leak_rbc * p_arm_general(sub_arms, pr.recovery_arm_idx, sub_beta_rbc);
+            }
+        }
+
+        f_cancer *= (p_treat_cancer + recovery_cancer).min(1.0);
+        f_wbc *= (p_treat_wbc + recovery_wbc).min(1.0);
+        f_rbc *= (p_treat_rbc + recovery_rbc).min(1.0);
         q_center_total *= stage.arm_q_fracs[0].max(1e-9);
     }
 
@@ -1090,6 +1148,8 @@ mod tests {
             arm_q_fracs: [q, q_p, q_p, 0.0, 0.0],
             n_arms: 3,
             treatment_dh_m: dh,
+            peripheral_recoveries: [None; 4],
+            n_recoveries: 0,
         };
 
         let kappa_result = mixed_cascade_separation_kappa_aware(&[stage]);
@@ -1123,6 +1183,8 @@ mod tests {
             arm_q_fracs: [q_c, q_l, q_r, 0.0, 0.0],
             n_arms: 3,
             treatment_dh_m: dh,
+            peripheral_recoveries: [None; 4],
+            n_recoveries: 0,
         };
         let n = stage.n_arms as usize;
         let dh_s = stage.treatment_dh_m.max(1e-9);
@@ -1151,6 +1213,8 @@ mod tests {
                 arm_q_fracs: [q_c, q_p, q_p, 0.0, 0.0],
                 n_arms: 3,
                 treatment_dh_m: dh,
+                peripheral_recoveries: [None; 4],
+                n_recoveries: 0,
             });
             parent_w *= center_frac;
         }
@@ -1223,6 +1287,8 @@ mod tests {
             arm_q_fracs: [q, q_p, q_p, 0.0, 0.0],
             n_arms: 3,
             treatment_dh_m: dh,
+            peripheral_recoveries: [None; 4],
+            n_recoveries: 0,
         };
         let kappa_fahrae = mixed_cascade_separation_kappa_aware(&[stage]);
         let legacy = mixed_cascade_separation(&[(q, true)]);
@@ -1273,11 +1339,15 @@ mod tests {
                 arm_q_fracs: [arm_q_1[0], arm_q_1[1], arm_q_1[2], 0.0, 0.0],
                 n_arms: 3,
                 treatment_dh_m: dh_1,
+                peripheral_recoveries: [None; 4],
+                n_recoveries: 0,
             },
             CascadeStage {
                 arm_q_fracs: [arm_q_2[0], arm_q_2[1], arm_q_2[2], 0.0, 0.0],
                 n_arms: 3,
                 treatment_dh_m: dh_2,
+                peripheral_recoveries: [None; 4],
+                n_recoveries: 0,
             },
         ];
         let r = mixed_cascade_separation_kappa_aware(&stages);
@@ -1352,11 +1422,15 @@ mod tests {
                 arm_q_fracs: [arm_q_1[0], arm_q_1[1], arm_q_1[2], 0.0, 0.0],
                 n_arms: 3,
                 treatment_dh_m: dh_1,
+                peripheral_recoveries: [None; 4],
+                n_recoveries: 0,
             },
             CascadeStage {
                 arm_q_fracs: [arm_q_2[0], arm_q_2[1], arm_q_2[2], 0.0, 0.0],
                 n_arms: 3,
                 treatment_dh_m: dh_2,
+                peripheral_recoveries: [None; 4],
+                n_recoveries: 0,
             },
         ];
         let r_high = mixed_cascade_separation_kappa_aware(&stages);
@@ -1413,5 +1487,98 @@ mod tests {
             enrichment > 1.0,
             "CTC/RBC enrichment must exceed 1.0 at asymmetric split, got {enrichment:.4}"
         );
+    }
+
+    // ── Peripheral recovery routing tests ────────────────────────────────
+
+    #[test]
+    fn recovery_zero_when_no_peripheral_recoveries() {
+        let q = tri_center_q_frac(0.45);
+        let q_p = (1.0 - q) / 2.0;
+        let dh = 1e-3;
+        let stage_no_recovery = CascadeStage {
+            arm_q_fracs: [q, q_p, q_p, 0.0, 0.0],
+            n_arms: 3,
+            treatment_dh_m: dh,
+            peripheral_recoveries: [None; 4],
+            n_recoveries: 0,
+        };
+        let r = mixed_cascade_separation_kappa_aware(&[stage_no_recovery]);
+        let r_legacy = mixed_cascade_separation(&[(q, true)]);
+        // With no recovery, kappa-aware should match or exceed legacy
+        assert!(r.cancer_center_fraction >= r_legacy.cancer_center_fraction - 1e-10);
+    }
+
+    #[test]
+    fn recovery_increases_cancer_center_fraction() {
+        // 20/60/20 trifurcation with recovery on left peripheral
+        let q_c = 0.65;  // center gets ~65% of flow (wider channel)
+        let q_p = (1.0 - q_c) / 2.0;
+        let dh = 1e-3;
+        let stage_no_recovery = CascadeStage {
+            arm_q_fracs: [q_c, q_p, q_p, 0.0, 0.0],
+            n_arms: 3,
+            treatment_dh_m: dh,
+            peripheral_recoveries: [None; 4],
+            n_recoveries: 0,
+        };
+        // Recovery sub-split on arm 1 (left): 70/30 split, wider arm (index 0) feeds back to treatment
+        let recovery = PeripheralRecovery {
+            source_arm_idx: 1,
+            sub_arm_q_fracs: [0.70, 0.30, 0.0, 0.0, 0.0],
+            n_sub_arms: 2,
+            recovery_arm_idx: 0,
+            recovery_dh_m: 0.5e-3,
+        };
+        let stage_with_recovery = CascadeStage {
+            arm_q_fracs: [q_c, q_p, q_p, 0.0, 0.0],
+            n_arms: 3,
+            treatment_dh_m: dh,
+            peripheral_recoveries: [Some(recovery), None, None, None],
+            n_recoveries: 1,
+        };
+        let r_no = mixed_cascade_separation_kappa_aware(&[stage_no_recovery]);
+        let r_yes = mixed_cascade_separation_kappa_aware(&[stage_with_recovery]);
+        assert!(
+            r_yes.cancer_center_fraction > r_no.cancer_center_fraction,
+            "recovery should increase cancer center fraction: without={:.4}, with={:.4}",
+            r_no.cancer_center_fraction, r_yes.cancer_center_fraction
+        );
+    }
+
+    #[test]
+    fn recovery_bounded_by_one() {
+        // Even with aggressive recovery, P_eff must not exceed 1.0
+        let q_c = 0.50;
+        let q_p = 0.25;
+        let recovery_both = [
+            Some(PeripheralRecovery {
+                source_arm_idx: 1,
+                sub_arm_q_fracs: [0.90, 0.10, 0.0, 0.0, 0.0],
+                n_sub_arms: 2,
+                recovery_arm_idx: 0,
+                recovery_dh_m: 0.3e-3,
+            }),
+            Some(PeripheralRecovery {
+                source_arm_idx: 2,
+                sub_arm_q_fracs: [0.90, 0.10, 0.0, 0.0, 0.0],
+                n_sub_arms: 2,
+                recovery_arm_idx: 0,
+                recovery_dh_m: 0.3e-3,
+            }),
+            None,
+            None,
+        ];
+        let stage = CascadeStage {
+            arm_q_fracs: [q_c, q_p, q_p, 0.0, 0.0],
+            n_arms: 3,
+            treatment_dh_m: 1e-3,
+            peripheral_recoveries: recovery_both,
+            n_recoveries: 2,
+        };
+        let r = mixed_cascade_separation_kappa_aware(&[stage]);
+        assert!(r.cancer_center_fraction <= 1.0, "cancer fraction must be <= 1.0");
+        assert!(r.wbc_center_fraction <= 1.0, "wbc fraction must be <= 1.0");
+        assert!((1.0 - r.rbc_peripheral_fraction) <= 1.0, "rbc center must be <= 1.0");
     }
 }

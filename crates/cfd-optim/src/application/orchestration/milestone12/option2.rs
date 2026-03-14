@@ -1,19 +1,19 @@
 use std::collections::HashMap;
 use std::fs;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use rayon::prelude::*;
 
 use crate::analysis::{robustness_sweep_blueprint, RobustnessReport, STANDARD_PERTURBATIONS};
 use crate::application::objectives::{
-    evaluate_selective_acoustic_residence_separation, evaluate_selective_venturi_cavitation,
+    score_selective_acoustic_residence_separation, score_selective_venturi_cavitation,
 };
 use crate::application::orchestration::{
     blueprint_lineage_key, ensure_release_reports, fast_mode, init_tracing,
     is_selective_report_topology, resolve_output_directories, save_figure, ScanProgress,
 };
 use crate::delivery::{load_top5_report_json, save_pareto_points, save_top5_report_json};
-use crate::design::build_milestone12_blueprint_candidate_space;
+use crate::design::{build_milestone12_candidate_params, CandidateParams};
 use crate::domain::{BlueprintCandidate, OptimizationGoal};
 use crate::metrics::evaluate_blueprint_candidate;
 use crate::reporting::{
@@ -24,13 +24,15 @@ use crate::reporting::{
 use super::report::{write_stage_summary, Milestone12Option2Summary, OPTION2_SUMMARY_PATH};
 use super::types::{Milestone12Option2Run, Milestone12StageArtifact};
 
-struct CandidateResult {
-    candidate: BlueprintCandidate,
+/// Lightweight result stored during parallel evaluation — holds the candidate
+/// ID and lineage key instead of the full ~15 KB `BlueprintCandidate`.
+/// The full candidate is only re-materialized for the final top-5.
+struct LightweightResult {
+    params: CandidateParams,
+    lineage_key: Option<Milestone12LineageKey>,
     is_venturi: bool,
     option1_score: Option<f64>,
     option2_score: Option<f64>,
-    // Lightweight Pareto data extracted inline — avoids computing full SdtMetrics
-    // for every candidate (~1.5 KB + a redundant 1-D solve per entry).
     cancer_targeted_cavitation: f64,
     rbc_venturi_protection: f64,
 }
@@ -42,32 +44,52 @@ pub fn run_milestone12_option2() -> Result<Milestone12Option2Run, Box<dyn std::e
     let is_fast = fast_mode();
     let goal = OptimizationGoal::AsymmetricSplitVenturiCavitationSelectivity;
 
-    let all_candidates = build_milestone12_blueprint_candidate_space()?;
-    let total_candidates = all_candidates.len();
+    // Keep lightweight params (~100 bytes each) instead of full candidates (~15 KB).
+    // At 500K entries: ~50 MB vs ~7.5 GB.
+    let all_params = build_milestone12_candidate_params();
+    let total_candidates = all_params.len();
     let option1_from_disk =
         load_top5_report_json(&out_dir.join("two_concept_option1_ultrasound_top5.json"))?;
     let have_option1 = !option1_from_disk.is_empty();
 
-    let selective_candidates: Vec<BlueprintCandidate> = all_candidates
+    // Filter params to selective-report topologies.
+    // Materialize one at a time to check, then drop immediately.
+    let selective_params: Vec<CandidateParams> = all_params
         .into_iter()
-        .filter(is_selective_report_topology)
+        .filter(|params| {
+            let candidate = params.materialize();
+            is_selective_report_topology(&candidate)
+        })
         .collect();
 
-    let audit_entries = audit_goal_candidates(&selective_candidates, goal);
+    // Audit still needs full candidates, but only for the lightweight audit scan.
+    // Build them lazily for the audit, then drop.
+    let selective_for_audit: Vec<BlueprintCandidate> =
+        selective_params.iter().map(|p| p.materialize()).collect();
+    let audit_entries = audit_goal_candidates(&selective_for_audit, goal);
     let audit = write_goal_audit_report(&out_dir, "option2_audit", &audit_entries)?;
+    drop(selective_for_audit);
+    drop(audit_entries);
 
-    let progress = Arc::new(ScanProgress::new("option2 scan", selective_candidates.len()));
-    let progress_ref = Arc::clone(&progress);
+    let progress = Arc::new(ScanProgress::new("option2 scan", selective_params.len()));
     let have_option1_for_par = have_option1;
 
-    let results: Vec<CandidateResult> = selective_candidates
+    // --- Streaming evaluation with lazy materialization ---
+    // Each candidate is materialized, evaluated, and the full object dropped
+    // inside the parallel closure. Only lightweight data is retained.
+    let pareto_acc = Mutex::new(Vec::with_capacity(selective_params.len() / 2));
+    let deferred_acc = Mutex::new(Vec::<LightweightResult>::new());
+
+    selective_params
         .into_par_iter()
-        .filter_map(move |candidate| {
+        .for_each(|params| {
+            let progress_ref = &progress;
+            let candidate = params.materialize();
             let evaluation = match evaluate_blueprint_candidate(&candidate) {
                 Ok(evaluation) => evaluation,
                 Err(_) => {
                     progress_ref.record();
-                    return None;
+                    return;
                 }
             };
             progress_ref.record();
@@ -75,24 +97,24 @@ pub fn run_milestone12_option2() -> Result<Milestone12Option2Run, Box<dyn std::e
             let is_venturi = candidate
                 .topology_spec()
                 .is_ok_and(cfd_schematics::BlueprintTopologySpec::has_venturi);
+            let lineage_key = blueprint_lineage_key(&candidate);
+
+            // Score-only functions: borrow &evaluation, zero allocation, no clone.
             let option1_score = if !is_venturi && !have_option1_for_par {
-                let evaluation =
-                    evaluate_selective_acoustic_residence_separation(&candidate, evaluation.clone());
-                evaluation.score.filter(|_| evaluation.is_eligible())
+                score_selective_acoustic_residence_separation(&evaluation)
             } else {
                 None
             };
             let option2_score = if is_venturi {
-                evaluate_selective_venturi_cavitation(&candidate, evaluation.clone())
-                    .ok()
-                    .filter(|evaluation| evaluation.is_eligible())
-                    .and_then(|evaluation| evaluation.score)
+                let has_placements = candidate
+                    .topology_spec()
+                    .map_or(false, |t| !t.venturi_placements.is_empty());
+                score_selective_venturi_cavitation(&evaluation, has_placements)
             } else {
                 None
             };
 
-            // Compute lightweight Pareto data inline from evaluation —
-            // avoids materialising full SdtMetrics (~1.5 KB + redundant 1-D solve).
+            // Compute lightweight Pareto data inline from evaluation.
             let cav_potential = evaluation
                 .venturi
                 .placements
@@ -109,47 +131,41 @@ pub fn run_milestone12_option2() -> Result<Milestone12Option2Run, Box<dyn std::e
                         - cavitation_intensity
                             * evaluation.venturi.rbc_exposure_fraction.clamp(0.0, 1.0));
 
-            Some(CandidateResult {
-                candidate,
-                is_venturi,
-                option1_score,
-                option2_score,
-                cancer_targeted_cavitation,
-                rbc_venturi_protection,
-            })
-        })
-        .collect();
+            // Drop the full candidate + evaluation here (end of closure).
+            // Only push lightweight data to accumulators.
+            if is_venturi {
+                pareto_acc.lock().unwrap().push(ParetoPoint {
+                    cancer_targeted_cavitation,
+                    rbc_venturi_protection,
+                    score: option2_score.unwrap_or(0.001),
+                    tag: ParetoTag::Option2,
+                });
+            }
+
+            if option1_score.is_some() || option2_score.is_some() {
+                deferred_acc.lock().unwrap().push(LightweightResult {
+                    params,
+                    lineage_key,
+                    is_venturi,
+                    option1_score,
+                    option2_score,
+                    cancer_targeted_cavitation,
+                    rbc_venturi_protection,
+                });
+            }
+            // `candidate` and `evaluation` are dropped here — no accumulation.
+        });
     progress.finish();
 
-    // Separate results into lightweight deferred pools.
-    // Full SdtMetrics are computed ONLY for the final top-5 (not all ~50K).
-    let mut pareto_points = Vec::new();
-    let mut option1_deferred: Vec<(BlueprintCandidate, f64)> = Vec::new();
-    // (candidate, score) — no metrics yet
-    let mut option2_deferred: Vec<(BlueprintCandidate, f64)> = Vec::new();
-    for result in results {
-        if result.is_venturi {
-            pareto_points.push(ParetoPoint {
-                cancer_targeted_cavitation: result.cancer_targeted_cavitation,
-                rbc_venturi_protection: result.rbc_venturi_protection,
-                score: result.option2_score.unwrap_or(0.001),
-                tag: ParetoTag::Option2,
-            });
-            if let Some(option2_score) = result.option2_score {
-                option2_deferred.push((result.candidate, option2_score));
-            }
-        } else if let Some(option1_score) = result.option1_score {
-            option1_deferred.push((result.candidate, option1_score));
-        }
-    }
+    let pareto_points = pareto_acc.into_inner().unwrap();
+    let deferred = deferred_acc.into_inner().unwrap();
 
-    // Persist lightweight Pareto points (~32 bytes each vs ~20 KB for full designs).
+    // Persist lightweight Pareto points (~32 bytes each).
     let option2_pool_all_path = out_dir.join("option2_pool_all.json");
     save_pareto_points(&pareto_points, &option2_pool_all_path)?;
     drop(pareto_points);
 
-    // --- Lineage matching on lightweight (candidate, score) pairs ---
-    // No SdtMetrics needed — only topology spec keys and scores.
+    // --- Lineage matching on lightweight data ---
     let mut option1_lineage_keys: HashMap<Milestone12LineageKey, bool> = HashMap::new();
     if have_option1 {
         for design in &option1_from_disk {
@@ -158,18 +174,32 @@ pub fn run_milestone12_option2() -> Result<Milestone12Option2Run, Box<dyn std::e
             }
         }
     } else {
-        for (candidate, _score) in &option1_deferred {
-            if let Some(key) = blueprint_lineage_key(candidate) {
-                option1_lineage_keys.insert(key, true);
+        for result in &deferred {
+            if !result.is_venturi {
+                if let Some(ref key) = result.lineage_key {
+                    option1_lineage_keys.insert(key.clone(), true);
+                }
             }
         }
     }
-    drop(option1_deferred); // free option1 candidates early
+
+    // Split into option1 and option2 deferred (lightweight — only params + score).
+    let option2_deferred: Vec<(usize, f64)> = deferred
+        .iter()
+        .enumerate()
+        .filter_map(|(i, r)| {
+            if r.is_venturi {
+                r.option2_score.map(|s| (i, s))
+            } else {
+                None
+            }
+        })
+        .collect();
 
     let mut option2_by_lineage: HashMap<Milestone12LineageKey, Vec<usize>> = HashMap::new();
-    for (index, (candidate, _score)) in option2_deferred.iter().enumerate() {
-        if let Some(key) = blueprint_lineage_key(candidate) {
-            option2_by_lineage.entry(key).or_default().push(index);
+    for &(deferred_idx, _) in &option2_deferred {
+        if let Some(ref key) = deferred[deferred_idx].lineage_key {
+            option2_by_lineage.entry(key.clone()).or_default().push(deferred_idx);
         }
     }
 
@@ -179,22 +209,29 @@ pub fn run_milestone12_option2() -> Result<Milestone12Option2Run, Box<dyn std::e
         .collect();
     drop(option1_lineage_keys);
 
-    // Select and truncate the lightweight pool — no metrics computed yet.
-    let selected_indices: Vec<usize> = if viable_lineages.is_empty() {
-        // No shared lineage — sort all by score, take top 5.
-        option2_deferred.sort_by(|a, b| b.1.total_cmp(&a.1));
-        (0..option2_deferred.len().min(5)).collect()
+    // Select top-5 indices into the `deferred` vec.
+    let selected_deferred_indices: Vec<usize> = if viable_lineages.is_empty() {
+        // No shared lineage — sort all venturi by score, take top 5.
+        let mut sorted: Vec<(usize, f64)> = option2_deferred;
+        sorted.sort_by(|a, b| b.1.total_cmp(&a.1));
+        sorted.into_iter().take(5).map(|(i, _)| i).collect()
     } else {
         viable_lineages.sort_by(|left, right| {
             let left_best = left
                 .1
                 .iter()
-                .map(|&i| option2_deferred[i].1)
+                .map(|&i| deferred.iter()
+                    .enumerate()
+                    .find_map(|(di, r)| if di == i { r.option2_score } else { None })
+                    .unwrap_or(f64::NEG_INFINITY))
                 .fold(f64::NEG_INFINITY, f64::max);
             let right_best = right
                 .1
                 .iter()
-                .map(|&i| option2_deferred[i].1)
+                .map(|&i| deferred.iter()
+                    .enumerate()
+                    .find_map(|(di, r)| if di == i { r.option2_score } else { None })
+                    .unwrap_or(f64::NEG_INFINITY))
                 .fold(f64::NEG_INFINITY, f64::max);
             right_best.total_cmp(&left_best)
         });
@@ -205,42 +242,32 @@ pub fn run_milestone12_option2() -> Result<Milestone12Option2Run, Box<dyn std::e
             .ok_or("no shared Option 1 → Option 2 lineage retained venturi candidates")?
             .1
             .clone();
-        // Sort winning indices by score descending, take top 5.
-        winning.sort_by(|&a, &b| option2_deferred[b].1.total_cmp(&option2_deferred[a].1));
+        // Sort by score descending via lookup into deferred.
+        winning.sort_by(|&a, &b| {
+            let sa = deferred[a].option2_score.unwrap_or(f64::NEG_INFINITY);
+            let sb = deferred[b].option2_score.unwrap_or(f64::NEG_INFINITY);
+            sb.total_cmp(&sa)
+        });
         winning.truncate(5);
         winning
     };
     drop(viable_lineages);
 
-    // Materialise full Milestone12ReportDesign ONLY for the final top-5.
-    // This is where SdtMetrics (~1.5 KB + 1-D solve) are computed —
-    // for 5 candidates instead of ~50K.
-    let mut option2_pool: Vec<Milestone12ReportDesign> = Vec::with_capacity(selected_indices.len());
-    // Move selected candidates out; swap_remove would invalidate indices,
-    // so we drain by sorted index in reverse.
-    let mut to_take: Vec<(usize, BlueprintCandidate, f64)> = {
-        let mut idx_sorted = selected_indices.clone();
-        idx_sorted.sort_unstable();
-        idx_sorted.dedup();
-        // Take from highest index first so earlier indices stay valid.
-        let mut taken = Vec::with_capacity(idx_sorted.len());
-        for &i in idx_sorted.iter().rev() {
-            let (candidate, score) = option2_deferred.swap_remove(i);
-            taken.push((i, candidate, score));
-        }
-        taken
-    };
-    // Restore original selection order.
-    to_take.sort_by_key(|(original_idx, _, _)| {
-        selected_indices.iter().position(|&si| si == *original_idx).unwrap_or(usize::MAX)
-    });
-    drop(option2_deferred); // free the bulk of deferred candidates
-
-    for (_, candidate, score) in to_take {
-        if let Ok(design) = Milestone12ReportDesign::from_blueprint_candidate(0, candidate, score) {
+    // --- Re-materialize ONLY the final top-5 candidates ---
+    // 5 × 15 KB = 75 KB instead of 50K × 15 KB = 750 MB.
+    let mut option2_pool: Vec<Milestone12ReportDesign> =
+        Vec::with_capacity(selected_deferred_indices.len());
+    for &idx in &selected_deferred_indices {
+        let result = &deferred[idx];
+        let score = result.option2_score.unwrap_or(0.001);
+        let candidate = result.params.materialize();
+        if let Ok(design) =
+            Milestone12ReportDesign::from_blueprint_candidate(0, candidate, score)
+        {
             option2_pool.push(design);
         }
     }
+    drop(deferred); // free all lightweight results
 
     for (index, design) in option2_pool.iter_mut().enumerate() {
         design.rank = index + 1;

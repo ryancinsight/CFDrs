@@ -30,7 +30,7 @@ use std::fs;
 use std::io::BufWriter;
 use std::time::Instant;
 
-use cfd_mesh::application::csg::boolean::{csg_boolean, BooleanOp};
+use cfd_mesh::application::csg::boolean::BooleanOp;
 use cfd_mesh::application::watertight::check::check_watertight;
 use cfd_mesh::domain::core::scalar::{Point3r, Real};
 use cfd_mesh::domain::geometry::primitives::PrimitiveMesh;
@@ -91,7 +91,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ── Union ─────────────────────────────────────────────────────────────────
     {
         let t0 = Instant::now();
-        let mut result = csg_boolean(BooleanOp::Union, &cube_a, &cube_b)?;
+        let mut result = match cfd_mesh::application::csg::boolean::csg_boolean_indexed(
+            BooleanOp::Union,
+            &cube_a,
+            &cube_b,
+        ) {
+            Ok(m) => m,
+            Err(e) => panic!("Error: {:?}", e),
+        };
         let ms = t0.elapsed().as_millis();
         report(
             "Union (A ∪ B)",
@@ -108,7 +115,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ── Intersection ──────────────────────────────────────────────────────────
     {
         let t0 = Instant::now();
-        let mut result = csg_boolean(BooleanOp::Intersection, &cube_a, &cube_b)?;
+        let mut result = match cfd_mesh::application::csg::boolean::csg_boolean_indexed(
+            BooleanOp::Intersection,
+            &cube_a,
+            &cube_b,
+        ) {
+            Ok(m) => m,
+            Err(e) => panic!("Error: {:?}", e),
+        };
         let ms = t0.elapsed().as_millis();
         report("Intersection (A ∩ B)", &mut result, v_overlap, 0.01, ms);
         write_stl(&result, &out_dir.join("cube_cube_intersection.stl"))?;
@@ -119,7 +133,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ── Difference ────────────────────────────────────────────────────────────
     {
         let t0 = Instant::now();
-        let mut result = csg_boolean(BooleanOp::Difference, &cube_a, &cube_b)?;
+        let mut result = match cfd_mesh::application::csg::boolean::csg_boolean_indexed(
+            BooleanOp::Difference,
+            &cube_a,
+            &cube_b,
+        ) {
+            Ok(m) => m,
+            Err(e) => panic!("Error: {:?}", e),
+        };
         let ms = t0.elapsed().as_millis();
         report(
             "Difference (A \\ B)",

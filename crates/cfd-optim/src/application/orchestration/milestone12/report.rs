@@ -260,6 +260,7 @@ pub fn refresh_milestone12_reports(
             validation_rows: &validation_rows,
             option2_robustness: &option2_robustness,
             ga_best_per_gen: &ga_summary.best_per_generation,
+            topology_family_count: option1_summary.sequence_coverage.len().max(1),
             fast_mode: crate::application::orchestration::fast_mode(),
         },
     )?;

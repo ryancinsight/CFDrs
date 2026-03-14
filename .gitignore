@@ -39,3 +39,9 @@ validation/references/
 # Example/optimiser output directories (all crates)
 outputs/
 report/
+
+# Large root-level generated and binary files
+*.out
+*.dll
+*.so
+*.dylib

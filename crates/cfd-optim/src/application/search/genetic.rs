@@ -91,6 +91,19 @@ impl BlueprintGeneticOptimizer {
             best_per_generation.push(evaluation_score_or_zero(&ranked[0].evaluation));
             retain_archive(&mut archive, ranked.iter().cloned());
 
+            // Intermediate truncation: prevent unbounded archive growth.
+            // Keep top 500 by score every 20 generations (~160 MB → ~80 MB peak).
+            if _generation % 20 == 19 && archive.len() > 500 {
+                let mut sorted: Vec<(String, BlueprintRankedCandidate)> =
+                    archive.drain().collect();
+                sorted.sort_unstable_by(|(_, a), (_, b)| {
+                    evaluation_score_or_zero(&b.evaluation)
+                        .total_cmp(&evaluation_score_or_zero(&a.evaluation))
+                });
+                sorted.truncate(500);
+                archive.extend(sorted);
+            }
+
             let elite_count = (self.population / 4).max(1).min(ranked.len());
             let elites: Vec<BlueprintCandidate> = ranked
                 .iter()

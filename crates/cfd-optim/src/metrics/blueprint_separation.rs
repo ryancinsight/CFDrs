@@ -1,4 +1,4 @@
-use cfd_1d::{mixed_cascade_separation_kappa_aware, CascadeStage};
+use cfd_1d::{mixed_cascade_separation_kappa_aware, CascadeStage, PeripheralRecovery};
 use serde::{Deserialize, Serialize};
 
 use crate::domain::BlueprintCandidate;
@@ -82,10 +82,55 @@ pub fn compute_blueprint_separation_metrics(
 
         let treatment_dh_m = 2.0 * treatment_width_m * stage.branches[0].route.height_m
             / (treatment_width_m + stage.branches[0].route.height_m).max(1.0e-18);
+
+        // Build peripheral recovery entries from recovery_sub_split specs.
+        let mut peripheral_recoveries: [Option<PeripheralRecovery>; 4] = [None; 4];
+        let mut n_recoveries = 0_u8;
+        let mut recovery_arm_idx = 0_usize;
+        for (branch_idx, branch) in stage.branches.iter().enumerate() {
+            if branch.treatment_path {
+                continue;
+            }
+            recovery_arm_idx += 1;
+            if let Some(ref sub_split) = branch.recovery_sub_split {
+                if n_recoveries < 4 && !sub_split.sub_branches.is_empty() {
+                    let sub_widths: Vec<f64> =
+                        sub_split.sub_branches.iter().map(|sb| sb.width_m).collect();
+                    let sub_height = sub_split
+                        .sub_branches
+                        .first()
+                        .map_or(branch.route.height_m, |sb| sb.height_m);
+                    let sub_q = conductance_flow_fractions(&sub_widths, sub_height);
+                    let mut sub_arm_q_fracs = [0.0_f64; 5];
+                    for (i, &q) in sub_q.iter().enumerate().take(5) {
+                        sub_arm_q_fracs[i] = q;
+                    }
+                    let recovery_w = sub_split
+                        .sub_branches
+                        .get(sub_split.recovery_arm_index)
+                        .map_or(sub_widths[0], |sb| sb.width_m);
+                    let recovery_dh_m =
+                        2.0 * recovery_w * sub_height / (recovery_w + sub_height).max(1e-18);
+                    // source_arm_idx uses the same index as in arm_q_fracs
+                    let source_idx = if branch_idx == 0 { 0 } else { recovery_arm_idx.min(4) };
+                    peripheral_recoveries[n_recoveries as usize] = Some(PeripheralRecovery {
+                        source_arm_idx: source_idx,
+                        sub_arm_q_fracs,
+                        n_sub_arms: sub_q.len().clamp(2, 5) as u8,
+                        recovery_arm_idx: sub_split.recovery_arm_index,
+                        recovery_dh_m,
+                    });
+                    n_recoveries += 1;
+                }
+            }
+        }
+
         cascade_stages.push(CascadeStage {
             arm_q_fracs,
             n_arms: stage.branches.len() as u8,
             treatment_dh_m,
+            peripheral_recoveries,
+            n_recoveries,
         });
         stage_summaries.push(StageBlueprintSeparationSummary {
             stage_id: stage.stage_id.clone(),

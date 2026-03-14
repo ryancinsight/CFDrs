@@ -255,6 +255,7 @@ mod tests {
                             serpentine: None,
                             therapy_zone: TherapyZone::HealthyBypass,
                         },
+                        recovery_sub_split: None,
                     },
                     BranchSpec {
                         label: "center".to_string(),
@@ -267,6 +268,7 @@ mod tests {
                             serpentine: None,
                             therapy_zone: TherapyZone::CancerTarget,
                         },
+                        recovery_sub_split: None,
                     },
                     BranchSpec {
                         label: "right".to_string(),
@@ -279,6 +281,7 @@ mod tests {
                             serpentine: None,
                             therapy_zone: TherapyZone::HealthyBypass,
                         },
+                        recovery_sub_split: None,
                     },
                 ],
             }],

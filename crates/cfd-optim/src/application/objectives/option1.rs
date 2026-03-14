@@ -94,3 +94,36 @@ pub fn evaluate_selective_acoustic_residence_separation(
     )
     .with_screening_reasons(screening_reasons)
 }
+
+/// Lightweight score-only variant that borrows the evaluation and returns
+/// `Some(score)` if eligible, `None` if screened out. Zero allocations.
+#[must_use]
+pub fn score_selective_acoustic_residence_separation(
+    evaluation: &BlueprintEvaluation,
+) -> Option<f64> {
+    if evaluation.residence.treatment_flow_fraction <= 0.0
+        || evaluation.residence.treatment_residence_time_s <= 0.0
+        || evaluation.safety.main_channel_margin <= 0.0
+    {
+        return None;
+    }
+    let residence_norm = (evaluation.residence.treatment_residence_time_s / 1.0).clamp(0.0, 1.0);
+    let flow_frac = evaluation.residence.treatment_flow_fraction.clamp(0.0, 1.0);
+    let sep = evaluation.separation.separation_efficiency.clamp(0.0, 1.0);
+    let cancer = evaluation.separation.cancer_center_fraction.clamp(0.0, 1.0);
+    let wbc_exclusion = (1.0 - evaluation.separation.wbc_center_fraction).clamp(0.0, 1.0);
+    let rbc_exclusion = evaluation.separation.rbc_peripheral_fraction.clamp(0.0, 1.0);
+    let safety = evaluation.safety.main_channel_margin.clamp(0.0, 1.0);
+
+    let base = 0.22 * cancer
+        + 0.18 * sep
+        + 0.16 * residence_norm
+        + 0.12 * flow_frac
+        + 0.12 * wbc_exclusion
+        + 0.10 * rbc_exclusion
+        + 0.10 * safety;
+    let healthy_cell_shielding = (wbc_exclusion * rbc_exclusion).sqrt();
+    let synergy = 0.12
+        * (sep * cancer * residence_norm.max(0.01) * healthy_cell_shielding.max(0.01)).powf(0.25);
+    Some((base + synergy).clamp(0.001, 1.0))
+}

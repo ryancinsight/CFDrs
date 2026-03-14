@@ -172,14 +172,11 @@ bend apices. GA score {:.4} — **not comparable to Option 2 Combined mode score
 **Modeling note:** each serial venturi throat is evaluated independently for cavitation \
 number and intensity; the cumulative re-nucleation cascade between consecutive serial \
 throats (inter-throat bubble collapse → re-growth → re-collapse) is not explicitly modeled \
-in the 1D network solver. This is a conservative simplification — serial stages may provide \
-greater cumulative dose than computed. Experimental validation at {}-stage conditions is \
-recommended before clinical use.\n",
+in the 1D network solver.\n",
         ga_best.candidate.id,
         mg.active_venturi_throat_count,
         mg.serial_venturi_stages_per_path,
         ga_best.score,
-        mg.serial_venturi_stages_per_path,
     );
 
     // §7 — Acoustic resonance opportunity
@@ -216,7 +213,7 @@ pub(super) fn build_appendix_a_supplemental(
     ga_best: &Milestone12ReportDesign,
     robustness: &[crate::analysis::RobustnessReport],
     validation_rows: &[ValidationRow],
-    canonical_results_path: &Path,
+    _canonical_results_path: &Path,
 ) -> String {
     let mut s = String::new();
     let _ = writeln!(
@@ -270,28 +267,8 @@ pub(super) fn build_appendix_a_supplemental(
         s,
         "**Serial Venturi Modeling Note:** Each serial venturi throat is evaluated \
 independently for cavitation number and intensity in the 1D network solver. The cumulative \
-re-nucleation cascade between consecutive serial throats is not explicitly modeled. \
-This is a conservative simplification — experimental validation at multi-stage conditions \
-is recommended.\n"
+re-nucleation cascade between consecutive serial throats is not explicitly modeled.\n"
     );
-    // Attempt to append a provenance link to full canonical data
-    match std::fs::metadata(canonical_results_path) {
-        Ok(_) => {
-            let _ = writeln!(
-                s,
-                "Full canonical tables (Selected Designs, Top-5, Gate Evidence, Limits of Usage): \
-see `{}`.",
-                canonical_results_path.display()
-            );
-        }
-        Err(_) => {
-            let _ = writeln!(
-                s,
-                "*Full canonical results file not found at `{}`.*",
-                canonical_results_path.display()
-            );
-        }
-    }
     s
 }
 
