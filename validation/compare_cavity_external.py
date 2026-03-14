@@ -48,24 +48,24 @@ def run_cfd_python_cavity(Re: float = 100, nx: int = 65, ny: int = 65):
         # Check if cfd_python has cavity solver
         if hasattr(cfd_python, 'CavitySolver2D'):
             solver = cfd_python.CavitySolver2D(
+                reynolds=Re,
                 nx=nx, ny=ny,
-                Re=Re,
-                tolerance=1e-6,
-                max_iterations=20000
+                lid_velocity=1.0,
+                cavity_size=1.0
             )
             result = solver.solve()
             
             return {
-                "u": np.array(result.u_field),
-                "v": np.array(result.v_field),
-                "p": np.array(result.p_field),
+                "u": np.array(result.u_field) if hasattr(result, 'u_field') else np.zeros((ny, nx)),
+                "v": np.array(result.v_field) if hasattr(result, 'v_field') else np.zeros((ny, nx)),
+                "p": np.array(result.p_field) if hasattr(result, 'p_field') else np.zeros((ny, nx)),
                 "u_centerline": np.array(result.u_centerline),
                 "v_centerline": np.array(result.v_centerline),
                 "x": np.array(result.x_coords),
                 "y": np.array(result.y_coords),
                 "converged": result.converged,
-                "iterations": result.iterations,
-                "residual": result.residual
+                "iterations": getattr(result, 'iterations', 0),
+                "residual": getattr(result, 'residual', 0.0)
             }
         else:
             print("WARN: CavitySolver2D not found in cfd_python - using placeholder")
@@ -103,9 +103,34 @@ def compare_solutions(cfd_python_result, external_result, Re: float):
     
     # Ensure same grid size
     if cfd_python_result["u"].shape != ext_sol["u"].shape:
-        print(f"WARN: Grid size mismatch: cfd_python {cfd_python_result['u'].shape} vs external {ext_sol['u'].shape}")
-        # TODO: Interpolate if needed
-        return None
+        print(f"WARN: Grid size mismatch: cfd_python {cfd_python_result['u'].shape} vs external {ext_sol['u'].shape}. Interpolating...")
+        from scipy.interpolate import RectBivariateSpline
+
+        # cfd_python_result original grid
+        x_old = cfd_python_result["x"]
+        y_old = cfd_python_result["y"]
+
+        # external solver grid
+        x_new = ext_sol["x"]
+        y_new = ext_sol["y"]
+
+        # Interpolate fields
+        spline_u = RectBivariateSpline(y_old, x_old, cfd_python_result["u"])
+        cfd_python_result["u"] = spline_u(y_new, x_new)
+
+        spline_v = RectBivariateSpline(y_old, x_old, cfd_python_result["v"])
+        cfd_python_result["v"] = spline_v(y_new, x_new)
+
+        spline_p = RectBivariateSpline(y_old, x_old, cfd_python_result["p"])
+        cfd_python_result["p"] = spline_p(y_new, x_new)
+
+        # Update centerlines
+        cfd_python_result["u_centerline"] = cfd_python_result["u"][:, len(x_new)//2]
+        cfd_python_result["v_centerline"] = cfd_python_result["v"][len(y_new)//2, :]
+
+        # Update coordinates
+        cfd_python_result["x"] = x_new
+        cfd_python_result["y"] = y_new
     
     # Compute L2 errors
     u_diff = cfd_python_result["u"] - ext_sol["u"]
