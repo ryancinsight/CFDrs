@@ -39,3 +39,5 @@ validation/references/
 # Example/optimiser output directories (all crates)
 outputs/
 report/
+.venv/
+__pycache__/

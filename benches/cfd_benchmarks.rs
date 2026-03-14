@@ -88,12 +88,12 @@ fn benchmark_sparse_matrix_operations(c: &mut Criterion) {
 }
 
 fn benchmark_fluid_calculations(c: &mut Criterion) {
-    use cfd_core::physics::fluid::traits::Fluid as FluidTrait;
     use cfd_core::physics::fluid::traits::Fluid;
+    use cfd_core::physics::fluid::newtonian::ConstantPropertyFluid;
 
     let mut group = c.benchmark_group("fluid_calculations");
 
-    let fluid = Fluid::new("water".to_string(), 1000.0, 0.001, 4182.0, 0.6, 1482.0);
+    let fluid = ConstantPropertyFluid::new("water".to_string(), 1000.0, 0.001, 4182.0, 0.6, 1482.0);
 
     let state = fluid.properties_at(0.0, 0.0).unwrap();
 
