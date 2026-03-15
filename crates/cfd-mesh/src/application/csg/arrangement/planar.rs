@@ -5,7 +5,7 @@
 //! - `clip::polygon2d::cdt` (native 2-D polygon Boolean)
 //! - `corefine` (3-D face projection -> planar CDT subdivision)
 
-use std::collections::HashMap;
+use hashbrown::HashMap;
 
 use crate::application::delaunay::{Pslg, PslgVertexId};
 use crate::domain::core::scalar::Real;

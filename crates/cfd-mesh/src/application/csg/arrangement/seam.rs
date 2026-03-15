@@ -3,10 +3,10 @@
 //! Keeps exact/constrained fixes first and only falls back to bounded
 //! tolerance-based vertex merges when topology-preserving passes stall.
 
-use std::collections::HashMap;
+use hashbrown::HashMap;
 
 use super::mesh_ops::{apply_vertex_merge, boundary_half_edges, merge_root};
-use super::stitch;
+use super::snap_round;
 #[cfg(test)]
 use crate::application::csg::diagnostics::trace_enabled;
 use crate::domain::core::index::VertexId;
@@ -192,7 +192,7 @@ fn build_greedy_nearest_merge_map(
 pub(crate) fn stitch_boundary_seams(faces: &mut Vec<FaceData>, pool: &VertexPool) {
     // Exact-first prepass before any tolerance merge.
     if !boundary_half_edges(faces).is_empty() {
-        stitch::snap_round_tjunctions(faces, pool);
+        snap_round::snap_round_tjunctions(faces, pool);
     }
 
     // === Pass 1: iterative short-edge collapse (fallback) ===
@@ -206,7 +206,7 @@ pub(crate) fn stitch_boundary_seams(faces: &mut Vec<FaceData>, pool: &VertexPool
 
         // Exact/constrained operations first for this iteration.
         let before_exact = boundary_edges.len();
-        stitch::snap_round_tjunctions(faces, pool);
+        snap_round::snap_round_tjunctions(faces, pool);
         boundary_edges = boundary_half_edges(faces);
         if boundary_edges.is_empty() {
             return;
@@ -288,7 +288,7 @@ pub(crate) fn stitch_boundary_seams(faces: &mut Vec<FaceData>, pool: &VertexPool
         }
 
         let before_exact = boundary_edges.len();
-        stitch::snap_round_tjunctions(faces, pool);
+        snap_round::snap_round_tjunctions(faces, pool);
         boundary_edges = boundary_half_edges(faces);
         if boundary_edges.is_empty() {
             return;
@@ -356,7 +356,7 @@ pub(crate) fn stitch_boundary_seams_conservative(faces: &mut Vec<FaceData>, pool
 
         // Exact/constrained operations first; merge fallback only if no progress.
         let before_exact = boundary_edges.len();
-        stitch::snap_round_tjunctions(faces, pool);
+        snap_round::snap_round_tjunctions(faces, pool);
         boundary_edges = boundary_half_edges(faces);
         if boundary_edges.is_empty() {
             return;

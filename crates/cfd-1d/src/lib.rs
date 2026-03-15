@@ -107,6 +107,17 @@ pub use physics::hemolysis::{
     cavitation_amplified_hi, giersiepen_hi, taskin_hi, HemolysisExposure, CAVITATION_HI_SLOPE,
     GIERSIEPEN_ALPHA, GIERSIEPEN_BETA, GIERSIEPEN_C, TASKIN_BETA, TASKIN_C,
 };
+// Export SDT physics models
+pub use physics::hemolysis::{
+    cavitation_hemolysis_amplification, collapse_jet_velocity, rayleigh_collapse_time,
+    sonosensitizer_activation_efficiency, P_REF_ATMOSPHERIC, RAYLEIGH_ALPHA,
+    SENSITIZER_K_ACT_CHLORIN_E6, SENSITIZER_K_ACT_HEMATOPORPHYRIN,
+};
+pub use physics::hemolysis::acoustic_radiation::{
+    acoustic_contrast_factor, acoustic_energy_density, acoustic_radiation_force, KAPPA_CTC,
+    KAPPA_PLASMA, KAPPA_RBC, KAPPA_WBC, RHO_CTC, RHO_PLASMA, RHO_RBC, RHO_WBC,
+    SPEED_OF_SOUND_PLASMA,
+};
 pub use physics::venturi_screening::{
     discharge_coefficient_from_convergent_half_angle_deg, evaluate_venturi_screening,
     venturi_taper_length_m, VenturiScreeningInput, VenturiScreeningResult,
@@ -170,7 +181,7 @@ pub use domain::channel::{
 // Export resistance functionality
 pub use physics::resistance::{
     bayat_rezai_enhancement, cascade_treatment_flow_fractions, durst_entrance_k,
-    durst_entrance_length, parallel_channel_flow_fractions, BendType,
+    durst_entrance_length, durst_resistance_multiplier, parallel_channel_flow_fractions, BendType,
     ChannelGeometry as ResistanceChannelGeometry, CombinationMethod, DarcyWeisbachModel,
     ExpansionType, FlowConditions, HagenPoiseuilleModel, JunctionFlowDirection, JunctionLossModel,
     JunctionType, MembranePoreModel, RectangularChannelModel, ResistanceCalculator,

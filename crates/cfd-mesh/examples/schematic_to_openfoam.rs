@@ -48,7 +48,7 @@ use std::path::Path;
 use cfd_mesh::application::channel::path::ChannelPath;
 use cfd_mesh::application::channel::substrate::SubstrateBuilder;
 use cfd_mesh::application::channel::sweep::SweepMesher;
-use cfd_mesh::application::csg::boolean::{csg_boolean, BooleanOp};
+use cfd_mesh::application::csg::boolean::{csg_boolean, csg_boolean_nary, BooleanOp};
 use cfd_mesh::application::pipeline::PipelineOutput;
 use cfd_mesh::application::pipeline::{BlueprintMeshPipeline, PipelineConfig, PipelineVolumeTrace};
 use cfd_mesh::domain::core::index::RegionId;
@@ -280,8 +280,8 @@ fn mesh_output_from_blueprint(
     )?;
 
     let mesher = SweepMesher::new();
-    let mut all_channels: Option<IndexedMesh> = None;
-    let mut all_void_channels: Option<IndexedMesh> = None;
+    let mut channel_meshes: Vec<IndexedMesh> = Vec::new();
+    let mut void_meshes: Vec<IndexedMesh> = Vec::new();
 
     for channel_def in &schematic3d.channels {
         let profile = if force_circular {
@@ -297,12 +297,7 @@ fn mesh_output_from_blueprint(
             channel_def.width_scales.as_deref(),
         );
         current.rebuild_edges();
-
-        all_channels = Some(if let Some(existing) = all_channels.take() {
-            csg_boolean(BooleanOp::Union, &existing, &current)?
-        } else {
-            current
-        });
+        channel_meshes.push(current);
 
         if config.include_chip_body {
             let extension_mm = profile_radius_mm(&profile).max(0.25);
@@ -314,16 +309,15 @@ fn mesh_output_from_blueprint(
                 channel_def.width_scales.as_deref(),
             );
             void_current.rebuild_edges();
-
-            all_void_channels = Some(if let Some(existing) = all_void_channels.take() {
-                csg_boolean(BooleanOp::Union, &existing, &void_current)?
-            } else {
-                void_current
-            });
+            void_meshes.push(void_current);
         }
     }
 
-    let mut fluid_mesh = all_channels.ok_or("no channels produced from schematic")?;
+    let mut fluid_mesh = if channel_meshes.len() == 1 {
+        channel_meshes.into_iter().next().unwrap()
+    } else {
+        csg_boolean_nary(BooleanOp::Union, &channel_meshes)?
+    };
     fluid_mesh.orient_outward();
     fluid_mesh.retain_largest_component();
     fluid_mesh.rebuild_edges();
@@ -332,14 +326,18 @@ fn mesh_output_from_blueprint(
 
     let chip_mesh = if config.include_chip_body {
         let substrate = SubstrateBuilder::well_plate_96(config.chip_height_mm).build_indexed()?;
-        let void_mesh = all_void_channels.as_ref().unwrap_or(&fluid_mesh);
-        let mut chip = csg_boolean(BooleanOp::Difference, &substrate, void_mesh)?;
+        let void_union = if void_meshes.len() == 1 {
+            void_meshes.into_iter().next().unwrap()
+        } else {
+            csg_boolean_nary(BooleanOp::Union, &void_meshes)?
+        };
+        let mut chip = csg_boolean(BooleanOp::Difference, &substrate, &void_union)?;
         chip.orient_outward();
         chip.retain_largest_component();
         chip.rebuild_edges();
 
         if !chip.is_watertight() {
-            chip = csg_boolean(BooleanOp::Difference, &substrate, void_mesh)?;
+            chip = csg_boolean(BooleanOp::Difference, &substrate, &void_union)?;
             chip.orient_outward();
             chip.retain_largest_component();
             chip.rebuild_edges();

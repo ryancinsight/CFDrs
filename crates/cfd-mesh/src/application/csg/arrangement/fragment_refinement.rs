@@ -2,7 +2,7 @@
 //!
 //! Performs cross-mesh-only near-duplicate unification after independent CDTs.
 
-use std::collections::{HashMap, HashSet};
+use hashbrown::{HashMap, HashSet};
 
 use super::super::corefine::corefine_face;
 use super::super::intersect::SnapSegment;

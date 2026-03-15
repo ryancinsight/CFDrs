@@ -258,6 +258,33 @@ pub fn analyze_normals(mesh: &IndexedMesh) -> NormalAnalysis {
         }
     }
 
+    // ── Signed-volume verification ──────────────────────────────────────────
+    //
+    // The max-vertex-X seed heuristic assumes the extreme face's outward
+    // normal has non-negative X.  This fails for concave CSG results
+    // (e.g., N-ary Intersection/Difference producing pocket-like shapes).
+    //
+    // The divergence-theorem signed volume is the ground truth:
+    //   - signed_vol > 0 → winding is outward  → BFS should label majority as outward
+    //   - signed_vol < 0 → winding is inward   → BFS should label majority as inward
+    //
+    // When BFS disagrees with the signed-volume sign, the seed heuristic
+    // was wrong.  Swap outward ↔ inward to match reality.
+    let signed_vol: Real = crate::domain::geometry::measure::total_signed_volume(
+        mesh.faces.iter_enumerated().map(|(_, face)| {
+            (
+                mesh.vertices.position(face.vertices[0]),
+                mesh.vertices.position(face.vertices[1]),
+                mesh.vertices.position(face.vertices[2]),
+            )
+        }),
+    );
+    let bfs_says_outward = outward >= inward;
+    let vol_says_outward = signed_vol >= 0.0;
+    if bfs_says_outward != vol_says_outward {
+        std::mem::swap(&mut outward, &mut inward);
+    }
+
     // ── Step 5: face ↔ vertex-normal alignment statistics ───────────────────
     let mut asum: Real = 0.0;
     let mut acnt = 0usize;

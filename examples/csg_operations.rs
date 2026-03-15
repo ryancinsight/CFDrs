@@ -22,7 +22,7 @@ use std::fs;
 use std::io::BufWriter;
 use std::time::Instant;
 
-use cfd_mesh::application::csg::boolean::{csg_boolean_indexed, BooleanOp};
+use cfd_mesh::application::csg::boolean::{csg_boolean, BooleanOp};
 use cfd_mesh::application::watertight::check::check_watertight;
 use cfd_mesh::domain::core::scalar::{Point3r, Real};
 use cfd_mesh::domain::geometry::primitives::{Cylinder, PrimitiveMesh, UvSphere};
@@ -74,7 +74,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!();
 
         let t0 = Instant::now();
-        let mut res = csg_boolean_indexed(BooleanOp::Union, &cube, &cylinder)?;
+        let mut res = csg_boolean(BooleanOp::Union, &cube, &cylinder)?;
         report(
             "Union (A ∪ B)",
             &mut res,
@@ -85,7 +85,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         write_stl(&res, &out_dir.join("csg_ops_cube_cylinder_union.stl"))?;
 
         let t0 = Instant::now();
-        let mut res = csg_boolean_indexed(BooleanOp::Intersection, &cube, &cylinder)?;
+        let mut res = csg_boolean(BooleanOp::Intersection, &cube, &cylinder)?;
         report(
             "Intersection (A ∩ B)",
             &mut res,
@@ -99,7 +99,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         )?;
 
         let t0 = Instant::now();
-        let mut res = csg_boolean_indexed(BooleanOp::Difference, &cube, &cylinder)?;
+        let mut res = csg_boolean(BooleanOp::Difference, &cube, &cylinder)?;
         report(
             "Difference (A \\ B)",
             &mut res,
@@ -145,7 +145,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!();
 
         let t0 = Instant::now();
-        let mut res = csg_boolean_indexed(BooleanOp::Union, &sphere, &cyl)?;
+        let mut res = csg_boolean(BooleanOp::Union, &sphere, &cyl)?;
         report(
             "Union (A ∪ B)",
             &mut res,
@@ -156,7 +156,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         write_stl(&res, &out_dir.join("csg_ops_sphere_cylinder_union.stl"))?;
 
         let t0 = Instant::now();
-        let mut res = csg_boolean_indexed(BooleanOp::Difference, &sphere, &cyl)?;
+        let mut res = csg_boolean(BooleanOp::Difference, &sphere, &cyl)?;
         report(
             "Difference (A \\ B)",
             &mut res,

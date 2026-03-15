@@ -7,7 +7,7 @@
 //! and shared-vertex adjacency which is expected in manifold meshes.
 //!
 //! Intended as:
-//! - A pre-check warning at `csg_boolean_indexed` entry.
+//! - A pre-check warning at `csg_boolean` entry.
 //! - A standalone validation step in `BlueprintMeshPipeline`.
 //!
 //! ## Algorithm

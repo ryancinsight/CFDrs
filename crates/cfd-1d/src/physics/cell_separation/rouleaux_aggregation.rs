@@ -53,6 +53,7 @@ const GAMMA_C: f64 = 1.88;
 ///
 /// # Returns
 /// Effective dynamic viscosity [Pa·s], always ≥ `mu_plasma`.
+#[inline]
 #[must_use]
 pub fn quemada_viscosity(shear_rate: f64, hematocrit: f64, mu_plasma: f64) -> f64 {
     let gamma = shear_rate.max(0.0);

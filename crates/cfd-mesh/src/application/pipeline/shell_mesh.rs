@@ -8,7 +8,7 @@
 //! and `build_tpms_box_graded`. Co-planar CSG unions seamlessly integrate the
 //! port connection pipes into the bounded cavity.
 
-use crate::application::csg::boolean::{csg_boolean, BooleanOp};
+use crate::application::csg::boolean::{csg_boolean, csg_boolean_nary, BooleanOp};
 use crate::domain::core::scalar::Vector3r;
 use crate::domain::core::MeshError;
 use crate::domain::core::MeshResult;
@@ -118,7 +118,8 @@ impl ShellMeshPipeline {
             .map_err(|e| MeshError::Other(e.to_string()))?
         };
 
-        // 2. Add port stubs to fluid mesh via Union
+        // 2. Collect port stub meshes, then n-ary union with fluid mesh
+        let mut port_meshes: Vec<IndexedMesh> = Vec::new();
         for port in &shell.ports {
             // Port cylinder connects outer wall to cavity wall
             let p1 = Vector3r::new(
@@ -186,8 +187,13 @@ impl ShellMeshPipeline {
                 );
             }
             port_mesh.rebuild_edges();
+            port_meshes.push(port_mesh);
+        }
 
-            fluid_mesh = csg_boolean(BooleanOp::Union, &fluid_mesh, &port_mesh)?;
+        if !port_meshes.is_empty() {
+            let mut all_operands = vec![fluid_mesh];
+            all_operands.extend(port_meshes);
+            fluid_mesh = csg_boolean_nary(BooleanOp::Union, &all_operands)?;
         }
 
         // 3. Build Chip Substrate

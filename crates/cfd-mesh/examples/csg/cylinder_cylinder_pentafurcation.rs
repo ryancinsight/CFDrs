@@ -35,7 +35,7 @@ use cfd_mesh::domain::geometry::primitives::{Cylinder, PrimitiveMesh};
 use cfd_mesh::domain::topology::connectivity::connected_components;
 use cfd_mesh::domain::topology::AdjacencyGraph;
 use cfd_mesh::infrastructure::io::stl;
-use cfd_mesh::IndexedMesh;
+use cfd_mesh::{analyze_normals, IndexedMesh};
 
 // ── Geometry parameters ────────────────────────────────────────────────────────
 
@@ -94,6 +94,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             &mut accumulated,
             v_naive,
             ms,
+            2,
         );
 
         let stl_name = format!(
@@ -165,35 +166,101 @@ fn make_branch_planar(angle_from_x: f64) -> Result<IndexedMesh, Box<dyn std::err
 
 // ── Report helpers ─────────────────────────────────────────────────────────────
 
-fn report(label: &str, mesh: &mut IndexedMesh, v_naive: f64, ms: u128) {
+fn report(label: &str, mesh: &mut IndexedMesh, v_naive: f64, ms: u128, expected_chi: i64) {
     let vol = mesh.signed_volume();
-
-    let _below_naive = vol < v_naive;
-    let _positive = vol > 0.0;
+    let n = analyze_normals(mesh);
+    let positive = vol > 0.0;
+    let below_naive = vol < v_naive;
 
     mesh.rebuild_edges();
     let wt = check_watertight(&mesh.vertices, &mesh.faces, mesh.edges_ref().unwrap());
-    let _adj = AdjacencyGraph::build(&mesh.faces, mesh.edges_ref().unwrap());
-    let _n_comps = connected_components(&mesh.faces, &_adj).len();
+    let adj = AdjacencyGraph::build(&mesh.faces, mesh.edges_ref().unwrap());
+    let n_comps = connected_components(&mesh.faces, &adj).len();
+
+    let chi_ok = wt.euler_characteristic == Some(expected_chi);
+    let comps_ok = n_comps == 1;
+    let norm_ok = n.inward_faces == 0;
+    let degen_ok = n.degenerate_faces == 0;
+    let any_issue = !wt.is_watertight || !chi_ok || !comps_ok || !norm_ok || !degen_ok
+        || !positive || !below_naive;
+    let genus = (2 - expected_chi) / 2;
 
     println!("  ── {label} ──");
     println!("    Faces      : {}", mesh.face_count());
     println!("    Volume     : {vol:.4} mm³  (naive sum {v_naive:.4})");
     println!(
+        "    Bounds     : V > 0 [{}]  V < V_naive [{}]",
+        if positive { "PASS" } else { "FAIL" },
+        if below_naive { "PASS" } else { "WARN" },
+    );
+    println!(
         "    Watertight : {}  (boundary={}, non-manifold={})",
         wt.is_watertight, wt.boundary_edge_count, wt.non_manifold_edge_count
     );
+    println!(
+        "    Euler χ    : {:?}  (expected {expected_chi}, genus {genus})  [{}]",
+        wt.euler_characteristic,
+        if chi_ok { "PASS" } else { "WARN" }
+    );
+    println!(
+        "    Components : {n_comps}  [{}]",
+        if comps_ok { "PASS" } else { "WARN phantom islands" }
+    );
+    println!(
+        "    Normals    : outward={}, inward={} ({:.1}%), degen={}  [{}]",
+        n.outward_faces,
+        n.inward_faces,
+        if mesh.face_count() > 0 {
+            n.inward_faces as Real / mesh.face_count() as Real * 100.0
+        } else {
+            0.0
+        },
+        n.degenerate_faces,
+        if norm_ok && degen_ok { "PASS" } else { "WARN" }
+    );
+    println!(
+        "    Alignment  : mean={:.4}  min={:.4}",
+        n.face_vertex_alignment_mean, n.face_vertex_alignment_min
+    );
     println!("    Elapsed    : {ms} ms");
-    println!();
 
-    // Relaxing assertions for intersection and difference on these arbitrary geometries
-    // to allow STL generation without panicking, as multi-axis intersections evaluate to star-points.
-    if !wt.is_watertight {
-        println!(
-            "    [WARNING] Geometry has {} open boundaries. Proceeding STL generation.",
-            wt.boundary_edge_count
-        );
+    if any_issue {
+        println!("    *** GEOMETRY ISSUES DETECTED ***");
+        if !wt.is_watertight {
+            println!(
+                "       - Not watertight: {} boundary + {} non-manifold edge(s)",
+                wt.boundary_edge_count, wt.non_manifold_edge_count
+            );
+        }
+        if !chi_ok {
+            println!(
+                "       - Euler χ = {:?} (expected {expected_chi}): phantom islands or non-manifold topology",
+                wt.euler_characteristic
+            );
+        }
+        if !comps_ok {
+            println!(
+                "       - {} connected component(s): {} phantom island(s) present",
+                n_comps, n_comps.saturating_sub(1)
+            );
+        }
+        if !norm_ok {
+            println!(
+                "       - {}/{} face(s) with inward normals: winding order errors",
+                n.inward_faces, mesh.face_count()
+            );
+        }
+        if !degen_ok {
+            println!(
+                "       - {} degenerate face(s) with zero area",
+                n.degenerate_faces
+            );
+        }
+        if !positive {
+            println!("       - Negative volume: mesh is inside-out or empty");
+        }
     }
+    println!();
 }
 
 fn write_stl(mesh: &IndexedMesh, path: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {

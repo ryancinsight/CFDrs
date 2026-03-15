@@ -65,17 +65,17 @@ pub fn fahraeus_lindqvist_viscosity(
 
     // C parameter: captures diameter-dependent hematocrit sensitivity
     // C = 0.8 + exp(-0.075·D) · (-1 + 1/(1 + 1e-11·D^12))
-    let c = 0.8 + (-0.075 * d_eff).exp() * (-1.0 + 1.0 / (1.0 + 1e-11 * d_eff.powf(12.0)));
+    let c = 0.8 + (-0.075 * d_eff).exp() * (-1.0 + 1.0 / (1.0 + 1e-11 * d_eff.max(1.0).powf(12.0)));
 
     // eta_0.45: relative viscosity at 45% hematocrit as function of diameter
     // eta_0.45 = 6.0·exp(-0.085·D) + 3.2 - 2.44·exp(-0.06·D^0.645)
-    let eta_045 = 6.0 * (-0.085 * d_eff).exp() + 3.2 - 2.44 * (-0.06 * d_eff.powf(0.645)).exp();
+    let eta_045 = 6.0 * (-0.085 * d_eff).exp() + 3.2 - 2.44 * (-0.06 * d_eff.max(1.0).powf(0.645)).exp();
 
     // Relative viscosity at the given hematocrit:
     // eta_rel = 1 + (eta_045 - 1) · ((1-Ht)^C - 1) / ((1-0.45)^C - 1)
     let ref_hct = 0.45_f64;
-    let numerator = (1.0 - ht).powf(c) - 1.0;
-    let denominator = (1.0 - ref_hct).powf(c) - 1.0;
+    let numerator = (1.0 - ht).clamp(0.001, 1.0).powf(c) - 1.0;
+    let denominator = (1.0 - ref_hct).clamp(0.001, 1.0).powf(c) - 1.0;
 
     let eta_rel = if denominator.abs() < 1e-30 {
         // Edge case: C is so large that both terms are essentially -1
@@ -146,18 +146,18 @@ pub fn secomb_network_viscosity(
     //
     // This differs from Pries (1992) by the additive term 1/(1 + 1e-11·D^12)
     // which provides a smoother transition for intermediate diameters.
-    let d12_term = 1.0 / (1.0 + 1e-11 * d_eff.powf(12.0));
+    let d12_term = 1.0 / (1.0 + 1e-11 * d_eff.max(1.0).powf(12.0));
     let c = (0.8 + (-0.075 * d_eff).exp()) * (-1.0 + d12_term) + d12_term;
 
     // eta_0.45: relative viscosity at 45% hematocrit (Pries 1992 parameterization,
     // shared with Secomb 2017)
-    let eta_045 = 6.0 * (-0.085 * d_eff).exp() + 3.2 - 2.44 * (-0.06 * d_eff.powf(0.645)).exp();
+    let eta_045 = 6.0 * (-0.085 * d_eff).exp() + 3.2 - 2.44 * (-0.06 * d_eff.max(1.0).powf(0.645)).exp();
 
     // Relative viscosity at the given hematocrit:
     // eta_rel = 1 + (eta_045 - 1) · ((1 - Ht)^C - 1) / ((1 - 0.45)^C - 1)
     let ref_hct = 0.45_f64;
-    let numerator = (1.0 - ht).powf(c) - 1.0;
-    let denominator = (1.0 - ref_hct).powf(c) - 1.0;
+    let numerator = (1.0 - ht).clamp(0.001, 1.0).powf(c) - 1.0;
+    let denominator = (1.0 - ref_hct).clamp(0.001, 1.0).powf(c) - 1.0;
 
     let eta_rel = if denominator.abs() < 1e-30 {
         1.0
@@ -193,6 +193,7 @@ pub fn secomb_network_viscosity(
 ///
 /// # Returns
 /// Phase-separation parameter X₀ (dimensionless)
+#[inline]
 #[must_use]
 pub fn secomb_phase_separation_x0(diameter_um: f64, hematocrit: f64) -> f64 {
     0.964 * (1.0 - hematocrit) / diameter_um.max(1.0)

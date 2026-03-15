@@ -590,6 +590,20 @@ pub struct SerpentineAnalysis<T: RealField + Copy> {
 }
 
 impl<T: RealField + Copy + FromPrimitive> SerpentineModel<T> {
+    /// Curvature enhancement using Bayat & Rezai (2017) millifluidic correlation.
+    ///
+    /// This is recommended over [`curvature_enhancement`](Self::curvature_enhancement)
+    /// (Ito 1959) for rectangular microchannels at Re < 500, where secondary
+    /// flow vortices are weaker than in circular tubes.
+    ///
+    /// Wraps the standalone [`bayat_rezai_enhancement`] function into the
+    /// `SerpentineModel` method API so users can easily switch between
+    /// Ito (1959) and Bayat & Rezai (2017) correlations.
+    pub fn curvature_enhancement_millifluidic(&self, de: T) -> T {
+        let de_f64 = nalgebra::try_convert::<T, f64>(de).unwrap_or(0.0);
+        T::from_f64(bayat_rezai_enhancement(de_f64)).unwrap_or(T::one())
+    }
+
     /// Perform detailed serpentine flow analysis
     pub fn analyze<F: FluidTrait<T>>(
         &self,
@@ -975,5 +989,28 @@ mod tests {
             (bayat - ito).abs() > 0.01,
             "Bayat ({bayat}) and Ito ({ito}) should differ at De=20"
         );
+    }
+
+    /// Verify that the millifluidic wrapper method gives the same result as the standalone function.
+    #[test]
+    fn test_millifluidic_enhancement_consistent_with_standalone() {
+        let model = SerpentineModel::<f64> {
+            straight_length: 0.02,
+            num_segments: 5,
+            cross_section: SerpentineCrossSection::Circular { diameter: 0.001 },
+            bend_radius: 0.005,
+            bend_type: BendType::Smooth {
+                radius_to_dh_ratio: 5.0,
+            },
+        };
+
+        for &de in &[0.0, 1.0, 10.0, 50.0, 100.0] {
+            let from_method = model.curvature_enhancement_millifluidic(de);
+            let from_standalone = bayat_rezai_enhancement(de);
+            assert_relative_eq!(
+                from_method, from_standalone,
+                epsilon = 1e-15,
+            );
+        }
     }
 }

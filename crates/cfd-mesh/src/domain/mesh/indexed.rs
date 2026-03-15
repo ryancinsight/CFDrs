@@ -604,6 +604,31 @@ impl<T: Scalar> IndexedMesh<T> {
                 face.flip();
             }
         }
+
+        // ── Signed-volume verification ────────────────────────────────
+        //
+        // The max-centroid-X seed heuristic assumes the extreme face's
+        // outward normal has non-negative X.  This fails for concave
+        // geometries (e.g., N-ary Intersection/Difference producing small
+        // pocket-like shapes).  The signed-volume test is the definitive
+        // orientation check for a closed manifold: by the divergence
+        // theorem, a correctly outward-oriented surface always encloses
+        // positive signed volume.  If negative, flip every face.
+        let signed_vol = crate::domain::geometry::measure::total_signed_volume(
+            self.faces.iter_enumerated().map(|(_, face)| {
+                (
+                    self.vertices.position(face.vertices[0]),
+                    self.vertices.position(face.vertices[1]),
+                    self.vertices.position(face.vertices[2]),
+                )
+            }),
+        );
+        if signed_vol < T::zero() {
+            for (_fi, face) in self.faces.iter_mut().enumerate() {
+                face.flip();
+            }
+        }
+
         self.edges = None;
 
         // Synchronise vertex normals with the repaired winding.

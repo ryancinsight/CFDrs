@@ -1,4 +1,9 @@
-use cfd_1d::{cavitation_amplified_hi, giersiepen_hi};
+use cfd_1d::{
+    acoustic_contrast_factor, acoustic_energy_density, cavitation_amplified_hi,
+    cavitation_hemolysis_amplification, giersiepen_hi, sonosensitizer_activation_efficiency,
+    KAPPA_CTC, KAPPA_PLASMA, KAPPA_RBC, RHO_CTC, RHO_PLASMA, RHO_RBC,
+    SENSITIZER_K_ACT_HEMATOPORPHYRIN,
+};
 use cfd_schematics::topology::TreatmentActuationMode;
 
 use super::report_math::{
@@ -531,5 +536,182 @@ pub fn compute_blueprint_report_metrics(
     metrics.selective_cavitation_delivery_index =
         oncology_selectivity_index * cancer_rbc_cavitation_bias_index * remerge_bonus;
 
+    // ── SDT Acoustic Physics (narrative-only augmentation) ───────────────────
+    //
+    // Wire the validated cfd-1d acoustic models into the report pipeline.
+    // These do NOT alter any existing metric fields used for scoring — they
+    // are computed here for narrative reporting and future integration.
+    let _sdt_acoustic = compute_sdt_acoustic_metrics(
+        cavitation_intensity,
+        max_venturi_transit_time_s,
+        safety.pressure_drop_pa,
+    );
+
+    // Integration notes for future scoring refinement:
+    //
+    // 1. Sonosensitizer activation (_sdt_acoustic.sensitizer_activation_efficiency):
+    //    Could modulate cancer_dose_fraction:
+    //      cancer_dose_fraction_enhanced = cancer_dose_fraction * sensitizer_activation
+    //
+    // 2. Rayleigh-Plesset amplification (_sdt_acoustic.rayleigh_plesset_amplification):
+    //    Could refine hemolysis_index_per_pass_cavitation_amplified:
+    //      hi_rp_corrected = corrected_hi * rp_amplification
+    //
+    // 3. Acoustic energy density (_sdt_acoustic.acoustic_energy_density_j_m3):
+    //    Could refine acoustic_resonance_factor via energy-weighted resonance.
+    //
+    // 4. Contrast factors (_sdt_acoustic.ctc_contrast_factor, .rbc_contrast_factor):
+    //    The ratio ctc/rbc predicts differential acoustic radiation force and
+    //    could refine cancer_targeted_cavitation selectivity.
+
     Ok(metrics)
+}
+
+// ── SDT Acoustic Metrics (Gor'kov 1962, Rosenthal 2004, Rayleigh 1917) ──────
+
+/// SDT acoustic metrics computed from the validated cfd-1d physics models.
+///
+/// These AUGMENT the existing cavitation-based metrics for narrative reporting.
+/// They are not yet wired into scoring to preserve backward compatibility.
+#[derive(Debug, Clone, Copy)]
+pub struct SdtAcousticMetrics {
+    /// Sonosensitizer activation fraction (Rosenthal 2004 first-order kinetics).
+    /// η_act = 1 − exp(−k_act · I_cav · t_transit), range [0, 1].
+    pub sensitizer_activation_efficiency: f64,
+
+    /// Rayleigh-Plesset collapse hemolysis amplification factor (≥ 1.0).
+    /// A_collapse = 1 + α · (R_max/R_0)² · (p_inf/p_ref).
+    pub rayleigh_plesset_amplification: f64,
+
+    /// Acoustic energy density [J/m³] at 100 kPa pressure amplitude in blood.
+    /// E_ac = p₀²/(4ρc²).
+    pub acoustic_energy_density_j_m3: f64,
+
+    /// Acoustic contrast factor Φ for CTCs in plasma (Gor'kov 1962).
+    /// Positive → migrates toward pressure nodes.
+    pub ctc_contrast_factor: f64,
+
+    /// Acoustic contrast factor Φ for RBCs in plasma (Gor'kov 1962).
+    /// Positive → migrates toward pressure nodes.
+    pub rbc_contrast_factor: f64,
+}
+
+/// Compute SDT acoustic metrics from the validated cfd-1d physics models.
+///
+/// This function wires together:
+/// - **Sonosensitizer activation** (Rosenthal 2004): first-order kinetics
+///   η_act = 1 − exp(−k_act · I_cav · t_transit)
+/// - **Rayleigh-Plesset collapse** (Rayleigh 1917): hemolysis amplification
+///   from cavitation bubble collapse, A = 1 + α·(R_max/R_0)²·(p/p_ref)
+/// - **Acoustic energy density** (Gor'kov 1962): E_ac = p₀²/(4ρc²)
+/// - **Acoustic contrast factors**: differential radiation force on CTCs vs RBCs
+///
+/// # Arguments
+///
+/// * `cavitation_intensity` — dimensionless cavitation intensity [0, 1]
+/// * `throat_transit_time_s` — residence time in the cavitation zone [s]
+/// * `pressure_drop_pa` — total pressure drop across the chip [Pa]
+pub fn compute_sdt_acoustic_metrics(
+    cavitation_intensity: f64,
+    throat_transit_time_s: f64,
+    pressure_drop_pa: f64,
+) -> SdtAcousticMetrics {
+    // Sonosensitizer activation efficiency (Rosenthal 2004)
+    let sensitizer_activation = sonosensitizer_activation_efficiency(
+        SENSITIZER_K_ACT_HEMATOPORPHYRIN,
+        cavitation_intensity,
+        throat_transit_time_s,
+    );
+
+    // Rayleigh-Plesset collapse amplification (Rayleigh 1917)
+    let r_max = 10.0e-6; // 10 µm typical cavitation bubble
+    let r_0 = 1.0e-6; // 1 µm equilibrium nucleus
+    let p_inf = pressure_drop_pa + 101_325.0; // gauge → absolute
+    let rp_amplification = cavitation_hemolysis_amplification(r_max, r_0, p_inf);
+
+    // Acoustic energy density (Gor'kov 1962)
+    let e_acoustic = acoustic_energy_density(
+        100_000.0, // 100 kPa typical pressure amplitude
+        1060.0,    // blood density [kg/m³]
+        1540.0,    // speed of sound in blood [m/s]
+    );
+
+    // Acoustic contrast factors for differential radiation force
+    let ctc_contrast = acoustic_contrast_factor(RHO_CTC, RHO_PLASMA, KAPPA_CTC, KAPPA_PLASMA);
+    let rbc_contrast = acoustic_contrast_factor(RHO_RBC, RHO_PLASMA, KAPPA_RBC, KAPPA_PLASMA);
+
+    SdtAcousticMetrics {
+        sensitizer_activation_efficiency: sensitizer_activation,
+        rayleigh_plesset_amplification: rp_amplification,
+        acoustic_energy_density_j_m3: e_acoustic,
+        ctc_contrast_factor: ctc_contrast,
+        rbc_contrast_factor: rbc_contrast,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_sdt_acoustic_metrics_computable() {
+        let m = compute_sdt_acoustic_metrics(0.6, 0.002, 50_000.0);
+        assert!(
+            m.sensitizer_activation_efficiency.is_finite(),
+            "sensitizer_activation_efficiency must be finite"
+        );
+        assert!(
+            m.rayleigh_plesset_amplification.is_finite(),
+            "rayleigh_plesset_amplification must be finite"
+        );
+        assert!(
+            m.acoustic_energy_density_j_m3.is_finite(),
+            "acoustic_energy_density_j_m3 must be finite"
+        );
+        assert!(
+            m.ctc_contrast_factor.is_finite(),
+            "ctc_contrast_factor must be finite"
+        );
+        assert!(
+            m.rbc_contrast_factor.is_finite(),
+            "rbc_contrast_factor must be finite"
+        );
+        // Activation should be in (0, 1) for non-zero inputs
+        assert!(
+            m.sensitizer_activation_efficiency > 0.0
+                && m.sensitizer_activation_efficiency < 1.0,
+            "activation = {} should be in (0,1)",
+            m.sensitizer_activation_efficiency
+        );
+        // RP amplification must exceed 1.0
+        assert!(
+            m.rayleigh_plesset_amplification > 1.0,
+            "RP amplification = {} should exceed 1.0",
+            m.rayleigh_plesset_amplification
+        );
+    }
+
+    #[test]
+    fn test_sdt_acoustic_metrics_zero_cavitation() {
+        let m = compute_sdt_acoustic_metrics(0.0, 0.002, 50_000.0);
+        assert_eq!(
+            m.sensitizer_activation_efficiency, 0.0,
+            "zero cavitation intensity should yield zero activation"
+        );
+        // RP amplification and energy density are independent of cavitation intensity
+        assert!(m.rayleigh_plesset_amplification > 1.0);
+        assert!(m.acoustic_energy_density_j_m3 > 0.0);
+    }
+
+    #[test]
+    fn test_sdt_acoustic_metrics_positive_energy() {
+        // Energy density must always be positive (p₀² / (4ρc²) > 0)
+        for pressure_drop in [0.0, 10_000.0, 100_000.0, 500_000.0] {
+            let m = compute_sdt_acoustic_metrics(0.5, 0.001, pressure_drop);
+            assert!(
+                m.acoustic_energy_density_j_m3 > 0.0,
+                "energy density must be positive at pressure_drop={pressure_drop}"
+            );
+        }
+    }
 }

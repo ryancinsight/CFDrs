@@ -21,7 +21,7 @@ fn boolean_raw(op: BooleanOp, mesh_a: &IndexedMesh, mesh_b: &IndexedMesh) -> Ind
     use crate::domain::core::index::VertexId;
     use crate::infrastructure::storage::face_store::FaceData;
     use crate::infrastructure::storage::vertex_pool::VertexPool;
-    use std::collections::HashMap;
+    use hashbrown::HashMap;
     let mut combined = VertexPool::default_millifluidic();
     let mut remap_a: HashMap<VertexId, VertexId> = HashMap::new();
     for (old_id, _) in mesh_a.vertices.iter() {
@@ -331,7 +331,6 @@ fn perpendicular_cylinder_union_is_watertight() {
 /// Regression: T-junction cylinder booleans remain watertight and preserve
 /// expected analytic volumes.
 #[test]
-#[ignore = "pre-existing: T-junction orient_outward fails to eliminate inward faces"]
 fn t_junction_volume_and_watertightness() {
     use crate::application::csg::CsgNode;
     use crate::domain::core::scalar::Real;
@@ -566,7 +565,6 @@ fn cylinder_cylinder_union_64seg_volume() {
 
 /// Diagnostic: asymmetric cylinder union (different heights Ã¢â€ â€™ non-coplanar caps).
 #[test]
-#[ignore = "Fails due to exact predicate fragmentation with high MAX_STEINER_PER_FACE"]
 fn asymmetric_cylinder_union_is_watertight() {
     use crate::domain::geometry::primitives::{Cylinder, PrimitiveMesh};
     let r = 0.6_f64;
@@ -623,7 +621,6 @@ fn asymmetric_cylinder_union_is_watertight() {
 
 /// Regression test: L-shape compound union (stem ∪ elbow ∪ arm) is watertight.
 #[test]
-#[ignore = "Slow exact predicates in debug mode with elevated MAX_STEINER_PER_FACE"]
 fn l_shape_compound_union_is_watertight() {
     use crate::application::csg::CsgNode;
     use crate::domain::core::scalar::Real;
@@ -733,7 +730,6 @@ fn l_shape_compound_union_is_watertight() {
 /// Uses the exact same geometry parameters as `cylinder_cylinder_v_shape.rs`
 /// but at reduced resolution (32Ãƒâ€”16) for fast test execution.
 #[test]
-#[ignore = "Fails due to exact predicate fragmentation with high MAX_STEINER_PER_FACE"]
 fn v_shape_right_branch_is_watertight() {
     use crate::application::csg::CsgNode;
     use crate::domain::core::scalar::Real;

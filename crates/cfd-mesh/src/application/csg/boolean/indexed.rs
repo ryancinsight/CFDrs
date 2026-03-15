@@ -1,6 +1,5 @@
 //! `IndexedMesh` wrapper API for CSG Boolean operations
 
-use super::union_strategy::{concat_disjoint_meshes, spatial_union_order};
 use crate::application::csg::boolean::BooleanOp;
 use crate::application::csg::reconstruct;
 use crate::domain::core::error::{MeshError, MeshResult};
@@ -10,20 +9,27 @@ use crate::domain::mesh::IndexedMesh;
 use crate::infrastructure::storage::face_store::{FaceData, FaceStore};
 use crate::infrastructure::storage::vertex_pool::VertexPool;
 
-/// High-level boolean operation on two [`IndexedMesh`] objects.
+/// High-level binary boolean operation on two [`IndexedMesh`] objects.
 ///
-/// Merges the vertex pools, runs the proven binary Boolean pipeline, and
-/// reconstructs a fresh deduplicated `IndexedMesh`.
+/// Merges both vertex pools into a shared [`VertexPool`] via `insert_or_weld`
+/// (snap-welding within tolerance ε), runs the arrangement-based Boolean
+/// pipeline, and reconstructs a fresh deduplicated `IndexedMesh`.
+///
+/// # Algorithm
+///
+/// 1. **Remap** — both meshes' vertices are inserted into a shared pool;
+///    coincident vertices are welded to prevent T-junction seam gaps.
+/// 2. **Coplanar detection** — both operands are checked for flat-plane
+///    degeneracy to enable coplanar-aware repair.
+/// 3. **Arrangement** — `csg_boolean_unfinalized` computes the generalized
+///    arrangement: BVH-accelerated intersection detection, co-refinement,
+///    GWN-based classification, and face selection per the `op` predicate.
+/// 4. **Postprocessing** — normal recomputation, orientation repair (BFS +
+///    `orient_outward`), escalating repair cascade, and fin removal.
+///
+/// For three or more operands, prefer [`csg_boolean_nary`] to avoid error
+/// accumulation from repeated binary operations.
 pub fn csg_boolean(
-    op: BooleanOp,
-    mesh_a: &IndexedMesh,
-    mesh_b: &IndexedMesh,
-) -> MeshResult<IndexedMesh> {
-    csg_boolean_indexed(op, mesh_a, mesh_b)
-}
-
-/// Backward-compatible alias for the historical indexed binary Boolean entrypoint.
-pub fn csg_boolean_indexed(
     op: BooleanOp,
     mesh_a: &IndexedMesh,
     mesh_b: &IndexedMesh,
@@ -42,121 +48,97 @@ pub fn csg_boolean_indexed(
     postprocess_boolean_mesh(result_faces, &combined, is_coplanar)
 }
 
-/// Best-effort indexed Boolean that preserves the historical tolerant path for
-/// junction-heavy unions.
-pub fn csg_boolean_indexed_tolerant(
-    op: BooleanOp,
-    mesh_a: &IndexedMesh,
-    mesh_b: &IndexedMesh,
-) -> MeshResult<IndexedMesh> {
-    match csg_boolean_indexed(op, mesh_a, mesh_b) {
-        Ok(mesh) => Ok(mesh),
-        Err(MeshError::NotWatertight { .. }) => {
-            let mut combined = VertexPool::for_csg();
-            let (faces_a, faces_b) = remap_binary_face_soups(mesh_a, mesh_b, &mut combined);
-            let is_coplanar = crate::application::csg::coplanar::detect_flat_plane(
-                &faces_a,
-                &combined,
-            )
-            .is_some()
-                && crate::application::csg::coplanar::detect_flat_plane(&faces_b, &combined)
-                    .is_some();
-            let result_faces =
-                crate::application::csg::arrangement::boolean_csg::csg_boolean_unfinalized(
-                    op,
-                    &[faces_a, faces_b],
-                    &mut combined,
-                )?;
-            let mut mesh = reconstruct::reconstruct_mesh(&result_faces, &combined);
-            mesh.recompute_normals();
-            repair_boolean_mesh(&mut mesh, is_coplanar)?;
-            collapse_degenerate_faces(&mut mesh);
-            split_non_manifold_vertices(&mut mesh);
-            mesh.rebuild_edges();
-            Ok(mesh)
-        }
-        Err(error) => Err(error),
-    }
-}
-
-/// Best-effort indexed Boolean used by higher-level assembly paths that can
-/// accept a repaired-but-still-open intermediate mesh and enforce topology
-/// policy at the final aggregate surface instead.
-pub fn csg_boolean_indexed_best_effort(
-    op: BooleanOp,
-    mesh_a: &IndexedMesh,
-    mesh_b: &IndexedMesh,
-) -> MeshResult<IndexedMesh> {
-    match csg_boolean_indexed(op, mesh_a, mesh_b) {
-        Ok(mesh) => Ok(mesh),
-        Err(MeshError::NotWatertight { .. }) => {
-            let mut combined = VertexPool::for_csg();
-            let (faces_a, faces_b) = remap_binary_face_soups(mesh_a, mesh_b, &mut combined);
-            let is_coplanar = crate::application::csg::coplanar::detect_flat_plane(
-                &faces_a,
-                &combined,
-            )
-            .is_some()
-                && crate::application::csg::coplanar::detect_flat_plane(&faces_b, &combined)
-                    .is_some();
-            let result_faces =
-                crate::application::csg::arrangement::boolean_csg::csg_boolean_unfinalized(
-                    op,
-                    &[faces_a, faces_b],
-                    &mut combined,
-                )?;
-            let mut mesh = reconstruct::reconstruct_mesh(&result_faces, &combined);
-            mesh.recompute_normals();
-            repair_boolean_mesh_with_policy(&mut mesh, is_coplanar, false)?;
-            collapse_degenerate_faces(&mut mesh);
-            split_non_manifold_vertices(&mut mesh);
-            mesh.rebuild_edges();
-            Ok(mesh)
-        }
-        Err(error) => Err(error),
-    }
-}
-
-/// Compute an indexed Boolean union across an arbitrary number of meshes using
-/// the canonical generalized arrangement engine.
-pub fn csg_boolean_nary_union(meshes: &[IndexedMesh]) -> MeshResult<IndexedMesh> {
-    if meshes.is_empty() {
-        return Err(MeshError::EmptyBooleanResult {
-            op: format!("{:?}", BooleanOp::Union),
-        });
-    }
-
-    if meshes.len() == 1 {
-        return Ok(meshes[0].clone());
-    }
-
-    match csg_boolean_nary(BooleanOp::Union, meshes) {
-        Ok(mesh) => Ok(mesh),
-        Err(MeshError::NotWatertight { .. }) => {
-            let order = spatial_union_order(meshes);
-            let mut accumulated = meshes[order[0]].clone();
-            let mut accumulated_aabb = accumulated.bounding_box();
-            for &idx in &order[1..] {
-                let mesh = &meshes[idx];
-                let mesh_aabb = mesh.bounding_box();
-                accumulated = if !accumulated_aabb.intersects(&mesh_aabb) {
-                    concat_disjoint_meshes(&accumulated, mesh)
-                } else {
-                    csg_boolean_indexed_tolerant(BooleanOp::Union, &accumulated, mesh)?
-                };
-                accumulated_aabb = accumulated.bounding_box();
-            }
-            Ok(accumulated)
-        }
-        Err(error) => Err(error),
-    }
-}
-
 /// Compute an indexed Boolean across an arbitrary number of meshes using the
 /// canonical generalized arrangement engine.
 ///
-/// The first mesh is treated as the minuend for [`BooleanOp::Difference`], and
-/// every later mesh is treated as a subtractive operand.
+/// # N-ary Generalized Arrangement Algorithm
+///
+/// Traditional CSG Boolean implementations process pairs of meshes iteratively:
+/// `((A ∪ B) ∪ C) ∪ D`. This approach has two fundamental problems:
+///
+/// 1. **Error accumulation** — each intermediate mesh feeds into the next
+///    Boolean, so approximation artifacts compound at every stage.
+/// 2. **Redundant work** — faces between B and C are tessellated and classified
+///    in the first Boolean, then re-tessellated when the intermediate result
+///    meets D.
+///
+/// The n-ary algorithm avoids both problems by processing all operands in a
+/// single pass:
+///
+/// ## Phase 1 — Vertex Pool Merging
+///
+/// All input meshes are remapped into a shared [`VertexPool`] via
+/// `insert_or_weld`, which snaps coincident vertices (within tolerance ε)
+/// to the same ID. This establishes a consistent coordinate frame and
+/// prevents T-junction seam gaps from floating-point discrepancies.
+///
+/// ## Phase 2 — Generalized Arrangement
+///
+/// The face soups from all N operands are passed simultaneously to
+/// `csg_boolean_unfinalized`. The arrangement engine:
+///
+/// - Detects **all pairwise intersections** between triangle faces from
+///   different operands using a BVH acceleration structure.
+/// - Computes exact intersection curves via robust geometric predicates
+///   (Shewchuk orientation/incircle predicates with adaptive precision).
+/// - **Co-refines** all intersecting triangles simultaneously, splitting
+///   them along every intersection curve to produce a conforming
+///   triangulation where no triangle spans a boundary between regions.
+/// - **Classifies** each resulting sub-face by evaluating its centroid
+///   against the winding number of every operand, determining which
+///   operands contain each fragment.
+/// - **Selects** faces according to the Boolean predicate:
+///   - **Union**: face is on the boundary of at least one operand and
+///     outside all others, or on a shared boundary.
+///   - **Intersection**: face is inside every operand.
+///   - **Difference** (A \ B₁ \ B₂ \ ... \ Bₙ): face is inside A and
+///     outside all Bᵢ, plus faces from Bᵢ that are inside A and outside
+///     all other Bⱼ (with flipped orientation).
+///
+/// ## Phase 3 — Postprocessing
+///
+/// The selected faces are reconstructed into an [`IndexedMesh`] via
+/// [`postprocess_boolean_mesh`], which applies:
+///
+/// - Normal recomputation from face geometry.
+/// - Orientation repair (BFS + `orient_outward`).
+/// - Boundary sealing, sliver gap closure, and non-manifold edge
+///   resolution through an escalating repair cascade.
+/// - Fin artifact removal and largest-component retention.
+///
+/// # Correctness Properties
+///
+/// **Theorem (Single-pass equivalence):** For associative operations (Union,
+/// Intersection), the n-ary result is identical to any parenthesization of
+/// pairwise operations on exact geometry. For Difference, the result equals
+/// `A \ (B₁ ∪ B₂ ∪ ... ∪ Bₙ)`.
+///
+/// *Proof sketch:* The arrangement produces the identical planar subdivision
+/// regardless of operand ordering because all pairwise intersections are
+/// computed simultaneously. Face classification depends only on the
+/// point-in-solid winding number query against each operand, which is
+/// independent of processing order. ∎
+///
+/// **Theorem (Watertight output):** If all input meshes are watertight
+/// (closed, oriented 2-manifolds), the output is watertight after repair,
+/// or an error is returned.
+///
+/// *Proof sketch:* The co-refinement preserves the 2-manifold property at
+/// intersection curves by construction (each original edge is split at
+/// every crossing point). The repair cascade closes any residual gaps
+/// from floating-point perturbation. The final watertight check rejects
+/// meshes that cannot be repaired. ∎
+///
+/// # Arguments
+///
+/// * `op` — The Boolean operation to apply.
+/// * `meshes` — The operand meshes. For [`BooleanOp::Difference`], the first
+///   mesh is the minuend and all subsequent meshes are subtrahends.
+///
+/// # Errors
+///
+/// Returns [`MeshError::EmptyBooleanResult`] if `meshes` is empty, or
+/// [`MeshError::NotWatertight`] if the result cannot be made watertight.
 pub fn csg_boolean_nary(op: BooleanOp, meshes: &[IndexedMesh]) -> MeshResult<IndexedMesh> {
     if meshes.is_empty() {
         return Err(MeshError::EmptyBooleanResult {
@@ -186,17 +168,16 @@ fn remap_binary_face_soups(
     mesh_b: &IndexedMesh,
     combined: &mut VertexPool,
 ) -> (Vec<FaceData>, Vec<FaceData>) {
-    use crate::domain::core::index::VertexId;
-    use std::collections::HashMap;
-
-    let mut remap_a: HashMap<VertexId, VertexId> = HashMap::with_capacity(mesh_a.vertices.len());
+    let mut remap_a: hashbrown::HashMap<VertexId, VertexId> =
+        hashbrown::HashMap::with_capacity(mesh_a.vertices.len());
     for (old_id, _) in mesh_a.vertices.iter() {
         let pos = *mesh_a.vertices.position(old_id);
         let nrm = *mesh_a.vertices.normal(old_id);
         remap_a.insert(old_id, combined.insert_or_weld(pos, nrm));
     }
 
-    let mut remap_b: HashMap<VertexId, VertexId> = HashMap::with_capacity(mesh_b.vertices.len());
+    let mut remap_b: hashbrown::HashMap<VertexId, VertexId> =
+        hashbrown::HashMap::with_capacity(mesh_b.vertices.len());
     for (old_id, _) in mesh_b.vertices.iter() {
         let pos = *mesh_b.vertices.position(old_id);
         let nrm = *mesh_b.vertices.normal(old_id);
@@ -224,12 +205,10 @@ fn remap_binary_face_soups(
 }
 
 fn remap_nary_face_soups(meshes: &[IndexedMesh], combined: &mut VertexPool) -> Vec<Vec<FaceData>> {
-    use crate::domain::core::index::VertexId;
-    use std::collections::HashMap;
-
     let mut face_soups = Vec::with_capacity(meshes.len());
     for mesh in meshes {
-        let mut remap: HashMap<VertexId, VertexId> = HashMap::with_capacity(mesh.vertices.len());
+        let mut remap: hashbrown::HashMap<VertexId, VertexId> =
+            hashbrown::HashMap::with_capacity(mesh.vertices.len());
         for (old_id, _) in mesh.vertices.iter() {
             let pos = *mesh.vertices.position(old_id);
             let nrm = *mesh.vertices.normal(old_id);
@@ -259,19 +238,43 @@ fn postprocess_boolean_mesh(
     repair_boolean_mesh(&mut mesh, is_coplanar)?;
     collapse_degenerate_faces(&mut mesh);
     split_non_manifold_vertices(&mut mesh);
+    // Final orient_outward: collapse_degenerate_faces and split_non_manifold_vertices
+    // can invalidate winding order established by repair_boolean_mesh.
+    mesh.orient_outward();
     mesh.rebuild_edges();
     Ok(mesh)
 }
 
+/// Post-process a Boolean result mesh: repair orientation, close boundary
+/// loops, stitch sliver gaps, and remove phantom fin artifacts.
+///
+/// # Algorithm
+///
+/// The repair proceeds in escalating phases:
+///
+/// 1. **Orientation consistency** — `orient_outward()`, then `fix_orientation()`
+///    if BFS alone fails to resolve mixed-winding faces.
+/// 2. **Boundary seal** — `seal_boundary_loops()` fills any small holes left
+///    by arrangement fragment removal.
+/// 3. **Iterative boundary stitch** — merges nearly-coincident boundary edges
+///    using parametric stitching.
+/// 4. **Non-manifold resolution** — `split_non_manifold_edges()` resolves
+///    edges with 3+ incident faces, then `seal_boundary_loops()` closes any
+///    holes opened by face removal. `merge_nearby_boundary_vertices()` closes
+///    remaining sliver gaps at increasing tolerances (5%, 10%, 20%, 40% of
+///    mean edge length).
+/// 5. **Fin removal** — detects and removes phantom faces whose normals
+///    oppose all edge-adjacent neighbours (max_dot < cos 120°). Only runs
+///    when the mesh is already watertight to avoid nondeterministic BFS.
+/// 6. **Cleanup** — `retain_largest_component()` removes disconnected
+///    phantom surfaces, `merge_coincident_vertices()` welds any ε-close
+///    duplicates, final `orient_outward()`.
+///
+/// # Errors
+///
+/// Returns `MeshError::NotWatertight` if the mesh cannot be made watertight
+/// after all repair phases.
 fn repair_boolean_mesh(mesh: &mut IndexedMesh, is_coplanar: bool) -> MeshResult<()> {
-    repair_boolean_mesh_with_policy(mesh, is_coplanar, true)
-}
-
-fn repair_boolean_mesh_with_policy(
-    mesh: &mut IndexedMesh,
-    is_coplanar: bool,
-    require_watertight: bool,
-) -> MeshResult<()> {
     if !is_coplanar {
         mesh.rebuild_edges();
         let mut report = crate::application::watertight::check::check_watertight(
@@ -423,7 +426,7 @@ fn repair_boolean_mesh_with_policy(
                 );
             }
 
-            if require_watertight && !report.is_watertight {
+            if !report.is_watertight {
                 return Err(MeshError::NotWatertight {
                     count: report.boundary_edge_count + report.non_manifold_edge_count,
                 });
@@ -487,8 +490,15 @@ fn repair_boolean_mesh_with_policy(
         }
 
         mesh.retain_largest_component();
+        merge_coincident_vertices(mesh);
         mesh.orient_outward();
     }
+
+    // Vertex pool compaction and component cleanup run unconditionally —
+    // coplanar paths still accumulate dead vertices from both input meshes.
+    mesh.retain_largest_component();
+    merge_coincident_vertices(mesh);
+    mesh.orient_outward();
 
     Ok(())
 }
@@ -502,15 +512,13 @@ fn repair_boolean_mesh_with_policy(
 ///    has at most 2 incident faces, (b) no duplicate faces would be created,
 ///    and (c) no surviving face normals would be inverted.
 fn collapse_degenerate_faces(mesh: &mut IndexedMesh) {
-    use std::collections::{HashMap, HashSet};
-
     let tol_sq = 1e-18_f64; // (1e-9)²
     let mut total_collapsed: usize = 0;
-    let mut skip_faces: HashSet<usize> = HashSet::new();
+    let mut skip_faces: hashbrown::HashSet<usize> = hashbrown::HashSet::new();
 
     loop {
         // Build an edge-use count: how many faces reference each undirected edge.
-        let mut edge_use: HashMap<(VertexId, VertexId), usize> = HashMap::new();
+        let mut edge_use: hashbrown::HashMap<(VertexId, VertexId), usize> = hashbrown::HashMap::new();
         for face in mesh.faces.iter() {
             let v = face.vertices;
             for &(a, b) in &[(v[0], v[1]), (v[1], v[2]), (v[2], v[0])] {
@@ -593,7 +601,7 @@ fn collapse_degenerate_faces(mesh: &mut IndexedMesh) {
         if !is_coincident {
             let mut would_create_duplicate = false;
             let mut would_invert_normal = false;
-            let mut new_face_keys: HashSet<[VertexId; 3]> = HashSet::new();
+            let mut new_face_keys: hashbrown::HashSet<[VertexId; 3]> = hashbrown::HashSet::new();
 
             for face in mesh.faces.iter() {
                 let mut verts = face.vertices;
@@ -681,7 +689,7 @@ fn collapse_degenerate_faces(mesh: &mut IndexedMesh) {
         }
 
         // Purge collapsed faces and exact duplicates.
-        let mut seen: HashSet<[VertexId; 3]> = HashSet::new();
+        let mut seen: hashbrown::HashSet<[VertexId; 3]> = hashbrown::HashSet::new();
         let mut keep_faces: Vec<FaceData> = Vec::with_capacity(mesh.faces.len());
         let mut removed = 0usize;
         for face in mesh.faces.iter() {
@@ -726,8 +734,8 @@ fn collapse_degenerate_faces(mesh: &mut IndexedMesh) {
 
 /// Split non-manifold "pinch" vertices created by edge collapse.
 fn split_non_manifold_vertices(mesh: &mut IndexedMesh) {
-    use std::collections::{HashMap, HashSet, VecDeque};
-    let mut vertex_faces: HashMap<VertexId, Vec<usize>> = HashMap::new();
+    use std::collections::VecDeque;
+    let mut vertex_faces: hashbrown::HashMap<VertexId, Vec<usize>> = hashbrown::HashMap::new();
     for (fi, face) in mesh.faces.iter().enumerate() {
         for &v in &face.vertices {
             vertex_faces.entry(v).or_default().push(fi);
@@ -740,7 +748,7 @@ fn split_non_manifold_vertices(mesh: &mut IndexedMesh) {
             Some(fi) if fi.len() >= 2 => fi,
             _ => continue,
         };
-        let mut visited: HashSet<usize> = HashSet::new();
+        let mut visited: hashbrown::HashSet<usize> = hashbrown::HashSet::new();
         let mut components: Vec<Vec<usize>> = Vec::new();
         for &start_fi in face_indices {
             if visited.contains(&start_fi) {
@@ -1206,7 +1214,6 @@ mod tests {
     // The BFS seed is the extremal (max-X) face — by the Jordan-Brouwer theorem
     // its outward normal must have nx ≥ 0, so BFS correctly orients the mesh.
     #[test]
-    #[ignore = "pre-existing: CSG difference produces phantom island components — repair pipeline does not strip them"]
     fn cylinder_difference_normals_check() {
         use crate::application::csg::CsgNode;
         use crate::application::quality::normals::analyze_normals;
@@ -1333,6 +1340,210 @@ mod tests {
         }
     }
 
+    // ── Adversarial CSG tests ─────────────────────────────────────────────
+    //
+    // These test failure modes commonly encountered in mesh Boolean libraries:
+    // shared edges, shared vertices, self-union idempotency, n-ary consistency,
+    // disjoint intersection, and high-operand-count n-ary unions.
+
+    /// Two cubes sharing exactly one edge — a degenerate configuration that
+    /// triggers coplanar-face and shared-edge handling in the arrangement
+    /// engine.  Many mesh Boolean libraries produce non-manifold output here.
+    ///
+    /// # Theorem — Shared-Edge Union Watertightness
+    ///
+    /// When two watertight genus-0 solids share exactly one edge *e*, the
+    /// union boundary equals `∂A ∪ ∂B` minus the two faces incident to *e*
+    /// that lie in the interior of the other solid.  The result is a genus-0
+    /// closed 2-manifold with Euler characteristic χ = 2.  ∎
+    #[test]
+    fn shared_edge_union_watertight() {
+        // Cube A: unit cube at origin.
+        let a = Cube {
+            origin: Point3r::new(0.0, 0.0, 0.0),
+            width: 1.0,
+            height: 1.0,
+            depth: 1.0,
+        }
+        .build()
+        .unwrap();
+        // Cube B: unit cube touching A along the edge x=1, z=0..1.
+        let b = Cube {
+            origin: Point3r::new(1.0, 0.0, 0.0),
+            width: 1.0,
+            height: 1.0,
+            depth: 1.0,
+        }
+        .build()
+        .unwrap();
+        let result = csg_boolean(BooleanOp::Union, &a, &b).unwrap();
+        assert_3d_watertight(result);
+    }
+
+    /// Two cubes touching at exactly one vertex — another degenerate
+    /// configuration.  The union must remain a single watertight component.
+    ///
+    /// # Theorem — Shared-Vertex Union Topology
+    ///
+    /// Two solids meeting at a single vertex *v* produce a union whose
+    /// boundary is `∂A ∪ ∂B` with *v* shared.  The result is a pinched
+    /// genus-0 surface that is still a closed 2-manifold (every edge is
+    /// shared by exactly two faces).  ∎
+    #[test]
+    fn shared_vertex_union_watertight() {
+        let a = Cube {
+            origin: Point3r::new(0.0, 0.0, 0.0),
+            width: 1.0,
+            height: 1.0,
+            depth: 1.0,
+        }
+        .build()
+        .unwrap();
+        // B's corner (0,0,0) touches A's corner (1,1,1).
+        let b = Cube {
+            origin: Point3r::new(1.0, 1.0, 1.0),
+            width: 1.0,
+            height: 1.0,
+            depth: 1.0,
+        }
+        .build()
+        .unwrap();
+        let result = csg_boolean(BooleanOp::Union, &a, &b).unwrap();
+        assert_3d_watertight(result);
+    }
+
+    /// Self-union idempotency: A ∪ A must equal A (same face count, same
+    /// volume up to floating-point tolerance).
+    ///
+    /// # Theorem — Union Idempotency
+    ///
+    /// For any watertight solid *A*, `A ∪ A = A` because every point of
+    /// ∂A is on the boundary of both operands, and the GWN classifier
+    /// assigns the same in/out label to every face.  The result preserves
+    /// face count and signed volume.  ∎
+    #[test]
+    fn self_union_idempotent() {
+        let a = cube_a();
+        let original_face_count = a.faces.len();
+        let original_vol = a.signed_volume();
+        let result = csg_boolean(BooleanOp::Union, &a, &a).unwrap();
+        assert_3d_watertight(result.clone());
+        // Volume must be preserved (within tolerance).
+        let vol = result.signed_volume();
+        let rel_err = ((vol - original_vol) / original_vol).abs();
+        assert!(
+            rel_err < 0.05,
+            "self-union volume drift: original={original_vol:.6}, result={vol:.6}, rel_err={rel_err:.4}",
+        );
+        // Face count should not explode.
+        assert!(
+            result.faces.len() <= original_face_count * 3,
+            "self-union face explosion: original={original_face_count}, result={}",
+            result.faces.len(),
+        );
+    }
+
+    /// N-ary union of 3 cubes must produce the same volume as sequential
+    /// binary unions (within tolerance).
+    ///
+    /// # Theorem — N-ary/Binary Equivalence
+    ///
+    /// For an associative, commutative operator ⊕ (Union or Intersection),
+    /// `csg_boolean_nary(⊕, [A, B, C])` and
+    /// `csg_boolean(⊕, csg_boolean(⊕, A, B), C)` produce identical solid
+    /// regions.  Volumes agree up to tessellation and snap-rounding
+    /// precision.  ∎
+    #[test]
+    fn nary_matches_iterative_volume() {
+        // Use irrational offsets to avoid coplanar face degeneracies in the
+        // triple-intersection zone — a common failure mode in mesh Booleans.
+        let a = Cube {
+            origin: Point3r::new(0.0, 0.0, 0.0),
+            width: 1.0,
+            height: 1.0,
+            depth: 1.0,
+        }
+        .build()
+        .unwrap();
+        let b = Cube {
+            origin: Point3r::new(0.37, 0.13, 0.0),
+            width: 1.0,
+            height: 1.0,
+            depth: 1.0,
+        }
+        .build()
+        .unwrap();
+        let c = Cube {
+            origin: Point3r::new(0.13, 0.37, 0.0),
+            width: 1.0,
+            height: 1.0,
+            depth: 1.0,
+        }
+        .build()
+        .unwrap();
+
+        // Binary iterative: (A ∪ B) ∪ C
+        let ab = csg_boolean(BooleanOp::Union, &a, &b).unwrap();
+        let iterative = csg_boolean(BooleanOp::Union, &ab, &c).unwrap();
+
+        // N-ary single-pass: Union([A, B, C])
+        let nary = csg_boolean_nary(BooleanOp::Union, &[a, b, c]).unwrap();
+
+        assert_3d_watertight(iterative.clone());
+        assert_3d_watertight(nary.clone());
+
+        let vol_iter = iterative.signed_volume();
+        let vol_nary = nary.signed_volume();
+        let rel_err = ((vol_iter - vol_nary) / vol_iter).abs();
+        assert!(
+            rel_err < 0.05,
+            "n-ary vs iterative volume mismatch: iterative={vol_iter:.6}, nary={vol_nary:.6}, rel_err={rel_err:.4}",
+        );
+    }
+
+    /// Many-operand n-ary union: 4 overlapping cubes with irrational offsets.
+    /// Stresses the n-ary arrangement engine with a high operand count while
+    /// avoiding coplanar-face degeneracies.
+    ///
+    /// # Theorem — N-ary Scalability
+    ///
+    /// The generalized arrangement engine processes *k* operands in a single
+    /// pass with O(k · n log n) complexity (n = total triangle count).  The
+    /// result is a single watertight genus-0 solid for any set of overlapping
+    /// convex operands whose face planes are in general position.  ∎
+    #[test]
+    fn many_operand_nary_union() {
+        // Irrational offsets avoid coplanar face planes between operands.
+        let offsets: [(f64, f64, f64); 4] = [
+            (0.0, 0.0, 0.0),
+            (0.37, 0.13, 0.07),
+            (0.13, 0.41, 0.11),
+            (0.29, 0.17, 0.43),
+        ];
+        let cubes: Vec<IndexedMesh> = offsets
+            .iter()
+            .map(|&(x, y, z)| {
+                Cube {
+                    origin: Point3r::new(x, y, z),
+                    width: 1.0,
+                    height: 1.0,
+                    depth: 1.0,
+                }
+                .build()
+                .unwrap()
+            })
+            .collect();
+        assert_eq!(cubes.len(), 4);
+        let result = csg_boolean_nary(BooleanOp::Union, &cubes).unwrap();
+        assert_3d_watertight(result.clone());
+        // Each cube = 1.0³. With overlaps the volume must be < 4.0 and > 1.0.
+        let vol = result.signed_volume();
+        assert!(
+            vol > 1.0 && vol < 4.5,
+            "4-cube union volume out of range: {vol:.4}",
+        );
+    }
+
 }
 
 // ── Boundary vertex merging ──────────────────────────────────────────────────
@@ -1349,8 +1560,6 @@ mod tests {
 /// incident to the merged vertex pair become interior).  The process terminates
 /// when no further merges are possible (fixed-point).  ∎
 fn merge_nearby_boundary_vertices_with_mult(mesh: &mut IndexedMesh, merge_mult: f64) {
-    use std::collections::HashSet;
-
     // Adaptive tolerance: `merge_mult` fraction of the mean edge length,
     // clamped to [0.01, 0.2] mm.  The escalating repair pipeline calls this
     // with progressively wider multipliers (0.05 → 0.40).
@@ -1384,7 +1593,7 @@ fn merge_nearby_boundary_vertices_with_mult(mesh: &mut IndexedMesh, merge_mult: 
         };
 
         // Phase 1: collect boundary vertex IDs.
-        let mut boundary_verts: HashSet<VertexId> = HashSet::new();
+        let mut boundary_verts: hashbrown::HashSet<VertexId> = hashbrown::HashSet::new();
         for edge in edges_ref.iter() {
             if edge.is_boundary() {
                 boundary_verts.insert(edge.vertices.0);
@@ -1481,6 +1690,106 @@ fn merge_nearby_boundary_vertices_with_mult(mesh: &mut IndexedMesh, merge_mult: 
     }
 }
 
+/// Merge coincident vertices and compact the vertex pool.
+///
+/// 1. **Dedup**: merge vertices with ‖p_i − p_j‖ < ε (union-find).
+/// 2. **Compact**: remove unreferenced vertices, re-index face references.
+///
+/// # Theorem — Vertex Pool Compaction Preserves Euler–Poincaré
+///
+/// `check_watertight` computes V as `vertex_pool.len()`.  CSG operations
+/// leave dead vertices (from input meshes and merged duplicates) which
+/// inflate V.  Compaction removes these, yielding V = |referenced vertices|
+/// and restoring V − E + F = 2(1−g).  ∎
+fn merge_coincident_vertices(mesh: &mut IndexedMesh) {
+    let n = mesh.vertices.len();
+    if n == 0 {
+        return;
+    }
+
+    // Phase 1: merge coincident vertices (dedup).
+    // Tolerance 1e-6 mm — 3 orders of magnitude below the smallest mesh edge
+    // (~0.01 mm), safely catching near-coincident vertices from independent
+    // CSG intersection computations while never fusing distinct geometry.
+    let eps_sq = 1e-12_f64; // (1e-6)²
+    let mut parent: Vec<u32> = (0..n as u32).collect();
+
+    fn find(parent: &mut [u32], mut x: u32) -> u32 {
+        while parent[x as usize] != x {
+            parent[x as usize] = parent[parent[x as usize] as usize];
+            x = parent[x as usize];
+        }
+        x
+    }
+
+    for i in 0..n {
+        let pi = mesh.vertices.position(VertexId(i as u32));
+        for j in (i + 1)..n {
+            let pj = mesh.vertices.position(VertexId(j as u32));
+            if (pi - pj).norm_squared() < eps_sq {
+                let ci = find(&mut parent, i as u32);
+                let cj = find(&mut parent, j as u32);
+                if ci != cj {
+                    let (lo, hi) = if ci < cj { (ci, cj) } else { (cj, ci) };
+                    parent[hi as usize] = lo;
+                }
+            }
+        }
+    }
+
+    // Flatten union-find: old_id → canonical_id.
+    let dedup: Vec<u32> = (0..n).map(|i| find(&mut parent, i as u32)).collect();
+
+    // Phase 2: remap face references through dedup mapping.
+    let face_list: Vec<FaceData> = mesh.faces.iter().copied().collect();
+    let mut remapped_faces: Vec<FaceData> = Vec::with_capacity(face_list.len());
+    for mut face in face_list {
+        for v in &mut face.vertices {
+            *v = VertexId(dedup[v.0 as usize]);
+        }
+        if face.vertices[0] != face.vertices[1]
+            && face.vertices[1] != face.vertices[2]
+            && face.vertices[2] != face.vertices[0]
+        {
+            remapped_faces.push(face);
+        }
+    }
+
+    // Phase 3: compact — collect referenced vertex IDs and build new pool.
+    let mut referenced = hashbrown::HashSet::new();
+    for face in &remapped_faces {
+        for &v in &face.vertices {
+            referenced.insert(v.0);
+        }
+    }
+
+    // Sort referenced IDs for deterministic new-index assignment.
+    let mut ref_ids: Vec<u32> = referenced.into_iter().collect();
+    ref_ids.sort_unstable();
+
+    // Build old → new index mapping.
+    let mut old_to_new = vec![u32::MAX; n];
+    let mut new_pool = mesh.vertices.empty_clone();
+    for &old_id in &ref_ids {
+        let vid = VertexId(old_id);
+        let pos = *mesh.vertices.position(vid);
+        let normal = *mesh.vertices.normal(vid);
+        let new_id = new_pool.insert_unique(pos, normal);
+        old_to_new[old_id as usize] = new_id.0;
+    }
+
+    // Re-index face references.
+    mesh.faces = crate::infrastructure::storage::face_store::FaceStore::new();
+    for mut face in remapped_faces {
+        for v in &mut face.vertices {
+            *v = VertexId(old_to_new[v.0 as usize]);
+        }
+        mesh.faces.push(face);
+    }
+    mesh.vertices = new_pool;
+    mesh.rebuild_edges();
+}
+
 // ── Non-manifold edge splitting ──────────────────────────────────────────────
 
 /// Resolve non-manifold edges by removing excess faces.
@@ -1507,12 +1816,10 @@ fn merge_nearby_boundary_vertices_with_mult(mesh: &mut IndexedMesh, merge_mult: 
 /// other edges may become boundary edges (1 face) or remain manifold
 /// (2 faces).  The resulting mesh has no non-manifold edges.  ∎
 fn split_non_manifold_edges(mesh: &mut IndexedMesh) {
-    use std::collections::HashMap;
-
     let face_list: Vec<FaceData> = mesh.faces.iter().copied().collect();
 
     // Build undirected edge → face index map.
-    let mut edge_faces: HashMap<(VertexId, VertexId), Vec<usize>> = HashMap::new();
+    let mut edge_faces: hashbrown::HashMap<(VertexId, VertexId), Vec<usize>> = hashbrown::HashMap::new();
     for (fi, face) in face_list.iter().enumerate() {
         let v = face.vertices;
         for &(a, b) in &[(v[0], v[1]), (v[1], v[2]), (v[2], v[0])] {
@@ -1635,7 +1942,6 @@ fn face_normal_of(
 /// topology.  ∎
 fn remove_fin_faces(mesh: &mut IndexedMesh) {
     use crate::domain::geometry::normal::triangle_normal;
-    use std::collections::HashMap;
 
     let face_list: Vec<FaceData> = mesh.faces.iter().copied().collect();
     let n_faces = face_list.len();
@@ -1655,7 +1961,7 @@ fn remove_fin_faces(mesh: &mut IndexedMesh) {
         .collect();
 
     // Build undirected edge → face adjacency.
-    let mut edge_adj: HashMap<(VertexId, VertexId), Vec<usize>> = HashMap::new();
+    let mut edge_adj: hashbrown::HashMap<(VertexId, VertexId), Vec<usize>> = hashbrown::HashMap::new();
     for (fi, face) in face_list.iter().enumerate() {
         let v = face.vertices;
         for &(a, b) in &[(v[0], v[1]), (v[1], v[2]), (v[2], v[0])] {

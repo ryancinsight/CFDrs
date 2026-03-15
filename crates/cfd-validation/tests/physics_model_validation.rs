@@ -598,3 +598,113 @@ fn quemada_gives_reasonable_blood_viscosity_across_shear_range() {
         mu_1000
     );
 }
+
+// ── Test 22: Acoustic Contrast Factor vs Bruus (2012) Literature ──────────
+
+#[test]
+fn acoustic_contrast_factor_matches_bruus_literature() {
+    // Bruus (2012), Lab Chip 12:1014 — Table 1:
+    // Polystyrene bead in water: Φ ≈ 0.17
+    // RBC in plasma: Φ ≈ 0.23 (positive = migrates to pressure node)
+
+    let kappa_water = 4.48e-10; // Pa⁻¹ (compressibility of water at 20°C)
+    let rho_water = 998.0;
+
+    // RBC: ρ ≈ 1090, κ ≈ 3.4e-10
+    let phi_rbc = cfd_1d::acoustic_contrast_factor(1090.0, rho_water, 3.4e-10, kappa_water);
+    assert!(phi_rbc > 0.0, "RBC contrast must be positive (migrates to node)");
+    assert!(phi_rbc > 0.1 && phi_rbc < 0.4, "RBC Φ should be ~0.2, got {phi_rbc:.3}");
+
+    // CTC: ρ ≈ 1050, κ ≈ 4.2e-10 (closer to water)
+    let phi_ctc = cfd_1d::acoustic_contrast_factor(1050.0, rho_water, 4.2e-10, kappa_water);
+    assert!(phi_ctc > 0.0, "CTC contrast must be positive");
+
+    // RBC has higher contrast than CTC (denser, less compressible)
+    assert!(phi_rbc > phi_ctc, "RBC should have higher contrast than CTC");
+}
+
+// ── Test 23: Radiation Force Zero at Node and Antinode ────────────────────
+
+#[test]
+fn radiation_force_zero_at_node_and_antinode() {
+    let r = 5e-6; // 5 µm radius
+    let phi = 0.2; // contrast factor
+    let f = 412_000.0; // 412 kHz (M12 frequency)
+    let p0 = 100_000.0; // 100 kPa acoustic pressure
+    let rho = 1060.0;
+    let c = 1540.0;
+
+    // At node (x=0): F = 0 (sin(0) = 0)
+    let f_node = cfd_1d::acoustic_radiation_force(r, phi, f, p0, rho, c, 0.0);
+    assert!(f_node.abs() < 1e-20, "Force at node must be zero, got {f_node:.3e}");
+
+    // Force should be non-zero between nodes
+    let lambda = c / f;
+    let f_quarter = cfd_1d::acoustic_radiation_force(r, phi, f, p0, rho, c, lambda / 8.0);
+    assert!(f_quarter.abs() > 0.0, "Force between nodes must be non-zero");
+}
+
+// ── Test 24: Sonosensitizer Activation Monotonicity ───────────────────────
+
+#[test]
+fn sonosensitizer_activation_monotone_with_transit_time() {
+    let k = 0.5; // s⁻¹
+    let i_cav = 0.8;
+
+    let eta_short = cfd_1d::sonosensitizer_activation_efficiency(k, i_cav, 0.001);
+    let eta_medium = cfd_1d::sonosensitizer_activation_efficiency(k, i_cav, 10.0);
+    let eta_long = cfd_1d::sonosensitizer_activation_efficiency(k, i_cav, 100.0);
+
+    assert!(eta_medium > eta_short, "Longer transit → higher activation");
+    assert!(eta_long > 0.99, "Very long transit (100 s) should saturate near 1.0, got {eta_long:.6}");
+    assert!(eta_medium > 0.95, "10 s transit should be near saturation, got {eta_medium:.4}");
+    assert!(eta_short < 0.01, "Very short transit should be near zero");
+}
+
+// ── Test 25: Rayleigh Collapse Time vs Textbook ──────────────────────────
+
+#[test]
+fn rayleigh_collapse_time_matches_textbook() {
+    // Rayleigh (1917): t = 0.915 R √(ρ/p)
+    // For R=10 µm bubble in blood at atmospheric pressure:
+    // t = 0.915 × 10e-6 × √(1060/101325) ≈ 9.36e-7 s ≈ 0.94 µs
+    let t = cfd_1d::rayleigh_collapse_time(10e-6, 1060.0, 101325.0);
+    assert!(t > 0.5e-6 && t < 2e-6, "Collapse time should be ~1 µs, got {t:.3e} s");
+
+    // Jet velocity: v = √(2p/ρ) ≈ √(2×101325/1060) ≈ 13.8 m/s
+    let v = cfd_1d::collapse_jet_velocity(101325.0, 1060.0);
+    assert!(v > 10.0 && v < 20.0, "Jet velocity should be ~14 m/s, got {v:.1}");
+}
+
+// ── Test 26: Multi-Layer Bifurcation with SDT Acoustic Physics ───────────
+
+#[test]
+fn multi_layer_bifurcation_with_sdt_acoustic_physics() {
+    // Simulate a 2-layer bifurcation where cells experience:
+    // 1. Acoustic radiation force (cell focusing)
+    // 2. Cavitation in venturi throats (treatment)
+    // 3. Transit-time-dependent sensitizer activation
+
+    // Step 1: Cell separation
+    let result = cfd_1d::cascade_junction_separation(2, 0.45, 2e-3, 1e-3, 1e-6);
+
+    // Step 2: Acoustic contrast factors
+    let phi_ctc = cfd_1d::acoustic_contrast_factor(1050.0, 1060.0, 4.2e-10, 4.48e-10);
+    let phi_rbc = cfd_1d::acoustic_contrast_factor(1090.0, 1060.0, 3.4e-10, 4.48e-10);
+
+    // CTCs and RBCs both have positive contrast → both move to nodes
+    assert!(phi_ctc > 0.0 && phi_rbc > 0.0);
+
+    // Step 3: Sonosensitizer activation with transit time
+    let transit_time = 500e-6; // 500 µs through venturi
+    let eta = cfd_1d::sonosensitizer_activation_efficiency(
+        0.5, // k_act
+        result.cancer_center_fraction.clamp(0.0, 1.0), // I_cav proxy
+        transit_time,
+    );
+    assert!(eta >= 0.0 && eta <= 1.0, "Activation must be bounded [0,1]");
+
+    // Step 4: Hemolysis check
+    let hi = cfd_1d::giersiepen_hi(100.0, transit_time);
+    assert!(hi < 0.01, "Hemolysis index should be very low for 500 µs transit");
+}

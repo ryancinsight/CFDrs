@@ -130,7 +130,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ── Union ─────────────────────────────────────────────────────────────────
     {
         let t0 = Instant::now();
-        let mut result = cfd_mesh::application::csg::boolean::indexed::csg_boolean_indexed(BooleanOp::Union, &cyl_a, &cyl_b)?;
+        let mut result = cfd_mesh::application::csg::boolean::indexed::csg_boolean(BooleanOp::Union, &cyl_a, &cyl_b)?;
         let ms = t0.elapsed().as_millis();
         report(
             "Union (A ∪ B)",
@@ -138,6 +138,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             2.0 * v_cyl - v_intersect,
             0.05,
             ms,
+            2,
         );
         write_stl(
             &result,
@@ -150,7 +151,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ── Intersection (Steinmetz solid) ────────────────────────────────────────
     {
         let t0 = Instant::now();
-        let mut result = cfd_mesh::application::csg::boolean::indexed::csg_boolean_indexed(BooleanOp::Intersection, &cyl_a, &cyl_b)?;
+        let mut result = cfd_mesh::application::csg::boolean::indexed::csg_boolean(BooleanOp::Intersection, &cyl_a, &cyl_b)?;
         let ms = t0.elapsed().as_millis();
         report(
             "Intersection (A ∩ B) — Steinmetz solid",
@@ -158,6 +159,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             v_intersect,
             0.05,
             ms,
+            2,
         );
         write_stl(
             &result,
@@ -170,7 +172,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ── Difference ────────────────────────────────────────────────────────────
     {
         let t0 = Instant::now();
-        let mut result = cfd_mesh::application::csg::boolean::indexed::csg_boolean_indexed(BooleanOp::Difference, &cyl_a, &cyl_b)?;
+        let mut result = cfd_mesh::application::csg::boolean::indexed::csg_boolean(BooleanOp::Difference, &cyl_a, &cyl_b)?;
         let ms = t0.elapsed().as_millis();
         report(
             "Difference (A \\ B)",
@@ -178,6 +180,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             v_cyl - v_intersect,
             0.05,
             ms,
+            2,
         );
         write_stl(
             &result,
@@ -193,7 +196,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
-fn report(label: &str, mesh: &mut IndexedMesh, expected: f64, tol: f64, ms: u128) {
+fn report(label: &str, mesh: &mut IndexedMesh, expected: f64, tol: f64, ms: u128, expected_chi: i64) {
     let vol = mesh.signed_volume();
     let n = analyze_normals(mesh);
     let err = (vol - expected).abs() / expected.abs().max(1e-12);
@@ -205,7 +208,7 @@ fn report(label: &str, mesh: &mut IndexedMesh, expected: f64, tol: f64, ms: u128
     let adj = AdjacencyGraph::build(&mesh.faces, mesh.edges_ref().unwrap());
     let n_comps = connected_components(&mesh.faces, &adj).len();
 
-    let chi_ok = wt.euler_characteristic == Some(2);
+    let chi_ok = wt.euler_characteristic == Some(expected_chi);
     let comps_ok = n_comps == 1;
     let norm_ok = n.inward_faces == 0;
     let any_issue = !wt.is_watertight || !chi_ok || !comps_ok || !norm_ok;
@@ -218,8 +221,9 @@ fn report(label: &str, mesh: &mut IndexedMesh, expected: f64, tol: f64, ms: u128
         "    Watertight : {}  (boundary={}, non-manifold={})",
         wt.is_watertight, wt.boundary_edge_count, wt.non_manifold_edge_count
     );
+    let genus = (2 - expected_chi) / 2;
     println!(
-        "    Euler χ    : {:?}  (expected 2)  [{}]",
+        "    Euler χ    : {:?}  (expected {expected_chi}, genus {genus})  [{}]",
         wt.euler_characteristic,
         if chi_ok { "PASS" } else { "WARN" }
     );
@@ -259,7 +263,7 @@ fn report(label: &str, mesh: &mut IndexedMesh, expected: f64, tol: f64, ms: u128
         }
         if !chi_ok {
             println!(
-                "       - Euler χ = {:?} (expected 2): phantom islands or non-manifold topology",
+                "       - Euler χ = {:?} (expected {expected_chi}): phantom islands or non-manifold topology",
                 wt.euler_characteristic
             );
         }

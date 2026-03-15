@@ -29,7 +29,7 @@ use std::io::Read;
 use std::path::PathBuf;
 
 use cfd_mesh::application::channel::sweep::SweepMesher;
-use cfd_mesh::application::csg::boolean::{csg_boolean, BooleanOp};
+use cfd_mesh::application::csg::boolean::{csg_boolean, csg_boolean_nary, BooleanOp};
 use cfd_mesh::domain::core::index::RegionId;
 use cfd_mesh::domain::core::scalar::Point3r;
 use cfd_mesh::domain::geometry::primitives::{Cube, PrimitiveMesh};
@@ -141,7 +141,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     let mut final_solid = substrate;
-    let mut all_channels: Option<IndexedMesh> = None;
+    let mut channel_meshes: Vec<IndexedMesh> = Vec::new();
 
     for channel_def in &schematic3d.channels {
         println!("  → sweeping channel {} …", channel_def.id);
@@ -181,25 +181,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         current_ch.rebuild_edges();
-
-        // Union into accumulated fluid mesh.
-        if let Some(existing) = all_channels.take() {
-            match csg_boolean(BooleanOp::Union, &existing, &current_ch) {
-                Ok(m) => all_channels = Some(m),
-                Err(_) => match csg_boolean(BooleanOp::Union, &existing, &current_ch) {
-                    Ok(m) => all_channels = Some(m),
-                    Err(e) => {
-                        eprintln!("  ⚠ union for channel {} failed: {}", channel_def.id, e);
-                        all_channels = Some(existing);
-                    }
-                },
-            }
-        } else {
-            all_channels = Some(current_ch);
-        }
+        channel_meshes.push(current_ch);
     }
 
-    let mut all_channels = all_channels.expect("Must have at least one channel");
+    // N-ary union of all channel meshes in a single pass.
+    let all_channels = if channel_meshes.len() == 1 {
+        channel_meshes.into_iter().next().unwrap()
+    } else {
+        csg_boolean_nary(BooleanOp::Union, &channel_meshes)?
+    };
+
+    let mut all_channels = all_channels;
 
     // Repair orientation and clean up floating artifact faces from overlapping Union
     println!("  → post-processing fluid mesh repairs …");

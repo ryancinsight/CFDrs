@@ -3,7 +3,7 @@
 //! Handles exact 2-D coplanar boolean resolution and seam-vertex injection
 //! into adjacent non-coplanar barrel faces.
 
-use std::collections::{HashMap, HashSet};
+use hashbrown::{HashMap, HashSet};
 
 use super::super::boolean::BooleanOp;
 use super::super::coplanar::basis::PlaneBasis;

@@ -3,7 +3,7 @@ use crate::application::csg::boolean::containment::{containment, Containment};
 use crate::domain::core::scalar::{Point3r, Vector3r};
 use crate::infrastructure::storage::face_store::FaceData;
 use crate::infrastructure::storage::vertex_pool::VertexPool;
-use std::collections::HashMap;
+use hashbrown::HashMap;
 
 fn make_cube(pool: &mut VertexPool, offset: Point3r, half_extent: f64) -> Vec<FaceData> {
     let mut vertex =

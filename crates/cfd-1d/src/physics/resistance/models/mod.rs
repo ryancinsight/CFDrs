@@ -13,7 +13,7 @@ mod venturi;
 
 pub use conductance::{cascade_treatment_flow_fractions, parallel_channel_flow_fractions};
 pub use darcy_weisbach::DarcyWeisbachModel;
-pub use entrance::{durst_entrance_k, durst_entrance_length, CombinationMethod, EntranceEffectsModel};
+pub use entrance::{durst_entrance_k, durst_entrance_length, durst_resistance_multiplier, CombinationMethod, EntranceEffectsModel};
 pub use hagen_poiseuille::HagenPoiseuilleModel;
 pub use junction_loss::{JunctionFlowDirection, JunctionLossModel, JunctionType};
 pub use membrane::MembranePoreModel;

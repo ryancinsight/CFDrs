@@ -91,7 +91,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ── Union ─────────────────────────────────────────────────────────────────
     {
         let t0 = Instant::now();
-        let mut result = match cfd_mesh::application::csg::boolean::indexed::csg_boolean_indexed(
+        let mut result = match cfd_mesh::application::csg::boolean::indexed::csg_boolean(
             BooleanOp::Union,
             &cube_a,
             &cube_b,
@@ -115,7 +115,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ── Intersection ──────────────────────────────────────────────────────────
     {
         let t0 = Instant::now();
-        let mut result = match cfd_mesh::application::csg::boolean::indexed::csg_boolean_indexed(
+        let mut result = match cfd_mesh::application::csg::boolean::indexed::csg_boolean(
             BooleanOp::Intersection,
             &cube_a,
             &cube_b,
@@ -133,7 +133,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ── Difference ────────────────────────────────────────────────────────────
     {
         let t0 = Instant::now();
-        let mut result = match cfd_mesh::application::csg::boolean::indexed::csg_boolean_indexed(
+        let mut result = match cfd_mesh::application::csg::boolean::indexed::csg_boolean(
             BooleanOp::Difference,
             &cube_a,
             &cube_b,

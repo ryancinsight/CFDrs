@@ -1,6 +1,6 @@
 
 
-use cfd_mesh::application::csg::boolean::{csg_boolean_indexed, BooleanOp};
+use cfd_mesh::application::csg::boolean::{csg_boolean, BooleanOp};
 use cfd_mesh::application::watertight::check::check_watertight;
 use cfd_mesh::domain::core::index::VertexId;
 use cfd_mesh::domain::core::scalar::Point3r;
@@ -10,7 +10,7 @@ use cfd_mesh::infrastructure::storage::face_store::FaceData;
 use cfd_mesh::infrastructure::storage::vertex_pool::VertexPool;
 use std::collections::HashMap;
 
-fn csg_boolean_indexed_unchecked(
+fn csg_boolean_unchecked(
     op: BooleanOp,
     mesh_a: &cfd_mesh::IndexedMesh,
     mesh_b: &cfd_mesh::IndexedMesh,
@@ -76,7 +76,7 @@ fn diag_cube_cube_union() {
         ("Intersection", BooleanOp::Intersection),
         ("Difference", BooleanOp::Difference),
     ] {
-        let result = csg_boolean_indexed_unchecked(op, &cube_a, &cube_b);
+        let result = csg_boolean_unchecked(op, &cube_a, &cube_b);
         let edges = EdgeStore::from_face_store(&result.faces);
         let report = check_watertight(&result.vertices, &result.faces, &edges);
         eprintln!("=== {label} ===");
@@ -194,7 +194,7 @@ fn diag_sphere_cylinder() {
         ("Intersection", BooleanOp::Intersection),
         ("Difference", BooleanOp::Difference),
     ] {
-        let result = csg_boolean_indexed(op, &sphere, &cylinder).unwrap();
+        let result = csg_boolean(op, &sphere, &cylinder).unwrap();
         let edges = EdgeStore::from_face_store(&result.faces);
         let report = check_watertight(&result.vertices, &result.faces, &edges);
         eprintln!("=== Sphere/Cylinder {label} ===");

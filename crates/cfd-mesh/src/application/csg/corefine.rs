@@ -72,6 +72,8 @@
 //! for pools of 2 000+ vertices.  The HashMap reduces per-call allocation from
 //! O(pool_size) to O(face_vertex_count) (typically 3–12 entries).
 
+use std::collections::HashMap;
+
 use super::intersect::SnapSegment;
 use crate::domain::core::index::VertexId;
 use crate::domain::core::scalar::{Point3r, Real, Vector3r};
@@ -155,15 +157,15 @@ pub fn corefine_face(
     let max_edge_sq = edge1_sq.max(edge2_sq).max((c - b).norm_squared());
     let seg_degen_sq = DEGENERATE_SEGMENT_REL_SQ * max_edge_sq;
     let mut dedup_snap_segments: Vec<SnapSegment> = Vec::with_capacity(snap_segments.len());
-    let mut seen_snap_segments: Vec<(PointBits3, PointBits3)> =
-        Vec::with_capacity(snap_segments.len());
+    // O(1) amortised membership test via HashSet instead of O(n) Vec::contains.
+    let mut seen_snap_segments: hashbrown::HashSet<(PointBits3, PointBits3)> =
+        hashbrown::HashSet::with_capacity(snap_segments.len());
     for seg in snap_segments {
         if (seg.end - seg.start).norm_squared() < seg_degen_sq {
             continue;
         }
         let key = canonical_segment_key(seg);
-        if !seen_snap_segments.contains(&key) {
-            seen_snap_segments.push(key);
+        if seen_snap_segments.insert(key) {
             dedup_snap_segments.push(*seg);
         }
     }
@@ -184,6 +186,8 @@ pub fn corefine_face(
     let mut seg_vids: Vec<[Option<VertexId>; 2]> = vec![[None, None]; dedup_snap_segments.len()];
     // Use a flat Vec for O(1) short-array dedup to preserve insertion order without allocation.
     let mut interior_vids: Vec<VertexId> = Vec::new();
+    // O(1) membership test; the Vec preserves insertion order for PSLG registration.
+    let mut interior_vid_set: hashbrown::HashSet<VertexId> = hashbrown::HashSet::new();
 
     for (si, seg) in dedup_snap_segments.iter().enumerate() {
         for (ep, &p3d) in [seg.start, seg.end].iter().enumerate() {
@@ -225,7 +229,7 @@ pub fn corefine_face(
             // Interior endpoint fallback
             if seg_vids[si][ep].is_none() && inside_triangle(p3d, a, b, c, face_n, axis_u, axis_v) {
                 let vid = pool.insert_or_weld(p3d, face_n_unit);
-                if !interior_vids.contains(&vid) {
+                if interior_vid_set.insert(vid) {
                     interior_vids.push(vid);
                 }
             }
@@ -259,7 +263,7 @@ pub fn corefine_face(
                 continue;
             }
             let vid = pool.insert_or_weld(crossing, face_n_unit);
-            if !interior_vids.contains(&vid) {
+            if interior_vid_set.insert(vid) {
                 interior_vids.push(vid);
             }
         }
@@ -349,8 +353,15 @@ pub fn corefine_face(
     // call.  With pools of 2 000+ vertices and 50+ faces this became 100 k
     // entries.  A `HashMap` with an exact capacity hint is O(face_vertex_count)
     // and avoids the large up-front allocation entirely.
+    //
+    // ## Performance note (CW5 audit)
+    //
+    // Replaced `Vec<(VertexId, PslgVertexId)>` with `HashMap` for O(1) lookup.
+    // The previous linear-scan `iter().find()` was O(n) per lookup, making
+    // PSLG registration O(n²) in the number of Steiner vertices per face.
     let register_cap = boundary_vids.len() + interior_vids.len();
-    let mut vid_to_pslg: Vec<(VertexId, PslgVertexId)> = Vec::with_capacity(register_cap);
+    let mut vid_to_pslg: HashMap<VertexId, PslgVertexId> =
+        HashMap::with_capacity(register_cap);
     let mut pslg_to_vid: Vec<VertexId> = Vec::with_capacity(register_cap);
     let mut pslg = Pslg::new();
 
@@ -358,17 +369,17 @@ pub fn corefine_face(
     // Returns the PSLG vertex id.
     let register = |vid: VertexId,
                     pslg: &mut Pslg,
-                    vid_to_pslg: &mut Vec<(VertexId, PslgVertexId)>,
+                    vid_to_pslg: &mut HashMap<VertexId, PslgVertexId>,
                     pslg_to_vid: &mut Vec<VertexId>,
                     pool: &VertexPool|
      -> PslgVertexId {
-        if let Some(&(_, pid)) = vid_to_pslg.iter().find(|(v, _)| *v == vid) {
+        if let Some(&pid) = vid_to_pslg.get(&vid) {
             return pid;
         }
         let pos3d = *pool.position(vid);
         let (u, v) = project_2d(pos3d, axis_u, axis_v);
         let pid = pslg.add_vertex(u, v);
-        vid_to_pslg.push((vid, pid));
+        vid_to_pslg.insert(vid, pid);
         pslg_to_vid.push(vid);
         pid
     };
@@ -391,8 +402,8 @@ pub fn corefine_face(
     for i in 0..nb {
         let va = boundary_vids[i];
         let vb = boundary_vids[(i + 1) % nb];
-        let pa = vid_to_pslg.iter().find(|(v, _)| *v == va).unwrap().1;
-        let pb = vid_to_pslg.iter().find(|(v, _)| *v == vb).unwrap().1;
+        let pa = vid_to_pslg[&va];
+        let pb = vid_to_pslg[&vb];
         if pa != pb {
             let p1 = unique_pts[pa.idx()];
             let p2 = unique_pts[pb.idx()];
@@ -415,8 +426,8 @@ pub fn corefine_face(
     // Constraint segments from snap-segment endpoints.
     for vids in &seg_vids {
         if let (Some(v0), Some(v1)) = (vids[0], vids[1]) {
-            let p0_opt = vid_to_pslg.iter().find(|(v, _)| *v == v0).map(|(_, p)| *p);
-            let p1_opt = vid_to_pslg.iter().find(|(v, _)| *v == v1).map(|(_, p)| *p);
+            let p0_opt = vid_to_pslg.get(&v0).copied();
+            let p1_opt = vid_to_pslg.get(&v1).copied();
             if let (Some(p0), Some(p1)) = (p0_opt, p1_opt) {
                 if p0 != p1 {
                     let pa = unique_pts[p0.idx()];

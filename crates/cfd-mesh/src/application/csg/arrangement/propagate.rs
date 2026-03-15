@@ -1,3 +1,47 @@
+//! Seam vertex propagation for arrangement CSG.
+//!
+//! After intersection detection produces snap-segments (the Steiner points
+//! along mesh–mesh intersection curves), adjacent faces that share edges
+//! with intersected faces must also receive those vertices.  Without this
+//! step, the mesh has **T-junctions**: a vertex sits on an edge of an
+//! adjacent triangle but is not topologically connected to it, breaking
+//! the manifold property.
+//!
+//! This module provides two propagation strategies:
+//!
+//! 1. [`propagate_seam_vertices`] — For general co-refinement: examines
+//!    each intersected face's snap-segments and injects Steiner points into
+//!    neighbouring faces that share edges with the intersected face.
+//!
+//! 2. [`inject_cap_seam_into_barrels`] — For coplanar dispatch: injects
+//!    boundary vertices of resolved coplanar groups into adjacent
+//!    non-coplanar ("barrel") faces, preventing T-junctions at the
+//!    coplanar/non-coplanar boundary.
+//!
+//! ## Algorithm — Edge-Adjacent Propagation
+//!
+//! For each snap-segment endpoint `v`, identify the edge `e = (a, b)` of
+//! the target face that contains `v` (within collinearity tolerance).
+//! Then inject a zero-length sub-interval `[v, v]` into `e`'s segment list,
+//! which forces the downstream CDT to include `v` as a constrained vertex.
+//!
+//! ## Theorem — Propagation Completeness
+//!
+//! If every snap-segment endpoint `v` that lies on a shared edge `e` is
+//! propagated to all faces incident to `e`, then after CDT co-refinement,
+//! no T-junctions remain at shared edges.
+//!
+//! *Proof.*  A T-junction at edge `e` requires a vertex `v` on `e` that is
+//! in the refined triangulation of one face but not the other.  Since
+//! `v` was added as a constrained point to the CDT of every face containing
+//! `e`, the CDT includes `v` as a vertex in all triangulations.  Therefore
+//! no T-junction can exist.  ∎
+//!
+//! ## References
+//!
+//! - Shewchuk, J. R. (1996). "Triangle: Engineering a 2D quality mesh
+//!   generator."  Provides CDT guarantees used by propagation.
+
 use crate::application::csg::intersect::SnapSegment;
 use crate::application::csg::predicates3d::{
     point_on_segment_exact, proper_segment_intersection_params_projected_exact,
@@ -6,7 +50,7 @@ use crate::application::welding::snap::GridCell;
 use crate::domain::core::scalar::{Point3r, Real, Vector3r};
 use crate::infrastructure::storage::face_store::FaceData;
 use crate::infrastructure::storage::vertex_pool::VertexPool;
-use std::collections::HashMap;
+use hashbrown::{HashMap, HashSet};
 
 /// Collinearity tolerance for point-on-edge detection in seam propagation.
 ///
@@ -295,7 +339,7 @@ pub fn propagate_seam_vertices(
 /// matching `propagate_seam_vertices` for consistent seam detection.
 pub fn inject_cap_seam_into_barrels(
     barrel_faces: &[FaceData],
-    coplanar_used: &std::collections::HashSet<usize>,
+    coplanar_used: &HashSet<usize>,
     plane_pt: &Point3r,
     plane_n: &Vector3r,
     seam_positions: &[Point3r],
@@ -566,7 +610,7 @@ mod tests {
     fn inject_cap_seam_finds_seam_at_quarter_param() {
         let mut pool = VertexPool::default_millifluidic();
         let (faces, plane_pt, plane_n) = single_rim_face(&mut pool);
-        let coplanar_used = std::collections::HashSet::new();
+        let coplanar_used = HashSet::new();
         let seam_positions = vec![Point3r::new(0.25, 0.0, 0.0)];
         let mut segs_out = vec![Vec::new(); faces.len()];
 
@@ -605,7 +649,7 @@ mod tests {
 
         inject_cap_seam_into_barrels(
             &faces,
-            &std::collections::HashSet::new(),
+            &HashSet::new(),
             &plane_pt,
             &plane_n,
             &seam_positions,
@@ -625,7 +669,7 @@ mod tests {
     fn inject_cap_seam_ignores_off_plane_position() {
         let mut pool = VertexPool::default_millifluidic();
         let (faces, plane_pt, plane_n) = single_rim_face(&mut pool);
-        let coplanar_used = std::collections::HashSet::new();
+        let coplanar_used = HashSet::new();
         // z=0.5 — off-plane, should be rejected by the ds.abs() guard.
         let seam_positions = vec![Point3r::new(0.5, 0.0, 0.5)];
         let mut segs_out = vec![Vec::new(); faces.len()];
@@ -651,7 +695,7 @@ mod tests {
     fn inject_cap_seam_multiple_positions_generate_sorted_sub_intervals() {
         let mut pool = VertexPool::default_millifluidic();
         let (faces, plane_pt, plane_n) = single_rim_face(&mut pool);
-        let coplanar_used = std::collections::HashSet::new();
+        let coplanar_used = HashSet::new();
         // Intentionally insert t=0.75 before t=0.25 to verify sorting.
         let seam_positions = vec![Point3r::new(0.75, 0.0, 0.0), Point3r::new(0.25, 0.0, 0.0)];
         let mut segs_out = vec![Vec::new(); faces.len()];
@@ -681,7 +725,7 @@ mod tests {
         let v1 = pool.insert_or_weld(Point3r::new(0.0, 0.5, -1.0), nz);
         let v2 = pool.insert_or_weld(Point3r::new(1.0, 0.5, -1.0), nz);
         let faces = vec![FaceData::untagged(v0, v1, v2)];
-        let coplanar_used = std::collections::HashSet::new();
+        let coplanar_used = HashSet::new();
         let plane_pt = Point3r::new(0.0, 0.0, 0.0);
         let plane_n = Vector3r::new(0.0, 0.0, 1.0);
         let seam_positions = vec![Point3r::new(0.5, 0.0, 0.0)];
@@ -709,7 +753,7 @@ mod tests {
     fn inject_cap_seam_position_beside_rim_edge_is_rejected() {
         let mut pool = VertexPool::default_millifluidic();
         let (faces, plane_pt, plane_n) = single_rim_face(&mut pool);
-        let coplanar_used = std::collections::HashSet::new();
+        let coplanar_used = HashSet::new();
         // y=0.5 puts the point on the cap plane but off the rim edge [0,0,0]→[1,0,0].
         let seam_positions = vec![Point3r::new(0.5, 0.5, 0.0)];
         let mut segs_out = vec![Vec::new(); faces.len()];

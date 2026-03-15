@@ -345,8 +345,6 @@ impl BlueprintMeshPipeline {
                 )?
             } else if matches!(&class, TopologyClass::Complex) {
                 // Complex: reuse the already-built fluid_mesh as the void.
-                // Use tolerant CSG because the fluid mesh may have minor
-                // boundary-edge artifacts from multi-junction unions.
                 boolean::csg_boolean(
                     BooleanOp::Difference,
                     &SubstrateBuilder::well_plate_96(config.chip_height_mm).build_indexed()?,
@@ -1021,10 +1019,6 @@ fn assemble_fluid_mesh(meshes: Vec<IndexedMesh>) -> MeshResult<IndexedMesh> {
     assemble_fluid_mesh_with_policy(meshes, true)
 }
 
-fn assemble_fluid_mesh_best_effort(meshes: Vec<IndexedMesh>) -> MeshResult<IndexedMesh> {
-    assemble_fluid_mesh_with_policy(meshes, false)
-}
-
 fn assemble_fluid_mesh_with_policy(
     meshes: Vec<IndexedMesh>,
     require_watertight: bool,
@@ -1035,22 +1029,10 @@ fn assemble_fluid_mesh_with_policy(
         });
     }
 
-    let mut accumulated = match crate::application::csg::boolean::csg_boolean_nary_union(&meshes) {
-        Ok(mesh) => mesh,
-        Err(MeshError::NotWatertight { .. }) if !require_watertight => {
-            let mut iter = meshes.into_iter();
-            let mut accumulated = iter.next().unwrap();
-            for mesh in iter {
-                accumulated = crate::application::csg::boolean::csg_boolean_indexed_best_effort(
-                    crate::application::csg::BooleanOp::Union,
-                    &accumulated,
-                    &mesh,
-                )?;
-            }
-            accumulated
-        }
-        Err(error) => return Err(error),
-    };
+    let mut accumulated = crate::application::csg::boolean::csg_boolean_nary(
+        crate::application::csg::BooleanOp::Union,
+        &meshes,
+    )?;
     repair_pipeline_mesh(&mut accumulated, require_watertight)?;
     Ok(accumulated)
 }
@@ -1610,7 +1592,7 @@ fn build_complex_fluid_mesh(
         }
     }
 
-    assemble_fluid_mesh_best_effort(chain_meshes).map_err(|error| MeshError::ChannelError {
+    assemble_fluid_mesh_with_policy(chain_meshes, false).map_err(|error| MeshError::ChannelError {
         message: format!("complex fluid assembly failed: {error}"),
     })
 }

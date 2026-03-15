@@ -51,6 +51,7 @@
 ///
 /// # Returns
 /// Daughter branch hematocrit, clamped to [0, min(1, 2 × H_feed)].
+#[inline]
 #[must_use]
 pub fn plasma_skimming_hematocrit(
     feed_hematocrit: f64,
@@ -98,8 +99,9 @@ pub fn plasma_skimming_hematocrit(
     // B depends on feed hematocrit and diameter
     let b = 1.0 + 6.98 * (1.0 - ht_feed) / d_feed;
 
-    // logit(FQ_B)
-    let logit_fqb = (fq / (1.0 - fq)).ln();
+    // logit(FQ_B) — clamp to avoid log(0) / division-by-zero at extremes
+    let fq_safe = fq.clamp(0.001, 0.999);
+    let logit_fqb = (fq_safe / (1.0 - fq_safe)).ln();
 
     // logit(FQ_E) = A + B * logit(FQ_B)
     let logit_fqe = a + b * logit_fqb;
@@ -111,7 +113,7 @@ pub fn plasma_skimming_hematocrit(
     //   FQ_E = (H_daughter * Q_daughter) / (H_feed * Q_total)
     //        = (H_daughter / H_feed) * fq
     // Therefore: H_daughter = H_feed * FQ_E / fq
-    let ht_daughter = ht_feed * fqe / fq;
+    let ht_daughter = ht_feed * fqe / fq_safe;
 
     // Clamp to physically meaningful range
     ht_daughter.clamp(0.0, (2.0 * ht_feed).min(1.0))

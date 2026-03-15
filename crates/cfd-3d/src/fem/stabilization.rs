@@ -200,6 +200,7 @@ pub const GRAD_DIV_GAMMA_DEFAULT: f64 = 1.0;
 ///
 /// **Reference**: Olshanskii, M.A. & Reusken, A. (2004). "Grad-div
 /// stabilization for the Stokes equations", *Math. Comp.* 73(248):1699-1718.
+#[inline]
 pub fn grad_div_parameter(h_element: f64, gamma: f64) -> f64 {
     gamma * h_element * h_element
 }

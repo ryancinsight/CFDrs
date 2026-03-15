@@ -1,12 +1,59 @@
 //! Boundary-hole patching for arrangement output.
 //!
-//! Applies deterministic cleanup, constrained seam repair, loop tracing, and
-//! CDT/ear-clip patch fill to close small residual boundary holes.
+//! After co-refinement, fragment classification, and seam stitching, the
+//! output mesh may still contain small boundary holes at barrel–barrel
+//! junctions or where excluded coplanar faces leave dangling edges.
+//! This module traces those boundary loops and fills them with patch
+//! triangles to restore a watertight surface.
+//!
+//! ## Algorithm — Boundary Hole Patching (7-step pipeline)
+//!
+//! 1. **Degenerate face removal** — Remove zero-area and extreme-sliver
+//!    faces (aspect ratio below threshold).
+//!
+//! 2. **Face deduplication** — Remove coincident faces with opposing
+//!    orientation (internal membrane cancellation).
+//!
+//! 3. **Conservative seam stitch** — Merge near-coincident boundary
+//!    vertices using spatial hashing with tolerance welding.
+//!
+//! 4. **Snap-round T-junction repair** — Inject boundary vertices that
+//!    lie on edges of adjacent faces, closing T-junctions.
+//!
+//! 5. **Boundary loop tracing** — Trace connected boundary half-edges
+//!    into closed loops using a successor map.
+//!
+//! 6. **Collinear loop filtering** — Skip degenerate loops whose vertices
+//!    are nearly collinear (area²/diameter⁴ below threshold).
+//!
+//! 7. **CDT / ear-clip fill** — Fill each valid loop with constrained
+//!    Delaunay triangulation (preferred) or ear-clipping (fallback).
+//!
+//! ## Theorem — Boundary Loop Tracing Correctness
+//!
+//! A boundary half-edge `(a → b)` is one whose reverse `(b → a)` does not
+//! appear in any face.  The successor map `next: a → b` for boundary
+//! edges forms a set of disjoint directed cycles if and only if every
+//! boundary vertex has exactly one incoming and one outgoing boundary edge.
+//!
+//! *Proof.*  Each boundary vertex `v` has `in-degree(v)` = number of
+//! boundary edges ending at `v` and `out-degree(v)` = number starting at
+//! `v`.  In a manifold mesh, each boundary vertex has exactly one incoming
+//! and one outgoing boundary edge (Euler characteristic argument), so the
+//! successor map is a permutation, which decomposes into disjoint cycles.  ∎
+//!
+//! ## References
+//!
+//! - Liepa, P. (2003). "Filling holes in meshes." *Eurographics Symposium
+//!   on Geometry Processing*, 200–205.
+//! - Held, M. (2001). "FIST: Fast industrial-strength triangulation of
+//!   polygons." *Algorithmica*, 30(4), 563–596.
 
-use std::collections::{HashMap, HashSet};
+use hashbrown::{HashMap, HashSet};
 
 use super::mesh_ops::{apply_vertex_merge, boundary_half_edges, dedup_faces_unordered, merge_root};
 use super::seam::stitch_boundary_seams_conservative;
+use super::snap_round;
 use super::stitch;
 #[cfg(test)]
 use crate::application::csg::diagnostics::trace_enabled;
@@ -266,7 +313,7 @@ pub(crate) fn patch_small_boundary_holes(faces: &mut Vec<FaceData>, pool: &Verte
 
         // -- (b) Step 5: exact constrained insertion first, tolerance fallback.
         let before_split = faces.len();
-        stitch::snap_round_tjunctions(faces, pool);
+        snap_round::snap_round_tjunctions(faces, pool);
         if faces.len() == before_split {
             let mut bnd_verts: Vec<VertexId> =
                 boundary_edges.iter().flat_map(|&(a, b)| [a, b]).collect();

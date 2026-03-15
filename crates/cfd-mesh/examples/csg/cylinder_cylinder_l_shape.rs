@@ -197,7 +197,7 @@ fn run_sharp() -> Result<(), Box<dyn std::error::Error>> {
 
     // Union
     let t1 = Instant::now();
-    let mut result = cfd_mesh::application::csg::boolean::indexed::csg_boolean_indexed(
+    let mut result = cfd_mesh::application::csg::boolean::indexed::csg_boolean(
         BooleanOp::Union,
         &stem,
         &arm,
@@ -349,12 +349,13 @@ fn run_rounded() -> Result<(), Box<dyn std::error::Error>> {
     );
     println!();
 
-    // ── Union the three pieces ────────────────────────────────────────────────
+    // ── N-ary union of the three pieces ─────────────────────────────────────
     // Each pair overlaps by eps, so the union correctly trims the interior caps.
-    // Sequence: (stem ∪ elbow) ∪ arm.
     let t1 = Instant::now();
-    let stem_elbow = cfd_mesh::application::csg::boolean::indexed::csg_boolean_indexed(BooleanOp::Union, &stem, &elbow_mesh)?;
-    let mut result = cfd_mesh::application::csg::boolean::indexed::csg_boolean_indexed(BooleanOp::Union, &stem_elbow, &arm)?;
+    let mut result = cfd_mesh::application::csg::boolean::indexed::csg_boolean_nary(
+        BooleanOp::Union,
+        &[stem, elbow_mesh, arm],
+    )?;
     let union_ms = t1.elapsed().as_millis();
 
     // Tolerance on expected: the eps overlaps add ~2·π r² eps of material that

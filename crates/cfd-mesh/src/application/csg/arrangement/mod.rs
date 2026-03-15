@@ -123,6 +123,9 @@ pub mod classify;
 pub(crate) mod coplanar_dispatch;
 pub(crate) mod coplanar_groups;
 pub(crate) mod coplanar_resolution;
+pub(crate) mod curvature_refine;
+#[cfg(test)]
+pub mod degeneracy_stress_tests;
 pub(crate) mod dsu;
 pub(crate) mod fragment_analysis;
 pub(crate) mod fragment_classification;
@@ -141,6 +144,7 @@ pub(crate) mod result_finalization;
 #[cfg(test)]
 pub mod scale_robustness_tests;
 pub(crate) mod seam;
+pub(crate) mod snap_round;
 pub(crate) mod stitch;
 #[cfg(test)]
 pub mod tests;

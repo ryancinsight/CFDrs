@@ -2,8 +2,54 @@
 //!
 //! Handles post-corefine fragment consolidation and classification for the
 //! canonical Boolean engine across any operand count.
+//!
+//! ## Algorithm — N-Way Fragment Survivorship
+//!
+//! After CDT co-refinement, each original face is split into triangular
+//! **fragments**.  Each fragment must be classified as INSIDE, OUTSIDE,
+//! or COPLANAR with respect to every *other* operand mesh.  A fragment
+//! survives into the result if and only if it passes the survivorship
+//! test for the requested Boolean operation against all other operands.
+//!
+//! | Operation | Fragment from mesh i survives against mesh j iff |
+//! |-----------|--------------------------------------------------|
+//! | Union | class(frag, mesh_j) = OUTSIDE ∨ (COPLANAR_SAME ∧ i < j) |
+//! | Intersection | class(frag, mesh_j) ∈ {INSIDE, COPLANAR_SAME} |
+//! | Difference (i=0) | class(frag, mesh_j) = OUTSIDE |
+//! | Difference (i>0, j=0) | class(frag, mesh_j) ∈ {INSIDE, COPLANAR_OPPOSITE} |
+//! | Difference (i>0, j>0) | class(frag, mesh_j) = OUTSIDE ∨ (COPLANAR_SAME ∧ i < j) |
+//!
+//! For difference, subtrahend fragments (i > 0) that survive are
+//! **orientation-reversed** (winding order flipped) to form the inner
+//! surface of the cavity.
+//!
+//! ## Theorem — Fragment Classification Completeness
+//!
+//! For any fragment `f` from mesh `i`, the classification against mesh `j`
+//! is well-defined if and only if:
+//! 1. The fragment centroid does not lie exactly on mesh `j`'s surface.
+//! 2. The fragment is not a degenerate sliver (zero-area triangle).
+//!
+//! *Proof.*  Outside the surface, the generalized winding number (GWN) is
+//! 0 ± ε; inside, it is 1 ± ε.  The `classify_fragment_prepared` function
+//! uses GWN with a 0.5 threshold.  For non-degenerate fragments whose
+//! centroid is not on the surface, the GWN is bounded away from 0.5 (by
+//! the smoothness of the solid angle integral), so classification is
+//! unambiguous.  Degenerate slivers are filtered before classification.
+//! Coplanar fragments are handled by the separate coplanar dispatch.  ∎
+//!
+//! ## Complexity
+//!
+//! | Phase | Time | Space |
+//! |-------|------|-------|
+//! | Cross-mesh vertex consolidation | O(F) | O(V) |
+//! | Fragment classification | O(F × M × G) | O(F × M) |
+//! | Result assembly | O(F) | O(F) |
+//!
+//! where F = total fragments, M = number of operand meshes, V = unique
+//! vertices, G = faces in the largest operand (for GWN evaluation).
 
-use std::collections::{HashMap, HashSet};
+use hashbrown::{HashMap, HashSet};
 
 use super::boolean_csg::BooleanOp;
 use super::classify::{
@@ -19,10 +65,17 @@ use crate::infrastructure::storage::face_store::FaceData;
 use crate::infrastructure::storage::vertex_pool::VertexPool;
 
 /// Face classification record across the generalized Boolean fragment set.
+///
+/// Each record tracks a single triangular fragment produced by CDT
+/// co-refinement, together with its provenance (which operand mesh and
+/// which parent face it was refined from).
 #[derive(Clone, Debug)]
 pub struct BooleanFragmentRecord {
+    /// The triangular fragment (three vertex IDs + region tag).
     pub face: FaceData,
+    /// Index of the operand mesh this fragment originated from.
     pub mesh_idx: usize,
+    /// Index of the parent face within `meshes[mesh_idx]`.
     pub parent_idx: usize,
 }
 
@@ -138,6 +191,9 @@ pub(crate) fn resolve_multi_mesh_fragments(
     result_faces
 }
 
+/// Check whether a triangle lies exactly on one of the already-resolved
+/// coplanar planes.  Uses exact orient3d predicates to avoid false
+/// positives from floating-point rounding.
 fn lies_on_resolved_coplanar_plane(
     tri: &[Point3r; 3],
     coplanar_plane_infos: &[CoplanarPlaneInfo],
@@ -149,6 +205,9 @@ fn lies_on_resolved_coplanar_plane(
     })
 }
 
+/// Classify a fragment's centroid against an operand mesh using the
+/// prepared-face GWN evaluator.  Returns `Outside` immediately if the
+/// centroid falls outside the mesh's AABB (fast rejection).
 fn classify_fragment_against_mesh(
     centroid: &Point3r,
     frag_normal: &nalgebra::Vector3<f64>,
@@ -162,6 +221,8 @@ fn classify_fragment_against_mesh(
     classify_fragment_prepared(centroid, frag_normal, prepared_faces)
 }
 
+/// Apply the Boolean survivorship table for a single fragment against
+/// one other operand.  See module-level docs for the full truth table.
 fn fragment_survives_against_operand(
     op: BooleanOp,
     frag_mesh_idx: usize,
@@ -189,6 +250,13 @@ fn fragment_survives_against_operand(
     }
 }
 
+/// Merge spatially coincident vertices across mesh boundaries.
+///
+/// After CDT co-refinement, vertices from different operands may occupy
+/// the same position (within welding tolerance 2 × 10⁻⁴) but have
+/// distinct [`VertexId`]s.  This pass uses a spatial hash grid to identify
+/// coincident pairs and rewrites fragment vertex references to canonical
+/// (lowest-ID) representatives.
 fn consolidate_cross_mesh_vertices(frags: &mut Vec<BooleanFragmentRecord>, pool: &VertexPool) {
     let tol_sq = 4.0e-8_f64; // (2e-4)^2
     let tol = 2e-4_f64;

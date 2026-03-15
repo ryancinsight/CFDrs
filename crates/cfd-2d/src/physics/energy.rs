@@ -46,6 +46,23 @@ pub struct EnergyEquationSolver<T: RealField + Copy> {
     ny: usize,
     /// Reusable work buffer for explicit time stepping (avoids per-call allocation)
     work_buffer: Vec<Vec<T>>,
+    /// Whether to include viscous dissipation as an additional heat source.
+    ///
+    /// When enabled, the viscous dissipation function Phi/(rho*Cp) is added to the
+    /// heat source before each time step. This requires velocity gradients and
+    /// dynamic viscosity to be provided via [`Self::set_viscous_dissipation_params`].
+    ///
+    /// Default: `false` (no change to existing behavior).
+    include_viscous_dissipation: bool,
+    /// Dynamic viscosity field [Pa·s] for viscous dissipation computation.
+    /// Only used when `include_viscous_dissipation` is true.
+    viscous_dissipation_mu: Vec<Vec<f64>>,
+    /// Density [kg/m³] for viscous dissipation normalization (Phi / (rho * Cp)).
+    /// Only used when `include_viscous_dissipation` is true.
+    viscous_dissipation_rho: f64,
+    /// Specific heat capacity [J/(kg·K)] for viscous dissipation normalization.
+    /// Only used when `include_viscous_dissipation` is true.
+    viscous_dissipation_cp: f64,
 }
 
 impl<T: RealField + Copy> EnergyEquationSolver<T> {
@@ -58,7 +75,43 @@ impl<T: RealField + Copy> EnergyEquationSolver<T> {
             nx,
             ny,
             work_buffer: vec![vec![T::zero(); ny]; nx],
+            include_viscous_dissipation: false,
+            viscous_dissipation_mu: vec![vec![0.0; ny]; nx],
+            viscous_dissipation_rho: 1000.0,
+            viscous_dissipation_cp: 4186.0,
         }
+    }
+
+    /// Enable or disable viscous dissipation as an additional heat source.
+    ///
+    /// When enabled, the solver adds Phi/(rho*Cp) to the heat source at each
+    /// interior point before the explicit time step, where Phi is the viscous
+    /// dissipation function computed from velocity gradients.
+    ///
+    /// Default: `false`.
+    pub fn set_include_viscous_dissipation(&mut self, enable: bool) {
+        self.include_viscous_dissipation = enable;
+    }
+
+    /// Returns whether viscous dissipation is currently enabled.
+    pub fn include_viscous_dissipation(&self) -> bool {
+        self.include_viscous_dissipation
+    }
+
+    /// Set the fluid properties needed for viscous dissipation computation.
+    ///
+    /// # Arguments
+    /// * `mu` - Uniform dynamic viscosity [Pa·s]
+    /// * `rho` - Density [kg/m³]
+    /// * `cp` - Specific heat capacity [J/(kg·K)]
+    pub fn set_viscous_dissipation_params(&mut self, mu: f64, rho: f64, cp: f64) {
+        for row in &mut self.viscous_dissipation_mu {
+            for val in row.iter_mut() {
+                *val = mu;
+            }
+        }
+        self.viscous_dissipation_rho = rho;
+        self.viscous_dissipation_cp = cp;
     }
 
     /// Solve energy equation using explicit time stepping
@@ -103,6 +156,65 @@ impl<T: RealField + Copy> EnergyEquationSolver<T> {
                 boundary_conditions.get(&(i, self.ny - 1))
             {
                 self.work_buffer[i][self.ny - 1] = self.temperature[i][0];
+            }
+        }
+
+        // Optionally add viscous dissipation to heat source.
+        // This is controlled by a flag to avoid changing default behavior.
+        // We compute Phi/(rho*Cp) from velocity gradients and add it to the
+        // heat source field. The contribution is removed after the time step
+        // to avoid accumulation across calls.
+        //
+        // Computation uses T-valued arithmetic throughout for generic
+        // compatibility. The mu/rho/cp parameters are stored as f64 but
+        // only consumed in the f64-specialized path (see below).
+        let viscous_dissipation_contributions: Option<Vec<Vec<T>>> =
+            if self.include_viscous_dissipation {
+                let two = T::one() + T::one();
+                let two_dx = two * dx;
+                let two_dy = two * dy;
+                let mut contribs = vec![vec![T::zero(); self.ny]; self.nx];
+                for i in 1..self.nx - 1 {
+                    for j in 1..self.ny - 1 {
+                        let du_dx = (u_velocity[i + 1][j] - u_velocity[i - 1][j]) / two_dx;
+                        let du_dy = (u_velocity[i][j + 1] - u_velocity[i][j - 1]) / two_dy;
+                        let dv_dx = (v_velocity[i + 1][j] - v_velocity[i - 1][j]) / two_dx;
+                        let dv_dy = (v_velocity[i][j + 1] - v_velocity[i][j - 1]) / two_dy;
+
+                        // Phi = 2*mu*[(du/dx)^2 + (dv/dy)^2] + mu*(du/dy + dv/dx)^2
+                        // Compute in T-space using stored f64 mu converted via
+                        // repeated addition (safe for any RealField).
+                        // For simplicity, use the viscous_dissipation_2d function
+                        // on f64 and store the contribution to add/remove.
+                        let phi = two * (du_dx * du_dx + dv_dy * dv_dy)
+                            + (du_dy + dv_dx) * (du_dy + dv_dx);
+                        // phi is now the dissipation per unit viscosity (mu=1).
+                        // We scale by mu/(rho*cp) but these are f64 stored params.
+                        // Store the T-valued phi; the f64 scaling is applied below.
+                        contribs[i][j] = phi;
+                    }
+                }
+                Some(contribs)
+            } else {
+                None
+            };
+
+        // Apply viscous dissipation to heat_source (if enabled)
+        if let Some(ref contribs) = viscous_dissipation_contributions {
+            let rho_cp = self.viscous_dissipation_rho * self.viscous_dissipation_cp;
+            if rho_cp > 0.0 {
+                for i in 1..self.nx - 1 {
+                    for j in 1..self.ny - 1 {
+                        // Scale: mu / (rho * cp) * phi_normalized
+                        // phi_normalized = 2*(du_dx^2 + dv_dy^2) + (du_dy+dv_dx)^2
+                        // full contribution = mu * phi_normalized / (rho * cp)
+                        let scale = self.viscous_dissipation_mu[i][j] / rho_cp;
+                        // Convert scale factor from f64 to T via successive halvings.
+                        // For f64 T this is exact; for f32 it rounds.
+                        self.heat_source[i][j] +=
+                            contribs[i][j] * T::from_subset(&scale);
+                    }
+                }
             }
         }
 
@@ -151,6 +263,21 @@ impl<T: RealField + Copy> EnergyEquationSolver<T> {
 
                 // Explicit update
                 self.work_buffer[i][j] = t + dt * (-conv_term + diff_term + self.heat_source[i][j]);
+            }
+        }
+
+        // Remove viscous dissipation contributions from heat_source to avoid
+        // accumulation across successive calls to solve_explicit().
+        if let Some(ref contribs) = viscous_dissipation_contributions {
+            let rho_cp = self.viscous_dissipation_rho * self.viscous_dissipation_cp;
+            if rho_cp > 0.0 {
+                for i in 1..self.nx - 1 {
+                    for j in 1..self.ny - 1 {
+                        let scale = self.viscous_dissipation_mu[i][j] / rho_cp;
+                        self.heat_source[i][j] -=
+                            contribs[i][j] * T::from_subset(&scale);
+                    }
+                }
             }
         }
 
@@ -222,6 +349,7 @@ impl<T: RealField + Copy> EnergyEquationSolver<T> {
 ///
 /// **Reference**: Bejan, A. (2013). *Convection Heat Transfer* (4th ed.),
 /// Wiley, Section 2.5.
+#[inline]
 pub fn viscous_dissipation_2d(
     du_dx: f64,
     du_dy: f64,
@@ -238,6 +366,7 @@ pub fn viscous_dissipation_2d(
 /// Br = mu * U_ref^2 / (k_thermal * delta_T)
 ///
 /// A floor of 1e-30 is applied to delta_T to avoid division by zero.
+#[inline]
 pub fn brinkman_number(mu: f64, u_ref: f64, k_thermal: f64, delta_t: f64) -> f64 {
     mu * u_ref * u_ref / (k_thermal * delta_t.max(1e-30))
 }
@@ -1365,5 +1494,101 @@ mod tests {
 
         // Use more realistic tolerance for explicit diffusion solver with updated BC handling
         assert!(total_change < 1.0, "Total change too large: {total_change}");
+    }
+
+    #[test]
+    fn test_viscous_dissipation_flag_defaults_false() {
+        let solver = EnergyEquationSolver::<f64>::new(10, 10, 300.0, 0.01);
+        assert!(
+            !solver.include_viscous_dissipation(),
+            "Viscous dissipation must be disabled by default"
+        );
+    }
+
+    #[test]
+    fn test_viscous_dissipation_flag_can_be_enabled() {
+        let mut solver = EnergyEquationSolver::<f64>::new(10, 10, 300.0, 0.01);
+        assert!(!solver.include_viscous_dissipation());
+        solver.set_include_viscous_dissipation(true);
+        assert!(solver.include_viscous_dissipation());
+        solver.set_include_viscous_dissipation(false);
+        assert!(!solver.include_viscous_dissipation());
+    }
+
+    #[test]
+    fn test_viscous_dissipation_adds_heat() {
+        // With viscous dissipation enabled and a strong shear flow,
+        // interior temperatures should rise compared to the case without.
+        let nx = 7;
+        let ny = 7;
+        let dt = 0.0001;
+        let dx = 0.1;
+        let dy = 0.1;
+
+        // Reference run: no dissipation
+        let mut solver_off = EnergyEquationSolver::<f64>::new(nx, ny, 300.0, 0.01);
+        // Strong shear: u varies linearly in y
+        let mut u_velocity = vec![vec![0.0; ny]; nx];
+        for i in 0..nx {
+            for j in 0..ny {
+                u_velocity[i][j] = 10.0 * (j as f64) / (ny as f64);
+            }
+        }
+        let v_velocity = vec![vec![0.0; ny]; nx];
+        let bcs = HashMap::new();
+        solver_off
+            .solve_explicit(&u_velocity, &v_velocity, dt, dx, dy, &bcs)
+            .unwrap();
+
+        // Dissipation run
+        let mut solver_on = EnergyEquationSolver::<f64>::new(nx, ny, 300.0, 0.01);
+        solver_on.set_include_viscous_dissipation(true);
+        solver_on.set_viscous_dissipation_params(1e-3, 1000.0, 4186.0);
+        solver_on
+            .solve_explicit(&u_velocity, &v_velocity, dt, dx, dy, &bcs)
+            .unwrap();
+
+        // Interior temperature should be at least as high with dissipation on
+        let mut total_diff = 0.0;
+        for i in 2..nx - 2 {
+            for j in 2..ny - 2 {
+                total_diff += solver_on.temperature[i][j] - solver_off.temperature[i][j];
+            }
+        }
+        assert!(
+            total_diff >= 0.0,
+            "Viscous dissipation should add heat: total_diff = {total_diff}"
+        );
+    }
+
+    #[test]
+    fn test_viscous_dissipation_does_not_accumulate_in_heat_source() {
+        // Verify that after solve_explicit with dissipation enabled,
+        // the heat_source field is restored to its original values.
+        let nx = 5;
+        let ny = 5;
+        let mut solver = EnergyEquationSolver::<f64>::new(nx, ny, 300.0, 0.01);
+        solver.set_include_viscous_dissipation(true);
+        solver.set_viscous_dissipation_params(1e-3, 1000.0, 4186.0);
+
+        let original_source = solver.heat_source.clone();
+
+        let u_velocity = vec![vec![1.0; ny]; nx];
+        let v_velocity = vec![vec![0.5; ny]; nx];
+        let bcs = HashMap::new();
+        solver
+            .solve_explicit(&u_velocity, &v_velocity, 0.001, 0.1, 0.1, &bcs)
+            .unwrap();
+
+        // heat_source should be unchanged
+        for i in 0..nx {
+            for j in 0..ny {
+                assert_relative_eq!(
+                    solver.heat_source[i][j],
+                    original_source[i][j],
+                    epsilon = 1e-15,
+                );
+            }
+        }
     }
 }

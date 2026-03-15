@@ -1,4 +1,50 @@
-use std::collections::{HashMap, HashSet};
+//! Coplanar face dispatch for arrangement CSG.
+//!
+//! When two operand meshes share faces that lie in the same geometric plane,
+//! the standard co-refinement + GWN classification pipeline cannot resolve
+//! them: the intersection curve is degenerate (a polygon, not a curve) and
+//! the generalized winding number is discontinuous on the shared plane.
+//!
+//! This module detects groups of coplanar faces across operands, resolves
+//! each group via 2D polygon Boolean operations (delegated to
+//! [`resolve_oriented_coplanar_group`]), and injects the resulting seam
+//! vertices into adjacent non-coplanar ("barrel") faces so the downstream
+//! CDT co-refinement can stitch everything into a watertight surface.
+//!
+//! ## Algorithm — Coplanar Dispatch
+//!
+//! 1. **Build coplanar groups** — Coplanar face pairs `(mesh_a, face_a, mesh_b, face_b)`
+//!    are merged via DSU into connected components.  Each component shares
+//!    one geometric plane.
+//!
+//! 2. **Resolve each group** — For each connected component, project faces
+//!    onto the shared plane and compute 2D polygon Booleans (union /
+//!    intersection / difference) via [`resolve_oriented_coplanar_group`].
+//!
+//! 3. **Inject seam vertices** — Boundary vertices of the resolved 2D result
+//!    are injected as Steiner points into adjacent barrel faces via
+//!    [`inject_cap_seam_into_barrels`], preventing T-junctions at the
+//!    coplanar–non-coplanar boundary.
+//!
+//! ## Theorem — DSU Group Correctness
+//!
+//! All faces that share a geometric plane are placed in the same DSU
+//! component if and only if there exists a chain of coplanar-pair entries
+//! connecting them.
+//!
+//! *Proof.*  DSU union is transitive.  Each coplanar pair `(fa, fb)` causes
+//! `union(id(fa), id(fb))`.  If `fa ∼ fb` and `fb ∼ fc` via two pairs,
+//! then `find(fa) = find(fb) = find(fc)` after both unions.  Conversely,
+//! faces that share no pair chain remain in disjoint components.  ∎
+//!
+//! ## References
+//!
+//! - Attene, M. (2010). "A lightweight approach to repairing digitized
+//!   polygon meshes." *The Visual Computer*, 26(11), 1393–1406.
+//! - Bernstein, G., & Fussell, D. (2009). "Fast, exact, linear Booleans."
+//!   *Computer Graphics Forum*, 28(5), 1269–1278.
+
+use hashbrown::{HashMap, HashSet};
 
 use super::super::boolean::BooleanOp;
 use super::super::intersect::SnapSegment;
@@ -9,12 +55,38 @@ use crate::domain::core::scalar::Point3r;
 use crate::infrastructure::storage::face_store::FaceData;
 use crate::infrastructure::storage::vertex_pool::VertexPool;
 
+/// Result of coplanar face dispatch.
+///
+/// Contains the faces that were resolved by 2D polygon Booleans, plus
+/// bookkeeping of which original faces were consumed (so they can be
+/// excluded from the standard 3D co-refinement pipeline).
 pub(crate) struct CoplanarDispatchResult {
+    /// Per-mesh set of face indices that were handled by coplanar resolution
+    /// and should be skipped during 3D co-refinement.
     pub(crate) skipped_faces_by_mesh: Vec<HashSet<usize>>,
+    /// One representative face per coplanar group, used to detect and skip
+    /// fragments that lie on an already-resolved coplanar plane.
     pub(crate) representative_faces: Vec<FaceData>,
+    /// Resolved 2D Boolean result faces, already in 3D coordinates.
     pub(crate) result_faces: Vec<FaceData>,
 }
 
+/// Dispatch coplanar face groups for 2D polygon Boolean resolution.
+///
+/// Groups coplanar face pairs via DSU, resolves each group through
+/// [`resolve_oriented_coplanar_group`], and injects boundary seam
+/// vertices into adjacent barrel faces.
+///
+/// ## Complexity
+///
+/// | Phase | Time | Space |
+/// |-------|------|-------|
+/// | DSU grouping | O(P α(P)) | O(F) |
+/// | Per-group resolution | O(Σ Gᵢ log Gᵢ) | O(max Gᵢ) |
+/// | Seam injection | O(F × S) per mesh | O(S) |
+///
+/// where P = number of coplanar pairs, F = total unique faces, Gᵢ = faces
+/// in group i, S = boundary seam vertices per group.
 pub(crate) fn dispatch_boolean_coplanar(
     op: BooleanOp,
     n_meshes: usize,
@@ -120,6 +192,11 @@ pub(crate) fn dispatch_boolean_coplanar(
     }
 }
 
+/// Extract boundary vertex IDs from a face soup.
+///
+/// A half-edge is on the boundary if and only if its canonical (sorted)
+/// undirected edge appears exactly once across all faces.  Returns the
+/// deduplicated set of vertex IDs incident to such boundary edges.
 fn boundary_vertex_ids(faces: &[FaceData]) -> Vec<VertexId> {
     let mut edge_counts: HashMap<(VertexId, VertexId), usize> =
         HashMap::with_capacity(faces.len() * 3);

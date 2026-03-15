@@ -498,7 +498,13 @@ flow field (no zero-flow or infinite-velocity singularities).\n\n\
 5. **σ < 1** — confirms entry into the incipient-cavitation window at the venturi throat. \
 At 0 < σ < 1, the throat is cavitation-capable and susceptible to vapor/gas nucleus growth; \
 σ < 0 is the stronger regime in which the local static pressure at the vena contracta drops \
-below the vapour pressure of blood (pᵥ ≈ 6.3 kPa at 37 °C). Designs with σ ≥ 1 have no hydrodynamic \
+below the vapour pressure of blood (pᵥ ≈ 6.3 kPa at 37 °C). Bubble collapse dynamics follow \
+the Rayleigh-Plesset model (Rayleigh 1917, *Phil. Mag.* 34:94): the collapse time \
+t_c = 0.915 R √(ρ/p∞) and the resulting micro-jet velocity v_jet = √(2p∞/ρ) \
+determine the mechanical dose delivered to cells in the venturi throat. The \
+cavitation-amplified hemolysis index incorporates these collapse dynamics to \
+predict RBC damage from bubble-generated micro-jets in addition to macroscopic \
+shear. Designs with σ ≥ 1 have no hydrodynamic \
 cavitation capability and must rely on externally applied acoustic energy alone for \
 sonosensitiser activation."
         .to_string()
@@ -684,6 +690,9 @@ marked **Active** are used in the current 1D scoring pipeline; models marked \
 | 20 | Thermal | Viscous dissipation heating | First-law energy balance | Active | `throat_temperature_rise_k` |
 | 21 | Acoustic | 412 kHz resonance matching | Standing wave half-wavelength | Active | `channel_resonance_score` |
 | 22 | Optical | Beer-Lambert 405 nm attenuation | Blood optical properties | Active | `blue_light_delivery_index_405nm` |
+| 23 | Acoustic | Acoustic radiation force (Gor'kov) | Gor'kov (1962), *Sov. Phys. Dokl.* 6:773 | Available | Cell focusing at pressure nodes/antinodes |
+| 24 | SDT kinetics | Sonosensitizer activation kinetics | Rosenthal et al. (2004), *Ultrason. Sonochem.* 11:349 | Available | First-order activation η(t) for 5-ALA/Ce6 |
+| 25 | Cavitation | Rayleigh-Plesset collapse dynamics | Rayleigh (1917), *Phil. Mag.* 34:94 | Available | Bubble collapse time, micro-jet velocity |
 
 **Note:** The 1D lumped-element pipeline uses models marked Active. The cascade \
 2D FVM and 3D FEM validation pipelines (`cascade_2d_3d_validation.rs`) can \

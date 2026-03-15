@@ -3,7 +3,7 @@
 //! Centralizes boundary extraction, vertex-merge application, and unordered
 //! face deduplication so arrangement stages use one canonical implementation.
 
-use std::collections::{HashMap, HashSet};
+use hashbrown::{HashMap, HashSet};
 
 use crate::domain::core::index::VertexId;
 use crate::infrastructure::storage::face_store::FaceData;

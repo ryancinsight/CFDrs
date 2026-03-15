@@ -2,18 +2,18 @@
 //!
 //! ## Design
 //!
-//! [`BooleanSolid`] decouples call sites from the concrete [`csg_boolean_indexed`]
+//! [`BooleanSolid`] decouples call sites from the concrete [`csg_boolean`]
 //! implementation via the Dependency Inversion Principle (DIP).  Any future
 //! alternative CSG backend (e.g., CGAL bindings, GPU-accelerated intersection)
 //! can be substituted by implementing this trait without changing call sites.
 //!
 //! ## Implemented For
 //!
-//! - [`IndexedMesh`] — delegates to [`csg_boolean_indexed`].
+//! - [`IndexedMesh`] — delegates to [`csg_boolean`].
 //!
 //! ## Backward Compatibility
 //!
-//! The free functions [`csg_boolean`] and [`csg_boolean_indexed`] are **not removed**;
+//! The free functions [`csg_boolean`] and [`csg_boolean`] are **not removed**;
 //! existing call sites continue to compile unchanged.
 
 use crate::application::csg::boolean::{csg_boolean, BooleanOp};

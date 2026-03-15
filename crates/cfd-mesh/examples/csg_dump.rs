@@ -1,4 +1,4 @@
-use cfd_mesh::application::csg::boolean::{csg_boolean_indexed, BooleanOp};
+use cfd_mesh::application::csg::boolean::{csg_boolean, BooleanOp};
 use cfd_mesh::domain::core::scalar::Point3r;
 use cfd_mesh::domain::geometry::primitives::PrimitiveMesh;
 use cfd_mesh::Cube;
@@ -21,7 +21,7 @@ fn main() {
     .build()
     .unwrap();
 
-    let mesh = csg_boolean_indexed(BooleanOp::Union, &cube_a, &cube_b).unwrap();
+    let mesh = csg_boolean(BooleanOp::Union, &cube_a, &cube_b).unwrap();
 
     let mut fractional = 0;
     for face in mesh.faces.iter() {

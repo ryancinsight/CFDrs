@@ -131,10 +131,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             t_build.elapsed().as_millis()
         );
 
-        // Union: A ∪ (B ∪ C)
+        // N-ary union: trunk ∪ branch_up ∪ branch_dn
         let t0 = Instant::now();
-        let bc = cfd_mesh::application::csg::boolean::indexed::csg_boolean_indexed(BooleanOp::Union, &branch_up, &branch_dn)?;
-        let mut result = cfd_mesh::application::csg::boolean::indexed::csg_boolean_indexed(BooleanOp::Union, &trunk, &bc)?;
+        let mut result = cfd_mesh::application::csg::boolean::indexed::csg_boolean_nary(
+            BooleanOp::Union,
+            &[trunk, branch_up, branch_dn],
+        )?;
         let ms = t0.elapsed().as_millis();
 
         report_union(
@@ -172,7 +174,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         let t0 = Instant::now();
         let mut result =
-            cfd_mesh::application::csg::boolean::indexed::csg_boolean_indexed(BooleanOp::Intersection, &branch_up_45, &branch_dn_45)?;
+            cfd_mesh::application::csg::boolean::indexed::csg_boolean(BooleanOp::Intersection, &branch_up_45, &branch_dn_45)?;
         let ms = t0.elapsed().as_millis();
 
         report(

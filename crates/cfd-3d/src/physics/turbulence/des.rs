@@ -67,6 +67,20 @@ pub struct DESModel<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromP
     pub delta_max: Vec<T>,
     /// Smagorinsky constant C_s used for the LES sub-model away from walls.
     pub cs: T,
+    /// Whether to use Delayed DES (DDES) shielding (Spalart et al. 2006).
+    ///
+    /// When `true`, the length scale is computed using the DDES shielding
+    /// function f_d, which prevents premature LES activation inside attached
+    /// boundary layers (modeled stress depletion).
+    ///
+    /// When `false` (default), the standard DES length scale
+    /// `l = min(d, C_DES * delta)` is used.
+    ///
+    /// **Reference**: Spalart et al. (2006), *Theor. Comput. Fluid Dyn.* 20:181-195.
+    pub use_ddes: bool,
+    /// Molecular kinematic viscosity [m²/s] for DDES shielding computation.
+    /// Only used when `use_ddes` is true. Default: 1.5e-5 (air at 20°C).
+    pub molecular_viscosity: T,
 }
 
 impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> DESModel<T> {
@@ -87,6 +101,9 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> DESMo
             delta_max: vec![delta_max; n_points],
             cs: <T as FromPrimitive>::from_f64(SMAGORINSKY_CS_DEFAULT)
                 .expect("SMAGORINSKY_CS_DEFAULT is an IEEE 754 representable f64 constant"),
+            use_ddes: false,
+            molecular_viscosity: <T as FromPrimitive>::from_f64(1.5e-5)
+                .expect("1.5e-5 is an IEEE 754 representable f64 constant"),
         }
     }
 
@@ -99,6 +116,9 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> DESMo
             wall_distances,
             delta_max,
             cs,
+            use_ddes: false,
+            molecular_viscosity: <T as FromPrimitive>::from_f64(1.5e-5)
+                .expect("1.5e-5 is an IEEE 754 representable f64 constant"),
         }
     }
 }
@@ -129,22 +149,89 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Turbu
                 T::one()
             };
 
-            // l_DES = min(d, C_DES · Δ_max)
-            let l_des = num_traits::Float::min(d, self.c_des * delta);
-
             let i = idx % nx;
             let j = (idx / nx) % ny;
             let k = idx / (nx * ny);
 
-            // Compute strain rate magnitude at (i,j,k) using central differences with spacing l_des.
+            // Compute strain rate and vorticity magnitudes for both
+            // the eddy viscosity formula and DDES shielding (if enabled).
+            // We use the grid spacing (delta) for finite differences here,
+            // rather than l_des, to get physical velocity gradients.
             let mut s_sq = T::zero();
+            let mut w_sq = T::zero();
+            if i > 0 && i < nx - 1 {
+                if let (Some(vp), Some(vm)) = (
+                    flow_field.velocity.get(i + 1, j, k),
+                    flow_field.velocity.get(i - 1, j, k),
+                ) {
+                    let s11 = (vp.x - vm.x) / (two * delta);
+                    let s12 = (vp.y - vm.y) / (two * delta);
+                    let s13 = (vp.z - vm.z) / (two * delta);
+                    s_sq += s11 * s11;
+                    // Cross terms for vorticity
+                    w_sq += s12 * s12 + s13 * s13;
+                }
+            }
+            if j > 0 && j < ny - 1 {
+                if let (Some(vp), Some(vm)) = (
+                    flow_field.velocity.get(i, j + 1, k),
+                    flow_field.velocity.get(i, j - 1, k),
+                ) {
+                    let s22 = (vp.y - vm.y) / (two * delta);
+                    let s21 = (vp.x - vm.x) / (two * delta);
+                    let s23 = (vp.z - vm.z) / (two * delta);
+                    s_sq += s22 * s22;
+                    w_sq += s21 * s21 + s23 * s23;
+                }
+            }
+            if k > 0 && k < nz - 1 {
+                if let (Some(vp), Some(vm)) = (
+                    flow_field.velocity.get(i, j, k + 1),
+                    flow_field.velocity.get(i, j, k - 1),
+                ) {
+                    let s33 = (vp.z - vm.z) / (two * delta);
+                    let s31 = (vp.x - vm.x) / (two * delta);
+                    let s32 = (vp.y - vm.y) / (two * delta);
+                    s_sq += s33 * s33;
+                    w_sq += s31 * s31 + s32 * s32;
+                }
+            }
+
+            // Compute the effective length scale
+            let l_des = if self.use_ddes {
+                // DDES shielding: use f_d to delay LES activation in boundary layers.
+                // Previous iteration's nu_t is approximated using standard DES l for this point.
+                let l_standard = num_traits::Float::min(d, self.c_des * delta);
+                let s_mag_approx = num_traits::Float::sqrt(two * s_sq);
+                let nu_t_approx = self.cs * self.cs * l_standard * l_standard * s_mag_approx;
+
+                // Convert to f64 for the shielding function
+                let nu_t_f64 = nu_t_approx.to_f64().unwrap_or(0.0);
+                let nu_f64 = self.molecular_viscosity.to_f64().unwrap_or(1.5e-5);
+                let d_f64 = d.to_f64().unwrap_or(1.0);
+                let strain_f64 = num_traits::Float::sqrt(s_sq).to_f64().unwrap_or(0.0);
+                let vort_f64 = num_traits::Float::sqrt(w_sq).to_f64().unwrap_or(0.0);
+
+                let fd = ddes_shielding(nu_t_f64, nu_f64, d_f64, strain_f64, vort_f64);
+                let c_des_f64 = self.c_des.to_f64().unwrap_or(DES_C_DES);
+                let delta_f64 = delta.to_f64().unwrap_or(1.0);
+                let l_ddes_f64 = ddes_length_scale(d_f64, c_des_f64, delta_f64, fd);
+                <T as FromPrimitive>::from_f64(l_ddes_f64)
+                    .expect("DDES length scale is a finite f64 value")
+            } else {
+                // Standard DES: l = min(d, C_DES · Δ_max)
+                num_traits::Float::min(d, self.c_des * delta)
+            };
+
+            // Compute strain rate magnitude using l_des as spacing (original formulation)
+            let mut s_sq_local = T::zero();
             if i > 0 && i < nx - 1 {
                 if let (Some(vp), Some(vm)) = (
                     flow_field.velocity.get(i + 1, j, k),
                     flow_field.velocity.get(i - 1, j, k),
                 ) {
                     let s11 = (vp.x - vm.x) / (two * l_des);
-                    s_sq += s11 * s11;
+                    s_sq_local += s11 * s11;
                 }
             }
             if j > 0 && j < ny - 1 {
@@ -153,7 +240,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Turbu
                     flow_field.velocity.get(i, j - 1, k),
                 ) {
                     let s22 = (vp.y - vm.y) / (two * l_des);
-                    s_sq += s22 * s22;
+                    s_sq_local += s22 * s22;
                 }
             }
             if k > 0 && k < nz - 1 {
@@ -162,10 +249,10 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Turbu
                     flow_field.velocity.get(i, j, k - 1),
                 ) {
                     let s33 = (vp.z - vm.z) / (two * l_des);
-                    s_sq += s33 * s33;
+                    s_sq_local += s33 * s33;
                 }
             }
-            let s_mag = num_traits::Float::sqrt(two * s_sq);
+            let s_mag = num_traits::Float::sqrt(two * s_sq_local);
             viscosity.push(self.cs * self.cs * l_des * l_des * s_mag);
         }
         viscosity
@@ -335,6 +422,76 @@ mod tests {
         assert!(
             (l - expected).abs() < 1e-15,
             "With f_d=1 and d > C_DES*Δ, l_DDES should equal C_DES*Δ={expected}, got {l}"
+        );
+    }
+
+    #[test]
+    fn test_des_default_not_ddes() {
+        let model = DESModel::<f64>::new(8, 0.5, 0.01, 0.01, 0.01);
+        assert!(
+            !model.use_ddes,
+            "DES model must default to standard DES (use_ddes = false)"
+        );
+    }
+
+    #[test]
+    fn test_des_with_wall_distances_default_not_ddes() {
+        let model = DESModel::<f64>::with_wall_distances(
+            vec![0.5; 8],
+            vec![0.01; 8],
+            0.1,
+        );
+        assert!(
+            !model.use_ddes,
+            "with_wall_distances must default to standard DES (use_ddes = false)"
+        );
+    }
+
+    #[test]
+    fn test_des_ddes_flag_toggleable() {
+        use cfd_core::physics::fluid_dynamics::fields::FlowField;
+
+        let n = 27; // 3x3x3
+        let mut model = DESModel::<f64>::new(n, 0.5, 0.1, 0.1, 0.1);
+
+        // Create a flow field with some velocity gradients
+        let mut flow = FlowField::<f64>::new(3, 3, 3);
+        for i in 0..3 {
+            for j in 0..3 {
+                for k in 0..3 {
+                    if let Some(v) = flow.velocity.get_mut(i, j, k) {
+                        *v = nalgebra::Vector3::new(
+                            (i as f64) * 0.5,
+                            (j as f64) * 0.3,
+                            (k as f64) * 0.1,
+                        );
+                    }
+                }
+            }
+        }
+
+        // Compute with standard DES
+        model.use_ddes = false;
+        let visc_des: Vec<f64> = TurbulenceModel::turbulent_viscosity(&model, &flow);
+
+        // Compute with DDES
+        model.use_ddes = true;
+        let visc_ddes: Vec<f64> = TurbulenceModel::turbulent_viscosity(&model, &flow);
+
+        // The results should differ because DDES uses a different length scale
+        // (At least at some interior points where gradients are non-zero)
+        let any_differ = visc_des
+            .iter()
+            .zip(visc_ddes.iter())
+            .any(|(a, b)| (a - b).abs() > 1e-20);
+
+        // For uniform wall distance of 0.5 and delta of 0.1, C_DES*delta = 0.065.
+        // Standard DES: l = min(0.5, 0.065) = 0.065
+        // DDES with f_d that depends on local flow: l_DDES varies.
+        // They should produce different results at interior points.
+        assert!(
+            any_differ,
+            "DDES should produce different eddy viscosity than standard DES for non-trivial flow"
         );
     }
 }

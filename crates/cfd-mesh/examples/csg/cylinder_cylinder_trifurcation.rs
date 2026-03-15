@@ -23,7 +23,7 @@
 //!
 //! A "flat trident" with a centre-forward prong at θ = 0° places one branch
 //! coaxial with the trunk.  Same-radius, same-axis tubes produce coincident
-//! lateral surfaces and `cfd_mesh::application::csg::boolean::indexed::csg_boolean_indexed(Union, …)` returns `NotWatertight`.
+//! lateral surfaces and `cfd_mesh::application::csg::boolean::indexed::csg_boolean(Union, …)` returns `NotWatertight`.
 //! Choosing the perpendicular branch at +90° avoids this entirely.
 //!
 //! The canonical indexed N-way Boolean path is used here so binary and dense

@@ -79,9 +79,17 @@ pub fn check_watertight<T: Scalar>(
     let signed_vol_f64 = num_traits::ToPrimitive::to_f64(&signed_vol).unwrap_or(0.0);
 
     // Euler characteristic: V - E + F = 2 for a closed genus-0 manifold.
-    // For a triangle mesh with E manifold edges: each face has 3 edges, each
-    // interior edge is shared by 2 faces, so E = 3F/2 (manifold only).
-    let v = vertex_pool.len() as i64;
+    // Count only *referenced* vertices — vertex_pool.len() includes dead entries
+    // from CSG input meshes and merged duplicates that inflate V incorrectly.
+    let v = {
+        let mut seen = hashbrown::HashSet::new();
+        for face in face_store.iter() {
+            for &vid in &face.vertices {
+                seen.insert(vid);
+            }
+        }
+        seen.len() as i64
+    };
     let e = edge_store.len() as i64;
     let f = face_store.len() as i64;
     let euler = v - e + f;

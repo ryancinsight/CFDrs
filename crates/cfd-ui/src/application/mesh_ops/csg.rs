@@ -52,7 +52,7 @@ impl UndoableCommand for CsgBooleanCommand {
             CsgOp::Difference => cfd_mesh::application::csg::boolean::operations::BooleanOp::Difference,
         };
 
-        let mut result = cfd_mesh::application::csg::boolean::indexed::csg_boolean_indexed(
+        let mut result = cfd_mesh::application::csg::boolean::indexed::csg_boolean(
             csg_op, &a, &b,
         ).map_err(|e| anyhow::anyhow!("{e}"))?;
 

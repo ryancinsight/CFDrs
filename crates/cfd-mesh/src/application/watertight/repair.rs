@@ -1,5 +1,6 @@
 //! Mesh repair utilities.
 
+use crate::application::csg::arrangement::snap_round;
 use crate::application::csg::arrangement::stitch;
 use crate::domain::core::index::FaceId;
 use crate::domain::topology::orientation;
@@ -71,7 +72,7 @@ impl MeshRepair {
             }
 
             let mut repaired_faces: Vec<FaceData> = face_store.iter().copied().collect();
-            stitch::snap_round_tjunctions(&mut repaired_faces, vertex_pool);
+            snap_round::snap_round_tjunctions(&mut repaired_faces, vertex_pool);
             stitch::fill_boundary_loops(&mut repaired_faces, vertex_pool);
 
             let mut repaired_store = FaceStore::new();

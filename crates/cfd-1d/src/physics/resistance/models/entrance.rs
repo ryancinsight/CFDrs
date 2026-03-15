@@ -358,6 +358,32 @@ pub fn durst_entrance_k(re: f64, l_over_dh: f64) -> f64 {
     k.max(0.0)
 }
 
+/// Durst entrance correction as a fraction of fully-developed resistance.
+///
+/// Returns a multiplier >= 1.0 for channels where L/D_h < 50 (entrance
+/// effects are significant). For fully-developed channels (L/D_h >= 50),
+/// returns 1.0 (no correction).
+///
+/// The fractional increase in pressure drop due to entrance effects is
+/// approximately K/(64 * L/D_h), derived from the ratio of entrance
+/// loss to Hagen-Poiseuille loss in laminar flow.
+///
+/// Usage: `R_corrected = R_base * durst_resistance_multiplier(Re, L/D_h)`
+///
+/// ## Reference
+///
+/// Durst, F., Ray, S., Unsal, B. & Bayoumi, O.A. (2005).
+/// "The Development Lengths of Laminar Pipe and Channel Flows",
+/// *J. Fluids Eng.* 127(6):1154-1160.
+#[inline]
+pub fn durst_resistance_multiplier(re: f64, l_over_dh: f64) -> f64 {
+    if l_over_dh >= 50.0 {
+        return 1.0;
+    }
+    let k = durst_entrance_k(re, l_over_dh);
+    1.0 + k / (64.0 * l_over_dh).max(1.0)
+}
+
 // ─── Tests ─────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
@@ -570,5 +596,28 @@ mod tests {
         // Should be much smaller than the short-channel case
         let k_short = durst_entrance_k(re, 1.0);
         assert!(k < k_short, "Long channel K ({k}) should be < short channel K ({k_short})");
+    }
+
+    // ─── Durst resistance multiplier tests ──────────────────────────────
+
+    /// Long channel (L/D_h = 100 >= 50): multiplier should be exactly 1.0.
+    #[test]
+    fn test_durst_multiplier_long_channel_unity() {
+        let multiplier = durst_resistance_multiplier(100.0, 100.0);
+        assert_relative_eq!(multiplier, 1.0, epsilon = 1e-15);
+    }
+
+    /// Short channel (L/D_h = 5 < 50): multiplier should be > 1.0.
+    #[test]
+    fn test_durst_multiplier_short_channel_above_unity() {
+        let multiplier = durst_resistance_multiplier(100.0, 5.0);
+        assert!(
+            multiplier > 1.0,
+            "Multiplier for short channel (L/D_h=5) should be > 1.0, got {multiplier}"
+        );
+        // K at Re=100, L/D_h=5: 2.28 + 64/(100*5) = 2.28 + 0.128 = 2.408
+        // multiplier = 1 + 2.408 / (64*5) = 1 + 2.408/320 = 1.007525
+        let expected = 1.0 + (2.28 + 64.0 / (100.0 * 5.0)) / (64.0 * 5.0);
+        assert_relative_eq!(multiplier, expected, max_relative = 1e-10);
     }
 }

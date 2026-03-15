@@ -28,6 +28,21 @@ pub struct FemConfig<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     pub quadrature_order: usize,
     /// Grad-div stabilization penalty (0 to disable)
     pub grad_div_penalty: T,
+    /// Grad-div stabilization gamma parameter (Olshanskii & Reusken 2004).
+    ///
+    /// When non-zero, the element-level grad-div parameter is computed as
+    /// `tau_div = gamma * h_e^2` (see [`super::stabilization::grad_div_parameter`]).
+    /// This provides a mesh-size-aware alternative to the direct `grad_div_penalty`.
+    ///
+    /// Set to 0.0 to disable. Default: 0.0 (disabled for backward compatibility).
+    ///
+    /// **Note**: This parameter is available for configuration but is not yet
+    /// applied in the assembly loop. The existing `grad_div_penalty` field
+    /// provides a direct (non-h-scaled) penalty that is already wired into
+    /// the element assembly. A future enhancement will compute
+    /// `grad_div_parameter(h_e, grad_div_gamma)` per element and add the
+    /// corresponding `tau_div * (div(v), div(w))` contribution.
+    pub grad_div_gamma: T,
 }
 
 impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Default
@@ -50,6 +65,39 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Defau
             element_type: ElementType::Tetrahedron,
             quadrature_order: constants::DEFAULT_QUADRATURE_ORDER,
             grad_div_penalty: T::zero(),
+            grad_div_gamma: T::zero(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_fem_config_grad_div_defaults_zero() {
+        let config = FemConfig::<f64>::default();
+        assert_eq!(
+            config.grad_div_gamma, 0.0,
+            "grad_div_gamma must default to 0.0 (disabled)"
+        );
+        assert_eq!(
+            config.grad_div_penalty, 0.0,
+            "grad_div_penalty must default to 0.0 (disabled)"
+        );
+    }
+
+    #[test]
+    fn test_fem_config_grad_div_configurable() {
+        let mut config = FemConfig::<f64>::default();
+        config.grad_div_gamma = 1.0;
+        assert_eq!(config.grad_div_gamma, 1.0);
+
+        config.grad_div_gamma = 5.0;
+        assert_eq!(config.grad_div_gamma, 5.0);
+
+        // Setting back to zero disables it
+        config.grad_div_gamma = 0.0;
+        assert_eq!(config.grad_div_gamma, 0.0);
     }
 }
