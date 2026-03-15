@@ -15,6 +15,7 @@ import sys
 import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
+from scipy.interpolate import RectBivariateSpline
 
 # Add validation directory to path
 sys.path.insert(0, str(Path(__file__).parent))
@@ -104,8 +105,28 @@ def compare_solutions(cfd_python_result, external_result, Re: float):
     # Ensure same grid size
     if cfd_python_result["u"].shape != ext_sol["u"].shape:
         print(f"WARN: Grid size mismatch: cfd_python {cfd_python_result['u'].shape} vs external {ext_sol['u'].shape}")
-        # TODO: Interpolate if needed
-        return None
+
+        # Interpolate external result onto cfd_python grid
+        x_ext = ext_solver.x
+        y_ext = ext_solver.y
+        x_cfd = cfd_python_result["x"]
+        y_cfd = cfd_python_result["y"]
+
+        u_spline = RectBivariateSpline(y_ext, x_ext, ext_sol["u"])
+        v_spline = RectBivariateSpline(y_ext, x_ext, ext_sol["v"])
+        p_spline = RectBivariateSpline(y_ext, x_ext, ext_sol["p"])
+
+        ext_sol["u"] = u_spline(y_cfd, x_cfd)
+        ext_sol["v"] = v_spline(y_cfd, x_cfd)
+        ext_sol["p"] = p_spline(y_cfd, x_cfd)
+
+        # Update centerlines
+        mid_x_idx = len(x_cfd) // 2
+        mid_y_idx = len(y_cfd) // 2
+        ext_sol["u_centerline"] = ext_sol["u"][:, mid_x_idx]
+        ext_sol["v_centerline"] = ext_sol["v"][mid_y_idx, :]
+
+        print("INFO: Interpolated external result onto cfd_python grid using RectBivariateSpline")
     
     # Compute L2 errors
     u_diff = cfd_python_result["u"] - ext_sol["u"]
