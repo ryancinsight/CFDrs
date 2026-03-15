@@ -360,6 +360,15 @@ impl<T: Scalar> IndexedMesh<T> {
     /// Each connected component is re-seeded from its own extremal face, so
     /// multi-component meshes (e.g. a chip body with separate channel voids)
     /// are handled correctly.
+    ///
+    /// ## Nested-shell correction (Jordan–Brouwer nesting)
+    ///
+    /// After the BFS phase, a ray-casting parity test detects nested shells
+    /// (e.g., CSG difference cavities).  Interior shells at odd nesting depth
+    /// have their orientation toggled so that their normals point inward,
+    /// producing the correct signed-volume divergence-theorem integral:
+    /// `V_total = V_outer − Σ V_cavities`.  This ensures that `orient_outward`
+    /// is safe to call on CSG difference results that contain cavities.
     pub fn orient_outward(&mut self) {
         use crate::domain::geometry::normal::triangle_normal;
         use std::collections::{HashMap, VecDeque};
@@ -403,6 +412,11 @@ impl<T: Scalar> IndexedMesh<T> {
         // BFS orientation labels: Some(true) = outward, Some(false) = inward.
         let mut orientation: Vec<Option<bool>> = vec![None; n_faces];
 
+        // Track connected-component membership for nesting detection.
+        let mut component_id: Vec<usize> = vec![usize::MAX; n_faces];
+        let mut component_seeds: Vec<usize> = Vec::new();
+        let mut current_component: usize = 0;
+
         // Outer loop handles disconnected components — each gets its own seed.
         loop {
             // Find the unvisited non-degenerate face with the maximum X vertex.
@@ -424,10 +438,13 @@ impl<T: Scalar> IndexedMesh<T> {
                 }
             };
 
+            component_seeds.push(seed_fi);
+
             // Seed orientation: the outward normal of the extremal face must
             // have a non-negative X component.
             let seed_normal = face_normals[seed_fi].unwrap();
             orientation[seed_fi] = Some(seed_normal.x >= T::zero());
+            component_id[seed_fi] = current_component;
 
             let mut queue: VecDeque<usize> = VecDeque::new();
             queue.push_back(seed_fi);
@@ -443,14 +460,139 @@ impl<T: Scalar> IndexedMesh<T> {
                     if let Some(&nfi) = half_edge.get(&(vb, va)) {
                         if orientation[nfi].is_none() && face_normals[nfi].is_some() {
                             orientation[nfi] = Some(is_outward);
+                            component_id[nfi] = current_component;
                             queue.push_back(nfi);
                         }
                     // Forward edge (va→vb): same direction → winding flip.
                     } else if let Some(&nfi) = half_edge.get(&(va, vb)) {
                         if orientation[nfi].is_none() && face_normals[nfi].is_some() {
                             orientation[nfi] = Some(!is_outward);
+                            component_id[nfi] = current_component;
                             queue.push_back(nfi);
                         }
+                    }
+                }
+            }
+
+            current_component += 1;
+        }
+
+        // ── Nested-shell correction (Jordan–Brouwer nesting) ──────────
+        //
+        // After BFS, every connected component is oriented "outward from
+        // itself."  For nested geometry (e.g., CSG difference cavities),
+        // inner shells must face inward so that the signed-volume formula
+        // yields the correct result: V_total = V_outer − Σ V_cavities.
+        //
+        // **Theorem** (Jordan–Brouwer separation):  A closed, orientable
+        // surface in ℝ³ separates space into exactly two connected regions
+        // (interior and exterior).  A ray from a point inside the surface
+        // crosses it an odd number of times; from outside, an even number.
+        // By induction on nesting depth, a shell at odd depth is interior
+        // and should face inward.
+        //
+        // **Algorithm**:
+        //   1. For each component, pick the centroid of its seed face as a
+        //      representative point P.
+        //   2. For each ordered pair (ci, cj) with ci ≠ cj, cast a ray
+        //      from P_ci along +X and count intersections with the
+        //      triangles of component cj.  If the count is odd, component
+        //      ci is enclosed by component cj.
+        //   3. The nesting depth of component ci is the number of other
+        //      components that enclose it.
+        //   4. Components at odd nesting depth have their BFS orientation
+        //      toggled (outward → inward), producing the correct winding
+        //      for interior cavity shells.
+        //
+        // **Proof of correctness**:
+        //   The ray-casting parity test is equivalent to computing the
+        //   crossing number of P w.r.t. the closed surface of component cj.
+        //   By Jordan–Brouwer, this correctly classifies P as inside (odd)
+        //   or outside (even).  Toggling orientation at odd depth ensures
+        //   that each shell's normal points away from its enclosed volume
+        //   when viewed from outside the entire solid, which is the correct
+        //   convention for the signed-volume divergence-theorem integral.
+        let n_components = current_component;
+        if n_components > 1 {
+            let third = <T as Scalar>::from_f64(3.0);
+            let eps = <T as Scalar>::from_f64(1e-14);
+
+            // Compute seed-face centroids as representative test points.
+            let centroids: Vec<(T, T, T)> = component_seeds
+                .iter()
+                .map(|&si| {
+                    let face = &face_list[si];
+                    let a = self.vertices.position(face.vertices[0]);
+                    let b = self.vertices.position(face.vertices[1]);
+                    let c = self.vertices.position(face.vertices[2]);
+                    (
+                        (a.x + b.x + c.x) / third,
+                        (a.y + b.y + c.y) / third,
+                        (a.z + b.z + c.z) / third,
+                    )
+                })
+                .collect();
+
+            let mut nesting_depth: Vec<usize> = vec![0; n_components];
+
+            for ci in 0..n_components {
+                let (px, py, pz) = centroids[ci];
+                for cj in 0..n_components {
+                    if ci == cj {
+                        continue;
+                    }
+                    // Ray-cast parity test: count intersections of the ray
+                    // P + t·(1,0,0), t > 0 with all triangles of component cj.
+                    //
+                    // For each triangle (A, B, C), solve the 2D barycentric
+                    // system in the YZ projection to find (u, v), then check
+                    // whether the corresponding X coordinate exceeds px.
+                    let mut crossings = 0_usize;
+                    for fi in 0..n_faces {
+                        if component_id[fi] != cj {
+                            continue;
+                        }
+                        let face = &face_list[fi];
+                        let a = self.vertices.position(face.vertices[0]);
+                        let b = self.vertices.position(face.vertices[1]);
+                        let c = self.vertices.position(face.vertices[2]);
+
+                        let dy_ba = b.y - a.y;
+                        let dz_ba = b.z - a.z;
+                        let dy_ca = c.y - a.y;
+                        let dz_ca = c.z - a.z;
+                        let det = dy_ba * dz_ca - dz_ba * dy_ca;
+                        if num_traits::Float::abs(det) < eps {
+                            continue;
+                        }
+
+                        let dy_pa = py - a.y;
+                        let dz_pa = pz - a.z;
+                        let u = (dy_pa * dz_ca - dz_pa * dy_ca) / det;
+                        let v = (dy_ba * dz_pa - dz_ba * dy_pa) / det;
+                        if u >= T::zero()
+                            && v >= T::zero()
+                            && u + v <= T::one()
+                        {
+                            let x_int =
+                                a.x + u * (b.x - a.x) + v * (c.x - a.x);
+                            if x_int > px {
+                                crossings += 1;
+                            }
+                        }
+                    }
+                    if crossings % 2 == 1 {
+                        nesting_depth[ci] += 1;
+                    }
+                }
+            }
+
+            // Flip orientation for components at odd nesting depth.
+            for fi in 0..n_faces {
+                let ci = component_id[fi];
+                if ci < n_components && nesting_depth[ci] % 2 == 1 {
+                    if let Some(ref mut o) = orientation[fi] {
+                        *o = !*o;
                     }
                 }
             }

@@ -1,6 +1,7 @@
 //! Floating-point line intersection math.
 
 use super::types::IntersectionType;
+use crate::domain::core::constants::{DEGENERATE_NORMAL_REL_SQ, INTERVAL_OVERLAP_REL};
 use crate::domain::core::scalar::{Point3r, Real};
 
 /// Compute the 3-D intersection segment for two triangles known to straddle
@@ -18,7 +19,10 @@ pub(crate) fn compute_segment(
 
     // Direction of the intersection line (L = n1 × n2).
     let dir = n1.cross(&n2);
-    if dir.norm_squared() < 1e-20 {
+    // Scale-relative: ‖n₁×n₂‖² vs ‖n₁‖²·‖n₂‖² detects near-parallel.
+    let n1sq = n1.norm_squared();
+    let n2sq = n2.norm_squared();
+    if dir.norm_squared() < DEGENERATE_NORMAL_REL_SQ * n1sq * n2sq {
         // Planes are nearly parallel despite the straddling test passing.
         // Treat as coplanar.
         return IntersectionType::Coplanar;
@@ -69,7 +73,12 @@ pub(crate) fn compute_segment(
     let t_enter = t1_min.max(t2_min);
     let t_leave = t1_max.min(t2_max);
 
-    if t_enter > t_leave + 1e-12 {
+    // Scale-relative interval gap tolerance.
+    let span = (t1_max - t1_min)
+        .abs()
+        .max((t2_max - t2_min).abs())
+        .max(1e-30);
+    if t_enter > t_leave + INTERVAL_OVERLAP_REL * span {
         return IntersectionType::None;
     }
 
@@ -85,7 +94,9 @@ pub(crate) fn compute_segment(
         pt2_leave
     };
 
-    if (end - start).norm_squared() < 1e-20 {
+    // Scale-relative touching-point check: compare against edge scale.
+    let edge_scale_sq = n1sq.max(n2sq).max(1e-30);
+    if (end - start).norm_squared() < DEGENERATE_NORMAL_REL_SQ * edge_scale_sq {
         return IntersectionType::None; // Touching at a single point only.
     }
 
@@ -104,6 +115,13 @@ fn edge_crossings_interval(
 ) -> Option<(Real, Real, Point3r, Point3r)> {
     let mut crossings: Vec<(Real, Point3r)> = Vec::with_capacity(2);
 
+    // Scale reference for on-plane vertex test: max |dist| across all vertices.
+    let dist_scale = dists[0]
+        .abs()
+        .max(dists[1].abs())
+        .max(dists[2].abs())
+        .max(1e-30);
+
     for i in 0..3 {
         let j = (i + 1) % 3;
         let di = dists[i];
@@ -118,15 +136,24 @@ fn edge_crossings_interval(
             let t = di / denom; // parameter ∈ (0,1)
             let tp = projs[i] + (projs[j] - projs[i]) * t;
             crossings.push((tp, lerp(verts[i], verts[j], t)));
-        } else if di.abs() < 1e-12 && dj.abs() > 1e-12 {
+        } else if di.abs() < INTERVAL_OVERLAP_REL * dist_scale
+            && dj.abs() > INTERVAL_OVERLAP_REL * dist_scale
+        {
             // Vertex i lies exactly on the plane; it is a crossing point.
             crossings.push((projs[i], *verts[i]));
         }
     }
 
     // Deduplicate by 1-D projection (vertex-on-plane may appear from two edges).
+    // Scale-relative: use projection span for dedup tolerance.
+    let proj_span = projs
+        .iter()
+        .copied()
+        .fold(Real::NEG_INFINITY, Real::max)
+        - projs.iter().copied().fold(Real::INFINITY, Real::min);
+    let dedup_tol = INTERVAL_OVERLAP_REL * proj_span.abs().max(1e-30);
     crossings.sort_by(|x, y| x.0.partial_cmp(&y.0).unwrap_or(std::cmp::Ordering::Equal));
-    crossings.dedup_by(|x, y| (x.0 - y.0).abs() < 1e-12);
+    crossings.dedup_by(|x, y| (x.0 - y.0).abs() < dedup_tol);
 
     if crossings.len() < 2 {
         return None;

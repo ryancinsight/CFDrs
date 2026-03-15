@@ -40,11 +40,11 @@
 
 // ── Public re-exports (stable API for fragment classification and callers) ───
 
-pub use super::gwn::{gwn, prepare_classification_faces, PreparedFace};
+pub use super::gwn::{gwn, prepare_classification_faces, wnnc_score, PreparedFace};
 pub use super::gwn_bvh::{gwn_bvh, prepare_bvh_mesh, PreparedBvhMesh};
 pub use super::tiebreaker::FragmentClass;
 
-use super::gwn::gwn_prepared;
+use super::gwn::{gwn_bounded_prepared, gwn_prepared};
 use super::tiebreaker::{
     coplanarity_tiebreak_pool, coplanarity_tiebreak_prepared, nearest_face_tiebreak_pool,
     nearest_face_tiebreak_prepared,
@@ -95,6 +95,10 @@ pub fn classify_fragment(
 /// precomputed reference-face geometry.
 ///
 /// Drop-in equivalent to [`classify_fragment`] for hot loops.
+///
+/// When the standard GWN falls in the band, a bounded GWN refinement is
+/// attempted first — this resolves many near-surface cases without needing
+/// the tiebreaker chain.
 #[must_use]
 pub fn classify_fragment_prepared(
     centroid: &Point3r,
@@ -106,6 +110,16 @@ pub fn classify_fragment_prepared(
         return FragmentClass::Inside;
     }
     if wn_abs < GWN_OUTSIDE_THRESHOLD {
+        return FragmentClass::Outside;
+    }
+    // Bounded GWN refinement: the per-triangle solid angle clip stabilises
+    // the result for near-surface queries.  This often resolves the band case
+    // without needing orient3d / signed-distance tiebreakers.
+    let wn_bounded_abs = gwn_bounded_prepared(centroid, other_faces).abs();
+    if wn_bounded_abs > GWN_INSIDE_THRESHOLD {
+        return FragmentClass::Inside;
+    }
+    if wn_bounded_abs < GWN_OUTSIDE_THRESHOLD {
         return FragmentClass::Outside;
     }
     if let Some(cls) = coplanarity_tiebreak_prepared(centroid, frag_normal, other_faces) {

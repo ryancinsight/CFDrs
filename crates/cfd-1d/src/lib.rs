@@ -122,7 +122,13 @@ pub use physics::cell_separation::{
     tri_center_q_frac, tri_center_q_frac_cross_junction, CascadeJunctionResult, CascadeStage,
     IncrementalFiltrationResult, PeripheralRecovery,
 };
-pub use physics::cell_separation::{three_population_equilibria, ThreePopEquilibria};
+pub use physics::cell_separation::{
+    fahraeus_lindqvist_viscosity, plasma_skimming_hematocrit, quemada_viscosity,
+    secomb_network_viscosity, secomb_phase_separation_x0, three_population_equilibria,
+    ThreePopEquilibria,
+};
+pub use physics::vascular::non_newtonian_flow_split_exponent;
+pub use physics::vascular::womersley_pulsatility_index;
 
 // Export network functionality
 pub use domain::network::{

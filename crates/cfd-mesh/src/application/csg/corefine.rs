@@ -82,7 +82,8 @@ use crate::infrastructure::storage::vertex_pool::VertexPool;
 use crate::application::delaunay::pslg::vertex::PslgVertexId;
 use crate::application::delaunay::{Cdt, Pslg};
 use crate::domain::core::constants::{
-    COREFINE_EDGE_EPS, COREFINE_WELD_TOL_SQ, MAX_STEINER_PER_FACE,
+    COREFINE_EDGE_EPS, COREFINE_WELD_TOL_SQ, DEGENERATE_NORMAL_REL_SQ,
+    DEGENERATE_SEGMENT_REL_SQ, MAX_STEINER_PER_FACE, SLIVER_AREA2D_REL,
 };
 
 /// Distance tolerance squared for edge Steiner projection.
@@ -137,7 +138,10 @@ pub fn corefine_face(
     let c = *pool.position(face.vertices[2]);
 
     let face_n = (b - a).cross(&(c - a));
-    if face_n.norm_squared() < 1e-20 {
+    // Scale-relative degeneracy: ‖n‖² vs ‖edge₁‖²·‖edge₂‖² (see constants.rs).
+    let edge1_sq = (b - a).norm_squared();
+    let edge2_sq = (c - a).norm_squared();
+    if face_n.norm_squared() < DEGENERATE_NORMAL_REL_SQ * edge1_sq * edge2_sq {
         return Vec::new();
     }
     let face_n_unit = face_n / face_n.norm();
@@ -146,11 +150,15 @@ pub fn corefine_face(
     // Exact segment canonicalization:
     // remove degenerate and bit-identical duplicate constraints before O(s²)
     // crossing detection and PSLG resolve_crossings.
+    // Scale-relative degenerate threshold: segments shorter than
+    // sqrt(DEGENERATE_SEGMENT_REL_SQ) · max_edge are collapsed.
+    let max_edge_sq = edge1_sq.max(edge2_sq).max((c - b).norm_squared());
+    let seg_degen_sq = DEGENERATE_SEGMENT_REL_SQ * max_edge_sq;
     let mut dedup_snap_segments: Vec<SnapSegment> = Vec::with_capacity(snap_segments.len());
     let mut seen_snap_segments: Vec<(PointBits3, PointBits3)> =
         Vec::with_capacity(snap_segments.len());
     for seg in snap_segments {
-        if (seg.end - seg.start).norm_squared() < 1e-24 {
+        if (seg.end - seg.start).norm_squared() < seg_degen_sq {
             continue;
         }
         let key = canonical_segment_key(seg);
@@ -184,7 +192,7 @@ pub fn corefine_face(
                 let vb = face_pts[(ei + 1) % 3];
                 let edge = vb - va;
                 let edge_sq = edge.norm_squared();
-                if edge_sq < 1e-20 {
+                if edge_sq < DEGENERATE_NORMAL_REL_SQ * max_edge_sq {
                     continue;
                 }
                 let t = (p3d - va).dot(&edge) / edge_sq;
@@ -312,6 +320,7 @@ pub fn corefine_face(
     // containing each edge-Steiner point and return the sub-triangles directly.
     {
         let mut area2 = 0.0_f64;
+        let mut perim_sq = 0.0_f64;
         let nb = boundary_vids.len();
         for i in 0..nb {
             let pa = *pool.position(boundary_vids[i]);
@@ -319,8 +328,10 @@ pub fn corefine_face(
             let (pu, pv) = project_2d(pa, axis_u, axis_v);
             let (qu, qv) = project_2d(pb, axis_u, axis_v);
             area2 += pu * qv - qu * pv;
+            perim_sq += (qu - pu) * (qu - pu) + (qv - pv) * (qv - pv);
         }
-        if area2.abs() < 1e-10 {
+        // Scale-relative: compare area² against ∑edge² (both scale as length²).
+        if area2.abs() < SLIVER_AREA2D_REL * perim_sq {
             // Sliver: produce sub-triangles by splitting each Steiner-containing
             // edge and fan-stitching. This guarantees Steiner points appear as
             // vertices on the shared boundary even when CDT would degenerate.
@@ -472,7 +483,10 @@ pub fn corefine_face(
         let p1 = *pool.position(v1);
         let p2 = *pool.position(v2);
         let tri_n = (p1 - p0).cross(&(p2 - p0));
-        if tri_n.norm_squared() < 1e-30 {
+        // Scale-relative: compare ‖n‖² against ‖edge₁‖²·‖edge₂‖².
+        let e1sq = (p1 - p0).norm_squared();
+        let e2sq = (p2 - p0).norm_squared();
+        if tri_n.norm_squared() < DEGENERATE_NORMAL_REL_SQ * e1sq * e2sq {
             continue;
         }
         if tri_n.dot(&face_n) >= 0.0 {
@@ -655,7 +669,10 @@ fn midpoint_subdivide(
         let pa = *pool.position(va);
         let pb = *pool.position(vb);
         let tri_n = (pa - p0).cross(&(pb - p0));
-        if tri_n.norm_squared() < 1e-30 {
+        // Scale-relative degenerate check.
+        let e1s = (pa - p0).norm_squared();
+        let e2s = (pb - p0).norm_squared();
+        if tri_n.norm_squared() < DEGENERATE_NORMAL_REL_SQ * e1s * e2s {
             continue;
         }
         if tri_n.dot(&face_n) >= 0.0 {

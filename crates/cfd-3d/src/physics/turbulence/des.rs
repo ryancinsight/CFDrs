@@ -179,3 +179,162 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Turbu
         "DES"
     }
 }
+
+// ── DDES (Delayed Detached-Eddy Simulation) ─────────────────────────────────
+
+/// Spalart et al. (2006) Delayed Detached-Eddy Simulation (DDES) shielding function.
+///
+/// ## Theorem — DDES Shielding (Spalart et al. 2006)
+///
+/// The standard DES model switches from RANS to LES based on a simple
+/// length-scale comparison: l = min(d, C_DES·Δ). This can cause premature
+/// LES activation inside attached boundary layers ("modeled stress depletion").
+///
+/// The DDES modification introduces a shielding function f_d that delays
+/// the LES activation:
+///
+/// ```text
+/// l_DDES = d − f_d · max(0, d − C_DES · Δ)
+/// ```
+///
+/// where the shielding function is:
+///
+/// ```text
+/// f_d = 1 − tanh((C_d1 · r_d)^(C_d2))
+/// ```
+///
+/// and the RANS indicator r_d is:
+///
+/// ```text
+/// r_d = (ν_t + ν) / (κ² · d² · √(0.5·(S² + Ω²)))
+/// ```
+///
+/// where κ = 0.41, d is wall distance, S is strain rate, Ω is vorticity.
+///
+/// **Physical basis**: In the boundary layer, r_d ≈ 1 (RANS regime) →
+/// f_d ≈ 0 → l_DDES ≈ d (pure RANS). Away from walls, r_d → 0 →
+/// f_d → 1 → l_DDES ≈ C_DES·Δ (pure LES). The smooth transition
+/// prevents grid-induced separation.
+///
+/// Constants: C_d1 = 8.0, C_d2 = 3.0 (Spalart et al. 2006).
+///
+/// **Reference**: Spalart, P.R., Deck, S., Shur, M.L., Squires, K.D.,
+/// Strelets, M.Kh. & Travin, A. (2006). "A New Version of Detached-Eddy
+/// Simulation, Resistant to Ambiguous Grid Densities",
+/// *Theor. Comput. Fluid Dyn.* 20:181-195.
+
+/// DDES constant C_d1 = 8.0 (Spalart et al. 2006).
+pub const CD1: f64 = 8.0;
+/// DDES constant C_d2 = 3.0 (Spalart et al. 2006).
+pub const CD2: f64 = 3.0;
+
+/// Compute the DDES shielding function f_d.
+///
+/// Returns f_d ∈ [0, 1]:
+/// - f_d ≈ 0 in RANS regions (boundary layer) → preserves RANS
+/// - f_d ≈ 1 in LES regions (separated flow) → activates LES
+pub fn ddes_shielding(
+    nu_t: f64,          // turbulent kinematic viscosity [m²/s]
+    nu: f64,            // molecular kinematic viscosity [m²/s]
+    wall_distance: f64, // distance to nearest wall [m]
+    strain_rate: f64,   // strain rate magnitude |S| [s⁻¹]
+    vorticity: f64,     // vorticity magnitude |Ω| [s⁻¹]
+) -> f64 {
+    let kappa = 0.41;
+    let denominator = kappa * kappa * wall_distance * wall_distance
+        * (0.5 * (strain_rate * strain_rate + vorticity * vorticity))
+            .sqrt()
+            .max(1e-30);
+    let r_d = (nu_t + nu) / denominator;
+    1.0 - (CD1 * r_d).powf(CD2).tanh()
+}
+
+/// Compute DDES length scale.
+///
+/// Returns l_DDES = d − f_d · max(0, d − C_DES · Δ).
+/// When f_d = 0 (RANS region), l = d.
+/// When f_d = 1 and d > C_DES·Δ, l = C_DES·Δ (LES region).
+pub fn ddes_length_scale(wall_distance: f64, c_des: f64, delta: f64, f_d: f64) -> f64 {
+    wall_distance - f_d * (wall_distance - c_des * delta).max(0.0)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_ddes_shielding_rans_region() {
+        // Near wall with moderate turbulence: high r_d → f_d ≈ 0
+        let nu_t = 1e-5; // small eddy viscosity near wall
+        let nu = 1.5e-5; // molecular viscosity (air)
+        let d = 0.001; // 1 mm from wall
+        let strain = 50.0;
+        let vorticity = 50.0;
+        let fd = ddes_shielding(nu_t, nu, d, strain, vorticity);
+        assert!(
+            fd < 0.1,
+            "f_d should be near 0 in RANS region (near wall), got {fd}"
+        );
+    }
+
+    #[test]
+    fn test_ddes_shielding_les_region() {
+        // Far from wall with strong shear: low r_d → f_d ≈ 1
+        let nu_t = 1e-4;
+        let nu = 1.5e-5;
+        let d = 1.0; // 1 m from wall
+        let strain = 1000.0;
+        let vorticity = 1000.0;
+        let fd = ddes_shielding(nu_t, nu, d, strain, vorticity);
+        assert!(
+            fd > 0.9,
+            "f_d should be near 1 in LES region (far from wall), got {fd}"
+        );
+    }
+
+    #[test]
+    fn test_ddes_shielding_bounded() {
+        // f_d must always be in [0, 1] across a wide parameter range
+        let params = [
+            (1e-6, 1e-6, 0.0001, 1.0, 1.0),
+            (1e-3, 1.5e-5, 0.01, 100.0, 100.0),
+            (1e-1, 1.5e-5, 1.0, 1000.0, 1000.0),
+            (1e-4, 1e-6, 0.1, 10.0, 10.0),
+            (1e-2, 1e-5, 0.5, 500.0, 200.0),
+        ];
+        for (nu_t, nu, d, s, w) in params {
+            let fd = ddes_shielding(nu_t, nu, d, s, w);
+            assert!(
+                (0.0..=1.0).contains(&fd),
+                "f_d must be in [0,1], got {fd} for nu_t={nu_t}, nu={nu}, d={d}, S={s}, W={w}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_ddes_length_scale_rans_limit() {
+        // f_d = 0 → l_DDES = d (pure RANS)
+        let d = 0.005;
+        let c_des = 0.65;
+        let delta = 0.01;
+        let l = ddes_length_scale(d, c_des, delta, 0.0);
+        assert!(
+            (l - d).abs() < 1e-15,
+            "With f_d=0, l_DDES should equal d={d}, got {l}"
+        );
+    }
+
+    #[test]
+    fn test_ddes_length_scale_les_limit() {
+        // f_d = 1 and d > C_DES·Δ → l_DDES = C_DES·Δ (pure LES)
+        let d = 1.0;
+        let c_des = 0.65;
+        let delta = 0.01;
+        let expected = c_des * delta;
+        let l = ddes_length_scale(d, c_des, delta, 1.0);
+        assert!(
+            (l - expected).abs() < 1e-15,
+            "With f_d=1 and d > C_DES*Δ, l_DDES should equal C_DES*Δ={expected}, got {l}"
+        );
+    }
+}

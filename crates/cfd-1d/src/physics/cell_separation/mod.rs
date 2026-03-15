@@ -48,8 +48,11 @@
 
 pub mod cascade_junction;
 pub mod cell_interaction;
+pub mod fahraeus_lindqvist;
 pub mod margination;
+pub mod plasma_skimming;
 pub mod properties;
+pub mod rouleaux_aggregation;
 pub mod separation_model;
 
 pub use cascade_junction::{
@@ -66,7 +69,12 @@ pub use margination::{
     amini_confinement_correction, dean_drag_force_n, dean_number, inertial_lift_force_n,
     lateral_equilibrium, EquilibriumResult, AMINI_ALPHA_CONFINEMENT, AMINI_KAPPA_REF,
 };
+pub use fahraeus_lindqvist::{
+    fahraeus_lindqvist_viscosity, secomb_network_viscosity, secomb_phase_separation_x0,
+};
+pub use plasma_skimming::plasma_skimming_hematocrit;
 pub use properties::CellProperties;
+pub use rouleaux_aggregation::quemada_viscosity;
 pub use separation_model::{CellSeparationAnalysis, CellSeparationModel};
 
 // ── Three-population simultaneous model ─────────────────────────────────────

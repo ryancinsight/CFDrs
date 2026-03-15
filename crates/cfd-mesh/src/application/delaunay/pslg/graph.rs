@@ -79,6 +79,19 @@ pub enum PslgValidationError {
         /// Second intersecting segment id.
         second: PslgSegmentId,
     },
+    /// Two distinct vertex indices map to the same geometric position (or
+    /// a position indistinguishable within floating-point tolerance).
+    ///
+    /// # Rationale
+    ///
+    /// Coincident vertices cause degenerate zero-length edges in the
+    /// Delaunay triangulation, breaking orient and incircle predicates.
+    CoincidentVertices {
+        /// First vertex index.
+        first: PslgVertexId,
+        /// Second vertex index.
+        second: PslgVertexId,
+    },
 }
 
 impl core::fmt::Display for PslgValidationError {
@@ -115,6 +128,12 @@ impl core::fmt::Display for PslgValidationError {
                 write!(
                     f,
                     "segments {first} and {second} intersect in their interiors"
+                )
+            }
+            Self::CoincidentVertices { first, second } => {
+                write!(
+                    f,
+                    "vertices {first:?} and {second:?} are coincident"
                 )
             }
         }
@@ -278,6 +297,48 @@ impl Pslg {
                 return Err(PslgValidationError::NonFiniteVertex {
                     vertex: PslgVertexId::from_usize(i),
                 });
+            }
+        }
+
+        // Check for coincident vertices (O(n²) pairwise).
+        // Two vertices are coincident if their separation is indistinguishable
+        // from zero relative to the characteristic scale of the PSLG.
+        //
+        // The characteristic scale is max(bbox_diagonal, max_abs_coord) so
+        // that coincident-vertex detection works regardless of whether the
+        // point cloud has spread (large diagonal) or is clustered near a
+        // single location (tiny diagonal, large absolute coordinates).
+        if n_vertices >= 2 {
+            let mut max_abs: Real = 0.0;
+            let (min_x, max_x, min_y, max_y) = self.vertices.iter().fold(
+                (Real::MAX, Real::MIN, Real::MAX, Real::MIN),
+                |(lo_x, hi_x, lo_y, hi_y), v| {
+                    (lo_x.min(v.x), hi_x.max(v.x), lo_y.min(v.y), hi_y.max(v.y))
+                },
+            );
+            for v in &self.vertices {
+                max_abs = max_abs.max(v.x.abs()).max(v.y.abs());
+            }
+            let diag_sq = {
+                let dx = max_x - min_x;
+                let dy = max_y - min_y;
+                dx * dx + dy * dy
+            };
+            // Use the larger of (diagonal², max_abs²) as scale².
+            let scale_sq = diag_sq.max(max_abs * max_abs);
+            // Tolerance ≈ (128ε)² × scale² with ε = 2.22e-16 → 8.1e-28.
+            let coin_tol = scale_sq * 8.1e-28;
+            for i in 0..n_vertices {
+                for j in (i + 1)..n_vertices {
+                    let dx = self.vertices[i].x - self.vertices[j].x;
+                    let dy = self.vertices[i].y - self.vertices[j].y;
+                    if dx * dx + dy * dy < coin_tol {
+                        return Err(PslgValidationError::CoincidentVertices {
+                            first: PslgVertexId::from_usize(i),
+                            second: PslgVertexId::from_usize(j),
+                        });
+                    }
+                }
             }
         }
 
@@ -507,7 +568,10 @@ impl Pslg {
                         // The two middle values are the overlap boundaries.
                         let lo_val = sorted[1];
                         let hi_val = sorted[2];
-                        if (hi_val - lo_val).abs() < 1e-30 {
+                        // Scale-relative threshold: compare overlap length against
+                        // the characteristic scale (max segment extent) × 1e-14.
+                        let char_scale = (sorted[3] - sorted[0]).abs().max(1.0);
+                        if (hi_val - lo_val).abs() < char_scale * 1e-14 {
                             // Degenerate overlap (a single point) — not a true overlap.
                             continue;
                         }
@@ -528,12 +592,16 @@ impl Pslg {
                             (a1.x + t * (a2.x - a1.x), hi_val)
                         };
                         // Insert or reuse vertices for lo / hi overlap boundaries.
+                        // Scale-relative vertex weld: compare squared distance
+                        // against the squared characteristic scale × 1e-28
+                        // (i.e. relative tolerance 1e-14 per axis).
+                        let weld_tol = char_scale * char_scale * 1e-28;
                         let find_or_add = |pslg: &mut Pslg, px: Real, py: Real| -> PslgVertexId {
                             // Check all existing vertices for a match.
                             for (idx, v) in pslg.vertices.iter().enumerate() {
                                 let dx = v.x - px;
                                 let dy = v.y - py;
-                                if dx * dx + dy * dy < 1e-30 {
+                                if dx * dx + dy * dy < weld_tol {
                                     return PslgVertexId::from_usize(idx);
                                 }
                             }
@@ -692,7 +760,8 @@ fn collinear_overlap_interior(
 
 /// Compute the f64 parametric crossing point of two non-parallel line segments.
 ///
-/// Returns `None` when the segments are parallel (|denom| < 1e-30).
+/// Uses a scale-relative parallelism guard so the threshold adapts to the
+/// coordinate magnitude: $|\text{denom}| < |e_a| \cdot |e_b| \cdot 10^{-14}$.
 fn segment_cross_point(
     a1: &Point2<Real>,
     a2: &Point2<Real>,
@@ -704,7 +773,10 @@ fn segment_cross_point(
     let dx_b = b2.x - b1.x;
     let dy_b = b2.y - b1.y;
     let denom = dx_a * dy_b - dy_a * dx_b;
-    if denom.abs() < 1e-30 {
+    let len_a_sq = dx_a * dx_a + dy_a * dy_a;
+    let len_b_sq = dx_b * dx_b + dy_b * dy_b;
+    let scale = (len_a_sq * len_b_sq).sqrt().max(1e-30);
+    if denom.abs() < scale * 1e-14 {
         return None;
     }
     let t = ((b1.x - a1.x) * dy_b - (b1.y - a1.y) * dx_b) / denom;

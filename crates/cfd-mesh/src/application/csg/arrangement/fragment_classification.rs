@@ -86,7 +86,11 @@ pub(crate) fn classify_kept_fragments(
 
         let n = tri_normal(&tri);
         let nlen = n.norm();
-        let face_normal = if nlen > 1e-20 {
+        // Scale-relative: compare normal magnitude against edge lengths.
+        let e1 = (p1 - p0).norm();
+        let e2 = (p2 - p0).norm();
+        let edge_product = e1 * e2;
+        let face_normal = if nlen > 1e-10 * edge_product {
             n / nlen
         } else {
             Vector3r::zeros()

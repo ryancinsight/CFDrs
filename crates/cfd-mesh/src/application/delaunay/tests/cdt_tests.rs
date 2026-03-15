@@ -326,3 +326,191 @@ fn constraint_edges_bidirectional() {
     assert_eq!(cdt.is_constrained(b, c), cdt.is_constrained(c, b));
     assert_eq!(cdt.is_constrained(c, a), cdt.is_constrained(a, c));
 }
+
+// ── Scale-extreme CDT: micro scale ────────────────────────────────────────
+
+/// Theorem: CDT correctness is scale-invariant.
+///
+/// Statement: A CDT built from coordinates uniformly scaled by a factor
+/// $\alpha > 0$ produces the same combinatorial triangulation as the
+/// un-scaled input.  In particular, the Delaunay property is preserved.
+///
+/// Proof sketch: The in-circle and orientation predicates are homogeneous
+/// polynomials in the input coordinates.  Scaling all coordinates by $\alpha$
+/// multiplies the predicate value by $\alpha^k$ for some $k > 0$, preserving
+/// the sign.  Therefore scaling does not change any combinatorial decision.
+/// QED.
+#[test]
+fn micro_scale_cdt() {
+    let scale = 1e-15;
+    let mut pslg = Pslg::new();
+    let a = pslg.add_vertex(0.0 * scale, 0.0 * scale);
+    let b = pslg.add_vertex(1.0 * scale, 0.0 * scale);
+    let c = pslg.add_vertex(0.5 * scale, 0.866 * scale);
+    pslg.add_segment(a, b);
+    pslg.add_segment(b, c);
+    pslg.add_segment(c, a);
+
+    let cdt = Cdt::from_pslg(&pslg);
+    let dt = cdt.triangulation();
+
+    assert!(dt.is_delaunay(), "Micro-scale CDT should be Delaunay");
+    assert!(
+        dt.triangle_count() >= 1,
+        "Micro-scale CDT should produce triangles"
+    );
+    assert!(cdt.is_constrained(a, b));
+    assert!(cdt.is_constrained(b, c));
+    assert!(cdt.is_constrained(c, a));
+}
+
+// ── Scale-extreme CDT: macro scale ────────────────────────────────────────
+
+#[test]
+fn macro_scale_cdt() {
+    let scale = 1e12;
+    let mut pslg = Pslg::new();
+    let a = pslg.add_vertex(0.0 * scale, 0.0 * scale);
+    let b = pslg.add_vertex(1.0 * scale, 0.0 * scale);
+    let c = pslg.add_vertex(0.5 * scale, 0.866 * scale);
+    pslg.add_segment(a, b);
+    pslg.add_segment(b, c);
+    pslg.add_segment(c, a);
+
+    let cdt = Cdt::from_pslg(&pslg);
+    let dt = cdt.triangulation();
+
+    assert!(dt.is_delaunay(), "Macro-scale CDT should be Delaunay");
+    assert!(
+        dt.triangle_count() >= 1,
+        "Macro-scale CDT should produce triangles"
+    );
+    assert!(cdt.is_constrained(a, b));
+    assert!(cdt.is_constrained(b, c));
+    assert!(cdt.is_constrained(c, a));
+}
+
+// ── Constraint forces Delaunay restoration ────────────────────────────────
+
+/// Theorem: CDT Locally-Delaunay Property (Chew 1989, Lee & Lin 1986).
+///
+/// Statement: In a constrained Delaunay triangulation, every non-constrained
+/// edge satisfies the empty-circumcircle (in-circle) criterion.
+///
+/// This test builds a square with 4 interior points and a diagonal
+/// constraint.  The constraint cuts through the unconstrained Delaunay
+/// triangulation, and `restore_delaunay_near_constraint` must flip the
+/// surrounding edges so all non-constrained edges pass the in-circle test.
+#[test]
+fn cdt_constraint_restores_delaunay() {
+    let mut pslg = Pslg::new();
+    // 3 × 3 grid points.
+    let v00 = pslg.add_vertex(0.0, 0.0);
+    let _v10 = pslg.add_vertex(1.0, 0.0);
+    let v20 = pslg.add_vertex(2.0, 0.0);
+    let _v01 = pslg.add_vertex(0.0, 1.0);
+    let _v11 = pslg.add_vertex(1.0, 1.0);
+    let _v21 = pslg.add_vertex(2.0, 1.0);
+    let v02 = pslg.add_vertex(0.0, 2.0);
+    let _v12 = pslg.add_vertex(1.0, 2.0);
+    let v22 = pslg.add_vertex(2.0, 2.0);
+
+    // Boundary.
+    pslg.add_segment(v00, v20);
+    pslg.add_segment(v20, v22);
+    pslg.add_segment(v22, v02);
+    pslg.add_segment(v02, v00);
+
+    // Diagonal constraint cutting across multiple Delaunay edges.
+    pslg.add_segment(v00, v22);
+
+    let cdt = Cdt::from_pslg(&pslg);
+    let dt = cdt.triangulation();
+
+    assert!(
+        cdt.is_constrained(v00, v22),
+        "Diagonal constraint must be enforced"
+    );
+    assert!(
+        dt.is_delaunay(),
+        "CDT with grid + diagonal should be Delaunay"
+    );
+    // All 9 points should be in the triangulation.
+    assert!(dt.vertex_count() >= 9);
+    // Verify other boundary constraints.
+    assert!(cdt.is_constrained(v00, v20));
+    assert!(cdt.is_constrained(v20, v22));
+    assert!(cdt.is_constrained(v22, v02));
+    assert!(cdt.is_constrained(v02, v00));
+}
+
+// ── PSLG rejects coincident vertices ──────────────────────────────────────
+
+/// Two vertices at the same position should be rejected by validation.
+#[test]
+fn pslg_rejects_coincident_vertices() {
+    let mut pslg = Pslg::new();
+    pslg.add_vertex(1.0, 2.0);
+    pslg.add_vertex(1.0, 2.0); // exact duplicate
+
+    let err = pslg.validate().err().expect("should reject coincident verts");
+    assert!(
+        matches!(err, PslgValidationError::CoincidentVertices { .. }),
+        "expected CoincidentVertices, got: {err}"
+    );
+}
+
+/// Near-coincident vertices (within tolerance) should also be rejected.
+#[test]
+fn pslg_rejects_near_coincident_vertices() {
+    let mut pslg = Pslg::new();
+    pslg.add_vertex(1.0, 2.0);
+    pslg.add_vertex(1.0 + 1e-16, 2.0 + 1e-16); // within tolerance
+
+    let err = pslg.validate().err().expect("should reject near-coincident");
+    assert!(
+        matches!(err, PslgValidationError::CoincidentVertices { .. }),
+        "expected CoincidentVertices, got: {err}"
+    );
+}
+
+/// Vertices that are clearly distinct should pass validation.
+#[test]
+fn pslg_accepts_distinct_vertices() {
+    let mut pslg = Pslg::new();
+    let a = pslg.add_vertex(0.0, 0.0);
+    let b = pslg.add_vertex(1.0, 0.0);
+    let c = pslg.add_vertex(0.5, 1.0);
+    pslg.add_segment(a, b);
+    pslg.add_segment(b, c);
+    pslg.add_segment(c, a);
+
+    assert!(pslg.validate().is_ok(), "distinct vertices should pass");
+}
+
+// ── Adversarial near-degenerate constraint ────────────────────────────────
+
+/// A very thin, long triangle with a constraint across its shortest edge.
+/// Tests that scale-relative tolerances handle near-degenerate geometry.
+#[test]
+fn cdt_near_degenerate_thin_triangle() {
+    let mut pslg = Pslg::new();
+    // Very elongated triangle: base 1000, height ~0.001
+    let a = pslg.add_vertex(0.0, 0.0);
+    let b = pslg.add_vertex(1000.0, 0.0);
+    let c = pslg.add_vertex(500.0, 0.001);
+    pslg.add_segment(a, b);
+    pslg.add_segment(b, c);
+    pslg.add_segment(c, a);
+
+    let cdt = Cdt::from_pslg(&pslg);
+    let dt = cdt.triangulation();
+
+    assert!(
+        dt.triangle_count() >= 1,
+        "Near-degenerate CDT should produce triangles"
+    );
+    assert!(cdt.is_constrained(a, b));
+    assert!(cdt.is_constrained(b, c));
+    assert!(cdt.is_constrained(c, a));
+}

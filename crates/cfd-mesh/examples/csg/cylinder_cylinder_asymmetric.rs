@@ -43,7 +43,7 @@ use std::fs;
 use std::io::BufWriter;
 use std::time::Instant;
 
-use cfd_mesh::application::csg::boolean::{csg_boolean, BooleanOp};
+use cfd_mesh::application::csg::boolean::BooleanOp;
 use cfd_mesh::application::watertight::check::check_watertight;
 use cfd_mesh::domain::core::scalar::{Point3r, Real};
 use cfd_mesh::domain::geometry::primitives::{Cylinder, PrimitiveMesh};

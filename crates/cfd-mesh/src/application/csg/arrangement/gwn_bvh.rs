@@ -193,12 +193,11 @@ fn bounding_sphere_and_area(faces: &[PreparedFace], indices: &[usize]) -> ([f64;
 
     for &i in indices {
         let f = &faces[i];
-        for (pts, k) in [
-            ([f.a.x, f.a.y, f.a.z], 0),
-            ([f.b.x, f.b.y, f.b.z], 0),
-            ([f.c.x, f.c.y, f.c.z], 0),
+        for pts in [
+            [f.a.x, f.a.y, f.a.z],
+            [f.b.x, f.b.y, f.b.z],
+            [f.c.x, f.c.y, f.c.z],
         ] {
-            let _ = k;
             for (d, &v) in min.iter_mut().zip(pts.iter()) {
                 if v < *d {
                     *d = v;
@@ -210,15 +209,7 @@ fn bounding_sphere_and_area(faces: &[PreparedFace], indices: &[usize]) -> ([f64;
                 }
             }
         }
-        let ab = [f.b.x - f.a.x, f.b.y - f.a.y, f.b.z - f.a.z];
-        let ac = [f.c.x - f.a.x, f.c.y - f.a.y, f.c.z - f.a.z];
-        let cross = [
-            ab[1] * ac[2] - ab[2] * ac[1],
-            ab[2] * ac[0] - ab[0] * ac[2],
-            ab[0] * ac[1] - ab[1] * ac[0],
-        ];
-        total_area +=
-            0.5 * (cross[0] * cross[0] + cross[1] * cross[1] + cross[2] * cross[2]).sqrt();
+        total_area += f.area;
     }
 
     let cx = 0.5 * (min[0] + max[0]);

@@ -81,3 +81,6 @@ pub use solver::VofSolver;
 pub use advection::AdvectionMethod;
 pub use plic_geometry::volume_under_plane_3d;
 pub use reconstruction::InterfaceReconstruction;
+pub use reconstruction::{
+    height_function_normal_2d, height_function_normal_3d, youngs_normal_2d,
+};

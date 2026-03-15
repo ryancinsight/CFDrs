@@ -336,6 +336,33 @@ impl<T: RealField + FromPrimitive + Copy> KOmegaSSTModel<T> {
     }
 }
 
+/// Menter (2003) SST production limiter.
+///
+/// ## Theorem — Production Limiter (Menter, Kuntz & Langtry 2003)
+///
+/// The turbulence production term in the k-equation is limited to prevent
+/// unphysical kinetic energy buildup in stagnation regions:
+///
+/// ```text
+/// P_k = min(P_k_unlimited, C_lim * beta_star * rho * k * omega)
+/// ```
+///
+/// where C_lim = 10 (standard value) and beta_star = 0.09.
+///
+/// **Proof**: In stagnation regions, the strain rate S can be large while
+/// the turbulent kinetic energy k is small, causing P_k = mu_t*S^2 >> epsilon.
+/// The limiter bounds P_k to be at most C_lim times the dissipation rate,
+/// preventing runaway growth that would violate the realizability condition
+/// 2k/3 >= max(u'^2, v'^2, w'^2).
+///
+/// **Reference**: Menter, F.R., Kuntz, M. & Langtry, R. (2003). "Ten Years
+/// of Industrial Experience with the SST Turbulence Model", *Turbulence,
+/// Heat and Mass Transfer* 4:625-632.
+pub fn limit_production(p_k: f64, k: f64, omega: f64, beta_star: f64) -> f64 {
+    let c_lim = 10.0;
+    p_k.min(c_lim * beta_star * k * omega)
+}
+
 impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> TurbulenceModel<T>
     for KOmegaSSTModel<T>
 {
@@ -473,14 +500,22 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> TurbulenceMo
                 // Calculate turbulent viscosity
                 let nu_t = self.turbulent_viscosity(k_previous[idx], omega_previous[idx], density);
 
-                // Production term
-                let p_k = self.production_term(
+                // Production term (unlimited)
+                let p_k_unlimited = self.production_term(
                     &grad,
                     nu_t,
                     k_previous[idx],
                     wall_distance[idx],
                     molecular_viscosity,
                 );
+
+                // Apply Menter (2003) SST production limiter to prevent
+                // unphysical kinetic energy buildup in stagnation regions.
+                // P_k = min(P_k_unlimited, C_lim * beta_star * k * omega)
+                let c_lim = T::from_f64(10.0).unwrap_or_else(T::one);
+                let beta_star = T::from_f64(SST_BETA_STAR).unwrap_or_else(T::one);
+                let p_k = p_k_unlimited
+                    .min(c_lim * beta_star * k_previous[idx] * omega_previous[idx]);
 
                 // Diffusion terms
                 let nu_eff_k = molecular_viscosity + nu_t * sigma_k;
@@ -514,7 +549,6 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> TurbulenceMo
                 let cd_term = (T::one() - self.f1[idx]) * cd_kw;
 
                 // Update k with realizability constraints
-                let beta_star = T::from_f64(SST_BETA_STAR).unwrap_or_else(T::one);
                 let k_new = k_previous[idx]
                     + dt * (p_k - beta_star * k_previous[idx] * omega_previous[idx] + diff_k);
                 let k_min = T::from_f64(K_MIN).unwrap_or_else(T::zero);
@@ -544,5 +578,57 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> TurbulenceMo
     fn is_valid_for_reynolds(&self, reynolds: T) -> bool {
         // SST is valid for all Reynolds numbers
         reynolds > T::zero()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// When P_k is smaller than the limiter threshold (10 * beta_star * k * omega),
+    /// the production term should pass through unchanged.
+    #[test]
+    fn test_sst_limiter_passes_small_production() {
+        let beta_star = SST_BETA_STAR; // 0.09
+        let k = 1.0;
+        let omega = 100.0;
+        // Limit = 10 * 0.09 * 1.0 * 100.0 = 90.0
+        let p_k = 50.0; // well below limit
+        let result = limit_production(p_k, k, omega, beta_star);
+        assert!(
+            (result - p_k).abs() < 1e-12,
+            "Small production should pass through unchanged: got {result}, expected {p_k}"
+        );
+    }
+
+    /// When P_k exceeds the limiter threshold, it should be clipped to
+    /// C_lim * beta_star * k * omega.
+    #[test]
+    fn test_sst_limiter_clips_large_production() {
+        let beta_star = SST_BETA_STAR; // 0.09
+        let k = 1.0;
+        let omega = 100.0;
+        let limit = 10.0 * beta_star * k * omega; // 90.0
+        let p_k = 500.0; // well above limit
+        let result = limit_production(p_k, k, omega, beta_star);
+        assert!(
+            (result - limit).abs() < 1e-12,
+            "Large production should be clipped to {limit}: got {result}"
+        );
+    }
+
+    /// When k = 0, the limiter should clip production to zero, preventing
+    /// any turbulence production when there is no turbulent kinetic energy.
+    #[test]
+    fn test_sst_limiter_zero_k() {
+        let beta_star = SST_BETA_STAR;
+        let k = 0.0;
+        let omega = 100.0;
+        let p_k = 50.0;
+        let result = limit_production(p_k, k, omega, beta_star);
+        assert!(
+            result.abs() < 1e-12,
+            "With k=0, limiter should clip to zero: got {result}"
+        );
     }
 }

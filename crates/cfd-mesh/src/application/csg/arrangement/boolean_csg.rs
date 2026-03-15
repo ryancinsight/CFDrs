@@ -124,7 +124,10 @@ fn resolve_short_circuit_boolean(
                 let origin_diff = basis.origin.coords - ref_basis.origin.coords;
                 let cross = basis.normal.cross(&ref_basis.normal).norm();
                 let dot_offset = origin_diff.dot(&ref_basis.normal).abs();
-                if cross > 1e-6 || dot_offset > 1e-6 {
+                // cross threshold is scale-free (unit normals); dot_offset is
+                // scale-relative to the distance between the two origins.
+                let origin_scale = origin_diff.norm().max(1e-30);
+                if cross > 1e-6 || dot_offset > 1e-6 * origin_scale {
                     all_coplanar = false;
                     break;
                 }
@@ -216,9 +219,13 @@ fn execute_arrangement_pass(
             bb.expand(pool.position(f.vertices[1]));
             bb.expand(pool.position(f.vertices[2]));
         }
-        // Expand AABB slightly to defeat floating point precision misses on snapped vertices
-        bb.min -= crate::domain::core::scalar::Vector3r::new(1e-6, 1e-6, 1e-6);
-        bb.max += crate::domain::core::scalar::Vector3r::new(1e-6, 1e-6, 1e-6);
+        // Expand AABB relative to its diagonal to defeat floating-point
+        // precision misses on snapped vertices.  Scale-correct: see
+        // AABB_RELATIVE_EXPANSION theorem in constants.rs.
+        let diag = (bb.max - bb.min).norm().max(1e-30);
+        let eps = crate::domain::core::constants::AABB_RELATIVE_EXPANSION * diag;
+        bb.min -= crate::domain::core::scalar::Vector3r::new(eps, eps, eps);
+        bb.max += crate::domain::core::scalar::Vector3r::new(eps, eps, eps);
         mesh_aabbs.push(bb);
     }
 

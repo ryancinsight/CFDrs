@@ -15,7 +15,7 @@ use super::sections::{
     build_limits_of_usage_intro, build_option2_top5_table, build_results_intro,
     build_robustness_section, build_selected_table, build_selected_table_intro,
     build_strict_core_intro, build_strict_core_table, build_top5_intro, build_tri_cell_intro,
-    build_tri_cell_table, build_validation_section,
+    build_tri_cell_table, build_validation_section, physics_model_inventory,
 };
 use super::template::render_template_strict;
 use crate::analysis::RobustnessReport;
@@ -439,5 +439,9 @@ fn insert_table_values(
     values.insert(
         "CRI_EXPANSION_SENSITIVITY".to_string(),
         build_cri_expansion_sensitivity(),
+    );
+    values.insert(
+        "PHYSICS_MODEL_INVENTORY".to_string(),
+        physics_model_inventory(),
     );
 }

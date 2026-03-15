@@ -42,7 +42,7 @@ use std::time::Instant;
 
 use nalgebra::{Isometry3, UnitQuaternion, Vector3};
 
-use cfd_mesh::application::csg::boolean::{csg_boolean, BooleanOp};
+use cfd_mesh::application::csg::boolean::BooleanOp;
 use cfd_mesh::application::csg::CsgNode;
 use cfd_mesh::application::watertight::check::check_watertight;
 use cfd_mesh::domain::core::scalar::{Point3r, Real};

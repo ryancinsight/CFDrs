@@ -148,7 +148,7 @@ impl MetricTensor {
     #[must_use]
     pub(crate) fn cholesky(&self) -> Option<[Real; 3]> {
         let l00 = self.m00.sqrt();
-        if l00 < 1e-30 {
+        if l00 <= 0.0 || !l00.is_finite() {
             return None;
         }
         let l10 = self.m01 / l00;

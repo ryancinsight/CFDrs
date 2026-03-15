@@ -177,7 +177,11 @@ fn min_angle_triangle(a: (Real, Real), b: (Real, Real), c: (Real, Real)) -> Real
     let bc = edge_sq(b, c);
     let ca = edge_sq(c, a);
 
-    if ab < 1e-30 || bc < 1e-30 || ca < 1e-30 {
+    // Scale-relative degenerate edge threshold: an edge is degenerate if
+    // its squared length is < 1e-28 × the longest squared edge.
+    let longest_sq = ab.max(bc).max(ca);
+    let degen_tol = longest_sq.max(1.0) * 1e-28;
+    if ab < degen_tol || bc < degen_tol || ca < degen_tol {
         return 0.0; // Degenerate triangle — treat as zero minimum angle.
     }
 

@@ -35,7 +35,7 @@
 //! - Jacobson et al. (2013), *Robust Inside-Outside Segmentation using
 //!   Generalized Winding Numbers*, ACM SIGGRAPH.
 
-use crate::domain::core::constants::GWN_DENOMINATOR_GUARD;
+use crate::domain::core::constants::{GWN_DENOMINATOR_GUARD, GWN_SOLID_ANGLE_CLIP};
 use crate::domain::core::scalar::{Point3r, Scalar, Vector3r};
 use crate::infrastructure::storage::face_store::FaceData;
 use crate::infrastructure::storage::vertex_pool::VertexPool;
@@ -61,6 +61,9 @@ pub struct PreparedFace {
     pub(crate) c: Point3r,
     pub(crate) centroid: Point3r,
     pub(crate) normal: Vector3r,
+    /// Triangle area = ‖normal‖ / 2 (precomputed to avoid redundant cross
+    /// products in BVH construction and area-based skip criteria).
+    pub(crate) area: f64,
 }
 
 /// Build prepared reference-face geometry for repeated classification queries.
@@ -77,6 +80,7 @@ pub fn prepare_classification_faces(
         let ab = Vector3r::new(b.x - a.x, b.y - a.y, b.z - a.z);
         let ac = Vector3r::new(c.x - a.x, c.y - a.y, c.z - a.z);
         let normal = ab.cross(&ac);
+        let area = 0.5 * normal.norm();
         let centroid = Point3r::new(
             (a.x + b.x + c.x) / 3.0,
             (a.y + b.y + c.y) / 3.0,
@@ -88,6 +92,7 @@ pub fn prepare_classification_faces(
             c,
             centroid,
             normal,
+            area,
         });
     }
     prepared
@@ -155,7 +160,7 @@ pub fn gwn<T: Scalar>(query: &nalgebra::Point3<T>, faces: &[FaceData], pool: &Ve
 /// Semantically equivalent to `gwn::<f64>` but avoids pool lookups.
 /// Declared `pub(super)` since only the `arrangement` module needs it.
 #[inline]
-pub(super) fn gwn_prepared(query: &Point3r, faces: &[PreparedFace]) -> f64 {
+pub(crate) fn gwn_prepared(query: &Point3r, faces: &[PreparedFace]) -> f64 {
     let mut solid_angle_sum = 0.0_f64;
     for face in faces {
         let va = nalgebra::Vector3::new(face.a.x - query.x, face.a.y - query.y, face.a.z - query.z);
@@ -180,6 +185,127 @@ pub(super) fn gwn_prepared(query: &Point3r, faces: &[PreparedFace]) -> f64 {
         }
     }
     (solid_angle_sum / (4.0 * std::f64::consts::PI)).clamp(-1.0, 1.0)
+}
+
+/// Bounded GWN against precomputed `PreparedFace` geometry (f64-only).
+///
+/// ## Theorem — Per-Triangle Solid-Angle Clamp
+///
+/// The van Oosterom–Strackee solid angle `Ω = 2·atan2(num, den)` lies in
+/// `(-2π, 2π]` by the range of `atan2`.  When query `q` is nearly coplanar
+/// with a triangle and the projection falls inside it, `den → 0⁻` and
+/// `Ω → ±2π`.  This single-face dominance creates numerical jitter near the
+/// surface because the remaining faces' contributions (≈ ∓2π total for a
+/// closed mesh) must cancel to the same precision.
+///
+/// Clamping each `|Ω_i| ≤ 2π − δ` for `δ = GWN_SOLID_ANGLE_CLIP` prevents
+/// any single face from contributing a full half-winding.  For far-field and
+/// interior queries, no face reaches the clip boundary (each subtends ≪ 2π),
+/// so `gwn_bounded ≡ gwn`.  For near-surface queries, the dominant face's
+/// contribution is clipped, yielding a stable value that converges to ±0.5
+/// on the surface instead of oscillating.
+///
+/// ## Complexity — O(n) per query, identical to [`gwn_prepared`].
+///
+/// ## Reference
+///
+/// Inspired by "Leaps and Bounds: An Improved Point Cloud Winding Number
+/// Formulation" (ICCV 2025), adapted for triangle meshes.  The point-cloud
+/// paper clips dipole contributions; our triangle-mesh variant clips the
+/// van Oosterom solid angle to achieve the analogous bounded behaviour. ∎
+#[inline]
+pub(crate) fn gwn_bounded_prepared(query: &Point3r, faces: &[PreparedFace]) -> f64 {
+    let mut solid_angle_sum = 0.0_f64;
+    let max_omega = 2.0 * std::f64::consts::PI - GWN_SOLID_ANGLE_CLIP;
+    for face in faces {
+        let va =
+            nalgebra::Vector3::new(face.a.x - query.x, face.a.y - query.y, face.a.z - query.z);
+        let vb =
+            nalgebra::Vector3::new(face.b.x - query.x, face.b.y - query.y, face.b.z - query.z);
+        let vc =
+            nalgebra::Vector3::new(face.c.x - query.x, face.c.y - query.y, face.c.z - query.z);
+
+        if va.norm_squared() < f64::MIN_POSITIVE
+            || vb.norm_squared() < f64::MIN_POSITIVE
+            || vc.norm_squared() < f64::MIN_POSITIVE
+        {
+            continue;
+        }
+
+        let la = va.norm();
+        let lb = vb.norm();
+        let lc = vc.norm();
+        let num = va.dot(&vb.cross(&vc));
+        let den = la * lb * lc + va.dot(&vb) * lc + vb.dot(&vc) * la + vc.dot(&va) * lb;
+
+        if den.abs() > GWN_DENOMINATOR_GUARD || num.abs() > GWN_DENOMINATOR_GUARD {
+            let omega = 2.0 * num.atan2(den);
+            solid_angle_sum += omega.clamp(-max_omega, max_omega);
+        }
+    }
+    (solid_angle_sum / (4.0 * std::f64::consts::PI)).clamp(-1.0, 1.0)
+}
+
+// ── WNNC normal consistency ───────────────────────────────────────────────────
+
+/// Winding Number Normal Consistency (WNNC) score at a surface point.
+///
+/// ## Theorem — Normal Consistency via GWN Gradient
+///
+/// For a closed orientable 2-manifold M with outward normal field `n`, the
+/// negative gradient of the induced GWN field satisfies:
+///
+/// ```text
+/// −∇GWN(p) ∝ n(p)   for p on M
+/// ```
+///
+/// Therefore `dot(−∇GWN(p), n(p)) > 0` indicates that the normal at `p` is
+/// consistent with the surrounding winding-number field.  A negative score
+/// indicates an inverted or inconsistent normal.
+///
+/// ## Implementation
+///
+/// The gradient is approximated by central differences with step size `h`:
+///
+/// ```text
+/// ∂GWN/∂x ≈ (GWN(p + h·x̂) − GWN(p − h·x̂)) / (2h)
+/// ```
+///
+/// The returned score is the cosine of the angle between `−∇GWN` and `normal`:
+/// `score ∈ [-1, 1]`.  Positive values indicate consistent normals.
+///
+/// ## Complexity — O(6n) per point (six GWN evaluations).
+///
+/// ## Reference
+///
+/// Feng et al. (2024), *Winding Number Normal Consistency*, adapted for
+/// post-CSG normal validation. ∎
+#[must_use]
+pub fn wnnc_score(
+    point: &Point3r,
+    normal: &Vector3r,
+    faces: &[PreparedFace],
+    h: f64,
+) -> f64 {
+    let gx = (gwn_prepared(&Point3r::new(point.x + h, point.y, point.z), faces)
+        - gwn_prepared(&Point3r::new(point.x - h, point.y, point.z), faces))
+        / (2.0 * h);
+    let gy = (gwn_prepared(&Point3r::new(point.x, point.y + h, point.z), faces)
+        - gwn_prepared(&Point3r::new(point.x, point.y - h, point.z), faces))
+        / (2.0 * h);
+    let gz = (gwn_prepared(&Point3r::new(point.x, point.y, point.z + h), faces)
+        - gwn_prepared(&Point3r::new(point.x, point.y, point.z - h), faces))
+        / (2.0 * h);
+
+    let grad_norm_sq = gx * gx + gy * gy + gz * gz;
+    let normal_norm_sq = normal.norm_squared();
+    if grad_norm_sq < 1e-60 || normal_norm_sq < 1e-60 {
+        return 0.0;
+    }
+    // Score = cos(angle between -∇GWN and normal)
+    //       = dot(-grad, normal) / (|grad| × |normal|)
+    let neg_grad_dot_n = -(gx * normal.x + gy * normal.y + gz * normal.z);
+    neg_grad_dot_n / (grad_norm_sq.sqrt() * normal_norm_sq.sqrt())
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────

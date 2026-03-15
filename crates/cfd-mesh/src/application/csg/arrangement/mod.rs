@@ -129,6 +129,8 @@ pub(crate) mod fragment_classification;
 pub(crate) mod fragment_refinement;
 pub(crate) mod gwn;
 pub(crate) mod gwn_bvh;
+#[cfg(test)]
+pub mod gwn_robustness_tests;
 pub(crate) mod mesh_ops;
 pub(crate) mod multi_mesh_resolution;
 pub mod n_way;
@@ -136,6 +138,8 @@ pub(crate) mod patch;
 pub mod planar;
 pub mod propagate;
 pub(crate) mod result_finalization;
+#[cfg(test)]
+pub mod scale_robustness_tests;
 pub(crate) mod seam;
 pub(crate) mod stitch;
 #[cfg(test)]

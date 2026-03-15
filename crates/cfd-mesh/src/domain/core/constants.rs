@@ -76,20 +76,21 @@ pub const DEFAULT_CHANNEL_RADIUS: Real = 0.5e-3 as Real;
 /// is only safe for `f64` arithmetic.
 pub const GWN_DENOMINATOR_GUARD: Real = 1e-30;
 
-/// Per-vertex squared distance guard for the GWN near-vertex skip.
+/// Solid-angle clip margin for bounded GWN evaluation.
 ///
-/// # Theorem — Guard Safety
+/// Each per-triangle solid angle `Ω` is clamped to `|Ω| ≤ 2π − δ` where
+/// `δ = GWN_SOLID_ANGLE_CLIP`.  This prevents a single near-coincident
+/// triangle from contributing a full half-winding (±0.5) to the total,
+/// reducing numerical jitter for near-surface query points.
 ///
-/// `f64::MIN_POSITIVE` (≈ 2.2 × 10⁻³⁰⁸) is the smallest positive normal
-/// `f64`.  Any `norm_squared()` below this value indicates that the query
-/// point is within sub-ULP distance of a mesh vertex — geometrically
-/// impossible for physical meshes.  Skipping such faces prevents
-/// `atan2(0, 0) → NaN` without affecting any reachable query point.
+/// # Theorem — Clip Safety
 ///
-/// For `T = f32`, the generic GWN path uses `T::min_positive_value()` at
-/// runtime (≈ 1.2 × 10⁻³⁸), which is strictly greater than 0.0 in f32.
-/// This constant is intentionally `f64`-only; do **not** cast it to `f32`.
-pub const GWN_NEAR_VERTEX_GUARD_SQ: Real = 1e-40;
+/// For a query at distance `d` from the nearest mesh face, the dominant
+/// face subtends `Ω ≈ 2π − O(d²/A)` where A is face area.  The clip
+/// fires only when `O(d²/A) < δ = 1e-6`, i.e. `d < √(A × 1e-6)`.
+/// For A = 1 mm² this is d < 1 nm — safely below any physical resolution.
+/// Interior/exterior queries never trigger the clip. ∎
+pub const GWN_SOLID_ANGLE_CLIP: Real = 1e-6;
 
 /// GWN threshold: `|wn| > GWN_INSIDE_THRESHOLD` → query is strictly inside.
 pub const GWN_INSIDE_THRESHOLD: Real = 0.65;
@@ -99,6 +100,22 @@ pub const GWN_INSIDE_THRESHOLD: Real = 0.65;
 /// The band `[GWN_OUTSIDE_THRESHOLD, GWN_INSIDE_THRESHOLD]` triggers the
 /// tiebreaker predicates in `classify_fragment`.
 pub const GWN_OUTSIDE_THRESHOLD: Real = 0.35;
+
+/// Scale-relative tolerance for the nearest-face signed distance tiebreaker.
+///
+/// # Theorem — Scale Invariance
+///
+/// The signed distance `d = cp · n / ‖n‖` has unit [length].  The face
+/// characteristic scale is `√(area) ≈ √(‖n‖/2)` where `n = ab × ac`.
+/// A fragment is coplanar when `|d| < TIEBREAK_SIGN_REL_TOL × √(area)`.
+///
+/// For a 1 mm edge triangle (area ≈ 4.3 × 10⁻⁷ m², scale ≈ 6.6 × 10⁻⁴ m),
+/// the threshold is ≈ 6.6 × 10⁻¹¹ m — well below any physical geometry.
+/// For a 1 m edge triangle (scale ≈ 0.7 m), threshold ≈ 7 × 10⁻⁸ m.
+///
+/// **Previous absolute threshold 1e-9** breaks for meshes at scales ≫ 1 m
+/// (threshold too tight) or ≪ 1 mm (threshold too loose). ∎
+pub const TIEBREAK_SIGN_REL_TOL: Real = 1e-7;
 
 /// Sliver face exclusion ratio for Phase 4 fragment classification.
 ///
@@ -141,3 +158,70 @@ pub const SEAM_COLLINEAR_TOL_SQ: Real = 1e-6;
 /// bound, `corefine_face` falls back to `midpoint_subdivide` to prevent
 /// O(s²) CDT blowup from complex multi-branch junction geometries.
 pub const MAX_STEINER_PER_FACE: usize = 32768;
+
+/// Relative AABB expansion factor for broad-phase Boolean operations.
+///
+/// The mesh-level AABB is expanded by `AABB_RELATIVE_EXPANSION * diagonal`
+/// to guard against floating-point precision misses on snapped vertices.
+///
+/// # Theorem — Scale Correctness
+///
+/// For a mesh with AABB diagonal `d`, the expansion is `1e-6 · d`.  This
+/// ensures the relative guard is constant across scales: a 10 µm mesh
+/// expands by ≈ 10 fm (sub-atomic, harmless), while a 1 m mesh expands by
+/// ≈ 1 µm.  The previous absolute 1e-6 m expansion was 10 % of a 10 µm
+/// mesh's diagonal — large enough to merge disjoint features. ∎
+pub const AABB_RELATIVE_EXPANSION: Real = 1e-6;
+
+/// Relative degenerate-normal threshold factor for CDT corefine and
+/// fragment classification.
+///
+/// A cross-product normal `n = (B−A) × (C−A)` is degenerate when
+/// `‖n‖² < DEGENERATE_NORMAL_REL_SQ · ‖B−A‖² · ‖C−A‖²`.
+///
+/// # Theorem — Dimensionless Bound
+///
+/// `‖n‖² = ‖B−A‖² ‖C−A‖² sin²θ` where θ is the included angle.  The
+/// threshold `sin²θ < 1e-20` triggers only for θ < 1e-10 rad (≈ 6e-9°),
+/// regardless of scale.  Previously the absolute check `‖n‖² < 1e-20`
+/// triggered for any triangle with edge lengths below ≈ 3e-10, which
+/// misclassified micro-scale millifluidic geometry. ∎
+pub const DEGENERATE_NORMAL_REL_SQ: Real = 1e-20;
+
+/// Relative degenerate-segment threshold factor.
+///
+/// A snap segment with `‖end − start‖² < DEGENERATE_SEGMENT_REL_SQ · diag²`
+/// is collapsed, where `diag` is the face's maximum edge length.
+///
+/// # Theorem — Scale Correctness
+///
+/// At any scale, a segment shorter than `1e-12 · max_edge` is below
+/// double-precision resolution for that geometry.  The previous absolute
+/// threshold `1e-24` is `(1e-12)²` which is correct for unit-scale meshes
+/// but too strict at macro scale (1 m mesh: segments up to 1e-12 m would
+/// be kept, wasting CDT effort on sub-picometer features). ∎
+pub const DEGENERATE_SEGMENT_REL_SQ: Real = 1e-24;
+
+/// Relative 2-D projected-area threshold for sliver detection in corefine.
+///
+/// A boundary polygon is degenerate when `|area2D| < SLIVER_AREA2D_REL · ∑edge²`.
+///
+/// # Theorem — Scale Independence
+///
+/// The 2-D shoelace area scales as length², so comparing against ∑edge²
+/// yields a dimensionless ratio that is independent of mesh scale. ∎
+pub const SLIVER_AREA2D_REL: Real = 1e-10;
+
+/// Relative interval-overlap tolerance for T-T intersection segment
+/// computation.
+///
+/// Two 1-D intervals `[t₁_min, t₁_max]` and `[t₂_min, t₂_max]` are
+/// considered non-overlapping when `t_enter > t_leave + EPS · span` where
+/// `span = max(|t₁_max − t₁_min|, |t₂_max − t₂_min|, diag)`.
+///
+/// # Theorem — Scale Independence
+///
+/// The 1-D projections onto the intersection line scale linearly with
+/// mesh dimensions.  Using a relative tolerance ensures the gap test
+/// is uniform across scales. ∎
+pub const INTERVAL_OVERLAP_REL: Real = 1e-12;

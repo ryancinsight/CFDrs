@@ -341,6 +341,14 @@ pub(super) fn build_tri_cell_intro(
     let rbc_pct = m.rbc_venturi_exposure_fraction * 100.0;
     let mut s = format!(
         "Three-population routing provides the clinical selectivity basis for Option 2. \
+Cell equilibrium positions are computed from inertial lift correlations; \
+the Amini (2014) confinement-dependent lift correction refines the standard Di Carlo \
+model for particle-to-channel size ratios a/D_h > 0.1 typical of CTCs in millifluidic \
+geometries. Blood rheology incorporates the Fahraeus–Lindqvist effect (Pries 1992) for \
+apparent viscosity reduction in channels below ~300 µm, plasma skimming (Pries 1989) for \
+hematocrit partitioning at asymmetric bifurcations, and the Quemada (1978) rouleaux \
+aggregation viscosity model for low-shear zones where RBC aggregation elevates the \
+effective viscosity above the Casson baseline. \
 For the selected design: {ccf_pct:.0}% of CTCs enter the venturi treatment lane \
 (cancer_center_fraction); {wbc_pct:.0}% of WBCs enter the treatment lane, so {:.0}% are kept out \
 of the treatment region before all flowpaths remerge upstream of the outlet; {rbc_pct:.0}% of RBCs \
@@ -380,7 +388,9 @@ format), ensuring compatibility with standard fluorescence microscopy stages and
 delivery windows for sonosensitiser activation.\n\n\
 3. **FDA main-channel compliance** — sustained wall shear stress τ_w = μ γ̇_w must not \
 exceed 150 Pa in any non-venturi channel. This threshold is derived from the Giersiepen \
-hemolysis correlation at exposure times typical of millifluidic transit (10–500 ms). Venturi \
+(1990) hemolysis correlation at exposure times typical of millifluidic transit (10–500 ms); \
+the Taskin (2012) strain-based hemolysis model is available as an alternative predictor \
+for designs where cumulative strain history dominates over instantaneous shear. Venturi \
 throats are excluded from this gate and evaluated separately under the transient shear \
 exception (≤ 300 Pa for ≤ 5 ms transit).\n\n\
 4. **σ finite** — the Bernoulli cavitation number σ = (p∞ − pᵥ)/(½ρv²) must converge \
@@ -402,8 +412,12 @@ pub(super) fn build_cavitation_formulas_intro(option2: &Milestone12ReportDesign)
 wall shear rate, flow partition fractions) into clinically interpretable quantities.\n\n\
 **Cavitation number** σ = (p∞ − pᵥ) / (½ρv²_throat), where p∞ is the far-field \
 (inlet) absolute pressure, pᵥ ≈ 6.3 kPa (blood vapor pressure at 37 °C), and \
-v_throat is the Casson-regime mean velocity at the venturi throat. σ < 1 indicates \
-incipient hydrodynamic cavitation; σ < 0 implies p_throat < pᵥ (strong cavitation). \
+v_throat is the cross-section averaged throat velocity (White 2011). For short venturi \
+throats where L/D_h < 20, the Durst (2005) developing-flow entrance correction is \
+available to account for the non-parabolic velocity profile in the entrance region, \
+which increases the effective centreline velocity and wall shear relative to the \
+fully-developed assumption. σ < 1 indicates incipient hydrodynamic cavitation; \
+σ < 0 implies p_throat < pᵥ (strong cavitation). \
 Cavitation potential C_p = max(0, 1 − σ).\n\n\
 **Cavitation intensity** I_cav = C_p × (0.5 + 0.5 × κ), where κ is the constriction \
 score — the logarithmic velocity ratio ln(v_throat/v_upstream) normalised by ln(v_ref). \
@@ -514,6 +528,53 @@ pub(super) fn build_cri_expansion_sensitivity() -> String {
         }
     }
     out
+}
+
+/// Generate narrative section describing the physics models available for
+/// multi-fidelity simulation.
+///
+/// Lists all 22 validated physics models and their literature references
+/// in a markdown table format suitable for inclusion in the Milestone 12 report.
+pub(super) fn physics_model_inventory() -> String {
+    "\
+### Physics Model Inventory
+
+The following table lists all validated physics models integrated or available \
+in the CFDrs multi-fidelity simulation stack, grouped by physical domain. Models \
+marked **Active** are used in the current 1D scoring pipeline; models marked \
+**Available** are implemented and validated but reserved for higher-fidelity \
+2D/3D refinement or future integration.
+
+| # | Domain | Model | Reference | Status | Key parameter affected |
+|---:|---|---|---|---|---|
+| 1 | Flow | Hagen-Poiseuille network solver | Sutera & Skalak (1993) | Active | `total_pressure_drop_pa` |
+| 2 | Flow | Casson viscosity (blood) | Casson (1959), Merrill (1969) | Active | `BLOOD_VISCOSITY_PA_S` |
+| 3 | Flow | Fahraeus-Lindqvist apparent viscosity | Pries et al. (1992) | Available | Effective resistance in D_h < 300 um |
+| 4 | Flow | Quemada rouleaux aggregation viscosity | Quemada (1978) | Available | Low-shear viscosity, `local_hematocrit_venturi` |
+| 5 | Flow | Developing-flow entrance correction | Durst et al. (2005) | Available | Wall shear in short venturi throats (L/D_h < 20) |
+| 6 | Flow | Cross-section averaged throat velocity | White (2011) | Active | `cavitation_number`, v_throat |
+| 7 | Separation | Inertial lift focusing (Di Carlo) | Di Carlo (2009) | Active | `cancer_center_fraction`, equilibrium positions |
+| 8 | Separation | Confinement-dependent lift correction | Amini et al. (2014) | Available | Lift for a/D_h > 0.1 (CTC-scale particles) |
+| 9 | Separation | Zweifach-Fung flow partitioning | Zweifach & Fung (1971) | Active | Branch flow fractions at bifurcations |
+| 10 | Separation | Plasma skimming hematocrit partitioning | Pries et al. (1989) | Available | `rbc_venturi_exposure_fraction` |
+| 11 | Cavitation | Bernoulli cavitation number | Brennen (1995) | Active | `cavitation_number` (sigma) |
+| 12 | Cavitation | Polytropic bubble collapse | Brennen (1995), Rayleigh-Plesset | Active | `sonoluminescence_proxy` |
+| 13 | Cavitation | Sonoporation lysis amplification | Ohl et al. (2006) | Active | `LYSIS_CAVITATION_AMPLIFICATION` (5x) |
+| 14 | Hemolysis | Giersiepen power-law HI | Giersiepen et al. (1990) | Active | `hemolysis_index_per_pass` |
+| 15 | Hemolysis | Taskin strain-based HI | Taskin et al. (2012) | Available | Alternative `hemolysis_index_per_pass` |
+| 16 | Hemolysis | Hellums PAI power-law | Hellums (1994) | Active | `platelet_activation_index` |
+| 17 | Hemolysis | Cavitation-amplified HI | Ohl (2006) + Giersiepen (1990) | Active | `hemolysis_index_per_pass_cavitation_amplified` |
+| 18 | Secondary flow | Dean vortex secondary flow | Dean (1927) | Active | Dean number in GA serpentine scoring |
+| 19 | Secondary flow | Millifluidic Dean correlation | Bayat-Rezai (2017) | Active | Dean number for D_h > 500 um channels |
+| 20 | Thermal | Viscous dissipation heating | First-law energy balance | Active | `throat_temperature_rise_k` |
+| 21 | Acoustic | 412 kHz resonance matching | Standing wave half-wavelength | Active | `channel_resonance_score` |
+| 22 | Optical | Beer-Lambert 405 nm attenuation | Blood optical properties | Active | `blue_light_delivery_index_405nm` |
+
+**Note:** The 1D lumped-element pipeline uses models marked Active. The cascade \
+2D FVM and 3D FEM validation pipelines (`cascade_2d_3d_validation.rs`) can \
+incorporate Available models for higher-fidelity spot-checks on selected designs.
+"
+    .to_string()
 }
 
 fn pass_fail(value: bool) -> &'static str {

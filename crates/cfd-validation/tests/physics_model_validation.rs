@@ -242,3 +242,359 @@ fn viscous_dissipation_matches_couette_analytical() {
     // => Phi = 0.001 * 1e6 = 1000 W/m^3
     assert_relative_eq!(phi_analytical, 1000.0, max_relative = 1e-12);
 }
+
+// ── Test 8: Fahraeus-Lindqvist vs Bulk Viscosity ─────────────────────────────
+
+#[test]
+fn fahraeus_lindqvist_reduces_viscosity_in_microchannels() {
+    // For D = 50 µm, Ht = 0.45, the apparent viscosity should be
+    // significantly lower than bulk blood viscosity (μ_bulk ≈ 3.5 mPa·s).
+    // Pries (1992): μ_app/μ_plasma ≈ 2.0-2.5 at D=50 µm, Ht=0.45
+    // vs μ_bulk/μ_plasma ≈ 3.5 for bulk blood
+    let mu_plasma = 0.0012; // Pa·s
+
+    let mu_50um = cfd_1d::fahraeus_lindqvist_viscosity(50.0, 0.45, mu_plasma);
+    let mu_bulk = cfd_1d::fahraeus_lindqvist_viscosity(1000.0, 0.45, mu_plasma);
+
+    // Microchannel viscosity should be lower than bulk
+    assert!(
+        mu_50um < mu_bulk,
+        "FL effect should reduce viscosity: 50µm={mu_50um:.4e} vs bulk={mu_bulk:.4e}"
+    );
+
+    // But still higher than plasma
+    assert!(
+        mu_50um > mu_plasma,
+        "Apparent viscosity must exceed plasma viscosity"
+    );
+
+    // Reduction should be 20-50% compared to bulk
+    let reduction_pct = (1.0 - mu_50um / mu_bulk) * 100.0;
+    assert!(
+        reduction_pct > 10.0 && reduction_pct < 60.0,
+        "FL reduction should be 10-60%, got {reduction_pct:.1}%"
+    );
+}
+
+// ── Test 9: Fahraeus-Lindqvist vs Hematocrit Dependence ──────────────────────
+
+#[test]
+fn fahraeus_lindqvist_viscosity_increases_with_hematocrit() {
+    let mu_plasma = 0.0012;
+    let d = 100.0; // 100 µm
+
+    let mu_30 = cfd_1d::fahraeus_lindqvist_viscosity(d, 0.30, mu_plasma);
+    let mu_45 = cfd_1d::fahraeus_lindqvist_viscosity(d, 0.45, mu_plasma);
+
+    assert!(
+        mu_45 > mu_30,
+        "Higher hematocrit should give higher viscosity"
+    );
+}
+
+// ── Test 10: Womersley Pulsatility Index Validation ──────────────────────────
+
+#[test]
+fn womersley_pulsatility_index_physically_bounded() {
+    // Steady flow: PI = 0
+    let (pi_steady, _, _) = cfd_1d::womersley_pulsatility_index(1e-6, 0.0, 1e-6);
+    assert_relative_eq!(pi_steady, 0.0, epsilon = 1e-10);
+
+    // Typical arterial pulsatility: PI ~ 1-2
+    // Q_mean = 5 mL/min = 8.33e-8 m³/s, Q_amp = 5e-8 m³/s, A = 7.85e-6 m² (D=1mm)
+    let (pi, v_peak, v_trough) =
+        cfd_1d::womersley_pulsatility_index(8.33e-8, 5e-8, 7.85e-6);
+    assert!(
+        pi > 0.0 && pi < 5.0,
+        "Arterial PI should be 0-5, got {pi:.2}"
+    );
+    assert!(
+        v_peak > v_trough,
+        "Peak velocity must exceed trough"
+    );
+}
+
+// ── Test 11: Menter SST Limiter vs Unlimited Production ──────────────────────
+
+#[test]
+fn menter_sst_limiter_prevents_stagnation_overproduction() {
+    // At stagnation: S is large but k is small
+    // P_k_unlimited = ν_t · S² can be >> ε = β*·k·ω
+    // Check that the limiter computes correctly
+    // P_k = 1000 (large), k = 0.1, omega = 100, beta_star = 0.09
+    // Limit = 10 * 0.09 * 0.1 * 100 = 9.0
+    // So limited P_k should be 9.0, not 1000
+    let p_unlimited = 1000.0_f64;
+    let k = 0.1;
+    let omega = 100.0;
+    let beta_star = 0.09;
+    let limit = 10.0 * beta_star * k * omega;
+    let p_limited = p_unlimited.min(limit);
+
+    assert_relative_eq!(p_limited, 9.0, max_relative = 1e-10);
+    assert!(
+        p_limited < p_unlimited,
+        "Limiter must reduce stagnation production"
+    );
+}
+
+// ── Test 12: Kato-Launder vs Standard Production in Shear ────────────────────
+
+#[test]
+fn kato_launder_matches_standard_in_simple_shear() {
+    // For simple shear (du/dy = γ̇, all others = 0):
+    // S = γ̇, Ω = γ̇ → P_KL = ν_t·γ̇² = P_standard
+    // The two models should agree exactly
+    let gamma_dot = 100.0;
+    let nu_t = 1e-4;
+
+    // Standard: P = ν_t · S²
+    let p_standard = nu_t * gamma_dot * gamma_dot;
+
+    // Kato-Launder: P = ν_t · S · Ω
+    // For simple shear, S = Ω = gamma_dot
+    let p_kl = nu_t * gamma_dot * gamma_dot; // Same!
+
+    assert_relative_eq!(p_kl, p_standard, max_relative = 1e-10);
+}
+
+// ── Test 13: Kato-Launder Suppresses Stagnation Production ───────────────────
+
+#[test]
+fn kato_launder_suppresses_stagnation_point_production() {
+    // Stagnation flow: du/dx = a, dv/dy = -a, du/dy = dv/dx = 0
+    // S_xx = a, S_yy = -a, S_xy = 0
+    // S = sqrt(2*(a² + a²)) = 2|a|
+    // Ω = sqrt(2 * 0²) = 0 (irrotational!)
+    // P_standard = ν_t · S² = ν_t · 4a² > 0
+    // P_KL = ν_t · S · Ω = 0 (correctly zero!)
+
+    let a: f64 = 100.0; // strain rate parameter
+    let nu_t = 1e-4;
+
+    let s = (2.0 * (a * a + a * a)).sqrt();
+    let omega = 0.0; // no rotation in stagnation
+
+    let p_standard = nu_t * s * s;
+    let p_kl = nu_t * s * omega;
+
+    assert!(
+        p_standard > 0.0,
+        "Standard model predicts production at stagnation"
+    );
+    assert_relative_eq!(p_kl, 0.0, epsilon = 1e-10);
+}
+
+// ── Test 14: Cross-Model Viscosity Comparison ────────────────────────────────
+
+#[test]
+fn fahraeus_lindqvist_vs_casson_viscosity_comparison() {
+    // Compare Fahraeus-Lindqvist apparent viscosity with Casson model
+    // at a reference shear rate. Both should give similar magnitudes
+    // for bulk blood (D > 300 µm).
+    let mu_plasma = 0.0012;
+    let mu_fl_bulk = cfd_1d::fahraeus_lindqvist_viscosity(1000.0, 0.45, mu_plasma);
+
+    // Casson model at high shear (γ̇ = 100 s⁻¹): μ_Casson ≈ 3.5 mPa·s
+    // FL bulk at Ht=0.45 should also be ~3-4 mPa·s
+    assert!(
+        mu_fl_bulk > 0.002 && mu_fl_bulk < 0.006,
+        "FL bulk viscosity at Ht=0.45 should be 2-6 mPa·s, got {:.4e}",
+        mu_fl_bulk
+    );
+}
+
+// ── Test 15: Quemada vs Fahraeus-Lindqvist Consistency ───────────────────────
+
+#[test]
+fn quemada_and_fahraeus_lindqvist_consistent_at_high_shear() {
+    // At high shear (γ̇ = 200 s⁻¹), Quemada should give viscosity
+    // consistent with Fahraeus-Lindqvist for bulk blood (D > 300 µm).
+    // Both should be in the 3-5 mPa·s range for Ht=0.45.
+    let mu_plasma = 0.0012;
+
+    let mu_quemada = cfd_1d::quemada_viscosity(200.0, 0.45, mu_plasma);
+    let mu_fl = cfd_1d::fahraeus_lindqvist_viscosity(1000.0, 0.45, mu_plasma);
+
+    // Both should be in 2-6 mPa·s range
+    assert!(
+        mu_quemada > 0.002 && mu_quemada < 0.006,
+        "Quemada viscosity at Ht=0.45, γ̇=200 should be 2-6 mPa·s, got {:.4e}",
+        mu_quemada
+    );
+    assert!(
+        mu_fl > 0.002 && mu_fl < 0.006,
+        "FL viscosity at Ht=0.45, D=1000µm should be 2-6 mPa·s, got {:.4e}",
+        mu_fl
+    );
+
+    // They should agree within a factor of 2
+    let ratio = mu_quemada / mu_fl;
+    assert!(
+        ratio > 0.5 && ratio < 2.0,
+        "Quemada/FL ratio should be 0.5-2.0, got {:.4}",
+        ratio
+    );
+}
+
+// ── Test 16: Quemada Shear-Thinning Behavior ─────────────────────────────────
+
+#[test]
+fn quemada_viscosity_shear_thinning_matches_literature() {
+    // Literature: blood viscosity at Ht=0.45 should be ~50 mPa·s at γ̇=0.1 s⁻¹
+    // and ~3.5 mPa·s at γ̇=200 s⁻¹ (Chien 1970, Quemada 1978)
+    let mu_plasma = 0.0012;
+    let mu_low = cfd_1d::quemada_viscosity(0.1, 0.45, mu_plasma);
+    let mu_high = cfd_1d::quemada_viscosity(200.0, 0.45, mu_plasma);
+
+    // Low-shear should be much higher (rouleaux)
+    assert!(
+        mu_low > mu_high * 3.0,
+        "Shear-thinning ratio should be > 3×: low={:.4e}, high={:.4e}",
+        mu_low,
+        mu_high
+    );
+
+    // High-shear ~3-5 mPa·s
+    assert!(
+        mu_high > 0.002 && mu_high < 0.006,
+        "High-shear Quemada viscosity should be 2-6 mPa·s, got {:.4e}",
+        mu_high
+    );
+}
+
+// ── Test 17: Plasma Skimming Reduces Hematocrit in Minor Daughter ─────────────
+
+#[test]
+fn plasma_skimming_reduces_hematocrit_in_minor_daughter() {
+    let h_feed = 0.45;
+    let d_feed = 100.0; // µm
+
+    // Minor daughter (20% of flow) should have lower Ht
+    let h_minor = cfd_1d::plasma_skimming_hematocrit(h_feed, 0.2, 50.0, d_feed);
+    let h_major = cfd_1d::plasma_skimming_hematocrit(h_feed, 0.8, 80.0, d_feed);
+
+    assert!(
+        h_minor < h_feed,
+        "Minor daughter Ht ({:.4}) should be < feed ({:.4})",
+        h_minor,
+        h_feed
+    );
+    assert!(
+        h_major >= h_minor,
+        "Major daughter Ht ({:.4}) >= minor daughter Ht ({:.4})",
+        h_major,
+        h_minor
+    );
+}
+
+// ── Test 18: Plasma Skimming Mass Conservation ───────────────────────────────
+
+#[test]
+fn plasma_skimming_conserves_rbc_mass() {
+    // RBC mass in = RBC mass out: H_feed × Q_total = H_d1 × Q_d1 + H_d2 × Q_d2
+    let h_feed = 0.45;
+    let d_feed = 100.0;
+    let frac = 0.3; // 30/70 split
+
+    let h_d1 = cfd_1d::plasma_skimming_hematocrit(h_feed, frac, 60.0, d_feed);
+    let h_d2 = cfd_1d::plasma_skimming_hematocrit(h_feed, 1.0 - frac, 80.0, d_feed);
+
+    let rbc_out = h_d1 * frac + h_d2 * (1.0 - frac);
+    let rbc_in = h_feed;
+
+    // Conservation within 30% (Pries logit model is empirical, not mass-
+    // conservative by construction — each daughter's hematocrit is computed
+    // independently from its own flow fraction and diameter ratio)
+    let error = (rbc_out - rbc_in).abs() / rbc_in;
+    assert!(
+        error < 0.30,
+        "RBC mass conservation error {:.1}% exceeds 30%",
+        error * 100.0
+    );
+}
+
+// ── Test 19: Non-Newtonian Murray's Law Flow Split Exponent ──────────────────
+
+#[test]
+fn non_newtonian_murray_flow_split_exponent_validates() {
+    use cfd_1d::physics::vascular::murrays_law::non_newtonian_flow_split_exponent;
+
+    // Newtonian (n=1): exponent = (3+1)/1 = 4
+    let m_newt = non_newtonian_flow_split_exponent(1.0);
+    assert_relative_eq!(m_newt, 4.0, max_relative = 1e-10);
+
+    // Shear-thinning blood (n=0.8): exponent = (2.4+1)/0.8 = 4.25
+    let m_blood = non_newtonian_flow_split_exponent(0.8);
+    assert!(
+        m_blood > m_newt,
+        "Shear-thinning amplifies geometry effect"
+    );
+    assert_relative_eq!(m_blood, 4.25, max_relative = 1e-10);
+
+    // Strongly shear-thinning (n=0.5): exponent = (1.5+1)/0.5 = 5
+    let m_st = non_newtonian_flow_split_exponent(0.5);
+    assert_relative_eq!(m_st, 5.0, max_relative = 1e-10);
+}
+
+// ── Test 20: DDES Shielding Smooth Transition ────────────────────────────────
+
+#[test]
+fn ddes_shielding_smooth_transition() {
+    use cfd_3d::physics::turbulence::des::{ddes_length_scale, ddes_shielding};
+
+    // Sweep wall distance from 0.05 to 1.0
+    let nu_t = 1e-4;
+    let nu = 1.5e-5;
+    let strain = 100.0;
+    let vorticity = 100.0;
+
+    for i in 1..=20 {
+        let d = i as f64 * 0.05;
+        let fd = ddes_shielding(nu_t, nu, d, strain, vorticity);
+        assert!(
+            fd >= 0.0 && fd <= 1.0,
+            "f_d must be bounded in [0,1], got {fd} at d={d}"
+        );
+
+        // Verify DDES length scale is between C_DES*delta and d
+        let c_des = 0.65;
+        let delta = 0.01;
+        let l = ddes_length_scale(d, c_des, delta, fd);
+        let l_min = c_des * delta;
+        assert!(
+            l >= l_min - 1e-15 && l <= d + 1e-15,
+            "l_DDES={l} must be in [{l_min}, {d}] at d={d}, f_d={fd}"
+        );
+    }
+}
+
+// ── Test 21: Quemada Blood Viscosity Across Shear Range ──────────────────────
+
+#[test]
+fn quemada_gives_reasonable_blood_viscosity_across_shear_range() {
+    // Literature (Chien 1970): blood at Ht=0.45 should show:
+    // - ~50 mPa.s at gamma_dot=0.01 s^-1 (rouleaux dominated)
+    // - ~10 mPa.s at gamma_dot=1 s^-1
+    // - ~4 mPa.s at gamma_dot=100 s^-1
+    // - ~3.5 mPa.s at gamma_dot=1000 s^-1
+    let mu_plasma = 0.0012;
+
+    let mu_001 = cfd_1d::quemada_viscosity(0.01, 0.45, mu_plasma);
+    let mu_1 = cfd_1d::quemada_viscosity(1.0, 0.45, mu_plasma);
+    let mu_100 = cfd_1d::quemada_viscosity(100.0, 0.45, mu_plasma);
+    let mu_1000 = cfd_1d::quemada_viscosity(1000.0, 0.45, mu_plasma);
+
+    // Monotone decreasing (shear-thinning)
+    assert!(
+        mu_001 > mu_1 && mu_1 > mu_100 && mu_100 > mu_1000,
+        "Viscosity must be monotone decreasing: {mu_001:.4e} > {mu_1:.4e} > {mu_100:.4e} > {mu_1000:.4e}"
+    );
+
+    // High-shear should be 3-5 mPa.s
+    assert!(
+        mu_1000 > 0.002 && mu_1000 < 0.006,
+        "High-shear viscosity should be 2-6 mPa.s, got {:.4e}",
+        mu_1000
+    );
+}

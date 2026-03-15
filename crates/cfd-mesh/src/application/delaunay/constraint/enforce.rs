@@ -32,7 +32,7 @@
 use std::collections::{HashSet, VecDeque};
 
 use crate::domain::core::scalar::Real;
-use crate::domain::geometry::predicates::{orient_2d, Orientation};
+use crate::domain::geometry::predicates::{incircle, orient_2d, Orientation};
 use nalgebra::Point2;
 
 use crate::application::delaunay::pslg::graph::Pslg;
@@ -139,6 +139,7 @@ impl Cdt {
         // Check if the edge already exists.
         if self.edge_exists(a, b) {
             self.mark_edge_constrained(a, b);
+            self.restore_delaunay_near_constraint(a, b);
             return;
         }
 
@@ -147,6 +148,9 @@ impl Cdt {
 
         // Mark the edge as constrained.
         self.mark_edge_constrained(a, b);
+
+        // Restore the locally Delaunay property for non-constrained edges.
+        self.restore_delaunay_near_constraint(a, b);
     }
 
     /// Check if an edge between vertices `a` and `b` exists in the triangulation.
@@ -475,6 +479,105 @@ impl Cdt {
         }
     }
 
+    /// Restore the locally Delaunay property for non-constrained edges near
+    /// a newly enforced constraint.
+    ///
+    /// # Theorem — CDT Locally Delaunay Property (Chew 1989)
+    ///
+    /// **Statement**: In a valid CDT, every non-constrained edge is locally
+    /// Delaunay — the opposite vertex of the adjacent triangle does *not*
+    /// lie strictly inside the circumcircle.  After constraint recovery via
+    /// edge flips, non-constrained edges near the constraint may violate
+    /// this property.  An iterative in-circle flip sweep restores it.
+    ///
+    /// **Proof sketch**: Each flip of a non-Delaunay, non-constrained edge
+    /// strictly increases the minimum angle of the affected quadrilateral
+    /// (Lawson 1977).  Since the angle space is bounded and the
+    /// triangulation is finite, the flip sequence terminates.  Constrained
+    /// edges are never flipped, so the CDT constraint set is preserved.
+    ///
+    /// # Complexity
+    ///
+    /// $O(k)$ expected for $k$ flips, where $k$ is bounded by the number
+    /// of non-constrained edges in the 2-ring of the constraint.  Worst
+    /// case $O(n)$.
+    fn restore_delaunay_near_constraint(&mut self, a: PslgVertexId, b: PslgVertexId) {
+        // Seed the stack with all non-constrained edges around both endpoints.
+        let mut stack: Vec<(TriangleId, usize)> = Vec::new();
+        for &v in &[a, b] {
+            let star = self.dt.triangles_around_vertex(v);
+            for tid in star {
+                let tri = self.dt.triangle(tid);
+                if !tri.alive {
+                    continue;
+                }
+                for edge in 0..3 {
+                    if tri.constrained[edge] {
+                        continue;
+                    }
+                    if tri.adj[edge] == GHOST_TRIANGLE {
+                        continue;
+                    }
+                    stack.push((tid, edge));
+                }
+            }
+        }
+
+        // Iterative Delaunay flip restoration (same logic as flip_fix in
+        // bowyer_watson.rs, but operating through the Cdt wrapper).
+        while let Some((tid, edge)) = stack.pop() {
+            let tri = self.dt.triangle(tid);
+            if !tri.alive {
+                continue;
+            }
+            if tri.constrained[edge] {
+                continue;
+            }
+            let nbr_tid = tri.adj[edge];
+            if nbr_tid == GHOST_TRIANGLE {
+                continue;
+            }
+            let nbr = self.dt.triangle(nbr_tid);
+            if !nbr.alive {
+                continue;
+            }
+            let nbr_edge = match nbr.shared_edge(tid) {
+                Some(e) => e,
+                None => continue,
+            };
+
+            let v_opp_t = tri.vertices[edge];
+            let v_opp_n = nbr.vertices[nbr_edge];
+            let (va, vb) = tri.edge_vertices(edge);
+
+            let pa = self.dt.vertex(va).to_point2();
+            let pb = self.dt.vertex(vb).to_point2();
+            let pc = self.dt.vertex(v_opp_t).to_point2();
+            let pd = self.dt.vertex(v_opp_n).to_point2();
+
+            let ort = orient_2d(&pa, &pb, &pc);
+            let inside = if ort == Orientation::Positive {
+                incircle(&pa, &pb, &pc, &pd) == Orientation::Positive
+            } else if ort == Orientation::Negative {
+                incircle(&pb, &pa, &pc, &pd) == Orientation::Positive
+            } else {
+                continue; // Degenerate triangle — skip.
+            };
+
+            if !inside {
+                continue;
+            }
+
+            // Flip the non-Delaunay edge.
+            self.perform_flip(tid, edge);
+
+            // Push the two external edges of the new configuration for
+            // further in-circle checking.
+            stack.push((tid, 0));
+            stack.push((nbr_tid, 1));
+        }
+    }
+
     /// Remove triangles that are inside a hole region via flood-fill.
     fn remove_hole_triangles(&mut self, hx: Real, hy: Real) {
         // Find the triangle containing the hole seed.
@@ -608,6 +711,10 @@ fn segments_cross(
 /// Compute the intersection point of two line segments.
 ///
 /// Returns `None` if they are parallel or do not intersect.
+///
+/// Uses a scale-relative parallelism guard: the cross-product denominator
+/// is compared against the product of the edge lengths times $10^{-14}$,
+/// ensuring stability across different coordinate magnitudes.
 fn segment_intersection(
     ax1: Real,
     ay1: Real,
@@ -624,8 +731,13 @@ fn segment_intersection(
     let dy_b = by2 - by1;
 
     let denom = dx_a * dy_b - dy_a * dx_b;
-    if denom.abs() < 1e-30 {
-        return None; // Parallel.
+
+    // Scale-relative threshold: |denom| ≈ |e_a|·|e_b|·sin(θ).
+    let len_a_sq = dx_a * dx_a + dy_a * dy_a;
+    let len_b_sq = dx_b * dx_b + dy_b * dy_b;
+    let scale = (len_a_sq * len_b_sq).sqrt().max(1e-30);
+    if denom.abs() < scale * 1e-14 {
+        return None; // Parallel (or near-parallel).
     }
 
     let t = ((bx1 - ax1) * dy_b - (by1 - ay1) * dx_b) / denom;

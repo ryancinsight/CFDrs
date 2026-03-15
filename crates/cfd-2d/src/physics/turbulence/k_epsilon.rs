@@ -251,6 +251,12 @@ pub struct KEpsilonModel<T: RealField + Copy + num_traits::ToPrimitive> {
     /// with a strain-rate-dependent C_mu instead of the fixed constant.
     /// Defaults to `false` for backward compatibility with the standard model.
     use_realizable: bool,
+    /// When `true`, use the Kato-Launder (1993) vorticity-strain production
+    /// term P_k = nu_t * S * Omega instead of the standard P_k = nu_t * S^2.
+    /// This suppresses spurious turbulence production in stagnation regions
+    /// where strain is large but vorticity is near zero.
+    /// Defaults to `false` for backward compatibility.
+    use_kato_launder: bool,
     /// Scratch buffer for k values at previous timestep (avoids per-update allocation).
     k_scratch: Vec<T>,
     /// Scratch buffer for epsilon values at previous timestep.
@@ -270,6 +276,7 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> KEpsilonMode
             sigma_k: T::from_f64(SIGMA_K).unwrap_or_else(T::one),
             sigma_epsilon: T::from_f64(SIGMA_EPSILON).unwrap_or_else(T::one),
             use_realizable: false,
+            use_kato_launder: false,
             k_scratch: vec![T::zero(); n],
             eps_scratch: vec![T::zero(); n],
         }
@@ -294,6 +301,64 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> KEpsilonMode
     /// Returns whether the Realizable formulation is active.
     pub fn is_realizable(&self) -> bool {
         self.use_realizable
+    }
+
+    /// Enable or disable the Kato-Launder (1993) vorticity-strain production.
+    pub fn set_kato_launder(&mut self, enabled: bool) {
+        self.use_kato_launder = enabled;
+    }
+
+    /// Returns whether the Kato-Launder formulation is active.
+    pub fn is_kato_launder(&self) -> bool {
+        self.use_kato_launder
+    }
+
+    /// Kato-Launder (1993) vorticity-strain production term.
+    ///
+    /// ## Theorem — Kato-Launder Modification (Kato & Launder 1993)
+    ///
+    /// The standard k-epsilon production term P_k = nu_t * |S|^2 overpredicts turbulence
+    /// production in stagnation regions where vorticity Omega ~ 0 but strain S is
+    /// large (irrotational strain). The Kato-Launder modification replaces:
+    ///
+    /// ```text
+    /// P_k = nu_t * S * Omega    (instead of nu_t * S^2)
+    /// ```
+    ///
+    /// where S = sqrt(2 * S_ij * S_ij) is the strain rate magnitude and
+    /// Omega = sqrt(2 * Omega_ij * Omega_ij) is the vorticity magnitude.
+    ///
+    /// **Physical basis**: In stagnation regions, S > 0 but Omega -> 0 (pure strain,
+    /// no rotation). The product S * Omega -> 0, correctly predicting negligible
+    /// production. In shear flows, S ~ Omega and P_k is unchanged.
+    ///
+    /// **Reference**: Kato, M. & Launder, B.E. (1993). "The Modelling of
+    /// Turbulent Flow Around Stationary and Vibrating Square Cylinders",
+    /// *Proc. 9th Symposium on Turbulent Shear Flows*, Kyoto, pp. 10.4.1-10.4.6.
+    pub fn kato_launder_production(
+        velocity_gradient: &[[f64; 2]; 2],
+        turbulent_viscosity: f64,
+    ) -> f64 {
+        // Strain rate tensor: S_ij = 0.5 * (du_i/dx_j + du_j/dx_i)
+        let s_xx = velocity_gradient[0][0]; // du/dx
+        let s_yy = velocity_gradient[1][1]; // dv/dy
+        let s_xy = 0.5 * (velocity_gradient[0][1] + velocity_gradient[1][0]); // 0.5*(du/dy + dv/dx)
+
+        // Strain rate magnitude: S = sqrt(2 * S_ij * S_ij)
+        // For 2D: 2 * (S_xx^2 + S_yy^2 + 2*S_xy^2)  [S_xy = S_yx]
+        let s_mag = (2.0 * (s_xx * s_xx + s_yy * s_yy + 2.0 * s_xy * s_xy)).sqrt();
+
+        // Vorticity tensor: Omega_ij = 0.5 * (du_i/dx_j - du_j/dx_i)
+        // For 2D, the only independent component is:
+        // Omega_xy = 0.5 * (du/dy - dv/dx), Omega_yx = -Omega_xy
+        let omega_xy = 0.5 * (velocity_gradient[0][1] - velocity_gradient[1][0]);
+
+        // Vorticity magnitude: Omega = sqrt(2 * Omega_ij * Omega_ij)
+        // For 2D: 2 * (Omega_xy^2 + Omega_yx^2) = 2 * 2 * Omega_xy^2 = 4*Omega_xy^2
+        // So Omega = 2 * |Omega_xy| = |du/dy - dv/dx|
+        let omega_mag = (4.0 * omega_xy * omega_xy).sqrt();
+
+        turbulent_viscosity * s_mag * omega_mag
     }
 
     /// Calculate strain rate tensor
@@ -547,13 +612,32 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> TurbulenceMo
                 };
 
                 // Production term
-                let p_k = self.production_term(
-                    &grad,
-                    nu_t,
-                    k_prev,
-                    T::zero(), // Wall distance not used for k-epsilon production
-                    molecular_viscosity,
-                );
+                // When Kato-Launder is enabled, use vorticity-strain production
+                // to suppress spurious turbulence in stagnation regions.
+                let p_k = if self.use_kato_launder {
+                    // Convert gradient to f64 for the Kato-Launder function
+                    let grad_f64 = [
+                        [
+                            grad[0][0].to_f64().unwrap_or(0.0),
+                            grad[0][1].to_f64().unwrap_or(0.0),
+                        ],
+                        [
+                            grad[1][0].to_f64().unwrap_or(0.0),
+                            grad[1][1].to_f64().unwrap_or(0.0),
+                        ],
+                    ];
+                    let nu_t_f64 = nu_t.to_f64().unwrap_or(0.0);
+                    T::from_f64(Self::kato_launder_production(&grad_f64, nu_t_f64))
+                        .unwrap_or_else(T::zero)
+                } else {
+                    self.production_term(
+                        &grad,
+                        nu_t,
+                        k_prev,
+                        T::zero(), // Wall distance not used for k-epsilon production
+                        molecular_viscosity,
+                    )
+                };
 
                 // Diffusion terms
                 let nu_eff_k = molecular_viscosity + nu_t / self.sigma_k;
@@ -1474,6 +1558,82 @@ mod tests {
                 "C_mu not monotone: at S={s}, C_mu={c_mu} > prev={prev_c_mu}"
             );
             prev_c_mu = c_mu;
+        }
+    }
+
+    // ─── Kato-Launder (1993) tests ─────────────────────────────────────
+
+    /// For simple shear (du/dy = gamma_dot, all other gradients zero),
+    /// S = Omega = gamma_dot, so P_KL = nu_t * gamma_dot^2 = P_standard.
+    /// The Kato-Launder modification is identical to standard in pure shear.
+    #[test]
+    fn test_kato_launder_pure_shear() {
+        let gamma_dot = 5.0;
+        let nu_t = 0.01;
+
+        // Pure shear: du/dy = gamma_dot, dv/dx = 0
+        let grad = [[0.0, gamma_dot], [0.0, 0.0]];
+
+        let p_kl = KEpsilonModel::<f64>::kato_launder_production(&grad, nu_t);
+
+        // Standard production: nu_t * S^2
+        // S = sqrt(2 * (S_xy^2 + S_yx^2)) = sqrt(2 * 2 * (gamma_dot/2)^2) = gamma_dot
+        let p_standard = nu_t * gamma_dot * gamma_dot;
+
+        assert_relative_eq!(p_kl, p_standard, epsilon = 1e-10);
+    }
+
+    /// For stagnation flow (du/dx = a, dv/dy = -a, du/dy = dv/dx = 0),
+    /// S > 0 but Omega = 0 (pure irrotational strain), so P_KL = 0.
+    /// This correctly suppresses turbulence production in stagnation regions.
+    #[test]
+    fn test_kato_launder_stagnation() {
+        let a = 10.0;
+        let nu_t = 0.01;
+
+        // Stagnation-point flow: du/dx = a, dv/dy = -a (incompressible)
+        let grad = [[a, 0.0], [0.0, -a]];
+
+        let p_kl = KEpsilonModel::<f64>::kato_launder_production(&grad, nu_t);
+
+        // Vorticity is zero (no off-diagonal asymmetry), so P_KL should be zero
+        assert!(
+            p_kl.abs() < 1e-12,
+            "Kato-Launder production should be zero in stagnation flow: got {p_kl}"
+        );
+    }
+
+    /// In general flow, P_KL = nu_t * S * Omega <= nu_t * S^2 = P_standard
+    /// by the Cauchy-Schwarz inequality (since Omega <= S for any flow).
+    /// More precisely, S * Omega <= S^2 because the vorticity tensor
+    /// is bounded by the full velocity gradient tensor.
+    #[test]
+    fn test_kato_launder_vs_standard_ratio() {
+        let nu_t = 0.05;
+
+        // General velocity gradient with both strain and vorticity
+        let test_grads: Vec<[[f64; 2]; 2]> = vec![
+            [[0.3, 0.7], [0.2, -0.4]],
+            [[1.0, 3.0], [1.0, -1.0]],
+            [[0.0, 5.0], [2.0, 0.0]],
+            [[2.0, 1.0], [-1.0, -2.0]],
+        ];
+
+        let model = KEpsilonModel::<f64>::new(10, 10);
+
+        for grad in &test_grads {
+            let p_kl = KEpsilonModel::<f64>::kato_launder_production(grad, nu_t);
+            let p_standard = model.production_term(grad, nu_t, 0.0, 0.0, 1e-5);
+
+            assert!(
+                p_kl <= p_standard + 1e-10,
+                "Kato-Launder ({p_kl}) should not exceed standard ({p_standard}) \
+                 for gradient {grad:?}"
+            );
+            assert!(
+                p_kl >= 0.0,
+                "Kato-Launder production must be non-negative: got {p_kl}"
+            );
         }
     }
 }

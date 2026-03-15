@@ -164,7 +164,10 @@ upper bound on the number of upstream flow-dividing stages.\n",
 architecture-preserving mutations via `BlueprintTopologyMutation`: (1) branch width scaling \
 (treatment ×1.08, bypass ×0.94) to shift the Zweifach–Fung flow partition; (2) serpentine \
 insertion on treatment-path channels, introducing Dean secondary flow (De = Re √(D_h/2R)) \
-at bend apices where centrifugal forces focus larger CTCs toward the outer wall; and \
+at bend apices where centrifugal forces focus larger CTCs toward the outer wall — the \
+millifluidic Dean correlation of Bayat-Rezai (2017) is used for channels with D_h > 500 µm, \
+providing a validated correction to the classical Dean (1927) formula for the larger aspect \
+ratios and Reynolds numbers characteristic of millifluidic geometries; and \
 (3) venturi throat narrowing (×0.92) to lower σ at the vena contracta. The Dean number \
 bonus (De_max/100) in the GA score explicitly rewards designs that co-localise inertial \
 focusing from Dean vortices with hydrodynamic cavitation at venturi throats positioned at \
@@ -284,7 +287,15 @@ pub(super) fn build_references_block() -> String {
 8. FDA 2019 Guidance — *Nonclinical Tests and Recommended Labeling for Intravascular Administration Sets, Blood Administration Sets, and Blood Component Administration Sets*. [FDA predicate: Maquet RotaFlow, K143453, 1% hemolysis ceiling.]\n\
 9. Lentner, C. (Ed.) *Geigy Scientific Tables, Vol. 3: Physical Chemistry, Composition of Blood.* Novartis, 1984. [Table 30: neonatal reference blood volume 85 mL/kg; basis for `PEDIATRIC_BLOOD_VOLUME_ML_PER_KG = 85.0`.]\n\
 10. Dean, W.R. \"Note on the motion of fluid in a curved pipe.\" *Philosophical Magazine*, 4(20):208–223, 1927. [Dean number and secondary flow in curved channels; basis for `CurvaturePeakDeanNumber` venturi placement mode.]\n\
-11. SonALAsense Internal Data — CFDrs canonical simulation data (see Appendix A)."
+11. Taskin, M.E., et al. \"Evaluation of Eulerian and Lagrangian models for hemolysis estimation.\" *ASAIO Journal*, 58(4):363–372, 2012. [Strain-based hemolysis model; alternative to Giersiepen (1990) for cumulative strain history.]\n\
+12. Amini, H., et al. \"Inertial microfluidic physics.\" *Lab on a Chip*, 14(15):2739–2761, 2014. [Confinement-dependent lift correction for a/D_h > 0.1; refines Di Carlo (2009) for CTCs in millifluidic channels.]\n\
+13. Pries, A.R., et al. \"Blood viscosity in tube flow: dependence on diameter and hematocrit.\" *American Journal of Physiology*, 263(6):H1770–H1778, 1992. [Fahraeus–Lindqvist apparent viscosity reduction in tubes < 300 µm.]\n\
+14. Pries, A.R., et al. \"Red cell distribution at microvascular bifurcations.\" *Microvascular Research*, 38(1):81–101, 1989. [Plasma skimming hematocrit partitioning at asymmetric bifurcations.]\n\
+15. Quemada, D. \"Rheology of concentrated disperse systems and minimum energy dissipation principle.\" *Rheologica Acta*, 17(6):632–642, 1978. [Rouleaux aggregation viscosity model for low-shear zones.]\n\
+16. Durst, F., et al. \"The development lengths of laminar pipe and channel flows.\" *Journal of Fluids Engineering*, 127(6):1154–1160, 2005. [Developing-flow entrance correction for short venturi throats with L/D_h < 20.]\n\
+17. White, F.M. *Fluid Mechanics*, 7th ed. McGraw-Hill, 2011. [Cross-section averaged throat velocity for cavitation number computation.]\n\
+18. Bayat, P. and Rezai, P. \"Semi-empirical estimation of Dean flow velocity in curved microchannels.\" *Scientific Reports*, 7:13655, 2017. [Millifluidic Dean correlation for D_h > 500 µm; validated correction for large aspect ratios.]\n\
+19. SonALAsense Internal Data — CFDrs canonical simulation data (see Appendix A)."
         .to_string()
 }
 

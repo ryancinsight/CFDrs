@@ -18,6 +18,7 @@
 //!
 //! Conservative fallback (when all tiebreakers are inconclusive): `CoplanarSame`.
 
+use crate::domain::core::constants::TIEBREAK_SIGN_REL_TOL;
 use crate::domain::core::scalar::{Point3r, Vector3r};
 use crate::domain::topology::predicates::{orient3d, Sign};
 use crate::infrastructure::storage::face_store::FaceData;
@@ -122,6 +123,7 @@ pub(super) fn nearest_face_tiebreak_pool(
 ) -> FragmentClass {
     let mut best_dist_sq = f64::MAX;
     let mut best_sign = 0.0_f64;
+    let mut best_normal_norm_sq = 0.0_f64;
     for oface in faces {
         let pa = pool.position(oface.vertices[0]);
         let pb = pool.position(oface.vertices[1]);
@@ -140,9 +142,10 @@ pub(super) fn nearest_face_tiebreak_pool(
             ));
             let cp = Vector3r::new(centroid.x - pa.x, centroid.y - pa.y, centroid.z - pa.z);
             best_sign = cp.dot(&n);
+            best_normal_norm_sq = n.norm_squared();
         }
     }
-    classify_by_sign(best_sign)
+    classify_by_sign(best_sign, best_normal_norm_sq)
 }
 
 /// Nearest-face signed distance tiebreak against precomputed `PreparedFace` geometry.
@@ -152,6 +155,7 @@ pub(super) fn nearest_face_tiebreak_prepared(
 ) -> FragmentClass {
     let mut best_dist_sq = f64::MAX;
     let mut best_sign = 0.0_f64;
+    let mut best_normal_norm_sq = 0.0_f64;
     for face in faces {
         let d = (
             centroid.x - face.centroid.x,
@@ -167,14 +171,37 @@ pub(super) fn nearest_face_tiebreak_prepared(
                 centroid.z - face.a.z,
             );
             best_sign = cp.dot(&face.normal);
+            best_normal_norm_sq = face.normal.norm_squared();
         }
     }
-    classify_by_sign(best_sign)
+    classify_by_sign(best_sign, best_normal_norm_sq)
 }
 
+/// Scale-relative signed-distance classification.
+///
+/// ## Theorem — Scale Invariance
+///
+/// `sign = cp · n` where `n = ab × ac` (unnormalized normal, ‖n‖ = 2 × area).
+/// The true signed distance is `d = sign / ‖n‖`.  Coplanarity is declared
+/// when `|d| < TIEBREAK_SIGN_REL_TOL × √(area)`, i.e.
+///
+/// ```text
+/// |sign| / ‖n‖ < TIEBREAK_SIGN_REL_TOL × √(‖n‖ / 2)
+/// |sign|  < TIEBREAK_SIGN_REL_TOL × ‖n‖ × √(‖n‖ / 2)
+/// sign²   < TIEBREAK_SIGN_REL_TOL² × ‖n‖² × (‖n‖ / 2)
+/// sign²   < TIEBREAK_SIGN_REL_TOL² × normal_norm_sq × normal_norm_sq.sqrt() / 2
+/// ```
+///
+/// This correctly adapts the threshold to mesh scale. ∎
 #[inline]
-fn classify_by_sign(sign: f64) -> FragmentClass {
-    if sign.abs() > 1e-9 {
+fn classify_by_sign(sign: f64, normal_norm_sq: f64) -> FragmentClass {
+    if normal_norm_sq < 1e-60 {
+        return FragmentClass::CoplanarSame;
+    }
+    let n_len = normal_norm_sq.sqrt();
+    // Threshold: |sign| < TOL × ‖n‖ × √(‖n‖ / 2)
+    let threshold = TIEBREAK_SIGN_REL_TOL * n_len * (0.5 * n_len).sqrt();
+    if sign.abs() > threshold {
         if sign < 0.0 {
             FragmentClass::Inside
         } else {
@@ -215,19 +242,21 @@ mod tests {
     /// classify_by_sign: large negative → Inside.
     #[test]
     fn classify_by_sign_negative_is_inside() {
-        assert_eq!(classify_by_sign(-0.01), FragmentClass::Inside);
+        // normal_norm_sq = 1.0 (unit triangle): threshold ≈ 1e-7 × 1 × √0.5 ≈ 7.07e-8
+        assert_eq!(classify_by_sign(-0.01, 1.0), FragmentClass::Inside);
     }
 
     /// classify_by_sign: large positive → Outside.
     #[test]
     fn classify_by_sign_positive_is_outside() {
-        assert_eq!(classify_by_sign(0.01), FragmentClass::Outside);
+        assert_eq!(classify_by_sign(0.01, 1.0), FragmentClass::Outside);
     }
 
     /// classify_by_sign: near-zero → CoplanarSame (conservative fallback).
     #[test]
     fn classify_by_sign_near_zero_is_coplanar_same() {
-        assert_eq!(classify_by_sign(1e-12), FragmentClass::CoplanarSame);
+        // 1e-12 is well below threshold ≈ 7.07e-8 for unit triangle
+        assert_eq!(classify_by_sign(1e-12, 1.0), FragmentClass::CoplanarSame);
     }
 
     /// Coplanarity tiebreak: centroid on the +Z face of a unit square → exterior vote.

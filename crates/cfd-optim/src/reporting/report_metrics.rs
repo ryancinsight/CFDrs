@@ -25,6 +25,42 @@ use crate::metrics::{
     ChannelHemolysis, SdtMetrics,
 };
 
+/// Compute the full set of report-grade SDT metrics for a single blueprint candidate.
+///
+/// # Physics models available for future integration
+///
+/// The following validated physics models can refine the metrics computed here:
+///
+/// - **Quemada (1978) viscosity**: The rouleaux aggregation viscosity model can be used
+///   to refine `local_hematocrit_venturi` in low-shear recirculation zones where RBC
+///   aggregation elevates effective viscosity above the Casson baseline.
+///
+/// - **Taskin (2012) strain-based hemolysis**: This model can provide alternative
+///   `hemolysis_index_per_pass` values by tracking cumulative strain history along
+///   particle trajectories, rather than relying on the instantaneous-shear Giersiepen
+///   (1990) power-law correlation. Particularly relevant for multi-stage venturi designs
+///   where cells experience repeated high-shear transients.
+///
+/// - **Fahraeus-Lindqvist (Pries 1992) correction**: Affects effective resistance in
+///   microchannel designs where D_h < 300 um. The apparent viscosity reduction from
+///   cell-free layer formation can lower computed pressure drops by 10-30% relative to
+///   the constant-viscosity Hagen-Poiseuille model used here.
+///
+/// - **Amini (2014) confinement-dependent lift**: Refines inertial focusing equilibrium
+///   positions for cancer cells with a/D_h > 0.1, improving `cancer_center_fraction`
+///   and `wbc_center_fraction` predictions.
+///
+/// - **Plasma skimming (Pries 1989)**: Hematocrit partitioning at asymmetric
+///   bifurcations can improve `rbc_venturi_exposure_fraction` accuracy by accounting
+///   for the phase-separation effect at daughter-branch flow splits.
+///
+/// - **Durst (2005) entrance correction**: For venturi throats with L/D_h < 20, the
+///   developing-flow profile increases centreline velocity and wall shear relative to
+///   the fully-developed parabolic assumption, affecting `cavitation_number` and
+///   `throat_shear_rate_inv_s`.
+///
+/// - **Bayat-Rezai (2017) millifluidic Dean**: Validated Dean correlation for channels
+///   with D_h > 500 um, used in GA serpentine evaluation for secondary flow estimation.
 pub fn compute_blueprint_report_metrics(
     candidate: &BlueprintCandidate,
 ) -> Result<SdtMetrics, OptimError> {

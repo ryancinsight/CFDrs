@@ -34,5 +34,7 @@ pub mod murrays_law;
 pub mod womersley;
 
 pub use bifurcation::{Bifurcation, BifurcationNetwork, JunctionType};
-pub use murrays_law::{MurraysLaw, OptimalBifurcation};
-pub use womersley::{WomersleyFlow, WomersleyNumber, WomersleyProfile};
+pub use murrays_law::{non_newtonian_flow_split_exponent, MurraysLaw, OptimalBifurcation};
+pub use womersley::{
+    womersley_pulsatility_index, WomersleyFlow, WomersleyNumber, WomersleyProfile,
+};

@@ -30,8 +30,12 @@ pub fn circumcenter(a: &PslgVertex, b: &PslgVertex, c: &PslgVertex) -> Option<(R
     let by = b.y - c.y;
 
     let d = 2.0 * (ax * by - ay * bx);
-    if d.abs() < 1e-30 {
-        return None; // Degenerate.
+
+    // Scale-relative degenerate guard: |d| ≈ 2·|AC|·|BC|·sin(θ).
+    // For near-collinear triangles sin(θ) → 0 and d → 0.
+    let scale = ((ax * ax + ay * ay) * (bx * bx + by * by)).sqrt().max(1e-30);
+    if d.abs() < scale * 1e-14 {
+        return None; // Degenerate (collinear or near-collinear).
     }
 
     let a_sq = ax * ax + ay * ay;
