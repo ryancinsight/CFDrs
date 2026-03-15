@@ -236,7 +236,7 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
             let scale = q_in / q_out;
             for j in 0..ny {
                 if self.field.mask[nx - 1][j] {
-                    self.field.u[nx][j] = self.field.u[nx][j] * scale;
+                    self.field.u[nx][j] *= scale;
                 }
             }
         }

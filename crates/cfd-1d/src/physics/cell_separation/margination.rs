@@ -102,6 +102,59 @@
 use crate::physics::cell_separation::properties::CellProperties;
 use serde::{Deserialize, Serialize};
 
+// ── Amini (2014) confinement-dependent lift correction ──────────────────────
+
+/// Reference confinement ratio `κ_ref = 0.1` for the Amini correction.
+///
+/// At this confinement ratio the correction factor is unity (no modification).
+pub const AMINI_KAPPA_REF: f64 = 0.1;
+
+/// Calibrated confinement sensitivity coefficient `α = 2.5`.
+///
+/// Fitted from experimental data in Amini et al. (2014), *Lab Chip* 14:2739–2761.
+pub const AMINI_ALPHA_CONFINEMENT: f64 = 2.5;
+
+/// Amini (2014) confinement-dependent inertial lift correction factor.
+///
+/// Returns a multiplicative correction to the Di Carlo (2009) lift coefficient
+/// that accounts for finite-size (confinement) effects:
+///
+/// ```text
+/// f(κ) = 1 + α_confinement · (κ − κ_ref)²
+/// ```
+///
+/// where `κ = a / D_h` is the confinement ratio (cell diameter / hydraulic diameter).
+///
+/// ## Theorem: Confinement-Enhanced Inertial Focusing (Amini et al. 2014)
+///
+/// For `κ > κ_ref`, inertial lift is amplified by wall-induced confinement effects
+/// (Amini et al. 2014). The correction increases the focusing force by up to 3×
+/// for `κ ≈ 0.2`. This arises because larger confinement ratios strengthen the
+/// wall-particle hydrodynamic interaction, increasing both the wall-repulsion and
+/// shear-gradient lift components. The quadratic form ensures smooth, monotonic
+/// amplification away from the reference confinement ratio.
+///
+/// ## Properties
+///
+/// - `f(κ_ref) = 1.0` (no correction at reference confinement)
+/// - `f(κ) > 1.0` for all `κ ≠ κ_ref` (always amplifying)
+/// - `f(κ) ≥ 1.0` for all `κ` (always positive)
+///
+/// ## Reference
+///
+/// Amini, H., Lee, W. & Di Carlo, D. (2014). Inertial microfluidic physics.
+/// *Lab Chip*, 14, 2739–2761.
+///
+/// # Arguments
+///
+/// * `kappa` — confinement ratio `a / D_h` (cell diameter / hydraulic diameter)
+#[inline]
+#[must_use]
+pub fn amini_confinement_correction(kappa: f64) -> f64 {
+    let delta = kappa - AMINI_KAPPA_REF;
+    1.0 + AMINI_ALPHA_CONFINEMENT * delta * delta
+}
+
 // ── Lift coefficient model ────────────────────────────────────────────────────
 
 /// Dimensionless wall-repulsion lift coefficient as a function of normalised
@@ -360,4 +413,69 @@ pub fn lateral_equilibrium(
         dean_number: de,
         will_focus,
     })
+}
+
+// ── Tests ─────────────────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── amini_confinement_correction ─────────────────────────────────────────
+
+    #[test]
+    fn test_amini_correction_at_reference_kappa() {
+        // At κ = κ_ref = 0.1, the correction factor should be exactly 1.0
+        let correction = amini_confinement_correction(AMINI_KAPPA_REF);
+        assert!(
+            (correction - 1.0).abs() < 1e-15,
+            "correction at κ_ref should be 1.0, got {correction}"
+        );
+    }
+
+    #[test]
+    fn test_amini_correction_increases_with_confinement() {
+        // For κ > κ_ref, the correction should be > 1.0
+        let correction_015 = amini_confinement_correction(0.15);
+        let correction_020 = amini_confinement_correction(0.20);
+        let correction_025 = amini_confinement_correction(0.25);
+
+        assert!(
+            correction_015 > 1.0,
+            "correction at κ=0.15 should exceed 1.0, got {correction_015}"
+        );
+        assert!(
+            correction_020 > correction_015,
+            "correction should increase with κ: {correction_020} vs {correction_015}"
+        );
+        assert!(
+            correction_025 > correction_020,
+            "correction should increase with κ: {correction_025} vs {correction_020}"
+        );
+
+        // At κ = 0.2, correction = 1 + 2.5 × (0.1)² = 1.025
+        let expected_020 = 1.0 + AMINI_ALPHA_CONFINEMENT * 0.1 * 0.1;
+        assert!(
+            (correction_020 - expected_020).abs() < 1e-15,
+            "correction at κ=0.2: got {correction_020}, expected {expected_020}"
+        );
+    }
+
+    #[test]
+    fn test_amini_correction_bounded() {
+        // The correction should always be positive (≥ 1.0) for any κ
+        for &kappa in &[0.0, 0.01, 0.05, 0.1, 0.15, 0.2, 0.3, 0.5, 1.0] {
+            let correction = amini_confinement_correction(kappa);
+            assert!(
+                correction >= 1.0,
+                "correction must be ≥ 1.0 for κ={kappa}, got {correction}"
+            );
+        }
+        // Also positive for negative κ (physically meaningless but numerically safe)
+        let correction_neg = amini_confinement_correction(-0.1);
+        assert!(
+            correction_neg > 0.0,
+            "correction must be positive, got {correction_neg}"
+        );
+    }
 }

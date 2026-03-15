@@ -63,7 +63,8 @@ pub use cascade_junction::{
 };
 pub use cell_interaction::enhanced_lateral_equilibrium;
 pub use margination::{
-    dean_drag_force_n, dean_number, inertial_lift_force_n, lateral_equilibrium, EquilibriumResult,
+    amini_confinement_correction, dean_drag_force_n, dean_number, inertial_lift_force_n,
+    lateral_equilibrium, EquilibriumResult, AMINI_ALPHA_CONFINEMENT, AMINI_KAPPA_REF,
 };
 pub use properties::CellProperties;
 pub use separation_model::{CellSeparationAnalysis, CellSeparationModel};

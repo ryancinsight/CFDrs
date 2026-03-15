@@ -357,69 +357,61 @@ fn repair_boolean_mesh_with_policy(
             // Non-manifold edge resolution + boundary vertex merging.
             // Handles edges with 3+ faces (from arrangement artifacts) and
             // sliver gaps at complex intersection curves.
+            //
+            // Escalating tolerance: start tight (5% of mean edge) and widen
+            // progressively.  This avoids overmerging on simple geometries
+            // while still closing wider gaps on complex N-operand junctions.
             if !report.is_watertight
                 && (report.boundary_edge_count > 0 || report.non_manifold_edge_count > 0)
             {
-                eprintln!("[repair] ENTER: boundary={} non_manifold={} faces={}",
-                    report.boundary_edge_count, report.non_manifold_edge_count, mesh.face_count());
+                for &merge_mult in &[0.05_f64, 0.10, 0.20, 0.40] {
+                    // First resolve non-manifold edges.
+                    split_non_manifold_edges(mesh);
+                    collapse_degenerate_faces(mesh);
+                    mesh.rebuild_edges();
 
-                // First resolve non-manifold edges.
-                split_non_manifold_edges(mesh);
-                collapse_degenerate_faces(mesh);
-                mesh.rebuild_edges();
+                    // Seal any boundary loops opened by face removal.
+                    if !mesh.is_watertight() {
+                        let es = crate::infrastructure::storage::edge_store::EdgeStore::from_face_store(
+                            &mesh.faces,
+                        );
+                        let sealed = crate::application::watertight::seal::seal_boundary_loops(
+                            &mut mesh.vertices,
+                            &mut mesh.faces,
+                            &es,
+                            crate::domain::core::index::RegionId::INVALID,
+                        );
+                        if sealed > 0 {
+                            collapse_degenerate_faces(mesh);
+                            mesh.rebuild_edges();
+                        }
+                    }
 
-                {
-                    let r = crate::application::watertight::check::check_watertight(
-                        &mesh.vertices, &mesh.faces, mesh.edges_ref().unwrap());
-                    eprintln!("[repair] after split_nm: boundary={} nm={} faces={}",
-                        r.boundary_edge_count, r.non_manifold_edge_count, mesh.face_count());
-                }
-
-                // Seal any boundary loops opened by face removal.
-                if !mesh.is_watertight() {
-                    let es = crate::infrastructure::storage::edge_store::EdgeStore::from_face_store(
-                        &mesh.faces,
-                    );
-                    let sealed = crate::application::watertight::seal::seal_boundary_loops(
-                        &mut mesh.vertices,
-                        &mut mesh.faces,
-                        &es,
-                        crate::domain::core::index::RegionId::INVALID,
-                    );
-                    if sealed > 0 {
+                    // Merge nearby boundary vertices to close sliver gaps.
+                    if !mesh.is_watertight() {
+                        merge_nearby_boundary_vertices_with_mult(mesh, merge_mult);
                         collapse_degenerate_faces(mesh);
-                                mesh.rebuild_edges();
-                    }
-                    eprintln!("[repair] after seal1: sealed={} watertight={}", sealed, mesh.is_watertight());
-                }
-
-                // Merge nearby boundary vertices to close sliver gaps.
-                if !mesh.is_watertight() {
-                    merge_nearby_boundary_vertices(mesh);
-                    collapse_degenerate_faces(mesh);
                         mesh.rebuild_edges();
-                    {
-                        let r = crate::application::watertight::check::check_watertight(
-                            &mesh.vertices, &mesh.faces, mesh.edges_ref().unwrap());
-                        eprintln!("[repair] after merge: boundary={} nm={} faces={}",
-                            r.boundary_edge_count, r.non_manifold_edge_count, mesh.face_count());
                     }
-                }
 
-                // Final seal pass after merging.
-                if !mesh.is_watertight() {
-                    let es2 = crate::infrastructure::storage::edge_store::EdgeStore::from_face_store(
-                        &mesh.faces,
-                    );
-                    let _ = crate::application::watertight::seal::seal_boundary_loops(
-                        &mut mesh.vertices,
-                        &mut mesh.faces,
-                        &es2,
-                        crate::domain::core::index::RegionId::INVALID,
-                    );
-                    collapse_degenerate_faces(mesh);
+                    // Final seal pass after merging.
+                    if !mesh.is_watertight() {
+                        let es2 = crate::infrastructure::storage::edge_store::EdgeStore::from_face_store(
+                            &mesh.faces,
+                        );
+                        let _ = crate::application::watertight::seal::seal_boundary_loops(
+                            &mut mesh.vertices,
+                            &mut mesh.faces,
+                            &es2,
+                            crate::domain::core::index::RegionId::INVALID,
+                        );
+                        collapse_degenerate_faces(mesh);
                         mesh.rebuild_edges();
-                    eprintln!("[repair] after seal2: watertight={}", mesh.is_watertight());
+                    }
+
+                    if mesh.is_watertight() {
+                        break;
+                    }
                 }
 
                 mesh.orient_outward();
@@ -429,8 +421,6 @@ fn repair_boolean_mesh_with_policy(
                     &mesh.faces,
                     mesh.edges_ref().unwrap(),
                 );
-                eprintln!("[repair] FINAL: boundary={} nm={} faces={} watertight={}",
-                    report.boundary_edge_count, report.non_manifold_edge_count, mesh.face_count(), report.is_watertight);
             }
 
             if require_watertight && !report.is_watertight {
@@ -1305,12 +1295,12 @@ mod tests {
 /// Each merge reduces the boundary edge count by exactly 2 (the two half-edges
 /// incident to the merged vertex pair become interior).  The process terminates
 /// when no further merges are possible (fixed-point).  ∎
-fn merge_nearby_boundary_vertices(mesh: &mut IndexedMesh) {
+fn merge_nearby_boundary_vertices_with_mult(mesh: &mut IndexedMesh, merge_mult: f64) {
     use std::collections::HashSet;
 
-    // Adaptive tolerance: 5% of the mean edge length, clamped to [0.01, 0.2] mm.
-    // This scales correctly for any mesh granularity while remaining safe for
-    // millifluidic geometries (R ≈ 0.5 mm, typical edge length ≈ 0.05–0.5 mm).
+    // Adaptive tolerance: `merge_mult` fraction of the mean edge length,
+    // clamped to [0.01, 0.2] mm.  The escalating repair pipeline calls this
+    // with progressively wider multipliers (0.05 → 0.40).
     let mean_edge_len = {
         mesh.rebuild_edges();
         let edges = match mesh.edges_ref() {
@@ -1330,7 +1320,7 @@ fn merge_nearby_boundary_vertices(mesh: &mut IndexedMesh) {
         }
         sum / count as f64
     };
-    let tol = (mean_edge_len * 0.20).clamp(0.01, 0.2);
+    let tol = (mean_edge_len * merge_mult).clamp(0.01, 0.2);
     let max_iter = 30;
 
     for _iter in 0..max_iter {

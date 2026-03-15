@@ -287,6 +287,9 @@ impl RuppertRefiner {
             if let Some((sa, sb)) = encroached_seg {
                 // Split the encroached segment instead.
                 self.split_segment(sa, sb);
+                // After a segment split the new Steiner vertex's 1-ring may
+                // contain bad triangles; scan that ring only.
+                self.append_bad_triangles_local(&mut queue);
             } else {
                 // Verify the insertion point is inside the domain
                 // (not in a super-triangle region or outside the boundary).
@@ -308,12 +311,13 @@ impl RuppertRefiner {
                 }
 
                 // Insert the circumcenter/off-center.
-                self.cdt.triangulation_mut().insert_steiner(px, py);
+                let new_vid = self.cdt.triangulation_mut().insert_steiner(px, py);
                 self.steiner_count += 1;
-            }
 
-            // Re-scan for new bad triangles near the insertion.
-            self.append_bad_triangles(&mut queue);
+                // Only scan the 1-ring of the newly inserted vertex for
+                // bad triangles — O(deg) ≈ O(6) instead of O(T).
+                self.append_bad_triangles_ring(&mut queue, new_vid);
+            }
         }
     }
 
@@ -335,6 +339,9 @@ impl RuppertRefiner {
     }
 
     /// Scan all interior triangles and add bad ones to the queue.
+    ///
+    /// Used only for building the initial queue.  After each Steiner
+    /// insertion, use [`append_bad_triangles_ring`] instead.
     fn append_bad_triangles(&self, queue: &mut BinaryHeap<BadTriangle>) {
         let dt = self.cdt.triangulation();
         for (tid, tri) in dt.interior_triangles() {
@@ -346,6 +353,61 @@ impl RuppertRefiner {
                 });
             }
         }
+    }
+
+    /// Scan only the 1-ring of vertex `vid` for bad triangles.
+    ///
+    /// # Theorem — 1-Ring Sufficiency for Queue Maintenance
+    ///
+    /// **Statement**: After inserting a Steiner point $p$ into a CDT, the
+    /// only triangles whose quality can *worsen* are those in the 1-ring
+    /// of $p$ (i.e., triangles incident on $p$ after the Bowyer-Watson
+    /// cavity re-triangulation and subsequent flips).
+    ///
+    /// **Proof sketch**: The Bowyer-Watson insertion removes the cavity
+    /// (triangles whose circumcircle contains $p$) and replaces them with
+    /// fan triangles around $p$.  Edge flips during `flip_fix` only
+    /// rearrange triangles within and adjacent to this cavity.  Triangles
+    /// outside the 1-ring of $p$ are geometrically unchanged; their
+    /// quality metrics are invariant.  Therefore scanning only the 1-ring
+    /// is sufficient to detect all newly-bad triangles.  ∎
+    ///
+    /// # Complexity
+    ///
+    /// $O(\deg(p)) \approx O(6)$ instead of $O(T)$ per insertion.
+    fn append_bad_triangles_ring(
+        &self,
+        queue: &mut BinaryHeap<BadTriangle>,
+        vid: PslgVertexId,
+    ) {
+        let dt = self.cdt.triangulation();
+        for tid in dt.triangles_around_vertex(vid) {
+            let tri = dt.triangle(tid);
+            if !tri.alive || tri.vertices.iter().any(|v| dt.super_verts.contains(v)) {
+                continue;
+            }
+            let q = self.triangle_quality(tri);
+            if !q.is_good(self.max_ratio) || self.exceeds_area(&q) {
+                queue.push(BadTriangle {
+                    tid,
+                    ratio: q.radius_edge_ratio,
+                });
+            }
+        }
+    }
+
+    /// Scan the 1-ring of the most recently inserted Steiner vertex.
+    ///
+    /// Used after segment splits where the new vertex ID is the last real
+    /// vertex in the triangulation.
+    fn append_bad_triangles_local(&self, queue: &mut BinaryHeap<BadTriangle>) {
+        let dt = self.cdt.triangulation();
+        let n = dt.vertex_count();
+        if n == 0 {
+            return;
+        }
+        let last_vid = PslgVertexId::from_usize(n - 1);
+        self.append_bad_triangles_ring(queue, last_vid);
     }
 
     /// Compute triangle quality, using the anisotropic metric when set.

@@ -124,6 +124,68 @@ pub fn cavitation_amplified_hi(base_hi: f64, cav_potential: f64) -> f64 {
     cfd_core::physics::hemolysis::HemolysisModel::cavitation_amplified(base_hi, cav_potential)
 }
 
+// ── Taskin (2012) strain-based hemolysis model ──────────────────────────────
+
+/// Taskin (2012) calibration constant `C_T = 1.228 × 10⁻⁵`.
+pub const TASKIN_C: f64 = 1.228e-5;
+
+/// Taskin (2012) shear stress exponent `β_T = 1.9918`.
+///
+/// Slightly different from the Giersiepen value of 1.991, reflecting the
+/// re-calibration against Lagrangian particle tracking data.
+pub const TASKIN_BETA: f64 = 1.9918;
+
+/// Taskin (2012) strain-based haemolysis index (single-segment approximation).
+///
+/// Computes the haemolysis index using the Taskin integral-form model for a
+/// single channel segment with constant shear stress:
+///
+/// ```text
+/// HI_Taskin = C_T · τ^β_T · t
+/// ```
+///
+/// This is the single-segment (constant shear) approximation of the full
+/// integral form:
+///
+/// ```text
+/// HI_Taskin = C_T · ∫ τ(t)^β_T dt
+/// ```
+///
+/// ## Theorem: Strain-Rate Path Dependence (Taskin et al. 2012)
+///
+/// The Taskin model captures cumulative damage along the flow path by integrating
+/// the instantaneous shear-stress contribution over time, rather than using a
+/// single power-law evaluation as in Giersiepen (1990). This integral form
+/// correctly accounts for varying shear exposure histories and yields more
+/// accurate hemolysis predictions for complex flow geometries where shear stress
+/// varies along particle trajectories.
+///
+/// For constant shear stress, the integral reduces to `C_T · τ^β_T · t`, which
+/// differs from the Giersiepen model (`C · t^α · τ^β`) in that the time
+/// dependence is linear rather than sub-linear (`α = 0.765` in Giersiepen).
+///
+/// ## Reference
+///
+/// Taskin, M. E. et al. (2012). Evaluation of Eulerian and Lagrangian Models
+/// for Hemolysis Estimation. *ASAIO J.*, 58(4), 363–372.
+///
+/// # Arguments
+///
+/// * `shear_stress` — wall shear stress [Pa]
+/// * `exposure_time` — exposure duration [s]
+///
+/// # Returns
+///
+/// Haemolysis index (dimensionless). Returns `0.0` for non-positive inputs.
+#[inline]
+#[must_use]
+pub fn taskin_hi(shear_stress: f64, exposure_time: f64) -> f64 {
+    if shear_stress <= 0.0 || exposure_time <= 0.0 {
+        return 0.0;
+    }
+    TASKIN_C * shear_stress.powf(TASKIN_BETA) * exposure_time
+}
+
 // ── Convenience struct ────────────────────────────────────────────────────────
 
 /// Composite haemolysis exposure combining shear stress, duration, and
@@ -261,5 +323,54 @@ mod tests {
         let base = HemolysisExposure::shear_only(80.0, 0.5).compute_index();
         let cav = HemolysisExposure::new(80.0, 0.5, 0.5).compute_index();
         assert!(cav > base);
+    }
+
+    // ── taskin_hi ────────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_taskin_zero_inputs() {
+        assert_eq!(taskin_hi(0.0, 1.0), 0.0);
+        assert_eq!(taskin_hi(100.0, 0.0), 0.0);
+        assert_eq!(taskin_hi(-10.0, 1.0), 0.0);
+        assert_eq!(taskin_hi(10.0, -1.0), 0.0);
+    }
+
+    #[test]
+    fn test_taskin_reference_value() {
+        // HI = C_T × τ^β_T × t = 1.228e-5 × 100^1.9918 × 1.0
+        let expected = TASKIN_C * 100.0_f64.powf(TASKIN_BETA) * 1.0;
+        let hi = taskin_hi(100.0, 1.0);
+        assert!(
+            (hi - expected).abs() < 1e-15,
+            "got {hi}, expected {expected}"
+        );
+        // Sanity: should be on the order of 0.1 (100 Pa is significant shear)
+        assert!(hi > 0.01 && hi < 10.0, "unexpected magnitude: {hi}");
+    }
+
+    #[test]
+    fn test_taskin_monotonic() {
+        // HI increases with shear stress
+        assert!(taskin_hi(200.0, 1.0) > taskin_hi(100.0, 1.0));
+        // HI increases with exposure time
+        assert!(taskin_hi(100.0, 2.0) > taskin_hi(100.0, 1.0));
+    }
+
+    #[test]
+    fn test_taskin_vs_giersiepen() {
+        // At the same inputs, Taskin and Giersiepen should give different values
+        // because they use different constants and time dependence.
+        let tau = 100.0;
+        let t = 1.0;
+        let hi_g = giersiepen_hi(tau, t);
+        let hi_t = taskin_hi(tau, t);
+        // Both should be positive
+        assert!(hi_g > 0.0);
+        assert!(hi_t > 0.0);
+        // They should differ (different model calibration)
+        assert!(
+            (hi_g - hi_t).abs() > 1e-10,
+            "Giersiepen ({hi_g}) and Taskin ({hi_t}) should give different values"
+        );
     }
 }

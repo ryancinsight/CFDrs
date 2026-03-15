@@ -198,7 +198,9 @@
 //! enforces these constraints either through exact transport equations or bounded eddy-viscosity
 //! formulations, ensuring physical realizability and numerical stability.
 
-use super::constants::{C1_EPSILON, C2_EPSILON, C_MU, EPSILON_MIN, K_MIN, SIGMA_EPSILON, SIGMA_K};
+use super::constants::{
+    C1_EPSILON, C2_EPSILON, C_MU, EPSILON_MIN, K_MIN, REALIZABLE_A0, SIGMA_EPSILON, SIGMA_K,
+};
 use super::traits::TurbulenceModel;
 use cfd_core::{
     error::Result,
@@ -208,6 +210,33 @@ use nalgebra::{RealField, Vector2};
 use num_traits::FromPrimitive;
 
 /// k-ε turbulence model
+///
+/// Supports both the standard k-ε formulation (Launder & Spalding 1974) and the
+/// Realizable k-ε variant (Shih, Zhu & Lumley 1995).
+///
+/// When `use_realizable` is `true`, the fixed constant C_mu = 0.09 is replaced by
+/// a strain-rate-dependent formulation that prevents unphysical over-prediction of
+/// turbulent viscosity in stagnation regions:
+///
+/// ```text
+/// C_mu = 1 / (A_0 + A_s * S_tilde * k / epsilon)
+/// ```
+///
+/// where:
+/// - `A_0 = 4.04` (calibrated constant)
+/// - `A_s = sqrt(6) * cos(phi / 3)`
+/// - `phi = (1/3) * arccos(sqrt(6) * W)`
+/// - `W = S_ij * S_jk * S_ki / S_tilde^3` (third invariant of the strain tensor)
+/// - `S_tilde = sqrt(2 * S_ij * S_ij)` (strain rate magnitude)
+///
+/// The key realizability benefit: C_mu is bounded above by `1/A_0 ≈ 0.247` and
+/// decreases for strong strain rates, preventing the standard model's tendency to
+/// overpredict turbulent viscosity near stagnation points.
+///
+/// # Reference
+///
+/// Shih, T.-H., Zhu, J., & Lumley, J. L. (1995). A New Reynolds Stress Algebraic
+/// Equation Model. *Computers & Fluids*, 24(3), 227–238.
 pub struct KEpsilonModel<T: RealField + Copy + num_traits::ToPrimitive> {
     /// Grid dimensions
     nx: usize,
@@ -218,6 +247,10 @@ pub struct KEpsilonModel<T: RealField + Copy + num_traits::ToPrimitive> {
     c2_epsilon: T,
     sigma_k: T,
     sigma_epsilon: T,
+    /// When `true`, use the Realizable k-ε formulation (Shih et al. 1995)
+    /// with a strain-rate-dependent C_mu instead of the fixed constant.
+    /// Defaults to `false` for backward compatibility with the standard model.
+    use_realizable: bool,
     /// Scratch buffer for k values at previous timestep (avoids per-update allocation).
     k_scratch: Vec<T>,
     /// Scratch buffer for epsilon values at previous timestep.
@@ -225,7 +258,7 @@ pub struct KEpsilonModel<T: RealField + Copy + num_traits::ToPrimitive> {
 }
 
 impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> KEpsilonModel<T> {
-    /// Create a new k-ε model
+    /// Create a new standard k-ε model (C_mu = 0.09 fixed).
     pub fn new(nx: usize, ny: usize) -> Self {
         let n = nx * ny;
         Self {
@@ -236,9 +269,31 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> KEpsilonMode
             c2_epsilon: T::from_f64(C2_EPSILON).unwrap_or_else(T::one),
             sigma_k: T::from_f64(SIGMA_K).unwrap_or_else(T::one),
             sigma_epsilon: T::from_f64(SIGMA_EPSILON).unwrap_or_else(T::one),
+            use_realizable: false,
             k_scratch: vec![T::zero(); n],
             eps_scratch: vec![T::zero(); n],
         }
+    }
+
+    /// Create a new Realizable k-ε model (Shih et al. 1995).
+    ///
+    /// The realizable variant computes C_mu from the local strain rate,
+    /// bounding it above by `1/A_0 ≈ 0.247` and reducing it in regions of
+    /// strong strain to prevent unphysical turbulent viscosity.
+    pub fn new_realizable(nx: usize, ny: usize) -> Self {
+        let mut model = Self::new(nx, ny);
+        model.use_realizable = true;
+        model
+    }
+
+    /// Enable or disable the Realizable k-ε formulation.
+    pub fn set_realizable(&mut self, enabled: bool) {
+        self.use_realizable = enabled;
+    }
+
+    /// Returns whether the Realizable formulation is active.
+    pub fn is_realizable(&self) -> bool {
+        self.use_realizable
     }
 
     /// Calculate strain rate tensor
@@ -262,6 +317,108 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> KEpsilonMode
         }
 
         (T::from_f64(TWO).unwrap_or_else(T::one) * s_squared).sqrt()
+    }
+
+    /// Compute the Realizable C_mu from local strain rate, k, and epsilon.
+    ///
+    /// # Realizable k-ε Model (Shih, Zhu & Lumley 1995)
+    ///
+    /// The standard k-ε model uses a fixed `C_mu = 0.09`. The Realizable variant
+    /// makes `C_mu` a function of the mean strain and rotation rates:
+    ///
+    /// ```text
+    /// C_mu = 1 / (A_0 + A_s * S_tilde * k / epsilon)
+    /// ```
+    ///
+    /// ## Constants
+    ///
+    /// - `A_0 = 4.04` — calibrated constant ensuring `C_mu <= 1/4.04 ≈ 0.247`
+    /// - `A_s = sqrt(6) * cos(phi / 3)` where `phi = (1/3) * arccos(sqrt(6) * W)`
+    /// - `W = S_ij * S_jk * S_ki / S_tilde^3` — third invariant of the strain tensor
+    /// - `S_tilde = sqrt(2 * S_ij * S_ij)` — strain rate magnitude
+    ///
+    /// ## Bounds
+    ///
+    /// - Upper bound: `C_mu <= 1/A_0 ≈ 0.247` (when strain is zero)
+    /// - As strain increases, `C_mu` decreases monotonically
+    /// - This prevents over-prediction of turbulent viscosity in stagnation regions
+    ///
+    /// ## 2D Strain Rate Tensor
+    ///
+    /// For a 2D velocity field `(u, v)`, the strain rate magnitude is:
+    /// ```text
+    /// S_tilde = sqrt(2 * ((du/dx)^2 + (dv/dy)^2 + 0.5*(du/dy + dv/dx)^2))
+    /// ```
+    ///
+    /// # Arguments
+    ///
+    /// * `velocity_gradient` - 2x2 velocity gradient tensor `[[du/dx, du/dy], [dv/dx, dv/dy]]`
+    /// * `k` - Turbulent kinetic energy (must be non-negative)
+    /// * `epsilon` - Turbulent dissipation rate (must be positive)
+    ///
+    /// # Returns
+    ///
+    /// The local realizable C_mu value, bounded in `(0, 1/A_0]`.
+    ///
+    /// # Reference
+    ///
+    /// Shih, T.-H., Zhu, J., & Lumley, J. L. (1995). A New Reynolds Stress Algebraic
+    /// Equation Model. *Computers & Fluids*, 24(3), 227–238.
+    pub fn realizable_c_mu(&self, velocity_gradient: &[[T; 2]; 2], k: T, epsilon: T) -> T {
+        let eps_safe = epsilon.max(T::from_f64(EPSILON_MIN).unwrap_or_else(T::zero));
+        let half = T::from_f64(ONE_HALF).unwrap_or_else(T::one);
+
+        // Build symmetric strain rate tensor S_ij = 0.5 * (du_i/dx_j + du_j/dx_i)
+        let s00 = velocity_gradient[0][0]; // du/dx
+        let s11 = velocity_gradient[1][1]; // dv/dy
+        let s01 = (velocity_gradient[0][1] + velocity_gradient[1][0]) * half; // 0.5*(du/dy + dv/dx)
+
+        // S_tilde = sqrt(2 * S_ij * S_ij)
+        // For 2D: 2*(S00^2 + S11^2 + 2*S01^2) because off-diag appears twice (S01=S10)
+        let two = T::from_f64(TWO).unwrap_or_else(T::one);
+        let s_sq = s00 * s00 + s11 * s11 + two * s01 * s01;
+        let s_tilde = (two * s_sq).sqrt();
+
+        // Compute W = S_ij * S_jk * S_ki / S_tilde^3  (third invariant)
+        // For 2D symmetric tensor:
+        //   S*S = [[S00*S00 + S01*S01,  S00*S01 + S01*S11],
+        //          [S01*S00 + S11*S01,  S01*S01 + S11*S11]]
+        // trace(S*S*S) = sum_i (S*S)_ij * S_ji
+        let ss00 = s00 * s00 + s01 * s01;
+        let ss01 = s00 * s01 + s01 * s11;
+        let ss11 = s01 * s01 + s11 * s11;
+
+        // trace(S^3) = SS_00*S_00 + SS_01*S_10 + SS_10*S_01 + SS_11*S_11
+        //            = SS_00*S_00 + 2*SS_01*S_01 + SS_11*S_11
+        let trace_s3 = ss00 * s00 + two * ss01 * s01 + ss11 * s11;
+
+        let s_tilde_cubed = s_tilde * s_tilde * s_tilde;
+        let s_tilde_min = T::from_f64(1e-30).unwrap_or_else(T::zero);
+
+        let w = if s_tilde_cubed > s_tilde_min {
+            trace_s3 / s_tilde_cubed
+        } else {
+            T::zero()
+        };
+
+        // phi = (1/3) * arccos(sqrt(6) * W)
+        // W must be clamped so sqrt(6)*W is in [-1, 1] for arccos
+        let sqrt6 = T::from_f64(6.0_f64.sqrt()).unwrap_or_else(T::one);
+        let one = T::one();
+        let arg = (sqrt6 * w).max(-one).min(one);
+        let phi = arg.acos();
+        let third = T::from_f64(1.0 / 3.0).unwrap_or_else(T::one);
+
+        // A_s = sqrt(6) * cos(phi / 3)
+        let a_s = sqrt6 * (phi * third).cos();
+
+        // C_mu = 1 / (A_0 + A_s * S_tilde * k / epsilon)
+        let a0 = T::from_f64(REALIZABLE_A0).unwrap_or_else(T::one);
+        let denom = a0 + a_s * s_tilde * k / eps_safe;
+
+        // Ensure denominator is at least A_0 (C_mu <= 1/A_0) and positive
+        let denom_safe = denom.max(a0);
+        one / denom_safe
     }
 
     /// Apply boundary conditions using the new boundary condition system
@@ -379,7 +536,15 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> TurbulenceMo
                 let grad = [[du_dx, du_dy], [dv_dx, dv_dy]];
 
                 // Calculate turbulent viscosity
-                let nu_t = self.turbulent_viscosity(k_prev, eps_prev, density);
+                // When use_realizable is true, compute a strain-dependent C_mu
+                // instead of using the fixed constant (Shih et al. 1995).
+                let nu_t = if self.use_realizable {
+                    let c_mu_local = self.realizable_c_mu(&grad, k_prev, eps_prev);
+                    let eps_min_val = T::from_f64(EPSILON_MIN).unwrap_or_else(T::zero);
+                    density * c_mu_local * k_prev * k_prev / eps_prev.max(eps_min_val)
+                } else {
+                    self.turbulent_viscosity(k_prev, eps_prev, density)
+                };
 
                 // Production term
                 let p_k = self.production_term(
@@ -1107,5 +1272,208 @@ mod tests {
             assert!(C2_EPSILON > C1_EPSILON);
             assert!(SIGMA_K > 0.0 && SIGMA_EPSILON > 0.0);
         };
+    }
+
+    // ─── Realizable k-ε tests (Shih, Zhu & Lumley 1995) ───────────────
+
+    /// Verify that the realizable C_mu is bounded above by 1/A_0 ≈ 0.2475
+    /// for any strain rate magnitude (including zero strain, moderate strain,
+    /// and extreme strain).
+    #[test]
+    fn test_realizable_c_mu_bounded() {
+        let model = KEpsilonModel::<f64>::new_realizable(10, 10);
+        let upper = 1.0 / REALIZABLE_A0; // ≈ 0.2475
+
+        // Zero strain → maximum C_mu = 1/A_0
+        let grad_zero = [[0.0, 0.0], [0.0, 0.0]];
+        let c_mu_zero = model.realizable_c_mu(&grad_zero, 1.0, 1.0);
+        assert!(
+            c_mu_zero <= upper + 1e-12,
+            "C_mu at zero strain ({c_mu_zero}) exceeds upper bound ({upper})"
+        );
+        assert!(c_mu_zero > 0.0, "C_mu must be positive");
+
+        // Moderate shear
+        let grad_mod = [[0.0, 5.0], [0.0, 0.0]];
+        let c_mu_mod = model.realizable_c_mu(&grad_mod, 1.0, 1.0);
+        assert!(
+            c_mu_mod <= upper + 1e-12,
+            "C_mu at moderate strain ({c_mu_mod}) exceeds upper bound"
+        );
+        assert!(c_mu_mod > 0.0);
+
+        // Extreme shear
+        let grad_extreme = [[0.0, 1000.0], [0.0, 0.0]];
+        let c_mu_ext = model.realizable_c_mu(&grad_extreme, 1.0, 1.0);
+        assert!(
+            c_mu_ext <= upper + 1e-12,
+            "C_mu at extreme strain ({c_mu_ext}) exceeds upper bound"
+        );
+        assert!(c_mu_ext > 0.0);
+
+        // Very high k / low epsilon (amplifies strain term)
+        let c_mu_high_k = model.realizable_c_mu(&grad_mod, 100.0, 0.01);
+        assert!(
+            c_mu_high_k <= upper + 1e-12,
+            "C_mu with high k/eps ({c_mu_high_k}) exceeds upper bound"
+        );
+        assert!(c_mu_high_k > 0.0);
+    }
+
+    /// Verify that C_mu is reduced below the standard 0.09 for high strain rates.
+    /// This is the key physical benefit of the Realizable variant — it prevents
+    /// over-prediction of turbulent viscosity in stagnation regions.
+    #[test]
+    fn test_realizable_c_mu_reduces_at_high_strain() {
+        let model = KEpsilonModel::<f64>::new_realizable(10, 10);
+
+        // High strain rate with moderate k/epsilon
+        let grad_high = [[0.0, 50.0], [0.0, 0.0]];
+        let c_mu = model.realizable_c_mu(&grad_high, 1.0, 1.0);
+        assert!(
+            c_mu < C_MU,
+            "Realizable C_mu ({c_mu}) should be less than standard C_mu ({C_MU}) at high strain"
+        );
+
+        // Even higher strain
+        let grad_very_high = [[10.0, 100.0], [0.0, -10.0]];
+        let c_mu_vhigh = model.realizable_c_mu(&grad_very_high, 1.0, 1.0);
+        assert!(
+            c_mu_vhigh < c_mu,
+            "C_mu should decrease with increasing strain: {c_mu_vhigh} >= {c_mu}"
+        );
+    }
+
+    /// At the equilibrium value S*k/eps ≈ 3.3 (corresponding to P_k ≈ eps with
+    /// C_mu = 0.09), the realizable C_mu should be approximately equal to the
+    /// standard value.
+    ///
+    /// From P_k = eps: C_mu * k^2/eps * S^2 = eps  →  S*k/eps = 1/sqrt(C_mu) ≈ 3.33
+    /// At equilibrium with W ≈ 0 (isotropic strain), A_s = sqrt(6)*cos(pi/6) ≈ 2.12
+    /// C_mu = 1 / (4.04 + 2.12 * 3.33) ≈ 1 / 11.10 ≈ 0.090
+    #[test]
+    fn test_realizable_c_mu_equals_standard_at_equilibrium() {
+        let model = KEpsilonModel::<f64>::new_realizable(10, 10);
+
+        // At equilibrium: S*k/eps = 1/sqrt(C_mu) ≈ 3.33
+        // Use pure shear (W=0) for simplicity, so phi = arccos(0) = pi/2
+        // A_s = sqrt(6)*cos(pi/6) ≈ 2.449*cos(0.5236) ≈ 2.12
+        let equilibrium_s_k_over_eps = 1.0 / C_MU.sqrt(); // ≈ 3.33
+
+        // Set k=1, eps=1 so S = equilibrium_s_k_over_eps
+        // Pure shear: du/dy = S_tilde (since S_tilde = |du/dy| for pure shear)
+        let grad = [[0.0, equilibrium_s_k_over_eps], [0.0, 0.0]];
+        let c_mu = model.realizable_c_mu(&grad, 1.0, 1.0);
+
+        // Should be in the neighborhood of 0.09
+        // The exact value depends on the W invariant, but for pure shear W=0
+        // and we get A_s = sqrt(6)*cos(pi/6) ≈ 2.12
+        // C_mu = 1/(4.04 + 2.12*3.33) ≈ 0.092
+        assert_relative_eq!(c_mu, C_MU, epsilon = 0.02);
+    }
+
+    /// With `use_realizable = false`, the model must behave identically to the
+    /// standard k-ε — turbulent viscosity uses the fixed C_mu constant.
+    #[test]
+    fn test_realizable_standard_backward_compatible() {
+        let model_standard = KEpsilonModel::<f64>::new(10, 10);
+        assert!(!model_standard.is_realizable());
+
+        let k = 2.5;
+        let epsilon = 1.5;
+        let density = 1.225;
+
+        // Standard turbulent viscosity: C_mu * k^2 / eps * rho
+        let nu_t_standard = model_standard.turbulent_viscosity(k, epsilon, density);
+        let nu_t_expected = density * C_MU * k * k / epsilon;
+        assert_relative_eq!(nu_t_standard, nu_t_expected, epsilon = 1e-12);
+
+        // A model with use_realizable=false should produce identical results
+        let mut model_disabled = KEpsilonModel::<f64>::new_realizable(10, 10);
+        model_disabled.set_realizable(false);
+        assert!(!model_disabled.is_realizable());
+
+        let nu_t_disabled = model_disabled.turbulent_viscosity(k, epsilon, density);
+        assert_relative_eq!(nu_t_disabled, nu_t_standard, epsilon = 1e-12);
+    }
+
+    /// Verify that the `update` method with `use_realizable = true` produces
+    /// different (reduced) turbulent viscosity compared to the standard model
+    /// for the same flow conditions with strong velocity gradients.
+    #[test]
+    fn test_realizable_update_reduces_viscosity() {
+        let nx = 5;
+        let ny = 5;
+        let n = nx * ny;
+
+        let mut model_std = KEpsilonModel::<f64>::new(nx, ny);
+        let mut model_real = KEpsilonModel::<f64>::new_realizable(nx, ny);
+
+        let k_init = 1.0;
+        let eps_init = 1.0;
+        let density = 1.0;
+        let mol_visc = 1e-5;
+        let dt = 0.0001;
+        let dx = 0.1;
+        let dy = 0.1;
+
+        let mut k_std = vec![k_init; n];
+        let mut eps_std = vec![eps_init; n];
+        let mut k_real = vec![k_init; n];
+        let mut eps_real = vec![eps_init; n];
+
+        // Strong velocity gradient (high strain → realizable C_mu should differ)
+        let mut velocity = vec![Vector2::new(0.0, 0.0); n];
+        for j in 0..ny {
+            for i in 0..nx {
+                let idx = j * nx + i;
+                velocity[idx] = Vector2::new(10.0 * (j as f64) * dy, 0.0);
+            }
+        }
+
+        model_std
+            .update(
+                &mut k_std, &mut eps_std, &velocity, density, mol_visc, dt, dx, dy,
+            )
+            .unwrap();
+        model_real
+            .update(
+                &mut k_real, &mut eps_real, &velocity, density, mol_visc, dt, dx, dy,
+            )
+            .unwrap();
+
+        // The fields should differ because the realizable model uses a different C_mu
+        let mut any_differ = false;
+        for idx in 0..n {
+            if (k_std[idx] - k_real[idx]).abs() > 1e-15 {
+                any_differ = true;
+                break;
+            }
+        }
+        assert!(
+            any_differ,
+            "Realizable and standard models should produce different k fields with strong gradients"
+        );
+    }
+
+    /// Verify that the realizable C_mu monotonically decreases as strain increases.
+    #[test]
+    fn test_realizable_c_mu_monotone_decrease() {
+        let model = KEpsilonModel::<f64>::new_realizable(10, 10);
+        let k = 1.0;
+        let eps = 1.0;
+
+        let strains = [0.1, 1.0, 5.0, 10.0, 50.0, 100.0, 500.0];
+        let mut prev_c_mu = f64::INFINITY;
+
+        for &s in &strains {
+            let grad = [[0.0, s], [0.0, 0.0]];
+            let c_mu = model.realizable_c_mu(&grad, k, eps);
+            assert!(
+                c_mu <= prev_c_mu + 1e-14,
+                "C_mu not monotone: at S={s}, C_mu={c_mu} > prev={prev_c_mu}"
+            );
+            prev_c_mu = c_mu;
+        }
     }
 }

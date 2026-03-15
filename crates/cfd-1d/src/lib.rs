@@ -104,8 +104,8 @@ pub mod solver;
 
 // Export haemolysis models
 pub use physics::hemolysis::{
-    cavitation_amplified_hi, giersiepen_hi, HemolysisExposure, CAVITATION_HI_SLOPE,
-    GIERSIEPEN_ALPHA, GIERSIEPEN_BETA, GIERSIEPEN_C,
+    cavitation_amplified_hi, giersiepen_hi, taskin_hi, HemolysisExposure, CAVITATION_HI_SLOPE,
+    GIERSIEPEN_ALPHA, GIERSIEPEN_BETA, GIERSIEPEN_C, TASKIN_BETA, TASKIN_C,
 };
 pub use physics::venturi_screening::{
     discharge_coefficient_from_convergent_half_angle_deg, evaluate_venturi_screening,
