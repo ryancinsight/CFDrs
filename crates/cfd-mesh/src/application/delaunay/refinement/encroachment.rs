@@ -41,7 +41,6 @@
 
 use crate::application::delaunay::pslg::vertex::{PslgVertex, PslgVertexId};
 use crate::application::delaunay::triangulation::bowyer_watson::DelaunayTriangulation;
-use crate::application::delaunay::triangulation::triangle::GHOST_TRIANGLE;
 use crate::domain::core::scalar::Real;
 
 /// Check if the segment `(a, b)` is encroached by any vertex in the

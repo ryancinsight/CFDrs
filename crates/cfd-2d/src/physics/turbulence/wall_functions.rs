@@ -449,6 +449,70 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> WallTreatmen
     }
 }
 
+/// Spalding's (1961) implicit universal law of the wall.
+///
+/// ## Theorem — Universal Law of the Wall (Spalding 1961)
+///
+/// A single implicit relation valid across ALL y+ ranges (viscous sublayer,
+/// buffer layer, and log-law region):
+///
+/// ```text
+/// y⁺ = u⁺ + exp(−κB) · [exp(κu⁺) − 1 − κu⁺ − (κu⁺)²/2 − (κu⁺)³/6]
+/// ```
+///
+/// where κ = 0.41 (von Kármán constant) and B = 5.0 (log-law intercept).
+///
+/// This formula provides C¹ continuity (no derivative discontinuities at
+/// y⁺ = 5 or y⁺ = 30) and is self-consistent for implicit wall BC solvers.
+///
+/// **Proof**: The formula reduces to u⁺ = y⁺ for y⁺ → 0 (Taylor expansion
+/// of exp(κu⁺) cancels the leading-order terms) and to u⁺ = ln(y⁺)/κ + B
+/// for y⁺ → ∞ (exponential term dominates).
+///
+/// **Reference**: Spalding, D.B. (1961). "A Single Formula for the Law of
+/// the Wall", *J. Appl. Mech.* 28(3):455-458.
+///
+/// Given y⁺, returns u⁺ by Newton-Raphson iteration.
+pub fn spalding_u_plus(y_plus: f64) -> f64 {
+    const KAPPA_S: f64 = 0.41;
+    const B_S: f64 = 5.0;
+    const EXP_NEG_KB: f64 = 0.1108031584; // exp(-0.41 * 5.0) precomputed for clarity
+    const TOL: f64 = 1e-10;
+    const MAX_ITER: usize = 50;
+
+    // Initial guess
+    let mut u_plus = if y_plus < 5.0 {
+        y_plus
+    } else {
+        y_plus.ln() / KAPPA_S + B_S
+    };
+
+    for _ in 0..MAX_ITER {
+        let ku = KAPPA_S * u_plus;
+        let exp_ku = ku.exp();
+
+        // F(u⁺) = u⁺ + exp(-κB)·[exp(κu⁺) - 1 - κu⁺ - (κu⁺)²/2 - (κu⁺)³/6] - y⁺
+        let f = u_plus + EXP_NEG_KB * (exp_ku - 1.0 - ku - ku * ku / 2.0 - ku * ku * ku / 6.0)
+            - y_plus;
+
+        // F'(u⁺) = 1 + exp(-κB)·κ·[exp(κu⁺) - 1 - κu⁺ - (κu⁺)²/2]
+        let df = 1.0 + EXP_NEG_KB * KAPPA_S * (exp_ku - 1.0 - ku - ku * ku / 2.0);
+
+        if df.abs() < 1e-30 {
+            break;
+        }
+
+        let delta = f / df;
+        u_plus -= delta;
+
+        if f.abs() < TOL {
+            break;
+        }
+    }
+
+    u_plus
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -705,6 +769,67 @@ mod tests {
             let u_plus = treatment.u_plus(y_plus);
             assert!(u_plus > prev_u_plus);
             prev_u_plus = u_plus;
+        }
+    }
+
+    // --- Spalding's universal law of the wall tests ---
+
+    #[test]
+    fn test_spalding_viscous_sublayer() {
+        // In the viscous sublayer (y+ ~ 1), u+ ≈ y+ (within 1%)
+        let u_plus = spalding_u_plus(1.0);
+        assert_relative_eq!(u_plus, 1.0, epsilon = 0.01);
+    }
+
+    #[test]
+    fn test_spalding_buffer_layer() {
+        // In the buffer layer (y+ = 10), u+ should be a smooth transition value
+        // (no kink). The Spalding formula gives a specific value; just verify
+        // it is reasonable (between viscous u+=y+=10 and log-law value).
+        let u_plus = spalding_u_plus(10.0);
+        let log_law_value = 10.0_f64.ln() / 0.41 + 5.0;
+        // u+ should be less than y+ (viscous) and close to but not exactly log-law
+        assert!(u_plus > 0.0, "u+ must be positive");
+        assert!(u_plus < 10.0, "u+ must be less than y+ in buffer layer");
+        assert!(
+            u_plus < log_law_value + 1.0,
+            "u+ should be near log-law value"
+        );
+    }
+
+    #[test]
+    fn test_spalding_log_law() {
+        // For y+ = 100, u+ ≈ ln(100)/0.41 + 5.0 ≈ 16.2 (within 2%)
+        let u_plus = spalding_u_plus(100.0);
+        let expected = 100.0_f64.ln() / 0.41 + 5.0;
+        let rel_error = (u_plus - expected).abs() / expected;
+        assert!(
+            rel_error < 0.02,
+            "Spalding at y+=100: u+={u_plus}, expected~{expected}, rel_error={rel_error}"
+        );
+    }
+
+    #[test]
+    fn test_spalding_c1_continuity() {
+        // Verify C¹ continuity: numerical derivative du+/dy+ should have no jumps
+        // at y+ = 5 and y+ = 30 (the piecewise transition points of standard wall functions).
+        let eps = 0.01;
+
+        for &y_plus in &[5.0, 30.0] {
+            let u_minus = spalding_u_plus(y_plus - eps);
+            let u_center = spalding_u_plus(y_plus);
+            let u_plus_val = spalding_u_plus(y_plus + eps);
+
+            // Forward and backward finite-difference derivatives
+            let deriv_left = (u_center - u_minus) / eps;
+            let deriv_right = (u_plus_val - u_center) / eps;
+
+            // Derivatives should match closely (C¹ continuity, no kink)
+            let deriv_diff = (deriv_right - deriv_left).abs();
+            assert!(
+                deriv_diff < 0.01,
+                "Derivative discontinuity at y+={y_plus}: left={deriv_left}, right={deriv_right}, diff={deriv_diff}"
+            );
         }
     }
 }

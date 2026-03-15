@@ -338,23 +338,6 @@ impl RuppertRefiner {
         queue
     }
 
-    /// Scan all interior triangles and add bad ones to the queue.
-    ///
-    /// Used only for building the initial queue.  After each Steiner
-    /// insertion, use [`append_bad_triangles_ring`] instead.
-    fn append_bad_triangles(&self, queue: &mut BinaryHeap<BadTriangle>) {
-        let dt = self.cdt.triangulation();
-        for (tid, tri) in dt.interior_triangles() {
-            let q = self.triangle_quality(tri);
-            if !q.is_good(self.max_ratio) || self.exceeds_area(&q) {
-                queue.push(BadTriangle {
-                    tid,
-                    ratio: q.radius_edge_ratio,
-                });
-            }
-        }
-    }
-
     /// Scan only the 1-ring of vertex `vid` for bad triangles.
     ///
     /// # Theorem — 1-Ring Sufficiency for Queue Maintenance

@@ -14,12 +14,22 @@
 //! showing that the walk crosses at most $O(\sqrt{n})$ Delaunay edges on
 //! average for random point distributions (Devroye, Lemaire, Moreau 2004).
 //!
+//! # Cycle Detection
+//!
+//! In pathological geometries (near-degenerate configurations, floating-point
+//! perturbations) the oriented walk can cycle between 2–3 triangles.  We track
+//! visited triangles via a `HashSet` and abort on revisit, returning `None`.
+//! The safety bound `max_steps = 3 * T` is retained as a hard cap.
+//!
 //! # Algorithm
 //!
 //! ```text
 //! LOCATE(q, start_triangle):
 //!   t ← start_triangle
+//!   visited ← ∅
 //!   LOOP:
+//!     if t ∈ visited: RETURN NONE      // cycle detected
+//!     visited ← visited ∪ {t}
 //!     for each edge i of t:
 //!       let (a, b) = edge vertices of t.edge[i]
 //!       if orient_2d(a, b, q) < 0:  // q is on the wrong side
@@ -27,6 +37,8 @@
 //!         CONTINUE LOOP
 //!     RETURN t  // q is inside t (or on its boundary)
 //! ```
+
+use std::collections::HashSet;
 
 use crate::domain::core::scalar::Real;
 use crate::domain::geometry::predicates::{orient_2d, Orientation};
@@ -70,10 +82,15 @@ pub fn locate(
 ) -> Option<Location> {
     let q = Point2::new(qx, qy);
     let mut tid = start;
-    let max_steps = triangles.len() * 2;
+    let max_steps = triangles.len() * 3;
+    let mut visited = HashSet::with_capacity(64);
 
     for _ in 0..max_steps {
         if tid == GHOST_TRIANGLE {
+            return None;
+        }
+        if !visited.insert(tid) {
+            // Cycle detected — pathological geometry.
             return None;
         }
         let tri = &triangles[tid.idx()];

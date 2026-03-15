@@ -166,6 +166,44 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy>
     }
 }
 
+/// Default grad-div stabilization constant γ (Olshanskii & Reusken 2004).
+///
+/// Typical range: γ ∈ [0.1, 10]. The default value of 1.0 provides a good
+/// balance between mass conservation improvement and conditioning.
+pub const GRAD_DIV_GAMMA_DEFAULT: f64 = 1.0;
+
+/// Olshanskii & Reusken (2004) grad-div stabilization parameter.
+///
+/// ## Theorem — Grad-Div Stabilization for Incompressible FEM
+///
+/// For inf-sup stable velocity-pressure finite element pairs (e.g.,
+/// Taylor-Hood P2/P1), the grad-div stabilization term:
+///
+/// ```text
+/// τ_div · (∇·v_h, ∇·w_h)
+/// ```
+///
+/// improves pointwise mass conservation from O(h^k) to O(h^{k+1}) without
+/// degrading the velocity error estimate. The stabilization parameter is:
+///
+/// ```text
+/// τ_div = γ · h²
+/// ```
+///
+/// where γ ∈ [0.1, 10] is a user-tunable constant (default γ = 1.0)
+/// and h is the local element diameter.
+///
+/// **Proof sketch**: The bilinear form B(v_h, w_h) = τ_div·(∇·v_h, ∇·w_h)
+/// adds a penalty on divergence-free violation. By the Lax-Milgram theorem,
+/// the augmented problem remains well-posed if τ_div > 0, and the optimal
+/// error estimate follows from Brezzi's stability framework (1974).
+///
+/// **Reference**: Olshanskii, M.A. & Reusken, A. (2004). "Grad-div
+/// stabilization for the Stokes equations", *Math. Comp.* 73(248):1699-1718.
+pub fn grad_div_parameter(h_element: f64, gamma: f64) -> f64 {
+    gamma * h_element * h_element
+}
+
 /// Calculate element size for different element types
 pub fn calculate_element_size<
     T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy,
@@ -238,4 +276,49 @@ fn calculate_min_edge_length<T: cfd_mesh::domain::core::Scalar + RealField + Cop
     }
 
     min_length
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use approx::assert_relative_eq;
+
+    #[test]
+    fn test_grad_div_parameter_scales_with_h_squared() {
+        let gamma = GRAD_DIV_GAMMA_DEFAULT; // 1.0
+        let h = 0.1;
+        let tau = grad_div_parameter(h, gamma);
+        // τ = γ · h² = 1.0 · 0.01 = 0.01
+        assert_relative_eq!(tau, 0.01, epsilon = 1e-15);
+    }
+
+    #[test]
+    fn test_grad_div_parameter_zero_gamma() {
+        // γ = 0 disables stabilization entirely
+        let tau = grad_div_parameter(0.5, 0.0);
+        assert_eq!(tau, 0.0);
+    }
+
+    #[test]
+    fn test_grad_div_parameter_positive() {
+        // For any positive γ and positive h, τ must be non-negative
+        for &gamma in &[0.0, 0.1, 1.0, 5.0, 10.0] {
+            for &h in &[0.0, 0.001, 0.01, 0.1, 1.0] {
+                let tau = grad_div_parameter(h, gamma);
+                assert!(
+                    tau >= 0.0,
+                    "τ must be non-negative for γ={gamma}, h={h}, got {tau}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_grad_div_parameter_different_gamma_values() {
+        let h = 0.2;
+        // τ = γ · 0.04
+        assert_relative_eq!(grad_div_parameter(h, 0.1), 0.004, epsilon = 1e-15);
+        assert_relative_eq!(grad_div_parameter(h, 1.0), 0.04, epsilon = 1e-15);
+        assert_relative_eq!(grad_div_parameter(h, 10.0), 0.4, epsilon = 1e-15);
+    }
 }

@@ -13,11 +13,11 @@ mod venturi;
 
 pub use conductance::{cascade_treatment_flow_fractions, parallel_channel_flow_fractions};
 pub use darcy_weisbach::DarcyWeisbachModel;
-pub use entrance::{CombinationMethod, EntranceEffectsModel};
+pub use entrance::{durst_entrance_k, durst_entrance_length, CombinationMethod, EntranceEffectsModel};
 pub use hagen_poiseuille::HagenPoiseuilleModel;
 pub use junction_loss::{JunctionFlowDirection, JunctionLossModel, JunctionType};
 pub use membrane::MembranePoreModel;
 pub use rectangular::RectangularChannelModel;
-pub use serpentine::{BendType, SerpentineAnalysis, SerpentineCrossSection, SerpentineModel};
+pub use serpentine::{bayat_rezai_enhancement, BendType, SerpentineAnalysis, SerpentineCrossSection, SerpentineModel};
 pub use traits::{FlowConditions, ResistanceModel};
 pub use venturi::{ExpansionType, VenturiAnalysis, VenturiGeometry, VenturiModel};

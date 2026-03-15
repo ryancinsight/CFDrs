@@ -392,3 +392,162 @@ fn stress_1000_points() {
     let v = dt.vertex_count();
     assert!(f <= 2 * v, "Triangle count {} exceeds 2V = {}", f, 2 * v);
 }
+
+// ── Euler formula verification ────────────────────────────────────────────
+
+/// Theorem: V - E + F ∈ {1, 2} for a planar triangulation.
+#[test]
+fn euler_formula_single_triangle() {
+    let dt = DelaunayTriangulation::from_points(&[(0.0, 0.0), (1.0, 0.0), (0.5, 1.0)]);
+    assert!(
+        dt.satisfies_euler(),
+        "Euler formula violated for single triangle"
+    );
+}
+
+#[test]
+fn euler_formula_square() {
+    let dt = DelaunayTriangulation::from_points(&[(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)]);
+    assert!(dt.satisfies_euler(), "Euler formula violated for square");
+}
+
+#[test]
+fn euler_formula_stress_100() {
+    let mut rng = 42_u64;
+    let mut pts = Vec::with_capacity(100);
+    for _ in 0..100 {
+        rng = rng
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
+        let x = (rng >> 33) as f64 / (1u64 << 31) as f64;
+        rng = rng
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
+        let y = (rng >> 33) as f64 / (1u64 << 31) as f64;
+        pts.push((x, y));
+    }
+    let dt = DelaunayTriangulation::from_points(&pts);
+    assert!(
+        dt.satisfies_euler(),
+        "Euler formula violated for 100-point stress test"
+    );
+}
+
+// ── Convex hull ───────────────────────────────────────────────────────────
+
+#[test]
+fn convex_hull_triangle() {
+    let dt = DelaunayTriangulation::from_points(&[(0.0, 0.0), (1.0, 0.0), (0.5, 1.0)]);
+    let hull = dt.convex_hull_vertices();
+    assert_eq!(hull.len(), 3, "Triangle has 3 hull vertices");
+}
+
+#[test]
+fn convex_hull_square_with_interior() {
+    // 4 corners + 1 interior point
+    let dt = DelaunayTriangulation::from_points(&[
+        (0.0, 0.0),
+        (1.0, 0.0),
+        (1.0, 1.0),
+        (0.0, 1.0),
+        (0.5, 0.5),
+    ]);
+    let hull = dt.convex_hull_vertices();
+    // Interior point should not be on hull.
+    assert_eq!(hull.len(), 4, "Square with interior has 4 hull vertices");
+}
+
+// ── Minimum vertex connectivity ───────────────────────────────────────────
+
+/// Theorem: For a convex Delaunay triangulation of n ≥ 4 points in
+/// general position, minimum vertex degree ≥ 2 (boundary vertices
+/// can have degree 2 on a convex hull).
+#[test]
+fn min_connectivity_square() {
+    let dt = DelaunayTriangulation::from_points(&[(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)]);
+    let kappa = dt.min_vertex_connectivity();
+    assert!(kappa >= 2, "Square should have min connectivity ≥ 2, got {}", kappa);
+}
+
+#[test]
+fn min_connectivity_pentagon_with_center() {
+    let mut pts: Vec<(f64, f64)> = (0..5)
+        .map(|i| {
+            let angle = 2.0 * PI * i as f64 / 5.0;
+            (angle.cos(), angle.sin())
+        })
+        .collect();
+    pts.push((0.0, 0.0)); // center
+    let dt = DelaunayTriangulation::from_points(&pts);
+    let kappa = dt.min_vertex_connectivity();
+    assert!(
+        kappa >= 2,
+        "Pentagon + center should have min connectivity ≥ 2, got {}",
+        kappa
+    );
+}
+
+#[test]
+fn min_connectivity_large_random() {
+    let mut rng = 123_u64;
+    let mut pts = Vec::with_capacity(50);
+    for _ in 0..50 {
+        rng = rng
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
+        let x = (rng >> 33) as f64 / (1u64 << 31) as f64;
+        rng = rng
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
+        let y = (rng >> 33) as f64 / (1u64 << 31) as f64;
+        pts.push((x, y));
+    }
+    let dt = DelaunayTriangulation::from_points(&pts);
+    let kappa = dt.min_vertex_connectivity();
+    assert!(
+        kappa >= 2,
+        "50-point random triangulation min connectivity should be ≥ 2, got {}",
+        kappa
+    );
+}
+
+// ── Scale-relative quality metrics ────────────────────────────────────────
+
+/// Test that quality metrics work correctly at micro-scale (1e-6 range).
+#[test]
+fn quality_micro_scale() {
+    use crate::application::delaunay::refinement::quality::TriangleQuality;
+    use crate::application::delaunay::pslg::vertex::PslgVertex;
+
+    // Equilateral triangle at micro-scale.
+    let s = 1e-6;
+    let a = PslgVertex::new(0.0, 0.0);
+    let b = PslgVertex::new(s, 0.0);
+    let c = PslgVertex::new(s * 0.5, s * 0.866_025_403_784);
+    let q = TriangleQuality::compute(&a, &b, &c);
+    // Equilateral triangle: ratio ≈ 0.577..
+    assert!(
+        q.radius_edge_ratio < 0.6,
+        "Micro-scale equilateral ratio {} should be < 0.6",
+        q.radius_edge_ratio
+    );
+    assert!(q.radius_edge_ratio > 0.5, "Ratio too small: {}", q.radius_edge_ratio);
+}
+
+/// Degenerate sliver triangle should have very high ratio.
+#[test]
+fn quality_sliver_degenerate() {
+    use crate::application::delaunay::refinement::quality::TriangleQuality;
+    use crate::application::delaunay::pslg::vertex::PslgVertex;
+
+    let a = PslgVertex::new(0.0, 0.0);
+    let b = PslgVertex::new(10.0, 0.0);
+    let c = PslgVertex::new(5.0, 1e-8);
+    let q = TriangleQuality::compute(&a, &b, &c);
+    // Sliver: very high ratio.
+    assert!(
+        q.radius_edge_ratio > 10.0,
+        "Sliver should have high ratio, got {}",
+        q.radius_edge_ratio
+    );
+}

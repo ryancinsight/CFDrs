@@ -204,6 +204,44 @@ impl<T: RealField + Copy> EnergyEquationSolver<T> {
     }
 }
 
+/// Viscous dissipation function Phi for 2D incompressible flow.
+///
+/// ## Theorem — Viscous Dissipation (Bejan 2013)
+///
+/// The viscous dissipation function represents irreversible conversion
+/// of kinetic energy to internal energy (heat):
+///
+/// ```text
+/// Phi = 2*mu*[(du/dx)^2 + (dv/dy)^2] + mu*(du/dy + dv/dx)^2
+/// ```
+///
+/// The Brinkman number Br = mu*U^2/(k*DeltaT) determines when Phi is significant:
+/// - Br < 0.01: negligible (most millifluidic flows)
+/// - Br ~ 0.1: moderate (high-shear venturi throats)
+/// - Br > 1: dominant (polymer processing)
+///
+/// **Reference**: Bejan, A. (2013). *Convection Heat Transfer* (4th ed.),
+/// Wiley, Section 2.5.
+pub fn viscous_dissipation_2d(
+    du_dx: f64,
+    du_dy: f64,
+    dv_dx: f64,
+    dv_dy: f64,
+    mu: f64,
+) -> f64 {
+    2.0 * mu * (du_dx * du_dx + dv_dy * dv_dy)
+        + mu * (du_dy + dv_dx) * (du_dy + dv_dx)
+}
+
+/// Brinkman number: ratio of viscous heating to conductive heat transfer.
+///
+/// Br = mu * U_ref^2 / (k_thermal * delta_T)
+///
+/// A floor of 1e-30 is applied to delta_T to avoid division by zero.
+pub fn brinkman_number(mu: f64, u_ref: f64, k_thermal: f64, delta_t: f64) -> f64 {
+    mu * u_ref * u_ref / (k_thermal * delta_t.max(1e-30))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1191,6 +1229,52 @@ mod tests {
         let change =
             (solver.temperature[0][1] - 400.0).abs() + (solver.temperature[2][1] - 200.0).abs();
         assert!(change < 0.1); // Very small change due to numerical precision
+    }
+
+    // --- Viscous dissipation and Brinkman number tests ---
+
+    #[test]
+    fn test_viscous_dissipation_pure_shear() {
+        // Pure shear: du/dy = gamma_dot, all others zero => Phi = mu * gamma_dot^2
+        let gamma_dot = 100.0;
+        let mu = 3.5e-3;
+        let phi = viscous_dissipation_2d(0.0, gamma_dot, 0.0, 0.0, mu);
+        let expected = mu * gamma_dot * gamma_dot;
+        assert_relative_eq!(phi, expected, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_viscous_dissipation_zero_strain() {
+        // All velocity gradients zero => Phi = 0
+        let phi = viscous_dissipation_2d(0.0, 0.0, 0.0, 0.0, 1.0);
+        assert_relative_eq!(phi, 0.0, epsilon = 1e-15);
+    }
+
+    #[test]
+    fn test_viscous_dissipation_symmetric() {
+        // du/dy + dv/dx gives same result regardless of which contributes
+        let mu = 1.0;
+        let phi_a = viscous_dissipation_2d(0.0, 3.0, 7.0, 0.0, mu);
+        let phi_b = viscous_dissipation_2d(0.0, 7.0, 3.0, 0.0, mu);
+        // Both should give mu * (du/dy + dv/dx)^2 = mu * 10^2 = 100
+        assert_relative_eq!(phi_a, phi_b, epsilon = 1e-10);
+        assert_relative_eq!(phi_a, 100.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_brinkman_number_typical_millifluidic() {
+        // mu=3.5e-3 Pa.s, U=0.1 m/s, k=0.6 W/(m.K), DeltaT=10 K
+        // Br = 3.5e-3 * 0.01 / (0.6 * 10) = 3.5e-5 / 6 ≈ 5.83e-6
+        let br = brinkman_number(3.5e-3, 0.1, 0.6, 10.0);
+        assert_relative_eq!(br, 5.833e-6, epsilon = 1e-8);
+    }
+
+    #[test]
+    fn test_brinkman_number_venturi_throat() {
+        // mu=3.5e-3 Pa.s, U=1.0 m/s, k=0.6 W/(m.K), DeltaT=1 K
+        // Br = 3.5e-3 * 1.0 / (0.6 * 1) = 3.5e-3 / 0.6 ≈ 5.83e-3
+        let br = brinkman_number(3.5e-3, 1.0, 0.6, 1.0);
+        assert_relative_eq!(br, 5.833e-3, epsilon = 1e-5);
     }
 
     /// Analytical correctness: Steady state diffusion verification

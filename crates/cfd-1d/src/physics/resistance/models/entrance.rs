@@ -312,6 +312,52 @@ pub enum CombinationMethod {
     Weighted(Vec<f64>),
 }
 
+/// Durst et al. (2005) developing-flow entrance length for rectangular channels.
+///
+/// ## Theorem — Developing-Flow Entrance Length (Durst et al. 2005)
+///
+/// For laminar flow in rectangular channels, the hydrodynamic entrance
+/// length (distance for the velocity profile to develop to 99% of the
+/// Poiseuille parabolic profile) is:
+///
+/// ```text
+/// L_e / D_h = [(0.619)^1.6 + (0.0567·Re)^1.6]^(1/1.6)
+/// ```
+///
+/// This formula unifies the creeping-flow limit (L_e → 0.619·D_h as Re → 0)
+/// with the high-Re asymptote (L_e → 0.0567·Re·D_h as Re → ∞).
+///
+/// The entrance-region resistance correction adds an additional pressure
+/// drop beyond the fully-developed Hagen-Poiseuille prediction:
+///
+/// ```text
+/// ΔP_entrance = K_entrance · (1/2)·ρ·u_mean²
+/// ```
+///
+/// where K_entrance ≈ 2.28 + 64/(Re·D_h/L) for short channels (L < L_e).
+///
+/// **Reference**: Durst, F., Ray, S., Ünsal, B. & Bayoumi, O.A. (2005).
+/// "The Development Lengths of Laminar Pipe and Channel Flows",
+/// *J. Fluids Eng.* 127(6):1154-1160.
+pub fn durst_entrance_length(re: f64, d_h: f64) -> f64 {
+    let term1 = 0.619_f64.powf(1.6);
+    let term2 = (0.0567 * re).powf(1.6);
+    d_h * (term1 + term2).powf(1.0 / 1.6)
+}
+
+/// Entrance-region pressure drop coefficient for developing flow.
+///
+/// Returns K_entrance such that ΔP_entrance = K · (1/2)ρu².
+/// Valid for L < L_e (entrance region not fully developed).
+///
+/// Uses the Langhaar (1942) + Durst (2005) composite formula.
+pub fn durst_entrance_k(re: f64, l_over_dh: f64) -> f64 {
+    // K ≈ 2.28 + 64/(Re·L/D_h) for laminar entrance
+    // Bounded below by K_min = 0 (fully developed)
+    let k = 2.28 + 64.0 / (re * l_over_dh).max(1e-30);
+    k.max(0.0)
+}
+
 // ─── Tests ─────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
@@ -475,5 +521,54 @@ mod tests {
         let mut conditions = FlowConditions::new(0.1_f64);
         conditions.reynolds_number = Some(1000.0);
         assert!(model.validate_invariants(&fluid, &conditions).is_err());
+    }
+
+    // ─── Durst et al. (2005) entrance length tests ──────────────────────
+
+    /// Re → 0 gives L_e ≈ 0.619·D_h (creeping-flow limit).
+    ///
+    /// At Re = 0 the high-Re term vanishes and L_e/D_h → 0.619.
+    #[test]
+    fn test_durst_entrance_length_creeping_flow() {
+        let d_h = 1.0e-3; // 1 mm
+        let l_e = durst_entrance_length(0.0, d_h);
+        let expected = 0.619 * d_h;
+        assert_relative_eq!(l_e, expected, max_relative = 1e-6);
+    }
+
+    /// Re = 1000: L_e ≈ 0.0567·Re·D_h = 56.7·D_h (high-Re asymptote dominates).
+    #[test]
+    fn test_durst_entrance_length_high_re() {
+        let d_h = 1.0e-3;
+        let re = 1000.0;
+        let l_e = durst_entrance_length(re, d_h);
+        // At Re=1000 the 0.0567·Re term dominates: 56.7 >> 0.619
+        let high_re_approx = 0.0567 * re * d_h;
+        // Should be very close to the high-Re asymptote
+        assert_relative_eq!(l_e, high_re_approx, max_relative = 0.01);
+    }
+
+    /// Short channel (L/D_h = 1): large K (entrance effects dominate).
+    #[test]
+    fn test_durst_entrance_k_short_channel() {
+        let re = 100.0;
+        let l_over_dh = 1.0;
+        let k = durst_entrance_k(re, l_over_dh);
+        // K = 2.28 + 64/(100·1) = 2.28 + 0.64 = 2.92
+        assert_relative_eq!(k, 2.92, max_relative = 1e-6);
+        assert!(k > 2.0, "Short channel should have large entrance K");
+    }
+
+    /// Long channel (L/D_h = 100): small K (fully developed flow).
+    #[test]
+    fn test_durst_entrance_k_long_channel() {
+        let re = 100.0;
+        let l_over_dh = 100.0;
+        let k = durst_entrance_k(re, l_over_dh);
+        // K = 2.28 + 64/(100·100) = 2.28 + 0.0064 ≈ 2.2864
+        assert_relative_eq!(k, 2.2864, max_relative = 1e-3);
+        // Should be much smaller than the short-channel case
+        let k_short = durst_entrance_k(re, 1.0);
+        assert!(k < k_short, "Long channel K ({k}) should be < short channel K ({k_short})");
     }
 }

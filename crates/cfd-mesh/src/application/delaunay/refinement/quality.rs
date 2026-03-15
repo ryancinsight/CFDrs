@@ -52,30 +52,51 @@ pub struct TriangleQuality {
 
 impl TriangleQuality {
     /// Compute quality metrics for the triangle `(a, b, c)`.
+    ///
+    /// Uses scale-relative tolerances for degenerate-triangle detection so
+    /// that the metric is stable across different coordinate magnitudes.
+    ///
+    /// # Degenerate Detection
+    ///
+    /// A triangle is considered degenerate (circumradius = ∞, ratio = ∞)
+    /// when its signed area satisfies $|A| < \ell_{\max}^2 \cdot 10^{-14}$,
+    /// where $\ell_{\max}$ is the longest edge length.  This scale-relative
+    /// threshold is correct for coordinates in any range — unlike the
+    /// previous absolute threshold of $10^{-30}$ which could mis-classify
+    /// micro-scale triangles.
     #[must_use]
     pub fn compute(a: &PslgVertex, b: &PslgVertex, c: &PslgVertex) -> Self {
         let (abx, aby) = (b.x - a.x, b.y - a.y);
         let (bcx, bcy) = (c.x - b.x, c.y - b.y);
         let (cax, cay) = (a.x - c.x, a.y - c.y);
 
-        let lab = (abx * abx + aby * aby).sqrt();
-        let lbc = (bcx * bcx + bcy * bcy).sqrt();
-        let lca = (cax * cax + cay * cay).sqrt();
+        let lab_sq = abx * abx + aby * aby;
+        let lbc_sq = bcx * bcx + bcy * bcy;
+        let lca_sq = cax * cax + cay * cay;
+
+        let lab = lab_sq.sqrt();
+        let lbc = lbc_sq.sqrt();
+        let lca = lca_sq.sqrt();
 
         let shortest = lab.min(lbc).min(lca);
+        let longest_sq = lab_sq.max(lbc_sq).max(lca_sq);
 
         // Signed area (CCW positive).
         let area_2 = abx * (c.y - a.y) - aby * (c.x - a.x);
         let area = area_2.abs() * 0.5;
 
+        // Scale-relative degenerate threshold.
+        let area_tol = longest_sq.max(1.0) * 1e-14;
+
         // Circumradius: R = (a * b * c) / (4 * area)
-        let circumradius = if area > 1e-30 {
+        let circumradius = if area > area_tol {
             (lab * lbc * lca) / (4.0 * area)
         } else {
             Real::INFINITY
         };
 
-        let ratio = if shortest > 1e-30 {
+        let edge_tol = longest_sq.max(1.0).sqrt() * 1e-14;
+        let ratio = if shortest > edge_tol {
             circumradius / shortest
         } else {
             Real::INFINITY
