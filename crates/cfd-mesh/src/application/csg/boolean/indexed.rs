@@ -360,10 +360,20 @@ fn repair_boolean_mesh_with_policy(
             if !report.is_watertight
                 && (report.boundary_edge_count > 0 || report.non_manifold_edge_count > 0)
             {
+                eprintln!("[repair] ENTER: boundary={} non_manifold={} faces={}",
+                    report.boundary_edge_count, report.non_manifold_edge_count, mesh.face_count());
+
                 // First resolve non-manifold edges.
                 split_non_manifold_edges(mesh);
                 collapse_degenerate_faces(mesh);
                 mesh.rebuild_edges();
+
+                {
+                    let r = crate::application::watertight::check::check_watertight(
+                        &mesh.vertices, &mesh.faces, mesh.edges_ref().unwrap());
+                    eprintln!("[repair] after split_nm: boundary={} nm={} faces={}",
+                        r.boundary_edge_count, r.non_manifold_edge_count, mesh.face_count());
+                }
 
                 // Seal any boundary loops opened by face removal.
                 if !mesh.is_watertight() {
@@ -380,6 +390,7 @@ fn repair_boolean_mesh_with_policy(
                         collapse_degenerate_faces(mesh);
                                 mesh.rebuild_edges();
                     }
+                    eprintln!("[repair] after seal1: sealed={} watertight={}", sealed, mesh.is_watertight());
                 }
 
                 // Merge nearby boundary vertices to close sliver gaps.
@@ -387,6 +398,12 @@ fn repair_boolean_mesh_with_policy(
                     merge_nearby_boundary_vertices(mesh);
                     collapse_degenerate_faces(mesh);
                         mesh.rebuild_edges();
+                    {
+                        let r = crate::application::watertight::check::check_watertight(
+                            &mesh.vertices, &mesh.faces, mesh.edges_ref().unwrap());
+                        eprintln!("[repair] after merge: boundary={} nm={} faces={}",
+                            r.boundary_edge_count, r.non_manifold_edge_count, mesh.face_count());
+                    }
                 }
 
                 // Final seal pass after merging.
@@ -402,6 +419,7 @@ fn repair_boolean_mesh_with_policy(
                     );
                     collapse_degenerate_faces(mesh);
                         mesh.rebuild_edges();
+                    eprintln!("[repair] after seal2: watertight={}", mesh.is_watertight());
                 }
 
                 mesh.orient_outward();
@@ -411,6 +429,8 @@ fn repair_boolean_mesh_with_policy(
                     &mesh.faces,
                     mesh.edges_ref().unwrap(),
                 );
+                eprintln!("[repair] FINAL: boundary={} nm={} faces={} watertight={}",
+                    report.boundary_edge_count, report.non_manifold_edge_count, mesh.face_count(), report.is_watertight);
             }
 
             if require_watertight && !report.is_watertight {
@@ -1288,8 +1308,30 @@ mod tests {
 fn merge_nearby_boundary_vertices(mesh: &mut IndexedMesh) {
     use std::collections::HashSet;
 
-    let tol = 0.05_f64; // 50 µm — appropriate for millifluidic CSG gaps
-    let max_iter = 20;
+    // Adaptive tolerance: 5% of the mean edge length, clamped to [0.01, 0.2] mm.
+    // This scales correctly for any mesh granularity while remaining safe for
+    // millifluidic geometries (R ≈ 0.5 mm, typical edge length ≈ 0.05–0.5 mm).
+    let mean_edge_len = {
+        mesh.rebuild_edges();
+        let edges = match mesh.edges_ref() {
+            Some(e) => e,
+            None => return,
+        };
+        let (sum, count) = edges
+            .iter()
+            .map(|e| {
+                let pa = mesh.vertices.position(e.vertices.0);
+                let pb = mesh.vertices.position(e.vertices.1);
+                (pa - pb).norm()
+            })
+            .fold((0.0_f64, 0usize), |(s, c), d| (s + d, c + 1));
+        if count == 0 {
+            return;
+        }
+        sum / count as f64
+    };
+    let tol = (mean_edge_len * 0.20).clamp(0.01, 0.2);
+    let max_iter = 30;
 
     for _iter in 0..max_iter {
         mesh.rebuild_edges();

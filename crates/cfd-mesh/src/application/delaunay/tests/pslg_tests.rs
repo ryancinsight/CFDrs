@@ -231,3 +231,102 @@ fn resolve_crossings_handles_multiple_crossings() {
     // 1 horizontal → 3 sub-segments; 2 verticals → 2×2 = 4 sub-segments = 7 total.
     assert_eq!(pslg.segment_count(), 7);
 }
+
+// ── Non-finite vertex validation ──────────────────────────────────────────
+
+/// PSLG containing a NaN coordinate must be rejected by `validate()`.
+#[test]
+fn pslg_validate_rejects_nan_vertex() {
+    let mut pslg = Pslg::new();
+    pslg.add_vertex(0.0, 0.0);
+    pslg.add_vertex(f64::NAN, 1.0);
+    pslg.add_vertex(1.0, 0.0);
+
+    let err = pslg.validate().expect_err("NaN vertex should be rejected");
+    assert!(
+        matches!(err, PslgValidationError::NonFiniteVertex { vertex } if vertex.idx() == 1),
+        "Expected NonFiniteVertex for idx 1, got {:?}",
+        err
+    );
+}
+
+/// PSLG containing an infinite coordinate must be rejected.
+#[test]
+fn pslg_validate_rejects_inf_vertex() {
+    let mut pslg = Pslg::new();
+    pslg.add_vertex(0.0, f64::INFINITY);
+
+    let err = pslg.validate().expect_err("Inf vertex should be rejected");
+    assert!(matches!(err, PslgValidationError::NonFiniteVertex { .. }));
+}
+
+/// PSLG containing a negative infinite coordinate must be rejected.
+#[test]
+fn pslg_validate_rejects_neg_inf_vertex() {
+    let mut pslg = Pslg::new();
+    pslg.add_vertex(f64::NEG_INFINITY, 0.0);
+
+    let err = pslg.validate().expect_err("-Inf vertex should be rejected");
+    assert!(matches!(err, PslgValidationError::NonFiniteVertex { .. }));
+}
+
+/// A valid PSLG with only finite coordinates should pass validation.
+#[test]
+fn pslg_validate_accepts_finite_vertices() {
+    let mut pslg = Pslg::new();
+    let a = pslg.add_vertex(0.0, 0.0);
+    let b = pslg.add_vertex(1.0, 0.0);
+    let c = pslg.add_vertex(0.5, 1.0);
+    pslg.add_segment(a, b);
+    pslg.add_segment(b, c);
+    pslg.add_segment(c, a);
+    assert!(pslg.validate().is_ok());
+}
+
+// ── Large polygon ────────────────────────────────────────────────────────
+
+/// 50-vertex polygon PSLG should validate cleanly.
+#[test]
+fn pslg_large_polygon_validates() {
+    use std::f64::consts::PI;
+
+    let mut pslg = Pslg::new();
+    let n = 50;
+    let mut vids = Vec::with_capacity(n);
+    for i in 0..n {
+        let angle = 2.0 * PI * i as f64 / n as f64;
+        vids.push(pslg.add_vertex(angle.cos(), angle.sin()));
+    }
+    for i in 0..n {
+        pslg.add_segment(vids[i], vids[(i + 1) % n]);
+    }
+    assert!(pslg.validate().is_ok(), "50-gon PSLG should be valid");
+    assert_eq!(pslg.vertex_count(), n);
+    assert_eq!(pslg.segment_count(), n);
+}
+
+// ── With-capacity builder ─────────────────────────────────────────────────
+
+#[test]
+fn pslg_with_capacity_works() {
+    let mut pslg = Pslg::with_capacity(100, 50);
+    let a = pslg.add_vertex(0.0, 0.0);
+    let b = pslg.add_vertex(1.0, 0.0);
+    pslg.add_segment(a, b);
+    assert_eq!(pslg.vertex_count(), 2);
+    assert_eq!(pslg.segment_count(), 1);
+}
+
+// ── NonFiniteVertex Display format ────────────────────────────────────────
+
+#[test]
+fn non_finite_vertex_error_display() {
+    let err = PslgValidationError::NonFiniteVertex {
+        vertex: PslgVertexId::new(7),
+    };
+    let msg = format!("{}", err);
+    assert!(
+        msg.contains("non-finite"),
+        "Display should mention 'non-finite', got: {msg}"
+    );
+}

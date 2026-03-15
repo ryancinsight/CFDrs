@@ -32,6 +32,17 @@ use super::vertex::{PslgVertex, PslgVertexId};
 /// Validation errors for a [`Pslg`].
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum PslgValidationError {
+    /// A vertex coordinate is NaN or infinite.
+    ///
+    /// # Rationale
+    ///
+    /// Non-finite coordinates produce undefined results in orientation and
+    /// in-circle predicates.  Rejecting them at the PSLG level prevents
+    /// silent corruption downstream.
+    NonFiniteVertex {
+        /// The offending vertex index.
+        vertex: PslgVertexId,
+    },
     /// Segment endpoint index is out of range of the vertex list.
     SegmentVertexOutOfRange {
         /// Segment id with invalid endpoint reference.
@@ -73,6 +84,12 @@ pub enum PslgValidationError {
 impl core::fmt::Display for PslgValidationError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
+            Self::NonFiniteVertex { vertex } => {
+                write!(
+                    f,
+                    "vertex {vertex:?} has non-finite (NaN or ±∞) coordinates"
+                )
+            }
             Self::SegmentVertexOutOfRange {
                 segment,
                 start,
@@ -254,6 +271,15 @@ impl Pslg {
         use std::collections::HashMap;
 
         let n_vertices = self.vertices.len();
+
+        // Check for non-finite coordinates before anything else.
+        for (i, v) in self.vertices.iter().enumerate() {
+            if !v.x.is_finite() || !v.y.is_finite() {
+                return Err(PslgValidationError::NonFiniteVertex {
+                    vertex: PslgVertexId::from_usize(i),
+                });
+            }
+        }
 
         for (idx, seg) in self.segments.iter().copied().enumerate() {
             let sid = PslgSegmentId::from_usize(idx);

@@ -183,3 +183,146 @@ fn try_from_pslg_rejects_crossing_segments() {
         PslgValidationError::IntersectingSegments { .. }
     ));
 }
+
+// ── Compact preserves constraints ─────────────────────────────────────────
+
+/// Theorem: Compaction invariant preservation (CDT extension).
+///
+/// After compacting the underlying triangulation, every constrained edge
+/// recorded in the CDT must still be present and marked constrained.
+#[test]
+fn cdt_compact_preserves_constraints() {
+    let mut pslg = Pslg::new();
+    let a = pslg.add_vertex(0.0, 0.0);
+    let b = pslg.add_vertex(2.0, 0.0);
+    let c = pslg.add_vertex(2.0, 2.0);
+    let d = pslg.add_vertex(0.0, 2.0);
+    pslg.add_segment(a, b);
+    pslg.add_segment(b, c);
+    pslg.add_segment(c, d);
+    pslg.add_segment(d, a);
+    // Diagonal constraint.
+    pslg.add_segment(a, c);
+
+    let mut cdt = Cdt::from_pslg(&pslg);
+
+    // Compact the underlying triangulation.
+    cdt.triangulation_mut().compact();
+
+    // All constraints must still be present and marked constrained.
+    assert!(cdt.is_constrained(a, b), "bottom edge lost after compact");
+    assert!(cdt.is_constrained(b, c), "right edge lost after compact");
+    assert!(cdt.is_constrained(c, d), "top edge lost after compact");
+    assert!(cdt.is_constrained(d, a), "left edge lost after compact");
+    assert!(cdt.is_constrained(a, c), "diagonal lost after compact");
+
+    // Delaunay property still holds.
+    assert!(
+        cdt.triangulation().is_delaunay(),
+        "Delaunay violated after CDT compact"
+    );
+}
+
+// ── Constraint recovery on internal segments ──────────────────────────────
+
+/// Inserting a constraint that cuts across existing Delaunay edges forces
+/// the CDT to flip or re-triangulate the affected region.  The constraint
+/// must appear as an edge in the result.
+#[test]
+fn cdt_constraint_recovery_internal_segments() {
+    let mut pslg = Pslg::new();
+    // Unit square with interior point at (0.5, 0.5).
+    let v0 = pslg.add_vertex(0.0, 0.0);
+    let v1 = pslg.add_vertex(1.0, 0.0);
+    let v2 = pslg.add_vertex(1.0, 1.0);
+    let v3 = pslg.add_vertex(0.0, 1.0);
+    let _v4 = pslg.add_vertex(0.5, 0.5);
+
+    // Boundary.
+    pslg.add_segment(v0, v1);
+    pslg.add_segment(v1, v2);
+    pslg.add_segment(v2, v3);
+    pslg.add_segment(v3, v0);
+
+    // Internal constraint cutting the domain.
+    pslg.add_segment(v0, v2);
+
+    let cdt = Cdt::from_pslg(&pslg);
+    let dt = cdt.triangulation();
+
+    // The diagonal (v0, v2) must exist and be constrained.
+    assert!(
+        cdt.is_constrained(v0, v2),
+        "Internal diagonal constraint not recovered"
+    );
+    // Interior point should be present.
+    assert!(dt.vertex_count() >= 5);
+    // CDT should still be Delaunay (modulo constrained edges).
+    assert!(dt.is_delaunay());
+}
+
+// ── Complex non-convex domain ─────────────────────────────────────────────
+
+/// L-shaped non-convex domain — CDT must correctly triangulate both arms.
+#[test]
+fn cdt_l_shaped_domain() {
+    let mut pslg = Pslg::new();
+    //   (0,0)──(3,0)
+    //     |      |
+    //   (0,2)──(1,2)
+    //           |
+    //   (1,3)──(3,3)
+    // Wait — L-shape:
+    //   (0,0)→(2,0)→(2,1)→(1,1)→(1,2)→(0,2)→(0,0)
+    let v0 = pslg.add_vertex(0.0, 0.0);
+    let v1 = pslg.add_vertex(2.0, 0.0);
+    let v2 = pslg.add_vertex(2.0, 1.0);
+    let v3 = pslg.add_vertex(1.0, 1.0);
+    let v4 = pslg.add_vertex(1.0, 2.0);
+    let v5 = pslg.add_vertex(0.0, 2.0);
+    pslg.add_segment(v0, v1);
+    pslg.add_segment(v1, v2);
+    pslg.add_segment(v2, v3);
+    pslg.add_segment(v3, v4);
+    pslg.add_segment(v4, v5);
+    pslg.add_segment(v5, v0);
+
+    let cdt = Cdt::from_pslg(&pslg);
+    let dt = cdt.triangulation();
+
+    // All boundary segments exist.
+    assert!(cdt.is_constrained(v0, v1));
+    assert!(cdt.is_constrained(v1, v2));
+    assert!(cdt.is_constrained(v2, v3));
+    assert!(cdt.is_constrained(v3, v4));
+    assert!(cdt.is_constrained(v4, v5));
+    assert!(cdt.is_constrained(v5, v0));
+
+    // Must have at least 4 triangles for a 6-vertex L-shape.
+    assert!(
+        dt.triangle_count() >= 4,
+        "L-shape should have >= 4 triangles, got {}",
+        dt.triangle_count()
+    );
+    assert!(dt.is_delaunay());
+}
+
+// ── Constraint bidirectionality ───────────────────────────────────────────
+
+/// Constrained status must be symmetric: `is_constrained(a, b) == is_constrained(b, a)`.
+#[test]
+fn constraint_edges_bidirectional() {
+    let mut pslg = Pslg::new();
+    let a = pslg.add_vertex(0.0, 0.0);
+    let b = pslg.add_vertex(1.0, 0.0);
+    let c = pslg.add_vertex(0.5, 1.0);
+    pslg.add_segment(a, b);
+    pslg.add_segment(b, c);
+    pslg.add_segment(c, a);
+
+    let cdt = Cdt::from_pslg(&pslg);
+
+    assert_eq!(cdt.is_constrained(a, b), cdt.is_constrained(b, a));
+    assert_eq!(cdt.is_constrained(b, c), cdt.is_constrained(c, b));
+    assert_eq!(cdt.is_constrained(c, a), cdt.is_constrained(a, c));
+}

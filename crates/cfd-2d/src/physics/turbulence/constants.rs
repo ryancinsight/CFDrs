@@ -48,6 +48,10 @@ pub const SST_SIGMA_OMEGA1: f64 = 0.5;
 /// Specific turbulent dissipation rate diffusion coefficient for outer region (Menter 1994)
 pub const SST_SIGMA_OMEGA2: f64 = 0.856;
 
+/// Realizable k-ε model constants (Shih, Zhu, Lumley 1995)
+/// Calibrated constant A_0 in the denominator of the realizable C_mu formula
+pub const REALIZABLE_A0: f64 = 4.04;
+
 /// Numerical stability and realizability constraints
 /// Minimum turbulent kinetic energy for realizability: k ≥ K_MIN (Pope 2000)
 pub const K_MIN: f64 = 1e-12;

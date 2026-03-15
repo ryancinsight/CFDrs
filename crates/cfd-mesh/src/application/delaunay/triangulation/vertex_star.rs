@@ -116,6 +116,51 @@ impl DelaunayTriangulation {
         None
     }
 
+    /// Check that every real vertex has at least `k` distinct real neighbours.
+    ///
+    /// This is a *necessary* condition for the triangulation graph to be
+    /// $k$-vertex-connected.
+    ///
+    /// # Theorem — Whitney (1932)
+    ///
+    /// **Statement**: Every convex Delaunay triangulation of $n \ge 4$
+    /// points in general position is 3-vertex-connected.
+    ///
+    /// **Proof sketch**: In a convex Delaunay triangulation each interior
+    /// vertex has degree $\ge 3$ (the empty-circumcircle property forces at
+    /// least three Delaunay neighbours), and each convex-hull vertex is
+    /// adjacent to its two hull neighbours plus at least one interior vertex.
+    /// By Whitney's theorem a 2-connected planar graph whose every face is
+    /// bounded by a simple cycle — which holds for triangulations — is
+    /// 3-connected.  ∎
+    ///
+    /// # Complexity
+    ///
+    /// $O(n \cdot \bar{d})$ where $\bar{d} \le 6$ is the average vertex degree.
+    #[must_use]
+    pub fn is_k_connected(&self, k: usize) -> bool {
+        for vid_idx in 0..self.num_real_vertices {
+            let vid = PslgVertexId::from_usize(vid_idx);
+            let tris = self.triangles_around_vertex(vid);
+            if tris.is_empty() {
+                return false;
+            }
+            let mut nbrs = std::collections::HashSet::new();
+            for &tid in &tris {
+                let tri = &self.triangles[tid.idx()];
+                for &v in &tri.vertices {
+                    if v != vid && !self.super_verts.contains(&v) {
+                        nbrs.insert(v.idx());
+                    }
+                }
+            }
+            if nbrs.len() < k {
+                return false;
+            }
+        }
+        true
+    }
+
     /// Verify the Delaunay property for all interior triangles.
     ///
     /// # Theorem — Delaunay Verification

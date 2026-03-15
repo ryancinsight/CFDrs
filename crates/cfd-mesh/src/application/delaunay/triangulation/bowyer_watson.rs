@@ -616,4 +616,99 @@ impl DelaunayTriangulation {
         self.num_real_vertices += 1;
         vid
     }
+
+    /// Read-only access to the vertex→triangle hint array.
+    ///
+    /// For each vertex `v`, `vert_to_tri_slice()[v.idx()]` holds one alive
+    /// triangle incident to `v` (or [`GHOST_TRIANGLE`] if the vertex has not
+    /// been inserted yet).
+    ///
+    /// # Invariant — Vertex-to-Triangle Validity
+    ///
+    /// **Statement**: After every insertion, for every inserted real vertex
+    /// $v_i$ with $i < n$, $\text{vert\_to\_tri}[i]$ refers to an alive
+    /// triangle whose vertex list contains $v_i$.
+    ///
+    /// **Proof**: Each of `insert_in_triangle`, `insert_on_edge`, and
+    /// `insert_on_hull_edge` explicitly sets `vert_to_tri[v]` for every
+    /// vertex of every newly created triangle.  The subsequent `flip_fix`
+    /// calls update the hints for all four affected vertices after each
+    /// flip.  Since flips only rearrange existing alive triangles (marking
+    /// old ones dead and rewriting in-place), the hint is always updated
+    /// to an alive triangle containing the vertex.  ∎
+    #[must_use]
+    pub fn vert_to_tri_slice(&self) -> &[TriangleId] {
+        &self.vert_to_tri
+    }
+
+    /// Remove dead (tombstoned) triangles and remap all adjacency links.
+    ///
+    /// # Theorem — Compaction Invariant Preservation
+    ///
+    /// **Statement**: Let $T$ be a triangulation with $D$ dead and $A$ alive
+    /// triangles.  `compact()` produces a triangulation $T'$ with exactly
+    /// $A$ triangles such that:
+    ///
+    /// 1. Every alive triangle in $T$ maps bijectively to a triangle in $T'$.
+    /// 2. Adjacency is preserved: $\text{adj}_{T'}(f(t), e) = f(\text{adj}_T(t, e))$
+    ///    for all alive $t$ and edges $e$, where $f$ is the remapping.
+    /// 3. Vertex→triangle hints remain valid.
+    /// 4. Constrained-edge flags are preserved.
+    ///
+    /// **Proof sketch**: The remapping $f : [0 \dots A{+}D) \to [0 \dots A)$
+    /// is a monotone injection on alive indices.  Because dead triangles are
+    /// never referenced by alive triangles' adjacency lists (each insertion
+    /// and flip only writes alive triangle IDs), every adjacency entry is
+    /// either `GHOST_TRIANGLE` or an alive triangle ID.  Replacing each
+    /// alive ID by its $f$-image preserves the bijection.  The `vert_to_tri`
+    /// hints point to alive triangles by the vertex-to-triangle invariant
+    /// above, so remapping them through $f$ keeps them valid.  ∎
+    ///
+    /// # Complexity
+    ///
+    /// $O(A + D)$ time and $O(A + D)$ auxiliary space for the remap table.
+    pub fn compact(&mut self) {
+        let n = self.triangles.len();
+        let mut remap = vec![GHOST_TRIANGLE; n];
+        let mut new_idx = 0u32;
+        for i in 0..n {
+            if self.triangles[i].alive {
+                remap[i] = TriangleId::new(new_idx);
+                new_idx += 1;
+            }
+        }
+
+        // Compact the triangle array in-place.
+        let mut write = 0;
+        for read in 0..n {
+            if self.triangles[read].alive {
+                self.triangles[write] = self.triangles[read].clone();
+                for a in &mut self.triangles[write].adj {
+                    if *a != GHOST_TRIANGLE {
+                        *a = remap[a.idx()];
+                    }
+                }
+                write += 1;
+            }
+        }
+        self.triangles.truncate(write);
+
+        // Remap vertex→triangle hints.
+        for hint in &mut self.vert_to_tri {
+            if *hint != GHOST_TRIANGLE && hint.idx() < n {
+                *hint = remap[hint.idx()];
+            }
+        }
+
+        // Remap last_triangle.
+        if self.last_triangle != GHOST_TRIANGLE && self.last_triangle.idx() < n {
+            self.last_triangle = remap[self.last_triangle.idx()];
+        } else {
+            self.last_triangle = if self.triangles.is_empty() {
+                GHOST_TRIANGLE
+            } else {
+                TriangleId::new(0)
+            };
+        }
+    }
 }

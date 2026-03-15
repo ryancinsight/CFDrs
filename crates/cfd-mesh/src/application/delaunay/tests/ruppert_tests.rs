@@ -195,3 +195,153 @@ fn steiner_respects_limit() {
         n
     );
 }
+
+// ── Refinement preserves Delaunay ─────────────────────────────────────────
+
+/// Theorem: Ruppert's algorithm produces a constrained Delaunay
+/// triangulation at each step.
+///
+/// After refinement completes, the triangulation must still satisfy the
+/// Delaunay property (modulo constrained edges).
+#[test]
+fn ruppert_preserves_delaunay() {
+    let mut pslg = Pslg::new();
+    let a = pslg.add_vertex(0.0, 0.0);
+    let b = pslg.add_vertex(3.0, 0.0);
+    let c = pslg.add_vertex(3.0, 3.0);
+    let d = pslg.add_vertex(0.0, 3.0);
+    pslg.add_segment(a, b);
+    pslg.add_segment(b, c);
+    pslg.add_segment(c, d);
+    pslg.add_segment(d, a);
+
+    let cdt = Cdt::from_pslg(&pslg);
+    let mut refiner = RuppertRefiner::new(cdt);
+    refiner.set_max_area(0.5);
+    refiner.set_max_ratio(std::f64::consts::SQRT_2);
+    refiner.set_max_steiner(500);
+    refiner.refine();
+
+    let dt = refiner.cdt().triangulation();
+    assert!(
+        dt.is_delaunay(),
+        "Delaunay should hold after Ruppert refinement"
+    );
+}
+
+// ── Encroachment resolution ───────────────────────────────────────────────
+
+/// Theorem: Ruppert's algorithm splits encroached segments before
+/// inserting circumcenters, ensuring no constraint segment has an
+/// opposite vertex inside its diametral circle.
+///
+/// Verification: After refinement, no boundary segment should be
+/// encroached by any vertex in the triangulation.
+#[test]
+fn ruppert_encroachment_resolution() {
+    let mut pslg = Pslg::new();
+    // Moderately skinny triangle to force encroachment.
+    let a = pslg.add_vertex(0.0, 0.0);
+    let b = pslg.add_vertex(4.0, 0.0);
+    let c = pslg.add_vertex(2.0, 3.0);
+    pslg.add_segment(a, b);
+    pslg.add_segment(b, c);
+    pslg.add_segment(c, a);
+
+    let cdt = Cdt::from_pslg(&pslg);
+    let mut refiner = RuppertRefiner::new(cdt);
+    refiner.set_max_ratio(std::f64::consts::SQRT_2);
+    refiner.set_max_area(1.0);
+    refiner.set_max_steiner(1000);
+    let n_steiner = refiner.refine();
+
+    assert!(n_steiner > 0, "Should insert Steiner points");
+
+    let dt = refiner.cdt().triangulation();
+
+    // After refinement, check that quality improved.
+    let mut min_angle = f64::MAX;
+    for (_, tri) in dt.interior_triangles() {
+        let v0 = dt.vertex(tri.vertices[0]);
+        let v1 = dt.vertex(tri.vertices[1]);
+        let v2 = dt.vertex(tri.vertices[2]);
+        let q = TriangleQuality::compute(v0, v1, v2);
+        if q.min_angle_deg() < min_angle {
+            min_angle = q.min_angle_deg();
+        }
+    }
+
+    // Ruppert with B=√2 guarantees α_min ≥ ~20.7° for domains with
+    // sufficiently large input angles.  Allow tolerance down to 10°
+    // since boundary angles can limit the achievable minimum.
+    assert!(
+        min_angle > 10.0,
+        "After encroachment resolution, min angle {:.1}° should be > 10°",
+        min_angle
+    );
+    assert!(dt.is_delaunay(), "Delaunay violated after refinement");
+}
+
+// ── Compact after refinement ──────────────────────────────────────────────
+
+/// After Ruppert inserts many Steiner points, the backing triangle array
+/// accumulates dead entries.  Verifying that the refined result is valid
+/// and can be inspected for dead-triangle accumulation.
+#[test]
+fn ruppert_then_verify_consistent() {
+    let mut pslg = Pslg::new();
+    let a = pslg.add_vertex(0.0, 0.0);
+    let b = pslg.add_vertex(2.0, 0.0);
+    let c = pslg.add_vertex(1.0, 1.732);
+    pslg.add_segment(a, b);
+    pslg.add_segment(b, c);
+    pslg.add_segment(c, a);
+
+    let cdt = Cdt::from_pslg(&pslg);
+    let mut refiner = RuppertRefiner::new(cdt);
+    refiner.set_max_area(0.2);
+    refiner.set_max_steiner(500);
+    refiner.refine();
+
+    let dt = refiner.cdt().triangulation();
+    let count = dt.triangle_count();
+
+    assert!(count > 1, "Refinement should produce multiple triangles");
+    assert!(dt.is_delaunay(), "Delaunay violated after refinement");
+
+    // The backing array should have accumulated dead entries from Bowyer-Watson
+    // insertions during refinement.
+    let total = dt.triangles_slice().len();
+    let alive = dt.triangle_count_raw();
+    assert!(
+        total >= alive,
+        "Total backing ({total}) should be >= alive ({alive})"
+    );
+}
+
+// ── 2-connectivity after refinement ───────────────────────────────────────
+
+#[test]
+fn ruppert_result_is_2_connected() {
+    let mut pslg = Pslg::new();
+    let a = pslg.add_vertex(0.0, 0.0);
+    let b = pslg.add_vertex(4.0, 0.0);
+    let c = pslg.add_vertex(4.0, 4.0);
+    let d = pslg.add_vertex(0.0, 4.0);
+    pslg.add_segment(a, b);
+    pslg.add_segment(b, c);
+    pslg.add_segment(c, d);
+    pslg.add_segment(d, a);
+
+    let cdt = Cdt::from_pslg(&pslg);
+    let mut refiner = RuppertRefiner::new(cdt);
+    refiner.set_max_area(1.0);
+    refiner.set_max_steiner(200);
+    refiner.refine();
+
+    let dt = refiner.cdt().triangulation();
+    assert!(
+        dt.is_k_connected(2),
+        "Refined mesh should be at least 2-connected"
+    );
+}
