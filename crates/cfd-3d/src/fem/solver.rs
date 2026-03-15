@@ -147,6 +147,14 @@ impl<
             .with_krylov_restart(std::cmp::min(200, n_total_dof.max(1)));
         let x = chain.solve(&matrix, &rhs, n_velocity_dof)?;
 
+        // Guard: detect NaN/Inf from ill-conditioned or singular systems before
+        // they silently propagate into the velocity/pressure solution fields.
+        if x.iter().any(|v| !v.is_finite()) {
+            return Err(cfd_core::error::Error::Solver(
+                "FEM linear solve produced non-finite values (NaN or Inf)".into(),
+            ));
+        }
+
         let velocity = x.rows(0, n_velocity_dof).into_owned();
         let pressure = x.rows(n_velocity_dof, n_corner_nodes).into_owned();
         let solution =
@@ -243,21 +251,31 @@ impl<
             "FemSolver: starting linear solve (Picard mode)"
         );
 
-        println!(
-            "  Assembly: {:.2}s | Linear solve config: tol={abs_tol:?}, max_iter=10000, restart={}",
-            assembly_elapsed.as_secs_f64(),
-            std::cmp::min(200, n_total_dof.max(1))
+        tracing::info!(
+            assembly_secs = format!("{:.2}", assembly_elapsed.as_secs_f64()).as_str(),
+            ?abs_tol,
+            max_iter = 10000,
+            restart = std::cmp::min(200, n_total_dof.max(1)),
+            "Assembly and linear solve config"
         );
 
         let solve_start = std::time::Instant::now();
         let x = chain.solve_with_guess(&matrix, &rhs, n_velocity_dof, initial_guess.as_ref())?;
         let solve_elapsed = solve_start.elapsed();
 
-        println!(
-            "  Linear solve: {:.2}s (n_dof={})",
-            solve_elapsed.as_secs_f64(),
-            n_total_dof
+        tracing::info!(
+            solve_secs = format!("{:.2}", solve_elapsed.as_secs_f64()).as_str(),
+            n_total_dof,
+            "Linear solve complete"
         );
+
+        // Guard: detect NaN/Inf from ill-conditioned or singular systems before
+        // they silently propagate into the velocity/pressure solution fields.
+        if x.iter().any(|v| !v.is_finite()) {
+            return Err(cfd_core::error::Error::Solver(
+                "FEM linear solve (Picard) produced non-finite values (NaN or Inf)".into(),
+            ));
+        }
 
         let velocity = x.rows(0, n_velocity_dof).into_owned();
         let pressure = x.rows(n_velocity_dof, n_corner_nodes).into_owned();
@@ -488,9 +506,9 @@ impl<
         // # Theorem — MidNodeCache amortized O(1) edge lookup (see mid_node_cache module docs)
         let _mid_cache = MidNodeCache::build(&problem.mesh, n_corner_nodes);
 
-        println!(
-            "  Assembling {} elements in parallel...",
-            problem.mesh.cells.len()
+        tracing::info!(
+            n_elements = problem.mesh.cells.len(),
+            "Assembling elements in parallel"
         );
 
         let (entry_map, mut rhs) = problem
@@ -499,15 +517,17 @@ impl<
             .par_iter()
             .enumerate()
             .fold(
-                || (HashMap::new(), DVector::zeros(n_total_dof)),
-                |(mut local_map, mut local_rhs), (i, cell)| {
+                || (HashMap::with_capacity(512), DVector::zeros(n_total_dof)),
+                |(mut local_map, local_rhs), (i, cell)| {
                     let viscosity = problem
                         .element_viscosities
                         .as_ref()
                         .map_or(problem.fluid.viscosity, |v| v[i]);
                     // Use cache-accelerated index extraction (O(1) per edge vs O(N_mid))
-                    let idxs = extract_vertex_indices(cell, &problem.mesh, problem.n_corner_nodes)
-                        .unwrap();
+                    let idxs = match extract_vertex_indices(cell, &problem.mesh, problem.n_corner_nodes) {
+                        Ok(v) => v,
+                        Err(_) => return (local_map, local_rhs),  // skip degenerate cell
+                    };
                     let local_verts: Vec<Vector3<T>> =
                         idxs.iter().map(|&idx| vertex_positions[idx]).collect();
 
@@ -533,7 +553,6 @@ impl<
 
                     self.assemble_element_local(
                         &mut local_map,
-                        &mut local_rhs,
                         &idxs,
                         &local_verts,
                         viscosity,
@@ -591,7 +610,6 @@ impl<
     fn assemble_element_local(
         &self,
         local_map: &mut HashMap<(usize, usize), T>,
-        _local_rhs: &mut DVector<T>,
         idxs: &[usize],
         verts: &[Vector3<T>],
         viscosity: T,
@@ -774,10 +792,10 @@ impl<
         }
 
         if !unconstrained_boundary_nodes.is_empty() {
-            println!(
-                "  [WARNING] Boundary Leak: {} boundary nodes have no BCs! First 5: {:?}",
-                unconstrained_boundary_nodes.len(),
-                &unconstrained_boundary_nodes[..unconstrained_boundary_nodes.len().min(5)]
+            tracing::warn!(
+                count = unconstrained_boundary_nodes.len(),
+                first_5 = ?&unconstrained_boundary_nodes[..unconstrained_boundary_nodes.len().min(5)],
+                "Boundary Leak: boundary nodes have no BCs"
             );
         }
 
@@ -860,20 +878,25 @@ impl<
             let reference_pressure_dof = p_offset; // First corner node
             builder.set_dirichlet_row(reference_pressure_dof, diag_scale, T::zero());
             rhs[reference_pressure_dof] = T::zero();
-            println!(
-                "  Pinned pressure DOF {reference_pressure_dof} to zero (no pressure BC specified)"
+            tracing::info!(
+                reference_pressure_dof,
+                "Pinned pressure DOF to zero (no pressure BC specified)"
             );
         }
 
-        println!(
-            "  BC Diagnostics: inlet_nodes={inlet_nodes}, wall_nodes={wall_nodes}, outlet_nodes={outlet_nodes}, dirichlet_nodes={dirichlet_nodes}"
+        tracing::debug!(
+            inlet_nodes,
+            wall_nodes,
+            outlet_nodes,
+            dirichlet_nodes,
+            "BC Diagnostics: node counts"
         );
-        println!(
-            "  BC Diagnostics: velocity_dofs_set={}, pressure_dofs_set={}, n_velocity_dof={}, n_pressure_dof={}",
-            vel_dofs.len(),
-            p_dofs.len(),
-            n_nodes * 3,
-            problem.n_corner_nodes
+        tracing::debug!(
+            velocity_dofs_set = vel_dofs.len(),
+            pressure_dofs_set = p_dofs.len(),
+            n_velocity_dof = n_nodes * 3,
+            n_pressure_dof = problem.n_corner_nodes,
+            "BC Diagnostics: DOF counts"
         );
 
         Ok(())

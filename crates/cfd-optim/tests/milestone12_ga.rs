@@ -12,29 +12,93 @@
 //! 6. GA can bootstrap venturi placements from an Option 1 seed
 
 use cfd_optim::{
-    build_milestone12_blueprint_candidate_space, build_milestone12_ga_seed_pair,
-    evaluate_blueprint_candidate, evaluate_goal, generate_ga_mutations,
-    promote_option1_candidate_to_ga_seed, BlueprintCandidate, BlueprintEvaluationStatus,
-    BlueprintGeneticOptimizer, OptimizationGoal,
+    build_milestone12_ga_seed_pair, evaluate_blueprint_candidate, evaluate_goal,
+    generate_ga_mutations, promote_option1_candidate_to_ga_seed, BlueprintCandidate,
+    BlueprintEvaluationStatus, BlueprintGeneticOptimizer, OperatingPoint, OptimizationGoal,
 };
-use cfd_schematics::TopologyOptimizationStage;
+use cfd_schematics::{
+    build_milestone12_blueprint, enumerate_milestone12_topologies, SplitKind,
+    TopologyOptimizationStage, TreatmentActuationMode, VenturiPlacementMode,
+};
 
-fn venturi_seed() -> BlueprintCandidate {
-    let candidates = build_milestone12_blueprint_candidate_space().expect("candidate space builds");
+// ---------------------------------------------------------------------------
+// Fast fixture constructors — build ONE candidate instead of scanning the
+// full ~1000-candidate test space. Reduces per-test setup from ~3 s to ~5 ms.
+// ---------------------------------------------------------------------------
 
-    candidates
-        .into_iter()
-        .find(|c| {
-            c.topology_spec()
-                .map(|spec| spec.has_venturi())
-                .unwrap_or(false)
-        })
-        .expect("at least one venturi candidate for GA seeding")
+fn test_operating_point() -> OperatingPoint {
+    OperatingPoint {
+        flow_rate_m3_s: 2.0e-6,
+        inlet_gauge_pa: 30_000.0,
+        feed_hematocrit: 0.45,
+        patient_context: None,
+    }
 }
+
+/// Build a single venturi-capable seed directly from the topology catalog.
+fn fast_venturi_seed() -> BlueprintCandidate {
+    let base = enumerate_milestone12_topologies()
+        .into_iter()
+        .find(|r| {
+            !r.split_kinds.is_empty()
+                && r.split_kinds
+                    .iter()
+                    .all(|k| matches!(k, SplitKind::NFurcation(2..=5)))
+        })
+        .expect("at least one venturi-eligible topology in the catalog");
+
+    let request = cfd_schematics::Milestone12TopologyRequest {
+        treatment_mode: TreatmentActuationMode::VenturiCavitation,
+        venturi_throat_count: 2,
+        venturi_throat_width_m: 0.4e-3,
+        venturi_throat_length_m: 1.2e-3,
+        venturi_placement_mode: VenturiPlacementMode::CurvaturePeakDeanNumber,
+        venturi_target_channel_ids: Vec::new(),
+        ..base
+    };
+
+    let blueprint =
+        build_milestone12_blueprint(&request).expect("venturi seed blueprint should build");
+
+    BlueprintCandidate::new("test-venturi-seed", blueprint, test_operating_point())
+}
+
+/// Build a single acoustic (non-venturi) candidate for promotion tests.
+fn fast_acoustic_seed() -> BlueprintCandidate {
+    let base = enumerate_milestone12_topologies()
+        .into_iter()
+        .find(|r| !r.split_kinds.is_empty())
+        .expect("at least one topology in the catalog");
+
+    let request = cfd_schematics::Milestone12TopologyRequest {
+        treatment_mode: TreatmentActuationMode::UltrasoundOnly,
+        venturi_throat_count: 0,
+        venturi_target_channel_ids: Vec::new(),
+        ..base
+    };
+
+    let blueprint =
+        build_milestone12_blueprint(&request).expect("acoustic seed blueprint should build");
+
+    BlueprintCandidate::new("test-acoustic-seed", blueprint, test_operating_point())
+}
+
+/// Build a minimal GA seed pair without evaluating the full candidate space.
+fn fast_ga_seed_pair() -> Vec<BlueprintCandidate> {
+    let acoustic = fast_acoustic_seed();
+    let promoted = promote_option1_candidate_to_ga_seed(&acoustic)
+        .expect("Option 1 promotion should succeed");
+    let venturi = fast_venturi_seed();
+    vec![promoted, venturi]
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
 
 #[test]
 fn ga_generate_mutations_produces_candidates() {
-    let seed = venturi_seed();
+    let seed = fast_venturi_seed();
     let mutations = generate_ga_mutations(&seed).expect("GA mutations succeed");
 
     assert!(
@@ -53,7 +117,7 @@ fn ga_generate_mutations_produces_candidates() {
 
 #[test]
 fn ga_mutations_preserve_treatment_path_roles() {
-    let seed = venturi_seed();
+    let seed = fast_venturi_seed();
     let seed_treatment_count = seed.treatment_channel_ids().len();
 
     let mutations = generate_ga_mutations(&seed).expect("GA mutations succeed");
@@ -72,7 +136,7 @@ fn ga_mutations_preserve_treatment_path_roles() {
 
 #[test]
 fn ga_mutations_preserve_venturi_placements() {
-    let seed = venturi_seed();
+    let seed = fast_venturi_seed();
     let seed_spec = seed.topology_spec().expect("seed has topology");
     let seed_venturi_count = seed_spec.venturi_placements.len();
 
@@ -97,7 +161,7 @@ fn ga_mutations_preserve_venturi_placements() {
 
 #[test]
 fn ga_evaluate_goal_produces_bounded_scores() {
-    let seed = venturi_seed();
+    let seed = fast_venturi_seed();
     let mutations = generate_ga_mutations(&seed).expect("GA mutations succeed");
 
     for mutant in mutations.iter().take(5) {
@@ -130,7 +194,7 @@ fn ga_evaluate_goal_produces_bounded_scores() {
 
 #[test]
 fn ga_mutation_catalog_includes_canonical_split_serpentine_and_venturi_compositions() {
-    let seed = venturi_seed();
+    let seed = fast_venturi_seed();
     let seed_topology = seed.topology_spec().expect("seed has topology");
     let seed_stage_count = seed_topology.split_stages.len();
     let mutations = generate_ga_mutations(&seed).expect("GA mutations succeed");
@@ -164,8 +228,7 @@ fn ga_mutation_catalog_includes_canonical_split_serpentine_and_venturi_compositi
 
 #[test]
 fn ga_optimizer_evolves_population_and_ranks_results() {
-    let candidates = build_milestone12_blueprint_candidate_space().expect("candidate space builds");
-    let seeds = build_milestone12_ga_seed_pair(&candidates).expect("canonical GA seed pair");
+    let seeds = fast_ga_seed_pair();
 
     let result = BlueprintGeneticOptimizer::new(OptimizationGoal::InPlaceDeanSerpentineRefinement)
         .with_seeds(seeds)
@@ -214,7 +277,7 @@ fn ga_optimizer_evolves_population_and_ranks_results() {
 
 #[test]
 fn ga_scoring_includes_dean_number_contribution() {
-    let seed = venturi_seed();
+    let seed = fast_venturi_seed();
     let mutations = generate_ga_mutations(&seed).expect("GA mutations succeed");
 
     for mutant in mutations.iter().take(3) {
@@ -248,16 +311,7 @@ fn ga_scoring_includes_dean_number_contribution() {
 
 #[test]
 fn ga_promotes_option1_seed_through_canonical_topology_api() {
-    let candidates = build_milestone12_blueprint_candidate_space().expect("candidate space builds");
-
-    let acoustic = candidates
-        .into_iter()
-        .find(|c| {
-            c.topology_spec()
-                .map(|spec| !spec.has_venturi() && !spec.split_stages.is_empty())
-                .unwrap_or(false)
-        })
-        .expect("at least one acoustic candidate");
+    let acoustic = fast_acoustic_seed();
 
     assert!(
         generate_ga_mutations(&acoustic).is_err(),
@@ -276,7 +330,9 @@ fn ga_promotes_option1_seed_through_canonical_topology_api() {
 
 #[test]
 fn ga_seed_pair_contains_exactly_two_canonical_baselines() {
-    let candidates = build_milestone12_blueprint_candidate_space().expect("candidate space builds");
+    // Provide a minimal candidate set (one acoustic + one venturi) to avoid
+    // evaluating the full ~1000-candidate test space.
+    let candidates = vec![fast_acoustic_seed(), fast_venturi_seed()];
     let seeds = build_milestone12_ga_seed_pair(&candidates).expect("seed pair");
 
     assert_eq!(

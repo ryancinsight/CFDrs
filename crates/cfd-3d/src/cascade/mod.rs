@@ -673,3 +673,101 @@ impl<F: FluidTrait<f64> + Clone> CascadeSolver3D<F> {
 }
 
 use std::collections::HashMap;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use cfd_core::physics::fluid::ConstantPropertyFluid;
+
+    fn water_fluid() -> ConstantPropertyFluid<f64> {
+        ConstantPropertyFluid {
+            name: "water".to_string(),
+            density: 1000.0,
+            viscosity: 1e-3,
+            specific_heat: 4186.0,
+            thermal_conductivity: 0.6,
+            speed_of_sound: 1500.0,
+        }
+    }
+
+    fn simple_channel(id: &str) -> CascadeChannelSpec {
+        CascadeChannelSpec {
+            id: id.to_string(),
+            length: 0.01,      // 10 mm
+            width: 0.001,      // 1 mm
+            height: 0.0005,    // 0.5 mm
+            flow_rate_m3_s: 1e-8,
+            is_venturi_throat: false,
+            throat_width: None,
+            local_hematocrit: None,
+        }
+    }
+
+    #[test]
+    fn cascade_solver_construction() {
+        let config = CascadeConfig3D::default();
+        let fluid = water_fluid();
+        let solver = CascadeSolver3D::new(config.clone(), fluid);
+        assert_eq!(solver.config.resolution, (40, 8, 8));
+    }
+
+    #[test]
+    fn empty_channels_returns_error() {
+        let config = CascadeConfig3D::default();
+        let fluid = water_fluid();
+        let solver = CascadeSolver3D::new(config, fluid);
+        let result = solver.solve(&[]);
+        assert!(
+            result.is_err(),
+            "solving with zero channels should return an error"
+        );
+    }
+
+    #[test]
+    fn channel_count_matches_input() {
+        let config = CascadeConfig3D {
+            resolution: (4, 2, 2), // very coarse for speed
+            max_picard_iterations: 1,
+            ..CascadeConfig3D::default()
+        };
+        let fluid = water_fluid();
+        let solver = CascadeSolver3D::new(config, fluid);
+
+        let channels = vec![simple_channel("ch1"), simple_channel("ch2")];
+        let result = solver.solve(&channels).expect("solve should succeed on 2 simple channels");
+
+        assert_eq!(
+            result.channel_results.len(),
+            2,
+            "result should contain one entry per input channel"
+        );
+        assert_eq!(result.channel_results[0].channel_id, "ch1");
+        assert_eq!(result.channel_results[1].channel_id, "ch2");
+    }
+
+    #[test]
+    fn hematocrit_viscosity_ratio_equal_hct_is_one() {
+        let ratio = hematocrit_viscosity_ratio(0.45, 0.45);
+        assert!(
+            (ratio - 1.0).abs() < 1e-10,
+            "viscosity ratio for equal hematocrit should be 1.0, got {}",
+            ratio
+        );
+    }
+
+    #[test]
+    fn hematocrit_viscosity_ratio_increases_with_hct() {
+        let ratio_low = hematocrit_viscosity_ratio(0.30, 0.45);
+        let ratio_high = hematocrit_viscosity_ratio(0.60, 0.45);
+        assert!(
+            ratio_low < 1.0,
+            "lower hct should give ratio < 1, got {}",
+            ratio_low
+        );
+        assert!(
+            ratio_high > 1.0,
+            "higher hct should give ratio > 1, got {}",
+            ratio_high
+        );
+    }
+}

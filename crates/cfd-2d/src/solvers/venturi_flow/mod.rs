@@ -387,8 +387,24 @@ pub struct VenturiFlowSolution<T: RealField + Copy> {
     pub u_inlet: T,
     /// Inlet pressure [Pa]
     pub p_inlet: T,
-    /// Throat velocity [m/s]
+    /// Maximum throat velocity [m/s] (centerline of parabolic profile)
     pub u_throat: T,
+    /// Area-averaged throat velocity [m/s].
+    ///
+    /// ## Theorem — Cross-Section Averaging
+    ///
+    /// For fully-developed laminar flow in a 2D channel, the velocity profile
+    /// is parabolic: u(y) = u_max · (1 − (2y/h)²), giving:
+    ///
+    /// u_mean = (1/h) ∫₀ʰ u(y) dy = (2/3) u_max
+    ///
+    /// The area-averaged velocity is the correct metric for comparison with the
+    /// 1D Hagen-Poiseuille / Bernoulli continuity prediction, which predicts:
+    ///
+    /// u_mean_throat = u_mean_inlet · (A_inlet / A_throat)
+    ///
+    /// **Reference**: White, F.M. (2011), *Fluid Mechanics* §6.3.
+    pub u_throat_mean: T,
     /// Throat pressure [Pa]
     pub p_throat: T,
     /// Outlet velocity [m/s]
@@ -423,6 +439,7 @@ impl<T: RealField + Copy + FromPrimitive> VenturiFlowSolution<T> {
             u_inlet: bernoulli.u_inlet,
             p_inlet: bernoulli.p_inlet,
             u_throat,
+            u_throat_mean: u_throat, // Bernoulli is 1D: mean = max
             p_throat,
             u_outlet: bernoulli.u_inlet, // Mass conservation with constant height
             p_outlet,

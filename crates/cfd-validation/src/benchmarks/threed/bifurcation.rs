@@ -95,7 +95,7 @@ impl<
 
         // ── 3. Solve with Casson blood ──
         let solver = BifurcationSolver3D::new(geo.clone(), config);
-        let solution = solver.solve(self.fluid.clone())?;
+        let solution = solver.solve(self.fluid)?;
 
         // ── 4. Compute Murray's law deviation from geometry (analytical) ──
         let d_p = self.geometry.d_parent;
@@ -166,15 +166,13 @@ impl<
         let murray_ok = result
             .metrics
             .get("Murray Deviation")
-            .map(|&dev| num_traits::Float::abs(dev) < T::from_f64_or_one(0.01))
-            .unwrap_or(false);
+            .is_some_and(|&dev| num_traits::Float::abs(dev) < T::from_f64_or_one(0.01));
 
         // ── Criterion 2: Mass conservation error < 2 % (coarse-mesh tolerance) ──
         let mass_ok = result
             .metrics
             .get("Mass Conservation Error")
-            .map(|&err| num_traits::Float::abs(err) < T::from_f64_or_one(0.02))
-            .unwrap_or(false);
+            .is_some_and(|&err| num_traits::Float::abs(err) < T::from_f64_or_one(0.02));
 
         Ok(murray_ok && mass_ok)
     }

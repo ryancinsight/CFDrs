@@ -32,12 +32,17 @@
 
 /// 3-D Sutherland-Hodgman half-space clipping and fan triangulation.
 pub mod halfspace;
+/// Accelerated plane-based clip/refine (CGAL 6.1 insight).
+pub mod plane;
 /// 2-D polygon Boolean operations (CDT-backed production path + test oracles).
 pub(crate) mod polygon2d;
 
 // ── Flat re-exports — callers use `csg::clip::*` exclusively ─────────────────
 
 pub use halfspace::{clip_polygon_to_halfplane, clip_triangle_to_halfplane, fan_triangulate};
+pub use plane::{
+    classify_face, clip_face_by_plane, refine_faces_with_plane, FacePlaneClass, PlaneEquation,
+};
 pub use polygon2d::{
     boolean_clip, clip_polygon_to_triangle, polygon_area, split_polygon_outside_triangle, ClipOp,
 };

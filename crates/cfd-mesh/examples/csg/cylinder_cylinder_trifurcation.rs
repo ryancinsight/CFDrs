@@ -23,7 +23,7 @@
 //!
 //! A "flat trident" with a centre-forward prong at θ = 0° places one branch
 //! coaxial with the trunk.  Same-radius, same-axis tubes produce coincident
-//! lateral surfaces and `csg_boolean(Union, …)` returns `NotWatertight`.
+//! lateral surfaces and `cfd_mesh::application::csg::boolean::indexed::csg_boolean_indexed(Union, …)` returns `NotWatertight`.
 //! Choosing the perpendicular branch at +90° avoids this entirely.
 //!
 //! The canonical indexed N-way Boolean path is used here so binary and dense
@@ -130,7 +130,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // Union: A ∪ B ∪ C ∪ D
         let t0 = Instant::now();
-        let mut result = csg_boolean_nary(
+        let mut result = cfd_mesh::application::csg::boolean::indexed::csg_boolean_nary(
             BooleanOp::Union,
             &[trunk.clone(), b_up.clone(), b_perp.clone(), b_dn.clone()],
         )?;
@@ -162,7 +162,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             build_trifurcation(std::f64::consts::FRAC_PI_4)?;
 
         let t0 = Instant::now();
-        let mut result = csg_boolean_nary(
+        let mut result = cfd_mesh::application::csg::boolean::indexed::csg_boolean_nary(
             BooleanOp::Difference,
             &[
                 trunk_45.clone(),

@@ -92,13 +92,12 @@ where
 
             let therapy_zone = channel
                 .therapy_zone
-                .clone()
                 .or_else(|| {
                     channel
                         .metadata
                         .as_ref()
                         .and_then(|m| m.get::<TherapyZoneMetadata>())
-                        .map(|tz| tz.zone.clone())
+                        .map(|tz| tz.zone)
                 })
                 .unwrap_or(TherapyZone::MixedFlow);
 
@@ -120,8 +119,10 @@ where
             };
             let grid = StaggeredGrid2D::new(self.grid_nx, self.grid_ny, l_t, grid_w);
             let density_t = T::from_f64(self.density).unwrap_or_else(T::one);
-            let mut config = SIMPLEConfig::default();
-            config.max_iterations = 5_000;
+            let config = SIMPLEConfig {
+                max_iterations: 5_000,
+                ..SIMPLEConfig::default()
+            };
             let mut solver = NavierStokesSolver2D::new(grid, self.blood.clone(), density_t, config);
 
             if let Some(vm) = venturi_meta.as_ref() {

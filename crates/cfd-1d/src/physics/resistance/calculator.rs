@@ -1,4 +1,25 @@
 //! Resistance calculator with model selection and validation.
+//!
+//! ## Dispatch Pattern
+//!
+//! `ResistanceCalculator` is a thin facade delegating all physics to the
+//! `dispatch` and `coefficients` sub-modules. The dispatch logic selects the
+//! appropriate resistance model based on channel geometry:
+//!
+//! | Geometry variant | Delegated model |
+//! |------------------|-----------------|
+//! | `Circular` | `HagenPoiseuilleModel` |
+//! | `Rectangular` | `RectangularChannelModel` (Shah-London) |
+//! | `Serpentine` | `SerpentineModel` (Dean-enhanced friction) |
+//! | `Venturi` | `VenturiModel` (contraction + throat + expansion) |
+//! | `DarcyWeisbach` | `DarcyWeisbachModel` (general turbulent) |
+//! | `Membrane` | `MembranePoreModel` (Hagen-Poiseuille per pore) |
+//! | `JunctionLoss` | `JunctionLossModel` (K-factor minor losses) |
+//!
+//! Each model implements the `ResistanceModel` trait, returning a (R, k) tuple
+//! where the total pressure drop is ΔP = R·Q + k·Q² (linear + quadratic terms).
+//! The quadratic term is non-zero only for turbulent or geometry-dependent models
+//! (Darcy-Weisbach, Venturi expansion losses).
 
 /// Resistance and quadratic coefficient calculation dispatch.
 pub mod coefficients;

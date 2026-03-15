@@ -100,6 +100,23 @@ impl<T: RealField + Copy + FromPrimitive> SimulationTimeConfig<T> {
 }
 
 /// Simulator for transient inlet composition switching with instantaneous node mixing.
+///
+/// ## Algorithm
+///
+/// 1. **Event sorting**: All events (inlet composition changes, edge flow
+///    overrides, and pressure boundary updates) are sorted by time and
+///    merged with the uniform timepoint grid.
+///
+/// 2. **Time-stepping**: At each timepoint the simulator:
+///    - Applies active `InletCompositionEvent`s to update inlet node mixtures.
+///    - Applies active `EdgeFlowEvent`s to override edge flow rates.
+///    - Applies active `PressureBoundaryEvent`s and re-solves the network
+///      (pressure events trigger a full `NetworkSolver::solve_network` call).
+///    - Propagates compositions downstream via flow-weighted instantaneous
+///      mixing at each junction node.
+///
+/// 3. **Output**: A `Vec<CompositionState>` with one entry per timepoint,
+///    recording the mixture composition at every node in the network.
 pub struct TransientCompositionSimulator;
 
 impl TransientCompositionSimulator {

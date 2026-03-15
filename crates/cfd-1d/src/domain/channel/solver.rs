@@ -598,3 +598,78 @@ impl<T: RealField + Copy + FromPrimitive + Float> Channel<T> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use approx::assert_relative_eq;
+
+    #[test]
+    fn test_circular_shape_factor_is_64() {
+        let geom = ChannelGeometry::circular(0.01_f64, 0.001, 0.0);
+        let channel = Channel::new(geom);
+        // get_shape_factor is private, so test via Stokes/laminar resistance ratio.
+        // For circular: Po = 64. We verify indirectly by checking resistance formula:
+        // R = Po * mu * L / (2 * A * Dh^2)
+        // For a circular pipe: A = pi*D^2/4, Dh = D
+        // R = 64 * mu * L / (2 * pi*D^2/4 * D^2) = 128 * mu * L / (pi * D^4)
+        let fluid = cfd_core::physics::fluid::database::water_20c::<f64>().unwrap();
+        let mut ch = channel;
+        ch.flow_state.reynolds_number = Some(100.0); // laminar regime
+        ch.flow_state.flow_regime = FlowRegime::Laminar;
+        let r = ch.calculate_laminar_resistance(&fluid).unwrap();
+
+        let d = 0.001_f64;
+        let l = 0.01_f64;
+        let mu = fluid.dynamic_viscosity();
+        let expected = 128.0 * mu * l / (std::f64::consts::PI * d.powi(4));
+        assert_relative_eq!(r, expected, epsilon = 1e-6);
+    }
+
+    #[test]
+    fn test_flow_regime_stokes_below_1() {
+        let regime = FlowRegime::from_reynolds_number(0.5_f64);
+        assert_eq!(regime, FlowRegime::Stokes);
+    }
+
+    #[test]
+    fn test_flow_regime_laminar_below_2300() {
+        let regime = FlowRegime::from_reynolds_number(500.0_f64);
+        assert_eq!(regime, FlowRegime::Laminar);
+    }
+
+    #[test]
+    fn test_flow_regime_transitional() {
+        let regime = FlowRegime::from_reynolds_number(3000.0_f64);
+        assert_eq!(regime, FlowRegime::Transitional);
+    }
+
+    #[test]
+    fn test_flow_regime_turbulent_above_4000() {
+        let regime = FlowRegime::from_reynolds_number(5000.0_f64);
+        assert_eq!(regime, FlowRegime::Turbulent);
+    }
+
+    #[test]
+    fn test_square_channel_shape_factor_approx_56_9() {
+        // Square channel (AR=1): Po should be ~56.9 per Shah-London
+        let geom = ChannelGeometry::rectangular(0.01_f64, 0.001, 0.001, 0.0);
+        let channel = Channel::new(geom);
+        let fluid = cfd_core::physics::fluid::database::water_20c::<f64>().unwrap();
+        let mut ch = channel;
+        ch.flow_state.reynolds_number = Some(100.0);
+        ch.flow_state.flow_regime = FlowRegime::Laminar;
+        let r = ch.calculate_laminar_resistance(&fluid).unwrap();
+
+        // R = Po * mu * L / (2 * A * Dh^2)
+        let w = 0.001_f64;
+        let h = 0.001_f64;
+        let a = w * h;
+        let dh = 4.0 * a / (2.0 * (w + h));
+        let mu = fluid.dynamic_viscosity();
+        let l = 0.01_f64;
+        // Extract Po from the measured resistance
+        let po = r * 2.0 * a * dh * dh / (mu * l);
+        assert_relative_eq!(po, 56.908, epsilon = 0.1);
+    }
+}

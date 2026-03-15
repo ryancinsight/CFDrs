@@ -212,7 +212,7 @@ pub fn process_blueprint_with_reference_trace(
         .iter()
         .map(|trace| NodeCrossFidelityTrace {
             node_id: trace.node_id.clone(),
-            node_kind: trace.node_kind.clone(),
+            node_kind: trace.node_kind,
             pressure_pa: trace.pressure_pa,
             incoming_flow_m3_s: trace.incoming_flow_m3_s,
             outgoing_flow_m3_s: trace.outgoing_flow_m3_s,

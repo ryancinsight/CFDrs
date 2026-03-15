@@ -85,7 +85,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         };
 
         let t0 = Instant::now();
-        let mut accumulated = csg_boolean_nary(op, &meshes)?;
+        let mut accumulated = cfd_mesh::application::csg::boolean::indexed::csg_boolean_nary(op, &meshes)?;
         let ms = t0.elapsed().as_millis();
 
         report(

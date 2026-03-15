@@ -238,7 +238,7 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
         }
 
         let rhs_norm = rhs.norm();
-        eprintln!(
+        tracing::debug!(
             "Pressure Solve: n_fluid={n_fluid}, n_solid={n_solid}, \
              system_size={system_size}, rhs_norm={rhs_norm:?}"
         );
@@ -396,5 +396,81 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
         }
 
         Ok(p_correction)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::fields::SimulationFields;
+    use crate::grid::StructuredGrid2D;
+    use crate::pressure_velocity::config::PressureLinearSolver;
+    use crate::pressure_velocity::pressure::PressureCorrectionSolver;
+
+    /// Helper: create a small grid and pressure correction solver
+    fn make_solver(nx: usize, ny: usize) -> (PressureCorrectionSolver<f64>, StructuredGrid2D<f64>) {
+        let grid = StructuredGrid2D::new(nx, ny, 0.0, 1.0, 0.0, 1.0).unwrap();
+        let solver =
+            PressureCorrectionSolver::new(grid.clone(), PressureLinearSolver::ConjugateGradient)
+                .unwrap();
+        (solver, grid)
+    }
+
+    #[test]
+    fn zero_divergence_produces_near_zero_correction() {
+        let (solver, _grid) = make_solver(8, 8);
+        // All-zero velocity => zero divergence
+        let fields: SimulationFields<f64> = SimulationFields::new(8, 8);
+        let dt = 0.01;
+        let rho = 1.0;
+        let p_corr = solver.solve_pressure_correction(&fields, dt, rho).unwrap();
+
+        for row in &p_corr {
+            for &val in row {
+                assert!(
+                    val.abs() < 1e-10,
+                    "Expected near-zero pressure correction, got {val}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn pressure_correction_field_is_finite() {
+        let (solver, _grid) = make_solver(8, 8);
+        let mut fields: SimulationFields<f64> = SimulationFields::new(8, 8);
+
+        // Set a non-trivial velocity field
+        for i in 0..8 {
+            for j in 0..8 {
+                if let Some(u) = fields.u.at_mut(i, j) {
+                    *u = 0.1 * (i as f64);
+                }
+                if let Some(v) = fields.v.at_mut(i, j) {
+                    *v = -0.05 * (j as f64);
+                }
+            }
+        }
+
+        let dt = 0.01;
+        let rho = 1000.0;
+        let p_corr = solver.solve_pressure_correction(&fields, dt, rho).unwrap();
+
+        for row in &p_corr {
+            for &val in row {
+                assert!(val.is_finite(), "Pressure correction contains NaN or Inf");
+            }
+        }
+    }
+
+    #[test]
+    fn basic_creation_and_initialization() {
+        for solver_type in [
+            PressureLinearSolver::ConjugateGradient,
+            PressureLinearSolver::BiCGSTAB,
+        ] {
+            let grid = StructuredGrid2D::new(6, 6, 0.0, 1.0, 0.0, 1.0).unwrap();
+            let solver = PressureCorrectionSolver::new(grid, solver_type);
+            assert!(solver.is_ok(), "Failed to create solver with {solver_type:?}");
+        }
     }
 }

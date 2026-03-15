@@ -469,4 +469,327 @@ mod tests {
             "ULP-adjacent floats must quantize to the same cell: {v1:.20e} vs {v2:.20e}"
         );
     }
+
+    // ── Adversarial Tests ─────────────────────────────────────────────────
+
+    /// Snap idempotency: inserting the snapped position of a point must return
+    /// the same index — snap(snap(p)) == snap(p).
+    #[test]
+    fn snap_idempotency() {
+        let eps = 1e-3;
+        let mut g = SnappingGrid::new(eps);
+        let original = pt(1.7e-3, -0.3e-3, 4.2e-3);
+        let (i0, _) = g.insert_or_weld(original);
+        let snapped = g.position(i0).unwrap();
+        let (i1, is_new) = g.insert_or_weld(snapped);
+        assert!(!is_new, "re-inserting a snapped position must not create a new vertex");
+        assert_eq!(i0, i1, "snap(snap(p)) must equal snap(p)");
+    }
+
+    /// Stress: all-negative coordinates quantize correctly.
+    #[test]
+    fn negative_coordinates_grid_cell() {
+        let eps = 1e-3;
+        let inv_eps = 1.0 / eps;
+        // Grid cell for deeply negative coordinates
+        let p = pt(-100.0, -200.0, -300.0);
+        let cell = GridCell::from_point_round(&p, inv_eps);
+        // -100.0 * 1000 + 0.5 = -99999.5, floor = -100000
+        assert_eq!(cell.x, -100_000);
+        assert_eq!(cell.y, -200_000);
+        assert_eq!(cell.z, -300_000);
+        // Round-trip
+        let back = cell.to_point(eps);
+        assert!((back.x - (-100.0)).abs() < 1e-10);
+    }
+
+    /// Large coordinate values must not overflow i64.
+    #[test]
+    fn large_coordinates_no_overflow() {
+        let eps = 1e-6;
+        let inv_eps = 1.0 / eps;
+        // 1e6 meters * inv_eps(1e6) = 1e12 — well within i64 range
+        let p = pt(1e6, -1e6, 1e6);
+        let cell = GridCell::from_point_round(&p, inv_eps);
+        // 1e6 / 1e-6 + 0.5 = 1e12 + 0.5 → floor = 1e12
+        assert_eq!(cell.x, 1_000_000_000_000_i64);
+        // -1e12 + 0.5 = -999999999999.5 → floor = -1000000000000
+        assert_eq!(cell.y, -1_000_000_000_000_i64);
+    }
+
+    /// Insertion order must not affect welding outcome.
+    #[test]
+    fn insertion_order_determinism() {
+        let eps = 1e-3;
+        let points = vec![
+            pt(0.0, 0.0, 0.0),
+            pt(0.5e-3, 0.0, 0.0),  // within eps of point 0
+            pt(2.0e-3, 0.0, 0.0),  // new vertex
+            pt(2.3e-3, 0.0, 0.0),  // within eps of point 2
+        ];
+
+        // Forward order
+        let mut g_fwd = SnappingGrid::new(eps);
+        let ids_fwd: Vec<u32> = points.iter().map(|&p| g_fwd.insert_or_weld(p).0).collect();
+
+        // Reverse order
+        let mut g_rev = SnappingGrid::new(eps);
+        let ids_rev: Vec<u32> = points.iter().rev().map(|&p| g_rev.insert_or_weld(p).0).collect();
+        let ids_rev: Vec<u32> = ids_rev.into_iter().rev().collect();
+
+        // Both orderings must produce the same number of unique vertices
+        assert_eq!(g_fwd.len(), g_rev.len(), "insertion order must not change vertex count");
+        // Points that welded forward should also weld in reverse
+        assert_eq!(ids_fwd[0], ids_fwd[1], "forward: 0 and 1 must weld");
+        assert_eq!(ids_rev[0], ids_rev[1], "reverse: 0 and 1 must weld");
+        assert_eq!(ids_fwd[2], ids_fwd[3], "forward: 2 and 3 must weld");
+        assert_eq!(ids_rev[2], ids_rev[3], "reverse: 2 and 3 must weld");
+    }
+
+    /// Points at exactly the cell boundary ε/2 from origin must consistently weld.
+    #[test]
+    fn cell_boundary_straddling() {
+        let eps = 1e-3;
+        let mut g = SnappingGrid::new(eps);
+        // Place two points straddling a cell wall: one at +δ, one at -δ from 0.5*eps
+        let half_eps = 0.5 * eps;
+        let delta = 1e-10; // much smaller than eps
+        let (i0, _) = g.insert_or_weld(pt(half_eps - delta, 0.0, 0.0));
+        let (i1, _) = g.insert_or_weld(pt(half_eps + delta, 0.0, 0.0));
+        // Distance between them is 2*delta << eps, so they must weld
+        assert_eq!(i0, i1, "points straddling cell boundary must weld via 27-neighbor search");
+    }
+
+    /// All points at origin must weld to a single vertex.
+    #[test]
+    fn all_zero_positions() {
+        let mut g = SnappingGrid::new(1e-3);
+        let mut ids = Vec::new();
+        for _ in 0..100 {
+            ids.push(g.insert_or_weld(pt(0.0, 0.0, 0.0)).0);
+        }
+        assert_eq!(g.len(), 1, "all-zero must produce single vertex");
+        assert!(ids.iter().all(|&id| id == 0));
+    }
+
+    /// Dense cluster of points within eps must all weld to one vertex.
+    #[test]
+    fn dense_cluster_within_eps() {
+        let eps = 1e-3;
+        let mut g = SnappingGrid::new(eps);
+        let center = pt(5.0, 5.0, 5.0);
+        let mut all_same = true;
+        let (first_id, _) = g.insert_or_weld(center);
+        for i in 1..=50 {
+            let offset = (i as f64) * 1e-5; // << eps
+            let p = pt(center.x + offset, center.y - offset, center.z);
+            let (id, _) = g.insert_or_weld(p);
+            if id != first_id {
+                all_same = false;
+            }
+        }
+        assert!(all_same, "dense cluster within eps must all weld to one vertex");
+    }
+
+    /// Grid with points along all three axis-aligned diagonals must weld correctly.
+    #[test]
+    fn diagonal_cell_boundary_weld() {
+        let eps = 1e-3;
+        let mut g = SnappingGrid::new(eps);
+        // Point at corner of 8 cells (at grid intersection)
+        let corner = pt(1e-3, 1e-3, 1e-3); // exactly at grid point
+        let (i0, _) = g.insert_or_weld(corner);
+        // Point slightly offset in all 3 axes
+        let nearby = pt(1e-3 + 0.1e-3, 1e-3 + 0.1e-3, 1e-3 + 0.1e-3);
+        let dist = ((0.1e-3_f64).powi(2) * 3.0).sqrt();
+        assert!(dist < eps, "sanity: nearby point is within eps");
+        let (i1, _) = g.insert_or_weld(nearby);
+        assert_eq!(i0, i1, "corner-adjacent point must weld via 27-neighbor");
+    }
+
+    /// query_within_eps must find all and only vertices within eps.
+    #[test]
+    fn query_within_eps_correctness() {
+        let eps = 1e-3;
+        let mut g = SnappingGrid::new(eps);
+        // Insert 3 points: two within eps of query, one outside
+        g.insert_or_weld(pt(0.0, 0.0, 0.0));       // idx 0
+        g.insert_or_weld(pt(5e-3, 0.0, 0.0));       // idx 1, far away
+        g.insert_or_weld(pt(0.5e-4, 0.0, 0.0));     // welds to idx 0
+        g.insert_or_weld(pt(10e-3, 0.0, 0.0));      // idx 2, far away
+
+        let query = pt(0.0, 0.0, 0.0);
+        let results = g.query_within_eps(&query);
+        assert_eq!(results.len(), 1, "only one unique vertex near origin");
+        assert_eq!(results[0], 0);
+    }
+
+    /// SnappingGrid must not panic on subnormal epsilon values.
+    #[test]
+    fn very_small_eps() {
+        let eps = 1e-15;
+        let mut g = SnappingGrid::new(eps);
+        let (i0, _) = g.insert_or_weld(pt(1e-15, 0.0, 0.0));
+        let (i1, _) = g.insert_or_weld(pt(1e-15 + 1e-16, 0.0, 0.0));
+        // Within eps, must weld
+        assert_eq!(i0, i1);
+    }
+
+    /// Transitivity: if A welds to B and B to C, then C must weld to A's
+    /// canonical index (no "chain splitting").
+    #[test]
+    fn transitive_welding_chain() {
+        let eps = 1e-3;
+        let mut g = SnappingGrid::new(eps);
+        let (i0, _) = g.insert_or_weld(pt(0.0, 0.0, 0.0));
+        // B is within eps of A, so welds to A
+        let (i1, _) = g.insert_or_weld(pt(0.4e-3, 0.0, 0.0));
+        assert_eq!(i0, i1);
+        // C is within eps of B's original position but NOT of A's snapped position
+        // However, C should still try welding to the nearest stored vertex.
+        // The snapped position of A is at grid center (0,0,0), so C at 0.8e-3 is
+        // 0.8e-3 from (0,0,0) which is within eps=1e-3. Should still weld!
+        let (i2, _) = g.insert_or_weld(pt(0.8e-3, 0.0, 0.0));
+        assert_eq!(i0, i2, "transitive chain must weld to the canonical vertex");
+    }
+
+    // ── Cocyclic / equidistant vertex tests (Lévy 2025 insight) ──────────
+
+    /// Four vertices equidistant from a query point: all placed at the corners
+    /// of a tetrahedron within eps. The first inserted must win consistently.
+    #[test]
+    fn cocyclic_four_equidistant_weld_deterministic() {
+        let eps = 1e-3;
+        let mut g = SnappingGrid::new(eps);
+        let r = 0.3e-3; // distance from center, well within eps
+        let center = pt(5.0, 5.0, 5.0);
+
+        // 4 points on a tiny tetrahedron centered at `center`, all distance r from center
+        let s = r / 3.0_f64.sqrt();
+        let points = [
+            pt(center.x + s, center.y + s, center.z + s),
+            pt(center.x + s, center.y - s, center.z - s),
+            pt(center.x - s, center.y + s, center.z - s),
+            pt(center.x - s, center.y - s, center.z + s),
+        ];
+
+        let (first_id, _) = g.insert_or_weld(points[0]);
+        for &p in &points[1..] {
+            let (id, _) = g.insert_or_weld(p);
+            assert_eq!(id, first_id, "all equidistant points within eps must weld to first");
+        }
+        assert_eq!(g.len(), 1, "four cocyclic points within eps → one vertex");
+    }
+
+    /// Multiple clusters along a line, each cluster's points within eps but
+    /// clusters are > eps apart. Must produce exactly one vertex per cluster.
+    #[test]
+    fn linear_clusters_separation() {
+        let eps = 1e-3;
+        let mut g = SnappingGrid::new(eps);
+        let cluster_sep = 5.0 * eps; // well separated
+
+        for cluster_idx in 0..10 {
+            let base_x = cluster_idx as f64 * cluster_sep;
+            let first_id = g.insert_or_weld(pt(base_x, 0.0, 0.0)).0;
+            // Insert 5 more points clustered within eps/10
+            for j in 1..=5 {
+                let offset = j as f64 * eps * 0.05;
+                let (id, _) = g.insert_or_weld(pt(base_x + offset, 0.0, 0.0));
+                assert_eq!(id, first_id, "cluster point must weld to cluster's first");
+            }
+        }
+        assert_eq!(g.len(), 10, "10 well-separated clusters → 10 vertices");
+    }
+
+    /// Points placed at all 27 neighbor cell centers around a seed must all
+    /// be found by neighborhood_27 queries.
+    #[test]
+    fn neighborhood_coverage_27_cells() {
+        let eps = 1e-3;
+        let mut g = SnappingGrid::new(eps);
+        let seed = pt(0.0, 0.0, 0.0);
+        g.insert_or_weld(seed);
+
+        // Place a point just barely inside each of the 27 cells (including center)
+        let mut found_count = 0;
+        for dz in -1..=1_i64 {
+            for dy in -1..=1_i64 {
+                for dx in -1..=1_i64 {
+                    let query = pt(
+                        dx as f64 * eps * 0.3,
+                        dy as f64 * eps * 0.3,
+                        dz as f64 * eps * 0.3,
+                    );
+                    // These are all within eps of seed (max dist = sqrt(3)*0.3*eps ≈ 0.52*eps < eps)
+                    if let Some(_) = g.query_nearest(&query) {
+                        found_count += 1;
+                    }
+                }
+            }
+        }
+        assert_eq!(found_count, 27, "seed must be found from all 27 neighbor cell positions");
+    }
+
+    /// Stress: 1000 random-ish points in a small volume should never create
+    /// more vertices than expected given the eps.
+    #[test]
+    fn stress_many_points_bounded_vertex_count() {
+        let eps = 1e-3;
+        let mut g = SnappingGrid::new(eps);
+        let n = 1000;
+        // Place points on a very fine grid (spacing = eps/20) within a 2eps cube
+        // All points are within 2*sqrt(3)*eps < 4*eps of origin.
+        // Max possible unique vertices ≈ (2eps / eps)^3 = 8 cells, but some may weld
+        for i in 0..n {
+            let x = (i % 10) as f64 * eps * 0.2;
+            let y = ((i / 10) % 10) as f64 * eps * 0.2;
+            let z = (i / 100) as f64 * eps * 0.2;
+            g.insert_or_weld(pt(x, y, z));
+        }
+        // With eps=1e-3 and spacing 0.2*eps = 2e-4, multiple points per cell
+        // will weld. We just verify no panic and reasonable vertex count.
+        assert!(
+            g.len() <= n,
+            "vertex count must not exceed insertion count"
+        );
+        assert!(
+            g.len() >= 1,
+            "at least one vertex must exist"
+        );
+    }
+
+    /// GridCell::to_point round-trips correctly through from_point_round.
+    #[test]
+    fn grid_cell_round_trip_all_octants() {
+        let eps = 1e-4;
+        let inv_eps = 1.0 / eps;
+        // Test all 8 octants
+        let coords: [f64; 3] = [1.23456e-3, -7.8901e-4, 4.567e-3];
+        for &sx in &[-1.0, 1.0] {
+            for &sy in &[-1.0, 1.0] {
+                for &sz in &[-1.0, 1.0] {
+                    let p = Point3r::new(coords[0] * sx, coords[1] * sy, coords[2] * sz);
+                    let cell = GridCell::from_point_round(&p, inv_eps);
+                    let back = cell.to_point(eps);
+                    // Round-trip error must be < eps
+                    assert!(
+                        (back.x - p.x).abs() < eps,
+                        "X round-trip error too large: {:.2e}",
+                        (back.x - p.x).abs()
+                    );
+                    assert!(
+                        (back.y - p.y).abs() < eps,
+                        "Y round-trip error too large: {:.2e}",
+                        (back.y - p.y).abs()
+                    );
+                    assert!(
+                        (back.z - p.z).abs() < eps,
+                        "Z round-trip error too large: {:.2e}",
+                        (back.z - p.z).abs()
+                    );
+                }
+            }
+        }
+    }
 }

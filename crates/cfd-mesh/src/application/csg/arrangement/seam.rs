@@ -16,9 +16,9 @@ use crate::infrastructure::storage::vertex_pool::VertexPool;
 
 fn cell_key(p: &nalgebra::Point3<Real>, inv_cell: Real) -> (i64, i64, i64) {
     (
-        (p.x * inv_cell).floor() as i64,
-        (p.y * inv_cell).floor() as i64,
-        (p.z * inv_cell).floor() as i64,
+        (p.x * inv_cell + 0.5).floor() as i64,
+        (p.y * inv_cell + 0.5).floor() as i64,
+        (p.z * inv_cell + 0.5).floor() as i64,
     )
 }
 
@@ -537,5 +537,67 @@ mod tests {
             let brute = build_greedy_nearest_merge_map_bruteforce_reference(&verts, max_dist_sq, &pool);
             prop_assert_eq!(fast, brute);
         }
+    }
+
+    // ── Seam stitch tests ────────────────────────────────────────────────
+
+    /// Stitching an empty face set must not panic.
+    #[test]
+    fn stitch_boundary_seams_empty_faces() {
+        let pool = VertexPool::default_millifluidic();
+        let mut faces: Vec<FaceData> = Vec::new();
+        stitch_boundary_seams(&mut faces, &pool);
+        assert!(faces.is_empty());
+    }
+
+    /// A closed tetrahedron should have no boundary seams; stitching is a no-op.
+    #[test]
+    fn stitch_boundary_seams_closed_mesh_noop() {
+        let mut pool = VertexPool::default_millifluidic();
+        let n = Vector3r::new(0.0, 0.0, 1.0);
+        let v0 = pool.insert_or_weld(Point3r::new(0.0, 0.0, 0.0), n);
+        let v1 = pool.insert_or_weld(Point3r::new(1.0, 0.0, 0.0), n);
+        let v2 = pool.insert_or_weld(Point3r::new(0.5, 1.0, 0.0), n);
+        let v3 = pool.insert_or_weld(Point3r::new(0.5, 0.5, 1.0), n);
+        let mut faces = vec![
+            FaceData::untagged(v0, v2, v1),
+            FaceData::untagged(v0, v1, v3),
+            FaceData::untagged(v1, v2, v3),
+            FaceData::untagged(v2, v0, v3),
+        ];
+        let before = faces.len();
+        stitch_boundary_seams(&mut faces, &pool);
+        assert_eq!(faces.len(), before, "closed mesh must not change under stitch");
+    }
+
+    /// Conservative stitch on empty faces must not panic.
+    #[test]
+    fn stitch_boundary_seams_conservative_empty() {
+        let pool = VertexPool::default_millifluidic();
+        let mut faces: Vec<FaceData> = Vec::new();
+        stitch_boundary_seams_conservative(&mut faces, &pool);
+        assert!(faces.is_empty());
+    }
+
+    /// Determinism: stitching the same input twice must produce the same output.
+    #[test]
+    fn stitch_boundary_seams_deterministic() {
+        let mut pool = VertexPool::default_millifluidic();
+        let n = Vector3r::new(0.0, 0.0, 1.0);
+        let v0 = pool.insert_or_weld(Point3r::new(0.0, 0.0, 0.0), n);
+        let v1 = pool.insert_or_weld(Point3r::new(1.0, 0.0, 0.0), n);
+        let v2 = pool.insert_or_weld(Point3r::new(0.5, 1.0, 0.0), n);
+
+        let make_faces = || vec![FaceData::untagged(v0, v1, v2)];
+
+        let mut faces1 = make_faces();
+        stitch_boundary_seams(&mut faces1, &pool);
+
+        let mut faces2 = make_faces();
+        stitch_boundary_seams(&mut faces2, &pool);
+
+        let s1: Vec<_> = faces1.iter().map(|f| f.vertices).collect();
+        let s2: Vec<_> = faces2.iter().map(|f| f.vertices).collect();
+        assert_eq!(s1, s2, "stitch must be deterministic");
     }
 }

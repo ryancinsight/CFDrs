@@ -432,3 +432,78 @@ impl<T: RealField + Copy + FromPrimitive> DarcyWeisbachModel<T> {
         T::one() / (x * x)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use approx::assert_relative_eq;
+    use cfd_core::physics::fluid::ConstantPropertyFluid;
+
+    /// Helper: water at 20C, circular pipe, with given Re passed directly.
+    fn conditions_with_re(re: f64) -> FlowConditions<f64> {
+        FlowConditions {
+            reynolds_number: Some(re),
+            velocity: Some(1.0),
+            flow_rate: None,
+            shear_rate: None,
+            temperature: 293.15,
+            pressure: 101325.0,
+        }
+    }
+
+    fn water() -> ConstantPropertyFluid<f64> {
+        ConstantPropertyFluid::new(
+            "water".into(),
+            998.0,
+            1.002e-3,
+            4182.0,
+            0.598,
+            2.15e9,
+        )
+    }
+
+    #[test]
+    fn laminar_friction_factor() {
+        // f = 64/Re for Re=1000 => f = 0.064
+        let model = DarcyWeisbachModel::circular(0.01, 1.0, 0.0);
+        let f = model.calculate_friction_factor(1000.0);
+        assert_relative_eq!(f, 0.064, max_relative = 0.01);
+    }
+
+    #[test]
+    fn turbulent_moody_rough_pipe() {
+        // Re=100000, e/D=0.001 => Colebrook-White f ~ 0.0222
+        let d = 0.01;
+        let roughness = 0.001 * d; // e/D = 0.001
+        let model = DarcyWeisbachModel::circular(d, 1.0, roughness);
+        let f = model.calculate_friction_factor(100_000.0);
+        assert_relative_eq!(f, 0.0222, max_relative = 0.05);
+    }
+
+    #[test]
+    fn smooth_pipe_blasius() {
+        // Re=100000, roughness=0 => Blasius: f = 0.316/Re^0.25 ~ 0.01778
+        let model = DarcyWeisbachModel::circular(0.01, 1.0, 0.0);
+        let f = model.calculate_friction_factor(100_000.0);
+        let blasius = 0.316 / 100_000.0_f64.powf(0.25);
+        assert_relative_eq!(f, blasius, max_relative = 0.05);
+    }
+
+    #[test]
+    fn calculate_coefficients_physically_reasonable() {
+        // Laminar regime: should return (R > 0, K = 0)
+        let d = 0.001; // 1 mm diameter
+        let model = DarcyWeisbachModel::circular(d, 0.1, 0.0);
+        let fluid = water();
+        let cond = conditions_with_re(500.0);
+        let (r, k) = model.calculate_coefficients(&fluid, &cond).unwrap();
+        assert!(r > 0.0, "Laminar R should be positive, got {r}");
+        assert!((k - 0.0).abs() < 1e-12, "Laminar K should be zero, got {k}");
+
+        // Turbulent regime: should return (R = 0, K > 0)
+        let cond_turb = conditions_with_re(50_000.0);
+        let (r2, k2) = model.calculate_coefficients(&fluid, &cond_turb).unwrap();
+        assert!((r2 - 0.0).abs() < 1e-12, "Turbulent R should be zero, got {r2}");
+        assert!(k2 > 0.0, "Turbulent K should be positive, got {k2}");
+    }
+}

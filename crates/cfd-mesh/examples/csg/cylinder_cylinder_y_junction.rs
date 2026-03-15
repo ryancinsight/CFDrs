@@ -56,9 +56,7 @@ use std::time::Instant;
 
 use nalgebra::{Isometry3, Translation3, UnitQuaternion, Vector3};
 
-use cfd_mesh::application::csg::boolean::{
-    csg_boolean_indexed, csg_boolean_nary, BooleanOp,
-};
+use cfd_mesh::application::csg::boolean::BooleanOp;
 use cfd_mesh::application::csg::CsgNode;
 use cfd_mesh::application::watertight::check::check_watertight;
 use cfd_mesh::domain::core::scalar::{Point3r, Real};
@@ -87,7 +85,7 @@ const H_BRANCH: f64 = 3.0;
 const EPS: f64 = R * 0.10; // 0.05 mm
 
 /// Circumferential segments for all cylinders.
-const SEGS: usize = 64;
+const SEGS: usize = 32;
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
@@ -135,8 +133,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // Union: A ∪ (B ∪ C)
         let t0 = Instant::now();
-        let bc = csg_boolean_indexed(BooleanOp::Union, &branch_up, &branch_dn)?;
-        let mut result = csg_boolean_indexed(BooleanOp::Union, &trunk, &bc)?;
+        let bc = cfd_mesh::application::csg::boolean::indexed::csg_boolean_indexed(BooleanOp::Union, &branch_up, &branch_dn)?;
+        let mut result = cfd_mesh::application::csg::boolean::indexed::csg_boolean_indexed(BooleanOp::Union, &trunk, &bc)?;
         let ms = t0.elapsed().as_millis();
 
         report_union(
@@ -174,7 +172,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         let t0 = Instant::now();
         let mut result =
-            csg_boolean_indexed(BooleanOp::Intersection, &branch_up_45, &branch_dn_45)?;
+            cfd_mesh::application::csg::boolean::indexed::csg_boolean_indexed(BooleanOp::Intersection, &branch_up_45, &branch_dn_45)?;
         let ms = t0.elapsed().as_millis();
 
         report(
@@ -199,7 +197,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // reduction from the junction clips.
     {
         let t0 = Instant::now();
-        let mut result = csg_boolean_nary(
+        let mut result = cfd_mesh::application::csg::boolean::indexed::csg_boolean_nary(
             BooleanOp::Difference,
             &[trunk_45.clone(), branch_up_45.clone(), branch_dn_45.clone()],
         )?;

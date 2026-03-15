@@ -181,6 +181,15 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
             self.solve_v_momentum(&bc_wall_noslip, &bc_wall_noslip)?;
             self.solve_pressure_correction()?;
 
+            // Global mass-flux correction: scale outlet face velocities so
+            // that Q_outlet = Q_inlet exactly.  Applied after the initial
+            // development phase (iteration > 50) to avoid interfering with
+            // the pressure field while it's still establishing the flow
+            // pattern (Versteeg & Malalasekera 2007, §11.9).
+            if iteration > 50 {
+                self.apply_mass_flux_correction();
+            }
+
             // Update viscosity with under-relaxation (alpha_mu) to prevent
             // oscillation in non-Newtonian SIMPLE iterations.
             if iteration % self.config.viscosity_update_interval == 0 {

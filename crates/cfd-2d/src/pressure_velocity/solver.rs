@@ -213,3 +213,57 @@ impl<T: RealField + Copy + FromPrimitive + Copy + LowerExp + num_traits::ToPrimi
         self.iterations
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::grid::StructuredGrid2D;
+
+    fn make_solver(nx: usize, ny: usize) -> PressureVelocitySolver<f64> {
+        let grid = StructuredGrid2D::new(nx, ny, 0.0, 1.0, 0.0, 1.0).unwrap();
+        let config = PressureVelocityConfig::new().unwrap();
+        PressureVelocitySolver::new(grid, config).unwrap()
+    }
+
+    #[test]
+    fn solver_creation_with_valid_configuration() {
+        let solver = make_solver(8, 8);
+        assert_eq!(solver.iterations(), 0);
+        assert!(!solver.velocity().is_empty());
+        assert!(!solver.pressure().is_empty());
+    }
+
+    #[test]
+    fn config_propagation_nx_ny() {
+        let grid = StructuredGrid2D::new(10, 6, 0.0, 2.0, 0.0, 1.0).unwrap();
+        let config = PressureVelocityConfig::new().unwrap();
+        let solver = PressureVelocitySolver::new(grid, config).unwrap();
+
+        // Velocity field dimensions should match grid
+        assert_eq!(solver.velocity().len(), 10);
+        assert_eq!(solver.velocity()[0].len(), 6);
+        assert_eq!(solver.pressure().len(), 10);
+        assert_eq!(solver.pressure()[0].len(), 6);
+    }
+
+    #[test]
+    fn config_propagation_dx_dy() {
+        let grid = StructuredGrid2D::new(5, 5, 0.0, 4.0, 0.0, 2.0).unwrap();
+        let dx: f64 = grid.dx;
+        let dy: f64 = grid.dy;
+        let config = PressureVelocityConfig::new().unwrap();
+        let solver = PressureVelocitySolver::new(grid, config).unwrap();
+
+        assert!((solver.grid.dx - dx).abs() < 1e-15_f64);
+        assert!((solver.grid.dy - dy).abs() < 1e-15_f64);
+    }
+
+    #[test]
+    fn set_initial_conditions_resets_iteration_count() {
+        let mut solver = make_solver(4, 4);
+        let u_init = vec![vec![Vector2::new(1.0, 0.0); 4]; 4];
+        let p_init = vec![vec![0.0; 4]; 4];
+        solver.set_initial_conditions(u_init, p_init);
+        assert_eq!(solver.iterations(), 0);
+    }
+}

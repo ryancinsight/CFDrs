@@ -119,8 +119,7 @@ impl<
         let u_throat_ok = result
             .metrics
             .get("u_throat")
-            .map(|&u| u > T::zero())
-            .unwrap_or(false);
+            .is_some_and(|&u| u > T::zero());
 
         // ── Criterion 2: throat velocity > inlet velocity ──
         // By continuity (∇·u = 0), area reduction → velocity increase.
@@ -140,8 +139,7 @@ impl<
         let cp_finite = result
             .metrics
             .get("Throat Cp")
-            .map(|&cp| num_traits::Float::abs(cp) < T::from_f64_or_one(1.0e8))
-            .unwrap_or(true); // if metric missing assume ok (pressure not primary criterion)
+            .is_none_or(|&cp| num_traits::Float::abs(cp) < T::from_f64_or_one(1.0e8)); // if metric missing assume ok (pressure not primary criterion)
 
         Ok(u_throat_ok && throat_accel_ok && cp_finite)
     }

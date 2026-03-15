@@ -210,3 +210,55 @@ impl<T: RealField + Copy + FromPrimitive + Copy> VelocityPredictor<T> {
         mu * (d2v_dx2 + d2v_dy2)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::fields::SimulationFields;
+    use crate::grid::StructuredGrid2D;
+
+    fn make_grid(n: usize) -> StructuredGrid2D<f64> {
+        StructuredGrid2D::new(n, n, 0.0, 1.0, 0.0, 1.0).unwrap()
+    }
+
+    #[test]
+    fn predictor_creation_with_valid_config() {
+        let grid = make_grid(8);
+        let predictor = VelocityPredictor::new(&grid, 0.7);
+
+        assert_eq!(predictor.nx, 8);
+        assert_eq!(predictor.ny, 8);
+        assert!((predictor.relaxation_factor - 0.7).abs() < 1e-15);
+    }
+
+    #[test]
+    fn basic_prediction_step_does_not_panic() {
+        let grid = make_grid(8);
+        let predictor = VelocityPredictor::new(&grid, 0.8);
+        let mut fields: SimulationFields<f64> = SimulationFields::new(8, 8);
+
+        // Set a mild initial velocity so convection/diffusion terms are exercised
+        for i in 0..8 {
+            for j in 0..8 {
+                if let Some(u) = fields.u.at_mut(i, j) {
+                    *u = 0.01 * (i as f64);
+                }
+                if let Some(v) = fields.v.at_mut(i, j) {
+                    *v = 0.01 * (j as f64);
+                }
+            }
+        }
+
+        let dt = 0.001;
+        let result = predictor.predict(&mut fields, dt);
+        assert!(result.is_ok());
+
+        // Verify all values remain finite after prediction
+        for i in 0..8 {
+            for j in 0..8 {
+                assert!(fields.u.at(i, j).is_finite());
+                assert!(fields.v.at(i, j).is_finite());
+            }
+        }
+    }
+}

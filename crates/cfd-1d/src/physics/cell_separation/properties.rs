@@ -33,6 +33,13 @@
 
 use serde::{Deserialize, Serialize};
 
+/// Minimum confinement ratio κ = a/D_h for measurable inertial focusing.
+///
+/// Cells with κ > 0.07 develop sufficient inertial lift forces to migrate
+/// toward equilibrium positions. Below this threshold, Brownian diffusion
+/// and secondary flows dominate (Di Carlo 2009).
+pub const INERTIAL_FOCUSING_THRESHOLD: f64 = 0.07;
+
 /// Physical properties of a cell population for inertial focusing analysis.
 ///
 /// # Invariants
@@ -236,7 +243,7 @@ impl CellProperties {
     #[inline]
     #[must_use]
     pub fn will_focus(&self, hydraulic_diameter_m: f64) -> bool {
-        self.confinement_ratio(hydraulic_diameter_m) > 0.07
+        self.confinement_ratio(hydraulic_diameter_m) > INERTIAL_FOCUSING_THRESHOLD
     }
 
     /// Returns `true` if this cell type will exhibit strong inertial focusing
@@ -245,5 +252,59 @@ impl CellProperties {
     #[must_use]
     pub fn will_focus_strongly(&self, hydraulic_diameter_m: f64) -> bool {
         self.confinement_ratio(hydraulic_diameter_m) > 0.2
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use approx::assert_relative_eq;
+
+    #[test]
+    fn test_mcf7_breast_cancer_diameter() {
+        let ctc = CellProperties::mcf7_breast_cancer();
+        assert_relative_eq!(ctc.diameter_m, 17.5e-6, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_wbc_diameter() {
+        let wbc = CellProperties::white_blood_cell();
+        assert_relative_eq!(wbc.diameter_m, 10.0e-6, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_rbc_diameter() {
+        let rbc = CellProperties::red_blood_cell();
+        assert_relative_eq!(rbc.diameter_m, 7.0e-6, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_confinement_ratio_kappa() {
+        let rbc = CellProperties::red_blood_cell();
+        // κ = diameter / D_h = 7e-6 / 100e-6 = 0.07
+        let dh = 100.0e-6;
+        let kappa = rbc.confinement_ratio(dh);
+        assert_relative_eq!(kappa, 7.0e-6 / 100.0e-6, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_will_focus_true_when_kappa_above_threshold() {
+        let ctc = CellProperties::mcf7_breast_cancer();
+        // κ = 17.5e-6 / 100e-6 = 0.175 > 0.07 → should focus
+        assert!(ctc.will_focus(100.0e-6));
+    }
+
+    #[test]
+    fn test_will_focus_false_when_kappa_below_threshold() {
+        let rbc = CellProperties::red_blood_cell();
+        // κ = 7e-6 / 1000e-6 = 0.007 < 0.07 → should NOT focus
+        assert!(!rbc.will_focus(1000.0e-6));
+    }
+
+    #[test]
+    fn test_will_focus_boundary() {
+        let rbc = CellProperties::red_blood_cell();
+        // κ = 7e-6 / 100e-6 = 0.07, exactly at threshold → NOT focused (> not >=)
+        assert!(!rbc.will_focus(100.0e-6));
     }
 }

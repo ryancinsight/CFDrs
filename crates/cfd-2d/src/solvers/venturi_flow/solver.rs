@@ -104,7 +104,7 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> VenturiSolver2D<
                 T::from_f64(1e-12).unwrap_or_else(num_traits::Zero::zero),
             );
         if dy_min > geometry.w_throat / T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero) {
-            eprintln!(
+            tracing::debug!(
                 "[VenturiSolver2D] WARNING: dy_min ({:.2e}) > w_throat/2 ({:.2e}). \
                  CR={:.1}. Consider increasing ny or beta.",
                 dy_min.to_f64().unwrap_or(0.0),
@@ -177,6 +177,35 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> VenturiSolver2D<
                 }
             });
 
+        // Area-averaged throat velocity: find the column at the throat midpoint
+        // and average the x-velocity across all fluid cells in that column.
+        //
+        // Theorem (cross-section averaging): For comparison with 1D models that
+        // predict mean velocity (Hagen-Poiseuille, Bernoulli continuity), the
+        // area-averaged velocity ū = (1/A) ∫ u dA is the correct metric.
+        // For fully-developed 2D laminar flow, ū = (2/3) u_max.
+        let throat_x_mid = self._geometry.l_inlet + self._geometry.l_converge
+            + self._geometry.l_throat / T::from_f64(2.0).unwrap_or_else(T::one);
+        let i_throat = (0..nx)
+            .min_by_key(|&i| {
+                let dx = self.solver.grid.x_center(i) - throat_x_mid;
+                // Convert to integer for Ord comparison (f64 doesn't implement Ord)
+                (dx * dx * T::from_f64(1e12).unwrap_or_else(T::one))
+                    .to_u64()
+                    .unwrap_or(u64::MAX)
+            })
+            .unwrap_or(nx / 2);
+        let (u_sum_throat, count_throat) = (0..ny)
+            .filter(|&j| self.solver.field.mask[i_throat][j])
+            .fold((T::zero(), 0usize), |(s, n), j| {
+                (s + self.solver.field.u[i_throat][j], n + 1)
+            });
+        let u_throat_mean = if count_throat > 0 {
+            u_sum_throat / T::from_usize(count_throat).unwrap_or_else(T::one)
+        } else {
+            u_max // fallback to max if no fluid cells found at throat
+        };
+
         // Average outlet pressure from the last fluid column — zero-alloc fold.
         let (p_sum_out, count_outlet) = (0..ny)
             .filter(|&j| self.solver.field.mask[nx - 1][j])
@@ -210,6 +239,7 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> VenturiSolver2D<
             u_inlet: u_inlet_sim,
             p_inlet,
             u_throat: u_max,
+            u_throat_mean,
             p_throat,
             u_outlet: u_inlet_sim, // Assumes symmetric inlet/outlet
             p_outlet,

@@ -328,3 +328,57 @@ where
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::fields::SimulationFields;
+    use crate::grid::StructuredGrid2D;
+
+    fn make_grid(n: usize) -> StructuredGrid2D<f64> {
+        StructuredGrid2D::new(n, n, 0.0, 1.0, 0.0, 1.0).unwrap()
+    }
+
+    #[test]
+    fn corrector_creation_with_valid_config() {
+        let grid = make_grid(8);
+        let corrector = PressureCorrector::new(&grid, 2, 0.3);
+
+        assert_eq!(corrector.nx, 8);
+        assert_eq!(corrector.ny, 8);
+        assert_eq!(corrector.num_correctors, 2);
+        assert!((corrector.pressure_relaxation - 0.3).abs() < 1e-15);
+    }
+
+    #[test]
+    fn single_correction_step_does_not_panic() {
+        let grid = make_grid(8);
+        let corrector = PressureCorrector::new(&grid, 1, 0.5);
+        let mut fields: SimulationFields<f64> = SimulationFields::new(8, 8);
+
+        // Set mild initial velocity for a non-trivial correction
+        for i in 0..8 {
+            for j in 0..8 {
+                if let Some(u) = fields.u.at_mut(i, j) {
+                    *u = 0.01 * (i as f64);
+                }
+                if let Some(v) = fields.v.at_mut(i, j) {
+                    *v = -0.01 * (j as f64);
+                }
+            }
+        }
+
+        let dt = 0.001;
+        let result = corrector.correct(&mut fields, dt);
+        assert!(result.is_ok());
+
+        // Verify all fields remain finite
+        for i in 0..8 {
+            for j in 0..8 {
+                assert!(fields.u.at(i, j).is_finite(), "u[{i}][{j}] is not finite");
+                assert!(fields.v.at(i, j).is_finite(), "v[{i}][{j}] is not finite");
+                assert!(fields.p.at(i, j).is_finite(), "p[{i}][{j}] is not finite");
+            }
+        }
+    }
+}

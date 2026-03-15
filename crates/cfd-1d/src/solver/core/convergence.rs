@@ -198,3 +198,75 @@ impl<T: RealField + Copy> ConvergenceChecker<T> {
         Ok(relative_change < self.tolerance && residual_converged)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use nalgebra::DVector;
+
+    #[test]
+    fn nan_detection_fails_check() {
+        let checker = ConvergenceChecker::new(1e-6);
+        let v = DVector::from_vec(vec![1.0, f64::NAN, 3.0]);
+        assert!(checker.check(&v).is_err());
+    }
+
+    #[test]
+    fn inf_detection_fails_check() {
+        let checker = ConvergenceChecker::new(1e-6);
+        let v = DVector::from_vec(vec![1.0, f64::INFINITY, 3.0]);
+        assert!(checker.check(&v).is_err());
+    }
+
+    #[test]
+    fn divergence_guard_large_norm() {
+        let checker = ConvergenceChecker::new(1e-6);
+        let v = DVector::from_vec(vec![1e11]);
+        assert!(checker.check(&v).is_err());
+    }
+
+    #[test]
+    fn finite_small_vector_passes_check() {
+        let checker = ConvergenceChecker::new(1e-6);
+        let v = DVector::from_vec(vec![1.0, 2.0, 3.0]);
+        assert!(checker.check(&v).is_ok());
+    }
+
+    #[test]
+    fn identical_vectors_converged() {
+        let checker = ConvergenceChecker::new(1e-6);
+        let v = DVector::from_vec(vec![10.0, 20.0, 30.0]);
+        assert!(checker.has_converged(&v, &v).unwrap());
+    }
+
+    #[test]
+    fn distant_vectors_not_converged() {
+        let checker = ConvergenceChecker::new(1e-6);
+        let a = DVector::from_vec(vec![0.0, 0.0]);
+        let b = DVector::from_vec(vec![100.0, 100.0]);
+        assert!(!checker.has_converged(&a, &b).unwrap());
+    }
+
+    #[test]
+    fn dual_convergence_requires_both_criteria() {
+        let checker = ConvergenceChecker::new(1e-6);
+        let current = DVector::from_vec(vec![10.0, 20.0]);
+        let previous = DVector::from_vec(vec![10.0, 20.0]);
+
+        // Both change=0 and residual tiny => converged
+        assert!(checker
+            .has_converged_dual(&current, &previous, 1e-8, 1.0)
+            .unwrap());
+
+        // Change converged but residual large => not converged
+        assert!(!checker
+            .has_converged_dual(&current, &previous, 10.0, 1.0)
+            .unwrap());
+
+        // Residual converged but change large => not converged
+        let far_previous = DVector::from_vec(vec![0.0, 0.0]);
+        assert!(!checker
+            .has_converged_dual(&current, &far_previous, 1e-8, 1.0)
+            .unwrap());
+    }
+}

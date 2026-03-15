@@ -30,6 +30,7 @@ fn selective_blueprint(
             branches: match split_kind {
                 SplitKind::NFurcation(2) => vec![
                     BranchSpec {
+                        recovery_sub_split: None,
                         label: "ctc".to_string(),
                         role: BranchRole::Treatment,
                         treatment_path: true,
@@ -42,6 +43,7 @@ fn selective_blueprint(
                         },
                     },
                     BranchSpec {
+                        recovery_sub_split: None,
                         label: "waste".to_string(),
                         role: BranchRole::Neutral,
                         treatment_path: false,
@@ -56,6 +58,7 @@ fn selective_blueprint(
                 ],
                 SplitKind::NFurcation(3) => vec![
                     BranchSpec {
+                        recovery_sub_split: None,
                         label: "wbc".to_string(),
                         role: BranchRole::WbcCollection,
                         treatment_path: false,
@@ -68,6 +71,7 @@ fn selective_blueprint(
                         },
                     },
                     BranchSpec {
+                        recovery_sub_split: None,
                         label: "ctc".to_string(),
                         role: BranchRole::Treatment,
                         treatment_path: true,
@@ -80,6 +84,7 @@ fn selective_blueprint(
                         },
                     },
                     BranchSpec {
+                        recovery_sub_split: None,
                         label: "rbc".to_string(),
                         role: BranchRole::RbcBypass,
                         treatment_path: false,

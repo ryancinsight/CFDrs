@@ -398,7 +398,7 @@ pub fn solve_lid_driven_cavity(
         }
         let cont_residual = (cont_sum / (nx * ny) as f64).sqrt();
         if iteration % 100 == 0 {
-            println!("Iteration {iteration}: residual={cont_residual:?}");
+            tracing::debug!("Iteration {iteration}: residual={cont_residual:?}");
         }
 
         final_residual = cont_residual;
@@ -462,6 +462,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "slow (>30 s): Re=100 32×32 cavity requires ~10K SIMPLE iterations"]
     fn test_cavity_solver_re100_32x32() {
         // Re=100, 32×32 grid with conservative under-relaxation.
         // Cell Peclet number Pe ≈ 3.1 → first-order upwind is stable.

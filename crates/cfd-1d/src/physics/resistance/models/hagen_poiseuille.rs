@@ -173,3 +173,55 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for HagenPoiseuille
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use approx::assert_relative_eq;
+    use cfd_core::physics::fluid::ConstantPropertyFluid;
+
+    fn water() -> ConstantPropertyFluid<f64> {
+        ConstantPropertyFluid::new(
+            "water".to_string(),
+            1000.0, // density [kg/m³]
+            0.001,  // viscosity [Pa·s]
+            4186.0, // specific heat
+            0.598,  // thermal conductivity
+            1480.0, // speed of sound
+        )
+    }
+
+    #[test]
+    fn resistance_formula_circular_pipe() {
+        // R = 128 * mu * L / (pi * D^4)
+        // mu=0.001, L=0.01, D=0.001
+        // R = 128 * 0.001 * 0.01 / (pi * 1e-12) = 1.28e-3 / (pi * 1e-12)
+        let model = HagenPoiseuilleModel::new(0.001_f64, 0.01_f64);
+        let conditions = FlowConditions::new(0.0);
+        let (r, _k) = model.calculate_coefficients(&water(), &conditions).unwrap();
+        let expected = 128.0 * 0.001 * 0.01 / (std::f64::consts::PI * 1e-12);
+        assert_relative_eq!(r, expected, max_relative = 1e-10);
+        assert_relative_eq!(expected, 4.074e8, max_relative = 1e-3);
+    }
+
+    #[test]
+    fn coefficients_zero_quadratic_term() {
+        // Hagen-Poiseuille is purely linear: k = 0
+        let model = HagenPoiseuilleModel::new(0.001_f64, 0.01_f64);
+        let conditions = FlowConditions::new(0.0);
+        let (_r, k) = model.calculate_coefficients(&water(), &conditions).unwrap();
+        assert_relative_eq!(k, 0.0, epsilon = 1e-15);
+    }
+
+    #[test]
+    fn very_small_diameter_produces_large_resistance() {
+        let large = HagenPoiseuilleModel::new(0.001_f64, 0.01_f64);
+        let small = HagenPoiseuilleModel::new(0.0001_f64, 0.01_f64);
+        let conditions = FlowConditions::new(0.0);
+        let (r_large, _) = large.calculate_coefficients(&water(), &conditions).unwrap();
+        let (r_small, _) = small.calculate_coefficients(&water(), &conditions).unwrap();
+        // D halved by 10x → R increases by 10^4 = 10000x (D^4 in denominator)
+        assert!(r_small > r_large * 9000.0, "small diameter should produce much larger resistance");
+        assert_relative_eq!(r_small / r_large, 1e4, max_relative = 1e-10);
+    }
+}

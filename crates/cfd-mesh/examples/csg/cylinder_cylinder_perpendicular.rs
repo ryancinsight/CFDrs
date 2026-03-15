@@ -130,7 +130,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ── Union ─────────────────────────────────────────────────────────────────
     {
         let t0 = Instant::now();
-        let mut result = csg_boolean(BooleanOp::Union, &cyl_a, &cyl_b)?;
+        let mut result = cfd_mesh::application::csg::boolean::indexed::csg_boolean_indexed(BooleanOp::Union, &cyl_a, &cyl_b)?;
         let ms = t0.elapsed().as_millis();
         report(
             "Union (A ∪ B)",
@@ -150,7 +150,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ── Intersection (Steinmetz solid) ────────────────────────────────────────
     {
         let t0 = Instant::now();
-        let mut result = csg_boolean(BooleanOp::Intersection, &cyl_a, &cyl_b)?;
+        let mut result = cfd_mesh::application::csg::boolean::indexed::csg_boolean_indexed(BooleanOp::Intersection, &cyl_a, &cyl_b)?;
         let ms = t0.elapsed().as_millis();
         report(
             "Intersection (A ∩ B) — Steinmetz solid",
@@ -170,7 +170,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ── Difference ────────────────────────────────────────────────────────────
     {
         let t0 = Instant::now();
-        let mut result = csg_boolean(BooleanOp::Difference, &cyl_a, &cyl_b)?;
+        let mut result = cfd_mesh::application::csg::boolean::indexed::csg_boolean_indexed(BooleanOp::Difference, &cyl_a, &cyl_b)?;
         let ms = t0.elapsed().as_millis();
         report(
             "Difference (A \\ B)",

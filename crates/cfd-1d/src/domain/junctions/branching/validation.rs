@@ -18,6 +18,13 @@ use num_traits::{FromPrimitive, ToPrimitive};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
+/// Roache (1998) safety factor for Grid Convergence Index.
+///
+/// Fs = 1.25 is the recommended value for three or more grid levels.
+/// GCI = Fs · |e_a| / (r^p − 1), where r is the refinement ratio and p is the
+/// observed convergence order.
+const GCI_SAFETY_FACTOR_FS: f64 = 1.25;
+
 // ============================================================================
 // Validation Framework
 // ============================================================================
@@ -195,7 +202,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> BranchingV
         let r = self.config.refinement_factor;
         let p = expected_order;
         let e_a = error_coarse; // Approximate relative error
-        let gci = T::from_f64_or_one(1.25) * e_a / (r.powf(p) - T::one());
+        let gci = T::from_f64_or_one(GCI_SAFETY_FACTOR_FS) * e_a / (r.powf(p) - T::one());
 
         // Validation criteria
         let gci_threshold = T::from_f64_or_one(0.05); // 5% threshold

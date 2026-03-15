@@ -415,3 +415,47 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
         Ok(final_residual)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::super::config::{AlgorithmType, SimplecPimpleConfig};
+    use super::super::solver::SimplecPimpleSolver;
+    use crate::grid::StructuredGrid2D;
+
+    fn make_grid(n: usize) -> StructuredGrid2D<f64> {
+        StructuredGrid2D::new(n, n, 0.0, 1.0, 0.0, 1.0).unwrap()
+    }
+
+    #[test]
+    fn simplec_algorithm_creation() {
+        let grid = make_grid(8);
+        let config = SimplecPimpleConfig::simplec();
+        assert_eq!(config.algorithm, AlgorithmType::Simplec);
+
+        let solver = SimplecPimpleSolver::new(grid, config);
+        assert!(solver.is_ok(), "Failed to create SIMPLEC solver");
+    }
+
+    #[test]
+    fn pimple_algorithm_creation() {
+        let grid = make_grid(8);
+        let config = SimplecPimpleConfig::pimple();
+        assert_eq!(config.algorithm, AlgorithmType::Pimple);
+
+        let solver = SimplecPimpleSolver::new(grid, config);
+        assert!(solver.is_ok(), "Failed to create PIMPLE solver");
+    }
+
+    #[test]
+    fn verify_algorithm_type() {
+        let simplec_cfg = SimplecPimpleConfig::<f64>::simplec();
+        assert_eq!(simplec_cfg.algorithm, AlgorithmType::Simplec);
+
+        let pimple_cfg = SimplecPimpleConfig::<f64>::pimple();
+        assert_eq!(pimple_cfg.algorithm, AlgorithmType::Pimple);
+
+        // Verify default is SIMPLEC
+        let default_cfg = SimplecPimpleConfig::<f64>::default();
+        assert_eq!(default_cfg.algorithm, AlgorithmType::Simplec);
+    }
+}

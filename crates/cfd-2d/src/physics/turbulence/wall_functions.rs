@@ -362,7 +362,7 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> WallTreatmen
             let relative_error = (u_plus - log_law_value).abs() / log_law_value;
 
             if relative_error > T::from_f64(0.1).unwrap_or_else(T::one) {
-                println!(
+                tracing::debug!(
                     "Warning: Wall function deviates from log-law at y+ = {:.1}, error = {:.1}%",
                     y_plus.to_f64().unwrap_or(0.0),
                     relative_error.to_f64().unwrap_or(0.0) * 100.0

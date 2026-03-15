@@ -375,3 +375,64 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + ToPrimitive
         &mut self.lagrangian_points
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn default_solver() -> IbmSolver<f64> {
+        let config = IbmConfig::default();
+        let dx = Vector3::new(0.1, 0.1, 0.1);
+        let grid_size = (10, 10, 10);
+        IbmSolver::new(config, dx, grid_size)
+    }
+
+    #[test]
+    fn creation_with_valid_config() {
+        let solver = default_solver();
+        assert_eq!(solver.num_points(), 0);
+        assert!(solver.config().use_direct_forcing);
+        assert_eq!(solver.grid_size, (10, 10, 10));
+    }
+
+    #[test]
+    fn add_lagrangian_point_increments_count() {
+        let mut solver = default_solver();
+        let pt = LagrangianPoint::new(Vector3::new(0.5, 0.5, 0.5), 1.0);
+        solver.add_lagrangian_point(pt);
+        assert_eq!(solver.num_points(), 1);
+    }
+
+    #[test]
+    fn spread_forces_produces_finite_values() {
+        let mut solver = default_solver();
+
+        // Place a point near the centre of the grid with a known force.
+        let mut pt = LagrangianPoint::new(Vector3::new(0.5, 0.5, 0.5), 1.0);
+        pt.force = Vector3::new(1.0, 0.0, 0.0);
+        solver.add_lagrangian_point(pt);
+
+        let forces = solver.spread_forces().expect("spread_forces should succeed");
+
+        assert_eq!(forces.len(), 10 * 10 * 10);
+
+        // At least one grid cell should have received a non-zero, finite force.
+        let has_nonzero = forces
+            .iter()
+            .any(|f| f.norm() > 0.0 && f.norm().is_finite());
+        assert!(
+            has_nonzero,
+            "force spreading should produce at least one non-zero finite value on the grid"
+        );
+
+        // All values must be finite.
+        for (i, f) in forces.iter().enumerate() {
+            assert!(
+                f.x.is_finite() && f.y.is_finite() && f.z.is_finite(),
+                "non-finite force at grid index {}: {:?}",
+                i,
+                f
+            );
+        }
+    }
+}

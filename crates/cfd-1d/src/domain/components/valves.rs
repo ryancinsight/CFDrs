@@ -32,6 +32,14 @@ use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+/// Linear resistance applied when a valve is fully closed [Pa·s/m³].
+///
+/// This large finite value (10¹²) prevents division by zero while keeping
+/// the conductance matrix well-conditioned. A closed valve effectively
+/// blocks flow: at 1 µL/s the ΔP would be 10⁶ Pa, far exceeding any
+/// realistic microfluidic pressure budget.
+const CLOSED_VALVE_RESISTANCE: f64 = 1e12;
+
 /// Valve type enumeration
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum ValveType {
@@ -83,7 +91,7 @@ impl<T: RealField + Copy + FromPrimitive> Component<T> for Microvalve<T> {
     /// - **Open**: `0.0` — all losses are quadratic (captured by `coefficients`).
     fn resistance(&self, _fluid: &ConstantPropertyFluid<T>) -> T {
         if self.opening <= T::zero() {
-            T::from_f64(1e12).expect("Mathematical constant conversion compromised")
+            T::from_f64(CLOSED_VALVE_RESISTANCE).expect("Mathematical constant conversion compromised")
         } else {
             T::zero()
         }
@@ -92,7 +100,7 @@ impl<T: RealField + Copy + FromPrimitive> Component<T> for Microvalve<T> {
     fn coefficients(&self, fluid: &ConstantPropertyFluid<T>) -> (T, T) {
         if self.opening <= T::zero() {
             (
-                T::from_f64(1e12).expect("Mathematical constant conversion compromised"),
+                T::from_f64(CLOSED_VALVE_RESISTANCE).expect("Mathematical constant conversion compromised"),
                 T::zero(),
             )
         } else {
@@ -193,5 +201,47 @@ mod tests {
         let mut valve = Microvalve::<f64>::new(0.01);
         valve.set_parameter("opening", -0.5).unwrap();
         assert_relative_eq!(valve.opening, 0.0, epsilon = 1e-15);
+    }
+
+    #[test]
+    fn test_closed_valve_resistance_approx_1e12() {
+        let fluid = water_20c::<f64>().unwrap();
+        let mut valve = Microvalve::new(0.01_f64);
+        valve.set_parameter("opening", 0.0).unwrap();
+        let r = valve.resistance(&fluid);
+        assert_relative_eq!(r, 1e12, epsilon = 1.0);
+    }
+
+    #[test]
+    fn test_open_valve_quadratic_coefficient_from_cv() {
+        let fluid = water_20c::<f64>().unwrap();
+        let cv = 0.02_f64;
+        let valve = Microvalve::new(cv);
+        let (r, k) = valve.coefficients(&fluid);
+        // Open valve: zero linear resistance, quadratic = 1/Cv^2
+        assert_relative_eq!(r, 0.0, epsilon = 1e-30);
+        assert_relative_eq!(k, 1.0 / (cv * cv), epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_partial_opening_intermediate_resistance() {
+        let fluid = water_20c::<f64>().unwrap();
+        let cv = 0.01_f64;
+        let mut valve = Microvalve::new(cv);
+        valve.set_parameter("opening", 0.5).unwrap();
+        let (_, k_half) = valve.coefficients(&fluid);
+
+        let valve_full = Microvalve::new(cv);
+        let (_, k_full) = valve_full.coefficients(&fluid);
+
+        // Half-open should have 4x higher quadratic coefficient than full-open
+        // k = 1/(Cv*f)^2, so k(0.5)/k(1.0) = 4
+        assert_relative_eq!(k_half / k_full, 4.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_component_type_is_microvalve() {
+        let valve = Microvalve::<f64>::new(0.01);
+        assert_eq!(valve.component_type(), "Microvalve");
     }
 }

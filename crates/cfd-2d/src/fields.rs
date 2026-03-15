@@ -3,15 +3,22 @@
 //! This module implements efficient field storage using flattened vectors
 //! for better cache locality and performance, following SSOT and zero-copy principles.
 //!
-//! # Theorem
-//! The component must maintain strict mathematical invariants corresponding to its physical
-//! or numerical role.
+//! ## Memory layout
 //!
-//! **Proof sketch**:
-//! Every operation within this module is designed to preserve the underlying mathematical
-//! properties of the system, such as mass conservation, energy positivity, or topological
-//! consistency. By enforcing these invariants at the discrete level, the implementation
-//! guarantees stability and physical realism.
+//! `Field2D<T>` stores an nx × ny grid in a single `Vec<T>` using row-major order:
+//! element (i, j) maps to index `j * nx + i`. This layout optimises for x-sweeps
+//! (row-consecutive access) which dominate in SIMPLE/PISO pressure-correction
+//! iterations.
+//!
+//! ## Access API
+//!
+//! | Method | Bounds | Returns |
+//! |--------|--------|---------|
+//! | `at(i, j)` | **panics** if out of bounds | `T` (copy) |
+//! | `get(i, j)` | returns `None` if out of bounds | `Option<T>` |
+//! | `at_ref(i, j)` | returns `None` if out of bounds | `Option<&T>` |
+//! | `at_mut(i, j)` | returns `None` if out of bounds | `Option<&mut T>` |
+//! | `set(i, j, v)` | **debug-assert** only | `()` |
 
 use cfd_core::physics::fluid::ConstantPropertyFluid;
 use nalgebra::{RealField, Vector2};

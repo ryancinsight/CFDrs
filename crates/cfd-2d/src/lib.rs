@@ -107,6 +107,7 @@
 #![allow(clippy::float_cmp)] // Float comparisons necessary in numerical algorithms
 #![allow(clippy::unnecessary_wraps)] // Result types maintained for API consistency
 #![allow(clippy::items_after_statements)] // Helper functions after statements improve readability
+#![allow(clippy::doc_lazy_continuation)] // LaTeX math in doc comments triggers false positives
 #![allow(clippy::many_single_char_names)] // Mathematical notation (i,j,k,x,y,z) is standard
 #![allow(clippy::unreadable_literal)] // Long literals used for precise physical constants
 #![allow(clippy::redundant_closure_for_method_calls)] // Closures improve readability in numerical pipelines

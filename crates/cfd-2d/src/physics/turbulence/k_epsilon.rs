@@ -218,11 +218,16 @@ pub struct KEpsilonModel<T: RealField + Copy + num_traits::ToPrimitive> {
     c2_epsilon: T,
     sigma_k: T,
     sigma_epsilon: T,
+    /// Scratch buffer for k values at previous timestep (avoids per-update allocation).
+    k_scratch: Vec<T>,
+    /// Scratch buffer for epsilon values at previous timestep.
+    eps_scratch: Vec<T>,
 }
 
 impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> KEpsilonModel<T> {
     /// Create a new k-ε model
     pub fn new(nx: usize, ny: usize) -> Self {
+        let n = nx * ny;
         Self {
             nx,
             ny,
@@ -231,6 +236,8 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> KEpsilonMode
             c2_epsilon: T::from_f64(C2_EPSILON).unwrap_or_else(T::one),
             sigma_k: T::from_f64(SIGMA_K).unwrap_or_else(T::one),
             sigma_epsilon: T::from_f64(SIGMA_EPSILON).unwrap_or_else(T::one),
+            k_scratch: vec![T::zero(); n],
+            eps_scratch: vec![T::zero(); n],
         }
     }
 
@@ -339,37 +346,46 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> TurbulenceMo
         let nx = self.nx;
         let ny = self.ny;
 
-        // Store previous timestep values for explicit time stepping
-        // These are algorithmically required, not naming violations
-        let k_previous = k.to_vec();
-        let epsilon_previous = epsilon.to_vec();
+        // Copy previous timestep values into persistent scratch buffers
+        // (avoids allocating new Vec each call)
+        self.k_scratch.copy_from_slice(k);
+        self.eps_scratch.copy_from_slice(epsilon);
+
+        // Hoist T::from_f64 conversions out of the inner loop
+        let two = T::from_f64(TWO).unwrap_or_else(T::one);
+        let two_f = T::from_f64(2.0).unwrap_or_else(T::one);
+        let k_min = T::from_f64(K_MIN).unwrap_or_else(T::zero);
+        let eps_min = T::from_f64(EPSILON_MIN).unwrap_or_else(T::zero);
+
+        let two_dx = two * dx;
+        let two_dy = two * dy;
+        let dx_sq = dx * dx;
+        let dy_sq = dy * dy;
 
         // Update interior points
         for j in 1..ny - 1 {
             for i in 1..nx - 1 {
                 let idx = j * nx + i;
 
+                let k_prev = self.k_scratch[idx];
+                let eps_prev = self.eps_scratch[idx];
+
                 // Calculate velocity gradients
-                let du_dx = (velocity[idx + 1].x - velocity[idx - 1].x)
-                    / (T::from_f64(TWO).unwrap_or_else(T::one) * dx);
-                let du_dy = (velocity[idx + nx].x - velocity[idx - nx].x)
-                    / (T::from_f64(TWO).unwrap_or_else(T::one) * dy);
-                let dv_dx = (velocity[idx + 1].y - velocity[idx - 1].y)
-                    / (T::from_f64(TWO).unwrap_or_else(T::one) * dx);
-                let dv_dy = (velocity[idx + nx].y - velocity[idx - nx].y)
-                    / (T::from_f64(TWO).unwrap_or_else(T::one) * dy);
+                let du_dx = (velocity[idx + 1].x - velocity[idx - 1].x) / two_dx;
+                let du_dy = (velocity[idx + nx].x - velocity[idx - nx].x) / two_dy;
+                let dv_dx = (velocity[idx + 1].y - velocity[idx - 1].y) / two_dx;
+                let dv_dy = (velocity[idx + nx].y - velocity[idx - nx].y) / two_dy;
 
                 let grad = [[du_dx, du_dy], [dv_dx, dv_dy]];
 
                 // Calculate turbulent viscosity
-                let nu_t =
-                    self.turbulent_viscosity(k_previous[idx], epsilon_previous[idx], density);
+                let nu_t = self.turbulent_viscosity(k_prev, eps_prev, density);
 
                 // Production term
                 let p_k = self.production_term(
                     &grad,
                     nu_t,
-                    k_previous[idx],
+                    k_prev,
                     T::zero(), // Wall distance not used for k-epsilon production
                     molecular_viscosity,
                 );
@@ -379,40 +395,33 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> TurbulenceMo
                 let nu_eff_eps = molecular_viscosity + nu_t / self.sigma_epsilon;
 
                 // k equation diffusion
-                let diff_k_x = (k_previous[idx + 1]
-                    - T::from_f64(2.0).unwrap_or_else(T::one) * k_previous[idx]
-                    + k_previous[idx - 1])
-                    / (dx * dx);
-                let diff_k_y = (k_previous[idx + nx]
-                    - T::from_f64(2.0).unwrap_or_else(T::one) * k_previous[idx]
-                    + k_previous[idx - nx])
-                    / (dy * dy);
+                let diff_k_x = (self.k_scratch[idx + 1] - two_f * k_prev
+                    + self.k_scratch[idx - 1])
+                    / dx_sq;
+                let diff_k_y = (self.k_scratch[idx + nx] - two_f * k_prev
+                    + self.k_scratch[idx - nx])
+                    / dy_sq;
                 let diff_k = nu_eff_k * (diff_k_x + diff_k_y);
 
                 // epsilon equation diffusion
-                let diff_eps_x = (epsilon_previous[idx + 1]
-                    - T::from_f64(2.0).unwrap_or_else(T::one) * epsilon_previous[idx]
-                    + epsilon_previous[idx - 1])
-                    / (dx * dx);
-                let diff_eps_y = (epsilon_previous[idx + nx]
-                    - T::from_f64(2.0).unwrap_or_else(T::one) * epsilon_previous[idx]
-                    + epsilon_previous[idx - nx])
-                    / (dy * dy);
+                let diff_eps_x = (self.eps_scratch[idx + 1] - two_f * eps_prev
+                    + self.eps_scratch[idx - 1])
+                    / dx_sq;
+                let diff_eps_y = (self.eps_scratch[idx + nx] - two_f * eps_prev
+                    + self.eps_scratch[idx - nx])
+                    / dy_sq;
                 let diff_eps = nu_eff_eps * (diff_eps_x + diff_eps_y);
 
                 // Update k with realizability constraints
-                let k_new = k_previous[idx] + dt * (p_k - epsilon_previous[idx] + diff_k);
-                let k_min = T::from_f64(K_MIN).unwrap_or_else(T::zero);
-                k[idx] = k_new.max(k_min); // Enforce k ≥ k_min for realizability
+                let k_new = k_prev + dt * (p_k - eps_prev + diff_k);
+                k[idx] = k_new.max(k_min); // Enforce k >= k_min for realizability
 
                 // Update epsilon with realizability constraints
-                let k_denom = k_previous[idx].max(T::from_f64(EPSILON_MIN).unwrap_or_else(T::zero));
-                let eps_source = self.c1_epsilon * epsilon_previous[idx] / k_denom * p_k;
-                let eps_sink =
-                    self.c2_epsilon * epsilon_previous[idx] * epsilon_previous[idx] / k_denom;
-                let eps_new = epsilon_previous[idx] + dt * (eps_source - eps_sink + diff_eps);
-                let eps_min = T::from_f64(EPSILON_MIN).unwrap_or_else(T::zero);
-                epsilon[idx] = eps_new.max(eps_min); // Enforce ε ≥ ε_min for realizability
+                let k_denom = k_prev.max(eps_min);
+                let eps_source = self.c1_epsilon * eps_prev / k_denom * p_k;
+                let eps_sink = self.c2_epsilon * eps_prev * eps_prev / k_denom;
+                let eps_new = eps_prev + dt * (eps_source - eps_sink + diff_eps);
+                epsilon[idx] = eps_new.max(eps_min); // Enforce epsilon >= eps_min for realizability
             }
         }
 

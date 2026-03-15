@@ -3,6 +3,8 @@
 //! Provides boundary flow integration, point pressure extraction, and
 //! element-level shear-rate computation using the FEM solution fields.
 
+use tracing;
+
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::{Error, Result};
 use cfd_mesh::domain::core::index::{FaceId, VertexId};
@@ -57,7 +59,7 @@ impl<
                     let u = solution.get_velocity(v_id.as_usize());
                     u_avg += u;
                     if face_count <= 2 {
-                        eprintln!("DEBUG: vertex {} velocity = {:?}", v_id.as_usize(), u);
+                        tracing::debug!(vertex = v_id.as_usize(), ?u, "vertex velocity");
                     }
                 }
                 u_avg /= 3.0_f64;
@@ -67,8 +69,11 @@ impl<
             }
         }
 
-        eprintln!(
-            "DEBUG: Flow integration for '{label}': {face_count} faces, total_q = {total_q:?}"
+        tracing::debug!(
+            label,
+            face_count,
+            ?total_q,
+            "Flow integration complete"
         );
         Ok(total_q.abs())
     }

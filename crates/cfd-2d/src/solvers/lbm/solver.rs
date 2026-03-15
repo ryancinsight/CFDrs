@@ -265,13 +265,13 @@ where
                 let max_change = self.compute_max_velocity_change();
 
                 if self.config.verbose {
-                    println!("Step {step}: max velocity change = {max_change:e}");
+                    tracing::debug!("Step {step}: max velocity change = {max_change:e}");
                 }
 
                 if max_change < self.config.tolerance {
                     converged = true;
                     if self.config.verbose {
-                        println!("Converged after {step} steps");
+                        tracing::debug!("Converged after {step} steps");
                     }
                     break;
                 }
@@ -282,7 +282,7 @@ where
         }
 
         if !converged && self.config.verbose {
-            println!(
+            tracing::debug!(
                 "Warning: Did not converge after {} steps",
                 self.config.max_steps
             );

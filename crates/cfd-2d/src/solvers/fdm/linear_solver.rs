@@ -81,12 +81,12 @@ pub fn solve_gauss_seidel<T: RealField + Copy + FromPrimitive>(
         }
 
         if config.verbose() && iteration % crate::constants::solver::LOG_INTERVAL == 0 {
-            println!("{solver_name} iteration {iteration}: residual = {max_residual:?}");
+            tracing::trace!("{solver_name} iteration {iteration}: residual = {max_residual:?}");
         }
 
         if max_residual < config.tolerance() {
             if config.verbose() {
-                println!("{} converged in {} iterations", solver_name, iteration + 1);
+                tracing::debug!("{} converged in {} iterations", solver_name, iteration + 1);
             }
             return Ok(solution);
         }

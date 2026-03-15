@@ -7,6 +7,15 @@ use nalgebra::DMatrix;
 
 use super::AdaptiveMeshRefinement;
 
+/// Weight for Richardson extrapolation error in the combined estimate.
+const RICHARDSON_WEIGHT: f64 = 0.3;
+/// Weight for adjoint-based error in the combined estimate.
+const ADJOINT_WEIGHT: f64 = 0.3;
+/// Weight for residual-based error in the combined estimate.
+const RESIDUAL_WEIGHT: f64 = 0.2;
+/// Weight for smoothness-based error in the combined estimate.
+const SMOOTHNESS_WEIGHT: f64 = 0.2;
+
 impl AdaptiveMeshRefinement {
     /// Compute sophisticated error estimate using multiple methods
     pub(super) fn compute_sophisticated_error_estimate(
@@ -22,10 +31,10 @@ impl AdaptiveMeshRefinement {
         let smoothness_error = Self::compute_smoothness_error_estimate(solution, i, j);
 
         // Weighted combination of error estimates
-        let combined_error = 0.3 * richardson_error
-            + 0.3 * adjoint_error
-            + 0.2 * residual_error
-            + 0.2 * smoothness_error;
+        let combined_error = RICHARDSON_WEIGHT * richardson_error
+            + ADJOINT_WEIGHT * adjoint_error
+            + RESIDUAL_WEIGHT * residual_error
+            + SMOOTHNESS_WEIGHT * smoothness_error;
 
         // Apply threshold normalization
         if combined_error > threshold {

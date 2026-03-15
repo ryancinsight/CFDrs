@@ -197,7 +197,11 @@ fn run_sharp() -> Result<(), Box<dyn std::error::Error>> {
 
     // Union
     let t1 = Instant::now();
-    let mut result = csg_boolean(BooleanOp::Union, &stem, &arm)?;
+    let mut result = cfd_mesh::application::csg::boolean::indexed::csg_boolean_indexed(
+        BooleanOp::Union,
+        &stem,
+        &arm,
+    )?;
     let union_ms = t1.elapsed().as_millis();
     report(
         "Union (stem ∪ arm) — sharp corner",
@@ -349,8 +353,8 @@ fn run_rounded() -> Result<(), Box<dyn std::error::Error>> {
     // Each pair overlaps by eps, so the union correctly trims the interior caps.
     // Sequence: (stem ∪ elbow) ∪ arm.
     let t1 = Instant::now();
-    let stem_elbow = csg_boolean(BooleanOp::Union, &stem, &elbow_mesh)?;
-    let mut result = csg_boolean(BooleanOp::Union, &stem_elbow, &arm)?;
+    let stem_elbow = cfd_mesh::application::csg::boolean::indexed::csg_boolean_indexed(BooleanOp::Union, &stem, &elbow_mesh)?;
+    let mut result = cfd_mesh::application::csg::boolean::indexed::csg_boolean_indexed(BooleanOp::Union, &stem_elbow, &arm)?;
     let union_ms = t1.elapsed().as_millis();
 
     // Tolerance on expected: the eps overlaps add ~2·π r² eps of material that

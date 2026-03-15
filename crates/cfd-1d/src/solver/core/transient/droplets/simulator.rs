@@ -17,6 +17,31 @@ use petgraph::visit::EdgeRef;
 use std::collections::HashMap;
 
 /// Simulator for droplet state tracking and occupancy transitions.
+///
+/// ## Algorithm
+///
+/// 1. **Composition solve**: Compute steady-state or transient flow fields at
+///    each timepoint using `TransientCompositionSimulator` (applies inlet
+///    composition events, edge flow events, and pressure boundary events).
+///
+/// 2. **Injection activation**: At each timestep, activate scheduled
+///    `DropletInjection` entries whose `inject_time` falls within the current
+///    interval. Each injection places an `ActiveDroplet` at the head of the
+///    specified edge.
+///
+/// 3. **Advection**: For each active droplet, advance its position along the
+///    current edge by Δx = v · Δt where v = Q/A is the local mean velocity
+///    from the composition-state flow field. When a droplet reaches the end
+///    of an edge, it transitions to the downstream junction.
+///
+/// 4. **Junction routing**: At branching junctions, the `DropletSplitPolicy`
+///    determines whether the droplet follows the highest-flow branch
+///    (`FollowMaxFlow`), splits into child droplets (`SplitByFlowFraction`),
+///    or is consumed.
+///
+/// 5. **Snapshot collection**: After each timestep, a `DropletTrackingState`
+///    snapshot records every active droplet's position, velocity, and
+///    channel occupancy for post-processing.
 pub struct TransientDropletSimulator;
 
 impl TransientDropletSimulator {

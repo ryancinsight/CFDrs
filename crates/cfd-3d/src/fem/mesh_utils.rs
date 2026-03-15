@@ -31,7 +31,8 @@ pub fn extract_vertex_indices<T: cfd_mesh::domain::core::Scalar + RealField + Co
     mesh: &IndexedMesh<T>,
     n_corner_nodes: usize,
 ) -> Result<Vec<usize>> {
-    let mut counts = std::collections::HashMap::new();
+    // Pre-allocate for tet element: at most 10 unique vertices (4 corners + 6 mid-edges).
+    let mut counts = std::collections::HashMap::with_capacity(10);
     for &f_idx in &cell.faces {
         if f_idx < mesh.face_count() {
             let f = mesh
@@ -44,8 +45,8 @@ pub fn extract_vertex_indices<T: cfd_mesh::domain::core::Scalar + RealField + Co
     }
 
     // In a tetrahedron, corners are shared by 3 faces, mid-edges by 2.
-    let mut corners = Vec::new();
-    let mut mid_edges = Vec::new();
+    let mut corners = Vec::with_capacity(4);
+    let mut mid_edges = Vec::with_capacity(6);
     for (&v_idx, &count) in &counts {
         if count == 3 {
             corners.push(v_idx);
@@ -210,7 +211,8 @@ pub fn extract_vertex_indices_cached<
     n_corner_nodes: usize,
     mid_cache: &crate::fem::mid_node_cache::MidNodeCache,
 ) -> Result<Vec<usize>> {
-    let mut counts = std::collections::HashMap::new();
+    // Pre-allocate for tet element: at most 10 unique vertices (4 corners + 6 mid-edges).
+    let mut counts = std::collections::HashMap::with_capacity(10);
     for &f_idx in &cell.faces {
         if f_idx < mesh.face_count() {
             let f = mesh
@@ -222,8 +224,8 @@ pub fn extract_vertex_indices_cached<
         }
     }
 
-    let mut corners = Vec::new();
-    let mut mid_edges = Vec::new();
+    let mut corners = Vec::with_capacity(4);
+    let mut mid_edges = Vec::with_capacity(6);
     for (&v_idx, &count) in &counts {
         if count == 3 {
             corners.push(v_idx);
@@ -452,4 +454,103 @@ pub(crate) fn compute_mesh_scale<T: cfd_mesh::domain::core::Scalar + RealField +
         max.z = Float::max(max.z, p.z);
     }
     (max - min).norm()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use cfd_mesh::domain::topology::Cell;
+    use cfd_mesh::IndexedMesh;
+    use nalgebra::Point3;
+
+    /// Build a minimal P1 tet mesh: 4 vertices, 4 triangular faces, 1 cell.
+    fn build_single_tet_mesh() -> IndexedMesh<f64> {
+        let mut mesh = IndexedMesh::<f64>::new();
+        let v0 = mesh.add_vertex_pos(Point3::new(0.0, 0.0, 0.0));
+        let v1 = mesh.add_vertex_pos(Point3::new(1.0, 0.0, 0.0));
+        let v2 = mesh.add_vertex_pos(Point3::new(0.0, 1.0, 0.0));
+        let v3 = mesh.add_vertex_pos(Point3::new(0.0, 0.0, 1.0));
+
+        let f0 = mesh.add_face(v0, v1, v2);
+        let f1 = mesh.add_face(v0, v1, v3);
+        let f2 = mesh.add_face(v0, v2, v3);
+        let f3 = mesh.add_face(v1, v2, v3);
+
+        let cell = Cell::tetrahedron(
+            f0.as_usize(),
+            f1.as_usize(),
+            f2.as_usize(),
+            f3.as_usize(),
+        );
+        mesh.cells.push(cell);
+        mesh
+    }
+
+    #[test]
+    fn extract_p1_tet_returns_four_corner_indices() {
+        let mesh = build_single_tet_mesh();
+        let cell = &mesh.cells[0];
+        let n_corner_nodes = mesh.vertex_count(); // P1: all vertices are corners
+
+        let indices = extract_vertex_indices(cell, &mesh, n_corner_nodes)
+            .expect("extract_vertex_indices should succeed for a valid P1 tet");
+
+        assert_eq!(
+            indices.len(),
+            4,
+            "P1 tet must return exactly 4 corner indices"
+        );
+    }
+
+    #[test]
+    fn extracted_indices_are_within_mesh_bounds() {
+        let mesh = build_single_tet_mesh();
+        let cell = &mesh.cells[0];
+        let n_corner_nodes = mesh.vertex_count();
+
+        let indices = extract_vertex_indices(cell, &mesh, n_corner_nodes)
+            .expect("extract_vertex_indices should succeed");
+
+        for &idx in &indices {
+            assert!(
+                idx < mesh.vertex_count(),
+                "vertex index {} out of bounds (mesh has {} vertices)",
+                idx,
+                mesh.vertex_count()
+            );
+        }
+    }
+
+    #[test]
+    fn degenerate_cell_with_no_valid_faces_returns_empty() {
+        let mesh = build_single_tet_mesh();
+        // Create a cell whose face indices are all out-of-range.
+        let bogus_cell = Cell::tetrahedron(999, 1000, 1001, 1002);
+
+        let indices = extract_vertex_indices(&bogus_cell, &mesh, mesh.vertex_count())
+            .expect("should not error, just return an empty fallback");
+
+        assert!(
+            indices.is_empty(),
+            "cell with out-of-range faces should yield no vertex indices"
+        );
+    }
+
+    #[test]
+    fn compute_mesh_scale_nonzero_for_unit_tet() {
+        let mesh = build_single_tet_mesh();
+        let scale = compute_mesh_scale(&mesh);
+        assert!(
+            scale > 0.0,
+            "mesh scale of a non-degenerate tet must be positive"
+        );
+        // The bounding box diagonal of the unit tet is sqrt(1^2+1^2+1^2) = sqrt(3).
+        let expected = 3.0_f64.sqrt();
+        assert!(
+            (scale - expected).abs() < 1e-10,
+            "expected mesh scale ~{}, got {}",
+            expected,
+            scale
+        );
+    }
 }

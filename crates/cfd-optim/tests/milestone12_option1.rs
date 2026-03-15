@@ -13,23 +13,72 @@
 
 use cfd_optim::{
     build_milestone12_blueprint_candidate_space, evaluate_blueprint_candidate, evaluate_goal,
-    BlueprintCandidate, EvaluatedPool, OptimizationGoal,
+    BlueprintCandidate, EvaluatedPool, OperatingPoint, OptimizationGoal,
 };
-use cfd_schematics::enumerate_milestone12_topologies;
+use cfd_schematics::{
+    build_milestone12_blueprint, enumerate_milestone12_topologies, TreatmentActuationMode,
+};
 use std::collections::HashSet;
+
+// ---------------------------------------------------------------------------
+// Fast fixture constructors — build candidates directly from the topology
+// catalog instead of materializing the full ~1000-candidate test space.
+// ---------------------------------------------------------------------------
+
+fn test_op(flow: f64, gauge: f64) -> OperatingPoint {
+    OperatingPoint {
+        flow_rate_m3_s: flow,
+        inlet_gauge_pa: gauge,
+        feed_hematocrit: 0.45,
+        patient_context: None,
+    }
+}
+
+/// Build diverse acoustic (non-venturi) candidates from different topologies
+/// and operating points. Returns up to `n` candidates.
+fn fast_acoustic_candidates(n: usize) -> Vec<BlueprintCandidate> {
+    let topologies: Vec<_> = enumerate_milestone12_topologies()
+        .into_iter()
+        .filter(|r| !r.split_kinds.is_empty())
+        .collect();
+
+    let ops = [
+        test_op(1.333e-6, 25_000.0),
+        test_op(1.667e-6, 50_000.0),
+        test_op(2.0e-6, 100_000.0),
+        test_op(3.333e-6, 200_000.0),
+    ];
+
+    let mut candidates = Vec::with_capacity(n);
+    for (i, base) in topologies.into_iter().enumerate() {
+        if candidates.len() >= n {
+            break;
+        }
+        let request = cfd_schematics::Milestone12TopologyRequest {
+            treatment_mode: TreatmentActuationMode::UltrasoundOnly,
+            venturi_throat_count: 0,
+            venturi_target_channel_ids: Vec::new(),
+            ..base
+        };
+        if let Ok(blueprint) = build_milestone12_blueprint(&request) {
+            let op = ops[i % ops.len()].clone();
+            candidates.push(BlueprintCandidate::new(
+                format!("test-acoustic-{i}"),
+                blueprint,
+                op,
+            ));
+        }
+    }
+    candidates
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
 
 #[test]
 fn option1_candidate_space_contains_acoustic_selective_topologies() {
-    let candidates = build_milestone12_blueprint_candidate_space().expect("candidate space builds");
-
-    let acoustic: Vec<&BlueprintCandidate> = candidates
-        .iter()
-        .filter(|c| {
-            c.topology_spec()
-                .map(|spec| !spec.has_venturi() && !spec.split_stages.is_empty())
-                .unwrap_or(false)
-        })
-        .collect();
+    let acoustic = fast_acoustic_candidates(10);
 
     assert!(
         !acoustic.is_empty(),
@@ -50,6 +99,9 @@ fn option1_candidate_space_contains_acoustic_selective_topologies() {
 
 #[test]
 fn option1_candidate_space_covers_mirrored_bi_tri_quad_penta_catalog() {
+    // This test validates that `build_milestone12_blueprint_candidate_space`
+    // covers every topology family × mirror variant in the canonical catalog.
+    // It must use the real space builder.
     let catalog = enumerate_milestone12_topologies();
     let candidates = build_milestone12_blueprint_candidate_space().expect("candidate space builds");
 
@@ -94,17 +146,7 @@ fn option1_candidate_space_covers_mirrored_bi_tri_quad_penta_catalog() {
 
 #[test]
 fn option1_evaluate_goal_produces_bounded_scores() {
-    let candidates = build_milestone12_blueprint_candidate_space().expect("candidate space builds");
-
-    let acoustic: Vec<BlueprintCandidate> = candidates
-        .into_iter()
-        .filter(|c| {
-            c.topology_spec()
-                .map(|spec| !spec.has_venturi() && !spec.split_stages.is_empty())
-                .unwrap_or(false)
-        })
-        .take(20) // test subset for speed
-        .collect();
+    let acoustic = fast_acoustic_candidates(20);
 
     for candidate in &acoustic {
         let result = evaluate_goal(
@@ -140,17 +182,7 @@ fn option1_evaluate_goal_produces_bounded_scores() {
 
 #[test]
 fn option1_evaluated_pool_ranking_is_descending_when_nonempty() {
-    let candidates = build_milestone12_blueprint_candidate_space().expect("candidate space builds");
-
-    let acoustic: Vec<BlueprintCandidate> = candidates
-        .into_iter()
-        .filter(|c| {
-            c.topology_spec()
-                .map(|spec| !spec.has_venturi() && !spec.split_stages.is_empty())
-                .unwrap_or(false)
-        })
-        .take(20)
-        .collect();
+    let acoustic = fast_acoustic_candidates(20);
 
     let pool = EvaluatedPool::from_candidates(&acoustic);
     let ranked = pool
@@ -176,17 +208,7 @@ fn option1_evaluated_pool_ranking_is_descending_when_nonempty() {
 
 #[test]
 fn option1_pool_returns_only_eligible_scored_entries() {
-    let candidates = build_milestone12_blueprint_candidate_space().expect("candidate space builds");
-
-    let acoustic: Vec<BlueprintCandidate> = candidates
-        .into_iter()
-        .filter(|c| {
-            c.topology_spec()
-                .map(|spec| !spec.has_venturi() && !spec.split_stages.is_empty())
-                .unwrap_or(false)
-        })
-        .take(20)
-        .collect();
+    let acoustic = fast_acoustic_candidates(20);
 
     let pool = EvaluatedPool::from_candidates(&acoustic);
     let ranked = pool
@@ -203,17 +225,7 @@ fn option1_pool_returns_only_eligible_scored_entries() {
 
 #[test]
 fn option1_separation_metrics_are_physically_bounded() {
-    let candidates = build_milestone12_blueprint_candidate_space().expect("candidate space builds");
-
-    let acoustic: Vec<BlueprintCandidate> = candidates
-        .into_iter()
-        .filter(|c| {
-            c.topology_spec()
-                .map(|spec| !spec.has_venturi() && !spec.split_stages.is_empty())
-                .unwrap_or(false)
-        })
-        .take(20)
-        .collect();
+    let acoustic = fast_acoustic_candidates(20);
 
     for candidate in &acoustic {
         let eval = evaluate_blueprint_candidate(candidate).expect("blueprint evaluation succeeds");
@@ -257,17 +269,7 @@ fn option1_separation_metrics_are_physically_bounded() {
 
 #[test]
 fn option1_fda_wall_shear_compliance() {
-    let candidates = build_milestone12_blueprint_candidate_space().expect("candidate space builds");
-
-    let acoustic: Vec<BlueprintCandidate> = candidates
-        .into_iter()
-        .filter(|c| {
-            c.topology_spec()
-                .map(|spec| !spec.has_venturi() && !spec.split_stages.is_empty())
-                .unwrap_or(false)
-        })
-        .take(20)
-        .collect();
+    let acoustic = fast_acoustic_candidates(20);
 
     // Verify FDA compliance for every evaluable acoustic candidate:
     // main_channel_margin > 0 ⟹ sustained wall shear < 150 Pa.

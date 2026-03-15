@@ -49,11 +49,11 @@
 //!    cell centres while the true face gradient is $2\delta/\Delta x$.
 //!
 //! 2. *Correction term*: The RC correction $d_e\!\left(\overline{\partial p/\partial x}_e
-//!    - (p_E - p_P)/\Delta x\right)$ equals the difference between the
-//!    *cell-averaged* pressure gradient and the *actual face* gradient. For the
-//!    checker-board mode, $\overline{\partial p/\partial x}_e = 0$ but
-//!    $(p_E - p_P)/\Delta x = 2\delta/\Delta x$, so the correction is non-zero
-//!    and suppresses the spurious mode.
+//!      - (p_E - p_P)/\Delta x\right)$ equals the difference between the
+//!      *cell-averaged* pressure gradient and the *actual face* gradient. For the
+//!      checker-board mode, $\overline{\partial p/\partial x}_e = 0$ but
+//!      $(p_E - p_P)/\Delta x = 2\delta/\Delta x$, so the correction is non-zero
+//!      and suppresses the spurious mode.
 //!
 //! 3. *Uniform field invariant*: For a uniform pressure field $p = \text{const}$,
 //!    both gradients are zero, so the correction is identically zero — the RC
@@ -73,6 +73,11 @@ use cfd_math::sparse::SparseMatrixBuilder;
 use nalgebra::{DVector, RealField};
 use num_traits::{FromPrimitive, ToPrimitive};
 use std::collections::HashMap;
+
+/// Minimum A_P threshold below which a cell is treated as stagnant (D = 0,
+/// no pressure-velocity correction applied).  Prevents division by near-zero
+/// diagonal coefficients in the momentum equation.
+const STAGNANT_CELL_AP_THRESHOLD: f64 = 1e-10;
 
 /// SIMPLE (Semi-Implicit Method for Pressure-Linked Equations) algorithm
 ///
@@ -222,7 +227,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Simple
         let (ap_u, _, ap_v, _) = momentum_solver.get_ap_coefficients();
         let dx = grid.dx;
         let dy = grid.dy;
-        let min_ap = T::from_f64(1e-10).expect("T must represent f64 values");
+        let min_ap = T::from_f64(STAGNANT_CELL_AP_THRESHOLD).expect("T must represent f64 values");
 
         {
             let d_u = self.d_u.as_mut().expect("buffers initialized");
@@ -440,6 +445,15 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Simple
                 self.p_prime.as_mut().expect("buffers initialized"),
                 None::<&IdentityPreconditioner>,
             )?;
+
+            // Guard against non-finite pressure correction from ill-conditioned systems.
+            {
+                let pp = self.p_prime.as_mut().expect("buffers initialized");
+                if pp.iter().any(|v| !v.is_finite()) {
+                    // Reset to zero rather than propagating NaN through velocity correction.
+                    pp.fill(T::zero());
+                }
+            }
 
             // ── Step 5: Correction Step ───────────────────────────────────────
             //

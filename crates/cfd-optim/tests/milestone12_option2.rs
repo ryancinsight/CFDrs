@@ -13,23 +13,157 @@
 use std::collections::HashSet;
 
 use cfd_optim::{
-    build_milestone12_blueprint_candidate_space, evaluate_blueprint_candidate, evaluate_goal,
-    evaluate_selective_venturi_cavitation, BlueprintCandidate, EvaluatedPool, OptimizationGoal,
+    evaluate_blueprint_candidate, evaluate_goal, evaluate_selective_venturi_cavitation,
+    orchestration_lineage_key, BlueprintCandidate, EvaluatedPool, OperatingPoint,
+    OptimizationGoal,
 };
-use cfd_optim::orchestration_lineage_key;
+use cfd_schematics::{
+    build_milestone12_blueprint, enumerate_milestone12_topologies, SplitKind,
+    TreatmentActuationMode, VenturiPlacementMode,
+};
+
+// ---------------------------------------------------------------------------
+// Fast fixture constructors — build candidates directly from the topology
+// catalog instead of materializing the full ~1000-candidate test space.
+// ---------------------------------------------------------------------------
+
+fn test_op(flow: f64, gauge: f64) -> OperatingPoint {
+    OperatingPoint {
+        flow_rate_m3_s: flow,
+        inlet_gauge_pa: gauge,
+        feed_hematocrit: 0.45,
+        patient_context: None,
+    }
+}
+
+/// Build diverse venturi candidates from different topologies and operating
+/// points. Returns up to `n` candidates without touching the full sweep.
+fn fast_venturi_candidates(n: usize) -> Vec<BlueprintCandidate> {
+    let topologies: Vec<_> = enumerate_milestone12_topologies()
+        .into_iter()
+        .filter(|r| {
+            !r.split_kinds.is_empty()
+                && r.split_kinds
+                    .iter()
+                    .all(|k| matches!(k, SplitKind::NFurcation(2..=5)))
+        })
+        .collect();
+
+    let ops = [
+        test_op(1.5e-6, 25_000.0),
+        test_op(2.0e-6, 30_000.0),
+        test_op(2.5e-6, 50_000.0),
+        test_op(3.0e-6, 100_000.0),
+    ];
+
+    let mut candidates = Vec::with_capacity(n);
+    for (i, base) in topologies.into_iter().enumerate() {
+        if candidates.len() >= n {
+            break;
+        }
+        let request = cfd_schematics::Milestone12TopologyRequest {
+            treatment_mode: TreatmentActuationMode::VenturiCavitation,
+            venturi_throat_count: 2,
+            venturi_throat_width_m: 0.4e-3,
+            venturi_throat_length_m: 1.2e-3,
+            venturi_placement_mode: VenturiPlacementMode::CurvaturePeakDeanNumber,
+            venturi_target_channel_ids: Vec::new(),
+            ..base
+        };
+        if let Ok(blueprint) = build_milestone12_blueprint(&request) {
+            let op = ops[i % ops.len()].clone();
+            candidates.push(BlueprintCandidate::new(
+                format!("test-venturi-{i}"),
+                blueprint,
+                op,
+            ));
+        }
+    }
+    candidates
+}
+
+/// Build a single acoustic (non-venturi) candidate.
+fn fast_acoustic_candidate() -> BlueprintCandidate {
+    let base = enumerate_milestone12_topologies()
+        .into_iter()
+        .find(|r| !r.split_kinds.is_empty())
+        .expect("at least one topology");
+
+    let request = cfd_schematics::Milestone12TopologyRequest {
+        treatment_mode: TreatmentActuationMode::UltrasoundOnly,
+        venturi_throat_count: 0,
+        venturi_target_channel_ids: Vec::new(),
+        ..base
+    };
+
+    let blueprint =
+        build_milestone12_blueprint(&request).expect("acoustic blueprint should build");
+    BlueprintCandidate::new("test-acoustic", blueprint, test_op(2.0e-6, 30_000.0))
+}
+
+/// Build a matched pair of acoustic + venturi candidates from the SAME
+/// topology (so they share a lineage key) for lineage tests.
+fn fast_lineage_pairs(n: usize) -> (Vec<BlueprintCandidate>, Vec<BlueprintCandidate>) {
+    let topologies: Vec<_> = enumerate_milestone12_topologies()
+        .into_iter()
+        .filter(|r| {
+            !r.split_kinds.is_empty()
+                && r.split_kinds
+                    .iter()
+                    .all(|k| matches!(k, SplitKind::NFurcation(2..=5)))
+        })
+        .take(n)
+        .collect();
+
+    let op = test_op(2.0e-6, 30_000.0);
+    let mut acoustics = Vec::with_capacity(n);
+    let mut venturis = Vec::with_capacity(n);
+
+    for (i, base) in topologies.into_iter().enumerate() {
+        // Acoustic variant
+        let acoustic_req = cfd_schematics::Milestone12TopologyRequest {
+            treatment_mode: TreatmentActuationMode::UltrasoundOnly,
+            venturi_throat_count: 0,
+            venturi_target_channel_ids: Vec::new(),
+            ..base.clone()
+        };
+        if let Ok(bp) = build_milestone12_blueprint(&acoustic_req) {
+            acoustics.push(BlueprintCandidate::new(
+                format!("test-acoustic-{i}"),
+                bp,
+                op.clone(),
+            ));
+        }
+
+        // Venturi variant from the same topology
+        let venturi_req = cfd_schematics::Milestone12TopologyRequest {
+            treatment_mode: TreatmentActuationMode::VenturiCavitation,
+            venturi_throat_count: 2,
+            venturi_throat_width_m: 0.4e-3,
+            venturi_throat_length_m: 1.2e-3,
+            venturi_placement_mode: VenturiPlacementMode::CurvaturePeakDeanNumber,
+            venturi_target_channel_ids: Vec::new(),
+            ..base
+        };
+        if let Ok(bp) = build_milestone12_blueprint(&venturi_req) {
+            venturis.push(BlueprintCandidate::new(
+                format!("test-venturi-{i}"),
+                bp,
+                op.clone(),
+            ));
+        }
+    }
+
+    (acoustics, venturis)
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
 
 #[test]
 fn option2_candidate_space_contains_venturi_topologies() {
-    let candidates = build_milestone12_blueprint_candidate_space().expect("candidate space builds");
-
-    let venturi: Vec<&BlueprintCandidate> = candidates
-        .iter()
-        .filter(|c| {
-            c.topology_spec()
-                .map(|spec| spec.has_venturi())
-                .unwrap_or(false)
-        })
-        .collect();
+    let venturi = fast_venturi_candidates(10);
 
     assert!(
         !venturi.is_empty(),
@@ -56,17 +190,7 @@ fn option2_candidate_space_contains_venturi_topologies() {
 
 #[test]
 fn option2_evaluate_goal_produces_bounded_scores_for_venturi_candidates() {
-    let candidates = build_milestone12_blueprint_candidate_space().expect("candidate space builds");
-
-    let venturi: Vec<BlueprintCandidate> = candidates
-        .into_iter()
-        .filter(|c| {
-            c.topology_spec()
-                .map(|spec| spec.has_venturi())
-                .unwrap_or(false)
-        })
-        .take(20)
-        .collect();
+    let venturi = fast_venturi_candidates(20);
 
     let mut eligible_count = 0;
     for candidate in &venturi {
@@ -111,16 +235,7 @@ fn option2_evaluate_goal_produces_bounded_scores_for_venturi_candidates() {
 
 #[test]
 fn option2_rejects_non_venturi_candidates() {
-    let candidates = build_milestone12_blueprint_candidate_space().expect("candidate space builds");
-
-    let acoustic = candidates
-        .into_iter()
-        .find(|c| {
-            c.topology_spec()
-                .map(|spec| !spec.has_venturi() && !spec.split_stages.is_empty())
-                .unwrap_or(false)
-        })
-        .expect("at least one acoustic candidate exists");
+    let acoustic = fast_acoustic_candidate();
 
     let eval = evaluate_blueprint_candidate(&acoustic).expect("evaluation succeeds");
     let result = evaluate_selective_venturi_cavitation(&acoustic, eval);
@@ -132,25 +247,12 @@ fn option2_rejects_non_venturi_candidates() {
 
 #[test]
 fn option2_cavitation_number_is_physically_consistent() {
-    let candidates = build_milestone12_blueprint_candidate_space().expect("candidate space builds");
-
-    let venturi: Vec<BlueprintCandidate> = candidates
-        .into_iter()
-        .filter(|c| {
-            c.topology_spec()
-                .map(|spec| spec.has_venturi())
-                .unwrap_or(false)
-        })
-        .take(20)
-        .collect();
+    let venturi = fast_venturi_candidates(20);
 
     for candidate in &venturi {
         let eval = evaluate_blueprint_candidate(candidate).expect("evaluation succeeds");
 
         for placement in &eval.venturi.placements {
-            // σ = (p∞ − pᵥ) / (½ρv²) — finite for any non-zero velocity.
-            // σ < 0 implies p∞ < pᵥ (strong cavitation, physically valid).
-            // σ → 0⁺ is the inception threshold; σ > 1 means no cavitation.
             assert!(
                 placement.cavitation_number.is_finite(),
                 "cavitation number must be finite for placement '{}' in '{}'",
@@ -158,8 +260,6 @@ fn option2_cavitation_number_is_physically_consistent() {
                 candidate.id
             );
 
-            // Throat velocity must be positive — continuity demands v > 0
-            // when there is positive flow through the throat.
             assert!(
                 placement.effective_throat_velocity_m_s > 0.0,
                 "throat velocity must be positive for '{}' (v={})",
@@ -168,7 +268,6 @@ fn option2_cavitation_number_is_physically_consistent() {
             );
         }
 
-        // Exposure fractions are blood volume fractions — bounded [0, 1].
         assert!(
             (0.0..=1.0).contains(&eval.venturi.rbc_exposure_fraction),
             "rbc_exposure_fraction out of bounds for '{}'",
@@ -184,17 +283,7 @@ fn option2_cavitation_number_is_physically_consistent() {
 
 #[test]
 fn option2_pool_ranking_is_descending_and_consistent() {
-    let candidates = build_milestone12_blueprint_candidate_space().expect("candidate space builds");
-
-    let venturi: Vec<BlueprintCandidate> = candidates
-        .into_iter()
-        .filter(|c| {
-            c.topology_spec()
-                .map(|spec| spec.has_venturi())
-                .unwrap_or(false)
-        })
-        .take(20)
-        .collect();
+    let venturi = fast_venturi_candidates(20);
 
     let pool = EvaluatedPool::from_candidates(&venturi);
     let ranked = pool
@@ -220,27 +309,15 @@ fn option2_pool_ranking_is_descending_and_consistent() {
 
 #[test]
 fn option2_candidates_retain_option1_lineage() {
-    let candidates = build_milestone12_blueprint_candidate_space().expect("candidate space builds");
+    let (acoustics, venturis) = fast_lineage_pairs(10);
 
-    let acoustic_lineages: HashSet<_> = candidates
+    let acoustic_lineages: HashSet<_> = acoustics
         .iter()
-        .filter(|candidate| {
-            candidate
-                .topology_spec()
-                .map(|spec| !spec.has_venturi() && !spec.split_stages.is_empty())
-                .unwrap_or(false)
-        })
         .filter_map(orchestration_lineage_key)
         .collect();
 
-    let venturi_lineages: Vec<_> = candidates
+    let venturi_lineages: Vec<_> = venturis
         .iter()
-        .filter(|candidate| {
-            candidate
-                .topology_spec()
-                .map(|spec| spec.has_venturi())
-                .unwrap_or(false)
-        })
         .filter_map(orchestration_lineage_key)
         .collect();
 
@@ -258,17 +335,7 @@ fn option2_candidates_retain_option1_lineage() {
 
 #[test]
 fn option2_pool_returns_only_eligible_scored_entries() {
-    let candidates = build_milestone12_blueprint_candidate_space().expect("candidate space builds");
-
-    let venturi: Vec<BlueprintCandidate> = candidates
-        .into_iter()
-        .filter(|c| {
-            c.topology_spec()
-                .map(|spec| spec.has_venturi())
-                .unwrap_or(false)
-        })
-        .take(20)
-        .collect();
+    let venturi = fast_venturi_candidates(20);
 
     let pool = EvaluatedPool::from_candidates(&venturi);
     let ranked = pool
@@ -288,17 +355,7 @@ fn option2_pool_returns_only_eligible_scored_entries() {
 
 #[test]
 fn option2_venturi_selectivity_prefers_low_cavitation_number() {
-    let candidates = build_milestone12_blueprint_candidate_space().expect("candidate space builds");
-
-    let venturi: Vec<BlueprintCandidate> = candidates
-        .into_iter()
-        .filter(|c| {
-            c.topology_spec()
-                .map(|spec| spec.has_venturi())
-                .unwrap_or(false)
-        })
-        .take(20)
-        .collect();
+    let venturi = fast_venturi_candidates(20);
 
     let pool = EvaluatedPool::from_candidates(&venturi);
     let ranked = pool
@@ -308,9 +365,6 @@ fn option2_venturi_selectivity_prefers_low_cavitation_number() {
         )
         .expect("pool ranking succeeds");
 
-    // Among eligible ranked candidates, verify that cavitation selectivity is
-    // correlated with score: candidates with higher cavitation_selectivity_score
-    // should have higher total scores (on average).
     if ranked.len() >= 2 {
         let top_selectivity = ranked[0].venturi.cavitation_selectivity_score;
         let bottom_selectivity = ranked
@@ -318,9 +372,6 @@ fn option2_venturi_selectivity_prefers_low_cavitation_number() {
             .unwrap()
             .venturi
             .cavitation_selectivity_score;
-        // The top-ranked candidate's cavitation selectivity should be at least
-        // as strong as the bottom-ranked one (higher selectivity = stronger
-        // cavitation at treatment site with low healthy-cell exposure).
         assert!(
             top_selectivity >= bottom_selectivity - 0.01,
             "top selectivity ({top_selectivity:.4}) should be >= bottom ({bottom_selectivity:.4})"

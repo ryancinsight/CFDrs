@@ -13,7 +13,7 @@
 //! for each antipodal pair $(q, \bar{q})$. The macroscopic velocity
 //! $\mathbf{u} = \sum_q \mathbf{e}_q f_q / \rho$ sums terms $\mathbf{e}_q f_q
 //! + \mathbf{e}_{\bar{q}} f_{\bar{q}} = \mathbf{e}_q f_q - \mathbf{e}_q f_q = 0$
-//! for each pair (because $\mathbf{e}_{\bar{q}} = -\mathbf{e}_q$), so $\mathbf{u} = 0$. □
+//!   for each pair (because $\mathbf{e}_{\bar{q}} = -\mathbf{e}_q$), so $\mathbf{u} = 0$. □
 //!
 //! # Theorem — Zou-He Velocity Boundary (Zou & He 1997)
 //!

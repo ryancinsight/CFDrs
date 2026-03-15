@@ -143,4 +143,32 @@ mod tests {
         assert_relative_eq!(pump.max_flow_rate, 1e-6, epsilon = 1e-30);
         assert_relative_eq!(pump.max_pressure, 1000.0, epsilon = 1e-30);
     }
+
+    #[test]
+    fn test_pump_zero_resistance_is_pressure_source() {
+        // Pumps are Neumann sources; they must never contribute negative or
+        // positive passive resistance to the conductance matrix.
+        let fluid = water_20c::<f64>().unwrap();
+        let pump = Micropump::new(5e-7_f64, 2000.0);
+        assert_eq!(pump.resistance(&fluid), 0.0);
+    }
+
+    #[test]
+    fn test_pump_component_type() {
+        let pump = Micropump::new(1e-6_f64, 1000.0);
+        assert_eq!(pump.component_type(), "Micropump");
+    }
+
+    #[test]
+    fn test_pump_head_pressure_returns_configured_value() {
+        let pump = Micropump::new(1e-6_f64, 3500.0);
+        assert_relative_eq!(pump.max_pressure, 3500.0, epsilon = 1e-30);
+    }
+
+    #[test]
+    fn test_pump_set_parameter_max_pressure() {
+        let mut pump = Micropump::new(1e-6_f64, 1000.0);
+        pump.set_parameter("max_pressure", 5000.0).unwrap();
+        assert_relative_eq!(pump.max_pressure, 5000.0, epsilon = 1e-30);
+    }
 }

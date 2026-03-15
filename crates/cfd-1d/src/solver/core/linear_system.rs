@@ -1,4 +1,28 @@
-//! Linear system solver for network equations
+//! Linear system solver for network equations.
+//!
+//! ## Solver Cascade Strategy
+//!
+//! The solver uses a three-tier cascade to maximise robustness across the
+//! wide conductance ratios (6+ orders of magnitude) typical of millifluidic
+//! networks:
+//!
+//! 1. **Small systems (n ≤ 256)**: Direct dense factorisation via LU
+//!    (with QR fallback on singular matrices). Dense solvers avoid the
+//!    preconditioning difficulties of iterative methods on tiny systems.
+//!
+//! 2. **Large SPD systems (n > 256, positive-definite Laplacian)**:
+//!    Jacobi-preconditioned Conjugate Gradient. The diagonal Jacobi
+//!    preconditioner degrades gracefully to identity for rows with
+//!    near-zero diagonal (strongly resistive branches), avoiding
+//!    premature failure on ill-conditioned but valid networks.
+//!
+//! 3. **Large non-SPD systems (n > 256, asymmetric or indefinite)**:
+//!    Jacobi-preconditioned BiCGSTAB. Falls back to dense LU/QR if
+//!    the iterative residual exceeds tolerance.
+//!
+//! All iterative paths verify the post-solve residual ‖Ax − b‖/‖b‖ ≤ tol
+//! before accepting the solution. If the residual check fails, the solver
+//! falls through to the dense LU/QR tier regardless of system size.
 
 use cfd_core::error::Result;
 use cfd_math::linear_solver::Preconditioner;
@@ -136,6 +160,25 @@ impl<T: RealField + Copy + FromPrimitive + Copy> LinearSystemSolver<T> {
     }
 
     fn solve_dense_fallback(a: &CsrMatrix<T>, b: &DVector<T>) -> Result<DVector<T>> {
+        let dense = Self::sparse_to_dense(a);
+
+        // Try LU first (consumes `dense`). LU succeeds for the vast majority
+        // of millifluidic networks, so we avoid the clone that was previously
+        // needed to keep `dense` alive for the QR fallback.
+        if let Some(x) = dense.lu().solve(b) {
+            return Ok(x);
+        }
+
+        // QR fallback (rare): rebuild dense from sparse.
+        let dense2 = Self::sparse_to_dense(a);
+        dense2.qr().solve(b).ok_or_else(|| {
+            cfd_core::error::Error::Numerical(
+                cfd_core::error::NumericalErrorKind::DivisionByZero,
+            )
+        })
+    }
+
+    fn sparse_to_dense(a: &CsrMatrix<T>) -> DMatrix<T> {
         let mut dense = DMatrix::zeros(a.nrows(), a.ncols());
         for row_idx in 0..a.nrows() {
             let row = a.row(row_idx);
@@ -143,17 +186,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> LinearSystemSolver<T> {
                 dense[(row_idx, *col_idx)] = *value;
             }
         }
-
         dense
-            .clone()
-            .lu()
-            .solve(b)
-            .or_else(|| dense.qr().solve(b))
-            .ok_or_else(|| {
-                cfd_core::error::Error::Numerical(
-                    cfd_core::error::NumericalErrorKind::DivisionByZero,
-                )
-            })
     }
 }
 

@@ -6,6 +6,10 @@ use num_traits::{Float, FromPrimitive, ToPrimitive};
 use super::postprocess::{extract_field_outlet_flow_rate, extract_field_wall_shear};
 use super::types::{Channel2dResult, Network2DSolver, Network2dResult};
 
+/// Minimum cross-section area (m²) used to guard against division by zero
+/// when computing velocity from flow rate.
+const MIN_CROSS_SECTION_AREA_M2: f64 = 1e-18;
+
 impl<T> Network2DSolver<T>
 where
     T: RealField + Copy + Float + FromPrimitive + ToPrimitive + std::fmt::Debug,
@@ -21,8 +25,9 @@ where
             .par_iter_mut()
             .map(|entry| {
                 let area = entry.cross_section_area_m2;
+                let u_mean = entry.flow_rate_m3_s / area.max(MIN_CROSS_SECTION_AREA_M2);
                 let u_inlet =
-                    T::from_f64(entry.flow_rate_m3_s / area.max(1e-18)).unwrap_or_else(T::one);
+                    T::from_f64(u_mean).unwrap_or_else(T::one);
 
                 entry.solver.config.tolerance = tol_t;
 
@@ -32,16 +37,15 @@ where
                         entry.id
                     ))
                 })?;
-                
-                println!("  [2D DEBUG] Channel {:<20} | u_in: {:.3e} | inner iter: {} | inner res: {:.3e} | Conv: {}", 
+
+                tracing::debug!(
+                    "  [2D] Channel {:<20} | u_in: {:.3e} | inner iter: {} | inner res: {:.3e} | Conv: {}",
                     entry.id,
                     u_inlet.to_f64().unwrap_or(0.0),
                     solve_result.iterations,
                     solve_result.residual.to_f64().unwrap_or(0.0),
                     solve_result.converged
                 );
-
-                let u_mean = entry.flow_rate_m3_s / area.max(1e-18);
                 let shear_rate = entry.cross_section.wall_shear_rate(u_mean);
                 let shear_pa = entry.viscosity_pa_s * shear_rate;
                 let (field_max, field_mean) = extract_field_wall_shear(&entry.solver);
@@ -52,7 +56,7 @@ where
                 );
                 let outlet_flow_error = field_outlet_flow - entry.reference_trace.flow_rate_m3_s;
                 let outlet_flow_error_pct = if Float::abs(entry.reference_trace.flow_rate_m3_s)
-                    > T::from_f64(1e-18).unwrap_or_else(T::zero)
+                    > T::from_f64(MIN_CROSS_SECTION_AREA_M2).unwrap_or_else(T::zero)
                 {
                     Float::abs(outlet_flow_error / entry.reference_trace.flow_rate_m3_s)
                         * T::from_f64(100.0).unwrap_or_else(T::one)

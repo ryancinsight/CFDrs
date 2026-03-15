@@ -353,8 +353,10 @@ impl<
             .iter()
             .map(|p| num_traits::Float::abs(*p))
             .fold(0.0_f64, f64::max);
-        eprintln!(
-            "DEBUG: FEM solution max velocity = {vel_max_f64:?}, max pressure = {p_max_f64:?}"
+        tracing::debug!(
+            max_velocity = ?vel_max_f64,
+            max_pressure = ?p_max_f64,
+            "FEM solution magnitude"
         );
 
         // 5. Extract Metrics for BifurcationSolution3D

@@ -363,7 +363,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive, F: FluidTrait<T> + Clone
             }
 
             last_solution = solution;
-            last_flow_rates = network.flow_rates.clone();
+            last_flow_rates.clone_from(&network.flow_rates);
         }
 
         Err(PrimarySolveError::new(
@@ -452,7 +452,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive, F: FluidTrait<T> + Clone
             residuals.pop_front();
             iterates.pop_front();
         }
-        residuals.push_back(residual.clone());
+        residuals.push_back(residual);
         iterates.push_back(picard_solution.clone());
 
         let m = residuals.len();

@@ -91,7 +91,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ── Union ─────────────────────────────────────────────────────────────────
     {
         let t0 = Instant::now();
-        let mut result = match cfd_mesh::application::csg::boolean::csg_boolean_indexed(
+        let mut result = match cfd_mesh::application::csg::boolean::indexed::csg_boolean_indexed(
             BooleanOp::Union,
             &cube_a,
             &cube_b,
@@ -115,7 +115,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ── Intersection ──────────────────────────────────────────────────────────
     {
         let t0 = Instant::now();
-        let mut result = match cfd_mesh::application::csg::boolean::csg_boolean_indexed(
+        let mut result = match cfd_mesh::application::csg::boolean::indexed::csg_boolean_indexed(
             BooleanOp::Intersection,
             &cube_a,
             &cube_b,
@@ -133,7 +133,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ── Difference ────────────────────────────────────────────────────────────
     {
         let t0 = Instant::now();
-        let mut result = match cfd_mesh::application::csg::boolean::csg_boolean_indexed(
+        let mut result = match cfd_mesh::application::csg::boolean::indexed::csg_boolean_indexed(
             BooleanOp::Difference,
             &cube_a,
             &cube_b,
@@ -223,6 +223,17 @@ fn report(label: &str, mesh: &mut IndexedMesh, expected: f64, tol: f64, ms: u128
                 "       - Not watertight: {} boundary + {} non-manifold edge(s)",
                 wt.boundary_edge_count, wt.non_manifold_edge_count
             );
+            if wt.boundary_edge_count > 0 {
+                let edges = mesh.edges_ref().unwrap();
+                for edge in edges.iter() {
+                    if edge.is_boundary() {
+                        let p0 = mesh.vertices.position(edge.vertices.0);
+                        let p1 = mesh.vertices.position(edge.vertices.1);
+                        println!("         BOUNDARY_EDGE: ({:.5}, {:.5}, {:.5}) -> ({:.5}, {:.5}, {:.5}) len={:.6}", 
+                            p0.x, p0.y, p0.z, p1.x, p1.y, p1.z, (p1-p0).norm());
+                    }
+                }
+            }
         }
         if !chi_ok {
             println!(
@@ -243,6 +254,17 @@ fn report(label: &str, mesh: &mut IndexedMesh, expected: f64, tol: f64, ms: u128
                 n.inward_faces,
                 mesh.face_count()
             );
+        }
+    }
+
+    if label.contains("Union") {
+        println!("    --- UNION FACES ---");
+        for (i, face) in mesh.faces.iter().enumerate() {
+            let p0 = mesh.vertices.position(face.vertices[0]);
+            let p1 = mesh.vertices.position(face.vertices[1]);
+            let p2 = mesh.vertices.position(face.vertices[2]);
+            println!("      Face {i}: ({:.2}, {:.2}, {:.2}) -> ({:.2}, {:.2}, {:.2}) -> ({:.2}, {:.2}, {:.2})",
+                p0.x, p0.y, p0.z, p1.x, p1.y, p1.z, p2.x, p2.y, p2.z);
         }
     }
 }
