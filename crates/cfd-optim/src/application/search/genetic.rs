@@ -82,9 +82,18 @@ impl BlueprintGeneticOptimizer {
             })
             .collect::<Result<Vec<_>, _>>()?;
 
-        let mut eval_cache: HashMap<String, BlueprintObjectiveEvaluation> = HashMap::new();
+        let mut eval_cache: HashMap<String, BlueprintObjectiveEvaluation> =
+            HashMap::with_capacity(self.population * 2);
 
         for _generation in 0..self.max_generations {
+            // Bound eval_cache to prevent unbounded memory growth across
+            // generations. Keep at most 2× population size (~48 entries
+            // × ~5 KB = ~240 KB) — sufficient for elite carry-forward
+            // without accumulating stale entries.
+            if eval_cache.len() > self.population * 4 {
+                eval_cache.clear();
+            }
+
             let ranked = rank_population(self.goal, &population, &mut eval_cache)?;
             if ranked.is_empty() {
                 return Err(OptimError::EmptyCandidates);
@@ -107,17 +116,18 @@ impl BlueprintGeneticOptimizer {
             }
 
             let elite_count = (self.population / 4).max(1).min(ranked.len());
-            let elites: Vec<BlueprintCandidate> = ranked
+            let mut next_population: Vec<BlueprintCandidate> = ranked
                 .iter()
                 .take(elite_count)
                 .map(|ranked| ranked.candidate.clone())
                 .collect();
-
-            let mut next_population = elites.clone();
             let mut seen = population_keys(&next_population);
 
-            for elite in &elites {
-                for mutation in generate_ga_mutations(elite)? {
+            // Iterate elites by index to avoid cloning the entire elite
+            // set. We borrow next_population[i] only to generate mutations,
+            // then push new mutations without aliasing.
+            for i in 0..elite_count {
+                for mutation in generate_ga_mutations(&next_population[i])? {
                     let key = candidate_key(&mutation)?;
                     if seen.insert(key) {
                         next_population.push(mutation);
@@ -224,28 +234,29 @@ fn rank_population(
     population: &[BlueprintCandidate],
     eval_cache: &mut HashMap<String, BlueprintObjectiveEvaluation>,
 ) -> Result<Vec<BlueprintRankedCandidate>, OptimError> {
-    let mut ranked = population
+    // Skip candidates that fail evaluation (e.g. duplicate channel geometry
+    // from deeply nested GA mutations) instead of aborting the entire run.
+    let mut ranked: Vec<BlueprintRankedCandidate> = population
         .iter()
-        .map(|candidate| {
-            // Re-use cached evaluations for elites carried across generations,
-            // avoiding redundant evaluate_goal() calls (~15 ms each).
+        .filter_map(|candidate| {
             let key = candidate_key(candidate).ok();
-            let evaluation = if let Some(cached) = key.as_deref().and_then(|k| eval_cache.get(k)) {
-                Ok(cached.clone())
-            } else {
-                let eval = evaluate_goal(candidate, goal)?;
-                if let Some(k) = key {
-                    eval_cache.insert(k, eval.clone());
-                }
-                Ok(eval)
-            };
-            evaluation.map(|evaluation| BlueprintRankedCandidate {
+            let evaluation =
+                if let Some(cached) = key.as_deref().and_then(|k| eval_cache.get(k)) {
+                    cached.clone()
+                } else {
+                    let eval = evaluate_goal(candidate, goal).ok()?;
+                    if let Some(k) = key {
+                        eval_cache.insert(k, eval.clone());
+                    }
+                    eval
+                };
+            Some(BlueprintRankedCandidate {
                 rank: 0,
                 candidate: candidate.clone(),
                 evaluation,
             })
         })
-        .collect::<Result<Vec<_>, _>>()?;
+        .collect();
     ranked.retain(|ranked_candidate| ranked_candidate.evaluation.is_eligible());
     ranked.sort_by(|left, right| {
         evaluation_score_or_zero(&right.evaluation)

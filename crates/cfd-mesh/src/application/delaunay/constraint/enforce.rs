@@ -29,7 +29,9 @@
 //! After all constraints are enforced, triangles inside hole regions (identified
 //! by flood-fill from hole seed points) are removed.
 
-use std::collections::{HashSet, VecDeque};
+use std::collections::VecDeque;
+
+use hashbrown::HashSet;
 
 use crate::domain::core::scalar::Real;
 use crate::domain::geometry::predicates::{incircle, orient_2d, Orientation};
@@ -39,6 +41,7 @@ use crate::application::delaunay::pslg::graph::Pslg;
 use crate::application::delaunay::pslg::graph::PslgValidationError;
 use crate::application::delaunay::pslg::vertex::PslgVertexId;
 use crate::application::delaunay::triangulation::bowyer_watson::DelaunayTriangulation;
+use crate::application::delaunay::triangulation::adjacency::Adjacency;
 use crate::application::delaunay::triangulation::triangle::{TriangleId, GHOST_TRIANGLE};
 
 /// Constrained Delaunay Triangulation.
@@ -131,6 +134,29 @@ impl Cdt {
     }
 
     /// Enforce a constraint edge between vertices `a` and `b`.
+    ///
+    /// # Algorithm — Single-Constraint Recovery (Sloan 1993)
+    ///
+    /// 1. If edge `(a,b)` already exists, mark it constrained and restore
+    ///    the local Delaunay property.
+    /// 2. Otherwise, collect crossing edges and flip them iteratively.
+    /// 3. Post-flip, restore locally-Delaunay non-constrained edges.
+    ///
+    /// # Theorem — Monotone Progress
+    ///
+    /// **Statement**: Each successful flip either removes a crossing or
+    /// replaces it with a crossing whose intersection length with `(a,b)`
+    /// is strictly shorter, guaranteeing termination.
+    ///
+    /// **Proof sketch**: The flip replaces diagonal `(u,v)` with `(p,q)`
+    /// in the convex quadrilateral.  If `(p,q)` still crosses `(a,b)`,
+    /// it connects the two opposite vertices of the quad, which lie on
+    /// opposite sides of `(a,b)`.  The intersection of `(p,q)` with
+    /// `(a,b)` is contained strictly within the quad, which is a subset
+    /// of the union of the two original triangles — so the new crossing
+    /// length is bounded by the quad diagonal, which is shorter than
+    /// the sum of the two triangles' diameters.  Combined with the
+    /// finite triangulation, this ensures termination.  ∎
     fn enforce_constraint(&mut self, a: PslgVertexId, b: PslgVertexId) {
         // Record the constraint.
         let canonical = if a <= b { (a, b) } else { (b, a) };
@@ -255,9 +281,29 @@ impl Cdt {
 
     /// Collect all edges currently crossing segment `(a, b)`.
     ///
-    /// Walks from triangle at `a` towards `b`, collecting crossing edges
-    /// along the way.  Falls back to a full scan only when the directed
-    /// walk fails (e.g. tombstoned triangles).
+    /// # Algorithm — Directed Triangle Walk with BFS Extension
+    ///
+    /// Starts from the vertex-star of `a` and walks toward `b` via
+    /// adjacency, collecting every non-constrained edge that geometrically
+    /// crosses the segment `(a,b)`.  Uses a BFS queue to handle
+    /// non-convex or tombstoned regions without falling back to O(T) scan.
+    ///
+    /// # Theorem — Crossing Edge Collection Completeness
+    ///
+    /// **Statement**: The directed walk from `a`'s star collects every
+    /// edge that intersects the open segment `(a,b)`, provided no
+    /// constrained edge blocks the walk.
+    ///
+    /// **Proof sketch**: In a triangulation, the segment `(a,b)` passes
+    /// through a sequence of triangles $T_1, T_2, \ldots, T_k$ forming
+    /// a "channel".  Adjacent triangles in this channel share crossing
+    /// edges.  Starting from $T_1$ (in `a`'s star) and following
+    /// adjacency across crossing edges visits every triangle in the
+    /// channel, hence every crossing edge.  ∎
+    ///
+    /// # Complexity
+    ///
+    /// $O(k + \deg(a))$ where $k$ is the number of crossing edges.
     fn collect_crossing_edges(
         &self,
         a: PslgVertexId,
@@ -268,8 +314,15 @@ impl Cdt {
         let sb = self.dt.vertex(b).to_point2();
 
         // Directed walk: start from triangles around `a`, walk towards `b`.
+        //
+        // # Dense Visited Buffer
+        //
+        // Triangle IDs are dense indices into the pool, so a `Vec<bool>`
+        // gives O(1) lookup/insert with zero hashing overhead compared
+        // to the previous `HashSet<TriangleId>`.
         let star_a = self.dt.triangles_around_vertex(a);
-        let mut visited = HashSet::new();
+        let pool_len = self.dt.triangles_slice().len();
+        let mut visited = vec![false; pool_len];
 
         // Find the starting triangle whose edge opposite `a` crosses (a,b).
         let mut walk_queue: VecDeque<TriangleId> = VecDeque::new();
@@ -287,9 +340,9 @@ impl Cdt {
                 let eb = self.dt.vertex(vb).to_point2();
                 if segments_cross(&sa, &sb, &ea, &eb) {
                     queue.push_back((tid, edge));
-                    visited.insert(tid);
+                    visited[tid.idx()] = true;
                     let nbr = tri.adj[edge];
-                    if nbr != GHOST_TRIANGLE && !visited.contains(&nbr) {
+                    if nbr != GHOST_TRIANGLE && !visited[nbr.idx()] {
                         walk_queue.push_back(nbr);
                     }
                 }
@@ -298,10 +351,10 @@ impl Cdt {
 
         // Continue walking through neighbors of found crossings.
         while let Some(tid) = walk_queue.pop_front() {
-            if visited.contains(&tid) {
+            if visited[tid.idx()] {
                 continue;
             }
-            visited.insert(tid);
+            visited[tid.idx()] = true;
             let tri = self.dt.triangle(tid);
             if !tri.alive {
                 continue;
@@ -320,7 +373,7 @@ impl Cdt {
                 if segments_cross(&sa, &sb, &ea, &eb) {
                     queue.push_back((tid, edge));
                     let nbr = tri.adj[edge];
-                    if nbr != GHOST_TRIANGLE && !visited.contains(&nbr) {
+                    if nbr != GHOST_TRIANGLE && !visited[nbr.idx()] {
                         walk_queue.push_back(nbr);
                     }
                 }
@@ -330,7 +383,16 @@ impl Cdt {
 
     /// Find the triangle and local edge index containing edge `(u, v)`.
     ///
-    /// Uses vertex-star walk: O(deg(u)) ≈ O(6) instead of O(T).
+    /// # Algorithm
+    ///
+    /// Delegates to [`DelaunayTriangulation::find_edge_fast`], which walks
+    /// the vertex-star of `u` looking for a triangle containing both `u`
+    /// and `v`.
+    ///
+    /// # Complexity
+    ///
+    /// $O(\deg(u)) \approx O(6)$ for well-distributed Delaunay vertices,
+    /// compared to $O(T)$ for a full triangle scan.
     fn find_edge_in_triangles(
         &self,
         u: PslgVertexId,
@@ -341,6 +403,26 @@ impl Cdt {
 
     /// Last-resort: insert a Steiner point at the intersection of the
     /// constraint segment and a crossing edge.
+    ///
+    /// # Algorithm — Steiner Point Insertion Fallback
+    ///
+    /// When the flip-based recovery exhausts its iteration budget
+    /// (non-convex quadrilaterals prevent progress), a Steiner point
+    /// is inserted at the intersection of `(a,b)` with the first
+    /// remaining crossing edge.  This splits both the constraint and
+    /// the crossing edge, breaking the deadlock.
+    ///
+    /// # Theorem — Steiner Recovery Guarantees Termination
+    ///
+    /// **Statement**: Steiner insertion reduces the number of crossing
+    /// edges by at least 1, so at most $O(k)$ Steiner points are
+    /// inserted for $k$ initial crossings.
+    ///
+    /// **Proof sketch**: The Steiner point lies on the constraint
+    /// segment, splitting it into two sub-segments.  The crossing edge
+    /// through the Steiner point is destroyed by the Bowyer-Watson
+    /// insertion.  Each sub-segment has strictly fewer crossings than
+    /// the original.  ∎
     fn steiner_fallback(&mut self, a: PslgVertexId, b: PslgVertexId, tid: TriangleId, edge: usize) {
         let (va, vb) = self.dt.triangle(tid).edge_vertices(edge);
         let pa = self.dt.vertex(va);
@@ -355,6 +437,25 @@ impl Cdt {
 
     /// Check if the quadrilateral formed by flipping edge `edge` of triangle
     /// `tid` is convex (required for a valid flip).
+    ///
+    /// # Theorem — Convexity Predicate for Edge Flips
+    ///
+    /// **Statement**: An edge shared by two triangles can be flipped iff
+    /// the union of the two triangles forms a strictly convex
+    /// quadrilateral — i.e., the two diagonals of the quad intersect
+    /// in their interiors.
+    ///
+    /// **Proof sketch**: Let the shared edge be `(va, vb)` and the
+    /// opposite vertices be `p` and `q`.  The quad is convex iff `p`
+    /// and `q` lie on opposite sides of line `(va, vb)` AND `va` and
+    /// `vb` lie on opposite sides of line `(p, q)`.  This is equivalent
+    /// to the four orientation tests having alternating signs for each
+    /// diagonal.  If the quad is non-convex, the flip would produce
+    /// an overlapping (non-planar) triangulation.  ∎
+    ///
+    /// # Complexity
+    ///
+    /// $O(1)$: four `orient_2d` predicate evaluations.
     fn can_flip(&self, tid: TriangleId, edge: usize) -> bool {
         let tri = self.dt.triangle(tid);
         let nbr_tid = tri.adj[edge];
@@ -389,6 +490,27 @@ impl Cdt {
     }
 
     /// Perform an edge flip on edge `edge` of triangle `tid`.
+    ///
+    /// # Algorithm — Lawson Edge Flip
+    ///
+    /// Given triangles $T_1 = (v_a, v_b, p)$ and $T_2 = (v_b, v_a, q)$
+    /// sharing edge $(v_a, v_b)$, the flip replaces them with
+    /// $T_1' = (p, q, v_b)$ and $T_2' = (q, p, v_a)$, rotating the
+    /// shared edge by 90° to become $(p, q)$.
+    ///
+    /// # Invariants Maintained
+    ///
+    /// 1. **Adjacency symmetry**: All four external adjacency links are
+    ///    updated so `T.adj[e].adj[e'] == T` holds.
+    /// 2. **`vert_to_tri` cache**: Updated for all four affected vertices
+    ///    so subsequent vertex-star walks start from valid triangles.
+    /// 3. **Constrained flags**: The new diagonal is marked unconstrained;
+    ///    external edge constraint flags are preserved from the original
+    ///    triangles.
+    ///
+    /// # Complexity
+    ///
+    /// $O(1)$: fixed number of array writes and adjacency patches.
     fn perform_flip(&mut self, tid: TriangleId, edge: usize) {
         let tri = self.dt.triangle(tid).clone();
         let nbr_tid = tri.adj[edge];
@@ -595,9 +717,9 @@ impl Cdt {
             }
         };
 
-        use crate::application::delaunay::triangulation::locate::{locate, Location};
+        use crate::application::delaunay::triangulation::locate::Location;
 
-        let loc = locate(self.dt.vertices(), self.dt.triangles_slice(), start, hx, hy);
+        let loc = self.dt.locate_point(start, hx, hy);
         let seed_tid = match loc {
             Some(Location::Inside(tid) | Location::OnEdge(tid, _) | Location::OnVertex(tid, _)) => {
                 tid
@@ -606,10 +728,17 @@ impl Cdt {
         };
 
         // Flood-fill from the seed, stopping at constrained edges.
+        //
+        // # Dense Visited Buffer
+        //
+        // Triangle IDs are dense pool indices.  A `Vec<bool>` eliminates
+        // hash overhead of `HashSet<TriangleId>` and gives cache-friendly
+        // sequential access during the adjacency-patching pass.
+        let pool_len = self.dt.triangles_slice().len();
         let mut queue = VecDeque::new();
-        let mut visited = HashSet::new();
+        let mut visited = vec![false; pool_len];
         queue.push_back(seed_tid);
-        visited.insert(seed_tid);
+        visited[seed_tid.idx()] = true;
 
         while let Some(tid) = queue.pop_front() {
             let tri = self.dt.triangle(tid).clone();
@@ -620,9 +749,52 @@ impl Cdt {
                     continue; // Don't cross constraint edges.
                 }
                 let nbr = tri.adj[edge];
-                if nbr != GHOST_TRIANGLE && !visited.contains(&nbr) && self.dt.triangle(nbr).alive {
-                    visited.insert(nbr);
+                if nbr != GHOST_TRIANGLE && !visited[nbr.idx()] && self.dt.triangle(nbr).alive {
+                    visited[nbr.idx()] = true;
                     queue.push_back(nbr);
+                }
+            }
+        }
+
+        // Patch adjacency: alive triangles on the hole boundary still have
+        // adjacency links pointing to the now-dead hole triangles.  Set
+        // those links to GHOST_TRIANGLE to maintain the symmetric-adjacency
+        // invariant.
+        //
+        // Theorem — Adjacency Consistency After Hole Removal
+        //
+        // Statement: After flood-fill hole removal, setting adj[e] =
+        // GHOST_TRIANGLE for every alive triangle whose neighbor across
+        // edge e was killed restores the symmetric-adjacency invariant.
+        //
+        // Proof: Let T_alive be an alive boundary triangle and T_dead its
+        // killed neighbor across edge e.  Before removal, T_alive.adj[e] =
+        // T_dead and T_dead.adj[e'] = T_alive for some e'.  After killing
+        // T_dead, T_dead is no longer alive so T_alive.adj[e] is a dangling
+        // reference.  Setting T_alive.adj[e] = GHOST_TRIANGLE makes the
+        // boundary edge a hull edge, consistent with the invariant that
+        // GHOST_TRIANGLE neighbours are not checked for symmetry.  ∎
+        for (i, &is_dead) in visited.iter().enumerate() {
+            if !is_dead {
+                continue;
+            }
+            let tid = TriangleId::from_usize(i);
+            let tri = self.dt.triangle(tid).clone();
+            for edge in 0..3 {
+                let nbr = tri.adj[edge];
+                if nbr == GHOST_TRIANGLE || visited[nbr.idx()] {
+                    continue;
+                }
+                // nbr is alive — patch its adjacency back to GHOST.
+                if let Some(back_edge) =
+                    Adjacency::find_edge(self.dt.triangles_slice(), nbr, tid)
+                {
+                    Adjacency::link_one(
+                        self.dt.triangles_mut(),
+                        nbr,
+                        back_edge,
+                        GHOST_TRIANGLE,
+                    );
                 }
             }
         }

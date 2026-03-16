@@ -33,8 +33,20 @@ impl DelaunayTriangulation {
         if start == GHOST_TRIANGLE || !self.triangles[start.idx()].alive {
             return self.triangles_around_vertex_linear(v);
         }
+        // Debug-mode staleness detector: vert_to_tri[v] should point to a
+        // triangle that actually contains v.  If this fires, the cache was
+        // not updated after a flip or removal.  The code below handles the
+        // miss gracefully (falling back to linear scan), but the assertion
+        // surfaces bugs during development.
+        debug_assert!(
+            self.triangles[start.idx()].contains_vertex(v),
+            "vert_to_tri cache stale for vertex {:?}: triangle {:?} does not contain it",
+            v,
+            start,
+        );
         let mut result = Vec::with_capacity(8);
         let mut cur = start;
+        let mut hit_ghost = false;
         loop {
             if !self.triangles[cur.idx()].alive {
                 return self.triangles_around_vertex_linear(v);
@@ -46,13 +58,19 @@ impl DelaunayTriangulation {
                 None => return self.triangles_around_vertex_linear(v),
             };
             let next = tri.adj[(li + 1) % 3];
-            if next == GHOST_TRIANGLE || next == start {
-                break;
+            if next == start {
+                break; // Full cycle completed — all incident triangles found.
+            }
+            if next == GHOST_TRIANGLE {
+                hit_ghost = true;
+                break; // Hull vertex — need backward walk.
             }
             cur = next;
         }
-        // If we stopped at GHOST (hull vertex), walk the other direction.
-        if self.triangles[start.idx()].alive {
+        // Only walk the other direction for hull vertices where the forward
+        // walk terminated at GHOST_TRIANGLE.  For interior vertices the
+        // forward walk completes a full cycle and captures all triangles.
+        if hit_ghost {
             let tri = &self.triangles[start.idx()];
             if let Some(li) = tri.vertex_index(v) {
                 let mut cur2 = tri.adj[(li + 2) % 3];
@@ -137,36 +155,11 @@ impl DelaunayTriangulation {
     /// # Complexity
     ///
     /// $O(n \cdot \bar{d})$ where $\bar{d} \le 6$ is the average vertex degree.
-    /// Uses a stack-allocated scratch buffer (capacity 20) to avoid heap
-    /// allocation for typical Delaunay vertices (degree ≤ 12).
     #[must_use]
     pub fn is_k_connected(&self, k: usize) -> bool {
-        // Scratch buffer for collecting neighbour indices.  Delaunay
-        // vertices have expected degree 6; 20 handles all practical cases
-        // without heap allocation.
-        let mut nbrs: Vec<usize> = Vec::with_capacity(20);
-
         for vid_idx in 0..self.num_real_vertices {
             let vid = PslgVertexId::from_usize(vid_idx);
-            let tris = self.triangles_around_vertex(vid);
-            if tris.is_empty() {
-                return false;
-            }
-            nbrs.clear();
-            for &tid in &tris {
-                let tri = &self.triangles[tid.idx()];
-                for &v in &tri.vertices {
-                    if v != vid && !self.super_verts.contains(&v) {
-                        let idx = v.idx();
-                        // Linear scan is faster than HashSet for small N
-                        // (typical: 6 neighbours).
-                        if !nbrs.contains(&idx) {
-                            nbrs.push(idx);
-                        }
-                    }
-                }
-            }
-            if nbrs.len() < k {
+            if self.count_real_neighbours(vid) < k {
                 return false;
             }
         }
@@ -240,7 +233,9 @@ impl DelaunayTriangulation {
     ///
     /// # Complexity
     ///
-    /// $O(V + T)$ where $T$ = number of alive triangles.
+    /// $O(V + T)$ where $T$ = number of alive triangles.  Uses a
+    /// capacity-hinted `hashbrown::HashSet` for edge deduplication,
+    /// avoiding repeated incremental rehashing.
     #[must_use]
     pub fn satisfies_euler(&self) -> bool {
         let v = self.num_real_vertices;
@@ -254,7 +249,9 @@ impl DelaunayTriangulation {
         }
 
         // Count unique edges among interior triangles.
-        let mut edges = std::collections::HashSet::new();
+        // Capacity hint 3F/2: each triangle contributes up to 3 edges, most
+        // shared by exactly 2 faces, so ~3F/2 unique real edges.
+        let mut edges = hashbrown::HashSet::with_capacity(3 * f / 2);
         for (_tid, tri) in self.interior_triangles() {
             for e in 0..3 {
                 let (va, vb) = tri.edge_vertices(e);
@@ -275,34 +272,32 @@ impl DelaunayTriangulation {
     /// Collect the convex hull vertices.
     ///
     /// A real vertex is on the convex hull iff it belongs to a triangle
-    /// that shares an edge with a triangle containing a super-triangle
-    /// vertex.  The two non-super vertices of such a shared edge lie on
-    /// the hull.
+    /// sharing an edge with one of the three super-triangle vertices.
+    ///
+    /// # Algorithm — Super-Vertex Star Walk
+    ///
+    /// Instead of scanning all $T$ triangles, we walk the vertex star of
+    /// each super-triangle vertex.  Since every hull vertex is incident
+    /// on at most two super-vertex triangles, the union of the three stars
+    /// contains exactly the hull-adjacent triangles.
     ///
     /// # Complexity
     ///
-    /// $O(T)$ where $T$ is the number of alive triangles.
+    /// $O(h)$ where $h$ is the number of convex hull vertices, down from
+    /// the previous $O(T)$.  For typical CFD meshes $h \ll T$.
     #[must_use]
     pub fn convex_hull_vertices(&self) -> Vec<PslgVertexId> {
+        let mut seen = hashbrown::HashSet::new();
         let mut hull = Vec::new();
-        // Walk triangles that touch a super-vertex.  For each such
-        // triangle, edges shared with a real (non-super) neighbour
-        // contribute their real vertices to the hull.
-        for (_tid, tri) in self.all_alive_triangles() {
-            if !tri.vertices.iter().any(|v| self.super_verts.contains(v)) {
-                continue;
-            }
-            for e in 0..3 {
-                let (va, vb) = tri.edge_vertices(e);
-                // Both endpoints must be real (non-super) to be hull edges.
-                if self.super_verts.contains(&va) || self.super_verts.contains(&vb) {
-                    continue;
-                }
-                if !hull.contains(&va) {
-                    hull.push(va);
-                }
-                if !hull.contains(&vb) {
-                    hull.push(vb);
+        // Walk the star of each super-vertex — these are exactly the
+        // triangles that share an edge with the convex hull.
+        for &sv in &self.super_verts {
+            for tid in self.triangles_around_vertex(sv) {
+                let tri = &self.triangles[tid.idx()];
+                for &v in &tri.vertices {
+                    if !self.super_verts.contains(&v) && seen.insert(v) {
+                        hull.push(v);
+                    }
                 }
             }
         }
@@ -335,28 +330,45 @@ impl DelaunayTriangulation {
     #[must_use]
     pub fn min_vertex_connectivity(&self) -> usize {
         let mut min_deg = usize::MAX;
-        let mut nbrs: Vec<usize> = Vec::with_capacity(20);
-
         for vid_idx in 0..self.num_real_vertices {
             let vid = PslgVertexId::from_usize(vid_idx);
-            let tris = self.triangles_around_vertex(vid);
-            if tris.is_empty() {
-                return 0;
-            }
-            nbrs.clear();
-            for &tid in &tris {
-                let tri = &self.triangles[tid.idx()];
-                for &v in &tri.vertices {
-                    if v != vid && !self.super_verts.contains(&v) {
-                        let idx = v.idx();
-                        if !nbrs.contains(&idx) {
-                            nbrs.push(idx);
-                        }
+            min_deg = min_deg.min(self.count_real_neighbours(vid));
+        }
+        if min_deg == usize::MAX { 0 } else { min_deg }
+    }
+
+    /// Count distinct real (non-super) neighbours of vertex `vid` using
+    /// the vertex-star fan walk.
+    ///
+    /// # Algorithm
+    ///
+    /// Collects all vertices from incident triangles, filtering out the
+    /// query vertex itself and super-triangle vertices, then deduplicates
+    /// via linear scan on a small scratch buffer.
+    ///
+    /// # Complexity
+    ///
+    /// O(deg(v)) per call.  Uses a stack-allocated scratch buffer
+    /// (capacity 20) to avoid heap allocation for typical Delaunay
+    /// vertices (degree ≤ 12).  Linear scan dedup is faster than `HashSet`
+    /// for these small sizes due to cache locality and zero hash overhead.
+    fn count_real_neighbours(&self, vid: PslgVertexId) -> usize {
+        let tris = self.triangles_around_vertex(vid);
+        if tris.is_empty() {
+            return 0;
+        }
+        let mut nbrs: Vec<usize> = Vec::with_capacity(20);
+        for &tid in &tris {
+            let tri = &self.triangles[tid.idx()];
+            for &v in &tri.vertices {
+                if v != vid && !self.super_verts.contains(&v) {
+                    let idx = v.idx();
+                    if !nbrs.contains(&idx) {
+                        nbrs.push(idx);
                     }
                 }
             }
-            min_deg = min_deg.min(nbrs.len());
         }
-        if min_deg == usize::MAX { 0 } else { min_deg }
+        nbrs.len()
     }
 }

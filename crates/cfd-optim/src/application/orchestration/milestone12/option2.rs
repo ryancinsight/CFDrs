@@ -9,7 +9,7 @@ use crate::application::objectives::{
     score_selective_acoustic_residence_separation, score_selective_venturi_cavitation,
 };
 use crate::application::orchestration::{
-    blueprint_lineage_key, ensure_release_reports, fast_mode, init_tracing,
+    blueprint_lineage_key, ensure_release_reports, fast_env, fast_mode, init_tracing,
     is_selective_report_topology, resolve_output_directories, save_figure, ScanProgress,
 };
 use crate::delivery::{load_top5_report_json, save_pareto_points, save_top5_report_json};
@@ -52,20 +52,32 @@ pub fn run_milestone12_option2() -> Result<Milestone12Option2Run, Box<dyn std::e
         load_top5_report_json(&out_dir.join("two_concept_option1_ultrasound_top5.json"))?;
     let have_option1 = !option1_from_disk.is_empty();
 
+    // In fast mode, cap evaluation to avoid hanging on the full space.
+    let eval_cap = if is_fast {
+        fast_env("M12_FAST_VENTURI_EVAL_MAX", 200)
+    } else {
+        total_candidates
+    };
+
     // Filter params to selective-report topologies.
     // Materialize one at a time to check, then drop immediately.
+    // Apply eval_cap to bound the work in fast mode.
     let selective_params: Vec<CandidateParams> = all_params
         .into_iter()
         .filter(|params| {
             let candidate = params.materialize();
             is_selective_report_topology(&candidate)
         })
+        .take(eval_cap)
         .collect();
 
-    // Audit still needs full candidates, but only for the lightweight audit scan.
-    // Build them lazily for the audit, then drop.
-    let selective_for_audit: Vec<BlueprintCandidate> =
-        selective_params.iter().map(|p| p.materialize()).collect();
+    // Audit on a capped subset — materialize transiently.
+    let audit_cap = selective_params.len().min(100);
+    let selective_for_audit: Vec<BlueprintCandidate> = selective_params
+        .iter()
+        .take(audit_cap)
+        .map(|p| p.materialize())
+        .collect();
     let audit_entries = audit_goal_candidates(&selective_for_audit, goal);
     let audit = write_goal_audit_report(&out_dir, "option2_audit", &audit_entries)?;
     drop(selective_for_audit);
@@ -216,22 +228,18 @@ pub fn run_milestone12_option2() -> Result<Milestone12Option2Run, Box<dyn std::e
         sorted.sort_by(|a, b| b.1.total_cmp(&a.1));
         sorted.into_iter().take(5).map(|(i, _)| i).collect()
     } else {
+        // Sort viable lineages by best Option 2 score — O(n) direct index
+        // lookup instead of O(n²) find_map scan.
         viable_lineages.sort_by(|left, right| {
             let left_best = left
                 .1
                 .iter()
-                .map(|&i| deferred.iter()
-                    .enumerate()
-                    .find_map(|(di, r)| if di == i { r.option2_score } else { None })
-                    .unwrap_or(f64::NEG_INFINITY))
+                .map(|&i| deferred[i].option2_score.unwrap_or(f64::NEG_INFINITY))
                 .fold(f64::NEG_INFINITY, f64::max);
             let right_best = right
                 .1
                 .iter()
-                .map(|&i| deferred.iter()
-                    .enumerate()
-                    .find_map(|(di, r)| if di == i { r.option2_score } else { None })
-                    .unwrap_or(f64::NEG_INFINITY))
+                .map(|&i| deferred[i].option2_score.unwrap_or(f64::NEG_INFINITY))
                 .fold(f64::NEG_INFINITY, f64::max);
             right_best.total_cmp(&left_best)
         });

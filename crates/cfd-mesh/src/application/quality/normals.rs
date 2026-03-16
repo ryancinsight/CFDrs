@@ -38,7 +38,7 @@
 //! `face_vertex_alignment_mean` near 1.0 means stored vertex normals agree with
 //! computed face normals (good for smooth-shaded rendering and CFD post-processing).
 
-use std::collections::{HashMap, VecDeque};
+use std::collections::VecDeque;
 
 use crate::domain::core::index::VertexId;
 use crate::domain::core::scalar::{Real, Vector3r};
@@ -162,7 +162,11 @@ pub fn analyze_normals(mesh: &IndexedMesh) -> NormalAnalysis {
     //
     // half_edge[(v_i, v_j)] = face_idx of the face that has directed edge i→j.
     // For a manifold mesh every directed edge appears in exactly one face.
-    let mut half_edge: HashMap<(VertexId, VertexId), usize> = HashMap::with_capacity(n_faces * 3);
+    //
+    // Uses `hashbrown::HashMap` for consistent performance with the rest of
+    // the mesh pipeline (lower overhead than std HashMap).
+    let mut half_edge: hashbrown::HashMap<(VertexId, VertexId), usize> =
+        hashbrown::HashMap::with_capacity(n_faces * 3);
     for (fi, face) in face_list.iter().enumerate() {
         let v = face.vertices;
         for k in 0..3 {
@@ -399,5 +403,111 @@ mod tests {
         .unwrap();
         let r = analyze_normals(&mesh);
         assert_eq!(r.total_faces(), mesh.face_count());
+    }
+
+    // ── Adversarial BFS analysis tests ────────────────────────────────────
+
+    /// # Theorem — Signed-Volume BFS Correction for Inward Meshes
+    ///
+    /// **Statement**: When `analyze_normals` BFS labels a majority of
+    /// faces as "outward" but the signed-volume integral is negative,
+    /// the seed heuristic was wrong.  The outward/inward counts must
+    /// be swapped so that `inward_faces` reflects the true orientation
+    /// inconsistency count.
+    ///
+    /// **Proof**: The BFS seed heuristic (max-X face with $n_x \geq 0$)
+    /// assumes the extreme face points outward.  For a fully inward-wound
+    /// mesh, the seed labels all faces "outward" (consistent BFS), but
+    /// the signed volume is negative.  Swapping the counts corrects the
+    /// analysis without re-running BFS.
+    #[test]
+    fn analyze_normals_all_inward_tet() {
+        use crate::domain::mesh::IndexedMesh;
+
+        let mut mesh = IndexedMesh::with_cell_size(0.01);
+        let v0 = mesh.add_vertex_pos(Point3r::new(1.0, 0.0, 0.0));
+        let v1 = mesh.add_vertex_pos(Point3r::new(0.0, 1.0, 0.0));
+        let v2 = mesh.add_vertex_pos(Point3r::new(0.0, 0.0, 1.0));
+        let v3 = mesh.add_vertex_pos(Point3r::new(0.0, 0.0, 0.0));
+        // CW winding (inward)
+        mesh.add_face(v0, v2, v1);
+        mesh.add_face(v0, v1, v3);
+        mesh.add_face(v0, v3, v2);
+        mesh.add_face(v1, v2, v3);
+
+        let r = analyze_normals(&mesh);
+        assert_eq!(r.total_faces(), 4);
+        // All faces have the same (inward) winding, so BFS labels them
+        // consistently.  The signed-volume swap means all 4 are reported
+        // as "inward" after correction.
+        assert_eq!(
+            r.inward_faces, 4,
+            "all-inward tet should report 4 inward faces, got {}",
+            r.inward_faces
+        );
+        assert_eq!(r.outward_faces, 0);
+    }
+
+    /// # Theorem — BFS Multi-Component Completeness
+    ///
+    /// **Statement**: `analyze_normals` correctly handles meshes with
+    /// multiple disconnected connected components by re-seeding BFS
+    /// for each unvisited component.  The total face count must equal
+    /// the sum across all components.
+    ///
+    /// **Proof**: The outer `loop` in `analyze_normals` iterates until
+    /// `find_seed` returns `None`, which only happens when every
+    /// non-degenerate face has been assigned an orientation.  Each
+    /// iteration seeds and floods one component.
+    #[test]
+    fn analyze_normals_two_disjoint_cubes() {
+        // Two separate cubes — both outward-wound.
+        let cube1 = Cube {
+            origin: Point3r::new(0.0, 0.0, 0.0),
+            width: 1.0,
+            height: 1.0,
+            depth: 1.0,
+        }
+        .build()
+        .unwrap();
+        let cube2 = Cube {
+            origin: Point3r::new(10.0, 0.0, 0.0),
+            width: 1.0,
+            height: 1.0,
+            depth: 1.0,
+        }
+        .build()
+        .unwrap();
+
+        // Merge into one mesh.
+        let mut combined = IndexedMesh::with_cell_size(1e-4);
+        for fi in 0..cube1.face_count() {
+            let fid = crate::domain::core::index::FaceId::from_usize(fi);
+            let face = cube1.faces.get(fid);
+            let a = combined.add_vertex_pos(*cube1.vertices.position(face.vertices[0]));
+            let b = combined.add_vertex_pos(*cube1.vertices.position(face.vertices[1]));
+            let c = combined.add_vertex_pos(*cube1.vertices.position(face.vertices[2]));
+            combined.add_face(a, b, c);
+        }
+        for fi in 0..cube2.face_count() {
+            let fid = crate::domain::core::index::FaceId::from_usize(fi);
+            let face = cube2.faces.get(fid);
+            let a = combined.add_vertex_pos(*cube2.vertices.position(face.vertices[0]));
+            let b = combined.add_vertex_pos(*cube2.vertices.position(face.vertices[1]));
+            let c = combined.add_vertex_pos(*cube2.vertices.position(face.vertices[2]));
+            combined.add_face(a, b, c);
+        }
+
+        let r = analyze_normals(&combined);
+        assert_eq!(
+            r.total_faces(),
+            cube1.face_count() + cube2.face_count(),
+            "total faces must cover both components"
+        );
+        assert_eq!(
+            r.inward_faces, 0,
+            "two correctly-wound cubes must have zero inward faces"
+        );
+        assert!(r.all_outward());
     }
 }

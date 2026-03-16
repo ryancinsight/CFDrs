@@ -17,7 +17,7 @@
 //!
 //! Expected $O(n \log n)$ (uniformly distributed); worst-case $O(n^2)$.
 
-use super::locate::{locate, Location};
+use super::locate::Location;
 use super::ordering::hilbert_order;
 use super::triangle::{Triangle, TriangleId, GHOST_TRIANGLE};
 use crate::application::delaunay::pslg::vertex::{PslgVertex, PslgVertexId};
@@ -61,6 +61,12 @@ pub struct DelaunayTriangulation {
     /// Vertex → one incident alive triangle.  Enables O(deg(v)) local
     /// traversal for edge queries instead of O(T) global scans.
     pub(crate) vert_to_tri: Vec<TriangleId>,
+    /// Epoch stamps for O(1) amortised cycle detection in the Lawson walk.
+    /// `locate_epoch[tid]` holds the generation when triangle `tid` was last
+    /// visited.
+    locate_epoch: Vec<u32>,
+    /// Generation counter, incremented once per `locate_point` call.
+    locate_gen: u32,
 }
 
 impl DelaunayTriangulation {
@@ -172,21 +178,132 @@ impl DelaunayTriangulation {
             num_real_vertices: 0,
             super_verts: [sv0_id, sv1_id, sv2_id],
             vert_to_tri,
+            locate_epoch: vec![0; 1],
+            locate_gen: 0,
         }
+    }
+
+    /// Locate the triangle containing `(qx, qy)` via Lawson's oriented walk
+    /// with epoch-based cycle detection.
+    ///
+    /// # Theorem — Epoch-Stamped Visited Tracking
+    ///
+    /// **Statement**: A per-triangle epoch vector `E[0..T]` and a global
+    /// generation counter `g` provide amortised $O(1)$ visited-set
+    /// operations with $O(T)$ memory allocated once, eliminating the
+    /// per-call `HashSet` allocation incurred by the cold-path
+    /// [`locate()`](super::locate::locate) free function.
+    ///
+    /// **Proof**: Each call increments `g` and marks visited triangles by
+    /// setting `E[tid] = g`.  A triangle is "visited in this call" iff
+    /// `E[tid] == g`.  Since `g` is unique per call, all previous marks
+    /// are implicitly invalidated without clearing `E`.  The `Vec` grows
+    /// monotonically (amortised $O(1)$ push); no other allocation occurs.
+    /// When `g` wraps around $2^{32}$ we reset `E` to zero — this happens
+    /// once per ~4 billion locate calls and costs $O(T)$.  ∎
+    pub(crate) fn locate_point(
+        &mut self,
+        start: TriangleId,
+        qx: Real,
+        qy: Real,
+    ) -> Option<Location> {
+        use nalgebra::Point2;
+
+        self.locate_gen = self.locate_gen.wrapping_add(1);
+        if self.locate_gen == 0 {
+            // Epoch wrapped — clear all stamps.
+            self.locate_epoch.fill(0);
+            self.locate_gen = 1;
+        }
+        let gen = self.locate_gen;
+
+        // Ensure epoch vec covers all triangles.
+        if self.locate_epoch.len() < self.triangles.len() {
+            self.locate_epoch.resize(self.triangles.len(), 0);
+        }
+
+        let q = Point2::new(qx, qy);
+        let mut tid = start;
+        let max_steps = self.triangles.len() * 3;
+
+        for _ in 0..max_steps {
+            if tid == GHOST_TRIANGLE {
+                return None;
+            }
+            let idx = tid.idx();
+            if idx >= self.triangles.len() {
+                return None;
+            }
+            if self.locate_epoch[idx] == gen {
+                return None; // Cycle detected.
+            }
+            self.locate_epoch[idx] = gen;
+
+            let tri = &self.triangles[idx];
+            if !tri.alive {
+                return None;
+            }
+
+            let v0 = &self.vertices[tri.vertices[0].idx()];
+            let v1 = &self.vertices[tri.vertices[1].idx()];
+            let v2 = &self.vertices[tri.vertices[2].idx()];
+
+            let p0 = Point2::new(v0.x, v0.y);
+            let p1 = Point2::new(v1.x, v1.y);
+            let p2 = Point2::new(v2.x, v2.y);
+
+            let o0 = orient_2d(&p1, &p2, &q);
+            if o0 == Orientation::Negative {
+                tid = tri.adj[0];
+                continue;
+            }
+
+            let o1 = orient_2d(&p2, &p0, &q);
+            if o1 == Orientation::Negative {
+                tid = tri.adj[1];
+                continue;
+            }
+
+            let o2 = orient_2d(&p0, &p1, &q);
+            if o2 == Orientation::Negative {
+                tid = tri.adj[2];
+                continue;
+            }
+
+            // Vertex coincidence.
+            if o1 == Orientation::Degenerate && o2 == Orientation::Degenerate {
+                return Some(Location::OnVertex(tid, 0));
+            }
+            if o0 == Orientation::Degenerate && o2 == Orientation::Degenerate {
+                return Some(Location::OnVertex(tid, 1));
+            }
+            if o0 == Orientation::Degenerate && o1 == Orientation::Degenerate {
+                return Some(Location::OnVertex(tid, 2));
+            }
+
+            // Edge coincidence.
+            if o0 == Orientation::Degenerate {
+                return Some(Location::OnEdge(tid, 0));
+            }
+            if o1 == Orientation::Degenerate {
+                return Some(Location::OnEdge(tid, 1));
+            }
+            if o2 == Orientation::Degenerate {
+                return Some(Location::OnEdge(tid, 2));
+            }
+
+            return Some(Location::Inside(tid));
+        }
+
+        None
     }
 
     /// Insert a vertex into the triangulation via Bowyer-Watson.
     pub(crate) fn insert_vertex(&mut self, vid: PslgVertexId) {
         let v = self.vertices[vid.idx()];
 
-        // 1. Locate the containing triangle.
-        let loc = if let Some(l) = locate(
-            &self.vertices,
-            &self.triangles,
-            self.last_triangle,
-            v.x,
-            v.y,
-        ) {
+        // 1. Locate the containing triangle (epoch-based, zero-alloc).
+        let loc = if let Some(l) = self.locate_point(self.last_triangle, v.x, v.y) {
             l
         } else {
             // Fallback: linear scan for a valid starting triangle.
@@ -196,7 +313,7 @@ impl DelaunayTriangulation {
                 .position(|t| t.alive)
                 .map_or(TriangleId::new(0), TriangleId::from_usize);
 
-            match locate(&self.vertices, &self.triangles, start, v.x, v.y) {
+            match self.locate_point(start, v.x, v.y) {
                 Some(l) => l,
                 None => return, // Point outside super-triangle — skip.
             }

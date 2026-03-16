@@ -346,7 +346,13 @@ pub(super) fn build_references_block() -> String {
 16. Durst, F., et al. \"The development lengths of laminar pipe and channel flows.\" *Journal of Fluids Engineering*, 127(6):1154–1160, 2005. [Developing-flow entrance correction for short venturi throats with L/D_h < 20.]\n\
 17. White, F.M. *Fluid Mechanics*, 7th ed. McGraw-Hill, 2011. [Cross-section averaged throat velocity for cavitation number computation.]\n\
 18. Bayat, P. and Rezai, P. \"Semi-empirical estimation of Dean flow velocity in curved microchannels.\" *Scientific Reports*, 7:13655, 2017. [Millifluidic Dean correlation for D_h > 500 µm; validated correction for large aspect ratios.]\n\
-19. SonALAsense Internal Data — CFDrs canonical simulation data (see Appendix A)."
+19. Gor'kov, L.P. \"On the forces acting on a small particle in an acoustical field in an ideal fluid.\" *Soviet Physics — Doklady*, 6(9):773–775, 1962. [Acoustic radiation force and energy density; basis for `acoustic_contrast_factor()` and `acoustic_energy_density()`.]\n\
+20. Bruus, H. \"Acoustofluidics 7: The acoustic radiation force on small particles.\" *Lab on a Chip*, 12(6):1014–1021, 2012. [Comprehensive review of acoustic radiation force in microfluidics; basis for radiation force model F = 4πa³ΦkE_ac·sin(2kx).]\n\
+21. Rosenthal, I., et al. \"Sonodynamic therapy — a review of the synergistic effects of drugs and ultrasound.\" *Ultrasonics Sonochemistry*, 11(6):349–363, 2004. [First-order sonosensitizer activation kinetics η = 1−exp(−k·I·t); basis for `sonosensitizer_activation_efficiency()`.]\n\
+22. Rayleigh, Lord. \"On the pressure developed in a liquid during the collapse of a spherical cavity.\" *Philosophical Magazine*, 34(200):94–98, 1917. [Bubble collapse time t_c = 0.915R√(ρ/p) and jet velocity; basis for `cavitation_hemolysis_amplification()`.]\n\
+23. Secomb, T.W. \"Blood flow in the microcirculation.\" *Annual Review of Fluid Mechanics*, 49:443–461, 2017. [Network blood viscosity model including in-vivo correction and phase separation parameter X₀.]\n\
+24. Gosling, R.G. and King, D.H. \"Arterial assessment by Doppler-shift ultrasound.\" *Proceedings of the Royal Society of Medicine*, 67(6):447–449, 1974. [Pulsatility index PI = (V_sys−V_dia)/V_mean for Womersley pulsatile flow characterization.]\n\
+25. SonALAsense Internal Data — CFDrs canonical simulation data (see Appendix A)."
         .to_string()
 }
 

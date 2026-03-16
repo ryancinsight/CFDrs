@@ -3,6 +3,7 @@ use crate::application::csg::arrangement::coplanar_dispatch::dispatch_boolean_co
 use crate::application::csg::arrangement::fragment_refinement::{
     append_corefined_fragments,
 };
+use crate::application::csg::corefine::build_seam_vertex_map;
 use crate::application::csg::arrangement::multi_mesh_resolution::resolve_multi_mesh_fragments;
 use crate::application::csg::boolean::containment::{containment, Containment};
 pub use crate::application::csg::arrangement::multi_mesh_resolution::BooleanFragmentRecord;
@@ -329,6 +330,12 @@ fn execute_arrangement_pass(
     }
 
     // ── Phase 3: Universal Co-refinement ────────────────────────────────────────────
+    // Build per-mesh seam vertex maps so that co-refinement uses canonical
+    // Steiner vertices shared across adjacent faces on the same mesh edge.
+    let seam_maps: Vec<_> = (0..n_meshes)
+        .map(|i| build_seam_vertex_map(&meshes[i], &segs[i], pool))
+        .collect();
+
     let mut frags: Vec<BooleanFragmentRecord> = Vec::new();
 
     for (m_idx, m_faces) in meshes.iter().enumerate() {
@@ -338,6 +345,7 @@ fn execute_arrangement_pass(
             &coplanar_phase.skipped_faces_by_mesh[m_idx],
             &segs[m_idx],
             pool,
+            &seam_maps[m_idx],
             |face, parent_idx| BooleanFragmentRecord {
                 face,
                 mesh_idx: m_idx,

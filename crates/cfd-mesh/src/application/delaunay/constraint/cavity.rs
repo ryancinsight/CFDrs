@@ -23,6 +23,26 @@ use crate::application::delaunay::pslg::vertex::{PslgVertex, PslgVertexId};
 
 /// Re-triangulate a cavity polygon on one side of a constraint edge.
 ///
+/// # Theorem — Ear-Clipping with Delaunay Preference
+///
+/// **Statement**: Every simple polygon with $n \geq 4$ vertices has at least
+/// two non-overlapping ears (Meisters, 1975).  Iteratively clipping the ear
+/// with fewest circumcircle-interior violations produces a triangulation
+/// that is locally Delaunay wherever the polygon boundary allows.
+///
+/// **Proof sketch**: An ear of a simple polygon is a triangle $(v_{i-1}, v_i,
+/// v_{i+1})$ whose interior lies entirely within the polygon.  Meisters'
+/// Two-Ears Theorem guarantees at least two such ears exist.  Clipping $v_i$
+/// produces a polygon with $n-1$ vertices that is still simple, so the
+/// process terminates after $n - 2$ clips.  Preferring the ear with minimum
+/// incircle violations is a greedy heuristic: it yields a Delaunay
+/// triangulation when one exists, and a near-Delaunay one otherwise.
+///
+/// # Complexity
+///
+/// $O(n^2)$ time via circular linked-list ear removal (O(1) per clip) and
+/// pre-computed point cache.
+///
 /// # Arguments
 ///
 /// - `vertices`: the vertex pool
@@ -45,102 +65,121 @@ pub fn retriangulate_cavity(
         return vec![[polygon[0], polygon[1], polygon[2]]];
     }
 
-    // Ear-clipping with Delaunay preference.
-    // For each candidate ear (a, b, c) where b is the ear tip:
-    //   1. Check that (a, b, c) is CCW.
-    //   2. Check that no other polygon vertex lies inside the triangle.
-    //   3. Among valid ears, prefer the one whose circumcircle is most empty.
-    let mut remaining: Vec<usize> = (0..polygon.len()).collect();
-    let mut result = Vec::with_capacity(polygon.len() - 2);
+    let n = polygon.len();
 
-    while remaining.len() > 3 {
-        let n = remaining.len();
+    // Pre-compute Point2 values to avoid repeated construction in inner
+    // loops.  Cache is indexed by polygon position, not vertex ID.
+    let points: Vec<Point2<Real>> = polygon
+        .iter()
+        .map(|vid| {
+            let v = &vertices[vid.idx()];
+            Point2::new(v.x, v.y)
+        })
+        .collect();
+
+    // Circular linked-list for O(1) ear removal.  `next[i]` and `prev[i]`
+    // give the successor/predecessor of polygon index `i` among the still-
+    // active vertices.  Removal relinks neighbours in O(1) instead of the
+    // O(n) element shifting required by `Vec::remove()`.
+    let mut next: Vec<usize> = (1..n + 1).collect();
+    next[n - 1] = 0;
+    let mut prev: Vec<usize> = (0..n).map(|i| if i == 0 { n - 1 } else { i - 1 }).collect();
+    let mut alive_count = n;
+    let mut head = 0usize; // Always points to a live vertex.
+
+    let mut result = Vec::with_capacity(n - 2);
+
+    while alive_count > 3 {
         let mut best_ear: Option<usize> = None;
         let mut min_incircle_count = usize::MAX;
 
-        for i in 0..n {
-            let ia = remaining[(i + n - 1) % n];
-            let ib = remaining[i];
-            let ic = remaining[(i + 1) % n];
+        // Walk the circular list to find the best ear.
+        let mut cur = head;
+        for _ in 0..alive_count {
+            let ia = prev[cur];
+            let ib = cur;
+            let ic = next[cur];
 
-            let a = &vertices[polygon[ia].idx()];
-            let b = &vertices[polygon[ib].idx()];
-            let c = &vertices[polygon[ic].idx()];
-
-            let pa = Point2::new(a.x, a.y);
-            let pb = Point2::new(b.x, b.y);
-            let pc = Point2::new(c.x, c.y);
+            let pa = &points[ia];
+            let pb = &points[ib];
+            let pc = &points[ic];
 
             // Must be CCW.
-            if orient_2d(&pa, &pb, &pc) != Orientation::Positive {
+            if orient_2d(pa, pb, pc) != Orientation::Positive {
+                cur = next[cur];
                 continue;
             }
 
-            // Check no other vertex is inside this ear.
+            // Check no other active vertex is inside this ear.
             let mut valid = true;
-            for j in 0..n {
-                if j == (i + n - 1) % n || j == i || j == (i + 1) % n {
-                    continue;
-                }
-                let d = &vertices[polygon[remaining[j]].idx()];
-                let pd = Point2::new(d.x, d.y);
-                if point_in_triangle(&pa, &pb, &pc, &pd) {
+            let mut check = next[ic];
+            while check != ia {
+                if point_in_triangle(pa, pb, pc, &points[check]) {
                     valid = false;
                     break;
                 }
+                check = next[check];
             }
 
             if !valid {
+                cur = next[cur];
                 continue;
             }
 
-            // Count how many vertices are strictly inside the circumcircle
-            let mut incircle_count = 0;
-            for j in 0..n {
-                if j == (i + n - 1) % n || j == i || j == (i + 1) % n {
-                    continue;
-                }
-                let d = &vertices[polygon[remaining[j]].idx()];
-                let pd = Point2::new(d.x, d.y);
-                if incircle(&pa, &pb, &pc, &pd) == Orientation::Positive {
+            // Count circumcircle violations among remaining vertices.
+            let mut incircle_count = 0usize;
+            let mut check = next[ic];
+            while check != ia {
+                if incircle(pa, pb, pc, &points[check]) == Orientation::Positive {
                     incircle_count += 1;
                 }
+                check = next[check];
             }
 
             if incircle_count == 0 {
-                best_ear = Some(i);
-                break; // Perfect Delaunay ear found
+                best_ear = Some(ib);
+                break; // Perfect Delaunay ear found.
             }
 
             if incircle_count < min_incircle_count {
                 min_incircle_count = incircle_count;
-                best_ear = Some(i);
+                best_ear = Some(ib);
             }
+
+            cur = next[cur];
         }
 
-        if let Some(i) = best_ear {
-            let ia = remaining[(i + remaining.len() - 1) % remaining.len()];
-            let ib = remaining[i];
-            let ic = remaining[(i + 1) % remaining.len()];
+        if let Some(ib) = best_ear {
+            let ia = prev[ib];
+            let ic = next[ib];
             result.push([polygon[ia], polygon[ib], polygon[ic]]);
-            remaining.remove(i);
+            // Unlink ib from the circular list — O(1).
+            next[prev[ib]] = next[ib];
+            prev[next[ib]] = prev[ib];
+            // If we removed head, advance it.
+            if ib == head {
+                head = ic;
+            }
+            alive_count -= 1;
         } else {
             // Fallback: force the first ear even if not perfectly valid.
-            let ia = remaining[0];
-            let ib = remaining[1];
-            let ic = remaining[2];
+            let ia = prev[head];
+            let ib = head;
+            let ic = next[head];
             result.push([polygon[ia], polygon[ib], polygon[ic]]);
-            remaining.remove(1);
+            next[prev[head]] = next[head];
+            prev[next[head]] = prev[head];
+            head = ic;
+            alive_count -= 1;
         }
     }
 
-    // Last remaining triangle.
-    if remaining.len() == 3 {
-        result.push([
-            polygon[remaining[0]],
-            polygon[remaining[1]],
-            polygon[remaining[2]],
-        ]);
+    // Last remaining triangle — walk the list to find the 3 survivors.
+    if alive_count == 3 {
+        let a = head;
+        let b = next[a];
+        let c = next[b];
+        result.push([polygon[a], polygon[b], polygon[c]]);
     }
 
     result

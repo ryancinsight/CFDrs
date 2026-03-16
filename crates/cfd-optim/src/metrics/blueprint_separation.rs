@@ -153,7 +153,9 @@ pub fn compute_blueprint_separation_metrics(
         let treatment_dh_m = last_stage.treatment_dh_m;
         if treatment_dh_m > 0.0 {
             let ctc_diameter = 17.5e-6; // MCF7 breast cancer CTC diameter [m]
-            let kappa = ctc_diameter / (2.0 * treatment_dh_m).max(1e-9);
+            // Clamp kappa to physical range [0, 0.5]. Amini (2014) validated
+            // for κ ∈ [0.07, 0.3]; beyond 0.5 the particle blocks the channel.
+            let kappa = (ctc_diameter / (2.0 * treatment_dh_m).max(1e-9)).clamp(0.0, 0.5);
             let amini_factor = cfd_1d::amini_confinement_correction(kappa);
             (cascade.cancer_center_fraction * amini_factor).clamp(0.0, 1.0)
         } else {

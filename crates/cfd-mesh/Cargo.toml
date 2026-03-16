@@ -12,9 +12,7 @@ categories = ["science", "simulation"]
 default = []
 millifluidic = []
 parallel = ["dep:rayon"]
-# csg is always compiled; the feature flag is kept as a no-op marker so that
-# downstream crates that activate cfd-mesh/csg continue to build without error.
-csg = []
+
 stl-io = []
 vtk-io = []
 three-mf-io = ["dep:zip"]

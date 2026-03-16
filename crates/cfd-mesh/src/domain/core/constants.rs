@@ -138,7 +138,10 @@ pub const SLIVER_AREA_RATIO_SQ: Real = 1e-14;
 ///
 /// A snap endpoint is classified as lying on an edge when its 3-D distance
 /// to the edge's projection point is less than `2 * sqrt(COREFINE_WELD_TOL_SQ)`.
-pub const COREFINE_WELD_TOL_SQ: Real = 1e-6;
+///
+/// Set to `1e-12` to provide a 1 µm weld distance. (Previously `1e-6` resulted
+/// in a 1 mm weld distance, causing entire millifluidic channels to web/weld together).
+pub const COREFINE_WELD_TOL_SQ: Real = 1e-12;
 
 /// CDT co-refinement edge-endpoint exclusion margin.
 ///

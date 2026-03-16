@@ -12,7 +12,7 @@ pub(super) fn write_bar_svg(
     y_label: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     if data.is_empty() {
-        return super::figures_process::write_placeholder(path, title, "No data available.");
+        return super::figures::process::write_placeholder(path, title, "No data available.");
     }
     let mut svg = String::new();
     let w = 1100.0;

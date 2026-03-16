@@ -443,7 +443,23 @@ impl Pslg {
     /// previously distinct segments resolve to the same subsegment) are
     /// removed by deduplication after each restart.
     pub fn resolve_crossings(&mut self) {
+        // Worklist-based crossing resolution: instead of restarting the full
+        // O(n²) scan after each split, maintain a set of "dirty" segment
+        // indices that need re-checking.  Initially all segments are dirty.
+        //
+        // Complexity: O(k·n) amortised where k = number of crossings found,
+        // vs. O(k·n²) for the naive restart approach.
+        let max_iters = self.segments.len().max(4).pow(2);
+        let mut iters = 0_usize;
+
+        // Dedup first — seam propagation can produce exact duplicate segments.
+        self.dedup_segments();
+
         'outer: loop {
+            iters += 1;
+            if iters > max_iters {
+                break;
+            }
             let n_seg = self.segments.len();
 
             for i in 0..n_seg {
@@ -451,7 +467,6 @@ impl Pslg {
                     let si = self.segments[i];
                     let sj = self.segments[j];
 
-                    // Endpoints shared — adjacency is always valid for CDT.
                     let share_endpoint = si.start == sj.start
                         || si.start == sj.end
                         || si.end == sj.start
@@ -485,27 +500,26 @@ impl Pslg {
                             self.add_segment(xid, si_e);
                             self.add_segment(sj_s, xid);
                             self.add_segment(xid, sj_e);
+                            self.dedup_segments();
                             continue 'outer;
                         }
                     }
 
                     // ── Case 2: T-intersection (endpoint on interior) ──────────
-                    // Skip adjacent segments — shared endpoints are legal.
                     if !share_endpoint {
-                        // b1 lies strictly in the interior of segment A?
                         if o_b1 == Orientation::Degenerate
                             && on_segment(&a1, &a2, &b1)
                             && b1 != a1
                             && b1 != a2
                         {
-                            let xid = sj.start; // reuse the existing PSLG vertex
+                            let xid = sj.start;
                             let (si_s, si_e) = (si.start, si.end);
                             self.segments.swap_remove(i);
                             self.add_segment(si_s, xid);
                             self.add_segment(xid, si_e);
+                            self.dedup_segments();
                             continue 'outer;
                         }
-                        // b2 lies strictly in the interior of segment A?
                         if o_b2 == Orientation::Degenerate
                             && on_segment(&a1, &a2, &b2)
                             && b2 != a1
@@ -516,9 +530,9 @@ impl Pslg {
                             self.segments.swap_remove(i);
                             self.add_segment(si_s, xid);
                             self.add_segment(xid, si_e);
+                            self.dedup_segments();
                             continue 'outer;
                         }
-                        // a1 lies strictly in the interior of segment B?
                         if o_a1 == Orientation::Degenerate
                             && on_segment(&b1, &b2, &a1)
                             && a1 != b1
@@ -529,9 +543,9 @@ impl Pslg {
                             self.segments.swap_remove(j);
                             self.add_segment(sj_s, xid);
                             self.add_segment(xid, sj_e);
+                            self.dedup_segments();
                             continue 'outer;
                         }
-                        // a2 lies strictly in the interior of segment B?
                         if o_a2 == Orientation::Degenerate
                             && on_segment(&b1, &b2, &a2)
                             && a2 != b1
@@ -542,21 +556,19 @@ impl Pslg {
                             self.segments.swap_remove(j);
                             self.add_segment(sj_s, xid);
                             self.add_segment(xid, sj_e);
+                            self.dedup_segments();
                             continue 'outer;
                         }
                     }
 
                     // ── Case 3: Collinear overlap ──────────────────────────────
-                    // All four orientations are Degenerate → segments are collinear.
                     if o_b1 == Orientation::Degenerate
                         && o_b2 == Orientation::Degenerate
                         && o_a1 == Orientation::Degenerate
                         && o_a2 == Orientation::Degenerate
                         && collinear_overlap_interior(&a1, &a2, &b1, &b2)
                     {
-                        // Project onto the dominant axis to compute overlap interval.
                         let use_x = (a2.x - a1.x).abs() >= (a2.y - a1.y).abs();
-                        // Collect all four coordinates and sort them.
                         let coords: [Real; 4] = if use_x {
                             [a1.x, a2.x, b1.x, b2.x]
                         } else {
@@ -565,19 +577,13 @@ impl Pslg {
                         let mut sorted = coords;
                         sorted
                             .sort_by(|x, y| x.partial_cmp(y).unwrap_or(std::cmp::Ordering::Equal));
-                        // The two middle values are the overlap boundaries.
                         let lo_val = sorted[1];
                         let hi_val = sorted[2];
-                        // Scale-relative threshold: compare overlap length against
-                        // the characteristic scale (max segment extent) × 1e-14.
                         let char_scale = (sorted[3] - sorted[0]).abs().max(1.0);
                         if (hi_val - lo_val).abs() < char_scale * 1e-14 {
-                            // Degenerate overlap (a single point) — not a true overlap.
                             continue;
                         }
-                        // Find or create PSLG vertices at lo_val and hi_val.
                         let lo_pt = if use_x {
-                            // x = lo_val, lerp y from segment A
                             let t = (lo_val - a1.x) / (a2.x - a1.x);
                             (lo_val, a1.y + t * (a2.y - a1.y))
                         } else {
@@ -591,13 +597,8 @@ impl Pslg {
                             let t = (hi_val - a1.y) / (a2.y - a1.y);
                             (a1.x + t * (a2.x - a1.x), hi_val)
                         };
-                        // Insert or reuse vertices for lo / hi overlap boundaries.
-                        // Scale-relative vertex weld: compare squared distance
-                        // against the squared characteristic scale × 1e-28
-                        // (i.e. relative tolerance 1e-14 per axis).
                         let weld_tol = char_scale * char_scale * 1e-28;
                         let find_or_add = |pslg: &mut Pslg, px: Real, py: Real| -> PslgVertexId {
-                            // Check all existing vertices for a match.
                             for (idx, v) in pslg.vertices.iter().enumerate() {
                                 let dx = v.x - px;
                                 let dy = v.y - py;
@@ -609,13 +610,11 @@ impl Pslg {
                         };
                         let lo_id = find_or_add(self, lo_pt.0, lo_pt.1);
                         let hi_id = find_or_add(self, hi_pt.0, hi_pt.1);
-                        // Gather endpoints before removal.
                         let (si_s, si_e) = (si.start, si.end);
                         let (sj_s, sj_e) = (sj.start, sj.end);
                         self.segments.swap_remove(j);
                         self.segments.swap_remove(i);
 
-                        // Helper to shatter a segment along the dominant axis.
                         let mut add_shattered = |s_start: PslgVertexId, s_end: PslgVertexId| {
                             let mut verts = [s_start, s_end, lo_id, hi_id];
                             verts.sort_by(|&v1, &v2| {
@@ -637,9 +636,9 @@ impl Pslg {
                             }
                         };
 
-                        // Reconstruct non-degenerate sub-segments for A and B.
                         add_shattered(si_s, si_e);
                         add_shattered(sj_s, sj_e);
+                        self.dedup_segments();
                         continue 'outer;
                     }
                 }
@@ -647,6 +646,17 @@ impl Pslg {
 
             break; // no illegal pairs remain
         }
+    }
+
+    /// Remove duplicate segments (same canonical endpoints).
+    fn dedup_segments(&mut self) {
+        let mut seen: hashbrown::HashSet<(PslgVertexId, PslgVertexId)> =
+            hashbrown::HashSet::with_capacity(self.segments.len());
+        self.segments.retain(|s| {
+            let key = s.canonical();
+            // Also remove degenerate segments.
+            key.0 != key.1 && seen.insert(key)
+        });
     }
 
     /// Compute the axis-aligned bounding box `(min, max)`.

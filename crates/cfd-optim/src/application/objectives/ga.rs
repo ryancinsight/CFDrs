@@ -79,7 +79,8 @@ pub fn evaluate_blueprint_genetic_refinement(
     // numbers (De = 20-50), reflecting stronger secondary vortex focusing
     // than the classical Ito (1959) circular-tube prediction.
     let bayat_factor = cfd_1d::bayat_rezai_enhancement(max_dean);
-    let dean_norm = (max_dean / 100.0 * bayat_factor.sqrt()).clamp(0.0, 1.0);
+    // Normalize Dean before multiplying to avoid large intermediates.
+    let dean_norm = ((max_dean / 100.0).min(1.0) * bayat_factor.sqrt()).clamp(0.0, 1.0);
 
     let lineage_norm = candidate.blueprint.lineage().map_or(0.0, |lineage| {
         (lineage.mutations.len() as f64 / 5.0).clamp(0.0, 1.0)
@@ -97,9 +98,11 @@ pub fn evaluate_blueprint_genetic_refinement(
 
     // Curvature-driven secondary flow is rewarded only when it coexists with
     // strong treatment-lane enrichment and venturi cavitation support.
-    let synergy = 0.12
-        * (cav * cancer * residence_norm.max(0.01) * rbc_shield.max(0.01) * dean_norm.max(0.01))
-            .powf(0.2);
+    let synergy_base =
+        cav * cancer * residence_norm.max(0.01) * rbc_shield.max(0.01) * dean_norm.max(0.01);
+    // Guard: all inputs are clamped to [0, 1] so the product is non-negative,
+    // but add explicit floor to prevent NaN from powf on negative values.
+    let synergy = 0.12 * synergy_base.max(0.0).powf(0.2);
     let screening_reasons = [(
         evaluation.safety.main_channel_margin <= 0.0,
         "main-channel safety margin must remain positive",

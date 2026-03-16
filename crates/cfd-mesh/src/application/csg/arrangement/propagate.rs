@@ -55,14 +55,22 @@ use hashbrown::{HashMap, HashSet};
 /// Collinearity tolerance for point-on-edge detection in seam propagation.
 ///
 /// A point P is collinear with edge [Va, Vb] if:
-///   `|cross(Vb-Va, P-Va)|² < COLLINEAR_TOL_SQ * |Vb-Va|²`
+///   `|cross(Vb-Va, P-Va)|² < COLLINEAR_TOL_SQ * |Vb-Va|² * |P-Va|²`
 ///
-/// Equivalently: `sin(angle) < sqrt(COLLINEAR_TOL_SQ) ≈ 1e-3` (0.06°).
+/// This is a true angular (dimensionless) check:
+///   `sin²(angle) < COLLINEAR_TOL_SQ ≈ 1e-6` → `sin(angle) < 1e-3` (0.06°).
 ///
-/// Widened from 1e-8 to 1e-6 to handle shallow-angle sliver faces from
-/// elbow-cylinder junctions where edge_len_sq is very small.  Used by both
-/// `propagate_seam_vertices` and `inject_cap_seam_into_barrels` to ensure
-/// consistent seam vertex detection across the pipeline.
+/// # Theorem — Scale-Invariant Collinearity
+///
+/// For any edge [Va, Vb] and point P, the cross product satisfies:
+///   `|cross(Vb-Va, P-Va)| = |Vb-Va| · |P-Va| · sin(θ)`
+/// where θ is the angle between `Vb-Va` and `P-Va`.  Therefore:
+///   `|cross|² / (|edge|² · |sp|²) = sin²(θ)`
+/// is dimensionless and scale-invariant.  ∎
+///
+/// The previous check `|cross|² ≤ C · |edge|²` was an absolute
+/// perpendicular-distance check (d_perp² ≤ C) that caused false positives
+/// at millimetre scale where d_perp < 1 mm for geometrically distant points.
 const COLLINEAR_TOL_SQ: Real = 1e-6;
 
 /// Ensure that every seam vertex created by CDT co-refinement is injected into
@@ -178,9 +186,14 @@ pub fn propagate_seam_vertices(
                     }
 
                     // Fallback: tolerance-based on-edge check for residual drift.
+                    // True angular check: sin²(θ) = |cross|² / (|edge|² · |sp|²)
                     let sp: nalgebra::Vector3<f64> = p - pa;
+                    let sp_len_sq = sp.norm_squared();
+                    if sp_len_sq < 1e-30 {
+                        continue; // P ≈ Va, skip (not strictly interior)
+                    }
                     let cross_v = edge_vec.cross(&sp);
-                    if cross_v.norm_squared() <= COLLINEAR_TOL_SQ * edge_len_sq {
+                    if cross_v.norm_squared() <= COLLINEAR_TOL_SQ * edge_len_sq * sp_len_sq {
                         let t = sp.dot(&edge_vec) / edge_len_sq;
                         if t > MARGIN && t < 1.0 - MARGIN {
                             t_params.push(t);
@@ -272,7 +285,18 @@ pub fn propagate_seam_vertices(
 
     for (fi, seg) in injections {
         if fi < segs.len() {
-            segs[fi].push(seg);
+            // Dedup: skip segments whose endpoints match an existing segment
+            // (bitwise on f64 bits to avoid tolerance ambiguity).
+            let sb = (seg.start.x.to_bits(), seg.start.y.to_bits(), seg.start.z.to_bits());
+            let eb = (seg.end.x.to_bits(), seg.end.y.to_bits(), seg.end.z.to_bits());
+            let exists = segs[fi].iter().any(|s| {
+                let ssb = (s.start.x.to_bits(), s.start.y.to_bits(), s.start.z.to_bits());
+                let seb = (s.end.x.to_bits(), s.end.y.to_bits(), s.end.z.to_bits());
+                (ssb == sb && seb == eb) || (ssb == eb && seb == sb)
+            });
+            if !exists {
+                segs[fi].push(seg);
+            }
         }
     }
 }
@@ -507,9 +531,14 @@ pub fn inject_cap_seam_into_barrels(
             }
 
             // Tolerance-based collinearity + parameter check.
+            // True angular check: sin²(θ) = |cross|² / (|edge|² · |sp|²)
             let sp = *s - pa;
+            let sp_len_sq = sp.norm_squared();
+            if sp_len_sq < 1e-30 {
+                continue; // s ≈ pa, skip (t ≈ 0, not interior)
+            }
             let cross = edge.cross(&sp);
-            if cross.norm_squared() <= COLLINEAR_TOL_SQ * edge_len_sq {
+            if cross.norm_squared() <= COLLINEAR_TOL_SQ * edge_len_sq * sp_len_sq {
                 let t = sp.dot(&edge) / edge_len_sq;
                 if t > SEG_MARGIN && t < 1.0 - SEG_MARGIN {
                     cut_params.push(t);

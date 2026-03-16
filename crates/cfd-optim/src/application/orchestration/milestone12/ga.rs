@@ -87,6 +87,7 @@ pub fn run_milestone12_ga() -> Result<Milestone12GaRun, Box<dyn std::error::Erro
         })
         .collect();
 
+    // Fallback 1: drop lineage filter, use all top_candidates.
     if ranked.is_empty() {
         ranked = ga_result
             .top_candidates
@@ -103,12 +104,38 @@ pub fn run_milestone12_ga() -> Result<Milestone12GaRun, Box<dyn std::error::Erro
             .collect();
     }
 
+    // Skip GA candidates that fail blueprint validation (e.g. channel
+    // crossings from deeply nested mutations) instead of aborting the run.
+    ranked.retain(|design| {
+        validate_milestone12_candidate(&design.candidate, Milestone12Stage::GaRefined).is_ok()
+    });
+
+    // Fallback 2: if all top_candidates failed validation, search the
+    // full archive (up to 200 candidates) for valid ones.
+    if ranked.is_empty() {
+        ranked = ga_result
+            .all_candidates
+            .iter()
+            .filter_map(|ranked_candidate| {
+                let score = ranked_candidate.evaluation.score?;
+                let design = Milestone12ReportDesign::from_blueprint_candidate(
+                    ranked_candidate.rank,
+                    ranked_candidate.candidate.clone(),
+                    score,
+                )
+                .ok()?;
+                validate_milestone12_candidate(&design.candidate, Milestone12Stage::GaRefined)
+                    .ok()?;
+                Some(design)
+            })
+            .take(5)
+            .collect();
+    }
     for (index, design) in ranked.iter_mut().enumerate() {
         design.rank = index + 1;
-        validate_milestone12_candidate(&design.candidate, Milestone12Stage::GaRefined)?;
     }
     if ranked.is_empty() {
-        return Err("GA produced no viable designs".into());
+        return Err("GA produced no viable designs after validation".into());
     }
 
     let audit_entries: Vec<GoalAuditEntry> = ga_result

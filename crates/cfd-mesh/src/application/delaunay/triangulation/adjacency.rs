@@ -64,12 +64,27 @@ impl Adjacency {
 
     /// Check whether triangle `t` is on the convex hull boundary
     /// (has at least one `GHOST_TRIANGLE` neighbor).
+    #[inline]
     #[must_use]
     pub fn is_hull_triangle(triangles: &[Triangle], t: TriangleId) -> bool {
         triangles[t.idx()].adj.contains(&GHOST_TRIANGLE)
     }
 
     /// Verify the symmetric adjacency invariant for all alive triangles.
+    ///
+    /// # Theorem — Adjacency Symmetry (Half-Edge Twin Involution)
+    ///
+    /// **Statement**: In a valid triangulation stored with per-triangle
+    /// adjacency arrays, the adjacency relation is an involution:
+    /// for every alive triangle $t$ and edge index $i$ where
+    /// $t.\text{adj}[i] \ne \text{GHOST}$, there exists a unique $j$
+    /// such that $t.\text{adj}[i].\text{adj}[j] = t$.
+    ///
+    /// **Proof**: Each interior edge is shared by exactly 2 triangles
+    /// in a simplicial complex. The `link()` operation always writes
+    /// both directions simultaneously, maintaining the invariant.
+    /// Boundary edges (hull) have `GHOST_TRIANGLE` as the neighbour,
+    /// which is excluded from the symmetry check.  ∎
     ///
     /// Returns `true` if every adjacency link is symmetric.
     #[cfg(any(test, debug_assertions))]

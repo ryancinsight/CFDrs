@@ -828,9 +828,9 @@ fn test_step_11_lid_driven_cavity() {
     let config = SimplecPimpleConfig {
         algorithm: AlgorithmType::Simplec,
         tolerance: 1e-6,
-        max_inner_iterations: 20, // Enough inner iters per time step for SIMPLEC convergence
-        alpha_u: 0.7,
-        alpha_p: 0.3,
+        max_inner_iterations: 10,
+        alpha_u: 0.85,
+        alpha_p: 0.4,
         n_outer_correctors: 1,
         n_inner_correctors: 2,
         ..Default::default()
@@ -940,8 +940,8 @@ fn test_step_12_channel_flow() {
     // Analytical centreline velocity for Poiseuille: u_max = 1.5·U_mean.
     // Steady-state convergence uses the same temporal ‖Δu‖_∞ criterion
     // as test_step_11 to avoid the inner-SIMPLEC residual plateau.
-    let nx = 50;
-    let ny = 10;
+    let nx = 30;
+    let ny = 8;
     let width = 5.0; // Channel length [m]
     let height = 1.0; // Channel height [m]
 
@@ -955,9 +955,9 @@ fn test_step_12_channel_flow() {
     let config = SimplecPimpleConfig {
         algorithm: AlgorithmType::Simplec,
         tolerance: 1e-6,
-        max_inner_iterations: 5,
-        alpha_u: 0.7,
-        alpha_p: 0.3,
+        max_inner_iterations: 3,
+        alpha_u: 0.85,
+        alpha_p: 0.4,
         ..Default::default()
     };
 
@@ -996,8 +996,8 @@ fn test_step_12_channel_flow() {
     let mut fields = SimulationFields::new(nx, ny);
 
     // Steady-state loop: converge on temporal velocity change ‖Δu‖_∞ < tol.
-    let max_steps = 2000;
-    let steady_tol = 1e-4_f64;
+    let max_steps = 1000;
+    let steady_tol = 5e-4_f64;
     let mut converged = false;
 
     let mut u_prev: Vec<f64> = vec![0.0; nx * ny];

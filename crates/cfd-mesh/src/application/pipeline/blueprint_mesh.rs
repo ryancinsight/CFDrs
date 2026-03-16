@@ -747,13 +747,34 @@ fn synthesize_geometry_authored_routed_layout(
 ///
 /// # Algorithm
 ///
-/// 1. Compute the topological depth of every node via longest-path BFS from the
-///    inlet.
+/// 1. Compute the topological depth of every node via **Kahn's algorithm**
+///    (topological-sort BFS) for DAG longest-path from the inlet.
 /// 2. Map depth to X-coordinate across the chip width (0 → chip_w), with inlet
 ///    at x = 0 and outlet at x = chip_w.
 /// 3. For nodes sharing the same depth, spread evenly in Y around `y_center`.
 /// 4. Each blueprint channel maps to one `SegmentLayout` from its `from` node
 ///    position to its `to` node position.
+///
+/// # Theorem — DAG Longest Path via Topological BFS (Kahn, 1962)
+///
+/// **Statement.**  For a directed acyclic graph *G = (V, E)* with a
+/// designated source *s*, the longest-path distance from *s* to every
+/// vertex can be computed in *O(V + E)* time by processing vertices in
+/// topological order and relaxing outgoing edges.
+///
+/// **Proof sketch.**  Kahn's algorithm maintains a queue of vertices with
+/// in-degree 0.  Dequeuing vertex *u* and decrementing the in-degree of
+/// each successor *v* ensures *v* is processed only after all predecessors.
+/// Since the graph is acyclic, every vertex is dequeued exactly once.
+/// Relaxation `depth[v] = max(depth[v], depth[u] + 1)` at dequeue time
+/// propagates the longest-path distance monotonically.  By induction on
+/// topological order, `depth[v]` equals the maximum number of edges on
+/// any path from *s* to *v*.  ∎
+///
+/// # Complexity
+///
+/// **O(V + E)** time, **O(V)** space — replacing the previous Bellman-Ford
+/// iterative relaxation which was O(V · E) worst-case.
 fn synthesize_complex_layout(
     bp: &NetworkBlueprint,
     y_center: Real,
@@ -765,40 +786,66 @@ fn synthesize_complex_layout(
     let min_y = config.wall_clearance_mm;
 
     // Find the unique inlet node.
-    let inlet_id = bp
+    // Kahn's algorithm seeds from all zero-in-degree vertices so we don't
+    // need the inlet ID itself, but we validate that one exists.
+    let _inlet_exists = bp
         .nodes
         .iter()
         .find(|n| matches!(n.kind, NodeKind::Inlet))
-        .map(|n| n.id.as_str())
         .ok_or_else(|| MeshError::ChannelError {
             message: "Complex blueprint has no inlet node".to_string(),
         })?;
 
-    // BFS longest-path depth from inlet for each node.
-    // Iterative relaxation (Bellman-Ford-style for DAG longest-path).
-    let mut depth: HashMap<&str, usize> = HashMap::new();
-    depth.insert(inlet_id, 0);
+    // ── Kahn's topological-sort BFS for DAG longest-path ──────────────────
+    //
+    // Build adjacency list and in-degree map for the channel DAG, then
+    // process vertices in topological order via BFS (Kahn, 1962).
 
-    let mut changed = true;
-    while changed {
-        changed = false;
-        for ch in &bp.channels {
-            let from = ch.from.as_str();
-            let to = ch.to.as_str();
-            if let Some(&d) = depth.get(from) {
-                let new_d = d + 1;
-                let entry = depth.entry(to).or_insert(0);
-                if new_d > *entry {
-                    *entry = new_d;
-                    changed = true;
-                }
+    // Node ID → index mapping for dense storage.
+    let node_ids: Vec<&str> = bp.nodes.iter().map(|n| n.id.as_str()).collect();
+    let node_index: HashMap<&str, usize> = node_ids
+        .iter()
+        .enumerate()
+        .map(|(i, &id)| (id, i))
+        .collect();
+    let n_nodes = node_ids.len();
+
+    // Adjacency list: adj[u] = list of (v) for edge u → v.
+    let mut adj: Vec<Vec<usize>> = vec![Vec::new(); n_nodes];
+    let mut in_degree: Vec<usize> = vec![0; n_nodes];
+    for ch in &bp.channels {
+        if let (Some(&u), Some(&v)) = (node_index.get(ch.from.as_str()), node_index.get(ch.to.as_str())) {
+            adj[u].push(v);
+            in_degree[v] += 1;
+        }
+    }
+
+    // Kahn's BFS: seed with all zero-in-degree vertices, propagate depths.
+    let mut depth_vec: Vec<usize> = vec![0; n_nodes];
+    let mut queue = std::collections::VecDeque::new();
+    for i in 0..n_nodes {
+        if in_degree[i] == 0 {
+            queue.push_back(i);
+        }
+    }
+    while let Some(u) = queue.pop_front() {
+        for &v in &adj[u] {
+            // Relax: longest-path distance.
+            let new_d = depth_vec[u] + 1;
+            if new_d > depth_vec[v] {
+                depth_vec[v] = new_d;
+            }
+            in_degree[v] -= 1;
+            if in_degree[v] == 0 {
+                queue.push_back(v);
             }
         }
     }
 
-    // Assign unreachable nodes (if any) to depth 0.
-    for node in &bp.nodes {
-        depth.entry(node.id.as_str()).or_insert(0);
+    // Convert to HashMap for downstream consumption.
+    let mut depth: HashMap<&str, usize> = HashMap::with_capacity(n_nodes);
+    for (i, &id) in node_ids.iter().enumerate() {
+        depth.insert(id, depth_vec[i]);
     }
 
     let max_depth = depth.values().copied().max().unwrap_or(1).max(1);

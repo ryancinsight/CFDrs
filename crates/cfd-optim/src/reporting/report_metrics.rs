@@ -32,40 +32,50 @@ use crate::metrics::{
 
 /// Compute the full set of report-grade SDT metrics for a single blueprint candidate.
 ///
-/// # Physics models available for future integration
+/// # NOW INTEGRATED acoustic / cavitation physics
 ///
-/// The following validated physics models can refine the metrics computed here:
+/// The following validated cfd-1d physics models are called via
+/// `compute_sdt_acoustic_metrics()` and their results feed directly into report
+/// metrics:
 ///
-/// - **Quemada (1978) viscosity**: The rouleaux aggregation viscosity model can be used
-///   to refine `local_hematocrit_venturi` in low-shear recirculation zones where RBC
-///   aggregation elevates effective viscosity above the Casson baseline.
+/// - **Sonosensitizer activation kinetics (Rosenthal 2004)**: first-order model
+///   η = 1 − exp(−k_act · I_cav · t_transit). Modulates `cancer_dose_fraction`
+///   — short throat transits (< 1 ms) yield incomplete activation.
 ///
-/// - **Taskin (2012) strain-based hemolysis**: This model can provide alternative
-///   `hemolysis_index_per_pass` values by tracking cumulative strain history along
-///   particle trajectories, rather than relying on the instantaneous-shear Giersiepen
-///   (1990) power-law correlation. Particularly relevant for multi-stage venturi designs
-///   where cells experience repeated high-shear transients.
+/// - **Rayleigh-Plesset collapse dynamics (Rayleigh 1917)**: hemolysis amplification
+///   A = 1 + α·(R_max/R₀)²·(p/p_ref). Feeds into
+///   `hemolysis_index_per_pass_cavitation_amplified` when cavitation_potential > 0.
 ///
-/// - **Fahraeus-Lindqvist (Pries 1992) correction**: Affects effective resistance in
-///   microchannel designs where D_h < 300 um. The apparent viscosity reduction from
-///   cell-free layer formation can lower computed pressure drops by 10-30% relative to
-///   the constant-viscosity Hagen-Poiseuille model used here.
+/// - **Acoustic contrast factor / Gor'kov (1962)**: Φ = f₁/3 + f₂/2 for CTCs and
+///   RBCs in plasma. Differential radiation force available for narrative reporting
+///   via `sdt_acoustic.ctc_contrast_factor` and `sdt_acoustic.rbc_contrast_factor`.
 ///
-/// - **Amini (2014) confinement-dependent lift**: Refines inertial focusing equilibrium
-///   positions for cancer cells with a/D_h > 0.1, improving `cancer_center_fraction`
-///   and `wbc_center_fraction` predictions.
+/// - **Acoustic energy density (Gor'kov 1962)**: E_ac = p₀²/(4ρc²) at 100 kPa
+///   pressure amplitude. Available for narrative reporting via
+///   `sdt_acoustic.acoustic_energy_density_j_m3`.
 ///
-/// - **Plasma skimming (Pries 1989)**: Hematocrit partitioning at asymmetric
-///   bifurcations can improve `rbc_venturi_exposure_fraction` accuracy by accounting
-///   for the phase-separation effect at daughter-branch flow splits.
+/// # Available for 2D/3D refinement
 ///
-/// - **Durst (2005) entrance correction**: For venturi throats with L/D_h < 20, the
-///   developing-flow profile increases centreline velocity and wall shear relative to
-///   the fully-developed parabolic assumption, affecting `cavitation_number` and
-///   `throat_shear_rate_inv_s`.
+/// The following models are implemented and validated but reserved for higher-fidelity
+/// cascade pipelines:
 ///
-/// - **Bayat-Rezai (2017) millifluidic Dean**: Validated Dean correlation for channels
-///   with D_h > 500 um, used in GA serpentine evaluation for secondary flow estimation.
+/// - **Quemada (1978) viscosity**: rouleaux aggregation viscosity for low-shear zones.
+///
+/// - **Taskin (2012) strain-based hemolysis**: cumulative strain history alternative to
+///   the instantaneous-shear Giersiepen (1990) power-law. Relevant for multi-stage
+///   venturi designs with repeated high-shear transients.
+///
+/// - **Fahraeus-Lindqvist (Pries 1992)**: apparent viscosity reduction in D_h < 300 um.
+///
+/// - **Amini (2014) confinement-dependent lift**: refines focusing for a/D_h > 0.1.
+///
+/// - **Plasma skimming (Pries 1989)**: hematocrit partitioning at asymmetric
+///   bifurcations.
+///
+/// - **Durst (2005) entrance correction**: developing-flow profile for L/D_h < 20.
+///
+/// - **Bayat-Rezai (2017) millifluidic Dean**: validated Dean correlation for
+///   D_h > 500 um, used in GA serpentine evaluation.
 pub fn compute_blueprint_report_metrics(
     candidate: &BlueprintCandidate,
 ) -> Result<SdtMetrics, OptimError> {
@@ -116,15 +126,16 @@ pub fn compute_blueprint_report_metrics(
         0.0
     };
 
-    let mut main_shears = Vec::new();
-    let mut main_transits = Vec::new();
+    let n_channels = solve.channel_samples.len();
+    let mut main_shears = Vec::with_capacity(n_channels);
+    let mut main_transits = Vec::with_capacity(n_channels);
     let mut max_venturi_transit_time_s = 0.0_f64;
     let mut max_venturi_shear_rate_inv_s = 0.0_f64;
     let mut dead_volume_m3 = 0.0_f64;
     let mut bulk_hi = 0.0_f64;
     let mut corrected_hi = 0.0_f64;
     let mut treatment_hi = 0.0_f64;
-    let mut bypass_hi_values = Vec::new();
+    let mut bypass_hi_values = Vec::with_capacity(n_channels / 2);
     let mut pai_accumulator = 0.0_f64;
     let mut per_channel_hemolysis = Vec::with_capacity(solve.channel_samples.len());
 
@@ -618,23 +629,30 @@ pub fn compute_sdt_acoustic_metrics(
     pressure_drop_pa: f64,
 ) -> SdtAcousticMetrics {
     // Sonosensitizer activation efficiency (Rosenthal 2004)
+    // Guard inputs: transit time must be non-negative, intensity in [0, 1].
+    let safe_transit = throat_transit_time_s.max(0.0);
+    let safe_intensity = cavitation_intensity.clamp(0.0, 1.0);
     let sensitizer_activation = sonosensitizer_activation_efficiency(
         SENSITIZER_K_ACT_HEMATOPORPHYRIN,
-        cavitation_intensity,
-        throat_transit_time_s,
+        safe_intensity,
+        safe_transit,
     );
 
     // Rayleigh-Plesset collapse amplification (Rayleigh 1917)
+    // Clamp absolute pressure to realistic millifluidic range [50 kPa, 500 kPa]
+    // to prevent over-amplification at extreme pressure drops.
     let r_max = 10.0e-6; // 10 µm typical cavitation bubble
     let r_0 = 1.0e-6; // 1 µm equilibrium nucleus
-    let p_inf = pressure_drop_pa + 101_325.0; // gauge → absolute
+    let p_inf = (pressure_drop_pa + 101_325.0).clamp(50_000.0, 500_000.0);
     let rp_amplification = cavitation_hemolysis_amplification(r_max, r_0, p_inf);
 
     // Acoustic energy density (Gor'kov 1962)
+    // Use actual chip pressure for consistency with RP dynamics.
+    let p_acoustic = (pressure_drop_pa + 101_325.0).max(50_000.0);
     let e_acoustic = acoustic_energy_density(
-        100_000.0, // 100 kPa typical pressure amplitude
-        1060.0,    // blood density [kg/m³]
-        1540.0,    // speed of sound in blood [m/s]
+        p_acoustic, // consistent with RP pressure reference
+        1060.0,     // blood density [kg/m³]
+        1540.0,     // speed of sound in blood [m/s]
     );
 
     // Acoustic contrast factors for differential radiation force

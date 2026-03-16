@@ -262,6 +262,15 @@ pub fn boolean_intersecting_arrangement(
     propagate_seam_vertices_until_stable(faces_a, &mut segs_a, pool);
     propagate_seam_vertices_until_stable(faces_b, &mut segs_b, pool);
 
+    // Phase 2.6: Build global seam vertex maps.
+    //
+    // Pre-register all edge Steiner vertices into a canonical edge-keyed map so
+    // that every face sharing a mesh edge receives the *exact same* Steiner
+    // VertexIds during CDT co-refinement.  This eliminates non-manifold edges
+    // caused by independent per-face Steiner discovery.
+    let seam_map_a = super::corefine::build_seam_vertex_map(faces_a, &segs_a, pool);
+    let seam_map_b = super::corefine::build_seam_vertex_map(faces_b, &segs_b, pool);
+
     // Phase 3: subdivide intersecting faces via CDT co-refinement.
     let t_fragment_refinement = std::time::Instant::now();
     // For each face that has intersection segments, run corefine_face to produce
@@ -275,6 +284,7 @@ pub fn boolean_intersecting_arrangement(
         &coplanar_a_used,
         &segs_a,
         pool,
+        &seam_map_a,
         |face, parent_idx| FragRecord {
             face,
             parent_idx,
@@ -287,6 +297,7 @@ pub fn boolean_intersecting_arrangement(
         &coplanar_b_used,
         &segs_b,
         pool,
+        &seam_map_b,
         |face, parent_idx| FragRecord {
             face,
             parent_idx,

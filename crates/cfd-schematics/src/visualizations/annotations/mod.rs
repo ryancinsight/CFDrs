@@ -68,7 +68,7 @@ impl Default for AnnotationStyle {
             (MarkerRole::Outlet, Color::rgb(0xA6, 0x1E, 0x4D)),
             (MarkerRole::Split, Color::rgb(0x1D, 0x4E, 0xD8)),
             (MarkerRole::Merge, Color::rgb(0xD9, 0x77, 0x06)),
-            (MarkerRole::VenturiThroat, Color::rgb(0xC2, 0x41, 0x0C)),
+            (MarkerRole::VenturiThroat, Color::rgb(0xD2, 0x28, 0x28)),
             (MarkerRole::TherapyTarget, Color::rgb(0x0F, 0x76, 0x6E)),
             (MarkerRole::Bypass, Color::rgb(0x6B, 0x72, 0x80)),
             (MarkerRole::Internal, Color::rgb(0x37, 0x41, 0x51)),

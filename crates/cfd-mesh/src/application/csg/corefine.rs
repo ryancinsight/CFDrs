@@ -122,6 +122,130 @@ fn canonical_segment_key(seg: &SnapSegment) -> (PointBits3, PointBits3) {
     }
 }
 
+// ── Seam Vertex Map ──────────────────────────────────────────────────────────
+
+/// Canonical undirected edge key: `(min(u,v), max(u,v))`.
+#[inline]
+fn canonical_edge_key(u: VertexId, v: VertexId) -> (VertexId, VertexId) {
+    if u <= v { (u, v) } else { (v, u) }
+}
+
+/// Global map of pre-registered Steiner vertices on each mesh edge.
+///
+/// Key: canonical undirected edge `(min(u,v), max(u,v))`.
+/// Value: sorted list of `(t_parameter, VertexId)` along the edge from `u→v`
+///        (or `min→max`).  Every face sharing edge `(u,v)` receives the **exact
+///        same** Steiner sequence, guaranteeing seam-consistent CDT
+///        triangulation.
+///
+/// # Theorem — Seam Consistency
+///
+/// If all faces sharing edge `(u,v)` use the same ordered sequence of Steiner
+/// `VertexId`s from this map, their CDT sub-triangulations produce identical
+/// edge decompositions along `(u,v)`, eliminating non-manifold edges.
+///
+/// **Proof sketch.** The CDT boundary polygon for face F includes
+/// `[Vᵢ, S₁, S₂, …, Sₖ, Vᵢ₊₁]` along edge `(u,v)`.  Since all faces
+/// sharing `(u,v)` use identical `S₁…Sₖ` with identical `VertexId`s, the CDT
+/// constraint edges `{Vᵢ,S₁},{S₁,S₂},…,{Sₖ,Vᵢ₊₁}` are identical across
+/// all faces.  The CDT honours constraint edges exactly (Shewchuk predicates),
+/// so adjacent faces produce matching triangulation along the seam. ∎
+pub type SeamVertexMap = HashMap<(VertexId, VertexId), Vec<(Real, VertexId)>>;
+
+/// Build a global [`SeamVertexMap`] from all faces and their snap-segments.
+///
+/// For every snap-segment endpoint that lies on a face edge `(Vᵢ,Vᵢ₊₁)`, the
+/// endpoint is registered via `VertexPool::insert_or_weld` **once** and stored
+/// under the canonical edge key.  Subsequent faces sharing that edge receive
+/// the same `VertexId` by lookup rather than re-inserting (which could produce
+/// a different ID due to differing face normals passed to `insert_or_weld`).
+pub fn build_seam_vertex_map(
+    faces: &[FaceData],
+    snap_segments: &[Vec<SnapSegment>],
+    pool: &mut VertexPool,
+) -> SeamVertexMap {
+    debug_assert_eq!(
+        faces.len(),
+        snap_segments.len(),
+        "every face must have a snap-segment slot"
+    );
+
+    let mut map: SeamVertexMap = HashMap::new();
+
+    for (fi, face) in faces.iter().enumerate() {
+        let face_segs = &snap_segments[fi];
+        if face_segs.is_empty() {
+            continue;
+        }
+
+        let pts: [Point3r; 3] = [
+            *pool.position(face.vertices[0]),
+            *pool.position(face.vertices[1]),
+            *pool.position(face.vertices[2]),
+        ];
+        let face_n = (pts[1] - pts[0]).cross(&(pts[2] - pts[0]));
+        let edge1_sq = (pts[1] - pts[0]).norm_squared();
+        let edge2_sq = (pts[2] - pts[0]).norm_squared();
+        if face_n.norm_squared() < DEGENERATE_NORMAL_REL_SQ * edge1_sq * edge2_sq {
+            continue;
+        }
+        let face_n_unit = face_n / face_n.norm();
+        let max_edge_sq = edge1_sq
+            .max(edge2_sq)
+            .max((pts[2] - pts[1]).norm_squared());
+
+        for seg in face_segs {
+            for &p3d in &[seg.start, seg.end] {
+                // Check each face edge.
+                for ei in 0..3_usize {
+                    let va_id = face.vertices[ei];
+                    let vb_id = face.vertices[(ei + 1) % 3];
+                    let va = pts[ei];
+                    let vb = pts[(ei + 1) % 3];
+                    let edge = vb - va;
+                    let edge_sq = edge.norm_squared();
+                    if edge_sq < DEGENERATE_NORMAL_REL_SQ * max_edge_sq {
+                        continue;
+                    }
+                    let t = (p3d - va).dot(&edge) / edge_sq;
+                    if t <= EDGE_EPS || t >= 1.0 - EDGE_EPS {
+                        continue;
+                    }
+                    let interp = va + edge * t;
+                    if (p3d - interp).norm_squared() > WELD_TOL_SQ * 4.0 {
+                        continue;
+                    }
+
+                    // Register under canonical edge key.
+                    let key = canonical_edge_key(va_id, vb_id);
+                    let vid = pool.insert_or_weld(p3d, face_n_unit);
+
+                    // Compute t relative to the canonical direction
+                    // (min→max).
+                    let t_canon = if va_id <= vb_id { t } else { 1.0 - t };
+
+                    let entry = map.entry(key).or_insert_with(Vec::new);
+                    if !entry.iter().any(|&(_, v)| v == vid) {
+                        entry.push((t_canon, vid));
+                    }
+                    break; // endpoint matched this edge, done.
+                }
+            }
+        }
+    }
+
+    // Sort each edge's Steiners by t-parameter for consistent boundary
+    // polygon construction.
+    for steiners in map.values_mut() {
+        steiners.sort_by(|a, b| {
+            a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal)
+        });
+        steiners.dedup_by_key(|entry| entry.1);
+    }
+
+    map
+}
+
 // ── Main entry point ─────────────────────────────────────────────────────────
 
 /// Co-refine `face` against `snap_segments` using CDT-based 2-D projection.
@@ -130,10 +254,16 @@ fn canonical_segment_key(seg: &SnapSegment) -> (PointBits3, PointBits3) {
 /// face boundary polygon and snap chords are projected to 2-D (dropping the
 /// dominant normal axis), fed to `Cdt::from_pslg` (Shewchuk predicates), then
 /// lifted back to 3-D `VertexId`s.
+///
+/// When `seam_map` is provided (non-empty), edge Steiner vertices are looked up
+/// from the global map rather than recomputed from raw snap-segment geometry.
+/// This guarantees that adjacent faces sharing an edge produce identical
+/// Steiner sequences → matching CDT triangulations → zero non-manifold edges.
 pub fn corefine_face(
     face: &FaceData,
     snap_segments: &[SnapSegment],
     pool: &mut VertexPool,
+    seam_map: &SeamVertexMap,
 ) -> Vec<FaceData> {
     let a = *pool.position(face.vertices[0]);
     let b = *pool.position(face.vertices[1]);
@@ -175,13 +305,40 @@ pub fn corefine_face(
     let (axis_u, axis_v) = dominant_normal_axes(face_n_unit);
 
     // ── Step 1: Edge Steiner vertices ─────────────────────────────────────────
-    // SmallVec analogue: each edge typically has 0–2 Steiner points; use a
-    // plain Vec but with capacity hint of 4 to avoid reallocs in the common case.
+    //
+    // When a global SeamVertexMap is available, edge Steiners are looked up from
+    // the map (keyed by canonical edge pair) rather than recomputed from raw
+    // snap-segment geometry.  This guarantees that adjacent faces sharing the
+    // same edge receive the exact same Steiner VertexIds.
     let mut edge_steiners: [Vec<(Real, VertexId)>; 3] = [
         Vec::with_capacity(4),
         Vec::with_capacity(4),
         Vec::with_capacity(4),
     ];
+
+    let use_seam_map = !seam_map.is_empty();
+
+    if use_seam_map {
+        // ── Seam-map path: look up pre-registered Steiners per edge ──────
+        for ei in 0..3_usize {
+            let va_id = face.vertices[ei];
+            let vb_id = face.vertices[(ei + 1) % 3];
+            let key = canonical_edge_key(va_id, vb_id);
+            if let Some(steiners) = seam_map.get(&key) {
+                // t-parameters in the map are relative to the canonical
+                // direction (min→max).  Convert to face-local direction
+                // (va→vb) if needed.
+                let flip = va_id > vb_id;
+                for &(t_canon, vid) in steiners {
+                    let t_local = if flip { 1.0 - t_canon } else { t_canon };
+                    if !edge_steiners[ei].iter().any(|&(_, v)| v == vid) {
+                        edge_steiners[ei].push((t_local, vid));
+                    }
+                }
+            }
+        }
+    }
+
     // seg_vids[i] = [vid_of_start, vid_of_end]; None if not on face boundary.
     let mut seg_vids: Vec<[Option<VertexId>; 2]> = vec![[None, None]; dedup_snap_segments.len()];
     // Use a flat Vec for O(1) short-array dedup to preserve insertion order without allocation.
@@ -207,11 +364,39 @@ pub fn corefine_face(
                 if (p3d - interp).norm_squared() > WELD_TOL_SQ * 4.0 {
                     continue;
                 }
-                let vid = pool.insert_or_weld(p3d, face_n_unit);
+                // If seam map is in use, the edge Steiner is already
+                // pre-registered in the map above.  Just resolve the
+                // seg_vid linkage by finding the matching VertexId.
+                let vid = if use_seam_map {
+                    // Find the nearest pre-registered Steiner.
+                    let mut best: Option<VertexId> = None;
+                    for &(_, sv) in &edge_steiners[ei] {
+                        let sp = *pool.position(sv);
+                        if (p3d - sp).norm_squared() < WELD_TOL_SQ * 4.0 {
+                            best = Some(sv);
+                            break;
+                        }
+                    }
+                    match best {
+                        Some(v) => v,
+                        None => {
+                            // Fallback: insert and add (shouldn't happen
+                            // if build_seam_vertex_map was complete).
+                            let v = pool.insert_or_weld(p3d, face_n_unit);
+                            if !edge_steiners[ei].iter().any(|&(_, sv)| sv == v) {
+                                edge_steiners[ei].push((t, v));
+                            }
+                            v
+                        }
+                    }
+                } else {
+                    let v = pool.insert_or_weld(p3d, face_n_unit);
+                    if !edge_steiners[ei].iter().any(|&(_, sv)| sv == v) {
+                        edge_steiners[ei].push((t, v));
+                    }
+                    v
+                };
                 seg_vids[si][ep] = Some(vid);
-                if !edge_steiners[ei].iter().any(|&(_, v)| v == vid) {
-                    edge_steiners[ei].push((t, vid));
-                }
                 break 'edge_search;
             }
 
@@ -237,9 +422,62 @@ pub fn corefine_face(
     }
 
     // ── Step 2: Interior crossing points ─────────────────────────────────────
+    //
+    // # Theorem — 1-D Interval Pre-Filter Soundness
+    //
+    // Two line segments $s_1, s_2$ in the face plane can only intersect in the
+    // interior (i.e., at parameter values $t \in (\epsilon, 1-\epsilon)$ and
+    // $s \in (\epsilon, 1-\epsilon)$) if their axis-aligned bounding intervals
+    // overlap on **both** projected axes $(u, v)$.  A pair whose 1-D intervals
+    // are disjoint on either axis is guaranteed to have no interior crossing,
+    // so it can be skipped without geometric computation.  This reduces
+    // the expected cost from $O(S^2)$ to $O(S^2 \cdot p)$ where $p$ is the
+    // fraction of pairs with overlapping bounding boxes — typically $p \ll 1$
+    // for well-distributed intersection curves.
+    //
+    // **Proof.**  If two segments' $u$-intervals $[u_{\min,1}, u_{\max,1}]$ and
+    // $[u_{\min,2}, u_{\max,2}]$ are disjoint, then for any point on $s_1$ with
+    // $u$-coordinate $u_1$ and any point on $s_2$ with $u$-coordinate $u_2$,
+    // $u_1 \neq u_2$.  Two segments can only intersect at a point with the same
+    // coordinates on both, so they cannot intersect.  The same argument applies
+    // to the $v$-axis.  ∎
     let n_sq = face_n.norm_squared();
+
+    // Pre-compute 1-D bounding intervals for each segment on (axis_u, axis_v).
+    struct SegBounds {
+        u_min: f64,
+        u_max: f64,
+        v_min: f64,
+        v_max: f64,
+    }
+    let seg_bounds: Vec<SegBounds> = dedup_snap_segments
+        .iter()
+        .map(|seg| {
+            let su = seg.start[axis_u];
+            let eu = seg.end[axis_u];
+            let sv = seg.start[axis_v];
+            let ev = seg.end[axis_v];
+            SegBounds {
+                u_min: su.min(eu),
+                u_max: su.max(eu),
+                v_min: sv.min(ev),
+                v_max: sv.max(ev),
+            }
+        })
+        .collect();
+
     for i in 0..dedup_snap_segments.len() {
         for j in (i + 1)..dedup_snap_segments.len() {
+            // 1-D interval overlap pre-filter: skip pairs with disjoint
+            // bounding boxes on either projected axis.
+            if seg_bounds[i].u_max < seg_bounds[j].u_min
+                || seg_bounds[j].u_max < seg_bounds[i].u_min
+                || seg_bounds[i].v_max < seg_bounds[j].v_min
+                || seg_bounds[j].v_max < seg_bounds[i].v_min
+            {
+                continue;
+            }
+
             let s1 = &dedup_snap_segments[i];
             let s2 = &dedup_snap_segments[j];
             let d1 = s1.end - s1.start;
@@ -791,7 +1029,7 @@ mod tests {
 
         // Must not panic; Steiner guard triggers midpoint fallback before CDT receives
         // a pathological O(s²) input.
-        let result = corefine_face(&face, &segments, &mut pool);
+        let result = corefine_face(&face, &segments, &mut pool, &SeamVertexMap::new());
         assert!(
             !result.is_empty(),
             "midpoint fallback must produce at least one triangle"

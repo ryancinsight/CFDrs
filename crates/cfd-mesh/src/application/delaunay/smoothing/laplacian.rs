@@ -47,7 +47,6 @@
 use crate::application::delaunay::constraint::enforce::Cdt;
 use crate::application::delaunay::pslg::vertex::PslgVertexId;
 use crate::domain::core::scalar::Real;
-use std::collections::HashSet;
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
@@ -100,8 +99,8 @@ impl LaplacianSmoother {
 
         let lambda = self.lambda.clamp(0.0, 1.0);
 
-        // Build the set of "frozen" vertex IDs (boundary + super-triangle).
-        let frozen: HashSet<PslgVertexId> = build_frozen_set(cdt, self.preserve_boundary);
+        // Build the dense frozen-vertex array (boundary + super-triangle).
+        let frozen: Vec<bool> = build_frozen_set(cdt, self.preserve_boundary);
 
         let dt = cdt.triangulation();
         let num_real = dt.num_real_vertices;
@@ -116,7 +115,7 @@ impl LaplacianSmoother {
             let dt = cdt.triangulation();
             for raw in 0..num_real {
                 let vid = PslgVertexId::from_usize(raw);
-                if frozen.contains(&vid) {
+                if frozen[vid.idx()] {
                     continue;
                 }
                 let neighbors = one_ring_neighbors(dt, vid);
@@ -190,23 +189,37 @@ fn centroid(
     (sx / n, sy / n)
 }
 
-/// Build the set of frozen (unmovable) vertex IDs.
+/// Build a dense boolean array marking frozen (unmovable) vertices.
+///
+/// # Theorem — Dense Frozen-Set Lookup
+///
+/// **Statement**: Representing the frozen set as `Vec<bool>` indexed by
+/// `PslgVertexId` gives $O(1)$ lookup and $O(V)$ construction, compared
+/// to $O(1)$ amortised (with hashing overhead) and $O(|\text{frozen}|)$
+/// for `HashSet`.  Since frozen-set membership is tested once per
+/// vertex per smoothing iteration, the dense representation eliminates
+/// hash computation and is more cache-friendly.
+///
+/// **Proof**: `build_frozen_set` visits each super-triangle vertex (3) and
+/// each constrained edge endpoint (≤ 2·|C|).  With a pre-allocated
+/// `Vec<bool>` of length $V$, each insertion is a single indexed write.
+/// Lookup is `frozen[vid.idx()]` — a single array access.  ∎
 ///
 /// Always includes super-triangle vertices.  If `preserve_boundary`, also
 /// includes all constrained-edge endpoints.
-pub(crate) fn build_frozen_set(cdt: &Cdt, preserve_boundary: bool) -> HashSet<PslgVertexId> {
+pub(crate) fn build_frozen_set(cdt: &Cdt, preserve_boundary: bool) -> Vec<bool> {
     let dt = cdt.triangulation();
-    let mut frozen = HashSet::new();
+    let mut frozen = vec![false; dt.vertices().len()];
 
     // Super-triangle vertices are never moved.
     for &sv in &dt.super_verts {
-        frozen.insert(sv);
+        frozen[sv.idx()] = true;
     }
 
     if preserve_boundary {
         for &(a, b) in cdt.constrained_edges() {
-            frozen.insert(a);
-            frozen.insert(b);
+            frozen[a.idx()] = true;
+            frozen[b.idx()] = true;
         }
     }
 

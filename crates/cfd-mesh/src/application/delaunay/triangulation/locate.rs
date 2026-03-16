@@ -18,8 +18,13 @@
 //!
 //! In pathological geometries (near-degenerate configurations, floating-point
 //! perturbations) the oriented walk can cycle between 2–3 triangles.  We track
-//! visited triangles via a `HashSet` and abort on revisit, returning `None`.
+//! visited triangles via a dense `Vec<bool>` bitflag array indexed by
+//! `TriangleId`, giving $O(1)$ lookup/insert with no hashing overhead.
 //! The safety bound `max_steps = 3 * T` is retained as a hard cap.
+//!
+//! For the hot path (per-vertex insertion), use
+//! [`DelaunayTriangulation::locate_point`] which amortises allocation via an
+//! epoch-stamped buffer.
 //!
 //! # Algorithm
 //!
@@ -37,8 +42,6 @@
 //!         CONTINUE LOOP
 //!     RETURN t  // q is inside t (or on its boundary)
 //! ```
-
-use std::collections::HashSet;
 
 use crate::domain::core::scalar::Real;
 use crate::domain::geometry::predicates::{orient_2d, Orientation};
@@ -83,17 +86,22 @@ pub fn locate(
     let q = Point2::new(qx, qy);
     let mut tid = start;
     let max_steps = triangles.len() * 3;
-    let mut visited = HashSet::with_capacity(64);
+    let mut visited = vec![false; triangles.len()];
 
     for _ in 0..max_steps {
         if tid == GHOST_TRIANGLE {
             return None;
         }
-        if !visited.insert(tid) {
+        let idx = tid.idx();
+        if idx >= triangles.len() {
+            return None;
+        }
+        if visited[idx] {
             // Cycle detected — pathological geometry.
             return None;
         }
-        let tri = &triangles[tid.idx()];
+        visited[idx] = true;
+        let tri = &triangles[idx];
         if !tri.alive {
             return None;
         }

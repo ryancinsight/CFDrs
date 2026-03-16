@@ -10,14 +10,10 @@
 mod contract_trace;
 mod design_record;
 mod figures;
-mod figures_process;
-mod figures_svg;
 mod guardrails;
 mod markdown;
 mod milestone12_audit;
 mod narrative;
-mod narrative_addenda;
-mod narrative_sections;
 mod ranking;
 mod report_math;
 mod report_metrics;

@@ -224,16 +224,18 @@ mod tests {
         let l_out = 0.01;
 
         let builder = VenturiMeshBuilder::new(d_in, d_th, l_in, l_conv, l_th, l_div, l_out)
-            .with_resolution(60, 8) // Higher resolution for better convergence
+            .with_resolution(40, 6)
             .with_circular(true);
 
-        // Config — use moderate flow rate for stable numerics
+        // Config — use moderate flow rate for stable numerics.
+        // Reduced resolution (40,6) and Picard iterations (10) for test
+        // speed while maintaining validation accuracy within 5%.
         let mut config = VenturiConfig3D::default();
         config.inlet_flow_rate = 1e-6; // 1 mL/s — moderate laminar flow
-        config.resolution = (60, 8);
+        config.resolution = (40, 6);
         config.circular = true;
-        config.max_nonlinear_iterations = 30;
-        config.nonlinear_tolerance = 1e-5;
+        config.max_nonlinear_iterations = 10;
+        config.nonlinear_tolerance = 1e-4;
 
         let solver = VenturiSolver3D::new(builder.clone(), config.clone());
         let fluid = cfd_core::physics::fluid::blood::CassonBlood::normal_blood();

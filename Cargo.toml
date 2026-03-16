@@ -96,8 +96,6 @@ cfd-optim = { path = "crates/cfd-optim" }
 cfd-validation = { path = "crates/cfd-validation" }
 
 [profile.release]
-lto = true
-codegen-units = 1
 opt-level = 3
 
 [profile.bench]
@@ -130,7 +128,7 @@ readme.workspace = true
 [features]
 default = ["gpu"]
 gpu = ["cfd-core/gpu", "dep:wgpu"]
-csg = ["cfd-mesh/csg", "cfd-3d/csg"]
+
 mpi = ["cfd-core/mpi", "dep:mpi"]
 simd = ["cfd-core/simd"]
 millifluidic = ["cfd-mesh/millifluidic"]
@@ -195,38 +193,38 @@ path = "examples/spectral_performance.rs"
 [[example]]
 name = "venturi_cavitation"
 path = "examples/venturi_cavitation.rs"
-required-features = ["csg"]
 
-# CSG-related examples gated by feature
+
+
 [[example]]
 name = "csg_primitives_demo"
 path = "examples/csg_primitives_demo.rs"
-required-features = ["csg"]
+
 
 [[example]]
 name = "csg_cfd_simulation"
 path = "examples/csg_cfd_simulation.rs"
-required-features = ["csg"]
+
 
 [[example]]
 name = "csg_operations"
 path = "examples/csg_operations.rs"
-required-features = ["csg"]
+
 
 [[example]]
 name = "mesh_3d_integration"
 path = "examples/mesh_3d_integration.rs"
-required-features = ["csg"]
+
 
 [[example]]
 name = "csgrs_api_test"
 path = "examples/csgrs_api_test.rs"
-required-features = ["csg"]
+
 
 [[example]]
 name = "test_csgrs"
 path = "examples/test_csgrs.rs"
-required-features = ["csg"]
+
 
 [[bench]]
 name = "performance_benchmarks"

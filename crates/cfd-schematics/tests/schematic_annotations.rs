@@ -119,7 +119,7 @@ fn annotated_svg_contains_markers_labels_and_role_colors() {
     assert!(svg.contains("TH1"));
     assert!(svg_lower.contains("circle") || svg_lower.contains("path"));
     assert!(svg_lower.contains("#0b7285"));
-    assert!(svg_lower.contains("#c2410c"));
+    assert!(svg_lower.contains("#d22828"));
 }
 
 #[test]

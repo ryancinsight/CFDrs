@@ -5,7 +5,7 @@ use std::path::Path;
 
 use super::primitives::{arrow, escape_xml, process_box, svg_end, svg_start, svg_title};
 
-pub(super) fn write_placeholder(
+pub(in crate::reporting) fn write_placeholder(
     path: &Path,
     title: &str,
     message: &str,

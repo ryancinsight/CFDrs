@@ -89,7 +89,7 @@ impl AngleBasedSmoother {
             // order-dependence — acceptable for quality improvement heuristics.
             for raw in 0..num_real {
                 let vid = PslgVertexId::from_usize(raw);
-                if frozen.contains(&vid) {
+                if frozen[vid.idx()] {
                     continue;
                 }
                 let dt = cdt.triangulation();

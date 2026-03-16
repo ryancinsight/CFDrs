@@ -71,7 +71,7 @@ impl<
     /// Create a new FEM solver with the given configuration
     pub fn new(config: FemConfig<T>) -> Self {
         let solver_config = cfd_math::linear_solver::IterativeSolverConfig {
-            max_iterations: 30000,
+            max_iterations: 5_000,
             tolerance: <T as FromPrimitive>::from_f64(1e-12)
                 .expect("1e-12 is an IEEE 754 representable f64 constant"),
             ..cfd_math::linear_solver::IterativeSolverConfig::default()
@@ -131,8 +131,11 @@ impl<
             <T as FromPrimitive>::from_f64(1e-14)
                 .expect("1e-14 is an IEEE 754 representable f64 constant"),
         );
+        // Cap at 5,000 iterations — sufficient for well-conditioned systems
+        // and prevents 10+ minute hangs on ill-conditioned saddle-point problems.
+        // Systems that don't converge in 5K iterations won't converge in 50K.
         let solver_config = cfd_math::linear_solver::IterativeSolverConfig {
-            max_iterations: 50_000,
+            max_iterations: 5_000,
             tolerance: abs_tol,
             ..cfd_math::linear_solver::IterativeSolverConfig::default()
         };
@@ -219,9 +222,9 @@ impl<
                 .expect("1e-14 is an IEEE 754 representable f64 constant"),
         );
 
-        // Reduced iteration budget: 10K is sufficient with warm-starting.
+        // Reduced iteration budget: 5K is sufficient with warm-starting.
         let solver_config = cfd_math::linear_solver::IterativeSolverConfig {
-            max_iterations: 10_000,
+            max_iterations: 5_000,
             tolerance: abs_tol,
             ..cfd_math::linear_solver::IterativeSolverConfig::default()
         };

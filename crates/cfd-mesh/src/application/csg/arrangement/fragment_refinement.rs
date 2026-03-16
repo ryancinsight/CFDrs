@@ -4,7 +4,7 @@
 
 use hashbrown::{HashMap, HashSet};
 
-use super::super::corefine::corefine_face;
+use super::super::corefine::{corefine_face, SeamVertexMap};
 use super::super::intersect::SnapSegment;
 use super::classify::FragRecord;
 use crate::domain::core::index::VertexId;
@@ -20,6 +20,7 @@ pub(crate) fn append_corefined_fragments<T, F>(
     skipped_faces: &HashSet<usize>,
     snap_segments: &[Vec<SnapSegment>],
     pool: &mut VertexPool,
+    seam_map: &SeamVertexMap,
     mut build_fragment: F,
 ) where
     F: FnMut(FaceData, usize) -> T,
@@ -41,7 +42,7 @@ pub(crate) fn append_corefined_fragments<T, F>(
             continue;
         }
 
-        for sub_face in corefine_face(face, face_segments, pool) {
+        for sub_face in corefine_face(face, face_segments, pool, seam_map) {
             fragments.push(build_fragment(sub_face, face_index));
         }
     }
@@ -228,8 +229,8 @@ fn build_cross_mesh_merge_map(
 /// Uses a spatial hash and union-find over vertices that are exclusive to A or
 /// exclusive to B. Vertices shared by both sources are preserved as seam anchors.
 pub(crate) fn consolidate_cross_mesh_vertices(frags: &mut Vec<FragRecord>, pool: &VertexPool) {
-    // Tolerance: 2x the corefine Steiner snap tolerance (WELD_TOL = 1e-4).
-    const CONSOLIDATE_TOL: Real = 2e-4;
+    // Tolerance: 2x the corefine Steiner snap tolerance (which is 1 µm).
+    const CONSOLIDATE_TOL: Real = 2e-6;
     const CONSOLIDATE_TOL_SQ: Real = CONSOLIDATE_TOL * CONSOLIDATE_TOL;
 
     let mut vids_a: HashSet<VertexId> = HashSet::new();

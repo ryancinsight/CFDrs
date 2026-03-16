@@ -131,33 +131,51 @@ fn validate_venturi_candidate(
         serde_json::to_string_pretty(&result_2d)?,
     )?;
 
-    // Use canonical (80,20) resolution for the 3D FEM.  The structured grid is
-    // iso-parametrically mapped onto the venturi geometry so the 20×20 cross-section
-    // cells span the full throat width regardless of contraction ratio.  Scaling ny
-    // with CR is *not* required and causes catastrophic memory growth (CR=59 → OOM).
-    let resolution = (80_usize, 20_usize);
-    let builder3d = VenturiMeshBuilder::<f64>::new(
-        inlet_width_m,
-        throat_width_m,
-        5.0 * inlet_width_m,
-        3.0 * inlet_width_m,
-        throat_length_m,
-        7.0 * inlet_width_m,
-        5.0 * inlet_width_m,
-    )
-    .with_resolution(resolution.0, resolution.1)
-    .with_circular(false);
+    // Resolution pyramid: try canonical (80,20) first, fall back to (40,10)
+    // on solver failure.  Coarser grid has 8× fewer elements and DOF, so
+    // the iterative solver converges more reliably on stiff geometries.
+    let resolutions: [(usize, usize); 2] = [(80, 20), (40, 10)];
+    let mut sol3d = None;
+    let mut resolution = resolutions[0];
+    for &res in &resolutions {
+        resolution = res;
+        let builder3d = VenturiMeshBuilder::<f64>::new(
+            inlet_width_m,
+            throat_width_m,
+            5.0 * inlet_width_m,
+            3.0 * inlet_width_m,
+            throat_length_m,
+            7.0 * inlet_width_m,
+            5.0 * inlet_width_m,
+        )
+        .with_resolution(res.0, res.1)
+        .with_circular(false);
 
-    let config3d = VenturiConfig3D::<f64> {
-        inlet_flow_rate: q,
-        resolution,
-        circular: false,
-        rect_height: Some(channel_height_m),
-        ..Default::default()
-    };
-    let sol3d = VenturiSolver3D::new(builder3d, config3d)
-        .solve(CarreauYasudaBlood::<f64>::normal_blood())
-        .map_err(|error| format!("3D FEM failed for {}: {error}", candidate.id))?;
+        let config3d = VenturiConfig3D::<f64> {
+            inlet_flow_rate: q,
+            resolution: res,
+            circular: false,
+            rect_height: Some(channel_height_m),
+            ..Default::default()
+        };
+        match VenturiSolver3D::new(builder3d, config3d)
+            .solve(CarreauYasudaBlood::<f64>::normal_blood())
+        {
+            Ok(s) => {
+                sol3d = Some(s);
+                break;
+            }
+            Err(e) => {
+                tracing::warn!(
+                    resolution = ?res,
+                    error = %e,
+                    "3D FEM failed at resolution {:?}, trying coarser", res
+                );
+            }
+        }
+    }
+    let sol3d = sol3d
+        .ok_or_else(|| format!("3D FEM failed for {} at all resolutions", candidate.id))?;
     let dp_3d = sol3d.dp_throat.abs();
     let mass_err_3d = sol3d.mass_error.abs();
 

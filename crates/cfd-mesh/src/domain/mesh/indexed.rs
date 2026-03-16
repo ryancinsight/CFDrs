@@ -114,6 +114,17 @@ impl<T: Scalar> IndexedMesh<T> {
         self.vertices.insert_or_weld(position, normal)
     }
 
+    /// Insert a vertex that is guaranteed to receive a fresh [`VertexId`],
+    /// bypassing the spatial-hash weld tolerance.
+    ///
+    /// Use this when splitting a pinch or non-manifold vertex: the new
+    /// vertex occupies the *same* position as the original and must NOT
+    /// be welded back into it.
+    pub fn add_vertex_unique(&mut self, position: Point3<T>, normal: Vector3<T>) -> VertexId {
+        self.edges = None;
+        self.vertices.insert_unique(position, normal)
+    }
+
     /// Insert a vertex by position only (zero normal).
     pub fn add_vertex_pos(&mut self, position: Point3<T>) -> VertexId {
         self.edges = None;
@@ -371,7 +382,7 @@ impl<T: Scalar> IndexedMesh<T> {
     /// is safe to call on CSG difference results that contain cavities.
     pub fn orient_outward(&mut self) {
         use crate::domain::geometry::normal::triangle_normal;
-        use std::collections::{HashMap, VecDeque};
+        use std::collections::VecDeque;
 
         // Collect an owned copy of all face data so the immutable borrow ends
         // before the mutable `self.faces.iter_mut()` pass below.
@@ -382,25 +393,22 @@ impl<T: Scalar> IndexedMesh<T> {
             return;
         }
 
-        // Per-face normals (None = degenerate) and centroid X.
-        // Both are computed from the immutable vertex pool before the later
-        // mutable pass.
+        // Per-face normals (None = degenerate).
         let mut face_normals: Vec<Option<Vector3<T>>> = Vec::with_capacity(n_faces);
-        let mut face_centroid_x: Vec<T> = Vec::with_capacity(n_faces);
         for face in &face_list {
             let a = self.vertices.position(face.vertices[0]);
             let b = self.vertices.position(face.vertices[1]);
             let c = self.vertices.position(face.vertices[2]);
             face_normals.push(triangle_normal(a, b, c));
-
-            let cx = (a.x + b.x + c.x) / <T as Scalar>::from_f64(3.0);
-            face_centroid_x.push(cx);
         }
 
         // Directed half-edge → face index.
+        //
+        // Uses `hashbrown::HashMap` for consistent performance with the
+        // rest of the mesh pipeline (lower overhead than std HashMap).
         let half_edge_cap: usize = n_faces * 3;
-        let mut half_edge: HashMap<(VertexId, VertexId), usize> =
-            HashMap::with_capacity(half_edge_cap);
+        let mut half_edge: hashbrown::HashMap<(VertexId, VertexId), usize> =
+            hashbrown::HashMap::with_capacity(half_edge_cap);
         for (fi, face) in face_list.iter().enumerate() {
             let v = face.vertices;
             for k in 0..3 {
@@ -419,16 +427,24 @@ impl<T: Scalar> IndexedMesh<T> {
 
         // Outer loop handles disconnected components — each gets its own seed.
         loop {
-            // Find the unvisited non-degenerate face with the maximum X vertex.
+            // Find the unvisited non-degenerate face with the maximum
+            // centroid X.  Computed on-the-fly to avoid a dedicated
+            // `face_centroid_x` allocation.
             let seed_fi = {
                 let mut best_x = <T as num_traits::Float>::neg_infinity();
                 let mut best: Option<usize> = None;
+                let third = <T as Scalar>::from_f64(3.0);
                 for fi in 0..n_faces {
                     if orientation[fi].is_some() || face_normals[fi].is_none() {
                         continue;
                     }
-                    if face_centroid_x[fi] > best_x {
-                        best_x = face_centroid_x[fi];
+                    let face = &face_list[fi];
+                    let ax = self.vertices.position(face.vertices[0]).x;
+                    let bx = self.vertices.position(face.vertices[1]).x;
+                    let cx = self.vertices.position(face.vertices[2]).x;
+                    let centroid_x = (ax + bx + cx) / third;
+                    if centroid_x > best_x {
+                        best_x = centroid_x;
                         best = Some(fi);
                     }
                 }
@@ -882,5 +898,184 @@ mod tests {
             n1, n2,
             "Tolerance must be preserved after retain_largest_component"
         );
+    }
+
+    // ── orient_outward adversarial tests ──────────────────────────────────
+
+    /// Build an outward-oriented closed tetrahedron.
+    ///
+    /// Vertices: (1,0,0), (0,1,0), (0,0,1), (0,0,0).
+    /// Winding: each face normal points away from the centroid.
+    fn outward_tet() -> IndexedMesh<f64> {
+        let mut m = IndexedMesh::with_cell_size(0.01);
+        let v0 = m.add_vertex_pos(Point3::new(1.0, 0.0, 0.0));
+        let v1 = m.add_vertex_pos(Point3::new(0.0, 1.0, 0.0));
+        let v2 = m.add_vertex_pos(Point3::new(0.0, 0.0, 1.0));
+        let v3 = m.add_vertex_pos(Point3::new(0.0, 0.0, 0.0));
+        // CCW winding viewed from outside
+        m.add_face(v0, v1, v2);
+        m.add_face(v0, v3, v1);
+        m.add_face(v0, v2, v3);
+        m.add_face(v1, v3, v2);
+        m
+    }
+
+    /// Build an inward-oriented closed tetrahedron (all faces reversed).
+    fn inward_tet() -> IndexedMesh<f64> {
+        let mut m = IndexedMesh::with_cell_size(0.01);
+        let v0 = m.add_vertex_pos(Point3::new(1.0, 0.0, 0.0));
+        let v1 = m.add_vertex_pos(Point3::new(0.0, 1.0, 0.0));
+        let v2 = m.add_vertex_pos(Point3::new(0.0, 0.0, 1.0));
+        let v3 = m.add_vertex_pos(Point3::new(0.0, 0.0, 0.0));
+        // CW winding (inward) — swap v1 ↔ v2 relative to outward_tet
+        m.add_face(v0, v2, v1);
+        m.add_face(v0, v1, v3);
+        m.add_face(v0, v3, v2);
+        m.add_face(v1, v2, v3);
+        m
+    }
+
+    /// # Theorem — Signed-Volume Orientation Correction
+    ///
+    /// **Statement**: For a closed, orientable triangulated manifold,
+    /// the divergence-theorem signed volume is positive iff all face
+    /// normals point outward.  `orient_outward` must correct a
+    /// fully-inward mesh to positive signed volume via the global
+    /// flip fallback.
+    ///
+    /// **Proof**: The signed volume integral
+    /// $V = \frac{1}{6} \sum_f \mathbf{a} \cdot (\mathbf{b} \times \mathbf{c})$
+    /// changes sign under face reversal (swapping two vertices negates
+    /// the cross product).  `orient_outward`'s signed-volume check
+    /// detects $V < 0$ and flips every face, yielding $V > 0$.
+    #[test]
+    fn orient_outward_corrects_all_inward_tet() {
+        let mut mesh = inward_tet();
+
+        // Before: signed volume should be negative.
+        let vol_before = crate::domain::geometry::measure::total_signed_volume(
+            mesh.faces.iter_enumerated().map(|(_, f)| {
+                (
+                    mesh.vertices.position(f.vertices[0]),
+                    mesh.vertices.position(f.vertices[1]),
+                    mesh.vertices.position(f.vertices[2]),
+                )
+            }),
+        );
+        assert!(vol_before < 0.0, "inward tet should have negative signed vol");
+
+        mesh.orient_outward();
+
+        // After: signed volume should be positive.
+        let vol_after = crate::domain::geometry::measure::total_signed_volume(
+            mesh.faces.iter_enumerated().map(|(_, f)| {
+                (
+                    mesh.vertices.position(f.vertices[0]),
+                    mesh.vertices.position(f.vertices[1]),
+                    mesh.vertices.position(f.vertices[2]),
+                )
+            }),
+        );
+        assert!(
+            vol_after > 0.0,
+            "orient_outward must produce positive signed volume, got {}",
+            vol_after
+        );
+    }
+
+    /// Already-outward mesh must remain unchanged.
+    #[test]
+    fn orient_outward_preserves_correct_winding() {
+        let mut mesh = outward_tet();
+        let vol_before = crate::domain::geometry::measure::total_signed_volume(
+            mesh.faces.iter_enumerated().map(|(_, f)| {
+                (
+                    mesh.vertices.position(f.vertices[0]),
+                    mesh.vertices.position(f.vertices[1]),
+                    mesh.vertices.position(f.vertices[2]),
+                )
+            }),
+        );
+        assert!(vol_before > 0.0, "outward tet must have positive vol");
+
+        mesh.orient_outward();
+
+        let vol_after = crate::domain::geometry::measure::total_signed_volume(
+            mesh.faces.iter_enumerated().map(|(_, f)| {
+                (
+                    mesh.vertices.position(f.vertices[0]),
+                    mesh.vertices.position(f.vertices[1]),
+                    mesh.vertices.position(f.vertices[2]),
+                )
+            }),
+        );
+        assert!(
+            vol_after > 0.0,
+            "orient_outward must not break already-outward mesh, got {}",
+            vol_after
+        );
+    }
+
+    /// # Theorem — BFS Disconnected-Component Completeness
+    ///
+    /// **Statement**: The outer loop in `orient_outward` re-seeds BFS
+    /// for every connected component.  Two disjoint tetrahedra must
+    /// both be oriented outward, with total positive signed volume
+    /// equal to the sum of their individual volumes.
+    ///
+    /// **Proof**: After the first component's BFS exhausts its connected
+    /// faces, the seed-search finds the next unvisited non-degenerate
+    /// face and starts a fresh BFS.  Inductive application shows all
+    /// components are covered.
+    #[test]
+    fn orient_outward_two_disjoint_tets() {
+        let mut mesh = IndexedMesh::with_cell_size(0.01);
+
+        // Component 1: tet at origin (inward winding)
+        let a0 = mesh.add_vertex_pos(Point3::new(1.0, 0.0, 0.0));
+        let a1 = mesh.add_vertex_pos(Point3::new(0.0, 1.0, 0.0));
+        let a2 = mesh.add_vertex_pos(Point3::new(0.0, 0.0, 1.0));
+        let a3 = mesh.add_vertex_pos(Point3::new(0.0, 0.0, 0.0));
+        mesh.add_face(a0, a2, a1); // inward
+        mesh.add_face(a0, a1, a3);
+        mesh.add_face(a0, a3, a2);
+        mesh.add_face(a1, a2, a3);
+
+        // Component 2: tet at (10,0,0) (outward winding)
+        let b0 = mesh.add_vertex_pos(Point3::new(11.0, 0.0, 0.0));
+        let b1 = mesh.add_vertex_pos(Point3::new(10.0, 1.0, 0.0));
+        let b2 = mesh.add_vertex_pos(Point3::new(10.0, 0.0, 1.0));
+        let b3 = mesh.add_vertex_pos(Point3::new(10.0, 0.0, 0.0));
+        mesh.add_face(b0, b1, b2);
+        mesh.add_face(b0, b3, b1);
+        mesh.add_face(b0, b2, b3);
+        mesh.add_face(b1, b3, b2);
+
+        assert_eq!(mesh.face_count(), 8, "should have 8 faces total");
+
+        mesh.orient_outward();
+
+        let vol = crate::domain::geometry::measure::total_signed_volume(
+            mesh.faces.iter_enumerated().map(|(_, f)| {
+                (
+                    mesh.vertices.position(f.vertices[0]),
+                    mesh.vertices.position(f.vertices[1]),
+                    mesh.vertices.position(f.vertices[2]),
+                )
+            }),
+        );
+        assert!(
+            vol > 0.0,
+            "two disjoint tets must both orient outward (positive vol), got {}",
+            vol
+        );
+    }
+
+    /// Empty mesh must not panic in orient_outward.
+    #[test]
+    fn orient_outward_empty_mesh_no_panic() {
+        let mut mesh: IndexedMesh<f64> = IndexedMesh::new();
+        mesh.orient_outward();
+        assert_eq!(mesh.face_count(), 0);
     }
 }

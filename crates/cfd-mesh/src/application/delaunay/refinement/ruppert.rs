@@ -50,7 +50,7 @@ use crate::application::delaunay::refinement::encroachment::{
 };
 use crate::application::delaunay::refinement::metric::MetricTensor;
 use crate::application::delaunay::refinement::quality::TriangleQuality;
-use crate::application::delaunay::triangulation::locate::{locate, Location};
+use crate::application::delaunay::triangulation::locate::Location;
 use crate::application::delaunay::triangulation::triangle::{Triangle, TriangleId};
 use crate::domain::core::scalar::Real;
 
@@ -225,7 +225,7 @@ impl RuppertRefiner {
     }
 
     /// Split a constraint segment at its midpoint (with concentric shell rounding).
-    fn split_segment(&mut self, a: PslgVertexId, b: PslgVertexId) {
+    fn split_segment(&mut self, a: PslgVertexId, b: PslgVertexId) -> PslgVertexId {
         let va = *self.cdt.triangulation().vertex(a);
         let vb = *self.cdt.triangulation().vertex(b);
 
@@ -244,6 +244,7 @@ impl RuppertRefiner {
         self.cdt.add_constraint(mid_vid, b);
 
         self.steiner_count += 1;
+        mid_vid
     }
 
     /// Phase 2: Iteratively fix bad triangles.
@@ -286,21 +287,21 @@ impl RuppertRefiner {
 
             if let Some((sa, sb)) = encroached_seg {
                 // Split the encroached segment instead.
-                self.split_segment(sa, sb);
+                let split_vid = self.split_segment(sa, sb);
                 // After a segment split the new Steiner vertex's 1-ring may
                 // contain bad triangles; scan that ring only.
-                self.append_bad_triangles_local(&mut queue);
+                self.append_bad_triangles_ring(&mut queue, split_vid);
             } else {
                 // Verify the insertion point is inside the domain
                 // (not in a super-triangle region or outside the boundary).
-                let dt = self.cdt.triangulation();
-                let inside = match locate(dt.vertices(), dt.triangles_slice(), bad.tid, px, py) {
+                let dt = self.cdt.triangulation_mut();
+                let inside = match dt.locate_point(bad.tid, px, py) {
                     Some(
                         Location::Inside(tid)
                         | Location::OnEdge(tid, _)
                         | Location::OnVertex(tid, _),
                     ) => {
-                        let t = dt.triangle(tid);
+                        let t = &dt.triangles[tid.idx()];
                         !t.vertices.iter().any(|v| dt.super_verts.contains(v))
                     }
                     _ => false,
@@ -377,20 +378,6 @@ impl RuppertRefiner {
                 });
             }
         }
-    }
-
-    /// Scan the 1-ring of the most recently inserted Steiner vertex.
-    ///
-    /// Used after segment splits where the new vertex ID is the last real
-    /// vertex in the triangulation.
-    fn append_bad_triangles_local(&self, queue: &mut BinaryHeap<BadTriangle>) {
-        let dt = self.cdt.triangulation();
-        let n = dt.vertex_count();
-        if n == 0 {
-            return;
-        }
-        let last_vid = PslgVertexId::from_usize(n - 1);
-        self.append_bad_triangles_ring(queue, last_vid);
     }
 
     /// Compute triangle quality, using the anisotropic metric when set.

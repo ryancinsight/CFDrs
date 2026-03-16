@@ -188,9 +188,48 @@ impl<T: Scalar> VertexPool<T> {
     /// This welds Steiner points whose floating-point positions differ by up to
     /// `1e-4 mm` (100 nm) due to different numerical computation paths across
     /// adjacent faces, preventing T-junction seam gaps in the CSG result.
+    ///
+    /// **Warning:** This uses absolute tolerances and is only correct for meshes
+    /// at millimetre-scale. For scale-invariant CSG, use [`for_csg_with_scale`].
     #[must_use]
     pub fn for_csg() -> Self {
         Self::with_tolerance(<T as Scalar>::from_f64(1e-4), <T as Scalar>::from_f64(1e-4))
+    }
+
+    /// Scale-relative pool for CSG boolean operations.
+    ///
+    /// Tolerance is set to `characteristic_length * 1e-4`, providing four
+    /// decades of separation between weld radius and mesh extent. This
+    /// eliminates the scale-dependent vertex collapse that occurs with
+    /// the absolute tolerance in [`for_csg`], while remaining generous
+    /// enough to weld Steiner points with floating-point drift from
+    /// triangle-triangle intersection near mesh corners.
+    ///
+    /// # Algorithm
+    ///
+    /// **Theorem (no false welds):** If all distinct vertex pairs in the input
+    /// satisfy `‖vᵢ − vⱼ‖ ≥ L / k` for some separation ratio `k`, then
+    /// choosing `ε = L × 10⁻⁴` guarantees no false welds whenever `k < 10⁴`.
+    ///
+    /// *Proof:* Two distinct vertices weld iff `‖vᵢ − vⱼ‖ < ε`. By hypothesis
+    /// `‖vᵢ − vⱼ‖ ≥ L/k > L × 10⁻⁴ = ε` when `k < 10⁴`. ∎
+    ///
+    /// For typical tessellated geometry, `k < 100`, so four decades is safe.
+    ///
+    /// # Arguments
+    ///
+    /// * `characteristic_length` — AABB diagonal or maximum edge length of the
+    ///   combined operand meshes.
+    #[must_use]
+    pub fn for_csg_with_scale(characteristic_length: T) -> Self {
+        let rel_tol = characteristic_length * <T as Scalar>::from_f64(1e-4);
+        // Floor at machine-precision level to avoid zero-tolerance degenerate grid.
+        let tol = if rel_tol > <T as Scalar>::from_f64(1e-15) {
+            rel_tol
+        } else {
+            <T as Scalar>::from_f64(1e-15)
+        };
+        Self::with_tolerance(tol, tol)
     }
 
     /// Create an empty clone with the exact same cell_size and tolerance_sq

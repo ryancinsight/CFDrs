@@ -79,11 +79,21 @@ pub struct BooleanFragmentRecord {
     pub parent_idx: usize,
 }
 
+/// Per-fragment inside/outside classification cached during N-way resolution.
+///
+/// Each fragment face is classified exactly once against its owning operand's
+/// complement volume, then the verdict is reused for all Boolean-op
+/// survivorship checks.  This avoids redundant GWN evaluations.
 #[derive(Clone, Copy, Debug)]
 struct CachedClassification {
     class: FragmentClass,
 }
 
+/// Three non-collinear vertices defining a coplanar fragment's supporting plane.
+///
+/// Used by the coplanar propagation pass to decide whether a group of
+/// flush-coplanar fragments from different operands should be kept or
+/// discarded (e.g. shared-wall elimination in Union).
 struct CoplanarPlaneInfo {
     a: Point3r,
     b: Point3r,
@@ -285,15 +295,56 @@ fn consolidate_cross_mesh_vertices(frags: &mut Vec<BooleanFragmentRecord>, pool:
     }
 
     let mut parent: Vec<usize> = (0..all_vids.len()).collect();
+    let mut rank: Vec<u8> = vec![0; all_vids.len()];
 
+    /// Union-find with full path compression and union-by-rank.
+    ///
+    /// # Theorem — Amortised Complexity
+    ///
+    /// With path compression and union-by-rank, $m$ find/union operations on
+    /// $n$ elements run in $O(m \cdot \alpha(n))$ amortised time, where
+    /// $\alpha$ is the inverse Ackermann function ($\alpha(n) \le 4$ for all
+    /// practical $n$).
+    ///
+    /// **Proof sketch.**  Path compression flattens the tree on every `find`,
+    /// and union-by-rank ensures the tree depth grows logarithmically.
+    /// Combined, Tarjan's analysis shows the amortised cost per operation
+    /// is $\alpha(n)$.  ∎
     fn find_root(parent: &mut [usize], mut x: usize) -> usize {
-        while parent[x] != x {
-            let p = parent[x];
-            let gp = parent[p];
-            parent[x] = gp;
-            x = gp;
+        // Find root.
+        let mut root = x;
+        while parent[root] != root {
+            root = parent[root];
         }
-        x
+        // Path compression: point all ancestors directly to root.
+        while parent[x] != root {
+            let next = parent[x];
+            parent[x] = root;
+            x = next;
+        }
+        root
+    }
+
+    fn union(parent: &mut [usize], rank: &mut [u8], a: usize, b: usize) {
+        let ra = find_root(parent, a);
+        let rb = find_root(parent, b);
+        if ra == rb {
+            return;
+        }
+        // Union-by-rank with tie-break to lower index for determinism.
+        match rank[ra].cmp(&rank[rb]) {
+            std::cmp::Ordering::Less => parent[ra] = rb,
+            std::cmp::Ordering::Greater => parent[rb] = ra,
+            std::cmp::Ordering::Equal => {
+                if ra < rb {
+                    parent[rb] = ra;
+                    rank[ra] = rank[ra].saturating_add(1);
+                } else {
+                    parent[ra] = rb;
+                    rank[rb] = rank[rb].saturating_add(1);
+                }
+            }
+        }
     }
 
     for (index, position) in positions.iter().enumerate() {
@@ -306,7 +357,7 @@ fn consolidate_cross_mesh_vertices(frags: &mut Vec<BooleanFragmentRecord>, pool:
                 for dz in -1_i64..=1 {
                     if let Some(candidates) = grid.get(&(ix + dx, iy + dy, iz + dz)) {
                         for &other_index in candidates {
-                            if index == other_index {
+                            if other_index <= index {
                                 continue;
                             }
 
@@ -315,15 +366,7 @@ fn consolidate_cross_mesh_vertices(frags: &mut Vec<BooleanFragmentRecord>, pool:
                                 + (other_position.y - position.y).powi(2)
                                 + (other_position.z - position.z).powi(2);
                             if d_sq < tol_sq {
-                                let root_i = find_root(&mut parent, index);
-                                let root_j = find_root(&mut parent, other_index);
-                                if root_i != root_j {
-                                    if root_i < root_j {
-                                        parent[root_j] = root_i;
-                                    } else {
-                                        parent[root_i] = root_j;
-                                    }
-                                }
+                                union(&mut parent, &mut rank, index, other_index);
                             }
                         }
                     }

@@ -53,9 +53,12 @@ pub fn generate_ga_mutations(
             seed.id
         )));
     }
-    let mut mutated = Vec::new();
+    let treatment_ids = seed.treatment_channel_ids();
+    // Each treatment channel produces ~20 mutations (4 venturi + 1 serpentine
+    // + 12 split-merge variants) plus 8 operating-point perturbations.
+    let mut mutated = Vec::with_capacity(treatment_ids.len() * 20 + 8);
 
-    for target_channel_id in seed.treatment_channel_ids() {
+    for target_channel_id in treatment_ids {
         let route = topology
             .channel_route(&target_channel_id)
             .ok_or_else(|| {
@@ -66,10 +69,12 @@ pub fn generate_ga_mutations(
             })?
             .clone();
         let base_serpentine = route_serpentine(&route);
+        // Vary serpentine parameters: +1 segment, tighter bends, longer segments.
+        // This produces genuinely different Dean numbers and residence times.
         let stronger_serpentine = Some(SerpentineSpec {
-            segments: base_serpentine.segments + 1,
-            bend_radius_m: base_serpentine.bend_radius_m,
-            segment_length_m: base_serpentine.segment_length_m,
+            segments: base_serpentine.segments + 2,
+            bend_radius_m: base_serpentine.bend_radius_m * 0.8,
+            segment_length_m: base_serpentine.segment_length_m * 1.2,
         });
         let venturi_geometry = route_throat_geometry(&route);
 
@@ -88,22 +93,32 @@ pub fn generate_ga_mutations(
             seed.operating_point.clone(),
         ));
 
-        let venturi_mutation = BlueprintTopologyFactory::mutate(
-            &seed.blueprint,
-            BlueprintTopologyMutation::SetTreatmentChannelVenturi {
-                target_channel_id: target_channel_id.clone(),
-                serial_throat_count: 2,
-                throat_geometry: venturi_geometry.clone(),
-                placement_mode: VenturiPlacementMode::CurvaturePeakDeanNumber,
-            },
-            TopologyOptimizationStage::InPlaceDeanSerpentineRefinement,
-        )
-        .map_err(OptimError::InvalidParameter)?;
-        mutated.push(BlueprintCandidate::new(
-            format!("{}-ga-v-{}", seed.id, target_channel_id),
-            venturi_mutation,
-            seed.operating_point.clone(),
-        ));
+        // Venturi mutations with varied throat counts and widths.
+        for &(vt_count, width_factor, label) in &[
+            (2_u8, 1.0, "v2"),
+            (3, 1.0, "v3"),
+            (2, 0.7, "v2n"),  // narrower throat → lower σ
+            (2, 1.3, "v2w"),  // wider throat → higher σ, less hemolysis
+        ] {
+            let mut varied_geom = venturi_geometry.clone();
+            varied_geom.throat_width_m *= width_factor;
+            let venturi_mutation = BlueprintTopologyFactory::mutate(
+                &seed.blueprint,
+                BlueprintTopologyMutation::SetTreatmentChannelVenturi {
+                    target_channel_id: target_channel_id.clone(),
+                    serial_throat_count: vt_count,
+                    throat_geometry: varied_geom,
+                    placement_mode: VenturiPlacementMode::CurvaturePeakDeanNumber,
+                },
+                TopologyOptimizationStage::InPlaceDeanSerpentineRefinement,
+            )
+            .map_err(OptimError::InvalidParameter)?;
+            mutated.push(BlueprintCandidate::new(
+                format!("{}-ga-{}-{}", seed.id, label, target_channel_id),
+                venturi_mutation,
+                seed.operating_point.clone(),
+            ));
+        }
 
         for split_kind in [
             SplitKind::NFurcation(2),
@@ -168,6 +183,39 @@ pub fn generate_ga_mutations(
                 seed.operating_point.clone(),
             ));
         }
+    }
+
+    // Operating-point perturbation mutations: vary flow rate and pressure
+    // to explore the physical design space around the seed topology.
+    // These produce genuinely different scores because they change the
+    // 1D CFD solve inputs (Re, ΔP, σ), unlike stacked serpentine
+    // mutations which are nearly idempotent on the same channel.
+    let base_q = seed.operating_point.flow_rate_m3_s;
+    let base_p = seed.operating_point.inlet_gauge_pa;
+    let base_ht = seed.operating_point.feed_hematocrit;
+    for &q_factor in &[0.7, 0.85, 1.15, 1.3] {
+        mutated.push(BlueprintCandidate::new(
+            format!("{}-ga-qf{:.0}", seed.id, q_factor * 100.0),
+            seed.blueprint.clone(),
+            crate::domain::OperatingPoint {
+                flow_rate_m3_s: base_q * q_factor,
+                inlet_gauge_pa: base_p,
+                feed_hematocrit: base_ht,
+                patient_context: seed.operating_point.patient_context.clone(),
+            },
+        ));
+    }
+    for &p_factor in &[0.7, 0.85, 1.15, 1.3] {
+        mutated.push(BlueprintCandidate::new(
+            format!("{}-ga-pf{:.0}", seed.id, p_factor * 100.0),
+            seed.blueprint.clone(),
+            crate::domain::OperatingPoint {
+                flow_rate_m3_s: base_q,
+                inlet_gauge_pa: base_p * p_factor,
+                feed_hematocrit: base_ht,
+                patient_context: seed.operating_point.patient_context.clone(),
+            },
+        ));
     }
 
     Ok(mutated)

@@ -124,12 +124,56 @@ pub fn reconstruct_mesh(faces: &[FaceData], pool: &VertexPool) -> IndexedMesh {
 
 /// Compute the welding tolerance for CSG mesh reconstruction.
 ///
-/// Uses the default tolerance of `1e-4`.  Seam vertex merging is handled
-/// upstream by `stitch_boundary_seams` (VertexId remapping), so the
-/// reconstruction spatial hash only needs to weld truly coincident
-/// positions from floating-point rounding during plane crossing.
-fn adaptive_reconstruct_tolerance(_faces: &[FaceData], _pool: &VertexPool) -> Real {
-    1e-4
+/// # Algorithm
+///
+/// Scans all face edges to find the minimum edge length `L_min`, then
+/// returns `0.05 × L_min` (5 % of the shortest edge).  This merges
+/// near-duplicate seam vertices from CDT co-refinement (typical gap
+/// `~0.004`–`0.008` from floating-point plane-crossing) while keeping
+/// distinct surface vertices (typically `≥ 0.05` apart) separate.
+///
+/// # Theorem — Welding Safety
+///
+/// **Claim**: If `tol < L_min / 2`, welding cannot collapse an edge,
+/// because the two endpoints of every edge are at distance `≥ L_min > 2 × tol`.
+///
+/// **Proof sketch**: Let `e = (u, v)` be an edge with `‖u − v‖ ≥ L_min`.
+/// Spatial-hash insertion welds a new point `p` to an existing point `q`
+/// only when `‖p − q‖ < tol`.  Since `tol = 0.05 × L_min < L_min / 2`,
+/// the two endpoints satisfy `‖u − v‖ ≥ L_min > 2 × tol`, so they
+/// land in different hash cells and are never welded.  ∎
+///
+/// # Fallback
+///
+/// If `faces` is empty or all edges are degenerate (length `0`), returns
+/// `1e-15` — an ultra-tight tolerance that effectively disables welding.
+fn adaptive_reconstruct_tolerance(faces: &[FaceData], pool: &VertexPool) -> Real {
+    let mut min_sq = Real::INFINITY;
+    for face in faces {
+        let [a, b, c] = face.vertices;
+        let pa = pool.position(a);
+        let pb = pool.position(b);
+        let pc = pool.position(c);
+        let d_ab = (pb - pa).norm_squared();
+        let d_bc = (pc - pb).norm_squared();
+        let d_ca = (pa - pc).norm_squared();
+        // Skip zero-length edges (degenerate slivers).
+        if d_ab > 0.0 {
+            min_sq = min_sq.min(d_ab);
+        }
+        if d_bc > 0.0 {
+            min_sq = min_sq.min(d_bc);
+        }
+        if d_ca > 0.0 {
+            min_sq = min_sq.min(d_ca);
+        }
+    }
+    if min_sq.is_infinite() || min_sq <= 0.0 {
+        return 1e-15;
+    }
+    let l_min = min_sq.sqrt();
+    // 5 % of minimum edge length, floored at a safe minimum.
+    (0.05 * l_min).max(1e-15)
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────

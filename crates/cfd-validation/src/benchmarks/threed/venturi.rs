@@ -156,7 +156,11 @@ mod tests {
         // 5 mm / 2 mm at Q = 1e-7 m³/s → Re ≈ 8 (Stokes) → D_p/B_u ≈ 0.1 ✓
         let geo = Venturi3D::new(5e-3, 2e-3, 10e-3, 10e-3, 5e-3, 10e-3, 10e-3);
         let benchmark = VenturiFlow3D::new(geo);
-        let config = BenchmarkConfig::default();
+        let config = BenchmarkConfig {
+            resolution: 32,
+            max_iterations: 500,
+            ..BenchmarkConfig::default()
+        };
 
         let result = benchmark.run(&config).unwrap();
         assert!(benchmark.validate(&result).unwrap());

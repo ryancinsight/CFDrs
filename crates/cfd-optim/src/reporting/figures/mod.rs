@@ -2,7 +2,7 @@
 
 mod manifest;
 mod primitives;
-mod process;
+pub(in crate::reporting) mod process;
 mod svg;
 
 pub use manifest::generate_m12_report_figures;
